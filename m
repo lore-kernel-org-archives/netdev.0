@@ -1,41 +1,59 @@
-From: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
-Subject: [PATCH] mt7601u: check memory allocation failure
-Date: Mon, 21 Aug 2017 22:59:56 +0200
-Message-ID: <20170821205956.20859-1-christophe.jaillet@wanadoo.fr>
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org,
-        linux-mediatek@lists.infradead.org, linux-kernel@vger.kernel.org,
-        kernel-janitors@vger.kernel.org,
-        Christophe JAILLET <christophe.jaillet@wanadoo.fr>
-To: kubakici@wp.pl, kvalo@codeaurora.org, matthias.bgg@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp04.smtpout.orange.fr ([80.12.242.126]:48425 "EHLO
-        smtp.smtpout.orange.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753971AbdHUVAG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2017 17:00:06 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH v3 net-next] bpf/verifier: track liveness for pruning
+Date: Mon, 21 Aug 2017 23:00:11 +0200
+Message-ID: <599B49DB.6010008@iogearbox.net>
+References: <f40d3d54-c88a-7348-99ca-66db8075a8d5@solarflare.com> <89ff34f7-84ee-0e0a-3766-5b4d046189bf@fb.com> <b8a46388-74ea-81f9-df08-3b6b88042229@solarflare.com> <5d4e12aa-6861-a176-a8cf-a766bbca0a7a@fb.com> <b39b4a6f-907e-c684-b9e4-285ff9c7ca9a@solarflare.com> <599B4231.3080405@iogearbox.net> <128a84cd-234d-f505-95e2-7561db974981@solarflare.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        iovisor-dev <iovisor-dev@lists.iovisor.org>
+To: Edward Cree <ecree@solarflare.com>,
+        Alexei Starovoitov <ast@fb.com>, davem@davemloft.net,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <128a84cd-234d-f505-95e2-7561db974981@solarflare.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Check memory allocation failure and return -ENOMEM in such a case, as
-already done a few lines below
+On 08/21/2017 10:44 PM, Edward Cree wrote:
+> On 21/08/17 21:27, Daniel Borkmann wrote:
+>> On 08/21/2017 08:36 PM, Edward Cree wrote:
+>>> On 19/08/17 00:37, Alexei Starovoitov wrote:
+>> [...]
+>>> I'm tempted to just rip out env->varlen_map_value_access and always check
+>>>    the whole thing, because honestly I don't know what it was meant to do
+>>>    originally or how it can ever do any useful pruning.  While drastic, it
+>>>    does cause your test case to pass.
+>>
+>> Original intention from 484611357c19 ("bpf: allow access into map
+>> value arrays") was that it wouldn't potentially make pruning worse
+>> if PTR_TO_MAP_VALUE_ADJ was not used, meaning that we wouldn't need
+>> to take reg state's min_value and max_value into account for state
+>> checking; this was basically due to min_value / max_value is being
+>> adjusted/tracked on every alu/jmp ops for involved regs (e.g.
+>> adjust_reg_min_max_vals() and others that mangle them) even if we
+>> have the case that no actual dynamic map access is used throughout
+>> the program. To give an example on net tree, the bpf_lxc.o prog's
+>> section increases from 36,386 to 68,226 when env->varlen_map_value_access
+>> is always true, so it does have an effect. Did you do some checks
+>> on this on net-next?
+> I tested with the cilium progs and saw no change in insn count.  I
+>   suspect that for the normal case I already killed this optimisation
+>   when I did my unification patch, it was previously about ignoring
+>   min/max values on all regs (including scalars), whereas on net-next
+>   it only ignores them on map_value pointers; in practice this is
+>   useless because we tend to still have the offset scalar sitting in
+>   a register somewhere.  (Come to think of it, this may have been
+>   behind a large chunk of the #insn increase that my patches caused.)
 
-Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
----
- drivers/net/wireless/mediatek/mt7601u/dma.c | 2 ++
- 1 file changed, 2 insertions(+)
+Yeah, this would seem plausible.
 
-diff --git a/drivers/net/wireless/mediatek/mt7601u/dma.c b/drivers/net/wireless/mediatek/mt7601u/dma.c
-index 660267b359e4..fa0173579d32 100644
---- a/drivers/net/wireless/mediatek/mt7601u/dma.c
-+++ b/drivers/net/wireless/mediatek/mt7601u/dma.c
-@@ -484,6 +484,8 @@ static int mt7601u_alloc_tx(struct mt7601u_dev *dev)
- 
- 	dev->tx_q = devm_kcalloc(dev->dev, __MT_EP_OUT_MAX,
- 				 sizeof(*dev->tx_q), GFP_KERNEL);
-+	if (!dev->tx_q)
-+		return -ENOMEM;
- 
- 	for (i = 0; i < __MT_EP_OUT_MAX; i++)
- 		if (mt7601u_alloc_tx_queue(dev, &dev->tx_q[i]))
--- 
-2.11.0
+> Since we use umax_value in find_good_pkt_pointers() now (to check
+>   against MAX_PACKET_OFF and ensure our reg->range is really ok), we
+>   can't just stop caring about all min/max values just because we
+>   haven't done any variable map accesses.
+> I don't see a way around this.
+
+Agree, was thinking the same. If there's not really a regression in
+terms of complexity, then lets kill the flag.
