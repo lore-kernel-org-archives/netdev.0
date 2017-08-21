@@ -1,59 +1,56 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH v3 1/7] ipntable: Avoid memory allocation for filter.name
-Date: Mon, 21 Aug 2017 15:23:35 +0200
-Message-ID: <20170821132341.23118-2-phil@nwl.cc>
+Subject: [iproute PATCH v3 6/7] tc/m_xt: Fix for potential string buffer overflows
+Date: Mon, 21 Aug 2017 15:23:40 +0200
+Message-ID: <20170821132341.23118-7-phil@nwl.cc>
 References: <20170821132341.23118-1-phil@nwl.cc>
 Cc: netdev@vger.kernel.org
 To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:40161 "EHLO mail.nwl.cc"
+Received: from orbyte.nwl.cc ([151.80.46.58]:55049 "EHLO mail.nwl.cc"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753904AbdHUNYY (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 21 Aug 2017 09:24:24 -0400
+        id S1753916AbdHUNYF (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 21 Aug 2017 09:24:05 -0400
 In-Reply-To: <20170821132341.23118-1-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The original issue was that filter.name might end up unterminated if
-user provided string was too long. But in fact it is not necessary to
-copy the commandline parameter at all: just make filter.name point to it
-instead.
+- Use strncpy() when writing to target->t->u.user.name and make sure the
+  final byte remains untouched (xtables_calloc() set it to zero).
+- 'tname' length sanitization was completely wrong: If it's length
+  exceeded the 16 bytes available in 'k', passing a length value of 16
+  to strncpy() would overwrite the previously NULL'ed 'k[15]'. Also, the
+  sanitization has to happen if 'tname' is exactly 16 bytes long as
+  well.
 
 Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- ip/ipntable.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ tc/m_xt.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
-diff --git a/ip/ipntable.c b/ip/ipntable.c
-index 879626ee4f491..e0bd9b6ebd155 100644
---- a/ip/ipntable.c
-+++ b/ip/ipntable.c
-@@ -37,7 +37,7 @@ static struct
- 	int family;
- 	int index;
- #define NONE_DEV	(-1)
--	char name[1024];
-+	const char *name;
- } filter;
+diff --git a/tc/m_xt.c b/tc/m_xt.c
+index ad52d239caf61..9218b14594403 100644
+--- a/tc/m_xt.c
++++ b/tc/m_xt.c
+@@ -95,7 +95,8 @@ build_st(struct xtables_target *target, struct xt_entry_target *t)
+ 	if (t == NULL) {
+ 		target->t = xtables_calloc(1, size);
+ 		target->t->u.target_size = size;
+-		strcpy(target->t->u.user.name, target->name);
++		strncpy(target->t->u.user.name, target->name,
++			sizeof(target->t->u.user.name) - 1);
+ 		target->t->u.user.revision = target->revision;
  
- static void usage(void) __attribute__((noreturn));
-@@ -369,7 +369,7 @@ static int print_ntable(const struct sockaddr_nl *who, struct nlmsghdr *n, void
- 	if (tb[NDTA_NAME]) {
- 		const char *name = rta_getattr_str(tb[NDTA_NAME]);
- 
--		if (strlen(filter.name) > 0 && strcmp(filter.name, name))
-+		if (filter.name && strcmp(filter.name, name))
- 			return 0;
+ 		if (target->init != NULL)
+@@ -277,8 +278,8 @@ static int parse_ipt(struct action_util *a, int *argc_p,
  	}
- 	if (tb[NDTA_PARMS]) {
-@@ -633,7 +633,7 @@ static int ipntable_show(int argc, char **argv)
- 		} else if (strcmp(*argv, "name") == 0) {
- 			NEXT_ARG();
+ 	fprintf(stdout, " index %d\n", index);
  
--			strncpy(filter.name, *argv, sizeof(filter.name));
-+			filter.name = *argv;
- 		} else
- 			invarg("unknown", *argv);
- 
+-	if (strlen(tname) > 16) {
+-		size = 16;
++	if (strlen(tname) >= 16) {
++		size = 15;
+ 		k[15] = 0;
+ 	} else {
+ 		size = 1 + strlen(tname);
 -- 
 2.13.1
