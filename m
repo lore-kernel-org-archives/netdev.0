@@ -1,45 +1,42 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net-next] net: sched: Add the invalid handle check in qdisc_class_find
-Date: Mon, 21 Aug 2017 12:58:03 -0700
-Message-ID: <CAM_iQpW_odL=iqONVX2cLqPr_XQ-J40Ruv+kYMvwPThR42Udrg@mail.gmail.com>
-References: <1503041004-105572-1-git-send-email-gfree.wind@vip.163.com> <20170821.104749.419102990180912192.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Gao Feng <gfree.wind@vip.163.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Jamal Hadi Salim <jhs@mojatatu.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:35215 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754046AbdHUT6Z (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2017 15:58:25 -0400
-Received: by mail-pg0-f68.google.com with SMTP id m133so5804656pga.2
-        for <netdev@vger.kernel.org>; Mon, 21 Aug 2017 12:58:24 -0700 (PDT)
-In-Reply-To: <20170821.104749.419102990180912192.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net] net/hsr: Check skb_put_padto() return value
+Date: Mon, 21 Aug 2017 12:59:10 -0700
+Message-ID: <20170821195910.28752-1-f.fainelli@gmail.com>
+Cc: mail@pheise.de, peter.heise@airbus.com,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Arvid Brodin <arvid.brodin@alten.se>,
+        "David S. Miller" <davem@davemloft.net>,
+        linux-kernel@vger.kernel.org (open list)
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 21, 2017 at 10:47 AM, David Miller <davem@davemloft.net> wrote:
-> From: gfree.wind@vip.163.com
-> Date: Fri, 18 Aug 2017 15:23:24 +0800
->
->> From: Gao Feng <gfree.wind@vip.163.com>
->>
->> Add the invalid handle "0" check to avoid unnecessary search, because
->> the qdisc uses the skb->priority as the handle value to look up, and
->> it is "0" usually.
->>
->> Signed-off-by: Gao Feng <gfree.wind@vip.163.com>
->
-> Jamal, Cong, please review.
->
-> If 'id' zero is never hashed into the tables, this change looks
-> legitimate.
+skb_put_padto() will free the sk_buff passed as reference in case of
+errors, but we still need to check its return value and decide what to
+do.
 
-Looks good to me.
+Detected by CoverityScan, CID#1416688 ("CHECKED_RETURN")
 
-Gao, in the future please Cc maintainers directly, you can
-use ./scripts/get_maintainer.pl.
+Fixes: ee1c27977284 ("net/hsr: Added support for HSR v1")
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ net/hsr/hsr_device.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-Thanks.
+diff --git a/net/hsr/hsr_device.c b/net/hsr/hsr_device.c
+index 4e7bdb213cd0..172d8309f89e 100644
+--- a/net/hsr/hsr_device.c
++++ b/net/hsr/hsr_device.c
+@@ -314,7 +314,8 @@ static void send_hsr_supervision_frame(struct hsr_port *master,
+ 	hsr_sp = skb_put(skb, sizeof(struct hsr_sup_payload));
+ 	ether_addr_copy(hsr_sp->MacAddressA, master->dev->dev_addr);
+ 
+-	skb_put_padto(skb, ETH_ZLEN + HSR_HLEN);
++	if (skb_put_padto(skb, ETH_ZLEN + HSR_HLEN))
++		return;
+ 
+ 	hsr_forward_skb(skb, master);
+ 	return;
+-- 
+2.9.3
