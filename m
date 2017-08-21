@@ -1,33 +1,44 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH 0/3] MIPS,bpf: Improvements for MIPS eBPF JIT
-Date: Mon, 21 Aug 2017 10:24:23 +0200
-Message-ID: <599A98B7.6070909@iogearbox.net>
-References: <20170818234033.5990-1-david.daney@cavium.com> <20170820.200619.821714603187353951.davem@davemloft.net>
+From: Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH net-next v5] openvswitch: enable NSH support
+Date: Mon, 21 Aug 2017 10:25:09 +0200
+Message-ID: <20170821102509.076d7cc9@griffin>
+References: <1503294863-12859-1-git-send-email-yi.y.yang@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: ast@kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, linux-mips@linux-mips.org,
-        ralf@linux-mips.org
-To: David Miller <davem@davemloft.net>, david.daney@cavium.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170820.200619.821714603187353951.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, e@erig.me
+To: Yi Yang <yi.y.yang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1503294863-12859-1-git-send-email-yi.y.yang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
+	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
+List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
+	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 08/21/2017 05:06 AM, David Miller wrote:
-> From: David Daney <david.daney@cavium.com>
-> Date: Fri, 18 Aug 2017 16:40:30 -0700
->
->> I suggest that the whole thing go via the BPF/net-next path as there
->> are dependencies on code that is not yet merged to Linus' tree.
->
-> What kind of dependency?  On networking or MIPS changes?
+On Mon, 21 Aug 2017 13:54:23 +0800, Yi Yang wrote:
+> v4->v5
+>  - Fix many comments by Jiri Benc and Eric Garver
+>    for v4.
 
-On networking, David implemented the JLT, JLE, JSLT and JSLE
-ops for the JIT in the patch set. Back then the MIPS JIT wasn't
-in net-next tree, thus this is basically just a follow-up, so
-that we have all covered with JIT support for net-next.
+NACK for v5, we haven't finished discussing v4. You're sending new
+versions too quickly.
 
-Thanks,
-Daniel
+My comment about sending a new version was meant only for the rest of
+the patch that I have not reviewed - i.e. that once the comments I've
+made so far are addressed, I'm fine with continuing reviewing in a new
+version.
+
+It did not mean that I'm okay with sending a new version without my
+comments to the first part being addressed. Which they are not, see my
+reply to your mail at v4.
+
+Sorry if that was not clear but I won't review v5 until we have
+conclusion for the v4 comments.
+
+ Jiri
