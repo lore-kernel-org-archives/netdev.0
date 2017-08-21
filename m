@@ -1,41 +1,55 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: ibm: emac: Fix some error handling path in
- 'emac_probe()'
-Date: Sun, 20 Aug 2017 19:53:20 -0700 (PDT)
-Message-ID: <20170820.195320.1737734418974269546.davem@davemloft.net>
-References: <20170820043500.24864-1-christophe.jaillet@wanadoo.fr>
+Subject: Re: [PATCH net v2] ipv6: add rcu grace period before freeing
+ fib6_node
+Date: Sun, 20 Aug 2017 19:59:54 -0700 (PDT)
+Message-ID: <20170820.195954.75794556487638223.davem@davemloft.net>
+References: <20170820003408.133176-1-tracywwnj@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: chunkeey@googlemail.com, jarod@redhat.com, ivan@de.ibm.com,
-        ebiggers@google.com, tklauser@distanz.ch, tremyfr@gmail.com,
-        robh@kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: christophe.jaillet@wanadoo.fr
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170820043500.24864-1-christophe.jaillet@wanadoo.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, edumazet@google.com, kafai@fb.com
+To: weiwan@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:49104 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753414AbdHUC7z (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 20 Aug 2017 22:59:55 -0400
+In-Reply-To: <20170820003408.133176-1-tracywwnj@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
-Date: Sun, 20 Aug 2017 06:35:00 +0200
+From: Wei Wang <weiwan@google.com>
+Date: Sat, 19 Aug 2017 17:34:08 -0700
 
-> If 'irq_of_parse_and_map()' or 'of_address_to_resource()' fail, 'err' is
-> known to be 0 at this point.
-> So return -ENODEV instead in the first case and use 'of_iomap()' instead of
-> the equivalent 'of_address_to_resource()/ioremap()' combinaison in the 2nd
-> case.
+> From: Wei Wang <weiwan@google.com>
 > 
-> Doing so, the 'rsrc_regs' field of the 'emac_instance struct' becomes
-> redundant and is removed.
+> We currently keep rt->rt6i_node pointing to the fib6_node for the route.
+> And some functions make use of this pointer to dereference the fib6_node
+> from rt structure, e.g. rt6_check(). However, as there is neither
+> refcount nor rcu taken when dereferencing rt->rt6i_node, it could
+> potentially cause crashes as rt->rt6i_node could be set to NULL by other
+> CPUs when doing a route deletion.
+> This patch introduces an rcu grace period before freeing fib6_node and
+> makes sure the functions that dereference it takes rcu_read_lock().
 > 
-> While at it, turn a 'err != 0' test into an equivalent 'err' to be more
-> consistent.
+> Note: there is no "Fixes" tag because this bug was there in a very
+> early stage.
 > 
-> Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+> Signed-off-by: Wei Wang <weiwan@google.com>
+> Acked-by: Eric Dumazet <edumazet@google.com>
 > ---
-> v2: use of_iomap() to simplify code
->     remove 'rsrc_regs' field of the 'emac_instance struct'
->     update comment
+> v2: removed one extra empty line
 
-Applied to net-next.
+Goodness.... where to start.
+
+If this bug has been around forever, why did you make this patch
+against net-next instead of net?  (I can tell just by looking at
+the patch because rt6_free_pcpu() is static in 'net' yet it is
+not static in the diff hunk which matches net-next)
+
+And if you made it against net-next, why are you saying "net" in
+your subject line instead of "[PATCH net-next v2]"?
+
+Please sort this out properly, and resubmit.
+
+Thank you.
