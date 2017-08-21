@@ -1,54 +1,134 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] net: ipv6: put host and anycast routes on
- device with address
-Date: Mon, 21 Aug 2017 10:41:22 -0700 (PDT)
-Message-ID: <20170821.104122.296287714831109265.davem@davemloft.net>
-References: <1502997440-32334-1-git-send-email-dsahern@gmail.com>
+From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Subject: RE: [PATCH v3 net 2/2] net: ixgbe: Use new
+ PCI_DEV_FLAGS_NO_RELAXED_ORDERING flag
+Date: Mon, 21 Aug 2017 17:36:29 +0000
+Message-ID: <87618083B2453E4A8714035B62D67992B4095D65@FMSMSX105.amr.corp.intel.com>
+References: <1503037265-11144-1-git-send-email-dingtianhong@huawei.com>
+ <1503037265-11144-3-git-send-email-dingtianhong@huawei.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org,
-        hannes@stressinduktion.org
-To: dsahern@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:37514 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753926AbdHURlX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2017 13:41:23 -0400
-In-Reply-To: <1502997440-32334-1-git-send-email-dsahern@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: Ding Tianhong <dingtianhong@huawei.com>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+        "keescook@chromium.org" <keescook@chromium.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "sparclinux@vger.kernel.org" <sparclinux@vger.kernel.org>,
+        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+        "alexander.duyck@gmail.com" <alexander.duyck@gmail.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linuxarm@huawei.com" <linuxarm@huawei.com>
+Return-path: <sparclinux-owner@vger.kernel.org>
+In-Reply-To: <1503037265-11144-3-git-send-email-dingtianhong@huawei.com>
+Content-Language: en-US
+Sender: sparclinux-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Ahern <dsahern@gmail.com>
-Date: Thu, 17 Aug 2017 12:17:20 -0700
+>-----Original Message-----
+>From: linux-kernel-owner@vger.kernel.org [mailto:linux-kernel-
+>owner@vger.kernel.org] On Behalf Of Ding Tianhong
+>Sent: Thursday, August 17, 2017 11:21 PM
+>To: davem@davemloft.net; Kirsher, Jeffrey T <jeffrey.t.kirsher@intel.com>;
+>keescook@chromium.org; linux-kernel@vger.kernel.org;
+>sparclinux@vger.kernel.org; intel-wired-lan@lists.osuosl.org;
+>alexander.duyck@gmail.com; netdev@vger.kernel.org; linuxarm@huawei.com
+>Cc: Ding Tianhong <dingtianhong@huawei.com>
+>Subject: [PATCH v3 net 2/2] net: ixgbe: Use new
+>PCI_DEV_FLAGS_NO_RELAXED_ORDERING flag
+>
+>The ixgbe driver use the compile check to determine if it can
+>send TLPs to Root Port with the Relaxed Ordering Attribute set,
+>this is too inconvenient, now the new flag
+>PCI_DEV_FLAGS_NO_RELAXED_ORDERING
+>has been added to the kernel and we could check the bit4 in the PCIe
+>Device Control register to determine whether we should use the Relaxed
+>Ordering Attributes or not, so use this new way in the ixgbe driver.
+>
+>Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+>---
+> drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c  | 22 ---------------------
+>-
+> drivers/net/ethernet/intel/ixgbe/ixgbe_common.c | 19 -------------------
+> 2 files changed, 41 deletions(-)
 
-> One nagging difference between ipv4 and ipv6 is host routes for ipv6
-> addresses are installed using the loopback device or VRF / L3 Master
-> device. e.g.,
-> 
->     2001:db8:1::/120 dev veth0 proto kernel metric 256 pref medium
->     local 2001:db8:1::1 dev lo table local proto kernel metric 0 pref medium
-> 
-> Using the loopback device is convenient -- necessary for local tx, but
-> has some nasty side effects, most notably setting the 'lo' device down
-> causes all host routes for all local IPv6 address to be removed from the
-> FIB and completely breaks IPv6 networking across all interfaces.
-> 
-> This patch puts FIB entries for IPv6 routes against the device. This
-> simplifies the routes in the FIB, for example by making dst->dev and
-> rt6i_idev->dev the same (a future patch can look at removing the device
-> reference taken for rt6i_idev for FIB entries).
-> 
-> When copies are made on FIB lookups, the cloned route has dst->dev
-> set to loopback (or the L3 master device). This is needed for the
-> local Tx of packets to local addresses.
-> 
-> With fib entries allocated against the real network device, the addrconf
-> code that reinserts host routes on admin up of 'lo' is no longer needed.
-> 
-> Signed-off-by: David Ahern <dsahern@gmail.com>
+This change looks good to me for ixgbe.
 
-I've applied this.
+Acked-by: Emil Tantilov <emil.s.tantilov@intel.com>
 
-I'm unlikely to revert this just for java, given the kinds of things
-they are doing.
+Thanks,
+Emil 
+ 
+>
+>diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
+>b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
+>index 523f9d0..8a32eb7 100644
+>--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
+>+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
+>@@ -175,31 +175,9 @@ static s32 ixgbe_init_phy_ops_82598(struct ixgbe_hw
+>*hw)
+>  **/
+> static s32 ixgbe_start_hw_82598(struct ixgbe_hw *hw)
+> {
+>-#ifndef CONFIG_SPARC
+>-	u32 regval;
+>-	u32 i;
+>-#endif
+> 	s32 ret_val;
+>
+> 	ret_val = ixgbe_start_hw_generic(hw);
+>-
+>-#ifndef CONFIG_SPARC
+>-	/* Disable relaxed ordering */
+>-	for (i = 0; ((i < hw->mac.max_tx_queues) &&
+>-	     (i < IXGBE_DCA_MAX_QUEUES_82598)); i++) {
+>-		regval = IXGBE_READ_REG(hw, IXGBE_DCA_TXCTRL(i));
+>-		regval &= ~IXGBE_DCA_TXCTRL_DESC_WRO_EN;
+>-		IXGBE_WRITE_REG(hw, IXGBE_DCA_TXCTRL(i), regval);
+>-	}
+>-
+>-	for (i = 0; ((i < hw->mac.max_rx_queues) &&
+>-	     (i < IXGBE_DCA_MAX_QUEUES_82598)); i++) {
+>-		regval = IXGBE_READ_REG(hw, IXGBE_DCA_RXCTRL(i));
+>-		regval &= ~(IXGBE_DCA_RXCTRL_DATA_WRO_EN |
+>-			    IXGBE_DCA_RXCTRL_HEAD_WRO_EN);
+>-		IXGBE_WRITE_REG(hw, IXGBE_DCA_RXCTRL(i), regval);
+>-	}
+>-#endif
+> 	if (ret_val)
+> 		return ret_val;
+>
+>diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+>b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+>index d4933d2..96c324f 100644
+>--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+>+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+>@@ -350,25 +350,6 @@ s32 ixgbe_start_hw_gen2(struct ixgbe_hw *hw)
+> 	}
+> 	IXGBE_WRITE_FLUSH(hw);
+>
+>-#ifndef CONFIG_SPARC
+>-	/* Disable relaxed ordering */
+>-	for (i = 0; i < hw->mac.max_tx_queues; i++) {
+>-		u32 regval;
+>-
+>-		regval = IXGBE_READ_REG(hw, IXGBE_DCA_TXCTRL_82599(i));
+>-		regval &= ~IXGBE_DCA_TXCTRL_DESC_WRO_EN;
+>-		IXGBE_WRITE_REG(hw, IXGBE_DCA_TXCTRL_82599(i), regval);
+>-	}
+>-
+>-	for (i = 0; i < hw->mac.max_rx_queues; i++) {
+>-		u32 regval;
+>-
+>-		regval = IXGBE_READ_REG(hw, IXGBE_DCA_RXCTRL(i));
+>-		regval &= ~(IXGBE_DCA_RXCTRL_DATA_WRO_EN |
+>-			    IXGBE_DCA_RXCTRL_HEAD_WRO_EN);
+>-		IXGBE_WRITE_REG(hw, IXGBE_DCA_RXCTRL(i), regval);
+>-	}
+>-#endif
+> 	return 0;
+> }
+>
+>--
+>1.8.3.1
+>
+
