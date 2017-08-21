@@ -1,39 +1,40 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH v3 3/6] ipmaddr: Avoid accessing uninitialized data
-Date: Mon, 21 Aug 2017 11:27:01 +0200
-Message-ID: <20170821092704.21614-4-phil@nwl.cc>
-References: <20170821092704.21614-1-phil@nwl.cc>
+Subject: [iproute PATCH v3 0/6] Covscan: Don't access garbage
+Date: Mon, 21 Aug 2017 11:26:58 +0200
+Message-ID: <20170821092704.21614-1-phil@nwl.cc>
 Cc: netdev@vger.kernel.org
 To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:57521 "EHLO mail.nwl.cc"
+Received: from orbyte.nwl.cc ([151.80.46.58]:33439 "EHLO mail.nwl.cc"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752535AbdHUJ1W (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 21 Aug 2017 05:27:22 -0400
-In-Reply-To: <20170821092704.21614-1-phil@nwl.cc>
+        id S1751811AbdHUJ13 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 21 Aug 2017 05:27:29 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Looks like this can only happen if /proc/net/igmp is malformed, but
-better be sure.
+This series collects patches from v1 which resolve situations where
+garbage might be read, either due to missing initialization of
+variables or accessing data which went out of scope.
 
-Signed-off-by: Phil Sutter <phil@nwl.cc>
----
- ip/ipmaddr.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Changes since v2:
+- Rebased onto current master branch.
+- Dropped first patch since it is not a real issue.
 
-diff --git a/ip/ipmaddr.c b/ip/ipmaddr.c
-index 4f726fdd976f1..85a69e779563d 100644
---- a/ip/ipmaddr.c
-+++ b/ip/ipmaddr.c
-@@ -136,7 +136,7 @@ static void read_igmp(struct ma_info **result_p)
- 
- 	while (fgets(buf, sizeof(buf), fp)) {
- 		struct ma_info *ma;
--		size_t len;
-+		size_t len = 0;
- 
- 		if (buf[0] != '\t') {
- 			sscanf(buf, "%d%s", &m.index, m.name);
+Phil Sutter (6):
+  ipaddress: Avoid accessing uninitialized variable lcl
+  iplink_can: Prevent overstepping array bounds
+  ipmaddr: Avoid accessing uninitialized data
+  ss: Use C99 initializer in netlink_show_one()
+  netem/maketable: Check return value of fstat()
+  tc/q_multiq: Don't pass garbage in TCA_OPTIONS
+
+ ip/ipaddress.c    |  2 +-
+ ip/iplink_can.c   |  4 ++--
+ ip/ipmaddr.c      |  2 +-
+ misc/ss.c         | 13 +++++++------
+ netem/maketable.c |  4 ++--
+ tc/q_multiq.c     |  2 +-
+ 6 files changed, 14 insertions(+), 13 deletions(-)
+
 -- 
 2.13.1
