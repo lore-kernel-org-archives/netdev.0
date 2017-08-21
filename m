@@ -1,73 +1,102 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH 2/2] net: phy: Don't use drv when it is NULL in
- phy_attached_print
-Date: Mon, 21 Aug 2017 15:16:04 +0200
-Message-ID: <20170821131604.GA1703@lunn.ch>
-References: <20170821075235.28473-1-romain.perier@collabora.com>
- <20170821075235.28473-3-romain.perier@collabora.com>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [PATCH v2 net-next] net: ipv6: put host and anycast routes on
+ device with address
+Date: Mon, 21 Aug 2017 07:19:29 -0600
+Message-ID: <2efc621e-bbf4-774c-9524-55639bdf8f66@gmail.com>
+References: <1502997440-32334-1-git-send-email-dsahern@gmail.com>
+ <87wp60lb70.fsf@stressinduktion.org>
+ <75e79efe-4a41-7b15-b7bb-8ed0624b72b5@gmail.com>
+ <0bcba874-7fc3-508c-bf78-ae5832312845@gmail.com>
+ <87inhkl7sq.fsf@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-        Alexandre Torgue <alexandre.torgue@st.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Romain Perier <romain.perier@collabora.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170821075235.28473-3-romain.perier@collabora.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org,
+        David Miller <davem@davemloft.net>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:33097 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753110AbdHUNTb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2017 09:19:31 -0400
+Received: by mail-pg0-f66.google.com with SMTP id n4so8918006pgn.0
+        for <netdev@vger.kernel.org>; Mon, 21 Aug 2017 06:19:30 -0700 (PDT)
+In-Reply-To: <87inhkl7sq.fsf@stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 21, 2017 at 09:52:35AM +0200, Romain Perier wrote:
-> Currently, if this logging function is used prior the phy driver is
-> binded to the phy device (that is usually done from .ndo_open),
-> 'phydev->drv' might be NULL, resulting in a kernel crash. That is
-> typically the case in the stmmac driver, info about the phy is displayed
-> during the registration of the MDIO bus, and then genphy driver is binded
-> to this phydev when .ndo_open is called.
+On 8/18/17 6:28 PM, Hannes Frederic Sowa wrote:
+> David Ahern <dsahern@gmail.com> writes:
 > 
-> This commit fixes the issue by using the right genphy driver, when
-> phydev->drv is NULL.
+>> On 8/18/17 6:05 PM, David Ahern wrote:
+>>> On 8/18/17 5:15 PM, Hannes Frederic Sowa wrote:
+>>>> Hello David,
+>>>>
+>>>> David Ahern <dsahern@gmail.com> writes:
+>>>>
+>>>>> @@ -2688,15 +2716,9 @@ struct rt6_info *addrconf_dst_alloc(struct inet6_dev *idev,
+>>>>>  {
+>>>>>  	u32 tb_id;
+>>>>>  	struct net *net = dev_net(idev->dev);
+>>>>> -	struct net_device *dev = net->loopback_dev;
+>>>>> +	struct net_device *dev = idev->dev;
+>>>>>  	struct rt6_info *rt;
+>>>>>  
+>>>>> -	/* use L3 Master device as loopback for host routes if device
+>>>>> -	 * is enslaved and address is not link local or multicast
+>>>>> -	 */
+>>>>> -	if (!rt6_need_strict(addr))
+>>>>> -		dev = l3mdev_master_dev_rcu(idev->dev) ? : dev;
+>>>>> -
+>>>>>  	rt = ip6_dst_alloc(net, dev, DST_NOCOUNT);
+>>>>>  	if (!rt)
+>>>>>  		return ERR_PTR(-ENOMEM);
+>>>>
+>>>> I am afraid this change might break Java:
+>>>>
+>>>> <http://hg.openjdk.java.net/jdk9/jdk9/jdk/file/65464a307408/src/java.base/unix/native/libnet/net_util_md.c#l574>
+>>>>
+>>>> I am all in for this change, but maybe it might be necessary to mask
+>>>> RTF_LOCAL routes with "lo" somehow.
+>>>
+>>> That's asinine. The if_inet6 processing is just getting the 'lo'
+>>> interface index. Why scan the file looking for that? The ipv6_route
+>>> processing is assembling routes against the loopback device regardless
+>>> of what the route is. Do you know why - what the route list is used for?
+>>
+>>
+>> If I read it correctly, seems to be a 2.4 workaround:
+>> - only user of the route list is needsLoopbackRoute()
+>> - only caller of needsLoopbackRoute is here:
+>>
+>> http://hg.openjdk.java.net/jdk9/jdk9/jdk/file/65464a307408/src/java.base/unix/native/libnet/net_util_md.c#l828
 > 
-> Fixes: commit fbca164776e4 ("net: stmmac: Use the right logging functi")
-> Signed-off-by: Romain Perier <romain.perier@collabora.com>
-> ---
->  drivers/net/phy/phy_device.c | 13 +++++++++++--
->  1 file changed, 11 insertions(+), 2 deletions(-)
+> I agree that it looks like dead code now. But I know for sure that this
+> code has been excercised at least at some point in time and caused
+> problems for JVMs on Linux with IPv6.
 > 
-> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-> index 9493fb369682..b38926bc275f 100644
-> --- a/drivers/net/phy/phy_device.c
-> +++ b/drivers/net/phy/phy_device.c
-> @@ -877,15 +877,24 @@ EXPORT_SYMBOL(phy_attached_info);
->  #define ATTACHED_FMT "attached PHY driver [%s] (mii_bus:phy_addr=%s, irq=%d)"
->  void phy_attached_print(struct phy_device *phydev, const char *fmt, ...)
->  {
-> +	struct phy_driver *drv = phydev->drv;
-> +
-> +	if (!drv) {
-> +		if (phydev->is_c45)
-> +			drv = &genphy_10g_driver;
-> +		else
-> +			drv = &genphy_driver;
-> +	}
+> On the top of this file I found this comment:
+> 
+> -- >8 --
+> /* following code creates a list of addresses from the kernel
+>  * routing table that are routed via the loopback address.
+>  * We check all destination addresses against this table
+>  * and override the scope_id field to use the relevant value for "lo"
+>  * in order to work-around the Linux bug that prevents packets destined
+>  * for certain local addresses from being sent via a physical interface.
+>  */
+> -- 8< --
+> 
+> I don't know if it makes sense to dive down into java history (and I
+> also found e.g. net-snmp scanning /proc/net/ipv6_route). The same
+> problem might be visible via RTM_GETROUTE dumps if applications
+> implement their own source address selection maybe. :/
 
-Hi Romain
+Dave: The java code appears to be dead code from 2.4 time frame. no
+longer relevant for this patch.
 
-I don't like this. You end up with the same code twice. c45 does not
-imply 10g, so i would not be surprised if sometime in the future this
-changes. And then we have two places we need to make the same change.
-
-I also wonder what happens if you load the PHY driver later, but
-before it is bound. Will it then use the correct driver?
-
-
-> +
->  	if (!fmt) {
->  		dev_info(&phydev->mdio.dev, ATTACHED_FMT "\n",
-> -			 phydev->drv->name, phydev_name(phydev),
-> +			 drv->name, phydev_name(phydev),
-
-I would prefer (phydev->drv ? phydev->drv->name, "unknown")
-
-  Andrew
+Hannes: I believe the net-snmp use case is populating the MIB. MIB
+entries, like the proc files and rtnetlink responses, will have the
+change in that host routes show the device with the address rather than
+loopback. But, looking at the send code I don't see this change having
+an impact.
