@@ -1,106 +1,101 @@
-From: Russell King - ARM Linux <linux@armlinux.org.uk>
-Subject: Re: [RFC PATCH] dt-binding: net: sfp binding documentation
-Date: Mon, 21 Aug 2017 13:53:17 +0100
-Message-ID: <20170821125317.GS20805@n2100.armlinux.org.uk>
-References: <d73b635069a2054d110632f1f4196cd4bc281e7f.1503224886.git.baruch@tkos.co.il>
+From: Bhumika Goyal <bhumirks@gmail.com>
+Subject: Re: [PATCH 0/6] drivers: make device_attribute const
+Date: Mon, 21 Aug 2017 18:25:15 +0530
+Message-ID: <CAOH+1jFeD-V-hcnnmKN+9oEbYkf_FrCW74xrPTA3_WABmuH=AA@mail.gmail.com>
+References: <1503315792-14837-1-git-send-email-bhumirks@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        devicetree@vger.kernel.org
-To: Baruch Siach <baruch@tkos.co.il>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Bhumika Goyal <bhumirks@gmail.com>
+To: Julia Lawall <julia.lawall@lip6.fr>, rjw@rjwysocki.net,
+        Len Brown <lenb@kernel.org>, jbacik@fb.com, jikos@kernel.org,
+        benjamin.tissoires@redhat.com, manish.chopra@cavium.com,
+        rahul.verma@cavium.com, Dept-GELinuxNICDev@cavium.com,
+        harish.patil@cavium.com, cascardo@holoscopio.com, don@syst.com.br,
+        dvhart@infradead.org, Andy Shevchenko <andy@infradead.org>,
+        sre@kernel.org, linux-acpi@vger.kernel.org,
+        linux-kernel@vger.kernel.org, linux-block@vger.kernel.org,
+        nbd-general@lists.sourceforge.net, linux-input@vger.kernel.org,
+        netdev@vger.kernel.org,
+        Platform Driver <platform-driver-x86@vger.kernel.org>,
+        linux-pm@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.armlinux.org.uk ([78.32.30.218]:51452 "EHLO
-        pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752234AbdHUMxf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2017 08:53:35 -0400
-Content-Disposition: inline
-In-Reply-To: <d73b635069a2054d110632f1f4196cd4bc281e7f.1503224886.git.baruch@tkos.co.il>
+Received: from mail-io0-f193.google.com ([209.85.223.193]:36972 "EHLO
+        mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752695AbdHUMzQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2017 08:55:16 -0400
+In-Reply-To: <1503315792-14837-1-git-send-email-bhumirks@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Aug 20, 2017 at 01:28:06PM +0300, Baruch Siach wrote:
-> Add device-tree binding documentation SFP transceivers. Support for SFP
-> transceivers has been recently introduced (drivers/net/phy/sfp.c).
-> 
-> Signed-off-by: Baruch Siach <baruch@tkos.co.il>
-> ---
-> 
-> The SFP driver is on net-next.
-> 
-> Not sure about the rate-select-gpio property name. The SFP+ standard
-> (not supported yet) uses two signals, RS0 and RS1. RS0 is compatible
-> with the SFP rate select signal, while RS1 controls the Tx rate.
+On Mon, Aug 21, 2017 at 5:13 PM, Bhumika Goyal <bhumirks@gmail.com> wrote:
+> Make these const. Done using Coccinelle.
+>
+> @match disable optional_qualifier@
+> identifier s;
+> @@
+> static struct device_attribute s = {...};
+>
+> @ref@
+> position p;
+> identifier match.s;
+> @@
+> s@p
+>
+> @good1@
+> identifier match.s;
+> expression e1;
+> position ref.p;
+> @@
+> device_remove_file(e1,&s@p,...)
+>
+> @good2@
+> identifier match.s;
+> expression e1;
+> position ref.p;
+> @@
+> device_create_file(e1,&s@p,...)
+>
+>
+> @bad depends on  !good1 && !good2@
+> position ref.p;
+> identifier match.s;
+> @@
+> s@p
+>
+> @depends on forall !bad disable optional_qualifier@
+> identifier match.s;
+> @@
+> static
+> + const
+> struct device_attribute s;
+>
+> Bhumika Goyal (6):
+>   ACPI: make device_attribute const
+>   nbd: make device_attribute const
+>   hid: make device_attribute const
+>   qlogic:  make device_attribute const
+>   platform/x86: make device_attribute const
+>   power: supply: make device_attribute const
+>
 
-SFP+ is usable with this, but the platforms I have do not wire the
-rate select pins on the SFP+ sockets to GPIOs, but hard-wire them.
+Hello all,
 
-Note that I didn't expect the SFP code to just get merged with very
-little in the way of real in-depth review of things like:
+The patches are all independent, so please take what seems relevant.
 
-* the way the SFP code works, and its structure
-* analysis of the bindings checking that they're fit for everyone's
-  purposes.
+Thanks,
+Bhumika
 
-The implementation that I've designed is based around the boards that
-I have access to and the various public SFP documentation.  I think
-documenting the bindings suggests that they are stable - I don't think
-we're really ready to make that assertion yet - there may be things
-that have been missed which will only come up when other people start
-using this code.
-
-> ---
->  Documentation/devicetree/bindings/net/sff-sfp.txt | 24 +++++++++++++++++++++++
->  1 file changed, 24 insertions(+)
->  create mode 100644 Documentation/devicetree/bindings/net/sff-sfp.txt
-> 
-> diff --git a/Documentation/devicetree/bindings/net/sff-sfp.txt b/Documentation/devicetree/bindings/net/sff-sfp.txt
-> new file mode 100644
-> index 000000000000..f0c27bc3925e
-> --- /dev/null
-> +++ b/Documentation/devicetree/bindings/net/sff-sfp.txt
-> @@ -0,0 +1,24 @@
-> +Small Form Factor (SFF) Committee Small Form-factor Pluggable (SFP)
-> +Transceiver
-> +
-> +Required properties:
-> +
-> +- compatible : must be "sff,sfp"
-> +
-> +Optional Properties:
-> +
-> +- i2c-bus : phandle of an I2C bus controller for the SFP two wire serial
-> +  interface
-
-The code as it currently stands pretty much requires an I2C bus to be
-functional - but when I wrote the code, I left the possibility open for
-an implementation (eg, network driver) to provide its own functionality
-for reading the I2C EEPROM on the module.  Some adapters which already
-have SFP support do this.
-
-Hence, for current implementations, this is required.
-
-> +
-> +- moddef0-gpio : phandle of the MOD-DEF0 (AKA Mod_ABS) module presence input
-> +  gpio signal
-> +
-> +- los-gpio : phandle of the Receiver Loss of Signal Indication input gpio
-> +  signal
-> +
-> +- tx-fault-gpio : phandle of the Module Transmitter Fault input gpio signal
-> +
-> +- tx-disable-gpio : phandle of the Transmitter Disable output gpio signal
-> +
-> +- rate-select-gpio : phandle of the Rx Signaling Rate Select (AKA RS0) output
-> +  gpio
-> -- 
-> 2.14.1
-> 
-
--- 
-RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
-FTTC broadband for 0.8mile line in suburbia: sync at 8.8Mbps down 630kbps up
-According to speedtest.net: 8.21Mbps down 510kbps up
+>  drivers/acpi/battery.c                               | 2 +-
+>  drivers/acpi/sbs.c                                   | 2 +-
+>  drivers/block/nbd.c                                  | 2 +-
+>  drivers/hid/hid-core.c                               | 2 +-
+>  drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c | 4 ++--
+>  drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c    | 6 +++---
+>  drivers/platform/x86/classmate-laptop.c              | 6 +++---
+>  drivers/platform/x86/intel-rst.c                     | 4 ++--
+>  drivers/power/supply/olpc_battery.c                  | 2 +-
+>  9 files changed, 15 insertions(+), 15 deletions(-)
+>
+> --
+> 1.9.1
+>
