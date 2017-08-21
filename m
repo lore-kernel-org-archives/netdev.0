@@ -1,59 +1,53 @@
-From: Haiyang Zhang <haiyangz@exchange.microsoft.com>
-Subject: [PATCH net-next,4/4] hv_netvsc: Update netvsc Document for UDP hash level setting
-Date: Mon, 21 Aug 2017 14:55:55 -0700
-Message-ID: <1503352555-9256-4-git-send-email-haiyangz@exchange.microsoft.com>
-References: <1503352555-9256-1-git-send-email-haiyangz@exchange.microsoft.com>
-Reply-To: haiyangz@microsoft.com
-Cc: haiyangz@microsoft.com, kys@microsoft.com, olaf@aepfle.de,
-        vkuznets@redhat.com, linux-kernel@vger.kernel.org
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+Subject: [PATCH v2] mt7601u: check memory allocation failure
+Date: Tue, 22 Aug 2017 00:06:17 +0200
+Message-ID: <20170821220617.21513-1-christophe.jaillet@wanadoo.fr>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org,
+        linux-mediatek@lists.infradead.org, linux-kernel@vger.kernel.org,
+        kernel-janitors@vger.kernel.org,
+        Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+To: kubakici@wp.pl, kvalo@codeaurora.org, matthias.bgg@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1503352555-9256-1-git-send-email-haiyangz@exchange.microsoft.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Haiyang Zhang <haiyangz@microsoft.com>
+Check memory allocation failure and return -ENOMEM in such a case, as
+already done a few lines below.
 
-Update Documentation/networking/netvsc.txt for UDP hash level setting
-and related info.
+As 'dev->tx_q' can be NULL, we also need to check for that in
+'mt7601u_free_tx()', and return early.
 
-Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
 ---
- Documentation/networking/netvsc.txt |   22 +++++++++++++++++-----
- 1 files changed, 17 insertions(+), 5 deletions(-)
+v2: avoid another NULL pointer dereference in 'mt7601u_free_tx()' if the
+allocation had failed.
+---
+ drivers/net/wireless/mediatek/mt7601u/dma.c | 5 +++++
+ 1 file changed, 5 insertions(+)
 
-diff --git a/Documentation/networking/netvsc.txt b/Documentation/networking/netvsc.txt
-index 4ddb4e4..fa8d863 100644
---- a/Documentation/networking/netvsc.txt
-+++ b/Documentation/networking/netvsc.txt
-@@ -21,11 +21,23 @@ Features
-   --------------------
-   Hyper-V supports receive side scaling. For TCP, packets are
-   distributed among available queues based on IP address and port
--  number. Current versions of Hyper-V host, only distribute UDP
--  packets based on the IP source and destination address.
--  The port number is not used as part of the hash value for UDP.
--  Fragmented IP packets are not distributed between queues;
--  all fragmented packets arrive on the first channel.
-+  number.
-+
-+  For UDP, we can switch UDP hash level between L3 and L4 by ethtool
-+  command. UDP over IPv4 and v6 can be set differently. The default
-+  hash level is L4. We currently only allow switching TX hash level
-+  from within the guests.
-+
-+  On Azure, fragmented UDP packets have high loss rate with L4
-+  hashing. Using L3 hashing is recommended in this case.
-+
-+  For example, for UDP over IPv4 on eth0:
-+  To include UDP port numbers in hasing:
-+        ethtool -N eth0 rx-flow-hash udp4 sdfn
-+  To exclude UDP port numbers in hasing:
-+        ethtool -N eth0 rx-flow-hash udp4 sd
-+  To show UDP hash level:
-+        ethtool -n eth0 rx-flow-hash udp4
+diff --git a/drivers/net/wireless/mediatek/mt7601u/dma.c b/drivers/net/wireless/mediatek/mt7601u/dma.c
+index 660267b359e4..7f3e3983b781 100644
+--- a/drivers/net/wireless/mediatek/mt7601u/dma.c
++++ b/drivers/net/wireless/mediatek/mt7601u/dma.c
+@@ -457,6 +457,9 @@ static void mt7601u_free_tx(struct mt7601u_dev *dev)
+ {
+ 	int i;
  
-   Generic Receive Offload, aka GRO
-   --------------------------------
++	if (!dev->tx_q)
++		return;
++
+ 	for (i = 0; i < __MT_EP_OUT_MAX; i++)
+ 		mt7601u_free_tx_queue(&dev->tx_q[i]);
+ }
+@@ -484,6 +487,8 @@ static int mt7601u_alloc_tx(struct mt7601u_dev *dev)
+ 
+ 	dev->tx_q = devm_kcalloc(dev->dev, __MT_EP_OUT_MAX,
+ 				 sizeof(*dev->tx_q), GFP_KERNEL);
++	if (!dev->tx_q)
++		return -ENOMEM;
+ 
+ 	for (i = 0; i < __MT_EP_OUT_MAX; i++)
+ 		if (mt7601u_alloc_tx_queue(dev, &dev->tx_q[i]))
 -- 
-1.7.1
+2.11.0
