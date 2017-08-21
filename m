@@ -1,44 +1,55 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net-next v4] openvswitch: enable NSH support
-Date: Mon, 21 Aug 2017 11:51:06 +0200
-Message-ID: <20170821115106.70fa1e1d@griffin>
-References: <1503041071-68753-1-git-send-email-yi.y.yang@intel.com>
-        <20170818152601.3760aaec@griffin>
-        <20170821061109.GA72656@cran64.bj.intel.com>
-        <20170821101925.3f9b36a1@griffin>
-        <20170821083900.GA74649@cran64.bj.intel.com>
-        <CFF8EF42F1132E4CBE2BF0AB6C21C58D727494F3@ESESSMB107.ericsson.se>
-        <20170821113514.6f0ec15e@griffin>
-        <CFF8EF42F1132E4CBE2BF0AB6C21C58D7274A55C@ESESSMB107.ericsson.se>
+From: Akshat Kakkar <akshat.1984@gmail.com>
+Subject: Re: Something hitting my total number of connections to the server
+Date: Mon, 21 Aug 2017 15:26:36 +0530
+Message-ID: <CAA5aLPhVSnJkGNtwEeswbPnhT_RdJewAKDs-pJOUzTPEpwkUAA@mail.gmail.com>
+References: <CAA5aLPic9U4cwFJuTd4qBZrV=oVUSfmPzVRR_jXOBpJMU11b0A@mail.gmail.com>
+ <CAA5aLPgekZJgsZV-MAD+F+ggUugQkz12D9Ef=kbP9Ev=Q1QsDw@mail.gmail.com>
+ <1502879661.4936.98.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAA5aLPh0m=ZZp5kcz9h3if8kemg0QRykBpfYAnr6Bd1ptoeKKg@mail.gmail.com>
+ <1502969805.4936.154.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAA5aLPjs2S0cV7MoYLB6MvZVKXomUmwpi=EVHDXh=AwR_xBqsw@mail.gmail.com> <063D6719AE5E284EB5DD2968C1650D6DD005C7B1@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "Yang, Yi" <yi.y.yang@intel.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "dev@openvswitch.org" <dev@openvswitch.org>,
-        "blp@ovn.org" <blp@ovn.org>, "e@erig.me" <e@erig.me>
-To: Jan Scheurich <jan.scheurich@ericsson.com>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+        netdev <netdev@vger.kernel.org>
+To: David Laight <David.Laight@aculab.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45368 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752253AbdHUJvJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 21 Aug 2017 05:51:09 -0400
-In-Reply-To: <CFF8EF42F1132E4CBE2BF0AB6C21C58D7274A55C@ESESSMB107.ericsson.se>
+Received: from mail-pg0-f43.google.com ([74.125.83.43]:38354 "EHLO
+        mail-pg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752519AbdHUJ4h (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2017 05:56:37 -0400
+Received: by mail-pg0-f43.google.com with SMTP id m133so15013320pga.5
+        for <netdev@vger.kernel.org>; Mon, 21 Aug 2017 02:56:37 -0700 (PDT)
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DD005C7B1@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 21 Aug 2017 09:42:27 +0000, Jan Scheurich wrote:
-> I understand your concern. But not declaring md2 as array is wrong as
-> well, as there might not be an MD2 TLV context header. An MD2 NSH
-> header is perfectly valid without any TLV. So in any case the user of
-> the struct needs to be aware of the NSH semantics.
+On Mon, Aug 21, 2017 at 3:13 PM, David Laight <David.Laight@aculab.com> wrote:
+> From: Akshat Kakkar
+>> Sent: 18 August 2017 10:14
+>> On Thu, Aug 17, 2017 at 5:06 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>> > On Thu, 2017-08-17 at 14:35 +0530, Akshat Kakkar wrote:
+>> >
+>> >> I upgraded to 4.4 but still experiencing same issue.
+>> >> Please help.
+>> >
+>> > Still too old kernel, shoot again ;)
+>> >
+>> >
+>>
+>>
+>> Sorry but that's the maximum I can try as of now as its the LT version.
+>
+> You should be able to build a current kernel and run it with your
+> existing user space.
+>
+>         David
+>
 
-Good point.
+The issue is with tcp timestamp. When I am disabling it, things are
+working fine but when I enable the issue re-occurs. However, I am not
+seeing tcp timestamps on packet, even when it is enabled simply
+because my client doesn't support it.
 
-> NSH can be carried over Ethernet with a 14 byte header. In that case
-> the total NSH header would typically be 16-bit aligned, so that all
-> 32-bit members would be misaligned.
-
-See NET_IP_ALIGN in include/linux/skbuff.h.
-
- Jiri
+But the question is, if I my client doesnt support timestamp , why
+enabling timestamp on server side is creating an issue??
