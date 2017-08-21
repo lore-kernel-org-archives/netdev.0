@@ -1,45 +1,45 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH v3 0/7] Covscan: Fixes for string termination
-Date: Mon, 21 Aug 2017 15:23:34 +0200
-Message-ID: <20170821132341.23118-1-phil@nwl.cc>
+Subject: [iproute PATCH v3 5/7] lnstat_util: Simplify alloc_and_open() a bit
+Date: Mon, 21 Aug 2017 15:23:39 +0200
+Message-ID: <20170821132341.23118-6-phil@nwl.cc>
+References: <20170821132341.23118-1-phil@nwl.cc>
 Cc: netdev@vger.kernel.org
 To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:58341 "EHLO mail.nwl.cc"
+Received: from orbyte.nwl.cc ([151.80.46.58]:57635 "EHLO mail.nwl.cc"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753892AbdHUNX7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 21 Aug 2017 09:23:59 -0400
+        id S1753904AbdHUNYS (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 21 Aug 2017 09:24:18 -0400
+In-Reply-To: <20170821132341.23118-1-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series collects patches from v1 dealing with code potentially
-leaving string buffers unterminated. This does not include situations
-where it happens for parsed interface names since an overall solution
-was attempted for that and it's state is still unclear due to lack of
-feedback from upstream.
+Relying upon callers and using unsafe strcpy() is probably not the best
+idea. Aside from that, using snprintf() allows to format the string for
+lf->path in one go.
 
-Changes since v2:
-- Rebased onto current upstream master branch.
-- Replaced patches 1, 4 and 7 by more appropriate ones given feedback
-  from v2 review.
+Signed-off-by: Phil Sutter <phil@nwl.cc>
+---
+ misc/lnstat_util.c | 7 ++-----
+ 1 file changed, 2 insertions(+), 5 deletions(-)
 
-Phil Sutter (7):
-  ipntable: Avoid memory allocation for filter.name
-  xfrm_state: Make sure alg_name is NULL-terminated
-  lib/fs: Fix format string in find_fs_mount()
-  lib/inet_proto: Review inet_proto_{a2n,n2a}()
-  lnstat_util: Simplify alloc_and_open() a bit
-  tc/m_xt: Fix for potential string buffer overflows
-  lib/ll_map: Choose size of new cache items at run-time
-
- ip/ipntable.c      |  6 +++---
- ip/xfrm_state.c    |  3 ++-
- lib/fs.c           |  2 +-
- lib/inet_proto.c   | 24 +++++++++++++-----------
- lib/ll_map.c       |  4 ++--
- misc/lnstat_util.c |  7 ++-----
- tc/m_xt.c          |  7 ++++---
- 7 files changed, 27 insertions(+), 26 deletions(-)
-
+diff --git a/misc/lnstat_util.c b/misc/lnstat_util.c
+index cc54598fe1bef..ec19238c24b94 100644
+--- a/misc/lnstat_util.c
++++ b/misc/lnstat_util.c
+@@ -180,11 +180,8 @@ static struct lnstat_file *alloc_and_open(const char *path, const char *file)
+ 	}
+ 
+ 	/* initialize */
+-	/* de->d_name is guaranteed to be <= NAME_MAX */
+-	strcpy(lf->basename, file);
+-	strcpy(lf->path, path);
+-	strcat(lf->path, "/");
+-	strcat(lf->path, lf->basename);
++	snprintf(lf->basename, sizeof(lf->basename), "%s", file);
++	snprintf(lf->path, sizeof(lf->path), "%s/%s", path, file);
+ 
+ 	/* initialize to default */
+ 	lf->interval.tv_sec = 1;
 -- 
 2.13.1
