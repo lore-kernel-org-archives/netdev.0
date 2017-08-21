@@ -1,54 +1,63 @@
-From: Koichiro Den <den@klaipeden.com>
-Subject: Re: [PATCH net-next] virtio-net: make napi_tx param easier to grasp
-Date: Mon, 21 Aug 2017 20:49:10 +0900
-Message-ID: <1503316150.8694.1.camel@klaipeden.com>
-References: <20170819063707.26822-1-den@klaipeden.com>
-         <CAF=yD-JA_JPyUbDd=SR9Epvzw6-kbUcrfvwRWODwmeV+yHEMHw@mail.gmail.com>
+From: Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH net-next v4] openvswitch: enable NSH support
+Date: Mon, 21 Aug 2017 13:50:19 +0200
+Message-ID: <20170821135019.5c65b888@griffin>
+References: <1503041071-68753-1-git-send-email-yi.y.yang@intel.com>
+	<20170818152601.3760aaec@griffin>
+	<20170821061109.GA72656@cran64.bj.intel.com>
+	<20170821101925.3f9b36a1@griffin>
+	<20170821083900.GA74649@cran64.bj.intel.com>
+	<CFF8EF42F1132E4CBE2BF0AB6C21C58D727494F3@ESESSMB107.ericsson.se>
+	<20170821113514.6f0ec15e@griffin>
+	<CFF8EF42F1132E4CBE2BF0AB6C21C58D7274A55C@ESESSMB107.ericsson.se>
+	<20170821115106.70fa1e1d@griffin>
+	<CFF8EF42F1132E4CBE2BF0AB6C21C58D7274A5C7@ESESSMB107.ericsson.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8BIT
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-        virtualization@lists.linux-foundation.org,
-        Network Development <netdev@vger.kernel.org>
-To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sender-of-o52.zoho.com ([135.84.80.217]:21423 "EHLO
-        sender-of-o52.zoho.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750967AbdHULtS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2017 07:49:18 -0400
-In-Reply-To: <CAF=yD-JA_JPyUbDd=SR9Epvzw6-kbUcrfvwRWODwmeV+yHEMHw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>, "e@erig.me" <e@erig.me>
+To: Jan Scheurich <jan.scheurich-IzeFyvvaP7pWk0Htik3J/w@public.gmane.org>
+Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <CFF8EF42F1132E4CBE2BF0AB6C21C58D7274A5C7-hqolJogE5njKJFWPz4pdheaU1rCVNFv4@public.gmane.org>
+List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
+	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
+List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
+	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 2017-08-20 at 16:30 -0400, Willem de Bruijn wrote:
-> On Sat, Aug 19, 2017 at 2:37 AM, Koichiro Den <den@klaipeden.com> wrote:
-> > The module param napi_tx needs not to be writable for now since we do
-> > not have any means of activating/deactivating it online,
-> 
-> A virtio_net device inherits its napi tx mode from the global napi_tx flag
-> on device up. It is possible to change the parameter and bring a device
-> down/up to change the device mode.
-> 
-> > @@ -1179,13 +1172,19 @@ static int virtnet_open(struct net_device *dev)
-> >         struct virtnet_info *vi = netdev_priv(dev);
-> >         int i;
-> > 
-> > +       /* Tx napi touches cachelines on the cpu handling tx interrupts.
-> > Only
-> > +        * enable the feature if this is likely affine with the transmit
-> > path.
-> > +        */
-> > +       if (!vi->affinity_hint_set)
-> > +               napi_tx = false;
-> > +
-> 
-> This disables napi globally if a specific device lacks affinity.
-Now I see this is not appropriate since it just represents whether or not TX
-napi is available, not that whether or not it is being turned on or off on a
-particular device. Thank you.
+On Mon, 21 Aug 2017 10:10:38 +0000, Jan Scheurich wrote:
+> If I understand correctly, this is a default definition that can be
+> overridden by drivers so that we still cannot rely on the Ethernet
+> payload always being 32-bit-aligned. 
 
-To be honest I hoped to make it possible to see which mode it is currently
-running on with ease, but I guess it's not nice to accomplish it with net sysfs
-nor ethtool or whatever because it seems not much generic matter.
+Not by drivers, by architectures. Only architectures that can
+efficiently handle unaligned access (or on which the cost of handling
+unaligned access is lower than the cost of unaligned DMA access) set
+NET_IP_ALIGN to 0.
 
-Thanks.
+> Furthermore, there seem to be machine architectures that cannot
+> handle misaligned 32-bit access at all (not even with a performance
+> penalty).
+
+Those leave NET_IP_ALIGN to 2.
+
+> Or why else does OVS user space code take so great pain to model
+> possible misalignment and provide/use safe access functions?
+
+I don't know how the ovs user space deals with packet allocation. In
+the kernel, the network header is aligned in a way that it allows
+efficient 32bit access.
+
+> Does Linux kernel code generally ignore this risk?
+
+Given the fact that IPv4 addresses are 32bit, are accessed as such and
+one can't say that IPv4 implementation on Linux is non-functional, the
+answer is obvious :-)
+
+ Jiri
