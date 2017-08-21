@@ -1,48 +1,61 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: IPsec workshop at netdevconf
-Date: Mon, 21 Aug 2017 09:10:49 +0200
-Message-ID: <20170821071049.GE31224@secunet.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>
-To: "Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-        Boris Pismenny <borisp@mellanox.com>,
-        Florian Westphal <fw@strlen.de>,
-        Sowmini Varadhan <sowmini.varadhan@oracle.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:37434 "EHLO a.mx.secunet.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751010AbdHUHKw (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 21 Aug 2017 03:10:52 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Romain Perier <romain.perier@collabora.com>
+Subject: [PATCH 1/2] net: stmmac: Delete dead code for MDIO registration
+Date: Mon, 21 Aug 2017 09:52:34 +0200
+Message-ID: <20170821075235.28473-2-romain.perier@collabora.com>
+References: <20170821075235.28473-1-romain.perier@collabora.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Romain Perier <romain.perier@collabora.com>
+To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+        Alexandre Torgue <alexandre.torgue@st.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170821075235.28473-1-romain.perier@collabora.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi all,
+This code is no longer used, the logging function was changed by commit
+fbca164776e4 ("net: stmmac: Use the right logging functi").
 
-we plan for an IPsec workshop at the next netdev conference in November.
-Is there anybody interested to present something or is there anybody who
-want to discuss something?
+Fixes: commit fbca164776e4 ("net: stmmac: Use the right logging functi")
+Signed-off-by: Romain Perier <romain.perier@collabora.com>
+---
+ drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c | 16 ----------------
+ 1 file changed, 16 deletions(-)
 
-So far we have the following tentative topics:
-
-Donald Skidmore:
-
-Presentation: The intel implementation of the IPsec offload support.
-Discussion: Virtualization with IPsec offload; IPsec offload with OVS
-
-Boris Pismenny:
-
-Presentation: Describe trailer removal; Describe ESN; show performance
-numbers.
-
-Discussion: Full device terminated IPsec offload; software fallback
-problems common to TLS and IPsec; auth failure using decrypted packet
-vs. plaintext packet
-
-Steffen Klassert:
-
-Presentation: The IPsec status update.
-
-Discussion: Redesigning the IPsec VTI interfaces.
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+index 72ec711fcba2..f5f37bfa1d58 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+@@ -248,9 +248,6 @@ int stmmac_mdio_register(struct net_device *ndev)
+ 	found = 0;
+ 	for (addr = 0; addr < PHY_MAX_ADDR; addr++) {
+ 		struct phy_device *phydev = mdiobus_get_phy(new_bus, addr);
+-		int act = 0;
+-		char irq_num[4];
+-		char *irq_str;
+ 
+ 		if (!phydev)
+ 			continue;
+@@ -273,19 +270,6 @@ int stmmac_mdio_register(struct net_device *ndev)
+ 		if (priv->plat->phy_addr == -1)
+ 			priv->plat->phy_addr = addr;
+ 
+-		act = (priv->plat->phy_addr == addr);
+-		switch (phydev->irq) {
+-		case PHY_POLL:
+-			irq_str = "POLL";
+-			break;
+-		case PHY_IGNORE_INTERRUPT:
+-			irq_str = "IGNORE";
+-			break;
+-		default:
+-			sprintf(irq_num, "%d", phydev->irq);
+-			irq_str = irq_num;
+-			break;
+-		}
+ 		phy_attached_info(phydev);
+ 		found = 1;
+ 	}
+-- 
+2.11.0
