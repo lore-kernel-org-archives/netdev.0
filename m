@@ -1,515 +1,195 @@
-From: Aviad Krawczyk <aviad.krawczyk@huawei.com>
-Subject: [PATCH V8 net-next 20/22] net-next/hinic: Add ethtool and stats
-Date: Mon, 21 Aug 2017 23:56:06 +0800
-Message-ID: <f801be2eb83e94dd4b639af66c54e1f905c908e8.1503330614.git.aviad.krawczyk@huawei.com>
-References: <cover.1503330613.git.aviad.krawczyk@huawei.com>
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: [net-next 1/1] tipc: don't reset stale broadcast send link
+Date: Mon, 21 Aug 2017 17:59:30 +0200
+Message-ID: <1503331170-21745-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-        <bc.y@huawei.com>, <victor.gissin@huawei.com>,
-        <aviad.krawczyk@huawei.com>, <zhaochen6@huawei.com>,
-        <tony.qu@huawei.com>
-To: <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1503330613.git.aviad.krawczyk@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <parthasarathy.bhuvaragan@ericsson.com>, <ying.xue@windriver.com>,
+        <tipc-discussion@lists.sourceforge.net>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sessmg23.ericsson.net ([193.180.251.45]:51644 "EHLO
+        sessmg23.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932103AbdHUP7k (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2017 11:59:40 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add ethtool operations and statistics operations.
+When the broadcast send link after 100 attempts has failed to
+transfer a packet to all peers, we consider it stale, and reset
+it. Thereafter it needs to re-synchronize with the peers, something
+currently done by just resetting and re-establishing all links to
+all peers. This has turned out to be overkill, with potentially
+unwanted consequences for the remaining cluster.
 
-Signed-off-by: Aviad Krawczyk <aviad.krawczyk@huawei.com>
-Signed-off-by: Zhao Chen <zhaochen6@huawei.com>
+A closer analysis reveals that this can be done much simpler. When
+this kind of failure happens, for reasons that may lie outside the
+TIPC protocol, it is typically only one peer which is failing to
+receive and acknowledge packets. It is hence sufficient to identify
+and reset the links only to that peer to resolve the situation, without
+having to reset the broadcast link at all. This solution entails a much
+lower risk of negative consequences for the own node as well as for
+the overall cluster.
+
+We implement this change in this commit.
+
+Reviewed-by: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
+Acked-by: Ying Xue <ying.xue@windriver.com>
+Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
- drivers/net/ethernet/huawei/hinic/hinic_dev.h  |   3 +
- drivers/net/ethernet/huawei/hinic/hinic_main.c | 218 ++++++++++++++++++++++++-
- drivers/net/ethernet/huawei/hinic/hinic_port.c |  31 ++++
- drivers/net/ethernet/huawei/hinic/hinic_port.h |  45 +++++
- drivers/net/ethernet/huawei/hinic/hinic_rx.c   |  19 +++
- drivers/net/ethernet/huawei/hinic/hinic_rx.h   |   2 +
- drivers/net/ethernet/huawei/hinic/hinic_tx.c   |  22 +++
- drivers/net/ethernet/huawei/hinic/hinic_tx.h   |   2 +
- 8 files changed, 341 insertions(+), 1 deletion(-)
+ net/tipc/bearer.c | 24 ------------------------
+ net/tipc/bearer.h |  1 -
+ net/tipc/link.c   | 23 +++++++++++++----------
+ net/tipc/node.c   | 14 ++++----------
+ 4 files changed, 17 insertions(+), 45 deletions(-)
 
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_dev.h b/drivers/net/ethernet/huawei/hinic/hinic_dev.h
-index 15d0c2e..5186cc9 100644
---- a/drivers/net/ethernet/huawei/hinic/hinic_dev.h
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_dev.h
-@@ -56,6 +56,9 @@ struct hinic_dev {
- 
- 	struct hinic_txq                *txqs;
- 	struct hinic_rxq                *rxqs;
-+
-+	struct hinic_txq_stats          tx_stats;
-+	struct hinic_rxq_stats          rx_stats;
- };
- 
- #endif
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_main.c b/drivers/net/ethernet/huawei/hinic/hinic_main.c
-index 599d8b5..a417ca2 100644
---- a/drivers/net/ethernet/huawei/hinic/hinic_main.c
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_main.c
-@@ -69,6 +69,186 @@
- 
- static int change_mac_addr(struct net_device *netdev, const u8 *addr);
- 
-+static void set_link_speed(struct ethtool_link_ksettings *link_ksettings,
-+			   enum hinic_speed speed)
-+{
-+	switch (speed) {
-+	case HINIC_SPEED_10MB_LINK:
-+		link_ksettings->base.speed = SPEED_10;
-+		break;
-+
-+	case HINIC_SPEED_100MB_LINK:
-+		link_ksettings->base.speed = SPEED_100;
-+		break;
-+
-+	case HINIC_SPEED_1000MB_LINK:
-+		link_ksettings->base.speed = SPEED_1000;
-+		break;
-+
-+	case HINIC_SPEED_10GB_LINK:
-+		link_ksettings->base.speed = SPEED_10000;
-+		break;
-+
-+	case HINIC_SPEED_25GB_LINK:
-+		link_ksettings->base.speed = SPEED_25000;
-+		break;
-+
-+	case HINIC_SPEED_40GB_LINK:
-+		link_ksettings->base.speed = SPEED_40000;
-+		break;
-+
-+	case HINIC_SPEED_100GB_LINK:
-+		link_ksettings->base.speed = SPEED_100000;
-+		break;
-+
-+	default:
-+		link_ksettings->base.speed = SPEED_UNKNOWN;
-+		break;
-+	}
-+}
-+
-+static int hinic_get_link_ksettings(struct net_device *netdev,
-+				    struct ethtool_link_ksettings
-+				    *link_ksettings)
-+{
-+	struct hinic_dev *nic_dev = netdev_priv(netdev);
-+	enum hinic_port_link_state link_state;
-+	struct hinic_port_cap port_cap;
-+	int err;
-+
-+	ethtool_link_ksettings_zero_link_mode(link_ksettings, advertising);
-+	ethtool_link_ksettings_add_link_mode(link_ksettings, supported,
-+					     Autoneg);
-+
-+	link_ksettings->base.speed   = SPEED_UNKNOWN;
-+	link_ksettings->base.autoneg = AUTONEG_DISABLE;
-+	link_ksettings->base.duplex  = DUPLEX_UNKNOWN;
-+
-+	err = hinic_port_get_cap(nic_dev, &port_cap);
-+	if (err) {
-+		netif_err(nic_dev, drv, netdev,
-+			  "Failed to get port capabilities\n");
-+		return err;
-+	}
-+
-+	err = hinic_port_link_state(nic_dev, &link_state);
-+	if (err) {
-+		netif_err(nic_dev, drv, netdev,
-+			  "Failed to get port link state\n");
-+		return err;
-+	}
-+
-+	if (link_state != HINIC_LINK_STATE_UP) {
-+		netif_info(nic_dev, drv, netdev, "No link\n");
-+		return err;
-+	}
-+
-+	set_link_speed(link_ksettings, port_cap.speed);
-+
-+	if (!!(port_cap.autoneg_cap & HINIC_AUTONEG_SUPPORTED))
-+		ethtool_link_ksettings_add_link_mode(link_ksettings,
-+						     advertising, Autoneg);
-+
-+	if (port_cap.autoneg_state == HINIC_AUTONEG_ACTIVE)
-+		link_ksettings->base.autoneg = AUTONEG_ENABLE;
-+
-+	link_ksettings->base.duplex = (port_cap.duplex == HINIC_DUPLEX_FULL) ?
-+				       DUPLEX_FULL : DUPLEX_HALF;
-+	return 0;
-+}
-+
-+static void hinic_get_drvinfo(struct net_device *netdev,
-+			      struct ethtool_drvinfo *info)
-+{
-+	struct hinic_dev *nic_dev = netdev_priv(netdev);
-+	struct hinic_hwdev *hwdev = nic_dev->hwdev;
-+	struct hinic_hwif *hwif = hwdev->hwif;
-+
-+	strlcpy(info->driver, HINIC_DRV_NAME, sizeof(info->driver));
-+	strlcpy(info->bus_info, pci_name(hwif->pdev), sizeof(info->bus_info));
-+}
-+
-+static void hinic_get_ringparam(struct net_device *netdev,
-+				struct ethtool_ringparam *ring)
-+{
-+	ring->rx_max_pending = HINIC_RQ_DEPTH;
-+	ring->tx_max_pending = HINIC_SQ_DEPTH;
-+	ring->rx_pending = HINIC_RQ_DEPTH;
-+	ring->tx_pending = HINIC_SQ_DEPTH;
-+}
-+
-+static void hinic_get_channels(struct net_device *netdev,
-+			       struct ethtool_channels *channels)
-+{
-+	struct hinic_dev *nic_dev = netdev_priv(netdev);
-+	struct hinic_hwdev *hwdev = nic_dev->hwdev;
-+
-+	channels->max_rx = hwdev->nic_cap.max_qps;
-+	channels->max_tx = hwdev->nic_cap.max_qps;
-+	channels->max_other    = 0;
-+	channels->max_combined = 0;
-+	channels->rx_count = hinic_hwdev_num_qps(hwdev);
-+	channels->tx_count = hinic_hwdev_num_qps(hwdev);
-+	channels->other_count    = 0;
-+	channels->combined_count = 0;
-+}
-+
-+static const struct ethtool_ops hinic_ethtool_ops = {
-+	.get_link_ksettings = hinic_get_link_ksettings,
-+	.get_drvinfo = hinic_get_drvinfo,
-+	.get_link = ethtool_op_get_link,
-+	.get_ringparam = hinic_get_ringparam,
-+	.get_channels = hinic_get_channels,
-+};
-+
-+static void update_rx_stats(struct hinic_dev *nic_dev, struct hinic_rxq *rxq)
-+{
-+	struct hinic_rxq_stats *nic_rx_stats = &nic_dev->rx_stats;
-+	struct hinic_rxq_stats rx_stats;
-+
-+	u64_stats_init(&rx_stats.syncp);
-+
-+	hinic_rxq_get_stats(rxq, &rx_stats);
-+
-+	u64_stats_update_begin(&nic_rx_stats->syncp);
-+	nic_rx_stats->bytes += rx_stats.bytes;
-+	nic_rx_stats->pkts  += rx_stats.pkts;
-+	u64_stats_update_end(&nic_rx_stats->syncp);
-+
-+	hinic_rxq_clean_stats(rxq);
-+}
-+
-+static void update_tx_stats(struct hinic_dev *nic_dev, struct hinic_txq *txq)
-+{
-+	struct hinic_txq_stats *nic_tx_stats = &nic_dev->tx_stats;
-+	struct hinic_txq_stats tx_stats;
-+
-+	u64_stats_init(&tx_stats.syncp);
-+
-+	hinic_txq_get_stats(txq, &tx_stats);
-+
-+	u64_stats_update_begin(&nic_tx_stats->syncp);
-+	nic_tx_stats->bytes += tx_stats.bytes;
-+	nic_tx_stats->pkts += tx_stats.pkts;
-+	nic_tx_stats->tx_busy += tx_stats.tx_busy;
-+	nic_tx_stats->tx_wake += tx_stats.tx_wake;
-+	nic_tx_stats->tx_dropped += tx_stats.tx_dropped;
-+	u64_stats_update_end(&nic_tx_stats->syncp);
-+
-+	hinic_txq_clean_stats(txq);
-+}
-+
-+static void update_nic_stats(struct hinic_dev *nic_dev)
-+{
-+	int i, num_qps = hinic_hwdev_num_qps(nic_dev->hwdev);
-+
-+	for (i = 0; i < num_qps; i++)
-+		update_rx_stats(nic_dev, &nic_dev->rxqs[i]);
-+
-+	for (i = 0; i < num_qps; i++)
-+		update_tx_stats(nic_dev, &nic_dev->txqs[i]);
-+}
-+
- /**
-  * create_txqs - Create the Logical Tx Queues of specific NIC device
-  * @nic_dev: the specific NIC device
-@@ -303,6 +483,8 @@ static int hinic_close(struct net_device *netdev)
- 	netif_carrier_off(netdev);
- 	netif_tx_disable(netdev);
- 
-+	update_nic_stats(nic_dev);
-+
- 	up(&nic_dev->mgmt_lock);
- 
- 	err = hinic_port_set_func_state(nic_dev, HINIC_FUNC_PORT_DISABLE);
-@@ -580,6 +762,31 @@ static void hinic_tx_timeout(struct net_device *netdev)
- 	netif_err(nic_dev, drv, netdev, "Tx timeout\n");
- }
- 
-+static void hinic_get_stats64(struct net_device *netdev,
-+			      struct rtnl_link_stats64 *stats)
-+{
-+	struct hinic_dev *nic_dev = netdev_priv(netdev);
-+	struct hinic_rxq_stats *nic_rx_stats;
-+	struct hinic_txq_stats *nic_tx_stats;
-+
-+	nic_rx_stats = &nic_dev->rx_stats;
-+	nic_tx_stats = &nic_dev->tx_stats;
-+
-+	down(&nic_dev->mgmt_lock);
-+
-+	if (nic_dev->flags & HINIC_INTF_UP)
-+		update_nic_stats(nic_dev);
-+
-+	up(&nic_dev->mgmt_lock);
-+
-+	stats->rx_bytes   = nic_rx_stats->bytes;
-+	stats->rx_packets = nic_rx_stats->pkts;
-+
-+	stats->tx_bytes   = nic_tx_stats->bytes;
-+	stats->tx_packets = nic_tx_stats->pkts;
-+	stats->tx_errors  = nic_tx_stats->tx_dropped;
-+}
-+
- static const struct net_device_ops hinic_netdev_ops = {
- 	.ndo_open = hinic_open,
- 	.ndo_stop = hinic_close,
-@@ -591,7 +798,7 @@ static void hinic_tx_timeout(struct net_device *netdev)
- 	.ndo_set_rx_mode = hinic_set_rx_mode,
- 	.ndo_start_xmit = hinic_xmit_frame,
- 	.ndo_tx_timeout = hinic_tx_timeout,
--	/* more operations should be filled */
-+	.ndo_get_stats64 = hinic_get_stats64,
- };
- 
- static void netdev_features_init(struct net_device *netdev)
-@@ -663,6 +870,8 @@ static void link_status_event_handler(void *handle, void *buf_in, u16 in_size,
- static int nic_dev_init(struct pci_dev *pdev)
- {
- 	struct hinic_rx_mode_work *rx_mode_work;
-+	struct hinic_txq_stats *tx_stats;
-+	struct hinic_rxq_stats *rx_stats;
- 	struct hinic_dev *nic_dev;
- 	struct net_device *netdev;
- 	struct hinic_hwdev *hwdev;
-@@ -689,6 +898,7 @@ static int nic_dev_init(struct pci_dev *pdev)
- 	}
- 
- 	netdev->netdev_ops = &hinic_netdev_ops;
-+	netdev->ethtool_ops = &hinic_ethtool_ops;
- 
- 	nic_dev = netdev_priv(netdev);
- 	nic_dev->netdev = netdev;
-@@ -702,6 +912,12 @@ static int nic_dev_init(struct pci_dev *pdev)
- 
- 	sema_init(&nic_dev->mgmt_lock, 1);
- 
-+	tx_stats = &nic_dev->tx_stats;
-+	rx_stats = &nic_dev->rx_stats;
-+
-+	u64_stats_init(&tx_stats->syncp);
-+	u64_stats_init(&rx_stats->syncp);
-+
- 	nic_dev->vlan_bitmap = devm_kzalloc(&pdev->dev,
- 					    VLAN_BITMAP_SIZE(nic_dev),
- 					    GFP_KERNEL);
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_port.c b/drivers/net/ethernet/huawei/hinic/hinic_port.c
-index 528ec6f..4d4e3f0 100644
---- a/drivers/net/ethernet/huawei/hinic/hinic_port.c
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_port.c
-@@ -346,3 +346,34 @@ int hinic_port_set_func_state(struct hinic_dev *nic_dev,
- 
+diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
+index 767e053..d49598f 100644
+--- a/net/tipc/bearer.c
++++ b/net/tipc/bearer.c
+@@ -365,30 +365,6 @@ static int tipc_reset_bearer(struct net *net, struct tipc_bearer *b)
  	return 0;
  }
-+
-+/**
-+ * hinic_port_get_cap - get port capabilities
-+ * @nic_dev: nic device
-+ * @port_cap: returned port capabilities
-+ *
-+ * Return 0 - Success, negative - Failure
-+ **/
-+int hinic_port_get_cap(struct hinic_dev *nic_dev,
-+		       struct hinic_port_cap *port_cap)
-+{
-+	struct hinic_hwdev *hwdev = nic_dev->hwdev;
-+	struct hinic_hwif *hwif = hwdev->hwif;
-+	struct pci_dev *pdev = hwif->pdev;
-+	u16 out_size;
-+	int err;
-+
-+	port_cap->func_idx = HINIC_HWIF_FUNC_IDX(hwif);
-+
-+	err = hinic_port_msg_cmd(hwdev, HINIC_PORT_CMD_GET_CAP,
-+				 port_cap, sizeof(*port_cap),
-+				 port_cap, &out_size);
-+	if (err || (out_size != sizeof(*port_cap)) || port_cap->status) {
-+		dev_err(&pdev->dev,
-+			"Failed to get port capabilities, ret = %d\n",
-+			port_cap->status);
-+		return -EINVAL;
-+	}
-+
-+	return 0;
-+}
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_port.h b/drivers/net/ethernet/huawei/hinic/hinic_port.h
-index 17f9d7fc..9404365 100644
---- a/drivers/net/ethernet/huawei/hinic/hinic_port.h
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_port.h
-@@ -45,6 +45,33 @@ enum hinic_func_port_state {
- 	HINIC_FUNC_PORT_ENABLE  = 2,
- };
  
-+enum hinic_autoneg_cap {
-+	HINIC_AUTONEG_UNSUPPORTED,
-+	HINIC_AUTONEG_SUPPORTED,
-+};
-+
-+enum hinic_autoneg_state {
-+	HINIC_AUTONEG_DISABLED,
-+	HINIC_AUTONEG_ACTIVE,
-+};
-+
-+enum hinic_duplex {
-+	HINIC_DUPLEX_HALF,
-+	HINIC_DUPLEX_FULL,
-+};
-+
-+enum hinic_speed {
-+	HINIC_SPEED_10MB_LINK = 0,
-+	HINIC_SPEED_100MB_LINK,
-+	HINIC_SPEED_1000MB_LINK,
-+	HINIC_SPEED_10GB_LINK,
-+	HINIC_SPEED_25GB_LINK,
-+	HINIC_SPEED_40GB_LINK,
-+	HINIC_SPEED_100GB_LINK,
-+
-+	HINIC_SPEED_UNKNOWN = 0xFF,
-+};
-+
- struct hinic_port_mac_cmd {
- 	u8              status;
- 	u8              version;
-@@ -125,6 +152,21 @@ struct hinic_port_func_state_cmd {
- 	u8      rsvd2[3];
- };
+-/* tipc_bearer_reset_all - reset all links on all bearers
+- */
+-void tipc_bearer_reset_all(struct net *net)
+-{
+-	struct tipc_bearer *b;
+-	int i;
+-
+-	for (i = 0; i < MAX_BEARERS; i++) {
+-		b = bearer_get(net, i);
+-		if (b)
+-			clear_bit_unlock(0, &b->up);
+-	}
+-	for (i = 0; i < MAX_BEARERS; i++) {
+-		b = bearer_get(net, i);
+-		if (b)
+-			tipc_reset_bearer(net, b);
+-	}
+-	for (i = 0; i < MAX_BEARERS; i++) {
+-		b = bearer_get(net, i);
+-		if (b)
+-			test_and_set_bit_lock(0, &b->up);
+-	}
+-}
+-
+ /**
+  * bearer_disable
+  *
+diff --git a/net/tipc/bearer.h b/net/tipc/bearer.h
+index 635c908..865cb09 100644
+--- a/net/tipc/bearer.h
++++ b/net/tipc/bearer.h
+@@ -210,7 +210,6 @@ void tipc_bearer_remove_dest(struct net *net, u32 bearer_id, u32 dest);
+ struct tipc_bearer *tipc_bearer_find(struct net *net, const char *name);
+ int tipc_bearer_get_name(struct net *net, char *name, u32 bearer_id);
+ struct tipc_media *tipc_media_find(const char *name);
+-void tipc_bearer_reset_all(struct net *net);
+ int tipc_bearer_setup(void);
+ void tipc_bearer_cleanup(void);
+ void tipc_bearer_stop(struct net *net);
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index 60820dc..ac0144f 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -978,15 +978,15 @@ static void link_retransmit_failure(struct tipc_link *l, struct sk_buff *skb)
+ 	struct tipc_msg *hdr = buf_msg(skb);
  
-+struct hinic_port_cap {
-+	u8      status;
-+	u8      version;
-+	u8      rsvd0[6];
-+
-+	u16     func_idx;
-+	u16     rsvd1;
-+	u8      port_type;
-+	u8      autoneg_cap;
-+	u8      autoneg_state;
-+	u8      duplex;
-+	u8      speed;
-+	u8      rsvd2[3];
-+};
-+
- int hinic_port_add_mac(struct hinic_dev *nic_dev, const u8 *addr,
- 		       u16 vlan_id);
- 
-@@ -150,4 +192,7 @@ int hinic_port_set_state(struct hinic_dev *nic_dev,
- int hinic_port_set_func_state(struct hinic_dev *nic_dev,
- 			      enum hinic_func_port_state state);
- 
-+int hinic_port_get_cap(struct hinic_dev *nic_dev,
-+		       struct hinic_port_cap *port_cap);
-+
- #endif
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_rx.c b/drivers/net/ethernet/huawei/hinic/hinic_rx.c
-index b1212e4..1d4f712 100644
---- a/drivers/net/ethernet/huawei/hinic/hinic_rx.c
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_rx.c
-@@ -58,6 +58,25 @@ void hinic_rxq_clean_stats(struct hinic_rxq *rxq)
+ 	pr_warn("Retransmission failure on link <%s>\n", l->name);
+-	link_print(l, "Resetting link ");
++	link_print(l, "State of link ");
+ 	pr_info("Failed msg: usr %u, typ %u, len %u, err %u\n",
+ 		msg_user(hdr), msg_type(hdr), msg_size(hdr), msg_errcode(hdr));
+ 	pr_info("sqno %u, prev: %x, src: %x\n",
+ 		msg_seqno(hdr), msg_prevnode(hdr), msg_orignode(hdr));
  }
  
- /**
-+ * hinic_rxq_get_stats - get statistics of Rx Queue
-+ * @rxq: Logical Rx Queue
-+ * @stats: return updated stats here
-+ **/
-+void hinic_rxq_get_stats(struct hinic_rxq *rxq, struct hinic_rxq_stats *stats)
-+{
-+	struct hinic_rxq_stats *rxq_stats = &rxq->rxq_stats;
-+	unsigned int start;
-+
-+	u64_stats_update_begin(&stats->syncp);
-+	do {
-+		start = u64_stats_fetch_begin(&rxq_stats->syncp);
-+		stats->pkts = rxq_stats->pkts;
-+		stats->bytes = rxq_stats->bytes;
-+	} while (u64_stats_fetch_retry(&rxq_stats->syncp, start));
-+	u64_stats_update_end(&stats->syncp);
-+}
-+
-+/**
-  * rxq_stats_init - Initialize the statistics of specific queue
-  * @rxq: Logical Rx Queue
-  **/
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_rx.h b/drivers/net/ethernet/huawei/hinic/hinic_rx.h
-index 538c886..27c9af4 100644
---- a/drivers/net/ethernet/huawei/hinic/hinic_rx.h
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_rx.h
-@@ -45,6 +45,8 @@ struct hinic_rxq {
+-int tipc_link_retrans(struct tipc_link *l, u16 from, u16 to,
+-		      struct sk_buff_head *xmitq)
++int tipc_link_retrans(struct tipc_link *l, struct tipc_link *nacker,
++		      u16 from, u16 to, struct sk_buff_head *xmitq)
+ {
+ 	struct sk_buff *_skb, *skb = skb_peek(&l->transmq);
+ 	struct tipc_msg *hdr;
+@@ -997,11 +997,14 @@ int tipc_link_retrans(struct tipc_link *l, u16 from, u16 to,
+ 		return 0;
  
- void hinic_rxq_clean_stats(struct hinic_rxq *rxq);
+ 	/* Detect repeated retransmit failures on same packet */
+-	if (likely(l->last_retransm != buf_seqno(skb))) {
+-		l->last_retransm = buf_seqno(skb);
+-		l->stale_count = 1;
+-	} else if (++l->stale_count > 100) {
++	if (nacker->last_retransm != buf_seqno(skb)) {
++		nacker->last_retransm = buf_seqno(skb);
++		nacker->stale_count = 1;
++	} else if (++nacker->stale_count > 100) {
+ 		link_retransmit_failure(l, skb);
++		nacker->stale_count = 0;
++		if (link_is_bc_sndlink(l))
++			return TIPC_LINK_DOWN_EVT;
+ 		return tipc_link_fsm_evt(l, LINK_FAILURE_EVT);
+ 	}
  
-+void hinic_rxq_get_stats(struct hinic_rxq *rxq, struct hinic_rxq_stats *stats);
-+
- int hinic_init_rxq(struct hinic_rxq *rxq, struct hinic_rq *rq,
- 		   struct net_device *netdev);
+@@ -1528,7 +1531,7 @@ static int tipc_link_proto_rcv(struct tipc_link *l, struct sk_buff *skb,
  
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_tx.c b/drivers/net/ethernet/huawei/hinic/hinic_tx.c
-index 90ab2d9..5bf6a32 100644
---- a/drivers/net/ethernet/huawei/hinic/hinic_tx.c
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_tx.c
-@@ -67,6 +67,28 @@ void hinic_txq_clean_stats(struct hinic_txq *txq)
+ 		/* If NACK, retransmit will now start at right position */
+ 		if (gap) {
+-			rc = tipc_link_retrans(l, ack + 1, ack + gap, xmitq);
++			rc = tipc_link_retrans(l, l, ack + 1, ack + gap, xmitq);
+ 			l->stats.recv_nacks++;
+ 		}
+ 
+@@ -1680,7 +1683,7 @@ int tipc_link_bc_sync_rcv(struct tipc_link *l, struct tipc_msg *hdr,
+ 		return rc;
+ 
+ 	if (link_bc_retr_eval(snd_l, &from, &to))
+-		rc = tipc_link_retrans(snd_l, from, to, xmitq);
++		rc = tipc_link_retrans(snd_l, l, from, to, xmitq);
+ 
+ 	l->snd_nxt = peers_snd_nxt;
+ 	if (link_bc_rcv_gap(l))
+@@ -1775,7 +1778,7 @@ int tipc_link_bc_nack_rcv(struct tipc_link *l, struct sk_buff *skb,
+ 
+ 	if (dnode == tipc_own_addr(l->net)) {
+ 		tipc_link_bc_ack_rcv(l, acked, xmitq);
+-		rc = tipc_link_retrans(l->bc_sndlink, from, to, xmitq);
++		rc = tipc_link_retrans(l->bc_sndlink, l, from, to, xmitq);
+ 		l->stats.recv_nacks++;
+ 		return rc;
+ 	}
+diff --git a/net/tipc/node.c b/net/tipc/node.c
+index 9b4dcb6..eb72839 100644
+--- a/net/tipc/node.c
++++ b/net/tipc/node.c
+@@ -1284,7 +1284,7 @@ static void tipc_node_bc_sync_rcv(struct tipc_node *n, struct tipc_msg *hdr,
+ 	rc = tipc_bcast_sync_rcv(n->net, n->bc_entry.link, hdr);
+ 
+ 	if (rc & TIPC_LINK_DOWN_EVT) {
+-		tipc_bearer_reset_all(n->net);
++		tipc_node_reset_links(n);
+ 		return;
+ 	}
+ 
+@@ -1351,15 +1351,9 @@ static void tipc_node_bc_rcv(struct net *net, struct sk_buff *skb, int bearer_id
+ 	if (!skb_queue_empty(&be->inputq1))
+ 		tipc_node_mcast_rcv(n);
+ 
+-	if (rc & TIPC_LINK_DOWN_EVT) {
+-		/* Reception reassembly failure => reset all links to peer */
+-		if (!tipc_link_is_up(be->link))
+-			tipc_node_reset_links(n);
+-
+-		/* Retransmission failure => reset all links to all peers */
+-		if (!tipc_link_is_up(tipc_bc_sndlink(net)))
+-			tipc_bearer_reset_all(net);
+-	}
++	/* If reassembly or retransmission failure => reset all links to peer */
++	if (rc & TIPC_LINK_DOWN_EVT)
++		tipc_node_reset_links(n);
+ 
+ 	tipc_node_put(n);
  }
- 
- /**
-+ * hinic_txq_get_stats - get statistics of Tx Queue
-+ * @txq: Logical Tx Queue
-+ * @stats: return updated stats here
-+ **/
-+void hinic_txq_get_stats(struct hinic_txq *txq, struct hinic_txq_stats *stats)
-+{
-+	struct hinic_txq_stats *txq_stats = &txq->txq_stats;
-+	unsigned int start;
-+
-+	u64_stats_update_begin(&stats->syncp);
-+	do {
-+		start = u64_stats_fetch_begin(&txq_stats->syncp);
-+		stats->pkts    = txq_stats->pkts;
-+		stats->bytes   = txq_stats->bytes;
-+		stats->tx_busy = txq_stats->tx_busy;
-+		stats->tx_wake = txq_stats->tx_wake;
-+		stats->tx_dropped = txq_stats->tx_dropped;
-+	} while (u64_stats_fetch_retry(&txq_stats->syncp, start));
-+	u64_stats_update_end(&stats->syncp);
-+}
-+
-+/**
-  * txq_stats_init - Initialize the statistics of specific queue
-  * @txq: Logical Tx Queue
-  **/
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_tx.h b/drivers/net/ethernet/huawei/hinic/hinic_tx.h
-index 7123c7f..1fa55dc 100644
---- a/drivers/net/ethernet/huawei/hinic/hinic_tx.h
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_tx.h
-@@ -50,6 +50,8 @@ struct hinic_txq {
- 
- void hinic_txq_clean_stats(struct hinic_txq *txq);
- 
-+void hinic_txq_get_stats(struct hinic_txq *txq, struct hinic_txq_stats *stats);
-+
- netdev_tx_t hinic_xmit_frame(struct sk_buff *skb, struct net_device *netdev);
- 
- int hinic_init_txq(struct hinic_txq *txq, struct hinic_sq *sq,
 -- 
-1.9.1
+2.1.4
