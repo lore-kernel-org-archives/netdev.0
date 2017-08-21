@@ -1,46 +1,61 @@
-From: Bhumika Goyal <bhumirks@gmail.com>
-Subject: [PATCH 6/6] power: supply: make device_attribute const
-Date: Mon, 21 Aug 2017 17:13:12 +0530
-Message-ID: <1503315792-14837-7-git-send-email-bhumirks@gmail.com>
-References: <1503315792-14837-1-git-send-email-bhumirks@gmail.com>
-Cc: Bhumika Goyal <bhumirks@gmail.com>
-To: julia.lawall@lip6.fr, rjw@rjwysocki.net, lenb@kernel.org,
-        jbacik@fb.com, jikos@kernel.org, benjamin.tissoires@redhat.com,
-        manish.chopra@cavium.com, rahul.verma@cavium.com,
-        Dept-GELinuxNICDev@cavium.com, harish.patil@cavium.com,
-        cascardo@holoscopio.com, don@syst.com.br, dvhart@infradead.org,
-        andy@infradead.org, sre@kernel.org, linux-acpi@vger.kernel.org,
-        linux-kernel@vger.kernel.org, linux-block@vger.kernel.org,
-        nbd-general@lists.sourceforge.net, linux-input@vger.kernel.org,
-        netdev@vger.kernel.org, platform-driver-x86@vger.kernel.org,
-        linux-pm@vger.kernel.org
-Return-path: <linux-pm-owner@vger.kernel.org>
-In-Reply-To: <1503315792-14837-1-git-send-email-bhumirks@gmail.com>
-Sender: linux-pm-owner@vger.kernel.org
+From: Romain Perier <romain.perier@collabora.com>
+Subject: [PATCH v2 1/2] net: stmmac: Delete dead code for MDIO registration
+Date: Mon, 21 Aug 2017 13:45:29 +0200
+Message-ID: <20170821114530.13706-2-romain.perier@collabora.com>
+References: <20170821114530.13706-1-romain.perier@collabora.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Romain Perier <romain.perier@collabora.com>
+To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+        Alexandre Torgue <alexandre.torgue@st.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170821114530.13706-1-romain.perier@collabora.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Make these const as they are only passed as an argument to the
-function device_create_file and device_remove_file and the corresponding
-arguments are of type const.
-Done using Coccinelle.
+This code is no longer used, the logging function was changed by commit
+fbca164776e4 ("net: stmmac: Use the right logging functi").
 
-Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
+Fixes: fbca164776e4 ("net: stmmac: Use the right logging functi")
+Signed-off-by: Romain Perier <romain.perier@collabora.com>
 ---
- drivers/power/supply/olpc_battery.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c | 16 ----------------
+ 1 file changed, 16 deletions(-)
 
-diff --git a/drivers/power/supply/olpc_battery.c b/drivers/power/supply/olpc_battery.c
-index fc20ca3..3bc2eea 100644
---- a/drivers/power/supply/olpc_battery.c
-+++ b/drivers/power/supply/olpc_battery.c
-@@ -559,7 +559,7 @@ static ssize_t olpc_bat_error_read(struct device *dev,
- 	return sprintf(buf, "%d\n", ec_byte);
- }
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+index 72ec711fcba2..f5f37bfa1d58 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+@@ -248,9 +248,6 @@ int stmmac_mdio_register(struct net_device *ndev)
+ 	found = 0;
+ 	for (addr = 0; addr < PHY_MAX_ADDR; addr++) {
+ 		struct phy_device *phydev = mdiobus_get_phy(new_bus, addr);
+-		int act = 0;
+-		char irq_num[4];
+-		char *irq_str;
  
--static struct device_attribute olpc_bat_error = {
-+static const struct device_attribute olpc_bat_error = {
- 	.attr = {
- 		.name = "error",
- 		.mode = S_IRUGO,
+ 		if (!phydev)
+ 			continue;
+@@ -273,19 +270,6 @@ int stmmac_mdio_register(struct net_device *ndev)
+ 		if (priv->plat->phy_addr == -1)
+ 			priv->plat->phy_addr = addr;
+ 
+-		act = (priv->plat->phy_addr == addr);
+-		switch (phydev->irq) {
+-		case PHY_POLL:
+-			irq_str = "POLL";
+-			break;
+-		case PHY_IGNORE_INTERRUPT:
+-			irq_str = "IGNORE";
+-			break;
+-		default:
+-			sprintf(irq_num, "%d", phydev->irq);
+-			irq_str = irq_num;
+-			break;
+-		}
+ 		phy_attached_info(phydev);
+ 		found = 1;
+ 	}
 -- 
-1.9.1
+2.11.0
