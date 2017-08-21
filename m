@@ -1,78 +1,45 @@
-From: Wei Wang <weiwan@google.com>
-Subject: Re: [PATCH net v2] ipv6: add rcu grace period before freeing fib6_node
-Date: Mon, 21 Aug 2017 09:19:47 -0700
-Message-ID: <CAEA6p_BW+VWhAgY0Ztufm_RWaEQoXTLXOPc0_94VEqRBmt4RZg@mail.gmail.com>
-References: <20170820003408.133176-1-tracywwnj@gmail.com> <20170820.195954.75794556487638223.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request (net-next): ipsec-next 2017-08-21
+Date: Mon, 21 Aug 2017 09:30:11 -0700 (PDT)
+Message-ID: <20170821.093011.122223256841982342.davem@davemloft.net>
+References: <1503294573-10206-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        Martin KaFai Lau <kafai@fb.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+To: steffen.klassert@secunet.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f179.google.com ([209.85.217.179]:34748 "EHLO
-        mail-ua0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753684AbdHUQTt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2017 12:19:49 -0400
-Received: by mail-ua0-f179.google.com with SMTP id d12so6340231uag.1
-        for <netdev@vger.kernel.org>; Mon, 21 Aug 2017 09:19:49 -0700 (PDT)
-In-Reply-To: <20170820.195954.75794556487638223.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([184.105.139.130]:36036 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753536AbdHUQaQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2017 12:30:16 -0400
+In-Reply-To: <1503294573-10206-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Goodness.... where to start.
->
-> If this bug has been around forever, why did you make this patch
-> against net-next instead of net?  (I can tell just by looking at
-> the patch because rt6_free_pcpu() is static in 'net' yet it is
-> not static in the diff hunk which matches net-next)
->
-> And if you made it against net-next, why are you saying "net" in
-> your subject line instead of "[PATCH net-next v2]"?
->
-> Please sort this out properly, and resubmit.
->
-> Thank you.
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Date: Mon, 21 Aug 2017 07:49:25 +0200
 
-It should be applied to "net". I will rebase my change and resubmit.
-Sorry for the confusion.
+> 1) Support RX checksum with IPsec crypto offload for esp4/esp6.
+>    From Ilan Tayari.
+> 
+> 2) Fixup IPv6 checksums when doing IPsec crypto offload.
+>    From Yossi Kuperman.
+> 
+> 3) Auto load the xfrom offload modules if a user installs
+>    a SA that requests IPsec offload. From Ilan Tayari.
+> 
+> 4) Clear RX offload informations in xfrm_input to not
+>    confuse the TX path with stale offload informations.
+>    From Ilan Tayari.
+> 
+> 5) Allow IPsec GSO for local sockets if the crypto operation
+>    will be offloaded.
+> 
+> 6) Support setting of an output mark to the xfrm_state.
+>    This mark can be used to to do the tunnel route lookup.
+>    From Lorenzo Colitti.
+> 
+> Please pull or let me know if there are problems.
 
-Thanks.
-Wei
-
-On Sun, Aug 20, 2017 at 7:59 PM, David Miller <davem@davemloft.net> wrote:
-> From: Wei Wang <weiwan@google.com>
-> Date: Sat, 19 Aug 2017 17:34:08 -0700
->
->> From: Wei Wang <weiwan@google.com>
->>
->> We currently keep rt->rt6i_node pointing to the fib6_node for the route.
->> And some functions make use of this pointer to dereference the fib6_node
->> from rt structure, e.g. rt6_check(). However, as there is neither
->> refcount nor rcu taken when dereferencing rt->rt6i_node, it could
->> potentially cause crashes as rt->rt6i_node could be set to NULL by other
->> CPUs when doing a route deletion.
->> This patch introduces an rcu grace period before freeing fib6_node and
->> makes sure the functions that dereference it takes rcu_read_lock().
->>
->> Note: there is no "Fixes" tag because this bug was there in a very
->> early stage.
->>
->> Signed-off-by: Wei Wang <weiwan@google.com>
->> Acked-by: Eric Dumazet <edumazet@google.com>
->> ---
->> v2: removed one extra empty line
->
-> Goodness.... where to start.
->
-> If this bug has been around forever, why did you make this patch
-> against net-next instead of net?  (I can tell just by looking at
-> the patch because rt6_free_pcpu() is static in 'net' yet it is
-> not static in the diff hunk which matches net-next)
->
-> And if you made it against net-next, why are you saying "net" in
-> your subject line instead of "[PATCH net-next v2]"?
->
-> Please sort this out properly, and resubmit.
->
-> Thank you.
+Pulled, thanks Steffen.
