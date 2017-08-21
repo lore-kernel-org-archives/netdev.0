@@ -1,47 +1,53 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net] net: dsa: skb_put_padto() already frees nskb
-Date: Mon, 21 Aug 2017 12:41:43 -0700
-Message-ID: <20170821194143.27885-1-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com, woojung.huh@microchip.com,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f194.google.com ([209.85.128.194]:34822 "EHLO
-        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753747AbdHUTlu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2017 15:41:50 -0400
-Received: by mail-wr0-f194.google.com with SMTP id p8so16598385wrf.2
-        for <netdev@vger.kernel.org>; Mon, 21 Aug 2017 12:41:50 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH] vhost: fix end of range for access_ok
+Date: Mon, 21 Aug 2017 22:45:07 +0300
+Message-ID: <1503344576-8141-1-git-send-email-mst@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Koichiro Den <den@klaipeden.com>, Jason Wang <jasowang@redhat.com>,
+        kvm@vger.kernel.org, virtualization@lists.linux-foundation.org,
+        netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-skb_put_padto() already frees the passed sk_buff reference upon error,
-so calling kfree_skb() on it again is not necessary.
+During access_ok checks, addr increases as we iterate over the data
+structure, thus addr + len - 1 will point beyond the end of region we
+are translating.  Harmless since we then verify that the region covers
+addr, but let's not waste cpu cycles.
 
-Detected by CoverityScan, CID#1416687 ("USE_AFTER_FREE")
-
-Fixes: e71cb9e00922 ("net: dsa: ksz: fix skb freeing")
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+Reported-by: Koichiro Den <den@klaipeden.com>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 ---
- net/dsa/tag_ksz.c | 4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
 
-diff --git a/net/dsa/tag_ksz.c b/net/dsa/tag_ksz.c
-index de66ca8e6201..107172c82107 100644
---- a/net/dsa/tag_ksz.c
-+++ b/net/dsa/tag_ksz.c
-@@ -60,10 +60,8 @@ static struct sk_buff *ksz_xmit(struct sk_buff *skb, struct net_device *dev)
- 					 skb_transport_header(skb) - skb->head);
- 		skb_copy_and_csum_dev(skb, skb_put(nskb, skb->len));
+Lightly tested, would appreciate an ack from reporter.
+
+ drivers/vhost/vhost.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+index e4613a3..ecd70e4 100644
+--- a/drivers/vhost/vhost.c
++++ b/drivers/vhost/vhost.c
+@@ -1176,7 +1176,7 @@ static int iotlb_access_ok(struct vhost_virtqueue *vq,
+ {
+ 	const struct vhost_umem_node *node;
+ 	struct vhost_umem *umem = vq->iotlb;
+-	u64 s = 0, size, orig_addr = addr;
++	u64 s = 0, size, orig_addr = addr, last = addr + len - 1;
  
--		if (skb_put_padto(nskb, nskb->len + padlen)) {
--			kfree_skb(nskb);
-+		if (skb_put_padto(nskb, nskb->len + padlen))
- 			return NULL;
--		}
- 
- 		kfree_skb(skb);
- 	}
+ 	if (vhost_vq_meta_fetch(vq, addr, len, type))
+ 		return true;
+@@ -1184,7 +1184,7 @@ static int iotlb_access_ok(struct vhost_virtqueue *vq,
+ 	while (len > s) {
+ 		node = vhost_umem_interval_tree_iter_first(&umem->umem_tree,
+ 							   addr,
+-							   addr + len - 1);
++							   last);
+ 		if (node == NULL || node->start > addr) {
+ 			vhost_iotlb_miss(vq, addr, access);
+ 			return false;
 -- 
-2.9.3
+MST
