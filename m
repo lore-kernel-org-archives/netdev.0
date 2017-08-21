@@ -1,57 +1,88 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net-next 1/3 v6] net: ether: Add support for multiplexing
- and aggregation type
-Date: Mon, 21 Aug 2017 08:17:45 -0400
-Message-ID: <39c75b3d-2662-0a26-7752-fbcf9eea2781@mojatatu.com>
-References: <1503120931-30092-1-git-send-email-subashab@codeaurora.org>
- <1503120931-30092-2-git-send-email-subashab@codeaurora.org>
- <6dd2e0b7-51ec-18a3-07fb-3952a114b89a@mojatatu.com>
- <20170820.151207.1229905735989482121.davem@davemloft.net>
+From: "Rafael J. Wysocki" <rafael@kernel.org>
+Subject: Re: [PATCH 0/6] drivers: make device_attribute const
+Date: Mon, 21 Aug 2017 14:28:31 +0200
+Message-ID: <CAJZ5v0jo6q5mniU2HihHcOSqggZ8HFy3mtuo0vXYwuc2tLQ7=w@mail.gmail.com>
+References: <1503315792-14837-1-git-send-email-bhumirks@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: subashab@codeaurora.org, netdev@vger.kernel.org,
-        fengguang.wu@intel.com, dcbw@redhat.com, jiri@resnulli.us,
-        stephen@networkplumber.org, David.Laight@ACULAB.COM,
-        marcel@holtmann.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f193.google.com ([209.85.223.193]:36150 "EHLO
-        mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752234AbdHUMRs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2017 08:17:48 -0400
-Received: by mail-io0-f193.google.com with SMTP id o196so1043250ioe.3
-        for <netdev@vger.kernel.org>; Mon, 21 Aug 2017 05:17:48 -0700 (PDT)
-In-Reply-To: <20170820.151207.1229905735989482121.davem@davemloft.net>
-Content-Language: en-GB
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Julia Lawall <julia.lawall@lip6.fr>,
+        "Rafael J. Wysocki" <rjw@rjwysocki.net>,
+        Len Brown <lenb@kernel.org>, jbacik@fb.com,
+        Jiri Kosina <jikos@kernel.org>,
+        Benjamin Tissoires <benjamin.tissoires@redhat.com>,
+        manish.chopra@cavium.com, rahul.verma@cavium.com,
+        Dept-GELinuxNICDev@cavium.com, harish.patil@cavium.com,
+        cascardo@holoscopio.com, don@syst.com.br,
+        Darren Hart <dvhart@infradead.org>, andy@infradead.org,
+        Sebastian Reichel <sre@kernel.org>,
+        ACPI Devel Maling List <linux-acpi@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        linux-block@vger.kernel.org, nbd-general@lists.sourceforge.net,
+        linux-input@vger.kernel.org, netdev@vger.kernel.org,
+        Platform Driver <platform-driver-x86@vger.kernel.org>,
+        Linux PM <linux-pm@vger.kernel.org>
+To: Bhumika Goyal <bhumirks@gmail.com>
+Return-path: <linux-acpi-owner@vger.kernel.org>
+In-Reply-To: <1503315792-14837-1-git-send-email-bhumirks@gmail.com>
+Sender: linux-acpi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 17-08-20 06:12 PM, David Miller wrote:
+On Mon, Aug 21, 2017 at 1:43 PM, Bhumika Goyal <bhumirks@gmail.com> wrote:
+> Make these const. Done using Coccinelle.
+>
+> @match disable optional_qualifier@
+> identifier s;
+> @@
+> static struct device_attribute s = {...};
+>
+> @ref@
+> position p;
+> identifier match.s;
+> @@
+> s@p
+>
+> @good1@
+> identifier match.s;
+> expression e1;
+> position ref.p;
+> @@
+> device_remove_file(e1,&s@p,...)
+>
+> @good2@
+> identifier match.s;
+> expression e1;
+> position ref.p;
+> @@
+> device_create_file(e1,&s@p,...)
+>
+>
+> @bad depends on  !good1 && !good2@
+> position ref.p;
+> identifier match.s;
+> @@
+> s@p
+>
+> @depends on forall !bad disable optional_qualifier@
+> identifier match.s;
+> @@
+> static
+> + const
+> struct device_attribute s;
+>
+> Bhumika Goyal (6):
+>   ACPI: make device_attribute const
+>   nbd: make device_attribute const
+>   hid: make device_attribute const
+>   qlogic:  make device_attribute const
+>   platform/x86: make device_attribute const
+>   power: supply: make device_attribute const
 
->>> +#define ETH_P_MAP 0xDA1A /* Multiplexing and Aggregation Protocol
->>> + * NOT AN OFFICIALLY REGISTERED ID ]
->>
->> You cant just arbitrarly assign yourself an ethertype.  The IEEE may
->> never issue you one - and if they do, it will likely not be the one
->> you want i.e above.
->>
->> If there is a way for you to make this a config option that is not
->> hardcoded to some default value then that would be the best approach
->> to take.
-> 
-> This may be a kind of a different situation, these ethertypes exist
-> only internally in the kernel and never on the wire.
-> 
-> It's just controlling the demux on ethernet receive.
-> 
-> We have several IDs like this, and thus this addition is consistent
-> with existing practice.
+It would be better to send these patches separately, because they
+touch code maintained by different people and I guess no one will take
+the whole series.
 
-Ok, so if the IEEE issued this ID to someone there will be no conflict
-then?
-I checked - all the ether types listed in the header file as
-"NOT AN OFFICIALLY REGISTERED ID" are not currently assigned by IEEE.
+I'll take care of the ACPI one, but the rest needs to go in via their
+proper trees.
 
-cheers,
-jamal
+Thanks,
+Rafael
