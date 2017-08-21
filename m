@@ -1,58 +1,88 @@
-From: Koichiro Den <den@klaipeden.com>
-Subject: Re: [PATCH 2/2] vhost-net: revert vhost_exceeds_maxpend logic to
-	its original
-Date: Mon, 21 Aug 2017 22:30:05 +0900
-Message-ID: <1503322205.8694.7.camel@klaipeden.com>
-References: <20170819064129.27272-1-den@klaipeden.com>
-	<0cbc33d6-eb1e-cea4-4cdf-a8a88932da62@redhat.com>
+From: Maxime Ripard <maxime.ripard@free-electrons.com>
+Subject: Re: [PATCH v3 3/4] net: stmmac: register parent MDIO node for
+ sun8i-h3-emac
+Date: Mon, 21 Aug 2017 15:31:04 +0200
+Message-ID: <20170821133104.qvrhvwin2rdg4aqo@flea.lan>
+References: <20170818122118.4925-1-clabbe.montjoie@gmail.com>
+ <20170818122118.4925-4-clabbe.montjoie@gmail.com>
+ <CAGb2v66KcZkiDDHryMmVzm4WroXePPy3V44SLpVdoO3ZEjgC=g@mail.gmail.com>
+ <20170819185025.GB13266@Red>
+ <20170819203836.GA21567@lunn.ch>
+ <20170820065757.GA6081@Red>
+ <20170820142545.GB24150@lunn.ch>
+ <CAGb2v67hQXSoCKP7qW+KRUYX+0djQ1Z23cQ67Lyg6G7ozGyfGQ@mail.gmail.com>
+ <20170821132015.GB1703@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: Jason Wang <jasowang@redhat.com>, mst@redhat.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <0cbc33d6-eb1e-cea4-4cdf-a8a88932da62@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="f3m3hnntahsrss3n"
+Cc: Chen-Yu Tsai <wens@csie.org>,
+        Corentin Labbe <clabbe.montjoie@gmail.com>,
+        Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Russell King <linux@armlinux.org.uk>,
+        Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+        Alexandre Torgue <alexandre.torgue@st.com>,
+        devicetree <devicetree@vger.kernel.org>,
+        linux-arm-kernel <linux-arm-kernel@lists.infradead.org>,
+        linux-kernel <linux-kernel@vger.kernel.org>,
+        netdev <netdev@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170821132015.GB1703@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gTW9uLCAyMDE3LTA4LTIxIGF0IDExOjA2ICswODAwLCBKYXNvbiBXYW5nIHdyb3RlOgo+IAo+
-IE9uIDIwMTflubQwOOaciDE55pelIDE0OjQxLCBLb2ljaGlybyBEZW4gd3JvdGU6Cj4gPiBUbyBk
-ZXBlbmQgb24gdnEubnVtIGFuZCB0aGUgdXNhZ2Ugb2YgVkhPU1RfTUFYX1BFTkQgaXMgbm90IHN1
-Y2NpbmN0Cj4gPiBhbmQgaW4gc29tZSBjYXNlIHVuZXhwZWN0ZWQsIHNvIHJldmVydCBpdHMgbG9n
-aWMgcGFydCBvbmx5Lgo+IAo+IEhpOgo+IAo+IENvdWxkIHlvdSBleHBsYWluIGEgbGl0dGxlIGJp
-dCBtb3JlIG9uIHRoZSBjYXNlIHRoYXQgaXMgd2FzIG5vdCBzdWZmaWNlbnQ/Ckl0J3MganVzdCBi
-ZWNhdXNlIHZxLm51bSBjb3VsZCB0aGVvcmV0aWNhbGx5IGJlIGFyb3VuZCBWSE9TVF9NQVhfUEVO
-RCwgdGhhdApjb3VsZCBsZWFkIHRvIGFuIHVuZXhwZWN0ZWQgc2l0dWF0aW9uLiBQbHVzLCBJIHRo
-b3VnaHQgaXRzIG5hbWUgYW5kIHVzYWdlIGlzIG5vdAppbnRyaW5zaWMuIEl0cyBhY3R1YWwgZnVu
-Y3Rpb25pbmcgaW4gbm9ybWFsIHZxLm51bSA9PSAyNTYgY2FzZSBpcyBJIHRoaW5rIGdvb2QKZW5v
-dWdoLiBUaGFua3MuCj4gCj4gVGhhbmtzCj4gCj4gPiAKPiA+IFNpZ25lZC1vZmYtYnk6IEtvaWNo
-aXJvIERlbiA8ZGVuQGtsYWlwZWRlbi5jb20+Cj4gPiAtLS0KPiA+IMKgIGRyaXZlcnMvdmhvc3Qv
-bmV0LmMgfCA4ICsrKysrKy0tCj4gPiDCoCAxIGZpbGUgY2hhbmdlZCwgNiBpbnNlcnRpb25zKCsp
-LCAyIGRlbGV0aW9ucygtKQo+ID4gCj4gPiBkaWZmIC0tZ2l0IGEvZHJpdmVycy92aG9zdC9uZXQu
-YyBiL2RyaXZlcnMvdmhvc3QvbmV0LmMKPiA+IGluZGV4IDA2ZDA0NDg2MmU1OC4uOTljZjk5YjMw
-OGE3IDEwMDY0NAo+ID4gLS0tIGEvZHJpdmVycy92aG9zdC9uZXQuYwo+ID4gKysrIGIvZHJpdmVy
-cy92aG9zdC9uZXQuYwo+ID4gQEAgLTQzMywxMSArNDMzLDE1IEBAIHN0YXRpYyBpbnQgdmhvc3Rf
-bmV0X3R4X2dldF92cV9kZXNjKHN0cnVjdCB2aG9zdF9uZXQKPiA+ICpuZXQsCj4gPiDCoMKgCj4g
-PiDCoCBzdGF0aWMgYm9vbCB2aG9zdF9leGNlZWRzX21heHBlbmQoc3RydWN0IHZob3N0X25ldCAq
-bmV0KQo+ID4gwqAgewo+ID4gKwlpbnQgbnVtX3BlbmRzOwo+ID4gwqDCoAlzdHJ1Y3Qgdmhvc3Rf
-bmV0X3ZpcnRxdWV1ZSAqbnZxID0gJm5ldC0+dnFzW1ZIT1NUX05FVF9WUV9UWF07Cj4gPiDCoMKg
-CXN0cnVjdCB2aG9zdF92aXJ0cXVldWUgKnZxID0gJm52cS0+dnE7Cj4gPiDCoMKgCj4gPiAtCXJl
-dHVybiAobnZxLT51cGVuZF9pZHggKyB2cS0+bnVtIC0gVkhPU1RfTUFYX1BFTkQpICUgVUlPX01B
-WElPVgo+ID4gLQkJPT0gbnZxLT5kb25lX2lkeDsKPiA+ICsJbnVtX3BlbmRzID0gbGlrZWx5KG52
-cS0+dXBlbmRfaWR4ID49IG52cS0+ZG9uZV9pZHgpID8KPiA+ICsJCShudnEtPnVwZW5kX2lkeCAt
-IG52cS0+ZG9uZV9pZHgpIDoKPiA+ICsJCShudnEtPnVwZW5kX2lkeCArIFVJT19NQVhJT1YgLSBu
-dnEtPmRvbmVfaWR4KTsKPiA+ICsKPiA+ICsJcmV0dXJuIG51bV9wZW5kcyA+IFZIT1NUX01BWF9Q
-RU5EOwo+ID4gwqAgfQo+ID4gwqDCoAo+ID4gwqAgLyogRXhwZWN0cyB0byBiZSBhbHdheXMgcnVu
-IGZyb20gd29ya3F1ZXVlIC0gd2hpY2ggYWN0cyBhcwo+IAo+IAoKX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX18KVmlydHVhbGl6YXRpb24gbWFpbGluZyBsaXN0
-ClZpcnR1YWxpemF0aW9uQGxpc3RzLmxpbnV4LWZvdW5kYXRpb24ub3JnCmh0dHBzOi8vbGlzdHMu
-bGludXhmb3VuZGF0aW9uLm9yZy9tYWlsbWFuL2xpc3RpbmZvL3ZpcnR1YWxpemF0aW9u
+
+--f3m3hnntahsrss3n
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+Hi Andrew,
+
+On Mon, Aug 21, 2017 at 03:20:15PM +0200, Andrew Lunn wrote:
+> > With our hardware, and likely Rockchip's as well, the muxed connections
+> > include the MDIO and MII connections
+>=20
+> Ah, i did not realise the MII was muxed as well. Then i agree, an MDIO
+> mux is wrong.
+>=20
+> However, please try to make the binding not look like an mdio mux. We
+> don't want people misunderstanding the binding and thinking it is an
+> mdio mux.
+
+Do you have any suggestion on what the binding would look like?
+
+All muxes are mostly always represented the same way afaik, or do you
+want to simply introduce a new compatible / property?
+
+Thanks!
+Maxime
+
+--=20
+Maxime Ripard, Free Electrons
+Embedded Linux and Kernel engineering
+http://free-electrons.com
+
+--f3m3hnntahsrss3n
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIcBAEBAgAGBQJZmuCXAAoJEBx+YmzsjxAg1xoP/3dZHOxLjKurUxT4h2Ui17Ww
+52KzoyH8bHYQiuNvmlwLS+0WTcAnyO8AK13Ux/gH4vN4SWVEP2dKFh00Jmmkdfn4
+iO2XB2GZ7eUCIfdzJSWc0x/foH0T9jdv0MWMtQP0sROLzjWFUcCWBhZ1izPzqK9s
+q8St+JMv6LCgQNKRsVa/JPTDxjsIVJfWY975A5yhlRDw5btETs3FyvdNERq4/n5D
+mbDBoC9qF7x48ZgWXjU+8ujDURIR730nN5dwnUbwclOGaSsSqUEWyY8dTQ7FdWYg
+2hHu2jZ1vW0koap7yrOGVrWjr9KoYxnYtfxpDc/4rlVK1xtXyLk/KrSVf6GrsX4/
+QyUx+kaobnOeagPmRaAgjVnq93DcPlr4a+LknMuHqH+cn/6Agg7LDAxecD/xdOd/
+hYkwE29W085mCleFxl322oTD5NJyv3gdDrXyCwKXzyJK6AGMkSV/NojUxubO7Mbv
+F1b68MyZkhi3rc2Cah0NN0vn3ULYFNdBqWmKgnaAVD+QN+o3noWSS5GdkhoJ5Mha
+laSapjaHIZn6yVl7JjxwjuyznK3B+9JT3eoGJqcGOLUA5C798iPlUG5LS6PLkgmC
+N1FGr4MgdULgzUnfSKiylDXtHA7Wytqx5RLtMs3ishzEywSywqNUiHHd7uuGi47l
+q5FHn7wPbb+KWYhgBUlY
+=sPdg
+-----END PGP SIGNATURE-----
+
+--f3m3hnntahsrss3n--
