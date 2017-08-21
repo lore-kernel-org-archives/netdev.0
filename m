@@ -1,81 +1,100 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next 1/3 v6] net: ether: Add support for
- multiplexing and aggregation type
-Date: Mon, 21 Aug 2017 15:00:14 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD005CC8C@AcuExch.aculab.com>
-References: <1503120931-30092-1-git-send-email-subashab@codeaurora.org>
-        <1503120931-30092-2-git-send-email-subashab@codeaurora.org>
-        <6dd2e0b7-51ec-18a3-07fb-3952a114b89a@mojatatu.com>
- <20170820.151207.1229905735989482121.davem@davemloft.net>
+From: Salil Mehta <salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Subject: RE: [PATCH V3 net-next] net: hns3: Add support to change MTU in
+ HNS3 hardware
+Date: Mon, 21 Aug 2017 15:05:00 +0000
+Message-ID: <F4CC6FACFEB3C54C9141D49AD221F7F93B875790@FRAEML521-MBX.china.huawei.com>
+References: <20170821101223.111852-1-salil.mehta@huawei.com>
+ <20170821142939.GG1703@lunn.ch>
+ <F4CC6FACFEB3C54C9141D49AD221F7F93B875655@FRAEML521-MBX.china.huawei.com>
+ <20170821144741.GN1724@mtr-leonro.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
-Cc: "subashab@codeaurora.org" <subashab@codeaurora.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "fengguang.wu@intel.com" <fengguang.wu@intel.com>,
-        "dcbw@redhat.com" <dcbw@redhat.com>,
-        "jiri@resnulli.us" <jiri@resnulli.us>,
-        "stephen@networkplumber.org" <stephen@networkplumber.org>,
-        "marcel@holtmann.org" <marcel@holtmann.org>
-To: 'David Miller' <davem@davemloft.net>,
-        "jhs@mojatatu.com" <jhs@mojatatu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.192]:57895 "EHLO
-        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753245AbdHUPAV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2017 11:00:21 -0400
-In-Reply-To: <20170820.151207.1229905735989482121.davem@davemloft.net>
+Cc: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
+        "davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        "Zhuangyuzeng (Yisen)" <yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+        "lipeng (Y)" <lipeng321-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+        "mehta.salil.lnk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <mehta.salil.lnk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Linuxarm <linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+To: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170821144741.GN1724-U/DQcQFIOTAAJjI8aNfphQ@public.gmane.org>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: David Miller
-> Sent: 20 August 2017 23:12
-> From: Jamal Hadi Salim <jhs@mojatatu.com>
-> Date: Sun, 20 Aug 2017 14:18:03 -0400
+Hi Leon,
+
+> -----Original Message-----
+> From: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org [mailto:linux-rdma-
+> owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org] On Behalf Of Leon Romanovsky
+> Sent: Monday, August 21, 2017 3:48 PM
+> To: Salil Mehta
+> Cc: Andrew Lunn; davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org; Zhuangyuzeng (Yisen); lipeng (Y);
+> mehta.salil.lnk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org; netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-
+> kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; Linuxarm
+> Subject: Re: [PATCH V3 net-next] net: hns3: Add support to change MTU
+> in HNS3 hardware
 > 
-> > On 17-08-19 01:35 AM, Subash Abhinov Kasiviswanathan wrote:
-> >> Define the multiplexing and aggregation (MAP) ether type 0xDA1A. This
-> >> is needed for receiving data in the MAP protocol like RMNET. This is
-> >> not an officially registered ID.
-> >> Signed-off-by: Subash Abhinov Kasiviswanathan
-> >> <subashab@codeaurora.org>
-> >> ---
-> >>   include/uapi/linux/if_ether.h | 4 +++-
-> >>   1 file changed, 3 insertions(+), 1 deletion(-)
-> >> diff --git a/include/uapi/linux/if_ether.h
-> >> b/include/uapi/linux/if_ether.h
-> >> index 5bc9bfd..e80b03f 100644
-> >> --- a/include/uapi/linux/if_ether.h
-> >> +++ b/include/uapi/linux/if_ether.h
-> >> @@ -104,7 +104,9 @@
-> >>   #define ETH_P_QINQ3 0x9300 /* deprecated QinQ VLAN [ NOT AN OFFICIALLY
-> >>   #REGISTERED ID ] */
-> >>   #define ETH_P_EDSA 0xDADA /* Ethertype DSA [ NOT AN OFFICIALLY
-> >>   #REGISTERED ID ] */
-> >>   #define ETH_P_AF_IUCV 0xFBFB /* IBM af_iucv [ NOT AN OFFICIALLY
-> >>   #REGISTERED ID ] */
-> >> -
-> >> +#define ETH_P_MAP 0xDA1A /* Multiplexing and Aggregation Protocol
-> >> + * NOT AN OFFICIALLY REGISTERED ID ]
+> On Mon, Aug 21, 2017 at 02:32:40PM +0000, Salil Mehta wrote:
+> > Hi Andrew,
 > >
-> > You cant just arbitrarly assign yourself an ethertype.  The IEEE may
-> > never issue you one - and if they do, it will likely not be the one
-> > you want i.e above.
+> > > -----Original Message-----
+> > > From: Andrew Lunn [mailto:andrew-g2DYL2Zd6BY@public.gmane.org]
+> > > Sent: Monday, August 21, 2017 3:30 PM
+> > > To: Salil Mehta
+> > > Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org; Zhuangyuzeng (Yisen); lipeng (Y);
+> > > mehta.salil.lnk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org; netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-
+> > > kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; Linuxarm
+> > > Subject: Re: [PATCH V3 net-next] net: hns3: Add support to change
+> MTU
+> > > in HNS3 hardware
+> > >
+> > > On Mon, Aug 21, 2017 at 11:12:23AM +0100, Salil Mehta wrote:
+> > > > This patch adds the following support to the HNS3 driver:
+> > > > 1. Support to change the Maximum Transmission Unit of a
+> > > >    of a port in the HNS NIC hardware.
+> > > > 2. Initializes the supported MTU range for the netdevice.
+> > > >
+> > > > Signed-off-by: lipeng <lipeng321-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+> > > > Signed-off-by: Salil Mehta <salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+> > >
+> > > Hi Salil
+> > >
+> > > Apart from Leon comments.
+> > >
+> > > Reviewed-by: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+> > >
+> > >     Andrew
 > >
-> > If there is a way for you to make this a config option that is not
-> > hardcoded to some default value then that would be the best approach
-> > to take.
+> > I will incorporate Leon's comment and float V4 patch today. Thanks!
+> >
 > 
-> This may be a kind of a different situation, these ethertypes exist
-> only internally in the kernel and never on the wire.
+> Salil,
 > 
-> It's just controlling the demux on ethernet receive.
-> 
-> We have several IDs like this, and thus this addition is consistent
-> with existing practice.
+> I had two comment there and not one. Please don't miss it :)
+Sure, I should admit that I missed one comment while I replied to the
+mail but later realized that, and incorporated it while I floated the
+V4 patch. Having a bad day of misses...phew!
 
-Are they ever put into ethernet packets?
-If not then use values below 1500.
+Again, thanks Andrew & Leon for helping me out in reviewing this patch.
 
-	David
+Best regards
+Salil
+> 
+> Thanks
+> 
+> > Best regards
+> > Salil
+> > --
+> > To unsubscribe from this list: send the line "unsubscribe linux-rdma"
+> in
+> > the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
