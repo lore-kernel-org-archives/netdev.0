@@ -1,23 +1,27 @@
 From: Alexei Starovoitov via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
 Subject: Re: [PATCH v3 net-next] bpf/verifier: track liveness
 	for pruning
-Date: Mon, 21 Aug 2017 14:18:45 -0700
-Message-ID: <c0ea0e4a-75f4-652c-9967-1de5a4173157@fb.com>
+Date: Mon, 21 Aug 2017 14:23:29 -0700
+Message-ID: <2c636ee7-ba60-b506-9d37-1fe405c31076@fb.com>
 References: <f40d3d54-c88a-7348-99ca-66db8075a8d5@solarflare.com>
 	<89ff34f7-84ee-0e0a-3766-5b4d046189bf@fb.com>
 	<b8a46388-74ea-81f9-df08-3b6b88042229@solarflare.com>
-	<e4075575-b12c-5c6f-bac3-0c7ba8e04802@solarflare.com>
+	<5d4e12aa-6861-a176-a8cf-a766bbca0a7a@fb.com>
+	<b39b4a6f-907e-c684-b9e4-285ff9c7ca9a@solarflare.com>
+	<599B4231.3080405@iogearbox.net>
+	<128a84cd-234d-f505-95e2-7561db974981@solarflare.com>
+	<599B49DB.6010008@iogearbox.net>
 Reply-To: Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"; Format="flowed"
 Content-Transfer-Encoding: 7bit
 Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
 	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, Alexei
-	Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, Daniel Borkmann
-	<daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
+To: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>, Edward Cree
+	<ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, Alexei Starovoitov
+	<alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-In-Reply-To: <e4075575-b12c-5c6f-bac3-0c7ba8e04802-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+In-Reply-To: <599B49DB.6010008-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
 List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
 	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
@@ -29,29 +33,65 @@ Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
 Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 8/21/17 1:24 PM, Edward Cree wrote:
-> On 18/08/17 15:16, Edward Cree wrote:
->> On 18/08/17 04:21, Alexei Starovoitov wrote:
->>> It seems you're trying to sort-of do per-fake-basic block liveness
->>> analysis, but our state_list_marks are not correct if we go with
->>> canonical basic block definition, since we mark the jump insn and
->>> not insn after the branch and not every basic block boundary is
->>> properly detected.
->> I think the reason this works is that jump insns can't do writes.
->> [snip]
->> the sl->state will never have any write marks and it'll all just work.
->> But I should really test that!
-> I tested this, and found that, no, sl->state can have write marks, and the
->  algorithm will get the wrong answer in that case.  So I've got a patch to
->  make the first iteration ignore write marks, as part of a series which I
->  will post shortly.  When I do so, please re-do your tests with adding
->  state_list_marks in strange and exciting places; it should work wherever
->  you put them.  Like you say, it "magically doesn't depend on proper basic
->  block boundaries", and that's because really pruning is just a kind of
->  checkpointing that just happens to be most effective when done just after
->  a jump (pop_stack).
+On 8/21/17 2:00 PM, Daniel Borkmann wrote:
+> On 08/21/2017 10:44 PM, Edward Cree wrote:
+>> On 21/08/17 21:27, Daniel Borkmann wrote:
+>>> On 08/21/2017 08:36 PM, Edward Cree wrote:
+>>>> On 19/08/17 00:37, Alexei Starovoitov wrote:
+>>> [...]
+>>>> I'm tempted to just rip out env->varlen_map_value_access and always
+>>>> check
+>>>>    the whole thing, because honestly I don't know what it was meant
+>>>> to do
+>>>>    originally or how it can ever do any useful pruning.  While
+>>>> drastic, it
+>>>>    does cause your test case to pass.
+>>>
+>>> Original intention from 484611357c19 ("bpf: allow access into map
+>>> value arrays") was that it wouldn't potentially make pruning worse
+>>> if PTR_TO_MAP_VALUE_ADJ was not used, meaning that we wouldn't need
+>>> to take reg state's min_value and max_value into account for state
+>>> checking; this was basically due to min_value / max_value is being
+>>> adjusted/tracked on every alu/jmp ops for involved regs (e.g.
+>>> adjust_reg_min_max_vals() and others that mangle them) even if we
+>>> have the case that no actual dynamic map access is used throughout
+>>> the program. To give an example on net tree, the bpf_lxc.o prog's
+>>> section increases from 36,386 to 68,226 when
+>>> env->varlen_map_value_access
+>>> is always true, so it does have an effect. Did you do some checks
+>>> on this on net-next?
+>> I tested with the cilium progs and saw no change in insn count.  I
+>>   suspect that for the normal case I already killed this optimisation
+>>   when I did my unification patch, it was previously about ignoring
+>>   min/max values on all regs (including scalars), whereas on net-next
+>>   it only ignores them on map_value pointers; in practice this is
+>>   useless because we tend to still have the offset scalar sitting in
+>>   a register somewhere.  (Come to think of it, this may have been
+>>   behind a large chunk of the #insn increase that my patches caused.)
 >
-> Can I have a SOB for your "grr" test program, so I can include it in the
->  series?
+> Yeah, this would seem plausible.
+>
+>> Since we use umax_value in find_good_pkt_pointers() now (to check
+>>   against MAX_PACKET_OFF and ensure our reg->range is really ok), we
+>>   can't just stop caring about all min/max values just because we
+>>   haven't done any variable map accesses.
+>> I don't see a way around this.
+>
+> Agree, was thinking the same. If there's not really a regression in
+> terms of complexity, then lets kill the flag.
 
-yes. of course. just give the test some reasonable name :)
++1
+
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index 2489e67b65f6..908d13b2a2aa 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -3582,7 +3582,7 @@ static int do_check(struct bpf_verifier_env *env)
+         init_reg_state(regs);
+         state->parent = NULL;
+         insn_idx = 0;
+-       env->varlen_map_value_access = false;
++       env->varlen_map_value_access = true;
+
+makes _zero_ difference on cilium*.o tests, so let's just kill
+that workaround.
