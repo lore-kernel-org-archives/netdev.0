@@ -1,108 +1,84 @@
-From: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
-Subject: [PATCH RFC] net_sched/codel: do not defer queue length update
-Date: Mon, 21 Aug 2017 11:14:14 +0300
-Message-ID: <150330325401.155105.30496752582836861.stgit@buzz>
+From: Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH net-next v4] openvswitch: enable NSH support
+Date: Mon, 21 Aug 2017 10:19:24 +0200
+Message-ID: <20170821101925.3f9b36a1@griffin>
+References: <1503041071-68753-1-git-send-email-yi.y.yang@intel.com>
+	<20170818152601.3760aaec@griffin>
+	<20170821061109.GA72656@cran64.bj.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Jiri Pirko <jiri@resnulli.us>
-To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from forwardcorp1o.cmail.yandex.net ([37.9.109.47]:55701 "EHLO
-        forwardcorp1o.cmail.yandex.net" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751750AbdHUIOT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2017 04:14:19 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "e@erig.me" <e@erig.me>
+To: "Yang, Yi" <yi.y.yang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20170821061109.GA72656-re2EX8HDrk21gSHoDXDV2kEOCMrvLtNR@public.gmane.org>
+List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
+	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
+List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
+	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-When codel wants to drop last packet in ->dequeue() it cannot call
-qdisc_tree_reduce_backlog() right away - it will notify parent qdisc
-about zero qlen and HTB/HFSC will deactivate class. The same class will
-be deactivated second time by caller of ->dequeue(). Currently codel and
-fq_codel defer update. This triggers warning in HFSC when it's qlen != 0
-but there is no active classes.
+On Mon, 21 Aug 2017 14:11:10 +0800, Yang, Yi wrote:
+> In OVS code, it has been removed because of Microsoft compiler issue.
 
-This patch update parent queue length immediately: just temporary increase
-qlen around qdisc_tree_reduce_backlog() to prevent first class deactivation
-if we have skb to return.
+We absolutely, completely and utterly do not care in the kernel. Please
+never make such arguments and never make the code look worse because of
+a compiler for other operating systems.
 
-This might open another problem in HFSC - now operation peek could fail and
-deactivate parent class.
+> > I was wondering about this during the reviews of the previous versions.
+> > Now I've given this more thought but I still don't see it - why is the
+> > inner_protocol set here?
+> 
+> I saw push_mpls has it, so also set it.
 
-Signed-off-by: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
-Link: https://bugzilla.kernel.org/show_bug.cgi?id=109581
----
- net/sched/sch_codel.c    |   14 ++++++++++----
- net/sched/sch_fq_codel.c |   24 +++++++++++++++---------
- 2 files changed, 25 insertions(+), 13 deletions(-)
+MPLS supports GSO and needs this for segmentation. I don't see anything
+GSO related in this patch.
 
-diff --git a/net/sched/sch_codel.c b/net/sched/sch_codel.c
-index c518a1efcb9d..e8194e455efe 100644
---- a/net/sched/sch_codel.c
-+++ b/net/sched/sch_codel.c
-@@ -95,11 +95,17 @@ static struct sk_buff *codel_qdisc_dequeue(struct Qdisc *sch)
- 			    &q->stats, qdisc_pkt_len, codel_get_enqueue_time,
- 			    drop_func, dequeue_func);
- 
--	/* We cant call qdisc_tree_reduce_backlog() if our qlen is 0,
--	 * or HTB crashes. Defer it for next round.
-+	/* If our qlen is 0 qdisc_tree_reduce_backlog() will deactivate
-+	 * parent class, dequeue in parent qdisc will do the same if we
-+	 * return skb. Temporary increment qlen if we have skb.
- 	 */
--	if (q->stats.drop_count && sch->q.qlen) {
--		qdisc_tree_reduce_backlog(sch, q->stats.drop_count, q->stats.drop_len);
-+	if (q->stats.drop_count) {
-+		if (skb)
-+			sch->q.qlen++;
-+		qdisc_tree_reduce_backlog(sch, q->stats.drop_count,
-+					  q->stats.drop_len);
-+		if (skb)
-+			sch->q.qlen--;
- 		q->stats.drop_count = 0;
- 		q->stats.drop_len = 0;
- 	}
-diff --git a/net/sched/sch_fq_codel.c b/net/sched/sch_fq_codel.c
-index 337f2d6d81e4..4048790a8c99 100644
---- a/net/sched/sch_fq_codel.c
-+++ b/net/sched/sch_fq_codel.c
-@@ -316,6 +316,21 @@ static struct sk_buff *fq_codel_dequeue(struct Qdisc *sch)
- 	flow->dropped += q->cstats.drop_count - prev_drop_count;
- 	flow->dropped += q->cstats.ecn_mark - prev_ecn_mark;
- 
-+	/* If our qlen is 0 qdisc_tree_reduce_backlog() will deactivate
-+	 * parent class, dequeue in parent qdisc will do the same if we
-+	 * return skb. Temporary increment qlen if we have skb.
-+	 */
-+	if (q->cstats.drop_count) {
-+		if (skb)
-+			sch->q.qlen++;
-+		qdisc_tree_reduce_backlog(sch, q->cstats.drop_count,
-+					  q->cstats.drop_len);
-+		if (skb)
-+			sch->q.qlen--;
-+		q->cstats.drop_count = 0;
-+		q->cstats.drop_len = 0;
-+	}
-+
- 	if (!skb) {
- 		/* force a pass through old_flows to prevent starvation */
- 		if ((head == &q->new_flows) && !list_empty(&q->old_flows))
-@@ -326,15 +341,6 @@ static struct sk_buff *fq_codel_dequeue(struct Qdisc *sch)
- 	}
- 	qdisc_bstats_update(sch, skb);
- 	flow->deficit -= qdisc_pkt_len(skb);
--	/* We cant call qdisc_tree_reduce_backlog() if our qlen is 0,
--	 * or HTB crashes. Defer it for next round.
--	 */
--	if (q->cstats.drop_count && sch->q.qlen) {
--		qdisc_tree_reduce_backlog(sch, q->cstats.drop_count,
--					  q->cstats.drop_len);
--		q->cstats.drop_count = 0;
--		q->cstats.drop_len = 0;
--	}
- 	return skb;
- }
- 
+How do you plan to address GSO, anyway?
+
+> > > +	err = check_header(skb, length);
+> > > +	if (unlikely(err))
+> > > +		return err;
+> > > +
+> > > +	key->nsh.flags = nsh_get_flags(nsh);
+> > 
+> > Again, need to reload nsh.
+> 
+> I used skb->len in v5, so we can't avoid such issue.
+
+And how do you ensure that the skb has enough headroom, then? That is
+wrong. All I said is that you have to reload the pointers to the header
+which is what you have to do.
+
+> > Wouldn't it be nicer if the fields of struct ovs_nsh_key_base and of
+> > struct nsh_hdr had the same names?
+> 
+> Such change also will impact on OVS code, so I prefer not to change
+> them.
+
+We do not care.
+
+The order in which you send patches to different projects is your
+choice. The only standard by which we measure and evaluate kernel
+patches is the technical suitability of the patches. Whether or not
+some other projects have dependencies on some kind of previous versions
+of out of tree kernel patches have zero relevance here.
+
+If you designed other code to depend on your notion on how a kernel API
+will look like before getting the actual patches accepted to the
+kernel, that's your problem and you'll have to deal with that.
+
+> For struct nsh_hdr, we need more self-descriptive fields, but for struct
+> ovs_nsh_key_base, because we need to use keys in OVS OpenFlow, so np is
+> obviously better than next_proto, we also try our best to make sure the
+> old NSH implementation has same match fields as the new one does.
+
+Not relevant.
+
+ Jiri
