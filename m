@@ -1,40 +1,50 @@
-From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Subject: Re: [RFC PATCH] dt-binding: net: sfp binding documentation
-Date: Mon, 21 Aug 2017 16:05:30 +0200
-Message-ID: <20170821140530.GD1703@lunn.ch>
-References: <d73b635069a2054d110632f1f4196cd4bc281e7f.1503224886.git.baruch@tkos.co.il>
- <20170821125317.GS20805@n2100.armlinux.org.uk>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: Something hitting my total number of connections to the server
+Date: Mon, 21 Aug 2017 10:17:07 -0400
+Message-ID: <CADVnQyk5EDY8ZVJysjbwZ5Ws=yc7kuZS=jMxh57cAKgEdAva_Q@mail.gmail.com>
+References: <CAA5aLPic9U4cwFJuTd4qBZrV=oVUSfmPzVRR_jXOBpJMU11b0A@mail.gmail.com>
+ <CAA5aLPgekZJgsZV-MAD+F+ggUugQkz12D9Ef=kbP9Ev=Q1QsDw@mail.gmail.com>
+ <1502879661.4936.98.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAA5aLPh0m=ZZp5kcz9h3if8kemg0QRykBpfYAnr6Bd1ptoeKKg@mail.gmail.com>
+ <1502969805.4936.154.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAA5aLPjs2S0cV7MoYLB6MvZVKXomUmwpi=EVHDXh=AwR_xBqsw@mail.gmail.com>
+ <063D6719AE5E284EB5DD2968C1650D6DD005C7B1@AcuExch.aculab.com> <CAA5aLPhVSnJkGNtwEeswbPnhT_RdJewAKDs-pJOUzTPEpwkUAA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Baruch Siach <baruch-NswTu9S1W3P6gbPvEgmw2w@public.gmane.org>, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Russell King - ARM Linux <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20170821125317.GS20805-l+eeeJia6m9URfEZ8mYm6t73F7V6hmMc@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: David Laight <David.Laight@aculab.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        netdev <netdev@vger.kernel.org>
+To: Akshat Kakkar <akshat.1984@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qt0-f172.google.com ([209.85.216.172]:38907 "EHLO
+        mail-qt0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753264AbdHUORj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2017 10:17:39 -0400
+Received: by mail-qt0-f172.google.com with SMTP id 57so5853528qtu.5
+        for <netdev@vger.kernel.org>; Mon, 21 Aug 2017 07:17:39 -0700 (PDT)
+In-Reply-To: <CAA5aLPhVSnJkGNtwEeswbPnhT_RdJewAKDs-pJOUzTPEpwkUAA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> The implementation that I've designed is based around the boards that
-> I have access to and the various public SFP documentation.  I think
-> documenting the bindings suggests that they are stable - I don't think
-> we're really ready to make that assertion yet - there may be things
-> that have been missed which will only come up when other people start
-> using this code.
+On Mon, Aug 21, 2017 at 5:56 AM, Akshat Kakkar <akshat.1984@gmail.com> wrote:
+>
+> The issue is with tcp timestamp. When I am disabling it, things are
+> working fine but when I enable the issue re-occurs. However, I am not
+> seeing tcp timestamps on packet, even when it is enabled simply
+> because my client doesn't support it.
+>
+> But the question is, if I my client doesnt support timestamp , why
+> enabling timestamp on server side is creating an issue??
 
-Hi Russell
+To help shed light on this, you could try collecting and dumping the
+nstat counters when the system is in the mode where it is not
+creating/accepting new connections, e.g.:
 
-That was the point of merging the code. It gets it into people hands
-so they can start using it. I want to add support for DSA to make use
-of phylink, since i have a couple of boards with SFF connected to
-switch ports. I know Cumulus have interest in the code, for their
-switches and so do Westermo. 
+nstat > /dev/null && sleep 10 && nstat
 
-       Andrew
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+The sleep interval would need to be long enough to cover a failing
+client connect attempt. It would also be helpful to gather a tcpdump
+trace over the interval, to see if the server is sending a RST,
+SYN+ACK, or nothing.
+
+neal
