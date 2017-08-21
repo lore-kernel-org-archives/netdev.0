@@ -1,58 +1,74 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: [PATCH net] ethernet: xircom: small clean up in
- setup_xirc2ps_cs()
-Date: Mon, 21 Aug 2017 17:56:30 +0300
-Message-ID: <20170821145630.uu7kysb54gk3gea4@mwanda>
-References: <20170821094730.ydm2xwsqbkyadybi@mwanda>
- <063D6719AE5E284EB5DD2968C1650D6DD005CC34@AcuExch.aculab.com>
+From: Salil Mehta <salil.mehta@huawei.com>
+Subject: RE: [PATCH V4 net-next] net: hns3: Add support to change MTU in
+ HNS3 hardware
+Date: Mon, 21 Aug 2017 14:58:46 +0000
+Message-ID: <F4CC6FACFEB3C54C9141D49AD221F7F93B875735@FRAEML521-MBX.china.huawei.com>
+References: <20170821144003.49436-1-salil.mehta@huawei.com>
+ <20170821144838.GO1724@mtr-leonro.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jarod Wilson <jarod@redhat.com>,
-        "David S. Miller" <davem@davemloft.net>,
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+        "Zhuangyuzeng (Yisen)" <yisen.zhuang@huawei.com>,
+        "lipeng (Y)" <lipeng321@huawei.com>,
+        "mehta.salil.lnk@gmail.com" <mehta.salil.lnk@gmail.com>,
         "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>,
-        Ilya Matveychikov <matvejchikov@gmail.com>,
-        Baoquan He <bhe@redhat.com>,
-        Andrew Morton <akpm@linux-foundation.org>,
-        Ingo Molnar <mingo@kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+        Linuxarm <linuxarm@huawei.com>
+To: Leon Romanovsky <leon@kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DD005CC34@AcuExch.aculab.com>
+In-Reply-To: <20170821144838.GO1724@mtr-leonro.local>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 21, 2017 at 02:52:34PM +0000, David Laight wrote:
-> From: Dan Carpenter
-> > Sent: 21 August 2017 10:48
-> > The get_options() function takes the whole ARRAY_SIZE().  It doesn't
-> > matter here because we don't use more than 7 elements.
-> > 
-> > Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-> > 
-> > diff --git a/drivers/net/ethernet/xircom/xirc2ps_cs.c b/drivers/net/ethernet/xircom/xirc2ps_cs.c
-> > index f71883264cc0..fd5288ff53b5 100644
-> > --- a/drivers/net/ethernet/xircom/xirc2ps_cs.c
-> > +++ b/drivers/net/ethernet/xircom/xirc2ps_cs.c
-> > @@ -1781,7 +1781,7 @@ static int __init setup_xirc2ps_cs(char *str)
-> >  	 */
-> >  	int ints[10] = { -1 };
-> > 
-> > -	str = get_options(str, 9, ints);
-> > +	str = get_options(str, ARRAY_SIZE(ints), ints);
-> > 
-> >  #define MAYBE_SET(X,Y) if (ints[0] >= Y && ints[Y] != -1) { X = ints[Y]; }
-> >  	MAYBE_SET(if_port, 3);
+Hi Leon,
+
+> -----Original Message-----
+> From: Leon Romanovsky [mailto:leon@kernel.org]
+> Sent: Monday, August 21, 2017 3:49 PM
+> To: Salil Mehta
+> Cc: davem@davemloft.net; Zhuangyuzeng (Yisen); lipeng (Y);
+> mehta.salil.lnk@gmail.com; netdev@vger.kernel.org; linux-
+> kernel@vger.kernel.org; linux-rdma@vger.kernel.org; Linuxarm
+> Subject: Re: [PATCH V4 net-next] net: hns3: Add support to change MTU
+> in HNS3 hardware
 > 
-> That code looks very dubious to me.
-> It looks as though it expects all of the ints[] array to be initialised
-> to -1, not just the first element.
+> On Mon, Aug 21, 2017 at 03:40:03PM +0100, Salil Mehta wrote:
+> > This patch adds the following support to the HNS3 driver:
+> > 1. Support to change the Maximum Transmission Unit of a
+> >    port in the HNS NIC hardware.
+> > 2. Initializes the supported MTU range for the netdevice.
+> >
+> > Signed-off-by: lipeng <lipeng321@huawei.com>
+> > Signed-off-by: Salil Mehta <salil.mehta@huawei.com>
+> > ---
+> > PATCH V4: Addressed some minor comments Leon Romanovsky
+> >           1. https://lkml.org/lkml/2017/8/21/212
+> > PATCH V3: Addressed some minor comments Leon Romanovsky
+> >           1. https://lkml.org/lkml/2017/8/20/27
+> > PATCH V2: Addresses comments given by Andrew Lunn
+> >           1. https://lkml.org/lkml/2017/8/18/282
+> > PATCH V1: Initial Submit
+> > ---
+> >  .../net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c | 34
+> ++++++++++++++++++++++
+> >  .../net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.h |  1 +
+> >  2 files changed, 35 insertions(+)
+> >
+> 
+> Wrong error code is not "minor" comment.
+Sorry for the wrong terminology used. Both of the comments
+were definitely useful and I have taken into consideration
+both of them in my recent patch. I think I missed it while
+replying, saw it while and created the patch later.
+Sorry for that again.
 
-I'm pretty sure you're right and I thought about changing it when I sent
-the patch but it doesn't matter.  It's not required to initialize that
-code anyway because either get_options() will initialize it or it won't
-be used.
+I will correct this in my subsequent patch.
 
-regards,
-dan carpenter
+Best regards
+Salil
+> 
+> Thanks,
+> Reviewed-by: Leon Romanovsky <leonro@mellanox.com>
