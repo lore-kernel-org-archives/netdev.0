@@ -1,51 +1,54 @@
-From: Daniel Borkmann via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-Subject: Re: [PATCH v3 net-next] bpf/verifier: track liveness
-	for pruning
-Date: Mon, 21 Aug 2017 22:27:29 +0200
-Message-ID: <599B4231.3080405@iogearbox.net>
-References: <f40d3d54-c88a-7348-99ca-66db8075a8d5@solarflare.com>
-	<89ff34f7-84ee-0e0a-3766-5b4d046189bf@fb.com>
-	<b8a46388-74ea-81f9-df08-3b6b88042229@solarflare.com>
-	<5d4e12aa-6861-a176-a8cf-a766bbca0a7a@fb.com>
-	<b39b4a6f-907e-c684-b9e4-285ff9c7ca9a@solarflare.com>
-Reply-To: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 1/1] tipc: don't reset stale
+ broadcast send link
+Date: Mon, 21 Aug 2017 13:38:11 -0700 (PDT)
+Message-ID: <20170821.133811.1648013984195015459.davem@davemloft.net>
+References: <1503331170-21745-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>, Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-In-Reply-To: <b39b4a6f-907e-c684-b9e4-285ff9c7ca9a-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
-List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
-List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
-Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+Cc: ying.xue@windriver.com, netdev@vger.kernel.org,
+ tipc-discussion@lists.sourceforge.net
+To: jon.maloy@ericsson.com
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+In-Reply-To: <1503331170-21745-1-git-send-email-jon.maloy@ericsson.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/options/tipc-discussion>,
+ <mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+ <mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On 08/21/2017 08:36 PM, Edward Cree wrote:
-> On 19/08/17 00:37, Alexei Starovoitov wrote:
-[...]
-> I'm tempted to just rip out env->varlen_map_value_access and always check
->   the whole thing, because honestly I don't know what it was meant to do
->   originally or how it can ever do any useful pruning.  While drastic, it
->   does cause your test case to pass.
+From: Jon Maloy <jon.maloy@ericsson.com>
+Date: Mon, 21 Aug 2017 17:59:30 +0200
 
-Original intention from 484611357c19 ("bpf: allow access into map
-value arrays") was that it wouldn't potentially make pruning worse
-if PTR_TO_MAP_VALUE_ADJ was not used, meaning that we wouldn't need
-to take reg state's min_value and max_value into account for state
-checking; this was basically due to min_value / max_value is being
-adjusted/tracked on every alu/jmp ops for involved regs (e.g.
-adjust_reg_min_max_vals() and others that mangle them) even if we
-have the case that no actual dynamic map access is used throughout
-the program. To give an example on net tree, the bpf_lxc.o prog's
-section increases from 36,386 to 68,226 when env->varlen_map_value_access
-is always true, so it does have an effect. Did you do some checks
-on this on net-next?
+> When the broadcast send link after 100 attempts has failed to
+> transfer a packet to all peers, we consider it stale, and reset
+> it. Thereafter it needs to re-synchronize with the peers, something
+> currently done by just resetting and re-establishing all links to
+> all peers. This has turned out to be overkill, with potentially
+> unwanted consequences for the remaining cluster.
+> 
+> A closer analysis reveals that this can be done much simpler. When
+> this kind of failure happens, for reasons that may lie outside the
+> TIPC protocol, it is typically only one peer which is failing to
+> receive and acknowledge packets. It is hence sufficient to identify
+> and reset the links only to that peer to resolve the situation, without
+> having to reset the broadcast link at all. This solution entails a much
+> lower risk of negative consequences for the own node as well as for
+> the overall cluster.
+> 
+> We implement this change in this commit.
+> 
+> Reviewed-by: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
+> Acked-by: Ying Xue <ying.xue@windriver.com>
+> Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+
+Applied, thanks Jon.
+
+------------------------------------------------------------------------------
+Check out the vibrant tech community on one of the world's most
+engaging tech sites, Slashdot.org! http://sdm.link/slashdot
