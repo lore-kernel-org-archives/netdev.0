@@ -1,7 +1,7 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 3/8] xfrm6: Fix CHECKSUM_COMPLETE after IPv6 header push
-Date: Mon, 21 Aug 2017 07:49:28 +0200
-Message-ID: <1503294573-10206-4-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH 2/8] esp6: Support RX checksum with crypto offload
+Date: Mon, 21 Aug 2017 07:49:27 +0200
+Message-ID: <1503294573-10206-3-git-send-email-steffen.klassert@secunet.com>
 References: <1503294573-10206-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,56 +10,82 @@ Cc: Herbert Xu <herbert@gondor.apana.org.au>,
         <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:34906 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([62.96.220.36]:34910 "EHLO a.mx.secunet.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751081AbdHUFtm (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1751094AbdHUFtm (ORCPT <rfc822;netdev@vger.kernel.org>);
         Mon, 21 Aug 2017 01:49:42 -0400
 In-Reply-To: <1503294573-10206-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yossi Kuperman <yossiku@mellanox.com>
+From: Ilan Tayari <ilant@mellanox.com>
 
-xfrm6_transport_finish rebuilds the IPv6 header based on the
-original one and pushes it back without fixing skb->csum.
-Therefore, CHECKSUM_COMPLETE is no longer valid and the packet
-gets dropped.
+Keep the device's reported ip_summed indication in case crypto
+was offloaded by the device. Subtract the csum values of the
+stripped parts (esp header+iv, esp trailer+auth_data) to keep
+value correct.
 
-Fix skb->csum by calling skb_postpush_rcsum.
+Note: CHECKSUM_COMPLETE should be indicated only if skb->csum
+has the post-decryption offload csum value.
 
-Note: A valid IPv4 header has checksum 0, unlike IPv6. Thus,
-the change is not needed in the sibling xfrm4_transport_finish
-function.
-
-Signed-off-by: Yossi Kuperman <yossiku@mellanox.com>
+Signed-off-by: Ariel Levkovich <lariel@mellanox.com>
 Signed-off-by: Ilan Tayari <ilant@mellanox.com>
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- net/ipv6/xfrm6_input.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ net/ipv6/esp6.c         | 14 +++++++++++---
+ net/ipv6/esp6_offload.c |  4 +++-
+ 2 files changed, 14 insertions(+), 4 deletions(-)
 
-diff --git a/net/ipv6/xfrm6_input.c b/net/ipv6/xfrm6_input.c
-index 3ef5d91..f95943a 100644
---- a/net/ipv6/xfrm6_input.c
-+++ b/net/ipv6/xfrm6_input.c
-@@ -34,6 +34,7 @@ EXPORT_SYMBOL(xfrm6_rcv_spi);
- int xfrm6_transport_finish(struct sk_buff *skb, int async)
+diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
+index 9ed3547..0ca1db6 100644
+--- a/net/ipv6/esp6.c
++++ b/net/ipv6/esp6.c
+@@ -470,7 +470,8 @@ int esp6_input_done2(struct sk_buff *skb, int err)
+ 	int hlen = sizeof(struct ip_esp_hdr) + crypto_aead_ivsize(aead);
+ 	int elen = skb->len - hlen;
+ 	int hdr_len = skb_network_header_len(skb);
+-	int padlen;
++	int padlen, trimlen;
++	__wsum csumdiff;
+ 	u8 nexthdr[2];
+ 
+ 	if (!xo || (xo && !(xo->flags & CRYPTO_DONE)))
+@@ -492,8 +493,15 @@ int esp6_input_done2(struct sk_buff *skb, int err)
+ 
+ 	/* ... check padding bits here. Silly. :-) */
+ 
+-	pskb_trim(skb, skb->len - alen - padlen - 2);
+-	__skb_pull(skb, hlen);
++	trimlen = alen + padlen + 2;
++	if (skb->ip_summed == CHECKSUM_COMPLETE) {
++		csumdiff = skb_checksum(skb, skb->len - trimlen, trimlen, 0);
++		skb->csum = csum_block_sub(skb->csum, csumdiff,
++					   skb->len - trimlen);
++	}
++	pskb_trim(skb, skb->len - trimlen);
++
++	skb_pull_rcsum(skb, hlen);
+ 	if (x->props.mode == XFRM_MODE_TUNNEL)
+ 		skb_reset_transport_header(skb);
+ 	else
+diff --git a/net/ipv6/esp6_offload.c b/net/ipv6/esp6_offload.c
+index f02f131..eec3add 100644
+--- a/net/ipv6/esp6_offload.c
++++ b/net/ipv6/esp6_offload.c
+@@ -209,11 +209,13 @@ static struct sk_buff *esp6_gso_segment(struct sk_buff *skb,
+ static int esp6_input_tail(struct xfrm_state *x, struct sk_buff *skb)
  {
- 	struct xfrm_offload *xo = xfrm_offload(skb);
-+	int nhlen = skb->data - skb_network_header(skb);
+ 	struct crypto_aead *aead = x->data;
++	struct xfrm_offload *xo = xfrm_offload(skb);
  
- 	skb_network_header(skb)[IP6CB(skb)->nhoff] =
- 		XFRM_MODE_SKB_CB(skb)->protocol;
-@@ -43,8 +44,9 @@ int xfrm6_transport_finish(struct sk_buff *skb, int async)
- 		return 1;
- #endif
+ 	if (!pskb_may_pull(skb, sizeof(struct ip_esp_hdr) + crypto_aead_ivsize(aead)))
+ 		return -EINVAL;
  
--	__skb_push(skb, skb->data - skb_network_header(skb));
-+	__skb_push(skb, nhlen);
- 	ipv6_hdr(skb)->payload_len = htons(skb->len - sizeof(struct ipv6hdr));
-+	skb_postpush_rcsum(skb, skb_network_header(skb), nhlen);
+-	skb->ip_summed = CHECKSUM_NONE;
++	if (!(xo->flags & CRYPTO_DONE))
++		skb->ip_summed = CHECKSUM_NONE;
  
- 	if (xo && (xo->flags & XFRM_GRO)) {
- 		skb_mac_header_rebuild(skb);
+ 	return esp6_input_done2(skb, 0);
+ }
 -- 
 2.7.4
