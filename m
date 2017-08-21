@@ -1,59 +1,93 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH v3 net-next] bpf/verifier: track liveness for pruning
-Date: Mon, 21 Aug 2017 23:00:11 +0200
-Message-ID: <599B49DB.6010008@iogearbox.net>
-References: <f40d3d54-c88a-7348-99ca-66db8075a8d5@solarflare.com> <89ff34f7-84ee-0e0a-3766-5b4d046189bf@fb.com> <b8a46388-74ea-81f9-df08-3b6b88042229@solarflare.com> <5d4e12aa-6861-a176-a8cf-a766bbca0a7a@fb.com> <b39b4a6f-907e-c684-b9e4-285ff9c7ca9a@solarflare.com> <599B4231.3080405@iogearbox.net> <128a84cd-234d-f505-95e2-7561db974981@solarflare.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 3/3 v6] drivers: net: ethernet: qualcomm:
+ rmnet: Initial implementation
+Date: Mon, 21 Aug 2017 14:07:25 -0700 (PDT)
+Message-ID: <20170821.140725.2042417771225949262.davem@davemloft.net>
+References: <1503120931-30092-1-git-send-email-subashab@codeaurora.org>
+        <1503120931-30092-4-git-send-email-subashab@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        iovisor-dev <iovisor-dev@lists.iovisor.org>
-To: Edward Cree <ecree@solarflare.com>,
-        Alexei Starovoitov <ast@fb.com>, davem@davemloft.net,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <128a84cd-234d-f505-95e2-7561db974981@solarflare.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, fengguang.wu@intel.com, dcbw@redhat.com,
+        jiri@resnulli.us, stephen@networkplumber.org,
+        David.Laight@ACULAB.COM, marcel@holtmann.org
+To: subashab@codeaurora.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:41620 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751575AbdHUVH0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2017 17:07:26 -0400
+In-Reply-To: <1503120931-30092-4-git-send-email-subashab@codeaurora.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/21/2017 10:44 PM, Edward Cree wrote:
-> On 21/08/17 21:27, Daniel Borkmann wrote:
->> On 08/21/2017 08:36 PM, Edward Cree wrote:
->>> On 19/08/17 00:37, Alexei Starovoitov wrote:
->> [...]
->>> I'm tempted to just rip out env->varlen_map_value_access and always check
->>>    the whole thing, because honestly I don't know what it was meant to do
->>>    originally or how it can ever do any useful pruning.  While drastic, it
->>>    does cause your test case to pass.
->>
->> Original intention from 484611357c19 ("bpf: allow access into map
->> value arrays") was that it wouldn't potentially make pruning worse
->> if PTR_TO_MAP_VALUE_ADJ was not used, meaning that we wouldn't need
->> to take reg state's min_value and max_value into account for state
->> checking; this was basically due to min_value / max_value is being
->> adjusted/tracked on every alu/jmp ops for involved regs (e.g.
->> adjust_reg_min_max_vals() and others that mangle them) even if we
->> have the case that no actual dynamic map access is used throughout
->> the program. To give an example on net tree, the bpf_lxc.o prog's
->> section increases from 36,386 to 68,226 when env->varlen_map_value_access
->> is always true, so it does have an effect. Did you do some checks
->> on this on net-next?
-> I tested with the cilium progs and saw no change in insn count.  I
->   suspect that for the normal case I already killed this optimisation
->   when I did my unification patch, it was previously about ignoring
->   min/max values on all regs (including scalars), whereas on net-next
->   it only ignores them on map_value pointers; in practice this is
->   useless because we tend to still have the offset scalar sitting in
->   a register somewhere.  (Come to think of it, this may have been
->   behind a large chunk of the #insn increase that my patches caused.)
+From: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+Date: Fri, 18 Aug 2017 23:35:31 -0600
 
-Yeah, this would seem plausible.
+> diff --git a/drivers/net/ethernet/qualcomm/Makefile b/drivers/net/ethernet/qualcomm/Makefile
+> index 92fa7c4..c4f38bd 100644
+> --- a/drivers/net/ethernet/qualcomm/Makefile
+> +++ b/drivers/net/ethernet/qualcomm/Makefile
+> @@ -9,3 +9,5 @@ obj-$(CONFIG_QCA7000_UART) += qcauart.o
+>  qcauart-objs := qca_uart.o
+>  
+>  obj-y += emac/
+> +
+> +obj-$(CONFIG_RMNET) += rmnet/
+> \ No newline at end of file
 
-> Since we use umax_value in find_good_pkt_pointers() now (to check
->   against MAX_PACKET_OFF and ensure our reg->range is really ok), we
->   can't just stop caring about all min/max values just because we
->   haven't done any variable map accesses.
-> I don't see a way around this.
+Missing final newline in this file.
 
-Agree, was thinking the same. If there's not really a regression in
-terms of complexity, then lets kill the flag.
+> diff --git a/drivers/net/ethernet/qualcomm/rmnet/rmnet_config.c b/drivers/net/ethernet/qualcomm/rmnet/rmnet_config.c
+> new file mode 100644
+> index 0000000..5338bab
+> --- /dev/null
+> +++ b/drivers/net/ethernet/qualcomm/rmnet/rmnet_config.c
+ ...
+> +static inline int
+> +rmnet_is_real_dev_registered(const struct net_device *real_dev)
+> +{
+
+Do not declare functions as inline in foo.c files, let the compiler decide.
+
+> +static inline struct rmnet_real_dev_info*
+> +__rmnet_get_real_dev_info(const struct net_device *real_dev)
+> +{
+
+Likewise.
+
+> diff --git a/drivers/net/ethernet/qualcomm/rmnet/rmnet_handlers.c b/drivers/net/ethernet/qualcomm/rmnet/rmnet_handlers.c
+> new file mode 100644
+> index 0000000..f34fe9e
+> --- /dev/null
+> +++ b/drivers/net/ethernet/qualcomm/rmnet/rmnet_handlers.c
+ ...
+> +static inline void rmnet_set_skb_proto(struct sk_buff *skb)
+> +{
+
+Likewise.
+
+> diff --git a/drivers/net/ethernet/qualcomm/rmnet/rmnet_main.c b/drivers/net/ethernet/qualcomm/rmnet/rmnet_main.c
+> new file mode 100644
+> index 0000000..80c3920
+ ...
+> +/* Startup/Shutdown */
+> +
+> +static int __init rmnet_init(void)
+> +{
+> +	rmnet_config_init();
+> +	return 0;
+> +}
+> +
+> +static void __exit rmnet_exit(void)
+> +{
+> +	rmnet_config_exit();
+> +}
+> +
+> +module_init(rmnet_init)
+> +module_exit(rmnet_exit)
+> +MODULE_LICENSE("GPL v2");
+
+Unless you intend to do something different here, having a completely separate foo.c file
+just to invoke functions in another file at module init and exit time is wasteful.  Just
+do the module_init()/module_exit() where the rmnet_config_{init,exit}() functions are.
