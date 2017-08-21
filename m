@@ -1,55 +1,43 @@
-From: Akshat Kakkar <akshat.1984@gmail.com>
-Subject: Re: Something hitting my total number of connections to the server
-Date: Mon, 21 Aug 2017 15:26:36 +0530
-Message-ID: <CAA5aLPhVSnJkGNtwEeswbPnhT_RdJewAKDs-pJOUzTPEpwkUAA@mail.gmail.com>
-References: <CAA5aLPic9U4cwFJuTd4qBZrV=oVUSfmPzVRR_jXOBpJMU11b0A@mail.gmail.com>
- <CAA5aLPgekZJgsZV-MAD+F+ggUugQkz12D9Ef=kbP9Ev=Q1QsDw@mail.gmail.com>
- <1502879661.4936.98.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAA5aLPh0m=ZZp5kcz9h3if8kemg0QRykBpfYAnr6Bd1ptoeKKg@mail.gmail.com>
- <1502969805.4936.154.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAA5aLPjs2S0cV7MoYLB6MvZVKXomUmwpi=EVHDXh=AwR_xBqsw@mail.gmail.com> <063D6719AE5E284EB5DD2968C1650D6DD005C7B1@AcuExch.aculab.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        netdev <netdev@vger.kernel.org>
-To: David Laight <David.Laight@aculab.com>
+From: Phil Sutter <phil@nwl.cc>
+Subject: [iproute PATCH v3 4/5] tc/tc_filter: Make sure filter name is not empty
+Date: Mon, 21 Aug 2017 12:03:07 +0200
+Message-ID: <20170821100308.24854-5-phil@nwl.cc>
+References: <20170821100308.24854-1-phil@nwl.cc>
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f43.google.com ([74.125.83.43]:38354 "EHLO
-        mail-pg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752519AbdHUJ4h (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2017 05:56:37 -0400
-Received: by mail-pg0-f43.google.com with SMTP id m133so15013320pga.5
-        for <netdev@vger.kernel.org>; Mon, 21 Aug 2017 02:56:37 -0700 (PDT)
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DD005C7B1@AcuExch.aculab.com>
+Received: from orbyte.nwl.cc ([151.80.46.58]:36357 "EHLO mail.nwl.cc"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752354AbdHUKDV (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 21 Aug 2017 06:03:21 -0400
+In-Reply-To: <20170821100308.24854-1-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 21, 2017 at 3:13 PM, David Laight <David.Laight@aculab.com> wrote:
-> From: Akshat Kakkar
->> Sent: 18 August 2017 10:14
->> On Thu, Aug 17, 2017 at 5:06 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> > On Thu, 2017-08-17 at 14:35 +0530, Akshat Kakkar wrote:
->> >
->> >> I upgraded to 4.4 but still experiencing same issue.
->> >> Please help.
->> >
->> > Still too old kernel, shoot again ;)
->> >
->> >
->>
->>
->> Sorry but that's the maximum I can try as of now as its the LT version.
->
-> You should be able to build a current kernel and run it with your
-> existing user space.
->
->         David
->
+The later check for 'k[0] != 0' requires a non-empty filter name,
+otherwise NULL pointer dereference in 'q' might happen.
 
-The issue is with tcp timestamp. When I am disabling it, things are
-working fine but when I enable the issue re-occurs. However, I am not
-seeing tcp timestamps on packet, even when it is enabled simply
-because my client doesn't support it.
+Signed-off-by: Phil Sutter <phil@nwl.cc>
+---
+Changes since v2:
+- Instead of calling strlen(), just make sure **argv is not 0.
+---
+ tc/tc_filter.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-But the question is, if I my client doesnt support timestamp , why
-enabling timestamp on server side is creating an issue??
+diff --git a/tc/tc_filter.c b/tc/tc_filter.c
+index b13fb9185d4fd..cf290ae8e252c 100644
+--- a/tc/tc_filter.c
++++ b/tc/tc_filter.c
+@@ -412,6 +412,9 @@ static int tc_filter_get(int cmd, unsigned int flags, int argc, char **argv)
+ 			usage();
+ 			return 0;
+ 		} else {
++			if (!**argv)
++				invarg("invalid filter name", *argv);
++
+ 			strncpy(k, *argv, sizeof(k)-1);
+ 
+ 			q = get_filter_kind(k);
+-- 
+2.13.1
