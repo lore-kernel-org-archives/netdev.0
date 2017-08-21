@@ -1,29 +1,30 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next] bpf: fix double free from dev_map_notification()
-Date: Mon, 21 Aug 2017 02:47:55 +0200
-Message-ID: <599A2DBB.2060305@iogearbox.net>
-References: <22ff5f74079470a06e11940f40e05b2db74ca21f.1503272633.git.daniel@iogearbox.net> <52f70537-afcf-e384-cb96-2a5b8c032c51@fb.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] bpf, doc: also add s390x as arch to sysctl
+ description
+Date: Sun, 20 Aug 2017 19:45:27 -0700 (PDT)
+Message-ID: <20170820.194527.138351947367533614.davem@davemloft.net>
+References: <23b5525b786a641eb777cf44839fd98189d27acb.1503267753.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: john.fastabend@gmail.com, netdev@vger.kernel.org
-To: Alexei Starovoitov <ast@fb.com>, davem@davemloft.net
+Cc: ast@fb.com, netdev@vger.kernel.org
+To: daniel@iogearbox.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:56641 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753427AbdHUAsA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 20 Aug 2017 20:48:00 -0400
-In-Reply-To: <52f70537-afcf-e384-cb96-2a5b8c032c51@fb.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:48832 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753470AbdHUCpd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 20 Aug 2017 22:45:33 -0400
+In-Reply-To: <23b5525b786a641eb777cf44839fd98189d27acb.1503267753.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/21/2017 02:42 AM, Alexei Starovoitov wrote:
-> On 8/20/17 4:48 PM, Daniel Borkmann wrote:
-[...]
-> I wonder why it was done the other way around in the first place then?
-> dev_map_list is there only for notifier and since the map is freed
-> with all the devices totally makes sense to isolate it from notifier
-> as a first step.
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Mon, 21 Aug 2017 00:26:03 +0200
 
-Yep, agree. Initially this was done by the mutex, but that was not
-correct due to RCU for map helpers, of course.
+> Looks like this was accidentally missed, so still add s390x
+> as supported eBPF JIT arch to bpf_jit_enable.
+> 
+> Fixes: 014cd0a368dc ("bpf: Update sysctl documentation to list all supported architectures")
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+
+Applied, thanks.
