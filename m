@@ -1,62 +1,36 @@
-From: Jan Scheurich <jan.scheurich@ericsson.com>
-Subject: RE: [PATCH net-next v4] openvswitch: enable NSH support
-Date: Mon, 21 Aug 2017 09:42:27 +0000
-Message-ID: <CFF8EF42F1132E4CBE2BF0AB6C21C58D7274A55C@ESESSMB107.ericsson.se>
-References: <1503041071-68753-1-git-send-email-yi.y.yang@intel.com>
-        <20170818152601.3760aaec@griffin>
-        <20170821061109.GA72656@cran64.bj.intel.com>
-        <20170821101925.3f9b36a1@griffin>
-        <20170821083900.GA74649@cran64.bj.intel.com>
-        <CFF8EF42F1132E4CBE2BF0AB6C21C58D727494F3@ESESSMB107.ericsson.se>
- <20170821113514.6f0ec15e@griffin>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: Something hitting my total number of connections to the server
+Date: Mon, 21 Aug 2017 09:43:49 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD005C7B1@AcuExch.aculab.com>
+References: <CAA5aLPic9U4cwFJuTd4qBZrV=oVUSfmPzVRR_jXOBpJMU11b0A@mail.gmail.com>
+ <CAA5aLPgekZJgsZV-MAD+F+ggUugQkz12D9Ef=kbP9Ev=Q1QsDw@mail.gmail.com>
+ <1502879661.4936.98.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAA5aLPh0m=ZZp5kcz9h3if8kemg0QRykBpfYAnr6Bd1ptoeKKg@mail.gmail.com>
+ <1502969805.4936.154.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAA5aLPjs2S0cV7MoYLB6MvZVKXomUmwpi=EVHDXh=AwR_xBqsw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Yang, Yi" <yi.y.yang@intel.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "dev@openvswitch.org" <dev@openvswitch.org>,
-        "blp@ovn.org" <blp@ovn.org>, "e@erig.me" <e@erig.me>
-To: Jiri Benc <jbenc@redhat.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev <netdev@vger.kernel.org>
+To: 'Akshat Kakkar' <akshat.1984@gmail.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sessmg22.ericsson.net ([193.180.251.58]:46863 "EHLO
-        sessmg22.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751172AbdHUJma (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2017 05:42:30 -0400
-In-Reply-To: <20170821113514.6f0ec15e@griffin>
+Received: from smtp-out6.electric.net ([192.162.217.192]:53234 "EHLO
+        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752535AbdHUJnz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2017 05:43:55 -0400
+In-Reply-To: <CAA5aLPjs2S0cV7MoYLB6MvZVKXomUmwpi=EVHDXh=AwR_xBqsw@mail.gmail.com>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> > struct nsh_hdr {
-> >     ovs_be16 ver_flags_ttl_len;
-> >     uint8_t mdtype;
-> >     uint8_t np;
-> >     ovs_16aligned_be32 path_hdr;
-> >     union {
-> >         struct nsh_md1_ctx md1;
-> >         struct nsh_md2_tlv md2[];
-> 
-> I'm not that sure about this. With each member of md2 having a different
-> size, you can't use md2 as an array. However, if it was declared as an
-> array, it might encourage such (wrong) usage.
-> 
-> In particular, nsh_hdr->md2[1] is always wrong.
-> 
-> It seems better to not declare md2 as an array.
-
-I understand your concern. But not declaring md2 as array is wrong as well, as there might not be an MD2 TLV context header. An MD2 NSH header is perfectly valid without any TLV. So in any case the user of the struct needs to be aware of the NSH semantics.
-
-> >
-> > I wonder about the possible 16-bit alignment of the 32-bit fields,
-> > though. How is that handled in the kernel?
-> 
-> get_unaligned_*
-> 
-> > Also struct nsh_md1_ctx
-> > has 32-bit members, which might not be 32-bit aligned in the packet.
-> 
-> I don't see that happening, it seems the header before md1 is 8 bytes and
-> sizeof(md1) is 32 bytes? And for md2, the standard mandates that the md2
-> size is a multiply of 4 bytes, too.
-
-NSH can be carried over Ethernet with a 14 byte header. In that case the total NSH header would typically be 16-bit aligned, so that all 32-bit members would be misaligned.
+RnJvbTogQWtzaGF0IEtha2thcg0KPiBTZW50OiAxOCBBdWd1c3QgMjAxNyAxMDoxNA0KPiBPbiBU
+aHUsIEF1ZyAxNywgMjAxNyBhdCA1OjA2IFBNLCBFcmljIER1bWF6ZXQgPGVyaWMuZHVtYXpldEBn
+bWFpbC5jb20+IHdyb3RlOg0KPiA+IE9uIFRodSwgMjAxNy0wOC0xNyBhdCAxNDozNSArMDUzMCwg
+QWtzaGF0IEtha2thciB3cm90ZToNCj4gPg0KPiA+PiBJIHVwZ3JhZGVkIHRvIDQuNCBidXQgc3Rp
+bGwgZXhwZXJpZW5jaW5nIHNhbWUgaXNzdWUuDQo+ID4+IFBsZWFzZSBoZWxwLg0KPiA+DQo+ID4g
+U3RpbGwgdG9vIG9sZCBrZXJuZWwsIHNob290IGFnYWluIDspDQo+ID4NCj4gPg0KPiANCj4gDQo+
+IFNvcnJ5IGJ1dCB0aGF0J3MgdGhlIG1heGltdW0gSSBjYW4gdHJ5IGFzIG9mIG5vdyBhcyBpdHMg
+dGhlIExUIHZlcnNpb24uDQoNCllvdSBzaG91bGQgYmUgYWJsZSB0byBidWlsZCBhIGN1cnJlbnQg
+a2VybmVsIGFuZCBydW4gaXQgd2l0aCB5b3VyDQpleGlzdGluZyB1c2VyIHNwYWNlLg0KDQoJRGF2
+aWQNCg0K
