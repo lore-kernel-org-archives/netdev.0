@@ -1,39 +1,66 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH v2 2/7] ss: Make sure index variable is >= 0
-Date: Mon, 21 Aug 2017 19:08:08 +0200
-Message-ID: <20170821170813.29697-3-phil@nwl.cc>
+Subject: [iproute PATCH v2 6/7] lib/fs: Fix and simplify make_path()
+Date: Mon, 21 Aug 2017 19:08:12 +0200
+Message-ID: <20170821170813.29697-7-phil@nwl.cc>
 References: <20170821170813.29697-1-phil@nwl.cc>
 Cc: netdev@vger.kernel.org
 To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:53819 "EHLO mail.nwl.cc"
+Received: from orbyte.nwl.cc ([151.80.46.58]:53353 "EHLO mail.nwl.cc"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754184AbdHURI5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 21 Aug 2017 13:08:57 -0400
+        id S1753961AbdHURJD (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 21 Aug 2017 13:09:03 -0400
 In-Reply-To: <20170821170813.29697-1-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This shouldn't happen but relying upon external data without checking
-may lead to unexpected results.
+Calling stat() before mkdir() is racey: The entry might change in
+between. Also, the call to stat() seems to exist only to check if the
+directory exists already. So simply call mkdir() unconditionally and
+catch only errors other than EEXIST.
 
 Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- misc/ss.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ lib/fs.c | 20 +++++---------------
+ 1 file changed, 5 insertions(+), 15 deletions(-)
 
-diff --git a/misc/ss.c b/misc/ss.c
-index 10360e5a04ff8..1ee02d73b2d7f 100644
---- a/misc/ss.c
-+++ b/misc/ss.c
-@@ -2004,7 +2004,7 @@ static void tcp_timer_print(struct tcpstat *s)
- 		"unknown"
- 	};
+diff --git a/lib/fs.c b/lib/fs.c
+index c59ac564581d0..7083bf2e23bb7 100644
+--- a/lib/fs.c
++++ b/lib/fs.c
+@@ -102,7 +102,6 @@ out:
+ int make_path(const char *path, mode_t mode)
+ {
+ 	char *dir, *delim;
+-	struct stat sbuf;
+ 	int rc = -1;
  
--	if (s->timer) {
-+	if (s->timer >= 0) {
- 		if (s->timer > 4)
- 			s->timer = 5;
- 		printf(" timer:(%s,%s,%d)",
+ 	delim = dir = strdup(path);
+@@ -120,20 +119,11 @@ int make_path(const char *path, mode_t mode)
+ 		if (delim)
+ 			*delim = '\0';
+ 
+-		if (stat(dir, &sbuf) != 0) {
+-			if (errno != ENOENT) {
+-				fprintf(stderr,
+-					"stat failed for %s: %s\n",
+-					dir, strerror(errno));
+-				goto out;
+-			}
+-
+-			if (mkdir(dir, mode) != 0) {
+-				fprintf(stderr,
+-					"mkdir failed for %s: %s\n",
+-					dir, strerror(errno));
+-				goto out;
+-			}
++		rc = mkdir(dir, mode);
++		if (mkdir(dir, mode) != 0 && errno != EEXIST) {
++			fprintf(stderr, "mkdir failed for %s: %s\n",
++				dir, strerror(errno));
++			goto out;
+ 		}
+ 
+ 		if (delim == NULL)
 -- 
 2.13.1
