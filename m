@@ -1,70 +1,36 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: [PATCH net] udp: on peeking bad csum, drop packets even if not at head
-Date: Mon, 21 Aug 2017 17:39:12 -0400
-Message-ID: <20170821213912.93333-1-willemdebruijn.kernel@gmail.com>
-Cc: davem@davemloft.net, pabeni@redhat.com,
-        Willem de Bruijn <willemb@google.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f194.google.com ([209.85.216.194]:36381 "EHLO
-        mail-qt0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754035AbdHUVjQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2017 17:39:16 -0400
-Received: by mail-qt0-f194.google.com with SMTP id c15so15511372qta.3
-        for <netdev@vger.kernel.org>; Mon, 21 Aug 2017 14:39:16 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jakub Kicinski <kubakici@wp.pl>
+Subject: Re: [PATCH] mt7601u: check memory allocation failure
+Date: Mon, 21 Aug 2017 14:41:36 -0700
+Message-ID: <20170821144136.477bf655@cakuba.netronome.com>
+References: <20170821205956.20859-1-christophe.jaillet@wanadoo.fr>
+        <20170821143430.635e4b92@cakuba.netronome.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: kvalo@codeaurora.org, matthias.bgg@gmail.com,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org,
+        linux-mediatek@lists.infradead.org, linux-kernel@vger.kernel.org,
+        kernel-janitors@vger.kernel.org
+To: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170821143430.635e4b92@cakuba.netronome.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Willem de Bruijn <willemb@google.com>
+On Mon, 21 Aug 2017 14:34:30 -0700, Jakub Kicinski wrote:
+> On Mon, 21 Aug 2017 22:59:56 +0200, Christophe JAILLET wrote:
+> > Check memory allocation failure and return -ENOMEM in such a case, as
+> > already done a few lines below
+> > 
+> > Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>  
+> 
+> Acked-by: Jakub Kicinski <kubakici@wp.pl>
 
-When peeking, if a bad csum is discovered, the skb is unlinked from
-the queue with __sk_queue_drop_skb and the peek operation restarted.
+Wait, I take that back.  This code is a bit weird.  We would return an
+error, then mt7601u_dma_init() will call mt7601u_free_tx_queue() which
+doesn't check for tx_q == NULL condition.
 
-__sk_queue_drop_skb only drops packets that match the queue head. With
-sk_peek_off, the skb need not be at head, causing the call to fail and
-the same skb to be found again on restart.
-
-Walk the queue to find the correct skb. Limit the walk to sk_peek_off,
-to bound cycle cost to at most twice the original skb_queue_walk in
-__skb_try_recv_from_queue.
-
-The operation may race with updates to sk_peek_off. As the operation
-is retried, it will eventually succeed.
-
-Signed-off-by: Willem de Bruijn <willemb@google.com>
-
----
-
-Simpler would be to check (skb->csum_complete_sw && !sbk->csum_valid)
-in __skb_try_recv_from_queue to ignore skbs with bad checksum. But
-__udp_lib_checksum_complete does not update those fields if called
-while peeking, because the skb is shared. I found no way around that.
----
- net/core/datagram.c | 10 +++++++++-
- 1 file changed, 9 insertions(+), 1 deletion(-)
-
-diff --git a/net/core/datagram.c b/net/core/datagram.c
-index a21ca8dee5ea..5cf32b2372d3 100644
---- a/net/core/datagram.c
-+++ b/net/core/datagram.c
-@@ -360,9 +360,17 @@ int __sk_queue_drop_skb(struct sock *sk, struct sk_buff_head *sk_queue,
- 	int err = 0;
- 
- 	if (flags & MSG_PEEK) {
-+		struct sk_buff *lskb;
-+		int off = sk_peek_offset(sk, flags);
-+
- 		err = -ENOENT;
- 		spin_lock_bh(&sk_queue->lock);
--		if (skb == skb_peek(sk_queue)) {
-+		lskb = skb_peek(sk_queue);
-+		while (lskb != skb && lskb && off >= lskb->len) {
-+			off -= lskb->len;
-+			lskb = skb_peek_next(lskb, sk_queue);
-+		}
-+		if (lskb == skb) {
- 			__skb_unlink(skb, sk_queue);
- 			refcount_dec(&skb->users);
- 			if (destructor)
--- 
-2.14.1.480.gb18f417b89-goog
+Looks like mt7601u_free_tx() has to check for dev->tx_q == NULL and
+return early if that's the case.  Or mt7601u_alloc_tx() should really
+clean things up on it's own on failure.  Ugh.
