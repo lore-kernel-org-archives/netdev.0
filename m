@@ -1,38 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RFC net] fsl/man: Inherit parent device and of_node
-Date: Tue, 22 Aug 2017 10:26:10 -0700 (PDT)
-Message-ID: <20170822.102610.235105979872147384.davem@davemloft.net>
-References: <20170819001255.20755-1-f.fainelli@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com, madalin.bucur@nxp.com,
-        junote@outlook.com, igal.liberman@freescale.com
-To: f.fainelli@gmail.com
+From: Mike Maloney <maloneykernel@gmail.com>
+Subject: [PATCH net-next 0/2] tcp: Add software rx timestamp for TCP.
+Date: Tue, 22 Aug 2017 13:27:01 -0400
+Message-ID: <20170822172703.31703-1-maloneykernel@gmail.com>
+Cc: Mike Maloney <maloney@google.com>
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38302 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751061AbdHVR0M (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2017 13:26:12 -0400
-In-Reply-To: <20170819001255.20755-1-f.fainelli@gmail.com>
+Received: from mail-yw0-f194.google.com ([209.85.161.194]:34830 "EHLO
+        mail-yw0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751736AbdHVR1R (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2017 13:27:17 -0400
+Received: by mail-yw0-f194.google.com with SMTP id c13so9376285ywa.2
+        for <netdev@vger.kernel.org>; Tue, 22 Aug 2017 10:27:17 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Fri, 18 Aug 2017 17:12:55 -0700
+From: Mike Maloney <maloney@google.com>
 
-> @@ -623,6 +623,8 @@ static struct platform_device *dpaa_eth_add_device(int fman_id,
->  		goto no_mem;
->  	}
->  
-> +	pdev->dev.of_node = node;
-> +	pdev->dev.parent = priv->dev;
->  	set_dma_ops(&pdev->dev, get_dma_ops(priv->dev));
->  
->  	ret = platform_device_add_data(pdev, &data, sizeof(data));
+Add software rx timestamps for TCP, and a test to ensure consistency of
+behavior between IP, UDP, and TCP implementations.
 
-I guess since we allocate and manage the platform device here, we can
-fumble around safely with it's device node pointer and parent.
+Mike Maloney (2):
+  tcp: Extend SOF_TIMESTAMPING_RX_SOFTWARE to TCP recvmsg
+  selftests/net: Add a test to validate behavior of rx timestamps
 
-So this should be ok.
+ include/net/tcp.h                                  |   9 +-
+ net/ipv4/tcp.c                                     |  63 ++++
+ net/ipv4/tcp_input.c                               |  35 +-
+ net/ipv4/tcp_ipv4.c                                |   2 +
+ net/ipv6/tcp_ipv6.c                                |   2 +
+ .../selftests/networking/timestamping/.gitignore   |   1 +
+ .../selftests/networking/timestamping/Makefile     |   4 +-
+ .../networking/timestamping/rxtimestamp.c          | 379 +++++++++++++++++++++
+ 8 files changed, 489 insertions(+), 6 deletions(-)
+ create mode 100644 tools/testing/selftests/networking/timestamping/rxtimestamp.c
+
+-- 
+2.14.1.480.gb18f417b89-goog
