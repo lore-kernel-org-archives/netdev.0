@@ -1,67 +1,65 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: XDP redirect measurements, gotchas and tracepoints
-Date: Tue, 22 Aug 2017 10:17:59 -0700
-Message-ID: <599C6747.8010005@gmail.com>
-References: <20170821212506.1cb0d5d6@redhat.com> <20170821223540.atktdricmks26c27@ast-mbp> <20170822083710.47a182a2@redhat.com> <20170822170913.35umf4j6hlmcnwtm@ast-mbp>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: [PATCH net-next] virtio-net: invoke zerocopy callback on xmit
+ path if no tx napi
+Date: Tue, 22 Aug 2017 13:19:36 -0400
+Message-ID: <CAF=yD-JyLEUgUgeH5TjRUj2wz9CjRkAx1HUyXRxCDyT5iHx-sg@mail.gmail.com>
+References: <20170819063854.27010-1-den@klaipeden.com> <CAF=yD-LYLsQNt_5yYZ+PUwv04ZwaJUXn-YakH=tuh0TV+BG7iA@mail.gmail.com>
+ <CAF=yD-LO0rP1A_hrxqx_1HYEv6qyk=Sc=D7iH7cPh2YXDm=cYQ@mail.gmail.com> <1503410668.8694.14.camel@klaipeden.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: "xdp-newbies@vger.kernel.org" <xdp-newbies@vger.kernel.org>,
-        Daniel Borkmann <borkmann@iogearbox.net>,
-        Andy Gospodarek <andy@greyhouse.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        =?UTF-8?B?UGF3ZcWCIFN0YXN6ZXdza2k=?= <pstaszewski@itcare.pl>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>
+Content-Type: text/plain; charset="UTF-8"
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+        virtualization@lists.linux-foundation.org,
+        Network Development <netdev@vger.kernel.org>
+To: Koichiro Den <den@klaipeden.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:37659 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751194AbdHVRSM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2017 13:18:12 -0400
-In-Reply-To: <20170822170913.35umf4j6hlmcnwtm@ast-mbp>
+Received: from mail-oi0-f49.google.com ([209.85.218.49]:32806 "EHLO
+        mail-oi0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751061AbdHVRUR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2017 13:20:17 -0400
+Received: by mail-oi0-f49.google.com with SMTP id f11so192398011oic.0
+        for <netdev@vger.kernel.org>; Tue, 22 Aug 2017 10:20:17 -0700 (PDT)
+In-Reply-To: <1503410668.8694.14.camel@klaipeden.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/22/2017 10:09 AM, Alexei Starovoitov wrote:
-> On Tue, Aug 22, 2017 at 08:37:10AM +0200, Jesper Dangaard Brouer wrote:
+>> > >         /* Don't wait up for transmitted skbs to be freed. */
+>> > >         if (!use_napi) {
+>> > > +               if (skb_shinfo(skb)->tx_flags & SKBTX_DEV_ZEROCOPY) {
+>> > > +                       struct ubuf_info *uarg;
+>> > > +                       uarg = skb_shinfo(skb)->destructor_arg;
+>> > > +                       if (uarg->callback)
+>> > > +                           uarg->callback(uarg, true);
+>> > > +                       skb_shinfo(skb)->destructor_arg = NULL;
+>> > > +                       skb_shinfo(skb)->tx_flags &= ~SKBTX_DEV_ZEROCOPY;
+>> > > +               }
+>> >
+>> > Instead of open coding, this can use skb_zcopy_clear.
 >>
->>
->>> Once tx-ing netdev added to devmap we can enable xdp on it automatically?
->>
->> I think you are referring to Gotcha-2 here:
-> 
-> oops. yes :)
-> 
->>
->>   Second gotcha(2): you cannot TX out a device, unless it also have a
->>   xdp bpf program attached. (This is an implicit dependency, as the
->>   driver code need to setup XDP resources before it can ndo_xdp_xmit).
->>
->> Yes, we should work on improving this situation.  Auto enabling XDP
->> when a netdev is added to a devmap is a good solution.  Currently this
->> is tied to loading an XDP bpf_prog.  Do you propose loading a dummy
->> bpf_prog on the netdev? (then we need to handle 1. not replacing
->> existing bpf_prog, 2. on take-down don't remove "later" loaded
->> bpf_prog).
-> 
-> right. these things need to be taken care of.
-> Technically for ndo_xdp_xmit to work the program doesn't need
-> to be attached, but the device needs to be in xdp mode with
-> configured xdp tx rings.
-> The easiest, of course, is just to document it :)
-> and may be add some sort of warning that if netdev is added
-> to devmap and it's not in xdp mode, return warning or error.
-> 
+>> It is not correct to only send the zerocopy completion here, as
+>> the skb will still be shared with the nic. The only safe approach
+>> to notifying early is to create a copy with skb_orphan_frags_rx.
+>> That will call skb_zcopy_clear(skb, false) internally. But the
+>> copy will be very expensive.
+> I noticed this email after my last post. I cannot not imagine how it could be
+> unsafe in virtio case. Sorry could you explain a bit more?
 
-When I wrote this I assumed some user space piece could
-load the "dummy" nop program on devices as needed. It seemed
-easier than putting semi-complex logic in the kernel to load
-programs on update_elem, but only if the user hasn't already
-loaded a program and then unload it but again only if some
-criteria is met. Then we would have one more kernel path into
-load/unload BPF programs and would need all the tests and what
-not.
+A guest process sends a packet with MSG_ZEROCOPY to the
+virtio-net device. As soon as the process receives the completion
+notification, it is allowed to reuse the memory backing the packet.
 
-+1 for documenting and userland usability patches.
+A call to skb_zcopy_clear in virtio-net start_xmit will notify the
+process that it is allowed to reuse the memory. But the user pages
+are still linked into the skb frags and are about to be shared with
+the host os.
 
-.John
+>> Is the deadlock you refer to the case where tx interrupts are
+>> disabled, so transmit completions are only handled in start_xmit
+>> and somehow the socket(s) are unable to send new data? The
+>> question is what is blocking them. If it is zerocopy, it may be a
+>> too low optmem_max or hitting the per-user locked pages limit.
+>> We may have to keep interrupts enabled when zerocopy skbs
+>> are in flight.
+> Even if we keep interrupts enabled, We miss the completion without start_xmit.
+> And it's also likely that the next start_xmit depends on the completion itself
+> as I described in my last post.
+>
