@@ -1,255 +1,80 @@
-From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH net-next v2 07/10] net: mvpp2: initialize the GoP
-Date: Tue, 22 Aug 2017 19:08:27 +0200
-Message-ID: <20170822170830.32413-8-antoine.tenart@free-electrons.com>
-References: <20170822170830.32413-1-antoine.tenart@free-electrons.com>
-Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
-        thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
-        linux@armlinux.org.uk, mw@semihalf.com, stefanc@marvell.com,
-        netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: davem@davemloft.net, jason@lakedaemon.net, andrew@lunn.ch,
-        gregory.clement@free-electrons.com, sebastian.hesselbarth@gmail.com
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: [PATCH net-next] virtio-net: invoke zerocopy callback on xmit
+ path if no tx napi
+Date: Tue, 22 Aug 2017 13:16:26 -0400
+Message-ID: <CAF=yD-+AOnYafiwAf+v+fhyg_0fi-6LdQSnPYcoAcngJqYs9dg@mail.gmail.com>
+References: <20170819063854.27010-1-den@klaipeden.com> <5352c98a-fa48-fcf9-c062-9986a317a1b0@redhat.com>
+ <CAF=yD-LZ4=WAYfUtY7xRWi50FRSkrcOa+b7uc46xRnC4sbDCzQ@mail.gmail.com>
+ <64d451ae-9944-e978-5a05-54bb1a62aaad@redhat.com> <CAF=yD-L-9QnxV2kM_j2BxVk=h7i3wvMZxG-3_=0Q=jDPgeT=VQ@mail.gmail.com>
+ <1503409339.8694.12.camel@klaipeden.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: Jason Wang <jasowang@redhat.com>,
+        "Michael S. Tsirkin" <mst@redhat.com>,
+        virtualization@lists.linux-foundation.org,
+        Network Development <netdev@vger.kernel.org>
+To: Koichiro Den <den@klaipeden.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:38579 "EHLO
-        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751209AbdHVRIu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2017 13:08:50 -0400
-In-Reply-To: <20170822170830.32413-1-antoine.tenart@free-electrons.com>
+Received: from mail-oi0-f43.google.com ([209.85.218.43]:33592 "EHLO
+        mail-oi0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751289AbdHVRRI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2017 13:17:08 -0400
+Received: by mail-oi0-f43.google.com with SMTP id f11so192311043oic.0
+        for <netdev@vger.kernel.org>; Tue, 22 Aug 2017 10:17:07 -0700 (PDT)
+In-Reply-To: <1503409339.8694.12.camel@klaipeden.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The patch adds GoP (group of ports) initialization functions. The mvpp2
-driver was relying on the firmware/bootloader initialization; this patch
-moves this setup to the mvpp2 driver.
+>> > An issue of the referenced patch is that sndbuf could be smaller than low
+>> > watermark.
+> We cannot determine the low watermark properly because of not only sndbuf size
+> issue but also the fact that the upper vhost-net cannot directly see how much
+> descriptor is currently available at the virtio-net tx queue. It depends on
+> multiqueue settings or other senders which are also using the same tx queue.
+> Note that in the latter case if they constantly transmitting, the deadlock could
+> not occur(*), however if it has just temporarily fulfill some portion of the
+> pool in the mean time, then the low watermark cannot be helpful.
+> (*: That is because it's reliable enough in the sense I mention below.)
+>
+> Keep in this in mind, let me briefly describe the possible deadlock I mentioned:
+> (1). vhost-net on L1 guest has nothing to do sendmsg until the upper layer sets
+> new descriptors, which depends only on the vhost-net zcopy callback and adding
+> newly used descriptors.
+> (2). vhost-net callback depends on the skb freeing on the xmit path only.
+> (3). the xmit path depends (possibly only) on the vhost-net sendmsg.
+> As you see, it's enough to bring about the situation above that L1 virtio-net
+> reaches its limit earlier than the L0 host processing. The vhost-net pool could
+> be almost full or empty, whatever.
 
-Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
-Tested-by: Marcin Wojtas <mw@semihalf.com>
----
- drivers/net/ethernet/marvell/mvpp2.c | 170 +++++++++++++++++++++++++++++++++++
- 1 file changed, 170 insertions(+)
+Thanks for the context. This issue is very similar to the one that used to
+exist when running out of transmit descriptors, before the removal of
+the timer and introduction of skb_orphan in start_xmit.
 
-diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index b2d2b4c9d5af..02c62cbbfe51 100644
---- a/drivers/net/ethernet/marvell/mvpp2.c
-+++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -18,6 +18,7 @@
- #include <linux/inetdevice.h>
- #include <linux/mbus.h>
- #include <linux/module.h>
-+#include <linux/mfd/syscon.h>
- #include <linux/interrupt.h>
- #include <linux/cpumask.h>
- #include <linux/of.h>
-@@ -30,6 +31,7 @@
- #include <linux/clk.h>
- #include <linux/hrtimer.h>
- #include <linux/ktime.h>
-+#include <linux/regmap.h>
- #include <uapi/linux/ppp_defs.h>
- #include <net/ip.h>
- #include <net/ipv6.h>
-@@ -388,6 +390,38 @@
- #define MVPP2_QUEUE_NEXT_DESC(q, index) \
- 	(((index) < (q)->last_desc) ? ((index) + 1) : 0)
- 
-+/* XPCS registers. PPv2.2 only */
-+#define MVPP22_MPCS_BASE(port)			(0x7000 + (port) * 0x1000)
-+#define MVPP22_MPCS_CTRL			0x14
-+#define     MVPP22_MPCS_CTRL_FWD_ERR_CONN	BIT(10)
-+#define MVPP22_MPCS_CLK_RESET			0x14c
-+#define     MAC_CLK_RESET_SD_TX			BIT(0)
-+#define     MAC_CLK_RESET_SD_RX			BIT(1)
-+#define     MAC_CLK_RESET_MAC			BIT(2)
-+#define     MVPP22_MPCS_CLK_RESET_DIV_RATIO(n)	((n) << 4)
-+#define     MVPP22_MPCS_CLK_RESET_DIV_SET	BIT(11)
-+
-+/* XPCS registers. PPv2.2 only */
-+#define MVPP22_XPCS_BASE(port)			(0x7400 + (port) * 0x1000)
-+#define MVPP22_XPCS_CFG0			0x0
-+#define     MVPP22_XPCS_CFG0_PCS_MODE(n)	((n) << 3)
-+#define     MVPP22_XPCS_CFG0_ACTIVE_LANE(n)	((n) << 5)
-+
-+/* System controller registers. Accessed through a regmap. */
-+#define GENCONF_SOFT_RESET1				0x1108
-+#define     GENCONF_SOFT_RESET1_GOP			BIT(6)
-+#define GENCONF_PORT_CTRL0				0x1110
-+#define     GENCONF_PORT_CTRL0_BUS_WIDTH_SELECT		BIT(1)
-+#define     GENCONF_PORT_CTRL0_RX_DATA_SAMPLE		BIT(29)
-+#define     GENCONF_PORT_CTRL0_CLK_DIV_PHASE_CLR	BIT(31)
-+#define GENCONF_PORT_CTRL1				0x1114
-+#define     GENCONF_PORT_CTRL1_EN(p)			BIT(p)
-+#define     GENCONF_PORT_CTRL1_RESET(p)			(BIT(p) << 28)
-+#define GENCONF_CTRL0					0x1120
-+#define     GENCONF_CTRL0_PORT0_RGMII			BIT(0)
-+#define     GENCONF_CTRL0_PORT1_RGMII_MII		BIT(1)
-+#define     GENCONF_CTRL0_PORT1_RGMII			BIT(2)
-+
- /* Various constants */
- 
- /* Coalescing */
-@@ -731,6 +765,11 @@ struct mvpp2 {
- 	 */
- 	void __iomem *swth_base[MVPP2_MAX_THREADS];
- 
-+	/* On PPv2.2, some port control registers are located into the system
-+	 * controller space. These registers are accessible through a regmap.
-+	 */
-+	struct regmap *sysctrl_base;
-+
- 	/* Common clocks */
- 	struct clk *pp_clk;
- 	struct clk *gop_clk;
-@@ -4259,6 +4298,123 @@ mvpp2_shared_interrupt_mask_unmask(struct mvpp2_port *port, bool mask)
- 
- /* Port configuration routines */
- 
-+static void mvpp22_gop_init_rgmii(struct mvpp2_port *port)
-+{
-+	struct mvpp2 *priv = port->priv;
-+	u32 val;
-+
-+	regmap_read(priv->sysctrl_base, GENCONF_PORT_CTRL0, &val);
-+	val |= GENCONF_PORT_CTRL0_BUS_WIDTH_SELECT;
-+	regmap_write(priv->sysctrl_base, GENCONF_PORT_CTRL0, val);
-+
-+	regmap_read(priv->sysctrl_base, GENCONF_CTRL0, &val);
-+	if (port->gop_id == 2)
-+		val |= GENCONF_CTRL0_PORT0_RGMII | GENCONF_CTRL0_PORT1_RGMII;
-+	else if (port->gop_id == 3)
-+		val |= GENCONF_CTRL0_PORT1_RGMII_MII;
-+	regmap_write(priv->sysctrl_base, GENCONF_CTRL0, val);
-+}
-+
-+static void mvpp22_gop_init_sgmii(struct mvpp2_port *port)
-+{
-+	struct mvpp2 *priv = port->priv;
-+	u32 val;
-+
-+	regmap_read(priv->sysctrl_base, GENCONF_PORT_CTRL0, &val);
-+	val |= GENCONF_PORT_CTRL0_BUS_WIDTH_SELECT |
-+	       GENCONF_PORT_CTRL0_RX_DATA_SAMPLE;
-+	regmap_write(priv->sysctrl_base, GENCONF_PORT_CTRL0, val);
-+
-+	if (port->gop_id > 1) {
-+		regmap_read(priv->sysctrl_base, GENCONF_CTRL0, &val);
-+		if (port->gop_id == 2)
-+			val &= ~GENCONF_CTRL0_PORT0_RGMII;
-+		else if (port->gop_id == 3)
-+			val &= ~GENCONF_CTRL0_PORT1_RGMII_MII;
-+		regmap_write(priv->sysctrl_base, GENCONF_CTRL0, val);
-+	}
-+}
-+
-+static void mvpp22_gop_init_10gkr(struct mvpp2_port *port)
-+{
-+	struct mvpp2 *priv = port->priv;
-+	void __iomem *mpcs = priv->iface_base + MVPP22_MPCS_BASE(port->gop_id);
-+	void __iomem *xpcs = priv->iface_base + MVPP22_XPCS_BASE(port->gop_id);
-+	u32 val;
-+
-+	/* XPCS */
-+	val = readl(xpcs + MVPP22_XPCS_CFG0);
-+	val &= ~(MVPP22_XPCS_CFG0_PCS_MODE(0x3) |
-+		 MVPP22_XPCS_CFG0_ACTIVE_LANE(0x3));
-+	val |= MVPP22_XPCS_CFG0_ACTIVE_LANE(2);
-+	writel(val, xpcs + MVPP22_XPCS_CFG0);
-+
-+	/* MPCS */
-+	val = readl(mpcs + MVPP22_MPCS_CTRL);
-+	val &= ~MVPP22_MPCS_CTRL_FWD_ERR_CONN;
-+	writel(val, mpcs + MVPP22_MPCS_CTRL);
-+
-+	val = readl(mpcs + MVPP22_MPCS_CLK_RESET);
-+	val &= ~(MVPP22_MPCS_CLK_RESET_DIV_RATIO(0x7) | MAC_CLK_RESET_MAC |
-+		 MAC_CLK_RESET_SD_RX | MAC_CLK_RESET_SD_TX);
-+	val |= MVPP22_MPCS_CLK_RESET_DIV_RATIO(1);
-+	writel(val, mpcs + MVPP22_MPCS_CLK_RESET);
-+
-+	val &= ~MVPP22_MPCS_CLK_RESET_DIV_SET;
-+	val |= MAC_CLK_RESET_MAC | MAC_CLK_RESET_SD_RX | MAC_CLK_RESET_SD_TX;
-+	writel(val, mpcs + MVPP22_MPCS_CLK_RESET);
-+}
-+
-+static int mvpp22_gop_init(struct mvpp2_port *port)
-+{
-+	struct mvpp2 *priv = port->priv;
-+	u32 val;
-+
-+	if (!priv->sysctrl_base)
-+		return 0;
-+
-+	switch (port->phy_interface) {
-+	case PHY_INTERFACE_MODE_RGMII:
-+	case PHY_INTERFACE_MODE_RGMII_ID:
-+	case PHY_INTERFACE_MODE_RGMII_RXID:
-+	case PHY_INTERFACE_MODE_RGMII_TXID:
-+		if (port->gop_id == 0)
-+			goto invalid_conf;
-+		mvpp22_gop_init_rgmii(port);
-+		break;
-+	case PHY_INTERFACE_MODE_SGMII:
-+		mvpp22_gop_init_sgmii(port);
-+		break;
-+	case PHY_INTERFACE_MODE_10GKR:
-+		if (port->gop_id != 0)
-+			goto invalid_conf;
-+		mvpp22_gop_init_10gkr(port);
-+		break;
-+	default:
-+		goto unsupported_conf;
-+	}
-+
-+	regmap_read(priv->sysctrl_base, GENCONF_PORT_CTRL1, &val);
-+	val |= GENCONF_PORT_CTRL1_RESET(port->gop_id) |
-+	       GENCONF_PORT_CTRL1_EN(port->gop_id);
-+	regmap_write(priv->sysctrl_base, GENCONF_PORT_CTRL1, val);
-+
-+	regmap_read(priv->sysctrl_base, GENCONF_PORT_CTRL0, &val);
-+	val |= GENCONF_PORT_CTRL0_CLK_DIV_PHASE_CLR;
-+	regmap_write(priv->sysctrl_base, GENCONF_PORT_CTRL0, val);
-+
-+	regmap_read(priv->sysctrl_base, GENCONF_SOFT_RESET1, &val);
-+	val |= GENCONF_SOFT_RESET1_GOP;
-+	regmap_write(priv->sysctrl_base, GENCONF_SOFT_RESET1, val);
-+
-+unsupported_conf:
-+	return 0;
-+
-+invalid_conf:
-+	netdev_err(port->dev, "Invalid port configuration\n");
-+	return -EINVAL;
-+}
-+
- static void mvpp2_port_mii_gmac_configure_mode(struct mvpp2_port *port)
- {
- 	u32 val;
-@@ -6105,6 +6261,9 @@ static void mvpp2_start_dev(struct mvpp2_port *port)
- 	/* Enable interrupts on all CPUs */
- 	mvpp2_interrupts_enable(port);
- 
-+	if (port->priv->hw_version == MVPP22)
-+		mvpp22_gop_init(port);
-+
- 	mvpp2_port_mii_set(port);
- 	mvpp2_port_enable(port);
- 	phy_start(ndev->phydev);
-@@ -7350,6 +7509,17 @@ static int mvpp2_probe(struct platform_device *pdev)
- 		priv->iface_base = devm_ioremap_resource(&pdev->dev, res);
- 		if (IS_ERR(priv->iface_base))
- 			return PTR_ERR(priv->iface_base);
-+
-+		priv->sysctrl_base =
-+			syscon_regmap_lookup_by_phandle(pdev->dev.of_node,
-+							"marvell,system-controller");
-+		if (IS_ERR(priv->sysctrl_base))
-+			/* The system controller regmap is optional for dt
-+			 * compatibility reasons. When not provided, the
-+			 * configuration of the GoP relies on the
-+			 * firmware/bootloader.
-+			 */
-+			priv->sysctrl_base = NULL;
- 	}
- 
- 	for (i = 0; i < MVPP2_MAX_THREADS; i++) {
--- 
-2.13.5
+To make sure that I understand correctly, let me paraphrase:
+
+A. guest socket cannot send because it exhausted its sk budget (sndbuf, tsq, ..)
+
+B. budget is not freed up until guest receives tx completion for this flow
+
+C. tx completion is held back on the host side in vhost_zerocopy_signal_used
+   behind the completion for an unrelated skb
+
+D. unrelated packet is delayed somewhere in the host stackf zerocopy
+completions.
+   e.g., netem
+
+The issue that is specific to vhost-net zerocopy is that (C) enforces strict
+ordering of transmit completions causing head of line blocking behind
+vhost-net zerocopy callbacks.
+
+This is a different problem from
+
+C1. tx completion is delayed until guest sends another packet and
+       triggers free_old_xmit_skb
+
+Both in host and guest, zerocopy packets should never be able to loop
+to a receive path where they can cause unbounded delay.
+
+The obvious cases of latency are queueing, like netem. That leads
+to poor performance for unrelated flows, but I don't see how this
+could cause deadlock.
