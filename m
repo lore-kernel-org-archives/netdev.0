@@ -1,27 +1,25 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next 1/5] xdp: remove bpf_warn_invalid_xdp_redirect
-Date: Tue, 22 Aug 2017 23:19:40 +0200
-Message-ID: <599C9FEC.6060501@iogearbox.net>
-References: <150343479290.31091.8019008896152616977.stgit@firesoul> <150343483960.31091.3438305938845615426.stgit@firesoul>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: ethernet: ax88796: make mdiobb_ops const
+Date: Tue, 22 Aug 2017 14:21:27 -0700 (PDT)
+Message-ID: <20170822.142127.1556796890290919849.davem@davemloft.net>
+References: <1503389479-17429-1-git-send-email-bhumirks@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: John Fastabend <john.fastabend@gmail.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:59889 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752172AbdHVVTm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2017 17:19:42 -0400
-In-Reply-To: <150343483960.31091.3438305938845615426.stgit@firesoul>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: julia.lawall@lip6.fr, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: bhumirks@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1503389479-17429-1-git-send-email-bhumirks@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 08/22/2017 10:47 PM, Jesper Dangaard Brouer wrote:
-> Given there is a tracepoint that can track the error code
-> of xdp_do_redirect calls, the WARN_ONCE in bpf_warn_invalid_xdp_redirect
-> doesn't seem relevant any longer.  Simply remove the function.
->
-> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+From: Bhumika Goyal <bhumirks@gmail.com>
+Date: Tue, 22 Aug 2017 13:41:19 +0530
 
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+> Make this const as it is only stored in a const field of a
+> mdiobb_ctrl structure.
+> 
+> Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
+
+Applied.
