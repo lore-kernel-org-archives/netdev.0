@@ -1,83 +1,110 @@
-From: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH v3 3/4] net: stmmac: register parent MDIO node for
- sun8i-h3-emac
-Date: Tue, 22 Aug 2017 18:50:38 +0200
-Message-ID: <20170822165038.afmpeztr2yzffhbq@flea.lan>
-References: <CAGb2v66KcZkiDDHryMmVzm4WroXePPy3V44SLpVdoO3ZEjgC=g@mail.gmail.com>
- <20170819185025.GB13266@Red>
- <20170819203836.GA21567@lunn.ch>
- <20170820065757.GA6081@Red>
- <20170820142545.GB24150@lunn.ch>
- <CAGb2v67hQXSoCKP7qW+KRUYX+0djQ1Z23cQ67Lyg6G7ozGyfGQ@mail.gmail.com>
- <20170821132015.GB1703@lunn.ch>
- <20170821133104.qvrhvwin2rdg4aqo@flea.lan>
- <20170821142321.GE1703@lunn.ch>
- <CAGb2v64E4T=1ff3POGuXZA=MvjGAnKQ6OF6A3sT_cU-=jh6zNw@mail.gmail.com>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCH] net: ftgmac100: Fix oops in probe on failure to find
+ associated PHY
+Date: Tue, 22 Aug 2017 09:59:35 -0700
+Message-ID: <1503421175.2195.44.camel@kernel.crashing.org>
+References: <20170822063622.21550-1-andrew@aj.id.au>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="fcnm4qn4b73qe32y"
-Cc: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
-        Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        Russell King <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>,
-        Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
-        Alexandre Torgue <alexandre.torgue-qxv4g6HH51o@public.gmane.org>,
-        devicetree <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        linux-arm-kernel <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-        linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <CAGb2v64E4T=1ff3POGuXZA=MvjGAnKQ6OF6A3sT_cU-=jh6zNw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, joel@jms.id.au, linux-kernel@vger.kernel.org,
+        openbmc@lists.ozlabs.org, linux-aspeed@lists.ozlabs.org,
+        ryan_chen@aspeedtech.com
+To: Andrew Jeffery <andrew@aj.id.au>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170822063622.21550-1-andrew@aj.id.au>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Tue, 2017-08-22 at 16:06 +0930, Andrew Jeffery wrote:
+> netif_napi_del() should be paired with netif_napi_add(), however no
+> such call takes place in ftgmac100_probe(). This triggers a NULL
+> pointer dereference if e.g. no PHY is found by the MDIO probe:
+> 
+> 	 [ 2.770000] libphy: Fixed MDIO Bus: probed
+> 	 [ 2.770000] ftgmac100 1e660000.ethernet: Generated random MAC address 66:58:c0:5a:50:b8
+> 	 [ 2.790000] libphy: ftgmac100_mdio: probed
+> 	 [ 2.790000] ftgmac100 1e660000.ethernet (unnamed net_device) (uninitialized): eth%d: no PHY found
+> 	 [ 2.790000] ftgmac100 1e660000.ethernet: MII Probe failed!
+> 	 [ 2.810000] Unable to handle kernel NULL pointer dereference at virtual address 00000004
+> 	 [ 2.810000] pgd = 80004000
+> 	 [ 2.810000] [00000004] *pgd=00000000
+> 	 [ 2.810000] Internal error: Oops: 805 [#1] ARM
+> 	 [ 2.810000] CPU: 0 PID: 1 Comm: swapper Not tainted 4.10.17-1a4df30c39cf5ee0e3d2528c409787ccbb4a672a #1
+> 	 [ 2.810000] Hardware name: ASpeed SoC
+> 	 [ 2.810000] task: 9e421b60 task.stack: 9e4a0000
+> 	 [ 2.810000] PC is at netif_napi_del+0x74/0xa4
+> 	 [ 2.810000] LR is at ftgmac100_probe+0x290/0x674
+> 	 [ 2.810000] pc : [<80331004>] lr : [<80292b30>] psr: 60000013
+> 	 [ 2.810000] sp : 9e4a1d70 ip : 9e4a1d88 fp : 9e4a1d84
+> 	 [ 2.810000] r10: 9e565000 r9 : ffffffed r8 : 00000007
+> 	 [ 2.810000] r7 : 9e565480 r6 : 9ec072c0 r5 : 00000000 r4 : 9e5654d8
+> 	 [ 2.810000] r3 : 9e565530 r2 : 00000000 r1 : 00000000 r0 : 9e5654d8
+> 	 [ 2.810000] Flags: nZCv IRQs on FIQs on Mode SVC_32 ISA ARM Segment user
+> 	 [ 2.810000] Control: 00c5387d Table: 80004008 DAC: 00000055
+> 	 [ 2.810000] Process swapper (pid: 1, stack limit = 0x9e4a0188)
+> 	 [ 2.810000] Stack: (0x9e4a1d70 to 0x9e4a2000)
+> 	 [ 2.810000] 1d60: 9e565000 9e549e10 9e4a1dcc 9e4a1d88
+> 	 [ 2.810000] 1d80: 80292b30 80330f9c ffffffff 9e4a1d98 80146058 9ec072c0 00009e10 00000000
+> 	 [ 2.810000] 1da0: 9e549e18 9e549e10 ffffffed 805f81f4 fffffdfb 00000000 00000000 00000000
+> 	 [ 2.810000] 1dc0: 9e4a1dec 9e4a1dd0 80243df8 802928ac 9e549e10 8062cbd8 8062cbe0 805f81f4
+> 	 [ 2.810000] 1de0: 9e4a1e24 9e4a1df0 80242178 80243da4 803001d0 802ffa60 9e4a1e24 9e549e10
+> 	 [ 2.810000] 1e00: 9e549e44 805f81f4 00000000 00000000 805b8840 8058a6b0 9e4a1e44 9e4a1e28
+> 	 [ 2.810000] 1e20: 80242434 80241f04 00000000 805f81f4 80242344 00000000 9e4a1e6c 9e4a1e48
+> 	 [ 2.810000] 1e40: 80240148 80242350 9e425bac 9e4fdc90 9e790e94 805f81f4 9e790e60 805f5640
+> 	 [ 2.810000] 1e60: 9e4a1e7c 9e4a1e70 802425dc 802400d8 9e4a1ea4 9e4a1e80 80240ba8 802425c0
+> 	 [ 2.810000] 1e80: 8050b6ac 9e4a1e90 805f81f4 ffffe000 805b8838 80616720 9e4a1ebc 9e4a1ea8
+> 	 [ 2.810000] 1ea0: 80243068 80240a68 805ab24c ffffe000 9e4a1ecc 9e4a1ec0 80244a38 80242fec
+> 	 [ 2.810000] 1ec0: 9e4a1edc 9e4a1ed0 805ab264 80244a04 9e4a1f4c 9e4a1ee0 8058ae70 805ab258
+> 	 [ 2.810000] 1ee0: 80032c68 801e3fd8 8052f800 8041af2c 9e4a1f4c 9e4a1f00 80032f90 8058a6bc
+> 	 [ 2.810000] 1f00: 9e4a1f2c 9e4a1f10 00000006 00000006 00000000 8052f220 805112f0 00000000
+> 	 [ 2.810000] 1f20: 9e4a1f4c 00000006 80616720 805cf400 80616720 805b8838 80616720 00000057
+> 	 [ 2.810000] 1f40: 9e4a1f94 9e4a1f50 8058b040 8058add0 00000006 00000006 00000000 8058a6b0
+> 	 [ 2.810000] 1f60: 3940bf3d 00000007 f115c2e8 00000000 803fd158 00000000 00000000 00000000
+> 	 [ 2.810000] 1f80: 00000000 00000000 9e4a1fac 9e4a1f98 803fd170 8058af38 00000000 803fd158
+> 	 [ 2.810000] 1fa0: 00000000 9e4a1fb0 8000a5e8 803fd164 00000000 00000000 00000000 00000000
+> 	 [ 2.810000] 1fc0: 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+> 	 [ 2.810000] 1fe0: 00000000 00000000 00000000 00000000 00000013 00000000 d11dcae8 af8ddec5
+> 	 [ 2.810000] [<80331004>] (netif_napi_del) from [<80292b30>] (ftgmac100_probe+0x290/0x674)
+> 	 [ 2.810000] [<80292b30>] (ftgmac100_probe) from [<80243df8>] (platform_drv_probe+0x60/0xc0)
+> 	 [ 2.810000] [<80243df8>] (platform_drv_probe) from [<80242178>] (driver_probe_device+0x280/0x44c)
+> 	 [ 2.810000] [<80242178>] (driver_probe_device) from [<80242434>] (__driver_attach+0xf0/0x104)
+> 	 [ 2.810000] [<80242434>] (__driver_attach) from [<80240148>] (bus_for_each_dev+0x7c/0xb0)
+> 	 [ 2.810000] [<80240148>] (bus_for_each_dev) from [<802425dc>] (driver_attach+0x28/0x30)
+> 	 [ 2.810000] [<802425dc>] (driver_attach) from [<80240ba8>] (bus_add_driver+0x14c/0x268)
+> 	 [ 2.810000] [<80240ba8>] (bus_add_driver) from [<80243068>] (driver_register+0x88/0x104)
+> 	 [ 2.810000] [<80243068>] (driver_register) from [<80244a38>] (__platform_driver_register+0x40/0x54)
+> 	 [ 2.810000] [<80244a38>] (__platform_driver_register) from [<805ab264>] (ftgmac100_driver_init+0x18/0x20)
+> 	 [ 2.810000] [<805ab264>] (ftgmac100_driver_init) from [<8058ae70>] (do_one_initcall+0xac/0x168)
+> 	 [ 2.810000] [<8058ae70>] (do_one_initcall) from [<8058b040>] (kernel_init_freeable+0x114/0x1cc)
+> 	 [ 2.810000] [<8058b040>] (kernel_init_freeable) from [<803fd170>] (kernel_init+0x18/0x104)
+> 	 [ 2.810000] [<803fd170>] (kernel_init) from [<8000a5e8>] (ret_from_fork+0x14/0x2c)
+> 	 [ 2.810000] Code: e594205c e5941058 e2843058 e3a05000 (e5812004)
+> 	 [ 3.210000] ---[ end trace f32811052fd3860c ]---
+> 
+> Signed-off-by: Andrew Jeffery <andrew@aj.id.au>
 
---fcnm4qn4b73qe32y
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Good catch, thanks. Ack below.
 
-On Tue, Aug 22, 2017 at 11:39:22PM +0800, Chen-Yu Tsai wrote:
-> Now can we please decide on something? We're a week and a half from
-> the 4.13 release. If mdio-mux is wrong, then we could have two mdio
-> nodes (internal-mdio & external-mdio).
+I think there is one more instance of that bug in ftgmac100_remove()
+that should probably go away too. (travelling, can't really do/test
+a patch this week).
 
-I can only emphasize this. I'm afraid that if we don't have an
-agreement and a patch implementing it with the proper acks by the end
-of the week, we'll have to revert all the DT bits and the bindings.
+Acked-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 
-Maxime
-
---=20
-Maxime Ripard, Free Electrons
-Embedded Linux and Kernel engineering
-http://free-electrons.com
-
---fcnm4qn4b73qe32y
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQIcBAEBAgAGBQJZnGDdAAoJEBx+YmzsjxAg5yEP/2m2H7eRbVEXvOyl+7+Il1pz
-LFP10ogmPgfMwk9mWDaF/7hxRJgbSBhWsbo1uFyxx0VSQ8w2P4XEBuXpN/LMLchK
-DxzmgKVtqAy6PW1KJiY/HG1zVPQf8RpwnGO2fynQX3EWZkLuAf7RhyCVBUfk2qKR
-YMX6Shnl6UV1krb/9WhTAKwwv90D1puqiiBShgA3TRStoc1CcagD3vQv7ykNckd1
-oYw6X689F3MTrr6qQ+vvqmZgKLbVDdNGfeiSBnU88aDXYdaZGB/SrfydXC4yMFQD
-XVmEd2yGhKCLqWxfG6Jr0bRe950VXvJy95yG/ZBR+HDdZbit4ISMHjQOsxAN3nMo
-t7JBr2ttzAyDrtCq1OuL2yb6Jn/XBj99wd6bd+AK0hhWV9b7dXTZ8GN6UihYdMy+
-2/P7QZU4CNmcKMCSduskntbDzAtsmKJYd2zvRH6ZEyeGIWOn9eCUslDGrBLIV4A9
-kAKnKEP70dn4ulHLPZw55XIbg7uBu75e3zPvNGR+jYoBJYeL/SyQ/Dy43pZpELzy
-Hf0bwDZ6/Iqmj3UCholejx+yTgWr6tKz3Ws4HaMTLnSLvBQ+H1F6cpIPGgyC84PO
-QIziy2qEeZQXJ30It0Wpfsq/KWaxJ5alq1uTWa9vALMeDlFe0Xf5FgCh9C5epaOB
-wL7YQRB7GZj4XONEmU0q
-=XIqj
------END PGP SIGNATURE-----
-
---fcnm4qn4b73qe32y--
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> ---
+>  drivers/net/ethernet/faraday/ftgmac100.c | 1 -
+>  1 file changed, 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/faraday/ftgmac100.c b/drivers/net/ethernet/faraday/ftgmac100.c
+> index 34dae51effd4..59da7ac3c108 100644
+> --- a/drivers/net/ethernet/faraday/ftgmac100.c
+> +++ b/drivers/net/ethernet/faraday/ftgmac100.c
+> @@ -1863,7 +1863,6 @@ static int ftgmac100_probe(struct platform_device *pdev)
+>  err_ioremap:
+>  	release_resource(priv->res);
+>  err_req_mem:
+> -	netif_napi_del(&priv->napi);
+>  	free_netdev(netdev);
+>  err_alloc_etherdev:
+>  	return err;
