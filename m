@@ -1,98 +1,77 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [RFC net-next v2] bridge lwtunnel, VPLS & NVGRE
-Date: Mon, 21 Aug 2017 21:43:15 -0700
-Message-ID: <CAJieiUiz2EmzeaREa4PAd_=2J_MBWUMVh_4abS2HdtcmK30EBQ@mail.gmail.com>
-References: <20170821171523.951260-1-equinox@diac24.net>
+From: Baruch Siach <baruch-NswTu9S1W3P6gbPvEgmw2w@public.gmane.org>
+Subject: Re: [RFC PATCH] dt-binding: net: sfp binding documentation
+Date: Tue, 22 Aug 2017 07:49:01 +0300
+Message-ID: <20170822044900.debakzpc3qatx4cg@sapphire.tkos.co.il>
+References: <d73b635069a2054d110632f1f4196cd4bc281e7f.1503224886.git.baruch@tkos.co.il>
+ <CAL_JsqL_7gG8FSEJDXu=37DFpHjfLhQuUhPFRKcScYTzM4cNyg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	bridge@lists.linux-foundation.org,
-	Amine Kherbouche <amine.kherbouche@6wind.com>
-To: David Lamparter <equinox@diac24.net>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20170821171523.951260-1-equinox@diac24.net>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>, Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
+        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Russell King <rmk+kernel-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
+        netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <CAL_JsqL_7gG8FSEJDXu=37DFpHjfLhQuUhPFRKcScYTzM4cNyg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 21, 2017 at 10:15 AM, David Lamparter <equinox@diac24.net> wrote:
-> Hi all,
->
->
-> this is an update on the earlier "[RFC net-next] VPLS support".  Note
-> I've changed the subject lines on some of the patches to better reflect
-> what they really do (tbh the earlier subject lines were crap.)
->
-> As previously, iproute2 / FRR patches are at:
-> - https://github.com/eqvinox/vpls-iproute2
-> - https://github.com/opensourcerouting/frr/commits/vpls
-> while this patchset is also available at:
-> - https://github.com/eqvinox/vpls-linux-kernel
-> (but please be aware that I'm amending and rebasing commits)
->
-> The NVGRE implementation in the 3rd patch in this series is actually an
-> accident - I was just wiring up gretap as a reference;  only after I was
-> done I noticed that that sums up to NVGRE, more or less.  IMHO, it does
-> serve well to demonstrate the bridge changes are not VPLS-specific.
->
-> To refer some notes from the first announce mail:
->> I've tested some basic setups, the chain from LDP down into the kernel
->> works at least in these.  FRR has some testcases around from OpenBSD
->> VPLS support, I haven't wired that up to run against Linux / this
->> patchset yet.
->
-> Same as before (API didn't change).
->
->> The patchset needs a lot of polishing (yes I left my TODO notes in the
->> commit messages), for now my primary concern is overall design
->> feedback.  Roopa has already provided a lot of input (Thanks!);  the
->> major topic I'm expecting to get discussion on is the bridge FDB
->> changes.
->
-> Got some useful input;  but still need feedback on the bridge FDB
-> changes (first 2 patches).  I don't believe it to have a significant
-> impact on existing bridge operation, and I believe a multipoint tunnel
-> driver without its own FDB (e.g. NVGRE in this set) should perform
-> better than one with its own FDB (e.g. existing VXLAN).
->
->> P.S.: For a little context on the bridge FDB changes - I'm hoping to
->> find some time to extend this to the MDB to allow aggregating dst
->> metadata and handing down a list of dst metas on TX.  This isn't
->> specifically for VPLS but rather to give sufficient information to the
->> 802.11 stack to allow it to optimize selecting rates (or unicasting)
->> for multicast traffic by having the multicast subscriber list known.
->> This is done by major commercial wifi solutions (e.g. google "dynamic
->> multicast optimization".)
->
-> You can find hacks at this on:
-> https://github.com/eqvinox/vpls-linux-kernel/tree/mdb-hack
-> Please note that the patches in that branch are not at an acceptable
-> quality level, but you can see the semantic relation to 802.11.
->
-> I would, however, like to point out that this branch has pseudo-working
-> IGMP/MLD snooping for VPLS, and it'd be 20-ish lines to add it to NVGRE
-> (I'll do that as soon as I get to it, it'll pop up on that branch too.)
->
-> This is relevant to the discussion because it's a feature which is
-> non-obvious (to me) on how to do with the VXLAN model of having an
-> entirely separate FDB.  Meanwhile, with this architecture, the proof of
-> concept / hack is coming in at a measly cost of:
-> 8 files changed, 176 insertions(+), 15 deletions(-)
+Hi Rob,
 
-David, what is special about the vpls igmp/mld snooping code ?...do
-you have to snoop vpls attrs ?.
-in the vxlan model.., the vxlan driver can snoop its own attrs eg
-vxlan-id, remote dst etc.
-and the pkt is passed up to the bridge where it will hit the normal
-bridge igmp/mpld snooping code.
-can you pls elaborate ?
+On Mon, Aug 21, 2017 at 02:10:33PM -0500, Rob Herring wrote:
+> On Sun, Aug 20, 2017 at 5:28 AM, Baruch Siach <baruch-NswTu9S1W3P6gbPvEgmw2w@public.gmane.org> wrote:
+> > Add device-tree binding documentation SFP transceivers. Support for SFP
+> > transceivers has been recently introduced (drivers/net/phy/sfp.c).
+> >
+> > Signed-off-by: Baruch Siach <baruch-NswTu9S1W3P6gbPvEgmw2w@public.gmane.org>
+> > ---
+> >
+> > The SFP driver is on net-next.
+> >
+> > Not sure about the rate-select-gpio property name. The SFP+ standard
+> > (not supported yet) uses two signals, RS0 and RS1. RS0 is compatible
+> > with the SFP rate select signal, while RS1 controls the Tx rate.
+> > ---
+> >  Documentation/devicetree/bindings/net/sff-sfp.txt | 24 +++++++++++++++++++++++
+> >  1 file changed, 24 insertions(+)
+> >  create mode 100644 Documentation/devicetree/bindings/net/sff-sfp.txt
+> >
+> > diff --git a/Documentation/devicetree/bindings/net/sff-sfp.txt b/Documentation/devicetree/bindings/net/sff-sfp.txt
+> > new file mode 100644
+> > index 000000000000..f0c27bc3925e
+> > --- /dev/null
+> > +++ b/Documentation/devicetree/bindings/net/sff-sfp.txt
+> > @@ -0,0 +1,24 @@
+> > +Small Form Factor (SFF) Committee Small Form-factor Pluggable (SFP)
+> > +Transceiver
+> > +
+> > +Required properties:
+> > +
+> > +- compatible : must be "sff,sfp"
+> 
+> Need to document "sff" vendor prefix.
 
-keeping vpls specific code and api in a separate vpls driver allows
-for cleanly extending it in the future.
+"sff" stands for Small Form Factor Committee, now under Storage Networking 
+Industry Association (SNIA). Not really a vendor, but a standards body. Does 
+that count? I could not find any other example in vendor-prefixes.txt, other 
+than "linux" which is kind of special.
+
+> Kind of a short name, but I guess it is sufficient. Are there
+> revisions of the standard (not SFP+) or more than one form factor (I
+> don't recall any)?
+
+I'm not aware of any other revisions.
+
+baruch
+
+-- 
+     http://baruch.siach.name/blog/                  ~. .~   Tk Open Systems
+=}------------------------------------------------ooO--U--Ooo------------{=
+   - baruch-NswTu9S1W3P6gbPvEgmw2w@public.gmane.org - tel: +972.2.679.5364, http://www.tkos.co.il -
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
