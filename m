@@ -1,115 +1,48 @@
-From: Matteo Croce <mcroce@redhat.com>
-Subject: Re: [PATCH] drivers: net: wireless: atmel: check memory allocation
- failure
-Date: Tue, 22 Aug 2017 10:41:45 +0200
-Message-ID: <1503391305.2409.12.camel@redhat.com>
-References: <1503389481-4988-1-git-send-email-himanshujha199640@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
-        netdev@vger.kernel.org
-To: Himanshu Jha <himanshujha199640@gmail.com>, kvalo@codeaurora.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1503389481-4988-1-git-send-email-himanshujha199640@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Wu <david.wu@rock-chips.com>
+Subject: [PATCH] ARM: dts: rk3228-evb: Fix the compiling error
+Date: Tue, 22 Aug 2017 17:24:25 +0800
+Message-ID: <1503393865-7975-1-git-send-email-david.wu@rock-chips.com>
+Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org,
+        David Wu <david.wu@rock-chips.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from lucky1.263xmail.com ([211.157.147.135]:55775 "EHLO
+        lucky1.263xmail.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932205AbdHVJTk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2017 05:19:40 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Il giorno mar, 22/08/2017 alle 13.41 +0530, Himanshu Jha ha scritto:
-> Check memory allocation failure and return -ENOMEM if failure
-> occurs.
-> 
-> Signed-off-by: Himanshu Jha <himanshujha199640@gmail.com>
-> ---
->  drivers/net/wireless/atmel/at76c50x-usb.c | 14 +++++++-------
->  1 file changed, 7 insertions(+), 7 deletions(-)
-> 
-> diff --git a/drivers/net/wireless/atmel/at76c50x-usb.c
-> b/drivers/net/wireless/atmel/at76c50x-usb.c
-> index 09defbc..73f0924 100644
-> --- a/drivers/net/wireless/atmel/at76c50x-usb.c
-> +++ b/drivers/net/wireless/atmel/at76c50x-usb.c
-> @@ -940,7 +940,7 @@ static void at76_dump_mib_mac_addr(struct
-> at76_priv *priv)
->  					 GFP_KERNEL);
->  
->  	if (!m)
-> -		return;
-> +		return -ENOMEM;
->  
->  	ret = at76_get_mib(priv->udev, MIB_MAC_ADDR, m,
->  			   sizeof(struct mib_mac_addr));
-> @@ -969,7 +969,7 @@ static void at76_dump_mib_mac_wep(struct
-> at76_priv *priv)
->  	struct mib_mac_wep *m = kmalloc(sizeof(struct mib_mac_wep),
-> GFP_KERNEL);
->  
->  	if (!m)
-> -		return;
-> +		return -ENOMEM;
->  
->  	ret = at76_get_mib(priv->udev, MIB_MAC_WEP, m,
->  			   sizeof(struct mib_mac_wep));
-> @@ -1006,7 +1006,7 @@ static void at76_dump_mib_mac_mgmt(struct
-> at76_priv *priv)
->  					 GFP_KERNEL);
->  
->  	if (!m)
-> -		return;
-> +		return -ENOMEM;
->  
->  	ret = at76_get_mib(priv->udev, MIB_MAC_MGMT, m,
->  			   sizeof(struct mib_mac_mgmt));
-> @@ -1043,7 +1043,7 @@ static void at76_dump_mib_mac(struct at76_priv
-> *priv)
->  	struct mib_mac *m = kmalloc(sizeof(struct mib_mac),
-> GFP_KERNEL);
->  
->  	if (!m)
-> -		return;
-> +		return -ENOMEM;
->  
->  	ret = at76_get_mib(priv->udev, MIB_MAC, m, sizeof(struct
-> mib_mac));
->  	if (ret < 0) {
-> @@ -1080,7 +1080,7 @@ static void at76_dump_mib_phy(struct at76_priv
-> *priv)
->  	struct mib_phy *m = kmalloc(sizeof(struct mib_phy),
-> GFP_KERNEL);
->  
->  	if (!m)
-> -		return;
-> +		return -ENOMEM;
->  
->  	ret = at76_get_mib(priv->udev, MIB_PHY, m, sizeof(struct
-> mib_phy));
->  	if (ret < 0) {
-> @@ -1113,7 +1113,7 @@ static void at76_dump_mib_local(struct
-> at76_priv *priv)
->  	struct mib_local *m = kmalloc(sizeof(*m), GFP_KERNEL);
->  
->  	if (!m)
-> -		return;
-> +		return -ENOMEM;
->  
->  	ret = at76_get_mib(priv->udev, MIB_LOCAL, m, sizeof(*m));
->  	if (ret < 0) {
-> @@ -1138,7 +1138,7 @@ static void at76_dump_mib_mdomain(struct
-> at76_priv *priv)
->  	struct mib_mdomain *m = kmalloc(sizeof(struct mib_mdomain),
-> GFP_KERNEL);
->  
->  	if (!m)
-> -		return;
-> +		return -ENOMEM;
->  
->  	ret = at76_get_mib(priv->udev, MIB_MDOMAIN, m,
->  			   sizeof(struct mib_mdomain));
+This patch solves the following error:
+arch/arm/boot/dts/rk3228-evb.dtb: ERROR (phandle_references): Reference to non-existent node or label "phy0"
 
-Perhaps these functions should return something instead of being void.
+Fixess db40f15b53e4 ("ARM: dts: rk3228-evb: Enable the integrated PHY for gmac")
+Signed-off-by: David Wu <david.wu@rock-chips.com>
+---
+ arch/arm/boot/dts/rk3228-evb.dts | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Regards,
-
+diff --git a/arch/arm/boot/dts/rk3228-evb.dts b/arch/arm/boot/dts/rk3228-evb.dts
+index 456ddf7..1be9daa 100644
+--- a/arch/arm/boot/dts/rk3228-evb.dts
++++ b/arch/arm/boot/dts/rk3228-evb.dts
+@@ -76,7 +76,7 @@
+ 	clock_in_out = "output";
+ 	phy-supply = <&vcc_phy>;
+ 	phy-mode = "rmii";
+-	phy-handle = <&phy0>;
++	phy-handle = <&phy>;
+ 	status = "okay";
+ 
+ 	mdio {
+@@ -84,7 +84,7 @@
+ 		#address-cells = <1>;
+ 		#size-cells = <0>;
+ 
+-		phy@0 {
++		phy: phy@0 {
+ 			compatible = "ethernet-phy-id1234.d400", "ethernet-phy-ieee802.3-c22";
+ 			reg = <0>;
+ 			clocks = <&cru SCLK_MAC_PHY>;
 -- 
-Matteo Croce
-per aspera ad upstream
+1.9.1
