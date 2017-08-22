@@ -1,7 +1,7 @@
 From: Haiyang Zhang <haiyangz@exchange.microsoft.com>
-Subject: [PATCH net-next,1/4] hv_netvsc: Clean up unused parameter from netvsc_get_hash()
-Date: Mon, 21 Aug 2017 19:22:37 -0700
-Message-ID: <1503368560-14331-2-git-send-email-haiyangz@exchange.microsoft.com>
+Subject: [PATCH net-next,4/4] hv_netvsc: Update netvsc Document for UDP hash level setting
+Date: Mon, 21 Aug 2017 19:22:40 -0700
+Message-ID: <1503368560-14331-5-git-send-email-haiyangz@exchange.microsoft.com>
 References: <1503368560-14331-1-git-send-email-haiyangz@exchange.microsoft.com>
 Reply-To: haiyangz@microsoft.com
 Cc: haiyangz@microsoft.com, kys@microsoft.com, olaf@aepfle.de,
@@ -14,34 +14,46 @@ List-Id: netdev.vger.kernel.org
 
 From: Haiyang Zhang <haiyangz@microsoft.com>
 
-The parameter "sk" is not in use.
+Update Documentation/networking/netvsc.txt for UDP hash level setting
+and related info.
 
 Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
 ---
- drivers/net/hyperv/netvsc_drv.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ Documentation/networking/netvsc.txt |   22 +++++++++++++++++-----
+ 1 files changed, 17 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index b33f050..4677d21 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -193,7 +193,7 @@ static int netvsc_close(struct net_device *net)
- /* Azure hosts don't support non-TCP port numbers in hashing yet. We compute
-  * hash for non-TCP traffic with only IP numbers.
-  */
--static inline u32 netvsc_get_hash(struct sk_buff *skb, struct sock *sk)
-+static inline u32 netvsc_get_hash(struct sk_buff *skb)
- {
- 	struct flow_keys flow;
- 	u32 hash;
-@@ -227,7 +227,7 @@ static inline int netvsc_get_tx_queue(struct net_device *ndev,
- 	struct sock *sk = skb->sk;
- 	int q_idx;
+diff --git a/Documentation/networking/netvsc.txt b/Documentation/networking/netvsc.txt
+index 4ddb4e4..fa8d863 100644
+--- a/Documentation/networking/netvsc.txt
++++ b/Documentation/networking/netvsc.txt
+@@ -21,11 +21,23 @@ Features
+   --------------------
+   Hyper-V supports receive side scaling. For TCP, packets are
+   distributed among available queues based on IP address and port
+-  number. Current versions of Hyper-V host, only distribute UDP
+-  packets based on the IP source and destination address.
+-  The port number is not used as part of the hash value for UDP.
+-  Fragmented IP packets are not distributed between queues;
+-  all fragmented packets arrive on the first channel.
++  number.
++
++  For UDP, we can switch UDP hash level between L3 and L4 by ethtool
++  command. UDP over IPv4 and v6 can be set differently. The default
++  hash level is L4. We currently only allow switching TX hash level
++  from within the guests.
++
++  On Azure, fragmented UDP packets have high loss rate with L4
++  hashing. Using L3 hashing is recommended in this case.
++
++  For example, for UDP over IPv4 on eth0:
++  To include UDP port numbers in hasing:
++        ethtool -N eth0 rx-flow-hash udp4 sdfn
++  To exclude UDP port numbers in hasing:
++        ethtool -N eth0 rx-flow-hash udp4 sd
++  To show UDP hash level:
++        ethtool -n eth0 rx-flow-hash udp4
  
--	q_idx = ndc->tx_send_table[netvsc_get_hash(skb, sk) &
-+	q_idx = ndc->tx_send_table[netvsc_get_hash(skb) &
- 				   (VRSS_SEND_TAB_SIZE - 1)];
- 
- 	/* If queue index changed record the new value */
+   Generic Receive Offload, aka GRO
+   --------------------------------
 -- 
 1.7.1
