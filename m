@@ -1,94 +1,72 @@
-From: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
-Subject: Re: [PATCH v3 3/4] net: stmmac: register parent MDIO node for sun8i-h3-emac
-Date: Tue, 22 Aug 2017 23:39:22 +0800
-Message-ID: <CAGb2v64E4T=1ff3POGuXZA=MvjGAnKQ6OF6A3sT_cU-=jh6zNw@mail.gmail.com>
-References: <20170818122118.4925-1-clabbe.montjoie@gmail.com>
- <20170818122118.4925-4-clabbe.montjoie@gmail.com> <CAGb2v66KcZkiDDHryMmVzm4WroXePPy3V44SLpVdoO3ZEjgC=g@mail.gmail.com>
- <20170819185025.GB13266@Red> <20170819203836.GA21567@lunn.ch>
- <20170820065757.GA6081@Red> <20170820142545.GB24150@lunn.ch>
- <CAGb2v67hQXSoCKP7qW+KRUYX+0djQ1Z23cQ67Lyg6G7ozGyfGQ@mail.gmail.com>
- <20170821132015.GB1703@lunn.ch> <20170821133104.qvrhvwin2rdg4aqo@flea.lan> <20170821142321.GE1703@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-        Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>,
-        Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        Russell King <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>,
-        Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
-        Alexandre Torgue <alexandre.torgue-qxv4g6HH51o@public.gmane.org>,
-        devicetree <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        linux-arm-kernel <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-        linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170821142321.GE1703-g2DYL2Zd6BY@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: [PATCH net-next] udp: remove unreachable ufo branches
+Date: Tue, 22 Aug 2017 11:39:57 -0400
+Message-ID: <20170822153957.99341-1-willemdebruijn.kernel@gmail.com>
+Cc: davem@davemloft.net, Willem de Bruijn <willemb@google.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qt0-f193.google.com ([209.85.216.193]:33024 "EHLO
+        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933001AbdHVPkB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2017 11:40:01 -0400
+Received: by mail-qt0-f193.google.com with SMTP id 57so7628075qtu.0
+        for <netdev@vger.kernel.org>; Tue, 22 Aug 2017 08:40:01 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 21, 2017 at 10:23 PM, Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org> wrote:
->> All muxes are mostly always represented the same way afaik, or do you
->> want to simply introduce a new compatible / property?
->
-> +         mdio-mux {
-> +               compatible = "allwinner,sun8i-h3-mdio-switch";
-> +               mdio-parent-bus = <&mdio_parent>;
-> +               #address-cells = <1>;
-> +               #size-cells = <0>;
-> +
-> +               internal_mdio: mdio@1 {
->                         reg = <1>;
-> -                       clocks = <&ccu CLK_BUS_EPHY>;
-> -                       resets = <&ccu RST_BUS_EPHY>;
-> +                       #address-cells = <1>;
-> +                       #size-cells = <0>;
-> +                       int_mii_phy: ethernet-phy@1 {
-> +                               compatible = "ethernet-phy-ieee802.3-c22";
-> +                               reg = <1>;
-> +                               clocks = <&ccu CLK_BUS_EPHY>;
-> +                               resets = <&ccu RST_BUS_EPHY>;
-> +                               phy-is-integrated;
-> +                       };
-> +               };
-> +               mdio: mdio@0 {
-> +                       reg = <0>;
-> +                       #address-cells = <1>;
-> +                       #size-cells = <0>;
->                 };
->
-> Hi Maxim
->
-> Anybody who knows the MDIO-mux code/binding, knows that it is a run
-> time mux. You swap the mux per MDIO transaction. You can access all
-> the PHY and switches on the mux'ed MDIO bus.
->
-> However here, it is effectively a boot-time MUX. You cannot change it
-> on the fly. What happens when somebody has a phandle to a PHY on the
-> internal and a phandle to a phy on the external? Does the driver at
-> least return -EINVAL, or -EBUSY? Is there a representation which
-> eliminates this possibility?
+From: Willem de Bruijn <willemb@google.com>
 
-There is only one controller. Either you use the internal PHY, which
-is then directly coupled (no magnetics needed) to the RJ45 port, or
-you use an external PHY over MII/RMII/RGMII. You could supposedly
-have both on a board, and let the user choose one. But why bother
-with the extra complexity and cost? Either you use the internal PHY
-at 100M, or an external RGMII PHY for gigabit speeds.
+Remove two references to ufo in the udp send path that are no longer
+reachable now that ufo has been removed.
 
-So I think what you are saying is either impossible or engineering-wise
-a very stupid design, like using an external MAC with a discrete PHY
-connected to the internal MAC's MDIO bus, while using the internal MAC
-with the internal PHY.
+Commit 85f1bd9a7b5a ("udp: consistently apply ufo or fragmentation")
+is a fix to ufo. It is safe to revert what remains of it.
 
-Now can we please decide on something? We're a week and a half from
-the 4.13 release. If mdio-mux is wrong, then we could have two mdio
-nodes (internal-mdio & external-mdio).
+Also, no skb can enter ip_append_page with skb_is_gso true now that
+skb_shinfo(skb)->gso_type is no longer set in ip_append_page/_data.
 
-Regards
-ChenYu
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Signed-off-by: Willem de Bruijn <willemb@google.com>
+---
+ net/ipv4/ip_output.c | 12 ++++--------
+ net/ipv4/udp.c       |  2 +-
+ 2 files changed, 5 insertions(+), 9 deletions(-)
+
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index 73b0b15245b6..e8e675be60ec 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -1223,15 +1223,11 @@ ssize_t	ip_append_page(struct sock *sk, struct flowi4 *fl4, struct page *page,
+ 	cork->length += size;
+ 
+ 	while (size > 0) {
+-		if (skb_is_gso(skb)) {
+-			len = size;
+-		} else {
++		/* Check if the remaining data fits into current packet. */
++		len = mtu - skb->len;
++		if (len < size)
++			len = maxfraglen - skb->len;
+ 
+-			/* Check if the remaining data fits into current packet. */
+-			len = mtu - skb->len;
+-			if (len < size)
+-				len = maxfraglen - skb->len;
+-		}
+ 		if (len <= 0) {
+ 			struct sk_buff *skb_prev;
+ 			int alloclen;
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 25fb14490d6a..bf6c406bf5e7 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -809,7 +809,7 @@ static int udp_send_skb(struct sk_buff *skb, struct flowi4 *fl4)
+ 	if (is_udplite)  				 /*     UDP-Lite      */
+ 		csum = udplite_csum(skb);
+ 
+-	else if (sk->sk_no_check_tx && !skb_is_gso(skb)) {   /* UDP csum off */
++	else if (sk->sk_no_check_tx) {			 /* UDP csum off */
+ 
+ 		skb->ip_summed = CHECKSUM_NONE;
+ 		goto send;
+-- 
+2.14.1.480.gb18f417b89-goog
