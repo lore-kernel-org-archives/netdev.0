@@ -1,156 +1,217 @@
-From: Felix Manlunas <felix.manlunas@cavium.com>
-Subject: [PATCH net-next] liquidio: show NIC's U-Boot version in a dev_info()
- message
-Date: Mon, 21 Aug 2017 18:19:44 -0700
-Message-ID: <20170822011944.GA6393@felix-thinkpad.cavium.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the rockchip
+ tree
+Date: Tue, 22 Aug 2017 11:24:14 +1000
+Message-ID: <20170822112414.06f3b00f@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
-        derek.chickles@cavium.com, satananda.burla@cavium.com,
-        weilin.chang@cavium.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2nam02on0077.outbound.protection.outlook.com ([104.47.38.77]:37088
-        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1754252AbdHVBTV (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 21 Aug 2017 21:19:21 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Linux-Next Mailing List <linux-next@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        David Wu <david.wu@rock-chips.com>,
+        Rocky Hao <rocky.hao@rock-chips.com>,
+        Joseph Chen <chenjh@rock-chips.com>
+To: David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>,
+        Heiko Stuebner <heiko@sntech.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Weilin Chang <weilin.chang@cavium.com>
+Hi all,
 
-Signed-off-by: Weilin Chang <weilin.chang@cavium.com>
-Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
----
- .../net/ethernet/cavium/liquidio/octeon_console.c  | 85 ++++++++++++++++++++++
- .../net/ethernet/cavium/liquidio/octeon_device.h   |  5 ++
- 2 files changed, 90 insertions(+)
+Today's linux-next merge of the net-next tree got a conflict in:
 
-diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_console.c b/drivers/net/ethernet/cavium/liquidio/octeon_console.c
-index 19e5212..88ef12b 100644
---- a/drivers/net/ethernet/cavium/liquidio/octeon_console.c
-+++ b/drivers/net/ethernet/cavium/liquidio/octeon_console.c
-@@ -30,6 +30,7 @@
- #include "liquidio_image.h"
- #include "octeon_mem_ops.h"
- 
-+static void octeon_get_uboot_version(struct octeon_device *oct);
- static void octeon_remote_lock(void);
- static void octeon_remote_unlock(void);
- static u64 cvmx_bootmem_phy_named_block_find(struct octeon_device *oct,
-@@ -611,6 +612,9 @@ int octeon_add_console(struct octeon_device *oct, u32 console_num,
- 
- 		work = &oct->console_poll_work[console_num].work;
- 
-+		if (oct->uboot_len == 0)
-+			octeon_get_uboot_version(oct);
-+
- 		INIT_DELAYED_WORK(work, check_console);
- 		oct->console_poll_work[console_num].ctxptr = (void *)oct;
- 		oct->console_poll_work[console_num].ctxul = console_num;
-@@ -724,6 +728,87 @@ static int octeon_console_read(struct octeon_device *oct, u32 console_num,
- 	return bytes_to_read;
- }
- 
-+static void octeon_get_uboot_version(struct octeon_device *oct)
-+{
-+	s32 bytes_read, tries, total_read;
-+	struct octeon_console *console;
-+	u32 console_num = 0;
-+	int i;
-+
-+	if (octeon_console_send_cmd(oct, "setenv stdout pci\n", 50))
-+		return;
-+
-+	console = &oct->console[console_num];
-+	tries = 0;
-+	total_read = 0;
-+
-+	if (octeon_console_send_cmd(oct, "version\n", 1))
-+		return;
-+
-+	do {
-+		/* Take console output regardless of whether it will
-+		 * be logged
-+		 */
-+		bytes_read =
-+			octeon_console_read(oct,
-+					    console_num, oct->uboot_version +
-+					    total_read,
-+					    OCTEON_UBOOT_BUFFER_SIZE - 1 -
-+					    total_read);
-+		if (bytes_read > 0) {
-+			oct->uboot_version[bytes_read] = 0x0;
-+
-+			total_read += bytes_read;
-+			if (console->waiting)
-+				octeon_console_handle_result(oct, console_num);
-+		} else if (bytes_read < 0) {
-+			dev_err(&oct->pci_dev->dev, "Error reading console %u, ret=%d\n",
-+				console_num, bytes_read);
-+		}
-+
-+		tries++;
-+	} while ((bytes_read > 0) && (tries < 16));
-+
-+	/* If nothing is read after polling the console,
-+	 * output any leftovers if any
-+	 */
-+	if ((total_read == 0) && (console->leftover[0])) {
-+		dev_dbg(&oct->pci_dev->dev, "%u: %s\n",
-+			console_num, console->leftover);
-+		console->leftover[0] = '\0';
-+	}
-+
-+	if (octeon_console_send_cmd(oct, "setenv stdout serial\n", 50))
-+		return;
-+
-+	/* U-Boot */
-+	for (i = 0; i < (OCTEON_UBOOT_BUFFER_SIZE - 9); i++) {
-+		if (oct->uboot_version[i] == 'U' &&
-+		    oct->uboot_version[i + 2] == 'B' &&
-+		    oct->uboot_version[i + 3] == 'o' &&
-+		    oct->uboot_version[i + 4] == 'o' &&
-+		    oct->uboot_version[i + 5] == 't') {
-+			oct->uboot_sidx = i;
-+			i++;
-+			for (; oct->uboot_version[i] != 0x0; i++) {
-+				if (oct->uboot_version[i] == 'm' &&
-+				    oct->uboot_version[i + 1] == 'i' &&
-+				    oct->uboot_version[i + 2] == 'p' &&
-+				    oct->uboot_version[i + 3] == 's') {
-+					oct->uboot_eidx = i - 1;
-+					oct->uboot_version[i - 1] = 0x0;
-+					oct->uboot_len = oct->uboot_eidx -
-+						oct->uboot_sidx + 1;
-+					dev_info(&oct->pci_dev->dev, "%s\n",
-+						 &oct->uboot_version
-+							[oct->uboot_sidx]);
-+					return;
-+				}
-+			}
-+		}
-+	}
-+}
-+
- #define FBUF_SIZE	(4 * 1024 * 1024)
- 
- int octeon_download_firmware(struct octeon_device *oct, const u8 *data,
-diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_device.h b/drivers/net/ethernet/cavium/liquidio/octeon_device.h
-index 894af19..8dbd133 100644
---- a/drivers/net/ethernet/cavium/liquidio/octeon_device.h
-+++ b/drivers/net/ethernet/cavium/liquidio/octeon_device.h
-@@ -550,6 +550,11 @@ struct octeon_device {
- 
- 	bool cores_crashed;
- 
-+#define OCTEON_UBOOT_BUFFER_SIZE 512
-+	char uboot_version[OCTEON_UBOOT_BUFFER_SIZE];
-+	int  uboot_len;
-+	int  uboot_sidx, uboot_eidx;
-+
- 	struct {
- 		int bus;
- 		int dev;
+  arch/arm64/boot/dts/rockchip/rk3328-evb.dts
+
+between commits:
+
+  ab78718bda79 ("arm64: dts: rockchip: Enable tsadc module on RK3328 eavluation board")
+  1e28037ec88e ("arm64: dts: rockchip: add rk805 node for rk3328-evb")
+
+from the rockchip tree and commit:
+
+  4b05bc6157eb ("ARM64: dts: rockchip: Enable gmac2phy for rk3328-evb")
+
+from the net-next tree.
+
+I fixed it up (see below) and can carry the fix as necessary. This
+is now fixed as far as linux-next is concerned, but any non trivial
+conflicts should be mentioned to your upstream maintainer when your tree
+is submitted for merging.  You may also want to consider cooperating
+with the maintainer of the conflicting tree to minimise any particularly
+complex conflicts.
+
+-- 
+Cheers,
+Stephen Rothwell
+
+diff --cc arch/arm64/boot/dts/rockchip/rk3328-evb.dts
+index 86605ae7b6f5,b9f36dad17e6..000000000000
+--- a/arch/arm64/boot/dts/rockchip/rk3328-evb.dts
++++ b/arch/arm64/boot/dts/rockchip/rk3328-evb.dts
+@@@ -51,147 -51,24 +51,164 @@@
+  		stdout-path = "serial2:1500000n8";
+  	};
+  
+ +	dc_12v: dc-12v {
+ +		compatible = "regulator-fixed";
+ +		regulator-name = "dc_12v";
+ +		regulator-always-on;
+ +		regulator-boot-on;
+ +		regulator-min-microvolt = <12000000>;
+ +		regulator-max-microvolt = <12000000>;
+ +	};
+ +
++ 	vcc_phy: vcc-phy-regulator {
++ 		compatible = "regulator-fixed";
++ 		regulator-name = "vcc_phy";
++ 		regulator-always-on;
++ 		regulator-boot-on;
++ 	};
+++
+ +	vcc_sys: vcc-sys {
+ +		compatible = "regulator-fixed";
+ +		regulator-name = "vcc_sys";
+ +		regulator-always-on;
+ +		regulator-boot-on;
+ +		regulator-min-microvolt = <5000000>;
+ +		regulator-max-microvolt = <5000000>;
+ +		vin-supply = <&dc_12v>;
+ +	};
+  };
+  
++ &gmac2phy {
++ 	phy-supply = <&vcc_phy>;
++ 	clock_in_out = "output";
++ 	assigned-clocks = <&cru SCLK_MAC2PHY_SRC>;
++ 	assigned-clock-rate = <50000000>;
++ 	assigned-clocks = <&cru SCLK_MAC2PHY>;
++ 	assigned-clock-parents = <&cru SCLK_MAC2PHY_SRC>;
++ 	status = "okay";
++ };
++ 
+ +&i2c1 {
+ +	status = "okay";
+ +
+ +	rk805: rk805@18 {
+ +		compatible = "rockchip,rk805";
+ +		reg = <0x18>;
+ +		interrupt-parent = <&gpio2>;
+ +		interrupts = <6 IRQ_TYPE_LEVEL_LOW>;
+ +		#clock-cells = <1>;
+ +		clock-output-names = "xin32k", "rk805-clkout2";
+ +		gpio-controller;
+ +		#gpio-cells = <2>;
+ +		pinctrl-names = "default";
+ +		pinctrl-0 = <&pmic_int_l>;
+ +		rockchip,system-power-controller;
+ +		wakeup-source;
+ +
+ +		vcc1-supply = <&vcc_sys>;
+ +		vcc2-supply = <&vcc_sys>;
+ +		vcc3-supply = <&vcc_sys>;
+ +		vcc4-supply = <&vcc_sys>;
+ +		vcc5-supply = <&vcc_io>;
+ +		vcc6-supply = <&vcc_io>;
+ +
+ +		regulators {
+ +			vdd_logic: DCDC_REG1 {
+ +				regulator-name = "vdd_logic";
+ +				regulator-min-microvolt = <712500>;
+ +				regulator-max-microvolt = <1450000>;
+ +				regulator-always-on;
+ +				regulator-boot-on;
+ +				regulator-state-mem {
+ +					regulator-on-in-suspend;
+ +					regulator-suspend-microvolt = <1000000>;
+ +				};
+ +			};
+ +
+ +			vdd_arm: DCDC_REG2 {
+ +				regulator-name = "vdd_arm";
+ +				regulator-min-microvolt = <712500>;
+ +				regulator-max-microvolt = <1450000>;
+ +				regulator-always-on;
+ +				regulator-boot-on;
+ +				regulator-state-mem {
+ +					regulator-on-in-suspend;
+ +					regulator-suspend-microvolt = <950000>;
+ +				};
+ +			};
+ +
+ +			vcc_ddr: DCDC_REG3 {
+ +				regulator-name = "vcc_ddr";
+ +				regulator-always-on;
+ +				regulator-boot-on;
+ +				regulator-state-mem {
+ +					regulator-on-in-suspend;
+ +				};
+ +			};
+ +
+ +			vcc_io: DCDC_REG4 {
+ +				regulator-name = "vcc_io";
+ +				regulator-min-microvolt = <3300000>;
+ +				regulator-max-microvolt = <3300000>;
+ +				regulator-always-on;
+ +				regulator-boot-on;
+ +				regulator-state-mem {
+ +					regulator-on-in-suspend;
+ +					regulator-suspend-microvolt = <3300000>;
+ +				};
+ +			};
+ +
+ +			vcc_18: LDO_REG1 {
+ +				regulator-name = "vcc_18";
+ +				regulator-min-microvolt = <1800000>;
+ +				regulator-max-microvolt = <1800000>;
+ +				regulator-always-on;
+ +				regulator-boot-on;
+ +				regulator-state-mem {
+ +					regulator-on-in-suspend;
+ +					regulator-suspend-microvolt = <1800000>;
+ +				};
+ +			};
+ +
+ +			vcc18_emmc: LDO_REG2 {
+ +				regulator-name = "vcc18_emmc";
+ +				regulator-min-microvolt = <1800000>;
+ +				regulator-max-microvolt = <1800000>;
+ +				regulator-always-on;
+ +				regulator-boot-on;
+ +				regulator-state-mem {
+ +					regulator-on-in-suspend;
+ +					regulator-suspend-microvolt = <1800000>;
+ +				};
+ +			};
+ +
+ +			vdd_10: LDO_REG3 {
+ +				regulator-name = "vdd_10";
+ +				regulator-min-microvolt = <1000000>;
+ +				regulator-max-microvolt = <1000000>;
+ +				regulator-always-on;
+ +				regulator-boot-on;
+ +				regulator-state-mem {
+ +					regulator-on-in-suspend;
+ +					regulator-suspend-microvolt = <1000000>;
+ +				};
+ +			};
+ +		};
+ +	};
+ +};
+ +
+ +&pinctrl {
+ +	pmic {
+ +		pmic_int_l: pmic-int-l {
+ +			rockchip,pins = <2 RK_PA6 RK_FUNC_GPIO &pcfg_pull_up>;
+ +		};
+ +	};
+ +};
+ +
+ +&tsadc {
+ +	status = "okay";
+ +};
+ +
+  &uart2 {
+  	status = "okay";
+  };
