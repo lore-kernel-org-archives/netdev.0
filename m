@@ -1,50 +1,63 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] virtio-net: invoke zerocopy callback on xmit
-	path if no tx napi
-Date: Tue, 22 Aug 2017 11:28:28 -0700
-Message-ID: <1503426508.2499.47.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <CAF=yD-LZ4=WAYfUtY7xRWi50FRSkrcOa+b7uc46xRnC4sbDCzQ@mail.gmail.com>
-	<64d451ae-9944-e978-5a05-54bb1a62aaad@redhat.com>
-	<20170822204015-mutt-send-email-mst@kernel.org>
-	<20170822.110108.343109469263087166.davem@davemloft.net>
+From: "Duyck, Alexander H" <alexander.h.duyck@intel.com>
+Subject: Re: XDP redirect measurements, gotchas and tracepoints
+Date: Tue, 22 Aug 2017 18:30:21 +0000
+Message-ID: <1503426617.2434.5.camel@intel.com>
+References: <20170821212506.1cb0d5d6@redhat.com>
+         <CACKFLimAF9OYwz8EqG=1-N40hWuA-8C8k8ut0oFKYdduvZOxHA@mail.gmail.com>
+         <599C7530.2010405@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: willemdebruijn.kernel@gmail.com, mst@redhat.com, netdev@vger.kernel.org,
-	den@klaipeden.com, virtualization@lists.linux-foundation.org
-To: David Miller <davem@davemloft.net>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20170822.110108.343109469263087166.davem@davemloft.net>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "pstaszewski@itcare.pl" <pstaszewski@itcare.pl>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "xdp-newbies@vger.kernel.org" <xdp-newbies@vger.kernel.org>,
+        "andy@greyhouse.net" <andy@greyhouse.net>,
+        "borkmann@iogearbox.net" <borkmann@iogearbox.net>
+To: "john.fastabend@gmail.com" <john.fastabend@gmail.com>,
+        "brouer@redhat.com" <brouer@redhat.com>,
+        "michael.chan@broadcom.com" <michael.chan@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:65376 "EHLO mga02.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751753AbdHVSaY (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 22 Aug 2017 14:30:24 -0400
+In-Reply-To: <599C7530.2010405@gmail.com>
+Content-Language: en-US
+Content-ID: <35592A9F08C1AB408F401453791BADC0@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2017-08-22 at 11:01 -0700, David Miller wrote:
-> From: "Michael S. Tsirkin" <mst@redhat.com>
-> Date: Tue, 22 Aug 2017 20:55:56 +0300
-> 
-> > Which reminds me that skb_linearize in net core seems to be
-> > fundamentally racy - I suspect that if skb is cloned, and someone is
-> > trying to use the shared frags while another thread calls skb_linearize,
-> > we get some use after free bugs which likely mostly go undetected
-> > because the corrupted packets mostly go on wire and get dropped
-> > by checksum code.
-> 
-> Indeed, it does assume that the skb from which the clone was made
-> never has it's geometry changed.
-> 
-> I don't think even the TCP retransmit queue has this guarantee.
-
-TCP retransmit makes sure to avoid that.
-
-if (skb_unclone(skb, GFP_ATOMIC))
-     return -ENOMEM;
-
-( Before cloning again skb )
+T24gVHVlLCAyMDE3LTA4LTIyIGF0IDExOjE3IC0wNzAwLCBKb2huIEZhc3RhYmVuZCB3cm90ZToN
+Cj4gT24gMDgvMjIvMjAxNyAxMTowMiBBTSwgTWljaGFlbCBDaGFuIHdyb3RlOg0KPiA+IE9uIE1v
+biwgQXVnIDIxLCAyMDE3IGF0IDEyOjI1IFBNLCBKZXNwZXIgRGFuZ2FhcmQgQnJvdWVyDQo+ID4g
+PGJyb3VlckByZWRoYXQuY29tPiB3cm90ZToNCj4gPiA+IA0KPiA+ID4gSSdiZSBiZWVuIHBsYXlp
+bmcgd2l0aCB0aGUgbGF0ZXN0IFhEUF9SRURJUkVDVCBmZWF0dXJlLCB0aGF0IHdhcw0KPiA+ID4g
+YWNjZXB0ZWQgaW4gbmV0LW5leHQgKGZvciBpeGdiZSksIHNlZSBtZXJnZSBjb21taXRbMV0uDQo+
+ID4gPiAgWzFdIGh0dHBzOi8vZ2l0Lmtlcm5lbC5vcmcvZGF2ZW0vbmV0LW5leHQvYy82MDkzZWMy
+ZGMzMQ0KPiA+ID4gDQo+ID4gDQo+ID4gSnVzdCBjYXRjaGluZyBvbiBYRFBfUkVESVJFQ1QgYW5k
+IEkgaGF2ZSBhIHZlcnkgYmFzaWMgcXVlc3Rpb24uICBUaGUNCj4gPiBpbmdyZXNzIGRldmljZSBw
+YXNzZXMgdGhlIFhEUCBidWZmZXIgdG8gdGhlIGVncmVzcyBkZXZpY2UgZm9yIFhEUA0KPiA+IHJl
+ZGlyZWN0IHRyYW5zbWlzc2lvbi4gIFdoZW4gdGhlIGVncmVzcyBkZXZpY2UgaGFzIHRyYW5zbWl0
+dGVkIHRoZQ0KPiA+IHBhY2tldCwgaXMgaXQgc3VwcG9zZWQgdG8ganVzdCBmcmVlIHRoZSBidWZm
+ZXI/ICBPciBpcyBpdCBzdXBwb3NlZCB0bw0KPiA+IGJlIHJlY3ljbGVkPw0KPiA+IA0KPiA+IElu
+IFhEUF9UWCwgdGhlIGJ1ZmZlciBpcyByZWN5Y2xlZCBiYWNrIHRvIHRoZSByeCByaW5nLg0KPiA+
+IA0KPiANCj4gV2l0aCBYRFBfUkVESVJFQ1Qgd2UgbXVzdCAianVzdCBmcmVlIHRoZSBidWZmZXIi
+IGluIGl4Z2JlIHRoaXMgbWVhbnMNCj4gcGFnZV9mcmFnX2ZyZWUoKSBvbiB0aGUgZGF0YS4gVGhl
+cmUgaXMgbm8gd2F5IHRvIGtub3cgd2hlcmUgdGhlIHhkcA0KPiBidWZmZXIgY2FtZSBmcm9tIGl0
+IGNvdWxkIGJlIGEgZGlmZmVyZW50IE5JQyBmb3IgZXhhbXBsZS4NCj4gDQo+IEhvd2V2ZXIgd2l0
+aCBob3cgaXhnYmUgaXMgY29kZWQgdXAgcmVjeWNsaW5nIHdpbGwgd29yayBhcyBsb25nIGFzDQo+
+IHRoZSBtZW1vcnkgaXMgZnJlZSdkIGJlZm9yZSB0aGUgZHJpdmVyIHJpbmcgdHJpZXMgdG8gdXNl
+IGl0IGFnYWluLiBJbg0KPiBub3JtYWwgdXNhZ2UgdGhpcyBzaG91bGQgYmUgdGhlIGNhc2UuIEFu
+ZCBpZiB3ZSBhcmUgb3Zlci1ydW5uaW5nIGEgZGV2aWNlDQo+IGl0IGRvZXNuJ3QgcmVhbGx5IGh1
+cnQgdG8gc2xvdyBkb3duIHRoZSBzZW5kZXIgYSBiaXQuDQo+IA0KPiBJIHRoaW5rIHRoaXMgaXMg
+YSBwcmV0dHkgZ29vZCBtb2RlbCwgd2UgY291bGQgcHJvYmFibHkgcHJvdmlkZSBhIHNldA0KPiBv
+ZiBBUElzIGZvciBkcml2ZXJzIHRvIHVzZSBzbyB0aGF0IHdlIGdldCBzb21lIGNvbnNpc3RlbmN5
+IGFjcm9zcw0KPiB2ZW5kb3JzIGhlcmUsIGFsYSBKZXNwZXIncyBwYWdlIHBvb2wgaWRlYXMuDQo+
+IA0KPiAoK0FsZXgsIGZvciBpeGdiZSBkZXRhaWxzKQ0KPiANCj4gVGhhbmtzLA0KPiBKb2huDQoN
+CkkgdGhpbmsgeW91IHByZXR0eSBtdWNoIGNvdmVyZWQgdGhlIGlubmVyIHdvcmtpbmdzIGZvciB0
+aGUgaXhnYmUgYml0cy4NCg0KVGhlIG9ubHkgcGllY2UgSSB3b3VsZCBhZGQgaXMgdGhhdCB0aGUg
+cmVjeWNsaW5nIHRyaWNrIG5vcm1hbGx5IG9ubHkNCndvcmtzIGlmIHRoZSBzYW1lIGludGVyZmFj
+ZS9kcml2ZXIgaXMgZG9pbmcgYm90aCB0aGUgVHggYW5kIHRoZSBSeC4gVGhlDQpyZWRpcmVjdCBj
+b2RlIGNhbm5vdCBhc3N1bWUgdGhhdCBpcyB0aGUgY2FzZSBhbmQgdGhhdCBpcyB0aGUgcmVhc29u
+IHdoeQ0KaXQgbXVzdCBhbHdheXMgYmUgZnJlZWluZyB0aGUgdHJhZmZpYyBvbiBjbGVhbi11cC4N
+Cg0KLSBBbGV4
