@@ -1,200 +1,109 @@
-From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>
-Subject: Re: [PATCH net-next v7 05/10] landlock: Add LSM hooks related to
- filesystem
-Date: Tue, 22 Aug 2017 23:59:33 +0200
-Message-ID: <753a3a91-23a4-bc63-27cb-12e764d3d5fc@digikod.net>
-References: <20170821000933.13024-1-mic@digikod.net>
- <20170821000933.13024-6-mic@digikod.net>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="Dnvdt9AH49AkVNNJiXKdkOvxXQXGi39Ck"
-Cc: Alexei Starovoitov <ast@kernel.org>,
-        Andy Lutomirski
- <luto@amacapital.net>,
-        Arnaldo Carvalho de Melo <acme@kernel.org>,
-        Casey Schaufler <casey@schaufler-ca.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        David Drysdale
- <drysdale@google.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        "Eric W . Biederman" <ebiederm@xmission.com>,
-        James Morris <james.l.morris@oracle.com>, Jann Horn <jann@thejh.net>,
-        Jonathan Corbet <corbet@lwn.net>,
-        Matthew Garrett <mjg59@srcf.ucam.org>,
-        Michael Kerrisk <mtk.manpages@gmail.com>,
-        Kees Cook <keescook@chromium.org>, Paul Moore <paul@paul-moore.com>,
-        Sargun Dhillon <sargun@sargun.me>,
-        "Serge E . Hallyn" <serge@hallyn.com>, Shuah Khan <shuah@kernel.org>,
-        Tejun Heo <tj@kernel.org>, Thomas Graf <tgraf@suug.ch>,
-        Will Drewry <wad@chromi
-To: linux-kernel@vger.kernel.org
-Return-path: <kernel-hardening-return-9540-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-In-Reply-To: <20170821000933.13024-6-mic@digikod.net>
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net] bpf: fix map value attribute for hash of maps
+Date: Wed, 23 Aug 2017 00:06:09 +0200
+Message-ID: <7f75667dcb2464053e2adf4fc01fdb8d77dfb335.1503439140.git.daniel@iogearbox.net>
+Cc: ast@fb.com, kafai@fb.com, netdev@vger.kernel.org,
+        Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:37332 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752160AbdHVWGP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2017 18:06:15 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---Dnvdt9AH49AkVNNJiXKdkOvxXQXGi39Ck
-Content-Type: multipart/mixed; boundary="ibiW1j3iD6nWvBmPbJaOUn4pko8Ovx8GU";
- protected-headers="v1"
-From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>
-To: linux-kernel@vger.kernel.org
-Cc: Alexei Starovoitov <ast@kernel.org>, Andy Lutomirski
- <luto@amacapital.net>, Arnaldo Carvalho de Melo <acme@kernel.org>,
- Casey Schaufler <casey@schaufler-ca.com>,
- Daniel Borkmann <daniel@iogearbox.net>, David Drysdale
- <drysdale@google.com>, "David S . Miller" <davem@davemloft.net>,
- "Eric W . Biederman" <ebiederm@xmission.com>,
- James Morris <james.l.morris@oracle.com>, Jann Horn <jann@thejh.net>,
- Jonathan Corbet <corbet@lwn.net>, Matthew Garrett <mjg59@srcf.ucam.org>,
- Michael Kerrisk <mtk.manpages@gmail.com>, Kees Cook <keescook@chromium.org>,
- Paul Moore <paul@paul-moore.com>, Sargun Dhillon <sargun@sargun.me>,
- "Serge E . Hallyn" <serge@hallyn.com>, Shuah Khan <shuah@kernel.org>,
- Tejun Heo <tj@kernel.org>, Thomas Graf <tgraf@suug.ch>,
- Will Drewry <wad@chromium.org>, kernel-hardening@lists.openwall.com,
- linux-api@vger.kernel.org, linux-security-module@vger.kernel.org,
- netdev@vger.kernel.org
-Message-ID: <753a3a91-23a4-bc63-27cb-12e764d3d5fc@digikod.net>
-Subject: Re: [PATCH net-next v7 05/10] landlock: Add LSM hooks related to
- filesystem
-References: <20170821000933.13024-1-mic@digikod.net>
- <20170821000933.13024-6-mic@digikod.net>
-In-Reply-To: <20170821000933.13024-6-mic@digikod.net>
+Currently, iproute2's BPF ELF loader works fine with array of maps
+when retrieving the fd from a pinned node and doing a selfcheck
+against the provided map attributes from the object file, but we
+fail to do the same for hash of maps and thus refuse to get the
+map from pinned node.
 
---ibiW1j3iD6nWvBmPbJaOUn4pko8Ovx8GU
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+Reason is that when allocating hash of maps, fd_htab_map_alloc() will
+set the value size to sizeof(void *), and any user space map creation
+requests are forced to set 4 bytes as value size. Thus, selfcheck
+will complain about exposed 8 bytes on 64 bit archs vs. 4 bytes from
+object file as value size. Contract is that fdinfo or BPF_MAP_GET_FD_BY_ID
+returns the value size used to create the map.
 
+Fix it by handling it the same way as we do for array of maps, which
+means that we leave value size at 4 bytes and in the allocation phase
+round up value size to 8 bytes. alloc_htab_elem() needs an adjustment
+in order to copy rounded up 8 bytes due to bpf_fd_htab_map_update_elem()
+calling into htab_map_update_elem() with the pointer of the map
+pointer as value. Unlike array of maps where we just xchg(), we're
+using the generic htab_map_update_elem() callback also used from helper
+calls, which published the key/value already on return, so we need
+to ensure to memcpy() the right size.
 
-On 21/08/2017 02:09, Micka=C3=ABl Sala=C3=BCn wrote:
-> Handle 33 filesystem-related LSM hooks for the Landlock filesystem
-> event: LANDLOCK_SUBTYPE_EVENT_FS.
->=20
-> A Landlock event wrap LSM hooks for similar kernel object types (e.g.
-> struct file, struct path...). Multiple LSM hooks can trigger the same
-> Landlock event.
->=20
-> Landlock handle nine coarse-grained actions: read, write, execute, new,=
+Fixes: bcc6b1b7ebf8 ("bpf: Add hash of maps support")
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Acked-by: Alexei Starovoitov <ast@kernel.org>
+---
+ kernel/bpf/hashtab.c | 30 +++++++++++++++++-------------
+ 1 file changed, 17 insertions(+), 13 deletions(-)
 
-> get, remove, ioctl, lock and fcntl. Each of them abstract LSM hook
-> access control in a way that can be extended in the future.
->=20
-> The Landlock LSM hook registration is done after other LSM to only run
-> actions from user-space, via eBPF programs, if the access was granted b=
-y
-> major (privileged) LSMs.
->=20
-> Signed-off-by: Micka=C3=ABl Sala=C3=BCn <mic@digikod.net>
-> Cc: Alexei Starovoitov <ast@kernel.org>
-> Cc: Andy Lutomirski <luto@amacapital.net>
-> Cc: Daniel Borkmann <daniel@iogearbox.net>
-> Cc: David S. Miller <davem@davemloft.net>
-> Cc: James Morris <james.l.morris@oracle.com>
-> Cc: Kees Cook <keescook@chromium.org>
-> Cc: Serge E. Hallyn <serge@hallyn.com>
-> ---
->=20
-> Changes since v6:
-> * add 3 more sub-events: IOCTL, LOCK, FCNTL
->   https://lkml.kernel.org/r/2fbc99a6-f190-f335-bd14-04bdeed35571@digiko=
-d.net
-> * use the new security_add_hooks()
-> * explain the -Werror=3Dunused-function
-> * constify pointers
-> * cleanup headers
->=20
-> Changes since v5:
-> * split hooks.[ch] into hooks.[ch] and hooks_fs.[ch]
-> * add more documentation
-> * cosmetic fixes
-> * rebase (SCALAR_VALUE)
->=20
-> Changes since v4:
-> * add LSM hook abstraction called Landlock event
->   * use the compiler type checking to verify hooks use by an event
->   * handle all filesystem related LSM hooks (e.g. file_permission,
->     mmap_file, sb_mount...)
-> * register BPF programs for Landlock just after LSM hooks registration
-> * move hooks registration after other LSMs
-> * add failsafes to check if a hook is not used by the kernel
-> * allow partial raw value access form the context (needed for programs
->   generated by LLVM)
->=20
-> Changes since v3:
-> * split commit
-> * add hooks dealing with struct inode and struct path pointers:
->   inode_permission and inode_getattr
-> * add abstraction over eBPF helper arguments thanks to wrapping structs=
-
-> ---
->  include/linux/lsm_hooks.h    |   5 +
->  security/landlock/Makefile   |   7 +-
->  security/landlock/common.h   |   2 +
->  security/landlock/hooks.c    |  83 ++++++
->  security/landlock/hooks.h    | 177 +++++++++++++
->  security/landlock/hooks_fs.c | 586 +++++++++++++++++++++++++++++++++++=
-++++++++
->  security/landlock/hooks_fs.h |  19 ++
->  security/landlock/init.c     |  10 +
->  security/security.c          |  12 +-
->  9 files changed, 899 insertions(+), 2 deletions(-)
->  create mode 100644 security/landlock/hooks.c
->  create mode 100644 security/landlock/hooks.h
->  create mode 100644 security/landlock/hooks_fs.c
->  create mode 100644 security/landlock/hooks_fs.h
-
-> diff --git a/security/landlock/init.c b/security/landlock/init.c
-> index 09acbc74abd6..1e6660fed697 100644
-> --- a/security/landlock/init.c
-> +++ b/security/landlock/init.c
-> @@ -10,8 +10,10 @@
-> =20
->  #include <linux/bpf.h> /* enum bpf_access_type */
->  #include <linux/capability.h> /* capable */
-> +#include <linux/lsm_hooks.h>
-> =20
->  #include "common.h" /* LANDLOCK_* */
-> +#include "hooks_fs.h"
-> =20
-> =20
->  static inline bool bpf_landlock_is_valid_access(int off, int size,
-> @@ -23,6 +25,8 @@ static inline bool bpf_landlock_is_valid_access(int o=
-ff, int size,
-> =20
->  	switch (prog_subtype->landlock_rule.event) {
->  	case LANDLOCK_SUBTYPE_EVENT_FS:
-> +		return landlock_is_valid_access_event_FS(off, size, type,
-> +				&info->reg_type, prog_subtype);
-
-I forgot to handle LANDLOCK_SUBTYPE_EVENT_FS_{IOCTL,LOCK_FCNTL} here and
-I included some hunks in the wrong patches. I will fix this in the next
-series and add tests for those anyway. :)
-
-Regards,
- Micka=C3=ABl
-
-
---ibiW1j3iD6nWvBmPbJaOUn4pko8Ovx8GU--
-
---Dnvdt9AH49AkVNNJiXKdkOvxXQXGi39Ck
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEzBAEBCgAdFiEEUysCyY8er9Axt7hqIt7+33O9apUFAlmcqUUACgkQIt7+33O9
-apVSrQgAkpiEGSlcj4s42B8EP98Wq5IkvJbLVitw/iMEiWsXDO2vDp+9aWG1tXDB
-lKSPkE/FdU6GCG8Unk0AETiDkG2zkcygiaOu1apcJ90V7ByVmvUUfT1EoRiYmam7
-D75lEcqaP3tycXecTlAlTr3OQkE12HiZ2PscRt8HYZ/UIf6EeSDFwhOEUTH2YioW
-osemeTd/DkNO6PEzJ9NrAkBsFn3jc9pi5b0+994N3ATTOxCPTcDSOGZ09zGrx9ni
-RWVYsFZwpGCtYyKEFagP/vI0BRTlkM9Bh6ha3hpwi06s7St7JPuqZokL0/aHcikS
-+n/4+J1x4kU9ydOoD/KuXXZ5NkdJdw==
-=dAlT
------END PGP SIGNATURE-----
-
---Dnvdt9AH49AkVNNJiXKdkOvxXQXGi39Ck--
+diff --git a/kernel/bpf/hashtab.c b/kernel/bpf/hashtab.c
+index 4fb4631..d11c818 100644
+--- a/kernel/bpf/hashtab.c
++++ b/kernel/bpf/hashtab.c
+@@ -652,12 +652,27 @@ static void pcpu_copy_value(struct bpf_htab *htab, void __percpu *pptr,
+ 	}
+ }
+ 
++static bool fd_htab_map_needs_adjust(const struct bpf_htab *htab)
++{
++	return htab->map.map_type == BPF_MAP_TYPE_HASH_OF_MAPS &&
++	       BITS_PER_LONG == 64;
++}
++
++static u32 htab_size_value(const struct bpf_htab *htab, bool percpu)
++{
++	u32 size = htab->map.value_size;
++
++	if (percpu || fd_htab_map_needs_adjust(htab))
++		size = round_up(size, 8);
++	return size;
++}
++
+ static struct htab_elem *alloc_htab_elem(struct bpf_htab *htab, void *key,
+ 					 void *value, u32 key_size, u32 hash,
+ 					 bool percpu, bool onallcpus,
+ 					 struct htab_elem *old_elem)
+ {
+-	u32 size = htab->map.value_size;
++	u32 size = htab_size_value(htab, percpu);
+ 	bool prealloc = htab_is_prealloc(htab);
+ 	struct htab_elem *l_new, **pl_new;
+ 	void __percpu *pptr;
+@@ -696,9 +711,6 @@ static struct htab_elem *alloc_htab_elem(struct bpf_htab *htab, void *key,
+ 
+ 	memcpy(l_new->key, key, key_size);
+ 	if (percpu) {
+-		/* round up value_size to 8 bytes */
+-		size = round_up(size, 8);
+-
+ 		if (prealloc) {
+ 			pptr = htab_elem_get_ptr(l_new, key_size);
+ 		} else {
+@@ -1209,17 +1221,9 @@ int bpf_percpu_hash_update(struct bpf_map *map, void *key, void *value,
+ 
+ static struct bpf_map *fd_htab_map_alloc(union bpf_attr *attr)
+ {
+-	struct bpf_map *map;
+-
+ 	if (attr->value_size != sizeof(u32))
+ 		return ERR_PTR(-EINVAL);
+-
+-	/* pointer is stored internally */
+-	attr->value_size = sizeof(void *);
+-	map = htab_map_alloc(attr);
+-	attr->value_size = sizeof(u32);
+-
+-	return map;
++	return htab_map_alloc(attr);
+ }
+ 
+ static void fd_htab_map_free(struct bpf_map *map)
+-- 
+1.9.3
