@@ -1,110 +1,79 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH] net: ftgmac100: Fix oops in probe on failure to find
- associated PHY
-Date: Tue, 22 Aug 2017 09:59:35 -0700
-Message-ID: <1503421175.2195.44.camel@kernel.crashing.org>
-References: <20170822063622.21550-1-andrew@aj.id.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, joel@jms.id.au, linux-kernel@vger.kernel.org,
-        openbmc@lists.ozlabs.org, linux-aspeed@lists.ozlabs.org,
-        ryan_chen@aspeedtech.com
-To: Andrew Jeffery <andrew@aj.id.au>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170822063622.21550-1-andrew@aj.id.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Antoine Tenart <antoine.tenart@free-electrons.com>
+Subject: [PATCH net-next v2 00/10] net: mvpp2: MAC/GoP configuration
+Date: Tue, 22 Aug 2017 19:08:20 +0200
+Message-ID: <20170822170830.32413-1-antoine.tenart@free-electrons.com>
+Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
+        thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
+        linux@armlinux.org.uk, mw@semihalf.com, stefanc@marvell.com,
+        netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: davem@davemloft.net, jason@lakedaemon.net, andrew@lunn.ch,
+        gregory.clement@free-electrons.com, sebastian.hesselbarth@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.free-electrons.com ([62.4.15.54]:38531 "EHLO
+        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751209AbdHVRIs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2017 13:08:48 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2017-08-22 at 16:06 +0930, Andrew Jeffery wrote:
-> netif_napi_del() should be paired with netif_napi_add(), however no
-> such call takes place in ftgmac100_probe(). This triggers a NULL
-> pointer dereference if e.g. no PHY is found by the MDIO probe:
-> 
-> 	 [ 2.770000] libphy: Fixed MDIO Bus: probed
-> 	 [ 2.770000] ftgmac100 1e660000.ethernet: Generated random MAC address 66:58:c0:5a:50:b8
-> 	 [ 2.790000] libphy: ftgmac100_mdio: probed
-> 	 [ 2.790000] ftgmac100 1e660000.ethernet (unnamed net_device) (uninitialized): eth%d: no PHY found
-> 	 [ 2.790000] ftgmac100 1e660000.ethernet: MII Probe failed!
-> 	 [ 2.810000] Unable to handle kernel NULL pointer dereference at virtual address 00000004
-> 	 [ 2.810000] pgd = 80004000
-> 	 [ 2.810000] [00000004] *pgd=00000000
-> 	 [ 2.810000] Internal error: Oops: 805 [#1] ARM
-> 	 [ 2.810000] CPU: 0 PID: 1 Comm: swapper Not tainted 4.10.17-1a4df30c39cf5ee0e3d2528c409787ccbb4a672a #1
-> 	 [ 2.810000] Hardware name: ASpeed SoC
-> 	 [ 2.810000] task: 9e421b60 task.stack: 9e4a0000
-> 	 [ 2.810000] PC is at netif_napi_del+0x74/0xa4
-> 	 [ 2.810000] LR is at ftgmac100_probe+0x290/0x674
-> 	 [ 2.810000] pc : [<80331004>] lr : [<80292b30>] psr: 60000013
-> 	 [ 2.810000] sp : 9e4a1d70 ip : 9e4a1d88 fp : 9e4a1d84
-> 	 [ 2.810000] r10: 9e565000 r9 : ffffffed r8 : 00000007
-> 	 [ 2.810000] r7 : 9e565480 r6 : 9ec072c0 r5 : 00000000 r4 : 9e5654d8
-> 	 [ 2.810000] r3 : 9e565530 r2 : 00000000 r1 : 00000000 r0 : 9e5654d8
-> 	 [ 2.810000] Flags: nZCv IRQs on FIQs on Mode SVC_32 ISA ARM Segment user
-> 	 [ 2.810000] Control: 00c5387d Table: 80004008 DAC: 00000055
-> 	 [ 2.810000] Process swapper (pid: 1, stack limit = 0x9e4a0188)
-> 	 [ 2.810000] Stack: (0x9e4a1d70 to 0x9e4a2000)
-> 	 [ 2.810000] 1d60: 9e565000 9e549e10 9e4a1dcc 9e4a1d88
-> 	 [ 2.810000] 1d80: 80292b30 80330f9c ffffffff 9e4a1d98 80146058 9ec072c0 00009e10 00000000
-> 	 [ 2.810000] 1da0: 9e549e18 9e549e10 ffffffed 805f81f4 fffffdfb 00000000 00000000 00000000
-> 	 [ 2.810000] 1dc0: 9e4a1dec 9e4a1dd0 80243df8 802928ac 9e549e10 8062cbd8 8062cbe0 805f81f4
-> 	 [ 2.810000] 1de0: 9e4a1e24 9e4a1df0 80242178 80243da4 803001d0 802ffa60 9e4a1e24 9e549e10
-> 	 [ 2.810000] 1e00: 9e549e44 805f81f4 00000000 00000000 805b8840 8058a6b0 9e4a1e44 9e4a1e28
-> 	 [ 2.810000] 1e20: 80242434 80241f04 00000000 805f81f4 80242344 00000000 9e4a1e6c 9e4a1e48
-> 	 [ 2.810000] 1e40: 80240148 80242350 9e425bac 9e4fdc90 9e790e94 805f81f4 9e790e60 805f5640
-> 	 [ 2.810000] 1e60: 9e4a1e7c 9e4a1e70 802425dc 802400d8 9e4a1ea4 9e4a1e80 80240ba8 802425c0
-> 	 [ 2.810000] 1e80: 8050b6ac 9e4a1e90 805f81f4 ffffe000 805b8838 80616720 9e4a1ebc 9e4a1ea8
-> 	 [ 2.810000] 1ea0: 80243068 80240a68 805ab24c ffffe000 9e4a1ecc 9e4a1ec0 80244a38 80242fec
-> 	 [ 2.810000] 1ec0: 9e4a1edc 9e4a1ed0 805ab264 80244a04 9e4a1f4c 9e4a1ee0 8058ae70 805ab258
-> 	 [ 2.810000] 1ee0: 80032c68 801e3fd8 8052f800 8041af2c 9e4a1f4c 9e4a1f00 80032f90 8058a6bc
-> 	 [ 2.810000] 1f00: 9e4a1f2c 9e4a1f10 00000006 00000006 00000000 8052f220 805112f0 00000000
-> 	 [ 2.810000] 1f20: 9e4a1f4c 00000006 80616720 805cf400 80616720 805b8838 80616720 00000057
-> 	 [ 2.810000] 1f40: 9e4a1f94 9e4a1f50 8058b040 8058add0 00000006 00000006 00000000 8058a6b0
-> 	 [ 2.810000] 1f60: 3940bf3d 00000007 f115c2e8 00000000 803fd158 00000000 00000000 00000000
-> 	 [ 2.810000] 1f80: 00000000 00000000 9e4a1fac 9e4a1f98 803fd170 8058af38 00000000 803fd158
-> 	 [ 2.810000] 1fa0: 00000000 9e4a1fb0 8000a5e8 803fd164 00000000 00000000 00000000 00000000
-> 	 [ 2.810000] 1fc0: 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-> 	 [ 2.810000] 1fe0: 00000000 00000000 00000000 00000000 00000013 00000000 d11dcae8 af8ddec5
-> 	 [ 2.810000] [<80331004>] (netif_napi_del) from [<80292b30>] (ftgmac100_probe+0x290/0x674)
-> 	 [ 2.810000] [<80292b30>] (ftgmac100_probe) from [<80243df8>] (platform_drv_probe+0x60/0xc0)
-> 	 [ 2.810000] [<80243df8>] (platform_drv_probe) from [<80242178>] (driver_probe_device+0x280/0x44c)
-> 	 [ 2.810000] [<80242178>] (driver_probe_device) from [<80242434>] (__driver_attach+0xf0/0x104)
-> 	 [ 2.810000] [<80242434>] (__driver_attach) from [<80240148>] (bus_for_each_dev+0x7c/0xb0)
-> 	 [ 2.810000] [<80240148>] (bus_for_each_dev) from [<802425dc>] (driver_attach+0x28/0x30)
-> 	 [ 2.810000] [<802425dc>] (driver_attach) from [<80240ba8>] (bus_add_driver+0x14c/0x268)
-> 	 [ 2.810000] [<80240ba8>] (bus_add_driver) from [<80243068>] (driver_register+0x88/0x104)
-> 	 [ 2.810000] [<80243068>] (driver_register) from [<80244a38>] (__platform_driver_register+0x40/0x54)
-> 	 [ 2.810000] [<80244a38>] (__platform_driver_register) from [<805ab264>] (ftgmac100_driver_init+0x18/0x20)
-> 	 [ 2.810000] [<805ab264>] (ftgmac100_driver_init) from [<8058ae70>] (do_one_initcall+0xac/0x168)
-> 	 [ 2.810000] [<8058ae70>] (do_one_initcall) from [<8058b040>] (kernel_init_freeable+0x114/0x1cc)
-> 	 [ 2.810000] [<8058b040>] (kernel_init_freeable) from [<803fd170>] (kernel_init+0x18/0x104)
-> 	 [ 2.810000] [<803fd170>] (kernel_init) from [<8000a5e8>] (ret_from_fork+0x14/0x2c)
-> 	 [ 2.810000] Code: e594205c e5941058 e2843058 e3a05000 (e5812004)
-> 	 [ 3.210000] ---[ end trace f32811052fd3860c ]---
-> 
-> Signed-off-by: Andrew Jeffery <andrew@aj.id.au>
+Hi all,
 
-Good catch, thanks. Ack below.
+This is based on net-next (e2a7c34fb285).
 
-I think there is one more instance of that bug in ftgmac100_remove()
-that should probably go away too. (travelling, can't really do/test
-a patch this week).
+I removed the GoP interrupt and PHY optional parts in this v2 to ease
+the review process as the MAC/GoP initialization seemed to start less
+discussions :)
 
-Acked-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+This series now only aims at making the PPv2 driver less depending on
+the firmware/bootloader initialization. Some patches cleanup some parts
+as well, and add new interface descriptions in the dt.
 
-> ---
->  drivers/net/ethernet/faraday/ftgmac100.c | 1 -
->  1 file changed, 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/faraday/ftgmac100.c b/drivers/net/ethernet/faraday/ftgmac100.c
-> index 34dae51effd4..59da7ac3c108 100644
-> --- a/drivers/net/ethernet/faraday/ftgmac100.c
-> +++ b/drivers/net/ethernet/faraday/ftgmac100.c
-> @@ -1863,7 +1863,6 @@ static int ftgmac100_probe(struct platform_device *pdev)
->  err_ioremap:
->  	release_resource(priv->res);
->  err_req_mem:
-> -	netif_napi_del(&priv->napi);
->  	free_netdev(netdev);
->  err_alloc_etherdev:
->  	return err;
+The current implementation of the PPv2 driver relies on the
+firmware/bootloader initialization to configure some parts, as the Group
+of Ports (GoP) and the MACs (GMAC and/or XLG MAC --for 10G--).  The
+drawback is the kernel must be configured to match exactly what the
+bootloader configures which is not convenient and is an issue when using
+boards having an Ethernet port and an SFP port wired to the same GoP
+port, as no dynamic configuration can be done.
+
+This series adds the GoP and GMAC/XLG MAC initializations so that the
+PPV2 does not have to rely on a previous initialization. One part is
+still missing from this series, and that would be the 'comphy' which
+provides shared serdes PHYs and which must be configured as well for a
+full kernel initialization to work. This comphy support will be part of
+a following up series. (This series was also tested with this 'comphy'
+support, as it's nearly ready).
+
+@Dave: patches 9 and 10 should go through the mvebu tree. Thanks!
+
+Since v1:
+  - Split the previous series.
+  - Rebased on net-next and reworked the series accordingly.
+  - Added support for all RGMII variants.
+  - Added a patch from Stefan Chulski improving / fixing 10G support.
+  - Various small fixes.
+
+Antoine Tenart (9):
+  net: mvpp2: unify register definitions coding style
+  net: mvpp2: fix the synchronization module bypass macro name
+  net: mvpp2: move the mii configuration in the ndo_open path
+  net: mvpp2: initialize the GMAC when using a port
+  net: mvpp2: initialize the XLG MAC when using a port
+  net: mvpp2: initialize the GoP
+  Documentation/bindings: net: marvell-pp2: add the system controller
+  arm64: dts: marvell: add a reference to the sysctrl syscon in the ppv2
+    node
+  arm64: dts: marvell: mcbin: enable more networking ports
+
+Stefan Chulski (1):
+  net: mvpp2: set maximum packet size for 10G ports
+
+ .../devicetree/bindings/net/marvell-pp2.txt        |   1 +
+ arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts  |  30 ++
+ .../boot/dts/marvell/armada-cp110-master.dtsi      |   1 +
+ .../arm64/boot/dts/marvell/armada-cp110-slave.dtsi |   1 +
+ drivers/net/ethernet/marvell/mvpp2.c               | 432 +++++++++++++++++----
+ 5 files changed, 393 insertions(+), 72 deletions(-)
+
+-- 
+2.13.5
