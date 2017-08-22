@@ -1,48 +1,50 @@
-From: David Wu <david.wu@rock-chips.com>
-Subject: [PATCH] ARM: dts: rk3228-evb: Fix the compiling error
-Date: Tue, 22 Aug 2017 17:24:25 +0800
-Message-ID: <1503393865-7975-1-git-send-email-david.wu@rock-chips.com>
-Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org,
-        David Wu <david.wu@rock-chips.com>
-To: davem@davemloft.net
+From: "Yang, Yi" <yi.y.yang@intel.com>
+Subject: Re: [PATCH net-next v4] openvswitch: enable NSH support
+Date: Tue, 22 Aug 2017 17:38:26 +0800
+Message-ID: <20170822093825.GA94865@cran64.bj.intel.com>
+References: <1503041071-68753-1-git-send-email-yi.y.yang@intel.com>
+ <20170818152601.3760aaec@griffin>
+ <20170821061109.GA72656@cran64.bj.intel.com>
+ <20170821101925.3f9b36a1@griffin>
+ <20170821083900.GA74649@cran64.bj.intel.com>
+ <20170821111854.42dece9f@griffin>
+ <20170821091541.GA75219@cran64.bj.intel.com>
+ <20170821114713.7c6ebb9a@griffin>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "dev@openvswitch.org" <dev@openvswitch.org>,
+        "blp@ovn.org" <blp@ovn.org>, "e@erig.me" <e@erig.me>,
+        "jan.scheurich@ericsson.com" <jan.scheurich@ericsson.com>
+To: Jiri Benc <jbenc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lucky1.263xmail.com ([211.157.147.135]:55775 "EHLO
-        lucky1.263xmail.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932205AbdHVJTk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2017 05:19:40 -0400
+Received: from mga11.intel.com ([192.55.52.93]:20217 "EHLO mga11.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932306AbdHVJxE (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 22 Aug 2017 05:53:04 -0400
+Content-Disposition: inline
+In-Reply-To: <20170821114713.7c6ebb9a@griffin>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch solves the following error:
-arch/arm/boot/dts/rk3228-evb.dtb: ERROR (phandle_references): Reference to non-existent node or label "phy0"
+On Mon, Aug 21, 2017 at 05:47:13PM +0800, Jiri Benc wrote:
+> 
+> > I don't know how we can support this, is it a must-have thing?
+> 
+> What would happen if you get a GSO packet? Ports of an ovs bridge claim
+> GSO support, thus they may get a GSO packet. You have to handle it one
+> way or the other: either software segment the packet before pushing the
+> header, or implement proper GSO support for NSH.
+> 
 
-Fixess db40f15b53e4 ("ARM: dts: rk3228-evb: Enable the integrated PHY for gmac")
-Signed-off-by: David Wu <david.wu@rock-chips.com>
----
- arch/arm/boot/dts/rk3228-evb.dts | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+I checked GSO support code, we have two cases to handle, one case is to
+output NSH packet to VxLAN-gpe port, the other case is to output NSH packet
+to Ethernet port (tap, veth, vhost, physical eth, etc.), I don't think
+it is a good way to do GSO support in OVS module, because we can't know
+the final output port at this point, if the final output port is
+VxLAN-gpe port, it will still face GSO issue, but I didn't see vxlan
+module handles this, maybe udp tunnel did this. I think a NSH packet can
+be split into two packets, one has NSH header, another one doesn't, so I'm not sure how vxlan module can avoid this situation.
 
-diff --git a/arch/arm/boot/dts/rk3228-evb.dts b/arch/arm/boot/dts/rk3228-evb.dts
-index 456ddf7..1be9daa 100644
---- a/arch/arm/boot/dts/rk3228-evb.dts
-+++ b/arch/arm/boot/dts/rk3228-evb.dts
-@@ -76,7 +76,7 @@
- 	clock_in_out = "output";
- 	phy-supply = <&vcc_phy>;
- 	phy-mode = "rmii";
--	phy-handle = <&phy0>;
-+	phy-handle = <&phy>;
- 	status = "okay";
- 
- 	mdio {
-@@ -84,7 +84,7 @@
- 		#address-cells = <1>;
- 		#size-cells = <0>;
- 
--		phy@0 {
-+		phy: phy@0 {
- 			compatible = "ethernet-phy-id1234.d400", "ethernet-phy-ieee802.3-c22";
- 			reg = <0>;
- 			clocks = <&cru SCLK_MAC_PHY>;
--- 
-1.9.1
+For the second case, we can add a nsh GSO module in net/nsh/nsh_gso.c (as MPLS did in net/mpls/mpls_gso.c), that is the best way to handle this, what do you
+think about it?
