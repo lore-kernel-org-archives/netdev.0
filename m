@@ -1,73 +1,113 @@
-From: nxf23276 <matthew.tan_1@nxp.com>
-Subject: [PATCH] e1000: changed some expensive calls of udelay to usleep_range
-Date: Tue, 22 Aug 2017 16:02:27 -0500
-Message-ID: <1503435747-29639-1-git-send-email-matthew.tan_1@nxp.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <michael.kardonik@nxp.com>, <shannon.nelson@intel.com>,
-        <carolyn.wyborny@intel.com>, <donald.c.skidmore@intel.com>,
-        <bruce.w.allan@intel.com>, <john.ronciak@intel.com>,
-        <mitch.a.williams@intel.com>, <intel-wired-lan@lists.osuosl.org>,
-        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-        nxf23276 <matthew.tan_1@nxp.com>
-To: <jeffrey.t.kirsher@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jacob Keller <jacob.e.keller@intel.com>
+Subject: [PATCH v2] i40e/i40evf: fix out-of-bounds read of cpumask
+Date: Tue, 22 Aug 2017 14:04:42 -0700
+Message-ID: <20170822210442.18006-1-jacob.e.keller@intel.com>
+Cc: netdev@vger.kernel.org, Jacob Keller <jacob.e.keller@intel.com>,
+        stable@vger.kernel.org#4.10+
+To: Intel Wired LAN <intel-wired-lan@lists.osuosl.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([134.134.136.65]:51456 "EHLO mga03.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752560AbdHVVFA (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 22 Aug 2017 17:05:00 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-    Calls to udelay are not preemtable by userspace so userspace
-    applications experience a large (~200us) latency when running on core
-    0. Instead usleep_range can be used to be more friendly to userspace
-    since it is preemtable. This is due to udelay using busy-wait loops
-    while usleep_rang uses hrtimers instead. It is recommended to use
-    udelay when the delay is <10us since at that precision overhead of
-    usleep_range hrtimer setup causes issues. However, the replaced calls
-    are for 50us and 100us so this should not be not an issue.
+When responding to an affinity hint we directly copied a cpumask value,
+intsead of using cpumask_copy. According to cpumask.h this is not
+correct because cpumask_t is only guaranteed to have enough space for
+the number of CPUs in the system, and may not be as big as we expect.
+Thus a direct copy results in an out-of-bound read and potentially
+a crash if the pages are aligned just right. This will be easily
+detected on a kernel with KASAN enabled:
 
-Signed-off-by: nxf23276 <matthew.tan_1@nxp.com>
+KASAN reports:
+[   25.242312] BUG: KASAN: slab-out-of-bounds in i40e_irq_affinity_notify+0x30/0x50 [i40e] at addr ffff880462eea960
+[   25.242315] Read of size 1024 by task kworker/2:1/170
+[   25.242322] CPU: 2 PID: 170 Comm: kworker/2:1 Not tainted 4.11.0-22.el7a.x86_64 #1
+[   25.242325] Hardware name: HP ProLiant DL380 Gen9, BIOS P89 05/06/2015
+[   25.242336] Workqueue: events irq_affinity_notify
+[   25.242340] Call Trace:
+[   25.242350]  dump_stack+0x63/0x8d
+[   25.242358]  kasan_object_err+0x21/0x70
+[   25.242364]  kasan_report+0x288/0x540
+[   25.242397]  ? i40e_irq_affinity_notify+0x30/0x50 [i40e]
+[   25.242403]  check_memory_region+0x13c/0x1a0
+[   25.242408]  __asan_loadN+0xf/0x20
+[   25.242440]  i40e_irq_affinity_notify+0x30/0x50 [i40e]
+[   25.242446]  irq_affinity_notify+0x1b4/0x230
+[   25.242452]  ? irq_set_affinity_notifier+0x130/0x130
+[   25.242457]  ? kasan_slab_free+0x89/0xc0
+[   25.242466]  process_one_work+0x32f/0x6f0
+[   25.242472]  worker_thread+0x89/0x770
+[   25.242481]  ? pci_mmcfg_check_reserved+0xc0/0xc0
+[   25.242488]  kthread+0x18c/0x1e0
+[   25.242493]  ? process_one_work+0x6f0/0x6f0
+[   25.242499]  ? kthread_create_on_node+0xc0/0xc0
+[   25.242506]  ret_from_fork+0x2c/0x40
+[   25.242511] Object at ffff880462eea960, in cache kmalloc-8 size: 8
+[   25.242513] Allocated:
+[   25.242514] PID = 170
+[   25.242522]  save_stack_trace+0x1b/0x20
+[   25.242529]  save_stack+0x46/0xd0
+[   25.242533]  kasan_kmalloc+0xad/0xe0
+[   25.242537]  __kmalloc_node+0x12c/0x2b0
+[   25.242542]  alloc_cpumask_var_node+0x3c/0x60
+[   25.242546]  alloc_cpumask_var+0xe/0x10
+[   25.242550]  irq_affinity_notify+0x94/0x230
+[   25.242555]  process_one_work+0x32f/0x6f0
+[   25.242559]  worker_thread+0x89/0x770
+[   25.242564]  kthread+0x18c/0x1e0
+[   25.242568]  ret_from_fork+0x2c/0x40
+[   25.242569] Freed:
+[   25.242570] PID = 0
+[   25.242572] (stack is not available)
+[   25.242573] Memory state around the buggy address:
+[   25.242578]  ffff880462eea800: fc fc 00 fc fc 00 fc fc 00 fc fc 00 fc fc fb fc
+[   25.242582]  ffff880462eea880: fc fb fc fc fb fc fc 00 fc fc 00 fc fc 00 fc fc
+[   25.242586] >ffff880462eea900: 00 fc fc 00 fc fc 00 fc fc fb fc fc 00 fc fc fc
+[   25.242588]                                                           ^
+[   25.242592]  ffff880462eea980: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
+[   25.242596]  ffff880462eeaa00: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
+[   25.242597] ==================================================================
+
+Fixes: 96db776a3682 ("i40e/i40evf: fix interrupt affinity bug", 2016-09-14)
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Cc: stable@vger.kernel.org # 4.10+
 ---
- drivers/net/ethernet/intel/e1000e/phy.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+This updates the commit message for the original fix, and indicates that
+it fixes a potential crash, as well as tagged the commit for stable and
+added a Fixes to indicate which commit this fixes.
 
-diff --git a/drivers/net/ethernet/intel/e1000e/phy.c b/drivers/net/ethernet/intel/e1000e/phy.c
-index de13aea..ee6ab53 100644
---- a/drivers/net/ethernet/intel/e1000e/phy.c
-+++ b/drivers/net/ethernet/intel/e1000e/phy.c
-@@ -158,7 +158,7 @@ s32 e1000e_read_phy_reg_mdic(struct e1000_hw *hw, u32 offset, u16 *data)
- 	 * the lower time out
- 	 */
- 	for (i = 0; i < (E1000_GEN_POLL_TIMEOUT * 3); i++) {
--		udelay(50);
-+		usleep_range(40, 60);
- 		mdic = er32(MDIC);
- 		if (mdic & E1000_MDIC_READY)
- 			break;
-@@ -183,7 +183,7 @@ s32 e1000e_read_phy_reg_mdic(struct e1000_hw *hw, u32 offset, u16 *data)
- 	 * reading duplicate data in the next MDIC transaction.
- 	 */
- 	if (hw->mac.type == e1000_pch2lan)
--		udelay(100);
-+		usleep_range(90, 110);
+ drivers/net/ethernet/intel/i40e/i40e_main.c     | 2 +-
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 397f1bcaed3e..50a7260b32c2 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -3450,7 +3450,7 @@ static void i40e_irq_affinity_notify(struct irq_affinity_notify *notify,
+ 	struct i40e_q_vector *q_vector =
+ 		container_of(notify, struct i40e_q_vector, affinity_notify);
  
- 	return 0;
+-	q_vector->affinity_mask = *mask;
++	cpumask_copy(&q_vector->affinity_mask, mask);
  }
-@@ -222,7 +222,7 @@ s32 e1000e_write_phy_reg_mdic(struct e1000_hw *hw, u32 offset, u16 data)
- 	 * the lower time out
- 	 */
- 	for (i = 0; i < (E1000_GEN_POLL_TIMEOUT * 3); i++) {
--		udelay(50);
-+		usleep_range(40, 60);
- 		mdic = er32(MDIC);
- 		if (mdic & E1000_MDIC_READY)
- 			break;
-@@ -246,7 +246,7 @@ s32 e1000e_write_phy_reg_mdic(struct e1000_hw *hw, u32 offset, u16 data)
- 	 * reading duplicate data in the next MDIC transaction.
- 	 */
- 	if (hw->mac.type == e1000_pch2lan)
--		udelay(100);
-+		usleep_range(90, 110);
  
- 	return 0;
+ /**
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index 1ffd55e06a49..87175a14740e 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -520,7 +520,7 @@ static void i40evf_irq_affinity_notify(struct irq_affinity_notify *notify,
+ 	struct i40e_q_vector *q_vector =
+ 		container_of(notify, struct i40e_q_vector, affinity_notify);
+ 
+-	q_vector->affinity_mask = *mask;
++	cpumask_copy(&q_vector->affinity_mask, mask);
  }
+ 
+ /**
 -- 
-2.7.4
+2.14.1.323.g792488f9a5e1
