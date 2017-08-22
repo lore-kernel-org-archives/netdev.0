@@ -1,8 +1,8 @@
 From: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
-Subject: [PATCH net v1 1/2] tipc: remove subscription
- references only for pending timers
-Date: Tue, 22 Aug 2017 12:28:40 +0200
-Message-ID: <1503397721-19682-2-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
+Subject: [PATCH net v1 2/2] tipc: fix a race condition of
+ releasing subscriber object
+Date: Tue, 22 Aug 2017 12:28:41 +0200
+Message-ID: <1503397721-19682-3-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
 References: <1503397721-19682-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,104 +22,86 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-In commit, 139bb36f754a ("tipc: advance the time of deleting
-subscription from subscriber->subscrp_list"), we delete the
-subscription from the subscribers list and from nametable
-unconditionally. This leads to the following bug if the timer
-running tipc_subscrp_timeout() in another CPU accesses the
-subscription list after the subscription delete request.
+From: Ying Xue <ying.xue@windriver.com>
 
-[39.570] general protection fault: 0000 [#1] SMP
-::
-[39.574] task: ffffffff81c10540 task.stack: ffffffff81c00000
-[39.575] RIP: 0010:tipc_subscrp_timeout+0x32/0x80 [tipc]
-[39.576] RSP: 0018:ffff88003ba03e90 EFLAGS: 00010282
-[39.576] RAX: dead000000000200 RBX: ffff88003f0f3600 RCX: 0000000000000101
-[39.577] RDX: dead000000000100 RSI: 0000000000000201 RDI: ffff88003f0d7948
-[39.578] RBP: ffff88003ba03ea0 R08: 0000000000000001 R09: ffff88003ba03ef8
-[39.579] R10: 000000000000014f R11: 0000000000000000 R12: ffff88003f0d7948
-[39.580] R13: ffff88003f0f3618 R14: ffffffffa006c250 R15: ffff88003f0f3600
-[39.581] FS:  0000000000000000(0000) GS:ffff88003ba00000(0000) knlGS:0000000000000000
-[39.582] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-[39.583] CR2: 00007f831c6e0714 CR3: 000000003d3b0000 CR4: 00000000000006f0
-[39.584] Call Trace:
-[39.584]  <IRQ>
-[39.585]  call_timer_fn+0x3d/0x180
-[39.585]  ? tipc_subscrb_rcv_cb+0x260/0x260 [tipc]
-[39.586]  run_timer_softirq+0x168/0x1f0
-[39.586]  ? sched_clock_cpu+0x16/0xc0
-[39.587]  __do_softirq+0x9b/0x2de
-[39.587]  irq_exit+0x60/0x70
-[39.588]  smp_apic_timer_interrupt+0x3d/0x50
-[39.588]  apic_timer_interrupt+0x86/0x90
-[39.589] RIP: 0010:default_idle+0x20/0xf0
-[39.589] RSP: 0018:ffffffff81c03e58 EFLAGS: 00000246 ORIG_RAX: ffffffffffffff10
-[39.590] RAX: 0000000000000000 RBX: ffffffff81c10540 RCX: 0000000000000000
-[39.591] RDX: 0000000000000000 RSI: 0000000000000000 RDI: 0000000000000000
-[39.592] RBP: ffffffff81c03e68 R08: 0000000000000000 R09: 0000000000000000
-[39.593] R10: ffffc90001cbbe00 R11: 0000000000000000 R12: 0000000000000000
-[39.594] R13: ffffffff81c10540 R14: 0000000000000000 R15: 0000000000000000
-[39.595]  </IRQ>
-::
-[39.603] RIP: tipc_subscrp_timeout+0x32/0x80 [tipc] RSP: ffff88003ba03e90
-[39.604] ---[ end trace 79ce94b7216cb459 ]---
+No matter whether a request is inserted into workqueue as a work item
+to cancel a subscription or to delete a subscription's subscriber
+asynchronously, the work items may be executed in different workers.
+As a result, it doesn't mean that one request which is raised prior to
+another request is definitely handled before the latter. By contrast,
+if the latter request is executed before the former request, below
+error may happen:
 
-Fixes: 139bb36f754a ("tipc: advance the time of deleting subscription from subscriber->subscrp_list")
-Signed-off-by: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
+[  656.183644] BUG: spinlock bad magic on CPU#0, kworker/u8:0/12117
+[  656.184487] general protection fault: 0000 [#1] SMP
+[  656.185160] Modules linked in: tipc ip6_udp_tunnel udp_tunnel 9pnet_virtio 9p 9pnet virtio_net virtio_pci virtio_ring virtio [last unloaded: ip6_udp_tunnel]
+[  656.187003] CPU: 0 PID: 12117 Comm: kworker/u8:0 Not tainted 4.11.0-rc7+ #6
+[  656.187920] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
+[  656.188690] Workqueue: tipc_rcv tipc_recv_work [tipc]
+[  656.189371] task: ffff88003f5cec40 task.stack: ffffc90004448000
+[  656.190157] RIP: 0010:spin_bug+0xdd/0xf0
+[  656.190678] RSP: 0018:ffffc9000444bcb8 EFLAGS: 00010202
+[  656.191375] RAX: 0000000000000034 RBX: ffff88003f8d1388 RCX: 0000000000000000
+[  656.192321] RDX: ffff88003ba13708 RSI: ffff88003ba0cd08 RDI: ffff88003ba0cd08
+[  656.193265] RBP: ffffc9000444bcd0 R08: 0000000000000030 R09: 000000006b6b6b6b
+[  656.194208] R10: ffff8800bde3e000 R11: 00000000000001b4 R12: 6b6b6b6b6b6b6b6b
+[  656.195157] R13: ffffffff81a3ca64 R14: ffff88003f8d1388 R15: ffff88003f8d13a0
+[  656.196101] FS:  0000000000000000(0000) GS:ffff88003ba00000(0000) knlGS:0000000000000000
+[  656.197172] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+[  656.197935] CR2: 00007f0b3d2e6000 CR3: 000000003ef9e000 CR4: 00000000000006f0
+[  656.198873] Call Trace:
+[  656.199210]  do_raw_spin_lock+0x66/0xa0
+[  656.199735]  _raw_spin_lock_bh+0x19/0x20
+[  656.200258]  tipc_subscrb_subscrp_delete+0x28/0xf0 [tipc]
+[  656.200990]  tipc_subscrb_rcv_cb+0x45/0x260 [tipc]
+[  656.201632]  tipc_receive_from_sock+0xaf/0x100 [tipc]
+[  656.202299]  tipc_recv_work+0x2b/0x60 [tipc]
+[  656.202872]  process_one_work+0x157/0x420
+[  656.203404]  worker_thread+0x69/0x4c0
+[  656.203898]  kthread+0x138/0x170
+[  656.204328]  ? process_one_work+0x420/0x420
+[  656.204889]  ? kthread_create_on_node+0x40/0x40
+[  656.205527]  ret_from_fork+0x29/0x40
+[  656.206012] Code: 48 8b 0c 25 00 c5 00 00 48 c7 c7 f0 24 a3 81 48 81 c1 f0 05 00 00 65 8b 15 61 ef f5 7e e8 9a 4c 09 00 4d 85 e4 44 8b 4b 08 74 92 <45> 8b 84 24 40 04 00 00 49 8d 8c 24 f0 05 00 00 eb 8d 90 0f 1f
+[  656.208504] RIP: spin_bug+0xdd/0xf0 RSP: ffffc9000444bcb8
+[  656.209798] ---[ end trace e2a800e6eb0770be ]---
+
+In above scenario, the request of deleting subscriber was performed
+earlier than the request of canceling a subscription although the
+latter was issued before the former, which means tipc_subscrb_delete()
+was called before tipc_subscrp_cancel(). As a result, when
+tipc_subscrb_subscrp_delete() called by tipc_subscrp_cancel() was
+executed to cancel a subscription, the subscription's subscriber
+refcnt had been decreased to 1. After tipc_subscrp_delete() where
+the subscriber was freed because its refcnt was decremented to zero,
+but the subscriber's lock had to be released, as a consequence, panic
+happened.
+
+By contrast, if we increase subscriber's refcnt before
+tipc_subscrb_subscrp_delete() is called in tipc_subscrp_cancel(),
+the panic issue can be avoided.
+
+Fixes: d094c4d5f5c7 ("tipc: add subscription refcount to avoid invalid delete")
+Reported-by: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
+Signed-off-by: Ying Xue <ying.xue@windriver.com>
 ---
- net/tipc/subscr.c | 19 +++++++------------
- 1 file changed, 7 insertions(+), 12 deletions(-)
+ net/tipc/subscr.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
 diff --git a/net/tipc/subscr.c b/net/tipc/subscr.c
-index 0bf91cd3733c..f2c81f42dfda 100644
+index f2c81f42dfda..be3d9e3183dc 100644
 --- a/net/tipc/subscr.c
 +++ b/net/tipc/subscr.c
-@@ -52,7 +52,6 @@ struct tipc_subscriber {
- 	struct list_head subscrp_list;
- };
- 
--static void tipc_subscrp_delete(struct tipc_subscription *sub);
- static void tipc_subscrb_put(struct tipc_subscriber *subscriber);
- 
- /**
-@@ -197,15 +196,19 @@ static void tipc_subscrb_subscrp_delete(struct tipc_subscriber *subscriber,
- {
- 	struct list_head *subscription_list = &subscriber->subscrp_list;
- 	struct tipc_subscription *sub, *temp;
-+	u32 timeout;
- 
- 	spin_lock_bh(&subscriber->lock);
- 	list_for_each_entry_safe(sub, temp, subscription_list,  subscrp_list) {
- 		if (s && memcmp(s, &sub->evt.s, sizeof(struct tipc_subscr)))
- 			continue;
- 
--		tipc_nametbl_unsubscribe(sub);
--		list_del(&sub->subscrp_list);
--		tipc_subscrp_delete(sub);
-+		timeout = htohl(sub->evt.s.timeout, sub->swap);
-+		if (timeout == TIPC_WAIT_FOREVER || del_timer(&sub->timer)) {
-+			tipc_nametbl_unsubscribe(sub);
-+			list_del(&sub->subscrp_list);
-+			tipc_subscrp_put(sub);
-+		}
- 
- 		if (s)
- 			break;
-@@ -236,14 +239,6 @@ static void tipc_subscrb_delete(struct tipc_subscriber *subscriber)
- 	tipc_subscrb_put(subscriber);
- }
- 
--static void tipc_subscrp_delete(struct tipc_subscription *sub)
--{
--	u32 timeout = htohl(sub->evt.s.timeout, sub->swap);
--
--	if (timeout == TIPC_WAIT_FOREVER || del_timer(&sub->timer))
--		tipc_subscrp_put(sub);
--}
--
+@@ -242,7 +242,9 @@ static void tipc_subscrb_delete(struct tipc_subscriber *subscriber)
  static void tipc_subscrp_cancel(struct tipc_subscr *s,
  				struct tipc_subscriber *subscriber)
  {
++	tipc_subscrb_get(subscriber);
+ 	tipc_subscrb_subscrp_delete(subscriber, s);
++	tipc_subscrb_put(subscriber);
+ }
+ 
+ static struct tipc_subscription *tipc_subscrp_create(struct net *net,
 -- 
 2.1.4
 
