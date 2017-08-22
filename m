@@ -1,7 +1,7 @@
 From: Romain Perier <romain.perier@collabora.com>
-Subject: [PATCH v12 5/8] mlx4: Replace PCI pool old API
-Date: Tue, 22 Aug 2017 13:46:58 +0200
-Message-ID: <20170822114701.14907-6-romain.perier@collabora.com>
+Subject: [PATCH v12 2/8] dmaengine: pch_dma: Replace PCI pool old API
+Date: Tue, 22 Aug 2017 13:46:55 +0200
+Message-ID: <20170822114701.14907-3-romain.perier@collabora.com>
 References: <20170822114701.14907-1-romain.perier@collabora.com>
 Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org,
@@ -24,68 +24,67 @@ API by the appropriate function with the DMA pool API.
 Signed-off-by: Romain Perier <romain.perier@collabora.com>
 Acked-by: Peter Senna Tschudin <peter.senna@collabora.com>
 Tested-by: Peter Senna Tschudin <peter.senna@collabora.com>
-Reviewed-by: Leon Romanovsky <leonro@mellanox.com>
-Acked-by: Doug Ledford <dledford@redhat.com>
-Tested-by: Doug Ledford <dledford@redhat.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/cmd.c  | 10 +++++-----
- drivers/net/ethernet/mellanox/mlx4/mlx4.h |  2 +-
- 2 files changed, 6 insertions(+), 6 deletions(-)
+ drivers/dma/pch_dma.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-index 4ec1ef61a472..6a9086dc1e92 100644
---- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-@@ -2535,8 +2535,8 @@ int mlx4_cmd_init(struct mlx4_dev *dev)
- 	}
+diff --git a/drivers/dma/pch_dma.c b/drivers/dma/pch_dma.c
+index f9028e9d0dfc..afd8f27bda96 100644
+--- a/drivers/dma/pch_dma.c
++++ b/drivers/dma/pch_dma.c
+@@ -123,7 +123,7 @@ struct pch_dma_chan {
+ struct pch_dma {
+ 	struct dma_device	dma;
+ 	void __iomem *membase;
+-	struct pci_pool		*pool;
++	struct dma_pool		*pool;
+ 	struct pch_dma_regs	regs;
+ 	struct pch_dma_desc_regs ch_regs[MAX_CHAN_NR];
+ 	struct pch_dma_chan	channels[MAX_CHAN_NR];
+@@ -437,7 +437,7 @@ static struct pch_dma_desc *pdc_alloc_desc(struct dma_chan *chan, gfp_t flags)
+ 	struct pch_dma *pd = to_pd(chan->device);
+ 	dma_addr_t addr;
  
- 	if (!priv->cmd.pool) {
--		priv->cmd.pool = pci_pool_create("mlx4_cmd",
--						 dev->persist->pdev,
-+		priv->cmd.pool = dma_pool_create("mlx4_cmd",
-+						 &dev->persist->pdev->dev,
- 						 MLX4_MAILBOX_SIZE,
- 						 MLX4_MAILBOX_SIZE, 0);
- 		if (!priv->cmd.pool)
-@@ -2607,7 +2607,7 @@ void mlx4_cmd_cleanup(struct mlx4_dev *dev, int cleanup_mask)
- 	struct mlx4_priv *priv = mlx4_priv(dev);
+-	desc = pci_pool_zalloc(pd->pool, flags, &addr);
++	desc = dma_pool_zalloc(pd->pool, flags, &addr);
+ 	if (desc) {
+ 		INIT_LIST_HEAD(&desc->tx_list);
+ 		dma_async_tx_descriptor_init(&desc->txd, chan);
+@@ -549,7 +549,7 @@ static void pd_free_chan_resources(struct dma_chan *chan)
+ 	spin_unlock_irq(&pd_chan->lock);
  
- 	if (priv->cmd.pool && (cleanup_mask & MLX4_CMD_CLEANUP_POOL)) {
--		pci_pool_destroy(priv->cmd.pool);
-+		dma_pool_destroy(priv->cmd.pool);
- 		priv->cmd.pool = NULL;
- 	}
+ 	list_for_each_entry_safe(desc, _d, &tmp_list, desc_node)
+-		pci_pool_free(pd->pool, desc, desc->txd.phys);
++		dma_pool_free(pd->pool, desc, desc->txd.phys);
  
-@@ -2699,7 +2699,7 @@ struct mlx4_cmd_mailbox *mlx4_alloc_cmd_mailbox(struct mlx4_dev *dev)
- 	if (!mailbox)
- 		return ERR_PTR(-ENOMEM);
- 
--	mailbox->buf = pci_pool_zalloc(mlx4_priv(dev)->cmd.pool, GFP_KERNEL,
-+	mailbox->buf = dma_pool_zalloc(mlx4_priv(dev)->cmd.pool, GFP_KERNEL,
- 				       &mailbox->dma);
- 	if (!mailbox->buf) {
- 		kfree(mailbox);
-@@ -2716,7 +2716,7 @@ void mlx4_free_cmd_mailbox(struct mlx4_dev *dev,
- 	if (!mailbox)
- 		return;
- 
--	pci_pool_free(mlx4_priv(dev)->cmd.pool, mailbox->buf, mailbox->dma);
-+	dma_pool_free(mlx4_priv(dev)->cmd.pool, mailbox->buf, mailbox->dma);
- 	kfree(mailbox);
+ 	pdc_enable_irq(chan, 0);
  }
- EXPORT_SYMBOL_GPL(mlx4_free_cmd_mailbox);
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-index 706d7f21ac5c..852d00a5b016 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-@@ -626,7 +626,7 @@ struct mlx4_mgm {
- };
+@@ -880,7 +880,7 @@ static int pch_dma_probe(struct pci_dev *pdev,
+ 		goto err_iounmap;
+ 	}
  
- struct mlx4_cmd {
--	struct pci_pool	       *pool;
-+	struct dma_pool	       *pool;
- 	void __iomem	       *hcr;
- 	struct mutex		slave_cmd_mutex;
- 	struct semaphore	poll_sem;
+-	pd->pool = pci_pool_create("pch_dma_desc_pool", pdev,
++	pd->pool = dma_pool_create("pch_dma_desc_pool", &pdev->dev,
+ 				   sizeof(struct pch_dma_desc), 4, 0);
+ 	if (!pd->pool) {
+ 		dev_err(&pdev->dev, "Failed to alloc DMA descriptors\n");
+@@ -931,7 +931,7 @@ static int pch_dma_probe(struct pci_dev *pdev,
+ 	return 0;
+ 
+ err_free_pool:
+-	pci_pool_destroy(pd->pool);
++	dma_pool_destroy(pd->pool);
+ err_free_irq:
+ 	free_irq(pdev->irq, pd);
+ err_iounmap:
+@@ -963,7 +963,7 @@ static void pch_dma_remove(struct pci_dev *pdev)
+ 			tasklet_kill(&pd_chan->tasklet);
+ 		}
+ 
+-		pci_pool_destroy(pd->pool);
++		dma_pool_destroy(pd->pool);
+ 		pci_iounmap(pdev, pd->membase);
+ 		pci_release_regions(pdev);
+ 		pci_disable_device(pdev);
 -- 
 2.11.0
