@@ -1,111 +1,70 @@
-From: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
-Subject: [PATCH net v1 2/2] tipc: fix a race condition of
- releasing subscriber object
-Date: Tue, 22 Aug 2017 12:28:41 +0200
-Message-ID: <1503397721-19682-3-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
-References: <1503397721-19682-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: [iproute PATCH v2 1/7] nstat: Avoid passing negative fd to
+ fdopen()
+Date: Tue, 22 Aug 2017 12:48:08 +0200
+Message-ID: <20170822104808.GC27194@orbyte.nwl.cc>
+References: <20170821170813.29697-1-phil@nwl.cc>
+ <20170821170813.29697-2-phil@nwl.cc>
+ <20170821172323.47c335f3@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: jon.maloy@ericsson.com, netdev@vger.kernel.org,
- tipc-discussion@lists.sourceforge.net, ying.xue@windriver.com
-To: <davem@davemloft.net>
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <1503397721-19682-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/options/tipc-discussion>,
- <mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
- <mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from orbyte.nwl.cc ([151.80.46.58]:52325 "EHLO mail.nwl.cc"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932350AbdHVKsJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 22 Aug 2017 06:48:09 -0400
+Content-Disposition: inline
+In-Reply-To: <20170821172323.47c335f3@xeon-e3>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ying Xue <ying.xue@windriver.com>
+On Mon, Aug 21, 2017 at 05:23:23PM -0700, Stephen Hemminger wrote:
+> On Mon, 21 Aug 2017 19:08:07 +0200
+> Phil Sutter <phil@nwl.cc> wrote:
+> 
+> > Introduce a wrapper which does the sanity checking and returns NULL
+> > in case fd is invalid.
+> > 
+> > Signed-off-by: Phil Sutter <phil@nwl.cc>
+> > ---
+> >  misc/nstat.c | 15 +++++++++++----
+> >  1 file changed, 11 insertions(+), 4 deletions(-)
+> > 
+> > diff --git a/misc/nstat.c b/misc/nstat.c
+> > index 1212b1f2c8128..7cdde75a56e4e 100644
+> > --- a/misc/nstat.c
+> > +++ b/misc/nstat.c
+> > @@ -252,9 +252,16 @@ static void load_ugly_table(FILE *fp)
+> >  	}
+> >  }
+> >  
+> > +static FILE *fdopen_null(int fd, const char *mode)
+> > +{
+> > +	if (fd < 0)
+> > +		return NULL;
+> > +	return fdopen(fd, mode);
+> > +}
+> > +
+> >  static void load_sctp_snmp(void)
+> >  {
+> > -	FILE *fp = fdopen(net_sctp_snmp_open(), "r");
+> > +	FILE *fp = fdopen_null(net_sctp_snmp_open(), "r");
+> >  
+> >  	if (fp) {
+> >  		load_good_table(fp);
+[...]
+> 
+> Why not just fix it at the source of the open.
+> I.e 
+> static FILE *generic_proc_open(condt char * env, const char *name)
+> {
+> ...
+> 	return fopen(p, "r");
+> }
 
-No matter whether a request is inserted into workqueue as a work item
-to cancel a subscription or to delete a subscription's subscriber
-asynchronously, the work items may be executed in different workers.
-As a result, it doesn't mean that one request which is raised prior to
-another request is definitely handled before the latter. By contrast,
-if the latter request is executed before the former request, below
-error may happen:
+What should it do? All the load_*() functions are supposed to be
+fault-tolerant, so calling abort() or something is not an option.
 
-[  656.183644] BUG: spinlock bad magic on CPU#0, kworker/u8:0/12117
-[  656.184487] general protection fault: 0000 [#1] SMP
-[  656.185160] Modules linked in: tipc ip6_udp_tunnel udp_tunnel 9pnet_virtio 9p 9pnet virtio_net virtio_pci virtio_ring virtio [last unloaded: ip6_udp_tunnel]
-[  656.187003] CPU: 0 PID: 12117 Comm: kworker/u8:0 Not tainted 4.11.0-rc7+ #6
-[  656.187920] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
-[  656.188690] Workqueue: tipc_rcv tipc_recv_work [tipc]
-[  656.189371] task: ffff88003f5cec40 task.stack: ffffc90004448000
-[  656.190157] RIP: 0010:spin_bug+0xdd/0xf0
-[  656.190678] RSP: 0018:ffffc9000444bcb8 EFLAGS: 00010202
-[  656.191375] RAX: 0000000000000034 RBX: ffff88003f8d1388 RCX: 0000000000000000
-[  656.192321] RDX: ffff88003ba13708 RSI: ffff88003ba0cd08 RDI: ffff88003ba0cd08
-[  656.193265] RBP: ffffc9000444bcd0 R08: 0000000000000030 R09: 000000006b6b6b6b
-[  656.194208] R10: ffff8800bde3e000 R11: 00000000000001b4 R12: 6b6b6b6b6b6b6b6b
-[  656.195157] R13: ffffffff81a3ca64 R14: ffff88003f8d1388 R15: ffff88003f8d13a0
-[  656.196101] FS:  0000000000000000(0000) GS:ffff88003ba00000(0000) knlGS:0000000000000000
-[  656.197172] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-[  656.197935] CR2: 00007f0b3d2e6000 CR3: 000000003ef9e000 CR4: 00000000000006f0
-[  656.198873] Call Trace:
-[  656.199210]  do_raw_spin_lock+0x66/0xa0
-[  656.199735]  _raw_spin_lock_bh+0x19/0x20
-[  656.200258]  tipc_subscrb_subscrp_delete+0x28/0xf0 [tipc]
-[  656.200990]  tipc_subscrb_rcv_cb+0x45/0x260 [tipc]
-[  656.201632]  tipc_receive_from_sock+0xaf/0x100 [tipc]
-[  656.202299]  tipc_recv_work+0x2b/0x60 [tipc]
-[  656.202872]  process_one_work+0x157/0x420
-[  656.203404]  worker_thread+0x69/0x4c0
-[  656.203898]  kthread+0x138/0x170
-[  656.204328]  ? process_one_work+0x420/0x420
-[  656.204889]  ? kthread_create_on_node+0x40/0x40
-[  656.205527]  ret_from_fork+0x29/0x40
-[  656.206012] Code: 48 8b 0c 25 00 c5 00 00 48 c7 c7 f0 24 a3 81 48 81 c1 f0 05 00 00 65 8b 15 61 ef f5 7e e8 9a 4c 09 00 4d 85 e4 44 8b 4b 08 74 92 <45> 8b 84 24 40 04 00 00 49 8d 8c 24 f0 05 00 00 eb 8d 90 0f 1f
-[  656.208504] RIP: spin_bug+0xdd/0xf0 RSP: ffffc9000444bcb8
-[  656.209798] ---[ end trace e2a800e6eb0770be ]---
-
-In above scenario, the request of deleting subscriber was performed
-earlier than the request of canceling a subscription although the
-latter was issued before the former, which means tipc_subscrb_delete()
-was called before tipc_subscrp_cancel(). As a result, when
-tipc_subscrb_subscrp_delete() called by tipc_subscrp_cancel() was
-executed to cancel a subscription, the subscription's subscriber
-refcnt had been decreased to 1. After tipc_subscrp_delete() where
-the subscriber was freed because its refcnt was decremented to zero,
-but the subscriber's lock had to be released, as a consequence, panic
-happened.
-
-By contrast, if we increase subscriber's refcnt before
-tipc_subscrb_subscrp_delete() is called in tipc_subscrp_cancel(),
-the panic issue can be avoided.
-
-Fixes: d094c4d5f5c7 ("tipc: add subscription refcount to avoid invalid delete")
-Reported-by: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
-Signed-off-by: Ying Xue <ying.xue@windriver.com>
----
- net/tipc/subscr.c | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/net/tipc/subscr.c b/net/tipc/subscr.c
-index f2c81f42dfda..be3d9e3183dc 100644
---- a/net/tipc/subscr.c
-+++ b/net/tipc/subscr.c
-@@ -242,7 +242,9 @@ static void tipc_subscrb_delete(struct tipc_subscriber *subscriber)
- static void tipc_subscrp_cancel(struct tipc_subscr *s,
- 				struct tipc_subscriber *subscriber)
- {
-+	tipc_subscrb_get(subscriber);
- 	tipc_subscrb_subscrp_delete(subscriber, s);
-+	tipc_subscrb_put(subscriber);
- }
- 
- static struct tipc_subscription *tipc_subscrp_create(struct net *net,
--- 
-2.1.4
-
-
-------------------------------------------------------------------------------
-Check out the vibrant tech community on one of the world's most
-engaging tech sites, Slashdot.org! http://sdm.link/slashdot
+Thanks, Phil
