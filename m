@@ -1,33 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: ethernet: stmmac: dwmac-rk: Add rv1108 gmac
- support
-Date: Tue, 22 Aug 2017 10:31:11 -0700 (PDT)
-Message-ID: <20170822.103111.606080308323162004.davem@davemloft.net>
-References: <1503310375-30393-1-git-send-email-david.wu@rock-chips.com>
+From: Madalin Bucur <madalin.bucur@nxp.com>
+Subject: [PATCH v2 0/6] Add RSS to DPAA 1.x Ethernet driver
+Date: Tue, 22 Aug 2017 20:31:00 +0300
+Message-ID: <1503423066-15420-1-git-send-email-madalin.bucur@nxp.com>
+Reply-To: <madalin.bucur@nxp.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: heiko@sntech.de, robh+dt@kernel.org, linux@armlinux.org.uk,
-        peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        huangtao@rock-chips.com, netdev@vger.kernel.org,
-        linux-rockchip@lists.infradead.org, linux-kernel@vger.kernel.org
-To: david.wu@rock-chips.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38532 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751763AbdHVRbM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2017 13:31:12 -0400
-In-Reply-To: <1503310375-30393-1-git-send-email-david.wu@rock-chips.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <linuxppc-dev@lists.ozlabs.org>, <linux-kernel@vger.kernel.org>
+To: <netdev@vger.kernel.org>, <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Wu <david.wu@rock-chips.com>
-Date: Mon, 21 Aug 2017 18:12:55 +0800
+This patch set introduces Receive Side Scaling for the DPAA Ethernet
+driver. Documentation is updated with details related to the new
+feature and limitations that apply.
+Added also a small fix.
 
-> It only supports rmii interface. Add constants and callback functions
-> for the dwmac on rv1108 socs. As can be seen, the base structure is
-> the same, only registers and the bits in them moved slightly.
-> 
-> Signed-off-by: David Wu <david.wu@rock-chips.com>
+Change from v1: removed a C++ style comment
 
-Applied, thanks.
+Iordache Florinel-R70177 (1):
+  fsl/fman: enable FMan Keygen
+
+Madalin Bucur (5):
+  dpaa_eth: use multiple Rx frame queues
+  dpaa_eth: enable Rx hashing control
+  dpaa_eth: add NETIF_F_RXHASH
+  Documentation: networking: add RSS information
+  dpaa_eth: check allocation result
+
+ Documentation/networking/dpaa.txt                  |  68 +-
+ drivers/net/ethernet/freescale/dpaa/dpaa_eth.c     |  76 +-
+ drivers/net/ethernet/freescale/dpaa/dpaa_eth.h     |   2 +
+ .../net/ethernet/freescale/dpaa/dpaa_eth_sysfs.c   |   3 +
+ drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c | 118 ++++
+ drivers/net/ethernet/freescale/fman/Makefile       |   2 +-
+ drivers/net/ethernet/freescale/fman/fman.c         |  26 +
+ drivers/net/ethernet/freescale/fman/fman.h         |   2 +
+ drivers/net/ethernet/freescale/fman/fman_keygen.c  | 783 +++++++++++++++++++++
+ drivers/net/ethernet/freescale/fman/fman_keygen.h  |  46 ++
+ drivers/net/ethernet/freescale/fman/fman_port.c    |  51 +-
+ drivers/net/ethernet/freescale/fman/fman_port.h    |   7 +
+ 12 files changed, 1171 insertions(+), 13 deletions(-)
+ create mode 100644 drivers/net/ethernet/freescale/fman/fman_keygen.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/fman_keygen.h
+
+-- 
+2.1.0
