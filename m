@@ -1,65 +1,67 @@
-From: Vallish Vaidyeshwara <vallish@amazon.com>
-Subject: Re: [PATCH RESEND 0/2] enable hires timer to timeout datagram socket
-Date: Tue, 22 Aug 2017 11:17:23 +0000
-Message-ID: <20170822111723.GB102755@amazon.com>
-References: <1503081850-10671-1-git-send-email-vallish@amazon.com>
- <20170818201854.xes246oviptinwvq@localhost>
- <20170818222756.GB28737@amazon.com>
- <20170819062145.vtr63ri4v577cymz@localhost>
- <20170820014744.GA43685@amazon.com> <20170821182210.GA2983@amazon.com>
- <20170822062311.okn7coroki2fjgyc@localhost>
+From: David Lamparter <equinox@diac24.net>
+Subject: Re: [RFC net-next v2] bridge lwtunnel, VPLS & NVGRE
+Date: Tue, 22 Aug 2017 13:24:51 +0200
+Message-ID: <20170822112451.GA773745@eidolon>
+References: <20170821171523.951260-1-equinox@diac24.net>
+ <CAJieiUiz2EmzeaREa4PAd_=2J_MBWUMVh_4abS2HdtcmK30EBQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <davem@davemloft.net>, <shuah@kernel.org>,
-        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-        <eduval@amazon.com>, <anchalag@amazon.com>, <tglx@linutronix.de>
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Lamparter <equinox@diac24.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        bridge@lists.linux-foundation.org,
+        Amine Kherbouche <amine.kherbouche@6wind.com>,
+        "stephen@networkplumber.org" <stephen@networkplumber.org>
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eidolon.nox.tf ([185.142.180.128]:42766 "EHLO eidolon.nox.tf"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932350AbdHVLYy (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 22 Aug 2017 07:24:54 -0400
 Content-Disposition: inline
-In-Reply-To: <20170822062311.okn7coroki2fjgyc@localhost>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <CAJieiUiz2EmzeaREa4PAd_=2J_MBWUMVh_4abS2HdtcmK30EBQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 22, 2017 at 08:23:11AM +0200, Richard Cochran wrote:
-> On Mon, Aug 21, 2017 at 06:22:10PM +0000, Vallish Vaidyeshwara wrote:
-> > AWS Lambda is affected by this change in behavior in
-> > system call. Following links has more information:
-> > https://en.wikipedia.org/wiki/AWS_Lambda
+On Mon, Aug 21, 2017 at 09:43:15PM -0700, Roopa Prabhu wrote:
+> > This is relevant to the discussion because it's a feature which is
+> > non-obvious (to me) on how to do with the VXLAN model of having an
+> > entirely separate FDB.  Meanwhile, with this architecture, the proof of
+> > concept / hack is coming in at a measly cost of:
+> > 8 files changed, 176 insertions(+), 15 deletions(-)
 > 
-> Quote:
-> 
->     Unlike Amazon EC2, which is priced by the hour, AWS Lambda is
->     metered in increments of 100 milliseconds.
->
-> So I guess you want the accurate timeout in order to support billing?
-> In any case, even with the old wheel you didn't have guarantees WRT
-> timeout latency, and so the proper way for the application to handle
-> this is to use a timerfd together with HIGH_RES_TIMERS, and PREEMPT_RT
-> in order to have sub-millisecond latency.
-> 
-> Thanks,
-> Richard
+> David, what is special about the vpls igmp/mld snooping code ?...do
+> you have to snoop vpls attrs ?.
 
-Hello Richard,
+It just needs to snoop which tunnel endpoint[s] a multicast group is
+subscribed on.
 
-4.4 kernel implementation of datagram socket wait code is calling
-schedule_timeout() which in-turn calls __mod_timer(). __mod_timer()
-does not add any slack. mod_timer() is the function that adds slack.
-This gives good consistent results for event handling response time
-on datagram socket timeouts.
+> in the vxlan model.., the vxlan driver can snoop its own attrs eg
+> vxlan-id, remote dst etc.
+> and the pkt is passed up to the bridge where it will hit the normal
+> bridge igmp/mpld snooping code.
+> can you pls elaborate ?
 
-strace from 4.4 test run of waiting for 180 seconds:
-10:25:48.239685 setsockopt(3, SOL_SOCKET, SO_RCVTIMEO, "\264\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0", 16) = 0
-10:25:48.239755 recvmsg(3, 0x7ffd0a3beec0, 0) = -1 EAGAIN (Resource temporarily unavailable)
-10:28:48.236989 fstat(1, {st_mode=S_IFCHR|0620, st_rdev=makedev(136, 0), ...}) = 0
+Yes, that's exactly what the hack I have is doing, it's snooping the
+driver-specific attrs into a metadata_dst, passing it up to the bridge,
+which puts the metadata_dst on the MDB entry.
 
-strace from 4.9 test run of waiting for 180 seconds times out close to 195 seconds:
-setsockopt(3, SOL_SOCKET, SO_RCVTIMEO, "\264\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0", 16) = 0 <0.000028>
-recvmsg(3, 0x7ffd6a2c4380, 0)           = -1 EAGAIN (Resource temporarily unavailable) <194.852000>
-fstat(1, {st_mode=S_IFCHR|0620, st_rdev=makedev(136, 0), ...}) = 0 <0.000018>
+What I'm arguing against is duplicating the entire MDB into all of the
+drivers.
 
-This change of behavior in system call is breaking the application logic and
-response time.
+The snooping machinery is a pretty complex piece of code which holds
+information as a cartesian combination of MAC * VLAN * Group.  It has
+several configuration knobs and can even send its own packets.  It's
+complex enough to have been the subject of several CVEs over its history
+(e.g. CVE-2013-4129, CVE-2013-2636.)
 
-Thanks.
--Vallish
+> keeping vpls specific code and api in a separate vpls driver allows
+> for cleanly extending it in the future.
+
+That's exactly my point: it's not VPLS specific.  It's exactly the same
+functionality for VXLAN, VPLS, NVGRE and 802.11.  The functionality is
+"remember the tunnel endpoint."
+It's the same bits as lwtunnel uses, which is why the 2nd patch in this
+series reuses the existing lwtunnel netlink encapsulation functions.
+
+
+-David
