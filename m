@@ -1,44 +1,28 @@
-From: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
-Subject: Re: [PATCH net-next 1/3 v7] net: ether: Add support for multiplexing
- and aggregation type
-Date: Mon, 21 Aug 2017 23:27:13 -0600
-Message-ID: <8e0f6382e5770bb32efa342b1fe5cc81@codeaurora.org>
-References: <1503355019-12236-1-git-send-email-subashab@codeaurora.org>
- <1503355019-12236-2-git-send-email-subashab@codeaurora.org>
- <20170822010208.GA24555@lunn.ch>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: skb_over_panic when sending esp traffic from a vmware guest
+Date: Tue, 22 Aug 2017 07:32:49 +0200
+Message-ID: <20170822053249.GK31224@secunet.com>
+References: <CY1PR17MB0552F3C75C45DBC72799A0F187830@CY1PR17MB0552.namprd17.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
- format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-        fengguang.wu@intel.com, dcbw@redhat.com, jiri@resnulli.us,
-        stephen@networkplumber.org, David.Laight@aculab.com,
-        marcel@holtmann.org, netdev-owner@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset="us-ascii"
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Nick Huber <nick.huber@multapplied.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:41546 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751087AbdHVF1O (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2017 01:27:14 -0400
-In-Reply-To: <20170822010208.GA24555@lunn.ch>
+Received: from a.mx.secunet.com ([62.96.220.36]:37916 "EHLO a.mx.secunet.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751279AbdHVFc5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 22 Aug 2017 01:32:57 -0400
+Content-Disposition: inline
+In-Reply-To: <CY1PR17MB0552F3C75C45DBC72799A0F187830@CY1PR17MB0552.namprd17.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->> +#define ETH_P_MAP       0xDA1A          /* Multiplexing and 
->> Aggregation Protocol
->> +					 *  NOT AN OFFICIALLY REGISTERED ID ]
->> +					 */
-> 
-> Hi Subash
-> 
-> This list is sorted. So this entry should go earlier.
-> 
->> +	netdev_info(real_dev, "Removed from rmnet\n");
-> 
-> I would probably turn all your netdev_info()s into netdev_dbg()s.  You
-> seem to be spamming the kernel log quite a bit.
-> 
+On Thu, Aug 17, 2017 at 07:19:03PM +0000, Nick Huber wrote:
+> I've been experience the following traceback since upgrading from the 4.9 kernel to the 4.11 branch. I've only seen this in a few VMWare guests and I haven't been able to narrow down what exactly is causing it. I'm not familiar with kernel debugging but any help in tracing this down would be appreciated.
 
-Hi Andrew
+Can you give some details about your setup?
 
-I'll make these changes and post v8.
+>From the backtrace I see that you use GRE tunnels.
+How is the setup of the GRE tunnel and the SAs?
+How is routing done? In particular I'm interested
+if you use routing by netfilter or socket marks.
