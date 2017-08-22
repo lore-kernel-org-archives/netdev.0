@@ -1,54 +1,49 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [PATCH net] udp: on peeking bad csum, drop packets even if not at head
-Date: Mon, 21 Aug 2017 20:12:04 -0400
-Message-ID: <CAF=yD-+oht8gPcNdSU1zuj5TrOhq0cuwzzcwiCn676YzKNsn=Q@mail.gmail.com>
-References: <20170821213912.93333-1-willemdebruijn.kernel@gmail.com> <1503355232.2499.15.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [iproute PATCH v2 0/7] Covscan: Dead code elimination
+Date: Mon, 21 Aug 2017 17:13:55 -0700
+Message-ID: <20170821171355.6cc4d6a7@xeon-e3>
+References: <20170817170931.24089-1-phil@nwl.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Network Development <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Paolo Abeni <pabeni@redhat.com>,
-        Willem de Bruijn <willemb@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Phil Sutter <phil@nwl.cc>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f53.google.com ([209.85.218.53]:35908 "EHLO
-        mail-oi0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754294AbdHVAMq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2017 20:12:46 -0400
-Received: by mail-oi0-f53.google.com with SMTP id g131so170816029oic.3
-        for <netdev@vger.kernel.org>; Mon, 21 Aug 2017 17:12:45 -0700 (PDT)
-In-Reply-To: <1503355232.2499.15.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-pg0-f42.google.com ([74.125.83.42]:34777 "EHLO
+        mail-pg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754242AbdHVAOD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2017 20:14:03 -0400
+Received: by mail-pg0-f42.google.com with SMTP id s14so4018279pgs.1
+        for <netdev@vger.kernel.org>; Mon, 21 Aug 2017 17:14:02 -0700 (PDT)
+In-Reply-To: <20170817170931.24089-1-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 21, 2017 at 6:40 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Mon, 2017-08-21 at 17:39 -0400, Willem de Bruijn wrote:
->> From: Willem de Bruijn <willemb@google.com>
->>
->> When peeking, if a bad csum is discovered, the skb is unlinked from
->> the queue with __sk_queue_drop_skb and the peek operation restarted.
->>
->> __sk_queue_drop_skb only drops packets that match the queue head. With
->> sk_peek_off, the skb need not be at head, causing the call to fail and
->> the same skb to be found again on restart.
->>
->> Walk the queue to find the correct skb. Limit the walk to sk_peek_off,
->> to bound cycle cost to at most twice the original skb_queue_walk in
->> __skb_try_recv_from_queue.
->>
->> The operation may race with updates to sk_peek_off. As the operation
->> is retried, it will eventually succeed.
->>
->> Signed-off-by: Willem de Bruijn <willemb@google.com>
->
-> You forgot the Fixes: tag, that such a bug fix deserves.
+On Thu, 17 Aug 2017 19:09:24 +0200
+Phil Sutter <phil@nwl.cc> wrote:
 
-Indeed, sorry. I'm looking into that now. It should be the patch that
-introduced peeking at offset, but need to verify.
+> This series collects patches from v1 which deal with dead code, either
+> by removing it or changing context so it is accessed again if that makes
+> sense.
+> 
+> No changes to the actual patches, just splitting into smaller series.
+> 
+> Phil Sutter (7):
+>   devlink: No need for this self-assignment
+>   ipntable: No need to check and assign to parms_rta
+>   iproute: Fix for missing 'Oifs:' display
+>   lib/rt_names: Drop dead code in rtnl_rttable_n2a()
+>   ss: Skip useless check in parse_hostcond()
+>   ss: Drop useless assignment
+>   tc/m_gact: Drop dead code
+> 
+>  devlink/devlink.c |  2 +-
+>  ip/ipntable.c     |  2 --
+>  ip/iproute.c      |  8 +++++---
+>  lib/rt_names.c    |  4 ----
+>  misc/ss.c         |  3 +--
+>  tc/m_gact.c       | 14 +++-----------
+>  6 files changed, 10 insertions(+), 23 deletions(-)
+> 
 
-I should also add that this bug was discovered by syzkaller.
-
-> I am not a big fan of your patch and would prefer a solution without the
-> loop.
-
-Agreed.
+Sure these look fine. Applied.
