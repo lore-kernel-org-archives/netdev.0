@@ -1,35 +1,31 @@
 From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next 3/5] ixgbe: use return codes from ndo_xdp_xmit
- that are distinguishable
-Date: Tue, 22 Aug 2017 23:21:59 +0200
-Message-ID: <599CA077.1010008@iogearbox.net>
-References: <150343479290.31091.8019008896152616977.stgit@firesoul> <150343484979.31091.3667334412617955097.stgit@firesoul>
+Subject: Re: [PATCH net-next 4/5] xdp: remove net_device names from xdp_redirect
+ tracepoint
+Date: Tue, 22 Aug 2017 23:23:06 +0200
+Message-ID: <599CA0BA.2020103@iogearbox.net>
+References: <150343479290.31091.8019008896152616977.stgit@firesoul> <150343485489.31091.9423090032200726744.stgit@firesoul>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: John Fastabend <john.fastabend@gmail.com>
 To: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:60224 "EHLO
+Received: from www62.your-server.de ([213.133.104.62]:60336 "EHLO
         www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751815AbdHVVWA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2017 17:22:00 -0400
-In-Reply-To: <150343484979.31091.3667334412617955097.stgit@firesoul>
+        with ESMTP id S1751292AbdHVVXI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2017 17:23:08 -0400
+In-Reply-To: <150343485489.31091.9423090032200726744.stgit@firesoul>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On 08/22/2017 10:47 PM, Jesper Dangaard Brouer wrote:
-> For XDP_REDIRECT the use of return code -EINVAL is confusing, as it is
-> used in three different cases.  (1) When the index or ifindex lookup
-> fails, and in the ixgbe driver (2) when link is down and (3) when XDP
-> have not been enabled.
+> There is too much overhead in the current trace_xdp_redirect
+> tracepoint as it does strcpy and strlen on the net_device names.
 >
-> The return code can be picked up by the tracepoint xdp:xdp_redirect
-> for diagnosing why XDP_REDIRECT isn't working.  Thus, there is a need
-> different return codes to tell the issues apart.
->
-> I'm considering using a specific err-code scheme for XDP_REDIRECT
-> instead of using these errno codes.
+> Besides, exposing the ifindex/index is actually the information that
+> is needed in the tracepoint to diagnose issues.  When a lookup fails
+> (either ifindex or devmap index) then there is a need for saying which
+> to_index that have issues.
 >
 > Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
 
