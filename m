@@ -1,28 +1,27 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: ftgmac100: Fix oops in probe on failure to find
- associated PHY
-Date: Tue, 22 Aug 2017 14:20:14 -0700 (PDT)
-Message-ID: <20170822.142014.1004582480730502532.davem@davemloft.net>
-References: <20170822063622.21550-1-andrew@aj.id.au>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next 1/5] xdp: remove bpf_warn_invalid_xdp_redirect
+Date: Tue, 22 Aug 2017 23:19:40 +0200
+Message-ID: <599C9FEC.6060501@iogearbox.net>
+References: <150343479290.31091.8019008896152616977.stgit@firesoul> <150343483960.31091.3438305938845615426.stgit@firesoul>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, benh@kernel.crashing.org, joel@jms.id.au,
-        linux-kernel@vger.kernel.org, openbmc@lists.ozlabs.org,
-        linux-aspeed@lists.ozlabs.org, ryan_chen@aspeedtech.com
-To: andrew@aj.id.au
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170822063622.21550-1-andrew@aj.id.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: John Fastabend <john.fastabend@gmail.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:59889 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752172AbdHVVTm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2017 17:19:42 -0400
+In-Reply-To: <150343483960.31091.3438305938845615426.stgit@firesoul>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Jeffery <andrew@aj.id.au>
-Date: Tue, 22 Aug 2017 16:06:22 +0930
+On 08/22/2017 10:47 PM, Jesper Dangaard Brouer wrote:
+> Given there is a tracepoint that can track the error code
+> of xdp_do_redirect calls, the WARN_ONCE in bpf_warn_invalid_xdp_redirect
+> doesn't seem relevant any longer.  Simply remove the function.
+>
+> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
 
-> netif_napi_del() should be paired with netif_napi_add(), however no
-> such call takes place in ftgmac100_probe(). This triggers a NULL
-> pointer dereference if e.g. no PHY is found by the MDIO probe:
- ...
-> Signed-off-by: Andrew Jeffery <andrew@aj.id.au>
-
-Applied, thanks.
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
