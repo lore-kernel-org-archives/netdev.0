@@ -1,103 +1,25 @@
-From: "Jorgen S. Hansen" <jhansen@vmware.com>
-Subject: Re: [PATCH] vsock: only load vmci transport on VMware hypervisor by
- default
-Date: Tue, 22 Aug 2017 13:07:04 +0000
-Message-ID: <A6BE88A8-6E79-486E-821F-0D5C8B1B3034@vmware.com>
-References: <KL1P15301MB0008F70D4E5248AB7A296CE3BF830@KL1P15301MB0008.APCP153.PROD.OUTLOOK.COM>
- <20170817135559.GG5539@stefanha-x1.localdomain>
- <04460E3B-B213-4090-96CD-00CEEBE6AC32@vmware.com>
- <KL1P15301MB0008A67BF969A47309CFA992BF800@KL1P15301MB0008.APCP153.PROD.OUTLOOK.COM>
- <20170818153716.GB17572@stefanha-x1.localdomain>
- <KL1P15301MB00083B1F5B70CBAB7C42BBD3BF800@KL1P15301MB0008.APCP153.PROD.OUTLOOK.COM>
- <20170822095437.GB16799@stefanha-x1.localdomain>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH] net: mdio-gpio: make mdiobb_ops const
+Date: Tue, 22 Aug 2017 15:15:12 +0200
+Message-ID: <20170822131512.GE24555@lunn.ch>
+References: <1503389609-17490-1-git-send-email-bhumirks@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Dexuan Cui <decui@microsoft.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
-        "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
-        KY Srinivasan <kys@microsoft.com>,
-        Haiyang Zhang <haiyangz@microsoft.com>,
-        "Stephen Hemminger" <sthemmin@microsoft.com>,
-        George Zhang <georgezhang@vmware.com>,
-        Michal Kubecek <mkubecek@suse.cz>, Asias He <asias@redhat.com>,
-        "Vitaly Kuznetsov" <vkuznets@redhat.com>,
-        Cathy Avery <cavery@redhat.com>,
-        "jasowang@redhat.com" <jasowang@redhat.com>,
-        Rolf Neugebauer <rolf.neugebauer@docker.com>,
-        Dave Scott <dave.scott@docker.com>,
-        "Marcelo Cerri" <marcelo.cerri@canonical.com>,
-        "apw@canonical.com" <apw@canonical.com>,
-To: Stefan Hajnoczi <stefanha@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: julia.lawall@lip6.fr, f.fainelli@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Bhumika Goyal <bhumirks@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170822095437.GB16799@stefanha-x1.localdomain>
-Content-Language: en-US
-Content-ID: <910DD74B3469E64E8E9951A082C45246@namprd05.prod.outlook.com>
+Content-Disposition: inline
+In-Reply-To: <1503389609-17490-1-git-send-email-bhumirks@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-DQo+IE9uIEF1ZyAyMiwgMjAxNywgYXQgMTE6NTQgQU0sIFN0ZWZhbiBIYWpub2N6aSA8c3RlZmFu
-aGFAcmVkaGF0LmNvbT4gd3JvdGU6DQo+IA0KPiBPbiBGcmksIEF1ZyAxOCwgMjAxNyBhdCAxMTow
-NzozN1BNICswMDAwLCBEZXh1YW4gQ3VpIHdyb3RlOg0KPj4+IE5vdCBhbGwgZmVhdHVyZXMgbmVl
-ZCB0byBiZSBzdXBwb3J0ZWQuICBGb3IgZXhhbXBsZSwgVk1DSSBzdXBwb3J0cw0KPj4+IFNPQ0tf
-REdSQU0gd2hpbGUgSHlwZXItViBhbmQgdmlydGlvIGRvIG5vdC4gIEJ1dCBmZWF0dXJlcyB0aGF0
-IGFyZQ0KPj4+IGF2YWlsYWJsZSBzaG91bGQgYmVoYXZlIGlkZW50aWNhbGx5Lg0KPj4gSSB0b3Rh
-bGx5IGFncmVlLCB0aG91Z2ggSSdtIGFmcmFpZCBIeXBlci1WIG1heSBoYXZlIGEgbGl0dGxlIG1v
-cmUgbGltaXRhdGlvbnMNCj4+IGNvbXBhcmVkIHRvIFZNd2FyZS9LVk0gZHVvIHRvIHRoZSA8Vk1f
-SUQsIFNlcnZpY2VJRD4gPC0tPiA8Y2lkLCBwb3J0Pg0KPj4gbWFwcGluZy4NCj4+IA0KPj4+PiBD
-YW4gd2UgdXNlIHRoZSAncHJvdG9jb2wnIHBhcmFtZXRlciBpbiB0aGUgc29ja2V0KCkgZnVuY3Rp
-b246DQo+Pj4+IGludCBzb2NrZXQoaW50IGRvbWFpbiwgaW50IHR5cGUsIGludCBwcm90b2NvbCkN
-Cj4+Pj4gDQo+Pj4+IElNTyBjdXJyZW50bHkgdGhlICdwcm90b2NvbCcgaXMgbm90IHJlYWxseSB1
-c2VkLg0KPj4+PiBJIHRoaW5rIHdlIGNhbiBtb2RpZnkgX192c29ja19jb3JlX2luaXQoKSB0byBh
-bGxvdyBtdWx0aXBsZSB0cmFuc3BvcnQgbGF5ZXJzDQo+Pj4gdG8NCj4+Pj4gYmUgcmVnaXN0ZXJl
-ZCwgYW5kIHdlIGNhbiBkZWZpbmUgZGlmZmVyZW50ICdwcm90b2NvbCcgbnVtYmVycyBmb3INCj4+
-Pj4gVk13YXJlL0tWTS9IeXBlci1WLCBhbmQgYXNrIHRoZSBhcHBsaWNhdGlvbiB0byBleHBsaWNp
-dGx5IHNwZWNpZnkgd2hhdA0KPj4+IHNob3VsZA0KPj4+PiBiZSB1c2VkLiBDb25zaWRlcmluZyBj
-b21wYXRpYmlsaXR5LCB3ZSBjYW4gdXNlIHRoZSBkZWZhdWx0IHRyYW5zcG9ydCBpbiBhDQo+Pj4g
-Z2l2ZW4NCj4+Pj4gVk0gZGVwZW5kaW5nIG9uIHRoZSB1bmRlcmx5aW5nIGh5cGVydmlzb3IuDQo+
-Pj4gDQo+Pj4gSSB0aGluayBBRl9WU09DSyBzaG91bGQgaGlkZSB0aGUgdHJhbnNwb3J0IGZyb20g
-dXNlcnMvYXBwbGljYXRpb25zLg0KPj4gSWRlYWxseSB5ZXMsIGJ1dCBsZXQncyBjb25zaWRlciB0
-aGUgS1ZNLW9uLUtWTSBuZXN0ZWQgc2NlbmFyaW86IHdoZW4NCj4+IGFuIGFwcGxpY2F0aW9uIGlu
-IHRoZSBMZXZlbC0xIFZNIGNyZWF0ZXMgYW4gQUZfVlNPQ0sgc29ja2V0IGFuZCBjYWxsDQo+PiBj
-b25uZWN0KCkgZm9yIGl0LCBob3cgY2FuIHdlIGtub3cgaWYgdGhlIGFwcCBpcyB0cnlpbmcgdG8g
-Y29ubmVjdCB0bw0KPj4gdGhlIExldmVsLTAgaG9zdCwgb3IgY29ubmVjdCB0byB0aGUgTGV2ZWwt
-MiBWTT8gV2UgY2FuJ3QuDQo+IA0KPiBXZSAqY2FuKiBieSBsb29raW5nIGF0IHRoZSBkZXN0aW5h
-dGlvbiBDSUQuICBQbGVhc2UgdGFrZSBhIGxvb2sgYXQNCj4gZHJpdmVycy9taXNjL3Ztd192bWNp
-L3ZtY2lfcm91dGUuYzp2bWNpX3JvdXRlKCkgdG8gc2VlIGhvdyBWTUNJIGhhbmRsZXMNCj4gbmVz
-dGVkIHZpcnQuDQo+IA0KPiBJdCBib2lscyBkb3duIHRvIHNvbWV0aGluZyBsaWtlIHRoaXM6DQo+
-IA0KPiAgc3RhdGljIGludCB2c29ja19zdHJlYW1fY29ubmVjdChzdHJ1Y3Qgc29ja2V0ICpzb2Nr
-LCBzdHJ1Y3Qgc29ja2FkZHIgKmFkZHIsDQo+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgIGludCBhZGRyX2xlbiwgaW50IGZsYWdzKQ0KPiAgew0KPiAgICAgIC4uLg0KPiAgICAgIGlm
-IChyZW1vdGVfYWRkci5zdm1fY2lkID09IFZNQUREUl9DSURfSE9TVCkNCj4gICAgICAgICAgdHJh
-bnNwb3J0ID0gaG9zdF90cmFuc3BvcnQ7DQo+ICAgICAgZWxzZQ0KPiAgICAgICAgICB0cmFuc3Bv
-cnQgPSBndWVzdF90cmFuc3BvcnQ7DQo+IA0KPiBJdCdzIGVhc3kgZm9yIGNvbm5lY3QoMikgYnV0
-IEpvcmdlbiBtZW50aW9uZWQgaXQncyBoYXJkZXIgZm9yIGxpc3RlbigyKQ0KPiBiZWNhdXNlIHRo
-ZSBzb2NrZXQgd291bGQgbmVlZCB0byBsaXN0ZW4gb24gYm90aCB0cmFuc3BvcnRzLiAgV2UgZGVm
-aW5lDQo+IHR3byBuZXcgY29uc3RhbnRzIFZNQUREUl9DSURfTElTVEVOX0ZST01fR1VFU1QgYW5k
-DQo+IFZNQUREUl9DSURfTElTVEVOX0ZST01fSE9TVCBmb3IgYmluZCgyKSBzbyB0aGF0IGFwcGxp
-Y2F0aW9ucyBjYW4gZGVjaWRlDQo+IHdoaWNoIHNpZGUgdG8gbGlzdGVuIG9uLg0KDQpJZiBhIHNv
-Y2tldCBpcyBib3VuZCB0byBWTUFERFJfQ0lEX0hPU1QsIHdlIHdvdWxkIGNvbnNpZGVyIHRoYXQg
-c29ja2V0IGFzIGJvdW5kIHRvIHRoZSBob3N0IHNpZGUgdHJhbnNwb3J0LCBzbyB0aGF0IHdvdWxk
-IGJlIHRoZSBzYW1lIGFzIFZNQUREUl9DSURfTElTVEVOX0ZST01fR1VFU1QuIEZvciB0aGUgZ3Vl
-c3QsIHdlIGhhdmUgSU9DVExfVk1fU09DS0VUU19HRVRfTE9DQUxfQ0lELCBzbyB0aGF0IGNvdWxk
-IGJlIHVzZWQgdG8gZ2V0IGFuZCBiaW5kIGEgc29ja2V0IHRvIHRoZSBndWVzdCB0cmFuc3BvcnQg
-KFZNQ0kgd2lsbCBhbHdheXMgcmV0dXJuIHRoZSBndWVzdCBDSUQgYXMgdGhlIGxvY2FsIG9uZSwg
-aWYgdGhlIFZNQ0kgZHJpdmVyIGlzIHVzZWQgaW4gYSBndWVzdCwgYW5kIGl0IGxvb2tzIGxpa2Ug
-dmlydGlvIHdpbGwgZG8gdGhlIHNhbWUpLiBXZSBjb3VsZCB0cmVhdCBWTUFERFJfQ0lEX0FOWSBh
-cyBhbHdheXMgYmVpbmcgdGhlIGd1ZXN0IHRyYW5zcG9ydCwgc2luY2UgdGhhdCBpcyB0aGUgdXNl
-IGNhc2Ugd2hlcmUgeW91IGRvbuKAmXQga25vdyB1cGZyb250IHdoYXQgeW91ciBDSUQgaXMsIGlm
-IHdlIGRvbuKAmXQgd2FudCB0byBsaXN0ZW4gb24gYWxsIHRyYW5zcG9ydHMuIFNvIHdlIHdvdWxk
-IHVzZSB0aGUgaG9zdCB0cmFuc3BvcnQsIGlmIGEgc29ja2V0IGlzIGJvdW5kIHRvIFZNQUREUl9D
-SURfSE9TVCwgb3IgaWYgdGhlcmUgaXMgbm8gZ3Vlc3QgdHJhbnNwb3J0LCBhbmQgaW4gYWxsIG90
-aGVyIGNhc2VzIHVzZSB0aGUgZ3Vlc3QgdHJhbnNwb3J0LiBIb3dldmVyLCBoYXZpbmcgYSBjb3Vw
-bGUgb2Ygc3ltYm9saWMgbmFtZXMgbGlrZSB5b3Ugc3VnZ2VzdCBjZXJ0YWlubHkgbWFrZXMgaXQg
-bW9yZSBvYnZpb3VzLCBhbmQgY291bGQgYmUgdXNlZCBpbiBjb21iaW5hdGlvbiB3aXRoIHRoaXMu
-IEl0IHdvdWxkIGJlIGEgcGx1cyBpZiBleGlzdGluZyBhcHBsaWNhdGlvbnMgd291bGQgZnVuY3Rp
-b24gYXMgaW50ZW5kZWQgaW4gbW9zdCBjYXNlcy4NCg0KPiAgIE9yIHRoZSBsaXN0ZW4gc29ja2V0
-IGNvdWxkIHNpbXBseSBsaXN0ZW4gdG8NCj4gYm90aCBzaWRlcy4NCg0KVGhlIG9ubHkgcHJvYmxl
-bSBoZXJlIHdvdWxkIGJlIHRoZSBwb3RlbnRpYWwgZm9yIGEgZ3Vlc3QgYW5kIGEgaG9zdCBhcHAg
-dG8gaGF2ZSBhIGNvbmZsaWN0IHdydCBwb3J0IG51bWJlcnMsIGV2ZW4gdGhvdWdoIHRoZXkgd291
-bGQgYmUgYWJsZSB0byBvcGVyYXRlIGZpbmUsIGlmIHJlc3RyaWN0ZWQgdG8gdGhlaXIgYXBwcm9w
-cmlhdGUgdHJhbnNwb3J0Lg0KDQpUaGFua3MsDQpKb3JnZW4=
+On Tue, Aug 22, 2017 at 01:43:29PM +0530, Bhumika Goyal wrote:
+> Make this const as it is only stored in a const field of a
+> mdiobb_ctrl structure.
+> 
+> Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
+
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+
+    Andrew
