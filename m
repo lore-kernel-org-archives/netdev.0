@@ -1,52 +1,80 @@
-From: William Tu <u9012063@gmail.com>
-Subject: Re: [PATCHv3 net-next] gre: introduce native tunnel support for ERSPAN
-Date: Tue, 22 Aug 2017 08:44:24 -0700
-Message-ID: <CALDO+Sbgsm71=KJb=rPgE2Yr2tU+wuTYrV_sKpiRCf5-AoZhmQ@mail.gmail.com>
-References: <1503062680-43972-1-git-send-email-u9012063@gmail.com> <20170821.110226.325505016722205417.davem@davemloft.net>
+From: Edward Cree via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+Subject: Re: [PATCH net-next 3/4] bpf/verifier: when pruning a
+ branch, ignore its write marks
+Date: Tue, 22 Aug 2017 16:50:46 +0100
+Message-ID: <97f3da2d-abb0-ba1f-07ca-ea426f30c7fb@solarflare.com>
+References: <f25f46bd-27cb-2182-2551-2887757c1e0f@solarflare.com>
+	<d1a5b78a-8f5c-50d9-08a2-eb7c4829a478@solarflare.com>
+	<0ba423e6-8629-37b1-b772-0734f1fb5489@fb.com>
+Reply-To: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Meenakshi Vohra <mvohra@vmware.com>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f179.google.com ([209.85.223.179]:35727 "EHLO
-        mail-io0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933040AbdHVPpF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2017 11:45:05 -0400
-Received: by mail-io0-f179.google.com with SMTP id 1so28291855ioy.2
-        for <netdev@vger.kernel.org>; Tue, 22 Aug 2017 08:45:05 -0700 (PDT)
-In-Reply-To: <20170821.110226.325505016722205417.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+To: Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, Alexei Starovoitov
+	<alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
+Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+In-Reply-To: <0ba423e6-8629-37b1-b772-0734f1fb5489-b10kYP2dOMg@public.gmane.org>
+List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
+List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
+Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
->> +     struct metadata_dst *tun_dst = NULL;
->> +     const struct iphdr *iph;
->> +     struct erspanhdr *ershdr;
->> +     __be32 index;
->> +     __be32 session_id;
->> +     int len;
+On 22/08/17 16:24, Alexei Starovoitov wrote:
+> On 8/22/17 6:27 AM, Edward Cree wrote:
+>> The fact that writes occurred in reaching the continuation state does
+>>  not screen off its reads from us, because we're not really its parent.
+>> So detect 'not really the parent' in do_propagate_liveness, and ignore
+>>  write marks in that case.
+>>
+>> Fixes: dc503a8ad984 ("bpf/verifier: track liveness for pruning")
+>> Signed-off-by: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+>> ---
+>>  kernel/bpf/verifier.c | 9 +++++++--
+>>  1 file changed, 7 insertions(+), 2 deletions(-)
+>>
+>> diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+>> index 1e3f56c..711bdbd 100644
+>> --- a/kernel/bpf/verifier.c
+>> +++ b/kernel/bpf/verifier.c
+>> @@ -3420,6 +3420,7 @@ static bool states_equal(struct bpf_verifier_env *env,
+>>  static bool do_propagate_liveness(const struct bpf_verifier_state *state,
+>>                    struct bpf_verifier_state *parent)
+>>  {
+>> +    bool writes = parent == state->parent; /* Observe write marks */
+>>      bool touched = false; /* any changes made? */
+>>      int i;
+>>
+>> @@ -3431,7 +3432,9 @@ static bool do_propagate_liveness(const struct bpf_verifier_state *state,
+>>      for (i = 0; i < BPF_REG_FP; i++) {
+>>          if (parent->regs[i].live & REG_LIVE_READ)
+>>              continue;
+>> -        if (state->regs[i].live == REG_LIVE_READ) {
+>> +        if (writes && (state->regs[i].live & REG_LIVE_WRITTEN))
+>> +            continue;
+>> +        if (state->regs[i].live & REG_LIVE_READ) {
 >
-> Please order local variables from longest to shortest line, ie. reverse
-> christmas tree format.
->
-thanks for the review, I will fix the ordering in next version.
-
->> +
->> +     itn = net_generic(net, erspan_net_id);
->> +     iph = ip_hdr(skb);
->> +     len =  iph->ihl * 4 + gre_hdr_len + sizeof(*ershdr);
->> +
->> +     if (unlikely(!pskb_may_pull(skb, len)))
->> +             return -ENOMEM;
->
-> I think the len passed here is wrong, it should be
-> "gre_hdr_len + sizeof(*ershdr)".
-
-yes, thanks.
-The skb->data at this point points to the beginning of GRE header. So
-I should check pull of gre + erspan header.
-
-Regards,
-William
+> makes sense to me.
+> if i understand correctly it not only should make the liveness marking
+> correct, but improve the numbers, since smaller number of states
+> will have READ marks.
+Other way round; it means we sometimes ignore WRITTEN marks, so more states
+ get READ marks.  On the cilium progs, the bpf_lxc.o get about 100 extra
+ insns processed, the others are unchanged.
+> Do you have a test case for this by any chance?
+I haven't constructed one; my test was just to put in some debug code that
+ checked on each propagate_liveness call whether there were any write marks
+ in the first state.
+I think something like
+    if (cond)
+        r0=0;
+    if (cond)
+        r0=0;
+    return r0;
+might tickle the bug, but I'm not sure.
