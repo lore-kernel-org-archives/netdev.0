@@ -1,91 +1,90 @@
-From: Priit Laes <plaes@plaes.org>
-Subject: Re: Crash due to fbca164776e438 - "net: stmmac: Use the right
- logging function in stmmac_mdio_register"
-Date: Tue, 22 Aug 2017 19:20:57 +0000
-Message-ID: <20170822192057.GB6429@plaes.org>
-References: <20170822184757.GA6429@plaes.org>
- <6d3c8253-1e31-761f-4b50-0bf087047753@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] net: sched: use kvmalloc() for class hash tables
+Date: Tue, 22 Aug 2017 12:26:46 -0700
+Message-ID: <1503430006.2499.55.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: Romain Perier <romain.perier@collabora.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Chen-Yu Tsai <wens@csie.org>,
-        Maxime Ripard <maxime.ripard@free-electrons.com>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <6d3c8253-1e31-761f-4b50-0bf087047753@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Jiri Pirko <jiri@resnulli.us>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:35962 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752499AbdHVT0t (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2017 15:26:49 -0400
+Received: by mail-pg0-f67.google.com with SMTP id y129so28089471pgy.3
+        for <netdev@vger.kernel.org>; Tue, 22 Aug 2017 12:26:48 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 22, 2017 at 12:01:32PM -0700, Florian Fainelli wrote:
-> On 08/22/2017 11:47 AM, Priit Laes wrote:
-> > Hi!
-> > 
-> > I'm running into following crash during boot on Cubietruck A20, with the patch
-> > fbca164776e438
-> > (net: stmmac: Use the right logging function in stmmac_mdio_register) applied:
-> > 
-> > [snip]
-> > sun7i-dwmac 1c50000.ethernet: PTP uses main clock
-> > sun7i-dwmac 1c50000.ethernet: no reset control found
-> > sun7i-dwmac 1c50000.ethernet: no regulator found
-> > sun7i-dwmac 1c50000.ethernet: Ring mode enabled
-> > sun7i-dwmac 1c50000.ethernet: DMA HW capability register supported
-> > sun7i-dwmac 1c50000.ethernet: Normal descriptors
-> > libphy: stmmac: probed
-> > Unable to handle kernel NULL pointer dereference at virtual address 00000048
-> 
-> Yes indeed:
-> 
-> (gdb) p/x (int)&((struct phy_driver *)0)->name
-> $2 = 0x48
-> 
-> The following should fix it:
-> 
-> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-> index 9493fb369682..810f6fd2f639 100644
-> --- a/drivers/net/phy/phy_device.c
-> +++ b/drivers/net/phy/phy_device.c
-> @@ -877,15 +877,17 @@ EXPORT_SYMBOL(phy_attached_info);
->  #define ATTACHED_FMT "attached PHY driver [%s] (mii_bus:phy_addr=%s,
-> irq=%d)"
->  void phy_attached_print(struct phy_device *phydev, const char *fmt, ...)
->  {
-> +       const char *drv_name = phydev->drv ? phydev->drv->name : "unbound";
-> +
->         if (!fmt) {
->                 dev_info(&phydev->mdio.dev, ATTACHED_FMT "\n",
-> -                        phydev->drv->name, phydev_name(phydev),
-> +                        drv_name, phydev_name(phydev),
->                          phydev->irq);
->         } else {
->                 va_list ap;
-> 
->                 dev_info(&phydev->mdio.dev, ATTACHED_FMT,
-> -                        phydev->drv->name, phydev_name(phydev),
-> +                        drv_name, phydev_name(phydev),
->                          phydev->irq);
-> 
->                 va_start(ap, fmt);
-> 
+From: Eric Dumazet <edumazet@google.com>
 
-Thanks, patch works.
+High order GFP_KERNEL allocations can stress the host badly.
 
-Tested-By: Priit Laes <plaes@plaes.org>
+Use modern kvmalloc_array()/kvfree() instead of custom
+allocations.
 
-With reverted patch:
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/sched/sch_api.c |   22 ++++------------------
+ 1 file changed, 4 insertions(+), 18 deletions(-)
 
-sun7i-dwmac 1c50000.ethernet (unnamed net_device) (uninitialized): PHY ID 001cc915 at 0 IRQ POLL (stmmac-0:00) active
-sun7i-dwmac 1c50000.ethernet (unnamed net_device) (uninitialized): PHY ID 001cc915 at 1 IRQ POLL (stmmac-0:01)
-
-With changes by Florian:
-
-mdio_bus stmmac-0:00: attached PHY driver [unbound] (mii_bus:phy_addr=stmmac-0:00, irq=-1)
-mdio_bus stmmac-0:01: attached PHY driver [unbound] (mii_bus:phy_addr=stmmac-0:01, irq=-1)
-
-
-Päikest,
-Priit :)
+diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+index 0fea0c50b7636b75b57ddf408c45ecce344813f4..aaf552b8e1205f29e0d95e943898bea35b647299 100644
+--- a/net/sched/sch_api.c
++++ b/net/sched/sch_api.c
+@@ -621,14 +621,10 @@ EXPORT_SYMBOL(qdisc_watchdog_cancel);
+ 
+ static struct hlist_head *qdisc_class_hash_alloc(unsigned int n)
+ {
+-	unsigned int size = n * sizeof(struct hlist_head), i;
+ 	struct hlist_head *h;
++	unsigned int i;
+ 
+-	if (size <= PAGE_SIZE)
+-		h = kmalloc(size, GFP_KERNEL);
+-	else
+-		h = (struct hlist_head *)
+-			__get_free_pages(GFP_KERNEL, get_order(size));
++	h = kvmalloc_array(n, sizeof(struct hlist_head), GFP_KERNEL);
+ 
+ 	if (h != NULL) {
+ 		for (i = 0; i < n; i++)
+@@ -637,16 +633,6 @@ static struct hlist_head *qdisc_class_hash_alloc(unsigned int n)
+ 	return h;
+ }
+ 
+-static void qdisc_class_hash_free(struct hlist_head *h, unsigned int n)
+-{
+-	unsigned int size = n * sizeof(struct hlist_head);
+-
+-	if (size <= PAGE_SIZE)
+-		kfree(h);
+-	else
+-		free_pages((unsigned long)h, get_order(size));
+-}
+-
+ void qdisc_class_hash_grow(struct Qdisc *sch, struct Qdisc_class_hash *clhash)
+ {
+ 	struct Qdisc_class_common *cl;
+@@ -679,7 +665,7 @@ void qdisc_class_hash_grow(struct Qdisc *sch, struct Qdisc_class_hash *clhash)
+ 	clhash->hashmask = nmask;
+ 	sch_tree_unlock(sch);
+ 
+-	qdisc_class_hash_free(ohash, osize);
++	kvfree(ohash);
+ }
+ EXPORT_SYMBOL(qdisc_class_hash_grow);
+ 
+@@ -699,7 +685,7 @@ EXPORT_SYMBOL(qdisc_class_hash_init);
+ 
+ void qdisc_class_hash_destroy(struct Qdisc_class_hash *clhash)
+ {
+-	qdisc_class_hash_free(clhash->hash, clhash->hashsize);
++	kvfree(clhash->hash);
+ }
+ EXPORT_SYMBOL(qdisc_class_hash_destroy);
+ 
