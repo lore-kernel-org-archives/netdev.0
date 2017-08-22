@@ -1,17 +1,17 @@
 From: Mike Maloney <maloneykernel@gmail.com>
-Subject: [PATCH v2 net-next 1/2] tcp: Extend SOF_TIMESTAMPING_RX_SOFTWARE to TCP recvmsg
-Date: Tue, 22 Aug 2017 17:08:48 -0400
-Message-ID: <20170822210849.23162-2-maloneykernel@gmail.com>
+Subject: [PATCH v2 net-next 2/2] selftests/net: Add a test to validate behavior of rx timestamps
+Date: Tue, 22 Aug 2017 17:08:49 -0400
+Message-ID: <20170822210849.23162-3-maloneykernel@gmail.com>
 References: <20170822210849.23162-1-maloneykernel@gmail.com>
 Cc: willemdebruijn.kernel@gmail.com, soheil@google.com,
         Mike Maloney <maloney@google.com>
 To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f194.google.com ([209.85.161.194]:34124 "EHLO
+Received: from mail-yw0-f194.google.com ([209.85.161.194]:37495 "EHLO
         mail-yw0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752041AbdHVVJH (ORCPT
+        with ESMTP id S1752623AbdHVVJH (ORCPT
         <rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2017 17:09:07 -0400
-Received: by mail-yw0-f194.google.com with SMTP id y64so4329477ywf.1
+Received: by mail-yw0-f194.google.com with SMTP id s143so12504480ywg.4
         for <netdev@vger.kernel.org>; Tue, 22 Aug 2017 14:09:07 -0700 (PDT)
 In-Reply-To: <20170822210849.23162-1-maloneykernel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
@@ -19,290 +19,432 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Mike Maloney <maloney@google.com>
 
-When SOF_TIMESTAMPING_RX_SOFTWARE is enabled for tcp sockets, return the
-timestamp corresponding to the highest sequence number data returned.
-
-Previously the skb->tstamp is overwritten when a TCP packet is placed
-in the out of order queue.  While the packet is in the ooo queue, save the
-timestamp in the TCB_SKB_CB.  This space is shared with the gso_*
-options which are only used on the tx path, and a previously unused 4
-byte hole.
-
-When skbs are coalesced either in the sk_receive_queue or the
-out_of_order_queue always choose the timestamp of the appended skb to
-maintain the invariant of returning the timestamp of the last byte in
-the recvmsg buffer.
+Validate the behavior of the combination of various timestamp socket
+options, and ensure consistency across ip, udp, and tcp.
 
 Signed-off-by: Mike Maloney <maloney@google.com>
 ---
- include/net/tcp.h    |  9 +++++++-
- net/ipv4/tcp.c       | 65 ++++++++++++++++++++++++++++++++++++++++++++++++++++
- net/ipv4/tcp_input.c | 35 ++++++++++++++++++++++++----
- net/ipv4/tcp_ipv4.c  |  2 ++
- net/ipv6/tcp_ipv6.c  |  2 ++
- 5 files changed, 108 insertions(+), 5 deletions(-)
+ .../selftests/networking/timestamping/.gitignore   |   1 +
+ .../selftests/networking/timestamping/Makefile     |   4 +-
+ .../networking/timestamping/rxtimestamp.c          | 389 +++++++++++++++++++++
+ 3 files changed, 393 insertions(+), 1 deletion(-)
+ create mode 100644 tools/testing/selftests/networking/timestamping/rxtimestamp.c
 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index afdab3781425..f26d20e9760d 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -774,6 +774,12 @@ struct tcp_skb_cb {
- 			u16	tcp_gso_segs;
- 			u16	tcp_gso_size;
- 		};
+diff --git a/tools/testing/selftests/networking/timestamping/.gitignore b/tools/testing/selftests/networking/timestamping/.gitignore
+index 9e69e982fb38..d9355035e746 100644
+--- a/tools/testing/selftests/networking/timestamping/.gitignore
++++ b/tools/testing/selftests/networking/timestamping/.gitignore
+@@ -1,3 +1,4 @@
+ timestamping
++rxtimestamp
+ txtimestamp
+ hwtstamp_config
+diff --git a/tools/testing/selftests/networking/timestamping/Makefile b/tools/testing/selftests/networking/timestamping/Makefile
+index ccbb9edbbbb9..92fb8ee917c5 100644
+--- a/tools/testing/selftests/networking/timestamping/Makefile
++++ b/tools/testing/selftests/networking/timestamping/Makefile
+@@ -1,4 +1,6 @@
+-TEST_PROGS := hwtstamp_config timestamping txtimestamp
++CFLAGS += -I../../../../../usr/include
 +
-+		/* Used to stash the receive timestamp while this skb is in the
-+		 * out of order queue, as skb->tstamp is overwritten by the
-+		 * rbnode.
-+		 */
-+		ktime_t		swtstamp;
- 	};
- 	__u8		tcp_flags;	/* TCP header flags. (tcp[13])	*/
++TEST_PROGS := hwtstamp_config rxtimestamp timestamping txtimestamp
  
-@@ -790,7 +796,8 @@ struct tcp_skb_cb {
- 	__u8		ip_dsfield;	/* IPv4 tos or IPv6 dsfield	*/
- 	__u8		txstamp_ack:1,	/* Record TX timestamp for ack? */
- 			eor:1,		/* Is skb MSG_EOR marked? */
--			unused:6;
-+			has_rxtstamp:1,	/* SKB has a RX timestamp	*/
-+			unused:5;
- 	__u32		ack_seq;	/* Sequence number ACK'd	*/
- 	union {
- 		struct {
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index d25e3bcca66b..0cce4472b4a1 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -269,6 +269,7 @@
- #include <linux/err.h>
- #include <linux/time.h>
- #include <linux/slab.h>
+ all: $(TEST_PROGS)
+ 
+diff --git a/tools/testing/selftests/networking/timestamping/rxtimestamp.c b/tools/testing/selftests/networking/timestamping/rxtimestamp.c
+new file mode 100644
+index 000000000000..00f286661dcd
+--- /dev/null
++++ b/tools/testing/selftests/networking/timestamping/rxtimestamp.c
+@@ -0,0 +1,389 @@
++#include <errno.h>
++#include <error.h>
++#include <getopt.h>
++#include <stdbool.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++
++#include <sys/time.h>
++#include <sys/socket.h>
++#include <sys/select.h>
++#include <sys/ioctl.h>
++#include <arpa/inet.h>
++#include <net/if.h>
++
++#include <asm/types.h>
++#include <linux/net_tstamp.h>
 +#include <linux/errqueue.h>
- 
- #include <net/icmp.h>
- #include <net/inet_common.h>
-@@ -1695,6 +1696,61 @@ int tcp_peek_len(struct socket *sock)
- }
- EXPORT_SYMBOL(tcp_peek_len);
- 
-+static void tcp_update_recv_tstamps(struct sk_buff *skb,
-+				    struct scm_timestamping *tss)
-+{
-+	if (skb->tstamp)
-+		tss->ts[0] = ktime_to_timespec(skb->tstamp);
-+	else
-+		tss->ts[0] = (struct timespec) {0};
 +
-+	if (skb_hwtstamps(skb)->hwtstamp)
-+		tss->ts[2] = ktime_to_timespec(skb_hwtstamps(skb)->hwtstamp);
-+	else
-+		tss->ts[2] = (struct timespec) {0};
-+}
++#define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 +
-+/* Similar to __sock_recv_timestamp, but does not require an skb */
-+void tcp_recv_timestamp(struct msghdr *msg, const struct sock *sk,
-+			struct scm_timestamping *tss)
-+{
-+	struct timeval tv;
-+	bool has_timestamping = false;
-+
-+	if (tss->ts[0].tv_sec || tss->ts[0].tv_nsec) {
-+		if (sock_flag(sk, SOCK_RCVTSTAMP)) {
-+			if (sock_flag(sk, SOCK_RCVTSTAMPNS)) {
-+				put_cmsg(msg, SOL_SOCKET, SCM_TIMESTAMPNS,
-+					 sizeof(tss->ts[0]), &tss->ts[0]);
-+			} else {
-+				tv.tv_sec = tss->ts[0].tv_sec;
-+				tv.tv_usec = tss->ts[0].tv_nsec / 1000;
-+
-+				put_cmsg(msg, SOL_SOCKET, SCM_TIMESTAMP,
-+					 sizeof(tv), &tv);
-+			}
-+		}
-+
-+		if (sk->sk_tsflags & SOF_TIMESTAMPING_SOFTWARE)
-+			has_timestamping = true;
-+		else
-+			tss->ts[0] = (struct timespec) {0};
-+	}
-+
-+	if (tss->ts[2].tv_sec || tss->ts[2].tv_nsec) {
-+		if (sk->sk_tsflags & SOF_TIMESTAMPING_RAW_HARDWARE)
-+			has_timestamping = true;
-+		else
-+			tss->ts[2] = (struct timespec) {0};
-+	}
-+
-+	if (has_timestamping) {
-+		tss->ts[1] = (struct timespec) {0};
-+		put_cmsg(msg, SOL_SOCKET, SCM_TIMESTAMPING,
-+			 sizeof(*tss), tss);
-+	}
-+}
-+
- /*
-  *	This routine copies from a sock struct into the user buffer.
-  *
-@@ -1716,6 +1772,8 @@ int tcp_recvmsg(struct sock *sk, struct msghdr *msg, size_t len, int nonblock,
- 	long timeo;
- 	struct sk_buff *skb, *last;
- 	u32 urg_hole = 0;
-+	struct scm_timestamping tss;
-+	bool has_tss = false;
- 
- 	if (unlikely(flags & MSG_ERRQUEUE))
- 		return inet_recv_error(sk, msg, len, addr_len);
-@@ -1911,6 +1969,10 @@ int tcp_recvmsg(struct sock *sk, struct msghdr *msg, size_t len, int nonblock,
- 		if (used + offset < skb->len)
- 			continue;
- 
-+		if (TCP_SKB_CB(skb)->has_rxtstamp) {
-+			tcp_update_recv_tstamps(skb, &tss);
-+			has_tss = true;
-+		}
- 		if (TCP_SKB_CB(skb)->tcp_flags & TCPHDR_FIN)
- 			goto found_fin_ok;
- 		if (!(flags & MSG_PEEK))
-@@ -1929,6 +1991,9 @@ int tcp_recvmsg(struct sock *sk, struct msghdr *msg, size_t len, int nonblock,
- 	 * on connected socket. I was just happy when found this 8) --ANK
- 	 */
- 
-+	if (has_tss)
-+		tcp_recv_timestamp(msg, sk, &tss);
-+
- 	/* Clean up data we have read: This will do ACK frames. */
- 	tcp_cleanup_rbuf(sk, copied);
- 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index ddc854728a60..66abcbf6f381 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -4246,9 +4246,15 @@ static void tcp_sack_remove(struct tcp_sock *tp)
- 	tp->rx_opt.num_sacks = num_sacks;
- }
- 
-+enum tcp_queue {
-+	OOO_QUEUE,
-+	RCV_QUEUE,
++struct options {
++	int so_timestamp;
++	int so_timestampns;
++	int so_timestamping;
 +};
 +
- /**
-  * tcp_try_coalesce - try to merge skb to prior one
-  * @sk: socket
-+ * @dest: destination queue
-  * @to: prior buffer
-  * @from: buffer to add in queue
-  * @fragstolen: pointer to boolean
-@@ -4260,6 +4266,7 @@ static void tcp_sack_remove(struct tcp_sock *tp)
-  * Returns true if caller should free @from instead of queueing it
-  */
- static bool tcp_try_coalesce(struct sock *sk,
-+			     enum tcp_queue dest,
- 			     struct sk_buff *to,
- 			     struct sk_buff *from,
- 			     bool *fragstolen)
-@@ -4281,6 +4288,15 @@ static bool tcp_try_coalesce(struct sock *sk,
- 	TCP_SKB_CB(to)->end_seq = TCP_SKB_CB(from)->end_seq;
- 	TCP_SKB_CB(to)->ack_seq = TCP_SKB_CB(from)->ack_seq;
- 	TCP_SKB_CB(to)->tcp_flags |= TCP_SKB_CB(from)->tcp_flags;
++struct tstamps {
++	bool tstamp;
++	bool tstampns;
++	bool swtstamp;
++	bool hwtstamp;
++};
 +
-+	if (TCP_SKB_CB(from)->has_rxtstamp) {
-+		TCP_SKB_CB(to)->has_rxtstamp = true;
-+		if (dest == OOO_QUEUE)
-+			TCP_SKB_CB(to)->swtstamp = TCP_SKB_CB(from)->swtstamp;
-+		else
-+			to->tstamp = from->tstamp;
++struct socket_type {
++	char *friendly_name;
++	int type;
++	int protocol;
++	bool enabled;
++};
++
++struct test_case {
++	struct options sockopt;
++	struct tstamps expected;
++	bool enabled;
++};
++
++struct sof_flag {
++	int mask;
++	char *name;
++};
++
++static struct sof_flag sof_flags[] = {
++#define SOF_FLAG(f) { f, #f }
++	SOF_FLAG(SOF_TIMESTAMPING_SOFTWARE),
++	SOF_FLAG(SOF_TIMESTAMPING_RX_SOFTWARE),
++	SOF_FLAG(SOF_TIMESTAMPING_RX_HARDWARE),
++};
++
++static struct socket_type socket_types[] = {
++	{ "ip",		SOCK_RAW,	IPPROTO_EGP },
++	{ "udp",	SOCK_DGRAM,	IPPROTO_UDP },
++	{ "tcp",	SOCK_STREAM,	IPPROTO_TCP },
++};
++
++static struct test_case test_cases[] = {
++	{ {}, {} },
++	{
++		{ so_timestamp: 1 },
++		{ tstamp: true }
++	},
++	{
++		{ so_timestampns: 1 },
++		{ tstampns: true }
++	},
++	{
++		{ so_timestamp: 1, so_timestampns: 1 },
++		{ tstampns: true }
++	},
++	{
++		{ so_timestamping: SOF_TIMESTAMPING_RX_SOFTWARE },
++		{}
++	},
++	{
++		/* Loopback device does not support hw timestamps. */
++		{ so_timestamping: SOF_TIMESTAMPING_RX_HARDWARE },
++		{}
++	},
++	{
++		{ so_timestamping: SOF_TIMESTAMPING_SOFTWARE },
++		{}
++	},
++	{
++		{ so_timestamping: SOF_TIMESTAMPING_RX_SOFTWARE
++			| SOF_TIMESTAMPING_RX_HARDWARE },
++		{}
++	},
++	{
++		{ so_timestamping: SOF_TIMESTAMPING_SOFTWARE
++			| SOF_TIMESTAMPING_RX_SOFTWARE },
++		{ swtstamp: true }
++	},
++	{
++		{ so_timestamp: 1, so_timestamping: SOF_TIMESTAMPING_SOFTWARE
++			| SOF_TIMESTAMPING_RX_SOFTWARE },
++		{ tstamp: true, swtstamp: true }
++	},
++};
++
++static struct option long_options[] = {
++	{ "list_tests", no_argument, 0, 'l' },
++	{ "test_num", required_argument, 0, 'n' },
++	{ "op_size", required_argument, 0, 's' },
++	{ "tcp", no_argument, 0, 't' },
++	{ "udp", no_argument, 0, 'u' },
++	{ "ip", no_argument, 0, 'i' },
++};
++
++static int next_port = 19999;
++static int op_size = 10 * 1024;
++
++void print_test_case(struct test_case *t)
++{
++	int f = 0;
++
++	printf("sockopts {");
++	if (t->sockopt.so_timestamp)
++		printf(" SO_TIMESTAMP ");
++	if (t->sockopt.so_timestampns)
++		printf(" SO_TIMESTAMPNS ");
++	if (t->sockopt.so_timestamping) {
++		printf(" SO_TIMESTAMPING: {");
++		for (f = 0; f < ARRAY_SIZE(sof_flags); f++)
++			if (t->sockopt.so_timestamping & sof_flags[f].mask)
++				printf(" %s |", sof_flags[f].name);
++		printf("}");
++	}
++	printf("} expected cmsgs: {");
++	if (t->expected.tstamp)
++		printf(" SCM_TIMESTAMP ");
++	if (t->expected.tstampns)
++		printf(" SCM_TIMESTAMPNS ");
++	if (t->expected.swtstamp || t->expected.hwtstamp) {
++		printf(" SCM_TIMESTAMPING {");
++		if (t->expected.swtstamp)
++			printf("0");
++		if (t->expected.swtstamp && t->expected.hwtstamp)
++			printf(",");
++		if (t->expected.hwtstamp)
++			printf("2");
++		printf("}");
++	}
++	printf("}\n");
++}
++
++void do_send(int src)
++{
++	int r;
++	char *buf = malloc(op_size);
++
++	memset(buf, 'z', op_size);
++	r = write(src, buf, op_size);
++	if (r < 0)
++		error(1, errno, "Failed to sendmsg");
++
++	free(buf);
++}
++
++bool do_recv(int rcv, int read_size, struct tstamps expected)
++{
++	const int CMSG_SIZE = 1024;
++
++	struct scm_timestamping *ts;
++	struct tstamps actual = {};
++	char cmsg_buf[CMSG_SIZE];
++	struct iovec recv_iov;
++	struct cmsghdr *cmsg;
++	bool failed = false;
++	struct msghdr hdr;
++	int flags = 0;
++	int r;
++
++	memset(&hdr, 0, sizeof(hdr));
++	hdr.msg_iov = &recv_iov;
++	hdr.msg_iovlen = 1;
++	recv_iov.iov_base = malloc(read_size);
++	recv_iov.iov_len = read_size;
++
++	hdr.msg_control = cmsg_buf;
++	hdr.msg_controllen = sizeof(cmsg_buf);
++
++	r = recvmsg(rcv, &hdr, flags);
++	if (r < 0)
++		error(1, errno, "Failed to recvmsg");
++	if (r != read_size)
++		error(1, 0, "Only received %d bytes of payload.", r);
++
++	if (hdr.msg_flags & (MSG_TRUNC | MSG_CTRUNC))
++		error(1, 0, "Message was truncated.");
++
++	for (cmsg = CMSG_FIRSTHDR(&hdr); cmsg != NULL;
++	     cmsg = CMSG_NXTHDR(&hdr, cmsg)) {
++		if (cmsg->cmsg_level != SOL_SOCKET)
++			error(1, 0, "Unexpected cmsg_level %d",
++			      cmsg->cmsg_level);
++		switch (cmsg->cmsg_type) {
++		case SCM_TIMESTAMP:
++			actual.tstamp = true;
++			break;
++		case SCM_TIMESTAMPNS:
++			actual.tstampns = true;
++			break;
++		case SCM_TIMESTAMPING:
++			ts = (struct scm_timestamping *)CMSG_DATA(cmsg);
++			actual.swtstamp = !!ts->ts[0].tv_sec;
++			if (ts->ts[1].tv_sec != 0)
++				error(0, 0, "ts[1] should not be set.");
++			actual.hwtstamp = !!ts->ts[2].tv_sec;
++			break;
++		default:
++			error(1, 0, "Unexpected cmsg_type %d", cmsg->cmsg_type);
++		}
 +	}
 +
- 	return true;
- }
- 
-@@ -4315,6 +4331,9 @@ static void tcp_ofo_queue(struct sock *sk)
- 		}
- 		p = rb_next(p);
- 		rb_erase(&skb->rbnode, &tp->out_of_order_queue);
-+		/* Replace tstamp which was stomped by rbnode */
-+		if (TCP_SKB_CB(skb)->has_rxtstamp)
-+			skb->tstamp = TCP_SKB_CB(skb)->swtstamp;
- 
- 		if (unlikely(!after(TCP_SKB_CB(skb)->end_seq, tp->rcv_nxt))) {
- 			SOCK_DEBUG(sk, "ofo packet was already received\n");
-@@ -4326,7 +4345,8 @@ static void tcp_ofo_queue(struct sock *sk)
- 			   TCP_SKB_CB(skb)->end_seq);
- 
- 		tail = skb_peek_tail(&sk->sk_receive_queue);
--		eaten = tail && tcp_try_coalesce(sk, tail, skb, &fragstolen);
-+		eaten = tail && tcp_try_coalesce(sk, RCV_QUEUE,
-+						 tail, skb, &fragstolen);
- 		tcp_rcv_nxt_update(tp, TCP_SKB_CB(skb)->end_seq);
- 		fin = TCP_SKB_CB(skb)->tcp_flags & TCPHDR_FIN;
- 		if (!eaten)
-@@ -4380,6 +4400,10 @@ static void tcp_data_queue_ofo(struct sock *sk, struct sk_buff *skb)
- 		return;
- 	}
- 
-+	/* Stash tstamp to avoid being stomped on by rbnode */
-+	if (TCP_SKB_CB(skb)->has_rxtstamp)
-+		TCP_SKB_CB(skb)->swtstamp = skb->tstamp;
++#define VALIDATE(field) \
++	do { \
++		if (expected.field != actual.field) { \
++			if (expected.field) \
++				error(0, 0, "Expected " #field " to be set."); \
++			else \
++				error(0, 0, \
++				      "Expected " #field " to not be set."); \
++			failed = true; \
++		} \
++	} while (0)
 +
- 	inet_csk_schedule_ack(sk);
- 
- 	NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPOFOQUEUE);
-@@ -4405,7 +4429,8 @@ static void tcp_data_queue_ofo(struct sock *sk, struct sk_buff *skb)
- 	/* In the typical case, we are adding an skb to the end of the list.
- 	 * Use of ooo_last_skb avoids the O(Log(N)) rbtree lookup.
- 	 */
--	if (tcp_try_coalesce(sk, tp->ooo_last_skb, skb, &fragstolen)) {
-+	if (tcp_try_coalesce(sk, OOO_QUEUE, tp->ooo_last_skb,
-+			     skb, &fragstolen)) {
- coalesce_done:
- 		tcp_grow_window(sk, skb);
- 		kfree_skb_partial(skb, fragstolen);
-@@ -4455,7 +4480,8 @@ static void tcp_data_queue_ofo(struct sock *sk, struct sk_buff *skb)
- 				__kfree_skb(skb1);
- 				goto merge_right;
- 			}
--		} else if (tcp_try_coalesce(sk, skb1, skb, &fragstolen)) {
-+		} else if (tcp_try_coalesce(sk, OOO_QUEUE, skb1,
-+					    skb, &fragstolen)) {
- 			goto coalesce_done;
- 		}
- 		p = &parent->rb_right;
-@@ -4506,7 +4532,8 @@ static int __must_check tcp_queue_rcv(struct sock *sk, struct sk_buff *skb, int
- 
- 	__skb_pull(skb, hdrlen);
- 	eaten = (tail &&
--		 tcp_try_coalesce(sk, tail, skb, fragstolen)) ? 1 : 0;
-+		 tcp_try_coalesce(sk, RCV_QUEUE, tail,
-+				  skb, fragstolen)) ? 1 : 0;
- 	tcp_rcv_nxt_update(tcp_sk(sk), TCP_SKB_CB(skb)->end_seq);
- 	if (!eaten) {
- 		__skb_queue_tail(&sk->sk_receive_queue, skb);
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 5af8b809dfbc..a63486afa7a7 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -1637,6 +1637,8 @@ int tcp_v4_rcv(struct sk_buff *skb)
- 	TCP_SKB_CB(skb)->tcp_tw_isn = 0;
- 	TCP_SKB_CB(skb)->ip_dsfield = ipv4_get_dsfield(iph);
- 	TCP_SKB_CB(skb)->sacked	 = 0;
-+	TCP_SKB_CB(skb)->has_rxtstamp =
-+			skb->tstamp || skb_hwtstamps(skb)->hwtstamp;
- 
- lookup:
- 	sk = __inet_lookup_skb(&tcp_hashinfo, skb, __tcp_hdrlen(th), th->source,
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index d79a1af3252e..abba3bc2a3d9 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1394,6 +1394,8 @@ static void tcp_v6_fill_cb(struct sk_buff *skb, const struct ipv6hdr *hdr,
- 	TCP_SKB_CB(skb)->tcp_tw_isn = 0;
- 	TCP_SKB_CB(skb)->ip_dsfield = ipv6_get_dsfield(hdr);
- 	TCP_SKB_CB(skb)->sacked = 0;
-+	TCP_SKB_CB(skb)->has_rxtstamp =
-+			skb->tstamp || skb_hwtstamps(skb)->hwtstamp;
- }
- 
- static int tcp_v6_rcv(struct sk_buff *skb)
++	VALIDATE(tstamp);
++	VALIDATE(tstampns);
++	VALIDATE(swtstamp);
++	VALIDATE(hwtstamp);
++#undef VALIDATE
++
++	free(recv_iov.iov_base);
++
++	return failed;
++}
++
++void config_so_flags(int rcv, struct options o)
++{
++	int on = 1;
++
++	if (setsockopt(rcv, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) < 0)
++		error(1, errno, "Failed to enable SO_REUSEADDR");
++
++	if (o.so_timestamp &&
++	    setsockopt(rcv, SOL_SOCKET, SO_TIMESTAMP,
++		       &o.so_timestamp, sizeof(o.so_timestamp)) < 0)
++		error(1, errno, "Failed to enable SO_TIMESTAMP");
++
++	if (o.so_timestampns &&
++	    setsockopt(rcv, SOL_SOCKET, SO_TIMESTAMPNS,
++		       &o.so_timestampns, sizeof(o.so_timestampns)) < 0)
++		error(1, errno, "Failed to enable SO_TIMESTAMPNS");
++
++	if (o.so_timestamping &&
++	    setsockopt(rcv, SOL_SOCKET, SO_TIMESTAMPING,
++		       &o.so_timestamping, sizeof(o.so_timestamping)) < 0)
++		error(1, errno, "Failed to set SO_TIMESTAMPING");
++}
++
++bool run_test_case(struct socket_type s, struct test_case t)
++{
++	int port = (s.type == SOCK_RAW) ? 0 : next_port++;
++	int read_size = op_size;
++	struct sockaddr_in addr;
++	bool failed = false;
++	int src, dst, rcv;
++
++	src = socket(AF_INET, s.type, s.protocol);
++	if (src < 0)
++		error(1, errno, "Failed to open src socket");
++
++	dst = socket(AF_INET, s.type, s.protocol);
++	if (dst < 0)
++		error(1, errno, "Failed to open dst socket");
++
++	memset(&addr, 0, sizeof(addr));
++	addr.sin_family = AF_INET;
++	addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
++	addr.sin_port = htons(port);
++
++	if (bind(dst, (struct sockaddr *)&addr, sizeof(addr)) < 0)
++		error(1, errno, "Failed to bind to port %d", port);
++
++	if (s.type == SOCK_STREAM && (listen(dst, 1) < 0))
++		error(1, errno, "Failed to listen");
++
++	if (connect(src, (struct sockaddr *)&addr, sizeof(addr)) < 0)
++		error(1, errno, "Failed to connect");
++
++	if (s.type == SOCK_STREAM) {
++		rcv = accept(dst, NULL, NULL);
++		if (rcv < 0)
++			error(1, errno, "Failed to accept");
++		close(dst);
++	} else {
++		rcv = dst;
++	}
++
++	config_so_flags(rcv, t.sockopt);
++	usleep(20000); /* setsockopt for SO_TIMESTAMPING is asynchronous */
++	do_send(src);
++
++	if (s.type == SOCK_RAW)
++		read_size += 20;  /* for IP header */
++	failed = do_recv(rcv, read_size, t.expected);
++
++	close(rcv);
++	close(src);
++
++	return failed;
++}
++
++int main(int argc, char **argv)
++{
++	bool all_protocols = true;
++	bool all_tests = true;
++	int arg_index = 0;
++	int failures = 0;
++	int s, t;
++	char opt;
++
++	while ((opt = getopt_long(argc, argv, "", long_options,
++				  &arg_index)) != -1) {
++		switch (opt) {
++		case 'l':
++			for (t = 0; t < ARRAY_SIZE(test_cases); t++) {
++				printf("%d\t", t);
++				print_test_case(&test_cases[t]);
++			}
++			return 0;
++		case 'n':
++			t = atoi(optarg);
++			if (t > ARRAY_SIZE(test_cases))
++				error(1, 0, "Invalid test case: %d", t);
++			all_tests = false;
++			test_cases[t].enabled = true;
++			break;
++		case 's':
++			op_size = atoi(optarg);
++			break;
++		case 't':
++			all_protocols = false;
++			socket_types[2].enabled = true;
++			break;
++		case 'u':
++			all_protocols = false;
++			socket_types[1].enabled = true;
++			break;
++		case 'i':
++			all_protocols = false;
++			socket_types[0].enabled = true;
++			break;
++		default:
++			error(1, 0, "Failed to parse parameters.");
++		}
++	}
++
++	for (s = 0; s < ARRAY_SIZE(socket_types); s++) {
++		if (!all_protocols && !socket_types[s].enabled)
++			continue;
++
++		printf("Testing %s...\n", socket_types[s].friendly_name);
++		for (t = 0; t < ARRAY_SIZE(test_cases); t++) {
++			if (!all_tests && !test_cases[t].enabled)
++				continue;
++
++			printf("Starting testcase %d...\n", t);
++			if (run_test_case(socket_types[s], test_cases[t])) {
++				failures++;
++				printf("FAILURE in test case ");
++				print_test_case(&test_cases[t]);
++			}
++		}
++	}
++	if (!failures)
++		printf("PASSED.\n");
++	return failures;
++}
 -- 
 2.14.1.480.gb18f417b89-goog
