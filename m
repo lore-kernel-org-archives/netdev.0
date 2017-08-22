@@ -1,7 +1,8 @@
 From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [PATCH net-next 1/5] xdp: remove bpf_warn_invalid_xdp_redirect
-Date: Tue, 22 Aug 2017 22:47:19 +0200
-Message-ID: <150343483960.31091.3438305938845615426.stgit@firesoul>
+Subject: [PATCH net-next 3/5] ixgbe: use return codes from ndo_xdp_xmit that
+ are distinguishable
+Date: Tue, 22 Aug 2017 22:47:29 +0200
+Message-ID: <150343484979.31091.3667334412617955097.stgit@firesoul>
 References: <150343479290.31091.8019008896152616977.stgit@firesoul>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,60 +11,49 @@ Cc: John Fastabend <john.fastabend@gmail.com>,
         Jesper Dangaard Brouer <brouer@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:58676 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:51448 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752477AbdHVUrX (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 22 Aug 2017 16:47:23 -0400
+        id S1752644AbdHVUrc (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 22 Aug 2017 16:47:32 -0400
 In-Reply-To: <150343479290.31091.8019008896152616977.stgit@firesoul>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Given there is a tracepoint that can track the error code
-of xdp_do_redirect calls, the WARN_ONCE in bpf_warn_invalid_xdp_redirect
-doesn't seem relevant any longer.  Simply remove the function.
+For XDP_REDIRECT the use of return code -EINVAL is confusing, as it is
+used in three different cases.  (1) When the index or ifindex lookup
+fails, and in the ixgbe driver (2) when link is down and (3) when XDP
+have not been enabled.
+
+The return code can be picked up by the tracepoint xdp:xdp_redirect
+for diagnosing why XDP_REDIRECT isn't working.  Thus, there is a need
+different return codes to tell the issues apart.
+
+I'm considering using a specific err-code scheme for XDP_REDIRECT
+instead of using these errno codes.
 
 Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
 ---
- net/core/filter.c |    8 --------
- 1 file changed, 8 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/core/filter.c b/net/core/filter.c
-index fa2115695037..31c579749679 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -2499,7 +2499,6 @@ static int __bpf_tx_xdp(struct net_device *dev,
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 8d3224ad6434..3afb8c4b9d48 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -9849,14 +9849,14 @@ static int ixgbe_xdp_xmit(struct net_device *dev, struct xdp_buff *xdp)
  	int err;
  
- 	if (!dev->netdev_ops->ndo_xdp_xmit) {
--		bpf_warn_invalid_xdp_redirect(dev->ifindex);
- 		return -EOPNOTSUPP;
- 	}
+ 	if (unlikely(test_bit(__IXGBE_DOWN, &adapter->state)))
+-		return -EINVAL;
++		return -ENOLINK;
  
-@@ -2572,7 +2571,6 @@ int xdp_do_redirect(struct net_device *dev, struct xdp_buff *xdp,
- 	fwd = dev_get_by_index_rcu(dev_net(dev), index);
- 	ri->ifindex = 0;
- 	if (unlikely(!fwd)) {
--		bpf_warn_invalid_xdp_redirect(index);
- 		err = -EINVAL;
- 		goto out;
- 	}
-@@ -2593,7 +2591,6 @@ int xdp_do_generic_redirect(struct net_device *dev, struct sk_buff *skb)
- 	dev = dev_get_by_index_rcu(dev_net(dev), index);
- 	ri->ifindex = 0;
- 	if (unlikely(!dev)) {
--		bpf_warn_invalid_xdp_redirect(index);
- 		goto err;
- 	}
+ 	/* During program transitions its possible adapter->xdp_prog is assigned
+ 	 * but ring has not been configured yet. In this case simply abort xmit.
+ 	 */
+ 	ring = adapter->xdp_prog ? adapter->xdp_ring[smp_processor_id()] : NULL;
+ 	if (unlikely(!ring))
+-		return -EINVAL;
++		return -ENXIO;
  
-@@ -3573,11 +3570,6 @@ void bpf_warn_invalid_xdp_action(u32 act)
- }
- EXPORT_SYMBOL_GPL(bpf_warn_invalid_xdp_action);
- 
--void bpf_warn_invalid_xdp_redirect(u32 ifindex)
--{
--	WARN_ONCE(1, "Illegal XDP redirect to unsupported device ifindex(%i)\n", ifindex);
--}
--
- static bool __is_valid_sock_ops_access(int off, int size)
- {
- 	if (off < 0 || off >= sizeof(struct bpf_sock_ops))
+ 	err = ixgbe_xmit_xdp_ring(adapter, xdp);
+ 	if (err != IXGBE_XDP_TX)
