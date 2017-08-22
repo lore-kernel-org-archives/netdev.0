@@ -1,71 +1,83 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: Re: [PATCH v2 net] udp: on peeking bad csum, drop packets even if
- not at head
-Date: Tue, 22 Aug 2017 18:47:42 +0200
-Message-ID: <1503420462.13544.9.camel@redhat.com>
-References: <20170821213912.93333-1-willemdebruijn.kernel@gmail.com>
-         <1503355232.2499.15.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1503419968.2499.33.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Subject: Re: [PATCH v3 3/4] net: stmmac: register parent MDIO node for
+ sun8i-h3-emac
+Date: Tue, 22 Aug 2017 18:50:38 +0200
+Message-ID: <20170822165038.afmpeztr2yzffhbq@flea.lan>
+References: <CAGb2v66KcZkiDDHryMmVzm4WroXePPy3V44SLpVdoO3ZEjgC=g@mail.gmail.com>
+ <20170819185025.GB13266@Red>
+ <20170819203836.GA21567@lunn.ch>
+ <20170820065757.GA6081@Red>
+ <20170820142545.GB24150@lunn.ch>
+ <CAGb2v67hQXSoCKP7qW+KRUYX+0djQ1Z23cQ67Lyg6G7ozGyfGQ@mail.gmail.com>
+ <20170821132015.GB1703@lunn.ch>
+ <20170821133104.qvrhvwin2rdg4aqo@flea.lan>
+ <20170821142321.GE1703@lunn.ch>
+ <CAGb2v64E4T=1ff3POGuXZA=MvjGAnKQ6OF6A3sT_cU-=jh6zNw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Willem de Bruijn <willemb@google.com>,
-        netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-        David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37030 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751157AbdHVQro (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 22 Aug 2017 12:47:44 -0400
-In-Reply-To: <1503419968.2499.33.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="fcnm4qn4b73qe32y"
+Cc: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
+        Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        Russell King <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>,
+        Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
+        Alexandre Torgue <alexandre.torgue-qxv4g6HH51o@public.gmane.org>,
+        devicetree <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        linux-arm-kernel <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+        linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <CAGb2v64E4T=1ff3POGuXZA=MvjGAnKQ6OF6A3sT_cU-=jh6zNw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2017-08-22 at 09:39 -0700, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> When peeking, if a bad csum is discovered, the skb is unlinked from
-> the queue with __sk_queue_drop_skb and the peek operation restarted.
-> 
-> __sk_queue_drop_skb only drops packets that match the queue head.
-> 
-> This fails if the skb was found after the head, using SO_PEEK_OFF
-> socket option. This causes an infinite loop.
-> 
-> We MUST drop this problematic skb, and we can simply check if skb was
-> already removed by another thread, by looking at skb->next :
-> 
-> This pointer is set to NULL by the  __skb_unlink() operation, that might
-> have happened only under the spinlock protection.
-> 
-> Many thanks to syzkaller team (and particularly Dmitry Vyukov who
-> provided us nice C reproducers exhibiting the lockup) and Willem de
-> Bruijn who provided first version for this patch and a test program.
-> 
-> Fixes: 627d2d6b5500 ("udp: enable MSG_PEEK at non-zero offset")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Reported-by: Dmitry Vyukov <dvyukov@google.com>
-> Cc: Willem de Bruijn <willemb@google.com>
-> ---
->  net/core/datagram.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/net/core/datagram.c b/net/core/datagram.c
-> index a21ca8dee5ea..8c2f4489ff8f 100644
-> --- a/net/core/datagram.c
-> +++ b/net/core/datagram.c
-> @@ -362,7 +362,7 @@ int __sk_queue_drop_skb(struct sock *sk, struct sk_buff_head *sk_queue,
->  	if (flags & MSG_PEEK) {
->  		err = -ENOENT;
->  		spin_lock_bh(&sk_queue->lock);
-> -		if (skb == skb_peek(sk_queue)) {
-> +		if (skb->next) {
->  			__skb_unlink(skb, sk_queue);
->  			refcount_dec(&skb->users);
->  			if (destructor)
-> 
 
-This version is really nice!
+--fcnm4qn4b73qe32y
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Acked-by: Paolo Abeni <pabeni@redhat.com>
+On Tue, Aug 22, 2017 at 11:39:22PM +0800, Chen-Yu Tsai wrote:
+> Now can we please decide on something? We're a week and a half from
+> the 4.13 release. If mdio-mux is wrong, then we could have two mdio
+> nodes (internal-mdio & external-mdio).
+
+I can only emphasize this. I'm afraid that if we don't have an
+agreement and a patch implementing it with the proper acks by the end
+of the week, we'll have to revert all the DT bits and the bindings.
+
+Maxime
+
+--=20
+Maxime Ripard, Free Electrons
+Embedded Linux and Kernel engineering
+http://free-electrons.com
+
+--fcnm4qn4b73qe32y
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIcBAEBAgAGBQJZnGDdAAoJEBx+YmzsjxAg5yEP/2m2H7eRbVEXvOyl+7+Il1pz
+LFP10ogmPgfMwk9mWDaF/7hxRJgbSBhWsbo1uFyxx0VSQ8w2P4XEBuXpN/LMLchK
+DxzmgKVtqAy6PW1KJiY/HG1zVPQf8RpwnGO2fynQX3EWZkLuAf7RhyCVBUfk2qKR
+YMX6Shnl6UV1krb/9WhTAKwwv90D1puqiiBShgA3TRStoc1CcagD3vQv7ykNckd1
+oYw6X689F3MTrr6qQ+vvqmZgKLbVDdNGfeiSBnU88aDXYdaZGB/SrfydXC4yMFQD
+XVmEd2yGhKCLqWxfG6Jr0bRe950VXvJy95yG/ZBR+HDdZbit4ISMHjQOsxAN3nMo
+t7JBr2ttzAyDrtCq1OuL2yb6Jn/XBj99wd6bd+AK0hhWV9b7dXTZ8GN6UihYdMy+
+2/P7QZU4CNmcKMCSduskntbDzAtsmKJYd2zvRH6ZEyeGIWOn9eCUslDGrBLIV4A9
+kAKnKEP70dn4ulHLPZw55XIbg7uBu75e3zPvNGR+jYoBJYeL/SyQ/Dy43pZpELzy
+Hf0bwDZ6/Iqmj3UCholejx+yTgWr6tKz3Ws4HaMTLnSLvBQ+H1F6cpIPGgyC84PO
+QIziy2qEeZQXJ30It0Wpfsq/KWaxJ5alq1uTWa9vALMeDlFe0Xf5FgCh9C5epaOB
+wL7YQRB7GZj4XONEmU0q
+=XIqj
+-----END PGP SIGNATURE-----
+
+--fcnm4qn4b73qe32y--
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
