@@ -1,57 +1,82 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv4 net-next] gre: introduce native tunnel support for
- ERSPAN
-Date: Tue, 22 Aug 2017 14:29:42 -0700 (PDT)
-Message-ID: <20170822.142942.1549435418952413661.davem@davemloft.net>
-References: <1503420028-10791-1-git-send-email-u9012063@gmail.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next 5/5] xdp: get tracepoints xdp_exception and xdp_redirect
+ in sync
+Date: Tue, 22 Aug 2017 23:30:21 +0200
+Message-ID: <599CA26D.7060003@iogearbox.net>
+References: <150343479290.31091.8019008896152616977.stgit@firesoul> <150343485998.31091.4036615069956176401.stgit@firesoul>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mvohra@vmware.com, kuznet@ms2.inr.ac.ru,
-        yoshfuji@linux-ipv6.org
-To: u9012063@gmail.com
+Cc: John Fastabend <john.fastabend@gmail.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44388 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751711AbdHVV3n (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2017 17:29:43 -0400
-In-Reply-To: <1503420028-10791-1-git-send-email-u9012063@gmail.com>
+Received: from www62.your-server.de ([213.133.104.62]:33121 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751711AbdHVVaX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2017 17:30:23 -0400
+In-Reply-To: <150343485998.31091.4036615069956176401.stgit@firesoul>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: William Tu <u9012063@gmail.com>
-Date: Tue, 22 Aug 2017 09:40:28 -0700
+On 08/22/2017 10:47 PM, Jesper Dangaard Brouer wrote:
+> Remove the net_device string name from the xdp_exception tracepoint,
+> like the xdp_redirect tracepoint.
+>
+> Align the TP_STRUCT to have common entries between these two
+> tracepoint.
+>
+> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+> ---
+>   include/trace/events/xdp.h |   24 ++++++++++++------------
+>   1 file changed, 12 insertions(+), 12 deletions(-)
+>
+> diff --git a/include/trace/events/xdp.h b/include/trace/events/xdp.h
+> index 7511bed80558..6495b0d9d5c7 100644
+> --- a/include/trace/events/xdp.h
+> +++ b/include/trace/events/xdp.h
+> @@ -31,22 +31,22 @@ TRACE_EVENT(xdp_exception,
+>   	TP_ARGS(dev, xdp, act),
+>
+>   	TP_STRUCT__entry(
+> -		__string(name, dev->name)
+>   		__array(u8, prog_tag, 8)
+>   		__field(u32, act)
+> +		__field(int, ifindex)
+>   	),
+>
+>   	TP_fast_assign(
+>   		BUILD_BUG_ON(sizeof(__entry->prog_tag) != sizeof(xdp->tag));
+>   		memcpy(__entry->prog_tag, xdp->tag, sizeof(xdp->tag));
+> -		__assign_str(name, dev->name);
+> -		__entry->act = act;
+> +		__entry->act		= act;
+> +		__entry->ifindex	= dev->ifindex;
+>   	),
+>
+[...]
+>   TRACE_EVENT(xdp_redirect,
+> @@ -57,26 +57,26 @@ TRACE_EVENT(xdp_redirect,
+>   	TP_ARGS(from_index, to_index, xdp, act, err),
+>
+>   	TP_STRUCT__entry(
+> -		__field(int, from_index)
+> -		__field(int, to_index)
+>   		__array(u8, prog_tag, 8)
+>   		__field(u32, act)
+> +		__field(int, from_index)
+> +		__field(int, to_index)
+>   		__field(int, err)
+>   	),
+>
+>   	TP_fast_assign(
+>   		BUILD_BUG_ON(sizeof(__entry->prog_tag) != sizeof(xdp->tag));
+>   		memcpy(__entry->prog_tag, xdp->tag, sizeof(xdp->tag));
+> +		__entry->act		= act;
+>   		__entry->from_index	= from_index;
+>   		__entry->to_index	= to_index;
+> -		__entry->act = act;
 
-> The patch adds ERSPAN type II tunnel support.  The implementation
-> is based on the draft at [1].  One of the purposes is for Linux
-> box to be able to receive ERSPAN monitoring traffic sent from
-> the Cisco switch, by creating a ERSPAN tunnel device.
-> In addition, the patch also adds ERSPAN TX, so Linux virtual
-> switch can redirect monitored traffic to the ERSPAN tunnel device.
-> The traffic will be encapsulated into ERSPAN and sent out.
-> 
-> The implementation reuses tunnel key as ERSPAN session ID, and
-> field 'erspan' as ERSPAN Index fields:
-> ./ip link add dev ers11 type erspan seq key 100 erspan 123 \
-> 			local 172.16.1.200 remote 172.16.1.100
-> 
-> To use the above device as ERSPAN receiver, configure
-> Nexus 5000 switch as below:
-> 
-> monitor session 100 type erspan-source
->   erspan-id 123
->   vrf default
->   destination ip 172.16.1.200
->   source interface Ethernet1/11 both
->   source interface Ethernet1/12 both
->   no shut
-> monitor erspan origin ip-address 172.16.1.100 global
-> 
-> [1] https://tools.ietf.org/html/draft-foschiano-erspan-01
-> [2] iproute2 patch: http://marc.info/?l=linux-netdev&m=150306086924951&w=2
-> [3] test script: http://marc.info/?l=linux-netdev&m=150231021807304&w=2
-> 
-> Signed-off-by: William Tu <u9012063@gmail.com>
-> Signed-off-by: Meenakshi Vohra <mvohra@vmware.com>
-
-Applied, thank you.
+If you already get them in sync, could you also make it consistent
+that for both tracepoints in TP_ARGS() we use either ifindex
+directly or device pointer and extract it from TP_fast_assign().
+Right now, it's mixed.
