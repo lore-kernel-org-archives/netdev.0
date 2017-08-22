@@ -1,57 +1,51 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 03/18] net: mvpp2: set the SMI PHY address when
- connecting to the PHY
-Date: Tue, 22 Aug 2017 16:50:14 +0200
-Message-ID: <20170822145014.GB18076@lunn.ch>
-References: <20170724134848.19330-1-antoine.tenart@free-electrons.com>
- <20170724134848.19330-4-antoine.tenart@free-electrons.com>
- <20170726160806.GF12049@lunn.ch>
- <20170728014905.GC24728@kwain>
- <20170728042153.GH18666@lunn.ch>
- <20170822144101.GC14942@kwain>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH v4 net-next] arm: eBPF JIT compiler
+Date: Tue, 22 Aug 2017 17:08:23 +0200
+Message-ID: <599C48E7.3000409@iogearbox.net>
+References: <1503383772-5788-1-git-send-email-illusionist.neo@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, jason@lakedaemon.net,
-        gregory.clement@free-electrons.com,
-        sebastian.hesselbarth@gmail.com,
-        thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
-        linux@armlinux.org.uk, mw@semihalf.com, stefanc@marvell.com,
-        netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: Antoine Tenart <antoine.tenart@free-electrons.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:39434 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932523AbdHVOuZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 22 Aug 2017 10:50:25 -0400
-Content-Disposition: inline
-In-Reply-To: <20170822144101.GC14942@kwain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ast@fb.com,
+        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
+        keescook@chromium.org
+To: Shubham Bansal <illusionist.neo@gmail.com>, linux@armlinux.org.uk,
+        davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1503383772-5788-1-git-send-email-illusionist.neo@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> > It is still not clear to my why you need to program the address into
-> > the hardware. Is the hardware talking to the PHY?
-> 
-> Sorry for the answer delay, I was out of the office...
-> 
-> This PHY address configuration should be done in the mvmdio driver as
-> this is not directly related to the PPv2 (well, the mvmdio driver is
-> only an abstraction to reuse the mdio code, using registers exposed by
-> PPv2 in this case anyway). But two values must be known in order to do
-> this: the PHY address and the GoP port number. Getting the last one from
-> the mvmdio driver would be really ugly as we would need to read the PPv2
-> dt node. This is why this patch adds it in the PPv2 driver, but I know
-> it's not perfect.
-> 
-> I'll resend a series very soon, with this patch still included. We can
-> continue the discussion there I guess, if needed.
-> 
-> Thanks!
-Hi Antoine
+On 08/22/2017 08:36 AM, Shubham Bansal wrote:
+[...]
+> +
+> +static int out_offset = -1; /* initialized on the first pass of build_body() */
 
-You have still not explained why PPv2 needs to know the PHY address.
+Hm, why is this a global var actually? There can be
+multiple parallel calls to bpf_int_jit_compile(), we
+don't take a global lock on this. Unless I'm missing
+something this should really reside in jit_ctx, no?
 
-What i'm worried about is that the PPv2 is actually talking to the
-PHY. Is it polling link state? Does it take the PHY mutex when it does
-this poll?
+Given this is on emit_bpf_tail_call(), did you get
+tail calls working the way I suggested to test?
 
-     Andrew
+> +static int emit_bpf_tail_call(struct jit_ctx *ctx)
+>   {
+[...]
+> +	const int idx0 = ctx->idx;
+> +#define cur_offset (ctx->idx - idx0)
+> +#define jmp_offset (out_offset - (cur_offset))
+[...]
+> +
+> +	/* out: */
+> +	if (out_offset == -1)
+> +		out_offset = cur_offset;
+> +	if (cur_offset != out_offset) {
+> +		pr_err_once("tail_call out_offset = %d, expected %d!\n",
+> +			    cur_offset, out_offset);
+> +		return -1;
+> +	}
+> +	return 0;
+> +#undef cur_offset
+> +#undef jmp_offset
+>   }
