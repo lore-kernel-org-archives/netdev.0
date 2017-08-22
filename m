@@ -1,44 +1,40 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [PATCH v2 net-next 1/2] tcp: Extend SOF_TIMESTAMPING_RX_SOFTWARE
- to TCP recvmsg
-Date: Tue, 22 Aug 2017 17:32:03 -0400
-Message-ID: <CAF=yD-L_2bBmf-crV_-1XW-jzwF-_F5hLJ0fRpM+p7bHNQJ_sQ@mail.gmail.com>
-References: <20170822210849.23162-1-maloneykernel@gmail.com> <20170822210849.23162-2-maloneykernel@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 00/10] net: mvpp2: MAC/GoP configuration
+Date: Tue, 22 Aug 2017 14:32:50 -0700 (PDT)
+Message-ID: <20170822.143250.1510952084327060303.davem@davemloft.net>
+References: <20170822170830.32413-1-antoine.tenart@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Network Development <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Soheil Hassas Yeganeh <soheil@google.com>,
-        Mike Maloney <maloney@google.com>
-To: Mike Maloney <maloneykernel@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jason@lakedaemon.net, andrew@lunn.ch,
+        gregory.clement@free-electrons.com,
+        sebastian.hesselbarth@gmail.com,
+        thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
+        linux@armlinux.org.uk, mw@semihalf.com, stefanc@marvell.com,
+        netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: antoine.tenart@free-electrons.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f49.google.com ([209.85.218.49]:33679 "EHLO
-        mail-oi0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751651AbdHVVco (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2017 17:32:44 -0400
-Received: by mail-oi0-f49.google.com with SMTP id f11so198890849oic.0
-        for <netdev@vger.kernel.org>; Tue, 22 Aug 2017 14:32:44 -0700 (PDT)
-In-Reply-To: <20170822210849.23162-2-maloneykernel@gmail.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:44546 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752275AbdHVVcw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2017 17:32:52 -0400
+In-Reply-To: <20170822170830.32413-1-antoine.tenart@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 22, 2017 at 5:08 PM, Mike Maloney <maloneykernel@gmail.com> wrote:
-> From: Mike Maloney <maloney@google.com>
->
-> When SOF_TIMESTAMPING_RX_SOFTWARE is enabled for tcp sockets, return the
-> timestamp corresponding to the highest sequence number data returned.
->
-> Previously the skb->tstamp is overwritten when a TCP packet is placed
-> in the out of order queue.  While the packet is in the ooo queue, save the
-> timestamp in the TCB_SKB_CB.  This space is shared with the gso_*
-> options which are only used on the tx path, and a previously unused 4
-> byte hole.
->
-> When skbs are coalesced either in the sk_receive_queue or the
-> out_of_order_queue always choose the timestamp of the appended skb to
-> maintain the invariant of returning the timestamp of the last byte in
-> the recvmsg buffer.
->
-> Signed-off-by: Mike Maloney <maloney@google.com>
+From: Antoine Tenart <antoine.tenart@free-electrons.com>
+Date: Tue, 22 Aug 2017 19:08:20 +0200
 
-Acked-by: Willem de Bruijn <willemb@google.com>
+> This is based on net-next (e2a7c34fb285).
+> 
+> I removed the GoP interrupt and PHY optional parts in this v2 to ease
+> the review process as the MAC/GoP initialization seemed to start less
+> discussions :)
+> 
+> This series now only aims at making the PPv2 driver less depending on
+> the firmware/bootloader initialization. Some patches cleanup some parts
+> as well, and add new interface descriptions in the dt.
+ ...
+> @Dave: patches 9 and 10 should go through the mvebu tree. Thanks!
+
+Patches 1-8 applied to net-next, thanks.
