@@ -1,7 +1,9 @@
 From: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
-Subject: [PATCH net v1 0/2] tipc: topology server fixes
-Date: Tue, 22 Aug 2017 12:28:39 +0200
-Message-ID: <1503397721-19682-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
+Subject: [PATCH net v1 1/2] tipc: remove subscription
+ references only for pending timers
+Date: Tue, 22 Aug 2017 12:28:40 +0200
+Message-ID: <1503397721-19682-2-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
+References: <1503397721-19682-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -9,6 +11,7 @@ Cc: jon.maloy@ericsson.com, netdev@vger.kernel.org,
  tipc-discussion@lists.sourceforge.net, ying.xue@windriver.com
 To: <davem@davemloft.net>
 Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+In-Reply-To: <1503397721-19682-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
 List-Unsubscribe: <https://lists.sourceforge.net/lists/options/tipc-discussion>,
  <mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
@@ -19,18 +22,104 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-The following commits fixes two race conditions causing general
-protection faults.
+In commit, 139bb36f754a ("tipc: advance the time of deleting
+subscription from subscriber->subscrp_list"), we delete the
+subscription from the subscribers list and from nametable
+unconditionally. This leads to the following bug if the timer
+running tipc_subscrp_timeout() in another CPU accesses the
+subscription list after the subscription delete request.
 
-Parthasarathy Bhuvaragan (1):
-  tipc: remove subscription references only for pending timers
+[39.570] general protection fault: 0000 [#1] SMP
+::
+[39.574] task: ffffffff81c10540 task.stack: ffffffff81c00000
+[39.575] RIP: 0010:tipc_subscrp_timeout+0x32/0x80 [tipc]
+[39.576] RSP: 0018:ffff88003ba03e90 EFLAGS: 00010282
+[39.576] RAX: dead000000000200 RBX: ffff88003f0f3600 RCX: 0000000000000101
+[39.577] RDX: dead000000000100 RSI: 0000000000000201 RDI: ffff88003f0d7948
+[39.578] RBP: ffff88003ba03ea0 R08: 0000000000000001 R09: ffff88003ba03ef8
+[39.579] R10: 000000000000014f R11: 0000000000000000 R12: ffff88003f0d7948
+[39.580] R13: ffff88003f0f3618 R14: ffffffffa006c250 R15: ffff88003f0f3600
+[39.581] FS:  0000000000000000(0000) GS:ffff88003ba00000(0000) knlGS:0000000000000000
+[39.582] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+[39.583] CR2: 00007f831c6e0714 CR3: 000000003d3b0000 CR4: 00000000000006f0
+[39.584] Call Trace:
+[39.584]  <IRQ>
+[39.585]  call_timer_fn+0x3d/0x180
+[39.585]  ? tipc_subscrb_rcv_cb+0x260/0x260 [tipc]
+[39.586]  run_timer_softirq+0x168/0x1f0
+[39.586]  ? sched_clock_cpu+0x16/0xc0
+[39.587]  __do_softirq+0x9b/0x2de
+[39.587]  irq_exit+0x60/0x70
+[39.588]  smp_apic_timer_interrupt+0x3d/0x50
+[39.588]  apic_timer_interrupt+0x86/0x90
+[39.589] RIP: 0010:default_idle+0x20/0xf0
+[39.589] RSP: 0018:ffffffff81c03e58 EFLAGS: 00000246 ORIG_RAX: ffffffffffffff10
+[39.590] RAX: 0000000000000000 RBX: ffffffff81c10540 RCX: 0000000000000000
+[39.591] RDX: 0000000000000000 RSI: 0000000000000000 RDI: 0000000000000000
+[39.592] RBP: ffffffff81c03e68 R08: 0000000000000000 R09: 0000000000000000
+[39.593] R10: ffffc90001cbbe00 R11: 0000000000000000 R12: 0000000000000000
+[39.594] R13: ffffffff81c10540 R14: 0000000000000000 R15: 0000000000000000
+[39.595]  </IRQ>
+::
+[39.603] RIP: tipc_subscrp_timeout+0x32/0x80 [tipc] RSP: ffff88003ba03e90
+[39.604] ---[ end trace 79ce94b7216cb459 ]---
 
-Ying Xue (1):
-  tipc: fix a race condition of releasing subscriber object
+Fixes: 139bb36f754a ("tipc: advance the time of deleting subscription from subscriber->subscrp_list")
+Signed-off-by: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
+---
+ net/tipc/subscr.c | 19 +++++++------------
+ 1 file changed, 7 insertions(+), 12 deletions(-)
 
- net/tipc/subscr.c | 21 +++++++++------------
- 1 file changed, 9 insertions(+), 12 deletions(-)
-
+diff --git a/net/tipc/subscr.c b/net/tipc/subscr.c
+index 0bf91cd3733c..f2c81f42dfda 100644
+--- a/net/tipc/subscr.c
++++ b/net/tipc/subscr.c
+@@ -52,7 +52,6 @@ struct tipc_subscriber {
+ 	struct list_head subscrp_list;
+ };
+ 
+-static void tipc_subscrp_delete(struct tipc_subscription *sub);
+ static void tipc_subscrb_put(struct tipc_subscriber *subscriber);
+ 
+ /**
+@@ -197,15 +196,19 @@ static void tipc_subscrb_subscrp_delete(struct tipc_subscriber *subscriber,
+ {
+ 	struct list_head *subscription_list = &subscriber->subscrp_list;
+ 	struct tipc_subscription *sub, *temp;
++	u32 timeout;
+ 
+ 	spin_lock_bh(&subscriber->lock);
+ 	list_for_each_entry_safe(sub, temp, subscription_list,  subscrp_list) {
+ 		if (s && memcmp(s, &sub->evt.s, sizeof(struct tipc_subscr)))
+ 			continue;
+ 
+-		tipc_nametbl_unsubscribe(sub);
+-		list_del(&sub->subscrp_list);
+-		tipc_subscrp_delete(sub);
++		timeout = htohl(sub->evt.s.timeout, sub->swap);
++		if (timeout == TIPC_WAIT_FOREVER || del_timer(&sub->timer)) {
++			tipc_nametbl_unsubscribe(sub);
++			list_del(&sub->subscrp_list);
++			tipc_subscrp_put(sub);
++		}
+ 
+ 		if (s)
+ 			break;
+@@ -236,14 +239,6 @@ static void tipc_subscrb_delete(struct tipc_subscriber *subscriber)
+ 	tipc_subscrb_put(subscriber);
+ }
+ 
+-static void tipc_subscrp_delete(struct tipc_subscription *sub)
+-{
+-	u32 timeout = htohl(sub->evt.s.timeout, sub->swap);
+-
+-	if (timeout == TIPC_WAIT_FOREVER || del_timer(&sub->timer))
+-		tipc_subscrp_put(sub);
+-}
+-
+ static void tipc_subscrp_cancel(struct tipc_subscr *s,
+ 				struct tipc_subscriber *subscriber)
+ {
 -- 
 2.1.4
 
