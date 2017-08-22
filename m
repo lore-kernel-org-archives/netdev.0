@@ -1,37 +1,36 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net-next] net: sched: use kvmalloc() for class hash tables
-Date: Tue, 22 Aug 2017 14:21:53 -0700
-Message-ID: <20170822212151.cf62aebehcjpsbc7@ast-mbp>
-References: <1503430006.2499.55.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next 3/5] ixgbe: use return codes from ndo_xdp_xmit
+ that are distinguishable
+Date: Tue, 22 Aug 2017 23:21:59 +0200
+Message-ID: <599CA077.1010008@iogearbox.net>
+References: <150343479290.31091.8019008896152616977.stgit@firesoul> <150343484979.31091.3667334412617955097.stgit@firesoul>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Jiri Pirko <jiri@resnulli.us>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: John Fastabend <john.fastabend@gmail.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:36434 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751831AbdHVVV4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2017 17:21:56 -0400
-Received: by mail-pg0-f68.google.com with SMTP id y129so28280241pgy.3
-        for <netdev@vger.kernel.org>; Tue, 22 Aug 2017 14:21:56 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1503430006.2499.55.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from www62.your-server.de ([213.133.104.62]:60224 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751815AbdHVVWA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2017 17:22:00 -0400
+In-Reply-To: <150343484979.31091.3667334412617955097.stgit@firesoul>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 22, 2017 at 12:26:46PM -0700, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> High order GFP_KERNEL allocations can stress the host badly.
-> 
-> Use modern kvmalloc_array()/kvfree() instead of custom
-> allocations.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+On 08/22/2017 10:47 PM, Jesper Dangaard Brouer wrote:
+> For XDP_REDIRECT the use of return code -EINVAL is confusing, as it is
+> used in three different cases.  (1) When the index or ifindex lookup
+> fails, and in the ixgbe driver (2) when link is down and (3) when XDP
+> have not been enabled.
+>
+> The return code can be picked up by the tracepoint xdp:xdp_redirect
+> for diagnosing why XDP_REDIRECT isn't working.  Thus, there is a need
+> different return codes to tell the issues apart.
+>
+> I'm considering using a specific err-code scheme for XDP_REDIRECT
+> instead of using these errno codes.
+>
+> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
 
-Thanks for fixing these issues.
-Acked-by: Alexei Starovoitov <ast@kernel.org>
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
