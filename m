@@ -1,25 +1,37 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] net: mdio-gpio: make mdiobb_ops const
-Date: Tue, 22 Aug 2017 15:15:12 +0200
-Message-ID: <20170822131512.GE24555@lunn.ch>
-References: <1503389609-17490-1-git-send-email-bhumirks@gmail.com>
+From: Edward Cree <ecree@solarflare.com>
+Subject: [PATCH net-next 0/4] bpf: verifier fixes
+Date: Tue, 22 Aug 2017 14:17:44 +0100
+Message-ID: <f25f46bd-27cb-2182-2551-2887757c1e0f@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: julia.lawall@lip6.fr, f.fainelli@gmail.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Bhumika Goyal <bhumirks@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1503389609-17490-1-git-send-email-bhumirks@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>,
+        iovisor-dev <iovisor-dev@lists.iovisor.org>
+To: <davem@davemloft.net>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Alexei Starovoitov <ast@fb.com>,
+        Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dispatch1-us1.ppe-hosted.com ([67.231.154.164]:47109 "EHLO
+        dispatch1-us1.ppe-hosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S932657AbdHVNSC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2017 09:18:02 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 22, 2017 at 01:43:29PM +0530, Bhumika Goyal wrote:
-> Make this const as it is only stored in a const field of a
-> mdiobb_ctrl structure.
-> 
-> Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
+Fix a couple of bugs introduced in my recent verifier patches.
+Patch #3 does slightly increase the insn count on bpf_lxc.o, but only by
+ about a hundred insns (i.e. 0.2%).
 
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+Alexei Starovoitov (1):
+  selftests/bpf: add a test for a pruning bug in the verifier
 
-    Andrew
+Edward Cree (3):
+  bpf/verifier: remove varlen_map_value_access flag
+  bpf/verifier: when pruning a branch, ignore its write marks
+  bpf/verifier: document liveness analysis
+
+ include/linux/bpf_verifier.h                | 14 +++++-
+ kernel/bpf/verifier.c                       | 78 +++++++++++++++++------------
+ tools/testing/selftests/bpf/test_verifier.c | 28 +++++++++++
+ 3 files changed, 87 insertions(+), 33 deletions(-)
