@@ -1,15 +1,15 @@
 From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next 1/2] bpf: misc xdp redirect cleanups
-Date: Wed, 23 Aug 2017 01:47:53 +0200
-Message-ID: <fc4275ee676032382d6c7101b75cd3b071e35fe4.1503445395.git.daniel@iogearbox.net>
+Subject: [PATCH net-next 2/2] bpf: minor cleanups for dev_map
+Date: Wed, 23 Aug 2017 01:47:54 +0200
+Message-ID: <fee5e9e6db313e17ebaa7b1570ca67253bd03517.1503445395.git.daniel@iogearbox.net>
 References: <cover.1503445395.git.daniel@iogearbox.net>
 Cc: ast@fb.com, john.fastabend@gmail.com, netdev@vger.kernel.org,
         Daniel Borkmann <daniel@iogearbox.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:52256 "EHLO
+Received: from www62.your-server.de ([213.133.104.62]:52254 "EHLO
         www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752619AbdHVXsG (ORCPT
+        with ESMTP id S1752533AbdHVXsG (ORCPT
         <rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2017 19:48:06 -0400
 In-Reply-To: <cover.1503445395.git.daniel@iogearbox.net>
 In-Reply-To: <cover.1503445395.git.daniel@iogearbox.net>
@@ -17,177 +17,257 @@ References: <cover.1503445395.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Few cleanups including: bpf_redirect_map() is really XDP only due to
-the return code. Move it to a more appropriate location where we do
-the XDP redirect handling and change it's name into bpf_xdp_redirect_map()
-to make it consistent to the bpf_xdp_redirect() helper.
-
-xdp_do_redirect_map() helper can be static since only used out of filter.c
-file. Drop the goto in xdp_do_generic_redirect() and only return errors
-directly. In xdp_do_flush_map() only clear ri->map_to_flush which is the
-arg we're using in that function, ri->map is cleared earlier along with
-ri->ifindex.
+Some minor code cleanups, while going over it I also noticed that
+we're accounting the bitmap only for one CPU currently, so fix that
+up as well.
 
 Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 Acked-by: Alexei Starovoitov <ast@kernel.org>
 ---
- net/core/filter.c | 72 +++++++++++++++++++++++++------------------------------
- 1 file changed, 32 insertions(+), 40 deletions(-)
+ kernel/bpf/devmap.c | 100 +++++++++++++++++++++-------------------------------
+ 1 file changed, 41 insertions(+), 59 deletions(-)
 
-diff --git a/net/core/filter.c b/net/core/filter.c
-index fa21156..2a0d762 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -1835,29 +1835,6 @@ int skb_do_redirect(struct sk_buff *skb)
- 	.arg2_type      = ARG_ANYTHING,
+diff --git a/kernel/bpf/devmap.c b/kernel/bpf/devmap.c
+index fa08181..bfecabf 100644
+--- a/kernel/bpf/devmap.c
++++ b/kernel/bpf/devmap.c
+@@ -48,30 +48,30 @@
+  * calls will fail at this point.
+  */
+ #include <linux/bpf.h>
+-#include <linux/jhash.h>
+ #include <linux/filter.h>
+-#include <linux/rculist_nulls.h>
+-#include "percpu_freelist.h"
+-#include "bpf_lru_list.h"
+-#include "map_in_map.h"
+ 
+ struct bpf_dtab_netdev {
+ 	struct net_device *dev;
+-	int key;
+-	struct rcu_head rcu;
+ 	struct bpf_dtab *dtab;
++	unsigned int bit;
++	struct rcu_head rcu;
  };
  
--BPF_CALL_3(bpf_redirect_map, struct bpf_map *, map, u32, ifindex, u64, flags)
--{
--	struct redirect_info *ri = this_cpu_ptr(&redirect_info);
--
--	if (unlikely(flags))
--		return XDP_ABORTED;
--
--	ri->ifindex = ifindex;
--	ri->flags = flags;
--	ri->map = map;
--
--	return XDP_REDIRECT;
--}
--
--static const struct bpf_func_proto bpf_redirect_map_proto = {
--	.func           = bpf_redirect_map,
--	.gpl_only       = false,
--	.ret_type       = RET_INTEGER,
--	.arg1_type      = ARG_CONST_MAP_PTR,
--	.arg2_type      = ARG_ANYTHING,
--	.arg3_type      = ARG_ANYTHING,
--};
--
- BPF_CALL_3(bpf_sk_redirect_map, struct bpf_map *, map, u32, key, u64, flags)
- {
- 	struct redirect_info *ri = this_cpu_ptr(&redirect_info);
-@@ -2506,13 +2483,11 @@ static int __bpf_tx_xdp(struct net_device *dev,
- 	err = dev->netdev_ops->ndo_xdp_xmit(dev, xdp);
- 	if (err)
- 		return err;
--
- 	if (map)
- 		__dev_map_insert_ctx(map, index);
- 	else
- 		dev->netdev_ops->ndo_xdp_flush(dev);
--
--	return err;
-+	return 0;
- }
- 
- void xdp_do_flush_map(void)
-@@ -2520,16 +2495,14 @@ void xdp_do_flush_map(void)
- 	struct redirect_info *ri = this_cpu_ptr(&redirect_info);
- 	struct bpf_map *map = ri->map_to_flush;
- 
--	ri->map = NULL;
- 	ri->map_to_flush = NULL;
--
- 	if (map)
- 		__dev_map_flush(map);
- }
- EXPORT_SYMBOL_GPL(xdp_do_flush_map);
- 
--int xdp_do_redirect_map(struct net_device *dev, struct xdp_buff *xdp,
--			struct bpf_prog *xdp_prog)
-+static int xdp_do_redirect_map(struct net_device *dev, struct xdp_buff *xdp,
-+			       struct bpf_prog *xdp_prog)
- {
- 	struct redirect_info *ri = this_cpu_ptr(&redirect_info);
- 	struct bpf_map *map = ri->map;
-@@ -2545,14 +2518,12 @@ int xdp_do_redirect_map(struct net_device *dev, struct xdp_buff *xdp,
- 		err = -EINVAL;
- 		goto out;
- 	}
--
--	if (ri->map_to_flush && (ri->map_to_flush != map))
-+	if (ri->map_to_flush && ri->map_to_flush != map)
- 		xdp_do_flush_map();
- 
- 	err = __bpf_tx_xdp(fwd, map, xdp, index);
- 	if (likely(!err))
- 		ri->map_to_flush = map;
--
- out:
- 	trace_xdp_redirect(dev, fwd, xdp_prog, XDP_REDIRECT, err);
- 	return err;
-@@ -2594,20 +2565,17 @@ int xdp_do_generic_redirect(struct net_device *dev, struct sk_buff *skb)
- 	ri->ifindex = 0;
- 	if (unlikely(!dev)) {
- 		bpf_warn_invalid_xdp_redirect(index);
--		goto err;
-+		return -EINVAL;
- 	}
- 
- 	if (unlikely(!(dev->flags & IFF_UP)))
--		goto err;
--
-+		return -ENETDOWN;
- 	len = dev->mtu + dev->hard_header_len + VLAN_HLEN;
- 	if (skb->len > len)
--		goto err;
-+		return -E2BIG;
- 
- 	skb->dev = dev;
- 	return 0;
--err:
--	return -EINVAL;
- }
- EXPORT_SYMBOL_GPL(xdp_do_generic_redirect);
- 
-@@ -2620,6 +2588,7 @@ int xdp_do_generic_redirect(struct net_device *dev, struct sk_buff *skb)
- 
- 	ri->ifindex = ifindex;
- 	ri->flags = flags;
-+
- 	return XDP_REDIRECT;
- }
- 
-@@ -2631,6 +2600,29 @@ int xdp_do_generic_redirect(struct net_device *dev, struct sk_buff *skb)
- 	.arg2_type      = ARG_ANYTHING,
+ struct bpf_dtab {
+ 	struct bpf_map map;
+ 	struct bpf_dtab_netdev **netdev_map;
+-	unsigned long int __percpu *flush_needed;
++	unsigned long __percpu *flush_needed;
+ 	struct list_head list;
  };
  
-+BPF_CALL_3(bpf_xdp_redirect_map, struct bpf_map *, map, u32, ifindex, u64, flags)
+ static DEFINE_SPINLOCK(dev_map_lock);
+ static LIST_HEAD(dev_map_list);
+ 
++static u64 dev_map_bitmap_size(const union bpf_attr *attr)
 +{
-+	struct redirect_info *ri = this_cpu_ptr(&redirect_info);
-+
-+	if (unlikely(flags))
-+		return XDP_ABORTED;
-+
-+	ri->ifindex = ifindex;
-+	ri->flags = flags;
-+	ri->map = map;
-+
-+	return XDP_REDIRECT;
++	return BITS_TO_LONGS(attr->max_entries) * sizeof(unsigned long);
 +}
 +
-+static const struct bpf_func_proto bpf_xdp_redirect_map_proto = {
-+	.func           = bpf_xdp_redirect_map,
-+	.gpl_only       = false,
-+	.ret_type       = RET_INTEGER,
-+	.arg1_type      = ARG_CONST_MAP_PTR,
-+	.arg2_type      = ARG_ANYTHING,
-+	.arg3_type      = ARG_ANYTHING,
-+};
-+
- bool bpf_helper_changes_pkt_data(void *func)
+ static struct bpf_map *dev_map_alloc(union bpf_attr *attr)
  {
- 	if (func == bpf_skb_vlan_push ||
-@@ -3233,7 +3225,7 @@ static unsigned long bpf_xdp_copy(void *dst_buff, const void *src_buff,
- 	case BPF_FUNC_redirect:
- 		return &bpf_xdp_redirect_proto;
- 	case BPF_FUNC_redirect_map:
--		return &bpf_redirect_map_proto;
-+		return &bpf_xdp_redirect_map_proto;
- 	default:
- 		return bpf_base_func_proto(func_id);
+ 	struct bpf_dtab *dtab;
+@@ -95,11 +95,9 @@ static struct bpf_map *dev_map_alloc(union bpf_attr *attr)
+ 	dtab->map.map_flags = attr->map_flags;
+ 	dtab->map.numa_node = bpf_map_attr_numa_node(attr);
+ 
+-	err = -ENOMEM;
+-
+ 	/* make sure page count doesn't overflow */
+ 	cost = (u64) dtab->map.max_entries * sizeof(struct bpf_dtab_netdev *);
+-	cost += BITS_TO_LONGS(attr->max_entries) * sizeof(unsigned long);
++	cost += dev_map_bitmap_size(attr) * num_possible_cpus();
+ 	if (cost >= U32_MAX - PAGE_SIZE)
+ 		goto free_dtab;
+ 
+@@ -110,12 +108,9 @@ static struct bpf_map *dev_map_alloc(union bpf_attr *attr)
+ 	if (err)
+ 		goto free_dtab;
+ 
+-	err = -ENOMEM;
+ 	/* A per cpu bitfield with a bit per possible net device */
+-	dtab->flush_needed = __alloc_percpu(
+-				BITS_TO_LONGS(attr->max_entries) *
+-				sizeof(unsigned long),
+-				__alignof__(unsigned long));
++	dtab->flush_needed = __alloc_percpu(dev_map_bitmap_size(attr),
++					    __alignof__(unsigned long));
+ 	if (!dtab->flush_needed)
+ 		goto free_dtab;
+ 
+@@ -128,12 +123,12 @@ static struct bpf_map *dev_map_alloc(union bpf_attr *attr)
+ 	spin_lock(&dev_map_lock);
+ 	list_add_tail_rcu(&dtab->list, &dev_map_list);
+ 	spin_unlock(&dev_map_lock);
+-	return &dtab->map;
+ 
++	return &dtab->map;
+ free_dtab:
+ 	free_percpu(dtab->flush_needed);
+ 	kfree(dtab);
+-	return ERR_PTR(err);
++	return ERR_PTR(-ENOMEM);
+ }
+ 
+ static void dev_map_free(struct bpf_map *map)
+@@ -178,9 +173,6 @@ static void dev_map_free(struct bpf_map *map)
+ 		kfree(dev);
  	}
+ 
+-	/* At this point bpf program is detached and all pending operations
+-	 * _must_ be complete
+-	 */
+ 	free_percpu(dtab->flush_needed);
+ 	bpf_map_area_free(dtab->netdev_map);
+ 	kfree(dtab);
+@@ -190,7 +182,7 @@ static int dev_map_get_next_key(struct bpf_map *map, void *key, void *next_key)
+ {
+ 	struct bpf_dtab *dtab = container_of(map, struct bpf_dtab, map);
+ 	u32 index = key ? *(u32 *)key : U32_MAX;
+-	u32 *next = (u32 *)next_key;
++	u32 *next = next_key;
+ 
+ 	if (index >= dtab->map.max_entries) {
+ 		*next = 0;
+@@ -199,29 +191,16 @@ static int dev_map_get_next_key(struct bpf_map *map, void *key, void *next_key)
+ 
+ 	if (index == dtab->map.max_entries - 1)
+ 		return -ENOENT;
+-
+ 	*next = index + 1;
+ 	return 0;
+ }
+ 
+-void __dev_map_insert_ctx(struct bpf_map *map, u32 key)
++void __dev_map_insert_ctx(struct bpf_map *map, u32 bit)
+ {
+ 	struct bpf_dtab *dtab = container_of(map, struct bpf_dtab, map);
+ 	unsigned long *bitmap = this_cpu_ptr(dtab->flush_needed);
+ 
+-	__set_bit(key, bitmap);
+-}
+-
+-struct net_device  *__dev_map_lookup_elem(struct bpf_map *map, u32 key)
+-{
+-	struct bpf_dtab *dtab = container_of(map, struct bpf_dtab, map);
+-	struct bpf_dtab_netdev *dev;
+-
+-	if (key >= map->max_entries)
+-		return NULL;
+-
+-	dev = READ_ONCE(dtab->netdev_map[key]);
+-	return dev ? dev->dev : NULL;
++	__set_bit(bit, bitmap);
+ }
+ 
+ /* __dev_map_flush is called from xdp_do_flush_map() which _must_ be signaled
+@@ -248,7 +227,6 @@ void __dev_map_flush(struct bpf_map *map)
+ 			continue;
+ 
+ 		netdev = dev->dev;
+-
+ 		__clear_bit(bit, bitmap);
+ 		if (unlikely(!netdev || !netdev->netdev_ops->ndo_xdp_flush))
+ 			continue;
+@@ -261,43 +239,49 @@ void __dev_map_flush(struct bpf_map *map)
+  * update happens in parallel here a dev_put wont happen until after reading the
+  * ifindex.
+  */
+-static void *dev_map_lookup_elem(struct bpf_map *map, void *key)
++struct net_device  *__dev_map_lookup_elem(struct bpf_map *map, u32 key)
+ {
+ 	struct bpf_dtab *dtab = container_of(map, struct bpf_dtab, map);
+ 	struct bpf_dtab_netdev *dev;
+-	u32 i = *(u32 *)key;
+ 
+-	if (i >= map->max_entries)
++	if (key >= map->max_entries)
+ 		return NULL;
+ 
+-	dev = READ_ONCE(dtab->netdev_map[i]);
+-	return dev ? &dev->dev->ifindex : NULL;
++	dev = READ_ONCE(dtab->netdev_map[key]);
++	return dev ? dev->dev : NULL;
+ }
+ 
+-static void dev_map_flush_old(struct bpf_dtab_netdev *old_dev)
++static void *dev_map_lookup_elem(struct bpf_map *map, void *key)
++{
++	struct net_device *dev = __dev_map_lookup_elem(map, *(u32 *)key);
++
++	return dev ? &dev->ifindex : NULL;
++}
++
++static void dev_map_flush_old(struct bpf_dtab_netdev *dev)
+ {
+-	if (old_dev->dev->netdev_ops->ndo_xdp_flush) {
+-		struct net_device *fl = old_dev->dev;
++	if (dev->dev->netdev_ops->ndo_xdp_flush) {
++		struct net_device *fl = dev->dev;
+ 		unsigned long *bitmap;
+ 		int cpu;
+ 
+ 		for_each_online_cpu(cpu) {
+-			bitmap = per_cpu_ptr(old_dev->dtab->flush_needed, cpu);
+-			__clear_bit(old_dev->key, bitmap);
++			bitmap = per_cpu_ptr(dev->dtab->flush_needed, cpu);
++			__clear_bit(dev->bit, bitmap);
+ 
+-			fl->netdev_ops->ndo_xdp_flush(old_dev->dev);
++			fl->netdev_ops->ndo_xdp_flush(dev->dev);
+ 		}
+ 	}
+ }
+ 
+ static void __dev_map_entry_free(struct rcu_head *rcu)
+ {
+-	struct bpf_dtab_netdev *old_dev;
++	struct bpf_dtab_netdev *dev;
+ 
+-	old_dev = container_of(rcu, struct bpf_dtab_netdev, rcu);
+-	dev_map_flush_old(old_dev);
+-	dev_put(old_dev->dev);
+-	kfree(old_dev);
++	dev = container_of(rcu, struct bpf_dtab_netdev, rcu);
++	dev_map_flush_old(dev);
++	dev_put(dev->dev);
++	kfree(dev);
+ }
+ 
+ static int dev_map_delete_elem(struct bpf_map *map, void *key)
+@@ -309,8 +293,8 @@ static int dev_map_delete_elem(struct bpf_map *map, void *key)
+ 	if (k >= map->max_entries)
+ 		return -EINVAL;
+ 
+-	/* Use synchronize_rcu() here to ensure any rcu critical sections
+-	 * have completed, but this does not guarantee a flush has happened
++	/* Use call_rcu() here to ensure any rcu critical sections have
++	 * completed, but this does not guarantee a flush has happened
+ 	 * yet. Because driver side rcu_read_lock/unlock only protects the
+ 	 * running XDP program. However, for pending flush operations the
+ 	 * dev and ctx are stored in another per cpu map. And additionally,
+@@ -334,10 +318,8 @@ static int dev_map_update_elem(struct bpf_map *map, void *key, void *value,
+ 
+ 	if (unlikely(map_flags > BPF_EXIST))
+ 		return -EINVAL;
+-
+ 	if (unlikely(i >= dtab->map.max_entries))
+ 		return -E2BIG;
+-
+ 	if (unlikely(map_flags == BPF_NOEXIST))
+ 		return -EEXIST;
+ 
+@@ -355,7 +337,7 @@ static int dev_map_update_elem(struct bpf_map *map, void *key, void *value,
+ 			return -EINVAL;
+ 		}
+ 
+-		dev->key = i;
++		dev->bit = i;
+ 		dev->dtab = dtab;
+ 	}
+ 
 -- 
 1.9.3
