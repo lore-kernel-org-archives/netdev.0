@@ -1,49 +1,88 @@
-From: Bhumika Goyal <bhumirks@gmail.com>
-Subject: [PATCH] ravb: make mdiobb_ops const
-Date: Tue, 22 Aug 2017 13:38:02 +0530
-Message-ID: <1503389282-17369-1-git-send-email-bhumirks@gmail.com>
-Cc: Bhumika Goyal <bhumirks@gmail.com>
-To: julia.lawall@lip6.fr, sergei.shtylyov@cogentembedded.com,
-        netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-Sender: linux-renesas-soc-owner@vger.kernel.org
+From: Himanshu Jha <himanshujha199640@gmail.com>
+Subject: [PATCH] drivers: net: wireless: atmel: check memory allocation failure
+Date: Tue, 22 Aug 2017 13:41:21 +0530
+Message-ID: <1503389481-4988-1-git-send-email-himanshujha199640@gmail.com>
+Cc: linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org, Himanshu Jha <himanshujha199640@gmail.com>
+To: kvalo@codeaurora.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Make these const as they are only stored in a const field of a
-mdiobb_ctrl structure.
+Check memory allocation failure and return -ENOMEM if failure
+occurs.
 
-Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
+Signed-off-by: Himanshu Jha <himanshujha199640@gmail.com>
 ---
- drivers/net/ethernet/renesas/ravb_main.c | 2 +-
- drivers/net/ethernet/renesas/sh_eth.c    | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/wireless/atmel/at76c50x-usb.c | 14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
-index fdf30bf..6ffd9e4 100644
---- a/drivers/net/ethernet/renesas/ravb_main.c
-+++ b/drivers/net/ethernet/renesas/ravb_main.c
-@@ -172,7 +172,7 @@ static int ravb_get_mdio_data(struct mdiobb_ctrl *ctrl)
- }
+diff --git a/drivers/net/wireless/atmel/at76c50x-usb.c b/drivers/net/wireless/atmel/at76c50x-usb.c
+index 09defbc..73f0924 100644
+--- a/drivers/net/wireless/atmel/at76c50x-usb.c
++++ b/drivers/net/wireless/atmel/at76c50x-usb.c
+@@ -940,7 +940,7 @@ static void at76_dump_mib_mac_addr(struct at76_priv *priv)
+ 					 GFP_KERNEL);
  
- /* MDIO bus control struct */
--static struct mdiobb_ops bb_ops = {
-+static const struct mdiobb_ops bb_ops = {
- 	.owner = THIS_MODULE,
- 	.set_mdc = ravb_set_mdc,
- 	.set_mdio_dir = ravb_set_mdio_dir,
-diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-index d2e88a3..8af353f 100644
---- a/drivers/net/ethernet/renesas/sh_eth.c
-+++ b/drivers/net/ethernet/renesas/sh_eth.c
-@@ -1119,7 +1119,7 @@ static void sh_mdc_ctrl(struct mdiobb_ctrl *ctrl, int bit)
- }
+ 	if (!m)
+-		return;
++		return -ENOMEM;
  
- /* mdio bus control struct */
--static struct mdiobb_ops bb_ops = {
-+static const struct mdiobb_ops bb_ops = {
- 	.owner = THIS_MODULE,
- 	.set_mdc = sh_mdc_ctrl,
- 	.set_mdio_dir = sh_mmd_ctrl,
+ 	ret = at76_get_mib(priv->udev, MIB_MAC_ADDR, m,
+ 			   sizeof(struct mib_mac_addr));
+@@ -969,7 +969,7 @@ static void at76_dump_mib_mac_wep(struct at76_priv *priv)
+ 	struct mib_mac_wep *m = kmalloc(sizeof(struct mib_mac_wep), GFP_KERNEL);
+ 
+ 	if (!m)
+-		return;
++		return -ENOMEM;
+ 
+ 	ret = at76_get_mib(priv->udev, MIB_MAC_WEP, m,
+ 			   sizeof(struct mib_mac_wep));
+@@ -1006,7 +1006,7 @@ static void at76_dump_mib_mac_mgmt(struct at76_priv *priv)
+ 					 GFP_KERNEL);
+ 
+ 	if (!m)
+-		return;
++		return -ENOMEM;
+ 
+ 	ret = at76_get_mib(priv->udev, MIB_MAC_MGMT, m,
+ 			   sizeof(struct mib_mac_mgmt));
+@@ -1043,7 +1043,7 @@ static void at76_dump_mib_mac(struct at76_priv *priv)
+ 	struct mib_mac *m = kmalloc(sizeof(struct mib_mac), GFP_KERNEL);
+ 
+ 	if (!m)
+-		return;
++		return -ENOMEM;
+ 
+ 	ret = at76_get_mib(priv->udev, MIB_MAC, m, sizeof(struct mib_mac));
+ 	if (ret < 0) {
+@@ -1080,7 +1080,7 @@ static void at76_dump_mib_phy(struct at76_priv *priv)
+ 	struct mib_phy *m = kmalloc(sizeof(struct mib_phy), GFP_KERNEL);
+ 
+ 	if (!m)
+-		return;
++		return -ENOMEM;
+ 
+ 	ret = at76_get_mib(priv->udev, MIB_PHY, m, sizeof(struct mib_phy));
+ 	if (ret < 0) {
+@@ -1113,7 +1113,7 @@ static void at76_dump_mib_local(struct at76_priv *priv)
+ 	struct mib_local *m = kmalloc(sizeof(*m), GFP_KERNEL);
+ 
+ 	if (!m)
+-		return;
++		return -ENOMEM;
+ 
+ 	ret = at76_get_mib(priv->udev, MIB_LOCAL, m, sizeof(*m));
+ 	if (ret < 0) {
+@@ -1138,7 +1138,7 @@ static void at76_dump_mib_mdomain(struct at76_priv *priv)
+ 	struct mib_mdomain *m = kmalloc(sizeof(struct mib_mdomain), GFP_KERNEL);
+ 
+ 	if (!m)
+-		return;
++		return -ENOMEM;
+ 
+ 	ret = at76_get_mib(priv->udev, MIB_MDOMAIN, m,
+ 			   sizeof(struct mib_mdomain));
 -- 
-1.9.1
+2.7.4
