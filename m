@@ -1,190 +1,72 @@
-From: Madalin Bucur <madalin.bucur@nxp.com>
-Subject: [PATCH v2 2/6] dpaa_eth: use multiple Rx frame queues
-Date: Tue, 22 Aug 2017 20:31:02 +0300
-Message-ID: <1503423066-15420-3-git-send-email-madalin.bucur@nxp.com>
-References: <1503423066-15420-1-git-send-email-madalin.bucur@nxp.com>
-Reply-To: <madalin.bucur@nxp.com>
+From: Ben Pfaff <blp-LZ6Gd1LRuIk@public.gmane.org>
+Subject: Re: [PATCH net-next v4] openvswitch: enable NSH support
+Date: Tue, 22 Aug 2017 10:35:13 -0700
+Message-ID: <20170822173513.GM6175@ovn.org>
+References: <20170821061109.GA72656@cran64.bj.intel.com>
+	<20170821101925.3f9b36a1@griffin>
+	<20170821083900.GA74649@cran64.bj.intel.com>
+	<CFF8EF42F1132E4CBE2BF0AB6C21C58D727494F3@ESESSMB107.ericsson.se>
+	<20170821113514.6f0ec15e@griffin>
+	<CFF8EF42F1132E4CBE2BF0AB6C21C58D7274A55C@ESESSMB107.ericsson.se>
+	<20170821115106.70fa1e1d@griffin>
+	<CFF8EF42F1132E4CBE2BF0AB6C21C58D7274A5C7@ESESSMB107.ericsson.se>
+	<20170821135019.5c65b888@griffin>
+	<CFF8EF42F1132E4CBE2BF0AB6C21C58D7274C9FB@ESESSMB107.ericsson.se>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linuxppc-dev@lists.ozlabs.org>, <linux-kernel@vger.kernel.org>
-To: <netdev@vger.kernel.org>, <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1503423066-15420-1-git-send-email-madalin.bucur@nxp.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "e@erig.me" <e@erig.me>,
+	"dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>, Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+To: Jan Scheurich <jan.scheurich-IzeFyvvaP7pWk0Htik3J/w@public.gmane.org>
+Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <CFF8EF42F1132E4CBE2BF0AB6C21C58D7274C9FB-hqolJogE5njKJFWPz4pdheaU1rCVNFv4@public.gmane.org>
+List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
+	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
+List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
+	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Add a block of 128 Rx frame queues per port. The FMan hardware will
-send traffic on one of these queues based on the FMan port Parse
-Classify Distribute setup. The hash computed by the FMan Keygen
-block will select the Rx FQ.
+On Tue, Aug 22, 2017 at 08:32:49AM +0000, Jan Scheurich wrote:
+> > > Or why else does OVS user space code take so great pain to model
+> > > possible misalignment and provide/use safe access functions?
+> > 
+> > I don't know how the ovs user space deals with packet allocation. In
+> > the kernel, the network header is aligned in a way that it allows
+> > efficient 32bit access.
+> 
+> It seems that OVS has not had the same approach as Linux. There is no
+> config parameter covering the alignment characteristics of the machine
+> architecture. For packets buffers received from outside sources
+> (e.g. DPDK interfaces) they make no assumptions on alignment and play
+> safe. For packets allocated inside OVS, the Ethernet packet is
+> typically stored so that the L3 header is 32-bit aligned, so that the
+> misalignment precautions would be unnecessary. But I didn't check all
+> code paths.
 
-Signed-off-by: Madalin Bucur <madalin.bucur@nxp.com>
----
- drivers/net/ethernet/freescale/dpaa/dpaa_eth.c     | 50 +++++++++++++++++++---
- drivers/net/ethernet/freescale/dpaa/dpaa_eth.h     |  1 +
- .../net/ethernet/freescale/dpaa/dpaa_eth_sysfs.c   |  3 ++
- 3 files changed, 47 insertions(+), 7 deletions(-)
+We solved the alignment problem in OVS userspace a different way, by
+defining our versions of the network protocol headers so that they only
+need 16-bit alignment.  In turn, we did that by defining a
+ovs_16aligned_be32 type as a pair of be16s and ovs_16aligned_be64 as
+four be16s, and using helper functions for reads and writes.  This made
+it harder to screw up alignment in a subtle way and only find out long
+after release when someone tested a corner case on a RISC architecture.
+It probably has a performance cost on those RISC architectures, for the
+cases where the access really is aligned, but it's more obviously
+correct and I highly value that for OVS userspace.
 
-diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-index c7fa285..6d89e74 100644
---- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-+++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-@@ -158,7 +158,7 @@ MODULE_PARM_DESC(tx_timeout, "The Tx timeout in ms");
- #define DPAA_RX_PRIV_DATA_SIZE	(u16)(DPAA_TX_PRIV_DATA_SIZE + \
- 					dpaa_rx_extra_headroom)
- 
--#define DPAA_ETH_RX_QUEUES	128
-+#define DPAA_ETH_PCD_RXQ_NUM	128
- 
- #define DPAA_ENQUEUE_RETRIES	100000
- 
-@@ -169,6 +169,7 @@ struct fm_port_fqs {
- 	struct dpaa_fq *tx_errq;
- 	struct dpaa_fq *rx_defq;
- 	struct dpaa_fq *rx_errq;
-+	struct dpaa_fq *rx_pcdq;
- };
- 
- /* All the dpa bps in use at any moment */
-@@ -628,6 +629,7 @@ static inline void dpaa_assign_wq(struct dpaa_fq *fq, int idx)
- 		fq->wq = 5;
- 		break;
- 	case FQ_TYPE_RX_DEFAULT:
-+	case FQ_TYPE_RX_PCD:
- 		fq->wq = 6;
- 		break;
- 	case FQ_TYPE_TX:
-@@ -688,6 +690,7 @@ static int dpaa_alloc_all_fqs(struct device *dev, struct list_head *list,
- 			      struct fm_port_fqs *port_fqs)
- {
- 	struct dpaa_fq *dpaa_fq;
-+	u32 fq_base, fq_base_aligned, i;
- 
- 	dpaa_fq = dpaa_fq_alloc(dev, 0, 1, list, FQ_TYPE_RX_ERROR);
- 	if (!dpaa_fq)
-@@ -701,6 +704,26 @@ static int dpaa_alloc_all_fqs(struct device *dev, struct list_head *list,
- 
- 	port_fqs->rx_defq = &dpaa_fq[0];
- 
-+	/* the PCD FQIDs range needs to be aligned for correct operation */
-+	if (qman_alloc_fqid_range(&fq_base, 2 * DPAA_ETH_PCD_RXQ_NUM))
-+		goto fq_alloc_failed;
-+
-+	fq_base_aligned = ALIGN(fq_base, DPAA_ETH_PCD_RXQ_NUM);
-+
-+	for (i = fq_base; i < fq_base_aligned; i++)
-+		qman_release_fqid(i);
-+
-+	for (i = fq_base_aligned + DPAA_ETH_PCD_RXQ_NUM;
-+	     i < (fq_base + 2 * DPAA_ETH_PCD_RXQ_NUM); i++)
-+		qman_release_fqid(i);
-+
-+	dpaa_fq = dpaa_fq_alloc(dev, fq_base_aligned, DPAA_ETH_PCD_RXQ_NUM,
-+				list, FQ_TYPE_RX_PCD);
-+	if (!dpaa_fq)
-+		goto fq_alloc_failed;
-+
-+	port_fqs->rx_pcdq = &dpaa_fq[0];
-+
- 	if (!dpaa_fq_alloc(dev, 0, DPAA_ETH_TXQ_NUM, list, FQ_TYPE_TX_CONF_MQ))
- 		goto fq_alloc_failed;
- 
-@@ -870,13 +893,14 @@ static void dpaa_fq_setup(struct dpaa_priv *priv,
- 			  const struct dpaa_fq_cbs *fq_cbs,
- 			  struct fman_port *tx_port)
- {
--	int egress_cnt = 0, conf_cnt = 0, num_portals = 0, cpu;
-+	int egress_cnt = 0, conf_cnt = 0, num_portals = 0, portal_cnt = 0, cpu;
- 	const cpumask_t *affine_cpus = qman_affine_cpus();
--	u16 portals[NR_CPUS];
-+	u16 channels[NR_CPUS];
- 	struct dpaa_fq *fq;
- 
- 	for_each_cpu(cpu, affine_cpus)
--		portals[num_portals++] = qman_affine_channel(cpu);
-+		channels[num_portals++] = qman_affine_channel(cpu);
-+
- 	if (num_portals == 0)
- 		dev_err(priv->net_dev->dev.parent,
- 			"No Qman software (affine) channels found");
-@@ -890,6 +914,12 @@ static void dpaa_fq_setup(struct dpaa_priv *priv,
- 		case FQ_TYPE_RX_ERROR:
- 			dpaa_setup_ingress(priv, fq, &fq_cbs->rx_errq);
- 			break;
-+		case FQ_TYPE_RX_PCD:
-+			if (!num_portals)
-+				continue;
-+			dpaa_setup_ingress(priv, fq, &fq_cbs->rx_defq);
-+			fq->channel = channels[portal_cnt++ % num_portals];
-+			break;
- 		case FQ_TYPE_TX:
- 			dpaa_setup_egress(priv, fq, tx_port,
- 					  &fq_cbs->egress_ern);
-@@ -1039,7 +1069,8 @@ static int dpaa_fq_init(struct dpaa_fq *dpaa_fq, bool td_enable)
- 		/* Put all the ingress queues in our "ingress CGR". */
- 		if (priv->use_ingress_cgr &&
- 		    (dpaa_fq->fq_type == FQ_TYPE_RX_DEFAULT ||
--		     dpaa_fq->fq_type == FQ_TYPE_RX_ERROR)) {
-+		     dpaa_fq->fq_type == FQ_TYPE_RX_ERROR ||
-+		     dpaa_fq->fq_type == FQ_TYPE_RX_PCD)) {
- 			initfq.we_mask |= cpu_to_be16(QM_INITFQ_WE_CGID);
- 			initfq.fqd.fq_ctrl |= cpu_to_be16(QM_FQCTRL_CGE);
- 			initfq.fqd.cgid = (u8)priv->ingress_cgr.cgrid;
-@@ -1170,7 +1201,7 @@ static int dpaa_eth_init_tx_port(struct fman_port *port, struct dpaa_fq *errq,
- 
- static int dpaa_eth_init_rx_port(struct fman_port *port, struct dpaa_bp **bps,
- 				 size_t count, struct dpaa_fq *errq,
--				 struct dpaa_fq *defq,
-+				 struct dpaa_fq *defq, struct dpaa_fq *pcdq,
- 				 struct dpaa_buffer_layout *buf_layout)
- {
- 	struct fman_buffer_prefix_content buf_prefix_content;
-@@ -1190,6 +1221,10 @@ static int dpaa_eth_init_rx_port(struct fman_port *port, struct dpaa_bp **bps,
- 	rx_p = &params.specific_params.rx_params;
- 	rx_p->err_fqid = errq->fqid;
- 	rx_p->dflt_fqid = defq->fqid;
-+	if (pcdq) {
-+		rx_p->pcd_base_fqid = pcdq->fqid;
-+		rx_p->pcd_fqs_count = DPAA_ETH_PCD_RXQ_NUM;
-+	}
- 
- 	count = min(ARRAY_SIZE(rx_p->ext_buf_pools.ext_buf_pool), count);
- 	rx_p->ext_buf_pools.num_of_pools_used = (u8)count;
-@@ -1234,7 +1269,8 @@ static int dpaa_eth_init_ports(struct mac_device *mac_dev,
- 		return err;
- 
- 	err = dpaa_eth_init_rx_port(rxport, bps, count, port_fqs->rx_errq,
--				    port_fqs->rx_defq, &buf_layout[RX]);
-+				    port_fqs->rx_defq, port_fqs->rx_pcdq,
-+				    &buf_layout[RX]);
- 
- 	return err;
- }
-diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
-index 9941a78..496a12c 100644
---- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
-+++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
-@@ -52,6 +52,7 @@
- enum dpaa_fq_type {
- 	FQ_TYPE_RX_DEFAULT = 1, /* Rx Default FQs */
- 	FQ_TYPE_RX_ERROR,	/* Rx Error FQs */
-+	FQ_TYPE_RX_PCD,		/* Rx Parse Classify Distribute FQs */
- 	FQ_TYPE_TX,		/* "Real" Tx FQs */
- 	FQ_TYPE_TX_CONFIRM,	/* Tx default Conf FQ (actually an Rx FQ) */
- 	FQ_TYPE_TX_CONF_MQ,	/* Tx conf FQs (one for each Tx FQ) */
-diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth_sysfs.c b/drivers/net/ethernet/freescale/dpaa/dpaa_eth_sysfs.c
-index ec75d1c..0d9b185 100644
---- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth_sysfs.c
-+++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth_sysfs.c
-@@ -71,6 +71,9 @@ static ssize_t dpaa_eth_show_fqids(struct device *dev,
- 		case FQ_TYPE_RX_ERROR:
- 			str = "Rx error";
- 			break;
-+		case FQ_TYPE_RX_PCD:
-+			str = "Rx PCD";
-+			break;
- 		case FQ_TYPE_TX_CONFIRM:
- 			str = "Tx default confirmation";
- 			break;
--- 
-2.1.0
+As far as I can tell it's not actually possible, in the general case, to
+add padding such that all parts of a packet are aligned.  VXLAN is the
+case that comes to mind.  With VXLAN, as far as I can tell, the 14-byte
+inner Ethernet header mean that you can align either the outer IPv4
+header or the inner IPv4 header, but not both.  That means that no
+matter how careful OVS is about aligning packets, it would still have to
+deal with unaligned accesses in some cases.
+
+I see that the VXLAN issue has come up in Linux before:
+https://www.ietf.org/mail-archive/web/nvo3/current/msg05743.html
