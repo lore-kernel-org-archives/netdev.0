@@ -1,7 +1,7 @@
 From: Madalin Bucur <madalin.bucur@nxp.com>
-Subject: [PATCH v2 4/6] dpaa_eth: add NETIF_F_RXHASH
-Date: Tue, 22 Aug 2017 20:31:04 +0300
-Message-ID: <1503423066-15420-5-git-send-email-madalin.bucur@nxp.com>
+Subject: [PATCH v2 3/6] dpaa_eth: enable Rx hashing control
+Date: Tue, 22 Aug 2017 20:31:03 +0300
+Message-ID: <1503423066-15420-4-git-send-email-madalin.bucur@nxp.com>
 References: <1503423066-15420-1-git-send-email-madalin.bucur@nxp.com>
 Reply-To: <madalin.bucur@nxp.com>
 Mime-Version: 1.0
@@ -13,171 +13,143 @@ In-Reply-To: <1503423066-15420-1-git-send-email-madalin.bucur@nxp.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Set the skb hash when then FMan Keygen hash result is available.
+Allow ethtool control of the Rx flow hashing. By default RSS is
+enabled, this allows to turn it off by bypassing the FMan Keygen
+block and sending all traffic on the default Rx frame queue.
 
 Signed-off-by: Madalin Bucur <madalin.bucur@nxp.com>
 ---
- drivers/net/ethernet/freescale/dpaa/dpaa_eth.c     | 23 +++++++++++++++++++---
- drivers/net/ethernet/freescale/dpaa/dpaa_eth.h     |  1 +
- drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c |  9 +++++++--
- drivers/net/ethernet/freescale/fman/fman_port.c    | 11 +++++++++++
- drivers/net/ethernet/freescale/fman/fman_port.h    |  2 ++
- 5 files changed, 41 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c | 113 +++++++++++++++++++++
+ 1 file changed, 113 insertions(+)
 
-diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-index 6d89e74..73ca8d7 100644
---- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-+++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-@@ -236,7 +236,7 @@ static int dpaa_netdev_init(struct net_device *net_dev,
- 	net_dev->max_mtu = dpaa_get_max_mtu();
- 
- 	net_dev->hw_features |= (NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
--				 NETIF_F_LLTX);
-+				 NETIF_F_LLTX | NETIF_F_RXHASH);
- 
- 	net_dev->hw_features |= NETIF_F_SG | NETIF_F_HIGHDMA;
- 	/* The kernels enables GSO automatically, if we declare NETIF_F_SG.
-@@ -2237,12 +2237,13 @@ static enum qman_cb_dqrr_result rx_default_dqrr(struct qman_portal *portal,
- 	dma_addr_t addr = qm_fd_addr(fd);
- 	enum qm_fd_format fd_format;
- 	struct net_device *net_dev;
--	u32 fd_status;
-+	u32 fd_status, hash_offset;
- 	struct dpaa_bp *dpaa_bp;
- 	struct dpaa_priv *priv;
- 	unsigned int skb_len;
- 	struct sk_buff *skb;
- 	int *count_ptr;
-+	void *vaddr;
- 
- 	fd_status = be32_to_cpu(fd->status);
- 	fd_format = qm_fd_get_format(fd);
-@@ -2288,7 +2289,8 @@ static enum qman_cb_dqrr_result rx_default_dqrr(struct qman_portal *portal,
- 	dma_unmap_single(dpaa_bp->dev, addr, dpaa_bp->size, DMA_FROM_DEVICE);
- 
- 	/* prefetch the first 64 bytes of the frame or the SGT start */
--	prefetch(phys_to_virt(addr) + qm_fd_get_offset(fd));
-+	vaddr = phys_to_virt(addr);
-+	prefetch(vaddr + qm_fd_get_offset(fd));
- 
- 	fd_format = qm_fd_get_format(fd);
- 	/* The only FD types that we may receive are contig and S/G */
-@@ -2309,6 +2311,18 @@ static enum qman_cb_dqrr_result rx_default_dqrr(struct qman_portal *portal,
- 
- 	skb->protocol = eth_type_trans(skb, net_dev);
- 
-+	if (net_dev->features & NETIF_F_RXHASH && priv->keygen_in_use &&
-+	    !fman_port_get_hash_result_offset(priv->mac_dev->port[RX],
-+					      &hash_offset)) {
-+		enum pkt_hash_types type;
-+
-+		/* if L4 exists, it was used in the hash generation */
-+		type = be32_to_cpu(fd->status) & FM_FD_STAT_L4CV ?
-+			PKT_HASH_TYPE_L4 : PKT_HASH_TYPE_L3;
-+		skb_set_hash(skb, be32_to_cpu(*(u32 *)(vaddr + hash_offset)),
-+			     type);
-+	}
-+
- 	skb_len = skb->len;
- 
- 	if (unlikely(netif_receive_skb(skb) == NET_RX_DROP))
-@@ -2774,6 +2788,9 @@ static int dpaa_eth_probe(struct platform_device *pdev)
- 	if (err)
- 		goto init_ports_failed;
- 
-+	/* Rx traffic distribution based on keygen hashing defaults to on */
-+	priv->keygen_in_use = true;
-+
- 	priv->percpu_priv = devm_alloc_percpu(dev, *priv->percpu_priv);
- 	if (!priv->percpu_priv) {
- 		dev_err(dev, "devm_alloc_percpu() failed\n");
-diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
-index 496a12c..bd94220 100644
---- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
-+++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
-@@ -159,6 +159,7 @@ struct dpaa_priv {
- 	struct list_head dpaa_fq_list;
- 
- 	u8 num_tc;
-+	bool keygen_in_use;
- 	u32 msg_enable;	/* net_device message level */
- 
- 	struct {
 diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c b/drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c
-index 965f652..faea674 100644
+index aad825088..965f652 100644
 --- a/drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c
 +++ b/drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c
-@@ -402,6 +402,8 @@ static void dpaa_get_strings(struct net_device *net_dev, u32 stringset,
- static int dpaa_get_hash_opts(struct net_device *dev,
- 			      struct ethtool_rxnfc *cmd)
- {
-+	struct dpaa_priv *priv = netdev_priv(dev);
-+
- 	cmd->data = 0;
- 
- 	switch (cmd->flow_type) {
-@@ -409,7 +411,8 @@ static int dpaa_get_hash_opts(struct net_device *dev,
- 	case TCP_V6_FLOW:
- 	case UDP_V4_FLOW:
- 	case UDP_V6_FLOW:
--		cmd->data |= RXH_L4_B_0_1 | RXH_L4_B_2_3;
-+		if (priv->keygen_in_use)
-+			cmd->data |= RXH_L4_B_0_1 | RXH_L4_B_2_3;
- 		/* Fall through */
- 	case IPV4_FLOW:
- 	case IPV6_FLOW:
-@@ -421,7 +424,8 @@ static int dpaa_get_hash_opts(struct net_device *dev,
- 	case AH_V6_FLOW:
- 	case ESP_V4_FLOW:
- 	case ESP_V6_FLOW:
--		cmd->data |= RXH_IP_SRC | RXH_IP_DST;
-+		if (priv->keygen_in_use)
-+			cmd->data |= RXH_IP_SRC | RXH_IP_DST;
- 		break;
- 	default:
- 		cmd->data = 0;
-@@ -458,6 +462,7 @@ static void dpaa_set_hash(struct net_device *net_dev, bool enable)
- 	rxport = mac_dev->port[0];
- 
- 	fman_port_use_kg_hash(rxport, enable);
-+	priv->keygen_in_use = enable;
+@@ -399,6 +399,117 @@ static void dpaa_get_strings(struct net_device *net_dev, u32 stringset,
+ 	memcpy(strings, dpaa_stats_global, size);
  }
  
- static int dpaa_set_hash_opts(struct net_device *dev,
-diff --git a/drivers/net/ethernet/freescale/fman/fman_port.c b/drivers/net/ethernet/freescale/fman/fman_port.c
-index b0ad9c4..451bae7 100644
---- a/drivers/net/ethernet/freescale/fman/fman_port.c
-+++ b/drivers/net/ethernet/freescale/fman/fman_port.c
-@@ -1720,6 +1720,17 @@ u32 fman_port_get_qman_channel_id(struct fman_port *port)
- }
- EXPORT_SYMBOL(fman_port_get_qman_channel_id);
- 
-+int fman_port_get_hash_result_offset(struct fman_port *port, u32 *offset)
++static int dpaa_get_hash_opts(struct net_device *dev,
++			      struct ethtool_rxnfc *cmd)
 +{
-+	if (port->buffer_offsets.hash_result_offset == ILLEGAL_BASE)
-+		return -EINVAL;
++	cmd->data = 0;
 +
-+	*offset = port->buffer_offsets.hash_result_offset;
++	switch (cmd->flow_type) {
++	case TCP_V4_FLOW:
++	case TCP_V6_FLOW:
++	case UDP_V4_FLOW:
++	case UDP_V6_FLOW:
++		cmd->data |= RXH_L4_B_0_1 | RXH_L4_B_2_3;
++		/* Fall through */
++	case IPV4_FLOW:
++	case IPV6_FLOW:
++	case SCTP_V4_FLOW:
++	case SCTP_V6_FLOW:
++	case AH_ESP_V4_FLOW:
++	case AH_ESP_V6_FLOW:
++	case AH_V4_FLOW:
++	case AH_V6_FLOW:
++	case ESP_V4_FLOW:
++	case ESP_V6_FLOW:
++		cmd->data |= RXH_IP_SRC | RXH_IP_DST;
++		break;
++	default:
++		cmd->data = 0;
++		break;
++	}
 +
 +	return 0;
 +}
-+EXPORT_SYMBOL(fman_port_get_hash_result_offset);
 +
- static int fman_port_probe(struct platform_device *of_dev)
- {
- 	struct fman_port *port;
-diff --git a/drivers/net/ethernet/freescale/fman/fman_port.h b/drivers/net/ethernet/freescale/fman/fman_port.h
-index 5a99611..e86ca6a 100644
---- a/drivers/net/ethernet/freescale/fman/fman_port.h
-+++ b/drivers/net/ethernet/freescale/fman/fman_port.h
-@@ -151,6 +151,8 @@ int fman_port_enable(struct fman_port *port);
- 
- u32 fman_port_get_qman_channel_id(struct fman_port *port);
- 
-+int fman_port_get_hash_result_offset(struct fman_port *port, u32 *offset);
++static int dpaa_get_rxnfc(struct net_device *dev, struct ethtool_rxnfc *cmd,
++			  u32 *unused)
++{
++	int ret = -EOPNOTSUPP;
 +
- struct fman_port *fman_port_bind(struct device *dev);
- 
- #endif /* __FMAN_PORT_H */
++	switch (cmd->cmd) {
++	case ETHTOOL_GRXFH:
++		ret = dpaa_get_hash_opts(dev, cmd);
++		break;
++	default:
++		break;
++	}
++
++	return ret;
++}
++
++static void dpaa_set_hash(struct net_device *net_dev, bool enable)
++{
++	struct mac_device *mac_dev;
++	struct fman_port *rxport;
++	struct dpaa_priv *priv;
++
++	priv = netdev_priv(net_dev);
++	mac_dev = priv->mac_dev;
++	rxport = mac_dev->port[0];
++
++	fman_port_use_kg_hash(rxport, enable);
++}
++
++static int dpaa_set_hash_opts(struct net_device *dev,
++			      struct ethtool_rxnfc *nfc)
++{
++	int ret = -EINVAL;
++
++	/* we support hashing on IPv4/v6 src/dest IP and L4 src/dest port */
++	if (nfc->data &
++	    ~(RXH_IP_SRC | RXH_IP_DST | RXH_L4_B_0_1 | RXH_L4_B_2_3))
++		return -EINVAL;
++
++	switch (nfc->flow_type) {
++	case TCP_V4_FLOW:
++	case TCP_V6_FLOW:
++	case UDP_V4_FLOW:
++	case UDP_V6_FLOW:
++	case IPV4_FLOW:
++	case IPV6_FLOW:
++	case SCTP_V4_FLOW:
++	case SCTP_V6_FLOW:
++	case AH_ESP_V4_FLOW:
++	case AH_ESP_V6_FLOW:
++	case AH_V4_FLOW:
++	case AH_V6_FLOW:
++	case ESP_V4_FLOW:
++	case ESP_V6_FLOW:
++		dpaa_set_hash(dev, !!nfc->data);
++		ret = 0;
++		break;
++	default:
++		break;
++	}
++
++	return ret;
++}
++
++static int dpaa_set_rxnfc(struct net_device *dev, struct ethtool_rxnfc *cmd)
++{
++	int ret = -EOPNOTSUPP;
++
++	switch (cmd->cmd) {
++	case ETHTOOL_SRXFH:
++		ret = dpaa_set_hash_opts(dev, cmd);
++		break;
++	default:
++		break;
++	}
++
++	return ret;
++}
++
+ const struct ethtool_ops dpaa_ethtool_ops = {
+ 	.get_drvinfo = dpaa_get_drvinfo,
+ 	.get_msglevel = dpaa_get_msglevel,
+@@ -412,4 +523,6 @@ const struct ethtool_ops dpaa_ethtool_ops = {
+ 	.get_strings = dpaa_get_strings,
+ 	.get_link_ksettings = dpaa_get_link_ksettings,
+ 	.set_link_ksettings = dpaa_set_link_ksettings,
++	.get_rxnfc = dpaa_get_rxnfc,
++	.set_rxnfc = dpaa_set_rxnfc,
+ };
 -- 
 2.1.0
