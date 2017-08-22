@@ -1,72 +1,69 @@
-From: Ben Pfaff <blp-LZ6Gd1LRuIk@public.gmane.org>
-Subject: Re: [PATCH net-next v4] openvswitch: enable NSH support
-Date: Tue, 22 Aug 2017 10:35:13 -0700
-Message-ID: <20170822173513.GM6175@ovn.org>
-References: <20170821061109.GA72656@cran64.bj.intel.com>
-	<20170821101925.3f9b36a1@griffin>
-	<20170821083900.GA74649@cran64.bj.intel.com>
-	<CFF8EF42F1132E4CBE2BF0AB6C21C58D727494F3@ESESSMB107.ericsson.se>
-	<20170821113514.6f0ec15e@griffin>
-	<CFF8EF42F1132E4CBE2BF0AB6C21C58D7274A55C@ESESSMB107.ericsson.se>
-	<20170821115106.70fa1e1d@griffin>
-	<CFF8EF42F1132E4CBE2BF0AB6C21C58D7274A5C7@ESESSMB107.ericsson.se>
-	<20170821135019.5c65b888@griffin>
-	<CFF8EF42F1132E4CBE2BF0AB6C21C58D7274C9FB@ESESSMB107.ericsson.se>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Something hitting my total number of connections to the server
+Date: Tue, 22 Aug 2017 10:44:23 -0700
+Message-ID: <1503423863.2499.39.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <CAA5aLPic9U4cwFJuTd4qBZrV=oVUSfmPzVRR_jXOBpJMU11b0A@mail.gmail.com>
+         <CAA5aLPgekZJgsZV-MAD+F+ggUugQkz12D9Ef=kbP9Ev=Q1QsDw@mail.gmail.com>
+         <1502879661.4936.98.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CAA5aLPh0m=ZZp5kcz9h3if8kemg0QRykBpfYAnr6Bd1ptoeKKg@mail.gmail.com>
+         <1502969805.4936.154.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CAA5aLPjs2S0cV7MoYLB6MvZVKXomUmwpi=EVHDXh=AwR_xBqsw@mail.gmail.com>
+         <063D6719AE5E284EB5DD2968C1650D6DD005C7B1@AcuExch.aculab.com>
+         <CAA5aLPhVSnJkGNtwEeswbPnhT_RdJewAKDs-pJOUzTPEpwkUAA@mail.gmail.com>
+         <1503328678.2499.3.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CAA5aLPhtK8YbSDua-F16C0W9fLm2w4=ta4g+Tv+wsUEqYPCxUg@mail.gmail.com>
+         <1503337453.2499.7.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1503337498.2499.8.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CAA5aLPgtfrA053gAbsXOZTdrJKtsOZODUmF5cPGmnOmsO3PbOA@mail.gmail.com>
+         <1503406926.2499.20.camel@edumazet-glaptop3.roam.corp.google.com>
+         <bf580154-aea9-4143-5d9c-df3764b5e745@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "e@erig.me" <e@erig.me>,
-	"dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>, Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-To: Jan Scheurich <jan.scheurich-IzeFyvvaP7pWk0Htik3J/w@public.gmane.org>
-Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <CFF8EF42F1132E4CBE2BF0AB6C21C58D7274C9FB-hqolJogE5njKJFWPz4pdheaU1rCVNFv4@public.gmane.org>
-List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
-List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Akshat Kakkar <akshat.1984@gmail.com>,
+        David Laight <David.Laight@aculab.com>,
+        netdev <netdev@vger.kernel.org>,
+        Willem de Bruijn <willemb@google.com>
+To: David Ahern <dsahern@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:34244 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752120AbdHVRoZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2017 13:44:25 -0400
+Received: by mail-pg0-f65.google.com with SMTP id i12so12613405pgr.1
+        for <netdev@vger.kernel.org>; Tue, 22 Aug 2017 10:44:25 -0700 (PDT)
+In-Reply-To: <bf580154-aea9-4143-5d9c-df3764b5e745@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 22, 2017 at 08:32:49AM +0000, Jan Scheurich wrote:
-> > > Or why else does OVS user space code take so great pain to model
-> > > possible misalignment and provide/use safe access functions?
+On Tue, 2017-08-22 at 09:43 -0700, David Ahern wrote:
+> On 8/22/17 6:02 AM, Eric Dumazet wrote:
+> >>
+> >> net.core.netdev_max_backlog=10000
+> > This is an insane backlog.
 > > 
-> > I don't know how the ovs user space deals with packet allocation. In
-> > the kernel, the network header is aligned in a way that it allows
-> > efficient 32bit access.
 > 
-> It seems that OVS has not had the same approach as Linux. There is no
-> config parameter covering the alignment characteristics of the machine
-> architecture. For packets buffers received from outside sources
-> (e.g. DPDK interfaces) they make no assumptions on alignment and play
-> safe. For packets allocated inside OVS, the Ethernet packet is
-> typically stored so that the L3 header is 32-bit aligned, so that the
-> misalignment precautions would be unnecessary. But I didn't check all
-> code paths.
+> https://www.kernel.org/doc/Documentation/networking/scaling.txt
+> 
+> "== Suggested Configuration
+> 
+> Flow limit is useful on systems with many concurrent connections,
+> where a single connection taking up 50% of a CPU indicates a problem.
+> In such environments, enable the feature on all CPUs that handle
+> network rx interrupts (as set in /proc/irq/N/smp_affinity).
+> 
+> The feature depends on the input packet queue length to exceed
+> the flow limit threshold (50%) + the flow history length (256).
+> Setting net.core.netdev_max_backlog to either 1000 or 10000
+> performed well in experiments."
 
-We solved the alignment problem in OVS userspace a different way, by
-defining our versions of the network protocol headers so that they only
-need 16-bit alignment.  In turn, we did that by defining a
-ovs_16aligned_be32 type as a pair of be16s and ovs_16aligned_be64 as
-four be16s, and using helper functions for reads and writes.  This made
-it harder to screw up alignment in a subtle way and only find out long
-after release when someone tested a corner case on a RISC architecture.
-It probably has a performance cost on those RISC architectures, for the
-cases where the access really is aligned, but it's more obviously
-correct and I highly value that for OVS userspace.
+10000 is adding tail latencies.
 
-As far as I can tell it's not actually possible, in the general case, to
-add padding such that all parts of a packet are aligned.  VXLAN is the
-case that comes to mind.  With VXLAN, as far as I can tell, the 14-byte
-inner Ethernet header mean that you can align either the outer IPv4
-header or the inner IPv4 header, but not both.  That means that no
-matter how careful OVS is about aligning packets, it would still have to
-deal with unaligned accesses in some cases.
+At Google we run all the fleet with backlog of 1000
 
-I see that the VXLAN issue has come up in Linux before:
-https://www.ietf.org/mail-archive/web/nvo3/current/msg05743.html
+And yes, it took time to get rid of the backlog of 10000 that was setup
+years ago, because of old constraints and some fears.
+
+Willem wrote this doc in 2013, before we finally went back to 1000.
+
+We should update this doc.
