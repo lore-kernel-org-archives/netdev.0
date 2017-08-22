@@ -1,75 +1,49 @@
-From: "Keller, Jacob E" <jacob.e.keller@intel.com>
-Subject: RE: [PATCH v2] i40e/i40evf: fix out-of-bounds read of cpumask
-Date: Tue, 22 Aug 2017 21:48:40 +0000
-Message-ID: <02874ECE860811409154E81DA85FBB5882A63183@ORSMSX115.amr.corp.intel.com>
-References: <20170822210442.18006-1-jacob.e.keller@intel.com>
- <20170822232349.52b9ad06@elisabeth>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net: phy: Deal with unbound PHY driver in
+ phy_attached_print()
+Date: Tue, 22 Aug 2017 14:49:30 -0700 (PDT)
+Message-ID: <20170822.144930.499626528600927895.davem@davemloft.net>
+References: <20170822212647.11520-1-f.fainelli@gmail.com>
+        <20170822.144414.545771080170074088.davem@davemloft.net>
+        <24d4774e-1b1b-fe8b-5d25-dcd7f7aae757@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Intel Wired LAN <intel-wired-lan@lists.osuosl.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "stable@vger.kernel.org" <stable@vger.kernel.org>,
-        Juergen Gross <jgross@suse.com>
-To: Stefano Brivio <sbrivio@redhat.com>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <20170822232349.52b9ad06@elisabeth>
-Content-Language: en-US
-Sender: stable-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, romain.perier@collabora.com,
+        alexandre.torgue@st.com, peppe.cavallaro@st.com, plaes@plaes.org,
+        andrew@lunn.ch, linux-kernel@vger.kernel.org
+To: f.fainelli@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <24d4774e-1b1b-fe8b-5d25-dcd7f7aae757@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On
-> Behalf Of Stefano Brivio
-> Sent: Tuesday, August 22, 2017 2:24 PM
-> To: Keller, Jacob E <jacob.e.keller@intel.com>
-> Cc: Intel Wired LAN <intel-wired-lan@lists.osuosl.org>; netdev@vger.kernel.org;
-> stable@vger.kernel.org; Juergen Gross <jgross@suse.com>
-> Subject: Re: [PATCH v2] i40e/i40evf: fix out-of-bounds read of cpumask
-> 
-> [Fixed Cc: address for stable, Cc'ed Juergen]
-> 
-> On Tue, 22 Aug 2017 14:04:42 -0700
-> Jacob Keller <jacob.e.keller@intel.com> wrote:
-> 
-> > When responding to an affinity hint we directly copied a cpumask value,
-> > intsead of using cpumask_copy. According to cpumask.h this is not
-> > correct because cpumask_t is only guaranteed to have enough space for
-> > the number of CPUs in the system, and may not be as big as we expect.
-> > Thus a direct copy results in an out-of-bound read and potentially
-> > a crash if the pages are aligned just right. This will be easily
-> > detected on a kernel with KASAN enabled:
-> 
-> I still think commit message of my patch
-> (ae9c9586f61e914dc1c6fe2e6ac1fb2bf07283bc.1502792828.git.sbrivio@redhat.co
-> m)
-> was perhaps a bit clearer, but okay, this is also clear, fair enough.
-> 
-> > KASAN reports:
-> > [   25.242312] BUG: KASAN: slab-out-of-bounds in
-> i40e_irq_affinity_notify+0x30/0x50 [i40e] at addr ffff880462eea960
-> [...]
-> > [   25.242597]
-> ==================================================================
-> 
-> This is also taken from my message, not terribly happy about it
-> (and still happier with it than without). Fair enough, whatever it
-> takes to get this applied as soon as possible...
-> 
-> > Fixes: 96db776a3682 ("i40e/i40evf: fix interrupt affinity bug", 2016-09-14)
-> > Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
-> > Cc: stable@vger.kernel.org # 4.10+
-> 
-> FWIW,
-> 
-> Acked-by: Stefano Brivio <sbrivio@redhat.com>
-> 
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Tue, 22 Aug 2017 14:45:44 -0700
 
-I don't really care which message gets applied either, as long as we get it fixed. Either patch is fine with me.
-
-Thanks,
-Jake
-
+> On 08/22/2017 02:44 PM, David Miller wrote:
+>> From: Florian Fainelli <f.fainelli@gmail.com>
+>> Date: Tue, 22 Aug 2017 14:26:47 -0700
+>> 
+>>> Priit reported that stmmac was crashing with the trace below. This is because
+>>> phy_attached_print() is called too early right after the PHY device has been
+>>> found, but before it has a driver attached, since that is only done in
+>>> phy_probe() which occurs later.
+>>>
+>>> Fix this by dealing with a possibly NULL phydev->drv point since that can
+>>> happen here, but could also happen if we voluntarily did an unbind of the
+>>> PHY device with the PHY driver.
+>>  ...
+>>> Tested-By: Priit Laes <plaes@plaes.org>
+>>> Fixes: fbca164776e4 ("net: stmmac: Use the right logging function in stmmac_mdio_register")
+>>> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+>> 
+>> "net-next"?  The commit which introduced this problem is in 'net', don't we want
+>> to fix it there?
 > 
-> --
-> Stefano
+> Oh yes we do, somehow I thought the commit was just in "net-next" hence
+> the subject, the patch applies cleanly to "net" as well.
+
+I thought so, thanks for clarifying.
+
+Applied.
