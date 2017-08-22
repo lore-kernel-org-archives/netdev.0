@@ -1,62 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: dsa: skb_put_padto() already frees nskb
-Date: Tue, 22 Aug 2017 11:27:44 -0700 (PDT)
-Message-ID: <20170822.112744.1651629564513786056.davem@davemloft.net>
-References: <20170821194131.27839-1-f.fainelli@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] virtio-net: invoke zerocopy callback on xmit
+	path if no tx napi
+Date: Tue, 22 Aug 2017 11:28:28 -0700
+Message-ID: <1503426508.2499.47.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <CAF=yD-LZ4=WAYfUtY7xRWi50FRSkrcOa+b7uc46xRnC4sbDCzQ@mail.gmail.com>
+	<64d451ae-9944-e978-5a05-54bb1a62aaad@redhat.com>
+	<20170822204015-mutt-send-email-mst@kernel.org>
+	<20170822.110108.343109469263087166.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andrew@lunn.ch,
-        vivien.didtelot@savoirfairelinux.com, woojung.huh@microchip.com
-To: f.fainelli@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:40048 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751889AbdHVS1p (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2017 14:27:45 -0400
-In-Reply-To: <20170821194131.27839-1-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: willemdebruijn.kernel@gmail.com, mst@redhat.com, netdev@vger.kernel.org,
+	den@klaipeden.com, virtualization@lists.linux-foundation.org
+To: David Miller <davem@davemloft.net>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20170822.110108.343109469263087166.davem@davemloft.net>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Mon, 21 Aug 2017 12:41:31 -0700
-
-> skb_put_padto() already frees the passed sk_buff reference upon error,
-> so calling kfree_skb() on it again is not necessary.
+On Tue, 2017-08-22 at 11:01 -0700, David Miller wrote:
+> From: "Michael S. Tsirkin" <mst@redhat.com>
+> Date: Tue, 22 Aug 2017 20:55:56 +0300
 > 
-> Detected by CoverityScan, CID#1416687 ("USE_AFTER_FREE")
+> > Which reminds me that skb_linearize in net core seems to be
+> > fundamentally racy - I suspect that if skb is cloned, and someone is
+> > trying to use the shared frags while another thread calls skb_linearize,
+> > we get some use after free bugs which likely mostly go undetected
+> > because the corrupted packets mostly go on wire and get dropped
+> > by checksum code.
 > 
-> Fixes: e71cb9e00922 ("net: dsa: ksz: fix skb freeing")
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> Indeed, it does assume that the skb from which the clone was made
+> never has it's geometry changed.
+> 
+> I don't think even the TCP retransmit queue has this guarantee.
 
-I know it seems like a lot of work, but with appropriate wrappers we
-can control the freeing that skb_pad() does at the deepest part of
-this call chain.
+TCP retransmit makes sure to avoid that.
 
-int __skb_pad(struct sk_buff *skb, int pad, bool free_skb_on_err);
-static inline int skb_pad(struct sk_buff *skb, int pad)
-{
-	return __skb_pad(skb, pad, true);
-}
+if (skb_unclone(skb, GFP_ATOMIC))
+     return -ENOMEM;
 
-static inline int __skb_put_padto(struct sk_buff *skb, unsigned int len,
-				  bool free_skb_on_err)
-{
-	unsigned int size = skb->len;
-
-	if (unlikely(size < len)) {
-		len -= size;
-		if (__skb_pad(skb, len, free_skb_on_err))
-			return -ENOMEM;
-		__skb_put(skb, len);
-	}
-	return 0;
-}
-
-static inline int skb_put_padto(struct sk_buff *skb, unsigned int len)
-{
-	return __skb_put_padto(skb, len, true);
-}
-
-And then here in the ksz_xmit() code, invoke __skb_put_padto() with the
-boolean set appropriately.
+( Before cloning again skb )
