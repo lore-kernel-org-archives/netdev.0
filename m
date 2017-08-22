@@ -1,121 +1,178 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [RFC net-next v2] bridge lwtunnel, VPLS & NVGRE
-Date: Mon, 21 Aug 2017 17:01:51 -0700
-Message-ID: <20170821170151.5b12a392@xeon-e3>
-References: <20170821171523.951260-1-equinox@diac24.net>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next] net: dsa: User per-cpu 64-bit statistics
+Date: Mon, 21 Aug 2017 17:10:13 -0700
+Message-ID: <dd7ee25c-a92c-5104-e788-d6aa5d8b3aeb@gmail.com>
+References: <20170804043328.4730-1-f.fainelli@gmail.com>
+ <1501824968.25002.35.camel@edumazet-glaptop3.roam.corp.google.com>
+ <455c39d3-302e-68ab-3812-112c48ed48c2@gmail.com>
+ <1501866711.25002.46.camel@edumazet-glaptop3.roam.corp.google.com>
+ <bd260f17-3996-adb5-5c69-353f2a483f84@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-        amine.kherbouche@6wind.com, roopa@cumulusnetworks.com
-To: David Lamparter <equinox@diac24.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f54.google.com ([74.125.83.54]:38485 "EHLO
-        mail-pg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753979AbdHVAB7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2017 20:01:59 -0400
-Received: by mail-pg0-f54.google.com with SMTP id m133so26165553pga.5
-        for <netdev@vger.kernel.org>; Mon, 21 Aug 2017 17:01:59 -0700 (PDT)
-In-Reply-To: <20170821171523.951260-1-equinox@diac24.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+        Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        open list <linux-kernel@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <bd260f17-3996-adb5-5c69-353f2a483f84@gmail.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 21 Aug 2017 19:15:17 +0200
-David Lamparter <equinox@diac24.net> wrote:
+On 08/21/2017 04:23 PM, Florian Fainelli wrote:
+> On 08/04/2017 10:11 AM, Eric Dumazet wrote:
+>> On Fri, 2017-08-04 at 08:51 -0700, Florian Fainelli wrote:
+>>> On 08/03/2017 10:36 PM, Eric Dumazet wrote:
+>>>> On Thu, 2017-08-03 at 21:33 -0700, Florian Fainelli wrote:
+>>>>> During testing with a background iperf pushing 1Gbit/sec worth of
+>>>>> traffic and having both ifconfig and ethtool collect statistics, we
+>>>>> could see quite frequent deadlocks. Convert the often accessed DSA slave
+>>>>> network devices statistics to per-cpu 64-bit statistics to remove these
+>>>>> deadlocks and provide fast efficient statistics updates.
+>>>>>
+>>>>
+>>>> This seems to be a bug fix, it would be nice to get a proper tag like :
+>>>>
+>>>> Fixes: f613ed665bb3 ("net: dsa: Add support for 64-bit statistics")
+>>>
+>>> Right, should have been added, thanks!
+>>>
+>>>>
+>>>> Problem here is that if multiple cpus can call dsa_switch_rcv() at the
+>>>> same time, then u64_stats_update_begin() contract is not respected.
+>>>
+>>> This is really where I struggled understanding what is wrong in the
+>>> non-per CPU version, my understanding is that we have:
+>>>
+>>> - writers for xmit executes in process context
+>>> - writers for receive executes from NAPI (from the DSA's master network
+>>> device through it's own NAPI doing netif_receive_skb -> netdev_uses_dsa
+>>> -> netif_receive_skb)
+>>>
+>>> readers should all execute in process context. The test scenario that
+>>> led to a deadlock involved running iperf in the background, having a
+>>> while loop with both ifconfig and ethtool reading stats, and somehow
+>>> when iperf exited, either reader would just be locked. So I guess this
+>>> leaves us with the two writers not being mutually excluded then, right?
+>>
+>> You could add a debug version of u64_stats_update_begin()
+>>
+>> doing 
+>>
+>> int ret = atomic_inc((atomic_t *)syncp);
+>>
+>> BUG_ON(ret & 1);>
+>>
+>> And u64_stats_update_end()
+>>
+>> int ret = atomic_inc((atomic_t *)syncp);
+> 
+> so with your revised suggested patch:
+> 
+> static inline void u64_stats_update_begin(struct u64_stats_sync *syncp)
+> {
+> #if BITS_PER_LONG==32 && defined(CONFIG_SMP)
+>         int ret = atomic_inc_return((atomic_t *)syncp);
+>         BUG_ON(ret & 1);
+> #endif
+> #if 0
+> #if BITS_PER_LONG==32 && defined(CONFIG_SMP)
+>         write_seqcount_begin(&syncp->seq);
+> #endif
+> #endif
+> }
+> 
+> static inline void u64_stats_update_end(struct u64_stats_sync *syncp)
+> {
+> #if BITS_PER_LONG==32 && defined(CONFIG_SMP)
+>         int ret = atomic_inc_return((atomic_t *)syncp);
+>         BUG_ON(!(ret & 1));
+> #endif
+> #if 0
+> #if BITS_PER_LONG==32 && defined(CONFIG_SMP)
+>         write_seqcount_end(&syncp->seq);
+> #endif
+> #endif
+> }
+> 
+> and this makes us choke pretty early in IRQ accounting, did I get your
+> suggestion right?
 
-> Hi all,
-> 
-> 
-> this is an update on the earlier "[RFC net-next] VPLS support".  Note
-> I've changed the subject lines on some of the patches to better reflect
-> what they really do (tbh the earlier subject lines were crap.)
-> 
-> As previously, iproute2 / FRR patches are at:
-> - https://github.com/eqvinox/vpls-iproute2
-> - https://github.com/opensourcerouting/frr/commits/vpls
-> while this patchset is also available at:
-> - https://github.com/eqvinox/vpls-linux-kernel
-> (but please be aware that I'm amending and rebasing commits)
-> 
-> The NVGRE implementation in the 3rd patch in this series is actually an
-> accident - I was just wiring up gretap as a reference;  only after I was
-> done I noticed that that sums up to NVGRE, more or less.  IMHO, it does
-> serve well to demonstrate the bridge changes are not VPLS-specific.
-> 
-> To refer some notes from the first announce mail:
-> > I've tested some basic setups, the chain from LDP down into the kernel
-> > works at least in these.  FRR has some testcases around from OpenBSD
-> > VPLS support, I haven't wired that up to run against Linux / this
-> > patchset yet.  
-> 
-> Same as before (API didn't change).
-> 
-> > The patchset needs a lot of polishing (yes I left my TODO notes in the
-> > commit messages), for now my primary concern is overall design
-> > feedback.  Roopa has already provided a lot of input (Thanks!);  the
-> > major topic I'm expecting to get discussion on is the bridge FDB
-> > changes.  
-> 
-> Got some useful input;  but still need feedback on the bridge FDB
-> changes (first 2 patches).  I don't believe it to have a significant
-> impact on existing bridge operation, and I believe a multipoint tunnel
-> driver without its own FDB (e.g. NVGRE in this set) should perform
-> better than one with its own FDB (e.g. existing VXLAN).
-> 
-> > P.S.: For a little context on the bridge FDB changes - I'm hoping to
-> > find some time to extend this to the MDB to allow aggregating dst
-> > metadata and handing down a list of dst metas on TX.  This isn't
-> > specifically for VPLS but rather to give sufficient information to the
-> > 802.11 stack to allow it to optimize selecting rates (or unicasting)
-> > for multicast traffic by having the multicast subscriber list known.
-> > This is done by major commercial wifi solutions (e.g. google "dynamic
-> > multicast optimization".)  
-> 
-> You can find hacks at this on:
-> https://github.com/eqvinox/vpls-linux-kernel/tree/mdb-hack
-> Please note that the patches in that branch are not at an acceptable
-> quality level, but you can see the semantic relation to 802.11.
-> 
-> I would, however, like to point out that this branch has pseudo-working
-> IGMP/MLD snooping for VPLS, and it'd be 20-ish lines to add it to NVGRE
-> (I'll do that as soon as I get to it, it'll pop up on that branch too.)
-> 
-> This is relevant to the discussion because it's a feature which is
-> non-obvious (to me) on how to do with the VXLAN model of having an
-> entirely separate FDB.  Meanwhile, with this architecture, the proof of
-> concept / hack is coming in at a measly cost of:
-> 8 files changed, 176 insertions(+), 15 deletions(-)
-> 
-> 
-> Cheers,
-> 
-> -David
-> 
-> 
-> --- diffstat:
-> include/linux/netdevice.h      |  18 ++++++
-> include/net/dst_metadata.h     |  51 ++++++++++++++---
-> include/net/ip_tunnels.h       |   5 ++
-> include/uapi/linux/lwtunnel.h  |   8 +++
-> include/uapi/linux/neighbour.h |   2 +
-> include/uapi/linux/rtnetlink.h |   5 ++
-> net/bridge/br.c                |   2 +-
-> net/bridge/br_device.c         |   4 ++
-> net/bridge/br_fdb.c            | 119 ++++++++++++++++++++++++++++++++--------
-> net/bridge/br_input.c          |   6 +-
-> net/bridge/br_private.h        |   6 +-
-> net/core/lwtunnel.c            |   1 +
-> net/ipv4/ip_gre.c              |  40 ++++++++++++--
-> net/ipv4/ip_tunnel.c           |   1 +
-> net/ipv4/ip_tunnel_core.c      |  87 +++++++++++++++++++++++------
-> net/mpls/Kconfig               |  11 ++++
-> net/mpls/Makefile              |   1 +
-> net/mpls/af_mpls.c             | 113 ++++++++++++++++++++++++++++++++------
-> net/mpls/internal.h            |  44 +++++++++++++--
-> net/mpls/vpls.c                | 550 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-> 20 files changed, 990 insertions(+), 84 deletions(-)
+Well if we return 1 from atomic_inc_return() and the previous value was
+zero, of course we are going to be bugging here. The idea behind the
+patch I suppose is to make sure that we always get an odd number upon
+u64_stats_update_begin()/entry, and an even number upon
+u64_stats_update_end()/exit, right?
 
-I know the bridge is an easy target to extend L2 forwarding, but it is not
-the only option. Have you condidered building a new driver (like VXLAN does)
-which does the forwarding you want. Having all features in one driver
-makes for worse performance, and increased complexity.
+> 
+> [    0.015149] ------------[ cut here ]------------
+> [    0.020051] kernel BUG at ./include/linux/u64_stats_sync.h:82!
+> [    0.026221] Internal error: Oops - BUG: 0 [#1] SMP ARM
+> [    0.031661] Modules linked in:
+> [    0.034970] CPU: 0 PID: 0 Comm: swapper/0 Not tainted
+> 4.13.0-rc5-01297-g7d3f0cd43fee-dirty #33
+> [    0.043990] Hardware name: Broadcom STB (Flattened Device Tree)
+> [    0.050237] task: c180a500 task.stack: c1800000
+> [    0.055065] PC is at irqtime_account_delta+0xa4/0xa8
+> [    0.060322] LR is at 0x1
+> [    0.063057] pc : [<c0250504>]    lr : [<00000001>]    psr: 000001d3
+> [    0.069652] sp : c1801eec  ip : ee78b458  fp : c0e5ea48
+> [    0.075212] r10: c18b4b40  r9 : f0803000  r8 : ee00a800
+> [    0.080781] r7 : 00000001  r6 : c180a500  r5 : c1800000  r4 : 00000000
+> [    0.087680] r3 : 00000000  r2 : 0000ec8c  r1 : ee78b3c0  r0 : ee78b440
+> [    0.094546] Flags: nzcv  IRQs off  FIQs off  Mode SVC_32  ISA ARM
+> Segment user
+> [    0.102314] Control: 30c5387d  Table: 00003000  DAC: fffffffd
+> [    0.108414] Process swapper/0 (pid: 0, stack limit = 0xc1800210)
+> [    0.114791] Stack: (0xc1801eec to 0xc1802000)
+> [    0.119431] 1ee0:                            ee78b440 c1800000
+> c180a500 00000001 c02505c8
+> [    0.128079] 1f00: 00000004 ee00a800 ffffe000 00000000 00000000
+> c0227890 c17e6f20 c0278910
+> [    0.136665] 1f20: c185724c c18079a0 f080200c c1801f58 f0802000
+> c0201494 c0e00c18 20000053
+> [    0.145303] 1f40: ffffffff c1801f8c ffffffff c1800000 c18b4b40
+> c020d238 00000000 0000001f
+> [    0.153915] 1f60: 00040d00 00000000 efffc940 00000000 c18b4b40
+> c1807440 ffffffff 00000000
+> [    0.162571] 1f80: c18b4b40 c0e5ea48 00000004 c1801fa8 c0322fb0
+> c0e00c18 20000053 ffffffff
+> [    0.171226] 1fa0: c18b4b40 00000000 ffffffff ffffffff 00000000
+> c0e006c0 ffffffff 00000000
+> [    0.179890] 1fc0: 00000000 c1807448 c0e5ea48 00000000 00000000
+> c18b4dd4 c180745c c0e5ea44
+> [    0.188546] 1fe0: c180c0d0 00007000 420f00f3 00000000 00000000
+> 00008090 00000000 00000000
+> [    0.197165] [<c0250504>] (irqtime_account_delta) from [<c02505c8>]
+> (irqtime_account_irq+0xc0/0xc4)
+> [    0.206664] [<c02505c8>] (irqtime_account_irq) from [<c0227890>]
+> (irq_exit+0x28/0x154)
+> [    0.215012] [<c0227890>] (irq_exit) from [<c0278910>]
+> (__handle_domain_irq+0x60/0xb4)
+> [    0.223245] [<c0278910>] (__handle_domain_irq) from [<c0201494>]
+> (gic_handle_irq+0x48/0x8c)
+> [    0.232035] [<c0201494>] (gic_handle_irq) from [<c020d238>]
+> (__irq_svc+0x58/0x74)
+> [    0.239941] Exception stack(0xc1801f58 to 0xc1801fa0)
+> [    0.245327] 1f40:
+>   00000000 0000001f
+> [    0.253948] 1f60: 00040d00 00000000 efffc940 00000000 c18b4b40
+> c1807440 ffffffff 00000000
+> [    0.262534] 1f80: c18b4b40 c0e5ea48 00000004 c1801fa8 c0322fb0
+> c0e00c18 20000053 ffffffff
+> [    0.271144] [<c020d238>] (__irq_svc) from [<c0e00c18>]
+> (start_kernel+0x300/0x410)
+> [    0.279028] [<c0e00c18>] (start_kernel) from [<00008090>] (0x8090)
+> [    0.285547] Code: f57ff05b e3130001 18bd80f0 e7f001f2 (e7f001f2)
+> [    0.291978] ---[ end trace f68728a0d3053b52 ]---
+> [    0.296871] Kernel panic - not syncing: Fatal exception in interrupt
+> [    0.303622] ---[ end Kernel panic - not syncing: Fatal exception in
+> interrupt
+> 
+
+
+-- 
+Florian
