@@ -1,106 +1,117 @@
-From: kbuild test robot <lkp-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net-next v5] openvswitch: enable NSH support
-Date: Wed, 23 Aug 2017 06:26:25 +0800
-Message-ID: <201708230651.E6RQiLeI%fengguang.wu@intel.com>
-References: <1503294863-12859-1-git-send-email-yi.y.yang@intel.com>
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: Re: [PATCH net] bpf: fix map value attribute for hash of maps
+Date: Tue, 22 Aug 2017 15:27:36 -0700
+Message-ID: <20170822222736.2jvjvacylq3j266r@raviram-mbp.dhcp.thefacebook.com>
+References: <7f75667dcb2464053e2adf4fc01fdb8d77dfb335.1503439140.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="WIyZ46R2i8wDzkSu"
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, e@erig.me,
-	kbuild-all-JC7UmRfGjtg@public.gmane.org
-To: Yi Yang <yi.y.yang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1503294863-12859-1-git-send-email-yi.y.yang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
-List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
-
-
---WIyZ46R2i8wDzkSu
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-
-Hi Yi,
-
-[auto build test WARNING on net-next/master]
-
-url:    https://github.com/0day-ci/linux/commits/Yi-Yang/openvswitch-enable-NSH-support/20170822-184251
-config: x86_64-randconfig-a0-08230538 (attached as .config)
-compiler: gcc-4.4 (Debian 4.4.7-8) 4.4.7
-reproduce:
-        # save the attached .config to linux build tree
-        make ARCH=x86_64 
-
-All warnings (new ones prefixed by >>):
-
-   net//openvswitch/flow.c: In function 'parse_nsh':
->> net//openvswitch/flow.c:498: warning: unused variable 'err'
-
-vim +/err +498 net//openvswitch/flow.c
-
-   493	
-   494	static int parse_nsh(struct sk_buff *skb, struct sw_flow_key *key)
-   495	{
-   496		struct nsh_hdr *nsh = (struct nsh_hdr *)skb_network_header(skb);
-   497		u8 version, length;
- > 498		int err;
-   499	
-   500		if (unlikely(skb->len < NSH_BASE_HDR_LEN))
-   501			return -EINVAL;
-   502	
-   503		version = nsh_get_ver(nsh);
-   504		length = nsh_hdr_len(nsh);
-   505	
-   506		if (version != 0)
-   507			return -EINVAL;
-   508	
-   509		if (unlikely(skb->len < length))
-   510			return -EINVAL;
-   511	
-   512		key->nsh.flags = nsh_get_flags(nsh);
-   513		key->nsh.ttl = nsh_get_ttl(nsh);
-   514		key->nsh.mdtype = nsh->md_type;
-   515		key->nsh.np = nsh->next_proto;
-   516		key->nsh.path_hdr = nsh->path_hdr;
-   517		switch (key->nsh.mdtype) {
-   518		case NSH_M_TYPE1:
-   519			if (length != NSH_M_TYPE1_LEN)
-   520				return -EINVAL;
-   521			memcpy(key->nsh.context, nsh->md1.context,
-   522			       sizeof(nsh->md1));
-   523			break;
-   524		case NSH_M_TYPE2:
-   525			/* Don't support MD type 2 metedata parsing yet */
-   526			if (length < NSH_BASE_HDR_LEN)
-   527				return -EINVAL;
-   528	
-   529			memset(key->nsh.context, 0,
-   530			       sizeof(nsh->md1));
-   531			break;
-   532		default:
-   533			return -EINVAL;
-   534		}
-   535	
-   536		return 0;
-   537	}
-   538	
-
----
-0-DAY kernel test infrastructure                Open Source Technology Center
-https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
-
---WIyZ46R2i8wDzkSu
 Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <ast@fb.com>, <netdev@vger.kernel.org>
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:35348 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751687AbdHVW1z (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2017 18:27:55 -0400
 Content-Disposition: inline
+In-Reply-To: <7f75667dcb2464053e2adf4fc01fdb8d77dfb335.1503439140.git.daniel@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Wed, Aug 23, 2017 at 12:06:09AM +0200, Daniel Borkmann wrote:
+> Currently, iproute2's BPF ELF loader works fine with array of maps
+> when retrieving the fd from a pinned node and doing a selfcheck
+> against the provided map attributes from the object file, but we
+> fail to do the same for hash of maps and thus refuse to get the
+> map from pinned node.
+>
+> Reason is that when allocating hash of maps, fd_htab_map_alloc() will
+> set the value size to sizeof(void *), and any user space map creation
+> requests are forced to set 4 bytes as value size. Thus, selfcheck
+> will complain about exposed 8 bytes on 64 bit archs vs. 4 bytes from
+> object file as value size. Contract is that fdinfo or BPF_MAP_GET_FD_BY_ID
+> returns the value size used to create the map.
+>
+> Fix it by handling it the same way as we do for array of maps, which
+> means that we leave value size at 4 bytes and in the allocation phase
+> round up value size to 8 bytes. alloc_htab_elem() needs an adjustment
+> in order to copy rounded up 8 bytes due to bpf_fd_htab_map_update_elem()
+> calling into htab_map_update_elem() with the pointer of the map
+> pointer as value. Unlike array of maps where we just xchg(), we're
+> using the generic htab_map_update_elem() callback also used from helper
+> calls, which published the key/value already on return, so we need
+> to ensure to memcpy() the right size.
+>
+> Fixes: bcc6b1b7ebf8 ("bpf: Add hash of maps support")
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> Acked-by: Alexei Starovoitov <ast@kernel.org>
+Acked-by: Martin KaFai Lau <kafai@fb.com>
 
---WIyZ46R2i8wDzkSu--
+> ---
+>  kernel/bpf/hashtab.c | 30 +++++++++++++++++-------------
+>  1 file changed, 17 insertions(+), 13 deletions(-)
+>
+> diff --git a/kernel/bpf/hashtab.c b/kernel/bpf/hashtab.c
+> index 4fb4631..d11c818 100644
+> --- a/kernel/bpf/hashtab.c
+> +++ b/kernel/bpf/hashtab.c
+> @@ -652,12 +652,27 @@ static void pcpu_copy_value(struct bpf_htab *htab, void __percpu *pptr,
+>  	}
+>  }
+>
+> +static bool fd_htab_map_needs_adjust(const struct bpf_htab *htab)
+> +{
+> +	return htab->map.map_type == BPF_MAP_TYPE_HASH_OF_MAPS &&
+> +	       BITS_PER_LONG == 64;
+> +}
+> +
+> +static u32 htab_size_value(const struct bpf_htab *htab, bool percpu)
+> +{
+> +	u32 size = htab->map.value_size;
+> +
+> +	if (percpu || fd_htab_map_needs_adjust(htab))
+> +		size = round_up(size, 8);
+> +	return size;
+> +}
+> +
+>  static struct htab_elem *alloc_htab_elem(struct bpf_htab *htab, void *key,
+>  					 void *value, u32 key_size, u32 hash,
+>  					 bool percpu, bool onallcpus,
+>  					 struct htab_elem *old_elem)
+>  {
+> -	u32 size = htab->map.value_size;
+> +	u32 size = htab_size_value(htab, percpu);
+>  	bool prealloc = htab_is_prealloc(htab);
+>  	struct htab_elem *l_new, **pl_new;
+>  	void __percpu *pptr;
+> @@ -696,9 +711,6 @@ static struct htab_elem *alloc_htab_elem(struct bpf_htab *htab, void *key,
+>
+>  	memcpy(l_new->key, key, key_size);
+>  	if (percpu) {
+> -		/* round up value_size to 8 bytes */
+> -		size = round_up(size, 8);
+> -
+>  		if (prealloc) {
+>  			pptr = htab_elem_get_ptr(l_new, key_size);
+>  		} else {
+> @@ -1209,17 +1221,9 @@ int bpf_percpu_hash_update(struct bpf_map *map, void *key, void *value,
+>
+>  static struct bpf_map *fd_htab_map_alloc(union bpf_attr *attr)
+>  {
+> -	struct bpf_map *map;
+> -
+>  	if (attr->value_size != sizeof(u32))
+>  		return ERR_PTR(-EINVAL);
+> -
+> -	/* pointer is stored internally */
+> -	attr->value_size = sizeof(void *);
+> -	map = htab_map_alloc(attr);
+> -	attr->value_size = sizeof(u32);
+> -
+> -	return map;
+> +	return htab_map_alloc(attr);
+>  }
+>
+>  static void fd_htab_map_free(struct bpf_map *map)
+> --
+> 1.9.3
+>
