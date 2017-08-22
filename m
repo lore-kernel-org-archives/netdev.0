@@ -1,82 +1,44 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next 5/5] xdp: get tracepoints xdp_exception and xdp_redirect
- in sync
-Date: Tue, 22 Aug 2017 23:30:21 +0200
-Message-ID: <599CA26D.7060003@iogearbox.net>
-References: <150343479290.31091.8019008896152616977.stgit@firesoul> <150343485998.31091.4036615069956176401.stgit@firesoul>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: [PATCH v2 net-next 1/2] tcp: Extend SOF_TIMESTAMPING_RX_SOFTWARE
+ to TCP recvmsg
+Date: Tue, 22 Aug 2017 17:32:03 -0400
+Message-ID: <CAF=yD-L_2bBmf-crV_-1XW-jzwF-_F5hLJ0fRpM+p7bHNQJ_sQ@mail.gmail.com>
+References: <20170822210849.23162-1-maloneykernel@gmail.com> <20170822210849.23162-2-maloneykernel@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: John Fastabend <john.fastabend@gmail.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Network Development <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        Soheil Hassas Yeganeh <soheil@google.com>,
+        Mike Maloney <maloney@google.com>
+To: Mike Maloney <maloneykernel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:33121 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751711AbdHVVaX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2017 17:30:23 -0400
-In-Reply-To: <150343485998.31091.4036615069956176401.stgit@firesoul>
+Received: from mail-oi0-f49.google.com ([209.85.218.49]:33679 "EHLO
+        mail-oi0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751651AbdHVVco (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2017 17:32:44 -0400
+Received: by mail-oi0-f49.google.com with SMTP id f11so198890849oic.0
+        for <netdev@vger.kernel.org>; Tue, 22 Aug 2017 14:32:44 -0700 (PDT)
+In-Reply-To: <20170822210849.23162-2-maloneykernel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/22/2017 10:47 PM, Jesper Dangaard Brouer wrote:
-> Remove the net_device string name from the xdp_exception tracepoint,
-> like the xdp_redirect tracepoint.
+On Tue, Aug 22, 2017 at 5:08 PM, Mike Maloney <maloneykernel@gmail.com> wrote:
+> From: Mike Maloney <maloney@google.com>
 >
-> Align the TP_STRUCT to have common entries between these two
-> tracepoint.
+> When SOF_TIMESTAMPING_RX_SOFTWARE is enabled for tcp sockets, return the
+> timestamp corresponding to the highest sequence number data returned.
 >
-> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
-> ---
->   include/trace/events/xdp.h |   24 ++++++++++++------------
->   1 file changed, 12 insertions(+), 12 deletions(-)
+> Previously the skb->tstamp is overwritten when a TCP packet is placed
+> in the out of order queue.  While the packet is in the ooo queue, save the
+> timestamp in the TCB_SKB_CB.  This space is shared with the gso_*
+> options which are only used on the tx path, and a previously unused 4
+> byte hole.
 >
-> diff --git a/include/trace/events/xdp.h b/include/trace/events/xdp.h
-> index 7511bed80558..6495b0d9d5c7 100644
-> --- a/include/trace/events/xdp.h
-> +++ b/include/trace/events/xdp.h
-> @@ -31,22 +31,22 @@ TRACE_EVENT(xdp_exception,
->   	TP_ARGS(dev, xdp, act),
+> When skbs are coalesced either in the sk_receive_queue or the
+> out_of_order_queue always choose the timestamp of the appended skb to
+> maintain the invariant of returning the timestamp of the last byte in
+> the recvmsg buffer.
 >
->   	TP_STRUCT__entry(
-> -		__string(name, dev->name)
->   		__array(u8, prog_tag, 8)
->   		__field(u32, act)
-> +		__field(int, ifindex)
->   	),
->
->   	TP_fast_assign(
->   		BUILD_BUG_ON(sizeof(__entry->prog_tag) != sizeof(xdp->tag));
->   		memcpy(__entry->prog_tag, xdp->tag, sizeof(xdp->tag));
-> -		__assign_str(name, dev->name);
-> -		__entry->act = act;
-> +		__entry->act		= act;
-> +		__entry->ifindex	= dev->ifindex;
->   	),
->
-[...]
->   TRACE_EVENT(xdp_redirect,
-> @@ -57,26 +57,26 @@ TRACE_EVENT(xdp_redirect,
->   	TP_ARGS(from_index, to_index, xdp, act, err),
->
->   	TP_STRUCT__entry(
-> -		__field(int, from_index)
-> -		__field(int, to_index)
->   		__array(u8, prog_tag, 8)
->   		__field(u32, act)
-> +		__field(int, from_index)
-> +		__field(int, to_index)
->   		__field(int, err)
->   	),
->
->   	TP_fast_assign(
->   		BUILD_BUG_ON(sizeof(__entry->prog_tag) != sizeof(xdp->tag));
->   		memcpy(__entry->prog_tag, xdp->tag, sizeof(xdp->tag));
-> +		__entry->act		= act;
->   		__entry->from_index	= from_index;
->   		__entry->to_index	= to_index;
-> -		__entry->act = act;
+> Signed-off-by: Mike Maloney <maloney@google.com>
 
-If you already get them in sync, could you also make it consistent
-that for both tracepoints in TP_ARGS() we use either ifindex
-directly or device pointer and extract it from TP_fast_assign().
-Right now, it's mixed.
+Acked-by: Willem de Bruijn <willemb@google.com>
