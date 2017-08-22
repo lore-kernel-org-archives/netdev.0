@@ -1,81 +1,52 @@
-From: Tonghao Zhang <xiangxia.m.yue@gmail.com>
-Subject: Re: [PATCH net-next v2 1/2] tcp: Remove unnecessary dst check in tcp_conn_request.
-Date: Tue, 22 Aug 2017 08:56:00 +0800
-Message-ID: <CAMDZJNXMC6T9VzRWK3kzo7txZEns3jjnioPNODUmTsaHpCXTOQ@mail.gmail.com>
-References: <1502938966-6345-1-git-send-email-xiangxia.m.yue@gmail.com>
- <1502938966-6345-2-git-send-email-xiangxia.m.yue@gmail.com>
- <20170819.212524.1982304186024322688.davem@davemloft.net> <CAMDZJNW_nqUm7LaKy5GJBKMhKV6GeZS_yAnUy+gT68NatT_EZg@mail.gmail.com>
- <1503327362.2499.2.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 1/3 v7] net: ether: Add support for multiplexing
+ and aggregation type
+Date: Tue, 22 Aug 2017 03:02:08 +0200
+Message-ID: <20170822010208.GA24555@lunn.ch>
+References: <1503355019-12236-1-git-send-email-subashab@codeaurora.org>
+ <1503355019-12236-2-git-send-email-subashab@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: David Miller <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+        fengguang.wu@intel.com, dcbw@redhat.com, jiri@resnulli.us,
+        stephen@networkplumber.org, David.Laight@ACULAB.COM,
+        marcel@holtmann.org
+To: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f66.google.com ([209.85.218.66]:35383 "EHLO
-        mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754353AbdHVA4B (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2017 20:56:01 -0400
-Received: by mail-oi0-f66.google.com with SMTP id i135so941153oib.2
-        for <netdev@vger.kernel.org>; Mon, 21 Aug 2017 17:56:01 -0700 (PDT)
-In-Reply-To: <1503327362.2499.2.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:38562 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754252AbdHVBCU (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 21 Aug 2017 21:02:20 -0400
+Content-Disposition: inline
+In-Reply-To: <1503355019-12236-2-git-send-email-subashab@codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 21, 2017 at 10:56 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> Please do not top post.
-Got it, thanks.
+On Mon, Aug 21, 2017 at 04:36:57PM -0600, Subash Abhinov Kasiviswanathan wrote:
+> Define the multiplexing and aggregation (MAP) ether type 0xDA1A. This
+> is needed for receiving data in the MAP protocol like RMNET. This is
+> not an officially registered ID.
+> 
+> Signed-off-by: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+> ---
+>  include/uapi/linux/if_ether.h | 4 +++-
+>  1 file changed, 3 insertions(+), 1 deletion(-)
+> 
+> diff --git a/include/uapi/linux/if_ether.h b/include/uapi/linux/if_ether.h
+> index 5bc9bfd..e80b03f 100644
+> --- a/include/uapi/linux/if_ether.h
+> +++ b/include/uapi/linux/if_ether.h
+> @@ -104,7 +104,9 @@
+>  #define ETH_P_QINQ3	0x9300		/* deprecated QinQ VLAN [ NOT AN OFFICIALLY REGISTERED ID ] */
+>  #define ETH_P_EDSA	0xDADA		/* Ethertype DSA [ NOT AN OFFICIALLY REGISTERED ID ] */
+>  #define ETH_P_AF_IUCV   0xFBFB		/* IBM af_iucv [ NOT AN OFFICIALLY REGISTERED ID ] */
+> -
+> +#define ETH_P_MAP       0xDA1A          /* Multiplexing and Aggregation Protocol
+> +					 *  NOT AN OFFICIALLY REGISTERED ID ]
+> +					 */
 
-> On Mon, 2017-08-21 at 21:24 +0800, Tonghao Zhang wrote:
->> Thanks,  yes  this is a bug. I found this bug exists from 3.17~ 4.13.
->> The commit is d94e0417
->>
->
-> This bug was there at the beginning of git tree.
->
->
->> One question:  should I send a patch for each kernel version because
->> code conflicts ?
->>
->> a patch for v4.12
->> a patch for v4.11
->> a patch for v4.10~v4.7
->> a patch for v4.6~v3.17
->>
->> and
->> a patch for  net-next, because tcp_tw_recycle has been removed.
->>
->
-> Given this bug only would matter if syncookies are disabled, I would not
-> bother and only target net-next. This does not look serious enough to
-> deserve backports to stable versions.
->
-OK, thanks again.
+Hi Subash
 
->> Thanks very much.
->>
->> On Sun, Aug 20, 2017 at 12:25 PM, David Miller <davem@davemloft.net> wrote:
->> > From: Tonghao Zhang <xiangxia.m.yue@gmail.com>
->> > Date: Wed, 16 Aug 2017 20:02:45 -0700
->> >
->> >> Because we remove the tcp_tw_recycle support in the commit
->> >> 4396e46187c ('tcp: remove tcp_tw_recycle') and also delete
->> >> the code 'af_ops->route_req' for sysctl_tw_recycle in tcp_conn_request.
->> >> Now when we call the 'af_ops->route_req', the dist always is
->> >> NULL, and we remove the unnecessay check.
->> >>
->> >> Signed-off-by: Tonghao Zhang <xiangxia.m.yue@gmail.com>
->> >
->> > This is a bug actually, rather than something to paper over
->> > by removing the check.
->> >
->> > Code earlier in this function needs a proper 'dst' in order to operate
->> > properly.
->> >
->> > There is a call to tcp_peer_is_proven() which must have a proper route
->> > to make the determination yet it will always be NULL.
->> >
->> > Please investigate what the code is doing and how a test became
->> > "unnecessary" over time before blindly removing it, thank you.
->
->
+This list is sorted. So this entry should go earlier.
+
+     Andrew
