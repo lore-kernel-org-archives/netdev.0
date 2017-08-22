@@ -1,77 +1,36 @@
-From: Romain Perier <romain.perier@collabora.com>
-Subject: Re: [PATCH v2 1/2] net: stmmac: Delete dead code for MDIO
- registration
-Date: Tue, 22 Aug 2017 14:00:18 +0200
-Message-ID: <f456374b-ebab-1884-bd5e-e5f32f5e28f1@collabora.com>
-References: <20170821114530.13706-1-romain.perier@collabora.com>
- <20170821114530.13706-2-romain.perier@collabora.com>
- <6ea649a3-4418-8025-44a9-72330f632f22@gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] ravb: make mdiobb_ops const
+Date: Tue, 22 Aug 2017 15:03:37 +0300
+Message-ID: <1f074a7c-0d3a-e569-4400-c50d967e550c@cogentembedded.com>
+References: <1503389282-17369-1-git-send-email-bhumirks@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Florian Fainelli <f.fainelli@gmail.com>,
-        Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-        Alexandre Torgue <alexandre.torgue@st.com>,
-        Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <6ea649a3-4418-8025-44a9-72330f632f22@gmail.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Bhumika Goyal <bhumirks@gmail.com>, julia.lawall@lip6.fr,
+        netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <1503389282-17369-1-git-send-email-bhumirks@gmail.com>
+Content-Language: en-MW
+Sender: linux-renesas-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+Hello!
 
+On 08/22/2017 11:08 AM, Bhumika Goyal wrote:
 
-Le 22/08/2017 à 02:45, Florian Fainelli a écrit :
-> On 08/21/2017 04:45 AM, Romain Perier wrote:
->> This code is no longer used, the logging function was changed by commit
->> fbca164776e4 ("net: stmmac: Use the right logging functi").
->>
->> Fixes: fbca164776e4 ("net: stmmac: Use the right logging functi")
->> Signed-off-by: Romain Perier <romain.perier@collabora.com>
->> ---
->>  drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c | 16 ----------------
->>  1 file changed, 16 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
->> index 72ec711fcba2..f5f37bfa1d58 100644
->> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
->> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
->> @@ -248,9 +248,6 @@ int stmmac_mdio_register(struct net_device *ndev)
->>  	found = 0;
->>  	for (addr = 0; addr < PHY_MAX_ADDR; addr++) {
->>  		struct phy_device *phydev = mdiobus_get_phy(new_bus, addr);
->> -		int act = 0;
->> -		char irq_num[4];
->> -		char *irq_str;
->>  
->>  		if (!phydev)
->>  			continue;
->> @@ -273,19 +270,6 @@ int stmmac_mdio_register(struct net_device *ndev)
->>  		if (priv->plat->phy_addr == -1)
->>  			priv->plat->phy_addr = addr;
->>  
->> -		act = (priv->plat->phy_addr == addr);
->> -		switch (phydev->irq) {
->> -		case PHY_POLL:
->> -			irq_str = "POLL";
->> -			break;
->> -		case PHY_IGNORE_INTERRUPT:
->> -			irq_str = "IGNORE";
->> -			break;
->> -		default:
->> -			sprintf(irq_num, "%d", phydev->irq);
->> -			irq_str = irq_num;
->> -			break;
->> -		}
-> I was actually just looking into moving these prints to
-> phy_attached_info(), since it is useful to know whether the interrupt is
-> POLL, IGNORE, or valid. Can you move that there? Then you can really
-> migrate over phy_attached_info() with no information loss.
->
-> Thanks!
-Sure, I can take a look.
+> Make these const as they are only stored in a const field of a
+> mdiobb_ctrl structure.
 
-Thanks,
-Romain
+> Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
+> ---
+>   drivers/net/ethernet/renesas/ravb_main.c | 2 +-
+>   drivers/net/ethernet/renesas/sh_eth.c    | 2 +-
+>   2 files changed, 2 insertions(+), 2 deletions(-)
+
+    If you're fixing both Renesas drivers at once, your subject should be 
+"renesas: make mdiobb_ops const". With that fixed, you have my:
+
+Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+
+MBR, Sergei
