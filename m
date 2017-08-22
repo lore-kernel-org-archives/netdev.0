@@ -1,40 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 00/10] net: mvpp2: MAC/GoP configuration
-Date: Tue, 22 Aug 2017 14:32:50 -0700 (PDT)
-Message-ID: <20170822.143250.1510952084327060303.davem@davemloft.net>
-References: <20170822170830.32413-1-antoine.tenart@free-electrons.com>
+Subject: Re: [PATCH v2 1/6] fsl/fman: enable FMan Keygen
+Date: Tue, 22 Aug 2017 14:35:10 -0700 (PDT)
+Message-ID: <20170822.143510.1048652578169181274.davem@davemloft.net>
+References: <1503423066-15420-1-git-send-email-madalin.bucur@nxp.com>
+        <1503423066-15420-2-git-send-email-madalin.bucur@nxp.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jason@lakedaemon.net, andrew@lunn.ch,
-        gregory.clement@free-electrons.com,
-        sebastian.hesselbarth@gmail.com,
-        thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
-        linux@armlinux.org.uk, mw@semihalf.com, stefanc@marvell.com,
-        netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: antoine.tenart@free-electrons.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44546 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752275AbdHVVcw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2017 17:32:52 -0400
-In-Reply-To: <20170822170830.32413-1-antoine.tenart@free-electrons.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+        linux-kernel@vger.kernel.org
+To: madalin.bucur@nxp.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1503423066-15420-2-git-send-email-madalin.bucur@nxp.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Date: Tue, 22 Aug 2017 19:08:20 +0200
+From: Madalin Bucur <madalin.bucur@nxp.com>
+Date: Tue, 22 Aug 2017 20:31:01 +0300
 
-> This is based on net-next (e2a7c34fb285).
-> 
-> I removed the GoP interrupt and PHY optional parts in this v2 to ease
-> the review process as the MAC/GoP initialization seemed to start less
-> discussions :)
-> 
-> This series now only aims at making the PPv2 driver less depending on
-> the firmware/bootloader initialization. Some patches cleanup some parts
-> as well, and add new interface descriptions in the dt.
- ...
-> @Dave: patches 9 and 10 should go through the mvebu tree. Thanks!
+>  /**
+> + * fman_get_keygen
+> + *
+> + * @fman:	A Pointer to FMan device
+> + *
+> + * Get the handle to KeyGen module part of FM driver
+> + *
+> + * Return: Handle to KeyGen
+> + */
+> +struct fman_keygen *fman_get_keygen(struct fman *fman)
+> +{
+> +	return fman->keygen;
+> +}
+> +EXPORT_SYMBOL(fman_get_keygen);
 
-Patches 1-8 applied to net-next, thanks.
+Please don't do this.
+
+Just directly derefence the pointer in the source code to
+get the keygen.
+
+Thank you.
