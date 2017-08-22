@@ -1,109 +1,40 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net] bpf: fix map value attribute for hash of maps
-Date: Wed, 23 Aug 2017 00:06:09 +0200
-Message-ID: <7f75667dcb2464053e2adf4fc01fdb8d77dfb335.1503439140.git.daniel@iogearbox.net>
-Cc: ast@fb.com, kafai@fb.com, netdev@vger.kernel.org,
-        Daniel Borkmann <daniel@iogearbox.net>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:37332 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752160AbdHVWGP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2017 18:06:15 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Stanislav Yakovlev <stas.yakovlev@gmail.com>
+Subject: Re: [PATCH v12 7/8] wireless: ipw2200: Replace PCI pool old API
+Date: Tue, 22 Aug 2017 18:11:14 -0400
+Message-ID: <CA++WF2MAT3aHd3TYfLgym9ssFKBsti6+t9b1yJ_eXHEmRBWwcQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: Dan Williams <dan.j.williams@intel.com>,
+        Doug Ledford <dledford@redhat.com>,
+        Sean Hefty <sean.hefty@intel.com>,
+        Hal Rosenstock <hal.rosenstock@gmail.com>,
+        jeffrey.t.kirsher@intel.com,
+        "David S. Miller" <davem@davemloft.net>,
+        linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+To: Romain Perier <romain.perier@collabora.com>,
+        Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Currently, iproute2's BPF ELF loader works fine with array of maps
-when retrieving the fd from a pinned node and doing a selfcheck
-against the provided map attributes from the object file, but we
-fail to do the same for hash of maps and thus refuse to get the
-map from pinned node.
+On 22 August 2017 at 07:47, Romain Perier <romain.perier@collabora.com> wrote:
+> The PCI pool API is deprecated. This commit replaces the PCI pool old
+> API by the appropriate function with the DMA pool API.
+>
+> Signed-off-by: Romain Perier <romain.perier@collabora.com>
+> Reviewed-by: Peter Senna Tschudin <peter.senna@collabora.com>
+> ---
+>  drivers/net/wireless/intel/ipw2x00/ipw2200.c | 13 +++++++------
+>  1 file changed, 7 insertions(+), 6 deletions(-)
+>
 
-Reason is that when allocating hash of maps, fd_htab_map_alloc() will
-set the value size to sizeof(void *), and any user space map creation
-requests are forced to set 4 bytes as value size. Thus, selfcheck
-will complain about exposed 8 bytes on 64 bit archs vs. 4 bytes from
-object file as value size. Contract is that fdinfo or BPF_MAP_GET_FD_BY_ID
-returns the value size used to create the map.
+Acked-by: Stanislav Yakovlev <stas.yakovlev@gmail.com>
 
-Fix it by handling it the same way as we do for array of maps, which
-means that we leave value size at 4 bytes and in the allocation phase
-round up value size to 8 bytes. alloc_htab_elem() needs an adjustment
-in order to copy rounded up 8 bytes due to bpf_fd_htab_map_update_elem()
-calling into htab_map_update_elem() with the pointer of the map
-pointer as value. Unlike array of maps where we just xchg(), we're
-using the generic htab_map_update_elem() callback also used from helper
-calls, which published the key/value already on return, so we need
-to ensure to memcpy() the right size.
+Thanks, and sorry for the long review.
 
-Fixes: bcc6b1b7ebf8 ("bpf: Add hash of maps support")
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-Acked-by: Alexei Starovoitov <ast@kernel.org>
----
- kernel/bpf/hashtab.c | 30 +++++++++++++++++-------------
- 1 file changed, 17 insertions(+), 13 deletions(-)
+Kalle, could you please apply it to the wireless-drivers-next tree?
 
-diff --git a/kernel/bpf/hashtab.c b/kernel/bpf/hashtab.c
-index 4fb4631..d11c818 100644
---- a/kernel/bpf/hashtab.c
-+++ b/kernel/bpf/hashtab.c
-@@ -652,12 +652,27 @@ static void pcpu_copy_value(struct bpf_htab *htab, void __percpu *pptr,
- 	}
- }
- 
-+static bool fd_htab_map_needs_adjust(const struct bpf_htab *htab)
-+{
-+	return htab->map.map_type == BPF_MAP_TYPE_HASH_OF_MAPS &&
-+	       BITS_PER_LONG == 64;
-+}
-+
-+static u32 htab_size_value(const struct bpf_htab *htab, bool percpu)
-+{
-+	u32 size = htab->map.value_size;
-+
-+	if (percpu || fd_htab_map_needs_adjust(htab))
-+		size = round_up(size, 8);
-+	return size;
-+}
-+
- static struct htab_elem *alloc_htab_elem(struct bpf_htab *htab, void *key,
- 					 void *value, u32 key_size, u32 hash,
- 					 bool percpu, bool onallcpus,
- 					 struct htab_elem *old_elem)
- {
--	u32 size = htab->map.value_size;
-+	u32 size = htab_size_value(htab, percpu);
- 	bool prealloc = htab_is_prealloc(htab);
- 	struct htab_elem *l_new, **pl_new;
- 	void __percpu *pptr;
-@@ -696,9 +711,6 @@ static struct htab_elem *alloc_htab_elem(struct bpf_htab *htab, void *key,
- 
- 	memcpy(l_new->key, key, key_size);
- 	if (percpu) {
--		/* round up value_size to 8 bytes */
--		size = round_up(size, 8);
--
- 		if (prealloc) {
- 			pptr = htab_elem_get_ptr(l_new, key_size);
- 		} else {
-@@ -1209,17 +1221,9 @@ int bpf_percpu_hash_update(struct bpf_map *map, void *key, void *value,
- 
- static struct bpf_map *fd_htab_map_alloc(union bpf_attr *attr)
- {
--	struct bpf_map *map;
--
- 	if (attr->value_size != sizeof(u32))
- 		return ERR_PTR(-EINVAL);
--
--	/* pointer is stored internally */
--	attr->value_size = sizeof(void *);
--	map = htab_map_alloc(attr);
--	attr->value_size = sizeof(u32);
--
--	return map;
-+	return htab_map_alloc(attr);
- }
- 
- static void fd_htab_map_free(struct bpf_map *map)
--- 
-1.9.3
+Thanks,
+Stanislav.
