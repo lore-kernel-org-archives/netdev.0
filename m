@@ -1,56 +1,42 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: Re: [PATCH net-next 3/4] bpf/verifier: when pruning a branch, ignore
- its write marks
-Date: Tue, 22 Aug 2017 19:03:04 +0100
-Message-ID: <9a8076d1-a88b-b0e8-3c47-969a022feb60@solarflare.com>
-References: <f25f46bd-27cb-2182-2551-2887757c1e0f@solarflare.com>
- <d1a5b78a-8f5c-50d9-08a2-eb7c4829a478@solarflare.com>
- <0ba423e6-8629-37b1-b772-0734f1fb5489@fb.com>
- <97f3da2d-abb0-ba1f-07ca-ea426f30c7fb@solarflare.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net v3] ipv6: add rcu grace period before freeing
+ fib6_node
+Date: Tue, 22 Aug 2017 11:03:34 -0700 (PDT)
+Message-ID: <20170822.110334.1274898045765726227.davem@davemloft.net>
+References: <20170821164710.134367-1-tracywwnj@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>,
-        iovisor-dev <iovisor-dev@lists.iovisor.org>
-To: Alexei Starovoitov <ast@fb.com>, <davem@davemloft.net>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Daniel Borkmann <daniel@iogearbox.net>
+Cc: netdev@vger.kernel.org, edumazet@google.com, kafai@fb.com
+To: weiwan@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dispatch1-us1.ppe-hosted.com ([67.231.154.164]:33066 "EHLO
-        dispatch1-us1.ppe-hosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751713AbdHVSDQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2017 14:03:16 -0400
-In-Reply-To: <97f3da2d-abb0-ba1f-07ca-ea426f30c7fb@solarflare.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:39240 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751713AbdHVSDe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2017 14:03:34 -0400
+In-Reply-To: <20170821164710.134367-1-tracywwnj@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 22/08/17 16:50, Edward Cree wrote:
-> On 22/08/17 16:24, Alexei Starovoitov wrote:
->> Do you have a test case for this by any chance?
-> I think something like
->     if (cond)
->         r0=0;
->     if (cond)
->         r0=0;
->     return r0;
-> might tickle the bug, but I'm not sure.
-It turns out that (cond) has to be constructed not to alter our knowledge
- of whatever register we're testing, but apart from that, this works.
-    {
-        "liveness pruning and write screening",
-        .insns = {
-            /* Get an unknown value */
-            BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1, 0),
-            /* branch conditions teach us nothing about R2 */
-            BPF_JMP_IMM(BPF_JGE, BPF_REG_2, 0, 1),
-            BPF_MOV64_IMM(BPF_REG_0, 0),
-            BPF_JMP_IMM(BPF_JGE, BPF_REG_2, 0, 1),
-            BPF_MOV64_IMM(BPF_REG_0, 0),
-            BPF_EXIT_INSN(),
-        },
-        .errstr = "R0 !read_ok",
-        .result = REJECT,
-        .prog_type = BPF_PROG_TYPE_LWT_IN,
-    },
-This test fails on net-next, but passes with my patch.
-I'll include it in the next spin of the series.
+From: Wei Wang <weiwan@google.com>
+Date: Mon, 21 Aug 2017 09:47:10 -0700
+
+> From: Wei Wang <weiwan@google.com>
+> 
+> We currently keep rt->rt6i_node pointing to the fib6_node for the route.
+> And some functions make use of this pointer to dereference the fib6_node
+> from rt structure, e.g. rt6_check(). However, as there is neither
+> refcount nor rcu taken when dereferencing rt->rt6i_node, it could
+> potentially cause crashes as rt->rt6i_node could be set to NULL by other
+> CPUs when doing a route deletion.
+> This patch introduces an rcu grace period before freeing fib6_node and
+> makes sure the functions that dereference it takes rcu_read_lock().
+> 
+> Note: there is no "Fixes" tag because this bug was there in a very
+> early stage.
+> 
+> Signed-off-by: Wei Wang <weiwan@google.com>
+> Acked-by: Eric Dumazet <edumazet@google.com>
+> Acked-by: Martin KaFai Lau <kafai@fb.com>
+
+Applied and queued up for -stable, thanks.
