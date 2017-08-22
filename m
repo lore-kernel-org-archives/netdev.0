@@ -1,178 +1,235 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next] net: dsa: User per-cpu 64-bit statistics
-Date: Mon, 21 Aug 2017 17:10:13 -0700
-Message-ID: <dd7ee25c-a92c-5104-e788-d6aa5d8b3aeb@gmail.com>
-References: <20170804043328.4730-1-f.fainelli@gmail.com>
- <1501824968.25002.35.camel@edumazet-glaptop3.roam.corp.google.com>
- <455c39d3-302e-68ab-3812-112c48ed48c2@gmail.com>
- <1501866711.25002.46.camel@edumazet-glaptop3.roam.corp.google.com>
- <bd260f17-3996-adb5-5c69-353f2a483f84@gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH v6 iproute2 0/8] RDMAtool
+Date: Mon, 21 Aug 2017 17:11:49 -0700
+Message-ID: <20170821171149.22949fb9@xeon-e3>
+References: <20170820095828.13812-1-leon@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-        Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        open list <linux-kernel@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <bd260f17-3996-adb5-5c69-353f2a483f84@gmail.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Doug Ledford <dledford@redhat.com>, linux-rdma@vger.kernel.org,
+        Leon Romanovsky <leonro@mellanox.com>,
+        Dennis Dalessandro <dennis.dalessandro@intel.com>,
+        Jason Gunthorpe <jgunthorpe@obsidianresearch.com>,
+        Jiri Pirko <jiri@mellanox.com>,
+        Ariel Almog <ariela@mellanox.com>,
+        David Laight <David.Laight@ACULAB.COM>,
+        Linux Netdev <netdev@vger.kernel.org>
+To: Leon Romanovsky <leon@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f51.google.com ([74.125.83.51]:34227 "EHLO
+        mail-pg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753979AbdHVAL5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2017 20:11:57 -0400
+Received: by mail-pg0-f51.google.com with SMTP id s14so3994862pgs.1
+        for <netdev@vger.kernel.org>; Mon, 21 Aug 2017 17:11:57 -0700 (PDT)
+In-Reply-To: <20170820095828.13812-1-leon@kernel.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/21/2017 04:23 PM, Florian Fainelli wrote:
-> On 08/04/2017 10:11 AM, Eric Dumazet wrote:
->> On Fri, 2017-08-04 at 08:51 -0700, Florian Fainelli wrote:
->>> On 08/03/2017 10:36 PM, Eric Dumazet wrote:
->>>> On Thu, 2017-08-03 at 21:33 -0700, Florian Fainelli wrote:
->>>>> During testing with a background iperf pushing 1Gbit/sec worth of
->>>>> traffic and having both ifconfig and ethtool collect statistics, we
->>>>> could see quite frequent deadlocks. Convert the often accessed DSA slave
->>>>> network devices statistics to per-cpu 64-bit statistics to remove these
->>>>> deadlocks and provide fast efficient statistics updates.
->>>>>
->>>>
->>>> This seems to be a bug fix, it would be nice to get a proper tag like :
->>>>
->>>> Fixes: f613ed665bb3 ("net: dsa: Add support for 64-bit statistics")
->>>
->>> Right, should have been added, thanks!
->>>
->>>>
->>>> Problem here is that if multiple cpus can call dsa_switch_rcv() at the
->>>> same time, then u64_stats_update_begin() contract is not respected.
->>>
->>> This is really where I struggled understanding what is wrong in the
->>> non-per CPU version, my understanding is that we have:
->>>
->>> - writers for xmit executes in process context
->>> - writers for receive executes from NAPI (from the DSA's master network
->>> device through it's own NAPI doing netif_receive_skb -> netdev_uses_dsa
->>> -> netif_receive_skb)
->>>
->>> readers should all execute in process context. The test scenario that
->>> led to a deadlock involved running iperf in the background, having a
->>> while loop with both ifconfig and ethtool reading stats, and somehow
->>> when iperf exited, either reader would just be locked. So I guess this
->>> leaves us with the two writers not being mutually excluded then, right?
->>
->> You could add a debug version of u64_stats_update_begin()
->>
->> doing 
->>
->> int ret = atomic_inc((atomic_t *)syncp);
->>
->> BUG_ON(ret & 1);>
->>
->> And u64_stats_update_end()
->>
->> int ret = atomic_inc((atomic_t *)syncp);
-> 
-> so with your revised suggested patch:
-> 
-> static inline void u64_stats_update_begin(struct u64_stats_sync *syncp)
-> {
-> #if BITS_PER_LONG==32 && defined(CONFIG_SMP)
->         int ret = atomic_inc_return((atomic_t *)syncp);
->         BUG_ON(ret & 1);
-> #endif
-> #if 0
-> #if BITS_PER_LONG==32 && defined(CONFIG_SMP)
->         write_seqcount_begin(&syncp->seq);
-> #endif
-> #endif
-> }
-> 
-> static inline void u64_stats_update_end(struct u64_stats_sync *syncp)
-> {
-> #if BITS_PER_LONG==32 && defined(CONFIG_SMP)
->         int ret = atomic_inc_return((atomic_t *)syncp);
->         BUG_ON(!(ret & 1));
-> #endif
-> #if 0
-> #if BITS_PER_LONG==32 && defined(CONFIG_SMP)
->         write_seqcount_end(&syncp->seq);
-> #endif
-> #endif
-> }
-> 
-> and this makes us choke pretty early in IRQ accounting, did I get your
-> suggestion right?
+On Sun, 20 Aug 2017 12:58:20 +0300
+Leon Romanovsky <leon@kernel.org> wrote:
 
-Well if we return 1 from atomic_inc_return() and the previous value was
-zero, of course we are going to be bugging here. The idea behind the
-patch I suppose is to make sure that we always get an odd number upon
-u64_stats_update_begin()/entry, and an even number upon
-u64_stats_update_end()/exit, right?
-
+> From: Leon Romanovsky <leonro@mellanox.com>
 > 
-> [    0.015149] ------------[ cut here ]------------
-> [    0.020051] kernel BUG at ./include/linux/u64_stats_sync.h:82!
-> [    0.026221] Internal error: Oops - BUG: 0 [#1] SMP ARM
-> [    0.031661] Modules linked in:
-> [    0.034970] CPU: 0 PID: 0 Comm: swapper/0 Not tainted
-> 4.13.0-rc5-01297-g7d3f0cd43fee-dirty #33
-> [    0.043990] Hardware name: Broadcom STB (Flattened Device Tree)
-> [    0.050237] task: c180a500 task.stack: c1800000
-> [    0.055065] PC is at irqtime_account_delta+0xa4/0xa8
-> [    0.060322] LR is at 0x1
-> [    0.063057] pc : [<c0250504>]    lr : [<00000001>]    psr: 000001d3
-> [    0.069652] sp : c1801eec  ip : ee78b458  fp : c0e5ea48
-> [    0.075212] r10: c18b4b40  r9 : f0803000  r8 : ee00a800
-> [    0.080781] r7 : 00000001  r6 : c180a500  r5 : c1800000  r4 : 00000000
-> [    0.087680] r3 : 00000000  r2 : 0000ec8c  r1 : ee78b3c0  r0 : ee78b440
-> [    0.094546] Flags: nzcv  IRQs off  FIQs off  Mode SVC_32  ISA ARM
-> Segment user
-> [    0.102314] Control: 30c5387d  Table: 00003000  DAC: fffffffd
-> [    0.108414] Process swapper/0 (pid: 0, stack limit = 0xc1800210)
-> [    0.114791] Stack: (0xc1801eec to 0xc1802000)
-> [    0.119431] 1ee0:                            ee78b440 c1800000
-> c180a500 00000001 c02505c8
-> [    0.128079] 1f00: 00000004 ee00a800 ffffe000 00000000 00000000
-> c0227890 c17e6f20 c0278910
-> [    0.136665] 1f20: c185724c c18079a0 f080200c c1801f58 f0802000
-> c0201494 c0e00c18 20000053
-> [    0.145303] 1f40: ffffffff c1801f8c ffffffff c1800000 c18b4b40
-> c020d238 00000000 0000001f
-> [    0.153915] 1f60: 00040d00 00000000 efffc940 00000000 c18b4b40
-> c1807440 ffffffff 00000000
-> [    0.162571] 1f80: c18b4b40 c0e5ea48 00000004 c1801fa8 c0322fb0
-> c0e00c18 20000053 ffffffff
-> [    0.171226] 1fa0: c18b4b40 00000000 ffffffff ffffffff 00000000
-> c0e006c0 ffffffff 00000000
-> [    0.179890] 1fc0: 00000000 c1807448 c0e5ea48 00000000 00000000
-> c18b4dd4 c180745c c0e5ea44
-> [    0.188546] 1fe0: c180c0d0 00007000 420f00f3 00000000 00000000
-> 00008090 00000000 00000000
-> [    0.197165] [<c0250504>] (irqtime_account_delta) from [<c02505c8>]
-> (irqtime_account_irq+0xc0/0xc4)
-> [    0.206664] [<c02505c8>] (irqtime_account_irq) from [<c0227890>]
-> (irq_exit+0x28/0x154)
-> [    0.215012] [<c0227890>] (irq_exit) from [<c0278910>]
-> (__handle_domain_irq+0x60/0xb4)
-> [    0.223245] [<c0278910>] (__handle_domain_irq) from [<c0201494>]
-> (gic_handle_irq+0x48/0x8c)
-> [    0.232035] [<c0201494>] (gic_handle_irq) from [<c020d238>]
-> (__irq_svc+0x58/0x74)
-> [    0.239941] Exception stack(0xc1801f58 to 0xc1801fa0)
-> [    0.245327] 1f40:
->   00000000 0000001f
-> [    0.253948] 1f60: 00040d00 00000000 efffc940 00000000 c18b4b40
-> c1807440 ffffffff 00000000
-> [    0.262534] 1f80: c18b4b40 c0e5ea48 00000004 c1801fa8 c0322fb0
-> c0e00c18 20000053 ffffffff
-> [    0.271144] [<c020d238>] (__irq_svc) from [<c0e00c18>]
-> (start_kernel+0x300/0x410)
-> [    0.279028] [<c0e00c18>] (start_kernel) from [<00008090>] (0x8090)
-> [    0.285547] Code: f57ff05b e3130001 18bd80f0 e7f001f2 (e7f001f2)
-> [    0.291978] ---[ end trace f68728a0d3053b52 ]---
-> [    0.296871] Kernel panic - not syncing: Fatal exception in interrupt
-> [    0.303622] ---[ end Kernel panic - not syncing: Fatal exception in
-> interrupt
+> This is fifth revision of series implementing the RDAMtool -  the tool
+> to configure RDMA devices.
 > 
+> It looks like everyone who was interested to read cover letter already did it,
+> so I'll start from the changelog:
+> 
+> Changelog:
+> v5->v6:
+>  * Removed double includes
+>  * Copied rdma_netlink.h from he kernel to include/rdma folder, so the
+>    tool can be built as a standalone.
+> v4->v5:
+>  * Rebased to latest net-next branch
+>  * Moved BIT() macro from devlink to general utils.h file - Patch #1.
+>  * Changed the order of patches - moved man pages to be last patch.
+>  * Rewrote all switch->case->return_string constructions to be static
+>    tables with help of David's macro magic. Thanks a lot.
+>  * Dropped dependency on exported device and port properties. Now tool depends
+>    on RDMA netlink only and all needed code is already in Doug's for-next.
+>  * Added two OPA specific physical link states, because their names is
+>    too broad - TEST and OFFLINE, I named it as OPA_TEST and OPA_OFFLINE.
+> v3->v4:
+>  * Rebased to latest net-next branch
+>  * Added JSON output -j (json) and -p (pretty output)
+>  * Exported and reused kernel UAPIs and defines instead of hard coded
+>    version.
+> v2->v3:
+>  * Removed MAX()
+>  * Reduced scope of rd_argv_match
+>  * Removed return from rdma_free_devmap
+>  * Added extra break at rdma_send_msg
+> v1->v2:
+>  * Squashed multiple (and similar) patches to be one patch for dev object
+>    and one patch for link object.
+>  * Removed port_map struct
+>  * Removed global netlink dump during initialization, it removed the need to store
+>    the intermediate variables and reuse ability of netlink to signal if variable
+>    exists or doesn't.
+>  * Added "-d" --details option and put all CAPs under it.
+> 
+> v0->v1:
+>  * Moved hunk with changes in man/Makefile from first patch to the last patch
+>  * Removed the "unknown command" from the examples in commit messages
+>  * Removed special "caps" parsing command and put it to be part of general "show" command
+>  * Changed parsed capability format to be similar to iproute2 suite
+>  * Added FW version as an output of show command.
+>  * Added forgotten CAP_FLAGS to the nla_policy list
+> RFC->v0:
+>  * Removed everything that is not implemented yet.
+>  * Abandoned sysfs interfaces in favor of netlink.
+> 
+> -----
+> The initial proposal was sent as RFC [1] and was based on sysfs entries as POC.
+> 
+> The current series was rewritten completely to work with RDMA netlinks as
+> a source of user<->kernel communications. In order to achieve that, the
+> RDMA netlinks were extensively refactored and modernized [2, 3, 4 and 5].
+> 
+> The Doug's for-next tag includes most of the needed patches for this tool.
+> 
+> The following is an example of various runs on my machine with 5 devices
+> (4 in IB mode and one in Ethernet mode).
+> 
+> ### Without parameters
+> $ rdma
+> Usage: rdma [ OPTIONS ] OBJECT { COMMAND | help }
+> where  OBJECT := { dev | link | help }
+>        OPTIONS := { -V[ersion] | -d[etails] | -j[son] | -p[retty]}
+> 
+> ### With unspecified device name
+> $ rdma dev
+> 1: mlx5_0: node_type ca fw 2.8.9999 node_guid 5254:00c0:fe12:3457 sys_image_guid 5254:00c0:fe12:3457
+> 2: mlx5_1: node_type ca fw 2.8.9999 node_guid 5254:00c0:fe12:3458 sys_image_guid 5254:00c0:fe12:3458
+> 3: mlx5_2: node_type ca fw 2.8.9999 node_guid 5254:00c0:fe12:3459 sys_image_guid 5254:00c0:fe12:3459
+> 4: mlx5_3: node_type ca fw 2.8.9999 node_guid 5254:00c0:fe12:345a sys_image_guid 5254:00c0:fe12:345a
+> 5: mlx5_4: node_type ca fw 2.8.9999 node_guid 5254:00c0:fe12:345b sys_image_guid 5254:00c0:fe12:345b
+> 
+> ### Detailed mode
+> $ rdma -d dev
+> 1: mlx5_0: node_type ca fw 2.8.9999 node_guid 5254:00c0:fe12:3457 sys_image_guid 5254:00c0:fe12:3457
+>     caps: <BAD_PKEY_CNTR, BAD_QKEY_CNTR, CHANGE_PHY_POR, PORT_ACTIVE_EVENT, SYS_IMAGE_GUID, RC_RNR_NAK_GEN, MEM_WINDOW, UD_IP_CSUM, UD_TSO, XRC, MEM_MGT_EXTENSIONS, BLOCK_MULTICAST_LOOPBACK, MEM_WINDOW_TYPE_2B, RAW_IP_CSUM, MANAGED_FLOW_STEERING, RESIZE_MAX_WR>
+> 2: mlx5_1: node_type ca fw 2.8.9999 node_guid 5254:00c0:fe12:3458 sys_image_guid 5254:00c0:fe12:3458
+>     caps: <BAD_PKEY_CNTR, BAD_QKEY_CNTR, CHANGE_PHY_POR, PORT_ACTIVE_EVENT, SYS_IMAGE_GUID, RC_RNR_NAK_GEN, MEM_WINDOW, UD_IP_CSUM, UD_TSO, XRC, MEM_MGT_EXTENSIONS, BLOCK_MULTICAST_LOOPBACK, MEM_WINDOW_TYPE_2B, RAW_IP_CSUM, MANAGED_FLOW_STEERING, RESIZE_MAX_WR>
+> 3: mlx5_2: node_type ca fw 2.8.9999 node_guid 5254:00c0:fe12:3459 sys_image_guid 5254:00c0:fe12:3459
+>     caps: <BAD_PKEY_CNTR, BAD_QKEY_CNTR, CHANGE_PHY_POR, PORT_ACTIVE_EVENT, SYS_IMAGE_GUID, RC_RNR_NAK_GEN, MEM_WINDOW, UD_IP_CSUM, UD_TSO, XRC, MEM_MGT_EXTENSIONS, BLOCK_MULTICAST_LOOPBACK, MEM_WINDOW_TYPE_2B, RAW_IP_CSUM, MANAGED_FLOW_STEERING, RESIZE_MAX_WR>
+> 4: mlx5_3: node_type ca fw 2.8.9999 node_guid 5254:00c0:fe12:345a sys_image_guid 5254:00c0:fe12:345a
+>     caps: <BAD_PKEY_CNTR, BAD_QKEY_CNTR, CHANGE_PHY_POR, PORT_ACTIVE_EVENT, SYS_IMAGE_GUID, RC_RNR_NAK_GEN, MEM_WINDOW, UD_IP_CSUM, UD_TSO, XRC, MEM_MGT_EXTENSIONS, BLOCK_MULTICAST_LOOPBACK, MEM_WINDOW_TYPE_2B, RAW_IP_CSUM, MANAGED_FLOW_STEERING, RESIZE_MAX_WR>
+> 5: mlx5_4: node_type ca fw 2.8.9999 node_guid 5254:00c0:fe12:345b sys_image_guid 5254:00c0:fe12:345b
+>     caps: <BAD_PKEY_CNTR, BAD_QKEY_CNTR, CHANGE_PHY_POR, PORT_ACTIVE_EVENT, SYS_IMAGE_GUID, RC_RNR_NAK_GEN, MEM_WINDOW, UD_IP_CSUM, UD_TSO, XRC, MEM_MGT_EXTENSIONS, BLOCK_MULTICAST_LOOPBACK, MEM_WINDOW_TYPE_2B, RAW_IP_CSUM, MANAGED_FLOW_STEERING, RESIZE_MAX_WR>
+> 
+> ### Specific device
+> $ rdma dev show mlx5_4
+> 5: mlx5_4: node_type ca fw 2.8.9999 node_guid 5254:00c0:fe12:345b sys_image_guid 5254:00c0:fe12:345b
+> 
+> ### Specific device in detailed mode
+> $ rdma dev show mlx5_4 -d
+> 5: mlx5_4: node_type ca fw 2.8.9999 node_guid 5254:00c0:fe12:345b sys_image_guid 5254:00c0:fe12:345b
+>     caps: <BAD_PKEY_CNTR, BAD_QKEY_CNTR, CHANGE_PHY_POR, PORT_ACTIVE_EVENT, SYS_IMAGE_GUID, RC_RNR_NAK_GEN, MEM_WINDOW, UD_IP_CSUM, UD_TSO, XRC, MEM_MGT_EXTENSIONS, BLOCK_MULTICAST_LOOPBACK, MEM_WINDOW_TYPE_2B, RAW_IP_CSUM, MANAGED_FLOW_STEERING, RESIZE_MAX_WR>
+> 
+> ### Unknown command (caps)
+> $ rdma dev show mlx5_4 caps
+> Unknown parameter 'caps'.
+> 
+> ### Link properties without device name
+> $ rdma link
+> 1/1: mlx5_0/1: subnet_prefix fe80:0000:0000:0000 lid 13399 sm_lid 49151 lmc 0 state ACTIVE physical_state LINK_UP
+> 2/1: mlx5_1/1: subnet_prefix fe80:0000:0000:0000 lid 13400 sm_lid 49151 lmc 0 state ACTIVE physical_state LINK_UP
+> 3/1: mlx5_2/1: subnet_prefix fe80:0000:0000:0000 lid 13401 sm_lid 49151 lmc 0 state ACTIVE physical_state LINK_UP
+> 4/1: mlx5_3/1: state DOWN physical_state DISABLED
+> 5/1: mlx5_4/1: subnet_prefix fe80:0000:0000:0000 lid 13403 sm_lid 49151 lmc 0 state ACTIVE physical_state LINK_UP
+> 
+> ### Link properties in detailed mode
+> $ rdma link -d
+> 1/1: mlx5_0/1: subnet_prefix fe80:0000:0000:0000 lid 13399 sm_lid 49151 lmc 0 state ACTIVE physical_state LINK_UP
+>     caps: <AUTO_MIGR>
+> 2/1: mlx5_1/1: subnet_prefix fe80:0000:0000:0000 lid 13400 sm_lid 49151 lmc 0 state ACTIVE physical_state LINK_UP
+>     caps: <AUTO_MIGR>
+> 3/1: mlx5_2/1: subnet_prefix fe80:0000:0000:0000 lid 13401 sm_lid 49151 lmc 0 state ACTIVE physical_state LINK_UP
+>     caps: <AUTO_MIGR>
+> 4/1: mlx5_3/1: state DOWN physical_state DISABLED
+>     caps: <CM, IP_BASED_GIDS>
+> 5/1: mlx5_4/1: subnet_prefix fe80:0000:0000:0000 lid 13403 sm_lid 49151 lmc 0 state ACTIVE physical_state LINK_UP
+>     caps: <AUTO_MIGR>
+> 
+> ### All links for specific device
+> $ rdma link show mlx5_3
+> 1/1: mlx5_0/1: subnet_prefix fe80:0000:0000:0000 lid 13399 sm_lid 49151 lmc 0 state ACTIVE physical_state LINK_UP
+> 
+> ### Detailed link properties for specific device
+> $ rdma link -d show mlx5_3
+> 1/1: mlx5_0/1: subnet_prefix fe80:0000:0000:0000 lid 13399 sm_lid 49151 lmc 0 state ACTIVE physical_state LINK_UP
+>     caps: <AUTO_MIGR>
+> 
+> ### Specific port for specific device
+> $ rdma link show mlx5_4/1
+> 1/1: mlx5_0/1: subnet_prefix fe80:0000:0000:0000 lid 13399 sm_lid 49151 lmc 0 state ACTIVE physical_state LINK_UP
+> 
+> ### Unknown parameter
+> $ rdma link show mlx5_4/1 caps
+> Unknown parameter 'caps'.
+> 
+> Available in the "topic/rdmatool-netlink-v6" topic branch of this git repo:
+> git://git.kernel.org/pub/scm/linux/kernel/git/leon/iproute2.git
+> 
+> Or for browsing:
+> https://git.kernel.org/cgit/linux/kernel/git/leon/iproute2.git/log/?h=topic/rdmatool-netlink-v6
+> 
+> Thanks
+> 
+> [1] https://www.spinics.net/lists/linux-rdma/msg49575.html
+> [2] https://patchwork.kernel.org/patch/9752865/
+> [3] https://www.spinics.net/lists/linux-rdma/msg50827.html
+> [4] https://www.spinics.net/lists/linux-rdma/msg51210.html
+> [5] https://patchwork.kernel.org/patch/9811729/ and https://patchwork.kernel.org/patch/9811731/]
+> 
+> Cc: Doug Ledford <dledford@redhat.com>
+> Cc: Dennis Dalessandro <dennis.dalessandro@intel.com>
+> Cc: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+> Cc: Jiri Pirko <jiri@mellanox.com>
+> Cc: Ariel Almog <ariela@mellanox.com>
+> Cc: David Laight <David.Laight@ACULAB.COM>
+> Cc: Linux Netdev <netdev@vger.kernel.org>
+> 
+> Leon Romanovsky (8):
+>   utils: Move BIT macro to common header
+>   rdma: Add basic infrastructure for RDMA tool
+>   rdma: Add dev object
+>   rdma: Add link object
+>   rdma: Add json and pretty outputs
+>   rdma: Implement json output for dev object
+>   rdma: Add json output to link object
+>   rdma: Add initial manual for the tool
+> 
+>  Makefile                    |   2 +-
+>  devlink/devlink.c           |   2 +-
+>  include/rdma/rdma_netlink.h | 307 +++++++++++++++++++++++++++++++++++++++
+>  include/utils.h             |   2 +
+>  man/man8/rdma-dev.8         |  55 +++++++
+>  man/man8/rdma-link.8        |  55 +++++++
+>  man/man8/rdma.8             | 102 +++++++++++++
+>  rdma/.gitignore             |   1 +
+>  rdma/Makefile               |  22 +++
+>  rdma/dev.c                  | 284 ++++++++++++++++++++++++++++++++++++
+>  rdma/link.c                 | 343 ++++++++++++++++++++++++++++++++++++++++++++
+>  rdma/rdma.c                 | 143 ++++++++++++++++++
+>  rdma/rdma.h                 |  91 ++++++++++++
+>  rdma/utils.c                | 266 ++++++++++++++++++++++++++++++++++
+>  14 files changed, 1673 insertions(+), 2 deletions(-)
+>  create mode 100644 include/rdma/rdma_netlink.h
+>  create mode 100644 man/man8/rdma-dev.8
+>  create mode 100644 man/man8/rdma-link.8
+>  create mode 100644 man/man8/rdma.8
+>  create mode 100644 rdma/.gitignore
+>  create mode 100644 rdma/Makefile
+>  create mode 100644 rdma/dev.c
+>  create mode 100644 rdma/link.c
+>  create mode 100644 rdma/rdma.c
+>  create mode 100644 rdma/rdma.h
+>  create mode 100644 rdma/utils.c
 
-
--- 
-Florian
+Applied to master branch (for 4.13).
+Thanks for your patience and persistance.
