@@ -1,7 +1,8 @@
 From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH net-next v2 00/10] net: mvpp2: MAC/GoP configuration
-Date: Tue, 22 Aug 2017 19:08:20 +0200
-Message-ID: <20170822170830.32413-1-antoine.tenart@free-electrons.com>
+Subject: [PATCH net-next v2 09/10] arm64: dts: marvell: add a reference to the sysctrl syscon in the ppv2 node
+Date: Tue, 22 Aug 2017 19:08:29 +0200
+Message-ID: <20170822170830.32413-10-antoine.tenart@free-electrons.com>
+References: <20170822170830.32413-1-antoine.tenart@free-electrons.com>
 Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
         thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
         linux@armlinux.org.uk, mw@semihalf.com, stefanc@marvell.com,
@@ -9,71 +10,49 @@ Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
 To: davem@davemloft.net, jason@lakedaemon.net, andrew@lunn.ch,
         gregory.clement@free-electrons.com, sebastian.hesselbarth@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:38531 "EHLO
+Received: from mail.free-electrons.com ([62.4.15.54]:38567 "EHLO
         mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751209AbdHVRIs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2017 13:08:48 -0400
+        with ESMTP id S1751716AbdHVRIv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2017 13:08:51 -0400
+In-Reply-To: <20170822170830.32413-1-antoine.tenart@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+The network driver on Marvell SoC (7k/8k) needs to access some registers
+in the system controller to configure its ports at runtime. This patch
+adds a phandle reference to the syscon system controller node in the
+ppv2 node.
 
-This is based on net-next (e2a7c34fb285).
+Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
+Tested-by: Marcin Wojtas <mw@semihalf.com>
+---
+ arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi | 1 +
+ arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi  | 1 +
+ 2 files changed, 2 insertions(+)
 
-I removed the GoP interrupt and PHY optional parts in this v2 to ease
-the review process as the MAC/GoP initialization seemed to start less
-discussions :)
-
-This series now only aims at making the PPv2 driver less depending on
-the firmware/bootloader initialization. Some patches cleanup some parts
-as well, and add new interface descriptions in the dt.
-
-The current implementation of the PPv2 driver relies on the
-firmware/bootloader initialization to configure some parts, as the Group
-of Ports (GoP) and the MACs (GMAC and/or XLG MAC --for 10G--).  The
-drawback is the kernel must be configured to match exactly what the
-bootloader configures which is not convenient and is an issue when using
-boards having an Ethernet port and an SFP port wired to the same GoP
-port, as no dynamic configuration can be done.
-
-This series adds the GoP and GMAC/XLG MAC initializations so that the
-PPV2 does not have to rely on a previous initialization. One part is
-still missing from this series, and that would be the 'comphy' which
-provides shared serdes PHYs and which must be configured as well for a
-full kernel initialization to work. This comphy support will be part of
-a following up series. (This series was also tested with this 'comphy'
-support, as it's nearly ready).
-
-@Dave: patches 9 and 10 should go through the mvebu tree. Thanks!
-
-Since v1:
-  - Split the previous series.
-  - Rebased on net-next and reworked the series accordingly.
-  - Added support for all RGMII variants.
-  - Added a patch from Stefan Chulski improving / fixing 10G support.
-  - Various small fixes.
-
-Antoine Tenart (9):
-  net: mvpp2: unify register definitions coding style
-  net: mvpp2: fix the synchronization module bypass macro name
-  net: mvpp2: move the mii configuration in the ndo_open path
-  net: mvpp2: initialize the GMAC when using a port
-  net: mvpp2: initialize the XLG MAC when using a port
-  net: mvpp2: initialize the GoP
-  Documentation/bindings: net: marvell-pp2: add the system controller
-  arm64: dts: marvell: add a reference to the sysctrl syscon in the ppv2
-    node
-  arm64: dts: marvell: mcbin: enable more networking ports
-
-Stefan Chulski (1):
-  net: mvpp2: set maximum packet size for 10G ports
-
- .../devicetree/bindings/net/marvell-pp2.txt        |   1 +
- arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts  |  30 ++
- .../boot/dts/marvell/armada-cp110-master.dtsi      |   1 +
- .../arm64/boot/dts/marvell/armada-cp110-slave.dtsi |   1 +
- drivers/net/ethernet/marvell/mvpp2.c               | 432 +++++++++++++++++----
- 5 files changed, 393 insertions(+), 72 deletions(-)
-
+diff --git a/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi b/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi
+index 4c68605675a8..18299e164cb7 100644
+--- a/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi
++++ b/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi
+@@ -65,6 +65,7 @@
+ 				reg = <0x0 0x100000>, <0x129000 0xb000>;
+ 				clocks = <&cpm_clk 1 3>, <&cpm_clk 1 9>, <&cpm_clk 1 5>;
+ 				clock-names = "pp_clk", "gop_clk", "mg_clk";
++				marvell,system-controller = <&cpm_syscon0>;
+ 				status = "disabled";
+ 				dma-coherent;
+ 
+diff --git a/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi b/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi
+index 923f354b02f0..5ae8fa575859 100644
+--- a/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi
++++ b/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi
+@@ -72,6 +72,7 @@
+ 				reg = <0x0 0x100000>, <0x129000 0xb000>;
+ 				clocks = <&cps_clk 1 3>, <&cps_clk 1 9>, <&cps_clk 1 5>;
+ 				clock-names = "pp_clk", "gop_clk", "mg_clk";
++				marvell,system-controller = <&cps_syscon0>;
+ 				status = "disabled";
+ 				dma-coherent;
+ 
 -- 
 2.13.5
