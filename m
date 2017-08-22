@@ -1,28 +1,50 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: skb_over_panic when sending esp traffic from a vmware guest
-Date: Tue, 22 Aug 2017 07:32:49 +0200
-Message-ID: <20170822053249.GK31224@secunet.com>
-References: <CY1PR17MB0552F3C75C45DBC72799A0F187830@CY1PR17MB0552.namprd17.prod.outlook.com>
+From: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+Subject: Re: [PATCH net-next 3/3 v5] drivers: net: ethernet: qualcomm: rmnet:
+ Initial implementation
+Date: Mon, 21 Aug 2017 23:34:07 -0600
+Message-ID: <189aff978eef108edaf9872c50f1f19f@codeaurora.org>
+References: <1502931307-517-1-git-send-email-subashab@codeaurora.org>
+ <1502931307-517-4-git-send-email-subashab@codeaurora.org>
+ <20170821210853.4b1a150d@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Nick Huber <nick.huber@multapplied.net>
+Content-Type: text/plain; charset=US-ASCII;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+        fengguang.wu@intel.com, dcbw@redhat.com, jiri@resnulli.us,
+        David.Laight@aculab.com, marcel@holtmann.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:37916 "EHLO a.mx.secunet.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751279AbdHVFc5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 22 Aug 2017 01:32:57 -0400
-Content-Disposition: inline
-In-Reply-To: <CY1PR17MB0552F3C75C45DBC72799A0F187830@CY1PR17MB0552.namprd17.prod.outlook.com>
+Received: from smtp.codeaurora.org ([198.145.29.96]:45320 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751317AbdHVFeI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2017 01:34:08 -0400
+In-Reply-To: <20170821210853.4b1a150d@xeon-e3>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 17, 2017 at 07:19:03PM +0000, Nick Huber wrote:
-> I've been experience the following traceback since upgrading from the 4.9 kernel to the 4.11 branch. I've only seen this in a few VMWare guests and I haven't been able to narrow down what exactly is causing it. I'm not familiar with kernel debugging but any help in tracing this down would be appreciated.
+>> +	priv = netdev_priv(rmnet_dev);
+>> +	memset(priv, 0, sizeof(struct rmnet_priv));
+> 
+> Netdev private area is always zero on creation. See alloc_netdev().
+> 
+>> +	if (!rmnet_dev)
+>> +		return 0;
+> 
+> Do not confuse 0 with NULL. Did you run sparse?
+> 
+>> +
+>> +	priv = netdev_priv(rmnet_dev);
+>> +	if (!priv)
+>> +		return 0;
+> 
+> 
+> netdev_priv() always returns a non-NULL value.  The private area is 
+> just
+> a constant offset below the original network_device structure.
 
-Can you give some details about your setup?
+Hi Stephen
 
->From the backtrace I see that you use GRE tunnels.
-How is the setup of the GRE tunnel and the SAs?
-How is routing done? In particular I'm interested
-if you use routing by netfilter or socket marks.
+I havent used sparse till now. I'll fix the errors reported by it as 
+well
+your other comments and post again.
