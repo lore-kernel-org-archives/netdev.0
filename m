@@ -1,68 +1,56 @@
-From: Alexei Starovoitov via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-Subject: Re: [PATCH net-next 3/4] bpf/verifier: when pruning a
- branch, ignore its write marks
-Date: Tue, 22 Aug 2017 08:24:17 -0700
-Message-ID: <0ba423e6-8629-37b1-b772-0734f1fb5489@fb.com>
-References: <f25f46bd-27cb-2182-2551-2887757c1e0f@solarflare.com>
-	<d1a5b78a-8f5c-50d9-08a2-eb7c4829a478@solarflare.com>
-Reply-To: Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH v4 net-next] arm: eBPF JIT compiler
+Date: Tue, 22 Aug 2017 17:25:54 +0200
+Message-ID: <599C4D02.7090901@iogearbox.net>
+References: <1503383772-5788-1-git-send-email-illusionist.neo@gmail.com> <599C48E7.3000409@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-To: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, Alexei
-	Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, Daniel Borkmann
-	<daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
-Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-In-Reply-To: <d1a5b78a-8f5c-50d9-08a2-eb7c4829a478-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
-List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
-List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
-Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+Cc: netdev@vger.kernel.org, ast@fb.com,
+        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
+        keescook@chromium.org
+To: Shubham Bansal <illusionist.neo@gmail.com>, linux@armlinux.org.uk,
+        davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <599C48E7.3000409@iogearbox.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 8/22/17 6:27 AM, Edward Cree wrote:
-> The fact that writes occurred in reaching the continuation state does
->  not screen off its reads from us, because we're not really its parent.
-> So detect 'not really the parent' in do_propagate_liveness, and ignore
->  write marks in that case.
+On 08/22/2017 05:08 PM, Daniel Borkmann wrote:
+> On 08/22/2017 08:36 AM, Shubham Bansal wrote:
+> [...]
+>> +
+>> +static int out_offset = -1; /* initialized on the first pass of build_body() */
 >
-> Fixes: dc503a8ad984 ("bpf/verifier: track liveness for pruning")
-> Signed-off-by: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
-> ---
->  kernel/bpf/verifier.c | 9 +++++++--
->  1 file changed, 7 insertions(+), 2 deletions(-)
->
-> diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-> index 1e3f56c..711bdbd 100644
-> --- a/kernel/bpf/verifier.c
-> +++ b/kernel/bpf/verifier.c
-> @@ -3420,6 +3420,7 @@ static bool states_equal(struct bpf_verifier_env *env,
->  static bool do_propagate_liveness(const struct bpf_verifier_state *state,
->  				  struct bpf_verifier_state *parent)
->  {
-> +	bool writes = parent == state->parent; /* Observe write marks */
->  	bool touched = false; /* any changes made? */
->  	int i;
->
-> @@ -3431,7 +3432,9 @@ static bool do_propagate_liveness(const struct bpf_verifier_state *state,
->  	for (i = 0; i < BPF_REG_FP; i++) {
->  		if (parent->regs[i].live & REG_LIVE_READ)
->  			continue;
-> -		if (state->regs[i].live == REG_LIVE_READ) {
-> +		if (writes && (state->regs[i].live & REG_LIVE_WRITTEN))
-> +			continue;
-> +		if (state->regs[i].live & REG_LIVE_READ) {
+> Hm, why is this a global var actually? There can be
+> multiple parallel calls to bpf_int_jit_compile(), we
+> don't take a global lock on this. Unless I'm missing
+> something this should really reside in jit_ctx, no?
 
-makes sense to me.
-if i understand correctly it not only should make the liveness marking
-correct, but improve the numbers, since smaller number of states
-will have READ marks.
-Do you have a test case for this by any chance?
+Hm, okay, it's for generating the out jmp offsets in
+tail call emission which are supposed to always be the
+same relative offsets; should be fine then.
 
-Acked-by: Alexei Starovoitov <ast-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+> Given this is on emit_bpf_tail_call(), did you get
+> tail calls working the way I suggested to test?
+>
+>> +static int emit_bpf_tail_call(struct jit_ctx *ctx)
+>>   {
+> [...]
+>> +    const int idx0 = ctx->idx;
+>> +#define cur_offset (ctx->idx - idx0)
+>> +#define jmp_offset (out_offset - (cur_offset))
+> [...]
+>> +
+>> +    /* out: */
+>> +    if (out_offset == -1)
+>> +        out_offset = cur_offset;
+>> +    if (cur_offset != out_offset) {
+>> +        pr_err_once("tail_call out_offset = %d, expected %d!\n",
+>> +                cur_offset, out_offset);
+>> +        return -1;
+>> +    }
+>> +    return 0;
+>> +#undef cur_offset
+>> +#undef jmp_offset
+>>   }
