@@ -1,31 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 0/2] Simplify the tcp_conn_request.
-Date: Tue, 22 Aug 2017 14:16:59 -0700 (PDT)
-Message-ID: <20170822.141659.1670288119145470995.davem@davemloft.net>
-References: <1503383629-12392-1-git-send-email-xiangxia.m.yue@gmail.com>
+Subject: Re: [PATCH] net: ftgmac100: Fix oops in probe on failure to find
+ associated PHY
+Date: Tue, 22 Aug 2017 14:20:14 -0700 (PDT)
+Message-ID: <20170822.142014.1004582480730502532.davem@davemloft.net>
+References: <20170822063622.21550-1-andrew@aj.id.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
-To: xiangxia.m.yue@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44032 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752189AbdHVVRA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2017 17:17:00 -0400
-In-Reply-To: <1503383629-12392-1-git-send-email-xiangxia.m.yue@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, benh@kernel.crashing.org, joel@jms.id.au,
+        linux-kernel@vger.kernel.org, openbmc@lists.ozlabs.org,
+        linux-aspeed@lists.ozlabs.org, ryan_chen@aspeedtech.com
+To: andrew@aj.id.au
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170822063622.21550-1-andrew@aj.id.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Tonghao Zhang <xiangxia.m.yue@gmail.com>
-Date: Mon, 21 Aug 2017 23:33:47 -0700
+From: Andrew Jeffery <andrew@aj.id.au>
+Date: Tue, 22 Aug 2017 16:06:22 +0930
 
-> Just simplify the tcp_conn_request function.
+> netif_napi_del() should be paired with netif_napi_add(), however no
+> such call takes place in ftgmac100_probe(). This triggers a NULL
+> pointer dereference if e.g. no PHY is found by the MDIO probe:
+ ...
+> Signed-off-by: Andrew Jeffery <andrew@aj.id.au>
 
-Series applied, thanks.
-
-The explicit 'dst = NULL' in the variable declaration is probably
-superfluous now.
-
-And in fact it was hiding the bug that we didn't have a proper
-'dst' early enough.
+Applied, thanks.
