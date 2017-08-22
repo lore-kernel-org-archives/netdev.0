@@ -1,40 +1,36 @@
-From: Stanislav Yakovlev <stas.yakovlev@gmail.com>
-Subject: Re: [PATCH v12 7/8] wireless: ipw2200: Replace PCI pool old API
-Date: Tue, 22 Aug 2017 18:11:14 -0400
-Message-ID: <CA++WF2MAT3aHd3TYfLgym9ssFKBsti6+t9b1yJ_eXHEmRBWwcQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Dan Williams <dan.j.williams@intel.com>,
-        Doug Ledford <dledford@redhat.com>,
-        Sean Hefty <sean.hefty@intel.com>,
-        Hal Rosenstock <hal.rosenstock@gmail.com>,
-        jeffrey.t.kirsher@intel.com,
-        "David S. Miller" <davem@davemloft.net>,
-        linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-To: Romain Perier <romain.perier@collabora.com>,
-        Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net v2 0/2] net: dsa: Fix tag_ksz.c
+Date: Tue, 22 Aug 2017 15:12:13 -0700
+Message-ID: <20170822221215.16305-1-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, vivien.didelot@savoirfairelinux.com,
+        Woojung.Huh@microchip.com, UNGLinuxDriver@microchip.com,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:34439 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751687AbdHVWMY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2017 18:12:24 -0400
+Received: by mail-wm0-f67.google.com with SMTP id r187so494319wma.1
+        for <netdev@vger.kernel.org>; Tue, 22 Aug 2017 15:12:23 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 22 August 2017 at 07:47, Romain Perier <romain.perier@collabora.com> wrote:
-> The PCI pool API is deprecated. This commit replaces the PCI pool old
-> API by the appropriate function with the DMA pool API.
->
-> Signed-off-by: Romain Perier <romain.perier@collabora.com>
-> Reviewed-by: Peter Senna Tschudin <peter.senna@collabora.com>
-> ---
->  drivers/net/wireless/intel/ipw2x00/ipw2200.c | 13 +++++++------
->  1 file changed, 7 insertions(+), 6 deletions(-)
->
+This implements David's suggestion of providing low-level functions
+to control whether skb_pad() and skb_put_padto() should be freeing
+the passed skb.
 
-Acked-by: Stanislav Yakovlev <stas.yakovlev@gmail.com>
+We make use of it to fix a double free in net/dsa/tag_ksz.c that would
+occur if we kept using skb_put_padto() in both places.
 
-Thanks, and sorry for the long review.
+Florian Fainelli (2):
+  net: core: Specify skb_pad()/skb_put_padto() SKB freeing
+  net: dsa: skb_put_padto() already frees nskb
 
-Kalle, could you please apply it to the wireless-drivers-next tree?
+ include/linux/skbuff.h | 41 +++++++++++++++++++++++++++++++++++++----
+ net/core/skbuff.c      | 13 ++++++++-----
+ net/dsa/tag_ksz.c      | 10 ++++++----
+ 3 files changed, 51 insertions(+), 13 deletions(-)
 
-Thanks,
-Stanislav.
+-- 
+2.9.3
