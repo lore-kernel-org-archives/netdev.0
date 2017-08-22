@@ -1,99 +1,98 @@
-From: "Chopra, Manish" <Manish.Chopra@cavium.com>
-Subject: RE: [patch net-next] net/sched: Fix the logic error to decide the
- ingress qdisc
-Date: Tue, 22 Aug 2017 20:47:38 +0000
-Message-ID: <BN3PR0701MB1412C429E0CECC64429CF39289840@BN3PR0701MB1412.namprd07.prod.outlook.com>
-References: <1503055460-36795-1-git-send-email-chrism@mellanox.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: [PATCH net-next 5/5] xdp: get tracepoints xdp_exception and
+ xdp_redirect in sync
+Date: Tue, 22 Aug 2017 22:47:40 +0200
+Message-ID: <150343485998.31091.4036615069956176401.stgit@firesoul>
+References: <150343479290.31091.8019008896152616977.stgit@firesoul>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-        "jiri@resnulli.us" <jiri@resnulli.us>
-To: Chris Mi <chrism@mellanox.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: John Fastabend <john.fastabend@gmail.com>,
+        Jesper Dangaard Brouer <brouer@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2nam02on0043.outbound.protection.outlook.com ([104.47.38.43]:6608
-        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752955AbdHVUrk (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 22 Aug 2017 16:47:40 -0400
-In-Reply-To: <1503055460-36795-1-git-send-email-chrism@mellanox.com>
-Content-Language: en-US
+Received: from mx1.redhat.com ([209.132.183.28]:41090 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752974AbdHVUrl (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 22 Aug 2017 16:47:41 -0400
+In-Reply-To: <150343479290.31091.8019008896152616977.stgit@firesoul>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
------Original Message-----
-From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On=
- Behalf Of Chris Mi
-Sent: Friday, August 18, 2017 4:54 PM
-To: netdev@vger.kernel.org
-Cc: davem@davemloft.net; jiri@resnulli.us
-Subject: [patch net-next] net/sched: Fix the logic error to decide the ingr=
-ess qdisc
+Remove the net_device string name from the xdp_exception tracepoint,
+like the xdp_redirect tracepoint.
 
-The offending commit used a newly added helper function.
-But the logic is wrong. Without this fix, the affected NICs can't do HW off=
-load. Error -EOPNOTSUPP will be returned directly.
+Align the TP_STRUCT to have common entries between these two
+tracepoint.
 
-Fixes: a2e8da9378cc ("net/sched: use newly added classid identity helpers")
-Signed-off-by: Chris Mi <chrism@mellanox.com>
-Acked-by: Jiri Pirko <jiri@mellanox.com>
+Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c     | 2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c       | 2 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c   | 2 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_rep.c    | 2 +-
- drivers/net/ethernet/netronome/nfp/bpf/main.c       | 2 +-
- drivers/net/ethernet/netronome/nfp/flower/offload.c | 2 +-
- 6 files changed, 6 insertions(+), 6 deletions(-)
+ include/trace/events/xdp.h |   24 ++++++++++++------------
+ 1 file changed, 12 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/=
-ethernet/chelsio/cxgb4/cxgb4_main.c
-index 77538cd..e55a929 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -2892,7 +2892,7 @@ static int cxgb_set_tx_maxrate(struct net_device *dev=
-, int index, u32 rate)  static int cxgb_setup_tc_cls_u32(struct net_device =
-*dev,
- 				 struct tc_cls_u32_offload *cls_u32)  {
--	if (is_classid_clsact_ingress(cls_u32->common.classid) ||
-+	if (!is_classid_clsact_ingress(cls_u32->common.classid) ||
- 	    cls_u32->common.chain_index)
- 		return -EOPNOTSUPP;
-=20
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/et=
-hernet/intel/ixgbe/ixgbe_main.c
-index f9fd8d8..56d7ef0 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -9230,7 +9230,7 @@ static int ixgbe_setup_tc_cls_u32(struct net_device *=
-dev,  {
- 	struct ixgbe_adapter *adapter =3D netdev_priv(dev);
-=20
--	if (is_classid_clsact_ingress(cls_u32->common.classid) ||
-+	if (!is_classid_clsact_ingress(cls_u32->common.classid) ||
- 	    cls_u32->common.chain_index)
- 		return -EOPNOTSUPP;
-
-Hi Jiri/Chris,
-
-I was looking at ixgbe and observed that it uses "is_tcf_mirred_egress_redi=
-rect()" API which works for below filter command -
-
-     # add u32 filter with action to redirect to macvlan netdev
-     tc filter add dev p4p1 parent ffff: protocol ip prio 99 \
-        handle 800:0:2 u32 ht 800: \
-        match ip src 192.168.2.3/32 \
-        action mirred egress redirect dev mvlan_1
-
-Assuming that hardware actually redirect the packets to "ingress" direction=
- of mac vlan interface [that is it delivers the packet to the driver in rec=
-eive flow]
-Isn't the use of above API incorrect or misleading ?  shouldn't it be somet=
-hing like "is_tcf_mirred_ingress_redirect()" and part of the command should=
- be replaced with below ?
-
-action mirrred ingress redirect mvlan_1=20
-
-Thanks,
-Manish
+diff --git a/include/trace/events/xdp.h b/include/trace/events/xdp.h
+index 7511bed80558..6495b0d9d5c7 100644
+--- a/include/trace/events/xdp.h
++++ b/include/trace/events/xdp.h
+@@ -31,22 +31,22 @@ TRACE_EVENT(xdp_exception,
+ 	TP_ARGS(dev, xdp, act),
+ 
+ 	TP_STRUCT__entry(
+-		__string(name, dev->name)
+ 		__array(u8, prog_tag, 8)
+ 		__field(u32, act)
++		__field(int, ifindex)
+ 	),
+ 
+ 	TP_fast_assign(
+ 		BUILD_BUG_ON(sizeof(__entry->prog_tag) != sizeof(xdp->tag));
+ 		memcpy(__entry->prog_tag, xdp->tag, sizeof(xdp->tag));
+-		__assign_str(name, dev->name);
+-		__entry->act = act;
++		__entry->act		= act;
++		__entry->ifindex	= dev->ifindex;
+ 	),
+ 
+-	TP_printk("prog=%s device=%s action=%s",
++	TP_printk("prog=%s action=%s ifindex=%d",
+ 		  __print_hex_str(__entry->prog_tag, 8),
+-		  __get_str(name),
+-		  __print_symbolic(__entry->act, __XDP_ACT_SYM_TAB))
++		  __print_symbolic(__entry->act, __XDP_ACT_SYM_TAB),
++		  __entry->ifindex)
+ );
+ 
+ TRACE_EVENT(xdp_redirect,
+@@ -57,26 +57,26 @@ TRACE_EVENT(xdp_redirect,
+ 	TP_ARGS(from_index, to_index, xdp, act, err),
+ 
+ 	TP_STRUCT__entry(
+-		__field(int, from_index)
+-		__field(int, to_index)
+ 		__array(u8, prog_tag, 8)
+ 		__field(u32, act)
++		__field(int, from_index)
++		__field(int, to_index)
+ 		__field(int, err)
+ 	),
+ 
+ 	TP_fast_assign(
+ 		BUILD_BUG_ON(sizeof(__entry->prog_tag) != sizeof(xdp->tag));
+ 		memcpy(__entry->prog_tag, xdp->tag, sizeof(xdp->tag));
++		__entry->act		= act;
+ 		__entry->from_index	= from_index;
+ 		__entry->to_index	= to_index;
+-		__entry->act = act;
+-		__entry->err = err;
++		__entry->err		= err;
+ 	),
+ 
+-	TP_printk("prog=%s from=%d to=%d action=%s err=%d",
++	TP_printk("prog=%s action=%s from=%d to=%d err=%d",
+ 		  __print_hex_str(__entry->prog_tag, 8),
+-		  __entry->from_index, __entry->to_index,
+ 		  __print_symbolic(__entry->act, __XDP_ACT_SYM_TAB),
++		  __entry->from_index, __entry->to_index,
+ 		  __entry->err)
+ );
+ #endif /* _TRACE_XDP_H */
