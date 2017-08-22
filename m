@@ -1,450 +1,102 @@
-From: Mike Maloney <maloneykernel@gmail.com>
-Subject: [PATCH v2 net-next 2/2] selftests/net: Add a test to validate behavior of rx timestamps
-Date: Tue, 22 Aug 2017 17:08:49 -0400
-Message-ID: <20170822210849.23162-3-maloneykernel@gmail.com>
-References: <20170822210849.23162-1-maloneykernel@gmail.com>
-Cc: willemdebruijn.kernel@gmail.com, soheil@google.com,
-        Mike Maloney <maloney@google.com>
-To: netdev@vger.kernel.org, davem@davemloft.net
+From: "Keller, Jacob E" <jacob.e.keller@intel.com>
+Subject: RE: [PATCH v2] i40e/i40evf: fix out-of-bounds read of cpumask
+Date: Tue, 22 Aug 2017 21:15:43 +0000
+Message-ID: <02874ECE860811409154E81DA85FBB5882A63065@ORSMSX115.amr.corp.intel.com>
+References: <20170822210442.18006-1-jacob.e.keller@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "stable@vger.kernel.org#4.10+" <stable@vger.kernel.org#4.10+>
+To: "Keller, Jacob E" <jacob.e.keller@intel.com>,
+        Intel Wired LAN <intel-wired-lan@lists.osuosl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f194.google.com ([209.85.161.194]:37495 "EHLO
-        mail-yw0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752623AbdHVVJH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2017 17:09:07 -0400
-Received: by mail-yw0-f194.google.com with SMTP id s143so12504480ywg.4
-        for <netdev@vger.kernel.org>; Tue, 22 Aug 2017 14:09:07 -0700 (PDT)
-In-Reply-To: <20170822210849.23162-1-maloneykernel@gmail.com>
+Received: from mga05.intel.com ([192.55.52.43]:10118 "EHLO mga05.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751615AbdHVVPp (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 22 Aug 2017 17:15:45 -0400
+In-Reply-To: <20170822210442.18006-1-jacob.e.keller@intel.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mike Maloney <maloney@google.com>
+> -----Original Message-----
+> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On
+> Behalf Of Jacob Keller
+> Sent: Tuesday, August 22, 2017 2:05 PM
+> To: Intel Wired LAN <intel-wired-lan@lists.osuosl.org>
+> Cc: netdev@vger.kernel.org; Keller, Jacob E <jacob.e.keller@intel.com>;
+> stable@vger.kernel.org#4.10+
+> Subject: [PATCH v2] i40e/i40evf: fix out-of-bounds read of cpumask
+> 
+> When responding to an affinity hint we directly copied a cpumask value,
+> intsead of using cpumask_copy. According to cpumask.h this is not
+> correct because cpumask_t is only guaranteed to have enough space for
+> the number of CPUs in the system, and may not be as big as we expect.
+> Thus a direct copy results in an out-of-bound read and potentially
+> a crash if the pages are aligned just right. This will be easily
+> detected on a kernel with KASAN enabled:
+> 
+> KASAN reports:
+> [   25.242312] BUG: KASAN: slab-out-of-bounds in
+> i40e_irq_affinity_notify+0x30/0x50 [i40e] at addr ffff880462eea960
+> [   25.242315] Read of size 1024 by task kworker/2:1/170
+> [   25.242322] CPU: 2 PID: 170 Comm: kworker/2:1 Not tainted 4.11.0-
+> 22.el7a.x86_64 #1
+> [   25.242325] Hardware name: HP ProLiant DL380 Gen9, BIOS P89 05/06/2015
+> [   25.242336] Workqueue: events irq_affinity_notify
+> [   25.242340] Call Trace:
+> [   25.242350]  dump_stack+0x63/0x8d
+> [   25.242358]  kasan_object_err+0x21/0x70
+> [   25.242364]  kasan_report+0x288/0x540
+> [   25.242397]  ? i40e_irq_affinity_notify+0x30/0x50 [i40e]
+> [   25.242403]  check_memory_region+0x13c/0x1a0
+> [   25.242408]  __asan_loadN+0xf/0x20
+> [   25.242440]  i40e_irq_affinity_notify+0x30/0x50 [i40e]
+> [   25.242446]  irq_affinity_notify+0x1b4/0x230
+> [   25.242452]  ? irq_set_affinity_notifier+0x130/0x130
+> [   25.242457]  ? kasan_slab_free+0x89/0xc0
+> [   25.242466]  process_one_work+0x32f/0x6f0
+> [   25.242472]  worker_thread+0x89/0x770
+> [   25.242481]  ? pci_mmcfg_check_reserved+0xc0/0xc0
+> [   25.242488]  kthread+0x18c/0x1e0
+> [   25.242493]  ? process_one_work+0x6f0/0x6f0
+> [   25.242499]  ? kthread_create_on_node+0xc0/0xc0
+> [   25.242506]  ret_from_fork+0x2c/0x40
+> [   25.242511] Object at ffff880462eea960, in cache kmalloc-8 size: 8
+> [   25.242513] Allocated:
+> [   25.242514] PID = 170
+> [   25.242522]  save_stack_trace+0x1b/0x20
+> [   25.242529]  save_stack+0x46/0xd0
+> [   25.242533]  kasan_kmalloc+0xad/0xe0
+> [   25.242537]  __kmalloc_node+0x12c/0x2b0
+> [   25.242542]  alloc_cpumask_var_node+0x3c/0x60
+> [   25.242546]  alloc_cpumask_var+0xe/0x10
+> [   25.242550]  irq_affinity_notify+0x94/0x230
+> [   25.242555]  process_one_work+0x32f/0x6f0
+> [   25.242559]  worker_thread+0x89/0x770
+> [   25.242564]  kthread+0x18c/0x1e0
+> [   25.242568]  ret_from_fork+0x2c/0x40
+> [   25.242569] Freed:
+> [   25.242570] PID = 0
+> [   25.242572] (stack is not available)
+> [   25.242573] Memory state around the buggy address:
+> [   25.242578]  ffff880462eea800: fc fc 00 fc fc 00 fc fc 00 fc fc 00 fc fc fb fc
+> [   25.242582]  ffff880462eea880: fc fb fc fc fb fc fc 00 fc fc 00 fc fc 00 fc fc
+> [   25.242586] >ffff880462eea900: 00 fc fc 00 fc fc 00 fc fc fb fc fc 00 fc fc fc
+> [   25.242588]                                                           ^
+> [   25.242592]  ffff880462eea980: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
+> [   25.242596]  ffff880462eeaa00: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
+> [   25.242597]
+> ==================================================================
+> 
+> Fixes: 96db776a3682 ("i40e/i40evf: fix interrupt affinity bug", 2016-09-14)
+> Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+> Cc: stable@vger.kernel.org # 4.10+
+> ---
+> This updates the commit message for the original fix, and indicates that
+> it fixes a potential crash, as well as tagged the commit for stable and
+> added a Fixes to indicate which commit this fixes.
+> 
 
-Validate the behavior of the combination of various timestamp socket
-options, and ensure consistency across ip, udp, and tcp.
-
-Signed-off-by: Mike Maloney <maloney@google.com>
----
- .../selftests/networking/timestamping/.gitignore   |   1 +
- .../selftests/networking/timestamping/Makefile     |   4 +-
- .../networking/timestamping/rxtimestamp.c          | 389 +++++++++++++++++++++
- 3 files changed, 393 insertions(+), 1 deletion(-)
- create mode 100644 tools/testing/selftests/networking/timestamping/rxtimestamp.c
-
-diff --git a/tools/testing/selftests/networking/timestamping/.gitignore b/tools/testing/selftests/networking/timestamping/.gitignore
-index 9e69e982fb38..d9355035e746 100644
---- a/tools/testing/selftests/networking/timestamping/.gitignore
-+++ b/tools/testing/selftests/networking/timestamping/.gitignore
-@@ -1,3 +1,4 @@
- timestamping
-+rxtimestamp
- txtimestamp
- hwtstamp_config
-diff --git a/tools/testing/selftests/networking/timestamping/Makefile b/tools/testing/selftests/networking/timestamping/Makefile
-index ccbb9edbbbb9..92fb8ee917c5 100644
---- a/tools/testing/selftests/networking/timestamping/Makefile
-+++ b/tools/testing/selftests/networking/timestamping/Makefile
-@@ -1,4 +1,6 @@
--TEST_PROGS := hwtstamp_config timestamping txtimestamp
-+CFLAGS += -I../../../../../usr/include
-+
-+TEST_PROGS := hwtstamp_config rxtimestamp timestamping txtimestamp
- 
- all: $(TEST_PROGS)
- 
-diff --git a/tools/testing/selftests/networking/timestamping/rxtimestamp.c b/tools/testing/selftests/networking/timestamping/rxtimestamp.c
-new file mode 100644
-index 000000000000..00f286661dcd
---- /dev/null
-+++ b/tools/testing/selftests/networking/timestamping/rxtimestamp.c
-@@ -0,0 +1,389 @@
-+#include <errno.h>
-+#include <error.h>
-+#include <getopt.h>
-+#include <stdbool.h>
-+#include <stdio.h>
-+#include <stdlib.h>
-+#include <string.h>
-+
-+#include <sys/time.h>
-+#include <sys/socket.h>
-+#include <sys/select.h>
-+#include <sys/ioctl.h>
-+#include <arpa/inet.h>
-+#include <net/if.h>
-+
-+#include <asm/types.h>
-+#include <linux/net_tstamp.h>
-+#include <linux/errqueue.h>
-+
-+#define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
-+
-+struct options {
-+	int so_timestamp;
-+	int so_timestampns;
-+	int so_timestamping;
-+};
-+
-+struct tstamps {
-+	bool tstamp;
-+	bool tstampns;
-+	bool swtstamp;
-+	bool hwtstamp;
-+};
-+
-+struct socket_type {
-+	char *friendly_name;
-+	int type;
-+	int protocol;
-+	bool enabled;
-+};
-+
-+struct test_case {
-+	struct options sockopt;
-+	struct tstamps expected;
-+	bool enabled;
-+};
-+
-+struct sof_flag {
-+	int mask;
-+	char *name;
-+};
-+
-+static struct sof_flag sof_flags[] = {
-+#define SOF_FLAG(f) { f, #f }
-+	SOF_FLAG(SOF_TIMESTAMPING_SOFTWARE),
-+	SOF_FLAG(SOF_TIMESTAMPING_RX_SOFTWARE),
-+	SOF_FLAG(SOF_TIMESTAMPING_RX_HARDWARE),
-+};
-+
-+static struct socket_type socket_types[] = {
-+	{ "ip",		SOCK_RAW,	IPPROTO_EGP },
-+	{ "udp",	SOCK_DGRAM,	IPPROTO_UDP },
-+	{ "tcp",	SOCK_STREAM,	IPPROTO_TCP },
-+};
-+
-+static struct test_case test_cases[] = {
-+	{ {}, {} },
-+	{
-+		{ so_timestamp: 1 },
-+		{ tstamp: true }
-+	},
-+	{
-+		{ so_timestampns: 1 },
-+		{ tstampns: true }
-+	},
-+	{
-+		{ so_timestamp: 1, so_timestampns: 1 },
-+		{ tstampns: true }
-+	},
-+	{
-+		{ so_timestamping: SOF_TIMESTAMPING_RX_SOFTWARE },
-+		{}
-+	},
-+	{
-+		/* Loopback device does not support hw timestamps. */
-+		{ so_timestamping: SOF_TIMESTAMPING_RX_HARDWARE },
-+		{}
-+	},
-+	{
-+		{ so_timestamping: SOF_TIMESTAMPING_SOFTWARE },
-+		{}
-+	},
-+	{
-+		{ so_timestamping: SOF_TIMESTAMPING_RX_SOFTWARE
-+			| SOF_TIMESTAMPING_RX_HARDWARE },
-+		{}
-+	},
-+	{
-+		{ so_timestamping: SOF_TIMESTAMPING_SOFTWARE
-+			| SOF_TIMESTAMPING_RX_SOFTWARE },
-+		{ swtstamp: true }
-+	},
-+	{
-+		{ so_timestamp: 1, so_timestamping: SOF_TIMESTAMPING_SOFTWARE
-+			| SOF_TIMESTAMPING_RX_SOFTWARE },
-+		{ tstamp: true, swtstamp: true }
-+	},
-+};
-+
-+static struct option long_options[] = {
-+	{ "list_tests", no_argument, 0, 'l' },
-+	{ "test_num", required_argument, 0, 'n' },
-+	{ "op_size", required_argument, 0, 's' },
-+	{ "tcp", no_argument, 0, 't' },
-+	{ "udp", no_argument, 0, 'u' },
-+	{ "ip", no_argument, 0, 'i' },
-+};
-+
-+static int next_port = 19999;
-+static int op_size = 10 * 1024;
-+
-+void print_test_case(struct test_case *t)
-+{
-+	int f = 0;
-+
-+	printf("sockopts {");
-+	if (t->sockopt.so_timestamp)
-+		printf(" SO_TIMESTAMP ");
-+	if (t->sockopt.so_timestampns)
-+		printf(" SO_TIMESTAMPNS ");
-+	if (t->sockopt.so_timestamping) {
-+		printf(" SO_TIMESTAMPING: {");
-+		for (f = 0; f < ARRAY_SIZE(sof_flags); f++)
-+			if (t->sockopt.so_timestamping & sof_flags[f].mask)
-+				printf(" %s |", sof_flags[f].name);
-+		printf("}");
-+	}
-+	printf("} expected cmsgs: {");
-+	if (t->expected.tstamp)
-+		printf(" SCM_TIMESTAMP ");
-+	if (t->expected.tstampns)
-+		printf(" SCM_TIMESTAMPNS ");
-+	if (t->expected.swtstamp || t->expected.hwtstamp) {
-+		printf(" SCM_TIMESTAMPING {");
-+		if (t->expected.swtstamp)
-+			printf("0");
-+		if (t->expected.swtstamp && t->expected.hwtstamp)
-+			printf(",");
-+		if (t->expected.hwtstamp)
-+			printf("2");
-+		printf("}");
-+	}
-+	printf("}\n");
-+}
-+
-+void do_send(int src)
-+{
-+	int r;
-+	char *buf = malloc(op_size);
-+
-+	memset(buf, 'z', op_size);
-+	r = write(src, buf, op_size);
-+	if (r < 0)
-+		error(1, errno, "Failed to sendmsg");
-+
-+	free(buf);
-+}
-+
-+bool do_recv(int rcv, int read_size, struct tstamps expected)
-+{
-+	const int CMSG_SIZE = 1024;
-+
-+	struct scm_timestamping *ts;
-+	struct tstamps actual = {};
-+	char cmsg_buf[CMSG_SIZE];
-+	struct iovec recv_iov;
-+	struct cmsghdr *cmsg;
-+	bool failed = false;
-+	struct msghdr hdr;
-+	int flags = 0;
-+	int r;
-+
-+	memset(&hdr, 0, sizeof(hdr));
-+	hdr.msg_iov = &recv_iov;
-+	hdr.msg_iovlen = 1;
-+	recv_iov.iov_base = malloc(read_size);
-+	recv_iov.iov_len = read_size;
-+
-+	hdr.msg_control = cmsg_buf;
-+	hdr.msg_controllen = sizeof(cmsg_buf);
-+
-+	r = recvmsg(rcv, &hdr, flags);
-+	if (r < 0)
-+		error(1, errno, "Failed to recvmsg");
-+	if (r != read_size)
-+		error(1, 0, "Only received %d bytes of payload.", r);
-+
-+	if (hdr.msg_flags & (MSG_TRUNC | MSG_CTRUNC))
-+		error(1, 0, "Message was truncated.");
-+
-+	for (cmsg = CMSG_FIRSTHDR(&hdr); cmsg != NULL;
-+	     cmsg = CMSG_NXTHDR(&hdr, cmsg)) {
-+		if (cmsg->cmsg_level != SOL_SOCKET)
-+			error(1, 0, "Unexpected cmsg_level %d",
-+			      cmsg->cmsg_level);
-+		switch (cmsg->cmsg_type) {
-+		case SCM_TIMESTAMP:
-+			actual.tstamp = true;
-+			break;
-+		case SCM_TIMESTAMPNS:
-+			actual.tstampns = true;
-+			break;
-+		case SCM_TIMESTAMPING:
-+			ts = (struct scm_timestamping *)CMSG_DATA(cmsg);
-+			actual.swtstamp = !!ts->ts[0].tv_sec;
-+			if (ts->ts[1].tv_sec != 0)
-+				error(0, 0, "ts[1] should not be set.");
-+			actual.hwtstamp = !!ts->ts[2].tv_sec;
-+			break;
-+		default:
-+			error(1, 0, "Unexpected cmsg_type %d", cmsg->cmsg_type);
-+		}
-+	}
-+
-+#define VALIDATE(field) \
-+	do { \
-+		if (expected.field != actual.field) { \
-+			if (expected.field) \
-+				error(0, 0, "Expected " #field " to be set."); \
-+			else \
-+				error(0, 0, \
-+				      "Expected " #field " to not be set."); \
-+			failed = true; \
-+		} \
-+	} while (0)
-+
-+	VALIDATE(tstamp);
-+	VALIDATE(tstampns);
-+	VALIDATE(swtstamp);
-+	VALIDATE(hwtstamp);
-+#undef VALIDATE
-+
-+	free(recv_iov.iov_base);
-+
-+	return failed;
-+}
-+
-+void config_so_flags(int rcv, struct options o)
-+{
-+	int on = 1;
-+
-+	if (setsockopt(rcv, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) < 0)
-+		error(1, errno, "Failed to enable SO_REUSEADDR");
-+
-+	if (o.so_timestamp &&
-+	    setsockopt(rcv, SOL_SOCKET, SO_TIMESTAMP,
-+		       &o.so_timestamp, sizeof(o.so_timestamp)) < 0)
-+		error(1, errno, "Failed to enable SO_TIMESTAMP");
-+
-+	if (o.so_timestampns &&
-+	    setsockopt(rcv, SOL_SOCKET, SO_TIMESTAMPNS,
-+		       &o.so_timestampns, sizeof(o.so_timestampns)) < 0)
-+		error(1, errno, "Failed to enable SO_TIMESTAMPNS");
-+
-+	if (o.so_timestamping &&
-+	    setsockopt(rcv, SOL_SOCKET, SO_TIMESTAMPING,
-+		       &o.so_timestamping, sizeof(o.so_timestamping)) < 0)
-+		error(1, errno, "Failed to set SO_TIMESTAMPING");
-+}
-+
-+bool run_test_case(struct socket_type s, struct test_case t)
-+{
-+	int port = (s.type == SOCK_RAW) ? 0 : next_port++;
-+	int read_size = op_size;
-+	struct sockaddr_in addr;
-+	bool failed = false;
-+	int src, dst, rcv;
-+
-+	src = socket(AF_INET, s.type, s.protocol);
-+	if (src < 0)
-+		error(1, errno, "Failed to open src socket");
-+
-+	dst = socket(AF_INET, s.type, s.protocol);
-+	if (dst < 0)
-+		error(1, errno, "Failed to open dst socket");
-+
-+	memset(&addr, 0, sizeof(addr));
-+	addr.sin_family = AF_INET;
-+	addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-+	addr.sin_port = htons(port);
-+
-+	if (bind(dst, (struct sockaddr *)&addr, sizeof(addr)) < 0)
-+		error(1, errno, "Failed to bind to port %d", port);
-+
-+	if (s.type == SOCK_STREAM && (listen(dst, 1) < 0))
-+		error(1, errno, "Failed to listen");
-+
-+	if (connect(src, (struct sockaddr *)&addr, sizeof(addr)) < 0)
-+		error(1, errno, "Failed to connect");
-+
-+	if (s.type == SOCK_STREAM) {
-+		rcv = accept(dst, NULL, NULL);
-+		if (rcv < 0)
-+			error(1, errno, "Failed to accept");
-+		close(dst);
-+	} else {
-+		rcv = dst;
-+	}
-+
-+	config_so_flags(rcv, t.sockopt);
-+	usleep(20000); /* setsockopt for SO_TIMESTAMPING is asynchronous */
-+	do_send(src);
-+
-+	if (s.type == SOCK_RAW)
-+		read_size += 20;  /* for IP header */
-+	failed = do_recv(rcv, read_size, t.expected);
-+
-+	close(rcv);
-+	close(src);
-+
-+	return failed;
-+}
-+
-+int main(int argc, char **argv)
-+{
-+	bool all_protocols = true;
-+	bool all_tests = true;
-+	int arg_index = 0;
-+	int failures = 0;
-+	int s, t;
-+	char opt;
-+
-+	while ((opt = getopt_long(argc, argv, "", long_options,
-+				  &arg_index)) != -1) {
-+		switch (opt) {
-+		case 'l':
-+			for (t = 0; t < ARRAY_SIZE(test_cases); t++) {
-+				printf("%d\t", t);
-+				print_test_case(&test_cases[t]);
-+			}
-+			return 0;
-+		case 'n':
-+			t = atoi(optarg);
-+			if (t > ARRAY_SIZE(test_cases))
-+				error(1, 0, "Invalid test case: %d", t);
-+			all_tests = false;
-+			test_cases[t].enabled = true;
-+			break;
-+		case 's':
-+			op_size = atoi(optarg);
-+			break;
-+		case 't':
-+			all_protocols = false;
-+			socket_types[2].enabled = true;
-+			break;
-+		case 'u':
-+			all_protocols = false;
-+			socket_types[1].enabled = true;
-+			break;
-+		case 'i':
-+			all_protocols = false;
-+			socket_types[0].enabled = true;
-+			break;
-+		default:
-+			error(1, 0, "Failed to parse parameters.");
-+		}
-+	}
-+
-+	for (s = 0; s < ARRAY_SIZE(socket_types); s++) {
-+		if (!all_protocols && !socket_types[s].enabled)
-+			continue;
-+
-+		printf("Testing %s...\n", socket_types[s].friendly_name);
-+		for (t = 0; t < ARRAY_SIZE(test_cases); t++) {
-+			if (!all_tests && !test_cases[t].enabled)
-+				continue;
-+
-+			printf("Starting testcase %d...\n", t);
-+			if (run_test_case(socket_types[s], test_cases[t])) {
-+				failures++;
-+				printf("FAILURE in test case ");
-+				print_test_case(&test_cases[t]);
-+			}
-+		}
-+	}
-+	if (!failures)
-+		printf("PASSED.\n");
-+	return failures;
-+}
--- 
-2.14.1.480.gb18f417b89-goog
+I should have noted, I changed the title to be more accurate as well, this is a v2 of https://patchwork.ozlabs.org/patch/787388/
