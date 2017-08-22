@@ -1,37 +1,47 @@
 From: Haiyang Zhang <haiyangz@exchange.microsoft.com>
-Subject: [PATCH net-next,0/4] hv_netvsc: Ethtool handler to change UDP hash levels
-Date: Mon, 21 Aug 2017 19:22:36 -0700
-Message-ID: <1503368560-14331-1-git-send-email-haiyangz@exchange.microsoft.com>
+Subject: [PATCH net-next,1/4] hv_netvsc: Clean up unused parameter from netvsc_get_hash()
+Date: Mon, 21 Aug 2017 19:22:37 -0700
+Message-ID: <1503368560-14331-2-git-send-email-haiyangz@exchange.microsoft.com>
+References: <1503368560-14331-1-git-send-email-haiyangz@exchange.microsoft.com>
 Reply-To: haiyangz@microsoft.com
 Cc: haiyangz@microsoft.com, kys@microsoft.com, olaf@aepfle.de,
         vkuznets@redhat.com, linux-kernel@vger.kernel.org
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1503368560-14331-1-git-send-email-haiyangz@exchange.microsoft.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Haiyang Zhang <haiyangz@microsoft.com>
 
-The patch set adds the functions to switch UDP hash level between
-L3 and L4 by ethtool command. UDP over IPv4 and v6 can be set
-differently. The default hash level is L4. We currently only
-allow switching TX hash level from within the guests.
+The parameter "sk" is not in use.
 
-The ethtool callback function is triggered by command line, and
-update the per device variables of the hash level.
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+---
+ drivers/net/hyperv/netvsc_drv.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-On Azure, fragmented UDP packets is not yet supported with L4
-hashing, and may have high packet loss rate. Using L3 hashing is
-recommended in this case. This ethtool option allows a user to
-make this selection.
-
-Haiyang Zhang (4):
-  hv_netvsc: Clean up unused parameter from netvsc_get_hash()
-  hv_netvsc: Clean up unused parameter from netvsc_get_rss_hash_opts()
-  hv_netvsc: Add ethtool handler to set and get UDP hash levels
-  hv_netvsc: Update netvsc Document for UDP hash level setting
-
- Documentation/networking/netvsc.txt |   22 ++++++++--
- drivers/net/hyperv/hyperv_net.h     |    2 +
- drivers/net/hyperv/netvsc_drv.c     |   77 +++++++++++++++++++++++++++++++----
- 3 files changed, 88 insertions(+), 13 deletions(-)
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index b33f050..4677d21 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -193,7 +193,7 @@ static int netvsc_close(struct net_device *net)
+ /* Azure hosts don't support non-TCP port numbers in hashing yet. We compute
+  * hash for non-TCP traffic with only IP numbers.
+  */
+-static inline u32 netvsc_get_hash(struct sk_buff *skb, struct sock *sk)
++static inline u32 netvsc_get_hash(struct sk_buff *skb)
+ {
+ 	struct flow_keys flow;
+ 	u32 hash;
+@@ -227,7 +227,7 @@ static inline int netvsc_get_tx_queue(struct net_device *ndev,
+ 	struct sock *sk = skb->sk;
+ 	int q_idx;
+ 
+-	q_idx = ndc->tx_send_table[netvsc_get_hash(skb, sk) &
++	q_idx = ndc->tx_send_table[netvsc_get_hash(skb) &
+ 				   (VRSS_SEND_TAB_SIZE - 1)];
+ 
+ 	/* If queue index changed record the new value */
+-- 
+1.7.1
