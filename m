@@ -1,69 +1,118 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: [PATCH net-next 3/4] bpf/verifier: when pruning a branch, ignore its
- write marks
-Date: Tue, 22 Aug 2017 14:27:11 +0100
-Message-ID: <d1a5b78a-8f5c-50d9-08a2-eb7c4829a478@solarflare.com>
+From: Edward Cree via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+Subject: [PATCH net-next 4/4] bpf/verifier: document liveness
+	analysis
+Date: Tue, 22 Aug 2017 14:27:43 +0100
+Message-ID: <60838927-7286-60c9-ad69-3b97350a05a4@solarflare.com>
 References: <f25f46bd-27cb-2182-2551-2887757c1e0f@solarflare.com>
+Reply-To: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>,
-        iovisor-dev <iovisor-dev@lists.iovisor.org>
-To: <davem@davemloft.net>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Alexei Starovoitov <ast@fb.com>,
-        Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dispatch1-us1.ppe-hosted.com ([67.231.154.164]:46877 "EHLO
-        dispatch1-us1.ppe-hosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S932791AbdHVN1Y (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2017 09:27:24 -0400
-In-Reply-To: <f25f46bd-27cb-2182-2551-2887757c1e0f@solarflare.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+To: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>, Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
+Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+In-Reply-To: <f25f46bd-27cb-2182-2551-2887757c1e0f-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
+List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
+Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-The fact that writes occurred in reaching the continuation state does
- not screen off its reads from us, because we're not really its parent.
-So detect 'not really the parent' in do_propagate_liveness, and ignore
- write marks in that case.
+The liveness tracking algorithm is quite subtle; add comments to explain it.
 
-Fixes: dc503a8ad984 ("bpf/verifier: track liveness for pruning")
-Signed-off-by: Edward Cree <ecree@solarflare.com>
+Signed-off-by: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
 ---
- kernel/bpf/verifier.c | 9 +++++++--
- 1 file changed, 7 insertions(+), 2 deletions(-)
+ include/linux/bpf_verifier.h | 13 +++++++++++++
+ kernel/bpf/verifier.c        | 28 +++++++++++++++++++++++++++-
+ 2 files changed, 40 insertions(+), 1 deletion(-)
 
+diff --git a/include/linux/bpf_verifier.h b/include/linux/bpf_verifier.h
+index d8f131a..b8d200f 100644
+--- a/include/linux/bpf_verifier.h
++++ b/include/linux/bpf_verifier.h
+@@ -21,6 +21,19 @@
+  */
+ #define BPF_MAX_VAR_SIZ	INT_MAX
+ 
++/* Liveness marks, used for registers and spilled-regs (in stack slots).
++ * Read marks propagate upwards until they find a write mark; they record that
++ * "one of this state's descendants read this reg" (and therefore the reg is
++ * relevant for states_equal() checks).
++ * Write marks collect downwards and do not propagate; they record that "the
++ * straight-line code that reached this state (from its parent) wrote this reg"
++ * (and therefore that reads propagated from this state or its descendants
++ * should not propagate to its parent).
++ * A state with a write mark can receive read marks; it just won't propagate
++ * them to its parent, since the write mark is a property, not of the state,
++ * but of the link between it and its parent.  See mark_reg_read() and
++ * mark_stack_slot_read() in kernel/bpf/verifier.c.
++ */
+ enum bpf_reg_liveness {
+ 	REG_LIVE_NONE = 0, /* reg hasn't been read or written this branch */
+ 	REG_LIVE_READ, /* reg was read, so we're sensitive to initial value */
 diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index 1e3f56c..711bdbd 100644
+index 711bdbd..5fc350e 100644
 --- a/kernel/bpf/verifier.c
 +++ b/kernel/bpf/verifier.c
-@@ -3420,6 +3420,7 @@ static bool states_equal(struct bpf_verifier_env *env,
+@@ -3417,6 +3417,12 @@ static bool states_equal(struct bpf_verifier_env *env,
+ 	return ret;
+ }
+ 
++/* A write screens off any subsequent reads; but write marks come from the
++ * straight-line code between a state and its parent.  When we arrive at a
++ * jump target (in the first iteration of the propagate_liveness() loop),
++ * we didn't arrive by the straight-line code, so read marks in state must
++ * propagate to parent regardless of state's write marks.
++ */
  static bool do_propagate_liveness(const struct bpf_verifier_state *state,
  				  struct bpf_verifier_state *parent)
  {
-+	bool writes = parent == state->parent; /* Observe write marks */
- 	bool touched = false; /* any changes made? */
- 	int i;
+@@ -3457,6 +3463,15 @@ static bool do_propagate_liveness(const struct bpf_verifier_state *state,
+ 	return touched;
+ }
  
-@@ -3431,7 +3432,9 @@ static bool do_propagate_liveness(const struct bpf_verifier_state *state,
- 	for (i = 0; i < BPF_REG_FP; i++) {
- 		if (parent->regs[i].live & REG_LIVE_READ)
- 			continue;
--		if (state->regs[i].live == REG_LIVE_READ) {
-+		if (writes && (state->regs[i].live & REG_LIVE_WRITTEN))
-+			continue;
-+		if (state->regs[i].live & REG_LIVE_READ) {
- 			parent->regs[i].live |= REG_LIVE_READ;
- 			touched = true;
- 		}
-@@ -3444,7 +3447,9 @@ static bool do_propagate_liveness(const struct bpf_verifier_state *state,
- 			continue;
- 		if (parent->spilled_regs[i].live & REG_LIVE_READ)
- 			continue;
--		if (state->spilled_regs[i].live == REG_LIVE_READ) {
-+		if (writes && (state->spilled_regs[i].live & REG_LIVE_WRITTEN))
-+			continue;
-+		if (state->spilled_regs[i].live & REG_LIVE_READ) {
- 			parent->spilled_regs[i].live |= REG_LIVE_READ;
- 			touched = true;
- 		}
++/* "parent" is "a state from which we reach the current state", but initially
++ * it is not the state->parent (i.e. "the state whose straight-line code leads
++ * to the current state"), instead it is the state that happened to arrive at
++ * a (prunable) equivalent of the current state.  See comment above
++ * do_propagate_liveness() for consequences of this.
++ * This function is just a more efficient way of calling mark_reg_read() or
++ * mark_stack_slot_read() on each reg in "parent" that is read in "state", so
++ * long as parent != state->parent.
++ */
+ static void propagate_liveness(const struct bpf_verifier_state *state,
+ 			       struct bpf_verifier_state *parent)
+ {
+@@ -3485,6 +3500,12 @@ static int is_state_visited(struct bpf_verifier_env *env, int insn_idx)
+ 			/* reached equivalent register/stack state,
+ 			 * prune the search.
+ 			 * Registers read by the continuation are read by us.
++			 * If we have any write marks in env->cur_state, they
++			 * will prevent corresponding reads in the continuation
++			 * from reaching our parent (an explored_state).  Our
++			 * own state will get the read marks recorded, but
++			 * they'll be immediately forgotten as we're pruning
++			 * this state and will pop a new one.
+ 			 */
+ 			propagate_liveness(&sl->state, &env->cur_state);
+ 			return 1;
+@@ -3508,7 +3529,12 @@ static int is_state_visited(struct bpf_verifier_env *env, int insn_idx)
+ 	env->explored_states[insn_idx] = new_sl;
+ 	/* connect new state to parentage chain */
+ 	env->cur_state.parent = &new_sl->state;
+-	/* clear liveness marks in current state */
++	/* clear write marks in current state: the writes we did are not writes
++	 * our child did, so they don't screen off its reads from us.
++	 * (There are no read marks in current state, because reads always mark
++	 * their parent and current state never has children yet.  Only
++	 * explored_states can get read marks.)
++	 */
+ 	for (i = 0; i < BPF_REG_FP; i++)
+ 		env->cur_state.regs[i].live = REG_LIVE_NONE;
+ 	for (i = 0; i < MAX_BPF_STACK / BPF_REG_SIZE; i++)
