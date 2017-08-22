@@ -1,52 +1,52 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 1/3 v7] net: ether: Add support for multiplexing
- and aggregation type
-Date: Tue, 22 Aug 2017 03:02:08 +0200
-Message-ID: <20170822010208.GA24555@lunn.ch>
-References: <1503355019-12236-1-git-send-email-subashab@codeaurora.org>
- <1503355019-12236-2-git-send-email-subashab@codeaurora.org>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: [PATCH net] udp: on peeking bad csum, drop packets even if not at head
+Date: Mon, 21 Aug 2017 21:11:13 -0400
+Message-ID: <CAF=yD-K4HKyAY-+-GbUAQE1seQ2-AYU2MVD14+zd9OahfV33VQ@mail.gmail.com>
+References: <20170821213912.93333-1-willemdebruijn.kernel@gmail.com>
+ <1503355232.2499.15.camel@edumazet-glaptop3.roam.corp.google.com> <CAF=yD-+oht8gPcNdSU1zuj5TrOhq0cuwzzcwiCn676YzKNsn=Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-        fengguang.wu@intel.com, dcbw@redhat.com, jiri@resnulli.us,
-        stephen@networkplumber.org, David.Laight@ACULAB.COM,
-        marcel@holtmann.org
-To: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Network Development <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        Paolo Abeni <pabeni@redhat.com>,
+        Willem de Bruijn <willemb@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:38562 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754252AbdHVBCU (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 21 Aug 2017 21:02:20 -0400
-Content-Disposition: inline
-In-Reply-To: <1503355019-12236-2-git-send-email-subashab@codeaurora.org>
+Received: from mail-oi0-f52.google.com ([209.85.218.52]:34304 "EHLO
+        mail-oi0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754342AbdHVBLy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 21 Aug 2017 21:11:54 -0400
+Received: by mail-oi0-f52.google.com with SMTP id j144so43851963oib.1
+        for <netdev@vger.kernel.org>; Mon, 21 Aug 2017 18:11:54 -0700 (PDT)
+In-Reply-To: <CAF=yD-+oht8gPcNdSU1zuj5TrOhq0cuwzzcwiCn676YzKNsn=Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 21, 2017 at 04:36:57PM -0600, Subash Abhinov Kasiviswanathan wrote:
-> Define the multiplexing and aggregation (MAP) ether type 0xDA1A. This
-> is needed for receiving data in the MAP protocol like RMNET. This is
-> not an officially registered ID.
-> 
-> Signed-off-by: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
-> ---
->  include/uapi/linux/if_ether.h | 4 +++-
->  1 file changed, 3 insertions(+), 1 deletion(-)
-> 
-> diff --git a/include/uapi/linux/if_ether.h b/include/uapi/linux/if_ether.h
-> index 5bc9bfd..e80b03f 100644
-> --- a/include/uapi/linux/if_ether.h
-> +++ b/include/uapi/linux/if_ether.h
-> @@ -104,7 +104,9 @@
->  #define ETH_P_QINQ3	0x9300		/* deprecated QinQ VLAN [ NOT AN OFFICIALLY REGISTERED ID ] */
->  #define ETH_P_EDSA	0xDADA		/* Ethertype DSA [ NOT AN OFFICIALLY REGISTERED ID ] */
->  #define ETH_P_AF_IUCV   0xFBFB		/* IBM af_iucv [ NOT AN OFFICIALLY REGISTERED ID ] */
-> -
-> +#define ETH_P_MAP       0xDA1A          /* Multiplexing and Aggregation Protocol
-> +					 *  NOT AN OFFICIALLY REGISTERED ID ]
-> +					 */
+On Mon, Aug 21, 2017 at 8:12 PM, Willem de Bruijn
+<willemdebruijn.kernel@gmail.com> wrote:
+> On Mon, Aug 21, 2017 at 6:40 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>> On Mon, 2017-08-21 at 17:39 -0400, Willem de Bruijn wrote:
+>>> From: Willem de Bruijn <willemb@google.com>
+>>>
+>>> When peeking, if a bad csum is discovered, the skb is unlinked from
+>>> the queue with __sk_queue_drop_skb and the peek operation restarted.
+>>>
+>>> __sk_queue_drop_skb only drops packets that match the queue head. With
+>>> sk_peek_off, the skb need not be at head, causing the call to fail and
+>>> the same skb to be found again on restart.
+>>>
+>>> Walk the queue to find the correct skb. Limit the walk to sk_peek_off,
+>>> to bound cycle cost to at most twice the original skb_queue_walk in
+>>> __skb_try_recv_from_queue.
+>>>
+>>> The operation may race with updates to sk_peek_off. As the operation
+>>> is retried, it will eventually succeed.
+>>>
+>>> Signed-off-by: Willem de Bruijn <willemb@google.com>
+>>
+>> You forgot the Fixes: tag, that such a bug fix deserves.
+>
+> Indeed, sorry. I'm looking into that now. It should be the patch that
+> introduced peeking at offset, but need to verify.
 
-Hi Subash
-
-This list is sorted. So this entry should go earlier.
-
-     Andrew
+It is. Fixes: 627d2d6b5500 ("udp: enable MSG_PEEK at non-zero offset")
