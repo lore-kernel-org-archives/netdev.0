@@ -1,121 +1,86 @@
 From: Koichiro Den <den@klaipeden.com>
 Subject: Re: [PATCH net-next] virtio-net: invoke zerocopy callback on xmit
-	path if no tx napi
-Date: Tue, 22 Aug 2017 22:42:19 +0900
-Message-ID: <1503409339.8694.12.camel@klaipeden.com>
+ path if no tx napi
+Date: Tue, 22 Aug 2017 23:04:28 +0900
+Message-ID: <1503410668.8694.14.camel@klaipeden.com>
 References: <20170819063854.27010-1-den@klaipeden.com>
-	<5352c98a-fa48-fcf9-c062-9986a317a1b0@redhat.com>
-	<CAF=yD-LZ4=WAYfUtY7xRWi50FRSkrcOa+b7uc46xRnC4sbDCzQ@mail.gmail.com>
-	<64d451ae-9944-e978-5a05-54bb1a62aaad@redhat.com>
-	<CAF=yD-L-9QnxV2kM_j2BxVk=h7i3wvMZxG-3_=0Q=jDPgeT=VQ@mail.gmail.com>
+         <CAF=yD-LYLsQNt_5yYZ+PUwv04ZwaJUXn-YakH=tuh0TV+BG7iA@mail.gmail.com>
+         <CAF=yD-LO0rP1A_hrxqx_1HYEv6qyk=Sc=D7iH7cPh2YXDm=cYQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Network Development <netdev@vger.kernel.org>,
-	virtualization@lists.linux-foundation.org,
-	"Michael S. Tsirkin" <mst@redhat.com>
-To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>, Jason Wang
-	<jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <CAF=yD-L-9QnxV2kM_j2BxVk=h7i3wvMZxG-3_=0Q=jDPgeT=VQ@mail.gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8BIT
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+        virtualization@lists.linux-foundation.org,
+        Network Development <netdev@vger.kernel.org>
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sender-of-o52.zoho.com ([135.84.80.217]:21418 "EHLO
+        sender-of-o52.zoho.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933018AbdHVOEg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2017 10:04:36 -0400
+In-Reply-To: <CAF=yD-LO0rP1A_hrxqx_1HYEv6qyk=Sc=D7iH7cPh2YXDm=cYQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gTW9uLCAyMDE3LTA4LTIxIGF0IDIzOjEwIC0wNDAwLCBXaWxsZW0gZGUgQnJ1aWpuIHdyb3Rl
-Ogo+ID4gPiA+IEludGVyZXN0aW5nLCBkZWFkbG9jayBjb3VsZCBiZSB0cmVhdGVkIGFzIGEgYSBy
-YWRpY2FsIGNhc2Ugb2YgdGhlCj4gPiA+ID4gZGlzY3Vzc2lvbgo+ID4gPiA+IGhlcmUgaHR0cHM6
-Ly9wYXRjaHdvcmsua2VybmVsLm9yZy9wYXRjaC8zNzg3NjcxLy4KPiA+ID4gPiAKPiA+ID4gPiBn
-aXQgZ3JlcCB0ZWxscyBtb3JlIHNpbWlsYXIgc2tiX29ycGhhbigpIGNhc2VzLiBEbyB3ZSBuZWVk
-IHRvIGNoYW5nZQo+ID4gPiA+IHRoZW0KPiA+ID4gPiBhbGwgKG9yIHBhcnQpPwo+ID4gPiAKPiA+
-ID4gTW9zdCBza2Jfb3JwaGFuIGNhbGxzIGFyZSBub3QgcmVsZXZhbnQgdG8gdGhlIGlzc3VlIG9m
-IHRyYW5zbWl0IGRlbGF5Lgo+ID4gCj4gPiAKPiA+IFllcywgYnV0IGF0IGxlYXN0IHdlIHNob3Vs
-ZCBhdWRpdCB0aGUgb25lcyBpbiBkcml2ZXJzL25ldC4KPiAKPiBEbyB5b3UgbWVhbiBvdGhlciB2
-aXJ0dWFsIGRldmljZSBkcml2ZXIgdHJhbnNtaXQgcGF0aHMsIGxpa2UgeGVuLAo+IHNwZWNpZmlj
-YWxseT8KPiAKPiA+ID4gPiBBY3R1YWxseSwgd2UgbWF5IG1lZXQgc2ltaWxhciBpc3N1ZXMgYXQg
-bWFueSBvdGhlciBwbGFjZXMgKGUuZyBuZXRlbSkuCj4gPiA+IAo+ID4gPiBOZXRlbSBpcyBhbiBp
-bnRlcmVzdGluZyBjYXNlLiBCZWNhdXNlIGl0IGlzIGludGVuZGVkIHRvIG1pbWljIG5ldHdvcmsK
-PiA+ID4gZGVsYXksIGF0IGxlYXN0IGluIHRoZSBjYXNlIHdoZXJlIGl0IGNhbGxzIHNrYl9vcnBo
-YW4sIGl0IG1heSBtYWtlCj4gPiA+IHNlbnNlIHRvIHJlbGVhc2UgYWxsIHJlZmVyZW5jZXMsIGlu
-Y2x1ZGluZyBjYWxsaW5nIHNrYl96Y29weV9jbGVhci4KPiA+ID4gCj4gPiA+IEluIGdlbmVyYWws
-IHplcm9jb3B5IHJldmVydHMgdG8gY29weSBvbiBhbGwgcGF0aHMgdGhhdCBtYXkgY2F1c2UKPiA+
-ID4gdW5ib3VuZGVkIGRlbGF5IGR1ZSB0byBhbm90aGVyIHByb2Nlc3MuIEd1YXJkaW5nIGFnYWlu
-c3QgZGVsYXkKPiA+ID4gaW5kdWNlZCBieSB0aGUgYWRtaW5pc3RyYXRvciBpcyBpbmZlYXNpYmxl
-LiBJdCBpcyBhbHdheXMgcG9zc2libGUgdG8KPiA+ID4ganVzdCBwYXVzZSB0aGUgbmljLiBOZXRl
-bSBpcyBvbmUgaW5zdGFuY2Ugb2YgdGhhdCwgYW5kIG5vdCB1bmJvdW5kZWQuCj4gPiAKPiA+IAo+
-ID4gVGhlIHByb2JsZW0gaXMsIGFkbWluIG1heSBvbmx5IGRlbGF5IHRoZSB0cmFmZmljIGluIGUu
-ZyBvbmUgaW50ZXJmYWNlLCBidXQKPiA+IGl0IGFjdHVhbGx5IGRlbGF5IG9yIHN0YWxsIGFsbCB0
-cmFmZmljIGluc2lkZSBhIFZNLgo+IAo+IFVuZGVyc3Rvb2QuIElkZWFsbHkgd2UgY2FuIHJlbW92
-ZSB0aGUgSG9MIGJsb2NraW5nIGNhdXNlIG9mIHRoaXMsCj4gaXRzZWxmLgo+IAo+ID4gPiA+IE5l
-ZWQKPiA+ID4gPiB0byBjb25zaWRlciBhIGNvbXBsZXRlIHNvbHV0aW9uIGZvciB0aGlzLiBGaWd1
-cmluZyBvdXQgYWxsIHBsYWNlcyB0aGF0Cj4gPiA+ID4gY291bGQKPiA+ID4gPiBkZWxheSBhIHBh
-Y2tldCBpcyBhIG1ldGhvZC4KPiA+ID4gCj4gPiA+IFRoZSBpc3N1ZSBkZXNjcmliZWQgaW4gdGhl
-IHJlZmVyZW5jZWQgcGF0Y2ggc2VlbXMgbGlrZSBoZWFkIG9mIGxpbmUKPiA+ID4gYmxvY2tpbmcg
-YmV0d2VlbiB0d28gZmxvd3MuIElmIG9uZSBmbG93IGRlbGF5cyB6ZXJvY29weSBkZXNjcmlwdG9y
-Cj4gPiA+IHJlbGVhc2UgZnJvbSB0aGUgdmhvc3QtbmV0IHBvb2wsIGl0IGJsb2NrcyBhbGwgc3Vi
-c2VxdWVudCBkZXNjcmlwdG9ycwo+ID4gPiBpbiB0aGF0IHBvb2wgZnJvbSBiZWluZyByZWxlYXNl
-ZCwgYWxzbyBkZWxheWluZyBvdGhlciBmbG93cyB0aGF0IHVzZQo+ID4gPiB0aGUgc2FtZSBkZXNj
-cmlwdG9yIHBvb2wuIElmIHRoZSBwb29sIGlzIGVtcHR5LCBhbGwgdHJhbnNtaXNzaW9uIHN0b3Bw
-ZWQuCj4gPiA+IAo+ID4gPiBSZXZlcnRpbmcgdG8gY29weSB0eCB3aGVuIHRoZSBwb29sIHJlYWNo
-ZXMgYSBsb3cgd2F0ZXJtYXJrLCBhcyB0aGUKPiA+ID4gcGF0Y2ggZG9lcywgZml4ZXMgdGhpcy4K
-PiA+IAo+ID4gCj4gPiBBbiBpc3N1ZSBvZiB0aGUgcmVmZXJlbmNlZCBwYXRjaCBpcyB0aGF0IHNu
-ZGJ1ZiBjb3VsZCBiZSBzbWFsbGVyIHRoYW4gbG93Cj4gPiB3YXRlcm1hcmsuCldlIGNhbm5vdCBk
-ZXRlcm1pbmUgdGhlIGxvdyB3YXRlcm1hcmsgcHJvcGVybHkgYmVjYXVzZSBvZiBub3Qgb25seSBz
-bmRidWYgc2l6ZQppc3N1ZSBidXQgYWxzbyB0aGUgZmFjdCB0aGF0IHRoZSB1cHBlciB2aG9zdC1u
-ZXQgY2Fubm90IGRpcmVjdGx5IHNlZSBob3cgbXVjaApkZXNjcmlwdG9yIGlzIGN1cnJlbnRseSBh
-dmFpbGFibGUgYXQgdGhlIHZpcnRpby1uZXQgdHggcXVldWUuIEl0IGRlcGVuZHMgb24KbXVsdGlx
-dWV1ZSBzZXR0aW5ncyBvciBvdGhlciBzZW5kZXJzIHdoaWNoIGFyZSBhbHNvIHVzaW5nIHRoZSBz
-YW1lIHR4IHF1ZXVlLgpOb3RlIHRoYXQgaW4gdGhlIGxhdHRlciBjYXNlIGlmIHRoZXkgY29uc3Rh
-bnRseSB0cmFuc21pdHRpbmcsIHRoZSBkZWFkbG9jayBjb3VsZApub3Qgb2NjdXIoKiksIGhvd2V2
-ZXIgaWYgaXQgaGFzIGp1c3QgdGVtcG9yYXJpbHkgZnVsZmlsbCBzb21lIHBvcnRpb24gb2YgdGhl
-CnBvb2wgaW4gdGhlIG1lYW4gdGltZSwgdGhlbiB0aGUgbG93IHdhdGVybWFyayBjYW5ub3QgYmUg
-aGVscGZ1bC4KKCo6wqBUaGF0IGlzIGJlY2F1c2UgaXQncyByZWxpYWJsZSBlbm91Z2ggaW4gdGhl
-IHNlbnNlIEkgbWVudGlvbiBiZWxvdy4pCgpLZWVwIGluIHRoaXMgaW4gbWluZCwgbGV0IG1lIGJy
-aWVmbHkgZGVzY3JpYmUgdGhlIHBvc3NpYmxlIGRlYWRsb2NrIEkgbWVudGlvbmVkOgooMSkuIHZo
-b3N0LW5ldCBvbiBMMSBndWVzdCBoYXMgbm90aGluZyB0byBkbyBzZW5kbXNnIHVudGlsIHRoZSB1
-cHBlciBsYXllciBzZXRzCm5ldyBkZXNjcmlwdG9ycywgd2hpY2ggZGVwZW5kcyBvbmx5IG9uIHRo
-ZSB2aG9zdC1uZXQgemNvcHkgY2FsbGJhY2sgYW5kIGFkZGluZwpuZXdseSB1c2VkIGRlc2NyaXB0
-b3JzLgooMikuIHZob3N0LW5ldCBjYWxsYmFjayBkZXBlbmRzIG9uIHRoZSBza2IgZnJlZWluZyBv
-biB0aGUgeG1pdCBwYXRoIG9ubHkuCigzKS4gdGhlIHhtaXQgcGF0aCBkZXBlbmRzIChwb3NzaWJs
-eSBvbmx5KSBvbiB0aGUgdmhvc3QtbmV0IHNlbmRtc2cuCkFzIHlvdSBzZWUsIGl0J3MgZW5vdWdo
-IHRvIGJyaW5nIGFib3V0IHRoZSBzaXR1YXRpb24gYWJvdmUgdGhhdCBMMSB2aXJ0aW8tbmV0CnJl
-YWNoZXMgaXRzIGxpbWl0IGVhcmxpZXIgdGhhbiB0aGUgTDAgaG9zdCBwcm9jZXNzaW5nLiBUaGUg
-dmhvc3QtbmV0IHBvb2wgY291bGQKYmUgYWxtb3N0IGZ1bGwgb3IgZW1wdHksIHdoYXRldmVyLgoK
-QWxzbyBub3RlIHRoYXQgcmVsYXhpbmcgdGhlIHJlc3RyaWN0aW9uICgyKSAoYW5kIHRodXMgcmVt
-b3ZlIHRoZSBkZXBlbmRlbmN5ICgzKQotPiAoMSkpIHNlZW1zIHF1aXRlIG5hdHVyYWwgYnV0IGl0
-IG5lZWRzIHRvIGJlIHJlbGlhYmxlIGVub3VnaCB0byBuZXZlciBtaXNzIHRoZQpsYXN0IHRyaWdn
-ZXIgaWYgaXQncyBiYXNlZCBvbiBpbnRlcnJ1cHRpb24uIFdlIG1pZ2h0IG5lZWQgdG8gZG8gc29t
-ZQptb2RpZmljYXRpb24gb24gdmlydGlvIGludGVycnVwdGlvbiBtaXRpZ2F0aW9uIGluIG5vbmUg
-dHggbmFwaSBjYXNlIGJ1dCBpdCdzIHRvbwpjb3N0bHkgYW5kIG5vdCBmYWlyIHRvIGNvdmVyIHRo
-ZSB1cHBlciBsYXllciBwZWN1bGlhcml0eS4KClNvIEkgdGhpbmsgZHJpdmVycyB3aGljaCBob2xk
-cyBjaGFyYWN0ZXJpc3RpY3Mgc3VjaCBhcyAoMikgaXMgd29ydGggY2hlY2tpbmcKd2hldGhlciB3
-ZSBzaG91bGQgcmV2aXNlLgo+ID4gCj4gPiA+IFBlcmhhcHMgdGhlIGRlc2NyaXB0b3IgcG9vbCBz
-aG91bGQgYWxzbyBiZQo+ID4gPiByZXZpc2VkIHRvIGFsbG93IG91dCBvZiBvcmRlciBjb21wbGV0
-aW9ucy4gVGhlbiB0aGVyZSBpcyBubyBuZWVkIHRvCj4gPiA+IGNvcHkgemVyb2NvcHkgcGFja2V0
-cyB3aGVuZXZlciB0aGV5IG1heSBleHBlcmllbmNlIGRlbGF5Lgo+ID4gCj4gPiAKPiA+IFllcywg
-YnV0IGFzIHJlcGxpZWQgaW4gdGhlIHJlZmVyZW5jZWQgdGhyZWFkLCB3aW5kb3dzIGRyaXZlciBt
-YXkgdHJlYXQgb3V0Cj4gPiBvZiBvcmRlciBjb21wbGV0aW9uIGFzIGEgYnVnLgo+IAo+IEludGVy
-ZXN0aW5nLiBJIG1pc3NlZCB0aGF0LiBQZXJoYXBzIHRoZSB6ZXJvY29weSBvcHRpbWl6YXRpb24K
-PiBjb3VsZCBiZSBnYXRlZCBvbiBndWVzdCBzdXBwb3J0IGZvciBvdXQgb2Ygb3JkZXIgY29tcGxl
-dGlvbnMuCj4gCj4gPiA+IE9uIHRoZSBwb2ludCBvZiBjb3VudGluZyBjb3B5IHZzIHplcm9jb3B5
-OiB0aGUgbmV3IG1zZ196ZXJvY29weQo+ID4gPiB2YXJpYW50IG9mIHVidWZfaW5mbyBoYXMgYSBm
-aWVsZCB0byByZWNvcmQgd2hldGhlciBhIGRlZXAgY29weSB3YXMKPiA+ID4gbWFkZS4gVGhpcyBj
-YW4gYmUgdXNlZCB3aXRoIHZob3N0LW5ldCB6ZXJvY29weSwgdG9vLgo+ID4gCj4gPiAKPiA+IEp1
-c3QgdG8gbWFrZSBzdXJlIEkgdW5kZXJzdGFuZC4gSXQncyBzdGlsbCBub3QgY2xlYXIgdG8gbWUg
-aG93IHRvIHJldXNlIHRoaXMKPiA+IGZvciB2aG9zdC1uZXQsIGUuZyB6ZXJvY29weSBmbGFnIGlz
-IGluIGEgdW5pb24gd2hpY2ggaXMgbm90IHVzZWQgYnkKPiA+IHZob3N0X25ldC4KPiAKPiBUcnVl
-LCBidXQgdGhhdCBpcyBub3Qgc2V0IGluIHN0b25lLiBJIHdlbnQgYmFjayBhbmQgZm9ydGggb24g
-dGhhdCB3aGVuCj4gcHJlcGFyaW5nIGZpeCAwYTRhMDYwYmIyMDQgKCJzb2NrOiBmaXggemVyb2Nv
-cHlfc3VjY2VzcyByZWdyZXNzaW9uCj4gd2l0aCBtc2dfemVyb2NvcHkiKS4gVGhlIGZpZWxkIGNh
-biBiZSBtb3ZlZCBvdXRzaWRlIHRoZSB1bmlvbiBhbmQKPiBpbml0aWFsaXplZCBpbiB0aGUgb3Ro
-ZXIgemVyb2NvcHkgcGF0aHMuCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fXwpWaXJ0dWFsaXphdGlvbiBtYWlsaW5nIGxpc3QKVmlydHVhbGl6YXRpb25AbGlz
-dHMubGludXgtZm91bmRhdGlvbi5vcmcKaHR0cHM6Ly9saXN0cy5saW51eGZvdW5kYXRpb24ub3Jn
-L21haWxtYW4vbGlzdGluZm8vdmlydHVhbGl6YXRpb24=
+On Tue, 2017-08-22 at 08:11 -0400, Willem de Bruijn wrote:
+> On Sun, Aug 20, 2017 at 4:49 PM, Willem de Bruijn
+> <willemdebruijn.kernel@gmail.com> wrote:
+> > On Sat, Aug 19, 2017 at 2:38 AM, Koichiro Den <den@klaipeden.com> wrote:
+> > > Facing the possible unbounded delay relying on freeing on xmit path,
+> > > we also better to invoke and clear the upper layer zerocopy callback
+> > > beforehand to keep them from waiting for unbounded duration in vain.
+> > 
+> > Good point.
+> > 
+> > > For instance, this removes the possible deadlock in the case that the
+> > > upper layer is a zerocopy-enabled vhost-net.
+> > > This does not apply if napi_tx is enabled since it will be called in
+> > > reasonale time.
+> > 
+> > Indeed. Btw, I am gathering data to eventually make napi the default
+> > mode. But that is taking some time.
+> > 
+> > > 
+> > > Signed-off-by: Koichiro Den <den@klaipeden.com>
+> > > ---
+> > >  drivers/net/virtio_net.c | 8 ++++++++
+> > >  1 file changed, 8 insertions(+)
+> > > 
+> > > diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> > > index 4302f313d9a7..f7deaa5b7b50 100644
+> > > --- a/drivers/net/virtio_net.c
+> > > +++ b/drivers/net/virtio_net.c
+> > > @@ -1290,6 +1290,14 @@ static netdev_tx_t start_xmit(struct sk_buff *skb,
+> > > struct net_device *dev)
+> > > 
+> > >         /* Don't wait up for transmitted skbs to be freed. */
+> > >         if (!use_napi) {
+> > > +               if (skb_shinfo(skb)->tx_flags & SKBTX_DEV_ZEROCOPY) {
+> > > +                       struct ubuf_info *uarg;
+> > > +                       uarg = skb_shinfo(skb)->destructor_arg;
+> > > +                       if (uarg->callback)
+> > > +                           uarg->callback(uarg, true);
+> > > +                       skb_shinfo(skb)->destructor_arg = NULL;
+> > > +                       skb_shinfo(skb)->tx_flags &= ~SKBTX_DEV_ZEROCOPY;
+> > > +               }
+> > 
+> > Instead of open coding, this can use skb_zcopy_clear.
+> 
+> It is not correct to only send the zerocopy completion here, as
+> the skb will still be shared with the nic. The only safe approach
+> to notifying early is to create a copy with skb_orphan_frags_rx.
+> That will call skb_zcopy_clear(skb, false) internally. But the
+> copy will be very expensive.
+I noticed this email after my last post. I cannot not imagine how it could be
+unsafe in virtio case. Sorry could you explain a bit more?
+> 
+> Is the deadlock you refer to the case where tx interrupts are
+> disabled, so transmit completions are only handled in start_xmit
+> and somehow the socket(s) are unable to send new data? The
+> question is what is blocking them. If it is zerocopy, it may be a
+> too low optmem_max or hitting the per-user locked pages limit.
+> We may have to keep interrupts enabled when zerocopy skbs
+> are in flight.
+Even if we keep interrupts enabled, We miss the completion without start_xmit.
+And it's also likely that the next start_xmit depends on the completion itself
+as I described in my last post.
