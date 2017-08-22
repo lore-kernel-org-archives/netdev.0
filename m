@@ -1,39 +1,51 @@
-From: Stephan Gatzka <stephan.gatzka@gmail.com>
-Subject: [PATCH v2] net: stmmac: socfgpa: Ensure emac bit set in sys manager for MII/GMII/SGMII.
-Date: Tue, 22 Aug 2017 14:25:07 +0200
-Message-ID: <1503404707-25662-1-git-send-email-stephan.gatzka@gmail.com>
-Cc: Stephan Gatzka <stephan.gatzka@gmail.com>
-To: peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: Something hitting my total number of connections to the server
+Date: Tue, 22 Aug 2017 08:28:14 -0400
+Message-ID: <CADVnQy=57_rc8A93zAcqr9hz1WtWniSoZdtx+-aTiZ6AyjZmQg@mail.gmail.com>
+References: <CAA5aLPic9U4cwFJuTd4qBZrV=oVUSfmPzVRR_jXOBpJMU11b0A@mail.gmail.com>
+ <CAA5aLPgekZJgsZV-MAD+F+ggUugQkz12D9Ef=kbP9Ev=Q1QsDw@mail.gmail.com>
+ <1502879661.4936.98.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAA5aLPh0m=ZZp5kcz9h3if8kemg0QRykBpfYAnr6Bd1ptoeKKg@mail.gmail.com>
+ <1502969805.4936.154.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAA5aLPjs2S0cV7MoYLB6MvZVKXomUmwpi=EVHDXh=AwR_xBqsw@mail.gmail.com>
+ <063D6719AE5E284EB5DD2968C1650D6DD005C7B1@AcuExch.aculab.com>
+ <CAA5aLPhVSnJkGNtwEeswbPnhT_RdJewAKDs-pJOUzTPEpwkUAA@mail.gmail.com>
+ <1503328678.2499.3.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAA5aLPhtK8YbSDua-F16C0W9fLm2w4=ta4g+Tv+wsUEqYPCxUg@mail.gmail.com>
+ <1503337453.2499.7.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1503337498.2499.8.camel@edumazet-glaptop3.roam.corp.google.com> <CAA5aLPgtfrA053gAbsXOZTdrJKtsOZODUmF5cPGmnOmsO3PbOA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+        David Laight <David.Laight@aculab.com>,
+        netdev <netdev@vger.kernel.org>
+To: Akshat Kakkar <akshat.1984@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f178.google.com ([209.85.220.178]:34266 "EHLO
+        mail-qk0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932427AbdHVM2q (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2017 08:28:46 -0400
+Received: by mail-qk0-f178.google.com with SMTP id u139so96033578qka.1
+        for <netdev@vger.kernel.org>; Tue, 22 Aug 2017 05:28:45 -0700 (PDT)
+In-Reply-To: <CAA5aLPgtfrA053gAbsXOZTdrJKtsOZODUmF5cPGmnOmsO3PbOA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When using MII/GMII/SGMII in the Altera SoC, the phy needs to be
-wired through the FPGA. To ensure correct behavior, the appropriate
-bit in the System Manager FPGA Interface Group register needs to be
-set.
+On Tue, Aug 22, 2017 at 1:42 AM, Akshat Kakkar <akshat.1984@gmail.com> wrote:
+> There are multiple hosts/clients. All are mainly windows based.
+>
+> Timestamp is not used as my clients mainly are windows based and in
+> that it tcp timestamp is by defauly disabled.
+...
+> net.ipv4.tcp_tw_reuse=1
+> net.ipv4.tcp_tw_recycle=1
 
-Signed-off-by: Stephan Gatzka <stephan.gatzka@gmail.com>
----
- drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+I suspect the problem is there. The net.ipv4.tcp_tw_recycle setting
+should be 0. Running with the value 1 is known to cause buggy behavior
+related to TCP timestamps, and that feature has been removed in kernel
+v4.12.
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-index 17d4bba..6e35957 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-@@ -269,7 +269,10 @@ static int socfpga_dwmac_set_phy_mode(struct socfpga_dwmac *dwmac)
- 	ctrl &= ~(SYSMGR_EMACGRP_CTRL_PHYSEL_MASK << reg_shift);
- 	ctrl |= val << reg_shift;
- 
--	if (dwmac->f2h_ptp_ref_clk) {
-+	if (dwmac->f2h_ptp_ref_clk ||
-+	    phymode == PHY_INTERFACE_MODE_MII ||
-+	    phymode == PHY_INTERFACE_MODE_GMII ||
-+	    phymode == PHY_INTERFACE_MODE_SGMII) {
- 		ctrl |= SYSMGR_EMACGRP_CTRL_PTP_REF_CLK_MASK << (reg_shift / 2);
- 		regmap_read(sys_mgr_base_addr, SYSMGR_FPGAGRP_MODULE_REG,
- 			    &module);
--- 
-2.7.4
+Can you please re-run your tests with net.ipv4.tcp_tw_recycle=0 or a
+newer kernel?
+
+neal
