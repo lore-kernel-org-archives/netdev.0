@@ -1,118 +1,39 @@
-From: Edward Cree via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-Subject: [PATCH net-next 4/4] bpf/verifier: document liveness
-	analysis
-Date: Tue, 22 Aug 2017 14:27:43 +0100
-Message-ID: <60838927-7286-60c9-ad69-3b97350a05a4@solarflare.com>
-References: <f25f46bd-27cb-2182-2551-2887757c1e0f@solarflare.com>
-Reply-To: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-To: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>, Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
-Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-In-Reply-To: <f25f46bd-27cb-2182-2551-2887757c1e0f-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
-List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
-List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
-Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: [PATCH net] macsec: add genl family module alias
+Date: Tue, 22 Aug 2017 15:36:08 +0200
+Message-ID: <dde846e6ac5c2bc4189c240be6ccaa54d3b60d5e.1503406499.git.sd@queasysnail.net>
+Cc: Sabrina Dubroca <sd@queasysnail.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:60484 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932833AbdHVNgR (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 22 Aug 2017 09:36:17 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The liveness tracking algorithm is quite subtle; add comments to explain it.
+This helps tools such as wpa_supplicant can start even if the macsec
+module isn't loaded yet.
 
-Signed-off-by: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+Fixes: c09440f7dcb3 ("macsec: introduce IEEE 802.1AE driver")
+Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
 ---
- include/linux/bpf_verifier.h | 13 +++++++++++++
- kernel/bpf/verifier.c        | 28 +++++++++++++++++++++++++++-
- 2 files changed, 40 insertions(+), 1 deletion(-)
+I think this should go to stable as well.
 
-diff --git a/include/linux/bpf_verifier.h b/include/linux/bpf_verifier.h
-index d8f131a..b8d200f 100644
---- a/include/linux/bpf_verifier.h
-+++ b/include/linux/bpf_verifier.h
-@@ -21,6 +21,19 @@
-  */
- #define BPF_MAX_VAR_SIZ	INT_MAX
+ drivers/net/macsec.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/net/macsec.c b/drivers/net/macsec.c
+index 5e1ab1160856..98e4deaa3a6a 100644
+--- a/drivers/net/macsec.c
++++ b/drivers/net/macsec.c
+@@ -3521,6 +3521,7 @@ module_init(macsec_init);
+ module_exit(macsec_exit);
  
-+/* Liveness marks, used for registers and spilled-regs (in stack slots).
-+ * Read marks propagate upwards until they find a write mark; they record that
-+ * "one of this state's descendants read this reg" (and therefore the reg is
-+ * relevant for states_equal() checks).
-+ * Write marks collect downwards and do not propagate; they record that "the
-+ * straight-line code that reached this state (from its parent) wrote this reg"
-+ * (and therefore that reads propagated from this state or its descendants
-+ * should not propagate to its parent).
-+ * A state with a write mark can receive read marks; it just won't propagate
-+ * them to its parent, since the write mark is a property, not of the state,
-+ * but of the link between it and its parent.  See mark_reg_read() and
-+ * mark_stack_slot_read() in kernel/bpf/verifier.c.
-+ */
- enum bpf_reg_liveness {
- 	REG_LIVE_NONE = 0, /* reg hasn't been read or written this branch */
- 	REG_LIVE_READ, /* reg was read, so we're sensitive to initial value */
-diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index 711bdbd..5fc350e 100644
---- a/kernel/bpf/verifier.c
-+++ b/kernel/bpf/verifier.c
-@@ -3417,6 +3417,12 @@ static bool states_equal(struct bpf_verifier_env *env,
- 	return ret;
- }
+ MODULE_ALIAS_RTNL_LINK("macsec");
++MODULE_ALIAS_GENL_FAMILY("macsec");
  
-+/* A write screens off any subsequent reads; but write marks come from the
-+ * straight-line code between a state and its parent.  When we arrive at a
-+ * jump target (in the first iteration of the propagate_liveness() loop),
-+ * we didn't arrive by the straight-line code, so read marks in state must
-+ * propagate to parent regardless of state's write marks.
-+ */
- static bool do_propagate_liveness(const struct bpf_verifier_state *state,
- 				  struct bpf_verifier_state *parent)
- {
-@@ -3457,6 +3463,15 @@ static bool do_propagate_liveness(const struct bpf_verifier_state *state,
- 	return touched;
- }
- 
-+/* "parent" is "a state from which we reach the current state", but initially
-+ * it is not the state->parent (i.e. "the state whose straight-line code leads
-+ * to the current state"), instead it is the state that happened to arrive at
-+ * a (prunable) equivalent of the current state.  See comment above
-+ * do_propagate_liveness() for consequences of this.
-+ * This function is just a more efficient way of calling mark_reg_read() or
-+ * mark_stack_slot_read() on each reg in "parent" that is read in "state", so
-+ * long as parent != state->parent.
-+ */
- static void propagate_liveness(const struct bpf_verifier_state *state,
- 			       struct bpf_verifier_state *parent)
- {
-@@ -3485,6 +3500,12 @@ static int is_state_visited(struct bpf_verifier_env *env, int insn_idx)
- 			/* reached equivalent register/stack state,
- 			 * prune the search.
- 			 * Registers read by the continuation are read by us.
-+			 * If we have any write marks in env->cur_state, they
-+			 * will prevent corresponding reads in the continuation
-+			 * from reaching our parent (an explored_state).  Our
-+			 * own state will get the read marks recorded, but
-+			 * they'll be immediately forgotten as we're pruning
-+			 * this state and will pop a new one.
- 			 */
- 			propagate_liveness(&sl->state, &env->cur_state);
- 			return 1;
-@@ -3508,7 +3529,12 @@ static int is_state_visited(struct bpf_verifier_env *env, int insn_idx)
- 	env->explored_states[insn_idx] = new_sl;
- 	/* connect new state to parentage chain */
- 	env->cur_state.parent = &new_sl->state;
--	/* clear liveness marks in current state */
-+	/* clear write marks in current state: the writes we did are not writes
-+	 * our child did, so they don't screen off its reads from us.
-+	 * (There are no read marks in current state, because reads always mark
-+	 * their parent and current state never has children yet.  Only
-+	 * explored_states can get read marks.)
-+	 */
- 	for (i = 0; i < BPF_REG_FP; i++)
- 		env->cur_state.regs[i].live = REG_LIVE_NONE;
- 	for (i = 0; i < MAX_BPF_STACK / BPF_REG_SIZE; i++)
+ MODULE_DESCRIPTION("MACsec IEEE 802.1AE");
+ MODULE_LICENSE("GPL v2");
+-- 
+2.14.1
