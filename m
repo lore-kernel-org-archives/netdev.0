@@ -1,54 +1,43 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: XDP redirect measurements, gotchas and tracepoints
-Date: Tue, 22 Aug 2017 10:09:15 -0700
-Message-ID: <20170822170913.35umf4j6hlmcnwtm@ast-mbp>
-References: <20170821212506.1cb0d5d6@redhat.com>
- <20170821223540.atktdricmks26c27@ast-mbp>
- <20170822083710.47a182a2@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "xdp-newbies@vger.kernel.org" <xdp-newbies@vger.kernel.org>,
-        John Fastabend <john.fastabend@gmail.com>,
-        Daniel Borkmann <borkmann@iogearbox.net>,
-        Andy Gospodarek <andy@greyhouse.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        =?utf-8?B?UGF3ZcWC?= Staszewski <pstaszewski@itcare.pl>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+From: Antoine Tenart <antoine.tenart@free-electrons.com>
+Subject: [PATCH net-next v2 08/10] Documentation/bindings: net: marvell-pp2: add the system controller
+Date: Tue, 22 Aug 2017 19:08:28 +0200
+Message-ID: <20170822170830.32413-9-antoine.tenart@free-electrons.com>
+References: <20170822170830.32413-1-antoine.tenart@free-electrons.com>
+Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
+        thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
+        linux@armlinux.org.uk, mw@semihalf.com, stefanc@marvell.com,
+        netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: davem@davemloft.net, jason@lakedaemon.net, andrew@lunn.ch,
+        gregory.clement@free-electrons.com, sebastian.hesselbarth@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f171.google.com ([209.85.192.171]:36581 "EHLO
-        mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751754AbdHVRJS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2017 13:09:18 -0400
-Content-Disposition: inline
-In-Reply-To: <20170822083710.47a182a2@redhat.com>
+Received: from mail.free-electrons.com ([62.4.15.54]:38586 "EHLO
+        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751674AbdHVRIv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2017 13:08:51 -0400
+In-Reply-To: <20170822170830.32413-1-antoine.tenart@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 22, 2017 at 08:37:10AM +0200, Jesper Dangaard Brouer wrote:
-> 
-> 
-> > Once tx-ing netdev added to devmap we can enable xdp on it automatically?
-> 
-> I think you are referring to Gotcha-2 here:
+This patch documents the new marvell,system-controller property used by
+the Marvell ppv2 network driver.
 
-oops. yes :)
+Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
+Tested-by: Marcin Wojtas <mw@semihalf.com>
+---
+ Documentation/devicetree/bindings/net/marvell-pp2.txt | 1 +
+ 1 file changed, 1 insertion(+)
 
-> 
->   Second gotcha(2): you cannot TX out a device, unless it also have a
->   xdp bpf program attached. (This is an implicit dependency, as the
->   driver code need to setup XDP resources before it can ndo_xdp_xmit).
-> 
-> Yes, we should work on improving this situation.  Auto enabling XDP
-> when a netdev is added to a devmap is a good solution.  Currently this
-> is tied to loading an XDP bpf_prog.  Do you propose loading a dummy
-> bpf_prog on the netdev? (then we need to handle 1. not replacing
-> existing bpf_prog, 2. on take-down don't remove "later" loaded
-> bpf_prog).
-
-right. these things need to be taken care of.
-Technically for ndo_xdp_xmit to work the program doesn't need
-to be attached, but the device needs to be in xdp mode with
-configured xdp tx rings.
-The easiest, of course, is just to document it :)
-and may be add some sort of warning that if netdev is added
-to devmap and it's not in xdp mode, return warning or error.
+diff --git a/Documentation/devicetree/bindings/net/marvell-pp2.txt b/Documentation/devicetree/bindings/net/marvell-pp2.txt
+index 8918ad3ccf14..49484db81583 100644
+--- a/Documentation/devicetree/bindings/net/marvell-pp2.txt
++++ b/Documentation/devicetree/bindings/net/marvell-pp2.txt
+@@ -45,6 +45,7 @@ Optional properties (port):
+                    be the name associated to the interrupts listed. Valid
+                    names are: "tx-cpu0", "tx-cpu1", "tx-cpu2", "tx-cpu3",
+ 		   "rx-shared".
++- marvell,system-controller: a phandle to the system controller.
+ 
+ Example for marvell,armada-375-pp2:
+ 
+-- 
+2.13.5
