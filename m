@@ -1,94 +1,78 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next] virtio-net: invoke zerocopy callback on xmit
-	path if no tx napi
-Date: Tue, 22 Aug 2017 19:47:35 +0800
-Message-ID: <4f70e086-7efd-ef23-8940-e86ec06ad74d@redhat.com>
-References: <20170819063854.27010-1-den@klaipeden.com>
-	<5352c98a-fa48-fcf9-c062-9986a317a1b0@redhat.com>
-	<CAF=yD-LZ4=WAYfUtY7xRWi50FRSkrcOa+b7uc46xRnC4sbDCzQ@mail.gmail.com>
-	<64d451ae-9944-e978-5a05-54bb1a62aaad@redhat.com>
-	<CAF=yD-L-9QnxV2kM_j2BxVk=h7i3wvMZxG-3_=0Q=jDPgeT=VQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: Network Development <netdev@vger.kernel.org>,
-	virtualization@lists.linux-foundation.org,
-	Koichiro Den <den@klaipeden.com>, "Michael S. Tsirkin" <mst@redhat.com>
-To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <CAF=yD-L-9QnxV2kM_j2BxVk=h7i3wvMZxG-3_=0Q=jDPgeT=VQ@mail.gmail.com>
-Content-Language: en-US
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+From: Romain Perier <romain.perier@collabora.com>
+Subject: [PATCH v12 7/8] wireless: ipw2200: Replace PCI pool old API
+Date: Tue, 22 Aug 2017 13:47:00 +0200
+Message-ID: <20170822114701.14907-8-romain.perier@collabora.com>
+References: <20170822114701.14907-1-romain.perier@collabora.com>
+Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        Romain Perier <romain.perier@collabora.com>
+To: Dan Williams <dan.j.williams@intel.com>,
+        Doug Ledford <dledford@redhat.com>,
+        Sean Hefty <sean.hefty@intel.com>,
+        Hal Rosenstock <hal.rosenstock@gmail.com>,
+        jeffrey.t.kirsher@intel.com,
+        "David S. Miller" <davem@davemloft.net>, stas.yakovlev@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170822114701.14907-1-romain.perier@collabora.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-CgpPbiAyMDE35bm0MDjmnIgyMuaXpSAxMToxMCwgV2lsbGVtIGRlIEJydWlqbiB3cm90ZToKPj4+
-PiBJbnRlcmVzdGluZywgZGVhZGxvY2sgY291bGQgYmUgdHJlYXRlZCBhcyBhIGEgcmFkaWNhbCBj
-YXNlIG9mIHRoZQo+Pj4+IGRpc2N1c3Npb24KPj4+PiBoZXJlIGh0dHBzOi8vcGF0Y2h3b3JrLmtl
-cm5lbC5vcmcvcGF0Y2gvMzc4NzY3MS8uCj4+Pj4KPj4+PiBnaXQgZ3JlcCB0ZWxscyBtb3JlIHNp
-bWlsYXIgc2tiX29ycGhhbigpIGNhc2VzLiBEbyB3ZSBuZWVkIHRvIGNoYW5nZSB0aGVtCj4+Pj4g
-YWxsIChvciBwYXJ0KT8KPj4+IE1vc3Qgc2tiX29ycGhhbiBjYWxscyBhcmUgbm90IHJlbGV2YW50
-IHRvIHRoZSBpc3N1ZSBvZiB0cmFuc21pdCBkZWxheS4KPj4KPj4gWWVzLCBidXQgYXQgbGVhc3Qg
-d2Ugc2hvdWxkIGF1ZGl0IHRoZSBvbmVzIGluIGRyaXZlcnMvbmV0Lgo+IERvIHlvdSBtZWFuIG90
-aGVyIHZpcnR1YWwgZGV2aWNlIGRyaXZlciB0cmFuc21pdCBwYXRocywgbGlrZSB4ZW4sCj4gc3Bl
-Y2lmaWNhbGx5PwoKR2l0IGdyZXAgZG9lcyBub3Qgc2hvdyBza2Jfb3JwaGFuKCkgd2FzIHVzZWQg
-Zm9yIHhlbiBmb3IgbWUuIEJ1dCBsb29raW5nIAphdCBjeGdiNC9zZ2UuYyB3aGljaCBzZWVtcyB0
-byBjYWxsIHNrYl9vcnBoYW4oKSBmb3IgbGFyZ2UgcGFja2V0IGFuZCAKcmVjbGFpbSB0cmFuc21p
-dHRlZCBwYWNrZXRzIHdoZW46CgotIGRvaW5nIG5kb19zdGFydF94bWl0KCkKLSBvciBhIHRpbWVy
-LgoKPj4+PiBBY3R1YWxseSwgd2UgbWF5IG1lZXQgc2ltaWxhciBpc3N1ZXMgYXQgbWFueSBvdGhl
-ciBwbGFjZXMgKGUuZyBuZXRlbSkuCj4+PiBOZXRlbSBpcyBhbiBpbnRlcmVzdGluZyBjYXNlLiBC
-ZWNhdXNlIGl0IGlzIGludGVuZGVkIHRvIG1pbWljIG5ldHdvcmsKPj4+IGRlbGF5LCBhdCBsZWFz
-dCBpbiB0aGUgY2FzZSB3aGVyZSBpdCBjYWxscyBza2Jfb3JwaGFuLCBpdCBtYXkgbWFrZQo+Pj4g
-c2Vuc2UgdG8gcmVsZWFzZSBhbGwgcmVmZXJlbmNlcywgaW5jbHVkaW5nIGNhbGxpbmcgc2tiX3pj
-b3B5X2NsZWFyLgo+Pj4KPj4+IEluIGdlbmVyYWwsIHplcm9jb3B5IHJldmVydHMgdG8gY29weSBv
-biBhbGwgcGF0aHMgdGhhdCBtYXkgY2F1c2UKPj4+IHVuYm91bmRlZCBkZWxheSBkdWUgdG8gYW5v
-dGhlciBwcm9jZXNzLiBHdWFyZGluZyBhZ2FpbnN0IGRlbGF5Cj4+PiBpbmR1Y2VkIGJ5IHRoZSBh
-ZG1pbmlzdHJhdG9yIGlzIGluZmVhc2libGUuIEl0IGlzIGFsd2F5cyBwb3NzaWJsZSB0bwo+Pj4g
-anVzdCBwYXVzZSB0aGUgbmljLiBOZXRlbSBpcyBvbmUgaW5zdGFuY2Ugb2YgdGhhdCwgYW5kIG5v
-dCB1bmJvdW5kZWQuCj4+Cj4+IFRoZSBwcm9ibGVtIGlzLCBhZG1pbiBtYXkgb25seSBkZWxheSB0
-aGUgdHJhZmZpYyBpbiBlLmcgb25lIGludGVyZmFjZSwgYnV0Cj4+IGl0IGFjdHVhbGx5IGRlbGF5
-IG9yIHN0YWxsIGFsbCB0cmFmZmljIGluc2lkZSBhIFZNLgo+IFVuZGVyc3Rvb2QuIElkZWFsbHkg
-d2UgY2FuIHJlbW92ZSB0aGUgSG9MIGJsb2NraW5nIGNhdXNlIG9mIHRoaXMsCj4gaXRzZWxmLgo+
-Cj4+Pj4gTmVlZAo+Pj4+IHRvIGNvbnNpZGVyIGEgY29tcGxldGUgc29sdXRpb24gZm9yIHRoaXMu
-IEZpZ3VyaW5nIG91dCBhbGwgcGxhY2VzIHRoYXQKPj4+PiBjb3VsZAo+Pj4+IGRlbGF5IGEgcGFj
-a2V0IGlzIGEgbWV0aG9kLgo+Pj4gVGhlIGlzc3VlIGRlc2NyaWJlZCBpbiB0aGUgcmVmZXJlbmNl
-ZCBwYXRjaCBzZWVtcyBsaWtlIGhlYWQgb2YgbGluZQo+Pj4gYmxvY2tpbmcgYmV0d2VlbiB0d28g
-Zmxvd3MuIElmIG9uZSBmbG93IGRlbGF5cyB6ZXJvY29weSBkZXNjcmlwdG9yCj4+PiByZWxlYXNl
-IGZyb20gdGhlIHZob3N0LW5ldCBwb29sLCBpdCBibG9ja3MgYWxsIHN1YnNlcXVlbnQgZGVzY3Jp
-cHRvcnMKPj4+IGluIHRoYXQgcG9vbCBmcm9tIGJlaW5nIHJlbGVhc2VkLCBhbHNvIGRlbGF5aW5n
-IG90aGVyIGZsb3dzIHRoYXQgdXNlCj4+PiB0aGUgc2FtZSBkZXNjcmlwdG9yIHBvb2wuIElmIHRo
-ZSBwb29sIGlzIGVtcHR5LCBhbGwgdHJhbnNtaXNzaW9uIHN0b3BwZWQuCj4+Pgo+Pj4gUmV2ZXJ0
-aW5nIHRvIGNvcHkgdHggd2hlbiB0aGUgcG9vbCByZWFjaGVzIGEgbG93IHdhdGVybWFyaywgYXMg
-dGhlCj4+PiBwYXRjaCBkb2VzLCBmaXhlcyB0aGlzLgo+Pgo+PiBBbiBpc3N1ZSBvZiB0aGUgcmVm
-ZXJlbmNlZCBwYXRjaCBpcyB0aGF0IHNuZGJ1ZiBjb3VsZCBiZSBzbWFsbGVyIHRoYW4gbG93Cj4+
-IHdhdGVybWFyay4KPj4KPj4+IFBlcmhhcHMgdGhlIGRlc2NyaXB0b3IgcG9vbCBzaG91bGQgYWxz
-byBiZQo+Pj4gcmV2aXNlZCB0byBhbGxvdyBvdXQgb2Ygb3JkZXIgY29tcGxldGlvbnMuIFRoZW4g
-dGhlcmUgaXMgbm8gbmVlZCB0bwo+Pj4gY29weSB6ZXJvY29weSBwYWNrZXRzIHdoZW5ldmVyIHRo
-ZXkgbWF5IGV4cGVyaWVuY2UgZGVsYXkuCj4+Cj4+IFllcywgYnV0IGFzIHJlcGxpZWQgaW4gdGhl
-IHJlZmVyZW5jZWQgdGhyZWFkLCB3aW5kb3dzIGRyaXZlciBtYXkgdHJlYXQgb3V0Cj4+IG9mIG9y
-ZGVyIGNvbXBsZXRpb24gYXMgYSBidWcuCj4gSW50ZXJlc3RpbmcuIEkgbWlzc2VkIHRoYXQuIFBl
-cmhhcHMgdGhlIHplcm9jb3B5IG9wdGltaXphdGlvbgo+IGNvdWxkIGJlIGdhdGVkIG9uIGd1ZXN0
-IHN1cHBvcnQgZm9yIG91dCBvZiBvcmRlciBjb21wbGV0aW9ucy4KClllcywgd2UgbWF5IHBsYW4g
-dG8gZXhwbGljaXRseSBub3RpZnkgZHJpdmVyIGFib3V0IG91dCBvZiBvcmRlciBpbiAKZnV0dXJl
-IHZpcnRpby4KCj4KPj4+IE9uIHRoZSBwb2ludCBvZiBjb3VudGluZyBjb3B5IHZzIHplcm9jb3B5
-OiB0aGUgbmV3IG1zZ196ZXJvY29weQo+Pj4gdmFyaWFudCBvZiB1YnVmX2luZm8gaGFzIGEgZmll
-bGQgdG8gcmVjb3JkIHdoZXRoZXIgYSBkZWVwIGNvcHkgd2FzCj4+PiBtYWRlLiBUaGlzIGNhbiBi
-ZSB1c2VkIHdpdGggdmhvc3QtbmV0IHplcm9jb3B5LCB0b28uCj4+Cj4+IEp1c3QgdG8gbWFrZSBz
-dXJlIEkgdW5kZXJzdGFuZC4gSXQncyBzdGlsbCBub3QgY2xlYXIgdG8gbWUgaG93IHRvIHJldXNl
-IHRoaXMKPj4gZm9yIHZob3N0LW5ldCwgZS5nIHplcm9jb3B5IGZsYWcgaXMgaW4gYSB1bmlvbiB3
-aGljaCBpcyBub3QgdXNlZCBieQo+PiB2aG9zdF9uZXQuCj4gVHJ1ZSwgYnV0IHRoYXQgaXMgbm90
-IHNldCBpbiBzdG9uZS4gSSB3ZW50IGJhY2sgYW5kIGZvcnRoIG9uIHRoYXQgd2hlbgo+IHByZXBh
-cmluZyBmaXggMGE0YTA2MGJiMjA0ICgic29jazogZml4IHplcm9jb3B5X3N1Y2Nlc3MgcmVncmVz
-c2lvbgo+IHdpdGggbXNnX3plcm9jb3B5IikuIFRoZSBmaWVsZCBjYW4gYmUgbW92ZWQgb3V0c2lk
-ZSB0aGUgdW5pb24gYW5kCj4gaW5pdGlhbGl6ZWQgaW4gdGhlIG90aGVyIHplcm9jb3B5IHBhdGhz
-LgoKT2suIEkgc2VlLgoKVGhhbmtzCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fClZpcnR1YWxpemF0aW9uIG1haWxpbmcgbGlzdApWaXJ0dWFsaXphdGlvbkBs
-aXN0cy5saW51eC1mb3VuZGF0aW9uLm9yZwpodHRwczovL2xpc3RzLmxpbnV4Zm91bmRhdGlvbi5v
-cmcvbWFpbG1hbi9saXN0aW5mby92aXJ0dWFsaXphdGlvbg==
+The PCI pool API is deprecated. This commit replaces the PCI pool old
+API by the appropriate function with the DMA pool API.
+
+Signed-off-by: Romain Perier <romain.perier@collabora.com>
+Reviewed-by: Peter Senna Tschudin <peter.senna@collabora.com>
+---
+ drivers/net/wireless/intel/ipw2x00/ipw2200.c | 13 +++++++------
+ 1 file changed, 7 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/wireless/intel/ipw2x00/ipw2200.c b/drivers/net/wireless/intel/ipw2x00/ipw2200.c
+index c311b1a994c1..c57c567add4d 100644
+--- a/drivers/net/wireless/intel/ipw2x00/ipw2200.c
++++ b/drivers/net/wireless/intel/ipw2x00/ipw2200.c
+@@ -3209,7 +3209,7 @@ static int ipw_load_firmware(struct ipw_priv *priv, u8 * data, size_t len)
+ 	struct fw_chunk *chunk;
+ 	int total_nr = 0;
+ 	int i;
+-	struct pci_pool *pool;
++	struct dma_pool *pool;
+ 	void **virts;
+ 	dma_addr_t *phys;
+ 
+@@ -3226,9 +3226,10 @@ static int ipw_load_firmware(struct ipw_priv *priv, u8 * data, size_t len)
+ 		kfree(virts);
+ 		return -ENOMEM;
+ 	}
+-	pool = pci_pool_create("ipw2200", priv->pci_dev, CB_MAX_LENGTH, 0, 0);
++	pool = dma_pool_create("ipw2200", &priv->pci_dev->dev, CB_MAX_LENGTH, 0,
++			       0);
+ 	if (!pool) {
+-		IPW_ERROR("pci_pool_create failed\n");
++		IPW_ERROR("dma_pool_create failed\n");
+ 		kfree(phys);
+ 		kfree(virts);
+ 		return -ENOMEM;
+@@ -3253,7 +3254,7 @@ static int ipw_load_firmware(struct ipw_priv *priv, u8 * data, size_t len)
+ 
+ 		nr = (chunk_len + CB_MAX_LENGTH - 1) / CB_MAX_LENGTH;
+ 		for (i = 0; i < nr; i++) {
+-			virts[total_nr] = pci_pool_alloc(pool, GFP_KERNEL,
++			virts[total_nr] = dma_pool_alloc(pool, GFP_KERNEL,
+ 							 &phys[total_nr]);
+ 			if (!virts[total_nr]) {
+ 				ret = -ENOMEM;
+@@ -3297,9 +3298,9 @@ static int ipw_load_firmware(struct ipw_priv *priv, u8 * data, size_t len)
+ 	}
+  out:
+ 	for (i = 0; i < total_nr; i++)
+-		pci_pool_free(pool, virts[i], phys[i]);
++		dma_pool_free(pool, virts[i], phys[i]);
+ 
+-	pci_pool_destroy(pool);
++	dma_pool_destroy(pool);
+ 	kfree(phys);
+ 	kfree(virts);
+ 
+-- 
+2.11.0
