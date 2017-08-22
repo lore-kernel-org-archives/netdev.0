@@ -1,56 +1,94 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH v4 net-next] arm: eBPF JIT compiler
-Date: Tue, 22 Aug 2017 17:25:54 +0200
-Message-ID: <599C4D02.7090901@iogearbox.net>
-References: <1503383772-5788-1-git-send-email-illusionist.neo@gmail.com> <599C48E7.3000409@iogearbox.net>
+From: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
+Subject: Re: [PATCH v3 3/4] net: stmmac: register parent MDIO node for sun8i-h3-emac
+Date: Tue, 22 Aug 2017 23:39:22 +0800
+Message-ID: <CAGb2v64E4T=1ff3POGuXZA=MvjGAnKQ6OF6A3sT_cU-=jh6zNw@mail.gmail.com>
+References: <20170818122118.4925-1-clabbe.montjoie@gmail.com>
+ <20170818122118.4925-4-clabbe.montjoie@gmail.com> <CAGb2v66KcZkiDDHryMmVzm4WroXePPy3V44SLpVdoO3ZEjgC=g@mail.gmail.com>
+ <20170819185025.GB13266@Red> <20170819203836.GA21567@lunn.ch>
+ <20170820065757.GA6081@Red> <20170820142545.GB24150@lunn.ch>
+ <CAGb2v67hQXSoCKP7qW+KRUYX+0djQ1Z23cQ67Lyg6G7ozGyfGQ@mail.gmail.com>
+ <20170821132015.GB1703@lunn.ch> <20170821133104.qvrhvwin2rdg4aqo@flea.lan> <20170821142321.GE1703@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ast@fb.com,
-        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
-        keescook@chromium.org
-To: Shubham Bansal <illusionist.neo@gmail.com>, linux@armlinux.org.uk,
-        davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <599C48E7.3000409@iogearbox.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+        Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>,
+        Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        Russell King <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>,
+        Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
+        Alexandre Torgue <alexandre.torgue-qxv4g6HH51o@public.gmane.org>,
+        devicetree <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        linux-arm-kernel <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+        linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170821142321.GE1703-g2DYL2Zd6BY@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 08/22/2017 05:08 PM, Daniel Borkmann wrote:
-> On 08/22/2017 08:36 AM, Shubham Bansal wrote:
-> [...]
->> +
->> +static int out_offset = -1; /* initialized on the first pass of build_body() */
+On Mon, Aug 21, 2017 at 10:23 PM, Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org> wrote:
+>> All muxes are mostly always represented the same way afaik, or do you
+>> want to simply introduce a new compatible / property?
 >
-> Hm, why is this a global var actually? There can be
-> multiple parallel calls to bpf_int_jit_compile(), we
-> don't take a global lock on this. Unless I'm missing
-> something this should really reside in jit_ctx, no?
-
-Hm, okay, it's for generating the out jmp offsets in
-tail call emission which are supposed to always be the
-same relative offsets; should be fine then.
-
-> Given this is on emit_bpf_tail_call(), did you get
-> tail calls working the way I suggested to test?
+> +         mdio-mux {
+> +               compatible = "allwinner,sun8i-h3-mdio-switch";
+> +               mdio-parent-bus = <&mdio_parent>;
+> +               #address-cells = <1>;
+> +               #size-cells = <0>;
+> +
+> +               internal_mdio: mdio@1 {
+>                         reg = <1>;
+> -                       clocks = <&ccu CLK_BUS_EPHY>;
+> -                       resets = <&ccu RST_BUS_EPHY>;
+> +                       #address-cells = <1>;
+> +                       #size-cells = <0>;
+> +                       int_mii_phy: ethernet-phy@1 {
+> +                               compatible = "ethernet-phy-ieee802.3-c22";
+> +                               reg = <1>;
+> +                               clocks = <&ccu CLK_BUS_EPHY>;
+> +                               resets = <&ccu RST_BUS_EPHY>;
+> +                               phy-is-integrated;
+> +                       };
+> +               };
+> +               mdio: mdio@0 {
+> +                       reg = <0>;
+> +                       #address-cells = <1>;
+> +                       #size-cells = <0>;
+>                 };
 >
->> +static int emit_bpf_tail_call(struct jit_ctx *ctx)
->>   {
-> [...]
->> +    const int idx0 = ctx->idx;
->> +#define cur_offset (ctx->idx - idx0)
->> +#define jmp_offset (out_offset - (cur_offset))
-> [...]
->> +
->> +    /* out: */
->> +    if (out_offset == -1)
->> +        out_offset = cur_offset;
->> +    if (cur_offset != out_offset) {
->> +        pr_err_once("tail_call out_offset = %d, expected %d!\n",
->> +                cur_offset, out_offset);
->> +        return -1;
->> +    }
->> +    return 0;
->> +#undef cur_offset
->> +#undef jmp_offset
->>   }
+> Hi Maxim
+>
+> Anybody who knows the MDIO-mux code/binding, knows that it is a run
+> time mux. You swap the mux per MDIO transaction. You can access all
+> the PHY and switches on the mux'ed MDIO bus.
+>
+> However here, it is effectively a boot-time MUX. You cannot change it
+> on the fly. What happens when somebody has a phandle to a PHY on the
+> internal and a phandle to a phy on the external? Does the driver at
+> least return -EINVAL, or -EBUSY? Is there a representation which
+> eliminates this possibility?
+
+There is only one controller. Either you use the internal PHY, which
+is then directly coupled (no magnetics needed) to the RJ45 port, or
+you use an external PHY over MII/RMII/RGMII. You could supposedly
+have both on a board, and let the user choose one. But why bother
+with the extra complexity and cost? Either you use the internal PHY
+at 100M, or an external RGMII PHY for gigabit speeds.
+
+So I think what you are saying is either impossible or engineering-wise
+a very stupid design, like using an external MAC with a discrete PHY
+connected to the internal MAC's MDIO bus, while using the internal MAC
+with the internal PHY.
+
+Now can we please decide on something? We're a week and a half from
+the 4.13 release. If mdio-mux is wrong, then we could have two mdio
+nodes (internal-mdio & external-mdio).
+
+Regards
+ChenYu
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
