@@ -1,96 +1,55 @@
-From: Priit Laes <plaes@plaes.org>
-Subject: Crash due to fbca164776e438 - "net: stmmac: Use the right logging
- function in stmmac_mdio_register"
-Date: Tue, 22 Aug 2017 18:47:57 +0000
-Message-ID: <20170822184757.GA6429@plaes.org>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: [PATCH net-next 1/2] tcp: Extend SOF_TIMESTAMPING_RX_SOFTWARE to
+ TCP recvmsg
+Date: Tue, 22 Aug 2017 14:57:32 -0400
+Message-ID: <CAF=yD-KM9N_ZAVe2p+NSAq8O1eX1Hm6Z15gCH7XjGqMSmPsCfA@mail.gmail.com>
+References: <20170822172703.31703-1-maloneykernel@gmail.com> <20170822172703.31703-2-maloneykernel@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Chen-Yu Tsai <wens@csie.org>,
-        Maxime Ripard <maxime.ripard@free-electrons.com>
-To: Romain Perier <romain.perier@collabora.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Network Development <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        Mike Maloney <maloney@google.com>
+To: Mike Maloney <maloneykernel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from plaes.org ([188.166.43.21]:35591 "EHLO plaes.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752115AbdHVSyx (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 22 Aug 2017 14:54:53 -0400
-Content-Disposition: inline
+Received: from mail-oi0-f68.google.com ([209.85.218.68]:37250 "EHLO
+        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752235AbdHVS6Q (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2017 14:58:16 -0400
+Received: by mail-oi0-f68.google.com with SMTP id k77so5765747oib.4
+        for <netdev@vger.kernel.org>; Tue, 22 Aug 2017 11:58:15 -0700 (PDT)
+In-Reply-To: <20170822172703.31703-2-maloneykernel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi!
+On Tue, Aug 22, 2017 at 1:27 PM, Mike Maloney <maloneykernel@gmail.com> wrote:
+> From: Mike Maloney <maloney@google.com>
+>
+> When SOF_TIMESTAMPING_RX_SOFTWARE is enabled for tcp sockets, return the
+> timestamp corresponding to the highest sequence number data returned.
+>
+> Previously the skb->tstamp is overwritten when a TCP packet is placed
+> in the out of order queue.  While the packet is in the ooo queue, save the
+> timestamp in the TCB_SKB_CB.  This space is shared with the gso_*
+> options which are only used on the tx path, and a previously unused 4
+> byte hole.
+>
+> When skbs are coalesced either in the sk_receive_queue or the
+> out_of_order_queue always choose the timestamp of the appended skb to
+> maintain the invariant of returning the timestamp of the last byte in
+> the recvmsg buffer.
+>
 
-I'm running into following crash during boot on Cubietruck A20, with the patch
-fbca164776e438
-(net: stmmac: Use the right logging function in stmmac_mdio_register) applied:
+> +static void tcp_update_recv_tstamps(struct sk_buff *skb,
+> +                                   struct scm_timestamping *tss)
+> +{
+> +       if (skb->tstamp)
+> +               tss->ts[0] = ktime_to_timespec(skb->tstamp);
+> +       else
+> +               tss->ts[0] = (struct timespec) {0};
+> +
+> +       if (skb_hwtstamps(skb)->hwtstamp)
+> +               tss->ts[2] = ktime_to_timespec(skb_hwtstamps(skb)->hwtstamp);
+> +       else
+> +               tss->ts[2] = (struct timespec) {0};
 
-[snip]
-sun7i-dwmac 1c50000.ethernet: PTP uses main clock
-sun7i-dwmac 1c50000.ethernet: no reset control found
-sun7i-dwmac 1c50000.ethernet: no regulator found
-sun7i-dwmac 1c50000.ethernet: Ring mode enabled
-sun7i-dwmac 1c50000.ethernet: DMA HW capability register supported
-sun7i-dwmac 1c50000.ethernet: Normal descriptors
-libphy: stmmac: probed
-Unable to handle kernel NULL pointer dereference at virtual address 00000048
-pgd = c0004000
-[00000048] *pgd=00000000
-Internal error: Oops: 5 [#1] SMP ARM
-Modules linked in:
-CPU: 0 PID: 1 Comm: swapper/0 Not tainted 4.13.0-rc6-00318-g0065bd7fa384 #1
-Hardware name: Allwinner sun7i (A20) Family
-task: ee868000 task.stack: ee85c000
-PC is at phy_attached_print+0x1c/0x8c
-LR is at stmmac_mdio_register+0x12c/0x200
-pc : [<c04510ac>]    lr : [<c045e6b4>]    psr: 60000013
-sp : ee85ddc8  ip : 00000000  fp : c07dfb5c
-r10: ee981210  r9 : 00000001  r8 : eea73000
-r7 : eeaa6dd0  r6 : eeb49800  r5 : 00000000  r4 : 00000000
-r3 : 00000000  r2 : 00000000  r1 : 00000000  r0 : eeb49800
-Flags: nZCv  IRQs on  FIQs on  Mode SVC_32  ISA ARM  Segment none
-Control: 10c5387d  Table: 4000406a  DAC: 00000051
-Process swapper/0 (pid: 1, stack limit = 0xee85c210)
-Stack: (0xee85ddc8 to 0xee85e000)
-ddc0:                   00000000 00000002 eeb49400 eea72000 00000000 eeb49400
-dde0: c045e6b4 00000000 ffffffff eeab0810 00000000 c08051f8 ee9292c0 c016d480
-de00: eea725c0 eea73000 eea72000 00000001 eea726c0 c0457d0c 00000040 00000020
-de20: 00000000 c045b850 00000001 00000000 ee981200 eeab0810 eeaa6ed0 ee981210
-de40: 00000000 c094a4a0 00000000 c0465180 eeaa7550 f08d0000 c9ffb90c 00000032
-de60: fffffffa 00000032 ee981210 ffffffed c0a46620 fffffdfb c0a46620 c03f7be8
-de80: ee981210 c0a9a388 00000000 00000000 c0a46620 c03f63e0 ee981210 c0a46620
-dea0: ee981244 00000000 00000007 000000c6 c094a4a0 c03f6534 00000000 c0a46620
-dec0: c03f6490 c03f49ec ee828a58 ee9217b4 c0a46620 eeaa4b00 c0a43230 c03f59fc
-dee0: c08051f8 c094a49c c0a46620 c0a46620 00000000 c091c668 c093783c c03f6dfc
-df00: ffffe000 00000000 c091c668 c010177c eefe0938 eefe0935 c085e200 000000c6
-df20: 00000005 c0136bc8 60000013 c080b3a4 00000006 00000006 c07ce7b4 00000000
-df40: c07d7ddc c07cef28 eefe0938 eefe093e c0a0b2f0 c0a641c0 c0a641c0 c0a641c0
-df60: c0937834 00000007 000000c6 c094a4a0 00000000 c0900d88 00000006 00000006
-df80: 00000000 c09005a8 00000000 c060ecf4 00000000 00000000 00000000 00000000
-dfa0: 00000000 c060ecfc 00000000 c0107738 00000000 00000000 00000000 00000000
-dfc0: 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-dfe0: 00000000 00000000 00000000 00000000 00000013 00000000 ffdeffff ffffffff
-[<c04510ac>] (phy_attached_print) from [<c045e6b4>] (stmmac_mdio_register+0x12c/0x200)
-[<c045e6b4>] (stmmac_mdio_register) from [<c045b850>] (stmmac_dvr_probe+0x850/0x96c)
-[<c045b850>] (stmmac_dvr_probe) from [<c0465180>] (sun7i_gmac_probe+0x120/0x180)
-[<c0465180>] (sun7i_gmac_probe) from [<c03f7be8>] (platform_drv_probe+0x50/0xac)
-[<c03f7be8>] (platform_drv_probe) from [<c03f63e0>] (driver_probe_device+0x234/0x2e4)
-[<c03f63e0>] (driver_probe_device) from [<c03f6534>] (__driver_attach+0xa4/0xa8)
-[<c03f6534>] (__driver_attach) from [<c03f49ec>] (bus_for_each_dev+0x4c/0x9c)
-[<c03f49ec>] (bus_for_each_dev) from [<c03f59fc>] (bus_add_driver+0x190/0x214)
-[<c03f59fc>] (bus_add_driver) from [<c03f6dfc>] (driver_register+0x78/0xf4)
-[<c03f6dfc>] (driver_register) from [<c010177c>] (do_one_initcall+0x44/0x168)
-[<c010177c>] (do_one_initcall) from [<c0900d88>] (kernel_init_freeable+0x144/0x1d0)
-[<c0900d88>] (kernel_init_freeable) from [<c060ecfc>] (kernel_init+0x8/0x110)
-[<c060ecfc>] (kernel_init) from [<c0107738>] (ret_from_fork+0x14/0x3c)
-Code: e59021c8 e59d401c e590302c e3540000 (e5922048) 
----[ end trace 39ae87c7923562d0 ]---
-Kernel panic - not syncing: Attempted to kill init! exitcode=0x0000000b
-[/snip]
-
-After reverting said patch, there are no issues.
-
-Päikest,
-Priit Laes
+tss->ts[1] may remain uninitialized.
