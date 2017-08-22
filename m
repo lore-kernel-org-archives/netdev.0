@@ -1,30 +1,37 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next 2/5] xdp: make generic xdp redirect use tracepoint
- trace_xdp_redirect
-Date: Tue, 22 Aug 2017 23:21:39 +0200
-Message-ID: <599CA063.8060100@iogearbox.net>
-References: <150343479290.31091.8019008896152616977.stgit@firesoul> <150343484470.31091.11187498529801746935.stgit@firesoul>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH net-next] net: sched: use kvmalloc() for class hash tables
+Date: Tue, 22 Aug 2017 14:21:53 -0700
+Message-ID: <20170822212151.cf62aebehcjpsbc7@ast-mbp>
+References: <1503430006.2499.55.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: John Fastabend <john.fastabend@gmail.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Jiri Pirko <jiri@resnulli.us>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:60177 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752375AbdHVVVk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2017 17:21:40 -0400
-In-Reply-To: <150343484470.31091.11187498529801746935.stgit@firesoul>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:36434 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751831AbdHVVV4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2017 17:21:56 -0400
+Received: by mail-pg0-f68.google.com with SMTP id y129so28280241pgy.3
+        for <netdev@vger.kernel.org>; Tue, 22 Aug 2017 14:21:56 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1503430006.2499.55.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/22/2017 10:47 PM, Jesper Dangaard Brouer wrote:
-> If the xdp_do_generic_redirect() call fails, it trigger the
-> trace_xdp_exception tracepoint.  It seems better to use the same
-> tracepoint trace_xdp_redirect, as the native xdp_do_redirect{,_map} does.
->
-> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+On Tue, Aug 22, 2017 at 12:26:46PM -0700, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> High order GFP_KERNEL allocations can stress the host badly.
+> 
+> Use modern kvmalloc_array()/kvfree() instead of custom
+> allocations.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Makes sense to make this consistent.
-
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+Thanks for fixing these issues.
+Acked-by: Alexei Starovoitov <ast@kernel.org>
