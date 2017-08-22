@@ -1,36 +1,62 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: [PATCH] ARM: dts: rk3228-evb: Fix the compiling error
-Date: Tue, 22 Aug 2017 21:52:51 +1000
-Message-ID: <20170822215251.2125440b@canb.auug.org.au>
-References: <1503393865-7975-1-git-send-email-david.wu@rock-chips.com>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [RFC net-next v2] bridge lwtunnel, VPLS & NVGRE
+Date: Tue, 22 Aug 2017 14:55:04 +0300
+Message-ID: <22d7d847-0914-dca9-66b8-4231e6e0b01c@cumulusnetworks.com>
+References: <20170821171523.951260-1-equinox@diac24.net>
+	<20170821170151.5b12a392@xeon-e3>
+	<f96d548c-7a64-ae9a-d1ea-e9fd065f9303@cumulusnetworks.com>
+	<20170822113207.GB773745@eidolon>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: David Wu <david.wu@rock-chips.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([103.22.144.67]:44507 "EHLO ozlabs.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932577AbdHVLwy (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 22 Aug 2017 07:52:54 -0400
-In-Reply-To: <1503393865-7975-1-git-send-email-david.wu@rock-chips.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+	bridge@lists.linux-foundation.org, amine.kherbouche@6wind.com
+To: David Lamparter <equinox@diac24.net>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20170822113207.GB773745@eidolon>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Hi David,
-
-Thanks.
-
-On Tue, 22 Aug 2017 17:24:25 +0800 David Wu <david.wu@rock-chips.com> wrote:
->
-> This patch solves the following error:
-> arch/arm/boot/dts/rk3228-evb.dtb: ERROR (phandle_references): Reference to non-existent node or label "phy0"
+On 22/08/17 14:32, David Lamparter wrote:
+> On Tue, Aug 22, 2017 at 02:01:40PM +0300, Nikolay Aleksandrov wrote:
+>> On 22/08/17 03:01, Stephen Hemminger wrote:
+>>> I know the bridge is an easy target to extend L2 forwarding, but it is not
+>>> the only option. Have you condidered building a new driver (like VXLAN does)
+>>> which does the forwarding you want. Having all features in one driver
+>>> makes for worse performance, and increased complexity.
+>>>
+>>
+>> +1
+>>
+>> As I said before, a separate implementation will be much cleaner and will not affect
+>> the bridge in any way, paying both performance and complexity price for something that
+>> the majority of users will not be using isn't worth it.  In addition this creates a
+>> silent dependency between the bridge and the fdb metadata dst users, it would be much
+>> more preferable to be able to run them separately.
+>> If there is any code that will need to be re-used by VPLS (or anyone else) figure out a way
+>> to factor it out.
 > 
-> Fixess db40f15b53e4 ("ARM: dts: rk3228-evb: Enable the integrated PHY for gmac")
-> Signed-off-by: David Wu <david.wu@rock-chips.com>
+> Could you tell me why this argument didn't apply to the bridge vlan
+> tunnel code?  It adds complexity to the bridge specifically for VXLAN
+> (and it does *not* transfer to VPLS or 802.11) and reduces performance
+> 
+> ... by actually accessing the same metadata that this patchset does.
+> 
+> 
+> -David
+> 
 
-Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
-
--- 
-Cheers,
-Stephen Rothwell
+The separation is clean and does not add any dependencies, that code is well isolated.
+As for performance, the impact is minimal as it adds a test for a port flag that is
+already in the cache at that point. In fact it can be compiled-out entirely if you
+disable bridge vlan support. The metadata you're referring to is not accessed if
+the port flag is not set or vlan support is compiled out removing its impact entirely.
+You can have a vxlan setup without bridge, no ?
