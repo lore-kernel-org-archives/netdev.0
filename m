@@ -1,80 +1,67 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [PATCH net-next] virtio-net: invoke zerocopy callback on xmit
- path if no tx napi
-Date: Tue, 22 Aug 2017 13:16:26 -0400
-Message-ID: <CAF=yD-+AOnYafiwAf+v+fhyg_0fi-6LdQSnPYcoAcngJqYs9dg@mail.gmail.com>
-References: <20170819063854.27010-1-den@klaipeden.com> <5352c98a-fa48-fcf9-c062-9986a317a1b0@redhat.com>
- <CAF=yD-LZ4=WAYfUtY7xRWi50FRSkrcOa+b7uc46xRnC4sbDCzQ@mail.gmail.com>
- <64d451ae-9944-e978-5a05-54bb1a62aaad@redhat.com> <CAF=yD-L-9QnxV2kM_j2BxVk=h7i3wvMZxG-3_=0Q=jDPgeT=VQ@mail.gmail.com>
- <1503409339.8694.12.camel@klaipeden.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: XDP redirect measurements, gotchas and tracepoints
+Date: Tue, 22 Aug 2017 10:17:59 -0700
+Message-ID: <599C6747.8010005@gmail.com>
+References: <20170821212506.1cb0d5d6@redhat.com> <20170821223540.atktdricmks26c27@ast-mbp> <20170822083710.47a182a2@redhat.com> <20170822170913.35umf4j6hlmcnwtm@ast-mbp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Jason Wang <jasowang@redhat.com>,
-        "Michael S. Tsirkin" <mst@redhat.com>,
-        virtualization@lists.linux-foundation.org,
-        Network Development <netdev@vger.kernel.org>
-To: Koichiro Den <den@klaipeden.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: "xdp-newbies@vger.kernel.org" <xdp-newbies@vger.kernel.org>,
+        Daniel Borkmann <borkmann@iogearbox.net>,
+        Andy Gospodarek <andy@greyhouse.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        =?UTF-8?B?UGF3ZcWCIFN0YXN6ZXdza2k=?= <pstaszewski@itcare.pl>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f43.google.com ([209.85.218.43]:33592 "EHLO
-        mail-oi0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751289AbdHVRRI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2017 13:17:08 -0400
-Received: by mail-oi0-f43.google.com with SMTP id f11so192311043oic.0
-        for <netdev@vger.kernel.org>; Tue, 22 Aug 2017 10:17:07 -0700 (PDT)
-In-Reply-To: <1503409339.8694.12.camel@klaipeden.com>
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:37659 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751194AbdHVRSM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2017 13:18:12 -0400
+In-Reply-To: <20170822170913.35umf4j6hlmcnwtm@ast-mbp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->> > An issue of the referenced patch is that sndbuf could be smaller than low
->> > watermark.
-> We cannot determine the low watermark properly because of not only sndbuf size
-> issue but also the fact that the upper vhost-net cannot directly see how much
-> descriptor is currently available at the virtio-net tx queue. It depends on
-> multiqueue settings or other senders which are also using the same tx queue.
-> Note that in the latter case if they constantly transmitting, the deadlock could
-> not occur(*), however if it has just temporarily fulfill some portion of the
-> pool in the mean time, then the low watermark cannot be helpful.
-> (*: That is because it's reliable enough in the sense I mention below.)
->
-> Keep in this in mind, let me briefly describe the possible deadlock I mentioned:
-> (1). vhost-net on L1 guest has nothing to do sendmsg until the upper layer sets
-> new descriptors, which depends only on the vhost-net zcopy callback and adding
-> newly used descriptors.
-> (2). vhost-net callback depends on the skb freeing on the xmit path only.
-> (3). the xmit path depends (possibly only) on the vhost-net sendmsg.
-> As you see, it's enough to bring about the situation above that L1 virtio-net
-> reaches its limit earlier than the L0 host processing. The vhost-net pool could
-> be almost full or empty, whatever.
+On 08/22/2017 10:09 AM, Alexei Starovoitov wrote:
+> On Tue, Aug 22, 2017 at 08:37:10AM +0200, Jesper Dangaard Brouer wrote:
+>>
+>>
+>>> Once tx-ing netdev added to devmap we can enable xdp on it automatically?
+>>
+>> I think you are referring to Gotcha-2 here:
+> 
+> oops. yes :)
+> 
+>>
+>>   Second gotcha(2): you cannot TX out a device, unless it also have a
+>>   xdp bpf program attached. (This is an implicit dependency, as the
+>>   driver code need to setup XDP resources before it can ndo_xdp_xmit).
+>>
+>> Yes, we should work on improving this situation.  Auto enabling XDP
+>> when a netdev is added to a devmap is a good solution.  Currently this
+>> is tied to loading an XDP bpf_prog.  Do you propose loading a dummy
+>> bpf_prog on the netdev? (then we need to handle 1. not replacing
+>> existing bpf_prog, 2. on take-down don't remove "later" loaded
+>> bpf_prog).
+> 
+> right. these things need to be taken care of.
+> Technically for ndo_xdp_xmit to work the program doesn't need
+> to be attached, but the device needs to be in xdp mode with
+> configured xdp tx rings.
+> The easiest, of course, is just to document it :)
+> and may be add some sort of warning that if netdev is added
+> to devmap and it's not in xdp mode, return warning or error.
+> 
 
-Thanks for the context. This issue is very similar to the one that used to
-exist when running out of transmit descriptors, before the removal of
-the timer and introduction of skb_orphan in start_xmit.
+When I wrote this I assumed some user space piece could
+load the "dummy" nop program on devices as needed. It seemed
+easier than putting semi-complex logic in the kernel to load
+programs on update_elem, but only if the user hasn't already
+loaded a program and then unload it but again only if some
+criteria is met. Then we would have one more kernel path into
+load/unload BPF programs and would need all the tests and what
+not.
 
-To make sure that I understand correctly, let me paraphrase:
++1 for documenting and userland usability patches.
 
-A. guest socket cannot send because it exhausted its sk budget (sndbuf, tsq, ..)
-
-B. budget is not freed up until guest receives tx completion for this flow
-
-C. tx completion is held back on the host side in vhost_zerocopy_signal_used
-   behind the completion for an unrelated skb
-
-D. unrelated packet is delayed somewhere in the host stackf zerocopy
-completions.
-   e.g., netem
-
-The issue that is specific to vhost-net zerocopy is that (C) enforces strict
-ordering of transmit completions causing head of line blocking behind
-vhost-net zerocopy callbacks.
-
-This is a different problem from
-
-C1. tx completion is delayed until guest sends another packet and
-       triggers free_old_xmit_skb
-
-Both in host and guest, zerocopy packets should never be able to loop
-to a receive path where they can cause unbounded delay.
-
-The obvious cases of latency are queueing, like netem. That leads
-to poor performance for unrelated flows, but I don't see how this
-could cause deadlock.
+.John
