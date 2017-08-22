@@ -1,77 +1,46 @@
-From: David Lamparter <equinox@diac24.net>
-Subject: Re: [RFC net-next v2] bridge lwtunnel, VPLS & NVGRE
-Date: Tue, 22 Aug 2017 14:06:10 +0200
-Message-ID: <20170822120610.GC773745@eidolon>
-References: <20170821171523.951260-1-equinox@diac24.net>
-	<20170821170151.5b12a392@xeon-e3>
-	<f96d548c-7a64-ae9a-d1ea-e9fd065f9303@cumulusnetworks.com>
-	<20170822113207.GB773745@eidolon>
-	<22d7d847-0914-dca9-66b8-4231e6e0b01c@cumulusnetworks.com>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [PATCH] ravb: make mdiobb_ops const
+Date: Tue, 22 Aug 2017 14:06:58 +0200
+Message-ID: <CAMuHMdU3wCY8ffvVykMv21Wjy4Oc=PPFN8-=raa9-rTcnDPYmw@mail.gmail.com>
+References: <1503389282-17369-1-git-send-email-bhumirks@gmail.com> <1f074a7c-0d3a-e569-4400-c50d967e550c@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
-	bridge@lists.linux-foundation.org, amine.kherbouche@6wind.com,
-	David Lamparter <equinox@diac24.net>
-To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <22d7d847-0914-dca9-66b8-4231e6e0b01c@cumulusnetworks.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Bhumika Goyal <bhumirks@gmail.com>,
+        Julia Lawall <julia.lawall@lip6.fr>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Linux-Renesas <linux-renesas-soc@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1f074a7c-0d3a-e569-4400-c50d967e550c@cogentembedded.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 22, 2017 at 02:55:04PM +0300, Nikolay Aleksandrov wrote:
-> On 22/08/17 14:32, David Lamparter wrote:
-> > On Tue, Aug 22, 2017 at 02:01:40PM +0300, Nikolay Aleksandrov wrote:
-> >> On 22/08/17 03:01, Stephen Hemminger wrote:
-> >>> I know the bridge is an easy target to extend L2 forwarding, but it is not
-> >>> the only option. Have you condidered building a new driver (like VXLAN does)
-> >>> which does the forwarding you want. Having all features in one driver
-> >>> makes for worse performance, and increased complexity.
-> >>>
-> >>
-> >> +1
-> >>
-> >> As I said before, a separate implementation will be much cleaner and will not affect
-> >> the bridge in any way, paying both performance and complexity price for something that
-> >> the majority of users will not be using isn't worth it.  In addition this creates a
-> >> silent dependency between the bridge and the fdb metadata dst users, it would be much
-> >> more preferable to be able to run them separately.
-> >> If there is any code that will need to be re-used by VPLS (or anyone else) figure out a way
-> >> to factor it out.
-> > 
-> > Could you tell me why this argument didn't apply to the bridge vlan
-> > tunnel code?  It adds complexity to the bridge specifically for VXLAN
-> > (and it does *not* transfer to VPLS or 802.11) and reduces performance
-> > 
-> > ... by actually accessing the same metadata that this patchset does.
-> 
-> The separation is clean and does not add any dependencies, that code
-> is well isolated.  As for performance, the impact is minimal as it
-> adds a test for a port flag that is already in the cache at that
-> point.
+On Tue, Aug 22, 2017 at 2:03 PM, Sergei Shtylyov
+<sergei.shtylyov@cogentembedded.com> wrote:
+> On 08/22/2017 11:08 AM, Bhumika Goyal wrote:
+>> Make these const as they are only stored in a const field of a
+>> mdiobb_ctrl structure.
+>
+>> Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
+>> ---
+>>   drivers/net/ethernet/renesas/ravb_main.c | 2 +-
+>>   drivers/net/ethernet/renesas/sh_eth.c    | 2 +-
+>>   2 files changed, 2 insertions(+), 2 deletions(-)
+>
+>    If you're fixing both Renesas drivers at once, your subject should be
+> "renesas: make mdiobb_ops const". With that fixed, you have my:
 
-Ah, ok, now this is useful input... I can add a BR_PORT_METADATA flag.
+"net: renesas: make mdiobb_ops const"?
+There are plenty of other Renesas-specific drivers spread all over the tree.
 
-> In fact it can be compiled-out entirely if you disable bridge vlan
-> support. The metadata you're referring to is not accessed if the port
-> flag is not set or vlan support is compiled out removing its impact
-> entirely.
+Gr{oetje,eeting}s,
 
-Ok, I can probably adapt this patchset to do the same.
+                        Geert
 
-> You can have a vxlan setup without bridge, no ?
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
 
-You can run the VPLS code without a bridge too... behaviour will be the
-same as with other ip tunnels when you set the destination to multicast
-(packets get flooded.)
-
-
--David
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
