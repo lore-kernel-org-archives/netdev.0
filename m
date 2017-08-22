@@ -1,8 +1,8 @@
 From: Icenowy Zheng <icenowy-h8G6r0blFSE@public.gmane.org>
-Subject: [PATCH v2 1/4] net: stmmac: dwmac-sun8i: support RGMII
- modes with PHY internal delay
-Date: Tue, 22 Aug 2017 12:03:57 +0800
-Message-ID: <20170822040400.12166-2-icenowy@aosc.io>
+Subject: [PATCH v2 2/4] net: phy: realtek: change macro name for
+ page select register
+Date: Tue, 22 Aug 2017 12:03:58 +0800
+Message-ID: <20170822040400.12166-3-icenowy@aosc.io>
 References: <20170822040400.12166-1-icenowy@aosc.io>
 Reply-To: icenowy-h8G6r0blFSE@public.gmane.org
 Mime-Version: 1.0
@@ -12,12 +12,12 @@ Cc: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
 	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
 	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
 	linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org,
-	Icenowy Zheng <icenowy-h8G6r0blFSE@public.gmane.org>
+	Icenowy Zheng <icenowy-ymACFijhrKM@public.gmane.org>
 To: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
 	Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>,
 	Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
 	Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-sunxi+bncBDS6XAN6ZADRBS6253GAKGQED2MTXYY-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Return-path: <linux-sunxi+bncBDS6XAN6ZADRBUO253GAKGQEZLRHKLA-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 In-Reply-To: <20170822040400.12166-1-icenowy-h8G6r0blFSE@public.gmane.org>
 List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
@@ -28,31 +28,67 @@ List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39
  <https://groups.google.com/group/linux-sunxi/subscribe>
 List-Id: netdev.vger.kernel.org
 
-Some boards uses a PHY with internal delay with an Allwinner SoC.
+From: Icenowy Zheng <icenowy-ymACFijhrKM@public.gmane.org>
 
-Support these PHY modes in the driver.
+The page select register also exists on RTL8211E PHY (although it
+behaves slightly differently).
 
-As the driver has no configuration registers for these modes, just treat
-them as ordinary RGMII.
+Change the register macro name to remove the F.
 
-Signed-off-by: Icenowy Zheng <icenowy-h8G6r0blFSE@public.gmane.org>
+Signed-off-by: Icenowy Zheng <icenowy-ymACFijhrKM@public.gmane.org>
 ---
- drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c | 3 +++
- 1 file changed, 3 insertions(+)
+ drivers/net/phy/realtek.c | 12 +++++++-----
+ 1 file changed, 7 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
-index fffd6d5fc907..2af680cac497 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
-@@ -723,6 +723,9 @@ static int sun8i_dwmac_set_syscon(struct stmmac_priv *priv)
- 		/* default */
- 		break;
- 	case PHY_INTERFACE_MODE_RGMII:
-+	case PHY_INTERFACE_MODE_RGMII_ID:
-+	case PHY_INTERFACE_MODE_RGMII_RXID:
-+	case PHY_INTERFACE_MODE_RGMII_TXID:
- 		reg |= SYSCON_EPIT | SYSCON_ETCS_INT_GMII;
- 		break;
- 	case PHY_INTERFACE_MODE_RMII:
+diff --git a/drivers/net/phy/realtek.c b/drivers/net/phy/realtek.c
+index 9cbe645e3d89..d820d00addf6 100644
+--- a/drivers/net/phy/realtek.c
++++ b/drivers/net/phy/realtek.c
+@@ -22,11 +22,13 @@
+ #define RTL821x_INER		0x12
+ #define RTL821x_INER_INIT	0x6400
+ #define RTL821x_INSR		0x13
++
++#define RTL8211_PAGE_SELECT	0x1f
++
+ #define RTL8211E_INER_LINK_STATUS 0x400
+ 
+ #define RTL8211F_INER_LINK_STATUS 0x0010
+ #define RTL8211F_INSR		0x1d
+-#define RTL8211F_PAGE_SELECT	0x1f
+ #define RTL8211F_TX_DELAY	0x100
+ 
+ MODULE_DESCRIPTION("Realtek PHY driver");
+@@ -46,10 +48,10 @@ static int rtl8211f_ack_interrupt(struct phy_device *phydev)
+ {
+ 	int err;
+ 
+-	phy_write(phydev, RTL8211F_PAGE_SELECT, 0xa43);
++	phy_write(phydev, RTL8211_PAGE_SELECT, 0xa43);
+ 	err = phy_read(phydev, RTL8211F_INSR);
+ 	/* restore to default page 0 */
+-	phy_write(phydev, RTL8211F_PAGE_SELECT, 0x0);
++	phy_write(phydev, RTL8211_PAGE_SELECT, 0x0);
+ 
+ 	return (err < 0) ? err : 0;
+ }
+@@ -102,7 +104,7 @@ static int rtl8211f_config_init(struct phy_device *phydev)
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	phy_write(phydev, RTL8211F_PAGE_SELECT, 0xd08);
++	phy_write(phydev, RTL8211_PAGE_SELECT, 0xd08);
+ 	reg = phy_read(phydev, 0x11);
+ 
+ 	/* enable TX-delay for rgmii-id and rgmii-txid, otherwise disable it */
+@@ -114,7 +116,7 @@ static int rtl8211f_config_init(struct phy_device *phydev)
+ 
+ 	phy_write(phydev, 0x11, reg);
+ 	/* restore to default page 0 */
+-	phy_write(phydev, RTL8211F_PAGE_SELECT, 0x0);
++	phy_write(phydev, RTL8211_PAGE_SELECT, 0x0);
+ 
+ 	return 0;
+ }
 -- 
 2.13.5
