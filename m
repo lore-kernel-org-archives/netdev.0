@@ -1,36 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next,0/4] hv_netvsc: Ethtool handler to change UDP
- hash levels
-Date: Tue, 22 Aug 2017 14:08:27 -0700 (PDT)
-Message-ID: <20170822.140827.1102230677662395664.davem@davemloft.net>
-References: <1503368560-14331-1-git-send-email-haiyangz@exchange.microsoft.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kys@microsoft.com, olaf@aepfle.de,
-        vkuznets@redhat.com, linux-kernel@vger.kernel.org
-To: haiyangz@microsoft.com, haiyangz@exchange.microsoft.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1503368560-14331-1-git-send-email-haiyangz@exchange.microsoft.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Mike Maloney <maloneykernel@gmail.com>
+Subject: [PATCH v2 net-next 0/2] Add software rx timestamp for TCP.
+Date: Tue, 22 Aug 2017 17:08:47 -0400
+Message-ID: <20170822210849.23162-1-maloneykernel@gmail.com>
+Cc: willemdebruijn.kernel@gmail.com, soheil@google.com,
+        Mike Maloney <maloney@google.com>
+To: netdev@vger.kernel.org, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f195.google.com ([209.85.161.195]:36597 "EHLO
+        mail-yw0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752407AbdHVVJG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2017 17:09:06 -0400
+Received: by mail-yw0-f195.google.com with SMTP id s187so3121147ywf.3
+        for <netdev@vger.kernel.org>; Tue, 22 Aug 2017 14:09:06 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Haiyang Zhang <haiyangz@exchange.microsoft.com>
-Date: Mon, 21 Aug 2017 19:22:36 -0700
+From: Mike Maloney <maloney@google.com>
 
-> From: Haiyang Zhang <haiyangz@microsoft.com>
-> 
-> The patch set adds the functions to switch UDP hash level between
-> L3 and L4 by ethtool command. UDP over IPv4 and v6 can be set
-> differently. The default hash level is L4. We currently only
-> allow switching TX hash level from within the guests.
-> 
-> The ethtool callback function is triggered by command line, and
-> update the per device variables of the hash level.
-> 
-> On Azure, fragmented UDP packets is not yet supported with L4
-> hashing, and may have high packet loss rate. Using L3 hashing is
-> recommended in this case. This ethtool option allows a user to
-> make this selection.
+Add software rx timestamps for TCP, and a test to ensure consistency of
+behavior between IP, UDP, and TCP implementation.
 
-Series applied, thanks.
+Changes since v1:
+  -Initialize tss->ts[1] to 0 if caller requested any timestamps.
+  -Fix test case to validate that tss->ts[1] is zero.
+  -Fix tests to actually use a raw socket.
+  -Fix --tcp flag to work on the test.
+
+Mike Maloney (2):
+  tcp: Extend SOF_TIMESTAMPING_RX_SOFTWARE to TCP recvmsg
+  selftests/net: Add a test to validate behavior of rx timestamps
+
+ include/net/tcp.h                                  |   9 +-
+ net/ipv4/tcp.c                                     |  65 ++++
+ net/ipv4/tcp_input.c                               |  35 +-
+ net/ipv4/tcp_ipv4.c                                |   2 +
+ net/ipv6/tcp_ipv6.c                                |   2 +
+ .../selftests/networking/timestamping/.gitignore   |   1 +
+ .../selftests/networking/timestamping/Makefile     |   4 +-
+ .../networking/timestamping/rxtimestamp.c          | 389 +++++++++++++++++++++
+ 8 files changed, 501 insertions(+), 6 deletions(-)
+ create mode 100644 tools/testing/selftests/networking/timestamping/rxtimestamp.c
+
+-- 
+2.14.1.480.gb18f417b89-goog
