@@ -1,48 +1,44 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH][net-next] net: hinic: make functions set_ctrl0 and set_ctrl1 static
-Date: Wed, 23 Aug 2017 10:59:40 +0100
-Message-ID: <20170823095940.27225-1-colin.king@canonical.com>
-Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Aviad Krawczyk <aviad.krawczyk@huawei.com>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: [PATCH net] net/sock: allow the user to set negative peek offset
+Date: Wed, 23 Aug 2017 11:57:51 +0200
+Message-ID: <64e676e59d203f13cd326c3b0cf6b05287b69e1b.1503481941.git.pabeni@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Matthew Dawson <matthew@mjdsystems.ca>,
+        Willem de Bruijn <willemdebruijn.kernel@gmail.com>,
+        Sam Kumar <samanthakumar@google.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:50630 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753728AbdHWJ7x (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 23 Aug 2017 05:59:53 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin Ian King <colin.king@canonical.com>
+This is necessary to allow the user to disable peeking with
+offset once it's enabled.
+Unix sockets already allow the above, with this patch we
+permit it for udp[6] sockets, too.
 
-The functions set_ctrl0 and set_ctrl1 are local to the source and do
-not need to be in global scope, so make them static.
-
-Cleans up sparse warnings:
-symbol 'set_ctrl0' was not declared. Should it be static?
-symbol 'set_ctrl1' was not declared. Should it be static?
-
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
+Fixes: 627d2d6b5500 ("udp: enable MSG_PEEK at non-zero offset")
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
 ---
- drivers/net/ethernet/huawei/hinic/hinic_hw_eqs.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ net/core/sock.c | 3 ---
+ 1 file changed, 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_eqs.c b/drivers/net/ethernet/huawei/hinic/hinic_hw_eqs.c
-index cd09e6ef3aea..7cb8b9b94726 100644
---- a/drivers/net/ethernet/huawei/hinic/hinic_hw_eqs.c
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_eqs.c
-@@ -423,7 +423,7 @@ static irqreturn_t ceq_interrupt(int irq, void *data)
- 	return IRQ_HANDLED;
- }
+diff --git a/net/core/sock.c b/net/core/sock.c
+index ac2a404c73eb..679367ce1432 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -2408,9 +2408,6 @@ EXPORT_SYMBOL(__sk_mem_reclaim);
  
--void set_ctrl0(struct hinic_eq *eq)
-+static void set_ctrl0(struct hinic_eq *eq)
+ int sk_set_peek_off(struct sock *sk, int val)
  {
- 	struct msix_entry *msix_entry = &eq->msix_entry;
- 	enum hinic_eq_type type = eq->type;
-@@ -474,7 +474,7 @@ void set_ctrl0(struct hinic_eq *eq)
- 	}
+-	if (val < 0)
+-		return -EINVAL;
+-
+ 	sk->sk_peek_off = val;
+ 	return 0;
  }
- 
--void set_ctrl1(struct hinic_eq *eq)
-+static void set_ctrl1(struct hinic_eq *eq)
- {
- 	enum hinic_eq_type type = eq->type;
- 	u32 page_size_val, elem_size;
 -- 
-2.14.1
+2.13.5
