@@ -1,30 +1,47 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next 0/2] Two minor BPF cleanups
-Date: Wed, 23 Aug 2017 01:47:52 +0200
-Message-ID: <cover.1503445395.git.daniel@iogearbox.net>
-Cc: ast@fb.com, john.fastabend@gmail.com, netdev@vger.kernel.org,
-        Daniel Borkmann <daniel@iogearbox.net>
-To: davem@davemloft.net
+From: William Tu <u9012063@gmail.com>
+Subject: [trivial] gre: fix goto statement typo
+Date: Tue, 22 Aug 2017 17:04:05 -0700
+Message-ID: <1503446645-33652-1-git-send-email-u9012063@gmail.com>
+Cc: trivial@kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:52258 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752622AbdHVXsG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2017 19:48:06 -0400
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:34516 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752533AbdHWAEU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2017 20:04:20 -0400
+Received: by mail-pf0-f195.google.com with SMTP id m6so188780pfm.1
+        for <netdev@vger.kernel.org>; Tue, 22 Aug 2017 17:04:20 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Two minor cleanups on devmap and redirect I still had
-in my queue.
+Fix typo: pnet_tap_faied.
 
-Thanks!
+Signed-off-by: William Tu <u9012063@gmail.com>
+---
+ net/ipv4/ip_gre.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Daniel Borkmann (2):
-  bpf: misc xdp redirect cleanups
-  bpf: minor cleanups for dev_map
-
- kernel/bpf/devmap.c | 100 +++++++++++++++++++++-------------------------------
- net/core/filter.c   |  72 +++++++++++++++++--------------------
- 2 files changed, 73 insertions(+), 99 deletions(-)
-
+diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+index 6e8a62289e03..5a20ba9b9b50 100644
+--- a/net/ipv4/ip_gre.c
++++ b/net/ipv4/ip_gre.c
+@@ -1467,7 +1467,7 @@ static int __init ipgre_init(void)
+ 
+ 	err = register_pernet_device(&ipgre_tap_net_ops);
+ 	if (err < 0)
+-		goto pnet_tap_faied;
++		goto pnet_tap_failed;
+ 
+ 	err = register_pernet_device(&erspan_net_ops);
+ 	if (err < 0)
+@@ -1503,7 +1503,7 @@ static int __init ipgre_init(void)
+ 	unregister_pernet_device(&erspan_net_ops);
+ pnet_erspan_failed:
+ 	unregister_pernet_device(&ipgre_tap_net_ops);
+-pnet_tap_faied:
++pnet_tap_failed:
+ 	unregister_pernet_device(&ipgre_net_ops);
+ 	return err;
+ }
 -- 
-1.9.3
+2.7.4
