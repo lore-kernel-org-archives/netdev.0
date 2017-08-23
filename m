@@ -1,40 +1,39 @@
 From: <Woojung.Huh@microchip.com>
-Subject: RE: [PATCH net v2 1/2] net: core: Specify skb_pad()/skb_put_padto()
- SKB freeing
-Date: Wed, 23 Aug 2017 21:42:18 +0000
-Message-ID: <9235D6609DB808459E95D78E17F2E43D40B05FD6@CHN-SV-EXMX02.mchp-main.com>
-References: <20170822221215.16305-1-f.fainelli@gmail.com>
- <20170822221215.16305-2-f.fainelli@gmail.com>
+Subject: RE: DSA support for Micrel KSZ8895
+Date: Wed, 23 Aug 2017 21:48:21 +0000
+Message-ID: <9235D6609DB808459E95D78E17F2E43D40B05FFF@CHN-SV-EXMX02.mchp-main.com>
+References: <20170816075524.GA18532@amd> <20170816140451.GA13006@lunn.ch>
+ <9235D6609DB808459E95D78E17F2E43D40AFF8C1@CHN-SV-EXMX02.mchp-main.com>
+ <20170823090941.GA27570@amd>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
-Cc: <davem@davemloft.net>, <vivien.didelot@savoirfairelinux.com>,
-        <UNGLinuxDriver@microchip.com>
-To: <f.fainelli@gmail.com>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from esa1.microchip.iphmx.com ([68.232.147.91]:33923 "EHLO
-        esa1.microchip.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751104AbdHWVnR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2017 17:43:17 -0400
-In-Reply-To: <20170822221215.16305-2-f.fainelli@gmail.com>
+Cc: <vivien.didelot@savoirfairelinux.com>, <f.fainelli@gmail.com>,
+        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        <Tristram.Ha@micrel.com>, <andrew@lunn.ch>
+To: <pavel@ucw.cz>, <nathan.leigh.conrad@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170823090941.GA27570@amd>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> Cc: davem@davemloft.net; vivien.didelot@savoirfairelinux.com; Woojung
-> Huh - C21699; UNGLinuxDriver; Florian Fainelli
-> Subject: [PATCH net v2 1/2] net: core: Specify skb_pad()/skb_put_padto()
-> SKB freeing
-> 
-> Rename skb_pad() into __skb_pad() and make it take a third argument:
-> free_on_error which controls whether kfree_skb() should be called or
-> not, skb_pad() directly makes use of it and passes true to preserve its
-> existing behavior. Do exactly the same thing with __skb_put_padto() and
-> skb_put_padto().
-> 
-> Suggested-by: David Miller <davem@davemloft.net>
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+Pavel,
 
-Reviewed-by: Woojung Huh <Woojung.Huh@microchip.com>
+> > I'll forward your email to our support.
+> > AFAIK, KSZ8895 has different register mapping from KSZ9477,
+> > it will be more than ID changes in current driver.
+> 
+> More than ID changes, indeed. As layout is completely different, it
+> looks like different source file will be needed for support.
+> 
+> I'm not nearly there; but I can ifconfig lanX up, already, and perform
+> some pings.
+> 
+> Any ideas how to do the work in a way to minimize code duplication are
+> welcome...
+
+Which version do you use to create patch?
+Getting error when applying patch to the latest net-next.
 
 - Woojung
