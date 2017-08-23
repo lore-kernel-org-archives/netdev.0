@@ -1,69 +1,54 @@
 From: Pavel Belous <Pavel.Belous@aquantia.com>
-Subject: [PATCH net 6/7] net:ethernet:aquantia: Fix for multicast filter handling.
-Date: Wed, 23 Aug 2017 17:05:07 +0300
-Message-ID: <745a18bcae3b0ed1e2c4c178f4f30f5f4aed9ef1.1503496727.git.pavel.belous@aquantia.com>
+Subject: [PATCH net 7/7] net:ethernet:aquantia: Show info message if bad firmware version detected.
+Date: Wed, 23 Aug 2017 17:05:08 +0300
+Message-ID: <48745acdc819bf5c58e28ce4e64f4ce9d5f6b120.1503496727.git.pavel.belous@aquantia.com>
 References: <cover.1503496727.git.pavel.belous@aquantia.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: netdev@vger.kernel.org, David Arcari <darcari@redhat.com>,
         Igor Russkikh <Igor.Russkikh@aquantia.com>,
         Nadezhda Krupnina <Nadezhda.Krupnina@aquantia.com>,
-        Simon Edelhaus <simon.edelhaus@aquantia.com>
+        Simon Edelhaus <simon.edelhaus@aquantia.com>,
+        Pavel Belous <pavel.belous@aquantia.com>,
+        Pavel Belous <Pavel.Belous@aquantia.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam01on0071.outbound.protection.outlook.com ([104.47.34.71]:6394
+Received: from mail-by2nam01on0073.outbound.protection.outlook.com ([104.47.34.73]:48640
         "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1754001AbdHWOHU (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 23 Aug 2017 10:07:20 -0400
+        id S1754001AbdHWOH1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 23 Aug 2017 10:07:27 -0400
 In-Reply-To: <cover.1503496727.git.pavel.belous@aquantia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Igor Russkikh <Igor.Russkikh.aquantia.com>
+From: Pavel Belous <pavel.belous@aquantia.com>
 
-Since the HW supports up to 32 multicast filters we should
-track count of multicast filters to avoid overflow.
-If we attempt to add >32 multicast filter - just set NETIF_ALLMULTI flag
-instead.
+We should inform user about wrong firmware version
+by printing message in dmesg.
 
-Fixes: 94f6c9e4cdf6 ("net: ethernet: aquantia: Support for NIC-specific code")
-Signed-off-by: Igor Russkikh <Igor.Russkikh@aquantia.com>
+Fixes: 3d2ff7eebe26 ("net: ethernet: aquantia: Atlantic hardware abstraction layer")
+Signed-off-by: Pavel Belous <Pavel.Belous@aquantia.com>
 ---
- drivers/net/ethernet/aquantia/atlantic/aq_nic.c | 17 ++++++++++++++++-
- 1 file changed, 16 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_utils.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_nic.c b/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
-index dce17a5..6ac9e26 100644
---- a/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
-+++ b/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
-@@ -669,11 +669,26 @@ int aq_nic_set_multicast_list(struct aq_nic_s *self, struct net_device *ndev)
- 	netdev_for_each_mc_addr(ha, ndev) {
- 		ether_addr_copy(self->mc_list.ar[i++], ha->addr);
- 		++self->mc_list.count;
-+
-+		if (i >= AQ_CFG_MULTICAST_ADDRESS_MAX)
-+			break;
- 	}
+diff --git a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_utils.c b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_utils.c
+index eb3ae51..ad4cc53 100644
+--- a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_utils.c
++++ b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_utils.c
+@@ -141,6 +141,12 @@ static int hw_atl_utils_init_ucp(struct aq_hw_s *self,
  
--	return self->aq_hw_ops.hw_multicast_list_set(self->aq_hw,
-+	if (i >= AQ_CFG_MULTICAST_ADDRESS_MAX) {
-+		/* Number of filters is too big: atlantic does not support this.
-+		 * Force all multi filter to support this.
-+		 * With this we disable all UC filters and setup "all pass"
-+		 * multicast mask
-+		 */
-+		self->packet_filter |= IFF_ALLMULTI;
-+		self->aq_hw->aq_nic_cfg->mc_list_count = 0;
-+		return self->aq_hw_ops.hw_packet_filter_set(self->aq_hw,
-+							self->packet_filter);
-+	} else {
-+		return self->aq_hw_ops.hw_multicast_list_set(self->aq_hw,
- 						    self->mc_list.ar,
- 						    self->mc_list.count);
-+	}
+ 	err = hw_atl_utils_ver_match(aq_hw_caps->fw_ver_expected,
+ 				     aq_hw_read_reg(self, 0x18U));
++
++	if (err < 0)
++		pr_err("%s: Bad FW version detected: expected=%x, actual=%x\n",
++		       AQ_CFG_DRV_NAME,
++		       aq_hw_caps->fw_ver_expected,
++		       aq_hw_read_reg(self, 0x18U));
+ 	return err;
  }
  
- int aq_nic_set_mtu(struct aq_nic_s *self, int new_mtu)
 -- 
 2.7.4
