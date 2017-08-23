@@ -1,121 +1,104 @@
-From: Romain Perier <romain.perier@collabora.com>
-Subject: [PATCH v3] net: stmmac: Delete dead code for MDIO registration
-Date: Wed, 23 Aug 2017 10:50:58 +0200
-Message-ID: <20170823085058.23333-1-romain.perier@collabora.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Romain Perier <romain.perier@collabora.com>
-To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-        Alexandre Torgue <alexandre.torgue@st.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next 5/5] xdp: get tracepoints xdp_exception and xdp_redirect
+ in sync
+Date: Wed, 23 Aug 2017 10:54:16 +0200
+Message-ID: <599D42B8.6040200@iogearbox.net>
+References: <150343479290.31091.8019008896152616977.stgit@firesoul>     <150343485998.31091.4036615069956176401.stgit@firesoul> <599CA26D.7060003@iogearbox.net> <20170823094118.38010b86@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, John Fastabend <john.fastabend@gmail.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:46070 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753601AbdHWIyS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2017 04:54:18 -0400
+In-Reply-To: <20170823094118.38010b86@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This code is no longer used, the logging function was changed by commit
-fbca164776e4 ("net: stmmac: Use the right logging functi"). It was
-previously showing information about the type if the IRQ, if it's polled,
-ignored or a normal interrupt. As we don't want information loss, I have
-moved this code to phy_attached_print().
+On 08/23/2017 09:41 AM, Jesper Dangaard Brouer wrote:
+> On Tue, 22 Aug 2017 23:30:21 +0200
+> Daniel Borkmann <daniel@iogearbox.net> wrote:
+>> On 08/22/2017 10:47 PM, Jesper Dangaard Brouer wrote:
+>>> Remove the net_device string name from the xdp_exception tracepoint,
+>>> like the xdp_redirect tracepoint.
+>>>
+>>> Align the TP_STRUCT to have common entries between these two
+>>> tracepoint.
+>>>
+>>> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+>>> ---
+>>>    include/trace/events/xdp.h |   24 ++++++++++++------------
+>>>    1 file changed, 12 insertions(+), 12 deletions(-)
+>>>
+>>> diff --git a/include/trace/events/xdp.h b/include/trace/events/xdp.h
+>>> index 7511bed80558..6495b0d9d5c7 100644
+>>> --- a/include/trace/events/xdp.h
+>>> +++ b/include/trace/events/xdp.h
+>>> @@ -31,22 +31,22 @@ TRACE_EVENT(xdp_exception,
+>>>    	TP_ARGS(dev, xdp, act),
+>>>
+>>>    	TP_STRUCT__entry(
+>>> -		__string(name, dev->name)
+>>>    		__array(u8, prog_tag, 8)
+>>>    		__field(u32, act)
+>>> +		__field(int, ifindex)
+>>>    	),
+>>>
+>>>    	TP_fast_assign(
+>>>    		BUILD_BUG_ON(sizeof(__entry->prog_tag) != sizeof(xdp->tag));
+>>>    		memcpy(__entry->prog_tag, xdp->tag, sizeof(xdp->tag));
+>>> -		__assign_str(name, dev->name);
+>>> -		__entry->act = act;
+>>> +		__entry->act		= act;
+>>> +		__entry->ifindex	= dev->ifindex;
+>>>    	),
+>>>
+>> [...]
+>>>    TRACE_EVENT(xdp_redirect,
+>>> @@ -57,26 +57,26 @@ TRACE_EVENT(xdp_redirect,
+>>>    	TP_ARGS(from_index, to_index, xdp, act, err),
+>>>
+>>>    	TP_STRUCT__entry(
+>>> -		__field(int, from_index)
+>>> -		__field(int, to_index)
+>>>    		__array(u8, prog_tag, 8)
+>>>    		__field(u32, act)
+>>> +		__field(int, from_index)
+>>> +		__field(int, to_index)
+>>>    		__field(int, err)
+>>>    	),
+>>>
+>>>    	TP_fast_assign(
+>>>    		BUILD_BUG_ON(sizeof(__entry->prog_tag) != sizeof(xdp->tag));
+>>>    		memcpy(__entry->prog_tag, xdp->tag, sizeof(xdp->tag));
+>>> +		__entry->act		= act;
+>>>    		__entry->from_index	= from_index;
+>>>    		__entry->to_index	= to_index;
+>>> -		__entry->act = act;
+>>
+>> If you already get them in sync, could you also make it consistent
+>> that for both tracepoints in TP_ARGS() we use either ifindex
+>> directly or device pointer and extract it from TP_fast_assign().
+>> Right now, it's mixed.
+>
+> I did this because, in the (bpf_redirect)_map case, I was hoping that
+> "from_index" could be come the index from the map.  Looking closer at
+> the devmap design, I cannot see how we can ever know what (the bpf_prog
+> thinks) is the corresponding map-ingress/from_index.
+>
+> Based on that, I think we can/should use the device pointer as arg (as
+> you suggested). And then rename "from_index" to "ifindex", where
+> ifindex is the XDP ifindex the xdp_buff arrived on.
+>
+> I guess we can keep the "to_index".  We also need to extend the
+> tracepoint args with a "map", to let the trace user tell whether the
+> "to_index" is an ifindex or a map-index.
 
-Fixes: fbca164776e4 ("net: stmmac: Use the right logging functi")
-Signed-off-by: Romain Perier <romain.perier@collabora.com>
----
+Yeah, makes sense, right now we cannot differentiate between that.
 
-Hello,
+> I'll code this up and submit at V2.
 
-This is the continuity of "[PATCH v2 0/2] net: stmmac: phy logging fixes",
-see https://lkml.org/lkml/2017/8/21/288
-
-Changes in v3:
-- Removed patch 2/2: "net: phy: Don't use drv when it is NULL in phy_attached_print",
-  fixed upstream by fcd03e362b1c
-  ("net: phy: Deal with unbound PHY driver in phy_attached_print()")
-- Moved this code to phy_attached_print(), so we have more informations
-  about the IRQ (poll, ignore or normal irq) and no information are loss.
-- Re-worded commit message
-
- drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c | 16 ----------------
- drivers/net/phy/phy_device.c                      | 21 ++++++++++++++++++---
- 2 files changed, 18 insertions(+), 19 deletions(-)
-
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-index 72ec711fcba2..f5f37bfa1d58 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-@@ -248,9 +248,6 @@ int stmmac_mdio_register(struct net_device *ndev)
- 	found = 0;
- 	for (addr = 0; addr < PHY_MAX_ADDR; addr++) {
- 		struct phy_device *phydev = mdiobus_get_phy(new_bus, addr);
--		int act = 0;
--		char irq_num[4];
--		char *irq_str;
- 
- 		if (!phydev)
- 			continue;
-@@ -273,19 +270,6 @@ int stmmac_mdio_register(struct net_device *ndev)
- 		if (priv->plat->phy_addr == -1)
- 			priv->plat->phy_addr = addr;
- 
--		act = (priv->plat->phy_addr == addr);
--		switch (phydev->irq) {
--		case PHY_POLL:
--			irq_str = "POLL";
--			break;
--		case PHY_IGNORE_INTERRUPT:
--			irq_str = "IGNORE";
--			break;
--		default:
--			sprintf(irq_num, "%d", phydev->irq);
--			irq_str = irq_num;
--			break;
--		}
- 		phy_attached_info(phydev);
- 		found = 1;
- 	}
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index 810f6fd2f639..a3ba51808b1a 100644
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -874,21 +874,36 @@ void phy_attached_info(struct phy_device *phydev)
- }
- EXPORT_SYMBOL(phy_attached_info);
- 
--#define ATTACHED_FMT "attached PHY driver [%s] (mii_bus:phy_addr=%s, irq=%d)"
-+#define ATTACHED_FMT "attached PHY driver [%s] (mii_bus:phy_addr=%s, irq=%s)"
- void phy_attached_print(struct phy_device *phydev, const char *fmt, ...)
- {
- 	const char *drv_name = phydev->drv ? phydev->drv->name : "unbound";
-+	char *irq_str;
-+	char irq_num[4];
-+
-+	switch(phydev->irq) {
-+	case PHY_POLL:
-+		irq_str = "POLL";
-+		break;
-+	case PHY_IGNORE_INTERRUPT:
-+		irq_str = "IGNORE";
-+		break;
-+	default:
-+		snprintf(irq_num, sizeof(irq_str), "%d", phydev->irq);
-+		irq_str = irq_num;
-+		break;
-+	}
- 
- 	if (!fmt) {
- 		dev_info(&phydev->mdio.dev, ATTACHED_FMT "\n",
- 			 drv_name, phydev_name(phydev),
--			 phydev->irq);
-+			 irq_str);
- 	} else {
- 		va_list ap;
- 
- 		dev_info(&phydev->mdio.dev, ATTACHED_FMT,
- 			 drv_name, phydev_name(phydev),
--			 phydev->irq);
-+			 irq_str);
- 
- 		va_start(ap, fmt);
- 		vprintk(fmt, ap);
--- 
-2.11.0
+Thanks!
