@@ -1,7 +1,7 @@
 From: Vallish Vaidyeshwara <vallish@amazon.com>
-Subject: [PATCH v2 2/2] selftests/net: add test to verify datagram socket timeout
-Date: Wed, 23 Aug 2017 00:10:27 +0000
-Message-ID: <1503447027-44399-3-git-send-email-vallish@amazon.com>
+Subject: [PATCH v2 1/2] net: enable high resolution timer mode to timeout datagram sockets
+Date: Wed, 23 Aug 2017 00:10:26 +0000
+Message-ID: <1503447027-44399-2-git-send-email-vallish@amazon.com>
 References: <1503447027-44399-1-git-send-email-vallish@amazon.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -14,185 +14,121 @@ In-Reply-To: <1503447027-44399-1-git-send-email-vallish@amazon.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-AF_UNIX and AF_INET datagram sockets use high resolution timer to time
-SO_RCVTIMEO value used with setsockopt(2). This test checks for the
-accuracy of kernel notifying these sockets timeout to application. Test
-program has code to check AF_UNIX socket, however the kernel function used
-to timeout AF_INET socket is the same kernel function used by AF_UNIX as
-well which is __skb_wait_for_more_packets().
+Enable high resolution timer mode to time SO_RCVTIMEO value used with
+setsockopt(2) on AF_UNIX and AF_INET datagram sockets. By default,
+SO_RCVTIMEO uses low resolution timer which is good for most of socket
+use cases.
+
+Background:
+Kernel timer wheel was refactored in 4.8 to avoid drawbacks with previous
+implementation:
+https://lwn.net/Articles/691064/
+Unlike the previous "kernel timer wheel" implementation in 4.4 which aimed
+for accuracy by paying cost for cascading tracked timers at the boundary of
+256 jiffies, the new timer wheel implementation gets rid of cascading
+latency by paying a price for being less accurate for far off timers.
+
+Use Case:
+New implementation is good for most of socket use cases. However we have a
+use case where our application is sensitive to socket timeout including
+long timeouts.  Please refer to test code as part of this patch series.
+One of the test runs with a timeout value of 180 seconds timed out at
+190 seconds.
+[root@]# ./datagram_sock_timeout 180000
+datagram_sock_timeout failed: took 190.00 seconds
+[root@]#
+The same program when run on a 4.4 kernel would timeout more acurately and
+the kernel added slack was not noticeable to user application.
+
+Interesting text:
+a) Standards for setsockopt:
+http://pubs.opengroup.org/onlinepubs/009695399/functions/setsockopt.html
+<snip>
+SO_RCVTIMEO
+Sets the timeout value that specifies the maximum amount of time an input
+function waits until it completes. It accepts a timeval structure with the
+number of seconds and microseconds specifying the limit on how long to wait
+for an input operation to complete. If a receive operation has blocked for
+this much time without receiving additional data, it shall return with a
+partial count or errno set to [EAGAIN] or [EWOULDBLOCK] if no data is
+received. The default for this option is zero, which indicates that a
+receive operation shall not time out. This option takes a timeval
+structure. Note that not all implementations allow this option to be set.
+<end snip>
+This only talks about the maximum time and the current behavior indeed
+follows this standard. System call does not return before the time
+specified and it does return EAGAIN.
+b) Man page for SETSOCKOPT(3P):
+<snip>
+The  option_name  argument  specifies  a  single  option to set. It can be
+one of the socket-level options defined in <sys_socket.h> and described in
+Section 2.10.16, Use of Options.  If option_name is equal to SO_RCVTIMEO
+or SO_SNDTIMEO and the implementation supports setting the option, it is
+unspecified whether the struct timeval  pointed  to by  option_value  is
+stored  as  provided by this function or is rounded up to align with the
+resolution of the clock being used. If setsockopt() is called with
+option_name equal to SO_ACCEPTCONN, SO_ERROR, or SO_TYPE, the behavior is
+unspecified.
+<end snip>
+Behavior is unspecified.
+3) Man page for SELECT(2):
+<snip>
+Note  that  the  timeout  interval  will  be  rounded up to the system
+clock granularity, and kernel scheduling delays mean that the blocking
+interval may overrun by a small amount.  If both fields of the timeval
+structure are zero, then select() returns immediately.  (This is useful
+for polling.)  If timeout is NULL (no timeout),  select()  can block
+indefinitely.
+<end snip>
+Select system call guarantees timeout interval and inturn uses highres
+timer.
 
 Reported-by: Manjula Peiris <thelgep@amazon.com>
 Reviewed-by: Eduardo Valentin <eduval@amazon.com>
 Reviewed-by: Anchal Agarwal <anchalag@amazon.com>
 Signed-off-by: Vallish Vaidyeshwara <vallish@amazon.com>
 ---
- tools/testing/selftests/net/Makefile               |   3 +-
- .../testing/selftests/net/datagram_sock_timeout.c  | 119 +++++++++++++++++++++
- .../selftests/net/run_datagram_sock_timeout.sh     |  12 +++
- 3 files changed, 133 insertions(+), 1 deletion(-)
- create mode 100644 tools/testing/selftests/net/datagram_sock_timeout.c
- create mode 100755 tools/testing/selftests/net/run_datagram_sock_timeout.sh
+ net/core/datagram.c | 14 +++++++++++++-
+ 1 file changed, 13 insertions(+), 1 deletion(-)
 
-diff --git a/tools/testing/selftests/net/Makefile b/tools/testing/selftests/net/Makefile
-index f6c9dbf..eb5a8c7 100644
---- a/tools/testing/selftests/net/Makefile
-+++ b/tools/testing/selftests/net/Makefile
-@@ -3,11 +3,12 @@
- CFLAGS =  -Wall -Wl,--no-as-needed -O2 -g
- CFLAGS += -I../../../../usr/include/
+diff --git a/net/core/datagram.c b/net/core/datagram.c
+index ee5647b..832c147 100644
+--- a/net/core/datagram.c
++++ b/net/core/datagram.c
+@@ -80,6 +80,7 @@ static int receiver_wake_function(wait_queue_entry_t *wait, unsigned int mode, i
+ 		return 0;
+ 	return autoremove_wake_function(wait, mode, sync, key);
+ }
++
+ /*
+  * Wait for the last received packet to be different from skb
+  */
+@@ -87,6 +88,9 @@ int __skb_wait_for_more_packets(struct sock *sk, int *err, long *timeo_p,
+ 				const struct sk_buff *skb)
+ {
+ 	int error;
++	ktime_t expires;
++	struct timespec64 time;
++	unsigned long pre_sched_time;
+ 	DEFINE_WAIT_FUNC(wait, receiver_wake_function);
  
--TEST_PROGS := run_netsocktests run_afpackettests test_bpf.sh netdevice.sh
-+TEST_PROGS := run_netsocktests run_afpackettests test_bpf.sh netdevice.sh run_datagram_sock_timeout.sh
- TEST_GEN_FILES =  socket
- TEST_GEN_FILES += psock_fanout psock_tpacket
- TEST_GEN_FILES += reuseport_bpf reuseport_bpf_cpu reuseport_bpf_numa
- TEST_GEN_FILES += reuseport_dualstack
-+TEST_GEN_FILES += datagram_sock_timeout
+ 	prepare_to_wait_exclusive(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
+@@ -116,7 +120,15 @@ int __skb_wait_for_more_packets(struct sock *sk, int *err, long *timeo_p,
+ 		goto interrupted;
  
- include ../lib.mk
- 
-diff --git a/tools/testing/selftests/net/datagram_sock_timeout.c b/tools/testing/selftests/net/datagram_sock_timeout.c
-new file mode 100644
-index 0000000..362becf
---- /dev/null
-+++ b/tools/testing/selftests/net/datagram_sock_timeout.c
-@@ -0,0 +1,119 @@
-+/*
-+ * Copyright 2017 Amazon.com, Inc.
-+ * Author: Manjula Peiris <thelgep@amazon.com>
-+ *         Vallish Vaidyeshwara <vallish@amazon.com>
-+ *
-+ * selftests/net: test to verify datagram socket timeout
-+ *
-+ * AF_UNIX and AF_INET datagram sockets use high resolution timer to time
-+ * SO_RCVTIMEO value used with setsockopt(2). This test checks for the accuracy
-+ * of kernel notifying these sockets timeout to application. Test program has
-+ * code to check AF_UNIX socket, however the kernel function used to timeout
-+ * AF_INET socket is the same kernel function used by AF_UNIX as well which is
-+ * __skb_wait_for_more_packets().
-+ *
-+ * License (GPLv2):
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE. * See the GNU General Public License for
-+ * more details.
-+ *
-+ * You should have received a copy of the GNU General Public License along with
-+ * this program.
-+ */
-+
-+#include <stdlib.h>
-+#include <sys/socket.h>
-+#include <unistd.h>
-+#include <signal.h>
-+#include <stdio.h>
-+#include <fcntl.h>
-+#include <err.h>
-+#include <errno.h>
-+#include <sys/un.h>
-+#include <time.h>
-+#include <assert.h>
-+
-+#define BUF_SIZE 128
-+#define KB 1024
-+#define NUM_FD 2
-+
-+static int set_socket_timeout(int sockfd, unsigned int ms)
-+{
-+	int ret;
-+	struct timeval timeout;
-+	socklen_t cb = sizeof(timeout);
-+
-+	timeout.tv_sec = ms / 1000;
-+	timeout.tv_usec = (ms % 1000) * 1000;
-+	ret = setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, cb);
-+	return ret;
-+}
-+
-+int main(int argc, char **argv)
-+{
-+	char err[BUF_SIZE];
-+	int ret;
-+	int fds[NUM_FD];
-+	struct msghdr message;
-+	char buffer[KB];
-+	struct sockaddr_storage src_addr;
-+	struct iovec iov[1];
-+	time_t start, end;
-+	unsigned int timeout;
-+
-+	iov[0].iov_base = buffer;
-+	iov[0].iov_len = sizeof(buffer);
-+	message.msg_name = &src_addr;
-+	message.msg_namelen = sizeof(src_addr);
-+	message.msg_iov = iov;
-+	message.msg_iovlen = 1;
-+	message.msg_control = 0;
-+	message.msg_controllen = 0;
-+
-+	if (argc != 2) {
-+		fprintf(stderr,
-+			"datagram_sock_timeout failed: no timeout specified\n");
-+		return -1;
-+	}
-+	timeout = (unsigned int)(atoi(argv[1]));
-+
-+	if (socketpair(AF_UNIX, SOCK_DGRAM, 0, fds) != 0) {
-+		strerror_r(errno, err, BUF_SIZE);
-+		fprintf(stderr, "socketpair() call failed with %s\n", err);
-+		return -1;
-+	}
-+
-+	if (set_socket_timeout(fds[0], timeout) != 0) {
-+		strerror_r(errno, err, BUF_SIZE);
-+		fprintf(stderr, "setsockopt() call failed with %s\n", err);
-+		return -1;
-+	}
-+
-+	start = time(NULL);
-+	ret = (int)recvmsg(fds[0], &message, 0);
-+	end = time(NULL);
-+	if (!(ret == -1 && errno == 11)) {
-+		fprintf(stderr,
-+			"datagram_sock_timeout failed: test was interrupted\n");
-+		return -1;
-+	}
-+
-+	if ((end - start) != (timeout / 1000)) {
-+		fprintf(stderr,
-+			"datagram_sock_timeout failed: took %lu seconds\n",
-+			(long)(end - start));
-+		return -1;
-+	}
-+
-+	close(fds[0]);
-+	close(fds[1]);
-+
-+	fprintf(stderr, "datagram_sock_timeout passed\n");
-+	return 0;
-+}
-diff --git a/tools/testing/selftests/net/run_datagram_sock_timeout.sh b/tools/testing/selftests/net/run_datagram_sock_timeout.sh
-new file mode 100755
-index 0000000..d5f4f82
---- /dev/null
-+++ b/tools/testing/selftests/net/run_datagram_sock_timeout.sh
-@@ -0,0 +1,12 @@
-+#!/bin/sh
-+# Runs datagram socket timeout test
-+
-+echo "--------------------"
-+echo "running run_datagram_sock_timeout test"
-+echo "--------------------"
-+./datagram_sock_timeout 180000
-+if [ $? -ne 0 ]; then
-+	echo "[FAIL]"
-+else
-+	echo "[PASS]"
-+fi
+ 	error = 0;
+-	*timeo_p = schedule_timeout(*timeo_p);
++	/* Wait using highres timer */
++	time.tv_sec = *timeo_p / HZ;
++	time.tv_nsec = jiffies_to_nsecs(*timeo_p % HZ);
++	expires = ktime_add_safe(ktime_get(), timespec64_to_ktime(time));
++	pre_sched_time = jiffies;
++	if (schedule_hrtimeout(&expires, HRTIMER_MODE_ABS))
++		*timeo_p = jiffies - pre_sched_time;
++	else
++		*timeo_p = 0;
+ out:
+ 	finish_wait(sk_sleep(sk), &wait);
+ 	return error;
 -- 
 2.7.3.AMZN
