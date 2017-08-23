@@ -1,76 +1,71 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: [PATCH v2 net-next 1/5] selftests/bpf: add a test for a bug in
- liveness-based pruning
-Date: Wed, 23 Aug 2017 15:09:46 +0100
-Message-ID: <83dbbb0c-3cbc-e033-0ceb-f31db6eb57c2@solarflare.com>
+From: Edward Cree via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+Subject: [PATCH v2 net-next 2/5] bpf/verifier: when pruning a
+ branch, ignore its write marks
+Date: Wed, 23 Aug 2017 15:10:03 +0100
+Message-ID: <ec2ee579-8391-c023-348a-770faa6bc5c7@solarflare.com>
 References: <f9208b68-466e-c6cb-4d0c-c567e40bdc15@solarflare.com>
+Reply-To: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>,
-        iovisor-dev <iovisor-dev@lists.iovisor.org>
-To: <davem@davemloft.net>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Alexei Starovoitov <ast@fb.com>,
-        Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dispatch1-us1.ppe-hosted.com ([67.231.154.164]:32768 "EHLO
-        dispatch1-us1.ppe-hosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1754001AbdHWOJ5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2017 10:09:57 -0400
-In-Reply-To: <f9208b68-466e-c6cb-4d0c-c567e40bdc15@solarflare.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+To: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>, Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
+Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+In-Reply-To: <f9208b68-466e-c6cb-4d0c-c567e40bdc15-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
+List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
+Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Writes in straight-line code should not prevent reads from propagating
- along jumps.  With current verifier code, the jump from 3 to 5 does not
- add a read mark on 3:R0 (because 5:R0 has a write mark), meaning that
- the jump from 1 to 3 gets pruned as safe even though R0 is NOT_INIT.
+The fact that writes occurred in reaching the continuation state does
+ not screen off its reads from us, because we're not really its parent.
+So detect 'not really the parent' in do_propagate_liveness, and ignore
+ write marks in that case.
 
-Verifier output:
-0: (61) r2 = *(u32 *)(r1 +0)
-1: (35) if r2 >= 0x0 goto pc+1
- R1=ctx(id=0,off=0,imm=0) R2=inv(id=0,umax_value=4294967295,var_off=(0x0; 0xffffffff)) R10=fp0
-2: (b7) r0 = 0
-3: (35) if r2 >= 0x0 goto pc+1
- R0=inv0 R1=ctx(id=0,off=0,imm=0) R2=inv(id=0,umax_value=4294967295,var_off=(0x0; 0xffffffff)) R10=fp0
-4: (b7) r0 = 0
-5: (95) exit
-
-from 3 to 5: safe
-
-from 1 to 3: safe
-processed 8 insns, stack depth 0
-
-Signed-off-by: Edward Cree <ecree@solarflare.com>
+Fixes: dc503a8ad984 ("bpf/verifier: track liveness for pruning")
+Signed-off-by: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
 ---
- tools/testing/selftests/bpf/test_verifier.c | 16 ++++++++++++++++
- 1 file changed, 16 insertions(+)
+ kernel/bpf/verifier.c | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
 
-diff --git a/tools/testing/selftests/bpf/test_verifier.c b/tools/testing/selftests/bpf/test_verifier.c
-index c03542c..c912734 100644
---- a/tools/testing/selftests/bpf/test_verifier.c
-+++ b/tools/testing/selftests/bpf/test_verifier.c
-@@ -6487,6 +6487,22 @@ static struct bpf_test tests[] = {
- 		.result = REJECT,
- 		.prog_type = BPF_PROG_TYPE_LWT_IN,
- 	},
-+	{
-+		"liveness pruning and write screening",
-+		.insns = {
-+			/* Get an unknown value */
-+			BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1, 0),
-+			/* branch conditions teach us nothing about R2 */
-+			BPF_JMP_IMM(BPF_JGE, BPF_REG_2, 0, 1),
-+			BPF_MOV64_IMM(BPF_REG_0, 0),
-+			BPF_JMP_IMM(BPF_JGE, BPF_REG_2, 0, 1),
-+			BPF_MOV64_IMM(BPF_REG_0, 0),
-+			BPF_EXIT_INSN(),
-+		},
-+		.errstr = "R0 !read_ok",
-+		.result = REJECT,
-+		.prog_type = BPF_PROG_TYPE_LWT_IN,
-+	},
- };
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index e42c096..fdbaa60 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -3436,6 +3436,7 @@ static bool states_equal(struct bpf_verifier_env *env,
+ static bool do_propagate_liveness(const struct bpf_verifier_state *state,
+ 				  struct bpf_verifier_state *parent)
+ {
++	bool writes = parent == state->parent; /* Observe write marks */
+ 	bool touched = false; /* any changes made? */
+ 	int i;
  
- static int probe_filter_length(const struct bpf_insn *fp)
+@@ -3447,7 +3448,9 @@ static bool do_propagate_liveness(const struct bpf_verifier_state *state,
+ 	for (i = 0; i < BPF_REG_FP; i++) {
+ 		if (parent->regs[i].live & REG_LIVE_READ)
+ 			continue;
+-		if (state->regs[i].live == REG_LIVE_READ) {
++		if (writes && (state->regs[i].live & REG_LIVE_WRITTEN))
++			continue;
++		if (state->regs[i].live & REG_LIVE_READ) {
+ 			parent->regs[i].live |= REG_LIVE_READ;
+ 			touched = true;
+ 		}
+@@ -3460,7 +3463,9 @@ static bool do_propagate_liveness(const struct bpf_verifier_state *state,
+ 			continue;
+ 		if (parent->spilled_regs[i].live & REG_LIVE_READ)
+ 			continue;
+-		if (state->spilled_regs[i].live == REG_LIVE_READ) {
++		if (writes && (state->spilled_regs[i].live & REG_LIVE_WRITTEN))
++			continue;
++		if (state->spilled_regs[i].live & REG_LIVE_READ) {
+ 			parent->spilled_regs[i].live |= REG_LIVE_READ;
+ 			touched = true;
+ 		}
