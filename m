@@ -1,102 +1,53 @@
-From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: Re: [PATCH net-next v2 10/10] arm64: dts: marvell: mcbin: enable
- more networking ports
-Date: Wed, 23 Aug 2017 10:11:12 +0200
-Message-ID: <20170823081112.GC5202@kwain>
-References: <20170822170830.32413-1-antoine.tenart@free-electrons.com>
- <20170822170830.32413-11-antoine.tenart@free-electrons.com>
- <20170823072842.ibk6gqtswhamvppy@sapphire.tkos.co.il>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
-        protocol="application/pgp-signature"; boundary="c3bfwLpm8qysLVxt"
-Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
-        davem@davemloft.net, jason@lakedaemon.net, andrew@lunn.ch,
-        gregory.clement@free-electrons.com,
-        sebastian.hesselbarth@gmail.com,
-        thomas.petazzoni@free-electrons.com, netdev@vger.kernel.org,
-        linux@armlinux.org.uk, nadavh@marvell.com, stefanc@marvell.com,
-        mw@semihalf.com, linux-arm-kernel@lists.infradead.org
-To: Baruch Siach <baruch@tkos.co.il>
+From: Lorenzo Colitti <lorenzo@google.com>
+Subject: [PATCH net] net: xfrm: don't double-hold dst when sk_policy in use.
+Date: Wed, 23 Aug 2017 17:14:39 +0900
+Message-ID: <20170823081439.52796-1-lorenzo@google.com>
+Cc: weiwan@google.com, davem@davemloft.net,
+        steffen.klassert@secunet.com, misterikkit@gocogle.com,
+        Lorenzo Colitti <lorenzo@google.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:56710 "EHLO
-        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753570AbdHWILY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2017 04:11:24 -0400
-Content-Disposition: inline
-In-Reply-To: <20170823072842.ibk6gqtswhamvppy@sapphire.tkos.co.il>
+Received: from mail-pf0-f180.google.com ([209.85.192.180]:33110 "EHLO
+        mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753425AbdHWIOq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2017 04:14:46 -0400
+Received: by mail-pf0-f180.google.com with SMTP id k3so4365339pfc.0
+        for <netdev@vger.kernel.org>; Wed, 23 Aug 2017 01:14:46 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+While removing dst_entry garbage collection, commit 52df157f17e5
+("xfrm: take refcnt of dst when creating struct xfrm_dst bundle")
+changed xfrm_resolve_and_create_bundle so it returns an xdst with
+a refcount of 1 instead of 0.
 
---c3bfwLpm8qysLVxt
-Content-Type: text/plain; charset=iso-8859-1
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+However, it did not delete the dst_hold performed by xfrm_lookup
+when a per-socket policy is in use. This means that when a
+socket policy is in use, dst entries returned by xfrm_lookup have
+a refcount of 2, and are not freed when no longer in use.
 
-Hi Baruch,
+Cc: Wei Wang <weiwan@google.com>
+Fixes: 52df157f17 ("xfrm: take refcnt of dst when creating struct xfrm_dst bundle")
+Tested: https://android-review.googlesource.com/417481
+Tested: https://android-review.googlesource.com/418659
+Tested: https://android-review.googlesource.com/424463
+Tested: https://android-review.googlesource.com/452776 passes on net-next
+Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
+---
+ net/xfrm/xfrm_policy.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-On Wed, Aug 23, 2017 at 10:28:42AM +0300, Baruch Siach wrote:
-> On Tue, Aug 22, 2017 at 07:08:30PM +0200, Antoine Tenart wrote:
-> > This patch enables the two GE/SFP ports. They are configured in 10GKR
-> > mode by default. To do this the cpm_xdmio is enabled as well, and two
-> > phy descriptions are added.
-> >=20
-> > Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
-> > Tested-by: Marcin Wojtas <mw@semihalf.com>
-> > ---
-> >  arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts | 30 +++++++++++++++=
-++++++++
-> >  1 file changed, 30 insertions(+)
-> >=20
-> > diff --git a/arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts b/arch/a=
-rm64/boot/dts/marvell/armada-8040-mcbin.dts
-> > index abd39d1c1739..6cb4b000e1ac 100644
-> > --- a/arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts
-> > +++ b/arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts
-> > @@ -127,6 +127,30 @@
-> >  	};
-> >  };
-> > =20
-> > +&cpm_xmdio {
-> > +	status =3D "okay";
-> > +
-> > +	phy0: ethernet-phy@0 {
-> > +		compatible =3D "ethernet-phy-ieee802.3-c45";
-> > +		reg =3D <0>;
-> > +	};
-> > +
-> > +	phy1: ethernet-phy@1 {
->=20
-> Should be named 'ethernet-phy@8' to match the 'reg' property.
-
-That's right.
-
-Thanks!
-Antoine
-
---=20
-Antoine T=E9nart, Free Electrons
-Embedded Linux and Kernel engineering
-http://free-electrons.com
-
---c3bfwLpm8qysLVxt
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQIzBAABCgAdFiEEM7Tg8N8kXOlT7hOhXE2LyK3bvNgFAlmdOKAACgkQXE2LyK3b
-vNgIzA/8CKEAWBHcpgSfDRhBZx55K1ER0geltQ2do4H/eK7GftZ6YqCuUG6K5mLu
-VT5T1rPgHzOqgKZvwM4wwoG0J+iFG8EwbRlnjtM18cPAKgYxCxkK9cwSXe2KNmTT
-cMnwUAOO1e4HKN26iwdZCfgUieU41mv1AKoqejKdO9xpENywXUUo/e/Y70WdW/Dl
-J5PYiWqQQqrM3cp65xrv+gd6sUZ19g+ZFQc/xOAmtGe6kAELY3ArGNXnJcWJEFPn
-l/P1IIVhEOgIlcmwFCfqp1o2IbE7yFG2Nj6FBOk8XjP5XTzxYWvCcXi1nYShLKbw
-0ZnPLiyCyFrlJBqHpCGSsEODn9q4OEki6OWbj7JdI8aNGlU3wp/DUJDa4YYiW1gN
-g+/0eS11x7uyY5ehNVkh9FUMl04RctgYrEVLzb+5TZTaj8rlOYSjzL/jcyLZ7WfJ
-jQGJO5SNn23PMZ7c23NdX9Gok8TNXACq4Sj2L+schw3GvcSYgnxcmlIfbq+dwB0d
-8LgDHCY5D8KxG8LKCYkjL/qddyN22cSRTot+gVzydWAWWy1xjgQSaW/rHSnM314m
-nRugKXJZbNg9sDaIp/eBDmlKzSI+iRHx/W+qontPd8mMREBMGM9zDAgi7Kpd6oqp
-CT7mYK3HEYf1O1KvHPKQLbifqcxrWftMB1Lkd8lscvDpXgqCjD4=
-=WHbN
------END PGP SIGNATURE-----
-
---c3bfwLpm8qysLVxt--
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index 6f5a0dad50..69b16ee327 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -2226,7 +2226,6 @@ struct dst_entry *xfrm_lookup(struct net *net, struct dst_entry *dst_orig,
+ 				goto no_transform;
+ 			}
+ 
+-			dst_hold(&xdst->u.dst);
+ 			route = xdst->route;
+ 		}
+ 	}
+-- 
+2.14.1.480.gb18f417b89-goog
