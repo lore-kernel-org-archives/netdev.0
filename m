@@ -1,58 +1,31 @@
-From: Bhumika Goyal <bhumirks@gmail.com>
-Subject: [PATCH] wireless: ipw2x00: make iw_handler_def const
-Date: Wed, 23 Aug 2017 18:06:42 +0530
-Message-ID: <1503491802-1361-1-git-send-email-bhumirks@gmail.com>
-Cc: Bhumika Goyal <bhumirks@gmail.com>
-To: julia.lawall@lip6.fr, stas.yakovlev@gmail.com,
-        kvalo@codeaurora.org, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: DSA support for Micrel KSZ8895
+Date: Wed, 23 Aug 2017 14:42:07 +0200
+Message-ID: <20170823124207.GB28612@lunn.ch>
+References: <20170816075524.GA18532@amd>
+ <20170816140451.GA13006@lunn.ch>
+ <9235D6609DB808459E95D78E17F2E43D40AFF8C1@CHN-SV-EXMX02.mchp-main.com>
+ <20170823090941.GA27570@amd>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Woojung.Huh@microchip.com, nathan.leigh.conrad@gmail.com,
+        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Tristram.Ha@micrel.com
+To: Pavel Machek <pavel@ucw.cz>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170823090941.GA27570@amd>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Make these const as they are only stored in the const field of a
-net_device structure.
+> Any ideas how to do the work in a way to minimize code duplication are
+> welcome...
 
-Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
----
- drivers/net/wireless/intel/ipw2x00/ipw2100.c | 4 ++--
- drivers/net/wireless/intel/ipw2x00/ipw2200.c | 2 +-
- 2 files changed, 3 insertions(+), 3 deletions(-)
+A lot depends on how much duplication there is. mv88e6xxx uses a set
+of function points per chip variant. Another option is to put the
+common code into a library, and have two drivers. Or if it is the same
+registers, but at different locations, you can add a translation
+function, which is what i think the b53 driver does.
 
-diff --git a/drivers/net/wireless/intel/ipw2x00/ipw2100.c b/drivers/net/wireless/intel/ipw2x00/ipw2100.c
-index 77f3f92..19c442c 100644
---- a/drivers/net/wireless/intel/ipw2x00/ipw2100.c
-+++ b/drivers/net/wireless/intel/ipw2x00/ipw2100.c
-@@ -340,7 +340,7 @@ static int ipw2100_ucode_download(struct ipw2100_priv *priv,
- 				  struct ipw2100_fw *fw);
- static void ipw2100_wx_event_work(struct work_struct *work);
- static struct iw_statistics *ipw2100_wx_wireless_stats(struct net_device *dev);
--static struct iw_handler_def ipw2100_wx_handler_def;
-+static const struct iw_handler_def ipw2100_wx_handler_def;
- 
- static inline void read_register(struct net_device *dev, u32 reg, u32 * val)
- {
-@@ -8273,7 +8273,7 @@ static struct iw_statistics *ipw2100_wx_wireless_stats(struct net_device *dev)
- 	return (struct iw_statistics *)NULL;
- }
- 
--static struct iw_handler_def ipw2100_wx_handler_def = {
-+static const struct iw_handler_def ipw2100_wx_handler_def = {
- 	.standard = ipw2100_wx_handlers,
- 	.num_standard = ARRAY_SIZE(ipw2100_wx_handlers),
- 	.num_private = ARRAY_SIZE(ipw2100_private_handler),
-diff --git a/drivers/net/wireless/intel/ipw2x00/ipw2200.c b/drivers/net/wireless/intel/ipw2x00/ipw2200.c
-index c311b1a..7194a18 100644
---- a/drivers/net/wireless/intel/ipw2x00/ipw2200.c
-+++ b/drivers/net/wireless/intel/ipw2x00/ipw2200.c
-@@ -10008,7 +10008,7 @@ enum {
- #endif
- };
- 
--static struct iw_handler_def ipw_wx_handler_def = {
-+static const struct iw_handler_def ipw_wx_handler_def = {
- 	.standard = ipw_wx_handlers,
- 	.num_standard = ARRAY_SIZE(ipw_wx_handlers),
- 	.num_private = ARRAY_SIZE(ipw_priv_handler),
--- 
-1.9.1
+	  Andrew
