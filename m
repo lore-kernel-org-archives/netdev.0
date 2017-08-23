@@ -1,79 +1,27 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH v3] net: stmmac: Delete dead code for MDIO registration
-Date: Wed, 23 Aug 2017 09:46:02 -0700
-Message-ID: <d803f188-826b-706c-2d28-18ee87b8aa0d@gmail.com>
-References: <20170823085058.23333-1-romain.perier@collabora.com>
+From: Alexei Starovoitov <ast@fb.com>
+Subject: Re: [PATCH net-next] bpf, doc: Add arm32 as arch supporting eBPF JIT
+Date: Wed, 23 Aug 2017 09:55:14 -0700
+Message-ID: <3f9982db-ea0a-dc2a-99d0-3d147f48a591@fb.com>
+References: <1503503950-5146-1-git-send-email-illusionist.neo@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Romain Perier <romain.perier@collabora.com>,
-        Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-        Alexandre Torgue <alexandre.torgue@st.com>,
-        Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170823085058.23333-1-romain.perier@collabora.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <daniel@iogearbox.net>
+To: Shubham Bansal <illusionist.neo@gmail.com>, <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:34417 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S932297AbdHWQzi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2017 12:55:38 -0400
+In-Reply-To: <1503503950-5146-1-git-send-email-illusionist.neo@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/23/2017 01:50 AM, Romain Perier wrote:
-> This code is no longer used, the logging function was changed by commit
-> fbca164776e4 ("net: stmmac: Use the right logging functi"). It was
-> previously showing information about the type if the IRQ, if it's polled,
-> ignored or a normal interrupt. As we don't want information loss, I have
-> moved this code to phy_attached_print().
-> 
-> Fixes: fbca164776e4 ("net: stmmac: Use the right logging functi")
+On 8/23/17 8:59 AM, Shubham Bansal wrote:
+> As eBPF JIT support for arm32 was added recently with
+> commit 39c13c204bb1150d401e27d41a9d8b332be47c49, it seems appropriate to
+> add arm32 as arch with support for eBPF JIT in bpf and sysctl docs as well.
+>
+> Signed-off-by: Shubham Bansal <illusionist.neo@gmail.com>
 
-For future submissions, do not truncate the commit subject that you are
-referencing.
-
-> Signed-off-by: Romain Perier <romain.perier@collabora.com>
-
-Since this is a fix you should indicate in the patch subject that this
-is targeting David's "net" tree, see
-https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/networking/netdev-FAQ.txt#n85
-
-
->  	const char *drv_name = phydev->drv ? phydev->drv->name : "unbound";
-> +	char *irq_str;
-> +	char irq_num[4];
-> +
-> +	switch(phydev->irq) {
-> +	case PHY_POLL:
-> +		irq_str = "POLL";
-> +		break;
-> +	case PHY_IGNORE_INTERRUPT:
-> +		irq_str = "IGNORE";
-> +		break;
-> +	default:
-> +		snprintf(irq_num, sizeof(irq_str), "%d", phydev->irq);
-
-sizeof(irq_str) = 4 or 8 depending on the architecture because it's a
-pointer, did not you mean sizeof(irq_num) here instead?
-
-> +		irq_str = irq_num;
-> +		break;
-> +	}
->  
->  	if (!fmt) {
->  		dev_info(&phydev->mdio.dev, ATTACHED_FMT "\n",
->  			 drv_name, phydev_name(phydev),
-> -			 phydev->irq);
-> +			 irq_str);
->  	} else {
->  		va_list ap;
->  
->  		dev_info(&phydev->mdio.dev, ATTACHED_FMT,
->  			 drv_name, phydev_name(phydev),
-> -			 phydev->irq);
-> +			 irq_str);
->  
->  		va_start(ap, fmt);
->  		vprintk(fmt, ap);
-> 
-
-
--- 
-Florian
+Acked-by: Alexei Starovoitov <ast@kernel.org>
