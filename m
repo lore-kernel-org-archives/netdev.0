@@ -1,65 +1,108 @@
-From: Ilya Lesokhin <ilyal@mellanox.com>
-Subject: RE: [PATCH v2 net-next 1/3] ipv6: Prevent unexpected sk->sk_prot
- changes
-Date: Wed, 23 Aug 2017 07:49:09 +0000
-Message-ID: <AM4PR0501MB272370367F819BEB1EBF2D7DD4850@AM4PR0501MB2723.eurprd05.prod.outlook.com>
-References: <1502795320-22538-1-git-send-email-ilyal@mellanox.com>
-         <1502795320-22538-2-git-send-email-ilyal@mellanox.com>
-         <1502798357.4936.63.camel@edumazet-glaptop3.roam.corp.google.com>
-         <DB6PR05MB31768343CE15F47F8CC12CD8B08D0@DB6PR05MB3176.eurprd05.prod.outlook.com>
- <1502808336.4936.78.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Maxime Ripard <maxime.ripard@free-electrons.com>
+Subject: Re: [PATCH v3 3/4] net: stmmac: register parent MDIO node for
+ sun8i-h3-emac
+Date: Wed, 23 Aug 2017 09:49:42 +0200
+Message-ID: <20170823074942.yt3c5gvnmdw5pqge@flea.home>
+References: <20170820065757.GA6081@Red>
+ <20170820142545.GB24150@lunn.ch>
+ <CAGb2v67hQXSoCKP7qW+KRUYX+0djQ1Z23cQ67Lyg6G7ozGyfGQ@mail.gmail.com>
+ <20170821132015.GB1703@lunn.ch>
+ <20170821133104.qvrhvwin2rdg4aqo@flea.lan>
+ <20170821142321.GE1703@lunn.ch>
+ <CAGb2v64E4T=1ff3POGuXZA=MvjGAnKQ6OF6A3sT_cU-=jh6zNw@mail.gmail.com>
+ <bfe784b6-5137-8fcd-dbd0-ad96974f4060@gmail.com>
+ <20170822181140.GA11596@Red>
+ <352ae66b-78a4-e88b-4544-a8edd9390b0c@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "davejwatson@fb.com" <davejwatson@fb.com>,
-        "Aviad Yehezkel" <aviadye@mellanox.com>,
-        Boris Pismenny <borisp@mellanox.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0085.outbound.protection.outlook.com ([104.47.2.85]:9248
-        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1753386AbdHWHtM (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 23 Aug 2017 03:49:12 -0400
-In-Reply-To: <1502808336.4936.78.camel@edumazet-glaptop3.roam.corp.google.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="5h36v2pido6imtht"
+Cc: Corentin Labbe <clabbe.montjoie@gmail.com>,
+        Chen-Yu Tsai <wens@csie.org>, Andrew Lunn <andrew@lunn.ch>,
+        Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Russell King <linux@armlinux.org.uk>,
+        Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+        Alexandre Torgue <alexandre.torgue@st.com>,
+        devicetree <devicetree@vger.kernel.org>,
+        linux-arm-kernel <linux-arm-kernel@lists.infradead.org>,
+        linux-kernel <linux-kernel@vger.kernel.org>,
+        netdev <netdev@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <352ae66b-78a4-e88b-4544-a8edd9390b0c@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBFcmljIER1bWF6ZXQgW21haWx0
-bzplcmljLmR1bWF6ZXRAZ21haWwuY29tXQ0KPiBTZW50OiBUdWVzZGF5LCBBdWd1c3QgMTUsIDIw
-MTcgNTo0NiBQTQ0KPiBUbzogQm9yaXMgUGlzbWVubnkgPGJvcmlzcEBtZWxsYW5veC5jb20+DQo+
-IENjOiBJbHlhIExlc29raGluIDxpbHlhbEBtZWxsYW5veC5jb20+OyBuZXRkZXZAdmdlci5rZXJu
-ZWwub3JnOw0KPiBkYXZlbUBkYXZlbWxvZnQubmV0OyBkYXZlandhdHNvbkBmYi5jb207IEF2aWFk
-IFllaGV6a2VsDQo+IDxhdmlhZHllQG1lbGxhbm94LmNvbT4NCj4gU3ViamVjdDogUmU6IFtQQVRD
-SCB2MiBuZXQtbmV4dCAxLzNdIGlwdjY6IFByZXZlbnQgdW5leHBlY3RlZCBzay0+c2tfcHJvdA0K
-PiBjaGFuZ2VzDQo+IA0KPiBJIGFtIGp1c3Qgc2F5aW5nIElQVjZfQUREUkZPUk0gaXMgYmVjb21p
-bmcgc3BhZ2hldHRpIGNvZGUsIGFuZCBtYXliZQ0KPiB0aGlzIGlzIHRpbWUgdG8gbWFrZSBpdCBt
-b2R1bGFyLiANCj4gDQoNCkhpIEVyaWMsDQpJIHVuZGVyc3RhbmQgeW91ciBjb25jZXJuLCBidXQg
-SSB3b3VsZCBsaWtlIHRvIHBvc3Rwb25lIGltcGxlbWVudGluZyB0aGlzDQpmZWF0dXJlIHVudGls
-IHRoZSB1bHAgaW5mcmFzdHJ1Y3R1cmUgc3RhYmlsaXplcy4NCkkgZG9uJ3QgZXZlbiBrbm93IGhv
-dyBtYW55IHVzZXJzIHdhbnQgdG8gdXNlIElQVjZfQUREUkZPUk0gb24gc29ja2V0cyB3aXRoIHVs
-cC4NCkkgdGhpbmsgdGhhdCBzaW1wbHkgcmV0dXJuaW5nIGFuIGVycm9yIGZvciB1bHAgc29ja2V0
-cyBpbiB0aGUgbWVhbnRpbWUgaXMgYSByZWFzb25hYmxlIA0KY29tcHJvbWlzZS4NCg0Kd2hhdCBk
-byB5b3UgdGhpbmsgYWJvdXQgdGhlIHBhdGNoIGJlbG93Pw0KDQpTdWJqZWN0OiBbUEFUQ0ggMS8x
-XSBpcHY2OiBEaXNhYmxlIElQVjZfQUREUkZPUk0gb24gc29ja2V0cyB3aXRoIHVscCBhdHRhY2hl
-ZA0KDQpUaGUgSVBWNl9BRERSRk9STSBzZXRzb2Nrb3B0IHdvcmtzIGJ5IG92ZXJyaWRpbmcgc2st
-PnNrX3Byb3QuDQpUaGUgY3VycmVudCBLVExTIHVscCBhbHNvIG92ZXJyaWRlcyBzay0+c2tfcHJv
-dC4NCkNvbnNlcXVlbnRseSwgdXNpbmcgSVBWNl9BRERSRk9STSB3aGVuIHRoZXJlIGlzIGEgdWxw
-IGF0dGFjaGVkIGlzDQp1bnNhZmUgYW5kIHRoaXMgcGF0Y2ggZGlzYWJsZXMgaXQuDQoNCkZpeGVz
-OiAzYzRkNzU1OTE1OWIgKCd0bHM6IGtlcm5lbCBUTFMgc3VwcG9ydCcpDQpTaWduZWQtb2ZmLWJ5
-OiBJbHlhIExlc29raGluIDxpbHlhbEBtZWxsYW5veC5jb20+DQotLS0NCiBuZXQvaXB2Ni9pcHY2
-X3NvY2tnbHVlLmMgfCA2ICsrKysrLQ0KIDEgZmlsZSBjaGFuZ2VkLCA1IGluc2VydGlvbnMoKyks
-IDEgZGVsZXRpb24oLSkNCg0KZGlmZiAtLWdpdCBhL25ldC9pcHY2L2lwdjZfc29ja2dsdWUuYyBi
-L25ldC9pcHY2L2lwdjZfc29ja2dsdWUuYw0KaW5kZXggMDJkNzk1Zi4uZDkzNTk0OCAxMDA2NDQN
-Ci0tLSBhL25ldC9pcHY2L2lwdjZfc29ja2dsdWUuYw0KKysrIGIvbmV0L2lwdjYvaXB2Nl9zb2Nr
-Z2x1ZS5jDQpAQCAtMTg1LDggKzE4NSwxMiBAQCBzdGF0aWMgaW50IGRvX2lwdjZfc2V0c29ja29w
-dChzdHJ1Y3Qgc29jayAqc2ssIGludCBsZXZlbCwgaW50IG9wdG5hbWUsDQogCQkJCQlyZXR2ID0g
-LUVCVVNZOw0KIAkJCQkJYnJlYWs7DQogCQkJCX0NCi0JCQl9IGVsc2UgaWYgKHNrLT5za19wcm90
-b2NvbCAhPSBJUFBST1RPX1RDUCkNCisJCQl9IGVsc2UgaWYgKHNrLT5za19wcm90b2NvbCA9PSBJ
-UFBST1RPX1RDUCkgew0KKwkJCQlpZiAoaW5ldF9jc2soc2spLT5pY3NrX3VscF9vcHMpDQorCQkJ
-CQlicmVhazsNCisJCQl9IGVsc2Ugew0KIAkJCQlicmVhazsNCisJCQl9DQogDQogCQkJaWYgKHNr
-LT5za19zdGF0ZSAhPSBUQ1BfRVNUQUJMSVNIRUQpIHsNCiAJCQkJcmV0diA9IC1FTk9UQ09OTjsN
-Cg0KDQpUaGFua3MsDQpJbHlhDQo=
+
+--5h36v2pido6imtht
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+Hi Florian,
+
+On Tue, Aug 22, 2017 at 11:35:01AM -0700, Florian Fainelli wrote:
+> >>> So I think what you are saying is either impossible or engineering-wi=
+se
+> >>> a very stupid design, like using an external MAC with a discrete PHY
+> >>> connected to the internal MAC's MDIO bus, while using the internal MAC
+> >>> with the internal PHY.
+> >>>
+> >>> Now can we please decide on something? We're a week and a half from
+> >>> the 4.13 release. If mdio-mux is wrong, then we could have two mdio
+> >>> nodes (internal-mdio & external-mdio).
+> >>
+> >> I really don't see a need for a mdio-mux in the first place, just have
+> >> one MDIO controller (current state) sub-node which describes the
+> >> built-in STMMAC MDIO controller and declare the internal PHY as a child
+> >> node (along with 'phy-is-integrated'). If a different configuration is
+> >> used, then just put the external PHY as a child node there.
+> >>
+> >> If fixed-link is required, the mdio node becomes unused anyway.
+> >>
+> >> Works for everyone?
+> >=20
+> > If we put an external PHY with reg=3D1 as a child of internal MDIO,
+> > il will be merged with internal PHY node and get
+> > phy-is-integrated.
+>=20
+> Then have the .dtsi file contain just the mdio node, but no internal or
+> external PHY and push all the internal and external PHY node definition
+> (in its entirety) to the per-board DTS file, does not that work?
+
+If possible, I'd really like to have the internal PHY in the
+DTSI. It's always there in hardware anyway, and duplicating the PHY,
+with its clock, reset line, and whatever info we might need in the
+future in each and every board DTS that uses it will be very error
+prone and we will have the usual bunch of issues that come up with
+duplication.
+
+Maxime
+
+--=20
+Maxime Ripard, Free Electrons
+Embedded Linux and Kernel engineering
+http://free-electrons.com
+
+--5h36v2pido6imtht
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIcBAEBAgAGBQJZnTOVAAoJEBx+YmzsjxAgk3oP/AheSyfX+4cOfLLtZ2rOOZ1r
+jIZuZzbMqDwB4t2q8KmbNpcogJBVr1wp+RkdZIz/jF4T+4DjW03h1EJ/o31BFaXm
+1T99ua2ZWoZ98xwotzqfWYlJ2l7yu3YwO69ei/aQF5m9OYgxsXUohd9W6KYkfzCW
+TCAKmxpm3awub+3aTCQNbcrcIWRezS2+SdrrlC7trqqyfsE0YAjA/bbO+dqHAPU1
+SruYUg6x4WElxpgSjhOWwsGUP8PkIf5h52sppC1pHWmM26s0z2PP4vPqlq6P4u8E
+G5q0RokK0oug2SVNkng7d0TXA7PaTn8/qtzb29meaPlmqyLJZjW+mzvQnt0Ekhji
+tdTRn47JlUeyeSwy4GH06MX9RC03aIYjCAjalY7AFNNiHVVDrwP8kCAcgUBTwF3h
+nRf+EhPs4UUqv2xhtICs5/MaUiN1DCDisEsWQbwckDBba8HNGDG72kHGEQBHPrjx
+56Df5ywTyteuQRXCJcdObI+1eKIgt1IlNtjLQqdiiXlgOYhjb3158G8N2pBFLZ8k
+5TqxRnML8JAW6rgfXLt5YwUMvJx7P57GPkfzm9I+jEyIBuyOchPmWFDUuB7W51IF
+dyS/kYqhM8xxNOM50nALnYH+AxgPlpmXFOzVMMrqon1T0EkeLP7K7dXIHo2X4c9g
++REUVNFt9N/4G7C1qGPE
+=8Iuh
+-----END PGP SIGNATURE-----
+
+--5h36v2pido6imtht--
