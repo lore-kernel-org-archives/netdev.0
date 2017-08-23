@@ -1,91 +1,78 @@
-From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: Re: [PATCH net-next 10/18] net: mvpp2: use the GoP interrupt for
- link status changes
-Date: Wed, 23 Aug 2017 10:25:10 +0200
-Message-ID: <20170823082510.GD5202@kwain>
-References: <20170724134848.19330-1-antoine.tenart@free-electrons.com>
- <20170724134848.19330-11-antoine.tenart@free-electrons.com>
- <20170726162648.GK12049@lunn.ch>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: XDP redirect measurements, gotchas and tracepoints
+Date: Wed, 23 Aug 2017 10:29:37 +0200
+Message-ID: <20170823102937.79a9c4ed@redhat.com>
+References: <20170821212506.1cb0d5d6@redhat.com>
+        <CACKFLimAF9OYwz8EqG=1-N40hWuA-8C8k8ut0oFKYdduvZOxHA@mail.gmail.com>
+        <599C7530.2010405@gmail.com>
+        <1503426617.2434.5.camel@intel.com>
+        <CACKFLimMWLto4FRxNE3tzrO5MU+p67J7wu=n1nmg0t8QGYjgrA@mail.gmail.com>
+        <CAKgT0Uf=ZfVeK-wtvNxSyGEVZ3UseUOHiP3ZOg-SrzmqsR=LtQ@mail.gmail.com>
+        <CACKFLinJ0N7b8Xhq4ZoHdB80uXp_MU_vVyzZa7Dq11XrXsvDbw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
-        protocol="application/pgp-signature"; boundary="bajzpZikUji1w+G9"
-Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
-        davem@davemloft.net, jason@lakedaemon.net,
-        gregory.clement@free-electrons.com,
-        sebastian.hesselbarth@gmail.com,
-        thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
-        linux@armlinux.org.uk, mw@semihalf.com, stefanc@marvell.com,
-        netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Alexander Duyck <alexander.duyck@gmail.com>,
+        "Duyck, Alexander H" <alexander.h.duyck@intel.com>,
+        "john.fastabend@gmail.com" <john.fastabend@gmail.com>,
+        "pstaszewski@itcare.pl" <pstaszewski@itcare.pl>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "xdp-newbies@vger.kernel.org" <xdp-newbies@vger.kernel.org>,
+        "andy@greyhouse.net" <andy@greyhouse.net>,
+        "borkmann@iogearbox.net" <borkmann@iogearbox.net>,
+        brouer@redhat.com
+To: Michael Chan <michael.chan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:56981 "EHLO
-        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753486AbdHWIZW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2017 04:25:22 -0400
-Content-Disposition: inline
-In-Reply-To: <20170726162648.GK12049@lunn.ch>
+Received: from mx1.redhat.com ([209.132.183.28]:45404 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753630AbdHWI3p (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 23 Aug 2017 04:29:45 -0400
+In-Reply-To: <CACKFLinJ0N7b8Xhq4ZoHdB80uXp_MU_vVyzZa7Dq11XrXsvDbw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, 22 Aug 2017 23:59:05 -0700
+Michael Chan <michael.chan@broadcom.com> wrote:
 
---bajzpZikUji1w+G9
-Content-Type: text/plain; charset=iso-8859-1
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+> On Tue, Aug 22, 2017 at 6:06 PM, Alexander Duyck
+> <alexander.duyck@gmail.com> wrote:
+> > On Tue, Aug 22, 2017 at 1:04 PM, Michael Chan <michael.chan@broadcom.com> wrote:  
+> >>
+> >> Right, but it's conceivable to add an API to "return" the buffer to
+> >> the input device, right?
 
-Hi Andrew, Russell,
+Yes, I would really like to see an API like this.
 
-On Wed, Jul 26, 2017 at 06:26:48PM +0200, Andrew Lunn wrote:
-> On Mon, Jul 24, 2017 at 03:48:40PM +0200, Antoine Tenart wrote:
-> > This patch adds the GoP link interrupt support for when a port isn't
-> > connected to a PHY. Because of this the phylib callback is never called
-> > and the link status management isn't done. This patch use the GoP link
-> > interrupt in such cases to still have a minimal link management. Without
-> > this patch ports not connected to a PHY cannot work.
->=20
-> When is a GoP link interrupt signalled? When is a port without a PHY
-> actually up/down?
+> >
+> > You could, it is just added complexity. "just free the buffer" in
+> > ixgbe usually just amounts to one atomic operation to decrement the
+> > total page count since page recycling is already implemented in the
+> > driver. You still would have to unmap the buffer regardless of if you
+> > were recycling it or not so all you would save is 1.000015259 atomic
+> > operations per packet. The fraction is because once every 64K uses we
+> > have to bulk update the count on the page.
+> >  
+> 
+> If the buffer is returned to the input device, the input device can
+> keep the DMA mapping.  All it needs to do is to dma_sync it back to
+> the input device when the buffer is returned.
 
-When the cable is connected (there is signal) and the serdes is in sync
-and AN succeeded.
+Yes, exactly, return to the input device. I really think we should
+work on a solution where we can keep the DMA mapping around.  We have
+an opportunity here to make ndo_xdp_xmit TX queues use a specialized
+page return call, to achieve this. (I imagine other arch's have a high
+DMA overhead than Intel)
 
-> With SFF/SFP ports, you generally need a gpio line the fibre module
-> can use to indicate if it has link. Fixed-phy has such support, and
-> your link_change function will get called when the link changes.
+I'm not sure how the API should look.  The ixgbe recycle mechanism and
+splitting the page (into two packets) actually complicates things, and
+tie us into a page-refcnt based model.  We could get around this by
+each driver implementing a page-return-callback, that allow us to
+return the page to the input device?  Then, drivers implementing the
+1-packet-per-page can simply check/read the page-refcnt, and if it is
+"1" DMA-sync and reuse it in the RX queue.
 
-So that would work when using SFP modules but I wonder if the GoP irq
-isn't needed when using passive cable, in which case this patch would
-still be needed (and of course we should support the new Russell phylib
-capabilities).
-
-What's your thoughts on this?
-
-Thanks!
-Antoine
-
---=20
-Antoine T=E9nart, Free Electrons
-Embedded Linux and Kernel engineering
-http://free-electrons.com
-
---bajzpZikUji1w+G9
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQIzBAABCgAdFiEEM7Tg8N8kXOlT7hOhXE2LyK3bvNgFAlmdO+YACgkQXE2LyK3b
-vNia5g/+M3syRwE+xZqh9eFInr6Pm0m4w9mftWtLLAH35IJnrxt9ju+rDmA8/GzZ
-jOpXeq3kqRfjsQMfSTsrCQBH99sd9l8RAhMJK6lT5LxhaeJZjnqqYteWuSY2ppoi
-P92Ba97tvr4EldK10K4rgCLKyKUhgS6zcptfit18RoSF3NKKyiX3ktoeEnsR7DYe
-Wuu3ReVA/zsJJAyVjwFVE/wYdjow5m+hFFtqxIVy4xFL+HHFl5ALQxCv44ipFMrV
-LyeLSDyJdebSAyc2wMIQfbDE5uZI4YX7Rj0vmvY2NZ7IZAo2Qqpj3o1p/VXv3YYi
-Au+7jrSgGcDJz4QpQUYqHhtmYppldq/NVcrRbbMk4KGleWpGRJNa6/tsWjUMO211
-yvwS1t3Njrq7Lhv7vAi8Mpk/uUnAO+jyQ11ERCyY/GKd3HlhP6d81TCwUH0atTMU
-/bEmCTqGfUzV4MSM5y1UalXyScFnw9xyygFnP1zO3Z9onf9uymCIYthJ5kSZa1va
-E23LhP3PsbS4HRNQfE4ONycg+tnq9etPppeqMe0bmzMW+swRUfrvvsfk3at0QvHH
-cLpjaomT/ooyg8Tt5pGTfyQsqJvmWZ310HUz/sK8KJPh6VZ5dovdgcWxZ1IwtHhe
-bRLQvxlGiaWCVjjv/oOKX1F4YvrVOO2KHGjZldhihuFJmgzeIcg=
-=scq5
------END PGP SIGNATURE-----
-
---bajzpZikUji1w+G9--
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
