@@ -1,77 +1,99 @@
-From: Matthew Tan <matthew.tan_1@nxp.com>
-Subject: [PATCH] e1000e: changed some expensive calls of udelay to usleep_range
-Date: Wed, 23 Aug 2017 10:59:45 -0500
-Message-ID: <1503503985-3869-1-git-send-email-matthew.tan_1@nxp.com>
+From: Antoine Tenart <antoine.tenart@free-electrons.com>
+Subject: Re: [EXT] Re: [PATCH net-next 10/18] net: mvpp2: use the GoP
+ interrupt for link status changes
+Date: Wed, 23 Aug 2017 18:04:44 +0200
+Message-ID: <20170823160444.GC23960@kwain>
+References: <20170724134848.19330-1-antoine.tenart@free-electrons.com>
+ <20170724134848.19330-11-antoine.tenart@free-electrons.com>
+ <20170726162648.GK12049@lunn.ch>
+ <20170823082510.GD5202@kwain>
+ <5ebd192c54984b25adda0a294035b1b9@IL-EXCH01.marvell.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <michael.kardonik@nxp.com>, <carolyn.wyborny@intel.com>,
-        <donald.c.skidmore@intel.com>, <bruce.w.allan@intel.com>,
-        <john.ronciak@intel.com>, <mitch.a.williams@intel.com>,
-        <intel-wired-lan@lists.osuosl.org>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>, Matthew Tan <matthew.tan_1@nxp.com>
-To: <jeffrey.t.kirsher@intel.com>
+Content-Type: multipart/signed; micalg=pgp-sha512;
+        protocol="application/pgp-signature"; boundary="tqI+Z3u+9OQ7kwn0"
+Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "jason@lakedaemon.net" <jason@lakedaemon.net>,
+        "gregory.clement@free-electrons.com"
+        <gregory.clement@free-electrons.com>,
+        "sebastian.hesselbarth@gmail.com" <sebastian.hesselbarth@gmail.com>,
+        "thomas.petazzoni@free-electrons.com"
+        <thomas.petazzoni@free-electrons.com>,
+        Nadav Haklai <nadavh@marvell.com>,
+        "linux@armlinux.org.uk" <linux@armlinux.org.uk>,
+        "mw@semihalf.com" <mw@semihalf.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-arm-kernel@lists.infradead.org"
+        <linux-arm-kernel@lists.infradead.org>
+To: Stefan Chulski <stefanc@marvell.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-cys01nam02on0048.outbound.protection.outlook.com ([104.47.37.48]:7020
-        "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S932129AbdHWQBF (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 23 Aug 2017 12:01:05 -0400
+Received: from mail.free-electrons.com ([62.4.15.54]:40755 "EHLO
+        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932161AbdHWQEp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2017 12:04:45 -0400
+Content-Disposition: inline
+In-Reply-To: <5ebd192c54984b25adda0a294035b1b9@IL-EXCH01.marvell.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-    Calls to udelay are not preemtable by userspace so userspace
-    applications experience a large (~200us) latency when running on core
-    0. Instead usleep_range can be used to be more friendly to userspace
-    since it is preemtable. This is due to udelay using busy-wait loops
-    while usleep_rang uses hrtimers instead. It is recommended to use
-    udelay when the delay is <10us since at that precision overhead of
-    usleep_range hrtimer setup causes issues. However, the replaced calls
-    are for 50us and 100us so this should not be not an issue.
 
-Signed-off-by: Matthew Tan <matthew.tan_1@nxp.com>
----
- drivers/net/ethernet/intel/e1000e/phy.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+--tqI+Z3u+9OQ7kwn0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-diff --git a/drivers/net/ethernet/intel/e1000e/phy.c b/drivers/net/ethernet/intel/e1000e/phy.c
-index de13aea..e318fdc 100644
---- a/drivers/net/ethernet/intel/e1000e/phy.c
-+++ b/drivers/net/ethernet/intel/e1000e/phy.c
-@@ -158,7 +158,7 @@ s32 e1000e_read_phy_reg_mdic(struct e1000_hw *hw, u32 offset, u16 *data)
- 	 * the lower time out
- 	 */
- 	for (i = 0; i < (E1000_GEN_POLL_TIMEOUT * 3); i++) {
--		udelay(50);
-+		usleep_range(40, 60);
- 		mdic = er32(MDIC);
- 		if (mdic & E1000_MDIC_READY)
- 			break;
-@@ -183,7 +183,7 @@ s32 e1000e_read_phy_reg_mdic(struct e1000_hw *hw, u32 offset, u16 *data)
- 	 * reading duplicate data in the next MDIC transaction.
- 	 */
- 	if (hw->mac.type == e1000_pch2lan)
--		udelay(100);
-+		usleep_range(90, 100);
- 
- 	return 0;
- }
-@@ -222,7 +222,7 @@ s32 e1000e_write_phy_reg_mdic(struct e1000_hw *hw, u32 offset, u16 data)
- 	 * the lower time out
- 	 */
- 	for (i = 0; i < (E1000_GEN_POLL_TIMEOUT * 3); i++) {
--		udelay(50);
-+		usleep_range(40, 60);
- 		mdic = er32(MDIC);
- 		if (mdic & E1000_MDIC_READY)
- 			break;
-@@ -246,7 +246,7 @@ s32 e1000e_write_phy_reg_mdic(struct e1000_hw *hw, u32 offset, u16 data)
- 	 * reading duplicate data in the next MDIC transaction.
- 	 */
- 	if (hw->mac.type == e1000_pch2lan)
--		udelay(100);
-+		usleep_range(90, 110);
- 
- 	return 0;
- }
--- 
-2.7.4
+On Wed, Aug 23, 2017 at 03:24:55PM +0000, Stefan Chulski wrote:
+> > When the cable is connected (there is signal) and the serdes is in sync=
+ and AN
+> > succeeded.
+> >=20
+> > > With SFF/SFP ports, you generally need a gpio line the fibre module
+> > > can use to indicate if it has link. Fixed-phy has such support, and
+> > > your link_change function will get called when the link changes.
+> >=20
+> > So that would work when using SFP modules but I wonder if the GoP irq i=
+sn't
+> > needed when using passive cable, in which case this patch would still b=
+e needed
+> > (and of course we should support the new Russell phylib capabilities).
+>=20
+> Even if new phylib driver supports passive direct cables connection,=20
+> GoP IRQ required for SOHO/Peridot external switch support.
+> SOHO/Peridot external switch could be connected directly to Serdes line.
+
+So I guess the GoP link irq patches are needed. Should I resend them
+then?
+
+We'll have to discuss how to handle fixed-phy vs GoP IRQ, but I guess we
+can do this when adding the fixed-phy support later.
+
+Thanks,
+Antoine
+
+--=20
+Antoine T=E9nart, Free Electrons
+Embedded Linux and Kernel engineering
+http://free-electrons.com
+
+--tqI+Z3u+9OQ7kwn0
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAABCgAdFiEEM7Tg8N8kXOlT7hOhXE2LyK3bvNgFAlmdp5wACgkQXE2LyK3b
+vNji2A/9FhRiYip33dtfdw2ynvJ9lroeXISwc2OOo+QuOlNm1SrnPmc+fuhpFfGG
+IMGfuUDl6mK1ZV6IqbVJ1jo1rVhHW7QHmTuuPFhDeWKgEUhnhCEZHBapkKNmGxo0
+6gfta2eOsYzwVvoHgtHsQXTaOa6VxOvnmOGMbg9zit5HSFq/qZP3O1KaHt/tnvox
+vV0LV7q6PPW2+m/8noVsrndmVq4a/bd3jhn7e679REHCtj4XkKAlKCkZDyDMOm8d
+P2nVsj2UE+N7oLxBX4Z93t2WF67Iw7R4EIC4Ai/mh5rd6mWVmhFN9pJaO3j/1ei5
+aKSpGQ4dcNzryihPPKxVzgl2xmk7xaEZQYMx9Yy4nTrMKGMlXrdsrThxBiA+AARd
+WHeuG318VimUjz2OquuFqqw1F7K2XLjdb6jWW2YV+Whyhvf2gSnC/XIZLuS9sUS0
+cwwpeha/R5p5DmX8Zc+dWwTiFfxzJ0E9RyYrgLmXTu0ZYyeIyb7Wnl38LD2yckD3
+BA1k4ziAfcRhR5Enr64F2VjMQFl9wRlcD1PcREeSfQTKltWy4ljb9B+ZDf5DHg7I
+oMmz4+RLwL+2uDLNGGCvR+zpbXUc4QUu31qlQPL1AFD1JLikDG2G7I29Hn/wK70l
+OZXl8sTHf1Jc0+ysL1G1TEfBT05rEyckx3ibMJbqmniTtRsccY8=
+=rv8p
+-----END PGP SIGNATURE-----
+
+--tqI+Z3u+9OQ7kwn0--
