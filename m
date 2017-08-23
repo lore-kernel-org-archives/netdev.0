@@ -1,7 +1,7 @@
 From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH net-next 2/3] net: mvpp2: unify the txq size define use
-Date: Wed, 23 Aug 2017 09:46:55 +0200
-Message-ID: <20170823074656.14595-3-antoine.tenart@free-electrons.com>
+Subject: [PATCH net-next 1/3] net: define the TSO header size in net/tso.h
+Date: Wed, 23 Aug 2017 09:46:54 +0200
+Message-ID: <20170823074656.14595-2-antoine.tenart@free-electrons.com>
 References: <20170823074656.14595-1-antoine.tenart@free-electrons.com>
 Cc: Antoine Tenart <antoine.tenart@free-electrons.com>, andrew@lunn.ch,
         gregory.clement@free-electrons.com,
@@ -10,64 +10,89 @@ Cc: Antoine Tenart <antoine.tenart@free-electrons.com>, andrew@lunn.ch,
         netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:55985 "EHLO
+Received: from mail.free-electrons.com ([62.4.15.54]:55981 "EHLO
         mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753438AbdHWHrM (ORCPT
+        with ESMTP id S1753415AbdHWHrM (ORCPT
         <rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2017 03:47:12 -0400
 In-Reply-To: <20170823074656.14595-1-antoine.tenart@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The txq size is defined by MVPP2_AGGR_TXQ_SIZE, which is sometime not
-used directly but through variables. As it is a fixed value use the
-define everywhere in the driver.
+The TSO header size was defined in many drivers. Factorize the code and
+define its size in net/tso.h.
 
 Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
 ---
- drivers/net/ethernet/marvell/mvpp2.c | 11 +++++------
- 1 file changed, 5 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/cavium/thunder/nicvf_queues.h | 1 -
+ drivers/net/ethernet/freescale/fec_main.c          | 1 -
+ drivers/net/ethernet/marvell/mv643xx_eth.c         | 2 --
+ drivers/net/ethernet/marvell/mvneta.c              | 3 ---
+ include/net/tso.h                                  | 2 ++
+ 5 files changed, 2 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 4a2ed5c66bb4..0f5a2a4f9ddf 100644
---- a/drivers/net/ethernet/marvell/mvpp2.c
-+++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -5413,15 +5413,14 @@ static unsigned int mvpp2_tx_done(struct mvpp2_port *port, u32 cause,
+diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.h b/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
+index 57858522c33c..67d1a3230773 100644
+--- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
++++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
+@@ -277,7 +277,6 @@ struct snd_queue {
+ 	u16		xdp_free_cnt;
+ 	bool		is_xdp;
  
- /* Allocate and initialize descriptors for aggr TXQ */
- static int mvpp2_aggr_txq_init(struct platform_device *pdev,
--			       struct mvpp2_tx_queue *aggr_txq,
--			       int desc_num, int cpu,
-+			       struct mvpp2_tx_queue *aggr_txq, int cpu,
- 			       struct mvpp2 *priv)
- {
- 	u32 txq_dma;
+-#define	TSO_HEADER_SIZE	128
+ 	/* For TSO segment's header */
+ 	char		*tso_hdrs;
+ 	dma_addr_t	tso_hdrs_phys;
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index df09b254553d..56f56d6ada9c 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -226,7 +226,6 @@ MODULE_PARM_DESC(macaddr, "FEC Ethernet MAC address");
  
- 	/* Allocate memory for TX descriptors */
- 	aggr_txq->descs = dma_alloc_coherent(&pdev->dev,
--				desc_num * MVPP2_DESC_ALIGNED_SIZE,
-+				MVPP2_AGGR_TXQ_SIZE * MVPP2_DESC_ALIGNED_SIZE,
- 				&aggr_txq->descs_dma, GFP_KERNEL);
- 	if (!aggr_txq->descs)
- 		return -ENOMEM;
-@@ -5442,7 +5441,8 @@ static int mvpp2_aggr_txq_init(struct platform_device *pdev,
- 			MVPP22_AGGR_TXQ_DESC_ADDR_OFFS;
+ #define COPYBREAK_DEFAULT	256
  
- 	mvpp2_write(priv, MVPP2_AGGR_TXQ_DESC_ADDR_REG(cpu), txq_dma);
--	mvpp2_write(priv, MVPP2_AGGR_TXQ_DESC_SIZE_REG(cpu), desc_num);
-+	mvpp2_write(priv, MVPP2_AGGR_TXQ_DESC_SIZE_REG(cpu),
-+		    MVPP2_AGGR_TXQ_SIZE);
+-#define TSO_HEADER_SIZE		128
+ /* Max number of allowed TCP segments for software TSO */
+ #define FEC_MAX_TSO_SEGS	100
+ #define FEC_MAX_SKB_DESCS	(FEC_MAX_TSO_SEGS * 2 + MAX_SKB_FRAGS)
+diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
+index 9c94ea9b2b80..fb2d533ae4ef 100644
+--- a/drivers/net/ethernet/marvell/mv643xx_eth.c
++++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
+@@ -183,8 +183,6 @@ static char mv643xx_eth_driver_version[] = "1.4";
+ #define DEFAULT_TX_QUEUE_SIZE	512
+ #define SKB_DMA_REALIGN		((PAGE_SIZE - NET_SKB_PAD) % SMP_CACHE_BYTES)
  
- 	return 0;
- }
-@@ -7691,8 +7691,7 @@ static int mvpp2_init(struct platform_device *pdev, struct mvpp2 *priv)
- 	for_each_present_cpu(i) {
- 		priv->aggr_txqs[i].id = i;
- 		priv->aggr_txqs[i].size = MVPP2_AGGR_TXQ_SIZE;
--		err = mvpp2_aggr_txq_init(pdev, &priv->aggr_txqs[i],
--					  MVPP2_AGGR_TXQ_SIZE, i, priv);
-+		err = mvpp2_aggr_txq_init(pdev, &priv->aggr_txqs[i], i, priv);
- 		if (err < 0)
- 			return err;
- 	}
+-#define TSO_HEADER_SIZE		128
+-
+ /* Max number of allowed TCP segments for software TSO */
+ #define MV643XX_MAX_TSO_SEGS 100
+ #define MV643XX_MAX_SKB_DESCS (MV643XX_MAX_TSO_SEGS * 2 + MAX_SKB_FRAGS)
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index 0aab74c2a209..35ff1ecfcff0 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -281,9 +281,6 @@
+  */
+ #define MVNETA_RSS_LU_TABLE_SIZE	1
+ 
+-/* TSO header size */
+-#define TSO_HEADER_SIZE 128
+-
+ /* Max number of Rx descriptors */
+ #define MVNETA_MAX_RXD 128
+ 
+diff --git a/include/net/tso.h b/include/net/tso.h
+index b7be852bfe9d..9a56c39e6d0a 100644
+--- a/include/net/tso.h
++++ b/include/net/tso.h
+@@ -3,6 +3,8 @@
+ 
+ #include <net/ip.h>
+ 
++#define TSO_HEADER_SIZE		128
++
+ struct tso_t {
+ 	int next_frag_idx;
+ 	void *data;
 -- 
 2.13.5
