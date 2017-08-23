@@ -1,78 +1,121 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: XDP redirect measurements, gotchas and tracepoints
-Date: Wed, 23 Aug 2017 10:29:37 +0200
-Message-ID: <20170823102937.79a9c4ed@redhat.com>
-References: <20170821212506.1cb0d5d6@redhat.com>
-        <CACKFLimAF9OYwz8EqG=1-N40hWuA-8C8k8ut0oFKYdduvZOxHA@mail.gmail.com>
-        <599C7530.2010405@gmail.com>
-        <1503426617.2434.5.camel@intel.com>
-        <CACKFLimMWLto4FRxNE3tzrO5MU+p67J7wu=n1nmg0t8QGYjgrA@mail.gmail.com>
-        <CAKgT0Uf=ZfVeK-wtvNxSyGEVZ3UseUOHiP3ZOg-SrzmqsR=LtQ@mail.gmail.com>
-        <CACKFLinJ0N7b8Xhq4ZoHdB80uXp_MU_vVyzZa7Dq11XrXsvDbw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Alexander Duyck <alexander.duyck@gmail.com>,
-        "Duyck, Alexander H" <alexander.h.duyck@intel.com>,
-        "john.fastabend@gmail.com" <john.fastabend@gmail.com>,
-        "pstaszewski@itcare.pl" <pstaszewski@itcare.pl>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "xdp-newbies@vger.kernel.org" <xdp-newbies@vger.kernel.org>,
-        "andy@greyhouse.net" <andy@greyhouse.net>,
-        "borkmann@iogearbox.net" <borkmann@iogearbox.net>,
-        brouer@redhat.com
-To: Michael Chan <michael.chan@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45404 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753630AbdHWI3p (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 23 Aug 2017 04:29:45 -0400
-In-Reply-To: <CACKFLinJ0N7b8Xhq4ZoHdB80uXp_MU_vVyzZa7Dq11XrXsvDbw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Romain Perier <romain.perier@collabora.com>
+Subject: [PATCH v3] net: stmmac: Delete dead code for MDIO registration
+Date: Wed, 23 Aug 2017 10:50:58 +0200
+Message-ID: <20170823085058.23333-1-romain.perier@collabora.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Romain Perier <romain.perier@collabora.com>
+To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+        Alexandre Torgue <alexandre.torgue@st.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 22 Aug 2017 23:59:05 -0700
-Michael Chan <michael.chan@broadcom.com> wrote:
+This code is no longer used, the logging function was changed by commit
+fbca164776e4 ("net: stmmac: Use the right logging functi"). It was
+previously showing information about the type if the IRQ, if it's polled,
+ignored or a normal interrupt. As we don't want information loss, I have
+moved this code to phy_attached_print().
 
-> On Tue, Aug 22, 2017 at 6:06 PM, Alexander Duyck
-> <alexander.duyck@gmail.com> wrote:
-> > On Tue, Aug 22, 2017 at 1:04 PM, Michael Chan <michael.chan@broadcom.com> wrote:  
-> >>
-> >> Right, but it's conceivable to add an API to "return" the buffer to
-> >> the input device, right?
+Fixes: fbca164776e4 ("net: stmmac: Use the right logging functi")
+Signed-off-by: Romain Perier <romain.perier@collabora.com>
+---
 
-Yes, I would really like to see an API like this.
+Hello,
 
-> >
-> > You could, it is just added complexity. "just free the buffer" in
-> > ixgbe usually just amounts to one atomic operation to decrement the
-> > total page count since page recycling is already implemented in the
-> > driver. You still would have to unmap the buffer regardless of if you
-> > were recycling it or not so all you would save is 1.000015259 atomic
-> > operations per packet. The fraction is because once every 64K uses we
-> > have to bulk update the count on the page.
-> >  
-> 
-> If the buffer is returned to the input device, the input device can
-> keep the DMA mapping.  All it needs to do is to dma_sync it back to
-> the input device when the buffer is returned.
+This is the continuity of "[PATCH v2 0/2] net: stmmac: phy logging fixes",
+see https://lkml.org/lkml/2017/8/21/288
 
-Yes, exactly, return to the input device. I really think we should
-work on a solution where we can keep the DMA mapping around.  We have
-an opportunity here to make ndo_xdp_xmit TX queues use a specialized
-page return call, to achieve this. (I imagine other arch's have a high
-DMA overhead than Intel)
+Changes in v3:
+- Removed patch 2/2: "net: phy: Don't use drv when it is NULL in phy_attached_print",
+  fixed upstream by fcd03e362b1c
+  ("net: phy: Deal with unbound PHY driver in phy_attached_print()")
+- Moved this code to phy_attached_print(), so we have more informations
+  about the IRQ (poll, ignore or normal irq) and no information are loss.
+- Re-worded commit message
 
-I'm not sure how the API should look.  The ixgbe recycle mechanism and
-splitting the page (into two packets) actually complicates things, and
-tie us into a page-refcnt based model.  We could get around this by
-each driver implementing a page-return-callback, that allow us to
-return the page to the input device?  Then, drivers implementing the
-1-packet-per-page can simply check/read the page-refcnt, and if it is
-"1" DMA-sync and reuse it in the RX queue.
+ drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c | 16 ----------------
+ drivers/net/phy/phy_device.c                      | 21 ++++++++++++++++++---
+ 2 files changed, 18 insertions(+), 19 deletions(-)
 
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+index 72ec711fcba2..f5f37bfa1d58 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+@@ -248,9 +248,6 @@ int stmmac_mdio_register(struct net_device *ndev)
+ 	found = 0;
+ 	for (addr = 0; addr < PHY_MAX_ADDR; addr++) {
+ 		struct phy_device *phydev = mdiobus_get_phy(new_bus, addr);
+-		int act = 0;
+-		char irq_num[4];
+-		char *irq_str;
+ 
+ 		if (!phydev)
+ 			continue;
+@@ -273,19 +270,6 @@ int stmmac_mdio_register(struct net_device *ndev)
+ 		if (priv->plat->phy_addr == -1)
+ 			priv->plat->phy_addr = addr;
+ 
+-		act = (priv->plat->phy_addr == addr);
+-		switch (phydev->irq) {
+-		case PHY_POLL:
+-			irq_str = "POLL";
+-			break;
+-		case PHY_IGNORE_INTERRUPT:
+-			irq_str = "IGNORE";
+-			break;
+-		default:
+-			sprintf(irq_num, "%d", phydev->irq);
+-			irq_str = irq_num;
+-			break;
+-		}
+ 		phy_attached_info(phydev);
+ 		found = 1;
+ 	}
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index 810f6fd2f639..a3ba51808b1a 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -874,21 +874,36 @@ void phy_attached_info(struct phy_device *phydev)
+ }
+ EXPORT_SYMBOL(phy_attached_info);
+ 
+-#define ATTACHED_FMT "attached PHY driver [%s] (mii_bus:phy_addr=%s, irq=%d)"
++#define ATTACHED_FMT "attached PHY driver [%s] (mii_bus:phy_addr=%s, irq=%s)"
+ void phy_attached_print(struct phy_device *phydev, const char *fmt, ...)
+ {
+ 	const char *drv_name = phydev->drv ? phydev->drv->name : "unbound";
++	char *irq_str;
++	char irq_num[4];
++
++	switch(phydev->irq) {
++	case PHY_POLL:
++		irq_str = "POLL";
++		break;
++	case PHY_IGNORE_INTERRUPT:
++		irq_str = "IGNORE";
++		break;
++	default:
++		snprintf(irq_num, sizeof(irq_str), "%d", phydev->irq);
++		irq_str = irq_num;
++		break;
++	}
+ 
+ 	if (!fmt) {
+ 		dev_info(&phydev->mdio.dev, ATTACHED_FMT "\n",
+ 			 drv_name, phydev_name(phydev),
+-			 phydev->irq);
++			 irq_str);
+ 	} else {
+ 		va_list ap;
+ 
+ 		dev_info(&phydev->mdio.dev, ATTACHED_FMT,
+ 			 drv_name, phydev_name(phydev),
+-			 phydev->irq);
++			 irq_str);
+ 
+ 		va_start(ap, fmt);
+ 		vprintk(fmt, ap);
 -- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
+2.11.0
