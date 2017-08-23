@@ -1,62 +1,42 @@
-From: Aviad Krawczyk <aviad.krawczyk@huawei.com>
-Subject: Re: [PATCH V8 net-next 00/22] Huawei HiNIC Ethernet Driver
-Date: Wed, 23 Aug 2017 13:46:24 +0300
-Message-ID: <f0b00e85-3cc0-1b80-94d4-41c7ab58dc15@huawei.com>
-References: <cover.1503330613.git.aviad.krawczyk@huawei.com>
- <CAK8P3a3sWBZKZTz8YM2DfNwsLSWZpaS_e-Uh1VVKuCL6q+si3g@mail.gmail.com>
- <e8db1165-06da-324a-37e5-13d670fb0499@huawei.com>
- <CAK8P3a0St2mZ7q33zccHZ1uPyv0FKf2A+q+cMk+LN_L_qjxfkg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        Networking <netdev@vger.kernel.org>, <bc.y@huawei.com>,
-        <victor.gissin@huawei.com>, <zhaochen6@huawei.com>,
-        <tony.qu@huawei.com>
-To: Arnd Bergmann <arnd@arndb.de>
+From: Arvind Yadav <arvind.yadav.cs@gmail.com>
+Subject: [PATCH 3/3 v3] net: tipc: constify genl_ops
+Date: Wed, 23 Aug 2017 16:22:20 +0530
+Message-ID: <1503485540-22113-1-git-send-email-arvind.yadav.cs@gmail.com>
+Cc: linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org
+To: davem@davemloft.net, Larry.Finger@lwfinger.net,
+        chaoming_li@realsil.com.cn, kvalo@codeaurora.org,
+        jon.maloy@ericsson.com, ying.xue@windriver.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAK8P3a0St2mZ7q33zccHZ1uPyv0FKf2A+q+cMk+LN_L_qjxfkg@mail.gmail.com>
-Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+genl_ops are not supposed to change at runtime. All functions
+working with genl_ops provided by <net/genetlink.h> work with
+const genl_ops. So mark the non-const structs as const.
 
-> It's clear that ...
+Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
+---
+Changes in v2:
+             Patch Subject was wrong.
+changes in v3 :
+             Updated patch subject as per comment.
 
-Sorry, but there are wrong assumptions here.
+ net/tipc/netlink_compat.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Thanks,
-Aviad
-
-On 8/23/2017 1:37 PM, Arnd Bergmann wrote:
-> On Wed, Aug 23, 2017 at 11:31 AM, Aviad Krawczyk
-> <aviad.krawczyk@huawei.com> wrote:
->> Hi Arnd,
->>
->> This is Huawei's PCIE HiNIC card.
->>
->> I am not familiar with the HiSilicon product and I don't see how
->> Huawei's PCIE HiNIC card is connected to the HiSilicon drivers on Linux Tree.
->>
->> I don't see how it can be shared: different product and different code.
-> 
-> Sharing code was just a wild thought of mine, as I said I had not looked at
-> whether there is anything that can be shared.
-> 
-> However, simply moving drivers/net/ethernet/huawei/hinic to
-> drivers/net/ethernet/hisilicon/hinic/ still seems to be the right thing and
-> is a trivial patch.
-> 
-> It's clear that hinic is made by HiSilicon and that hns/hns3 are used
-> exclusively in Huawei, and maintained by Huawei developers, so it's
-> probably just a matter of time before the IP block from the SoC makes
-> it into a future PCI device or vice versa. Merging the two directories
-> now makes this easier to handle in the future and (slightly) reduces
-> the clutter in the top-level drivers/net/ethernet/Kconfig file.
-> 
->      Arnd
-> 
-> .
-> 
+diff --git a/net/tipc/netlink_compat.c b/net/tipc/netlink_compat.c
+index 750949d..e48f0b2 100644
+--- a/net/tipc/netlink_compat.c
++++ b/net/tipc/netlink_compat.c
+@@ -1217,7 +1217,7 @@ static int tipc_nl_compat_recv(struct sk_buff *skb, struct genl_info *info)
+ 	return err;
+ }
+ 
+-static struct genl_ops tipc_genl_compat_ops[] = {
++static const struct genl_ops tipc_genl_compat_ops[] = {
+ 	{
+ 		.cmd		= TIPC_GENL_CMD,
+ 		.doit		= tipc_nl_compat_recv,
+-- 
+1.9.1
