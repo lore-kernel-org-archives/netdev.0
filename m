@@ -1,65 +1,52 @@
-From: Russell King - ARM Linux <linux@armlinux.org.uk>
-Subject: Re: [RFC PATCH] dt-binding: net: sfp binding documentation
-Date: Wed, 23 Aug 2017 15:04:29 +0100
-Message-ID: <20170823140429.GV20805@n2100.armlinux.org.uk>
-References: <d73b635069a2054d110632f1f4196cd4bc281e7f.1503224886.git.baruch@tkos.co.il>
- <20170821125317.GS20805@n2100.armlinux.org.uk>
- <20170821150653.jmoogmxklkfbrzxg@sapphire.tkos.co.il>
+From: Pavel Belous <Pavel.Belous@aquantia.com>
+Subject: [PATCH net 0/7] net:ethernet:aquantia: Atlantic driver Update 2017-08-23
+Date: Wed, 23 Aug 2017 17:05:01 +0300
+Message-ID: <cover.1503496727.git.pavel.belous@aquantia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        devicetree@vger.kernel.org
-To: Baruch Siach <baruch@tkos.co.il>
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, David Arcari <darcari@redhat.com>,
+        Igor Russkikh <Igor.Russkikh@aquantia.com>,
+        Nadezhda Krupnina <Nadezhda.Krupnina@aquantia.com>,
+        Simon Edelhaus <simon.edelhaus@aquantia.com>,
+        Pavel Belous <pavel.belous@aquantia.com>
+To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.armlinux.org.uk ([78.32.30.218]:57648 "EHLO
-        pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754034AbdHWOEm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2017 10:04:42 -0400
-Content-Disposition: inline
-In-Reply-To: <20170821150653.jmoogmxklkfbrzxg@sapphire.tkos.co.il>
+Received: from mail-by2nam01on0059.outbound.protection.outlook.com ([104.47.34.59]:20167
+        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1754034AbdHWOFd (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 23 Aug 2017 10:05:33 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 21, 2017 at 06:06:53PM +0300, Baruch Siach wrote:
-> Hi Russell,
-> 
-> On Mon, Aug 21, 2017 at 01:53:17PM +0100, Russell King - ARM Linux wrote:
-> > Note that I didn't expect the SFP code to just get merged with very
-> > little in the way of real in-depth review of things like:
-> > 
-> > * the way the SFP code works, and its structure
-> > * analysis of the bindings checking that they're fit for everyone's
-> >   purposes.
-> 
-> I was also surprised to see the "sff,sfp" compatible string with no ack from 
-> DT maintainers. Hence this RFC.
+From: Pavel Belous <pavel.belous@aquantia.com>
 
-I've been pushed into submitting the code for merging, and I hadn't
-got around to writing the DT docs (thanks for doing that).  As I've
-already said, I'm disappointed that the code didn't get more of a
-review before it was merged - it seems Linux review is not what it
-was, people care more about reviewing for spelling errors and style
-than code structure and functionality, stating that "if we don't like
-it we can always rework it" or similar.
+This series contains updates for aQuantia Atlantic driver.
 
-It also seems that people believe that they can't make use of other
-people's work until it gets merged into mainline kernels (which is
-what has been behind the pressure of getting this merged.)
+It has bugfixes and some improvements.
 
-What isn't realised is that having other people use the code before
-it gets merged allows design issues to be identified and resolved
-when there is great flexibility available - for example, changing the
-DT binding.  Once it's merged, changing DT bindings becomes harder,
-especially if they need to be changed in an incompatible way.
+Igor Russkikh (1):
+  net:ethernet:aquantia: Fix for multicast filter handling.
 
-I'm fed up about this, and way past caring about these details today
-through.
+Pavel Belous (6):
+  net:ethernet:aquantia: Extra spinlocks removed.
+  net:ethernet:aquantia: Fix for number of RSS queues.
+  net:ethernet:aquantia: Workaround for HW checksum bug.
+  net:ethernet:aquantia: Fix for MCP state change.
+  net:ethernet:aquantia: Fix for incorrect speed index.
+  net:ethernet:aquantia: Show info message if bad firmware version
+    detected.
+
+ drivers/net/ethernet/aquantia/atlantic/aq_hw.h     |  3 +-
+ drivers/net/ethernet/aquantia/atlantic/aq_nic.c    | 92 +++++++++++-----------
+ drivers/net/ethernet/aquantia/atlantic/aq_ring.c   |  1 -
+ drivers/net/ethernet/aquantia/atlantic/aq_utils.h  |  1 -
+ drivers/net/ethernet/aquantia/atlantic/aq_vec.c    | 11 +--
+ .../ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c  |  6 ++
+ .../ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c  |  6 ++
+ .../aquantia/atlantic/hw_atl/hw_atl_utils.c        | 17 ++--
+ .../aquantia/atlantic/hw_atl/hw_atl_utils.h        | 16 +++-
+ 9 files changed, 85 insertions(+), 68 deletions(-)
 
 -- 
-RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
-FTTC broadband for 0.8mile line in suburbia: sync at 8.8Mbps down 630kbps up
-According to speedtest.net: 8.21Mbps down 510kbps up
+2.7.4
