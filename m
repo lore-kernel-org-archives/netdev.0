@@ -1,119 +1,37 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [V2 PATCH net-next 4/5] xdp: remove net_device names from
- xdp_redirect tracepoint
-Date: Wed, 23 Aug 2017 12:15:35 +0200
-Message-ID: <150348333529.23476.10681237706586293307.stgit@firesoul>
-References: <150348327373.23476.14851572406177222309.stgit@firesoul>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Daniel Borkmann <borkmann@iogearbox.net>,
-        John Fastabend <john.fastabend@gmail.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45252 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753651AbdHWKPi (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 23 Aug 2017 06:15:38 -0400
-In-Reply-To: <150348327373.23476.14851572406177222309.stgit@firesoul>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arvind Yadav <arvind.yadav.cs@gmail.com>
+Subject: [PATCH 1/3] net: dsa: loop: constify dsa_switch_ops
+Date: Wed, 23 Aug 2017 15:46:57 +0530
+Message-ID: <1503483419-21780-2-git-send-email-arvind.yadav.cs@gmail.com>
+References: <1503483419-21780-1-git-send-email-arvind.yadav.cs@gmail.com>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
+        f.fainelli@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1503483419-21780-1-git-send-email-arvind.yadav.cs@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-There is too much overhead in the current trace_xdp_redirect
-tracepoint as it does strcpy and strlen on the net_device names.
+dsa_switch_ops are not supposed to change at runtime. All functions
+working with dsa_switch_ops provided by <net/dsa.h> work with
+const dsa_switch_ops. So mark the non-const structs as const.
 
-Besides, exposing the ifindex/index is actually the information that
-is needed in the tracepoint to diagnose issues.  When a lookup fails
-(either ifindex or devmap index) then there is a need for saying which
-to_index that have issues.
-
-V2: Adjust args to be aligned with trace_xdp_exception.
-
-Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
 ---
- include/trace/events/xdp.h |   24 ++++++++++++------------
- net/core/filter.c          |    6 +++---
- 2 files changed, 15 insertions(+), 15 deletions(-)
+ drivers/net/dsa/dsa_loop.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/include/trace/events/xdp.h b/include/trace/events/xdp.h
-index 0e42e69f773b..cd37706c6f55 100644
---- a/include/trace/events/xdp.h
-+++ b/include/trace/events/xdp.h
-@@ -51,33 +51,33 @@ TRACE_EVENT(xdp_exception,
- 
- TRACE_EVENT(xdp_redirect,
- 
--	TP_PROTO(const struct net_device *from,
--		 const struct net_device *to,
--		 const struct bpf_prog *xdp, u32 act, int err),
-+	TP_PROTO(const struct net_device *dev,
-+		 const struct bpf_prog *xdp, u32 act,
-+		 int to_index, int err),
- 
--	TP_ARGS(from, to, xdp, act, err),
-+	TP_ARGS(dev, xdp, act, to_index, err),
- 
- 	TP_STRUCT__entry(
--		__string(name_from, from->name)
--		__string(name_to, to->name)
- 		__array(u8, prog_tag, 8)
- 		__field(u32, act)
-+		__field(int, ifindex)
-+		__field(int, to_index)
- 		__field(int, err)
- 	),
- 
- 	TP_fast_assign(
- 		BUILD_BUG_ON(sizeof(__entry->prog_tag) != sizeof(xdp->tag));
- 		memcpy(__entry->prog_tag, xdp->tag, sizeof(xdp->tag));
--		__assign_str(name_from, from->name);
--		__assign_str(name_to, to->name);
--		__entry->act = act;
--		__entry->err = err;
-+		__entry->act		= act;
-+		__entry->ifindex	= dev->ifindex;
-+		__entry->to_index	= to_index;
-+		__entry->err		= err;
- 	),
- 
--	TP_printk("prog=%s from=%s to=%s action=%s err=%d",
-+	TP_printk("prog=%s action=%s ifindex=%d to_index=%d err=%d",
- 		  __print_hex_str(__entry->prog_tag, 8),
--		  __get_str(name_from), __get_str(name_to),
- 		  __print_symbolic(__entry->act, __XDP_ACT_SYM_TAB),
-+		  __entry->ifindex, __entry->to_index,
- 		  __entry->err)
- );
- #endif /* _TRACE_XDP_H */
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 2d7cdb2c5c66..2dbe985aecbb 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -2553,7 +2553,7 @@ int xdp_do_redirect_map(struct net_device *dev, struct xdp_buff *xdp,
- 		ri->map_to_flush = map;
- 
- out:
--	trace_xdp_redirect(dev, fwd, xdp_prog, XDP_REDIRECT, err);
-+	trace_xdp_redirect(dev, xdp_prog, XDP_REDIRECT, index, err);
+diff --git a/drivers/net/dsa/dsa_loop.c b/drivers/net/dsa/dsa_loop.c
+index fdd8f38..2418172 100644
+--- a/drivers/net/dsa/dsa_loop.c
++++ b/drivers/net/dsa/dsa_loop.c
+@@ -294,7 +294,7 @@ static int dsa_loop_port_vlan_dump(struct dsa_switch *ds, int port,
  	return err;
  }
  
-@@ -2577,7 +2577,7 @@ int xdp_do_redirect(struct net_device *dev, struct xdp_buff *xdp,
- 
- 	err = __bpf_tx_xdp(fwd, NULL, xdp, 0);
- out:
--	trace_xdp_redirect(dev, fwd, xdp_prog, XDP_REDIRECT, err);
-+	trace_xdp_redirect(dev, xdp_prog, XDP_REDIRECT, index, err);
- 	return err;
- }
- EXPORT_SYMBOL_GPL(xdp_do_redirect);
-@@ -2611,7 +2611,7 @@ int xdp_do_generic_redirect(struct net_device *dev, struct sk_buff *skb,
- 
- 	skb->dev = fwd;
- out:
--	trace_xdp_redirect(dev, fwd, xdp_prog, XDP_REDIRECT, err);
-+	trace_xdp_redirect(dev, xdp_prog, XDP_REDIRECT, index, err);
- 	return err;
- }
- EXPORT_SYMBOL_GPL(xdp_do_generic_redirect);
+-static struct dsa_switch_ops dsa_loop_driver = {
++static const struct dsa_switch_ops dsa_loop_driver = {
+ 	.get_tag_protocol	= dsa_loop_get_protocol,
+ 	.setup			= dsa_loop_setup,
+ 	.get_strings		= dsa_loop_get_strings,
+-- 
+1.9.1
