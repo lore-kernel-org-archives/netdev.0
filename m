@@ -1,39 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][netdev-next] gre: remove duplicated assignment of iph
-Date: Wed, 23 Aug 2017 11:46:11 -0700 (PDT)
-Message-ID: <20170823.114611.1764472622798498530.davem@davemloft.net>
-References: <20170823111305.19185-1-colin.king@canonical.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH net-next 3/3] samples/bpf: extend test_tunnel_bpf.sh with
+ ERSPAN
+Date: Wed, 23 Aug 2017 12:15:26 -0700
+Message-ID: <20170823191524.clgyozkks2bou3ct@ast-mbp>
+References: <1503500157-3717-1-git-send-email-u9012063@gmail.com>
+ <1503500157-3717-3-git-send-email-u9012063@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, yoshfuji@linux-ipv6.org,
-        netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: colin.king@canonical.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170823111305.19185-1-colin.king@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: William Tu <u9012063@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f42.google.com ([74.125.83.42]:34663 "EHLO
+        mail-pg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932458AbdHWTP3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2017 15:15:29 -0400
+Received: by mail-pg0-f42.google.com with SMTP id s14so3938499pgs.1
+        for <netdev@vger.kernel.org>; Wed, 23 Aug 2017 12:15:29 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1503500157-3717-3-git-send-email-u9012063@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin King <colin.king@canonical.com>
-Date: Wed, 23 Aug 2017 12:13:05 +0100
-
-> From: Colin Ian King <colin.king@canonical.com>
+On Wed, Aug 23, 2017 at 07:55:57AM -0700, William Tu wrote:
+> Extend existing tests for vxlan, gre, geneve, ipip to
+> include ERSPAN tunnel.
 > 
-> iph is being assigned the same value twice; remove the redundant
-> second assignment.
-> 
-> Fixes warning:
-> net/ipv4/ip_gre.c:265:2: warning: Value stored to 'iph' is never read
-> 
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> Signed-off-by: William Tu <u9012063@gmail.com>
 
-It is always necessary to reload any SKB header pointer after calls
-to functions which potentially change the data buffer of the SKB.
-
-pskb_may_pull() is one such call.
-
-Therefore your patch is adding a bug.
-
-If you want to remove the dup, you must remove the first not
-the second one.
+the test looks fine, hence
+Acked-by: Alexei Starovoitov <ast@kernel.org>
+cannot properly review patches 1,2, since I'm not familiar with erspan.
