@@ -1,48 +1,61 @@
-From: Ido Schimmel <idosch@idosch.org>
-Subject: Re: linux-next: manual merge of the net-next tree with the net tree
-Date: Wed, 23 Aug 2017 08:41:13 +0300
-Message-ID: <20170823054113.GA5342@shredder>
-References: <20170823113105.0bd692ea@canb.auug.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>,
-        Linux-Next Mailing List <linux-next@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        Wei Wang <weiwan@google.com>,
-        Ido Schimmel <idosch@mellanox.com>,
-        iri Pirko <jiri@mellanox.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170823113105.0bd692ea@canb.auug.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Baruch Siach <baruch@tkos.co.il>
+Subject: [PATCH] dt-binding: net/phy: fix interrupts description
+Date: Wed, 23 Aug 2017 09:11:00 +0300
+Message-ID: <b3756346473feadfeba70ecb71960cad48e66621.1503468660.git.baruch@tkos.co.il>
+Cc: devicetree@vger.kernel.org, netdev@vger.kernel.org,
+        Baruch Siach <baruch@tkos.co.il>
+To: Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        "David S . Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from guitar.tcltek.co.il ([192.115.133.116]:46613 "EHLO
+        mx.tkos.co.il" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752291AbdHWGLP (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 23 Aug 2017 02:11:15 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 23, 2017 at 11:31:05AM +1000, Stephen Rothwell wrote:
-> Hi all,
-> 
-> Today's linux-next merge of the net-next tree got a conflict in:
-> 
->   net/ipv6/ip6_fib.c
-> 
-> between commit:
-> 
->   c5cff8561d2d ("ipv6: add rcu grace period before freeing fib6_node")
-> 
-> from the net tree and commit:
-> 
->   a460aa83963b ("ipv6: fib: Add helpers to hold / drop a reference on rt6_info")
-> 
-> from the net-next tree.
-> 
-> I fixed it up (see below) and can carry the fix as necessary. This
-> is now fixed as far as linux-next is concerned, but any non trivial
-> conflicts should be mentioned to your upstream maintainer when your tree
-> is submitted for merging.  You may also want to consider cooperating
-> with the maintainer of the conflicting tree to minimise any particularly
-> complex conflicts.
+Commit b053dc5a722ea (powerpc: Refactor device tree binding) split the
+Ethernet PHY binding documentation out of the big booting-without-of.txt
+file, leaving a dangling reference to "section 2" in the 'interrupts'
+property description. Drop that reference, and make the description look
+more like the rest.
 
-Looks good to me.
+While at it, make the example interrupt-parent phandle look more like a
+real world phandle, and use an IRQ_TYPE_ macro for the 'interrupts'
+type.
 
-Thanks!
+Signed-off-by: Baruch Siach <baruch@tkos.co.il>
+---
+ Documentation/devicetree/bindings/net/phy.txt | 10 +++-------
+ 1 file changed, 3 insertions(+), 7 deletions(-)
+
+diff --git a/Documentation/devicetree/bindings/net/phy.txt b/Documentation/devicetree/bindings/net/phy.txt
+index b55857696fc3..86ba72af6163 100644
+--- a/Documentation/devicetree/bindings/net/phy.txt
++++ b/Documentation/devicetree/bindings/net/phy.txt
+@@ -2,11 +2,7 @@ PHY nodes
+ 
+ Required properties:
+ 
+- - interrupts : <a b> where a is the interrupt number and b is a
+-   field that represents an encoding of the sense and level
+-   information for the interrupt.  This should be encoded based on
+-   the information in section 2) depending on the type of interrupt
+-   controller you have.
++ - interrupts : interrupt specifier for the sole interrupt.
+  - interrupt-parent : the phandle for the interrupt controller that
+    services interrupts for this device.
+  - reg : The ID number for the phy, usually a small integer
+@@ -56,7 +52,7 @@ Example:
+ 
+ ethernet-phy@0 {
+ 	compatible = "ethernet-phy-id0141.0e90", "ethernet-phy-ieee802.3-c22";
+-	interrupt-parent = <40000>;
+-	interrupts = <35 1>;
++	interrupt-parent = <&PIC>;
++	interrupts = <35 IRQ_TYPE_EDGE_RISING>;
+ 	reg = <0>;
+ };
+-- 
+2.14.1
