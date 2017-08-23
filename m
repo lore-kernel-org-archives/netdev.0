@@ -1,7 +1,7 @@
 From: Pavel Belous <Pavel.Belous@aquantia.com>
-Subject: [PATCH net 2/7] net:ethernet:aquantia: Fix for number of RSS queues.
-Date: Wed, 23 Aug 2017 17:05:03 +0300
-Message-ID: <1dfc34c96f77f8c33c9b4bdf48ba6371c81e78c0.1503496727.git.pavel.belous@aquantia.com>
+Subject: [PATCH net 3/7] net:ethernet:aquantia: Workaround for HW checksum bug.
+Date: Wed, 23 Aug 2017 17:05:04 +0300
+Message-ID: <f9da8832eb2534b18fe228b736aac99e63279162.1503496727.git.pavel.belous@aquantia.com>
 References: <cover.1503496727.git.pavel.belous@aquantia.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -13,39 +13,64 @@ Cc: netdev@vger.kernel.org, David Arcari <darcari@redhat.com>,
         Pavel Belous <Pavel.Belous@aquantia.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam01on0073.outbound.protection.outlook.com ([104.47.34.73]:41449
+Received: from mail-by2nam01on0062.outbound.protection.outlook.com ([104.47.34.62]:43168
         "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1754034AbdHWOFq (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 23 Aug 2017 10:05:46 -0400
+        id S1754034AbdHWOFx (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 23 Aug 2017 10:05:53 -0400
 In-Reply-To: <cover.1503496727.git.pavel.belous@aquantia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Pavel Belous <pavel.belous@aquantia.com>
 
-The number of RSS queues should be not more than numbers of CPU.
-Its does not make sense to increase perfomance, and also cause problems on
-some motherboards.
+The hardware has the HW Checksum Offload bug when small
+TCP patckets (with length <= 60 bytes) has wrong "checksum valid" bit.
 
-Fixes: 94f6c9e4cdf6 ("net: ethernet: aquantia: Support for NIC-specific code")
+The solution is - ignore checksum valid bit for small packets
+(with length <= 60 bytes) and mark this as CHECKSUM_NONE to allow
+network stack recalculate checksum itself.
+
+Fixes: ccf9a5ed14be ("net: ethernet: aquantia: Atlantic A0 and B0 specific functions.")
 Signed-off-by: Pavel Belous <Pavel.Belous@aquantia.com>
 ---
- drivers/net/ethernet/aquantia/atlantic/aq_nic.c | 2 ++
- 1 file changed, 2 insertions(+)
+ drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c | 6 ++++++
+ drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c | 6 ++++++
+ 2 files changed, 12 insertions(+)
 
-diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_nic.c b/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
-index 08b7275..d6d8e70 100644
---- a/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
-+++ b/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
-@@ -103,6 +103,8 @@ int aq_nic_cfg_start(struct aq_nic_s *self)
- 	else
- 		cfg->vecs = 1U;
- 
-+	cfg->num_rss_queues = min(cfg->vecs, AQ_CFG_NUM_RSS_QUEUES_DEF);
+diff --git a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c
+index faeb493..c5a02df 100644
+--- a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c
++++ b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c
+@@ -629,6 +629,12 @@ static int hw_atl_a0_hw_ring_rx_receive(struct aq_hw_s *self,
+ 				buff->is_udp_cso = (is_err & 0x10U) ? 0 : 1;
+ 			else if (0x0U == (pkt_type & 0x1CU))
+ 				buff->is_tcp_cso = (is_err & 0x10U) ? 0 : 1;
 +
- 	cfg->irq_type = aq_pci_func_get_irq_type(self->aq_pci_func);
++			/* Checksum offload workaround for small packets */
++			if (rxd_wb->pkt_len <= 60) {
++				buff->is_ip_cso = 0U;
++				buff->is_cso_err = 0U;
++			}
+ 		}
  
- 	if ((cfg->irq_type == AQ_HW_IRQ_LEGACY) ||
+ 		is_err &= ~0x18U;
+diff --git a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c
+index 1bceb73..21784cc 100644
+--- a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c
++++ b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c
+@@ -645,6 +645,12 @@ static int hw_atl_b0_hw_ring_rx_receive(struct aq_hw_s *self,
+ 				buff->is_udp_cso = buff->is_cso_err ? 0U : 1U;
+ 			else if (0x0U == (pkt_type & 0x1CU))
+ 				buff->is_tcp_cso = buff->is_cso_err ? 0U : 1U;
++
++			/* Checksum offload workaround for small packets */
++			if (rxd_wb->pkt_len <= 60) {
++				buff->is_ip_cso = 0U;
++				buff->is_cso_err = 0U;
++			}
+ 		}
+ 
+ 		is_err &= ~0x18U;
 -- 
 2.7.4
