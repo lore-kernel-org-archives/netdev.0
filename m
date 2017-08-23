@@ -1,66 +1,53 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [RFC PATCH] dt-binding: net: sfp binding documentation
-Date: Wed, 23 Aug 2017 15:10:51 +0200
-Message-ID: <20170823131051.GD28612@lunn.ch>
-References: <d73b635069a2054d110632f1f4196cd4bc281e7f.1503224886.git.baruch@tkos.co.il>
- <CAL_JsqL_7gG8FSEJDXu=37DFpHjfLhQuUhPFRKcScYTzM4cNyg@mail.gmail.com>
- <20170823121653.xha2obe4ewlhwyvh@sapphire.tkos.co.il>
+From: Stefan Chulski <stefanc@marvell.com>
+Subject: RE: [EXT] Re: [PATCH net-next 03/18] net: mvpp2: set the SMI PHY
+ address when connecting to the PHY
+Date: Wed, 23 Aug 2017 13:30:47 +0000
+Message-ID: <7dc117f56c284081b791bceb588a8aa1@IL-EXCH01.marvell.com>
+References: <20170724134848.19330-1-antoine.tenart@free-electrons.com>
+ <20170724134848.19330-4-antoine.tenart@free-electrons.com>
+ <20170726160806.GF12049@lunn.ch> <20170728014905.GC24728@kwain>
+ <20170728042153.GH18666@lunn.ch>
+ <f6d8907b057241c7a72da0a0255cfd23@IL-EXCH01.marvell.com>
+ <20170823123424.GA28612@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        Russell King <rmk+kernel@arm.linux.org.uk>,
-        netdev <netdev@vger.kernel.org>,
-        "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
-To: Baruch Siach <baruch@tkos.co.il>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "jason@lakedaemon.net" <jason@lakedaemon.net>,
+        "gregory.clement@free-electrons.com"
+        <gregory.clement@free-electrons.com>,
+        "sebastian.hesselbarth@gmail.com" <sebastian.hesselbarth@gmail.com>,
+        "thomas.petazzoni@free-electrons.com"
+        <thomas.petazzoni@free-electrons.com>,
+        Nadav Haklai <nadavh@marvell.com>,
+        "linux@armlinux.org.uk" <linux@armlinux.org.uk>,
+        "mw@semihalf.com" <mw@semihalf.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-arm-kernel@lists.infradead.org"
+        <linux-arm-kernel@lists.infradead.org>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:40930 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753953AbdHWNLA (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 23 Aug 2017 09:11:00 -0400
-Content-Disposition: inline
-In-Reply-To: <20170823121653.xha2obe4ewlhwyvh@sapphire.tkos.co.il>
+Received: from mx0b-0016f401.pphosted.com ([67.231.156.173]:48348 "EHLO
+        mx0b-0016f401.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1753973AbdHWNbj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2017 09:31:39 -0400
+In-Reply-To: <20170823123424.GA28612@lunn.ch>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 23, 2017 at 03:16:53PM +0300, Baruch Siach wrote:
-> Hi Rob,
+> In order to safely read/write the PHY, you need to hold the PHY mutex.
+> Unless the hardware is very smart, please don't enable this. Let the phylib and
+> the appropriate PHY driver do the work.
 > 
-> On Mon, Aug 21, 2017 at 02:10:33PM -0500, Rob Herring wrote:
-> > On Sun, Aug 20, 2017 at 5:28 AM, Baruch Siach <baruch@tkos.co.il> wrote:
-> > > Add device-tree binding documentation SFP transceivers. Support for SFP
-> > > transceivers has been recently introduced (drivers/net/phy/sfp.c).
-> > >
-> > > Signed-off-by: Baruch Siach <baruch@tkos.co.il>
-> > > ---
-> > >
-> > > The SFP driver is on net-next.
-> 
-> [...]
-> 
-> > > +Optional Properties:
-> > > +
-> > > +- i2c-bus : phandle of an I2C bus controller for the SFP two wire serial
-> > > +  interface
-> > 
-> > Why not a child of the i2c bus it is on? IOW, what should this be a child of?
-> 
-> As I understand form the code the ID of the SFP i2c slave is derived from the 
-> Ethernet PHY 'reg' property. The PHY node's 'sfp' property points to a phandle 
-> of the sff,sfp node.
+>        Andrew
 
-Hi Rob
+Hi Andrew,
 
-The SFP module uses multiple addresses on the i2c bus. 0x50 is
-something like an EEPROM, but some of the content is
-dynamic. Depending of the version of the standard, it can also use
-0x51 for additional information. If the SPF module contains a copper
-PHY, it also uses another address on the i2c bus for the standard
-copper PHY registers.
+This feature work only for Out-of-Band Auto-Negotiation in SGMII Mode.
+Current GoP(MAC) code configure SGMII In-band Auto-Negotiation performed by the PCS layer
+without PHY polling.
 
-An SFP module does not fit the usual I2C client model, since it is a
-collection of interconnected i2c clients in one package.
-
-	   Andrew
+Regards,
+Stefan. 
