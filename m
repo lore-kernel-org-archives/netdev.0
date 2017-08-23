@@ -1,63 +1,111 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with the net tree
-Date: Wed, 23 Aug 2017 11:31:05 +1000
-Message-ID: <20170823113105.0bd692ea@canb.auug.org.au>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH net-next 1/8] bpf: Recursively apply cgroup sock filters
+Date: Tue, 22 Aug 2017 18:40:07 -0700
+Message-ID: <20170823014005.6riceht5iwv7zzxh@ast-mbp>
+References: <1503447621-27997-1-git-send-email-dsahern@gmail.com>
+ <1503447621-27997-2-git-send-email-dsahern@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Linux-Next Mailing List <linux-next@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        Wei Wang <weiwan@google.com>,
-        Ido Schimmel <idosch@mellanox.com>,
-        iri Pirko <jiri@mellanox.com>
-To: David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, daniel@iogearbox.net, ast@kernel.org,
+        tj@kernel.org, davem@davemloft.net
+To: David Ahern <dsahern@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:33945 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753148AbdHWBkK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2017 21:40:10 -0400
+Received: by mail-pg0-f66.google.com with SMTP id r133so343068pgr.1
+        for <netdev@vger.kernel.org>; Tue, 22 Aug 2017 18:40:10 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1503447621-27997-2-git-send-email-dsahern@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+On Tue, Aug 22, 2017 at 05:20:14PM -0700, David Ahern wrote:
+> Recursively apply sock filters attached to a cgroup. For now, start
+> with the inner cgroup attached to the socket and work back to the
+> root. If desired the inverse can be done use an attach flag (start
+> with parent cgroup and go in).
+> 
+> Signed-off-by: David Ahern <dsahern@gmail.com>
+> ---
+>  include/linux/bpf-cgroup.h |  5 +++--
+>  kernel/bpf/cgroup.c        |  4 +---
+>  kernel/cgroup/cgroup.c     | 18 ++++++++++++++++++
+>  3 files changed, 22 insertions(+), 5 deletions(-)
+> 
+> diff --git a/include/linux/bpf-cgroup.h b/include/linux/bpf-cgroup.h
+> index d41d40ac3efd..d95e44ccd549 100644
+> --- a/include/linux/bpf-cgroup.h
+> +++ b/include/linux/bpf-cgroup.h
+> @@ -40,8 +40,9 @@ int __cgroup_bpf_run_filter_skb(struct sock *sk,
+>  				struct sk_buff *skb,
+>  				enum bpf_attach_type type);
+>  
+> -int __cgroup_bpf_run_filter_sk(struct sock *sk,
+> +int __cgroup_bpf_run_filter_sk(struct cgroup *cgrp, struct sock *sk,
+>  			       enum bpf_attach_type type);
+> +int cgroup_bpf_run_filter_sk(struct sock *sk, enum bpf_attach_type type);
+>  
+>  int __cgroup_bpf_run_filter_sock_ops(struct sock *sk,
+>  				     struct bpf_sock_ops_kern *sock_ops,
+> @@ -74,7 +75,7 @@ int __cgroup_bpf_run_filter_sock_ops(struct sock *sk,
+>  ({									       \
+>  	int __ret = 0;							       \
+>  	if (cgroup_bpf_enabled && sk) {					       \
+> -		__ret = __cgroup_bpf_run_filter_sk(sk,			       \
+> +		__ret = cgroup_bpf_run_filter_sk(sk,			       \
+>  						 BPF_CGROUP_INET_SOCK_CREATE); \
+>  	}								       \
+>  	__ret;								       \
+> diff --git a/kernel/bpf/cgroup.c b/kernel/bpf/cgroup.c
+> index 546113430049..0480610bda83 100644
+> --- a/kernel/bpf/cgroup.c
+> +++ b/kernel/bpf/cgroup.c
+> @@ -217,14 +217,12 @@ EXPORT_SYMBOL(__cgroup_bpf_run_filter_skb);
+>   * This function will return %-EPERM if any if an attached program was found
+>   * and if it returned != 1 during execution. In all other cases, 0 is returned.
+>   */
+> -int __cgroup_bpf_run_filter_sk(struct sock *sk,
+> +int __cgroup_bpf_run_filter_sk(struct cgroup *cgrp, struct sock *sk,
+>  			       enum bpf_attach_type type)
+>  {
+> -	struct cgroup *cgrp = sock_cgroup_ptr(&sk->sk_cgrp_data);
+>  	struct bpf_prog *prog;
+>  	int ret = 0;
+>  
+> -
+>  	rcu_read_lock();
+>  
+>  	prog = rcu_dereference(cgrp->bpf.effective[type]);
+> diff --git a/kernel/cgroup/cgroup.c b/kernel/cgroup/cgroup.c
+> index df2e0f14a95d..7480cebab073 100644
+> --- a/kernel/cgroup/cgroup.c
+> +++ b/kernel/cgroup/cgroup.c
+> @@ -5186,4 +5186,22 @@ int cgroup_bpf_update(struct cgroup *cgrp, struct bpf_prog *prog,
+>  	mutex_unlock(&cgroup_mutex);
+>  	return ret;
+>  }
+> +
+> +int cgroup_bpf_run_filter_sk(struct sock *sk,
+> +			     enum bpf_attach_type type)
+> +{
+> +	struct cgroup *cgrp = sock_cgroup_ptr(&sk->sk_cgrp_data);
+> +	int ret = 0;
+> +
+> +	while (cgrp) {
+> +		ret = __cgroup_bpf_run_filter_sk(cgrp, sk, type);
+> +		if (ret < 0)
+> +			break;
+> +
+> +		cgrp = cgroup_parent(cgrp);
+> +	}
 
-Today's linux-next merge of the net-next tree got a conflict in:
-
-  net/ipv6/ip6_fib.c
-
-between commit:
-
-  c5cff8561d2d ("ipv6: add rcu grace period before freeing fib6_node")
-
-from the net tree and commit:
-
-  a460aa83963b ("ipv6: fib: Add helpers to hold / drop a reference on rt6_info")
-
-from the net-next tree.
-
-I fixed it up (see below) and can carry the fix as necessary. This
-is now fixed as far as linux-next is concerned, but any non trivial
-conflicts should be mentioned to your upstream maintainer when your tree
-is submitted for merging.  You may also want to consider cooperating
-with the maintainer of the conflicting tree to minimise any particularly
-complex conflicts.
-
--- 
-Cheers,
-Stephen Rothwell
-
-diff --cc net/ipv6/ip6_fib.c
-index a5ebf86f6be8,549aacc3cb2c..000000000000
---- a/net/ipv6/ip6_fib.c
-+++ b/net/ipv6/ip6_fib.c
-@@@ -160,12 -154,7 +161,12 @@@ static void node_free_rcu(struct rcu_he
-  	kmem_cache_free(fib6_node_kmem, fn);
-  }
-  
- +static void node_free(struct fib6_node *fn)
- +{
- +	call_rcu(&fn->rcu, node_free_rcu);
- +}
- +
-- static void rt6_free_pcpu(struct rt6_info *non_pcpu_rt)
-+ void rt6_free_pcpu(struct rt6_info *non_pcpu_rt)
-  {
-  	int cpu;
-  
+I think this walk changes semantics for existing setups, so we cannot do it
+by default and have to add new attach flag.
+Also why break on (ret < 0) ?
+The caller of this does:
+  err = BPF_CGROUP_RUN_PROG_INET_SOCK(sk);
+  if (err) {
+          sk_common_release(sk);
+so we should probably break out of the loop on if (ret) too.
