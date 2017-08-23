@@ -1,31 +1,42 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH 0/3] constify dsa_switch_ops
-Date: Wed, 23 Aug 2017 14:45:56 +0200
-Message-ID: <20170823124556.GC28612@lunn.ch>
-References: <1503483419-21780-1-git-send-email-arvind.yadav.cs@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Arvind Yadav <arvind.yadav.cs@gmail.com>
+From: Bhumika Goyal <bhumirks@gmail.com>
+Subject: [PATCH] net/mlx4_core: make mlx4_profile const
+Date: Wed, 23 Aug 2017 18:17:39 +0530
+Message-ID: <1503492459-3110-1-git-send-email-bhumirks@gmail.com>
+Cc: Bhumika Goyal <bhumirks@gmail.com>
+To: julia.lawall@lip6.fr, tariqt@mellanox.com, netdev@vger.kernel.org,
+        linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1503483419-21780-1-git-send-email-arvind.yadav.cs@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 23, 2017 at 03:46:56PM +0530, Arvind Yadav wrote:
-> dsa_switch_ops are not supposed to change at runtime. All functions
-> working with dsa_switch_ops provided by <net/dsa.h> work with
-> const dsa_switch_ops. So mark the non-const structs as const.
-> 
-> Arvind Yadav (3):
->   [PATCH 1/3] net: dsa: loop: constify dsa_switch_ops
->   [PATCH 2/3] net: dsa: lan9303: constify dsa_switch_ops
->   [PATCH 3/3] net: dsa: mt7530: constify dsa_switch_ops
+Make these const as they are only used in a copy operation.
 
-For the whole series:
+Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/main.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
-
-    Andrew
+diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+index 541ce9e..43fb2eb 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/main.c
++++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+@@ -121,7 +121,7 @@
+ 	DRV_NAME ": Mellanox ConnectX core driver v"
+ 	DRV_VERSION "\n";
+ 
+-static struct mlx4_profile default_profile = {
++static const struct mlx4_profile default_profile = {
+ 	.num_qp		= 1 << 18,
+ 	.num_srq	= 1 << 16,
+ 	.rdmarc_per_qp	= 1 << 4,
+@@ -131,7 +131,7 @@
+ 	.num_mtt	= 1 << 20, /* It is really num mtt segements */
+ };
+ 
+-static struct mlx4_profile low_mem_profile = {
++static const struct mlx4_profile low_mem_profile = {
+ 	.num_qp		= 1 << 17,
+ 	.num_srq	= 1 << 6,
+ 	.rdmarc_per_qp	= 1 << 4,
+-- 
+1.9.1
