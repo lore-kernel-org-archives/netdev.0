@@ -1,61 +1,93 @@
-From: Baruch Siach <baruch@tkos.co.il>
-Subject: [PATCH] dt-binding: net/phy: fix interrupts description
-Date: Wed, 23 Aug 2017 09:11:00 +0300
-Message-ID: <b3756346473feadfeba70ecb71960cad48e66621.1503468660.git.baruch@tkos.co.il>
-Cc: devicetree@vger.kernel.org, netdev@vger.kernel.org,
-        Baruch Siach <baruch@tkos.co.il>
-To: Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        "David S . Miller" <davem@davemloft.net>
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: [PATCH net 1/3] nfp: don't hold PF lock while enabling SR-IOV
+Date: Tue, 22 Aug 2017 23:22:42 -0700
+Message-ID: <20170823062244.26580-2-jakub.kicinski@netronome.com>
+References: <20170823062244.26580-1-jakub.kicinski@netronome.com>
+Cc: oss-drivers@netronome.com,
+        Jakub Kicinski <jakub.kicinski@netronome.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from guitar.tcltek.co.il ([192.115.133.116]:46613 "EHLO
-        mx.tkos.co.il" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752291AbdHWGLP (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 23 Aug 2017 02:11:15 -0400
+Received: from mail-pf0-f182.google.com ([209.85.192.182]:35910 "EHLO
+        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752291AbdHWGWw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2017 02:22:52 -0400
+Received: by mail-pf0-f182.google.com with SMTP id c28so3475537pfe.3
+        for <netdev@vger.kernel.org>; Tue, 22 Aug 2017 23:22:52 -0700 (PDT)
+In-Reply-To: <20170823062244.26580-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit b053dc5a722ea (powerpc: Refactor device tree binding) split the
-Ethernet PHY binding documentation out of the big booting-without-of.txt
-file, leaving a dangling reference to "section 2" in the 'interrupts'
-property description. Drop that reference, and make the description look
-more like the rest.
+Enabling SR-IOV VFs will cause the PCI subsystem to schedule a
+work and flush its workqueue.  Since the nfp driver schedules its
+own work we can't enable VFs while holding driver load.  Commit
+6d48ceb27af1 ("nfp: allocate a private workqueue for driver work")
+tried to avoid this deadlock by creating a separate workqueue.
+Unfortunately, due to the architecture of workqueue subsystem this
+does not guarantee a separate thread of execution.  Luckily
+we can simply take pci_enable_sriov() from under the driver lock.
 
-While at it, make the example interrupt-parent phandle look more like a
-real world phandle, and use an IRQ_TYPE_ macro for the 'interrupts'
-type.
+Take pci_disable_sriov() from under the lock too for symmetry.
 
-Signed-off-by: Baruch Siach <baruch@tkos.co.il>
+Fixes: 6d48ceb27af1 ("nfp: allocate a private workqueue for driver work")
+Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+Reviewed-by: Simon Horman <simon.horman@netronome.com>
 ---
- Documentation/devicetree/bindings/net/phy.txt | 10 +++-------
- 1 file changed, 3 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/netronome/nfp/nfp_main.c | 16 +++++++---------
+ 1 file changed, 7 insertions(+), 9 deletions(-)
 
-diff --git a/Documentation/devicetree/bindings/net/phy.txt b/Documentation/devicetree/bindings/net/phy.txt
-index b55857696fc3..86ba72af6163 100644
---- a/Documentation/devicetree/bindings/net/phy.txt
-+++ b/Documentation/devicetree/bindings/net/phy.txt
-@@ -2,11 +2,7 @@ PHY nodes
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_main.c b/drivers/net/ethernet/netronome/nfp/nfp_main.c
+index d67969d3e484..3f199db2002e 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_main.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_main.c
+@@ -98,21 +98,20 @@ static int nfp_pcie_sriov_enable(struct pci_dev *pdev, int num_vfs)
+ 	struct nfp_pf *pf = pci_get_drvdata(pdev);
+ 	int err;
  
- Required properties:
+-	mutex_lock(&pf->lock);
+-
+ 	if (num_vfs > pf->limit_vfs) {
+ 		nfp_info(pf->cpp, "Firmware limits number of VFs to %u\n",
+ 			 pf->limit_vfs);
+-		err = -EINVAL;
+-		goto err_unlock;
++		return -EINVAL;
+ 	}
  
-- - interrupts : <a b> where a is the interrupt number and b is a
--   field that represents an encoding of the sense and level
--   information for the interrupt.  This should be encoded based on
--   the information in section 2) depending on the type of interrupt
--   controller you have.
-+ - interrupts : interrupt specifier for the sole interrupt.
-  - interrupt-parent : the phandle for the interrupt controller that
-    services interrupts for this device.
-  - reg : The ID number for the phy, usually a small integer
-@@ -56,7 +52,7 @@ Example:
+ 	err = pci_enable_sriov(pdev, num_vfs);
+ 	if (err) {
+ 		dev_warn(&pdev->dev, "Failed to enable PCI SR-IOV: %d\n", err);
+-		goto err_unlock;
++		return err;
+ 	}
  
- ethernet-phy@0 {
- 	compatible = "ethernet-phy-id0141.0e90", "ethernet-phy-ieee802.3-c22";
--	interrupt-parent = <40000>;
--	interrupts = <35 1>;
-+	interrupt-parent = <&PIC>;
-+	interrupts = <35 IRQ_TYPE_EDGE_RISING>;
- 	reg = <0>;
- };
++	mutex_lock(&pf->lock);
++
+ 	err = nfp_app_sriov_enable(pf->app, num_vfs);
+ 	if (err) {
+ 		dev_warn(&pdev->dev,
+@@ -129,9 +128,8 @@ static int nfp_pcie_sriov_enable(struct pci_dev *pdev, int num_vfs)
+ 	return num_vfs;
+ 
+ err_sriov_disable:
+-	pci_disable_sriov(pdev);
+-err_unlock:
+ 	mutex_unlock(&pf->lock);
++	pci_disable_sriov(pdev);
+ 	return err;
+ #endif
+ 	return 0;
+@@ -158,10 +156,10 @@ static int nfp_pcie_sriov_disable(struct pci_dev *pdev)
+ 
+ 	pf->num_vfs = 0;
+ 
++	mutex_unlock(&pf->lock);
++
+ 	pci_disable_sriov(pdev);
+ 	dev_dbg(&pdev->dev, "Removed VFs.\n");
+-
+-	mutex_unlock(&pf->lock);
+ #endif
+ 	return 0;
+ }
 -- 
-2.14.1
+2.11.0
