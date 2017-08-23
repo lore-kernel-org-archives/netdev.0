@@ -1,8 +1,8 @@
 From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [V2 PATCH net-next 5/5] xdp: get tracepoints xdp_exception and
- xdp_redirect in sync
-Date: Wed, 23 Aug 2017 12:15:40 +0200
-Message-ID: <150348334039.23476.16866879022276856834.stgit@firesoul>
+Subject: [V2 PATCH net-next 3/5] ixgbe: use return codes from ndo_xdp_xmit
+ that are distinguishable
+Date: Wed, 23 Aug 2017 12:15:30 +0200
+Message-ID: <150348333019.23476.13227771885092232782.stgit@firesoul>
 References: <150348327373.23476.14851572406177222309.stgit@firesoul>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,55 +12,50 @@ Cc: Daniel Borkmann <borkmann@iogearbox.net>,
         Jesper Dangaard Brouer <brouer@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60342 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:59406 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753651AbdHWKPl (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 23 Aug 2017 06:15:41 -0400
+        id S1753701AbdHWKPd (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 23 Aug 2017 06:15:33 -0400
 In-Reply-To: <150348327373.23476.14851572406177222309.stgit@firesoul>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Remove the net_device string name from the xdp_exception tracepoint,
-like the xdp_redirect tracepoint.
+For XDP_REDIRECT the use of return code -EINVAL is confusing, as it is
+used in three different cases.  (1) When the index or ifindex lookup
+fails, and in the ixgbe driver (2) when link is down and (3) when XDP
+have not been enabled.
 
-Align the TP_STRUCT to have common entries between these two
-tracepoint.
+The return code can be picked up by the tracepoint xdp:xdp_redirect
+for diagnosing why XDP_REDIRECT isn't working.  Thus, there is a need
+different return codes to tell the issues apart.
+
+I'm considering using a specific err-code scheme for XDP_REDIRECT
+instead of using these errno codes.
 
 Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
 ---
- include/trace/events/xdp.h |   12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/include/trace/events/xdp.h b/include/trace/events/xdp.h
-index cd37706c6f55..27cf2ef35f5f 100644
---- a/include/trace/events/xdp.h
-+++ b/include/trace/events/xdp.h
-@@ -31,22 +31,22 @@ TRACE_EVENT(xdp_exception,
- 	TP_ARGS(dev, xdp, act),
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 8d3224ad6434..3afb8c4b9d48 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -9849,14 +9849,14 @@ static int ixgbe_xdp_xmit(struct net_device *dev, struct xdp_buff *xdp)
+ 	int err;
  
- 	TP_STRUCT__entry(
--		__string(name, dev->name)
- 		__array(u8, prog_tag, 8)
- 		__field(u32, act)
-+		__field(int, ifindex)
- 	),
+ 	if (unlikely(test_bit(__IXGBE_DOWN, &adapter->state)))
+-		return -EINVAL;
++		return -ENOLINK;
  
- 	TP_fast_assign(
- 		BUILD_BUG_ON(sizeof(__entry->prog_tag) != sizeof(xdp->tag));
- 		memcpy(__entry->prog_tag, xdp->tag, sizeof(xdp->tag));
--		__assign_str(name, dev->name);
--		__entry->act = act;
-+		__entry->act		= act;
-+		__entry->ifindex	= dev->ifindex;
- 	),
+ 	/* During program transitions its possible adapter->xdp_prog is assigned
+ 	 * but ring has not been configured yet. In this case simply abort xmit.
+ 	 */
+ 	ring = adapter->xdp_prog ? adapter->xdp_ring[smp_processor_id()] : NULL;
+ 	if (unlikely(!ring))
+-		return -EINVAL;
++		return -ENXIO;
  
--	TP_printk("prog=%s device=%s action=%s",
-+	TP_printk("prog=%s action=%s ifindex=%d",
- 		  __print_hex_str(__entry->prog_tag, 8),
--		  __get_str(name),
--		  __print_symbolic(__entry->act, __XDP_ACT_SYM_TAB))
-+		  __print_symbolic(__entry->act, __XDP_ACT_SYM_TAB),
-+		  __entry->ifindex)
- );
- 
- TRACE_EVENT(xdp_redirect,
+ 	err = ixgbe_xmit_xdp_ring(adapter, xdp);
+ 	if (err != IXGBE_XDP_TX)
