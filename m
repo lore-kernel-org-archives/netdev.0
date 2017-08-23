@@ -1,55 +1,70 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net-next v4] openvswitch: enable NSH support
-Date: Wed, 23 Aug 2017 09:26:24 +0200
-Message-ID: <20170823092624.683f5487@griffin>
-References: <1503041071-68753-1-git-send-email-yi.y.yang@intel.com>
-        <20170818152601.3760aaec@griffin>
-        <20170821061109.GA72656@cran64.bj.intel.com>
-        <20170821101925.3f9b36a1@griffin>
-        <20170821083900.GA74649@cran64.bj.intel.com>
-        <20170821111854.42dece9f@griffin>
-        <20170821091541.GA75219@cran64.bj.intel.com>
-        <20170821114713.7c6ebb9a@griffin>
-        <20170822093825.GA94865@cran64.bj.intel.com>
+From: Baruch Siach <baruch@tkos.co.il>
+Subject: Re: [PATCH net-next v2 10/10] arm64: dts: marvell: mcbin: enable
+ more networking ports
+Date: Wed, 23 Aug 2017 10:28:42 +0300
+Message-ID: <20170823072842.ibk6gqtswhamvppy@sapphire.tkos.co.il>
+References: <20170822170830.32413-1-antoine.tenart@free-electrons.com>
+ <20170822170830.32413-11-antoine.tenart@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "dev@openvswitch.org" <dev@openvswitch.org>,
-        "blp@ovn.org" <blp@ovn.org>, "e@erig.me" <e@erig.me>,
-        "jan.scheurich@ericsson.com" <jan.scheurich@ericsson.com>
-To: "Yang, Yi" <yi.y.yang@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, jason@lakedaemon.net, andrew@lunn.ch,
+        gregory.clement@free-electrons.com,
+        sebastian.hesselbarth@gmail.com,
+        thomas.petazzoni@free-electrons.com, netdev@vger.kernel.org,
+        linux@armlinux.org.uk, nadavh@marvell.com, stefanc@marvell.com,
+        mw@semihalf.com, linux-arm-kernel@lists.infradead.org
+To: Antoine Tenart <antoine.tenart@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33354 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753474AbdHWH03 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 23 Aug 2017 03:26:29 -0400
-In-Reply-To: <20170822093825.GA94865@cran64.bj.intel.com>
+Received: from guitar.tcltek.co.il ([192.115.133.116]:46619 "EHLO
+        mx.tkos.co.il" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753329AbdHWH2p (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 23 Aug 2017 03:28:45 -0400
+Content-Disposition: inline
+In-Reply-To: <20170822170830.32413-11-antoine.tenart@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 22 Aug 2017 17:38:26 +0800, Yang, Yi wrote:
-> I checked GSO support code, we have two cases to handle, one case is to
-> output NSH packet to VxLAN-gpe port, the other case is to output NSH packet
-> to Ethernet port (tap, veth, vhost, physical eth, etc.), I don't think
-> it is a good way to do GSO support in OVS module, because we can't know
-> the final output port at this point, if the final output port is
-> VxLAN-gpe port, it will still face GSO issue, but I didn't see vxlan
-> module handles this, maybe udp tunnel did this. I think a NSH packet can
-> be split into two packets, one has NSH header, another one doesn't,
-> so I'm not sure how vxlan module can avoid this situation.
+Hi Antoine,
 
-As I said before, by either implementing GSO support for NSH or by
-segmenting in software before pushing the NSH header. In the first
-case, the packet will be software segmented before being pushed to the
-hardware, in the second case, it will be software segmented before
-pushing the NSH header.
+On Tue, Aug 22, 2017 at 07:08:30PM +0200, Antoine Tenart wrote:
+> This patch enables the two GE/SFP ports. They are configured in 10GKR
+> mode by default. To do this the cpm_xdmio is enabled as well, and two
+> phy descriptions are added.
+> 
+> Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
+> Tested-by: Marcin Wojtas <mw@semihalf.com>
+> ---
+>  arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts | 30 +++++++++++++++++++++++
+>  1 file changed, 30 insertions(+)
+> 
+> diff --git a/arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts b/arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts
+> index abd39d1c1739..6cb4b000e1ac 100644
+> --- a/arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts
+> +++ b/arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts
+> @@ -127,6 +127,30 @@
+>  	};
+>  };
+>  
+> +&cpm_xmdio {
+> +	status = "okay";
+> +
+> +	phy0: ethernet-phy@0 {
+> +		compatible = "ethernet-phy-ieee802.3-c45";
+> +		reg = <0>;
+> +	};
+> +
+> +	phy1: ethernet-phy@1 {
 
-> For the second case, we can add a nsh GSO module in net/nsh/nsh_gso.c
-> (as MPLS did in net/mpls/mpls_gso.c), that is the best way to handle
-> this, what do you think about it?
+Should be named 'ethernet-phy@8' to match the 'reg' property.
 
-Yes, that's one of the two options that we've been talking about. It's
-the better and the more efficient one.
+> +		compatible = "ethernet-phy-ieee802.3-c45";
+> +		reg = <8>;
+> +	};
+> +};
 
- Jiri
+baruch
+
+-- 
+     http://baruch.siach.name/blog/                  ~. .~   Tk Open Systems
+=}------------------------------------------------ooO--U--Ooo------------{=
+   - baruch@tkos.co.il - tel: +972.2.679.5364, http://www.tkos.co.il -
