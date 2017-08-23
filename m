@@ -1,59 +1,61 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [PATCH net-next] virtio-net: invoke zerocopy callback on xmit
- path if no tx napi
-Date: Wed, 23 Aug 2017 11:20:45 -0400
-Message-ID: <CAF=yD-+U_aWxSmPPY8v8t=JO0MRZ+N+DzVJTAMKYQ5F=pE1PfA@mail.gmail.com>
-References: <20170819063854.27010-1-den@klaipeden.com> <5352c98a-fa48-fcf9-c062-9986a317a1b0@redhat.com>
- <CAF=yD-LZ4=WAYfUtY7xRWi50FRSkrcOa+b7uc46xRnC4sbDCzQ@mail.gmail.com>
- <64d451ae-9944-e978-5a05-54bb1a62aaad@redhat.com> <20170822204015-mutt-send-email-mst@kernel.org>
- <1503498504.8694.26.camel@klaipeden.com>
+From: Stefan Chulski <stefanc@marvell.com>
+Subject: RE: [EXT] Re: [PATCH net-next 10/18] net: mvpp2: use the GoP
+ interrupt for link status changes
+Date: Wed, 23 Aug 2017 15:24:55 +0000
+Message-ID: <5ebd192c54984b25adda0a294035b1b9@IL-EXCH01.marvell.com>
+References: <20170724134848.19330-1-antoine.tenart@free-electrons.com>
+ <20170724134848.19330-11-antoine.tenart@free-electrons.com>
+ <20170726162648.GK12049@lunn.ch> <20170823082510.GD5202@kwain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-        Jason Wang <jasowang@redhat.com>,
-        virtualization@lists.linux-foundation.org,
-        Network Development <netdev@vger.kernel.org>
-To: Koichiro Den <den@klaipeden.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f43.google.com ([209.85.218.43]:36059 "EHLO
-        mail-oi0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932090AbdHWPV0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2017 11:21:26 -0400
-Received: by mail-oi0-f43.google.com with SMTP id g131so4220349oic.3
-        for <netdev@vger.kernel.org>; Wed, 23 Aug 2017 08:21:26 -0700 (PDT)
-In-Reply-To: <1503498504.8694.26.camel@klaipeden.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "thomas.petazzoni@free-electrons.com"
+ <thomas.petazzoni@free-electrons.com>,
+ "jason@lakedaemon.net" <jason@lakedaemon.net>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "linux@armlinux.org.uk" <linux@armlinux.org.uk>,
+ Nadav Haklai <nadavh@marvell.com>,
+ "gregory.clement@free-electrons.com" <gregory.clement@free-electrons.com>,
+ "mw@semihalf.com" <mw@semihalf.com>,
+ "davem@davemloft.net" <davem@davemloft.net>,
+ "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>,
+ "sebastian.hesselbarth@gmail.com" <sebastian.hesselbarth@gmail.com>
+To: Antoine Tenart <antoine.tenart@free-electrons.com>, Andrew Lunn
+ <andrew@lunn.ch>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <20170823082510.GD5202@kwain>
+Content-Language: en-US
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-> Please let me make sure if I understand it correctly:
-> * always do copy with skb_orphan_frags_rx as Willem mentioned in the earlier
-> post, before the xmit_skb as opposed to my original patch, is safe but too
-> costly so cannot be adopted.
+> When the cable is connected (there is signal) and the serdes is in sync and AN
+> succeeded.
+> 
+> > With SFF/SFP ports, you generally need a gpio line the fibre module
+> > can use to indicate if it has link. Fixed-phy has such support, and
+> > your link_change function will get called when the link changes.
+> 
+> So that would work when using SFP modules but I wonder if the GoP irq isn't
+> needed when using passive cable, in which case this patch would still be needed
+> (and of course we should support the new Russell phylib capabilities).
+> 
+> What's your thoughts on this?
+> 
+> Thanks!
+> Antoine
+> 
 
-One more point about msg_zerocopy in the guest. This does add new allocation
-limits on optmem and locked pages rlimit.
+Even if new phylib driver supports passive direct cables connection, 
+GoP IRQ required for SOHO/Peridot external switch support.
+SOHO/Peridot external switch could be connected directly to Serdes line.
 
-Hitting these should be extremely rare. The tcp small queues limit normally
-throttles well before this.
-
-Virtio-net is an exception because it breaks the tsq signal by calling
-skb_orphan before transmission.
-
-As a result hitting these limits is more likely here. But, in this edge case the
-sendmsg call will not block, either, but fail with -ENOBUFS. The caller can
-send without zerocopy to make forward progress and
-trigger free_old_xmit_skbs from start_xmit.
-
-> * as a generic solution, if we were to somehow overcome the safety issue, track
-> the delay and do copy if some threshold is reached could be an answer, but it's
-> hard for now.> * so things like the current vhost-net implementation of deciding whether or not
-> to do zerocopy beforehand referring the zerocopy tx error ratio is a point of
-> practical compromise.
-
-The fragility of this mechanism is another argument for switching to tx napi
-as default.
-
-Is there any more data about the windows guest issues when completions
-are not queued within a reasonable timeframe? What is this timescale and
-do we really need to work around this. That is the only thing keeping us from
-removing the HoL blocking in vhost-net zerocopy.
+Regards,
+Stefan
