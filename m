@@ -1,7 +1,7 @@
 From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH net-next 3/3] net: mvpp2: software tso support
-Date: Wed, 23 Aug 2017 09:46:56 +0200
-Message-ID: <20170823074656.14595-4-antoine.tenart@free-electrons.com>
+Subject: [PATCH net-next 2/3] net: mvpp2: unify the txq size define use
+Date: Wed, 23 Aug 2017 09:46:55 +0200
+Message-ID: <20170823074656.14595-3-antoine.tenart@free-electrons.com>
 References: <20170823074656.14595-1-antoine.tenart@free-electrons.com>
 Cc: Antoine Tenart <antoine.tenart@free-electrons.com>, andrew@lunn.ch,
         gregory.clement@free-electrons.com,
@@ -10,266 +10,64 @@ Cc: Antoine Tenart <antoine.tenart@free-electrons.com>, andrew@lunn.ch,
         netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:55991 "EHLO
+Received: from mail.free-electrons.com ([62.4.15.54]:55985 "EHLO
         mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753441AbdHWHrN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2017 03:47:13 -0400
+        with ESMTP id S1753438AbdHWHrM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2017 03:47:12 -0400
 In-Reply-To: <20170823074656.14595-1-antoine.tenart@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The patch uses the tso API to implement the tso functionality in Marvell
-PPv2 driver.
-
-Using iperf and 10G ports, using TSO shows a significant performance
-improvement by a factor 2 to reach around 9.5Gbps in TX; as well as a
-significant CPU usage drop (from 25% to 15%).
+The txq size is defined by MVPP2_AGGR_TXQ_SIZE, which is sometime not
+used directly but through variables. As it is a fixed value use the
+define everywhere in the driver.
 
 Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
 ---
- drivers/net/ethernet/marvell/mvpp2.c | 171 ++++++++++++++++++++++++++++++++---
- 1 file changed, 157 insertions(+), 14 deletions(-)
+ drivers/net/ethernet/marvell/mvpp2.c | 11 +++++------
+ 1 file changed, 5 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 0f5a2a4f9ddf..90103bce6c66 100644
+index 4a2ed5c66bb4..0f5a2a4f9ddf 100644
 --- a/drivers/net/ethernet/marvell/mvpp2.c
 +++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -37,6 +37,7 @@
- #include <uapi/linux/ppp_defs.h>
- #include <net/ip.h>
- #include <net/ipv6.h>
-+#include <net/tso.h>
+@@ -5413,15 +5413,14 @@ static unsigned int mvpp2_tx_done(struct mvpp2_port *port, u32 cause,
  
- /* RX Fifo Registers */
- #define MVPP2_RX_DATA_FIFO_SIZE_REG(port)	(0x00 + 4 * (port))
-@@ -1033,6 +1034,10 @@ struct mvpp2_txq_pcpu {
+ /* Allocate and initialize descriptors for aggr TXQ */
+ static int mvpp2_aggr_txq_init(struct platform_device *pdev,
+-			       struct mvpp2_tx_queue *aggr_txq,
+-			       int desc_num, int cpu,
++			       struct mvpp2_tx_queue *aggr_txq, int cpu,
+ 			       struct mvpp2 *priv)
+ {
+ 	u32 txq_dma;
  
- 	/* Index of the TX DMA descriptor to be cleaned up */
- 	int txq_get_index;
-+
-+	/* DMA buffer for TSO headers */
-+	char *tso_headers;
-+	dma_addr_t tso_headers_dma;
- };
+ 	/* Allocate memory for TX descriptors */
+ 	aggr_txq->descs = dma_alloc_coherent(&pdev->dev,
+-				desc_num * MVPP2_DESC_ALIGNED_SIZE,
++				MVPP2_AGGR_TXQ_SIZE * MVPP2_DESC_ALIGNED_SIZE,
+ 				&aggr_txq->descs_dma, GFP_KERNEL);
+ 	if (!aggr_txq->descs)
+ 		return -ENOMEM;
+@@ -5442,7 +5441,8 @@ static int mvpp2_aggr_txq_init(struct platform_device *pdev,
+ 			MVPP22_AGGR_TXQ_DESC_ADDR_OFFS;
  
- struct mvpp2_tx_queue {
-@@ -5623,6 +5628,14 @@ static int mvpp2_txq_init(struct mvpp2_port *port,
- 		txq_pcpu->reserved_num = 0;
- 		txq_pcpu->txq_put_index = 0;
- 		txq_pcpu->txq_get_index = 0;
-+
-+		txq_pcpu->tso_headers =
-+			dma_alloc_coherent(port->dev->dev.parent,
-+					   MVPP2_AGGR_TXQ_SIZE * TSO_HEADER_SIZE,
-+					   &txq_pcpu->tso_headers_dma,
-+					   GFP_KERNEL);
-+		if (!txq_pcpu->tso_headers)
-+			goto cleanup;
- 	}
+ 	mvpp2_write(priv, MVPP2_AGGR_TXQ_DESC_ADDR_REG(cpu), txq_dma);
+-	mvpp2_write(priv, MVPP2_AGGR_TXQ_DESC_SIZE_REG(cpu), desc_num);
++	mvpp2_write(priv, MVPP2_AGGR_TXQ_DESC_SIZE_REG(cpu),
++		    MVPP2_AGGR_TXQ_SIZE);
  
  	return 0;
-@@ -5630,6 +5643,11 @@ static int mvpp2_txq_init(struct mvpp2_port *port,
- 	for_each_present_cpu(cpu) {
- 		txq_pcpu = per_cpu_ptr(txq->pcpu, cpu);
- 		kfree(txq_pcpu->buffs);
-+
-+		dma_free_coherent(port->dev->dev.parent,
-+				  MVPP2_AGGR_TXQ_SIZE * MVPP2_DESC_ALIGNED_SIZE,
-+				  txq_pcpu->tso_headers,
-+				  txq_pcpu->tso_headers_dma);
- 	}
- 
- 	dma_free_coherent(port->dev->dev.parent,
-@@ -5649,6 +5667,11 @@ static void mvpp2_txq_deinit(struct mvpp2_port *port,
- 	for_each_present_cpu(cpu) {
- 		txq_pcpu = per_cpu_ptr(txq->pcpu, cpu);
- 		kfree(txq_pcpu->buffs);
-+
-+		dma_free_coherent(port->dev->dev.parent,
-+				  MVPP2_AGGR_TXQ_SIZE * MVPP2_DESC_ALIGNED_SIZE,
-+				  txq_pcpu->tso_headers,
-+				  txq_pcpu->tso_headers_dma);
- 	}
- 
- 	if (txq->descs)
-@@ -6238,6 +6261,123 @@ static int mvpp2_tx_frag_process(struct mvpp2_port *port, struct sk_buff *skb,
- 	return -ENOMEM;
  }
- 
-+static inline void mvpp2_tso_put_hdr(struct sk_buff *skb,
-+				     struct net_device *dev,
-+				     struct mvpp2_tx_queue *txq,
-+				     struct mvpp2_tx_queue *aggr_txq,
-+				     struct mvpp2_txq_pcpu *txq_pcpu,
-+				     int hdr_sz)
-+{
-+	struct mvpp2_port *port = netdev_priv(dev);
-+	struct mvpp2_tx_desc *tx_desc = mvpp2_txq_next_desc_get(aggr_txq);
-+	dma_addr_t addr;
-+
-+	mvpp2_txdesc_txq_set(port, tx_desc, txq->id);
-+	mvpp2_txdesc_size_set(port, tx_desc, hdr_sz);
-+
-+	addr = txq_pcpu->tso_headers_dma +
-+	       txq_pcpu->txq_put_index * TSO_HEADER_SIZE;
-+	mvpp2_txdesc_offset_set(port, tx_desc, addr & MVPP2_TX_DESC_ALIGN);
-+	mvpp2_txdesc_dma_addr_set(port, tx_desc, addr & ~MVPP2_TX_DESC_ALIGN);
-+
-+	mvpp2_txdesc_cmd_set(port, tx_desc, mvpp2_skb_tx_csum(port, skb) |
-+					    MVPP2_TXD_F_DESC |
-+					    MVPP2_TXD_PADDING_DISABLE);
-+	mvpp2_txq_inc_put(port, txq_pcpu, NULL, tx_desc);
-+}
-+
-+static inline int mvpp2_tso_put_data(struct sk_buff *skb,
-+				     struct net_device *dev, struct tso_t *tso,
-+				     struct mvpp2_tx_queue *txq,
-+				     struct mvpp2_tx_queue *aggr_txq,
-+				     struct mvpp2_txq_pcpu *txq_pcpu,
-+				     int sz, bool left, bool last)
-+{
-+	struct mvpp2_port *port = netdev_priv(dev);
-+	struct mvpp2_tx_desc *tx_desc = mvpp2_txq_next_desc_get(aggr_txq);
-+	dma_addr_t buf_dma_addr;
-+
-+	mvpp2_txdesc_txq_set(port, tx_desc, txq->id);
-+	mvpp2_txdesc_size_set(port, tx_desc, sz);
-+
-+	buf_dma_addr = dma_map_single(dev->dev.parent, tso->data, sz,
-+				      DMA_TO_DEVICE);
-+	if (unlikely(dma_mapping_error(dev->dev.parent, buf_dma_addr))) {
-+		mvpp2_txq_desc_put(txq);
-+		return -ENOMEM;
-+	}
-+
-+	mvpp2_txdesc_offset_set(port, tx_desc,
-+				buf_dma_addr & MVPP2_TX_DESC_ALIGN);
-+	mvpp2_txdesc_dma_addr_set(port, tx_desc,
-+				  buf_dma_addr & ~MVPP2_TX_DESC_ALIGN);
-+
-+	if (!left) {
-+		mvpp2_txdesc_cmd_set(port, tx_desc, MVPP2_TXD_L_DESC);
-+		if (last) {
-+			mvpp2_txq_inc_put(port, txq_pcpu, skb, tx_desc);
-+			return 0;
-+		}
-+	} else {
-+		mvpp2_txdesc_cmd_set(port, tx_desc, 0);
-+	}
-+
-+	mvpp2_txq_inc_put(port, txq_pcpu, NULL, tx_desc);
-+	return 0;
-+}
-+
-+static int mvpp2_tx_tso(struct sk_buff *skb, struct net_device *dev,
-+			struct mvpp2_tx_queue *txq,
-+			struct mvpp2_tx_queue *aggr_txq,
-+			struct mvpp2_txq_pcpu *txq_pcpu)
-+{
-+	struct mvpp2_port *port = netdev_priv(dev);
-+	struct tso_t tso;
-+	int hdr_sz = skb_transport_offset(skb) + tcp_hdrlen(skb);
-+	int i, len, descs = 0;
-+
-+	/* Check number of available descriptors */
-+	if (mvpp2_aggr_desc_num_check(port->priv, aggr_txq,
-+				      tso_count_descs(skb)) ||
-+	    mvpp2_txq_reserved_desc_num_proc(port->priv, txq, txq_pcpu,
-+					     tso_count_descs(skb)))
-+		return 0;
-+
-+	tso_start(skb, &tso);
-+	len = skb->len - hdr_sz;
-+	while (len > 0) {
-+		int left = min_t(int, skb_shinfo(skb)->gso_size, len);
-+		char *hdr = txq_pcpu->tso_headers +
-+			    txq_pcpu->txq_put_index * TSO_HEADER_SIZE;
-+
-+		len -= left;
-+		descs++;
-+
-+		tso_build_hdr(skb, hdr, &tso, left, len == 0);
-+		mvpp2_tso_put_hdr(skb, dev, txq, aggr_txq, txq_pcpu, hdr_sz);
-+
-+		while (left > 0) {
-+			int sz = min_t(int, tso.size, left);
-+			left -= sz;
-+			descs++;
-+
-+			if (mvpp2_tso_put_data(skb, dev, &tso, txq, aggr_txq,
-+					       txq_pcpu, sz, left, len == 0))
-+				goto release;
-+			tso_build_data(skb, &tso, sz);
-+		}
-+	}
-+
-+	return descs;
-+
-+release:
-+	for (i = descs - 1; i >= 0; i--) {
-+		struct mvpp2_tx_desc *tx_desc = txq->descs + i;
-+		tx_desc_unmap_put(port, txq, tx_desc);
-+	}
-+	return 0;
-+}
-+
- /* Main tx processing */
- static int mvpp2_tx(struct sk_buff *skb, struct net_device *dev)
- {
-@@ -6255,6 +6395,10 @@ static int mvpp2_tx(struct sk_buff *skb, struct net_device *dev)
- 	txq_pcpu = this_cpu_ptr(txq->pcpu);
- 	aggr_txq = &port->priv->aggr_txqs[smp_processor_id()];
- 
-+	if (skb_is_gso(skb)) {
-+		frags = mvpp2_tx_tso(skb, dev, txq, aggr_txq, txq_pcpu);
-+		goto out;
-+	}
- 	frags = skb_shinfo(skb)->nr_frags + 1;
- 
- 	/* Check number of available descriptors */
-@@ -6304,22 +6448,21 @@ static int mvpp2_tx(struct sk_buff *skb, struct net_device *dev)
- 		}
+@@ -7691,8 +7691,7 @@ static int mvpp2_init(struct platform_device *pdev, struct mvpp2 *priv)
+ 	for_each_present_cpu(i) {
+ 		priv->aggr_txqs[i].id = i;
+ 		priv->aggr_txqs[i].size = MVPP2_AGGR_TXQ_SIZE;
+-		err = mvpp2_aggr_txq_init(pdev, &priv->aggr_txqs[i],
+-					  MVPP2_AGGR_TXQ_SIZE, i, priv);
++		err = mvpp2_aggr_txq_init(pdev, &priv->aggr_txqs[i], i, priv);
+ 		if (err < 0)
+ 			return err;
  	}
- 
--	txq_pcpu->reserved_num -= frags;
--	txq_pcpu->count += frags;
--	aggr_txq->count += frags;
--
--	/* Enable transmit */
--	wmb();
--	mvpp2_aggr_txq_pend_desc_add(port, frags);
--
--	if (txq_pcpu->size - txq_pcpu->count < MAX_SKB_FRAGS + 1) {
--		struct netdev_queue *nq = netdev_get_tx_queue(dev, txq_id);
--
--		netif_tx_stop_queue(nq);
--	}
- out:
- 	if (frags > 0) {
- 		struct mvpp2_pcpu_stats *stats = this_cpu_ptr(port->stats);
-+		struct netdev_queue *nq = netdev_get_tx_queue(dev, txq_id);
-+
-+		txq_pcpu->reserved_num -= frags;
-+		txq_pcpu->count += frags;
-+		aggr_txq->count += frags;
-+
-+		/* Enable transmit */
-+		wmb();
-+		mvpp2_aggr_txq_pend_desc_add(port, frags);
-+
-+		if (txq_pcpu->size - txq_pcpu->count < MAX_SKB_FRAGS + 1)
-+			netif_tx_stop_queue(nq);
- 
- 		u64_stats_update_begin(&stats->syncp);
- 		stats->tx_packets++;
-@@ -7496,7 +7639,7 @@ static int mvpp2_port_probe(struct platform_device *pdev,
- 		}
- 	}
- 
--	features = NETIF_F_SG | NETIF_F_IP_CSUM;
-+	features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO;
- 	dev->features = features | NETIF_F_RXCSUM;
- 	dev->hw_features |= features | NETIF_F_RXCSUM | NETIF_F_GRO;
- 	dev->vlan_features |= features;
 -- 
 2.13.5
