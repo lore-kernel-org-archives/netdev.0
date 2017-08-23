@@ -1,118 +1,69 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net 2/3] nfp: make sure representors are destroyed before their lower netdev
-Date: Tue, 22 Aug 2017 23:22:43 -0700
-Message-ID: <20170823062244.26580-3-jakub.kicinski@netronome.com>
+Subject: [PATCH net 3/3] nfp: avoid buffer leak when representor is missing
+Date: Tue, 22 Aug 2017 23:22:44 -0700
+Message-ID: <20170823062244.26580-4-jakub.kicinski@netronome.com>
 References: <20170823062244.26580-1-jakub.kicinski@netronome.com>
 Cc: oss-drivers@netronome.com,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f44.google.com ([74.125.83.44]:32862 "EHLO
-        mail-pg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751988AbdHWGWw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2017 02:22:52 -0400
-Received: by mail-pg0-f44.google.com with SMTP id t3so3900087pgt.0
-        for <netdev@vger.kernel.org>; Tue, 22 Aug 2017 23:22:52 -0700 (PDT)
+Received: from mail-pf0-f172.google.com ([209.85.192.172]:35914 "EHLO
+        mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753290AbdHWGWx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2017 02:22:53 -0400
+Received: by mail-pf0-f172.google.com with SMTP id c28so3475688pfe.3
+        for <netdev@vger.kernel.org>; Tue, 22 Aug 2017 23:22:53 -0700 (PDT)
 In-Reply-To: <20170823062244.26580-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-App start/stop callbacks can perform application initialization.
-Unfortunately, flower app started using them for creating and
-destroying representors.  This can lead to a situation where
-lower vNIC netdev is destroyed while representors still try
-to pass traffic.  This will most likely lead to a NULL-dereference
-on the lower netdev TX path.
+When driver receives a muxed frame, but it can't find the representor
+netdev it is destined to it will try to "drop" that frame, i.e. reuse
+the buffer.  The issue is that the replacement buffer has already been
+allocated at this point, and reusing the buffer from received frame
+will leak it.  Change the code to put the new buffer on the ring
+earlier and not reuse the old buffer (make the buffer parameter
+to nfp_net_rx_drop() a NULL).
 
-Move the start/stop callbacks, so that representors are created/
-destroyed when vNICs are fully initialized.
-
-Fixes: 5de73ee46704 ("nfp: general representor implementation")
+Fixes: 91bf82ca9eed ("nfp: add support for tx/rx with metadata portid")
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 Reviewed-by: Simon Horman <simon.horman@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/nfp_net_main.c | 22 ++++++++++++++--------
- 1 file changed, 14 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/netronome/nfp/nfp_net_common.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-index 5797dbf2b507..1aca4e57bf41 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-@@ -456,10 +456,6 @@ static int nfp_net_pf_app_start(struct nfp_pf *pf)
- {
- 	int err;
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
+index 9f77ce038a4a..1ff0c577819e 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
+@@ -1751,6 +1751,10 @@ static int nfp_net_rx(struct nfp_net_rx_ring *rx_ring, int budget)
+ 			continue;
+ 		}
  
--	err = nfp_net_pf_app_start_ctrl(pf);
--	if (err)
--		return err;
++		nfp_net_dma_unmap_rx(dp, rxbuf->dma_addr);
++
++		nfp_net_rx_give_one(dp, rx_ring, new_frag, new_dma_addr);
++
+ 		if (likely(!meta.portid)) {
+ 			netdev = dp->netdev;
+ 		} else {
+@@ -1759,16 +1763,12 @@ static int nfp_net_rx(struct nfp_net_rx_ring *rx_ring, int budget)
+ 			nn = netdev_priv(dp->netdev);
+ 			netdev = nfp_app_repr_get(nn->app, meta.portid);
+ 			if (unlikely(!netdev)) {
+-				nfp_net_rx_drop(dp, r_vec, rx_ring, rxbuf, skb);
++				nfp_net_rx_drop(dp, r_vec, rx_ring, NULL, skb);
+ 				continue;
+ 			}
+ 			nfp_repr_inc_rx_stats(netdev, pkt_len);
+ 		}
+ 
+-		nfp_net_dma_unmap_rx(dp, rxbuf->dma_addr);
 -
- 	err = nfp_app_start(pf->app, pf->ctrl_vnic);
- 	if (err)
- 		goto err_ctrl_stop;
-@@ -484,7 +480,6 @@ static void nfp_net_pf_app_stop(struct nfp_pf *pf)
- 	if (pf->num_vfs)
- 		nfp_app_sriov_disable(pf->app);
- 	nfp_app_stop(pf->app);
--	nfp_net_pf_app_stop_ctrl(pf);
- }
+-		nfp_net_rx_give_one(dp, rx_ring, new_frag, new_dma_addr);
+-
+ 		skb_reserve(skb, pkt_off);
+ 		skb_put(skb, pkt_len);
  
- static void nfp_net_pci_unmap_mem(struct nfp_pf *pf)
-@@ -559,7 +554,7 @@ static int nfp_net_pci_map_mem(struct nfp_pf *pf)
- 
- static void nfp_net_pci_remove_finish(struct nfp_pf *pf)
- {
--	nfp_net_pf_app_stop(pf);
-+	nfp_net_pf_app_stop_ctrl(pf);
- 	/* stop app first, to avoid double free of ctrl vNIC's ddir */
- 	nfp_net_debugfs_dir_clean(&pf->ddir);
- 
-@@ -690,6 +685,7 @@ int nfp_net_pci_probe(struct nfp_pf *pf)
- {
- 	struct nfp_net_fw_version fw_ver;
- 	u8 __iomem *ctrl_bar, *qc_bar;
-+	struct nfp_net *nn;
- 	int stride;
- 	int err;
- 
-@@ -766,7 +762,7 @@ int nfp_net_pci_probe(struct nfp_pf *pf)
- 	if (err)
- 		goto err_free_vnics;
- 
--	err = nfp_net_pf_app_start(pf);
-+	err = nfp_net_pf_app_start_ctrl(pf);
- 	if (err)
- 		goto err_free_irqs;
- 
-@@ -774,12 +770,20 @@ int nfp_net_pci_probe(struct nfp_pf *pf)
- 	if (err)
- 		goto err_stop_app;
- 
-+	err = nfp_net_pf_app_start(pf);
-+	if (err)
-+		goto err_clean_vnics;
-+
- 	mutex_unlock(&pf->lock);
- 
- 	return 0;
- 
-+err_clean_vnics:
-+	list_for_each_entry(nn, &pf->vnics, vnic_list)
-+		if (nfp_net_is_data_vnic(nn))
-+			nfp_net_pf_clean_vnic(pf, nn);
- err_stop_app:
--	nfp_net_pf_app_stop(pf);
-+	nfp_net_pf_app_stop_ctrl(pf);
- err_free_irqs:
- 	nfp_net_pf_free_irqs(pf);
- err_free_vnics:
-@@ -803,6 +807,8 @@ void nfp_net_pci_remove(struct nfp_pf *pf)
- 	if (list_empty(&pf->vnics))
- 		goto out;
- 
-+	nfp_net_pf_app_stop(pf);
-+
- 	list_for_each_entry(nn, &pf->vnics, vnic_list)
- 		if (nfp_net_is_data_vnic(nn))
- 			nfp_net_pf_clean_vnic(pf, nn);
 -- 
 2.11.0
