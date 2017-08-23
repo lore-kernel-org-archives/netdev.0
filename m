@@ -1,60 +1,73 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: [PATCH net-next 3/8] bpf: Allow cgroup sock filters to use get_current_uid_gid helper
-Date: Tue, 22 Aug 2017 17:20:16 -0700
-Message-ID: <1503447621-27997-4-git-send-email-dsahern@gmail.com>
-References: <1503447621-27997-1-git-send-email-dsahern@gmail.com>
-Cc: David Ahern <dsahern@gmail.com>
-To: netdev@vger.kernel.org, daniel@iogearbox.net, ast@kernel.org,
-        tj@kernel.org, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:38012 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752801AbdHWAUb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2017 20:20:31 -0400
-Received: by mail-pf0-f195.google.com with SMTP id h75so197416pfh.5
-        for <netdev@vger.kernel.org>; Tue, 22 Aug 2017 17:20:31 -0700 (PDT)
-In-Reply-To: <1503447621-27997-1-git-send-email-dsahern@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH] e1000: changed some expensive calls of udelay to
+ usleep_range
+Date: Tue, 22 Aug 2017 17:30:08 -0700
+Message-ID: <1503448208.43048.12.camel@intel.com>
+References: <1503435747-29639-1-git-send-email-matthew.tan_1@nxp.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="pgp-sha256";
+        protocol="application/pgp-signature"; boundary="=-g6vWATLXlGAkYWdykhYA"
+Cc: michael.kardonik@nxp.com, shannon.nelson@intel.com,
+        carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
+        bruce.w.allan@intel.com, john.ronciak@intel.com,
+        mitch.a.williams@intel.com, intel-wired-lan@lists.osuosl.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: nxf23276 <matthew.tan_1@nxp.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1503435747-29639-1-git-send-email-matthew.tan_1@nxp.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Allow BPF programs run on sock create to use the get_current_uid_gid
-helper.
 
-Signed-off-by: David Ahern <dsahern@gmail.com>
----
- net/core/filter.c | 13 ++++++++++++-
- 1 file changed, 12 insertions(+), 1 deletion(-)
+--=-g6vWATLXlGAkYWdykhYA
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 7ee75a40ff03..6d3f693021f9 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -3139,6 +3139,17 @@ bpf_base_func_proto(enum bpf_func_id func_id)
- }
- 
- static const struct bpf_func_proto *
-+sock_filter_func_proto(enum bpf_func_id func_id)
-+{
-+	switch (func_id) {
-+	case BPF_FUNC_get_current_uid_gid:
-+		return &bpf_get_current_uid_gid_proto;
-+	default:
-+		return bpf_base_func_proto(func_id);
-+	}
-+}
-+
-+static const struct bpf_func_proto *
- sk_filter_func_proto(enum bpf_func_id func_id)
- {
- 	switch (func_id) {
-@@ -4227,7 +4238,7 @@ const struct bpf_verifier_ops lwt_xmit_prog_ops = {
- };
- 
- const struct bpf_verifier_ops cg_sock_prog_ops = {
--	.get_func_proto		= bpf_base_func_proto,
-+	.get_func_proto		= sock_filter_func_proto,
- 	.is_valid_access	= sock_filter_is_valid_access,
- 	.convert_ctx_access	= sock_filter_convert_ctx_access,
- };
--- 
-2.1.4
+On Tue, 2017-08-22 at 16:02 -0500, nxf23276 wrote:
+>     Calls to udelay are not preemtable by userspace so userspace
+>     applications experience a large (~200us) latency when running on
+> core
+>     0. Instead usleep_range can be used to be more friendly to
+> userspace
+>     since it is preemtable. This is due to udelay using busy-wait
+> loops
+>     while usleep_rang uses hrtimers instead. It is recommended to use
+>     udelay when the delay is <10us since at that precision overhead
+> of
+>     usleep_range hrtimer setup causes issues. However, the replaced
+> calls
+>     are for 50us and 100us so this should not be not an issue.
+>=20
+> Signed-off-by: nxf23276 <matthew.tan_1@nxp.com>
+> ---
+>  drivers/net/ethernet/intel/e1000e/phy.c | 8 ++++----
+>  1 file changed, 4 insertions(+), 4 deletions(-)
+
+First of all, your name is nxf23276?  Really??
+
+Second, you titled your patch that you were makeding changes to e1000
+driver, yet you are asking to modify e1000e.  Just based on these 2
+needed changes, I am dropping your patch.
+--=-g6vWATLXlGAkYWdykhYA
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAABCAAdFiEEiTyZWz+nnTrOJ1LZ5W/vlVpL7c4FAlmczJAACgkQ5W/vlVpL
+7c5aaw//YquyfqsrvEmb2folV/3TxOvUXR9UvGKz3ay74jefMWxG9ACjhQzD0cw1
+YnshGFlU9y+/BObFU9BYGY4MgAf3972CuL4u6QJHglUUaaQevPUV/nMnrYxF3Oau
+TJH+nWt7b44kE2vVrl3sPJOpU+gp1JUBE/WxvZX+CtrL+UE1PExRO+j/vdQpwB8g
+7Y2vWxl3+C5cxm+DJ/EbN+3pIQ+EkVe0uTggeyt/hW4zIqVfOgF8tct7P8d3pPD/
+6Kjo/3Pl1Mqm33x1FnoK7mq4dD5pVCt0kKbwU1cFC1tobMZz3E0xdEpOTAVe41K9
+y/N8/neK6PrSGT8Vn0HsRTQdocWNOQOyxSC0kx1s5TEKRXpVcJnIX4czeNZ0zZwL
+9bVvCKpz5h+G73yHHYW3txXioj013Xy5r3esVRXuZEnS/5SMHcITL8m1aakgCT9h
+c7V/O63uZKuDS8I266Tf5zyBmAAtTRji+RTs2XrpRlqL5eaP3Ug0drbFDCq4aas/
+riMfNvlP+ohCWsu9U1Cyp78t6hISJYohbhHIAnNZTAQkRO/Neivdpbgmx8OZmNia
+C0fk1F7awWio3Fgjph/3T99CwmYuddy3mWaT+tNe3AxRnT8Het2kLgVxuIjnf3yW
+nqSIFGIgba/udLJYo5Sdzy8FJC4skwukbo+UAnlJl3BPVb0uvGA=
+=YrM4
+-----END PGP SIGNATURE-----
+
+--=-g6vWATLXlGAkYWdykhYA--
