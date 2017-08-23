@@ -1,66 +1,79 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [PATCH net-next 1/8] bpf: Recursively apply cgroup sock filters
-Date: Wed, 23 Aug 2017 09:33:09 -0700
-Message-ID: <3a2e5263-354a-0496-a033-8b16901ba423@gmail.com>
-References: <1503447621-27997-1-git-send-email-dsahern@gmail.com>
- <1503447621-27997-2-git-send-email-dsahern@gmail.com>
- <20170823014005.6riceht5iwv7zzxh@ast-mbp>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH v3] net: stmmac: Delete dead code for MDIO registration
+Date: Wed, 23 Aug 2017 09:46:02 -0700
+Message-ID: <d803f188-826b-706c-2d28-18ee87b8aa0d@gmail.com>
+References: <20170823085058.23333-1-romain.perier@collabora.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, daniel@iogearbox.net, ast@kernel.org,
-        tj@kernel.org, davem@davemloft.net
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:35066 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754139AbdHWQdN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2017 12:33:13 -0400
-Received: by mail-pf0-f195.google.com with SMTP id a74so23646pfg.2
-        for <netdev@vger.kernel.org>; Wed, 23 Aug 2017 09:33:13 -0700 (PDT)
-In-Reply-To: <20170823014005.6riceht5iwv7zzxh@ast-mbp>
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Romain Perier <romain.perier@collabora.com>,
+        Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+        Alexandre Torgue <alexandre.torgue@st.com>,
+        Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170823085058.23333-1-romain.perier@collabora.com>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 8/22/17 6:40 PM, Alexei Starovoitov wrote:
->> diff --git a/kernel/cgroup/cgroup.c b/kernel/cgroup/cgroup.c
->> index df2e0f14a95d..7480cebab073 100644
->> --- a/kernel/cgroup/cgroup.c
->> +++ b/kernel/cgroup/cgroup.c
->> @@ -5186,4 +5186,22 @@ int cgroup_bpf_update(struct cgroup *cgrp, struct bpf_prog *prog,
->>  	mutex_unlock(&cgroup_mutex);
->>  	return ret;
->>  }
->> +
->> +int cgroup_bpf_run_filter_sk(struct sock *sk,
->> +			     enum bpf_attach_type type)
->> +{
->> +	struct cgroup *cgrp = sock_cgroup_ptr(&sk->sk_cgrp_data);
->> +	int ret = 0;
->> +
->> +	while (cgrp) {
->> +		ret = __cgroup_bpf_run_filter_sk(cgrp, sk, type);
->> +		if (ret < 0)
->> +			break;
->> +
->> +		cgrp = cgroup_parent(cgrp);
->> +	}
+On 08/23/2017 01:50 AM, Romain Perier wrote:
+> This code is no longer used, the logging function was changed by commit
+> fbca164776e4 ("net: stmmac: Use the right logging functi"). It was
+> previously showing information about the type if the IRQ, if it's polled,
+> ignored or a normal interrupt. As we don't want information loss, I have
+> moved this code to phy_attached_print().
 > 
-> I think this walk changes semantics for existing setups, so we cannot do it
-> by default and have to add new attach flag.
+> Fixes: fbca164776e4 ("net: stmmac: Use the right logging functi")
 
-I can add a flag similar to the override.
+For future submissions, do not truncate the commit subject that you are
+referencing.
 
-> Also why break on (ret < 0) ?
+> Signed-off-by: Romain Perier <romain.perier@collabora.com>
 
-Because __cgroup_bpf_run_filter_sk returns either 0 or -EPERM.
+Since this is a fix you should indicate in the patch subject that this
+is targeting David's "net" tree, see
+https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/networking/netdev-FAQ.txt#n85
 
-> The caller of this does:
->   err = BPF_CGROUP_RUN_PROG_INET_SOCK(sk);
->   if (err) {
->           sk_common_release(sk);
-> so we should probably break out of the loop on if (ret) too.
+
+>  	const char *drv_name = phydev->drv ? phydev->drv->name : "unbound";
+> +	char *irq_str;
+> +	char irq_num[4];
+> +
+> +	switch(phydev->irq) {
+> +	case PHY_POLL:
+> +		irq_str = "POLL";
+> +		break;
+> +	case PHY_IGNORE_INTERRUPT:
+> +		irq_str = "IGNORE";
+> +		break;
+> +	default:
+> +		snprintf(irq_num, sizeof(irq_str), "%d", phydev->irq);
+
+sizeof(irq_str) = 4 or 8 depending on the architecture because it's a
+pointer, did not you mean sizeof(irq_num) here instead?
+
+> +		irq_str = irq_num;
+> +		break;
+> +	}
+>  
+>  	if (!fmt) {
+>  		dev_info(&phydev->mdio.dev, ATTACHED_FMT "\n",
+>  			 drv_name, phydev_name(phydev),
+> -			 phydev->irq);
+> +			 irq_str);
+>  	} else {
+>  		va_list ap;
+>  
+>  		dev_info(&phydev->mdio.dev, ATTACHED_FMT,
+>  			 drv_name, phydev_name(phydev),
+> -			 phydev->irq);
+> +			 irq_str);
+>  
+>  		va_start(ap, fmt);
+>  		vprintk(fmt, ap);
 > 
 
-I'll do that in v2.
+
+-- 
+Florian
