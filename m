@@ -1,27 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [trivial] gre: fix goto statement typo
-Date: Tue, 22 Aug 2017 21:29:01 -0700 (PDT)
-Message-ID: <20170822.212901.855748759685334454.davem@davemloft.net>
-References: <1503446645-33652-1-git-send-email-u9012063@gmail.com>
+Subject: Re: [PATCH v2 0/2] enable hires timer to timeout datagram socket
+Date: Tue, 22 Aug 2017 21:30:30 -0700 (PDT)
+Message-ID: <20170822.213030.1848111782253505433.davem@davemloft.net>
+References: <1503447027-44399-1-git-send-email-vallish@amazon.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, trivial@kernel.org
-To: u9012063@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:53962 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750931AbdHWE3C (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2017 00:29:02 -0400
-In-Reply-To: <1503446645-33652-1-git-send-email-u9012063@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: shuah@kernel.org, richardcochran@gmail.com,
+        xiyou.wangcong@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, eduval@amazon.com,
+        anchalag@amazon.com
+To: vallish@amazon.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1503447027-44399-1-git-send-email-vallish@amazon.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: William Tu <u9012063@gmail.com>
-Date: Tue, 22 Aug 2017 17:04:05 -0700
+From: Vallish Vaidyeshwara <vallish@amazon.com>
+Date: Wed, 23 Aug 2017 00:10:25 +0000
 
-> Fix typo: pnet_tap_faied.
-> 
-> Signed-off-by: William Tu <u9012063@gmail.com>
+> I am submitting 2 patch series to enable hires timer to timeout
+> datagram sockets (AF_UNIX & AF_INET domain) and test code to test
+> timeout accuracy on these sockets.
 
-Applied to net-next.
+This is not reasonable.
+
+If you want high resolution events with real guarantees, please use
+the kernel interfaces which provide this as explained to you as
+feedback by other reviewers.
+
+I'm not applying this, sorry.
