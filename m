@@ -1,116 +1,84 @@
 From: Jakub Sitnicki <jkbs@redhat.com>
-Subject: [PATCH net-next] ipv6: Add sysctl for per namespace flow label reflection
-Date: Wed, 23 Aug 2017 09:55:41 +0200
-Message-ID: <20170823075541.26764-1-jkbs@redhat.com>
+Subject: [PATCH net-next v3 0/4] Route ICMPv6 errors with the flow when ECMP in use
+Date: Wed, 23 Aug 2017 09:58:27 +0200
+Message-ID: <20170823075831.27031-1-jkbs@redhat.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
         Hannes Frederic Sowa <hannes@stressinduktion.org>,
         Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
         Tom Herbert <tom@herbertland.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f48.google.com ([74.125.82.48]:38832 "EHLO
-        mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753386AbdHWHzo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2017 03:55:44 -0400
-Received: by mail-wm0-f48.google.com with SMTP id l19so9653429wmi.1
-        for <netdev@vger.kernel.org>; Wed, 23 Aug 2017 00:55:44 -0700 (PDT)
+Received: from mail-wm0-f49.google.com ([74.125.82.49]:37046 "EHLO
+        mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753420AbdHWH6f (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2017 03:58:35 -0400
+Received: by mail-wm0-f49.google.com with SMTP id b189so9766813wmd.0
+        for <netdev@vger.kernel.org>; Wed, 23 Aug 2017 00:58:34 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Reflecting IPv6 Flow Label at server nodes is useful in environments
-that employ multipath routing to load balance the requests. As "IPv6
-Flow Label Reflection" standard draft [1] points out - ICMPv6 PTB error
-messages generated in response to a downstream packets from the server
-can be routed by a load balancer back to the original server without
-looking at transport headers, if the server applies the flow label
-reflection. This enables the Path MTU Discovery past the ECMP router in
-load-balance or anycast environments where each server node is reachable
-by only one path.
+This patch set is another take at making Path MTU Discovery work when
+server nodes are behind a router employing multipath routing in a
+load-balance or anycast setup (that is, when not every end-node can be
+reached by every path). The problem has been well described in RFC 7690
+[1], but in short - in such setups ICMPv6 PTB errors are not guaranteed
+to be routed back to the server node that sent a reply that exceeds path
+MTU.
 
-Introduce a sysctl to enable flow label reflection per net namespace for
-all newly created sockets. Same could be earlier achieved only per
-socket by setting the IPV6_FL_F_REFLECT flag for the IPV6_FLOWLABEL_MGR
-socket option.
+The proposed solution is two-fold:
 
-[1] https://tools.ietf.org/html/draft-wang-6man-flow-label-reflection-01
+ (1) on the server side - reflect the Flow Label [2]. This can be done
+     without modifying the application using a new per-netns sysctl knob
+     that has been proposed independently of this patchset in the patch
+     entitled "ipv6: Add sysctl for per namespace flow label
+     reflection" [3].
 
-Signed-off-by: Jakub Sitnicki <jkbs@redhat.com>
+ (2) on the ECMP router - make the ipv6 routing subsystem look into the
+     ICMPv6 error packets and compute the flow-hash from its payload,
+     i.e. the offending packet that triggered the error. This is the
+     same behavior as ipv4 stack has already.
+
+With both parts in place Path MTU Discovery can work past the ECMP
+router when using IPv6.
+
+[1] https://tools.ietf.org/html/rfc7690
+[2] https://tools.ietf.org/html/draft-wang-6man-flow-label-reflection-01
+[3] http://patchwork.ozlabs.org/patch/804870/
+
+v1 -> v2:
+ - don't use "extern" in external function declaration in header file
+ - style change, put as many arguments as possible on the first line of
+   a function call, and align consecutive lines to the first argument
+ - expand the cover letter based on the feedback
+
+v2 -> v3:
+ - switch to computing flow-hash using flow dissector to align with
+   recent changes to multipath routing in ipv4 stack
+ - add a sysctl knob for enabling flow label reflection per netns
+
 ---
- Documentation/networking/ip-sysctl.txt | 9 +++++++++
- include/net/netns/ipv6.h               | 1 +
- net/ipv6/af_inet6.c                    | 1 +
- net/ipv6/sysctl_net_ipv6.c             | 8 ++++++++
- 4 files changed, 19 insertions(+)
 
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index 84c9b8c..6b0bc0f 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -1350,6 +1350,15 @@ flowlabel_state_ranges - BOOLEAN
- 	FALSE: disabled
- 	Default: true
- 
-+flowlabel_reflect - BOOLEAN
-+	Automatically reflect the flow label. Needed for Path MTU
-+	Discovery to work with Equal Cost Multipath Routing in anycast
-+	environments. See RFC 7690 and:
-+	https://tools.ietf.org/html/draft-wang-6man-flow-label-reflection-01
-+	TRUE: enabled
-+	FALSE: disabled
-+	Default: FALSE
-+
- anycast_src_echo_reply - BOOLEAN
- 	Controls the use of anycast addresses as source addresses for ICMPv6
- 	echo reply
-diff --git a/include/net/netns/ipv6.h b/include/net/netns/ipv6.h
-index 0e50bf3..2544f97 100644
---- a/include/net/netns/ipv6.h
-+++ b/include/net/netns/ipv6.h
-@@ -36,6 +36,7 @@ struct netns_sysctl_ipv6 {
- 	int idgen_retries;
- 	int idgen_delay;
- 	int flowlabel_state_ranges;
-+	int flowlabel_reflect;
- };
- 
- struct netns_ipv6 {
-diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
-index 3b58ee7..fe5262f 100644
---- a/net/ipv6/af_inet6.c
-+++ b/net/ipv6/af_inet6.c
-@@ -211,6 +211,7 @@ static int inet6_create(struct net *net, struct socket *sock, int protocol,
- 	np->mc_loop	= 1;
- 	np->pmtudisc	= IPV6_PMTUDISC_WANT;
- 	np->autoflowlabel = ip6_default_np_autolabel(net);
-+	np->repflow	= net->ipv6.sysctl.flowlabel_reflect;
- 	sk->sk_ipv6only	= net->ipv6.sysctl.bindv6only;
- 
- 	/* Init the ipv4 part of the socket since we can have sockets
-diff --git a/net/ipv6/sysctl_net_ipv6.c b/net/ipv6/sysctl_net_ipv6.c
-index 69c50e7..6fbf8ae 100644
---- a/net/ipv6/sysctl_net_ipv6.c
-+++ b/net/ipv6/sysctl_net_ipv6.c
-@@ -90,6 +90,13 @@ static struct ctl_table ipv6_table_template[] = {
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec
- 	},
-+	{
-+		.procname	= "flowlabel_reflect",
-+		.data		= &init_net.ipv6.sysctl.flowlabel_reflect,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec,
-+	},
- 	{ }
- };
- 
-@@ -149,6 +156,7 @@ static int __net_init ipv6_sysctl_net_init(struct net *net)
- 	ipv6_table[6].data = &net->ipv6.sysctl.idgen_delay;
- 	ipv6_table[7].data = &net->ipv6.sysctl.flowlabel_state_ranges;
- 	ipv6_table[8].data = &net->ipv6.sysctl.ip_nonlocal_bind;
-+	ipv6_table[9].data = &net->ipv6.sysctl.flowlabel_reflect;
- 
- 	ipv6_route_table = ipv6_route_sysctl_init(net);
- 	if (!ipv6_route_table)
+Testing has covered multipath routing of ICMPv6 PTB errors in forward
+and local output path in a simple use-case of an HTTP server sending a
+reply which is over the path MTU size [3]. I have also checked if the
+flows get evenly spread over multiple paths (i.e. if there are no
+regressions) [4].
+
+[3] https://github.com/jsitnicki/tools/tree/master/net/tests/ecmp/pmtud
+[4] https://github.com/jsitnicki/tools/tree/master/net/tests/ecmp/load-balance
+
+
+Jakub Sitnicki (4):
+  net: Extend struct flowi6 with multipath hash
+  ipv6: Compute multipath hash for ICMP errors from offending packet
+  ipv6: Fold rt6_info_hash_nhsfn() into its only caller
+  ipv6: Use multipath hash from flow info if available
+
+ include/net/flow.h      |  1 +
+ include/net/ip6_route.h |  1 +
+ net/ipv6/icmp.c         |  1 +
+ net/ipv6/route.c        | 68 +++++++++++++++++++++++++++++++++++++++++--------
+ 4 files changed, 60 insertions(+), 11 deletions(-)
+
 -- 
 2.9.4
