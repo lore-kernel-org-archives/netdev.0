@@ -1,40 +1,31 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [net-next 10/15] net/mlx5: Add a blank line after declarations
-Date: Wed, 23 Aug 2017 15:39:01 -0700
-Message-ID: <1503527941.27867.2.camel@perches.com>
-References: <20170817133003.16900-1-saeedm@mellanox.com>
-         <20170817133003.16900-11-saeedm@mellanox.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Leon Romanovsky <leonro@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>
-To: Saeed Mahameed <saeedm@mellanox.com>,
-        "David S. Miller" <davem@davemloft.net>
+From: Michael Chan <michael.chan@broadcom.com>
+Subject: [PATCH net 0/3] bnxt_en: bug fixes.
+Date: Wed, 23 Aug 2017 19:34:02 -0400
+Message-ID: <1503531245-4046-1-git-send-email-michael.chan@broadcom.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0196.hostedemail.com ([216.40.44.196]:47943 "EHLO
-        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751085AbdHWXQM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2017 19:16:12 -0400
-In-Reply-To: <20170817133003.16900-11-saeedm@mellanox.com>
+Received: from mail-qk0-f169.google.com ([209.85.220.169]:33359 "EHLO
+        mail-qk0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751146AbdHWXeT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2017 19:34:19 -0400
+Received: by mail-qk0-f169.google.com with SMTP id a77so8888494qkb.0
+        for <netdev@vger.kernel.org>; Wed, 23 Aug 2017 16:34:19 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2017-08-17 at 16:29 +0300, Saeed Mahameed wrote:
-> From: Or Gerlitz <ogerlitz@mellanox.com>
-[]
-> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eq.c b/drivers/net/ethernet/mellanox/mlx5/core/eq.c
-[]
-> @@ -188,6 +188,7 @@ static enum mlx5_dev_event port_subtype_event(u8 subtype)
->  static void eq_update_ci(struct mlx5_eq *eq, int arm)
->  {
->  	__be32 __iomem *addr = eq->doorbell + (arm ? 0 : 2);
-> +
->  	u32 val = (eq->cons_index & 0xffffff) | (eq->eqn << 24);
->  	__raw_writel((__force u32)cpu_to_be32(val), addr);
->  	/* We still want ordering, just not swabbing, so add a barrier */
+3 bug fixes related to XDP ring accounting in bnxt_setup_tc(), freeing
+MSIX vectors when bnxt_re unregisters, and preserving the user-administered
+PF MAC address when disabling SRIOV.
 
-checkpatch is stupid.
+Michael Chan (3):
+  bnxt_en: Fix .ndo_setup_tc() to include XDP rings.
+  bnxt_en: Free MSIX vectors when unregistering the device from bnxt_re.
+  bnxt_en: Do not setup MAC address in bnxt_hwrm_func_qcaps().
 
-The blank line should be after u32 val = ...
-and not after __be32 __iomem *addr = ...
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c     | 41 +++++++++++++++++++--------
+ drivers/net/ethernet/broadcom/bnxt/bnxt_ulp.c |  2 ++
+ 2 files changed, 31 insertions(+), 12 deletions(-)
+
+-- 
+1.8.3.1
