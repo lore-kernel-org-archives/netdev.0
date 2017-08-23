@@ -1,44 +1,32 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: [PATCH net] net/sock: allow the user to set negative peek offset
-Date: Wed, 23 Aug 2017 11:57:51 +0200
-Message-ID: <64e676e59d203f13cd326c3b0cf6b05287b69e1b.1503481941.git.pabeni@redhat.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Matthew Dawson <matthew@mjdsystems.ca>,
-        Willem de Bruijn <willemdebruijn.kernel@gmail.com>,
-        Sam Kumar <samanthakumar@google.com>
-To: netdev@vger.kernel.org
+From: Arvind Yadav <arvind.yadav.cs@gmail.com>
+Subject: [PATCH 0/3] constify *_ops
+Date: Wed, 23 Aug 2017 15:29:32 +0530
+Message-ID: <1503482375-19983-1-git-send-email-arvind.yadav.cs@gmail.com>
+Cc: linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org
+To: davem@davemloft.net, Larry.Finger@lwfinger.net,
+        chaoming_li@realsil.com.cn, kvalo@codeaurora.org,
+        jon.maloy@ericsson.com, ying.xue@windriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50630 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753728AbdHWJ7x (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 23 Aug 2017 05:59:53 -0400
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:34747 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753799AbdHWJ7y (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2017 05:59:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is necessary to allow the user to disable peeking with
-offset once it's enabled.
-Unix sockets already allow the above, with this patch we
-permit it for udp[6] sockets, too.
+*_ops are not supposed to change at runtime and none of the structures
+is modified.
 
-Fixes: 627d2d6b5500 ("udp: enable MSG_PEEK at non-zero offset")
-Signed-off-by: Paolo Abeni <pabeni@redhat.com>
----
- net/core/sock.c | 3 ---
- 1 file changed, 3 deletions(-)
+Arvind Yadav (3):
+  [PATCH 1/3] net: rtlwifi: constify rate_control_ops
+  [PATCH 2/3] net: rsi: mac80211: constify ieee80211_ops
+  [PATCH 3/3] net: rsi: netlink: constify genl_ops
 
-diff --git a/net/core/sock.c b/net/core/sock.c
-index ac2a404c73eb..679367ce1432 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -2408,9 +2408,6 @@ EXPORT_SYMBOL(__sk_mem_reclaim);
- 
- int sk_set_peek_off(struct sock *sk, int val)
- {
--	if (val < 0)
--		return -EINVAL;
--
- 	sk->sk_peek_off = val;
- 	return 0;
- }
+ drivers/net/wireless/realtek/rtlwifi/rc.c   | 2 +-
+ drivers/net/wireless/rsi/rsi_91x_mac80211.c | 2 +-
+ net/tipc/netlink_compat.c                   | 2 +-
+ 3 files changed, 3 insertions(+), 3 deletions(-)
+
 -- 
-2.13.5
+1.9.1
