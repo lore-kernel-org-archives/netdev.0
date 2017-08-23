@@ -1,39 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][net-next] net: hinic: make functions set_ctrl0 and
- set_ctrl1 static
-Date: Wed, 23 Aug 2017 11:42:59 -0700 (PDT)
-Message-ID: <20170823.114259.1662799896187832867.davem@davemloft.net>
-References: <20170823095940.27225-1-colin.king@canonical.com>
-        <1C47E215DC9A8B4DBCB6C24F1DE66D8E0294323E@FRAEML521-MBX.china.huawei.com>
+Subject: Re: [PATCH][netdev-next] gre: remove duplicated assignment of iph
+Date: Wed, 23 Aug 2017 11:46:11 -0700 (PDT)
+Message-ID: <20170823.114611.1764472622798498530.davem@davemloft.net>
+References: <20170823111305.19185-1-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: colin.king@canonical.com, netdev@vger.kernel.org,
-        kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: aviad.krawczyk@huawei.com
+Cc: kuznet@ms2.inr.ac.ru, yoshfuji@linux-ipv6.org,
+        netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: colin.king@canonical.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1C47E215DC9A8B4DBCB6C24F1DE66D8E0294323E@FRAEML521-MBX.china.huawei.com>
+In-Reply-To: <20170823111305.19185-1-colin.king@canonical.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Aviad Krawczyk (A)" <aviad.krawczyk@huawei.com>
-Date: Wed, 23 Aug 2017 10:08:58 +0000
+From: Colin King <colin.king@canonical.com>
+Date: Wed, 23 Aug 2017 12:13:05 +0100
 
-> Thanks
+> From: Colin Ian King <colin.king@canonical.com>
+> 
+> iph is being assigned the same value twice; remove the redundant
+> second assignment.
+> 
+> Fixes warning:
+> net/ipv4/ip_gre.c:265:2: warning: Value stored to 'iph' is never read
+> 
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
-Please do not top-post.
+It is always necessary to reload any SKB header pointer after calls
+to functions which potentially change the data buffer of the SKB.
 
-Especially quoting the original message in the way that you did.
+pskb_may_pull() is one such call.
 
-As a result of how you replied to this, this patch will show up
-twice in my patchwork queue making more administrative work
-for me.
+Therefore your patch is adding a bug.
 
-Please learn how to properly reply in ASCII text using proper
-traditional email quoting mechanisms just like other developers
-do on this mailing list.
-
-Every time you do this improperly, you make more work for everyone
-on this mailing list.
-
-Thank you.
+If you want to remove the dup, you must remove the first not
+the second one.
