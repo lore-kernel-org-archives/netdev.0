@@ -1,100 +1,183 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH 0/2] net: Fix crashes due to activity during suspend
-Date: Wed, 23 Aug 2017 10:13:10 -0700
-Message-ID: <5a1b6f23-6fce-1a68-f9c3-ca0d709979e7@gmail.com>
-References: <1503427046-17618-1-git-send-email-geert+renesas@glider.be>
- <757f672b-d3cf-9189-0533-cb45e325c6b8@gmail.com>
- <CAMuHMdVMuW+5UQc3Tg5bWkix_PLEaxsoGA6sgSdVz0fV6UsO6Q@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Geert Uytterhoeven <geert+renesas@glider.be>,
-        "David S . Miller" <davem@davemloft.net>,
-        Steve Glendinning <steve.glendinning@shawell.net>,
-        Andrew Lunn <andrew@lunn.ch>, Lukas Wunner <lukas@wunner.de>,
-        "Rafael J . Wysocki" <rafael.j.wysocki@intel.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Linux PM list <linux-pm@vger.kernel.org>,
-        Linux-Renesas <linux-renesas-soc@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Geert Uytterhoeven <geert@linux-m68k.org>,
-        marc_gonzalez@sigmadesigns.com, slash.tmp@free.fr, andrew@lunn.ch
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <CAMuHMdVMuW+5UQc3Tg5bWkix_PLEaxsoGA6sgSdVz0fV6UsO6Q@mail.gmail.com>
-Content-Language: en-US
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net-next] net_sched: kill u32_node pointer in Qdisc
+Date: Wed, 23 Aug 2017 10:58:54 -0700
+Message-ID: <20170823175854.21924-1-xiyou.wangcong@gmail.com>
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Jiri Pirko <jiri@resnulli.us>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:34527 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932393AbdHWR7N (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2017 13:59:13 -0400
+Received: by mail-pg0-f68.google.com with SMTP id p14so191556pgd.1
+        for <netdev@vger.kernel.org>; Wed, 23 Aug 2017 10:59:12 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/23/2017 04:45 AM, Geert Uytterhoeven wrote:
-> Hi Florian,
-> 
-> On Tue, Aug 22, 2017 at 8:49 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
->> On 08/22/2017 11:37 AM, Geert Uytterhoeven wrote:
->>> If an Ethernet device is used while the device is suspended, the system may
->>> crash.
->>>
->>> E.g. on sh73a0/kzm9g and r8a73a4/ape6evm, the external Ethernet chip is
->>> driven by a PM controlled clock.  If the Ethernet registers are accessed
->>> while the clock is not running, the system will crash with an imprecise
->>> external abort.
->>>
->>> This patch series fixes two of such crashes:
->>>   1. The first patch prevents the PHY polling state machine from accessing
->>>      PHY registers while a device is suspended,
->>>   2. The second patch prevents the net core from trying to transmit packets
->>>      when an smsc911x device is suspended.
->>>
->>> Both crashes can be reproduced on sh73a0/kzm9g and r8a73a4/ape6evm during
->>> s2ram (rarely), or by using pm_test (more likely to trigger):
->>>
->>>     # echo 0 > /sys/module/printk/parameters/console_suspend
->>>     # echo platform > /sys/power/pm_test
->>>     # echo mem > /sys/power/state
->>>
->>> With this series applied, my test systems survive a loop of 100 test
->>> suspends.
->>
->> It seems to me like part, if not the entire problem is that smsc91xx's
->> suspend and resume functions are way too simplistic and absolutely do
->> not manage the PHY during suspend/resume, the PHY state machine is not
->> even stopped, so of course, this will cause bus errors if you access
->> those registers.
->>
->> You are addressing this as part of patch 2, but this seems to me like
->> this is still a bit incomplete and you'd need at least phy_stop() and/or
->> phy_suspend() (does a power down of the PHY) and phy_start() and/or
->> phy_resume() calls to complete the PHY state machine shutdown during
->> suspend.
->>
->> Have you tried that?
-> 
-> Unfortunately that doesn't help.
-> In state PHY_HALTED, the PHY state machine still calls the .adjust_link()
-> callback while the device is suspended.
+It is ugly to hide a u32-filter-specific pointer inside Qdisc,
+this breaks the TC layers:
 
-Humm that is correct yes.
+1. Qdisc is a generic representation, should not have any specific
+   data of any type
 
-> 
-> Do you have a clue? This is too far beyond my phy-foo...
+2. Qdisc layer is above filter layer, should only save filters in
+   the list of struct tcf_proto.
 
-I was initially contemplating a revert of
-7ad813f208533cebfcc32d3d7474dc1677d1b09a ("net: phy: Correctly process
-PHY_HALTED in phy_stop_machine()") but this is not the root of the
-problem. The problem really is that phy_stop() does not wait for the PHY
-state machine to be stopped so you cannot rely on that and past the
-function return be offered any guarantees that adjust_link is not called.
+This pointer is used as the head of the chain of u32 hash tables,
+that is struct tc_u_hnode, because u32 filter is very special,
+it allows to create multiple hash tables within one qdisc and
+across multiple u32 filters.
 
-We seem to be getting away with that in most drivers because when we see
-phydev->link = 0, we either do nothing or actually turn of the HW block.
+Instead of using this ugly pointer, we can just save it in a global
+hash table key'ed by (dev ifindex, qdisc handle), therefore we can
+still treat it as a per qdisc basis data structure conceptually.
 
-How about we export phy_stop_machine() to drivers which would provide a
-synchronization point that would ensure that no HW accesses are done
-past this point?
+Of course, because of network namespaces, this key is not unique
+at all, but it is fine as we already have a pointer to Qdisc in
+struct tc_u_common, we can just compare the pointers when collision.
 
-I am absolutely not clear on the implications of using a freezable
-workqueue with respect to the PHY state machine and how devices are
-going to wind-up being powered down or not...
+And this only affects slow paths, has no impact to fast path,
+thanks to the pointer ->tp_c.
 
-Thanks!
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+Cc: Jiri Pirko <jiri@resnulli.us>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+---
+ include/net/sch_generic.h |  1 -
+ net/sched/cls_u32.c       | 55 +++++++++++++++++++++++++++++++++++++++++++----
+ 2 files changed, 51 insertions(+), 5 deletions(-)
+
+diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+index d817585aa5df..c30b634c5f82 100644
+--- a/include/net/sch_generic.h
++++ b/include/net/sch_generic.h
+@@ -75,7 +75,6 @@ struct Qdisc {
+ 	struct hlist_node       hash;
+ 	u32			handle;
+ 	u32			parent;
+-	void			*u32_node;
+ 
+ 	struct netdev_queue	*dev_queue;
+ 
+diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
+index af22742d2847..816d8622df02 100644
+--- a/net/sched/cls_u32.c
++++ b/net/sched/cls_u32.c
+@@ -40,6 +40,8 @@
+ #include <linux/rtnetlink.h>
+ #include <linux/skbuff.h>
+ #include <linux/bitmap.h>
++#include <linux/netdevice.h>
++#include <linux/hash.h>
+ #include <net/netlink.h>
+ #include <net/act_api.h>
+ #include <net/pkt_cls.h>
+@@ -92,6 +94,7 @@ struct tc_u_common {
+ 	struct Qdisc		*q;
+ 	int			refcnt;
+ 	u32			hgenerator;
++	struct hlist_node	hnode;
+ 	struct rcu_head		rcu;
+ };
+ 
+@@ -323,12 +326,40 @@ static u32 gen_new_htid(struct tc_u_common *tp_c)
+ 	return i > 0 ? (tp_c->hgenerator|0x800)<<20 : 0;
+ }
+ 
++static struct hlist_head *tc_u_common_hash;
++
++#define U32_HASH_SHIFT 10
++#define U32_HASH_SIZE (1 << U32_HASH_SHIFT)
++
++static unsigned int tc_u_hash(const struct tcf_proto *tp)
++{
++	struct net_device *dev = tp->q->dev_queue->dev;
++	u32 qhandle = tp->q->handle;
++	int ifindex = dev->ifindex;
++
++	return hash_64((u64)ifindex << 32 | qhandle, U32_HASH_SHIFT);
++}
++
++static struct tc_u_common *tc_u_common_find(const struct tcf_proto *tp)
++{
++	struct tc_u_common *tc;
++	unsigned int h;
++
++	h = tc_u_hash(tp);
++	hlist_for_each_entry(tc, &tc_u_common_hash[h], hnode) {
++		if (tc->q == tp->q)
++			return tc;
++	}
++	return NULL;
++}
++
+ static int u32_init(struct tcf_proto *tp)
+ {
+ 	struct tc_u_hnode *root_ht;
+ 	struct tc_u_common *tp_c;
++	unsigned int h;
+ 
+-	tp_c = tp->q->u32_node;
++	tp_c = tc_u_common_find(tp);
+ 
+ 	root_ht = kzalloc(sizeof(*root_ht), GFP_KERNEL);
+ 	if (root_ht == NULL)
+@@ -345,7 +376,10 @@ static int u32_init(struct tcf_proto *tp)
+ 			return -ENOBUFS;
+ 		}
+ 		tp_c->q = tp->q;
+-		tp->q->u32_node = tp_c;
++		INIT_HLIST_NODE(&tp_c->hnode);
++
++		h = tc_u_hash(tp);
++		hlist_add_head(&tp_c->hnode, &tc_u_common_hash[h]);
+ 	}
+ 
+ 	tp_c->refcnt++;
+@@ -585,7 +619,7 @@ static void u32_destroy(struct tcf_proto *tp)
+ 	if (--tp_c->refcnt == 0) {
+ 		struct tc_u_hnode *ht;
+ 
+-		tp->q->u32_node = NULL;
++		hlist_del(&tp_c->hnode);
+ 
+ 		for (ht = rtnl_dereference(tp_c->hlist);
+ 		     ht;
+@@ -1213,6 +1247,8 @@ static struct tcf_proto_ops cls_u32_ops __read_mostly = {
+ 
+ static int __init init_u32(void)
+ {
++	int i, ret;
++
+ 	pr_info("u32 classifier\n");
+ #ifdef CONFIG_CLS_U32_PERF
+ 	pr_info("    Performance counters on\n");
+@@ -1223,12 +1259,23 @@ static int __init init_u32(void)
+ #ifdef CONFIG_NET_CLS_ACT
+ 	pr_info("    Actions configured\n");
+ #endif
+-	return register_tcf_proto_ops(&cls_u32_ops);
++	tc_u_common_hash = kvmalloc_array(U32_HASH_SIZE, sizeof(struct hlist_head), GFP_KERNEL);
++	if (!tc_u_common_hash)
++		return -ENOMEM;
++
++	for (i = 0; i < U32_HASH_SIZE; i++)
++		INIT_HLIST_HEAD(&tc_u_common_hash[i]);
++
++	ret = register_tcf_proto_ops(&cls_u32_ops);
++	if (ret)
++		kvfree(tc_u_common_hash);
++	return ret;
+ }
+ 
+ static void __exit exit_u32(void)
+ {
+ 	unregister_tcf_proto_ops(&cls_u32_ops);
++	kvfree(tc_u_common_hash);
+ }
+ 
+ module_init(init_u32)
 -- 
-Florian
+2.13.0
