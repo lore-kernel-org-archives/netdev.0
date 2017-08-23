@@ -1,82 +1,121 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: Something hitting my total number of connections to the server
-Date: Wed, 23 Aug 2017 09:35:59 -0400
-Message-ID: <CADVnQy=33_0H8g7JaLtGaVpf0_hXrcgJpNiBeJEN_SvpGPT9CQ@mail.gmail.com>
-References: <CAA5aLPic9U4cwFJuTd4qBZrV=oVUSfmPzVRR_jXOBpJMU11b0A@mail.gmail.com>
- <CAA5aLPgekZJgsZV-MAD+F+ggUugQkz12D9Ef=kbP9Ev=Q1QsDw@mail.gmail.com>
- <1502879661.4936.98.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAA5aLPh0m=ZZp5kcz9h3if8kemg0QRykBpfYAnr6Bd1ptoeKKg@mail.gmail.com>
- <1502969805.4936.154.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAA5aLPjs2S0cV7MoYLB6MvZVKXomUmwpi=EVHDXh=AwR_xBqsw@mail.gmail.com>
- <063D6719AE5E284EB5DD2968C1650D6DD005C7B1@AcuExch.aculab.com>
- <CAA5aLPhVSnJkGNtwEeswbPnhT_RdJewAKDs-pJOUzTPEpwkUAA@mail.gmail.com>
- <1503328678.2499.3.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAA5aLPhtK8YbSDua-F16C0W9fLm2w4=ta4g+Tv+wsUEqYPCxUg@mail.gmail.com>
- <1503337453.2499.7.camel@edumazet-glaptop3.roam.corp.google.com>
- <1503337498.2499.8.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAA5aLPgtfrA053gAbsXOZTdrJKtsOZODUmF5cPGmnOmsO3PbOA@mail.gmail.com>
- <CADVnQy=57_rc8A93zAcqr9hz1WtWniSoZdtx+-aTiZ6AyjZmQg@mail.gmail.com> <CAA5aLPgA+YzavA8tw6uqfR8d6r058OymJOE+jevVmDA2Ar21rg@mail.gmail.com>
+From: Russell King - ARM Linux <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>
+Subject: Re: [RFC PATCH] dt-binding: net: sfp binding documentation
+Date: Wed, 23 Aug 2017 14:56:29 +0100
+Message-ID: <20170823135629.GT20805@n2100.armlinux.org.uk>
+References: <d73b635069a2054d110632f1f4196cd4bc281e7f.1503224886.git.baruch@tkos.co.il>
+ <CAL_JsqL_7gG8FSEJDXu=37DFpHjfLhQuUhPFRKcScYTzM4cNyg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        David Laight <David.Laight@aculab.com>,
-        netdev <netdev@vger.kernel.org>
-To: Akshat Kakkar <akshat.1984@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f174.google.com ([209.85.216.174]:34020 "EHLO
-        mail-qt0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753973AbdHWNgb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2017 09:36:31 -0400
-Received: by mail-qt0-f174.google.com with SMTP id p10so758460qte.1
-        for <netdev@vger.kernel.org>; Wed, 23 Aug 2017 06:36:31 -0700 (PDT)
-In-Reply-To: <CAA5aLPgA+YzavA8tw6uqfR8d6r058OymJOE+jevVmDA2Ar21rg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Baruch Siach <baruch-NswTu9S1W3P6gbPvEgmw2w@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
+        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <CAL_JsqL_7gG8FSEJDXu=37DFpHjfLhQuUhPFRKcScYTzM4cNyg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 23, 2017 at 1:08 AM, Akshat Kakkar <akshat.1984@gmail.com> wrote:
->
-> On Tue, Aug 22, 2017 at 5:58 PM, Neal Cardwell <ncardwell@google.com> wrote:
-> > On Tue, Aug 22, 2017 at 1:42 AM, Akshat Kakkar <akshat.1984@gmail.com> wrote:
-> >> There are multiple hosts/clients. All are mainly windows based.
-> >>
-> >> Timestamp is not used as my clients mainly are windows based and in
-> >> that it tcp timestamp is by defauly disabled.
-> > ...
-> >> net.ipv4.tcp_tw_reuse=1
-> >> net.ipv4.tcp_tw_recycle=1
+On Mon, Aug 21, 2017 at 02:10:33PM -0500, Rob Herring wrote:
+> On Sun, Aug 20, 2017 at 5:28 AM, Baruch Siach <baruch-NswTu9S1W3P6gbPvEgmw2w@public.gmane.org> wrote:
+> > Add device-tree binding documentation SFP transceivers. Support for SFP
+> > transceivers has been recently introduced (drivers/net/phy/sfp.c).
 > >
-> > I suspect the problem is there. The net.ipv4.tcp_tw_recycle setting
-> > should be 0. Running with the value 1 is known to cause buggy behavior
-> > related to TCP timestamps, and that feature has been removed in kernel
-> > v4.12.
+> > Signed-off-by: Baruch Siach <baruch-NswTu9S1W3P6gbPvEgmw2w@public.gmane.org>
+> > ---
 > >
-> > Can you please re-run your tests with net.ipv4.tcp_tw_recycle=0 or a
-> > newer kernel?
+> > The SFP driver is on net-next.
 > >
-> > neal
->
-> Thanks for your reply.
->
-> I understand that.
->
-> But my point is, though tcp timestamp is enabled on the server, but as
-> client is not using it ... so how come this _bug_ (if any) is
-> triggered in first place.
+> > Not sure about the rate-select-gpio property name. The SFP+ standard
+> > (not supported yet) uses two signals, RS0 and RS1. RS0 is compatible
+> > with the SFP rate select signal, while RS1 controls the Tx rate.
+> > ---
+> >  Documentation/devicetree/bindings/net/sff-sfp.txt | 24 +++++++++++++++++++++++
+> >  1 file changed, 24 insertions(+)
+> >  create mode 100644 Documentation/devicetree/bindings/net/sff-sfp.txt
+> >
+> > diff --git a/Documentation/devicetree/bindings/net/sff-sfp.txt b/Documentation/devicetree/bindings/net/sff-sfp.txt
+> > new file mode 100644
+> > index 000000000000..f0c27bc3925e
+> > --- /dev/null
+> > +++ b/Documentation/devicetree/bindings/net/sff-sfp.txt
+> > @@ -0,0 +1,24 @@
+> > +Small Form Factor (SFF) Committee Small Form-factor Pluggable (SFP)
+> > +Transceiver
+> > +
+> > +Required properties:
+> > +
+> > +- compatible : must be "sff,sfp"
+> 
+> Need to document "sff" vendor prefix.
+> 
+> Kind of a short name, but I guess it is sufficient. Are there
+> revisions of the standard (not SFP+) or more than one form factor (I
+> don't recall any)?
 
-You mention "clients mainly are windows based". if they are only
-"mainly" Windows-based, and some are of other OSes that do use TCP
-timestamps, and the remote address is the same for TCP-timestamp-using
-and non-TCP-timestamp-using clients, then running with timestamps
-enabled on the server could tickle the bugs in pre-4.12 kernels that
-save info from TCP-timestamp-using connections and erroneously try to
-use that info to validate non-TCP-timestamp-using connections.
+The standards get revised and reorganised, so you can't really name any
+particular standard.  SFP+ is a supplement to SFP, and I suspect that's
+going to continue into the future.
 
-But the main point is that the configuration you cited
-(net.ipv4.tcp_tw_recycle=1) is an unsupported configuration with known
-bugs. The best resolution would be to just run with
-net.ipv4.tcp_tw_recycle=0. It's not worth digging any further unless
-you run with net.ipv4.tcp_tw_recycle=0 or a kernel that is v4.12 or
-later and still have problems.
+> > +
+> > +Optional Properties:
+> > +
+> > +- i2c-bus : phandle of an I2C bus controller for the SFP two wire serial
+> > +  interface
+> 
+> Why not a child of the i2c bus it is on? IOW, what should this be a child of?
 
-Hope that helps,
-neal
+What reg= value would you use to identify it?  There's no particular
+I2C bus address.  There's an EEPROM on the actual module, and there
+may be a PHY on the I2C bus (some PHYs include I2C as an alternative
+way to speak to them other than MDIO.)
+
+I2C couldn't probe these as they are effectively hotplugged.
+
+However, there's also the question about why it should be a child of
+the I2C bus - the I2C bus is just a means of communicating with and
+identifying the module.  You could equally argue that it should be
+a child of the GPIO controller, because that's how it's controlled.
+You could also argue that it should be a child of the ethernet
+interface, since that's the main data path.
+
+> > +
+> > +- moddef0-gpio : phandle of the MOD-DEF0 (AKA Mod_ABS) module presence input
+> > +  gpio signal
+> 
+> mod-def0-gpios?
+
+It all depends on the standard you read.  Some call it MOD_DEF0, Mod-DEF0,
+Mod_ABS, and some call it MOD-DEF0.  And confusingly, some standards call
+the binary combination of the three MOD-DEF signals "MOD-DEF 0"...
+"MOD-DEF 7".  These signals come from the GBIC module era.  It's something
+of a mess.
+
+> > +
+> > +- los-gpio : phandle of the Receiver Loss of Signal Indication input gpio
+> > +  signal
+> > +
+> > +- tx-fault-gpio : phandle of the Module Transmitter Fault input gpio signal
+> > +
+> > +- tx-disable-gpio : phandle of the Transmitter Disable output gpio signal
+> > +
+> > +- rate-select-gpio : phandle of the Rx Signaling Rate Select (AKA RS0) output
+> > +  gpio
+> 
+> -gpios is the preferred form for all of these.
+
+Even if there's only _one_ - using the plural leads one to think that
+you can list many GPIOs, which is not correct here.
+
+-- 
+RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
+FTTC broadband for 0.8mile line in suburbia: sync at 8.8Mbps down 630kbps up
+According to speedtest.net: 8.21Mbps down 510kbps up
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
