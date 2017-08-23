@@ -1,66 +1,146 @@
-From: Koichiro Den <den@klaipeden.com>
-Subject: Re: [PATCH net-next] virtio-net: invoke zerocopy callback on xmit
- path if no tx napi
-Date: Wed, 23 Aug 2017 23:28:24 +0900
-Message-ID: <1503498504.8694.26.camel@klaipeden.com>
-References: <20170819063854.27010-1-den@klaipeden.com>
-         <5352c98a-fa48-fcf9-c062-9986a317a1b0@redhat.com>
-         <CAF=yD-LZ4=WAYfUtY7xRWi50FRSkrcOa+b7uc46xRnC4sbDCzQ@mail.gmail.com>
-         <64d451ae-9944-e978-5a05-54bb1a62aaad@redhat.com>
-         <20170822204015-mutt-send-email-mst@kernel.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8BIT
-Cc: Willem de Bruijn <willemdebruijn.kernel@gmail.com>,
-        virtualization@lists.linux-foundation.org,
-        Network Development <netdev@vger.kernel.org>
-To: "Michael S. Tsirkin" <mst@redhat.com>,
-        Jason Wang <jasowang@redhat.com>
+From: Himanshu Jha <himanshujha199640@gmail.com>
+Subject: [PATCH v2] at76c50x-usb: check memory allocation failure
+Date: Wed, 23 Aug 2017 19:59:16 +0530
+Message-ID: <1503498556-13835-1-git-send-email-himanshujha199640@gmail.com>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        Himanshu Jha <himanshujha199640@gmail.com>
+To: kvalo@codeaurora.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sender-of-o52.zoho.com ([135.84.80.217]:21333 "EHLO
-        sender-of-o52.zoho.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754138AbdHWO23 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2017 10:28:29 -0400
-In-Reply-To: <20170822204015-mutt-send-email-mst@kernel.org>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:35191 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932146AbdHWO3n (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2017 10:29:43 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2017-08-22 at 20:55 +0300, Michael S. Tsirkin wrote:
-> On Tue, Aug 22, 2017 at 10:50:41AM +0800, Jason Wang wrote:
-> > > Perhaps the descriptor pool should also be
-> > > revised to allow out of order completions. Then there is no need to
-> > > copy zerocopy packets whenever they may experience delay.
-> > 
-> > Yes, but as replied in the referenced thread, windows driver may treat out
-> > of order completion as a bug.
-> 
-> That would be a windows driver bug then, but I don't think it makes this
-> assumption. What the referenced thread
-> (https://patchwork.kernel.org/patch/3787671/) is saying is that host
-> must use any buffers made available on a tx vq within a reasonable
-> timeframe otherwise windows guests panic.
-> 
-> Ideally we would detect that a packet is actually experiencing delay and
-> trigger the copy at that point e.g. by calling skb_linearize. But it
-> isn't easy to track these packets though and even harder to do a data
-> copy without races.
-> 
-> Which reminds me that skb_linearize in net core seems to be
-> fundamentally racy - I suspect that if skb is cloned, and someone is
-> trying to use the shared frags while another thread calls skb_linearize,
-> we get some use after free bugs which likely mostly go undetected
-> because the corrupted packets mostly go on wire and get dropped
-> by checksum code.
-> 
-Please let me make sure if I understand it correctly:
-* always do copy with skb_orphan_frags_rx as Willem mentioned in the earlier
-post, before the xmit_skb as opposed to my original patch, is safe but too
-costly so cannot be adopted.
-* as a generic solution, if we were to somehow overcome the safety issue, track
-the delay and do copy if some threshold is reached could be an answer, but it's
-hard for now.
-* so things like the current vhost-net implementation of deciding whether or not
-to do zerocopy beforehand referring the zerocopy tx error ratio is a point of
-practical compromise.
+Check memory allocation failure and return -ENOMEM rather than just
+retuning void.
 
-Thanks.
+Signed-off-by: Himanshu Jha <himanshujha199640@gmail.com>
+---
+ drivers/net/wireless/atmel/at76c50x-usb.c | 28 ++++++++++++++--------------
+ 1 file changed, 14 insertions(+), 14 deletions(-)
+
+diff --git a/drivers/net/wireless/atmel/at76c50x-usb.c b/drivers/net/wireless/atmel/at76c50x-usb.c
+index 09defbc..ceb453b 100644
+--- a/drivers/net/wireless/atmel/at76c50x-usb.c
++++ b/drivers/net/wireless/atmel/at76c50x-usb.c
+@@ -932,7 +932,7 @@ static int at76_set_autorate_fallback(struct at76_priv *priv, int onoff)
+ 	return ret;
+ }
+ 
+-static void at76_dump_mib_mac_addr(struct at76_priv *priv)
++static int at76_dump_mib_mac_addr(struct at76_priv *priv)
+ {
+ 	int i;
+ 	int ret;
+@@ -940,7 +940,7 @@ static void at76_dump_mib_mac_addr(struct at76_priv *priv)
+ 					 GFP_KERNEL);
+ 
+ 	if (!m)
+-		return;
++		return -ENOMEM;
+ 
+ 	ret = at76_get_mib(priv->udev, MIB_MAC_ADDR, m,
+ 			   sizeof(struct mib_mac_addr));
+@@ -961,7 +961,7 @@ static void at76_dump_mib_mac_addr(struct at76_priv *priv)
+ 	kfree(m);
+ }
+ 
+-static void at76_dump_mib_mac_wep(struct at76_priv *priv)
++static int at76_dump_mib_mac_wep(struct at76_priv *priv)
+ {
+ 	int i;
+ 	int ret;
+@@ -969,7 +969,7 @@ static void at76_dump_mib_mac_wep(struct at76_priv *priv)
+ 	struct mib_mac_wep *m = kmalloc(sizeof(struct mib_mac_wep), GFP_KERNEL);
+ 
+ 	if (!m)
+-		return;
++		return -ENOMEM;
+ 
+ 	ret = at76_get_mib(priv->udev, MIB_MAC_WEP, m,
+ 			   sizeof(struct mib_mac_wep));
+@@ -999,14 +999,14 @@ static void at76_dump_mib_mac_wep(struct at76_priv *priv)
+ 	kfree(m);
+ }
+ 
+-static void at76_dump_mib_mac_mgmt(struct at76_priv *priv)
++static int at76_dump_mib_mac_mgmt(struct at76_priv *priv)
+ {
+ 	int ret;
+ 	struct mib_mac_mgmt *m = kmalloc(sizeof(struct mib_mac_mgmt),
+ 					 GFP_KERNEL);
+ 
+ 	if (!m)
+-		return;
++		return -ENOMEM;
+ 
+ 	ret = at76_get_mib(priv->udev, MIB_MAC_MGMT, m,
+ 			   sizeof(struct mib_mac_mgmt));
+@@ -1037,13 +1037,13 @@ static void at76_dump_mib_mac_mgmt(struct at76_priv *priv)
+ 	kfree(m);
+ }
+ 
+-static void at76_dump_mib_mac(struct at76_priv *priv)
++static int at76_dump_mib_mac(struct at76_priv *priv)
+ {
+ 	int ret;
+ 	struct mib_mac *m = kmalloc(sizeof(struct mib_mac), GFP_KERNEL);
+ 
+ 	if (!m)
+-		return;
++		return -ENOMEM;
+ 
+ 	ret = at76_get_mib(priv->udev, MIB_MAC, m, sizeof(struct mib_mac));
+ 	if (ret < 0) {
+@@ -1074,13 +1074,13 @@ static void at76_dump_mib_mac(struct at76_priv *priv)
+ 	kfree(m);
+ }
+ 
+-static void at76_dump_mib_phy(struct at76_priv *priv)
++static int at76_dump_mib_phy(struct at76_priv *priv)
+ {
+ 	int ret;
+ 	struct mib_phy *m = kmalloc(sizeof(struct mib_phy), GFP_KERNEL);
+ 
+ 	if (!m)
+-		return;
++		return -ENOMEM;
+ 
+ 	ret = at76_get_mib(priv->udev, MIB_PHY, m, sizeof(struct mib_phy));
+ 	if (ret < 0) {
+@@ -1107,13 +1107,13 @@ static void at76_dump_mib_phy(struct at76_priv *priv)
+ 	kfree(m);
+ }
+ 
+-static void at76_dump_mib_local(struct at76_priv *priv)
++static int at76_dump_mib_local(struct at76_priv *priv)
+ {
+ 	int ret;
+ 	struct mib_local *m = kmalloc(sizeof(*m), GFP_KERNEL);
+ 
+ 	if (!m)
+-		return;
++		return -ENOMEM;
+ 
+ 	ret = at76_get_mib(priv->udev, MIB_LOCAL, m, sizeof(*m));
+ 	if (ret < 0) {
+@@ -1132,13 +1132,13 @@ static void at76_dump_mib_local(struct at76_priv *priv)
+ 	kfree(m);
+ }
+ 
+-static void at76_dump_mib_mdomain(struct at76_priv *priv)
++static int at76_dump_mib_mdomain(struct at76_priv *priv)
+ {
+ 	int ret;
+ 	struct mib_mdomain *m = kmalloc(sizeof(struct mib_mdomain), GFP_KERNEL);
+ 
+ 	if (!m)
+-		return;
++		return -ENOMEM;
+ 
+ 	ret = at76_get_mib(priv->udev, MIB_MDOMAIN, m,
+ 			   sizeof(struct mib_mdomain));
+-- 
+2.7.4
