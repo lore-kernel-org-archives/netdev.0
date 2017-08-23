@@ -1,8 +1,8 @@
 From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [V2 PATCH net-next 2/5] xdp: make generic xdp redirect use
- tracepoint trace_xdp_redirect
-Date: Wed, 23 Aug 2017 12:15:25 +0200
-Message-ID: <150348332510.23476.1929422540621393701.stgit@firesoul>
+Subject: [V2 PATCH net-next 5/5] xdp: get tracepoints xdp_exception and
+ xdp_redirect in sync
+Date: Wed, 23 Aug 2017 12:15:40 +0200
+Message-ID: <150348334039.23476.16866879022276856834.stgit@firesoul>
 References: <150348327373.23476.14851572406177222309.stgit@firesoul>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,115 +12,55 @@ Cc: Daniel Borkmann <borkmann@iogearbox.net>,
         Jesper Dangaard Brouer <brouer@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:36206 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:60342 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753651AbdHWKP2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 23 Aug 2017 06:15:28 -0400
+        id S1753651AbdHWKPl (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 23 Aug 2017 06:15:41 -0400
 In-Reply-To: <150348327373.23476.14851572406177222309.stgit@firesoul>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If the xdp_do_generic_redirect() call fails, it trigger the
-trace_xdp_exception tracepoint.  It seems better to use the same
-tracepoint trace_xdp_redirect, as the native xdp_do_redirect{,_map} does.
+Remove the net_device string name from the xdp_exception tracepoint,
+like the xdp_redirect tracepoint.
+
+Align the TP_STRUCT to have common entries between these two
+tracepoint.
 
 Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
 ---
- include/linux/filter.h |    3 ++-
- net/core/dev.c         |    4 ++--
- net/core/filter.c      |   36 ++++++++++++++++++++++--------------
- 3 files changed, 26 insertions(+), 17 deletions(-)
+ include/trace/events/xdp.h |   12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/include/linux/filter.h b/include/linux/filter.h
-index 7015116331af..d29e58fde364 100644
---- a/include/linux/filter.h
-+++ b/include/linux/filter.h
-@@ -718,7 +718,8 @@ struct bpf_prog *bpf_patch_insn_single(struct bpf_prog *prog, u32 off,
-  * because we only track one map and force a flush when the map changes.
-  * This does not appear to be a real limitation for existing software.
-  */
--int xdp_do_generic_redirect(struct net_device *dev, struct sk_buff *skb);
-+int xdp_do_generic_redirect(struct net_device *dev, struct sk_buff *skb,
-+			    struct bpf_prog *prog);
- int xdp_do_redirect(struct net_device *dev,
- 		    struct xdp_buff *xdp,
- 		    struct bpf_prog *prog);
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 40b28e417072..270b54754821 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3953,7 +3953,8 @@ int do_xdp_generic(struct bpf_prog *xdp_prog, struct sk_buff *skb)
- 		if (act != XDP_PASS) {
- 			switch (act) {
- 			case XDP_REDIRECT:
--				err = xdp_do_generic_redirect(skb->dev, skb);
-+				err = xdp_do_generic_redirect(skb->dev, skb,
-+							      xdp_prog);
- 				if (err)
- 					goto out_redir;
- 			/* fallthru to submit skb */
-@@ -3966,7 +3967,6 @@ int do_xdp_generic(struct bpf_prog *xdp_prog, struct sk_buff *skb)
- 	}
- 	return XDP_PASS;
- out_redir:
--	trace_xdp_exception(skb->dev, xdp_prog, XDP_REDIRECT);
- 	kfree_skb(skb);
- 	return XDP_DROP;
- }
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 31c579749679..2d7cdb2c5c66 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -2582,29 +2582,37 @@ int xdp_do_redirect(struct net_device *dev, struct xdp_buff *xdp,
- }
- EXPORT_SYMBOL_GPL(xdp_do_redirect);
+diff --git a/include/trace/events/xdp.h b/include/trace/events/xdp.h
+index cd37706c6f55..27cf2ef35f5f 100644
+--- a/include/trace/events/xdp.h
++++ b/include/trace/events/xdp.h
+@@ -31,22 +31,22 @@ TRACE_EVENT(xdp_exception,
+ 	TP_ARGS(dev, xdp, act),
  
--int xdp_do_generic_redirect(struct net_device *dev, struct sk_buff *skb)
-+int xdp_do_generic_redirect(struct net_device *dev, struct sk_buff *skb,
-+			    struct bpf_prog *xdp_prog)
- {
- 	struct redirect_info *ri = this_cpu_ptr(&redirect_info);
--	unsigned int len;
- 	u32 index = ri->ifindex;
-+	struct net_device *fwd;
-+	unsigned int len;
-+	int err = 0;
+ 	TP_STRUCT__entry(
+-		__string(name, dev->name)
+ 		__array(u8, prog_tag, 8)
+ 		__field(u32, act)
++		__field(int, ifindex)
+ 	),
  
--	dev = dev_get_by_index_rcu(dev_net(dev), index);
-+	fwd = dev_get_by_index_rcu(dev_net(dev), index);
- 	ri->ifindex = 0;
--	if (unlikely(!dev)) {
--		goto err;
-+	if (unlikely(!fwd)) {
-+		err = -EINVAL;
-+		goto out;
- 	}
+ 	TP_fast_assign(
+ 		BUILD_BUG_ON(sizeof(__entry->prog_tag) != sizeof(xdp->tag));
+ 		memcpy(__entry->prog_tag, xdp->tag, sizeof(xdp->tag));
+-		__assign_str(name, dev->name);
+-		__entry->act = act;
++		__entry->act		= act;
++		__entry->ifindex	= dev->ifindex;
+ 	),
  
--	if (unlikely(!(dev->flags & IFF_UP)))
--		goto err;
-+	if (unlikely(!(fwd->flags & IFF_UP))) {
-+		err = -ENOLINK;
-+		goto out;
-+	}
+-	TP_printk("prog=%s device=%s action=%s",
++	TP_printk("prog=%s action=%s ifindex=%d",
+ 		  __print_hex_str(__entry->prog_tag, 8),
+-		  __get_str(name),
+-		  __print_symbolic(__entry->act, __XDP_ACT_SYM_TAB))
++		  __print_symbolic(__entry->act, __XDP_ACT_SYM_TAB),
++		  __entry->ifindex)
+ );
  
--	len = dev->mtu + dev->hard_header_len + VLAN_HLEN;
--	if (skb->len > len)
--		goto err;
-+	len = fwd->mtu + fwd->hard_header_len + VLAN_HLEN;
-+	if (skb->len > len) {
-+		err = -EMSGSIZE;
-+		goto out;
-+	}
- 
--	skb->dev = dev;
--	return 0;
--err:
--	return -EINVAL;
-+	skb->dev = fwd;
-+out:
-+	trace_xdp_redirect(dev, fwd, xdp_prog, XDP_REDIRECT, err);
-+	return err;
- }
- EXPORT_SYMBOL_GPL(xdp_do_generic_redirect);
- 
+ TRACE_EVENT(xdp_redirect,
