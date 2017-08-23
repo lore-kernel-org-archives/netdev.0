@@ -1,8 +1,8 @@
 From: Edward Cree via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-Subject: [PATCH v2 net-next 2/5] bpf/verifier: when pruning a
- branch, ignore its write marks
-Date: Wed, 23 Aug 2017 15:10:03 +0100
-Message-ID: <ec2ee579-8391-c023-348a-770faa6bc5c7@solarflare.com>
+Subject: [PATCH v2 net-next 3/5] selftests/bpf: add a test for
+ a pruning bug in the verifier
+Date: Wed, 23 Aug 2017 15:10:26 +0100
+Message-ID: <bbfb3545-abbd-9c9d-1632-64804d1b7cc2@solarflare.com>
 References: <f9208b68-466e-c6cb-4d0c-c567e40bdc15@solarflare.com>
 Reply-To: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
 Mime-Version: 1.0
@@ -24,48 +24,55 @@ Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
 Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-The fact that writes occurred in reaching the continuation state does
- not screen off its reads from us, because we're not really its parent.
-So detect 'not really the parent' in do_propagate_liveness, and ignore
- write marks in that case.
+From: Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>
 
-Fixes: dc503a8ad984 ("bpf/verifier: track liveness for pruning")
+The test makes a read through a map value pointer, then considers pruning
+ a branch where the register holds an adjusted map value pointer.  It
+ should not prune, but currently it does.
+
+Signed-off-by: Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>
+[ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org: added test-name and patch description]
 Signed-off-by: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
 ---
- kernel/bpf/verifier.c | 9 +++++++--
- 1 file changed, 7 insertions(+), 2 deletions(-)
+ tools/testing/selftests/bpf/test_verifier.c | 28 ++++++++++++++++++++++++++++
+ 1 file changed, 28 insertions(+)
 
-diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index e42c096..fdbaa60 100644
---- a/kernel/bpf/verifier.c
-+++ b/kernel/bpf/verifier.c
-@@ -3436,6 +3436,7 @@ static bool states_equal(struct bpf_verifier_env *env,
- static bool do_propagate_liveness(const struct bpf_verifier_state *state,
- 				  struct bpf_verifier_state *parent)
- {
-+	bool writes = parent == state->parent; /* Observe write marks */
- 	bool touched = false; /* any changes made? */
- 	int i;
+diff --git a/tools/testing/selftests/bpf/test_verifier.c b/tools/testing/selftests/bpf/test_verifier.c
+index c912734..353d170 100644
+--- a/tools/testing/selftests/bpf/test_verifier.c
++++ b/tools/testing/selftests/bpf/test_verifier.c
+@@ -6503,6 +6503,34 @@ static struct bpf_test tests[] = {
+ 		.result = REJECT,
+ 		.prog_type = BPF_PROG_TYPE_LWT_IN,
+ 	},
++	{
++		"varlen_map_value_access pruning",
++		.insns = {
++			BPF_ST_MEM(BPF_DW, BPF_REG_10, -8, 0),
++			BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -8),
++			BPF_LD_MAP_FD(BPF_REG_1, 0),
++			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0,
++				     BPF_FUNC_map_lookup_elem),
++			BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 8),
++			BPF_LDX_MEM(BPF_DW, BPF_REG_1, BPF_REG_0, 0),
++			BPF_MOV32_IMM(BPF_REG_2, MAX_ENTRIES),
++			BPF_JMP_REG(BPF_JSGT, BPF_REG_2, BPF_REG_1, 1),
++			BPF_MOV32_IMM(BPF_REG_1, 0),
++			BPF_ALU32_IMM(BPF_LSH, BPF_REG_1, 2),
++			BPF_ALU64_REG(BPF_ADD, BPF_REG_0, BPF_REG_1),
++			BPF_JMP_IMM(BPF_JA, 0, 0, 0),
++			BPF_ST_MEM(BPF_DW, BPF_REG_0, 0,
++				   offsetof(struct test_val, foo)),
++			BPF_EXIT_INSN(),
++		},
++		.fixup_map2 = { 3 },
++		.errstr_unpriv = "R0 leaks addr",
++		.errstr = "R0 unbounded memory access",
++		.result_unpriv = REJECT,
++		.result = REJECT,
++		.flags = F_NEEDS_EFFICIENT_UNALIGNED_ACCESS,
++	},
+ };
  
-@@ -3447,7 +3448,9 @@ static bool do_propagate_liveness(const struct bpf_verifier_state *state,
- 	for (i = 0; i < BPF_REG_FP; i++) {
- 		if (parent->regs[i].live & REG_LIVE_READ)
- 			continue;
--		if (state->regs[i].live == REG_LIVE_READ) {
-+		if (writes && (state->regs[i].live & REG_LIVE_WRITTEN))
-+			continue;
-+		if (state->regs[i].live & REG_LIVE_READ) {
- 			parent->regs[i].live |= REG_LIVE_READ;
- 			touched = true;
- 		}
-@@ -3460,7 +3463,9 @@ static bool do_propagate_liveness(const struct bpf_verifier_state *state,
- 			continue;
- 		if (parent->spilled_regs[i].live & REG_LIVE_READ)
- 			continue;
--		if (state->spilled_regs[i].live == REG_LIVE_READ) {
-+		if (writes && (state->spilled_regs[i].live & REG_LIVE_WRITTEN))
-+			continue;
-+		if (state->spilled_regs[i].live & REG_LIVE_READ) {
- 			parent->spilled_regs[i].live |= REG_LIVE_READ;
- 			touched = true;
- 		}
+ static int probe_filter_length(const struct bpf_insn *fp)
