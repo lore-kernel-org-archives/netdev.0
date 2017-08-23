@@ -1,212 +1,100 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCH net] sctp: Avoid out-of-bounds reads from address storage
-Date: Wed, 23 Aug 2017 14:12:16 -0300
-Message-ID: <20170823171216.GF18688@localhost.localdomain>
-References: <7763d91bcf14744e49f09fc4bec0fb22c097774f.1502384055.git.sbrivio@redhat.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH 0/2] net: Fix crashes due to activity during suspend
+Date: Wed, 23 Aug 2017 10:13:10 -0700
+Message-ID: <5a1b6f23-6fce-1a68-f9c3-ca0d709979e7@gmail.com>
+References: <1503427046-17618-1-git-send-email-geert+renesas@glider.be>
+ <757f672b-d3cf-9189-0533-cb45e325c6b8@gmail.com>
+ <CAMuHMdVMuW+5UQc3Tg5bWkix_PLEaxsoGA6sgSdVz0fV6UsO6Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, stable@vger.kernel.org,
-        Xin Long <lucien.xin@gmail.com>,
-        Vlad Yasevich <vyasevich@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>, linux-sctp@vger.kernel.org
-To: Stefano Brivio <sbrivio@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <7763d91bcf14744e49f09fc4bec0fb22c097774f.1502384055.git.sbrivio@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Geert Uytterhoeven <geert+renesas@glider.be>,
+        "David S . Miller" <davem@davemloft.net>,
+        Steve Glendinning <steve.glendinning@shawell.net>,
+        Andrew Lunn <andrew@lunn.ch>, Lukas Wunner <lukas@wunner.de>,
+        "Rafael J . Wysocki" <rafael.j.wysocki@intel.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Linux PM list <linux-pm@vger.kernel.org>,
+        Linux-Renesas <linux-renesas-soc@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Geert Uytterhoeven <geert@linux-m68k.org>,
+        marc_gonzalez@sigmadesigns.com, slash.tmp@free.fr, andrew@lunn.ch
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <CAMuHMdVMuW+5UQc3Tg5bWkix_PLEaxsoGA6sgSdVz0fV6UsO6Q@mail.gmail.com>
+Content-Language: en-US
+Sender: linux-renesas-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 23, 2017 at 01:27:13PM +0200, Stefano Brivio wrote:
-> inet_diag_msg_sctp{,l}addr_fill() and sctp_get_sctp_info() copy
-> sizeof(sockaddr_storage) bytes to fill in sockaddr structs used
-> to export diagnostic information to userspace.
+On 08/23/2017 04:45 AM, Geert Uytterhoeven wrote:
+> Hi Florian,
 > 
-> However, the memory allocated to store sockaddr information is
-> smaller than that and depends on the address family, so we leak
-> up to 100 uninitialized bytes to userspace. Just use the size of
-> the source structs instead, in all the three cases this is what
-> userspace expects. Zero out the remaining memory.
+> On Tue, Aug 22, 2017 at 8:49 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+>> On 08/22/2017 11:37 AM, Geert Uytterhoeven wrote:
+>>> If an Ethernet device is used while the device is suspended, the system may
+>>> crash.
+>>>
+>>> E.g. on sh73a0/kzm9g and r8a73a4/ape6evm, the external Ethernet chip is
+>>> driven by a PM controlled clock.  If the Ethernet registers are accessed
+>>> while the clock is not running, the system will crash with an imprecise
+>>> external abort.
+>>>
+>>> This patch series fixes two of such crashes:
+>>>   1. The first patch prevents the PHY polling state machine from accessing
+>>>      PHY registers while a device is suspended,
+>>>   2. The second patch prevents the net core from trying to transmit packets
+>>>      when an smsc911x device is suspended.
+>>>
+>>> Both crashes can be reproduced on sh73a0/kzm9g and r8a73a4/ape6evm during
+>>> s2ram (rarely), or by using pm_test (more likely to trigger):
+>>>
+>>>     # echo 0 > /sys/module/printk/parameters/console_suspend
+>>>     # echo platform > /sys/power/pm_test
+>>>     # echo mem > /sys/power/state
+>>>
+>>> With this series applied, my test systems survive a loop of 100 test
+>>> suspends.
+>>
+>> It seems to me like part, if not the entire problem is that smsc91xx's
+>> suspend and resume functions are way too simplistic and absolutely do
+>> not manage the PHY during suspend/resume, the PHY state machine is not
+>> even stopped, so of course, this will cause bus errors if you access
+>> those registers.
+>>
+>> You are addressing this as part of patch 2, but this seems to me like
+>> this is still a bit incomplete and you'd need at least phy_stop() and/or
+>> phy_suspend() (does a power down of the PHY) and phy_start() and/or
+>> phy_resume() calls to complete the PHY state machine shutdown during
+>> suspend.
+>>
+>> Have you tried that?
 > 
-> Unused bytes (i.e. when IPv4 addresses are used) in source
-> structs sctp_sockaddr_entry and sctp_transport are already
-> cleared by sctp_add_bind_addr() and sctp_transport_new(),
-> respectively.
-> 
-> Noticed while testing KASAN-enabled kernel with 'ss':
-> 
-> [ 2326.885243] BUG: KASAN: slab-out-of-bounds in inet_sctp_diag_fill+0x42c/0x6c0 [sctp_diag] at addr ffff881be8779800
-> [ 2326.896800] Read of size 128 by task ss/9527
-> [ 2326.901564] CPU: 0 PID: 9527 Comm: ss Not tainted 4.11.0-22.el7a.x86_64 #1
-> [ 2326.909236] Hardware name: Dell Inc. PowerEdge R730/072T6D, BIOS 2.4.3 01/17/2017
-> [ 2326.917585] Call Trace:
-> [ 2326.920312]  dump_stack+0x63/0x8d
-> [ 2326.924014]  kasan_object_err+0x21/0x70
-> [ 2326.928295]  kasan_report+0x288/0x540
-> [ 2326.932380]  ? inet_sctp_diag_fill+0x42c/0x6c0 [sctp_diag]
-> [ 2326.938500]  ? skb_put+0x8b/0xd0
-> [ 2326.942098]  ? memset+0x31/0x40
-> [ 2326.945599]  check_memory_region+0x13c/0x1a0
-> [ 2326.950362]  memcpy+0x23/0x50
-> [ 2326.953669]  inet_sctp_diag_fill+0x42c/0x6c0 [sctp_diag]
-> [ 2326.959596]  ? inet_diag_msg_sctpasoc_fill+0x460/0x460 [sctp_diag]
-> [ 2326.966495]  ? __lock_sock+0x102/0x150
-> [ 2326.970671]  ? sock_def_wakeup+0x60/0x60
-> [ 2326.975048]  ? remove_wait_queue+0xc0/0xc0
-> [ 2326.979619]  sctp_diag_dump+0x44a/0x760 [sctp_diag]
-> [ 2326.985063]  ? sctp_ep_dump+0x280/0x280 [sctp_diag]
-> [ 2326.990504]  ? memset+0x31/0x40
-> [ 2326.994007]  ? mutex_lock+0x12/0x40
-> [ 2326.997900]  __inet_diag_dump+0x57/0xb0 [inet_diag]
-> [ 2327.003340]  ? __sys_sendmsg+0x150/0x150
-> [ 2327.007715]  inet_diag_dump+0x4d/0x80 [inet_diag]
-> [ 2327.012979]  netlink_dump+0x1e6/0x490
-> [ 2327.017064]  __netlink_dump_start+0x28e/0x2c0
-> [ 2327.021924]  inet_diag_handler_cmd+0x189/0x1a0 [inet_diag]
-> [ 2327.028045]  ? inet_diag_rcv_msg_compat+0x1b0/0x1b0 [inet_diag]
-> [ 2327.034651]  ? inet_diag_dump_compat+0x190/0x190 [inet_diag]
-> [ 2327.040965]  ? __netlink_lookup+0x1b9/0x260
-> [ 2327.045631]  sock_diag_rcv_msg+0x18b/0x1e0
-> [ 2327.050199]  netlink_rcv_skb+0x14b/0x180
-> [ 2327.054574]  ? sock_diag_bind+0x60/0x60
-> [ 2327.058850]  sock_diag_rcv+0x28/0x40
-> [ 2327.062837]  netlink_unicast+0x2e7/0x3b0
-> [ 2327.067212]  ? netlink_attachskb+0x330/0x330
-> [ 2327.071975]  ? kasan_check_write+0x14/0x20
-> [ 2327.076544]  netlink_sendmsg+0x5be/0x730
-> [ 2327.080918]  ? netlink_unicast+0x3b0/0x3b0
-> [ 2327.085486]  ? kasan_check_write+0x14/0x20
-> [ 2327.090057]  ? selinux_socket_sendmsg+0x24/0x30
-> [ 2327.095109]  ? netlink_unicast+0x3b0/0x3b0
-> [ 2327.099678]  sock_sendmsg+0x74/0x80
-> [ 2327.103567]  ___sys_sendmsg+0x520/0x530
-> [ 2327.107844]  ? __get_locked_pte+0x178/0x200
-> [ 2327.112510]  ? copy_msghdr_from_user+0x270/0x270
-> [ 2327.117660]  ? vm_insert_page+0x360/0x360
-> [ 2327.122133]  ? vm_insert_pfn_prot+0xb4/0x150
-> [ 2327.126895]  ? vm_insert_pfn+0x32/0x40
-> [ 2327.131077]  ? vvar_fault+0x71/0xd0
-> [ 2327.134968]  ? special_mapping_fault+0x69/0x110
-> [ 2327.140022]  ? __do_fault+0x42/0x120
-> [ 2327.144008]  ? __handle_mm_fault+0x1062/0x17a0
-> [ 2327.148965]  ? __fget_light+0xa7/0xc0
-> [ 2327.153049]  __sys_sendmsg+0xcb/0x150
-> [ 2327.157133]  ? __sys_sendmsg+0xcb/0x150
-> [ 2327.161409]  ? SyS_shutdown+0x140/0x140
-> [ 2327.165688]  ? exit_to_usermode_loop+0xd0/0xd0
-> [ 2327.170646]  ? __do_page_fault+0x55d/0x620
-> [ 2327.175216]  ? __sys_sendmsg+0x150/0x150
-> [ 2327.179591]  SyS_sendmsg+0x12/0x20
-> [ 2327.183384]  do_syscall_64+0xe3/0x230
-> [ 2327.187471]  entry_SYSCALL64_slow_path+0x25/0x25
-> [ 2327.192622] RIP: 0033:0x7f41d18fa3b0
-> [ 2327.196608] RSP: 002b:00007ffc3b731218 EFLAGS: 00000246 ORIG_RAX: 000000000000002e
-> [ 2327.205055] RAX: ffffffffffffffda RBX: 00007ffc3b731380 RCX: 00007f41d18fa3b0
-> [ 2327.213017] RDX: 0000000000000000 RSI: 00007ffc3b731340 RDI: 0000000000000003
-> [ 2327.220978] RBP: 0000000000000002 R08: 0000000000000004 R09: 0000000000000040
-> [ 2327.228939] R10: 00007ffc3b730f30 R11: 0000000000000246 R12: 0000000000000003
-> [ 2327.236901] R13: 00007ffc3b731340 R14: 00007ffc3b7313d0 R15: 0000000000000084
-> [ 2327.244865] Object at ffff881be87797e0, in cache kmalloc-64 size: 64
-> [ 2327.251953] Allocated:
-> [ 2327.254581] PID = 9484
-> [ 2327.257215]  save_stack_trace+0x1b/0x20
-> [ 2327.261485]  save_stack+0x46/0xd0
-> [ 2327.265179]  kasan_kmalloc+0xad/0xe0
-> [ 2327.269165]  kmem_cache_alloc_trace+0xe6/0x1d0
-> [ 2327.274138]  sctp_add_bind_addr+0x58/0x180 [sctp]
-> [ 2327.279400]  sctp_do_bind+0x208/0x310 [sctp]
-> [ 2327.284176]  sctp_bind+0x61/0xa0 [sctp]
-> [ 2327.288455]  inet_bind+0x5f/0x3a0
-> [ 2327.292151]  SYSC_bind+0x1a4/0x1e0
-> [ 2327.295944]  SyS_bind+0xe/0x10
-> [ 2327.299349]  do_syscall_64+0xe3/0x230
-> [ 2327.303433]  return_from_SYSCALL_64+0x0/0x6a
-> [ 2327.308194] Freed:
-> [ 2327.310434] PID = 4131
-> [ 2327.313065]  save_stack_trace+0x1b/0x20
-> [ 2327.317344]  save_stack+0x46/0xd0
-> [ 2327.321040]  kasan_slab_free+0x73/0xc0
-> [ 2327.325220]  kfree+0x96/0x1a0
-> [ 2327.328530]  dynamic_kobj_release+0x15/0x40
-> [ 2327.333195]  kobject_release+0x99/0x1e0
-> [ 2327.337472]  kobject_put+0x38/0x70
-> [ 2327.341266]  free_notes_attrs+0x66/0x80
-> [ 2327.345545]  mod_sysfs_teardown+0x1a5/0x270
-> [ 2327.350211]  free_module+0x20/0x2a0
-> [ 2327.354099]  SyS_delete_module+0x2cb/0x2f0
-> [ 2327.358667]  do_syscall_64+0xe3/0x230
-> [ 2327.362750]  return_from_SYSCALL_64+0x0/0x6a
-> [ 2327.367510] Memory state around the buggy address:
-> [ 2327.372855]  ffff881be8779700: fc fc fc fc 00 00 00 00 00 00 00 00 fc fc fc fc
-> [ 2327.380914]  ffff881be8779780: fb fb fb fb fb fb fb fb fc fc fc fc 00 00 00 00
-> [ 2327.388972] >ffff881be8779800: 00 00 00 00 fc fc fc fc fb fb fb fb fb fb fb fb
-> [ 2327.397031]                                ^
-> [ 2327.401792]  ffff881be8779880: fc fc fc fc fb fb fb fb fb fb fb fb fc fc fc fc
-> [ 2327.409850]  ffff881be8779900: 00 00 00 00 00 04 fc fc fc fc fc fc 00 00 00 00
-> [ 2327.417907] ==================================================================
-> 
-> This fixes CVE-2017-7558.
-> 
-> References: https://bugzilla.redhat.com/show_bug.cgi?id=1480266
-> Fixes: 8f840e47f190 ("sctp: add the sctp_diag.c file")
-> Cc: <stable@vger.kernel.org> # 4.7+
-> Cc: Xin Long <lucien.xin@gmail.com>
-> Cc: Vlad Yasevich <vyasevich@gmail.com>
-> Cc: Neil Horman <nhorman@tuxdriver.com>
-> Signed-off-by: Stefano Brivio <sbrivio@redhat.com>
+> Unfortunately that doesn't help.
+> In state PHY_HALTED, the PHY state machine still calls the .adjust_link()
+> callback while the device is suspended.
 
-Thanks Stefano.
-Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Humm that is correct yes.
 
-> ---
->  net/sctp/sctp_diag.c | 7 +++++--
->  net/sctp/socket.c    | 3 +--
->  2 files changed, 6 insertions(+), 4 deletions(-)
 > 
-> diff --git a/net/sctp/sctp_diag.c b/net/sctp/sctp_diag.c
-> index 9a647214a91e..e99518e79b52 100644
-> --- a/net/sctp/sctp_diag.c
-> +++ b/net/sctp/sctp_diag.c
-> @@ -70,7 +70,8 @@ static int inet_diag_msg_sctpladdrs_fill(struct sk_buff *skb,
->  
->  	info = nla_data(attr);
->  	list_for_each_entry_rcu(laddr, address_list, list) {
-> -		memcpy(info, &laddr->a, addrlen);
-> +		memcpy(info, &laddr->a, sizeof(laddr->a));
-> +		memset(info + sizeof(laddr->a), 0, addrlen - sizeof(laddr->a));
->  		info += addrlen;
->  	}
->  
-> @@ -93,7 +94,9 @@ static int inet_diag_msg_sctpaddrs_fill(struct sk_buff *skb,
->  	info = nla_data(attr);
->  	list_for_each_entry(from, &asoc->peer.transport_addr_list,
->  			    transports) {
-> -		memcpy(info, &from->ipaddr, addrlen);
-> +		memcpy(info, &from->ipaddr, sizeof(from->ipaddr));
-> +		memset(info + sizeof(from->ipaddr), 0,
-> +		       addrlen - sizeof(from->ipaddr));
->  		info += addrlen;
->  	}
->  
-> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-> index 1db478e34520..8d760863bc41 100644
-> --- a/net/sctp/socket.c
-> +++ b/net/sctp/socket.c
-> @@ -4538,8 +4538,7 @@ int sctp_get_sctp_info(struct sock *sk, struct sctp_association *asoc,
->  	info->sctpi_ictrlchunks = asoc->stats.ictrlchunks;
->  
->  	prim = asoc->peer.primary_path;
-> -	memcpy(&info->sctpi_p_address, &prim->ipaddr,
-> -	       sizeof(struct sockaddr_storage));
-> +	memcpy(&info->sctpi_p_address, &prim->ipaddr, sizeof(prim->ipaddr));
->  	info->sctpi_p_state = prim->state;
->  	info->sctpi_p_cwnd = prim->cwnd;
->  	info->sctpi_p_srtt = prim->srtt;
-> -- 
-> 2.9.4
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+> Do you have a clue? This is too far beyond my phy-foo...
+
+I was initially contemplating a revert of
+7ad813f208533cebfcc32d3d7474dc1677d1b09a ("net: phy: Correctly process
+PHY_HALTED in phy_stop_machine()") but this is not the root of the
+problem. The problem really is that phy_stop() does not wait for the PHY
+state machine to be stopped so you cannot rely on that and past the
+function return be offered any guarantees that adjust_link is not called.
+
+We seem to be getting away with that in most drivers because when we see
+phydev->link = 0, we either do nothing or actually turn of the HW block.
+
+How about we export phy_stop_machine() to drivers which would provide a
+synchronization point that would ensure that no HW accesses are done
+past this point?
+
+I am absolutely not clear on the implications of using a freezable
+workqueue with respect to the PHY state machine and how devices are
+going to wind-up being powered down or not...
+
+Thanks!
+-- 
+Florian
