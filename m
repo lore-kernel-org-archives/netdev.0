@@ -1,43 +1,39 @@
-From: Arvind Yadav <arvind.yadav.cs@gmail.com>
-Subject: [PATCH 3/3] net: rsi: netlink: constify genl_ops
-Date: Wed, 23 Aug 2017 15:29:35 +0530
-Message-ID: <1503482375-19983-4-git-send-email-arvind.yadav.cs@gmail.com>
+From: Arvind Yadav <arvind.yadav.cs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH 1/3] net: rtlwifi: constify rate_control_ops
+Date: Wed, 23 Aug 2017 15:29:33 +0530
+Message-ID: <1503482375-19983-2-git-send-email-arvind.yadav.cs@gmail.com>
 References: <1503482375-19983-1-git-send-email-arvind.yadav.cs@gmail.com>
-Cc: linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org
-To: davem@davemloft.net, Larry.Finger@lwfinger.net,
-        chaoming_li@realsil.com.cn, kvalo@codeaurora.org,
-        jon.maloy@ericsson.com, ying.xue@windriver.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:36844 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753677AbdHWKAG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2017 06:00:06 -0400
-In-Reply-To: <1503482375-19983-1-git-send-email-arvind.yadav.cs@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org,
+        chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org, kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
+        jon.maloy-IzeFyvvaP7pWk0Htik3J/w@public.gmane.org, ying.xue-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1503482375-19983-1-git-send-email-arvind.yadav.cs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-genl_ops are not supposed to change at runtime. All functions
-working with genl_ops provided by <net/genetlink.h> work with
-const genl_ops. So mark the non-const structs as const.
+rate_control_ops are not supposed to change at runtime. All functions
+working with rate_control_ops provided by <net/mac80211.h> work with
+const rate_control_ops. So mark the non-const structs as const.
 
-Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
+Signed-off-by: Arvind Yadav <arvind.yadav.cs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- net/tipc/netlink_compat.c | 2 +-
+ drivers/net/wireless/realtek/rtlwifi/rc.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/tipc/netlink_compat.c b/net/tipc/netlink_compat.c
-index 750949d..e48f0b2 100644
---- a/net/tipc/netlink_compat.c
-+++ b/net/tipc/netlink_compat.c
-@@ -1217,7 +1217,7 @@ static int tipc_nl_compat_recv(struct sk_buff *skb, struct genl_info *info)
- 	return err;
+diff --git a/drivers/net/wireless/realtek/rtlwifi/rc.c b/drivers/net/wireless/realtek/rtlwifi/rc.c
+index 951d257..02811ed 100644
+--- a/drivers/net/wireless/realtek/rtlwifi/rc.c
++++ b/drivers/net/wireless/realtek/rtlwifi/rc.c
+@@ -283,7 +283,7 @@ static void rtl_rate_free_sta(void *rtlpriv,
+ 	kfree(rate_priv);
  }
  
--static struct genl_ops tipc_genl_compat_ops[] = {
-+static const struct genl_ops tipc_genl_compat_ops[] = {
- 	{
- 		.cmd		= TIPC_GENL_CMD,
- 		.doit		= tipc_nl_compat_recv,
+-static struct rate_control_ops rtl_rate_ops = {
++static const struct rate_control_ops rtl_rate_ops = {
+ 	.name = "rtl_rc",
+ 	.alloc = rtl_rate_alloc,
+ 	.free = rtl_rate_free,
 -- 
 1.9.1
