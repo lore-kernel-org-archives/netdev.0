@@ -1,125 +1,164 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net-next] ipv4: do metrics match when looking up and deleting a route
-Date: Wed, 23 Aug 2017 10:07:26 +0800
-Message-ID: <63b0473e7248f4931d46c45ac64e63b07bea6eeb.1503454046.git.lucien.xin@gmail.com>
-Cc: davem@davemloft.net,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: network dev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:32856 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753036AbdHWCHf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 22 Aug 2017 22:07:35 -0400
-Received: by mail-pf0-f196.google.com with SMTP id x137so366697pfd.0
-        for <netdev@vger.kernel.org>; Tue, 22 Aug 2017 19:07:35 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH net-next v7 02/10] bpf: Add eBPF program subtype and
+ is_valid_subtype() verifier
+Date: Tue, 22 Aug 2017 19:44:53 -0700
+Message-ID: <20170823024452.zvizovwfd7xjucsx@ast-mbp>
+References: <20170821000933.13024-1-mic@digikod.net>
+ <20170821000933.13024-3-mic@digikod.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org, Alexei Starovoitov <ast@kernel.org>,
+        Andy Lutomirski <luto@amacapital.net>,
+        Arnaldo Carvalho de Melo <acme@kernel.org>,
+        Casey Schaufler <casey@schaufler-ca.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        David Drysdale <drysdale@google.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        "Eric W . Biederman" <ebiederm@xmission.com>,
+        James Morris <james.l.morris@oracle.com>,
+        Jann Horn <jann@thejh.net>, Jonathan Corbet <corbet@lwn.net>,
+        Matthew Garrett <mjg59@srcf.ucam.org>,
+        Michael Kerrisk <mtk.manpages@gmail.com>,
+        Kees Cook <keescook@chromium.org>,
+        Paul Moore <paul@paul-moore.com>,
+        Sargun Dhillon <sargun@sargun.me>,
+        "Serge E . Hallyn" <serge@hallyn.com>,
+        Shuah Khan <shuah@kernel.org>, Tejun Heo <tj@kernel.org>,
+        Thomas Graf <tgr
+To: =?iso-8859-1?Q?Micka=EBl_Sala=FCn?= <mic@digikod.net>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170821000933.13024-3-mic@digikod.net>
+Sender: owner-linux-security-module@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Now when ipv4 route inserts a fib_info, it memcmp fib_metrics.
-It means ipv4 route identifies one route also with metrics.
+On Mon, Aug 21, 2017 at 02:09:25AM +0200, Mickaël Salaün wrote:
+> The goal of the program subtype is to be able to have different static
+> fine-grained verifications for a unique program type.
+> 
+> The struct bpf_verifier_ops gets a new optional function:
+> is_valid_subtype(). This new verifier is called at the beginning of the
+> eBPF program verification to check if the (optional) program subtype is
+> valid.
+> 
+> For now, only Landlock eBPF programs are using a program subtype (see
+> next commit) but this could be used by other program types in the future.
+> 
+> Signed-off-by: Mickaël Salaün <mic@digikod.net>
+> Cc: Alexei Starovoitov <ast@kernel.org>
+> Cc: Arnaldo Carvalho de Melo <acme@kernel.org>
+> Cc: Daniel Borkmann <daniel@iogearbox.net>
+> Cc: David S. Miller <davem@davemloft.net>
+> Link: https://lkml.kernel.org/r/20160827205559.GA43880@ast-mbp.thefacebook.com
+> ---
+> 
+> Changes since v6:
+> * rename Landlock version to ABI to better reflect its purpose
+> * fix unsigned integer checks
+> * fix pointer cast
+> * constify pointers
+> * rebase
+> 
+> Changes since v5:
+> * use a prog_subtype pointer and make it future-proof
+> * add subtype test
+> * constify bpf_load_program()'s subtype argument
+> * cleanup subtype initialization
+> * rebase
+> 
+> Changes since v4:
+> * replace the "status" field with "version" (more generic)
+> * replace the "access" field with "ability" (less confusing)
+> 
+> Changes since v3:
+> * remove the "origin" field
+> * add an "option" field
+> * cleanup comments
+> ---
+>  include/linux/bpf.h                         |  7 ++-
+>  include/linux/filter.h                      |  2 +
+>  include/uapi/linux/bpf.h                    | 11 +++++
+>  kernel/bpf/syscall.c                        | 22 ++++++++-
+>  kernel/bpf/verifier.c                       | 17 +++++--
+>  kernel/trace/bpf_trace.c                    | 15 ++++--
+>  net/core/filter.c                           | 71 ++++++++++++++++++-----------
+>  samples/bpf/bpf_load.c                      |  3 +-
+>  samples/bpf/cookie_uid_helper_example.c     |  2 +-
+>  samples/bpf/fds_example.c                   |  2 +-
+>  samples/bpf/sock_example.c                  |  3 +-
+>  samples/bpf/test_cgrp2_attach.c             |  2 +-
+>  samples/bpf/test_cgrp2_attach2.c            |  2 +-
+>  samples/bpf/test_cgrp2_sock.c               |  2 +-
+>  tools/include/uapi/linux/bpf.h              | 11 +++++
+>  tools/lib/bpf/bpf.c                         | 10 +++-
+>  tools/lib/bpf/bpf.h                         |  5 +-
+>  tools/lib/bpf/libbpf.c                      |  4 +-
+>  tools/perf/tests/bpf.c                      |  2 +-
+>  tools/testing/selftests/bpf/test_align.c    |  2 +-
+>  tools/testing/selftests/bpf/test_tag.c      |  2 +-
+>  tools/testing/selftests/bpf/test_verifier.c | 17 ++++++-
+>  22 files changed, 158 insertions(+), 56 deletions(-)
 
-But when removing a route, it tries to find the route without
-caring about the metrics. It will cause that the route with
-right metrics can't be removed.
+...
 
-Thomas noticed this issue when doing the testing:
+> diff --git a/include/linux/filter.h b/include/linux/filter.h
+> index 7015116331af..0c3fadbb5a58 100644
+> --- a/include/linux/filter.h
+> +++ b/include/linux/filter.h
+> @@ -464,6 +464,8 @@ struct bpf_prog {
+>  	u32			len;		/* Number of filter blocks */
+>  	u32			jited_len;	/* Size of jited insns in bytes */
+>  	u8			tag[BPF_TAG_SIZE];
+> +	u8			has_subtype;
+> +	union bpf_prog_subtype	subtype;	/* Fine-grained verifications */
 
-1. add:
-   # ip route append 192.168.7.0/24 dev v window 1000
-   # ip route append 192.168.7.0/24 dev v window 1001
-   # ip route append 192.168.7.0/24 dev v window 1002
-   # ip route append 192.168.7.0/24 dev v window 1003
-2. delete:
-   # ip route delete 192.168.7.0/24 dev v window 1002
-3. show:
-     192.168.7.0/24 proto boot scope link window 1001
-     192.168.7.0/24 proto boot scope link window 1002
-     192.168.7.0/24 proto boot scope link window 1003
+these burn a hole in very performance sensitive structure.
+Also there are bits rigth above. use them instead of u8 has_subtype?
+or can these two fields be part of bpf_prog_aux ?
 
-The one with window 1002 wasn't deleted but the first one was.
+>  	struct bpf_prog_aux	*aux;		/* Auxiliary fields */
+>  	struct sock_fprog_kern	*orig_prog;	/* Original BPF program */
+>  	unsigned int		(*bpf_func)(const void *ctx,
+> diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+> index 843818dff96d..8541ab85e432 100644
+> --- a/include/uapi/linux/bpf.h
+> +++ b/include/uapi/linux/bpf.h
+> @@ -177,6 +177,15 @@ enum bpf_attach_type {
+>  /* Specify numa node during map creation */
+>  #define BPF_F_NUMA_NODE		(1U << 2)
+>  
+> +union bpf_prog_subtype {
+> +	struct {
+> +		__u32		abi; /* minimal ABI version, cf. user doc */
 
-This patch is to do metrics match when looking up and deleting
-one route.
+the concept of abi (version) sounds a bit weird to me.
+Why bother with it at all?
+Once the first set of patches lands the kernel as whole will have landlock feature
+with a set of helpers, actions, event types.
+Some future patches will extend the landlock feature step by step.
+This abi concept assumes that anyone who adds new helper would need
+to keep incrementing this 'abi'. What value does it give to user or to kernel?
+The users will already know that landlock is present in kernel 4.14 or whatever
+and the kernel 4.18 has more landlock features. Why bother with extra abi number?
 
-Reported-by: Thomas Haller <thaller@redhat.com>
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
- net/ipv4/fib_lookup.h    |  1 +
- net/ipv4/fib_semantics.c | 34 ++++++++++++++++++++++++++++++++++
- net/ipv4/fib_trie.c      |  3 ++-
- 3 files changed, 37 insertions(+), 1 deletion(-)
+> +		__u32		event; /* enum landlock_subtype_event */
+> +		__aligned_u64	ability; /* LANDLOCK_SUBTYPE_ABILITY_* */
+> +		__aligned_u64	option; /* LANDLOCK_SUBTYPE_OPTION_* */
+> +	} landlock_rule;
+> +} __attribute__((aligned(8)));
+> +
+>  union bpf_attr {
+>  	struct { /* anonymous struct used by BPF_MAP_CREATE command */
+>  		__u32	map_type;	/* one of enum bpf_map_type */
+> @@ -212,6 +221,8 @@ union bpf_attr {
+>  		__aligned_u64	log_buf;	/* user supplied buffer */
+>  		__u32		kern_version;	/* checked when prog_type=kprobe */
+>  		__u32		prog_flags;
+> +		__aligned_u64	prog_subtype;	/* bpf_prog_subtype address */
+> +		__u32		prog_subtype_size;
+>  	};
 
-diff --git a/net/ipv4/fib_lookup.h b/net/ipv4/fib_lookup.h
-index 769ab87..5b2af19 100644
---- a/net/ipv4/fib_lookup.h
-+++ b/net/ipv4/fib_lookup.h
-@@ -32,6 +32,7 @@ struct fib_info *fib_create_info(struct fib_config *cfg,
- 				 struct netlink_ext_ack *extack);
- int fib_nh_match(struct fib_config *cfg, struct fib_info *fi,
- 		 struct netlink_ext_ack *extack);
-+bool fib_metrics_match(struct fib_config *cfg, struct fib_info *fi);
- int fib_dump_info(struct sk_buff *skb, u32 pid, u32 seq, int event, u32 tb_id,
- 		  u8 type, __be32 dst, int dst_len, u8 tos, struct fib_info *fi,
- 		  unsigned int);
-diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-index 394d800..57a5d48 100644
---- a/net/ipv4/fib_semantics.c
-+++ b/net/ipv4/fib_semantics.c
-@@ -696,6 +696,40 @@ int fib_nh_match(struct fib_config *cfg, struct fib_info *fi,
- 	return 0;
- }
- 
-+bool fib_metrics_match(struct fib_config *cfg, struct fib_info *fi)
-+{
-+	struct nlattr *nla;
-+	int remaining;
-+
-+	if (!cfg->fc_mx)
-+		return true;
-+
-+	nla_for_each_attr(nla, cfg->fc_mx, cfg->fc_mx_len, remaining) {
-+		int type = nla_type(nla);
-+		u32 val;
-+
-+		if (!type)
-+			continue;
-+		if (type > RTAX_MAX)
-+			return false;
-+
-+		if (type == RTAX_CC_ALGO) {
-+			char tmp[TCP_CA_NAME_MAX];
-+			bool ecn_ca = false;
-+
-+			nla_strlcpy(tmp, nla, sizeof(tmp));
-+			val = tcp_ca_get_key_by_name(tmp, &ecn_ca);
-+		} else {
-+			val = nla_get_u32(nla);
-+		}
-+
-+		if (fi->fib_metrics->metrics[type - 1] != val)
-+			return false;
-+	}
-+
-+	return true;
-+}
-+
- 
- /*
-  * Picture
-diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-index 1a6ffb0..c636650 100644
---- a/net/ipv4/fib_trie.c
-+++ b/net/ipv4/fib_trie.c
-@@ -1563,7 +1563,8 @@ int fib_table_delete(struct net *net, struct fib_table *tb,
- 		     fi->fib_prefsrc == cfg->fc_prefsrc) &&
- 		    (!cfg->fc_protocol ||
- 		     fi->fib_protocol == cfg->fc_protocol) &&
--		    fib_nh_match(cfg, fi, extack) == 0) {
-+		    fib_nh_match(cfg, fi, extack) == 0 &&
-+		    fib_metrics_match(cfg, fi)) {
- 			fa_to_delete = fa;
- 			break;
- 		}
--- 
-2.1.0
+more general question: what is the status of security/ bits?
+I'm assuming they still need to be reviewed and explicitly acked by James, right?
+
