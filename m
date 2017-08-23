@@ -1,148 +1,115 @@
-From: Edward Cree via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-Subject: [PATCH v2 net-next 4/5] bpf/verifier: remove
- varlen_map_value_access flag
-Date: Wed, 23 Aug 2017 15:10:50 +0100
-Message-ID: <34d97e19-2de8-d336-ba13-77d3b02c5f20@solarflare.com>
+From: Edward Cree <ecree@solarflare.com>
+Subject: [PATCH v2 net-next 5/5] bpf/verifier: document liveness analysis
+Date: Wed, 23 Aug 2017 15:11:21 +0100
+Message-ID: <3d4870a2-d7ee-2ac0-aaed-a9faeae89b9e@solarflare.com>
 References: <f9208b68-466e-c6cb-4d0c-c567e40bdc15@solarflare.com>
-Reply-To: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-To: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>, Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
-Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-In-Reply-To: <f9208b68-466e-c6cb-4d0c-c567e40bdc15-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
-List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
-List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
-Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>,
+        iovisor-dev <iovisor-dev@lists.iovisor.org>
+To: <davem@davemloft.net>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Alexei Starovoitov <ast@fb.com>,
+        Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dispatch1-us1.ppe-hosted.com ([67.231.154.164]:40115 "EHLO
+        dispatch1-us1.ppe-hosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1754001AbdHWOLr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2017 10:11:47 -0400
+In-Reply-To: <f9208b68-466e-c6cb-4d0c-c567e40bdc15@solarflare.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The optimisation it does is broken when the 'new' register value has a
- variable offset and the 'old' was constant.  I broke it with my pointer
- types unification (see Fixes tag below), before which the 'new' value
- would have type PTR_TO_MAP_VALUE_ADJ and would thus not compare equal;
- other changes in that patch mean that its original behaviour (ignore
- min/max values) cannot be restored.
-Tests on a sample set of cilium programs show no change in count of
- processed instructions.
+The liveness tracking algorithm is quite subtle; add comments to explain it.
 
-Fixes: f1174f77b50c ("bpf/verifier: rework value tracking")
-Signed-off-by: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+Signed-off-by: Edward Cree <ecree@solarflare.com>
 ---
- include/linux/bpf_verifier.h |  1 -
- kernel/bpf/verifier.c        | 41 ++++++++++++-----------------------------
- 2 files changed, 12 insertions(+), 30 deletions(-)
+ include/linux/bpf_verifier.h | 13 +++++++++++++
+ kernel/bpf/verifier.c        | 28 +++++++++++++++++++++++++++-
+ 2 files changed, 40 insertions(+), 1 deletion(-)
 
 diff --git a/include/linux/bpf_verifier.h b/include/linux/bpf_verifier.h
-index 91d07ef..d8f131a 100644
+index d8f131a..b8d200f 100644
 --- a/include/linux/bpf_verifier.h
 +++ b/include/linux/bpf_verifier.h
-@@ -125,7 +125,6 @@ struct bpf_verifier_env {
- 	u32 id_gen;			/* used to generate unique reg IDs */
- 	bool allow_ptr_leaks;
- 	bool seen_direct_write;
--	bool varlen_map_value_access;
- 	struct bpf_insn_aux_data *insn_aux_data; /* array of per-insn state */
- };
+@@ -21,6 +21,19 @@
+  */
+ #define BPF_MAX_VAR_SIZ	INT_MAX
  
++/* Liveness marks, used for registers and spilled-regs (in stack slots).
++ * Read marks propagate upwards until they find a write mark; they record that
++ * "one of this state's descendants read this reg" (and therefore the reg is
++ * relevant for states_equal() checks).
++ * Write marks collect downwards and do not propagate; they record that "the
++ * straight-line code that reached this state (from its parent) wrote this reg"
++ * (and therefore that reads propagated from this state or its descendants
++ * should not propagate to its parent).
++ * A state with a write mark can receive read marks; it just won't propagate
++ * them to its parent, since the write mark is a property, not of the state,
++ * but of the link between it and its parent.  See mark_reg_read() and
++ * mark_stack_slot_read() in kernel/bpf/verifier.c.
++ */
+ enum bpf_reg_liveness {
+ 	REG_LIVE_NONE = 0, /* reg hasn't been read or written this branch */
+ 	REG_LIVE_READ, /* reg was read, so we're sensitive to initial value */
 diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index fdbaa60..711bdbd 100644
+index 711bdbd..d690c7d 100644
 --- a/kernel/bpf/verifier.c
 +++ b/kernel/bpf/verifier.c
-@@ -832,11 +832,6 @@ static int check_map_access(struct bpf_verifier_env *env, u32 regno,
- 	 */
- 	if (log_level)
- 		print_verifier_state(state);
--	/* If the offset is variable, we will need to be stricter in state
--	 * pruning from now on.
--	 */
--	if (!tnum_is_const(reg->var_off))
--		env->varlen_map_value_access = true;
- 	/* The minimum value is only important with signed
- 	 * comparisons where we can't assume the floor of a
- 	 * value is 0.  If we are using signed variables for our
-@@ -3247,9 +3242,8 @@ static bool check_ids(u32 old_id, u32 cur_id, struct idpair *idmap)
+@@ -3417,6 +3417,12 @@ static bool states_equal(struct bpf_verifier_env *env,
+ 	return ret;
  }
  
- /* Returns true if (rold safe implies rcur safe) */
--static bool regsafe(struct bpf_reg_state *rold,
--		    struct bpf_reg_state *rcur,
--		    bool varlen_map_access, struct idpair *idmap)
-+static bool regsafe(struct bpf_reg_state *rold, struct bpf_reg_state *rcur,
-+		    struct idpair *idmap)
++/* A write screens off any subsequent reads; but write marks come from the
++ * straight-line code between a state and its parent.  When we arrive at a
++ * jump target (in the first iteration of the propagate_liveness() loop),
++ * we didn't arrive by the straight-line code, so read marks in state must
++ * propagate to parent regardless of state's write marks.
++ */
+ static bool do_propagate_liveness(const struct bpf_verifier_state *state,
+ 				  struct bpf_verifier_state *parent)
  {
- 	if (!(rold->live & REG_LIVE_READ))
- 		/* explored state didn't use this */
-@@ -3281,22 +3275,14 @@ static bool regsafe(struct bpf_reg_state *rold,
- 			       tnum_is_unknown(rold->var_off);
- 		}
- 	case PTR_TO_MAP_VALUE:
--		if (varlen_map_access) {
--			/* If the new min/max/var_off satisfy the old ones and
--			 * everything else matches, we are OK.
--			 * We don't care about the 'id' value, because nothing
--			 * uses it for PTR_TO_MAP_VALUE (only for ..._OR_NULL)
--			 */
--			return memcmp(rold, rcur, offsetof(struct bpf_reg_state, id)) == 0 &&
--			       range_within(rold, rcur) &&
--			       tnum_in(rold->var_off, rcur->var_off);
--		} else {
--			/* If the ranges/var_off were not the same, but
--			 * everything else was and we didn't do a variable
--			 * access into a map then we are a-ok.
--			 */
--			return memcmp(rold, rcur, offsetof(struct bpf_reg_state, id)) == 0;
--		}
-+		/* If the new min/max/var_off satisfy the old ones and
-+		 * everything else matches, we are OK.
-+		 * We don't care about the 'id' value, because nothing
-+		 * uses it for PTR_TO_MAP_VALUE (only for ..._OR_NULL)
-+		 */
-+		return memcmp(rold, rcur, offsetof(struct bpf_reg_state, id)) == 0 &&
-+		       range_within(rold, rcur) &&
-+		       tnum_in(rold->var_off, rcur->var_off);
- 	case PTR_TO_MAP_VALUE_OR_NULL:
- 		/* a PTR_TO_MAP_VALUE could be safe to use as a
- 		 * PTR_TO_MAP_VALUE_OR_NULL into the same map.
-@@ -3380,7 +3366,6 @@ static bool states_equal(struct bpf_verifier_env *env,
- 			 struct bpf_verifier_state *old,
- 			 struct bpf_verifier_state *cur)
+@@ -3457,6 +3463,15 @@ static bool do_propagate_liveness(const struct bpf_verifier_state *state,
+ 	return touched;
+ }
+ 
++/* "parent" is "a state from which we reach the current state", but initially
++ * it is not the state->parent (i.e. "the state whose straight-line code leads
++ * to the current state"), instead it is the state that happened to arrive at
++ * a (prunable) equivalent of the current state.  See comment above
++ * do_propagate_liveness() for consequences of this.
++ * This function is just a more efficient way of calling mark_reg_read() or
++ * mark_stack_slot_read() on each reg in "parent" that is read in "state",
++ * though it requires that parent != state->parent in the call arguments.
++ */
+ static void propagate_liveness(const struct bpf_verifier_state *state,
+ 			       struct bpf_verifier_state *parent)
  {
--	bool varlen_map_access = env->varlen_map_value_access;
- 	struct idpair *idmap;
- 	bool ret = false;
- 	int i;
-@@ -3391,8 +3376,7 @@ static bool states_equal(struct bpf_verifier_env *env,
- 		return false;
- 
- 	for (i = 0; i < MAX_BPF_REG; i++) {
--		if (!regsafe(&old->regs[i], &cur->regs[i], varlen_map_access,
--			     idmap))
-+		if (!regsafe(&old->regs[i], &cur->regs[i], idmap))
- 			goto out_free;
- 	}
- 
-@@ -3412,7 +3396,7 @@ static bool states_equal(struct bpf_verifier_env *env,
- 			continue;
- 		if (!regsafe(&old->spilled_regs[i / BPF_REG_SIZE],
- 			     &cur->spilled_regs[i / BPF_REG_SIZE],
--			     varlen_map_access, idmap))
-+			     idmap))
- 			/* when explored and current stack slot are both storing
- 			 * spilled registers, check that stored pointers types
- 			 * are the same as well.
-@@ -3555,7 +3539,6 @@ static int do_check(struct bpf_verifier_env *env)
- 	init_reg_state(regs);
- 	state->parent = NULL;
- 	insn_idx = 0;
--	env->varlen_map_value_access = false;
- 	for (;;) {
- 		struct bpf_insn *insn;
- 		u8 class;
+@@ -3485,6 +3500,12 @@ static int is_state_visited(struct bpf_verifier_env *env, int insn_idx)
+ 			/* reached equivalent register/stack state,
+ 			 * prune the search.
+ 			 * Registers read by the continuation are read by us.
++			 * If we have any write marks in env->cur_state, they
++			 * will prevent corresponding reads in the continuation
++			 * from reaching our parent (an explored_state).  Our
++			 * own state will get the read marks recorded, but
++			 * they'll be immediately forgotten as we're pruning
++			 * this state and will pop a new one.
+ 			 */
+ 			propagate_liveness(&sl->state, &env->cur_state);
+ 			return 1;
+@@ -3508,7 +3529,12 @@ static int is_state_visited(struct bpf_verifier_env *env, int insn_idx)
+ 	env->explored_states[insn_idx] = new_sl;
+ 	/* connect new state to parentage chain */
+ 	env->cur_state.parent = &new_sl->state;
+-	/* clear liveness marks in current state */
++	/* clear write marks in current state: the writes we did are not writes
++	 * our child did, so they don't screen off its reads from us.
++	 * (There are no read marks in current state, because reads always mark
++	 * their parent and current state never has children yet.  Only
++	 * explored_states can get read marks.)
++	 */
+ 	for (i = 0; i < BPF_REG_FP; i++)
+ 		env->cur_state.regs[i].live = REG_LIVE_NONE;
+ 	for (i = 0; i < MAX_BPF_STACK / BPF_REG_SIZE; i++)
