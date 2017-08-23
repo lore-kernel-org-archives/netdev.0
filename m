@@ -1,39 +1,43 @@
 From: Arvind Yadav <arvind.yadav.cs@gmail.com>
-Subject: [PATCH 2/3] net: rsi: mac80211: constify ieee80211_ops
-Date: Wed, 23 Aug 2017 15:29:34 +0530
-Message-ID: <1503482375-19983-3-git-send-email-arvind.yadav.cs@gmail.com>
+Subject: [PATCH 3/3] net: rsi: netlink: constify genl_ops
+Date: Wed, 23 Aug 2017 15:29:35 +0530
+Message-ID: <1503482375-19983-4-git-send-email-arvind.yadav.cs@gmail.com>
 References: <1503482375-19983-1-git-send-email-arvind.yadav.cs@gmail.com>
 Cc: linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
         netdev@vger.kernel.org
 To: davem@davemloft.net, Larry.Finger@lwfinger.net,
         chaoming_li@realsil.com.cn, kvalo@codeaurora.org,
         jon.maloy@ericsson.com, ying.xue@windriver.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:36844 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753677AbdHWKAG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2017 06:00:06 -0400
 In-Reply-To: <1503482375-19983-1-git-send-email-arvind.yadav.cs@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-ieee80211_ops are not supposed to change at runtime. All functions
-working with ieee80211_ops provided by <net/mac80211.h> work with
-const ieee80211_ops. So mark the non-const structs as const.
+genl_ops are not supposed to change at runtime. All functions
+working with genl_ops provided by <net/genetlink.h> work with
+const genl_ops. So mark the non-const structs as const.
 
 Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
 ---
- drivers/net/wireless/rsi/rsi_91x_mac80211.c | 2 +-
+ net/tipc/netlink_compat.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/wireless/rsi/rsi_91x_mac80211.c b/drivers/net/wireless/rsi/rsi_91x_mac80211.c
-index 021e5ac..67532fb 100644
---- a/drivers/net/wireless/rsi/rsi_91x_mac80211.c
-+++ b/drivers/net/wireless/rsi/rsi_91x_mac80211.c
-@@ -1177,7 +1177,7 @@ static void rsi_reg_notify(struct wiphy *wiphy,
- 	adapter->dfs_region = request->dfs_region;
+diff --git a/net/tipc/netlink_compat.c b/net/tipc/netlink_compat.c
+index 750949d..e48f0b2 100644
+--- a/net/tipc/netlink_compat.c
++++ b/net/tipc/netlink_compat.c
+@@ -1217,7 +1217,7 @@ static int tipc_nl_compat_recv(struct sk_buff *skb, struct genl_info *info)
+ 	return err;
  }
  
--static struct ieee80211_ops mac80211_ops = {
-+static const struct ieee80211_ops mac80211_ops = {
- 	.tx = rsi_mac80211_tx,
- 	.start = rsi_mac80211_start,
- 	.stop = rsi_mac80211_stop,
+-static struct genl_ops tipc_genl_compat_ops[] = {
++static const struct genl_ops tipc_genl_compat_ops[] = {
+ 	{
+ 		.cmd		= TIPC_GENL_CMD,
+ 		.doit		= tipc_nl_compat_recv,
 -- 
 1.9.1
