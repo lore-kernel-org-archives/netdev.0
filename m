@@ -1,38 +1,34 @@
-From: Alexei Starovoitov via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-Subject: Re: [PATCH v2 net-next 2/5] bpf/verifier: when
- pruning a branch, ignore its write marks
-Date: Wed, 23 Aug 2017 07:42:27 -0700
-Message-ID: <739a46ad-2f60-91dd-d34e-97828a749610@fb.com>
-References: <f9208b68-466e-c6cb-4d0c-c567e40bdc15@solarflare.com>
-	<ec2ee579-8391-c023-348a-770faa6bc5c7@solarflare.com>
-Reply-To: Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH v2 net-next 3/5] selftests/bpf: add a test for a pruning
+ bug in the verifier
+Date: Wed, 23 Aug 2017 16:43:46 +0200
+Message-ID: <599D94A2.8000903@iogearbox.net>
+References: <f9208b68-466e-c6cb-4d0c-c567e40bdc15@solarflare.com> <bbfb3545-abbd-9c9d-1632-64804d1b7cc2@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-To: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, Alexei
-	Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, Daniel Borkmann
-	<daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
-Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-In-Reply-To: <ec2ee579-8391-c023-348a-770faa6bc5c7-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
-List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
-List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
-Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, iovisor-dev <iovisor-dev@lists.iovisor.org>
+To: Edward Cree <ecree@solarflare.com>, davem@davemloft.net,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Alexei Starovoitov <ast@fb.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:45410 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754107AbdHWOnx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2017 10:43:53 -0400
+In-Reply-To: <bbfb3545-abbd-9c9d-1632-64804d1b7cc2@solarflare.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 8/23/17 7:10 AM, Edward Cree wrote:
-> The fact that writes occurred in reaching the continuation state does
->  not screen off its reads from us, because we're not really its parent.
-> So detect 'not really the parent' in do_propagate_liveness, and ignore
->  write marks in that case.
+On 08/23/2017 04:10 PM, Edward Cree wrote:
+> From: Alexei Starovoitov <ast@fb.com>
 >
-> Fixes: dc503a8ad984 ("bpf/verifier: track liveness for pruning")
-> Signed-off-by: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+> The test makes a read through a map value pointer, then considers pruning
+>   a branch where the register holds an adjusted map value pointer.  It
+>   should not prune, but currently it does.
+>
+> Signed-off-by: Alexei Starovoitov <ast@fb.com>
+> [ecree@solarflare.com: added test-name and patch description]
+> Signed-off-by: Edward Cree <ecree@solarflare.com>
 
-Acked-by: Alexei Starovoitov <ast-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
