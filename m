@@ -1,54 +1,43 @@
-From: Pavel Belous <Pavel.Belous@aquantia.com>
-Subject: [PATCH net 7/7] net:ethernet:aquantia: Show info message if bad firmware version detected.
-Date: Wed, 23 Aug 2017 17:05:08 +0300
-Message-ID: <48745acdc819bf5c58e28ce4e64f4ce9d5f6b120.1503496727.git.pavel.belous@aquantia.com>
-References: <cover.1503496727.git.pavel.belous@aquantia.com>
+From: Edward Cree via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+Subject: [PATCH v2 net-next 0/5] bpf: verifier fixes
+Date: Wed, 23 Aug 2017 15:07:20 +0100
+Message-ID: <f9208b68-466e-c6cb-4d0c-c567e40bdc15@solarflare.com>
+Reply-To: Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, David Arcari <darcari@redhat.com>,
-        Igor Russkikh <Igor.Russkikh@aquantia.com>,
-        Nadezhda Krupnina <Nadezhda.Krupnina@aquantia.com>,
-        Simon Edelhaus <simon.edelhaus@aquantia.com>,
-        Pavel Belous <pavel.belous@aquantia.com>,
-        Pavel Belous <Pavel.Belous@aquantia.com>
-To: "David S . Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam01on0073.outbound.protection.outlook.com ([104.47.34.73]:48640
-        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1754001AbdHWOH1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 23 Aug 2017 10:07:27 -0400
-In-Reply-To: <cover.1503496727.git.pavel.belous@aquantia.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+To: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>, Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
+Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
+List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
+Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Pavel Belous <pavel.belous@aquantia.com>
+Fix a couple of bugs introduced in my recent verifier patches.
+Patch #2 does slightly increase the insn count on bpf_lxc.o, but only by
+ about a hundred insns (i.e. 0.2%).
 
-We should inform user about wrong firmware version
-by printing message in dmesg.
+v2: added test for write-marks bug (patch #1); reworded comment on
+ propagate_liveness() for clarity.
 
-Fixes: 3d2ff7eebe26 ("net: ethernet: aquantia: Atlantic hardware abstraction layer")
-Signed-off-by: Pavel Belous <Pavel.Belous@aquantia.com>
----
- drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_utils.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+Alexei Starovoitov (1):
+  selftests/bpf: add a test for a pruning bug in the verifier
 
-diff --git a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_utils.c b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_utils.c
-index eb3ae51..ad4cc53 100644
---- a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_utils.c
-+++ b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_utils.c
-@@ -141,6 +141,12 @@ static int hw_atl_utils_init_ucp(struct aq_hw_s *self,
- 
- 	err = hw_atl_utils_ver_match(aq_hw_caps->fw_ver_expected,
- 				     aq_hw_read_reg(self, 0x18U));
-+
-+	if (err < 0)
-+		pr_err("%s: Bad FW version detected: expected=%x, actual=%x\n",
-+		       AQ_CFG_DRV_NAME,
-+		       aq_hw_caps->fw_ver_expected,
-+		       aq_hw_read_reg(self, 0x18U));
- 	return err;
- }
- 
--- 
-2.7.4
+Edward Cree (4):
+  selftests/bpf: add a test for a bug in liveness-based pruning
+  bpf/verifier: when pruning a branch, ignore its write marks
+  bpf/verifier: remove varlen_map_value_access flag
+  bpf/verifier: document liveness analysis
+
+ include/linux/bpf_verifier.h                | 14 +++++-
+ kernel/bpf/verifier.c                       | 78 +++++++++++++++++------------
+ tools/testing/selftests/bpf/test_verifier.c | 44 ++++++++++++++++
+ 3 files changed, 103 insertions(+), 33 deletions(-)
