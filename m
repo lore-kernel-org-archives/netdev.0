@@ -1,31 +1,43 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [V2 PATCH net-next 5/5] xdp: get tracepoints xdp_exception and
- xdp_redirect in sync
-Date: Wed, 23 Aug 2017 12:59:50 +0200
-Message-ID: <599D6026.1000901@iogearbox.net>
-References: <150348327373.23476.14851572406177222309.stgit@firesoul> <150348334039.23476.16866879022276856834.stgit@firesoul>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH][netdev-next] gre: remove duplicated assignment of iph
+Date: Wed, 23 Aug 2017 12:13:05 +0100
+Message-ID: <20170823111305.19185-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Daniel Borkmann <borkmann@iogearbox.net>,
-        John Fastabend <john.fastabend@gmail.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:40340 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753824AbdHWK7v (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2017 06:59:51 -0400
-In-Reply-To: <150348334039.23476.16866879022276856834.stgit@firesoul>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "David S . Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 08/23/2017 12:15 PM, Jesper Dangaard Brouer wrote:
-> Remove the net_device string name from the xdp_exception tracepoint,
-> like the xdp_redirect tracepoint.
->
-> Align the TP_STRUCT to have common entries between these two
-> tracepoint.
->
-> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+From: Colin Ian King <colin.king@canonical.com>
 
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+iph is being assigned the same value twice; remove the redundant
+second assignment.
+
+Fixes warning:
+net/ipv4/ip_gre.c:265:2: warning: Value stored to 'iph' is never read
+
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ net/ipv4/ip_gre.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+index 6e8a62289e03..6b3e7c99a3b6 100644
+--- a/net/ipv4/ip_gre.c
++++ b/net/ipv4/ip_gre.c
+@@ -268,7 +268,6 @@ static int erspan_rcv(struct sk_buff *skb, struct tnl_ptk_info *tpi,
+ 	if (unlikely(!pskb_may_pull(skb, len)))
+ 		return -ENOMEM;
+ 
+-	iph = ip_hdr(skb);
+ 	ershdr = (struct erspanhdr *)(skb->data + gre_hdr_len);
+ 
+ 	/* The original GRE header does not have key field,
+-- 
+2.14.1
