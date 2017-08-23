@@ -1,98 +1,65 @@
-From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH net-next 1/3] net: define the TSO header size in net/tso.h
-Date: Wed, 23 Aug 2017 09:46:54 +0200
-Message-ID: <20170823074656.14595-2-antoine.tenart@free-electrons.com>
-References: <20170823074656.14595-1-antoine.tenart@free-electrons.com>
-Cc: Antoine Tenart <antoine.tenart@free-electrons.com>, andrew@lunn.ch,
-        gregory.clement@free-electrons.com,
-        thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
-        linux@armlinux.org.uk, mw@semihalf.com, stefanc@marvell.com,
-        netdev@vger.kernel.org
-To: davem@davemloft.net
+From: Ilya Lesokhin <ilyal@mellanox.com>
+Subject: RE: [PATCH v2 net-next 1/3] ipv6: Prevent unexpected sk->sk_prot
+ changes
+Date: Wed, 23 Aug 2017 07:49:09 +0000
+Message-ID: <AM4PR0501MB272370367F819BEB1EBF2D7DD4850@AM4PR0501MB2723.eurprd05.prod.outlook.com>
+References: <1502795320-22538-1-git-send-email-ilyal@mellanox.com>
+         <1502795320-22538-2-git-send-email-ilyal@mellanox.com>
+         <1502798357.4936.63.camel@edumazet-glaptop3.roam.corp.google.com>
+         <DB6PR05MB31768343CE15F47F8CC12CD8B08D0@DB6PR05MB3176.eurprd05.prod.outlook.com>
+ <1502808336.4936.78.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "davejwatson@fb.com" <davejwatson@fb.com>,
+        "Aviad Yehezkel" <aviadye@mellanox.com>,
+        Boris Pismenny <borisp@mellanox.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:55981 "EHLO
-        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753415AbdHWHrM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2017 03:47:12 -0400
-In-Reply-To: <20170823074656.14595-1-antoine.tenart@free-electrons.com>
+Received: from mail-db5eur01on0085.outbound.protection.outlook.com ([104.47.2.85]:9248
+        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1753386AbdHWHtM (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 23 Aug 2017 03:49:12 -0400
+In-Reply-To: <1502808336.4936.78.camel@edumazet-glaptop3.roam.corp.google.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The TSO header size was defined in many drivers. Factorize the code and
-define its size in net/tso.h.
-
-Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
----
- drivers/net/ethernet/cavium/thunder/nicvf_queues.h | 1 -
- drivers/net/ethernet/freescale/fec_main.c          | 1 -
- drivers/net/ethernet/marvell/mv643xx_eth.c         | 2 --
- drivers/net/ethernet/marvell/mvneta.c              | 3 ---
- include/net/tso.h                                  | 2 ++
- 5 files changed, 2 insertions(+), 7 deletions(-)
-
-diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_queues.h b/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
-index 57858522c33c..67d1a3230773 100644
---- a/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
-+++ b/drivers/net/ethernet/cavium/thunder/nicvf_queues.h
-@@ -277,7 +277,6 @@ struct snd_queue {
- 	u16		xdp_free_cnt;
- 	bool		is_xdp;
- 
--#define	TSO_HEADER_SIZE	128
- 	/* For TSO segment's header */
- 	char		*tso_hdrs;
- 	dma_addr_t	tso_hdrs_phys;
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index df09b254553d..56f56d6ada9c 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -226,7 +226,6 @@ MODULE_PARM_DESC(macaddr, "FEC Ethernet MAC address");
- 
- #define COPYBREAK_DEFAULT	256
- 
--#define TSO_HEADER_SIZE		128
- /* Max number of allowed TCP segments for software TSO */
- #define FEC_MAX_TSO_SEGS	100
- #define FEC_MAX_SKB_DESCS	(FEC_MAX_TSO_SEGS * 2 + MAX_SKB_FRAGS)
-diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
-index 9c94ea9b2b80..fb2d533ae4ef 100644
---- a/drivers/net/ethernet/marvell/mv643xx_eth.c
-+++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
-@@ -183,8 +183,6 @@ static char mv643xx_eth_driver_version[] = "1.4";
- #define DEFAULT_TX_QUEUE_SIZE	512
- #define SKB_DMA_REALIGN		((PAGE_SIZE - NET_SKB_PAD) % SMP_CACHE_BYTES)
- 
--#define TSO_HEADER_SIZE		128
--
- /* Max number of allowed TCP segments for software TSO */
- #define MV643XX_MAX_TSO_SEGS 100
- #define MV643XX_MAX_SKB_DESCS (MV643XX_MAX_TSO_SEGS * 2 + MAX_SKB_FRAGS)
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index 0aab74c2a209..35ff1ecfcff0 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -281,9 +281,6 @@
-  */
- #define MVNETA_RSS_LU_TABLE_SIZE	1
- 
--/* TSO header size */
--#define TSO_HEADER_SIZE 128
--
- /* Max number of Rx descriptors */
- #define MVNETA_MAX_RXD 128
- 
-diff --git a/include/net/tso.h b/include/net/tso.h
-index b7be852bfe9d..9a56c39e6d0a 100644
---- a/include/net/tso.h
-+++ b/include/net/tso.h
-@@ -3,6 +3,8 @@
- 
- #include <net/ip.h>
- 
-+#define TSO_HEADER_SIZE		128
-+
- struct tso_t {
- 	int next_frag_idx;
- 	void *data;
--- 
-2.13.5
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBFcmljIER1bWF6ZXQgW21haWx0
+bzplcmljLmR1bWF6ZXRAZ21haWwuY29tXQ0KPiBTZW50OiBUdWVzZGF5LCBBdWd1c3QgMTUsIDIw
+MTcgNTo0NiBQTQ0KPiBUbzogQm9yaXMgUGlzbWVubnkgPGJvcmlzcEBtZWxsYW5veC5jb20+DQo+
+IENjOiBJbHlhIExlc29raGluIDxpbHlhbEBtZWxsYW5veC5jb20+OyBuZXRkZXZAdmdlci5rZXJu
+ZWwub3JnOw0KPiBkYXZlbUBkYXZlbWxvZnQubmV0OyBkYXZlandhdHNvbkBmYi5jb207IEF2aWFk
+IFllaGV6a2VsDQo+IDxhdmlhZHllQG1lbGxhbm94LmNvbT4NCj4gU3ViamVjdDogUmU6IFtQQVRD
+SCB2MiBuZXQtbmV4dCAxLzNdIGlwdjY6IFByZXZlbnQgdW5leHBlY3RlZCBzay0+c2tfcHJvdA0K
+PiBjaGFuZ2VzDQo+IA0KPiBJIGFtIGp1c3Qgc2F5aW5nIElQVjZfQUREUkZPUk0gaXMgYmVjb21p
+bmcgc3BhZ2hldHRpIGNvZGUsIGFuZCBtYXliZQ0KPiB0aGlzIGlzIHRpbWUgdG8gbWFrZSBpdCBt
+b2R1bGFyLiANCj4gDQoNCkhpIEVyaWMsDQpJIHVuZGVyc3RhbmQgeW91ciBjb25jZXJuLCBidXQg
+SSB3b3VsZCBsaWtlIHRvIHBvc3Rwb25lIGltcGxlbWVudGluZyB0aGlzDQpmZWF0dXJlIHVudGls
+IHRoZSB1bHAgaW5mcmFzdHJ1Y3R1cmUgc3RhYmlsaXplcy4NCkkgZG9uJ3QgZXZlbiBrbm93IGhv
+dyBtYW55IHVzZXJzIHdhbnQgdG8gdXNlIElQVjZfQUREUkZPUk0gb24gc29ja2V0cyB3aXRoIHVs
+cC4NCkkgdGhpbmsgdGhhdCBzaW1wbHkgcmV0dXJuaW5nIGFuIGVycm9yIGZvciB1bHAgc29ja2V0
+cyBpbiB0aGUgbWVhbnRpbWUgaXMgYSByZWFzb25hYmxlIA0KY29tcHJvbWlzZS4NCg0Kd2hhdCBk
+byB5b3UgdGhpbmsgYWJvdXQgdGhlIHBhdGNoIGJlbG93Pw0KDQpTdWJqZWN0OiBbUEFUQ0ggMS8x
+XSBpcHY2OiBEaXNhYmxlIElQVjZfQUREUkZPUk0gb24gc29ja2V0cyB3aXRoIHVscCBhdHRhY2hl
+ZA0KDQpUaGUgSVBWNl9BRERSRk9STSBzZXRzb2Nrb3B0IHdvcmtzIGJ5IG92ZXJyaWRpbmcgc2st
+PnNrX3Byb3QuDQpUaGUgY3VycmVudCBLVExTIHVscCBhbHNvIG92ZXJyaWRlcyBzay0+c2tfcHJv
+dC4NCkNvbnNlcXVlbnRseSwgdXNpbmcgSVBWNl9BRERSRk9STSB3aGVuIHRoZXJlIGlzIGEgdWxw
+IGF0dGFjaGVkIGlzDQp1bnNhZmUgYW5kIHRoaXMgcGF0Y2ggZGlzYWJsZXMgaXQuDQoNCkZpeGVz
+OiAzYzRkNzU1OTE1OWIgKCd0bHM6IGtlcm5lbCBUTFMgc3VwcG9ydCcpDQpTaWduZWQtb2ZmLWJ5
+OiBJbHlhIExlc29raGluIDxpbHlhbEBtZWxsYW5veC5jb20+DQotLS0NCiBuZXQvaXB2Ni9pcHY2
+X3NvY2tnbHVlLmMgfCA2ICsrKysrLQ0KIDEgZmlsZSBjaGFuZ2VkLCA1IGluc2VydGlvbnMoKyks
+IDEgZGVsZXRpb24oLSkNCg0KZGlmZiAtLWdpdCBhL25ldC9pcHY2L2lwdjZfc29ja2dsdWUuYyBi
+L25ldC9pcHY2L2lwdjZfc29ja2dsdWUuYw0KaW5kZXggMDJkNzk1Zi4uZDkzNTk0OCAxMDA2NDQN
+Ci0tLSBhL25ldC9pcHY2L2lwdjZfc29ja2dsdWUuYw0KKysrIGIvbmV0L2lwdjYvaXB2Nl9zb2Nr
+Z2x1ZS5jDQpAQCAtMTg1LDggKzE4NSwxMiBAQCBzdGF0aWMgaW50IGRvX2lwdjZfc2V0c29ja29w
+dChzdHJ1Y3Qgc29jayAqc2ssIGludCBsZXZlbCwgaW50IG9wdG5hbWUsDQogCQkJCQlyZXR2ID0g
+LUVCVVNZOw0KIAkJCQkJYnJlYWs7DQogCQkJCX0NCi0JCQl9IGVsc2UgaWYgKHNrLT5za19wcm90
+b2NvbCAhPSBJUFBST1RPX1RDUCkNCisJCQl9IGVsc2UgaWYgKHNrLT5za19wcm90b2NvbCA9PSBJ
+UFBST1RPX1RDUCkgew0KKwkJCQlpZiAoaW5ldF9jc2soc2spLT5pY3NrX3VscF9vcHMpDQorCQkJ
+CQlicmVhazsNCisJCQl9IGVsc2Ugew0KIAkJCQlicmVhazsNCisJCQl9DQogDQogCQkJaWYgKHNr
+LT5za19zdGF0ZSAhPSBUQ1BfRVNUQUJMSVNIRUQpIHsNCiAJCQkJcmV0diA9IC1FTk9UQ09OTjsN
+Cg0KDQpUaGFua3MsDQpJbHlhDQo=
