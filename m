@@ -1,40 +1,108 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH V8 net-next 00/22] Huawei HiNIC Ethernet Driver
-Date: Wed, 23 Aug 2017 09:37:15 +0200
-Message-ID: <CAK8P3a3sWBZKZTz8YM2DfNwsLSWZpaS_e-Uh1VVKuCL6q+si3g@mail.gmail.com>
-References: <cover.1503330613.git.aviad.krawczyk@huawei.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH net-next 5/5] xdp: get tracepoints xdp_exception and
+ xdp_redirect in sync
+Date: Wed, 23 Aug 2017 09:41:18 +0200
+Message-ID: <20170823094118.38010b86@redhat.com>
+References: <150343479290.31091.8019008896152616977.stgit@firesoul>
+        <150343485998.31091.4036615069956176401.stgit@firesoul>
+        <599CA26D.7060003@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: David Miller <davem@davemloft.net>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        Networking <netdev@vger.kernel.org>, bc.y@huawei.com,
-        victor.gissin@huawei.com, zhaochen6@huawei.com, tony.qu@huawei.com
-To: Aviad Krawczyk <aviad.krawczyk@huawei.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1503330613.git.aviad.krawczyk@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, John Fastabend <john.fastabend@gmail.com>,
+        brouer@redhat.com
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:53324 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753329AbdHWHlZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 23 Aug 2017 03:41:25 -0400
+In-Reply-To: <599CA26D.7060003@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 21, 2017 at 5:55 PM, Aviad Krawczyk
-<aviad.krawczyk@huawei.com> wrote:
-> The patch-set contains the support of the HiNIC Ethernet driver for
-> hinic family of PCIE Network Interface Cards.
->
-> The Huawei's PCIE HiNIC card is a new Ethernet card and hence there was
-> a need of a new driver.
->
-> The current driver is meant to be used for the Physical Function and there
-> would soon be a support for Virtual Function and more features once the
-> basic PF driver has been accepted.
+On Tue, 22 Aug 2017 23:30:21 +0200
+Daniel Borkmann <daniel@iogearbox.net> wrote:
 
-Sorry I didn't comment before it got merged, but once it appeared in
-linux-next I saw it and wondered why this is grouped under huawei
-unlike the network drivers for the parts integrated into the hip0x
-SoCs from hisilicon. Both appear to be made by Huawei's HiSilicon
-subsidiary.
+> On 08/22/2017 10:47 PM, Jesper Dangaard Brouer wrote:
+> > Remove the net_device string name from the xdp_exception tracepoint,
+> > like the xdp_redirect tracepoint.
+> >
+> > Align the TP_STRUCT to have common entries between these two
+> > tracepoint.
+> >
+> > Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+> > ---
+> >   include/trace/events/xdp.h |   24 ++++++++++++------------
+> >   1 file changed, 12 insertions(+), 12 deletions(-)
+> >
+> > diff --git a/include/trace/events/xdp.h b/include/trace/events/xdp.h
+> > index 7511bed80558..6495b0d9d5c7 100644
+> > --- a/include/trace/events/xdp.h
+> > +++ b/include/trace/events/xdp.h
+> > @@ -31,22 +31,22 @@ TRACE_EVENT(xdp_exception,
+> >   	TP_ARGS(dev, xdp, act),
+> >
+> >   	TP_STRUCT__entry(
+> > -		__string(name, dev->name)
+> >   		__array(u8, prog_tag, 8)
+> >   		__field(u32, act)
+> > +		__field(int, ifindex)
+> >   	),
+> >
+> >   	TP_fast_assign(
+> >   		BUILD_BUG_ON(sizeof(__entry->prog_tag) != sizeof(xdp->tag));
+> >   		memcpy(__entry->prog_tag, xdp->tag, sizeof(xdp->tag));
+> > -		__assign_str(name, dev->name);
+> > -		__entry->act = act;
+> > +		__entry->act		= act;
+> > +		__entry->ifindex	= dev->ifindex;
+> >   	),
+> >  
+> [...]
+> >   TRACE_EVENT(xdp_redirect,
+> > @@ -57,26 +57,26 @@ TRACE_EVENT(xdp_redirect,
+> >   	TP_ARGS(from_index, to_index, xdp, act, err),
+> >
+> >   	TP_STRUCT__entry(
+> > -		__field(int, from_index)
+> > -		__field(int, to_index)
+> >   		__array(u8, prog_tag, 8)
+> >   		__field(u32, act)
+> > +		__field(int, from_index)
+> > +		__field(int, to_index)
+> >   		__field(int, err)
+> >   	),
+> >
+> >   	TP_fast_assign(
+> >   		BUILD_BUG_ON(sizeof(__entry->prog_tag) != sizeof(xdp->tag));
+> >   		memcpy(__entry->prog_tag, xdp->tag, sizeof(xdp->tag));
+> > +		__entry->act		= act;
+> >   		__entry->from_index	= from_index;
+> >   		__entry->to_index	= to_index;
+> > -		__entry->act = act;  
+> 
+> If you already get them in sync, could you also make it consistent
+> that for both tracepoints in TP_ARGS() we use either ifindex
+> directly or device pointer and extract it from TP_fast_assign().
+> Right now, it's mixed.
 
-I did not check whether the two devices are related at all or could
-share some of the source code as well, but it might be good to
-move this one into the existing directory to spare confusion later.
+I did this because, in the (bpf_redirect)_map case, I was hoping that
+"from_index" could be come the index from the map.  Looking closer at
+the devmap design, I cannot see how we can ever know what (the bpf_prog
+thinks) is the corresponding map-ingress/from_index.
 
-         Arnd
+Based on that, I think we can/should use the device pointer as arg (as
+you suggested). And then rename "from_index" to "ifindex", where
+ifindex is the XDP ifindex the xdp_buff arrived on.
+
+I guess we can keep the "to_index".  We also need to extend the
+tracepoint args with a "map", to let the trace user tell whether the
+"to_index" is an ifindex or a map-index.
+
+I'll code this up and submit at V2.
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
