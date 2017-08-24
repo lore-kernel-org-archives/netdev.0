@@ -1,8 +1,8 @@
 From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [V3 PATCH net-next 5/5] xdp: get tracepoints xdp_exception and
- xdp_redirect in sync
-Date: Thu, 24 Aug 2017 12:33:23 +0200
-Message-ID: <150357080380.26663.3229455229075039075.stgit@firesoul>
+Subject: [V3 PATCH net-next 4/5] xdp: remove net_device names from
+ xdp_redirect tracepoint
+Date: Thu, 24 Aug 2017 12:33:18 +0200
+Message-ID: <150357079871.26663.9232050723046730220.stgit@firesoul>
 References: <150357074701.26663.4047992776649697788.stgit@firesoul>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,56 +11,109 @@ Cc: Daniel Borkmann <borkmann@iogearbox.net>,
         Jesper Dangaard Brouer <brouer@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47030 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:57330 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752227AbdHXKdZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 24 Aug 2017 06:33:25 -0400
+        id S1752528AbdHXKdV (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 24 Aug 2017 06:33:21 -0400
 In-Reply-To: <150357074701.26663.4047992776649697788.stgit@firesoul>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Remove the net_device string name from the xdp_exception tracepoint,
-like the xdp_redirect tracepoint.
+There is too much overhead in the current trace_xdp_redirect
+tracepoint as it does strcpy and strlen on the net_device names.
 
-Align the TP_STRUCT to have common entries between these two
-tracepoint.
+Besides, exposing the ifindex/index is actually the information that
+is needed in the tracepoint to diagnose issues.  When a lookup fails
+(either ifindex or devmap index) then there is a need for saying which
+to_index that have issues.
+
+V2: Adjust args to be aligned with trace_xdp_exception.
 
 Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
 Acked-by: Daniel Borkmann <daniel@iogearbox.net>
 ---
- include/trace/events/xdp.h |   12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+ include/trace/events/xdp.h |   24 ++++++++++++------------
+ net/core/filter.c          |    6 +++---
+ 2 files changed, 15 insertions(+), 15 deletions(-)
 
 diff --git a/include/trace/events/xdp.h b/include/trace/events/xdp.h
-index cd37706c6f55..27cf2ef35f5f 100644
+index 0e42e69f773b..cd37706c6f55 100644
 --- a/include/trace/events/xdp.h
 +++ b/include/trace/events/xdp.h
-@@ -31,22 +31,22 @@ TRACE_EVENT(xdp_exception,
- 	TP_ARGS(dev, xdp, act),
+@@ -51,33 +51,33 @@ TRACE_EVENT(xdp_exception,
+ 
+ TRACE_EVENT(xdp_redirect,
+ 
+-	TP_PROTO(const struct net_device *from,
+-		 const struct net_device *to,
+-		 const struct bpf_prog *xdp, u32 act, int err),
++	TP_PROTO(const struct net_device *dev,
++		 const struct bpf_prog *xdp, u32 act,
++		 int to_index, int err),
+ 
+-	TP_ARGS(from, to, xdp, act, err),
++	TP_ARGS(dev, xdp, act, to_index, err),
  
  	TP_STRUCT__entry(
--		__string(name, dev->name)
+-		__string(name_from, from->name)
+-		__string(name_to, to->name)
  		__array(u8, prog_tag, 8)
  		__field(u32, act)
 +		__field(int, ifindex)
++		__field(int, to_index)
+ 		__field(int, err)
  	),
  
  	TP_fast_assign(
  		BUILD_BUG_ON(sizeof(__entry->prog_tag) != sizeof(xdp->tag));
  		memcpy(__entry->prog_tag, xdp->tag, sizeof(xdp->tag));
--		__assign_str(name, dev->name);
+-		__assign_str(name_from, from->name);
+-		__assign_str(name_to, to->name);
 -		__entry->act = act;
+-		__entry->err = err;
 +		__entry->act		= act;
 +		__entry->ifindex	= dev->ifindex;
++		__entry->to_index	= to_index;
++		__entry->err		= err;
  	),
  
--	TP_printk("prog=%s device=%s action=%s",
-+	TP_printk("prog=%s action=%s ifindex=%d",
+-	TP_printk("prog=%s from=%s to=%s action=%s err=%d",
++	TP_printk("prog=%s action=%s ifindex=%d to_index=%d err=%d",
  		  __print_hex_str(__entry->prog_tag, 8),
--		  __get_str(name),
--		  __print_symbolic(__entry->act, __XDP_ACT_SYM_TAB))
-+		  __print_symbolic(__entry->act, __XDP_ACT_SYM_TAB),
-+		  __entry->ifindex)
+-		  __get_str(name_from), __get_str(name_to),
+ 		  __print_symbolic(__entry->act, __XDP_ACT_SYM_TAB),
++		  __entry->ifindex, __entry->to_index,
+ 		  __entry->err)
  );
+ #endif /* _TRACE_XDP_H */
+diff --git a/net/core/filter.c b/net/core/filter.c
+index a04680331033..4bcd6baa80c9 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -2524,7 +2524,7 @@ static int xdp_do_redirect_map(struct net_device *dev, struct xdp_buff *xdp,
+ 	if (likely(!err))
+ 		ri->map_to_flush = map;
+ out:
+-	trace_xdp_redirect(dev, fwd, xdp_prog, XDP_REDIRECT, err);
++	trace_xdp_redirect(dev, xdp_prog, XDP_REDIRECT, index, err);
+ 	return err;
+ }
  
- TRACE_EVENT(xdp_redirect,
+@@ -2548,7 +2548,7 @@ int xdp_do_redirect(struct net_device *dev, struct xdp_buff *xdp,
+ 
+ 	err = __bpf_tx_xdp(fwd, NULL, xdp, 0);
+ out:
+-	trace_xdp_redirect(dev, fwd, xdp_prog, XDP_REDIRECT, err);
++	trace_xdp_redirect(dev, xdp_prog, XDP_REDIRECT, index, err);
+ 	return err;
+ }
+ EXPORT_SYMBOL_GPL(xdp_do_redirect);
+@@ -2582,7 +2582,7 @@ int xdp_do_generic_redirect(struct net_device *dev, struct sk_buff *skb,
+ 
+ 	skb->dev = fwd;
+ out:
+-	trace_xdp_redirect(dev, fwd, xdp_prog, XDP_REDIRECT, err);
++	trace_xdp_redirect(dev, xdp_prog, XDP_REDIRECT, index, err);
+ 	return err;
+ }
+ EXPORT_SYMBOL_GPL(xdp_do_generic_redirect);
