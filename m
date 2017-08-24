@@ -1,7 +1,7 @@
 From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH net-next 08/13] net: mvpp2: check the netif is running in the link_event function
-Date: Thu, 24 Aug 2017 10:38:18 +0200
-Message-ID: <20170824083823.16826-9-antoine.tenart@free-electrons.com>
+Subject: [PATCH net-next 07/13] net: mvpp2: improve the link management function
+Date: Thu, 24 Aug 2017 10:38:17 +0200
+Message-ID: <20170824083823.16826-8-antoine.tenart@free-electrons.com>
 References: <20170824083823.16826-1-antoine.tenart@free-electrons.com>
 Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
         thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
@@ -11,32 +11,55 @@ Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
 To: davem@davemloft.net, kishon@ti.com, andrew@lunn.ch,
         jason@lakedaemon.net, sebastian.hesselbarth@gmail.com,
         gregory.clement@free-electrons.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.free-electrons.com ([62.4.15.54]:60539 "EHLO
+        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752215AbdHXIiw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 24 Aug 2017 04:38:52 -0400
 In-Reply-To: <20170824083823.16826-1-antoine.tenart@free-electrons.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch adds an extra check when the link_event function is called,
-so that it won't do anything when the netif isn't running.
+When the link status changes, the phylib calls the link_event function
+in the mvpp2 driver. Before this patch only the egress/ingress transmit
+was enabled/disabled. This patch adds more functionality to the link
+status management code by enabling/disabling the port per-cpu
+interrupts, and the port itself. The queues are now stopped as well, and
+the netif carrier helpers are called.
 
 Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
 ---
- drivers/net/ethernet/marvell/mvpp2.c | 3 +++
- 1 file changed, 3 insertions(+)
+ drivers/net/ethernet/marvell/mvpp2.c | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
 
 diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 99847fec1c5a..e9fd4fa81a2e 100644
+index ebcc89b8f792..99847fec1c5a 100644
 --- a/drivers/net/ethernet/marvell/mvpp2.c
 +++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -5741,6 +5741,9 @@ static void mvpp2_link_event(struct net_device *dev)
- 	struct mvpp2_port *port = netdev_priv(dev);
- 	struct phy_device *phydev = dev->phydev;
+@@ -5753,14 +5753,24 @@ static void mvpp2_link_event(struct net_device *dev)
+ 		port->link = phydev->link;
  
-+	if (!netif_running(dev))
-+		return;
+ 		if (phydev->link) {
++			mvpp2_interrupts_enable(port);
++			mvpp2_port_enable(port);
 +
- 	if (phydev->link) {
- 		if ((port->speed != phydev->speed) ||
- 		    (port->duplex != phydev->duplex)) {
+ 			mvpp2_egress_enable(port);
+ 			mvpp2_ingress_enable(port);
++			netif_carrier_on(dev);
++			netif_tx_wake_all_queues(dev);
+ 		} else {
+ 			port->duplex = -1;
+ 			port->speed = 0;
+ 
++			netif_tx_stop_all_queues(dev);
++			netif_carrier_off(dev);
+ 			mvpp2_ingress_disable(port);
+ 			mvpp2_egress_disable(port);
++
++			mvpp2_port_disable(port);
++			mvpp2_interrupts_disable(port);
+ 		}
+ 
+ 		phy_print_status(phydev);
 -- 
 2.13.5
