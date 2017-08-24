@@ -1,7 +1,8 @@
 From: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
-Subject: [PATCH net v1 0/3] tipc: buffer reassignment fixes
-Date: Thu, 24 Aug 2017 16:31:21 +0200
-Message-ID: <1503585084-14079-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
+Subject: [PATCH net v1 1/3] tipc: perform skb_linearize() before parsing the inner header
+Date: Thu, 24 Aug 2017 16:31:22 +0200
+Message-ID: <1503585084-14079-2-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
+References: <1503585084-14079-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <tipc-discussion@lists.sourceforge.net>,
@@ -9,23 +10,41 @@ Cc: <netdev@vger.kernel.org>, <tipc-discussion@lists.sourceforge.net>,
         <ying.xue@windriver.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sessmg22.ericsson.net ([193.180.251.58]:42381 "EHLO
-        sessmg22.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753228AbdHXObb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 24 Aug 2017 10:31:31 -0400
+Received: from sesbmg22.ericsson.net ([193.180.251.48]:50702 "EHLO
+        sesbmg22.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751128AbdHXOcD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 24 Aug 2017 10:32:03 -0400
+In-Reply-To: <1503585084-14079-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains fixes for buffer reassignments and a context imbalance.
+In tipc_rcv(), we linearize only the header and usually the packets
+are consumed as the nodes permit direct reception. However, if the
+skb contains tunnelled message due to fail over or synchronization
+we parse it in tipc_node_check_state() without performing
+linearization. This will cause link disturbances if the skb was
+non linear.
 
-Parthasarathy Bhuvaragan (3):
-  tipc: perform skb_linearize() before parsing the inner header
-  tipc: reassign pointers after skb reallocation / linearization
-  tipc: context imbalance at node read unlock
+In this commit, we perform linearization for the above messages.
 
- net/tipc/msg.c  | 7 +++++--
- net/tipc/node.c | 4 +++-
- 2 files changed, 8 insertions(+), 3 deletions(-)
+Signed-off-by: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
+Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
+---
+ net/tipc/node.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
+diff --git a/net/tipc/node.c b/net/tipc/node.c
+index 9b4dcb6a16b5..b113a52f8914 100644
+--- a/net/tipc/node.c
++++ b/net/tipc/node.c
+@@ -1557,6 +1557,8 @@ void tipc_rcv(struct net *net, struct sk_buff *skb, struct tipc_bearer *b)
+ 
+ 	/* Check/update node state before receiving */
+ 	if (unlikely(skb)) {
++		if (unlikely(skb_linearize(skb)))
++			goto discard;
+ 		tipc_node_write_lock(n);
+ 		if (tipc_node_check_state(n, skb, bearer_id, &xmitq)) {
+ 			if (le->link) {
 -- 
 2.1.4
