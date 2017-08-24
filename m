@@ -1,54 +1,54 @@
-From: Colin Ian King <colin.king@canonical.com>
-Subject: Re: [PATCH][next] net: hinic: fix comparison of a uint16_t type with
- -1
-Date: Thu, 24 Aug 2017 09:54:03 +0100
-Message-ID: <d37c85d8-3954-e7b7-e569-f18c2b062966@canonical.com>
-References: <20170823153936.22857-1-colin.king@canonical.com>
- <58f312cc-5f24-83b6-d12d-c66e4fd4dad2@huawei.com>
+From: Tariq Toukan <tariqt@mellanox.com>
+Subject: Re: [PATCH] net/mlx4_core: make mlx4_profile const
+Date: Thu, 24 Aug 2017 12:04:32 +0300
+Message-ID: <ac5b8b4a-edf3-604b-63c5-5ff645e0c5bc@mellanox.com>
+References: <1503492459-3110-1-git-send-email-bhumirks@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Aviad Krawczyk <aviad.krawczyk@huawei.com>, netdev@vger.kernel.org
+To: Bhumika Goyal <bhumirks@gmail.com>, julia.lawall@lip6.fr,
+        tariqt@mellanox.com, netdev@vger.kernel.org,
+        linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <58f312cc-5f24-83b6-d12d-c66e4fd4dad2@huawei.com>
+In-Reply-To: <1503492459-3110-1-git-send-email-bhumirks@gmail.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 24/08/17 09:48, Aviad Krawczyk wrote:
-> On 8/23/2017 6:39 PM, Colin King wrote:
->> From: Colin Ian King <colin.king@canonical.com>
->>
->> The comparison of hw_ioctxt.rx_buf_sz_idx == -1 is always false because
->> rx_buf_sz_idx is a uint16_t. Fix this by explicitly casting -1 to uint16_t.
->>
->> Detected by CoverityScan, CID#1454559 ("Operands don't affect result")
->>
->> Signed-off-by: Colin Ian King <colin.king@canonical.com>
->> ---
->>  drivers/net/ethernet/huawei/hinic/hinic_hw_dev.c | 2 +-
->>  1 file changed, 1 insertion(+), 1 deletion(-)
->>
->> diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_dev.c b/drivers/net/ethernet/huawei/hinic/hinic_hw_dev.c
->> index 09dec6de8dd5..71e26070fb7f 100644
->> --- a/drivers/net/ethernet/huawei/hinic/hinic_hw_dev.c
->> +++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_dev.c
->> @@ -352,7 +352,7 @@ static int set_hw_ioctxt(struct hinic_hwdev *hwdev, unsigned int rq_depth,
->>  		}
->>  	}
->>  
->> -	if (hw_ioctxt.rx_buf_sz_idx == -1)
->> +	if (hw_ioctxt.rx_buf_sz_idx == (uint16_t)-1)
->>  		return -EINVAL;
->>  
->>  	hw_ioctxt.sq_depth  = ilog2(sq_depth);
->>
+
+
+On 23/08/2017 3:47 PM, Bhumika Goyal wrote:
+> Make these const as they are only used in a copy operation.
 > 
-> Many thanks, Colin.
-> I prefer to avoid casting when possible, what do you think about replacing the condition by:
+> Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
+> ---
+>   drivers/net/ethernet/mellanox/mlx4/main.c | 4 ++--
+>   1 file changed, 2 insertions(+), 2 deletions(-)
 > 
-> if (rx_buf_sz_table[i].sz != HINIC_RX_BUF_SZ)
-> 	return -EINVAL;
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+> index 541ce9e..43fb2eb 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/main.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+> @@ -121,7 +121,7 @@
+>   	DRV_NAME ": Mellanox ConnectX core driver v"
+>   	DRV_VERSION "\n";
+>   
+> -static struct mlx4_profile default_profile = {
+> +static const struct mlx4_profile default_profile = {
+>   	.num_qp		= 1 << 18,
+>   	.num_srq	= 1 << 16,
+>   	.rdmarc_per_qp	= 1 << 4,
+> @@ -131,7 +131,7 @@
+>   	.num_mtt	= 1 << 20, /* It is really num mtt segements */
+>   };
+>   
+> -static struct mlx4_profile low_mem_profile = {
+> +static const struct mlx4_profile low_mem_profile = {
+>   	.num_qp		= 1 << 17,
+>   	.num_srq	= 1 << 6,
+>   	.rdmarc_per_qp	= 1 << 4,
 > 
 
-Does that work as expected when rx_buf_sz_table[i].sz == -1?
+Thanks Bhumika.
+
+Reviewed-by: Tariq Toukan <tariqt@mellanox.com>
