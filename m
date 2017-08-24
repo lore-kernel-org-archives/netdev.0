@@ -1,10 +1,9 @@
 From: Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net-next v7 05/10] landlock: Add LSM hooks related to
- filesystem
-Date: Wed, 23 Aug 2017 19:50:32 -0700
-Message-ID: <20170824025030.sxl2hkpcbzipb47y@ast-mbp>
+Subject: Re: [PATCH net-next v7 08/10] bpf: Add a Landlock sandbox example
+Date: Wed, 23 Aug 2017 19:59:02 -0700
+Message-ID: <20170824025901.cpppy4nn5xv2ao24@ast-mbp>
 References: <20170821000933.13024-1-mic@digikod.net>
- <20170821000933.13024-6-mic@digikod.net>
+ <20170821000933.13024-9-mic@digikod.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: 8bit
@@ -29,60 +28,94 @@ Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Alexei Starovoitov <as
 To: =?iso-8859-1?Q?Micka=EBl_Sala=FCn?= <mic-WFhQfpSGs3bR7s880joybQ@public.gmane.org>
 Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20170821000933.13024-6-mic-WFhQfpSGs3bR7s880joybQ@public.gmane.org>
+In-Reply-To: <20170821000933.13024-9-mic-WFhQfpSGs3bR7s880joybQ@public.gmane.org>
 Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 21, 2017 at 02:09:28AM +0200, Mickaël Salaün wrote:
-> Handle 33 filesystem-related LSM hooks for the Landlock filesystem
-> event: LANDLOCK_SUBTYPE_EVENT_FS.
+On Mon, Aug 21, 2017 at 02:09:31AM +0200, Mickaël Salaün wrote:
+> Add a basic sandbox tool to create a process isolated from some part of
+> the system. This sandbox create a read-only environment. It is only
+> allowed to write to a character device such as a TTY:
 > 
-> A Landlock event wrap LSM hooks for similar kernel object types (e.g.
-> struct file, struct path...). Multiple LSM hooks can trigger the same
-> Landlock event.
-> 
-> Landlock handle nine coarse-grained actions: read, write, execute, new,
-> get, remove, ioctl, lock and fcntl. Each of them abstract LSM hook
-> access control in a way that can be extended in the future.
-> 
-> The Landlock LSM hook registration is done after other LSM to only run
-> actions from user-space, via eBPF programs, if the access was granted by
-> major (privileged) LSMs.
+>   # :> X
+>   # echo $?
+>   0
+>   # ./samples/bpf/landlock1 /bin/sh -i
+>   Launching a new sandboxed process.
+>   # :> Y
+>   cannot create Y: Operation not permitted
 > 
 > Signed-off-by: Mickaël Salaün <mic-WFhQfpSGs3bR7s880joybQ@public.gmane.org>
 
 ...
 
-> +/* WRAP_ARG_SB */
-> +#define WRAP_ARG_SB_TYPE	WRAP_TYPE_FS
-> +#define WRAP_ARG_SB_DEC(arg)					\
-> +	EXPAND_C(WRAP_TYPE_FS) wrap_##arg =			\
-> +	{ .type = BPF_HANDLE_FS_TYPE_DENTRY, .dentry = arg->s_root };
-> +#define WRAP_ARG_SB_VAL(arg)	((uintptr_t)&wrap_##arg)
-> +#define WRAP_ARG_SB_OK(arg)	(arg && arg->s_root)
-...
+> +SEC("landlock1")
+> +static int landlock_fs_prog1(struct landlock_context *ctx)
+> +{
+> +	char fmt_error_mode[] = "landlock1: error: get_mode:%lld\n";
+> +	char fmt_error_access[] = "landlock1: error: access denied\n";
+> +	long long ret;
+> +
+> +	/*
+> +	 * The argument ctx->arg2 contains bitflags of actions for which the
+> +	 * rule is run.  The flag LANDLOCK_ACTION_FS_WRITE means that a write
+> +	 * is requested by one of the userspace processes restricted by this
+> +	 * rule. The following test allows any actions which does not include a
+> +	 * write.
+> +	 */
+> +	if (!(ctx->arg2 & LANDLOCK_ACTION_FS_WRITE))
+> +		return 0;
+> +
+> +	/*
+> +	 * The argument ctx->arg1 is a file handle for which the process want
+> +	 * to access. The function bpf_handle_fs_get_mode() return the mode of
+> +	 * a file (e.g. S_IFBLK, S_IFDIR, S_IFREG...). If there is an error,
+> +	 * for example if the argument is not a file handle, then an
+> +	 * -errno value is returned. Otherwise the caller get the file mode as
+> +	 *  with stat(2).
+> +	 */
+> +	ret = bpf_handle_fs_get_mode((void *)ctx->arg1);
+> +	if (ret < 0) {
+> +
+> +		/*
+> +		 * The bpf_trace_printk() function enable to write in the
+> +		 * kernel eBPF debug log, accessible through
+> +		 * /sys/kernel/debug/tracing/trace_pipe . To be allowed to call
+> +		 * this function, a Landlock rule must have the
+> +		 * LANDLOCK_SUBTYPE_ABILITY_DEBUG ability, which is only
+> +		 * allowed for CAP_SYS_ADMIN.
+> +		 */
+> +		bpf_trace_printk(fmt_error_mode, sizeof(fmt_error_mode), ret);
+> +		return 1;
+> +	}
+> +
+> +	/*
+> +	 * This check allows the action on the file if it is a directory or a
+> +	 * pipe. Otherwise, a message is printed to the eBPF log.
+> +	 */
+> +	if (S_ISCHR(ret) || S_ISFIFO(ret))
+> +		return 0;
+> +	bpf_trace_printk(fmt_error_access, sizeof(fmt_error_access));
+> +	return 1;
+> +}
+> +
+> +/*
+> + * This subtype enable to set the ABI, which ensure that the eBPF context and
+> + * program behavior will be compatible with this Landlock rule.
+> + */
+> +SEC("subtype")
+> +static const union bpf_prog_subtype _subtype = {
+> +	.landlock_rule = {
+> +		.abi = 1,
+> +		.event = LANDLOCK_SUBTYPE_EVENT_FS,
+> +		.ability = LANDLOCK_SUBTYPE_ABILITY_DEBUG,
+> +	}
+> +};
 
-> +HOOK_NEW_FS(sb_remount, 2,
-> +	struct super_block *, sb,
-> +	void *, data,
-> +	WRAP_ARG_SB, sb,
-> +	WRAP_ARG_RAW, LANDLOCK_ACTION_FS_WRITE
-> +);
-
-this looks wrong. casting super_block to dentry?
-
-> +/* a directory inode contains only one dentry */
-> +HOOK_NEW_FS(inode_create, 3,
-> +	struct inode *, dir,
-> +	struct dentry *, dentry,
-> +	umode_t, mode,
-> +	WRAP_ARG_INODE, dir,
-> +	WRAP_ARG_RAW, LANDLOCK_ACTION_FS_WRITE
-> +);
-
-more general question: why you're not wrapping all useful
-arguments? Like in the above dentry can be acted upon
-by the landlock rule and it's readily available...
-
-The limitation of only 2 args looks odd.
-Is it a hard limitation ? how hard to extend?
+from rule writer perspective can you somehow merge subtype definition
+with the program? It seems they go hand in hand.
+Like section name of the program can be:
+SEC("landlock_rule1/event=fs/ability=debug")
+static int landlock_fs_prog1(struct landlock_context *ctx)...
+and the loader can parse this string and prepare appropriate
+data structures for the kernel.
