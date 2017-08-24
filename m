@@ -1,51 +1,44 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [iproute PATCH v4 0/6] Covscan: Fixes for string termination
-Date: Thu, 24 Aug 2017 15:16:48 -0700
-Message-ID: <20170824151648.0b6a8ca6@xeon-e3>
-References: <20170824095150.5469-1-phil@nwl.cc>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Phil Sutter <phil@nwl.cc>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net] net: systemport: Be drop monitor friendly
+Date: Thu, 24 Aug 2017 15:20:41 -0700
+Message-ID: <20170824222041.8377-1-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, edumazet@gmail.com,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f49.google.com ([74.125.83.49]:38871 "EHLO
-        mail-pg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753949AbdHXWQ5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 24 Aug 2017 18:16:57 -0400
-Received: by mail-pg0-f49.google.com with SMTP id b8so4236657pgn.5
-        for <netdev@vger.kernel.org>; Thu, 24 Aug 2017 15:16:56 -0700 (PDT)
-In-Reply-To: <20170824095150.5469-1-phil@nwl.cc>
+Received: from mail-wr0-f195.google.com ([209.85.128.195]:32814 "EHLO
+        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753566AbdHXWUt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 24 Aug 2017 18:20:49 -0400
+Received: by mail-wr0-f195.google.com with SMTP id z91so471527wrc.0
+        for <netdev@vger.kernel.org>; Thu, 24 Aug 2017 15:20:49 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 24 Aug 2017 11:51:44 +0200
-Phil Sutter <phil@nwl.cc> wrote:
+Utilize dev_consume_skb_any(cb->skb) in bcm_sysport_free_cb() which is
+used when a TX packet is completed, as well as when the RX ring is
+cleaned on shutdown. None of these two cases are packet drops, so be
+drop monitor friendly.
 
-> This series collects patches from v1 dealing with code potentially
-> leaving string buffers unterminated. This does not include situations
-> where it happens for parsed interface names since an overall solution
-> was attempted for that and it's state is still unclear due to lack of
-> feedback from upstream.
-> 
-> Changes since v3:
-> - Dropped patch 2 since upstream discussion in v3 is not conclusive yet.
-> 
-> Phil Sutter (6):
->   ipntable: Avoid memory allocation for filter.name
->   lib/fs: Fix format string in find_fs_mount()
->   lib/inet_proto: Review inet_proto_{a2n,n2a}()
->   lnstat_util: Simplify alloc_and_open() a bit
->   tc/m_xt: Fix for potential string buffer overflows
->   lib/ll_map: Choose size of new cache items at run-time
-> 
->  ip/ipntable.c      |  6 +++---
->  lib/fs.c           |  2 +-
->  lib/inet_proto.c   | 24 +++++++++++++-----------
->  lib/ll_map.c       |  4 ++--
->  misc/lnstat_util.c |  7 ++-----
->  tc/m_xt.c          |  7 ++++---
->  6 files changed, 25 insertions(+), 25 deletions(-)
-> 
+Suggested-by: Eric Dumazet <edumazet@gmail.com>
+Fixes: 80105befdb4b ("net: systemport: add Broadcom SYSTEMPORT Ethernet MAC driver")
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/ethernet/broadcom/bcmsysport.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Applied.
+diff --git a/drivers/net/ethernet/broadcom/bcmsysport.c b/drivers/net/ethernet/broadcom/bcmsysport.c
+index dc3052751bc1..e6add99cc31c 100644
+--- a/drivers/net/ethernet/broadcom/bcmsysport.c
++++ b/drivers/net/ethernet/broadcom/bcmsysport.c
+@@ -597,7 +597,7 @@ static int bcm_sysport_set_coalesce(struct net_device *dev,
+ 
+ static void bcm_sysport_free_cb(struct bcm_sysport_cb *cb)
+ {
+-	dev_kfree_skb_any(cb->skb);
++	dev_consume_skb_any(cb->skb);
+ 	cb->skb = NULL;
+ 	dma_unmap_addr_set(cb, dma_addr, 0);
+ }
+-- 
+2.9.3
