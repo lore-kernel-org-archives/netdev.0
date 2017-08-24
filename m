@@ -1,464 +1,57 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH] staging: rtlwifi: Improve debugging by using debugfs
-Date: Thu, 24 Aug 2017 16:28:08 -0500
-Message-ID: <20170824212808.26632-1-Larry.Finger@lwfinger.net>
-Cc: netdev@vger.kernel.org, devel@driverdev.osuosl.org,
-        Larry Finger <Larry.Finger@lwfinger.net>,
-        Ping-Ke Shih <pkshih@realtek.com>,
-        Yan-Hsuan Chuang <yhchuang@realtek.com>,
-        Birming Chiu <birming@realtek.com>,
-        Shaofu <shaofu@realtek.com>, Steven Ting <steventing@realtek.com>
-To: gregkh@linuxfoundation.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f68.google.com ([209.85.218.68]:35097 "EHLO
-        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753492AbdHXV2R (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 24 Aug 2017 17:28:17 -0400
-Received: by mail-oi0-f68.google.com with SMTP id r200so651270oie.2
-        for <netdev@vger.kernel.org>; Thu, 24 Aug 2017 14:28:17 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH][next] net: hinic: fix comparison of a uint16_t type
+ with -1
+Date: Thu, 24 Aug 2017 14:32:30 -0700 (PDT)
+Message-ID: <20170824.143230.1441873385968459116.davem@davemloft.net>
+References: <20170823153936.22857-1-colin.king@canonical.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: aviad.krawczyk@huawei.com, netdev@vger.kernel.org,
+        kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: colin.king@canonical.com
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <20170823153936.22857-1-colin.king@canonical.com>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The changes in this commit are also being sent to the main rtlwifi
-drivers in wireless-next; however, these changes will also be useful for
-any debugging of r8822be before it gets moved into the main tree.
+From: Colin King <colin.king@canonical.com>
+Date: Wed, 23 Aug 2017 16:39:36 +0100
 
-Use debugfs to dump register and btcoex status, and also write registers
-and h2c.
+> From: Colin Ian King <colin.king@canonical.com>
+> 
+> The comparison of hw_ioctxt.rx_buf_sz_idx == -1 is always false because
+> rx_buf_sz_idx is a uint16_t. Fix this by explicitly casting -1 to uint16_t.
+> 
+> Detected by CoverityScan, CID#1454559 ("Operands don't affect result")
+> 
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> ---
+>  drivers/net/ethernet/huawei/hinic/hinic_hw_dev.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_dev.c b/drivers/net/ethernet/huawei/hinic/hinic_hw_dev.c
+> index 09dec6de8dd5..71e26070fb7f 100644
+> --- a/drivers/net/ethernet/huawei/hinic/hinic_hw_dev.c
+> +++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_dev.c
+> @@ -352,7 +352,7 @@ static int set_hw_ioctxt(struct hinic_hwdev *hwdev, unsigned int rq_depth,
+>  		}
+>  	}
+>  
+> -	if (hw_ioctxt.rx_buf_sz_idx == -1)
+> +	if (hw_ioctxt.rx_buf_sz_idx == (uint16_t)-1)
+>  		return -EINVAL;
+>  
+>  	hw_ioctxt.sq_depth  = ilog2(sq_depth);
 
-We create topdir in /sys/kernel/debug/rtlwifi/, and use the MAC address
-as subdirectory with several entries to dump mac_reg, bb_reg, rf_reg etc.
-An example is
-    /sys/kernel/debug/rtlwifi/00-11-22-33-44-55-66/mac_0
+This is really silly.
 
-This change permits examination of device registers in a dynamic manner,
-a feature not available with the current debug mechanism.
+The code in question is trying to convert a size (HINIC_RX_BUF_SZ)
+into a table index, using a loop.
 
-We use seq_file to replace RT_TRACE to dump status, then we can use 'cat'
-to access btcoex's status through debugfs.
-(i.e. /sys/kernel/debug/rtlwifi/00-11-22-33-44-55-66/btcoex)
-Other related changes are
-1. implement btc_disp_dbg_msg() to access btcoex's common status.
-2. remove obsolete field bt_exist
+It should just compute this at compile time and do away with this
+overly confusing code.
 
-Signed-off-by: Ping-Ke Shih <pkshih@realtek.com>
-Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
-Cc: Yan-Hsuan Chuang <yhchuang@realtek.com>
-Cc: Birming Chiu <birming@realtek.com>
-Cc: Shaofu <shaofu@realtek.com>
-Cc: Steven Ting <steventing@realtek.com>
----
- drivers/staging/rtlwifi/debug.c | 226 ++++++++++++++++++++++++----------------
- 1 file changed, 135 insertions(+), 91 deletions(-)
-
-diff --git a/drivers/staging/rtlwifi/debug.c b/drivers/staging/rtlwifi/debug.c
-index b9fd47aeaa9b..7446d71c41d1 100644
---- a/drivers/staging/rtlwifi/debug.c
-+++ b/drivers/staging/rtlwifi/debug.c
-@@ -80,9 +80,11 @@ void _rtl_dbg_print_data(struct rtl_priv *rtlpriv, u64 comp, int level,
- 	}
- }
- 
--struct rtl_debgufs_priv {
-+struct rtl_debugfs_priv {
- 	struct rtl_priv *rtlpriv;
--	int (*cb)(struct seq_file *m, void *v);
-+	int (*cb_read)(struct seq_file *m, void *v);
-+	ssize_t (*cb_write)(struct file *filp, const char __user *buffer,
-+			    size_t count, loff_t *loff);
- 	u32 cb_data;
- };
- 
-@@ -90,9 +92,9 @@ static struct dentry *debugfs_topdir;
- 
- static int rtl_debug_get_common(struct seq_file *m, void *v)
- {
--	struct rtl_debgufs_priv *debugfs_priv = m->private;
-+	struct rtl_debugfs_priv *debugfs_priv = m->private;
- 
--	return debugfs_priv->cb(m, v);
-+	return debugfs_priv->cb_read(m, v);
- }
- 
- static int dl_debug_open_common(struct inode *inode, struct file *file)
-@@ -109,7 +111,7 @@ static const struct file_operations file_ops_common = {
- 
- static int rtl_debug_get_mac_page(struct seq_file *m, void *v)
- {
--	struct rtl_debgufs_priv *debugfs_priv = m->private;
-+	struct rtl_debugfs_priv *debugfs_priv = m->private;
- 	struct rtl_priv *rtlpriv = debugfs_priv->rtlpriv;
- 	u32 page = debugfs_priv->cb_data;
- 	int i, n;
-@@ -126,8 +128,8 @@ static int rtl_debug_get_mac_page(struct seq_file *m, void *v)
- }
- 
- #define RTL_DEBUG_IMPL_MAC_SERIES(page, addr)		\
--struct rtl_debgufs_priv rtl_debug_priv_mac_ ##page = {	\
--	.cb = rtl_debug_get_mac_page,			\
-+struct rtl_debugfs_priv rtl_debug_priv_mac_ ##page = {	\
-+	.cb_read = rtl_debug_get_mac_page,		\
- 	.cb_data = addr,				\
- }
- 
-@@ -150,7 +152,7 @@ RTL_DEBUG_IMPL_MAC_SERIES(17, 0x1700);
- 
- static int rtl_debug_get_bb_page(struct seq_file *m, void *v)
- {
--	struct rtl_debgufs_priv *debugfs_priv = m->private;
-+	struct rtl_debugfs_priv *debugfs_priv = m->private;
- 	struct rtl_priv *rtlpriv = debugfs_priv->rtlpriv;
- 	struct ieee80211_hw *hw = rtlpriv->hw;
- 	u32 page = debugfs_priv->cb_data;
-@@ -168,8 +170,8 @@ static int rtl_debug_get_bb_page(struct seq_file *m, void *v)
- }
- 
- #define RTL_DEBUG_IMPL_BB_SERIES(page, addr)		\
--struct rtl_debgufs_priv rtl_debug_priv_bb_ ##page = {	\
--	.cb = rtl_debug_get_bb_page,			\
-+struct rtl_debugfs_priv rtl_debug_priv_bb_ ##page = {	\
-+	.cb_read = rtl_debug_get_bb_page,		\
- 	.cb_data = addr,				\
- }
- 
-@@ -192,7 +194,7 @@ RTL_DEBUG_IMPL_BB_SERIES(1f, 0x1f00);
- 
- static int rtl_debug_get_reg_rf(struct seq_file *m, void *v)
- {
--	struct rtl_debgufs_priv *debugfs_priv = m->private;
-+	struct rtl_debugfs_priv *debugfs_priv = m->private;
- 	struct rtl_priv *rtlpriv = debugfs_priv->rtlpriv;
- 	struct ieee80211_hw *hw = rtlpriv->hw;
- 	enum radio_path rfpath = debugfs_priv->cb_data;
-@@ -215,8 +217,8 @@ static int rtl_debug_get_reg_rf(struct seq_file *m, void *v)
- }
- 
- #define RTL_DEBUG_IMPL_RF_SERIES(page, addr)		\
--struct rtl_debgufs_priv rtl_debug_priv_rf_ ##page = {	\
--	.cb = rtl_debug_get_reg_rf,			\
-+struct rtl_debugfs_priv rtl_debug_priv_rf_ ##page = {	\
-+	.cb_read = rtl_debug_get_reg_rf,		\
- 	.cb_data = addr,				\
- }
- 
-@@ -225,7 +227,7 @@ RTL_DEBUG_IMPL_RF_SERIES(b, RF90_PATH_B);
- 
- static int rtl_debug_get_cam_register(struct seq_file *m, void *v)
- {
--	struct rtl_debgufs_priv *debugfs_priv = m->private;
-+	struct rtl_debugfs_priv *debugfs_priv = m->private;
- 	struct rtl_priv *rtlpriv = debugfs_priv->rtlpriv;
- 	int start = debugfs_priv->cb_data;
- 	u32 target_cmd = 0;
-@@ -270,8 +272,8 @@ static int rtl_debug_get_cam_register(struct seq_file *m, void *v)
- }
- 
- #define RTL_DEBUG_IMPL_CAM_SERIES(page, addr)		\
--struct rtl_debgufs_priv rtl_debug_priv_cam_ ##page = {	\
--	.cb = rtl_debug_get_cam_register,	\
-+struct rtl_debugfs_priv rtl_debug_priv_cam_ ##page = {	\
-+	.cb_read = rtl_debug_get_cam_register,		\
- 	.cb_data = addr,				\
- }
- 
-@@ -281,7 +283,7 @@ RTL_DEBUG_IMPL_CAM_SERIES(3, 22);
- 
- static int rtl_debug_get_btcoex(struct seq_file *m, void *v)
- {
--	struct rtl_debgufs_priv *debugfs_priv = m->private;
-+	struct rtl_debugfs_priv *debugfs_priv = m->private;
- 	struct rtl_priv *rtlpriv = debugfs_priv->rtlpriv;
- 
- 	if (rtlpriv->cfg->ops->get_btc_status())
-@@ -293,8 +295,8 @@ static int rtl_debug_get_btcoex(struct seq_file *m, void *v)
- 	return 0;
- }
- 
--static struct rtl_debgufs_priv rtl_debug_priv_btcoex = {
--	.cb = rtl_debug_get_btcoex,
-+static struct rtl_debugfs_priv rtl_debug_priv_btcoex = {
-+	.cb_read = rtl_debug_get_btcoex,
- 	.cb_data = 0,
- };
- 
-@@ -302,18 +304,15 @@ static ssize_t rtl_debugfs_set_write_reg(struct file *filp,
- 					 const char __user *buffer,
- 					 size_t count, loff_t *loff)
- {
--	struct rtl_debgufs_priv *debugfs_priv = filp->private_data;
-+	struct rtl_debugfs_priv *debugfs_priv = filp->private_data;
- 	struct rtl_priv *rtlpriv = debugfs_priv->rtlpriv;
--	struct ieee80211_hw *hw = rtlpriv->hw;
- 	char tmp[32 + 1];
- 	int tmp_len;
- 	u32 addr, val, len;
- 	int num;
- 
--	if (count < 3) {
--		/*printk("argument size is less than 3\n");*/
-+	if (count < 3)
- 		return -EFAULT;
--	}
- 
- 	tmp_len = (count > sizeof(tmp) - 1 ? sizeof(tmp) - 1 : count);
- 
-@@ -322,57 +321,11 @@ static ssize_t rtl_debugfs_set_write_reg(struct file *filp,
- 
- 	tmp[tmp_len] = '\0';
- 
--	/* write H2C */
--	if (!strncmp(tmp, "h2c", 3)) {
--		u8 h2c_len, h2c_data_packed[8];
--		int h2c_data[8];	/* idx 0: cmd */
--		int i;
--
--		h2c_len = sscanf(tmp + 3, "%X %X %X %X %X %X %X %X",
--				 &h2c_data[0], &h2c_data[1],
--				 &h2c_data[2], &h2c_data[3],
--				 &h2c_data[4], &h2c_data[5],
--				 &h2c_data[6], &h2c_data[7]);
--
--		if (h2c_len <= 0)
--			return count;
--
--		for (i = 0; i < h2c_len; i++)
--			h2c_data_packed[i] = (u8)h2c_data[i];
--
--		rtlpriv->cfg->ops->fill_h2c_cmd(hw, h2c_data_packed[0],
--						h2c_len - 1,
--						&h2c_data_packed[1]);
--
--		return count;
--	}
--
--	/* write RF register */
--	if (!strncmp(tmp, "rf", 2)) {
--		int path;
--		u32 addr, bitmask, data;
--
--		num = sscanf(tmp + 2, "%X %X %X %X",
--			     &path, &addr, &bitmask, &data);
--
--		if (num != 4) {
--			RT_TRACE(rtlpriv, COMP_ERR, DBG_DMESG,
--				 "Format is <path> <addr> <mask> <data>\n");
--			return count;
--		}
--
--		rtl_set_rfreg(hw, path, addr, bitmask, data);
--
--		return count;
--	}
--
- 	/* write BB/MAC register */
--	num  = sscanf(tmp, "%x %x %x", &addr, &val, &len);
-+	num = sscanf(tmp, "%x %x %x", &addr, &val, &len);
- 
--	if (num !=  3) {
--		/*printk("invalid write_reg parameter!\n");*/
-+	if (num !=  3)
- 		return count;
--	}
- 
- 	switch (len) {
- 	case 1:
-@@ -392,27 +345,115 @@ static ssize_t rtl_debugfs_set_write_reg(struct file *filp,
- 	return count;
- }
- 
--static int rtl_debugfs_open(struct inode *inode, struct file *filp)
-+static struct rtl_debugfs_priv rtl_debug_priv_write_reg = {
-+	.cb_write = rtl_debugfs_set_write_reg,
-+};
-+
-+static ssize_t rtl_debugfs_set_write_h2c(struct file *filp,
-+					 const char __user *buffer,
-+					 size_t count, loff_t *loff)
- {
--	filp->private_data = inode->i_private;
-+	struct rtl_debugfs_priv *debugfs_priv = filp->private_data;
-+	struct rtl_priv *rtlpriv = debugfs_priv->rtlpriv;
-+	struct ieee80211_hw *hw = rtlpriv->hw;
-+	char tmp[32 + 1];
-+	int tmp_len;
-+	u8 h2c_len, h2c_data_packed[8];
-+	int h2c_data[8];	/* idx 0: cmd */
-+	int i;
- 
--	return 0;
-+	if (count < 3)
-+		return -EFAULT;
-+
-+	tmp_len = (count > sizeof(tmp) - 1 ? sizeof(tmp) - 1 : count);
-+
-+	if (!buffer || copy_from_user(tmp, buffer, tmp_len))
-+		return count;
-+
-+	tmp[tmp_len] = '\0';
-+
-+	h2c_len = sscanf(tmp, "%X %X %X %X %X %X %X %X",
-+			 &h2c_data[0], &h2c_data[1],
-+			 &h2c_data[2], &h2c_data[3],
-+			 &h2c_data[4], &h2c_data[5],
-+			 &h2c_data[6], &h2c_data[7]);
-+
-+	if (h2c_len <= 0)
-+		return count;
-+
-+	for (i = 0; i < h2c_len; i++)
-+		h2c_data_packed[i] = (u8)h2c_data[i];
-+
-+	rtlpriv->cfg->ops->fill_h2c_cmd(hw, h2c_data_packed[0],
-+					h2c_len - 1,
-+					&h2c_data_packed[1]);
-+
-+	return count;
-+}
-+
-+static struct rtl_debugfs_priv rtl_debug_priv_write_h2c = {
-+	.cb_write = rtl_debugfs_set_write_h2c,
-+};
-+
-+static ssize_t rtl_debugfs_set_write_rfreg(struct file *filp,
-+					   const char __user *buffer,
-+					    size_t count, loff_t *loff)
-+{
-+	struct rtl_debugfs_priv *debugfs_priv = filp->private_data;
-+	struct rtl_priv *rtlpriv = debugfs_priv->rtlpriv;
-+	struct ieee80211_hw *hw = rtlpriv->hw;
-+	char tmp[32 + 1];
-+	int tmp_len;
-+	int num;
-+	int path;
-+	u32 addr, bitmask, data;
-+
-+	if (count < 3)
-+		return -EFAULT;
-+
-+	tmp_len = (count > sizeof(tmp) - 1 ? sizeof(tmp) - 1 : count);
-+
-+	if (!buffer || copy_from_user(tmp, buffer, tmp_len))
-+		return count;
-+
-+	tmp[tmp_len] = '\0';
-+
-+	num = sscanf(tmp, "%X %X %X %X",
-+		     &path, &addr, &bitmask, &data);
-+
-+	if (num != 4) {
-+		RT_TRACE(rtlpriv, COMP_ERR, DBG_DMESG,
-+			 "Format is <path> <addr> <mask> <data>\n");
-+		return count;
-+	}
-+
-+	rtl_set_rfreg(hw, path, addr, bitmask, data);
-+
-+	return count;
- }
- 
-+static struct rtl_debugfs_priv rtl_debug_priv_write_rfreg = {
-+	.cb_write = rtl_debugfs_set_write_rfreg,
-+};
-+
- static int rtl_debugfs_close(struct inode *inode, struct file *filp)
- {
- 	return 0;
- }
- 
--static struct rtl_debgufs_priv rtl_debug_priv_write_reg = {
--	.cb = NULL,
--	.cb_data = 0,
--};
-+static ssize_t rtl_debugfs_common_write(struct file *filp,
-+					const char __user *buffer,
-+					size_t count, loff_t *loff)
-+{
-+	struct rtl_debugfs_priv *debugfs_priv = filp->private_data;
-+
-+	return debugfs_priv->cb_write(filp, buffer, count, loff);
-+}
- 
--static const struct file_operations file_ops_write_reg = {
-+static const struct file_operations file_ops_common_write = {
- 	.owner = THIS_MODULE,
--	.write = rtl_debugfs_set_write_reg,
--	.open = rtl_debugfs_open,
-+	.write = rtl_debugfs_common_write,
-+	.open = simple_open,
- 	.release = rtl_debugfs_close,
- };
- 
-@@ -420,7 +461,7 @@ static ssize_t rtl_debugfs_phydm_cmd(struct file *filp,
- 				     const char __user *buffer,
- 				     size_t count, loff_t *loff)
- {
--	struct rtl_debgufs_priv *debugfs_priv = filp->private_data;
-+	struct rtl_debugfs_priv *debugfs_priv = filp->private_data;
- 	struct rtl_priv *rtlpriv = debugfs_priv->rtlpriv;
- 
- 	char tmp[64];
-@@ -444,7 +485,7 @@ static ssize_t rtl_debugfs_phydm_cmd(struct file *filp,
- 
- static int rtl_debug_get_phydm_cmd(struct seq_file *m, void *v)
- {
--	struct rtl_debgufs_priv *debugfs_priv = m->private;
-+	struct rtl_debugfs_priv *debugfs_priv = m->private;
- 	struct rtl_priv *rtlpriv = debugfs_priv->rtlpriv;
- 
- 	if (rtlpriv->dbg.msg_buf)
-@@ -456,7 +497,7 @@ static int rtl_debug_get_phydm_cmd(struct seq_file *m, void *v)
- static int rtl_debugfs_open_rw(struct inode *inode, struct file *filp)
- {
- 	if (filp->f_mode & FMODE_READ)
--		single_open(filp, rtl_debug_get_phydm_cmd, inode->i_private);
-+		single_open(filp, rtl_debug_get_common, inode->i_private);
- 	else
- 		filp->private_data = inode->i_private;
- 
-@@ -471,18 +512,19 @@ static int rtl_debugfs_close_rw(struct inode *inode, struct file *filp)
- 	return 0;
- }
- 
--static struct rtl_debgufs_priv rtl_debug_priv_phydm_cmd = {
--	.cb = NULL,
-+static struct rtl_debugfs_priv rtl_debug_priv_phydm_cmd = {
-+	.cb_read = rtl_debug_get_phydm_cmd,
-+	.cb_write = rtl_debugfs_phydm_cmd,
- 	.cb_data = 0,
- };
- 
--static const struct file_operations file_ops_phydm_cmd = {
-+static const struct file_operations file_ops_common_rw = {
- 	.owner = THIS_MODULE,
- 	.open = rtl_debugfs_open_rw,
- 	.release = rtl_debugfs_close_rw,
- 	.read = seq_read,
- 	.llseek = seq_lseek,
--	.write = rtl_debugfs_phydm_cmd,
-+	.write = rtl_debugfs_common_write,
- };
- 
- #define RTL_DEBUGFS_ADD_CORE(name, mode, fopname)			   \
-@@ -499,9 +541,9 @@ static const struct file_operations file_ops_phydm_cmd = {
- #define RTL_DEBUGFS_ADD(name)						   \
- 		RTL_DEBUGFS_ADD_CORE(name, S_IFREG | 0444, common)
- #define RTL_DEBUGFS_ADD_W(name)						   \
--		RTL_DEBUGFS_ADD_CORE(name, S_IFREG | 0222, write_reg)
-+		RTL_DEBUGFS_ADD_CORE(name, S_IFREG | 0222, common_write)
- #define RTL_DEBUGFS_ADD_RW(name)					   \
--		RTL_DEBUGFS_ADD_CORE(name, S_IFREG | 0666, phydm_cmd)
-+		RTL_DEBUGFS_ADD_CORE(name, S_IFREG | 0666, common_rw)
- 
- void rtl_debug_add_one(struct ieee80211_hw *hw)
- {
-@@ -565,6 +607,8 @@ void rtl_debug_add_one(struct ieee80211_hw *hw)
- 	RTL_DEBUGFS_ADD(btcoex);
- 
- 	RTL_DEBUGFS_ADD_W(write_reg);
-+	RTL_DEBUGFS_ADD_W(write_h2c);
-+	RTL_DEBUGFS_ADD_W(write_rfreg);
- 
- 	RTL_DEBUGFS_ADD_RW(phydm_cmd);
- }
--- 
-2.12.3
+Even a switch statement would be much better and the compiler
+would optimize the whole away into a single assignment in
+the generated code.
