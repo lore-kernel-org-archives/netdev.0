@@ -1,155 +1,85 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net-next v1] net: gso: Add GSO support for NSH (Network
- Service Header)
-Date: Thu, 24 Aug 2017 16:13:26 +0200
-Message-ID: <20170824161326.1f5f7c7f@griffin>
-References: <1503567376-64933-1-git-send-email-yi.y.yang@intel.com>
+From: Antoine Tenart <antoine.tenart@free-electrons.com>
+Subject: Re: [PATCH net-next 07/13] net: mvpp2: improve the link management
+ function
+Date: Thu, 24 Aug 2017 16:14:13 +0200
+Message-ID: <20170824141413.GE28443@kwain>
+References: <20170824083823.16826-1-antoine.tenart@free-electrons.com>
+ <20170824083823.16826-8-antoine.tenart@free-electrons.com>
+ <20170824140625.GH8022@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, simon.horman@netronome.com
-To: Yi Yang <yi.y.yang@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42574 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751197AbdHXON3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 24 Aug 2017 10:13:29 -0400
-In-Reply-To: <1503567376-64933-1-git-send-email-yi.y.yang@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha512;
+        protocol="application/pgp-signature"; boundary="EgVrEAR5UttbsTXg"
+Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
+        davem@davemloft.net, kishon@ti.com, jason@lakedaemon.net,
+        sebastian.hesselbarth@gmail.com,
+        gregory.clement@free-electrons.com,
+        thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
+        linux@armlinux.org.uk, linux-kernel@vger.kernel.org,
+        mw@semihalf.com, stefanc@marvell.com,
+        miquel.raynal@free-electrons.com, netdev@vger.kernel.org
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170824140625.GH8022@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 24 Aug 2017 17:36:16 +0800, Yi Yang wrote:
->  include/net/nsh.h             | 307 ++++++++++++++++++++++++++++++++++++++++++
->  include/uapi/linux/if_ether.h |   1 +
->  net/Kconfig                   |   1 +
->  net/Makefile                  |   1 +
->  net/nsh/Kconfig               |  10 ++
->  net/nsh/Makefile              |   4 +
->  net/nsh/nsh_gso.c             | 116 ++++++++++++++++
 
-Please consider making this a patchset, with a patch adding the NSH
-structures and helper functions, a patch adding GSO and a patch adding
-OVS support. That way, everything can be reviewed together, yet the
-patches are reasonably contained.
+--EgVrEAR5UttbsTXg
+Content-Type: text/plain; charset=iso-8859-1
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> +config NET_NSH_GSO
-> +	bool "NSH GSO support"
-> +	depends on INET
-> +	default y
-> +	---help---
-> +	 This allows segmentation of GSO packet that have had NSH header pushed         onto them and thus become NSH GSO packets.
+Hi Andrew,
 
-Seems you're missing a newline here.
+On Thu, Aug 24, 2017 at 04:06:25PM +0200, Andrew Lunn wrote:
+> On Thu, Aug 24, 2017 at 10:38:17AM +0200, Antoine Tenart wrote:
+> > @@ -5753,14 +5753,24 @@ static void mvpp2_link_event(struct net_device =
+*dev)
+> >  		port->link =3D phydev->link;
+> > =20
+> >  		if (phydev->link) {
+> > +			mvpp2_interrupts_enable(port);
+> > +			mvpp2_port_enable(port);
+> > +
+> >  			mvpp2_egress_enable(port);
+> >  			mvpp2_ingress_enable(port);
+> > +			netif_carrier_on(dev);
+>=20
+> Have you seen cases where it is required to change the carrier state?
+> The phy state machine should be doing this. e.g. when autoneg has
+> completed, force link configuration, the link goes down etc.
 
-> +static struct sk_buff *nsh_gso_segment(struct sk_buff *skb,
-> +				       netdev_features_t features)
-> +{
-> +	struct sk_buff *segs = ERR_PTR(-EINVAL);
-> +	__be16 protocol = skb->protocol;
-> +	__be16 inner_proto;
-> +	u16 mac_offset = skb->mac_header;
-> +	u16 mac_len = skb->mac_len;
-> +	struct nsh_hdr *nsh;
-> +	unsigned int nsh_hlen;
-> +	const struct net_offload *ops;
-> +	struct sk_buff *(*gso_inner_segment)(struct sk_buff *skb,
-> +					     netdev_features_t features);
-> +
-> +	skb_reset_network_header(skb);
-> +	nsh = (struct nsh_hdr *)skb_network_header(skb);
-> +	nsh_hlen = nsh_hdr_len(nsh);
-> +	if (unlikely(!pskb_may_pull(skb, nsh_hlen)))
-> +		goto out;
+I don't think I saw a case where this was needed. And if phylib already
+handle this I think it should be removed from here as the
+mvpp2_link_event only is called by phylib.
 
-You have to reload nsh after this.
+Thanks!
+Antoine
 
-> +
-> +	__skb_pull(skb, nsh_hlen);
-> +
-> +	skb_reset_mac_header(skb);
-> +	skb_reset_mac_len(skb);
-> +
-> +	rcu_read_lock();
-> +	switch (nsh->next_proto) {
-> +	case NSH_P_ETHERNET:
-> +		inner_proto = htons(ETH_P_TEB);
-> +		gso_inner_segment = skb_mac_gso_segment;
-> +		break;
-> +	case NSH_P_IPV4:
-> +		inner_proto = htons(ETH_P_IP);
-> +		ops = rcu_dereference(inet_offloads[inner_proto]);
-> +		if (!ops || !ops->callbacks.gso_segment)
-> +			goto out;
-> +		gso_inner_segment = ops->callbacks.gso_segment;
-> +		break;
-> +	case NSH_P_IPV6:
-> +		inner_proto = htons(ETH_P_IPV6);
-> +		ops = rcu_dereference(inet6_offloads[inner_proto]);
-> +		if (!ops || !ops->callbacks.gso_segment)
-> +			goto out;
-> +		gso_inner_segment = ops->callbacks.gso_segment;
-> +		break;
-> +	case NSH_P_NSH:
-> +		inner_proto = htons(ETH_P_NSH);
-> +		gso_inner_segment = nsh_gso_segment;
+--=20
+Antoine T=E9nart, Free Electrons
+Embedded Linux and Kernel engineering
+http://free-electrons.com
 
-This doesn't look correct. Recursive call to nsh_gso_segment will reset
-mac header, causing skb_segment not to copy the previous NSH header(s)
-to the new segments.
+--EgVrEAR5UttbsTXg
+Content-Type: application/pgp-signature; name="signature.asc"
 
-> +		break;
-> +	default:
-> +		skb_gso_error_unwind(skb, protocol, nsh_hlen, mac_offset,
-> +				     mac_len);
-> +		goto out;
-> +	}
-> +
-> +	skb->protocol = inner_proto;
-> +	segs = gso_inner_segment(skb, features);
-> +	if (IS_ERR_OR_NULL(segs)) {
-> +		skb_gso_error_unwind(skb, protocol, nsh_hlen, mac_offset,
-> +				     mac_len);
-> +		goto out;
-> +	}
-> +
-> +	do {
-> +		skb->mac_len = mac_len;
-> +		skb->protocol = protocol;
-> +
-> +		skb_reset_inner_network_header(skb);
+-----BEGIN PGP SIGNATURE-----
 
-This looks superfluous.
+iQIzBAABCgAdFiEEM7Tg8N8kXOlT7hOhXE2LyK3bvNgFAlme3zUACgkQXE2LyK3b
+vNjVKg//bGMubmaz+YrpgfX+PdPCLyy0fVHPjJjIoqI94ap95IGxIl7nFQcU5apl
+0nAnnHXup0E6plXI3icpw1AdKJFJtmEIwxfU7LXxBeNVGMHPJNY9smoc0NP8diCs
+W2XGT2yJL+wudVo5aZYoMuMsFSD/vmU8eAFjVMrsXLT2pZakDstDjF7WbdoLoSmO
+7el9kpXuclsHzKuN5A7PSEEedXYbcmRgmvS0oMTseGzdFNiFdnvgFEVl4iGupjMo
+M+IbhlOjMulL+hRPBAtfQgtGpAXwWYF/aGxrO9DuN1N65t4NuEyXZi7ZfWXBnp10
+H1liwN+HoeIrb1r5Wkjxdhcl1ZnEwi5Uh69yv0LzlJOMcPc1iPMT+AUiLZBlhGK/
+HdCeqQTW5T5K8nh6V8DQW2cxeeaXR/P+PgXXeu9Nu1icvsOw7jUNlyLsjLAbCNPi
++q8uuXIKogK2JxjViLlu4sYHxXWoei6PeDAZ2mGnWVxDeitu2MgSNgy6n/hHgPSN
+R7qSYJEZx9JOdQD0v6aBJTa4b8kJ3iQSWsqnOV0ru5HdJbWnXRBT9IGcvglhad3z
+SNms3soZtb8elofNMeyZRKPekGmFL2kq0QM2dEu5+ANVgvk57t+bgVnZvd5ou1rP
+d94utvXnk0UnDBkfhSk4oM45oYNRiqDai2JgImzDPASjgYUhprA=
+=9E1p
+-----END PGP SIGNATURE-----
 
-> +
-> +		__skb_push(skb, nsh_hlen);
-> +
-> +		skb_reset_mac_header(skb);
-> +		skb_set_network_header(skb, mac_len);
-> +	} while ((skb = skb->next));
-> +
-> +out:
-> +	rcu_read_unlock();
-> +	return segs;
-> +}
-> +
-> +static struct packet_offload nsh_offload __read_mostly = {
-> +	.type = cpu_to_be16(ETH_P_NSH),
-> +	.priority = 15,
-> +	.callbacks = {
-> +		.gso_segment    =	nsh_gso_segment,
-> +	},
-> +};
-> +
-> +static int __init nsh_gso_init(void)
-> +{
-> +	dev_add_offload(&nsh_offload);
-> +
-> +	return 0;
-> +}
-> +
-> +fs_initcall(nsh_gso_init);
-
-device_initcall should be enough. I doubt we'll be doing NFS over
-NSH ;-)
-
- Jiri
+--EgVrEAR5UttbsTXg--
