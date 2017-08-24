@@ -1,13 +1,13 @@
 From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH net-next 01/13] phy: add sgmii and 10gkr modes to the phy_mode enum
-Date: Thu, 24 Aug 2017 10:38:11 +0200
-Message-ID: <20170824083823.16826-2-antoine.tenart@free-electrons.com>
+Subject: [PATCH net-next 13/13] arm64: defconfig: enable Marvell CP110 comphy
+Date: Thu, 24 Aug 2017 10:38:23 +0200
+Message-ID: <20170824083823.16826-14-antoine.tenart@free-electrons.com>
 References: <20170824083823.16826-1-antoine.tenart@free-electrons.com>
-Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
+Cc: Miquel Raynal <miquel.raynal@free-electrons.com>,
         thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
         linux@armlinux.org.uk, linux-kernel@vger.kernel.org,
-        mw@semihalf.com, stefanc@marvell.com,
-        miquel.raynal@free-electrons.com, netdev@vger.kernel.org
+        mw@semihalf.com, stefanc@marvell.com, netdev@vger.kernel.org,
+        Antoine Tenart <antoine.tenart@free-electrons.com>
 To: davem@davemloft.net, kishon@ti.com, andrew@lunn.ch,
         jason@lakedaemon.net, sebastian.hesselbarth@gmail.com,
         gregory.clement@free-electrons.com
@@ -16,27 +16,29 @@ In-Reply-To: <20170824083823.16826-1-antoine.tenart@free-electrons.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds more PHY modes to the phy_mode enum, to allow
-configuring PHYs to the SGMII and/or the 10GKR mode by using the
-set_mode callback.
+From: Miquel Raynal <miquel.raynal@free-electrons.com>
 
+The comphy is an hardware block giving access to common PHYs that can be
+used by various other engines (Network, SATA, ...). This is used on
+Marvell 7k/8k platforms for now. Enable the corresponding driver.
+
+Signed-off-by: Miquel Raynal <miquel.raynal@free-electrons.com>
 Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
 ---
- include/linux/phy/phy.h | 2 ++
- 1 file changed, 2 insertions(+)
+ arch/arm64/configs/defconfig | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/include/linux/phy/phy.h b/include/linux/phy/phy.h
-index 78bb0d7f6b11..e694d4008c4a 100644
---- a/include/linux/phy/phy.h
-+++ b/include/linux/phy/phy.h
-@@ -27,6 +27,8 @@ enum phy_mode {
- 	PHY_MODE_USB_HOST,
- 	PHY_MODE_USB_DEVICE,
- 	PHY_MODE_USB_OTG,
-+	PHY_MODE_SGMII,
-+	PHY_MODE_10GKR,
- };
- 
- /**
+diff --git a/arch/arm64/configs/defconfig b/arch/arm64/configs/defconfig
+index cdde4f56a281..e671e37b30af 100644
+--- a/arch/arm64/configs/defconfig
++++ b/arch/arm64/configs/defconfig
+@@ -509,6 +509,7 @@ CONFIG_PWM_TEGRA=m
+ CONFIG_PHY_RCAR_GEN3_USB2=y
+ CONFIG_PHY_HI6220_USB=y
+ CONFIG_PHY_SUN4I_USB=y
++CONFIG_PHY_MVEBU_CP110_COMPHY=y
+ CONFIG_PHY_ROCKCHIP_INNO_USB2=y
+ CONFIG_PHY_ROCKCHIP_EMMC=y
+ CONFIG_PHY_ROCKCHIP_PCIE=m
 -- 
 2.13.5
