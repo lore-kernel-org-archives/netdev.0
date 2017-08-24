@@ -1,58 +1,48 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 07/13] net: mvpp2: improve the link management
- function
-Date: Thu, 24 Aug 2017 16:06:25 +0200
-Message-ID: <20170824140625.GH8022@lunn.ch>
-References: <20170824083823.16826-1-antoine.tenart@free-electrons.com>
- <20170824083823.16826-8-antoine.tenart@free-electrons.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH] netfilter: SYNPROXY: fix process non tcp packet bug in
+ {ipv4,ipv6}_synproxy_hook
+Date: Thu, 24 Aug 2017 16:07:34 +0200
+Message-ID: <20170824140734.GA2250@salvia>
+References: <1501221784-18226-1-git-send-email-xiaolou4617@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, kishon@ti.com, jason@lakedaemon.net,
-        sebastian.hesselbarth@gmail.com,
-        gregory.clement@free-electrons.com,
-        thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
-        linux@armlinux.org.uk, linux-kernel@vger.kernel.org,
-        mw@semihalf.com, stefanc@marvell.com,
-        miquel.raynal@free-electrons.com, netdev@vger.kernel.org
-To: Antoine Tenart <antoine.tenart@free-electrons.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: davem@davemloft.net, kadlec@blackhole.kfki.hu, fw@strlen.de,
+        kuznet@ms2.inr.ac.ru, yoshfuji@linux-ipv6.org,
+        netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+        coreteam@netfilter.org
+To: Lin Zhang <xiaolou4617@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20170824083823.16826-8-antoine.tenart@free-electrons.com>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <1501221784-18226-1-git-send-email-xiaolou4617@gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 24, 2017 at 10:38:17AM +0200, Antoine Tenart wrote:
-> When the link status changes, the phylib calls the link_event function
-> in the mvpp2 driver. Before this patch only the egress/ingress transmit
-> was enabled/disabled. This patch adds more functionality to the link
-> status management code by enabling/disabling the port per-cpu
-> interrupts, and the port itself. The queues are now stopped as well, and
-> the netif carrier helpers are called.
+On Fri, Jul 28, 2017 at 02:03:04PM +0800, Lin Zhang wrote:
+> In function {ipv4,ipv6}_synproxy_hook we expect a normal tcp packet,
+> but the real server maybe reply an icmp error packet related to the 
+> exist tcp conntrack, so we will access wrong tcp data.
 > 
-> Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
+> For fix it, we simply pass IP_CT_RELATED_REPLY packets.
+> 
+> Signed-off-by: Lin Zhang <xiaolou4617@gmail.com>
 > ---
->  drivers/net/ethernet/marvell/mvpp2.c | 10 ++++++++++
->  1 file changed, 10 insertions(+)
+>  net/ipv4/netfilter/ipt_SYNPROXY.c  | 2 +-
+>  net/ipv6/netfilter/ip6t_SYNPROXY.c | 2 +-
+>  2 files changed, 2 insertions(+), 2 deletions(-)
 > 
-> diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-> index ebcc89b8f792..99847fec1c5a 100644
-> --- a/drivers/net/ethernet/marvell/mvpp2.c
-> +++ b/drivers/net/ethernet/marvell/mvpp2.c
-> @@ -5753,14 +5753,24 @@ static void mvpp2_link_event(struct net_device *dev)
->  		port->link = phydev->link;
+> diff --git a/net/ipv4/netfilter/ipt_SYNPROXY.c b/net/ipv4/netfilter/ipt_SYNPROXY.c
+> index f1528f7..3971fd9 100644
+> --- a/net/ipv4/netfilter/ipt_SYNPROXY.c
+> +++ b/net/ipv4/netfilter/ipt_SYNPROXY.c
+> @@ -330,7 +330,7 @@ static unsigned int ipv4_synproxy_hook(void *priv,
+>  	if (synproxy == NULL)
+>  		return NF_ACCEPT;
 >  
->  		if (phydev->link) {
-> +			mvpp2_interrupts_enable(port);
-> +			mvpp2_port_enable(port);
-> +
->  			mvpp2_egress_enable(port);
->  			mvpp2_ingress_enable(port);
-> +			netif_carrier_on(dev);
+> -	if (nf_is_loopback_packet(skb))
+> +	if (nf_is_loopback_packet(skb) || ctinfo == IP_CT_RELATED_REPLY)
 
-Hi Antoine
+If the intention is to inspect TCP traffic only, I would suggest you
+just check for the protocol field here instead. So we are sure we only
+deal with TCP traffic indeed.
 
-Have you seen cases where it is required to change the carrier state?
-The phy state machine should be doing this. e.g. when autoneg has
-completed, force link configuration, the link goes down etc.
-
-	   Andrew
+Thanks.
