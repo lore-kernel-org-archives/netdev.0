@@ -1,96 +1,85 @@
-From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH net-next 2/4] net: mvpp2: move the mac retrieval/copy logic into its own function
-Date: Thu, 24 Aug 2017 11:46:56 +0200
-Message-ID: <20170824094658.1296-3-antoine.tenart@free-electrons.com>
-References: <20170824094658.1296-1-antoine.tenart@free-electrons.com>
-Cc: Antoine Tenart <antoine.tenart@free-electrons.com>, andrew@lunn.ch,
-        gregory.clement@free-electrons.com, nadavh@marvell.com,
-        linux@armlinux.org.uk, linux-kernel@vger.kernel.org,
-        mw@semihalf.com, stefanc@marvell.com, netdev@vger.kernel.org
-To: davem@davemloft.net, thomas.petazzoni@free-electrons.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170824094658.1296-1-antoine.tenart@free-electrons.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Phil Sutter <phil@nwl.cc>
+Subject: [iproute PATCH v4 1/4] ifstat, nstat: Check fdopen() return value
+Date: Thu, 24 Aug 2017 11:46:31 +0200
+Message-ID: <20170824094634.4093-2-phil@nwl.cc>
+References: <20170824094634.4093-1-phil@nwl.cc>
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from orbyte.nwl.cc ([151.80.46.58]:44813 "EHLO mail.nwl.cc"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752220AbdHXJrM (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 24 Aug 2017 05:47:12 -0400
+In-Reply-To: <20170824094634.4093-1-phil@nwl.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The MAC retrieval has a quite complicated logic (which is broken). Moves
-it to its own function to prepare for patches fixing its logic, so that
-reviews are easier.
+Prevent passing NULL FILE pointer to fgets() later.
 
-Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
+Fix both tools in a single patch since the code changes are basically
+identical.
+
+Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- drivers/net/ethernet/marvell/mvpp2.c | 45 +++++++++++++++++++++---------------
- 1 file changed, 27 insertions(+), 18 deletions(-)
+ misc/ifstat.c | 16 +++++++++++-----
+ misc/nstat.c  | 16 +++++++++++-----
+ 2 files changed, 22 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 50a0920d3282..908e5b148fd7 100644
---- a/drivers/net/ethernet/marvell/mvpp2.c
-+++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -7453,6 +7453,31 @@ static bool mvpp2_port_has_tx_irqs(struct mvpp2 *priv,
- 	return true;
- }
+diff --git a/misc/ifstat.c b/misc/ifstat.c
+index 1be21703bf14c..ac3eff6b870a9 100644
+--- a/misc/ifstat.c
++++ b/misc/ifstat.c
+@@ -992,12 +992,18 @@ int main(int argc, char *argv[])
+ 	    && verify_forging(fd) == 0) {
+ 		FILE *sfp = fdopen(fd, "r");
  
-+static void mvpp2_port_copy_mac_addr(struct net_device *dev, struct mvpp2 *priv,
-+				     struct device_node *port_node,
-+				     char **mac_from)
-+{
-+	struct mvpp2_port *port = netdev_priv(dev);
-+	char hw_mac_addr[ETH_ALEN] = {0};
-+	const char *dt_mac_addr;
-+
-+	dt_mac_addr = of_get_mac_address(port_node);
-+	if (dt_mac_addr && is_valid_ether_addr(dt_mac_addr)) {
-+		*mac_from = "device tree";
-+		ether_addr_copy(dev->dev_addr, dt_mac_addr);
-+	} else {
-+		if (priv->hw_version == MVPP21)
-+			mvpp21_get_mac_address(port, hw_mac_addr);
-+		if (is_valid_ether_addr(hw_mac_addr)) {
-+			*mac_from = "hardware";
-+			ether_addr_copy(dev->dev_addr, hw_mac_addr);
+-		load_raw_table(sfp);
+-		if (hist_db && source_mismatch) {
+-			fprintf(stderr, "ifstat: history is stale, ignoring it.\n");
+-			hist_db = NULL;
++		if (!sfp) {
++			fprintf(stderr, "ifstat: fdopen failed: %s\n",
++				strerror(errno));
++			close(fd);
++		} else  {
++			load_raw_table(sfp);
++			if (hist_db && source_mismatch) {
++				fprintf(stderr, "ifstat: history is stale, ignoring it.\n");
++				hist_db = NULL;
++			}
++			fclose(sfp);
+ 		}
+-		fclose(sfp);
+ 	} else {
+ 		if (fd >= 0)
+ 			close(fd);
+diff --git a/misc/nstat.c b/misc/nstat.c
+index 1212b1f2c8128..a4dd405d43a93 100644
+--- a/misc/nstat.c
++++ b/misc/nstat.c
+@@ -706,12 +706,18 @@ int main(int argc, char *argv[])
+ 	    && verify_forging(fd) == 0) {
+ 		FILE *sfp = fdopen(fd, "r");
+ 
+-		load_good_table(sfp);
+-		if (hist_db && source_mismatch) {
+-			fprintf(stderr, "nstat: history is stale, ignoring it.\n");
+-			hist_db = NULL;
++		if (!sfp) {
++			fprintf(stderr, "nstat: fdopen failed: %s\n",
++				strerror(errno));
++			close(fd);
 +		} else {
-+			*mac_from = "random";
-+			eth_hw_addr_random(dev);
-+		}
-+	}
-+}
-+
- /* Ports initialization */
- static int mvpp2_port_probe(struct platform_device *pdev,
- 			    struct device_node *port_node,
-@@ -7464,9 +7489,7 @@ static int mvpp2_port_probe(struct platform_device *pdev,
- 	struct mvpp2_port_pcpu *port_pcpu;
- 	struct net_device *dev;
- 	struct resource *res;
--	const char *dt_mac_addr;
--	const char *mac_from;
--	char hw_mac_addr[ETH_ALEN] = {0};
-+	char *mac_from = "";
- 	unsigned int ntxqs, nrxqs;
- 	bool has_tx_irqs;
- 	u32 id;
-@@ -7575,21 +7598,7 @@ static int mvpp2_port_probe(struct platform_device *pdev,
- 		goto err_free_irq;
- 	}
- 
--	dt_mac_addr = of_get_mac_address(port_node);
--	if (dt_mac_addr && is_valid_ether_addr(dt_mac_addr)) {
--		mac_from = "device tree";
--		ether_addr_copy(dev->dev_addr, dt_mac_addr);
--	} else {
--		if (priv->hw_version == MVPP21)
--			mvpp21_get_mac_address(port, hw_mac_addr);
--		if (is_valid_ether_addr(hw_mac_addr)) {
--			mac_from = "hardware";
--			ether_addr_copy(dev->dev_addr, hw_mac_addr);
--		} else {
--			mac_from = "random";
--			eth_hw_addr_random(dev);
--		}
--	}
-+	mvpp2_port_copy_mac_addr(dev, priv, port_node, &mac_from);
- 
- 	port->tx_ring_size = MVPP2_MAX_TXD;
- 	port->rx_ring_size = MVPP2_MAX_RXD;
++			load_good_table(sfp);
++			if (hist_db && source_mismatch) {
++				fprintf(stderr, "nstat: history is stale, ignoring it.\n");
++				hist_db = NULL;
++			}
++			fclose(sfp);
+ 		}
+-		fclose(sfp);
+ 	} else {
+ 		if (fd >= 0)
+ 			close(fd);
 -- 
-2.13.5
+2.13.1
