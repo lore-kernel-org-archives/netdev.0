@@ -1,106 +1,120 @@
-From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Subject: Re: [PATCH v3 3/4] net: stmmac: register parent MDIO node for
- sun8i-h3-emac
-Date: Thu, 24 Aug 2017 10:21:24 +0200
-Message-ID: <20170824082124.GA14302@Red>
-References: <CAGb2v67hQXSoCKP7qW+KRUYX+0djQ1Z23cQ67Lyg6G7ozGyfGQ@mail.gmail.com>
- <20170821132015.GB1703@lunn.ch>
- <20170821133104.qvrhvwin2rdg4aqo@flea.lan>
- <20170821142321.GE1703@lunn.ch>
- <CAGb2v64E4T=1ff3POGuXZA=MvjGAnKQ6OF6A3sT_cU-=jh6zNw@mail.gmail.com>
- <bfe784b6-5137-8fcd-dbd0-ad96974f4060@gmail.com>
- <20170822181140.GA11596@Red>
- <352ae66b-78a4-e88b-4544-a8edd9390b0c@gmail.com>
- <20170823074942.yt3c5gvnmdw5pqge@flea.home>
- <f14fe754-6339-32a0-3439-2daff6dd1d7e@gmail.com>
+From: Sekhar Nori <nsekhar@ti.com>
+Subject: Re: [v2,3/3] can: m_can: Add PM Runtime
+Date: Thu, 24 Aug 2017 14:00:54 +0530
+Message-ID: <8037f5f9-d51f-99c3-f2e8-62c90e56a6fa@ti.com>
+References: <20170724225142.19975-4-fcooper@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Maxime Ripard <maxime.ripard@free-electrons.com>,
-        Chen-Yu Tsai <wens@csie.org>, Andrew Lunn <andrew@lunn.ch>,
-        Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Russell King <linux@armlinux.org.uk>,
-        Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-        Alexandre Torgue <alexandre.torgue@st.com>,
-        devicetree <devicetree@vger.kernel.org>,
-        linux-arm-kernel <linux-arm-kernel@lists.infradead.org>,
-        linux-kernel <linux-kernel@vger.kernel.org>,
-        netdev <netdev@vger.kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Linux OMAP List <linux-omap@vger.kernel.org>,
+        Alexandre Belloni <alexandre.belloni@free-electrons.com>,
+        Wenyou Yang <wenyou.yang@atmel.com>
+To: Franklin Cooper <fcooper@ti.com>, <linux-kernel@vger.kernel.org>,
+        <devicetree@vger.kernel.org>, <netdev@vger.kernel.org>,
+        <linux-can@vger.kernel.org>, <wg@grandegger.com>,
+        <mkl@pengutronix.de>, <robh+dt@kernel.org>,
+        <quentin.schulz@free-electrons.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <f14fe754-6339-32a0-3439-2daff6dd1d7e@gmail.com>
+In-Reply-To: <20170724225142.19975-4-fcooper@ti.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 23, 2017 at 09:31:53AM -0700, Florian Fainelli wrote:
-> On 08/23/2017 12:49 AM, Maxime Ripard wrote:
-> > Hi Florian,
-> > 
-> > On Tue, Aug 22, 2017 at 11:35:01AM -0700, Florian Fainelli wrote:
-> >>>>> So I think what you are saying is either impossible or engineering-wise
-> >>>>> a very stupid design, like using an external MAC with a discrete PHY
-> >>>>> connected to the internal MAC's MDIO bus, while using the internal MAC
-> >>>>> with the internal PHY.
-> >>>>>
-> >>>>> Now can we please decide on something? We're a week and a half from
-> >>>>> the 4.13 release. If mdio-mux is wrong, then we could have two mdio
-> >>>>> nodes (internal-mdio & external-mdio).
-> >>>>
-> >>>> I really don't see a need for a mdio-mux in the first place, just have
-> >>>> one MDIO controller (current state) sub-node which describes the
-> >>>> built-in STMMAC MDIO controller and declare the internal PHY as a child
-> >>>> node (along with 'phy-is-integrated'). If a different configuration is
-> >>>> used, then just put the external PHY as a child node there.
-> >>>>
-> >>>> If fixed-link is required, the mdio node becomes unused anyway.
-> >>>>
-> >>>> Works for everyone?
-> >>>
-> >>> If we put an external PHY with reg=1 as a child of internal MDIO,
-> >>> il will be merged with internal PHY node and get
-> >>> phy-is-integrated.
-> >>
-> >> Then have the .dtsi file contain just the mdio node, but no internal or
-> >> external PHY and push all the internal and external PHY node definition
-> >> (in its entirety) to the per-board DTS file, does not that work?
-> > 
-> > If possible, I'd really like to have the internal PHY in the
-> > DTSI. It's always there in hardware anyway, and duplicating the PHY,
-> > with its clock, reset line, and whatever info we might need in the
-> > future in each and every board DTS that uses it will be very error
-> > prone and we will have the usual bunch of issues that come up with
-> > duplication.
-> 
-> OK, then what if you put the internal PHY in the DTSI, mark it with a
-> status = "disabled" property, and have the per-board DTS put a status =
-> "okay" property along with a "phy-is-integrated" boolean property? Would
-> that work?
++ OMAP mailing list
 
-No, I tested and for example with sun8i-h3-orangepi-plus.dts, the external PHY (ethernet-phy@1) is still merged.
-So that adding a 'status = "disabled"' does not bring anything.
+On Tuesday 25 July 2017 04:21 AM, Franklin Cooper wrote:
+> Add support for PM Runtime which is the new way to handle managing clocks.
+> However, to avoid breaking SoCs not using PM_RUNTIME leave the old clk
+> management approach in place.
+
+Since hclk is the interface clock, I think at a minimum there needs to
+be an assumption that pm_runtime_get_sync() will enable that clock and
+make the module ready for access.
+
+The only in-kernel user of this driver seems to be an atmel SoC. I am
+ccing folks who added support for M_CAN on that SoC to see if hclk
+management can be left to pm_runtime*() on their SoC.
+
+If they are okay, I think its a good to atleast drop explicit hclk
+enable disable in the driver. That way, we avoid double enable/disable
+of interface clock (hclk).
 
 > 
-> What I really don't think is necessary is:
+> PM_RUNTIME is required by OMAP based devices to handle clock management.
+> Therefore, this allows future Texas Instruments SoCs that have the MCAN IP
+> to work with this driver.
 > 
-> - duplicating the "mdio" controller node for external vs. internal PHY,
-> because this is not accurate, there is just one MDIO controller, but
-> there may be different kinds of MDIO/PHY devices attached
+> Signed-off-by: Franklin S Cooper Jr <fcooper@ti.com>
 
-For me, if we want to represent the reality, we need two MDIO:
-- since two PHY at the same address could co-exists
-- since they are isolated so not on the same MDIO bus
+Thanks,
+Sekhar
 
-> - having the STMMAC driver MDIO probing code having to deal with a
-> "mdio" sub-node or an "internal-mdio" sub-node because this is confusing
-> and requiring more driver-level changes that are error prone
-
-My patch for stmmac is really small, only the name of my variable ("need_mdio_mux_ids")
-have to be changed to something like "register_parent_mdio"
-
-
-So I agree with Maxime, we need to avoid merging PHY nodes, and we can avoid it only by having two separate MDIO nodes.
-Furthermore, with only one MDIO, we will face with lots of small patch for adding phy-is-integrated, with two we do not need to change any board DT, all is simply clean.
-Really having two MDIO seems cleaner.
-
-Regards
+> ---
+>  drivers/net/can/m_can/m_can.c | 13 +++++++++++++
+>  1 file changed, 13 insertions(+)
+> 
+> diff --git a/drivers/net/can/m_can/m_can.c b/drivers/net/can/m_can/m_can.c
+> index ea48e59..93e23f5 100644
+> --- a/drivers/net/can/m_can/m_can.c
+> +++ b/drivers/net/can/m_can/m_can.c
+> @@ -23,6 +23,7 @@
+>  #include <linux/of.h>
+>  #include <linux/of_device.h>
+>  #include <linux/platform_device.h>
+> +#include <linux/pm_runtime.h>
+>  #include <linux/iopoll.h>
+>  #include <linux/can/dev.h>
+>  
+> @@ -633,11 +634,15 @@ static int m_can_clk_start(struct m_can_priv *priv)
+>  	if (err)
+>  		clk_disable_unprepare(priv->hclk);
+>  
+> +	pm_runtime_get_sync(priv->device);
+> +
+>  	return err;
+>  }
+>  
+>  static void m_can_clk_stop(struct m_can_priv *priv)
+>  {
+> +	pm_runtime_put_sync(priv->device);
+> +
+>  	clk_disable_unprepare(priv->cclk);
+>  	clk_disable_unprepare(priv->hclk);
+>  }
+> @@ -1582,6 +1587,8 @@ static int m_can_plat_probe(struct platform_device *pdev)
+>  	/* Enable clocks. Necessary to read Core Release in order to determine
+>  	 * M_CAN version
+>  	 */
+> +	pm_runtime_enable(&pdev->dev);
+> +
+>  	ret = clk_prepare_enable(hclk);
+>  	if (ret)
+>  		goto disable_hclk_ret;
+> @@ -1626,6 +1633,8 @@ static int m_can_plat_probe(struct platform_device *pdev)
+>  	 */
+>  	tx_fifo_size = mram_config_vals[7];
+>  
+> +	pm_runtime_get_sync(&pdev->dev);
+> +
+>  	/* allocate the m_can device */
+>  	dev = alloc_m_can_dev(pdev, addr, tx_fifo_size);
+>  	if (!dev) {
+> @@ -1670,6 +1679,7 @@ static int m_can_plat_probe(struct platform_device *pdev)
+>  disable_hclk_ret:
+>  	clk_disable_unprepare(hclk);
+>  failed_ret:
+> +	pm_runtime_put_sync(&pdev->dev);
+>  	return ret;
+>  }
+>  
+> @@ -1726,6 +1736,9 @@ static int m_can_plat_remove(struct platform_device *pdev)
+>  	struct net_device *dev = platform_get_drvdata(pdev);
+>  
+>  	unregister_m_can_dev(dev);
+> +
+> +	pm_runtime_disable(&pdev->dev);
+> +
+>  	platform_set_drvdata(pdev, NULL);
+>  
+>  	free_m_can_dev(dev);
+> 
