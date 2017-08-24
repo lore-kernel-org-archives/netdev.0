@@ -1,7 +1,7 @@
 From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH net-next 06/13] net: mvpp2: simplify the link_event function
-Date: Thu, 24 Aug 2017 10:38:16 +0200
-Message-ID: <20170824083823.16826-7-antoine.tenart@free-electrons.com>
+Subject: [PATCH net-next 10/13] arm64: dts: marvell: extend the cp110 syscon register area length
+Date: Thu, 24 Aug 2017 10:38:20 +0200
+Message-ID: <20170824083823.16826-11-antoine.tenart@free-electrons.com>
 References: <20170824083823.16826-1-antoine.tenart@free-electrons.com>
 Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
         thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
@@ -16,53 +16,40 @@ In-Reply-To: <20170824083823.16826-1-antoine.tenart@free-electrons.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The link_event function is somewhat complicated. This cosmetic patch
-simplifies it.
+This patch extends on both cp110 the system register area length to
+include some of the comphy registers as well.
 
 Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
 ---
- drivers/net/ethernet/marvell/mvpp2.c | 13 ++++---------
- 1 file changed, 4 insertions(+), 9 deletions(-)
+ arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi | 2 +-
+ arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi  | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 49506bdde19a..ebcc89b8f792 100644
---- a/drivers/net/ethernet/marvell/mvpp2.c
-+++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -5740,7 +5740,6 @@ static void mvpp2_link_event(struct net_device *dev)
- {
- 	struct mvpp2_port *port = netdev_priv(dev);
- 	struct phy_device *phydev = dev->phydev;
--	int status_change = 0;
+diff --git a/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi b/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi
+index 18299e164cb7..9b2581473183 100644
+--- a/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi
++++ b/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi
+@@ -118,7 +118,7 @@
  
- 	if (phydev->link) {
- 		if ((port->speed != phydev->speed) ||
-@@ -5751,23 +5750,19 @@ static void mvpp2_link_event(struct net_device *dev)
- 	}
+ 			cpm_syscon0: system-controller@440000 {
+ 				compatible = "syscon", "simple-mfd";
+-				reg = <0x440000 0x1000>;
++				reg = <0x440000 0x2000>;
  
- 	if (phydev->link != port->link) {
--		if (!phydev->link) {
--			port->duplex = -1;
--			port->speed = 0;
--		}
--
- 		port->link = phydev->link;
--		status_change = 1;
--	}
+ 				cpm_clk: clock {
+ 					compatible = "marvell,cp110-clock";
+diff --git a/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi b/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi
+index 5ae8fa575859..d3902f218c46 100644
+--- a/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi
++++ b/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi
+@@ -125,7 +125,7 @@
  
--	if (status_change) {
- 		if (phydev->link) {
- 			mvpp2_egress_enable(port);
- 			mvpp2_ingress_enable(port);
- 		} else {
-+			port->duplex = -1;
-+			port->speed = 0;
-+
- 			mvpp2_ingress_disable(port);
- 			mvpp2_egress_disable(port);
- 		}
-+
- 		phy_print_status(phydev);
- 	}
- }
+ 			cps_syscon0: system-controller@440000 {
+ 				compatible = "syscon", "simple-mfd";
+-				reg = <0x440000 0x1000>;
++				reg = <0x440000 0x2000>;
+ 
+ 				cps_clk: clock {
+ 					compatible = "marvell,cp110-clock";
 -- 
 2.13.5
