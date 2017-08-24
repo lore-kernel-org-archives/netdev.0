@@ -1,26 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/mlx5e: make mlx5e_profile const
-Date: Thu, 24 Aug 2017 12:33:54 -0700 (PDT)
-Message-ID: <20170824.123354.243322923931424137.davem@davemloft.net>
-References: <1503492721-3187-1-git-send-email-bhumirks@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] virtio_net: be drop monitor friend
+Date: Thu, 24 Aug 2017 12:34:30 -0700
+Message-ID: <1503603270.2499.82.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1503590569.2499.81.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20170824.115053.1345828961956619603.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: julia.lawall@lip6.fr, saeedm@mellanox.com, matanb@mellanox.com,
-        leonro@mellanox.com, netdev@vger.kernel.org,
-        linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org
-To: bhumirks@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1503492721-3187-1-git-send-email-bhumirks@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, mst@redhat.com, jasowang@redhat.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f43.google.com ([74.125.83.43]:38219 "EHLO
+        mail-pg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753803AbdHXTec (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 24 Aug 2017 15:34:32 -0400
+Received: by mail-pg0-f43.google.com with SMTP id b8so2245574pgn.5
+        for <netdev@vger.kernel.org>; Thu, 24 Aug 2017 12:34:32 -0700 (PDT)
+In-Reply-To: <20170824.115053.1345828961956619603.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Bhumika Goyal <bhumirks@gmail.com>
-Date: Wed, 23 Aug 2017 18:22:01 +0530
-
-> Make this const as it is only passed as an argument to the function
-> mlx5e_create_netdev and the corresponding argument is of type const.
+On Thu, 2017-08-24 at 11:50 -0700, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Thu, 24 Aug 2017 09:02:49 -0700
 > 
-> Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
+> > From: Eric Dumazet <edumazet@google.com>
+> > 
+> > This change is needed to not fool drop monitor.
+> > (perf record ... -e skb:kfree_skb )
+> > 
+> > Packets were properly sent and are consumed after TX completion.
+> > 
+> > Signed-off-by: Eric Dumazet <edumazet@google.com>
+> 
+> I'm pretty sure you meant "friendly" in the Subject line so I fixed
+> it up to say that :-)
+> 
+> Applied, thanks.
 
-Applied to net-next.
+Ah, great, thanks for fixing this ;)
