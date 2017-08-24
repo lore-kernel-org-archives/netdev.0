@@ -1,36 +1,35 @@
 From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: rtlwifi: rtl8821ae: fix spelling mistake: "faill" -> "failed"
-Date: Thu, 24 Aug 2017 09:56:31 +0000 (UTC)
-Message-ID: <20170824095632.1D3E160708@smtp.codeaurora.org>
-References: <20170822125904.13292-1-colin.king@canonical.com>
+Subject: Re: [RESEND,v12,7/8] wireless: ipw2200: Replace PCI pool old API
+Date: Thu, 24 Aug 2017 09:57:03 +0000 (UTC)
+Message-ID: <20170824095703.AF6EF606DD@smtp.codeaurora.org>
+References: <20170823071651.7865-1-romain.perier@collabora.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Chaoming Li <chaoming_li@realsil.com.cn>,
-        Ping-Ke Shih <pkshih@realtek.com>,
-        Joe Perches <joe@perches.com>,
-        yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>,
+Cc: Stanislav Yakovlev <stas.yakovlev@gmail.com>,
         linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Colin Ian King <colin.king@canonical.com>
+        linux-kernel@vger.kernel.org,
+        Romain Perier <romain.perier@collabora.com>
+To: Romain Perier <romain.perier@collabora.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170822125904.13292-1-colin.king@canonical.com>
+In-Reply-To: <20170823071651.7865-1-romain.perier@collabora.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Colin Ian King <colin.king@canonical.com> wrote:
+Romain Perier <romain.perier@collabora.com> wrote:
 
-> From: Colin Ian King <colin.king@canonical.com>
+> The PCI pool API is deprecated. This commit replaces the PCI pool old
+> API by the appropriate function with the DMA pool API.
 > 
-> Trivial fix to spelling mistake in RT_TRACE message
-> 
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> Signed-off-by: Romain Perier <romain.perier@collabora.com>
+> Reviewed-by: Peter Senna Tschudin <peter.senna@collabora.com>
+> Acked-by: Stanislav Yakovlev <stas.yakovlev@gmail.com>
 
 Patch applied to wireless-drivers-next.git, thanks.
 
-2cc8918eb987 rtlwifi: rtl8821ae: fix spelling mistake: "faill" -> "failed"
+28b75415ad19 wireless: ipw2200: Replace PCI pool old API
 
 -- 
-https://patchwork.kernel.org/patch/9915123/
+https://patchwork.kernel.org/patch/9916775/
 
 https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
