@@ -1,32 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][V2][netdev-next] gre: remove duplicated assignment of
- iph
-Date: Wed, 23 Aug 2017 22:36:17 -0700 (PDT)
-Message-ID: <20170823.223617.467388957481861020.davem@davemloft.net>
-References: <20170823115948.19884-1-colin.king@canonical.com>
+Subject: Re: [PATCH v2 net-next 0/5] bpf: verifier fixes
+Date: Wed, 23 Aug 2017 22:38:24 -0700 (PDT)
+Message-ID: <20170823.223824.351616219178729814.davem@davemloft.net>
+References: <f9208b68-466e-c6cb-4d0c-c567e40bdc15@solarflare.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: u9012063@gmail.com, kuznet@ms2.inr.ac.ru, yoshfuji@linux-ipv6.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: colin.king@canonical.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170823115948.19884-1-colin.king@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: alexei.starovoitov@gmail.com, ast@fb.com, daniel@iogearbox.net,
+        netdev@vger.kernel.org, iovisor-dev@lists.iovisor.org
+To: ecree@solarflare.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:60872 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751038AbdHXFiZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 24 Aug 2017 01:38:25 -0400
+In-Reply-To: <f9208b68-466e-c6cb-4d0c-c567e40bdc15@solarflare.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin King <colin.king@canonical.com>
-Date: Wed, 23 Aug 2017 12:59:48 +0100
+From: Edward Cree <ecree@solarflare.com>
+Date: Wed, 23 Aug 2017 15:07:20 +0100
 
-> From: Colin Ian King <colin.king@canonical.com>
+> Fix a couple of bugs introduced in my recent verifier patches.
+> Patch #2 does slightly increase the insn count on bpf_lxc.o, but only by
+>  about a hundred insns (i.e. 0.2%).
 > 
-> iph is being assigned the same value twice; remove the redundant
-> first assignment. (Thanks to Nikolay Aleksandrov for pointing out
-> that the first asssignment should be removed and not the second)
-> 
-> Fixes warning:
-> net/ipv4/ip_gre.c:265:2: warning: Value stored to 'iph' is never read
-> 
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> v2: added test for write-marks bug (patch #1); reworded comment on
+>  propagate_liveness() for clarity.
 
-Much better, applied, thanks.
+Series applied, thanks Edward.
