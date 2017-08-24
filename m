@@ -1,37 +1,40 @@
 From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: rtlwifi: btcoex: 23b 1ant: fix duplicated code for different
- branches
-Date: Thu, 24 Aug 2017 09:52:44 +0000 (UTC)
-Message-ID: <20170824095244.AFA9F60714@smtp.codeaurora.org>
-References: <20170818002219.GA9475@embeddedgus>
+Subject: Re: [v2] mt7601u: check memory allocation failure
+Date: Thu, 24 Aug 2017 09:55:46 +0000 (UTC)
+Message-ID: <20170824095546.CBCFC606DD@smtp.codeaurora.org>
+References: <20170821220617.21513-1-christophe.jaillet@wanadoo.fr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Larry Finger <Larry.Finger@lwfinger.net>,
-        Chaoming Li <chaoming_li@realsil.com.cn>,
+Cc: kubakici@wp.pl, matthias.bgg@gmail.com,
         linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        "Gustavo A. R. Silva" <gustavo@embeddedor.com>
-To: "Gustavo A. R. Silva" <gustavo@embeddedor.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170818002219.GA9475@embeddedgus>
-Sender: linux-kernel-owner@vger.kernel.org
+        linux-arm-kernel@lists.infradead.org,
+        linux-mediatek@lists.infradead.org, linux-kernel@vger.kernel.org,
+        kernel-janitors@vger.kernel.org,
+        Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+To: Christophe Jaillet <christophe.jaillet@wanadoo.fr>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <20170821220617.21513-1-christophe.jaillet@wanadoo.fr>
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-"Gustavo A. R. Silva" <gustavo@embeddedor.com> wrote:
+Christophe Jaillet <christophe.jaillet@wanadoo.fr> wrote:
 
-> Refactor code in order to avoid identical code for different branches.
+> Check memory allocation failure and return -ENOMEM in such a case, as
+> already done a few lines below.
 > 
-> This issue was detected with the help of Coccinelle.
+> As 'dev->tx_q' can be NULL, we also need to check for that in
+> 'mt7601u_free_tx()', and return early.
 > 
-> Addresses-Coverity-ID: 1415177
-> Signed-off-by: Gustavo A. R. Silva <gustavo@embeddedor.com>
+> Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+> Acked-by: Jakub Kicinski <kubakici@wp.pl>
 
 Patch applied to wireless-drivers-next.git, thanks.
 
-14cc696c0a4a rtlwifi: btcoex: 23b 1ant: fix duplicated code for different branches
+b3b2f62c6238 mt7601u: check memory allocation failure
 
 -- 
-https://patchwork.kernel.org/patch/9907397/
+https://patchwork.kernel.org/patch/9913855/
 
 https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
+
