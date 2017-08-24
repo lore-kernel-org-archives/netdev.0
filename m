@@ -1,119 +1,35 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [V3 PATCH net-next 4/5] xdp: remove net_device names from
- xdp_redirect tracepoint
-Date: Thu, 24 Aug 2017 12:33:18 +0200
-Message-ID: <150357079871.26663.9232050723046730220.stgit@firesoul>
-References: <150357074701.26663.4047992776649697788.stgit@firesoul>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [PATCH net-next] hinic: uninitialized variable in
+ hinic_api_cmd_init()
+Date: Thu, 24 Aug 2017 13:47:39 +0300
+Message-ID: <20170824104739.gw422ufydwmiu4gi@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Daniel Borkmann <borkmann@iogearbox.net>,
-        Jesper Dangaard Brouer <brouer@redhat.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Aviad Krawczyk <aviad.krawczyk@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:57330 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752528AbdHXKdV (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 24 Aug 2017 06:33:21 -0400
-In-Reply-To: <150357074701.26663.4047992776649697788.stgit@firesoul>
+Received: from userp1040.oracle.com ([156.151.31.81]:34999 "EHLO
+        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751191AbdHXKr5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 24 Aug 2017 06:47:57 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There is too much overhead in the current trace_xdp_redirect
-tracepoint as it does strcpy and strlen on the net_device names.
+We never set the error code in this function.
 
-Besides, exposing the ifindex/index is actually the information that
-is needed in the tracepoint to diagnose issues.  When a lookup fails
-(either ifindex or devmap index) then there is a need for saying which
-to_index that have issues.
+Fixes: eabf0fad81d5 ("net-next/hinic: Initialize api cmd resources")
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-V2: Adjust args to be aligned with trace_xdp_exception.
-
-Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
----
- include/trace/events/xdp.h |   24 ++++++++++++------------
- net/core/filter.c          |    6 +++---
- 2 files changed, 15 insertions(+), 15 deletions(-)
-
-diff --git a/include/trace/events/xdp.h b/include/trace/events/xdp.h
-index 0e42e69f773b..cd37706c6f55 100644
---- a/include/trace/events/xdp.h
-+++ b/include/trace/events/xdp.h
-@@ -51,33 +51,33 @@ TRACE_EVENT(xdp_exception,
- 
- TRACE_EVENT(xdp_redirect,
- 
--	TP_PROTO(const struct net_device *from,
--		 const struct net_device *to,
--		 const struct bpf_prog *xdp, u32 act, int err),
-+	TP_PROTO(const struct net_device *dev,
-+		 const struct bpf_prog *xdp, u32 act,
-+		 int to_index, int err),
- 
--	TP_ARGS(from, to, xdp, act, err),
-+	TP_ARGS(dev, xdp, act, to_index, err),
- 
- 	TP_STRUCT__entry(
--		__string(name_from, from->name)
--		__string(name_to, to->name)
- 		__array(u8, prog_tag, 8)
- 		__field(u32, act)
-+		__field(int, ifindex)
-+		__field(int, to_index)
- 		__field(int, err)
- 	),
- 
- 	TP_fast_assign(
- 		BUILD_BUG_ON(sizeof(__entry->prog_tag) != sizeof(xdp->tag));
- 		memcpy(__entry->prog_tag, xdp->tag, sizeof(xdp->tag));
--		__assign_str(name_from, from->name);
--		__assign_str(name_to, to->name);
--		__entry->act = act;
--		__entry->err = err;
-+		__entry->act		= act;
-+		__entry->ifindex	= dev->ifindex;
-+		__entry->to_index	= to_index;
-+		__entry->err		= err;
- 	),
- 
--	TP_printk("prog=%s from=%s to=%s action=%s err=%d",
-+	TP_printk("prog=%s action=%s ifindex=%d to_index=%d err=%d",
- 		  __print_hex_str(__entry->prog_tag, 8),
--		  __get_str(name_from), __get_str(name_to),
- 		  __print_symbolic(__entry->act, __XDP_ACT_SYM_TAB),
-+		  __entry->ifindex, __entry->to_index,
- 		  __entry->err)
- );
- #endif /* _TRACE_XDP_H */
-diff --git a/net/core/filter.c b/net/core/filter.c
-index a04680331033..4bcd6baa80c9 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -2524,7 +2524,7 @@ static int xdp_do_redirect_map(struct net_device *dev, struct xdp_buff *xdp,
- 	if (likely(!err))
- 		ri->map_to_flush = map;
- out:
--	trace_xdp_redirect(dev, fwd, xdp_prog, XDP_REDIRECT, err);
-+	trace_xdp_redirect(dev, xdp_prog, XDP_REDIRECT, index, err);
- 	return err;
- }
- 
-@@ -2548,7 +2548,7 @@ int xdp_do_redirect(struct net_device *dev, struct xdp_buff *xdp,
- 
- 	err = __bpf_tx_xdp(fwd, NULL, xdp, 0);
- out:
--	trace_xdp_redirect(dev, fwd, xdp_prog, XDP_REDIRECT, err);
-+	trace_xdp_redirect(dev, xdp_prog, XDP_REDIRECT, index, err);
- 	return err;
- }
- EXPORT_SYMBOL_GPL(xdp_do_redirect);
-@@ -2582,7 +2582,7 @@ int xdp_do_generic_redirect(struct net_device *dev, struct sk_buff *skb,
- 
- 	skb->dev = fwd;
- out:
--	trace_xdp_redirect(dev, fwd, xdp_prog, XDP_REDIRECT, err);
-+	trace_xdp_redirect(dev, xdp_prog, XDP_REDIRECT, index, err);
- 	return err;
- }
- EXPORT_SYMBOL_GPL(xdp_do_generic_redirect);
+diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.c b/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.c
+index 8901801fe426..c40603a183df 100644
+--- a/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.c
++++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.c
+@@ -941,6 +941,7 @@ int hinic_api_cmd_init(struct hinic_api_cmd_chain **chain,
+ 		if (IS_ERR(chain[chain_type])) {
+ 			dev_err(&pdev->dev, "Failed to create chain %d\n",
+ 				chain_type);
++			err = PTR_ERR(chain[chain_type]);
+ 			goto err_create_chain;
+ 		}
+ 	}
