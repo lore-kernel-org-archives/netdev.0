@@ -1,144 +1,90 @@
-From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v3 3/4] net: stmmac: register parent MDIO node for
- sun8i-h3-emac
-Date: Thu, 24 Aug 2017 12:59:07 -0700
-Message-ID: <dfc8e7f3-e374-b30b-b320-017f1c50ab58@gmail.com>
-References: <CAGb2v67hQXSoCKP7qW+KRUYX+0djQ1Z23cQ67Lyg6G7ozGyfGQ@mail.gmail.com>
- <20170821132015.GB1703@lunn.ch> <20170821133104.qvrhvwin2rdg4aqo@flea.lan>
- <20170821142321.GE1703@lunn.ch>
- <CAGb2v64E4T=1ff3POGuXZA=MvjGAnKQ6OF6A3sT_cU-=jh6zNw@mail.gmail.com>
- <bfe784b6-5137-8fcd-dbd0-ad96974f4060@gmail.com> <20170822181140.GA11596@Red>
- <352ae66b-78a4-e88b-4544-a8edd9390b0c@gmail.com>
- <20170823074942.yt3c5gvnmdw5pqge@flea.home>
- <f14fe754-6339-32a0-3439-2daff6dd1d7e@gmail.com> <20170824082124.GA14302@Red>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: [PATCH net-next] virtio-net: invoke zerocopy callback on xmit
+ path if no tx napi
+Date: Thu, 24 Aug 2017 16:20:39 -0400
+Message-ID: <CAF=yD-+9Ah8pC9i2w3Ad3WnhQit7Yo479pMrToty7priL6BFLw@mail.gmail.com>
+References: <20170819063854.27010-1-den@klaipeden.com> <5352c98a-fa48-fcf9-c062-9986a317a1b0@redhat.com>
+ <CAF=yD-LZ4=WAYfUtY7xRWi50FRSkrcOa+b7uc46xRnC4sbDCzQ@mail.gmail.com>
+ <64d451ae-9944-e978-5a05-54bb1a62aaad@redhat.com> <20170822204015-mutt-send-email-mst@kernel.org>
+ <1503498504.8694.26.camel@klaipeden.com> <CAF=yD-+U_aWxSmPPY8v8t=JO0MRZ+N+DzVJTAMKYQ5F=pE1PfA@mail.gmail.com>
+ <20170824014553-mutt-send-email-mst@kernel.org> <CAF=yD-KSek+LmZu0X0TXetmFEQ59iF3NpjZ4KugbwLo1BGfhaA@mail.gmail.com>
+ <20170824160748-mutt-send-email-mst@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-        Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>, Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
-        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        Russell King <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>,
-        Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
-        Alexandre Torgue <alexandre.torgue-qxv4g6HH51o@public.gmane.org>,
-        devicetree <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        linux-arm-kernel <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-        linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170824082124.GA14302@Red>
-Content-Language: en-US
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Koichiro Den <den@klaipeden.com>, Jason Wang <jasowang@redhat.com>,
+        virtualization@lists.linux-foundation.org,
+        Network Development <netdev@vger.kernel.org>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f44.google.com ([209.85.218.44]:33006 "EHLO
+        mail-oi0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752855AbdHXUVU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 24 Aug 2017 16:21:20 -0400
+Received: by mail-oi0-f44.google.com with SMTP id t88so5269489oij.0
+        for <netdev@vger.kernel.org>; Thu, 24 Aug 2017 13:21:20 -0700 (PDT)
+In-Reply-To: <20170824160748-mutt-send-email-mst@kernel.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/24/2017 01:21 AM, Corentin Labbe wrote:
-> On Wed, Aug 23, 2017 at 09:31:53AM -0700, Florian Fainelli wrote:
->> On 08/23/2017 12:49 AM, Maxime Ripard wrote:
->>> Hi Florian,
->>>
->>> On Tue, Aug 22, 2017 at 11:35:01AM -0700, Florian Fainelli wrote:
->>>>>>> So I think what you are saying is either impossible or engineering-wise
->>>>>>> a very stupid design, like using an external MAC with a discrete PHY
->>>>>>> connected to the internal MAC's MDIO bus, while using the internal MAC
->>>>>>> with the internal PHY.
->>>>>>>
->>>>>>> Now can we please decide on something? We're a week and a half from
->>>>>>> the 4.13 release. If mdio-mux is wrong, then we could have two mdio
->>>>>>> nodes (internal-mdio & external-mdio).
->>>>>>
->>>>>> I really don't see a need for a mdio-mux in the first place, just have
->>>>>> one MDIO controller (current state) sub-node which describes the
->>>>>> built-in STMMAC MDIO controller and declare the internal PHY as a child
->>>>>> node (along with 'phy-is-integrated'). If a different configuration is
->>>>>> used, then just put the external PHY as a child node there.
->>>>>>
->>>>>> If fixed-link is required, the mdio node becomes unused anyway.
->>>>>>
->>>>>> Works for everyone?
->>>>>
->>>>> If we put an external PHY with reg=1 as a child of internal MDIO,
->>>>> il will be merged with internal PHY node and get
->>>>> phy-is-integrated.
->>>>
->>>> Then have the .dtsi file contain just the mdio node, but no internal or
->>>> external PHY and push all the internal and external PHY node definition
->>>> (in its entirety) to the per-board DTS file, does not that work?
->>>
->>> If possible, I'd really like to have the internal PHY in the
->>> DTSI. It's always there in hardware anyway, and duplicating the PHY,
->>> with its clock, reset line, and whatever info we might need in the
->>> future in each and every board DTS that uses it will be very error
->>> prone and we will have the usual bunch of issues that come up with
->>> duplication.
+>> Traffic shaping can introduce msec timescale latencies.
 >>
->> OK, then what if you put the internal PHY in the DTSI, mark it with a
->> status = "disabled" property, and have the per-board DTS put a status =
->> "okay" property along with a "phy-is-integrated" boolean property? Would
->> that work?
-> 
-> No, I tested and for example with sun8i-h3-orangepi-plus.dts, the external PHY (ethernet-phy@1) is still merged.
-
-Is not there is a mistake in the unit address not matching the "reg"
-property, or am I not looking at the right tree?
-
-&mdio {
-        ext_rgmii_phy: ethernet-phy@1 {
-                compatible = "ethernet-phy-ieee802.3-c22";
-                reg = <0>;
-        };
-};
-
-If the PHY is really at MDIO address 0, then it should be
-ethernet-phy@0, and not ethernet-phy@1, and then no problem with the
-merging?
-
-
-> So that adding a 'status = "disabled"' does not bring anything.
-> 
+>> The delay may actually be a useful signal. If the guest does not
+>> orphan skbs early, TSQ will throttle the socket causing host
+>> queue build up.
 >>
->> What I really don't think is necessary is:
+>> But, if completions are queued in-order, unrelated flows may be
+>> throttled as well. Allowing out of order completions would resolve
+>> this HoL blocking.
+>
+> We can allow out of order, no guests that follow virtio spec
+> will break. But this won't help in all cases
+> - a single slow flow can occupy the whole ring, you will not
+>   be able to make any new buffers available for the fast flow
+> - what host considers a single flow can be multiple flows for guest
+>
+> There are many other examples.
+
+These examples are due to exhaustion of the fixed ubuf_info pool,
+right? We could use dynamic allocation or a resizable pool if these
+issues are serious enough.
+
+>> > Neither
+>> > do I see why would using tx interrupts within guest be a work around -
+>> > AFAIK windows driver uses tx interrupts.
 >>
->> - duplicating the "mdio" controller node for external vs. internal PHY,
->> because this is not accurate, there is just one MDIO controller, but
->> there may be different kinds of MDIO/PHY devices attached
-> 
-> For me, if we want to represent the reality, we need two MDIO:
-> - since two PHY at the same address could co-exists
-> - since they are isolated so not on the same MDIO bus
+>> It does not address completion latency itself. What I meant was
+>> that in an interrupt-driver model, additional starvation issues,
+>> such as the potential deadlock raised at the start of this thread,
+>> or the timer delay observed before packets were orphaned in
+>> virtio-net in commit b0c39dbdc204, are mitigated.
+>>
+>> Specifically, it breaks the potential deadlock where sockets are
+>> blocked waiting for completions (to free up budget in sndbuf, tsq, ..),
+>> yet completion handling is blocked waiting for a new packet to
+>> trigger free_old_xmit_skbs from start_xmit.
+>
+> This talk of potential deadlock confuses me - I think you mean we would
+> deadlock if we did not orphan skbs in !use_napi - is that right?  If you
+> mean that you can drop skb orphan and this won't lead to a deadlock if
+> free skbs upon a tx interrupt, I agree, for sure.
 
-Is that really true? It might be, but from experience with e.g:
-bcmgenet, the integrated PHY and the external PHYs are on the same MDIO
-bus, which is convenient, except when you have an address conflict.
+Yes, that is what I meant.
 
-> 
->> - having the STMMAC driver MDIO probing code having to deal with a
->> "mdio" sub-node or an "internal-mdio" sub-node because this is confusing
->> and requiring more driver-level changes that are error prone
-> 
-> My patch for stmmac is really small, only the name of my variable ("need_mdio_mux_ids")
-> have to be changed to something like "register_parent_mdio"
-> 
-> 
-> So I agree with Maxime, we need to avoid merging PHY nodes, and we can avoid it only by having two separate MDIO nodes.
-> Furthermore, with only one MDIO, we will face with lots of small patch for adding phy-is-integrated, with two we do not need to change any board DT, all is simply clean.
-> Really having two MDIO seems cleaner.
+>> >> That is the only thing keeping us from removing the HoL blocking in vhost-net zerocopy.
+>> >
+>> > We don't enable network watchdog on virtio but we could and maybe
+>> > should.
+>>
+>> Can you elaborate?
+>
+> The issue is that holding onto buffers for very long times makes guests
+> think they are stuck. This is funamentally because from guest point of
+> view this is a NIC, so it is supposed to transmit things out in
+> a timely manner. If host backs the virtual NIC by something that is not
+> a NIC, with traffic shaping etc introducing unbounded latencies,
+> guest will be confused.
 
-The only valid thing that you have provided so far is this merging
-problem. Anything else ranging from "we will face with lots of small
-patch for adding phy-is-integrated" to "Really having two MDIO seems
-cleaner." are hard to receive as technical arguments for correctness.
-
-What happens if someone connects an external PHY at the same MDIO
-address than the internal PHY, which one do you get responses from? If
-you shutdown the internal PHY and it stops responding, then this
-probably becomes deterministic, but it still supports the fact there is
-just one MDIO bus controller per MAC.
-
-Anyway, do whatever works best for you I guess.
--- 
-Florian
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+That assumes that guests are fragile in this regard. A linux guest
+does not make such assumptions. There are NICs with hardware
+rate limiting, so I'm not sure how much of a leap host os rate
+limiting is.
