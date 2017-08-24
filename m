@@ -1,7 +1,7 @@
 From: Madalin Bucur <madalin.bucur@nxp.com>
-Subject: [PATCH v3 6/7] Documentation: networking: add RSS information
-Date: Thu, 24 Aug 2017 10:28:27 +0300
-Message-ID: <1503559708-13405-7-git-send-email-madalin.bucur@nxp.com>
+Subject: [PATCH v3 5/7] dpaa_eth: add NETIF_F_RXHASH
+Date: Thu, 24 Aug 2017 10:28:26 +0300
+Message-ID: <1503559708-13405-6-git-send-email-madalin.bucur@nxp.com>
 References: <1503559708-13405-1-git-send-email-madalin.bucur@nxp.com>
 Reply-To: <madalin.bucur@nxp.com>
 Mime-Version: 1.0
@@ -13,103 +13,171 @@ In-Reply-To: <1503559708-13405-1-git-send-email-madalin.bucur@nxp.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Set the skb hash when then FMan Keygen hash result is available.
+
 Signed-off-by: Madalin Bucur <madalin.bucur@nxp.com>
 ---
- Documentation/networking/dpaa.txt | 68 ++++++++++++++++++++++++++++++++++++++-
- 1 file changed, 67 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/freescale/dpaa/dpaa_eth.c     | 23 +++++++++++++++++++---
+ drivers/net/ethernet/freescale/dpaa/dpaa_eth.h     |  1 +
+ drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c |  9 +++++++--
+ drivers/net/ethernet/freescale/fman/fman_port.c    | 11 +++++++++++
+ drivers/net/ethernet/freescale/fman/fman_port.h    |  2 ++
+ 5 files changed, 41 insertions(+), 5 deletions(-)
 
-diff --git a/Documentation/networking/dpaa.txt b/Documentation/networking/dpaa.txt
-index 76e016d..f88194f 100644
---- a/Documentation/networking/dpaa.txt
-+++ b/Documentation/networking/dpaa.txt
-@@ -13,6 +13,7 @@ Contents
- 	- Configuring DPAA Ethernet in your kernel
- 	- DPAA Ethernet Frame Processing
- 	- DPAA Ethernet Features
-+	- DPAA IRQ Affinity and Receive Side Scaling
- 	- Debugging
+diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
+index 6d89e74..73ca8d7 100644
+--- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
++++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
+@@ -236,7 +236,7 @@ static int dpaa_netdev_init(struct net_device *net_dev,
+ 	net_dev->max_mtu = dpaa_get_max_mtu();
  
- DPAA Ethernet Overview
-@@ -147,7 +148,10 @@ gradually.
+ 	net_dev->hw_features |= (NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
+-				 NETIF_F_LLTX);
++				 NETIF_F_LLTX | NETIF_F_RXHASH);
  
- The driver has Rx and Tx checksum offloading for UDP and TCP. Currently the Rx
- checksum offload feature is enabled by default and cannot be controlled through
--ethtool.
-+ethtool. Also, rx-flow-hash and rx-hashing was added. The addition of RSS
-+provides a big performance boost for the forwarding scenarios, allowing
-+different traffic flows received by one interface to be processed by different
-+CPUs in parallel.
+ 	net_dev->hw_features |= NETIF_F_SG | NETIF_F_HIGHDMA;
+ 	/* The kernels enables GSO automatically, if we declare NETIF_F_SG.
+@@ -2237,12 +2237,13 @@ static enum qman_cb_dqrr_result rx_default_dqrr(struct qman_portal *portal,
+ 	dma_addr_t addr = qm_fd_addr(fd);
+ 	enum qm_fd_format fd_format;
+ 	struct net_device *net_dev;
+-	u32 fd_status;
++	u32 fd_status, hash_offset;
+ 	struct dpaa_bp *dpaa_bp;
+ 	struct dpaa_priv *priv;
+ 	unsigned int skb_len;
+ 	struct sk_buff *skb;
+ 	int *count_ptr;
++	void *vaddr;
  
- The driver has support for multiple prioritized Tx traffic classes. Priorities
- range from 0 (lowest) to 3 (highest). These are mapped to HW workqueues with
-@@ -166,6 +170,68 @@ classes as follows:
- tc qdisc add dev <int> root handle 1: \
- 	 mqprio num_tc 4 map 0 0 0 0 1 1 1 1 2 2 2 2 3 3 3 3 hw 1
+ 	fd_status = be32_to_cpu(fd->status);
+ 	fd_format = qm_fd_get_format(fd);
+@@ -2288,7 +2289,8 @@ static enum qman_cb_dqrr_result rx_default_dqrr(struct qman_portal *portal,
+ 	dma_unmap_single(dpaa_bp->dev, addr, dpaa_bp->size, DMA_FROM_DEVICE);
  
-+DPAA IRQ Affinity and Receive Side Scaling
-+==========================================
-+
-+Traffic coming on the DPAA Rx queues or on the DPAA Tx confirmation
-+queues is seen by the CPU as ingress traffic on a certain portal.
-+The DPAA QMan portal interrupts are affined each to a certain CPU.
-+The same portal interrupt services all the QMan portal consumers.
-+
-+By default the DPAA Ethernet driver enables RSS, making use of the
-+DPAA FMan Parser and Keygen blocks to distribute traffic on 128
-+hardware frame queues using a hash on IP v4/v6 source and destination
-+and L4 source and destination ports, in present in the received frame.
-+When RSS is disabled, all traffic received by a certain interface is
-+received on the default Rx frame queue. The default DPAA Rx frame
-+queues are configured to put the received traffic into a pool channel
-+that allows any available CPU portal to dequeue the ingress traffic.
-+The default frame queues have the HOLDACTIVE option set, ensuring that
-+traffic bursts from a certain queue are serviced by the same CPU.
-+This ensures a very low rate of frame reordering. A drawback of this
-+is that only one CPU at a time can service the traffic received by a
-+certain interface when RSS is not enabled.
-+
-+To implement RSS, the DPAA Ethernet driver allocates an extra set of
-+128 Rx frame queues that are configured to dedicated channels, in a
-+round-robin manner. The mapping of the frame queues to CPUs is now
-+hardcoded, there is no indirection table to move traffic for a certain
-+FQ (hash result) to another CPU. The ingress traffic arriving on one
-+of these frame queues will arrive at the same portal and will always
-+be processed by the same CPU. This ensures intra-flow order preservation
-+and workload distribution for multiple traffic flows.
-+
-+RSS can be turned off for a certain interface using ethtool, i.e.
-+
-+	# ethtool -N fm1-mac9 rx-flow-hash tcp4 ""
-+
-+To turn it back on, one needs to set rx-flow-hash for tcp4/6 or udp4/6:
-+
-+	# ethtool -N fm1-mac9 rx-flow-hash udp4 sfdn
-+
-+There is no independent control for individual protocols, any command
-+run for one of tcp4|udp4|ah4|esp4|sctp4|tcp6|udp6|ah6|esp6|sctp6 is
-+going to control the rx-flow-hashing for all protocols on that interface.
-+
-+Besides using the FMan Keygen computed hash for spreading traffic on the
-+128 Rx FQs, the DPAA Ethernet driver also sets the skb hash value when
-+the NETIF_F_RXHASH feature is on (active by default). This can be turned
-+on or off through ethtool, i.e.:
-+
-+	# ethtool -K fm1-mac9 rx-hashing off
-+	# ethtool -k fm1-mac9 | grep hash
-+	receive-hashing: off
-+	# ethtool -K fm1-mac9 rx-hashing on
-+	Actual changes:
-+	receive-hashing: on
-+	# ethtool -k fm1-mac9 | grep hash
-+	receive-hashing: on
-+
-+Please note that Rx hashing depends upon the rx-flow-hashing being on
-+for that interface - turning off rx-flow-hashing will also disable the
-+rx-hashing (without ethtool reporting it as off as that depends on the
-+NETIF_F_RXHASH feature flag).
-+
- Debugging
- =========
+ 	/* prefetch the first 64 bytes of the frame or the SGT start */
+-	prefetch(phys_to_virt(addr) + qm_fd_get_offset(fd));
++	vaddr = phys_to_virt(addr);
++	prefetch(vaddr + qm_fd_get_offset(fd));
  
+ 	fd_format = qm_fd_get_format(fd);
+ 	/* The only FD types that we may receive are contig and S/G */
+@@ -2309,6 +2311,18 @@ static enum qman_cb_dqrr_result rx_default_dqrr(struct qman_portal *portal,
+ 
+ 	skb->protocol = eth_type_trans(skb, net_dev);
+ 
++	if (net_dev->features & NETIF_F_RXHASH && priv->keygen_in_use &&
++	    !fman_port_get_hash_result_offset(priv->mac_dev->port[RX],
++					      &hash_offset)) {
++		enum pkt_hash_types type;
++
++		/* if L4 exists, it was used in the hash generation */
++		type = be32_to_cpu(fd->status) & FM_FD_STAT_L4CV ?
++			PKT_HASH_TYPE_L4 : PKT_HASH_TYPE_L3;
++		skb_set_hash(skb, be32_to_cpu(*(u32 *)(vaddr + hash_offset)),
++			     type);
++	}
++
+ 	skb_len = skb->len;
+ 
+ 	if (unlikely(netif_receive_skb(skb) == NET_RX_DROP))
+@@ -2774,6 +2788,9 @@ static int dpaa_eth_probe(struct platform_device *pdev)
+ 	if (err)
+ 		goto init_ports_failed;
+ 
++	/* Rx traffic distribution based on keygen hashing defaults to on */
++	priv->keygen_in_use = true;
++
+ 	priv->percpu_priv = devm_alloc_percpu(dev, *priv->percpu_priv);
+ 	if (!priv->percpu_priv) {
+ 		dev_err(dev, "devm_alloc_percpu() failed\n");
+diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
+index 496a12c..bd94220 100644
+--- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
++++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
+@@ -159,6 +159,7 @@ struct dpaa_priv {
+ 	struct list_head dpaa_fq_list;
+ 
+ 	u8 num_tc;
++	bool keygen_in_use;
+ 	u32 msg_enable;	/* net_device message level */
+ 
+ 	struct {
+diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c b/drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c
+index 965f652..faea674 100644
+--- a/drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c
++++ b/drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c
+@@ -402,6 +402,8 @@ static void dpaa_get_strings(struct net_device *net_dev, u32 stringset,
+ static int dpaa_get_hash_opts(struct net_device *dev,
+ 			      struct ethtool_rxnfc *cmd)
+ {
++	struct dpaa_priv *priv = netdev_priv(dev);
++
+ 	cmd->data = 0;
+ 
+ 	switch (cmd->flow_type) {
+@@ -409,7 +411,8 @@ static int dpaa_get_hash_opts(struct net_device *dev,
+ 	case TCP_V6_FLOW:
+ 	case UDP_V4_FLOW:
+ 	case UDP_V6_FLOW:
+-		cmd->data |= RXH_L4_B_0_1 | RXH_L4_B_2_3;
++		if (priv->keygen_in_use)
++			cmd->data |= RXH_L4_B_0_1 | RXH_L4_B_2_3;
+ 		/* Fall through */
+ 	case IPV4_FLOW:
+ 	case IPV6_FLOW:
+@@ -421,7 +424,8 @@ static int dpaa_get_hash_opts(struct net_device *dev,
+ 	case AH_V6_FLOW:
+ 	case ESP_V4_FLOW:
+ 	case ESP_V6_FLOW:
+-		cmd->data |= RXH_IP_SRC | RXH_IP_DST;
++		if (priv->keygen_in_use)
++			cmd->data |= RXH_IP_SRC | RXH_IP_DST;
+ 		break;
+ 	default:
+ 		cmd->data = 0;
+@@ -458,6 +462,7 @@ static void dpaa_set_hash(struct net_device *net_dev, bool enable)
+ 	rxport = mac_dev->port[0];
+ 
+ 	fman_port_use_kg_hash(rxport, enable);
++	priv->keygen_in_use = enable;
+ }
+ 
+ static int dpaa_set_hash_opts(struct net_device *dev,
+diff --git a/drivers/net/ethernet/freescale/fman/fman_port.c b/drivers/net/ethernet/freescale/fman/fman_port.c
+index a5b246c..290bead 100644
+--- a/drivers/net/ethernet/freescale/fman/fman_port.c
++++ b/drivers/net/ethernet/freescale/fman/fman_port.c
+@@ -1720,6 +1720,17 @@ u32 fman_port_get_qman_channel_id(struct fman_port *port)
+ }
+ EXPORT_SYMBOL(fman_port_get_qman_channel_id);
+ 
++int fman_port_get_hash_result_offset(struct fman_port *port, u32 *offset)
++{
++	if (port->buffer_offsets.hash_result_offset == ILLEGAL_BASE)
++		return -EINVAL;
++
++	*offset = port->buffer_offsets.hash_result_offset;
++
++	return 0;
++}
++EXPORT_SYMBOL(fman_port_get_hash_result_offset);
++
+ static int fman_port_probe(struct platform_device *of_dev)
+ {
+ 	struct fman_port *port;
+diff --git a/drivers/net/ethernet/freescale/fman/fman_port.h b/drivers/net/ethernet/freescale/fman/fman_port.h
+index 5a99611..e86ca6a 100644
+--- a/drivers/net/ethernet/freescale/fman/fman_port.h
++++ b/drivers/net/ethernet/freescale/fman/fman_port.h
+@@ -151,6 +151,8 @@ int fman_port_enable(struct fman_port *port);
+ 
+ u32 fman_port_get_qman_channel_id(struct fman_port *port);
+ 
++int fman_port_get_hash_result_offset(struct fman_port *port, u32 *offset);
++
+ struct fman_port *fman_port_bind(struct device *dev);
+ 
+ #endif /* __FMAN_PORT_H */
 -- 
 2.1.0
