@@ -1,44 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [net-next] qlge: avoid memcpy buffer overflow
-Date: Thu, 24 Aug 2017 14:01:37 -0700 (PDT)
-Message-ID: <20170824.140137.2014331371813442270.davem@davemloft.net>
-References: <20170823135958.1379527-1-arnd@arndb.de>
+Subject: Re: [PATCH] tipc: Fix tipc_sk_reinit handling of -EAGAIN
+Date: Thu, 24 Aug 2017 14:02:58 -0700 (PDT)
+Message-ID: <20170824.140258.238955887232472310.davem@davemloft.net>
+References: <1907606232.1152250.1503498773672.JavaMail.zimbra@redhat.com>
+        <25145358.1155254.1503499382947.JavaMail.zimbra@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: harish.patil@cavium.com, manish.chopra@cavium.com,
-        Dept-GELinuxNICDev@cavium.com, stable@vger.kernel.org,
-        keescook@chromium.org, gustavo@embeddedor.com,
+Cc: herbert@gondor.apana.org.au, psutter@redhat.com,
         netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: arnd@arndb.de
+To: rpeterso@redhat.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170823135958.1379527-1-arnd@arndb.de>
+In-Reply-To: <25145358.1155254.1503499382947.JavaMail.zimbra@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Wed, 23 Aug 2017 15:59:49 +0200
+From: Bob Peterson <rpeterso@redhat.com>
+Date: Wed, 23 Aug 2017 10:43:02 -0400 (EDT)
 
-> gcc-8.0.0 (snapshot) points out that we copy a variable-length string
-> into a fixed length field using memcpy() with the destination length,
-> and that ends up copying whatever follows the string:
+> In 9dbbfb0ab6680c6a85609041011484e6658e7d3c function tipc_sk_reinit
+> had additional logic added to loop in the event that function
+> rhashtable_walk_next() returned -EAGAIN. No worries.
 > 
->     inlined from 'ql_core_dump' at drivers/net/ethernet/qlogic/qlge/qlge_dbg.c:1106:2:
-> drivers/net/ethernet/qlogic/qlge/qlge_dbg.c:708:2: error: 'memcpy' reading 15 bytes from a region of size 14 [-Werror=stringop-overflow=]
->   memcpy(seg_hdr->description, desc, (sizeof(seg_hdr->description)) - 1);
+> However, if rhashtable_walk_start returns -EAGAIN, it does "continue",
+> and therefore skips the call to rhashtable_walk_stop(). That has
+> the effect of calling rcu_read_lock() without its paired call to
+> rcu_read_unlock(). Since rcu_read_lock() may be nested, the problem
+> may not be apparent for a while, especially since resize events may
+> be rare. But the comments to rhashtable_walk_start() state:
 > 
-> Changing it to use strncpy() will instead zero-pad the destination,
-> which seems to be the right thing to do here.
+>  * ...Note that we take the RCU lock in all
+>  * cases including when we return an error.  So you must always call
+>  * rhashtable_walk_stop to clean up.
 > 
-> The bug is probably harmless, but it seems like a good idea to address
-> it in stable kernels as well, if only for the purpose of building with
-> gcc-8 without warnings.
+> This patch replaces the continue with a goto and label to ensure a
+> matching call to rhashtable_walk_stop().
 > 
-> Cc: stable@vger.kernel.org
+> Signed-off-by: Bob Peterson <rpeterso@redhat.com>
 
-Please don't use explicit stable CC:'ing for networking changes.
-
-> Fixes: a61f80261306 ("qlge: Add ethtool register dump function.")
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-
-Applied to 'net' and queued up for -stable, thanks.
+Applied and queued up for -stable, thanks.
