@@ -1,45 +1,46 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net] net: systemport: Free DMA coherent descriptors on errors
-Date: Thu, 24 Aug 2017 16:01:13 -0700
-Message-ID: <20170824230113.15283-1-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, edumazet@gmail.com,
-        Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next] net: mv643xx_eth: Be drop monitor friendly
+Date: Thu, 24 Aug 2017 16:04:25 -0700
+Message-ID: <20170824230425.15948-1-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, edumazet@gmail.com, andrew@lunn.ch,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+        linux-kernel@vger.kernel.org (open list)
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f193.google.com ([209.85.128.193]:36070 "EHLO
-        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753411AbdHXXBU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 24 Aug 2017 19:01:20 -0400
-Received: by mail-wr0-f193.google.com with SMTP id p8so500788wrf.3
-        for <netdev@vger.kernel.org>; Thu, 24 Aug 2017 16:01:20 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In case bcm_sysport_init_tx_ring() is not able to allocate ring->cbs, we
-would return with an error, and call bcm_sysport_fini_tx_ring() and it
-would see that ring->cbs is NULL and do nothing. This would leak the
-coherent DMA descriptor area, so we need to free it on error before
-returning.
+txq_reclaim() does the normal transmit queue reclamation and
+rxq_deinit() does the RX ring cleanup, none of these are packet drops,
+so use dev_consume_skb() for both locations.
 
-Reported-by: Eric Dumazet <edumazet@gmail.com>
-Fixes: 80105befdb4b ("net: systemport: add Broadcom SYSTEMPORT Ethernet MAC driver")
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/ethernet/broadcom/bcmsysport.c | 2 ++
- 1 file changed, 2 insertions(+)
+ drivers/net/ethernet/marvell/mv643xx_eth.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bcmsysport.c b/drivers/net/ethernet/broadcom/bcmsysport.c
-index e6add99cc31c..c28fa5a8734c 100644
---- a/drivers/net/ethernet/broadcom/bcmsysport.c
-+++ b/drivers/net/ethernet/broadcom/bcmsysport.c
-@@ -1346,6 +1346,8 @@ static int bcm_sysport_init_tx_ring(struct bcm_sysport_priv *priv,
+diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
+index 9c94ea9b2b80..7655616bffef 100644
+--- a/drivers/net/ethernet/marvell/mv643xx_eth.c
++++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
+@@ -1123,7 +1123,7 @@ static int txq_reclaim(struct tx_queue *txq, int budget, int force)
+ 			struct sk_buff *skb = __skb_dequeue(&txq->tx_skb);
  
- 	ring->cbs = kcalloc(size, sizeof(struct bcm_sysport_cb), GFP_KERNEL);
- 	if (!ring->cbs) {
-+		dma_free_coherent(kdev, sizeof(struct dma_desc),
-+				  ring->desc_cpu, ring->desc_dma);
- 		netif_err(priv, hw, priv->netdev, "CB allocation failed\n");
- 		return -ENOMEM;
+ 			if (!WARN_ON(!skb))
+-				dev_kfree_skb(skb);
++				dev_consume_skb(skb);
+ 		}
+ 
+ 		if (cmd_sts & ERROR_SUMMARY) {
+@@ -2026,7 +2026,7 @@ static void rxq_deinit(struct rx_queue *rxq)
+ 
+ 	for (i = 0; i < rxq->rx_ring_size; i++) {
+ 		if (rxq->rx_skb[i]) {
+-			dev_kfree_skb(rxq->rx_skb[i]);
++			dev_consume_skb(rxq->rx_skb[i]);
+ 			rxq->rx_desc_count--;
+ 		}
  	}
 -- 
 2.9.3
