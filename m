@@ -1,35 +1,60 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [PATCH net-next] hinic: uninitialized variable in
- hinic_api_cmd_init()
-Date: Thu, 24 Aug 2017 13:47:39 +0300
-Message-ID: <20170824104739.gw422ufydwmiu4gi@mwanda>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Aviad Krawczyk <aviad.krawczyk@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:34999 "EHLO
-        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751191AbdHXKr5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 24 Aug 2017 06:47:57 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: [PATCH nf-next] netfilter: xt_CHECKSUM: avoid bad offload warnings on
+ GSO packets
+Date: Thu, 24 Aug 2017 12:48:24 +0200 (CEST)
+Message-ID: <20170824104824.2C318A0F3A@unicorn.suse.cz>
+Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        Florian Westphal <fw@strlen.de>,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        "Michael S. Tsirkin" <mst@redhat.com>,
+        Markos Chandras <markos.chandras@suse.com>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-We never set the error code in this function.
+When --checksum_fill action is applied to a GSO packet, checksum_tg() calls
+skb_checksum_help() which is only meant to be applied to non-GSO packets so
+that it issues a warning.
 
-Fixes: eabf0fad81d5 ("net-next/hinic: Initialize api cmd resources")
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+This can be easily triggered by using e.g.
 
-diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.c b/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.c
-index 8901801fe426..c40603a183df 100644
---- a/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.c
-+++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.c
-@@ -941,6 +941,7 @@ int hinic_api_cmd_init(struct hinic_api_cmd_chain **chain,
- 		if (IS_ERR(chain[chain_type])) {
- 			dev_err(&pdev->dev, "Failed to create chain %d\n",
- 				chain_type);
-+			err = PTR_ERR(chain[chain_type]);
- 			goto err_create_chain;
- 		}
- 	}
+  iptables -t mangle -A OUTPUT -j CHECKSUM --checksum-fill
+
+and sending TCP stream via a device with GSO enabled.
+
+While this can be considered a misconfiguration, I believe the bad offload
+warning is supposed to catch bugs in drivers and networking stack, not
+misconfigured firewalls. So let's ignore such packets and only issue a one
+time warning with pr_warn_once() rather than a WARN with stack trace and
+tainted kernel.
+
+Reported-by: Markos Chandras <markos.chandras@suse.com>
+Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
+---
+ net/netfilter/xt_CHECKSUM.c | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/net/netfilter/xt_CHECKSUM.c b/net/netfilter/xt_CHECKSUM.c
+index 0f642ef8cd26..9a007153ba7f 100644
+--- a/net/netfilter/xt_CHECKSUM.c
++++ b/net/netfilter/xt_CHECKSUM.c
+@@ -25,8 +25,12 @@ MODULE_ALIAS("ip6t_CHECKSUM");
+ static unsigned int
+ checksum_tg(struct sk_buff *skb, const struct xt_action_param *par)
+ {
+-	if (skb->ip_summed == CHECKSUM_PARTIAL)
+-		skb_checksum_help(skb);
++	if (skb->ip_summed == CHECKSUM_PARTIAL) {
++		if (unlikely(skb_is_gso(skb)))
++			pr_warn_once("cannot mangle checksum of a GSO packet\n");
++		else
++			skb_checksum_help(skb);
++	}
+ 
+ 	return XT_CONTINUE;
+ }
+-- 
+2.14.1
+
