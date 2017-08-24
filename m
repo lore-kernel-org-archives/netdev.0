@@ -1,7 +1,7 @@
 From: Madalin Bucur <madalin.bucur@nxp.com>
-Subject: [PATCH v3 4/7] dpaa_eth: enable Rx hashing control
-Date: Thu, 24 Aug 2017 10:28:25 +0300
-Message-ID: <1503559708-13405-5-git-send-email-madalin.bucur@nxp.com>
+Subject: [PATCH v3 1/7] fsl/fman: move struct fman to header file
+Date: Thu, 24 Aug 2017 10:28:22 +0300
+Message-ID: <1503559708-13405-2-git-send-email-madalin.bucur@nxp.com>
 References: <1503559708-13405-1-git-send-email-madalin.bucur@nxp.com>
 Reply-To: <madalin.bucur@nxp.com>
 Mime-Version: 1.0
@@ -13,143 +13,180 @@ In-Reply-To: <1503559708-13405-1-git-send-email-madalin.bucur@nxp.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Allow ethtool control of the Rx flow hashing. By default RSS is
-enabled, this allows to turn it off by bypassing the FMan Keygen
-block and sending all traffic on the default Rx frame queue.
-
 Signed-off-by: Madalin Bucur <madalin.bucur@nxp.com>
 ---
- drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c | 113 +++++++++++++++++++++
- 1 file changed, 113 insertions(+)
+ drivers/net/ethernet/freescale/fman/fman.c | 74 ------------------------------
+ drivers/net/ethernet/freescale/fman/fman.h | 73 +++++++++++++++++++++++++++++
+ 2 files changed, 73 insertions(+), 74 deletions(-)
 
-diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c b/drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c
-index aad825088..965f652 100644
---- a/drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c
-+++ b/drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c
-@@ -399,6 +399,117 @@ static void dpaa_get_strings(struct net_device *net_dev, u32 stringset,
- 	memcpy(strings, dpaa_stats_global, size);
- }
- 
-+static int dpaa_get_hash_opts(struct net_device *dev,
-+			      struct ethtool_rxnfc *cmd)
-+{
-+	cmd->data = 0;
-+
-+	switch (cmd->flow_type) {
-+	case TCP_V4_FLOW:
-+	case TCP_V6_FLOW:
-+	case UDP_V4_FLOW:
-+	case UDP_V6_FLOW:
-+		cmd->data |= RXH_L4_B_0_1 | RXH_L4_B_2_3;
-+		/* Fall through */
-+	case IPV4_FLOW:
-+	case IPV6_FLOW:
-+	case SCTP_V4_FLOW:
-+	case SCTP_V6_FLOW:
-+	case AH_ESP_V4_FLOW:
-+	case AH_ESP_V6_FLOW:
-+	case AH_V4_FLOW:
-+	case AH_V6_FLOW:
-+	case ESP_V4_FLOW:
-+	case ESP_V6_FLOW:
-+		cmd->data |= RXH_IP_SRC | RXH_IP_DST;
-+		break;
-+	default:
-+		cmd->data = 0;
-+		break;
-+	}
-+
-+	return 0;
-+}
-+
-+static int dpaa_get_rxnfc(struct net_device *dev, struct ethtool_rxnfc *cmd,
-+			  u32 *unused)
-+{
-+	int ret = -EOPNOTSUPP;
-+
-+	switch (cmd->cmd) {
-+	case ETHTOOL_GRXFH:
-+		ret = dpaa_get_hash_opts(dev, cmd);
-+		break;
-+	default:
-+		break;
-+	}
-+
-+	return ret;
-+}
-+
-+static void dpaa_set_hash(struct net_device *net_dev, bool enable)
-+{
-+	struct mac_device *mac_dev;
-+	struct fman_port *rxport;
-+	struct dpaa_priv *priv;
-+
-+	priv = netdev_priv(net_dev);
-+	mac_dev = priv->mac_dev;
-+	rxport = mac_dev->port[0];
-+
-+	fman_port_use_kg_hash(rxport, enable);
-+}
-+
-+static int dpaa_set_hash_opts(struct net_device *dev,
-+			      struct ethtool_rxnfc *nfc)
-+{
-+	int ret = -EINVAL;
-+
-+	/* we support hashing on IPv4/v6 src/dest IP and L4 src/dest port */
-+	if (nfc->data &
-+	    ~(RXH_IP_SRC | RXH_IP_DST | RXH_L4_B_0_1 | RXH_L4_B_2_3))
-+		return -EINVAL;
-+
-+	switch (nfc->flow_type) {
-+	case TCP_V4_FLOW:
-+	case TCP_V6_FLOW:
-+	case UDP_V4_FLOW:
-+	case UDP_V6_FLOW:
-+	case IPV4_FLOW:
-+	case IPV6_FLOW:
-+	case SCTP_V4_FLOW:
-+	case SCTP_V6_FLOW:
-+	case AH_ESP_V4_FLOW:
-+	case AH_ESP_V6_FLOW:
-+	case AH_V4_FLOW:
-+	case AH_V6_FLOW:
-+	case ESP_V4_FLOW:
-+	case ESP_V6_FLOW:
-+		dpaa_set_hash(dev, !!nfc->data);
-+		ret = 0;
-+		break;
-+	default:
-+		break;
-+	}
-+
-+	return ret;
-+}
-+
-+static int dpaa_set_rxnfc(struct net_device *dev, struct ethtool_rxnfc *cmd)
-+{
-+	int ret = -EOPNOTSUPP;
-+
-+	switch (cmd->cmd) {
-+	case ETHTOOL_SRXFH:
-+		ret = dpaa_set_hash_opts(dev, cmd);
-+		break;
-+	default:
-+		break;
-+	}
-+
-+	return ret;
-+}
-+
- const struct ethtool_ops dpaa_ethtool_ops = {
- 	.get_drvinfo = dpaa_get_drvinfo,
- 	.get_msglevel = dpaa_get_msglevel,
-@@ -412,4 +523,6 @@ const struct ethtool_ops dpaa_ethtool_ops = {
- 	.get_strings = dpaa_get_strings,
- 	.get_link_ksettings = dpaa_get_link_ksettings,
- 	.set_link_ksettings = dpaa_set_link_ksettings,
-+	.get_rxnfc = dpaa_get_rxnfc,
-+	.set_rxnfc = dpaa_set_rxnfc,
+diff --git a/drivers/net/ethernet/freescale/fman/fman.c b/drivers/net/ethernet/freescale/fman/fman.c
+index e714b8f..6ed383f 100644
+--- a/drivers/net/ethernet/freescale/fman/fman.c
++++ b/drivers/net/ethernet/freescale/fman/fman.c
+@@ -564,80 +564,6 @@ struct fman_cfg {
+ 	u32 qmi_def_tnums_thresh;
  };
+ 
+-/* Structure that holds information received from device tree */
+-struct fman_dts_params {
+-	void __iomem *base_addr;		/* FMan virtual address */
+-	struct resource *res;			/* FMan memory resource */
+-	u8 id;					/* FMan ID */
+-
+-	int err_irq;				/* FMan Error IRQ */
+-
+-	u16 clk_freq;				/* FMan clock freq (In Mhz) */
+-
+-	u32 qman_channel_base;			/* QMan channels base */
+-	u32 num_of_qman_channels;		/* Number of QMan channels */
+-
+-	struct resource muram_res;		/* MURAM resource */
+-};
+-
+-/** fman_exceptions_cb
+- * fman		- Pointer to FMan
+- * exception	- The exception.
+- *
+- * Exceptions user callback routine, will be called upon an exception
+- * passing the exception identification.
+- *
+- * Return: irq status
+- */
+-typedef irqreturn_t (fman_exceptions_cb)(struct fman *fman,
+-					 enum fman_exceptions exception);
+-
+-/** fman_bus_error_cb
+- * fman		- Pointer to FMan
+- * port_id	- Port id
+- * addr		- Address that caused the error
+- * tnum		- Owner of error
+- * liodn	- Logical IO device number
+- *
+- * Bus error user callback routine, will be called upon bus error,
+- * passing parameters describing the errors and the owner.
+- *
+- * Return: IRQ status
+- */
+-typedef irqreturn_t (fman_bus_error_cb)(struct fman *fman, u8 port_id,
+-					u64 addr, u8 tnum, u16 liodn);
+-
+-struct fman {
+-	struct device *dev;
+-	void __iomem *base_addr;
+-	struct fman_intr_src intr_mng[FMAN_EV_CNT];
+-
+-	struct fman_fpm_regs __iomem *fpm_regs;
+-	struct fman_bmi_regs __iomem *bmi_regs;
+-	struct fman_qmi_regs __iomem *qmi_regs;
+-	struct fman_dma_regs __iomem *dma_regs;
+-	struct fman_hwp_regs __iomem *hwp_regs;
+-	fman_exceptions_cb *exception_cb;
+-	fman_bus_error_cb *bus_error_cb;
+-	/* Spinlock for FMan use */
+-	spinlock_t spinlock;
+-	struct fman_state_struct *state;
+-
+-	struct fman_cfg *cfg;
+-	struct muram_info *muram;
+-	/* cam section in muram */
+-	unsigned long cam_offset;
+-	size_t cam_size;
+-	/* Fifo in MURAM */
+-	unsigned long fifo_offset;
+-	size_t fifo_size;
+-
+-	u32 liodn_base[64];
+-	u32 liodn_offset[64];
+-
+-	struct fman_dts_params dts_params;
+-};
+-
+ static irqreturn_t fman_exceptions(struct fman *fman,
+ 				   enum fman_exceptions exception)
+ {
+diff --git a/drivers/net/ethernet/freescale/fman/fman.h b/drivers/net/ethernet/freescale/fman/fman.h
+index f53e147..6745065 100644
+--- a/drivers/net/ethernet/freescale/fman/fman.h
++++ b/drivers/net/ethernet/freescale/fman/fman.h
+@@ -274,6 +274,79 @@ struct fman_intr_src {
+ 	void *src_handle;
+ };
+ 
++/** fman_exceptions_cb
++ * fman         - Pointer to FMan
++ * exception    - The exception.
++ *
++ * Exceptions user callback routine, will be called upon an exception
++ * passing the exception identification.
++ *
++ * Return: irq status
++ */
++typedef irqreturn_t (fman_exceptions_cb)(struct fman *fman,
++					 enum fman_exceptions exception);
++/** fman_bus_error_cb
++ * fman         - Pointer to FMan
++ * port_id      - Port id
++ * addr         - Address that caused the error
++ * tnum         - Owner of error
++ * liodn        - Logical IO device number
++ *
++ * Bus error user callback routine, will be called upon bus error,
++ * passing parameters describing the errors and the owner.
++ *
++ * Return: IRQ status
++ */
++typedef irqreturn_t (fman_bus_error_cb)(struct fman *fman, u8 port_id,
++					u64 addr, u8 tnum, u16 liodn);
++
++/* Structure that holds information received from device tree */
++struct fman_dts_params {
++	void __iomem *base_addr;                /* FMan virtual address */
++	struct resource *res;                   /* FMan memory resource */
++	u8 id;                                  /* FMan ID */
++
++	int err_irq;                            /* FMan Error IRQ */
++
++	u16 clk_freq;                           /* FMan clock freq (In Mhz) */
++
++	u32 qman_channel_base;                  /* QMan channels base */
++	u32 num_of_qman_channels;               /* Number of QMan channels */
++
++	struct resource muram_res;              /* MURAM resource */
++};
++
++struct fman {
++	struct device *dev;
++	void __iomem *base_addr;
++	struct fman_intr_src intr_mng[FMAN_EV_CNT];
++
++	struct fman_fpm_regs __iomem *fpm_regs;
++	struct fman_bmi_regs __iomem *bmi_regs;
++	struct fman_qmi_regs __iomem *qmi_regs;
++	struct fman_dma_regs __iomem *dma_regs;
++	struct fman_hwp_regs __iomem *hwp_regs;
++	fman_exceptions_cb *exception_cb;
++	fman_bus_error_cb *bus_error_cb;
++	/* Spinlock for FMan use */
++	spinlock_t spinlock;
++	struct fman_state_struct *state;
++
++	struct fman_cfg *cfg;
++	struct muram_info *muram;
++	/* cam section in muram */
++	unsigned long cam_offset;
++	size_t cam_size;
++	/* Fifo in MURAM */
++	unsigned long fifo_offset;
++	size_t fifo_size;
++
++	u32 liodn_base[64];
++	u32 liodn_offset[64];
++
++	struct fman_dts_params dts_params;
++};
++
+ /* Structure for port-FM communication during fman_port_init. */
+ struct fman_port_init_params {
+ 	u8 port_id;			/* port Id */
 -- 
 2.1.0
