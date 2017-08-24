@@ -1,7 +1,7 @@
 From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH net-next 03/13] Documentation/bindings: phy: document the Marvell comphy driver
-Date: Thu, 24 Aug 2017 10:38:13 +0200
-Message-ID: <20170824083823.16826-4-antoine.tenart@free-electrons.com>
+Subject: [PATCH net-next 01/13] phy: add sgmii and 10gkr modes to the phy_mode enum
+Date: Thu, 24 Aug 2017 10:38:11 +0200
+Message-ID: <20170824083823.16826-2-antoine.tenart@free-electrons.com>
 References: <20170824083823.16826-1-antoine.tenart@free-electrons.com>
 Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
         thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
@@ -16,64 +16,27 @@ In-Reply-To: <20170824083823.16826-1-antoine.tenart@free-electrons.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The Marvell Armada 7K/8K SoCs contains an hardware block called COMPHY
-that provides a number of shared PHYs used by various interfaces in the
-SoC: network, SATA, PCIe, etc. This Device Tree binding allows to
-describe this COMPHY hardware block.
+This patch adds more PHY modes to the phy_mode enum, to allow
+configuring PHYs to the SGMII and/or the 10GKR mode by using the
+set_mode callback.
 
 Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
 ---
- .../devicetree/bindings/phy/phy-mvebu-comphy.txt   | 42 ++++++++++++++++++++++
- 1 file changed, 42 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/phy/phy-mvebu-comphy.txt
+ include/linux/phy/phy.h | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/Documentation/devicetree/bindings/phy/phy-mvebu-comphy.txt b/Documentation/devicetree/bindings/phy/phy-mvebu-comphy.txt
-new file mode 100644
-index 000000000000..dc3726269e1d
---- /dev/null
-+++ b/Documentation/devicetree/bindings/phy/phy-mvebu-comphy.txt
-@@ -0,0 +1,42 @@
-+mvebu comphy driver
-+-------------------
-+
-+A comphy controller can be found on Marvell Armada 7k/8k on the CP110. It
-+provides a number of shared PHYs used by various interfaces (network, sata,
-+usb, PCIe...).
-+
-+Required properties:
-+
-+- compatible: should be "marvell,comphy-cp110"
-+- reg: should contain the comphy register location and length.
-+- marvell,system-controller: should contain a phandle to the
-+                             system controller node.
-+- #address-cells: should be 1.
-+- #size-cells: should be 0.
-+
-+A sub-node is required for each comphy lane provided by the comphy.
-+
-+Required properties (child nodes):
-+
-+- reg: comphy lane number.
-+- #phy-cells : from the generic phy bindings, must be 1.
-+
-+Example:
-+
-+	cpm_comphy: phy@120000 {
-+		compatible = "marvell,comphy-cp110";
-+		reg = <0x120000 0x6000>;
-+		marvell,system-controller = <&cpm_syscon0>;
-+		#address-cells = <1>;
-+		#size-cells = <0>;
-+
-+		cpm_comphy0: phy@0 {
-+			reg = <0>;
-+			#phy-cells = <1>;
-+		};
-+
-+		cpm_comphy1: phy@1 {
-+			reg = <1>;
-+			#phy-cells = <1>;
-+		};
-+	};
+diff --git a/include/linux/phy/phy.h b/include/linux/phy/phy.h
+index 78bb0d7f6b11..e694d4008c4a 100644
+--- a/include/linux/phy/phy.h
++++ b/include/linux/phy/phy.h
+@@ -27,6 +27,8 @@ enum phy_mode {
+ 	PHY_MODE_USB_HOST,
+ 	PHY_MODE_USB_DEVICE,
+ 	PHY_MODE_USB_OTG,
++	PHY_MODE_SGMII,
++	PHY_MODE_10GKR,
+ };
+ 
+ /**
 -- 
 2.13.5
