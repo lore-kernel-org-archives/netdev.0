@@ -1,50 +1,46 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net] virtio_net: be drop monitor friend
-Date: Fri, 25 Aug 2017 00:42:58 +0300
-Message-ID: <20170825004250-mutt-send-email-mst@kernel.org>
-References: <1503590569.2499.81.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [iproute PATCH v4 0/4] Covscan: Fix potential NULL pointer
+ dereferences
+Date: Thu, 24 Aug 2017 14:51:33 -0700
+Message-ID: <20170824145133.2b5d9730@xeon-e3>
+References: <20170824094634.4093-1-phil@nwl.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>, Jason Wang <jasowang@redhat.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Phil Sutter <phil@nwl.cc>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:58304 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753867AbdHXVnB (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 24 Aug 2017 17:43:01 -0400
-Content-Disposition: inline
-In-Reply-To: <1503590569.2499.81.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-pg0-f52.google.com ([74.125.83.52]:33606 "EHLO
+        mail-pg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753335AbdHXVvm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 24 Aug 2017 17:51:42 -0400
+Received: by mail-pg0-f52.google.com with SMTP id t3so4144287pgt.0
+        for <netdev@vger.kernel.org>; Thu, 24 Aug 2017 14:51:42 -0700 (PDT)
+In-Reply-To: <20170824094634.4093-1-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 24, 2017 at 09:02:49AM -0700, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> This change is needed to not fool drop monitor.
-> (perf record ... -e skb:kfree_skb )
-> 
-> Packets were properly sent and are consumed after TX completion.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+On Thu, 24 Aug 2017 11:46:30 +0200
+Phil Sutter <phil@nwl.cc> wrote:
 
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+> This series collects patches from v1 which eliminate possible cases of
+> NULL pointer dereferences.
+> 
+> Changes since v3:
+> - Dropped upstream rejected patch 2.
+> 
+> Phil Sutter (4):
+>   ifstat, nstat: Check fdopen() return value
+>   tc/q_netem: Don't dereference possibly NULL pointer
+>   tc/tc_filter: Make sure filter name is not empty
+>   tipc/bearer: Prevent NULL pointer dereference
+> 
+>  misc/ifstat.c  | 16 +++++++++++-----
+>  misc/nstat.c   | 16 +++++++++++-----
+>  tc/q_netem.c   |  3 ++-
+>  tc/tc_filter.c |  3 +++
+>  tipc/bearer.c  |  2 +-
+>  5 files changed, 28 insertions(+), 12 deletions(-)
+> 
 
-> ---
->  drivers/net/virtio_net.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index 98f17b05c68b..b06169ea60dc 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -1058,7 +1058,7 @@ static void free_old_xmit_skbs(struct send_queue *sq)
->  		bytes += skb->len;
->  		packets++;
->  
-> -		dev_kfree_skb_any(skb);
-> +		dev_consume_skb_any(skb);
->  	}
->  
->  	/* Avoid overhead when no packets have been processed
-> 
+Applied. Thanks
