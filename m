@@ -1,66 +1,37 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH v3 5/6] lib/fs: Fix and simplify make_path()
-Date: Thu, 24 Aug 2017 11:41:30 +0200
-Message-ID: <20170824094131.2963-6-phil@nwl.cc>
+Subject: [iproute PATCH v3 2/6] ss: Make sure scanned index value to unix_state_map is sane
+Date: Thu, 24 Aug 2017 11:41:27 +0200
+Message-ID: <20170824094131.2963-3-phil@nwl.cc>
 References: <20170824094131.2963-1-phil@nwl.cc>
 Cc: netdev@vger.kernel.org
 To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:54715 "EHLO mail.nwl.cc"
+Received: from orbyte.nwl.cc ([151.80.46.58]:51231 "EHLO mail.nwl.cc"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751777AbdHXJmP (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 24 Aug 2017 05:42:15 -0400
+        id S1752260AbdHXJmC (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 24 Aug 2017 05:42:02 -0400
 In-Reply-To: <20170824094131.2963-1-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Calling stat() before mkdir() is racey: The entry might change in
-between. Also, the call to stat() seems to exist only to check if the
-directory exists already. So simply call mkdir() unconditionally and
-catch only errors other than EEXIST.
-
 Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- lib/fs.c | 20 +++++---------------
- 1 file changed, 5 insertions(+), 15 deletions(-)
+ misc/ss.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/lib/fs.c b/lib/fs.c
-index c59ac564581d0..7083bf2e23bb7 100644
---- a/lib/fs.c
-+++ b/lib/fs.c
-@@ -102,7 +102,6 @@ out:
- int make_path(const char *path, mode_t mode)
- {
- 	char *dir, *delim;
--	struct stat sbuf;
- 	int rc = -1;
+diff --git a/misc/ss.c b/misc/ss.c
+index c41d5169aba52..951aa877bcb01 100644
+--- a/misc/ss.c
++++ b/misc/ss.c
+@@ -3148,7 +3148,8 @@ static int unix_show(struct filter *f)
  
- 	delim = dir = strdup(path);
-@@ -120,20 +119,11 @@ int make_path(const char *path, mode_t mode)
- 		if (delim)
- 			*delim = '\0';
- 
--		if (stat(dir, &sbuf) != 0) {
--			if (errno != ENOENT) {
--				fprintf(stderr,
--					"stat failed for %s: %s\n",
--					dir, strerror(errno));
--				goto out;
--			}
--
--			if (mkdir(dir, mode) != 0) {
--				fprintf(stderr,
--					"mkdir failed for %s: %s\n",
--					dir, strerror(errno));
--				goto out;
--			}
-+		rc = mkdir(dir, mode);
-+		if (mkdir(dir, mode) != 0 && errno != EEXIST) {
-+			fprintf(stderr, "mkdir failed for %s: %s\n",
-+				dir, strerror(errno));
-+			goto out;
- 		}
- 
- 		if (delim == NULL)
+ 		if (flags & (1 << 16)) {
+ 			u->state = SS_LISTEN;
+-		} else {
++		} else if (u->state > 0 &&
++			   u->state <= ARRAY_SIZE(unix_state_map)) {
+ 			u->state = unix_state_map[u->state-1];
+ 			if (u->type == SOCK_DGRAM && u->state == SS_CLOSE && u->rport)
+ 				u->state = SS_ESTABLISHED;
 -- 
 2.13.1
