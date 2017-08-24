@@ -1,35 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next 0/2] Add software rx timestamp for TCP.
-Date: Wed, 23 Aug 2017 20:32:59 -0700 (PDT)
-Message-ID: <20170823.203259.203702773602223523.davem@davemloft.net>
-References: <20170822210849.23162-1-maloneykernel@gmail.com>
+Subject: Re: [PATCH net v2 0/2] net: dsa: Fix tag_ksz.c
+Date: Wed, 23 Aug 2017 20:37:25 -0700 (PDT)
+Message-ID: <20170823.203725.2147193612476095021.davem@davemloft.net>
+References: <20170822221215.16305-1-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, willemdebruijn.kernel@gmail.com,
-        soheil@google.com, maloney@google.com
-To: maloneykernel@gmail.com
+Cc: netdev@vger.kernel.org, vivien.didelot@savoirfairelinux.com,
+        Woojung.Huh@microchip.com, UNGLinuxDriver@microchip.com
+To: f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:58144 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:58214 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751062AbdHXDdA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2017 23:33:00 -0400
-In-Reply-To: <20170822210849.23162-1-maloneykernel@gmail.com>
+        with ESMTP id S1751003AbdHXDh0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2017 23:37:26 -0400
+In-Reply-To: <20170822221215.16305-1-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mike Maloney <maloneykernel@gmail.com>
-Date: Tue, 22 Aug 2017 17:08:47 -0400
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Tue, 22 Aug 2017 15:12:13 -0700
 
-> From: Mike Maloney <maloney@google.com>
+> This implements David's suggestion of providing low-level functions
+> to control whether skb_pad() and skb_put_padto() should be freeing
+> the passed skb.
 > 
-> Add software rx timestamps for TCP, and a test to ensure consistency of
-> behavior between IP, UDP, and TCP implementation.
-> 
-> Changes since v1:
->   -Initialize tss->ts[1] to 0 if caller requested any timestamps.
->   -Fix test case to validate that tss->ts[1] is zero.
->   -Fix tests to actually use a raw socket.
->   -Fix --tcp flag to work on the test.
+> We make use of it to fix a double free in net/dsa/tag_ksz.c that would
+> occur if we kept using skb_put_padto() in both places.
 
-Series applied, thanks.
+Series applied and queued up for -stable, thanks.
