@@ -1,58 +1,31 @@
-From: Nick Desaulniers <ndesaulniers@google.com>
-Subject: Re: [PATCH v2] netfilter: nf_nat_h323: fix logical-not-parentheses warning
-Date: Thu, 24 Aug 2017 09:25:41 -0700
-Message-ID: <CAKwvOdk35Bd4KRsW2+45BXO9ja_-NhFkdymNxMSEmtrf1CM6Og@mail.gmail.com>
-References: <20170811174259.GA3743@salvia> <20170811181607.33878-1-ndesaulniers@google.com>
- <CAKwvOdmw+bnN-nKeKbE8WJJ8Enc4PCeC3KD5KpaSVOT4+ycDKQ@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch net-next 00/12] mlxsw: Add IPv4 host dpipe table
+Date: Thu, 24 Aug 2017 09:33:35 -0700 (PDT)
+Message-ID: <20170824.093335.1538992136648763487.davem@davemloft.net>
+References: <20170824064010.1646-1-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Matthias Kaehlcke <mka@chromium.org>,
-        Lorenzo Colitti <lorenzo@google.com>,
-        Nick Desaulniers <ndesaulniers@google.com>,
-        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        Florian Westphal <fw@strlen.de>,
-        "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAKwvOdmw+bnN-nKeKbE8WJJ8Enc4PCeC3KD5KpaSVOT4+ycDKQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, arkadis@mellanox.com, idosch@mellanox.com,
+        mlxsw@mellanox.com
+To: jiri@resnulli.us
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:46804 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751197AbdHXQdj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 24 Aug 2017 12:33:39 -0400
+In-Reply-To: <20170824064010.1646-1-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-bumping for review (resending, had gmail set to html mode)
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Thu, 24 Aug 2017 08:39:58 +0200
 
-On Mon, Aug 14, 2017 at 10:36 AM, Nick Desaulniers
-<ndesaulniers@google.com> wrote:
-> Minor nit for the commit message that can get fixed up when being merged:
->
-> On Fri, Aug 11, 2017 at 11:16 AM, Nick Desaulniers
-> <ndesaulniers@google.com> wrote:
->
->> if (x)
->>   return
->> ...
->>
->> rather than:
->>
->> if (!x == 0)
->
-> should remove the `!`, ex:
->
-> if (x == 0)
->
->>   ...
->> else
->>   return
->
-> --
-> Thanks,
-> ~Nick Desaulniers
+> From: Jiri Pirko <jiri@mellanox.com>
+> 
+> Arkadi says:
+> 
+> This patchset adds IPv4 host dpipe table support. This will provide the
+> ability to observe the hardware offloaded IPv4 neighbors.
 
-
-
--- 
-Thanks,
-~Nick Desaulniers
+Looks really nice, series applied, thanks.
