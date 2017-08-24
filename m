@@ -1,35 +1,32 @@
 From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [1/3] net: rtlwifi: constify rate_control_ops
-Date: Thu, 24 Aug 2017 09:57:48 +0000 (UTC)
-Message-ID: <20170824095748.41364606B7@smtp.codeaurora.org>
-References: <1503482375-19983-2-git-send-email-arvind.yadav.cs@gmail.com>
+Subject: Re: wireless: ipw2x00: make iw_handler_def const
+Date: Thu, 24 Aug 2017 09:59:13 +0000 (UTC)
+Message-ID: <20170824095913.CE6AC602B3@smtp.codeaurora.org>
+References: <1503491802-1361-1-git-send-email-bhumirks@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, Larry.Finger@lwfinger.net,
-        chaoming_li@realsil.com.cn, jon.maloy@ericsson.com,
-        ying.xue@windriver.com, linux-kernel@vger.kernel.org,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: Arvind Yadav <arvind.yadav.cs@gmail.com>
+Cc: julia.lawall@lip6.fr, stas.yakovlev@gmail.com,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, Bhumika Goyal <bhumirks@gmail.com>
+To: Bhumika Goyal <bhumirks@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1503482375-19983-2-git-send-email-arvind.yadav.cs@gmail.com>
+In-Reply-To: <1503491802-1361-1-git-send-email-bhumirks@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Arvind Yadav <arvind.yadav.cs@gmail.com> wrote:
+Bhumika Goyal <bhumirks@gmail.com> wrote:
 
-> rate_control_ops are not supposed to change at runtime. All functions
-> working with rate_control_ops provided by <net/mac80211.h> work with
-> const rate_control_ops. So mark the non-const structs as const.
+> Make these const as they are only stored in the const field of a
+> net_device structure.
 > 
-> Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
+> Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
 
-2 patches applied to wireless-drivers-next.git, thanks.
+Patch applied to wireless-drivers-next.git, thanks.
 
-28b75415ad19 wireless: ipw2200: Replace PCI pool old API
-9ea792a48cdd net: rsi: mac80211: constify ieee80211_ops
+2c1dca3c6b22 wireless: ipw2x00: make iw_handler_def const
 
 -- 
-https://patchwork.kernel.org/patch/9917001/
+https://patchwork.kernel.org/patch/9917307/
 
 https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
