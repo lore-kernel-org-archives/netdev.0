@@ -1,51 +1,46 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] tipc: Fix tipc_sk_reinit handling of -EAGAIN
-Date: Thu, 24 Aug 2017 21:10:56 +0800
-Message-ID: <20170824131056.GC14926@gondor.apana.org.au>
-References: <1907606232.1152250.1503498773672.JavaMail.zimbra@redhat.com>
- <25145358.1155254.1503499382947.JavaMail.zimbra@redhat.com>
+From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Subject: Re: [PATCH v2 3/4] net: phy: realtek: add disable RX
+ internal delay mode
+Date: Thu, 24 Aug 2017 15:12:21 +0200
+Message-ID: <20170824131221.GA8022@lunn.ch>
+References: <20170822040400.12166-1-icenowy@aosc.io>
+ <20170822040400.12166-4-icenowy@aosc.io>
+ <20170822133906.GG24555@lunn.ch>
+ <7c43220aef447e5cf21e48a9eca18535@aosc.io>
+Reply-To: andrew-g2DYL2Zd6BY@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Phil Sutter <psutter@redhat.com>, davem@davemloft.net,
-        netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
-To: Bob Peterson <rpeterso@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from orcrist.hmeau.com ([104.223.48.154]:49098 "EHLO
-        deadmen.hmeau.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751280AbdHXNLN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 24 Aug 2017 09:11:13 -0400
+Content-Type: text/plain; charset="UTF-8"
+Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>,
+	Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Icenowy Zheng <icenowy-ymACFijhrKM@public.gmane.org>,
+	Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+To: icenowy-h8G6r0blFSE@public.gmane.org
+Return-path: <linux-sunxi+bncBDJNHL5JSEOBBOVB7PGAKGQE35YR5MI-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 Content-Disposition: inline
-In-Reply-To: <25145358.1155254.1503499382947.JavaMail.zimbra@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <7c43220aef447e5cf21e48a9eca18535-h8G6r0blFSE@public.gmane.org>
+List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <https://groups.google.com/group/linux-sunxi
+List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+ <https://groups.google.com/group/linux-sunxi/subscribe>
+List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 23, 2017 at 10:43:02AM -0400, Bob Peterson wrote:
-> Hi,
+> >Do we know that the TX lines do have a delay after making this change?
+> >We need to be careful here. We will get into a mess if this is
+> >actually RGMII not RGMII_TXID, and somebody designs a board which
+> >needs RGMII-TXID.
 > 
-> In 9dbbfb0ab6680c6a85609041011484e6658e7d3c function tipc_sk_reinit
-> had additional logic added to loop in the event that function
-> rhashtable_walk_next() returned -EAGAIN. No worries.
-> 
-> However, if rhashtable_walk_start returns -EAGAIN, it does "continue",
-> and therefore skips the call to rhashtable_walk_stop(). That has
-> the effect of calling rcu_read_lock() without its paired call to
-> rcu_read_unlock(). Since rcu_read_lock() may be nested, the problem
-> may not be apparent for a while, especially since resize events may
-> be rare. But the comments to rhashtable_walk_start() state:
-> 
->  * ...Note that we take the RCU lock in all
->  * cases including when we return an error.  So you must always call
->  * rhashtable_walk_stop to clean up.
-> 
-> This patch replaces the continue with a goto and label to ensure a
-> matching call to rhashtable_walk_stop().
-> 
-> Signed-off-by: Bob Peterson <rpeterso@redhat.com>
+> In fact I'm not sure -- I'm even not sure that after making this change
+> there's no TX delay. The change is totally not documented, so I choose
+> to use a custom property in v1.
 
-Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+Can you get in touch with Realtek and ask? Or can you get a hardware
+guy to do some measurements?
 
-Thanks for catching this!
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Thanks
+    Andrew
