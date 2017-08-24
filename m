@@ -1,81 +1,88 @@
-From: Sekhar Nori <nsekhar@ti.com>
-Subject: Re: [v2,1/3] can: m_can: Make hclk optional
-Date: Thu, 24 Aug 2017 13:30:30 +0530
-Message-ID: <6f574628-51cd-0db8-e5aa-e7ae4a9cf79a@ti.com>
-References: <20170724225142.19975-2-fcooper@ti.com>
+From: icenowy-h8G6r0blFSE@public.gmane.org
+Subject: Re: [PATCH v2 3/4] net: phy: realtek: add disable RX
+ internal delay mode
+Date: Thu, 24 Aug 2017 16:05:54 +0800
+Message-ID: <7c43220aef447e5cf21e48a9eca18535@aosc.io>
+References: <20170822040400.12166-1-icenowy@aosc.io>
+ <20170822040400.12166-4-icenowy@aosc.io> <20170822133906.GG24555@lunn.ch>
+Reply-To: icenowy-h8G6r0blFSE@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: "Kristo, Tero" <t-kristo@ti.com>, Tony Lindgren <tony@atomide.com>,
-        Linux OMAP List <linux-omap@vger.kernel.org>
-To: Franklin Cooper <fcooper@ti.com>, <linux-kernel@vger.kernel.org>,
-        <devicetree@vger.kernel.org>, <netdev@vger.kernel.org>,
-        <linux-can@vger.kernel.org>, <wg@grandegger.com>,
-        <mkl@pengutronix.de>, <robh+dt@kernel.org>,
-        <quentin.schulz@free-electrons.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170724225142.19975-2-fcooper@ti.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Transfer-Encoding: quoted-printable
+Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+ netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org,
+ linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>, Corentin Labbe
+ <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, Icenowy Zheng <icenowy-ymACFijhrKM@public.gmane.org>, Maxime Ripard
+ <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+To: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Return-path: <linux-sunxi+bncBDS6XAN6ZADRBZMR7LGAKGQEQRFYWJQ-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+In-Reply-To: <20170822133906.GG24555-g2DYL2Zd6BY@public.gmane.org>
+List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <https://groups.google.com/group/linux-sunxi
+List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+ <https://groups.google.com/group/linux-sunxi/subscribe>
 List-Id: netdev.vger.kernel.org
 
-+ some OMAP folks and Linux OMAP list
+=E5=9C=A8 2017-08-22 21:39=EF=BC=8CAndrew Lunn =E5=86=99=E9=81=93=EF=BC=9A
+> On Tue, Aug 22, 2017 at 12:03:59PM +0800, Icenowy Zheng wrote:
+>> From: Icenowy Zheng <icenowy-ymACFijhrKM@public.gmane.org>
+>>=20
+>> Some RTL8211E chips have broken GbE function, which needs a hack to
+>> fix. It's said that this fix will affect the performance on not-buggy
+>> PHYs, so it should only be enabled on boards with the broken PHY.
+>=20
+> I would not call this a broken PHY. It is a question of board
+> design. If you have shorter tracks, you need a delay. If you have long
+> tracks, you don't. Hence the four RGMII modes, so you can select if
+> the delay is needed or not, depending on your board design.
+>=20
+>> Currently only some Pine64+ boards are known to have this issue.
+>=20
+> Design feature.
+>=20
+> Please remove all reference to bug.
+>=20
+>> This hack is said to disable RX relay for RTL8211E according to=20
+>> Realtek.
+>> So implement it as RGMII-TXID mode.
+>=20
+> Do we know that the TX lines do have a delay after making this change?
+> We need to be careful here. We will get into a mess if this is
+> actually RGMII not RGMII_TXID, and somebody designs a board which
+> needs RGMII-TXID.
 
-On Tuesday 25 July 2017 04:21 AM, Franklin Cooper wrote:
-> Hclk is the MCAN's interface clock. However, for OMAP based devices such as
-> DRA7 SoC family the interface clock is handled by hwmod. Therefore, this
-> interface clock is managed by hwmod driver via pm_runtime_get and
-> pm_runtime_put calls. Therefore, this interface clock isn't defined in DT
-> and thus the driver shouldn't fail if this clock isn't found.
+In fact I'm not sure -- I'm even not sure that after making this change
+there's no TX delay. The change is totally not documented, so I choose
+to use a custom property in v1.
 
-I agree that hclk is defined as interface clock for M_CAN IP on DRA76x.
+But Florian required me to use RGMII-TXID instead.
 
-However, there may be a need for the driver to know the value of hclk to
-properly configure the RAM watchdog register which has a counter
-counting down using hclk. Looks like the driver does not use the RAM
-watchdog today. But if there is a need to configure it in future, it
-might be a problem.
+>=20
+>> +#include <linux/of.h>
+>>  #include <linux/phy.h>
+>>  #include <linux/module.h>
+>=20
+>> +static int rtl8211e_config_init(struct phy_device *phydev)
+>> +{
+>> +	struct device *dev =3D &phydev->mdio.dev;
+>> +	struct device_node *of_node =3D dev->of_node;
+>=20
+> You don't appear to use of_node, nor dev. Please remove, along with
+> the header file.
+>=20
+>     Andrew
+>=20
+> _______________________________________________
+> linux-arm-kernel mailing list
+> linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
 
-Is there a restriction in OMAP architecture against passing the
-interface clock also in the 'clocks' property in DT. I have not tried it
-myself, but wonder if you hit an issue that led to this patch.
-
-> 
-> Signed-off-by: Franklin S Cooper Jr <fcooper@ti.com>
-> ---
-> Version 2 changes:
-> Used NULL instead of 0 for unused hclk handle
-> 
->  drivers/net/can/m_can/m_can.c | 9 +++++++--
->  1 file changed, 7 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/can/m_can/m_can.c b/drivers/net/can/m_can/m_can.c
-> index f4947a7..ea48e59 100644
-> --- a/drivers/net/can/m_can/m_can.c
-> +++ b/drivers/net/can/m_can/m_can.c
-> @@ -1568,8 +1568,13 @@ static int m_can_plat_probe(struct platform_device *pdev)
->  	hclk = devm_clk_get(&pdev->dev, "hclk");
->  	cclk = devm_clk_get(&pdev->dev, "cclk");
->  
-> -	if (IS_ERR(hclk) || IS_ERR(cclk)) {
-> -		dev_err(&pdev->dev, "no clock found\n");
-> +	if (IS_ERR(hclk)) {
-> +		dev_warn(&pdev->dev, "hclk could not be found\n");
-> +		hclk = NULL;
-
-What is the purpose of NULL setting the clock. I think this is taking it
-into a very implementation defined territory and the result could be
-different on different architectures. See Russell's explanation here:
-https://lkml.org/lkml/2016/11/10/799
-
-Thanks,
-Sekhar
-
-> +	}
-> +
-> +	if (IS_ERR(cclk)) {
-> +		dev_err(&pdev->dev, "cclk could not be found\n");
->  		ret = -ENODEV;
->  		goto failed_ret;
->  	}
-> 
+--=20
+You received this message because you are subscribed to the Google Groups "=
+linux-sunxi" group.
+To unsubscribe from this group and stop receiving emails from it, send an e=
+mail to linux-sunxi+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
+For more options, visit https://groups.google.com/d/optout.
