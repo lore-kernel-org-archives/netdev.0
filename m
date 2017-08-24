@@ -1,7 +1,7 @@
 From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH net-next 3/4] net: mvpp2: fix use of the random mac address for PPv2.2
-Date: Thu, 24 Aug 2017 11:46:57 +0200
-Message-ID: <20170824094658.1296-4-antoine.tenart@free-electrons.com>
+Subject: [PATCH net-next 2/4] net: mvpp2: move the mac retrieval/copy logic into its own function
+Date: Thu, 24 Aug 2017 11:46:56 +0200
+Message-ID: <20170824094658.1296-3-antoine.tenart@free-electrons.com>
 References: <20170824094658.1296-1-antoine.tenart@free-electrons.com>
 Cc: Antoine Tenart <antoine.tenart@free-electrons.com>, andrew@lunn.ch,
         gregory.clement@free-electrons.com, nadavh@marvell.com,
@@ -13,47 +13,84 @@ In-Reply-To: <20170824094658.1296-1-antoine.tenart@free-electrons.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The MAC retrieval logic is using a variable to store an h/w stored mac
-address and checks this mac against invalid ones before using it. But
-the mac address is only read from h/w when using PPv2.1. So when using
-PPv2.2 it defaults to its init state.
-
-This patches fixes the logic to only check if the h/w mac is valid when
-actually retrieving a mac from h/w.
+The MAC retrieval has a quite complicated logic (which is broken). Moves
+it to its own function to prepare for patches fixing its logic, so that
+reviews are easier.
 
 Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
 ---
- drivers/net/ethernet/marvell/mvpp2.c | 16 +++++++++-------
- 1 file changed, 9 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/marvell/mvpp2.c | 45 +++++++++++++++++++++---------------
+ 1 file changed, 27 insertions(+), 18 deletions(-)
 
 diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 908e5b148fd7..fe8309124a09 100644
+index 50a0920d3282..908e5b148fd7 100644
 --- a/drivers/net/ethernet/marvell/mvpp2.c
 +++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -7466,15 +7466,17 @@ static void mvpp2_port_copy_mac_addr(struct net_device *dev, struct mvpp2 *priv,
- 		*mac_from = "device tree";
- 		ether_addr_copy(dev->dev_addr, dt_mac_addr);
- 	} else {
--		if (priv->hw_version == MVPP21)
-+		if (priv->hw_version == MVPP21) {
- 			mvpp21_get_mac_address(port, hw_mac_addr);
--		if (is_valid_ether_addr(hw_mac_addr)) {
--			*mac_from = "hardware";
--			ether_addr_copy(dev->dev_addr, hw_mac_addr);
--		} else {
--			*mac_from = "random";
--			eth_hw_addr_random(dev);
-+			if (is_valid_ether_addr(hw_mac_addr)) {
-+				*mac_from = "hardware";
-+				ether_addr_copy(dev->dev_addr, hw_mac_addr);
-+				return;
-+			}
- 		}
-+
-+		*mac_from = "random";
-+		eth_hw_addr_random(dev);
- 	}
+@@ -7453,6 +7453,31 @@ static bool mvpp2_port_has_tx_irqs(struct mvpp2 *priv,
+ 	return true;
  }
  
++static void mvpp2_port_copy_mac_addr(struct net_device *dev, struct mvpp2 *priv,
++				     struct device_node *port_node,
++				     char **mac_from)
++{
++	struct mvpp2_port *port = netdev_priv(dev);
++	char hw_mac_addr[ETH_ALEN] = {0};
++	const char *dt_mac_addr;
++
++	dt_mac_addr = of_get_mac_address(port_node);
++	if (dt_mac_addr && is_valid_ether_addr(dt_mac_addr)) {
++		*mac_from = "device tree";
++		ether_addr_copy(dev->dev_addr, dt_mac_addr);
++	} else {
++		if (priv->hw_version == MVPP21)
++			mvpp21_get_mac_address(port, hw_mac_addr);
++		if (is_valid_ether_addr(hw_mac_addr)) {
++			*mac_from = "hardware";
++			ether_addr_copy(dev->dev_addr, hw_mac_addr);
++		} else {
++			*mac_from = "random";
++			eth_hw_addr_random(dev);
++		}
++	}
++}
++
+ /* Ports initialization */
+ static int mvpp2_port_probe(struct platform_device *pdev,
+ 			    struct device_node *port_node,
+@@ -7464,9 +7489,7 @@ static int mvpp2_port_probe(struct platform_device *pdev,
+ 	struct mvpp2_port_pcpu *port_pcpu;
+ 	struct net_device *dev;
+ 	struct resource *res;
+-	const char *dt_mac_addr;
+-	const char *mac_from;
+-	char hw_mac_addr[ETH_ALEN] = {0};
++	char *mac_from = "";
+ 	unsigned int ntxqs, nrxqs;
+ 	bool has_tx_irqs;
+ 	u32 id;
+@@ -7575,21 +7598,7 @@ static int mvpp2_port_probe(struct platform_device *pdev,
+ 		goto err_free_irq;
+ 	}
+ 
+-	dt_mac_addr = of_get_mac_address(port_node);
+-	if (dt_mac_addr && is_valid_ether_addr(dt_mac_addr)) {
+-		mac_from = "device tree";
+-		ether_addr_copy(dev->dev_addr, dt_mac_addr);
+-	} else {
+-		if (priv->hw_version == MVPP21)
+-			mvpp21_get_mac_address(port, hw_mac_addr);
+-		if (is_valid_ether_addr(hw_mac_addr)) {
+-			mac_from = "hardware";
+-			ether_addr_copy(dev->dev_addr, hw_mac_addr);
+-		} else {
+-			mac_from = "random";
+-			eth_hw_addr_random(dev);
+-		}
+-	}
++	mvpp2_port_copy_mac_addr(dev, priv, port_node, &mac_from);
+ 
+ 	port->tx_ring_size = MVPP2_MAX_TXD;
+ 	port->rx_ring_size = MVPP2_MAX_RXD;
 -- 
 2.13.5
