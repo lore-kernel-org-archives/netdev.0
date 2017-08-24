@@ -1,63 +1,59 @@
-From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH net-next 4/4] net: mvpp2: fallback using h/w and random mac if the dt one isn't valid
-Date: Thu, 24 Aug 2017 11:46:58 +0200
-Message-ID: <20170824094658.1296-5-antoine.tenart@free-electrons.com>
-References: <20170824094658.1296-1-antoine.tenart@free-electrons.com>
-Cc: Antoine Tenart <antoine.tenart@free-electrons.com>, andrew@lunn.ch,
-        gregory.clement@free-electrons.com, nadavh@marvell.com,
-        linux@armlinux.org.uk, linux-kernel@vger.kernel.org,
-        mw@semihalf.com, stefanc@marvell.com, netdev@vger.kernel.org
-To: davem@davemloft.net, thomas.petazzoni@free-electrons.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170824094658.1296-1-antoine.tenart@free-electrons.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Phil Sutter <phil@nwl.cc>
+Subject: [iproute PATCH v4 1/6] ipntable: Avoid memory allocation for filter.name
+Date: Thu, 24 Aug 2017 11:51:45 +0200
+Message-ID: <20170824095150.5469-2-phil@nwl.cc>
+References: <20170824095150.5469-1-phil@nwl.cc>
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from orbyte.nwl.cc ([151.80.46.58]:56427 "EHLO mail.nwl.cc"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752555AbdHXJwD (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 24 Aug 2017 05:52:03 -0400
+In-Reply-To: <20170824095150.5469-1-phil@nwl.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When using a mac address described in the device tree, a check is made
-to see if it is valid. When it's not, no fallback is defined. This
-patches tries to get the mac address from h/w (or use a random one if
-the h/w one isn't valid) when the dt mac address isn't valid.
+The original issue was that filter.name might end up unterminated if
+user provided string was too long. But in fact it is not necessary to
+copy the commandline parameter at all: just make filter.name point to it
+instead.
 
-Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
+Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- drivers/net/ethernet/marvell/mvpp2.c | 23 ++++++++++++-----------
- 1 file changed, 12 insertions(+), 11 deletions(-)
+ ip/ipntable.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index fe8309124a09..b53254ef7cae 100644
---- a/drivers/net/ethernet/marvell/mvpp2.c
-+++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -7465,19 +7465,20 @@ static void mvpp2_port_copy_mac_addr(struct net_device *dev, struct mvpp2 *priv,
- 	if (dt_mac_addr && is_valid_ether_addr(dt_mac_addr)) {
- 		*mac_from = "device tree";
- 		ether_addr_copy(dev->dev_addr, dt_mac_addr);
--	} else {
--		if (priv->hw_version == MVPP21) {
--			mvpp21_get_mac_address(port, hw_mac_addr);
--			if (is_valid_ether_addr(hw_mac_addr)) {
--				*mac_from = "hardware";
--				ether_addr_copy(dev->dev_addr, hw_mac_addr);
--				return;
--			}
--		}
-+		return;
-+	}
+diff --git a/ip/ipntable.c b/ip/ipntable.c
+index 1837909fa42e7..88236ce0ec1e1 100644
+--- a/ip/ipntable.c
++++ b/ip/ipntable.c
+@@ -37,7 +37,7 @@ static struct
+ 	int family;
+ 	int index;
+ #define NONE_DEV	(-1)
+-	char name[1024];
++	const char *name;
+ } filter;
  
--		*mac_from = "random";
--		eth_hw_addr_random(dev);
-+	if (priv->hw_version == MVPP21) {
-+		mvpp21_get_mac_address(port, hw_mac_addr);
-+		if (is_valid_ether_addr(hw_mac_addr)) {
-+			*mac_from = "hardware";
-+			ether_addr_copy(dev->dev_addr, hw_mac_addr);
-+			return;
-+		}
+ static void usage(void) __attribute__((noreturn));
+@@ -367,7 +367,7 @@ static int print_ntable(const struct sockaddr_nl *who, struct nlmsghdr *n, void
+ 	if (tb[NDTA_NAME]) {
+ 		const char *name = rta_getattr_str(tb[NDTA_NAME]);
+ 
+-		if (strlen(filter.name) > 0 && strcmp(filter.name, name))
++		if (filter.name && strcmp(filter.name, name))
+ 			return 0;
  	}
-+
-+	*mac_from = "random";
-+	eth_hw_addr_random(dev);
- }
+ 	if (tb[NDTA_PARMS]) {
+@@ -631,7 +631,7 @@ static int ipntable_show(int argc, char **argv)
+ 		} else if (strcmp(*argv, "name") == 0) {
+ 			NEXT_ARG();
  
- /* Ports initialization */
+-			strncpy(filter.name, *argv, sizeof(filter.name));
++			filter.name = *argv;
+ 		} else
+ 			invarg("unknown", *argv);
+ 
 -- 
-2.13.5
+2.13.1
