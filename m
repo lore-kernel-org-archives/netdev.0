@@ -1,93 +1,67 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 02/12] devlink: Add IPv4 header for dpipe
-Date: Thu, 24 Aug 2017 08:40:00 +0200
-Message-ID: <20170824064010.1646-3-jiri@resnulli.us>
-References: <20170824064010.1646-1-jiri@resnulli.us>
-Cc: davem@davemloft.net, arkadis@mellanox.com, idosch@mellanox.com,
-        mlxsw@mellanox.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f195.google.com ([209.85.128.195]:37953 "EHLO
-        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751768AbdHXGkS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 24 Aug 2017 02:40:18 -0400
-Received: by mail-wr0-f195.google.com with SMTP id 94so946731wri.5
-        for <netdev@vger.kernel.org>; Wed, 23 Aug 2017 23:40:17 -0700 (PDT)
-In-Reply-To: <20170824064010.1646-1-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Romain Perier <romain.perier@collabora.com>
+Subject: Re: [PATCH v3] net: stmmac: Delete dead code for MDIO registration
+Date: Thu, 24 Aug 2017 08:49:18 +0200
+Message-ID: <10e0ebf9-b412-8547-d0d7-01a958edbcd9@collabora.com>
+References: <20170823085058.23333-1-romain.perier@collabora.com>
+ <d803f188-826b-706c-2d28-18ee87b8aa0d@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Florian Fainelli <f.fainelli@gmail.com>,
+        Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+        Alexandre Torgue <alexandre.torgue@st.com>,
+        Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <d803f188-826b-706c-2d28-18ee87b8aa0d@gmail.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Arkadi Sharshevsky <arkadis@mellanox.com>
+Hello,
 
-This will be used by the IPv4 host table which will be introduced in the
-following patches. This header is global and can be reused by many
-drivers.
 
-Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- include/net/devlink.h        |  1 +
- include/uapi/linux/devlink.h |  5 +++++
- net/core/devlink.c           | 17 +++++++++++++++++
- 3 files changed, 23 insertions(+)
+Le 23/08/2017 à 18:46, Florian Fainelli a écrit :
+> On 08/23/2017 01:50 AM, Romain Perier wrote:
+>> This code is no longer used, the logging function was changed by commit
+>> fbca164776e4 ("net: stmmac: Use the right logging functi"). It was
+>> previously showing information about the type if the IRQ, if it's polled,
+>> ignored or a normal interrupt. As we don't want information loss, I have
+>> moved this code to phy_attached_print().
+>>
+>> Fixes: fbca164776e4 ("net: stmmac: Use the right logging functi")
+> For future submissions, do not truncate the commit subject that you are
+> referencing.
 
-diff --git a/include/net/devlink.h b/include/net/devlink.h
-index ddb8b52..8ff8a6f 100644
---- a/include/net/devlink.h
-+++ b/include/net/devlink.h
-@@ -329,6 +329,7 @@ int devlink_dpipe_action_put(struct sk_buff *skb,
- int devlink_dpipe_match_put(struct sk_buff *skb,
- 			    struct devlink_dpipe_match *match);
- extern struct devlink_dpipe_header devlink_dpipe_header_ethernet;
-+extern struct devlink_dpipe_header devlink_dpipe_header_ipv4;
- 
- #else
- 
-diff --git a/include/uapi/linux/devlink.h b/include/uapi/linux/devlink.h
-index a855f8d..6c17254 100644
---- a/include/uapi/linux/devlink.h
-+++ b/include/uapi/linux/devlink.h
-@@ -230,8 +230,13 @@ enum devlink_dpipe_field_ethernet_id {
- 	DEVLINK_DPIPE_FIELD_ETHERNET_DST_MAC,
- };
- 
-+enum devlink_dpipe_field_ipv4_id {
-+	DEVLINK_DPIPE_FIELD_IPV4_DST_IP,
-+};
-+
- enum devlink_dpipe_header_id {
- 	DEVLINK_DPIPE_HEADER_ETHERNET,
-+	DEVLINK_DPIPE_HEADER_IPV4,
- };
- 
- #endif /* _UAPI_LINUX_DEVLINK_H_ */
-diff --git a/net/core/devlink.c b/net/core/devlink.c
-index 4f6f3d6..fcf5dd6 100644
---- a/net/core/devlink.c
-+++ b/net/core/devlink.c
-@@ -46,6 +46,23 @@ struct devlink_dpipe_header devlink_dpipe_header_ethernet = {
- };
- EXPORT_SYMBOL(devlink_dpipe_header_ethernet);
- 
-+static struct devlink_dpipe_field devlink_dpipe_fields_ipv4[] = {
-+	{
-+		.name = "destination ip",
-+		.id = DEVLINK_DPIPE_FIELD_IPV4_DST_IP,
-+		.bitwidth = 32,
-+	},
-+};
-+
-+struct devlink_dpipe_header devlink_dpipe_header_ipv4 = {
-+	.name = "ipv4",
-+	.id = DEVLINK_DPIPE_HEADER_IPV4,
-+	.fields = devlink_dpipe_fields_ipv4,
-+	.fields_count = ARRAY_SIZE(devlink_dpipe_fields_ipv4),
-+	.global = true,
-+};
-+EXPORT_SYMBOL(devlink_dpipe_header_ipv4);
-+
- EXPORT_TRACEPOINT_SYMBOL_GPL(devlink_hwmsg);
- 
- static LIST_HEAD(devlink_list);
--- 
-2.9.3
+Even if it exceeds 72 characters ?
+
+>
+>> Signed-off-by: Romain Perier <romain.perier@collabora.com>
+> Since this is a fix you should indicate in the patch subject that this
+> is targeting David's "net" tree, see
+> https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/networking/netdev-FAQ.txt#n85
+
+Ok, will do
+
+>
+>
+>>  	const char *drv_name = phydev->drv ? phydev->drv->name : "unbound";
+>> +	char *irq_str;
+>> +	char irq_num[4];
+>> +
+>> +	switch(phydev->irq) {
+>> +	case PHY_POLL:
+>> +		irq_str = "POLL";
+>> +		break;
+>> +	case PHY_IGNORE_INTERRUPT:
+>> +		irq_str = "IGNORE";
+>> +		break;
+>> +	default:
+>> +		snprintf(irq_num, sizeof(irq_str), "%d", phydev->irq);
+> sizeof(irq_str) = 4 or 8 depending on the architecture because it's a
+> pointer, did not you mean sizeof(irq_num) here instead?
+
+Ah good catch, yeah that's a stupid error
+
+Regards,
+Romain
