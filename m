@@ -1,40 +1,39 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 09/13] net: mvpp2: dynamic reconfiguration of
- the PHY mode
-Date: Thu, 24 Aug 2017 19:45:19 +0200
-Message-ID: <20170824174519.GC18700@lunn.ch>
-References: <20170824083823.16826-1-antoine.tenart@free-electrons.com>
- <20170824083823.16826-10-antoine.tenart@free-electrons.com>
- <20170824145609.GJ8022@lunn.ch>
- <20170824165947.GZ20805@n2100.armlinux.org.uk>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH] ss: fix help/man TCP-STATE description for listening
+Date: Thu, 24 Aug 2017 11:02:18 -0700
+Message-ID: <20170824110218.48863b45@xeon-e3>
+References: <1503492471-18403-1-git-send-email-andreas@fatal.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
-        davem@davemloft.net, kishon@ti.com, jason@lakedaemon.net,
-        sebastian.hesselbarth@gmail.com,
-        gregory.clement@free-electrons.com,
-        thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
-        linux-kernel@vger.kernel.org, mw@semihalf.com, stefanc@marvell.com,
-        miquel.raynal@free-electrons.com, netdev@vger.kernel.org
-To: Russell King - ARM Linux <linux@armlinux.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170824165947.GZ20805@n2100.armlinux.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Andreas Henriksson <andreas@fatal.se>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f49.google.com ([74.125.83.49]:34428 "EHLO
+        mail-pg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751615AbdHXSC2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 24 Aug 2017 14:02:28 -0400
+Received: by mail-pg0-f49.google.com with SMTP id a7so572999pgn.1
+        for <netdev@vger.kernel.org>; Thu, 24 Aug 2017 11:02:28 -0700 (PDT)
+In-Reply-To: <1503492471-18403-1-git-send-email-andreas@fatal.se>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Russell
+On Wed, 23 Aug 2017 14:47:51 +0200
+Andreas Henriksson <andreas@fatal.se> wrote:
 
-> I think you're all getting confused.
+> There's some misleading information in --help and ss(8) manpage about
+> TCP-STATE named 'listen'.
+> ss doesn't know such a state, but it knows 'listening' state.
+> 
+> $ ss -tua state listen
+> ss: wrong state name: listen
+> 
+> $ ss -tua state listening
+> [...]
+> 
+> Addresses: https://bugs.debian.org/872990
+> Reported-by: Pavel Lyulchenko <p.lyulchenko@gmail.com>
+> Signed-off-by: Andreas Henriksson <andreas@fatal.se>
 
-Yes, i was at least.
-
-> The 88x3310 driver in the kernel knows about these combinations and
-> sets the phy interface parameter correctly depending on whether the
-> PHY has configured itself for copper at whatever speed or SFP+.
-
-So when the PHY decides to swap from copper to fibre etc, is the
-phylib state machine kept up to date. Does it see a down, followed by
-an up?
-
-   Andrew
+Applied. Thanks
