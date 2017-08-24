@@ -1,176 +1,93 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 04/12] devlink: Add support for dynamic table size
-Date: Thu, 24 Aug 2017 08:40:02 +0200
-Message-ID: <20170824064010.1646-5-jiri@resnulli.us>
+Subject: [patch net-next 02/12] devlink: Add IPv4 header for dpipe
+Date: Thu, 24 Aug 2017 08:40:00 +0200
+Message-ID: <20170824064010.1646-3-jiri@resnulli.us>
 References: <20170824064010.1646-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, arkadis@mellanox.com, idosch@mellanox.com,
         mlxsw@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f194.google.com ([209.85.128.194]:37960 "EHLO
-        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751330AbdHXGkV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 24 Aug 2017 02:40:21 -0400
-Received: by mail-wr0-f194.google.com with SMTP id 94so946785wri.5
-        for <netdev@vger.kernel.org>; Wed, 23 Aug 2017 23:40:20 -0700 (PDT)
+Received: from mail-wr0-f195.google.com ([209.85.128.195]:37953 "EHLO
+        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751768AbdHXGkS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 24 Aug 2017 02:40:18 -0400
+Received: by mail-wr0-f195.google.com with SMTP id 94so946731wri.5
+        for <netdev@vger.kernel.org>; Wed, 23 Aug 2017 23:40:17 -0700 (PDT)
 In-Reply-To: <20170824064010.1646-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Arkadi Sharshevsky <arkadis@mellanox.com>
 
-Up until now the dpipe table's size was static and known at registration
-time. The host table does not have constant size and it is resized in
-dynamic manner. In order to support this behavior the size is changed
-to be obtained dynamically via an op.
-
-This patch also adjust the current dpipe table for the new API.
+This will be used by the IPv4 host table which will be introduced in the
+following patches. This header is global and can be reused by many
+drivers.
 
 Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.c | 13 +++++++++----
- include/net/devlink.h                                |  7 +++----
- net/core/devlink.c                                   | 12 +++++++-----
- 3 files changed, 19 insertions(+), 13 deletions(-)
+ include/net/devlink.h        |  1 +
+ include/uapi/linux/devlink.h |  5 +++++
+ net/core/devlink.c           | 17 +++++++++++++++++
+ 3 files changed, 23 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.c
-index e9e1f7a..9eb265b 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.c
-@@ -301,24 +301,29 @@ static int mlxsw_sp_dpipe_table_erif_counters_update(void *priv, bool enable)
- 	return 0;
- }
- 
-+static u64 mlxsw_sp_dpipe_table_erif_size_get(void *priv)
-+{
-+	struct mlxsw_sp *mlxsw_sp = priv;
-+
-+	return MLXSW_CORE_RES_GET(mlxsw_sp->core, MAX_RIFS);
-+}
-+
- static struct devlink_dpipe_table_ops mlxsw_sp_erif_ops = {
- 	.matches_dump = mlxsw_sp_dpipe_table_erif_matches_dump,
- 	.actions_dump = mlxsw_sp_dpipe_table_erif_actions_dump,
- 	.entries_dump = mlxsw_sp_dpipe_table_erif_entries_dump,
- 	.counters_set_update = mlxsw_sp_dpipe_table_erif_counters_update,
-+	.size_get = mlxsw_sp_dpipe_table_erif_size_get,
- };
- 
- static int mlxsw_sp_dpipe_erif_table_init(struct mlxsw_sp *mlxsw_sp)
- {
- 	struct devlink *devlink = priv_to_devlink(mlxsw_sp->core);
--	u64 table_size;
- 
--	table_size = MLXSW_CORE_RES_GET(mlxsw_sp->core, MAX_RIFS);
- 	return devlink_dpipe_table_register(devlink,
- 					    MLXSW_SP_DPIPE_TABLE_NAME_ERIF,
- 					    &mlxsw_sp_erif_ops,
--					    mlxsw_sp, table_size,
--					    false);
-+					    mlxsw_sp, false);
- }
- 
- static void mlxsw_sp_dpipe_erif_table_fini(struct mlxsw_sp *mlxsw_sp)
 diff --git a/include/net/devlink.h b/include/net/devlink.h
-index 8ff8a6f..e96272b 100644
+index ddb8b52..8ff8a6f 100644
 --- a/include/net/devlink.h
 +++ b/include/net/devlink.h
-@@ -178,7 +178,6 @@ struct devlink_dpipe_table_ops;
-  * struct devlink_dpipe_table - table object
-  * @priv: private
-  * @name: table name
-- * @size: maximum number of entries
-  * @counters_enabled: indicates if counters are active
-  * @counter_control_extern: indicates if counter control is in dpipe or
-  *			    external tool
-@@ -189,7 +188,6 @@ struct devlink_dpipe_table {
- 	void *priv;
- 	struct list_head list;
- 	const char *name;
--	u64 size;
- 	bool counters_enabled;
- 	bool counter_control_extern;
- 	struct devlink_dpipe_table_ops *table_ops;
-@@ -204,6 +202,7 @@ struct devlink_dpipe_table {
-  * @counters_set_update - when changing the counter status hardware sync
-  *			  maybe needed to allocate/free counter related
-  *			  resources
-+ * @size_get - get size
-  */
- struct devlink_dpipe_table_ops {
- 	int (*actions_dump)(void *priv, struct sk_buff *skb);
-@@ -211,6 +210,7 @@ struct devlink_dpipe_table_ops {
- 	int (*entries_dump)(void *priv, bool counters_enabled,
- 			    struct devlink_dpipe_dump_ctx *dump_ctx);
- 	int (*counters_set_update)(void *priv, bool enable);
-+	u64 (*size_get)(void *priv);
+@@ -329,6 +329,7 @@ int devlink_dpipe_action_put(struct sk_buff *skb,
+ int devlink_dpipe_match_put(struct sk_buff *skb,
+ 			    struct devlink_dpipe_match *match);
+ extern struct devlink_dpipe_header devlink_dpipe_header_ethernet;
++extern struct devlink_dpipe_header devlink_dpipe_header_ipv4;
+ 
+ #else
+ 
+diff --git a/include/uapi/linux/devlink.h b/include/uapi/linux/devlink.h
+index a855f8d..6c17254 100644
+--- a/include/uapi/linux/devlink.h
++++ b/include/uapi/linux/devlink.h
+@@ -230,8 +230,13 @@ enum devlink_dpipe_field_ethernet_id {
+ 	DEVLINK_DPIPE_FIELD_ETHERNET_DST_MAC,
  };
  
- /**
-@@ -311,8 +311,7 @@ void devlink_sb_unregister(struct devlink *devlink, unsigned int sb_index);
- int devlink_dpipe_table_register(struct devlink *devlink,
- 				 const char *table_name,
- 				 struct devlink_dpipe_table_ops *table_ops,
--				 void *priv, u64 size,
--				 bool counter_control_extern);
-+				 void *priv, bool counter_control_extern);
- void devlink_dpipe_table_unregister(struct devlink *devlink,
- 				    const char *table_name);
- int devlink_dpipe_headers_register(struct devlink *devlink,
++enum devlink_dpipe_field_ipv4_id {
++	DEVLINK_DPIPE_FIELD_IPV4_DST_IP,
++};
++
+ enum devlink_dpipe_header_id {
+ 	DEVLINK_DPIPE_HEADER_ETHERNET,
++	DEVLINK_DPIPE_HEADER_IPV4,
+ };
+ 
+ #endif /* _UAPI_LINUX_DEVLINK_H_ */
 diff --git a/net/core/devlink.c b/net/core/devlink.c
-index fcf5dd6..87062ff 100644
+index 4f6f3d6..fcf5dd6 100644
 --- a/net/core/devlink.c
 +++ b/net/core/devlink.c
-@@ -1647,13 +1647,15 @@ static int devlink_dpipe_table_put(struct sk_buff *skb,
- 				   struct devlink_dpipe_table *table)
- {
- 	struct nlattr *table_attr;
-+	u64 table_size;
+@@ -46,6 +46,23 @@ struct devlink_dpipe_header devlink_dpipe_header_ethernet = {
+ };
+ EXPORT_SYMBOL(devlink_dpipe_header_ethernet);
  
-+	table_size = table->table_ops->size_get(table->priv);
- 	table_attr = nla_nest_start(skb, DEVLINK_ATTR_DPIPE_TABLE);
- 	if (!table_attr)
- 		return -EMSGSIZE;
- 
- 	if (nla_put_string(skb, DEVLINK_ATTR_DPIPE_TABLE_NAME, table->name) ||
--	    nla_put_u64_64bit(skb, DEVLINK_ATTR_DPIPE_TABLE_SIZE, table->size,
-+	    nla_put_u64_64bit(skb, DEVLINK_ATTR_DPIPE_TABLE_SIZE, table_size,
- 			      DEVLINK_ATTR_PAD))
- 		goto nla_put_failure;
- 	if (nla_put_u8(skb, DEVLINK_ATTR_DPIPE_TABLE_COUNTERS_ENABLED,
-@@ -2718,20 +2720,21 @@ EXPORT_SYMBOL_GPL(devlink_dpipe_table_counter_enabled);
-  *	@table_name: table name
-  *	@table_ops: table ops
-  *	@priv: priv
-- *	@size: size
-  *	@counter_control_extern: external control for counters
-  */
- int devlink_dpipe_table_register(struct devlink *devlink,
- 				 const char *table_name,
- 				 struct devlink_dpipe_table_ops *table_ops,
--				 void *priv, u64 size,
--				 bool counter_control_extern)
-+				 void *priv, bool counter_control_extern)
- {
- 	struct devlink_dpipe_table *table;
- 
- 	if (devlink_dpipe_table_find(&devlink->dpipe_table_list, table_name))
- 		return -EEXIST;
- 
-+	if (WARN_ON(!table_ops->size_get))
-+		return -EINVAL;
++static struct devlink_dpipe_field devlink_dpipe_fields_ipv4[] = {
++	{
++		.name = "destination ip",
++		.id = DEVLINK_DPIPE_FIELD_IPV4_DST_IP,
++		.bitwidth = 32,
++	},
++};
 +
- 	table = kzalloc(sizeof(*table), GFP_KERNEL);
- 	if (!table)
- 		return -ENOMEM;
-@@ -2739,7 +2742,6 @@ int devlink_dpipe_table_register(struct devlink *devlink,
- 	table->name = table_name;
- 	table->table_ops = table_ops;
- 	table->priv = priv;
--	table->size = size;
- 	table->counter_control_extern = counter_control_extern;
++struct devlink_dpipe_header devlink_dpipe_header_ipv4 = {
++	.name = "ipv4",
++	.id = DEVLINK_DPIPE_HEADER_IPV4,
++	.fields = devlink_dpipe_fields_ipv4,
++	.fields_count = ARRAY_SIZE(devlink_dpipe_fields_ipv4),
++	.global = true,
++};
++EXPORT_SYMBOL(devlink_dpipe_header_ipv4);
++
+ EXPORT_TRACEPOINT_SYMBOL_GPL(devlink_hwmsg);
  
- 	mutex_lock(&devlink_mutex);
+ static LIST_HEAD(devlink_list);
 -- 
 2.9.3
