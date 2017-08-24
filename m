@@ -1,46 +1,46 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next] net: mv643xx_eth: Be drop monitor friendly
-Date: Thu, 24 Aug 2017 16:04:25 -0700
-Message-ID: <20170824230425.15948-1-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, edumazet@gmail.com, andrew@lunn.ch,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-        linux-kernel@vger.kernel.org (open list)
-To: netdev@vger.kernel.org
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH] isdn: hisax: fix buffer overflow check
+Date: Fri, 25 Aug 2017 01:15:42 +0200
+Message-ID: <CAK8P3a0AVJom7cRetgmiT_SR=i5B2-uNy8sqqh_Ke8PfQOq99Q@mail.gmail.com>
+References: <20170824225931.1602326-1-arnd@arndb.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: Arnd Bergmann <arnd@arndb.de>, Networking <netdev@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Karsten Keil <isdn@linux-pingi.de>,
+        "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170824225931.1602326-1-arnd@arndb.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-txq_reclaim() does the normal transmit queue reclamation and
-rxq_deinit() does the RX ring cleanup, none of these are packet drops,
-so use dev_consume_skb() for both locations.
+On Fri, Aug 25, 2017 at 12:58 AM, Arnd Bergmann <arnd@arndb.de> wrote:
+> gcc-8 warns about a corner case that can overflow a memcpy buffer when a
+> length variable is negative. While the code checks for an overly large
+> value, it does not check for a negative length that would get turned
+> into a large positive number:
+>
+> In function 'memcpy',
+>     inlined from 'skb_put_data' at include/linux/skbuff.h:2042:2,
+>     inlined from 'l3dss1_cmd_global' at drivers/isdn/hisax/l3dss1.c:2219:4:
+> include/linux/string.h:348:9: error: '__builtin_memcpy' reading 266 or more bytes from a region of size 265 [-Werror=stringop-overflow=]
+>
+> In function 'memcpy',
+>     inlined from 'skb_put_data' at include/linux/skbuff.h:2042:2,
+>     inlined from 'l3ni1_cmd_global' at drivers/isdn/hisax/l3ni1.c:2079:4:
+> include/linux/string.h:348:9: error: '__builtin_memcpy' reading between 266 and 4294967295 bytes from a region of size 265 [-Werror=stringop-overflow=]
+>
+> It's not clear to me whether the warning should be here, or if this
+> is another case of an optimization step in gcc causing a warning about
+> something that would otherwise be silently ignored. Either way, making
+> the length 'unsigned int' instead ensures that no overflow can happen
+> here, and avoids the warning. The same code exists in two files, so I'm
+> patching both the same way.
+>
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/ethernet/marvell/mv643xx_eth.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+Sorry, I sent this out too early (trying to get fixes posted before my
+vacation), please ignore this patch, it doesn't fix all the warnings I get
+for this overflow problem.
 
-diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
-index 9c94ea9b2b80..7655616bffef 100644
---- a/drivers/net/ethernet/marvell/mv643xx_eth.c
-+++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
-@@ -1123,7 +1123,7 @@ static int txq_reclaim(struct tx_queue *txq, int budget, int force)
- 			struct sk_buff *skb = __skb_dequeue(&txq->tx_skb);
- 
- 			if (!WARN_ON(!skb))
--				dev_kfree_skb(skb);
-+				dev_consume_skb(skb);
- 		}
- 
- 		if (cmd_sts & ERROR_SUMMARY) {
-@@ -2026,7 +2026,7 @@ static void rxq_deinit(struct rx_queue *rxq)
- 
- 	for (i = 0; i < rxq->rx_ring_size; i++) {
- 		if (rxq->rx_skb[i]) {
--			dev_kfree_skb(rxq->rx_skb[i]);
-+			dev_consume_skb(rxq->rx_skb[i]);
- 			rxq->rx_desc_count--;
- 		}
- 	}
--- 
-2.9.3
+     Arnd
