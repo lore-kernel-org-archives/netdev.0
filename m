@@ -1,59 +1,56 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [patch net-next 12/12] mlxsw: spectrum_dpipe: Add support for
- controlling neighbor counters
-Date: Thu, 24 Aug 2017 12:28:09 -0700
-Message-ID: <611f74bf-946d-1429-f002-bfcaa0261990@gmail.com>
-References: <20170824064010.1646-1-jiri@resnulli.us>
- <20170824064010.1646-13-jiri@resnulli.us>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Patch net-next] net_sched: remove tc class reference counting
+Date: Thu, 24 Aug 2017 12:32:20 -0700 (PDT)
+Message-ID: <20170824.123220.2250866539237700218.davem@davemloft.net>
+References: <20170823043810.17602-1-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, arkadis@mellanox.com, idosch@mellanox.com,
-        mlxsw@mellanox.com
-To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com
+To: xiyou.wangcong@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:34097 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751317AbdHXT2L (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 24 Aug 2017 15:28:11 -0400
-Received: by mail-pg0-f66.google.com with SMTP id 63so607576pgc.1
-        for <netdev@vger.kernel.org>; Thu, 24 Aug 2017 12:28:11 -0700 (PDT)
-In-Reply-To: <20170824064010.1646-13-jiri@resnulli.us>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([184.105.139.130]:50774 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751615AbdHXTcV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 24 Aug 2017 15:32:21 -0400
+In-Reply-To: <20170823043810.17602-1-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 8/23/17 11:40 PM, Jiri Pirko wrote:
-> diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.c
-> index 94d954b..3c8599f 100644
-> --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.c
-> +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.c
-> @@ -599,6 +599,38 @@ mlxsw_sp_dpipe_table_host4_entries_dump(void *priv, bool counters_enabled,
->  						      dump_ctx, AF_INET);
->  }
->  
-> +static void
-> +mlxsw_sp_dpipe_table_host_counters_update(struct mlxsw_sp *mlxsw_sp,
-> +					  bool enable, int type)
-> +{
-> +	int i;
-> +
-> +	rtnl_lock();
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Tue, 22 Aug 2017 21:38:10 -0700
 
-same question here. Why is rtnl lock needed?
+> For TC classes, their ->get() and ->put() are always paired, and the
+> reference counting is completely useless, because:
+> 
+> 1) For class modification and dumping paths, we already hold RTNL lock,
+>    so all of these ->get(),->change(),->put() are atomic.
+> 
+> 2) For filter bindiing/unbinding, we use other reference counter than
+>    this one, and they should have RTNL lock too.
+> 
+> 3) For ->qlen_notify(), it is special because it is called on ->enqueue()
+>    path, but we already hold qdisc tree lock there, and we hold this
+>    tree lock when graft or delete the class too, so it should not be gone
+>    or changed until we release the tree lock.
+> 
+> Therefore, this patch removes ->get() and ->put(), but:
+> 
+> 1) Adds a new ->find() to find the pointer to a class by classid, no
+>    refcnt.
+> 
+> 2) Move the original class destroy upon the last refcnt into ->delete(),
+>    right after releasing tree lock. This is fine because the class is
+>    already removed from hash when holding the lock.
+> 
+> For those who also use ->put() as ->unbind(), just rename them to reflect
+> this change.
+> 
+> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-> +	for (i = 0; i < MLXSW_CORE_RES_GET(mlxsw_sp->core, MAX_RIFS); i++) {
-> +		struct mlxsw_sp_rif *rif = mlxsw_sp_rif_by_index(mlxsw_sp, i);
-> +		struct mlxsw_sp_neigh_entry *neigh_entry;
-> +
-> +		if (!rif)
-> +			continue;
-> +		mlxsw_sp_rif_neigh_for_each(neigh_entry, rif) {
-> +			if (mlxsw_sp_neigh_entry_type(neigh_entry) != type)
-> +				continue;
-> +			mlxsw_sp_neigh_entry_counter_update(mlxsw_sp,
-> +							    neigh_entry,
-> +							    enable);
-> +		}
-> +	}
-> +	rtnl_unlock();
+This one looks good to me.
+
+Jamal, please give it a quick look over and review.
+
+Thanks!
