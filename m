@@ -1,432 +1,694 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net-next 6/8] net/mlx5: Add hash table to search FTEs in a flow-group
-Date: Thu, 24 Aug 2017 16:21:50 +0300
-Message-ID: <20170824132152.29538-7-saeedm@mellanox.com>
+Subject: [net-next 8/8] net/mlx5: Add tracepoints
+Date: Thu, 24 Aug 2017 16:21:52 +0300
+Message-ID: <20170824132152.29538-9-saeedm@mellanox.com>
 References: <20170824132152.29538-1-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Leon Romanovsky <leonro@mellanox.com>,
         Matan Barak <matanb@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:34102 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:34117 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751116AbdHXNV6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 24 Aug 2017 09:21:58 -0400
+        with ESMTP id S1753047AbdHXNV7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 24 Aug 2017 09:21:59 -0400
 In-Reply-To: <20170824132152.29538-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Matan Barak <matanb@mellanox.com>
 
-When adding a flow table entry (fte) to a flow group (fg), we first
-need to check whether this fte exist. In such a case we just merge
-the destinations (if possible). Currently, this is done by traversing
-the fte list available in a fg. This could take a lot of time when
-using large flow groups. Speeding this up by using rhashtable, which
-is much faster.
+Add a tracepoint infrastructure for mlx5_core driver.
+Implemented flow steering tracepoints:
+1. Add flow group
+2. Remove flow group
+3. Add flow table entry
+4. Remove flow table entry
+5. Add flow table rule
+6. Remove flow table rule
 
 Signed-off-by: Matan Barak <matanb@mellanox.com>
-Reviewed-by: Maor Gottlieb <maorg@mellanox.com>
+Reviewed-by: Mark Bloch <markb@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/fs_core.c | 228 +++++++++++++++-------
- drivers/net/ethernet/mellanox/mlx5/core/fs_core.h |   3 +
- 2 files changed, 160 insertions(+), 71 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/Makefile   |   5 +-
+ .../net/ethernet/mellanox/mlx5/core/diag/Makefile  |   1 +
+ .../mellanox/mlx5/core/diag/fs_tracepoint.c        | 261 +++++++++++++++++++
+ .../mellanox/mlx5/core/diag/fs_tracepoint.h        | 282 +++++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx5/core/fs_core.c  |  11 +-
+ 5 files changed, 558 insertions(+), 2 deletions(-)
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/diag/Makefile
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/diag/fs_tracepoint.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/diag/fs_tracepoint.h
 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/Makefile b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
+index 22ed657d263a..87a3099808f3 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/Makefile
++++ b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
+@@ -4,7 +4,8 @@ subdir-ccflags-y += -I$(src)
+ mlx5_core-y :=	main.o cmd.o debugfs.o fw.o eq.o uar.o pagealloc.o \
+ 		health.o mcg.o cq.o srq.o alloc.o qp.o port.o mr.o pd.o \
+ 		mad.o transobj.o vport.o sriov.o fs_cmd.o fs_core.o \
+-		fs_counters.o rl.o lag.o dev.o wq.o lib/gid.o
++		fs_counters.o rl.o lag.o dev.o wq.o lib/gid.o \
++		diag/fs_tracepoint.o
+ 
+ mlx5_core-$(CONFIG_MLX5_ACCEL) += accel/ipsec.o
+ 
+@@ -25,3 +26,5 @@ mlx5_core-$(CONFIG_MLX5_CORE_IPOIB) += ipoib/ipoib.o ipoib/ethtool.o
+ 
+ mlx5_core-$(CONFIG_MLX5_EN_IPSEC) += en_accel/ipsec.o en_accel/ipsec_rxtx.o \
+ 		en_accel/ipsec_stats.o
++
++CFLAGS_tracepoint.o := -I$(src)
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/diag/Makefile b/drivers/net/ethernet/mellanox/mlx5/core/diag/Makefile
+new file mode 100644
+index 000000000000..d8e17110f25d
+--- /dev/null
++++ b/drivers/net/ethernet/mellanox/mlx5/core/diag/Makefile
+@@ -0,0 +1 @@
++subdir-ccflags-y += -I$(src)/..
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/diag/fs_tracepoint.c b/drivers/net/ethernet/mellanox/mlx5/core/diag/fs_tracepoint.c
+new file mode 100644
+index 000000000000..0be4575b58a2
+--- /dev/null
++++ b/drivers/net/ethernet/mellanox/mlx5/core/diag/fs_tracepoint.c
+@@ -0,0 +1,261 @@
++/*
++ * Copyright (c) 2017, Mellanox Technologies. All rights reserved.
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * OpenIB.org BSD license below:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      - Redistributions of source code must retain the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer.
++ *
++ *      - Redistributions in binary form must reproduce the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer in the documentation and/or other materials
++ *        provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++
++#define CREATE_TRACE_POINTS
++
++#include "fs_tracepoint.h"
++#include <linux/stringify.h>
++
++#define DECLARE_MASK_VAL(type, name) struct {type m; type v; } name
++#define MASK_VAL(type, spec, name, mask, val, fld)	\
++		DECLARE_MASK_VAL(type, name) =		\
++			{.m = MLX5_GET(spec, mask, fld),\
++			 .v = MLX5_GET(spec, val, fld)}
++#define MASK_VAL_BE(type, spec, name, mask, val, fld)	\
++		    DECLARE_MASK_VAL(type, name) =	\
++			{.m = MLX5_GET_BE(type, spec, mask, fld),\
++			 .v = MLX5_GET_BE(type, spec, val, fld)}
++#define GET_MASKED_VAL(name) (name.m & name.v)
++
++#define GET_MASK_VAL(name, type, mask, val, fld)	\
++		(name.m = MLX5_GET(type, mask, fld),	\
++		 name.v = MLX5_GET(type, val, fld),	\
++		 name.m & name.v)
++#define PRINT_MASKED_VAL(name, p, format) {		\
++	if (name.m)			\
++		trace_seq_printf(p, __stringify(name) "=" format " ", name.v); \
++	}
++#define PRINT_MASKED_VALP(name, cast, p, format) {	\
++	if (name.m)			\
++		trace_seq_printf(p, __stringify(name) "=" format " ",	       \
++				 (cast)&name.v);\
++	}
++
++static void print_lyr_2_4_hdrs(struct trace_seq *p,
++			       const u32 *mask, const u32 *value)
++{
++#define MASK_VAL_L2(type, name, fld) \
++	MASK_VAL(type, fte_match_set_lyr_2_4, name, mask, value, fld)
++	DECLARE_MASK_VAL(u64, smac) = {
++		.m = MLX5_GET(fte_match_set_lyr_2_4, mask, smac_47_16) << 16 |
++		     MLX5_GET(fte_match_set_lyr_2_4, mask, smac_15_0),
++		.v = MLX5_GET(fte_match_set_lyr_2_4, value, smac_47_16) << 16 |
++		     MLX5_GET(fte_match_set_lyr_2_4, value, smac_15_0)};
++	DECLARE_MASK_VAL(u64, dmac) = {
++		.m = MLX5_GET(fte_match_set_lyr_2_4, mask, dmac_47_16) << 16 |
++		     MLX5_GET(fte_match_set_lyr_2_4, mask, dmac_15_0),
++		.v = MLX5_GET(fte_match_set_lyr_2_4, value, dmac_47_16) << 16 |
++		     MLX5_GET(fte_match_set_lyr_2_4, value, dmac_15_0)};
++	MASK_VAL_L2(u16, ethertype, ethertype);
++
++	PRINT_MASKED_VALP(smac, u8 *, p, "%pM");
++	PRINT_MASKED_VALP(dmac, u8 *, p, "%pM");
++	PRINT_MASKED_VAL(ethertype, p, "%04x");
++
++	if (ethertype.m == 0xffff) {
++		if (ethertype.v == ETH_P_IP) {
++#define MASK_VAL_L2_BE(type, name, fld) \
++	MASK_VAL_BE(type, fte_match_set_lyr_2_4, name, mask, value, fld)
++			MASK_VAL_L2_BE(u32, src_ipv4,
++				       src_ipv4_src_ipv6.ipv4_layout.ipv4);
++			MASK_VAL_L2_BE(u32, dst_ipv4,
++				       dst_ipv4_dst_ipv6.ipv4_layout.ipv4);
++
++			PRINT_MASKED_VALP(src_ipv4, typeof(&src_ipv4.v), p,
++					  "%pI4");
++			PRINT_MASKED_VALP(dst_ipv4, typeof(&dst_ipv4.v), p,
++					  "%pI4");
++		} else if (ethertype.v == ETH_P_IPV6) {
++			static const struct in6_addr full_ones = {
++				.in6_u.u6_addr32 = {htonl(0xffffffff),
++						    htonl(0xffffffff),
++						    htonl(0xffffffff),
++						    htonl(0xffffffff)},
++			};
++			DECLARE_MASK_VAL(struct in6_addr, src_ipv6);
++			DECLARE_MASK_VAL(struct in6_addr, dst_ipv6);
++
++			memcpy(src_ipv6.m.in6_u.u6_addr8,
++			       MLX5_ADDR_OF(fte_match_set_lyr_2_4, mask,
++					    src_ipv4_src_ipv6.ipv6_layout.ipv6),
++			       sizeof(src_ipv6.m));
++			memcpy(dst_ipv6.m.in6_u.u6_addr8,
++			       MLX5_ADDR_OF(fte_match_set_lyr_2_4, mask,
++					    dst_ipv4_dst_ipv6.ipv6_layout.ipv6),
++			       sizeof(dst_ipv6.m));
++			memcpy(src_ipv6.v.in6_u.u6_addr8,
++			       MLX5_ADDR_OF(fte_match_set_lyr_2_4, value,
++					    src_ipv4_src_ipv6.ipv6_layout.ipv6),
++			       sizeof(src_ipv6.v));
++			memcpy(dst_ipv6.v.in6_u.u6_addr8,
++			       MLX5_ADDR_OF(fte_match_set_lyr_2_4, value,
++					    dst_ipv4_dst_ipv6.ipv6_layout.ipv6),
++			       sizeof(dst_ipv6.v));
++
++			if (!memcmp(&src_ipv6.m, &full_ones, sizeof(full_ones)))
++				trace_seq_printf(p, "src_ipv6=%pI6 ",
++						 &src_ipv6.v);
++			if (!memcmp(&dst_ipv6.m, &full_ones, sizeof(full_ones)))
++				trace_seq_printf(p, "dst_ipv6=%pI6 ",
++						 &dst_ipv6.v);
++		}
++	}
++
++#define PRINT_MASKED_VAL_L2(type, name, fld, p, format) {\
++	MASK_VAL_L2(type, name, fld);		         \
++	PRINT_MASKED_VAL(name, p, format);		 \
++}
++
++	PRINT_MASKED_VAL_L2(u8, ip_protocol, ip_protocol, p, "%02x");
++	PRINT_MASKED_VAL_L2(u16, tcp_flags, tcp_flags, p, "%x");
++	PRINT_MASKED_VAL_L2(u16, tcp_sport, tcp_sport, p, "%u");
++	PRINT_MASKED_VAL_L2(u16, tcp_dport, tcp_dport, p, "%u");
++	PRINT_MASKED_VAL_L2(u16, udp_sport, udp_sport, p, "%u");
++	PRINT_MASKED_VAL_L2(u16, udp_dport, udp_dport, p, "%u");
++	PRINT_MASKED_VAL_L2(u16, first_vid, first_vid, p, "%04x");
++	PRINT_MASKED_VAL_L2(u8, first_prio, first_prio, p, "%x");
++	PRINT_MASKED_VAL_L2(u8, first_cfi, first_cfi, p, "%d");
++	PRINT_MASKED_VAL_L2(u8, ip_dscp, ip_dscp, p, "%02x");
++	PRINT_MASKED_VAL_L2(u8, ip_ecn, ip_ecn, p, "%x");
++	PRINT_MASKED_VAL_L2(u8, cvlan_tag, cvlan_tag, p, "%d");
++	PRINT_MASKED_VAL_L2(u8, svlan_tag, svlan_tag, p, "%d");
++	PRINT_MASKED_VAL_L2(u8, frag, frag, p, "%d");
++}
++
++static void print_misc_parameters_hdrs(struct trace_seq *p,
++				       const u32 *mask, const u32 *value)
++{
++#define MASK_VAL_MISC(type, name, fld) \
++	MASK_VAL(type, fte_match_set_misc, name, mask, value, fld)
++#define PRINT_MASKED_VAL_MISC(type, name, fld, p, format) {\
++	MASK_VAL_MISC(type, name, fld);			   \
++	PRINT_MASKED_VAL(name, p, format);		   \
++}
++	DECLARE_MASK_VAL(u64, gre_key) = {
++		.m = MLX5_GET(fte_match_set_misc, mask, gre_key_h) << 8 |
++		     MLX5_GET(fte_match_set_misc, mask, gre_key_l),
++		.v = MLX5_GET(fte_match_set_misc, value, gre_key_h) << 8 |
++		     MLX5_GET(fte_match_set_misc, value, gre_key_l)};
++
++	PRINT_MASKED_VAL(gre_key, p, "%llu");
++	PRINT_MASKED_VAL_MISC(u32, source_sqn, source_sqn, p, "%u");
++	PRINT_MASKED_VAL_MISC(u16, source_port, source_port, p, "%u");
++	PRINT_MASKED_VAL_MISC(u8, outer_second_prio, outer_second_prio,
++			      p, "%u");
++	PRINT_MASKED_VAL_MISC(u8, outer_second_cfi, outer_second_cfi, p, "%u");
++	PRINT_MASKED_VAL_MISC(u16, outer_second_vid, outer_second_vid, p, "%u");
++	PRINT_MASKED_VAL_MISC(u8, inner_second_prio, inner_second_prio,
++			      p, "%u");
++	PRINT_MASKED_VAL_MISC(u8, inner_second_cfi, inner_second_cfi, p, "%u");
++	PRINT_MASKED_VAL_MISC(u16, inner_second_vid, inner_second_vid, p, "%u");
++
++	PRINT_MASKED_VAL_MISC(u8, outer_second_cvlan_tag,
++			      outer_second_cvlan_tag, p, "%u");
++	PRINT_MASKED_VAL_MISC(u8, inner_second_cvlan_tag,
++			      inner_second_cvlan_tag, p, "%u");
++	PRINT_MASKED_VAL_MISC(u8, outer_second_svlan_tag,
++			      outer_second_svlan_tag, p, "%u");
++	PRINT_MASKED_VAL_MISC(u8, inner_second_svlan_tag,
++			      inner_second_svlan_tag, p, "%u");
++
++	PRINT_MASKED_VAL_MISC(u8, gre_protocol, gre_protocol, p, "%u");
++
++	PRINT_MASKED_VAL_MISC(u32, vxlan_vni, vxlan_vni, p, "%u");
++	PRINT_MASKED_VAL_MISC(u32, outer_ipv6_flow_label, outer_ipv6_flow_label,
++			      p, "%x");
++	PRINT_MASKED_VAL_MISC(u32, inner_ipv6_flow_label, inner_ipv6_flow_label,
++			      p, "%x");
++}
++
++const char *parse_fs_hdrs(struct trace_seq *p,
++			  u8 match_criteria_enable,
++			  const u32 *mask_outer,
++			  const u32 *mask_misc,
++			  const u32 *mask_inner,
++			  const u32 *value_outer,
++			  const u32 *value_misc,
++			  const u32 *value_inner)
++{
++	const char *ret = trace_seq_buffer_ptr(p);
++
++	if (match_criteria_enable &
++	    1 << MLX5_CREATE_FLOW_GROUP_IN_MATCH_CRITERIA_ENABLE_OUTER_HEADERS) {
++		trace_seq_printf(p, "[outer] ");
++		print_lyr_2_4_hdrs(p, mask_outer, value_outer);
++	}
++
++	if (match_criteria_enable &
++	    1 << MLX5_CREATE_FLOW_GROUP_IN_MATCH_CRITERIA_ENABLE_MISC_PARAMETERS) {
++		trace_seq_printf(p, "[misc] ");
++		print_misc_parameters_hdrs(p, mask_misc, value_misc);
++	}
++	if (match_criteria_enable &
++	    1 << MLX5_CREATE_FLOW_GROUP_IN_MATCH_CRITERIA_ENABLE_INNER_HEADERS) {
++		trace_seq_printf(p, "[inner] ");
++		print_lyr_2_4_hdrs(p, mask_inner, value_inner);
++	}
++	trace_seq_putc(p, 0);
++	return ret;
++}
++
++const char *parse_fs_dst(struct trace_seq *p,
++			 const struct mlx5_flow_destination *dst,
++			 u32 counter_id)
++{
++	const char *ret = trace_seq_buffer_ptr(p);
++
++	switch (dst->type) {
++	case MLX5_FLOW_DESTINATION_TYPE_VPORT:
++		trace_seq_printf(p, "vport=%u\n", dst->vport_num);
++		break;
++	case MLX5_FLOW_DESTINATION_TYPE_FLOW_TABLE:
++		trace_seq_printf(p, "ft=%p\n", dst->ft);
++		break;
++	case MLX5_FLOW_DESTINATION_TYPE_TIR:
++		trace_seq_printf(p, "tir=%u\n", dst->tir_num);
++		break;
++	case MLX5_FLOW_DESTINATION_TYPE_COUNTER:
++		trace_seq_printf(p, "counter_id=%u\n", counter_id);
++		break;
++	}
++
++	trace_seq_putc(p, 0);
++	return ret;
++}
++
++EXPORT_TRACEPOINT_SYMBOL(mlx5_fs_add_fg);
++EXPORT_TRACEPOINT_SYMBOL(mlx5_fs_del_fg);
++EXPORT_TRACEPOINT_SYMBOL(mlx5_fs_set_fte);
++EXPORT_TRACEPOINT_SYMBOL(mlx5_fs_del_fte);
++EXPORT_TRACEPOINT_SYMBOL(mlx5_fs_add_rule);
++EXPORT_TRACEPOINT_SYMBOL(mlx5_fs_del_rule);
++
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/diag/fs_tracepoint.h b/drivers/net/ethernet/mellanox/mlx5/core/diag/fs_tracepoint.h
+new file mode 100644
+index 000000000000..1e3a6c3e4132
+--- /dev/null
++++ b/drivers/net/ethernet/mellanox/mlx5/core/diag/fs_tracepoint.h
+@@ -0,0 +1,282 @@
++/*
++ * Copyright (c) 2017, Mellanox Technologies. All rights reserved.
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * OpenIB.org BSD license below:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      - Redistributions of source code must retain the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer.
++ *
++ *      - Redistributions in binary form must reproduce the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer in the documentation and/or other materials
++ *        provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++
++#if !defined(_MLX5_FS_TP_) || defined(TRACE_HEADER_MULTI_READ)
++#define _MLX5_FS_TP_
++
++#include <linux/tracepoint.h>
++#include <linux/trace_seq.h>
++#include "../fs_core.h"
++
++#undef TRACE_SYSTEM
++#define TRACE_SYSTEM mlx5
++
++#define __parse_fs_hdrs(match_criteria_enable, mouter, mmisc, minner, vouter, \
++			vinner, vmisc)					      \
++	parse_fs_hdrs(p, match_criteria_enable, mouter, mmisc, minner, vouter,\
++		      vinner, vmisc)
++
++const char *parse_fs_hdrs(struct trace_seq *p,
++			  u8 match_criteria_enable,
++			  const u32 *mask_outer,
++			  const u32 *mask_misc,
++			  const u32 *mask_inner,
++			  const u32 *value_outer,
++			  const u32 *value_misc,
++			  const u32 *value_inner);
++
++#define __parse_fs_dst(dst, counter_id) \
++	parse_fs_dst(p, (const struct mlx5_flow_destination *)dst, counter_id)
++
++const char *parse_fs_dst(struct trace_seq *p,
++			 const struct mlx5_flow_destination *dst,
++			 u32 counter_id);
++
++TRACE_EVENT(mlx5_fs_add_fg,
++	    TP_PROTO(const struct mlx5_flow_group *fg),
++	    TP_ARGS(fg),
++	    TP_STRUCT__entry(
++		__field(const struct mlx5_flow_group *, fg)
++		__field(const struct mlx5_flow_table *, ft)
++		__field(u32, start_index)
++		__field(u32, end_index)
++		__field(u32, id)
++		__field(u8, mask_enable)
++		__array(u32, mask_outer, MLX5_ST_SZ_DW(fte_match_set_lyr_2_4))
++		__array(u32, mask_inner, MLX5_ST_SZ_DW(fte_match_set_lyr_2_4))
++		__array(u32, mask_misc, MLX5_ST_SZ_DW(fte_match_set_misc))
++	    ),
++	    TP_fast_assign(
++			   __entry->fg = fg;
++			   fs_get_obj(__entry->ft, fg->node.parent);
++			   __entry->start_index = fg->start_index;
++			   __entry->end_index = fg->start_index + fg->max_ftes;
++			   __entry->id = fg->id;
++			   __entry->mask_enable = fg->mask.match_criteria_enable;
++			   memcpy(__entry->mask_outer,
++				  MLX5_ADDR_OF(fte_match_param,
++					       &fg->mask.match_criteria,
++					       outer_headers),
++				  sizeof(__entry->mask_outer));
++			   memcpy(__entry->mask_inner,
++				  MLX5_ADDR_OF(fte_match_param,
++					       &fg->mask.match_criteria,
++					       inner_headers),
++				  sizeof(__entry->mask_inner));
++			   memcpy(__entry->mask_misc,
++				  MLX5_ADDR_OF(fte_match_param,
++					       &fg->mask.match_criteria,
++					       misc_parameters),
++				  sizeof(__entry->mask_misc));
++
++	    ),
++	    TP_printk("fg=%p ft=%p id=%u start=%u end=%u bit_mask=%02x %s\n",
++		      __entry->fg, __entry->ft, __entry->id,
++		      __entry->start_index, __entry->end_index,
++		      __entry->mask_enable,
++		      __parse_fs_hdrs(__entry->mask_enable,
++				      __entry->mask_outer,
++				      __entry->mask_misc,
++				      __entry->mask_inner,
++				      __entry->mask_outer,
++				      __entry->mask_misc,
++				      __entry->mask_inner))
++	    );
++
++TRACE_EVENT(mlx5_fs_del_fg,
++	    TP_PROTO(const struct mlx5_flow_group *fg),
++	    TP_ARGS(fg),
++	    TP_STRUCT__entry(
++		__field(const struct mlx5_flow_group *, fg)
++		__field(u32, id)
++	    ),
++	    TP_fast_assign(
++			   __entry->fg = fg;
++			   __entry->id = fg->id;
++
++	    ),
++	    TP_printk("fg=%p id=%u\n",
++		      __entry->fg, __entry->id)
++	    );
++
++#define ACTION_FLAGS \
++	{MLX5_FLOW_CONTEXT_ACTION_ALLOW,	 "ALLOW"},\
++	{MLX5_FLOW_CONTEXT_ACTION_DROP,		 "DROP"},\
++	{MLX5_FLOW_CONTEXT_ACTION_FWD_DEST,	 "FWD"},\
++	{MLX5_FLOW_CONTEXT_ACTION_COUNT,	 "CNT"},\
++	{MLX5_FLOW_CONTEXT_ACTION_ENCAP,	 "ENCAP"},\
++	{MLX5_FLOW_CONTEXT_ACTION_DECAP,	 "DECAP"},\
++	{MLX5_FLOW_CONTEXT_ACTION_MOD_HDR,	 "MOD_HDR"},\
++	{MLX5_FLOW_CONTEXT_ACTION_FWD_NEXT_PRIO, "NEXT_PRIO"}
++
++TRACE_EVENT(mlx5_fs_set_fte,
++	    TP_PROTO(const struct fs_fte *fte, bool new_fte),
++	    TP_ARGS(fte, new_fte),
++	    TP_STRUCT__entry(
++		__field(const struct fs_fte *, fte)
++		__field(const struct mlx5_flow_group *, fg)
++		__field(u32, group_index)
++		__field(u32, index)
++		__field(u32, action)
++		__field(u32, flow_tag)
++		__field(u8,  mask_enable)
++		__field(bool, new_fte)
++		__array(u32, mask_outer, MLX5_ST_SZ_DW(fte_match_set_lyr_2_4))
++		__array(u32, mask_inner, MLX5_ST_SZ_DW(fte_match_set_lyr_2_4))
++		__array(u32, mask_misc, MLX5_ST_SZ_DW(fte_match_set_misc))
++		__array(u32, value_outer, MLX5_ST_SZ_DW(fte_match_set_lyr_2_4))
++		__array(u32, value_inner, MLX5_ST_SZ_DW(fte_match_set_lyr_2_4))
++		__array(u32, value_misc, MLX5_ST_SZ_DW(fte_match_set_misc))
++	    ),
++	    TP_fast_assign(
++			   __entry->fte = fte;
++			   __entry->new_fte = new_fte;
++			   fs_get_obj(__entry->fg, fte->node.parent);
++			   __entry->group_index = __entry->fg->id;
++			   __entry->index = fte->index;
++			   __entry->action = fte->action;
++			   __entry->mask_enable = __entry->fg->mask.match_criteria_enable;
++			   __entry->flow_tag = fte->flow_tag;
++			   memcpy(__entry->mask_outer,
++				  MLX5_ADDR_OF(fte_match_param,
++					       &__entry->fg->mask.match_criteria,
++					       outer_headers),
++				  sizeof(__entry->mask_outer));
++			   memcpy(__entry->mask_inner,
++				  MLX5_ADDR_OF(fte_match_param,
++					       &__entry->fg->mask.match_criteria,
++					       inner_headers),
++				  sizeof(__entry->mask_inner));
++			   memcpy(__entry->mask_misc,
++				  MLX5_ADDR_OF(fte_match_param,
++					       &__entry->fg->mask.match_criteria,
++					       misc_parameters),
++				  sizeof(__entry->mask_misc));
++			   memcpy(__entry->value_outer,
++				  MLX5_ADDR_OF(fte_match_param,
++					       &fte->val,
++					       outer_headers),
++				  sizeof(__entry->value_outer));
++			   memcpy(__entry->value_inner,
++				  MLX5_ADDR_OF(fte_match_param,
++					       &fte->val,
++					       inner_headers),
++				  sizeof(__entry->value_inner));
++			   memcpy(__entry->value_misc,
++				  MLX5_ADDR_OF(fte_match_param,
++					       &fte->val,
++					       misc_parameters),
++				  sizeof(__entry->value_misc));
++
++	    ),
++	    TP_printk("op=%s fte=%p fg=%p index=%u group_index=%u action=<%s> flow_tag=%x %s\n",
++		      __entry->new_fte ? "add" : "set",
++		      __entry->fte, __entry->fg, __entry->index,
++		      __entry->group_index, __print_flags(__entry->action, "|",
++							  ACTION_FLAGS),
++		      __entry->flow_tag,
++		      __parse_fs_hdrs(__entry->mask_enable,
++				      __entry->mask_outer,
++				      __entry->mask_misc,
++				      __entry->mask_inner,
++				      __entry->value_outer,
++				      __entry->value_misc,
++				      __entry->value_inner))
++	    );
++
++TRACE_EVENT(mlx5_fs_del_fte,
++	    TP_PROTO(const struct fs_fte *fte),
++	    TP_ARGS(fte),
++	    TP_STRUCT__entry(
++		__field(const struct fs_fte *, fte)
++		__field(u32, index)
++	    ),
++	    TP_fast_assign(
++			   __entry->fte = fte;
++			   __entry->index = fte->index;
++
++	    ),
++	    TP_printk("fte=%p index=%u\n",
++		      __entry->fte, __entry->index)
++	    );
++
++TRACE_EVENT(mlx5_fs_add_rule,
++	    TP_PROTO(const struct mlx5_flow_rule *rule),
++	    TP_ARGS(rule),
++	    TP_STRUCT__entry(
++		__field(const struct mlx5_flow_rule *, rule)
++		__field(const struct fs_fte *, fte)
++		__field(u32, sw_action)
++		__field(u32, index)
++		__field(u32, counter_id)
++		__array(u8, destination, sizeof(struct mlx5_flow_destination))
++	    ),
++	    TP_fast_assign(
++			   __entry->rule = rule;
++			   fs_get_obj(__entry->fte, rule->node.parent);
++			   __entry->index = __entry->fte->dests_size - 1;
++			   __entry->sw_action = rule->sw_action;
++			   memcpy(__entry->destination,
++				  &rule->dest_attr,
++				  sizeof(__entry->destination));
++			   if (rule->dest_attr.type & MLX5_FLOW_DESTINATION_TYPE_COUNTER &&
++			       rule->dest_attr.counter)
++				__entry->counter_id =
++				rule->dest_attr.counter->id;
++	    ),
++	    TP_printk("rule=%p fte=%p index=%u sw_action=<%s> [dst] %s\n",
++		      __entry->rule, __entry->fte, __entry->index,
++		      __print_flags(__entry->sw_action, "|", ACTION_FLAGS),
++		      __parse_fs_dst(__entry->destination, __entry->counter_id))
++	    );
++
++TRACE_EVENT(mlx5_fs_del_rule,
++	    TP_PROTO(const struct mlx5_flow_rule *rule),
++	    TP_ARGS(rule),
++	    TP_STRUCT__entry(
++		__field(const struct mlx5_flow_rule *, rule)
++		__field(const struct fs_fte *, fte)
++	    ),
++	    TP_fast_assign(
++			   __entry->rule = rule;
++			   fs_get_obj(__entry->fte, rule->node.parent);
++	    ),
++	    TP_printk("rule=%p fte=%p\n",
++		      __entry->rule, __entry->fte)
++	    );
++#endif
++
++#undef TRACE_INCLUDE_PATH
++#define TRACE_INCLUDE_PATH ./diag
++#undef TRACE_INCLUDE_FILE
++#define TRACE_INCLUDE_FILE fs_tracepoint
++#include <trace/define_trace.h>
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-index 986c5e50e872..d8d45b006996 100644
+index 9704c2eb82a1..d731d57a996a 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-@@ -150,6 +150,14 @@ enum fs_i_mutex_lock_class {
- 	FS_MUTEX_CHILD
- };
+@@ -36,6 +36,7 @@
+ #include "mlx5_core.h"
+ #include "fs_core.h"
+ #include "fs_cmd.h"
++#include "diag/fs_tracepoint.h"
  
-+static const struct rhashtable_params rhash_fte = {
-+	.key_len = FIELD_SIZEOF(struct fs_fte, val),
-+	.key_offset = offsetof(struct fs_fte, val),
-+	.head_offset = offsetof(struct fs_fte, hash),
-+	.automatic_shrinking = true,
-+	.min_size = 1,
-+};
-+
- static void del_rule(struct fs_node *node);
- static void del_flow_table(struct fs_node *node);
- static void del_flow_group(struct fs_node *node);
-@@ -255,63 +263,59 @@ static struct fs_prio *find_prio(struct mlx5_flow_namespace *ns,
- 	return NULL;
- }
+ #define INIT_TREE_NODE_ARRAY_SIZE(...)	(sizeof((struct init_tree_node[]){__VA_ARGS__}) /\
+ 					 sizeof(struct init_tree_node))
+@@ -404,6 +405,7 @@ static void del_rule(struct fs_node *node)
+ 	fs_get_obj(fte, rule->node.parent);
+ 	fs_get_obj(fg, fte->node.parent);
+ 	fs_get_obj(ft, fg->node.parent);
++	trace_mlx5_fs_del_rule(rule);
+ 	list_del(&rule->node.list);
+ 	if (rule->sw_action == MLX5_FLOW_CONTEXT_ACTION_FWD_NEXT_PRIO) {
+ 		mutex_lock(&rule->dest_attr.ft->lock);
+@@ -457,6 +459,7 @@ static void del_fte(struct fs_node *node)
+ 	fs_get_obj(fte, node);
+ 	fs_get_obj(fg, fte->node.parent);
+ 	fs_get_obj(ft, fg->node.parent);
++	trace_mlx5_fs_del_fte(fte);
  
--static bool masked_memcmp(void *mask, void *val1, void *val2, size_t size)
-+static bool check_last_reserved(const u32 *match_criteria)
- {
--	unsigned int i;
--
--	for (i = 0; i < size; i++, mask++, val1++, val2++)
--		if ((*((u8 *)val1) & (*(u8 *)mask)) !=
--		    ((*(u8 *)val2) & (*(u8 *)mask)))
--			return false;
-+	char *match_criteria_reserved =
-+		MLX5_ADDR_OF(fte_match_param, match_criteria, MLX5_FTE_MATCH_PARAM_RESERVED);
+ 	dev = get_dev(&ft->node);
+ 	err = mlx5_cmd_delete_fte(dev, ft,
+@@ -479,6 +482,7 @@ static void del_flow_group(struct fs_node *node)
+ 	fs_get_obj(fg, node);
+ 	fs_get_obj(ft, fg->node.parent);
+ 	dev = get_dev(&ft->node);
++	trace_mlx5_fs_del_fg(fg);
  
--	return true;
-+	return	!match_criteria_reserved[0] &&
-+		!memcmp(match_criteria_reserved, match_criteria_reserved + 1,
-+			MLX5_FLD_SZ_BYTES(fte_match_param,
-+					  MLX5_FTE_MATCH_PARAM_RESERVED) - 1);
- }
- 
--static bool compare_match_value(struct mlx5_flow_group_mask *mask,
--				void *fte_param1, void *fte_param2)
-+static bool check_valid_mask(u8 match_criteria_enable, const u32 *match_criteria)
- {
--	if (mask->match_criteria_enable &
--	    1 << MLX5_CREATE_FLOW_GROUP_IN_MATCH_CRITERIA_ENABLE_OUTER_HEADERS) {
--		void *fte_match1 = MLX5_ADDR_OF(fte_match_param,
--						fte_param1, outer_headers);
--		void *fte_match2 = MLX5_ADDR_OF(fte_match_param,
--						fte_param2, outer_headers);
--		void *fte_mask = MLX5_ADDR_OF(fte_match_param,
--					      mask->match_criteria, outer_headers);
-+	if (match_criteria_enable & ~(
-+		(1 << MLX5_CREATE_FLOW_GROUP_IN_MATCH_CRITERIA_ENABLE_OUTER_HEADERS)   |
-+		(1 << MLX5_CREATE_FLOW_GROUP_IN_MATCH_CRITERIA_ENABLE_MISC_PARAMETERS) |
-+		(1 << MLX5_CREATE_FLOW_GROUP_IN_MATCH_CRITERIA_ENABLE_INNER_HEADERS)))
-+		return false;
- 
--		if (!masked_memcmp(fte_mask, fte_match1, fte_match2,
--				   MLX5_ST_SZ_BYTES(fte_match_set_lyr_2_4)))
-+	if (!(match_criteria_enable &
-+	      1 << MLX5_CREATE_FLOW_GROUP_IN_MATCH_CRITERIA_ENABLE_OUTER_HEADERS)) {
-+		char *fg_type_mask = MLX5_ADDR_OF(fte_match_param,
-+						  match_criteria, outer_headers);
-+
-+		if (fg_type_mask[0] ||
-+		    memcmp(fg_type_mask, fg_type_mask + 1,
-+			   MLX5_ST_SZ_BYTES(fte_match_set_lyr_2_4) - 1))
- 			return false;
- 	}
- 
--	if (mask->match_criteria_enable &
--	    1 << MLX5_CREATE_FLOW_GROUP_IN_MATCH_CRITERIA_ENABLE_MISC_PARAMETERS) {
--		void *fte_match1 = MLX5_ADDR_OF(fte_match_param,
--						fte_param1, misc_parameters);
--		void *fte_match2 = MLX5_ADDR_OF(fte_match_param,
--						fte_param2, misc_parameters);
--		void *fte_mask = MLX5_ADDR_OF(fte_match_param,
--					  mask->match_criteria, misc_parameters);
-+	if (!(match_criteria_enable &
-+	      1 << MLX5_CREATE_FLOW_GROUP_IN_MATCH_CRITERIA_ENABLE_MISC_PARAMETERS)) {
-+		char *fg_type_mask = MLX5_ADDR_OF(fte_match_param,
-+						  match_criteria, misc_parameters);
- 
--		if (!masked_memcmp(fte_mask, fte_match1, fte_match2,
--				   MLX5_ST_SZ_BYTES(fte_match_set_misc)))
-+		if (fg_type_mask[0] ||
-+		    memcmp(fg_type_mask, fg_type_mask + 1,
-+			   MLX5_ST_SZ_BYTES(fte_match_set_misc) - 1))
- 			return false;
- 	}
- 
--	if (mask->match_criteria_enable &
--	    1 << MLX5_CREATE_FLOW_GROUP_IN_MATCH_CRITERIA_ENABLE_INNER_HEADERS) {
--		void *fte_match1 = MLX5_ADDR_OF(fte_match_param,
--						fte_param1, inner_headers);
--		void *fte_match2 = MLX5_ADDR_OF(fte_match_param,
--						fte_param2, inner_headers);
--		void *fte_mask = MLX5_ADDR_OF(fte_match_param,
--					  mask->match_criteria, inner_headers);
-+	if (!(match_criteria_enable &
-+	      1 << MLX5_CREATE_FLOW_GROUP_IN_MATCH_CRITERIA_ENABLE_INNER_HEADERS)) {
-+		char *fg_type_mask = MLX5_ADDR_OF(fte_match_param,
-+						  match_criteria, inner_headers);
- 
--		if (!masked_memcmp(fte_mask, fte_match1, fte_match2,
--				   MLX5_ST_SZ_BYTES(fte_match_set_lyr_2_4)))
-+		if (fg_type_mask[0] ||
-+		    memcmp(fg_type_mask, fg_type_mask + 1,
-+			   MLX5_ST_SZ_BYTES(fte_match_set_lyr_2_4) - 1))
- 			return false;
- 	}
--	return true;
-+
-+	return check_last_reserved(match_criteria);
- }
- 
- static bool compare_match_criteria(u8 match_criteria_enable1,
-@@ -410,6 +414,18 @@ static void del_rule(struct fs_node *node)
- 	}
- }
- 
-+static void destroy_fte(struct fs_fte *fte, struct mlx5_flow_group *fg)
-+{
-+	struct mlx5_flow_table *ft;
-+	int ret;
-+
-+	ret = rhashtable_remove_fast(&fg->ftes_hash, &fte->hash, rhash_fte);
-+	WARN_ON(ret);
-+	fte->status = 0;
-+	fs_get_obj(ft, fg->node.parent);
-+	ida_simple_remove(&ft->fte_allocator, fte->index);
-+}
-+
- static void del_fte(struct fs_node *node)
- {
- 	struct mlx5_flow_table *ft;
-@@ -430,8 +446,7 @@ static void del_fte(struct fs_node *node)
- 			       "flow steering can't delete fte in index %d of flow group id %d\n",
- 			       fte->index, fg->id);
- 
--	ida_simple_remove(&ft->fte_allocator, fte->index);
--	fte->status = 0;
-+	destroy_fte(fte, fg);
- }
- 
- static void del_flow_group(struct fs_node *node)
-@@ -447,6 +462,7 @@ static void del_flow_group(struct fs_node *node)
  	if (ft->autogroup.active)
  		ft->autogroup.num_groups--;
- 
-+	rhashtable_destroy(&fg->ftes_hash);
- 	if (mlx5_cmd_destroy_flow_group(dev, ft, fg->id))
- 		mlx5_core_warn(dev, "flow steering can't destroy fg %d of ft %d\n",
- 			       fg->id, ft->id);
-@@ -481,10 +497,17 @@ static struct mlx5_flow_group *alloc_flow_group(u32 *create_fg_in)
- 	u8 match_criteria_enable = MLX5_GET(create_flow_group_in,
- 					    create_fg_in,
- 					    match_criteria_enable);
-+	int ret;
-+
- 	fg = kzalloc(sizeof(*fg), GFP_KERNEL);
- 	if (!fg)
- 		return ERR_PTR(-ENOMEM);
- 
-+	ret = rhashtable_init(&fg->ftes_hash, &rhash_fte);
-+	if (ret) {
-+		kfree(fg);
-+		return ERR_PTR(ret);
-+	}
- 	fg->mask.match_criteria_enable = match_criteria_enable;
- 	memcpy(&fg->mask.match_criteria, match_criteria,
- 	       sizeof(fg->mask.match_criteria));
-@@ -920,10 +943,8 @@ static struct mlx5_flow_group *create_flow_group_common(struct mlx5_flow_table *
- 		return fg;
- 
- 	err = mlx5_cmd_create_flow_group(dev, ft, fg_in, &fg->id);
--	if (err) {
--		kfree(fg);
--		return ERR_PTR(err);
--	}
-+	if (err)
-+		goto err_free_fg;
- 
- 	if (ft->autogroup.active)
- 		ft->autogroup.num_groups++;
-@@ -934,13 +955,27 @@ static struct mlx5_flow_group *create_flow_group_common(struct mlx5_flow_table *
+@@ -990,6 +994,7 @@ static struct mlx5_flow_group *create_flow_group_common(struct mlx5_flow_table *
+ 	/* Add node to group list */
  	list_add(&fg->node.list, prev_fg);
  
++	trace_mlx5_fs_add_fg(fg);
  	return fg;
-+
-+err_free_fg:
-+	rhashtable_destroy(&fg->ftes_hash);
-+	kfree(fg);
-+
-+	return ERR_PTR(err);
- }
  
- struct mlx5_flow_group *mlx5_create_flow_group(struct mlx5_flow_table *ft,
- 					       u32 *fg_in)
- {
-+	void *match_criteria = MLX5_ADDR_OF(create_flow_group_in,
-+					    fg_in, match_criteria);
-+	u8 match_criteria_enable = MLX5_GET(create_flow_group_in,
-+					    fg_in,
-+					    match_criteria_enable);
- 	struct mlx5_flow_group *fg;
- 
-+	if (!check_valid_mask(match_criteria_enable, match_criteria))
-+		return ERR_PTR(-EINVAL);
-+
- 	if (ft->autogroup.active)
- 		return ERR_PTR(-EPERM);
- 
-@@ -1104,6 +1139,7 @@ static struct fs_fte *create_fte(struct mlx5_flow_group *fg,
- 	struct mlx5_flow_table *ft;
- 	struct fs_fte *fte;
- 	int index;
-+	int ret;
- 
- 	fs_get_obj(ft, fg->node.parent);
- 	index = ida_simple_get(&ft->fte_allocator, fg->start_index,
-@@ -1114,11 +1150,20 @@ static struct fs_fte *create_fte(struct mlx5_flow_group *fg,
- 
- 	fte = alloc_fte(flow_act, match_value, index);
- 	if (IS_ERR(fte)) {
--		ida_simple_remove(&ft->fte_allocator, index);
--		return fte;
-+		ret = PTR_ERR(fte);
-+		goto err_alloc;
- 	}
-+	ret = rhashtable_insert_fast(&fg->ftes_hash, &fte->hash, rhash_fte);
-+	if (ret)
-+		goto err_hash;
- 
- 	return fte;
-+
-+err_hash:
-+	kfree(fte);
-+err_alloc:
-+	ida_simple_remove(&ft->fte_allocator, index);
-+	return ERR_PTR(ret);
- }
- 
- static struct mlx5_flow_group *create_autogroup(struct mlx5_flow_table *ft,
-@@ -1206,42 +1251,78 @@ static struct mlx5_flow_rule *find_flow_rule(struct fs_fte *fte,
- 	return NULL;
- }
- 
-+static bool check_conflicting_actions(u32 action1, u32 action2)
-+{
-+	u32 xored_actions = action1 ^ action2;
-+
-+	/* if one rule only wants to count, it's ok */
-+	if (action1 == MLX5_FLOW_CONTEXT_ACTION_COUNT ||
-+	    action2 == MLX5_FLOW_CONTEXT_ACTION_COUNT)
-+		return false;
-+
-+	if (xored_actions & (MLX5_FLOW_CONTEXT_ACTION_DROP  |
-+			     MLX5_FLOW_CONTEXT_ACTION_ENCAP |
-+			     MLX5_FLOW_CONTEXT_ACTION_DECAP))
-+		return true;
-+
-+	return false;
-+}
-+
-+static int check_conflicting_ftes(struct fs_fte *fte, const struct mlx5_flow_act *flow_act)
-+{
-+	if (check_conflicting_actions(flow_act->action, fte->action)) {
-+		mlx5_core_warn(get_dev(&fte->node),
-+			       "Found two FTEs with conflicting actions\n");
-+		return -EEXIST;
-+	}
-+
-+	if (fte->flow_tag != flow_act->flow_tag) {
-+		mlx5_core_warn(get_dev(&fte->node),
-+			       "FTE flow tag %u already exists with different flow tag %u\n",
-+			       fte->flow_tag,
-+			       flow_act->flow_tag);
-+		return -EEXIST;
-+	}
-+
-+	return 0;
-+}
-+
- static struct mlx5_flow_handle *add_rule_fg(struct mlx5_flow_group *fg,
- 					    u32 *match_value,
- 					    struct mlx5_flow_act *flow_act,
- 					    struct mlx5_flow_destination *dest,
- 					    int dest_num)
- {
-+	u32 masked_val[sizeof(fg->mask.match_criteria)];
- 	struct mlx5_flow_handle *handle;
- 	struct mlx5_flow_table *ft;
- 	struct fs_fte *fte;
- 	int i;
- 
- 	nested_lock_ref_node(&fg->node, FS_MUTEX_PARENT);
--	fs_for_each_fte(fte, fg) {
-+	for (i = 0; i < sizeof(masked_val); i++)
-+		masked_val[i] = match_value[i] & fg->mask.match_criteria[i];
-+	fte = rhashtable_lookup_fast(&fg->ftes_hash, masked_val, rhash_fte);
-+	if (fte) {
-+		int old_action;
-+		int ret;
-+
- 		nested_lock_ref_node(&fte->node, FS_MUTEX_CHILD);
--		if (compare_match_value(&fg->mask, match_value, &fte->val) &&
--		    (flow_act->action & fte->action)) {
--			int old_action = fte->action;
--
--			if (fte->flow_tag != flow_act->flow_tag) {
--				mlx5_core_warn(get_dev(&fte->node),
--					       "FTE flow tag %u already exists with different flow tag %u\n",
--					       fte->flow_tag,
--					       flow_act->flow_tag);
--				handle = ERR_PTR(-EEXIST);
--				goto unlock_fte;
--			}
-+		ret = check_conflicting_ftes(fte, flow_act);
-+		if (ret) {
-+			handle = ERR_PTR(ret);
-+			goto unlock_fte;
-+		}
- 
--			fte->action |= flow_act->action;
--			handle = add_rule_fte(fte, fg, dest, dest_num,
--					      old_action != flow_act->action);
--			if (IS_ERR(handle)) {
--				fte->action = old_action;
--				goto unlock_fte;
--			} else {
--				goto add_rules;
--			}
-+		old_action = fte->action;
-+		fte->action |= flow_act->action;
-+		handle = add_rule_fte(fte, fg, dest, dest_num,
-+				      old_action != flow_act->action);
-+		if (IS_ERR(handle)) {
-+			fte->action = old_action;
-+			goto unlock_fte;
-+		} else {
-+			goto add_rules;
+ err_remove_fg:
+@@ -1357,6 +1362,7 @@ static struct mlx5_flow_handle *add_rule_fg(struct mlx5_flow_group *fg,
+ 			fte->action = old_action;
+ 			goto unlock_fte;
+ 		} else {
++			trace_mlx5_fs_set_fte(fte, false);
+ 			goto add_rules;
  		}
- 		unlock_ref_node(&fte->node);
  	}
-@@ -1257,6 +1338,7 @@ static struct mlx5_flow_handle *add_rule_fg(struct mlx5_flow_group *fg,
- 	handle = add_rule_fte(fte, fg, dest, dest_num, false);
- 	if (IS_ERR(handle)) {
- 		unlock_ref_node(&fte->node);
-+		destroy_fte(fte, fg);
- 		kfree(fte);
- 		goto unlock_fg;
+@@ -1378,10 +1384,13 @@ static struct mlx5_flow_handle *add_rule_fg(struct mlx5_flow_group *fg,
+ 	tree_add_node(&fte->node, &fg->node);
+ 	/* fte list isn't sorted */
+ 	list_add_tail(&fte->node.list, &fg->node.children);
++	trace_mlx5_fs_set_fte(fte, true);
+ add_rules:
+ 	for (i = 0; i < handle->num_rules; i++) {
+-		if (atomic_read(&handle->rule[i]->node.refcount) == 1)
++		if (atomic_read(&handle->rule[i]->node.refcount) == 1) {
+ 			tree_add_node(&handle->rule[i]->node, &fte->node);
++			trace_mlx5_fs_add_rule(handle->rule[i]);
++		}
  	}
-@@ -1332,6 +1414,10 @@ _mlx5_add_flow_rules(struct mlx5_flow_table *ft,
- 	struct mlx5_flow_handle *rule;
- 	int i;
- 
-+	if (!check_valid_mask(spec->match_criteria_enable,
-+			      spec->match_criteria))
-+		return ERR_PTR(-EINVAL);
-+
- 	for (i = 0; i < dest_num; i++) {
- 		if (!dest_is_valid(&dest[i], flow_act->action, ft))
- 			return ERR_PTR(-EINVAL);
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
-index bfbc081d17dc..62709a3865d2 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
-@@ -34,6 +34,7 @@
- #define _MLX5_FS_CORE_
- 
- #include <linux/mlx5/fs.h>
-+#include <linux/rhashtable.h>
- 
- enum fs_node_type {
- 	FS_TYPE_NAMESPACE,
-@@ -168,6 +169,7 @@ struct fs_fte {
- 	u32				modify_id;
- 	enum fs_fte_status		status;
- 	struct mlx5_fc			*counter;
-+	struct rhash_head		hash;
- };
- 
- /* Type of children is mlx5_flow_table/namespace */
-@@ -197,6 +199,7 @@ struct mlx5_flow_group {
- 	u32				start_index;
- 	u32				max_ftes;
- 	u32				id;
-+	struct rhashtable		ftes_hash;
- };
- 
- struct mlx5_flow_root_namespace {
+ unlock_fte:
+ 	unlock_ref_node(&fte->node);
 -- 
 2.13.0
