@@ -1,54 +1,43 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: Re: [PATCH nf-next] netfilter: xt_CHECKSUM: avoid bad offload
- warnings on GSO packets
-Date: Thu, 24 Aug 2017 13:07:43 +0200
-Message-ID: <20170824110742.qby3yoz3emf6pr5i@unicorn.suse.cz>
-References: <20170824104824.2C318A0F3A@unicorn.suse.cz>
- <20170824105118.GA15739@breakpoint.cc>
+From: Aviad Krawczyk <aviad.krawczyk@huawei.com>
+Subject: Re: [PATCH net-next] hinic: uninitialized variable in
+ hinic_api_cmd_init()
+Date: Thu, 24 Aug 2017 15:24:55 +0300
+Message-ID: <63dafb26-dd90-bf64-bd41-48a844cdf924@huawei.com>
+References: <20170824104739.gw422ufydwmiu4gi@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        "Michael S. Tsirkin" <mst@redhat.com>,
-        Markos Chandras <markos.chandras@suse.com>
-To: Florian Westphal <fw@strlen.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170824105118.GA15739@breakpoint.cc>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <kernel-janitors@vger.kernel.org>
+To: Dan Carpenter <dan.carpenter@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga04-in.huawei.com ([45.249.212.190]:5017 "EHLO
+        szxga04-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751272AbdHXMZL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 24 Aug 2017 08:25:11 -0400
+In-Reply-To: <20170824104739.gw422ufydwmiu4gi@mwanda>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 24, 2017 at 12:51:18PM +0200, Florian Westphal wrote:
-> Michal Kubecek <mkubecek@suse.cz> wrote:
-> > When --checksum_fill action is applied to a GSO packet, checksum_tg() calls
-> > skb_checksum_help() which is only meant to be applied to non-GSO packets so
-> > that it issues a warning.
-> > 
-> > This can be easily triggered by using e.g.
-> > 
-> >   iptables -t mangle -A OUTPUT -j CHECKSUM --checksum-fill
-> > 
-> > and sending TCP stream via a device with GSO enabled.
-> > 
-> > While this can be considered a misconfiguration, I believe the bad offload
-> > warning is supposed to catch bugs in drivers and networking stack, not
-> > misconfigured firewalls. So let's ignore such packets and only issue a one
-> > time warning with pr_warn_once() rather than a WARN with stack trace and
-> > tainted kernel.
+On 8/24/2017 1:47 PM, Dan Carpenter wrote:
+> We never set the error code in this function.
 > 
-> Why issue a warning at all?
-> What kind of action should be taken upon seeing such warning?
+> Fixes: eabf0fad81d5 ("net-next/hinic: Initialize api cmd resources")
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> 
+> diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.c b/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.c
+> index 8901801fe426..c40603a183df 100644
+> --- a/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.c
+> +++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_api_cmd.c
+> @@ -941,6 +941,7 @@ int hinic_api_cmd_init(struct hinic_api_cmd_chain **chain,
+>  		if (IS_ERR(chain[chain_type])) {
+>  			dev_err(&pdev->dev, "Failed to create chain %d\n",
+>  				chain_type);
+> +			err = PTR_ERR(chain[chain_type]);
+>  			goto err_create_chain;
+>  		}
+>  	}
+> 
+> 
 
-Check and fix the configuration. The reason why I left at least some
-kind of warning is that the module does something that is unexpected as
-the checksum is not calculated (this module is often used in
-virtualization environments where "hardware checksum offload" in fact
-means the checksum is not computed at all).
-
-But maybe it would suffice to add a note in iptables-extensions(8) man
-page explicitely saying that it doesn't work with GSO packets (and is of
-questionable usefulness for TCP in general).
-
-                                                         Michal Kubecek
+Thanks a lot, Reviewed-by: Aviad Krawczyk <aviad.krawczyk@huawei.com>
