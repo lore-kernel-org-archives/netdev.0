@@ -1,42 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] liquidio: change manner of detecting whether
- or not NIC firmware is loaded
-Date: Wed, 23 Aug 2017 20:29:45 -0700 (PDT)
-Message-ID: <20170823.202945.1564592947856218029.davem@davemloft.net>
-References: <20170822194637.GA6875@felix-thinkpad.cavium.com>
+Subject: Re: [PATCH v2 net-next 0/2] Add software rx timestamp for TCP.
+Date: Wed, 23 Aug 2017 20:32:59 -0700 (PDT)
+Message-ID: <20170823.203259.203702773602223523.davem@davemloft.net>
+References: <20170822210849.23162-1-maloneykernel@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
-        derek.chickles@cavium.com, satananda.burla@cavium.com
-To: felix.manlunas@cavium.com
+Cc: netdev@vger.kernel.org, willemdebruijn.kernel@gmail.com,
+        soheil@google.com, maloney@google.com
+To: maloneykernel@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:58080 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:58144 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751102AbdHXD3q (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2017 23:29:46 -0400
-In-Reply-To: <20170822194637.GA6875@felix-thinkpad.cavium.com>
+        with ESMTP id S1751062AbdHXDdA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2017 23:33:00 -0400
+In-Reply-To: <20170822210849.23162-1-maloneykernel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Felix Manlunas <felix.manlunas@cavium.com>
-Date: Tue, 22 Aug 2017 12:46:37 -0700
+From: Mike Maloney <maloneykernel@gmail.com>
+Date: Tue, 22 Aug 2017 17:08:47 -0400
 
-> In the NIC firmware, the 1-bit flag indicating "firmware is loaded" moved
-> from SLI_SCRATCH_1 to SLI_SCRATCH_2 (these are Octeon general-purpose
-> scratch registers).  Make the PF driver conform to this change.
+> From: Mike Maloney <maloney@google.com>
 > 
-> Remove code that sets the "firmware is loaded" flag because it's now the
-> firmware's job to do that.
+> Add software rx timestamps for TCP, and a test to ensure consistency of
+> behavior between IP, UDP, and TCP implementation.
 > 
-> In the code that detects whether or not the firmware is loaded, don't just
-> rely on checking the "firmware is loaded" flag because that may cause a
-> rare false negative.  Add code that deduces whether or not the firmware is
-> loaded; that will never give a false negative.
-> 
-> Also bump up driver version to match newer NIC firmware.
-> 
-> Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
-> Signed-off-by: Derek Chickles <derek.chickles@cavium.com>
+> Changes since v1:
+>   -Initialize tss->ts[1] to 0 if caller requested any timestamps.
+>   -Fix test case to validate that tss->ts[1] is zero.
+>   -Fix tests to actually use a raw socket.
+>   -Fix --tcp flag to work on the test.
 
-Applied.
+Series applied, thanks.
