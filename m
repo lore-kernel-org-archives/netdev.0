@@ -1,57 +1,50 @@
-From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH net-next 12/13] arm64: dts: marvell: mcbin: add comphy references to Ethernet ports
-Date: Thu, 24 Aug 2017 10:38:22 +0200
-Message-ID: <20170824083823.16826-13-antoine.tenart@free-electrons.com>
-References: <20170824083823.16826-1-antoine.tenart@free-electrons.com>
-Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
-        thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
-        linux@armlinux.org.uk, linux-kernel@vger.kernel.org,
-        mw@semihalf.com, stefanc@marvell.com,
-        miquel.raynal@free-electrons.com, netdev@vger.kernel.org
-To: davem@davemloft.net, kishon@ti.com, andrew@lunn.ch,
-        jason@lakedaemon.net, sebastian.hesselbarth@gmail.com,
-        gregory.clement@free-electrons.com
+From: Aviad Krawczyk <aviad.krawczyk@huawei.com>
+Subject: Re: [PATCH][next] net: hinic: fix comparison of a uint16_t type with
+ -1
+Date: Thu, 24 Aug 2017 11:48:32 +0300
+Message-ID: <58f312cc-5f24-83b6-d12d-c66e4fd4dad2@huawei.com>
+References: <20170823153936.22857-1-colin.king@canonical.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: <kernel-janitors@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: Colin King <colin.king@canonical.com>, <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170824083823.16826-1-antoine.tenart@free-electrons.com>
+In-Reply-To: <20170823153936.22857-1-colin.king@canonical.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds comphy phandles to the Ethernet ports in the mcbin
-device tree. The comphy is used to configure the serdes PHYs used by
-these ports.
+On 8/23/2017 6:39 PM, Colin King wrote:
+> From: Colin Ian King <colin.king@canonical.com>
+> 
+> The comparison of hw_ioctxt.rx_buf_sz_idx == -1 is always false because
+> rx_buf_sz_idx is a uint16_t. Fix this by explicitly casting -1 to uint16_t.
+> 
+> Detected by CoverityScan, CID#1454559 ("Operands don't affect result")
+> 
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> ---
+>  drivers/net/ethernet/huawei/hinic/hinic_hw_dev.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/huawei/hinic/hinic_hw_dev.c b/drivers/net/ethernet/huawei/hinic/hinic_hw_dev.c
+> index 09dec6de8dd5..71e26070fb7f 100644
+> --- a/drivers/net/ethernet/huawei/hinic/hinic_hw_dev.c
+> +++ b/drivers/net/ethernet/huawei/hinic/hinic_hw_dev.c
+> @@ -352,7 +352,7 @@ static int set_hw_ioctxt(struct hinic_hwdev *hwdev, unsigned int rq_depth,
+>  		}
+>  	}
+>  
+> -	if (hw_ioctxt.rx_buf_sz_idx == -1)
+> +	if (hw_ioctxt.rx_buf_sz_idx == (uint16_t)-1)
+>  		return -EINVAL;
+>  
+>  	hw_ioctxt.sq_depth  = ilog2(sq_depth);
+> 
 
-Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
----
- arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts | 3 +++
- 1 file changed, 3 insertions(+)
+Many thanks, Colin.
+I prefer to avoid casting when possible, what do you think about replacing the condition by:
 
-diff --git a/arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts b/arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts
-index 6cb4b000e1ac..dc4b6f3f25f6 100644
---- a/arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts
-+++ b/arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts
-@@ -148,6 +148,7 @@
- &cpm_eth0 {
- 	status = "okay";
- 	phy = <&phy0>;
-+	phys = <&cpm_comphy4 0>;
- 	phy-mode = "10gbase-kr";
- };
- 
-@@ -181,6 +182,7 @@
- &cps_eth0 {
- 	status = "okay";
- 	phy = <&phy1>;
-+	phys = <&cps_comphy4 0>;
- 	phy-mode = "10gbase-kr";
- };
- 
-@@ -189,6 +191,7 @@
- 	status = "okay";
- 	phy = <&ge_phy>;
- 	phy-mode = "sgmii";
-+	phys = <&cps_comphy0 1>;
- };
- 
- &cps_sata0 {
--- 
-2.13.5
+if (rx_buf_sz_table[i].sz != HINIC_RX_BUF_SZ)
+	return -EINVAL;
