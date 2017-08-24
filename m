@@ -1,65 +1,51 @@
-From: Davide Caratti <dcaratti@redhat.com>
-Subject: Re: [PATCH nf-next] netfilter: xt_CHECKSUM: avoid bad offload
- warnings on GSO packets
-Date: Thu, 24 Aug 2017 15:08:42 +0200
-Message-ID: <1503580122.2958.37.camel@redhat.com>
-References: <20170824104824.2C318A0F3A@unicorn.suse.cz>
-         <20170824105118.GA15739@breakpoint.cc>
-         <20170824110742.qby3yoz3emf6pr5i@unicorn.suse.cz>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] tipc: Fix tipc_sk_reinit handling of -EAGAIN
+Date: Thu, 24 Aug 2017 21:10:56 +0800
+Message-ID: <20170824131056.GC14926@gondor.apana.org.au>
+References: <1907606232.1152250.1503498773672.JavaMail.zimbra@redhat.com>
+ <25145358.1155254.1503499382947.JavaMail.zimbra@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        "Michael S. Tsirkin" <mst@redhat.com>,
-        Markos Chandras <markos.chandras@suse.com>
-To: Michal Kubecek <mkubecek@suse.cz>, Florian Westphal <fw@strlen.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170824110742.qby3yoz3emf6pr5i@unicorn.suse.cz>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Phil Sutter <psutter@redhat.com>, davem@davemloft.net,
+        netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
+To: Bob Peterson <rpeterso@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from orcrist.hmeau.com ([104.223.48.154]:49098 "EHLO
+        deadmen.hmeau.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751280AbdHXNLN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 24 Aug 2017 09:11:13 -0400
+Content-Disposition: inline
+In-Reply-To: <25145358.1155254.1503499382947.JavaMail.zimbra@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2017-08-24 at 13:07 +0200, Michal Kubecek wrote:
-> On Thu, Aug 24, 2017 at 12:51:18PM +0200, Florian Westphal wrote:
-> > Michal Kubecek <mkubecek@suse.cz> wrote:
-> > > When --checksum_fill action is applied to a GSO packet, checksum_tg() calls
-> > > skb_checksum_help() which is only meant to be applied to non-GSO packets so
-> > > that it issues a warning.
-> > > 
-> > > This can be easily triggered by using e.g.
-> > > 
-> > >   iptables -t mangle -A OUTPUT -j CHECKSUM --checksum-fill
-> > > 
-> > > and sending TCP stream via a device with GSO enabled.
-> > > 
-> > > While this can be considered a misconfiguration, I believe the bad offload
-> > > warning is supposed to catch bugs in drivers and networking stack, not
-> > > misconfigured firewalls. So let's ignore such packets and only issue a one
-> > > time warning with pr_warn_once() rather than a WARN with stack trace and
-> > > tainted kernel.
-> > 
-> > Why issue a warning at all?
-> > What kind of action should be taken upon seeing such warning?
+On Wed, Aug 23, 2017 at 10:43:02AM -0400, Bob Peterson wrote:
+> Hi,
 > 
-> Check and fix the configuration. The reason why I left at least some
-> kind of warning is that the module does something that is unexpected as
-> the checksum is not calculated (this module is often used in
-> virtualization environments where "hardware checksum offload" in fact
-> means the checksum is not computed at all).
+> In 9dbbfb0ab6680c6a85609041011484e6658e7d3c function tipc_sk_reinit
+> had additional logic added to loop in the event that function
+> rhashtable_walk_next() returned -EAGAIN. No worries.
 > 
+> However, if rhashtable_walk_start returns -EAGAIN, it does "continue",
+> and therefore skips the call to rhashtable_walk_stop(). That has
+> the effect of calling rcu_read_lock() without its paired call to
+> rcu_read_unlock(). Since rcu_read_lock() may be nested, the problem
+> may not be apparent for a while, especially since resize events may
+> be rare. But the comments to rhashtable_walk_start() state:
+> 
+>  * ...Note that we take the RCU lock in all
+>  * cases including when we return an error.  So you must always call
+>  * rhashtable_walk_stop to clean up.
+> 
+> This patch replaces the continue with a goto and label to ensure a
+> matching call to rhashtable_walk_stop().
+> 
+> Signed-off-by: Bob Peterson <rpeterso@redhat.com>
 
-hello Michal,
+Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-GSO should be capable of computing the checksum on individual segments
-later, so I also think the warning can be removed.
-
-Small nit: may I suggest you to call skb_csum_hwoffload_help() instead of
-skb_checksum_help(), so that we avoid corrupting SCTP packets in case they
-hit xt_CHECKSUM target?
-
-thank you in advance,
-regards
+Thanks for catching this!
 -- 
-davide
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
