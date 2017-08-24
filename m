@@ -1,8 +1,8 @@
 From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [V3 PATCH net-next 0/5] xdp: more work on xdp tracepoints
-Date: Thu, 24 Aug 2017 12:32:58 +0200
-Message-ID: <150357074701.26663.4047992776649697788.stgit@firesoul>
-References: <20170823.170737.931093928208799430.davem@davemloft.net>
+Subject: [V3 PATCH net-next 1/5] xdp: remove bpf_warn_invalid_xdp_redirect
+Date: Thu, 24 Aug 2017 12:33:03 +0200
+Message-ID: <150357078339.26663.1700540432902545688.stgit@firesoul>
+References: <150357074701.26663.4047992776649697788.stgit@firesoul>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -10,44 +10,61 @@ Cc: Daniel Borkmann <borkmann@iogearbox.net>,
         Jesper Dangaard Brouer <brouer@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:38486 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:37356 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751276AbdHXKdC (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 24 Aug 2017 06:33:02 -0400
-In-Reply-To: <20170823.170737.931093928208799430.davem@davemloft.net>
+        id S1751849AbdHXKdH (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 24 Aug 2017 06:33:07 -0400
+In-Reply-To: <150357074701.26663.4047992776649697788.stgit@firesoul>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-More work on streamlining and performance optimizing the tracepoints
-for XDP.
+Given there is a tracepoint that can track the error code
+of xdp_do_redirect calls, the WARN_ONCE in bpf_warn_invalid_xdp_redirect
+doesn't seem relevant any longer.  Simply remove the function.
 
-I've created a simple xdp_monitor application that uses this
-tracepoint, and prints statistics. Available at github:
-
-https://github.com/netoptimizer/prototype-kernel/blob/master/kernel/samples/bpf/xdp_monitor_kern.c
-https://github.com/netoptimizer/prototype-kernel/blob/master/kernel/samples/bpf/xdp_monitor_user.c
-
-The improvement over tracepoint with strcpy: 9810372 - 8428762 = +1381610 pps faster
- - (1/9810372 - 1/8428762)*10^9 = -16.7 nanosec
- - 100-(8428762/9810372*100) = strcpy-trace is 14.08% slower
- - 981037/8428762*100 = removing strcpy made it 11.64% faster
-
-V3: Fix merge conflict with commit e4a8e817d3cb ("bpf: misc xdp redirect cleanups")
-V2: Change trace_xdp_redirect() to align with args of trace_xdp_exception()
-
+Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
 ---
+ net/core/filter.c |    8 --------
+ 1 file changed, 8 deletions(-)
 
-Jesper Dangaard Brouer (5):
-      xdp: remove bpf_warn_invalid_xdp_redirect
-      xdp: make generic xdp redirect use tracepoint trace_xdp_redirect
-      ixgbe: use return codes from ndo_xdp_xmit that are distinguishable
-      xdp: remove net_device names from xdp_redirect tracepoint
-      xdp: get tracepoints xdp_exception and xdp_redirect in sync
-
-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    4 +-
- include/linux/filter.h                        |    3 +-
- include/trace/events/xdp.h                    |   36 ++++++++++---------
- net/core/dev.c                                |    4 +-
- net/core/filter.c                             |   47 +++++++++++++------------
- 5 files changed, 49 insertions(+), 45 deletions(-)
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 2a0d762a20d8..a5e5f31b41b9 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -2476,7 +2476,6 @@ static int __bpf_tx_xdp(struct net_device *dev,
+ 	int err;
+ 
+ 	if (!dev->netdev_ops->ndo_xdp_xmit) {
+-		bpf_warn_invalid_xdp_redirect(dev->ifindex);
+ 		return -EOPNOTSUPP;
+ 	}
+ 
+@@ -2543,7 +2542,6 @@ int xdp_do_redirect(struct net_device *dev, struct xdp_buff *xdp,
+ 	fwd = dev_get_by_index_rcu(dev_net(dev), index);
+ 	ri->ifindex = 0;
+ 	if (unlikely(!fwd)) {
+-		bpf_warn_invalid_xdp_redirect(index);
+ 		err = -EINVAL;
+ 		goto out;
+ 	}
+@@ -2564,7 +2562,6 @@ int xdp_do_generic_redirect(struct net_device *dev, struct sk_buff *skb)
+ 	dev = dev_get_by_index_rcu(dev_net(dev), index);
+ 	ri->ifindex = 0;
+ 	if (unlikely(!dev)) {
+-		bpf_warn_invalid_xdp_redirect(index);
+ 		return -EINVAL;
+ 	}
+ 
+@@ -3565,11 +3562,6 @@ void bpf_warn_invalid_xdp_action(u32 act)
+ }
+ EXPORT_SYMBOL_GPL(bpf_warn_invalid_xdp_action);
+ 
+-void bpf_warn_invalid_xdp_redirect(u32 ifindex)
+-{
+-	WARN_ONCE(1, "Illegal XDP redirect to unsupported device ifindex(%i)\n", ifindex);
+-}
+-
+ static bool __is_valid_sock_ops_access(int off, int size)
+ {
+ 	if (off < 0 || off >= sizeof(struct bpf_sock_ops))
