@@ -1,67 +1,127 @@
 From: Romain Perier <romain.perier@collabora.com>
-Subject: Re: [PATCH v3] net: stmmac: Delete dead code for MDIO registration
-Date: Thu, 24 Aug 2017 08:49:18 +0200
-Message-ID: <10e0ebf9-b412-8547-d0d7-01a958edbcd9@collabora.com>
-References: <20170823085058.23333-1-romain.perier@collabora.com>
- <d803f188-826b-706c-2d28-18ee87b8aa0d@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Florian Fainelli <f.fainelli@gmail.com>,
-        Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+Subject: [PATCH net-next v4] net: stmmac: Delete dead code for MDIO registration
+Date: Thu, 24 Aug 2017 09:03:17 +0200
+Message-ID: <20170824070317.10265-1-romain.perier@collabora.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Romain Perier <romain.perier@collabora.com>
+To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
         Alexandre Torgue <alexandre.torgue@st.com>,
-        Andrew Lunn <andrew@lunn.ch>
+        Andrew Lunn <andrew@lunn.ch>,
+        Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <d803f188-826b-706c-2d28-18ee87b8aa0d@gmail.com>
-Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+This code is no longer used, the logging function was changed by commit
+fbca164776e4 ("net: stmmac: Use the right logging functi"). It was
+previously showing information about the type if the IRQ, if it's polled,
+ignored or a normal interrupt. As we don't want information loss, I have
+moved this code to phy_attached_print().
+
+Fixes: fbca164776e4 ("net: stmmac: Use the right logging function in stmmac_mdio_register")
+Signed-off-by: Romain Perier <romain.perier@collabora.com>
+---
+
 Hello,
 
+This is the continuity of "[PATCH v2 0/2] net: stmmac: phy logging fixes",
+see https://lkml.org/lkml/2017/8/21/288
 
-Le 23/08/2017 à 18:46, Florian Fainelli a écrit :
-> On 08/23/2017 01:50 AM, Romain Perier wrote:
->> This code is no longer used, the logging function was changed by commit
->> fbca164776e4 ("net: stmmac: Use the right logging functi"). It was
->> previously showing information about the type if the IRQ, if it's polled,
->> ignored or a normal interrupt. As we don't want information loss, I have
->> moved this code to phy_attached_print().
->>
->> Fixes: fbca164776e4 ("net: stmmac: Use the right logging functi")
-> For future submissions, do not truncate the commit subject that you are
-> referencing.
+Changes in v4:
+- Don't truncate the commit subject for "Fixes"
+- Fixed invalid sizeof() used with snprintf
+- Added "net-next" prefix to the title of the commit
 
-Even if it exceeds 72 characters ?
+Changes in v3:
+- Removed patch 2/2: "net: phy: Don't use drv when it is NULL in phy_attached_print",
+  fixed upstream by fcd03e362b1c
+  ("net: phy: Deal with unbound PHY driver in phy_attached_print()")
+- Moved this code to phy_attached_print(), so we have more informations
+  about the IRQ (poll, ignore or normal irq) and no information are loss.
+- Re-worded commit message
 
->
->> Signed-off-by: Romain Perier <romain.perier@collabora.com>
-> Since this is a fix you should indicate in the patch subject that this
-> is targeting David's "net" tree, see
-> https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/networking/netdev-FAQ.txt#n85
 
-Ok, will do
+ drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c | 16 ----------------
+ drivers/net/phy/phy_device.c                      | 21 ++++++++++++++++++---
+ 2 files changed, 18 insertions(+), 19 deletions(-)
 
->
->
->>  	const char *drv_name = phydev->drv ? phydev->drv->name : "unbound";
->> +	char *irq_str;
->> +	char irq_num[4];
->> +
->> +	switch(phydev->irq) {
->> +	case PHY_POLL:
->> +		irq_str = "POLL";
->> +		break;
->> +	case PHY_IGNORE_INTERRUPT:
->> +		irq_str = "IGNORE";
->> +		break;
->> +	default:
->> +		snprintf(irq_num, sizeof(irq_str), "%d", phydev->irq);
-> sizeof(irq_str) = 4 or 8 depending on the architecture because it's a
-> pointer, did not you mean sizeof(irq_num) here instead?
-
-Ah good catch, yeah that's a stupid error
-
-Regards,
-Romain
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+index 72ec711fcba2..f5f37bfa1d58 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+@@ -248,9 +248,6 @@ int stmmac_mdio_register(struct net_device *ndev)
+ 	found = 0;
+ 	for (addr = 0; addr < PHY_MAX_ADDR; addr++) {
+ 		struct phy_device *phydev = mdiobus_get_phy(new_bus, addr);
+-		int act = 0;
+-		char irq_num[4];
+-		char *irq_str;
+ 
+ 		if (!phydev)
+ 			continue;
+@@ -273,19 +270,6 @@ int stmmac_mdio_register(struct net_device *ndev)
+ 		if (priv->plat->phy_addr == -1)
+ 			priv->plat->phy_addr = addr;
+ 
+-		act = (priv->plat->phy_addr == addr);
+-		switch (phydev->irq) {
+-		case PHY_POLL:
+-			irq_str = "POLL";
+-			break;
+-		case PHY_IGNORE_INTERRUPT:
+-			irq_str = "IGNORE";
+-			break;
+-		default:
+-			sprintf(irq_num, "%d", phydev->irq);
+-			irq_str = irq_num;
+-			break;
+-		}
+ 		phy_attached_info(phydev);
+ 		found = 1;
+ 	}
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index 2f742ae5b92e..4f67cafda2ef 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -861,21 +861,36 @@ void phy_attached_info(struct phy_device *phydev)
+ }
+ EXPORT_SYMBOL(phy_attached_info);
+ 
+-#define ATTACHED_FMT "attached PHY driver [%s] (mii_bus:phy_addr=%s, irq=%d)"
++#define ATTACHED_FMT "attached PHY driver [%s] (mii_bus:phy_addr=%s, irq=%s)"
+ void phy_attached_print(struct phy_device *phydev, const char *fmt, ...)
+ {
+ 	const char *drv_name = phydev->drv ? phydev->drv->name : "unbound";
++	char *irq_str;
++	char irq_num[4];
++
++	switch(phydev->irq) {
++	case PHY_POLL:
++		irq_str = "POLL";
++		break;
++	case PHY_IGNORE_INTERRUPT:
++		irq_str = "IGNORE";
++		break;
++	default:
++		snprintf(irq_num, sizeof(irq_num), "%d", phydev->irq);
++		irq_str = irq_num;
++		break;
++	}
+ 
+ 	if (!fmt) {
+ 		dev_info(&phydev->mdio.dev, ATTACHED_FMT "\n",
+ 			 drv_name, phydev_name(phydev),
+-			 phydev->irq);
++			 irq_str);
+ 	} else {
+ 		va_list ap;
+ 
+ 		dev_info(&phydev->mdio.dev, ATTACHED_FMT,
+ 			 drv_name, phydev_name(phydev),
+-			 phydev->irq);
++			 irq_str);
+ 
+ 		va_start(ap, fmt);
+ 		vprintk(fmt, ap);
+-- 
+2.11.0
