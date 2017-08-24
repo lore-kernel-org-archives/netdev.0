@@ -1,33 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net/sock: allow the user to set negative peek
- offset
-Date: Wed, 23 Aug 2017 22:19:21 -0700 (PDT)
-Message-ID: <20170823.221921.542562782486867988.davem@davemloft.net>
-References: <64e676e59d203f13cd326c3b0cf6b05287b69e1b.1503481941.git.pabeni@redhat.com>
+Subject: Re: [PATCH][net-next] net: hinic: make functions set_ctrl0 and
+ set_ctrl1 static
+Date: Wed, 23 Aug 2017 22:20:50 -0700 (PDT)
+Message-ID: <20170823.222050.1110892474808104284.davem@davemloft.net>
+References: <20170823095940.27225-1-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, matthew@mjdsystems.ca,
-        willemdebruijn.kernel@gmail.com, samanthakumar@google.com
-To: pabeni@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:60424 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751038AbdHXFTW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 24 Aug 2017 01:19:22 -0400
-In-Reply-To: <64e676e59d203f13cd326c3b0cf6b05287b69e1b.1503481941.git.pabeni@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: aviad.krawczyk@huawei.com, netdev@vger.kernel.org,
+        kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: colin.king@canonical.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170823095940.27225-1-colin.king@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Paolo Abeni <pabeni@redhat.com>
-Date: Wed, 23 Aug 2017 11:57:51 +0200
+From: Colin King <colin.king@canonical.com>
+Date: Wed, 23 Aug 2017 10:59:40 +0100
 
-> This is necessary to allow the user to disable peeking with
-> offset once it's enabled.
-> Unix sockets already allow the above, with this patch we
-> permit it for udp[6] sockets, too.
+> From: Colin Ian King <colin.king@canonical.com>
 > 
-> Fixes: 627d2d6b5500 ("udp: enable MSG_PEEK at non-zero offset")
-> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+> The functions set_ctrl0 and set_ctrl1 are local to the source and do
+> not need to be in global scope, so make them static.
+> 
+> Cleans up sparse warnings:
+> symbol 'set_ctrl0' was not declared. Should it be static?
+> symbol 'set_ctrl1' was not declared. Should it be static?
+> 
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
-Applied to net-next.
+Applied.
