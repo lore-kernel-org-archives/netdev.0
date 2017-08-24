@@ -1,34 +1,43 @@
-From: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
-Subject: Re: [PATCH v4] net: sunrpc: svcsock: fix NULL-pointer exception
-Date: Thu, 24 Aug 2017 18:13:01 -0400
-Message-ID: <20170824221301.GA26099@fieldses.org>
-References: <1503305779-6064-1-git-send-email-vlomovts@redhat.com>
- <1503314587-15420-1-git-send-email-vlomovts@redhat.com>
- <20170823102403.GF1443@dhcp187-32.khw.lab.eng.bos.redhat.com>
- <1503484422.5294.0.camel@redhat.com>
+From: Russell King - ARM Linux <linux@armlinux.org.uk>
+Subject: Re: [PATCH net-next 09/13] net: mvpp2: dynamic reconfiguration of
+ the PHY mode
+Date: Thu, 24 Aug 2017 23:16:09 +0100
+Message-ID: <20170824221609.GB20805@n2100.armlinux.org.uk>
+References: <20170824083823.16826-1-antoine.tenart@free-electrons.com>
+ <20170824083823.16826-10-antoine.tenart@free-electrons.com>
+ <20170824145609.GJ8022@lunn.ch>
+ <20170824165947.GZ20805@n2100.armlinux.org.uk>
+ <20170824174519.GC18700@lunn.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Vadim Lomovtsev <vlomovts-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org, anna.schumaker-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org,
-        davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-To: Jeff Layton <jlayton-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
+        davem@davemloft.net, kishon@ti.com, jason@lakedaemon.net,
+        sebastian.hesselbarth@gmail.com,
+        gregory.clement@free-electrons.com,
+        thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
+        linux-kernel@vger.kernel.org, mw@semihalf.com, stefanc@marvell.com,
+        miquel.raynal@free-electrons.com, netdev@vger.kernel.org
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1503484422.5294.0.camel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <20170824174519.GC18700@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 23, 2017 at 06:33:42AM -0400, Jeff Layton wrote:
-> I think this one looks fine. Bruce, do you mind picking this one up? It
-> might also be reasonable for stable...
+On Thu, Aug 24, 2017 at 07:45:19PM +0200, Andrew Lunn wrote:
+> > The 88x3310 driver in the kernel knows about these combinations and
+> > sets the phy interface parameter correctly depending on whether the
+> > PHY has configured itself for copper at whatever speed or SFP+.
+> 
+> So when the PHY decides to swap from copper to fibre etc, is the
+> phylib state machine kept up to date. Does it see a down, followed by
+> an up?
 
-Yep, thanks to you both, I'll plan to send a pull request tonight or
-tomorrow.
+I'd have to re-check to make sure, but I believe it does, because the
+negotiation is held off on the "other" media until the currently active
+link has gone down.
 
---b.
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
+FTTC broadband for 0.8mile line in suburbia: sync at 8.8Mbps down 630kbps up
+According to speedtest.net: 8.21Mbps down 510kbps up
