@@ -1,76 +1,42 @@
-From: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
-Subject: Re: [PATCH net-next 3/3 v7] drivers: net: ethernet: qualcomm: rmnet:
- Initial implementation
-Date: Thu, 24 Aug 2017 16:45:30 -0600
-Message-ID: <0a82b4c5349c3201c58a13f90b5ea758@codeaurora.org>
-References: <1503355019-12236-1-git-send-email-subashab@codeaurora.org>
- <1503355019-12236-4-git-send-email-subashab@codeaurora.org>
- <20170824.121559.882635807428126397.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
- format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fengguang.wu@intel.com, dcbw@redhat.com,
-        jiri@resnulli.us, stephen@networkplumber.org,
-        David.Laight@aculab.com, marcel@holtmann.org
-To: David Miller <davem@davemloft.net>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: [PATCH net] bpf: fix bpf_setsockopts return value
+Date: Thu, 24 Aug 2017 15:48:21 -0700
+Message-ID: <20170824224821.31672-1-ycheng@google.com>
+Cc: ncardwell@google.com, cgallek@google.com, netdev@vger.kernel.org,
+        Yuchung Cheng <ycheng@google.com>
+To: davem@davemloft.net, brakmo@fb.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:43822 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753495AbdHXWpb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 24 Aug 2017 18:45:31 -0400
-In-Reply-To: <20170824.121559.882635807428126397.davem@davemloft.net>
+Received: from mail-pg0-f52.google.com ([74.125.83.52]:33612 "EHLO
+        mail-pg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753627AbdHXWse (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 24 Aug 2017 18:48:34 -0400
+Received: by mail-pg0-f52.google.com with SMTP id t3so4782448pgt.0
+        for <netdev@vger.kernel.org>; Thu, 24 Aug 2017 15:48:34 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->> +
->> +CFLAGS_rmnet.o := -I$(src)
-> 
-> You do not need this CFLAGS rule, the local include files are included
-> using "" double quotes so it uses the local directory always.
+This patch fixes a bug causing any sock operations to always return EINVAL.
 
-Hi David
+Fixes: a5192c52377e ("bpf: fix to bpf_setsockops").
+Reported-by: Neal Cardwell <ncardwell@google.com>
+Signed-off-by: Yuchung Cheng <ycheng@google.com>
+Acked-by: Neal Cardwell <ncardwell@google.com>
+Acked-by: Craig Gallek <kraig@google.com>
+---
+ net/core/filter.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-I'll remove this.
-
->> +static void rmnet_free_later(struct work_struct *work)
->> +{
->> +	struct rmnet_free_work *fwork;
->> +
->> +	fwork = container_of(work, struct rmnet_free_work, work);
->> +
->> +	rtnl_lock();
->> +	rmnet_delink(fwork->rmnet_dev, NULL);
->> +	rtnl_unlock();
->> +
->> +	kfree(fwork);
->> +}
-> 
-> This is racy and doesn't work properly.
-> 
-> When you schedule this work, the RTNL mutex is dropped.  Meanwhile
-> another request can come in the associate this device.
-> 
-> Your work function will still run and erroneously unlink the object.
-> 
-> Furthermore, during this time that the RTNL mutex is dropped, people
-> will see the unassociated device in the lists.
-> 
-> You have to atomically remove the object from all possible locations
-> which provide external visibility of that object, before the RTNL
-> mutex is dropped.
-> 
-> So you can defer the freeing, but you cannot defer the unlink
-> operation.
-
-I had incorrectly assumed earlier that the check in rtnl_newlink for
-NLM_F_EXCL would guard against the scenario of re-associating a
-device which was unlinked.
-
-> 
-> You probably need to move to RCU as well in order for all of this to
-> work properly since scans of the lists occur in the data path which
-> is completely asynchronous and not protected by the RTNL mutex.
-
-I'll remove all the rtnl locks and checks and switch to rcu and post
-an update.
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 6280a602604c..8eb81e5fae08 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -2872,7 +2872,6 @@ BPF_CALL_5(bpf_setsockopt, struct bpf_sock_ops_kern *, bpf_sock,
+ 				ret = -EINVAL;
+ 			}
+ 		}
+-		ret = -EINVAL;
+ #endif
+ 	} else {
+ 		ret = -EINVAL;
+-- 
+2.14.1.342.g6490525c54-goog
