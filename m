@@ -1,11 +1,15 @@
 From: Russell King - ARM Linux <linux@armlinux.org.uk>
 Subject: Re: [PATCH net-next 09/13] net: mvpp2: dynamic reconfiguration of
  the PHY mode
-Date: Thu, 24 Aug 2017 17:59:47 +0100
-Message-ID: <20170824165947.GZ20805@n2100.armlinux.org.uk>
+Date: Thu, 24 Aug 2017 18:04:01 +0100
+Message-ID: <20170824170401.GA20805@n2100.armlinux.org.uk>
 References: <20170824083823.16826-1-antoine.tenart@free-electrons.com>
  <20170824083823.16826-10-antoine.tenart@free-electrons.com>
  <20170824145609.GJ8022@lunn.ch>
+ <20170824155241.GF28443@kwain>
+ <20170824160124.GA18700@lunn.ch>
+ <20170824161945.GG28443@kwain>
+ <20170824165743.GB18700@lunn.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
@@ -18,43 +22,47 @@ Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
 To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20170824145609.GJ8022@lunn.ch>
+In-Reply-To: <20170824165743.GB18700@lunn.ch>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 24, 2017 at 04:56:09PM +0200, Andrew Lunn wrote:
-> On Thu, Aug 24, 2017 at 10:38:19AM +0200, Antoine Tenart wrote:
-> > This patch adds logic to reconfigure the comphy/gop when the link status
-> > change at runtime. This is very useful on boards such as the mcbin which
-> > have SFP and Ethernet ports connected to the same MAC port: depending on
-> > what the user connects the driver will automatically reconfigure the
-> > link mode.
+On Thu, Aug 24, 2017 at 06:57:43PM +0200, Andrew Lunn wrote:
+> > I see what could be the issue but I do not understand one aspect though:
+> > how could we switch from one PHY to another, as there's only one output
+> > between the SoC (and so a given GoP#) and the board. So if a given PHY
+> > can handle multiple modes I see, but in the other case a muxing
+> > somewhere would be needed? Or did I miss something?
 > 
-> Hi Antoine
+> I think we need a hardware diagram...
 > 
-> I would expect each of these external Ethernet ports to have its own
-> Ethernet PHY. Don't you need to disconnect from one Ethernet phy and
-> connect to the other Ethernet PHY when you change external Ethernet
-> port?
+> How are the RJ45, copper PHY, SFP module connected to the SoC?
+> 
+> Somewhere there must be a mux, to select between copper and
+> fibre. Where is that mux?
 
-I think you're all getting confused.  The link mode has very little to
-do with whether you're using SFP+ or whether you're using the RJ45 at
-10G speeds.  The link mode has everything to do with the speed at which
-the link is negotiated at.
+In the 88x3310 PHY:
 
-So please, put SFP+ out of your minds for this - SFP+ isn't the reason
-why you need to switch the MAC link mode.
+                     .------- RJ45
+MVPP2 ----- 88x3310 PHY
+                     `------- SFP+
 
-In all cases, the mvpp2 to 88x3310 link ends up in one of two modes:
-1. SGMII for RJ45 speeds less than 10G.  Autonegotiation on SGMII
-    at the mvpp2 end *must* be enabled for the PHY to work.
+Here's the commentry I've provided at the very top of the 88x3310 driver
+which describes all these modes:
 
-2. 10Gbase-R for 10G speeds, whether that be for SFP+ or RJ45 at 10G.
-   Note: mcbin does not support SFP (1G) modules on the SFP+ ports.
+ * There appears to be several different data paths through the PHY which
+ * are automatically managed by the PHY.  The following has been determined
+ * via observation and experimentation:
+ *
+ *       SGMII PHYXS -- BASE-T PCS -- 10G PMA -- AN -- Copper (for <= 1G)
+ *  10GBASE-KR PHYXS -- BASE-T PCS -- 10G PMA -- AN -- Copper (for 10G)
+ *  10GBASE-KR PHYXS -- BASE-R PCS -- Fiber
+ *
+ * If both the fiber and copper ports are connected, the first to gain
+ * link takes priority and the other port is completely locked out.
 
-The 88x3310 driver in the kernel knows about these combinations and
-sets the phy interface parameter correctly depending on whether the
-PHY has configured itself for copper at whatever speed or SFP+.
+It's not a copper-only PHY, it's just like most other PHYs out there
+that support multiple connections, like the 88e151x series that support
+both RJ45 and fibre and can auto-switch between them.
 
 -- 
 RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
