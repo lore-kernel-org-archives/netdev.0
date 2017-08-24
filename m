@@ -1,122 +1,65 @@
-From: Stefan Hajnoczi <stefanha@redhat.com>
-Subject: Re: [PATCH net-next 3/3] hv_sock: implements Hyper-V transport for
- Virtual Sockets (AF_VSOCK)
-Date: Thu, 24 Aug 2017 16:53:45 +0100
-Message-ID: <20170824155345.GA2512@stefanha-x1.localdomain>
-References: <KL1P15301MB00086EF58514BFD08F66B6C4BF8D0@KL1P15301MB0008.APCP153.PROD.OUTLOOK.COM>
- <20170817145551.GI5539@stefanha-x1.localdomain>
- <KL1P15301MB0008C56CCD01B69186EF3A93BF800@KL1P15301MB0008.APCP153.PROD.OUTLOOK.COM>
- <20170822101433.GC16799@stefanha-x1.localdomain>
- <PS1P15301MB0011D3F00204245172E8150EBF840@PS1P15301MB0011.APCP153.PROD.OUTLOOK.COM>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 09/13] net: mvpp2: dynamic reconfiguration of
+ the PHY mode
+Date: Thu, 24 Aug 2017 18:01:24 +0200
+Message-ID: <20170824160124.GA18700@lunn.ch>
+References: <20170824083823.16826-1-antoine.tenart@free-electrons.com>
+ <20170824083823.16826-10-antoine.tenart@free-electrons.com>
+ <20170824145609.GJ8022@lunn.ch>
+ <20170824155241.GF28443@kwain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Michal Kubecek <mkubecek@suse.cz>, "joe@perches.com" <joe@perches.com>,
- "olaf@aepfle.de" <olaf@aepfle.de>, Stephen Hemminger <sthemmin@microsoft.com>,
- "jasowang@redhat.com" <jasowang@redhat.com>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- Haiyang Zhang <haiyangz@microsoft.com>, Dave Scott <dave.scott@docker.com>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "apw@canonical.com" <apw@canonical.com>, Jorgen Hansen <jhansen@vmware.com>,
- Rolf Neugebauer <rolf.neugebauer@docker.com>,
- Marcelo Cerri <marcelo.cerri@canonical.com>,
- "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
- Vitaly Kuznetsov <vkuznets@redhat.com>,
- "davem@davemloft.net" <davem@davemloft.net>,
- George Zhang <georgezhang@vmware.com>,
- Dan Carpenter <dan.carpenter@oracle.com>
-To: Dexuan Cui <decui@microsoft.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, kishon@ti.com, jason@lakedaemon.net,
+        sebastian.hesselbarth@gmail.com,
+        gregory.clement@free-electrons.com,
+        thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
+        linux@armlinux.org.uk, linux-kernel@vger.kernel.org,
+        mw@semihalf.com, stefanc@marvell.com,
+        miquel.raynal@free-electrons.com, netdev@vger.kernel.org
+To: Antoine Tenart <antoine.tenart@free-electrons.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <PS1P15301MB0011D3F00204245172E8150EBF840@PS1P15301MB0011.APCP153.PROD.OUTLOOK.COM>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <20170824155241.GF28443@kwain>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 22, 2017 at 09:40:01PM +0000, Dexuan Cui wrote:
-> > From: Stefan Hajnoczi [mailto:stefanha@redhat.com]
-> > On Fri, Aug 18, 2017 at 10:23:54PM +0000, Dexuan Cui wrote:
-> > > > > +static bool hvs_stream_allow(u32 cid, u32 port)
-> > > > > +{
-> > > > > +	static const u32 valid_cids[] = {
-> > > > > +		VMADDR_CID_ANY,
-> > > >
-> > > > Is this for loopback?
-> > >
-> > > No, we don't support lookback in Linux VM, at least for now.
-> > > In our Linux implementation, Linux VM can only connect to the host, and
-> > > here when Linux VM calls connect(), I treat  VMADDR_CID_ANY
-> > > the same as VMADDR_CID_HOST.
+On Thu, Aug 24, 2017 at 05:52:41PM +0200, Antoine Tenart wrote:
+> Hi Andrew,
+> 
+> On Thu, Aug 24, 2017 at 04:56:09PM +0200, Andrew Lunn wrote:
+> > On Thu, Aug 24, 2017 at 10:38:19AM +0200, Antoine Tenart wrote:
+> > > This patch adds logic to reconfigure the comphy/gop when the link status
+> > > change at runtime. This is very useful on boards such as the mcbin which
+> > > have SFP and Ethernet ports connected to the same MAC port: depending on
+> > > what the user connects the driver will automatically reconfigure the
+> > > link mode.
 > > 
-> > VMCI and virtio-vsock do not treat connect(VMADDR_CID_ANY) the same as
-> > connect(VMADDR_CID_HOST).  It is an error to connect to VMADDR_CID_ANY.
+> > I would expect each of these external Ethernet ports to have its own
+> > Ethernet PHY. Don't you need to disconnect from one Ethernet phy and
+> > connect to the other Ethernet PHY when you change external Ethernet
+> > port?
 > 
-> Ok. Then I'll only allow VMADDR_CID_HOST as the destination CID, since 
-> we don't support loopback mode.
-> 
-> > > > > +	/* The host's port range [MIN_HOST_EPHEMERAL_PORT, 0xFFFFFFFF)
-> > > > is
-> > > > > +	 * reserved as ephemeral ports, which are used as the host's ports
-> > > > > +	 * when the host initiates connections.
-> > > > > +	 */
-> > > > > +	if (port > MAX_HOST_LISTEN_PORT)
-> > > > > +		return false;
-> > > >
-> > > > Without this if statement the guest will attempt to connect.  I guess
-> > > > there will be no listen sockets above MAX_HOST_LISTEN_PORT, so the
-> > > > connection attempt will fail.
-> > >
-> > > You're correct.
-> > > To use the vsock common infrastructure, we have to map Hyper-V's
-> > > GUID <VM_ID, Service_ID> to int <cid, port>, and hence we must limit
-> > > the port range we can listen() on to [0, MAX_LISTEN_PORT], i.e.
-> > > we can only use half of the whole 32-bit port space for listen().
-> > > This is detailed in the long comments starting at about Line 100.
-> > >
-> > > > ...but hardcode this knowledge into the guest driver?
-> > > I'd like the guest's connect() to fail immediately here.
-> > > IMO this is better than a connect timeout. :-)
-> > 
-> > Thanks for explaining.  Perhaps the comment could be updated:
-> > 
-> >  /* The host's port range [MIN_HOST_EPHEMERAL_PORT, 0xFFFFFFFF) is
-> >   * reserved as ephemeral ports, which are used as the host's ports when
-> >   * the host initiates connections.
-> >   *
-> >   * Perform this check in the guest so an immediate error is produced
-> >   * instead of a timeout.
-> >   */
-> > 
-> > Stefan
-> 
-> Thank you, Stefan! 
-> Please see the below for the updated version of the function:
-> 
-> static bool hvs_stream_allow(u32 cid, u32 port)
-> {
->         /* The host's port range [MIN_HOST_EPHEMERAL_PORT, 0xFFFFFFFF) is
->          * reserved as ephemeral ports, which are used as the host's ports
->          * when the host initiates connections.
->          *
->          * Perform this check in the guest so an immediate error is produced
->          * instead of a timeout.
->          */
->         if (port > MAX_HOST_LISTEN_PORT)
->                 return false;
-> 
->         if (cid == VMADDR_CID_HOST)
->                 return true;
-> 
->         return false;
-> }
-> 
-> I'll send a v2 of the patch later today.
+> That's the other way around. The engines outputs (say GoP#) are
+> connected to the comphy inputs. In the SoC. Then there's a single output
+> of this comphy lane to the board. So when switching modes, you do not
+> have to connect to a different Ethernet PHY, it's the same.
 
-Great, thanks!
+Hi Antoine
+
+I think there is a mixup here between generic PHY and Ethernet PHY.
+
+When you swap from the copper RJ45 to the fibre SFP, the phylib needs
+to swap from the Copper Ethernet PHY driving the RJ45, to the PHY
+driving the SFP module, which is probably a fixed-phy.
+
+I actually think this is why you have the carrier_on/off calls in the
+link modify callback.
+
+Imagine phylib is using the copper Ethernet PHY, but the MAC is using
+the SFP port. Somebody pulls out the copper cable, phylib says the
+link is down, turns the carrier off and calls the callback. Not good,
+since your SFP cable is still plugged in...  Ethtool is
+returning/setting stuff in the Copper Ethernet PHY, when in fact you
+intend to be setting SFP settings.
+
+       Andrew
