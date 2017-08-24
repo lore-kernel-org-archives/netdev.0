@@ -1,33 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3] net: mvpp2: software TSO support
-Date: Wed, 23 Aug 2017 20:42:25 -0700 (PDT)
-Message-ID: <20170823.204225.1855898046144610241.davem@davemloft.net>
-References: <20170823074656.14595-1-antoine.tenart@free-electrons.com>
+Subject: Re: [patch net-next 0/5] mlxsw: spectrum: Introduce multichain TC
+ offload
+Date: Wed, 23 Aug 2017 20:45:32 -0700 (PDT)
+Message-ID: <20170823.204532.1960077179362593735.davem@davemloft.net>
+References: <20170823080652.14847-1-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andrew@lunn.ch, gregory.clement@free-electrons.com,
-        thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
-        linux@armlinux.org.uk, mw@semihalf.com, stefanc@marvell.com,
-        netdev@vger.kernel.org
-To: antoine.tenart@free-electrons.com
+Cc: netdev@vger.kernel.org, idosch@mellanox.com, mlxsw@mellanox.com,
+        jhs@mojatatu.com, xiyou.wangcong@gmail.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:58310 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:58390 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751019AbdHXDm2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2017 23:42:28 -0400
-In-Reply-To: <20170823074656.14595-1-antoine.tenart@free-electrons.com>
+        with ESMTP id S1750715AbdHXDpd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2017 23:45:33 -0400
+In-Reply-To: <20170823080652.14847-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Date: Wed, 23 Aug 2017 09:46:53 +0200
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Wed, 23 Aug 2017 10:06:52 +0200
 
-> This series adds the s/w TSO support in the PPv2 driver, in addition to
-> two cosmetic commits. As stated in patch 3/3:
+> From: Jiri Pirko <jiri@mellanox.com>
 > 
-> Using iperf and 10G ports, using TSO shows a significant performance
-> improvement by a factor 2 to reach around 9.5Gbps in TX; as well as a
-> significant CPU usage drop (from 25% to 15%).
+> This patchset introduces offloading of rules added to chain with
+> non-zero index, which was previously forbidden. Also, goto_chain
+> termination action is offloaded allowing to jump to processing
+> of desired chain.
 
-Series applied, thank you.
+Series applied, thanks Jiri.
