@@ -1,40 +1,37 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH v4 2/6] lib/fs: Fix format string in find_fs_mount()
-Date: Thu, 24 Aug 2017 11:51:46 +0200
-Message-ID: <20170824095150.5469-3-phil@nwl.cc>
-References: <20170824095150.5469-1-phil@nwl.cc>
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:42865 "EHLO mail.nwl.cc"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752293AbdHXJwk (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 24 Aug 2017 05:52:40 -0400
-In-Reply-To: <20170824095150.5469-1-phil@nwl.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: rtlwifi: btcoex: 23b 1ant: fix duplicated code for different
+ branches
+Date: Thu, 24 Aug 2017 09:52:44 +0000 (UTC)
+Message-ID: <20170824095244.AFA9F60714@smtp.codeaurora.org>
+References: <20170818002219.GA9475@embeddedgus>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Larry Finger <Larry.Finger@lwfinger.net>,
+        Chaoming Li <chaoming_li@realsil.com.cn>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        "Gustavo A. R. Silva" <gustavo@embeddedor.com>
+To: "Gustavo A. R. Silva" <gustavo@embeddedor.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170818002219.GA9475@embeddedgus>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-A field width of 4096 allows fscanf() to store that amount of characters
-into the given buffer, though that doesn't include the terminating NULL
-byte. Decrease the value by one to leave space for it.
+"Gustavo A. R. Silva" <gustavo@embeddedor.com> wrote:
 
-Signed-off-by: Phil Sutter <phil@nwl.cc>
----
- lib/fs.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> Refactor code in order to avoid identical code for different branches.
+> 
+> This issue was detected with the help of Coccinelle.
+> 
+> Addresses-Coverity-ID: 1415177
+> Signed-off-by: Gustavo A. R. Silva <gustavo@embeddedor.com>
 
-diff --git a/lib/fs.c b/lib/fs.c
-index c59ac564581d0..1ff881ecfcd8c 100644
---- a/lib/fs.c
-+++ b/lib/fs.c
-@@ -45,7 +45,7 @@ static char *find_fs_mount(const char *fs_to_find)
- 		return NULL;
- 	}
- 
--	while (fscanf(fp, "%*s %4096s %127s %*s %*d %*d\n",
-+	while (fscanf(fp, "%*s %4095s %127s %*s %*d %*d\n",
- 		      path, fstype) == 2) {
- 		if (strcmp(fstype, fs_to_find) == 0) {
- 			mnt = strdup(path);
+Patch applied to wireless-drivers-next.git, thanks.
+
+14cc696c0a4a rtlwifi: btcoex: 23b 1ant: fix duplicated code for different branches
+
 -- 
-2.13.1
+https://patchwork.kernel.org/patch/9907397/
+
+https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
