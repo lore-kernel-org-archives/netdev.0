@@ -1,35 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] virtio_net: be drop monitor friend
-Date: Thu, 24 Aug 2017 11:50:53 -0700 (PDT)
-Message-ID: <20170824.115053.1345828961956619603.davem@davemloft.net>
-References: <1503590569.2499.81.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mst@redhat.com, jasowang@redhat.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:49964 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753474AbdHXSux (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 24 Aug 2017 14:50:53 -0400
-In-Reply-To: <1503590569.2499.81.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Haiyang Zhang <haiyangz@exchange.microsoft.com>
+Subject: [PATCH net-next] hv_netvsc: Fix rndis_filter_close error during netvsc_remove
+Date: Thu, 24 Aug 2017 11:50:02 -0700
+Message-ID: <20170824185002.10213-1-haiyangz@exchange.microsoft.com>
+Reply-To: haiyangz@microsoft.com
+Cc: haiyangz@microsoft.com, kys@microsoft.com, olaf@aepfle.de,
+        vkuznets@redhat.com, linux-kernel@vger.kernel.org
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 24 Aug 2017 09:02:49 -0700
+From: Haiyang Zhang <haiyangz@microsoft.com>
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> This change is needed to not fool drop monitor.
-> (perf record ... -e skb:kfree_skb )
-> 
-> Packets were properly sent and are consumed after TX completion.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+We now remove rndis filter before unregister_netdev(), which calls
+device close. It involves closing rndis filter already removed.
 
-I'm pretty sure you meant "friendly" in the Subject line so I fixed
-it up to say that :-)
+This patch fixes this error.
 
-Applied, thanks.
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+---
+ drivers/net/hyperv/netvsc_drv.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index c0c4c9195a3f..fac44c5c8d0d 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -119,12 +119,16 @@ static int netvsc_close(struct net_device *net)
+ 	struct net_device *vf_netdev
+ 		= rtnl_dereference(net_device_ctx->vf_netdev);
+ 	struct netvsc_device *nvdev = rtnl_dereference(net_device_ctx->nvdev);
+-	int ret;
++	int ret = 0;
+ 	u32 aread, i, msec = 10, retry = 0, retry_max = 20;
+ 	struct vmbus_channel *chn;
+ 
+ 	netif_tx_disable(net);
+ 
++	/* No need to close rndis filter if it is removed already */
++	if (!nvdev)
++		goto out;
++
+ 	ret = rndis_filter_close(nvdev);
+ 	if (ret != 0) {
+ 		netdev_err(net, "unable to close device (ret %d).\n", ret);
+@@ -163,6 +167,7 @@ static int netvsc_close(struct net_device *net)
+ 		ret = -ETIMEDOUT;
+ 	}
+ 
++out:
+ 	if (vf_netdev)
+ 		dev_close(vf_netdev);
+ 
+-- 
+2.14.0
