@@ -1,38 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/3] nfp: fix SR-IOV deadlock and representor bugs
-Date: Wed, 23 Aug 2017 20:40:18 -0700 (PDT)
-Message-ID: <20170823.204018.2122046172444891539.davem@davemloft.net>
-References: <20170823062244.26580-1-jakub.kicinski@netronome.com>
+Subject: Re: [PATCH net-next 0/3] net: mvpp2: software TSO support
+Date: Wed, 23 Aug 2017 20:42:25 -0700 (PDT)
+Message-ID: <20170823.204225.1855898046144610241.davem@davemloft.net>
+References: <20170823074656.14595-1-antoine.tenart@free-electrons.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, oss-drivers@netronome.com
-To: jakub.kicinski@netronome.com
+Cc: andrew@lunn.ch, gregory.clement@free-electrons.com,
+        thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
+        linux@armlinux.org.uk, mw@semihalf.com, stefanc@marvell.com,
+        netdev@vger.kernel.org
+To: antoine.tenart@free-electrons.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:58272 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:58310 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751019AbdHXDkT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2017 23:40:19 -0400
-In-Reply-To: <20170823062244.26580-1-jakub.kicinski@netronome.com>
+        with ESMTP id S1751019AbdHXDm2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2017 23:42:28 -0400
+In-Reply-To: <20170823074656.14595-1-antoine.tenart@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Date: Tue, 22 Aug 2017 23:22:41 -0700
+From: Antoine Tenart <antoine.tenart@free-electrons.com>
+Date: Wed, 23 Aug 2017 09:46:53 +0200
 
-> This series tackles the bug I've already tried to fix in commit 
-> 6d48ceb27af1 ("nfp: allocate a private workqueue for driver work").
-> I created a separate workqueue to avoid possible deadlock, and
-> the lockdep error disappeared, coincidentally.  The way workqueues
-> are operating, separate workqueue doesn't necessarily mean separate
-> thread of execution.  Luckily we can safely forego the lock.
+> This series adds the s/w TSO support in the PPv2 driver, in addition to
+> two cosmetic commits. As stated in patch 3/3:
 > 
-> Second fix changes the order in which vNIC netdevs and representors
-> are created/destroyed.  The fix is kept small and should be sufficient
-> for net because of how flower uses representors, a more thorough fix 
-> will be targeted at net-next.
-> 
-> Third fix avoids leaking mapped frame buffers if FW sent a frame with
-> unknown portid.
+> Using iperf and 10G ports, using TSO shows a significant performance
+> improvement by a factor 2 to reach around 9.5Gbps in TX; as well as a
+> significant CPU usage drop (from 25% to 15%).
 
-Series applied, thanks.
+Series applied, thank you.
