@@ -1,89 +1,213 @@
-From: Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net-next v7 02/10] bpf: Add eBPF program subtype and
- is_valid_subtype() verifier
-Date: Wed, 23 Aug 2017 18:22:07 -0700
-Message-ID: <20170824012206.3ymlecfhyh5ztshk@ast-mbp>
-References: <20170821000933.13024-1-mic@digikod.net>
- <20170821000933.13024-3-mic@digikod.net>
- <20170823024452.zvizovwfd7xjucsx@ast-mbp>
- <607ceb21-5aa5-678b-4438-0d8dcb69fc3c@digikod.net>
+From: Ivan Delalande <colona@arista.com>
+Subject: [PATCH net-next] inet_diag: report TCP MD5 signing keys and addresses
+Date: Thu, 24 Aug 2017 03:22:11 +0200
+Message-ID: <20170824012210.m3b2hsll4avrr42i@ycc.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Alexei Starovoitov <ast-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
-        Arnaldo Carvalho de Melo <acme-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Casey Schaufler <casey-iSGtlc1asvQWG2LlvL+J4A@public.gmane.org>,
-        Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
-        David Drysdale <drysdale-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-        "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        "Eric W . Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
-        James Morris <james.l.morris-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
-        Jann Horn <jann-XZ1E9jl8jIdeoWH0uzbU5w@public.gmane.org>, Jonathan Corbet <corbet-T1hC0tSOHrs@public.gmane.org>,
-        Matthew Garrett <mjg59-1xO5oi07KQx4cg9Nei1l7Q@public.gmane.org>,
-        Michael Kerrisk <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-        Paul Moore <paul-r2n+y4ga6xFZroRs9YW3xA@public.gmane.org>,
-        Sargun Dhillon <sargun-GaZTRHToo+CzQB+pC5nmwQ@public.gmane.org>,
-        "Serge E . Hallyn" <serge-A9i7LUbDfNHQT0dZR+AlfA@public.gmane.org>,
-        Shuah Khan <shuah-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Thomas Graf <tgr
-To: =?iso-8859-1?Q?Micka=EBl_Sala=FCn?= <mic-WFhQfpSGs3bR7s880joybQ@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f48.google.com ([74.125.82.48]:36745 "EHLO
+        mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751092AbdHXBWN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 23 Aug 2017 21:22:13 -0400
+Received: by mail-wm0-f48.google.com with SMTP id x128so10130762wmg.1
+        for <netdev@vger.kernel.org>; Wed, 23 Aug 2017 18:22:13 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <607ceb21-5aa5-678b-4438-0d8dcb69fc3c-WFhQfpSGs3bR7s880joybQ@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 23, 2017 at 09:45:24AM +0200, Mickaël Salaün wrote:
-> >>  
-> >> +union bpf_prog_subtype {
-> >> +	struct {
-> >> +		__u32		abi; /* minimal ABI version, cf. user doc */
-> > 
-> > the concept of abi (version) sounds a bit weird to me.
-> > Why bother with it at all?
-> > Once the first set of patches lands the kernel as whole will have landlock feature
-> > with a set of helpers, actions, event types.
-> > Some future patches will extend the landlock feature step by step.
-> > This abi concept assumes that anyone who adds new helper would need
-> > to keep incrementing this 'abi'. What value does it give to user or to kernel?
-> > The users will already know that landlock is present in kernel 4.14 or whatever
-> > and the kernel 4.18 has more landlock features. Why bother with extra abi number?
-> 
-> That's right for helpers and context fields, but we can't check the use
-> of one field's content. The status field is intended to be a bitfield
-> extendable in the future. For example, one use case is to set a flag to
-> inform the eBPF program that it was already called with the same context
-> and can skip most of its check (if not related to maps). Same goes for
+Report TCP MD5 (RFC2385) signing keys, addresses and address prefixes to
+processes with CAP_NET_ADMIN requesting INET_DIAG_INFO. Currently it is
+not possible to retrieve these from the kernel once they have been
+configured on sockets.
 
-'status' field ? I don't see it in the current patch set.
-You mean something like scratch space in landlock_ctx that
-program can write to? Sure, that's a good extension.
+Signed-off-by: Ivan Delalande <colona@arista.com>
+---
+ include/uapi/linux/inet_diag.h |   1 +
+ net/ipv4/inet_diag.c           | 108 +++++++++++++++++++++++++++++++++++++++--
+ 2 files changed, 105 insertions(+), 4 deletions(-)
 
-> the FS action bitfield, one may want to add more of them. Another
-> example may be the check for abilities. We may want to relax/remove the
-> capability require to set one of them. With an ABI version, the user can
-> easily check if the current kernel support that.
-
-sure. there will be future extensions. I still fail to see
-why 'abi' field is needed.
-Also consider that bpf core itself is being extended all the time as well.
-The verifier gets smarter and smarter, so the programs deemed unsafe
-a year ago now recognized properly by the verifier.
-New instructions being added to the core and so on.
-That means that newer landlock programs will not be acceptable by
-older kernels. We cannot increment abi/version with every such change.
-It's also possible that in the future we may catch a security bug
-in the verifier that will start rejecting some corner case of the programs.
-The only way to use landlock is to develop a set of programs/rules
-for kernel version X and we together will guarantee that these programs
-will work fine in the future kernels.
-There is a good chance that the rules developed for kernel X+1 will _not_
-be loadable on older kernel X even if you don't change anything on
-landlock side (helpers, actions, events), so landlock abi/version will
-stay the same but you won't get the effect you're looking to get from
-this abi concept. Since landlock abi=1 in kernel X and abi=1 in kernel X+1
-doesn't mean that landlock rules developed for X+1 will work on X.
-Beyond bpf core there are other moving pieces. LSM may get new hooks,
-seccomp side will be changed, etc. Incrementing landlock abi is not pracitcal.
+diff --git a/include/uapi/linux/inet_diag.h b/include/uapi/linux/inet_diag.h
+index 678496897a68..f52ff62bfabe 100644
+--- a/include/uapi/linux/inet_diag.h
++++ b/include/uapi/linux/inet_diag.h
+@@ -143,6 +143,7 @@ enum {
+ 	INET_DIAG_MARK,
+ 	INET_DIAG_BBRINFO,
+ 	INET_DIAG_CLASS_ID,
++	INET_DIAG_MD5SIG,
+ 	__INET_DIAG_MAX,
+ };
+ 
+diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
+index 67325d5832d7..81bacf1d8da6 100644
+--- a/net/ipv4/inet_diag.c
++++ b/net/ipv4/inet_diag.c
+@@ -93,8 +93,27 @@ void inet_diag_msg_common_fill(struct inet_diag_msg *r, struct sock *sk)
+ }
+ EXPORT_SYMBOL_GPL(inet_diag_msg_common_fill);
+ 
+-static size_t inet_sk_attr_size(void)
++static size_t inet_sk_attr_size(struct sock *sp)
+ {
++#ifdef CONFIG_TCP_MD5SIG
++	const struct tcp_md5sig_info *md5sig;
++	const struct tcp_md5sig_key *key;
++	int md5sig_count = 0;
++
++	if (sp->sk_state == TCP_TIME_WAIT) {
++		if (tcp_twsk(sp)->tw_md5_key)
++			md5sig_count = 1;
++	} else {
++		rcu_read_lock();
++		md5sig = rcu_dereference(tcp_sk(sp)->md5sig_info);
++		if (md5sig) {
++			hlist_for_each_entry_rcu(key, &md5sig->head, node)
++				md5sig_count++;
++		}
++		rcu_read_unlock();
++	}
++#endif
++
+ 	return	  nla_total_size(sizeof(struct tcp_info))
+ 		+ nla_total_size(1) /* INET_DIAG_SHUTDOWN */
+ 		+ nla_total_size(1) /* INET_DIAG_TOS */
+@@ -105,6 +124,9 @@ static size_t inet_sk_attr_size(void)
+ 		+ nla_total_size(SK_MEMINFO_VARS * sizeof(u32))
+ 		+ nla_total_size(TCP_CA_NAME_MAX)
+ 		+ nla_total_size(sizeof(struct tcpvegas_info))
++#ifdef CONFIG_TCP_MD5SIG
++		+ nla_total_size(md5sig_count * sizeof(struct tcp_md5sig))
++#endif
+ 		+ 64;
+ }
+ 
+@@ -150,6 +172,58 @@ int inet_diag_msg_attrs_fill(struct sock *sk, struct sk_buff *skb,
+ }
+ EXPORT_SYMBOL_GPL(inet_diag_msg_attrs_fill);
+ 
++#ifdef CONFIG_TCP_MD5SIG
++static void inet_diag_md5sig_fill(struct tcp_md5sig *info,
++				  const struct tcp_md5sig_key *key)
++{
++#if IS_ENABLED(CONFIG_IPV6)
++	if (key->family == AF_INET6) {
++		struct sockaddr_in6 *sin6 =
++			(struct sockaddr_in6 *)&info->tcpm_addr;
++
++		memcpy(&sin6->sin6_addr, &key->addr.a6,
++		       sizeof(struct in6_addr));
++	} else
++#endif
++	{
++		struct sockaddr_in *sin =
++			(struct sockaddr_in *)&info->tcpm_addr;
++
++		memcpy(&sin->sin_addr, &key->addr.a4, sizeof(struct in_addr));
++	}
++
++	info->tcpm_addr.ss_family = key->family;
++	info->tcpm_prefixlen = key->prefixlen;
++	info->tcpm_keylen = key->keylen;
++	memcpy(info->tcpm_key, key->key, key->keylen);
++}
++
++static int inet_diag_put_md5sig(struct sk_buff *skb,
++				const struct tcp_md5sig_info *md5sig)
++{
++	const struct tcp_md5sig_key *key;
++	struct nlattr *attr;
++	struct tcp_md5sig *info = NULL;
++	int md5sig_count = 0;
++
++	hlist_for_each_entry_rcu(key, &md5sig->head, node)
++		md5sig_count++;
++
++	attr = nla_reserve(skb, INET_DIAG_MD5SIG,
++			   md5sig_count * sizeof(struct tcp_md5sig));
++	if (!attr)
++		return -EMSGSIZE;
++
++	info = nla_data(attr);
++	hlist_for_each_entry_rcu(key, &md5sig->head, node) {
++		inet_diag_md5sig_fill(info, key);
++		info++;
++	}
++
++	return 0;
++}
++#endif
++
+ int inet_sk_diag_fill(struct sock *sk, struct inet_connection_sock *icsk,
+ 		      struct sk_buff *skb, const struct inet_diag_req_v2 *req,
+ 		      struct user_namespace *user_ns,
+@@ -260,6 +334,21 @@ int inet_sk_diag_fill(struct sock *sk, struct inet_connection_sock *icsk,
+ 
+ 	handler->idiag_get_info(sk, r, info);
+ 
++#ifdef CONFIG_TCP_MD5SIG
++	if ((ext & (1 << (INET_DIAG_INFO - 1))) && net_admin) {
++		struct tcp_md5sig_info *md5sig;
++		int err = 0;
++
++		rcu_read_lock();
++		md5sig = rcu_dereference(tcp_sk(sk)->md5sig_info);
++		if (md5sig)
++			err = inet_diag_put_md5sig(skb, md5sig);
++		rcu_read_unlock();
++		if (err < 0)
++			goto errout;
++	}
++#endif
++
+ 	if (sk->sk_state < TCP_TIME_WAIT) {
+ 		union tcp_cc_info info;
+ 		size_t sz = 0;
+@@ -310,7 +399,8 @@ static int inet_csk_diag_fill(struct sock *sk,
+ static int inet_twsk_diag_fill(struct sock *sk,
+ 			       struct sk_buff *skb,
+ 			       u32 portid, u32 seq, u16 nlmsg_flags,
+-			       const struct nlmsghdr *unlh)
++			       const struct nlmsghdr *unlh,
++			       bool net_admin)
+ {
+ 	struct inet_timewait_sock *tw = inet_twsk(sk);
+ 	struct inet_diag_msg *r;
+@@ -340,6 +430,16 @@ static int inet_twsk_diag_fill(struct sock *sk,
+ 	r->idiag_uid	      = 0;
+ 	r->idiag_inode	      = 0;
+ 
++#ifdef CONFIG_TCP_MD5SIG
++	if (net_admin && tcp_twsk(sk)->tw_md5_key) {
++		struct nlattr *attr = nla_reserve(skb, INET_DIAG_MD5SIG,
++						  sizeof(struct tcp_md5sig));
++		if (!attr)
++			return -EMSGSIZE;
++		inet_diag_md5sig_fill(nla_data(attr), tcp_twsk(sk)->tw_md5_key);
++	}
++#endif
++
+ 	nlmsg_end(skb, nlh);
+ 	return 0;
+ }
+@@ -390,7 +490,7 @@ static int sk_diag_fill(struct sock *sk, struct sk_buff *skb,
+ {
+ 	if (sk->sk_state == TCP_TIME_WAIT)
+ 		return inet_twsk_diag_fill(sk, skb, portid, seq,
+-					   nlmsg_flags, unlh);
++					   nlmsg_flags, unlh, net_admin);
+ 
+ 	if (sk->sk_state == TCP_NEW_SYN_RECV)
+ 		return inet_req_diag_fill(sk, skb, portid, seq,
+@@ -458,7 +558,7 @@ int inet_diag_dump_one_icsk(struct inet_hashinfo *hashinfo,
+ 	if (IS_ERR(sk))
+ 		return PTR_ERR(sk);
+ 
+-	rep = nlmsg_new(inet_sk_attr_size(), GFP_KERNEL);
++	rep = nlmsg_new(inet_sk_attr_size(sk), GFP_KERNEL);
+ 	if (!rep) {
+ 		err = -ENOMEM;
+ 		goto out;
+-- 
+2.14.1
