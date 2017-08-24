@@ -1,67 +1,34 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net-next] net_sched: remove tc class reference counting
-Date: Thu, 24 Aug 2017 15:09:21 -0700
-Message-ID: <CAM_iQpU=+YD7V0m5u8auy0oA+UcErd_Xq+ZQyKGkewTFfmQvWg@mail.gmail.com>
-References: <20170823043810.17602-1-xiyou.wangcong@gmail.com> <20170824.123220.2250866539237700218.davem@davemloft.net>
+From: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+Subject: Re: [PATCH v4] net: sunrpc: svcsock: fix NULL-pointer exception
+Date: Thu, 24 Aug 2017 18:13:01 -0400
+Message-ID: <20170824221301.GA26099@fieldses.org>
+References: <1503305779-6064-1-git-send-email-vlomovts@redhat.com>
+ <1503314587-15420-1-git-send-email-vlomovts@redhat.com>
+ <20170823102403.GF1443@dhcp187-32.khw.lab.eng.bos.redhat.com>
+ <1503484422.5294.0.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Jamal Hadi Salim <jhs@mojatatu.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:37862 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753492AbdHXWJm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 24 Aug 2017 18:09:42 -0400
-Received: by mail-pg0-f65.google.com with SMTP id a7so1063840pgn.4
-        for <netdev@vger.kernel.org>; Thu, 24 Aug 2017 15:09:42 -0700 (PDT)
-In-Reply-To: <20170824.123220.2250866539237700218.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Vadim Lomovtsev <vlomovts-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org, anna.schumaker-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org,
+        davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        pabeni-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+To: Jeff Layton <jlayton-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1503484422.5294.0.camel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 24, 2017 at 12:32 PM, David Miller <davem@davemloft.net> wrote:
-> From: Cong Wang <xiyou.wangcong@gmail.com>
-> Date: Tue, 22 Aug 2017 21:38:10 -0700
->
->> For TC classes, their ->get() and ->put() are always paired, and the
->> reference counting is completely useless, because:
->>
->> 1) For class modification and dumping paths, we already hold RTNL lock,
->>    so all of these ->get(),->change(),->put() are atomic.
->>
->> 2) For filter bindiing/unbinding, we use other reference counter than
->>    this one, and they should have RTNL lock too.
->>
->> 3) For ->qlen_notify(), it is special because it is called on ->enqueue()
->>    path, but we already hold qdisc tree lock there, and we hold this
->>    tree lock when graft or delete the class too, so it should not be gone
->>    or changed until we release the tree lock.
->>
->> Therefore, this patch removes ->get() and ->put(), but:
->>
->> 1) Adds a new ->find() to find the pointer to a class by classid, no
->>    refcnt.
->>
->> 2) Move the original class destroy upon the last refcnt into ->delete(),
->>    right after releasing tree lock. This is fine because the class is
->>    already removed from hash when holding the lock.
->>
->> For those who also use ->put() as ->unbind(), just rename them to reflect
->> this change.
->>
->> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
->> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
->
-> This one looks good to me.
->
-> Jamal, please give it a quick look over and review.
->
+On Wed, Aug 23, 2017 at 06:33:42AM -0400, Jeff Layton wrote:
+> I think this one looks fine. Bruce, do you mind picking this one up? It
+> might also be reasonable for stable...
 
-Hold on, I spot a problem near ->delete(), need a fix like
-I did for tc actions...
+Yep, thanks to you both, I'll plan to send a pull request tonight or
+tomorrow.
 
-The reason why I didn't catch it in my test is actually we
-don't notify delete event for classes when deleting the
-whole tree.
-
-Anyway, v2 is coming.
+--b.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
