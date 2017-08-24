@@ -1,39 +1,46 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH v4 4/4] tipc/bearer: Prevent NULL pointer dereference
-Date: Thu, 24 Aug 2017 11:46:34 +0200
-Message-ID: <20170824094634.4093-5-phil@nwl.cc>
-References: <20170824094634.4093-1-phil@nwl.cc>
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:58599 "EHLO mail.nwl.cc"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752587AbdHXJrF (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 24 Aug 2017 05:47:05 -0400
-In-Reply-To: <20170824094634.4093-1-phil@nwl.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Antoine Tenart <antoine.tenart@free-electrons.com>
+Subject: [PATCH net-next 1/4] net: mvpp2: fix the mac address used when using PPv2.2
+Date: Thu, 24 Aug 2017 11:46:55 +0200
+Message-ID: <20170824094658.1296-2-antoine.tenart@free-electrons.com>
+References: <20170824094658.1296-1-antoine.tenart@free-electrons.com>
+Cc: Antoine Tenart <antoine.tenart@free-electrons.com>, andrew@lunn.ch,
+        gregory.clement@free-electrons.com, nadavh@marvell.com,
+        linux@armlinux.org.uk, linux-kernel@vger.kernel.org,
+        mw@semihalf.com, stefanc@marvell.com, netdev@vger.kernel.org
+To: davem@davemloft.net, thomas.petazzoni@free-electrons.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170824094658.1296-1-antoine.tenart@free-electrons.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Phil Sutter <phil@nwl.cc>
+The mac address is only retrieved from h/w when using PPv2.1. Otherwise
+the variable holding it is still checked and used if it contains a valid
+value. As the variable isn't initialized to an invalid mac address
+value, we end up with random mac addresses which can be the same for all
+the ports handled by this PPv2 driver.
+
+Fixes this by initializing the h/w mac address variable to {0}, which is
+an invalid mac address value. This way the random assignation fallback
+is called and all ports end up with their own addresses.
+
+Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
+Fixes: 2697582144dd ("net: mvpp2: handle misc PPv2.1/PPv2.2 differences")
 ---
-Changes since v2:
-- Keep assignment and check in separate statements.
----
- tipc/bearer.c | 2 +-
+ drivers/net/ethernet/marvell/mvpp2.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/tipc/bearer.c b/tipc/bearer.c
-index c3d4491f8f6ef..0d84570150624 100644
---- a/tipc/bearer.c
-+++ b/tipc/bearer.c
-@@ -439,7 +439,7 @@ static int cmd_bearer_enable(struct nlmsghdr *nlh, const struct cmd *cmd,
- 		return err;
- 
- 	opt = get_opt(opts, "media");
--	if (strcmp(opt->val, "udp") == 0) {
-+	if (opt && strcmp(opt->val, "udp") == 0) {
- 		err = nl_add_udp_enable_opts(nlh, opts, cmdl);
- 		if (err)
- 			return err;
+diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
+index 3f8cbc070dc4..50a0920d3282 100644
+--- a/drivers/net/ethernet/marvell/mvpp2.c
++++ b/drivers/net/ethernet/marvell/mvpp2.c
+@@ -7466,7 +7466,7 @@ static int mvpp2_port_probe(struct platform_device *pdev,
+ 	struct resource *res;
+ 	const char *dt_mac_addr;
+ 	const char *mac_from;
+-	char hw_mac_addr[ETH_ALEN];
++	char hw_mac_addr[ETH_ALEN] = {0};
+ 	unsigned int ntxqs, nrxqs;
+ 	bool has_tx_irqs;
+ 	u32 id;
 -- 
-2.13.1
+2.13.5
