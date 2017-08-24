@@ -1,44 +1,39 @@
-From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH net-next 0/4] net: mvpp2: fix the mac address retrieval logic
-Date: Thu, 24 Aug 2017 11:46:54 +0200
-Message-ID: <20170824094658.1296-1-antoine.tenart@free-electrons.com>
-Cc: Antoine Tenart <antoine.tenart@free-electrons.com>, andrew@lunn.ch,
-        gregory.clement@free-electrons.com, nadavh@marvell.com,
-        linux@armlinux.org.uk, linux-kernel@vger.kernel.org,
-        mw@semihalf.com, stefanc@marvell.com, netdev@vger.kernel.org
-To: davem@davemloft.net, thomas.petazzoni@free-electrons.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Phil Sutter <phil@nwl.cc>
+Subject: [iproute PATCH v4 4/4] tipc/bearer: Prevent NULL pointer dereference
+Date: Thu, 24 Aug 2017 11:46:34 +0200
+Message-ID: <20170824094634.4093-5-phil@nwl.cc>
+References: <20170824094634.4093-1-phil@nwl.cc>
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from orbyte.nwl.cc ([151.80.46.58]:58599 "EHLO mail.nwl.cc"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752587AbdHXJrF (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 24 Aug 2017 05:47:05 -0400
+In-Reply-To: <20170824094634.4093-1-phil@nwl.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+Signed-off-by: Phil Sutter <phil@nwl.cc>
+---
+Changes since v2:
+- Keep assignment and check in separate statements.
+---
+ tipc/bearer.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-The MAC address retrieval logic was broken and when using the PPv2
-driver on PPv2.2 engines I ended up using the same mac address on all
-ports. This series of patches fixes this, and also tackle a possible bug
-when defining the mac address in the device tree.
-
-To fix this in a nice way I ended up using a dedicated function to
-handle the mac retrieval logic. This can be hard to backport into stable
-kernels. This is why I also made a quick fix which is easy to backport
-(patch 1/14), to tackle down the PPv2.2 mac retrieval bug. Let me know
-if this approach is the proper way to handle this or if I should do
-something else.
-
-Thanks!
-Antoine
-
-Fixes: 2697582144dd ("net: mvpp2: handle misc PPv2.1/PPv2.2 differences")
-
-Antoine Tenart (4):
-  net: mvpp2: fix the mac address used when using PPv2.2
-  net: mvpp2: move the mac retrieval/copy logic into its own function
-  net: mvpp2: fix use of the random mac address for PPv2.2
-  net: mvpp2: fallback using h/w and random mac if the dt one isn't
-    valid
-
- drivers/net/ethernet/marvell/mvpp2.c | 48 ++++++++++++++++++++++--------------
- 1 file changed, 30 insertions(+), 18 deletions(-)
-
+diff --git a/tipc/bearer.c b/tipc/bearer.c
+index c3d4491f8f6ef..0d84570150624 100644
+--- a/tipc/bearer.c
++++ b/tipc/bearer.c
+@@ -439,7 +439,7 @@ static int cmd_bearer_enable(struct nlmsghdr *nlh, const struct cmd *cmd,
+ 		return err;
+ 
+ 	opt = get_opt(opts, "media");
+-	if (strcmp(opt->val, "udp") == 0) {
++	if (opt && strcmp(opt->val, "udp") == 0) {
+ 		err = nl_add_udp_enable_opts(nlh, opts, cmdl);
+ 		if (err)
+ 			return err;
 -- 
-2.13.5
+2.13.1
