@@ -1,51 +1,92 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 00/12] mlxsw: Add IPv4 host dpipe table
-Date: Thu, 24 Aug 2017 08:39:58 +0200
-Message-ID: <20170824064010.1646-1-jiri@resnulli.us>
+Subject: [patch net-next 01/12] devlink: Add Ethernet header for dpipe
+Date: Thu, 24 Aug 2017 08:39:59 +0200
+Message-ID: <20170824064010.1646-2-jiri@resnulli.us>
+References: <20170824064010.1646-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, arkadis@mellanox.com, idosch@mellanox.com,
         mlxsw@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:34900 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751937AbdHXGkP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 24 Aug 2017 02:40:15 -0400
-Received: by mail-wm0-f67.google.com with SMTP id x79so1699143wma.2
-        for <netdev@vger.kernel.org>; Wed, 23 Aug 2017 23:40:14 -0700 (PDT)
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:37205 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751353AbdHXGkQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 24 Aug 2017 02:40:16 -0400
+Received: by mail-wm0-f65.google.com with SMTP id v186so1689170wmf.4
+        for <netdev@vger.kernel.org>; Wed, 23 Aug 2017 23:40:16 -0700 (PDT)
+In-Reply-To: <20170824064010.1646-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@mellanox.com>
+From: Arkadi Sharshevsky <arkadis@mellanox.com>
 
-Arkadi says:
+This will be used by the IPv4 host table which will be introduced in the
+following patches. This header is global and can be reused by many
+drivers.
 
-This patchset adds IPv4 host dpipe table support. This will provide the
-ability to observe the hardware offloaded IPv4 neighbors.
+Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ include/net/devlink.h        |  1 +
+ include/uapi/linux/devlink.h |  8 ++++++++
+ net/core/devlink.c           | 17 +++++++++++++++++
+ 3 files changed, 26 insertions(+)
 
-Arkadi Sharshevsky (12):
-  devlink: Add Ethernet header for dpipe
-  devlink: Add IPv4 header for dpipe
-  mlxsw: spectrum_dpipe: Fix erif table op name space
-  devlink: Add support for dynamic table size
-  devlink: Move dpipe entry clear function into devlink
-  mlxsw: spectrum_router: Add helpers for neighbor access
-  mlxsw: spectrum_dpipe: Fix label name
-  mlxsw: spectrum_dpipe: Add IPv4 host table initial support
-  mlxsw: reg: Make flow counter set type enum to be shared
-  mlxsw: spectrum_router: Add support for setting counters on neighbors
-  mlxsw: spectrum_dpipe: Add support for IPv4 host table dump
-  mlxsw: spectrum_dpipe: Add support for controlling neighbor counters
-
- drivers/net/ethernet/mellanox/mlxsw/reg.h          |  28 +-
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c     |  10 +-
- .../net/ethernet/mellanox/mlxsw/spectrum_dpipe.c   | 433 +++++++++++++++++++--
- .../net/ethernet/mellanox/mlxsw/spectrum_dpipe.h   |   1 +
- .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 104 +++++
- .../net/ethernet/mellanox/mlxsw/spectrum_router.h  |  20 +
- include/net/devlink.h                              |  15 +-
- include/uapi/linux/devlink.h                       |  13 +
- net/core/devlink.c                                 |  68 +++-
- 9 files changed, 636 insertions(+), 56 deletions(-)
-
+diff --git a/include/net/devlink.h b/include/net/devlink.h
+index ed7687b..ddb8b52 100644
+--- a/include/net/devlink.h
++++ b/include/net/devlink.h
+@@ -328,6 +328,7 @@ int devlink_dpipe_action_put(struct sk_buff *skb,
+ 			     struct devlink_dpipe_action *action);
+ int devlink_dpipe_match_put(struct sk_buff *skb,
+ 			    struct devlink_dpipe_match *match);
++extern struct devlink_dpipe_header devlink_dpipe_header_ethernet;
+ 
+ #else
+ 
+diff --git a/include/uapi/linux/devlink.h b/include/uapi/linux/devlink.h
+index b0e807a..a855f8d 100644
+--- a/include/uapi/linux/devlink.h
++++ b/include/uapi/linux/devlink.h
+@@ -226,4 +226,12 @@ enum devlink_dpipe_action_type {
+ 	DEVLINK_DPIPE_ACTION_TYPE_FIELD_MODIFY,
+ };
+ 
++enum devlink_dpipe_field_ethernet_id {
++	DEVLINK_DPIPE_FIELD_ETHERNET_DST_MAC,
++};
++
++enum devlink_dpipe_header_id {
++	DEVLINK_DPIPE_HEADER_ETHERNET,
++};
++
+ #endif /* _UAPI_LINUX_DEVLINK_H_ */
+diff --git a/net/core/devlink.c b/net/core/devlink.c
+index a0adfc3..4f6f3d6 100644
+--- a/net/core/devlink.c
++++ b/net/core/devlink.c
+@@ -29,6 +29,23 @@
+ #define CREATE_TRACE_POINTS
+ #include <trace/events/devlink.h>
+ 
++static struct devlink_dpipe_field devlink_dpipe_fields_ethernet[] = {
++	{
++		.name = "destination_mac",
++		.id = DEVLINK_DPIPE_FIELD_ETHERNET_DST_MAC,
++		.bitwidth = 48,
++	},
++};
++
++struct devlink_dpipe_header devlink_dpipe_header_ethernet = {
++	.name = "ethernet",
++	.id = DEVLINK_DPIPE_HEADER_ETHERNET,
++	.fields = devlink_dpipe_fields_ethernet,
++	.fields_count = ARRAY_SIZE(devlink_dpipe_fields_ethernet),
++	.global = true,
++};
++EXPORT_SYMBOL(devlink_dpipe_header_ethernet);
++
+ EXPORT_TRACEPOINT_SYMBOL_GPL(devlink_hwmsg);
+ 
+ static LIST_HEAD(devlink_list);
 -- 
 2.9.3
