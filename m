@@ -1,8 +1,8 @@
 From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [V3 PATCH net-next 2/5] xdp: make generic xdp redirect use
- tracepoint trace_xdp_redirect
-Date: Thu, 24 Aug 2017 12:33:08 +0200
-Message-ID: <150357078849.26663.8057931208424026214.stgit@firesoul>
+Subject: [V3 PATCH net-next 3/5] ixgbe: use return codes from ndo_xdp_xmit
+ that are distinguishable
+Date: Thu, 24 Aug 2017 12:33:13 +0200
+Message-ID: <150357079360.26663.4569337848944080554.stgit@firesoul>
 References: <150357074701.26663.4047992776649697788.stgit@firesoul>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,113 +11,50 @@ Cc: Daniel Borkmann <borkmann@iogearbox.net>,
         Jesper Dangaard Brouer <brouer@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46856 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:54900 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751343AbdHXKdM (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 24 Aug 2017 06:33:12 -0400
+        id S1751342AbdHXKdP (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 24 Aug 2017 06:33:15 -0400
 In-Reply-To: <150357074701.26663.4047992776649697788.stgit@firesoul>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If the xdp_do_generic_redirect() call fails, it trigger the
-trace_xdp_exception tracepoint.  It seems better to use the same
-tracepoint trace_xdp_redirect, as the native xdp_do_redirect{,_map} does.
+For XDP_REDIRECT the use of return code -EINVAL is confusing, as it is
+used in three different cases.  (1) When the index or ifindex lookup
+fails, and in the ixgbe driver (2) when link is down and (3) when XDP
+have not been enabled.
+
+The return code can be picked up by the tracepoint xdp:xdp_redirect
+for diagnosing why XDP_REDIRECT isn't working.  Thus, there is a need
+different return codes to tell the issues apart.
+
+I'm considering using a specific err-code scheme for XDP_REDIRECT
+instead of using these errno codes.
 
 Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
 Acked-by: Daniel Borkmann <daniel@iogearbox.net>
 ---
- include/linux/filter.h |    3 ++-
- net/core/dev.c         |    4 ++--
- net/core/filter.c      |   35 +++++++++++++++++++++++------------
- 3 files changed, 27 insertions(+), 15 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/include/linux/filter.h b/include/linux/filter.h
-index 7015116331af..d29e58fde364 100644
---- a/include/linux/filter.h
-+++ b/include/linux/filter.h
-@@ -718,7 +718,8 @@ struct bpf_prog *bpf_patch_insn_single(struct bpf_prog *prog, u32 off,
-  * because we only track one map and force a flush when the map changes.
-  * This does not appear to be a real limitation for existing software.
-  */
--int xdp_do_generic_redirect(struct net_device *dev, struct sk_buff *skb);
-+int xdp_do_generic_redirect(struct net_device *dev, struct sk_buff *skb,
-+			    struct bpf_prog *prog);
- int xdp_do_redirect(struct net_device *dev,
- 		    struct xdp_buff *xdp,
- 		    struct bpf_prog *prog);
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 40b28e417072..270b54754821 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3953,7 +3953,8 @@ int do_xdp_generic(struct bpf_prog *xdp_prog, struct sk_buff *skb)
- 		if (act != XDP_PASS) {
- 			switch (act) {
- 			case XDP_REDIRECT:
--				err = xdp_do_generic_redirect(skb->dev, skb);
-+				err = xdp_do_generic_redirect(skb->dev, skb,
-+							      xdp_prog);
- 				if (err)
- 					goto out_redir;
- 			/* fallthru to submit skb */
-@@ -3966,7 +3967,6 @@ int do_xdp_generic(struct bpf_prog *xdp_prog, struct sk_buff *skb)
- 	}
- 	return XDP_PASS;
- out_redir:
--	trace_xdp_exception(skb->dev, xdp_prog, XDP_REDIRECT);
- 	kfree_skb(skb);
- 	return XDP_DROP;
- }
-diff --git a/net/core/filter.c b/net/core/filter.c
-index a5e5f31b41b9..a04680331033 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -2553,26 +2553,37 @@ int xdp_do_redirect(struct net_device *dev, struct xdp_buff *xdp,
- }
- EXPORT_SYMBOL_GPL(xdp_do_redirect);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 8d3224ad6434..d962368d08d0 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -9849,14 +9849,14 @@ static int ixgbe_xdp_xmit(struct net_device *dev, struct xdp_buff *xdp)
+ 	int err;
  
--int xdp_do_generic_redirect(struct net_device *dev, struct sk_buff *skb)
-+int xdp_do_generic_redirect(struct net_device *dev, struct sk_buff *skb,
-+			    struct bpf_prog *xdp_prog)
- {
- 	struct redirect_info *ri = this_cpu_ptr(&redirect_info);
--	unsigned int len;
- 	u32 index = ri->ifindex;
-+	struct net_device *fwd;
-+	unsigned int len;
-+	int err = 0;
- 
--	dev = dev_get_by_index_rcu(dev_net(dev), index);
-+	fwd = dev_get_by_index_rcu(dev_net(dev), index);
- 	ri->ifindex = 0;
--	if (unlikely(!dev)) {
+ 	if (unlikely(test_bit(__IXGBE_DOWN, &adapter->state)))
 -		return -EINVAL;
-+	if (unlikely(!fwd)) {
-+		err = -EINVAL;
-+		goto out;
- 	}
++		return -ENETDOWN;
  
--	if (unlikely(!(dev->flags & IFF_UP)))
--		return -ENETDOWN;
--	len = dev->mtu + dev->hard_header_len + VLAN_HLEN;
--	if (skb->len > len)
--		return -E2BIG;
-+	if (unlikely(!(fwd->flags & IFF_UP))) {
-+		err = -ENETDOWN;
-+		goto out;
-+	}
+ 	/* During program transitions its possible adapter->xdp_prog is assigned
+ 	 * but ring has not been configured yet. In this case simply abort xmit.
+ 	 */
+ 	ring = adapter->xdp_prog ? adapter->xdp_ring[smp_processor_id()] : NULL;
+ 	if (unlikely(!ring))
+-		return -EINVAL;
++		return -ENXIO;
  
--	skb->dev = dev;
--	return 0;
-+	len = fwd->mtu + fwd->hard_header_len + VLAN_HLEN;
-+	if (skb->len > len) {
-+		err = -EMSGSIZE;
-+		goto out;
-+	}
-+
-+	skb->dev = fwd;
-+out:
-+	trace_xdp_redirect(dev, fwd, xdp_prog, XDP_REDIRECT, err);
-+	return err;
- }
- EXPORT_SYMBOL_GPL(xdp_do_generic_redirect);
- 
+ 	err = ixgbe_xmit_xdp_ring(adapter, xdp);
+ 	if (err != IXGBE_XDP_TX)
