@@ -1,118 +1,53 @@
-From: Maxime Ripard <maxime.ripard@free-electrons.com>
-Subject: [PATCH 1/4] dt-bindings: net: Revert sun8i dwmac binding
-Date: Fri, 25 Aug 2017 21:12:14 +0200
-Message-ID: <20170825191217.10278-2-maxime.ripard@free-electrons.com>
-References: <20170825191217.10278-1-maxime.ripard@free-electrons.com>
-Cc: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-        f.fainelli@gmail.com, clabbe.montjoie@gmail.com, andrew@lunn.ch,
-        linux-kernel@vger.kernel.org
-To: arm@kernel.org, davem@davemloft.net, Chen-Yu Tsai <wens@csie.org>,
-        Maxime Ripard <maxime.ripard@free-electrons.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170825191217.10278-1-maxime.ripard@free-electrons.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Stephen Smalley <sds-+05T5uksL2qpZYMLLGbcSA@public.gmane.org>
+Subject: Re: Permissions for eBPF objects
+Date: Fri, 25 Aug 2017 15:26:39 -0400
+Message-ID: <1503689199.9977.4.camel@tycho.nsa.gov>
+References: <CABXk95AiYO7D8o79TBdt0_0g1TXfULSpL5i7KzHF3R4i-WhwHw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+To: Jeffrey Vander Stoep <jeffv-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>, Chenbo Feng <fengc-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, SELinux <Selinux-+05T5uksL2qpZYMLLGbcSA@public.gmane.org>
+Return-path: <selinux-bounces-+05T5uksL2qpZYMLLGbcSA@public.gmane.org>
+In-Reply-To: <CABXk95AiYO7D8o79TBdt0_0g1TXfULSpL5i7KzHF3R4i-WhwHw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Post: <mailto:selinux-+05T5uksL2qpZYMLLGbcSA@public.gmane.org>
+List-Help: <mailto:selinux-request-+05T5uksL2qpZYMLLGbcSA@public.gmane.org?subject=help>
+Errors-To: selinux-bounces-+05T5uksL2qpZYMLLGbcSA@public.gmane.org
+Sender: "Selinux" <selinux-bounces-+05T5uksL2qpZYMLLGbcSA@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-This binding still doesn't please everyone, and we're getting far too
-close from the release to allow it to reach a stable version.
+On Fri, 2017-08-25 at 11:01 -0700, Jeffrey Vander Stoep via Selinux
+wrote:
+> I’d like to get your thoughts on adding LSM permission checks on BPF
+> objects.
+> 
+> By default, the ability to create and use eBPF maps/programs requires
+> CAP_SYS_ADMIN [1]. Alternatively, all processes can be granted access
+> to bpf() functions. This seems like poor granularity. [2]
+> 
+> Like files and sockets, eBPF maps and programs can be passed between
+> processes by FD and have a number of functions that map cleanly to
+> permissions.
+> 
+> Let me know what you think. Are there simpler alternative approaches
+> that we haven’t considered?
 
-Let's remove it until the discussion settles down.
+Is it possible to create the map/program in one process (with
+CAP_SYS_ADMIN), pass the resulting fd to netd, and then use it there
+(without requiring CAP_SYS_ADMIN in netd itself)?
 
-Signed-off-by: Maxime Ripard <maxime.ripard@free-electrons.com>
----
- .../devicetree/bindings/net/dwmac-sun8i.txt        | 84 ----------------------
- 1 file changed, 84 deletions(-)
- delete mode 100644 Documentation/devicetree/bindings/net/dwmac-sun8i.txt
+What level of granularity would be useful?  Would it go beyond just
+being able to use bpf() at all?
 
-diff --git a/Documentation/devicetree/bindings/net/dwmac-sun8i.txt b/Documentation/devicetree/bindings/net/dwmac-sun8i.txt
-deleted file mode 100644
-index 725f3b187886..000000000000
---- a/Documentation/devicetree/bindings/net/dwmac-sun8i.txt
-+++ /dev/null
-@@ -1,84 +0,0 @@
--* Allwinner sun8i GMAC ethernet controller
--
--This device is a platform glue layer for stmmac.
--Please see stmmac.txt for the other unchanged properties.
--
--Required properties:
--- compatible: should be one of the following string:
--		"allwinner,sun8i-a83t-emac"
--		"allwinner,sun8i-h3-emac"
--		"allwinner,sun8i-v3s-emac"
--		"allwinner,sun50i-a64-emac"
--- reg: address and length of the register for the device.
--- interrupts: interrupt for the device
--- interrupt-names: should be "macirq"
--- clocks: A phandle to the reference clock for this device
--- clock-names: should be "stmmaceth"
--- resets: A phandle to the reset control for this device
--- reset-names: should be "stmmaceth"
--- phy-mode: See ethernet.txt
--- phy-handle: See ethernet.txt
--- #address-cells: shall be 1
--- #size-cells: shall be 0
--- syscon: A phandle to the syscon of the SoC with one of the following
-- compatible string:
--  - allwinner,sun8i-h3-system-controller
--  - allwinner,sun8i-v3s-system-controller
--  - allwinner,sun50i-a64-system-controller
--  - allwinner,sun8i-a83t-system-controller
--
--Optional properties:
--- allwinner,tx-delay-ps: TX clock delay chain value in ps. Range value is 0-700. Default is 0)
--- allwinner,rx-delay-ps: RX clock delay chain value in ps. Range value is 0-3100. Default is 0)
--Both delay properties need to be a multiple of 100. They control the delay for
--external PHY.
--
--Optional properties for the following compatibles:
--  - "allwinner,sun8i-h3-emac",
--  - "allwinner,sun8i-v3s-emac":
--- allwinner,leds-active-low: EPHY LEDs are active low
--
--Required child node of emac:
--- mdio bus node: should be named mdio
--
--Required properties of the mdio node:
--- #address-cells: shall be 1
--- #size-cells: shall be 0
--
--The device node referenced by "phy" or "phy-handle" should be a child node
--of the mdio node. See phy.txt for the generic PHY bindings.
--
--Required properties of the phy node with the following compatibles:
--  - "allwinner,sun8i-h3-emac",
--  - "allwinner,sun8i-v3s-emac":
--- clocks: a phandle to the reference clock for the EPHY
--- resets: a phandle to the reset control for the EPHY
--
--Example:
--
--emac: ethernet@1c0b000 {
--	compatible = "allwinner,sun8i-h3-emac";
--	syscon = <&syscon>;
--	reg = <0x01c0b000 0x104>;
--	interrupts = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>;
--	interrupt-names = "macirq";
--	resets = <&ccu RST_BUS_EMAC>;
--	reset-names = "stmmaceth";
--	clocks = <&ccu CLK_BUS_EMAC>;
--	clock-names = "stmmaceth";
--	#address-cells = <1>;
--	#size-cells = <0>;
--
--	phy-handle = <&int_mii_phy>;
--	phy-mode = "mii";
--	allwinner,leds-active-low;
--	mdio: mdio {
--		#address-cells = <1>;
--		#size-cells = <0>;
--		int_mii_phy: ethernet-phy@1 {
--			reg = <1>;
--			clocks = <&ccu CLK_BUS_EPHY>;
--			resets = <&ccu RST_BUS_EPHY>;
--		};
--	};
--};
--- 
-2.13.5
+> 
+> Thanks!
+> Jeff
+> 
+> [1] http://man7.org/linux/man-pages/man2/bpf.2.html NOTES section
+> [2] We are considering eBPF for network filtering by netd. Giving
+> netd
+> CAP_SYS_ADMIN would considerably increase netd’s privileges.
+> Alternatively allowing all processes permission to use bpf() goes
+> against the principle of least privilege exposing a lot of kernel
+> attack surface to processes that do not actually need it.
+> 
