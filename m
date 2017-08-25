@@ -1,51 +1,68 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [Patch net-next v2 3/4] net_sched: remove tc class reference
- counting
-Date: Fri, 25 Aug 2017 11:18:50 +0200
-Message-ID: <20170825091850.GI15739@breakpoint.cc>
-References: <20170824235130.28503-1-xiyou.wangcong@gmail.com>
- <20170824235130.28503-4-xiyou.wangcong@gmail.com>
- <20170825090021.GA4829@nanopsycho>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: Re: [PATCH nf-next] netfilter: xt_CHECKSUM: avoid bad offload
+ warnings on GSO packets
+Date: Fri, 25 Aug 2017 11:21:52 +0200
+Message-ID: <20170825092152.p3xkhmdtdv7d6wfq@unicorn.suse.cz>
+References: <20170824104824.2C318A0F3A@unicorn.suse.cz>
+ <20170824105118.GA15739@breakpoint.cc>
+ <20170824110742.qby3yoz3emf6pr5i@unicorn.suse.cz>
+ <1503580122.2958.37.camel@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org,
-        jhs@mojatatu.com, fw@strlen.de
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:39734 "EHLO
-        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1754570AbdHYJV2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 05:21:28 -0400
+Cc: Florian Westphal <fw@strlen.de>,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        "Michael S. Tsirkin" <mst@redhat.com>,
+        Markos Chandras <markos.chandras@suse.com>
+To: Davide Caratti <dcaratti@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20170825090021.GA4829@nanopsycho>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1503580122.2958.37.camel@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Jiri Pirko <jiri@resnulli.us> wrote:
-> Fri, Aug 25, 2017 at 01:51:29AM CEST, xiyou.wangcong@gmail.com wrote:
-> >For TC classes, their ->get() and ->put() are always paired, and the
-> >reference counting is completely useless, because:
-> >
-> >1) For class modification and dumping paths, we already hold RTNL lock,
-> >   so all of these ->get(),->change(),->put() are atomic.
+On Thu, Aug 24, 2017 at 03:08:42PM +0200, Davide Caratti wrote:
+> On Thu, 2017-08-24 at 13:07 +0200, Michal Kubecek wrote:
+> > On Thu, Aug 24, 2017 at 12:51:18PM +0200, Florian Westphal wrote:
+> > > Michal Kubecek <mkubecek@suse.cz> wrote:
+> > > > When --checksum_fill action is applied to a GSO packet, checksum_tg() calls
+> > > > skb_checksum_help() which is only meant to be applied to non-GSO packets so
+> > > > that it issues a warning.
+> > > > 
+> > > > This can be easily triggered by using e.g.
+> > > > 
+> > > >   iptables -t mangle -A OUTPUT -j CHECKSUM --checksum-fill
+> > > > 
+> > > > and sending TCP stream via a device with GSO enabled.
+> > > > 
+> > > > While this can be considered a misconfiguration, I believe the bad offload
+> > > > warning is supposed to catch bugs in drivers and networking stack, not
+> > > > misconfigured firewalls. So let's ignore such packets and only issue a one
+> > > > time warning with pr_warn_once() rather than a WARN with stack trace and
+> > > > tainted kernel.
+> > > 
+> > > Why issue a warning at all?
+> > > What kind of action should be taken upon seeing such warning?
+> > 
+> > Check and fix the configuration. The reason why I left at least some
+> > kind of warning is that the module does something that is unexpected as
+> > the checksum is not calculated (this module is often used in
+> > virtualization environments where "hardware checksum offload" in fact
+> > means the checksum is not computed at all).
+> > 
 > 
-> There is ongoing initiative by Florian to avoid taking RTNL for some
-> rtnetlink calls. I think that for dumping it could be done in tc as well.
-> Don't we need the refcnt then?
+> hello Michal,
+> 
+> GSO should be capable of computing the checksum on individual segments
+> later, so I also think the warning can be removed.
+> 
+> Small nit: may I suggest you to call skb_csum_hwoffload_help() instead of
+> skb_checksum_help(), so that we avoid corrupting SCTP packets in case they
+> hit xt_CHECKSUM target?
 
-Dumping is a problem at this time because several places depend on RTNL
-to ensure we get a consistent state, even "simple" functions like
-rtnl_fill_ifinfo, see e.g.  2907c35ff64708065e5a7fd54e8ded8263eb3074
-(net: hold rtnl again in dump callbacks).
+That sounds like an independent issue so it should be probably handled
+by a separate patch.
 
-So for these places we already need some other way (e.g. seqlock)
-to ensure we don't put garbage in netlink skb.
-
-At this time I think that it is better if Congs patches go in
-(Unless there are other problems of course) as they simplify
-things quite a bit, and I am not sure that we need refcount.
-
-It might be enough to use rcu and detect when the class we just read
-from might have been in inconsistent state (so we can retry).
-
-Does that make sense to you?
+Michal Kubecek
