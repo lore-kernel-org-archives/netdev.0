@@ -1,43 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] strparser: initialize all callbacks
-Date: Thu, 24 Aug 2017 21:58:27 -0700 (PDT)
-Message-ID: <20170824.215827.1642146539202794550.davem@davemloft.net>
-References: <20170824213851.57601-1-ebiggers3@gmail.com>
+Subject: Re: [PATCH] netvsc: fix deadlock betwen link status and removal
+Date: Thu, 24 Aug 2017 21:59:37 -0700 (PDT)
+Message-ID: <20170824.215937.1021389588491858224.davem@davemloft.net>
+References: <20170824234916.11490-1-sthemmin@microsoft.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        ebiggers@google.com, dvyukov@google.com, tom@quantonium.net
-To: ebiggers3@gmail.com
+Cc: kys@microsoft.com, haiyangz@microsoft.com, sthemmin@microsoft.com,
+        netdev@vger.kernel.org
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:36592 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:36602 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751662AbdHYE62 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 00:58:28 -0400
-In-Reply-To: <20170824213851.57601-1-ebiggers3@gmail.com>
+        with ESMTP id S1751381AbdHYE7i (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 00:59:38 -0400
+In-Reply-To: <20170824234916.11490-1-sthemmin@microsoft.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Biggers <ebiggers3@gmail.com>
-Date: Thu, 24 Aug 2017 14:38:51 -0700
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Thu, 24 Aug 2017 16:49:16 -0700
 
-> From: Eric Biggers <ebiggers@google.com>
+> There is a deadlock possible when canceling the link status
+> delayed work queue. The removal process is run with RTNL held,
+> and the link status callback is acquring RTNL.
 > 
-> commit bbb03029a899 ("strparser: Generalize strparser") added more
-> function pointers to 'struct strp_callbacks'; however, kcm_attach() was
-> not updated to initialize them.  This could cause the ->lock() and/or
-> ->unlock() function pointers to be set to garbage values, causing a
-> crash in strp_work().
+> Resolve the issue by using trylock and rescheduling.
+> If cancel is in process, that block it from happening.
 > 
-> Fix the bug by moving the callback structs into static memory, so
-> unspecified members are zeroed.  Also constify them while we're at it.
-> 
-> This bug was found by syzkaller, which encountered the following splat:
- ...
-> Fixes: bbb03029a899 ("strparser: Generalize strparser")
-> Signed-off-by: Eric Biggers <ebiggers@google.com>
+> Fixes: 122a5f6410f4 ("staging: hv: use delayed_work for netvsc_send_garp()")
+> Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
 
-This commit is only in net-next, so that is where I am applying
-this patch.
-
-Thanks.
+Applied and queued up for -stable, thanks.
