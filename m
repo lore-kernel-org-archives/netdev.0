@@ -1,15 +1,14 @@
 From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>
-Subject: Re: [PATCH net-next v7 05/10] landlock: Add LSM hooks related to
- filesystem
-Date: Fri, 25 Aug 2017 10:16:39 +0200
-Message-ID: <22d09137-7212-5803-af64-0964fad875c7@digikod.net>
+Subject: Re: [PATCH net-next v7 08/10] bpf: Add a Landlock sandbox example
+Date: Fri, 25 Aug 2017 10:17:58 +0200
+Message-ID: <c1245df5-aeef-0406-d4cd-781d65ecf3a7@digikod.net>
 References: <20170821000933.13024-1-mic@digikod.net>
- <20170821000933.13024-6-mic@digikod.net>
- <20170824025030.sxl2hkpcbzipb47y@ast-mbp>
+ <20170821000933.13024-9-mic@digikod.net>
+ <20170824025901.cpppy4nn5xv2ao24@ast-mbp>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha512;
  protocol="application/pgp-signature";
- boundary="s04RxWkgoJ7sRIkvbQdeJm2sAVwVhjKNQ"
+ boundary="CnOi2Bia59nwOIPisNK4aTcM4t2rfO9OW"
 Cc: linux-kernel@vger.kernel.org, Alexei Starovoitov <ast@kernel.org>,
         Andy Lutomirski <luto@amacapital.net>,
         Arnaldo Carvalho de Melo <acme@kernel.org>,
@@ -28,17 +27,17 @@ Cc: linux-kernel@vger.kernel.org, Alexei Starovoitov <ast@kernel.org>,
         "Serge E . Hallyn" <serge@hallyn.com>, Shuah Khan <shuah@kernel.org>,
         Tejun Heo <tj@kernel.org>, Thomas Graf <tgraf@suug.ch>,
 To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <kernel-hardening-return-9561-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+Return-path: <kernel-hardening-return-9562-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
 List-Post: <mailto:kernel-hardening@lists.openwall.com>
 List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
 List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
 List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-In-Reply-To: <20170824025030.sxl2hkpcbzipb47y@ast-mbp>
+In-Reply-To: <20170824025901.cpppy4nn5xv2ao24@ast-mbp>
 List-Id: netdev.vger.kernel.org
 
 This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---s04RxWkgoJ7sRIkvbQdeJm2sAVwVhjKNQ
-Content-Type: multipart/mixed; boundary="LLTwOboxMdBfWGKTTV3lgbHVGUtSCXOHC";
+--CnOi2Bia59nwOIPisNK4aTcM4t2rfO9OW
+Content-Type: multipart/mixed; boundary="hcAH3FSfGN3wdBxfR5wTdbTVIut1JDQab";
  protected-headers="v1"
 From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>
 To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
@@ -58,113 +57,139 @@ Cc: linux-kernel@vger.kernel.org, Alexei Starovoitov <ast@kernel.org>,
  Will Drewry <wad@chromium.org>, kernel-hardening@lists.openwall.com,
  linux-api@vger.kernel.org, linux-security-module@vger.kernel.org,
  netdev@vger.kernel.org
-Message-ID: <22d09137-7212-5803-af64-0964fad875c7@digikod.net>
-Subject: Re: [PATCH net-next v7 05/10] landlock: Add LSM hooks related to
- filesystem
+Message-ID: <c1245df5-aeef-0406-d4cd-781d65ecf3a7@digikod.net>
+Subject: Re: [PATCH net-next v7 08/10] bpf: Add a Landlock sandbox example
 References: <20170821000933.13024-1-mic@digikod.net>
- <20170821000933.13024-6-mic@digikod.net>
- <20170824025030.sxl2hkpcbzipb47y@ast-mbp>
-In-Reply-To: <20170824025030.sxl2hkpcbzipb47y@ast-mbp>
+ <20170821000933.13024-9-mic@digikod.net>
+ <20170824025901.cpppy4nn5xv2ao24@ast-mbp>
+In-Reply-To: <20170824025901.cpppy4nn5xv2ao24@ast-mbp>
 
---LLTwOboxMdBfWGKTTV3lgbHVGUtSCXOHC
+--hcAH3FSfGN3wdBxfR5wTdbTVIut1JDQab
 Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: quoted-printable
 
 
-On 24/08/2017 04:50, Alexei Starovoitov wrote:
-> On Mon, Aug 21, 2017 at 02:09:28AM +0200, Micka=EBl Sala=FCn wrote:
->> Handle 33 filesystem-related LSM hooks for the Landlock filesystem
->> event: LANDLOCK_SUBTYPE_EVENT_FS.
->>
->> A Landlock event wrap LSM hooks for similar kernel object types (e.g.
->> struct file, struct path...). Multiple LSM hooks can trigger the same
->> Landlock event.
->>
->> Landlock handle nine coarse-grained actions: read, write, execute, new=
-,
->> get, remove, ioctl, lock and fcntl. Each of them abstract LSM hook
->> access control in a way that can be extended in the future.
->>
->> The Landlock LSM hook registration is done after other LSM to only run=
 
->> actions from user-space, via eBPF programs, if the access was granted =
-by
->> major (privileged) LSMs.
+On 24/08/2017 04:59, Alexei Starovoitov wrote:
+> On Mon, Aug 21, 2017 at 02:09:31AM +0200, Micka=EBl Sala=FCn wrote:
+>> Add a basic sandbox tool to create a process isolated from some part o=
+f
+>> the system. This sandbox create a read-only environment. It is only
+>> allowed to write to a character device such as a TTY:
+>>
+>>   # :> X
+>>   # echo $?
+>>   0
+>>   # ./samples/bpf/landlock1 /bin/sh -i
+>>   Launching a new sandboxed process.
+>>   # :> Y
+>>   cannot create Y: Operation not permitted
 >>
 >> Signed-off-by: Micka=EBl Sala=FCn <mic@digikod.net>
 >=20
 > ...
 >=20
->> +/* WRAP_ARG_SB */
->> +#define WRAP_ARG_SB_TYPE	WRAP_TYPE_FS
->> +#define WRAP_ARG_SB_DEC(arg)					\
->> +	EXPAND_C(WRAP_TYPE_FS) wrap_##arg =3D			\
->> +	{ .type =3D BPF_HANDLE_FS_TYPE_DENTRY, .dentry =3D arg->s_root };
->> +#define WRAP_ARG_SB_VAL(arg)	((uintptr_t)&wrap_##arg)
->> +#define WRAP_ARG_SB_OK(arg)	(arg && arg->s_root)
-> ...
+>> +SEC("landlock1")
+>> +static int landlock_fs_prog1(struct landlock_context *ctx)
+>> +{
+>> +	char fmt_error_mode[] =3D "landlock1: error: get_mode:%lld\n";
+>> +	char fmt_error_access[] =3D "landlock1: error: access denied\n";
+>> +	long long ret;
+>> +
+>> +	/*
+>> +	 * The argument ctx->arg2 contains bitflags of actions for which the=
+
+>> +	 * rule is run.  The flag LANDLOCK_ACTION_FS_WRITE means that a writ=
+e
+>> +	 * is requested by one of the userspace processes restricted by this=
+
+>> +	 * rule. The following test allows any actions which does not includ=
+e a
+>> +	 * write.
+>> +	 */
+>> +	if (!(ctx->arg2 & LANDLOCK_ACTION_FS_WRITE))
+>> +		return 0;
+>> +
+>> +	/*
+>> +	 * The argument ctx->arg1 is a file handle for which the process wan=
+t
+>> +	 * to access. The function bpf_handle_fs_get_mode() return the mode =
+of
+>> +	 * a file (e.g. S_IFBLK, S_IFDIR, S_IFREG...). If there is an error,=
+
+>> +	 * for example if the argument is not a file handle, then an
+>> +	 * -errno value is returned. Otherwise the caller get the file mode =
+as
+>> +	 *  with stat(2).
+>> +	 */
+>> +	ret =3D bpf_handle_fs_get_mode((void *)ctx->arg1);
+>> +	if (ret < 0) {
+>> +
+>> +		/*
+>> +		 * The bpf_trace_printk() function enable to write in the
+>> +		 * kernel eBPF debug log, accessible through
+>> +		 * /sys/kernel/debug/tracing/trace_pipe . To be allowed to call
+>> +		 * this function, a Landlock rule must have the
+>> +		 * LANDLOCK_SUBTYPE_ABILITY_DEBUG ability, which is only
+>> +		 * allowed for CAP_SYS_ADMIN.
+>> +		 */
+>> +		bpf_trace_printk(fmt_error_mode, sizeof(fmt_error_mode), ret);
+>> +		return 1;
+>> +	}
+>> +
+>> +	/*
+>> +	 * This check allows the action on the file if it is a directory or =
+a
+>> +	 * pipe. Otherwise, a message is printed to the eBPF log.
+>> +	 */
+>> +	if (S_ISCHR(ret) || S_ISFIFO(ret))
+>> +		return 0;
+>> +	bpf_trace_printk(fmt_error_access, sizeof(fmt_error_access));
+>> +	return 1;
+>> +}
+>> +
+>> +/*
+>> + * This subtype enable to set the ABI, which ensure that the eBPF con=
+text and
+>> + * program behavior will be compatible with this Landlock rule.
+>> + */
+>> +SEC("subtype")
+>> +static const union bpf_prog_subtype _subtype =3D {
+>> +	.landlock_rule =3D {
+>> +		.abi =3D 1,
+>> +		.event =3D LANDLOCK_SUBTYPE_EVENT_FS,
+>> +		.ability =3D LANDLOCK_SUBTYPE_ABILITY_DEBUG,
+>> +	}
+>> +};
 >=20
->> +HOOK_NEW_FS(sb_remount, 2,
->> +	struct super_block *, sb,
->> +	void *, data,
->> +	WRAP_ARG_SB, sb,
->> +	WRAP_ARG_RAW, LANDLOCK_ACTION_FS_WRITE
->> +);
->=20
-> this looks wrong. casting super_block to dentry?
+> from rule writer perspective can you somehow merge subtype definition
+> with the program? It seems they go hand in hand.
+> Like section name of the program can be:
+> SEC("landlock_rule1/event=3Dfs/ability=3Ddebug")
+> static int landlock_fs_prog1(struct landlock_context *ctx)...
+> and the loader can parse this string and prepare appropriate
+> data structures for the kernel.
 
-This is called when remounting a block device. The WRAP_ARG_SB take the
-sb->s_root as a dentry, it is not a cast. What do you expect from this ho=
-ok?
-
->=20
->> +/* a directory inode contains only one dentry */
->> +HOOK_NEW_FS(inode_create, 3,
->> +	struct inode *, dir,
->> +	struct dentry *, dentry,
->> +	umode_t, mode,
->> +	WRAP_ARG_INODE, dir,
->> +	WRAP_ARG_RAW, LANDLOCK_ACTION_FS_WRITE
->> +);
->=20
-> more general question: why you're not wrapping all useful
-> arguments? Like in the above dentry can be acted upon
-> by the landlock rule and it's readily available...
-
-The context used for the FS event must have the exact same types for all
-calls. This event is meant to be generic but we can add more specific
-ones if needed, like I do with FS_IOCTL.
-
-The idea is to enable people to write simple rules, while being able to
-write fine grain rules for special cases (e.g. IOCTL) if needed.
-
->=20
-> The limitation of only 2 args looks odd.
-> Is it a hard limitation ? how hard to extend?
-
-It's not a hard limit at all. Actually, the FS_FNCTL event should have
-three arguments (I'll add them in the next series): FS handle, FCNTL
-command and FCNTL argument. I made sure that it's really easy to add
-more arguments to the context of an event.
+Right, I'll try that.
 
 
---LLTwOboxMdBfWGKTTV3lgbHVGUtSCXOHC--
+--hcAH3FSfGN3wdBxfR5wTdbTVIut1JDQab--
 
---s04RxWkgoJ7sRIkvbQdeJm2sAVwVhjKNQ
+--CnOi2Bia59nwOIPisNK4aTcM4t2rfO9OW
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: OpenPGP digital signature
 Content-Disposition: attachment; filename="signature.asc"
 
 -----BEGIN PGP SIGNATURE-----
 
-iQEzBAEBCgAdFiEEUysCyY8er9Axt7hqIt7+33O9apUFAlmf3OgACgkQIt7+33O9
-apWYEwf+LLl/uJngJV/UmbXlLh/xSWLS91mygv8YmLO64XSOVZjMSvqsX6NMiDgK
-Ciqqj0Ps/VvD7YHFR1Zpul0ND6mPdodh4Wp4kt5OPX2NRTqGLafp/TQciszkzFqp
-Iv4nvbQpN9kgPecsqlgrVc6kUQfa+S/5Day5ZxLJs7qGtZzIxZbUYOHJjhB41iPS
-X1Xa6Vii9iPzu7eX7hxe+O85SHT+xydtbcUR1u9vQB1tSv7AgnshvdRy3LSxC9Yf
-FjmK6DxQ/KQx0C/lZx5kYz/7NST5JXgR8PHS6diW0DBtbFt+DXDtIEierQD6H7Oo
-s+9/9QEpMeFn9WeWqvQ8+CVfNoiG+w==
-=bU84
+iQEzBAEBCgAdFiEEUysCyY8er9Axt7hqIt7+33O9apUFAlmf3TYACgkQIt7+33O9
+apUZ1Af+PQHJukWpBulhEXFta88prqo9xcx/Gp9C1R8htzmvbJ1W6iHePaPuAiJI
+ZaVjeRoiOIkIc3Bzs8a2MMZpzHWfpqMyq0vFFAlybmGAcB5nSkZvJQClzN/O4G2C
+13/LuQi8AH0PNIPphrxZumjyk3vs31KogU2ezxYMsHJghKSkFE1a0CFTai1GBvVM
+IjNckIZYYFJ+uH7iJ2vWzC/4G0EtU0sJm9/Sg94egtClOZ8m4RdQtMVWcWRkSyB0
+DxkLgKmbcXvCVrwqkFG83qKqd208cskhWmahTdseQhXNGWumDy5qXL1Eo3aKuyHY
+Lx1ZZbb4j101qkis/WD3nowWfbJ1gw==
+=4A9z
 -----END PGP SIGNATURE-----
 
---s04RxWkgoJ7sRIkvbQdeJm2sAVwVhjKNQ--
+--CnOi2Bia59nwOIPisNK4aTcM4t2rfO9OW--
