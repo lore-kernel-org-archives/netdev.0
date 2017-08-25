@@ -1,55 +1,42 @@
-From: Guillaume Nault <g.nault@alphalink.fr>
-Subject: [PATCH net 2/5] l2tp: hold tunnel while processing genl delete
- command
-Date: Fri, 25 Aug 2017 16:51:42 +0200
-Message-ID: <f61836d2323fdad4f7f9cd45e501c763369adcc8.1503671776.git.g.nault@alphalink.fr>
-References: <cover.1503671776.git.g.nault@alphalink.fr>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: James Chapman <jchapman@katalix.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbra.alphalink.fr ([217.15.80.77]:53442 "EHLO
-        zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756459AbdHYOvz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 10:51:55 -0400
-Content-Disposition: inline
-In-Reply-To: <cover.1503671776.git.g.nault@alphalink.fr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Antoine Tenart <antoine.tenart@free-electrons.com>
+Subject: [PATCH net-next v2 08/14] net: mvpp2: check the netif is running in the link_event function
+Date: Fri, 25 Aug 2017 16:48:15 +0200
+Message-ID: <20170825144821.31129-9-antoine.tenart@free-electrons.com>
+References: <20170825144821.31129-1-antoine.tenart@free-electrons.com>
+Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
+        thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
+        linux@armlinux.org.uk, linux-kernel@vger.kernel.org,
+        mw@semihalf.com, stefanc@marvell.com,
+        miquel.raynal@free-electrons.com, netdev@vger.kernel.org
+To: davem@davemloft.net, kishon@ti.com, andrew@lunn.ch,
+        jason@lakedaemon.net, sebastian.hesselbarth@gmail.com,
+        gregory.clement@free-electrons.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170825144821.31129-1-antoine.tenart@free-electrons.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-l2tp_nl_cmd_tunnel_delete() needs to take a reference on the tunnel, to
-prevent it from being concurrently freed by l2tp_tunnel_destruct().
+This patch adds an extra check when the link_event function is called,
+so that it won't do anything when the netif isn't running.
 
-Fixes: 309795f4bec2 ("l2tp: Add netlink control API for L2TP")
-Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
+Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
 ---
- net/l2tp/l2tp_netlink.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/marvell/mvpp2.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-diff --git a/net/l2tp/l2tp_netlink.c b/net/l2tp/l2tp_netlink.c
-index 27ee94b5c189..808966550620 100644
---- a/net/l2tp/l2tp_netlink.c
-+++ b/net/l2tp/l2tp_netlink.c
-@@ -273,8 +273,8 @@ static int l2tp_nl_cmd_tunnel_delete(struct sk_buff *skb, struct genl_info *info
- 	}
- 	tunnel_id = nla_get_u32(info->attrs[L2TP_ATTR_CONN_ID]);
+diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
+index 1b26f5ed994f..49a6789a4142 100644
+--- a/drivers/net/ethernet/marvell/mvpp2.c
++++ b/drivers/net/ethernet/marvell/mvpp2.c
+@@ -5741,6 +5741,9 @@ static void mvpp2_link_event(struct net_device *dev)
+ 	struct mvpp2_port *port = netdev_priv(dev);
+ 	struct phy_device *phydev = dev->phydev;
  
--	tunnel = l2tp_tunnel_find(net, tunnel_id);
--	if (tunnel == NULL) {
-+	tunnel = l2tp_tunnel_get(net, tunnel_id);
-+	if (!tunnel) {
- 		ret = -ENODEV;
- 		goto out;
- 	}
-@@ -284,6 +284,8 @@ static int l2tp_nl_cmd_tunnel_delete(struct sk_buff *skb, struct genl_info *info
- 
- 	(void) l2tp_tunnel_delete(tunnel);
- 
-+	l2tp_tunnel_dec_refcount(tunnel);
++	if (!netif_running(dev))
++		return;
 +
- out:
- 	return ret;
- }
+ 	if (phydev->link) {
+ 		if ((port->speed != phydev->speed) ||
+ 		    (port->duplex != phydev->duplex)) {
 -- 
-2.14.1
+2.13.5
