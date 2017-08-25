@@ -1,92 +1,82 @@
-From: Dexuan Cui <decui@microsoft.com>
-Subject: RE: [PATCH v2 net-next 1/1] hv_sock: implements Hyper-V transport for
- Virtual Sockets (AF_VSOCK)
-Date: Fri, 25 Aug 2017 03:19:22 +0000
-Message-ID: <KL1P15301MB0008DD63FB6D476484DFF5BFBF9B0@KL1P15301MB0008.APCP153.PROD.OUTLOOK.COM>
-References: <KL1P15301MB0008D0FB2F8F5B90E7737C3CBF850@KL1P15301MB0008.APCP153.PROD.OUTLOOK.COM>
- <20170824.181931.584865895464286033.davem@davemloft.net>
+From: Michael Chan <michael.chan@broadcom.com>
+Subject: Re: XDP redirect measurements, gotchas and tracepoints
+Date: Thu, 24 Aug 2017 20:36:28 -0700
+Message-ID: <CACKFLinGuaDLxYRd=vC99DL5n0mf0rDbPRaDg4ctev=DEAhRSQ@mail.gmail.com>
+References: <20170821212506.1cb0d5d6@redhat.com> <CACKFLimAF9OYwz8EqG=1-N40hWuA-8C8k8ut0oFKYdduvZOxHA@mail.gmail.com>
+ <599C7530.2010405@gmail.com> <1503426617.2434.5.camel@intel.com>
+ <CACKFLimMWLto4FRxNE3tzrO5MU+p67J7wu=n1nmg0t8QGYjgrA@mail.gmail.com>
+ <CAKgT0Uf=ZfVeK-wtvNxSyGEVZ3UseUOHiP3ZOg-SrzmqsR=LtQ@mail.gmail.com>
+ <CACKFLinJ0N7b8Xhq4ZoHdB80uXp_MU_vVyzZa7Dq11XrXsvDbw@mail.gmail.com> <20170823102937.79a9c4ed@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "jhansen@vmware.com" <jhansen@vmware.com>,
-        "stefanha@redhat.com" <stefanha@redhat.com>,
+Content-Type: text/plain; charset="UTF-8"
+Cc: Alexander Duyck <alexander.duyck@gmail.com>,
+        "Duyck, Alexander H" <alexander.h.duyck@intel.com>,
+        "john.fastabend@gmail.com" <john.fastabend@gmail.com>,
+        "pstaszewski@itcare.pl" <pstaszewski@itcare.pl>,
         "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "mkubecek@suse.cz" <mkubecek@suse.cz>,
-        "joe@perches.com" <joe@perches.com>,
-        "olaf@aepfle.de" <olaf@aepfle.de>,
-        Stephen Hemminger <sthemmin@microsoft.com>,
-        "jasowang@redhat.com" <jasowang@redhat.com>,
-        "KY Srinivasan" <kys@microsoft.com>,
-        Haiyang Zhang <haiyangz@microsoft.com>,
-        "dave.scott@docker.com" <dave.scott@docker.com>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "apw@canonical.com" <apw@canonical.com>,
-        "rolf.neugebauer@docker.com" <rolf.neugebauer@docker.com>,
-        "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
-        "marcelo.cerri@canonical.com" <marcelo.cerri@canonical.com>,
-        "devel@linuxdriverpr
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170824.181931.584865895464286033.davem@davemloft.net>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+        "xdp-newbies@vger.kernel.org" <xdp-newbies@vger.kernel.org>,
+        "andy@greyhouse.net" <andy@greyhouse.net>,
+        "borkmann@iogearbox.net" <borkmann@iogearbox.net>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f176.google.com ([209.85.161.176]:36764 "EHLO
+        mail-yw0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754484AbdHYDg3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 24 Aug 2017 23:36:29 -0400
+Received: by mail-yw0-f176.google.com with SMTP id h127so7190788ywf.3
+        for <netdev@vger.kernel.org>; Thu, 24 Aug 2017 20:36:29 -0700 (PDT)
+In-Reply-To: <20170823102937.79a9c4ed@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Thursday, August 24, 2017 18:20
-> > +#define VMBUS_PKT_TRAILER  (sizeof(u64))
+On Wed, Aug 23, 2017 at 1:29 AM, Jesper Dangaard Brouer
+<brouer@redhat.com> wrote:
+> On Tue, 22 Aug 2017 23:59:05 -0700
+> Michael Chan <michael.chan@broadcom.com> wrote:
 >
-> This is not the packet trailer, it's the size of the packet trailer.
-
-Thanks! I'll change it to VMBUS_PKT_TRAILER_SIZE.
-
-> > +   /* Have we sent the zero-length packet (FIN)? */
-> > +   unsigned long fin_sent;
+>> On Tue, Aug 22, 2017 at 6:06 PM, Alexander Duyck
+>> <alexander.duyck@gmail.com> wrote:
+>> > On Tue, Aug 22, 2017 at 1:04 PM, Michael Chan <michael.chan@broadcom.com> wrote:
+>> >>
+>> >> Right, but it's conceivable to add an API to "return" the buffer to
+>> >> the input device, right?
 >
-> Why does this need to be atomic?  Why can't a smaller simpler
-It doesn't have to be. It was originally made for a quick workaround.
-Thanks! I should do it in the right way now.
-
-> mechanism be used to make sure hvs_shutdown() only performs
-> hvs_send_data() call once on the channel?
-I'll change "fin_sent" to bool, and avoid test_and_set_bit().
-I'll add lock_sock/release_sock()  in hvs_shutdown() like this:
-
-static int hvs_shutdown(struct vsock_sock *vsk, int mode)
-{
- ...
-       lock_sock(sk);
-
-        hvs =3D vsk->trans;
-        if (hvs->fin_sent)
-                goto out;
-
-        send_buf =3D (struct hvs_send_buf *)&hdr;
-        (void)hvs_send_data(hvs->chan, send_buf, 0);
-
-        hvs->fin_sent =3D true;
-out:
-        release_sock(sk);
-        return 0;
-}
-
-> > +static inline bool is_valid_srv_id(const uuid_le *id)
-> > +{
-> > +   return !memcmp(&id->b[4], &srv_id_template.b[4], sizeof(uuid_le) -
-> 4);
-> > +}
+> Yes, I would really like to see an API like this.
 >
-> Do not use the inline function attribute in *.c code.  Let the
-> compiler decide.
-
-OK. Will remove all the inline usages.
-
-> > +   *((u32 *)&h->vm_srv_id) =3D vsk->local_addr.svm_port;
-> > +   *((u32 *)&h->host_srv_id) =3D vsk->remote_addr.svm_port;
+>> >
+>> > You could, it is just added complexity. "just free the buffer" in
+>> > ixgbe usually just amounts to one atomic operation to decrement the
+>> > total page count since page recycling is already implemented in the
+>> > driver. You still would have to unmap the buffer regardless of if you
+>> > were recycling it or not so all you would save is 1.000015259 atomic
+>> > operations per packet. The fraction is because once every 64K uses we
+>> > have to bulk update the count on the page.
+>> >
+>>
+>> If the buffer is returned to the input device, the input device can
+>> keep the DMA mapping.  All it needs to do is to dma_sync it back to
+>> the input device when the buffer is returned.
 >
-> There has to be a better way to express this.
-I may need to define a uinon here. Let me try it.
+> Yes, exactly, return to the input device. I really think we should
+> work on a solution where we can keep the DMA mapping around.  We have
+> an opportunity here to make ndo_xdp_xmit TX queues use a specialized
+> page return call, to achieve this. (I imagine other arch's have a high
+> DMA overhead than Intel)
+>
+> I'm not sure how the API should look.  The ixgbe recycle mechanism and
+> splitting the page (into two packets) actually complicates things, and
+> tie us into a page-refcnt based model.  We could get around this by
+> each driver implementing a page-return-callback, that allow us to
+> return the page to the input device?  Then, drivers implementing the
+> 1-packet-per-page can simply check/read the page-refcnt, and if it is
+> "1" DMA-sync and reuse it in the RX queue.
+>
 
- > And if this is partially initializing vm_srv_id, at a minimum
-> endianness needs to be taken into account.
-I may need to use cpu_to_le32(). Let me check it.
+Yeah, based on Alex' description, it's not clear to me whether ixgbe
+redirecting to a non-intel NIC or vice versa will actually work.  It
+sounds like the output device has to make some assumptions about how
+the page was allocated by the input device.  With buffer return API,
+each driver can cleanly recycle or free its own buffers properly.
+
+Let me discuss this further with Andy to see if we can come up with a
+good scheme.
