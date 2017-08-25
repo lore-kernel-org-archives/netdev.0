@@ -1,7 +1,7 @@
 From: Bhumika Goyal <bhumirks@gmail.com>
-Subject: [PATCH 2/7] bridge: make ebt_table const
-Date: Fri, 25 Aug 2017 19:51:42 +0530
-Message-ID: <1503670907-23221-3-git-send-email-bhumirks@gmail.com>
+Subject: [PATCH 3/7] ieee802154: 6lowpan: make header_ops const
+Date: Fri, 25 Aug 2017 19:51:43 +0530
+Message-ID: <1503670907-23221-4-git-send-email-bhumirks@gmail.com>
 References: <1503670907-23221-1-git-send-email-bhumirks@gmail.com>
 Cc: Bhumika Goyal <bhumirks@gmail.com>
 To: julia.lawall@lip6.fr, marcel@holtmann.org, gustavo@padovan.org,
@@ -16,31 +16,35 @@ To: julia.lawall@lip6.fr, marcel@holtmann.org, gustavo@padovan.org,
         coreteam@netfilter.org, bridge@lists.linux-foundation.org,
         linux-wpan@vger.kernel.org, linux-rdma@vger.kernel.org,
         rds-devel@oss.oracle.com, linux-nfs@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:38709 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932562AbdHYOWz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 10:22:55 -0400
 In-Reply-To: <1503670907-23221-1-git-send-email-bhumirks@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Make this const as it is only passed to a const argument of the function
-ebt_register_table.
+Make this const as it is only stored as a reference in a const field of
+a net_device structure.
 
 Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
 ---
- net/bridge/netfilter/ebtable_nat.c | 2 +-
+ net/ieee802154/6lowpan/core.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/bridge/netfilter/ebtable_nat.c b/net/bridge/netfilter/ebtable_nat.c
-index 4ecf506..57cd5bb 100644
---- a/net/bridge/netfilter/ebtable_nat.c
-+++ b/net/bridge/netfilter/ebtable_nat.c
-@@ -48,7 +48,7 @@ static int check(const struct ebt_table_info *info, unsigned int valid_hooks)
- 	return 0;
- }
+diff --git a/net/ieee802154/6lowpan/core.c b/net/ieee802154/6lowpan/core.c
+index de2661c..974765b 100644
+--- a/net/ieee802154/6lowpan/core.c
++++ b/net/ieee802154/6lowpan/core.c
+@@ -54,7 +54,7 @@
  
--static struct ebt_table frame_nat = {
-+static const struct ebt_table frame_nat = {
- 	.name		= "nat",
- 	.table		= &initial_table,
- 	.valid_hooks	= NAT_VALID_HOOKS,
+ static int open_count;
+ 
+-static struct header_ops lowpan_header_ops = {
++static const struct header_ops lowpan_header_ops = {
+ 	.create	= lowpan_header_create,
+ };
+ 
 -- 
 1.9.1
