@@ -1,36 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 0/4] Route ICMPv6 errors with the flow when
- ECMP in use
-Date: Thu, 24 Aug 2017 18:21:42 -0700 (PDT)
-Message-ID: <20170824.182142.290308098201695789.davem@davemloft.net>
-References: <20170823075831.27031-1-jkbs@redhat.com>
+Subject: Re: [PATCH net] net: systemport: Be drop monitor friendly
+Date: Thu, 24 Aug 2017 18:23:46 -0700 (PDT)
+Message-ID: <20170824.182346.1025832510600253819.davem@davemloft.net>
+References: <20170824222041.8377-1-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hannes@stressinduktion.org,
-        nikolay@cumulusnetworks.com, tom@herbertland.com
-To: jkbs@redhat.com
+Cc: netdev@vger.kernel.org, edumazet@gmail.com
+To: f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:59788 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:59828 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753924AbdHYBVn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 24 Aug 2017 21:21:43 -0400
-In-Reply-To: <20170823075831.27031-1-jkbs@redhat.com>
+        with ESMTP id S1753962AbdHYBXr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 24 Aug 2017 21:23:47 -0400
+In-Reply-To: <20170824222041.8377-1-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jakub Sitnicki <jkbs@redhat.com>
-Date: Wed, 23 Aug 2017 09:58:27 +0200
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Thu, 24 Aug 2017 15:20:41 -0700
 
-> This patch set is another take at making Path MTU Discovery work when
-> server nodes are behind a router employing multipath routing in a
-> load-balance or anycast setup (that is, when not every end-node can be
-> reached by every path). The problem has been well described in RFC 7690
-> [1], but in short - in such setups ICMPv6 PTB errors are not guaranteed
-> to be routed back to the server node that sent a reply that exceeds path
-> MTU.
- ...
+> Utilize dev_consume_skb_any(cb->skb) in bcm_sysport_free_cb() which is
+> used when a TX packet is completed, as well as when the RX ring is
+> cleaned on shutdown. None of these two cases are packet drops, so be
+> drop monitor friendly.
+> 
+> Suggested-by: Eric Dumazet <edumazet@gmail.com>
+> Fixes: 80105befdb4b ("net: systemport: add Broadcom SYSTEMPORT Ethernet MAC driver")
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 
-Ok, looks not to bad.
-
-Applied, thanks.
+Applied.
