@@ -1,254 +1,126 @@
 From: Iyappan Subramanian <isubramanian@apm.com>
-Subject: [PATCH 2/2] drivers: net: xgene: Clean up all outstanding tx descriptors
-Date: Fri, 25 Aug 2017 15:23:30 -0700
-Message-ID: <1503699810-12803-3-git-send-email-isubramanian@apm.com>
+Subject: [PATCH 1/2] drivers: net: xgene: Correct probe sequence handling
+Date: Fri, 25 Aug 2017 15:23:29 -0700
+Message-ID: <1503699810-12803-2-git-send-email-isubramanian@apm.com>
 References: <1503699810-12803-1-git-send-email-isubramanian@apm.com>
 Cc: linux-arm-kernel@lists.infradead.org, dnelson@redhat.com,
         qnguyen@apm.com, patches@apm.com,
         Iyappan Subramanian <isubramanian@apm.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f41.google.com ([74.125.83.41]:32969 "EHLO
-        mail-pg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933777AbdHYWXw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 18:23:52 -0400
-Received: by mail-pg0-f41.google.com with SMTP id t3so5784955pgt.0
-        for <netdev@vger.kernel.org>; Fri, 25 Aug 2017 15:23:51 -0700 (PDT)
+Received: from mail-pg0-f50.google.com ([74.125.83.50]:38282 "EHLO
+        mail-pg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933777AbdHYWXs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 18:23:48 -0400
+Received: by mail-pg0-f50.google.com with SMTP id b8so5663368pgn.5
+        for <netdev@vger.kernel.org>; Fri, 25 Aug 2017 15:23:48 -0700 (PDT)
 In-Reply-To: <1503699810-12803-1-git-send-email-isubramanian@apm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When xgene_enet is rmmod'd and there are still outstanding tx descriptors
-that have been setup but have not completed, it is possible on the next
-modprobe of the driver to receive the oldest of such tx descriptors. This
-results in a kernel NULL pointer dereference.
+From: Quan Nguyen <qnguyen@apm.com>
 
-This patch attempts to clean up (by tearing down) all outstanding tx
-descriptors when the xgene_enet driver is being rmmod'd.
+The phy is connected at early stage of probe but not properly
+disconnected if error occurs.  This patch fixes the issue.
 
-Given that, on the next modprobe it should be safe to ignore any such tx
-descriptors received that map to a NULL skb pointer.
+Also changing the return type of xgene_enet_check_phy_handle(),
+since this function always returns success.
 
-Additionally this patch removes redundant call to dev_kfree_skb_any() from
-xgene_enet_setup_tx_desc(). The only caller of xgene_enet_setup_tx_desc()
-will call dev_kfree_skb_any() upon return of an error. Nothing is gained by
-calling it twice in a row.
-
+Signed-off-by: Quan Nguyen <qnguyen@apm.com>
 Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
-Signed-off-by: Dean Nelson <dnelson@redhat.com>
-Tested-by: Quan Nguyen <qnguyen@apm.com>
 ---
- drivers/net/ethernet/apm/xgene/xgene_enet_main.c | 120 +++++++++++++++++------
- 1 file changed, 89 insertions(+), 31 deletions(-)
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.c | 27 ++++++++++++------------
+ 1 file changed, 13 insertions(+), 14 deletions(-)
 
 diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-index 6e253d9..76e2903 100644
+index 1d307f2..6e253d9 100644
 --- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
 +++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-@@ -237,22 +237,24 @@ static irqreturn_t xgene_enet_rx_irq(const int irq, void *data)
- 	return IRQ_HANDLED;
- }
- 
--static int xgene_enet_tx_completion(struct xgene_enet_desc_ring *cp_ring,
--				    struct xgene_enet_raw_desc *raw_desc)
-+static dma_addr_t *xgene_get_frag_dma_array(struct xgene_enet_desc_ring *ring,
-+					    u16 skb_index)
- {
--	struct xgene_enet_pdata *pdata = netdev_priv(cp_ring->ndev);
--	struct sk_buff *skb;
-+	return &ring->frag_dma_addr[skb_index * MAX_SKB_FRAGS];
-+}
-+
-+static void xgene_enet_teardown_tx_desc(struct xgene_enet_desc_ring *cp_ring,
-+					struct xgene_enet_raw_desc *raw_desc,
-+					struct xgene_enet_raw_desc *exp_desc,
-+					struct sk_buff *skb,
-+					u16 skb_index)
-+{
-+	dma_addr_t dma_addr, *frag_dma_addr;
- 	struct device *dev;
- 	skb_frag_t *frag;
--	dma_addr_t *frag_dma_addr;
--	u16 skb_index;
--	u8 mss_index;
--	u8 status;
- 	int i;
- 
--	skb_index = GET_VAL(USERINFO, le64_to_cpu(raw_desc->m0));
--	skb = cp_ring->cp_skb[skb_index];
--	frag_dma_addr = &cp_ring->frag_dma_addr[skb_index * MAX_SKB_FRAGS];
-+	frag_dma_addr = xgene_get_frag_dma_array(cp_ring, skb_index);
- 
- 	dev = ndev_to_dev(cp_ring->ndev);
- 	dma_unmap_single(dev, GET_VAL(DATAADDR, le64_to_cpu(raw_desc->m1)),
-@@ -265,6 +267,36 @@ static int xgene_enet_tx_completion(struct xgene_enet_desc_ring *cp_ring,
- 			       DMA_TO_DEVICE);
- 	}
- 
-+	if (exp_desc && GET_VAL(LL_BYTES_LSB, le64_to_cpu(raw_desc->m2))) {
-+		dma_addr = GET_VAL(DATAADDR, le64_to_cpu(exp_desc->m2));
-+		dma_unmap_single(dev, dma_addr, sizeof(u64) * MAX_EXP_BUFFS,
-+				 DMA_TO_DEVICE);
-+	}
-+
-+	dev_kfree_skb_any(skb);
-+}
-+
-+static int xgene_enet_tx_completion(struct xgene_enet_desc_ring *cp_ring,
-+				    struct xgene_enet_raw_desc *raw_desc,
-+				    struct xgene_enet_raw_desc *exp_desc)
-+{
-+	struct xgene_enet_pdata *pdata = netdev_priv(cp_ring->ndev);
-+	struct sk_buff *skb;
-+	u16 skb_index;
-+	u8 status;
-+	u8 mss_index;
-+
-+	skb_index = GET_VAL(USERINFO, le64_to_cpu(raw_desc->m0));
-+	skb = cp_ring->cp_skb[skb_index];
-+	if (unlikely(!skb)) {
-+		netdev_err(cp_ring->ndev, "completion skb is NULL\n");
-+		return -EIO;
-+	}
-+	cp_ring->cp_skb[skb_index] = NULL;
-+
-+	xgene_enet_teardown_tx_desc(cp_ring, raw_desc, exp_desc, skb,
-+				    skb_index);
-+
- 	if (GET_BIT(ET, le64_to_cpu(raw_desc->m3))) {
- 		mss_index = GET_VAL(MSS, le64_to_cpu(raw_desc->m3));
- 		spin_lock(&pdata->mss_lock);
-@@ -279,12 +311,6 @@ static int xgene_enet_tx_completion(struct xgene_enet_desc_ring *cp_ring,
- 		cp_ring->tx_errors++;
- 	}
- 
--	if (likely(skb)) {
--		dev_kfree_skb_any(skb);
--	} else {
--		netdev_err(cp_ring->ndev, "completion skb is NULL\n");
--	}
--
+@@ -1661,21 +1661,21 @@ static int xgene_enet_get_irqs(struct xgene_enet_pdata *pdata)
  	return 0;
  }
  
-@@ -412,11 +438,6 @@ static __le64 *xgene_enet_get_exp_bufs(struct xgene_enet_desc_ring *ring)
- 	return exp_bufs;
+-static int xgene_enet_check_phy_handle(struct xgene_enet_pdata *pdata)
++static void xgene_enet_check_phy_handle(struct xgene_enet_pdata *pdata)
+ {
+ 	int ret;
+ 
+ 	if (pdata->phy_mode == PHY_INTERFACE_MODE_XGMII)
+-		return 0;
++		return;
+ 
+ 	if (!IS_ENABLED(CONFIG_MDIO_XGENE))
+-		return 0;
++		return;
+ 
+ 	ret = xgene_enet_phy_connect(pdata->ndev);
+ 	if (!ret)
+ 		pdata->mdio_driver = true;
+ 
+-	return 0;
++	return;
  }
  
--static dma_addr_t *xgene_get_frag_dma_array(struct xgene_enet_desc_ring *ring)
--{
--	return &ring->cp_ring->frag_dma_addr[ring->tail * MAX_SKB_FRAGS];
--}
+ static void xgene_enet_gpiod_get(struct xgene_enet_pdata *pdata)
+@@ -1779,10 +1779,6 @@ static int xgene_enet_get_resources(struct xgene_enet_pdata *pdata)
+ 	if (ret)
+ 		return ret;
+ 
+-	ret = xgene_enet_check_phy_handle(pdata);
+-	if (ret)
+-		return ret;
 -
- static int xgene_enet_setup_tx_desc(struct xgene_enet_desc_ring *tx_ring,
- 				    struct sk_buff *skb)
- {
-@@ -473,7 +494,8 @@ static int xgene_enet_setup_tx_desc(struct xgene_enet_desc_ring *tx_ring,
- 	for (i = nr_frags; i < 4 ; i++)
- 		exp_desc[i ^ 1] = cpu_to_le64(LAST_BUFFER);
+ 	xgene_enet_gpiod_get(pdata);
  
--	frag_dma_addr = xgene_get_frag_dma_array(tx_ring);
-+	frag_dma_addr = xgene_get_frag_dma_array(tx_ring->cp_ring,
-+						 tx_ring->tail);
- 
- 	for (i = 0, fidx = 0; split || (fidx < nr_frags); i++) {
- 		if (!split) {
-@@ -484,7 +506,7 @@ static int xgene_enet_setup_tx_desc(struct xgene_enet_desc_ring *tx_ring,
- 			pbuf_addr = skb_frag_dma_map(dev, frag, 0, size,
- 						     DMA_TO_DEVICE);
- 			if (dma_mapping_error(dev, pbuf_addr))
--				return -EINVAL;
-+				goto err;
- 
- 			frag_dma_addr[fidx] = pbuf_addr;
- 			fidx++;
-@@ -539,10 +561,9 @@ static int xgene_enet_setup_tx_desc(struct xgene_enet_desc_ring *tx_ring,
- 		dma_addr = dma_map_single(dev, exp_bufs,
- 					  sizeof(u64) * MAX_EXP_BUFFS,
- 					  DMA_TO_DEVICE);
--		if (dma_mapping_error(dev, dma_addr)) {
--			dev_kfree_skb_any(skb);
--			return -EINVAL;
--		}
-+		if (dma_mapping_error(dev, dma_addr))
-+			goto err;
-+
- 		i = ell_bytes >> LL_BYTES_LSB_LEN;
- 		exp_desc[2] = cpu_to_le64(SET_VAL(DATAADDR, dma_addr) |
- 					  SET_VAL(LL_BYTES_MSB, i) |
-@@ -558,6 +579,19 @@ static int xgene_enet_setup_tx_desc(struct xgene_enet_desc_ring *tx_ring,
- 	tx_ring->tail = tail;
- 
- 	return count;
-+
-+err:
-+	dma_unmap_single(dev, GET_VAL(DATAADDR, le64_to_cpu(raw_desc->m1)),
-+			 skb_headlen(skb),
-+			 DMA_TO_DEVICE);
-+
-+	for (i = 0; i < fidx; i++) {
-+		frag = &skb_shinfo(skb)->frags[i];
-+		dma_unmap_page(dev, frag_dma_addr[i], skb_frag_size(frag),
-+			       DMA_TO_DEVICE);
-+	}
-+
-+	return -EINVAL;
- }
- 
- static netdev_tx_t xgene_enet_start_xmit(struct sk_buff *skb,
-@@ -828,7 +862,8 @@ static int xgene_enet_process_ring(struct xgene_enet_desc_ring *ring,
- 		if (is_rx_desc(raw_desc)) {
- 			ret = xgene_enet_rx_frame(ring, raw_desc, exp_desc);
- 		} else {
--			ret = xgene_enet_tx_completion(ring, raw_desc);
-+			ret = xgene_enet_tx_completion(ring, raw_desc,
-+						       exp_desc);
- 			is_completion = true;
- 		}
- 		xgene_enet_mark_desc_slot_empty(raw_desc);
-@@ -1071,18 +1106,41 @@ static void xgene_enet_delete_desc_rings(struct xgene_enet_pdata *pdata)
- {
- 	struct xgene_enet_desc_ring *buf_pool, *page_pool;
- 	struct xgene_enet_desc_ring *ring;
--	int i;
-+	struct xgene_enet_raw_desc *raw_desc, *exp_desc;
-+	struct sk_buff *skb;
-+	int i, j, k;
- 
- 	for (i = 0; i < pdata->txq_cnt; i++) {
- 		ring = pdata->tx_ring[i];
- 		if (ring) {
-+			/*
-+			 * Find any tx descriptors that were setup but never
-+			 * completed, and teardown the setup.
-+			 */
-+			for (j = 0; j < ring->slots; j++) {
-+				skb = ring->cp_ring->cp_skb[j];
-+				if (likely(!skb))
-+					continue;
-+
-+				raw_desc = &ring->raw_desc[j];
-+				exp_desc = NULL;
-+				if (GET_BIT(NV, le64_to_cpu(raw_desc->m0))) {
-+					k = (j + 1) & (ring->slots - 1);
-+					exp_desc = &ring->raw_desc[k];
-+				}
-+
-+				xgene_enet_teardown_tx_desc(ring->cp_ring,
-+							    raw_desc, exp_desc,
-+							    skb, j);
-+			}
-+
- 			xgene_enet_delete_ring(ring);
- 			pdata->port_ops->clear(pdata, ring);
-+
- 			if (pdata->cq_cnt)
- 				xgene_enet_delete_ring(ring->cp_ring);
- 			pdata->tx_ring[i] = NULL;
- 		}
--
+ 	pdata->clk = devm_clk_get(&pdev->dev, NULL);
+@@ -2097,9 +2093,11 @@ static int xgene_enet_probe(struct platform_device *pdev)
+ 		goto err;
  	}
  
- 	for (i = 0; i < pdata->rxq_cnt; i++) {
++	xgene_enet_check_phy_handle(pdata);
++
+ 	ret = xgene_enet_init_hw(pdata);
+ 	if (ret)
+-		goto err;
++		goto err2;
+ 
+ 	link_state = pdata->mac_ops->link_state;
+ 	if (pdata->phy_mode == PHY_INTERFACE_MODE_XGMII) {
+@@ -2117,29 +2115,30 @@ static int xgene_enet_probe(struct platform_device *pdev)
+ 	spin_lock_init(&pdata->stats_lock);
+ 	ret = xgene_extd_stats_init(pdata);
+ 	if (ret)
+-		goto err2;
++		goto err1;
+ 
+ 	xgene_enet_napi_add(pdata);
+ 	ret = register_netdev(ndev);
+ 	if (ret) {
+ 		netdev_err(ndev, "Failed to register netdev\n");
+-		goto err2;
++		goto err1;
+ 	}
+ 
+ 	return 0;
+ 
+-err2:
++err1:
+ 	/*
+ 	 * If necessary, free_netdev() will call netif_napi_del() and undo
+ 	 * the effects of xgene_enet_napi_add()'s calls to netif_napi_add().
+ 	 */
+ 
++	xgene_enet_delete_desc_rings(pdata);
++
++err2:
+ 	if (pdata->mdio_driver)
+ 		xgene_enet_phy_disconnect(pdata);
+ 	else if (phy_interface_mode_is_rgmii(pdata->phy_mode))
+ 		xgene_enet_mdio_remove(pdata);
+-err1:
+-	xgene_enet_delete_desc_rings(pdata);
+ err:
+ 	free_netdev(ndev);
+ 	return ret;
 -- 
 2.7.4
