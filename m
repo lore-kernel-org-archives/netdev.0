@@ -1,115 +1,195 @@
 From: David Ahern <dsahern@gmail.com>
-Subject: [PATCH v2 net-next 5/8] samples/bpf: Add detach option to test_cgrp2_sock
-Date: Fri, 25 Aug 2017 12:05:38 -0700
-Message-ID: <1503687941-626-6-git-send-email-dsahern@gmail.com>
+Subject: [PATCH v2 net-next 7/8] samples/bpf: Add test case for nested socket options
+Date: Fri, 25 Aug 2017 12:05:40 -0700
+Message-ID: <1503687941-626-8-git-send-email-dsahern@gmail.com>
 References: <1503687941-626-1-git-send-email-dsahern@gmail.com>
 Cc: David Ahern <dsahern@gmail.com>
 To: netdev@vger.kernel.org, daniel@iogearbox.net, ast@kernel.org,
         tj@kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:37665 "EHLO
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:35872 "EHLO
         mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1758132AbdHYTFz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 15:05:55 -0400
-Received: by mail-pg0-f66.google.com with SMTP id a7so887894pgn.4
-        for <netdev@vger.kernel.org>; Fri, 25 Aug 2017 12:05:55 -0700 (PDT)
+        with ESMTP id S1758136AbdHYTF6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 15:05:58 -0400
+Received: by mail-pg0-f66.google.com with SMTP id 83so890664pgb.3
+        for <netdev@vger.kernel.org>; Fri, 25 Aug 2017 12:05:58 -0700 (PDT)
 In-Reply-To: <1503687941-626-1-git-send-email-dsahern@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add option to detach programs from a cgroup.
-
 Signed-off-by: David Ahern <dsahern@gmail.com>
 ---
- samples/bpf/test_cgrp2_sock.c | 50 ++++++++++++++++++++++++++++++-------------
- 1 file changed, 35 insertions(+), 15 deletions(-)
+ samples/bpf/test_cgrp2_sock3.sh | 162 ++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 162 insertions(+)
+ create mode 100755 samples/bpf/test_cgrp2_sock3.sh
 
-diff --git a/samples/bpf/test_cgrp2_sock.c b/samples/bpf/test_cgrp2_sock.c
-index b018bf948933..a1ef7b8bd3f9 100644
---- a/samples/bpf/test_cgrp2_sock.c
-+++ b/samples/bpf/test_cgrp2_sock.c
-@@ -114,7 +114,12 @@ static int prog_load(__u32 idx, __u32 mark, __u32 prio)
- 
- static int usage(const char *argv0)
- {
--	printf("Usage: %s -b bind-to-dev -m mark -p prio -r cg-path\n", argv0);
-+	printf("Usage:\n");
-+	printf("  Attach a program\n");
-+	printf("  %s -b bind-to-dev -m mark -p prio -r cg-path\n", argv0);
-+	printf("\n");
-+	printf("  Detach a program\n");
-+	printf("  %s -d cg-path\n", argv0);
- 	return EXIT_FAILURE;
- }
- 
-@@ -124,10 +129,14 @@ int main(int argc, char **argv)
- 	__u32 idx = 0, mark = 0, prio = 0;
- 	const char *cgrp_path = NULL;
- 	int cg_fd, prog_fd, ret;
-+	int do_attach = 1;
- 	int rc;
- 
--	while ((rc = getopt(argc, argv, "b:m:p:r")) != -1) {
-+	while ((rc = getopt(argc, argv, "db:m:p:r")) != -1) {
- 		switch (rc) {
-+		case 'd':
-+			do_attach = 0;
-+			break;
- 		case 'b':
- 			idx = if_nametoindex(optarg);
- 			if (!idx) {
-@@ -161,7 +170,7 @@ int main(int argc, char **argv)
- 		return EXIT_FAILURE;
- 	}
- 
--	if (!idx && !mark && !prio) {
-+	if (do_attach && !idx && !mark && !prio) {
- 		fprintf(stderr, "One of device, mark or priority must be given\n");
- 		return EXIT_FAILURE;
- 	}
-@@ -172,20 +181,31 @@ int main(int argc, char **argv)
- 		return EXIT_FAILURE;
- 	}
- 
--	prog_fd = prog_load(idx, mark, prio);
--	if (prog_fd < 0) {
--		printf("Failed to load prog: '%s'\n", strerror(errno));
--		printf("Output from kernel verifier:\n%s\n-------\n", bpf_log_buf);
--		return EXIT_FAILURE;
--	}
-+	if (do_attach) {
-+		prog_fd = prog_load(idx, mark, prio);
-+		if (prog_fd < 0) {
-+			printf("Failed to load prog: '%s'\n", strerror(errno));
-+			printf("Output from kernel verifier:\n%s\n-------\n",
-+			       bpf_log_buf);
-+			return EXIT_FAILURE;
-+		}
- 
--	ret = bpf_prog_attach(prog_fd, cg_fd, BPF_CGROUP_INET_SOCK_CREATE,
--			      attach_flags);
--	if (ret < 0) {
--		printf("Failed to attach prog to cgroup: '%s'\n",
--		       strerror(errno));
--		return EXIT_FAILURE;
-+		ret = bpf_prog_attach(prog_fd, cg_fd, BPF_CGROUP_INET_SOCK_CREATE,
-+				      attach_flags);
-+		if (ret < 0) {
-+			printf("Failed to attach prog to cgroup: '%s'\n",
-+			       strerror(errno));
-+			return EXIT_FAILURE;
-+		}
-+	} else {
-+		ret = bpf_prog_detach(cg_fd, BPF_CGROUP_INET_SOCK_CREATE);
-+		if (ret < 0) {
-+			printf("Failed to detach prog from cgroup: '%s'\n",
-+			       strerror(errno));
-+			return EXIT_FAILURE;
-+		}
- 	}
- 
-+	close(cg_fd);
- 	return EXIT_SUCCESS;
- }
+diff --git a/samples/bpf/test_cgrp2_sock3.sh b/samples/bpf/test_cgrp2_sock3.sh
+new file mode 100755
+index 000000000000..9bfed035963f
+--- /dev/null
++++ b/samples/bpf/test_cgrp2_sock3.sh
+@@ -0,0 +1,162 @@
++#!/bin/sh
++
++# Verify socket options inherited by bpf programs attached
++# to a cgroup.
++
++CGRP_MNT="/tmp/cgroupv2-test_cgrp2_sock"
++
++################################################################################
++#
++print_result()
++{
++	printf "%-50s    [%4s]\n" "$1" "$2"
++}
++
++check_sock()
++{
++	out=$(test_cgrp2_sock)
++	echo $out | grep -q "$1"
++	if [ $? -ne 0 ]; then
++		print_result "IPv4: $2" "FAIL"
++		echo "    expected: $1"
++		echo "        have: $out"
++		rc=1
++	else
++		print_result "IPv4: $2" " OK "
++	fi
++}
++
++check_sock6()
++{
++	out=$(test_cgrp2_sock -6)
++	echo $out | grep -q "$1"
++	if [ $? -ne 0 ]; then
++		print_result "IPv6: $2" "FAIL"
++		echo "    expected: $1"
++		echo "        have: $out"
++		rc=1
++	else
++		print_result "IPv6: $2" " OK "
++	fi
++}
++
++################################################################################
++#
++setup()
++{
++	cleanup 2>/dev/null
++
++	mkdir -p ${CGRP_MNT}/cgrp_sock_test/prio/mark/dev
++	[ $? -ne 0 ] && cleanup_and_exit 1 "Failed to create cgroup hierarchy"
++
++	test_cgrp2_sock -p 123 ${CGRP_MNT}/cgrp_sock_test/prio
++	[ $? -ne 0 ] && cleanup_and_exit 1 "Failed to install program to set priority"
++
++	test_cgrp2_sock -m 666 -r ${CGRP_MNT}/cgrp_sock_test/prio/mark
++	[ $? -ne 0 ] && cleanup_and_exit 1 "Failed to install program to set mark"
++
++	test_cgrp2_sock -b cgrp2_sock -r ${CGRP_MNT}/cgrp_sock_test/prio/mark/dev
++	[ $? -ne 0 ] && cleanup_and_exit 1 "Failed to install program to set device"
++}
++
++cleanup()
++{
++	echo $$ >> ${CGRP_MNT}/cgroup.procs
++	rmdir ${CGRP_MNT}/cgrp_sock_test/prio/mark/dev
++	rmdir ${CGRP_MNT}/cgrp_sock_test/prio/mark
++	rmdir ${CGRP_MNT}/cgrp_sock_test/prio
++	rmdir ${CGRP_MNT}/cgrp_sock_test
++}
++
++cleanup_and_exit()
++{
++	local rc=$1
++	local msg="$2"
++
++	[ -n "$msg" ] && echo "ERROR: $msg"
++
++	ip li del cgrp2_sock
++	umount ${CGRP_MNT}
++
++	exit $rc
++}
++
++################################################################################
++#
++
++run_tests()
++{
++	# set pid into first cgroup. socket should show it
++	# has a priority but not a mark or device bind
++	echo $$ > ${CGRP_MNT}/cgrp_sock_test/prio/cgroup.procs
++	check_sock "dev , mark 0, priority 123" "Priority only"
++
++	# set pid into second group. socket should show it
++	# has a priority and mark but not a device bind
++	echo $$ > ${CGRP_MNT}/cgrp_sock_test/prio/mark/cgroup.procs
++	check_sock "dev , mark 666, priority 123" "Priority + mark"
++
++	# set pid into inner group. socket should show it
++	# has a priority, mark and a device bind
++	echo $$ > ${CGRP_MNT}/cgrp_sock_test/prio/mark/dev/cgroup.procs
++	check_sock "dev cgrp2_sock, mark 666, priority 123" "Priority + mark + dev"
++
++	echo
++
++	# set pid into first cgroup. socket should show it
++	# has a priority but not a mark or device bind
++	echo $$ > ${CGRP_MNT}/cgrp_sock_test/prio/cgroup.procs
++	check_sock6 "dev , mark 0, priority 123" "Priority only"
++
++	# set pid into second group. socket should show it
++	# has a priority and mark but not a device bind
++	echo $$ > ${CGRP_MNT}/cgrp_sock_test/prio/mark/cgroup.procs
++	check_sock6 "dev , mark 666, priority 123" "Priority + mark"
++
++	# set pid into inner group. socket should show it
++	# has a priority, mark and a device bind
++	echo $$ > ${CGRP_MNT}/cgrp_sock_test/prio/mark/dev/cgroup.procs
++	check_sock6 "dev cgrp2_sock, mark 666, priority 123" "Priority + mark + dev"
++}
++
++################################################################################
++# verify expected invalid setups are invalid
++
++invalid_setup()
++{
++	echo
++
++	mkdir -p ${CGRP_MNT}/cgrp_sock_test/prio/mark/dev
++	[ $? -ne 0 ] && cleanup_and_exit 1 "Failed to create cgroup hierarchy"
++
++	test_cgrp2_sock -p 123 -r ${CGRP_MNT}/cgrp_sock_test/prio
++	[ $? -ne 0 ] && cleanup_and_exit 1 "Failed to install program to set priority"
++
++	# recursive - followed by non-recursive is not allowed
++	test_cgrp2_sock -m 666 ${CGRP_MNT}/cgrp_sock_test/prio/mark >/dev/null 2>&1
++	if [ $? -eq 0 ]; then
++		print_result "recursive setting followed by non-recursive" "FAIL"
++	else
++		print_result "recursive setting followed by non-recursive" " OK "
++	fi
++}
++
++################################################################################
++# main
++
++rc=0
++
++ip li add cgrp2_sock type dummy 2>/dev/null
++
++set -e
++mkdir -p ${CGRP_MNT}
++mount -t cgroup2 none ${CGRP_MNT}
++set +e
++
++setup
++run_tests
++cleanup
++
++invalid_setup
++
++cleanup_and_exit $rc
 -- 
 2.1.4
