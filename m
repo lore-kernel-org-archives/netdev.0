@@ -1,172 +1,127 @@
 From: David Lebrun <david.lebrun@uclouvain.be>
-Subject: [PATCH net-next v2 1/5] ipv6: sr: add support for ip4ip6 encapsulation
-Date: Fri, 25 Aug 2017 09:56:44 +0200
-Message-ID: <20170825075648.5061-2-david.lebrun@uclouvain.be>
+Subject: [PATCH net-next v2 2/5] ipv6: sr: add support for encapsulation of L2 frames
+Date: Fri, 25 Aug 2017 09:56:45 +0200
+Message-ID: <20170825075648.5061-3-david.lebrun@uclouvain.be>
 References: <20170825075648.5061-1-david.lebrun@uclouvain.be>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: David Lebrun <david.lebrun@uclouvain.be>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:34563 "EHLO
-        smtp5.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754521AbdHYH4Z (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 03:56:25 -0400
+Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:39344 "EHLO
+        smtp2.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754564AbdHYH4X (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 03:56:23 -0400
 Received: from mailboxes.uclouvain.be (mailboxes.uclouvain.be [130.104.6.131])
         (using TLSv1.2 with cipher ECDHE-RSA-AES256-SHA384 (256/256 bits))
         (No client certificate requested)
-        by smtp5.sgsi.ucl.ac.be (Postfix) with ESMTPS id 9AF2667DA56
+        by smtp2.sgsi.ucl.ac.be (Postfix) with ESMTPS id C4E5A67DDE7
         for <netdev@vger.kernel.org>; Fri, 25 Aug 2017 09:56:13 +0200 (CEST)
 In-Reply-To: <20170825075648.5061-1-david.lebrun@uclouvain.be>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch enables the SRv6 encapsulation mode to carry an IPv4 payload.
-All the infrastructure was already present, I just had to add a parameter
-to seg6_do_srh_encap() to specify the inner packet protocol, and perform
-some additional checks.
+This patch implements the L2 frame encapsulation mechanism, referred to
+as T.Encaps.L2 in the SRv6 specifications [1].
 
-Usage example:
-ip route add 1.2.3.4 encap seg6 mode encap segs fc00::1,fc00::2 dev eth0
+A new type of SRv6 tunnel mode is added (SEG6_IPTUN_MODE_L2ENCAP). It only
+accepts packets with an existing MAC header (i.e., it will not work for
+locally generated packets). The resulting packet looks like IPv6 -> SRH ->
+Ethernet -> original L3 payload. The next header field of the SRH is set to
+NEXTHDR_NONE.
+
+[1] https://tools.ietf.org/html/draft-filsfils-spring-srv6-network-programming-01
 
 Signed-off-by: David Lebrun <david.lebrun@uclouvain.be>
 ---
- include/net/seg6.h       |  3 ++-
- net/ipv6/seg6_iptunnel.c | 47 +++++++++++++++++++++++++++++++++++++----------
- net/ipv6/seg6_local.c    |  2 +-
- 3 files changed, 40 insertions(+), 12 deletions(-)
+ include/uapi/linux/seg6_iptunnel.h | 18 ++++++++++++++----
+ net/ipv6/seg6_iptunnel.c           | 25 +++++++++++++++++++++++--
+ 2 files changed, 37 insertions(+), 6 deletions(-)
 
-diff --git a/include/net/seg6.h b/include/net/seg6.h
-index 5379f55..099bad5 100644
---- a/include/net/seg6.h
-+++ b/include/net/seg6.h
-@@ -60,7 +60,8 @@ extern int seg6_local_init(void);
- extern void seg6_local_exit(void);
+diff --git a/include/uapi/linux/seg6_iptunnel.h b/include/uapi/linux/seg6_iptunnel.h
+index b6e5a0a..b23df9f 100644
+--- a/include/uapi/linux/seg6_iptunnel.h
++++ b/include/uapi/linux/seg6_iptunnel.h
+@@ -33,16 +33,26 @@ struct seg6_iptunnel_encap {
+ enum {
+ 	SEG6_IPTUN_MODE_INLINE,
+ 	SEG6_IPTUN_MODE_ENCAP,
++	SEG6_IPTUN_MODE_L2ENCAP,
+ };
  
- extern bool seg6_validate_srh(struct ipv6_sr_hdr *srh, int len);
--extern int seg6_do_srh_encap(struct sk_buff *skb, struct ipv6_sr_hdr *osrh);
-+extern int seg6_do_srh_encap(struct sk_buff *skb, struct ipv6_sr_hdr *osrh,
-+			     int proto);
- extern int seg6_do_srh_inline(struct sk_buff *skb, struct ipv6_sr_hdr *osrh);
+ #ifdef __KERNEL__
+ 
+ static inline size_t seg6_lwt_headroom(struct seg6_iptunnel_encap *tuninfo)
+ {
+-	int encap = (tuninfo->mode == SEG6_IPTUN_MODE_ENCAP);
+-
+-	return ((tuninfo->srh->hdrlen + 1) << 3) +
+-	       (encap * sizeof(struct ipv6hdr));
++	int head = 0;
++
++	switch (tuninfo->mode) {
++	case SEG6_IPTUN_MODE_INLINE:
++		break;
++	case SEG6_IPTUN_MODE_ENCAP:
++		head = sizeof(struct ipv6hdr);
++		break;
++	case SEG6_IPTUN_MODE_L2ENCAP:
++		return 0;
++	}
++
++	return ((tuninfo->srh->hdrlen + 1) << 3) + head;
+ }
  
  #endif
 diff --git a/net/ipv6/seg6_iptunnel.c b/net/ipv6/seg6_iptunnel.c
-index 5012330..5bec781 100644
+index 5bec781..bd6cc68 100644
 --- a/net/ipv6/seg6_iptunnel.c
 +++ b/net/ipv6/seg6_iptunnel.c
-@@ -91,7 +91,7 @@ static void set_tun_src(struct net *net, struct net_device *dev,
- }
+@@ -240,6 +240,22 @@ static int seg6_do_srh(struct sk_buff *skb)
  
- /* encapsulate an IPv6 packet within an outer IPv6 header with a given SRH */
--int seg6_do_srh_encap(struct sk_buff *skb, struct ipv6_sr_hdr *osrh)
-+int seg6_do_srh_encap(struct sk_buff *skb, struct ipv6_sr_hdr *osrh, int proto)
- {
- 	struct net *net = dev_net(skb_dst(skb)->dev);
- 	struct ipv6hdr *hdr, *inner_hdr;
-@@ -116,15 +116,22 @@ int seg6_do_srh_encap(struct sk_buff *skb, struct ipv6_sr_hdr *osrh)
- 	 * hlim will be decremented in ip6_forward() afterwards and
- 	 * decapsulation will overwrite inner hlim with outer hlim
- 	 */
--	ip6_flow_hdr(hdr, ip6_tclass(ip6_flowinfo(inner_hdr)),
--		     ip6_flowlabel(inner_hdr));
--	hdr->hop_limit = inner_hdr->hop_limit;
-+
-+	if (skb->protocol == htons(ETH_P_IPV6)) {
-+		ip6_flow_hdr(hdr, ip6_tclass(ip6_flowinfo(inner_hdr)),
-+			     ip6_flowlabel(inner_hdr));
-+		hdr->hop_limit = inner_hdr->hop_limit;
-+	} else {
-+		ip6_flow_hdr(hdr, 0, 0);
-+		hdr->hop_limit = ip6_dst_hoplimit(skb_dst(skb));
-+	}
-+
- 	hdr->nexthdr = NEXTHDR_ROUTING;
- 
- 	isrh = (void *)hdr + sizeof(*hdr);
- 	memcpy(isrh, osrh, hdrlen);
- 
--	isrh->nexthdr = NEXTHDR_IPV6;
-+	isrh->nexthdr = proto;
- 
- 	hdr->daddr = isrh->segments[isrh->first_segment];
- 	set_tun_src(net, skb->dev, &hdr->daddr, &hdr->saddr);
-@@ -199,7 +206,7 @@ static int seg6_do_srh(struct sk_buff *skb)
- {
- 	struct dst_entry *dst = skb_dst(skb);
- 	struct seg6_iptunnel_encap *tinfo;
--	int err = 0;
-+	int proto, err = 0;
- 
- 	tinfo = seg6_encap_lwtunnel(dst->lwtstate);
- 
-@@ -210,17 +217,31 @@ static int seg6_do_srh(struct sk_buff *skb)
- 
- 	switch (tinfo->mode) {
- 	case SEG6_IPTUN_MODE_INLINE:
-+		if (skb->protocol != htons(ETH_P_IPV6))
-+			return -EINVAL;
-+
- 		err = seg6_do_srh_inline(skb, tinfo->srh);
-+		if (err)
-+			return err;
-+
- 		skb_reset_inner_headers(skb);
+ 		skb->protocol = htons(ETH_P_IPV6);
  		break;
- 	case SEG6_IPTUN_MODE_ENCAP:
--		err = seg6_do_srh_encap(skb, tinfo->srh);
-+		if (skb->protocol == htons(ETH_P_IPV6))
-+			proto = IPPROTO_IPV6;
-+		else if (skb->protocol == htons(ETH_P_IP))
-+			proto = IPPROTO_IPIP;
-+		else
++	case SEG6_IPTUN_MODE_L2ENCAP:
++		if (!skb_mac_header_was_set(skb))
 +			return -EINVAL;
 +
-+		err = seg6_do_srh_encap(skb, tinfo->srh, proto);
++		if (pskb_expand_head(skb, skb->mac_len, 0, GFP_ATOMIC) < 0)
++			return -ENOMEM;
++
++		skb_mac_header_rebuild(skb);
++		skb_push(skb, skb->mac_len);
++
++		err = seg6_do_srh_encap(skb, tinfo->srh, NEXTHDR_NONE);
 +		if (err)
 +			return err;
 +
 +		skb->protocol = htons(ETH_P_IPV6);
- 		break;
++		break;
  	}
  
--	if (err)
--		return err;
--
  	ipv6_hdr(skb)->payload_len = htons(skb->len - sizeof(struct ipv6hdr));
- 	skb_set_transport_header(skb, sizeof(struct ipv6hdr));
- 
-@@ -334,6 +355,9 @@ static int seg6_build_state(struct nlattr *nla,
- 	struct seg6_lwt *slwt;
- 	int err;
- 
-+	if (family != AF_INET && family != AF_INET6)
-+		return -EINVAL;
-+
- 	err = nla_parse_nested(tb, SEG6_IPTUNNEL_MAX, nla,
- 			       seg6_iptunnel_policy, extack);
- 
-@@ -356,6 +380,9 @@ static int seg6_build_state(struct nlattr *nla,
- 
- 	switch (tuninfo->mode) {
- 	case SEG6_IPTUN_MODE_INLINE:
-+		if (family != AF_INET6)
-+			return -EINVAL;
-+
+@@ -386,6 +402,8 @@ static int seg6_build_state(struct nlattr *nla,
  		break;
  	case SEG6_IPTUN_MODE_ENCAP:
  		break;
-diff --git a/net/ipv6/seg6_local.c b/net/ipv6/seg6_local.c
-index 147680e..609b94e 100644
---- a/net/ipv6/seg6_local.c
-+++ b/net/ipv6/seg6_local.c
-@@ -290,7 +290,7 @@ static int input_action_end_b6_encap(struct sk_buff *skb,
- 	skb_reset_inner_headers(skb);
- 	skb->encapsulation = 1;
++	case SEG6_IPTUN_MODE_L2ENCAP:
++		break;
+ 	default:
+ 		return -EINVAL;
+ 	}
+@@ -409,8 +427,11 @@ static int seg6_build_state(struct nlattr *nla,
+ 	memcpy(&slwt->tuninfo, tuninfo, tuninfo_len);
  
--	err = seg6_do_srh_encap(skb, slwt->srh);
-+	err = seg6_do_srh_encap(skb, slwt->srh, IPPROTO_IPV6);
- 	if (err)
- 		goto drop;
+ 	newts->type = LWTUNNEL_ENCAP_SEG6;
+-	newts->flags |= LWTUNNEL_STATE_OUTPUT_REDIRECT |
+-			LWTUNNEL_STATE_INPUT_REDIRECT;
++	newts->flags |= LWTUNNEL_STATE_INPUT_REDIRECT;
++
++	if (tuninfo->mode != SEG6_IPTUN_MODE_L2ENCAP)
++		newts->flags |= LWTUNNEL_STATE_OUTPUT_REDIRECT;
++
+ 	newts->headroom = seg6_lwt_headroom(tuninfo);
  
+ 	*ts = newts;
 -- 
 2.10.2
