@@ -1,13 +1,13 @@
 From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH net-next v2 12/14] arm64: dts: marvell: mcbin: add comphy references to Ethernet ports
-Date: Fri, 25 Aug 2017 16:48:19 +0200
-Message-ID: <20170825144821.31129-13-antoine.tenart@free-electrons.com>
+Subject: [PATCH net-next v2 14/14] arm64: defconfig: enable Marvell CP110 comphy
+Date: Fri, 25 Aug 2017 16:48:21 +0200
+Message-ID: <20170825144821.31129-15-antoine.tenart@free-electrons.com>
 References: <20170825144821.31129-1-antoine.tenart@free-electrons.com>
-Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
+Cc: Miquel Raynal <miquel.raynal@free-electrons.com>,
         thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
         linux@armlinux.org.uk, linux-kernel@vger.kernel.org,
-        mw@semihalf.com, stefanc@marvell.com,
-        miquel.raynal@free-electrons.com, netdev@vger.kernel.org
+        mw@semihalf.com, stefanc@marvell.com, netdev@vger.kernel.org,
+        Antoine Tenart <antoine.tenart@free-electrons.com>
 To: davem@davemloft.net, kishon@ti.com, andrew@lunn.ch,
         jason@lakedaemon.net, sebastian.hesselbarth@gmail.com,
         gregory.clement@free-electrons.com
@@ -16,42 +16,29 @@ In-Reply-To: <20170825144821.31129-1-antoine.tenart@free-electrons.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds comphy phandles to the Ethernet ports in the mcbin
-device tree. The comphy is used to configure the serdes PHYs used by
-these ports.
+From: Miquel Raynal <miquel.raynal@free-electrons.com>
 
+The comphy is an hardware block giving access to common PHYs that can be
+used by various other engines (Network, SATA, ...). This is used on
+Marvell 7k/8k platforms for now. Enable the corresponding driver.
+
+Signed-off-by: Miquel Raynal <miquel.raynal@free-electrons.com>
 Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
 ---
- arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts | 3 +++
- 1 file changed, 3 insertions(+)
+ arch/arm64/configs/defconfig | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts b/arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts
-index 9f0a00802452..970081ca197b 100644
---- a/arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts
-+++ b/arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts
-@@ -148,6 +148,7 @@
- &cpm_eth0 {
- 	status = "okay";
- 	phy = <&phy0>;
-+	phys = <&cpm_comphy4 0>;
- 	phy-mode = "10gbase-kr";
- };
- 
-@@ -181,6 +182,7 @@
- &cps_eth0 {
- 	status = "okay";
- 	phy = <&phy8>;
-+	phys = <&cps_comphy4 0>;
- 	phy-mode = "10gbase-kr";
- };
- 
-@@ -189,6 +191,7 @@
- 	status = "okay";
- 	phy = <&ge_phy>;
- 	phy-mode = "sgmii";
-+	phys = <&cps_comphy0 1>;
- };
- 
- &cps_sata0 {
+diff --git a/arch/arm64/configs/defconfig b/arch/arm64/configs/defconfig
+index cdde4f56a281..e671e37b30af 100644
+--- a/arch/arm64/configs/defconfig
++++ b/arch/arm64/configs/defconfig
+@@ -509,6 +509,7 @@ CONFIG_PWM_TEGRA=m
+ CONFIG_PHY_RCAR_GEN3_USB2=y
+ CONFIG_PHY_HI6220_USB=y
+ CONFIG_PHY_SUN4I_USB=y
++CONFIG_PHY_MVEBU_CP110_COMPHY=y
+ CONFIG_PHY_ROCKCHIP_INNO_USB2=y
+ CONFIG_PHY_ROCKCHIP_EMMC=y
+ CONFIG_PHY_ROCKCHIP_PCIE=m
 -- 
 2.13.5
