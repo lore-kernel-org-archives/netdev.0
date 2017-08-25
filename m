@@ -1,89 +1,121 @@
 From: Guillaume Nault <g.nault@alphalink.fr>
-Subject: [PATCH net 4/5] l2tp: hold tunnel while handling genl TUNNEL_GET
- commands
-Date: Fri, 25 Aug 2017 16:51:43 +0200
-Message-ID: <d5389d773e368a52ece886e43e355967c2af8fdf.1503671776.git.g.nault@alphalink.fr>
+Subject: [PATCH net 5/5] l2tp: hold tunnel used while creating sessions with
+ netlink
+Date: Fri, 25 Aug 2017 16:51:46 +0200
+Message-ID: <b79825e8f68d83e0516af553cedde4c76fd7522c.1503671776.git.g.nault@alphalink.fr>
 References: <cover.1503671776.git.g.nault@alphalink.fr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: James Chapman <jchapman@katalix.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbra.alphalink.fr ([217.15.80.77]:53428 "EHLO
+Received: from zimbra.alphalink.fr ([217.15.80.77]:53437 "EHLO
         zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755006AbdHYOvv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 10:51:51 -0400
+        with ESMTP id S1755006AbdHYOvy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 10:51:54 -0400
 Content-Disposition: inline
 In-Reply-To: <cover.1503671776.git.g.nault@alphalink.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use l2tp_tunnel_get() instead of l2tp_tunnel_find() so that we get
-a reference on the tunnel, preventing l2tp_tunnel_destruct() from
-freeing it from under us.
-
-Also move l2tp_tunnel_get() below nlmsg_new() so that we only take
-the reference when needed.
+Use l2tp_tunnel_get() to retrieve tunnel, so that it can't go away on
+us. Otherwise l2tp_tunnel_destruct() might release the last reference
+count concurrently, thus freeing the tunnel while we're using it.
 
 Fixes: 309795f4bec2 ("l2tp: Add netlink control API for L2TP")
 Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
 ---
- net/l2tp/l2tp_netlink.c | 27 +++++++++++++++------------
- 1 file changed, 15 insertions(+), 12 deletions(-)
+ net/l2tp/l2tp_netlink.c | 21 ++++++++++++---------
+ 1 file changed, 12 insertions(+), 9 deletions(-)
 
 diff --git a/net/l2tp/l2tp_netlink.c b/net/l2tp/l2tp_netlink.c
-index d61e75b4e619..ae5170e26281 100644
+index ae5170e26281..57427d430f10 100644
 --- a/net/l2tp/l2tp_netlink.c
 +++ b/net/l2tp/l2tp_netlink.c
-@@ -444,34 +444,37 @@ static int l2tp_nl_cmd_tunnel_get(struct sk_buff *skb, struct genl_info *info)
+@@ -518,8 +518,9 @@ static int l2tp_nl_cmd_session_create(struct sk_buff *skb, struct genl_info *inf
+ 		ret = -EINVAL;
+ 		goto out;
+ 	}
++
+ 	tunnel_id = nla_get_u32(info->attrs[L2TP_ATTR_CONN_ID]);
+-	tunnel = l2tp_tunnel_find(net, tunnel_id);
++	tunnel = l2tp_tunnel_get(net, tunnel_id);
+ 	if (!tunnel) {
+ 		ret = -ENODEV;
+ 		goto out;
+@@ -527,24 +528,24 @@ static int l2tp_nl_cmd_session_create(struct sk_buff *skb, struct genl_info *inf
  
- 	if (!info->attrs[L2TP_ATTR_CONN_ID]) {
+ 	if (!info->attrs[L2TP_ATTR_SESSION_ID]) {
  		ret = -EINVAL;
 -		goto out;
-+		goto err;
++		goto out_tunnel;
+ 	}
+ 	session_id = nla_get_u32(info->attrs[L2TP_ATTR_SESSION_ID]);
+ 
+ 	if (!info->attrs[L2TP_ATTR_PEER_SESSION_ID]) {
+ 		ret = -EINVAL;
+-		goto out;
++		goto out_tunnel;
+ 	}
+ 	peer_session_id = nla_get_u32(info->attrs[L2TP_ATTR_PEER_SESSION_ID]);
+ 
+ 	if (!info->attrs[L2TP_ATTR_PW_TYPE]) {
+ 		ret = -EINVAL;
+-		goto out;
++		goto out_tunnel;
+ 	}
+ 	cfg.pw_type = nla_get_u16(info->attrs[L2TP_ATTR_PW_TYPE]);
+ 	if (cfg.pw_type >= __L2TP_PWTYPE_MAX) {
+ 		ret = -EINVAL;
+-		goto out;
++		goto out_tunnel;
  	}
  
- 	tunnel_id = nla_get_u32(info->attrs[L2TP_ATTR_CONN_ID]);
- 
--	tunnel = l2tp_tunnel_find(net, tunnel_id);
--	if (tunnel == NULL) {
--		ret = -ENODEV;
+ 	if (tunnel->version > 2) {
+@@ -566,7 +567,7 @@ static int l2tp_nl_cmd_session_create(struct sk_buff *skb, struct genl_info *inf
+ 			u16 len = nla_len(info->attrs[L2TP_ATTR_COOKIE]);
+ 			if (len > 8) {
+ 				ret = -EINVAL;
+-				goto out;
++				goto out_tunnel;
+ 			}
+ 			cfg.cookie_len = len;
+ 			memcpy(&cfg.cookie[0], nla_data(info->attrs[L2TP_ATTR_COOKIE]), len);
+@@ -575,7 +576,7 @@ static int l2tp_nl_cmd_session_create(struct sk_buff *skb, struct genl_info *inf
+ 			u16 len = nla_len(info->attrs[L2TP_ATTR_PEER_COOKIE]);
+ 			if (len > 8) {
+ 				ret = -EINVAL;
+-				goto out;
++				goto out_tunnel;
+ 			}
+ 			cfg.peer_cookie_len = len;
+ 			memcpy(&cfg.peer_cookie[0], nla_data(info->attrs[L2TP_ATTR_PEER_COOKIE]), len);
+@@ -618,7 +619,7 @@ static int l2tp_nl_cmd_session_create(struct sk_buff *skb, struct genl_info *inf
+ 	if ((l2tp_nl_cmd_ops[cfg.pw_type] == NULL) ||
+ 	    (l2tp_nl_cmd_ops[cfg.pw_type]->session_create == NULL)) {
+ 		ret = -EPROTONOSUPPORT;
 -		goto out;
--	}
--
- 	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
- 	if (!msg) {
- 		ret = -ENOMEM;
--		goto out;
-+		goto err;
-+	}
-+
-+	tunnel = l2tp_tunnel_get(net, tunnel_id);
-+	if (!tunnel) {
-+		ret = -ENODEV;
-+		goto err_nlmsg;
++		goto out_tunnel;
  	}
  
- 	ret = l2tp_nl_tunnel_send(msg, info->snd_portid, info->snd_seq,
- 				  NLM_F_ACK, tunnel, L2TP_CMD_TUNNEL_GET);
- 	if (ret < 0)
--		goto err_out;
-+		goto err_nlmsg_tunnel;
-+
-+	l2tp_tunnel_dec_refcount(tunnel);
+ 	/* Check that pseudowire-specific params are present */
+@@ -628,7 +629,7 @@ static int l2tp_nl_cmd_session_create(struct sk_buff *skb, struct genl_info *inf
+ 	case L2TP_PWTYPE_ETH_VLAN:
+ 		if (!info->attrs[L2TP_ATTR_VLAN_ID]) {
+ 			ret = -EINVAL;
+-			goto out;
++			goto out_tunnel;
+ 		}
+ 		break;
+ 	case L2TP_PWTYPE_ETH:
+@@ -656,6 +657,8 @@ static int l2tp_nl_cmd_session_create(struct sk_buff *skb, struct genl_info *inf
+ 		}
+ 	}
  
- 	return genlmsg_unicast(net, msg, info->snd_portid);
- 
--err_out:
-+err_nlmsg_tunnel:
++out_tunnel:
 +	l2tp_tunnel_dec_refcount(tunnel);
-+err_nlmsg:
- 	nlmsg_free(msg);
--
--out:
-+err:
+ out:
  	return ret;
  }
- 
 -- 
 2.14.1
