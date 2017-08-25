@@ -1,44 +1,72 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ipv6: Add sysctl for per namespace flow label
- reflection
-Date: Thu, 24 Aug 2017 18:05:53 -0700 (PDT)
-Message-ID: <20170824.180553.1621054459411024798.davem@davemloft.net>
-References: <20170823075541.26764-1-jkbs@redhat.com>
+Subject: Re: [net-next:master 1324/1341]
+ drivers/net//ethernet/mellanox/mlxsw/spectrum_dpipe.c:323:9: error: too
+ few arguments to function 'devlink_dpipe_table_register'
+Date: Thu, 24 Aug 2017 18:11:24 -0700 (PDT)
+Message-ID: <20170824.181124.1922755161454657026.davem@davemloft.net>
+References: <201708250827.irRihDoq%fengguang.wu@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hannes@stressinduktion.org,
-        nikolay@cumulusnetworks.com, tom@herbertland.com
-To: jkbs@redhat.com
+Cc: arkadis@mellanox.com, kbuild-all@01.org, netdev@vger.kernel.org,
+        jiri@mellanox.com
+To: fengguang.wu@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:59382 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:59534 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753556AbdHYBF5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 24 Aug 2017 21:05:57 -0400
-In-Reply-To: <20170823075541.26764-1-jkbs@redhat.com>
+        with ESMTP id S1754245AbdHYBL2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 24 Aug 2017 21:11:28 -0400
+In-Reply-To: <201708250827.irRihDoq%fengguang.wu@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jakub Sitnicki <jkbs@redhat.com>
-Date: Wed, 23 Aug 2017 09:55:41 +0200
+From: kbuild test robot <fengguang.wu@intel.com>
+Date: Fri, 25 Aug 2017 08:03:28 +0800
 
-> Reflecting IPv6 Flow Label at server nodes is useful in environments
-> that employ multipath routing to load balance the requests. As "IPv6
-> Flow Label Reflection" standard draft [1] points out - ICMPv6 PTB error
-> messages generated in response to a downstream packets from the server
-> can be routed by a load balancer back to the original server without
-> looking at transport headers, if the server applies the flow label
-> reflection. This enables the Path MTU Discovery past the ECMP router in
-> load-balance or anycast environments where each server node is reachable
-> by only one path.
+> All errors (new ones prefixed by >>):
 > 
-> Introduce a sysctl to enable flow label reflection per net namespace for
-> all newly created sockets. Same could be earlier achieved only per
-> socket by setting the IPV6_FL_F_REFLECT flag for the IPV6_FLOWLABEL_MGR
-> socket option.
-> 
-> [1] https://tools.ietf.org/html/draft-wang-6man-flow-label-reflection-01
-> 
-> Signed-off-by: Jakub Sitnicki <jkbs@redhat.com>
+>    drivers/net//ethernet/mellanox/mlxsw/spectrum_dpipe.c: In function 'mlxsw_sp_dpipe_erif_table_init':
+>>> drivers/net//ethernet/mellanox/mlxsw/spectrum_dpipe.c:323:9: error: too few arguments to function 'devlink_dpipe_table_register'
+>      return devlink_dpipe_table_register(devlink,
+>             ^
+>    In file included from drivers/net//ethernet/mellanox/mlxsw/spectrum_dpipe.c:36:0:
+>    include/net/devlink.h:401:1: note: declared here
+>     devlink_dpipe_table_register(struct devlink *devlink,
+>     ^
+>    drivers/net//ethernet/mellanox/mlxsw/spectrum_dpipe.c:327:1: warning: control reaches end of non-void function [-Wreturn-type]
+>     }
+>     ^
 
-Ok, applied.
+I'll push the following fix into net-next for this:
+
+====================
+>From 790c6056686cc4dd5b149b330bbd5ae208d4d721 Mon Sep 17 00:00:00 2001
+From: "David S. Miller" <davem@davemloft.net>
+Date: Thu, 24 Aug 2017 18:10:46 -0700
+Subject: [PATCH] devlink: Fix devlink_dpipe_table_register() stub signature.
+
+One too many arguments compared to the non-stub version.
+
+Reported-by: kbuild test robot <fengguang.wu@intel.com>
+Fixes: ffd3cdccf214 ("devlink: Add support for dynamic table size")
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ include/net/devlink.h | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/include/net/devlink.h b/include/net/devlink.h
+index 047a0c54f652..aaf7178127a2 100644
+--- a/include/net/devlink.h
++++ b/include/net/devlink.h
+@@ -402,8 +402,7 @@ static inline int
+ devlink_dpipe_table_register(struct devlink *devlink,
+ 			     const char *table_name,
+ 			     struct devlink_dpipe_table_ops *table_ops,
+-			     void *priv, u64 size,
+-			     bool counter_control_extern)
++			     void *priv, bool counter_control_extern)
+ {
+ 	return 0;
+ }
+-- 
+2.13.5
