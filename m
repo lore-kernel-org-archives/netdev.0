@@ -1,121 +1,109 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: XDP redirect measurements, gotchas and tracepoints
-Date: Fri, 25 Aug 2017 14:45:13 +0200
-Message-ID: <20170825144513.1ee9fbb1@redhat.com>
-References: <20170821212506.1cb0d5d6@redhat.com>
-        <CACKFLimAF9OYwz8EqG=1-N40hWuA-8C8k8ut0oFKYdduvZOxHA@mail.gmail.com>
-        <599C7530.2010405@gmail.com>
-        <1503426617.2434.5.camel@intel.com>
-        <CACKFLimMWLto4FRxNE3tzrO5MU+p67J7wu=n1nmg0t8QGYjgrA@mail.gmail.com>
-        <CAKgT0Uf=ZfVeK-wtvNxSyGEVZ3UseUOHiP3ZOg-SrzmqsR=LtQ@mail.gmail.com>
-        <CACKFLinJ0N7b8Xhq4ZoHdB80uXp_MU_vVyzZa7Dq11XrXsvDbw@mail.gmail.com>
-        <20170823102937.79a9c4ed@redhat.com>
-        <CACKFLinGuaDLxYRd=vC99DL5n0mf0rDbPRaDg4ctev=DEAhRSQ@mail.gmail.com>
+From: Eric Dumazet <erdnetdev@gmail.com>
+Subject: Re: [PATCH net-next RESEND] sched: sfq: drop packets after root
+ qdisc lock is released
+Date: Fri, 25 Aug 2017 05:49:37 -0700
+Message-ID: <1503665377.18816.2.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1503646997-94678-1-git-send-email-gfree.wind@vip.163.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Alexander Duyck <alexander.duyck@gmail.com>,
-        "Duyck, Alexander H" <alexander.h.duyck@intel.com>,
-        "john.fastabend@gmail.com" <john.fastabend@gmail.com>,
-        "pstaszewski@itcare.pl" <pstaszewski@itcare.pl>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "xdp-newbies@vger.kernel.org" <xdp-newbies@vger.kernel.org>,
-        "andy@greyhouse.net" <andy@greyhouse.net>,
-        "borkmann@iogearbox.net" <borkmann@iogearbox.net>,
-        brouer@redhat.com
-To: Michael Chan <michael.chan@broadcom.com>
+Cc: jhs@mojatatu.com, xiyou.wangcong@gmail.com, jiri@resnulli.us,
+        davem@davemloft.net, edumazet@google.com, netdev@vger.kernel.org
+To: gfree.wind@vip.163.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48840 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1756653AbdHYMpV (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 25 Aug 2017 08:45:21 -0400
-In-Reply-To: <CACKFLinGuaDLxYRd=vC99DL5n0mf0rDbPRaDg4ctev=DEAhRSQ@mail.gmail.com>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:36571 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754704AbdHYMtk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 08:49:40 -0400
+Received: by mail-pg0-f67.google.com with SMTP id 83so3772496pgb.3
+        for <netdev@vger.kernel.org>; Fri, 25 Aug 2017 05:49:40 -0700 (PDT)
+In-Reply-To: <1503646997-94678-1-git-send-email-gfree.wind@vip.163.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 24 Aug 2017 20:36:28 -0700
-Michael Chan <michael.chan@broadcom.com> wrote:
-
-> On Wed, Aug 23, 2017 at 1:29 AM, Jesper Dangaard Brouer
-> <brouer@redhat.com> wrote:
-> > On Tue, 22 Aug 2017 23:59:05 -0700
-> > Michael Chan <michael.chan@broadcom.com> wrote:
-> >  
-> >> On Tue, Aug 22, 2017 at 6:06 PM, Alexander Duyck
-> >> <alexander.duyck@gmail.com> wrote:  
-> >> > On Tue, Aug 22, 2017 at 1:04 PM, Michael Chan <michael.chan@broadcom.com> wrote:  
-> >> >>
-> >> >> Right, but it's conceivable to add an API to "return" the buffer to
-> >> >> the input device, right?  
-> >
-> > Yes, I would really like to see an API like this.
-> >  
-> >> >
-> >> > You could, it is just added complexity. "just free the buffer" in
-> >> > ixgbe usually just amounts to one atomic operation to decrement the
-> >> > total page count since page recycling is already implemented in the
-> >> > driver. You still would have to unmap the buffer regardless of if you
-> >> > were recycling it or not so all you would save is 1.000015259 atomic
-> >> > operations per packet. The fraction is because once every 64K uses we
-> >> > have to bulk update the count on the page.
-> >> >  
-> >>
-> >> If the buffer is returned to the input device, the input device can
-> >> keep the DMA mapping.  All it needs to do is to dma_sync it back to
-> >> the input device when the buffer is returned.  
-> >
-> > Yes, exactly, return to the input device. I really think we should
-> > work on a solution where we can keep the DMA mapping around.  We have
-> > an opportunity here to make ndo_xdp_xmit TX queues use a specialized
-> > page return call, to achieve this. (I imagine other arch's have a high
-> > DMA overhead than Intel)
-> >
-> > I'm not sure how the API should look.  The ixgbe recycle mechanism and
-> > splitting the page (into two packets) actually complicates things, and
-> > tie us into a page-refcnt based model.  We could get around this by
-> > each driver implementing a page-return-callback, that allow us to
-> > return the page to the input device?  Then, drivers implementing the
-> > 1-packet-per-page can simply check/read the page-refcnt, and if it is
-> > "1" DMA-sync and reuse it in the RX queue.
-> >  
+On Fri, 2017-08-25 at 15:43 +0800, gfree.wind@vip.163.com wrote:
+> From: Gao Feng <gfree.wind@vip.163.com>
 > 
-> Yeah, based on Alex' description, it's not clear to me whether ixgbe
-> redirecting to a non-intel NIC or vice versa will actually work.  It
-> sounds like the output device has to make some assumptions about how
-> the page was allocated by the input device. 
-
-Yes, exactly. We are tied into a page refcnt based scheme.
-
-Besides the ixgbe page recycle scheme (which keeps the DMA RX-mapping)
-is also tied to the RX queue size, plus how fast the pages are returned.
-This makes it very hard to tune.  As I demonstrated, default ixgbe
-settings does not work well with XDP_REDIRECT.  I needed to increase
-TX-ring size, but it broke page recycling (dropping perf from 13Mpps to
-10Mpps) so I also needed it increase RX-ring size.  But perf is best if
-RX-ring size is smaller, thus two contradicting tuning needed.
+> The commit 520ac30f4551 ("net_sched: drop packets after root qdisc lock
+> is released) made a big change of tc for performance. But there are
+> some points which are not changed in SFQ enqueue operation.
+> 1. Fail to find the SFQ hash slot;
+> 2. When the queue is full;
+> 
+> Now use qdisc_drop instead free skb directly.
 
 
-> With buffer return API,
-> each driver can cleanly recycle or free its own buffers properly.
+Thanks for doing this work.
 
-Yes, exactly. And RX-driver can implement a special memory model for
-this queue.  E.g. RX-driver can know this is a dedicated XDP RX-queue
-which is never used for SKBs, thus opening for new RX memory models.
+I have one comment
 
-Another advantage of a return API.  There is also an opportunity for
-avoiding the DMA map on TX. As we need to know the from-device.  Thus,
-we can add a DMA API, where we can query if the two devices uses the
-same DMA engine, and can reuse the same DMA address the RX-side already
-knows.
+> 
+> Signed-off-by: Gao Feng <gfree.wind@vip.163.com>
+> ---
+>  net/sched/sch_sfq.c | 16 ++++++++++------
+>  1 file changed, 10 insertions(+), 6 deletions(-)
+> 
+> diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
+> index 82469ef..8841f4d 100644
+> --- a/net/sched/sch_sfq.c
+> +++ b/net/sched/sch_sfq.c
+> @@ -292,7 +292,7 @@ static inline void slot_queue_add(struct sfq_slot *slot, struct sk_buff *skb)
+>  	slot->skblist_prev = skb;
+>  }
+>  
+> -static unsigned int sfq_drop(struct Qdisc *sch)
+> +static unsigned int sfq_drop(struct Qdisc *sch, struct sk_buff **to_free)
+>  {
+>  	struct sfq_sched_data *q = qdisc_priv(sch);
+>  	sfq_index x, d = q->cur_depth;
+> @@ -310,9 +310,13 @@ static unsigned int sfq_drop(struct Qdisc *sch)
+>  		slot->backlog -= len;
+>  		sfq_dec(q, x);
+>  		sch->q.qlen--;
+> -		qdisc_qstats_drop(sch);
+>  		qdisc_qstats_backlog_dec(sch, skb);
+> -		kfree_skb(skb);
+> +		if (likely(to_free)) {
+> +			qdisc_drop(skb, sch, to_free);
+> +		} else {
+> +			qdisc_qstats_drop(sch);
+> +			kfree_skb(skb);
+
+                         rtnl_kfree_skbs(skb, skb);  ?
+
+Or even better provide a non NULL to_free from sfq_change()
+
+Then call rtnl_kfree_skbs() once from sfq_change()
 
 
-> Let me discuss this further with Andy to see if we can come up with a
-> good scheme.
-
-Sound good, looking forward to hear what you come-up with :-)
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
+> +		}
+>  		return len;
+>  	}
+>  
+> @@ -360,7 +364,7 @@ static int sfq_headdrop(const struct sfq_sched_data *q)
+>  	if (hash == 0) {
+>  		if (ret & __NET_XMIT_BYPASS)
+>  			qdisc_qstats_drop(sch);
+> -		kfree_skb(skb);
+> +		__qdisc_drop(skb, to_free);
+>  		return ret;
+>  	}
+>  	hash--;
+> @@ -465,7 +469,7 @@ static int sfq_headdrop(const struct sfq_sched_data *q)
+>  		return NET_XMIT_SUCCESS;
+>  
+>  	qlen = slot->qlen;
+> -	dropped = sfq_drop(sch);
+> +	dropped = sfq_drop(sch, to_free);
+>  	/* Return Congestion Notification only if we dropped a packet
+>  	 * from this flow.
+>  	 */
+> @@ -675,7 +679,7 @@ static int sfq_change(struct Qdisc *sch, struct nlattr *opt)
+>  
+>  	qlen = sch->q.qlen;
+>  	while (sch->q.qlen > q->limit)
+> -		dropped += sfq_drop(sch);
+> +		dropped += sfq_drop(sch, NULL);
+>  	qdisc_tree_reduce_backlog(sch, qlen - sch->q.qlen, dropped);
+>  
+>  	del_timer(&q->perturb_timer);
