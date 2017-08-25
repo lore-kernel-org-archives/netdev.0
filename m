@@ -1,197 +1,153 @@
-From: Robert Hoo <robert.hu@intel.com>
-Subject: [PATCH] pktgen: add a new sample script for 40G and above link
- testing
-Date: Fri, 25 Aug 2017 10:24:30 +0800
-Message-ID: <1503127531-134546-1-git-send-email-robert.hu@intel.com>
+From: Chen-Yu Tsai <wens@csie.org>
+Subject: Re: [PATCH v3 3/4] net: stmmac: register parent MDIO node for sun8i-h3-emac
+Date: Fri, 25 Aug 2017 10:54:11 +0800
+Message-ID: <CAGb2v64jrDPSff+QL_PQBMaQJ+CcTVbskjuOUd1OqR4smbu+ig@mail.gmail.com>
+References: <CAGb2v67hQXSoCKP7qW+KRUYX+0djQ1Z23cQ67Lyg6G7ozGyfGQ@mail.gmail.com>
+ <20170821132015.GB1703@lunn.ch> <20170821133104.qvrhvwin2rdg4aqo@flea.lan>
+ <20170821142321.GE1703@lunn.ch> <CAGb2v64E4T=1ff3POGuXZA=MvjGAnKQ6OF6A3sT_cU-=jh6zNw@mail.gmail.com>
+ <bfe784b6-5137-8fcd-dbd0-ad96974f4060@gmail.com> <20170822181140.GA11596@Red>
+ <352ae66b-78a4-e88b-4544-a8edd9390b0c@gmail.com> <20170823074942.yt3c5gvnmdw5pqge@flea.home>
+ <f14fe754-6339-32a0-3439-2daff6dd1d7e@gmail.com> <20170824082124.GA14302@Red> <dfc8e7f3-e374-b30b-b320-017f1c50ab58@gmail.com>
 Mime-Version: 1.0
-Content-Transfer-Encoding: quoted-printable
-Cc: Robert Ho <robert.hu@intel.com>
-To: robert.hu@linux.intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:7106 "EHLO mga14.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754191AbdHYCY4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 24 Aug 2017 22:24:56 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Corentin Labbe <clabbe.montjoie@gmail.com>,
+        Maxime Ripard <maxime.ripard@free-electrons.com>,
+        Chen-Yu Tsai <wens@csie.org>, Andrew Lunn <andrew@lunn.ch>,
+        Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Russell King <linux@armlinux.org.uk>,
+        Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+        Alexandre Torgue <alexandre.torgue@st.com>,
+        devicetree <devicetree@vger.kernel.org>,
+        linux-arm-kernel <linux-arm-kernel@lists.infradead.org>,
+        linux-kernel <linux-kernel@vger.kernel.org>,
+        netdev <netdev@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <dfc8e7f3-e374-b30b-b320-017f1c50ab58@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Robert Ho <robert.hu@intel.com>
+On Fri, Aug 25, 2017 at 3:59 AM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+> On 08/24/2017 01:21 AM, Corentin Labbe wrote:
+>> On Wed, Aug 23, 2017 at 09:31:53AM -0700, Florian Fainelli wrote:
+>>> On 08/23/2017 12:49 AM, Maxime Ripard wrote:
+>>>> Hi Florian,
+>>>>
+>>>> On Tue, Aug 22, 2017 at 11:35:01AM -0700, Florian Fainelli wrote:
+>>>>>>>> So I think what you are saying is either impossible or engineering-wise
+>>>>>>>> a very stupid design, like using an external MAC with a discrete PHY
+>>>>>>>> connected to the internal MAC's MDIO bus, while using the internal MAC
+>>>>>>>> with the internal PHY.
+>>>>>>>>
+>>>>>>>> Now can we please decide on something? We're a week and a half from
+>>>>>>>> the 4.13 release. If mdio-mux is wrong, then we could have two mdio
+>>>>>>>> nodes (internal-mdio & external-mdio).
+>>>>>>>
+>>>>>>> I really don't see a need for a mdio-mux in the first place, just have
+>>>>>>> one MDIO controller (current state) sub-node which describes the
+>>>>>>> built-in STMMAC MDIO controller and declare the internal PHY as a child
+>>>>>>> node (along with 'phy-is-integrated'). If a different configuration is
+>>>>>>> used, then just put the external PHY as a child node there.
+>>>>>>>
+>>>>>>> If fixed-link is required, the mdio node becomes unused anyway.
+>>>>>>>
+>>>>>>> Works for everyone?
+>>>>>>
+>>>>>> If we put an external PHY with reg=1 as a child of internal MDIO,
+>>>>>> il will be merged with internal PHY node and get
+>>>>>> phy-is-integrated.
+>>>>>
+>>>>> Then have the .dtsi file contain just the mdio node, but no internal or
+>>>>> external PHY and push all the internal and external PHY node definition
+>>>>> (in its entirety) to the per-board DTS file, does not that work?
+>>>>
+>>>> If possible, I'd really like to have the internal PHY in the
+>>>> DTSI. It's always there in hardware anyway, and duplicating the PHY,
+>>>> with its clock, reset line, and whatever info we might need in the
+>>>> future in each and every board DTS that uses it will be very error
+>>>> prone and we will have the usual bunch of issues that come up with
+>>>> duplication.
+>>>
+>>> OK, then what if you put the internal PHY in the DTSI, mark it with a
+>>> status = "disabled" property, and have the per-board DTS put a status =
+>>> "okay" property along with a "phy-is-integrated" boolean property? Would
+>>> that work?
+>>
+>> No, I tested and for example with sun8i-h3-orangepi-plus.dts, the external PHY (ethernet-phy@1) is still merged.
+>
+> Is not there is a mistake in the unit address not matching the "reg"
+> property, or am I not looking at the right tree?
+>
+> &mdio {
+>         ext_rgmii_phy: ethernet-phy@1 {
+>                 compatible = "ethernet-phy-ieee802.3-c22";
+>                 reg = <0>;
+>         };
+> };
+>
+> If the PHY is really at MDIO address 0, then it should be
+> ethernet-phy@0, and not ethernet-phy@1, and then no problem with the
+> merging?
 
-It's hard to benchmark 40G+ network bandwidth using ordinary
-tools like iperf, netperf. I then tried with pktgen multiqueue sample
-scripts, but still cannot reach line rate.
-I then derived this NUMA awared irq affinity sample script from
-multi-queue sample one, successfully benchmarked 40G link. I think this can
-also be useful for 100G reference, though I haven't got device to test.
+That is wrong. The board described in the example likely has a Realtek
+RTL8211E @ address 0x1. Address 0 for this PHY is a broadcast address,
+so it still works, but is the wrong representation.
 
-This script simply does:
-Detect $DEV's NUMA node belonging.
-Bind each thread (processor from that NUMA node) with each $DEV queue's
-irq affinity, 1:1 mapping.
-How many '-t' threads input determines how many queues will be
-utilized.
+>
+>
+>> So that adding a 'status = "disabled"' does not bring anything.
+>>
+>>>
+>>> What I really don't think is necessary is:
+>>>
+>>> - duplicating the "mdio" controller node for external vs. internal PHY,
+>>> because this is not accurate, there is just one MDIO controller, but
+>>> there may be different kinds of MDIO/PHY devices attached
+>>
+>> For me, if we want to represent the reality, we need two MDIO:
+>> - since two PHY at the same address could co-exists
+>> - since they are isolated so not on the same MDIO bus
+>
+> Is that really true? It might be, but from experience with e.g:
+> bcmgenet, the integrated PHY and the external PHYs are on the same MDIO
+> bus, which is convenient, except when you have an address conflict.
 
-Tested with Intel XL710 NIC with Cisco 3172 switch.
+There's a mux in the hardware: either the internal MDIO+MII lines
+from the internal PHY are connected to the MAC, or the external
+MDIO+MII lines from the pin controller are connected. I believe
+this was already mentioned?
 
-It would be even slightly better if the irqbalance service is turned
-off outside.
+>
+>>
+>>> - having the STMMAC driver MDIO probing code having to deal with a
+>>> "mdio" sub-node or an "internal-mdio" sub-node because this is confusing
+>>> and requiring more driver-level changes that are error prone
+>>
+>> My patch for stmmac is really small, only the name of my variable ("need_mdio_mux_ids")
+>> have to be changed to something like "register_parent_mdio"
+>>
+>>
+>> So I agree with Maxime, we need to avoid merging PHY nodes, and we can avoid it only by having two separate MDIO nodes.
+>> Furthermore, with only one MDIO, we will face with lots of small patch for adding phy-is-integrated, with two we do not need to change any board DT, all is simply clean.
+>> Really having two MDIO seems cleaner.
+>
+> The only valid thing that you have provided so far is this merging
+> problem. Anything else ranging from "we will face with lots of small
+> patch for adding phy-is-integrated" to "Really having two MDIO seems
+> cleaner." are hard to receive as technical arguments for correctness.
+>
+> What happens if someone connects an external PHY at the same MDIO
+> address than the internal PHY, which one do you get responses from? If
+> you shutdown the internal PHY and it stops responding, then this
+> probably becomes deterministic, but it still supports the fact there is
+> just one MDIO bus controller per MAC.
 
-Referrences:
-https://people.netfilter.org/hawk/presentations/LCA2015/net_stack_challenge=
-s_100G_LCA2015.pdf
-http://www.intel.cn/content/dam/www/public/us/en/documents/reference-guides=
-/xl710-x710-performance-tuning-linux-guide.pdf
+Depends on whichever set of pins/lines are selected. But yeah, there's
+only one MDIO bus controller in the MAC.
 
-Signed-off-by: Robert Hoo <robert.hu@intel.com>
----
- ...tgen_sample06_numa_awared_queue_irq_affinity.sh | 132 +++++++++++++++++=
-++++
- 1 file changed, 132 insertions(+)
- create mode 100755 samples/pktgen/pktgen_sample06_numa_awared_queue_irq_af=
-finity.sh
+ChenYu
 
-diff --git a/samples/pktgen/pktgen_sample06_numa_awared_queue_irq_affinity.=
-sh b/samples/pktgen/pktgen_sample06_numa_awared_queue_irq_affinity.sh
-new file mode 100755
-index 0000000..f0ee25c
---- /dev/null
-+++ b/samples/pktgen/pktgen_sample06_numa_awared_queue_irq_affinity.sh
-@@ -0,0 +1,132 @@
-+#!/bin/bash
-+#
-+# Multiqueue: Using pktgen threads for sending on multiple CPUs
-+#  * adding devices to kernel threads which are in the same NUMA node
-+#  * bound devices queue's irq affinity to the threads, 1:1 mapping
-+#  * notice the naming scheme for keeping device names unique
-+#  * nameing scheme: dev@thread_number
-+#  * flow variation via random UDP source port
-+#
-+basedir=3D`dirname $0`
-+source ${basedir}/functions.sh
-+root_check_run_with_sudo "$@"
-+#
-+# Required param: -i dev in $DEV
-+source ${basedir}/parameters.sh
-+
-+get_iface_node()
-+{
-+	echo `cat /sys/class/net/$1/device/numa_node`
-+}
-+
-+get_iface_irqs()
-+{
-+	local IFACE=3D$1
-+	local queues=3D"${IFACE}-.*TxRx"
-+
-+	irqs=3D$(grep "$queues" /proc/interrupts | cut -f1 -d:)
-+	[ -z "$irqs" ] && irqs=3D$(grep $IFACE /proc/interrupts | cut -f1 -d:)
-+	[ -z "$irqs" ] && irqs=3D$(for i in `ls -Ux /sys/class/net/$IFACE/device/=
-msi_irqs` ;\
-+		do grep "$i:.*TxRx" /proc/interrupts | grep -v fdir | cut -f 1 -d : ;\
-+	    done)
-+	[ -z "$irqs" ] && echo "Error: Could not find interrupts for $IFACE"
-+
-+	echo $irqs
-+}
-+
-+get_node_cpus()
-+{
-+	local node=3D$1
-+	local node_cpu_list
-+	local node_cpu_range_list=3D`cut -f1- -d, --output-delimiter=3D" " \
-+			/sys/devices/system/node/node$node/cpulist`
-+
-+	for cpu_range in $node_cpu_range_list
-+	do
-+		node_cpu_list=3D"$node_cpu_list "`seq -s " " ${cpu_range//-/ }`
-+	done
-+
-+	echo $node_cpu_list
-+}
-+
-+
-+# Base Config
-+DELAY=3D"0"        # Zero means max speed
-+COUNT=3D"20000000"   # Zero means indefinitely
-+[ -z "$CLONE_SKB" ] && CLONE_SKB=3D"0"
-+
-+# Flow variation random source port between min and max
-+UDP_MIN=3D9
-+UDP_MAX=3D109
-+
-+node=3D`get_iface_node $DEV`
-+irq_array=3D(`get_iface_irqs $DEV`)
-+cpu_array=3D(`get_node_cpus $node`)
-+
-+[ $THREADS -gt ${#irq_array[*]} -o $THREADS -gt ${#cpu_array[*]}  ] && \
-+	err 1 "Thread number $THREADS exceeds: min (${#irq_array[*]},${#cpu_array=
-[*]})"
-+
-+# (example of setting default params in your script)
-+if [ -z "$DEST_IP" ]; then
-+    [ -z "$IP6" ] && DEST_IP=3D"198.18.0.42" || DEST_IP=3D"FD00::1"
-+fi
-+[ -z "$DST_MAC" ] && DST_MAC=3D"90:e2:ba:ff:ff:ff"
-+
-+# General cleanup everything since last run
-+pg_ctrl "reset"
-+
-+# Threads are specified with parameter -t value in $THREADS
-+for ((i =3D 0; i < $THREADS; i++)); do
-+    # The device name is extended with @name, using thread number to
-+    # make then unique, but any name will do.
-+    # Set the queue's irq affinity to this $thread (processor)
-+    thread=3D${cpu_array[$i]}
-+    dev=3D${DEV}@${thread}
-+    echo $thread > /proc/irq/${irq_array[$i]}/smp_affinity_list
-+    echo "irq ${irq_array[$i]} is set affinity to `cat /proc/irq/${irq_arr=
-ay[$i]}/smp_affinity_list`"
-+
-+    # Add remove all other devices and add_device $dev to thread
-+    pg_thread $thread "rem_device_all"
-+    pg_thread $thread "add_device" $dev
-+
-+    # select queue and bind the queue and $dev in 1:1 relationship
-+    queue_num=3D$i
-+    echo "queue number is $queue_num"
-+    pg_set $dev "queue_map_min $queue_num"
-+    pg_set $dev "queue_map_max $queue_num"
-+
-+    # Notice config queue to map to cpu (mirrors smp_processor_id())
-+    # It is beneficial to map IRQ /proc/irq/*/smp_affinity 1:1 to CPU numb=
-er
-+    pg_set $dev "flag QUEUE_MAP_CPU"
-+
-+    # Base config of dev
-+    pg_set $dev "count $COUNT"
-+    pg_set $dev "clone_skb $CLONE_SKB"
-+    pg_set $dev "pkt_size $PKT_SIZE"
-+    pg_set $dev "delay $DELAY"
-+
-+    # Flag example disabling timestamping
-+    pg_set $dev "flag NO_TIMESTAMP"
-+
-+    # Destination
-+    pg_set $dev "dst_mac $DST_MAC"
-+    pg_set $dev "dst$IP6 $DEST_IP"
-+
-+    # Setup random UDP port src range
-+    pg_set $dev "flag UDPSRC_RND"
-+    pg_set $dev "udp_src_min $UDP_MIN"
-+    pg_set $dev "udp_src_max $UDP_MAX"
-+done
-+
-+# start_run
-+echo "Running... ctrl^C to stop" >&2
-+pg_ctrl "start"
-+echo "Done" >&2
-+
-+# Print results
-+for ((i =3D 0; i < $THREADS; i++)); do
-+    thread=3D${cpu_array[$i]}
-+    dev=3D${DEV}@${thread}
-+    echo "Device: $dev"
-+    cat /proc/net/pktgen/$dev | grep -A2 "Result:"
-+done
---=20
-1.8.3.1
+> Anyway, do whatever works best for you I guess.
+> --
+> Florian
