@@ -1,68 +1,54 @@
-From: Jeffrey Vander Stoep via Selinux <selinux-+05T5uksL2qpZYMLLGbcSA@public.gmane.org>
-Subject: Permissions for eBPF objects
-Date: Fri, 25 Aug 2017 17:56:47 +0000
-Message-ID: <CABXk95ATb_AFk+4GX9Xw+HEU6No8irb0mOoLE9O4EBuLAgA-1w@mail.gmail.com>
-Reply-To: Jeffrey Vander Stoep <jeffv-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PULL] vhost: cleanups and fixes
+Date: Fri, 25 Aug 2017 21:47:19 +0300
+Message-ID: <20170825214719-mutt-send-email-mst@kernel.org>
 Mime-Version: 1.0
-Content-Type: multipart/alternative; boundary="001a114881aae0e78a055797ab18"
-To: Chenbo Feng <fengc-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>, SELinux <Selinux-+05T5uksL2qpZYMLLGbcSA@public.gmane.org>,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <selinux-bounces-+05T5uksL2qpZYMLLGbcSA@public.gmane.org>
-List-Post: <mailto:selinux-+05T5uksL2qpZYMLLGbcSA@public.gmane.org>
-List-Help: <mailto:selinux-request-+05T5uksL2qpZYMLLGbcSA@public.gmane.org?subject=help>
-Errors-To: selinux-bounces-+05T5uksL2qpZYMLLGbcSA@public.gmane.org
-Sender: "Selinux" <selinux-bounces-+05T5uksL2qpZYMLLGbcSA@public.gmane.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: kvm@vger.kernel.org, mst@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, stable@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, stefanha@redhat.com,
+	yasu.isimatu@gmail.com, hch@lst.de
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
---001a114881aae0e78a055797ab18
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+The following changes since commit 14ccee78fc82f5512908f4424f541549a5705b89:
 
-I=E2=80=99d like to get your thoughts on adding LSM permission checks on BP=
-F
-objects.
+  Linux 4.13-rc6 (2017-08-20 14:13:52 -0700)
 
-By default, the ability to create and use eBPF maps/programs requires
-CAP_SYS_ADMIN [1]. Alternatively, all processes can be granted access to
-bpf() functions. This seems like poor granularity. [2]
+are available in the git repository at:
 
-Like files and sockets, eBPF maps and programs can be passed between
-processes by FD and have a number of functions that map cleanly to
-permissions.
+  git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git tags/for_linus
 
-Let me know what you think. Are there simpler alternative approaches that
-we haven=E2=80=99t considered?
+for you to fetch changes up to ba74b6f7fcc07355d087af6939712eed4a454821:
 
-Thanks!
-Jeff
+  virtio_pci: fix cpu affinity support (2017-08-25 21:38:26 +0300)
 
-[1] http://man7.org/linux/man-pages/man2/bpf.2.html NOTES section
-[2] We are considering eBPF for network filtering by netd. Giving netd
-CAP_SYS_ADMIN would considerably increase netd=E2=80=99s privileges. Altern=
-atively
-allowing all processes permission to use bpf() goes against the principle
-of least privilege exposing a lot of kernel attack surface to processes
-that do not actually need it.
+----------------------------------------------------------------
+virtio: bugfix
 
---001a114881aae0e78a055797ab18
-Content-Type: text/html; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Fixes two obvious bugs in virtio pci.
 
-<div dir=3D"ltr"><div>I=E2=80=99d like to get your thoughts on adding LSM p=
-ermission checks on BPF objects.<br></div><div><br></div><div>By default, t=
-he ability to create and use eBPF maps/programs requires CAP_SYS_ADMIN [1].=
- Alternatively, all processes can be granted access to bpf() functions. Thi=
-s seems like poor granularity. [2]</div><div><br></div><div>Like files and =
-sockets, eBPF maps and programs can be passed between processes by FD and h=
-ave a number of functions that map cleanly to permissions.</div><div><br></=
-div><div>Let me know what you think. Are there simpler alternative approach=
-es that we haven=E2=80=99t considered?</div><div><br></div><div>Thanks!</di=
-v><div>Jeff=C2=A0</div><div><br></div><div>[1] <a href=3D"http://man7.org/l=
-inux/man-pages/man2/bpf.2.html">http://man7.org/linux/man-pages/man2/bpf.2.=
-html</a> NOTES section</div><div>[2] We are considering eBPF for network fi=
-ltering by netd. Giving netd CAP_SYS_ADMIN would considerably increase netd=
-=E2=80=99s privileges. Alternatively allowing all processes permission to u=
-se bpf() goes against the principle of least privilege exposing a lot of ke=
-rnel attack surface to processes that do not actually need it.</div></div>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 
---001a114881aae0e78a055797ab18--
+----------------------------------------------------------------
+Christoph Hellwig (1):
+      virtio_pci: fix cpu affinity support
+
+Stefan Hajnoczi (1):
+      virtio_blk: fix incorrect message when disk is resized
+
+ drivers/block/virtio_blk.c         | 16 ++++++++++------
+ drivers/virtio/virtio_pci_common.c | 10 +++++++---
+ 2 files changed, 17 insertions(+), 9 deletions(-)
