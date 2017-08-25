@@ -1,28 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] tg3: Be drop monitor friendly
-Date: Thu, 24 Aug 2017 18:28:03 -0700 (PDT)
-Message-ID: <20170824.182803.373650560554315773.davem@davemloft.net>
-References: <20170825004711.19793-1-f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next] net: mv643xx_eth: Be drop monitor friendly
+Date: Thu, 24 Aug 2017 18:27:56 -0700 (PDT)
+Message-ID: <20170824.182756.386299059058749250.davem@davemloft.net>
+References: <20170824230425.15948-1-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@gmail.com,
-        siva.kallam@broadcom.com, prashant@broadcom.com,
-        mchan@broadcom.com, linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org, edumazet@gmail.com, andrew@lunn.ch,
+        sebastian.hesselbarth@gmail.com, linux-kernel@vger.kernel.org
 To: f.fainelli@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170825004711.19793-1-f.fainelli@gmail.com>
+In-Reply-To: <20170824230425.15948-1-f.fainelli@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Thu, 24 Aug 2017 17:47:11 -0700
+Date: Thu, 24 Aug 2017 16:04:25 -0700
 
-> tg3_tx() does the normal packet TX completion,
-> tigon3_dma_hwbug_workaround() and tg3_tso_bug() both need to allocate a
-> new SKB that is suitable to workaround HW bugs, and finally
-> tg3_free_rings() is doing ring cleanup. Use dev_consume_skb_any() for
-> these 3 locations to be SKB drop monitor friendly.
+> txq_reclaim() does the normal transmit queue reclamation and
+> rxq_deinit() does the RX ring cleanup, none of these are packet drops,
+> so use dev_consume_skb() for both locations.
 > 
 > Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 
