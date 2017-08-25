@@ -1,63 +1,121 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [Patch net-next v2 4/4] net_sched: kill u32_node pointer in Qdisc
-Date: Fri, 25 Aug 2017 14:37:40 +0200
-Message-ID: <20170825123740.GF2023@nanopsycho>
-References: <20170824235130.28503-1-xiyou.wangcong@gmail.com>
- <20170824235130.28503-5-xiyou.wangcong@gmail.com>
- <c54bd7cc-ab56-6aac-2e24-85e9e8e1c708@mojatatu.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: XDP redirect measurements, gotchas and tracepoints
+Date: Fri, 25 Aug 2017 14:45:13 +0200
+Message-ID: <20170825144513.1ee9fbb1@redhat.com>
+References: <20170821212506.1cb0d5d6@redhat.com>
+        <CACKFLimAF9OYwz8EqG=1-N40hWuA-8C8k8ut0oFKYdduvZOxHA@mail.gmail.com>
+        <599C7530.2010405@gmail.com>
+        <1503426617.2434.5.camel@intel.com>
+        <CACKFLimMWLto4FRxNE3tzrO5MU+p67J7wu=n1nmg0t8QGYjgrA@mail.gmail.com>
+        <CAKgT0Uf=ZfVeK-wtvNxSyGEVZ3UseUOHiP3ZOg-SrzmqsR=LtQ@mail.gmail.com>
+        <CACKFLinJ0N7b8Xhq4ZoHdB80uXp_MU_vVyzZa7Dq11XrXsvDbw@mail.gmail.com>
+        <20170823102937.79a9c4ed@redhat.com>
+        <CACKFLinGuaDLxYRd=vC99DL5n0mf0rDbPRaDg4ctev=DEAhRSQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Alexander Duyck <alexander.duyck@gmail.com>,
+        "Duyck, Alexander H" <alexander.h.duyck@intel.com>,
+        "john.fastabend@gmail.com" <john.fastabend@gmail.com>,
+        "pstaszewski@itcare.pl" <pstaszewski@itcare.pl>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "xdp-newbies@vger.kernel.org" <xdp-newbies@vger.kernel.org>,
+        "andy@greyhouse.net" <andy@greyhouse.net>,
+        "borkmann@iogearbox.net" <borkmann@iogearbox.net>,
+        brouer@redhat.com
+To: Michael Chan <michael.chan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f53.google.com ([74.125.82.53]:37939 "EHLO
-        mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754279AbdHYMhn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 08:37:43 -0400
-Received: by mail-wm0-f53.google.com with SMTP id z132so1858857wmg.1
-        for <netdev@vger.kernel.org>; Fri, 25 Aug 2017 05:37:42 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <c54bd7cc-ab56-6aac-2e24-85e9e8e1c708@mojatatu.com>
+Received: from mx1.redhat.com ([209.132.183.28]:48840 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1756653AbdHYMpV (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 25 Aug 2017 08:45:21 -0400
+In-Reply-To: <CACKFLinGuaDLxYRd=vC99DL5n0mf0rDbPRaDg4ctev=DEAhRSQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fri, Aug 25, 2017 at 02:29:57PM CEST, jhs@mojatatu.com wrote:
->On 17-08-24 07:51 PM, Cong Wang wrote:
->> It is ugly to hide a u32-filter-specific pointer inside Qdisc,
->> this breaks the TC layers:
->> 
->> 1. Qdisc is a generic representation, should not have any specific
->>     data of any type
->> 
->> 2. Qdisc layer is above filter layer, should only save filters in
->>     the list of struct tcf_proto.
->> 
->> This pointer is used as the head of the chain of u32 hash tables,
->> that is struct tc_u_hnode, because u32 filter is very special,
->> it allows to create multiple hash tables within one qdisc and
->> across multiple u32 filters.
->> 
->> Instead of using this ugly pointer, we can just save it in a global
->> hash table key'ed by (dev ifindex, qdisc handle), therefore we can
->> still treat it as a per qdisc basis data structure conceptually.
->> 
->> Of course, because of network namespaces, this key is not unique
->> at all, but it is fine as we already have a pointer to Qdisc in
->> struct tc_u_common, we can just compare the pointers when collision.
->> 
->> And this only affects slow paths, has no impact to fast path,
->> thanks to the pointer ->tp_c.
->> 
->> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
->> Cc: Jiri Pirko <jiri@resnulli.us>
->> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
->
->Nice work. should open the doors for Jiri now.
+On Thu, 24 Aug 2017 20:36:28 -0700
+Michael Chan <michael.chan@broadcom.com> wrote:
 
-One of the doors, couple more left :)
+> On Wed, Aug 23, 2017 at 1:29 AM, Jesper Dangaard Brouer
+> <brouer@redhat.com> wrote:
+> > On Tue, 22 Aug 2017 23:59:05 -0700
+> > Michael Chan <michael.chan@broadcom.com> wrote:
+> >  
+> >> On Tue, Aug 22, 2017 at 6:06 PM, Alexander Duyck
+> >> <alexander.duyck@gmail.com> wrote:  
+> >> > On Tue, Aug 22, 2017 at 1:04 PM, Michael Chan <michael.chan@broadcom.com> wrote:  
+> >> >>
+> >> >> Right, but it's conceivable to add an API to "return" the buffer to
+> >> >> the input device, right?  
+> >
+> > Yes, I would really like to see an API like this.
+> >  
+> >> >
+> >> > You could, it is just added complexity. "just free the buffer" in
+> >> > ixgbe usually just amounts to one atomic operation to decrement the
+> >> > total page count since page recycling is already implemented in the
+> >> > driver. You still would have to unmap the buffer regardless of if you
+> >> > were recycling it or not so all you would save is 1.000015259 atomic
+> >> > operations per packet. The fraction is because once every 64K uses we
+> >> > have to bulk update the count on the page.
+> >> >  
+> >>
+> >> If the buffer is returned to the input device, the input device can
+> >> keep the DMA mapping.  All it needs to do is to dma_sync it back to
+> >> the input device when the buffer is returned.  
+> >
+> > Yes, exactly, return to the input device. I really think we should
+> > work on a solution where we can keep the DMA mapping around.  We have
+> > an opportunity here to make ndo_xdp_xmit TX queues use a specialized
+> > page return call, to achieve this. (I imagine other arch's have a high
+> > DMA overhead than Intel)
+> >
+> > I'm not sure how the API should look.  The ixgbe recycle mechanism and
+> > splitting the page (into two packets) actually complicates things, and
+> > tie us into a page-refcnt based model.  We could get around this by
+> > each driver implementing a page-return-callback, that allow us to
+> > return the page to the input device?  Then, drivers implementing the
+> > 1-packet-per-page can simply check/read the page-refcnt, and if it is
+> > "1" DMA-sync and reuse it in the RX queue.
+> >  
+> 
+> Yeah, based on Alex' description, it's not clear to me whether ixgbe
+> redirecting to a non-intel NIC or vice versa will actually work.  It
+> sounds like the output device has to make some assumptions about how
+> the page was allocated by the input device. 
 
->
->Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
->
->cheers,
->jamal
+Yes, exactly. We are tied into a page refcnt based scheme.
+
+Besides the ixgbe page recycle scheme (which keeps the DMA RX-mapping)
+is also tied to the RX queue size, plus how fast the pages are returned.
+This makes it very hard to tune.  As I demonstrated, default ixgbe
+settings does not work well with XDP_REDIRECT.  I needed to increase
+TX-ring size, but it broke page recycling (dropping perf from 13Mpps to
+10Mpps) so I also needed it increase RX-ring size.  But perf is best if
+RX-ring size is smaller, thus two contradicting tuning needed.
+
+
+> With buffer return API,
+> each driver can cleanly recycle or free its own buffers properly.
+
+Yes, exactly. And RX-driver can implement a special memory model for
+this queue.  E.g. RX-driver can know this is a dedicated XDP RX-queue
+which is never used for SKBs, thus opening for new RX memory models.
+
+Another advantage of a return API.  There is also an opportunity for
+avoiding the DMA map on TX. As we need to know the from-device.  Thus,
+we can add a DMA API, where we can query if the two devices uses the
+same DMA engine, and can reuse the same DMA address the RX-side already
+knows.
+
+
+> Let me discuss this further with Andy to see if we can come up with a
+> good scheme.
+
+Sound good, looking forward to hear what you come-up with :-)
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
