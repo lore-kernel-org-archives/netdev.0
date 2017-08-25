@@ -1,89 +1,50 @@
-From: Maxime Ripard <maxime.ripard@free-electrons.com>
-Subject: Re: [PATCH] net: stmmac: dwmac-sun8i: Use reset exclusive
-Date: Fri, 25 Aug 2017 16:48:32 +0200
-Message-ID: <20170825144832.3w6izhri5vstbndp@flea.lan>
-References: <20170825143805.21733-1-clabbe.montjoie@gmail.com>
+From: Jeff Layton <jlayton@redhat.com>
+Subject: Re: [PATCH 7/7] SUNRPC: make kvec const
+Date: Fri, 25 Aug 2017 10:48:56 -0400
+Message-ID: <1503672536.4722.20.camel@redhat.com>
+References: <1503670907-23221-1-git-send-email-bhumirks@gmail.com>
+         <1503670907-23221-8-git-send-email-bhumirks@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="7wgxoaddpuvmahyd"
-Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com, wens@csie.org,
-        netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-        linux-kernel@vger.kernel.org
-To: Corentin Labbe <clabbe.montjoie@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: Bhumika Goyal <bhumirks@gmail.com>, julia.lawall@lip6.fr,
+        marcel@holtmann.org, gustavo@padovan.org, johan.hedberg@gmail.com,
+        davem@davemloft.net, pablo@netfilter.org, kadlec@blackhole.kfki.hu,
+        fw@strlen.de, stephen@networkplumber.org, alex.aring@gmail.com,
+        stefan@osg.samsung.com, kuznet@ms2.inr.ac.ru,
+        yoshfuji@linux-ipv6.org, santosh.shilimkar@oracle.com,
+        trond.myklebust@primarydata.com, anna.schumaker@netapp.com,
+        bfields@fieldses.org, linux-bluetooth@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        bridge@lists.linux-foundation.org, linux-wpan@vger.kernel.org,
+        linux-rdma@vger.kernel.org, rds-devel@oss.oracle.com,
+        linux-nfs@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170825143805.21733-1-clabbe.montjoie@gmail.com>
+In-Reply-To: <1503670907-23221-8-git-send-email-bhumirks@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
---7wgxoaddpuvmahyd
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-On Fri, Aug 25, 2017 at 04:38:05PM +0200, Corentin Labbe wrote:
-> The current dwmac_sun8i module cannot be rmmod/modprobe due to that
-> the reset controller was not released when removed.
->=20
-> This patch remove ambiguity, by using of_reset_control_get_exclusive and
-> add the missing reset_control_put().
->=20
-> Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
+On Fri, 2017-08-25 at 19:51 +0530, Bhumika Goyal wrote:
+> Make this const as it is only used during a copy operation.
+> 
+> Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
 > ---
->  drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
->=20
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c b/drivers/=
-net/ethernet/stmicro/stmmac/dwmac-sun8i.c
-> index fffd6d5fc907..675a09629d85 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
-> @@ -782,6 +782,7 @@ static int sun8i_dwmac_unpower_internal_phy(struct su=
-nxi_priv_data *gmac)
-> =20
->  	clk_disable_unprepare(gmac->ephy_clk);
->  	reset_control_assert(gmac->rst_ephy);
-> +	reset_control_put(gmac->rst_ephy);
->  	return 0;
+>  net/sunrpc/xdr.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/net/sunrpc/xdr.c b/net/sunrpc/xdr.c
+> index e34f4ee..a096025 100644
+> --- a/net/sunrpc/xdr.c
+> +++ b/net/sunrpc/xdr.c
+> @@ -998,7 +998,7 @@ void xdr_enter_page(struct xdr_stream *xdr, unsigned int len)
 >  }
-> =20
-> @@ -942,7 +943,7 @@ static int sun8i_dwmac_probe(struct platform_device *=
-pdev)
->  			return -EINVAL;
->  		}
-> =20
-> -		gmac->rst_ephy =3D of_reset_control_get(plat_dat->phy_node, NULL);
-> +		gmac->rst_ephy =3D of_reset_control_get_exclusive(plat_dat->phy_node, =
-NULL);
+>  EXPORT_SYMBOL_GPL(xdr_enter_page);
+>  
+> -static struct kvec empty_iov = {.iov_base = NULL, .iov_len = 0};
+> +static const struct kvec empty_iov = {.iov_base = NULL, .iov_len = 0};
+>  
+>  void
+>  xdr_buf_from_iov(struct kvec *iov, struct xdr_buf *buf)
 
-Why not just use devm_reset_control_get?
-
-Maxime
-
---=20
-Maxime Ripard, Free Electrons
-Embedded Linux and Kernel engineering
-http://free-electrons.com
-
---7wgxoaddpuvmahyd
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQIcBAEBAgAGBQJZoDjAAAoJEBx+YmzsjxAgzpsP/RqMjFs19QijQiAU3z7L9WJy
-zZJfZnaZMxN93eAtBIDuaYh3D0WN76cvaXcH2tfBhiz2YdUFR02eZY5WUH6xx9Cb
-oRkvYVsv/A2O3UfRZTGrZZie/E+7YlOsjVAjKXtZ094PAFdMbQ/m4RfYktiuRYMR
-sa/g5b3hjkwO1KdkHXsmBn1Ir5jrFKlY+tdTd7zkA8xgu4eUKwbkYZmPliU8Ty7W
-Ol/D32JxReH44jnrL4k3N7XlC+hTMwCrV/Y/sDO0lDrcBdM9v8uWlTqw3S5dtdak
-apLb//DW/p67ZaZWZRcUvXhLQ+2ia8Wmy6io3wVfrYPj7Ge+VlzA6scQdfZbT6H0
-uHMp+H0y15+OB/aHKQum1tgwiwmIPhgcp0UpdtDhqK4xcRgSLtrsSkZDqHbR/wfL
-cyfuZ/kU3OuFA7Vfa6r0WwfxC1NxWrGgY3C2bSEcIJvOmbfeY3gjgNbpymOtnEj1
-uS45itDm4Ej/FW4MxtjpLhUVOQZrXuTpgCICP9ty7yEclkrm/4iXWyxtCKxcvjeh
-D54eqQP68zI6xRrkcOd4S5/sAAOykPrs2dEAh5yzPyTuuZ4AGG8b6Rc6EpAJVgai
-SF+qGIwEN/vA6JryQlHxrFbRrZHUXGAvmwvQ+XdEVZUg0gdOfhTnye5cOnLk5z9r
-EiDvSLklPP5lDrTmY4k3
-=p8Ab
------END PGP SIGNATURE-----
-
---7wgxoaddpuvmahyd--
+Reviewed-by: Jeff Layton <jlayton@redhat.com>
