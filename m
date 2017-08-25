@@ -1,44 +1,55 @@
-From: Bhumika Goyal <bhumirks@gmail.com>
-Subject: [PATCH 0/7] net: make some structures const
-Date: Fri, 25 Aug 2017 19:51:40 +0530
-Message-ID: <1503670907-23221-1-git-send-email-bhumirks@gmail.com>
-Cc: Bhumika Goyal <bhumirks@gmail.com>
-To: julia.lawall@lip6.fr, marcel@holtmann.org, gustavo@padovan.org,
-        johan.hedberg@gmail.com, davem@davemloft.net, pablo@netfilter.org,
-        kadlec@blackhole.kfki.hu, fw@strlen.de, stephen@networkplumber.org,
-        alex.aring@gmail.com, stefan@osg.samsung.com, kuznet@ms2.inr.ac.ru,
-        yoshfuji@linux-ipv6.org, santosh.shilimkar@oracle.com,
-        trond.myklebust@primarydata.com, anna.schumaker@netapp.com,
-        bfields@fieldses.org, jlayton@poochiereds.net,
-        linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-        coreteam@netfilter.org, bridge@lists.linux-foundation.org,
-        linux-wpan@vger.kernel.org, linux-rdma@vger.kernel.org,
-        rds-devel@oss.oracle.com, linux-nfs@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Guillaume Nault <g.nault@alphalink.fr>
+Subject: [PATCH net] l2tp: initialise session's refcount before making it
+ reachable
+Date: Fri, 25 Aug 2017 16:22:17 +0200
+Message-ID: <f37a31f7fbfa4c02c4a263672f86eac4e80be272.1503670839.git.g.nault@alphalink.fr>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: James Chapman <jchapman@katalix.com>,
+        David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zimbra.alphalink.fr ([217.15.80.77]:50613 "EHLO
+        zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932562AbdHYOWV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 10:22:21 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Make these const as they are not modified.
+Sessions must be fully initialised before calling
+l2tp_session_add_to_tunnel(). Otherwise, there's a short time frame
+where partially initialised sessions can be accessed by external users.
 
-Bhumika Goyal (7):
-  Bluetooth: 6lowpan: make header_ops const
-  bridge: make ebt_table const
-  ieee802154: 6lowpan: make header_ops const
-  ipv4: make net_protocol const
-  RDS: make rhashtable_params const
-  netfilter: nat: make rhashtable_params const
-  SUNRPC: make kvec const
+Fixes: dbdbc73b4478 ("l2tp: fix duplicate session creation")
+Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
+---
+ net/l2tp/l2tp_core.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
 
- net/bluetooth/6lowpan.c            | 2 +-
- net/bridge/netfilter/ebtable_nat.c | 2 +-
- net/ieee802154/6lowpan/core.c      | 2 +-
- net/ipv4/af_inet.c                 | 4 ++--
- net/netfilter/nf_nat_core.c        | 2 +-
- net/rds/bind.c                     | 2 +-
- net/sunrpc/xdr.c                   | 2 +-
- 7 files changed, 8 insertions(+), 8 deletions(-)
-
+diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
+index b0c2d4ae781d..f363669eae47 100644
+--- a/net/l2tp/l2tp_core.c
++++ b/net/l2tp/l2tp_core.c
+@@ -1844,6 +1844,8 @@ struct l2tp_session *l2tp_session_create(int priv_size, struct l2tp_tunnel *tunn
+ 
+ 		l2tp_session_set_header_len(session, tunnel->version);
+ 
++		refcount_set(&session->ref_count, 1);
++
+ 		err = l2tp_session_add_to_tunnel(tunnel, session);
+ 		if (err) {
+ 			kfree(session);
+@@ -1851,10 +1853,6 @@ struct l2tp_session *l2tp_session_create(int priv_size, struct l2tp_tunnel *tunn
+ 			return ERR_PTR(err);
+ 		}
+ 
+-		/* Bump the reference count. The session context is deleted
+-		 * only when this drops to zero.
+-		 */
+-		refcount_set(&session->ref_count, 1);
+ 		l2tp_tunnel_inc_refcount(tunnel);
+ 
+ 		/* Ensure tunnel socket isn't deleted */
 -- 
-1.9.1
-
+2.14.1
