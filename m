@@ -1,56 +1,56 @@
-From: "Waskiewicz Jr, Peter" <peter.waskiewicz.jr@intel.com>
-Subject: Re: [PATCH] pktgen: add a new sample script for 40G and above link
- testing
-Date: Fri, 25 Aug 2017 15:11:38 +0000
-Message-ID: <E0D909EE5BB15A4699798539EA149D7F0779396C@ORSMSX103.amr.corp.intel.com>
-References: <1503127531-134546-1-git-send-email-robert.hu@intel.com>
- <20170825111921.061713c8@redhat.com>
- <E0D909EE5BB15A4699798539EA149D7F077932D8@ORSMSX103.amr.corp.intel.com>
- <20170825165929.0d840ab2@redhat.com>
+From: Corentin Labbe <clabbe.montjoie@gmail.com>
+Subject: Re: [PATCH] net: stmmac: dwmac-sun8i: Use reset exclusive
+Date: Fri, 25 Aug 2017 17:17:33 +0200
+Message-ID: <20170825151733.GB9475@Red>
+References: <20170825143805.21733-1-clabbe.montjoie@gmail.com>
+ <20170825144832.3w6izhri5vstbndp@flea.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Hu, Robert" <robert.hu@intel.com>,
-        "robert.hu@linux.intel.com" <robert.hu@linux.intel.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:29720 "EHLO mga01.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932414AbdHYPLk (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 25 Aug 2017 11:11:40 -0400
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com, wens@csie.org,
+        netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+        linux-kernel@vger.kernel.org
+To: Maxime Ripard <maxime.ripard@free-electrons.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170825144832.3w6izhri5vstbndp@flea.lan>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 8/25/17 10:59 AM, Jesper Dangaard Brouer wrote:
-> On Fri, 25 Aug 2017 14:24:28 +0000
-> "Waskiewicz Jr, Peter" <peter.waskiewicz.jr@intel.com> wrote:
+On Fri, Aug 25, 2017 at 04:48:32PM +0200, Maxime Ripard wrote:
+> On Fri, Aug 25, 2017 at 04:38:05PM +0200, Corentin Labbe wrote:
+> > The current dwmac_sun8i module cannot be rmmod/modprobe due to that
+> > the reset controller was not released when removed.
+> > 
+> > This patch remove ambiguity, by using of_reset_control_get_exclusive and
+> > add the missing reset_control_put().
+> > 
+> > Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
+> > ---
+> >  drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c | 3 ++-
+> >  1 file changed, 2 insertions(+), 1 deletion(-)
+> > 
+> > diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
+> > index fffd6d5fc907..675a09629d85 100644
+> > --- a/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
+> > +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
+> > @@ -782,6 +782,7 @@ static int sun8i_dwmac_unpower_internal_phy(struct sunxi_priv_data *gmac)
+> >  
+> >  	clk_disable_unprepare(gmac->ephy_clk);
+> >  	reset_control_assert(gmac->rst_ephy);
+> > +	reset_control_put(gmac->rst_ephy);
+> >  	return 0;
+> >  }
+> >  
+> > @@ -942,7 +943,7 @@ static int sun8i_dwmac_probe(struct platform_device *pdev)
+> >  			return -EINVAL;
+> >  		}
+> >  
+> > -		gmac->rst_ephy = of_reset_control_get(plat_dat->phy_node, NULL);
+> > +		gmac->rst_ephy = of_reset_control_get_exclusive(plat_dat->phy_node, NULL);
 > 
->> On 8/25/17 5:19 AM, Jesper Dangaard Brouer wrote:
->>>>
->>>> Tested with Intel XL710 NIC with Cisco 3172 switch.
->>>>
->>>> It would be even slightly better if the irqbalance service is turned
->>>> off outside.
->>>
->>> Yes, if you don't turn-off (kill) irqbalance it will move around the
->>> IRQs behind your back...
->>
->> Or you can use the --banirq option to irqbalance to ignore your device's
->> interrupts as targets for balancing.
+> Why not just use devm_reset_control_get?
 > 
-> It might be worth mentioning that --banirq=X is specified for each IRQ
-> that you want to exclude, and --banirq is simply specified multiple
-> times on the command line.
-> 
-> Is it possible to tell a running irqbalance that I want to excluded an
-> extra IRQ? (just before I do my manual adjustment).
 
-It isn't possible today, since we don't have a way to attach a 
-foreground/oneshot irqbalance run to a currently-running daemon.  That's 
-an interesting feature enhancement...I can add it to our list as a 
-feature request so I don't forget about it.  That way I can also get 
-Neil's thoughts on this.
+Because there no devm_ functions with of_
 
--PJ
+Regards
