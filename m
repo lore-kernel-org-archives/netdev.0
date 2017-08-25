@@ -1,55 +1,58 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [Patch net-next v2 3/4] net_sched: remove tc class reference
- counting
-Date: Fri, 25 Aug 2017 11:41:16 +0200
-Message-ID: <20170825094116.GE2023@nanopsycho>
-References: <20170824235130.28503-1-xiyou.wangcong@gmail.com>
- <20170824235130.28503-4-xiyou.wangcong@gmail.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH nf-next] netfilter: xt_CHECKSUM: avoid bad offload
+ warnings on GSO packets
+Date: Fri, 25 Aug 2017 11:40:25 +0200
+Message-ID: <20170825094025.GJ15739@breakpoint.cc>
+References: <20170824104824.2C318A0F3A@unicorn.suse.cz>
+ <20170824105118.GA15739@breakpoint.cc>
+ <20170824110742.qby3yoz3emf6pr5i@unicorn.suse.cz>
+ <1503580122.2958.37.camel@redhat.com>
+ <20170824131722.GB15739@breakpoint.cc>
+ <20170825092819.hjgazfcvvrlibkd4@unicorn.suse.cz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f196.google.com ([209.85.128.196]:38844 "EHLO
-        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754938AbdHYJlT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 05:41:19 -0400
-Received: by mail-wr0-f196.google.com with SMTP id o76so760188wrb.5
-        for <netdev@vger.kernel.org>; Fri, 25 Aug 2017 02:41:18 -0700 (PDT)
+Cc: Florian Westphal <fw@strlen.de>,
+        Davide Caratti <dcaratti@redhat.com>,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        "Michael S. Tsirkin" <mst@redhat.com>,
+        Markos Chandras <markos.chandras@suse.com>
+To: Michal Kubecek <mkubecek@suse.cz>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20170824235130.28503-4-xiyou.wangcong@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20170825092819.hjgazfcvvrlibkd4@unicorn.suse.cz>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Fri, Aug 25, 2017 at 01:51:29AM CEST, xiyou.wangcong@gmail.com wrote:
->For TC classes, their ->get() and ->put() are always paired, and the
->reference counting is completely useless, because:
->
->1) For class modification and dumping paths, we already hold RTNL lock,
->   so all of these ->get(),->change(),->put() are atomic.
->
->2) For filter bindiing/unbinding, we use other reference counter than
->   this one, and they should have RTNL lock too.
->
->3) For ->qlen_notify(), it is special because it is called on ->enqueue()
->   path, but we already hold qdisc tree lock there, and we hold this
->   tree lock when graft or delete the class too, so it should not be gone
->   or changed until we release the tree lock.
->
->Therefore, this patch removes ->get() and ->put(), but:
->
->1) Adds a new ->find() to find the pointer to a class by classid, no
->   refcnt.
->
->2) Move the original class destroy upon the last refcnt into ->delete(),
->   right after releasing tree lock. This is fine because the class is
->   already removed from hash when holding the lock.
->
->For those who also use ->put() as ->unbind(), just rename them to reflect
->this change.
->
->Cc: Jamal Hadi Salim <jhs@mojatatu.com>
->Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+Michal Kubecek <mkubecek@suse.cz> wrote:
+> On Thu, Aug 24, 2017 at 03:17:22PM +0200, Florian Westphal wrote:
+> > Davide Caratti <dcaratti@redhat.com> wrote:
+> > > Small nit: may I suggest you to call skb_csum_hwoffload_help() instead of
+> > > skb_checksum_help(), so that we avoid corrupting SCTP packets in case they
+> > > hit xt_CHECKSUM target?
+> > 
+> > Alternatively we could restrict the target to udp only.
+> > 
+> > AFAIU the only reason this thing exists is to fix up udp checksum
+> > for old dhcp clients that use AF_PACKET without evaluating the extra
+> > metadata that indicates when a 'bad' checksum is in fact ok because it
+> > is supposed to be filled in by hardware later.
+> > 
+> > This can happen in virtual environemnt when such skb is directly passed
+> > to vm.
+> 
+> Based on what the documentation and the commit message of the commit
+> introducing xt_CHECKSUM module say, it seems so. But I must admit I'm
+> not sure where is the target is used and how (and why). In particular,
+> our issue was most likely result of
+> 
+>   https://github.com/openstack/openstack-ansible-tests/blob/master/test-prepare-host.yml#L196-L197
 
-Look very nice. Thanks!
-Acked-by: Jiri Pirko <jiri@mellanox.com>
+Sigh.  Ok, that pretty much leaves your patch as the only viable option,
+however, I still think the warning isn't useful.
+
+Can you send a v2 with gso check but without warning?
+
+Thanks!
