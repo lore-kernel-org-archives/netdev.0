@@ -1,50 +1,42 @@
-From: Jeff Layton <jlayton@redhat.com>
-Subject: Re: [PATCH 7/7] SUNRPC: make kvec const
-Date: Fri, 25 Aug 2017 10:48:56 -0400
-Message-ID: <1503672536.4722.20.camel@redhat.com>
-References: <1503670907-23221-1-git-send-email-bhumirks@gmail.com>
-         <1503670907-23221-8-git-send-email-bhumirks@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: Bhumika Goyal <bhumirks@gmail.com>, julia.lawall@lip6.fr,
-        marcel@holtmann.org, gustavo@padovan.org, johan.hedberg@gmail.com,
-        davem@davemloft.net, pablo@netfilter.org, kadlec@blackhole.kfki.hu,
-        fw@strlen.de, stephen@networkplumber.org, alex.aring@gmail.com,
-        stefan@osg.samsung.com, kuznet@ms2.inr.ac.ru,
-        yoshfuji@linux-ipv6.org, santosh.shilimkar@oracle.com,
-        trond.myklebust@primarydata.com, anna.schumaker@netapp.com,
-        bfields@fieldses.org, linux-bluetooth@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        bridge@lists.linux-foundation.org, linux-wpan@vger.kernel.org,
-        linux-rdma@vger.kernel.org, rds-devel@oss.oracle.com,
-        linux-nfs@vger.kernel.org
+From: Antoine Tenart <antoine.tenart@free-electrons.com>
+Subject: [PATCH net-next v2 01/14] phy: add sgmii and 10gkr modes to the phy_mode enum
+Date: Fri, 25 Aug 2017 16:48:08 +0200
+Message-ID: <20170825144821.31129-2-antoine.tenart@free-electrons.com>
+References: <20170825144821.31129-1-antoine.tenart@free-electrons.com>
+Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
+        thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
+        linux@armlinux.org.uk, linux-kernel@vger.kernel.org,
+        mw@semihalf.com, stefanc@marvell.com,
+        miquel.raynal@free-electrons.com, netdev@vger.kernel.org
+To: davem@davemloft.net, kishon@ti.com, andrew@lunn.ch,
+        jason@lakedaemon.net, sebastian.hesselbarth@gmail.com,
+        gregory.clement@free-electrons.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1503670907-23221-8-git-send-email-bhumirks@gmail.com>
+In-Reply-To: <20170825144821.31129-1-antoine.tenart@free-electrons.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2017-08-25 at 19:51 +0530, Bhumika Goyal wrote:
-> Make this const as it is only used during a copy operation.
-> 
-> Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
-> ---
->  net/sunrpc/xdr.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/net/sunrpc/xdr.c b/net/sunrpc/xdr.c
-> index e34f4ee..a096025 100644
-> --- a/net/sunrpc/xdr.c
-> +++ b/net/sunrpc/xdr.c
-> @@ -998,7 +998,7 @@ void xdr_enter_page(struct xdr_stream *xdr, unsigned int len)
->  }
->  EXPORT_SYMBOL_GPL(xdr_enter_page);
->  
-> -static struct kvec empty_iov = {.iov_base = NULL, .iov_len = 0};
-> +static const struct kvec empty_iov = {.iov_base = NULL, .iov_len = 0};
->  
->  void
->  xdr_buf_from_iov(struct kvec *iov, struct xdr_buf *buf)
+This patch adds more generic PHY modes to the phy_mode enum, to
+allow configuring generic PHYs to the SGMII and/or the 10GKR mode
+by using the set_mode callback.
 
-Reviewed-by: Jeff Layton <jlayton@redhat.com>
+Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
+---
+ include/linux/phy/phy.h | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/include/linux/phy/phy.h b/include/linux/phy/phy.h
+index 78bb0d7f6b11..e694d4008c4a 100644
+--- a/include/linux/phy/phy.h
++++ b/include/linux/phy/phy.h
+@@ -27,6 +27,8 @@ enum phy_mode {
+ 	PHY_MODE_USB_HOST,
+ 	PHY_MODE_USB_DEVICE,
+ 	PHY_MODE_USB_OTG,
++	PHY_MODE_SGMII,
++	PHY_MODE_10GKR,
+ };
+ 
+ /**
+-- 
+2.13.5
