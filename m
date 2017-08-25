@@ -1,35 +1,44 @@
-From: Michael Chan <michael.chan@broadcom.com>
-Subject: Re: [PATCH net-next v2] tg3: Be drop monitor friendly
-Date: Thu, 24 Aug 2017 17:50:16 -0700
-Message-ID: <CACKFLimXqzgpKRnPLjxyCUiyEDCYhNScp1qq1rv9gVWWZKGzBA@mail.gmail.com>
-References: <20170825004711.19793-1-f.fainelli@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] ipv6: Add sysctl for per namespace flow label
+ reflection
+Date: Thu, 24 Aug 2017 18:05:53 -0700 (PDT)
+Message-ID: <20170824.180553.1621054459411024798.davem@davemloft.net>
+References: <20170823075541.26764-1-jkbs@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Netdev <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>, edumazet@gmail.com,
-        Siva Reddy Kallam <siva.kallam@broadcom.com>,
-        Prashant Sreedharan <prashant@broadcom.com>,
-        Michael Chan <mchan@broadcom.com>,
-        open list <linux-kernel@vger.kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170825004711.19793-1-f.fainelli@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, hannes@stressinduktion.org,
+        nikolay@cumulusnetworks.com, tom@herbertland.com
+To: jkbs@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:59382 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753556AbdHYBF5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 24 Aug 2017 21:05:57 -0400
+In-Reply-To: <20170823075541.26764-1-jkbs@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 24, 2017 at 5:47 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
-> tg3_tx() does the normal packet TX completion,
-> tigon3_dma_hwbug_workaround() and tg3_tso_bug() both need to allocate a
-> new SKB that is suitable to workaround HW bugs, and finally
-> tg3_free_rings() is doing ring cleanup. Use dev_consume_skb_any() for
-> these 3 locations to be SKB drop monitor friendly.
->
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+From: Jakub Sitnicki <jkbs@redhat.com>
+Date: Wed, 23 Aug 2017 09:55:41 +0200
 
-Acked-by: Michael Chan <michael.chan@broadcom.com>
+> Reflecting IPv6 Flow Label at server nodes is useful in environments
+> that employ multipath routing to load balance the requests. As "IPv6
+> Flow Label Reflection" standard draft [1] points out - ICMPv6 PTB error
+> messages generated in response to a downstream packets from the server
+> can be routed by a load balancer back to the original server without
+> looking at transport headers, if the server applies the flow label
+> reflection. This enables the Path MTU Discovery past the ECMP router in
+> load-balance or anycast environments where each server node is reachable
+> by only one path.
+> 
+> Introduce a sysctl to enable flow label reflection per net namespace for
+> all newly created sockets. Same could be earlier achieved only per
+> socket by setting the IPV6_FL_F_REFLECT flag for the IPV6_FLOWLABEL_MGR
+> socket option.
+> 
+> [1] https://tools.ietf.org/html/draft-wang-6man-flow-label-reflection-01
+> 
+> Signed-off-by: Jakub Sitnicki <jkbs@redhat.com>
 
-> ---
-> Changes in v2:
->
-> - also included tg3_tso_bug() as indicated by Michael
->
+Ok, applied.
