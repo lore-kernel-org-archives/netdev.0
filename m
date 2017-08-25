@@ -1,43 +1,42 @@
-From: Stefano Brivio <sbrivio@redhat.com>
-Subject: how to submit fixes for i40e/i40evf?
-Date: Fri, 25 Aug 2017 22:52:15 +0200
-Message-ID: <20170825225215.35fc6b59@elisabeth>
+From: Casey Leedom <leedom@chelsio.com>
+Subject: Re: [PATCH net] cxgb4: Fix stack out-of-bounds read due to wrong size
+ to t4_record_mbox()
+Date: Fri, 25 Aug 2017 20:57:32 +0000
+Message-ID: <MWHPR12MB1600CB171EE1C4F2961555B7C89B0@MWHPR12MB1600.namprd12.prod.outlook.com>
+References: <04759fe12e6a8eb8e36e46060b907f02c269a826.1503692361.git.sbrivio@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org
-To: "David S. Miller" <davem@davemloft.net>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: Hariprasad Shenai <hariprasad@chelsio.com>,
+        Sai Vemuri <svemuri@redhat.com>
+To: Stefano Brivio <sbrivio@redhat.com>,
+        Ganesh GR <ganeshgr@chelsio.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46606 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932586AbdHYUwX (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 25 Aug 2017 16:52:23 -0400
+Received: from mail-cys01nam02on0105.outbound.protection.outlook.com ([104.47.37.105]:10512
+        "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S932319AbdHYU5g (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 25 Aug 2017 16:57:36 -0400
+In-Reply-To: <04759fe12e6a8eb8e36e46060b907f02c269a826.1503692361.git.sbrivio@redhat.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+| From: Stefano Brivio <sbrivio@redhat.com>
+| Sent: Friday, August 25, 2017 1:48 PM
+| =A0  =20
+| Passing commands for logging to t4_record_mbox() with size
+| MBOX_LEN, when the actual command size is actually smaller,
+| causes out-of-bounds stack accesses in t4_record_mbox() while
+| copying command words here:
+| ...
 
-As I'm currently preparing another fix for i40e, and the last one I
-submitted has been stuck for about two weeks now, I would like to ask
-some details about the process to submit fixes for i40e/i40evf drivers,
-before I do something wrong again.
+Thanks for catching this.  Definitely a bug.  Odd because
+that's not what I checked into our out-of-kernel repository.
+And the corresponding code in the cxgb4vf driver is correct.
 
-Do all the patches have to go through Intel's patchwork, no matter
-what's the perceived severity of the issue? Should I still submit them
-to netdev anyway?
+So yes, ACK!
 
-Which trees should I check before submitting a patch? Is it enough to
-check the master branch of jkirsher/net-queue.git and
-jkirsher/next-queue.git?
-
-Once patches reach Intel's patchwork, will they need to wait for some
-kind of periodically scheduled pull request process?
-
-I don't know if a process is actually defined at this level of detail,
-but still I feel it's wrong that an obvious fix for a potential crash is
-waiting in some sort of limbo for 10 days now. Sure, worse things
-happen in the world, but I can't understand what this patch is waiting
-for.
-
-Any answer is appreciated. Thanks,
+Casey=
