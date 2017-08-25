@@ -1,46 +1,44 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net v2 1/4] net: mvpp2: fix the mac address used when
- using PPv2.2
-Date: Fri, 25 Aug 2017 16:19:39 +0200
-Message-ID: <20170825141939.GB30922@lunn.ch>
-References: <20170825141420.14027-1-antoine.tenart@free-electrons.com>
- <20170825141420.14027-2-antoine.tenart@free-electrons.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, thomas.petazzoni@free-electrons.com,
-        gregory.clement@free-electrons.com, nadavh@marvell.com,
-        linux@armlinux.org.uk, linux-kernel@vger.kernel.org,
-        mw@semihalf.com, stefanc@marvell.com, netdev@vger.kernel.org
-To: Antoine Tenart <antoine.tenart@free-electrons.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:44193 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754777AbdHYOTq (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 25 Aug 2017 10:19:46 -0400
-Content-Disposition: inline
-In-Reply-To: <20170825141420.14027-2-antoine.tenart@free-electrons.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Bhumika Goyal <bhumirks@gmail.com>
+Subject: [PATCH 0/7] net: make some structures const
+Date: Fri, 25 Aug 2017 19:51:40 +0530
+Message-ID: <1503670907-23221-1-git-send-email-bhumirks@gmail.com>
+Cc: Bhumika Goyal <bhumirks@gmail.com>
+To: julia.lawall@lip6.fr, marcel@holtmann.org, gustavo@padovan.org,
+        johan.hedberg@gmail.com, davem@davemloft.net, pablo@netfilter.org,
+        kadlec@blackhole.kfki.hu, fw@strlen.de, stephen@networkplumber.org,
+        alex.aring@gmail.com, stefan@osg.samsung.com, kuznet@ms2.inr.ac.ru,
+        yoshfuji@linux-ipv6.org, santosh.shilimkar@oracle.com,
+        trond.myklebust@primarydata.com, anna.schumaker@netapp.com,
+        bfields@fieldses.org, jlayton@poochiereds.net,
+        linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+        coreteam@netfilter.org, bridge@lists.linux-foundation.org,
+        linux-wpan@vger.kernel.org, linux-rdma@vger.kernel.org,
+        rds-devel@oss.oracle.com, linux-nfs@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 25, 2017 at 04:14:17PM +0200, Antoine Tenart wrote:
-> The mac address is only retrieved from h/w when using PPv2.1. Otherwise
-> the variable holding it is still checked and used if it contains a valid
-> value. As the variable isn't initialized to an invalid mac address
-> value, we end up with random mac addresses which can be the same for all
-> the ports handled by this PPv2 driver.
-> 
-> Fixes this by initializing the h/w mac address variable to {0}, which is
-> an invalid mac address value. This way the random assignation fallback
-> is called and all ports end up with their own addresses.
-> 
-> Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
-> Fixes: 2697582144dd ("net: mvpp2: handle misc PPv2.1/PPv2.2 differences")
+Make these const as they are not modified.
 
-Hi Antoine
+Bhumika Goyal (7):
+  Bluetooth: 6lowpan: make header_ops const
+  bridge: make ebt_table const
+  ieee802154: 6lowpan: make header_ops const
+  ipv4: make net_protocol const
+  RDS: make rhashtable_params const
+  netfilter: nat: make rhashtable_params const
+  SUNRPC: make kvec const
 
-Is this patch alone sufficient to fix the problem?
+ net/bluetooth/6lowpan.c            | 2 +-
+ net/bridge/netfilter/ebtable_nat.c | 2 +-
+ net/ieee802154/6lowpan/core.c      | 2 +-
+ net/ipv4/af_inet.c                 | 4 ++--
+ net/netfilter/nf_nat_core.c        | 2 +-
+ net/rds/bind.c                     | 2 +-
+ net/sunrpc/xdr.c                   | 2 +-
+ 7 files changed, 8 insertions(+), 8 deletions(-)
 
-Ideally, you want a minimal patch for stable, i.e. -net, and a fuller
-fix can go into net-next.
+-- 
+1.9.1
 
-    Andrew
