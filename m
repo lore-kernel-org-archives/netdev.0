@@ -1,149 +1,91 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 12/13] i40e: prevent changing ITR if adaptive-rx/tx enabled
-Date: Fri, 25 Aug 2017 15:00:56 -0700
-Message-ID: <20170825220057.51804-13-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 08/13] i40e: move check for avoiding VID=0 filters into i40e_vsi_add_vlan
+Date: Fri, 25 Aug 2017 15:00:52 -0700
+Message-ID: <20170825220057.51804-9-jeffrey.t.kirsher@intel.com>
 References: <20170825220057.51804-1-jeffrey.t.kirsher@intel.com>
-Cc: Alan Brady <alan.brady@intel.com>, netdev@vger.kernel.org,
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:48593 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:14254 "EHLO mga09.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S935145AbdHYWBI (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 25 Aug 2017 18:01:08 -0400
+        id S934953AbdHYWBH (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 25 Aug 2017 18:01:07 -0400
 In-Reply-To: <20170825220057.51804-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alan Brady <alan.brady@intel.com>
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-Currently the driver allows the user to change (or even disable)
-interrupt moderation if adaptive-rx/tx is enabled when this should
-not be the case.
+In i40e_vsi_add_vlan we treat attempting to add VID=0 as an error,
+because it does not do what the caller might expect. We already special
+case VID=0 in i40e_vlan_rx_add_vid so that we avoid this error when
+adding the VLAN.
 
-Adaptive RX/TX will not respect the user's ITR settings so
-allowing the user to change it is weird.  This bug would also
-allow the user to disable interrupt moderation with adaptive-rx/tx
-enabled which doesn't make much sense either.
+This special casing is necessary so that we do not add the VLAN=0 filter
+since we don't want to stop receiving untagged traffic. Unfortunately,
+not all callers of i40e_vsi_add_vlan are aware of this, including when
+we add VLANs from a VF device.
 
-This patch makes it such that if adaptive-rx/tx is enabled, the user
-cannot make any manual adjustments to interrupt moderation.  It also
-makes it so that if ITR is disabled but adaptive-rx/tx is then
-enabled, ITR will be re-enabled.
+Rather than special casing every single caller of i40e_vsi_add_vlan,
+lets just move this check internally. This makes the code simpler
+because the caller does not need to be aware of how VLAN=0 is special,
+and we don't forget to add this check in new places.
 
-Signed-off-by: Alan Brady <alan.brady@intel.com>
+This fixes a harmless error message displaying when adding a VLAN from
+within a VF. The message was meaningless but there is no reason to
+confuse end users and system administrators, and this is now avoided.
+
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 65 +++++++++++++++++---------
- 1 file changed, 43 insertions(+), 22 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 23 +++++++++++++----------
+ 1 file changed, 13 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index a868c8d4fec9..05e89864f781 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -2194,14 +2194,29 @@ static int __i40e_set_coalesce(struct net_device *netdev,
- 			       int queue)
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 6a59d9367a2a..1b3b681a8b1d 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -2595,9 +2595,20 @@ int i40e_vsi_add_vlan(struct i40e_vsi *vsi, u16 vid)
  {
- 	struct i40e_netdev_priv *np = netdev_priv(netdev);
-+	u16 intrl_reg, cur_rx_itr, cur_tx_itr;
- 	struct i40e_vsi *vsi = np->vsi;
- 	struct i40e_pf *pf = vsi->back;
--	u16 intrl_reg;
- 	int i;
+ 	int err;
  
- 	if (ec->tx_max_coalesced_frames_irq || ec->rx_max_coalesced_frames_irq)
- 		vsi->work_limit = ec->tx_max_coalesced_frames_irq;
- 
-+	if (queue < 0) {
-+		cur_rx_itr = vsi->rx_rings[0]->rx_itr_setting;
-+		cur_tx_itr = vsi->tx_rings[0]->tx_itr_setting;
-+	} else if (queue < vsi->num_queue_pairs) {
-+		cur_rx_itr = vsi->rx_rings[queue]->rx_itr_setting;
-+		cur_tx_itr = vsi->tx_rings[queue]->tx_itr_setting;
-+	} else {
-+		netif_info(pf, drv, netdev, "Invalid queue value, queue range is 0 - %d\n",
-+			   vsi->num_queue_pairs - 1);
-+		return -EINVAL;
-+	}
-+
-+	cur_tx_itr &= ~I40E_ITR_DYNAMIC;
-+	cur_rx_itr &= ~I40E_ITR_DYNAMIC;
-+
- 	/* tx_coalesce_usecs_high is ignored, use rx-usecs-high instead */
- 	if (ec->tx_coalesce_usecs_high != vsi->int_rate_limit) {
- 		netif_info(pf, drv, netdev, "tx-usecs-high is not used, please program rx-usecs-high\n");
-@@ -2214,15 +2229,34 @@ static int __i40e_set_coalesce(struct net_device *netdev,
+-	if (!vid || vsi->info.pvid)
++	if (vsi->info.pvid)
  		return -EINVAL;
- 	}
  
--	if (ec->rx_coalesce_usecs == 0) {
--		if (ec->use_adaptive_rx_coalesce)
--			netif_info(pf, drv, netdev, "rx-usecs=0, need to disable adaptive-rx for a complete disable\n");
--	} else if ((ec->rx_coalesce_usecs < (I40E_MIN_ITR << 1)) ||
--		   (ec->rx_coalesce_usecs > (I40E_MAX_ITR << 1))) {
--			netif_info(pf, drv, netdev, "Invalid value, rx-usecs range is 0-8160\n");
--			return -EINVAL;
-+	if (ec->rx_coalesce_usecs != cur_rx_itr &&
-+	    ec->use_adaptive_rx_coalesce) {
-+		netif_info(pf, drv, netdev, "RX interrupt moderation cannot be changed if adaptive-rx is enabled.\n");
-+		return -EINVAL;
-+	}
++	/* The network stack will attempt to add VID=0, with the intention to
++	 * receive priority tagged packets with a VLAN of 0. Our HW receives
++	 * these packets by default when configured to receive untagged
++	 * packets, so we don't need to add a filter for this case.
++	 * Additionally, HW interprets adding a VID=0 filter as meaning to
++	 * receive *only* tagged traffic and stops receiving untagged traffic.
++	 * Thus, we do not want to actually add a filter for VID=0
++	 */
++	if (!vid)
++		return 0;
 +
-+	if (ec->rx_coalesce_usecs > (I40E_MAX_ITR << 1)) {
-+		netif_info(pf, drv, netdev, "Invalid value, rx-usecs range is 0-8160\n");
-+		return -EINVAL;
- 	}
+ 	/* Locked once because all functions invoked below iterates list*/
+ 	spin_lock_bh(&vsi->mac_filter_hash_lock);
+ 	err = i40e_add_vlan_all_mac(vsi, vid);
+@@ -2674,15 +2685,7 @@ static int i40e_vlan_rx_add_vid(struct net_device *netdev,
+ 	if (vid >= VLAN_N_VID)
+ 		return -EINVAL;
  
-+	if (ec->tx_coalesce_usecs != cur_tx_itr &&
-+	    ec->use_adaptive_tx_coalesce) {
-+		netif_info(pf, drv, netdev, "TX interrupt moderation cannot be changed if adaptive-tx is enabled.\n");
-+		return -EINVAL;
-+	}
-+
-+	if (ec->tx_coalesce_usecs > (I40E_MAX_ITR << 1)) {
-+		netif_info(pf, drv, netdev, "Invalid value, tx-usecs range is 0-8160\n");
-+		return -EINVAL;
-+	}
-+
-+	if (ec->use_adaptive_rx_coalesce && !cur_rx_itr)
-+		ec->rx_coalesce_usecs = I40E_MIN_ITR << 1;
-+
-+	if (ec->use_adaptive_tx_coalesce && !cur_tx_itr)
-+		ec->tx_coalesce_usecs = I40E_MIN_ITR << 1;
-+
- 	intrl_reg = i40e_intrl_usec_to_reg(ec->rx_coalesce_usecs_high);
- 	vsi->int_rate_limit = INTRL_REG_TO_USEC(intrl_reg);
- 	if (vsi->int_rate_limit != ec->rx_coalesce_usecs_high) {
-@@ -2230,27 +2264,14 @@ static int __i40e_set_coalesce(struct net_device *netdev,
- 			   vsi->int_rate_limit);
- 	}
- 
--	if (ec->tx_coalesce_usecs == 0) {
--		if (ec->use_adaptive_tx_coalesce)
--			netif_info(pf, drv, netdev, "tx-usecs=0, need to disable adaptive-tx for a complete disable\n");
--	} else if ((ec->tx_coalesce_usecs < (I40E_MIN_ITR << 1)) ||
--		   (ec->tx_coalesce_usecs > (I40E_MAX_ITR << 1))) {
--			netif_info(pf, drv, netdev, "Invalid value, tx-usecs range is 0-8160\n");
--			return -EINVAL;
--	}
+-	/* If the network stack called us with vid = 0 then
+-	 * it is asking to receive priority tagged packets with
+-	 * vlan id 0.  Our HW receives them by default when configured
+-	 * to receive untagged packets so there is no need to add an
+-	 * extra filter for vlan 0 tagged packets.
+-	 */
+-	if (vid)
+-		ret = i40e_vsi_add_vlan(vsi, vid);
 -
- 	/* rx and tx usecs has per queue value. If user doesn't specify the queue,
- 	 * apply to all queues.
- 	 */
- 	if (queue < 0) {
- 		for (i = 0; i < vsi->num_queue_pairs; i++)
- 			i40e_set_itr_per_queue(vsi, ec, i);
--	} else if (queue < vsi->num_queue_pairs) {
--		i40e_set_itr_per_queue(vsi, ec, queue);
- 	} else {
--		netif_info(pf, drv, netdev, "Invalid queue value, queue range is 0 - %d\n",
--			   vsi->num_queue_pairs - 1);
--		return -EINVAL;
-+		i40e_set_itr_per_queue(vsi, ec, queue);
- 	}
++	ret = i40e_vsi_add_vlan(vsi, vid);
+ 	if (!ret)
+ 		set_bit(vid, vsi->active_vlans);
  
- 	return 0;
 -- 
 2.14.1
