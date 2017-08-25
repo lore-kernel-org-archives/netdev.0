@@ -1,54 +1,48 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PULL] vhost: cleanups and fixes
-Date: Fri, 25 Aug 2017 21:47:19 +0300
-Message-ID: <20170825214719-mutt-send-email-mst@kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] ptr_ring: use kmalloc_array()
+Date: Fri, 25 Aug 2017 11:57:19 -0700
+Message-ID: <1503687439.11498.5.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1502905007.4936.133.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20170825205653-mutt-send-email-mst@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, mst@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, stable@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, stefanha@redhat.com,
-	yasu.isimatu@gmail.com, hch@lst.de
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>, Jason Wang <jasowang@redhat.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:34287 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754958AbdHYS5V (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 14:57:21 -0400
+Received: by mail-pg0-f68.google.com with SMTP id 63so884343pgc.1
+        for <netdev@vger.kernel.org>; Fri, 25 Aug 2017 11:57:21 -0700 (PDT)
+In-Reply-To: <20170825205653-mutt-send-email-mst@kernel.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The following changes since commit 14ccee78fc82f5512908f4424f541549a5705b89:
+On Fri, 2017-08-25 at 21:03 +0300, Michael S. Tsirkin wrote:
+> On Wed, Aug 16, 2017 at 10:36:47AM -0700, Eric Dumazet wrote:
+> > From: Eric Dumazet <edumazet@google.com>
+> > 
+> > As found by syzkaller, malicious users can set whatever tx_queue_len
+> > on a tun device and eventually crash the kernel.
+> > 
+> > Lets remove the ALIGN(XXX, SMP_CACHE_BYTES) thing since a small
+> > ring buffer is not fast anyway.
+> 
+> I'm not sure it's worth changing for small rings.
+> 
+> Does kmalloc_array guarantee cache line alignment for big buffers
+> then? If the ring is misaligned it will likely cause false sharing
+> as it's designed to be accessed from two CPUs.
 
-  Linux 4.13-rc6 (2017-08-20 14:13:52 -0700)
+I specifically said that in the changelog :
 
-are available in the git repository at:
+"since a small ring buffer is not fast anyway."
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git tags/for_linus
+If one user sets up a pathological small ring buffer, kernel should not
+try to fix it.
 
-for you to fetch changes up to ba74b6f7fcc07355d087af6939712eed4a454821:
-
-  virtio_pci: fix cpu affinity support (2017-08-25 21:38:26 +0300)
-
-----------------------------------------------------------------
-virtio: bugfix
-
-Fixes two obvious bugs in virtio pci.
-
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-
-----------------------------------------------------------------
-Christoph Hellwig (1):
-      virtio_pci: fix cpu affinity support
-
-Stefan Hajnoczi (1):
-      virtio_blk: fix incorrect message when disk is resized
-
- drivers/block/virtio_blk.c         | 16 ++++++++++------
- drivers/virtio/virtio_pci_common.c | 10 +++++++---
- 2 files changed, 17 insertions(+), 9 deletions(-)
+In this case, you would have to setup a ring of 2 or 4 slots to
+eventually hit false sharing.
