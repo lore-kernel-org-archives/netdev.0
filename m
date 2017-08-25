@@ -1,214 +1,149 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 07/13] i40e/i40evf: use cmpxchg64 when updating private flags in ethtool
-Date: Fri, 25 Aug 2017 15:00:51 -0700
-Message-ID: <20170825220057.51804-8-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 12/13] i40e: prevent changing ITR if adaptive-rx/tx enabled
+Date: Fri, 25 Aug 2017 15:00:56 -0700
+Message-ID: <20170825220057.51804-13-jeffrey.t.kirsher@intel.com>
 References: <20170825220057.51804-1-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+Cc: Alan Brady <alan.brady@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:59305 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:48593 "EHLO mga09.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933375AbdHYWBF (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 25 Aug 2017 18:01:05 -0400
+        id S935145AbdHYWBI (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 25 Aug 2017 18:01:08 -0400
 In-Reply-To: <20170825220057.51804-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+From: Alan Brady <alan.brady@intel.com>
 
-When a user gives an invalid command to change a private flag which is
-not supported, either because it is read-only, or the device is not
-capable of the feature, we simply ignore the request.
+Currently the driver allows the user to change (or even disable)
+interrupt moderation if adaptive-rx/tx is enabled when this should
+not be the case.
 
-A naive solution would simply be to report error codes when one of the
-flags was not supported. However, this causes problems because it makes
-the operation not atomic. If a user requests multiple private flags
-together at once we could end up changing one before failing at the
-second flag.
+Adaptive RX/TX will not respect the user's ITR settings so
+allowing the user to change it is weird.  This bug would also
+allow the user to disable interrupt moderation with adaptive-rx/tx
+enabled which doesn't make much sense either.
 
-We can do a bit better if we instead update a temporary copy of the
-flags variable in the loop, and then copy it into place after. If we
-aren't careful this has the pitfall of potentially silently overwriting
-any changes caused by other threads.
+This patch makes it such that if adaptive-rx/tx is enabled, the user
+cannot make any manual adjustments to interrupt moderation.  It also
+makes it so that if ITR is disabled but adaptive-rx/tx is then
+enabled, ITR will be re-enabled.
 
-Avoid this by using cmpxchg64 which will compare and swap the flags
-variable only if it currently matched the old value. We'll report
--EAGAIN in the (hopefully rare!) case where the cmpxchg64 fails.
-
-This ensures that we can properly report when flags are not supported in
-an atomic fashion without the risk of overwriting other threads changes.
-
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Signed-off-by: Alan Brady <alan.brady@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c     | 57 +++++++++++++++-------
- drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c | 41 ++++++++++++----
- 2 files changed, 70 insertions(+), 28 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 65 +++++++++++++++++---------
+ 1 file changed, 43 insertions(+), 22 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index c76549e41705..a868c8d4fec9 100644
+index a868c8d4fec9..05e89864f781 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -4069,23 +4069,26 @@ static int i40e_set_priv_flags(struct net_device *dev, u32 flags)
- 	struct i40e_netdev_priv *np = netdev_priv(dev);
+@@ -2194,14 +2194,29 @@ static int __i40e_set_coalesce(struct net_device *netdev,
+ 			       int queue)
+ {
+ 	struct i40e_netdev_priv *np = netdev_priv(netdev);
++	u16 intrl_reg, cur_rx_itr, cur_tx_itr;
  	struct i40e_vsi *vsi = np->vsi;
  	struct i40e_pf *pf = vsi->back;
--	u64 changed_flags;
-+	u64 orig_flags, new_flags, changed_flags;
- 	u32 i, j;
+-	u16 intrl_reg;
+ 	int i;
  
--	changed_flags = pf->flags;
-+	orig_flags = READ_ONCE(pf->flags);
-+	new_flags = orig_flags;
+ 	if (ec->tx_max_coalesced_frames_irq || ec->rx_max_coalesced_frames_irq)
+ 		vsi->work_limit = ec->tx_max_coalesced_frames_irq;
  
- 	for (i = 0; i < I40E_PRIV_FLAGS_STR_LEN; i++) {
- 		const struct i40e_priv_flags *priv_flags;
- 
- 		priv_flags = &i40e_gstrings_priv_flags[i];
- 
--		if (priv_flags->read_only)
--			continue;
--
- 		if (flags & BIT(i))
--			pf->flags |= priv_flags->flag;
-+			new_flags |= priv_flags->flag;
- 		else
--			pf->flags &= ~(priv_flags->flag);
-+			new_flags &= ~(priv_flags->flag);
-+
-+		/* If this is a read-only flag, it can't be changed */
-+		if (priv_flags->read_only &&
-+		    ((orig_flags ^ new_flags) & ~BIT(i)))
-+			return -EOPNOTSUPP;
- 	}
- 
- 	if (pf->hw.pf_id != 0)
-@@ -4096,18 +4099,40 @@ static int i40e_set_priv_flags(struct net_device *dev, u32 flags)
- 
- 		priv_flags = &i40e_gl_gstrings_priv_flags[j];
- 
--		if (priv_flags->read_only)
--			continue;
--
- 		if (flags & BIT(i + j))
--			pf->flags |= priv_flags->flag;
-+			new_flags |= priv_flags->flag;
- 		else
--			pf->flags &= ~(priv_flags->flag);
-+			new_flags &= ~(priv_flags->flag);
-+
-+		/* If this is a read-only flag, it can't be changed */
-+		if (priv_flags->read_only &&
-+		    ((orig_flags ^ new_flags) & ~BIT(i)))
-+			return -EOPNOTSUPP;
- 	}
- 
- flags_complete:
--	/* check for flags that changed */
--	changed_flags ^= pf->flags;
-+	/* Before we finalize any flag changes, we need to perform some
-+	 * checks to ensure that the changes are supported and safe.
-+	 */
-+
-+	/* ATR eviction is not supported on all devices */
-+	if ((new_flags & I40E_FLAG_HW_ATR_EVICT_ENABLED) &&
-+	    !(pf->hw_features & I40E_HW_ATR_EVICT_CAPABLE))
-+		return -EOPNOTSUPP;
-+
-+	/* Compare and exchange the new flags into place. If we failed, that
-+	 * is if cmpxchg64 returns anything but the old value, this means that
-+	 * something else has modified the flags variable since we copied it
-+	 * originally. We'll just punt with an error and log something in the
-+	 * message buffer.
-+	 */
-+	if (cmpxchg64(&pf->flags, orig_flags, new_flags) != orig_flags) {
-+		dev_warn(&pf->pdev->dev,
-+			 "Unable to update pf->flags as it was modified by another thread...\n");
-+		return -EAGAIN;
++	if (queue < 0) {
++		cur_rx_itr = vsi->rx_rings[0]->rx_itr_setting;
++		cur_tx_itr = vsi->tx_rings[0]->tx_itr_setting;
++	} else if (queue < vsi->num_queue_pairs) {
++		cur_rx_itr = vsi->rx_rings[queue]->rx_itr_setting;
++		cur_tx_itr = vsi->tx_rings[queue]->tx_itr_setting;
++	} else {
++		netif_info(pf, drv, netdev, "Invalid queue value, queue range is 0 - %d\n",
++			   vsi->num_queue_pairs - 1);
++		return -EINVAL;
 +	}
 +
-+	changed_flags = orig_flags ^ new_flags;
- 
- 	/* Process any additional changes needed as a result of flag changes.
- 	 * The changed_flags value reflects the list of bits that were
-@@ -4121,10 +4146,6 @@ static int i40e_set_priv_flags(struct net_device *dev, u32 flags)
- 		set_bit(__I40E_FD_FLUSH_REQUESTED, pf->state);
++	cur_tx_itr &= ~I40E_ITR_DYNAMIC;
++	cur_rx_itr &= ~I40E_ITR_DYNAMIC;
++
+ 	/* tx_coalesce_usecs_high is ignored, use rx-usecs-high instead */
+ 	if (ec->tx_coalesce_usecs_high != vsi->int_rate_limit) {
+ 		netif_info(pf, drv, netdev, "tx-usecs-high is not used, please program rx-usecs-high\n");
+@@ -2214,15 +2229,34 @@ static int __i40e_set_coalesce(struct net_device *netdev,
+ 		return -EINVAL;
  	}
  
--	/* Only allow ATR evict on hardware that is capable of handling it */
--	if (!(pf->hw_features & I40E_HW_ATR_EVICT_CAPABLE))
--		pf->flags &= ~I40E_FLAG_HW_ATR_EVICT_ENABLED;
--
- 	if (changed_flags & I40E_FLAG_TRUE_PROMISC_SUPPORT) {
- 		u16 sw_flags = 0, valid_flags = 0;
- 		int ret;
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c b/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
-index 76fd89c1dbb2..65874d6b3ab9 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
-@@ -258,29 +258,50 @@ static u32 i40evf_get_priv_flags(struct net_device *netdev)
- static int i40evf_set_priv_flags(struct net_device *netdev, u32 flags)
- {
- 	struct i40evf_adapter *adapter = netdev_priv(netdev);
--	u64 changed_flags;
-+	u32 orig_flags, new_flags, changed_flags;
- 	u32 i;
- 
--	changed_flags = adapter->flags;
-+	orig_flags = READ_ONCE(adapter->flags);
-+	new_flags = orig_flags;
- 
- 	for (i = 0; i < I40EVF_PRIV_FLAGS_STR_LEN; i++) {
- 		const struct i40evf_priv_flags *priv_flags;
- 
- 		priv_flags = &i40evf_gstrings_priv_flags[i];
- 
--		if (priv_flags->read_only)
--			continue;
--
- 		if (flags & BIT(i))
--			adapter->flags |= priv_flags->flag;
-+			new_flags |= priv_flags->flag;
- 		else
--			adapter->flags &= ~(priv_flags->flag);
-+			new_flags &= ~(priv_flags->flag);
-+
-+		if (priv_flags->read_only &&
-+		    ((orig_flags ^ new_flags) & ~BIT(i)))
-+			return -EOPNOTSUPP;
+-	if (ec->rx_coalesce_usecs == 0) {
+-		if (ec->use_adaptive_rx_coalesce)
+-			netif_info(pf, drv, netdev, "rx-usecs=0, need to disable adaptive-rx for a complete disable\n");
+-	} else if ((ec->rx_coalesce_usecs < (I40E_MIN_ITR << 1)) ||
+-		   (ec->rx_coalesce_usecs > (I40E_MAX_ITR << 1))) {
+-			netif_info(pf, drv, netdev, "Invalid value, rx-usecs range is 0-8160\n");
+-			return -EINVAL;
++	if (ec->rx_coalesce_usecs != cur_rx_itr &&
++	    ec->use_adaptive_rx_coalesce) {
++		netif_info(pf, drv, netdev, "RX interrupt moderation cannot be changed if adaptive-rx is enabled.\n");
++		return -EINVAL;
 +	}
 +
-+	/* Before we finalize any flag changes, any checks which we need to
-+	 * perform to determine if the new flags will be supported should go
-+	 * here...
-+	 */
-+
-+	/* Compare and exchange the new flags into place. If we failed, that
-+	 * is if cmpxchg returns anything but the old value, this means
-+	 * something else must have modified the flags variable since we
-+	 * copied it. We'll just punt with an error and log something in the
-+	 * message buffer.
-+	 */
-+	if (cmpxchg(&adapter->flags, orig_flags, new_flags) != orig_flags) {
-+		dev_warn(&adapter->pdev->dev,
-+			 "Unable to update adapter->flags as it was modified by another thread...\n");
-+		return -EAGAIN;
++	if (ec->rx_coalesce_usecs > (I40E_MAX_ITR << 1)) {
++		netif_info(pf, drv, netdev, "Invalid value, rx-usecs range is 0-8160\n");
++		return -EINVAL;
  	}
  
--	/* check for flags that changed */
--	changed_flags ^= adapter->flags;
-+	changed_flags = orig_flags ^ new_flags;
++	if (ec->tx_coalesce_usecs != cur_tx_itr &&
++	    ec->use_adaptive_tx_coalesce) {
++		netif_info(pf, drv, netdev, "TX interrupt moderation cannot be changed if adaptive-tx is enabled.\n");
++		return -EINVAL;
++	}
++
++	if (ec->tx_coalesce_usecs > (I40E_MAX_ITR << 1)) {
++		netif_info(pf, drv, netdev, "Invalid value, tx-usecs range is 0-8160\n");
++		return -EINVAL;
++	}
++
++	if (ec->use_adaptive_rx_coalesce && !cur_rx_itr)
++		ec->rx_coalesce_usecs = I40E_MIN_ITR << 1;
++
++	if (ec->use_adaptive_tx_coalesce && !cur_tx_itr)
++		ec->tx_coalesce_usecs = I40E_MIN_ITR << 1;
++
+ 	intrl_reg = i40e_intrl_usec_to_reg(ec->rx_coalesce_usecs_high);
+ 	vsi->int_rate_limit = INTRL_REG_TO_USEC(intrl_reg);
+ 	if (vsi->int_rate_limit != ec->rx_coalesce_usecs_high) {
+@@ -2230,27 +2264,14 @@ static int __i40e_set_coalesce(struct net_device *netdev,
+ 			   vsi->int_rate_limit);
+ 	}
  
--	/* Process any additional changes needed as a result of flag changes. */
-+	/* Process any additional changes needed as a result of flag changes.
-+	 * The changed_flags value reflects the list of bits that were changed
-+	 * in the code above.
-+	 */
+-	if (ec->tx_coalesce_usecs == 0) {
+-		if (ec->use_adaptive_tx_coalesce)
+-			netif_info(pf, drv, netdev, "tx-usecs=0, need to disable adaptive-tx for a complete disable\n");
+-	} else if ((ec->tx_coalesce_usecs < (I40E_MIN_ITR << 1)) ||
+-		   (ec->tx_coalesce_usecs > (I40E_MAX_ITR << 1))) {
+-			netif_info(pf, drv, netdev, "Invalid value, tx-usecs range is 0-8160\n");
+-			return -EINVAL;
+-	}
+-
+ 	/* rx and tx usecs has per queue value. If user doesn't specify the queue,
+ 	 * apply to all queues.
+ 	 */
+ 	if (queue < 0) {
+ 		for (i = 0; i < vsi->num_queue_pairs; i++)
+ 			i40e_set_itr_per_queue(vsi, ec, i);
+-	} else if (queue < vsi->num_queue_pairs) {
+-		i40e_set_itr_per_queue(vsi, ec, queue);
+ 	} else {
+-		netif_info(pf, drv, netdev, "Invalid queue value, queue range is 0 - %d\n",
+-			   vsi->num_queue_pairs - 1);
+-		return -EINVAL;
++		i40e_set_itr_per_queue(vsi, ec, queue);
+ 	}
  
- 	/* issue a reset to force legacy-rx change to take effect */
- 	if (changed_flags & I40EVF_FLAG_LEGACY_RX) {
+ 	return 0;
 -- 
 2.14.1
