@@ -1,65 +1,35 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH nf-next] netfilter: xt_CHECKSUM: avoid bad offload
- warnings on GSO packets
-Date: Fri, 25 Aug 2017 11:43:45 +0200
-Message-ID: <20170825094345.GK15739@breakpoint.cc>
-References: <20170824104824.2C318A0F3A@unicorn.suse.cz>
- <20170824105118.GA15739@breakpoint.cc>
- <20170824110742.qby3yoz3emf6pr5i@unicorn.suse.cz>
- <1503580122.2958.37.camel@redhat.com>
- <20170824131722.GB15739@breakpoint.cc>
- <20170825092819.hjgazfcvvrlibkd4@unicorn.suse.cz>
- <20170825094025.GJ15739@breakpoint.cc>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH] pktgen: add a new sample script for 40G and above link
+ testing
+Date: Fri, 25 Aug 2017 11:47:53 +0200
+Message-ID: <20170825114753.5c136c70@redhat.com>
+References: <1503653196-64418-1-git-send-email-robert.hu@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Michal Kubecek <mkubecek@suse.cz>,
-        Davide Caratti <dcaratti@redhat.com>,
-        Pablo Neira Ayuso <pablo@netfilter.org>,
-        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        "Michael S. Tsirkin" <mst@redhat.com>,
-        Markos Chandras <markos.chandras@suse.com>
-To: Florian Westphal <fw@strlen.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170825094025.GJ15739@breakpoint.cc>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, tariqt@mellanox.com, kyle.leet@gmail.com,
+        netdev@vger.kernel.org, robert.hu@intel.com, brouer@redhat.com
+To: Robert Hoo <robert.hu@linux.intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:45736 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1755665AbdHYJr7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 25 Aug 2017 05:47:59 -0400
+In-Reply-To: <1503653196-64418-1-git-send-email-robert.hu@linux.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Florian Westphal <fw@strlen.de> wrote:
-> Michal Kubecek <mkubecek@suse.cz> wrote:
-> > On Thu, Aug 24, 2017 at 03:17:22PM +0200, Florian Westphal wrote:
-> > > Davide Caratti <dcaratti@redhat.com> wrote:
-> > > > Small nit: may I suggest you to call skb_csum_hwoffload_help() instead of
-> > > > skb_checksum_help(), so that we avoid corrupting SCTP packets in case they
-> > > > hit xt_CHECKSUM target?
-> > > 
-> > > Alternatively we could restrict the target to udp only.
-> > > 
-> > > AFAIU the only reason this thing exists is to fix up udp checksum
-> > > for old dhcp clients that use AF_PACKET without evaluating the extra
-> > > metadata that indicates when a 'bad' checksum is in fact ok because it
-> > > is supposed to be filled in by hardware later.
-> > > 
-> > > This can happen in virtual environemnt when such skb is directly passed
-> > > to vm.
-> > 
-> > Based on what the documentation and the commit message of the commit
-> > introducing xt_CHECKSUM module say, it seems so. But I must admit I'm
-> > not sure where is the target is used and how (and why). In particular,
-> > our issue was most likely result of
-> > 
-> >   https://github.com/openstack/openstack-ansible-tests/blob/master/test-prepare-host.yml#L196-L197
-> 
-> Sigh.  Ok, that pretty much leaves your patch as the only viable option,
-> however, I still think the warning isn't useful.
+On Fri, 25 Aug 2017 17:26:36 +0800
+Robert Hoo <robert.hu@linux.intel.com> wrote:
 
-Addendum: for net-next it makes sense to restrict this to udp and tcp
-to avoid spreading this to sctp and other protocols.
+> (Sorry for yesterday's wrong sending, I finally fixed my MTA and git
+> send-email settings.)
 
-We will however need to be lazy and can't just restrict it
-in checkentry (as it might break existing config).
+Please see my reply in:
+  http://lkml.kernel.org/r/20170825111921.061713c8@redhat.com
 
-We could print a warning and have the target function ignores protocols
-other than tcp and udp.
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
