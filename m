@@ -1,7 +1,7 @@
 From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH net v2 4/4] net: mvpp2: fallback using h/w and random mac if the dt one isn't valid
-Date: Fri, 25 Aug 2017 16:14:20 +0200
-Message-ID: <20170825141420.14027-5-antoine.tenart@free-electrons.com>
+Subject: [PATCH net v2 3/4] net: mvpp2: fix use of the random mac address for PPv2.2
+Date: Fri, 25 Aug 2017 16:14:19 +0200
+Message-ID: <20170825141420.14027-4-antoine.tenart@free-electrons.com>
 References: <20170825141420.14027-1-antoine.tenart@free-electrons.com>
 Cc: Antoine Tenart <antoine.tenart@free-electrons.com>, andrew@lunn.ch,
         gregory.clement@free-electrons.com, nadavh@marvell.com,
@@ -13,51 +13,47 @@ In-Reply-To: <20170825141420.14027-1-antoine.tenart@free-electrons.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When using a mac address described in the device tree, a check is made
-to see if it is valid. When it's not, no fallback is defined. This
-patches tries to get the mac address from h/w (or use a random one if
-the h/w one isn't valid) when the dt mac address isn't valid.
+The MAC retrieval logic is using a variable to store an h/w stored mac
+address and checks this mac against invalid ones before using it. But
+the mac address is only read from h/w when using PPv2.1. So when using
+PPv2.2 it defaults to its init state.
+
+This patches fixes the logic to only check if the h/w mac is valid when
+actually retrieving a mac from h/w.
 
 Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
 ---
- drivers/net/ethernet/marvell/mvpp2.c | 23 ++++++++++++-----------
- 1 file changed, 12 insertions(+), 11 deletions(-)
+ drivers/net/ethernet/marvell/mvpp2.c | 16 +++++++++-------
+ 1 file changed, 9 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 162e334fda37..2f1284f23e66 100644
+index a1593134ed96..162e334fda37 100644
 --- a/drivers/net/ethernet/marvell/mvpp2.c
 +++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -6504,19 +6504,20 @@ static void mvpp2_port_copy_mac_addr(struct net_device *dev, struct mvpp2 *priv,
- 	if (dt_mac_addr && is_valid_ether_addr(dt_mac_addr)) {
+@@ -6505,15 +6505,17 @@ static void mvpp2_port_copy_mac_addr(struct net_device *dev, struct mvpp2 *priv,
  		*mac_from = "device tree";
  		ether_addr_copy(dev->dev_addr, dt_mac_addr);
--	} else {
--		if (priv->hw_version == MVPP21) {
--			mvpp21_get_mac_address(port, hw_mac_addr);
--			if (is_valid_ether_addr(hw_mac_addr)) {
--				*mac_from = "hardware";
--				ether_addr_copy(dev->dev_addr, hw_mac_addr);
--				return;
--			}
--		}
-+		return;
-+	}
- 
--		*mac_from = "random";
--		eth_hw_addr_random(dev);
-+	if (priv->hw_version == MVPP21) {
-+		mvpp21_get_mac_address(port, hw_mac_addr);
-+		if (is_valid_ether_addr(hw_mac_addr)) {
-+			*mac_from = "hardware";
-+			ether_addr_copy(dev->dev_addr, hw_mac_addr);
-+			return;
-+		}
- 	}
+ 	} else {
+-		if (priv->hw_version == MVPP21)
++		if (priv->hw_version == MVPP21) {
+ 			mvpp21_get_mac_address(port, hw_mac_addr);
+-		if (is_valid_ether_addr(hw_mac_addr)) {
+-			*mac_from = "hardware";
+-			ether_addr_copy(dev->dev_addr, hw_mac_addr);
+-		} else {
+-			*mac_from = "random";
+-			eth_hw_addr_random(dev);
++			if (is_valid_ether_addr(hw_mac_addr)) {
++				*mac_from = "hardware";
++				ether_addr_copy(dev->dev_addr, hw_mac_addr);
++				return;
++			}
+ 		}
 +
-+	*mac_from = "random";
-+	eth_hw_addr_random(dev);
++		*mac_from = "random";
++		eth_hw_addr_random(dev);
+ 	}
  }
  
- /* Ports initialization */
 -- 
 2.13.5
