@@ -1,45 +1,88 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [net-next:master 1328/1341]
- drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.c:77:3: error:
- 'devlink_dpipe_header_ethernet' undeclared here (not in a function)
-Date: Fri, 25 Aug 2017 09:28:23 +0200
-Message-ID: <20170825072823.GA2023@nanopsycho>
-References: <201708250859.0ROh3FDk%fengguang.wu@intel.com>
- <20170824.181150.1024909235376525254.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: fengguang.wu@intel.com, arkadis@mellanox.com, kbuild-all@01.org,
-        netdev@vger.kernel.org, jiri@mellanox.com
-To: David Miller <davem@davemloft.net>
+From: gfree.wind@vip.163.com
+Subject: [PATCH net-next RESEND] sched: sfq: drop packets after root qdisc lock is released
+Date: Fri, 25 Aug 2017 15:43:17 +0800
+Message-ID: <1503646997-94678-1-git-send-email-gfree.wind@vip.163.com>
+Cc: Gao Feng <gfree.wind@vip.163.com>
+To: jhs@mojatatu.com, xiyou.wangcong@gmail.com, jiri@resnulli.us,
+        davem@davemloft.net, edumazet@google.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f195.google.com ([209.85.128.195]:35130 "EHLO
-        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754403AbdHYH20 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 03:28:26 -0400
-Received: by mail-wr0-f195.google.com with SMTP id a47so953040wra.2
-        for <netdev@vger.kernel.org>; Fri, 25 Aug 2017 00:28:25 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20170824.181150.1024909235376525254.davem@davemloft.net>
+Received: from m181-177.vip.163.com ([123.58.177.181]:42167 "EHLO
+        m181-177.vip.163.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754521AbdHYHrI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 03:47:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fri, Aug 25, 2017 at 03:11:50AM CEST, davem@davemloft.net wrote:
->From: kbuild test robot <fengguang.wu@intel.com>
->Date: Fri, 25 Aug 2017 08:16:01 +0800
->
->> All error/warnings (new ones prefixed by >>):
->> 
->>>> drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.c:77:3: error: 'devlink_dpipe_header_ethernet' undeclared here (not in a function)
->>      &devlink_dpipe_header_ethernet,
->>       ^
->>>> drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.c:78:3: error: 'devlink_dpipe_header_ipv4' undeclared here (not in a function)
->>      &devlink_dpipe_header_ipv4,
->>       ^
->>    drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.c: In function 'mlxsw_sp_dpipe_erif_table_init':
->>    drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.c:305:9: error: too few arguments to function 'devlink_dpipe_table_register'
->>      return devlink_dpipe_table_register(devlink,
->
->Jiri and co., I think you'll need some ifdef'ery to deal with this
->properly.
+From: Gao Feng <gfree.wind@vip.163.com>
 
-Will fix this. Thanks.
+The commit 520ac30f4551 ("net_sched: drop packets after root qdisc lock
+is released) made a big change of tc for performance. But there are
+some points which are not changed in SFQ enqueue operation.
+1. Fail to find the SFQ hash slot;
+2. When the queue is full;
+
+Now use qdisc_drop instead free skb directly.
+
+Signed-off-by: Gao Feng <gfree.wind@vip.163.com>
+---
+ net/sched/sch_sfq.c | 16 ++++++++++------
+ 1 file changed, 10 insertions(+), 6 deletions(-)
+
+diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
+index 82469ef..8841f4d 100644
+--- a/net/sched/sch_sfq.c
++++ b/net/sched/sch_sfq.c
+@@ -292,7 +292,7 @@ static inline void slot_queue_add(struct sfq_slot *slot, struct sk_buff *skb)
+ 	slot->skblist_prev = skb;
+ }
+ 
+-static unsigned int sfq_drop(struct Qdisc *sch)
++static unsigned int sfq_drop(struct Qdisc *sch, struct sk_buff **to_free)
+ {
+ 	struct sfq_sched_data *q = qdisc_priv(sch);
+ 	sfq_index x, d = q->cur_depth;
+@@ -310,9 +310,13 @@ static unsigned int sfq_drop(struct Qdisc *sch)
+ 		slot->backlog -= len;
+ 		sfq_dec(q, x);
+ 		sch->q.qlen--;
+-		qdisc_qstats_drop(sch);
+ 		qdisc_qstats_backlog_dec(sch, skb);
+-		kfree_skb(skb);
++		if (likely(to_free)) {
++			qdisc_drop(skb, sch, to_free);
++		} else {
++			qdisc_qstats_drop(sch);
++			kfree_skb(skb);
++		}
+ 		return len;
+ 	}
+ 
+@@ -360,7 +364,7 @@ static int sfq_headdrop(const struct sfq_sched_data *q)
+ 	if (hash == 0) {
+ 		if (ret & __NET_XMIT_BYPASS)
+ 			qdisc_qstats_drop(sch);
+-		kfree_skb(skb);
++		__qdisc_drop(skb, to_free);
+ 		return ret;
+ 	}
+ 	hash--;
+@@ -465,7 +469,7 @@ static int sfq_headdrop(const struct sfq_sched_data *q)
+ 		return NET_XMIT_SUCCESS;
+ 
+ 	qlen = slot->qlen;
+-	dropped = sfq_drop(sch);
++	dropped = sfq_drop(sch, to_free);
+ 	/* Return Congestion Notification only if we dropped a packet
+ 	 * from this flow.
+ 	 */
+@@ -675,7 +679,7 @@ static int sfq_change(struct Qdisc *sch, struct nlattr *opt)
+ 
+ 	qlen = sch->q.qlen;
+ 	while (sch->q.qlen > q->limit)
+-		dropped += sfq_drop(sch);
++		dropped += sfq_drop(sch, NULL);
+ 	qdisc_tree_reduce_backlog(sch, qlen - sch->q.qlen, dropped);
+ 
+ 	del_timer(&q->perturb_timer);
+-- 
+1.9.1
