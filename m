@@ -1,7 +1,7 @@
 From: Pieter Jansen van Vuuren <pieter.jansenvanvuuren@netronome.com>
-Subject: [PATCH net 2/3] nfp: fix supported key layers calculation
-Date: Fri, 25 Aug 2017 19:31:02 +0200
-Message-ID: <1503682263-17858-3-git-send-email-pieter.jansenvanvuuren@netronome.com>
+Subject: [PATCH net 1/3] nfp: fix unchecked flow dissector use
+Date: Fri, 25 Aug 2017 19:31:01 +0200
+Message-ID: <1503682263-17858-2-git-send-email-pieter.jansenvanvuuren@netronome.com>
 References: <1503682263-17858-1-git-send-email-pieter.jansenvanvuuren@netronome.com>
 Cc: netdev@vger.kernel.org, oss-drivers@netronome.com,
         simon.horman@netronome.com, jakub.kicinski@netronome.com,
@@ -9,84 +9,288 @@ Cc: netdev@vger.kernel.org, oss-drivers@netronome.com,
         <pieter.jansenvanvuuren@netronome.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f178.google.com ([209.85.128.178]:35792 "EHLO
-        mail-wr0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756096AbdHYRbO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 13:31:14 -0400
-Received: by mail-wr0-f178.google.com with SMTP id p8so1345761wrf.2
-        for <netdev@vger.kernel.org>; Fri, 25 Aug 2017 10:31:13 -0700 (PDT)
+Received: from mail-wm0-f52.google.com ([74.125.82.52]:37160 "EHLO
+        mail-wm0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757329AbdHYRbN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 13:31:13 -0400
+Received: by mail-wm0-f52.google.com with SMTP id b189so3451869wmd.0
+        for <netdev@vger.kernel.org>; Fri, 25 Aug 2017 10:31:12 -0700 (PDT)
 In-Reply-To: <1503682263-17858-1-git-send-email-pieter.jansenvanvuuren@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Previously when calculating the supported key layers MPLS, IPv4/6
-TTL and TOS were not considered. This patch checks that the TTL and
-TOS fields are masked out before offloading. Additionally this patch
-checks that MPLS packets are correctly handled, by not offloading them.
+Previously flow dissectors were referenced without first checking that
+they are in use and correctly populated by TC. This patch fixes this by
+checking each flow dissector key before referencing them.
 
-Fixes: af9d842c1354 ("nfp: extend flower add flow offload")
+Fixes: 5571e8c9f241 ("nfp: extend flower matching capabilities")
 Signed-off-by: Pieter Jansen van Vuuren <pieter.jansenvanvuuren@netronome.com>
 Reviewed-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 Reviewed-by: Simon Horman <simon.horman@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/flower/offload.c | 19 +++++++++++++++++++
- 1 file changed, 19 insertions(+)
+ drivers/net/ethernet/netronome/nfp/flower/match.c  | 133 +++++++++++----------
+ .../net/ethernet/netronome/nfp/flower/offload.c    |  41 ++++---
+ 2 files changed, 93 insertions(+), 81 deletions(-)
 
+diff --git a/drivers/net/ethernet/netronome/nfp/flower/match.c b/drivers/net/ethernet/netronome/nfp/flower/match.c
+index 0e08404..b365110 100644
+--- a/drivers/net/ethernet/netronome/nfp/flower/match.c
++++ b/drivers/net/ethernet/netronome/nfp/flower/match.c
+@@ -45,6 +45,7 @@ nfp_flower_compile_meta_tci(struct nfp_flower_meta_two *frame,
+ 	struct flow_dissector_key_vlan *flow_vlan;
+ 	u16 tmp_tci;
+ 
++	memset(frame, 0, sizeof(struct nfp_flower_meta_two));
+ 	/* Populate the metadata frame. */
+ 	frame->nfp_flow_key_layer = key_type;
+ 	frame->mask_id = ~0;
+@@ -54,21 +55,20 @@ nfp_flower_compile_meta_tci(struct nfp_flower_meta_two *frame,
+ 		return;
+ 	}
+ 
+-	flow_vlan = skb_flow_dissector_target(flow->dissector,
+-					      FLOW_DISSECTOR_KEY_VLAN,
+-					      flow->key);
+-
+-	/* Populate the tci field. */
+-	if (!flow_vlan->vlan_id) {
+-		tmp_tci = 0;
+-	} else {
+-		tmp_tci = FIELD_PREP(NFP_FLOWER_MASK_VLAN_PRIO,
+-				     flow_vlan->vlan_priority) |
+-			  FIELD_PREP(NFP_FLOWER_MASK_VLAN_VID,
+-				     flow_vlan->vlan_id) |
+-			  NFP_FLOWER_MASK_VLAN_CFI;
++	if (dissector_uses_key(flow->dissector, FLOW_DISSECTOR_KEY_VLAN)) {
++		flow_vlan = skb_flow_dissector_target(flow->dissector,
++						      FLOW_DISSECTOR_KEY_VLAN,
++						      flow->key);
++		/* Populate the tci field. */
++		if (flow_vlan->vlan_id) {
++			tmp_tci = FIELD_PREP(NFP_FLOWER_MASK_VLAN_PRIO,
++					     flow_vlan->vlan_priority) |
++				  FIELD_PREP(NFP_FLOWER_MASK_VLAN_VID,
++					     flow_vlan->vlan_id) |
++				  NFP_FLOWER_MASK_VLAN_CFI;
++			frame->tci = cpu_to_be16(tmp_tci);
++		}
+ 	}
+-	frame->tci = cpu_to_be16(tmp_tci);
+ }
+ 
+ static void
+@@ -99,17 +99,18 @@ nfp_flower_compile_mac(struct nfp_flower_mac_mpls *frame,
+ 		       bool mask_version)
+ {
+ 	struct fl_flow_key *target = mask_version ? flow->mask : flow->key;
+-	struct flow_dissector_key_eth_addrs *flow_mac;
+-
+-	flow_mac = skb_flow_dissector_target(flow->dissector,
+-					     FLOW_DISSECTOR_KEY_ETH_ADDRS,
+-					     target);
++	struct flow_dissector_key_eth_addrs *addr;
+ 
+ 	memset(frame, 0, sizeof(struct nfp_flower_mac_mpls));
+ 
+-	/* Populate mac frame. */
+-	ether_addr_copy(frame->mac_dst, &flow_mac->dst[0]);
+-	ether_addr_copy(frame->mac_src, &flow_mac->src[0]);
++	if (dissector_uses_key(flow->dissector, FLOW_DISSECTOR_KEY_ETH_ADDRS)) {
++		addr = skb_flow_dissector_target(flow->dissector,
++						 FLOW_DISSECTOR_KEY_ETH_ADDRS,
++						 target);
++		/* Populate mac frame. */
++		ether_addr_copy(frame->mac_dst, &addr->dst[0]);
++		ether_addr_copy(frame->mac_src, &addr->src[0]);
++	}
+ 
+ 	if (mask_version)
+ 		frame->mpls_lse = cpu_to_be32(~0);
+@@ -121,14 +122,17 @@ nfp_flower_compile_tport(struct nfp_flower_tp_ports *frame,
+ 			 bool mask_version)
+ {
+ 	struct fl_flow_key *target = mask_version ? flow->mask : flow->key;
+-	struct flow_dissector_key_ports *flow_tp;
++	struct flow_dissector_key_ports *tp;
+ 
+-	flow_tp = skb_flow_dissector_target(flow->dissector,
+-					    FLOW_DISSECTOR_KEY_PORTS,
+-					    target);
++	memset(frame, 0, sizeof(struct nfp_flower_tp_ports));
+ 
+-	frame->port_src = flow_tp->src;
+-	frame->port_dst = flow_tp->dst;
++	if (dissector_uses_key(flow->dissector, FLOW_DISSECTOR_KEY_PORTS)) {
++		tp = skb_flow_dissector_target(flow->dissector,
++					       FLOW_DISSECTOR_KEY_PORTS,
++					       target);
++		frame->port_src = tp->src;
++		frame->port_dst = tp->dst;
++	}
+ }
+ 
+ static void
+@@ -137,25 +141,27 @@ nfp_flower_compile_ipv4(struct nfp_flower_ipv4 *frame,
+ 			bool mask_version)
+ {
+ 	struct fl_flow_key *target = mask_version ? flow->mask : flow->key;
+-	struct flow_dissector_key_ipv4_addrs *flow_ipv4;
+-	struct flow_dissector_key_basic *flow_basic;
+-
+-	flow_ipv4 = skb_flow_dissector_target(flow->dissector,
+-					      FLOW_DISSECTOR_KEY_IPV4_ADDRS,
+-					      target);
++	struct flow_dissector_key_ipv4_addrs *addr;
++	struct flow_dissector_key_basic *basic;
+ 
+-	flow_basic = skb_flow_dissector_target(flow->dissector,
+-					       FLOW_DISSECTOR_KEY_BASIC,
+-					       target);
+-
+-	/* Populate IPv4 frame. */
+-	frame->reserved = 0;
+-	frame->ipv4_src = flow_ipv4->src;
+-	frame->ipv4_dst = flow_ipv4->dst;
+-	frame->proto = flow_basic->ip_proto;
+ 	/* Wildcard TOS/TTL for now. */
+-	frame->tos = 0;
+-	frame->ttl = 0;
++	memset(frame, 0, sizeof(struct nfp_flower_ipv4));
++
++	if (dissector_uses_key(flow->dissector,
++			       FLOW_DISSECTOR_KEY_IPV4_ADDRS)) {
++		addr = skb_flow_dissector_target(flow->dissector,
++						 FLOW_DISSECTOR_KEY_IPV4_ADDRS,
++						 target);
++		frame->ipv4_src = addr->src;
++		frame->ipv4_dst = addr->dst;
++	}
++
++	if (dissector_uses_key(flow->dissector, FLOW_DISSECTOR_KEY_BASIC)) {
++		basic = skb_flow_dissector_target(flow->dissector,
++						  FLOW_DISSECTOR_KEY_BASIC,
++						  target);
++		frame->proto = basic->ip_proto;
++	}
+ }
+ 
+ static void
+@@ -164,26 +170,27 @@ nfp_flower_compile_ipv6(struct nfp_flower_ipv6 *frame,
+ 			bool mask_version)
+ {
+ 	struct fl_flow_key *target = mask_version ? flow->mask : flow->key;
+-	struct flow_dissector_key_ipv6_addrs *flow_ipv6;
+-	struct flow_dissector_key_basic *flow_basic;
+-
+-	flow_ipv6 = skb_flow_dissector_target(flow->dissector,
+-					      FLOW_DISSECTOR_KEY_IPV6_ADDRS,
+-					      target);
+-
+-	flow_basic = skb_flow_dissector_target(flow->dissector,
+-					       FLOW_DISSECTOR_KEY_BASIC,
+-					       target);
++	struct flow_dissector_key_ipv6_addrs *addr;
++	struct flow_dissector_key_basic *basic;
+ 
+-	/* Populate IPv6 frame. */
+-	frame->reserved = 0;
+-	frame->ipv6_src = flow_ipv6->src;
+-	frame->ipv6_dst = flow_ipv6->dst;
+-	frame->proto = flow_basic->ip_proto;
+ 	/* Wildcard LABEL/TOS/TTL for now. */
+-	frame->ipv6_flow_label_exthdr = 0;
+-	frame->tos = 0;
+-	frame->ttl = 0;
++	memset(frame, 0, sizeof(struct nfp_flower_ipv6));
++
++	if (dissector_uses_key(flow->dissector,
++			       FLOW_DISSECTOR_KEY_IPV6_ADDRS)) {
++		addr = skb_flow_dissector_target(flow->dissector,
++						 FLOW_DISSECTOR_KEY_IPV6_ADDRS,
++						 target);
++		frame->ipv6_src = addr->src;
++		frame->ipv6_dst = addr->dst;
++	}
++
++	if (dissector_uses_key(flow->dissector, FLOW_DISSECTOR_KEY_BASIC)) {
++		basic = skb_flow_dissector_target(flow->dissector,
++						  FLOW_DISSECTOR_KEY_BASIC,
++						  target);
++		frame->proto = basic->ip_proto;
++	}
+ }
+ 
+ int nfp_flower_compile_flow_match(struct tc_cls_flower_offload *flow,
 diff --git a/drivers/net/ethernet/netronome/nfp/flower/offload.c b/drivers/net/ethernet/netronome/nfp/flower/offload.c
-index 6c8ecc2..74a96d6 100644
+index 4ad10bd..6c8ecc2 100644
 --- a/drivers/net/ethernet/netronome/nfp/flower/offload.c
 +++ b/drivers/net/ethernet/netronome/nfp/flower/offload.c
-@@ -107,6 +107,7 @@ nfp_flower_calculate_key_layers(struct nfp_fl_key_ls *ret_key_ls,
+@@ -105,35 +105,40 @@ static int
+ nfp_flower_calculate_key_layers(struct nfp_fl_key_ls *ret_key_ls,
+ 				struct tc_cls_flower_offload *flow)
  {
- 	struct flow_dissector_key_basic *mask_basic = NULL;
- 	struct flow_dissector_key_basic *key_basic = NULL;
-+	struct flow_dissector_key_ip *mask_ip = NULL;
+-	struct flow_dissector_key_control *mask_enc_ctl;
+-	struct flow_dissector_key_basic *mask_basic;
+-	struct flow_dissector_key_basic *key_basic;
++	struct flow_dissector_key_basic *mask_basic = NULL;
++	struct flow_dissector_key_basic *key_basic = NULL;
  	u32 key_layer_two;
  	u8 key_layer;
  	int key_size;
-@@ -132,6 +133,11 @@ nfp_flower_calculate_key_layers(struct nfp_fl_key_ls *ret_key_ls,
- 						      flow->key);
- 	}
  
-+	if (dissector_uses_key(flow->dissector, FLOW_DISSECTOR_KEY_IP))
-+		mask_ip = skb_flow_dissector_target(flow->dissector,
-+						    FLOW_DISSECTOR_KEY_IP,
-+						    flow->mask);
+-	mask_enc_ctl = skb_flow_dissector_target(flow->dissector,
+-						 FLOW_DISSECTOR_KEY_ENC_CONTROL,
+-						 flow->mask);
++	if (dissector_uses_key(flow->dissector,
++			       FLOW_DISSECTOR_KEY_ENC_CONTROL)) {
++		struct flow_dissector_key_control *mask_enc_ctl =
++			skb_flow_dissector_target(flow->dissector,
++						  FLOW_DISSECTOR_KEY_ENC_CONTROL,
++						  flow->mask);
++		/* We are expecting a tunnel. For now we ignore offloading. */
++		if (mask_enc_ctl->addr_type)
++			return -EOPNOTSUPP;
++	}
 +
++	if (dissector_uses_key(flow->dissector, FLOW_DISSECTOR_KEY_BASIC)) {
++		mask_basic = skb_flow_dissector_target(flow->dissector,
++						       FLOW_DISSECTOR_KEY_BASIC,
++						       flow->mask);
+ 
+-	mask_basic = skb_flow_dissector_target(flow->dissector,
+-					       FLOW_DISSECTOR_KEY_BASIC,
+-					       flow->mask);
++		key_basic = skb_flow_dissector_target(flow->dissector,
++						      FLOW_DISSECTOR_KEY_BASIC,
++						      flow->key);
++	}
+ 
+-	key_basic = skb_flow_dissector_target(flow->dissector,
+-					      FLOW_DISSECTOR_KEY_BASIC,
+-					      flow->key);
  	key_layer_two = 0;
  	key_layer = NFP_FLOWER_LAYER_PORT | NFP_FLOWER_LAYER_MAC;
  	key_size = sizeof(struct nfp_flower_meta_one) +
-@@ -142,11 +148,19 @@ nfp_flower_calculate_key_layers(struct nfp_fl_key_ls *ret_key_ls,
+ 		   sizeof(struct nfp_flower_in_port) +
+ 		   sizeof(struct nfp_flower_mac_mpls);
+ 
+-	/* We are expecting a tunnel. For now we ignore offloading. */
+-	if (mask_enc_ctl->addr_type)
+-		return -EOPNOTSUPP;
+-
+-	if (mask_basic->n_proto) {
++	if (mask_basic && mask_basic->n_proto) {
  		/* Ethernet type is present in the key. */
  		switch (key_basic->n_proto) {
  		case cpu_to_be16(ETH_P_IP):
-+			if (mask_ip && mask_ip->tos)
-+				return -EOPNOTSUPP;
-+			if (mask_ip && mask_ip->ttl)
-+				return -EOPNOTSUPP;
- 			key_layer |= NFP_FLOWER_LAYER_IPV4;
- 			key_size += sizeof(struct nfp_flower_ipv4);
- 			break;
+@@ -166,7 +171,7 @@ nfp_flower_calculate_key_layers(struct nfp_fl_key_ls *ret_key_ls,
+ 		}
+ 	}
  
- 		case cpu_to_be16(ETH_P_IPV6):
-+			if (mask_ip && mask_ip->tos)
-+				return -EOPNOTSUPP;
-+			if (mask_ip && mask_ip->ttl)
-+				return -EOPNOTSUPP;
- 			key_layer |= NFP_FLOWER_LAYER_IPV6;
- 			key_size += sizeof(struct nfp_flower_ipv6);
- 			break;
-@@ -157,6 +171,11 @@ nfp_flower_calculate_key_layers(struct nfp_fl_key_ls *ret_key_ls,
- 		case cpu_to_be16(ETH_P_ARP):
- 			return -EOPNOTSUPP;
- 
-+		/* Currently we do not offload MPLS. */
-+		case cpu_to_be16(ETH_P_MPLS_UC):
-+		case cpu_to_be16(ETH_P_MPLS_MC):
-+			return -EOPNOTSUPP;
-+
- 		/* Will be included in layer 2. */
- 		case cpu_to_be16(ETH_P_8021Q):
- 			break;
+-	if (mask_basic->ip_proto) {
++	if (mask_basic && mask_basic->ip_proto) {
+ 		/* Ethernet type is present in the key. */
+ 		switch (key_basic->ip_proto) {
+ 		case IPPROTO_TCP:
 -- 
 2.7.4
