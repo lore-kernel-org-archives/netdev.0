@@ -1,36 +1,77 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net 0/2] r8169: Be drop monitor friendly
-Date: Thu, 24 Aug 2017 18:34:42 -0700
-Message-ID: <20170825013444.27326-1-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, nic_swsd@realtek.com, romieu@fr.zoreil.com,
-        edumazet@gmail.com, alexander.h.duyck@intel.com,
-        sgruszka@redhat.com, Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next] e1000e: Be drop monitor friendly
+Date: Thu, 24 Aug 2017 18:36:50 -0700
+Message-ID: <20170825013650.27463-1-f.fainelli@gmail.com>
+Cc: edumazet@gmail.com, davem@davemloft.net,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        intel-wired-lan@lists.osuosl.org (moderated list:INTEL ETHERNET DRIVERS),
+        linux-kernel@vger.kernel.org (open list)
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f194.google.com ([209.85.216.194]:35883 "EHLO
-        mail-qt0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754421AbdHYBeu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 24 Aug 2017 21:34:50 -0400
-Received: by mail-qt0-f194.google.com with SMTP id e2so630701qta.3
-        for <netdev@vger.kernel.org>; Thu, 24 Aug 2017 18:34:50 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi all,
+e1000_put_txbuf() cleans up the successfully transmitted TX packets,
+e1000e_tx_hwtstamp_work() also does the successfully completes the
+timestamped TX packets, e1000_clean_rx_ring() cleans up the RX ring and
+e1000_remove() cleans up the timestampted packets. None of these
+functions should be reporting dropped packets, so make them use
+dev_consume_skb*() to be drop monitor friendly.
 
-First patch may be questionable but no other driver appears to be doing that
-and while it is defendable to account for left packets as dropped during TX
-clean, this appears misleadning. I picked Stanislaw changes which brings us
-back to 2010, but this was present from pre-git days as well.
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/ethernet/intel/e1000e/netdev.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-Second patch fixes the two missing calls to dev_consume_skb_any().
-
-Florian Fainelli (2):
-  r8169: Do not increment tx_dropped in TX ring cleaning
-  r8169: Be drop monitor friendly
-
- drivers/net/ethernet/realtek/r8169.c | 5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index 327dfe5bedc0..91303544975a 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -1085,7 +1085,7 @@ static void e1000_put_txbuf(struct e1000_ring *tx_ring,
+ 		buffer_info->dma = 0;
+ 	}
+ 	if (buffer_info->skb) {
+-		dev_kfree_skb_any(buffer_info->skb);
++		dev_consume_skb_any(buffer_info->skb);
+ 		buffer_info->skb = NULL;
+ 	}
+ 	buffer_info->time_stamp = 0;
+@@ -1199,7 +1199,7 @@ static void e1000e_tx_hwtstamp_work(struct work_struct *work)
+ 		wmb(); /* force write prior to skb_tstamp_tx */
+ 
+ 		skb_tstamp_tx(skb, &shhwtstamps);
+-		dev_kfree_skb_any(skb);
++		dev_consume_skb_any(skb);
+ 	} else if (time_after(jiffies, adapter->tx_hwtstamp_start
+ 			      + adapter->tx_timeout_factor * HZ)) {
+ 		dev_kfree_skb_any(adapter->tx_hwtstamp_skb);
+@@ -1716,7 +1716,7 @@ static void e1000_clean_rx_ring(struct e1000_ring *rx_ring)
+ 		}
+ 
+ 		if (buffer_info->skb) {
+-			dev_kfree_skb(buffer_info->skb);
++			dev_consume_skb(buffer_info->skb);
+ 			buffer_info->skb = NULL;
+ 		}
+ 
+@@ -1734,7 +1734,7 @@ static void e1000_clean_rx_ring(struct e1000_ring *rx_ring)
+ 
+ 	/* there also may be some cached data from a chained receive */
+ 	if (rx_ring->rx_skb_top) {
+-		dev_kfree_skb(rx_ring->rx_skb_top);
++		dev_consume_skb(rx_ring->rx_skb_top);
+ 		rx_ring->rx_skb_top = NULL;
+ 	}
+ 
+@@ -7411,7 +7411,7 @@ static void e1000_remove(struct pci_dev *pdev)
+ 	if (adapter->flags & FLAG_HAS_HW_TIMESTAMP) {
+ 		cancel_work_sync(&adapter->tx_hwtstamp_work);
+ 		if (adapter->tx_hwtstamp_skb) {
+-			dev_kfree_skb_any(adapter->tx_hwtstamp_skb);
++			dev_consume_skb_any(adapter->tx_hwtstamp_skb);
+ 			adapter->tx_hwtstamp_skb = NULL;
+ 		}
+ 	}
 -- 
 2.9.3
