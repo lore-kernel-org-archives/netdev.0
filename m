@@ -1,7 +1,7 @@
 From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH net-next v2 06/14] net: mvpp2: simplify the link_event function
-Date: Fri, 25 Aug 2017 16:48:13 +0200
-Message-ID: <20170825144821.31129-7-antoine.tenart@free-electrons.com>
+Subject: [PATCH net-next v2 11/14] arm64: dts: marvell: add comphy nodes on cp110 master and slave
+Date: Fri, 25 Aug 2017 16:48:18 +0200
+Message-ID: <20170825144821.31129-12-antoine.tenart@free-electrons.com>
 References: <20170825144821.31129-1-antoine.tenart@free-electrons.com>
 Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
         thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
@@ -16,53 +16,112 @@ In-Reply-To: <20170825144821.31129-1-antoine.tenart@free-electrons.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The link_event function is somewhat complicated. This cosmetic patch
-simplifies it.
+Now that the comphy driver is available, this patch adds the
+corresponding nodes in the cp110 master and slave device trees.
 
 Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
 ---
- drivers/net/ethernet/marvell/mvpp2.c | 13 ++++---------
- 1 file changed, 4 insertions(+), 9 deletions(-)
+ .../boot/dts/marvell/armada-cp110-master.dtsi      | 38 ++++++++++++++++++++++
+ .../arm64/boot/dts/marvell/armada-cp110-slave.dtsi | 38 ++++++++++++++++++++++
+ 2 files changed, 76 insertions(+)
 
-diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 498a4969dc58..a9dea9b344de 100644
---- a/drivers/net/ethernet/marvell/mvpp2.c
-+++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -5740,7 +5740,6 @@ static void mvpp2_link_event(struct net_device *dev)
- {
- 	struct mvpp2_port *port = netdev_priv(dev);
- 	struct phy_device *phydev = dev->phydev;
--	int status_change = 0;
+diff --git a/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi b/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi
+index 9b2581473183..f2a50552bad4 100644
+--- a/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi
++++ b/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi
+@@ -91,6 +91,44 @@
+ 				};
+ 			};
  
- 	if (phydev->link) {
- 		if ((port->speed != phydev->speed) ||
-@@ -5751,23 +5750,19 @@ static void mvpp2_link_event(struct net_device *dev)
- 	}
- 
- 	if (phydev->link != port->link) {
--		if (!phydev->link) {
--			port->duplex = -1;
--			port->speed = 0;
--		}
--
- 		port->link = phydev->link;
--		status_change = 1;
--	}
- 
--	if (status_change) {
- 		if (phydev->link) {
- 			mvpp2_egress_enable(port);
- 			mvpp2_ingress_enable(port);
- 		} else {
-+			port->duplex = -1;
-+			port->speed = 0;
++			cpm_comphy: phy@120000 {
++				compatible = "marvell,comphy-cp110";
++				reg = <0x120000 0x6000>;
++				marvell,system-controller = <&cpm_syscon0>;
++				#address-cells = <1>;
++				#size-cells = <0>;
 +
- 			mvpp2_ingress_disable(port);
- 			mvpp2_egress_disable(port);
- 		}
++				cpm_comphy0: phy@0 {
++					reg = <0>;
++					#phy-cells = <1>;
++				};
 +
- 		phy_print_status(phydev);
- 	}
- }
++				cpm_comphy1: phy@1 {
++					reg = <1>;
++					#phy-cells = <1>;
++				};
++
++				cpm_comphy2: phy@2 {
++					reg = <2>;
++					#phy-cells = <1>;
++				};
++
++				cpm_comphy3: phy@3 {
++					reg = <3>;
++					#phy-cells = <1>;
++				};
++
++				cpm_comphy4: phy@4 {
++					reg = <4>;
++					#phy-cells = <1>;
++				};
++
++				cpm_comphy5: phy@5 {
++					reg = <5>;
++					#phy-cells = <1>;
++				};
++			};
++
+ 			cpm_mdio: mdio@12a200 {
+ 				#address-cells = <1>;
+ 				#size-cells = <0>;
+diff --git a/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi b/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi
+index d3902f218c46..bd7f7d0e6de9 100644
+--- a/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi
++++ b/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi
+@@ -98,6 +98,44 @@
+ 				};
+ 			};
+ 
++			cps_comphy: phy@120000 {
++				compatible = "marvell,comphy-cp110";
++				reg = <0x120000 0x6000>;
++				marvell,system-controller = <&cps_syscon0>;
++				#address-cells = <1>;
++				#size-cells = <0>;
++
++				cps_comphy0: phy@0 {
++					reg = <0>;
++					#phy-cells = <1>;
++				};
++
++				cps_comphy1: phy@1 {
++					reg = <1>;
++					#phy-cells = <1>;
++				};
++
++				cps_comphy2: phy@2 {
++					reg = <2>;
++					#phy-cells = <1>;
++				};
++
++				cps_comphy3: phy@3 {
++					reg = <3>;
++					#phy-cells = <1>;
++				};
++
++				cps_comphy4: phy@4 {
++					reg = <4>;
++					#phy-cells = <1>;
++				};
++
++				cps_comphy5: phy@5 {
++					reg = <5>;
++					#phy-cells = <1>;
++				};
++			};
++
+ 			cps_mdio: mdio@12a200 {
+ 				#address-cells = <1>;
+ 				#size-cells = <0>;
 -- 
 2.13.5
