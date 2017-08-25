@@ -1,34 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: systemport: Free DMA coherent descriptors on
- errors
-Date: Thu, 24 Aug 2017 18:25:04 -0700 (PDT)
-Message-ID: <20170824.182504.841848047841444681.davem@davemloft.net>
-References: <20170824230113.15283-1-f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next v2] tg3: Be drop monitor friendly
+Date: Thu, 24 Aug 2017 18:28:03 -0700 (PDT)
+Message-ID: <20170824.182803.373650560554315773.davem@davemloft.net>
+References: <20170825004711.19793-1-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@gmail.com
+Cc: netdev@vger.kernel.org, edumazet@gmail.com,
+        siva.kallam@broadcom.com, prashant@broadcom.com,
+        mchan@broadcom.com, linux-kernel@vger.kernel.org
 To: f.fainelli@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:59872 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754302AbdHYBZF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 24 Aug 2017 21:25:05 -0400
-In-Reply-To: <20170824230113.15283-1-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170825004711.19793-1-f.fainelli@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Thu, 24 Aug 2017 16:01:13 -0700
+Date: Thu, 24 Aug 2017 17:47:11 -0700
 
-> In case bcm_sysport_init_tx_ring() is not able to allocate ring->cbs, we
-> would return with an error, and call bcm_sysport_fini_tx_ring() and it
-> would see that ring->cbs is NULL and do nothing. This would leak the
-> coherent DMA descriptor area, so we need to free it on error before
-> returning.
+> tg3_tx() does the normal packet TX completion,
+> tigon3_dma_hwbug_workaround() and tg3_tso_bug() both need to allocate a
+> new SKB that is suitable to workaround HW bugs, and finally
+> tg3_free_rings() is doing ring cleanup. Use dev_consume_skb_any() for
+> these 3 locations to be SKB drop monitor friendly.
 > 
-> Reported-by: Eric Dumazet <edumazet@gmail.com>
-> Fixes: 80105befdb4b ("net: systemport: add Broadcom SYSTEMPORT Ethernet MAC driver")
 > Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 
-Applied and queued up for -stable.
+Applied.
