@@ -1,228 +1,204 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 09/13] i40e/i40evf: rename vf_offload_flags to vf_cap_flags in struct virtchnl_vf_resource
-Date: Fri, 25 Aug 2017 15:00:53 -0700
-Message-ID: <20170825220057.51804-10-jeffrey.t.kirsher@intel.com>
-References: <20170825220057.51804-1-jeffrey.t.kirsher@intel.com>
-Cc: Stefan Assmann <sassmann@kpanic.de>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:48593 "EHLO mga09.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S935142AbdHYWBH (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 25 Aug 2017 18:01:07 -0400
-In-Reply-To: <20170825220057.51804-1-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "J. Bruce Fields" <bfields@fieldses.org>
+Subject: Re: [PATCH] net: sunrpc: svcsock: fix NULL-pointer exception
+Date: Fri, 25 Aug 2017 18:01:28 -0400
+Message-ID: <20170825220128.GA6276@fieldses.org>
+References: <1503050447-13362-1-git-send-email-vlomovts@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: trond.myklebust@primarydata.com, anna.schumaker@netapp.com,
+        jlayton@poochiereds.net, davem@davemloft.net,
+        linux-nfs@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, pabeni@redhat.com
+To: Vadim Lomovtsev <vlomovts@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1503050447-13362-1-git-send-email-vlomovts@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Stefan Assmann <sassmann@kpanic.de>
+On Fri, Aug 18, 2017 at 06:00:47AM -0400, Vadim Lomovtsev wrote:
+> While running nfs/connectathon tests kernel NULL-pointer exception
+> has been observed due to races in svcsock.c.
+> 
+> Race is appear when kernel accepts connection by kernel_accept
+> (which creates new socket) and start queuing ingress packets
+> to new socket. This happanes in ksoftirq context which concurrently
+> on a differnt core while new socket setup is not done yet.
+> 
+> The fix is to re-order socket user data init sequence, add NULL-ptr
+> check before callback call along with barriers to prevent kernel crash.
+> 
+> Test results: nfs/connectathon reports '0' failed tests for about 200+ iterations.
 
-The current name of vf_offload_flags indicates that the bitmap is
-limited to offload related features. Make this more generic by renaming
-it to vf_cap_flags, which allows for other capabilities besides
-offloading to be added.
+By the way, is there anything special about your setup that allows you
+to reproduce this?  There's nothing special about connectathon tests, so
+I'm just wondering why we haven't had a lot of reports of this.
 
-Signed-off-by: Stefan Assmann <sassmann@kpanic.de>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 22 +++++++++++-----------
- drivers/net/ethernet/intel/i40evf/i40e_common.c    |  2 +-
- drivers/net/ethernet/intel/i40evf/i40evf.h         | 10 +++++-----
- drivers/net/ethernet/intel/i40evf/i40evf_main.c    | 12 ++++++------
- include/linux/avf/virtchnl.h                       |  4 ++--
- 5 files changed, 25 insertions(+), 25 deletions(-)
+--b.
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index 3ef67dc094fc..057c77be96e4 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -1528,39 +1528,39 @@ static int i40e_vc_get_vf_resources_msg(struct i40e_vf *vf, u8 *msg)
- 				  VIRTCHNL_VF_OFFLOAD_RSS_REG |
- 				  VIRTCHNL_VF_OFFLOAD_VLAN;
- 
--	vfres->vf_offload_flags = VIRTCHNL_VF_OFFLOAD_L2;
-+	vfres->vf_cap_flags = VIRTCHNL_VF_OFFLOAD_L2;
- 	vsi = pf->vsi[vf->lan_vsi_idx];
- 	if (!vsi->info.pvid)
--		vfres->vf_offload_flags |= VIRTCHNL_VF_OFFLOAD_VLAN;
-+		vfres->vf_cap_flags |= VIRTCHNL_VF_OFFLOAD_VLAN;
- 
- 	if (i40e_vf_client_capable(pf, vf->vf_id) &&
- 	    (vf->driver_caps & VIRTCHNL_VF_OFFLOAD_IWARP)) {
--		vfres->vf_offload_flags |= VIRTCHNL_VF_OFFLOAD_IWARP;
-+		vfres->vf_cap_flags |= VIRTCHNL_VF_OFFLOAD_IWARP;
- 		set_bit(I40E_VF_STATE_IWARPENA, &vf->vf_states);
- 	}
- 
- 	if (vf->driver_caps & VIRTCHNL_VF_OFFLOAD_RSS_PF) {
--		vfres->vf_offload_flags |= VIRTCHNL_VF_OFFLOAD_RSS_PF;
-+		vfres->vf_cap_flags |= VIRTCHNL_VF_OFFLOAD_RSS_PF;
- 	} else {
- 		if ((pf->hw_features & I40E_HW_RSS_AQ_CAPABLE) &&
- 		    (vf->driver_caps & VIRTCHNL_VF_OFFLOAD_RSS_AQ))
--			vfres->vf_offload_flags |= VIRTCHNL_VF_OFFLOAD_RSS_AQ;
-+			vfres->vf_cap_flags |= VIRTCHNL_VF_OFFLOAD_RSS_AQ;
- 		else
--			vfres->vf_offload_flags |= VIRTCHNL_VF_OFFLOAD_RSS_REG;
-+			vfres->vf_cap_flags |= VIRTCHNL_VF_OFFLOAD_RSS_REG;
- 	}
- 
- 	if (pf->hw_features & I40E_HW_MULTIPLE_TCP_UDP_RSS_PCTYPE) {
- 		if (vf->driver_caps & VIRTCHNL_VF_OFFLOAD_RSS_PCTYPE_V2)
--			vfres->vf_offload_flags |=
-+			vfres->vf_cap_flags |=
- 				VIRTCHNL_VF_OFFLOAD_RSS_PCTYPE_V2;
- 	}
- 
- 	if (vf->driver_caps & VIRTCHNL_VF_OFFLOAD_ENCAP)
--		vfres->vf_offload_flags |= VIRTCHNL_VF_OFFLOAD_ENCAP;
-+		vfres->vf_cap_flags |= VIRTCHNL_VF_OFFLOAD_ENCAP;
- 
- 	if ((pf->hw_features & I40E_HW_OUTER_UDP_CSUM_CAPABLE) &&
- 	    (vf->driver_caps & VIRTCHNL_VF_OFFLOAD_ENCAP_CSUM))
--		vfres->vf_offload_flags |= VIRTCHNL_VF_OFFLOAD_ENCAP_CSUM;
-+		vfres->vf_cap_flags |= VIRTCHNL_VF_OFFLOAD_ENCAP_CSUM;
- 
- 	if (vf->driver_caps & VIRTCHNL_VF_OFFLOAD_RX_POLLING) {
- 		if (pf->flags & I40E_FLAG_MFP_ENABLED) {
-@@ -1570,12 +1570,12 @@ static int i40e_vc_get_vf_resources_msg(struct i40e_vf *vf, u8 *msg)
- 			aq_ret = I40E_ERR_PARAM;
- 			goto err;
- 		}
--		vfres->vf_offload_flags |= VIRTCHNL_VF_OFFLOAD_RX_POLLING;
-+		vfres->vf_cap_flags |= VIRTCHNL_VF_OFFLOAD_RX_POLLING;
- 	}
- 
- 	if (pf->hw_features & I40E_HW_WB_ON_ITR_CAPABLE) {
- 		if (vf->driver_caps & VIRTCHNL_VF_OFFLOAD_WB_ON_ITR)
--			vfres->vf_offload_flags |=
-+			vfres->vf_cap_flags |=
- 					VIRTCHNL_VF_OFFLOAD_WB_ON_ITR;
- 	}
- 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_common.c b/drivers/net/ethernet/intel/i40evf/i40e_common.c
-index 1dd1938f594f..d69c2e44cd1a 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_common.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_common.c
-@@ -1104,7 +1104,7 @@ void i40e_vf_parse_hw_config(struct i40e_hw *hw,
- 	hw->dev_caps.num_rx_qp = msg->num_queue_pairs;
- 	hw->dev_caps.num_tx_qp = msg->num_queue_pairs;
- 	hw->dev_caps.num_msix_vectors_vf = msg->max_vectors;
--	hw->dev_caps.dcb = msg->vf_offload_flags &
-+	hw->dev_caps.dcb = msg->vf_cap_flags &
- 			   VIRTCHNL_VF_OFFLOAD_L2;
- 	hw->dev_caps.fcoe = 0;
- 	for (i = 0; i < msg->num_vsis; i++) {
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf.h b/drivers/net/ethernet/intel/i40evf/i40evf.h
-index 7f905368fc93..d310544c6c6e 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf.h
-@@ -277,19 +277,19 @@ struct i40evf_adapter {
- 	enum virtchnl_link_speed link_speed;
- 	enum virtchnl_ops current_op;
- #define CLIENT_ALLOWED(_a) ((_a)->vf_res ? \
--			    (_a)->vf_res->vf_offload_flags & \
-+			    (_a)->vf_res->vf_cap_flags & \
- 				VIRTCHNL_VF_OFFLOAD_IWARP : \
- 			    0)
- #define CLIENT_ENABLED(_a) ((_a)->cinst)
- /* RSS by the PF should be preferred over RSS via other methods. */
--#define RSS_PF(_a) ((_a)->vf_res->vf_offload_flags & \
-+#define RSS_PF(_a) ((_a)->vf_res->vf_cap_flags & \
- 		    VIRTCHNL_VF_OFFLOAD_RSS_PF)
--#define RSS_AQ(_a) ((_a)->vf_res->vf_offload_flags & \
-+#define RSS_AQ(_a) ((_a)->vf_res->vf_cap_flags & \
- 		    VIRTCHNL_VF_OFFLOAD_RSS_AQ)
--#define RSS_REG(_a) (!((_a)->vf_res->vf_offload_flags & \
-+#define RSS_REG(_a) (!((_a)->vf_res->vf_cap_flags & \
- 		       (VIRTCHNL_VF_OFFLOAD_RSS_AQ | \
- 			VIRTCHNL_VF_OFFLOAD_RSS_PF)))
--#define VLAN_ALLOWED(_a) ((_a)->vf_res->vf_offload_flags & \
-+#define VLAN_ALLOWED(_a) ((_a)->vf_res->vf_cap_flags & \
- 			  VIRTCHNL_VF_OFFLOAD_VLAN)
- 	struct virtchnl_vf_resource *vf_res; /* incl. all VSIs */
- 	struct virtchnl_vsi_resource *vsi_res; /* our LAN VSI */
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index 8603911cc550..4a36c2ee3837 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -1418,7 +1418,7 @@ static int i40evf_init_rss(struct i40evf_adapter *adapter)
- 
- 	if (!RSS_PF(adapter)) {
- 		/* Enable PCTYPES for RSS, TCP/UDP with IPv4/IPv6 */
--		if (adapter->vf_res->vf_offload_flags &
-+		if (adapter->vf_res->vf_cap_flags &
- 		    VIRTCHNL_VF_OFFLOAD_RSS_PCTYPE_V2)
- 			adapter->hena = I40E_DEFAULT_RSS_HENA_EXPANDED;
- 		else
-@@ -2371,7 +2371,7 @@ static netdev_features_t i40evf_fix_features(struct net_device *netdev,
- 	struct i40evf_adapter *adapter = netdev_priv(netdev);
- 
- 	features &= ~I40EVF_VLAN_FEATURES;
--	if (adapter->vf_res->vf_offload_flags & VIRTCHNL_VF_OFFLOAD_VLAN)
-+	if (adapter->vf_res->vf_cap_flags & VIRTCHNL_VF_OFFLOAD_VLAN)
- 		features |= I40EVF_VLAN_FEATURES;
- 	return features;
- }
-@@ -2458,7 +2458,7 @@ int i40evf_process_config(struct i40evf_adapter *adapter)
- 	/* advertise to stack only if offloads for encapsulated packets is
- 	 * supported
- 	 */
--	if (vfres->vf_offload_flags & VIRTCHNL_VF_OFFLOAD_ENCAP) {
-+	if (vfres->vf_cap_flags & VIRTCHNL_VF_OFFLOAD_ENCAP) {
- 		hw_enc_features |= NETIF_F_GSO_UDP_TUNNEL	|
- 				   NETIF_F_GSO_GRE		|
- 				   NETIF_F_GSO_GRE_CSUM		|
-@@ -2468,7 +2468,7 @@ int i40evf_process_config(struct i40evf_adapter *adapter)
- 				   NETIF_F_GSO_PARTIAL		|
- 				   0;
- 
--		if (!(vfres->vf_offload_flags &
-+		if (!(vfres->vf_cap_flags &
- 		      VIRTCHNL_VF_OFFLOAD_ENCAP_CSUM))
- 			netdev->gso_partial_features |=
- 				NETIF_F_GSO_UDP_TUNNEL_CSUM;
-@@ -2496,7 +2496,7 @@ int i40evf_process_config(struct i40evf_adapter *adapter)
- 	adapter->vsi.work_limit = I40E_DEFAULT_IRQ_WORK;
- 	vsi->netdev = adapter->netdev;
- 	vsi->qs_handle = adapter->vsi_res->qset_handle;
--	if (vfres->vf_offload_flags & VIRTCHNL_VF_OFFLOAD_RSS_PF) {
-+	if (vfres->vf_cap_flags & VIRTCHNL_VF_OFFLOAD_RSS_PF) {
- 		adapter->rss_key_size = vfres->rss_key_size;
- 		adapter->rss_lut_size = vfres->rss_lut_size;
- 	} else {
-@@ -2664,7 +2664,7 @@ static void i40evf_init_task(struct work_struct *work)
- 	if (err)
- 		goto err_sw_init;
- 	i40evf_map_rings_to_vectors(adapter);
--	if (adapter->vf_res->vf_offload_flags &
-+	if (adapter->vf_res->vf_cap_flags &
- 	    VIRTCHNL_VF_OFFLOAD_WB_ON_ITR)
- 		adapter->flags |= I40EVF_FLAG_WB_ON_ITR_CAPABLE;
- 
-diff --git a/include/linux/avf/virtchnl.h b/include/linux/avf/virtchnl.h
-index c893b9520a67..becfca2ae94e 100644
---- a/include/linux/avf/virtchnl.h
-+++ b/include/linux/avf/virtchnl.h
-@@ -223,7 +223,7 @@ struct virtchnl_vsi_resource {
- 
- VIRTCHNL_CHECK_STRUCT_LEN(16, virtchnl_vsi_resource);
- 
--/* VF offload flags
-+/* VF capability flags
-  * VIRTCHNL_VF_OFFLOAD_L2 flag is inclusive of base mode L2 offloads including
-  * TX/RX Checksum offloading and TSO for non-tunnelled packets.
-  */
-@@ -251,7 +251,7 @@ struct virtchnl_vf_resource {
- 	u16 max_vectors;
- 	u16 max_mtu;
- 
--	u32 vf_offload_flags;
-+	u32 vf_cap_flags;
- 	u32 rss_key_size;
- 	u32 rss_lut_size;
- 
--- 
-2.14.1
+> 
+> Crash log:
+> ---<-snip->---
+> [ 6708.638984] Unable to handle kernel NULL pointer dereference at virtual address 00000000
+> [ 6708.647093] pgd = ffff0000094e0000
+> [ 6708.650497] [00000000] *pgd=0000010ffff90003, *pud=0000010ffff90003, *pmd=0000010ffff80003, *pte=0000000000000000
+> [ 6708.660761] Internal error: Oops: 86000005 [#1] SMP
+> [ 6708.665630] Modules linked in: nfsv3 nfnetlink_queue nfnetlink_log nfnetlink rpcsec_gss_krb5 nfsv4 dns_resolver nfs fscache overlay xt_CONNSECMARK xt_SECMARK xt_conntrack iptable_security ip_tables ah4 xfrm4_mode_transport sctp tun binfmt_misc ext4 jbd2 mbcache loop tcp_diag udp_diag inet_diag rpcrdma ib_isert iscsi_target_mod ib_iser rdma_cm iw_cm libiscsi scsi_transport_iscsi ib_srpt target_core_mod ib_srp scsi_transport_srp ib_ipoib ib_ucm ib_uverbs ib_umad ib_cm ib_core nls_koi8_u nls_cp932 ts_kmp nf_conntrack_ipv4 nf_defrag_ipv4 nf_conntrack vfat fat ghash_ce sha2_ce sha1_ce cavium_rng_vf i2c_thunderx sg thunderx_edac i2c_smbus edac_core cavium_rng nfsd auth_rpcgss nfs_acl lockd grace sunrpc xfs libcrc32c nicvf nicpf ast i2c_algo_bit drm_kms_helper syscopyarea sysfillrect sysimgb
+ lt fb_sys_fops
+> [ 6708.736446]  ttm drm i2c_core thunder_bgx thunder_xcv mdio_thunder mdio_cavium dm_mirror dm_region_hash dm_log dm_mod [last unloaded: stap_3c300909c5b3f46dcacd49aab3334af_87021]
+> [ 6708.752275] CPU: 84 PID: 0 Comm: swapper/84 Tainted: G        W  OE   4.11.0-4.el7.aarch64 #1
+> [ 6708.760787] Hardware name: www.cavium.com CRB-2S/CRB-2S, BIOS 0.3 Mar 13 2017
+> [ 6708.767910] task: ffff810006842e80 task.stack: ffff81000689c000
+> [ 6708.773822] PC is at 0x0
+> [ 6708.776739] LR is at svc_data_ready+0x38/0x88 [sunrpc]
+> [ 6708.781866] pc : [<0000000000000000>] lr : [<ffff0000029d7378>] pstate: 60000145
+> [ 6708.789248] sp : ffff810ffbad3900
+> [ 6708.792551] x29: ffff810ffbad3900 x28: ffff000008c73d58
+> [ 6708.797853] x27: 0000000000000000 x26: ffff81000bbe1e00
+> [ 6708.803156] x25: 0000000000000020 x24: ffff800f7410bf28
+> [ 6708.808458] x23: ffff000008c63000 x22: ffff000008c63000
+> [ 6708.813760] x21: ffff800f7410bf28 x20: ffff81000bbe1e00
+> [ 6708.819063] x19: ffff810012412400 x18: 00000000d82a9df2
+> [ 6708.824365] x17: 0000000000000000 x16: 0000000000000000
+> [ 6708.829667] x15: 0000000000000000 x14: 0000000000000001
+> [ 6708.834969] x13: 0000000000000000 x12: 722e736f622e676e
+> [ 6708.840271] x11: 00000000f814dd99 x10: 0000000000000000
+> [ 6708.845573] x9 : 7374687225000000 x8 : 0000000000000000
+> [ 6708.850875] x7 : 0000000000000000 x6 : 0000000000000000
+> [ 6708.856177] x5 : 0000000000000028 x4 : 0000000000000000
+> [ 6708.861479] x3 : 0000000000000000 x2 : 00000000e5000000
+> [ 6708.866781] x1 : 0000000000000000 x0 : ffff81000bbe1e00
+> [ 6708.872084]
+> [ 6708.873565] Process swapper/84 (pid: 0, stack limit = 0xffff81000689c000)
+> [ 6708.880341] Stack: (0xffff810ffbad3900 to 0xffff8100068a0000)
+> [ 6708.886075] Call trace:
+> [ 6708.888513] Exception stack(0xffff810ffbad3710 to 0xffff810ffbad3840)
+> [ 6708.894942] 3700:                                   ffff810012412400 0001000000000000
+> [ 6708.902759] 3720: ffff810ffbad3900 0000000000000000 0000000060000145 ffff800f79300000
+> [ 6708.910577] 3740: ffff000009274d00 00000000000003ea 0000000000000015 ffff000008c63000
+> [ 6708.918395] 3760: ffff810ffbad3830 ffff800f79300000 000000000000004d 0000000000000000
+> [ 6708.926212] 3780: ffff810ffbad3890 ffff0000080f88dc ffff800f79300000 000000000000004d
+> [ 6708.934030] 37a0: ffff800f7930093c ffff000008c63000 0000000000000000 0000000000000140
+> [ 6708.941848] 37c0: ffff000008c2c000 0000000000040b00 ffff81000bbe1e00 0000000000000000
+> [ 6708.949665] 37e0: 00000000e5000000 0000000000000000 0000000000000000 0000000000000028
+> [ 6708.957483] 3800: 0000000000000000 0000000000000000 0000000000000000 7374687225000000
+> [ 6708.965300] 3820: 0000000000000000 00000000f814dd99 722e736f622e676e 0000000000000000
+> [ 6708.973117] [<          (null)>]           (null)
+> [ 6708.977824] [<ffff0000086f9fa4>] tcp_data_queue+0x754/0xc5c
+> [ 6708.983386] [<ffff0000086fa64c>] tcp_rcv_established+0x1a0/0x67c
+> [ 6708.989384] [<ffff000008704120>] tcp_v4_do_rcv+0x15c/0x22c
+> [ 6708.994858] [<ffff000008707418>] tcp_v4_rcv+0xaf0/0xb58
+> [ 6709.000077] [<ffff0000086df784>] ip_local_deliver_finish+0x10c/0x254
+> [ 6709.006419] [<ffff0000086dfea4>] ip_local_deliver+0xf0/0xfc
+> [ 6709.011980] [<ffff0000086dfad4>] ip_rcv_finish+0x208/0x3a4
+> [ 6709.017454] [<ffff0000086e018c>] ip_rcv+0x2dc/0x3c8
+> [ 6709.022328] [<ffff000008692fc8>] __netif_receive_skb_core+0x2f8/0xa0c
+> [ 6709.028758] [<ffff000008696068>] __netif_receive_skb+0x38/0x84
+> [ 6709.034580] [<ffff00000869611c>] netif_receive_skb_internal+0x68/0xdc
+> [ 6709.041010] [<ffff000008696bc0>] napi_gro_receive+0xcc/0x1a8
+> [ 6709.046690] [<ffff0000014b0fc4>] nicvf_cq_intr_handler+0x59c/0x730 [nicvf]
+> [ 6709.053559] [<ffff0000014b1380>] nicvf_poll+0x38/0xb8 [nicvf]
+> [ 6709.059295] [<ffff000008697a6c>] net_rx_action+0x2f8/0x464
+> [ 6709.064771] [<ffff000008081824>] __do_softirq+0x11c/0x308
+> [ 6709.070164] [<ffff0000080d14e4>] irq_exit+0x12c/0x174
+> [ 6709.075206] [<ffff00000813101c>] __handle_domain_irq+0x78/0xc4
+> [ 6709.081027] [<ffff000008081608>] gic_handle_irq+0x94/0x190
+> [ 6709.086501] Exception stack(0xffff81000689fdf0 to 0xffff81000689ff20)
+> [ 6709.092929] fde0:                                   0000810ff2ec0000 ffff000008c10000
+> [ 6709.100747] fe00: ffff000008c70ef4 0000000000000001 0000000000000000 ffff810ffbad9b18
+> [ 6709.108565] fe20: ffff810ffbad9c70 ffff8100169d3800 ffff810006843ab0 ffff81000689fe80
+> [ 6709.116382] fe40: 0000000000000bd0 0000ffffdf979cd0 183f5913da192500 0000ffff8a254ce4
+> [ 6709.124200] fe60: 0000ffff8a254b78 0000aaab10339808 0000000000000000 0000ffff8a0c2a50
+> [ 6709.132018] fe80: 0000ffffdf979b10 ffff000008d6d450 ffff000008c10000 ffff000008d6d000
+> [ 6709.139836] fea0: 0000000000000054 ffff000008cd3dbc 0000000000000000 0000000000000000
+> [ 6709.147653] fec0: 0000000000000000 0000000000000000 0000000000000000 ffff81000689ff20
+> [ 6709.155471] fee0: ffff000008085240 ffff81000689ff20 ffff000008085244 0000000060000145
+> [ 6709.163289] ff00: ffff81000689ff10 ffff00000813f1e4 ffffffffffffffff ffff00000813f238
+> [ 6709.171107] [<ffff000008082eb4>] el1_irq+0xb4/0x140
+> [ 6709.175976] [<ffff000008085244>] arch_cpu_idle+0x44/0x11c
+> [ 6709.181368] [<ffff0000087bf3b8>] default_idle_call+0x20/0x30
+> [ 6709.187020] [<ffff000008116d50>] do_idle+0x158/0x1e4
+> [ 6709.191973] [<ffff000008116ff4>] cpu_startup_entry+0x2c/0x30
+> [ 6709.197624] [<ffff00000808e7cc>] secondary_start_kernel+0x13c/0x160
+> [ 6709.203878] [<0000000001bc71c4>] 0x1bc71c4
+> [ 6709.207967] Code: bad PC value
+> [ 6709.211061] SMP: stopping secondary CPUs
+> [ 6709.218830] Starting crashdump kernel...
+> [ 6709.222749] Bye!
+> ---<-snip>---
+> 
+> Signed-off-by: Vadim Lomovtsev <vlomovts@redhat.com>
+> ---
+>  net/sunrpc/svcsock.c | 24 ++++++++++++++++++------
+>  1 file changed, 18 insertions(+), 6 deletions(-)
+> 
+> diff --git a/net/sunrpc/svcsock.c b/net/sunrpc/svcsock.c
+> index 2b720fa..b6496f3 100644
+> --- a/net/sunrpc/svcsock.c
+> +++ b/net/sunrpc/svcsock.c
+> @@ -421,7 +421,9 @@ static void svc_data_ready(struct sock *sk)
+>  		dprintk("svc: socket %p(inet %p), busy=%d\n",
+>  			svsk, sk,
+>  			test_bit(XPT_BUSY, &svsk->sk_xprt.xpt_flags));
+> -		svsk->sk_odata(sk);
+> +		rmb();
+> +		if (svsk->sk_odata)
+> +			svsk->sk_odata(sk);
+>  		if (!test_and_set_bit(XPT_DATA, &svsk->sk_xprt.xpt_flags))
+>  			svc_xprt_enqueue(&svsk->sk_xprt);
+>  	}
+> @@ -437,7 +439,9 @@ static void svc_write_space(struct sock *sk)
+>  	if (svsk) {
+>  		dprintk("svc: socket %p(inet %p), write_space busy=%d\n",
+>  			svsk, sk, test_bit(XPT_BUSY, &svsk->sk_xprt.xpt_flags));
+> -		svsk->sk_owspace(sk);
+> +		rmb();
+> +		if (svsk->sk_owspace)
+> +			svsk->sk_owspace(sk);
+>  		svc_xprt_enqueue(&svsk->sk_xprt);
+>  	}
+>  }
+> @@ -760,8 +764,12 @@ static void svc_tcp_listen_data_ready(struct sock *sk)
+>  	dprintk("svc: socket %p TCP (listen) state change %d\n",
+>  		sk, sk->sk_state);
+>  
+> -	if (svsk)
+> -		svsk->sk_odata(sk);
+> +	if (svsk) { 
+> +		rmb();
+> +		if (svsk->sk_odata)
+> +			svsk->sk_odata(sk);
+> +	}
+> +
+>  	/*
+>  	 * This callback may called twice when a new connection
+>  	 * is established as a child socket inherits everything
+> @@ -794,7 +802,10 @@ static void svc_tcp_state_change(struct sock *sk)
+>  	if (!svsk)
+>  		printk("svc: socket %p: no user data\n", sk);
+>  	else {
+> -		svsk->sk_ostate(sk);
+> +		rmb();
+> +		if (svsk->sk_ostate)
+> +			svsk->sk_ostate(sk);
+> +
+>  		if (sk->sk_state != TCP_ESTABLISHED) {
+>  			set_bit(XPT_CLOSE, &svsk->sk_xprt.xpt_flags);
+>  			svc_xprt_enqueue(&svsk->sk_xprt);
+> @@ -1381,12 +1392,13 @@ static struct svc_sock *svc_setup_socket(struct svc_serv *serv,
+>  		return ERR_PTR(err);
+>  	}
+>  
+> -	inet->sk_user_data = svsk;
+>  	svsk->sk_sock = sock;
+>  	svsk->sk_sk = inet;
+>  	svsk->sk_ostate = inet->sk_state_change;
+>  	svsk->sk_odata = inet->sk_data_ready;
+>  	svsk->sk_owspace = inet->sk_write_space;
+> +	wmb();
+> +	inet->sk_user_data = svsk;
+>  
+>  	/* Initialize the socket */
+>  	if (sock->type == SOCK_DGRAM)
+> -- 
+> 1.8.3.1
