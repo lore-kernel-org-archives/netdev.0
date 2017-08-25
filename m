@@ -1,178 +1,153 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH v3 3/4] net: stmmac: register parent MDIO node for
- sun8i-h3-emac
-Date: Thu, 24 Aug 2017 20:59:20 -0700
-Message-ID: <3d74f0e3-9baf-195d-1e59-dbd8210b3c6f@gmail.com>
-References: <CAGb2v67hQXSoCKP7qW+KRUYX+0djQ1Z23cQ67Lyg6G7ozGyfGQ@mail.gmail.com>
- <20170821132015.GB1703@lunn.ch> <20170821133104.qvrhvwin2rdg4aqo@flea.lan>
- <20170821142321.GE1703@lunn.ch>
- <CAGb2v64E4T=1ff3POGuXZA=MvjGAnKQ6OF6A3sT_cU-=jh6zNw@mail.gmail.com>
- <bfe784b6-5137-8fcd-dbd0-ad96974f4060@gmail.com> <20170822181140.GA11596@Red>
- <352ae66b-78a4-e88b-4544-a8edd9390b0c@gmail.com>
- <20170823074942.yt3c5gvnmdw5pqge@flea.home>
- <f14fe754-6339-32a0-3439-2daff6dd1d7e@gmail.com> <20170824082124.GA14302@Red>
- <dfc8e7f3-e374-b30b-b320-017f1c50ab58@gmail.com>
- <CAGb2v64jrDPSff+QL_PQBMaQJ+CcTVbskjuOUd1OqR4smbu+ig@mail.gmail.com>
- <77ff97c1-9d0a-8b3f-d0b9-25c951f86fec@gmail.com>
- <CAGb2v64Bx7vzzK8nKbiQPsYkgu5JZ6_0iCkx=mgpWY=8b_GeXQ@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] net_sched: fix a refcount_t issue with noop_qdisc
+Date: Thu, 24 Aug 2017 21:12:28 -0700
+Message-ID: <1503634348.2499.98.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Corentin Labbe <clabbe.montjoie@gmail.com>,
-        Maxime Ripard <maxime.ripard@free-electrons.com>,
-        Andrew Lunn <andrew@lunn.ch>, Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Russell King <linux@armlinux.org.uk>,
-        Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-        Alexandre Torgue <alexandre.torgue@st.com>,
-        devicetree <devicetree@vger.kernel.org>,
-        linux-arm-kernel <linux-arm-kernel@lists.infradead.org>,
-        linux-kernel <linux-kernel@vger.kernel.org>,
-        netdev <netdev@vger.kernel.org>
-To: Chen-Yu Tsai <wens@csie.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAGb2v64Bx7vzzK8nKbiQPsYkgu5JZ6_0iCkx=mgpWY=8b_GeXQ@mail.gmail.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Jiri Pirko <jiri@resnulli.us>,
+        Reshetova Elena <elena.reshetova@intel.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:37795 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751195AbdHYEMb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 00:12:31 -0400
+Received: by mail-pg0-f67.google.com with SMTP id a7so2120289pgn.4
+        for <netdev@vger.kernel.org>; Thu, 24 Aug 2017 21:12:31 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Eric Dumazet <edumazet@google.com>
 
+syzkaller reported a refcount_t warning [1]
 
-On 08/24/2017 08:41 PM, Chen-Yu Tsai wrote:
-> On Fri, Aug 25, 2017 at 11:05 AM, Florian Fainelli <f.fainelli@gmail.com> wrote:
->>
->>
->> On 08/24/2017 07:54 PM, Chen-Yu Tsai wrote:
->>> On Fri, Aug 25, 2017 at 3:59 AM, Florian Fainelli <f.fainelli@gmail.com> wrote:
->>>> On 08/24/2017 01:21 AM, Corentin Labbe wrote:
->>>>> On Wed, Aug 23, 2017 at 09:31:53AM -0700, Florian Fainelli wrote:
->>>>>> On 08/23/2017 12:49 AM, Maxime Ripard wrote:
->>>>>>> Hi Florian,
->>>>>>>
->>>>>>> On Tue, Aug 22, 2017 at 11:35:01AM -0700, Florian Fainelli wrote:
->>>>>>>>>>> So I think what you are saying is either impossible or engineering-wise
->>>>>>>>>>> a very stupid design, like using an external MAC with a discrete PHY
->>>>>>>>>>> connected to the internal MAC's MDIO bus, while using the internal MAC
->>>>>>>>>>> with the internal PHY.
->>>>>>>>>>>
->>>>>>>>>>> Now can we please decide on something? We're a week and a half from
->>>>>>>>>>> the 4.13 release. If mdio-mux is wrong, then we could have two mdio
->>>>>>>>>>> nodes (internal-mdio & external-mdio).
->>>>>>>>>>
->>>>>>>>>> I really don't see a need for a mdio-mux in the first place, just have
->>>>>>>>>> one MDIO controller (current state) sub-node which describes the
->>>>>>>>>> built-in STMMAC MDIO controller and declare the internal PHY as a child
->>>>>>>>>> node (along with 'phy-is-integrated'). If a different configuration is
->>>>>>>>>> used, then just put the external PHY as a child node there.
->>>>>>>>>>
->>>>>>>>>> If fixed-link is required, the mdio node becomes unused anyway.
->>>>>>>>>>
->>>>>>>>>> Works for everyone?
->>>>>>>>>
->>>>>>>>> If we put an external PHY with reg=1 as a child of internal MDIO,
->>>>>>>>> il will be merged with internal PHY node and get
->>>>>>>>> phy-is-integrated.
->>>>>>>>
->>>>>>>> Then have the .dtsi file contain just the mdio node, but no internal or
->>>>>>>> external PHY and push all the internal and external PHY node definition
->>>>>>>> (in its entirety) to the per-board DTS file, does not that work?
->>>>>>>
->>>>>>> If possible, I'd really like to have the internal PHY in the
->>>>>>> DTSI. It's always there in hardware anyway, and duplicating the PHY,
->>>>>>> with its clock, reset line, and whatever info we might need in the
->>>>>>> future in each and every board DTS that uses it will be very error
->>>>>>> prone and we will have the usual bunch of issues that come up with
->>>>>>> duplication.
->>>>>>
->>>>>> OK, then what if you put the internal PHY in the DTSI, mark it with a
->>>>>> status = "disabled" property, and have the per-board DTS put a status =
->>>>>> "okay" property along with a "phy-is-integrated" boolean property? Would
->>>>>> that work?
->>>>>
->>>>> No, I tested and for example with sun8i-h3-orangepi-plus.dts, the external PHY (ethernet-phy@1) is still merged.
->>>>
->>>> Is not there is a mistake in the unit address not matching the "reg"
->>>> property, or am I not looking at the right tree?
->>>>
->>>> &mdio {
->>>>         ext_rgmii_phy: ethernet-phy@1 {
->>>>                 compatible = "ethernet-phy-ieee802.3-c22";
->>>>                 reg = <0>;
->>>>         };
->>>> };
->>>>
->>>> If the PHY is really at MDIO address 0, then it should be
->>>> ethernet-phy@0, and not ethernet-phy@1, and then no problem with the
->>>> merging?
->>>
->>> That is wrong. The board described in the example likely has a Realtek
->>> RTL8211E @ address 0x1. Address 0 for this PHY is a broadcast address,
->>> so it still works, but is the wrong representation.
->>>
->>>>
->>>>
->>>>> So that adding a 'status = "disabled"' does not bring anything.
->>>>>
->>>>>>
->>>>>> What I really don't think is necessary is:
->>>>>>
->>>>>> - duplicating the "mdio" controller node for external vs. internal PHY,
->>>>>> because this is not accurate, there is just one MDIO controller, but
->>>>>> there may be different kinds of MDIO/PHY devices attached
->>>>>
->>>>> For me, if we want to represent the reality, we need two MDIO:
->>>>> - since two PHY at the same address could co-exists
->>>>> - since they are isolated so not on the same MDIO bus
->>>>
->>>> Is that really true? It might be, but from experience with e.g:
->>>> bcmgenet, the integrated PHY and the external PHYs are on the same MDIO
->>>> bus, which is convenient, except when you have an address conflict.
->>>
->>> There's a mux in the hardware: either the internal MDIO+MII lines
->>> from the internal PHY are connected to the MAC, or the external
->>> MDIO+MII lines from the pin controller are connected. I believe
->>> this was already mentioned?
->>
->> There is obviously a mux for the data lines and clock to switch between
->> internal PHY and external PHYs, that does not mean there is one for MDIO
->> and MDC lines, which is what is being suggested to be used here, does
->> the mux also takes care of these lines?
->>
->>>
->>>>
->>>>>
->>>>>> - having the STMMAC driver MDIO probing code having to deal with a
->>>>>> "mdio" sub-node or an "internal-mdio" sub-node because this is confusing
->>>>>> and requiring more driver-level changes that are error prone
->>>>>
->>>>> My patch for stmmac is really small, only the name of my variable ("need_mdio_mux_ids")
->>>>> have to be changed to something like "register_parent_mdio"
->>>>>
->>>>>
->>>>> So I agree with Maxime, we need to avoid merging PHY nodes, and we can avoid it only by having two separate MDIO nodes.
->>>>> Furthermore, with only one MDIO, we will face with lots of small patch for adding phy-is-integrated, with two we do not need to change any board DT, all is simply clean.
->>>>> Really having two MDIO seems cleaner.
->>>>
->>>> The only valid thing that you have provided so far is this merging
->>>> problem. Anything else ranging from "we will face with lots of small
->>>> patch for adding phy-is-integrated" to "Really having two MDIO seems
->>>> cleaner." are hard to receive as technical arguments for correctness.
->>>>
->>>> What happens if someone connects an external PHY at the same MDIO
->>>> address than the internal PHY, which one do you get responses from? If
->>>> you shutdown the internal PHY and it stops responding, then this
->>>> probably becomes deterministic, but it still supports the fact there is
->>>> just one MDIO bus controller per MAC.
->>>
->>> Depends on whichever set of pins/lines are selected. But yeah, there's
->>> only one MDIO bus controller in the MAC.
->>
->> OK, so one MDIO controller, but what about the MDIO/MDC lines then, are
->> they also muxed, like the data/clock lines or not?
-> 
-> Just tested. Yes the MDIO/MDC lines are also muxed and controlled through
-> the same mux bit.
+Issue here is that noop_qdisc refcnt was never really considered as
+a true refcount, since qdisc_destroy() found TCQ_F_BUILTIN set :
 
-Alright then the mdio-mux seems appropriate, thanks.
--- 
-Florian
+if (qdisc->flags & TCQ_F_BUILTIN ||
+    !refcount_dec_and_test(&qdisc->refcnt)))
+	return;
+
+Meaning that all atomic_inc() we did on noop_qdisc.refcnt were not
+really needed, but harmless until refcount_t came.
+
+To fix this problem, we simply need to not increment noop_qdisc.refcnt,
+since we never decrement it.
+
+[1]
+refcount_t: increment on 0; use-after-free.
+------------[ cut here ]------------
+WARNING: CPU: 0 PID: 21754 at lib/refcount.c:152 refcount_inc+0x47/0x50 lib/refcount.c:152
+Kernel panic - not syncing: panic_on_warn set ...
+
+CPU: 0 PID: 21754 Comm: syz-executor7 Not tainted 4.13.0-rc6+ #20
+Hardware name: Google Google Compute Engine/Google Compute Engine, BIOS Google 01/01/2011
+Call Trace:
+ __dump_stack lib/dump_stack.c:16 [inline]
+ dump_stack+0x194/0x257 lib/dump_stack.c:52
+ panic+0x1e4/0x417 kernel/panic.c:180
+ __warn+0x1c4/0x1d9 kernel/panic.c:541
+ report_bug+0x211/0x2d0 lib/bug.c:183
+ fixup_bug+0x40/0x90 arch/x86/kernel/traps.c:190
+ do_trap_no_signal arch/x86/kernel/traps.c:224 [inline]
+ do_trap+0x260/0x390 arch/x86/kernel/traps.c:273
+ do_error_trap+0x120/0x390 arch/x86/kernel/traps.c:310
+ do_invalid_op+0x1b/0x20 arch/x86/kernel/traps.c:323
+ invalid_op+0x1e/0x30 arch/x86/entry/entry_64.S:846
+RIP: 0010:refcount_inc+0x47/0x50 lib/refcount.c:152
+RSP: 0018:ffff8801c43477a0 EFLAGS: 00010282
+RAX: 000000000000002b RBX: ffffffff86093c14 RCX: 0000000000000000
+RDX: 000000000000002b RSI: ffffffff8159314e RDI: ffffed0038868ee8
+RBP: ffff8801c43477a8 R08: 0000000000000001 R09: 0000000000000000
+R10: 0000000000000000 R11: 0000000000000000 R12: ffffffff86093ac0
+R13: 0000000000000001 R14: ffff8801d0f3bac0 R15: dffffc0000000000
+ attach_default_qdiscs net/sched/sch_generic.c:792 [inline]
+ dev_activate+0x7d3/0xaa0 net/sched/sch_generic.c:833
+ __dev_open+0x227/0x330 net/core/dev.c:1380
+ __dev_change_flags+0x695/0x990 net/core/dev.c:6726
+ dev_change_flags+0x88/0x140 net/core/dev.c:6792
+ dev_ifsioc+0x5a6/0x930 net/core/dev_ioctl.c:256
+ dev_ioctl+0x2bc/0xf90 net/core/dev_ioctl.c:554
+ sock_do_ioctl+0x94/0xb0 net/socket.c:968
+ sock_ioctl+0x2c2/0x440 net/socket.c:1058
+ vfs_ioctl fs/ioctl.c:45 [inline]
+ do_vfs_ioctl+0x1b1/0x1520 fs/ioctl.c:685
+ SYSC_ioctl fs/ioctl.c:700 [inline]
+ SyS_ioctl+0x8f/0xc0 fs/ioctl.c:691
+
+Fixes: 7b9364050246 ("net, sched: convert Qdisc.refcnt from atomic_t to refcount_t")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Reported-by: Dmitry Vyukov <dvyukov@google.com>
+Cc: Reshetova, Elena <elena.reshetova@intel.com>
+---
+ include/net/sch_generic.h |    7 +++++++
+ net/sched/sch_api.c       |    6 +++---
+ net/sched/sch_generic.c   |    2 +-
+ 3 files changed, 11 insertions(+), 4 deletions(-)
+
+diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+index 67f815e5d52517390226bc3531b1ea7b5f1020bc..c1109cdbbfa6afb9aff0d6033aef7b615630ffc1 100644
+--- a/include/net/sch_generic.h
++++ b/include/net/sch_generic.h
+@@ -101,6 +101,13 @@ struct Qdisc {
+ 	spinlock_t		busylock ____cacheline_aligned_in_smp;
+ };
+ 
++static inline void qdisc_refcount_inc(struct Qdisc *qdisc)
++{
++	if (qdisc->flags & TCQ_F_BUILTIN)
++		return;
++	refcount_inc(&qdisc->refcnt);
++}
++
+ static inline bool qdisc_is_running(const struct Qdisc *qdisc)
+ {
+ 	return (raw_read_seqcount(&qdisc->running) & 1) ? true : false;
+diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+index a3fa144b864871088209386fd573bded1886432f..4fb5a3222d0d324167f079f755be14eb028b4a50 100644
+--- a/net/sched/sch_api.c
++++ b/net/sched/sch_api.c
+@@ -836,7 +836,7 @@ static int qdisc_graft(struct net_device *dev, struct Qdisc *parent,
+ 
+ 			old = dev_graft_qdisc(dev_queue, new);
+ 			if (new && i > 0)
+-				refcount_inc(&new->refcnt);
++				qdisc_refcount_inc(new);
+ 
+ 			if (!ingress)
+ 				qdisc_destroy(old);
+@@ -847,7 +847,7 @@ static int qdisc_graft(struct net_device *dev, struct Qdisc *parent,
+ 			notify_and_destroy(net, skb, n, classid,
+ 					   dev->qdisc, new);
+ 			if (new && !new->ops->attach)
+-				refcount_inc(&new->refcnt);
++				qdisc_refcount_inc(new);
+ 			dev->qdisc = new ? : &noop_qdisc;
+ 
+ 			if (new && new->ops->attach)
+@@ -1256,7 +1256,7 @@ static int tc_modify_qdisc(struct sk_buff *skb, struct nlmsghdr *n,
+ 				if (q == p ||
+ 				    (p && check_loop(q, p, 0)))
+ 					return -ELOOP;
+-				refcount_inc(&q->refcnt);
++				qdisc_refcount_inc(q);
+ 				goto graft;
+ 			} else {
+ 				if (!q)
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index 57ba406f1437323a4ba172d52f14a8b687b86708..4ba6da5fb2546c35ad48fe1f3632df8ca9957b34 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -785,7 +785,7 @@ static void attach_default_qdiscs(struct net_device *dev)
+ 	    dev->priv_flags & IFF_NO_QUEUE) {
+ 		netdev_for_each_tx_queue(dev, attach_one_default_qdisc, NULL);
+ 		dev->qdisc = txq->qdisc_sleeping;
+-		refcount_inc(&dev->qdisc->refcnt);
++		qdisc_refcount_inc(dev->qdisc);
+ 	} else {
+ 		qdisc = qdisc_create_dflt(txq, &mq_qdisc_ops, TC_H_ROOT);
+ 		if (qdisc) {
