@@ -1,43 +1,24 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [PATCH] net: missing call of trace_napi_poll in busy_poll_stop
-Date: Fri, 25 Aug 2017 15:04:32 +0200
-Message-ID: <150366627224.16965.12554507587831320156.stgit@firesoul>
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH] cdc_ncm: flag the ublox TOBY-L4 as wwan
+Date: Fri, 25 Aug 2017 06:22:36 -0700
+Message-ID: <20170825132236.GB16203@kroah.com>
+References: <20170825125946.12812-1-aleksander@aleksander.es>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:57796 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755340AbdHYNEg (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 25 Aug 2017 09:04:36 -0400
-Received: from smtp.corp.redhat.com (int-mx02.intmail.prod.int.phx2.redhat.com [10.5.11.12])
-        (using TLSv1.2 with cipher AECDH-AES256-SHA (256/256 bits))
-        (No client certificate requested)
-        by mx1.redhat.com (Postfix) with ESMTPS id BB3CE61462
-        for <netdev@vger.kernel.org>; Fri, 25 Aug 2017 13:04:36 +0000 (UTC)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: oliver@neukum.org, davem@davemloft.net, stefano.godeas@u-blox.com,
+        marco.demarco@u-blox.com, linux-usb@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Aleksander Morgado <aleksander@aleksander.es>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170825125946.12812-1-aleksander@aleksander.es>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Noticed that busy_poll_stop() also invoke the drivers napi->poll()
-function pointer, but didn't have an associated call to trace_napi_poll()
-like all other call sites.
+On Fri, Aug 25, 2017 at 02:59:46PM +0200, Aleksander Morgado wrote:
+> Signed-off-by: Aleksander Morgado <aleksander@aleksander.es>
+> ---
+>  drivers/net/usb/cdc_ncm.c | 7 +++++++
+>  1 file changed, 7 insertions(+)
 
-Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
----
- net/core/dev.c |    1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 270b54754821..a24d2fb691ed 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -5319,6 +5319,7 @@ static void busy_poll_stop(struct napi_struct *napi, void *have_poll_lock)
- 	 * Ideally, a new ndo_busy_poll_stop() could avoid another round.
- 	 */
- 	rc = napi->poll(napi, BUSY_POLL_BUDGET);
-+	trace_napi_poll(napi, rc, BUSY_POLL_BUDGET);
- 	netpoll_poll_unlock(have_poll_lock);
- 	if (rc == BUSY_POLL_BUDGET)
- 		__napi_schedule(napi);
+Personally, I require patches to have changelog texts in them...
