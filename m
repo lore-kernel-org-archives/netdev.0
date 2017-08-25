@@ -1,55 +1,65 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [Patch net-next v2 3/4] net_sched: remove tc class reference
- counting
-Date: Fri, 25 Aug 2017 11:00:21 +0200
-Message-ID: <20170825090021.GA4829@nanopsycho>
-References: <20170824235130.28503-1-xiyou.wangcong@gmail.com>
- <20170824235130.28503-4-xiyou.wangcong@gmail.com>
+From: Stefano Brivio <sbrivio@redhat.com>
+Subject: Re: [PATCH net] ipv6: Fix may be used uninitialized warning in
+ rt6_check
+Date: Fri, 25 Aug 2017 11:02:06 +0200
+Message-ID: <20170825110206.36e4a7a7@elisabeth>
+References: <20170825070542.GV31224@secunet.com>
+        <20170825075217.GW31224@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com, fw@strlen.de
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Wei Wang <weiwan@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        "Martin KaFai Lau" <kafai@fb.com>, <netdev@vger.kernel.org>
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f173.google.com ([209.85.128.173]:36632 "EHLO
-        mail-wr0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755047AbdHYJAX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 05:00:23 -0400
-Received: by mail-wr0-f173.google.com with SMTP id p14so5388491wrg.3
-        for <netdev@vger.kernel.org>; Fri, 25 Aug 2017 02:00:23 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20170824235130.28503-4-xiyou.wangcong@gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:37152 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1755059AbdHYJCN (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 25 Aug 2017 05:02:13 -0400
+In-Reply-To: <20170825075217.GW31224@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fri, Aug 25, 2017 at 01:51:29AM CEST, xiyou.wangcong@gmail.com wrote:
->For TC classes, their ->get() and ->put() are always paired, and the
->reference counting is completely useless, because:
->
->1) For class modification and dumping paths, we already hold RTNL lock,
->   so all of these ->get(),->change(),->put() are atomic.
+On Fri, 25 Aug 2017 09:52:17 +0200
+Steffen Klassert <steffen.klassert@secunet.com> wrote:
 
-There is ongoing initiative by Florian to avoid taking RTNL for some
-rtnetlink calls. I think that for dumping it could be done in tc as well.
-Don't we need the refcnt then?
+> On Fri, Aug 25, 2017 at 09:05:42AM +0200, Steffen Klassert wrote:
+> > rt_cookie might be used uninitialized, fix this by
+> > initializing it.
+> > 
+> > Fixes: c5cff8561d2d ("ipv6: add rcu grace period before freeing fib6_node")
+> > Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+> > ---
+> >  net/ipv6/route.c | 2 +-
+> >  1 file changed, 1 insertion(+), 1 deletion(-)
+> > 
+> > diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+> > index a9d3564..48c8c92 100644
+> > --- a/net/ipv6/route.c
+> > +++ b/net/ipv6/route.c
+> > @@ -1289,7 +1289,7 @@ static void rt6_dst_from_metrics_check(struct rt6_info *rt)
+> >  
+> >  static struct dst_entry *rt6_check(struct rt6_info *rt, u32 cookie)
+> >  {
+> > -	u32 rt_cookie;
+> > +	u32 rt_cookie = 0;
+> >  
+> >  	if (!rt6_get_cookie_safe(rt, &rt_cookie) || rt_cookie != cookie)
+> >  		return NULL;  
+> 
+> The compiler warning seems to be a false positive, as
+> rt_cookie != cookie is only checked if rt6_get_cookie_safe
+> returns true in which case rt_cookie is initialized.
+> 
+> Please disregard this patch.
 
+...or not? I was thinking of sending a similar patch with
+uninitialized_var(rt_cookie), but it seems we have similar cases
+where we just initialize to zero instead.
 
->
->2) For filter bindiing/unbinding, we use other reference counter than
->   this one, and they should have RTNL lock too.
->
->3) For ->qlen_notify(), it is special because it is called on ->enqueue()
->   path, but we already hold qdisc tree lock there, and we hold this
->   tree lock when graft or delete the class too, so it should not be gone
->   or changed until we release the tree lock.
->
->Therefore, this patch removes ->get() and ->put(), but:
->
->1) Adds a new ->find() to find the pointer to a class by classid, no
->   refcnt.
->
->2) Move the original class destroy upon the last refcnt into ->delete(),
->   right after releasing tree lock. This is fine because the class is
->   already removed from hash when holding the lock.
->
->For those who also use ->put() as ->unbind(), just rename them to reflect
->this change.
+I wonder which approach is considered the most acceptable nowadays. I
+would be in favour of uninitialized_var() as it doesn't change the
+binary output, but https://lwn.net/Articles/529954/ also contains some
+valid criticism. Ideas?
