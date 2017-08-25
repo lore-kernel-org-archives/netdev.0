@@ -1,48 +1,45 @@
-From: Aleksander Morgado <aleksander@aleksander.es>
-Subject: [PATCH v2] cdc_ncm: flag the u-blox TOBY-L4 as wwan
-Date: Fri, 25 Aug 2017 15:39:16 +0200
-Message-ID: <20170825133916.13948-1-aleksander@aleksander.es>
-References: <20170825125946.12812-1-aleksander@aleksander.es>
-Cc: stefano.godeas@u-blox.com, marco.demarco@u-blox.com,
-        linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, gregkh@linuxfoundation.org,
-        Aleksander Morgado <aleksander@aleksander.es>
-To: oliver@neukum.org, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170825125946.12812-1-aleksander@aleksander.es>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: [PATCH] staging: rtlwifi: Improve debugging by using debugfs
+Date: Fri, 25 Aug 2017 08:47:00 -0500
+Message-ID: <1a1ca849-3aec-60e3-b5a3-98a6e095d298@lwfinger.net>
+References: <20170824212808.26632-1-Larry.Finger@lwfinger.net>
+ <20170825015421.GA8852@lunn.ch>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: gregkh@linuxfoundation.org, netdev@vger.kernel.org,
+        devel@driverdev.osuosl.org, Ping-Ke Shih <pkshih@realtek.com>,
+        Yan-Hsuan Chuang <yhchuang@realtek.com>,
+        Birming Chiu <birming@realtek.com>,
+        Shaofu <shaofu@realtek.com>, Steven Ting <steventing@realtek.com>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f67.google.com ([209.85.218.67]:37173 "EHLO
+        mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754375AbdHYNrC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 09:47:02 -0400
+Received: by mail-oi0-f67.google.com with SMTP id b184so2124894oih.4
+        for <netdev@vger.kernel.org>; Fri, 25 Aug 2017 06:47:02 -0700 (PDT)
+In-Reply-To: <20170825015421.GA8852@lunn.ch>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The u-blox TOBY-L4 is a LTE Advanced (Cat 6) module with HSPA+ and 2G
-fallback.
+On 08/24/2017 08:54 PM, Andrew Lunn wrote:
+> netdev frowns upon debugfs. You should try to keep this altogether,
+> making it easy to throw away before the driver is moved out of
+> staging.
+> 
+> You might want to look at ethtool -d. That will be accepted.
 
-Unlike the TOBY-L2, this module has one single USB layout and exposes
-several TTYs for control and a NCM interface for data. Connecting this
-module may be done just by activating the desired PDP context with
-'AT+CGACT=1,<cid>' and then running DHCP on the NCM interface.
+Andrew,
 
-Signed-off-by: Aleksander Morgado <aleksander@aleksander.es>
----
- drivers/net/usb/cdc_ncm.c | 7 +++++++
- 1 file changed, 7 insertions(+)
+What is the problem with debugfs?
 
-diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
-index 811b18215cae..47cab1bde065 100644
---- a/drivers/net/usb/cdc_ncm.c
-+++ b/drivers/net/usb/cdc_ncm.c
-@@ -1758,6 +1758,13 @@ static const struct usb_device_id cdc_devs[] = {
- 	  .driver_info = (unsigned long)&wwan_noarp_info,
- 	},
+Please suggest which driver has the best example of an ethtool -d implementation 
+that we might study.
 
-+	/* u-blox TOBY-L4 */
-+	{ USB_DEVICE_AND_INTERFACE_INFO(0x1546, 0x1010,
-+		USB_CLASS_COMM,
-+		USB_CDC_SUBCLASS_NCM, USB_CDC_PROTO_NONE),
-+	  .driver_info = (unsigned long)&wwan_info,
-+	},
-+
- 	/* Generic CDC-NCM devices */
- 	{ USB_INTERFACE_INFO(USB_CLASS_COMM,
- 		USB_CDC_SUBCLASS_NCM, USB_CDC_PROTO_NONE),
---
-2.14.1
+The first version of the debugfs changes were sent to wireless-drivers on July 
+2. Why are we first hearing of this objection nearly 2 months later?
+
+Larry
