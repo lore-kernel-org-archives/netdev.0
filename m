@@ -1,157 +1,126 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 02/13] i40evf: prevent VF close returning before state transitions to DOWN
-Date: Fri, 25 Aug 2017 15:00:46 -0700
-Message-ID: <20170825220057.51804-3-jeffrey.t.kirsher@intel.com>
-References: <20170825220057.51804-1-jeffrey.t.kirsher@intel.com>
-Cc: Sudheer Mogilappagari <sudheer.mogilappagari@intel.com>,
-        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-        jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Wei Wang <weiwan@google.com>
+Subject: [PATCH net] ipv6: fix sparse warning on rt6i_node
+Date: Fri, 25 Aug 2017 15:03:10 -0700
+Message-ID: <20170825220310.24863-1-tracywwnj@gmail.com>
+Cc: Eric Dumazet <edumazet@google.com>,
+        Martin KaFai Lau <kafai@fb.com>, Wei Wang <weiwan@google.com>
+To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:59305 "EHLO mga09.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S935126AbdHYWBE (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 25 Aug 2017 18:01:04 -0400
-In-Reply-To: <20170825220057.51804-1-jeffrey.t.kirsher@intel.com>
+Received: from mail-pg0-f42.google.com ([74.125.83.42]:33466 "EHLO
+        mail-pg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933339AbdHYWDY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 18:03:24 -0400
+Received: by mail-pg0-f42.google.com with SMTP id t3so5587342pgt.0
+        for <netdev@vger.kernel.org>; Fri, 25 Aug 2017 15:03:24 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sudheer Mogilappagari <sudheer.mogilappagari@intel.com>
+From: Wei Wang <weiwan@google.com>
 
-Currently i40evf_close() can return before state transitions to
-__I40EVF_DOWN because of the latency involved in processing and
-receiving response from PF driver and scheduling of VF watchdog_task.
-Due to this inconsistency an immediate call to i40evf_open() fails
-because state is still DOWN_PENDING.
+Commit c5cff8561d2d adds rcu grace period before freeing fib6_node. This
+generates a new sparse warning on rt->rt6i_node related code:
+  net/ipv6/route.c:1394:30: error: incompatible types in comparison
+  expression (different address spaces)
+  ./include/net/ip6_fib.h:187:14: error: incompatible types in comparison
+  expression (different address spaces)
 
-When a VF interface is in up state and we try to add it as slave,
-The bonding driver calls dev_close() and dev_open() in short duration
-resulting in dev_open returning error. The ifenslave command needs
-to be run again for dev_open to succeed.
+This commit adds "__rcu" tag for rt6i_node and makes sure corresponding
+rcu API is used for it.
+After this fix, sparse no longer generates the above warning.
 
-This fix ensures that watchdog timer is scheduled immediately after
-admin queue operations are scheduled in i40evf_down(). In addition a
-wait condition is added at the end of i40evf_close so that function
-wont return when state is still DOWN_PENDING. The timeout value is
-chosen after some profiling and includes some buffer.
-
-Signed-off-by: Sudheer Mogilappagari <sudheer.mogilappagari@intel.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Fixes: c5cff8561d2d ("ipv6: add rcu grace period before freeing fib6_node")
+Signed-off-by: Wei Wang <weiwan@google.com>
+Acked-by: Eric Dumazet <edumazet@google.com>
 ---
- drivers/net/ethernet/intel/i40evf/i40evf.h          |  2 ++
- drivers/net/ethernet/intel/i40evf/i40evf_main.c     | 19 +++++++++++++++++++
- drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c |  4 +++-
- 3 files changed, 24 insertions(+), 1 deletion(-)
+ include/net/ip6_fib.h |  2 +-
+ net/ipv6/addrconf.c   |  2 +-
+ net/ipv6/ip6_fib.c    | 11 +++++++----
+ net/ipv6/route.c      |  3 ++-
+ 4 files changed, 11 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf.h b/drivers/net/ethernet/intel/i40evf/i40evf.h
-index 7901cc85cbe5..52cf38f47349 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf.h
-@@ -43,6 +43,7 @@
- #include <linux/bitops.h>
- #include <linux/timer.h>
- #include <linux/workqueue.h>
-+#include <linux/wait.h>
- #include <linux/delay.h>
- #include <linux/gfp.h>
- #include <linux/skbuff.h>
-@@ -194,6 +195,7 @@ struct i40evf_adapter {
- 	struct work_struct adminq_task;
- 	struct delayed_work client_task;
- 	struct delayed_work init_task;
-+	wait_queue_head_t down_waitqueue;
- 	struct i40e_q_vector *q_vectors;
- 	struct list_head vlan_filter_list;
- 	char misc_vector_name[IFNAMSIZ + 9];
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index 22919b444ddf..21ab3ff5e9ec 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -1143,6 +1143,7 @@ void i40evf_down(struct i40evf_adapter *adapter)
- 	}
- 
- 	clear_bit(__I40EVF_IN_CRITICAL_TASK, &adapter->crit_section);
-+	mod_timer_pending(&adapter->watchdog_timer, jiffies + 1);
- }
- 
- /**
-@@ -1794,6 +1795,7 @@ static void i40evf_disable_vf(struct i40evf_adapter *adapter)
- 	clear_bit(__I40EVF_IN_CRITICAL_TASK, &adapter->crit_section);
- 	adapter->flags &= ~I40EVF_FLAG_RESET_PENDING;
- 	adapter->state = __I40EVF_DOWN;
-+	wake_up(&adapter->down_waitqueue);
- 	dev_info(&adapter->pdev->dev, "Reset task did not complete, VF disabled\n");
- }
- 
-@@ -1939,6 +1941,7 @@ static void i40evf_reset_task(struct work_struct *work)
- 		i40evf_irq_enable(adapter, true);
- 	} else {
- 		adapter->state = __I40EVF_DOWN;
-+		wake_up(&adapter->down_waitqueue);
- 	}
- 
- 	return;
-@@ -2238,6 +2241,7 @@ static int i40evf_open(struct net_device *netdev)
- static int i40evf_close(struct net_device *netdev)
- {
- 	struct i40evf_adapter *adapter = netdev_priv(netdev);
-+	int status;
- 
- 	if (adapter->state <= __I40EVF_DOWN_PENDING)
- 		return 0;
-@@ -2255,7 +2259,18 @@ static int i40evf_close(struct net_device *netdev)
- 	 * still active and can DMA into memory. Resources are cleared in
- 	 * i40evf_virtchnl_completion() after we get confirmation from the PF
- 	 * driver that the rings have been stopped.
-+	 *
-+	 * Also, we wait for state to transition to __I40EVF_DOWN before
-+	 * returning. State change occurs in i40evf_virtchnl_completion() after
-+	 * VF resources are released (which occurs after PF driver processes and
-+	 * responds to admin queue commands).
+diff --git a/include/net/ip6_fib.h b/include/net/ip6_fib.h
+index e9c59db92942..af509f801084 100644
+--- a/include/net/ip6_fib.h
++++ b/include/net/ip6_fib.h
+@@ -105,7 +105,7 @@ struct rt6_info {
+ 	 * the same cache line.
  	 */
-+
-+	status = wait_event_timeout(adapter->down_waitqueue,
-+				    adapter->state == __I40EVF_DOWN,
-+				    msecs_to_jiffies(200));
-+	if (!status)
-+		netdev_warn(netdev, "Device resources not yet released\n");
- 	return 0;
+ 	struct fib6_table		*rt6i_table;
+-	struct fib6_node		*rt6i_node;
++	struct fib6_node __rcu		*rt6i_node;
+ 
+ 	struct in6_addr			rt6i_gateway;
+ 
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 3c46e9513a31..936e9ab4dda5 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -5556,7 +5556,7 @@ static void __ipv6_ifa_notify(int event, struct inet6_ifaddr *ifp)
+ 		 * our DAD process, so we don't need
+ 		 * to do it again
+ 		 */
+-		if (!(ifp->rt->rt6i_node))
++		if (!rcu_access_pointer(ifp->rt->rt6i_node))
+ 			ip6_ins_rt(ifp->rt);
+ 		if (ifp->idev->cnf.forwarding)
+ 			addrconf_join_anycast(ifp);
+diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
+index a5ebf86f6be8..10b4b1f8b838 100644
+--- a/net/ipv6/ip6_fib.c
++++ b/net/ipv6/ip6_fib.c
+@@ -889,7 +889,7 @@ static int fib6_add_rt2node(struct fib6_node *fn, struct rt6_info *rt,
+ 
+ 		rt->dst.rt6_next = iter;
+ 		*ins = rt;
+-		rt->rt6i_node = fn;
++		rcu_assign_pointer(rt->rt6i_node, fn);
+ 		atomic_inc(&rt->rt6i_ref);
+ 		if (!info->skip_notify)
+ 			inet6_rt_notify(RTM_NEWROUTE, rt, info, nlflags);
+@@ -915,7 +915,7 @@ static int fib6_add_rt2node(struct fib6_node *fn, struct rt6_info *rt,
+ 			return err;
+ 
+ 		*ins = rt;
+-		rt->rt6i_node = fn;
++		rcu_assign_pointer(rt->rt6i_node, fn);
+ 		rt->dst.rt6_next = iter->dst.rt6_next;
+ 		atomic_inc(&rt->rt6i_ref);
+ 		if (!info->skip_notify)
+@@ -1480,8 +1480,9 @@ static void fib6_del_route(struct fib6_node *fn, struct rt6_info **rtp,
+ 
+ int fib6_del(struct rt6_info *rt, struct nl_info *info)
+ {
++	struct fib6_node *fn = rcu_dereference_protected(rt->rt6i_node,
++				    lockdep_is_held(&rt->rt6i_table->tb6_lock));
+ 	struct net *net = info->nl_net;
+-	struct fib6_node *fn = rt->rt6i_node;
+ 	struct rt6_info **rtp;
+ 
+ #if RT6_DEBUG >= 2
+@@ -1670,7 +1671,9 @@ static int fib6_clean_node(struct fib6_walker *w)
+ 			if (res) {
+ #if RT6_DEBUG >= 2
+ 				pr_debug("%s: del failed: rt=%p@%p err=%d\n",
+-					 __func__, rt, rt->rt6i_node, res);
++					 __func__, rt,
++					 rcu_access_pointer(rt->rt6i_node),
++					 res);
+ #endif
+ 				continue;
+ 			}
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index a9d3564caf49..33629f2a0f9d 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1383,7 +1383,8 @@ static void rt6_do_update_pmtu(struct rt6_info *rt, u32 mtu)
+ static bool rt6_cache_allowed_for_pmtu(const struct rt6_info *rt)
+ {
+ 	return !(rt->rt6i_flags & RTF_CACHE) &&
+-		(rt->rt6i_flags & RTF_PCPU || rt->rt6i_node);
++		(rt->rt6i_flags & RTF_PCPU ||
++		 rcu_access_pointer(rt->rt6i_node));
  }
  
-@@ -2683,6 +2698,7 @@ static void i40evf_init_task(struct work_struct *work)
- 	adapter->state = __I40EVF_DOWN;
- 	set_bit(__I40E_VSI_DOWN, adapter->vsi.state);
- 	i40evf_misc_irq_enable(adapter);
-+	wake_up(&adapter->down_waitqueue);
- 
- 	adapter->rss_key = kzalloc(adapter->rss_key_size, GFP_KERNEL);
- 	adapter->rss_lut = kzalloc(adapter->rss_lut_size, GFP_KERNEL);
-@@ -2844,6 +2860,9 @@ static int i40evf_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	schedule_delayed_work(&adapter->init_task,
- 			      msecs_to_jiffies(5 * (pdev->devfn & 0x07)));
- 
-+	/* Setup the wait queue for indicating transition to down status */
-+	init_waitqueue_head(&adapter->down_waitqueue);
-+
- 	return 0;
- 
- err_ioremap:
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-index d2bb250a71af..6c403bf1bbb8 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
-@@ -991,8 +991,10 @@ void i40evf_virtchnl_completion(struct i40evf_adapter *adapter,
- 	case VIRTCHNL_OP_DISABLE_QUEUES:
- 		i40evf_free_all_tx_resources(adapter);
- 		i40evf_free_all_rx_resources(adapter);
--		if (adapter->state == __I40EVF_DOWN_PENDING)
-+		if (adapter->state == __I40EVF_DOWN_PENDING) {
- 			adapter->state = __I40EVF_DOWN;
-+			wake_up(&adapter->down_waitqueue);
-+		}
- 		break;
- 	case VIRTCHNL_OP_VERSION:
- 	case VIRTCHNL_OP_CONFIG_IRQ_MAP:
+ static void __ip6_rt_update_pmtu(struct dst_entry *dst, const struct sock *sk,
 -- 
-2.14.1
+2.14.1.342.g6490525c54-goog
