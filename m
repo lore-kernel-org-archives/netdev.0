@@ -1,86 +1,361 @@
-From: Yi Yang <yi.y.yang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net-next v6 0/3] openvswitch: add NSH support
-Date: Fri, 25 Aug 2017 22:20:02 +0800
-Message-ID: <1503670805-31051-1-git-send-email-yi.y.yang@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, e@erig.me
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
-List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Yi Yang <yi.y.yang@intel.com>
+Subject: [PATCH net-next v6 1/3] net: add NSH header structures and helpers
+Date: Fri, 25 Aug 2017 22:20:03 +0800
+Message-ID: <1503670805-31051-2-git-send-email-yi.y.yang@intel.com>
+References: <1503670805-31051-1-git-send-email-yi.y.yang@intel.com>
+Cc: dev@openvswitch.org, jbenc@redhat.com, e@erig.me, blp@ovn.org,
+        jan.scheurich@ericsson.com, Yi Yang <yi.y.yang@intel.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:24824 "EHLO mga01.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932688AbdHYOYG (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 25 Aug 2017 10:24:06 -0400
+In-Reply-To: <1503670805-31051-1-git-send-email-yi.y.yang@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-v5->v6
- - Fix the rest comments for v4.
- - Add NSH GSO support for VxLAN-gpe + NSH and
-   Eth + NSH.
+NSH (Network Service Header)[1] is a new protocol for service
+function chaining, it can be handled as a L3 protocol like
+IPv4 and IPv6, Eth + NSH + Inner packet or VxLAN-gpe + NSH +
+Inner packet are two typical use cases.
 
-v4->v5
- - Fix many comments by Jiri Benc and Eric Garver
-   for v4.
+This patch adds NSH header structures and helpers for NSH GSO
+support and Open vSwitch NSH support.
 
-v3->v4
- - Add new NSH match field ttl
- - Update NSH header to the latest format
-   which will be final format and won't change
-   per its author's confirmation.
- - Fix comments for v3.
+[1] https://datatracker.ietf.org/doc/draft-ietf-sfc-nsh/
 
-v2->v3
- - Change OVS_KEY_ATTR_NSH to nested key to handle
-   length-fixed attributes and length-variable
-   attriubte more flexibly.
- - Remove struct ovs_action_push_nsh completely
- - Add code to handle nested attribute for SET_MASKED
- - Change PUSH_NSH to use the nested OVS_KEY_ATTR_NSH
-   to transfer NSH header data.
- - Fix comments and coding style issues by Jiri and Eric
-
-v1->v2
- - Change encap_nsh and decap_nsh to push_nsh and pop_nsh
- - Dynamically allocate struct ovs_action_push_nsh for
-   length-variable metadata.
-
-This patch series is to enable NSH support in OVS kernel
-data path, it also adds NSH GSO support for big packet.
-
-Yi Yang (3):
-  net: add NSH header structures and helpers
-  net: gso: Add GSO support for NSH
-  openvswitch: enable NSH support
-
- drivers/net/vxlan.c              |   7 +
- include/linux/netdevice.h        |   1 +
- include/linux/skbuff.h           |   8 +-
- include/net/nsh.h                | 307 +++++++++++++++++++++++++++++
- include/uapi/linux/if_ether.h    |   1 +
- include/uapi/linux/openvswitch.h |  28 +++
- net/Kconfig                      |   1 +
- net/Makefile                     |   1 +
- net/core/dev.c                   |  14 ++
- net/ipv4/udp_offload.c           |   7 +
- net/nsh/Kconfig                  |  11 ++
- net/nsh/Makefile                 |   4 +
- net/nsh/nsh_gso.c                | 106 ++++++++++
- net/openvswitch/actions.c        | 178 +++++++++++++++++
- net/openvswitch/flow.c           |  55 ++++++
- net/openvswitch/flow.h           |  11 ++
- net/openvswitch/flow_netlink.c   | 404 ++++++++++++++++++++++++++++++++++++++-
- net/openvswitch/flow_netlink.h   |   4 +
- 18 files changed, 1145 insertions(+), 3 deletions(-)
+Signed-off-by: Yi Yang <yi.y.yang@intel.com>
+---
+ include/net/nsh.h             | 307 ++++++++++++++++++++++++++++++++++++++++++
+ include/uapi/linux/if_ether.h |   1 +
+ 2 files changed, 308 insertions(+)
  create mode 100644 include/net/nsh.h
- create mode 100644 net/nsh/Kconfig
- create mode 100644 net/nsh/Makefile
- create mode 100644 net/nsh/nsh_gso.c
 
+diff --git a/include/net/nsh.h b/include/net/nsh.h
+new file mode 100644
+index 0000000..72d62df
+--- /dev/null
++++ b/include/net/nsh.h
+@@ -0,0 +1,307 @@
++#ifndef __NET_NSH_H
++#define __NET_NSH_H 1
++
++/*
++ * Network Service Header:
++ *  0                   1                   2                   3
++ *  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++ * |Ver|O|U|    TTL    |   Length  |U|U|U|U|MD Type| Next Protocol |
++ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++ * |          Service Path Identifier (SPI)        | Service Index |
++ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++ * |                                                               |
++ * ~               Mandatory/Optional Context Headers              ~
++ * |                                                               |
++ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++ *
++ * Version: The version field is used to ensure backward compatibility
++ * going forward with future NSH specification updates.  It MUST be set
++ * to 0x0 by the sender, in this first revision of NSH.  Given the
++ * widespread implementation of existing hardware that uses the first
++ * nibble after an MPLS label stack for ECMP decision processing, this
++ * document reserves version 01b and this value MUST NOT be used in
++ * future versions of the protocol.  Please see [RFC7325] for further
++ * discussion of MPLS-related forwarding requirements.
++ *
++ * O bit: Setting this bit indicates an Operations, Administration, and
++ * Maintenance (OAM) packet.  The actual format and processing of SFC
++ * OAM packets is outside the scope of this specification (see for
++ * example [I-D.ietf-sfc-oam-framework] for one approach).
++ *
++ * The O bit MUST be set for OAM packets and MUST NOT be set for non-OAM
++ * packets.  The O bit MUST NOT be modified along the SFP.
++ *
++ * SF/SFF/SFC Proxy/Classifier implementations that do not support SFC
++ * OAM procedures SHOULD discard packets with O bit set, but MAY support
++ * a configurable parameter to enable forwarding received SFC OAM
++ * packets unmodified to the next element in the chain.  Forwarding OAM
++ * packets unmodified by SFC elements that do not support SFC OAM
++ * procedures may be acceptable for a subset of OAM functions, but can
++ * result in unexpected outcomes for others, thus it is recommended to
++ * analyze the impact of forwarding an OAM packet for all OAM functions
++ * prior to enabling this behavior.  The configurable parameter MUST be
++ * disabled by default.
++ *
++ * TTL: Indicates the maximum SFF hops for an SFP.  This field is used
++ * for service plane loop detection.  The initial TTL value SHOULD be
++ * configurable via the control plane; the configured initial value can
++ * be specific to one or more SFPs.  If no initial value is explicitly
++ * provided, the default initial TTL value of 63 MUST be used.  Each SFF
++ * involved in forwarding an NSH packet MUST decrement the TTL value by
++ * 1 prior to NSH forwarding lookup.  Decrementing by 1 from an incoming
++ * value of 0 shall result in a TTL value of 63.  The packet MUST NOT be
++ * forwarded if TTL is, after decrement, 0.
++ *
++ * All other flag fields, marked U, are unassigned and available for
++ * future use, see Section 11.2.1.  Unassigned bits MUST be set to zero
++ * upon origination, and MUST be ignored and preserved unmodified by
++ * other NSH supporting elements.  Elements which do not understand the
++ * meaning of any of these bits MUST NOT modify their actions based on
++ * those unknown bits.
++ *
++ * Length: The total length, in 4-byte words, of NSH including the Base
++ * Header, the Service Path Header, the Fixed Length Context Header or
++ * Variable Length Context Header(s).  The length MUST be 0x6 for MD
++ * Type equal to 0x1, and MUST be 0x2 or greater for MD Type equal to
++ * 0x2.  The length of the NSH header MUST be an integer multiple of 4
++ * bytes, thus variable length metadata is always padded out to a
++ * multiple of 4 bytes.
++ *
++ * MD Type: Indicates the format of NSH beyond the mandatory Base Header
++ * and the Service Path Header.  MD Type defines the format of the
++ * metadata being carried.
++ *
++ * 0x0 - This is a reserved value.  Implementations SHOULD silently
++ * discard packets with MD Type 0x0.
++ *
++ * 0x1 - This indicates that the format of the header includes a fixed
++ * length Context Header (see Figure 4 below).
++ *
++ * 0x2 - This does not mandate any headers beyond the Base Header and
++ * Service Path Header, but may contain optional variable length Context
++ * Header(s).  The semantics of the variable length Context Header(s)
++ * are not defined in this document.  The format of the optional
++ * variable length Context Headers is provided in Section 2.5.1.
++ *
++ * 0xF - This value is reserved for experimentation and testing, as per
++ * [RFC3692].  Implementations not explicitly configured to be part of
++ * an experiment SHOULD silently discard packets with MD Type 0xF.
++ *
++ * Next Protocol: indicates the protocol type of the encapsulated data.
++ * NSH does not alter the inner payload, and the semantics on the inner
++ * protocol remain unchanged due to NSH service function chaining.
++ * Please see the IANA Considerations section below, Section 11.2.5.
++ *
++ * This document defines the following Next Protocol values:
++ *
++ * 0x1: IPv4
++ * 0x2: IPv6
++ * 0x3: Ethernet
++ * 0x4: NSH
++ * 0x5: MPLS
++ * 0xFE: Experiment 1
++ * 0xFF: Experiment 2
++ *
++ * Packets with Next Protocol values not supported SHOULD be silently
++ * dropped by default, although an implementation MAY provide a
++ * configuration parameter to forward them.  Additionally, an
++ * implementation not explicitly configured for a specific experiment
++ * [RFC3692] SHOULD silently drop packets with Next Protocol values 0xFE
++ * and 0xFF.
++ *
++ * Service Path Identifier (SPI): Identifies a service path.
++ * Participating nodes MUST use this identifier for Service Function
++ * Path selection.  The initial classifier MUST set the appropriate SPI
++ * for a given classification result.
++ *
++ * Service Index (SI): Provides location within the SFP.  The initial
++ * classifier for a given SFP SHOULD set the SI to 255, however the
++ * control plane MAY configure the initial value of SI as appropriate
++ * (i.e., taking into account the length of the service function path).
++ * The Service Index MUST be decremented by a value of 1 by Service
++ * Functions or by SFC Proxy nodes after performing required services
++ * and the new decremented SI value MUST be used in the egress packet's
++ * NSH.  The initial Classifier MUST send the packet to the first SFF in
++ * the identified SFP for forwarding along an SFP.  If re-classification
++ * occurs, and that re-classification results in a new SPI, the
++ * (re)classifier is, in effect, the initial classifier for the
++ * resultant SPI.
++ *
++ * The SI is used in conjunction the with Service Path Identifier for
++ * Service Function Path Selection and for determining the next SFF/SF
++ * in the path.  The SI is also valuable when troubleshooting or
++ * reporting service paths.  Additionally, while the TTL field is the
++ * main mechanism for service plane loop detection, the SI can also be
++ * used for detecting service plane loops.
++ *
++ * When the Base Header specifies MD Type = 0x1, a Fixed Length Context
++ * Header (16-bytes) MUST be present immediately following the Service
++ * Path Header. The value of a Fixed Length Context
++ * Header that carries no metadata MUST be set to zero.
++ *
++ * When the base header specifies MD Type = 0x2, zero or more Variable
++ * Length Context Headers MAY be added, immediately following the
++ * Service Path Header (see Figure 5).  Therefore, Length = 0x2,
++ * indicates that only the Base Header followed by the Service Path
++ * Header are present.  The optional Variable Length Context Headers
++ * MUST be of an integer number of 4-bytes.  The base header Length
++ * field MUST be used to determine the offset to locate the original
++ * packet or frame for SFC nodes that require access to that
++ * information.
++ *
++ * The format of the optional variable length Context Headers
++ *
++ *  0                   1                   2                   3
++ *  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++ * |          Metadata Class       |      Type     |U|    Length   |
++ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++ * |                      Variable Metadata                        |
++ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++ *
++ * Metadata Class (MD Class): Defines the scope of the 'Type' field to
++ * provide a hierarchical namespace.  The IANA Considerations
++ * Section 11.2.4 defines how the MD Class values can be allocated to
++ * standards bodies, vendors, and others.
++ *
++ * Type: Indicates the explicit type of metadata being carried.  The
++ * definition of the Type is the responsibility of the MD Class owner.
++ *
++ * Unassigned bit: One unassigned bit is available for future use. This
++ * bit MUST NOT be set, and MUST be ignored on receipt.
++ *
++ * Length: Indicates the length of the variable metadata, in bytes.  In
++ * case the metadata length is not an integer number of 4-byte words,
++ * the sender MUST add pad bytes immediately following the last metadata
++ * byte to extend the metadata to an integer number of 4-byte words.
++ * The receiver MUST round up the length field to the nearest 4-byte
++ * word boundary, to locate and process the next field in the packet.
++ * The receiver MUST access only those bytes in the metadata indicated
++ * by the length field (i.e., actual number of bytes) and MUST ignore
++ * the remaining bytes up to the nearest 4-byte word boundary.  The
++ * Length may be 0 or greater.
++ *
++ * A value of 0 denotes a Context Header without a Variable Metadata
++ * field.
++ *
++ * [0] https://datatracker.ietf.org/doc/draft-ietf-sfc-nsh/
++ */
++
++/**
++ * struct nsh_md1_ctx - Keeps track of NSH context data
++ * @nshc<1-4>: NSH Contexts.
++ */
++struct nsh_md1_ctx {
++	__be32 context[4];
++};
++
++struct nsh_md2_tlv {
++	__be16 md_class;
++	u8 type;
++	u8 length;
++	u8 md_value[];
++};
++
++struct nsh_hdr {
++	__be16 ver_flags_ttl_len;
++	u8 mdtype;
++	u8 np;
++	__be32 path_hdr;
++	union {
++	    struct nsh_md1_ctx md1;
++	    struct nsh_md2_tlv md2;
++	};
++};
++
++/* Masking NSH header fields. */
++#define NSH_VER_MASK       0xc000
++#define NSH_VER_SHIFT      14
++#define NSH_FLAGS_MASK     0x3000
++#define NSH_FLAGS_SHIFT    12
++#define NSH_TTL_MASK       0x0fc0
++#define NSH_TTL_SHIFT      6
++#define NSH_LEN_MASK       0x003f
++#define NSH_LEN_SHIFT      0
++
++#define NSH_MDTYPE_MASK    0x0f
++#define NSH_MDTYPE_SHIFT   0
++
++#define NSH_SPI_MASK       0xffffff00
++#define NSH_SPI_SHIFT      8
++#define NSH_SI_MASK        0x000000ff
++#define NSH_SI_SHIFT       0
++
++/* NSH Base Header Next Protocol. */
++#define NSH_P_IPV4        0x01
++#define NSH_P_IPV6        0x02
++#define NSH_P_ETHERNET    0x03
++#define NSH_P_NSH         0x04
++#define NSH_P_MPLS        0x05
++
++/* MD Type Registry. */
++#define NSH_M_TYPE1     0x01
++#define NSH_M_TYPE2     0x02
++#define NSH_M_EXP1      0xFE
++#define NSH_M_EXP2      0xFF
++
++/* NSH Base Header Length */
++#define NSH_BASE_HDR_LEN  8
++
++/* NSH MD Type 1 header Length. */
++#define NSH_M_TYPE1_LEN   24
++
++/* NSH header maximum Length. */
++#define NSH_HDR_MAX_LEN 256
++
++/* NSH context headers maximum Length. */
++#define NSH_CTX_HDRS_MAX_LEN 248
++
++static inline u16 nsh_hdr_len(const struct nsh_hdr *nsh)
++{
++	return ((ntohs(nsh->ver_flags_ttl_len) & NSH_LEN_MASK)
++		>> NSH_LEN_SHIFT) << 2;
++}
++
++static inline u8 nsh_get_ver(const struct nsh_hdr *nsh)
++{
++	return (ntohs(nsh->ver_flags_ttl_len) & NSH_VER_MASK)
++		>> NSH_VER_SHIFT;
++}
++
++static inline u8 nsh_get_flags(const struct nsh_hdr *nsh)
++{
++	return (ntohs(nsh->ver_flags_ttl_len) & NSH_FLAGS_MASK)
++		>> NSH_FLAGS_SHIFT;
++}
++
++static inline u8 nsh_get_ttl(const struct nsh_hdr *nsh)
++{
++	return (ntohs(nsh->ver_flags_ttl_len) & NSH_TTL_MASK)
++		>> NSH_TTL_SHIFT;
++}
++
++static inline void __nsh_set_xflag(struct nsh_hdr *nsh, u16 xflag, u16 xmask)
++{
++	nsh->ver_flags_ttl_len
++		= (nsh->ver_flags_ttl_len & ~htons(xmask)) | htons(xflag);
++}
++
++static inline void nsh_set_flags_and_ttl(struct nsh_hdr *nsh, u8 flags, u8 ttl)
++{
++	__nsh_set_xflag(nsh, ((flags << NSH_FLAGS_SHIFT) & NSH_FLAGS_MASK) |
++			     ((ttl << NSH_TTL_SHIFT) & NSH_TTL_MASK),
++			NSH_FLAGS_MASK | NSH_TTL_MASK);
++}
++
++static inline void nsh_set_flags_ttl_len(struct nsh_hdr *nsh, u8 flags,
++					 u8 ttl, u8 len)
++{
++	len = len >> 2;
++	__nsh_set_xflag(nsh, ((flags << NSH_FLAGS_SHIFT) & NSH_FLAGS_MASK) |
++			     ((ttl << NSH_TTL_SHIFT) & NSH_TTL_MASK) |
++			     ((len << NSH_LEN_SHIFT) & NSH_LEN_MASK),
++			NSH_FLAGS_MASK | NSH_TTL_MASK | NSH_LEN_MASK);
++}
++
++#endif /* __NET_NSH_H */
+diff --git a/include/uapi/linux/if_ether.h b/include/uapi/linux/if_ether.h
+index efeb119..bc5b727 100644
+--- a/include/uapi/linux/if_ether.h
++++ b/include/uapi/linux/if_ether.h
+@@ -138,6 +138,7 @@
+ #define ETH_P_IEEE802154 0x00F6		/* IEEE802.15.4 frame		*/
+ #define ETH_P_CAIF	0x00F7		/* ST-Ericsson CAIF protocol	*/
+ #define ETH_P_XDSA	0x00F8		/* Multiplexed DSA protocol	*/
++#define ETH_P_NSH	0x894F		/* Ethertype for NSH. */
+ 
+ /*
+  *	This is an Ethernet frame header.
 -- 
 2.5.5
