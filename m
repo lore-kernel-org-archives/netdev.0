@@ -1,71 +1,99 @@
-From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: Re: [PATCH net-next v2 00/14] net: mvpp2: comphy configuration
-Date: Fri, 25 Aug 2017 17:56:37 +0200
-Message-ID: <20170825155637.GB31644@kwain>
-References: <20170825144821.31129-1-antoine.tenart@free-electrons.com>
- <20170825155111.GD30922@lunn.ch>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [RFC PATCH] net: limit maximum number of packets to mark with
+ xmit_more
+Date: Fri, 25 Aug 2017 08:58:16 -0700
+Message-ID: <20170825085816.3425a70c@xeon-e3>
+References: <20170825152449.29790-1-jacob.e.keller@intel.com>
+        <E0D909EE5BB15A4699798539EA149D7F07793B3E@ORSMSX103.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
-        protocol="application/pgp-signature"; boundary="v9Ux+11Zm5mwPlX6"
-Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
-        davem@davemloft.net, kishon@ti.com, jason@lakedaemon.net,
-        sebastian.hesselbarth@gmail.com,
-        gregory.clement@free-electrons.com,
-        thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
-        linux@armlinux.org.uk, linux-kernel@vger.kernel.org,
-        mw@semihalf.com, stefanc@marvell.com,
-        miquel.raynal@free-electrons.com, netdev@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170825155111.GD30922@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "Keller, Jacob E" <jacob.e.keller@intel.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Waskiewicz Jr, Peter" <peter.waskiewicz.jr@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f46.google.com ([74.125.83.46]:33935 "EHLO
+        mail-pg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933926AbdHYP6Y (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 11:58:24 -0400
+Received: by mail-pg0-f46.google.com with SMTP id a7so1172870pgn.1
+        for <netdev@vger.kernel.org>; Fri, 25 Aug 2017 08:58:24 -0700 (PDT)
+In-Reply-To: <E0D909EE5BB15A4699798539EA149D7F07793B3E@ORSMSX103.amr.corp.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Fri, 25 Aug 2017 15:36:22 +0000
+"Waskiewicz Jr, Peter" <peter.waskiewicz.jr@intel.com> wrote:
 
---v9Ux+11Zm5mwPlX6
-Content-Type: text/plain; charset=iso-8859-1
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+> On 8/25/17 11:25 AM, Jacob Keller wrote:
+> > Under some circumstances, such as with many stacked devices, it is
+> > possible that dev_hard_start_xmit will bundle many packets together, and
+> > mark them all with xmit_more.
+> > 
+> > Most drivers respond to xmit_more by skipping tail bumps on packet
+> > rings, or similar behavior as long as xmit_more is set. This is
+> > a performance win since it means drivers can avoid notifying hardware of
+> > new packets repeat daily, and thus avoid wasting unnecessary PCIe or other
+> > bandwidth.
+> > 
+> > This use of xmit_more comes with a trade off because bundling too many
+> > packets can increase latency of the Tx packets. To avoid this, we should
+> > limit the maximum number of packets with xmit_more.
+> > 
+> > Driver authors could modify their drivers to check for some determined
+> > limit, but this requires all drivers to be modified in order to gain
+> > advantage.
+> > 
+> > Instead, add a sysctl "xmit_more_max" which can be used to configure the
+> > maximum number of xmit_more skbs to send in a sequence. This ensures
+> > that all drivers benefit, and allows system administrators the option to
+> > tune the value to their environment.
+> > 
+> > Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+> > ---
+> > 
+> > Stray thoughts and further questions....
+> > 
+> > Is this the right approach? Did I miss any other places where we should
+> > limit? Does the limit make sense? Should it instead be a per-device
+> > tuning nob instead of a global? Is 32 a good default?  
+> 
+> I actually like the idea of a per-device knob.  A xmit_more_max that's 
+> global in a system with 1GbE devices along with a 25/50GbE or more just 
+> doesn't make much sense to me.  Or having heterogeneous vendor devices 
+> in the same system that have different HW behaviors could mask issues 
+> with latency.
+> 
+> This seems like another incarnation of possible buffer-bloat if the max 
+> is too high...
+> 
+> > 
+> >   Documentation/sysctl/net.txt |  6 ++++++
+> >   include/linux/netdevice.h    |  2 ++
+> >   net/core/dev.c               | 10 +++++++++-
+> >   net/core/sysctl_net_core.c   |  7 +++++++
+> >   4 files changed, 24 insertions(+), 1 deletion(-)
+> > 
+> > diff --git a/Documentation/sysctl/net.txt b/Documentation/sysctl/net.txt
+> > index b67044a2575f..3d995e8f4448 100644
+> > --- a/Documentation/sysctl/net.txt
+> > +++ b/Documentation/sysctl/net.txt
+> > @@ -230,6 +230,12 @@ netdev_max_backlog
+> >   Maximum number  of  packets,  queued  on  the  INPUT  side, when the interface
+> >   receives packets faster than kernel can process them.
+> >   
+> > +xmit_more_max
+> > +-------------
+> > +
+> > +Maximum number of packets in a row to mark with skb->xmit_more. A value of zero
+> > +indicates no limit.  
+> 
+> What defines "packet?"  MTU-sized packets, or payloads coming down from 
+> the stack (e.g. TSO's)?
 
-Hi Andrew,
+xmit_more is only a hint to the device. The device driver should ignore it unless
+there are hardware advantages. The device driver is the place with HW specific
+knowledge (like 4 Tx descriptors is equivalent to one PCI transaction on this device).
 
-On Fri, Aug 25, 2017 at 05:51:11PM +0200, Andrew Lunn wrote:
-> >   - Checked if the carrier_on/off functions were needed. They are.
->=20
-> Could you explain the situations they are needed in?
->=20
-> Quite a few drivers do this, so i'm not saying it is wrong.  But it
-> would be nice to understand if we are missing something in phylib.
-
-I know it's not working without these calls, but I can't tell why (yet).
-I can try to dig into this.
-
-Antoine
-
---=20
-Antoine T=E9nart, Free Electrons
-Embedded Linux and Kernel engineering
-http://free-electrons.com
-
---v9Ux+11Zm5mwPlX6
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQIzBAABCgAdFiEEM7Tg8N8kXOlT7hOhXE2LyK3bvNgFAlmgSLUACgkQXE2LyK3b
-vNj+8A//V2N013IfoV2+moVFhDD2mgLN4dHOrXaQD+WuUtpXWL8RvBnEPiMdrp2N
-2+zanu8CvAVqZxaoH7N8QdFACTRdCJDwE1OSVa3bZHdL7J5KJFDNqb59VOGueuQH
-p7u9qU+Aqe9s7sfE3cAvlWgZSltgLqeQOTuAPPizDX3eXid9i1rd4SmjgvAbwI97
-dHnLolRV/r33w67IEdup6+ye5Sf5TkhXF59rmU3pLHAuh0ADeoIvDDs3iLqoPjCp
-s1NCf+uBnKbbtjfglv++lqx8ztXHlN4gmlpZmCQcKes98fkz0B7A/rh78qg3Vv3B
-M8TlTGdYENHp30miOxZXDQoNU3PmDb9RuE+K0+QnjZ94FesUUeKYSJ7lyQI2qFND
-+L2uh+NzTuDkadqnl7Jv+IwQjjUKvT/oUE0Ock4I85ZzCbMx35QLyPKMUV58diYs
-oCBm35GKevaQmR9sfJEZdFXvc17emPXeqZQr68pp7llCRoJv0mBC27/02c+9dyN4
-W+XrKGp0iweHiNgELoHN+BML1WyN4hOpFiLubxeM9euBljdxsdrkUpbF2fjaXBBh
-Is4Z5nrNyt4k7gIiPNGQy2oXfnKcFLAOxajDl+PvfmWGRHfh2QD73wNBwsxdIyQr
-nTp/oJGjz14tjJDfPbZJweLRgIOp0WZMxitO2Tm8P/KFlra2Dds=
-=T9S9
------END PGP SIGNATURE-----
-
---v9Ux+11Zm5mwPlX6--
+Anything that pushes that optimization out to the user is only useful for benchmarks
+and embedded devices.
