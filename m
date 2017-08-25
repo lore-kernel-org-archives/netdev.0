@@ -1,103 +1,63 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: [PATCH net] udp6: set rx_dst_cookie on rx_dst updates
-Date: Fri, 25 Aug 2017 14:31:01 +0200
-Message-ID: <9e52c29f4bd47d591cdc7bf6c3a88b2fc57e4422.1503664112.git.pabeni@redhat.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: netdev@vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [Patch net-next v2 4/4] net_sched: kill u32_node pointer in Qdisc
+Date: Fri, 25 Aug 2017 14:37:40 +0200
+Message-ID: <20170825123740.GF2023@nanopsycho>
+References: <20170824235130.28503-1-xiyou.wangcong@gmail.com>
+ <20170824235130.28503-5-xiyou.wangcong@gmail.com>
+ <c54bd7cc-ab56-6aac-2e24-85e9e8e1c708@mojatatu.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49721 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754694AbdHYMbX (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 25 Aug 2017 08:31:23 -0400
+Received: from mail-wm0-f53.google.com ([74.125.82.53]:37939 "EHLO
+        mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754279AbdHYMhn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 08:37:43 -0400
+Received: by mail-wm0-f53.google.com with SMTP id z132so1858857wmg.1
+        for <netdev@vger.kernel.org>; Fri, 25 Aug 2017 05:37:42 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <c54bd7cc-ab56-6aac-2e24-85e9e8e1c708@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, in the udp6 code, the dst cookie is not initialized/updated
-concurrently with the RX dst used by early demux.
+Fri, Aug 25, 2017 at 02:29:57PM CEST, jhs@mojatatu.com wrote:
+>On 17-08-24 07:51 PM, Cong Wang wrote:
+>> It is ugly to hide a u32-filter-specific pointer inside Qdisc,
+>> this breaks the TC layers:
+>> 
+>> 1. Qdisc is a generic representation, should not have any specific
+>>     data of any type
+>> 
+>> 2. Qdisc layer is above filter layer, should only save filters in
+>>     the list of struct tcf_proto.
+>> 
+>> This pointer is used as the head of the chain of u32 hash tables,
+>> that is struct tc_u_hnode, because u32 filter is very special,
+>> it allows to create multiple hash tables within one qdisc and
+>> across multiple u32 filters.
+>> 
+>> Instead of using this ugly pointer, we can just save it in a global
+>> hash table key'ed by (dev ifindex, qdisc handle), therefore we can
+>> still treat it as a per qdisc basis data structure conceptually.
+>> 
+>> Of course, because of network namespaces, this key is not unique
+>> at all, but it is fine as we already have a pointer to Qdisc in
+>> struct tc_u_common, we can just compare the pointers when collision.
+>> 
+>> And this only affects slow paths, has no impact to fast path,
+>> thanks to the pointer ->tp_c.
+>> 
+>> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+>> Cc: Jiri Pirko <jiri@resnulli.us>
+>> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+>
+>Nice work. should open the doors for Jiri now.
 
-As a result, the dst_check() in the early_demux path always fails,
-the rx dst cache is always invalidated, and we can't really
-leverage significant gain from the demux lookup.
+One of the doors, couple more left :)
 
-Fix it adding udp6 specific variant of sk_rx_dst_set() and use it
-to set the dst cookie when the dst entry is really changed.
-
-The issue is there since the introduction of early demux for ipv6.
-
-Fixes: 5425077d73e0 ("net: ipv6: Add early demux handler for UDP unicast")
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Signed-off-by: Paolo Abeni <pabeni@redhat.com>
----
- include/net/udp.h |  2 +-
- net/ipv4/udp.c    |  4 +++-
- net/ipv6/udp.c    | 11 ++++++++++-
- 3 files changed, 14 insertions(+), 3 deletions(-)
-
-diff --git a/include/net/udp.h b/include/net/udp.h
-index 586de4b811b5..626c2d8a70c5 100644
---- a/include/net/udp.h
-+++ b/include/net/udp.h
-@@ -260,7 +260,7 @@ static inline struct sk_buff *skb_recv_udp(struct sock *sk, unsigned int flags,
- }
- 
- void udp_v4_early_demux(struct sk_buff *skb);
--void udp_sk_rx_dst_set(struct sock *sk, struct dst_entry *dst);
-+bool udp_sk_rx_dst_set(struct sock *sk, struct dst_entry *dst);
- int udp_get_port(struct sock *sk, unsigned short snum,
- 		 int (*saddr_cmp)(const struct sock *,
- 				  const struct sock *));
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index cd1d044a7fa5..a6dc48d76a29 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1929,14 +1929,16 @@ static int udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
- /* For TCP sockets, sk_rx_dst is protected by socket lock
-  * For UDP, we use xchg() to guard against concurrent changes.
-  */
--void udp_sk_rx_dst_set(struct sock *sk, struct dst_entry *dst)
-+bool udp_sk_rx_dst_set(struct sock *sk, struct dst_entry *dst)
- {
- 	struct dst_entry *old;
- 
- 	if (dst_hold_safe(dst)) {
- 		old = xchg(&sk->sk_rx_dst, dst);
- 		dst_release(old);
-+		return old != dst;
- 	}
-+	return false;
- }
- EXPORT_SYMBOL(udp_sk_rx_dst_set);
- 
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 20039c8501eb..d6886228e1d0 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -768,6 +768,15 @@ static int __udp6_lib_mcast_deliver(struct net *net, struct sk_buff *skb,
- 	return 0;
- }
- 
-+static void udp6_sk_rx_dst_set(struct sock *sk, struct dst_entry *dst)
-+{
-+	if (udp_sk_rx_dst_set(sk, dst)) {
-+		const struct rt6_info *rt = (const struct rt6_info *)dst;
-+
-+		inet6_sk(sk)->rx_dst_cookie = rt6_get_cookie(rt);
-+	}
-+}
-+
- int __udp6_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
- 		   int proto)
- {
-@@ -817,7 +826,7 @@ int __udp6_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
- 		int ret;
- 
- 		if (unlikely(sk->sk_rx_dst != dst))
--			udp_sk_rx_dst_set(sk, dst);
-+			udp6_sk_rx_dst_set(sk, dst);
- 
- 		ret = udpv6_queue_rcv_skb(sk, skb);
- 		sock_put(sk);
--- 
-2.13.5
+>
+>Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
+>
+>cheers,
+>jamal
