@@ -1,64 +1,49 @@
 From: Maxime Ripard <maxime.ripard@free-electrons.com>
-Subject: [PATCH 0/4] net: stmmac: revert the EMAC bindings
-Date: Fri, 25 Aug 2017 21:12:13 +0200
-Message-ID: <20170825191217.10278-1-maxime.ripard@free-electrons.com>
+Subject: [PATCH 4/4] net: stmmac: sun8i: Remove the compatibles
+Date: Fri, 25 Aug 2017 21:12:17 +0200
+Message-ID: <20170825191217.10278-5-maxime.ripard@free-electrons.com>
+References: <20170825191217.10278-1-maxime.ripard@free-electrons.com>
 Cc: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
         f.fainelli@gmail.com, clabbe.montjoie@gmail.com, andrew@lunn.ch,
         linux-kernel@vger.kernel.org
 To: arm@kernel.org, davem@davemloft.net, Chen-Yu Tsai <wens@csie.org>,
         Maxime Ripard <maxime.ripard@free-electrons.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170825191217.10278-1-maxime.ripard@free-electrons.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Since the bindings have been controversial, and we follow the DT stable ABI
+rule, we shouldn't let a driver with a DT binding that might change slip
+through in a stable release.
 
-The bindings of the stmmac glue for the new Allwinner EMAC controller
-are still controversial and being discussed, even though they've been
-merged in 4.13.
+Remove the compatibles to make sure the driver will not probe and no-one
+will start using the binding currently implemented. This commit will
+obviously need to be reverted in due time.
 
-In order not to introduce any binding we do not really want to commit
-to in a stable release, especially since that would mean we would have
-to support both the right and old bindings, let's revert them.
+Signed-off-by: Maxime Ripard <maxime.ripard@free-electrons.com>
+---
+ drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c | 8 --------
+ 1 file changed, 8 deletions(-)
 
-We will reintroduce them in due time, once the discussion has settled
-down.
-
-The first three patches should go through the arm-soc tree, the last
-one through the net tree. All of them must be treated as fixes.
-
-Thanks!
-Maxime
-
-Maxime Ripard (4):
-  dt-bindings: net: Revert sun8i dwmac binding
-  arm64: dts: allwinner: Revert EMAC changes
-  arm: dts: sunxi: Revert EMAC changes
-  net: stmmac: sun8i: Remove the compatibles
-
- .../devicetree/bindings/net/dwmac-sun8i.txt        | 84 ----------------------
- arch/arm/boot/dts/sun8i-h2-plus-orangepi-zero.dts  |  9 ---
- arch/arm/boot/dts/sun8i-h3-bananapi-m2-plus.dts    | 19 -----
- arch/arm/boot/dts/sun8i-h3-beelink-x2.dts          |  8 ---
- arch/arm/boot/dts/sun8i-h3-nanopi-neo.dts          |  7 --
- arch/arm/boot/dts/sun8i-h3-orangepi-2.dts          |  8 ---
- arch/arm/boot/dts/sun8i-h3-orangepi-one.dts        |  8 ---
- arch/arm/boot/dts/sun8i-h3-orangepi-pc-plus.dts    |  5 --
- arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts         |  8 ---
- arch/arm/boot/dts/sun8i-h3-orangepi-plus.dts       | 22 ------
- arch/arm/boot/dts/sun8i-h3-orangepi-plus2e.dts     | 16 -----
- arch/arm/boot/dts/sunxi-h3-h5.dtsi                 | 26 -------
- .../boot/dts/allwinner/sun50i-a64-bananapi-m64.dts | 17 -----
- .../boot/dts/allwinner/sun50i-a64-pine64-plus.dts  | 15 ----
- .../arm64/boot/dts/allwinner/sun50i-a64-pine64.dts | 18 -----
- .../dts/allwinner/sun50i-a64-sopine-baseboard.dts  | 17 -----
- arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi      | 20 ------
- .../boot/dts/allwinner/sun50i-h5-nanopi-neo2.dts   | 17 -----
- .../boot/dts/allwinner/sun50i-h5-orangepi-pc2.dts  | 17 -----
- .../dts/allwinner/sun50i-h5-orangepi-prime.dts     | 17 -----
- drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c  |  8 ---
- 21 files changed, 366 deletions(-)
- delete mode 100644 Documentation/devicetree/bindings/net/dwmac-sun8i.txt
-
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
+index fffd6d5fc907..39c2122a4f26 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
+@@ -979,14 +979,6 @@ static int sun8i_dwmac_probe(struct platform_device *pdev)
+ }
+ 
+ static const struct of_device_id sun8i_dwmac_match[] = {
+-	{ .compatible = "allwinner,sun8i-h3-emac",
+-		.data = &emac_variant_h3 },
+-	{ .compatible = "allwinner,sun8i-v3s-emac",
+-		.data = &emac_variant_v3s },
+-	{ .compatible = "allwinner,sun8i-a83t-emac",
+-		.data = &emac_variant_a83t },
+-	{ .compatible = "allwinner,sun50i-a64-emac",
+-		.data = &emac_variant_a64 },
+ 	{ }
+ };
+ MODULE_DEVICE_TABLE(of, sun8i_dwmac_match);
 -- 
 2.13.5
