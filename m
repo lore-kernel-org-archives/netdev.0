@@ -1,7 +1,7 @@
 From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH net-next v2 01/14] phy: add sgmii and 10gkr modes to the phy_mode enum
-Date: Fri, 25 Aug 2017 16:48:08 +0200
-Message-ID: <20170825144821.31129-2-antoine.tenart@free-electrons.com>
+Subject: [PATCH net-next v2 10/14] arm64: dts: marvell: extend the cp110 syscon register area length
+Date: Fri, 25 Aug 2017 16:48:17 +0200
+Message-ID: <20170825144821.31129-11-antoine.tenart@free-electrons.com>
 References: <20170825144821.31129-1-antoine.tenart@free-electrons.com>
 Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
         thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
@@ -16,27 +16,40 @@ In-Reply-To: <20170825144821.31129-1-antoine.tenart@free-electrons.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds more generic PHY modes to the phy_mode enum, to
-allow configuring generic PHYs to the SGMII and/or the 10GKR mode
-by using the set_mode callback.
+This patch extends on both cp110 the system register area length to
+include some of the comphy registers as well.
 
 Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
 ---
- include/linux/phy/phy.h | 2 ++
- 1 file changed, 2 insertions(+)
+ arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi | 2 +-
+ arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi  | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/include/linux/phy/phy.h b/include/linux/phy/phy.h
-index 78bb0d7f6b11..e694d4008c4a 100644
---- a/include/linux/phy/phy.h
-+++ b/include/linux/phy/phy.h
-@@ -27,6 +27,8 @@ enum phy_mode {
- 	PHY_MODE_USB_HOST,
- 	PHY_MODE_USB_DEVICE,
- 	PHY_MODE_USB_OTG,
-+	PHY_MODE_SGMII,
-+	PHY_MODE_10GKR,
- };
+diff --git a/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi b/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi
+index 18299e164cb7..9b2581473183 100644
+--- a/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi
++++ b/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi
+@@ -118,7 +118,7 @@
  
- /**
+ 			cpm_syscon0: system-controller@440000 {
+ 				compatible = "syscon", "simple-mfd";
+-				reg = <0x440000 0x1000>;
++				reg = <0x440000 0x2000>;
+ 
+ 				cpm_clk: clock {
+ 					compatible = "marvell,cp110-clock";
+diff --git a/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi b/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi
+index 5ae8fa575859..d3902f218c46 100644
+--- a/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi
++++ b/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi
+@@ -125,7 +125,7 @@
+ 
+ 			cps_syscon0: system-controller@440000 {
+ 				compatible = "syscon", "simple-mfd";
+-				reg = <0x440000 0x1000>;
++				reg = <0x440000 0x2000>;
+ 
+ 				cps_clk: clock {
+ 					compatible = "marvell,cp110-clock";
 -- 
 2.13.5
