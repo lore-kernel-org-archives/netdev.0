@@ -1,53 +1,65 @@
-From: Stephen Smalley <sds-+05T5uksL2qpZYMLLGbcSA@public.gmane.org>
-Subject: Re: Permissions for eBPF objects
-Date: Fri, 25 Aug 2017 15:26:39 -0400
-Message-ID: <1503689199.9977.4.camel@tycho.nsa.gov>
-References: <CABXk95AiYO7D8o79TBdt0_0g1TXfULSpL5i7KzHF3R4i-WhwHw@mail.gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net] ptr_ring: use kmalloc_array()
+Date: Fri, 25 Aug 2017 22:25:05 +0300
+Message-ID: <20170825222015-mutt-send-email-mst@kernel.org>
+References: <1502905007.4936.133.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20170825205653-mutt-send-email-mst@kernel.org>
+ <1503687439.11498.5.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-To: Jeffrey Vander Stoep <jeffv-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>, Chenbo Feng <fengc-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, SELinux <Selinux-+05T5uksL2qpZYMLLGbcSA@public.gmane.org>
-Return-path: <selinux-bounces-+05T5uksL2qpZYMLLGbcSA@public.gmane.org>
-In-Reply-To: <CABXk95AiYO7D8o79TBdt0_0g1TXfULSpL5i7KzHF3R4i-WhwHw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Post: <mailto:selinux-+05T5uksL2qpZYMLLGbcSA@public.gmane.org>
-List-Help: <mailto:selinux-request-+05T5uksL2qpZYMLLGbcSA@public.gmane.org?subject=help>
-Errors-To: selinux-bounces-+05T5uksL2qpZYMLLGbcSA@public.gmane.org
-Sender: "Selinux" <selinux-bounces-+05T5uksL2qpZYMLLGbcSA@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>, Jason Wang <jasowang@redhat.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:43052 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754781AbdHYTZJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 25 Aug 2017 15:25:09 -0400
+Content-Disposition: inline
+In-Reply-To: <1503687439.11498.5.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2017-08-25 at 11:01 -0700, Jeffrey Vander Stoep via Selinux
-wrote:
-> I’d like to get your thoughts on adding LSM permission checks on BPF
-> objects.
+On Fri, Aug 25, 2017 at 11:57:19AM -0700, Eric Dumazet wrote:
+> On Fri, 2017-08-25 at 21:03 +0300, Michael S. Tsirkin wrote:
+> > On Wed, Aug 16, 2017 at 10:36:47AM -0700, Eric Dumazet wrote:
+> > > From: Eric Dumazet <edumazet@google.com>
+> > > 
+> > > As found by syzkaller, malicious users can set whatever tx_queue_len
+> > > on a tun device and eventually crash the kernel.
+> > > 
+> > > Lets remove the ALIGN(XXX, SMP_CACHE_BYTES) thing since a small
+> > > ring buffer is not fast anyway.
+> > 
+> > I'm not sure it's worth changing for small rings.
+> > 
+> > Does kmalloc_array guarantee cache line alignment for big buffers
+> > then? If the ring is misaligned it will likely cause false sharing
+> > as it's designed to be accessed from two CPUs.
 > 
-> By default, the ability to create and use eBPF maps/programs requires
-> CAP_SYS_ADMIN [1]. Alternatively, all processes can be granted access
-> to bpf() functions. This seems like poor granularity. [2]
+> I specifically said that in the changelog :
 > 
-> Like files and sockets, eBPF maps and programs can be passed between
-> processes by FD and have a number of functions that map cleanly to
-> permissions.
+> "since a small ring buffer is not fast anyway."
 > 
-> Let me know what you think. Are there simpler alternative approaches
-> that we haven’t considered?
+> If one user sets up a pathological small ring buffer, kernel should not
+> try to fix it.
 
-Is it possible to create the map/program in one process (with
-CAP_SYS_ADMIN), pass the resulting fd to netd, and then use it there
-(without requiring CAP_SYS_ADMIN in netd itself)?
+Yes, I got that point. My question is about big buffers.
+Does kmalloc_array give us an aligned array in that case?
 
-What level of granularity would be useful?  Would it go beyond just
-being able to use bpf() at all?
+E.g. imagine a 100 slot array. Will 800 bytes be allocated?
+In that case it uses up 12.5 cache lines. It looks like the
+last cache line can become false shared with something else,
+causing cache line bounces on each wrap around.
 
+
+> In this case, you would have to setup a ring of 2 or 4 slots to
+> eventually hit false sharing.
 > 
-> Thanks!
-> Jeff
-> 
-> [1] http://man7.org/linux/man-pages/man2/bpf.2.html NOTES section
-> [2] We are considering eBPF for network filtering by netd. Giving
-> netd
-> CAP_SYS_ADMIN would considerably increase netd’s privileges.
-> Alternatively allowing all processes permission to use bpf() goes
-> against the principle of least privilege exposing a lot of kernel
-> attack surface to processes that do not actually need it.
-> 
+
+I don't think many people set up such tiny rings so I do not really
+think we care what happens in that case. But you need 8 slots to avoid
+false sharing I think.
+
+-- 
+MST
