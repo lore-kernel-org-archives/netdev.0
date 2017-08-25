@@ -1,35 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v1 0/3] tipc: buffer reassignment
- fixes
-Date: Thu, 24 Aug 2017 21:54:51 -0700 (PDT)
-Message-ID: <20170824.215451.1645957345819875808.davem@davemloft.net>
-References: <1503585084-14079-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
+Subject: Re: [PATCH net-next] hv_netvsc: Fix rndis_filter_close error
+ during netvsc_remove
+Date: Thu, 24 Aug 2017 21:58:02 -0700 (PDT)
+Message-ID: <20170824.215802.1672700206641648629.davem@davemloft.net>
+References: <20170824185002.10213-1-haiyangz@exchange.microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jon.maloy@ericsson.com, netdev@vger.kernel.org,
- tipc-discussion@lists.sourceforge.net, ying.xue@windriver.com
-To: parthasarathy.bhuvaragan@ericsson.com
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <1503585084-14079-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/options/tipc-discussion>,
- <mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
- <mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+Cc: netdev@vger.kernel.org, kys@microsoft.com, olaf@aepfle.de,
+        vkuznets@redhat.com, linux-kernel@vger.kernel.org
+To: haiyangz@microsoft.com, haiyangz@exchange.microsoft.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170824185002.10213-1-haiyangz@exchange.microsoft.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
-Date: Thu, 24 Aug 2017 16:31:21 +0200
+From: Haiyang Zhang <haiyangz@exchange.microsoft.com>
+Date: Thu, 24 Aug 2017 11:50:02 -0700
 
-> This series contains fixes for buffer reassignments and a context
-> imbalance.
+> From: Haiyang Zhang <haiyangz@microsoft.com>
+> 
+> We now remove rndis filter before unregister_netdev(), which calls
+> device close. It involves closing rndis filter already removed.
+> 
+> This patch fixes this error.
+> 
+> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
 
-Series applied, thanks.
-
-------------------------------------------------------------------------------
-Check out the vibrant tech community on one of the world's most
-engaging tech sites, Slashdot.org! http://sdm.link/slashdot
+Applied.
