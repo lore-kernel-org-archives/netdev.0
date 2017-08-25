@@ -1,82 +1,136 @@
 From: kbuild test robot <fengguang.wu@intel.com>
-Subject: [net-next:master 1324/1341]
- drivers/net//ethernet/mellanox/mlxsw/spectrum_dpipe.c:323:9: error: too few
- arguments to function 'devlink_dpipe_table_register'
-Date: Fri, 25 Aug 2017 08:03:28 +0800
-Message-ID: <201708250827.irRihDoq%fengguang.wu@intel.com>
+Subject: [net-next:master 1328/1341]
+ drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.c:77:3: error:
+ 'devlink_dpipe_header_ethernet' undeclared here (not in a function)
+Date: Fri, 25 Aug 2017 08:16:01 +0800
+Message-ID: <201708250859.0ROh3FDk%fengguang.wu@intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="2oS5YaxWCcQjTEyO"
+Content-Type: multipart/mixed; boundary="OgqxwSJOaUobr8KG"
 Cc: kbuild-all@01.org, netdev@vger.kernel.org,
         Jiri Pirko <jiri@mellanox.com>
 To: Arkadi Sharshevsky <arkadis@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:61318 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:24689 "EHLO mga11.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753203AbdHYAEK (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 24 Aug 2017 20:04:10 -0400
+        id S1753495AbdHYAQL (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 24 Aug 2017 20:16:11 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---2oS5YaxWCcQjTEyO
+--OgqxwSJOaUobr8KG
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 
 tree:   https://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git master
 head:   39a7e5892418514db114ea4842d7d88aee6a61b8
-commit: ffd3cdccf214cf0df08856a6738544076c4cd548 [1324/1341] devlink: Add support for dynamic table size
+commit: 6aecb36bc01fc9c84f24c4155e8850b6a1962f03 [1328/1341] mlxsw: spectrum_dpipe: Add IPv4 host table initial support
 config: i386-randconfig-sb0-08250550 (attached as .config)
 compiler: gcc-5 (Debian 5.4.1-2) 5.4.1 20160904
 reproduce:
-        git checkout ffd3cdccf214cf0df08856a6738544076c4cd548
+        git checkout 6aecb36bc01fc9c84f24c4155e8850b6a1962f03
         # save the attached .config to linux build tree
         make ARCH=i386 
 
-All errors (new ones prefixed by >>):
+All error/warnings (new ones prefixed by >>):
 
-   drivers/net//ethernet/mellanox/mlxsw/spectrum_dpipe.c: In function 'mlxsw_sp_dpipe_erif_table_init':
->> drivers/net//ethernet/mellanox/mlxsw/spectrum_dpipe.c:323:9: error: too few arguments to function 'devlink_dpipe_table_register'
+>> drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.c:77:3: error: 'devlink_dpipe_header_ethernet' undeclared here (not in a function)
+     &devlink_dpipe_header_ethernet,
+      ^
+>> drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.c:78:3: error: 'devlink_dpipe_header_ipv4' undeclared here (not in a function)
+     &devlink_dpipe_header_ipv4,
+      ^
+   drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.c: In function 'mlxsw_sp_dpipe_erif_table_init':
+   drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.c:305:9: error: too few arguments to function 'devlink_dpipe_table_register'
      return devlink_dpipe_table_register(devlink,
             ^
-   In file included from drivers/net//ethernet/mellanox/mlxsw/spectrum_dpipe.c:36:0:
-   include/net/devlink.h:401:1: note: declared here
+   In file included from drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.c:36:0:
+   include/net/devlink.h:402:1: note: declared here
     devlink_dpipe_table_register(struct devlink *devlink,
     ^
-   drivers/net//ethernet/mellanox/mlxsw/spectrum_dpipe.c:327:1: warning: control reaches end of non-void function [-Wreturn-type]
-    }
+>> drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.c:305:9: warning: return makes integer from pointer without a cast [-Wint-conversion]
+     return devlink_dpipe_table_register(devlink,
+            ^
+   drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.c: In function 'mlxsw_sp_dpipe_table_host_matches_dump':
+>> drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.c:332:15: error: assignment from incompatible pointer type [-Werror=incompatible-pointer-types]
+     match.header = &devlink_dpipe_header_ipv4;
+                  ^
+   drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.c: In function 'mlxsw_sp_dpipe_table_host4_actions_dump':
+   drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.c:350:16: error: assignment from incompatible pointer type [-Werror=incompatible-pointer-types]
+     action.header = &devlink_dpipe_header_ethernet;
+                   ^
+   drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.c: In function 'mlxsw_sp_dpipe_host4_table_init':
+   drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.c:397:9: error: too few arguments to function 'devlink_dpipe_table_register'
+     return devlink_dpipe_table_register(devlink,
+            ^
+   In file included from drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.c:36:0:
+   include/net/devlink.h:402:1: note: declared here
+    devlink_dpipe_table_register(struct devlink *devlink,
     ^
+   drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.c:397:9: warning: return makes integer from pointer without a cast [-Wint-conversion]
+     return devlink_dpipe_table_register(devlink,
+            ^
+   cc1: some warnings being treated as errors
 
-vim +/devlink_dpipe_table_register +323 drivers/net//ethernet/mellanox/mlxsw/spectrum_dpipe.c
+vim +/devlink_dpipe_header_ethernet +77 drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.c
 
-d54b70fe Arkadi Sharshevsky 2017-03-28  318  
-d54b70fe Arkadi Sharshevsky 2017-03-28  319  static int mlxsw_sp_dpipe_erif_table_init(struct mlxsw_sp *mlxsw_sp)
-d54b70fe Arkadi Sharshevsky 2017-03-28  320  {
-d54b70fe Arkadi Sharshevsky 2017-03-28  321  	struct devlink *devlink = priv_to_devlink(mlxsw_sp->core);
-d54b70fe Arkadi Sharshevsky 2017-03-28  322  
-d54b70fe Arkadi Sharshevsky 2017-03-28 @323  	return devlink_dpipe_table_register(devlink,
-d54b70fe Arkadi Sharshevsky 2017-03-28  324  					    MLXSW_SP_DPIPE_TABLE_NAME_ERIF,
-d54b70fe Arkadi Sharshevsky 2017-03-28  325  					    &mlxsw_sp_erif_ops,
-ffd3cdcc Arkadi Sharshevsky 2017-08-24  326  					    mlxsw_sp, false);
-d54b70fe Arkadi Sharshevsky 2017-03-28  327  }
-d54b70fe Arkadi Sharshevsky 2017-03-28  328  
-
-:::::: The code at line 323 was first introduced by commit
-:::::: d54b70feb696f0d110626438432d0acec3cb4752 mlxsw: spectrum: Add definition for egress rif table
-
-:::::: TO: Arkadi Sharshevsky <arkadis@mellanox.com>
-:::::: CC: David S. Miller <davem@davemloft.net>
+  > 36	#include <net/devlink.h>
+    37	
+    38	#include "spectrum.h"
+    39	#include "spectrum_dpipe.h"
+    40	#include "spectrum_router.h"
+    41	
+    42	enum mlxsw_sp_field_metadata_id {
+    43		MLXSW_SP_DPIPE_FIELD_METADATA_ERIF_PORT,
+    44		MLXSW_SP_DPIPE_FIELD_METADATA_L3_FORWARD,
+    45		MLXSW_SP_DPIPE_FIELD_METADATA_L3_DROP,
+    46	};
+    47	
+    48	static struct devlink_dpipe_field mlxsw_sp_dpipe_fields_metadata[] = {
+    49		{ .name = "erif_port",
+    50		  .id = MLXSW_SP_DPIPE_FIELD_METADATA_ERIF_PORT,
+    51		  .bitwidth = 32,
+    52		  .mapping_type = DEVLINK_DPIPE_FIELD_MAPPING_TYPE_IFINDEX,
+    53		},
+    54		{ .name = "l3_forward",
+    55		  .id = MLXSW_SP_DPIPE_FIELD_METADATA_L3_FORWARD,
+    56		  .bitwidth = 1,
+    57		},
+    58		{ .name = "l3_drop",
+    59		  .id = MLXSW_SP_DPIPE_FIELD_METADATA_L3_DROP,
+    60		  .bitwidth = 1,
+    61		},
+    62	};
+    63	
+    64	enum mlxsw_sp_dpipe_header_id {
+    65		MLXSW_SP_DPIPE_HEADER_METADATA,
+    66	};
+    67	
+    68	static struct devlink_dpipe_header mlxsw_sp_dpipe_header_metadata = {
+    69		.name = "mlxsw_meta",
+    70		.id = MLXSW_SP_DPIPE_HEADER_METADATA,
+    71		.fields = mlxsw_sp_dpipe_fields_metadata,
+    72		.fields_count = ARRAY_SIZE(mlxsw_sp_dpipe_fields_metadata),
+    73	};
+    74	
+    75	static struct devlink_dpipe_header *mlxsw_dpipe_headers[] = {
+    76		&mlxsw_sp_dpipe_header_metadata,
+  > 77		&devlink_dpipe_header_ethernet,
+  > 78		&devlink_dpipe_header_ipv4,
+    79	};
+    80	
 
 ---
 0-DAY kernel test infrastructure                Open Source Technology Center
 https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
 
---2oS5YaxWCcQjTEyO
+--OgqxwSJOaUobr8KG
 Content-Type: application/gzip
 Content-Disposition: attachment; filename=".config.gz"
 Content-Transfer-Encoding: base64
 
-H4sICK9mn1kAAy5jb25maWcAlFxbc9y2kn7Pr5hy9uGch8S6RXFqSw8gCJLIkAQNgDMavbAU
+H4sICIdrn1kAAy5jb25maWcAlFxbc9y2kn7Pr5hy9uGch8S6RXFqSw8gCJLIkAQNgDMavbAU
 eZyoImu80ugk+ffbDfACgOB4N+WKTXQDxKUvX3eD8/1336/I2/Hw5f74+HD/9PTP6vf98/7l
 /rj/tPr8+LT/71UqVrXQK5Zy/SMwl4/Pb3+/f7z8cL26+vH88sezH14erlfr/cvz/mlFD8+f
 H39/g+6Ph+fvvgd2KuqM5931VcL16vF19Xw4rl73x+/69tsP193lxc0/zvP0wGulZUs1F3WX
@@ -657,4 +711,4 @@ T7k5H24IRgs+COuZo3Bm1CcUPZD/9SJpYkeKKmm0wTCDAqucNAKvW5ch+OIWoSmSu1Tm+MFP
 Z0/4ObaGG+6Ht4C2vaMVtLdRGRA16KLwmE02XtfYhh38CDDZlUgQwtWCKZCvH/Whh/pxEefS
 iJhA77TBRxRr5BWuNp0e8QsY1ykUnLFL8ucyY2QLoHiZUSnIgdpP9ygP293fAQA=
 
---2oS5YaxWCcQjTEyO--
+--OgqxwSJOaUobr8KG--
