@@ -1,51 +1,42 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH 3/7] ieee802154: 6lowpan: make header_ops const
-Date: Fri, 25 Aug 2017 18:17:21 +0200
-Message-ID: <34C7927D-4D0A-4EB4-AB3E-7DEB9FA7E8B0@holtmann.org>
-References: <1503670907-23221-1-git-send-email-bhumirks@gmail.com>
- <1503670907-23221-4-git-send-email-bhumirks@gmail.com>
-Mime-Version: 1.0 (Mac OS X Mail 10.3 \(3273\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: julia.lawall@lip6.fr, "Gustavo F. Padovan" <gustavo@padovan.org>,
-        Johan Hedberg <johan.hedberg@gmail.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Pablo Neira Ayuso <pablo@netfilter.org>,
-        kadlec@blackhole.kfki.hu, Florian Westphal <fw@strlen.de>,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        Alexander Aring <alex.aring@gmail.com>,
-        Stefan Schmidt <stefan@osg.samsung.com>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        santosh.shilimkar@oracle.com, trond.myklebust@primarydata.com,
-        anna.schumaker@netapp.com, bfields@fieldses.org,
-        jlayton@poochiereds.net,
-        "open list:BLUETOOTH DRIVERS" <linux-bluetooth@vger.kernel.org>,
-        Network Development <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        netfilter-devel@vger
-To: Bhumika Goyal <bhumirks@gmail.com>
+From: William Tu <u9012063@gmail.com>
+Subject: [PATCH net-next 0/3] gre: add collect_md mode for ERSPAN tunnel
+Date: Fri, 25 Aug 2017 09:21:26 -0700
+Message-ID: <1503678089-27131-1-git-send-email-u9012063@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from coyote.holtmann.net ([212.227.132.17]:39583 "EHLO
-        mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934093AbdHYQRZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 12:17:25 -0400
-In-Reply-To: <1503670907-23221-4-git-send-email-bhumirks@gmail.com>
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:34009 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934275AbdHYQVk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 12:21:40 -0400
+Received: by mail-pg0-f66.google.com with SMTP id 63so374892pgc.1
+        for <netdev@vger.kernel.org>; Fri, 25 Aug 2017 09:21:40 -0700 (PDT)
+Received: from sc9-mailhost2.vmware.com ([208.91.1.34])
+        by smtp.gmail.com with ESMTPSA id k197sm1051155pga.78.2017.08.25.09.21.39
+        for <netdev@vger.kernel.org>
+        (version=TLS1_2 cipher=ECDHE-RSA-AES128-SHA bits=128/128);
+        Fri, 25 Aug 2017 09:21:39 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Bhumika,
+This patch series provide collect_md mode for ERSPAN tunnel.  The fist patch
+refactors the existing gre_fb_xmit function by exacting the route cache
+portion into a new function called prepare_fb_xmit.  The second patch
+introduces the collect_md mode for ERSPAN tunnel, by calling the
+prepare_fb_xmit function and adding ERSPAN specific logic.  The final patch
+adds the test case using bpf_skb_{set,get}_tunnel_{key,opt}.
 
-> Make this const as it is only stored as a reference in a const field of
-> a net_device structure.
-> 
-> Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
-> ---
-> net/ieee802154/6lowpan/core.c | 2 +-
-> 1 file changed, 1 insertion(+), 1 deletion(-)
+Thank you
 
-patch has been applied to bluetooth-next tree.
+William Tu (3):
+  gre: refactor the gre_fb_xmit
+  gre: add collect_md mode to ERSPAN tunnel
+  samples/bpf: extend test_tunnel_bpf.sh with ERSPAN
 
-Regards
+ include/net/ip_tunnels.h       |   4 +-
+ net/ipv4/ip_gre.c              | 157 ++++++++++++++++++++++++++++++++++++-----
+ samples/bpf/tcbpf2_kern.c      |  63 ++++++++++++++++-
+ samples/bpf/test_tunnel_bpf.sh |  29 ++++++++
+ 4 files changed, 232 insertions(+), 21 deletions(-)
 
-Marcel
+-- 
+2.7.4
