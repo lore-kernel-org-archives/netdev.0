@@ -1,134 +1,80 @@
-From: Chenbo Feng <fengc@google.com>
-Subject: Re: Permissions for eBPF objects
-Date: Fri, 25 Aug 2017 13:49:20 -0700
-Message-ID: <CAMOXUJ=CDTyJh=1_mHmBdZmui=G_YqyNDNek+2Mq8fDMMbb8=g@mail.gmail.com>
-References: <CABXk95AiYO7D8o79TBdt0_0g1TXfULSpL5i7KzHF3R4i-WhwHw@mail.gmail.com>
- <1503689199.9977.4.camel@tycho.nsa.gov> <CABXk95BkyU5MBLry0PEp+QwhtY7rM4DCmQq3CeQi6=TQtQQPwA@mail.gmail.com>
- <CAMOXUJkQ-Wh==9nzgx3Sq4RUEBK5ArHk4b=AL0N65L9g6cAqcg@mail.gmail.com> <1503693623.9977.7.camel@tycho.nsa.gov>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-Cc: Jeffrey Vander Stoep <jeffv@google.com>, netdev@vger.kernel.org,
-        SELinux <Selinux@tycho.nsa.gov>,
-        Lorenzo Colitti <lorenzo@google.com>
-To: Stephen Smalley <sds@tycho.nsa.gov>
+From: Stefano Brivio <sbrivio@redhat.com>
+Subject: [PATCH net] cxgb4: Fix stack out-of-bounds read due to wrong size to t4_record_mbox()
+Date: Fri, 25 Aug 2017 22:48:48 +0200
+Message-ID: <04759fe12e6a8eb8e36e46060b907f02c269a826.1503692361.git.sbrivio@redhat.com>
+Cc: Hariprasad Shenai <hariprasad@chelsio.com>,
+        Casey Leedom <leedom@chelsio.com>,
+        Sai Vemuri <svemuri@redhat.com>
+To: Ganesh Goudar <ganeshgr@chelsio.com>,
+        "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f52.google.com ([209.85.215.52]:36741 "EHLO
-        mail-lf0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932586AbdHYUtX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 16:49:23 -0400
-Received: by mail-lf0-f52.google.com with SMTP id z12so238898lfd.3
-        for <netdev@vger.kernel.org>; Fri, 25 Aug 2017 13:49:22 -0700 (PDT)
-In-Reply-To: <1503693623.9977.7.camel@tycho.nsa.gov>
+Received: from mx1.redhat.com ([209.132.183.28]:51004 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932586AbdHYUtf (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 25 Aug 2017 16:49:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 25, 2017 at 1:40 PM, Stephen Smalley <sds@tycho.nsa.gov> wrote:
-> On Fri, 2017-08-25 at 12:52 -0700, Chenbo Feng via Selinux wrote:
->> On Fri, Aug 25, 2017 at 12:45 PM, Jeffrey Vander Stoep <jeffv@google.
->> com> wrote:
->> > On Fri, Aug 25, 2017 at 12:26 PM, Stephen Smalley <sds@tycho.nsa.go
->> > v> wrote:
->> > > On Fri, 2017-08-25 at 11:01 -0700, Jeffrey Vander Stoep via
->> > > Selinux
->> > > wrote:
->> > > > I=E2=80=99d like to get your thoughts on adding LSM permission che=
-cks
->> > > > on BPF
->> > > > objects.
->> > > >
->> > > > By default, the ability to create and use eBPF maps/programs
->> > > > requires
->> > > > CAP_SYS_ADMIN [1]. Alternatively, all processes can be granted
->> > > > access
->> > > > to bpf() functions. This seems like poor granularity. [2]
->> > > >
->> > > > Like files and sockets, eBPF maps and programs can be passed
->> > > > between
->> > > > processes by FD and have a number of functions that map cleanly
->> > > > to
->> > > > permissions.
->> > > >
->> > > > Let me know what you think. Are there simpler alternative
->> > > > approaches
->> > > > that we haven=E2=80=99t considered?
->> > >
->> > > Is it possible to create the map/program in one process (with
->> > > CAP_SYS_ADMIN), pass the resulting fd to netd, and then use it
->> > > there
->> > > (without requiring CAP_SYS_ADMIN in netd itself)?
->> >
->> > That might work. Any use of bpf() requires CAP_SYS_ADMIN but netd
->> > could potentially just apply the prog_fd to a socket:
->> >
->> >            setsockopt(sockfd, SOL_SOCKET, SO_ATTACH_BPF,
->> >                       &prog_fd, sizeof(prog_fd));
->> >
->>
->> This specific case might work. But other map and program related
->> operations can
->> only be done through syscalls. And the syscall can be set to only
->> allow
->> CAP_SYS_ADMIN processes to use it or open to all processes. So when
->> the
->> CAP_SYS_ADMIN limitation is enforced, netd will not be able to use
->> any of the
->> syscalls such as map_look_up, map_update, map_delete even if a
->> CAP_SYS_ADMIN process passed the fd to it. Here is how this
->> enforcement
->> implemented:
->> http://elixir.free-
->> electrons.com/linux/latest/source/kernel/bpf/syscall.c#L1005
->
-> I guess the question is whether netd needs to perform any of those
-> operations itself, or if all of that can be done by another process and
-> netd can just receive the fd over a unix socket and attach it.
->
-> Not opposed to adding a LSM hook to bpf() and implementing a SELinux
-> check there, just not 100% sure if you need it.
->
-I am afraid only attach to socket will not need CAP_SYS_ADMIN if the
-sysctl_unprivileged_bpf_disabled is set. But in our current design we might
-need to attach a eBPF program to cgroups. Besides, reading and updating
-the eBPF maps are also necessary operations that netd need to use. And thes=
-e
-are all unavailable to non-CAP_SYS_ADMIN processes when the sysctl is set.
-So I guess we must have unprivileged BPF enabled to let our design work. An=
-d
-adding lsm hooks to eBPF could make it under better control.
+Passing commands for logging to t4_record_mbox() with size
+MBOX_LEN, when the actual command size is actually smaller,
+causes out-of-bounds stack accesses in t4_record_mbox() while
+copying command words here:
 
->>
->> > >
->> > > What level of granularity would be useful?  Would it go beyond
->> > > just
->> > > being able to use bpf() at all?
->> >
->> > "use" might be sufficient. At least initially.
->> >
->> > I could see some others coming in handy. For example, a simple
->> > mapping
->> > of functionality to permissions gives:
->> > map_create, map_update, map_delete, map_read, prog_load, prog_use.
->> >
->> > Of course there's no sense in breaking "use" into multiple
->> > permissions if
->> > we expect the entire set to always be granted together.
->> >
->> > >
->> > > >
->> > > > Thanks!
->> > > > Jeff
->> > > >
->> > > > [1] http://man7.org/linux/man-pages/man2/bpf.2.html NOTES
->> > > > section
->> > > > [2] We are considering eBPF for network filtering by netd.
->> > > > Giving
->> > > > netd
->> > > > CAP_SYS_ADMIN would considerably increase netd=E2=80=99s privilege=
-s.
->> > > > Alternatively allowing all processes permission to use bpf()
->> > > > goes
->> > > > against the principle of least privilege exposing a lot of
->> > > > kernel
->> > > > attack surface to processes that do not actually need it.
->> > > >
+	for (i = 0; i < size / 8; i++)
+		entry->cmd[i] = be64_to_cpu(cmd[i]);
+
+Up to 48 bytes from the stack are then leaked to debugfs.
+
+This happens whenever we send (and log) commands described by
+structs fw_sched_cmd (32 bytes leaked), fw_vi_rxmode_cmd (48),
+fw_hello_cmd (48), fw_bye_cmd (48), fw_initialize_cmd (48),
+fw_reset_cmd (48), fw_pfvf_cmd (32), fw_eq_eth_cmd (16),
+fw_eq_ctrl_cmd (32), fw_eq_ofld_cmd (32), fw_acl_mac_cmd(16),
+fw_rss_glb_config_cmd(32), fw_rss_vi_config_cmd(32),
+fw_devlog_cmd(32), fw_vi_enable_cmd(48), fw_port_cmd(32),
+fw_sched_cmd(32), fw_devlog_cmd(32).
+
+The cxgb4vf driver got this right instead.
+
+When we call t4_record_mbox() to log a command reply, a MBOX_LEN
+size can be used though, as get_mbox_rpl() will fill cmd_rpl up
+completely.
+
+Fixes: 7f080c3f2ff0 ("cxgb4: Add support to enable logging of firmware mailbox commands")
+Signed-off-by: Stefano Brivio <sbrivio@redhat.com>
+---
+I guess this should be queued up for -stable, back to 4.7.
+
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+index 82bf7aac6cdb..0293b41171a5 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+@@ -369,12 +369,12 @@ int t4_wr_mbox_meat_timeout(struct adapter *adap, int mbox, const void *cmd,
+ 		list_del(&entry.list);
+ 		spin_unlock(&adap->mbox_lock);
+ 		ret = (v == MBOX_OWNER_FW) ? -EBUSY : -ETIMEDOUT;
+-		t4_record_mbox(adap, cmd, MBOX_LEN, access, ret);
++		t4_record_mbox(adap, cmd, size, access, ret);
+ 		return ret;
+ 	}
+ 
+ 	/* Copy in the new mailbox command and send it on its way ... */
+-	t4_record_mbox(adap, cmd, MBOX_LEN, access, 0);
++	t4_record_mbox(adap, cmd, size, access, 0);
+ 	for (i = 0; i < size; i += 8)
+ 		t4_write_reg64(adap, data_reg + i, be64_to_cpu(*p++));
+ 
+@@ -426,7 +426,7 @@ int t4_wr_mbox_meat_timeout(struct adapter *adap, int mbox, const void *cmd,
+ 	}
+ 
+ 	ret = (pcie_fw & PCIE_FW_ERR_F) ? -ENXIO : -ETIMEDOUT;
+-	t4_record_mbox(adap, cmd, MBOX_LEN, access, ret);
++	t4_record_mbox(adap, cmd, size, access, ret);
+ 	dev_err(adap->pdev_dev, "command %#x in mailbox %d timed out\n",
+ 		*(const u8 *)cmd, mbox);
+ 	t4_report_fw_error(adap);
+-- 
+2.9.4
