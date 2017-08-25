@@ -1,145 +1,32 @@
-From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: [PATCH net] tcp: fix refcnt leak with ebpf congestion control
-Date: Fri, 25 Aug 2017 13:10:12 +0200
-Message-ID: <d69d1981d2c74805affc4ed6378447ea4cb06c67.1503659184.git.sd@queasysnail.net>
-Cc: Sabrina Dubroca <sd@queasysnail.net>,
-        Lawrence Brakmo <brakmo@fb.com>,
-        Daniel Borkmann <daniel@iogearbox.net>
-To: netdev@vger.kernel.org
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [Patch net-next v2 1/4] net_sched: get rid of more forward
+ declarations
+Date: Fri, 25 Aug 2017 07:51:01 -0400
+Message-ID: <a15860db-4aef-b82d-eeb9-6c61abf36148@mojatatu.com>
+References: <20170824235130.28503-1-xiyou.wangcong@gmail.com>
+ <20170824235130.28503-2-xiyou.wangcong@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43074 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754727AbdHYLKk (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 25 Aug 2017 07:10:40 -0400
+Received: from mail-it0-f48.google.com ([209.85.214.48]:36425 "EHLO
+        mail-it0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755612AbdHYLvE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 07:51:04 -0400
+Received: by mail-it0-f48.google.com with SMTP id o132so396799itc.1
+        for <netdev@vger.kernel.org>; Fri, 25 Aug 2017 04:51:04 -0700 (PDT)
+In-Reply-To: <20170824235130.28503-2-xiyou.wangcong@gmail.com>
+Content-Language: en-GB
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There are a few bugs around refcnt handling in the new BPF congestion
-control setsockopt:
+On 17-08-24 07:51 PM, Cong Wang wrote:
+> This is not needed if we move them up properly.
+> 
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
- - The new ca is assigned to icsk->icsk_ca_ops even in the case where we
-   cannot get a reference on it. This would lead to a use after free,
-   since that ca is going away soon.
+Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
 
- - Changing the congestion control case doesn't release the refcnt on
-   the previous ca.
-
- - In the reinit case, we first leak a reference on the old ca, then we
-   call tcp_reinit_congestion_control on the ca that we have just
-   assigned, leading to deinitializing the wrong ca (->release of the
-   new ca on the old ca's data) and releasing the refcount on the ca
-   that we actually want to use.
-
-This is visible by building (for example) BIC as a module and setting
-net.ipv4.tcp_congestion_control=bic, and using tcp_cong_kern.c from
-samples/bpf.
-
-This patch fixes the refcount issues, and moves reinit back into tcp
-core to avoid passing a ca pointer back to BPF.
-
-Fixes: 91b5b21c7c16 ("bpf: Add support for changing congestion control")
-Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
----
- include/net/tcp.h   |  4 +---
- net/core/filter.c   |  7 ++-----
- net/ipv4/tcp.c      |  2 +-
- net/ipv4/tcp_cong.c | 19 ++++++++++++++-----
- 4 files changed, 18 insertions(+), 14 deletions(-)
-
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index ada65e767b28..f642a39f9eee 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -1004,9 +1004,7 @@ void tcp_get_default_congestion_control(char *name);
- void tcp_get_available_congestion_control(char *buf, size_t len);
- void tcp_get_allowed_congestion_control(char *buf, size_t len);
- int tcp_set_allowed_congestion_control(char *allowed);
--int tcp_set_congestion_control(struct sock *sk, const char *name, bool load);
--void tcp_reinit_congestion_control(struct sock *sk,
--				   const struct tcp_congestion_ops *ca);
-+int tcp_set_congestion_control(struct sock *sk, const char *name, bool load, bool reinit);
- u32 tcp_slow_start(struct tcp_sock *tp, u32 acked);
- void tcp_cong_avoid_ai(struct tcp_sock *tp, u32 w, u32 acked);
- 
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 8eb81e5fae08..169974998c76 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -2836,15 +2836,12 @@ BPF_CALL_5(bpf_setsockopt, struct bpf_sock_ops_kern *, bpf_sock,
- 		   sk->sk_prot->setsockopt == tcp_setsockopt) {
- 		if (optname == TCP_CONGESTION) {
- 			char name[TCP_CA_NAME_MAX];
-+			bool reinit = bpf_sock->op > BPF_SOCK_OPS_NEEDS_ECN;
- 
- 			strncpy(name, optval, min_t(long, optlen,
- 						    TCP_CA_NAME_MAX-1));
- 			name[TCP_CA_NAME_MAX-1] = 0;
--			ret = tcp_set_congestion_control(sk, name, false);
--			if (!ret && bpf_sock->op > BPF_SOCK_OPS_NEEDS_ECN)
--				/* replacing an existing ca */
--				tcp_reinit_congestion_control(sk,
--					inet_csk(sk)->icsk_ca_ops);
-+			ret = tcp_set_congestion_control(sk, name, false, reinit);
- 		} else {
- 			struct tcp_sock *tp = tcp_sk(sk);
- 
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 71ce33decd97..a3e91b552edc 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -2481,7 +2481,7 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
- 		name[val] = 0;
- 
- 		lock_sock(sk);
--		err = tcp_set_congestion_control(sk, name, true);
-+		err = tcp_set_congestion_control(sk, name, true, true);
- 		release_sock(sk);
- 		return err;
- 	}
-diff --git a/net/ipv4/tcp_cong.c b/net/ipv4/tcp_cong.c
-index fde983f6376b..421ea1b918da 100644
---- a/net/ipv4/tcp_cong.c
-+++ b/net/ipv4/tcp_cong.c
-@@ -189,8 +189,8 @@ void tcp_init_congestion_control(struct sock *sk)
- 		INET_ECN_dontxmit(sk);
- }
- 
--void tcp_reinit_congestion_control(struct sock *sk,
--				   const struct tcp_congestion_ops *ca)
-+static void tcp_reinit_congestion_control(struct sock *sk,
-+					  const struct tcp_congestion_ops *ca)
- {
- 	struct inet_connection_sock *icsk = inet_csk(sk);
- 
-@@ -338,7 +338,7 @@ int tcp_set_allowed_congestion_control(char *val)
-  * tcp_reinit_congestion_control (if the current congestion control was
-  * already initialized.
-  */
--int tcp_set_congestion_control(struct sock *sk, const char *name, bool load)
-+int tcp_set_congestion_control(struct sock *sk, const char *name, bool load, bool reinit)
- {
- 	struct inet_connection_sock *icsk = inet_csk(sk);
- 	const struct tcp_congestion_ops *ca;
-@@ -360,9 +360,18 @@ int tcp_set_congestion_control(struct sock *sk, const char *name, bool load)
- 	if (!ca) {
- 		err = -ENOENT;
- 	} else if (!load) {
--		icsk->icsk_ca_ops = ca;
--		if (!try_module_get(ca->owner))
-+		const struct tcp_congestion_ops *old_ca = icsk->icsk_ca_ops;
-+
-+		if (try_module_get(ca->owner)) {
-+			if (reinit) {
-+				tcp_reinit_congestion_control(sk, ca);
-+			} else {
-+				icsk->icsk_ca_ops = ca;
-+				module_put(old_ca->owner);
-+			}
-+		} else {
- 			err = -EBUSY;
-+		}
- 	} else if (!((ca->flags & TCP_CONG_NON_RESTRICTED) ||
- 		     ns_capable(sock_net(sk)->user_ns, CAP_NET_ADMIN))) {
- 		err = -EPERM;
--- 
-2.14.1
+cheers,
+jamal
