@@ -1,232 +1,115 @@
 From: David Ahern <dsahern@gmail.com>
-Subject: [PATCH v2 net-next 4/8] samples/bpf: Update sock test to allow setting mark and priority
-Date: Fri, 25 Aug 2017 12:05:37 -0700
-Message-ID: <1503687941-626-5-git-send-email-dsahern@gmail.com>
+Subject: [PATCH v2 net-next 5/8] samples/bpf: Add detach option to test_cgrp2_sock
+Date: Fri, 25 Aug 2017 12:05:38 -0700
+Message-ID: <1503687941-626-6-git-send-email-dsahern@gmail.com>
 References: <1503687941-626-1-git-send-email-dsahern@gmail.com>
 Cc: David Ahern <dsahern@gmail.com>
 To: netdev@vger.kernel.org, daniel@iogearbox.net, ast@kernel.org,
         tj@kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:38059 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756602AbdHYTFz (ORCPT
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:37665 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758132AbdHYTFz (ORCPT
         <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 15:05:55 -0400
-Received: by mail-pg0-f67.google.com with SMTP id t3so880467pgt.5
-        for <netdev@vger.kernel.org>; Fri, 25 Aug 2017 12:05:54 -0700 (PDT)
+Received: by mail-pg0-f66.google.com with SMTP id a7so887894pgn.4
+        for <netdev@vger.kernel.org>; Fri, 25 Aug 2017 12:05:55 -0700 (PDT)
 In-Reply-To: <1503687941-626-1-git-send-email-dsahern@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Update sock test to set mark and priority on socket create.
+Add option to detach programs from a cgroup.
 
 Signed-off-by: David Ahern <dsahern@gmail.com>
 ---
- samples/bpf/test_cgrp2_sock.c  | 139 ++++++++++++++++++++++++++++++++++++-----
- samples/bpf/test_cgrp2_sock.sh |   2 +-
- 2 files changed, 123 insertions(+), 18 deletions(-)
+ samples/bpf/test_cgrp2_sock.c | 50 ++++++++++++++++++++++++++++++-------------
+ 1 file changed, 35 insertions(+), 15 deletions(-)
 
 diff --git a/samples/bpf/test_cgrp2_sock.c b/samples/bpf/test_cgrp2_sock.c
-index c3cfb23e23b5..b018bf948933 100644
+index b018bf948933..a1ef7b8bd3f9 100644
 --- a/samples/bpf/test_cgrp2_sock.c
 +++ b/samples/bpf/test_cgrp2_sock.c
-@@ -19,63 +19,168 @@
- #include <errno.h>
- #include <fcntl.h>
- #include <net/if.h>
-+#include <inttypes.h>
- #include <linux/bpf.h>
- 
- #include "libbpf.h"
- 
- char bpf_log_buf[BPF_LOG_BUF_SIZE];
- 
--static int prog_load(int idx)
-+static int prog_load(__u32 idx, __u32 mark, __u32 prio)
- {
--	struct bpf_insn prog[] = {
-+	/* save pointer to context */
-+	struct bpf_insn prog_start[] = {
- 		BPF_MOV64_REG(BPF_REG_6, BPF_REG_1),
-+	};
-+	struct bpf_insn prog_end[] = {
-+		BPF_MOV64_IMM(BPF_REG_0, 1), /* r0 = verdict */
-+		BPF_EXIT_INSN(),
-+	};
-+
-+	/* set sk_bound_dev_if on socket */
-+	struct bpf_insn prog_dev[] = {
- 		BPF_MOV64_IMM(BPF_REG_3, idx),
- 		BPF_MOV64_IMM(BPF_REG_2, offsetof(struct bpf_sock, bound_dev_if)),
- 		BPF_STX_MEM(BPF_W, BPF_REG_1, BPF_REG_3, offsetof(struct bpf_sock, bound_dev_if)),
--		BPF_MOV64_IMM(BPF_REG_0, 1), /* r0 = verdict */
--		BPF_EXIT_INSN(),
- 	};
--	size_t insns_cnt = sizeof(prog) / sizeof(struct bpf_insn);
- 
--	return bpf_load_program(BPF_PROG_TYPE_CGROUP_SOCK, prog, insns_cnt,
-+	/* set mark on socket */
-+	struct bpf_insn prog_mark[] = {
-+		BPF_MOV64_REG(BPF_REG_1, BPF_REG_6),
-+		BPF_MOV64_IMM(BPF_REG_3, mark),
-+		BPF_MOV64_IMM(BPF_REG_2, offsetof(struct bpf_sock, mark)),
-+		BPF_STX_MEM(BPF_W, BPF_REG_1, BPF_REG_3, offsetof(struct bpf_sock, mark)),
-+	};
-+
-+	/* set priority on socket */
-+	struct bpf_insn prog_prio[] = {
-+		BPF_MOV64_REG(BPF_REG_1, BPF_REG_6),
-+		BPF_MOV64_IMM(BPF_REG_3, prio),
-+		BPF_MOV64_IMM(BPF_REG_2, offsetof(struct bpf_sock, priority)),
-+		BPF_STX_MEM(BPF_W, BPF_REG_1, BPF_REG_3, offsetof(struct bpf_sock, priority)),
-+	};
-+
-+	struct bpf_insn *prog;
-+	size_t insns_cnt;
-+	void *p;
-+	int ret;
-+
-+	insns_cnt = sizeof(prog_start) + sizeof(prog_end);
-+	if (idx)
-+		insns_cnt += sizeof(prog_dev);
-+
-+	if (mark)
-+		insns_cnt += sizeof(prog_mark);
-+
-+	if (prio)
-+		insns_cnt += sizeof(prog_prio);
-+
-+	p = prog = malloc(insns_cnt);
-+	if (!prog) {
-+		fprintf(stderr, "Failed to allocate memory for instructions\n");
-+		return EXIT_FAILURE;
-+	}
-+
-+	memcpy(p, prog_start, sizeof(prog_start));
-+	p += sizeof(prog_start);
-+
-+	if (idx) {
-+		memcpy(p, prog_dev, sizeof(prog_dev));
-+		p += sizeof(prog_dev);
-+	}
-+
-+	if (mark) {
-+		memcpy(p, prog_mark, sizeof(prog_mark));
-+		p += sizeof(prog_mark);
-+	}
-+
-+	if (prio) {
-+		memcpy(p, prog_prio, sizeof(prog_prio));
-+		p += sizeof(prog_prio);
-+	}
-+
-+	memcpy(p, prog_end, sizeof(prog_end));
-+	p += sizeof(prog_end);
-+
-+	insns_cnt /= sizeof(struct bpf_insn);
-+
-+	ret = bpf_load_program(BPF_PROG_TYPE_CGROUP_SOCK, prog, insns_cnt,
- 				"GPL", 0, bpf_log_buf, BPF_LOG_BUF_SIZE);
-+
-+	free(prog);
-+
-+	return ret;
- }
+@@ -114,7 +114,12 @@ static int prog_load(__u32 idx, __u32 mark, __u32 prio)
  
  static int usage(const char *argv0)
  {
--	printf("Usage: %s cg-path device-index\n", argv0);
-+	printf("Usage: %s -b bind-to-dev -m mark -p prio -r cg-path\n", argv0);
+-	printf("Usage: %s -b bind-to-dev -m mark -p prio -r cg-path\n", argv0);
++	printf("Usage:\n");
++	printf("  Attach a program\n");
++	printf("  %s -b bind-to-dev -m mark -p prio -r cg-path\n", argv0);
++	printf("\n");
++	printf("  Detach a program\n");
++	printf("  %s -d cg-path\n", argv0);
  	return EXIT_FAILURE;
  }
  
- int main(int argc, char **argv)
- {
-+	__u32 attach_flags = BPF_F_ALLOW_OVERRIDE;
-+	__u32 idx = 0, mark = 0, prio = 0;
-+	const char *cgrp_path = NULL;
+@@ -124,10 +129,14 @@ int main(int argc, char **argv)
+ 	__u32 idx = 0, mark = 0, prio = 0;
+ 	const char *cgrp_path = NULL;
  	int cg_fd, prog_fd, ret;
--	unsigned int idx;
-+	int rc;
-+
-+	while ((rc = getopt(argc, argv, "b:m:p:r")) != -1) {
-+		switch (rc) {
-+		case 'b':
-+			idx = if_nametoindex(optarg);
-+			if (!idx) {
-+				idx = strtoumax(optarg, NULL, 0);
-+				if (!idx) {
-+					printf("Invalid device name\n");
-+					return EXIT_FAILURE;
-+				}
-+			}
++	int do_attach = 1;
+ 	int rc;
+ 
+-	while ((rc = getopt(argc, argv, "b:m:p:r")) != -1) {
++	while ((rc = getopt(argc, argv, "db:m:p:r")) != -1) {
+ 		switch (rc) {
++		case 'd':
++			do_attach = 0;
 +			break;
-+		case 'm':
-+			mark = strtoumax(optarg, NULL, 0);
-+			break;
-+		case 'p':
-+			prio = strtoumax(optarg, NULL, 0);
-+			break;
-+		case 'r':
-+			attach_flags |= BPF_F_RECURSIVE;
-+			break;
-+		default:
-+			return usage(argv[0]);
+ 		case 'b':
+ 			idx = if_nametoindex(optarg);
+ 			if (!idx) {
+@@ -161,7 +170,7 @@ int main(int argc, char **argv)
+ 		return EXIT_FAILURE;
+ 	}
+ 
+-	if (!idx && !mark && !prio) {
++	if (do_attach && !idx && !mark && !prio) {
+ 		fprintf(stderr, "One of device, mark or priority must be given\n");
+ 		return EXIT_FAILURE;
+ 	}
+@@ -172,20 +181,31 @@ int main(int argc, char **argv)
+ 		return EXIT_FAILURE;
+ 	}
+ 
+-	prog_fd = prog_load(idx, mark, prio);
+-	if (prog_fd < 0) {
+-		printf("Failed to load prog: '%s'\n", strerror(errno));
+-		printf("Output from kernel verifier:\n%s\n-------\n", bpf_log_buf);
+-		return EXIT_FAILURE;
+-	}
++	if (do_attach) {
++		prog_fd = prog_load(idx, mark, prio);
++		if (prog_fd < 0) {
++			printf("Failed to load prog: '%s'\n", strerror(errno));
++			printf("Output from kernel verifier:\n%s\n-------\n",
++			       bpf_log_buf);
++			return EXIT_FAILURE;
 +		}
-+	}
  
--	if (argc < 2)
-+	if (optind == argc)
- 		return usage(argv[0]);
- 
--	idx = if_nametoindex(argv[2]);
--	if (!idx) {
--		printf("Invalid device name\n");
-+	cgrp_path = argv[optind];
-+	if (!cgrp_path) {
-+		fprintf(stderr, "cgroup path not given\n");
- 		return EXIT_FAILURE;
+-	ret = bpf_prog_attach(prog_fd, cg_fd, BPF_CGROUP_INET_SOCK_CREATE,
+-			      attach_flags);
+-	if (ret < 0) {
+-		printf("Failed to attach prog to cgroup: '%s'\n",
+-		       strerror(errno));
+-		return EXIT_FAILURE;
++		ret = bpf_prog_attach(prog_fd, cg_fd, BPF_CGROUP_INET_SOCK_CREATE,
++				      attach_flags);
++		if (ret < 0) {
++			printf("Failed to attach prog to cgroup: '%s'\n",
++			       strerror(errno));
++			return EXIT_FAILURE;
++		}
++	} else {
++		ret = bpf_prog_detach(cg_fd, BPF_CGROUP_INET_SOCK_CREATE);
++		if (ret < 0) {
++			printf("Failed to detach prog from cgroup: '%s'\n",
++			       strerror(errno));
++			return EXIT_FAILURE;
++		}
  	}
  
--	cg_fd = open(argv[1], O_DIRECTORY | O_RDONLY);
-+	if (!idx && !mark && !prio) {
-+		fprintf(stderr, "One of device, mark or priority must be given\n");
-+		return EXIT_FAILURE;
-+	}
-+
-+	cg_fd = open(cgrp_path, O_DIRECTORY | O_RDONLY);
- 	if (cg_fd < 0) {
- 		printf("Failed to open cgroup path: '%s'\n", strerror(errno));
- 		return EXIT_FAILURE;
- 	}
- 
--	prog_fd = prog_load(idx);
--	printf("Output from kernel verifier:\n%s\n-------\n", bpf_log_buf);
--
-+	prog_fd = prog_load(idx, mark, prio);
- 	if (prog_fd < 0) {
- 		printf("Failed to load prog: '%s'\n", strerror(errno));
-+		printf("Output from kernel verifier:\n%s\n-------\n", bpf_log_buf);
- 		return EXIT_FAILURE;
- 	}
- 
--	ret = bpf_prog_attach(prog_fd, cg_fd, BPF_CGROUP_INET_SOCK_CREATE, 0);
-+	ret = bpf_prog_attach(prog_fd, cg_fd, BPF_CGROUP_INET_SOCK_CREATE,
-+			      attach_flags);
- 	if (ret < 0) {
- 		printf("Failed to attach prog to cgroup: '%s'\n",
- 		       strerror(errno));
-diff --git a/samples/bpf/test_cgrp2_sock.sh b/samples/bpf/test_cgrp2_sock.sh
-index 925fd467c7cc..1153c33e8964 100755
---- a/samples/bpf/test_cgrp2_sock.sh
-+++ b/samples/bpf/test_cgrp2_sock.sh
-@@ -20,7 +20,7 @@ function attach_bpf {
- 	mkdir -p /tmp/cgroupv2
- 	mount -t cgroup2 none /tmp/cgroupv2
- 	mkdir -p /tmp/cgroupv2/foo
--	test_cgrp2_sock /tmp/cgroupv2/foo foo
-+	test_cgrp2_sock -b foo /tmp/cgroupv2/foo
- 	echo $$ >> /tmp/cgroupv2/foo/cgroup.procs
++	close(cg_fd);
+ 	return EXIT_SUCCESS;
  }
- 
 -- 
 2.1.4
