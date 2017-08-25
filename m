@@ -1,7 +1,8 @@
 From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH net-next v2 00/14] net: mvpp2: comphy configuration
-Date: Fri, 25 Aug 2017 16:48:07 +0200
-Message-ID: <20170825144821.31129-1-antoine.tenart@free-electrons.com>
+Subject: [PATCH net-next v2 09/14] net: mvpp2: dynamic reconfiguration of the PHY mode
+Date: Fri, 25 Aug 2017 16:48:16 +0200
+Message-ID: <20170825144821.31129-10-antoine.tenart@free-electrons.com>
+References: <20170825144821.31129-1-antoine.tenart@free-electrons.com>
 Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
         thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
         linux@armlinux.org.uk, linux-kernel@vger.kernel.org,
@@ -11,82 +12,61 @@ To: davem@davemloft.net, kishon@ti.com, andrew@lunn.ch,
         jason@lakedaemon.net, sebastian.hesselbarth@gmail.com,
         gregory.clement@free-electrons.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170825144821.31129-1-antoine.tenart@free-electrons.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+This patch adds logic to reconfigure the comphy/gop when the link status
+change at runtime. This is very useful on boards such as the mcbin which
+have SFP and Ethernet ports connected to the same MAC port: depending on
+what the user connects the driver will automatically reconfigure the
+link mode.
 
-This series, following up the one one the GoP/MAC configuration, aims at
-stopping to depend on the firmware/bootloader configuration when using
-the PPv2 engine. With this series the PPv2 driver does not need to rely
-on a previous configuration, and dynamic reconfiguration while the
-kernel is running can be done (i.e. switch one port from SGMII to 10GKR,
-or the opposite). A port can now be configured in a different mode than
-what's done in the firmware/bootloader as well.
+Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
+---
+ drivers/net/ethernet/marvell/mvpp2.c | 21 ++++++++++++++++++++-
+ 1 file changed, 20 insertions(+), 1 deletion(-)
 
-The series first contain patches in the generic PHY framework to support
-what is called the comphy (common PHYs), which is an h/w block providing
-PHYs that can be configured in various modes ranging from SGMII, 10GKR
-to SATA and others. As of now only the SGMII and 10GKR modes are
-supported by the comphy driver.
-
-Then patches are modifying the PPv2 driver to first add the comphy
-initialization sequence (i.e. calls to the generic PHY framework) and to
-then take advantage of this to allow dynamic reconfiguration (i.e.
-configuring the mode of a port given what's connected, between sgmii and
-10G). Note the use of the comphy in the PPv2 driver is kept optional
-(i.e. if not described in dt the driver still as before an relies on the
-firmware/bootloader configuration).
-
-Finally there are dt/defconfig patches to describe and take advantage of
-this.
-
-This was tested on a range of devices: 8040-db, 8040-mcbin and 7040-db.
-
-Thanks!
-Antoine
-
-Since v1:
-  - Updated the mode settings variable name in the comphy driver to
-    have 'cp110' in it.
-  - Documented the PHY cell argument in the dt documentation.
-  - New patch adding comphy phandles for the 7040-db board.
-  - Checked if the carrier_on/off functions were needed. They are.
-  - s/PHY/generic PHY/ in commit log of patch 1.
-  - Rebased on the latest net-next/master.
-
-Antoine Tenart (13):
-  phy: add sgmii and 10gkr modes to the phy_mode enum
-  phy: add the mvebu cp110 comphy driver
-  Documentation/bindings: phy: document the Marvell comphy driver
-  net: mvpp2: initialize the comphy
-  net: mvpp2: do not force the link mode
-  net: mvpp2: simplify the link_event function
-  net: mvpp2: improve the link management function
-  net: mvpp2: check the netif is running in the link_event function
-  net: mvpp2: dynamic reconfiguration of the PHY mode
-  arm64: dts: marvell: extend the cp110 syscon register area length
-  arm64: dts: marvell: add comphy nodes on cp110 master and slave
-  arm64: dts: marvell: mcbin: add comphy references to Ethernet ports
-  arm64: dts: marvell: 7040-db: add comphy references to Ethernet ports
-
-Miquel Raynal (1):
-  arm64: defconfig: enable Marvell CP110 comphy
-
- .../devicetree/bindings/phy/phy-mvebu-comphy.txt   |  43 ++
- arch/arm64/boot/dts/marvell/armada-7040-db.dts     |   1 +
- arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts  |   3 +
- .../boot/dts/marvell/armada-cp110-master.dtsi      |  40 +-
- .../arm64/boot/dts/marvell/armada-cp110-slave.dtsi |  40 +-
- arch/arm64/configs/defconfig                       |   1 +
- drivers/net/ethernet/marvell/mvpp2.c               | 111 ++--
- drivers/phy/marvell/Kconfig                        |  10 +
- drivers/phy/marvell/Makefile                       |   1 +
- drivers/phy/marvell/phy-mvebu-cp110-comphy.c       | 656 +++++++++++++++++++++
- include/linux/phy/phy.h                            |   2 +
- 11 files changed, 873 insertions(+), 35 deletions(-)
- create mode 100644 Documentation/devicetree/bindings/phy/phy-mvebu-comphy.txt
- create mode 100644 drivers/phy/marvell/phy-mvebu-cp110-comphy.c
-
+diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
+index 49a6789a4142..04e0c8ab7b51 100644
+--- a/drivers/net/ethernet/marvell/mvpp2.c
++++ b/drivers/net/ethernet/marvell/mvpp2.c
+@@ -5740,6 +5740,7 @@ static void mvpp2_link_event(struct net_device *dev)
+ {
+ 	struct mvpp2_port *port = netdev_priv(dev);
+ 	struct phy_device *phydev = dev->phydev;
++	bool link_reconfigured = false;
+ 
+ 	if (!netif_running(dev))
+ 		return;
+@@ -5750,9 +5751,27 @@ static void mvpp2_link_event(struct net_device *dev)
+ 			port->duplex = phydev->duplex;
+ 			port->speed  = phydev->speed;
+ 		}
++
++		if (port->phy_interface != phydev->interface && port->comphy) {
++	                /* disable current port for reconfiguration */
++	                mvpp2_interrupts_disable(port);
++	                netif_carrier_off(port->dev);
++	                mvpp2_port_disable(port);
++			phy_power_off(port->comphy);
++
++	                /* comphy reconfiguration */
++	                port->phy_interface = phydev->interface;
++	                mvpp22_comphy_init(port);
++
++	                /* gop/mac reconfiguration */
++	                mvpp22_gop_init(port);
++	                mvpp2_port_mii_set(port);
++
++	                link_reconfigured = true;
++		}
+ 	}
+ 
+-	if (phydev->link != port->link) {
++	if (phydev->link != port->link || link_reconfigured) {
+ 		port->link = phydev->link;
+ 
+ 		if (phydev->link) {
 -- 
 2.13.5
