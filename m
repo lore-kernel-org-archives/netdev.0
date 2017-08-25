@@ -1,49 +1,54 @@
-From: Arkadi Sharshevsky <arkadis@mellanox.com>
-Subject: Re: [patch net-next 11/12] mlxsw: spectrum_dpipe: Add support for
- IPv4 host table dump
-Date: Fri, 25 Aug 2017 12:26:39 +0300
-Message-ID: <4d5b031e-3d0a-624f-1285-9540a9dc4716@mellanox.com>
-References: <20170824064010.1646-1-jiri@resnulli.us>
- <20170824064010.1646-12-jiri@resnulli.us>
- <e5af97b0-c17b-5360-69f7-8d1428960258@gmail.com>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: Re: [PATCH nf-next] netfilter: xt_CHECKSUM: avoid bad offload
+ warnings on GSO packets
+Date: Fri, 25 Aug 2017 11:28:19 +0200
+Message-ID: <20170825092819.hjgazfcvvrlibkd4@unicorn.suse.cz>
+References: <20170824104824.2C318A0F3A@unicorn.suse.cz>
+ <20170824105118.GA15739@breakpoint.cc>
+ <20170824110742.qby3yoz3emf6pr5i@unicorn.suse.cz>
+ <1503580122.2958.37.camel@redhat.com>
+ <20170824131722.GB15739@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com
-To: David Ahern <dsahern@gmail.com>, Jiri Pirko <jiri@resnulli.us>,
-        netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-he1eur01on0070.outbound.protection.outlook.com ([104.47.0.70]:50920
-        "EHLO EUR01-HE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1755136AbdHYJ0t (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 25 Aug 2017 05:26:49 -0400
-In-Reply-To: <e5af97b0-c17b-5360-69f7-8d1428960258@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Davide Caratti <dcaratti@redhat.com>,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        "Michael S. Tsirkin" <mst@redhat.com>,
+        Markos Chandras <markos.chandras@suse.com>
+To: Florian Westphal <fw@strlen.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170824131722.GB15739@breakpoint.cc>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
-
-On 08/24/2017 10:26 PM, David Ahern wrote:
-> On 8/23/17 11:40 PM, Jiri Pirko wrote:
->> +static int
->> +mlxsw_sp_dpipe_table_host_entries_get(struct mlxsw_sp *mlxsw_sp,
->> +				      struct devlink_dpipe_entry *entry,
->> +				      bool counters_enabled,
->> +				      struct devlink_dpipe_dump_ctx *dump_ctx,
->> +				      int type)
->> +{
->> +	int rif_neigh_count = 0;
->> +	int rif_neigh_skip = 0;
->> +	int neigh_count = 0;
->> +	int rif_count;
->> +	int i, j;
->> +	int err;
->> +
->> +	rtnl_lock();
+On Thu, Aug 24, 2017 at 03:17:22PM +0200, Florian Westphal wrote:
+> Davide Caratti <dcaratti@redhat.com> wrote:
+> > Small nit: may I suggest you to call skb_csum_hwoffload_help() instead of
+> > skb_checksum_help(), so that we avoid corrupting SCTP packets in case they
+> > hit xt_CHECKSUM target?
 > 
-> Why does a h/w driver dumping its tables need the rtnl lock?
+> Alternatively we could restrict the target to udp only.
 > 
+> AFAIU the only reason this thing exists is to fix up udp checksum
+> for old dhcp clients that use AF_PACKET without evaluating the extra
+> metadata that indicates when a 'bad' checksum is in fact ok because it
+> is supposed to be filled in by hardware later.
+> 
+> This can happen in virtual environemnt when such skb is directly passed
+> to vm.
 
-This table represents the hw IPv4 arp table, and the
-driver depends on rtnl to be held.
+Based on what the documentation and the commit message of the commit
+introducing xt_CHECKSUM module say, it seems so. But I must admit I'm
+not sure where is the target is used and how (and why). In particular,
+our issue was most likely result of
+
+  https://github.com/openstack/openstack-ansible-tests/blob/master/test-prepare-host.yml#L196-L197
+
+where they explicitely confine it to TCP packets. Unfortunately these
+lines come from "Initial testing commit" so it's hard to say what the
+intention behind that was.
+
+                                                       Michal Kubecek
