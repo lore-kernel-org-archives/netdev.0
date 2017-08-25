@@ -1,69 +1,55 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [Patch net-next v2 2/4] net_sched: introduce tclass_del_notify()
-Date: Fri, 25 Aug 2017 10:54:38 +0200
-Message-ID: <20170825085438.GC2023@nanopsycho>
+Subject: Re: [Patch net-next v2 3/4] net_sched: remove tc class reference
+ counting
+Date: Fri, 25 Aug 2017 11:00:21 +0200
+Message-ID: <20170825090021.GA4829@nanopsycho>
 References: <20170824235130.28503-1-xiyou.wangcong@gmail.com>
- <20170824235130.28503-3-xiyou.wangcong@gmail.com>
+ <20170824235130.28503-4-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com, fw@strlen.de
 To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:36061 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755039AbdHYIyl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 04:54:41 -0400
-Received: by mail-wm0-f67.google.com with SMTP id j72so1890630wmi.3
-        for <netdev@vger.kernel.org>; Fri, 25 Aug 2017 01:54:40 -0700 (PDT)
+Received: from mail-wr0-f173.google.com ([209.85.128.173]:36632 "EHLO
+        mail-wr0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755047AbdHYJAX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 05:00:23 -0400
+Received: by mail-wr0-f173.google.com with SMTP id p14so5388491wrg.3
+        for <netdev@vger.kernel.org>; Fri, 25 Aug 2017 02:00:23 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20170824235130.28503-3-xiyou.wangcong@gmail.com>
+In-Reply-To: <20170824235130.28503-4-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fri, Aug 25, 2017 at 01:51:28AM CEST, xiyou.wangcong@gmail.com wrote:
->Like for TC actions, ->delete() is a special case,
->we have to prepare and fill the notification before delete
->otherwise would get use-after-free after we remove the
->reference count.
+Fri, Aug 25, 2017 at 01:51:29AM CEST, xiyou.wangcong@gmail.com wrote:
+>For TC classes, their ->get() and ->put() are always paired, and the
+>reference counting is completely useless, because:
 >
->Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
->---
+>1) For class modification and dumping paths, we already hold RTNL lock,
+>   so all of these ->get(),->change(),->put() are atomic.
 
-[...]
+There is ongoing initiative by Florian to avoid taking RTNL for some
+rtnetlink calls. I think that for dumping it could be done in tc as well.
+Don't we need the refcnt then?
 
 
->+static int tclass_del_notify(struct net *net,
->+			     const struct Qdisc_class_ops *cops,
->+			     struct sk_buff *oskb, struct nlmsghdr *n,
->+			     struct Qdisc *q, unsigned long cl)
->+{
->+	u32 portid = oskb ? NETLINK_CB(oskb).portid : 0;
->+	struct sk_buff *skb;
->+	int err = 0;
->+
->+	if (!cops->delete)
->+		return -EOPNOTSUPP;
->+
->+	skb = alloc_skb(NLMSG_GOODSIZE, GFP_KERNEL);
->+	if (!skb)
->+		return -ENOBUFS;
->+
->+	if (tc_fill_tclass(skb, q, cl, portid, n->nlmsg_seq, 0,
->+			   RTM_DELTCLASS) < 0) {
->+		kfree_skb(skb);
->+		return -EINVAL;
->+	}
->+
->+	err = cops->delete(q, cl);
->+	if (err) {
->+		kfree_skb(skb);
->+		return err;
->+	}
->+
->+	return rtnetlink_send(skb, net, portid, RTNLGRP_TC,
->+			      n->nlmsg_flags & NLM_F_ECHO);
-
-There is a lot of code duplication with tclass_notify function. Don't
-you rather want to split tclass_notify into tclass_notify_prepare and
-tclass_notify_send and use these 2 from both tclass_notify and
-tclass_del_notify?
+>
+>2) For filter bindiing/unbinding, we use other reference counter than
+>   this one, and they should have RTNL lock too.
+>
+>3) For ->qlen_notify(), it is special because it is called on ->enqueue()
+>   path, but we already hold qdisc tree lock there, and we hold this
+>   tree lock when graft or delete the class too, so it should not be gone
+>   or changed until we release the tree lock.
+>
+>Therefore, this patch removes ->get() and ->put(), but:
+>
+>1) Adds a new ->find() to find the pointer to a class by classid, no
+>   refcnt.
+>
+>2) Move the original class destroy upon the last refcnt into ->delete(),
+>   right after releasing tree lock. This is fine because the class is
+>   already removed from hash when holding the lock.
+>
+>For those who also use ->put() as ->unbind(), just rename them to reflect
+>this change.
