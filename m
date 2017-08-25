@@ -1,77 +1,32 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next] e1000e: Be drop monitor friendly
-Date: Thu, 24 Aug 2017 18:36:50 -0700
-Message-ID: <20170825013650.27463-1-f.fainelli@gmail.com>
-Cc: edumazet@gmail.com, davem@davemloft.net,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        intel-wired-lan@lists.osuosl.org (moderated list:INTEL ETHERNET DRIVERS),
-        linux-kernel@vger.kernel.org (open list)
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net: mv643xx_eth: Be drop monitor friendly
+Date: Thu, 24 Aug 2017 18:52:00 -0700 (PDT)
+Message-ID: <20170824.185200.809354587649786034.davem@davemloft.net>
+References: <20170824230425.15948-1-f.fainelli@gmail.com>
+        <20170824.182756.386299059058749250.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, edumazet@gmail.com, andrew@lunn.ch,
+        sebastian.hesselbarth@gmail.com, linux-kernel@vger.kernel.org
+To: f.fainelli@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170824.182756.386299059058749250.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-e1000_put_txbuf() cleans up the successfully transmitted TX packets,
-e1000e_tx_hwtstamp_work() also does the successfully completes the
-timestamped TX packets, e1000_clean_rx_ring() cleans up the RX ring and
-e1000_remove() cleans up the timestampted packets. None of these
-functions should be reporting dropped packets, so make them use
-dev_consume_skb*() to be drop monitor friendly.
-
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/ethernet/intel/e1000e/netdev.c | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 327dfe5bedc0..91303544975a 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -1085,7 +1085,7 @@ static void e1000_put_txbuf(struct e1000_ring *tx_ring,
- 		buffer_info->dma = 0;
- 	}
- 	if (buffer_info->skb) {
--		dev_kfree_skb_any(buffer_info->skb);
-+		dev_consume_skb_any(buffer_info->skb);
- 		buffer_info->skb = NULL;
- 	}
- 	buffer_info->time_stamp = 0;
-@@ -1199,7 +1199,7 @@ static void e1000e_tx_hwtstamp_work(struct work_struct *work)
- 		wmb(); /* force write prior to skb_tstamp_tx */
- 
- 		skb_tstamp_tx(skb, &shhwtstamps);
--		dev_kfree_skb_any(skb);
-+		dev_consume_skb_any(skb);
- 	} else if (time_after(jiffies, adapter->tx_hwtstamp_start
- 			      + adapter->tx_timeout_factor * HZ)) {
- 		dev_kfree_skb_any(adapter->tx_hwtstamp_skb);
-@@ -1716,7 +1716,7 @@ static void e1000_clean_rx_ring(struct e1000_ring *rx_ring)
- 		}
- 
- 		if (buffer_info->skb) {
--			dev_kfree_skb(buffer_info->skb);
-+			dev_consume_skb(buffer_info->skb);
- 			buffer_info->skb = NULL;
- 		}
- 
-@@ -1734,7 +1734,7 @@ static void e1000_clean_rx_ring(struct e1000_ring *rx_ring)
- 
- 	/* there also may be some cached data from a chained receive */
- 	if (rx_ring->rx_skb_top) {
--		dev_kfree_skb(rx_ring->rx_skb_top);
-+		dev_consume_skb(rx_ring->rx_skb_top);
- 		rx_ring->rx_skb_top = NULL;
- 	}
- 
-@@ -7411,7 +7411,7 @@ static void e1000_remove(struct pci_dev *pdev)
- 	if (adapter->flags & FLAG_HAS_HW_TIMESTAMP) {
- 		cancel_work_sync(&adapter->tx_hwtstamp_work);
- 		if (adapter->tx_hwtstamp_skb) {
--			dev_kfree_skb_any(adapter->tx_hwtstamp_skb);
-+			dev_consume_skb_any(adapter->tx_hwtstamp_skb);
- 			adapter->tx_hwtstamp_skb = NULL;
- 		}
- 	}
--- 
-2.9.3
+RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogVGh1LCAyNCBB
+dWcgMjAxNyAxODoyNzo1NiAtMDcwMCAoUERUKQ0KDQo+IEZyb206IEZsb3JpYW4gRmFpbmVsbGkg
+PGYuZmFpbmVsbGlAZ21haWwuY29tPg0KPiBEYXRlOiBUaHUsIDI0IEF1ZyAyMDE3IDE2OjA0OjI1
+IC0wNzAwDQo+IA0KPj4gdHhxX3JlY2xhaW0oKSBkb2VzIHRoZSBub3JtYWwgdHJhbnNtaXQgcXVl
+dWUgcmVjbGFtYXRpb24gYW5kDQo+PiByeHFfZGVpbml0KCkgZG9lcyB0aGUgUlggcmluZyBjbGVh
+bnVwLCBub25lIG9mIHRoZXNlIGFyZSBwYWNrZXQgZHJvcHMsDQo+PiBzbyB1c2UgZGV2X2NvbnN1
+bWVfc2tiKCkgZm9yIGJvdGggbG9jYXRpb25zLg0KPj4gDQo+PiBTaWduZWQtb2ZmLWJ5OiBGbG9y
+aWFuIEZhaW5lbGxpIDxmLmZhaW5lbGxpQGdtYWlsLmNvbT4NCj4gDQo+IEFwcGxpZWQuDQoNCi1F
+Tk9DT01QSUxFPw0KDQpkcml2ZXJzL25ldC9ldGhlcm5ldC9tYXJ2ZWxsL212NjQzeHhfZXRoLmM6
+IEluIGZ1bmN0aW9uIKF0eHFfcmVjbGFpbaI6DQpkcml2ZXJzL25ldC9ldGhlcm5ldC9tYXJ2ZWxs
+L212NjQzeHhfZXRoLmM6MTEyNDo1OiBlcnJvcjogaW1wbGljaXQgZGVjbGFyYXRpb24gb2YgZnVu
+Y3Rpb24goWRldl9jb25zdW1lX3NrYqI7IGRpZCB5b3UgbWVhbiChZGV2X2NvbnN1bWVfc2tiX2Fu
+eaI/IFstV2Vycm9yPWltcGxpY2l0LWZ1bmN0aW9uLWRlY2xhcmF0aW9uXQ0KICAgICBkZXZfY29u
+c3VtZV9za2Ioc2tiKTsNCiAgICAgXn5+fn5+fn5+fn5+fn5+DQogICAgIGRldl9jb25zdW1lX3Nr
+Yl9hbnkNCg0KUmV2ZXJ0ZWQuDQo=
