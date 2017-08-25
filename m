@@ -1,191 +1,51 @@
-From: William Tu <u9012063@gmail.com>
-Subject: [PATCH net-next 2/3] gre: add collect_md mode to ERSPAN tunnel
-Date: Fri, 25 Aug 2017 09:21:28 -0700
-Message-ID: <1503678089-27131-3-git-send-email-u9012063@gmail.com>
-References: <1503678089-27131-1-git-send-email-u9012063@gmail.com>
-To: netdev@vger.kernel.org
+From: "Keller, Jacob E" <jacob.e.keller@intel.com>
+Subject: RE: [RFC PATCH] net: limit maximum number of packets to mark with
+ xmit_more
+Date: Fri, 25 Aug 2017 16:24:05 +0000
+Message-ID: <02874ECE860811409154E81DA85FBB5882A8A790@ORSMSX115.amr.corp.intel.com>
+References: <20170825152449.29790-1-jacob.e.keller@intel.com>
+        <E0D909EE5BB15A4699798539EA149D7F07793B3E@ORSMSX103.amr.corp.intel.com>
+ <20170825085816.3425a70c@xeon-e3>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Stephen Hemminger <stephen@networkplumber.org>,
+        "Waskiewicz Jr, Peter" <peter.waskiewicz.jr@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:35209 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934275AbdHYQVm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 12:21:42 -0400
-Received: by mail-pg0-f65.google.com with SMTP id r133so367417pgr.2
-        for <netdev@vger.kernel.org>; Fri, 25 Aug 2017 09:21:42 -0700 (PDT)
-Received: from sc9-mailhost2.vmware.com ([208.91.1.34])
-        by smtp.gmail.com with ESMTPSA id k197sm1051155pga.78.2017.08.25.09.21.41
-        for <netdev@vger.kernel.org>
-        (version=TLS1_2 cipher=ECDHE-RSA-AES128-SHA bits=128/128);
-        Fri, 25 Aug 2017 09:21:41 -0700 (PDT)
-In-Reply-To: <1503678089-27131-1-git-send-email-u9012063@gmail.com>
+Received: from mga01.intel.com ([192.55.52.88]:45430 "EHLO mga01.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S934196AbdHYQYK (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 25 Aug 2017 12:24:10 -0400
+In-Reply-To: <20170825085816.3425a70c@xeon-e3>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Similar to gre, vxlan, geneve, ipip tunnels, allow ERSPAN tunnels to
-operate in 'collect metadata' mode.  bpf_skb_[gs]et_tunnel_key() helpers
-can make use of it right away.  OVS can use it as well in the future.
+> -----Original Message-----
+> From: Stephen Hemminger [mailto:stephen@networkplumber.org]
+> Sent: Friday, August 25, 2017 8:58 AM
+> To: Waskiewicz Jr, Peter <peter.waskiewicz.jr@intel.com>
+> Cc: Keller, Jacob E <jacob.e.keller@intel.com>; netdev@vger.kernel.org
+> Subject: Re: [RFC PATCH] net: limit maximum number of packets to mark with
+> xmit_more
+> 
+> xmit_more is only a hint to the device. The device driver should ignore it unless
+> there are hardware advantages. The device driver is the place with HW specific
+> knowledge (like 4 Tx descriptors is equivalent to one PCI transaction on this
+> device).
+> 
+> Anything that pushes that optimization out to the user is only useful for
+> benchmarks
+> and embedded devices.
 
-Signed-off-by: William Tu <u9012063@gmail.com>
----
- include/net/ip_tunnels.h |   4 +-
- net/ipv4/ip_gre.c        | 102 +++++++++++++++++++++++++++++++++++++++++++++--
- 2 files changed, 101 insertions(+), 5 deletions(-)
+Right so most drivers I've seen simply take it as a "avoid bumping tail of a ring" whenever they see xmit_more. But unfortunately in some circumstances, this results in potentially several hundred packets being set with xmit_more in a row, and then the driver doesn't bump the tail for a long time, resulting in high latency spikes..
 
-diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
-index 625c29329372..992652856fe8 100644
---- a/include/net/ip_tunnels.h
-+++ b/include/net/ip_tunnels.h
-@@ -154,8 +154,10 @@ struct ip_tunnel {
- #define TUNNEL_GENEVE_OPT	__cpu_to_be16(0x0800)
- #define TUNNEL_VXLAN_OPT	__cpu_to_be16(0x1000)
- #define TUNNEL_NOCACHE		__cpu_to_be16(0x2000)
-+#define TUNNEL_ERSPAN_OPT	__cpu_to_be16(0x4000)
- 
--#define TUNNEL_OPTIONS_PRESENT	(TUNNEL_GENEVE_OPT | TUNNEL_VXLAN_OPT)
-+#define TUNNEL_OPTIONS_PRESENT \
-+		(TUNNEL_GENEVE_OPT | TUNNEL_VXLAN_OPT | TUNNEL_ERSPAN_OPT)
- 
- struct tnl_ptk_info {
- 	__be16 flags;
-diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-index 453b7925b940..0162fb955b33 100644
---- a/net/ipv4/ip_gre.c
-+++ b/net/ipv4/ip_gre.c
-@@ -113,6 +113,8 @@ MODULE_PARM_DESC(log_ecn_error, "Log packets received with corrupted ECN");
- 
- static struct rtnl_link_ops ipgre_link_ops __read_mostly;
- static int ipgre_tunnel_init(struct net_device *dev);
-+static void erspan_build_header(struct sk_buff *skb,
-+				__be32 id, u32 index, bool truncate);
- 
- static unsigned int ipgre_net_id __read_mostly;
- static unsigned int gre_tap_net_id __read_mostly;
-@@ -287,7 +289,33 @@ static int erspan_rcv(struct sk_buff *skb, struct tnl_ptk_info *tpi,
- 					   false, false) < 0)
- 			goto drop;
- 
--		tunnel->index = ntohl(index);
-+		if (tunnel->collect_md) {
-+			struct ip_tunnel_info *info;
-+			struct erspan_metadata *md;
-+			__be64 tun_id;
-+			__be16 flags;
-+
-+			tpi->flags |= TUNNEL_KEY;
-+			flags = tpi->flags;
-+			tun_id = key32_to_tunnel_id(tpi->key);
-+
-+			tun_dst = ip_tun_rx_dst(skb, flags,
-+						tun_id, sizeof(*md));
-+			if (!tun_dst)
-+				return PACKET_REJECT;
-+
-+			md = ip_tunnel_info_opts(&tun_dst->u.tun_info);
-+			if (!md)
-+				return PACKET_REJECT;
-+
-+			md->index = index;
-+			info = &tun_dst->u.tun_info;
-+			info->key.tun_flags |= TUNNEL_ERSPAN_OPT;
-+			info->options_len = sizeof(*md);
-+		} else {
-+			tunnel->index = ntohl(index);
-+		}
-+
- 		skb_reset_mac_header(skb);
- 		ip_tunnel_rcv(tunnel, skb, tpi, tun_dst, log_ecn_error);
- 		return PACKET_RCVD;
-@@ -523,6 +551,64 @@ static void gre_fb_xmit(struct sk_buff *skb, struct net_device *dev,
- 	dev->stats.tx_dropped++;
- }
- 
-+static void erspan_fb_xmit(struct sk_buff *skb, struct net_device *dev,
-+			   __be16 proto)
-+{
-+	struct ip_tunnel *tunnel = netdev_priv(dev);
-+	struct ip_tunnel_info *tun_info;
-+	const struct ip_tunnel_key *key;
-+	struct erspan_metadata *md;
-+	struct rtable *rt = NULL;
-+	bool truncate = false;
-+	struct flowi4 fl;
-+	int tunnel_hlen;
-+	__be16 df;
-+
-+	tun_info = skb_tunnel_info(skb);
-+	if (unlikely(!tun_info || !(tun_info->mode & IP_TUNNEL_INFO_TX) ||
-+		     ip_tunnel_info_af(tun_info) != AF_INET))
-+		goto err_free_skb;
-+
-+	key = &tun_info->key;
-+
-+	/* ERSPAN has fixed 8 byte GRE header */
-+	tunnel_hlen = 8 + sizeof(struct erspanhdr);
-+
-+	rt = prepare_fb_xmit(skb, dev, &fl, tunnel_hlen);
-+	if (!rt)
-+		return;
-+
-+	if (gre_handle_offloads(skb, false))
-+		goto err_free_rt;
-+
-+	if (skb->len > dev->mtu) {
-+		pskb_trim(skb, dev->mtu);
-+		truncate = true;
-+	}
-+
-+	md = ip_tunnel_info_opts(tun_info);
-+	if (!md)
-+		goto err_free_rt;
-+
-+	erspan_build_header(skb, tunnel_id_to_key32(key->tun_id),
-+			    ntohl(md->index), truncate);
-+
-+	gre_build_header(skb, 8, TUNNEL_SEQ,
-+			 htons(ETH_P_ERSPAN), 0, htonl(tunnel->o_seqno++));
-+
-+	df = key->tun_flags & TUNNEL_DONT_FRAGMENT ?  htons(IP_DF) : 0;
-+
-+	iptunnel_xmit(skb->sk, rt, skb, fl.saddr, key->u.ipv4.dst, IPPROTO_GRE,
-+		      key->tos, key->ttl, df, false);
-+	return;
-+
-+err_free_rt:
-+	ip_rt_put(rt);
-+err_free_skb:
-+	kfree_skb(skb);
-+	dev->stats.tx_dropped++;
-+}
-+
- static int gre_fill_metadata_dst(struct net_device *dev, struct sk_buff *skb)
- {
- 	struct ip_tunnel_info *info = skb_tunnel_info(skb);
-@@ -636,6 +722,11 @@ static netdev_tx_t erspan_xmit(struct sk_buff *skb,
- 	struct ip_tunnel *tunnel = netdev_priv(dev);
- 	bool truncate = false;
- 
-+	if (tunnel->collect_md) {
-+		erspan_fb_xmit(skb, dev, skb->protocol);
-+		return NETDEV_TX_OK;
-+	}
-+
- 	if (gre_handle_offloads(skb, false))
- 		goto free_skb;
- 
-@@ -998,9 +1089,12 @@ static int erspan_validate(struct nlattr *tb[], struct nlattr *data[],
- 		return ret;
- 
- 	/* ERSPAN should only have GRE sequence and key flag */
--	flags |= nla_get_be16(data[IFLA_GRE_OFLAGS]);
--	flags |= nla_get_be16(data[IFLA_GRE_IFLAGS]);
--	if (flags != (GRE_SEQ | GRE_KEY))
-+	if (data[IFLA_GRE_OFLAGS])
-+		flags |= nla_get_be16(data[IFLA_GRE_OFLAGS]);
-+	if (data[IFLA_GRE_IFLAGS])
-+		flags |= nla_get_be16(data[IFLA_GRE_IFLAGS]);
-+	if (!data[IFLA_GRE_COLLECT_METADATA] &&
-+	    flags != (GRE_SEQ | GRE_KEY))
- 		return -EINVAL;
- 
- 	/* ERSPAN Session ID only has 10-bit. Since we reuse
--- 
-2.7.4
+I was trying to find a way to fix this potentially in multiple drivers, rather than just a single driver, since I figured the same sort of code might need to be needed.
+
+So you're suggesting we should just perform some check in the device driver, even if it might be duplication?
+
+We could also instead make it a setting in the netdev struct or something which would be set by the driver and then tell stack code to limit how many it sends at once (so that we don't need to duplicate that checking code in every driver?)
+
+Thanks,
+Jake
