@@ -1,32 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: mv643xx_eth: Be drop monitor friendly
-Date: Thu, 24 Aug 2017 18:52:00 -0700 (PDT)
-Message-ID: <20170824.185200.809354587649786034.davem@davemloft.net>
-References: <20170824230425.15948-1-f.fainelli@gmail.com>
-        <20170824.182756.386299059058749250.davem@davemloft.net>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH] staging: rtlwifi: Improve debugging by using debugfs
+Date: Fri, 25 Aug 2017 03:54:21 +0200
+Message-ID: <20170825015421.GA8852@lunn.ch>
+References: <20170824212808.26632-1-Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, edumazet@gmail.com, andrew@lunn.ch,
-        sebastian.hesselbarth@gmail.com, linux-kernel@vger.kernel.org
-To: f.fainelli@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170824.182756.386299059058749250.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: gregkh@linuxfoundation.org, netdev@vger.kernel.org,
+        devel@driverdev.osuosl.org, Ping-Ke Shih <pkshih@realtek.com>,
+        Yan-Hsuan Chuang <yhchuang@realtek.com>,
+        Birming Chiu <birming@realtek.com>,
+        Shaofu <shaofu@realtek.com>, Steven Ting <steventing@realtek.com>
+To: Larry Finger <Larry.Finger@lwfinger.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:43765 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754191AbdHYByZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 24 Aug 2017 21:54:25 -0400
+Content-Disposition: inline
+In-Reply-To: <20170824212808.26632-1-Larry.Finger@lwfinger.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogVGh1LCAyNCBB
-dWcgMjAxNyAxODoyNzo1NiAtMDcwMCAoUERUKQ0KDQo+IEZyb206IEZsb3JpYW4gRmFpbmVsbGkg
-PGYuZmFpbmVsbGlAZ21haWwuY29tPg0KPiBEYXRlOiBUaHUsIDI0IEF1ZyAyMDE3IDE2OjA0OjI1
-IC0wNzAwDQo+IA0KPj4gdHhxX3JlY2xhaW0oKSBkb2VzIHRoZSBub3JtYWwgdHJhbnNtaXQgcXVl
-dWUgcmVjbGFtYXRpb24gYW5kDQo+PiByeHFfZGVpbml0KCkgZG9lcyB0aGUgUlggcmluZyBjbGVh
-bnVwLCBub25lIG9mIHRoZXNlIGFyZSBwYWNrZXQgZHJvcHMsDQo+PiBzbyB1c2UgZGV2X2NvbnN1
-bWVfc2tiKCkgZm9yIGJvdGggbG9jYXRpb25zLg0KPj4gDQo+PiBTaWduZWQtb2ZmLWJ5OiBGbG9y
-aWFuIEZhaW5lbGxpIDxmLmZhaW5lbGxpQGdtYWlsLmNvbT4NCj4gDQo+IEFwcGxpZWQuDQoNCi1F
-Tk9DT01QSUxFPw0KDQpkcml2ZXJzL25ldC9ldGhlcm5ldC9tYXJ2ZWxsL212NjQzeHhfZXRoLmM6
-IEluIGZ1bmN0aW9uIKF0eHFfcmVjbGFpbaI6DQpkcml2ZXJzL25ldC9ldGhlcm5ldC9tYXJ2ZWxs
-L212NjQzeHhfZXRoLmM6MTEyNDo1OiBlcnJvcjogaW1wbGljaXQgZGVjbGFyYXRpb24gb2YgZnVu
-Y3Rpb24goWRldl9jb25zdW1lX3NrYqI7IGRpZCB5b3UgbWVhbiChZGV2X2NvbnN1bWVfc2tiX2Fu
-eaI/IFstV2Vycm9yPWltcGxpY2l0LWZ1bmN0aW9uLWRlY2xhcmF0aW9uXQ0KICAgICBkZXZfY29u
-c3VtZV9za2Ioc2tiKTsNCiAgICAgXn5+fn5+fn5+fn5+fn5+DQogICAgIGRldl9jb25zdW1lX3Nr
-Yl9hbnkNCg0KUmV2ZXJ0ZWQuDQo=
+On Thu, Aug 24, 2017 at 04:28:08PM -0500, Larry Finger wrote:
+> The changes in this commit are also being sent to the main rtlwifi
+> drivers in wireless-next; however, these changes will also be useful for
+> any debugging of r8822be before it gets moved into the main tree.
+> 
+> Use debugfs to dump register and btcoex status, and also write registers
+> and h2c.
+> 
+> We create topdir in /sys/kernel/debug/rtlwifi/, and use the MAC address
+> as subdirectory with several entries to dump mac_reg, bb_reg, rf_reg etc.
+> An example is
+>     /sys/kernel/debug/rtlwifi/00-11-22-33-44-55-66/mac_0
+> 
+> This change permits examination of device registers in a dynamic manner,
+> a feature not available with the current debug mechanism.
+
+Hi Larry
+
+netdev frowns upon debugfs. You should try to keep this altogether,
+making it easy to throw away before the driver is moved out of
+staging.
+
+You might want to look at ethtool -d. That will be accepted.
+
+    Andrew
