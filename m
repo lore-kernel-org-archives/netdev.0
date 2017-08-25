@@ -1,126 +1,76 @@
-From: Wei Wang <weiwan@google.com>
-Subject: [PATCH net] ipv6: fix sparse warning on rt6i_node
-Date: Fri, 25 Aug 2017 15:03:10 -0700
-Message-ID: <20170825220310.24863-1-tracywwnj@gmail.com>
-Cc: Eric Dumazet <edumazet@google.com>,
-        Martin KaFai Lau <kafai@fb.com>, Wei Wang <weiwan@google.com>
-To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [Intel-wired-lan] how to submit fixes for i40e/i40evf?
+Date: Fri, 25 Aug 2017 15:10:08 -0700
+Message-ID: <CAKgT0UcLAw0958zJ4o9V9Vyamvd1mBQX1+9GAaZw-hZubMqXnw@mail.gmail.com>
+References: <20170825225215.35fc6b59@elisabeth>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        Netdev <netdev@vger.kernel.org>,
+        intel-wired-lan <intel-wired-lan@lists.osuosl.org>
+To: Stefano Brivio <sbrivio@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f42.google.com ([74.125.83.42]:33466 "EHLO
-        mail-pg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933339AbdHYWDY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 18:03:24 -0400
-Received: by mail-pg0-f42.google.com with SMTP id t3so5587342pgt.0
-        for <netdev@vger.kernel.org>; Fri, 25 Aug 2017 15:03:24 -0700 (PDT)
+Received: from mail-qt0-f182.google.com ([209.85.216.182]:35632 "EHLO
+        mail-qt0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933825AbdHYWKJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 18:10:09 -0400
+Received: by mail-qt0-f182.google.com with SMTP id x36so5319871qtx.2
+        for <netdev@vger.kernel.org>; Fri, 25 Aug 2017 15:10:09 -0700 (PDT)
+In-Reply-To: <20170825225215.35fc6b59@elisabeth>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Wang <weiwan@google.com>
+On Fri, Aug 25, 2017 at 1:52 PM, Stefano Brivio <sbrivio@redhat.com> wrote:
+> Hi,
+>
+> As I'm currently preparing another fix for i40e, and the last one I
+> submitted has been stuck for about two weeks now, I would like to ask
+> some details about the process to submit fixes for i40e/i40evf drivers,
+> before I do something wrong again.
+>
+> Do all the patches have to go through Intel's patchwork, no matter
+> what's the perceived severity of the issue? Should I still submit them
+> to netdev anyway?
 
-Commit c5cff8561d2d adds rcu grace period before freeing fib6_node. This
-generates a new sparse warning on rt->rt6i_node related code:
-  net/ipv6/route.c:1394:30: error: incompatible types in comparison
-  expression (different address spaces)
-  ./include/net/ip6_fib.h:187:14: error: incompatible types in comparison
-  expression (different address spaces)
+It is preferred if they go through Intel's patchwork as they should go
+through some additional testing and review that way.
 
-This commit adds "__rcu" tag for rt6i_node and makes sure corresponding
-rcu API is used for it.
-After this fix, sparse no longer generates the above warning.
+> Which trees should I check before submitting a patch? Is it enough to
+> check the master branch of jkirsher/net-queue.git and
+> jkirsher/next-queue.git?
 
-Fixes: c5cff8561d2d ("ipv6: add rcu grace period before freeing fib6_node")
-Signed-off-by: Wei Wang <weiwan@google.com>
-Acked-by: Eric Dumazet <edumazet@google.com>
----
- include/net/ip6_fib.h |  2 +-
- net/ipv6/addrconf.c   |  2 +-
- net/ipv6/ip6_fib.c    | 11 +++++++----
- net/ipv6/route.c      |  3 ++-
- 4 files changed, 11 insertions(+), 7 deletions(-)
+It depends on if you want to see the patches end up in Dave's net tree
+or his net-next tree. If the fix is high enough priority to be
+accepted into Dave's net tree then you can submit it against Jeff's
+net-queue, otherwise it should be the next-queue. You might want to
+check the next-queue for a fix if you are seeing an issue though, as
+there is a chance of a fix for an issue you deem critical ending up
+there if somebody else judged it differently.
 
-diff --git a/include/net/ip6_fib.h b/include/net/ip6_fib.h
-index e9c59db92942..af509f801084 100644
---- a/include/net/ip6_fib.h
-+++ b/include/net/ip6_fib.h
-@@ -105,7 +105,7 @@ struct rt6_info {
- 	 * the same cache line.
- 	 */
- 	struct fib6_table		*rt6i_table;
--	struct fib6_node		*rt6i_node;
-+	struct fib6_node __rcu		*rt6i_node;
- 
- 	struct in6_addr			rt6i_gateway;
- 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 3c46e9513a31..936e9ab4dda5 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -5556,7 +5556,7 @@ static void __ipv6_ifa_notify(int event, struct inet6_ifaddr *ifp)
- 		 * our DAD process, so we don't need
- 		 * to do it again
- 		 */
--		if (!(ifp->rt->rt6i_node))
-+		if (!rcu_access_pointer(ifp->rt->rt6i_node))
- 			ip6_ins_rt(ifp->rt);
- 		if (ifp->idev->cnf.forwarding)
- 			addrconf_join_anycast(ifp);
-diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
-index a5ebf86f6be8..10b4b1f8b838 100644
---- a/net/ipv6/ip6_fib.c
-+++ b/net/ipv6/ip6_fib.c
-@@ -889,7 +889,7 @@ static int fib6_add_rt2node(struct fib6_node *fn, struct rt6_info *rt,
- 
- 		rt->dst.rt6_next = iter;
- 		*ins = rt;
--		rt->rt6i_node = fn;
-+		rcu_assign_pointer(rt->rt6i_node, fn);
- 		atomic_inc(&rt->rt6i_ref);
- 		if (!info->skip_notify)
- 			inet6_rt_notify(RTM_NEWROUTE, rt, info, nlflags);
-@@ -915,7 +915,7 @@ static int fib6_add_rt2node(struct fib6_node *fn, struct rt6_info *rt,
- 			return err;
- 
- 		*ins = rt;
--		rt->rt6i_node = fn;
-+		rcu_assign_pointer(rt->rt6i_node, fn);
- 		rt->dst.rt6_next = iter->dst.rt6_next;
- 		atomic_inc(&rt->rt6i_ref);
- 		if (!info->skip_notify)
-@@ -1480,8 +1480,9 @@ static void fib6_del_route(struct fib6_node *fn, struct rt6_info **rtp,
- 
- int fib6_del(struct rt6_info *rt, struct nl_info *info)
- {
-+	struct fib6_node *fn = rcu_dereference_protected(rt->rt6i_node,
-+				    lockdep_is_held(&rt->rt6i_table->tb6_lock));
- 	struct net *net = info->nl_net;
--	struct fib6_node *fn = rt->rt6i_node;
- 	struct rt6_info **rtp;
- 
- #if RT6_DEBUG >= 2
-@@ -1670,7 +1671,9 @@ static int fib6_clean_node(struct fib6_walker *w)
- 			if (res) {
- #if RT6_DEBUG >= 2
- 				pr_debug("%s: del failed: rt=%p@%p err=%d\n",
--					 __func__, rt, rt->rt6i_node, res);
-+					 __func__, rt,
-+					 rcu_access_pointer(rt->rt6i_node),
-+					 res);
- #endif
- 				continue;
- 			}
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index a9d3564caf49..33629f2a0f9d 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -1383,7 +1383,8 @@ static void rt6_do_update_pmtu(struct rt6_info *rt, u32 mtu)
- static bool rt6_cache_allowed_for_pmtu(const struct rt6_info *rt)
- {
- 	return !(rt->rt6i_flags & RTF_CACHE) &&
--		(rt->rt6i_flags & RTF_PCPU || rt->rt6i_node);
-+		(rt->rt6i_flags & RTF_PCPU ||
-+		 rcu_access_pointer(rt->rt6i_node));
- }
- 
- static void __ip6_rt_update_pmtu(struct dst_entry *dst, const struct sock *sk,
--- 
-2.14.1.342.g6490525c54-goog
+> Once patches reach Intel's patchwork, will they need to wait for some
+> kind of periodically scheduled pull request process?
+
+Once in the patchwork they go through testing and after they have
+passed testing Jeff will try to push them to Dave.
+
+> I don't know if a process is actually defined at this level of detail,
+> but still I feel it's wrong that an obvious fix for a potential crash is
+> waiting in some sort of limbo for 10 days now. Sure, worse things
+> happen in the world, but I can't understand what this patch is waiting
+> for.
+
+Well in the case of your patch it was rejected as it didn't apply to
+Jeff's tree and conflicted with Jacob Keller's patch. He submitted a
+v2 on Tuesday which has only been applied for a few days. Once it
+receives a "Tested-by:" it will be ready for submission assuming it
+passes testing.
+
+> Any answer is appreciated. Thanks,
+>
+> --
+> Stefano
+
+I hope that helps to clarify things.
+
+- Alex
