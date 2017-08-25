@@ -1,7 +1,7 @@
 From: Bhumika Goyal <bhumirks@gmail.com>
-Subject: [PATCH 3/7] ieee802154: 6lowpan: make header_ops const
-Date: Fri, 25 Aug 2017 19:51:43 +0530
-Message-ID: <1503670907-23221-4-git-send-email-bhumirks@gmail.com>
+Subject: [PATCH 4/7] ipv4: make net_protocol const
+Date: Fri, 25 Aug 2017 19:51:44 +0530
+Message-ID: <1503670907-23221-5-git-send-email-bhumirks@gmail.com>
 References: <1503670907-23221-1-git-send-email-bhumirks@gmail.com>
 Cc: Bhumika Goyal <bhumirks@gmail.com>
 To: julia.lawall@lip6.fr, marcel@holtmann.org, gustavo@padovan.org,
@@ -17,34 +17,43 @@ To: julia.lawall@lip6.fr, marcel@holtmann.org, gustavo@padovan.org,
         linux-wpan@vger.kernel.org, linux-rdma@vger.kernel.org,
         rds-devel@oss.oracle.com, linux-nfs@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:38709 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932562AbdHYOWz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 10:22:55 -0400
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:35348 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932562AbdHYOXK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 10:23:10 -0400
 In-Reply-To: <1503670907-23221-1-git-send-email-bhumirks@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Make this const as it is only stored as a reference in a const field of
-a net_device structure.
+Make these const as they are only passed to a const argument of the
+function inet_add_protocol.
 
 Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
 ---
- net/ieee802154/6lowpan/core.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/ipv4/af_inet.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/ieee802154/6lowpan/core.c b/net/ieee802154/6lowpan/core.c
-index de2661c..974765b 100644
---- a/net/ieee802154/6lowpan/core.c
-+++ b/net/ieee802154/6lowpan/core.c
-@@ -54,7 +54,7 @@
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index d678820..19aee07 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -1596,7 +1596,7 @@ u64 snmp_fold_field64(void __percpu *mib, int offt, size_t syncp_offset)
+ };
+ #endif
  
- static int open_count;
- 
--static struct header_ops lowpan_header_ops = {
-+static const struct header_ops lowpan_header_ops = {
- 	.create	= lowpan_header_create,
+-static struct net_protocol tcp_protocol = {
++static const struct net_protocol tcp_protocol = {
+ 	.early_demux	=	tcp_v4_early_demux,
+ 	.early_demux_handler =  tcp_v4_early_demux,
+ 	.handler	=	tcp_v4_rcv,
+@@ -1606,7 +1606,7 @@ u64 snmp_fold_field64(void __percpu *mib, int offt, size_t syncp_offset)
+ 	.icmp_strict_tag_validation = 1,
  };
  
+-static struct net_protocol udp_protocol = {
++static const struct net_protocol udp_protocol = {
+ 	.early_demux =	udp_v4_early_demux,
+ 	.early_demux_handler =	udp_v4_early_demux,
+ 	.handler =	udp_rcv,
 -- 
 1.9.1
