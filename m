@@ -1,26 +1,105 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: mv643xx_eth: Be drop monitor friendly
-Date: Thu, 24 Aug 2017 18:27:56 -0700 (PDT)
-Message-ID: <20170824.182756.386299059058749250.davem@davemloft.net>
-References: <20170824230425.15948-1-f.fainelli@gmail.com>
+From: "liujian (CE)" <liujian56@huawei.com>
+Subject: RE: Question about ip_defrag
+Date: Fri, 25 Aug 2017 01:33:00 +0000
+Message-ID: <4F88C5DDA1E80143B232E89585ACE27D018F1BA2@DGGEMA502-MBX.china.huawei.com>
+References: <4F88C5DDA1E80143B232E89585ACE27D018F07E2@DGGEMA502-MBX.china.huawei.com>
+        <20170824155300.1e577dae@redhat.com>
+        <4F88C5DDA1E80143B232E89585ACE27D018F0AE1@DGGEMA502-MBX.china.huawei.com>
+ <20170824205926.2c45e3a1@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@gmail.com, andrew@lunn.ch,
-        sebastian.hesselbarth@gmail.com, linux-kernel@vger.kernel.org
-To: f.fainelli@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170824230425.15948-1-f.fainelli@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+        "kuznet@ms2.inr.ac.ru" <kuznet@ms2.inr.ac.ru>,
+        "yoshfuji@linux-ipv6.org" <yoshfuji@linux-ipv6.org>,
+        "elena.reshetova@intel.com" <elena.reshetova@intel.com>,
+        "edumazet@google.com" <edumazet@google.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "Wangkefeng (Kevin)" <wangkefeng.wang@huawei.com>,
+        "weiyongjun (A)" <weiyongjun1@huawei.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga03-in.huawei.com ([45.249.212.189]:10891 "EHLO
+        szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753911AbdHYBd2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 24 Aug 2017 21:33:28 -0400
+In-Reply-To: <20170824205926.2c45e3a1@redhat.com>
+Content-Language: zh-CN
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Thu, 24 Aug 2017 16:04:25 -0700
-
-> txq_reclaim() does the normal transmit queue reclamation and
-> rxq_deinit() does the RX ring cleanup, none of these are packet drops,
-> so use dev_consume_skb() for both locations.
-> 
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
-
-Applied.
+DQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+IEZyb206IEplc3BlciBEYW5nYWFyZCBC
+cm91ZXIgW21haWx0bzpicm91ZXJAcmVkaGF0LmNvbV0NCj4gU2VudDogRnJpZGF5LCBBdWd1c3Qg
+MjUsIDIwMTcgMjo1OSBBTQ0KPiBUbzogbGl1amlhbiAoQ0UpDQo+IENjOiBkYXZlbUBkYXZlbWxv
+ZnQubmV0OyBrdXpuZXRAbXMyLmluci5hYy5ydTsgeW9zaGZ1amlAbGludXgtaXB2Ni5vcmc7DQo+
+IGVsZW5hLnJlc2hldG92YUBpbnRlbC5jb207IGVkdW1hemV0QGdvb2dsZS5jb207IG5ldGRldkB2
+Z2VyLmtlcm5lbC5vcmc7DQo+IGJyb3VlckByZWRoYXQuY29tDQo+IFN1YmplY3Q6IFJlOiBRdWVz
+dGlvbiBhYm91dCBpcF9kZWZyYWcNCj4gDQo+IA0KPiBPbiBUaHUsIDI0IEF1ZyAyMDE3IDE2OjA0
+OjQxICswMDAwICJsaXVqaWFuIChDRSkiIDxsaXVqaWFuNTZAaHVhd2VpLmNvbT4NCj4gd3JvdGU6
+DQo+IA0KPiA+ID5XaGF0IGtlcm5lbCB2ZXJzaW9uIGhhdmUgeW91IHNlZW4gdGhpcyBpc3N1ZSB3
+aXRoPw0KPiA+DQo+ID4gMy4xMO+8jHdpdGggc29tZSBiYWNrcG9ydC4NCj4gPg0KPiA+ICA+QXMg
+ZmFyIGFzIEkgcmVtZW1iZXIsIHRoaXMgaXNzdWUgaGF2ZSBiZWVuIGZpeGVkIGJlZm9yZS4uLg0K
+PiA+DQo+ID4gd2hpY2ggb25lIHBhdGNoPyBJIGRpZG5vdCBmaW5kIG91dCB0aGUgcGF0Y2g6KA0K
+PiANCj4gQUZBSUsgaXQgd2FzIHNvbWUgYnVncyBpbiB0aGUgcGVyY3B1X2NvdW50ZXIgY29kZS4g
+IElmIHlvdSBuZWVkIHRvIGJhY2twb3J0DQo+IGxvb2sgYXQgdGhlIGdpdCBjb21taXRzOg0KPiAN
+Cj4gIGdpdCBsb2cgbGliL3BlcmNwdV9jb3VudGVyLmMgaW5jbHVkZS9saW51eC9wZXJjcHVfY291
+bnRlci5oDQo+IA0KPiBBcmUgeW91IG1haW50YWluaW5nIHlvdXIgb3duIDMuMTAga2VybmVsPw0K
+PiANCj4gSSBrbm93IHRoYXQgZm9yIFJIRUw3IChhbHNvIGtlcm5lbCAzLjEwKSB3ZSBiYWNrcG9y
+dGVkIHRoZSBwZXJjcHVfY291bnRlcg0KPiBmaXhlcy4uLg0KPg0KQ291bGQgeW91IHRlbGwgbWUg
+d2hpY2ggb25lIHBhdGNoPyAgd2UgaGF2ZSBiYWNrcG9ydGVkIG1vc3Qgb2YgdGhlIHR3byBmaWxl
+cydzIGNoYW5nZS4gDQpUaGFuayB5b3Ugfg0KDQoNCj4gLS1KZXNwZXINCj4gDQo+IA0KPiA+IOWP
+keS7tuS6uu+8miBKZXNwZXIgRGFuZ2FhcmQgQnJvdWVyDQo+ID4g5pS25Lu25Lq677yaIGxpdWpp
+YW4NCj4gKENFKTxsaXVqaWFuNTZAaHVhd2VpLmNvbTxtYWlsdG86bGl1amlhbjU2QGh1YXdlaS5j
+b20+Pg0KPiA+IOaKhOmAge+8mg0KPiA+DQo+IGRhdmVtQGRhdmVtbG9mdC5uZXQ8bWFpbHRvOmRh
+dmVtQGRhdmVtbG9mdC5uZXQ+O2t1em5ldEBtczIuaW5yLmFjLnJ1DQo+IDxtDQo+ID4gYWlsdG86
+a3V6bmV0QG1zMi5pbnIuYWMucnU+O3lvc2hmdWppQGxpbnV4LWlwdjYub3JnPG1haWx0bzp5b3No
+ZnVqaUBsaQ0KPiA+IG51eC1pcHY2Lm9yZz47ZWxlbmEucmVzaGV0b3ZhQGludGVsLmNvbTxtYWls
+dG86ZWxlbmEucmVzaGV0b3ZhQGludGVsLmMNCj4gPg0KPiBvbT47ZWR1bWF6ZXRAZ29vZ2xlLmNv
+bTxtYWlsdG86ZWR1bWF6ZXRAZ29vZ2xlLmNvbT47bmV0ZGV2QHZnZXIuaw0KPiBlcm5lbA0KPiA+
+IC5vcmc8bWFpbHRvOm5ldGRldkB2Z2VyLmtlcm5lbC5vcmc+O2Jyb3VlckByZWRoYXQuY29tPG1h
+aWx0bzpicm91ZXJAcg0KPiBlDQo+ID4gZGhhdC5jb20+DQo+ID4g5Li76aKY77yaIFJlOiBRdWVz
+dGlvbiBhYm91dCBpcF9kZWZyYWcNCj4gPiDml7bpl7TvvJogMjAxNy0wOC0yNCAyMTo1MzoxNw0K
+PiA+DQo+ID4NCj4gPiBPbiBUaHUsIDI0IEF1ZyAyMDE3IDEzOjE1OjMzICswMDAwICJsaXVqaWFu
+IChDRSkiIDxsaXVqaWFuNTZAaHVhd2VpLmNvbT4NCj4gd3JvdGU6DQo+ID4gPiBIZWxsbywNCj4g
+PiA+DQo+ID4gPiBXaXRoIGJlbG93IHBhdGNoIHdlIG1ldCBvbmUgaXNzdWUuDQo+ID4gPiBodHRw
+czovL2dpdC5rZXJuZWwub3JnL3B1Yi9zY20vbGludXgva2VybmVsL2dpdC90b3J2YWxkcy9saW51
+eC5naXQvYw0KPiA+ID4gb21taXQvP2g9djQuMTMtcmM2JmlkPTZkN2I4NTdkNTQxZQ0KPiA+ID4N
+Cj4gPiA+IHRoZSBpc3N1ZToNCj4gPiA+IElwX2RlZnJhZyBmYWlsIGNhdXNlZCBieSBmcmFnX21l
+bV9saW1pdCByZWFjaGVkIDRNKGZyYWdzLmhpZ2hfdGhyZXNoKS4NCj4gPiA+IEF0IHRoaXMgbW9t
+ZW50LHN1bV9mcmFnX21lbV9saW1pdCBpcyBhYm91dCAxMEsuDQo+ID4gPiBhbmQgbXkgdGVzdCBt
+YWNoaW5lJ3MgY3B1IG51bSBpcyA2NC4NCj4gPiA+DQo+ID4gPiBDYW4gaSBvbmx5IGNoYW5nZSBm
+cmFnX21lbV9saW1pdCB0byBzdW1fIGZyYWdfbWVtX2xpbWl0Pw0KPiA+ID4NCj4gPiA+DQo+ID4g
+PiBkaWZmIC0tZ2l0IGEvbmV0L2lwdjQvaW5ldF9mcmFnbWVudC5jIGIvbmV0L2lwdjQvaW5ldF9m
+cmFnbWVudC5jDQo+ID4gPiBpbmRleCA5NmU5NWU4Li5mMDljMDBiIDEwMDY0NA0KPiA+ID4gLS0t
+IGEvbmV0L2lwdjQvaW5ldF9mcmFnbWVudC5jDQo+ID4gPiArKysgYi9uZXQvaXB2NC9pbmV0X2Zy
+YWdtZW50LmMNCj4gPiA+IEBAIC0xMjAsNyArMTIwLDcgQEAgc3RhdGljIHZvaWQgaW5ldF9mcmFn
+X3NlY3JldF9yZWJ1aWxkKHN0cnVjdA0KPiA+ID4gaW5ldF9mcmFncyAqZikgIHN0YXRpYyBib29s
+IGluZXRfZnJhZ3Ffc2hvdWxkX2V2aWN0KGNvbnN0IHN0cnVjdA0KPiA+ID4gaW5ldF9mcmFnX3F1
+ZXVlICpxKSAgew0KPiA+ID4gICAgICAgICByZXR1cm4gcS0+bmV0LT5sb3dfdGhyZXNoID09IDAg
+fHwNCj4gPiA+IC0gICAgICAgICAgICAgIGZyYWdfbWVtX2xpbWl0KHEtPm5ldCkgPj0gcS0+bmV0
+LT5sb3dfdGhyZXNoOw0KPiA+ID4gKyAgICAgICAgICAgICAgc3VtX2ZyYWdfbWVtX2xpbWl0KHEt
+Pm5ldCkgPj0gcS0+bmV0LT5sb3dfdGhyZXNoOw0KPiA+ID4gIH0NCj4gPiA+DQo+ID4gPiAgc3Rh
+dGljIHVuc2lnbmVkIGludA0KPiA+ID4gQEAgLTM1NSw3ICszNTUsNyBAQCBzdGF0aWMgc3RydWN0
+IGluZXRfZnJhZ19xdWV1ZQ0KPiA+ID4gKmluZXRfZnJhZ19hbGxvYyhzdHJ1Y3QgbmV0bnNfZnJh
+Z3MgKm5mLCAgew0KPiA+ID4gICAgICAgICBzdHJ1Y3QgaW5ldF9mcmFnX3F1ZXVlICpxOw0KPiA+
+ID4NCj4gPiA+IC0gICAgICAgaWYgKCFuZi0+aGlnaF90aHJlc2ggfHwgZnJhZ19tZW1fbGltaXQo
+bmYpID4gbmYtPmhpZ2hfdGhyZXNoKSB7DQo+ID4gPiArICAgICAgIGlmICghbmYtPmhpZ2hfdGhy
+ZXNoIHx8IHN1bV9mcmFnX21lbV9saW1pdChuZikgPg0KPiA+ID4gKyBuZi0+aGlnaF90aHJlc2gp
+IHsNCj4gPiA+ICAgICAgICAgICAgICAgICBpbmV0X2ZyYWdfc2NoZWR1bGVfd29ya2VyKGYpOw0K
+PiA+ID4gICAgICAgICAgICAgICAgIHJldHVybiBOVUxMOw0KPiA+ID4gICAgICAgICB9DQo+ID4g
+PiBAQCAtMzk2LDcgKzM5Niw3IEBAIHN0cnVjdCBpbmV0X2ZyYWdfcXVldWUgKmluZXRfZnJhZ19m
+aW5kKHN0cnVjdA0KPiBuZXRuc19mcmFncyAqbmYsDQo+ID4gPiAgICAgICAgIHN0cnVjdCBpbmV0
+X2ZyYWdfcXVldWUgKnE7DQo+ID4gPiAgICAgICAgIGludCBkZXB0aCA9IDA7DQo+ID4gPg0KPiA+
+ID4gLSAgICAgICBpZiAoZnJhZ19tZW1fbGltaXQobmYpID4gbmYtPmxvd190aHJlc2gpDQo+ID4g
+PiArICAgICAgIGlmIChzdW1fZnJhZ19tZW1fbGltaXQobmYpID4gbmYtPmxvd190aHJlc2gpDQo+
+ID4gPiAgICAgICAgICAgICAgICAgaW5ldF9mcmFnX3NjaGVkdWxlX3dvcmtlcihmKTsNCj4gPiA+
+DQo+ID4gPiAgICAgICAgIGhhc2ggJj0gKElORVRGUkFHU19IQVNIU1ogLSAxKTsNCj4gPiA+IC0t
+DQo+ID4gPg0KPiA+ID4gVGhhbmsgeW91IGZvciB5b3VyIHRpbWUuDQo+ID4NCj4gPiBXaGF0IGtl
+cm5lbCB2ZXJzaW9uIGhhdmUgeW91IHNlZW4gdGhpcyBpc3N1ZSB3aXRoPw0KPiA+DQo+ID4gQXMg
+ZmFyIGFzIEkgcmVtZW1iZXIsIHRoaXMgaXNzdWUgaGF2ZSBiZWVuIGZpeGVkIGJlZm9yZS4uLg0K
+PiA+DQo+ID4gLS0NCj4gPiBCZXN0IHJlZ2FyZHMsDQo+ID4gICBKZXNwZXIgRGFuZ2FhcmQgQnJv
+dWVyDQo+ID4gICBNU2MuQ1MsIFByaW5jaXBhbCBLZXJuZWwgRW5naW5lZXIgYXQgUmVkIEhhdA0K
+PiA+ICAgTGlua2VkSW46IGh0dHA6Ly93d3cubGlua2VkaW4uY29tL2luL2Jyb3Vlcg0KPiANCj4g
+DQo+IA0KPiAtLQ0KPiBCZXN0IHJlZ2FyZHMsDQo+ICAgSmVzcGVyIERhbmdhYXJkIEJyb3Vlcg0K
+PiAgIE1TYy5DUywgUHJpbmNpcGFsIEtlcm5lbCBFbmdpbmVlciBhdCBSZWQgSGF0DQo+ICAgTGlu
+a2VkSW46IGh0dHA6Ly93d3cubGlua2VkaW4uY29tL2luL2Jyb3Vlcg0K
