@@ -1,82 +1,171 @@
-From: Michael Chan <michael.chan@broadcom.com>
-Subject: Re: XDP redirect measurements, gotchas and tracepoints
-Date: Thu, 24 Aug 2017 20:36:28 -0700
-Message-ID: <CACKFLinGuaDLxYRd=vC99DL5n0mf0rDbPRaDg4ctev=DEAhRSQ@mail.gmail.com>
-References: <20170821212506.1cb0d5d6@redhat.com> <CACKFLimAF9OYwz8EqG=1-N40hWuA-8C8k8ut0oFKYdduvZOxHA@mail.gmail.com>
- <599C7530.2010405@gmail.com> <1503426617.2434.5.camel@intel.com>
- <CACKFLimMWLto4FRxNE3tzrO5MU+p67J7wu=n1nmg0t8QGYjgrA@mail.gmail.com>
- <CAKgT0Uf=ZfVeK-wtvNxSyGEVZ3UseUOHiP3ZOg-SrzmqsR=LtQ@mail.gmail.com>
- <CACKFLinJ0N7b8Xhq4ZoHdB80uXp_MU_vVyzZa7Dq11XrXsvDbw@mail.gmail.com> <20170823102937.79a9c4ed@redhat.com>
+From: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>
+Subject: Re: [PATCH v3 3/4] net: stmmac: register parent MDIO node for sun8i-h3-emac
+Date: Fri, 25 Aug 2017 11:41:39 +0800
+Message-ID: <CAGb2v64Bx7vzzK8nKbiQPsYkgu5JZ6_0iCkx=mgpWY=8b_GeXQ@mail.gmail.com>
+References: <CAGb2v67hQXSoCKP7qW+KRUYX+0djQ1Z23cQ67Lyg6G7ozGyfGQ@mail.gmail.com>
+ <20170821132015.GB1703@lunn.ch> <20170821133104.qvrhvwin2rdg4aqo@flea.lan>
+ <20170821142321.GE1703@lunn.ch> <CAGb2v64E4T=1ff3POGuXZA=MvjGAnKQ6OF6A3sT_cU-=jh6zNw@mail.gmail.com>
+ <bfe784b6-5137-8fcd-dbd0-ad96974f4060@gmail.com> <20170822181140.GA11596@Red>
+ <352ae66b-78a4-e88b-4544-a8edd9390b0c@gmail.com> <20170823074942.yt3c5gvnmdw5pqge@flea.home>
+ <f14fe754-6339-32a0-3439-2daff6dd1d7e@gmail.com> <20170824082124.GA14302@Red>
+ <dfc8e7f3-e374-b30b-b320-017f1c50ab58@gmail.com> <CAGb2v64jrDPSff+QL_PQBMaQJ+CcTVbskjuOUd1OqR4smbu+ig@mail.gmail.com>
+ <77ff97c1-9d0a-8b3f-d0b9-25c951f86fec@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Alexander Duyck <alexander.duyck@gmail.com>,
-        "Duyck, Alexander H" <alexander.h.duyck@intel.com>,
-        "john.fastabend@gmail.com" <john.fastabend@gmail.com>,
-        "pstaszewski@itcare.pl" <pstaszewski@itcare.pl>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "xdp-newbies@vger.kernel.org" <xdp-newbies@vger.kernel.org>,
-        "andy@greyhouse.net" <andy@greyhouse.net>,
-        "borkmann@iogearbox.net" <borkmann@iogearbox.net>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f176.google.com ([209.85.161.176]:36764 "EHLO
-        mail-yw0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754484AbdHYDg3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 24 Aug 2017 23:36:29 -0400
-Received: by mail-yw0-f176.google.com with SMTP id h127so7190788ywf.3
-        for <netdev@vger.kernel.org>; Thu, 24 Aug 2017 20:36:29 -0700 (PDT)
-In-Reply-To: <20170823102937.79a9c4ed@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>,
+        Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+        Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        Russell King <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>,
+        Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
+        Alexandre Torgue <alexandre.torgue-qxv4g6HH51o@public.gmane.org>,
+        devicetree <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        linux-arm-kernel <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+        linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <77ff97c1-9d0a-8b3f-d0b9-25c951f86fec-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 23, 2017 at 1:29 AM, Jesper Dangaard Brouer
-<brouer@redhat.com> wrote:
-> On Tue, 22 Aug 2017 23:59:05 -0700
-> Michael Chan <michael.chan@broadcom.com> wrote:
+On Fri, Aug 25, 2017 at 11:05 AM, Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
 >
->> On Tue, Aug 22, 2017 at 6:06 PM, Alexander Duyck
->> <alexander.duyck@gmail.com> wrote:
->> > On Tue, Aug 22, 2017 at 1:04 PM, Michael Chan <michael.chan@broadcom.com> wrote:
->> >>
->> >> Right, but it's conceivable to add an API to "return" the buffer to
->> >> the input device, right?
 >
-> Yes, I would really like to see an API like this.
->
->> >
->> > You could, it is just added complexity. "just free the buffer" in
->> > ixgbe usually just amounts to one atomic operation to decrement the
->> > total page count since page recycling is already implemented in the
->> > driver. You still would have to unmap the buffer regardless of if you
->> > were recycling it or not so all you would save is 1.000015259 atomic
->> > operations per packet. The fraction is because once every 64K uses we
->> > have to bulk update the count on the page.
->> >
+> On 08/24/2017 07:54 PM, Chen-Yu Tsai wrote:
+>> On Fri, Aug 25, 2017 at 3:59 AM, Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+>>> On 08/24/2017 01:21 AM, Corentin Labbe wrote:
+>>>> On Wed, Aug 23, 2017 at 09:31:53AM -0700, Florian Fainelli wrote:
+>>>>> On 08/23/2017 12:49 AM, Maxime Ripard wrote:
+>>>>>> Hi Florian,
+>>>>>>
+>>>>>> On Tue, Aug 22, 2017 at 11:35:01AM -0700, Florian Fainelli wrote:
+>>>>>>>>>> So I think what you are saying is either impossible or engineering-wise
+>>>>>>>>>> a very stupid design, like using an external MAC with a discrete PHY
+>>>>>>>>>> connected to the internal MAC's MDIO bus, while using the internal MAC
+>>>>>>>>>> with the internal PHY.
+>>>>>>>>>>
+>>>>>>>>>> Now can we please decide on something? We're a week and a half from
+>>>>>>>>>> the 4.13 release. If mdio-mux is wrong, then we could have two mdio
+>>>>>>>>>> nodes (internal-mdio & external-mdio).
+>>>>>>>>>
+>>>>>>>>> I really don't see a need for a mdio-mux in the first place, just have
+>>>>>>>>> one MDIO controller (current state) sub-node which describes the
+>>>>>>>>> built-in STMMAC MDIO controller and declare the internal PHY as a child
+>>>>>>>>> node (along with 'phy-is-integrated'). If a different configuration is
+>>>>>>>>> used, then just put the external PHY as a child node there.
+>>>>>>>>>
+>>>>>>>>> If fixed-link is required, the mdio node becomes unused anyway.
+>>>>>>>>>
+>>>>>>>>> Works for everyone?
+>>>>>>>>
+>>>>>>>> If we put an external PHY with reg=1 as a child of internal MDIO,
+>>>>>>>> il will be merged with internal PHY node and get
+>>>>>>>> phy-is-integrated.
+>>>>>>>
+>>>>>>> Then have the .dtsi file contain just the mdio node, but no internal or
+>>>>>>> external PHY and push all the internal and external PHY node definition
+>>>>>>> (in its entirety) to the per-board DTS file, does not that work?
+>>>>>>
+>>>>>> If possible, I'd really like to have the internal PHY in the
+>>>>>> DTSI. It's always there in hardware anyway, and duplicating the PHY,
+>>>>>> with its clock, reset line, and whatever info we might need in the
+>>>>>> future in each and every board DTS that uses it will be very error
+>>>>>> prone and we will have the usual bunch of issues that come up with
+>>>>>> duplication.
+>>>>>
+>>>>> OK, then what if you put the internal PHY in the DTSI, mark it with a
+>>>>> status = "disabled" property, and have the per-board DTS put a status =
+>>>>> "okay" property along with a "phy-is-integrated" boolean property? Would
+>>>>> that work?
+>>>>
+>>>> No, I tested and for example with sun8i-h3-orangepi-plus.dts, the external PHY (ethernet-phy@1) is still merged.
+>>>
+>>> Is not there is a mistake in the unit address not matching the "reg"
+>>> property, or am I not looking at the right tree?
+>>>
+>>> &mdio {
+>>>         ext_rgmii_phy: ethernet-phy@1 {
+>>>                 compatible = "ethernet-phy-ieee802.3-c22";
+>>>                 reg = <0>;
+>>>         };
+>>> };
+>>>
+>>> If the PHY is really at MDIO address 0, then it should be
+>>> ethernet-phy@0, and not ethernet-phy@1, and then no problem with the
+>>> merging?
 >>
->> If the buffer is returned to the input device, the input device can
->> keep the DMA mapping.  All it needs to do is to dma_sync it back to
->> the input device when the buffer is returned.
+>> That is wrong. The board described in the example likely has a Realtek
+>> RTL8211E @ address 0x1. Address 0 for this PHY is a broadcast address,
+>> so it still works, but is the wrong representation.
+>>
+>>>
+>>>
+>>>> So that adding a 'status = "disabled"' does not bring anything.
+>>>>
+>>>>>
+>>>>> What I really don't think is necessary is:
+>>>>>
+>>>>> - duplicating the "mdio" controller node for external vs. internal PHY,
+>>>>> because this is not accurate, there is just one MDIO controller, but
+>>>>> there may be different kinds of MDIO/PHY devices attached
+>>>>
+>>>> For me, if we want to represent the reality, we need two MDIO:
+>>>> - since two PHY at the same address could co-exists
+>>>> - since they are isolated so not on the same MDIO bus
+>>>
+>>> Is that really true? It might be, but from experience with e.g:
+>>> bcmgenet, the integrated PHY and the external PHYs are on the same MDIO
+>>> bus, which is convenient, except when you have an address conflict.
+>>
+>> There's a mux in the hardware: either the internal MDIO+MII lines
+>> from the internal PHY are connected to the MAC, or the external
+>> MDIO+MII lines from the pin controller are connected. I believe
+>> this was already mentioned?
 >
-> Yes, exactly, return to the input device. I really think we should
-> work on a solution where we can keep the DMA mapping around.  We have
-> an opportunity here to make ndo_xdp_xmit TX queues use a specialized
-> page return call, to achieve this. (I imagine other arch's have a high
-> DMA overhead than Intel)
+> There is obviously a mux for the data lines and clock to switch between
+> internal PHY and external PHYs, that does not mean there is one for MDIO
+> and MDC lines, which is what is being suggested to be used here, does
+> the mux also takes care of these lines?
 >
-> I'm not sure how the API should look.  The ixgbe recycle mechanism and
-> splitting the page (into two packets) actually complicates things, and
-> tie us into a page-refcnt based model.  We could get around this by
-> each driver implementing a page-return-callback, that allow us to
-> return the page to the input device?  Then, drivers implementing the
-> 1-packet-per-page can simply check/read the page-refcnt, and if it is
-> "1" DMA-sync and reuse it in the RX queue.
+>>
+>>>
+>>>>
+>>>>> - having the STMMAC driver MDIO probing code having to deal with a
+>>>>> "mdio" sub-node or an "internal-mdio" sub-node because this is confusing
+>>>>> and requiring more driver-level changes that are error prone
+>>>>
+>>>> My patch for stmmac is really small, only the name of my variable ("need_mdio_mux_ids")
+>>>> have to be changed to something like "register_parent_mdio"
+>>>>
+>>>>
+>>>> So I agree with Maxime, we need to avoid merging PHY nodes, and we can avoid it only by having two separate MDIO nodes.
+>>>> Furthermore, with only one MDIO, we will face with lots of small patch for adding phy-is-integrated, with two we do not need to change any board DT, all is simply clean.
+>>>> Really having two MDIO seems cleaner.
+>>>
+>>> The only valid thing that you have provided so far is this merging
+>>> problem. Anything else ranging from "we will face with lots of small
+>>> patch for adding phy-is-integrated" to "Really having two MDIO seems
+>>> cleaner." are hard to receive as technical arguments for correctness.
+>>>
+>>> What happens if someone connects an external PHY at the same MDIO
+>>> address than the internal PHY, which one do you get responses from? If
+>>> you shutdown the internal PHY and it stops responding, then this
+>>> probably becomes deterministic, but it still supports the fact there is
+>>> just one MDIO bus controller per MAC.
+>>
+>> Depends on whichever set of pins/lines are selected. But yeah, there's
+>> only one MDIO bus controller in the MAC.
 >
+> OK, so one MDIO controller, but what about the MDIO/MDC lines then, are
+> they also muxed, like the data/clock lines or not?
 
-Yeah, based on Alex' description, it's not clear to me whether ixgbe
-redirecting to a non-intel NIC or vice versa will actually work.  It
-sounds like the output device has to make some assumptions about how
-the page was allocated by the input device.  With buffer return API,
-each driver can cleanly recycle or free its own buffers properly.
+Just tested. Yes the MDIO/MDC lines are also muxed and controlled through
+the same mux bit.
 
-Let me discuss this further with Andy to see if we can come up with a
-good scheme.
+ChenYu
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
