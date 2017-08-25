@@ -1,48 +1,96 @@
-From: Anton Volkov <avolkov@ispras.ru>
-Subject: Possible race in nsc-ircc.ko
-Date: Fri, 25 Aug 2017 17:05:25 +0300
-Message-ID: <4a33a281-f8bd-305b-e580-0e594feea799@ispras.ru>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        ldv-project@linuxtesting.org,
-        Alexey Khoroshilov <khoroshilov@ispras.ru>
-To: dagb@cs.uit.no, jt@hpl.hp.com, samuel@sortiz.org
+From: Antoine Tenart <antoine.tenart@free-electrons.com>
+Subject: [PATCH net v2 2/4] net: mvpp2: move the mac retrieval/copy logic into its own function
+Date: Fri, 25 Aug 2017 16:14:18 +0200
+Message-ID: <20170825141420.14027-3-antoine.tenart@free-electrons.com>
+References: <20170825141420.14027-1-antoine.tenart@free-electrons.com>
+Cc: Antoine Tenart <antoine.tenart@free-electrons.com>, andrew@lunn.ch,
+        gregory.clement@free-electrons.com, nadavh@marvell.com,
+        linux@armlinux.org.uk, linux-kernel@vger.kernel.org,
+        mw@semihalf.com, stefanc@marvell.com, netdev@vger.kernel.org
+To: davem@davemloft.net, thomas.petazzoni@free-electrons.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Language: en-US
+In-Reply-To: <20170825141420.14027-1-antoine.tenart@free-electrons.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+The MAC retrieval has a quite complicated logic (which is broken). Moves
+it to its own function to prepare for patches fixing its logic, so that
+reviews are easier.
 
-While searching for races in the Linux kernel I've come across 
-"drivers/net/irda/nsc-ircc.ko" module. Here is a question that I came up 
-with while analyzing results. Lines are given using the info from Linux 
-v4.12.
+Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
+---
+ drivers/net/ethernet/marvell/mvpp2.c | 45 +++++++++++++++++++++---------------
+ 1 file changed, 27 insertions(+), 18 deletions(-)
 
-Consider the following case:
-
-Thread 1:                   Thread 2:
-nsc_ircc_init
-->nsc_ircc_open
-     self = netdev_priv(dev)
-     register_netdev(dev)
-                             nsc_ircc_net_ioctl
-                             ->nsc_ircc_change_speed
-     self->dongle_id = ...       <READ self->io.dongle_id>
-     (nsc-ircc.c: line 485)      (nsc-ircc.c: line 1318)
-     platform_device_register_simple
-
-Before the initialization of self->dongle_id in msc_ircc_open() its 
-value is 0. Thus if read access to its value in nsc_ircc_change_speed 
-occurs before the initialization there will be an attempt to change 
-speed of dongle with undesired id (if the dongle with id 0 exists). Is 
-this case feasible from your point of view?
-
-Thank you for your time.
-
--- Anton Volkov
-Linux Verification Center, ISPRAS
-web: http://linuxtesting.org
-e-mail: avolkov@ispras.ru
+diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
+index 4d598ca8503a..a1593134ed96 100644
+--- a/drivers/net/ethernet/marvell/mvpp2.c
++++ b/drivers/net/ethernet/marvell/mvpp2.c
+@@ -6492,6 +6492,31 @@ static int mvpp2_port_init(struct mvpp2_port *port)
+ 	return err;
+ }
+ 
++static void mvpp2_port_copy_mac_addr(struct net_device *dev, struct mvpp2 *priv,
++				     struct device_node *port_node,
++				     char **mac_from)
++{
++	struct mvpp2_port *port = netdev_priv(dev);
++	char hw_mac_addr[ETH_ALEN] = {0};
++	const char *dt_mac_addr;
++
++	dt_mac_addr = of_get_mac_address(port_node);
++	if (dt_mac_addr && is_valid_ether_addr(dt_mac_addr)) {
++		*mac_from = "device tree";
++		ether_addr_copy(dev->dev_addr, dt_mac_addr);
++	} else {
++		if (priv->hw_version == MVPP21)
++			mvpp21_get_mac_address(port, hw_mac_addr);
++		if (is_valid_ether_addr(hw_mac_addr)) {
++			*mac_from = "hardware";
++			ether_addr_copy(dev->dev_addr, hw_mac_addr);
++		} else {
++			*mac_from = "random";
++			eth_hw_addr_random(dev);
++		}
++	}
++}
++
+ /* Ports initialization */
+ static int mvpp2_port_probe(struct platform_device *pdev,
+ 			    struct device_node *port_node,
+@@ -6502,9 +6527,7 @@ static int mvpp2_port_probe(struct platform_device *pdev,
+ 	struct mvpp2_port_pcpu *port_pcpu;
+ 	struct net_device *dev;
+ 	struct resource *res;
+-	const char *dt_mac_addr;
+-	const char *mac_from;
+-	char hw_mac_addr[ETH_ALEN] = {0};
++	char *mac_from = "";
+ 	u32 id;
+ 	int features;
+ 	int phy_mode;
+@@ -6585,21 +6608,7 @@ static int mvpp2_port_probe(struct platform_device *pdev,
+ 		goto err_free_irq;
+ 	}
+ 
+-	dt_mac_addr = of_get_mac_address(port_node);
+-	if (dt_mac_addr && is_valid_ether_addr(dt_mac_addr)) {
+-		mac_from = "device tree";
+-		ether_addr_copy(dev->dev_addr, dt_mac_addr);
+-	} else {
+-		if (priv->hw_version == MVPP21)
+-			mvpp21_get_mac_address(port, hw_mac_addr);
+-		if (is_valid_ether_addr(hw_mac_addr)) {
+-			mac_from = "hardware";
+-			ether_addr_copy(dev->dev_addr, hw_mac_addr);
+-		} else {
+-			mac_from = "random";
+-			eth_hw_addr_random(dev);
+-		}
+-	}
++	mvpp2_port_copy_mac_addr(dev, priv, port_node, &mac_from);
+ 
+ 	port->tx_ring_size = MVPP2_MAX_TXD;
+ 	port->rx_ring_size = MVPP2_MAX_RXD;
+-- 
+2.13.5
