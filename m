@@ -1,49 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net_sched: fix a refcount_t issue with noop_qdisc
-Date: Thu, 24 Aug 2017 21:32:10 -0700 (PDT)
-Message-ID: <20170824.213210.527936826990864365.davem@davemloft.net>
-References: <1503634348.2499.98.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 0/2] nfp: SR-IOV ndos support
+Date: Thu, 24 Aug 2017 21:31:48 -0700
+Message-ID: <20170825043150.375-1-jakub.kicinski@netronome.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com, jiri@resnulli.us,
-        elena.reshetova@intel.com, jhs@mojatatu.com
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: oss-drivers@netronome.com,
+        Jakub Kicinski <jakub.kicinski@netronome.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:35866 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751364AbdHYEcL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 00:32:11 -0400
-In-Reply-To: <1503634348.2499.98.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-pg0-f49.google.com ([74.125.83.49]:35042 "EHLO
+        mail-pg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751364AbdHYEcf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 00:32:35 -0400
+Received: by mail-pg0-f49.google.com with SMTP id 63so8580905pgc.2
+        for <netdev@vger.kernel.org>; Thu, 24 Aug 2017 21:32:35 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 24 Aug 2017 21:12:28 -0700
+Hi!
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> syzkaller reported a refcount_t warning [1]
-> 
-> Issue here is that noop_qdisc refcnt was never really considered as
-> a true refcount, since qdisc_destroy() found TCQ_F_BUILTIN set :
-> 
-> if (qdisc->flags & TCQ_F_BUILTIN ||
->     !refcount_dec_and_test(&qdisc->refcnt)))
-> 	return;
-> 
-> Meaning that all atomic_inc() we did on noop_qdisc.refcnt were not
-> really needed, but harmless until refcount_t came.
-> 
-> To fix this problem, we simply need to not increment noop_qdisc.refcnt,
-> since we never decrement it.
-> 
-> [1]
-> refcount_t: increment on 0; use-after-free.
- ...
-> Fixes: 7b9364050246 ("net, sched: convert Qdisc.refcnt from atomic_t to refcount_t")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Reported-by: Dmitry Vyukov <dvyukov@google.com>
-> Cc: Reshetova, Elena <elena.reshetova@intel.com>
+This set adds basic SR-IOV including setting/getting VF MAC addresses,
+VLANs, link state and spoofcheck settings.  It is wired up for both
+vNICs and representors (note: ip link will not report VF settings on
+VF/PF representors because they are not linked to the PF PCI device).
 
-Applied.
+Pablo and team add the basic implementation, Simon and Dirk follow
+up with the representor plumbing.
+
+Pablo Cascón (1):
+  nfp: add basic SR-IOV ndo functions
+
+Simon Horman (1):
+  nfp: add basic SR-IOV ndo functions to representors
+
+ drivers/net/ethernet/netronome/nfp/Makefile        |   1 +
+ drivers/net/ethernet/netronome/nfp/nfp_main.h      |   4 +
+ .../net/ethernet/netronome/nfp/nfp_net_common.c    |   6 +
+ drivers/net/ethernet/netronome/nfp/nfp_net_ctrl.h  |   1 +
+ drivers/net/ethernet/netronome/nfp/nfp_net_main.c  |  20 +-
+ drivers/net/ethernet/netronome/nfp/nfp_net_repr.c  |   6 +
+ drivers/net/ethernet/netronome/nfp/nfp_net_sriov.c | 243 +++++++++++++++++++++
+ drivers/net/ethernet/netronome/nfp/nfp_net_sriov.h |  86 ++++++++
+ drivers/net/ethernet/netronome/nfp/nic/main.c      |  12 +
+ 9 files changed, 378 insertions(+), 1 deletion(-)
+ create mode 100644 drivers/net/ethernet/netronome/nfp/nfp_net_sriov.c
+ create mode 100644 drivers/net/ethernet/netronome/nfp/nfp_net_sriov.h
+
+-- 
+2.11.0
