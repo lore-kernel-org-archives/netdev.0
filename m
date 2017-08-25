@@ -1,62 +1,87 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH] staging: rtlwifi: Improve debugging by using debugfs
-Date: Fri, 25 Aug 2017 15:00:22 -0700
-Message-ID: <CAKgT0UeKhQ7ENbWPbEWw1YNK2EXoj0=9Vvksja-CaRdO_0yc-g@mail.gmail.com>
-References: <20170824212808.26632-1-Larry.Finger@lwfinger.net>
- <20170825015421.GA8852@lunn.ch>
- <1a1ca849-3aec-60e3-b5a3-98a6e095d298@lwfinger.net>
- <20170825141647.GA30922@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, Yan-Hsuan Chuang <yhchuang@realtek.com>,
- gregkh@linuxfoundation.org, Birming Chiu <birming@realtek.com>,
- Netdev <netdev@vger.kernel.org>, Steven Ting <steventing@realtek.com>,
- Larry Finger <Larry.Finger@lwfinger.net>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <20170825141647.GA30922@lunn.ch>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 01/13] i40e/i40evf: adjust packet size to account for double VLANs
+Date: Fri, 25 Aug 2017 15:00:45 -0700
+Message-ID: <20170825220057.51804-2-jeffrey.t.kirsher@intel.com>
+References: <20170825220057.51804-1-jeffrey.t.kirsher@intel.com>
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
+        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:48593 "EHLO mga09.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S934953AbdHYWBD (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 25 Aug 2017 18:01:03 -0400
+In-Reply-To: <20170825220057.51804-1-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Fri, Aug 25, 2017 at 7:16 AM, Andrew Lunn <andrew@lunn.ch> wrote:
-> On Fri, Aug 25, 2017 at 08:47:00AM -0500, Larry Finger wrote:
->> On 08/24/2017 08:54 PM, Andrew Lunn wrote:
->> >netdev frowns upon debugfs. You should try to keep this altogether,
->> >making it easy to throw away before the driver is moved out of
->> >staging.
->> >
->> >You might want to look at ethtool -d. That will be accepted.
->>
->> Andrew,
->>
->> What is the problem with debugfs?
->
-> You should probably look back in the discussions on the netdev
-> mailling list. But basically, anything you want to export should
-> follow generic well defined interface, which can be used by other
-> drivers. debugfs tends to be a mess, a wild west, each driver doing
-> its own thing, not standardisation. It is O.K. for your own
-> development work, you can have your own out of tree patches adding in
-> debugfs, but such patches are unlikely to be accepted into mainline.
-> David has threatened to simply rip out all debugfs code from all
-> network drivers. There is push back on adding any new debugfs code,
-> and some driver writers have taken out debugfs code in their own
-> drivers, often replacing it with something generic all drivers can
-> use.
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-I think the bigger issue is that many people end up using debugfs to
-try and configure things, or they create redundant functionality with
-existing interfaces which is generally frowned upon. So generally it
-is okay for things like peeking into driver state machines, or as a
-means to dump descriptor rings, but not okay for using to program
-filters, write registers, change the device state, or collect generic
-statistics.
+Now that the kernel supports double VLAN tags, we should at least play
+nice. Adjust the max packet size to account for two VLAN tags, not just
+one.
+
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_main.c     | 3 +--
+ drivers/net/ethernet/intel/i40e/i40e_txrx.h     | 1 +
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.h   | 1 +
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c | 2 +-
+ 4 files changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index a7e5a76703e7..0cb571e337f6 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -9770,8 +9770,7 @@ static int i40e_config_netdev(struct i40e_vsi *vsi)
+ 
+ 	/* MTU range: 68 - 9706 */
+ 	netdev->min_mtu = ETH_MIN_MTU;
+-	netdev->max_mtu = I40E_MAX_RXBUFFER -
+-			  (ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN);
++	netdev->max_mtu = I40E_MAX_RXBUFFER - I40E_PACKET_HDR_PAD;
+ 
+ 	return 0;
+ }
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.h b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
+index b288d58313a6..a39892d2453d 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
+@@ -130,6 +130,7 @@ enum i40e_dyn_idx_t {
+  * i.e. RXBUFFER_512 --> 1216 byte skb (size-2048 slab)
+  */
+ #define I40E_RX_HDR_SIZE I40E_RXBUFFER_256
++#define I40E_PACKET_HDR_PAD (ETH_HLEN + ETH_FCS_LEN + (VLAN_HLEN * 2))
+ #define i40e_rx_desc i40e_32byte_rx_desc
+ 
+ #define I40E_RX_DMA_ATTR \
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
+index 901282c87cf6..472f606629d4 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
+@@ -117,6 +117,7 @@ enum i40e_dyn_idx_t {
+  * i.e. RXBUFFER_512 --> 1216 byte skb (size-2048 slab)
+  */
+ #define I40E_RX_HDR_SIZE I40E_RXBUFFER_256
++#define I40E_PACKET_HDR_PAD (ETH_HLEN + ETH_FCS_LEN + (VLAN_HLEN * 2))
+ #define i40e_rx_desc i40e_32byte_rx_desc
+ 
+ #define I40E_RX_DMA_ATTR \
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index 93536b9fc629..22919b444ddf 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -2625,7 +2625,7 @@ static void i40evf_init_task(struct work_struct *work)
+ 
+ 	/* MTU range: 68 - 9710 */
+ 	netdev->min_mtu = ETH_MIN_MTU;
+-	netdev->max_mtu = I40E_MAX_RXBUFFER - (ETH_HLEN + ETH_FCS_LEN);
++	netdev->max_mtu = I40E_MAX_RXBUFFER - I40E_PACKET_HDR_PAD;
+ 
+ 	if (!is_valid_ether_addr(adapter->hw.mac.addr)) {
+ 		dev_info(&pdev->dev, "Invalid MAC address %pM, using random\n",
+-- 
+2.14.1
