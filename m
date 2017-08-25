@@ -1,94 +1,177 @@
-From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: Re: [PATCH net v2 1/4] net: mvpp2: fix the mac address used when
- using PPv2.2
-Date: Fri, 25 Aug 2017 16:29:28 +0200
-Message-ID: <20170825142928.GB31512@kwain>
-References: <20170825141420.14027-1-antoine.tenart@free-electrons.com>
- <20170825141420.14027-2-antoine.tenart@free-electrons.com>
- <20170825141939.GB30922@lunn.ch>
+From: "Yang, Yi" <yi.y.yang@intel.com>
+Subject: Re: [PATCH net-next v1] net: gso: Add GSO support for NSH (Network
+ Service Header)
+Date: Fri, 25 Aug 2017 22:16:21 +0800
+Message-ID: <20170825141620.GA23653@cran64.bj.intel.com>
+References: <1503567376-64933-1-git-send-email-yi.y.yang@intel.com>
+ <20170824161326.1f5f7c7f@griffin>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
-        protocol="application/pgp-signature"; boundary="hHWLQfXTYDoKhP50"
-Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
-        davem@davemloft.net, thomas.petazzoni@free-electrons.com,
-        gregory.clement@free-electrons.com, nadavh@marvell.com,
-        linux@armlinux.org.uk, linux-kernel@vger.kernel.org,
-        mw@semihalf.com, stefanc@marvell.com, netdev@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "simon.horman@netronome.com" <simon.horman@netronome.com>
+To: Jiri Benc <jbenc@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:46004 "EHLO mga11.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1755767AbdHYObB (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 25 Aug 2017 10:31:01 -0400
 Content-Disposition: inline
-In-Reply-To: <20170825141939.GB30922@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20170824161326.1f5f7c7f@griffin>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Thu, Aug 24, 2017 at 10:13:26PM +0800, Jiri Benc wrote:
+> On Thu, 24 Aug 2017 17:36:16 +0800, Yi Yang wrote:
+> >  include/net/nsh.h             | 307 ++++++++++++++++++++++++++++++++++++++++++
+> >  include/uapi/linux/if_ether.h |   1 +
+> >  net/Kconfig                   |   1 +
+> >  net/Makefile                  |   1 +
+> >  net/nsh/Kconfig               |  10 ++
+> >  net/nsh/Makefile              |   4 +
+> >  net/nsh/nsh_gso.c             | 116 ++++++++++++++++
+> 
+> Please consider making this a patchset, with a patch adding the NSH
+> structures and helper functions, a patch adding GSO and a patch adding
+> OVS support. That way, everything can be reviewed together, yet the
+> patches are reasonably contained.
 
---hHWLQfXTYDoKhP50
-Content-Type: text/plain; charset=iso-8859-1
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Sent out v6 as you said here.
 
-Hi Andrew,
+> 
+> > +config NET_NSH_GSO
+> > +	bool "NSH GSO support"
+> > +	depends on INET
+> > +	default y
+> > +	---help---
+> > +	 This allows segmentation of GSO packet that have had NSH header pushed         onto them and thus become NSH GSO packets.
+> 
+> Seems you're missing a newline here.
 
-On Fri, Aug 25, 2017 at 04:19:39PM +0200, Andrew Lunn wrote:
-> On Fri, Aug 25, 2017 at 04:14:17PM +0200, Antoine Tenart wrote:
-> > The mac address is only retrieved from h/w when using PPv2.1. Otherwise
-> > the variable holding it is still checked and used if it contains a valid
-> > value. As the variable isn't initialized to an invalid mac address
-> > value, we end up with random mac addresses which can be the same for all
-> > the ports handled by this PPv2 driver.
-> >=20
-> > Fixes this by initializing the h/w mac address variable to {0}, which is
-> > an invalid mac address value. This way the random assignation fallback
-> > is called and all ports end up with their own addresses.
-> >=20
-> > Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
-> > Fixes: 2697582144dd ("net: mvpp2: handle misc PPv2.1/PPv2.2 differences=
-")
->=20
-> Is this patch alone sufficient to fix the problem?
+Yes, fixed in v6.
 
-Yes it is.
+> 
+> > +static struct sk_buff *nsh_gso_segment(struct sk_buff *skb,
+> > +				       netdev_features_t features)
+> > +{
+> > +	struct sk_buff *segs = ERR_PTR(-EINVAL);
+> > +	__be16 protocol = skb->protocol;
+> > +	__be16 inner_proto;
+> > +	u16 mac_offset = skb->mac_header;
+> > +	u16 mac_len = skb->mac_len;
+> > +	struct nsh_hdr *nsh;
+> > +	unsigned int nsh_hlen;
+> > +	const struct net_offload *ops;
+> > +	struct sk_buff *(*gso_inner_segment)(struct sk_buff *skb,
+> > +					     netdev_features_t features);
+> > +
+> > +	skb_reset_network_header(skb);
+> > +	nsh = (struct nsh_hdr *)skb_network_header(skb);
+> > +	nsh_hlen = nsh_hdr_len(nsh);
+> > +	if (unlikely(!pskb_may_pull(skb, nsh_hlen)))
+> > +		goto out;
+> 
+> You have to reload nsh after this.
 
-> Ideally, you want a minimal patch for stable, i.e. -net, and a fuller
-> fix can go into net-next.
+Yeah, reload it in v6.
 
-That was my intention (providing a minimal patch for stable), and I
-asked about this approach in the v1. Dave told me to resend the series
-to net. Maybe my questions weren't clear enough.
+> 
+> > +
+> > +	__skb_pull(skb, nsh_hlen);
+> > +
+> > +	skb_reset_mac_header(skb);
+> > +	skb_reset_mac_len(skb);
+> > +
+> > +	rcu_read_lock();
+> > +	switch (nsh->next_proto) {
+> > +	case NSH_P_ETHERNET:
+> > +		inner_proto = htons(ETH_P_TEB);
+> > +		gso_inner_segment = skb_mac_gso_segment;
+> > +		break;
+> > +	case NSH_P_IPV4:
+> > +		inner_proto = htons(ETH_P_IP);
+> > +		ops = rcu_dereference(inet_offloads[inner_proto]);
+> > +		if (!ops || !ops->callbacks.gso_segment)
+> > +			goto out;
+> > +		gso_inner_segment = ops->callbacks.gso_segment;
+> > +		break;
+> > +	case NSH_P_IPV6:
+> > +		inner_proto = htons(ETH_P_IPV6);
+> > +		ops = rcu_dereference(inet6_offloads[inner_proto]);
+> > +		if (!ops || !ops->callbacks.gso_segment)
+> > +			goto out;
+> > +		gso_inner_segment = ops->callbacks.gso_segment;
+> > +		break;
+> > +	case NSH_P_NSH:
+> > +		inner_proto = htons(ETH_P_NSH);
+> > +		gso_inner_segment = nsh_gso_segment;
+> 
+> This doesn't look correct. Recursive call to nsh_gso_segment will reset
+> mac header, causing skb_segment not to copy the previous NSH header(s)
+> to the new segments.
 
-So probably the best way to handle this would have been to send 1/4 to
-net and 2-4/4 to net-next (but then there's a dependency between the two
-series).
+There are some errors here, I carefully checked inet_gso_segment again,
+it is very similiar to nsh_gso_segment. v6 should be ok.
 
-Let's wait for Dave's answer, I'll respin if needed so that it's easy
-for him to apply it.
+> 
+> > +		break;
+> > +	default:
+> > +		skb_gso_error_unwind(skb, protocol, nsh_hlen, mac_offset,
+> > +				     mac_len);
+> > +		goto out;
+> > +	}
+> > +
+> > +	skb->protocol = inner_proto;
+> > +	segs = gso_inner_segment(skb, features);
+> > +	if (IS_ERR_OR_NULL(segs)) {
+> > +		skb_gso_error_unwind(skb, protocol, nsh_hlen, mac_offset,
+> > +				     mac_len);
+> > +		goto out;
+> > +	}
+> > +
+> > +	do {
+> > +		skb->mac_len = mac_len;
+> > +		skb->protocol = protocol;
+> > +
+> > +		skb_reset_inner_network_header(skb);
+> 
+> This looks superfluous.
 
-Thanks!
-Antoine
+v6 looks simple :-)
 
---=20
-Antoine T=E9nart, Free Electrons
-Embedded Linux and Kernel engineering
-http://free-electrons.com
+> 
+> > +
+> > +		__skb_push(skb, nsh_hlen);
+> > +
+> > +		skb_reset_mac_header(skb);
+> > +		skb_set_network_header(skb, mac_len);
+> > +	} while ((skb = skb->next));
+> > +
+> > +out:
+> > +	rcu_read_unlock();
+> > +	return segs;
+> > +}
+> > +
+> > +static struct packet_offload nsh_offload __read_mostly = {
+> > +	.type = cpu_to_be16(ETH_P_NSH),
+> > +	.priority = 15,
+> > +	.callbacks = {
+> > +		.gso_segment    =	nsh_gso_segment,
+> > +	},
+> > +};
+> > +
+> > +static int __init nsh_gso_init(void)
+> > +{
+> > +	dev_add_offload(&nsh_offload);
+> > +
+> > +	return 0;
+> > +}
+> > +
+> > +fs_initcall(nsh_gso_init);
+> 
+> device_initcall should be enough. I doubt we'll be doing NFS over
+> NSH ;-)
 
---hHWLQfXTYDoKhP50
-Content-Type: application/pgp-signature; name="signature.asc"
+I have used device_initcall in v6.
 
------BEGIN PGP SIGNATURE-----
-
-iQIzBAABCgAdFiEEM7Tg8N8kXOlT7hOhXE2LyK3bvNgFAlmgNEgACgkQXE2LyK3b
-vNi9Jw//dO0a+CmHfCRDXFddhgTx42J7FBM4MNhX6KGZwPdqrATL/wlDAIzvxJGZ
-IwBeiLO/BlnYw9J/VtJdeKWCl+s4c59VToq5aeF3yFWTbrqYtlaOH+D8OjsBWZ7b
-zbqMguRSIp1y6jK1d0pl09TXPhqZMGqJ1J1UMNHgWdt1DekpOX6S45rr1Q3ozRvc
-CB9+7zrz6mgpSIiJFOLQmdTZUJ9+VN0PSlhMMg3OYSkKJzaJO4qnuY7WbWtkiQRh
-NmPyY6XHCxwbIJj35YzPbbv9sdXHaPBfjrTqgv2zn+2dE8cHt9Epvkc4sxHGVO0Z
-n/uxUwbFlNQ4ndXxDjNG9sc1wvAc7U6nnSyyzPCGcaLaz0Vczf+817U7itep4lbA
-ceQdU5LO+JrTFsZ8L2Sgm9HhHw82vVPUH+U7b92fmpJ3gjEBwr1xE3rPZlHR8p74
-PoZ0fIyvWj3TXMsZvjbReoy7huf4MvUatNai6ddAe7NNuAto603rhVLcU/aQweAD
-O5MD7xNSIMKvSi0Gde8CyjyuufAOWD9sqvII1hU6JOOn4UTUWHuWMIDWnfCy4H2B
-FPQKdGSZwlQXGqwaTWbHFz8L2oo2jksxMQruEvzfsbDu9ogCbJDMXvGOFxFCNuqC
-LEdNQqZlViGL+IwI11Bb76k/2FKsepK7ZwT9D1XZZxl7kUCcDhU=
-=6K9u
------END PGP SIGNATURE-----
-
---hHWLQfXTYDoKhP50--
+> 
+>  Jiri
