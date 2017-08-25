@@ -1,7 +1,7 @@
 From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH net-next v2 13/14] arm64: dts: marvell: 7040-db: add comphy references to Ethernet ports
-Date: Fri, 25 Aug 2017 16:48:20 +0200
-Message-ID: <20170825144821.31129-14-antoine.tenart@free-electrons.com>
+Subject: [PATCH net-next v2 12/14] arm64: dts: marvell: mcbin: add comphy references to Ethernet ports
+Date: Fri, 25 Aug 2017 16:48:19 +0200
+Message-ID: <20170825144821.31129-13-antoine.tenart@free-electrons.com>
 References: <20170825144821.31129-1-antoine.tenart@free-electrons.com>
 Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
         thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
@@ -16,26 +16,42 @@ In-Reply-To: <20170825144821.31129-1-antoine.tenart@free-electrons.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds comphy phandles to the Ethernet ports in the 7040-db
+This patch adds comphy phandles to the Ethernet ports in the mcbin
 device tree. The comphy is used to configure the serdes PHYs used by
 these ports.
 
 Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
 ---
- arch/arm64/boot/dts/marvell/armada-7040-db.dts | 1 +
- 1 file changed, 1 insertion(+)
+ arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts | 3 +++
+ 1 file changed, 3 insertions(+)
 
-diff --git a/arch/arm64/boot/dts/marvell/armada-7040-db.dts b/arch/arm64/boot/dts/marvell/armada-7040-db.dts
-index 92c761c380d3..03d1c42d7c47 100644
---- a/arch/arm64/boot/dts/marvell/armada-7040-db.dts
-+++ b/arch/arm64/boot/dts/marvell/armada-7040-db.dts
-@@ -180,6 +180,7 @@
+diff --git a/arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts b/arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts
+index 9f0a00802452..970081ca197b 100644
+--- a/arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts
++++ b/arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts
+@@ -148,6 +148,7 @@
+ &cpm_eth0 {
  	status = "okay";
  	phy = <&phy0>;
- 	phy-mode = "sgmii";
-+	phys = <&cpm_comphy0 1>;
++	phys = <&cpm_comphy4 0>;
+ 	phy-mode = "10gbase-kr";
  };
  
- &cpm_eth2 {
+@@ -181,6 +182,7 @@
+ &cps_eth0 {
+ 	status = "okay";
+ 	phy = <&phy8>;
++	phys = <&cps_comphy4 0>;
+ 	phy-mode = "10gbase-kr";
+ };
+ 
+@@ -189,6 +191,7 @@
+ 	status = "okay";
+ 	phy = <&ge_phy>;
+ 	phy-mode = "sgmii";
++	phys = <&cps_comphy0 1>;
+ };
+ 
+ &cps_sata0 {
 -- 
 2.13.5
