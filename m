@@ -1,127 +1,42 @@
-From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH net-next v2 11/14] arm64: dts: marvell: add comphy nodes on cp110 master and slave
-Date: Fri, 25 Aug 2017 16:48:18 +0200
-Message-ID: <20170825144821.31129-12-antoine.tenart@free-electrons.com>
-References: <20170825144821.31129-1-antoine.tenart@free-electrons.com>
-Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
-        thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
-        linux@armlinux.org.uk, linux-kernel@vger.kernel.org,
-        mw@semihalf.com, stefanc@marvell.com,
-        miquel.raynal@free-electrons.com, netdev@vger.kernel.org
-To: davem@davemloft.net, kishon@ti.com, andrew@lunn.ch,
-        jason@lakedaemon.net, sebastian.hesselbarth@gmail.com,
-        gregory.clement@free-electrons.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170825144821.31129-1-antoine.tenart@free-electrons.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Guillaume Nault <g.nault@alphalink.fr>
+Subject: [PATCH net 0/5] l2tp: fix some l2tp_tunnel_find() issues in
+ l2tp_netlink
+Date: Fri, 25 Aug 2017 16:51:39 +0200
+Message-ID: <cover.1503671776.git.g.nault@alphalink.fr>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: James Chapman <jchapman@katalix.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zimbra.alphalink.fr ([217.15.80.77]:53364 "EHLO
+        zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757279AbdHYOvm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 10:51:42 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Now that the comphy driver is available, this patch adds the
-corresponding nodes in the cp110 master and slave device trees.
+Since l2tp_tunnel_find() doesn't take a reference on the tunnel it
+returns, its users are almost guaranteed to be racy.
 
-Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
----
- .../boot/dts/marvell/armada-cp110-master.dtsi      | 38 ++++++++++++++++++++++
- .../arm64/boot/dts/marvell/armada-cp110-slave.dtsi | 38 ++++++++++++++++++++++
- 2 files changed, 76 insertions(+)
+This series defines l2tp_tunnel_get() which can be used as a safe
+replacement, and converts some of l2tp_tunnel_find() users in the
+l2tp_netlink module.
 
-diff --git a/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi b/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi
-index 9b2581473183..f2a50552bad4 100644
---- a/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi
-+++ b/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi
-@@ -91,6 +91,44 @@
- 				};
- 			};
- 
-+			cpm_comphy: phy@120000 {
-+				compatible = "marvell,comphy-cp110";
-+				reg = <0x120000 0x6000>;
-+				marvell,system-controller = <&cpm_syscon0>;
-+				#address-cells = <1>;
-+				#size-cells = <0>;
-+
-+				cpm_comphy0: phy@0 {
-+					reg = <0>;
-+					#phy-cells = <1>;
-+				};
-+
-+				cpm_comphy1: phy@1 {
-+					reg = <1>;
-+					#phy-cells = <1>;
-+				};
-+
-+				cpm_comphy2: phy@2 {
-+					reg = <2>;
-+					#phy-cells = <1>;
-+				};
-+
-+				cpm_comphy3: phy@3 {
-+					reg = <3>;
-+					#phy-cells = <1>;
-+				};
-+
-+				cpm_comphy4: phy@4 {
-+					reg = <4>;
-+					#phy-cells = <1>;
-+				};
-+
-+				cpm_comphy5: phy@5 {
-+					reg = <5>;
-+					#phy-cells = <1>;
-+				};
-+			};
-+
- 			cpm_mdio: mdio@12a200 {
- 				#address-cells = <1>;
- 				#size-cells = <0>;
-diff --git a/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi b/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi
-index d3902f218c46..bd7f7d0e6de9 100644
---- a/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi
-+++ b/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi
-@@ -98,6 +98,44 @@
- 				};
- 			};
- 
-+			cps_comphy: phy@120000 {
-+				compatible = "marvell,comphy-cp110";
-+				reg = <0x120000 0x6000>;
-+				marvell,system-controller = <&cps_syscon0>;
-+				#address-cells = <1>;
-+				#size-cells = <0>;
-+
-+				cps_comphy0: phy@0 {
-+					reg = <0>;
-+					#phy-cells = <1>;
-+				};
-+
-+				cps_comphy1: phy@1 {
-+					reg = <1>;
-+					#phy-cells = <1>;
-+				};
-+
-+				cps_comphy2: phy@2 {
-+					reg = <2>;
-+					#phy-cells = <1>;
-+				};
-+
-+				cps_comphy3: phy@3 {
-+					reg = <3>;
-+					#phy-cells = <1>;
-+				};
-+
-+				cps_comphy4: phy@4 {
-+					reg = <4>;
-+					#phy-cells = <1>;
-+				};
-+
-+				cps_comphy5: phy@5 {
-+					reg = <5>;
-+					#phy-cells = <1>;
-+				};
-+			};
-+
- 			cps_mdio: mdio@12a200 {
- 				#address-cells = <1>;
- 				#size-cells = <0>;
+Other users often combine this issue with other more or less subtle
+races. They will be fixed incrementally in followup series.
+
+Guillaume Nault (5):
+  l2tp: hold tunnel while looking up sessions in l2tp_netlink
+  l2tp: hold tunnel while processing genl delete command
+  l2tp: hold tunnel while handling genl tunnel updates
+  l2tp: hold tunnel while handling genl TUNNEL_GET commands
+  l2tp: hold tunnel used while creating sessions with netlink
+
+ net/l2tp/l2tp_core.c    | 66 ++++++++++++++++---------------------------------
+ net/l2tp/l2tp_core.h    | 13 ++++++++++
+ net/l2tp/l2tp_netlink.c | 66 +++++++++++++++++++++++++++++--------------------
+ 3 files changed, 73 insertions(+), 72 deletions(-)
+
 -- 
-2.13.5
+2.14.1
