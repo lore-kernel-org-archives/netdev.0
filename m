@@ -1,62 +1,46 @@
-From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH net-next] net: mvpp2: fix the packet size configuration for 10G
-Date: Fri, 25 Aug 2017 15:24:46 +0200
-Message-ID: <20170825132446.1130-1-antoine.tenart@free-electrons.com>
-Cc: Antoine Tenart <antoine.tenart@free-electrons.com>, andrew@lunn.ch,
-        gregory.clement@free-electrons.com,
-        thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
-        linux@armlinux.org.uk, mw@semihalf.com, stefanc@marvell.com,
-        netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:41675 "EHLO
-        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932201AbdHYNZN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 09:25:13 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH v3 3/4] net: stmmac: register parent MDIO node for
+ sun8i-h3-emac
+Date: Fri, 25 Aug 2017 15:26:30 +0200
+Message-ID: <20170825132630.GA28171@lunn.ch>
+References: <20170822181140.GA11596@Red>
+ <352ae66b-78a4-e88b-4544-a8edd9390b0c@gmail.com>
+ <20170823074942.yt3c5gvnmdw5pqge@flea.home>
+ <f14fe754-6339-32a0-3439-2daff6dd1d7e@gmail.com>
+ <20170824082124.GA14302@Red>
+ <dfc8e7f3-e374-b30b-b320-017f1c50ab58@gmail.com>
+ <CAGb2v64jrDPSff+QL_PQBMaQJ+CcTVbskjuOUd1OqR4smbu+ig@mail.gmail.com>
+ <77ff97c1-9d0a-8b3f-d0b9-25c951f86fec@gmail.com>
+ <CAGb2v64Bx7vzzK8nKbiQPsYkgu5JZ6_0iCkx=mgpWY=8b_GeXQ@mail.gmail.com>
+ <3d74f0e3-9baf-195d-1e59-dbd8210b3c6f@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Chen-Yu Tsai <wens@csie.org>,
+        Corentin Labbe <clabbe.montjoie@gmail.com>,
+        Maxime Ripard <maxime.ripard@free-electrons.com>,
+        Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Russell King <linux@armlinux.org.uk>,
+        Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+        Alexandre Torgue <alexandre.torgue@st.com>,
+        devicetree <devicetree@vger.kernel.org>,
+        linux-arm-kernel <linux-arm-kernel@lists.infradead.org>,
+        linux-kernel <linux-kernel@vger.kernel.org>,
+        netdev <netdev@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <3d74f0e3-9baf-195d-1e59-dbd8210b3c6f@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The MVPP22_XLG_CTRL1_FRAMESIZELIMIT define is used as an offset, but is
-defined as BIT(0). Updated its name to contains "OFFS" as in offset and
-fix its value using the offset value, 0.
+> > Just tested. Yes the MDIO/MDC lines are also muxed and controlled through
+> > the same mux bit.
+> 
+> Alright then the mdio-mux seems appropriate, thanks.
 
-Reported-by: Stefan Chulski <stefanc@marvell.com>
-Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
-Fixes: 76eb1b1de5b6 ("net: mvpp2: set maximum packet size for 10G ports")
----
+Please add a comment that it muxes the MII lines as well.  That is not
+normal for an mdio-mux, so we should document it in the dtsi file.
 
-Hi Dave,
-
-This patch fixes a bug only present in net-next as it was introduced
-recently.
-
-Thanks!
-Antoine
-
- drivers/net/ethernet/marvell/mvpp2.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 7fa251bf91ae..fea9ae5b70ba 100644
---- a/drivers/net/ethernet/marvell/mvpp2.c
-+++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -367,7 +367,7 @@
- #define     MVPP22_XLG_CTRL0_RX_FLOW_CTRL_EN	BIT(7)
- #define     MVPP22_XLG_CTRL0_MIB_CNT_DIS	BIT(14)
- #define MVPP22_XLG_CTRL1_REG			0x104
--#define     MVPP22_XLG_CTRL1_FRAMESIZELIMIT	BIT(0)
-+#define     MVPP22_XLG_CTRL1_FRAMESIZELIMIT_OFFS	0
- #define     MVPP22_XLG_CTRL1_FRAMESIZELIMIT_MASK	0x1fff
- #define MVPP22_XLG_CTRL3_REG			0x11c
- #define     MVPP22_XLG_CTRL3_MACMODESELECT_MASK	(7 << 13)
-@@ -4669,7 +4669,7 @@ static inline void mvpp2_xlg_max_rx_size_set(struct mvpp2_port *port)
- 	val =  readl(port->base + MVPP22_XLG_CTRL1_REG);
- 	val &= ~MVPP22_XLG_CTRL1_FRAMESIZELIMIT_MASK;
- 	val |= ((port->pkt_size - MVPP2_MH_SIZE) / 2) <<
--	       MVPP22_XLG_CTRL1_FRAMESIZELIMIT;
-+	       MVPP22_XLG_CTRL1_FRAMESIZELIMIT_OFFS;
- 	writel(val, port->base + MVPP22_XLG_CTRL1_REG);
- }
- 
--- 
-2.13.5
+Thanks
+       Andrew
