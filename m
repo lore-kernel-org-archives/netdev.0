@@ -1,31 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v5] net: stmmac: Delete dead code for MDIO
- registration
-Date: Fri, 25 Aug 2017 20:08:24 -0700 (PDT)
-Message-ID: <20170825.200824.1432029823120186297.davem@davemloft.net>
-References: <20170825064959.9603-1-romain.perier@collabora.com>
+Subject: Re: [PATCH net] udp6: set rx_dst_cookie on rx_dst updates
+Date: Fri, 25 Aug 2017 20:10:03 -0700 (PDT)
+Message-ID: <20170825.201003.262344560300570739.davem@davemloft.net>
+References: <9e52c29f4bd47d591cdc7bf6c3a88b2fc57e4422.1503664112.git.pabeni@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com, andrew@lunn.ch,
-        f.fainelli@gmail.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: romain.perier@collabora.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170825064959.9603-1-romain.perier@collabora.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, subashab@codeaurora.org,
+        hannes@stressinduktion.org
+To: pabeni@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:40410 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751662AbdHZDKE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 23:10:04 -0400
+In-Reply-To: <9e52c29f4bd47d591cdc7bf6c3a88b2fc57e4422.1503664112.git.pabeni@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Romain Perier <romain.perier@collabora.com>
-Date: Fri, 25 Aug 2017 08:49:59 +0200
+From: Paolo Abeni <pabeni@redhat.com>
+Date: Fri, 25 Aug 2017 14:31:01 +0200
 
-> This code is no longer used, the logging function was changed by commit
-> fbca164776e4 ("net: stmmac: Use the right logging function in stmmac_mdio_register").
-> It was previously showing information about the type of the IRQ, if it's
-> polled, ignored or a normal interrupt. As we don't want information loss,
-> I have moved this code to phy_attached_print().
+> Currently, in the udp6 code, the dst cookie is not initialized/updated
+> concurrently with the RX dst used by early demux.
 > 
-> Fixes: fbca164776e4 ("net: stmmac: Use the right logging function in stmmac_mdio_register")
-> Signed-off-by: Romain Perier <romain.perier@collabora.com>
+> As a result, the dst_check() in the early_demux path always fails,
+> the rx dst cache is always invalidated, and we can't really
+> leverage significant gain from the demux lookup.
+> 
+> Fix it adding udp6 specific variant of sk_rx_dst_set() and use it
+> to set the dst cookie when the dst entry is really changed.
+> 
+> The issue is there since the introduction of early demux for ipv6.
+> 
+> Fixes: 5425077d73e0 ("net: ipv6: Add early demux handler for UDP unicast")
+> Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
 
-This doesn't apply to net-next.
+Applied and queued up for -stable, thanks.
