@@ -1,50 +1,65 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next] selftests/bpf: check the instruction dumps are
- populated
-Date: Sat, 26 Aug 2017 03:16:06 +0200
-Message-ID: <59A0CBD6.6000602@iogearbox.net>
-References: <20170825213957.4768-1-jakub.kicinski@netronome.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: UDP sockets oddities
+Date: Fri, 25 Aug 2017 18:17:34 -0700
+Message-ID: <ce4af8cc-3de1-a777-967c-a57103994e1d@gmail.com>
+References: <3fed7679-0e19-8a0a-eee6-11baa5654fac@gmail.com>
+ <1503527210.2499.63.camel@edumazet-glaptop3.roam.corp.google.com>
+ <9a9c1c94-4902-2ec9-d216-3f5cfb3044af@gmail.com>
+ <1503529476.2499.65.camel@edumazet-glaptop3.roam.corp.google.com>
+ <6c88e440-3f36-858d-1a08-bd32a2c66f4e@gmail.com>
+ <1503535426.2499.66.camel@edumazet-glaptop3.roam.corp.google.com>
+ <4adb4b66-590c-c55a-44aa-27dd409ce14f@gmail.com>
+ <3c44d27e-27d9-e9c4-04b3-17c0366e60d9@gmail.com>
+ <1503705440.11498.9.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: kafai@fb.com, oss-drivers@netronome.com
-To: Jakub Kicinski <jakub.kicinski@netronome.com>,
-        netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, edumazet@gmail.com, pabeni@redhat.com,
+        willemb@google.com, davem@davemloft.net
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:35754 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751407AbdHZBQL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 21:16:11 -0400
-In-Reply-To: <20170825213957.4768-1-jakub.kicinski@netronome.com>
+Received: from mail-qk0-f179.google.com ([209.85.220.179]:34924 "EHLO
+        mail-qk0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751426AbdHZBRj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 21:17:39 -0400
+Received: by mail-qk0-f179.google.com with SMTP id p67so6627658qkd.2
+        for <netdev@vger.kernel.org>; Fri, 25 Aug 2017 18:17:38 -0700 (PDT)
+In-Reply-To: <1503705440.11498.9.camel@edumazet-glaptop3.roam.corp.google.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/25/2017 11:39 PM, Jakub Kicinski wrote:
-> Add a basic test for checking whether kernel is populating
-> the jited and xlated BPF images.  It was used to confirm
-> the behaviour change from commit d777b2ddbecf ("bpf: don't
-> zero out the info struct in bpf_obj_get_info_by_fd()"),
-> which made bpf_obj_get_info_by_fd() usable for retrieving
-> the image dumps.
->
-> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
-[...]
-> @@ -328,15 +331,20 @@ static void test_bpf_obj_id(void)
->   			  prog_infos[i].type != BPF_PROG_TYPE_SOCKET_FILTER ||
->   			  info_len != sizeof(struct bpf_prog_info) ||
->   			  (jit_enabled && !prog_infos[i].jited_prog_len) ||
-> -			  !prog_infos[i].xlated_prog_len,
-> +			  (jit_enabled &&
-> +			   !memcmp(jited_insns, zeros, sizeof(zeros))) ||
-> +			  !prog_infos[i].xlated_prog_len ||
-> +			  !memcmp(xlated_insns, zeros, sizeof(zeros)),
+On 08/25/2017 04:57 PM, Eric Dumazet wrote:
+> On Fri, 2017-08-25 at 16:18 -0700, Florian Fainelli wrote:
+> 
+>> Eric, are there areas of the stack where we are allowed to drop packets,
+>> not propagate that back to write(2) and also not increment any counter
+>> either, or maybe I am not looking where I should...
+> 
+> What happens if you increase these sysctls ?
 
-There could still be the case where a JIT could bail out
-for some reason and punt to the interpreter instead, but
-I'm fine assuming for the specific test cases we have it
-has to succeed, and if not JIT misses features or has other
-issues. ;) Thus:
+I don't see packet loss after I tweak these two sysctls according to
+your suggestions.
 
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+Tweaking eth0's sysctls did not change anything, but tweaking gphy's
+sysctl resolved the loss. This was a little surprising considering that
+gphy is an IFF_NO_QUEUE interface and eth0 is the conduit interface that
+does the real transmission.
+
+Does that make sense with respect to what I reported earlier? Should I
+try to dump the neigh stats?
 
 Thanks!
+
+> 
+> grep .  `find /proc/sys|grep unres_qlen`
+> 
+> 
+> unres_qlen_bytes -> 2000000
+> unres_qlen -> 10000
+> 
+> 
+
+
+-- 
+Florian
