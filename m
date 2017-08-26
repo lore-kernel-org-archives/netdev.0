@@ -1,79 +1,131 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net] ipv6: set dst.obsolete when a cached route has expired
-Date: Sat, 26 Aug 2017 20:10:10 +0800
-Message-ID: <cd3d9312a3d31ee72b9377e7200898c30f73ab8e.1503749410.git.lucien.xin@gmail.com>
-Cc: davem@davemloft.net, hannes@stressinduktion.org
-To: network dev <netdev@vger.kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: UDP sockets oddities
+Date: Sat, 26 Aug 2017 05:47:51 -0700
+Message-ID: <1503751671.11498.25.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1503712322.11498.12.camel@edumazet-glaptop3.roam.corp.google.com>
+         <354e6c3a-1771-e8a7-24dd-1b70266563af@gmail.com>
+         <1503718844.11498.19.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20170825.211905.920493778125075310.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org, pabeni@redhat.com,
+        willemb@google.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:38787 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752129AbdHZMKU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 26 Aug 2017 08:10:20 -0400
-Received: by mail-pg0-f66.google.com with SMTP id t3so2684583pgt.5
-        for <netdev@vger.kernel.org>; Sat, 26 Aug 2017 05:10:20 -0700 (PDT)
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:33551 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752356AbdHZMry (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 26 Aug 2017 08:47:54 -0400
+Received: by mail-pf0-f195.google.com with SMTP id c28so913246pfe.0
+        for <netdev@vger.kernel.org>; Sat, 26 Aug 2017 05:47:53 -0700 (PDT)
+In-Reply-To: <20170825.211905.920493778125075310.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now it doesn't check for the cached route expiration in ipv6's
-dst_ops->check(), because it trusts dst_gc that would clean the
-cached route up when it's expired.
+On Fri, 2017-08-25 at 21:19 -0700, David Miller wrote:
 
-The problem is in dst_gc, it would clean the cached route only
-when it's refcount is 1. If some other module (like xfrm) keeps
-holding it and the module only release it when dst_ops->check()
-fails.
+> Agreed, but the ARP resolution queue really needs to scale it's backlog
+> to the physical technology it is attached to.
+Yes, last time (in 2011) we increased the old limit of 3 packets :/
 
-But without checking for the cached route expiration, .check()
-may always return true. Meanwhile, without releasing the cached
-route, dst_gc couldn't del it. It will cause this cached route
-never to expire.
+We probably should match sysctl_wmem_max so that a single socket
+provider would hit its sk_sndbuf limit
 
-This patch is to set dst.obsolete with DST_OBSOLETE_KILL in .gc
-when it's expired, and check obsolete != DST_OBSOLETE_FORCE_CHK
-in .check.
+Something like :
 
-Note that this is even needed when ipv6 dst_gc timer is removed
-one day. It would set dst.obsolete in .redirect and .update_pmtu
-instead, and check for cached route expiration when getting it,
-just like what ipv4 route does.
-
-Reported-by: Jianlin Shi <jishi@redhat.com>
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
- net/ipv6/ip6_fib.c | 4 +++-
- net/ipv6/route.c   | 3 ++-
- 2 files changed, 5 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
-index a5ebf86..18567b8 100644
---- a/net/ipv6/ip6_fib.c
-+++ b/net/ipv6/ip6_fib.c
-@@ -1792,8 +1792,10 @@ static int fib6_age(struct rt6_info *rt, void *arg)
- 		}
- 		gc_args->more++;
- 	} else if (rt->rt6i_flags & RTF_CACHE) {
-+		if (time_after_eq(now, rt->dst.lastuse + gc_args->timeout))
-+			rt->dst.obsolete = DST_OBSOLETE_KILL;
- 		if (atomic_read(&rt->dst.__refcnt) == 1 &&
--		    time_after_eq(now, rt->dst.lastuse + gc_args->timeout)) {
-+		    rt->dst.obsolete == DST_OBSOLETE_KILL) {
- 			RT6_TRACE("aging clone %p\n", rt);
- 			return -1;
- 		} else if (rt->rt6i_flags & RTF_GATEWAY) {
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 48c8c92..7c634b6 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -440,7 +440,8 @@ static bool rt6_check_expired(const struct rt6_info *rt)
- 		if (time_after(jiffies, rt->dst.expires))
- 			return true;
- 	} else if (rt->dst.from) {
--		return rt6_check_expired((struct rt6_info *) rt->dst.from);
-+		return rt->dst.obsolete != DST_OBSOLETE_FORCE_CHK ||
-+		       rt6_check_expired((struct rt6_info *)rt->dst.from);
- 	}
- 	return false;
- }
--- 
-2.1.0
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+index 6b0bc0f715346a097a6df46e2ba2771359abcd23..7777dceb78107c0019fb39d5b69be1959005b78e 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -109,7 +109,8 @@ neigh/default/unres_qlen_bytes - INTEGER
+ 	queued for each	unresolved address by other network layers.
+ 	(added in linux 3.3)
+ 	Setting negative value is meaningless and will return error.
+-	Default: 65536 Bytes(64KB)
++	Default: SK_WMEM_MAX, enough to store 256 packets of medium size
++		 (less than 256 bytes per packet)
+ 
+ neigh/default/unres_qlen - INTEGER
+ 	The maximum number of packets which may be queued for each
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 1c2912d433e81b10f3fdc87bcfcbb091570edc03..03a362568357acc7278a318423dd3873103f90ca 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -2368,6 +2368,16 @@ bool sk_net_capable(const struct sock *sk, int cap);
+ 
+ void sk_get_meminfo(const struct sock *sk, u32 *meminfo);
+ 
++/* Take into consideration the size of the struct sk_buff overhead in the
++ * determination of these values, since that is non-constant across
++ * platforms.  This makes socket queueing behavior and performance
++ * not depend upon such differences.
++ */
++#define _SK_MEM_PACKETS		256
++#define _SK_MEM_OVERHEAD	SKB_TRUESIZE(256)
++#define SK_WMEM_MAX		(_SK_MEM_OVERHEAD * _SK_MEM_PACKETS)
++#define SK_RMEM_MAX		(_SK_MEM_OVERHEAD * _SK_MEM_PACKETS)
++
+ extern __u32 sysctl_wmem_max;
+ extern __u32 sysctl_rmem_max;
+ 
+diff --git a/net/core/sock.c b/net/core/sock.c
+index dfdd14cac775e9bfcee0085ee32ffcd0ab28b67b..9b7b6bbb2a23e7652a1f34a305f29d49de00bc8c 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -307,16 +307,6 @@ static struct lock_class_key af_wlock_keys[AF_MAX];
+ static struct lock_class_key af_elock_keys[AF_MAX];
+ static struct lock_class_key af_kern_callback_keys[AF_MAX];
+ 
+-/* Take into consideration the size of the struct sk_buff overhead in the
+- * determination of these values, since that is non-constant across
+- * platforms.  This makes socket queueing behavior and performance
+- * not depend upon such differences.
+- */
+-#define _SK_MEM_PACKETS		256
+-#define _SK_MEM_OVERHEAD	SKB_TRUESIZE(256)
+-#define SK_WMEM_MAX		(_SK_MEM_OVERHEAD * _SK_MEM_PACKETS)
+-#define SK_RMEM_MAX		(_SK_MEM_OVERHEAD * _SK_MEM_PACKETS)
+-
+ /* Run time adjustable parameters. */
+ __u32 sysctl_wmem_max __read_mostly = SK_WMEM_MAX;
+ EXPORT_SYMBOL(sysctl_wmem_max);
+diff --git a/net/decnet/dn_neigh.c b/net/decnet/dn_neigh.c
+index 21dedf6fd0f76dec22b2b3685beb89cfefea7ded..22bf0b95d6edc3c27ef3a99d27cb70a1551e3e0e 100644
+--- a/net/decnet/dn_neigh.c
++++ b/net/decnet/dn_neigh.c
+@@ -94,7 +94,7 @@ struct neigh_table dn_neigh_table = {
+ 			[NEIGH_VAR_BASE_REACHABLE_TIME] = 30 * HZ,
+ 			[NEIGH_VAR_DELAY_PROBE_TIME] = 5 * HZ,
+ 			[NEIGH_VAR_GC_STALETIME] = 60 * HZ,
+-			[NEIGH_VAR_QUEUE_LEN_BYTES] = 64*1024,
++			[NEIGH_VAR_QUEUE_LEN_BYTES] = SK_WMEM_MAX,
+ 			[NEIGH_VAR_PROXY_QLEN] = 0,
+ 			[NEIGH_VAR_ANYCAST_DELAY] = 0,
+ 			[NEIGH_VAR_PROXY_DELAY] = 0,
+diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
+index 8b52179ddc6e54eabf6d3c2ed0132083228680bb..7c45b8896709815c5dde5972fd57cb5c3bcb2648 100644
+--- a/net/ipv4/arp.c
++++ b/net/ipv4/arp.c
+@@ -171,7 +171,7 @@ struct neigh_table arp_tbl = {
+ 			[NEIGH_VAR_BASE_REACHABLE_TIME] = 30 * HZ,
+ 			[NEIGH_VAR_DELAY_PROBE_TIME] = 5 * HZ,
+ 			[NEIGH_VAR_GC_STALETIME] = 60 * HZ,
+-			[NEIGH_VAR_QUEUE_LEN_BYTES] = 64 * 1024,
++			[NEIGH_VAR_QUEUE_LEN_BYTES] = SK_WMEM_MAX,
+ 			[NEIGH_VAR_PROXY_QLEN] = 64,
+ 			[NEIGH_VAR_ANYCAST_DELAY] = 1 * HZ,
+ 			[NEIGH_VAR_PROXY_DELAY]	= (8 * HZ) / 10,
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index 5e338eb89509b1df6ebd060f8bd19fcb4b86fe05..266a530414d7be4f1e7be922e465bbab46f7cbac 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -127,7 +127,7 @@ struct neigh_table nd_tbl = {
+ 			[NEIGH_VAR_BASE_REACHABLE_TIME] = ND_REACHABLE_TIME,
+ 			[NEIGH_VAR_DELAY_PROBE_TIME] = 5 * HZ,
+ 			[NEIGH_VAR_GC_STALETIME] = 60 * HZ,
+-			[NEIGH_VAR_QUEUE_LEN_BYTES] = 64 * 1024,
++			[NEIGH_VAR_QUEUE_LEN_BYTES] = SK_WMEM_MAX,
+ 			[NEIGH_VAR_PROXY_QLEN] = 64,
+ 			[NEIGH_VAR_ANYCAST_DELAY] = 1 * HZ,
+ 			[NEIGH_VAR_PROXY_DELAY] = (8 * HZ) / 10,
