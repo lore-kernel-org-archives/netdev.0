@@ -1,52 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp: fix hang in tcp_sendpage_locked()
-Date: Fri, 25 Aug 2017 17:22:41 -0700 (PDT)
-Message-ID: <20170825.172241.418919299899603346.davem@davemloft.net>
-References: <1503667625.18816.9.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: Permissions for eBPF objects
+Date: Fri, 25 Aug 2017 18:03:32 -0700
+Message-ID: <20170826010330.tuospq5h43fv3tlp@ast-mbp>
+References: <CABXk95AiYO7D8o79TBdt0_0g1TXfULSpL5i7KzHF3R4i-WhwHw@mail.gmail.com>
+ <1503689199.9977.4.camel@tycho.nsa.gov>
+ <CABXk95BkyU5MBLry0PEp+QwhtY7rM4DCmQq3CeQi6=TQtQQPwA@mail.gmail.com>
+ <CAMOXUJkQ-Wh==9nzgx3Sq4RUEBK5ArHk4b=AL0N65L9g6cAqcg@mail.gmail.com>
+ <59A0837F.9090301@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tom@quantonium.net, dvyukov@google.com
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Chenbo Feng <fengc@google.com>,
+        Jeffrey Vander Stoep <jeffv@google.com>,
+        Stephen Smalley <sds@tycho.nsa.gov>, netdev@vger.kernel.org,
+        SELinux <Selinux@tycho.nsa.gov>, mic@digikod.net
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:37108 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754462AbdHZAWm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 20:22:42 -0400
-In-Reply-To: <1503667625.18816.9.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-pf0-f170.google.com ([209.85.192.170]:36046 "EHLO
+        mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751508AbdHZBDg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 21:03:36 -0400
+Received: by mail-pf0-f170.google.com with SMTP id k3so174600pfc.3
+        for <netdev@vger.kernel.org>; Fri, 25 Aug 2017 18:03:35 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <59A0837F.9090301@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 25 Aug 2017 06:27:05 -0700
+On Fri, Aug 25, 2017 at 10:07:27PM +0200, Daniel Borkmann wrote:
+> On 08/25/2017 09:52 PM, Chenbo Feng wrote:
+> > On Fri, Aug 25, 2017 at 12:45 PM, Jeffrey Vander Stoep <jeffv@google.com> wrote:
+> > > On Fri, Aug 25, 2017 at 12:26 PM, Stephen Smalley <sds@tycho.nsa.gov> wrote:
+> > > > On Fri, 2017-08-25 at 11:01 -0700, Jeffrey Vander Stoep via Selinux
+> > > > wrote:
+> > > > > I’d like to get your thoughts on adding LSM permission checks on BPF
+> > > > > objects.
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> syszkaller got a hang in tcp stack, related to a bug in
-> tcp_sendpage_locked()
-> 
-> root@syzkaller:~# cat /proc/3059/stack
-> [<ffffffff83de926c>] __lock_sock+0x1dc/0x2f0
-> [<ffffffff83de9473>] lock_sock_nested+0xf3/0x110
-> [<ffffffff8408ce01>] tcp_sendmsg+0x21/0x50
-> [<ffffffff84163b6f>] inet_sendmsg+0x11f/0x5e0
-> [<ffffffff83dd8eea>] sock_sendmsg+0xca/0x110
-> [<ffffffff83dd9547>] kernel_sendmsg+0x47/0x60
-> [<ffffffff83de35dc>] sock_no_sendpage+0x1cc/0x280
-> [<ffffffff8408916b>] tcp_sendpage_locked+0x10b/0x160
-> [<ffffffff84089203>] tcp_sendpage+0x43/0x60
-> [<ffffffff841641da>] inet_sendpage+0x1aa/0x660
-> [<ffffffff83dd4fcd>] kernel_sendpage+0x8d/0xe0
-> [<ffffffff83dd50ac>] sock_sendpage+0x8c/0xc0
-> [<ffffffff81b63300>] pipe_to_sendpage+0x290/0x3b0
-> [<ffffffff81b67243>] __splice_from_pipe+0x343/0x750
-> [<ffffffff81b6a459>] splice_from_pipe+0x1e9/0x330
-> [<ffffffff81b6a5e0>] generic_splice_sendpage+0x40/0x50
-> [<ffffffff81b6b1d7>] SyS_splice+0x7b7/0x1610
-> [<ffffffff84d77a01>] entry_SYSCALL_64_fastpath+0x1f/0xbe
-> 
-> Fixes: 306b13eb3cf9 ("proto_ops: Add locked held versions of sendmsg and sendpage")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Reported-by: Dmitry Vyukov <dvyukov@google.com>
-
-APplied, thanks Eric.
+before reinventing the wheel please take a look at landlock work.
+Everything that was discussed in this thread is covered by it.
+The patches have been in development for more than a year and most of the early
+issues have been resolved.
+It will be presented again during security summit in LA in September.
