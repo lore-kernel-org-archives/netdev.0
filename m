@@ -1,7 +1,7 @@
 From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Subject: [PATCH v4 4/5] net: stmmac: dwmac-sun8i: choose internal PHY via phy-is-integrated
-Date: Sat, 26 Aug 2017 09:33:10 +0200
-Message-ID: <20170826073311.25612-5-clabbe.montjoie@gmail.com>
+Subject: [PATCH v4 1/5] net: stmmac: Handle possible fixed-link with need_mdio_ids
+Date: Sat, 26 Aug 2017 09:33:07 +0200
+Message-ID: <20170826073311.25612-2-clabbe.montjoie@gmail.com>
 References: <20170826073311.25612-1-clabbe.montjoie@gmail.com>
 Cc: icenowy@aosc.io, netdev@vger.kernel.org,
         devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
@@ -16,96 +16,29 @@ In-Reply-To: <20170826073311.25612-1-clabbe.montjoie@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The current way to find if the phy is internal is to compare DT phy-mode
-and emac_variant/internal_phy.
-But it will negate a possible future SoC where an external PHY use the
-same phy mode than the internal one.
+In case of fixed link, there are no mdio node.
+This patch add a test for fixed-link for bypassing MDIO node register
+that match need_mdio_ids.
 
-This patch adds a new way to find if the PHY is internal, via
-the phy-is-integrated property.
-
-Since the internal_phy variable does not need anymore to contain the xMII mode
-used by the internal PHY, it is still used for knowing the presence of an
-internal PHY, so it is modified to a boolean soc_has_internal_phy.
+Note that this do not change behaviour for MDIO snps,dwmac-mdio nodes.
 
 Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
-Acked-by: Chen-Yu Tsai <wens@csie.org>
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c | 16 ++++++++--------
- 1 file changed, 8 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
-index 675a09629d85..c353e5bcb3c1 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
-@@ -41,14 +41,14 @@
-  *				This value is used for disabling properly EMAC
-  *				and used as a good starting value in case of the
-  *				boot process(uboot) leave some stuff.
-- * @internal_phy:		Does the MAC embed an internal PHY
-+ * @soc_has_internal_phy:	Does the MAC embed an internal PHY
-  * @support_mii:		Does the MAC handle MII
-  * @support_rmii:		Does the MAC handle RMII
-  * @support_rgmii:		Does the MAC handle RGMII
-  */
- struct emac_variant {
- 	u32 default_syscon_value;
--	int internal_phy;
-+	bool soc_has_internal_phy;
- 	bool support_mii;
- 	bool support_rmii;
- 	bool support_rgmii;
-@@ -75,7 +75,7 @@ struct sunxi_priv_data {
- 
- static const struct emac_variant emac_variant_h3 = {
- 	.default_syscon_value = 0x58000,
--	.internal_phy = PHY_INTERFACE_MODE_MII,
-+	.soc_has_internal_phy = true,
- 	.support_mii = true,
- 	.support_rmii = true,
- 	.support_rgmii = true
-@@ -83,20 +83,20 @@ static const struct emac_variant emac_variant_h3 = {
- 
- static const struct emac_variant emac_variant_v3s = {
- 	.default_syscon_value = 0x38000,
--	.internal_phy = PHY_INTERFACE_MODE_MII,
-+	.soc_has_internal_phy = true,
- 	.support_mii = true
- };
- 
- static const struct emac_variant emac_variant_a83t = {
- 	.default_syscon_value = 0,
--	.internal_phy = 0,
-+	.soc_has_internal_phy = false,
- 	.support_mii = true,
- 	.support_rgmii = true
- };
- 
- static const struct emac_variant emac_variant_a64 = {
- 	.default_syscon_value = 0,
--	.internal_phy = 0,
-+	.soc_has_internal_phy = false,
- 	.support_mii = true,
- 	.support_rmii = true,
- 	.support_rgmii = true
-@@ -648,7 +648,7 @@ static int sun8i_dwmac_set_syscon(struct stmmac_priv *priv)
- 			 "Current syscon value is not the default %x (expect %x)\n",
- 			 val, reg);
- 
--	if (gmac->variant->internal_phy) {
-+	if (gmac->variant->soc_has_internal_phy) {
- 		if (!gmac->use_internal_phy) {
- 			/* switch to external PHY interface */
- 			reg &= ~H3_EPHY_SELECT;
-@@ -933,7 +933,7 @@ static int sun8i_dwmac_probe(struct platform_device *pdev)
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+index a366b3747eeb..e1be5735365b 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+@@ -332,7 +332,7 @@ static int stmmac_dt_phy(struct plat_stmmacenet_data *plat,
+ 		mdio = false;
  	}
  
- 	plat_dat->interface = of_get_phy_mode(dev->of_node);
--	if (plat_dat->interface == gmac->variant->internal_phy) {
-+	if (of_property_read_bool(plat_dat->phy_node, "phy-is-integrated")) {
- 		dev_info(&pdev->dev, "Will use internal PHY\n");
- 		gmac->use_internal_phy = true;
- 		gmac->ephy_clk = of_clk_get(plat_dat->phy_node, 0);
+-	if (of_match_node(need_mdio_ids, np)) {
++	if (of_match_node(need_mdio_ids, np) && !of_phy_is_fixed_link(np)) {
+ 		plat->mdio_node = of_get_child_by_name(np, "mdio");
+ 	} else {
+ 		/**
 -- 
 2.13.5
