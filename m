@@ -1,71 +1,79 @@
-From: Ivan Delalande <colona@arista.com>
-Subject: Re: [PATCH net-next v2 2/2] tcp_diag: report TCP MD5 signing keys
- and addresses
-Date: Sat, 26 Aug 2017 07:53:48 +0200
-Message-ID: <20170826055348.jjzv3n5vao34mkgb@ycc.fr>
-References: <20170826015346.24247-1-colona@arista.com>
- <20170826015346.24247-2-colona@arista.com>
- <1503718885.11498.20.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next 1/2] mlxsw: spectrum: compile-in dpipe support only if devlink is enabled
+Date: Sat, 26 Aug 2017 08:35:38 +0200
+Message-ID: <20170826063539.2741-2-jiri@resnulli.us>
+References: <20170826063539.2741-1-jiri@resnulli.us>
+Cc: davem@davemloft.net, arkadis@mellanox.com, idosch@mellanox.com,
+        mlxsw@mellanox.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f46.google.com ([74.125.82.46]:36524 "EHLO
-        mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750818AbdHZFxu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 26 Aug 2017 01:53:50 -0400
-Received: by mail-wm0-f46.google.com with SMTP id b79so4123587wmb.1
-        for <netdev@vger.kernel.org>; Fri, 25 Aug 2017 22:53:50 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1503718885.11498.20.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-wr0-f193.google.com ([209.85.128.193]:36180 "EHLO
+        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751302AbdHZGfo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 26 Aug 2017 02:35:44 -0400
+Received: by mail-wr0-f193.google.com with SMTP id p8so965905wrf.3
+        for <netdev@vger.kernel.org>; Fri, 25 Aug 2017 23:35:43 -0700 (PDT)
+In-Reply-To: <20170826063539.2741-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 25, 2017 at 08:41:25PM -0700, Eric Dumazet wrote:
-> On Fri, 2017-08-25 at 18:53 -0700, Ivan Delalande wrote:
-> > Report TCP MD5 (RFC2385) signing keys, addresses and address prefixes to
-> > processes with CAP_NET_ADMIN requesting INET_DIAG_INFO. Currently it is
-> > not possible to retrieve these from the kernel once they have been
-> > configured on sockets.
-> 
-> ...
-> 
-> > +static int inet_diag_put_md5sig(struct sk_buff *skb,
-> > +				const struct tcp_md5sig_info *md5sig)
-> > +{
-> > +	const struct tcp_md5sig_key *key;
-> > +	struct nlattr *attr;
-> > +	struct tcp_md5sig *info;
-> > +	int md5sig_count = 0;
-> > +
-> > +	hlist_for_each_entry_rcu(key, &md5sig->head, node)
-> > +		md5sig_count++;
-> > +
-> > +	attr = nla_reserve(skb, INET_DIAG_MD5SIG,
-> > +			   md5sig_count * sizeof(struct tcp_md5sig));
-> > +	if (!attr)
-> > +		return -EMSGSIZE;
-> > +
-> > +	info = nla_data(attr);
-> > +	hlist_for_each_entry_rcu(key, &md5sig->head, node) {
-> > +		inet_diag_md5sig_fill(info, key);
-> > +		info++;
-> > +	}
-> > +
-> > +	return 0;
-> > +}
-> > +#endif
-> 
-> Unless I missed something, I am sure I gave a feedback on this function
-> already :/
+From: Jiri Pirko <jiri@mellanox.com>
 
-Sorry, I probably should have detailed my changes. I tried to address
-this by locking the whole socket in the caller, tcp_diag_get_aux, just
-outside of the rcu_read_lock. Would this work here, or do you see a
-better way?
+Makes no sense to have dpipe compiled in when devlink is not enabled,
+because the devlink dpipe registation is noop function. So don't compile
+it in. This also fixes missing extern structs errors.
 
-Thanks for your feedback,
+Reported-by: kbuild test robot <fengguang.wu@intel.com>
+Fixes: a86f030915f2 ("mlxsw: spectrum_dpipe: Add support for IPv4 host table dump")
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/Makefile         |  3 ++-
+ drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.h | 15 +++++++++++++++
+ 2 files changed, 17 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/Makefile b/drivers/net/ethernet/mellanox/mlxsw/Makefile
+index 62fc42f..f9956f3 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/Makefile
++++ b/drivers/net/ethernet/mellanox/mlxsw/Makefile
+@@ -16,8 +16,9 @@ mlxsw_spectrum-objs		:= spectrum.o spectrum_buffers.o \
+ 				   spectrum_switchdev.o spectrum_router.o \
+ 				   spectrum_kvdl.o spectrum_acl_tcam.o \
+ 				   spectrum_acl.o spectrum_flower.o \
+-				   spectrum_cnt.o spectrum_dpipe.o \
++				   spectrum_cnt.o \
+ 				   spectrum_fid.o
+ mlxsw_spectrum-$(CONFIG_MLXSW_SPECTRUM_DCB)	+= spectrum_dcb.o
++mlxsw_spectrum-$(CONFIG_NET_DEVLINK) += spectrum_dpipe.o
+ obj-$(CONFIG_MLXSW_MINIMAL)	+= mlxsw_minimal.o
+ mlxsw_minimal-objs		:= minimal.o
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.h
+index 7785f9e..c56a3d9 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.h
+@@ -35,9 +35,24 @@
+ #ifndef _MLXSW_PIPELINE_H_
+ #define _MLXSW_PIPELINE_H_
+ 
++#if IS_ENABLED(CONFIG_NET_DEVLINK)
++
+ int mlxsw_sp_dpipe_init(struct mlxsw_sp *mlxsw_sp);
+ void mlxsw_sp_dpipe_fini(struct mlxsw_sp *mlxsw_sp);
+ 
++#else
++
++static inline int mlxsw_sp_dpipe_init(struct mlxsw_sp *mlxsw_sp)
++{
++	return 0;
++}
++
++static inline void mlxsw_sp_dpipe_fini(struct mlxsw_sp *mlxsw_sp)
++{
++}
++
++#endif
++
+ #define MLXSW_SP_DPIPE_TABLE_NAME_ERIF "mlxsw_erif"
+ #define MLXSW_SP_DPIPE_TABLE_NAME_HOST4 "mlxsw_host4"
+ 
 -- 
-Ivan Delalande
-Arista Networks
+2.9.3
