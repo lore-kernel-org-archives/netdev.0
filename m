@@ -1,32 +1,19 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 0/2] mlxsw: spectrum: Fix couple of dpipe ipv4 host table bugs
-Date: Sat, 26 Aug 2017 08:35:37 +0200
-Message-ID: <20170826063539.2741-1-jiri@resnulli.us>
-Cc: davem@davemloft.net, arkadis@mellanox.com, idosch@mellanox.com,
-        mlxsw@mellanox.com
+From: Christoph Hellwig <hch@lst.de>
+Subject: remove dma_alloc_noncoherent V2
+Date: Sat, 26 Aug 2017 09:21:21 +0200
+Message-ID: <20170826072125.9790-1-hch@lst.de>
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Ralf Baechle <ralf@linux-mips.org>, linux-mips@vger.kernel.org,
+        linux-parisc@vger.kernel.org, linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f194.google.com ([209.85.128.194]:38368 "EHLO
-        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750737AbdHZGfn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 26 Aug 2017 02:35:43 -0400
-Received: by mail-wr0-f194.google.com with SMTP id o76so965684wrb.5
-        for <netdev@vger.kernel.org>; Fri, 25 Aug 2017 23:35:42 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-parisc-owner@vger.kernel.org>
+Sender: linux-parisc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jiri@mellanox.com>
+For many years we've had the dma_alloc_attrs API that is more flexible
+than dma_alloc_noncoherent.  This series moves the remaining users over
+to the attrs API.
 
-Arkadi Sharshevsky (1):
-  mlxsw: spectrum_dpipe: Fix host table dump
-
-Jiri Pirko (1):
-  mlxsw: spectrum: compile-in dpipe support only if devlink is enabled
-
- drivers/net/ethernet/mellanox/mlxsw/Makefile         |  3 ++-
- drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.c |  3 +++
- drivers/net/ethernet/mellanox/mlxsw/spectrum_dpipe.h | 15 +++++++++++++++
- 3 files changed, 20 insertions(+), 1 deletion(-)
-
--- 
-2.9.3
+After half of the series went in for the last merge window I'd really
+like to merge the remainer.  Any chance to get some ACKs/reviews for
+the net drivers?
