@@ -1,26 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: sxgbe: check memory allocation failure
-Date: Fri, 25 Aug 2017 20:07:25 -0700 (PDT)
-Message-ID: <20170825.200725.549810070391118977.davem@davemloft.net>
-References: <20170825053551.31672-1-christophe.jaillet@wanadoo.fr>
+Subject: Re: [PATCH net-next v5] net: stmmac: Delete dead code for MDIO
+ registration
+Date: Fri, 25 Aug 2017 20:08:24 -0700 (PDT)
+Message-ID: <20170825.200824.1432029823120186297.davem@davemloft.net>
+References: <20170825064959.9603-1-romain.perier@collabora.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bh74.an@samsung.com, ks.giri@samsung.com, vipul.pandya@samsung.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel-janitors@vger.kernel.org
-To: christophe.jaillet@wanadoo.fr
+Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com, andrew@lunn.ch,
+        f.fainelli@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: romain.perier@collabora.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170825053551.31672-1-christophe.jaillet@wanadoo.fr>
+In-Reply-To: <20170825064959.9603-1-romain.perier@collabora.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
-Date: Fri, 25 Aug 2017 07:35:51 +0200
+From: Romain Perier <romain.perier@collabora.com>
+Date: Fri, 25 Aug 2017 08:49:59 +0200
 
-> Check memory allocation failure and return -ENOMEM in such a case, as
-> already done few lines below for another memory allocation.
+> This code is no longer used, the logging function was changed by commit
+> fbca164776e4 ("net: stmmac: Use the right logging function in stmmac_mdio_register").
+> It was previously showing information about the type of the IRQ, if it's
+> polled, ignored or a normal interrupt. As we don't want information loss,
+> I have moved this code to phy_attached_print().
 > 
-> Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+> Fixes: fbca164776e4 ("net: stmmac: Use the right logging function in stmmac_mdio_register")
+> Signed-off-by: Romain Perier <romain.perier@collabora.com>
 
-Applied, thank you.
+This doesn't apply to net-next.
