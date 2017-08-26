@@ -1,36 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 0/5] net: updates for IPv6 Segment Routing
-Date: Fri, 25 Aug 2017 17:10:47 -0700 (PDT)
-Message-ID: <20170825.171047.1935113010419428511.davem@davemloft.net>
-References: <20170825075648.5061-1-david.lebrun@uclouvain.be>
+Subject: Re: [PATCH] hinic: skb_pad() frees on error
+Date: Fri, 25 Aug 2017 17:14:03 -0700 (PDT)
+Message-ID: <20170825.171403.275382416735776894.davem@davemloft.net>
+References: <20170825082428.hpnbs4i74bubm4cz@mwanda>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: david.lebrun@uclouvain.be
+Cc: aviad.krawczyk@huawei.com, netdev@vger.kernel.org,
+        kernel-janitors@vger.kernel.org
+To: dan.carpenter@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:36828 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:36860 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751411AbdHZAKs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 20:10:48 -0400
-In-Reply-To: <20170825075648.5061-1-david.lebrun@uclouvain.be>
+        with ESMTP id S1751881AbdHZAOE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 20:14:04 -0400
+In-Reply-To: <20170825082428.hpnbs4i74bubm4cz@mwanda>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Lebrun <david.lebrun@uclouvain.be>
-Date: Fri, 25 Aug 2017 09:56:43 +0200
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Fri, 25 Aug 2017 11:24:28 +0300
 
-> v2: seg6_lwt_headroom() is not relevant for lwtunnel_input_redirect()
->     use cases, and L2ENCAP only uses this redirection. Fix incoherence
->     between arbitrary MAC header size support and fixed headroom
->     computation by setting only LWTUNNEL_STATE_INPUT_REDIRECT for L2ENCAP
->     mode.
+> The skb_pad() function frees the skb on error, so this code has a double
+> free.
 > 
-> This patch series provides several updates for the SRv6 implementation. The
-> first patch leverages the existing infrastructure to support encapsulation
-> of IPv4 packets. The second patch implements the T.Encaps.L2 SR function,
-> enabling to encapsulate an L2 Ethernet frame within an IPv6+SRH packet.
-> The last three patches update the seg6local lightweight tunnel, and mainly
-> implement four new actions: End.T, End.DX2, End.DX4 and End.DT6.
+> Fixes: 00e57a6d4ad3 ("net-next/hinic: Add Tx operation")
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-Series applied, thanks.
+Applied, thanks.
