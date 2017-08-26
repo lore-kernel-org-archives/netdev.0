@@ -1,37 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net-next v2 0/4] net_sched: clean up tc classes and u32
- filter
-Date: Fri, 25 Aug 2017 17:20:40 -0700 (PDT)
-Message-ID: <20170825.172040.116785180512101167.davem@davemloft.net>
-References: <20170824235130.28503-1-xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net-next] tcp: fix hang in tcp_sendpage_locked()
+Date: Fri, 25 Aug 2017 17:22:41 -0700 (PDT)
+Message-ID: <20170825.172241.418919299899603346.davem@davemloft.net>
+References: <1503667625.18816.9.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com
-To: xiyou.wangcong@gmail.com
+Cc: netdev@vger.kernel.org, tom@quantonium.net, dvyukov@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:37094 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:37108 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754462AbdHZAUl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 20:20:41 -0400
-In-Reply-To: <20170824235130.28503-1-xiyou.wangcong@gmail.com>
+        with ESMTP id S1754462AbdHZAWm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 20:22:42 -0400
+In-Reply-To: <1503667625.18816.9.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Thu, 24 Aug 2017 16:51:26 -0700
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 25 Aug 2017 06:27:05 -0700
 
-> Patch 1 and patch 2 prepare for patch 3. Major changes
-> are in patch 3 and patch 4, details are there too.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Cong Wang (4):
->   net_sched: get rid of more forward declarations
->   net_sched: introduce tclass_del_notify()
->   net_sched: remove tc class reference counting
->   net_sched: kill u32_node pointer in Qdisc
+> syszkaller got a hang in tcp stack, related to a bug in
+> tcp_sendpage_locked()
 > 
-> ---
-> v2: Add patch 1 and 2, group all into a patchset
->     Fix a coding style issue in patch 4
+> root@syzkaller:~# cat /proc/3059/stack
+> [<ffffffff83de926c>] __lock_sock+0x1dc/0x2f0
+> [<ffffffff83de9473>] lock_sock_nested+0xf3/0x110
+> [<ffffffff8408ce01>] tcp_sendmsg+0x21/0x50
+> [<ffffffff84163b6f>] inet_sendmsg+0x11f/0x5e0
+> [<ffffffff83dd8eea>] sock_sendmsg+0xca/0x110
+> [<ffffffff83dd9547>] kernel_sendmsg+0x47/0x60
+> [<ffffffff83de35dc>] sock_no_sendpage+0x1cc/0x280
+> [<ffffffff8408916b>] tcp_sendpage_locked+0x10b/0x160
+> [<ffffffff84089203>] tcp_sendpage+0x43/0x60
+> [<ffffffff841641da>] inet_sendpage+0x1aa/0x660
+> [<ffffffff83dd4fcd>] kernel_sendpage+0x8d/0xe0
+> [<ffffffff83dd50ac>] sock_sendpage+0x8c/0xc0
+> [<ffffffff81b63300>] pipe_to_sendpage+0x290/0x3b0
+> [<ffffffff81b67243>] __splice_from_pipe+0x343/0x750
+> [<ffffffff81b6a459>] splice_from_pipe+0x1e9/0x330
+> [<ffffffff81b6a5e0>] generic_splice_sendpage+0x40/0x50
+> [<ffffffff81b6b1d7>] SyS_splice+0x7b7/0x1610
+> [<ffffffff84d77a01>] entry_SYSCALL_64_fastpath+0x1f/0xbe
+> 
+> Fixes: 306b13eb3cf9 ("proto_ops: Add locked held versions of sendmsg and sendpage")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: Dmitry Vyukov <dvyukov@google.com>
 
-Series applied, thanks.
+APplied, thanks Eric.
