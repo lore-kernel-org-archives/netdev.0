@@ -1,54 +1,110 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next v2 2/2] tcp_diag: report TCP MD5 signing keys
- and addresses
-Date: Sat, 26 Aug 2017 06:08:47 -0700
-Message-ID: <1503752927.11498.34.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20170826015346.24247-1-colona@arista.com>
-         <20170826015346.24247-2-colona@arista.com>
-         <1503718885.11498.20.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20170826055348.jjzv3n5vao34mkgb@ycc.fr>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: Re: [PATCH 3/4] i825xx: switch to switch to dma_alloc_attrs
+Date: Sat, 26 Aug 2017 15:10:41 +0200
+Message-ID: <20170826131041.GB14771@linux-mips.org>
+References: <20170826072125.9790-1-hch@lst.de>
+ <20170826072125.9790-4-hch@lst.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Ivan Delalande <colona@arista.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:33144 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752470AbdHZNIu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 26 Aug 2017 09:08:50 -0400
-Received: by mail-pg0-f68.google.com with SMTP id q16so2813818pgc.0
-        for <netdev@vger.kernel.org>; Sat, 26 Aug 2017 06:08:50 -0700 (PDT)
-In-Reply-To: <20170826055348.jjzv3n5vao34mkgb@ycc.fr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+        linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Christoph Hellwig <hch@lst.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170826072125.9790-4-hch@lst.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 2017-08-26 at 07:53 +0200, Ivan Delalande wrote:
+On Sat, Aug 26, 2017 at 09:21:24AM +0200, Christoph Hellwig wrote:
 
+Adding Thomas Bogendoerfer <tsbogend@alpha.franken.de>, the author of
+sni_82596.c to cc.
+
+> This way we can always pass DMA_ATTR_NON_CONSISTENT, the SNI mips version
+> will simply ignore the flag.
 > 
-> Sorry, I probably should have detailed my changes. I tried to address
-> this by locking the whole socket in the caller, tcp_diag_get_aux, just
-> outside of the rcu_read_lock. Would this work here, or do you see a
-> better way?
+> Signed-off-by: Christoph Hellwig <hch@lst.de>
+> ---
+>  drivers/net/ethernet/i825xx/lasi_82596.c | 6 ++----
+>  drivers/net/ethernet/i825xx/lib82596.c   | 9 +++++----
+>  drivers/net/ethernet/i825xx/sni_82596.c  | 6 ++----
+>  3 files changed, 9 insertions(+), 12 deletions(-)
 > 
-
-locking the socket is problematic.
-
-It is already done in tcp_get_info() since linux-4.10 and unfortunately
-it added unreasonable stall when a socket is flooded with tiny SACK
-messages (socket backlog is huge)
-
-People are now making tcp_rmem and tcp_wmem much bigger to allow BBR
-flows to reach line rate on very long distance communications.
-
-We are working to make tcp_rack_mark_lost() not having O(N) behavior,
-but it is not done yet.
-
-
-I would stick to RCU, but add sanity checks, so that _if_ the list is
-different on the second RCU list traversal, you make sure :
-
-1) We do not try to put more data in the reserved space
-
-2) We memset(ptr, 0, remaining) the remaining space if we found less
-entries in the 2nd loop.
+> diff --git a/drivers/net/ethernet/i825xx/lasi_82596.c b/drivers/net/ethernet/i825xx/lasi_82596.c
+> index d787fdd5db7b..d5b5021aa759 100644
+> --- a/drivers/net/ethernet/i825xx/lasi_82596.c
+> +++ b/drivers/net/ethernet/i825xx/lasi_82596.c
+> @@ -96,8 +96,6 @@
+>  
+>  #define OPT_SWAP_PORT	0x0001	/* Need to wordswp on the MPU port */
+>  
+> -#define DMA_ALLOC                        dma_alloc_noncoherent
+> -#define DMA_FREE                         dma_free_noncoherent
+>  #define DMA_WBACK(ndev, addr, len) \
+>  	do { dma_cache_sync((ndev)->dev.parent, (void *)addr, len, DMA_TO_DEVICE); } while (0)
+>  
+> @@ -200,8 +198,8 @@ static int lan_remove_chip(struct parisc_device *pdev)
+>  	struct i596_private *lp = netdev_priv(dev);
+>  
+>  	unregister_netdev (dev);
+> -	DMA_FREE(&pdev->dev, sizeof(struct i596_private),
+> -		 (void *)lp->dma, lp->dma_addr);
+> +	dma_free_attrs(&pdev->dev, sizeof(struct i596_private), lp->dma,
+> +		       lp->dma_addr, DMA_ATTR_NON_CONSISTENT);
+>  	free_netdev (dev);
+>  	return 0;
+>  }
+> diff --git a/drivers/net/ethernet/i825xx/lib82596.c b/drivers/net/ethernet/i825xx/lib82596.c
+> index 8449c58f01fd..f00a1dc2128c 100644
+> --- a/drivers/net/ethernet/i825xx/lib82596.c
+> +++ b/drivers/net/ethernet/i825xx/lib82596.c
+> @@ -1063,8 +1063,9 @@ static int i82596_probe(struct net_device *dev)
+>  	if (!dev->base_addr || !dev->irq)
+>  		return -ENODEV;
+>  
+> -	dma = (struct i596_dma *) DMA_ALLOC(dev->dev.parent,
+> -		sizeof(struct i596_dma), &lp->dma_addr, GFP_KERNEL);
+> +	dma = dma_alloc_attrs(dev->dev.parent, sizeof(struct i596_dma),
+> +			      &lp->dma_addr, GFP_KERNEL,
+> +			      DMA_ATTR_NON_CONSISTENT);
+>  	if (!dma) {
+>  		printk(KERN_ERR "%s: Couldn't get shared memory\n", __FILE__);
+>  		return -ENOMEM;
+> @@ -1085,8 +1086,8 @@ static int i82596_probe(struct net_device *dev)
+>  
+>  	i = register_netdev(dev);
+>  	if (i) {
+> -		DMA_FREE(dev->dev.parent, sizeof(struct i596_dma),
+> -				    (void *)dma, lp->dma_addr);
+> +		dma_free_attrs(dev->dev.parent, sizeof(struct i596_dma),
+> +			       dma, lp->dma_addr, DMA_ATTR_NON_CONSISTENT);
+>  		return i;
+>  	}
+>  
+> diff --git a/drivers/net/ethernet/i825xx/sni_82596.c b/drivers/net/ethernet/i825xx/sni_82596.c
+> index 2af7f77345fb..b2c04a789744 100644
+> --- a/drivers/net/ethernet/i825xx/sni_82596.c
+> +++ b/drivers/net/ethernet/i825xx/sni_82596.c
+> @@ -23,8 +23,6 @@
+>  
+>  static const char sni_82596_string[] = "snirm_82596";
+>  
+> -#define DMA_ALLOC                      dma_alloc_coherent
+> -#define DMA_FREE                       dma_free_coherent
+>  #define DMA_WBACK(priv, addr, len)     do { } while (0)
+>  #define DMA_INV(priv, addr, len)       do { } while (0)
+>  #define DMA_WBACK_INV(priv, addr, len) do { } while (0)
+> @@ -152,8 +150,8 @@ static int sni_82596_driver_remove(struct platform_device *pdev)
+>  	struct i596_private *lp = netdev_priv(dev);
+>  
+>  	unregister_netdev(dev);
+> -	DMA_FREE(dev->dev.parent, sizeof(struct i596_private),
+> -		 lp->dma, lp->dma_addr);
+> +	dma_free_attrs(dev->dev.parent, sizeof(struct i596_private), lp->dma,
+> +		       lp->dma_addr, DMA_ATTR_NON_CONSISTENT);
+>  	iounmap(lp->ca);
+>  	iounmap(lp->mpu_port);
+>  	free_netdev (dev);
+> -- 
+> 2.11.0
