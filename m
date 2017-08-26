@@ -1,46 +1,30 @@
-From: Mathias Krause <minipli@googlemail.com>
-Subject: [PATCH net 2/4] xfrm_user: fix info leak in xfrm_notify_sa()
-Date: Sat, 26 Aug 2017 17:08:58 +0200
-Message-ID: <1503760140-9095-3-git-send-email-minipli@googlemail.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net 0/4] xfrm_user info leaks
+Date: Sat, 26 Aug 2017 08:58:58 -0700
+Message-ID: <1503763138.12569.45.camel@perches.com>
 References: <1503760140-9095-1-git-send-email-minipli@googlemail.com>
-Cc: netdev@vger.kernel.org, Mathias Krause <minipli@googlemail.com>
-To: Steffen Klassert <steffen.klassert@secunet.com>,
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Mathias Krause <minipli@googlemail.com>,
+        Steffen Klassert <steffen.klassert@secunet.com>,
         "David S. Miller" <davem@davemloft.net>,
         Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:36449 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751085AbdHZPJ3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 26 Aug 2017 11:09:29 -0400
-Received: by mail-wm0-f65.google.com with SMTP id j72so2586583wmi.3
-        for <netdev@vger.kernel.org>; Sat, 26 Aug 2017 08:09:28 -0700 (PDT)
+Received: from smtprelay0180.hostedemail.com ([216.40.44.180]:41745 "EHLO
+        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751067AbdHZP7B (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 26 Aug 2017 11:59:01 -0400
 In-Reply-To: <1503760140-9095-1-git-send-email-minipli@googlemail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The memory reserved to dump the ID of the xfrm state includes a padding
-byte in struct xfrm_usersa_id added by the compiler for alignment. To
-prevent the heap info leak, memset(0) the whole struct before filling
-it.
+On Sat, 2017-08-26 at 17:08 +0200, Mathias Krause wrote:
+> Hi David, Steffen,
+> 
+> the following series fixes a few info leaks due to missing padding byte
+> initialization in the xfrm_user netlink interface.
 
-Cc: Herbert Xu <herbert@gondor.apana.org.au>
-Fixes: 0603eac0d6b7 ("[IPSEC]: Add XFRMA_SA/XFRMA_POLICY for delete notification")
-Signed-off-by: Mathias Krause <minipli@googlemail.com>
----
- net/xfrm/xfrm_user.c |    1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index 3259555ae7d7..c33516ef52f2 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -2715,6 +2715,7 @@ static int xfrm_notify_sa(struct xfrm_state *x, const struct km_event *c)
- 		struct nlattr *attr;
- 
- 		id = nlmsg_data(nlh);
-+		memset(id, 0, sizeof(*id));
- 		memcpy(&id->daddr, &x->id.daddr, sizeof(id->daddr));
- 		id->spi = x->id.spi;
- 		id->family = x->props.family;
--- 
-1.7.10.4
+Were these found by inspection or by some tool?
+If by tool, perhaps there are other _to_user cases?
