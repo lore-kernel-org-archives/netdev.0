@@ -1,81 +1,63 @@
 From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Subject: [PATCH v4 2/5] ARM: dts: sunxi: h3/h5: represent the mdio switch used
- by sun8i-h3-emac
-Date: Sat, 26 Aug 2017 09:33:08 +0200
-Message-ID: <20170826073311.25612-3-clabbe.montjoie@gmail.com>
+Subject: [PATCH v4 5/5] net: stmmac: Register parent MDIO in case of fake mdio-mux
+Date: Sat, 26 Aug 2017 09:33:11 +0200
+Message-ID: <20170826073311.25612-6-clabbe.montjoie@gmail.com>
 References: <20170826073311.25612-1-clabbe.montjoie@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: devicetree@vger.kernel.org, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org, Corentin Labbe <clabbe.montjoie@gmail.com>,
- linux-arm-kernel@lists.infradead.org, icenowy@aosc.io
-To: robh+dt@kernel.org, mark.rutland@arm.com, maxime.ripard@free-electrons.com,
- wens@csie.org, linux@armlinux.org.uk, peppe.cavallaro@st.com,
- alexandre.torgue@st.com, andrew@lunn.ch, f.fainelli@gmail.com
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Cc: icenowy@aosc.io, netdev@vger.kernel.org,
+        devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+        linux-kernel@vger.kernel.org,
+        Corentin Labbe <clabbe.montjoie@gmail.com>
+To: robh+dt@kernel.org, mark.rutland@arm.com,
+        maxime.ripard@free-electrons.com, wens@csie.org,
+        linux@armlinux.org.uk, peppe.cavallaro@st.com,
+        alexandre.torgue@st.com, andrew@lunn.ch, f.fainelli@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20170826073311.25612-1-clabbe.montjoie@gmail.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Since dwmac-sun8i could use either an integrated PHY or an external PHY
-(which could be at same MDIO address), we need to represent this selection
-by a MDIO switch.
+In case of a fake MDIO switch/mux (like Allwinner H3),
+the registered MDIO node should be the parent of the PHY.
+Otherwise of_phy_connect will fail.
 
 Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
 ---
- arch/arm/boot/dts/sunxi-h3-h5.dtsi | 22 +++++++++++++++++++++-
- 1 file changed, 21 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c | 13 +++++++++++--
+ 1 file changed, 11 insertions(+), 2 deletions(-)
 
-diff --git a/arch/arm/boot/dts/sunxi-h3-h5.dtsi b/arch/arm/boot/dts/sunxi-h3-h5.dtsi
-index 4b599b5d26f6..5ffb940a44bb 100644
---- a/arch/arm/boot/dts/sunxi-h3-h5.dtsi
-+++ b/arch/arm/boot/dts/sunxi-h3-h5.dtsi
-@@ -417,7 +417,22 @@
- 			#size-cells = <0>;
- 			status = "disabled";
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+index e1be5735365b..4d5f3cc82476 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+@@ -312,10 +312,12 @@ static int stmmac_dt_phy(struct plat_stmmacenet_data *plat,
+ 	static const struct of_device_id need_mdio_ids[] = {
+ 		{ .compatible = "snps,dwc-qos-ethernet-4.10" },
+ 		{ .compatible = "allwinner,sun8i-a83t-emac" },
+-		{ .compatible = "allwinner,sun8i-h3-emac" },
+ 		{ .compatible = "allwinner,sun8i-v3s-emac" },
+ 		{ .compatible = "allwinner,sun50i-a64-emac" },
+ 	};
++	static const struct of_device_id register_parent_mdio_ids[] = {
++		{ .compatible = "allwinner,sun8i-h3-emac" },
++	};
  
--			mdio: mdio {
-+			mdio0: mdio {
-+				#address-cells = <1>;
-+				#size-cells = <0>;
-+				compatible = "snps,dwmac-mdio";
-+			};
-+
-+		};
-+
-+		eth-phy-mux {
-+			compatible = "mdio-mux";
-+			#address-cells = <1>;
-+			#size-cells = <0>;
-+			mdio-parent-bus = <&mdio0>;
-+
-+			/* Only one MDIO is usable at the time */
-+			internal_mdio: mdio@1 {
- 				#address-cells = <1>;
- 				#size-cells = <0>;
- 				int_mii_phy: ethernet-phy@1 {
-@@ -425,8 +440,13 @@
- 					reg = <1>;
- 					clocks = <&ccu CLK_BUS_EPHY>;
- 					resets = <&ccu RST_BUS_EPHY>;
-+					phy-is-integrated;
- 				};
- 			};
-+			mdio: mdio@0 {
-+				#address-cells = <1>;
-+				#size-cells = <0>;
-+			};
- 		};
+ 	/* If phy-handle property is passed from DT, use it as the PHY */
+ 	plat->phy_node = of_parse_phandle(np, "phy-handle", 0);
+@@ -332,7 +334,14 @@ static int stmmac_dt_phy(struct plat_stmmacenet_data *plat,
+ 		mdio = false;
+ 	}
  
- 		spi0: spi@01c68000 {
+-	if (of_match_node(need_mdio_ids, np) && !of_phy_is_fixed_link(np)) {
++	/*
++	 * In case of a fake MDIO switch/mux (like Allwinner H3),
++	 * the registered MDIO node should be the parent of the PHY.
++	 * Otherwise of_phy_connect will fail.
++	 */
++	if (of_match_node(register_parent_mdio_ids, np) && !of_phy_is_fixed_link(np)) {
++		plat->mdio_node =  of_get_parent(plat->phy_node);
++	} else if (of_match_node(need_mdio_ids, np) && !of_phy_is_fixed_link(np)) {
+ 		plat->mdio_node = of_get_child_by_name(np, "mdio");
+ 	} else {
+ 		/**
 -- 
 2.13.5
