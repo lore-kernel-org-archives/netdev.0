@@ -1,42 +1,73 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: UDP sockets oddities
-Date: Fri, 25 Aug 2017 16:57:20 -0700
-Message-ID: <1503705440.11498.9.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <3fed7679-0e19-8a0a-eee6-11baa5654fac@gmail.com>
-         <1503527210.2499.63.camel@edumazet-glaptop3.roam.corp.google.com>
-         <9a9c1c94-4902-2ec9-d216-3f5cfb3044af@gmail.com>
-         <1503529476.2499.65.camel@edumazet-glaptop3.roam.corp.google.com>
-         <6c88e440-3f36-858d-1a08-bd32a2c66f4e@gmail.com>
-         <1503535426.2499.66.camel@edumazet-glaptop3.roam.corp.google.com>
-         <4adb4b66-590c-c55a-44aa-27dd409ce14f@gmail.com>
-         <3c44d27e-27d9-e9c4-04b3-17c0366e60d9@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] ipv6: Fix may be used uninitialized warning in
+ rt6_check
+Date: Fri, 25 Aug 2017 17:04:35 -0700 (PDT)
+Message-ID: <20170825.170435.739420747856784636.davem@davemloft.net>
+References: <20170825070542.GV31224@secunet.com>
+        <20170825075217.GW31224@secunet.com>
+        <20170825110206.36e4a7a7@elisabeth>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@gmail.com, pabeni@redhat.com,
-        willemb@google.com, davem@davemloft.net
-To: Florian Fainelli <f.fainelli@gmail.com>
+Cc: steffen.klassert@secunet.com, weiwan@google.com,
+        edumazet@google.com, kafai@fb.com, netdev@vger.kernel.org
+To: sbrivio@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:32856 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755268AbdHYX5W (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 19:57:22 -0400
-Received: by mail-pg0-f68.google.com with SMTP id q16so1740111pgc.0
-        for <netdev@vger.kernel.org>; Fri, 25 Aug 2017 16:57:22 -0700 (PDT)
-In-Reply-To: <3c44d27e-27d9-e9c4-04b3-17c0366e60d9@gmail.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:36642 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754670AbdHZAEi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 20:04:38 -0400
+In-Reply-To: <20170825110206.36e4a7a7@elisabeth>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2017-08-25 at 16:18 -0700, Florian Fainelli wrote:
+From: Stefano Brivio <sbrivio@redhat.com>
+Date: Fri, 25 Aug 2017 11:02:06 +0200
 
-> Eric, are there areas of the stack where we are allowed to drop packets,
-> not propagate that back to write(2) and also not increment any counter
-> either, or maybe I am not looking where I should...
+> On Fri, 25 Aug 2017 09:52:17 +0200
+> Steffen Klassert <steffen.klassert@secunet.com> wrote:
+> 
+>> On Fri, Aug 25, 2017 at 09:05:42AM +0200, Steffen Klassert wrote:
+>> > rt_cookie might be used uninitialized, fix this by
+>> > initializing it.
+>> > 
+>> > Fixes: c5cff8561d2d ("ipv6: add rcu grace period before freeing fib6_node")
+>> > Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+>> > ---
+>> >  net/ipv6/route.c | 2 +-
+>> >  1 file changed, 1 insertion(+), 1 deletion(-)
+>> > 
+>> > diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+>> > index a9d3564..48c8c92 100644
+>> > --- a/net/ipv6/route.c
+>> > +++ b/net/ipv6/route.c
+>> > @@ -1289,7 +1289,7 @@ static void rt6_dst_from_metrics_check(struct rt6_info *rt)
+>> >  
+>> >  static struct dst_entry *rt6_check(struct rt6_info *rt, u32 cookie)
+>> >  {
+>> > -	u32 rt_cookie;
+>> > +	u32 rt_cookie = 0;
+>> >  
+>> >  	if (!rt6_get_cookie_safe(rt, &rt_cookie) || rt_cookie != cookie)
+>> >  		return NULL;  
+>> 
+>> The compiler warning seems to be a false positive, as
+>> rt_cookie != cookie is only checked if rt6_get_cookie_safe
+>> returns true in which case rt_cookie is initialized.
+>> 
+>> Please disregard this patch.
+> 
+> ...or not? I was thinking of sending a similar patch with
+> uninitialized_var(rt_cookie), but it seems we have similar cases
+> where we just initialize to zero instead.
+> 
+> I wonder which approach is considered the most acceptable nowadays. I
+> would be in favour of uninitialized_var() as it doesn't change the
+> binary output, but https://lwn.net/Articles/529954/ also contains some
+> valid criticism. Ideas?
 
-What happens if you increase these sysctls ?
+Generally speaking I guess initializing to zero is Ok to do.
 
-grep .  `find /proc/sys|grep unres_qlen`
+As far as which approach is better, I don't have any strong opinion.
 
-
-unres_qlen_bytes -> 2000000
-unres_qlen -> 10000
+So I will probably just apply Steffen's patch.
