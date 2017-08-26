@@ -1,91 +1,185 @@
-From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH v4 0/5] net: stmmac: Detect PHY location with phy-is-integrated
-Date: Sat, 26 Aug 2017 09:33:06 +0200
-Message-ID: <20170826073311.25612-1-clabbe.montjoie@gmail.com>
-Cc: icenowy-h8G6r0blFSE@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
-        maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org,
-        linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
-        alexandre.torgue-qxv4g6HH51o@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Corentin Labbe <clabbe.montjoie@gmail.com>
+Subject: [PATCH v4 3/5] dt-bindings: net: dwmac-sun8i: update documentation about integrated PHY
+Date: Sat, 26 Aug 2017 09:33:09 +0200
+Message-ID: <20170826073311.25612-4-clabbe.montjoie@gmail.com>
+References: <20170826073311.25612-1-clabbe.montjoie@gmail.com>
+Cc: icenowy@aosc.io, netdev@vger.kernel.org,
+        devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+        linux-kernel@vger.kernel.org,
+        Corentin Labbe <clabbe.montjoie@gmail.com>
+To: robh+dt@kernel.org, mark.rutland@arm.com,
+        maxime.ripard@free-electrons.com, wens@csie.org,
+        linux@armlinux.org.uk, peppe.cavallaro@st.com,
+        alexandre.torgue@st.com, andrew@lunn.ch, f.fainelli@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f194.google.com ([209.85.128.194]:36794 "EHLO
+        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752258AbdHZHfX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 26 Aug 2017 03:35:23 -0400
+In-Reply-To: <20170826073311.25612-1-clabbe.montjoie@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello
+This patch add documentation about the MDIO switch used on sun8i-h3-emac
+for integrated PHY.
 
-The current way to find if the PHY is internal is to compare DT phy-mode
-and emac_variant/internal_phy.
-But it will negate a possible future SoC where an external PHY use the
-same phy mode than the integrated one.
-
-This patchs series adds a new way to find if the PHY is integrated, via
-the phy-is-integrated DT property.
-
-Since it exists both integrated and external ethernet-phy@1, they are merged in
-the final DTB and so share all properties.
-For avoiding this, and better represent the reality, we use a MDIO mux.
-
-The first try was to create a new MDIO mux "mdio-mux-syscon".
-mdio-mux-syscon working the same way than mdio-mux-mmioreg with the exception
-that the register is used via syscon/regmap.
-But this solution does not work for two reason:
-- changing the MDIO selection need the reset of MAC which cannot be done by the
-	mdio-mux-syscon driver
-- There were driver loading order problem:
-	- mdio-mux-syscon needing that stmmac register the parent MDIO
-	- stmmac needing that child MDIO was registered just after registering parent MDIO
-
-So we cannot use any external MDIO-mux.
-
-The final solution was to represent a mdio-mux but let the MAC handle all things.
-The only hack that comes with this solution is that we add a patch
-"net: stmmac: Register parent MDIO in case of fake mdio-mux"
-because we have ino other way to know which MDIO node to register.
-
-Note that sun8i-v3s-emac have also an integrated PHY, but since it lacks
-any external PHY support it is not necessary to add MDIO mux to it.
-
-All patchs should go via the net tree with exception of DT patchs which should
-go via the sunxi tree
-Note that this serie will need backporting the patch
-"Documentation: net: phy: Add phy-is-integrated binding" which is in net-next
-
-Regards
-
-Changes since v3:
-- Added a patch for handling fixed-link
-- Updated documentation
-
-Changes since v2:
-- Add a MDIO mux for creating distinction between integrated and external MDIO.
-- phy-is-integrated is not set in dtsi.
-
-Changes since v1:
-- Dropped phy-is-integrated documentation patch since another same patch was already merged
-- Moved phy-is-integrated from SoC dtsi to final board DT.
-
-Corentin Labbe (5):
-  net: stmmac: Handle possible fixed-link with need_mdio_ids
-  ARM: dts: sunxi: h3/h5: represent the mdio switch used by
-    sun8i-h3-emac
-  dt-bindings: net: dwmac-sun8i: update documentation about integrated
-    PHY
-  net: stmmac: dwmac-sun8i: choose internal PHY via phy-is-integrated
-  net: stmmac: Register parent MDIO in case of fake mdio-mux
-
+Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
+---
  .../devicetree/bindings/net/dwmac-sun8i.txt        | 117 ++++++++++++++++++++-
- arch/arm/boot/dts/sunxi-h3-h5.dtsi                 |  22 +++-
- drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c  |  16 +--
- .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |  13 ++-
- 4 files changed, 152 insertions(+), 16 deletions(-)
+ 1 file changed, 112 insertions(+), 5 deletions(-)
 
+diff --git a/Documentation/devicetree/bindings/net/dwmac-sun8i.txt b/Documentation/devicetree/bindings/net/dwmac-sun8i.txt
+index 725f3b187886..5751f7afc5dd 100644
+--- a/Documentation/devicetree/bindings/net/dwmac-sun8i.txt
++++ b/Documentation/devicetree/bindings/net/dwmac-sun8i.txt
+@@ -39,7 +39,7 @@ Optional properties for the following compatibles:
+ - allwinner,leds-active-low: EPHY LEDs are active low
+ 
+ Required child node of emac:
+-- mdio bus node: should be named mdio
++- mdio bus node: should be labelled mdio
+ 
+ Required properties of the mdio node:
+ - #address-cells: shall be 1
+@@ -48,14 +48,25 @@ Required properties of the mdio node:
+ The device node referenced by "phy" or "phy-handle" should be a child node
+ of the mdio node. See phy.txt for the generic PHY bindings.
+ 
+-Required properties of the phy node with the following compatibles:
++The following compatibles require an mdio-mux node:
++  - "allwinner,sun8i-h3-emac"
++Required properties for the mdio-mux node:
++  - compatible = "mdio-mux"
++  - two child mdio, one for the integrated mdio, one for the external mdio
++  - mdio-parent-bus: a phandle to the emac's MDIO node
++
++The following compatibles require a PHY node representing the integrated
++PHY, under the integrated MDIO bus node if an mdio-mux node is used:
+   - "allwinner,sun8i-h3-emac",
+   - "allwinner,sun8i-v3s-emac":
++
++Required properties of the integrated phy node:
+ - clocks: a phandle to the reference clock for the EPHY
+ - resets: a phandle to the reset control for the EPHY
++- phy-is-integrated
++- Should be a child of the integrated mdio
+ 
+-Example:
+-
++Example with integrated PHY:
+ emac: ethernet@1c0b000 {
+ 	compatible = "allwinner,sun8i-h3-emac";
+ 	syscon = <&syscon>;
+@@ -72,13 +83,109 @@ emac: ethernet@1c0b000 {
+ 	phy-handle = <&int_mii_phy>;
+ 	phy-mode = "mii";
+ 	allwinner,leds-active-low;
+-	mdio: mdio {
++
++	mdio0: mdio {
++		#address-cells = <1>;
++		#size-cells = <0>;
++		compatible = "snps,dwmac-mdio";
++	};
++
++};
++eth-phy-mux {
++	compatible = "mdio-mux";
++	#address-cells = <1>;
++	#size-cells = <0>;
++	mdio-parent-bus = <&mdio0>;
++
++	int_mdio: mdio@1 {
++		#address-cells = <1>;
++		#size-cells = <0>;
++		int_mii_phy: ethernet-phy@1 {
++			reg = <1>;
++			clocks = <&ccu CLK_BUS_EPHY>;
++			resets = <&ccu RST_BUS_EPHY>;
++			phy-is-integrated
++		};
++	};
++	ext_mdio: mdio@0 {
++		#address-cells = <1>;
++		#size-cells = <0>;
++	};
++};
++
++Example with external PHY:
++emac: ethernet@1c0b000 {
++	compatible = "allwinner,sun8i-h3-emac";
++	syscon = <&syscon>;
++	reg = <0x01c0b000 0x104>;
++	interrupts = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>;
++	interrupt-names = "macirq";
++	resets = <&ccu RST_BUS_EMAC>;
++	reset-names = "stmmaceth";
++	clocks = <&ccu CLK_BUS_EMAC>;
++	clock-names = "stmmaceth";
++	#address-cells = <1>;
++	#size-cells = <0>;
++
++	phy-handle = <&ext_rgmii_phy>;
++	phy-mode = "rgmii";
++	allwinner,leds-active-low;
++
++	mdio0: mdio {
++		#address-cells = <1>;
++		#size-cells = <0>;
++		compatible = "snps,dwmac-mdio";
++	};
++
++};
++eth-phy-mux {
++	compatible = "mdio-mux";
++	#address-cells = <1>;
++	#size-cells = <0>;
++	mdio-parent-bus = <&mdio0>;
++
++	int_mdio: mdio@1 {
+ 		#address-cells = <1>;
+ 		#size-cells = <0>;
+ 		int_mii_phy: ethernet-phy@1 {
+ 			reg = <1>;
+ 			clocks = <&ccu CLK_BUS_EPHY>;
+ 			resets = <&ccu RST_BUS_EPHY>;
++			phy-is-integrated
++		};
++	};
++	ext_mdio: mdio@0 {
++		#address-cells = <1>;
++		#size-cells = <0>;
++		ext_rgmii_phy: ethernet-phy@1 {
++			reg = <1>;
++		};
++	};
++};
++
++Example with SoC without integrated PHY
++
++emac: ethernet@1c0b000 {
++	compatible = "allwinner,sun8i-a83t-emac";
++	syscon = <&syscon>;
++	reg = <0x01c0b000 0x104>;
++	interrupts = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>;
++	interrupt-names = "macirq";
++	resets = <&ccu RST_BUS_EMAC>;
++	reset-names = "stmmaceth";
++	clocks = <&ccu CLK_BUS_EMAC>;
++	clock-names = "stmmaceth";
++	#address-cells = <1>;
++	#size-cells = <0>;
++
++	phy-handle = <&ext_rgmii_phy>;
++	phy-mode = "rgmii";
++
++	mdio: mdio {
++		#address-cells = <1>;
++		#size-cells = <0>;
++		ext_rgmii_phy: ethernet-phy@1 {
++			reg = <1>;
+ 		};
+ 	};
+ };
 -- 
 2.13.5
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
