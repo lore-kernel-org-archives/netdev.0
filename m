@@ -1,31 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] nfp: SR-IOV ndos support
-Date: Fri, 25 Aug 2017 19:25:14 -0700 (PDT)
-Message-ID: <20170825.192514.1737298151611853692.davem@davemloft.net>
-References: <20170825043150.375-1-jakub.kicinski@netronome.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH v2 net-next 3/8] bpf: Allow cgroup sock filters to use
+ get_current_uid_gid helper
+Date: Fri, 25 Aug 2017 19:30:13 -0700
+Message-ID: <20170826023012.keriwyxtuzvhumhl@ast-mbp>
+References: <1503687941-626-1-git-send-email-dsahern@gmail.com>
+ <1503687941-626-4-git-send-email-dsahern@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, oss-drivers@netronome.com
-To: jakub.kicinski@netronome.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, daniel@iogearbox.net, ast@kernel.org,
+        tj@kernel.org, davem@davemloft.net
+To: David Ahern <dsahern@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:39612 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751453AbdHZCZP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 22:25:15 -0400
-In-Reply-To: <20170825043150.375-1-jakub.kicinski@netronome.com>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:35898 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751411AbdHZCaR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 22:30:17 -0400
+Received: by mail-pf0-f195.google.com with SMTP id a2so149792pfj.3
+        for <netdev@vger.kernel.org>; Fri, 25 Aug 2017 19:30:17 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1503687941-626-4-git-send-email-dsahern@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Date: Thu, 24 Aug 2017 21:31:48 -0700
-
-> This set adds basic SR-IOV including setting/getting VF MAC addresses,
-> VLANs, link state and spoofcheck settings.  It is wired up for both
-> vNICs and representors (note: ip link will not report VF settings on
-> VF/PF representors because they are not linked to the PF PCI device).
+On Fri, Aug 25, 2017 at 12:05:36PM -0700, David Ahern wrote:
+> Allow BPF programs run on sock create to use the get_current_uid_gid
+> helper. IPv4 and IPv6 sockets are created in a process context so
+> there is always a valid uid/gid
 > 
-> Pablo and team add the basic implementation, Simon and Dirk follow
-> up with the representor plumbing.
+> Signed-off-by: David Ahern <dsahern@gmail.com>
 
-Series applied, thanks.
+Acked-by: Alexei Starovoitov <ast@kernel.org>
