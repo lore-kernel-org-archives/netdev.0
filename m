@@ -1,39 +1,71 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: UDP sockets oddities
-Date: Fri, 25 Aug 2017 22:20:43 -0700
-Message-ID: <1503724843.11498.21.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <3fed7679-0e19-8a0a-eee6-11baa5654fac@gmail.com>
-         <1503527210.2499.63.camel@edumazet-glaptop3.roam.corp.google.com>
-         <9a9c1c94-4902-2ec9-d216-3f5cfb3044af@gmail.com>
-         <1503529476.2499.65.camel@edumazet-glaptop3.roam.corp.google.com>
-         <6c88e440-3f36-858d-1a08-bd32a2c66f4e@gmail.com>
-         <1503535426.2499.66.camel@edumazet-glaptop3.roam.corp.google.com>
-         <4adb4b66-590c-c55a-44aa-27dd409ce14f@gmail.com>
-         <3c44d27e-27d9-e9c4-04b3-17c0366e60d9@gmail.com>
-         <1503705440.11498.9.camel@edumazet-glaptop3.roam.corp.google.com>
-         <ce4af8cc-3de1-a777-967c-a57103994e1d@gmail.com>
-         <1503712322.11498.12.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Ivan Delalande <colona@arista.com>
+Subject: Re: [PATCH net-next v2 2/2] tcp_diag: report TCP MD5 signing keys
+ and addresses
+Date: Sat, 26 Aug 2017 07:53:48 +0200
+Message-ID: <20170826055348.jjzv3n5vao34mkgb@ycc.fr>
+References: <20170826015346.24247-1-colona@arista.com>
+ <20170826015346.24247-2-colona@arista.com>
+ <1503718885.11498.20.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@gmail.com, pabeni@redhat.com,
-        willemb@google.com, davem@davemloft.net
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f45.google.com ([74.125.83.45]:36826 "EHLO
-        mail-pg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750737AbdHZFUq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 26 Aug 2017 01:20:46 -0400
-Received: by mail-pg0-f45.google.com with SMTP id r133so8169849pgr.3
-        for <netdev@vger.kernel.org>; Fri, 25 Aug 2017 22:20:46 -0700 (PDT)
-In-Reply-To: <1503712322.11498.12.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-wm0-f46.google.com ([74.125.82.46]:36524 "EHLO
+        mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750818AbdHZFxu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 26 Aug 2017 01:53:50 -0400
+Received: by mail-wm0-f46.google.com with SMTP id b79so4123587wmb.1
+        for <netdev@vger.kernel.org>; Fri, 25 Aug 2017 22:53:50 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1503718885.11498.20.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2017-08-25 at 18:52 -0700, Eric Dumazet wrote:
+On Fri, Aug 25, 2017 at 08:41:25PM -0700, Eric Dumazet wrote:
+> On Fri, 2017-08-25 at 18:53 -0700, Ivan Delalande wrote:
+> > Report TCP MD5 (RFC2385) signing keys, addresses and address prefixes to
+> > processes with CAP_NET_ADMIN requesting INET_DIAG_INFO. Currently it is
+> > not possible to retrieve these from the kernel once they have been
+> > configured on sockets.
+> 
+> ...
+> 
+> > +static int inet_diag_put_md5sig(struct sk_buff *skb,
+> > +				const struct tcp_md5sig_info *md5sig)
+> > +{
+> > +	const struct tcp_md5sig_key *key;
+> > +	struct nlattr *attr;
+> > +	struct tcp_md5sig *info;
+> > +	int md5sig_count = 0;
+> > +
+> > +	hlist_for_each_entry_rcu(key, &md5sig->head, node)
+> > +		md5sig_count++;
+> > +
+> > +	attr = nla_reserve(skb, INET_DIAG_MD5SIG,
+> > +			   md5sig_count * sizeof(struct tcp_md5sig));
+> > +	if (!attr)
+> > +		return -EMSGSIZE;
+> > +
+> > +	info = nla_data(attr);
+> > +	hlist_for_each_entry_rcu(key, &md5sig->head, node) {
+> > +		inet_diag_md5sig_fill(info, key);
+> > +		info++;
+> > +	}
+> > +
+> > +	return 0;
+> > +}
+> > +#endif
+> 
+> Unless I missed something, I am sure I gave a feedback on this function
+> already :/
 
-> I guess we should an SNMP counter for packets dropped in neigh queues.
+Sorry, I probably should have detailed my changes. I tried to address
+this by locking the whole socket in the caller, tcp_diag_get_aux, just
+outside of the rcu_read_lock. Would this work here, or do you see a
+better way?
 
-Info is already there :
-
-cat /proc/net/stat/arp_cache
+Thanks for your feedback,
+-- 
+Ivan Delalande
+Arista Networks
