@@ -1,65 +1,108 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: UDP sockets oddities
-Date: Fri, 25 Aug 2017 18:17:34 -0700
-Message-ID: <ce4af8cc-3de1-a777-967c-a57103994e1d@gmail.com>
-References: <3fed7679-0e19-8a0a-eee6-11baa5654fac@gmail.com>
- <1503527210.2499.63.camel@edumazet-glaptop3.roam.corp.google.com>
- <9a9c1c94-4902-2ec9-d216-3f5cfb3044af@gmail.com>
- <1503529476.2499.65.camel@edumazet-glaptop3.roam.corp.google.com>
- <6c88e440-3f36-858d-1a08-bd32a2c66f4e@gmail.com>
- <1503535426.2499.66.camel@edumazet-glaptop3.roam.corp.google.com>
- <4adb4b66-590c-c55a-44aa-27dd409ce14f@gmail.com>
- <3c44d27e-27d9-e9c4-04b3-17c0366e60d9@gmail.com>
- <1503705440.11498.9.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, edumazet@gmail.com, pabeni@redhat.com,
-        willemb@google.com, davem@davemloft.net
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f179.google.com ([209.85.220.179]:34924 "EHLO
-        mail-qk0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751426AbdHZBRj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 21:17:39 -0400
-Received: by mail-qk0-f179.google.com with SMTP id p67so6627658qkd.2
-        for <netdev@vger.kernel.org>; Fri, 25 Aug 2017 18:17:38 -0700 (PDT)
-In-Reply-To: <1503705440.11498.9.camel@edumazet-glaptop3.roam.corp.google.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Subject: [PATCH net-next v3] e1000e: Be drop monitor friendly
+Date: Fri, 25 Aug 2017 18:14:24 -0700
+Message-ID: <20170826011424.27251-1-f.fainelli@gmail.com>
+Cc: edumazet@gmail.com, davem@davemloft.net,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        intel-wired-lan@lists.osuosl.org (moderated list:INTEL ETHERNET DRIVERS),
+        linux-kernel@vger.kernel.org (open list)
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 08/25/2017 04:57 PM, Eric Dumazet wrote:
-> On Fri, 2017-08-25 at 16:18 -0700, Florian Fainelli wrote:
-> 
->> Eric, are there areas of the stack where we are allowed to drop packets,
->> not propagate that back to write(2) and also not increment any counter
->> either, or maybe I am not looking where I should...
-> 
-> What happens if you increase these sysctls ?
+e1000e_put_txbuf() can be called from normal reclamation path as well as
+when a DMA mapping failure, so we need to differentiate these two cases
+when freeing SKBs to be drop monitor friendly. e1000e_tx_hwtstamp_work()
+and e1000_remove() are processing TX timestamped SKBs and those should
+not be accounted as drops either.
 
-I don't see packet loss after I tweak these two sysctls according to
-your suggestions.
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+Changes in v3:
 
-Tweaking eth0's sysctls did not change anything, but tweaking gphy's
-sysctl resolved the loss. This was a little surprising considering that
-gphy is an IFF_NO_QUEUE interface and eth0 is the conduit interface that
-does the real transmission.
+- differentiate normal reclamation from TX DMA fragment mapping errors
+- removed a few invalid dev_kfree_skb() replacements (those are already
+  drop monitor friendly)
 
-Does that make sense with respect to what I reported earlier? Should I
-try to dump the neigh stats?
+Changes in v2:
 
-Thanks!
+- make it compile
 
-> 
-> grep .  `find /proc/sys|grep unres_qlen`
-> 
-> 
-> unres_qlen_bytes -> 2000000
-> unres_qlen -> 10000
-> 
-> 
+ drivers/net/ethernet/intel/e1000e/netdev.c | 18 +++++++++++-------
+ 1 file changed, 11 insertions(+), 7 deletions(-)
 
-
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index 327dfe5bedc0..cfd21858c095 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -1071,7 +1071,8 @@ static bool e1000_clean_rx_irq(struct e1000_ring *rx_ring, int *work_done,
+ }
+ 
+ static void e1000_put_txbuf(struct e1000_ring *tx_ring,
+-			    struct e1000_buffer *buffer_info)
++			    struct e1000_buffer *buffer_info,
++			    bool drop)
+ {
+ 	struct e1000_adapter *adapter = tx_ring->adapter;
+ 
+@@ -1085,7 +1086,10 @@ static void e1000_put_txbuf(struct e1000_ring *tx_ring,
+ 		buffer_info->dma = 0;
+ 	}
+ 	if (buffer_info->skb) {
+-		dev_kfree_skb_any(buffer_info->skb);
++		if (drop)
++			dev_kfree_skb_any(buffer_info->skb);
++		else
++			dev_consume_skb_any(buffer_info->skb);
+ 		buffer_info->skb = NULL;
+ 	}
+ 	buffer_info->time_stamp = 0;
+@@ -1199,7 +1203,7 @@ static void e1000e_tx_hwtstamp_work(struct work_struct *work)
+ 		wmb(); /* force write prior to skb_tstamp_tx */
+ 
+ 		skb_tstamp_tx(skb, &shhwtstamps);
+-		dev_kfree_skb_any(skb);
++		dev_consume_skb_any(skb);
+ 	} else if (time_after(jiffies, adapter->tx_hwtstamp_start
+ 			      + adapter->tx_timeout_factor * HZ)) {
+ 		dev_kfree_skb_any(adapter->tx_hwtstamp_skb);
+@@ -1254,7 +1258,7 @@ static bool e1000_clean_tx_irq(struct e1000_ring *tx_ring)
+ 				}
+ 			}
+ 
+-			e1000_put_txbuf(tx_ring, buffer_info);
++			e1000_put_txbuf(tx_ring, buffer_info, false);
+ 			tx_desc->upper.data = 0;
+ 
+ 			i++;
+@@ -2421,7 +2425,7 @@ static void e1000_clean_tx_ring(struct e1000_ring *tx_ring)
+ 
+ 	for (i = 0; i < tx_ring->count; i++) {
+ 		buffer_info = &tx_ring->buffer_info[i];
+-		e1000_put_txbuf(tx_ring, buffer_info);
++		e1000_put_txbuf(tx_ring, buffer_info, false);
+ 	}
+ 
+ 	netdev_reset_queue(adapter->netdev);
+@@ -5614,7 +5618,7 @@ static int e1000_tx_map(struct e1000_ring *tx_ring, struct sk_buff *skb,
+ 			i += tx_ring->count;
+ 		i--;
+ 		buffer_info = &tx_ring->buffer_info[i];
+-		e1000_put_txbuf(tx_ring, buffer_info);
++		e1000_put_txbuf(tx_ring, buffer_info, true);
+ 	}
+ 
+ 	return 0;
+@@ -7411,7 +7415,7 @@ static void e1000_remove(struct pci_dev *pdev)
+ 	if (adapter->flags & FLAG_HAS_HW_TIMESTAMP) {
+ 		cancel_work_sync(&adapter->tx_hwtstamp_work);
+ 		if (adapter->tx_hwtstamp_skb) {
+-			dev_kfree_skb_any(adapter->tx_hwtstamp_skb);
++			dev_consume_skb_any(adapter->tx_hwtstamp_skb);
+ 			adapter->tx_hwtstamp_skb = NULL;
+ 		}
+ 	}
 -- 
-Florian
+2.9.3
