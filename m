@@ -1,56 +1,154 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: UDP sockets oddities
-Date: Fri, 25 Aug 2017 18:52:02 -0700
-Message-ID: <1503712322.11498.12.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <3fed7679-0e19-8a0a-eee6-11baa5654fac@gmail.com>
-         <1503527210.2499.63.camel@edumazet-glaptop3.roam.corp.google.com>
-         <9a9c1c94-4902-2ec9-d216-3f5cfb3044af@gmail.com>
-         <1503529476.2499.65.camel@edumazet-glaptop3.roam.corp.google.com>
-         <6c88e440-3f36-858d-1a08-bd32a2c66f4e@gmail.com>
-         <1503535426.2499.66.camel@edumazet-glaptop3.roam.corp.google.com>
-         <4adb4b66-590c-c55a-44aa-27dd409ce14f@gmail.com>
-         <3c44d27e-27d9-e9c4-04b3-17c0366e60d9@gmail.com>
-         <1503705440.11498.9.camel@edumazet-glaptop3.roam.corp.google.com>
-         <ce4af8cc-3de1-a777-967c-a57103994e1d@gmail.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH v2 net-next 1/8] bpf: Add support for recursively running
+ cgroup sock filters
+Date: Sat, 26 Aug 2017 04:00:15 +0200
+Message-ID: <59A0D62F.3030806@iogearbox.net>
+References: <1503687941-626-1-git-send-email-dsahern@gmail.com> <1503687941-626-2-git-send-email-dsahern@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@gmail.com, pabeni@redhat.com,
-        willemb@google.com, davem@davemloft.net
-To: Florian Fainelli <f.fainelli@gmail.com>
+To: David Ahern <dsahern@gmail.com>, netdev@vger.kernel.org,
+        ast@kernel.org, tj@kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f178.google.com ([209.85.192.178]:33224 "EHLO
-        mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751426AbdHZBwG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 21:52:06 -0400
-Received: by mail-pf0-f178.google.com with SMTP id r62so382497pfj.0
-        for <netdev@vger.kernel.org>; Fri, 25 Aug 2017 18:52:05 -0700 (PDT)
-In-Reply-To: <ce4af8cc-3de1-a777-967c-a57103994e1d@gmail.com>
+Received: from www62.your-server.de ([213.133.104.62]:39925 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751407AbdHZCAY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 22:00:24 -0400
+In-Reply-To: <1503687941-626-2-git-send-email-dsahern@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2017-08-25 at 18:17 -0700, Florian Fainelli wrote:
-> On 08/25/2017 04:57 PM, Eric Dumazet wrote:
-> > On Fri, 2017-08-25 at 16:18 -0700, Florian Fainelli wrote:
-> > 
-> >> Eric, are there areas of the stack where we are allowed to drop packets,
-> >> not propagate that back to write(2) and also not increment any counter
-> >> either, or maybe I am not looking where I should...
-> > 
-> > What happens if you increase these sysctls ?
-> 
-> I don't see packet loss after I tweak these two sysctls according to
-> your suggestions.
-> 
-> Tweaking eth0's sysctls did not change anything, but tweaking gphy's
-> sysctl resolved the loss. This was a little surprising considering that
-> gphy is an IFF_NO_QUEUE interface and eth0 is the conduit interface that
-> does the real transmission.
-> 
-> Does that make sense with respect to what I reported earlier? Should I
-> try to dump the neigh stats?
+On 08/25/2017 09:05 PM, David Ahern wrote:
+> Add support for recursively applying sock filters attached to a cgroup.
+> For now, start with the inner cgroup attached to the socket and work back
+> to the root or first cgroup without the recursive flag set. Once the
+> recursive flag is set for a cgroup all descendant group's must have the
+> flag as well.
+>
+> Signed-off-by: David Ahern <dsahern@gmail.com>
+[...]
+> diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+> index f71f5e07d82d..595e31b30f23 100644
+> --- a/include/uapi/linux/bpf.h
+> +++ b/include/uapi/linux/bpf.h
+> @@ -151,6 +151,15 @@ enum bpf_attach_type {
+>    */
+>   #define BPF_F_ALLOW_OVERRIDE	(1U << 0)
+>
+> +/* If BPF_F_RECURSIVE flag is used in BPF_PROG_ATTACH command
+> + * cgroups are walked recursively back to the root cgroup or the
+> + * first cgroup without the flag set running any program attached.
+> + * Once the flag is set, it MUST be set for all descendant cgroups.
+> + */
+> +#define BPF_F_RECURSIVE		(1U << 1)
+> +
+> +#define BPF_F_ALL_ATTACH_FLAGS  (BPF_F_ALLOW_OVERRIDE | BPF_F_RECURSIVE)
+> +
+>   /* If BPF_F_STRICT_ALIGNMENT is used in BPF_PROG_LOAD command, the
+>    * verifier will perform strict alignment checking as if the kernel
+>    * has been built with CONFIG_EFFICIENT_UNALIGNED_ACCESS not set,
+> diff --git a/kernel/bpf/cgroup.c b/kernel/bpf/cgroup.c
+> index 546113430049..eb1f436c18fb 100644
+> --- a/kernel/bpf/cgroup.c
+> +++ b/kernel/bpf/cgroup.c
+> @@ -47,10 +47,16 @@ void cgroup_bpf_inherit(struct cgroup *cgrp, struct cgroup *parent)
+>   	unsigned int type;
+>
+>   	for (type = 0; type < ARRAY_SIZE(cgrp->bpf.effective); type++) {
+> -		struct bpf_prog *e;
+> +		struct bpf_prog *e = NULL;
+> +
+> +		/* do not need to set effective program if cgroups are
+> +		 * walked recursively
+> +		 */
+> +		cgrp->bpf.is_recursive[type] = parent->bpf.is_recursive[type];
+> +		if (!cgrp->bpf.is_recursive[type])
+> +			e = rcu_dereference_protected(parent->bpf.effective[type],
+> +						      lockdep_is_held(&cgroup_mutex));
 
-Note that if you had TCP traffic, the neighbour would be constantly
-confirmed and no losses would happen.
+[...]
 
-I guess we should an SNMP counter for packets dropped in neigh queues.
+> -		e = rcu_dereference_protected(parent->bpf.effective[type],
+> -					      lockdep_is_held(&cgroup_mutex));
+>   		rcu_assign_pointer(cgrp->bpf.effective[type], e);
+>   		cgrp->bpf.disallow_override[type] = parent->bpf.disallow_override[type];
+>   	}
+[...]
+> diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
+> index d5774a6851f1..a1ab5dbaae89 100644
+> --- a/kernel/bpf/syscall.c
+> +++ b/kernel/bpf/syscall.c
+> @@ -1187,7 +1187,7 @@ static int bpf_prog_attach(const union bpf_attr *attr)
+>   	if (CHECK_ATTR(BPF_PROG_ATTACH))
+>   		return -EINVAL;
+>
+> -	if (attr->attach_flags & ~BPF_F_ALLOW_OVERRIDE)
+> +	if (attr->attach_flags & ~BPF_F_ALL_ATTACH_FLAGS)
+>   		return -EINVAL;
+>
+>   	switch (attr->attach_type) {
+> @@ -1222,7 +1222,7 @@ static int bpf_prog_attach(const union bpf_attr *attr)
+>   	}
+>
+>   	ret = cgroup_bpf_update(cgrp, prog, attr->attach_type,
+> -				attr->attach_flags & BPF_F_ALLOW_OVERRIDE);
+> +				attr->attach_flags);
+>   	if (ret)
+>   		bpf_prog_put(prog);
+>   	cgroup_put(cgrp);
+> @@ -1252,7 +1252,7 @@ static int bpf_prog_detach(const union bpf_attr *attr)
+>   		if (IS_ERR(cgrp))
+>   			return PTR_ERR(cgrp);
+>
+> -		ret = cgroup_bpf_update(cgrp, NULL, attr->attach_type, false);
+> +		ret = cgroup_bpf_update(cgrp, NULL, attr->attach_type, 0);
+>   		cgroup_put(cgrp);
+>   		break;
+
+Can you elaborate on the semantical changes for the programs
+setting the new flag which are not using below cgroup_bpf_run_filter_sk()
+helper to walk back to root?
+
+> diff --git a/kernel/cgroup/cgroup.c b/kernel/cgroup/cgroup.c
+> index df2e0f14a95d..27a4f14435a3 100644
+> --- a/kernel/cgroup/cgroup.c
+> +++ b/kernel/cgroup/cgroup.c
+> @@ -5176,14 +5176,35 @@ void cgroup_sk_free(struct sock_cgroup_data *skcd)
+>
+>   #ifdef CONFIG_CGROUP_BPF
+>   int cgroup_bpf_update(struct cgroup *cgrp, struct bpf_prog *prog,
+> -		      enum bpf_attach_type type, bool overridable)
+> +		      enum bpf_attach_type type, u32 flags)
+>   {
+>   	struct cgroup *parent = cgroup_parent(cgrp);
+>   	int ret;
+>
+>   	mutex_lock(&cgroup_mutex);
+> -	ret = __cgroup_bpf_update(cgrp, parent, prog, type, overridable);
+> +	ret = __cgroup_bpf_update(cgrp, parent, prog, type, flags);
+>   	mutex_unlock(&cgroup_mutex);
+>   	return ret;
+>   }
+> +
+> +int cgroup_bpf_run_filter_sk(struct sock *sk,
+> +			     enum bpf_attach_type type)
+> +{
+> +	struct cgroup *cgrp = sock_cgroup_ptr(&sk->sk_cgrp_data);
+> +	int ret = 0;
+> +
+> +	while (cgrp) {
+> +		ret = __cgroup_bpf_run_filter_sk(cgrp, sk, type);
+> +		if (ret)
+> +			break;
+> +
+> +		if (!cgrp->bpf.is_recursive[type])
+> +			break;
+> +
+> +		cgrp = cgroup_parent(cgrp);
+> +	}
+> +
+> +	return ret;
+> +}
+> +EXPORT_SYMBOL(cgroup_bpf_run_filter_sk);
+>   #endif /* CONFIG_CGROUP_BPF */
+>
