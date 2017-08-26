@@ -1,34 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/2] r8169: Be drop monitor friendly
-Date: Fri, 25 Aug 2017 19:13:52 -0700 (PDT)
-Message-ID: <20170825.191352.1130944822769604145.davem@davemloft.net>
-References: <20170825013359.27258-1-f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next 0/2] nfp: SR-IOV ndos support
+Date: Fri, 25 Aug 2017 19:25:14 -0700 (PDT)
+Message-ID: <20170825.192514.1737298151611853692.davem@davemloft.net>
+References: <20170825043150.375-1-jakub.kicinski@netronome.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com, romieu@fr.zoreil.com,
-        edumazet@gmail.com, alexander.h.duyck@intel.com,
-        sgruszka@redhat.com
-To: f.fainelli@gmail.com
+Cc: netdev@vger.kernel.org, oss-drivers@netronome.com
+To: jakub.kicinski@netronome.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:39258 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:39612 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751589AbdHZCN4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 22:13:56 -0400
-In-Reply-To: <20170825013359.27258-1-f.fainelli@gmail.com>
+        with ESMTP id S1751453AbdHZCZP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 22:25:15 -0400
+In-Reply-To: <20170825043150.375-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Thu, 24 Aug 2017 18:33:57 -0700
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Date: Thu, 24 Aug 2017 21:31:48 -0700
 
-> First patch may be questionable but no other driver appears to be doing that
-> and while it is defendable to account for left packets as dropped during TX
-> clean, this appears misleadning. I picked Stanislaw changes which brings us
-> back to 2010, but this was present from pre-git days as well.
-
-Right, drivers should not do this.
-
-> Second patch fixes the two missing calls to dev_consume_skb_any().
+> This set adds basic SR-IOV including setting/getting VF MAC addresses,
+> VLANs, link state and spoofcheck settings.  It is wired up for both
+> vNICs and representors (note: ip link will not report VF settings on
+> VF/PF representors because they are not linked to the PF PCI device).
+> 
+> Pablo and team add the basic implementation, Simon and Dirk follow
+> up with the representor plumbing.
 
 Series applied, thanks.
