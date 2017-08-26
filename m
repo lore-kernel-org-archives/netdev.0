@@ -1,154 +1,113 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH v2 net-next 1/8] bpf: Add support for recursively running
- cgroup sock filters
-Date: Sat, 26 Aug 2017 04:00:15 +0200
-Message-ID: <59A0D62F.3030806@iogearbox.net>
-References: <1503687941-626-1-git-send-email-dsahern@gmail.com> <1503687941-626-2-git-send-email-dsahern@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-To: David Ahern <dsahern@gmail.com>, netdev@vger.kernel.org,
-        ast@kernel.org, tj@kernel.org, davem@davemloft.net
+From: Ivan Delalande <colona@arista.com>
+Subject: [PATCH net-next v2 1/2] inet_diag: allow protocols to provide additional data
+Date: Fri, 25 Aug 2017 18:53:45 -0700
+Message-ID: <20170826015346.24247-1-colona@arista.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+        Ivan Delalande <colona@arista.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:39925 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751407AbdHZCAY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 22:00:24 -0400
-In-Reply-To: <1503687941-626-2-git-send-email-dsahern@gmail.com>
+Received: from prod-mx.aristanetworks.com ([162.210.130.12]:22013 "EHLO
+        prod-mx.aristanetworks.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751541AbdHZCBn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 25 Aug 2017 22:01:43 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/25/2017 09:05 PM, David Ahern wrote:
-> Add support for recursively applying sock filters attached to a cgroup.
-> For now, start with the inner cgroup attached to the socket and work back
-> to the root or first cgroup without the recursive flag set. Once the
-> recursive flag is set for a cgroup all descendant group's must have the
-> flag as well.
->
-> Signed-off-by: David Ahern <dsahern@gmail.com>
-[...]
-> diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-> index f71f5e07d82d..595e31b30f23 100644
-> --- a/include/uapi/linux/bpf.h
-> +++ b/include/uapi/linux/bpf.h
-> @@ -151,6 +151,15 @@ enum bpf_attach_type {
->    */
->   #define BPF_F_ALLOW_OVERRIDE	(1U << 0)
->
-> +/* If BPF_F_RECURSIVE flag is used in BPF_PROG_ATTACH command
-> + * cgroups are walked recursively back to the root cgroup or the
-> + * first cgroup without the flag set running any program attached.
-> + * Once the flag is set, it MUST be set for all descendant cgroups.
-> + */
-> +#define BPF_F_RECURSIVE		(1U << 1)
-> +
-> +#define BPF_F_ALL_ATTACH_FLAGS  (BPF_F_ALLOW_OVERRIDE | BPF_F_RECURSIVE)
-> +
->   /* If BPF_F_STRICT_ALIGNMENT is used in BPF_PROG_LOAD command, the
->    * verifier will perform strict alignment checking as if the kernel
->    * has been built with CONFIG_EFFICIENT_UNALIGNED_ACCESS not set,
-> diff --git a/kernel/bpf/cgroup.c b/kernel/bpf/cgroup.c
-> index 546113430049..eb1f436c18fb 100644
-> --- a/kernel/bpf/cgroup.c
-> +++ b/kernel/bpf/cgroup.c
-> @@ -47,10 +47,16 @@ void cgroup_bpf_inherit(struct cgroup *cgrp, struct cgroup *parent)
->   	unsigned int type;
->
->   	for (type = 0; type < ARRAY_SIZE(cgrp->bpf.effective); type++) {
-> -		struct bpf_prog *e;
-> +		struct bpf_prog *e = NULL;
-> +
-> +		/* do not need to set effective program if cgroups are
-> +		 * walked recursively
-> +		 */
-> +		cgrp->bpf.is_recursive[type] = parent->bpf.is_recursive[type];
-> +		if (!cgrp->bpf.is_recursive[type])
-> +			e = rcu_dereference_protected(parent->bpf.effective[type],
-> +						      lockdep_is_held(&cgroup_mutex));
+Extend inet_diag_handler to allow individual protocols to report
+additional data on INET_DIAG_INFO through idiag_get_aux. The size
+can be dynamic and is computed by idiag_get_aux_size.
 
-[...]
+Signed-off-by: Ivan Delalande <colona@arista.com>
+---
+ include/linux/inet_diag.h |  7 +++++++
+ net/ipv4/inet_diag.c      | 22 ++++++++++++++++++----
+ 2 files changed, 25 insertions(+), 4 deletions(-)
 
-> -		e = rcu_dereference_protected(parent->bpf.effective[type],
-> -					      lockdep_is_held(&cgroup_mutex));
->   		rcu_assign_pointer(cgrp->bpf.effective[type], e);
->   		cgrp->bpf.disallow_override[type] = parent->bpf.disallow_override[type];
->   	}
-[...]
-> diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-> index d5774a6851f1..a1ab5dbaae89 100644
-> --- a/kernel/bpf/syscall.c
-> +++ b/kernel/bpf/syscall.c
-> @@ -1187,7 +1187,7 @@ static int bpf_prog_attach(const union bpf_attr *attr)
->   	if (CHECK_ATTR(BPF_PROG_ATTACH))
->   		return -EINVAL;
->
-> -	if (attr->attach_flags & ~BPF_F_ALLOW_OVERRIDE)
-> +	if (attr->attach_flags & ~BPF_F_ALL_ATTACH_FLAGS)
->   		return -EINVAL;
->
->   	switch (attr->attach_type) {
-> @@ -1222,7 +1222,7 @@ static int bpf_prog_attach(const union bpf_attr *attr)
->   	}
->
->   	ret = cgroup_bpf_update(cgrp, prog, attr->attach_type,
-> -				attr->attach_flags & BPF_F_ALLOW_OVERRIDE);
-> +				attr->attach_flags);
->   	if (ret)
->   		bpf_prog_put(prog);
->   	cgroup_put(cgrp);
-> @@ -1252,7 +1252,7 @@ static int bpf_prog_detach(const union bpf_attr *attr)
->   		if (IS_ERR(cgrp))
->   			return PTR_ERR(cgrp);
->
-> -		ret = cgroup_bpf_update(cgrp, NULL, attr->attach_type, false);
-> +		ret = cgroup_bpf_update(cgrp, NULL, attr->attach_type, 0);
->   		cgroup_put(cgrp);
->   		break;
-
-Can you elaborate on the semantical changes for the programs
-setting the new flag which are not using below cgroup_bpf_run_filter_sk()
-helper to walk back to root?
-
-> diff --git a/kernel/cgroup/cgroup.c b/kernel/cgroup/cgroup.c
-> index df2e0f14a95d..27a4f14435a3 100644
-> --- a/kernel/cgroup/cgroup.c
-> +++ b/kernel/cgroup/cgroup.c
-> @@ -5176,14 +5176,35 @@ void cgroup_sk_free(struct sock_cgroup_data *skcd)
->
->   #ifdef CONFIG_CGROUP_BPF
->   int cgroup_bpf_update(struct cgroup *cgrp, struct bpf_prog *prog,
-> -		      enum bpf_attach_type type, bool overridable)
-> +		      enum bpf_attach_type type, u32 flags)
->   {
->   	struct cgroup *parent = cgroup_parent(cgrp);
->   	int ret;
->
->   	mutex_lock(&cgroup_mutex);
-> -	ret = __cgroup_bpf_update(cgrp, parent, prog, type, overridable);
-> +	ret = __cgroup_bpf_update(cgrp, parent, prog, type, flags);
->   	mutex_unlock(&cgroup_mutex);
->   	return ret;
->   }
-> +
-> +int cgroup_bpf_run_filter_sk(struct sock *sk,
-> +			     enum bpf_attach_type type)
-> +{
-> +	struct cgroup *cgrp = sock_cgroup_ptr(&sk->sk_cgrp_data);
-> +	int ret = 0;
-> +
-> +	while (cgrp) {
-> +		ret = __cgroup_bpf_run_filter_sk(cgrp, sk, type);
-> +		if (ret)
-> +			break;
-> +
-> +		if (!cgrp->bpf.is_recursive[type])
-> +			break;
-> +
-> +		cgrp = cgroup_parent(cgrp);
-> +	}
-> +
-> +	return ret;
-> +}
-> +EXPORT_SYMBOL(cgroup_bpf_run_filter_sk);
->   #endif /* CONFIG_CGROUP_BPF */
->
+diff --git a/include/linux/inet_diag.h b/include/linux/inet_diag.h
+index 65da430e260f..ee251c585854 100644
+--- a/include/linux/inet_diag.h
++++ b/include/linux/inet_diag.h
+@@ -25,6 +25,13 @@ struct inet_diag_handler {
+ 					  struct inet_diag_msg *r,
+ 					  void *info);
+ 
++	int		(*idiag_get_aux)(struct sock *sk,
++					 bool net_admin,
++					 struct sk_buff *skb);
++
++	size_t		(*idiag_get_aux_size)(struct sock *sk,
++					      bool net_admin);
++
+ 	int		(*destroy)(struct sk_buff *in_skb,
+ 				   const struct inet_diag_req_v2 *req);
+ 
+diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
+index 67325d5832d7..8a88ef373395 100644
+--- a/net/ipv4/inet_diag.c
++++ b/net/ipv4/inet_diag.c
+@@ -93,8 +93,17 @@ void inet_diag_msg_common_fill(struct inet_diag_msg *r, struct sock *sk)
+ }
+ EXPORT_SYMBOL_GPL(inet_diag_msg_common_fill);
+ 
+-static size_t inet_sk_attr_size(void)
++static size_t inet_sk_attr_size(struct sock *sk,
++				const struct inet_diag_req_v2 *req,
++				bool net_admin)
+ {
++	const struct inet_diag_handler *handler;
++	size_t aux = 0;
++
++	handler = inet_diag_table[req->sdiag_protocol];
++	if (handler && handler->idiag_get_aux_size)
++		aux = handler->idiag_get_aux_size(sk, net_admin);
++
+ 	return	  nla_total_size(sizeof(struct tcp_info))
+ 		+ nla_total_size(1) /* INET_DIAG_SHUTDOWN */
+ 		+ nla_total_size(1) /* INET_DIAG_TOS */
+@@ -105,6 +114,7 @@ static size_t inet_sk_attr_size(void)
+ 		+ nla_total_size(SK_MEMINFO_VARS * sizeof(u32))
+ 		+ nla_total_size(TCP_CA_NAME_MAX)
+ 		+ nla_total_size(sizeof(struct tcpvegas_info))
++		+ nla_total_size(aux)
+ 		+ 64;
+ }
+ 
+@@ -260,6 +270,10 @@ int inet_sk_diag_fill(struct sock *sk, struct inet_connection_sock *icsk,
+ 
+ 	handler->idiag_get_info(sk, r, info);
+ 
++	if (ext & (1 << (INET_DIAG_INFO - 1)) && handler->idiag_get_aux)
++		if (handler->idiag_get_aux(sk, net_admin, skb) < 0)
++			goto errout;
++
+ 	if (sk->sk_state < TCP_TIME_WAIT) {
+ 		union tcp_cc_info info;
+ 		size_t sz = 0;
+@@ -452,13 +466,14 @@ int inet_diag_dump_one_icsk(struct inet_hashinfo *hashinfo,
+ 	struct net *net = sock_net(in_skb->sk);
+ 	struct sk_buff *rep;
+ 	struct sock *sk;
++	bool net_admin = netlink_net_capable(in_skb, CAP_NET_ADMIN);
+ 	int err;
+ 
+ 	sk = inet_diag_find_one_icsk(net, hashinfo, req);
+ 	if (IS_ERR(sk))
+ 		return PTR_ERR(sk);
+ 
+-	rep = nlmsg_new(inet_sk_attr_size(), GFP_KERNEL);
++	rep = nlmsg_new(inet_sk_attr_size(sk, req, net_admin), GFP_KERNEL);
+ 	if (!rep) {
+ 		err = -ENOMEM;
+ 		goto out;
+@@ -467,8 +482,7 @@ int inet_diag_dump_one_icsk(struct inet_hashinfo *hashinfo,
+ 	err = sk_diag_fill(sk, rep, req,
+ 			   sk_user_ns(NETLINK_CB(in_skb).sk),
+ 			   NETLINK_CB(in_skb).portid,
+-			   nlh->nlmsg_seq, 0, nlh,
+-			   netlink_net_capable(in_skb, CAP_NET_ADMIN));
++			   nlh->nlmsg_seq, 0, nlh, net_admin);
+ 	if (err < 0) {
+ 		WARN_ON(err == -EMSGSIZE);
+ 		nlmsg_free(rep);
+-- 
+2.14.1
