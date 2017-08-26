@@ -1,92 +1,120 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v4 4/5] net: stmmac: dwmac-sun8i: choose internal PHY via
- phy-is-integrated
-Date: Sat, 26 Aug 2017 23:20:51 +0200
-Message-ID: <20170826212051.GA10418@lunn.ch>
-References: <20170826073311.25612-1-clabbe.montjoie@gmail.com>
- <20170826073311.25612-5-clabbe.montjoie@gmail.com>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH RFC WIP 0/5] IGMP snooping for local traffic
+Date: Sun, 27 Aug 2017 01:17:39 +0300
+Message-ID: <c3f5050f-7a38-c28c-31d0-df5909259fb1@cumulusnetworks.com>
+References: <1503780970-10312-1-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: robh+dt@kernel.org, mark.rutland@arm.com,
-        maxime.ripard@free-electrons.com, wens@csie.org,
-        linux@armlinux.org.uk, peppe.cavallaro@st.com,
-        alexandre.torgue@st.com, f.fainelli@gmail.com, icenowy@aosc.io,
-        netdev@vger.kernel.org, devicetree@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
-To: Corentin Labbe <clabbe.montjoie@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170826073311.25612-5-clabbe.montjoie@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Florian Fainelli <f.fainelli@gmail.com>, jiri@mellanox.com,
+        roopa@cumulusnetworks.com, stephen@networkplumber.org,
+        bridge@lists.linux-foundation.org
+To: Andrew Lunn <andrew@lunn.ch>, netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f41.google.com ([74.125.82.41]:33171 "EHLO
+        mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751101AbdHZWRn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 26 Aug 2017 18:17:43 -0400
+Received: by mail-wm0-f41.google.com with SMTP id b14so5022981wme.0
+        for <netdev@vger.kernel.org>; Sat, 26 Aug 2017 15:17:43 -0700 (PDT)
+In-Reply-To: <1503780970-10312-1-git-send-email-andrew@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Corentin
+On 26/08/17 23:56, Andrew Lunn wrote:
+> This is a WIP patchset i would like comments on from bridge, switchdev
+> and hardware offload people.
+> 
+> The linux bridge supports IGMP snooping. It will listen to IGMP
+> reports on bridge ports and keep track of which groups have been
+> joined on an interface. It will then forward multicast based on this
+> group membership.
+> 
+> When the bridge adds or removed groups from an interface, it uses
+> switchdev to request the hardware add an mdb to a port, so the
+> hardware can perform the selective forwarding between ports.
+> 
+> What is not covered by the current bridge code, is IGMP joins/leaves
+> from the host on the brX interface. No such monitoring is
 
-I think we have now all agreed this is an mdio-mux, plus it is also an
-MII mux. We should represent that in device tree. This patchset does
-this. However, as it is now, the mux structure in DT is ignored. All
-it does is search for the phy-is-integrated flags and goes on that.
+Hi Andrew,
 
-I made the comment that the device tree representation cannot be
-implemented using an MDIO mux driver, because of driver loading
-issues.  However, the core of the MDIO mux code is just a library,
-symbols exported as GPL, free for anything to use.
+Have you taken a look at mglist (the boolean, probably needs a rename) ? It is for
+exactly that purpose, to track which groups the bridge is interested in.
+I assume I'm forgetting or missing something here.
 
-What i think should happen is the mdio-mux is implemented inside the
-MAC driver, using the mux-core as a library. The device tree structure
-of a mix is then reflected within Linux. The mux switch callback is
-implemented within the MAC driver. So it can reset the MAC when the
-mux is switched. The 'phy-is-integrated' property is then no longer
-needed.
+> performed. With a pure software bridge, it is not required. All
+> mulitcast frames are passed to the brX interface, and the network
 
-I would suggest a binding something like:
+If mglist (again the boolean) is false then they won't be passed up.
 
-emac: ethernet@1c0b000 {
-        compatible = "allwinner,sun8i-h3-emac";
-        syscon = <&syscon>;
-        reg = <0x01c0b000 0x104>;
-        interrupts = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>;
-        interrupt-names = "macirq";
-        resets = <&ccu RST_BUS_EMAC>;
-        reset-names = "stmmaceth";
-        clocks = <&ccu CLK_BUS_EMAC>;
-        clock-names = "stmmaceth";
-        #address-cells = <1>;
-        #size-cells = <0>;
+> stack filters them, as it does for any interface. However, when
+> hardware offload is involved, things change. We should program the
+> hardware to only send multcast packets to the host when the host has
+> in interest in them.
 
-        phy-handle = <&int_mii_phy>;
-        phy-mode = "mii";
-        allwinner,leds-active-low;
+Granted the boolean mglist might need some changes (esp. with host group leave)
+but I think it can be used to program switchdev for host join/leave, can't
+we adjust its behaviour instead of introducing this complexity and avoid many
+headaches ?
 
-        mdio: mdio {
-                #address-cells = <1>;
-                #size-cells = <0>;
-	}
+> 
+> Thus we need to perform IGMP snooping on the brX interface, just like
+> any other interface of the bridge. However, currently the brX
+> interface is missing all the needed data structures to do this. There
+> is no net_bridge_port structure for the brX interface. This strucuture
+> is created when an interface is added to the bridge. But the brX
+> interface is not a member of the bridge. So this patchset makes the
+> brX interface a first class member of the bridge. When the brX
+> interface is opened, the interface is added to the bridge. A
+> net_bridge_port is allocated for it, and IGMP snooping is performed as
+> usual.
 
-	mdio-mux {
-                #address-cells = <1>;
-                #size-cells = <0>;
+I have actually discussed this idea long time ago with Vlad and it has very nice
+upsides (most important one removing br/port checks everywhere) but it blows up
+fast with special cases for the bridge and things look very similar. You'll need
+to rework the whole bridge and turn every bridge special case into either a port 
+generic one or again bridge-specific special case but with a check for the new flag.
+I will not point out every bug that comes out of this, but registering the bridge
+rx handler to itself is simply wrong on many levels and breaks many setups.
 
-		mdio@0 {
-			reg = <0>;
-                        #address-cells = <1>;
-                        #size-cells = <0>;
+> 
+> There are some complexities here. Some assumptions are broken, like
+> the master interface of a port interface is the bridge interface. The
+> brX interface cannot be its own master. The use of
+> netdev_master_upper_dev_get() within the bridge code has been changed
+> to reflecit this. The bridge receive handler needs to not process
+> frames for the brX interface, etc.
+> 
+> The interface downward to the hardware is also an issue. The code
+> presented here is a hack and needs to change. But that is secondary
+> and can be solved once it is agreed how the bridge needs to change to
+> support this use case.
 
-                        int_mii_phy: ethernet-phy@1 {
-                                reg = <1>;
-                                clocks = <&ccu CLK_BUS_EPHY>;
-                                resets = <&ccu RST_BUS_EPHY>;
-                        };
-                };
-                ext_mdio: mdio@0 {
-                        #address-cells = <1>;
-                        #size-cells = <0>;
+Definitely agree with this statement. :-)
 
-                        ext_rgmii_phy: ethernet-phy@1 {
-                                reg = <1>;
-                        };
-                };
-       };
-};
-
-	Andrew
+> 
+> Comment welcome and wanted.
+> 
+> 	Andrew
+> 
+> Andrew Lunn (5):
+>   net: rtnetlink: Handle bridge port without upper device
+>   net: bridge: Skip receive handler on brX interface
+>   net: bridge: Make the brX interface a member of the bridge
+>   net: dsa: HACK: Handle MDB add/remove for none-switch ports
+>   net: dsa: Don't include CPU port when adding MDB to a port
+> 
+>  include/linux/if_bridge.h |  1 +
+>  net/bridge/br_device.c    | 12 ++++++++++--
+>  net/bridge/br_if.c        | 37 ++++++++++++++++++++++++-------------
+>  net/bridge/br_input.c     |  4 ++++
+>  net/bridge/br_mdb.c       |  2 --
+>  net/bridge/br_multicast.c |  7 ++++---
+>  net/bridge/br_private.h   |  1 +
+>  net/core/rtnetlink.c      | 23 +++++++++++++++++++++--
+>  net/dsa/port.c            | 19 +++++++++++++++++--
+>  net/dsa/switch.c          |  2 +-
+>  10 files changed, 83 insertions(+), 25 deletions(-)
+> 
