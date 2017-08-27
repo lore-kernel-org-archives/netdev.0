@@ -1,121 +1,37 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: [PATCH net] bridge: check for null fdb->dst before notifying switchdev drivers
-Date: Sat, 26 Aug 2017 21:13:48 -0700
-Message-ID: <1503807228-16281-1-git-send-email-roopa@cumulusnetworks.com>
-Cc: netdev@vger.kernel.org, arkadis@mellanox.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f170.google.com ([209.85.192.170]:36700 "EHLO
-        mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750740AbdH0EN7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 27 Aug 2017 00:13:59 -0400
-Received: by mail-pf0-f170.google.com with SMTP id k3so6552339pfc.3
-        for <netdev@vger.kernel.org>; Sat, 26 Aug 2017 21:13:58 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+Subject: [PATCH] igb: check memory allocation failure
+Date: Sun, 27 Aug 2017 08:39:51 +0200
+Message-ID: <20170827063951.5975-1-christophe.jaillet@wanadoo.fr>
+Cc: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
+        Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+To: jeffrey.t.kirsher@intel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Check memory allocation failures and return -ENOMEM in such cases, as
+already done for other memory allocations in this function.
 
-current switchdev drivers dont seem to support offloading fdb
-entries pointing to the bridge device which have fdb->dst
-not set to any port. This patch adds a NULL fdb->dst check in
-the switchdev notifier code.
+This avoids NULL pointers dereference.
 
-This patch fixes the below NULL ptr dereference:
-$bridge fdb add 00:02:00:00:00:33 dev br0 self
-
-[   69.953374] BUG: unable to handle kernel NULL pointer dereference at
-0000000000000008
-[   69.954044] IP: br_switchdev_fdb_notify+0x29/0x80
-[   69.954044] PGD 66527067
-[   69.954044] P4D 66527067
-[   69.954044] PUD 7899c067
-[   69.954044] PMD 0
-[   69.954044]
-[   69.954044] Oops: 0000 [#1] SMP
-[   69.954044] Modules linked in:
-[   69.954044] CPU: 1 PID: 3074 Comm: bridge Not tainted 4.13.0-rc6+ #1
-[   69.954044] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996),
-BIOS rel-1.7.5.1-0-g8936dbb-20141113_115728-nilsson.home.kraxel.org
-04/01/2014
-[   69.954044] task: ffff88007b827140 task.stack: ffffc90001564000
-[   69.954044] RIP: 0010:br_switchdev_fdb_notify+0x29/0x80
-[   69.954044] RSP: 0018:ffffc90001567918 EFLAGS: 00010246
-[   69.954044] RAX: 0000000000000000 RBX: ffff8800795e0880 RCX:
-00000000000000c0
-[   69.954044] RDX: ffffc90001567920 RSI: 000000000000001c RDI:
-ffff8800795d0600
-[   69.954044] RBP: ffffc90001567938 R08: ffff8800795d0600 R09:
-0000000000000000
-[   69.954044] R10: ffffc90001567a88 R11: ffff88007b849400 R12:
-ffff8800795e0880
-[   69.954044] R13: ffff8800795d0600 R14: ffffffff81ef8880 R15:
-000000000000001c
-[   69.954044] FS:  00007f93d3085700(0000) GS:ffff88007fd00000(0000)
-knlGS:0000000000000000
-[   69.954044] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-[   69.954044] CR2: 0000000000000008 CR3: 0000000066551000 CR4:
-00000000000006e0
-[   69.954044] Call Trace:
-[   69.954044]  fdb_notify+0x3f/0xf0
-[   69.954044]  __br_fdb_add.isra.12+0x1a7/0x370
-[   69.954044]  br_fdb_add+0x178/0x280
-[   69.954044]  rtnl_fdb_add+0x10a/0x200
-[   69.954044]  rtnetlink_rcv_msg+0x1b4/0x240
-[   69.954044]  ? skb_free_head+0x21/0x40
-[   69.954044]  ? rtnl_calcit.isra.18+0xf0/0xf0
-[   69.954044]  netlink_rcv_skb+0xed/0x120
-[   69.954044]  rtnetlink_rcv+0x15/0x20
-[   69.954044]  netlink_unicast+0x180/0x200
-[   69.954044]  netlink_sendmsg+0x291/0x370
-[   69.954044]  ___sys_sendmsg+0x180/0x2e0
-[   69.954044]  ? filemap_map_pages+0x2db/0x370
-[   69.954044]  ? do_wp_page+0x11d/0x420
-[   69.954044]  ? __handle_mm_fault+0x794/0xd80
-[   69.954044]  ? vma_link+0xcb/0xd0
-[   69.954044]  __sys_sendmsg+0x4c/0x90
-[   69.954044]  SyS_sendmsg+0x12/0x20
-[   69.954044]  do_syscall_64+0x63/0xe0
-[   69.954044]  entry_SYSCALL64_slow_path+0x25/0x25
-[   69.954044] RIP: 0033:0x7f93d2bad690
-[   69.954044] RSP: 002b:00007ffc7217a638 EFLAGS: 00000246 ORIG_RAX:
-000000000000002e
-[   69.954044] RAX: ffffffffffffffda RBX: 00007ffc72182eac RCX:
-00007f93d2bad690
-[   69.954044] RDX: 0000000000000000 RSI: 00007ffc7217a670 RDI:
-0000000000000003
-[   69.954044] RBP: 0000000059a1f7f8 R08: 0000000000000006 R09:
-000000000000000a
-[   69.954044] R10: 00007ffc7217a400 R11: 0000000000000246 R12:
-00007ffc7217a670
-[   69.954044] R13: 00007ffc72182a98 R14: 00000000006114c0 R15:
-00007ffc72182aa0
-[   69.954044] Code: 1f 00 66 66 66 66 90 55 48 89 e5 48 83 ec 20 f6 47
-20 04 74 0a 83 fe 1c 74 09 83 fe 1d 74 2c c9 66 90 c3 48 8b 47 10 48 8d
-55 e8 <48> 8b 70 08 0f b7 47 1e 48 83 c7 18 48 89 7d f0 bf 03 00 00 00
-[   69.954044] RIP: br_switchdev_fdb_notify+0x29/0x80 RSP:
-ffffc90001567918
-[   69.954044] CR2: 0000000000000008
-[   69.954044] ---[ end trace 03e9eec4a82c238b ]---
-
-Fixes: 6b26b51b1d13 ("net: bridge: Add support for notifying devices about FDB add/del")
-Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
 ---
- net/bridge/br_switchdev.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/intel/igb/igb_main.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/net/bridge/br_switchdev.c b/net/bridge/br_switchdev.c
-index 181a44d..f6b1c7d 100644
---- a/net/bridge/br_switchdev.c
-+++ b/net/bridge/br_switchdev.c
-@@ -115,7 +115,7 @@ br_switchdev_fdb_call_notifiers(bool adding, const unsigned char *mac,
- void
- br_switchdev_fdb_notify(const struct net_bridge_fdb_entry *fdb, int type)
- {
--	if (!fdb->added_by_user)
-+	if (!fdb->added_by_user || !fdb->dst)
- 		return;
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index fd4a46b03cc8..837d9b46a390 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -3162,6 +3162,8 @@ static int igb_sw_init(struct igb_adapter *adapter)
+ 	/* Setup and initialize a copy of the hw vlan table array */
+ 	adapter->shadow_vfta = kcalloc(E1000_VLAN_FILTER_TBL_SIZE, sizeof(u32),
+ 				       GFP_ATOMIC);
++	if (!adapter->shadow_vfta)
++		return -ENOMEM;
  
- 	switch (type) {
+ 	/* This call may decrease the number of queues */
+ 	if (igb_init_interrupt_scheme(adapter, true)) {
 -- 
-2.1.4
+2.11.0
