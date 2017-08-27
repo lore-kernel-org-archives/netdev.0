@@ -1,71 +1,68 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH 0/4] irda: move it to drivers/staging so we can delete it
-Date: Sun, 27 Aug 2017 18:53:37 +0200
-Message-ID: <20170827165337.GA5769@kroah.com>
-References: <20170827150334.32495-1-gregkh@linuxfoundation.org>
- <1503848143.12569.48.camel@perches.com>
- <20170827161307.GA3528@kroah.com>
- <1503850759.12569.50.camel@perches.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] DSA support for Micrel KSZ8895
+Date: Sun, 27 Aug 2017 09:56:17 -0700
+Message-ID: <0D360298-6B3C-42BA-8E56-9F56E9B29BE4@gmail.com>
+References: <20170816075524.GA18532@amd> <20170816140451.GA13006@lunn.ch> <9235D6609DB808459E95D78E17F2E43D40AFF8C1@CHN-SV-EXMX02.mchp-main.com> <20170827123658.GA727@amd>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
+Content-Type: text/plain;
+ charset=utf-8
 Content-Transfer-Encoding: quoted-printable
-Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org, samuel@sortiz.org,
- davem@davemloft.net, linux-kernel@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-Content-Disposition: inline
-In-Reply-To: <1503850759.12569.50.camel@perches.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+Cc: vivien.didelot@savoirfairelinux.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, Tristram.Ha@micrel.com,
+        andrew@lunn.ch, pavel@denx.de
+To: Pavel Machek <pavel@denx.de>, Woojung.Huh@microchip.com,
+        nathan.leigh.conrad@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170827123658.GA727@amd>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Aug 27, 2017 at 09:19:19AM -0700, Joe Perches wrote:
-> On Sun, 2017-08-27 at 18:13 +0200, Greg Kroah-Hartman wrote:
-> > On Sun, Aug 27, 2017 at 08:35:43AM -0700, Joe Perches wrote:
-> > > On Sun, 2017-08-27 at 17:03 +0200, Greg Kroah-Hartman wrote:
-> > > > The IRDA code has long been obsolete and broken.  So, to keep people
-> > > > from trying to use it, and to prevent people from having to maintai=
-n it,
-> > > > let's move it to drivers/staging/ so that we can delete it entirely=
- from
-> > > > the kernel in a few releases.
-> > > =
+On August 27, 2017 5:36:58 AM PDT, Pavel Machek <pavel@denx=2Ede> wrote:
+>Hi!
+>
+>So I fought with the driver a bit more, and now I have something that
+>kind-of-works=2E
+>
+>"great great hack" belows worries me=2E
+>
+>Yeah, disabled code needs to be removed before merge=2E
+>
+>No, tag_ksz part probably is not acceptable=2E Do you see solution
+>better than just copying it into tag_ksz1 file?
 
-> > > =
+You could have all Micrel tag implementations live under net/dsa/tag_ksz=
+=2Ec and have e=2Eg: DSA_TAG_PROTO_KSZ for the current (newer) switches and=
+ DSA_TAG_PROTO_KSZ_LEGACY (or any other name) for the older switches and yo=
+u would provide two sets of function pointers depending on which protocol i=
+s requested by the switch=2E
 
-> > > MAINTAINERS should be updated as well.
-> > > =
+Considering the minor difference needed in tagging here, it might be accep=
+table to actually keep the current functions and just have the xmit() call =
+check what get_tag_protocol returns and use word 1 or 0 based on that=2E Ev=
+en though that's a fast path it shouldn't hurt performance too much=2E If i=
+t does, we can always copy the tagging protocol into dsa_slave_priv so you =
+have a fast access to it=2E
 
-> > > It'd probably be nice to try to get an email to
-> > > the irda mailing list too if it still works.
-> > =
+>
+>Any more comments, etc?
 
-> > As get_maintainer.pl didn't show it, odds are it doesn't...
-> =
+The MII emulation bits are interesting, was it not sufficient if you imple=
+mented phy_read and phy_write operations that perform the necessary interna=
+l PHY accesses or maybe you don't get access to standard MII registers? b53=
+ does such a thing and we merely just need to do a simple shift to access t=
+he MII register number, thus avoiding the translation=2E
 
-> get_maintainer doesn't show it because it's subscriber-only.
-> If you want get_maintainer to show it, add -s
-> =
+>
+>Help would be welcome=2E
 
-> $ ./scripts/get_maintainer.pl=A0=A0-s -f net/irda/
-> Samuel Ortiz <samuel@sortiz.org> (maintainer:IRDA SUBSYSTEM)
-> "David S. Miller" <davem@davemloft.net> (maintainer:NETWORKING [GENERAL])
-> irda-users@lists.sourceforge.net (subscriber list:IRDA SUBSYSTEM)
-> netdev@vger.kernel.org (open list:IRDA SUBSYSTEM)
-> linux-kernel@vger.kernel.org (open list)
+I concur with Andrew, try to get a patch series, even an RFC one together =
+so we can review things individually=2E=20
 
-Sorry, am not going to subscribe to a random list just to send patches
-that delete the subsystem :)
+How functional is your driver so far? I'd say the basic stuff to get worki=
+ng: counters (debugging), link management (auto-negotiation, forced, etc=2E=
+) and basic bridging: all ports separate by default and working port to por=
+t switching when brought together in a bridge=2E VLAN, FDB, MDB, other etht=
+ool goodies can be added later on=2E
 
-netdev@ should be all that is needed here anyway...
-
-thanks,
-
-greg k-h
+--=20
+Florian
