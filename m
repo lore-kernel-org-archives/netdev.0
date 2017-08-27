@@ -1,91 +1,71 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] DSA support for Micrel KSZ8895
-Date: Sun, 27 Aug 2017 18:44:34 +0200
-Message-ID: <20170827164434.GH13622@lunn.ch>
-References: <20170816075524.GA18532@amd>
- <20170816140451.GA13006@lunn.ch>
- <9235D6609DB808459E95D78E17F2E43D40AFF8C1@CHN-SV-EXMX02.mchp-main.com>
- <20170827123658.GA727@amd>
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH 0/4] irda: move it to drivers/staging so we can delete it
+Date: Sun, 27 Aug 2017 18:53:37 +0200
+Message-ID: <20170827165337.GA5769@kroah.com>
+References: <20170827150334.32495-1-gregkh@linuxfoundation.org>
+ <1503848143.12569.48.camel@perches.com>
+ <20170827161307.GA3528@kroah.com>
+ <1503850759.12569.50.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Woojung.Huh@microchip.com, nathan.leigh.conrad@gmail.com,
-        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Tristram.Ha@micrel.com
-To: Pavel Machek <pavel@denx.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org, samuel@sortiz.org,
+ davem@davemloft.net, linux-kernel@vger.kernel.org
+To: Joe Perches <joe@perches.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
 Content-Disposition: inline
-In-Reply-To: <20170827123658.GA727@amd>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <1503850759.12569.50.camel@perches.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-> No, tag_ksz part probably is not acceptable. Do you see solution
-> better than just copying it into tag_ksz1 file?
+On Sun, Aug 27, 2017 at 09:19:19AM -0700, Joe Perches wrote:
+> On Sun, 2017-08-27 at 18:13 +0200, Greg Kroah-Hartman wrote:
+> > On Sun, Aug 27, 2017 at 08:35:43AM -0700, Joe Perches wrote:
+> > > On Sun, 2017-08-27 at 17:03 +0200, Greg Kroah-Hartman wrote:
+> > > > The IRDA code has long been obsolete and broken.  So, to keep people
+> > > > from trying to use it, and to prevent people from having to maintai=
+n it,
+> > > > let's move it to drivers/staging/ so that we can delete it entirely=
+ from
+> > > > the kernel in a few releases.
+> > > =
 
-How about something like this, which needs further work to actually
-compile, but should give you the idea.
+> > > =
 
-	 Andrew
+> > > MAINTAINERS should be updated as well.
+> > > =
 
-index 99e38af85fc5..843e77b7c270 100644
---- a/net/dsa/dsa.c
-+++ b/net/dsa/dsa.c
-@@ -49,8 +49,11 @@ const struct dsa_device_ops *dsa_device_ops[DSA_TAG_LAST] = {
- #ifdef CONFIG_NET_DSA_TAG_EDSA
-        [DSA_TAG_PROTO_EDSA] = &edsa_netdev_ops,
- #endif
--#ifdef CONFIG_NET_DSA_TAG_KSZ
--       [DSA_TAG_PROTO_KSZ] = &ksz_netdev_ops,
-+#ifdef CONFIG_NET_DSA_TAG_KSZ_8K
-+       [DSA_TAG_PROTO_KSZ8K] = &ksz8k_netdev_ops,
-+#endif
-+#ifdef CONFIG_NET_DSA_TAG_KSZ_9K
-+       [DSA_TAG_PROTO_KSZ9K] = &ksz9k_netdev_ops,
- #endif
- #ifdef CONFIG_NET_DSA_TAG_LAN9303
-        [DSA_TAG_PROTO_LAN9303] = &lan9303_netdev_ops,
-diff --git a/net/dsa/tag_ksz.c b/net/dsa/tag_ksz.c
-index de66ca8e6201..398b833889f1 100644
---- a/net/dsa/tag_ksz.c
-+++ b/net/dsa/tag_ksz.c
-@@ -35,6 +35,9 @@
- static struct sk_buff *ksz_xmit(struct sk_buff *skb, struct net_device *dev)
- {
-        struct dsa_slave_priv *p = netdev_priv(dev);
-+       struct dsa_port *dp = p->dp;
-+       struct dsa_switch *ds = dp->ds;
-+       struct dsa_switch_tree *dst = ds->dst;
-        struct sk_buff *nskb;
-        int padlen;
-        u8 *tag;
-@@ -69,8 +72,14 @@ static struct sk_buff *ksz_xmit(struct sk_buff *skb, struct net_device *dev)
-        }
- 
-        tag = skb_put(nskb, KSZ_INGRESS_TAG_LEN);
--       tag[0] = 0;
--       tag[1] = 1 << p->dp->index; /* destination port */
-+       if (dst->tag_ops == ksz8k_netdev_ops) {
-+               tag[0] = 1 << p->dp->index; /* destination port */0;
-+               tag[1] = 0;
-+       }
-+
-+       if (dst->tag_ops == ksz9k_netdev_ops) {
-+               tag[0] = 0;
-+               tag[1] = 1 << p->dp->index; /* destination port */
- 
-        return nskb;
- }
-@@ -98,7 +107,12 @@ static struct sk_buff *ksz_rcv(struct sk_buff *skb, struct net_device *dev,
-        return skb;
- }
- 
--const struct dsa_device_ops ksz_netdev_ops = {
-+const struct dsa_device_ops ksz8k_netdev_ops = {
-+       .xmit   = ksz_xmit,
-+       .rcv    = ksz_rcv,
-+};
-+
-+const struct dsa_device_ops ksz9k_netdev_ops = {
-        .xmit   = ksz_xmit,
-        .rcv    = ksz_rcv,
- };
+> > > It'd probably be nice to try to get an email to
+> > > the irda mailing list too if it still works.
+> > =
+
+> > As get_maintainer.pl didn't show it, odds are it doesn't...
+> =
+
+> get_maintainer doesn't show it because it's subscriber-only.
+> If you want get_maintainer to show it, add -s
+> =
+
+> $ ./scripts/get_maintainer.pl=A0=A0-s -f net/irda/
+> Samuel Ortiz <samuel@sortiz.org> (maintainer:IRDA SUBSYSTEM)
+> "David S. Miller" <davem@davemloft.net> (maintainer:NETWORKING [GENERAL])
+> irda-users@lists.sourceforge.net (subscriber list:IRDA SUBSYSTEM)
+> netdev@vger.kernel.org (open list:IRDA SUBSYSTEM)
+> linux-kernel@vger.kernel.org (open list)
+
+Sorry, am not going to subscribe to a random list just to send patches
+that delete the subsystem :)
+
+netdev@ should be all that is needed here anyway...
+
+thanks,
+
+greg k-h
