@@ -1,155 +1,131 @@
-From: "Neftin, Sasha" <sasha.neftin@intel.com>
-Subject: Re: [Intel-wired-lan] [PATCH] e1000e: apply burst mode settings only
- on default
-Date: Sun, 27 Aug 2017 11:34:10 +0300
-Message-ID: <c8038089-3e10-b2d6-139a-45308b003a94@intel.com>
-References: <20170825150626.2843-1-willemdebruijn.kernel@gmail.com>
- <291b863f-552e-2f3b-f658-e812d0848949@intel.com>
- <e589e146-3536-9ef3-486c-f5d115eb83cf@intel.com>
+From: Arkadi Sharshevsky <arkadis@mellanox.com>
+Subject: Re: [PATCH net] bridge: check for null fdb->dst before notifying
+ switchdev drivers
+Date: Sun, 27 Aug 2017 11:46:43 +0300
+Message-ID: <90a37c67-6284-fccc-2477-da654f53c3a1@mellanox.com>
+References: <1503807228-16281-1-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Willem de Bruijn <willemb@google.com>,
-        intel-wired-lan@lists.osuosl.org
-To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>,
-        jeffrey.t.kirsher@intel.com, alexander.h.duyck@intel.com,
-        raanan.avargil@intel.com, dima.ruinskiy@intel.com
+Cc: netdev@vger.kernel.org
+To: Roopa Prabhu <roopa@cumulusnetworks.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga04.intel.com ([192.55.52.120]:9456 "EHLO mga04.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750797AbdH0IeN (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 27 Aug 2017 04:34:13 -0400
-In-Reply-To: <e589e146-3536-9ef3-486c-f5d115eb83cf@intel.com>
+Received: from mail-he1eur01on0083.outbound.protection.outlook.com ([104.47.0.83]:3271
+        "EHLO EUR01-HE1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1750830AbdH0Iqu (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 27 Aug 2017 04:46:50 -0400
+In-Reply-To: <1503807228-16281-1-git-send-email-roopa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 8/27/2017 11:32, Neftin, Sasha wrote:
-> On 8/27/2017 11:30, Neftin, Sasha wrote:
->> On 8/25/2017 18:06, Willem de Bruijn wrote:
->>> From: Willem de Bruijn <willemb@google.com>
->>>
->>> Devices that support FLAG2_DMA_BURST have different default values
->>> for RDTR and RADV. Apply burst mode default settings only when no
->>> explicit value was passed at module load.
->>>
->>> The RDTR default is zero. If the module is loaded for low latency
->>> operation with RxIntDelay=0, do not override this value with a burst
->>> default of 32.
->>>
->>> Move the decision to apply burst values earlier, where explicitly
->>> initialized module variables can be distinguished from defaults.
->>>
->>> Signed-off-by: Willem de Bruijn <willemb@google.com>
->>> ---
->>>   drivers/net/ethernet/intel/e1000e/e1000.h  |  4 ----
->>>   drivers/net/ethernet/intel/e1000e/netdev.c |  8 --------
->>>   drivers/net/ethernet/intel/e1000e/param.c  | 16 +++++++++++++++-
->>>   3 files changed, 15 insertions(+), 13 deletions(-)
->>>
->>> diff --git a/drivers/net/ethernet/intel/e1000e/e1000.h 
->>> b/drivers/net/ethernet/intel/e1000e/e1000.h
->>> index 98e68888abb1..2311b31bdcac 100644
->>> --- a/drivers/net/ethernet/intel/e1000e/e1000.h
->>> +++ b/drivers/net/ethernet/intel/e1000e/e1000.h
->>> @@ -94,10 +94,6 @@ struct e1000_info;
->>>    */
->>>   #define E1000_CHECK_RESET_COUNT        25
->>>   -#define DEFAULT_RDTR            0
->>> -#define DEFAULT_RADV            8
->>> -#define BURST_RDTR            0x20
->>> -#define BURST_RADV            0x20
->>>   #define PCICFG_DESC_RING_STATUS        0xe4
->>>   #define FLUSH_DESC_REQUIRED        0x100
->>>   diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c 
->>> b/drivers/net/ethernet/intel/e1000e/netdev.c
->>> index 327dfe5bedc0..47b89aac7969 100644
->>> --- a/drivers/net/ethernet/intel/e1000e/netdev.c
->>> +++ b/drivers/net/ethernet/intel/e1000e/netdev.c
->>> @@ -3223,14 +3223,6 @@ static void e1000_configure_rx(struct 
->>> e1000_adapter *adapter)
->>>            */
->>>           ew32(RXDCTL(0), E1000_RXDCTL_DMA_BURST_ENABLE);
->>>           ew32(RXDCTL(1), E1000_RXDCTL_DMA_BURST_ENABLE);
->>> -
->>> -        /* override the delay timers for enabling bursting, only if
->>> -         * the value was not set by the user via module options
->>> -         */
->>> -        if (adapter->rx_int_delay == DEFAULT_RDTR)
->>> -            adapter->rx_int_delay = BURST_RDTR;
->>> -        if (adapter->rx_abs_int_delay == DEFAULT_RADV)
->>> -            adapter->rx_abs_int_delay = BURST_RADV;
->>>       }
->>>         /* set the Receive Delay Timer Register */
->>> diff --git a/drivers/net/ethernet/intel/e1000e/param.c 
->>> b/drivers/net/ethernet/intel/e1000e/param.c
->>> index 6d8c39abee16..bb696c98f9b0 100644
->>> --- a/drivers/net/ethernet/intel/e1000e/param.c
->>> +++ b/drivers/net/ethernet/intel/e1000e/param.c
->>> @@ -73,17 +73,25 @@ E1000_PARAM(TxAbsIntDelay, "Transmit Absolute 
->>> Interrupt Delay");
->>>   /* Receive Interrupt Delay in units of 1.024 microseconds
->>>    * hardware will likely hang if you set this to anything but zero.
->>>    *
->>> + * Burst variant is used as default if device has FLAG2_DMA_BURST.
->>> + *
->>>    * Valid Range: 0-65535
->>>    */
->>>   E1000_PARAM(RxIntDelay, "Receive Interrupt Delay");
->>> +#define DEFAULT_RDTR            0
->>> +#define BURST_RDTR            0x20
->>>   #define MAX_RXDELAY 0xFFFF
->>>   #define MIN_RXDELAY 0
->>>     /* Receive Absolute Interrupt Delay in units of 1.024 microseconds
->>> + *
->>> + * Burst variant is used as default if device has FLAG2_DMA_BURST.
->>>    *
->>>    * Valid Range: 0-65535
->>>    */
->>>   E1000_PARAM(RxAbsIntDelay, "Receive Absolute Interrupt Delay");
->>> +#define DEFAULT_RADV            8
->>> +#define BURST_RADV            0x20
->>>   #define MAX_RXABSDELAY 0xFFFF
->>>   #define MIN_RXABSDELAY 0
->>>   @@ -297,6 +305,9 @@ void e1000e_check_options(struct e1000_adapter 
->>> *adapter)
->>>                        .max = MAX_RXDELAY } }
->>>           };
->>>   +        if (adapter->flags2 & FLAG2_DMA_BURST)
->>> +            opt.def = BURST_RDTR;
->>> +
->>>           if (num_RxIntDelay > bd) {
->>>               adapter->rx_int_delay = RxIntDelay[bd];
->>> e1000_validate_option(&adapter->rx_int_delay, &opt,
->>> @@ -307,7 +318,7 @@ void e1000e_check_options(struct e1000_adapter 
->>> *adapter)
->>>       }
->>>       /* Receive Absolute Interrupt Delay */
->>>       {
->>> -        static const struct e1000_option opt = {
->>> +        static struct e1000_option opt = {
->>>               .type = range_option,
->>>               .name = "Receive Absolute Interrupt Delay",
->>>               .err  = "using default of "
->>> @@ -317,6 +328,9 @@ void e1000e_check_options(struct e1000_adapter 
->>> *adapter)
->>>                        .max = MAX_RXABSDELAY } }
->>>           };
->>>   +        if (adapter->flags2 & FLAG2_DMA_BURST)
->>> +            opt.def = BURST_RADV;
->>> +
->>>           if (num_RxAbsIntDelay > bd) {
->>>               adapter->rx_abs_int_delay = RxAbsIntDelay[bd];
->>> e1000_validate_option(&adapter->rx_abs_int_delay, &opt,
->>
->> This patch looks good for me, but I would like hear second opinion.
->>
->> _______________________________________________
->> Intel-wired-lan mailing list
->> Intel-wired-lan@osuosl.org
->> https://lists.osuosl.org/mailman/listinfo/intel-wired-lan
->
->
-> _______________________________________________
-> Intel-wired-lan mailing list
-> Intel-wired-lan@osuosl.org
-> https://lists.osuosl.org/mailman/listinfo/intel-wired-lan
+
+
+On 08/27/2017 07:13 AM, Roopa Prabhu wrote:
+> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+> 
+> current switchdev drivers dont seem to support offloading fdb
+> entries pointing to the bridge device which have fdb->dst
+> not set to any port. This patch adds a NULL fdb->dst check in
+> the switchdev notifier code.
+> 
+> This patch fixes the below NULL ptr dereference:
+> $bridge fdb add 00:02:00:00:00:33 dev br0 self
+> 
+> [   69.953374] BUG: unable to handle kernel NULL pointer dereference at
+> 0000000000000008
+> [   69.954044] IP: br_switchdev_fdb_notify+0x29/0x80
+> [   69.954044] PGD 66527067
+> [   69.954044] P4D 66527067
+> [   69.954044] PUD 7899c067
+> [   69.954044] PMD 0
+> [   69.954044]
+> [   69.954044] Oops: 0000 [#1] SMP
+> [   69.954044] Modules linked in:
+> [   69.954044] CPU: 1 PID: 3074 Comm: bridge Not tainted 4.13.0-rc6+ #1
+> [   69.954044] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996),
+> BIOS rel-1.7.5.1-0-g8936dbb-20141113_115728-nilsson.home.kraxel.org
+> 04/01/2014
+> [   69.954044] task: ffff88007b827140 task.stack: ffffc90001564000
+> [   69.954044] RIP: 0010:br_switchdev_fdb_notify+0x29/0x80
+> [   69.954044] RSP: 0018:ffffc90001567918 EFLAGS: 00010246
+> [   69.954044] RAX: 0000000000000000 RBX: ffff8800795e0880 RCX:
+> 00000000000000c0
+> [   69.954044] RDX: ffffc90001567920 RSI: 000000000000001c RDI:
+> ffff8800795d0600
+> [   69.954044] RBP: ffffc90001567938 R08: ffff8800795d0600 R09:
+> 0000000000000000
+> [   69.954044] R10: ffffc90001567a88 R11: ffff88007b849400 R12:
+> ffff8800795e0880
+> [   69.954044] R13: ffff8800795d0600 R14: ffffffff81ef8880 R15:
+> 000000000000001c
+> [   69.954044] FS:  00007f93d3085700(0000) GS:ffff88007fd00000(0000)
+> knlGS:0000000000000000
+> [   69.954044] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+> [   69.954044] CR2: 0000000000000008 CR3: 0000000066551000 CR4:
+> 00000000000006e0
+> [   69.954044] Call Trace:
+> [   69.954044]  fdb_notify+0x3f/0xf0
+> [   69.954044]  __br_fdb_add.isra.12+0x1a7/0x370
+> [   69.954044]  br_fdb_add+0x178/0x280
+> [   69.954044]  rtnl_fdb_add+0x10a/0x200
+> [   69.954044]  rtnetlink_rcv_msg+0x1b4/0x240
+> [   69.954044]  ? skb_free_head+0x21/0x40
+> [   69.954044]  ? rtnl_calcit.isra.18+0xf0/0xf0
+> [   69.954044]  netlink_rcv_skb+0xed/0x120
+> [   69.954044]  rtnetlink_rcv+0x15/0x20
+> [   69.954044]  netlink_unicast+0x180/0x200
+> [   69.954044]  netlink_sendmsg+0x291/0x370
+> [   69.954044]  ___sys_sendmsg+0x180/0x2e0
+> [   69.954044]  ? filemap_map_pages+0x2db/0x370
+> [   69.954044]  ? do_wp_page+0x11d/0x420
+> [   69.954044]  ? __handle_mm_fault+0x794/0xd80
+> [   69.954044]  ? vma_link+0xcb/0xd0
+> [   69.954044]  __sys_sendmsg+0x4c/0x90
+> [   69.954044]  SyS_sendmsg+0x12/0x20
+> [   69.954044]  do_syscall_64+0x63/0xe0
+> [   69.954044]  entry_SYSCALL64_slow_path+0x25/0x25
+> [   69.954044] RIP: 0033:0x7f93d2bad690
+> [   69.954044] RSP: 002b:00007ffc7217a638 EFLAGS: 00000246 ORIG_RAX:
+> 000000000000002e
+> [   69.954044] RAX: ffffffffffffffda RBX: 00007ffc72182eac RCX:
+> 00007f93d2bad690
+> [   69.954044] RDX: 0000000000000000 RSI: 00007ffc7217a670 RDI:
+> 0000000000000003
+> [   69.954044] RBP: 0000000059a1f7f8 R08: 0000000000000006 R09:
+> 000000000000000a
+> [   69.954044] R10: 00007ffc7217a400 R11: 0000000000000246 R12:
+> 00007ffc7217a670
+> [   69.954044] R13: 00007ffc72182a98 R14: 00000000006114c0 R15:
+> 00007ffc72182aa0
+> [   69.954044] Code: 1f 00 66 66 66 66 90 55 48 89 e5 48 83 ec 20 f6 47
+> 20 04 74 0a 83 fe 1c 74 09 83 fe 1d 74 2c c9 66 90 c3 48 8b 47 10 48 8d
+> 55 e8 <48> 8b 70 08 0f b7 47 1e 48 83 c7 18 48 89 7d f0 bf 03 00 00 00
+> [   69.954044] RIP: br_switchdev_fdb_notify+0x29/0x80 RSP:
+> ffffc90001567918
+> [   69.954044] CR2: 0000000000000008
+> [   69.954044] ---[ end trace 03e9eec4a82c238b ]---
+> 
+> Fixes: 6b26b51b1d13 ("net: bridge: Add support for notifying devices about FDB add/del")
+> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+> ---
+>  net/bridge/br_switchdev.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/net/bridge/br_switchdev.c b/net/bridge/br_switchdev.c
+> index 181a44d..f6b1c7d 100644
+> --- a/net/bridge/br_switchdev.c
+> +++ b/net/bridge/br_switchdev.c
+> @@ -115,7 +115,7 @@ br_switchdev_fdb_call_notifiers(bool adding, const unsigned char *mac,
+>  void
+>  br_switchdev_fdb_notify(const struct net_bridge_fdb_entry *fdb, int type)
+>  {
+> -	if (!fdb->added_by_user)
+> +	if (!fdb->added_by_user || !fdb->dst)
+>  		return;
+>  
+>  	switch (type) {
+> 
+
+Thanks, missed that.
+Arkadi
