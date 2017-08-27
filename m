@@ -1,7 +1,7 @@
 From: Andrew Lunn <andrew@lunn.ch>
 Subject: Re: [PATCH] DSA support for Micrel KSZ8895
-Date: Sun, 27 Aug 2017 18:31:22 +0200
-Message-ID: <20170827163122.GG13622@lunn.ch>
+Date: Sun, 27 Aug 2017 18:44:34 +0200
+Message-ID: <20170827164434.GH13622@lunn.ch>
 References: <20170816075524.GA18532@amd>
  <20170816140451.GA13006@lunn.ch>
  <9235D6609DB808459E95D78E17F2E43D40AFF8C1@CHN-SV-EXMX02.mchp-main.com>
@@ -19,80 +19,73 @@ In-Reply-To: <20170827123658.GA727@amd>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> +/**
-> + * sw_r_phy - read data from PHY register
-> + * @sw:		The switch instance.
-> + * @phy:	PHY address to read.
-> + * @reg:	PHY register to read.
-> + * @val:	Buffer to store the read data.
-> + *
-> + * This routine reads data from the PHY register.
-> + */
-> +static void sw_r_phy(struct ksz_device *sw, u16 phy, u16 reg, u16 *val)
-> +{
-> +	u8 ctrl;
-> +	u8 restart;
-> +	u8 link;
-> +	u8 speed;
-> +	u8 force;
-> +	u8 p = phy;
-> +	u16 data = 0;
-> +
-> +	switch (reg) {
-> +	case PHY_REG_CTRL:
-> +		ksz_pread8(sw, p, P_LOCAL_CTRL, &ctrl);
-> +		ksz_pread8(sw, p, P_NEG_RESTART_CTRL, &restart);
-> +		ksz_pread8(sw, p, P_SPEED_STATUS, &speed);
-> +		ksz_pread8(sw, p, P_FORCE_CTRL, &force);
-> +		if (restart & PORT_PHY_LOOPBACK)
-> +			data |= PHY_LOOPBACK;
-> +		if (force & PORT_FORCE_100_MBIT)
-> +			data |= PHY_SPEED_100MBIT;
-> +		if (!(force & PORT_AUTO_NEG_DISABLE))
-> +			data |= PHY_AUTO_NEG_ENABLE;
-> +		if (restart & PORT_POWER_DOWN)
-> +			data |= PHY_POWER_DOWN;
-> +		if (restart & PORT_AUTO_NEG_RESTART)
-> +			data |= PHY_AUTO_NEG_RESTART;
-> +		if (force & PORT_FORCE_FULL_DUPLEX)
-> +			data |= PHY_FULL_DUPLEX;
-> +		if (speed & PORT_HP_MDIX)
-> +			data |= PHY_HP_MDIX;
-> +		if (restart & PORT_FORCE_MDIX)
-> +			data |= PHY_FORCE_MDIX;
-> +		if (restart & PORT_AUTO_MDIX_DISABLE)
-> +			data |= PHY_AUTO_MDIX_DISABLE;
-> +		if (restart & PORT_TX_DISABLE)
-> +			data |= PHY_TRANSMIT_DISABLE;
-> +		if (restart & PORT_LED_OFF)
-> +			data |= PHY_LED_DISABLE;
-> +		break;
-> +	case PHY_REG_STATUS:
-> +		ksz_pread8(sw, p, P_LINK_STATUS, &link);
-> +		ksz_pread8(sw, p, P_SPEED_STATUS, &speed);
-> +		data = PHY_100BTX_FD_CAPABLE |
-> +			PHY_100BTX_CAPABLE |
-> +			PHY_10BT_FD_CAPABLE |
-> +			PHY_10BT_CAPABLE |
-> +			PHY_AUTO_NEG_CAPABLE;
-> +		if (link & PORT_AUTO_NEG_COMPLETE)
-> +			data |= PHY_AUTO_NEG_ACKNOWLEDGE;
-> +		if (link & PORT_STAT_LINK_GOOD)
-> +			data |= PHY_LINK_STATUS;
-> +		break;
-> +	case PHY_REG_ID_1:
-> +		data = KSZ8895_ID_HI;
-> +		break;
-> +	case PHY_REG_ID_2:
-> +		data = KSZ8895_ID_LO;
-> +		break;
+> No, tag_ksz part probably is not acceptable. Do you see solution
+> better than just copying it into tag_ksz1 file?
 
-According to the datasheet, the PHY has the normal ID registers,
-which have the value 0x0022, 0x1450. So it should be possible to have
-a standard PHY driver in drivers/net/phy.
+How about something like this, which needs further work to actually
+compile, but should give you the idea.
 
-In fact, the IDs suggest it is a micrel phy, and 1430, 1435 are
-already supported. So it could be you only need minor modifications to
-the micrel.c.
+	 Andrew
 
-    Andrew
+index 99e38af85fc5..843e77b7c270 100644
+--- a/net/dsa/dsa.c
++++ b/net/dsa/dsa.c
+@@ -49,8 +49,11 @@ const struct dsa_device_ops *dsa_device_ops[DSA_TAG_LAST] = {
+ #ifdef CONFIG_NET_DSA_TAG_EDSA
+        [DSA_TAG_PROTO_EDSA] = &edsa_netdev_ops,
+ #endif
+-#ifdef CONFIG_NET_DSA_TAG_KSZ
+-       [DSA_TAG_PROTO_KSZ] = &ksz_netdev_ops,
++#ifdef CONFIG_NET_DSA_TAG_KSZ_8K
++       [DSA_TAG_PROTO_KSZ8K] = &ksz8k_netdev_ops,
++#endif
++#ifdef CONFIG_NET_DSA_TAG_KSZ_9K
++       [DSA_TAG_PROTO_KSZ9K] = &ksz9k_netdev_ops,
+ #endif
+ #ifdef CONFIG_NET_DSA_TAG_LAN9303
+        [DSA_TAG_PROTO_LAN9303] = &lan9303_netdev_ops,
+diff --git a/net/dsa/tag_ksz.c b/net/dsa/tag_ksz.c
+index de66ca8e6201..398b833889f1 100644
+--- a/net/dsa/tag_ksz.c
++++ b/net/dsa/tag_ksz.c
+@@ -35,6 +35,9 @@
+ static struct sk_buff *ksz_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+        struct dsa_slave_priv *p = netdev_priv(dev);
++       struct dsa_port *dp = p->dp;
++       struct dsa_switch *ds = dp->ds;
++       struct dsa_switch_tree *dst = ds->dst;
+        struct sk_buff *nskb;
+        int padlen;
+        u8 *tag;
+@@ -69,8 +72,14 @@ static struct sk_buff *ksz_xmit(struct sk_buff *skb, struct net_device *dev)
+        }
+ 
+        tag = skb_put(nskb, KSZ_INGRESS_TAG_LEN);
+-       tag[0] = 0;
+-       tag[1] = 1 << p->dp->index; /* destination port */
++       if (dst->tag_ops == ksz8k_netdev_ops) {
++               tag[0] = 1 << p->dp->index; /* destination port */0;
++               tag[1] = 0;
++       }
++
++       if (dst->tag_ops == ksz9k_netdev_ops) {
++               tag[0] = 0;
++               tag[1] = 1 << p->dp->index; /* destination port */
+ 
+        return nskb;
+ }
+@@ -98,7 +107,12 @@ static struct sk_buff *ksz_rcv(struct sk_buff *skb, struct net_device *dev,
+        return skb;
+ }
+ 
+-const struct dsa_device_ops ksz_netdev_ops = {
++const struct dsa_device_ops ksz8k_netdev_ops = {
++       .xmit   = ksz_xmit,
++       .rcv    = ksz_rcv,
++};
++
++const struct dsa_device_ops ksz9k_netdev_ops = {
+        .xmit   = ksz_xmit,
+        .rcv    = ksz_rcv,
+ };
