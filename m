@@ -1,190 +1,191 @@
-From: Madalin Bucur <madalin.bucur@nxp.com>
-Subject: [PATCH v4 3/7] dpaa_eth: use multiple Rx frame queues
-Date: Sun, 27 Aug 2017 16:13:39 +0300
-Message-ID: <1503839623-3906-4-git-send-email-madalin.bucur@nxp.com>
-References: <1503839623-3906-1-git-send-email-madalin.bucur@nxp.com>
-Reply-To: <madalin.bucur@nxp.com>
+From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>
+Subject: Re: [PATCH net-next v7 05/10] landlock: Add LSM hooks related to
+ filesystem
+Date: Sun, 27 Aug 2017 15:31:35 +0200
+Message-ID: <3325bd7d-f3d8-2f51-384c-b5e8cee5cb91@digikod.net>
+References: <20170821000933.13024-1-mic@digikod.net>
+ <20170821000933.13024-6-mic@digikod.net>
+ <20170824025030.sxl2hkpcbzipb47y@ast-mbp>
+ <22d09137-7212-5803-af64-0964fad875c7@digikod.net>
+ <20170826011614.iqya5dqii3n7dtdb@ast-mbp>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linuxppc-dev@lists.ozlabs.org>, <linux-kernel@vger.kernel.org>
-To: <netdev@vger.kernel.org>, <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1503839623-3906-1-git-send-email-madalin.bucur@nxp.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="Lh2xJxXOSSx0wSk4vbpEfPbavIUEP8vSP"
+Cc: linux-kernel@vger.kernel.org, Alexei Starovoitov <ast@kernel.org>,
+        Andy Lutomirski <luto@amacapital.net>,
+        Arnaldo Carvalho de Melo <acme@kernel.org>,
+        Casey Schaufler <casey@schaufler-ca.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        David Drysdale
+ <drysdale@google.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        "Eric W . Biederman" <ebiederm@xmission.com>,
+        James Morris <james.l.morris@oracle.com>, Jann Horn <jann@thejh.net>,
+        Jonathan Corbet <corbet@lwn.net>,
+        Matthew Garrett <mjg59@srcf.ucam.org>,
+        Michael Kerrisk <mtk.manpages@gmail.com>,
+        Kees Cook <keescook@chromium.org>, Paul Moore <paul@paul-moore.com>,
+        Sargun Dhillon <sargun@sargun.me>,
+        "Serge E . Hallyn" <serge@hallyn.com>, Shuah Khan <shuah@kernel.org>,
+        Tejun Heo <tj@kernel.org>, Thomas Graf <tgraf@suug.ch>,
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <kernel-hardening-return-9568-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+List-Post: <mailto:kernel-hardening@lists.openwall.com>
+List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
+List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
+List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+In-Reply-To: <20170826011614.iqya5dqii3n7dtdb@ast-mbp>
 List-Id: netdev.vger.kernel.org
 
-Add a block of 128 Rx frame queues per port. The FMan hardware will
-send traffic on one of these queues based on the FMan port Parse
-Classify Distribute setup. The hash computed by the FMan Keygen
-block will select the Rx FQ.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--Lh2xJxXOSSx0wSk4vbpEfPbavIUEP8vSP
+Content-Type: multipart/mixed; boundary="TaQgj9h8cdmIerbLDIKchXjEvvCtnusMt";
+ protected-headers="v1"
+From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Cc: linux-kernel@vger.kernel.org, Alexei Starovoitov <ast@kernel.org>,
+ Andy Lutomirski <luto@amacapital.net>,
+ Arnaldo Carvalho de Melo <acme@kernel.org>,
+ Casey Schaufler <casey@schaufler-ca.com>,
+ Daniel Borkmann <daniel@iogearbox.net>, David Drysdale
+ <drysdale@google.com>, "David S . Miller" <davem@davemloft.net>,
+ "Eric W . Biederman" <ebiederm@xmission.com>,
+ James Morris <james.l.morris@oracle.com>, Jann Horn <jann@thejh.net>,
+ Jonathan Corbet <corbet@lwn.net>, Matthew Garrett <mjg59@srcf.ucam.org>,
+ Michael Kerrisk <mtk.manpages@gmail.com>, Kees Cook <keescook@chromium.org>,
+ Paul Moore <paul@paul-moore.com>, Sargun Dhillon <sargun@sargun.me>,
+ "Serge E . Hallyn" <serge@hallyn.com>, Shuah Khan <shuah@kernel.org>,
+ Tejun Heo <tj@kernel.org>, Thomas Graf <tgraf@suug.ch>,
+ Will Drewry <wad@chromium.org>, kernel-hardening@lists.openwall.com,
+ linux-api@vger.kernel.org, linux-security-module@vger.kernel.org,
+ netdev@vger.kernel.org
+Message-ID: <3325bd7d-f3d8-2f51-384c-b5e8cee5cb91@digikod.net>
+Subject: Re: [PATCH net-next v7 05/10] landlock: Add LSM hooks related to
+ filesystem
+References: <20170821000933.13024-1-mic@digikod.net>
+ <20170821000933.13024-6-mic@digikod.net>
+ <20170824025030.sxl2hkpcbzipb47y@ast-mbp>
+ <22d09137-7212-5803-af64-0964fad875c7@digikod.net>
+ <20170826011614.iqya5dqii3n7dtdb@ast-mbp>
+In-Reply-To: <20170826011614.iqya5dqii3n7dtdb@ast-mbp>
 
-Signed-off-by: Madalin Bucur <madalin.bucur@nxp.com>
----
- drivers/net/ethernet/freescale/dpaa/dpaa_eth.c     | 50 +++++++++++++++++++---
- drivers/net/ethernet/freescale/dpaa/dpaa_eth.h     |  1 +
- .../net/ethernet/freescale/dpaa/dpaa_eth_sysfs.c   |  3 ++
- 3 files changed, 47 insertions(+), 7 deletions(-)
+--TaQgj9h8cdmIerbLDIKchXjEvvCtnusMt
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: quoted-printable
 
-diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-index c7fa285..6d89e74 100644
---- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-+++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
-@@ -158,7 +158,7 @@ MODULE_PARM_DESC(tx_timeout, "The Tx timeout in ms");
- #define DPAA_RX_PRIV_DATA_SIZE	(u16)(DPAA_TX_PRIV_DATA_SIZE + \
- 					dpaa_rx_extra_headroom)
- 
--#define DPAA_ETH_RX_QUEUES	128
-+#define DPAA_ETH_PCD_RXQ_NUM	128
- 
- #define DPAA_ENQUEUE_RETRIES	100000
- 
-@@ -169,6 +169,7 @@ struct fm_port_fqs {
- 	struct dpaa_fq *tx_errq;
- 	struct dpaa_fq *rx_defq;
- 	struct dpaa_fq *rx_errq;
-+	struct dpaa_fq *rx_pcdq;
- };
- 
- /* All the dpa bps in use at any moment */
-@@ -628,6 +629,7 @@ static inline void dpaa_assign_wq(struct dpaa_fq *fq, int idx)
- 		fq->wq = 5;
- 		break;
- 	case FQ_TYPE_RX_DEFAULT:
-+	case FQ_TYPE_RX_PCD:
- 		fq->wq = 6;
- 		break;
- 	case FQ_TYPE_TX:
-@@ -688,6 +690,7 @@ static int dpaa_alloc_all_fqs(struct device *dev, struct list_head *list,
- 			      struct fm_port_fqs *port_fqs)
- {
- 	struct dpaa_fq *dpaa_fq;
-+	u32 fq_base, fq_base_aligned, i;
- 
- 	dpaa_fq = dpaa_fq_alloc(dev, 0, 1, list, FQ_TYPE_RX_ERROR);
- 	if (!dpaa_fq)
-@@ -701,6 +704,26 @@ static int dpaa_alloc_all_fqs(struct device *dev, struct list_head *list,
- 
- 	port_fqs->rx_defq = &dpaa_fq[0];
- 
-+	/* the PCD FQIDs range needs to be aligned for correct operation */
-+	if (qman_alloc_fqid_range(&fq_base, 2 * DPAA_ETH_PCD_RXQ_NUM))
-+		goto fq_alloc_failed;
-+
-+	fq_base_aligned = ALIGN(fq_base, DPAA_ETH_PCD_RXQ_NUM);
-+
-+	for (i = fq_base; i < fq_base_aligned; i++)
-+		qman_release_fqid(i);
-+
-+	for (i = fq_base_aligned + DPAA_ETH_PCD_RXQ_NUM;
-+	     i < (fq_base + 2 * DPAA_ETH_PCD_RXQ_NUM); i++)
-+		qman_release_fqid(i);
-+
-+	dpaa_fq = dpaa_fq_alloc(dev, fq_base_aligned, DPAA_ETH_PCD_RXQ_NUM,
-+				list, FQ_TYPE_RX_PCD);
-+	if (!dpaa_fq)
-+		goto fq_alloc_failed;
-+
-+	port_fqs->rx_pcdq = &dpaa_fq[0];
-+
- 	if (!dpaa_fq_alloc(dev, 0, DPAA_ETH_TXQ_NUM, list, FQ_TYPE_TX_CONF_MQ))
- 		goto fq_alloc_failed;
- 
-@@ -870,13 +893,14 @@ static void dpaa_fq_setup(struct dpaa_priv *priv,
- 			  const struct dpaa_fq_cbs *fq_cbs,
- 			  struct fman_port *tx_port)
- {
--	int egress_cnt = 0, conf_cnt = 0, num_portals = 0, cpu;
-+	int egress_cnt = 0, conf_cnt = 0, num_portals = 0, portal_cnt = 0, cpu;
- 	const cpumask_t *affine_cpus = qman_affine_cpus();
--	u16 portals[NR_CPUS];
-+	u16 channels[NR_CPUS];
- 	struct dpaa_fq *fq;
- 
- 	for_each_cpu(cpu, affine_cpus)
--		portals[num_portals++] = qman_affine_channel(cpu);
-+		channels[num_portals++] = qman_affine_channel(cpu);
-+
- 	if (num_portals == 0)
- 		dev_err(priv->net_dev->dev.parent,
- 			"No Qman software (affine) channels found");
-@@ -890,6 +914,12 @@ static void dpaa_fq_setup(struct dpaa_priv *priv,
- 		case FQ_TYPE_RX_ERROR:
- 			dpaa_setup_ingress(priv, fq, &fq_cbs->rx_errq);
- 			break;
-+		case FQ_TYPE_RX_PCD:
-+			if (!num_portals)
-+				continue;
-+			dpaa_setup_ingress(priv, fq, &fq_cbs->rx_defq);
-+			fq->channel = channels[portal_cnt++ % num_portals];
-+			break;
- 		case FQ_TYPE_TX:
- 			dpaa_setup_egress(priv, fq, tx_port,
- 					  &fq_cbs->egress_ern);
-@@ -1039,7 +1069,8 @@ static int dpaa_fq_init(struct dpaa_fq *dpaa_fq, bool td_enable)
- 		/* Put all the ingress queues in our "ingress CGR". */
- 		if (priv->use_ingress_cgr &&
- 		    (dpaa_fq->fq_type == FQ_TYPE_RX_DEFAULT ||
--		     dpaa_fq->fq_type == FQ_TYPE_RX_ERROR)) {
-+		     dpaa_fq->fq_type == FQ_TYPE_RX_ERROR ||
-+		     dpaa_fq->fq_type == FQ_TYPE_RX_PCD)) {
- 			initfq.we_mask |= cpu_to_be16(QM_INITFQ_WE_CGID);
- 			initfq.fqd.fq_ctrl |= cpu_to_be16(QM_FQCTRL_CGE);
- 			initfq.fqd.cgid = (u8)priv->ingress_cgr.cgrid;
-@@ -1170,7 +1201,7 @@ static int dpaa_eth_init_tx_port(struct fman_port *port, struct dpaa_fq *errq,
- 
- static int dpaa_eth_init_rx_port(struct fman_port *port, struct dpaa_bp **bps,
- 				 size_t count, struct dpaa_fq *errq,
--				 struct dpaa_fq *defq,
-+				 struct dpaa_fq *defq, struct dpaa_fq *pcdq,
- 				 struct dpaa_buffer_layout *buf_layout)
- {
- 	struct fman_buffer_prefix_content buf_prefix_content;
-@@ -1190,6 +1221,10 @@ static int dpaa_eth_init_rx_port(struct fman_port *port, struct dpaa_bp **bps,
- 	rx_p = &params.specific_params.rx_params;
- 	rx_p->err_fqid = errq->fqid;
- 	rx_p->dflt_fqid = defq->fqid;
-+	if (pcdq) {
-+		rx_p->pcd_base_fqid = pcdq->fqid;
-+		rx_p->pcd_fqs_count = DPAA_ETH_PCD_RXQ_NUM;
-+	}
- 
- 	count = min(ARRAY_SIZE(rx_p->ext_buf_pools.ext_buf_pool), count);
- 	rx_p->ext_buf_pools.num_of_pools_used = (u8)count;
-@@ -1234,7 +1269,8 @@ static int dpaa_eth_init_ports(struct mac_device *mac_dev,
- 		return err;
- 
- 	err = dpaa_eth_init_rx_port(rxport, bps, count, port_fqs->rx_errq,
--				    port_fqs->rx_defq, &buf_layout[RX]);
-+				    port_fqs->rx_defq, port_fqs->rx_pcdq,
-+				    &buf_layout[RX]);
- 
- 	return err;
- }
-diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
-index 9941a78..496a12c 100644
---- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
-+++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.h
-@@ -52,6 +52,7 @@
- enum dpaa_fq_type {
- 	FQ_TYPE_RX_DEFAULT = 1, /* Rx Default FQs */
- 	FQ_TYPE_RX_ERROR,	/* Rx Error FQs */
-+	FQ_TYPE_RX_PCD,		/* Rx Parse Classify Distribute FQs */
- 	FQ_TYPE_TX,		/* "Real" Tx FQs */
- 	FQ_TYPE_TX_CONFIRM,	/* Tx default Conf FQ (actually an Rx FQ) */
- 	FQ_TYPE_TX_CONF_MQ,	/* Tx conf FQs (one for each Tx FQ) */
-diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth_sysfs.c b/drivers/net/ethernet/freescale/dpaa/dpaa_eth_sysfs.c
-index ec75d1c..0d9b185 100644
---- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth_sysfs.c
-+++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth_sysfs.c
-@@ -71,6 +71,9 @@ static ssize_t dpaa_eth_show_fqids(struct device *dev,
- 		case FQ_TYPE_RX_ERROR:
- 			str = "Rx error";
- 			break;
-+		case FQ_TYPE_RX_PCD:
-+			str = "Rx PCD";
-+			break;
- 		case FQ_TYPE_TX_CONFIRM:
- 			str = "Tx default confirmation";
- 			break;
--- 
-2.1.0
+
+On 26/08/2017 03:16, Alexei Starovoitov wrote:
+> On Fri, Aug 25, 2017 at 10:16:39AM +0200, Micka=EBl Sala=FCn wrote:
+
+>>>
+>>>> +/* a directory inode contains only one dentry */
+>>>> +HOOK_NEW_FS(inode_create, 3,
+>>>> +	struct inode *, dir,
+>>>> +	struct dentry *, dentry,
+>>>> +	umode_t, mode,
+>>>> +	WRAP_ARG_INODE, dir,
+>>>> +	WRAP_ARG_RAW, LANDLOCK_ACTION_FS_WRITE
+>>>> +);
+>>>
+>>> more general question: why you're not wrapping all useful
+>>> arguments? Like in the above dentry can be acted upon
+>>> by the landlock rule and it's readily available...
+>>
+>> The context used for the FS event must have the exact same types for a=
+ll
+>> calls. This event is meant to be generic but we can add more specific
+>> ones if needed, like I do with FS_IOCTL.
+>=20
+> I see. So all FS events will have dentry as first argument
+> regardless of how it is in LSM hook ?
+
+All FS events will have a const struct bpf_handle_fs pointer as first
+argument, which wrap either a struct file, a struct dentry, a struct
+path or a struct inode. Having only one type (struct bpf_handle_fs) is
+needed for the eBPF type checker to verify if a Landlock rule (tied to
+an event) can access a context field and which operation is allowed
+(with this pointer).
+
+> I guess that will simplify the rules indeed.
+> I suspect you're doing it to simplify the LSM->landlock shim layer as w=
+ell, right?
+
+That's right. This ABI is independent from the LSM API and much more
+simpler to use.
+
+>=20
+>> The idea is to enable people to write simple rules, while being able t=
+o
+>> write fine grain rules for special cases (e.g. IOCTL) if needed.
+>>
+>>>
+>>> The limitation of only 2 args looks odd.
+>>> Is it a hard limitation ? how hard to extend?
+>>
+>> It's not a hard limit at all. Actually, the FS_FNCTL event should have=
+
+>> three arguments (I'll add them in the next series): FS handle, FCNTL
+>> command and FCNTL argument. I made sure that it's really easy to add
+>> more arguments to the context of an event.
+>=20
+> The reason I'm asking, because I'm not completely convinced that
+> adding another argument to existing event will be backwards compatible.=
+
+> It looks like you're expecting only two args for all FS events, right?
+
+There is four events right now: FS, FS_IOCTL, FS_LOCK and FS_FCNTL. Each
+of them are independent. Their context fields can be of the same or
+different eBPF type (e.g. scalar, file handle) and numbers. Actually,
+these four events have the same arg1 field (file handle) and the same
+arg2 eBPF type (scalar), even if arg2 does not have the same semantic
+(i.e. abstract FS action, IOCTL command=85).
+
+For example, if we want to extend the FS_FCNTL's context in the future,
+we will just have to add an arg3. The check is performed in
+landlock_is_valid_access() and landlock_decide(). If a field is not used
+by an event, then this field will have a NOT_INIT type and accessing it
+will be denied.
+
+> How can you add 3rd argument? All FS events would have to get it,
+> but in some LSM hooks such argument will be meaningless, whereas
+> in other places it will carry useful info that rule can operate on.
+> Would that mean that we'll have FS_3 event type and only few LSM
+> hooks will be converted to it. That works, but then we'll lose
+> compatiblity with old rules written for FS event and that given hook.
+> Otherwise we'd need to have fancy logic to accept old FS event
+> into FS_3 LSM hook.
+
+If we want to add a third argument to the FS event, then it will become
+accessible because its type will be different than NOT_INIT. This keep
+the compatibility with old rules because this new field was then denied.
+
+If we want to add a new argument but only for a subset of the hooks used
+by the FS event, then we need to create a new event, like FS_FCNTL. For
+example, we may want to add a FS_RENAME event to be able to tie the
+source file and the destination file of a rename call.
+
+Anyway, I added the subtype/ABI version as a safeguard in case of
+unexpected future evolution.
+
+
+--TaQgj9h8cdmIerbLDIKchXjEvvCtnusMt--
+
+--Lh2xJxXOSSx0wSk4vbpEfPbavIUEP8vSP
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEzBAEBCgAdFiEEUysCyY8er9Axt7hqIt7+33O9apUFAlmiybcACgkQIt7+33O9
+apWV9Qf+Lm0tr+5ID4QjMnUfXZrDJBl+CHbCjL1tpK8RWyzDmJitUOTzcWRxwQ8M
+voGK9y0ThfRHiXc3/BJlYym78rzm69+oEhfVSyYDDcVOjNu9QmP2c7if8ZKryzuo
+mpzFC6iCx1Z8st3Bdtit/mwxKjgp7zL4WRTAO+kykplQMs4jn1ZuE+V+uVNNBKql
+XLMOJo1FDcNIqiC5NBAnpo/IyDNkIITSFmSebx8CVb+P8DqbhPjFu8TfVgra7i5T
+rRoUC+RT0USAHIAboWzHPZIZWbDoTqUhBxuWJqOYJiwTYBCgUEQZpdMXc1xBaIli
+j0HegoL9Ozmds/FB2iBuO2wOF7xOeA==
+=UufW
+-----END PGP SIGNATURE-----
+
+--Lh2xJxXOSSx0wSk4vbpEfPbavIUEP8vSP--
