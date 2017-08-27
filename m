@@ -1,7 +1,7 @@
 From: Madalin Bucur <madalin.bucur@nxp.com>
-Subject: [PATCH v4 1/7] fsl/fman: move struct fman to header file
-Date: Sun, 27 Aug 2017 16:13:37 +0300
-Message-ID: <1503839623-3906-2-git-send-email-madalin.bucur@nxp.com>
+Subject: [PATCH v4 7/7] dpaa_eth: check allocation result
+Date: Sun, 27 Aug 2017 16:13:43 +0300
+Message-ID: <1503839623-3906-8-git-send-email-madalin.bucur@nxp.com>
 References: <1503839623-3906-1-git-send-email-madalin.bucur@nxp.com>
 Reply-To: <madalin.bucur@nxp.com>
 Mime-Version: 1.0
@@ -9,245 +9,33 @@ Content-Type: text/plain
 Cc: <linuxppc-dev@lists.ozlabs.org>, <linux-kernel@vger.kernel.org>
 To: <netdev@vger.kernel.org>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-dm3nam03on0065.outbound.protection.outlook.com ([104.47.41.65]:29696
-        "EHLO NAM03-DM3-obe.outbound.protection.outlook.com"
+Received: from mail-bl2nam02on0081.outbound.protection.outlook.com ([104.47.38.81]:42368
+        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751274AbdH0NNu (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 27 Aug 2017 09:13:50 -0400
+        id S1751504AbdH0NN7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 27 Aug 2017 09:13:59 -0400
 In-Reply-To: <1503839623-3906-1-git-send-email-madalin.bucur@nxp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Madalin Bucur <madalin.bucur@nxp.com>
 ---
- drivers/net/ethernet/freescale/fman/fman.c      | 80 +------------------------
- drivers/net/ethernet/freescale/fman/fman.h      | 75 +++++++++++++++++++++++
- drivers/net/ethernet/freescale/fman/fman_port.c |  8 +--
- 3 files changed, 82 insertions(+), 81 deletions(-)
+ drivers/net/ethernet/freescale/dpaa/dpaa_eth.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-diff --git a/drivers/net/ethernet/freescale/fman/fman.c b/drivers/net/ethernet/freescale/fman/fman.c
-index e714b8f..8179cc1 100644
---- a/drivers/net/ethernet/freescale/fman/fman.c
-+++ b/drivers/net/ethernet/freescale/fman/fman.c
-@@ -32,9 +32,6 @@
+diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
+index 73ca8d7..4225806 100644
+--- a/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
++++ b/drivers/net/ethernet/freescale/dpaa/dpaa_eth.c
+@@ -2561,6 +2561,9 @@ static struct dpaa_bp *dpaa_bp_alloc(struct device *dev)
  
- #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+ 	dpaa_bp->bpid = FSL_DPAA_BPID_INV;
+ 	dpaa_bp->percpu_count = devm_alloc_percpu(dev, *dpaa_bp->percpu_count);
++	if (!dpaa_bp->percpu_count)
++		return ERR_PTR(-ENOMEM);
++
+ 	dpaa_bp->config_count = FSL_DPAA_ETH_MAX_BUF_COUNT;
  
--#include "fman.h"
--#include "fman_muram.h"
--
- #include <linux/fsl/guts.h>
- #include <linux/slab.h>
- #include <linux/delay.h>
-@@ -46,6 +43,9 @@
- #include <linux/interrupt.h>
- #include <linux/libfdt_env.h>
- 
-+#include "fman.h"
-+#include "fman_muram.h"
-+
- /* General defines */
- #define FMAN_LIODN_TBL			64	/* size of LIODN table */
- #define MAX_NUM_OF_MACS			10
-@@ -564,80 +564,6 @@ struct fman_cfg {
- 	u32 qmi_def_tnums_thresh;
- };
- 
--/* Structure that holds information received from device tree */
--struct fman_dts_params {
--	void __iomem *base_addr;		/* FMan virtual address */
--	struct resource *res;			/* FMan memory resource */
--	u8 id;					/* FMan ID */
--
--	int err_irq;				/* FMan Error IRQ */
--
--	u16 clk_freq;				/* FMan clock freq (In Mhz) */
--
--	u32 qman_channel_base;			/* QMan channels base */
--	u32 num_of_qman_channels;		/* Number of QMan channels */
--
--	struct resource muram_res;		/* MURAM resource */
--};
--
--/** fman_exceptions_cb
-- * fman		- Pointer to FMan
-- * exception	- The exception.
-- *
-- * Exceptions user callback routine, will be called upon an exception
-- * passing the exception identification.
-- *
-- * Return: irq status
-- */
--typedef irqreturn_t (fman_exceptions_cb)(struct fman *fman,
--					 enum fman_exceptions exception);
--
--/** fman_bus_error_cb
-- * fman		- Pointer to FMan
-- * port_id	- Port id
-- * addr		- Address that caused the error
-- * tnum		- Owner of error
-- * liodn	- Logical IO device number
-- *
-- * Bus error user callback routine, will be called upon bus error,
-- * passing parameters describing the errors and the owner.
-- *
-- * Return: IRQ status
-- */
--typedef irqreturn_t (fman_bus_error_cb)(struct fman *fman, u8 port_id,
--					u64 addr, u8 tnum, u16 liodn);
--
--struct fman {
--	struct device *dev;
--	void __iomem *base_addr;
--	struct fman_intr_src intr_mng[FMAN_EV_CNT];
--
--	struct fman_fpm_regs __iomem *fpm_regs;
--	struct fman_bmi_regs __iomem *bmi_regs;
--	struct fman_qmi_regs __iomem *qmi_regs;
--	struct fman_dma_regs __iomem *dma_regs;
--	struct fman_hwp_regs __iomem *hwp_regs;
--	fman_exceptions_cb *exception_cb;
--	fman_bus_error_cb *bus_error_cb;
--	/* Spinlock for FMan use */
--	spinlock_t spinlock;
--	struct fman_state_struct *state;
--
--	struct fman_cfg *cfg;
--	struct muram_info *muram;
--	/* cam section in muram */
--	unsigned long cam_offset;
--	size_t cam_size;
--	/* Fifo in MURAM */
--	unsigned long fifo_offset;
--	size_t fifo_size;
--
--	u32 liodn_base[64];
--	u32 liodn_offset[64];
--
--	struct fman_dts_params dts_params;
--};
--
- static irqreturn_t fman_exceptions(struct fman *fman,
- 				   enum fman_exceptions exception)
- {
-diff --git a/drivers/net/ethernet/freescale/fman/fman.h b/drivers/net/ethernet/freescale/fman/fman.h
-index f53e147..1015dac 100644
---- a/drivers/net/ethernet/freescale/fman/fman.h
-+++ b/drivers/net/ethernet/freescale/fman/fman.h
-@@ -34,6 +34,8 @@
- #define __FM_H
- 
- #include <linux/io.h>
-+#include <linux/interrupt.h>
-+#include <linux/of_irq.h>
- 
- /* FM Frame descriptor macros  */
- /* Frame queue Context Override */
-@@ -274,6 +276,79 @@ struct fman_intr_src {
- 	void *src_handle;
- };
- 
-+/** fman_exceptions_cb
-+ * fman         - Pointer to FMan
-+ * exception    - The exception.
-+ *
-+ * Exceptions user callback routine, will be called upon an exception
-+ * passing the exception identification.
-+ *
-+ * Return: irq status
-+ */
-+typedef irqreturn_t (fman_exceptions_cb)(struct fman *fman,
-+					 enum fman_exceptions exception);
-+/** fman_bus_error_cb
-+ * fman         - Pointer to FMan
-+ * port_id      - Port id
-+ * addr         - Address that caused the error
-+ * tnum         - Owner of error
-+ * liodn        - Logical IO device number
-+ *
-+ * Bus error user callback routine, will be called upon bus error,
-+ * passing parameters describing the errors and the owner.
-+ *
-+ * Return: IRQ status
-+ */
-+typedef irqreturn_t (fman_bus_error_cb)(struct fman *fman, u8 port_id,
-+					u64 addr, u8 tnum, u16 liodn);
-+
-+/* Structure that holds information received from device tree */
-+struct fman_dts_params {
-+	void __iomem *base_addr;                /* FMan virtual address */
-+	struct resource *res;                   /* FMan memory resource */
-+	u8 id;                                  /* FMan ID */
-+
-+	int err_irq;                            /* FMan Error IRQ */
-+
-+	u16 clk_freq;                           /* FMan clock freq (In Mhz) */
-+
-+	u32 qman_channel_base;                  /* QMan channels base */
-+	u32 num_of_qman_channels;               /* Number of QMan channels */
-+
-+	struct resource muram_res;              /* MURAM resource */
-+};
-+
-+struct fman {
-+	struct device *dev;
-+	void __iomem *base_addr;
-+	struct fman_intr_src intr_mng[FMAN_EV_CNT];
-+
-+	struct fman_fpm_regs __iomem *fpm_regs;
-+	struct fman_bmi_regs __iomem *bmi_regs;
-+	struct fman_qmi_regs __iomem *qmi_regs;
-+	struct fman_dma_regs __iomem *dma_regs;
-+	struct fman_hwp_regs __iomem *hwp_regs;
-+	fman_exceptions_cb *exception_cb;
-+	fman_bus_error_cb *bus_error_cb;
-+	/* Spinlock for FMan use */
-+	spinlock_t spinlock;
-+	struct fman_state_struct *state;
-+
-+	struct fman_cfg *cfg;
-+	struct muram_info *muram;
-+	/* cam section in muram */
-+	unsigned long cam_offset;
-+	size_t cam_size;
-+	/* Fifo in MURAM */
-+	unsigned long fifo_offset;
-+	size_t fifo_size;
-+
-+	u32 liodn_base[64];
-+	u32 liodn_offset[64];
-+
-+	struct fman_dts_params dts_params;
-+};
-+
- /* Structure for port-FM communication during fman_port_init. */
- struct fman_port_init_params {
- 	u8 port_id;			/* port Id */
-diff --git a/drivers/net/ethernet/freescale/fman/fman_port.c b/drivers/net/ethernet/freescale/fman/fman_port.c
-index 49bfa11..d51e6aa 100644
---- a/drivers/net/ethernet/freescale/fman/fman_port.c
-+++ b/drivers/net/ethernet/freescale/fman/fman_port.c
-@@ -32,10 +32,6 @@
- 
- #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
- 
--#include "fman_port.h"
--#include "fman.h"
--#include "fman_sp.h"
--
- #include <linux/io.h>
- #include <linux/slab.h>
- #include <linux/module.h>
-@@ -45,6 +41,10 @@
- #include <linux/delay.h>
- #include <linux/libfdt_env.h>
- 
-+#include "fman.h"
-+#include "fman_port.h"
-+#include "fman_sp.h"
-+
- /* Queue ID */
- #define DFLT_FQ_ID		0x00FFFFFF
- 
+ 	dpaa_bp->seed_cb = dpaa_bp_seed;
 -- 
 2.1.0
