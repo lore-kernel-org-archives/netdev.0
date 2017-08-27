@@ -1,70 +1,51 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: Stable apply request [was: Bluetooth: bnep: fix possible might
- sleep error in bnep_session]
-Date: Sun, 27 Aug 2017 15:10:14 +0200
-Message-ID: <20170827131014.GA10491@kroah.com>
-References: <1498556084-25346-1-git-send-email-jeffy.chen@rock-chips.com>
- <0815411E-62D7-42DC-A0BF-78FD150C0949@holtmann.org>
- <373da46b-41f7-9aa2-946d-75633c9efe86@suse.cz>
- <E0E7758A-9E4C-4179-8403-D8895424586B@holtmann.org>
+From: Madalin Bucur <madalin.bucur@nxp.com>
+Subject: [PATCH v4 0/7] Add RSS to DPAA 1.x Ethernet driver
+Date: Sun, 27 Aug 2017 16:13:36 +0300
+Message-ID: <1503839623-3906-1-git-send-email-madalin.bucur@nxp.com>
+Reply-To: <madalin.bucur@nxp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Slaby <jslaby@suse.cz>,
-        Jeffy Chen <jeffy.chen@rock-chips.com>,
-        stable <stable@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        "open list:BLUETOOTH DRIVERS" <linux-bluetooth@vger.kernel.org>,
-        rvaswani@nvidia.com, Brian Norris <briannorris@chromium.org>,
-        dmitry.torokhov@gmail.com,
-        Douglas Anderson <dianders@chromium.org>, acho@suse.com,
-        Johan Hedberg <johan.hedberg@gmail.com>,
-        Network Development <netdev@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        "Gustavo F. Padovan" <gustavo@padovan.org>
-To: Marcel Holtmann <marcel@holtmann.org>
+Content-Type: text/plain
+Cc: <linuxppc-dev@lists.ozlabs.org>, <linux-kernel@vger.kernel.org>
+To: <netdev@vger.kernel.org>, <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <E0E7758A-9E4C-4179-8403-D8895424586B@holtmann.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 23, 2017 at 08:14:15PM +0200, Marcel Holtmann wrote:
-> Hi Jiri,
-> 
-> >>> It looks like bnep_session has same pattern as the issue reported in
-> >>> old rfcomm:
-> >>> 
-> >>> 	while (1) {
-> >>> 		set_current_state(TASK_INTERRUPTIBLE);
-> >>> 		if (condition)
-> >>> 			break;
-> >>> 		// may call might_sleep here
-> >>> 		schedule();
-> >>> 	}
-> >>> 	__set_current_state(TASK_RUNNING);
-> >>> 
-> >>> Which fixed at:
-> >>> 	dfb2fae Bluetooth: Fix nested sleeps
-> >>> 
-> >>> So let's fix it at the same way, also follow the suggestion of:
-> >>> https://lwn.net/Articles/628628/
-> > 
-> > ...
-> > 
-> >> all 3 patches have been applied to bluetooth-next tree.
-> > 
-> > Hi,
-> > 
-> > given users are hitting it in at least 4.4 and 4.12, can we have all
-> > three in all stables where this applies?
-> > 
-> > 5da8e47d849d Bluetooth: hidp: fix possible might sleep error in
-> > hidp_session_thread
-> > f06d977309d0 Bluetooth: cmtp: fix possible might sleep error in cmtp_session
-> > 25717382c1dd Bluetooth: bnep: fix possible might sleep error in bnep_session
-> > 
-> > I am not sure: to stable directly or via net stable?
-> 
-> as Dave said, just email -stable directly and have Greg pick them up.
+This patch set introduces Receive Side Scaling for the DPAA Ethernet
+driver. Documentation is updated with details related to the new
+feature and limitations that apply.
+Added also a small fix.
 
-All now picked up :)
+v2: removed a C++ style comment
+v3: move struct fman to header file to avoid exporting a function
+v4: addressed compilation issues introduced in v3
+
+Iordache Florinel-R70177 (1):
+  fsl/fman: enable FMan Keygen
+
+Madalin Bucur (6):
+  fsl/fman: move struct fman to header file
+  dpaa_eth: use multiple Rx frame queues
+  dpaa_eth: enable Rx hashing control
+  dpaa_eth: add NETIF_F_RXHASH
+  Documentation: networking: add RSS information
+  dpaa_eth: check allocation result
+
+ Documentation/networking/dpaa.txt                  |  68 +-
+ drivers/net/ethernet/freescale/dpaa/dpaa_eth.c     |  76 +-
+ drivers/net/ethernet/freescale/dpaa/dpaa_eth.h     |   2 +
+ .../net/ethernet/freescale/dpaa/dpaa_eth_sysfs.c   |   3 +
+ drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c | 118 ++++
+ drivers/net/ethernet/freescale/fman/Makefile       |   2 +-
+ drivers/net/ethernet/freescale/fman/fman.c         |  88 +--
+ drivers/net/ethernet/freescale/fman/fman.h         |  77 ++
+ drivers/net/ethernet/freescale/fman/fman_keygen.c  | 783 +++++++++++++++++++++
+ drivers/net/ethernet/freescale/fman/fman_keygen.h  |  46 ++
+ drivers/net/ethernet/freescale/fman/fman_port.c    |  59 +-
+ drivers/net/ethernet/freescale/fman/fman_port.h    |   7 +
+ 12 files changed, 1235 insertions(+), 94 deletions(-)
+ create mode 100644 drivers/net/ethernet/freescale/fman/fman_keygen.c
+ create mode 100644 drivers/net/ethernet/freescale/fman/fman_keygen.h
+
+-- 
+2.1.0
