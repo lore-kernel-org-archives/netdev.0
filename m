@@ -1,81 +1,191 @@
-From: Vallish Vaidyeshwara <vallish@amazon.com>
-Subject: Re: [PATCH v2 0/2] enable hires timer to timeout datagram socket
-Date: Sun, 27 Aug 2017 20:47:25 +0000
-Message-ID: <20170827204725.GA8625@amazon.com>
-References: <1503447027-44399-1-git-send-email-vallish@amazon.com>
- <20170822.213030.1848111782253505433.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: 8bit
-Cc: <shuah@kernel.org>, <richardcochran@gmail.com>,
-        <xiyou.wangcong@gmail.com>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>, <eduval@amazon.com>,
-        <anchalag@amazon.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170822.213030.1848111782253505433.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: [PATCH net-next] bridge: fdb add and delete tracepoints
+Date: Sun, 27 Aug 2017 14:33:13 -0700
+Message-ID: <1503869593-30165-1-git-send-email-roopa@cumulusnetworks.com>
+Cc: netdev@vger.kernel.org, nikolay@cumulusnetworks.com,
+        bridge@lists.linux-foundation.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f178.google.com ([209.85.192.178]:36245 "EHLO
+        mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751277AbdH0VdT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 27 Aug 2017 17:33:19 -0400
+Received: by mail-pf0-f178.google.com with SMTP id k3so10239971pfc.3
+        for <netdev@vger.kernel.org>; Sun, 27 Aug 2017 14:33:19 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 22, 2017 at 09:30:30PM -0700, David Miller wrote:
-> From: Vallish Vaidyeshwara <vallish@amazon.com>
-> Date: Wed, 23 Aug 2017 00:10:25 +0000
-> 
-> > I am submitting 2 patch series to enable hires timer to timeout
-> > datagram sockets (AF_UNIX & AF_INET domain) and test code to test
-> > timeout accuracy on these sockets.
-> 
-> This is not reasonable.
-> 
-> If you want high resolution events with real guarantees, please use
-> the kernel interfaces which provide this as explained to you as
-> feedback by other reviewers.
-> 
-> I'm not applying this, sorry.
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-Hello David,
+Tracepoints to trace bridge forwarding database updates.
 
-I respect the decision not to upstream this patch series, however I
-wanted to provide additional details. Application wanting high
-resolution events with real guarantees is not the case, but the case
-here is regression in system call behavior:
+Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+---
+ include/trace/events/bridge.h | 98 +++++++++++++++++++++++++++++++++++++++++++
+ net/bridge/br_fdb.c           |  7 ++++
+ net/core/net-traces.c         |  6 +++
+ 3 files changed, 111 insertions(+)
+ create mode 100644 include/trace/events/bridge.h
 
-1) Change in system call behavior:
-strace from 4.4 test run of waiting for 180 seconds on datagram socket:
-10:25:48.239685 setsockopt(3, SOL_SOCKET, SO_RCVTIMEO, "\264\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0", 16) = 0
-10:25:48.239755 recvmsg(3, 0x7ffd0a3beec0, 0) = -1 EAGAIN (Resource temporarily unavailable)
-10:28:48.236989 fstat(1, {st_mode=S_IFCHR|0620, st_rdev=makedev(136, 0), ...}) = 0
-
-strace from 4.9 test run of waiting for 180 seconds on datagram socket times out close to 195 seconds:
-setsockopt(3, SOL_SOCKET, SO_RCVTIMEO, "\264\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0", 16) = 0 <0.000028>
-recvmsg(3, 0x7ffd6a2c4380, 0)           = -1 EAGAIN (Resource temporarily unavailable) <194.852000>
-fstat(1, {st_mode=S_IFCHR|0620, st_rdev=makedev(136, 0), ...}) = 0 <0.000018>
-
-This is the change in behavior of system call that is causing our application
-to regress on 4.9 kernel. There are events which need to be run on timeouts
-and now response time for such timeouts on 4.9 kernel are being triggered
-with extended delay of close to 195 seconds as in one of the test runs
-shown above.
-
-2) Comparison with MacOS:
-I ran the same test on OS X El Capitan version 10.11.6 and the behavior is
-consistent with Linux 4.4 Kernel behavior. I have not tested the program on
-other flavors of OS like HPUX or AIX or Solaris, but I guess if these OS
-implement SO_RCVTIMEO and tested, this behavior will not be different than
-Linux 4.4 kernel.
-  
-3) Standards Specification:
-Opengroups standard does not talk about how quick SO_RCVTIMEO need to respond
-for timeouts. However, the standards for select system call do mention that
-timeout need to respond quickly. It would be good to restore SO_RCVTIMEO
-behavior to 4.4 kernel and have SO_RCVTIMEO be consistent with select timeout.
-
-4) Changing application code:
-Any change to application code to accommodate this change of behavior in system
-call breaks application migration between 4.4 kernel and 4.9 kernel.
-Moreover, making application code change is not feasible in all cases as in
-the case where the source code is not available (third party vendor).
-
-Thanks.
--Vallish
+diff --git a/include/trace/events/bridge.h b/include/trace/events/bridge.h
+new file mode 100644
+index 0000000..e2d52cf
+--- /dev/null
++++ b/include/trace/events/bridge.h
+@@ -0,0 +1,98 @@
++#undef TRACE_SYSTEM
++#define TRACE_SYSTEM bridge
++
++#if !defined(_TRACE_BRIDGE_H) || defined(TRACE_HEADER_MULTI_READ)
++#define _TRACE_BRIDGE_H
++
++#include <linux/netdevice.h>
++#include <linux/tracepoint.h>
++
++#include "../../../net/bridge/br_private.h"
++
++TRACE_EVENT(br_fdb_add,
++
++	TP_PROTO(struct ndmsg *ndm, struct net_device *dev,
++		 const unsigned char *addr, u16 vid, u16 nlh_flags),
++
++	TP_ARGS(ndm, dev, addr, vid, nlh_flags),
++
++	TP_STRUCT__entry(
++		__field(u8, ndm_flags)
++		__string(dev, dev->name)
++		__array(unsigned char, addr, 6)
++		__field(u16, vid)
++		__field(u16, nlh_flags)
++	),
++
++	TP_fast_assign(
++		__assign_str(dev, dev->name);
++		memcpy(__entry->addr, addr, 6);
++		__entry->vid = vid;
++		__entry->nlh_flags = nlh_flags;
++		__entry->ndm_flags = ndm->ndm_flags;
++	),
++
++	TP_printk("dev %s addr %02x:%02x:%02x:%02x:%02x:%02x vid %u nlh_flags %x ndm_flags = %x",
++		  __get_str(dev), __entry->addr[0], __entry->addr[1],
++		  __entry->addr[2], __entry->addr[3], __entry->addr[4],
++		  __entry->addr[5], __entry->vid,
++		  __entry->nlh_flags, __entry->ndm_flags)
++);
++
++TRACE_EVENT(br_fdb_external_learn_add,
++
++	TP_PROTO(struct net_bridge *br, struct net_bridge_port *p,
++		 const unsigned char *addr, u16 vid),
++
++	TP_ARGS(br, p, addr, vid),
++
++	TP_STRUCT__entry(
++		__string(br_dev, br->dev->name)
++		__string(dev, p->dev->name)
++		__array(unsigned char, addr, 6)
++		__field(u16, vid)
++	),
++
++	TP_fast_assign(
++		__assign_str(br_dev, br ? br->dev->name : "null");
++		__assign_str(dev, p ? p->dev->name : "null");
++		memcpy(__entry->addr, addr, 6);
++		__entry->vid = vid;
++	),
++
++	TP_printk("br_dev %s port %s addr %02x:%02x:%02x:%02x:%02x:%02x vid %u",
++		  __get_str(br_dev), __get_str(dev), __entry->addr[0],
++		  __entry->addr[1], __entry->addr[2], __entry->addr[3],
++		  __entry->addr[4], __entry->addr[5], __entry->vid)
++);
++
++TRACE_EVENT(fdb_delete,
++
++	TP_PROTO(struct net_bridge *br, struct net_bridge_fdb_entry *f),
++
++	TP_ARGS(br, f),
++
++	TP_STRUCT__entry(
++		__string(br_dev, br->dev->name)
++		__string(dev, f->dst ? f->dst->dev->name : "null")
++		__array(unsigned char, addr, 6)
++		__field(u16, vid)
++	),
++
++	TP_fast_assign(
++		__assign_str(br_dev, br ? br->dev->name : "null");
++		__assign_str(dev, f->dst ? f->dst->dev->name : "null");
++		memcpy(__entry->addr, f->addr.addr, 6);
++		__entry->vid = f->vlan_id;
++	),
++
++	TP_printk("br_dev %s dev %s addr %02x:%02x:%02x:%02x:%02x:%02x vid %u",
++		  __get_str(br_dev), __get_str(dev), __entry->addr[0],
++		  __entry->addr[1], __entry->addr[2], __entry->addr[3],
++		  __entry->addr[4], __entry->addr[5], __entry->vid)
++);
++
++#endif /* _TRACE_BRIDGE_H */
++
++/* This part must be outside protection */
++#include <trace/define_trace.h>
+diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+index a79b648..be5e1da 100644
+--- a/net/bridge/br_fdb.c
++++ b/net/bridge/br_fdb.c
+@@ -25,6 +25,7 @@
+ #include <asm/unaligned.h>
+ #include <linux/if_vlan.h>
+ #include <net/switchdev.h>
++#include <trace/events/bridge.h>
+ #include "br_private.h"
+ 
+ static struct kmem_cache *br_fdb_cache __read_mostly;
+@@ -171,6 +172,8 @@ static void fdb_del_hw_addr(struct net_bridge *br, const unsigned char *addr)
+ 
+ static void fdb_delete(struct net_bridge *br, struct net_bridge_fdb_entry *f)
+ {
++	trace_fdb_delete(br, f);
++
+ 	if (f->is_static)
+ 		fdb_del_hw_addr(br, f->addr.addr);
+ 
+@@ -870,6 +873,8 @@ int br_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
+ 	struct net_bridge *br = NULL;
+ 	int err = 0;
+ 
++	trace_br_fdb_add(ndm, dev, addr, vid, nlh_flags);
++
+ 	if (!(ndm->ndm_state & (NUD_PERMANENT|NUD_NOARP|NUD_REACHABLE))) {
+ 		pr_info("bridge: RTM_NEWNEIGH with invalid state %#x\n", ndm->ndm_state);
+ 		return -EINVAL;
+@@ -1066,6 +1071,8 @@ int br_fdb_external_learn_add(struct net_bridge *br, struct net_bridge_port *p,
+ 	bool modified = false;
+ 	int err = 0;
+ 
++	trace_br_fdb_external_learn_add(br, p, addr, vid);
++
+ 	spin_lock_bh(&br->hash_lock);
+ 
+ 	head = &br->hash[br_mac_hash(addr, vid)];
+diff --git a/net/core/net-traces.c b/net/core/net-traces.c
+index 4f1468c..4a0292c 100644
+--- a/net/core/net-traces.c
++++ b/net/core/net-traces.c
+@@ -37,6 +37,12 @@
+ #include <trace/events/fib6.h>
+ EXPORT_TRACEPOINT_SYMBOL_GPL(fib6_table_lookup);
+ #endif
++#if IS_ENABLED(CONFIG_BRIDGE)
++#include <trace/events/bridge.h>
++EXPORT_TRACEPOINT_SYMBOL_GPL(br_fdb_add);
++EXPORT_TRACEPOINT_SYMBOL_GPL(br_fdb_external_learn_add);
++EXPORT_TRACEPOINT_SYMBOL_GPL(fdb_delete);
++#endif
+ 
+ EXPORT_TRACEPOINT_SYMBOL_GPL(kfree_skb);
+ 
+-- 
+2.1.4
