@@ -1,52 +1,60 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 0/4] irda: move it to drivers/staging so we can delete it
-Date: Sun, 27 Aug 2017 16:15:16 -0700
-Message-ID: <1503875716.12569.54.camel@perches.com>
-References: <20170827150334.32495-1-gregkh@linuxfoundation.org>
-         <1503848143.12569.48.camel@perches.com> <20170827161307.GA3528@kroah.com>
-         <1503850759.12569.50.camel@perches.com> <20170827165337.GA5769@kroah.com>
+From: "Waskiewicz Jr, Peter" <peter.waskiewicz.jr@intel.com>
+Subject: Re: [PATCH] connector: Delete an error message for a failed memory
+ allocation in cn_queue_alloc_callback_entry()
+Date: Sun, 27 Aug 2017 23:16:06 +0000
+Message-ID: <E0D909EE5BB15A4699798539EA149D7F0779689E@ORSMSX103.amr.corp.intel.com>
+References: <7b206228-b3e9-5cb9-873c-75b5d8aae23b@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 8bit
-Cc: davem@davemloft.net, samuel@sortiz.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, devel@driverdev.osuosl.org
-To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        irda-users <irda-users@lists.sourceforge.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: LKML <linux-kernel@vger.kernel.org>,
+        "kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
+To: SF Markus Elfring <elfring@users.sourceforge.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Evgeniy Polyakov <zbr@ioremap.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170827165337.GA5769@kroah.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 2017-08-27 at 18:53 +0200, Greg Kroah-Hartman wrote:
-> On Sun, Aug 27, 2017 at 09:19:19AM -0700, Joe Perches wrote:
-> > On Sun, 2017-08-27 at 18:13 +0200, Greg Kroah-Hartman wrote:
-> > > On Sun, Aug 27, 2017 at 08:35:43AM -0700, Joe Perches wrote:
-> > > > On Sun, 2017-08-27 at 17:03 +0200, Greg Kroah-Hartman wrote:
-> > > > > The IRDA code has long been obsolete and broken.  So, to keep people
-> > > > > from trying to use it, and to prevent people from having to maintain it,
-> > > > > let's move it to drivers/staging/ so that we can delete it entirely from
-> > > > > the kernel in a few releases.
-> > > > 
-> > > > 
-> > > > MAINTAINERS should be updated as well.
-> > > > 
-> > > > It'd probably be nice to try to get an email to
-> > > > the irda mailing list too if it still works.
-> > > 
-> > > As get_maintainer.pl didn't show it, odds are it doesn't...
-> > 
-> > get_maintainer doesn't show it because it's subscriber-only.
-> > If you want get_maintainer to show it, add -s
-> > 
-> > $ ./scripts/get_maintainer.pl  -s -f net/irda/
-> > Samuel Ortiz <samuel@sortiz.org> (maintainer:IRDA SUBSYSTEM)
-> > "David S. Miller" <davem@davemloft.net> (maintainer:NETWORKING [GENERAL])
-> > irda-users@lists.sourceforge.net (subscriber list:IRDA SUBSYSTEM)
-> > netdev@vger.kernel.org (open list:IRDA SUBSYSTEM)
-> > linux-kernel@vger.kernel.org (open list)
+On 8/27/17 3:26 PM, SF Markus Elfring wrote:
+> From: Markus Elfring <elfring@users.sourceforge.net>
+> Date: Sun, 27 Aug 2017 21:18:37 +0200
 > 
-> Sorry, am not going to subscribe to a random list just to send patches
-> that delete the subsystem :)
+> Omit an extra message for a memory allocation failure in this function.
+> 
+> This issue was detected by using the Coccinelle software.
 
-Then you do a disservice to those that actually might
-be using that subsystem.
+Did coccinelle trip on the message or the fact you weren't returning NULL?
+
+> 
+> Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+> ---
+>   drivers/connector/cn_queue.c | 4 +---
+>   1 file changed, 1 insertion(+), 3 deletions(-)
+> 
+> diff --git a/drivers/connector/cn_queue.c b/drivers/connector/cn_queue.c
+> index 1f8bf054d11c..e4f31d679f02 100644
+> --- a/drivers/connector/cn_queue.c
+> +++ b/drivers/connector/cn_queue.c
+> @@ -40,10 +40,8 @@ cn_queue_alloc_callback_entry(struct cn_queue_dev *dev, const char *name,
+>   	struct cn_callback_entry *cbq;
+>   
+>   	cbq = kzalloc(sizeof(*cbq), GFP_KERNEL);
+> -	if (!cbq) {
+> -		pr_err("Failed to create new callback queue.\n");
+> +	if (!cbq)
+>   		return NULL;
+> -	}
+
+Wny not:
+
+	if (!cbq) {
+		pr_err("Failed to create new callback queue.\n");
++		return NULL;
+	}
+
+>   
+>   	atomic_set(&cbq->refcnt, 1);
+>   
+> 
