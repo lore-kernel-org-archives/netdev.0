@@ -1,35 +1,27 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: [PATCH 4/4] staging: irda: add a TODO file.
-Date: Sun, 27 Aug 2017 17:03:34 +0200
-Message-ID: <20170827150334.32495-5-gregkh@linuxfoundation.org>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 0/4] irda: move it to drivers/staging so we can delete it
+Date: Sun, 27 Aug 2017 08:35:43 -0700
+Message-ID: <1503848143.12569.48.camel@perches.com>
 References: <20170827150334.32495-1-gregkh@linuxfoundation.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        devel@driverdev.osuosl.org,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-To: davem@davemloft.net, samuel@sortiz.org
+        devel@driverdev.osuosl.org
+To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        davem@davemloft.net, samuel@sortiz.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20170827150334.32495-1-gregkh@linuxfoundation.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The irda code will be deleted in a future kernel release, so no need to
-have anyone do any new work on it.
+On Sun, 2017-08-27 at 17:03 +0200, Greg Kroah-Hartman wrote:
+> The IRDA code has long been obsolete and broken.  So, to keep people
+> from trying to use it, and to prevent people from having to maintain it,
+> let's move it to drivers/staging/ so that we can delete it entirely from
+> the kernel in a few releases.
 
-Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
----
- drivers/staging/irda/TODO | 4 ++++
- 1 file changed, 4 insertions(+)
- create mode 100644 drivers/staging/irda/TODO
+MAINTAINERS should be updated as well.
 
-diff --git a/drivers/staging/irda/TODO b/drivers/staging/irda/TODO
-new file mode 100644
-index 000000000000..7d98a5cffaff
---- /dev/null
-+++ b/drivers/staging/irda/TODO
-@@ -0,0 +1,4 @@
-+The irda code will be removed soon from the kernel tree as it is old and
-+obsolete and broken.
-+
-+Don't worry about fixing up anything here, it's not needed.
--- 
-2.14.1
+It'd probably be nice to try to get an email to
+the irda mailing list too if it still works.
