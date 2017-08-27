@@ -1,37 +1,54 @@
-From: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
-Subject: [PATCH] igb: check memory allocation failure
-Date: Sun, 27 Aug 2017 08:39:51 +0200
-Message-ID: <20170827063951.5975-1-christophe.jaillet@wanadoo.fr>
-Cc: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
-        Christophe JAILLET <christophe.jaillet@wanadoo.fr>
-To: jeffrey.t.kirsher@intel.com
+From: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+Subject: [PATCH] be2net: Fix some u16 fields appropriately
+Date: Sun, 27 Aug 2017 15:24:45 +0800
+Message-ID: <1503818685-32068-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+To: Sathya Perla <sathya.perla@broadcom.com>,
+        jit Khaparde <ajit.khaparde@broadcom.com>,
+        Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>,
+        Somnath Kotur <somnath.kotur@broadcom.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Check memory allocation failures and return -ENOMEM in such cases, as
-already done for other memory allocations in this function.
+In be_tx_compl_process, frag_index declared as u32, so it's better to
+declare last_index as u32 also.
 
-This avoids NULL pointers dereference.
-
-Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+CC: Ajit Khaparde <ajit.khaparde@broadcom.com>
+Fixes: b0fd2eb28bd4 ("be2net: Declare some u16 fields as u32 to improve
+performance")
+Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
 ---
- drivers/net/ethernet/intel/igb/igb_main.c | 2 ++
- 1 file changed, 2 insertions(+)
+ drivers/net/ethernet/emulex/benet/be.h      | 2 +-
+ drivers/net/ethernet/emulex/benet/be_main.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index fd4a46b03cc8..837d9b46a390 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -3162,6 +3162,8 @@ static int igb_sw_init(struct igb_adapter *adapter)
- 	/* Setup and initialize a copy of the hw vlan table array */
- 	adapter->shadow_vfta = kcalloc(E1000_VLAN_FILTER_TBL_SIZE, sizeof(u32),
- 				       GFP_ATOMIC);
-+	if (!adapter->shadow_vfta)
-+		return -ENOMEM;
+diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
+index 674cf9d..2ba4d61 100644
+--- a/drivers/net/ethernet/emulex/benet/be.h
++++ b/drivers/net/ethernet/emulex/benet/be.h
+@@ -255,7 +255,7 @@ struct be_tx_stats {
+ /* Structure to hold some data of interest obtained from a TX CQE */
+ struct be_tx_compl_info {
+ 	u8 status;		/* Completion status */
+-	u16 end_index;		/* Completed TXQ Index */
++	u32 end_index;		/* Completed TXQ Index */
+ };
  
- 	/* This call may decrease the number of queues */
- 	if (igb_init_interrupt_scheme(adapter, true)) {
+ struct be_tx_obj {
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index 319eee3..3645344 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -2606,7 +2606,7 @@ static struct be_tx_compl_info *be_tx_compl_get(struct be_tx_obj *txo)
+ }
+ 
+ static u16 be_tx_compl_process(struct be_adapter *adapter,
+-			       struct be_tx_obj *txo, u16 last_index)
++			       struct be_tx_obj *txo, u32 last_index)
+ {
+ 	struct sk_buff **sent_skbs = txo->sent_skb_list;
+ 	struct be_queue_info *txq = &txo->q;
 -- 
-2.11.0
+1.8.3.1
