@@ -1,92 +1,109 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH RFC WIP 0/5] IGMP snooping for local traffic
-Date: Mon, 28 Aug 2017 15:45:29 +0200
-Message-ID: <20170828134529.GC10418@lunn.ch>
-References: <1503780970-10312-1-git-send-email-andrew@lunn.ch>
- <b5bf300b-58c1-d7a7-8851-651683a234b0@gmail.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: Question about ip_defrag
+Date: Mon, 28 Aug 2017 16:00:32 +0200
+Message-ID: <20170828140032.GB12926@breakpoint.cc>
+References: <4F88C5DDA1E80143B232E89585ACE27D018F07E2@DGGEMA502-MBX.china.huawei.com>
+ <20170824155300.1e577dae@redhat.com>
+ <4F88C5DDA1E80143B232E89585ACE27D018F0AE1@DGGEMA502-MBX.china.huawei.com>
+ <20170824205926.2c45e3a1@redhat.com>
+ <4F88C5DDA1E80143B232E89585ACE27D018F3157@DGGEMA502-MBX.china.huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        nikolay@cumulusnetworks.com, jiri@mellanox.com,
-        roopa@cumulusnetworks.com, stephen@networkplumber.org,
-        bridge@lists.linux-foundation.org
-To: Florian Fainelli <f.fainelli@gmail.com>
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "kuznet@ms2.inr.ac.ru" <kuznet@ms2.inr.ac.ru>,
+        "yoshfuji@linux-ipv6.org" <yoshfuji@linux-ipv6.org>,
+        "elena.reshetova@intel.com" <elena.reshetova@intel.com>,
+        "edumazet@google.com" <edumazet@google.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "Wangkefeng (Kevin)" <wangkefeng.wang@huawei.com>,
+        "weiyongjun (A)" <weiyongjun1@huawei.com>
+To: "liujian (CE)" <liujian56@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:46194 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750866AbdH1Npb (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 28 Aug 2017 09:45:31 -0400
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:50888 "EHLO
+        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751170AbdH1ODn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 10:03:43 -0400
 Content-Disposition: inline
-In-Reply-To: <b5bf300b-58c1-d7a7-8851-651683a234b0@gmail.com>
+In-Reply-To: <4F88C5DDA1E80143B232E89585ACE27D018F3157@DGGEMA502-MBX.china.huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Aug 27, 2017 at 07:44:15PM -0700, Florian Fainelli wrote:
-> Hi Andrew,
+liujian (CE) <liujian56@huawei.com> wrote:
+> Hi
 > 
-> On 08/26/2017 01:56 PM, Andrew Lunn wrote:
-> > This is a WIP patchset i would like comments on from bridge,
-> > switchdev and hardware offload people.
-> > 
-> > The linux bridge supports IGMP snooping. It will listen to IGMP 
-> > reports on bridge ports and keep track of which groups have been 
-> > joined on an interface. It will then forward multicast based on this 
-> > group membership.
-> > 
-> > When the bridge adds or removed groups from an interface, it uses 
-> > switchdev to request the hardware add an mdb to a port, so the 
-> > hardware can perform the selective forwarding between ports.
-> > 
-> > What is not covered by the current bridge code, is IGMP joins/leaves 
-> > from the host on the brX interface. No such monitoring is performed.
-> > With a pure software bridge, it is not required. All mulitcast frames
-> > are passed to the brX interface, and the network stack filters them,
-> > as it does for any interface. However, when hardware offload is
-> > involved, things change. We should program the hardware to only send
-> > multcast packets to the host when the host has in interest in them.
+> I checked our 3.10 kernel, we had backported all percpu_counter bug fix in lib/percpu_counter.c and include/linux/percpu_counter.h.
+> And I check 4.13-rc6, also has the issue if NIC's rx cpu num big enough.
 > 
-> OK, so if I understand this right, without a bridge, we have the
-> following happen today: with a DSA-enabled setup using any kind of
-> switch tagging protocol, if a host is interested in receiving particular
-> multicast traffic, we would receive IGMP joins/leaves through sw0p0, and
-> the stack should call ndo_set_rx_mode for sw0p0, which would be
-> dsa_slave_set_rx_mode() and which would synchronize the DSA master
-> network device with the slave network device, everything works fine
-> provided that the CPU port is configured to accept multicast traffic.
+> > > > > the issue:
+> > > > > Ip_defrag fail caused by frag_mem_limit reached 4M(frags.high_thresh).
+> > > > > At this moment,sum_frag_mem_limit is about 10K.
+> 
+> So should we change ipfrag high/low thresh to a reasonable value ? 
+> And if it is, is there a standard to change the value?
 
-Hi Florian
+Each cpu can have frag_percpu_counter_batch bytes rest doesn't know
+about so with 64 cpus that is ~8 mbyte.
 
-That sounds about right, but it is not a use case i've looked at yet.
-I do need to look at it though, because there is a chance i break it
-with IGMP snooping support.
+possible solutions:
+1. reduce frag_percpu_counter_batch to 16k or so
+2. make both low and high thresh depend on NR_CPUS
 
-> Note here that we don't really add a MDB entry for sw0p0 when that
-> happens, but it seems like we should for switches that lack IGMP
-> snooping and/or multicast filtering.
+liujian, does this change help in any way?
 
-Yes. But it is not an MDB in the normal sense, at least from the
-switches perspective. An MDB passed to a switch using switchdev says
-that traffic for the specified group should go out that port. However,
-when the host does a join on sw0p0, we want the exact opposite,
-multicast traffic coming in that port of the switch which matches the
-group should be forwarded to the host. So my second attempt at this
-code adds a new switchdev object, SWITCHDEV_OBJ_ID_PORT_HOST_MDB.
-
-> With the current bridge and DSA code, are not we actually always going
-> to get the CPU port to be added with the multicast address and therefore
-> no filtering is occurring and snooping is pretty much useless?
-
-Correct. At the moment, all multicast traffic gets delivered to the
-host.
-
-> While I understand the reasons why you did it that way, I think this is
-> going to break a lot of code in bridge that does not expect brX to be a
-> bridge port member.
-
-It does. 
-
-Nikolay suggestion works a lot better, and i'm following that now. It
-looks good and only requires some minor tweaks to the bridge code.
-
-      Andrew
+diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
+--- a/net/ipv4/inet_fragment.c
++++ b/net/ipv4/inet_fragment.c
+@@ -123,6 +123,17 @@ static bool inet_fragq_should_evict(const struct inet_frag_queue *q)
+ 	       frag_mem_limit(q->net) >= q->net->low_thresh;
+ }
+ 
++/* ->mem batch size is huge, this can cause severe discrepancies
++ * between actual value (sum of pcpu values) and the global estimate.
++ *
++ * Use a smaller batch to give an opportunity for the global estimate
++ * to more accurately reflect current state.
++ */
++static void update_frag_mem_limit(struct netns_frags *nf, unsigned int batch)
++{
++	 percpu_counter_add_batch(&nf->mem, 0, batch);
++}
++
+ static unsigned int
+ inet_evict_bucket(struct inet_frags *f, struct inet_frag_bucket *hb)
+ {
+@@ -146,8 +157,12 @@ inet_evict_bucket(struct inet_frags *f, struct inet_frag_bucket *hb)
+ 
+ 	spin_unlock(&hb->chain_lock);
+ 
+-	hlist_for_each_entry_safe(fq, n, &expired, list_evictor)
++	hlist_for_each_entry_safe(fq, n, &expired, list_evictor) {
++		struct netns_frags *nf = fq->net;
++
+ 		f->frag_expire((unsigned long) fq);
++		update_frag_mem_limit(nf, 1);
++	}
+ 
+ 	return evicted;
+ }
+@@ -396,8 +411,10 @@ struct inet_frag_queue *inet_frag_find(struct netns_frags *nf,
+ 	struct inet_frag_queue *q;
+ 	int depth = 0;
+ 
+-	if (frag_mem_limit(nf) > nf->low_thresh)
++	if (frag_mem_limit(nf) > nf->low_thresh) {
+ 		inet_frag_schedule_worker(f);
++		update_frag_mem_limit(nf, SKB_TRUESIZE(1500) * 16);
++	}
+ 
+ 	hash &= (INETFRAGS_HASHSZ - 1);
+ 	hb = &f->hash[hash];
+@@ -416,6 +433,8 @@ struct inet_frag_queue *inet_frag_find(struct netns_frags *nf,
+ 	if (depth <= INETFRAGS_MAXDEPTH)
+ 		return inet_frag_create(nf, f, key);
+ 
++	update_frag_mem_limit(nf, 1);
++
+ 	if (inet_frag_may_rebuild(f)) {
+ 		if (!f->rebuild)
+ 			f->rebuild = true;
