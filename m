@@ -1,36 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 4/7] ipv4: make net_protocol const
-Date: Mon, 28 Aug 2017 11:30:21 -0700 (PDT)
-Message-ID: <20170828.113021.1460779644530852597.davem@davemloft.net>
-References: <1503670907-23221-1-git-send-email-bhumirks@gmail.com>
-        <1503670907-23221-5-git-send-email-bhumirks@gmail.com>
+Subject: Re: [PATCH net 0/5] l2tp: fix some l2tp_tunnel_find() issues in
+ l2tp_netlink
+Date: Mon, 28 Aug 2017 11:35:16 -0700 (PDT)
+Message-ID: <20170828.113516.2181846322329552747.davem@davemloft.net>
+References: <cover.1503671776.git.g.nault@alphalink.fr>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: julia.lawall@lip6.fr, marcel@holtmann.org, gustavo@padovan.org,
-        johan.hedberg@gmail.com, pablo@netfilter.org,
-        kadlec@blackhole.kfki.hu, fw@strlen.de, stephen@networkplumber.org,
-        alex.aring@gmail.com, stefan@osg.samsung.com, kuznet@ms2.inr.ac.ru,
-        yoshfuji@linux-ipv6.org, santosh.shilimkar@oracle.com,
-        trond.myklebust@primarydata.com, anna.schumaker@netapp.com,
-        bfields@fieldses.org, jlayton@poochiereds.net,
-        linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-        coreteam@netfilter.org, bridge@lists.linux-foundation.org,
-        linux-wpan@vger.kernel.org, linux-rdma@vger.kernel.org,
-        rds-devel@oss.oracle.com, linux-nfs@vger.kernel.org
-To: bhumirks@gmail.com
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1503670907-23221-5-git-send-email-bhumirks@gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, jchapman@katalix.com
+To: g.nault@alphalink.fr
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:45532 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751184AbdH1SfR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 14:35:17 -0400
+In-Reply-To: <cover.1503671776.git.g.nault@alphalink.fr>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Bhumika Goyal <bhumirks@gmail.com>
-Date: Fri, 25 Aug 2017 19:51:44 +0530
+From: Guillaume Nault <g.nault@alphalink.fr>
+Date: Fri, 25 Aug 2017 16:51:39 +0200
 
-> Make these const as they are only passed to a const argument of the
-> function inet_add_protocol.
+> Since l2tp_tunnel_find() doesn't take a reference on the tunnel it
+> returns, its users are almost guaranteed to be racy.
 > 
-> Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
+> This series defines l2tp_tunnel_get() which can be used as a safe
+> replacement, and converts some of l2tp_tunnel_find() users in the
+> l2tp_netlink module.
+> 
+> Other users often combine this issue with other more or less subtle
+> races. They will be fixed incrementally in followup series.
 
-Applied.
+Series applied, thank you.
