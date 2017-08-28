@@ -1,7 +1,7 @@
 From: Pavel Belous <Pavel.Belous@aquantia.com>
-Subject: [PATCH net v2 1/6] net:ethernet:aquantia: Extra spinlocks removed.
-Date: Mon, 28 Aug 2017 21:52:08 +0300
-Message-ID: <acf3a0f9bf9ed8fb29723abc6a13a78ab615d48d.1503945861.git.pavel.belous@aquantia.com>
+Subject: [PATCH net v2 3/6] net:ethernet:aquantia: Workaround for HW checksum bug.
+Date: Mon, 28 Aug 2017 21:52:10 +0300
+Message-ID: <f9da8832eb2534b18fe228b736aac99e63279162.1503945861.git.pavel.belous@aquantia.com>
 References: <cover.1503945861.git.pavel.belous@aquantia.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -13,164 +13,64 @@ Cc: netdev@vger.kernel.org, David Arcari <darcari@redhat.com>,
         Pavel Belous <Pavel.Belous@aquantia.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sn1nam01on0080.outbound.protection.outlook.com ([104.47.32.80]:58048
+Received: from mail-sn1nam01on0065.outbound.protection.outlook.com ([104.47.32.65]:55610
         "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751341AbdH1SxA (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 28 Aug 2017 14:53:00 -0400
+        id S1751306AbdH1SxS (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 28 Aug 2017 14:53:18 -0400
 In-Reply-To: <cover.1503945861.git.pavel.belous@aquantia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Pavel Belous <pavel.belous@aquantia.com>
 
-This patch removes datapath spinlocks which does not perform any
-useful work.
+The hardware has the HW Checksum Offload bug when small
+TCP patckets (with length <= 60 bytes) has wrong "checksum valid" bit.
 
-Fixes: 6e70637f9f1e ("net: ethernet: aquantia: Add ring support code")
+The solution is - ignore checksum valid bit for small packets
+(with length <= 60 bytes) and mark this as CHECKSUM_NONE to allow
+network stack recalculate checksum itself.
+
+Fixes: ccf9a5ed14be ("net: ethernet: aquantia: Atlantic A0 and B0 specific functions.")
 Signed-off-by: Pavel Belous <Pavel.Belous@aquantia.com>
 ---
- drivers/net/ethernet/aquantia/atlantic/aq_nic.c   | 42 +++++++----------------
- drivers/net/ethernet/aquantia/atlantic/aq_ring.c  |  1 -
- drivers/net/ethernet/aquantia/atlantic/aq_utils.h |  1 -
- drivers/net/ethernet/aquantia/atlantic/aq_vec.c   | 11 ++----
- 4 files changed, 14 insertions(+), 41 deletions(-)
+ drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c | 6 ++++++
+ drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c | 6 ++++++
+ 2 files changed, 12 insertions(+)
 
-diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_nic.c b/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
-index 9ee1c50..08b7275 100644
---- a/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
-+++ b/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
-@@ -597,14 +597,11 @@ static unsigned int aq_nic_map_skb(struct aq_nic_s *self,
- }
- 
- int aq_nic_xmit(struct aq_nic_s *self, struct sk_buff *skb)
--__releases(&ring->lock)
--__acquires(&ring->lock)
- {
- 	struct aq_ring_s *ring = NULL;
- 	unsigned int frags = 0U;
- 	unsigned int vec = skb->queue_mapping % self->aq_nic_cfg.vecs;
- 	unsigned int tc = 0U;
--	unsigned int trys = AQ_CFG_LOCK_TRYS;
- 	int err = NETDEV_TX_OK;
- 	bool is_nic_in_bad_state;
- 
-@@ -628,36 +625,21 @@ __acquires(&ring->lock)
- 		goto err_exit;
- 	}
- 
--	do {
--		if (spin_trylock(&ring->header.lock)) {
--			frags = aq_nic_map_skb(self, skb, ring);
--
--			if (likely(frags)) {
--				err = self->aq_hw_ops.hw_ring_tx_xmit(
--								self->aq_hw,
--								ring, frags);
--				if (err >= 0) {
--					if (aq_ring_avail_dx(ring) <
--					    AQ_CFG_SKB_FRAGS_MAX + 1)
--						aq_nic_ndev_queue_stop(
--								self,
--								ring->idx);
--
--					++ring->stats.tx.packets;
--					ring->stats.tx.bytes += skb->len;
--				}
--			} else {
--				err = NETDEV_TX_BUSY;
--			}
-+	frags = aq_nic_map_skb(self, skb, ring);
- 
--			spin_unlock(&ring->header.lock);
--			break;
--		}
--	} while (--trys);
-+	if (likely(frags)) {
-+		err = self->aq_hw_ops.hw_ring_tx_xmit(self->aq_hw,
-+						      ring,
-+						      frags);
-+		if (err >= 0) {
-+			if (aq_ring_avail_dx(ring) < AQ_CFG_SKB_FRAGS_MAX + 1)
-+				aq_nic_ndev_queue_stop(self, ring->idx);
- 
--	if (!trys) {
-+			++ring->stats.tx.packets;
-+			ring->stats.tx.bytes += skb->len;
-+		}
-+	} else {
- 		err = NETDEV_TX_BUSY;
--		goto err_exit;
- 	}
- 
- err_exit:
-diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_ring.c b/drivers/net/ethernet/aquantia/atlantic/aq_ring.c
-index 9a08179..ec5579f 100644
---- a/drivers/net/ethernet/aquantia/atlantic/aq_ring.c
-+++ b/drivers/net/ethernet/aquantia/atlantic/aq_ring.c
-@@ -101,7 +101,6 @@ int aq_ring_init(struct aq_ring_s *self)
- 	self->hw_head = 0;
- 	self->sw_head = 0;
- 	self->sw_tail = 0;
--	spin_lock_init(&self->header.lock);
- 	return 0;
- }
- 
-diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_utils.h b/drivers/net/ethernet/aquantia/atlantic/aq_utils.h
-index f6012b3..e12bcdf 100644
---- a/drivers/net/ethernet/aquantia/atlantic/aq_utils.h
-+++ b/drivers/net/ethernet/aquantia/atlantic/aq_utils.h
-@@ -17,7 +17,6 @@
- #define AQ_DIMOF(_ARY_)  ARRAY_SIZE(_ARY_)
- 
- struct aq_obj_s {
--	spinlock_t lock; /* spinlock for nic/rings processing */
- 	atomic_t flags;
- };
- 
-diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_vec.c b/drivers/net/ethernet/aquantia/atlantic/aq_vec.c
-index ad5b4d4d..fee446a 100644
---- a/drivers/net/ethernet/aquantia/atlantic/aq_vec.c
-+++ b/drivers/net/ethernet/aquantia/atlantic/aq_vec.c
-@@ -34,8 +34,6 @@ struct aq_vec_s {
- #define AQ_VEC_RX_ID 1
- 
- static int aq_vec_poll(struct napi_struct *napi, int budget)
--__releases(&self->lock)
--__acquires(&self->lock)
- {
- 	struct aq_vec_s *self = container_of(napi, struct aq_vec_s, napi);
- 	struct aq_ring_s *ring = NULL;
-@@ -47,7 +45,7 @@ __acquires(&self->lock)
- 
- 	if (!self) {
- 		err = -EINVAL;
--	} else if (spin_trylock(&self->header.lock)) {
-+	} else {
- 		for (i = 0U, ring = self->ring[0];
- 			self->tx_rings > i; ++i, ring = self->ring[i]) {
- 			if (self->aq_hw_ops->hw_ring_tx_head_update) {
-@@ -105,11 +103,8 @@ __acquires(&self->lock)
- 			self->aq_hw_ops->hw_irq_enable(self->aq_hw,
- 					1U << self->aq_ring_param.vec_idx);
+diff --git a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c
+index faeb493..c5a02df 100644
+--- a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c
++++ b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c
+@@ -629,6 +629,12 @@ static int hw_atl_a0_hw_ring_rx_receive(struct aq_hw_s *self,
+ 				buff->is_udp_cso = (is_err & 0x10U) ? 0 : 1;
+ 			else if (0x0U == (pkt_type & 0x1CU))
+ 				buff->is_tcp_cso = (is_err & 0x10U) ? 0 : 1;
++
++			/* Checksum offload workaround for small packets */
++			if (rxd_wb->pkt_len <= 60) {
++				buff->is_ip_cso = 0U;
++				buff->is_cso_err = 0U;
++			}
  		}
--
--err_exit:
--		spin_unlock(&self->header.lock);
- 	}
--
-+err_exit:
- 	return work_done;
- }
  
-@@ -185,8 +180,6 @@ int aq_vec_init(struct aq_vec_s *self, struct aq_hw_ops *aq_hw_ops,
- 	self->aq_hw_ops = aq_hw_ops;
- 	self->aq_hw = aq_hw;
+ 		is_err &= ~0x18U;
+diff --git a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c
+index 1bceb73..21784cc 100644
+--- a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c
++++ b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c
+@@ -645,6 +645,12 @@ static int hw_atl_b0_hw_ring_rx_receive(struct aq_hw_s *self,
+ 				buff->is_udp_cso = buff->is_cso_err ? 0U : 1U;
+ 			else if (0x0U == (pkt_type & 0x1CU))
+ 				buff->is_tcp_cso = buff->is_cso_err ? 0U : 1U;
++
++			/* Checksum offload workaround for small packets */
++			if (rxd_wb->pkt_len <= 60) {
++				buff->is_ip_cso = 0U;
++				buff->is_cso_err = 0U;
++			}
+ 		}
  
--	spin_lock_init(&self->header.lock);
--
- 	for (i = 0U, ring = self->ring[0];
- 		self->tx_rings > i; ++i, ring = self->ring[i]) {
- 		err = aq_ring_init(&ring[AQ_VEC_TX_ID]);
+ 		is_err &= ~0x18U;
 -- 
 2.7.4
