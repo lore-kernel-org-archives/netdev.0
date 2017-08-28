@@ -1,57 +1,49 @@
-From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH net-next v3 11/13] arm64: dts: marvell: mcbin: add comphy references to Ethernet ports
-Date: Mon, 28 Aug 2017 16:57:23 +0200
-Message-ID: <20170828145725.2539-12-antoine.tenart@free-electrons.com>
-References: <20170828145725.2539-1-antoine.tenart@free-electrons.com>
-Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
-        thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
-        linux@armlinux.org.uk, linux-kernel@vger.kernel.org,
-        mw@semihalf.com, stefanc@marvell.com,
-        miquel.raynal@free-electrons.com, netdev@vger.kernel.org
-To: davem@davemloft.net, kishon@ti.com, andrew@lunn.ch,
-        jason@lakedaemon.net, sebastian.hesselbarth@gmail.com,
-        gregory.clement@free-electrons.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170828145725.2539-1-antoine.tenart@free-electrons.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [ethtool] ethtool: Remove UDP Fragmentation Offload use from
+ ethtool
+Date: Mon, 28 Aug 2017 08:00:11 -0700
+Message-ID: <1503932411.11498.67.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1503923928-9419-1-git-send-email-tariqt@mellanox.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+        netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
+        Shaker Daibes <shakerd@mellanox.com>
+To: Tariq Toukan <tariqt@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:34342 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750866AbdH1PAN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 11:00:13 -0400
+Received: by mail-pf0-f194.google.com with SMTP id p69so477997pfk.1
+        for <netdev@vger.kernel.org>; Mon, 28 Aug 2017 08:00:13 -0700 (PDT)
+In-Reply-To: <1503923928-9419-1-git-send-email-tariqt@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch adds comphy phandles to the Ethernet ports in the mcbin
-device tree. The comphy is used to configure the serdes PHYs used by
-these ports.
+On Mon, 2017-08-28 at 15:38 +0300, Tariq Toukan wrote:
+> From: Shaker Daibes <shakerd@mellanox.com>
+> 
+> UFO was removed in kernel, here we remove it in ethtool app.
+> 
+> Fixes the following issue:
+> Features for ens8:
+> Cannot get device udp-fragmentation-offload settings: Operation not supported
+> 
+> Tested with "make check"
+> 
+> Signed-off-by: Shaker Daibes <shakerd@mellanox.com>
+> Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+> ---
 
-Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
----
- arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts | 3 +++
- 1 file changed, 3 insertions(+)
 
-diff --git a/arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts b/arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts
-index 9f0a00802452..970081ca197b 100644
---- a/arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts
-+++ b/arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts
-@@ -148,6 +148,7 @@
- &cpm_eth0 {
- 	status = "okay";
- 	phy = <&phy0>;
-+	phys = <&cpm_comphy4 0>;
- 	phy-mode = "10gbase-kr";
- };
- 
-@@ -181,6 +182,7 @@
- &cps_eth0 {
- 	status = "okay";
- 	phy = <&phy8>;
-+	phys = <&cps_comphy4 0>;
- 	phy-mode = "10gbase-kr";
- };
- 
-@@ -189,6 +191,7 @@
- 	status = "okay";
- 	phy = <&ge_phy>;
- 	phy-mode = "sgmii";
-+	phys = <&cps_comphy0 1>;
- };
- 
- &cps_sata0 {
--- 
-2.13.5
+Hi guys
+
+I would rather remove the warning, but leave the ability to switch UFO
+on machines running old kernel but a recent ethtool.
+
+ethtool does not need to be downgraded every time we boot an old
+kernel ;)
+
+Thanks !
