@@ -1,97 +1,68 @@
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next v1] amd-xgbe: Interrupt summary bits are h/w
- version dependent
-Date: Mon, 28 Aug 2017 15:29:34 -0500
-Message-ID: <20170828202934.17073.940.stgit@tlendack-t1.amdoffice.net>
+From: Adam Ford <aford173@gmail.com>
+Subject: Re: Fwd: DA850-evm MAC Address is random
+Date: Mon, 28 Aug 2017 15:32:40 -0500
+Message-ID: <CAHCN7xLHEjda9DcVw5iHA9RaJ7UnyMVxf7e4e8NTEj9Op1JaBw@mail.gmail.com>
+References: <CAHCN7xKwFd7dHF0ySEd1hOSr0sZEgh9fuwy=RkUTHvEh59hojQ@mail.gmail.com>
+ <b7aab9fc-17ba-077b-3ff3-28087e0b25bc@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: linux-omap@vger.kernel.org, netdev@vger.kernel.org,
+        Sekhar Nori <nsekhar@ti.com>
+To: Grygorii Strashko <grygorii.strashko@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam01on0064.outbound.protection.outlook.com ([104.47.34.64]:8096
-        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751213AbdH1U3l (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 28 Aug 2017 16:29:41 -0400
+Received: from mail-vk0-f50.google.com ([209.85.213.50]:33567 "EHLO
+        mail-vk0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750735AbdH1Ucm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 16:32:42 -0400
+In-Reply-To: <b7aab9fc-17ba-077b-3ff3-28087e0b25bc@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There is a difference in the bit position of the normal interrupt summary
-enable (NIE) and abnormal interrupt summary enable (AIE) between revisions
-of the hardware.  For older revisions the NIE and AIE bits are positions
-16 and 15 respectively.  For newer revisions the NIE and AIE bits are
-positions 15 and 14.  The effect in changing the bit position is that
-newer hardware won't receive AIE interrupts in the current version of the
-driver.  Specifically, the driver uses this interrupt to collect
-statistics on when a receive buffer unavailable event occurs and to
-restart the driver/device when a fatal bus error occurs.
+On Mon, Aug 28, 2017 at 1:54 PM, Grygorii Strashko
+<grygorii.strashko@ti.com> wrote:
+> Cc: Sekhar
+>
+> On 08/28/2017 10:32 AM, Adam Ford wrote:
+>>
+>> The davinvi_emac MAC address seems to attempt a call to
+>> ti_cm_get_macid in cpsw-common.c but it returns the message
+>> 'davinci_emac davinci_emac.1: incompatible machine/device type for
+>> reading mac address ' and then generates a random MAC address.
+>>
+>> The function appears to lookup varions boards using
+>> 'of_machine_is_compaible' and supports dm8148, am33xx, am3517, dm816,
+>> am4372 and dra7.  I don't see the ti,davinci-dm6467-emac which is
+>> what's shown in the da850 device tree.
+>>
+>> Is there a patch somewhere for supporting the da850-evm?
+>
+>
+> Not sure if MAC address can be read from Control module.
+> May be Sekhar can say more?
 
-Update the driver to set the interrupt enable bit based on the reported
-version of the hardware.
+My understanding is that the MAC address is programmed by Logic PD
+into the SPI flash.  The Bootloader reads this from either SPI or its
+env variables.  Looking at the partition info listed in the
+da850-evm.dts file, it appears as if they've reserved space for it.
+Unfortunately, I don't see any code that reads it out.  I was hoping
+there might be a way to just pass cmdline parameter from the
+bootloader to the kernel to accept the MAC address.
 
-Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
----
- drivers/net/ethernet/amd/xgbe/xgbe-common.h |    8 ++++++--
- drivers/net/ethernet/amd/xgbe/xgbe-dev.c    |   13 ++++++++++---
- 2 files changed, 16 insertions(+), 5 deletions(-)
+>
+>>
+>> If not, is there a way to pass the MAC address from U-Boot to the
+>> driver so it doesn't generate a random MAC?
+>
+>
+> "local-mac-address" dt porp
 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-common.h b/drivers/net/ethernet/amd/xgbe/xgbe-common.h
-index 9431330..7ea72ef 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-common.h
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-common.h
-@@ -210,11 +210,15 @@
- #define DMA_CH_CR_PBLX8_WIDTH		1
- #define DMA_CH_CR_SPH_INDEX		24
- #define DMA_CH_CR_SPH_WIDTH		1
--#define DMA_CH_IER_AIE_INDEX		15
-+#define DMA_CH_IER_AIE20_INDEX		15
-+#define DMA_CH_IER_AIE20_WIDTH		1
-+#define DMA_CH_IER_AIE_INDEX		14
- #define DMA_CH_IER_AIE_WIDTH		1
- #define DMA_CH_IER_FBEE_INDEX		12
- #define DMA_CH_IER_FBEE_WIDTH		1
--#define DMA_CH_IER_NIE_INDEX		16
-+#define DMA_CH_IER_NIE20_INDEX		16
-+#define DMA_CH_IER_NIE20_WIDTH		1
-+#define DMA_CH_IER_NIE_INDEX		15
- #define DMA_CH_IER_NIE_WIDTH		1
- #define DMA_CH_IER_RBUE_INDEX		7
- #define DMA_CH_IER_RBUE_WIDTH		1
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-index 671203d..e107e18 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-dev.c
-@@ -649,13 +649,15 @@ static void xgbe_config_flow_control(struct xgbe_prv_data *pdata)
- static void xgbe_enable_dma_interrupts(struct xgbe_prv_data *pdata)
- {
- 	struct xgbe_channel *channel;
--	unsigned int i;
-+	unsigned int i, ver;
- 
- 	/* Set the interrupt mode if supported */
- 	if (pdata->channel_irq_mode)
- 		XGMAC_IOWRITE_BITS(pdata, DMA_MR, INTM,
- 				   pdata->channel_irq_mode);
- 
-+	ver = XGMAC_GET_BITS(pdata->hw_feat.version, MAC_VR, SNPSVER);
-+
- 	for (i = 0; i < pdata->channel_count; i++) {
- 		channel = pdata->channel[i];
- 
-@@ -671,8 +673,13 @@ static void xgbe_enable_dma_interrupts(struct xgbe_prv_data *pdata)
- 		 *   AIE  - Abnormal Interrupt Summary Enable
- 		 *   FBEE - Fatal Bus Error Enable
- 		 */
--		XGMAC_SET_BITS(channel->curr_ier, DMA_CH_IER, NIE, 1);
--		XGMAC_SET_BITS(channel->curr_ier, DMA_CH_IER, AIE, 1);
-+		if (ver < 0x21) {
-+			XGMAC_SET_BITS(channel->curr_ier, DMA_CH_IER, NIE20, 1);
-+			XGMAC_SET_BITS(channel->curr_ier, DMA_CH_IER, AIE20, 1);
-+		} else {
-+			XGMAC_SET_BITS(channel->curr_ier, DMA_CH_IER, NIE, 1);
-+			XGMAC_SET_BITS(channel->curr_ier, DMA_CH_IER, AIE, 1);
-+		}
- 		XGMAC_SET_BITS(channel->curr_ier, DMA_CH_IER, FBEE, 1);
- 
- 		if (channel->tx_ring) {
+The downside here, is that we'd have to have the Bootloader modify the
+device tree.
+>
+> --
+> regards,
+> -grygorii
+
+thanks
+
+adam
