@@ -1,9 +1,9 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/7] bridge: make ebt_table const
-Date: Mon, 28 Aug 2017 11:30:15 -0700 (PDT)
-Message-ID: <20170828.113015.1454742226773245453.davem@davemloft.net>
+Subject: Re: [PATCH 4/7] ipv4: make net_protocol const
+Date: Mon, 28 Aug 2017 11:30:21 -0700 (PDT)
+Message-ID: <20170828.113021.1460779644530852597.davem@davemloft.net>
 References: <1503670907-23221-1-git-send-email-bhumirks@gmail.com>
-        <1503670907-23221-3-git-send-email-bhumirks@gmail.com>
+        <1503670907-23221-5-git-send-email-bhumirks@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -20,16 +20,16 @@ Cc: julia.lawall@lip6.fr, marcel@holtmann.org, gustavo@padovan.org,
         linux-wpan@vger.kernel.org, linux-rdma@vger.kernel.org,
         rds-devel@oss.oracle.com, linux-nfs@vger.kernel.org
 To: bhumirks@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1503670907-23221-3-git-send-email-bhumirks@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1503670907-23221-5-git-send-email-bhumirks@gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Bhumika Goyal <bhumirks@gmail.com>
-Date: Fri, 25 Aug 2017 19:51:42 +0530
+Date: Fri, 25 Aug 2017 19:51:44 +0530
 
-> Make this const as it is only passed to a const argument of the function
-> ebt_register_table.
+> Make these const as they are only passed to a const argument of the
+> function inet_add_protocol.
 > 
 > Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
 
