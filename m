@@ -1,177 +1,56 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 13/15] i40e: invert logic for checking incorrect cpu vs irq affinity
-Date: Sun, 27 Aug 2017 17:16:01 -0700
-Message-ID: <20170828001603.75876-14-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 09/15] i40e: Fix for unused value issue found by static analysis
+Date: Sun, 27 Aug 2017 17:15:57 -0700
+Message-ID: <20170828001603.75876-10-jeffrey.t.kirsher@intel.com>
 References: <20170828001603.75876-1-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
+        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:36375 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:55214 "EHLO mga14.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751700AbdH1AQV (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 27 Aug 2017 20:16:21 -0400
+        id S1751613AbdH1AQU (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 27 Aug 2017 20:16:20 -0400
 In-Reply-To: <20170828001603.75876-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+From: Carolyn Wyborny <carolyn.wyborny@intel.com>
 
-In commit 96db776a3682 ("i40e/vf: fix interrupt affinity bug")
-we added some code to force exit of polling in case we did
-not have the correct CPU. This is important since it was possible for
-the IRQ affinity to be changed while the CPU is pegged at 100%. This can
-result in the polling routine being stuck on the wrong CPU until
-traffic finally stops.
+This patch fixes an issue where an error return value is
+set, but without an immediate exit, the value can be overwritten
+by the following code execution.  The condition  at this point
+is not fatal, so remove the error assignment and comment the
+intent for future code maintainers
 
-Unfortunately, the implementation, "if the CPU is correct, exit as
-normal, otherwise, fall-through to the end-polling exit" is incredibly
-confusing to reason about. In this case, the normal flow looks like the
-exception, while the exception actually occurs far away from the if
-statement and comment.
-
-We recently discovered and fixed a bug in this code because we were
-incorrectly initializing the affinity mask.
-
-Re-write the code so that the exceptional case is handled at the check,
-rather than having the logic be spread through the regular exit flow.
-This does end up with minor code duplication, but the resulting code is
-much easier to reason about.
-
-The new logic is identical, but inverted. If we are running on a CPU not
-in our affinity mask, we'll exit polling. However, the code flow is much
-easier to understand.
-
-Note that we don't actually have to check for MSI-X, because in the MSI
-case we'll only have one q_vector, but its default affinity mask should
-be correct as it includes all CPUs when it's initialized. Further, we
-could at some point add code to setup the notifier for the non-MSI-X
-case and enable this workaround for that case too, if desired, though
-there isn't much gain since its unlikely to be the common case.
-
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_txrx.c   | 31 +++++++++++++--------------
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 30 +++++++++++++-------------
- 2 files changed, 30 insertions(+), 31 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index 5c1edcce9459..3999afea518b 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -2369,7 +2369,6 @@ int i40e_napi_poll(struct napi_struct *napi, int budget)
- 
- 	/* If work not completed, return budget and polling will return */
- 	if (!clean_complete) {
--		const cpumask_t *aff_mask = &q_vector->affinity_mask;
- 		int cpu_id = smp_processor_id();
- 
- 		/* It is possible that the interrupt affinity has changed but,
-@@ -2379,15 +2378,22 @@ int i40e_napi_poll(struct napi_struct *napi, int budget)
- 		 * continue to poll, otherwise we must stop polling so the
- 		 * interrupt can move to the correct cpu.
- 		 */
--		if (likely(cpumask_test_cpu(cpu_id, aff_mask) ||
--			   !(vsi->back->flags & I40E_FLAG_MSIX_ENABLED))) {
-+		if (!cpumask_test_cpu(cpu_id, &q_vector->affinity_mask)) {
-+			/* Tell napi that we are done polling */
-+			napi_complete_done(napi, work_done);
-+
-+			/* Force an interrupt */
-+			i40e_force_wb(vsi, q_vector);
-+
-+			/* Return budget-1 so that polling stops */
-+			return budget - 1;
-+		}
- tx_only:
--			if (arm_wb) {
--				q_vector->tx.ring[0].tx_stats.tx_force_wb++;
--				i40e_enable_wb_on_itr(vsi, q_vector);
--			}
--			return budget;
-+		if (arm_wb) {
-+			q_vector->tx.ring[0].tx_stats.tx_force_wb++;
-+			i40e_enable_wb_on_itr(vsi, q_vector);
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 5a06cd23b9e6..0962b85ef6f3 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -9884,13 +9884,15 @@ static int i40e_add_vsi(struct i40e_vsi *vsi)
+ 			 */
+ 			ret = i40e_vsi_config_tc(vsi, enabled_tc);
+ 			if (ret) {
++				/* Single TC condition is not fatal,
++				 * message and continue
++				 */
+ 				dev_info(&pf->pdev->dev,
+ 					 "failed to configure TCs for main VSI tc_map 0x%08x, err %s aq_err %s\n",
+ 					 enabled_tc,
+ 					 i40e_stat_str(&pf->hw, ret),
+ 					 i40e_aq_str(&pf->hw,
+ 						    pf->hw.aq.asq_last_status));
+-				ret = -ENOENT;
+ 			}
  		}
-+		return budget;
- 	}
- 
- 	if (vsi->back->flags & I40E_TXR_FLAGS_WB_ON_ITR)
-@@ -2396,14 +2402,7 @@ int i40e_napi_poll(struct napi_struct *napi, int budget)
- 	/* Work is done so exit the polling mode and re-enable the interrupt */
- 	napi_complete_done(napi, work_done);
- 
--	/* If we're prematurely stopping polling to fix the interrupt
--	 * affinity we want to make sure polling starts back up so we
--	 * issue a call to i40e_force_wb which triggers a SW interrupt.
--	 */
--	if (!clean_complete)
--		i40e_force_wb(vsi, q_vector);
--	else
--		i40e_update_enable_itr(vsi, q_vector);
-+	i40e_update_enable_itr(vsi, q_vector);
- 
- 	return min(work_done, budget - 1);
- }
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-index d91676ccf125..f15e341ada9e 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
-@@ -1575,7 +1575,6 @@ int i40evf_napi_poll(struct napi_struct *napi, int budget)
- 
- 	/* If work not completed, return budget and polling will return */
- 	if (!clean_complete) {
--		const cpumask_t *aff_mask = &q_vector->affinity_mask;
- 		int cpu_id = smp_processor_id();
- 
- 		/* It is possible that the interrupt affinity has changed but,
-@@ -1585,14 +1584,22 @@ int i40evf_napi_poll(struct napi_struct *napi, int budget)
- 		 * continue to poll, otherwise we must stop polling so the
- 		 * interrupt can move to the correct cpu.
- 		 */
--		if (likely(cpumask_test_cpu(cpu_id, aff_mask))) {
-+		if (!cpumask_test_cpu(cpu_id, &q_vector->affinity_mask)) {
-+			/* Tell napi that we are done polling */
-+			napi_complete_done(napi, work_done);
-+
-+			/* Force an interrupt */
-+			i40evf_force_wb(vsi, q_vector);
-+
-+			/* Return budget-1 so that polling stops */
-+			return budget - 1;
-+		}
- tx_only:
--			if (arm_wb) {
--				q_vector->tx.ring[0].tx_stats.tx_force_wb++;
--				i40e_enable_wb_on_itr(vsi, q_vector);
--			}
--			return budget;
-+		if (arm_wb) {
-+			q_vector->tx.ring[0].tx_stats.tx_force_wb++;
-+			i40e_enable_wb_on_itr(vsi, q_vector);
- 		}
-+		return budget;
- 	}
- 
- 	if (vsi->back->flags & I40E_TXR_FLAGS_WB_ON_ITR)
-@@ -1601,14 +1608,7 @@ int i40evf_napi_poll(struct napi_struct *napi, int budget)
- 	/* Work is done so exit the polling mode and re-enable the interrupt */
- 	napi_complete_done(napi, work_done);
- 
--	/* If we're prematurely stopping polling to fix the interrupt
--	 * affinity we want to make sure polling starts back up so we
--	 * issue a call to i40evf_force_wb which triggers a SW interrupt.
--	 */
--	if (!clean_complete)
--		i40evf_force_wb(vsi, q_vector);
--	else
--		i40e_update_enable_itr(vsi, q_vector);
-+	i40e_update_enable_itr(vsi, q_vector);
- 
- 	return min(work_done, budget - 1);
- }
+ 		break;
 -- 
 2.14.1
