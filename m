@@ -1,42 +1,73 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] DSA support for Micrel KSZ8895
-Date: Mon, 28 Aug 2017 16:09:27 +0200
-Message-ID: <20170828140927.GD10418@lunn.ch>
-References: <20170816075524.GA18532@amd>
- <20170816140451.GA13006@lunn.ch>
- <9235D6609DB808459E95D78E17F2E43D40AFF8C1@CHN-SV-EXMX02.mchp-main.com>
- <20170827123658.GA727@amd>
- <20170827163122.GG13622@lunn.ch>
- <20170828070232.GA18135@amd>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: [net-next PATCH 0/9] sockmap UAPI updates and fixes
+Date: Mon, 28 Aug 2017 07:09:45 -0700
+Message-ID: <20170828140850.14143.83953.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Woojung.Huh@microchip.com, nathan.leigh.conrad@gmail.com,
-        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Tristram.Ha@micrel.com
-To: Pavel Machek <pavel@ucw.cz>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, john.fastabend@gmail.com
+To: ast@kernel.org, daniel@iogearbox.net, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:46232 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751161AbdH1OJb (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 28 Aug 2017 10:09:31 -0400
-Content-Disposition: inline
-In-Reply-To: <20170828070232.GA18135@amd>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:36211 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751161AbdH1OJ7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 10:09:59 -0400
+Received: by mail-pf0-f196.google.com with SMTP id k3so391955pfc.3
+        for <netdev@vger.kernel.org>; Mon, 28 Aug 2017 07:09:59 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> I may be confused here, but AFAICT:
-> 
-> 1) Yes, it has standard layout when accessed over MDIO. 
+This series updates sockmap UAPI, adds additional test cases and
+provides a couple fixes.
+
+First the UAPI changes. The original API added two sockmap specific
+API artifacts (a) a new map_flags field with a sockmap specific update
+command and (b) a new sockmap specific attach field in the attach data
+structure. After this series instead of attaching programs with a
+single command now two commands are used to attach programs to maps
+individually. This allows us to add new programs easily in the future
+and avoids any specific sockmap data structure additions. The
+map_flags field is also removed and instead we allow socks to be
+added to multiple maps that may or may not have programs attached.
+This allows users to decide if a sock should run a SK_SKB program type
+on receive based on the map it is attached to. This is a nice
+improvement. See patches for specific details.
+
+More test cases were added to test above changes and also stress test
+the interface.
+
+Finally two fixes/improvements were made. First a missing rcu
+section was added. Second now sockmap can build without KCM being
+used to trigger 'y' on CONFIG_STREAM_PARSER by selecting a new
+BPF config option.
+
+---
+
+John Fastabend (9):
+      bpf: convert sockmap field attach_bpf_fd2 to type
+      bpf: sockmap, remove STRPARSER map_flags and add multi-map support
+      bpf: sockmap add missing rcu_read_(un)lock in smap_data_ready
+      bpf: additional sockmap self tests
+      bpf: more SK_SKB selftests
+      bpf: harden sockmap program attach to ensure correct map type
+      bpf: sockmap indicate sock events to listeners
+      bpf: sockmap requires STREAM_PARSER add Kconfig entry
+      bpf: test_maps add sockmap stress test
 
 
-Section 4.8 of the datasheet says:
-
-	All the registers defined in this section can be also accessed
-	via the SPI interface.
-
-Meaning all PHY registers can be access via the SPI interface. So you
-should be able to make a standard Linux MDIO bus driver which performs
-SPI reads.
-
-    Andrew
+ include/linux/bpf.h                                |   10 +
+ include/uapi/linux/bpf.h                           |   12 -
+ kernel/bpf/sockmap.c                               |  312 ++++++++++++--------
+ kernel/bpf/syscall.c                               |   38 +-
+ net/Kconfig                                        |   12 +
+ samples/sockmap/sockmap_kern.c                     |    6 
+ samples/sockmap/sockmap_user.c                     |   12 +
+ tools/include/uapi/linux/bpf.h                     |    9 -
+ tools/lib/bpf/bpf.c                                |   14 -
+ tools/lib/bpf/bpf.h                                |    4 
+ tools/testing/selftests/bpf/bpf_helpers.h          |    3 
+ tools/testing/selftests/bpf/sockmap_parse_prog.c   |    8 -
+ tools/testing/selftests/bpf/sockmap_verdict_prog.c |   30 ++
+ tools/testing/selftests/bpf/test_maps.c            |  272 +++++++++++------
+ tools/testing/selftests/bpf/test_verifier.c        |   98 ++++++
+ 15 files changed, 544 insertions(+), 296 deletions(-)
