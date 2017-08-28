@@ -1,66 +1,93 @@
-From: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
-Subject: Re: [PATCH] igb: check memory allocation failure
-Date: Mon, 28 Aug 2017 19:12:30 +0200
-Message-ID: <95a0bc80-8b41-d74f-8059-ae7181493120@wanadoo.fr>
-References: <20170827063951.5975-1-christophe.jaillet@wanadoo.fr>
- <E0D909EE5BB15A4699798539EA149D7F0779685B@ORSMSX103.amr.corp.intel.com>
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: Re: [PATCH net-next] selftests/bpf: check the instruction dumps are
+ populated
+Date: Mon, 28 Aug 2017 10:19:23 -0700
+Message-ID: <20170828171923.5zei7u5q7gmlhck3@kafai-mba.dhcp.thefacebook.com>
+References: <20170825213957.4768-1-jakub.kicinski@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
-To: "Waskiewicz Jr, Peter" <peter.waskiewicz.jr@intel.com>,
-        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <E0D909EE5BB15A4699798539EA149D7F0779685B@ORSMSX103.amr.corp.intel.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, <daniel@iogearbox.net>,
+        <oss-drivers@netronome.com>
+To: Jakub Kicinski <jakub.kicinski@netronome.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:42960 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1750866AbdH1RTs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 13:19:48 -0400
+Content-Disposition: inline
+In-Reply-To: <20170825213957.4768-1-jakub.kicinski@netronome.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le 28/08/2017 à 01:09, Waskiewicz Jr, Peter a écrit :
-> On 8/27/17 2:42 AM, Christophe JAILLET wrote:
->> Check memory allocation failures and return -ENOMEM in such cases, as
->> already done for other memory allocations in this function.
->>
->> This avoids NULL pointers dereference.
->>
->> Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
->> ---
->>    drivers/net/ethernet/intel/igb/igb_main.c | 2 ++
->>    1 file changed, 2 insertions(+)
->>
->> diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
->> index fd4a46b03cc8..837d9b46a390 100644
->> --- a/drivers/net/ethernet/intel/igb/igb_main.c
->> +++ b/drivers/net/ethernet/intel/igb/igb_main.c
->> @@ -3162,6 +3162,8 @@ static int igb_sw_init(struct igb_adapter *adapter)
->>    	/* Setup and initialize a copy of the hw vlan table array */
->>    	adapter->shadow_vfta = kcalloc(E1000_VLAN_FILTER_TBL_SIZE, sizeof(u32),
->>    				       GFP_ATOMIC);
->> +	if (!adapter->shadow_vfta)
->> +		return -ENOMEM;
-> Looks reasonable to me.
+On Fri, Aug 25, 2017 at 02:39:57PM -0700, Jakub Kicinski wrote:
+> Add a basic test for checking whether kernel is populating
+> the jited and xlated BPF images.  It was used to confirm
+> the behaviour change from commit d777b2ddbecf ("bpf: don't
+> zero out the info struct in bpf_obj_get_info_by_fd()"),
+> which made bpf_obj_get_info_by_fd() usable for retrieving
+> the image dumps.
+Acked-by: Martin KaFai Lau <kafai@fb.com>
+
 >
-> A larger issue though I see in this function is that if we return
-> -ENOMEM here, and if we return -ENOMEM from igb_init_interrupt_scheme()
-> below on failure, we leak adapter->mac_table (and adapter->shadow_vfta
-> in the latter).  We should add a proper unwind to free up the memory on
-> failure.
+> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+> ---
+>  tools/testing/selftests/bpf/test_progs.c | 16 ++++++++++++----
+>  1 file changed, 12 insertions(+), 4 deletions(-)
 >
-> -PJ
+> diff --git a/tools/testing/selftests/bpf/test_progs.c b/tools/testing/selftests/bpf/test_progs.c
+> index 1cb037803679..11ee25cea227 100644
+> --- a/tools/testing/selftests/bpf/test_progs.c
+> +++ b/tools/testing/selftests/bpf/test_progs.c
+> @@ -279,7 +279,7 @@ static void test_bpf_obj_id(void)
+>  	/* +1 to test for the info_len returned by kernel */
+>  	struct bpf_prog_info prog_infos[nr_iters + 1];
+>  	struct bpf_map_info map_infos[nr_iters + 1];
+> -	char jited_insns[128], xlated_insns[128];
+> +	char jited_insns[128], xlated_insns[128], zeros[128];
+>  	__u32 i, next_id, info_len, nr_id_found, duration = 0;
+>  	int sysctl_fd, jit_enabled = 0, err = 0;
+>  	__u64 array_value;
+> @@ -305,6 +305,7 @@ static void test_bpf_obj_id(void)
+>  		objs[i] = NULL;
 >
-Hi,
-
-in fact, there is no leak because the only caller of 'igb_sw_init()' 
-(i.e. 'igb_probe()'), already frees these resources in case of error, 
-see [1]
-
-These resources are also freed  in 'igb_remove()'.
-
-Best reagrds,
-CJ
-
-[1]: 
-https://git.kernel.org/pub/scm/linux/kernel/git/next/linux-next.git/tree/drivers/net/ethernet/intel/igb/igb_main.c#n2775
+>  	/* Check bpf_obj_get_info_by_fd() */
+> +	bzero(zeros, sizeof(zeros));
+>  	for (i = 0; i < nr_iters; i++) {
+>  		err = bpf_prog_load(file, BPF_PROG_TYPE_SOCKET_FILTER,
+>  				    &objs[i], &prog_fds[i]);
+> @@ -318,6 +319,8 @@ static void test_bpf_obj_id(void)
+>  		/* Check getting prog info */
+>  		info_len = sizeof(struct bpf_prog_info) * 2;
+>  		bzero(&prog_infos[i], info_len);
+> +		bzero(jited_insns, sizeof(jited_insns));
+> +		bzero(xlated_insns, sizeof(xlated_insns));
+>  		prog_infos[i].jited_prog_insns = ptr_to_u64(jited_insns);
+>  		prog_infos[i].jited_prog_len = sizeof(jited_insns);
+>  		prog_infos[i].xlated_prog_insns = ptr_to_u64(xlated_insns);
+> @@ -328,15 +331,20 @@ static void test_bpf_obj_id(void)
+>  			  prog_infos[i].type != BPF_PROG_TYPE_SOCKET_FILTER ||
+>  			  info_len != sizeof(struct bpf_prog_info) ||
+>  			  (jit_enabled && !prog_infos[i].jited_prog_len) ||
+> -			  !prog_infos[i].xlated_prog_len,
+> +			  (jit_enabled &&
+> +			   !memcmp(jited_insns, zeros, sizeof(zeros))) ||
+> +			  !prog_infos[i].xlated_prog_len ||
+> +			  !memcmp(xlated_insns, zeros, sizeof(zeros)),
+>  			  "get-prog-info(fd)",
+> -			  "err %d errno %d i %d type %d(%d) info_len %u(%lu) jit_enabled %d jited_prog_len %u xlated_prog_len %u\n",
+> +			  "err %d errno %d i %d type %d(%d) info_len %u(%lu) jit_enabled %d jited_prog_len %u xlated_prog_len %u jited_prog %d xlated_prog %d\n",
+>  			  err, errno, i,
+>  			  prog_infos[i].type, BPF_PROG_TYPE_SOCKET_FILTER,
+>  			  info_len, sizeof(struct bpf_prog_info),
+>  			  jit_enabled,
+>  			  prog_infos[i].jited_prog_len,
+> -			  prog_infos[i].xlated_prog_len))
+> +			  prog_infos[i].xlated_prog_len,
+> +			  !!memcmp(jited_insns, zeros, sizeof(zeros)),
+> +			  !!memcmp(xlated_insns, zeros, sizeof(zeros))))
+>  			goto done;
+>
+>  		map_fds[i] = bpf_find_map(__func__, objs[i], "test_map_id");
+> --
+> 2.11.0
+>
