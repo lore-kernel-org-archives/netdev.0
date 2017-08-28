@@ -1,74 +1,94 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 03/15] i40e: prevent snprintf format specifier truncation
-Date: Sun, 27 Aug 2017 17:15:51 -0700
-Message-ID: <20170828001603.75876-4-jeffrey.t.kirsher@intel.com>
-References: <20170828001603.75876-1-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 00/15][pull request] 40GbE Intel Wired LAN Driver Updates 2017-08-27
+Date: Sun, 27 Aug 2017 17:15:48 -0700
+Message-ID: <20170828001603.75876-1-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:47467 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:55214 "EHLO mga14.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751646AbdH1AQS (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 27 Aug 2017 20:16:18 -0400
-In-Reply-To: <20170828001603.75876-1-jeffrey.t.kirsher@intel.com>
+        id S1751493AbdH1AQR (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 27 Aug 2017 20:16:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+This series contains updates to i40e and i40evf only.
 
-Increase the size of the prefix buffer so that it can hold enough
-characters for every possible input. Although 20 is enough for all
-expected inputs, it is possible for the values to be larger than
-expected, resulting in a possibly truncated string. Additionally, lets
-use sizeof(prefix) in order to ensure we use the correct size if we need
-to change the array length in the future.
+Sudheer updates code comments and state variable so that adminq_subtask
+will have accutate information whenever it gets scheduled.
 
-New versions of GCC starting at 7 now include warnings to prevent
-truncation unless you handle the return code. At most 27 bytes can be
-written here, so lets just increase the buffer size even if for all
-expected hw->bus.* values we only needed 20.
+Mariusz stores information about FEC modes, to be used to printing link
+states information, so that we do not need to call admin queue when
+reporting link status.  Adds VF support for controlling VLAN tag
+stripping via ethtool.
 
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e_common.c   | 4 ++--
- drivers/net/ethernet/intel/i40evf/i40e_common.c | 4 ++--
- 2 files changed, 4 insertions(+), 4 deletions(-)
+Jake provides the majority of changes in this series, starting with
+increasing the size of the prefix buffer so that it can hold enough
+characters for every possible input, which prevents snprintf truncation.
+Fixed other string truncation errors/warnings produced by GCC 7.x.
+Removed an unnecessary workaround for resetting XPS.  Fixed an issue
+where there is a mismatched affinity mask value, so initialize the value
+to cpu_possible_mask and invert the logic for checking incorrect CPU vs
+IRQ affinity so that the exceptional case is handled at the check.
+Removed ULTRA latency mode due to several issues found and will be
+looking at better solution for small packet workloads.
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
-index 5c36a18a31be..111426ba5fbc 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_common.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
-@@ -328,9 +328,9 @@ void i40e_debug_aq(struct i40e_hw *hw, enum i40e_debug_mask mask, void *desc,
- 			len = buf_len;
- 		/* write the full 16-byte chunks */
- 		if (hw->debug_mask & mask) {
--			char prefix[20];
-+			char prefix[27];
- 
--			snprintf(prefix, 20,
-+			snprintf(prefix, sizeof(prefix),
- 				 "i40e %02x:%02x.%x: \t0x",
- 				 hw->bus.bus_id,
- 				 hw->bus.device,
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_common.c b/drivers/net/ethernet/intel/i40evf/i40e_common.c
-index d69c2e44cd1a..8d3a2bfe186a 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_common.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_common.c
-@@ -333,9 +333,9 @@ void i40evf_debug_aq(struct i40e_hw *hw, enum i40e_debug_mask mask, void *desc,
- 			len = buf_len;
- 		/* write the full 16-byte chunks */
- 		if (hw->debug_mask & mask) {
--			char prefix[20];
-+			char prefix[27];
- 
--			snprintf(prefix, 20,
-+			snprintf(prefix, sizeof(prefix),
- 				 "i40evf %02x:%02x.%x: \t0x",
- 				 hw->bus.bus_id,
- 				 hw->bus.device,
+Akeem fixes an issue where the incorrect flag was being used to set
+promiscuous mode for unicast, which was enabling promiscuous mode only
+for multicast instead of unicast.
+
+Carolyn fixes an issue where an error return value is set, but this
+value can be overwritten before we actually do exit the function.  So
+remove the error code assignment and add code comments for better
+understanding on why we do not need to set and return the error.
+
+The following are changes since commit ec15ecdee5eb9e33a565e1e8eaef39fd4de565cb:
+  net: mvpp2: fix the packet size configuration for 10G
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 40GbE
+
+Akeem G Abodunrin (1):
+  i40e: Use correct flag to enable egress traffic for unicast promisc
+
+Carolyn Wyborny (1):
+  i40e: Fix for unused value issue found by static analysis
+
+Jacob Keller (9):
+  i40e: prevent snprintf format specifier truncation
+  i40evf: fix possible snprintf truncation of q_vector->name
+  i40e: force VMDQ device name truncation
+  i40e: remove workaround for resetting XPS
+  i40e: move enabling icr0 into i40e_update_enable_itr
+  i40e: initialize our affinity_mask based on cpu_possible_mask
+  i40e: invert logic for checking incorrect cpu vs irq affinity
+  i40e/i40evf: remove ULTRA latency mode
+  i40e/i40evf: avoid dynamic ITR updates when polling or low packet rate
+
+Mariusz Stachura (3):
+  i40e: Store the requested FEC information
+  i40e/i40evf: support for VF VLAN tag stripping control
+  i40e: 25G FEC status improvements
+
+Sudheer Mogilappagari (1):
+  i40e: Update state variable for adminq subtask
+
+ drivers/net/ethernet/intel/i40e/i40e_common.c      |  8 ++-
+ drivers/net/ethernet/intel/i40e/i40e_main.c        | 58 ++++++++++------
+ drivers/net/ethernet/intel/i40e/i40e_nvm.c         | 10 ++-
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c        | 78 +++++++++++-----------
+ drivers/net/ethernet/intel/i40e/i40e_txrx.h        |  2 +-
+ drivers/net/ethernet/intel/i40e/i40e_type.h        |  1 +
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 62 ++++++++++++++++-
+ drivers/net/ethernet/intel/i40evf/i40e_common.c    |  4 +-
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c      | 69 +++++++++----------
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.h      |  2 +-
+ drivers/net/ethernet/intel/i40evf/i40e_type.h      |  1 +
+ drivers/net/ethernet/intel/i40evf/i40evf.h         |  6 +-
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c    | 61 +++++++++++++----
+ .../net/ethernet/intel/i40evf/i40evf_virtchnl.c    | 40 +++++++++++
+ include/linux/avf/virtchnl.h                       |  5 ++
+ 15 files changed, 285 insertions(+), 122 deletions(-)
+
 -- 
 2.14.1
