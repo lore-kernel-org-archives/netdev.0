@@ -1,67 +1,76 @@
-From: "Rafael J. Wysocki" <rjw@rjwysocki.net>
-Subject: Re: [PATCH 1/6] ACPI: make device_attribute const
-Date: Mon, 28 Aug 2017 22:56:08 +0200
-Message-ID: <34210940.RKebigQkUC@aspire.rjw.lan>
-References: <1503315792-14837-1-git-send-email-bhumirks@gmail.com> <1503315792-14837-2-git-send-email-bhumirks@gmail.com>
+From: Tony Lindgren <tony@atomide.com>
+Subject: Re: Fwd: DA850-evm MAC Address is random
+Date: Mon, 28 Aug 2017 14:12:17 -0700
+Message-ID: <20170828211217.GO6008@atomide.com>
+References: <CAHCN7xKwFd7dHF0ySEd1hOSr0sZEgh9fuwy=RkUTHvEh59hojQ@mail.gmail.com>
+ <b7aab9fc-17ba-077b-3ff3-28087e0b25bc@ti.com>
+ <CAHCN7xLHEjda9DcVw5iHA9RaJ7UnyMVxf7e4e8NTEj9Op1JaBw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: julia.lawall@lip6.fr, lenb@kernel.org, jbacik@fb.com,
-        jikos@kernel.org, benjamin.tissoires@redhat.com,
-        manish.chopra@cavium.com, rahul.verma@cavium.com,
-        Dept-GELinuxNICDev@cavium.com, harish.patil@cavium.com,
-        cascardo@holoscopio.com, don@syst.com.br, dvhart@infradead.org,
-        andy@infradead.org, sre@kernel.org, linux-acpi@vger.kernel.org,
-        linux-kernel@vger.kernel.org, linux-block@vger.kernel.org,
-        nbd-general@lists.sourceforge.net, linux-input@vger.kernel.org,
-        netdev@vger.kernel.org, platform-driver-x86@vger.kernel.org,
-        linux-pm@vger.kernel.org
-To: Bhumika Goyal <bhumirks@gmail.com>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <1503315792-14837-2-git-send-email-bhumirks@gmail.com>
-Sender: linux-acpi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Grygorii Strashko <grygorii.strashko@ti.com>,
+        linux-omap@vger.kernel.org, netdev@vger.kernel.org,
+        Sekhar Nori <nsekhar@ti.com>
+To: Adam Ford <aford173@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from muru.com ([72.249.23.125]:38158 "EHLO muru.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750735AbdH1VMV (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 28 Aug 2017 17:12:21 -0400
+Content-Disposition: inline
+In-Reply-To: <CAHCN7xLHEjda9DcVw5iHA9RaJ7UnyMVxf7e4e8NTEj9Op1JaBw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Monday, August 21, 2017 1:43:07 PM CEST Bhumika Goyal wrote:
-> Make these const as they are only passed as an argument to the function
-> device_create_file and device_remove_file and the corresponding
-> arguments are of type const.
-> Done using Coccinelle
+* Adam Ford <aford173@gmail.com> [170828 13:33]:
+> On Mon, Aug 28, 2017 at 1:54 PM, Grygorii Strashko
+> <grygorii.strashko@ti.com> wrote:
+> > Cc: Sekhar
+> >
+> > On 08/28/2017 10:32 AM, Adam Ford wrote:
+> >>
+> >> The davinvi_emac MAC address seems to attempt a call to
+> >> ti_cm_get_macid in cpsw-common.c but it returns the message
+> >> 'davinci_emac davinci_emac.1: incompatible machine/device type for
+> >> reading mac address ' and then generates a random MAC address.
+> >>
+> >> The function appears to lookup varions boards using
+> >> 'of_machine_is_compaible' and supports dm8148, am33xx, am3517, dm816,
+> >> am4372 and dra7.  I don't see the ti,davinci-dm6467-emac which is
+> >> what's shown in the da850 device tree.
+> >>
+> >> Is there a patch somewhere for supporting the da850-evm?
+> >
+> >
+> > Not sure if MAC address can be read from Control module.
+> > May be Sekhar can say more?
 > 
-> Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
-> ---
->  drivers/acpi/battery.c | 2 +-
->  drivers/acpi/sbs.c     | 2 +-
->  2 files changed, 2 insertions(+), 2 deletions(-)
+> My understanding is that the MAC address is programmed by Logic PD
+> into the SPI flash.  The Bootloader reads this from either SPI or its
+> env variables.  Looking at the partition info listed in the
+> da850-evm.dts file, it appears as if they've reserved space for it.
+> Unfortunately, I don't see any code that reads it out.  I was hoping
+> there might be a way to just pass cmdline parameter from the
+> bootloader to the kernel to accept the MAC address.
 > 
-> diff --git a/drivers/acpi/battery.c b/drivers/acpi/battery.c
-> index 1cbb88d..13e7b56 100644
-> --- a/drivers/acpi/battery.c
-> +++ b/drivers/acpi/battery.c
-> @@ -620,7 +620,7 @@ static ssize_t acpi_battery_alarm_store(struct device *dev,
->  	return count;
->  }
->  
-> -static struct device_attribute alarm_attr = {
-> +static const struct device_attribute alarm_attr = {
->  	.attr = {.name = "alarm", .mode = 0644},
->  	.show = acpi_battery_alarm_show,
->  	.store = acpi_battery_alarm_store,
-> diff --git a/drivers/acpi/sbs.c b/drivers/acpi/sbs.c
-> index a184637..a2428e9 100644
-> --- a/drivers/acpi/sbs.c
-> +++ b/drivers/acpi/sbs.c
-> @@ -474,7 +474,7 @@ static ssize_t acpi_battery_alarm_store(struct device *dev,
->  	return count;
->  }
->  
-> -static struct device_attribute alarm_attr = {
-> +static const struct device_attribute alarm_attr = {
->  	.attr = {.name = "alarm", .mode = 0644},
->  	.show = acpi_battery_alarm_show,
->  	.store = acpi_battery_alarm_store,
+> >
+> >>
+> >> If not, is there a way to pass the MAC address from U-Boot to the
+> >> driver so it doesn't generate a random MAC?
+> >
+> >
+> > "local-mac-address" dt porp
 > 
+> The downside here, is that we'd have to have the Bootloader modify the
+> device tree.
 
-Applied, thanks!
+That piece of code exists somewhere in u-boot already. Note how
+we are populating the mac address for USB Ethernet drivers in
+u-boot and then the Ethernet driver code parses it. See commit
+055d31de7158 ("ARM: omap3: beagleboard-xm: dt: Add ethernet to
+the device tree") for some more information.
 
+I think u-boot needs the ethernet alias for finding the interface.
 
+Regards,
+
+Tony
