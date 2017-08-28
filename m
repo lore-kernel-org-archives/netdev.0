@@ -1,54 +1,47 @@
-From: Pavel Belous <Pavel.Belous@aquantia.com>
-Subject: [PATCH net v2 6/6] net:ethernet:aquantia: Show info message if bad firmware version detected.
-Date: Mon, 28 Aug 2017 21:52:13 +0300
-Message-ID: <a692b1c8e8884c0c957fd2e7a8bee423dd8ffafd.1503945861.git.pavel.belous@aquantia.com>
-References: <cover.1503945861.git.pavel.belous@aquantia.com>
+From: Grygorii Strashko <grygorii.strashko@ti.com>
+Subject: Re: Fwd: DA850-evm MAC Address is random
+Date: Mon, 28 Aug 2017 13:54:45 -0500
+Message-ID: <b7aab9fc-17ba-077b-3ff3-28087e0b25bc@ti.com>
+References: <CAHCN7xKwFd7dHF0ySEd1hOSr0sZEgh9fuwy=RkUTHvEh59hojQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, David Arcari <darcari@redhat.com>,
-        Igor Russkikh <Igor.Russkikh@aquantia.com>,
-        Nadezhda Krupnina <Nadezhda.Krupnina@aquantia.com>,
-        Simon Edelhaus <simon.edelhaus@aquantia.com>,
-        Pavel Belous <pavel.belous@aquantia.com>,
-        Pavel Belous <Pavel.Belous@aquantia.com>
-To: "David S . Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Adam Ford <aford173@gmail.com>, <linux-omap@vger.kernel.org>,
+        <netdev@vger.kernel.org>, Sekhar Nori <nsekhar@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sn1nam01on0068.outbound.protection.outlook.com ([104.47.32.68]:28764
-        "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751190AbdH1Sxe (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 28 Aug 2017 14:53:34 -0400
-In-Reply-To: <cover.1503945861.git.pavel.belous@aquantia.com>
+Received: from lelnx194.ext.ti.com ([198.47.27.80]:29750 "EHLO
+        lelnx194.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751203AbdH1Syq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 14:54:46 -0400
+In-Reply-To: <CAHCN7xKwFd7dHF0ySEd1hOSr0sZEgh9fuwy=RkUTHvEh59hojQ@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pavel Belous <pavel.belous@aquantia.com>
+Cc: Sekhar
 
-We should inform user about wrong firmware version
-by printing message in dmesg.
+On 08/28/2017 10:32 AM, Adam Ford wrote:
+> The davinvi_emac MAC address seems to attempt a call to
+> ti_cm_get_macid in cpsw-common.c but it returns the message
+> 'davinci_emac davinci_emac.1: incompatible machine/device type for
+> reading mac address ' and then generates a random MAC address.
+> 
+> The function appears to lookup varions boards using
+> 'of_machine_is_compaible' and supports dm8148, am33xx, am3517, dm816,
+> am4372 and dra7.  I don't see the ti,davinci-dm6467-emac which is
+> what's shown in the da850 device tree.
+> 
+> Is there a patch somewhere for supporting the da850-evm?
 
-Fixes: 3d2ff7eebe26 ("net: ethernet: aquantia: Atlantic hardware abstraction layer")
-Signed-off-by: Pavel Belous <Pavel.Belous@aquantia.com>
----
- drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_utils.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+Not sure if MAC address can be read from Control module.
+May be Sekhar can say more?
 
-diff --git a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_utils.c b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_utils.c
-index 7a1332e..4f5ec9a 100644
---- a/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_utils.c
-+++ b/drivers/net/ethernet/aquantia/atlantic/hw_atl/hw_atl_utils.c
-@@ -141,6 +141,12 @@ static int hw_atl_utils_init_ucp(struct aq_hw_s *self,
- 
- 	err = hw_atl_utils_ver_match(aq_hw_caps->fw_ver_expected,
- 				     aq_hw_read_reg(self, 0x18U));
-+
-+	if (err < 0)
-+		pr_err("%s: Bad FW version detected: expected=%x, actual=%x\n",
-+		       AQ_CFG_DRV_NAME,
-+		       aq_hw_caps->fw_ver_expected,
-+		       aq_hw_read_reg(self, 0x18U));
- 	return err;
- }
- 
+> 
+> If not, is there a way to pass the MAC address from U-Boot to the
+> driver so it doesn't generate a random MAC?
+
+"local-mac-address" dt porp
+
 -- 
-2.7.4
+regards,
+-grygorii
