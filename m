@@ -1,70 +1,76 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: DSA support for Micrel KSZ8895
-Date: Mon, 28 Aug 2017 12:14:52 +0200
-Message-ID: <20170828101451.GC18012@amd>
-References: <20170816075524.GA18532@amd>
- <20170816140451.GA13006@lunn.ch>
- <9235D6609DB808459E95D78E17F2E43D40AFF8C1@CHN-SV-EXMX02.mchp-main.com>
- <20170823090941.GA27570@amd>
- <9235D6609DB808459E95D78E17F2E43D40B05FFF@CHN-SV-EXMX02.mchp-main.com>
+From: Baruch Siach <baruch-NswTu9S1W3P6gbPvEgmw2w@public.gmane.org>
+Subject: Re: [PATCH] dt-binding: net/phy: fix interrupts description
+Date: Mon, 28 Aug 2017 13:20:39 +0300
+Message-ID: <20170828102039.wdylojqcrn2avv2f@tarshish>
+References: <b3756346473feadfeba70ecb71960cad48e66621.1503468660.git.baruch@tkos.co.il>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="jousvV0MzM2p6OtC"
-Cc: nathan.leigh.conrad@gmail.com, vivien.didelot@savoirfairelinux.com,
-        f.fainelli@gmail.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Tristram.Ha@micrel.com,
-        andrew@lunn.ch
-To: Woojung.Huh@microchip.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <9235D6609DB808459E95D78E17F2E43D40B05FFF@CHN-SV-EXMX02.mchp-main.com>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <b3756346473feadfeba70ecb71960cad48e66621.1503468660.git.baruch-NswTu9S1W3P6gbPvEgmw2w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+Hi Dave,
 
---jousvV0MzM2p6OtC
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+On Wed, Aug 23, 2017 at 09:11:00AM +0300, Baruch Siach wrote:
+> Commit b053dc5a722ea (powerpc: Refactor device tree binding) split the
+> Ethernet PHY binding documentation out of the big booting-without-of.txt
+> file, leaving a dangling reference to "section 2" in the 'interrupts'
+> property description. Drop that reference, and make the description look
+> more like the rest.
+> 
+> While at it, make the example interrupt-parent phandle look more like a
+> real world phandle, and use an IRQ_TYPE_ macro for the 'interrupts'
+> type.
 
-Hi!
+This patch is now marked 'Not Applicable' in the netdev patchwork. Why is 
+that? Should it go through some other tree?
 
-> > > I'll forward your email to our support.
-> > > AFAIK, KSZ8895 has different register mapping from KSZ9477,
-> > > it will be more than ID changes in current driver.
-> >=20
-> > More than ID changes, indeed. As layout is completely different, it
-> > looks like different source file will be needed for support.
-> >=20
-> > I'm not nearly there; but I can ifconfig lanX up, already, and perform
-> > some pings.
-> >=20
-> > Any ideas how to do the work in a way to minimize code duplication are
-> > welcome...
->=20
-> Which version do you use to create patch?
-> Getting error when applying patch to the latest net-next.
+baruch
 
-I'm working at 4.13-rc.
+> Signed-off-by: Baruch Siach <baruch-NswTu9S1W3P6gbPvEgmw2w@public.gmane.org>
+> ---
+>  Documentation/devicetree/bindings/net/phy.txt | 10 +++-------
+>  1 file changed, 3 insertions(+), 7 deletions(-)
+> 
+> diff --git a/Documentation/devicetree/bindings/net/phy.txt b/Documentation/devicetree/bindings/net/phy.txt
+> index b55857696fc3..86ba72af6163 100644
+> --- a/Documentation/devicetree/bindings/net/phy.txt
+> +++ b/Documentation/devicetree/bindings/net/phy.txt
+> @@ -2,11 +2,7 @@ PHY nodes
+>  
+>  Required properties:
+>  
+> - - interrupts : <a b> where a is the interrupt number and b is a
+> -   field that represents an encoding of the sense and level
+> -   information for the interrupt.  This should be encoded based on
+> -   the information in section 2) depending on the type of interrupt
+> -   controller you have.
+> + - interrupts : interrupt specifier for the sole interrupt.
+>   - interrupt-parent : the phandle for the interrupt controller that
+>     services interrupts for this device.
+>   - reg : The ID number for the phy, usually a small integer
+> @@ -56,7 +52,7 @@ Example:
+>  
+>  ethernet-phy@0 {
+>  	compatible = "ethernet-phy-id0141.0e90", "ethernet-phy-ieee802.3-c22";
+> -	interrupt-parent = <40000>;
+> -	interrupts = <35 1>;
+> +	interrupt-parent = <&PIC>;
+> +	interrupts = <35 IRQ_TYPE_EDGE_RISING>;
+>  	reg = <0>;
+>  };
 
-Best regards,
-									Pavel
-
---=20
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
-g.html
-
---jousvV0MzM2p6OtC
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iEYEARECAAYFAlmj7RsACgkQMOfwapXb+vL44QCfRTtColsZVOtHGTZrvhGGZ65/
-KV4An3aTufFmoii5bJPVrlKd1MJaDK/h
-=OSMC
------END PGP SIGNATURE-----
-
---jousvV0MzM2p6OtC--
+-- 
+     http://baruch.siach.name/blog/                  ~. .~   Tk Open Systems
+=}------------------------------------------------ooO--U--Ooo------------{=
+   - baruch-NswTu9S1W3P6gbPvEgmw2w@public.gmane.org - tel: +972.52.368.4656, http://www.tkos.co.il -
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
