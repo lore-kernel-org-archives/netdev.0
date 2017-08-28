@@ -1,93 +1,49 @@
-From: Martin KaFai Lau <kafai@fb.com>
-Subject: Re: [PATCH net-next] selftests/bpf: check the instruction dumps are
- populated
-Date: Mon, 28 Aug 2017 10:19:23 -0700
-Message-ID: <20170828171923.5zei7u5q7gmlhck3@kafai-mba.dhcp.thefacebook.com>
-References: <20170825213957.4768-1-jakub.kicinski@netronome.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [net-next PATCH 1/9] bpf: convert sockmap field attach_bpf_fd2
+ to type
+Date: Mon, 28 Aug 2017 10:22:04 -0700
+Message-ID: <20170828172202.mhwqfssg6xgssi52@ast-mbp>
+References: <20170828140850.14143.83953.stgit@john-Precision-Tower-5810>
+ <20170828141004.14143.19285.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, <daniel@iogearbox.net>,
-        <oss-drivers@netronome.com>
-To: Jakub Kicinski <jakub.kicinski@netronome.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: ast@kernel.org, daniel@iogearbox.net, davem@davemloft.net,
+        netdev@vger.kernel.org
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:42960 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750866AbdH1RTs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 13:19:48 -0400
+Received: from mail-pg0-f50.google.com ([74.125.83.50]:36836 "EHLO
+        mail-pg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751161AbdH1RWI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 13:22:08 -0400
+Received: by mail-pg0-f50.google.com with SMTP id r133so3238038pgr.3
+        for <netdev@vger.kernel.org>; Mon, 28 Aug 2017 10:22:08 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20170825213957.4768-1-jakub.kicinski@netronome.com>
+In-Reply-To: <20170828141004.14143.19285.stgit@john-Precision-Tower-5810>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 25, 2017 at 02:39:57PM -0700, Jakub Kicinski wrote:
-> Add a basic test for checking whether kernel is populating
-> the jited and xlated BPF images.  It was used to confirm
-> the behaviour change from commit d777b2ddbecf ("bpf: don't
-> zero out the info struct in bpf_obj_get_info_by_fd()"),
-> which made bpf_obj_get_info_by_fd() usable for retrieving
-> the image dumps.
-Acked-by: Martin KaFai Lau <kafai@fb.com>
+On Mon, Aug 28, 2017 at 07:10:04AM -0700, John Fastabend wrote:
+> In the initial sockmap API we provided strparser and verdict programs
+> using a single attach command by extending the attach API with a the
+> attach_bpf_fd2 field.
+> 
+> However, if we add other programs in the future we will be adding a
+> field for every new possible type, attach_bpf_fd(3,4,..). This
+> seems a bit clumsy for an API. So lets push the programs using two
+> new type fields.
+> 
+>    BPF_SK_SKB_STREAM_PARSER
+>    BPF_SK_SKB_STREAM_VERDICT
+> 
+> This has the advantage of having a readable name and can easily be
+> extended in the future.
+> 
+> Updates to samples and sockmap included here also generalize tests
+> slightly to support upcoming patch for multiple map support.
+> 
+> Signed-off-by: John Fastabend <john.fastabend@gmail.com>
+> Fixes: 174a79ff9515 ("bpf: sockmap with sk redirect support")
+> Suggested-by: Alexei Starovoitov <ast@kernel.org>
 
->
-> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
-> ---
->  tools/testing/selftests/bpf/test_progs.c | 16 ++++++++++++----
->  1 file changed, 12 insertions(+), 4 deletions(-)
->
-> diff --git a/tools/testing/selftests/bpf/test_progs.c b/tools/testing/selftests/bpf/test_progs.c
-> index 1cb037803679..11ee25cea227 100644
-> --- a/tools/testing/selftests/bpf/test_progs.c
-> +++ b/tools/testing/selftests/bpf/test_progs.c
-> @@ -279,7 +279,7 @@ static void test_bpf_obj_id(void)
->  	/* +1 to test for the info_len returned by kernel */
->  	struct bpf_prog_info prog_infos[nr_iters + 1];
->  	struct bpf_map_info map_infos[nr_iters + 1];
-> -	char jited_insns[128], xlated_insns[128];
-> +	char jited_insns[128], xlated_insns[128], zeros[128];
->  	__u32 i, next_id, info_len, nr_id_found, duration = 0;
->  	int sysctl_fd, jit_enabled = 0, err = 0;
->  	__u64 array_value;
-> @@ -305,6 +305,7 @@ static void test_bpf_obj_id(void)
->  		objs[i] = NULL;
->
->  	/* Check bpf_obj_get_info_by_fd() */
-> +	bzero(zeros, sizeof(zeros));
->  	for (i = 0; i < nr_iters; i++) {
->  		err = bpf_prog_load(file, BPF_PROG_TYPE_SOCKET_FILTER,
->  				    &objs[i], &prog_fds[i]);
-> @@ -318,6 +319,8 @@ static void test_bpf_obj_id(void)
->  		/* Check getting prog info */
->  		info_len = sizeof(struct bpf_prog_info) * 2;
->  		bzero(&prog_infos[i], info_len);
-> +		bzero(jited_insns, sizeof(jited_insns));
-> +		bzero(xlated_insns, sizeof(xlated_insns));
->  		prog_infos[i].jited_prog_insns = ptr_to_u64(jited_insns);
->  		prog_infos[i].jited_prog_len = sizeof(jited_insns);
->  		prog_infos[i].xlated_prog_insns = ptr_to_u64(xlated_insns);
-> @@ -328,15 +331,20 @@ static void test_bpf_obj_id(void)
->  			  prog_infos[i].type != BPF_PROG_TYPE_SOCKET_FILTER ||
->  			  info_len != sizeof(struct bpf_prog_info) ||
->  			  (jit_enabled && !prog_infos[i].jited_prog_len) ||
-> -			  !prog_infos[i].xlated_prog_len,
-> +			  (jit_enabled &&
-> +			   !memcmp(jited_insns, zeros, sizeof(zeros))) ||
-> +			  !prog_infos[i].xlated_prog_len ||
-> +			  !memcmp(xlated_insns, zeros, sizeof(zeros)),
->  			  "get-prog-info(fd)",
-> -			  "err %d errno %d i %d type %d(%d) info_len %u(%lu) jit_enabled %d jited_prog_len %u xlated_prog_len %u\n",
-> +			  "err %d errno %d i %d type %d(%d) info_len %u(%lu) jit_enabled %d jited_prog_len %u xlated_prog_len %u jited_prog %d xlated_prog %d\n",
->  			  err, errno, i,
->  			  prog_infos[i].type, BPF_PROG_TYPE_SOCKET_FILTER,
->  			  info_len, sizeof(struct bpf_prog_info),
->  			  jit_enabled,
->  			  prog_infos[i].jited_prog_len,
-> -			  prog_infos[i].xlated_prog_len))
-> +			  prog_infos[i].xlated_prog_len,
-> +			  !!memcmp(jited_insns, zeros, sizeof(zeros)),
-> +			  !!memcmp(xlated_insns, zeros, sizeof(zeros))))
->  			goto done;
->
->  		map_fds[i] = bpf_find_map(__func__, objs[i], "test_map_id");
-> --
-> 2.11.0
->
+lgtm
+Acked-by: Alexei Starovoitov <ast@kernel.org>
