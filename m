@@ -1,72 +1,60 @@
-From: "Waskiewicz Jr, Peter" <peter.waskiewicz.jr@intel.com>
-Subject: Re: Get ARP/ND tables from kernel
-Date: Mon, 28 Aug 2017 02:53:19 +0000
-Message-ID: <E0D909EE5BB15A4699798539EA149D7F07796D3C@ORSMSX103.amr.corp.intel.com>
-References: <CAJW__LkW10SWRmEKP_0YxjbVHjUYqJFPKsKn-52D1ucF+HH9uQ@mail.gmail.com>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [PATCH net-next v7 00/10] Landlock LSM: Toward
+ unprivileged sandboxing
+Date: Mon, 28 Aug 2017 13:38:26 +1000 (AEST)
+Message-ID: <alpine.LRH.2.20.1708281335290.8842@namei.org>
+References: <20170821000933.13024-1-mic@digikod.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: multipart/mixed; BOUNDARY="1665246916-700125660-1503891508=:8842"
+Cc: linux-kernel@vger.kernel.org, Alexei Starovoitov <ast@kernel.org>,
+        Andy Lutomirski <luto@amacapital.net>,
+        Arnaldo Carvalho de Melo <acme@kernel.org>,
+        Casey Schaufler <casey@schaufler-ca.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        David Drysdale <drysdale@google.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        "Eric W . Biederman" <ebiederm@xmission.com>,
+        James Morris <james.l.morris@oracle.com>, Jann Horn <jann@thejh.net>,
+        Jonathan Corbet <corbet@lwn.net>,
+        Matthew Garrett <mjg59@srcf.ucam.org>,
+        Michael Kerrisk <mtk.manpages@gmail.com>,
+        Kees Cook <keescook@chromium.org>, Paul Moore <paul@paul-moore.com>,
+        Sargun Dhillon <sargun@sargun.me>,
+        "Serge E . Hallyn" <serge@hallyn.com>, Shuah Khan <shuah@kernel.org>,
+        Tejun Heo <tj@kernel.org>, Thomas Graf <tgraf@suug.ch>,
+To: =?ISO-8859-15?Q?Micka=EBl_Sala=FCn?= <mic@digikod.net>
+Return-path: <kernel-hardening-return-9571-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+List-Post: <mailto:kernel-hardening@lists.openwall.com>
+List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
+List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
+List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+In-Reply-To: <20170821000933.13024-1-mic@digikod.net>
+List-Id: netdev.vger.kernel.org
+
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
+
+--1665246916-700125660-1503891508=:8842
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8BIT
-To: Bassam Alsanie <bassam.alsanie@gmail.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga06.intel.com ([134.134.136.31]:43254 "EHLO mga06.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751704AbdH1CxV (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 27 Aug 2017 22:53:21 -0400
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
 
-On 8/27/17 9:25 PM, Bassam Alsanie wrote:
-> Hello everyone,
-> I looking into a good way (stable and compatible with large number of
-> distros) to get the arp/nd cache from kernel to user space, for both
-> IP4 and IP6.
+On Mon, 21 Aug 2017, Mickaël Salaün wrote:
+
+> ## Why a new LSM? Are SELinux, AppArmor, Smack and Tomoyo not good enough?
 > 
-> It seem IOCTL (SIOCGARP) can't do that, you can only get MAC address
-> from provided IP address. But IOCTL can't give the the full arp/nd
-> table.
-> The other option is the Netlink interface. I tried it and I got the
-> ARP/ND table :).
-> The third option is using /proc/net/arp, which only restricted to IP4.
+> The current access control LSMs are fine for their purpose which is to give the
+> *root* the ability to enforce a security policy for the *system*. What is
+> missing is a way to enforce a security policy for any application by its
+> developer and *unprivileged user* as seccomp can do for raw syscall filtering.
 > 
-> There is command line utilities that I excluding in my case.
-> 
-> Is there another way to do it? what is the best way in my case?
-> 
-> Thank you all.
 
-# strace arp -an
-[...]
-open("/proc/net/arp", O_RDONLY)         = 4
-fstat(4, {st_mode=S_IFREG|0444, st_size=0, ...}) = 0
-read(4, "IP address       HW type     Fla"..., 1024) = 310
-[...]
+You could mention here that the first case is Mandatory Access Control, 
+in general terms.
 
-# strace ip -6 neighbor show
-[...]
-socket(AF_NETLINK, SOCK_RAW|SOCK_CLOEXEC, NETLINK_ROUTE) = 3
-setsockopt(3, SOL_SOCKET, SO_SNDBUF, [32768], 4) = 0
-setsockopt(3, SOL_SOCKET, SO_RCVBUF, [1048576], 4) = 0
-bind(3, {sa_family=AF_NETLINK, nl_pid=0, nl_groups=00000000}, 12) = 0
-getsockname(3, {sa_family=AF_NETLINK, nl_pid=30292, nl_groups=00000000}, 
-[12]) = 0
-sendto(3, {{len=40, type=RTM_GETLINK, flags=NLM_F_REQUEST|NLM_F_DUMP, 
-seq=1503888680, pid=0}, 
-"\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\10\0\35\0\1\0\0\0"}, 40, 0, NULL, 0) = 40
-recvmsg(3, {msg_name={sa_family=AF_NETLINK, nl_pid=0, 
-nl_groups=00000000}, msg_namelen=12, msg_iov=[{iov_base=[{{len=1268, 
-type=RTM_NEWLINK, flags=NLM_F_MULTI, seq=1503888680, pid=30292}, 
-"\0\0\4\3\1\0\0\0I\0\1\0\0\0\0\0\7\0\3\0lo\0\0\10\0\r\0\350\3\0\0"...}, 
-{{len=1280, type=RTM_NEWLINK, flags=NLM_F_MULTI, seq=1503888680, 
-pid=30292}, 
-"\0\0\1\0\2\0\0\0C\20\1\0\0\0\0\0\t\0\3\0eno1\0\0\0\0\10\0\r\0"...}], 
-iov_len=32768}], msg_iovlen=1, msg_controllen=0, msg_flags=0}, 0) = 2548
-[...]
 
-Seems like it's pretty obvious if you don't want to use the existing 
-tools, just look at how the existing tools get this data.  IPv4 uses 
-/proc/net/arp, IPv6 uses netlink.
 
-Cheers,
--PJ
+-- 
+James Morris
+<jmorris@namei.org>
+
+--1665246916-700125660-1503891508=:8842--
