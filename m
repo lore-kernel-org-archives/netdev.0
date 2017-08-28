@@ -1,294 +1,144 @@
 From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net-next 01/11] bnxt_en: Update firmware interface spec. to 1.8.1.4.
-Date: Mon, 28 Aug 2017 13:40:25 -0400
-Message-ID: <1503942035-24924-2-git-send-email-michael.chan@broadcom.com>
+Subject: [PATCH net-next 11/11] bnxt_en: add code to query TC flower offload stats
+Date: Mon, 28 Aug 2017 13:40:35 -0400
+Message-ID: <1503942035-24924-12-git-send-email-michael.chan@broadcom.com>
 References: <1503942035-24924-1-git-send-email-michael.chan@broadcom.com>
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, Sathya Perla <sathya.perla@broadcom.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f172.google.com ([209.85.220.172]:37187 "EHLO
-        mail-qk0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751304AbdH1Rku (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 13:40:50 -0400
-Received: by mail-qk0-f172.google.com with SMTP id k126so5363018qkb.4
-        for <netdev@vger.kernel.org>; Mon, 28 Aug 2017 10:40:50 -0700 (PDT)
+Received: from mail-qk0-f171.google.com ([209.85.220.171]:34627 "EHLO
+        mail-qk0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751564AbdH1RlE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 13:41:04 -0400
+Received: by mail-qk0-f171.google.com with SMTP id a77so5390709qkb.1
+        for <netdev@vger.kernel.org>; Mon, 28 Aug 2017 10:41:04 -0700 (PDT)
 In-Reply-To: <1503942035-24924-1-git-send-email-michael.chan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Flow APIs are added in this firmware interface.
+From: Sathya Perla <sathya.perla@broadcom.com>
 
+This patch adds code to implement TC_CLSFLOWER_STATS TC-cmd and the
+required FW code to query the stats from the HW.
+
+Signed-off-by: Sathya Perla <sathya.perla@broadcom.com>
 Signed-off-by: Michael Chan <michael.chan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt_hsi.h | 186 +++++++++++++++++++++++++-
- 1 file changed, 181 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c | 95 ++++++++++++++++++++++++++++
+ 1 file changed, 95 insertions(+)
 
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_hsi.h b/drivers/net/ethernet/broadcom/bnxt/bnxt_hsi.h
-index 3ba22e8..cb04cc7 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt_hsi.h
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_hsi.h
-@@ -11,14 +11,14 @@
- #ifndef BNXT_HSI_H
- #define BNXT_HSI_H
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c
+index 5fa0835..ccd699f 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c
+@@ -405,6 +405,81 @@ static int bnxt_hwrm_cfa_flow_alloc(struct bnxt *bp, struct bnxt_tc_flow *flow,
+ 	return rc;
+ }
  
--/* HSI and HWRM Specification 1.8.0 */
-+/* HSI and HWRM Specification 1.8.1 */
- #define HWRM_VERSION_MAJOR	1
- #define HWRM_VERSION_MINOR	8
--#define HWRM_VERSION_UPDATE	0
-+#define HWRM_VERSION_UPDATE	1
++/* Add val to accum while handling a possible wraparound
++ * of val. Eventhough val is of type u64, its actual width
++ * is denoted by mask and will wrap-around beyond that width.
++ */
++static void accumulate_val(u64 *accum, u64 val, u64 mask)
++{
++#define low_bits(x, mask)		((x) & (mask))
++#define high_bits(x, mask)		((x) & ~(mask))
++	bool wrapped = val < low_bits(*accum, mask);
++
++	*accum = high_bits(*accum, mask) + val;
++	if (wrapped)
++		*accum += (mask + 1);
++}
++
++/* The HW counters' width is much less than 64bits.
++ * Handle possible wrap-around while updating the stat counters
++ */
++static void bnxt_flow_stats_fix_wraparound(struct bnxt_tc_info *tc_info,
++					   struct bnxt_tc_flow_stats *stats,
++					   struct bnxt_tc_flow_stats *hw_stats)
++{
++	accumulate_val(&stats->bytes, hw_stats->bytes, tc_info->bytes_mask);
++	accumulate_val(&stats->packets, hw_stats->packets,
++		       tc_info->packets_mask);
++}
++
++/* Fix possible wraparound of the stats queried from HW, calculate
++ * the delta from prev_stats, and also update the prev_stats.
++ * The HW flow stats are fetched under the hwrm_cmd_lock mutex.
++ * This routine is best called while under the mutex so that the
++ * stats processing happens atomically.
++ */
++static void bnxt_flow_stats_calc(struct bnxt_tc_info *tc_info,
++				 struct bnxt_tc_flow *flow,
++				 struct bnxt_tc_flow_stats *stats)
++{
++	struct bnxt_tc_flow_stats *acc_stats, *prev_stats;
++
++	acc_stats = &flow->stats;
++	bnxt_flow_stats_fix_wraparound(tc_info, acc_stats, stats);
++
++	prev_stats = &flow->prev_stats;
++	stats->bytes = acc_stats->bytes - prev_stats->bytes;
++	stats->packets = acc_stats->packets - prev_stats->packets;
++	*prev_stats = *acc_stats;
++}
++
++static int bnxt_hwrm_cfa_flow_stats_get(struct bnxt *bp,
++					__le16 flow_handle,
++					struct bnxt_tc_flow *flow,
++					struct bnxt_tc_flow_stats *stats)
++{
++	struct hwrm_cfa_flow_stats_output *resp = bp->hwrm_cmd_resp_addr;
++	struct hwrm_cfa_flow_stats_input req = { 0 };
++	int rc;
++
++	bnxt_hwrm_cmd_hdr_init(bp, &req, HWRM_CFA_FLOW_STATS, -1, -1);
++	req.num_flows = cpu_to_le16(1);
++	req.flow_handle_0 = flow_handle;
++
++	mutex_lock(&bp->hwrm_cmd_lock);
++	rc = _hwrm_send_message(bp, &req, sizeof(req), HWRM_CMD_TIMEOUT);
++	if (!rc) {
++		stats->packets = le64_to_cpu(resp->packet_0);
++		stats->bytes = le64_to_cpu(resp->byte_0);
++		bnxt_flow_stats_calc(&bp->tc_info, flow, stats);
++	} else {
++		netdev_info(bp->dev, "error rc=%d", rc);
++	}
++
++	mutex_unlock(&bp->hwrm_cmd_lock);
++	return rc;
++}
++
+ static int bnxt_tc_put_l2_node(struct bnxt *bp,
+ 			       struct bnxt_tc_flow_node *flow_node)
+ {
+@@ -647,6 +722,26 @@ static int bnxt_tc_del_flow(struct bnxt *bp,
+ static int bnxt_tc_get_flow_stats(struct bnxt *bp,
+ 				  struct tc_cls_flower_offload *tc_flow_cmd)
+ {
++	struct bnxt_tc_info *tc_info = &bp->tc_info;
++	struct bnxt_tc_flow_node *flow_node;
++	struct bnxt_tc_flow_stats stats;
++	int rc;
++
++	flow_node = rhashtable_lookup_fast(&tc_info->flow_table,
++					   &tc_flow_cmd->cookie,
++					   tc_info->flow_ht_params);
++	if (!flow_node) {
++		netdev_info(bp->dev, "Error: no flow_node for cookie %lx",
++			    tc_flow_cmd->cookie);
++		return -1;
++	}
++
++	rc = bnxt_hwrm_cfa_flow_stats_get(bp, flow_node->flow_handle,
++					  &flow_node->flow, &stats);
++	if (rc)
++		return rc;
++
++	tcf_exts_stats_update(tc_flow_cmd->exts, stats.bytes, stats.packets, 0);
+ 	return 0;
+ }
  
--#define HWRM_VERSION_RSVD	0 /* non-zero means beta version */
-+#define HWRM_VERSION_RSVD	4 /* non-zero means beta version */
- 
--#define HWRM_VERSION_STR	"1.8.0.0"
-+#define HWRM_VERSION_STR	"1.8.1.4"
- /*
-  * Following is the signature for HWRM message field that indicates not
-  * applicable (All F's). Need to cast it the size of the field if needed.
-@@ -946,6 +946,7 @@ struct hwrm_func_cfg_input {
- 	#define FUNC_CFG_REQ_FLAGS_STD_TX_RING_MODE_DISABLE	    0x400UL
- 	#define FUNC_CFG_REQ_FLAGS_VIRT_MAC_PERSIST		    0x800UL
- 	#define FUNC_CFG_REQ_FLAGS_NO_AUTOCLEAR_STATISTIC	    0x1000UL
-+	#define FUNC_CFG_REQ_FLAGS_TX_ASSETS_TEST		    0x2000UL
- 	__le32 enables;
- 	#define FUNC_CFG_REQ_ENABLES_MTU			    0x1UL
- 	#define FUNC_CFG_REQ_ENABLES_MRU			    0x2UL
-@@ -1972,7 +1973,12 @@ struct hwrm_port_phy_qcaps_output {
- 	#define PORT_PHY_QCAPS_RESP_FLAGS_EEE_SUPPORTED	    0x1UL
- 	#define PORT_PHY_QCAPS_RESP_FLAGS_RSVD1_MASK		    0xfeUL
- 	#define PORT_PHY_QCAPS_RESP_FLAGS_RSVD1_SFT		    1
--	u8 unused_0;
-+	u8 port_cnt;
-+	#define PORT_PHY_QCAPS_RESP_PORT_CNT_UNKNOWN		   0x0UL
-+	#define PORT_PHY_QCAPS_RESP_PORT_CNT_1			   0x1UL
-+	#define PORT_PHY_QCAPS_RESP_PORT_CNT_2			   0x2UL
-+	#define PORT_PHY_QCAPS_RESP_PORT_CNT_3			   0x3UL
-+	#define PORT_PHY_QCAPS_RESP_PORT_CNT_4			   0x4UL
- 	__le16 supported_speeds_force_mode;
- 	#define PORT_PHY_QCAPS_RESP_SUPPORTED_SPEEDS_FORCE_MODE_100MBHD 0x1UL
- 	#define PORT_PHY_QCAPS_RESP_SUPPORTED_SPEEDS_FORCE_MODE_100MB 0x2UL
-@@ -4407,6 +4413,164 @@ struct hwrm_cfa_ntuple_filter_cfg_output {
- 	u8 valid;
- };
- 
-+/* hwrm_cfa_flow_alloc */
-+/* Input (128 bytes) */
-+struct hwrm_cfa_flow_alloc_input {
-+	__le16 req_type;
-+	__le16 cmpl_ring;
-+	__le16 seq_id;
-+	__le16 target_id;
-+	__le64 resp_addr;
-+	__le16 flags;
-+	#define CFA_FLOW_ALLOC_REQ_FLAGS_TUNNEL		    0x1UL
-+	#define CFA_FLOW_ALLOC_REQ_FLAGS_NUM_VLAN_MASK		    0x6UL
-+	#define CFA_FLOW_ALLOC_REQ_FLAGS_NUM_VLAN_SFT		    1
-+	#define CFA_FLOW_ALLOC_REQ_FLAGS_NUM_VLAN_NONE		   (0x0UL << 1)
-+	#define CFA_FLOW_ALLOC_REQ_FLAGS_NUM_VLAN_ONE		   (0x1UL << 1)
-+	#define CFA_FLOW_ALLOC_REQ_FLAGS_NUM_VLAN_TWO		   (0x2UL << 1)
-+	#define CFA_FLOW_ALLOC_REQ_FLAGS_NUM_VLAN_LAST    CFA_FLOW_ALLOC_REQ_FLAGS_NUM_VLAN_TWO
-+	#define CFA_FLOW_ALLOC_REQ_FLAGS_FLOWTYPE_MASK		    0x38UL
-+	#define CFA_FLOW_ALLOC_REQ_FLAGS_FLOWTYPE_SFT		    3
-+	#define CFA_FLOW_ALLOC_REQ_FLAGS_FLOWTYPE_L2		   (0x0UL << 3)
-+	#define CFA_FLOW_ALLOC_REQ_FLAGS_FLOWTYPE_IPV4		   (0x1UL << 3)
-+	#define CFA_FLOW_ALLOC_REQ_FLAGS_FLOWTYPE_IPV6		   (0x2UL << 3)
-+	#define CFA_FLOW_ALLOC_REQ_FLAGS_FLOWTYPE_LAST    CFA_FLOW_ALLOC_REQ_FLAGS_FLOWTYPE_IPV6
-+	__le16 src_fid;
-+	__le32 tunnel_handle;
-+	__le16 action_flags;
-+	#define CFA_FLOW_ALLOC_REQ_ACTION_FLAGS_FWD		    0x1UL
-+	#define CFA_FLOW_ALLOC_REQ_ACTION_FLAGS_RECYCLE	    0x2UL
-+	#define CFA_FLOW_ALLOC_REQ_ACTION_FLAGS_DROP		    0x4UL
-+	#define CFA_FLOW_ALLOC_REQ_ACTION_FLAGS_METER		    0x8UL
-+	#define CFA_FLOW_ALLOC_REQ_ACTION_FLAGS_TUNNEL		    0x10UL
-+	#define CFA_FLOW_ALLOC_REQ_ACTION_FLAGS_NAT_SRC	    0x20UL
-+	#define CFA_FLOW_ALLOC_REQ_ACTION_FLAGS_NAT_DEST	    0x40UL
-+	#define CFA_FLOW_ALLOC_REQ_ACTION_FLAGS_NAT_IPV4_ADDRESS   0x80UL
-+	#define CFA_FLOW_ALLOC_REQ_ACTION_FLAGS_L2_HEADER_REWRITE  0x100UL
-+	#define CFA_FLOW_ALLOC_REQ_ACTION_FLAGS_TTL_DECREMENT      0x200UL
-+	__le16 dst_fid;
-+	__be16 l2_rewrite_vlan_tpid;
-+	__be16 l2_rewrite_vlan_tci;
-+	__le16 act_meter_id;
-+	__le16 ref_flow_handle;
-+	__be16 ethertype;
-+	__be16 outer_vlan_tci;
-+	__be16 dmac[3];
-+	__be16 inner_vlan_tci;
-+	__be16 smac[3];
-+	u8 ip_dst_mask_len;
-+	u8 ip_src_mask_len;
-+	__be32 ip_dst[4];
-+	__be32 ip_src[4];
-+	__be16 l4_src_port;
-+	__be16 l4_src_port_mask;
-+	__be16 l4_dst_port;
-+	__be16 l4_dst_port_mask;
-+	__be32 nat_ip_address[4];
-+	__be16 l2_rewrite_dmac[3];
-+	__be16 nat_port;
-+	__be16 l2_rewrite_smac[3];
-+	u8 ip_proto;
-+	u8 unused_0;
-+};
-+
-+/* Output (16 bytes) */
-+struct hwrm_cfa_flow_alloc_output {
-+	__le16 error_code;
-+	__le16 req_type;
-+	__le16 seq_id;
-+	__le16 resp_len;
-+	__le16 flow_handle;
-+	u8 unused_0;
-+	u8 unused_1;
-+	u8 unused_2;
-+	u8 unused_3;
-+	u8 unused_4;
-+	u8 valid;
-+};
-+
-+/* hwrm_cfa_flow_free */
-+/* Input (24 bytes) */
-+struct hwrm_cfa_flow_free_input {
-+	__le16 req_type;
-+	__le16 cmpl_ring;
-+	__le16 seq_id;
-+	__le16 target_id;
-+	__le64 resp_addr;
-+	__le16 flow_handle;
-+	__le16 unused_0[3];
-+};
-+
-+/* Output (32 bytes) */
-+struct hwrm_cfa_flow_free_output {
-+	__le16 error_code;
-+	__le16 req_type;
-+	__le16 seq_id;
-+	__le16 resp_len;
-+	__le64 packet;
-+	__le64 byte;
-+	__le32 unused_0;
-+	u8 unused_1;
-+	u8 unused_2;
-+	u8 unused_3;
-+	u8 valid;
-+};
-+
-+/* hwrm_cfa_flow_stats */
-+/* Input (40 bytes) */
-+struct hwrm_cfa_flow_stats_input {
-+	__le16 req_type;
-+	__le16 cmpl_ring;
-+	__le16 seq_id;
-+	__le16 target_id;
-+	__le64 resp_addr;
-+	__le16 num_flows;
-+	__le16 flow_handle_0;
-+	__le16 flow_handle_1;
-+	__le16 flow_handle_2;
-+	__le16 flow_handle_3;
-+	__le16 flow_handle_4;
-+	__le16 flow_handle_5;
-+	__le16 flow_handle_6;
-+	__le16 flow_handle_7;
-+	__le16 flow_handle_8;
-+	__le16 flow_handle_9;
-+	__le16 unused_0;
-+};
-+
-+/* Output (176 bytes) */
-+struct hwrm_cfa_flow_stats_output {
-+	__le16 error_code;
-+	__le16 req_type;
-+	__le16 seq_id;
-+	__le16 resp_len;
-+	__le64 packet_0;
-+	__le64 packet_1;
-+	__le64 packet_2;
-+	__le64 packet_3;
-+	__le64 packet_4;
-+	__le64 packet_5;
-+	__le64 packet_6;
-+	__le64 packet_7;
-+	__le64 packet_8;
-+	__le64 packet_9;
-+	__le64 byte_0;
-+	__le64 byte_1;
-+	__le64 byte_2;
-+	__le64 byte_3;
-+	__le64 byte_4;
-+	__le64 byte_5;
-+	__le64 byte_6;
-+	__le64 byte_7;
-+	__le64 byte_8;
-+	__le64 byte_9;
-+	__le32 unused_0;
-+	u8 unused_1;
-+	u8 unused_2;
-+	u8 unused_3;
-+	u8 valid;
-+};
-+
- /* hwrm_cfa_vfr_alloc */
- /* Input (32 bytes) */
- struct hwrm_cfa_vfr_alloc_input {
-@@ -5534,11 +5698,15 @@ struct hwrm_selftest_qlist_output {
- 	#define SELFTEST_QLIST_RESP_AVAILABLE_TESTS_LINK_TEST      0x2UL
- 	#define SELFTEST_QLIST_RESP_AVAILABLE_TESTS_REGISTER_TEST  0x4UL
- 	#define SELFTEST_QLIST_RESP_AVAILABLE_TESTS_MEMORY_TEST    0x8UL
-+	#define SELFTEST_QLIST_RESP_AVAILABLE_TESTS_PCIE_EYE_TEST  0x10UL
-+	#define SELFTEST_QLIST_RESP_AVAILABLE_TESTS_ETHERNET_EYE_TEST 0x20UL
- 	u8 offline_tests;
- 	#define SELFTEST_QLIST_RESP_OFFLINE_TESTS_NVM_TEST	    0x1UL
- 	#define SELFTEST_QLIST_RESP_OFFLINE_TESTS_LINK_TEST	    0x2UL
- 	#define SELFTEST_QLIST_RESP_OFFLINE_TESTS_REGISTER_TEST    0x4UL
- 	#define SELFTEST_QLIST_RESP_OFFLINE_TESTS_MEMORY_TEST      0x8UL
-+	#define SELFTEST_QLIST_RESP_OFFLINE_TESTS_PCIE_EYE_TEST    0x10UL
-+	#define SELFTEST_QLIST_RESP_OFFLINE_TESTS_ETHERNET_EYE_TEST 0x20UL
- 	u8 unused_0;
- 	__le16 test_timeout;
- 	u8 unused_1;
-@@ -5566,6 +5734,8 @@ struct hwrm_selftest_exec_input {
- 	#define SELFTEST_EXEC_REQ_FLAGS_LINK_TEST		    0x2UL
- 	#define SELFTEST_EXEC_REQ_FLAGS_REGISTER_TEST		    0x4UL
- 	#define SELFTEST_EXEC_REQ_FLAGS_MEMORY_TEST		    0x8UL
-+	#define SELFTEST_EXEC_REQ_FLAGS_PCIE_EYE_TEST		    0x10UL
-+	#define SELFTEST_EXEC_REQ_FLAGS_ETHERNET_EYE_TEST	    0x20UL
- 	u8 unused_0[7];
- };
- 
-@@ -5580,11 +5750,15 @@ struct hwrm_selftest_exec_output {
- 	#define SELFTEST_EXEC_RESP_REQUESTED_TESTS_LINK_TEST       0x2UL
- 	#define SELFTEST_EXEC_RESP_REQUESTED_TESTS_REGISTER_TEST   0x4UL
- 	#define SELFTEST_EXEC_RESP_REQUESTED_TESTS_MEMORY_TEST     0x8UL
-+	#define SELFTEST_EXEC_RESP_REQUESTED_TESTS_PCIE_EYE_TEST   0x10UL
-+	#define SELFTEST_EXEC_RESP_REQUESTED_TESTS_ETHERNET_EYE_TEST 0x20UL
- 	u8 test_success;
- 	#define SELFTEST_EXEC_RESP_TEST_SUCCESS_NVM_TEST	    0x1UL
- 	#define SELFTEST_EXEC_RESP_TEST_SUCCESS_LINK_TEST	    0x2UL
- 	#define SELFTEST_EXEC_RESP_TEST_SUCCESS_REGISTER_TEST      0x4UL
- 	#define SELFTEST_EXEC_RESP_TEST_SUCCESS_MEMORY_TEST	    0x8UL
-+	#define SELFTEST_EXEC_RESP_TEST_SUCCESS_PCIE_EYE_TEST      0x10UL
-+	#define SELFTEST_EXEC_RESP_TEST_SUCCESS_ETHERNET_EYE_TEST  0x20UL
- 	__le16 unused_0[3];
- };
- 
-@@ -5767,6 +5941,7 @@ struct cmd_nums {
- 	#define HWRM_SELFTEST_QLIST				   (0x200UL)
- 	#define HWRM_SELFTEST_EXEC				   (0x201UL)
- 	#define HWRM_SELFTEST_IRQ				   (0x202UL)
-+	#define HWRM_SELFTEST_RETREIVE_EYE_DATA		   (0x203UL)
- 	#define HWRM_DBG_READ_DIRECT				   (0xff10UL)
- 	#define HWRM_DBG_READ_INDIRECT				   (0xff11UL)
- 	#define HWRM_DBG_WRITE_DIRECT				   (0xff12UL)
-@@ -5984,6 +6159,7 @@ struct hwrm_struct_hdr {
- 	#define STRUCT_HDR_STRUCT_ID_LLDP_DEVICE		   0x426UL
- 	#define STRUCT_HDR_STRUCT_ID_AFM_OPAQUE		   0x1UL
- 	#define STRUCT_HDR_STRUCT_ID_PORT_DESCRIPTION		   0xaUL
-+	#define STRUCT_HDR_STRUCT_ID_RSS_V2			   0x64UL
- 	__le16 len;
- 	u8 version;
- 	u8 count;
 -- 
 1.8.3.1
