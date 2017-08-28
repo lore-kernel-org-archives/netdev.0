@@ -1,34 +1,29 @@
-From: Vitaly Kuznetsov <vkuznets@redhat.com>
-Subject: [PATCH net-next] hinic: don't build the module by default
-Date: Mon, 28 Aug 2017 15:16:05 +0200
-Message-ID: <20170828131605.3173-1-vkuznets@redhat.com>
-Cc: Aviad Krawczyk <aviad.krawczyk@huawei.com>,
-        linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: DSA support for Micrel KSZ8895
+Date: Mon, 28 Aug 2017 15:19:05 +0200
+Message-ID: <20170828131905.GB10418@lunn.ch>
+References: <20170816075524.GA18532@amd>
+ <20170816140451.GA13006@lunn.ch>
+ <9235D6609DB808459E95D78E17F2E43D40AFF8C1@CHN-SV-EXMX02.mchp-main.com>
+ <20170823090941.GA27570@amd>
+ <9235D6609DB808459E95D78E17F2E43D40B05FFF@CHN-SV-EXMX02.mchp-main.com>
+ <20170828101451.GC18012@amd>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Woojung.Huh@microchip.com, nathan.leigh.conrad@gmail.com,
+        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Tristram.Ha@micrel.com
+To: Pavel Machek <pavel@ucw.cz>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170828101451.GC18012@amd>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We probably don't want to enable code supporting particular hardware by
-default e.g. when someone does 'make defconfig'. Other ethernet modules
-don't do it.
+> I'm working at 4.13-rc.
 
-Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
----
- drivers/net/ethernet/huawei/hinic/Kconfig | 1 -
- 1 file changed, 1 deletion(-)
+For network code, it is a good idea to use net-next. That is what you
+need to target in order to get patches with new features merged.
 
-diff --git a/drivers/net/ethernet/huawei/hinic/Kconfig b/drivers/net/ethernet/huawei/hinic/Kconfig
-index 69f2b1fba48d..08db24954f7e 100644
---- a/drivers/net/ethernet/huawei/hinic/Kconfig
-+++ b/drivers/net/ethernet/huawei/hinic/Kconfig
-@@ -5,7 +5,6 @@
- config HINIC
- 	tristate "Huawei Intelligent PCIE Network Interface Card"
- 	depends on (PCI_MSI && X86)
--	default m
- 	---help---
- 	  This driver supports HiNIC PCIE Ethernet cards.
- 	  To compile this driver as part of the kernel, choose Y here.
--- 
-2.13.5
+     Andrew
