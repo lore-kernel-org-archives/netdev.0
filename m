@@ -1,29 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4 0/7] Add RSS to DPAA 1.x Ethernet driver
-Date: Mon, 28 Aug 2017 16:41:38 -0700 (PDT)
-Message-ID: <20170828.164138.1780653981574209650.davem@davemloft.net>
-References: <1503839623-3906-1-git-send-email-madalin.bucur@nxp.com>
+Subject: Re: [PATCH 0/4] irda: move it to drivers/staging so we can delete it
+Date: Mon, 28 Aug 2017 16:42:08 -0700 (PDT)
+Message-ID: <20170828.164208.1908438929113102094.davem@davemloft.net>
+References: <20170827150334.32495-1-gregkh@linuxfoundation.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-        linux-kernel@vger.kernel.org
-To: madalin.bucur@nxp.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1503839623-3906-1-git-send-email-madalin.bucur@nxp.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org, samuel@sortiz.org,
+ linux-kernel@vger.kernel.org
+To: gregkh@linuxfoundation.org
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <20170827150334.32495-1-gregkh@linuxfoundation.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-From: Madalin Bucur <madalin.bucur@nxp.com>
-Date: Sun, 27 Aug 2017 16:13:36 +0300
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Date: Sun, 27 Aug 2017 17:03:30 +0200
 
-> This patch set introduces Receive Side Scaling for the DPAA Ethernet
-> driver. Documentation is updated with details related to the new
-> feature and limitations that apply.
-> Added also a small fix.
-> 
-> v2: removed a C++ style comment
-> v3: move struct fman to header file to avoid exporting a function
-> v4: addressed compilation issues introduced in v3
+> The IRDA code has long been obsolete and broken.  So, to keep people
+> from trying to use it, and to prevent people from having to maintain it,
+> let's move it to drivers/staging/ so that we can delete it entirely from
+> the kernel in a few releases.
 
-Series applied, thanks.
+No objection, I'll apply this to net-next, thanks Greg.
