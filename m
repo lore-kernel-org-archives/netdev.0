@@ -1,36 +1,56 @@
 From: David Lebrun <david.lebrun@uclouvain.be>
-Subject: [PATCH iproute2 net-next v2 0/2] Add support for seg6 l2encap mode
-Date: Mon, 28 Aug 2017 20:26:38 +0100
-Message-ID: <20170828192640.19240-1-david.lebrun@uclouvain.be>
+Subject: [PATCH iproute2 net-next v2 2/2] man: add documentation for seg6 l2encap mode
+Date: Mon, 28 Aug 2017 20:26:40 +0100
+Message-ID: <20170828192640.19240-3-david.lebrun@uclouvain.be>
+References: <20170828192640.19240-1-david.lebrun@uclouvain.be>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: David Lebrun <david.lebrun@uclouvain.be>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:42555 "EHLO
-        smtp2.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751231AbdH1T0R (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 15:26:17 -0400
+Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:46497 "EHLO
+        smtp4.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751386AbdH1T0T (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 15:26:19 -0400
 Received: from mailboxes.uclouvain.be (mailboxes.uclouvain.be [130.104.6.131])
         (using TLSv1.2 with cipher ECDHE-RSA-AES256-SHA384 (256/256 bits))
         (No client certificate requested)
-        by smtp2.sgsi.ucl.ac.be (Postfix) with ESMTPS id 1892567DBE8
-        for <netdev@vger.kernel.org>; Mon, 28 Aug 2017 21:26:09 +0200 (CEST)
+        by smtp4.sgsi.ucl.ac.be (Postfix) with ESMTPS id 0D5B567DBA7
+        for <netdev@vger.kernel.org>; Mon, 28 Aug 2017 21:26:10 +0200 (CEST)
+In-Reply-To: <20170828192640.19240-1-david.lebrun@uclouvain.be>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch series adds support for the new L2ENCAP mode for SRv6
-encapsulations.
+This patch adds documentation for the seg6 L2ENCAP encapsulation mode.
 
-v2: use a name/value table for encap modes
+Signed-off-by: David Lebrun <david.lebrun@uclouvain.be>
+---
+ man/man8/ip-route.8.in | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
 
-David Lebrun (2):
-  iproute: add support for seg6 l2encap mode
-  man: add documentation for seg6 l2encap mode
-
- ip/iproute_lwtunnel.c  | 41 ++++++++++++++++++++++++++++++-----------
- man/man8/ip-route.8.in |  6 +++++-
- 2 files changed, 35 insertions(+), 12 deletions(-)
-
+diff --git a/man/man8/ip-route.8.in b/man/man8/ip-route.8.in
+index 11dd9d0..803de3b 100644
+--- a/man/man8/ip-route.8.in
++++ b/man/man8/ip-route.8.in
+@@ -214,7 +214,7 @@ throw " | " unreachable " | " prohibit " | " blackhole " | " nat " ]"
+ .IR ENCAP_SEG6 " := "
+ .B seg6
+ .BR mode " [ "
+-.BR encap " | " inline " ] "
++.BR encap " | " inline " | " l2encap " ] "
+ .B segs
+ .IR SEGMENTS " [ "
+ .B hmac
+@@ -750,6 +750,10 @@ is a set of encapsulation attributes specific to the
+ - Encapsulate packet in an outer IPv6 header with SRH
+ .sp
+ 
++.B mode l2encap
++- Encapsulate ingress L2 frame within an outer IPv6 header and SRH
++.sp
++
+ .I SEGMENTS
+ - List of comma-separated IPv6 addresses
+ .sp
 -- 
 2.10.2
