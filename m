@@ -1,31 +1,75 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] l2tp: initialise session's refcount before making
- it reachable
-Date: Mon, 28 Aug 2017 11:29:37 -0700 (PDT)
-Message-ID: <20170828.112937.1045244252909820285.davem@davemloft.net>
-References: <f37a31f7fbfa4c02c4a263672f86eac4e80be272.1503670839.git.g.nault@alphalink.fr>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jchapman@katalix.com
-To: g.nault@alphalink.fr
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:45260 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750735AbdH1S3i (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 14:29:38 -0400
-In-Reply-To: <f37a31f7fbfa4c02c4a263672f86eac4e80be272.1503670839.git.g.nault@alphalink.fr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Benjamin Poirier <bpoirier@suse.com>
+Subject: [PATCH] packet: Don't write vnet header beyond end of buffer
+Date: Mon, 28 Aug 2017 14:29:41 -0400
+Message-ID: <20170828182941.10677-1-bpoirier@suse.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Willem de Bruijn <willemb@google.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Guillaume Nault <g.nault@alphalink.fr>
-Date: Fri, 25 Aug 2017 16:22:17 +0200
+... which may happen with certain values of tp_reserve and maclen.
 
-> Sessions must be fully initialised before calling
-> l2tp_session_add_to_tunnel(). Otherwise, there's a short time frame
-> where partially initialised sessions can be accessed by external users.
-> 
-> Fixes: dbdbc73b4478 ("l2tp: fix duplicate session creation")
-> Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
+Fixes: 58d19b19cd99 ("packet: vnet_hdr support for tpacket_rcv")
+Signed-off-by: Benjamin Poirier <bpoirier@suse.com>
+Cc: Willem de Bruijn <willemb@google.com>
+---
+ net/packet/af_packet.c | 12 +++++++++---
+ 1 file changed, 9 insertions(+), 3 deletions(-)
 
-Applied and queued up for -stable, thanks.
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 008a45ca3112..1c61af9af67d 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -2191,6 +2191,7 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
+ 	struct timespec ts;
+ 	__u32 ts_status;
+ 	bool is_drop_n_account = false;
++	bool do_vnet = false;
+ 
+ 	/* struct tpacket{2,3}_hdr is aligned to a multiple of TPACKET_ALIGNMENT.
+ 	 * We may add members to them until current aligned size without forcing
+@@ -2241,8 +2242,10 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
+ 		netoff = TPACKET_ALIGN(po->tp_hdrlen +
+ 				       (maclen < 16 ? 16 : maclen)) +
+ 				       po->tp_reserve;
+-		if (po->has_vnet_hdr)
++		if (po->has_vnet_hdr) {
+ 			netoff += sizeof(struct virtio_net_hdr);
++			do_vnet = true;
++		}
+ 		macoff = netoff - maclen;
+ 	}
+ 	if (po->tp_version <= TPACKET_V2) {
+@@ -2259,8 +2262,10 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
+ 					skb_set_owner_r(copy_skb, sk);
+ 			}
+ 			snaplen = po->rx_ring.frame_size - macoff;
+-			if ((int)snaplen < 0)
++			if ((int)snaplen < 0) {
+ 				snaplen = 0;
++				do_vnet = false;
++			}
+ 		}
+ 	} else if (unlikely(macoff + snaplen >
+ 			    GET_PBDQC_FROM_RB(&po->rx_ring)->max_frame_len)) {
+@@ -2273,6 +2278,7 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
+ 		if (unlikely((int)snaplen < 0)) {
+ 			snaplen = 0;
+ 			macoff = GET_PBDQC_FROM_RB(&po->rx_ring)->max_frame_len;
++			do_vnet = false;
+ 		}
+ 	}
+ 	spin_lock(&sk->sk_receive_queue.lock);
+@@ -2298,7 +2304,7 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
+ 	}
+ 	spin_unlock(&sk->sk_receive_queue.lock);
+ 
+-	if (po->has_vnet_hdr) {
++	if (do_vnet) {
+ 		if (virtio_net_hdr_from_skb(skb, h.raw + macoff -
+ 					    sizeof(struct virtio_net_hdr),
+ 					    vio_le(), true)) {
+-- 
+2.14.1
