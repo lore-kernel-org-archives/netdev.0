@@ -1,12 +1,13 @@
 From: James Morris <jmorris@namei.org>
-Subject: Re: [PATCH net-next v7 00/10] Landlock LSM: Toward
- unprivileged sandboxing
-Date: Mon, 28 Aug 2017 13:38:26 +1000 (AEST)
-Message-ID: <alpine.LRH.2.20.1708281335290.8842@namei.org>
-References: <20170821000933.13024-1-mic@digikod.net>
+Subject: Re: [PATCH net-next v7 02/10] bpf: Add eBPF program subtype and
+ is_valid_subtype() verifier
+Date: Mon, 28 Aug 2017 13:46:37 +1000 (AEST)
+Message-ID: <alpine.LRH.2.20.1708281345280.8842@namei.org>
+References: <20170821000933.13024-1-mic@digikod.net> <20170821000933.13024-3-mic@digikod.net> <20170823024452.zvizovwfd7xjucsx@ast-mbp>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; BOUNDARY="1665246916-700125660-1503891508=:8842"
-Cc: linux-kernel@vger.kernel.org, Alexei Starovoitov <ast@kernel.org>,
+Content-Type: text/plain; charset=US-ASCII
+Cc: =?ISO-8859-15?Q?Micka=EBl_Sala=FCn?= <mic@digikod.net>,
+        linux-kernel@vger.kernel.org, Alexei Starovoitov <ast@kernel.org>,
         Andy Lutomirski <luto@amacapital.net>,
         Arnaldo Carvalho de Melo <acme@kernel.org>,
         Casey Schaufler <casey@schaufler-ca.com>,
@@ -21,40 +22,23 @@ Cc: linux-kernel@vger.kernel.org, Alexei Starovoitov <ast@kernel.org>,
         Kees Cook <keescook@chromium.org>, Paul Moore <paul@paul-moore.com>,
         Sargun Dhillon <sargun@sargun.me>,
         "Serge E . Hallyn" <serge@hallyn.com>, Shuah Khan <shuah@kernel.org>,
-        Tejun Heo <tj@kernel.org>, Thomas Graf <tgraf@suug.ch>,
-To: =?ISO-8859-15?Q?Micka=EBl_Sala=FCn?= <mic@digikod.net>
-Return-path: <kernel-hardening-return-9571-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <kernel-hardening-return-9572-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
 List-Post: <mailto:kernel-hardening@lists.openwall.com>
 List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
 List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
 List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-In-Reply-To: <20170821000933.13024-1-mic@digikod.net>
+In-Reply-To: <20170823024452.zvizovwfd7xjucsx@ast-mbp>
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+On Tue, 22 Aug 2017, Alexei Starovoitov wrote:
 
---1665246916-700125660-1503891508=:8842
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
+> more general question: what is the status of security/ bits?
+> I'm assuming they still need to be reviewed and explicitly acked by James, right?
 
-On Mon, 21 Aug 2017, Mickaël Salaün wrote:
-
-> ## Why a new LSM? Are SELinux, AppArmor, Smack and Tomoyo not good enough?
-> 
-> The current access control LSMs are fine for their purpose which is to give the
-> *root* the ability to enforce a security policy for the *system*. What is
-> missing is a way to enforce a security policy for any application by its
-> developer and *unprivileged user* as seccomp can do for raw syscall filtering.
-> 
-
-You could mention here that the first case is Mandatory Access Control, 
-in general terms.
-
+Yep, along with other core security developers where possible.
 
 
 -- 
 James Morris
 <jmorris@namei.org>
-
---1665246916-700125660-1503891508=:8842--
