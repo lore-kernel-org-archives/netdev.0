@@ -1,56 +1,44 @@
-From: Iyappan Subramanian <isubramanian@apm.com>
-Subject: Re: [PATCH 2/2] drivers: net: xgene: Clean up all outstanding tx descriptors
-Date: Mon, 28 Aug 2017 10:48:12 -0700
-Message-ID: <CAKh23Fn_oqpsKnSH+OUbQMVvN0oyVSsnbpsHb-c_7obGLjXLSw@mail.gmail.com>
-References: <1503699810-12803-1-git-send-email-isubramanian@apm.com>
- <1503699810-12803-3-git-send-email-isubramanian@apm.com> <20170825231034.GC4207@lunn.ch>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: mlxsw and rtnl lock
+Date: Mon, 28 Aug 2017 12:00:39 -0600
+Message-ID: <b6dc0a4e-4ed9-ed5f-ac0f-c3fe06d5ed68@gmail.com>
+References: <dccefbeb-b5c3-14ed-05d3-07d464989708@gmail.com>
+ <20170826170418.GA22324@shredder>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        "linux-arm-kernel@lists.infradead.org"
-        <linux-arm-kernel@lists.infradead.org>,
-        Dean Nelson <dnelson@redhat.com>,
-        Quan Nguyen <qnguyen@apm.com>, patches <patches@apm.com>
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Pirko <jiri@resnulli.us>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        mlxsw@mellanox.com
+To: Ido Schimmel <idosch@idosch.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f50.google.com ([209.85.215.50]:35470 "EHLO
-        mail-lf0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751161AbdH1RsO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 13:48:14 -0400
-Received: by mail-lf0-f50.google.com with SMTP id k186so4806704lfe.2
-        for <netdev@vger.kernel.org>; Mon, 28 Aug 2017 10:48:14 -0700 (PDT)
-In-Reply-To: <20170825231034.GC4207@lunn.ch>
+Received: from mail-pf0-f178.google.com ([209.85.192.178]:34443 "EHLO
+        mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750866AbdH1SAl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 14:00:41 -0400
+Received: by mail-pf0-f178.google.com with SMTP id h75so3313983pfh.1
+        for <netdev@vger.kernel.org>; Mon, 28 Aug 2017 11:00:41 -0700 (PDT)
+In-Reply-To: <20170826170418.GA22324@shredder>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew,
+On 8/26/17 11:04 AM, Ido Schimmel wrote:
+> Regarding the silent abort, that's intentional. You can look at the same
+> code in v4.9 - when the chain was still blocking - and you'll see that
+> we didn't propagate the error even then. This was discussed in the past
+> and the conclusion was that user doesn't expect to operation to fail. If
+> hardware resources are exceeded, we let the kernel take care of the
+> forwarding instead.
+> 
 
-On Fri, Aug 25, 2017 at 4:10 PM, Andrew Lunn <andrew@lunn.ch> wrote:
-> On Fri, Aug 25, 2017 at 03:23:30PM -0700, Iyappan Subramanian wrote:
->> When xgene_enet is rmmod'd and there are still outstanding tx descriptors
->> that have been setup but have not completed, it is possible on the next
->> modprobe of the driver to receive the oldest of such tx descriptors. This
->> results in a kernel NULL pointer dereference.
->>
->> This patch attempts to clean up (by tearing down) all outstanding tx
->> descriptors when the xgene_enet driver is being rmmod'd.
->>
->> Given that, on the next modprobe it should be safe to ignore any such tx
->> descriptors received that map to a NULL skb pointer.
->
-> This does not sound correct. Before the module is allowed to be
-> removed, everything needs to be finished. You need to wait for all the
-> tx descriptors to be returned before unloading. How can you free the
-> memory for the descriptor if it is still in use? How can you free the
-> skbuf the descriptor points to, if it is still in use...
+In addition to Roopa's comments... The silent abort is not a good user
+experience. Right now it's add a network address or route, cross fingers
+and hope it does not overflow some limit (nexthop, ecmp, neighbor,
+prefix, etc) that triggers the offload abort.
 
-Thanks for pointing out the issue.  It is an error, we will fix the issue.
-
-Since the two patches are unrelated, I'm going to post them separately.
-
-Thanks,
-Iyappan
-
->
->       Andrew
+The mlxsw driver queries for some limits (e.g., max rifs) but I don't
+see any query related to current usage, and there is no API to pass any
+of that data to user space so user space has no programmatic way to
+handle this. I realize you are aware of this limitation. The point is to
+emphasize the need to resolve this.
