@@ -1,33 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next 0/2] mlxsw: spectrum: Fix couple of dpipe ipv4
- host table bugs
-Date: Mon, 28 Aug 2017 15:41:29 -0700 (PDT)
-Message-ID: <20170828.154129.1313762960801415437.davem@davemloft.net>
-References: <20170826063539.2741-1-jiri@resnulli.us>
+Subject: Re: [PATCH 1/4] sgiseeq: switch to dma_alloc_attrs
+Date: Mon, 28 Aug 2017 15:41:51 -0700 (PDT)
+Message-ID: <20170828.154151.502026172655565151.davem@davemloft.net>
+References: <20170826072125.9790-1-hch@lst.de>
+        <20170826072125.9790-2-hch@lst.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, arkadis@mellanox.com, idosch@mellanox.com,
-        mlxsw@mellanox.com
-To: jiri@resnulli.us
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:50088 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751190AbdH1Wl3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 18:41:29 -0400
-In-Reply-To: <20170826063539.2741-1-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, ralf@linux-mips.org,
+        linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: hch@lst.de
+Return-path: <linux-parisc-owner@vger.kernel.org>
+In-Reply-To: <20170826072125.9790-2-hch@lst.de>
+Sender: linux-parisc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Sat, 26 Aug 2017 08:35:37 +0200
+From: Christoph Hellwig <hch@lst.de>
+Date: Sat, 26 Aug 2017 09:21:22 +0200
 
-> From: Jiri Pirko <jiri@mellanox.com>
+> Use dma_alloc_attrs directly instead of the dma_alloc_noncoherent wrapper.
 > 
-> Arkadi Sharshevsky (1):
->   mlxsw: spectrum_dpipe: Fix host table dump
-> 
-> Jiri Pirko (1):
->   mlxsw: spectrum: compile-in dpipe support only if devlink is enabled
+> Signed-off-by: Christoph Hellwig <hch@lst.de>
 
-Series applied, thanks Jiri.
+Acked-by: David S. Miller <davem@davemloft.net>
