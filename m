@@ -1,55 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] cxgb4: Fix stack out-of-bounds read due to wrong
- size to t4_record_mbox()
-Date: Mon, 28 Aug 2017 15:24:46 -0700 (PDT)
-Message-ID: <20170828.152446.1981724368219029883.davem@davemloft.net>
-References: <04759fe12e6a8eb8e36e46060b907f02c269a826.1503692361.git.sbrivio@redhat.com>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [PATCH net-next 1/3 v9] net: ether: Add support for
+ multiplexing and aggregation type
+Date: Mon, 28 Aug 2017 17:22:33 -0500
+Message-ID: <1503958953.20027.5.camel@redhat.com>
+References: <1503635966-14076-1-git-send-email-subashab@codeaurora.org>
+         <1503635966-14076-2-git-send-email-subashab@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ganeshgr@chelsio.com, netdev@vger.kernel.org,
-        hariprasad@chelsio.com, leedom@chelsio.com, svemuri@redhat.com
-To: sbrivio@redhat.com
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+To: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>,
+        netdev@vger.kernel.org, davem@davemloft.net,
+        fengguang.wu@intel.com, jiri@resnulli.us,
+        stephen@networkplumber.org, David.Laight@ACULAB.COM,
+        marcel@holtmann.org, andrew@lunn.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:49828 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751213AbdH1WYr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 18:24:47 -0400
-In-Reply-To: <04759fe12e6a8eb8e36e46060b907f02c269a826.1503692361.git.sbrivio@redhat.com>
+Received: from mx1.redhat.com ([209.132.183.28]:39152 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751213AbdH1WYq (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 28 Aug 2017 18:24:46 -0400
+In-Reply-To: <1503635966-14076-2-git-send-email-subashab@codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stefano Brivio <sbrivio@redhat.com>
-Date: Fri, 25 Aug 2017 22:48:48 +0200
-
-> Passing commands for logging to t4_record_mbox() with size
-> MBOX_LEN, when the actual command size is actually smaller,
-> causes out-of-bounds stack accesses in t4_record_mbox() while
-> copying command words here:
+On Thu, 2017-08-24 at 22:39 -0600, Subash Abhinov Kasiviswanathan
+wrote:
+> Define the multiplexing and aggregation (MAP) ether type 0x00F9. This
+> is needed for receiving data in the MAP protocol like RMNET. This is
+> not an officially registered ID.
 > 
-> 	for (i = 0; i < size / 8; i++)
-> 		entry->cmd[i] = be64_to_cpu(cmd[i]);
-> 
-> Up to 48 bytes from the stack are then leaked to debugfs.
-> 
-> This happens whenever we send (and log) commands described by
-> structs fw_sched_cmd (32 bytes leaked), fw_vi_rxmode_cmd (48),
-> fw_hello_cmd (48), fw_bye_cmd (48), fw_initialize_cmd (48),
-> fw_reset_cmd (48), fw_pfvf_cmd (32), fw_eq_eth_cmd (16),
-> fw_eq_ctrl_cmd (32), fw_eq_ofld_cmd (32), fw_acl_mac_cmd(16),
-> fw_rss_glb_config_cmd(32), fw_rss_vi_config_cmd(32),
-> fw_devlog_cmd(32), fw_vi_enable_cmd(48), fw_port_cmd(32),
-> fw_sched_cmd(32), fw_devlog_cmd(32).
-> 
-> The cxgb4vf driver got this right instead.
-> 
-> When we call t4_record_mbox() to log a command reply, a MBOX_LEN
-> size can be used though, as get_mbox_rpl() will fill cmd_rpl up
-> completely.
-> 
-> Fixes: 7f080c3f2ff0 ("cxgb4: Add support to enable logging of firmware mailbox commands")
-> Signed-off-by: Stefano Brivio <sbrivio@redhat.com>
+> Signed-off-by: Subash Abhinov Kasiviswanathan <subashab@codeaurora.or
+> g>
 > ---
-> I guess this should be queued up for -stable, back to 4.7.
+>  include/uapi/linux/if_ether.h | 1 +
+>  1 file changed, 1 insertion(+)
+> 
+> diff --git a/include/uapi/linux/if_ether.h
+> b/include/uapi/linux/if_ether.h
+> index 5bc9bfd..0d73ecc 100644
+> --- a/include/uapi/linux/if_ether.h
+> +++ b/include/uapi/linux/if_ether.h
+> @@ -137,6 +137,7 @@
+>  #define ETH_P_IEEE802154 0x00F6		/* IEEE802.15.4 frame
+> 		*/
+>  #define ETH_P_CAIF	0x00F7		/* ST-Ericsson CAIF
+> protocol	*/
+>  #define ETH_P_XDSA	0x00F8		/* Multiplexed DSA
+> protocol	*/
+> +#define ETH_P_MAP	0x00F9		/* Multiplex &
+> aggregation proto*/
 
-Applied and queued up for -stable, thanks.
+Any chance you could name this QUALCOMM_MAP or something like that?  Or
+at least update the comment to include that fact.
+
+Dan
+
+>  /*
+>   *	This is an Ethernet frame header.
