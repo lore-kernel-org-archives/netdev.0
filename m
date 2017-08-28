@@ -1,8 +1,8 @@
 From: John Fastabend <john.fastabend@gmail.com>
-Subject: [net-next PATCH 1/9] bpf: convert sockmap field attach_bpf_fd2 to
- type
-Date: Mon, 28 Aug 2017 07:10:04 -0700
-Message-ID: <20170828141004.14143.19285.stgit@john-Precision-Tower-5810>
+Subject: [net-next PATCH 2/9] bpf: sockmap,
+ remove STRPARSER map_flags and add multi-map support
+Date: Mon, 28 Aug 2017 07:10:25 -0700
+Message-ID: <20170828141025.14143.23990.stgit@john-Precision-Tower-5810>
 References: <20170828140850.14143.83953.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,615 +10,577 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, john.fastabend@gmail.com
 To: ast@kernel.org, daniel@iogearbox.net, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:38635 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751242AbdH1OKU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 10:10:20 -0400
-Received: by mail-pg0-f67.google.com with SMTP id t3so445903pgt.5
-        for <netdev@vger.kernel.org>; Mon, 28 Aug 2017 07:10:19 -0700 (PDT)
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:35909 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751232AbdH1OKk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 10:10:40 -0400
+Received: by mail-pg0-f66.google.com with SMTP id 83so454333pgb.3
+        for <netdev@vger.kernel.org>; Mon, 28 Aug 2017 07:10:40 -0700 (PDT)
 In-Reply-To: <20170828140850.14143.83953.stgit@john-Precision-Tower-5810>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In the initial sockmap API we provided strparser and verdict programs
-using a single attach command by extending the attach API with a the
-attach_bpf_fd2 field.
+The addition of map_flags BPF_SOCKMAP_STRPARSER flags was to handle a
+specific use case where we want to have BPF parse program disabled on
+an entry in a sockmap.
 
-However, if we add other programs in the future we will be adding a
-field for every new possible type, attach_bpf_fd(3,4,..). This
-seems a bit clumsy for an API. So lets push the programs using two
-new type fields.
+However, Alexei found the API a bit cumbersome and I agreed. Lets
+remove the STRPARSER flag and support the use case by allowing socks
+to be in multiple maps. This allows users to create two maps one with
+programs attached and one without. When socks are added to maps they
+now inherit any programs attached to the map. This is a nice
+generalization and IMO improves the API.
 
-   BPF_SK_SKB_STREAM_PARSER
-   BPF_SK_SKB_STREAM_VERDICT
+The API rules are less ambiguous and do not need a flag:
 
-This has the advantage of having a readable name and can easily be
-extended in the future.
+  - When a sock is added to a sockmap we have two cases,
 
-Updates to samples and sockmap included here also generalize tests
-slightly to support upcoming patch for multiple map support.
+     i. The sock map does not have any attached programs so
+        we can add sock to map without inheriting bpf programs.
+        The sock may exist in 0 or more other maps.
 
-Signed-off-by: John Fastabend <john.fastabend@gmail.com>
-Fixes: 174a79ff9515 ("bpf: sockmap with sk redirect support")
+    ii. The sock map has an attached BPF program. To avoid duplicate
+        bpf programs we only add the sock entry if it does not have
+        an existing strparser/verdict attached, returning -EBUSY if
+        a program is already attached. Otherwise attach the program
+        and inherit strparser/verdict programs from the sock map.
+
+This allows for socks to be in a multiple maps for redirects and
+inherit a BPF program from a single map.
+
+Also this patch simplifies the logic around BPF_{EXIST|NOEXIST|ANY}
+flags. In the original patch I tried to be extra clever and only
+update map entries when necessary. Now I've decided the complexity
+is not worth it. If users constantly update an entry with the same
+sock for no reason (i.e. update an entry without actually changing
+any parameters on map or sock) we still do an alloc/release. Using
+this and allowing multiple entries of a sock to exist in a map the
+logic becomes much simpler.
+
+Note: Now that multiple maps are supported the "maps" pointer called
+when a socket is closed becomes a list of maps to remove the sock from.
+To keep the map up to date when a sock is added to the sockmap we must
+add the map/elem in the list. Likewise when it is removed we must
+remove it from the list. This results in searching the per psock list
+on delete operation. On TCP_CLOSE events we walk the list and remove
+the psock from all map/entry locations. I don't see any perf
+implications in this because at most I have a psock in two maps. If
+a psock were to be in many maps its possibly this might be noticeable
+on delete but I can't think of a reason to dup a psock in many maps.
+The sk_callback_lock is used to protect read/writes to the list. This
+was convenient because in all locations we were taking the lock
+anyways just after working on the list. Also the lock is per sock so
+in normal cases we shouldn't see any contention.
+
 Suggested-by: Alexei Starovoitov <ast@kernel.org>
+Fixes: 174a79ff9515 ("bpf: sockmap with sk redirect support")
+Signed-off-by: John Fastabend <john.fastabend@gmail.com>
 ---
- include/linux/bpf.h                                |   10 +-
- include/uapi/linux/bpf.h                           |    9 -
- kernel/bpf/sockmap.c                               |   25 ++--
- kernel/bpf/syscall.c                               |   38 ++----
- samples/sockmap/sockmap_kern.c                     |    6 -
- samples/sockmap/sockmap_user.c                     |   12 ++
- tools/include/uapi/linux/bpf.h                     |    9 -
- tools/lib/bpf/bpf.c                                |   14 --
- tools/lib/bpf/bpf.h                                |    4 -
- tools/testing/selftests/bpf/bpf_helpers.h          |    3 
- tools/testing/selftests/bpf/sockmap_parse_prog.c   |    2 
- tools/testing/selftests/bpf/sockmap_verdict_prog.c |    2 
- tools/testing/selftests/bpf/test_maps.c            |  133 +++++++++-----------
- 13 files changed, 116 insertions(+), 151 deletions(-)
+ include/uapi/linux/bpf.h |    3 -
+ kernel/bpf/sockmap.c     |  269 ++++++++++++++++++++++++++++------------------
+ 2 files changed, 165 insertions(+), 107 deletions(-)
 
-diff --git a/include/linux/bpf.h b/include/linux/bpf.h
-index 830f472..c2cb1b5 100644
---- a/include/linux/bpf.h
-+++ b/include/linux/bpf.h
-@@ -39,8 +39,6 @@ struct bpf_map_ops {
- 	void (*map_fd_put_ptr)(void *ptr);
- 	u32 (*map_gen_lookup)(struct bpf_map *map, struct bpf_insn *insn_buf);
- 	u32 (*map_fd_sys_lookup_elem)(void *ptr);
--	int (*map_attach)(struct bpf_map *map,
--			  struct bpf_prog *p1, struct bpf_prog *p2);
- };
- 
- struct bpf_map {
-@@ -387,11 +385,19 @@ static inline void __dev_map_flush(struct bpf_map *map)
- 
- #if defined(CONFIG_STREAM_PARSER) && defined(CONFIG_BPF_SYSCALL)
- struct sock  *__sock_map_lookup_elem(struct bpf_map *map, u32 key);
-+int sock_map_attach_prog(struct bpf_map *map, struct bpf_prog *prog, u32 type);
- #else
- static inline struct sock  *__sock_map_lookup_elem(struct bpf_map *map, u32 key)
- {
- 	return NULL;
- }
-+
-+static inline int sock_map_attach_prog(struct bpf_map *map,
-+				       struct bpf_prog *prog,
-+				       u32 type)
-+{
-+	return -EOPNOTSUPP;
-+}
- #endif
- 
- /* verifier prototypes for helper functions called from eBPF programs */
 diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index 843818d..97227be 100644
+index 97227be..08c206a 100644
 --- a/include/uapi/linux/bpf.h
 +++ b/include/uapi/linux/bpf.h
-@@ -136,7 +136,8 @@ enum bpf_attach_type {
- 	BPF_CGROUP_INET_EGRESS,
- 	BPF_CGROUP_INET_SOCK_CREATE,
- 	BPF_CGROUP_SOCK_OPS,
--	BPF_CGROUP_SMAP_INGRESS,
-+	BPF_SK_SKB_STREAM_PARSER,
-+	BPF_SK_SKB_STREAM_VERDICT,
- 	__MAX_BPF_ATTACH_TYPE
- };
+@@ -143,9 +143,6 @@ enum bpf_attach_type {
  
-@@ -224,7 +225,6 @@ enum bpf_attach_type {
- 		__u32		attach_bpf_fd;	/* eBPF program to attach */
- 		__u32		attach_type;
- 		__u32		attach_flags;
--		__u32		attach_bpf_fd2;
- 	};
+ #define MAX_BPF_ATTACH_TYPE __MAX_BPF_ATTACH_TYPE
  
- 	struct { /* anonymous struct used by BPF_PROG_TEST_RUN command */
-@@ -580,14 +580,11 @@ enum bpf_attach_type {
-  *     @flags: reserved for future use
-  *     Return: SK_REDIRECT
-  *
-- * int bpf_sock_map_update(skops, map, key, flags, map_flags)
-+ * int bpf_sock_map_update(skops, map, key, flags)
-  *	@skops: pointer to bpf_sock_ops
-  *	@map: pointer to sockmap to update
-  *	@key: key to insert/update sock in map
-  *	@flags: same flags as map update elem
-- *	@map_flags: sock map specific flags
-- *	   bit 1: Enable strparser
-- *	   other bits: reserved
-  */
- #define __BPF_FUNC_MAPPER(FN)		\
- 	FN(unspec),			\
+-/* If BPF_SOCKMAP_STRPARSER is used sockmap will use strparser on receive */
+-#define BPF_SOCKMAP_STRPARSER	(1U << 0)
+-
+ /* If BPF_F_ALLOW_OVERRIDE flag is used in BPF_PROG_ATTACH command
+  * to the given target_fd cgroup the descendent cgroup will be able to
+  * override effective bpf program that was inherited from this cgroup
 diff --git a/kernel/bpf/sockmap.c b/kernel/bpf/sockmap.c
-index 617c239..cf570d1 100644
+index cf570d1..a6882e5 100644
 --- a/kernel/bpf/sockmap.c
 +++ b/kernel/bpf/sockmap.c
-@@ -723,20 +723,24 @@ static int sock_map_ctx_update_elem(struct bpf_sock_ops_kern *skops,
+@@ -13,15 +13,16 @@
+ /* A BPF sock_map is used to store sock objects. This is primarly used
+  * for doing socket redirect with BPF helper routines.
+  *
+- * A sock map may have two BPF programs attached to it, a program used
+- * to parse packets and a program to provide a verdict and redirect
+- * decision on the packet. If no BPF parse program is provided it is
+- * assumed that every skb is a "message" (skb->len). Otherwise the
+- * parse program is attached to strparser and used to build messages
+- * that may span multiple skbs. The verdict program will either select
+- * a socket to send/receive the skb on or provide the drop code indicating
+- * the skb should be dropped. More actions may be added later as needed.
+- * The default program will drop packets.
++ * A sock map may have BPF programs attached to it, currently a program
++ * used to parse packets and a program to provide a verdict and redirect
++ * decision on the packet are supported. Any programs attached to a sock
++ * map are inherited by sock objects when they are added to the map. If
++ * no BPF programs are attached the sock object may only be used for sock
++ * redirect.
++ *
++ * A sock object may be in multiple maps, but can only inherit a single
++ * parse or verdict program. If adding a sock object to a map would result
++ * in having multiple parsing programs the update will return an EBUSY error.
+  *
+  * For reference this program is similar to devmap used in XDP context
+  * reviewing these together may be useful. For an example please review
+@@ -44,15 +45,21 @@ struct bpf_stab {
+ 	struct sock **sock_map;
+ 	struct bpf_prog *bpf_parse;
+ 	struct bpf_prog *bpf_verdict;
+-	refcount_t refcnt;
+ };
+ 
+ enum smap_psock_state {
+ 	SMAP_TX_RUNNING,
+ };
+ 
++struct smap_psock_map_entry {
++	struct list_head list;
++	struct sock **entry;
++};
++
+ struct smap_psock {
+ 	struct rcu_head	rcu;
++	/* refcnt is used inside sk_callback_lock */
++	u32 refcnt;
+ 
+ 	/* datapath variables */
+ 	struct sk_buff_head rxqueue;
+@@ -66,10 +73,9 @@ struct smap_psock {
+ 	struct strparser strp;
+ 	struct bpf_prog *bpf_parse;
+ 	struct bpf_prog *bpf_verdict;
+-	struct bpf_stab *stab;
++	struct list_head maps;
+ 
+ 	/* Back reference used when sock callback trigger sockmap operations */
+-	int key;
+ 	struct sock *sock;
+ 	unsigned long state;
+ 
+@@ -83,7 +89,7 @@ struct smap_psock {
+ 
+ static inline struct smap_psock *smap_psock_sk(const struct sock *sk)
+ {
+-	return (struct smap_psock *)rcu_dereference_sk_user_data(sk);
++	return rcu_dereference_sk_user_data(sk);
+ }
+ 
+ static int smap_verdict_func(struct smap_psock *psock, struct sk_buff *skb)
+@@ -149,11 +155,12 @@ static void smap_report_sk_error(struct smap_psock *psock, int err)
+ 	sk->sk_error_report(sk);
+ }
+ 
+-static void smap_release_sock(struct sock *sock);
++static void smap_release_sock(struct smap_psock *psock, struct sock *sock);
+ 
+ /* Called with lock_sock(sk) held */
+ static void smap_state_change(struct sock *sk)
+ {
++	struct smap_psock_map_entry *e, *tmp;
+ 	struct smap_psock *psock;
+ 	struct sock *osk;
+ 
+@@ -184,9 +191,15 @@ static void smap_state_change(struct sock *sk)
+ 		psock = smap_psock_sk(sk);
+ 		if (unlikely(!psock))
+ 			break;
+-		osk = cmpxchg(&psock->stab->sock_map[psock->key], sk, NULL);
+-		if (osk == sk)
+-			smap_release_sock(sk);
++		write_lock_bh(&sk->sk_callback_lock);
++		list_for_each_entry_safe(e, tmp, &psock->maps, list) {
++			osk = cmpxchg(e->entry, sk, NULL);
++			if (osk == sk) {
++				list_del(&e->list);
++				smap_release_sock(psock, sk);
++			}
++		}
++		write_unlock_bh(&sk->sk_callback_lock);
+ 		break;
+ 	default:
+ 		psock = smap_psock_sk(sk);
+@@ -289,9 +302,8 @@ static void smap_write_space(struct sock *sk)
+ 
+ static void smap_stop_sock(struct smap_psock *psock, struct sock *sk)
+ {
+-	write_lock_bh(&sk->sk_callback_lock);
+ 	if (!psock->strp_enabled)
+-		goto out;
++		return;
+ 	sk->sk_data_ready = psock->save_data_ready;
+ 	sk->sk_write_space = psock->save_write_space;
+ 	sk->sk_state_change = psock->save_state_change;
+@@ -300,8 +312,6 @@ static void smap_stop_sock(struct smap_psock *psock, struct sock *sk)
+ 	psock->save_state_change = NULL;
+ 	strp_stop(&psock->strp);
+ 	psock->strp_enabled = false;
+-out:
+-	write_unlock_bh(&sk->sk_callback_lock);
+ }
+ 
+ static void smap_destroy_psock(struct rcu_head *rcu)
+@@ -318,9 +328,11 @@ static void smap_destroy_psock(struct rcu_head *rcu)
+ 	schedule_work(&psock->gc_work);
+ }
+ 
+-static void smap_release_sock(struct sock *sock)
++static void smap_release_sock(struct smap_psock *psock, struct sock *sock)
+ {
+-	struct smap_psock *psock = smap_psock_sk(sock);
++	psock->refcnt--;
++	if (psock->refcnt)
++		return;
+ 
+ 	smap_stop_sock(psock, sock);
+ 	clear_bit(SMAP_TX_RUNNING, &psock->state);
+@@ -414,6 +426,7 @@ static void sock_map_remove_complete(struct bpf_stab *stab)
+ 
+ static void smap_gc_work(struct work_struct *w)
+ {
++	struct smap_psock_map_entry *e, *tmp;
+ 	struct smap_psock *psock;
+ 
+ 	psock = container_of(w, struct smap_psock, gc_work);
+@@ -431,8 +444,10 @@ static void smap_gc_work(struct work_struct *w)
+ 	if (psock->bpf_verdict)
+ 		bpf_prog_put(psock->bpf_verdict);
+ 
+-	if (refcount_dec_and_test(&psock->stab->refcnt))
+-		sock_map_remove_complete(psock->stab);
++	list_for_each_entry_safe(e, tmp, &psock->maps, list) {
++		list_del(&e->list);
++		kfree(e);
++	}
+ 
+ 	sock_put(psock->sock);
+ 	kfree(psock);
+@@ -453,6 +468,8 @@ static struct smap_psock *smap_init_psock(struct sock *sock,
+ 	skb_queue_head_init(&psock->rxqueue);
+ 	INIT_WORK(&psock->tx_work, smap_tx_work);
+ 	INIT_WORK(&psock->gc_work, smap_gc_work);
++	INIT_LIST_HEAD(&psock->maps);
++	psock->refcnt = 1;
+ 
+ 	rcu_assign_sk_user_data(sock, psock);
+ 	sock_hold(sock);
+@@ -503,13 +520,24 @@ static struct bpf_map *sock_map_alloc(union bpf_attr *attr)
+ 	if (!stab->sock_map)
+ 		goto free_stab;
+ 
+-	refcount_set(&stab->refcnt, 1);
+ 	return &stab->map;
+ free_stab:
+ 	kfree(stab);
+ 	return ERR_PTR(err);
+ }
+ 
++static void smap_list_remove(struct smap_psock *psock, struct sock **entry)
++{
++	struct smap_psock_map_entry *e, *tmp;
++
++	list_for_each_entry_safe(e, tmp, &psock->maps, list) {
++		if (e->entry == entry) {
++			list_del(&e->list);
++			break;
++		}
++	}
++}
++
+ static void sock_map_free(struct bpf_map *map)
+ {
+ 	struct bpf_stab *stab = container_of(map, struct bpf_stab, map);
+@@ -526,13 +554,18 @@ static void sock_map_free(struct bpf_map *map)
+ 	 */
+ 	rcu_read_lock();
+ 	for (i = 0; i < stab->map.max_entries; i++) {
++		struct smap_psock *psock;
+ 		struct sock *sock;
+ 
+ 		sock = xchg(&stab->sock_map[i], NULL);
+ 		if (!sock)
+ 			continue;
+ 
+-		smap_release_sock(sock);
++		write_lock_bh(&sock->sk_callback_lock);
++		psock = smap_psock_sk(sock);
++		smap_list_remove(psock, &stab->sock_map[i]);
++		smap_release_sock(psock, sock);
++		write_unlock_bh(&sock->sk_callback_lock);
+ 	}
+ 	rcu_read_unlock();
+ 
+@@ -541,8 +574,7 @@ static void sock_map_free(struct bpf_map *map)
+ 	if (stab->bpf_parse)
+ 		bpf_prog_put(stab->bpf_parse);
+ 
+-	if (refcount_dec_and_test(&stab->refcnt))
+-		sock_map_remove_complete(stab);
++	sock_map_remove_complete(stab);
+ }
+ 
+ static int sock_map_get_next_key(struct bpf_map *map, void *key, void *next_key)
+@@ -576,6 +608,7 @@ struct sock  *__sock_map_lookup_elem(struct bpf_map *map, u32 key)
+ static int sock_map_delete_elem(struct bpf_map *map, void *key)
+ {
+ 	struct bpf_stab *stab = container_of(map, struct bpf_stab, map);
++	struct smap_psock *psock;
+ 	int k = *(u32 *)key;
+ 	struct sock *sock;
+ 
+@@ -586,7 +619,17 @@ static int sock_map_delete_elem(struct bpf_map *map, void *key)
+ 	if (!sock)
+ 		return -EINVAL;
+ 
+-	smap_release_sock(sock);
++	write_lock_bh(&sock->sk_callback_lock);
++	psock = smap_psock_sk(sock);
++	if (!psock)
++		goto out;
++
++	if (psock->bpf_parse)
++		smap_stop_sock(psock, sock);
++	smap_list_remove(psock, &stab->sock_map[k]);
++	smap_release_sock(psock, sock);
++out:
++	write_unlock_bh(&sock->sk_callback_lock);
+ 	return 0;
+ }
+ 
+@@ -601,29 +644,34 @@ static int sock_map_delete_elem(struct bpf_map *map, void *key)
+  * and syncd so we are certain all references from the update/lookup/delete
+  * operations as well as references in the data path are no longer in use.
+  *
+- * A psock object holds a refcnt on the sockmap it is attached to and this is
+- * not decremented until after a RCU grace period and garbage collection occurs.
+- * This ensures the map is not free'd until psocks linked to it are removed. The
+- * map link is used when the independent sock events trigger map deletion.
++ * Psocks may exist in multiple maps, but only a single set of parse/verdict
++ * programs may be inherited from the maps it belongs to. A reference count
++ * is kept with the total number of references to the psock from all maps. The
++ * psock will not be released until this reaches zero. The psock and sock
++ * user data data use the sk_callback_lock to protect critical data structures
++ * from concurrent access. This allows us to avoid two updates from modifying
++ * the user data in sock and the lock is required anyways for modifying
++ * callbacks, we simply increase its scope slightly.
+  *
+- * Psocks may only participate in one sockmap at a time. Users that try to
+- * join a single sock to multiple maps will get an error.
+- *
+- * Last, but not least, it is possible the socket is closed while running
+- * an update on an existing psock. This will release the psock, but again
+- * not until the update has completed due to rcu grace period rules.
++ * Rules to follow,
++ *  - psock must always be read inside RCU critical section
++ *  - sk_user_data must only be modified inside sk_callback_lock and read
++ *    inside RCU critical section.
++ *  - psock->maps list must only be read & modified inside sk_callback_lock
++ *  - sock_map must use READ_ONCE and (cmp)xchg operations
++ *  - BPF verdict/parse programs must use READ_ONCE and xchg operations
+  */
+ static int sock_map_ctx_update_elem(struct bpf_sock_ops_kern *skops,
+ 				    struct bpf_map *map,
+-				    void *key, u64 flags, u64 map_flags)
++				    void *key, u64 flags)
+ {
+ 	struct bpf_stab *stab = container_of(map, struct bpf_stab, map);
++	struct smap_psock_map_entry *e = NULL;
+ 	struct bpf_prog *verdict, *parse;
+-	struct smap_psock *psock = NULL;
+-	struct sock *old_sock, *sock;
++	struct sock *osock, *sock;
++	struct smap_psock *psock;
+ 	u32 i = *(u32 *)key;
+-	bool update = false;
+-	int err = 0;
++	int err;
+ 
+ 	if (unlikely(flags > BPF_EXIST))
+ 		return -EINVAL;
+@@ -631,35 +679,22 @@ static int sock_map_ctx_update_elem(struct bpf_sock_ops_kern *skops,
+ 	if (unlikely(i >= stab->map.max_entries))
+ 		return -E2BIG;
+ 
+-	if (unlikely(map_flags > BPF_SOCKMAP_STRPARSER))
+-		return -EINVAL;
+-
+-	verdict = parse = NULL;
+ 	sock = READ_ONCE(stab->sock_map[i]);
+-
+-	if (flags == BPF_EXIST || flags == BPF_ANY) {
+-		if (!sock && flags == BPF_EXIST) {
+-			return -ENOENT;
+-		} else if (sock && sock != skops->sk) {
+-			return -EINVAL;
+-		} else if (sock) {
+-			psock = smap_psock_sk(sock);
+-			if (unlikely(!psock))
+-				return -EBUSY;
+-			update = true;
+-		}
+-	} else if (sock && BPF_NOEXIST) {
++	if (flags == BPF_EXIST && !sock)
++		return -ENOENT;
++	else if (flags == BPF_NOEXIST && sock)
+ 		return -EEXIST;
+-	}
+ 
+-	/* reserve BPF programs early so can abort easily on failures */
+-	if (map_flags & BPF_SOCKMAP_STRPARSER) {
+-		verdict = READ_ONCE(stab->bpf_verdict);
+-		parse = READ_ONCE(stab->bpf_parse);
++	sock = skops->sk;
+ 
+-		if (!verdict || !parse)
+-			return -ENOENT;
++	/* 1. If sock map has BPF programs those will be inherited by the
++	 * sock being added. If the sock is already attached to BPF programs
++	 * this results in an error.
++	 */
++	verdict = READ_ONCE(stab->bpf_verdict);
++	parse = READ_ONCE(stab->bpf_parse);
+ 
++	if (parse && verdict) {
+ 		/* bpf prog refcnt may be zero if a concurrent attach operation
+ 		 * removes the program after the above READ_ONCE() but before
+ 		 * we increment the refcnt. If this is the case abort with an
+@@ -676,50 +711,78 @@ static int sock_map_ctx_update_elem(struct bpf_sock_ops_kern *skops,
+ 		}
+ 	}
+ 
+-	if (!psock) {
+-		sock = skops->sk;
+-		if (rcu_dereference_sk_user_data(sock))
+-			return -EEXIST;
++	write_lock_bh(&sock->sk_callback_lock);
++	psock = smap_psock_sk(sock);
++
++	/* 2. Do not allow inheriting programs if psock exists and has
++	 * already inherited programs. This would create confusion on
++	 * which parser/verdict program is running. If no psock exists
++	 * create one. Inside sk_callback_lock to ensure concurrent create
++	 * doesn't update user data.
++	 */
++	if (psock) {
++		if (READ_ONCE(psock->bpf_parse) && parse) {
++			err = -EBUSY;
++			goto out_progs;
++		}
++		psock->refcnt++;
++	} else {
+ 		psock = smap_init_psock(sock, stab);
+ 		if (IS_ERR(psock)) {
+-			if (verdict)
+-				bpf_prog_put(verdict);
+-			if (parse)
+-				bpf_prog_put(parse);
+-			return PTR_ERR(psock);
++			err = PTR_ERR(psock);
++			goto out_progs;
+ 		}
+-		psock->key = i;
+-		psock->stab = stab;
+-		refcount_inc(&stab->refcnt);
++
+ 		set_bit(SMAP_TX_RUNNING, &psock->state);
+ 	}
+ 
+-	if (map_flags & BPF_SOCKMAP_STRPARSER) {
+-		write_lock_bh(&sock->sk_callback_lock);
+-		if (psock->strp_enabled)
+-			goto start_done;
++	e = kzalloc(sizeof(*e), GFP_ATOMIC | __GFP_NOWARN);
++	if (!e) {
++		err = -ENOMEM;
++		goto out_progs;
++	}
++	e->entry = &stab->sock_map[i];
++
++	/* 3. At this point we have a reference to a valid psock that is
++	 * running. Attach any BPF programs needed.
++	 */
++	if (parse && verdict && !psock->strp_enabled) {
+ 		err = smap_init_sock(psock, sock);
+ 		if (err)
+-			goto out;
++			goto out_free;
+ 		smap_init_progs(psock, stab, verdict, parse);
+ 		smap_start_sock(psock, sock);
+-start_done:
+-		write_unlock_bh(&sock->sk_callback_lock);
+-	} else if (update) {
+-		smap_stop_sock(psock, sock);
+ 	}
+ 
+-	if (!update) {
+-		old_sock = xchg(&stab->sock_map[i], skops->sk);
+-		if (old_sock)
+-			smap_release_sock(old_sock);
+-	}
++	/* 4. Place psock in sockmap for use and stop any programs on
++	 * the old sock assuming its not the same sock we are replacing
++	 * it with. Because we can only have a single set of programs if
++	 * old_sock has a strp we can stop it.
++	 */
++	list_add_tail(&e->list, &psock->maps);
++	write_unlock_bh(&sock->sk_callback_lock);
+ 
++	osock = xchg(&stab->sock_map[i], sock);
++	if (osock) {
++		struct smap_psock *opsock = smap_psock_sk(osock);
++
++		write_lock_bh(&osock->sk_callback_lock);
++		if (osock != sock && parse)
++			smap_stop_sock(opsock, osock);
++		smap_list_remove(opsock, &stab->sock_map[i]);
++		smap_release_sock(opsock, osock);
++		write_unlock_bh(&osock->sk_callback_lock);
++	}
+ 	return 0;
+-out:
++out_free:
++	smap_release_sock(psock, sock);
++out_progs:
++	if (verdict)
++		bpf_prog_put(verdict);
++	if (parse)
++		bpf_prog_put(parse);
+ 	write_unlock_bh(&sock->sk_callback_lock);
+-	if (!update)
+-		smap_release_sock(sock);
++	kfree(e);
  	return err;
  }
  
--static int sock_map_attach_prog(struct bpf_map *map,
--				struct bpf_prog *parse,
--				struct bpf_prog *verdict)
-+int sock_map_attach_prog(struct bpf_map *map, struct bpf_prog *prog, u32 type)
- {
- 	struct bpf_stab *stab = container_of(map, struct bpf_stab, map);
--	struct bpf_prog *_parse, *_verdict;
-+	struct bpf_prog *orig;
- 
--	_parse = xchg(&stab->bpf_parse, parse);
--	_verdict = xchg(&stab->bpf_verdict, verdict);
-+	switch (type) {
-+	case BPF_SK_SKB_STREAM_PARSER:
-+		orig = xchg(&stab->bpf_parse, prog);
-+		break;
-+	case BPF_SK_SKB_STREAM_VERDICT:
-+		orig = xchg(&stab->bpf_verdict, prog);
-+		break;
-+	default:
-+		return -EOPNOTSUPP;
-+	}
- 
--	if (_parse)
--		bpf_prog_put(_parse);
--	if (_verdict)
--		bpf_prog_put(_verdict);
-+	if (orig)
-+		bpf_prog_put(orig);
- 
- 	return 0;
- }
-@@ -777,7 +781,6 @@ static int sock_map_update_elem(struct bpf_map *map,
- 	.map_get_next_key = sock_map_get_next_key,
- 	.map_update_elem = sock_map_update_elem,
- 	.map_delete_elem = sock_map_delete_elem,
--	.map_attach = sock_map_attach_prog,
- };
- 
- BPF_CALL_5(bpf_sock_map_update, struct bpf_sock_ops_kern *, bpf_sock,
-diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-index 9378f3b..021a05d 100644
---- a/kernel/bpf/syscall.c
-+++ b/kernel/bpf/syscall.c
-@@ -1093,12 +1093,12 @@ static int bpf_obj_get(const union bpf_attr *attr)
- 
- #ifdef CONFIG_CGROUP_BPF
- 
--#define BPF_PROG_ATTACH_LAST_FIELD attach_bpf_fd2
-+#define BPF_PROG_ATTACH_LAST_FIELD attach_flags
- 
--static int sockmap_get_from_fd(const union bpf_attr *attr, int ptype)
-+static int sockmap_get_from_fd(const union bpf_attr *attr)
- {
--	struct bpf_prog *prog1, *prog2;
- 	int ufd = attr->target_fd;
-+	struct bpf_prog *prog;
- 	struct bpf_map *map;
- 	struct fd f;
- 	int err;
-@@ -1108,29 +1108,16 @@ static int sockmap_get_from_fd(const union bpf_attr *attr, int ptype)
- 	if (IS_ERR(map))
- 		return PTR_ERR(map);
- 
--	if (!map->ops->map_attach) {
--		fdput(f);
--		return -EOPNOTSUPP;
--	}
--
--	prog1 = bpf_prog_get_type(attr->attach_bpf_fd, ptype);
--	if (IS_ERR(prog1)) {
-+	prog = bpf_prog_get_type(attr->attach_bpf_fd, BPF_PROG_TYPE_SK_SKB);
-+	if (IS_ERR(prog)) {
- 		fdput(f);
--		return PTR_ERR(prog1);
--	}
--
--	prog2 = bpf_prog_get_type(attr->attach_bpf_fd2, ptype);
--	if (IS_ERR(prog2)) {
--		fdput(f);
--		bpf_prog_put(prog1);
--		return PTR_ERR(prog2);
-+		return PTR_ERR(prog);
- 	}
- 
--	err = map->ops->map_attach(map, prog1, prog2);
-+	err = sock_map_attach_prog(map, prog, attr->attach_type);
- 	if (err) {
- 		fdput(f);
--		bpf_prog_put(prog1);
--		bpf_prog_put(prog2);
-+		bpf_prog_put(prog);
- 		return err;
- 	}
- 
-@@ -1165,16 +1152,13 @@ static int bpf_prog_attach(const union bpf_attr *attr)
- 	case BPF_CGROUP_SOCK_OPS:
- 		ptype = BPF_PROG_TYPE_SOCK_OPS;
- 		break;
--	case BPF_CGROUP_SMAP_INGRESS:
--		ptype = BPF_PROG_TYPE_SK_SKB;
--		break;
-+	case BPF_SK_SKB_STREAM_PARSER:
-+	case BPF_SK_SKB_STREAM_VERDICT:
-+		return sockmap_get_from_fd(attr);
- 	default:
+@@ -768,8 +831,7 @@ static int sock_map_update_elem(struct bpf_map *map,
  		return -EINVAL;
  	}
  
--	if (attr->attach_type == BPF_CGROUP_SMAP_INGRESS)
--		return sockmap_get_from_fd(attr, ptype);
--
- 	prog = bpf_prog_get_type(attr->attach_bpf_fd, ptype);
- 	if (IS_ERR(prog))
- 		return PTR_ERR(prog);
-diff --git a/samples/sockmap/sockmap_kern.c b/samples/sockmap/sockmap_kern.c
-index 6ff986f..f9b38ef 100644
---- a/samples/sockmap/sockmap_kern.c
-+++ b/samples/sockmap/sockmap_kern.c
-@@ -82,8 +82,7 @@ int bpf_sockmap(struct bpf_sock_ops *skops)
- 		if (lport == 10000) {
- 			ret = 1;
- 			err = bpf_sock_map_update(skops, &sock_map, &ret,
--						  BPF_NOEXIST,
--						  BPF_SOCKMAP_STRPARSER);
-+						  BPF_NOEXIST);
- 			bpf_printk("passive(%i -> %i) map ctx update err: %d\n",
- 				   lport, bpf_ntohl(rport), err);
- 		}
-@@ -95,8 +94,7 @@ int bpf_sockmap(struct bpf_sock_ops *skops)
- 		if (bpf_ntohl(rport) == 10001) {
- 			ret = 10;
- 			err = bpf_sock_map_update(skops, &sock_map, &ret,
--						  BPF_NOEXIST,
--						  BPF_SOCKMAP_STRPARSER);
-+						  BPF_NOEXIST);
- 			bpf_printk("active(%i -> %i) map ctx update err: %d\n",
- 				   lport, bpf_ntohl(rport), err);
- 		}
-diff --git a/samples/sockmap/sockmap_user.c b/samples/sockmap/sockmap_user.c
-index fb78f5a..7cc9d22 100644
---- a/samples/sockmap/sockmap_user.c
-+++ b/samples/sockmap/sockmap_user.c
-@@ -256,8 +256,16 @@ int main(int argc, char **argv)
- 	}
- 
- 	/* Attach programs to sockmap */
--	err = __bpf_prog_attach(prog_fd[0], prog_fd[1], map_fd[0],
--				BPF_CGROUP_SMAP_INGRESS, 0);
-+	err = bpf_prog_attach(prog_fd[0], map_fd[0],
-+				BPF_SK_SKB_STREAM_PARSER, 0);
-+	if (err) {
-+		fprintf(stderr, "ERROR: bpf_prog_attach (sockmap): %d (%s)\n",
-+			err, strerror(errno));
-+		return err;
-+	}
-+
-+	err = bpf_prog_attach(prog_fd[1], map_fd[0],
-+				BPF_SK_SKB_STREAM_VERDICT, 0);
- 	if (err) {
- 		fprintf(stderr, "ERROR: bpf_prog_attach (sockmap): %d (%s)\n",
- 			err, strerror(errno));
-diff --git a/tools/include/uapi/linux/bpf.h b/tools/include/uapi/linux/bpf.h
-index f8f6377..09ac590 100644
---- a/tools/include/uapi/linux/bpf.h
-+++ b/tools/include/uapi/linux/bpf.h
-@@ -136,7 +136,8 @@ enum bpf_attach_type {
- 	BPF_CGROUP_INET_EGRESS,
- 	BPF_CGROUP_INET_SOCK_CREATE,
- 	BPF_CGROUP_SOCK_OPS,
--	BPF_CGROUP_SMAP_INGRESS,
-+	BPF_SK_SKB_STREAM_PARSER,
-+	BPF_SK_SKB_STREAM_VERDICT,
- 	__MAX_BPF_ATTACH_TYPE
+-	err = sock_map_ctx_update_elem(&skops, map, key,
+-				       flags, BPF_SOCKMAP_STRPARSER);
++	err = sock_map_ctx_update_elem(&skops, map, key, flags);
+ 	fput(socket->file);
+ 	return err;
+ }
+@@ -783,11 +845,11 @@ static int sock_map_update_elem(struct bpf_map *map,
+ 	.map_delete_elem = sock_map_delete_elem,
  };
  
-@@ -227,7 +228,6 @@ enum bpf_sockmap_flags {
- 		__u32		attach_bpf_fd;	/* eBPF program to attach */
- 		__u32		attach_type;
- 		__u32		attach_flags;
--		__u32		attach_bpf_fd2;
- 	};
- 
- 	struct { /* anonymous struct used by BPF_PROG_TEST_RUN command */
-@@ -572,14 +572,11 @@ enum bpf_sockmap_flags {
-  *     @flags: reserved for future use
-  *     Return: SK_REDIRECT
-  *
-- * int bpf_sock_map_update(skops, map, key, flags, map_flags)
-+ * int bpf_sock_map_update(skops, map, key, flags)
-  *	@skops: pointer to bpf_sock_ops
-  *	@map: pointer to sockmap to update
-  *	@key: key to insert/update sock in map
-  *	@flags: same flags as map update elem
-- *	@map_flags: sock map specific flags
-- *	   bit 1: Enable strparser
-- *	   other bits: reserved
-  */
- #define __BPF_FUNC_MAPPER(FN)		\
- 	FN(unspec),			\
-diff --git a/tools/lib/bpf/bpf.c b/tools/lib/bpf/bpf.c
-index a071761..1d6907d 100644
---- a/tools/lib/bpf/bpf.c
-+++ b/tools/lib/bpf/bpf.c
-@@ -235,28 +235,20 @@ int bpf_obj_get(const char *pathname)
- 	return sys_bpf(BPF_OBJ_GET, &attr, sizeof(attr));
- }
- 
--int __bpf_prog_attach(int prog_fd1, int prog_fd2, int target_fd,
--		      enum bpf_attach_type type,
--		      unsigned int flags)
-+int bpf_prog_attach(int prog_fd, int target_fd, enum bpf_attach_type type,
-+		    unsigned int flags)
+-BPF_CALL_5(bpf_sock_map_update, struct bpf_sock_ops_kern *, bpf_sock,
+-	   struct bpf_map *, map, void *, key, u64, flags, u64, map_flags)
++BPF_CALL_4(bpf_sock_map_update, struct bpf_sock_ops_kern *, bpf_sock,
++	   struct bpf_map *, map, void *, key, u64, flags)
  {
- 	union bpf_attr attr;
- 
- 	bzero(&attr, sizeof(attr));
- 	attr.target_fd	   = target_fd;
--	attr.attach_bpf_fd = prog_fd1;
--	attr.attach_bpf_fd2 = prog_fd2;
-+	attr.attach_bpf_fd = prog_fd;
- 	attr.attach_type   = type;
- 	attr.attach_flags  = flags;
- 
- 	return sys_bpf(BPF_PROG_ATTACH, &attr, sizeof(attr));
+ 	WARN_ON_ONCE(!rcu_read_lock_held());
+-	return sock_map_ctx_update_elem(bpf_sock, map, key, flags, map_flags);
++	return sock_map_ctx_update_elem(bpf_sock, map, key, flags);
  }
  
--int bpf_prog_attach(int prog_fd, int target_fd, enum bpf_attach_type type,
--		    unsigned int flags)
--{
--	return __bpf_prog_attach(prog_fd, 0, target_fd, type, flags);
--}
--
- int bpf_prog_detach(int target_fd, enum bpf_attach_type type)
- {
- 	union bpf_attr attr;
-diff --git a/tools/lib/bpf/bpf.h b/tools/lib/bpf/bpf.h
-index 90e9d4e..b8ea584 100644
---- a/tools/lib/bpf/bpf.h
-+++ b/tools/lib/bpf/bpf.h
-@@ -56,10 +56,6 @@ int bpf_map_update_elem(int fd, const void *key, const void *value,
- int bpf_obj_get(const char *pathname);
- int bpf_prog_attach(int prog_fd, int attachable_fd, enum bpf_attach_type type,
- 		    unsigned int flags);
--int __bpf_prog_attach(int prog1, int prog2,
--		      int attachable_fd,
--		      enum bpf_attach_type type,
--		      unsigned int flags);
- int bpf_prog_detach(int attachable_fd, enum bpf_attach_type type);
- int bpf_prog_test_run(int prog_fd, int repeat, void *data, __u32 size,
- 		      void *data_out, __u32 *size_out, __u32 *retval,
-diff --git a/tools/testing/selftests/bpf/bpf_helpers.h b/tools/testing/selftests/bpf/bpf_helpers.h
-index 98f3be2..36fb916 100644
---- a/tools/testing/selftests/bpf/bpf_helpers.h
-+++ b/tools/testing/selftests/bpf/bpf_helpers.h
-@@ -68,8 +68,7 @@ static int (*bpf_setsockopt)(void *ctx, int level, int optname, void *optval,
- static int (*bpf_sk_redirect_map)(void *map, int key, int flags) =
- 	(void *) BPF_FUNC_sk_redirect_map;
- static int (*bpf_sock_map_update)(void *map, void *key, void *value,
--				  unsigned long long flags,
--				  unsigned long long map_lags) =
-+				  unsigned long long flags) =
- 	(void *) BPF_FUNC_sock_map_update;
- 
- 
-diff --git a/tools/testing/selftests/bpf/sockmap_parse_prog.c b/tools/testing/selftests/bpf/sockmap_parse_prog.c
-index 8b54531..710f43f 100644
---- a/tools/testing/selftests/bpf/sockmap_parse_prog.c
-+++ b/tools/testing/selftests/bpf/sockmap_parse_prog.c
-@@ -30,7 +30,7 @@ int bpf_prog1(struct __sk_buff *skb)
- 	 */
- 	d[0] = 1;
- 
--	bpf_printk("data[0] = (%u): local_port %i remote %i\n",
-+	bpf_printk("parse: data[0] = (%u): local_port %i remote %i\n",
- 		   d[0], lport, bpf_ntohl(rport));
- 	return skb->len;
- }
-diff --git a/tools/testing/selftests/bpf/sockmap_verdict_prog.c b/tools/testing/selftests/bpf/sockmap_verdict_prog.c
-index d5f9447..0573c1d 100644
---- a/tools/testing/selftests/bpf/sockmap_verdict_prog.c
-+++ b/tools/testing/selftests/bpf/sockmap_verdict_prog.c
-@@ -40,7 +40,7 @@ int bpf_prog2(struct __sk_buff *skb)
- 	d[6] = 0xe;
- 	d[7] = 0xf;
- 
--	bpf_printk("data[0] = (%u): local_port %i remote %i\n",
-+	bpf_printk("verdict: data[0] = (%u): local_port %i remote %i redirect 5\n",
- 		   d[0], lport, bpf_ntohl(rport));
- 	return bpf_sk_redirect_map(&sock_map, 5, 0);
- }
-diff --git a/tools/testing/selftests/bpf/test_maps.c b/tools/testing/selftests/bpf/test_maps.c
-index 40b2d1f..6df6e62 100644
---- a/tools/testing/selftests/bpf/test_maps.c
-+++ b/tools/testing/selftests/bpf/test_maps.c
-@@ -547,20 +547,26 @@ static void test_sockmap(int task, void *data)
- 		goto out_sockmap;
- 	}
- 
--	/* Nothing attached so these should fail */
-+	/* Test update without programs */
- 	for (i = 0; i < 6; i++) {
- 		err = bpf_map_update_elem(fd, &i, &sfd[i], BPF_ANY);
--		if (!err) {
--			printf("Failed invalid update sockmap '%i:%i'\n",
-+		if (err) {
-+			printf("Failed noprog update sockmap '%i:%i'\n",
- 			       i, sfd[i]);
- 			goto out_sockmap;
- 		}
- 	}
- 
- 	/* Test attaching bad fds */
--	err = __bpf_prog_attach(-1, -2, fd, BPF_CGROUP_SMAP_INGRESS, 0);
-+	err = bpf_prog_attach(-1, fd, BPF_SK_SKB_STREAM_PARSER, 0);
- 	if (!err) {
--		printf("Failed invalid prog attach\n");
-+		printf("Failed invalid parser prog attach\n");
-+		goto out_sockmap;
-+	}
-+
-+	err = bpf_prog_attach(-1, fd, BPF_SK_SKB_STREAM_VERDICT, 0);
-+	if (!err) {
-+		printf("Failed invalid verdict prog attach\n");
- 		goto out_sockmap;
- 	}
- 
-@@ -591,14 +597,21 @@ static void test_sockmap(int task, void *data)
- 		goto out_sockmap;
- 	}
- 
--	err = __bpf_prog_attach(parse_prog, verdict_prog, map_fd,
--				BPF_CGROUP_SMAP_INGRESS, 0);
-+	err = bpf_prog_attach(parse_prog, map_fd,
-+		      BPF_SK_SKB_STREAM_PARSER, 0);
-+	if (err) {
-+		printf("Failed bpf prog attach\n");
-+		goto out_sockmap;
-+	}
-+
-+	err = bpf_prog_attach(verdict_prog, map_fd,
-+			      BPF_SK_SKB_STREAM_VERDICT, 0);
- 	if (err) {
- 		printf("Failed bpf prog attach\n");
- 		goto out_sockmap;
- 	}
- 
--	/* Test map update elem */
-+	/* Test map update elem afterwards fd lives in fd and map_fd */
- 	for (i = 0; i < 6; i++) {
- 		err = bpf_map_update_elem(map_fd, &i, &sfd[i], BPF_ANY);
- 		if (err) {
-@@ -649,96 +662,68 @@ static void test_sockmap(int task, void *data)
- 		goto out_sockmap;
- 	}
- 
--	/* Delete the reset of the elems include some NULL elems */
--	for (i = 0; i < 6; i++) {
--		err = bpf_map_delete_elem(map_fd, &i);
--		if (err && (i == 0 || i == 1 || i >= 4)) {
--			printf("Failed delete  sockmap %i '%i:%i'\n",
--			       err, i, sfd[i]);
--			goto out_sockmap;
--		} else if (!err && (i == 2 || i == 3)) {
--			printf("Failed null delete sockmap %i '%i:%i'\n",
--			       err, i, sfd[i]);
--			goto out_sockmap;
--		}
--	}
--
--	/* Test having multiple SMAPs open and active on same fds */
--	err = __bpf_prog_attach(parse_prog, verdict_prog, fd,
--				BPF_CGROUP_SMAP_INGRESS, 0);
--	if (err) {
--		printf("Failed fd bpf prog attach\n");
--		goto out_sockmap;
--	}
--
--	for (i = 0; i < 6; i++) {
--		err = bpf_map_update_elem(fd, &i, &sfd[i], BPF_ANY);
--		if (err) {
--			printf("Failed fd update sockmap %i '%i:%i'\n",
--			       err, i, sfd[i]);
--			goto out_sockmap;
--		}
--	}
--
--	/* Test duplicate socket add of NOEXIST, ANY and EXIST */
--	i = 0;
-+	/* Push fd into same slot */
-+	i = 2;
- 	err = bpf_map_update_elem(fd, &i, &sfd[i], BPF_NOEXIST);
- 	if (!err) {
--		printf("Failed BPF_NOEXIST create\n");
-+		printf("Failed allowed sockmap dup slot BPF_NOEXIST\n");
- 		goto out_sockmap;
- 	}
- 
- 	err = bpf_map_update_elem(fd, &i, &sfd[i], BPF_ANY);
- 	if (err) {
--		printf("Failed sockmap update BPF_ANY\n");
-+		printf("Failed sockmap update new slot BPF_ANY\n");
- 		goto out_sockmap;
- 	}
- 
- 	err = bpf_map_update_elem(fd, &i, &sfd[i], BPF_EXIST);
- 	if (err) {
--		printf("Failed sockmap update BPF_EXIST\n");
-+		printf("Failed sockmap update new slot BPF_EXIST\n");
- 		goto out_sockmap;
- 	}
- 
--	/* The above were pushing fd into same slot try different slot now */
--	i = 2;
--	err = bpf_map_update_elem(fd, &i, &sfd[i], BPF_NOEXIST);
--	if (!err) {
--		printf("Failed BPF_NOEXIST create\n");
--		goto out_sockmap;
-+	/* Delete the elems without programs */
-+	for (i = 0; i < 6; i++) {
-+		err = bpf_map_delete_elem(fd, &i);
-+		if (err) {
-+			printf("Failed delete sockmap %i '%i:%i'\n",
-+			       err, i, sfd[i]);
-+		}
- 	}
- 
--	err = bpf_map_update_elem(fd, &i, &sfd[i], BPF_ANY);
-+	/* Test having multiple maps open and set with programs on same fds */
-+	err = bpf_prog_attach(parse_prog, fd,
-+			      BPF_SK_SKB_STREAM_PARSER, 0);
- 	if (err) {
--		printf("Failed sockmap update BPF_ANY\n");
-+		printf("Failed fd bpf parse prog attach\n");
- 		goto out_sockmap;
- 	}
--
--	err = bpf_map_update_elem(fd, &i, &sfd[i], BPF_EXIST);
-+	err = bpf_prog_attach(verdict_prog, fd,
-+			      BPF_SK_SKB_STREAM_VERDICT, 0);
- 	if (err) {
--		printf("Failed sockmap update BPF_EXIST\n");
-+		printf("Failed fd bpf verdict prog attach\n");
- 		goto out_sockmap;
- 	}
- 
--	/* Try pushing fd into different map, this is not allowed at the
--	 * moment. Which programs would we use?
--	 */
--	err = bpf_map_update_elem(map_fd, &i, &sfd[i], BPF_NOEXIST);
--	if (!err) {
--		printf("Failed BPF_NOEXIST create\n");
--		goto out_sockmap;
--	}
--
--	err = bpf_map_update_elem(map_fd, &i, &sfd[i], BPF_ANY);
--	if (!err) {
--		printf("Failed sockmap update BPF_ANY\n");
--		goto out_sockmap;
--	}
--
--	err = bpf_map_update_elem(map_fd, &i, &sfd[i], BPF_EXIST);
--	if (!err) {
--		printf("Failed sockmap update BPF_EXIST\n");
--		goto out_sockmap;
-+	for (i = 4; i < 6; i++) {
-+		err = bpf_map_update_elem(fd, &i, &sfd[i], BPF_ANY);
-+		if (!err) {
-+			printf("Failed allowed duplicate programs in update ANY sockmap %i '%i:%i'\n",
-+			       err, i, sfd[i]);
-+			goto out_sockmap;
-+		}
-+		err = bpf_map_update_elem(fd, &i, &sfd[i], BPF_NOEXIST);
-+		if (!err) {
-+			printf("Failed allowed duplicate program in update NOEXIST sockmap  %i '%i:%i'\n",
-+			       err, i, sfd[i]);
-+			goto out_sockmap;
-+		}
-+		err = bpf_map_update_elem(fd, &i, &sfd[i], BPF_EXIST);
-+		if (!err) {
-+			printf("Failed allowed duplicate program in update EXIST sockmap  %i '%i:%i'\n",
-+			       err, i, sfd[i]);
-+			goto out_sockmap;
-+		}
- 	}
- 
- 	/* Test map close sockets */
+ const struct bpf_func_proto bpf_sock_map_update_proto = {
+@@ -799,5 +861,4 @@ static int sock_map_update_elem(struct bpf_map *map,
+ 	.arg2_type	= ARG_CONST_MAP_PTR,
+ 	.arg3_type	= ARG_PTR_TO_MAP_KEY,
+ 	.arg4_type	= ARG_ANYTHING,
+-	.arg5_type	= ARG_ANYTHING,
+ };
