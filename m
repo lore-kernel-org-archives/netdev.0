@@ -1,81 +1,102 @@
 From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net-next 08/11] bnxt_en: fix clearing devlink ptr from bnxt struct
-Date: Mon, 28 Aug 2017 13:40:32 -0400
-Message-ID: <1503942035-24924-9-git-send-email-michael.chan@broadcom.com>
+Subject: [PATCH net-next 03/11] bnxt_en: assign CPU affinity hints to bnxt_en IRQs
+Date: Mon, 28 Aug 2017 13:40:27 -0400
+Message-ID: <1503942035-24924-4-git-send-email-michael.chan@broadcom.com>
 References: <1503942035-24924-1-git-send-email-michael.chan@broadcom.com>
-Cc: netdev@vger.kernel.org, Sathya Perla <sathya.perla@broadcom.com>
+Cc: netdev@vger.kernel.org,
+        Vasundhara Volam <vasundhara-v.volam@broadcom.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f175.google.com ([209.85.216.175]:36292 "EHLO
-        mail-qt0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751493AbdH1Rk7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 13:40:59 -0400
-Received: by mail-qt0-f175.google.com with SMTP id v29so5266456qtv.3
-        for <netdev@vger.kernel.org>; Mon, 28 Aug 2017 10:40:59 -0700 (PDT)
+Received: from mail-qt0-f178.google.com ([209.85.216.178]:33350 "EHLO
+        mail-qt0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751304AbdH1Rkx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 13:40:53 -0400
+Received: by mail-qt0-f178.google.com with SMTP id e2so5348213qta.0
+        for <netdev@vger.kernel.org>; Mon, 28 Aug 2017 10:40:52 -0700 (PDT)
 In-Reply-To: <1503942035-24924-1-git-send-email-michael.chan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sathya Perla <sathya.perla@broadcom.com>
+From: Vasundhara Volam <vasundhara-v.volam@broadcom.com>
 
-The routine bnxt_link_bp_to_dl() is used to set the devlink ptr
-in bnxt struct (bp) and also to set the bnxt back ptr in
-the devlink struct.  If devlink_register() fails, bp->dl must
-be cleared which is not happening currently. This patch fixes
-bnxt_link_bp_to_dl() to clear bp->dl by passing  a NULL dl ptr.
+This patch provides hints to irqbalance to map bnxt_en device IRQs
+to specific CPU cores. cpumask_local_spread() is used, which first
+maps IRQs to near NUMA cores; when those cores are exhausted, IRQs
+are mapped to far NUMA cores.
 
-Fixes: 4ab0c6a8ffd7 ("bnxt_en: add support to enable VF-representors")
-Signed-off-by: Sathya Perla <sathya.perla@broadcom.com>
+Signed-off-by: Vasundhara Volam <vasundhara-v.volam@broadcom.com>
 Signed-off-by: Michael Chan <michael.chan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.c |  4 ++--
- drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.h | 14 +++++++++-----
- 2 files changed, 11 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c | 25 ++++++++++++++++++++++++-
+ drivers/net/ethernet/broadcom/bnxt/bnxt.h |  4 +++-
+ 2 files changed, 27 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.c
-index 86cce6f..c365d3c 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.c
-@@ -468,11 +468,11 @@ int bnxt_dl_register(struct bnxt *bp)
- 		return -ENOMEM;
- 	}
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+index 4b0a807..9657bfb 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+@@ -49,6 +49,7 @@
+ #include <linux/aer.h>
+ #include <linux/bitmap.h>
+ #include <linux/cpu_rmap.h>
++#include <linux/cpumask.h>
  
--	bnxt_link_bp_to_dl(dl, bp);
-+	bnxt_link_bp_to_dl(bp, dl);
- 	bp->eswitch_mode = DEVLINK_ESWITCH_MODE_LEGACY;
- 	rc = devlink_register(dl, &bp->pdev->dev);
- 	if (rc) {
--		bnxt_link_bp_to_dl(dl, NULL);
-+		bnxt_link_bp_to_dl(bp, NULL);
- 		devlink_free(dl);
- 		netdev_warn(bp->dev, "devlink_register failed. rc=%d", rc);
- 		return rc;
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.h b/drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.h
-index e55a3b6..3e997c9 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.h
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.h
-@@ -24,13 +24,17 @@ static inline struct bnxt *bnxt_get_bp_from_dl(struct devlink *dl)
- 	return ((struct bnxt_dl *)devlink_priv(dl))->bp;
- }
+ #include "bnxt_hsi.h"
+ #include "bnxt.h"
+@@ -5554,8 +5555,15 @@ static void bnxt_free_irq(struct bnxt *bp)
  
--static inline void bnxt_link_bp_to_dl(struct devlink *dl, struct bnxt *bp)
-+/* To clear devlink pointer from bp, pass NULL dl */
-+static inline void bnxt_link_bp_to_dl(struct bnxt *bp, struct devlink *dl)
- {
--	struct bnxt_dl *bp_dl = devlink_priv(dl);
-+	bp->dl = dl;
- 
--	bp_dl->bp = bp;
--	if (bp)
--		bp->dl = dl;
-+	/* add a back pointer in dl to bp */
-+	if (dl) {
-+		struct bnxt_dl *bp_dl = devlink_priv(dl);
+ 	for (i = 0; i < bp->cp_nr_rings; i++) {
+ 		irq = &bp->irq_tbl[i];
+-		if (irq->requested)
++		if (irq->requested) {
++			if (irq->have_cpumask) {
++				irq_set_affinity_hint(irq->vector, NULL);
++				free_cpumask_var(irq->cpu_mask);
++				irq->have_cpumask = 0;
++			}
+ 			free_irq(irq->vector, bp->bnapi[i]);
++		}
 +
-+		bp_dl->bp = bp;
-+	}
+ 		irq->requested = 0;
+ 	}
  }
+@@ -5588,6 +5596,21 @@ static int bnxt_request_irq(struct bnxt *bp)
+ 			break;
  
- int bnxt_dl_register(struct bnxt *bp);
+ 		irq->requested = 1;
++
++		if (zalloc_cpumask_var(&irq->cpu_mask, GFP_KERNEL)) {
++			int numa_node = dev_to_node(&bp->pdev->dev);
++
++			irq->have_cpumask = 1;
++			cpumask_set_cpu(cpumask_local_spread(i, numa_node),
++					irq->cpu_mask);
++			rc = irq_set_affinity_hint(irq->vector, irq->cpu_mask);
++			if (rc) {
++				netdev_warn(bp->dev,
++					    "Set affinity failed, IRQ = %d\n",
++					    irq->vector);
++				break;
++			}
++		}
+ 	}
+ 	return rc;
+ }
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.h b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
+index 568516f..801c0f7 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt.h
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
+@@ -701,8 +701,10 @@ struct bnxt_napi {
+ struct bnxt_irq {
+ 	irq_handler_t	handler;
+ 	unsigned int	vector;
+-	u8		requested;
++	u8		requested:1;
++	u8		have_cpumask:1;
+ 	char		name[IFNAMSIZ + 2];
++	cpumask_var_t	cpu_mask;
+ };
+ 
+ #define HWRM_RING_ALLOC_TX	0x1
 -- 
 1.8.3.1
