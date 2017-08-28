@@ -1,69 +1,72 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net] ipv6: do not set sk_destruct in IPV6_ADDRFORM sockopt
-Date: Mon, 28 Aug 2017 10:45:01 +0800
-Message-ID: <4cfe77b4a829c0d6134b842fe2ea7c41b6b210ff.1503888301.git.lucien.xin@gmail.com>
-Cc: davem@davemloft.net, pabeni@redhat.com, chunwang@redhat.com,
-        syzkaller@googlegroups.com
-To: network dev <netdev@vger.kernel.org>
+From: "Waskiewicz Jr, Peter" <peter.waskiewicz.jr@intel.com>
+Subject: Re: Get ARP/ND tables from kernel
+Date: Mon, 28 Aug 2017 02:53:19 +0000
+Message-ID: <E0D909EE5BB15A4699798539EA149D7F07796D3C@ORSMSX103.amr.corp.intel.com>
+References: <CAJW__LkW10SWRmEKP_0YxjbVHjUYqJFPKsKn-52D1ucF+HH9uQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: Bassam Alsanie <bassam.alsanie@gmail.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:37125 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751768AbdH1CpK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 27 Aug 2017 22:45:10 -0400
-Received: by mail-pf0-f193.google.com with SMTP id r187so3205505pfr.4
-        for <netdev@vger.kernel.org>; Sun, 27 Aug 2017 19:45:10 -0700 (PDT)
+Received: from mga06.intel.com ([134.134.136.31]:43254 "EHLO mga06.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751704AbdH1CxV (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 27 Aug 2017 22:53:21 -0400
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ChunYu found a kernel warn_on during syzkaller fuzzing:
+On 8/27/17 9:25 PM, Bassam Alsanie wrote:
+> Hello everyone,
+> I looking into a good way (stable and compatible with large number of
+> distros) to get the arp/nd cache from kernel to user space, for both
+> IP4 and IP6.
+> 
+> It seem IOCTL (SIOCGARP) can't do that, you can only get MAC address
+> from provided IP address. But IOCTL can't give the the full arp/nd
+> table.
+> The other option is the Netlink interface. I tried it and I got the
+> ARP/ND table :).
+> The third option is using /proc/net/arp, which only restricted to IP4.
+> 
+> There is command line utilities that I excluding in my case.
+> 
+> Is there another way to do it? what is the best way in my case?
+> 
+> Thank you all.
 
-[40226.038539] WARNING: CPU: 5 PID: 23720 at net/ipv4/af_inet.c:152 inet_sock_destruct+0x78d/0x9a0
-[40226.144849] Call Trace:
-[40226.147590]  <IRQ>
-[40226.149859]  dump_stack+0xe2/0x186
-[40226.176546]  __warn+0x1a4/0x1e0
-[40226.180066]  warn_slowpath_null+0x31/0x40
-[40226.184555]  inet_sock_destruct+0x78d/0x9a0
-[40226.246355]  __sk_destruct+0xfa/0x8c0
-[40226.290612]  rcu_process_callbacks+0xaa0/0x18a0
-[40226.336816]  __do_softirq+0x241/0x75e
-[40226.367758]  irq_exit+0x1f6/0x220
-[40226.371458]  smp_apic_timer_interrupt+0x7b/0xa0
-[40226.376507]  apic_timer_interrupt+0x93/0xa0
+# strace arp -an
+[...]
+open("/proc/net/arp", O_RDONLY)         = 4
+fstat(4, {st_mode=S_IFREG|0444, st_size=0, ...}) = 0
+read(4, "IP address       HW type     Fla"..., 1024) = 310
+[...]
 
-The warn_on happned when sk->sk_rmem_alloc wasn't 0 in inet_sock_destruct.
-As after commit f970bd9e3a06 ("udp: implement memory accounting helpers"),
-udp has changed to use udp_destruct_sock as sk_destruct where it would
-udp_rmem_release all rmem.
+# strace ip -6 neighbor show
+[...]
+socket(AF_NETLINK, SOCK_RAW|SOCK_CLOEXEC, NETLINK_ROUTE) = 3
+setsockopt(3, SOL_SOCKET, SO_SNDBUF, [32768], 4) = 0
+setsockopt(3, SOL_SOCKET, SO_RCVBUF, [1048576], 4) = 0
+bind(3, {sa_family=AF_NETLINK, nl_pid=0, nl_groups=00000000}, 12) = 0
+getsockname(3, {sa_family=AF_NETLINK, nl_pid=30292, nl_groups=00000000}, 
+[12]) = 0
+sendto(3, {{len=40, type=RTM_GETLINK, flags=NLM_F_REQUEST|NLM_F_DUMP, 
+seq=1503888680, pid=0}, 
+"\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\10\0\35\0\1\0\0\0"}, 40, 0, NULL, 0) = 40
+recvmsg(3, {msg_name={sa_family=AF_NETLINK, nl_pid=0, 
+nl_groups=00000000}, msg_namelen=12, msg_iov=[{iov_base=[{{len=1268, 
+type=RTM_NEWLINK, flags=NLM_F_MULTI, seq=1503888680, pid=30292}, 
+"\0\0\4\3\1\0\0\0I\0\1\0\0\0\0\0\7\0\3\0lo\0\0\10\0\r\0\350\3\0\0"...}, 
+{{len=1280, type=RTM_NEWLINK, flags=NLM_F_MULTI, seq=1503888680, 
+pid=30292}, 
+"\0\0\1\0\2\0\0\0C\20\1\0\0\0\0\0\t\0\3\0eno1\0\0\0\0\10\0\r\0"...}], 
+iov_len=32768}], msg_iovlen=1, msg_controllen=0, msg_flags=0}, 0) = 2548
+[...]
 
-But IPV6_ADDRFORM sockopt sets sk_destruct with inet_sock_destruct after
-changing family to PF_INET. If rmem is not 0 at that time, and there is
-no place to release rmem before calling inet_sock_destruct, the warn_on
-will be triggered.
+Seems like it's pretty obvious if you don't want to use the existing 
+tools, just look at how the existing tools get this data.  IPv4 uses 
+/proc/net/arp, IPv6 uses netlink.
 
-This patch is to fix it by not setting sk_destruct in IPV6_ADDRFORM sockopt
-any more. As IPV6_ADDRFORM sockopt only works for tcp and udp. TCP sock has
-already set it's sk_destruct with inet_sock_destruct and UDP has set with
-udp_destruct_sock since they're created.
-
-Fixes: f970bd9e3a06 ("udp: implement memory accounting helpers")
-Reported-by: ChunYu Wang <chunwang@redhat.com>
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
----
- net/ipv6/ipv6_sockglue.c | 1 -
- 1 file changed, 1 deletion(-)
-
-diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
-index 02d795f..a5e466d 100644
---- a/net/ipv6/ipv6_sockglue.c
-+++ b/net/ipv6/ipv6_sockglue.c
-@@ -242,7 +242,6 @@ static int do_ipv6_setsockopt(struct sock *sk, int level, int optname,
- 			pktopt = xchg(&np->pktoptions, NULL);
- 			kfree_skb(pktopt);
- 
--			sk->sk_destruct = inet_sock_destruct;
- 			/*
- 			 * ... and add it to the refcnt debug socks count
- 			 * in the new family. -acme
--- 
-2.1.0
+Cheers,
+-PJ
