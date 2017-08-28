@@ -1,7 +1,7 @@
 From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH net-next v3 04/13] net: mvpp2: initialize the comphy
-Date: Mon, 28 Aug 2017 16:57:16 +0200
-Message-ID: <20170828145725.2539-5-antoine.tenart@free-electrons.com>
+Subject: [PATCH net-next v3 05/13] net: mvpp2: simplify the link_event function
+Date: Mon, 28 Aug 2017 16:57:17 +0200
+Message-ID: <20170828145725.2539-6-antoine.tenart@free-electrons.com>
 References: <20170828145725.2539-1-antoine.tenart@free-electrons.com>
 Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
         thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
@@ -16,121 +16,56 @@ In-Reply-To: <20170828145725.2539-1-antoine.tenart@free-electrons.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On some platforms, the comphy is between the MAC GoP and the PHYs. The
-mvpp2 driver currently relies on the firmware/bootloader to configure
-the comphy. As a comphy driver was added to the generic PHY framework,
-this patch uses it in the mvpp2 driver to configure the comphy at boot
-time to avoid relying on the bootloader.
+The link_event function is somewhat complicated. This cosmetic patch
+simplifies it.
 
 Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
 ---
- drivers/net/ethernet/marvell/mvpp2.c | 44 +++++++++++++++++++++++++++++++++++-
- 1 file changed, 43 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/marvell/mvpp2.c | 13 ++++---------
+ 1 file changed, 4 insertions(+), 9 deletions(-)
 
 diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index e312dfc3555b..fab231858a41 100644
+index fab231858a41..9c0c81e68d55 100644
 --- a/drivers/net/ethernet/marvell/mvpp2.c
 +++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -28,6 +28,7 @@
- #include <linux/of_address.h>
- #include <linux/of_device.h>
- #include <linux/phy.h>
-+#include <linux/phy/phy.h>
- #include <linux/clk.h>
- #include <linux/hrtimer.h>
- #include <linux/ktime.h>
-@@ -861,6 +862,7 @@ struct mvpp2_port {
- 
- 	phy_interface_t phy_interface;
- 	struct device_node *phy_node;
-+	struct phy *comphy;
- 	unsigned int link;
- 	unsigned int duplex;
- 	unsigned int speed;
-@@ -4420,6 +4422,32 @@ static int mvpp22_gop_init(struct mvpp2_port *port)
- 	return -EINVAL;
- }
- 
-+static int mvpp22_comphy_init(struct mvpp2_port *port)
-+{
-+	enum phy_mode mode;
-+	int ret;
-+
-+	if (!port->comphy)
-+		return 0;
-+
-+	switch (port->phy_interface) {
-+	case PHY_INTERFACE_MODE_SGMII:
-+		mode = PHY_MODE_SGMII;
-+		break;
-+	case PHY_INTERFACE_MODE_10GKR:
-+		mode = PHY_MODE_10GKR;
-+		break;
-+	default:
-+		return -EINVAL;
-+	}
-+
-+	ret = phy_set_mode(port->comphy, mode);
-+	if (ret)
-+		return ret;
-+
-+	return phy_power_on(port->comphy);
-+}
-+
- static void mvpp2_port_mii_gmac_configure_mode(struct mvpp2_port *port)
+@@ -5740,7 +5740,6 @@ static void mvpp2_link_event(struct net_device *dev)
  {
+ 	struct mvpp2_port *port = netdev_priv(dev);
+ 	struct phy_device *phydev = dev->phydev;
+-	int status_change = 0;
  	u32 val;
-@@ -6404,8 +6432,10 @@ static void mvpp2_start_dev(struct mvpp2_port *port)
- 	/* Enable interrupts on all CPUs */
- 	mvpp2_interrupts_enable(port);
  
--	if (port->priv->hw_version == MVPP22)
-+	if (port->priv->hw_version == MVPP22) {
-+		mvpp22_comphy_init(port);
- 		mvpp22_gop_init(port);
-+	}
- 
- 	mvpp2_port_mii_set(port);
- 	mvpp2_port_enable(port);
-@@ -6436,6 +6466,7 @@ static void mvpp2_stop_dev(struct mvpp2_port *port)
- 	mvpp2_egress_disable(port);
- 	mvpp2_port_disable(port);
- 	phy_stop(ndev->phydev);
-+	phy_power_off(port->comphy);
- }
- 
- static int mvpp2_check_ringparam_valid(struct net_device *dev,
-@@ -7270,6 +7301,7 @@ static int mvpp2_port_probe(struct platform_device *pdev,
- 			    struct mvpp2 *priv)
- {
- 	struct device_node *phy_node;
-+	struct phy *comphy;
- 	struct mvpp2_port *port;
- 	struct mvpp2_port_pcpu *port_pcpu;
- 	struct net_device *dev;
-@@ -7311,6 +7343,15 @@ static int mvpp2_port_probe(struct platform_device *pdev,
- 		goto err_free_netdev;
+ 	if (phydev->link) {
+@@ -5771,16 +5770,8 @@ static void mvpp2_link_event(struct net_device *dev)
  	}
  
-+	comphy = devm_of_phy_get(&pdev->dev, port_node, NULL);
-+	if (IS_ERR(comphy)) {
-+		if (PTR_ERR(comphy) == -EPROBE_DEFER) {
-+			err = -EPROBE_DEFER;
-+			goto err_free_netdev;
-+		}
-+		comphy = NULL;
-+	}
+ 	if (phydev->link != port->link) {
+-		if (!phydev->link) {
+-			port->duplex = -1;
+-			port->speed = 0;
+-		}
+-
+ 		port->link = phydev->link;
+-		status_change = 1;
+-	}
+ 
+-	if (status_change) {
+ 		if (phydev->link) {
+ 			val = readl(port->base + MVPP2_GMAC_AUTONEG_CONFIG);
+ 			val |= (MVPP2_GMAC_FORCE_LINK_PASS |
+@@ -5789,9 +5780,13 @@ static void mvpp2_link_event(struct net_device *dev)
+ 			mvpp2_egress_enable(port);
+ 			mvpp2_ingress_enable(port);
+ 		} else {
++			port->duplex = -1;
++			port->speed = 0;
 +
- 	if (of_property_read_u32(port_node, "port-id", &id)) {
- 		err = -EINVAL;
- 		dev_err(&pdev->dev, "missing port-id value\n");
-@@ -7344,6 +7385,7 @@ static int mvpp2_port_probe(struct platform_device *pdev,
- 
- 	port->phy_node = phy_node;
- 	port->phy_interface = phy_mode;
-+	port->comphy = comphy;
- 
- 	if (priv->hw_version == MVPP21) {
- 		res = platform_get_resource(pdev, IORESOURCE_MEM, 2 + id);
+ 			mvpp2_ingress_disable(port);
+ 			mvpp2_egress_disable(port);
+ 		}
++
+ 		phy_print_status(phydev);
+ 	}
+ }
 -- 
 2.13.5
