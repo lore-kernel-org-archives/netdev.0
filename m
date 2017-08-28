@@ -1,127 +1,98 @@
-From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH net-next v3 10/13] arm64: dts: marvell: add comphy nodes on cp110 master and slave
-Date: Mon, 28 Aug 2017 16:57:22 +0200
-Message-ID: <20170828145725.2539-11-antoine.tenart@free-electrons.com>
-References: <20170828145725.2539-1-antoine.tenart@free-electrons.com>
-Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
-        thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
-        linux@armlinux.org.uk, linux-kernel@vger.kernel.org,
-        mw@semihalf.com, stefanc@marvell.com,
-        miquel.raynal@free-electrons.com, netdev@vger.kernel.org
-To: davem@davemloft.net, kishon@ti.com, andrew@lunn.ch,
-        jason@lakedaemon.net, sebastian.hesselbarth@gmail.com,
-        gregory.clement@free-electrons.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170828145725.2539-1-antoine.tenart@free-electrons.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next] bridge: fdb add and delete tracepoints
+Date: Mon, 28 Aug 2017 08:03:47 -0700
+Message-ID: <CAJieiUgLAG9b8HVUEaWX=kTY13oUPDJPih+U8k19GG02XUeaTQ@mail.gmail.com>
+References: <1503869593-30165-1-git-send-email-roopa@cumulusnetworks.com>
+	<592631a3-6a80-407a-f087-37f7f04417d2@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	bridge@lists.linux-foundation.org,
+	"davem@davemloft.net" <davem@davemloft.net>, Andrew Lunn <andrew@lunn.ch>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <592631a3-6a80-407a-f087-37f7f04417d2@gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Now that the comphy driver is available, this patch adds the
-corresponding nodes in the cp110 master and slave device trees.
+On Sun, Aug 27, 2017 at 7:11 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+> On 08/27/2017 02:33 PM, Roopa Prabhu wrote:
+>> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+>>
+>> Tracepoints to trace bridge forwarding database updates.
+>
+> Thanks for adding this!
+>
+>>
+>> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+>> ---
+>>  include/trace/events/bridge.h | 98 +++++++++++++++++++++++++++++++++++++++++++
+>>  net/bridge/br_fdb.c           |  7 ++++
+>>  net/core/net-traces.c         |  6 +++
+>>  3 files changed, 111 insertions(+)
+>>  create mode 100644 include/trace/events/bridge.h
+>>
+>> diff --git a/include/trace/events/bridge.h b/include/trace/events/bridge.h
+>> new file mode 100644
+>> index 0000000..e2d52cf
+>> --- /dev/null
+>> +++ b/include/trace/events/bridge.h
+>> @@ -0,0 +1,98 @@
+>> +#undef TRACE_SYSTEM
+>> +#define TRACE_SYSTEM bridge
+>> +
+>> +#if !defined(_TRACE_BRIDGE_H) || defined(TRACE_HEADER_MULTI_READ)
+>> +#define _TRACE_BRIDGE_H
+>> +
+>> +#include <linux/netdevice.h>
+>> +#include <linux/tracepoint.h>
+>> +
+>> +#include "../../../net/bridge/br_private.h"
+>> +
+>> +TRACE_EVENT(br_fdb_add,
+>> +
+>> +     TP_PROTO(struct ndmsg *ndm, struct net_device *dev,
+>> +              const unsigned char *addr, u16 vid, u16 nlh_flags),
+>> +
+>> +     TP_ARGS(ndm, dev, addr, vid, nlh_flags),
+>> +
+>> +     TP_STRUCT__entry(
+>> +             __field(u8, ndm_flags)
+>> +             __string(dev, dev->name)
+>> +             __array(unsigned char, addr, 6)
+>
+> Can you use ETH_ALEN instead of 6 here?
+>
+>> +             __field(u16, vid)
+>> +             __field(u16, nlh_flags)
+>> +     ),
+>> +
+>> +     TP_fast_assign(
+>> +             __assign_str(dev, dev->name);
+>> +             memcpy(__entry->addr, addr, 6);
+>
+> Likewise
+>
+>> +             __entry->vid = vid;
+>> +             __entry->nlh_flags = nlh_flags;
+>> +             __entry->ndm_flags = ndm->ndm_flags;
+>> +     ),
+>> +
+>> +     TP_printk("dev %s addr %02x:%02x:%02x:%02x:%02x:%02x vid %u nlh_flags %x ndm_flags = %x",
+>
+> I wonder if we could make %pM work for TP_printk() as this would
+> simplify the argument list a bitt. Can you use %04x for vid, nlh_flags
+> and %02x for ndm_flags?
 
-Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
----
- .../boot/dts/marvell/armada-cp110-master.dtsi      | 38 ++++++++++++++++++++++
- .../arm64/boot/dts/marvell/armada-cp110-slave.dtsi | 38 ++++++++++++++++++++++
- 2 files changed, 76 insertions(+)
 
-diff --git a/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi b/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi
-index 9b2581473183..f2a50552bad4 100644
---- a/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi
-+++ b/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi
-@@ -91,6 +91,44 @@
- 				};
- 			};
- 
-+			cpm_comphy: phy@120000 {
-+				compatible = "marvell,comphy-cp110";
-+				reg = <0x120000 0x6000>;
-+				marvell,system-controller = <&cpm_syscon0>;
-+				#address-cells = <1>;
-+				#size-cells = <0>;
-+
-+				cpm_comphy0: phy@0 {
-+					reg = <0>;
-+					#phy-cells = <1>;
-+				};
-+
-+				cpm_comphy1: phy@1 {
-+					reg = <1>;
-+					#phy-cells = <1>;
-+				};
-+
-+				cpm_comphy2: phy@2 {
-+					reg = <2>;
-+					#phy-cells = <1>;
-+				};
-+
-+				cpm_comphy3: phy@3 {
-+					reg = <3>;
-+					#phy-cells = <1>;
-+				};
-+
-+				cpm_comphy4: phy@4 {
-+					reg = <4>;
-+					#phy-cells = <1>;
-+				};
-+
-+				cpm_comphy5: phy@5 {
-+					reg = <5>;
-+					#phy-cells = <1>;
-+				};
-+			};
-+
- 			cpm_mdio: mdio@12a200 {
- 				#address-cells = <1>;
- 				#size-cells = <0>;
-diff --git a/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi b/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi
-index d3902f218c46..bd7f7d0e6de9 100644
---- a/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi
-+++ b/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi
-@@ -98,6 +98,44 @@
- 				};
- 			};
- 
-+			cps_comphy: phy@120000 {
-+				compatible = "marvell,comphy-cp110";
-+				reg = <0x120000 0x6000>;
-+				marvell,system-controller = <&cps_syscon0>;
-+				#address-cells = <1>;
-+				#size-cells = <0>;
-+
-+				cps_comphy0: phy@0 {
-+					reg = <0>;
-+					#phy-cells = <1>;
-+				};
-+
-+				cps_comphy1: phy@1 {
-+					reg = <1>;
-+					#phy-cells = <1>;
-+				};
-+
-+				cps_comphy2: phy@2 {
-+					reg = <2>;
-+					#phy-cells = <1>;
-+				};
-+
-+				cps_comphy3: phy@3 {
-+					reg = <3>;
-+					#phy-cells = <1>;
-+				};
-+
-+				cps_comphy4: phy@4 {
-+					reg = <4>;
-+					#phy-cells = <1>;
-+				};
-+
-+				cps_comphy5: phy@5 {
-+					reg = <5>;
-+					#phy-cells = <1>;
-+				};
-+			};
-+
- 			cps_mdio: mdio@12a200 {
- 				#address-cells = <1>;
- 				#size-cells = <0>;
--- 
-2.13.5
+one thing here.., i think %u is better for vid. bridge driver debug
+prints also use %u for vid.
