@@ -1,9 +1,9 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next v2 03/10] net: dsa: debugfs: add tag_protocol
-Date: Mon, 28 Aug 2017 22:16:45 +0200
-Message-ID: <20170828201645.GB1870@lunn.ch>
+Subject: Re: [PATCH net-next v2 01/10] net: dsa: add debugfs interface
+Date: Mon, 28 Aug 2017 22:19:08 +0200
+Message-ID: <20170828201908.GC1870@lunn.ch>
 References: <20170828191748.19492-1-vivien.didelot@savoirfairelinux.com>
- <20170828191748.19492-4-vivien.didelot@savoirfairelinux.com>
+ <20170828191748.19492-2-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
@@ -19,19 +19,34 @@ Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20170828191748.19492-4-vivien.didelot@savoirfairelinux.com>
+In-Reply-To: <20170828191748.19492-2-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 28, 2017 at 03:17:41PM -0400, Vivien Didelot wrote:
-> Add a debug filesystem "tag_protocol" entry to query the switch tagging
-> protocol through the .get_tag_protocol operation.
+On Mon, Aug 28, 2017 at 03:17:39PM -0400, Vivien Didelot wrote:
+> This commit adds a DEBUG_FS dependent DSA core file creating a generic
+> debug filesystem interface for the DSA switch devices.
 > 
->     # cat switch1/tag_protocol
->     EDSA
+> The interface can be mounted with:
 > 
-> To ease maintenance of tag protocols, add a dsa_tag_protocol_name helper
-> to the public API which to convert a tag protocol enum to a string.
+>     # mount -t debugfs none /sys/kernel/debug
+> 
+> The dsa directory contains one directory per switch chip:
+> 
+>     # cd /sys/kernel/debug/dsa/
+>     # ls
+>     switch0  switch1 switch2
+> 
+> Each chip directory contains one directory per port:
+> 
+>     # ls -l switch0/
+>     drwxr-xr-x 2 root root 0 Jan  1 00:00 port0
+>     drwxr-xr-x 2 root root 0 Jan  1 00:00 port1
+>     drwxr-xr-x 2 root root 0 Jan  1 00:00 port2
+>     drwxr-xr-x 2 root root 0 Jan  1 00:00 port5
+>     drwxr-xr-x 2 root root 0 Jan  1 00:00 port6
+> 
+> Future patches will add entry files to these directories.
 > 
 > Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 
