@@ -1,106 +1,65 @@
-From: David Lebrun <david.lebrun@uclouvain.be>
-Subject: [PATCH iproute2 net-next v2 1/2] iproute: add support for seg6 l2encap mode
-Date: Mon, 28 Aug 2017 20:26:39 +0100
-Message-ID: <20170828192640.19240-2-david.lebrun@uclouvain.be>
-References: <20170828192640.19240-1-david.lebrun@uclouvain.be>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2 net-next 1/2] iproute: add support for seg6
+ l2encap mode
+Date: Mon, 28 Aug 2017 12:32:43 -0700
+Message-ID: <20170828123243.22c91803@xeon-e3>
+References: <20170828190525.15655-1-david.lebrun@uclouvain.be>
+        <20170828190525.15655-2-david.lebrun@uclouvain.be>
+        <20170828120724.53904cbf@xeon-e3>
+        <99974f81-90e8-c6ff-7068-2beb871cb84d@uclouvain.be>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: David Lebrun <david.lebrun@uclouvain.be>
-To: <netdev@vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ boundary="Sig_/r1G1_0/yjDLUPTWX84cR=Uw"; protocol="application/pgp-signature"
+Cc: <netdev@vger.kernel.org>
+To: David Lebrun <david.lebrun@uclouvain.be>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:41841 "EHLO
-        smtp6.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751290AbdH1T0S (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 15:26:18 -0400
-Received: from mailboxes.uclouvain.be (mailboxes.uclouvain.be [130.104.6.131])
-        (using TLSv1.2 with cipher ECDHE-RSA-AES256-SHA384 (256/256 bits))
-        (No client certificate requested)
-        by smtp6.sgsi.ucl.ac.be (Postfix) with ESMTPS id 9684567DA15
-        for <netdev@vger.kernel.org>; Mon, 28 Aug 2017 21:26:09 +0200 (CEST)
-In-Reply-To: <20170828192640.19240-1-david.lebrun@uclouvain.be>
+Received: from mail-pg0-f49.google.com ([74.125.83.49]:34405 "EHLO
+        mail-pg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750735AbdH1Tcq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 15:32:46 -0400
+Received: by mail-pg0-f49.google.com with SMTP id y15so4210036pgc.1
+        for <netdev@vger.kernel.org>; Mon, 28 Aug 2017 12:32:46 -0700 (PDT)
+In-Reply-To: <99974f81-90e8-c6ff-7068-2beb871cb84d@uclouvain.be>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds support for the L2ENCAP seg6 mode, enabling to encapsulate
-L2 frames within SRv6 packets.
+--Sig_/r1G1_0/yjDLUPTWX84cR=Uw
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: David Lebrun <david.lebrun@uclouvain.be>
----
- ip/iproute_lwtunnel.c | 41 ++++++++++++++++++++++++++++++-----------
- 1 file changed, 30 insertions(+), 11 deletions(-)
+On Mon, 28 Aug 2017 20:11:59 +0100
+David Lebrun <david.lebrun@uclouvain.be> wrote:
 
-diff --git a/ip/iproute_lwtunnel.c b/ip/iproute_lwtunnel.c
-index 14294c6..02f36ef 100644
---- a/ip/iproute_lwtunnel.c
-+++ b/ip/iproute_lwtunnel.c
-@@ -110,6 +110,32 @@ static void print_srh(FILE *fp, struct ipv6_sr_hdr *srh)
- 	}
- }
- 
-+static const char *seg6_mode_types[] = {
-+	[SEG6_IPTUN_MODE_INLINE]	= "inline",
-+	[SEG6_IPTUN_MODE_ENCAP]		= "encap",
-+	[SEG6_IPTUN_MODE_L2ENCAP]	= "l2encap",
-+};
-+
-+static const char *format_seg6mode_type(int mode)
-+{
-+	if (mode < 0 || mode > ARRAY_SIZE(seg6_mode_types))
-+		return "<unknown>";
-+
-+	return seg6_mode_types[mode];
-+}
-+
-+static int read_seg6mode_type(const char *mode)
-+{
-+	int i;
-+
-+	for (i = 0; i < ARRAY_SIZE(seg6_mode_types); i++) {
-+		if (strcmp(mode, seg6_mode_types[i]) == 0)
-+			return i;
-+	}
-+
-+	return -1;
-+}
-+
- static void print_encap_seg6(FILE *fp, struct rtattr *encap)
- {
- 	struct rtattr *tb[SEG6_IPTUNNEL_MAX+1];
-@@ -121,8 +147,7 @@ static void print_encap_seg6(FILE *fp, struct rtattr *encap)
- 		return;
- 
- 	tuninfo = RTA_DATA(tb[SEG6_IPTUNNEL_SRH]);
--	fprintf(fp, "mode %s ",
--		(tuninfo->mode == SEG6_IPTUN_MODE_ENCAP) ? "encap" : "inline");
-+	fprintf(fp, "mode %s ", format_seg6mode_type(tuninfo->mode));
- 
- 	print_srh(fp, tuninfo->srh);
- }
-@@ -457,11 +482,8 @@ static int parse_encap_seg6(struct rtattr *rta, size_t len, int *argcp,
- 			NEXT_ARG();
- 			if (mode_ok++)
- 				duparg2("mode", *argv);
--			if (strcmp(*argv, "encap") == 0)
--				encap = 1;
--			else if (strcmp(*argv, "inline") == 0)
--				encap = 0;
--			else
-+			encap = read_seg6mode_type(*argv);
-+			if (encap < 0)
- 				invarg("\"mode\" value is invalid\n", *argv);
- 		} else if (strcmp(*argv, "segs") == 0) {
- 			NEXT_ARG();
-@@ -490,10 +512,7 @@ static int parse_encap_seg6(struct rtattr *rta, size_t len, int *argcp,
- 	tuninfo = malloc(sizeof(*tuninfo) + srhlen);
- 	memset(tuninfo, 0, sizeof(*tuninfo) + srhlen);
- 
--	if (encap)
--		tuninfo->mode = SEG6_IPTUN_MODE_ENCAP;
--	else
--		tuninfo->mode = SEG6_IPTUN_MODE_INLINE;
-+	tuninfo->mode = encap;
- 
- 	memcpy(tuninfo->srh, srh, srhlen);
- 
--- 
-2.10.2
+> On 08/28/2017 08:07 PM, Stephen Hemminger wrote:
+> > Since these values probably will grow over time, it would make
+> > sense to have this a name/value table. =20
+>=20
+> I wasn't sure if it was worth it for 3 values. I do not foresee a large
+> growth either, but I will send a v2 will a table anyway
+>=20
+> David
+
+Either way, not a big worry.
+
+--Sig_/r1G1_0/yjDLUPTWX84cR=Uw
+Content-Type: application/pgp-signature
+Content-Description: OpenPGP digital signature
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAEBCAAdFiEEn2/DRbBb5+dmuDyPgKd/YJXN5H4FAlmkb9wACgkQgKd/YJXN
+5H77wA//V1KOWFsTXPCBmg3LcgdooYrtvG7ynpeSvwWr5hVGfZwK1Sv330IWp/7y
+uK0mfIZAU1rZuh+r/X95YjbNs0+fvtnzsAdehV6bbx1GQC9c6rvPCVLESSGYjHdi
+KIqAs6hhEjEEoM/aelal+tmGfCrAz01Yh6qcwUq83VX3XVxW/RO0pXOTQWqyoIBG
+acoB0+bwv6bHrODl8Wag3BSilHJD2cyyLBL99hQefsae6KTZAorbSRJi7NoZtTbW
+V4i1BgEHL5dkA8+oJqcJNX/GZ/MFk5HbOLcXNFTf4VUbSUYfsQvQpE3Iwj/4+r9v
+Qdx6TWgU3t4w92TTVnmqn6uO9uCwPg1IHJ5FXCVYuY1Qt5VdFwgNtjrJ42v3/6PM
+JqtcRbax2RdtCusIM0DSLAfQ4HVDx4q7q533wP02H90HVI01D16qz61lQqmWRGlj
+d0XIwtqF8r298ImCIYgTYIHs2KG3dRFkY4x3SQZeB/+dSCnhESs2EzJDuLOqNFY0
+Ztuwz6YAMmCzUf+8RtLDczVQWbUsswrF31UrS5EIJVZt1+iYEhOYInE5G2ecBwbg
+oayw/kWBcnAAJN9UJcglCVDioTea2gt7MV9xLMmXw3pi+qxhIc4rHIlnpIqU4SS4
+FIcxF0+dzmSghofx2WRsTKKd3f8LurGVSQ2xBOJ9YrMCGu7jVDY=
+=tm4Y
+-----END PGP SIGNATURE-----
+
+--Sig_/r1G1_0/yjDLUPTWX84cR=Uw--
