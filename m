@@ -1,58 +1,36 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [ethtool] ethtool: Remove UDP Fragmentation Offload use from
- ethtool
-Date: Mon, 28 Aug 2017 14:22:52 -0400
-Message-ID: <20170828182251.GC3092@tuxdriver.com>
-References: <1503923928-9419-1-git-send-email-tariqt@mellanox.com>
- <1503932411.11498.67.camel@edumazet-glaptop3.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 5/7] RDS: make rhashtable_params const
+Date: Mon, 28 Aug 2017 11:30:26 -0700 (PDT)
+Message-ID: <20170828.113026.1441509858623876360.davem@davemloft.net>
+References: <1503670907-23221-1-git-send-email-bhumirks@gmail.com>
+        <1503670907-23221-6-git-send-email-bhumirks@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Tariq Toukan <tariqt@mellanox.com>, netdev@vger.kernel.org,
-        Eran Ben Elisha <eranbe@mellanox.com>,
-        Shaker Daibes <shakerd@mellanox.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:39153 "EHLO
-        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750735AbdH1SaM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 14:30:12 -0400
-Content-Disposition: inline
-In-Reply-To: <1503932411.11498.67.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: julia.lawall@lip6.fr, marcel@holtmann.org, gustavo@padovan.org,
+        johan.hedberg@gmail.com, pablo@netfilter.org,
+        kadlec@blackhole.kfki.hu, fw@strlen.de, stephen@networkplumber.org,
+        alex.aring@gmail.com, stefan@osg.samsung.com, kuznet@ms2.inr.ac.ru,
+        yoshfuji@linux-ipv6.org, santosh.shilimkar@oracle.com,
+        trond.myklebust@primarydata.com, anna.schumaker@netapp.com,
+        bfields@fieldses.org, jlayton@poochiereds.net,
+        linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+        coreteam@netfilter.org, bridge@lists.linux-foundation.org,
+        linux-wpan@vger.kernel.org, linux-rdma@vger.kernel.org,
+        rds-devel@oss.oracle.com, linux-nfs@vger.kernel.org
+To: bhumirks@gmail.com
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1503670907-23221-6-git-send-email-bhumirks@gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 28, 2017 at 08:00:11AM -0700, Eric Dumazet wrote:
-> On Mon, 2017-08-28 at 15:38 +0300, Tariq Toukan wrote:
-> > From: Shaker Daibes <shakerd@mellanox.com>
-> > 
-> > UFO was removed in kernel, here we remove it in ethtool app.
-> > 
-> > Fixes the following issue:
-> > Features for ens8:
-> > Cannot get device udp-fragmentation-offload settings: Operation not supported
-> > 
-> > Tested with "make check"
-> > 
-> > Signed-off-by: Shaker Daibes <shakerd@mellanox.com>
-> > Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
-> > ---
-> 
-> 
-> Hi guys
-> 
-> I would rather remove the warning, but leave the ability to switch UFO
-> on machines running old kernel but a recent ethtool.
-> 
-> ethtool does not need to be downgraded every time we boot an old
-> kernel ;)
+From: Bhumika Goyal <bhumirks@gmail.com>
+Date: Fri, 25 Aug 2017 19:51:45 +0530
 
-No, definitely not.
- 
-> Thanks !
+> Make this const as it is either used during a copy operation or passed
+> to a const argument of the function rhltable_init
+> 
+> Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
 
-Tariq, will you be reworking this as Eric suggests?
-
-John
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+Applied.
