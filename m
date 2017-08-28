@@ -1,216 +1,172 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: XDP redirect measurements, gotchas and tracepoints
-Date: Mon, 28 Aug 2017 15:39:43 -0400
-Message-ID: <20170828193943.GB70910@C02RW35GFVH8.dhcp.broadcom.net>
-References: <CACKFLimMWLto4FRxNE3tzrO5MU+p67J7wu=n1nmg0t8QGYjgrA@mail.gmail.com>
- <CAKgT0Uf=ZfVeK-wtvNxSyGEVZ3UseUOHiP3ZOg-SrzmqsR=LtQ@mail.gmail.com>
- <CACKFLinJ0N7b8Xhq4ZoHdB80uXp_MU_vVyzZa7Dq11XrXsvDbw@mail.gmail.com>
- <20170823102937.79a9c4ed@redhat.com>
- <CACKFLinGuaDLxYRd=vC99DL5n0mf0rDbPRaDg4ctev=DEAhRSQ@mail.gmail.com>
- <20170825144513.1ee9fbb1@redhat.com>
- <59A03DF5.7070806@gmail.com>
- <CACKFLin-sZEkkCxE2iZRHjgG=K36OJ65B-xrEYVCCSQqhYsH-g@mail.gmail.com>
- <20170828160237.GA70910@C02RW35GFVH8.dhcp.broadcom.net>
- <59A4415C.80702@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Michael Chan <michael.chan@broadcom.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>,
-        Alexander Duyck <alexander.duyck@gmail.com>,
-        "Duyck, Alexander H" <alexander.h.duyck@intel.com>,
-        "pstaszewski@itcare.pl" <pstaszewski@itcare.pl>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "xdp-newbies@vger.kernel.org" <xdp-newbies@vger.kernel.org>,
-        "borkmann@iogearbox.net" <borkmann@iogearbox.net>
-To: John Fastabend <john.fastabend@gmail.com>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: [PATCH net-next 2/4] vxlan: factor out VXLAN-GPE next protocol
+Date: Mon, 28 Aug 2017 21:43:22 +0200
+Message-ID: <c4c6c88e5aadcddf08edc6851e7c194ced74fb4a.1503948295.git.jbenc@redhat.com>
+References: <cover.1503948295.git.jbenc@redhat.com>
+Cc: Yi Yang <yi.y.yang@intel.com>, Eric Garver <e@erig.me>,
+        Jan Scheurich <jan.scheurich@ericsson.com>,
+        Ben Pfaff <blp@ovn.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f54.google.com ([74.125.82.54]:37870 "EHLO
-        mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751366AbdH1Tjw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 15:39:52 -0400
-Received: by mail-wm0-f54.google.com with SMTP id u26so9787956wma.0
-        for <netdev@vger.kernel.org>; Mon, 28 Aug 2017 12:39:51 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <59A4415C.80702@gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:35346 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751192AbdH1Tnm (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 28 Aug 2017 15:43:42 -0400
+In-Reply-To: <cover.1503948295.git.jbenc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 28, 2017 at 09:14:20AM -0700, John Fastabend wrote:
-> On 08/28/2017 09:02 AM, Andy Gospodarek wrote:
-> > On Fri, Aug 25, 2017 at 08:28:55AM -0700, Michael Chan wrote:
-> >> On Fri, Aug 25, 2017 at 8:10 AM, John Fastabend
-> >> <john.fastabend@gmail.com> wrote:
-> >>> On 08/25/2017 05:45 AM, Jesper Dangaard Brouer wrote:
-> >>>> On Thu, 24 Aug 2017 20:36:28 -0700
-> >>>> Michael Chan <michael.chan@broadcom.com> wrote:
-> >>>>
-> >>>>> On Wed, Aug 23, 2017 at 1:29 AM, Jesper Dangaard Brouer
-> >>>>> <brouer@redhat.com> wrote:
-> >>>>>> On Tue, 22 Aug 2017 23:59:05 -0700
-> >>>>>> Michael Chan <michael.chan@broadcom.com> wrote:
-> >>>>>>
-> >>>>>>> On Tue, Aug 22, 2017 at 6:06 PM, Alexander Duyck
-> >>>>>>> <alexander.duyck@gmail.com> wrote:
-> >>>>>>>> On Tue, Aug 22, 2017 at 1:04 PM, Michael Chan <michael.chan@broadcom.com> wrote:
-> >>>>>>>>>
-> >>>>>>>>> Right, but it's conceivable to add an API to "return" the buffer to
-> >>>>>>>>> the input device, right?
-> >>>>>>
-> >>>>>> Yes, I would really like to see an API like this.
-> >>>>>>
-> >>>>>>>>
-> >>>>>>>> You could, it is just added complexity. "just free the buffer" in
-> >>>>>>>> ixgbe usually just amounts to one atomic operation to decrement the
-> >>>>>>>> total page count since page recycling is already implemented in the
-> >>>>>>>> driver. You still would have to unmap the buffer regardless of if you
-> >>>>>>>> were recycling it or not so all you would save is 1.000015259 atomic
-> >>>>>>>> operations per packet. The fraction is because once every 64K uses we
-> >>>>>>>> have to bulk update the count on the page.
-> >>>>>>>>
-> >>>>>>>
-> >>>>>>> If the buffer is returned to the input device, the input device can
-> >>>>>>> keep the DMA mapping.  All it needs to do is to dma_sync it back to
-> >>>>>>> the input device when the buffer is returned.
-> >>>>>>
-> >>>>>> Yes, exactly, return to the input device. I really think we should
-> >>>>>> work on a solution where we can keep the DMA mapping around.  We have
-> >>>>>> an opportunity here to make ndo_xdp_xmit TX queues use a specialized
-> >>>>>> page return call, to achieve this. (I imagine other arch's have a high
-> >>>>>> DMA overhead than Intel)
-> >>>>>>
-> >>>>>> I'm not sure how the API should look.  The ixgbe recycle mechanism and
-> >>>>>> splitting the page (into two packets) actually complicates things, and
-> >>>>>> tie us into a page-refcnt based model.  We could get around this by
-> >>>>>> each driver implementing a page-return-callback, that allow us to
-> >>>>>> return the page to the input device?  Then, drivers implementing the
-> >>>>>> 1-packet-per-page can simply check/read the page-refcnt, and if it is
-> >>>>>> "1" DMA-sync and reuse it in the RX queue.
-> >>>>>>
-> >>>>>
-> >>>>> Yeah, based on Alex' description, it's not clear to me whether ixgbe
-> >>>>> redirecting to a non-intel NIC or vice versa will actually work.  It
-> >>>>> sounds like the output device has to make some assumptions about how
-> >>>>> the page was allocated by the input device.
-> >>>>
-> >>>> Yes, exactly. We are tied into a page refcnt based scheme.
-> >>>>
-> >>>> Besides the ixgbe page recycle scheme (which keeps the DMA RX-mapping)
-> >>>> is also tied to the RX queue size, plus how fast the pages are returned.
-> >>>> This makes it very hard to tune.  As I demonstrated, default ixgbe
-> >>>> settings does not work well with XDP_REDIRECT.  I needed to increase
-> >>>> TX-ring size, but it broke page recycling (dropping perf from 13Mpps to
-> >>>> 10Mpps) so I also needed it increase RX-ring size.  But perf is best if
-> >>>> RX-ring size is smaller, thus two contradicting tuning needed.
-> >>>>
-> >>>
-> >>> The changes to decouple the ixgbe page recycle scheme (1pg per descriptor
-> >>> split into two halves being the default) from the number of descriptors
-> >>> doesn't look too bad IMO. It seems like it could be done by having some
-> >>> extra pages allocated upfront and pulling those in when we need another
-> >>> page.
-> >>>
-> >>> This would be a nice iterative step we could take on the existing API.
-> >>>
-> >>>>
-> >>>>> With buffer return API,
-> >>>>> each driver can cleanly recycle or free its own buffers properly.
-> >>>>
-> >>>> Yes, exactly. And RX-driver can implement a special memory model for
-> >>>> this queue.  E.g. RX-driver can know this is a dedicated XDP RX-queue
-> >>>> which is never used for SKBs, thus opening for new RX memory models.
-> >>>>
-> >>>> Another advantage of a return API.  There is also an opportunity for
-> >>>> avoiding the DMA map on TX. As we need to know the from-device.  Thus,
-> >>>> we can add a DMA API, where we can query if the two devices uses the
-> >>>> same DMA engine, and can reuse the same DMA address the RX-side already
-> >>>> knows.
-> >>>>
-> >>>>
-> >>>>> Let me discuss this further with Andy to see if we can come up with a
-> >>>>> good scheme.
-> >>>>
-> >>>> Sound good, looking forward to hear what you come-up with :-)
-> >>>>
-> >>>
-> >>> I guess by this thread we will see a broadcom nic with redirect support
-> >>> soon ;)
-> >>
-> >> Yes, Andy actually has finished the coding for XDP_REDIRECT, but the
-> >> buffer recycling scheme has some problems.  We can make it work for
-> >> Broadcom to Broadcom only, but we want a better solution.
-> > 
-> > (Sorry for the radio silence I was AFK last week...)
-> > 
-> > I finished it a little while ago, but Michael and I both have concerns
-> > that in a heterogenous hardware setup one can quickly run into issues
-> > and haven't had time to work-up a few solutions before bringing this up
-> > formally.  It also isn't a major problem until the second
-> > optimized/native XDP driver appears on the scene.
-> > 
-> > I can run a test where XDP redirects from an ixgbe <-> bnxt_en based
-> > device I get OOM kills after only a few seconds, due to the lack of
-> > feedback between the different drivers that the pointer to xdp->data can
-> > be freed/reused/etc and the different buffer allocation schemes used.
-> > 
-> 
-> hmm so how do you get OOM here, I expect the number of in-flight xdp
-> bufs should be limited by the number of xdps that can be posted to the
-> outgoing interface. If we are hitting OOM that _should_ mean the size of
-> the tx queue is too large. Ixgbe should be free'ing the buffer if an error
-> is returned from xdp xmit routines (will check this today). And bnxt should
-> return an error if we hit some high water mark on xmit.
+The values are shared between VXLAN-GPE and NSH. Originally probably by
+coincidence but I notified both working groups about this last year and they
+seem to keep the values in sync since then.
 
-I reconfigured the hardware after I was done with the bnxt_en devel, but I
-should be able to set it up and provide some more detail.  Let me repro it and
-debug a bit more.
+Hopefully they'll get a single IANA registry for the values, too. (I asked
+them for that.)
 
-> 
-> > Initially I did not think this was an issue and that xdp_do_flush_map()
-> > would handle this, but I think there is a still a need to be able to
-> > signal back to the receving device that the buffer allocated has been
-> > xmitted by the transmitter and can be freed.  Since there is really no
-> > guarantee that completion of an XDP_REDIRECT action means that it is
-> > safe to free area pointed to by xdp->data area that contains the packet
-> > to be xmitted.  Since the packet done interrupt handler in a driver
-> > cannot signal back the the receiving driver that the buffer is now safe
-> > to reuse/free there is a chance for trouble.  
-> 
-> There should be some high water mark on how many outstanding packets
-> can be in-flight. At the moment I assumed this was something related to
-> queue lengths a more explicit high water mark could added to the xmit path
-> and tracked in xdp infrastructure.
-> 
-> > 
-> > I was hoping to spend some time this week cooking up a patch that just
-> > did not allow use of XDP_REDIRECT when the ifindex of the outgoing
-> > device did not match that of the device to which the XDP prog was
-> > attached, but that probably is not worth the trouble when we would just
-> > fix it for real.  (It would also require some really terrible hacks to
-> > enforce this in the kernel when all that is being done is setting up a
-> > map that contains the redirect table, so it is probably not useful.)
-> > 
-> 
-> I would prefer to solve the problem vs limiting the implementation
-> 
+Factor out the code to be shared by the NSH implementation.
 
-Agreed.
+NSH and MPLS values are added in this patch, too. For MPLS, the drafts
+incorrectly assign only a single value, while we have two MPLS ethertypes.
+I raised the problem with both groups. For now, I assume the value is for
+unicast.
 
-> > The basic prototype would be something like this:
-> > 
-> > (rx packet interrupt on eth0, leads to napi_poll)
-> > napi_poll (eth0)
-> >   call xdp_prog (eth0)
-> >     xdp_do_redirect (eth0)
-> >       ndo_xdp_xmit (eth1)
-> >       mark buffer with information netdev/ring/etc
-> >       place buffer on tx ring for eth1
-> > 
-> > (tx done interrupt on eth1, leads to napi_poll)
-> > napi_poll (eth1)
-> >   process tx interrupt (eth1)
-> >     look up information about netdev/ring/etc
-> >     ndo_xdp_data_free (eth0, ring, etc)
-> > 
-> > Thoughts?
-> > 
-> 
+Signed-off-by: Jiri Benc <jbenc@redhat.com>
+---
+ drivers/net/vxlan.c     | 32 +++++++-------------------------
+ include/net/tun_proto.h | 49 +++++++++++++++++++++++++++++++++++++++++++++++++
+ include/net/vxlan.h     |  6 ------
+ 3 files changed, 56 insertions(+), 31 deletions(-)
+ create mode 100644 include/net/tun_proto.h
+
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index ae3a1da703c2..d7c49cf1d5e9 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -26,6 +26,7 @@
+ #include <net/inet_ecn.h>
+ #include <net/net_namespace.h>
+ #include <net/netns/generic.h>
++#include <net/tun_proto.h>
+ #include <net/vxlan.h>
+ 
+ #if IS_ENABLED(CONFIG_IPV6)
+@@ -1261,19 +1262,9 @@ static bool vxlan_parse_gpe_hdr(struct vxlanhdr *unparsed,
+ 	if (gpe->oam_flag)
+ 		return false;
+ 
+-	switch (gpe->next_protocol) {
+-	case VXLAN_GPE_NP_IPV4:
+-		*protocol = htons(ETH_P_IP);
+-		break;
+-	case VXLAN_GPE_NP_IPV6:
+-		*protocol = htons(ETH_P_IPV6);
+-		break;
+-	case VXLAN_GPE_NP_ETHERNET:
+-		*protocol = htons(ETH_P_TEB);
+-		break;
+-	default:
++	*protocol = tun_p_to_eth_p(gpe->next_protocol);
++	if (!*protocol)
+ 		return false;
+-	}
+ 
+ 	unparsed->vx_flags &= ~VXLAN_GPE_USED_BITS;
+ 	return true;
+@@ -1799,19 +1790,10 @@ static int vxlan_build_gpe_hdr(struct vxlanhdr *vxh, u32 vxflags,
+ 	struct vxlanhdr_gpe *gpe = (struct vxlanhdr_gpe *)vxh;
+ 
+ 	gpe->np_applied = 1;
+-
+-	switch (protocol) {
+-	case htons(ETH_P_IP):
+-		gpe->next_protocol = VXLAN_GPE_NP_IPV4;
+-		return 0;
+-	case htons(ETH_P_IPV6):
+-		gpe->next_protocol = VXLAN_GPE_NP_IPV6;
+-		return 0;
+-	case htons(ETH_P_TEB):
+-		gpe->next_protocol = VXLAN_GPE_NP_ETHERNET;
+-		return 0;
+-	}
+-	return -EPFNOSUPPORT;
++	gpe->next_protocol = tun_p_from_eth_p(protocol);
++	if (!gpe->next_protocol)
++		return -EPFNOSUPPORT;
++	return 0;
+ }
+ 
+ static int vxlan_build_skb(struct sk_buff *skb, struct dst_entry *dst,
+diff --git a/include/net/tun_proto.h b/include/net/tun_proto.h
+new file mode 100644
+index 000000000000..2ea3deba4c99
+--- /dev/null
++++ b/include/net/tun_proto.h
+@@ -0,0 +1,49 @@
++#ifndef __NET_TUN_PROTO_H
++#define __NET_TUN_PROTO_H
++
++#include <linux/kernel.h>
++
++/* One byte protocol values as defined by VXLAN-GPE and NSH. These will
++ * hopefully get a shared IANA registry.
++ */
++#define TUN_P_IPV4      0x01
++#define TUN_P_IPV6      0x02
++#define TUN_P_ETHERNET  0x03
++#define TUN_P_NSH       0x04
++#define TUN_P_MPLS_UC   0x05
++
++static inline __be16 tun_p_to_eth_p(u8 proto)
++{
++	switch (proto) {
++	case TUN_P_IPV4:
++		return htons(ETH_P_IP);
++	case TUN_P_IPV6:
++		return htons(ETH_P_IPV6);
++	case TUN_P_ETHERNET:
++		return htons(ETH_P_TEB);
++	case TUN_P_NSH:
++		return htons(ETH_P_NSH);
++	case TUN_P_MPLS_UC:
++		return htons(ETH_P_MPLS_UC);
++	}
++	return 0;
++}
++
++static inline u8 tun_p_from_eth_p(__be16 proto)
++{
++	switch (proto) {
++	case htons(ETH_P_IP):
++		return TUN_P_IPV4;
++	case htons(ETH_P_IPV6):
++		return TUN_P_IPV6;
++	case htons(ETH_P_TEB):
++		return TUN_P_ETHERNET;
++	case htons(ETH_P_NSH):
++		return TUN_P_NSH;
++	case htons(ETH_P_MPLS_UC):
++		return TUN_P_MPLS_UC;
++	}
++	return 0;
++}
++
++#endif
+diff --git a/include/net/vxlan.h b/include/net/vxlan.h
+index 3f430e38ab82..4e3876dde295 100644
+--- a/include/net/vxlan.h
++++ b/include/net/vxlan.h
+@@ -168,12 +168,6 @@ struct vxlanhdr_gpe {
+ #define VXLAN_GPE_USED_BITS (VXLAN_HF_VER | VXLAN_HF_NP | VXLAN_HF_OAM | \
+ 			     cpu_to_be32(0xff))
+ 
+-/* VXLAN-GPE header Next Protocol. */
+-#define VXLAN_GPE_NP_IPV4      0x01
+-#define VXLAN_GPE_NP_IPV6      0x02
+-#define VXLAN_GPE_NP_ETHERNET  0x03
+-#define VXLAN_GPE_NP_NSH       0x04
+-
+ struct vxlan_metadata {
+ 	u32		gbp;
+ };
+-- 
+1.8.3.1
