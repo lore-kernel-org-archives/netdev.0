@@ -1,63 +1,62 @@
-From: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
-Subject: Re: [PATCH net-next 3/3 v9] drivers: net: ethernet: qualcomm: rmnet:
- Initial implementation
-Date: Mon, 28 Aug 2017 11:40:39 -0600
-Message-ID: <86de09154bfe0b4e13ac5fcc9090389a@codeaurora.org>
-References: <1503635966-14076-1-git-send-email-subashab@codeaurora.org>
- <1503635966-14076-4-git-send-email-subashab@codeaurora.org>
- <20170825.200623.1467784779129980276.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
- format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fengguang.wu@intel.com, dcbw@redhat.com,
-        jiri@resnulli.us, stephen@networkplumber.org,
-        David.Laight@aculab.com, marcel@holtmann.org, andrew@lunn.ch
-To: David Miller <davem@davemloft.net>
+From: Michael Chan <michael.chan@broadcom.com>
+Subject: [PATCH net-next 00/11] bnxt_en: Updates.
+Date: Mon, 28 Aug 2017 13:40:24 -0400
+Message-ID: <1503942035-24924-1-git-send-email-michael.chan@broadcom.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:60540 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751213AbdH1Rkl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 13:40:41 -0400
-In-Reply-To: <20170825.200623.1467784779129980276.davem@davemloft.net>
+Received: from mail-qt0-f179.google.com ([209.85.216.179]:36235 "EHLO
+        mail-qt0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751304AbdH1Rkt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 13:40:49 -0400
+Received: by mail-qt0-f179.google.com with SMTP id v29so5264424qtv.3
+        for <netdev@vger.kernel.org>; Mon, 28 Aug 2017 10:40:49 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> 
-> In these code paths where you are the writer, you have to rely upon
-> the RTNL mutex (or some other mutual exclusion mechanism) to protect
-> the update operation.  RCU locking itself does not provide this.
-> 
-> So you should use something like rcu_dereference_rtnl() or similar.
-> 
-> So this would be rmnet_force_unassociate_device() and rmnet_dellink()
-> 
-> RCU is subtle and the writer paths have the be handled differently
-> from the reader paths.  Please take some time to study how RCU should
-> be applied properly in these situations rather than just slapping a
-> patch together overnight.
-> 
-> Thank you.
+Various changes including updated firmware interface, improved TX ring
+allocation scheme, improved out-of-memory logic in NAPI loop, reduced
+default rings on multi-port devices, new PCI IDs. Of particular note,
 
-Sorry about the mess David.
+CPU affinity hints from Vasundhara Volam.
 
-Can you tell me if the following design is correct -
+TC Flower eswitch support from Sathya Perla.
 
-The shared resource which needs to be protected is 
-real_dev->rx_handler_data.
+Michael Chan (4):
+  bnxt_en: Update firmware interface spec. to 1.8.1.4.
+  bnxt_en: Improve tx ring reservation logic.
+  bnxt_en: Improve -ENOMEM logic in NAPI poll loop.
+  bnxt_en: Reduce default rings on multi-port cards.
 
-For the writer path, this needs to be protected using rtnl_lock() and 
-rcu.
-The writer paths are rmnet_newlink(), rmnet_delink() and
-rmnet_force_unassociate_device(). These paths are already called with
-rtnl_lock() acquired in, so we just need to acquire the rcu_read_lock(). 
-To
-dereference here, we will need to use rtnl_dereference().
+Ray Jui (1):
+  bnxt: Add PCIe device IDs for bcm58802/bcm58808
 
-For the reader path, the real_dev->rx_handler_data is called in the TX / 
-RX
-path. We only need rcu_read_lock() for these scenarios. In these cases,
-the rcu_read_lock() is held in __dev_queue_xmit() and
-netif_receive_skb_internal(), so readers need to use 
-rcu_dereference_rtnl()
-to get the relevant information.
+Sathya Perla (4):
+  bnxt_en: fix clearing devlink ptr from bnxt struct
+  bnxt_en: bnxt: add TC flower filter offload support
+  bnxt_en: add TC flower offload flow_alloc/free FW cmds
+  bnxt_en: add code to query TC flower offload stats
+
+Scott Branden (1):
+  bnxt: initialize board_info values with proper enums
+
+Vasundhara Volam (1):
+  bnxt_en: assign CPU affinity hints to bnxt_en IRQs
+
+ drivers/net/ethernet/broadcom/Kconfig             |   9 +
+ drivers/net/ethernet/broadcom/bnxt/Makefile       |   2 +-
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c         | 198 +++--
+ drivers/net/ethernet/broadcom/bnxt/bnxt.h         |  41 +-
+ drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c |   3 +-
+ drivers/net/ethernet/broadcom/bnxt/bnxt_hsi.h     | 186 ++++-
+ drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c      | 834 ++++++++++++++++++++++
+ drivers/net/ethernet/broadcom/bnxt/bnxt_tc.h      | 158 ++++
+ drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.c     |  22 +-
+ drivers/net/ethernet/broadcom/bnxt/bnxt_vfr.h     |  22 +-
+ drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.c     |   4 +-
+ 11 files changed, 1407 insertions(+), 72 deletions(-)
+ create mode 100644 drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c
+ create mode 100644 drivers/net/ethernet/broadcom/bnxt/bnxt_tc.h
+
+-- 
+1.8.3.1
