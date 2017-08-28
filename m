@@ -1,7 +1,7 @@
 From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH net-next v3 01/13] phy: add sgmii and 10gkr modes to the phy_mode enum
-Date: Mon, 28 Aug 2017 16:57:13 +0200
-Message-ID: <20170828145725.2539-2-antoine.tenart@free-electrons.com>
+Subject: [PATCH net-next v3 10/13] arm64: dts: marvell: add comphy nodes on cp110 master and slave
+Date: Mon, 28 Aug 2017 16:57:22 +0200
+Message-ID: <20170828145725.2539-11-antoine.tenart@free-electrons.com>
 References: <20170828145725.2539-1-antoine.tenart@free-electrons.com>
 Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
         thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
@@ -16,27 +16,112 @@ In-Reply-To: <20170828145725.2539-1-antoine.tenart@free-electrons.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds more generic PHY modes to the phy_mode enum, to
-allow configuring generic PHYs to the SGMII and/or the 10GKR mode
-by using the set_mode callback.
+Now that the comphy driver is available, this patch adds the
+corresponding nodes in the cp110 master and slave device trees.
 
 Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
 ---
- include/linux/phy/phy.h | 2 ++
- 1 file changed, 2 insertions(+)
+ .../boot/dts/marvell/armada-cp110-master.dtsi      | 38 ++++++++++++++++++++++
+ .../arm64/boot/dts/marvell/armada-cp110-slave.dtsi | 38 ++++++++++++++++++++++
+ 2 files changed, 76 insertions(+)
 
-diff --git a/include/linux/phy/phy.h b/include/linux/phy/phy.h
-index 78bb0d7f6b11..e694d4008c4a 100644
---- a/include/linux/phy/phy.h
-+++ b/include/linux/phy/phy.h
-@@ -27,6 +27,8 @@ enum phy_mode {
- 	PHY_MODE_USB_HOST,
- 	PHY_MODE_USB_DEVICE,
- 	PHY_MODE_USB_OTG,
-+	PHY_MODE_SGMII,
-+	PHY_MODE_10GKR,
- };
+diff --git a/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi b/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi
+index 9b2581473183..f2a50552bad4 100644
+--- a/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi
++++ b/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi
+@@ -91,6 +91,44 @@
+ 				};
+ 			};
  
- /**
++			cpm_comphy: phy@120000 {
++				compatible = "marvell,comphy-cp110";
++				reg = <0x120000 0x6000>;
++				marvell,system-controller = <&cpm_syscon0>;
++				#address-cells = <1>;
++				#size-cells = <0>;
++
++				cpm_comphy0: phy@0 {
++					reg = <0>;
++					#phy-cells = <1>;
++				};
++
++				cpm_comphy1: phy@1 {
++					reg = <1>;
++					#phy-cells = <1>;
++				};
++
++				cpm_comphy2: phy@2 {
++					reg = <2>;
++					#phy-cells = <1>;
++				};
++
++				cpm_comphy3: phy@3 {
++					reg = <3>;
++					#phy-cells = <1>;
++				};
++
++				cpm_comphy4: phy@4 {
++					reg = <4>;
++					#phy-cells = <1>;
++				};
++
++				cpm_comphy5: phy@5 {
++					reg = <5>;
++					#phy-cells = <1>;
++				};
++			};
++
+ 			cpm_mdio: mdio@12a200 {
+ 				#address-cells = <1>;
+ 				#size-cells = <0>;
+diff --git a/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi b/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi
+index d3902f218c46..bd7f7d0e6de9 100644
+--- a/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi
++++ b/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi
+@@ -98,6 +98,44 @@
+ 				};
+ 			};
+ 
++			cps_comphy: phy@120000 {
++				compatible = "marvell,comphy-cp110";
++				reg = <0x120000 0x6000>;
++				marvell,system-controller = <&cps_syscon0>;
++				#address-cells = <1>;
++				#size-cells = <0>;
++
++				cps_comphy0: phy@0 {
++					reg = <0>;
++					#phy-cells = <1>;
++				};
++
++				cps_comphy1: phy@1 {
++					reg = <1>;
++					#phy-cells = <1>;
++				};
++
++				cps_comphy2: phy@2 {
++					reg = <2>;
++					#phy-cells = <1>;
++				};
++
++				cps_comphy3: phy@3 {
++					reg = <3>;
++					#phy-cells = <1>;
++				};
++
++				cps_comphy4: phy@4 {
++					reg = <4>;
++					#phy-cells = <1>;
++				};
++
++				cps_comphy5: phy@5 {
++					reg = <5>;
++					#phy-cells = <1>;
++				};
++			};
++
+ 			cps_mdio: mdio@12a200 {
+ 				#address-cells = <1>;
+ 				#size-cells = <0>;
 -- 
 2.13.5
