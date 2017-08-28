@@ -1,202 +1,43 @@
 From: Tariq Toukan <tariqt@mellanox.com>
-Subject: [PATCH net-next 4/4] net/mlx4: Add user mac FW update support
-Date: Mon, 28 Aug 2017 16:38:23 +0300
-Message-ID: <1503927503-29065-5-git-send-email-tariqt@mellanox.com>
+Subject: [PATCH net-next 3/4] net/mlx4_core: Fix misplaced brackets of sizeof
+Date: Mon, 28 Aug 2017 16:38:22 +0300
+Message-ID: <1503927503-29065-4-git-send-email-tariqt@mellanox.com>
 References: <1503927503-29065-1-git-send-email-tariqt@mellanox.com>
 Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
-        Moshe Shemesh <moshe@mellanox.com>,
-        Tariq Toukan <tariqt@mellanox.com>
+        Tariq Toukan <tariqt@mellanox.com>,
+        Stephen Hemminger <stephen@networkplumber.org>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:38592 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:38610 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751190AbdH1NjM (ORCPT
+        with ESMTP id S1751208AbdH1NjM (ORCPT
         <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 09:39:12 -0400
 In-Reply-To: <1503927503-29065-1-git-send-email-tariqt@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Moshe Shemesh <moshe@mellanox.com>
+When changing the sizeof style usage in the patch cited below,
+one brackets misplacement was introduced. Here we fix it.
 
-Adding support for updating the FW on new port mac, when port mac change
-is requested by the user. This info is required by the FW as OEM
-management tools require this info directly from the NIC FW.
-Check device capability bit to verify the FW supports user mac.
-If the FW does support it, use set_port command to notify the FW on the
-new mac.
-The feature is relevant only to PF port mac.
-
-Signed-off-by: Moshe Shemesh <moshe@mellanox.com>
+Fixes: 31975e27a4b5 ("mlx4: sizeof style usage")
 Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+Cc: Stephen Hemminger <stephen@networkplumber.org>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 23 +++++++++++++++++++++--
- drivers/net/ethernet/mellanox/mlx4/fw.c        |  5 +++++
- drivers/net/ethernet/mellanox/mlx4/main.c      |  3 +++
- drivers/net/ethernet/mellanox/mlx4/mlx4.h      |  2 ++
- drivers/net/ethernet/mellanox/mlx4/port.c      | 25 +++++++++++++++++++++++++
- include/linux/mlx4/device.h                    |  2 ++
- 6 files changed, 58 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/eq.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index 6e67ca7aa7f5..3753943aec0f 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -732,6 +732,21 @@ static int mlx4_en_replace_mac(struct mlx4_en_priv *priv, int qpn,
- 	return __mlx4_replace_mac(dev, priv->port, qpn, new_mac_u64);
- }
- 
-+static void mlx4_en_update_user_mac(struct mlx4_en_priv *priv,
-+				    unsigned char new_mac[ETH_ALEN + 2])
-+{
-+	struct mlx4_en_dev *mdev = priv->mdev;
-+	int err;
-+
-+	if (!(mdev->dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_USER_MAC_EN))
-+		return;
-+
-+	err = mlx4_SET_PORT_user_mac(mdev->dev, priv->port, new_mac);
-+	if (err)
-+		en_err(priv, "Failed to pass user MAC(%pM) to Firmware for port %d, with error %d\n",
-+		       new_mac, priv->port, err);
-+}
-+
- static int mlx4_en_do_set_mac(struct mlx4_en_priv *priv,
- 			      unsigned char new_mac[ETH_ALEN + 2])
- {
-@@ -766,8 +781,12 @@ static int mlx4_en_set_mac(struct net_device *dev, void *addr)
- 	mutex_lock(&mdev->state_lock);
- 	memcpy(new_mac, saddr->sa_data, ETH_ALEN);
- 	err = mlx4_en_do_set_mac(priv, new_mac);
--	if (!err)
--		memcpy(dev->dev_addr, saddr->sa_data, ETH_ALEN);
-+	if (err)
-+		goto out;
-+
-+	memcpy(dev->dev_addr, saddr->sa_data, ETH_ALEN);
-+	mlx4_en_update_user_mac(priv, new_mac);
-+out:
- 	mutex_unlock(&mdev->state_lock);
- 
- 	return err;
-diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
-index 10cfb058a9de..d4c7c15cb4ad 100644
---- a/drivers/net/ethernet/mellanox/mlx4/fw.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
-@@ -162,6 +162,7 @@ static void dump_dev_cap_flags2(struct mlx4_dev *dev, u64 flags)
- 		[35] = "Diag counters per port",
- 		[36] = "QinQ VST mode support",
- 		[37] = "sl to vl mapping table change event support",
-+		[38] = "user MAC support",
- 	};
- 	int i;
- 
-@@ -778,6 +779,7 @@ int mlx4_QUERY_DEV_CAP(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap)
- #define QUERY_DEV_CAP_MAX_DESC_SZ_SQ_OFFSET	0x52
- #define QUERY_DEV_CAP_MAX_SG_RQ_OFFSET		0x55
- #define QUERY_DEV_CAP_MAX_DESC_SZ_RQ_OFFSET	0x56
-+#define QUERY_DEV_CAP_USER_MAC_EN_OFFSET	0x5C
- #define QUERY_DEV_CAP_SVLAN_BY_QP_OFFSET	0x5D
- #define QUERY_DEV_CAP_MAX_QP_MCG_OFFSET		0x61
- #define QUERY_DEV_CAP_RSVD_MCG_OFFSET		0x62
-@@ -949,6 +951,9 @@ int mlx4_QUERY_DEV_CAP(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap)
- 	MLX4_GET(size, outbox, QUERY_DEV_CAP_MAX_DESC_SZ_SQ_OFFSET);
- 	dev_cap->max_sq_desc_sz = size;
- 
-+	MLX4_GET(field, outbox, QUERY_DEV_CAP_USER_MAC_EN_OFFSET);
-+	if (field & (1 << 2))
-+		dev_cap->flags2 |= MLX4_DEV_CAP_FLAG2_USER_MAC_EN;
- 	MLX4_GET(field, outbox, QUERY_DEV_CAP_SVLAN_BY_QP_OFFSET);
- 	if (field & 0x1)
- 		dev_cap->flags2 |= MLX4_DEV_CAP_FLAG2_SVLAN_BY_QP;
-diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
-index e6413a8a5f07..c631d157b97d 100644
---- a/drivers/net/ethernet/mellanox/mlx4/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/main.c
-@@ -1029,6 +1029,9 @@ static int mlx4_slave_cap(struct mlx4_dev *dev)
- 	dev->caps.flags2 &= ~MLX4_DEV_CAP_FLAG2_TS;
- 	mlx4_warn(dev, "Timestamping is not supported in slave mode\n");
- 
-+	dev->caps.flags2 &= ~MLX4_DEV_CAP_FLAG2_USER_MAC_EN;
-+	mlx4_dbg(dev, "User MAC FW update is not supported in slave mode\n");
-+
- 	slave_adjust_steering_mode(dev, dev_cap, hca_param);
- 	mlx4_dbg(dev, "RSS support for IP fragments is %s\n",
- 		 hca_param->rss_ip_frags ? "on" : "off");
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-index 706d7f21ac5c..16f1e097d33a 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-@@ -807,6 +807,8 @@ struct mlx4_set_port_general_context {
- 	u8 phv_en;
- 	u8 reserved6[5];
- 	__be16 user_mtu;
-+	u16 reserved7;
-+	u8 user_mac[6];
- };
- 
- struct mlx4_set_port_rqp_calc_context {
-diff --git a/drivers/net/ethernet/mellanox/mlx4/port.c b/drivers/net/ethernet/mellanox/mlx4/port.c
-index 4e36e287d605..3ef3406ff4cb 100644
---- a/drivers/net/ethernet/mellanox/mlx4/port.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/port.c
-@@ -52,6 +52,7 @@
- 
- #define MLX4_FLAG2_V_IGNORE_FCS_MASK		BIT(1)
- #define MLX4_FLAG2_V_USER_MTU_MASK		BIT(5)
-+#define MLX4_FLAG2_V_USER_MAC_MASK		BIT(6)
- #define MLX4_FLAG_V_MTU_MASK			BIT(0)
- #define MLX4_FLAG_V_PPRX_MASK			BIT(1)
- #define MLX4_FLAG_V_PPTX_MASK			BIT(2)
-@@ -1700,6 +1701,30 @@ int mlx4_SET_PORT_user_mtu(struct mlx4_dev *dev, u8 port, u16 user_mtu)
- }
- EXPORT_SYMBOL(mlx4_SET_PORT_user_mtu);
- 
-+int mlx4_SET_PORT_user_mac(struct mlx4_dev *dev, u8 port, u8 *user_mac)
-+{
-+	struct mlx4_cmd_mailbox *mailbox;
-+	struct mlx4_set_port_general_context *context;
-+	u32 in_mod;
-+	int err;
-+
-+	mailbox = mlx4_alloc_cmd_mailbox(dev);
-+	if (IS_ERR(mailbox))
-+		return PTR_ERR(mailbox);
-+	context = mailbox->buf;
-+	context->flags2 |= MLX4_FLAG2_V_USER_MAC_MASK;
-+	memcpy(context->user_mac, user_mac, sizeof(context->user_mac));
-+
-+	in_mod = MLX4_SET_PORT_GENERAL << 8 | port;
-+	err = mlx4_cmd(dev, mailbox->dma, in_mod, MLX4_SET_PORT_ETH_OPCODE,
-+		       MLX4_CMD_SET_PORT, MLX4_CMD_TIME_CLASS_B,
-+		       MLX4_CMD_NATIVE);
-+
-+	mlx4_free_cmd_mailbox(dev, mailbox);
-+	return err;
-+}
-+EXPORT_SYMBOL(mlx4_SET_PORT_user_mac);
-+
- int mlx4_SET_PORT_fcs_check(struct mlx4_dev *dev, u8 port, u8 ignore_fcs_value)
- {
- 	struct mlx4_cmd_mailbox *mailbox;
-diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
-index 9844606f9491..89c0e7f7cd9b 100644
---- a/include/linux/mlx4/device.h
-+++ b/include/linux/mlx4/device.h
-@@ -224,6 +224,7 @@ enum {
- 	MLX4_DEV_CAP_FLAG2_DIAG_PER_PORT	= 1ULL <<  35,
- 	MLX4_DEV_CAP_FLAG2_SVLAN_BY_QP          = 1ULL <<  36,
- 	MLX4_DEV_CAP_FLAG2_SL_TO_VL_CHANGE_EVENT = 1ULL << 37,
-+	MLX4_DEV_CAP_FLAG2_USER_MAC_EN		= 1ULL << 38,
- };
- 
- enum {
-@@ -1377,6 +1378,7 @@ int mlx4_flow_steer_promisc_remove(struct mlx4_dev *dev, u8 port,
- int __mlx4_replace_mac(struct mlx4_dev *dev, u8 port, int qpn, u64 new_mac);
- int mlx4_SET_PORT_general(struct mlx4_dev *dev, u8 port, int mtu,
- 			  u8 pptx, u8 pfctx, u8 pprx, u8 pfcrx);
-+int mlx4_SET_PORT_user_mac(struct mlx4_dev *dev, u8 port, u8 *user_mac);
- int mlx4_SET_PORT_user_mtu(struct mlx4_dev *dev, u8 port, u16 user_mtu);
- int mlx4_SET_PORT_qpn_calc(struct mlx4_dev *dev, u8 port, u32 base_qpn,
- 			   u8 promisc);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/eq.c b/drivers/net/ethernet/mellanox/mlx4/eq.c
+index b98698bf75dd..6f57c052053e 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/eq.c
++++ b/drivers/net/ethernet/mellanox/mlx4/eq.c
+@@ -726,7 +726,7 @@ static int mlx4_eq_int(struct mlx4_dev *dev, struct mlx4_eq *eq)
+ 			}
+ 			memcpy(&priv->mfunc.master.comm_arm_bit_vector,
+ 			       eqe->event.comm_channel_arm.bit_vec,
+-			       sizeof(eqe)->event.comm_channel_arm.bit_vec);
++			       sizeof(eqe->event.comm_channel_arm.bit_vec));
+ 			queue_work(priv->mfunc.master.comm_wq,
+ 				   &priv->mfunc.master.comm_work);
+ 			break;
 -- 
 1.8.3.1
