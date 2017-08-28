@@ -1,66 +1,61 @@
-From: Maxim Uvarov <muvarov@gmail.com>
-Subject: Re: [PATCH] DSA support for Micrel KSZ8895
-Date: Mon, 28 Aug 2017 17:47:05 +0300
-Message-ID: <CAJGZr0K46jBd9Sn4HNPgAeHTQtBuBHzX87GveAJf3_5b_WM69g@mail.gmail.com>
-References: <20170816075524.GA18532@amd> <20170816140451.GA13006@lunn.ch>
- <9235D6609DB808459E95D78E17F2E43D40AFF8C1@CHN-SV-EXMX02.mchp-main.com>
- <20170827123658.GA727@amd> <20170827163122.GG13622@lunn.ch>
- <20170828070232.GA18135@amd> <20170828140927.GD10418@lunn.ch>
+From: Tariq Toukan <tariqt@mellanox.com>
+Subject: IPv6 loopback issue report
+Date: Mon, 28 Aug 2017 17:48:49 +0300
+Message-ID: <464e900f-c256-4d22-6a83-a3aea0fca8bc@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Pavel Machek <pavel@ucw.cz>, Woojung.Huh@microchip.com,
-        nathan.leigh.conrad@gmail.com,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Tristram.Ha@micrel.com
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170828140927.GD10418@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: ranro@mellanox.com, guye@mellanox.com,
+        Eran Ben Elisha <eranbe@mellanox.com>
+To: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-db5eur01on0048.outbound.protection.outlook.com ([104.47.2.48]:37792
+        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751184AbdH1Os7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 28 Aug 2017 10:48:59 -0400
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Micrel has some drivers on their web site to support some chips. For
-that chips they do virtual mdio over spi.
-And driver is available on download page:
-http://www.microchip.com/wwwproducts/en/KSZ8895
+Hi all,
 
-Documentation->Software library.
+We encountered the following issue in our regression tests over net-next 
+branch.
+IPv6 loopback ping fails, while it works for IPv4.
 
-Both driver and DSA driver. Driver has to work with some minor fixups
-related to your kernel version. But I think they are don't care about
-up-streaming that code.
-So you can take their code as a reference.
+Reproduces with all NICs, doesn't seem to be a driver issue.
 
-2017-08-28 17:09 GMT+03:00 Andrew Lunn <andrew@lunn.ch>:
->> I may be confused here, but AFAICT:
->>
->> 1) Yes, it has standard layout when accessed over MDIO.
->
->
-> Section 4.8 of the datasheet says:
->
->         All the registers defined in this section can be also accessed
->         via the SPI interface.
->
-> Meaning all PHY registers can be access via the SPI interface. So you
-> should be able to make a standard Linux MDIO bus driver which performs
-> SPI reads.
->
->     Andrew
+Example:
 
-Micrel has some drivers on their web site to support some chips. For
-that chips they do virtual mdio over spi.
-And driver is available on download page:
-http://www.microchip.com/wwwproducts/en/KSZ8895
+# ifconfig ens8
+ens8: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+         inet 11.141.16.6  netmask 255.255.0.0  broadcast 11.141.255.255
+         inet6 fe80::7efe:90ff:fecb:7502  prefixlen 64  scopeid 0x20<link>
+         ether 7c:fe:90:cb:75:02  txqueuelen 1000  (Ethernet)
+         RX packets 12  bytes 1164 (1.1 KiB)
+         RX errors 0  dropped 0  overruns 0  frame 0
+         TX packets 30  bytes 2484 (2.4 KiB)
+         TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
 
-Documentation->Software library.
+# ping -c 3 11.141.16.6
+PING 11.141.16.6 (11.141.16.6) 56(84) bytes of data.
+64 bytes from 11.141.16.6: icmp_seq=1 ttl=64 time=0.017 ms
+64 bytes from 11.141.16.6: icmp_seq=2 ttl=64 time=0.014 ms
+64 bytes from 11.141.16.6: icmp_seq=3 ttl=64 time=0.014 ms
 
-Both driver and DSA driver. Driver has to work with some minor fixups
-related to your kernel version. But I think they are don't care about
-up-streaming that code.
-So you can take their code as a reference.
+--- 11.141.16.6 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2025ms
+rtt min/avg/max/mdev = 0.014/0.015/0.017/0.001 ms
 
--- 
-Best regards,
-Maxim Uvarov
+#  /bin/ping6 -c 3 fe80::7efe:90ff:fecb:7502%ens8
+PING fe80::7efe:90ff:fecb:7502%ens8(fe80::7efe:90ff:fecb:7502) 56 data bytes
+
+--- fe80::7efe:90ff:fecb:7502%ens8 ping statistics ---
+3 packets transmitted, 0 received, 100% packet loss, time 2043ms
+
+Regards,
+Tariq Toukan
