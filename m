@@ -1,86 +1,188 @@
 From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net-next 07/11] bnxt_en: Reduce default rings on multi-port cards.
-Date: Mon, 28 Aug 2017 13:40:31 -0400
-Message-ID: <1503942035-24924-8-git-send-email-michael.chan@broadcom.com>
+Subject: [PATCH net-next 10/11] bnxt_en: add TC flower offload flow_alloc/free FW cmds
+Date: Mon, 28 Aug 2017 13:40:34 -0400
+Message-ID: <1503942035-24924-11-git-send-email-michael.chan@broadcom.com>
 References: <1503942035-24924-1-git-send-email-michael.chan@broadcom.com>
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, Sathya Perla <sathya.perla@broadcom.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f181.google.com ([209.85.216.181]:36285 "EHLO
-        mail-qt0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751478AbdH1Rk6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 13:40:58 -0400
-Received: by mail-qt0-f181.google.com with SMTP id v29so5266207qtv.3
-        for <netdev@vger.kernel.org>; Mon, 28 Aug 2017 10:40:57 -0700 (PDT)
+Received: from mail-qk0-f180.google.com ([209.85.220.180]:37258 "EHLO
+        mail-qk0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751550AbdH1RlD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 13:41:03 -0400
+Received: by mail-qk0-f180.google.com with SMTP id k126so5365475qkb.4
+        for <netdev@vger.kernel.org>; Mon, 28 Aug 2017 10:41:02 -0700 (PDT)
 In-Reply-To: <1503942035-24924-1-git-send-email-michael.chan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Reduce default rings from 8 to 4 on multi-port cards to reduce memory
-usage.
+From: Sathya Perla <sathya.perla@broadcom.com>
 
+This patch adds the hwrm_cfa_flow_alloc/free() routines
+that are needed to issue the FW cmds needed for TC flower offload.
+
+Signed-off-by: Sathya Perla <sathya.perla@broadcom.com>
 Signed-off-by: Michael Chan <michael.chan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt.c | 13 +++++++++----
- drivers/net/ethernet/broadcom/bnxt/bnxt.h |  1 +
- 2 files changed, 10 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c | 141 ++++++++++++++++++++++++++-
+ 1 file changed, 139 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index a34fcdd..4406f91 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -5795,6 +5795,8 @@ static int bnxt_hwrm_phy_qcaps(struct bnxt *bp)
- 		link_info->support_auto_speeds =
- 			le16_to_cpu(resp->supported_speeds_auto_mode);
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c
+index a10df27..5fa0835 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c
+@@ -259,13 +259,150 @@ static int bnxt_tc_parse_flow(struct bnxt *bp,
  
-+	bp->port_count = resp->port_cnt;
+ static int bnxt_hwrm_cfa_flow_free(struct bnxt *bp, __le16 flow_handle)
+ {
+-	return 0;
++	struct hwrm_cfa_flow_free_input req = { 0 };
++	int rc;
 +
- hwrm_phy_qcaps_exit:
- 	mutex_unlock(&bp->hwrm_cmd_lock);
- 	return rc;
-@@ -7877,6 +7879,9 @@ static int bnxt_set_dflt_rings(struct bnxt *bp, bool sh)
- 	if (sh)
- 		bp->flags |= BNXT_FLAG_SHARED_RINGS;
- 	dflt_rings = netif_get_num_default_rss_queues();
-+	/* Reduce default rings to reduce memory usage on multi-port cards */
-+	if (bp->port_count > 1)
-+		dflt_rings = min_t(int, dflt_rings, 4);
- 	rc = bnxt_get_dflt_rings(bp, &max_rx_rings, &max_tx_rings, sh);
- 	if (rc)
- 		return rc;
-@@ -8049,6 +8054,10 @@ static int bnxt_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	bnxt_ethtool_init(bp);
- 	bnxt_dcb_init(bp);
- 
-+	rc = bnxt_probe_phy(bp);
++	bnxt_hwrm_cmd_hdr_init(bp, &req, HWRM_CFA_FLOW_FREE, -1, -1);
++	req.flow_handle = flow_handle;
++
++	rc = hwrm_send_message(bp, &req, sizeof(req), HWRM_CMD_TIMEOUT);
 +	if (rc)
-+		goto init_err_pci_clean;
++		netdev_info(bp->dev, "Error: %s: flow_handle=0x%x rc=%d",
++			    __func__, flow_handle, rc);
++	return rc;
++}
 +
- 	bnxt_set_rx_skb_mode(bp, false);
- 	bnxt_set_tpa_flags(bp);
- 	bnxt_set_ring_params(bp);
-@@ -8083,10 +8092,6 @@ static int bnxt_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	if (dev->hw_features & NETIF_F_HW_VLAN_CTAG_RX)
- 		bp->flags |= BNXT_FLAG_STRIP_VLAN;
++static int ipv6_mask_len(struct in6_addr *mask)
++{
++	int mask_len = 0, i;
++
++	for (i = 0; i < 4; i++)
++		mask_len += inet_mask_len(mask->s6_addr32[i]);
++
++	return mask_len;
++}
++
++static bool is_wildcard(void *mask, int len)
++{
++	const u8 *p = mask;
++	int i;
++
++	for (i = 0; i < len; i++) {
++		if (p[i] != 0)
++			return false;
++	}
++	return true;
+ }
  
--	rc = bnxt_probe_phy(bp);
--	if (rc)
--		goto init_err_pci_clean;
--
- 	rc = bnxt_init_int_mode(bp);
- 	if (rc)
- 		goto init_err_pci_clean;
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.h b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-index 3521e46..86af8ea 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-@@ -1207,6 +1207,7 @@ struct bnxt {
- 	u8			nge_port_cnt;
- 	__le16			nge_fw_dst_port_id;
- 	u8			port_partition_type;
-+	u8			port_count;
- 	u16			br_mode;
+ static int bnxt_hwrm_cfa_flow_alloc(struct bnxt *bp, struct bnxt_tc_flow *flow,
+ 				    __le16 ref_flow_handle, __le16 *flow_handle)
+ {
+-	return 0;
++	struct hwrm_cfa_flow_alloc_output *resp = bp->hwrm_cmd_resp_addr;
++	struct bnxt_tc_actions *actions = &flow->actions;
++	struct bnxt_tc_l3_key *l3_mask = &flow->l3_mask;
++	struct bnxt_tc_l3_key *l3_key = &flow->l3_key;
++	struct hwrm_cfa_flow_alloc_input req = { 0 };
++	u16 flow_flags = 0, action_flags = 0;
++	int rc;
++
++	bnxt_hwrm_cmd_hdr_init(bp, &req, HWRM_CFA_FLOW_ALLOC, -1, -1);
++
++	req.src_fid = cpu_to_le16(flow->src_fid);
++	req.ref_flow_handle = ref_flow_handle;
++	req.ethertype = flow->l2_key.ether_type;
++	req.ip_proto = flow->l4_key.ip_proto;
++
++	if (flow->flags & BNXT_TC_FLOW_FLAGS_ETH_ADDRS) {
++		memcpy(req.dmac, flow->l2_key.dmac, ETH_ALEN);
++		memcpy(req.smac, flow->l2_key.smac, ETH_ALEN);
++	}
++
++	if (flow->l2_key.num_vlans > 0) {
++		flow_flags |= CFA_FLOW_ALLOC_REQ_FLAGS_NUM_VLAN_ONE;
++		/* FW expects the inner_vlan_tci value to be set
++		 * in outer_vlan_tci when num_vlans is 1 (which is
++		 * always the case in TC.)
++		 */
++		req.outer_vlan_tci = flow->l2_key.inner_vlan_tci;
++	}
++
++	/* If all IP and L4 fields are wildcarded then this is an L2 flow */
++	if (is_wildcard(&l3_mask, sizeof(l3_mask)) &&
++	    is_wildcard(&flow->l4_mask, sizeof(flow->l4_mask))) {
++		flow_flags |= CFA_FLOW_ALLOC_REQ_FLAGS_FLOWTYPE_L2;
++	} else {
++		flow_flags |= flow->l2_key.ether_type == htons(ETH_P_IP) ?
++				CFA_FLOW_ALLOC_REQ_FLAGS_FLOWTYPE_IPV4 :
++				CFA_FLOW_ALLOC_REQ_FLAGS_FLOWTYPE_IPV6;
++
++		if (flow->flags & BNXT_TC_FLOW_FLAGS_IPV4_ADDRS) {
++			req.ip_dst[0] = l3_key->ipv4.daddr.s_addr;
++			req.ip_dst_mask_len =
++				inet_mask_len(l3_mask->ipv4.daddr.s_addr);
++			req.ip_src[0] = l3_key->ipv4.saddr.s_addr;
++			req.ip_src_mask_len =
++				inet_mask_len(l3_mask->ipv4.saddr.s_addr);
++		} else if (flow->flags & BNXT_TC_FLOW_FLAGS_IPV6_ADDRS) {
++			memcpy(req.ip_dst, l3_key->ipv6.daddr.s6_addr32,
++			       sizeof(req.ip_dst));
++			req.ip_dst_mask_len =
++					ipv6_mask_len(&l3_mask->ipv6.daddr);
++			memcpy(req.ip_src, l3_key->ipv6.saddr.s6_addr32,
++			       sizeof(req.ip_src));
++			req.ip_src_mask_len =
++					ipv6_mask_len(&l3_mask->ipv6.saddr);
++		}
++	}
++
++	if (flow->flags & BNXT_TC_FLOW_FLAGS_PORTS) {
++		req.l4_src_port = flow->l4_key.ports.sport;
++		req.l4_src_port_mask = flow->l4_mask.ports.sport;
++		req.l4_dst_port = flow->l4_key.ports.dport;
++		req.l4_dst_port_mask = flow->l4_mask.ports.dport;
++	} else if (flow->flags & BNXT_TC_FLOW_FLAGS_ICMP) {
++		/* l4 ports serve as type/code when ip_proto is ICMP */
++		req.l4_src_port = htons(flow->l4_key.icmp.type);
++		req.l4_src_port_mask = htons(flow->l4_mask.icmp.type);
++		req.l4_dst_port = htons(flow->l4_key.icmp.code);
++		req.l4_dst_port_mask = htons(flow->l4_mask.icmp.code);
++	}
++	req.flags = cpu_to_le16(flow_flags);
++
++	if (actions->flags & BNXT_TC_ACTION_FLAG_DROP) {
++		action_flags |= CFA_FLOW_ALLOC_REQ_ACTION_FLAGS_DROP;
++	} else {
++		if (actions->flags & BNXT_TC_ACTION_FLAG_FWD) {
++			action_flags |= CFA_FLOW_ALLOC_REQ_ACTION_FLAGS_FWD;
++			req.dst_fid = cpu_to_le16(actions->dst_fid);
++		}
++		if (actions->flags & BNXT_TC_ACTION_FLAG_PUSH_VLAN) {
++			action_flags |=
++			    CFA_FLOW_ALLOC_REQ_ACTION_FLAGS_L2_HEADER_REWRITE;
++			req.l2_rewrite_vlan_tpid = actions->push_vlan_tpid;
++			req.l2_rewrite_vlan_tci = actions->push_vlan_tci;
++			memcpy(&req.l2_rewrite_dmac, &req.dmac, ETH_ALEN);
++			memcpy(&req.l2_rewrite_smac, &req.smac, ETH_ALEN);
++		}
++		if (actions->flags & BNXT_TC_ACTION_FLAG_POP_VLAN) {
++			action_flags |=
++			    CFA_FLOW_ALLOC_REQ_ACTION_FLAGS_L2_HEADER_REWRITE;
++			/* Rewrite config with tpid = 0 implies vlan pop */
++			req.l2_rewrite_vlan_tpid = 0;
++			memcpy(&req.l2_rewrite_dmac, &req.dmac, ETH_ALEN);
++			memcpy(&req.l2_rewrite_smac, &req.smac, ETH_ALEN);
++		}
++	}
++	req.action_flags = cpu_to_le16(action_flags);
++
++	mutex_lock(&bp->hwrm_cmd_lock);
++
++	rc = _hwrm_send_message(bp, &req, sizeof(req), HWRM_CMD_TIMEOUT);
++	if (!rc)
++		*flow_handle = resp->flow_handle;
++
++	mutex_unlock(&bp->hwrm_cmd_lock);
++
++	return rc;
+ }
  
- 	u16			rx_coal_ticks;
+ static int bnxt_tc_put_l2_node(struct bnxt *bp,
 -- 
 1.8.3.1
