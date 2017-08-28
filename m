@@ -1,30 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/3] fix layer calculation and flow dissector use
-Date: Mon, 28 Aug 2017 15:20:39 -0700 (PDT)
-Message-ID: <20170828.152039.355601879528108819.davem@davemloft.net>
-References: <1503682263-17858-1-git-send-email-pieter.jansenvanvuuren@netronome.com>
+Subject: Re: [PATCH 4/4] net: stmmac: sun8i: Remove the compatibles
+Date: Mon, 28 Aug 2017 15:23:00 -0700 (PDT)
+Message-ID: <20170828.152300.453206773958057088.davem@davemloft.net>
+References: <20170825191217.10278-1-maxime.ripard@free-electrons.com>
+        <20170825191217.10278-5-maxime.ripard@free-electrons.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, oss-drivers@netronome.com,
-        simon.horman@netronome.com, jakub.kicinski@netronome.com
-To: pieter.jansenvanvuuren@netronome.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:49716 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751213AbdH1WUl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 18:20:41 -0400
-In-Reply-To: <1503682263-17858-1-git-send-email-pieter.jansenvanvuuren@netronome.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: arm@kernel.org, wens@csie.org,
+        linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+        f.fainelli@gmail.com, clabbe.montjoie@gmail.com, andrew@lunn.ch,
+        linux-kernel@vger.kernel.org
+To: maxime.ripard@free-electrons.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170825191217.10278-5-maxime.ripard@free-electrons.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Pieter Jansen van Vuuren <pieter.jansenvanvuuren@netronome.com>
-Date: Fri, 25 Aug 2017 19:31:00 +0200
+From: Maxime Ripard <maxime.ripard@free-electrons.com>
+Date: Fri, 25 Aug 2017 21:12:17 +0200
 
-> Previously when calculating the supported key layers MPLS, IPv4/6
-> TTL and TOS were not considered. Formerly flow dissectors were referenced
-> without first checking that they are in use and correctly populated by TC.
-> Additionally this patch set fixes the incorrect use of mask field for vlan
-> matching.
+> Since the bindings have been controversial, and we follow the DT stable ABI
+> rule, we shouldn't let a driver with a DT binding that might change slip
+> through in a stable release.
+> 
+> Remove the compatibles to make sure the driver will not probe and no-one
+> will start using the binding currently implemented. This commit will
+> obviously need to be reverted in due time.
+> 
+> Signed-off-by: Maxime Ripard <maxime.ripard@free-electrons.com>
 
-Series applied, thanks.
+Applied to net tree.
