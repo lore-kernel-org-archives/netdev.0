@@ -1,62 +1,134 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: mlxsw and rtnl lock
-Date: Mon, 28 Aug 2017 08:55:56 -0700
-Message-ID: <CAJieiUjvERvBFZ9qaSPLrVj=V3XivsiRGDpOsHqbKdwS-+xJeQ@mail.gmail.com>
-References: <dccefbeb-b5c3-14ed-05d3-07d464989708@gmail.com> <20170826170418.GA22324@shredder>
+From: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
+Subject: [PATCH net v1 1/1] tipc: permit bond slave as bearer
+Date: Mon, 28 Aug 2017 17:57:02 +0200
+Message-ID: <1503935822-20445-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: David Ahern <dsahern@gmail.com>, Jiri Pirko <jiri@resnulli.us>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        mlxsw <mlxsw@mellanox.com>
-To: Ido Schimmel <idosch@idosch.org>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <tipc-discussion@lists.sourceforge.net>,
+        <jon.maloy@ericsson.com>, <maloy@donjonn.com>,
+        <ying.xue@windriver.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f45.google.com ([209.85.213.45]:36023 "EHLO
-        mail-vk0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751297AbdH1Pz5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 11:55:57 -0400
-Received: by mail-vk0-f45.google.com with SMTP id d124so2545016vkf.3
-        for <netdev@vger.kernel.org>; Mon, 28 Aug 2017 08:55:57 -0700 (PDT)
-In-Reply-To: <20170826170418.GA22324@shredder>
+Received: from sessmg23.ericsson.net ([193.180.251.45]:47865 "EHLO
+        sessmg23.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751302AbdH1P5I (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 11:57:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Aug 26, 2017 at 10:04 AM, Ido Schimmel <idosch@idosch.org> wrote:
-> On Fri, Aug 25, 2017 at 01:26:07PM -0700, David Ahern wrote:
->> Jiri / Ido:
->>
->>
-[snip]
->
-> Regarding the silent abort, that's intentional. You can look at the same
-> code in v4.9 - when the chain was still blocking - and you'll see that
-> we didn't propagate the error even then. This was discussed in the past
-> and the conclusion was that user doesn't expect to operation to fail. If
-> hardware resources are exceeded, we let the kernel take care of the
-> forwarding instead.
+For a bond slave device as a tipc bearer, the dev represents the bond
+interface and orig_dev represents the slave in tipc_l2_rcv_msg().
+Since we decode the tipc_ptr from bonding device (dev), we fail to
+find the bearer and thus tipc links are not established.
 
-History here is that the initial fib offload hooks were added during
-rocker days.
-subsequently we have had many discussions (on offload policies) to see
-if we can remove that
-check and report the error back to the user (routing daemon in this
-case) since the cpu kernel
-cannot handle 100G or more traffic on such platforms. Basically the
-cpu kernel cannot take care
-of forwarding for such platforms. I believe this came up during the
-last switchdev BOF as well.
-The current silent abort is in there because kernel needs to maintain
-its semantics for hardware offload.
-Which is a valid position but we will need to find a way to make it
-work for switch platforms.
+In this commit, we register the tipc protocol callback per device and
+look for tipc bearer from both the devices.
 
-IIUC, the only place where switchdev offload returns error to the user is
-'bridge and bond membership offload'
+Signed-off-by: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
+---
+ net/tipc/bearer.c | 26 +++++++++++---------------
+ net/tipc/bearer.h |  2 ++
+ 2 files changed, 13 insertions(+), 15 deletions(-)
 
-I know fib and bridge fdb offload don't propagate errors to the user
-(maybe they used to before moving to notifiers ?. need to check
-history on this).
-
-Are tc hardware offload errors propagated to the user ?
-
-It is a bit inconsistent today, some errors are propagated to the user
-and some are not.
+diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
+index 767e0537dde5..89cd061c4468 100644
+--- a/net/tipc/bearer.c
++++ b/net/tipc/bearer.c
+@@ -65,6 +65,8 @@ static struct tipc_bearer *bearer_get(struct net *net, int bearer_id)
+ }
+ 
+ static void bearer_disable(struct net *net, struct tipc_bearer *b);
++static int tipc_l2_rcv_msg(struct sk_buff *skb, struct net_device *dev,
++			   struct packet_type *pt, struct net_device *orig_dev);
+ 
+ /**
+  * tipc_media_find - locates specified media object by name
+@@ -428,6 +430,10 @@ int tipc_enable_l2_media(struct net *net, struct tipc_bearer *b,
+ 
+ 	/* Associate TIPC bearer with L2 bearer */
+ 	rcu_assign_pointer(b->media_ptr, dev);
++	b->pt.dev = dev;
++	b->pt.type = htons(ETH_P_TIPC);
++	b->pt.func = tipc_l2_rcv_msg;
++	dev_add_pack(&b->pt);
+ 	memset(&b->bcast_addr, 0, sizeof(b->bcast_addr));
+ 	memcpy(b->bcast_addr.value, dev->broadcast, b->media->hwaddr_len);
+ 	b->bcast_addr.media_id = b->media->type_id;
+@@ -447,6 +453,7 @@ void tipc_disable_l2_media(struct tipc_bearer *b)
+ 	struct net_device *dev;
+ 
+ 	dev = (struct net_device *)rtnl_dereference(b->media_ptr);
++	dev_remove_pack(&b->pt);
+ 	RCU_INIT_POINTER(dev->tipc_ptr, NULL);
+ 	synchronize_net();
+ 	dev_put(dev);
+@@ -594,11 +601,12 @@ static int tipc_l2_rcv_msg(struct sk_buff *skb, struct net_device *dev,
+ 	struct tipc_bearer *b;
+ 
+ 	rcu_read_lock();
+-	b = rcu_dereference_rtnl(dev->tipc_ptr);
++	b = rcu_dereference_rtnl(dev->tipc_ptr) ?:
++		rcu_dereference_rtnl(orig_dev->tipc_ptr);
+ 	if (likely(b && test_bit(0, &b->up) &&
+ 		   (skb->pkt_type <= PACKET_MULTICAST))) {
+ 		skb->next = NULL;
+-		tipc_rcv(dev_net(dev), skb, b);
++		tipc_rcv(dev_net(b->pt.dev), skb, b);
+ 		rcu_read_unlock();
+ 		return NET_RX_SUCCESS;
+ 	}
+@@ -659,11 +667,6 @@ static int tipc_l2_device_event(struct notifier_block *nb, unsigned long evt,
+ 	return NOTIFY_OK;
+ }
+ 
+-static struct packet_type tipc_packet_type __read_mostly = {
+-	.type = htons(ETH_P_TIPC),
+-	.func = tipc_l2_rcv_msg,
+-};
+-
+ static struct notifier_block notifier = {
+ 	.notifier_call  = tipc_l2_device_event,
+ 	.priority	= 0,
+@@ -671,19 +674,12 @@ static struct notifier_block notifier = {
+ 
+ int tipc_bearer_setup(void)
+ {
+-	int err;
+-
+-	err = register_netdevice_notifier(&notifier);
+-	if (err)
+-		return err;
+-	dev_add_pack(&tipc_packet_type);
+-	return 0;
++	return register_netdevice_notifier(&notifier);
+ }
+ 
+ void tipc_bearer_cleanup(void)
+ {
+ 	unregister_netdevice_notifier(&notifier);
+-	dev_remove_pack(&tipc_packet_type);
+ }
+ 
+ void tipc_bearer_stop(struct net *net)
+diff --git a/net/tipc/bearer.h b/net/tipc/bearer.h
+index 635c9086e19a..e07a55a80c18 100644
+--- a/net/tipc/bearer.h
++++ b/net/tipc/bearer.h
+@@ -131,6 +131,7 @@ struct tipc_media {
+  * @name: bearer name (format = media:interface)
+  * @media: ptr to media structure associated with bearer
+  * @bcast_addr: media address used in broadcasting
++ * @pt: packet type for bearer
+  * @rcu: rcu struct for tipc_bearer
+  * @priority: default link priority for bearer
+  * @window: default window size for bearer
+@@ -151,6 +152,7 @@ struct tipc_bearer {
+ 	char name[TIPC_MAX_BEARER_NAME];
+ 	struct tipc_media *media;
+ 	struct tipc_media_addr bcast_addr;
++	struct packet_type pt;
+ 	struct rcu_head rcu;
+ 	u32 priority;
+ 	u32 window;
+-- 
+2.1.4
