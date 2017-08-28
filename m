@@ -1,119 +1,129 @@
-From: "Keller, Jacob E" <jacob.e.keller@intel.com>
-Subject: RE: [RFC PATCH] net: limit maximum number of packets to mark with
- xmit_more
-Date: Mon, 28 Aug 2017 20:46:25 +0000
-Message-ID: <02874ECE860811409154E81DA85FBB5882A8FFD9@ORSMSX115.amr.corp.intel.com>
-References: <20170825152449.29790-1-jacob.e.keller@intel.com>
- <E0D909EE5BB15A4699798539EA149D7F07793B3E@ORSMSX103.amr.corp.intel.com>
- <20170825085816.3425a70c@xeon-e3>
- <CAKgT0UdC_8hTbc-p6cQPNy4=gbFnodZ3ZyKts329Yu8kiv-ZWw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Waskiewicz Jr, Peter" <peter.waskiewicz.jr@intel.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Alexander Duyck <alexander.duyck@gmail.com>,
-        Stephen Hemminger <stephen@networkplumber.org>
+From: David Ahern <dsahern@gmail.com>
+Subject: [PATCH net-next] ipv6: Use rt6i_idev index for echo replies to a local address
+Date: Mon, 28 Aug 2017 13:53:34 -0700
+Message-ID: <1503953614-32395-1-git-send-email-dsahern@gmail.com>
+Cc: David Ahern <dsahern@gmail.com>
+To: netdev@vger.kernel.org, tariqt@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:59971 "EHLO mga14.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751208AbdH1Uq0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 28 Aug 2017 16:46:26 -0400
-In-Reply-To: <CAKgT0UdC_8hTbc-p6cQPNy4=gbFnodZ3ZyKts329Yu8kiv-ZWw@mail.gmail.com>
-Content-Language: en-US
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:37988 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750735AbdH1Uxp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 16:53:45 -0400
+Received: by mail-pg0-f68.google.com with SMTP id t3so1154549pgt.5
+        for <netdev@vger.kernel.org>; Mon, 28 Aug 2017 13:53:45 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
-ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZ10gT24NCj4gQmVo
-YWxmIE9mIEFsZXhhbmRlciBEdXljaw0KPiBTZW50OiBGcmlkYXksIEF1Z3VzdCAyNSwgMjAxNyAz
-OjM0IFBNDQo+IFRvOiBTdGVwaGVuIEhlbW1pbmdlciA8c3RlcGhlbkBuZXR3b3JrcGx1bWJlci5v
-cmc+DQo+IENjOiBXYXNraWV3aWN6IEpyLCBQZXRlciA8cGV0ZXIud2Fza2lld2ljei5qckBpbnRl
-bC5jb20+OyBLZWxsZXIsIEphY29iIEUNCj4gPGphY29iLmUua2VsbGVyQGludGVsLmNvbT47IG5l
-dGRldkB2Z2VyLmtlcm5lbC5vcmcNCj4gU3ViamVjdDogUmU6IFtSRkMgUEFUQ0hdIG5ldDogbGlt
-aXQgbWF4aW11bSBudW1iZXIgb2YgcGFja2V0cyB0byBtYXJrIHdpdGgNCj4geG1pdF9tb3JlDQo+
-IA0KPiBPbiBGcmksIEF1ZyAyNSwgMjAxNyBhdCA4OjU4IEFNLCBTdGVwaGVuIEhlbW1pbmdlcg0K
-PiA8c3RlcGhlbkBuZXR3b3JrcGx1bWJlci5vcmc+IHdyb3RlOg0KPiA+IE9uIEZyaSwgMjUgQXVn
-IDIwMTcgMTU6MzY6MjIgKzAwMDANCj4gPiAiV2Fza2lld2ljeiBKciwgUGV0ZXIiIDxwZXRlci53
-YXNraWV3aWN6LmpyQGludGVsLmNvbT4gd3JvdGU6DQo+ID4NCj4gPj4gT24gOC8yNS8xNyAxMToy
-NSBBTSwgSmFjb2IgS2VsbGVyIHdyb3RlOg0KPiA+PiA+IFVuZGVyIHNvbWUgY2lyY3Vtc3RhbmNl
-cywgc3VjaCBhcyB3aXRoIG1hbnkgc3RhY2tlZCBkZXZpY2VzLCBpdCBpcw0KPiA+PiA+IHBvc3Np
-YmxlIHRoYXQgZGV2X2hhcmRfc3RhcnRfeG1pdCB3aWxsIGJ1bmRsZSBtYW55IHBhY2tldHMgdG9n
-ZXRoZXIsIGFuZA0KPiA+PiA+IG1hcmsgdGhlbSBhbGwgd2l0aCB4bWl0X21vcmUuDQo+ID4+ID4N
-Cj4gPj4gPiBNb3N0IGRyaXZlcnMgcmVzcG9uZCB0byB4bWl0X21vcmUgYnkgc2tpcHBpbmcgdGFp
-bCBidW1wcyBvbiBwYWNrZXQNCj4gPj4gPiByaW5ncywgb3Igc2ltaWxhciBiZWhhdmlvciBhcyBs
-b25nIGFzIHhtaXRfbW9yZSBpcyBzZXQuIFRoaXMgaXMNCj4gPj4gPiBhIHBlcmZvcm1hbmNlIHdp
-biBzaW5jZSBpdCBtZWFucyBkcml2ZXJzIGNhbiBhdm9pZCBub3RpZnlpbmcgaGFyZHdhcmUgb2YN
-Cj4gPj4gPiBuZXcgcGFja2V0cyByZXBlYXQgZGFpbHksIGFuZCB0aHVzIGF2b2lkIHdhc3Rpbmcg
-dW5uZWNlc3NhcnkgUENJZSBvciBvdGhlcg0KPiA+PiA+IGJhbmR3aWR0aC4NCj4gPj4gPg0KPiA+
-PiA+IFRoaXMgdXNlIG9mIHhtaXRfbW9yZSBjb21lcyB3aXRoIGEgdHJhZGUgb2ZmIGJlY2F1c2Ug
-YnVuZGxpbmcgdG9vIG1hbnkNCj4gPj4gPiBwYWNrZXRzIGNhbiBpbmNyZWFzZSBsYXRlbmN5IG9m
-IHRoZSBUeCBwYWNrZXRzLiBUbyBhdm9pZCB0aGlzLCB3ZSBzaG91bGQNCj4gPj4gPiBsaW1pdCB0
-aGUgbWF4aW11bSBudW1iZXIgb2YgcGFja2V0cyB3aXRoIHhtaXRfbW9yZS4NCj4gPj4gPg0KPiA+
-PiA+IERyaXZlciBhdXRob3JzIGNvdWxkIG1vZGlmeSB0aGVpciBkcml2ZXJzIHRvIGNoZWNrIGZv
-ciBzb21lIGRldGVybWluZWQNCj4gPj4gPiBsaW1pdCwgYnV0IHRoaXMgcmVxdWlyZXMgYWxsIGRy
-aXZlcnMgdG8gYmUgbW9kaWZpZWQgaW4gb3JkZXIgdG8gZ2Fpbg0KPiA+PiA+IGFkdmFudGFnZS4N
-Cj4gPj4gPg0KPiA+PiA+IEluc3RlYWQsIGFkZCBhIHN5c2N0bCAieG1pdF9tb3JlX21heCIgd2hp
-Y2ggY2FuIGJlIHVzZWQgdG8gY29uZmlndXJlIHRoZQ0KPiA+PiA+IG1heGltdW0gbnVtYmVyIG9m
-IHhtaXRfbW9yZSBza2JzIHRvIHNlbmQgaW4gYSBzZXF1ZW5jZS4gVGhpcyBlbnN1cmVzDQo+ID4+
-ID4gdGhhdCBhbGwgZHJpdmVycyBiZW5lZml0LCBhbmQgYWxsb3dzIHN5c3RlbSBhZG1pbmlzdHJh
-dG9ycyB0aGUgb3B0aW9uIHRvDQo+ID4+ID4gdHVuZSB0aGUgdmFsdWUgdG8gdGhlaXIgZW52aXJv
-bm1lbnQuDQo+ID4+ID4NCj4gPj4gPiBTaWduZWQtb2ZmLWJ5OiBKYWNvYiBLZWxsZXIgPGphY29i
-LmUua2VsbGVyQGludGVsLmNvbT4NCj4gPj4gPiAtLS0NCj4gPj4gPg0KPiA+PiA+IFN0cmF5IHRo
-b3VnaHRzIGFuZCBmdXJ0aGVyIHF1ZXN0aW9ucy4uLi4NCj4gPj4gPg0KPiA+PiA+IElzIHRoaXMg
-dGhlIHJpZ2h0IGFwcHJvYWNoPyBEaWQgSSBtaXNzIGFueSBvdGhlciBwbGFjZXMgd2hlcmUgd2Ug
-c2hvdWxkDQo+ID4+ID4gbGltaXQ/IERvZXMgdGhlIGxpbWl0IG1ha2Ugc2Vuc2U/IFNob3VsZCBp
-dCBpbnN0ZWFkIGJlIGEgcGVyLWRldmljZQ0KPiA+PiA+IHR1bmluZyBub2IgaW5zdGVhZCBvZiBh
-IGdsb2JhbD8gSXMgMzIgYSBnb29kIGRlZmF1bHQ/DQo+ID4+DQo+ID4+IEkgYWN0dWFsbHkgbGlr
-ZSB0aGUgaWRlYSBvZiBhIHBlci1kZXZpY2Uga25vYi4gIEEgeG1pdF9tb3JlX21heCB0aGF0J3MN
-Cj4gPj4gZ2xvYmFsIGluIGEgc3lzdGVtIHdpdGggMUdiRSBkZXZpY2VzIGFsb25nIHdpdGggYSAy
-NS81MEdiRSBvciBtb3JlIGp1c3QNCj4gPj4gZG9lc24ndCBtYWtlIG11Y2ggc2Vuc2UgdG8gbWUu
-ICBPciBoYXZpbmcgaGV0ZXJvZ2VuZW91cyB2ZW5kb3IgZGV2aWNlcw0KPiA+PiBpbiB0aGUgc2Ft
-ZSBzeXN0ZW0gdGhhdCBoYXZlIGRpZmZlcmVudCBIVyBiZWhhdmlvcnMgY291bGQgbWFzayBpc3N1
-ZXMNCj4gPj4gd2l0aCBsYXRlbmN5Lg0KPiA+Pg0KPiA+PiBUaGlzIHNlZW1zIGxpa2UgYW5vdGhl
-ciBpbmNhcm5hdGlvbiBvZiBwb3NzaWJsZSBidWZmZXItYmxvYXQgaWYgdGhlIG1heA0KPiA+PiBp
-cyB0b28gaGlnaC4uLg0KPiA+Pg0KPiA+PiA+DQo+ID4+ID4gICBEb2N1bWVudGF0aW9uL3N5c2N0
-bC9uZXQudHh0IHwgIDYgKysrKysrDQo+ID4+ID4gICBpbmNsdWRlL2xpbnV4L25ldGRldmljZS5o
-ICAgIHwgIDIgKysNCj4gPj4gPiAgIG5ldC9jb3JlL2Rldi5jICAgICAgICAgICAgICAgfCAxMCAr
-KysrKysrKystDQo+ID4+ID4gICBuZXQvY29yZS9zeXNjdGxfbmV0X2NvcmUuYyAgIHwgIDcgKysr
-KysrKw0KPiA+PiA+ICAgNCBmaWxlcyBjaGFuZ2VkLCAyNCBpbnNlcnRpb25zKCspLCAxIGRlbGV0
-aW9uKC0pDQo+ID4+ID4NCj4gPj4gPiBkaWZmIC0tZ2l0IGEvRG9jdW1lbnRhdGlvbi9zeXNjdGwv
-bmV0LnR4dCBiL0RvY3VtZW50YXRpb24vc3lzY3RsL25ldC50eHQNCj4gPj4gPiBpbmRleCBiNjcw
-NDRhMjU3NWYuLjNkOTk1ZThmNDQ0OCAxMDA2NDQNCj4gPj4gPiAtLS0gYS9Eb2N1bWVudGF0aW9u
-L3N5c2N0bC9uZXQudHh0DQo+ID4+ID4gKysrIGIvRG9jdW1lbnRhdGlvbi9zeXNjdGwvbmV0LnR4
-dA0KPiA+PiA+IEBAIC0yMzAsNiArMjMwLDEyIEBAIG5ldGRldl9tYXhfYmFja2xvZw0KPiA+PiA+
-ICAgTWF4aW11bSBudW1iZXIgIG9mICBwYWNrZXRzLCAgcXVldWVkICBvbiAgdGhlICBJTlBVVCAg
-c2lkZSwgd2hlbiB0aGUNCj4gaW50ZXJmYWNlDQo+ID4+ID4gICByZWNlaXZlcyBwYWNrZXRzIGZh
-c3RlciB0aGFuIGtlcm5lbCBjYW4gcHJvY2VzcyB0aGVtLg0KPiA+PiA+DQo+ID4+ID4gK3htaXRf
-bW9yZV9tYXgNCj4gPj4gPiArLS0tLS0tLS0tLS0tLQ0KPiA+PiA+ICsNCj4gPj4gPiArTWF4aW11
-bSBudW1iZXIgb2YgcGFja2V0cyBpbiBhIHJvdyB0byBtYXJrIHdpdGggc2tiLT54bWl0X21vcmUu
-IEEgdmFsdWUNCj4gb2YgemVybw0KPiA+PiA+ICtpbmRpY2F0ZXMgbm8gbGltaXQuDQo+ID4+DQo+
-ID4+IFdoYXQgZGVmaW5lcyAicGFja2V0PyIgIE1UVS1zaXplZCBwYWNrZXRzLCBvciBwYXlsb2Fk
-cyBjb21pbmcgZG93biBmcm9tDQo+ID4+IHRoZSBzdGFjayAoZS5nLiBUU08ncyk/DQo+ID4NCj4g
-PiB4bWl0X21vcmUgaXMgb25seSBhIGhpbnQgdG8gdGhlIGRldmljZS4gVGhlIGRldmljZSBkcml2
-ZXIgc2hvdWxkIGlnbm9yZSBpdCB1bmxlc3MNCj4gPiB0aGVyZSBhcmUgaGFyZHdhcmUgYWR2YW50
-YWdlcy4gVGhlIGRldmljZSBkcml2ZXIgaXMgdGhlIHBsYWNlIHdpdGggSFcgc3BlY2lmaWMNCj4g
-PiBrbm93bGVkZ2UgKGxpa2UgNCBUeCBkZXNjcmlwdG9ycyBpcyBlcXVpdmFsZW50IHRvIG9uZSBQ
-Q0kgdHJhbnNhY3Rpb24gb24gdGhpcw0KPiBkZXZpY2UpLg0KPiA+DQo+ID4gQW55dGhpbmcgdGhh
-dCBwdXNoZXMgdGhhdCBvcHRpbWl6YXRpb24gb3V0IHRvIHRoZSB1c2VyIGlzIG9ubHkgdXNlZnVs
-IGZvcg0KPiBiZW5jaG1hcmtzDQo+ID4gYW5kIGVtYmVkZGVkIGRldmljZXMuDQo+IA0KPiBBY3R1
-YWxseSBJIHRoaW5rIEkgbWlnaHQgaGF2ZSBhbiBpZGVhIHdoYXQgaXMgZ29pbmcgb24gaGVyZSBh
-bmQgSQ0KPiBhZ3JlZSB0aGF0IHRoaXMgaXMgcHJvYmFibHkgc29tZXRoaW5nIHRoYXQgbmVlZHMg
-dG8gYmUgZml4ZWQgaW4gdGhlDQo+IGRyaXZlcnMuIEVzcGVjaWFsbHkgc2luY2UgdGhlIHByb2Js
-ZW0gaXNuJ3Qgc28gbXVjaCB0aGUgc2ticyBidXQNCj4gZGVzY3JpcHRvcnMgaW4gdGhlIGRlc2Ny
-aXB0b3IgcmluZy4NCj4gDQo+IElmIEkgYW0gbm90IG1pc3Rha2VuIHRoZSBpc3N1ZSBpcyBtb3N0
-IGRyaXZlcnMgd2lsbCBob25vciB0aGUNCj4geG1pdF9tb3JlIHVubGVzcyB0aGUgcmluZyBjYW5u
-b3QgZW5xdWV1ZSBhbm90aGVyIHBhY2tldC4gVGhlIHByb2JsZW0NCj4gaXMgaWYgdGhlIGNsZWFu
-LXVwIGlzIG9jY3VycmluZyBvbiBhIGRpZmZlcmVudCBDUFUgdGhhbiB0cmFuc21pdCB3ZQ0KPiBj
-YW4gY2F1c2UgdGhlIGNsZWFuLXVwIENQVS9kZXZpY2UgRE1BIHRvIGdvIGlkbGUgYnkgbm90IHBy
-b3ZpZGluZyBhbnkNCj4gbm90aWZpY2F0aW9ucyB0byB0aGUgZGV2aWNlIHRoYXQgbmV3IHBhY2tl
-dHMgYXJlIHByZXNlbnQuIFdoYXQgd2UNCj4gc2hvdWxkIHByb2JhYmx5IGRvIGlzIGxvb2sgYXQg
-YWRkaW5nIGFub3RoZXIgY29uZGl0aW9uIHdoaWNoIGlzIHRvDQo+IGZvcmNlIHVzIHRvIGZsdXNo
-IHRoZSBwYWNrZXQgaWYgd2UgaGF2ZSB1c2VkIG92ZXIgaGFsZiBvZiB0aGUNCj4gZGVzY3JpcHRv
-cnMgaW4gYSBnaXZlbiByaW5nIHdpdGhvdXQgbm90aWZ5aW5nIHRoZSBkZXZpY2UuIFRoZW4gdGhh
-dA0KPiB3YXkgd2UgY2FuIGJlIGZpbGxpbmcgaGFsZiB3aGlsZSB0aGUgZGV2aWNlIGlzIHByb2Nl
-c3NpbmcgdGhlIG90aGVyDQo+IGhhbGYgd2hpY2ggc2hvdWxkIHJlc3VsdCBpbiB1cyBvcGVyYXRp
-bmcgc21vb3RobHkuDQo+IA0KPiAtIEFsZXgNCg0KT2ssIGFuZCB0aGF0IGRlZmluaXRlbHkgaXMg
-ZHJpdmVyIHNwZWNpZmljLCBzbyBJIHdvdWxkIGJlIGNvbWZvcnRhYmxlIGxlYXZpbmcgdGhhdCB1
-cCB0byBkcml2ZXIgaW1wbGVtZW50YXRpb24uIEknbGwgbG9vayBhdCBjcmVhdGluZyBhIHBhdGNo
-IHRvIGRvIHNvbWV0aGluZyBsaWtlIHRoaXMgZm9yIGk0MGUuDQoNClRoYW5rcywNCkpha2UNCg==
+Tariq repored local pings to linklocal address is failing:
+$ ifconfig ens8
+ens8: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+        inet 11.141.16.6  netmask 255.255.0.0  broadcast 11.141.255.255
+        inet6 fe80::7efe:90ff:fecb:7502  prefixlen 64  scopeid 0x20<link>
+        ether 7c:fe:90:cb:75:02  txqueuelen 1000  (Ethernet)
+        RX packets 12  bytes 1164 (1.1 KiB)
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 30  bytes 2484 (2.4 KiB)
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+$  /bin/ping6 -c 3 fe80::7efe:90ff:fecb:7502%ens8
+PING fe80::7efe:90ff:fecb:7502%ens8(fe80::7efe:90ff:fecb:7502) 56 data bytes
+
+--- fe80::7efe:90ff:fecb:7502%ens8 ping statistics ---
+3 packets transmitted, 0 received, 100% packet loss, time 2043ms
+
+icmpv6_echo_reply needs to use the rt6i_idev dev index for local traffic
+similar to how icmp6_send does. Convert the change for icmp6_send into a
+helper that can be used in both places. Add the long over due
+skb_rt6_info helper to convert dst on an skb to rt6_info similar to
+skb_rtable for ipv4.
+
+Fixes: 4832c30d5458 ("net: ipv6: put host and anycast routes on
+       device with address")
+Reported-by: Tariq Toukan <tariqt@mellanox.com>
+Signed-off-by: David Ahern <dsahern@gmail.com>
+---
+ include/net/ip6_route.h | 10 ++++++++++
+ net/ipv6/icmp.c         | 33 ++++++++++++++++++++-------------
+ 2 files changed, 30 insertions(+), 13 deletions(-)
+
+diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
+index 882bc3c7ccde..ee96f402cb75 100644
+--- a/include/net/ip6_route.h
++++ b/include/net/ip6_route.h
+@@ -164,6 +164,16 @@ void rt6_mtu_change(struct net_device *dev, unsigned int mtu);
+ void rt6_remove_prefsrc(struct inet6_ifaddr *ifp);
+ void rt6_clean_tohost(struct net *net, struct in6_addr *gateway);
+ 
++static inline const struct rt6_info *skb_rt6_info(const struct sk_buff *skb)
++{
++	const struct dst_entry *dst = skb_dst(skb);
++	const struct rt6_info *rt6 = NULL;
++
++	if (dst)
++		rt6 = container_of(dst, struct rt6_info, dst);
++
++	return rt6;
++}
+ 
+ /*
+  *	Store a destination cache entry in a socket
+diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
+index dd7608cf1d72..c25b5954cfbb 100644
+--- a/net/ipv6/icmp.c
++++ b/net/ipv6/icmp.c
+@@ -399,6 +399,24 @@ static struct dst_entry *icmpv6_route_lookup(struct net *net,
+ 	return ERR_PTR(err);
+ }
+ 
++static int icmp6_iif(const struct sk_buff *skb)
++{
++	int iif = skb->dev->ifindex;
++
++	/* for local traffic to local address, skb dev is the loopback
++	 * device. Check if there is a dst attached to the skb and if so
++	 * get the real device index.
++	 */
++	if (unlikely(iif == LOOPBACK_IFINDEX)) {
++		const struct rt6_info *rt6 = skb_rt6_info(skb);
++
++		if (rt6)
++			iif = rt6->rt6i_idev->dev->ifindex;
++	}
++
++	return iif;
++}
++
+ /*
+  *	Send an ICMP message in response to a packet in error
+  */
+@@ -460,18 +478,7 @@ static void icmp6_send(struct sk_buff *skb, u8 type, u8 code, __u32 info,
+ 	 */
+ 
+ 	if (__ipv6_addr_needs_scope_id(addr_type)) {
+-		iif = skb->dev->ifindex;
+-
+-		/* for local packets, get the real device index */
+-		if (iif == LOOPBACK_IFINDEX) {
+-			dst = skb_dst(skb);
+-			if (dst) {
+-				struct rt6_info *rt;
+-
+-				rt = container_of(dst, struct rt6_info, dst);
+-				iif = rt->rt6i_idev->dev->ifindex;
+-			}
+-		}
++		iif = icmp6_iif(skb);
+ 	} else {
+ 		dst = skb_dst(skb);
+ 		iif = l3mdev_master_ifindex(dst ? dst->dev : skb->dev);
+@@ -694,7 +701,7 @@ static void icmpv6_echo_reply(struct sk_buff *skb)
+ 	fl6.daddr = ipv6_hdr(skb)->saddr;
+ 	if (saddr)
+ 		fl6.saddr = *saddr;
+-	fl6.flowi6_oif = skb->dev->ifindex;
++	fl6.flowi6_oif = icmp6_iif(skb);
+ 	fl6.fl6_icmp_type = ICMPV6_ECHO_REPLY;
+ 	fl6.flowi6_mark = mark;
+ 	fl6.flowi6_uid = sock_net_uid(net, NULL);
+-- 
+2.1.4
