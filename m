@@ -1,56 +1,199 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 09/15] i40e: Fix for unused value issue found by static analysis
-Date: Sun, 27 Aug 2017 17:15:57 -0700
-Message-ID: <20170828001603.75876-10-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 14/15] i40e/i40evf: remove ULTRA latency mode
+Date: Sun, 27 Aug 2017 17:16:02 -0700
+Message-ID: <20170828001603.75876-15-jeffrey.t.kirsher@intel.com>
 References: <20170828001603.75876-1-jeffrey.t.kirsher@intel.com>
-Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
-        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-        jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:55214 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:47467 "EHLO mga14.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751613AbdH1AQU (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 27 Aug 2017 20:16:20 -0400
+        id S1751706AbdH1AQV (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 27 Aug 2017 20:16:21 -0400
 In-Reply-To: <20170828001603.75876-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Carolyn Wyborny <carolyn.wyborny@intel.com>
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-This patch fixes an issue where an error return value is
-set, but without an immediate exit, the value can be overwritten
-by the following code execution.  The condition  at this point
-is not fatal, so remove the error assignment and comment the
-intent for future code maintainers
+Since commit c56625d59726 ("i40e/i40evf: change dynamic interrupt
+thresholds") a new higher latency ITR setting called I40E_ULTRA_LATENCY
+was added with a cryptic comment about how it was meant for adjusting Rx
+more aggressively when streaming small packets.
 
-Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
+This mode was attempting to calculate packets per second and then kick
+in when we have a huge number of small packets.
+
+Unfortunately, the ULTRA setting was kicking in for workloads it wasn't
+intended for including single-thread UDP_STREAM workloads.
+
+This wasn't caught for a variety of reasons. First, the ip_defrag
+routines were improved somewhat which makes the UDP_STREAM test still
+reasonable at 10GbE, even when dropped down to 8k interrupts a second.
+Additionally, some other obvious workloads appear to work fine, such
+as TCP_STREAM.
+
+The number 40k doesn't make sense for a number of reasons. First, we
+absolutely can do more than 40k packets per second. Second, we calculate
+the value inline in an integer, which sometimes can overflow resulting
+in using incorrect values.
+
+If we fix this overflow it makes it even more likely that we'll enter
+ULTRA mode which is the opposite of what we want.
+
+The ULTRA mode was added originally as a way to reduce CPU utilization
+during a small packet workload where we weren't keeping up anyways. It
+should never have been kicking in during these other workloads.
+
+Given the issues outlined above, let's remove the ULTRA latency mode. If
+necessary, a better solution to the CPU utilization issue for small
+packet workloads will be added in a future patch.
+
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c   | 17 -----------------
+ drivers/net/ethernet/intel/i40e/i40e_txrx.h   |  1 -
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 17 -----------------
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.h |  1 -
+ 4 files changed, 36 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 5a06cd23b9e6..0962b85ef6f3 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -9884,13 +9884,15 @@ static int i40e_add_vsi(struct i40e_vsi *vsi)
- 			 */
- 			ret = i40e_vsi_config_tc(vsi, enabled_tc);
- 			if (ret) {
-+				/* Single TC condition is not fatal,
-+				 * message and continue
-+				 */
- 				dev_info(&pf->pdev->dev,
- 					 "failed to configure TCs for main VSI tc_map 0x%08x, err %s aq_err %s\n",
- 					 enabled_tc,
- 					 i40e_stat_str(&pf->hw, ret),
- 					 i40e_aq_str(&pf->hw,
- 						    pf->hw.aq.asq_last_status));
--				ret = -ENOENT;
- 			}
- 		}
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index 3999afea518b..f00f233092e9 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -959,7 +959,6 @@ void i40e_force_wb(struct i40e_vsi *vsi, struct i40e_q_vector *q_vector)
+ static bool i40e_set_new_dynamic_itr(struct i40e_ring_container *rc)
+ {
+ 	enum i40e_latency_range new_latency_range = rc->latency_range;
+-	struct i40e_q_vector *qv = rc->ring->q_vector;
+ 	u32 new_itr = rc->itr;
+ 	int bytes_per_int;
+ 	int usecs;
+@@ -971,7 +970,6 @@ static bool i40e_set_new_dynamic_itr(struct i40e_ring_container *rc)
+ 	 *   0-10MB/s   lowest (50000 ints/s)
+ 	 *  10-20MB/s   low    (20000 ints/s)
+ 	 *  20-1249MB/s bulk   (18000 ints/s)
+-	 *  > 40000 Rx packets per second (8000 ints/s)
+ 	 *
+ 	 * The math works out because the divisor is in 10^(-6) which
+ 	 * turns the bytes/us input value into MB/s values, but
+@@ -994,24 +992,12 @@ static bool i40e_set_new_dynamic_itr(struct i40e_ring_container *rc)
+ 			new_latency_range = I40E_LOWEST_LATENCY;
  		break;
+ 	case I40E_BULK_LATENCY:
+-	case I40E_ULTRA_LATENCY:
+ 	default:
+ 		if (bytes_per_int <= 20)
+ 			new_latency_range = I40E_LOW_LATENCY;
+ 		break;
+ 	}
+ 
+-	/* this is to adjust RX more aggressively when streaming small
+-	 * packets.  The value of 40000 was picked as it is just beyond
+-	 * what the hardware can receive per second if in low latency
+-	 * mode.
+-	 */
+-#define RX_ULTRA_PACKET_RATE 40000
+-
+-	if ((((rc->total_packets * 1000000) / usecs) > RX_ULTRA_PACKET_RATE) &&
+-	    (&qv->rx == rc))
+-		new_latency_range = I40E_ULTRA_LATENCY;
+-
+ 	rc->latency_range = new_latency_range;
+ 
+ 	switch (new_latency_range) {
+@@ -1024,9 +1010,6 @@ static bool i40e_set_new_dynamic_itr(struct i40e_ring_container *rc)
+ 	case I40E_BULK_LATENCY:
+ 		new_itr = I40E_ITR_18K;
+ 		break;
+-	case I40E_ULTRA_LATENCY:
+-		new_itr = I40E_ITR_8K;
+-		break;
+ 	default:
+ 		break;
+ 	}
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.h b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
+index f0a0eabc2666..e6456e8a899c 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
+@@ -454,7 +454,6 @@ enum i40e_latency_range {
+ 	I40E_LOWEST_LATENCY = 0,
+ 	I40E_LOW_LATENCY = 1,
+ 	I40E_BULK_LATENCY = 2,
+-	I40E_ULTRA_LATENCY = 3,
+ };
+ 
+ struct i40e_ring_container {
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+index f15e341ada9e..2f7d9f4a6746 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+@@ -357,7 +357,6 @@ void i40evf_force_wb(struct i40e_vsi *vsi, struct i40e_q_vector *q_vector)
+ static bool i40e_set_new_dynamic_itr(struct i40e_ring_container *rc)
+ {
+ 	enum i40e_latency_range new_latency_range = rc->latency_range;
+-	struct i40e_q_vector *qv = rc->ring->q_vector;
+ 	u32 new_itr = rc->itr;
+ 	int bytes_per_int;
+ 	int usecs;
+@@ -369,7 +368,6 @@ static bool i40e_set_new_dynamic_itr(struct i40e_ring_container *rc)
+ 	 *   0-10MB/s   lowest (50000 ints/s)
+ 	 *  10-20MB/s   low    (20000 ints/s)
+ 	 *  20-1249MB/s bulk   (18000 ints/s)
+-	 *  > 40000 Rx packets per second (8000 ints/s)
+ 	 *
+ 	 * The math works out because the divisor is in 10^(-6) which
+ 	 * turns the bytes/us input value into MB/s values, but
+@@ -392,24 +390,12 @@ static bool i40e_set_new_dynamic_itr(struct i40e_ring_container *rc)
+ 			new_latency_range = I40E_LOWEST_LATENCY;
+ 		break;
+ 	case I40E_BULK_LATENCY:
+-	case I40E_ULTRA_LATENCY:
+ 	default:
+ 		if (bytes_per_int <= 20)
+ 			new_latency_range = I40E_LOW_LATENCY;
+ 		break;
+ 	}
+ 
+-	/* this is to adjust RX more aggressively when streaming small
+-	 * packets.  The value of 40000 was picked as it is just beyond
+-	 * what the hardware can receive per second if in low latency
+-	 * mode.
+-	 */
+-#define RX_ULTRA_PACKET_RATE 40000
+-
+-	if ((((rc->total_packets * 1000000) / usecs) > RX_ULTRA_PACKET_RATE) &&
+-	    (&qv->rx == rc))
+-		new_latency_range = I40E_ULTRA_LATENCY;
+-
+ 	rc->latency_range = new_latency_range;
+ 
+ 	switch (new_latency_range) {
+@@ -422,9 +408,6 @@ static bool i40e_set_new_dynamic_itr(struct i40e_ring_container *rc)
+ 	case I40E_BULK_LATENCY:
+ 		new_itr = I40E_ITR_18K;
+ 		break;
+-	case I40E_ULTRA_LATENCY:
+-		new_itr = I40E_ITR_8K;
+-		break;
+ 	default:
+ 		break;
+ 	}
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
+index 489684002e94..fb506c9f5a6e 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
+@@ -425,7 +425,6 @@ enum i40e_latency_range {
+ 	I40E_LOWEST_LATENCY = 0,
+ 	I40E_LOW_LATENCY = 1,
+ 	I40E_BULK_LATENCY = 2,
+-	I40E_ULTRA_LATENCY = 3,
+ };
+ 
+ struct i40e_ring_container {
 -- 
 2.14.1
