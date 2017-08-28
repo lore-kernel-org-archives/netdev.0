@@ -1,36 +1,47 @@
-From: Arvind Yadav <arvind.yadav.cs@gmail.com>
-Subject: [PATCH] net: stmmac: constify clk_div_table
-Date: Mon, 28 Aug 2017 11:22:20 +0530
-Message-ID: <a54fe9764d287df370c16b0f0814d09d8fa24591.1503899422.git.arvind.yadav.cs@gmail.com>
-Cc: linux-kernel@vger.kernel.org, linux-amlogic@lists.infradead.org,
-        linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
-To: khilman@baylibre.com, carlo@caione.org, alexandre.torgue@st.com,
-        peppe.cavallaro@st.com, davem@davemloft.net
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: Re: [PATCH] connector: Delete an error message for a failed memory
+ allocation in cn_queue_alloc_callback_entry()
+Date: Mon, 28 Aug 2017 09:05:45 +0300
+Message-ID: <20170828060545.yddjpqzitw46lgiu@mwanda>
+References: <7b206228-b3e9-5cb9-873c-75b5d8aae23b@users.sourceforge.net>
+ <E0D909EE5BB15A4699798539EA149D7F0779689E@ORSMSX103.amr.corp.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: SF Markus Elfring <elfring@users.sourceforge.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Evgeniy Polyakov <zbr@ioremap.net>,
+        LKML <linux-kernel@vger.kernel.org>,
+        "kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
+To: "Waskiewicz Jr, Peter" <peter.waskiewicz.jr@intel.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <E0D909EE5BB15A4699798539EA149D7F0779689E@ORSMSX103.amr.corp.intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-clk_div_table are not supposed to change at runtime.
-meson8b_dwmac structure is working with const clk_div_table.
-So mark the non-const structs as const.
+On Sun, Aug 27, 2017 at 11:16:06PM +0000, Waskiewicz Jr, Peter wrote:
+> On 8/27/17 3:26 PM, SF Markus Elfring wrote:
+> > From: Markus Elfring <elfring@users.sourceforge.net>
+> > Date: Sun, 27 Aug 2017 21:18:37 +0200
+> > 
+> > Omit an extra message for a memory allocation failure in this function.
+> > 
+> > This issue was detected by using the Coccinelle software.
+> 
+> Did coccinelle trip on the message or the fact you weren't returning NULL?
+> 
 
-Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
----
- drivers/net/ethernet/stmicro/stmmac/dwmac-meson8b.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+You've misread the patch somehow.  The existing code has a NULL return
+and it's preserved in Markus's patch.  This sort of patch is to fix a
+checkpatch.pl warning.  The error message from this kzalloc() isn't going
+to get printed because it's a small allocation and small allocations
+always succeed in current kernels.  But probably the main reason
+checkpatch complains is that kmalloc() already prints a stack trace and
+a bunch of other information so the printk doesn't add anyting.
+Removing it saves a little memory.
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-meson8b.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-meson8b.c
-index 9685555..4404650b 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac-meson8b.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-meson8b.c
-@@ -89,7 +89,7 @@ static int meson8b_init_clk(struct meson8b_dwmac *dwmac)
- 	char clk_name[32];
- 	const char *clk_div_parents[1];
- 	const char *mux_parent_names[MUX_CLK_NUM_PARENTS];
--	static struct clk_div_table clk_25m_div_table[] = {
-+	static const struct clk_div_table clk_25m_div_table[] = {
- 		{ .val = 0, .div = 5 },
- 		{ .val = 1, .div = 10 },
- 		{ /* sentinel */ },
--- 
-1.9.1
+I'm mostly a fan of running checkpatch on new patches or staging and not
+on old code...
+
+regards,
+dan carpenter
