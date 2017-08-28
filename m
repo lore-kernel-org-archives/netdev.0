@@ -1,93 +1,47 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH v2 18/30] net: Define usercopy region in struct proto slab cache
-Date: Mon, 28 Aug 2017 14:34:59 -0700
-Message-ID: <1503956111-36652-19-git-send-email-keescook@chromium.org>
-References: <1503956111-36652-1-git-send-email-keescook@chromium.org>
-Cc: Kees Cook <keescook@chromium.org>,
-	David Windsor <dave@nullcore.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Paolo Abeni <pabeni@redhat.com>,
-	David Howells <dhowells@redhat.com>,
-	netdev@vger.kernel.org,
-	linux-mm@kvack.org,
-	kernel-hardening@lists.openwall.com
-To: linux-kernel@vger.kernel.org
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1503956111-36652-1-git-send-email-keescook@chromium.org>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [patch net-next 2/3] net/sched: Change cls_flower to use IDR
+Date: Mon, 28 Aug 2017 17:55:44 -0400
+Message-ID: <a562fbec-797f-1cb2-8af5-cce36126aa23@mojatatu.com>
+References: <1503902477-39829-1-git-send-email-chrism@mellanox.com>
+ <1503902477-39829-3-git-send-email-chrism@mellanox.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: xiyou.wangcong@gmail.com, jiri@resnulli.us, davem@davemloft.net,
+        mawilcox@microsoft.com
+To: Chris Mi <chrism@mellanox.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f194.google.com ([209.85.223.194]:35125 "EHLO
+        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751208AbdH1Vzq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 17:55:46 -0400
+Received: by mail-io0-f194.google.com with SMTP id c18so1587305ioj.2
+        for <netdev@vger.kernel.org>; Mon, 28 Aug 2017 14:55:46 -0700 (PDT)
+In-Reply-To: <1503902477-39829-3-git-send-email-chrism@mellanox.com>
+Content-Language: en-GB
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Windsor <dave@nullcore.net>
+On 17-08-28 02:41 AM, Chris Mi wrote:
+> Currently, all filters with the same priority are linked in a doubly
+> linked list. Every filter should have a unique handle. To make the
+> handle unique, we need to iterate the list every time to see if the
+> handle exists or not when inserting a new filter. It is time-consuming.
+> For example, it takes about 5m3.169s to insert 64K rules.
+> 
+> This patch changes cls_flower to use IDR. With this patch, it
+> takes about 0m1.127s to insert 64K rules. The improvement is huge.
+> 
+> But please note that in this testing, all filters share the same action.
+> If every filter has a unique action, that is another bottleneck.
+> Follow-up patch in this patchset addresses that.
+> 
+> Signed-off-by: Chris Mi <chrism@mellanox.com>
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 
-In support of usercopy hardening, this patch defines a region in the
-struct proto slab cache in which userspace copy operations are allowed.
-Some protocols need to copy objects to/from userspace, and they can
-declare the region via their proto structure with the new usersize and
-useroffset fields. Initially, if no region is specified (usersize ==
-0), the entire field is marked as whitelisted. This allows protocols
-to be whitelisted in subsequent patches. Once all protocols have been
-annotated, the full-whitelist default can be removed.
+Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
 
-This region is known as the slab cache's usercopy region. Slab caches can
-now check that each copy operation involving cache-managed memory falls
-entirely within the slab's usercopy region.
+As Cong asked last time - any plans to add to other classifiers?
 
-This patch is modified from Brad Spengler/PaX Team's PAX_USERCOPY
-whitelisting code in the last public patch of grsecurity/PaX based on my
-understanding of the code. Changes or omissions from the original code are
-mine and don't reflect the original grsecurity/PaX code.
-
-Signed-off-by: David Windsor <dave@nullcore.net>
-[kees: adjust commit log, split off per-proto patches]
-[kees: add logic for by-default full-whitelist]
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Eric Dumazet <edumazet@google.com>
-Cc: Paolo Abeni <pabeni@redhat.com>
-Cc: David Howells <dhowells@redhat.com>
-Cc: netdev@vger.kernel.org
-Signed-off-by: Kees Cook <keescook@chromium.org>
----
- include/net/sock.h | 2 ++
- net/core/sock.c    | 6 +++++-
- 2 files changed, 7 insertions(+), 1 deletion(-)
-
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 7c0632c7e870..170d5b2dbcb6 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -1106,6 +1106,8 @@ struct proto {
- 	struct kmem_cache	*slab;
- 	unsigned int		obj_size;
- 	int			slab_flags;
-+	size_t			useroffset;	/* Usercopy region offset */
-+	size_t			usersize;	/* Usercopy region size */
- 
- 	struct percpu_counter	*orphan_count;
- 
-diff --git a/net/core/sock.c b/net/core/sock.c
-index ac2a404c73eb..02dab98ca3e3 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -3109,8 +3109,12 @@ static int req_prot_init(const struct proto *prot)
- int proto_register(struct proto *prot, int alloc_slab)
- {
- 	if (alloc_slab) {
--		prot->slab = kmem_cache_create(prot->name, prot->obj_size, 0,
-+		prot->slab = kmem_cache_create_usercopy(prot->name,
-+					prot->obj_size, 0,
- 					SLAB_HWCACHE_ALIGN | prot->slab_flags,
-+					prot->usersize ? prot->useroffset : 0,
-+					prot->usersize ? prot->usersize
-+						       : prot->obj_size,
- 					NULL);
- 
- 		if (prot->slab == NULL) {
--- 
-2.7.4
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+cheers,
+jamal
