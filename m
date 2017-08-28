@@ -1,34 +1,34 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH iproute2 1/4] tc: m_ife: allow ife type to zero
-Date: Mon, 28 Aug 2017 18:16:55 -0400
-Message-ID: <5523e732-07f5-ac4b-8c88-6914c0e32ff0@mojatatu.com>
-References: <20170828190738.26829-1-aring@mojatatu.com>
- <20170828190738.26829-2-aring@mojatatu.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net: Add comment that early_demux can change
+ via sysctl
+Date: Mon, 28 Aug 2017 15:17:42 -0700 (PDT)
+Message-ID: <20170828.151742.1055662876302049959.davem@davemloft.net>
+References: <1503958460-20765-1-git-send-email-dsahern@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yotamg@mellanox.com, xiyou.wangcong@gmail.com, jiri@resnulli.us,
-        netdev@vger.kernel.org
-To: Alexander Aring <aring@mojatatu.com>
+Cc: netdev@vger.kernel.org
+To: dsahern@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f196.google.com ([209.85.223.196]:32840 "EHLO
-        mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751190AbdH1WQ5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 18:16:57 -0400
-Received: by mail-io0-f196.google.com with SMTP id s101so1641977ioe.0
-        for <netdev@vger.kernel.org>; Mon, 28 Aug 2017 15:16:57 -0700 (PDT)
-In-Reply-To: <20170828190738.26829-2-aring@mojatatu.com>
-Content-Language: en-GB
+Received: from shards.monkeyblade.net ([184.105.139.130]:49622 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751190AbdH1WRn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 18:17:43 -0400
+In-Reply-To: <1503958460-20765-1-git-send-email-dsahern@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17-08-28 03:07 PM, Alexander Aring wrote:
-> This patch allows to set an ethertype for IFE which is zero. There is no
-> kernel side validation which forbids a type to zero.
+From: David Ahern <dsahern@gmail.com>
+Date: Mon, 28 Aug 2017 15:14:20 -0700
+
+> Twice patches trying to constify inet{6}_protocol have been reverted:
+> 39294c3df2a8 ("Revert "ipv6: constify inet6_protocol structures"") to
+> revert 3a3a4e3054137 and then 03157937fe0b5 ("Revert "ipv4: make
+> net_protocol const"") to revert aa8db499ea67.
 > 
-> Signed-off-by: Alexander Aring <aring@mojatatu.com>
+> Add a comment that the structures can not be const because the
+> early_demux field can change based on a sysctl.
+> 
+> Signed-off-by: David Ahern <dsahern@gmail.com>
 
-Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
-
-cheers,
-jamal
+Applied.
