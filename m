@@ -1,61 +1,55 @@
-From: Johan Hovold <johan@kernel.org>
-Subject: Re: [PATCH] NFC: fix device-allocation error return
-Date: Mon, 28 Aug 2017 10:39:12 +0200
-Message-ID: <20170828083912.GB20634@localhost>
-References: <20170709110858.20331-1-johan@kernel.org>
- <20170722133228.GE2729@localhost>
+From: =?utf-8?B?U8O4cmVuc2VuLCBTdGVmYW4=?=
+        <Stefan.Sorensen@spectralink.com>
+Subject: PTP: PHY timestamping when MAC is PTP capable
+Date: Mon, 28 Aug 2017 08:39:44 +0000
+Message-ID: <1503909582.2455.2.camel@spectralink.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        Dan Carpenter <dan.carpenter@oracle.com>,
-        Johan Hovold <johan@kernel.org>,
-        stable <stable@vger.kernel.org>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        linux-kernel@vger.kernel.org,
-        Andrew Morton <akpm@linux-foundation.org>,
-        Ben Hutchings <ben.hutchings@codethink.co.uk>
-To: Samuel Ortiz <sameo@linux.intel.com>,
-        "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170722133228.GE2729@localhost>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "richardcochran@gmail.com" <richardcochran@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-cys01nam02on0120.outbound.protection.outlook.com ([104.47.37.120]:45242
+        "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751198AbdH1Ijp (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 28 Aug 2017 04:39:45 -0400
+Content-Language: en-US
+Content-ID: <98448B6AB97C134FB83BC10D8CBB280C@namprd07.prod.outlook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Samuel or David,
-
-On Sat, Jul 22, 2017 at 03:32:28PM +0200, Johan Hovold wrote:
-> On Sun, Jul 09, 2017 at 01:08:58PM +0200, Johan Hovold wrote:
-> > A recent change fixing NFC device allocation itself introduced an
-> > error-handling bug by returning an error pointer in case device-id
-> > allocation failed. This is clearly broken as the callers still expected
-> > NULL to be returned on errors as detected by Dan's static checker.
-> > 
-> > Fix this up by returning NULL in the event that we've run out of memory
-> > when allocating a new device id.
-> > 
-> > Note that the offending commit is marked for stable (3.8) so this fix
-> > needs to be backported along with it.
-> > 
-> > Fixes: 20777bc57c34 ("NFC: fix broken device allocation")
-> > Cc: stable <stable@vger.kernel.org>	# 3.8
-> > Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
-> > Signed-off-by: Johan Hovold <johan@kernel.org>
-
-> Could you apply this follow-up fix so that it can be backported along
-> with the offending commit (which was just added to the stable queues)?
-> 
-> We would only hit this error path if an ida allocation fails due to OOM;
-> so while this is not critical, it would still be nice to get it fixed.
-
-Another reminder about this one; can you apply it so we can get it into
-4.14-rc1?
-
-Note that the offending commit has now been backported to the stable
-trees and we really want this trivial follow-up fix to be backported as
-well.
-
-Let me know if you want me to resend the patch.
-
-Thanks,
-Johan
+SGksDQoNCkkgaGF2ZSBydW4gaW50byBhIHByb2JsZW0gd2l0aCBwYWNrZXQgdGltZXN0YW1waW5n
+IG9uIGEgcGxhdGZvcm0gKGNwc3cNCisgZHA4MzY0MCkgd2hlcmUgYm90aCB0aGUgUEhZIGFuZCB0
+aGUgTUFDIGlzIFBUUCBjYXBhYmxlIGFuZCBJIG5lZWQNCnRoZSBQSFkgdG8gcGVyZm9ybSB0aGUg
+dGltZXN0YW1waW5nLiBJbiB0aGUgY3VycmVudCBjb2RlLA0KU0lPQ0dIV1RTVEFNUCBpcyBwYXNz
+ZWQgdG8gdGhlIE1BQyBkcml2ZXIgYW5kIG9ubHkgaWYgaXQgZG9lcyBub3QNCnN1cHBvcnQgUFRQ
+IGl0c2VsZiB3aWxsIGl0IHBhc3MgaXQgb24gdG8gdGhlIFBIWSBkcml2ZXIuDQoNCkkgc2VlIHR3
+byB3YXlzIHRvIGZpeCB0aGlzOg0KDQogIDEuIFByZWZlciBQSFkgdGltZXN0YW1waW5nIGJ5IHBh
+c3NpbmcgU0lPQ0dIV1RTVEFNUCB0byB0aGUgUEhZDQogICAgIGRyaXZlciBmaXJzdCwgYW5kIG9u
+bHkgaWYgaXQgZG9lcyBub3Qgc3VwcG9ydCBQVFAsIHBhc3MgaXMgb24gdG8NCiAgICAgdGhlIE1B
+QyBkcml2ZXIuIFRvIG1lIHRoaXMgc2VlbXMgcmVhc29uYWJsZSBhcyBQSFkgdGltZXN0YW1wcw0K
+ICAgICB3aWxsIHVzdWFsbHkgYmUgb2YgYmV0dGVyIHF1YWxpdHksIGFuZCB3aXRoIGEgaGFyZHdh
+cmUgZGVzaWduDQogICAgIHVzaW5nIGEgUFRQIGNhcGFibGUgUEhZIHlvdSB3aWxsIG1vc3QgbGlr
+ZWx5IHdhbnQgdG8gdXRpbGl6ZQ0KICAgICBpdC4gTm90ZSB0aGF0IHRoZSBldGh0b29sIGdldF90
+c19pbmZvIG9wIHRha2VzIHRoaXMgcm91dGUgYW5kIGFzDQogICAgIHN1Y2ggbWF5IGN1cnJlbnRs
+eSByZXR1cm4gaW5jb3JyZWN0IGluZm8gd2hlbiBib3RoIE1BQyBhbmQgUEhZIGlzDQogICAgIFBU
+UCBjYXBhYmxlLg0KDQogIDIuIExldCB0aGUgdXNlciBkZWNpZGUsIGJ5IGUuZy4gYSBuZXcgZXRo
+dG9vbCBvcC4NCg0KRm9yIG5vdyBJIGFtIHVzaW5nIHRoZSBwYXRjaCBiZWxvdywgYnV0IGl0IGRv
+ZXMgbm90IHNlZW0gcXVpdGUgcmlnaHQNCnRvIG1lLg0KDQpBbnkgc3VnZ2VzdGlvbnMgb24gdGhl
+IGJlc3Qgd2F5IGZvcndhcmQ/DQoNClJlZ2FyZHMsDQogU3RlZmFuDQoNCi0tLQ0KDQpkaWZmIC0t
+Z2l0IGEvbmV0L2NvcmUvZGV2X2lvY3RsLmMgYi9uZXQvY29yZS9kZXZfaW9jdGwuYw0KaW5kZXgg
+NzA5YTRlNmZiNDQ3Li41MmY0ZDJkZmFkMTEgMTAwNjQ0DQotLS0gYS9uZXQvY29yZS9kZXZfaW9j
+dGwuYw0KKysrIGIvbmV0L2NvcmUvZGV2X2lvY3RsLmMNCkBAIC00LDYgKzQsNyBAQA0KICNpbmNs
+dWRlIDxsaW51eC9ydG5ldGxpbmsuaD4NCiAjaW5jbHVkZSA8bGludXgvbmV0X3RzdGFtcC5oPg0K
+ICNpbmNsdWRlIDxsaW51eC93aXJlbGVzcy5oPg0KKyNpbmNsdWRlIDxsaW51eC9waHkuaD4NCiAj
+aW5jbHVkZSA8bmV0L3dleHQuaD4NCiANCiAvKg0KQEAgLTMxNiw2ICszMTcsMTQgQEAgc3RhdGlj
+IGludCBkZXZfaWZzaW9jKHN0cnVjdCBuZXQgKm5ldCwgc3RydWN0DQppZnJlcSAqaWZyLCB1bnNp
+Z25lZCBpbnQgY21kKQ0KICAgICAgICAgICAgICAgICAgICAgICAgcmV0dXJuIGVycjsNCiAgICAg
+ICAgICAgICAgICAvKiBmYWxsIHRocm91Z2ggKi8NCiANCisgICAgICAgY2FzZSBTSU9DR0hXVFNU
+QU1QOg0KKyAgICAgICAgICAgICAgIGlmIChkZXYtPnBoeWRldikgew0KKyAgICAgICAgICAgICAg
+ICAgICAgICAgZXJyID0gcGh5X21paV9pb2N0bChkZXYtPnBoeWRldiwgaWZyLCBjbWQpOw0KKyAg
+ICAgICAgICAgICAgICAgICAgICAgaWYgKGVyciAhPSAtRU9QTk9UU1VQUCkNCisgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgcmV0dXJuIGVycjsNCisgICAgICAgICAgICAgICB9DQorICAg
+ICAgICAgICAgICAgLyogZmFsbCB0aHJvdWdoICovDQorDQogICAgICAgIC8qDQogICAgICAgICAq
+ICAgICAgVW5rbm93biBvciBwcml2YXRlIGlvY3RsDQogICAgICAgICAqLw0K
