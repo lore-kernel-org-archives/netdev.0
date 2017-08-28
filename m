@@ -1,133 +1,170 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: [PATCH] DSA support for Micrel KSZ8895
-Date: Mon, 28 Aug 2017 08:40:20 +0200
-Message-ID: <20170828064020.GA7721@amd>
-References: <20170816075524.GA18532@amd>
- <20170816140451.GA13006@lunn.ch>
- <9235D6609DB808459E95D78E17F2E43D40AFF8C1@CHN-SV-EXMX02.mchp-main.com>
- <20170827123658.GA727@amd>
- <20170827164434.GH13622@lunn.ch>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="5mCyUwZo2JvN/JJP"
-Cc: Woojung.Huh@microchip.com, nathan.leigh.conrad@gmail.com,
-        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Tristram.Ha@micrel.com
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170827164434.GH13622@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Chris Mi <chrism@mellanox.com>
+Subject: [patch net-next 2/3] net/sched: Change cls_flower to use IDR
+Date: Mon, 28 Aug 2017 02:41:16 -0400
+Message-ID: <1503902477-39829-3-git-send-email-chrism@mellanox.com>
+References: <1503902477-39829-1-git-send-email-chrism@mellanox.com>
+Cc: jhs@mojatatu.com, xiyou.wangcong@gmail.com, jiri@resnulli.us,
+        davem@davemloft.net, mawilcox@microsoft.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:48392 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1750767AbdH1Glo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 02:41:44 -0400
+In-Reply-To: <1503902477-39829-1-git-send-email-chrism@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Currently, all filters with the same priority are linked in a doubly
+linked list. Every filter should have a unique handle. To make the
+handle unique, we need to iterate the list every time to see if the
+handle exists or not when inserting a new filter. It is time-consuming.
+For example, it takes about 5m3.169s to insert 64K rules.
 
---5mCyUwZo2JvN/JJP
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+This patch changes cls_flower to use IDR. With this patch, it
+takes about 0m1.127s to insert 64K rules. The improvement is huge.
 
-Hi!
+But please note that in this testing, all filters share the same action.
+If every filter has a unique action, that is another bottleneck.
+Follow-up patch in this patchset addresses that.
 
-> > No, tag_ksz part probably is not acceptable. Do you see solution
-> > better than just copying it into tag_ksz1 file?
->=20
-> How about something like this, which needs further work to actually
-> compile, but should give you the idea.
+Signed-off-by: Chris Mi <chrism@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ net/sched/cls_flower.c | 55 +++++++++++++++++++++-----------------------------
+ 1 file changed, 23 insertions(+), 32 deletions(-)
 
-If that's acceptable, yes, I can do something similar. I don't think
-CONFIG_NET_DSA_TAG_KSZ_8K / CONFIG_NET_DSA_TAG_KSZ_9K is suitable
-naming (these will probably differ according to number of ports), what
-about keeping CONFIG_NET_DSA_TAG_KSZ and adding
-CONFIG_NET_DSA_TAG_KSZ_1B (for one byte)?
-
-Thanks,
-								Pavel
-
-> 	 Andrew
->=20
-> index 99e38af85fc5..843e77b7c270 100644
-> --- a/net/dsa/dsa.c
-> +++ b/net/dsa/dsa.c
-> @@ -49,8 +49,11 @@ const struct dsa_device_ops *dsa_device_ops[DSA_TAG_LA=
-ST] =3D {
->  #ifdef CONFIG_NET_DSA_TAG_EDSA
->         [DSA_TAG_PROTO_EDSA] =3D &edsa_netdev_ops,
->  #endif
-> -#ifdef CONFIG_NET_DSA_TAG_KSZ
-> -       [DSA_TAG_PROTO_KSZ] =3D &ksz_netdev_ops,
-> +#ifdef CONFIG_NET_DSA_TAG_KSZ_8K
-> +       [DSA_TAG_PROTO_KSZ8K] =3D &ksz8k_netdev_ops,
-> +#endif
-> +#ifdef CONFIG_NET_DSA_TAG_KSZ_9K
-> +       [DSA_TAG_PROTO_KSZ9K] =3D &ksz9k_netdev_ops,
->  #endif
->  #ifdef CONFIG_NET_DSA_TAG_LAN9303
->         [DSA_TAG_PROTO_LAN9303] =3D &lan9303_netdev_ops,
-> diff --git a/net/dsa/tag_ksz.c b/net/dsa/tag_ksz.c
-> index de66ca8e6201..398b833889f1 100644
-> --- a/net/dsa/tag_ksz.c
-> +++ b/net/dsa/tag_ksz.c
-> @@ -35,6 +35,9 @@
->  static struct sk_buff *ksz_xmit(struct sk_buff *skb, struct net_device *=
-dev)
->  {
->         struct dsa_slave_priv *p =3D netdev_priv(dev);
-> +       struct dsa_port *dp =3D p->dp;
-> +       struct dsa_switch *ds =3D dp->ds;
-> +       struct dsa_switch_tree *dst =3D ds->dst;
->         struct sk_buff *nskb;
->         int padlen;
->         u8 *tag;
-> @@ -69,8 +72,14 @@ static struct sk_buff *ksz_xmit(struct sk_buff *skb, s=
-truct net_device *dev)
->         }
-> =20
->         tag =3D skb_put(nskb, KSZ_INGRESS_TAG_LEN);
-> -       tag[0] =3D 0;
-> -       tag[1] =3D 1 << p->dp->index; /* destination port */
-> +       if (dst->tag_ops =3D=3D ksz8k_netdev_ops) {
-> +               tag[0] =3D 1 << p->dp->index; /* destination port */0;
-> +               tag[1] =3D 0;
-> +       }
-> +
-> +       if (dst->tag_ops =3D=3D ksz9k_netdev_ops) {
-> +               tag[0] =3D 0;
-> +               tag[1] =3D 1 << p->dp->index; /* destination port */
-> =20
->         return nskb;
->  }
-> @@ -98,7 +107,12 @@ static struct sk_buff *ksz_rcv(struct sk_buff *skb, s=
-truct net_device *dev,
->         return skb;
->  }
-> =20
-> -const struct dsa_device_ops ksz_netdev_ops =3D {
-> +const struct dsa_device_ops ksz8k_netdev_ops =3D {
-> +       .xmit   =3D ksz_xmit,
-> +       .rcv    =3D ksz_rcv,
-> +};
-> +
-> +const struct dsa_device_ops ksz9k_netdev_ops =3D {
->         .xmit   =3D ksz_xmit,
->         .rcv    =3D ksz_rcv,
->  };
-
---=20
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
-g.html
-
---5mCyUwZo2JvN/JJP
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iEYEARECAAYFAlmjutQACgkQMOfwapXb+vLY8wCeNldoryu8vrTUfrMF19+3fwVk
-TpQAn0yME+EnhUxJ/gwt01ZpcQD47UxV
-=l8tX
------END PGP SIGNATURE-----
-
---5mCyUwZo2JvN/JJP--
+diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
+index bd9dab4..3d041d2 100644
+--- a/net/sched/cls_flower.c
++++ b/net/sched/cls_flower.c
+@@ -68,7 +68,6 @@ struct cls_fl_head {
+ 	struct rhashtable ht;
+ 	struct fl_flow_mask mask;
+ 	struct flow_dissector dissector;
+-	u32 hgen;
+ 	bool mask_assigned;
+ 	struct list_head filters;
+ 	struct rhashtable_params ht_params;
+@@ -76,6 +75,7 @@ struct cls_fl_head {
+ 		struct work_struct work;
+ 		struct rcu_head	rcu;
+ 	};
++	struct idr handle_idr;
+ };
+ 
+ struct cls_fl_filter {
+@@ -210,6 +210,7 @@ static int fl_init(struct tcf_proto *tp)
+ 
+ 	INIT_LIST_HEAD_RCU(&head->filters);
+ 	rcu_assign_pointer(tp->root, head);
++	idr_init(&head->handle_idr);
+ 
+ 	return 0;
+ }
+@@ -295,6 +296,9 @@ static void fl_hw_update_stats(struct tcf_proto *tp, struct cls_fl_filter *f)
+ 
+ static void __fl_delete(struct tcf_proto *tp, struct cls_fl_filter *f)
+ {
++	struct cls_fl_head *head = rtnl_dereference(tp->root);
++
++	idr_remove_ext(&head->handle_idr, f->handle);
+ 	list_del_rcu(&f->list);
+ 	if (!tc_skip_hw(f->flags))
+ 		fl_hw_destroy_filter(tp, f);
+@@ -327,6 +331,7 @@ static void fl_destroy(struct tcf_proto *tp)
+ 
+ 	list_for_each_entry_safe(f, next, &head->filters, list)
+ 		__fl_delete(tp, f);
++	idr_destroy(&head->handle_idr);
+ 
+ 	__module_get(THIS_MODULE);
+ 	call_rcu(&head->rcu, fl_destroy_rcu);
+@@ -335,12 +340,8 @@ static void fl_destroy(struct tcf_proto *tp)
+ static void *fl_get(struct tcf_proto *tp, u32 handle)
+ {
+ 	struct cls_fl_head *head = rtnl_dereference(tp->root);
+-	struct cls_fl_filter *f;
+ 
+-	list_for_each_entry(f, &head->filters, list)
+-		if (f->handle == handle)
+-			return f;
+-	return NULL;
++	return idr_find_ext(&head->handle_idr, handle);
+ }
+ 
+ static const struct nla_policy fl_policy[TCA_FLOWER_MAX + 1] = {
+@@ -859,27 +860,6 @@ static int fl_set_parms(struct net *net, struct tcf_proto *tp,
+ 	return 0;
+ }
+ 
+-static u32 fl_grab_new_handle(struct tcf_proto *tp,
+-			      struct cls_fl_head *head)
+-{
+-	unsigned int i = 0x80000000;
+-	u32 handle;
+-
+-	do {
+-		if (++head->hgen == 0x7FFFFFFF)
+-			head->hgen = 1;
+-	} while (--i > 0 && fl_get(tp, head->hgen));
+-
+-	if (unlikely(i == 0)) {
+-		pr_err("Insufficient number of handles\n");
+-		handle = 0;
+-	} else {
+-		handle = head->hgen;
+-	}
+-
+-	return handle;
+-}
+-
+ static int fl_change(struct net *net, struct sk_buff *in_skb,
+ 		     struct tcf_proto *tp, unsigned long base,
+ 		     u32 handle, struct nlattr **tca,
+@@ -890,6 +870,7 @@ static int fl_change(struct net *net, struct sk_buff *in_skb,
+ 	struct cls_fl_filter *fnew;
+ 	struct nlattr **tb;
+ 	struct fl_flow_mask mask = {};
++	unsigned long idr_index;
+ 	int err;
+ 
+ 	if (!tca[TCA_OPTIONS])
+@@ -920,13 +901,21 @@ static int fl_change(struct net *net, struct sk_buff *in_skb,
+ 		goto errout;
+ 
+ 	if (!handle) {
+-		handle = fl_grab_new_handle(tp, head);
+-		if (!handle) {
+-			err = -EINVAL;
++		err = idr_alloc_ext(&head->handle_idr, fnew, &idr_index,
++				    1, 0x80000000, GFP_KERNEL);
++		if (err)
+ 			goto errout;
+-		}
++		fnew->handle = idr_index;
++	}
++
++	/* user specifies a handle and it doesn't exist */
++	if (handle && !fold) {
++		err = idr_alloc_ext(&head->handle_idr, fnew, &idr_index,
++				    handle, handle + 1, GFP_KERNEL);
++		if (err)
++			goto errout;
++		fnew->handle = idr_index;
+ 	}
+-	fnew->handle = handle;
+ 
+ 	if (tb[TCA_FLOWER_FLAGS]) {
+ 		fnew->flags = nla_get_u32(tb[TCA_FLOWER_FLAGS]);
+@@ -980,6 +969,8 @@ static int fl_change(struct net *net, struct sk_buff *in_skb,
+ 	*arg = fnew;
+ 
+ 	if (fold) {
++		fnew->handle = handle;
++		idr_replace_ext(&head->handle_idr, fnew, fnew->handle);
+ 		list_replace_rcu(&fold->list, &fnew->list);
+ 		tcf_unbind_filter(tp, &fold->res);
+ 		call_rcu(&fold->rcu, fl_destroy_filter);
+-- 
+1.8.3.1
