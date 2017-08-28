@@ -1,14 +1,15 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
 Subject: Re: [PATCH net-next v2 01/10] net: dsa: add debugfs interface
-Date: Mon, 28 Aug 2017 12:58:12 -0700
-Message-ID: <b642a93c-1f63-522d-e9f2-c266b809623a@gmail.com>
+Date: Mon, 28 Aug 2017 22:05:01 +0200
+Message-ID: <20170828200501.GC1950@nanopsycho.orion>
 References: <20170828191748.19492-1-vivien.didelot@savoirfairelinux.com>
  <20170828191748.19492-2-vivien.didelot@savoirfairelinux.com>
  <20170828195039.GA1950@nanopsycho.orion>
+ <b642a93c-1f63-522d-e9f2-c266b809623a@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+Content-Type: text/plain; charset=us-ascii
+Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
         kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
         Andrew Lunn <andrew@lunn.ch>,
@@ -18,54 +19,61 @@ Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
         Sean Wang <sean.wang@mediatek.com>,
         Nikita Yushchenko <nikita.yoush@cogentembedded.com>,
         Chris Healy <cphealy@gmail.com>
-To: Jiri Pirko <jiri@resnulli.us>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170828195039.GA1950@nanopsycho.orion>
-Content-Language: en-US
+Content-Disposition: inline
+In-Reply-To: <b642a93c-1f63-522d-e9f2-c266b809623a@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 08/28/2017 12:50 PM, Jiri Pirko wrote:
-> Mon, Aug 28, 2017 at 09:17:39PM CEST, vivien.didelot@savoirfairelinux.com wrote:
->> This commit adds a DEBUG_FS dependent DSA core file creating a generic
->> debug filesystem interface for the DSA switch devices.
->>
->> The interface can be mounted with:
->>
->>    # mount -t debugfs none /sys/kernel/debug
->>
->> The dsa directory contains one directory per switch chip:
->>
->>    # cd /sys/kernel/debug/dsa/
->>    # ls
->>    switch0  switch1 switch2
->>
->> Each chip directory contains one directory per port:
->>
->>    # ls -l switch0/
->>    drwxr-xr-x 2 root root 0 Jan  1 00:00 port0
->>    drwxr-xr-x 2 root root 0 Jan  1 00:00 port1
->>    drwxr-xr-x 2 root root 0 Jan  1 00:00 port2
->>    drwxr-xr-x 2 root root 0 Jan  1 00:00 port5
->>    drwxr-xr-x 2 root root 0 Jan  1 00:00 port6
->>
->> Future patches will add entry files to these directories.
->>
->> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-> 
-> Oh no, no debugfs please!
-> 
-> What do you need to expose? I'm sure we can find out some generic, well
-> defined and reusable way.
+Mon, Aug 28, 2017 at 09:58:12PM CEST, f.fainelli@gmail.com wrote:
+>On 08/28/2017 12:50 PM, Jiri Pirko wrote:
+>> Mon, Aug 28, 2017 at 09:17:39PM CEST, vivien.didelot@savoirfairelinux.com wrote:
+>>> This commit adds a DEBUG_FS dependent DSA core file creating a generic
+>>> debug filesystem interface for the DSA switch devices.
+>>>
+>>> The interface can be mounted with:
+>>>
+>>>    # mount -t debugfs none /sys/kernel/debug
+>>>
+>>> The dsa directory contains one directory per switch chip:
+>>>
+>>>    # cd /sys/kernel/debug/dsa/
+>>>    # ls
+>>>    switch0  switch1 switch2
+>>>
+>>> Each chip directory contains one directory per port:
+>>>
+>>>    # ls -l switch0/
+>>>    drwxr-xr-x 2 root root 0 Jan  1 00:00 port0
+>>>    drwxr-xr-x 2 root root 0 Jan  1 00:00 port1
+>>>    drwxr-xr-x 2 root root 0 Jan  1 00:00 port2
+>>>    drwxr-xr-x 2 root root 0 Jan  1 00:00 port5
+>>>    drwxr-xr-x 2 root root 0 Jan  1 00:00 port6
+>>>
+>>> Future patches will add entry files to these directories.
+>>>
+>>> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+>> 
+>> Oh no, no debugfs please!
+>> 
+>> What do you need to expose? I'm sure we can find out some generic, well
+>> defined and reusable way.
+>
+>We have no CPU or DSA (cross switches) net_device reprensentors because
+>those would be two ends of the same pipe so it would be both confusing
 
-We have no CPU or DSA (cross switches) net_device reprensentors because
-those would be two ends of the same pipe so it would be both confusing
-and a duplication. For a CPU interface, one side goes to the switch, the
-other one is the master net_device (normal Ethernet MAC). For a DSA
-interface, one interface is on one switch, and the other is on the other
-switch.
+So? That is certainly not an argument for debugfs. Just have all ports
+as devlink port, and you can introduce special new kind of port for cpu
+port. Note that devlink port does not have to have netdev association.
 
-If you look at the patch series it's pretty obvious what is being exposed :)
--- 
-Florian
+
+>and a duplication. For a CPU interface, one side goes to the switch, the
+>other one is the master net_device (normal Ethernet MAC). For a DSA
+>interface, one interface is on one switch, and the other is on the other
+>switch.
+>
+>If you look at the patch series it's pretty obvious what is being exposed :)
+
+Sure. But lets use existing interfaces and extend them if needed. Please
+don't use some made-up debugfs mess. That is never the correct answer :/
