@@ -1,55 +1,56 @@
-From: =?utf-8?B?U8O4cmVuc2VuLCBTdGVmYW4=?=
-        <Stefan.Sorensen@spectralink.com>
-Subject: PTP: PHY timestamping when MAC is PTP capable
-Date: Mon, 28 Aug 2017 08:39:44 +0000
-Message-ID: <1503909582.2455.2.camel@spectralink.com>
+From: Russell King - ARM Linux <linux@armlinux.org.uk>
+Subject: Re: [PATCH net-next v2 05/14] net: mvpp2: do not force the link mode
+Date: Mon, 28 Aug 2017 09:51:52 +0100
+Message-ID: <20170828085152.GF20805@n2100.armlinux.org.uk>
+References: <20170825144821.31129-1-antoine.tenart@free-electrons.com>
+ <20170825144821.31129-6-antoine.tenart@free-electrons.com>
+ <20170825224312.GD20805@n2100.armlinux.org.uk>
+ <20170828065545.GC2568@kwain>
+ <CAPv3WKfSGfSAfade163-Q29SR5mxkV19LmYRxVdRBbfW-e-xfg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "richardcochran@gmail.com" <richardcochran@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-cys01nam02on0120.outbound.protection.outlook.com ([104.47.37.120]:45242
-        "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751198AbdH1Ijp (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 28 Aug 2017 04:39:45 -0400
-Content-Language: en-US
-Content-ID: <98448B6AB97C134FB83BC10D8CBB280C@namprd07.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
+        "David S. Miller" <davem@davemloft.net>, kishon@ti.com,
+        Andrew Lunn <andrew@lunn.ch>,
+        Jason Cooper <jason@lakedaemon.net>,
+        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+        Gregory =?iso-8859-1?Q?Cl=E9ment?=
+        <gregory.clement@free-electrons.com>,
+        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+        nadavh@marvell.com, linux-kernel@vger.kernel.org,
+        Stefan Chulski <stefanc@marvell.com>,
+        =?iso-8859-1?Q?Miqu=E8l?= Raynal
+        <miquel.raynal@free-electrons.com>, netdev <netdev@vger.kernel.org>
+To: Marcin Wojtas <mw@semihalf.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAPv3WKfSGfSAfade163-Q29SR5mxkV19LmYRxVdRBbfW-e-xfg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-SGksDQoNCkkgaGF2ZSBydW4gaW50byBhIHByb2JsZW0gd2l0aCBwYWNrZXQgdGltZXN0YW1waW5n
-IG9uIGEgcGxhdGZvcm0gKGNwc3cNCisgZHA4MzY0MCkgd2hlcmUgYm90aCB0aGUgUEhZIGFuZCB0
-aGUgTUFDIGlzIFBUUCBjYXBhYmxlIGFuZCBJIG5lZWQNCnRoZSBQSFkgdG8gcGVyZm9ybSB0aGUg
-dGltZXN0YW1waW5nLiBJbiB0aGUgY3VycmVudCBjb2RlLA0KU0lPQ0dIV1RTVEFNUCBpcyBwYXNz
-ZWQgdG8gdGhlIE1BQyBkcml2ZXIgYW5kIG9ubHkgaWYgaXQgZG9lcyBub3QNCnN1cHBvcnQgUFRQ
-IGl0c2VsZiB3aWxsIGl0IHBhc3MgaXQgb24gdG8gdGhlIFBIWSBkcml2ZXIuDQoNCkkgc2VlIHR3
-byB3YXlzIHRvIGZpeCB0aGlzOg0KDQogIDEuIFByZWZlciBQSFkgdGltZXN0YW1waW5nIGJ5IHBh
-c3NpbmcgU0lPQ0dIV1RTVEFNUCB0byB0aGUgUEhZDQogICAgIGRyaXZlciBmaXJzdCwgYW5kIG9u
-bHkgaWYgaXQgZG9lcyBub3Qgc3VwcG9ydCBQVFAsIHBhc3MgaXMgb24gdG8NCiAgICAgdGhlIE1B
-QyBkcml2ZXIuIFRvIG1lIHRoaXMgc2VlbXMgcmVhc29uYWJsZSBhcyBQSFkgdGltZXN0YW1wcw0K
-ICAgICB3aWxsIHVzdWFsbHkgYmUgb2YgYmV0dGVyIHF1YWxpdHksIGFuZCB3aXRoIGEgaGFyZHdh
-cmUgZGVzaWduDQogICAgIHVzaW5nIGEgUFRQIGNhcGFibGUgUEhZIHlvdSB3aWxsIG1vc3QgbGlr
-ZWx5IHdhbnQgdG8gdXRpbGl6ZQ0KICAgICBpdC4gTm90ZSB0aGF0IHRoZSBldGh0b29sIGdldF90
-c19pbmZvIG9wIHRha2VzIHRoaXMgcm91dGUgYW5kIGFzDQogICAgIHN1Y2ggbWF5IGN1cnJlbnRs
-eSByZXR1cm4gaW5jb3JyZWN0IGluZm8gd2hlbiBib3RoIE1BQyBhbmQgUEhZIGlzDQogICAgIFBU
-UCBjYXBhYmxlLg0KDQogIDIuIExldCB0aGUgdXNlciBkZWNpZGUsIGJ5IGUuZy4gYSBuZXcgZXRo
-dG9vbCBvcC4NCg0KRm9yIG5vdyBJIGFtIHVzaW5nIHRoZSBwYXRjaCBiZWxvdywgYnV0IGl0IGRv
-ZXMgbm90IHNlZW0gcXVpdGUgcmlnaHQNCnRvIG1lLg0KDQpBbnkgc3VnZ2VzdGlvbnMgb24gdGhl
-IGJlc3Qgd2F5IGZvcndhcmQ/DQoNClJlZ2FyZHMsDQogU3RlZmFuDQoNCi0tLQ0KDQpkaWZmIC0t
-Z2l0IGEvbmV0L2NvcmUvZGV2X2lvY3RsLmMgYi9uZXQvY29yZS9kZXZfaW9jdGwuYw0KaW5kZXgg
-NzA5YTRlNmZiNDQ3Li41MmY0ZDJkZmFkMTEgMTAwNjQ0DQotLS0gYS9uZXQvY29yZS9kZXZfaW9j
-dGwuYw0KKysrIGIvbmV0L2NvcmUvZGV2X2lvY3RsLmMNCkBAIC00LDYgKzQsNyBAQA0KICNpbmNs
-dWRlIDxsaW51eC9ydG5ldGxpbmsuaD4NCiAjaW5jbHVkZSA8bGludXgvbmV0X3RzdGFtcC5oPg0K
-ICNpbmNsdWRlIDxsaW51eC93aXJlbGVzcy5oPg0KKyNpbmNsdWRlIDxsaW51eC9waHkuaD4NCiAj
-aW5jbHVkZSA8bmV0L3dleHQuaD4NCiANCiAvKg0KQEAgLTMxNiw2ICszMTcsMTQgQEAgc3RhdGlj
-IGludCBkZXZfaWZzaW9jKHN0cnVjdCBuZXQgKm5ldCwgc3RydWN0DQppZnJlcSAqaWZyLCB1bnNp
-Z25lZCBpbnQgY21kKQ0KICAgICAgICAgICAgICAgICAgICAgICAgcmV0dXJuIGVycjsNCiAgICAg
-ICAgICAgICAgICAvKiBmYWxsIHRocm91Z2ggKi8NCiANCisgICAgICAgY2FzZSBTSU9DR0hXVFNU
-QU1QOg0KKyAgICAgICAgICAgICAgIGlmIChkZXYtPnBoeWRldikgew0KKyAgICAgICAgICAgICAg
-ICAgICAgICAgZXJyID0gcGh5X21paV9pb2N0bChkZXYtPnBoeWRldiwgaWZyLCBjbWQpOw0KKyAg
-ICAgICAgICAgICAgICAgICAgICAgaWYgKGVyciAhPSAtRU9QTk9UU1VQUCkNCisgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgcmV0dXJuIGVycjsNCisgICAgICAgICAgICAgICB9DQorICAg
-ICAgICAgICAgICAgLyogZmFsbCB0aHJvdWdoICovDQorDQogICAgICAgIC8qDQogICAgICAgICAq
-ICAgICAgVW5rbm93biBvciBwcml2YXRlIGlvY3RsDQogICAgICAgICAqLw0K
+On Mon, Aug 28, 2017 at 10:38:37AM +0200, Marcin Wojtas wrote:
+> Hi Antoine,
+>
+> Can you be 100% sure that when using SGMII with PHY's (like Marvell
+> Alaska 88E1xxx series), is in-band link information always available?
+> I'd be very cautious with such assumption and use in-band management
+> only when set in the DT, like mvneta. I think phylib can properly can
+> do its work when MDIO connection is provided on the board.
+
+There is another issue to be aware of: if you're wanting to use flow
+control autonegotiation, that is not carried across SGMII's in-band
+signalling.  If you want to use SGMII's in-band signalling for the
+duplex and speed information, you still need phylib's notification
+to properly set the flow control.
+
+<plug>
+Switching mvpp2 to use phylink (which is needed for the 1G SFP slot on
+mcbin) will handle all this for you - dealing with both in-band and
+out-of-band negotiation methods, and combining them in the appropriate
+manner for the selected operation mode.
+</plug>
+
+-- 
+RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
+FTTC broadband for 0.8mile line in suburbia: sync at 8.8Mbps down 630kbps up
+According to speedtest.net: 8.21Mbps down 510kbps up
