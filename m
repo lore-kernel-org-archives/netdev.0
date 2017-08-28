@@ -1,73 +1,71 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 01/15] i40e: Update state variable for adminq subtask
-Date: Sun, 27 Aug 2017 17:15:49 -0700
-Message-ID: <20170828001603.75876-2-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 10/15] i40e: remove workaround for resetting XPS
+Date: Sun, 27 Aug 2017 17:15:58 -0700
+Message-ID: <20170828001603.75876-11-jeffrey.t.kirsher@intel.com>
 References: <20170828001603.75876-1-jeffrey.t.kirsher@intel.com>
-Cc: Sudheer Mogilappagari <sudheer.mogilappagari@intel.com>,
-        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-        jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:55214 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:47467 "EHLO mga14.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751613AbdH1AQS (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 27 Aug 2017 20:16:18 -0400
+        id S1751623AbdH1AQU (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 27 Aug 2017 20:16:20 -0400
 In-Reply-To: <20170828001603.75876-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sudheer Mogilappagari <sudheer.mogilappagari@intel.com>
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-During NVM update, state machine gets into unrecoverable state because
-i40e_clean_adminq_subtask can get scheduled after the admin queue
-command but before other state variables are updated. This causes
-incorrect input to i40e_nvmupd_check_wait_event and state transitions
-don't happen.
+Since commit 3ffa037d7f78 ("i40e: Set XPS bit mask to zero in DCB mode")
+we've tried to reset the XPS settings by building a custom
+empty CPU mask.
 
-This fix updates the state variables so that adminq_subtask will have
-accurate information whenever it gets scheduled.
+This workaround is not necessary because we're not really removing the
+XPS setting, but simply setting it so that no CPU is valid.
 
-Signed-off-by: Sudheer Mogilappagari <sudheer.mogilappagari@intel.com>
+Second, we shorten the code further by using zalloc_cpumask_var instead
+of a separate call to bitmap_zero().
+
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_nvm.c | 10 ++++++++--
- 1 file changed, 8 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 17 +++++------------
+ 1 file changed, 5 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_nvm.c b/drivers/net/ethernet/intel/i40e/i40e_nvm.c
-index 2cf7db2dc7cd..96afef98a08f 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_nvm.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_nvm.c
-@@ -755,7 +755,11 @@ i40e_status i40e_nvmupd_command(struct i40e_hw *hw,
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 0962b85ef6f3..7366e7c7f399 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -2874,22 +2874,15 @@ static void i40e_vsi_free_rx_resources(struct i40e_vsi *vsi)
+ static void i40e_config_xps_tx_ring(struct i40e_ring *ring)
+ {
+ 	struct i40e_vsi *vsi = ring->vsi;
+-	cpumask_var_t mask;
  
- 	/* Acquire lock to prevent race condition where adminq_task
- 	 * can execute after i40e_nvmupd_nvm_read/write but before state
--	 * variables (nvm_wait_opcode, nvm_release_on_done) are updated
-+	 * variables (nvm_wait_opcode, nvm_release_on_done) are updated.
-+	 *
-+	 * During NVMUpdate, it is observed that lock could be held for
-+	 * ~5ms for most commands. However lock is held for ~60ms for
-+	 * NVMUPD_CSUM_LCB command.
- 	 */
- 	mutex_lock(&hw->aq.arq_mutex);
- 	switch (hw->nvmupd_state) {
-@@ -778,7 +782,8 @@ i40e_status i40e_nvmupd_command(struct i40e_hw *hw,
- 		 */
- 		if (cmd->offset == 0xffff) {
- 			i40e_nvmupd_check_wait_event(hw, hw->nvm_wait_opcode);
--			return 0;
-+			status = 0;
-+			goto exit;
- 		}
+ 	if (!ring->q_vector || !ring->netdev)
+ 		return;
  
- 		status = I40E_ERR_NOT_READY;
-@@ -793,6 +798,7 @@ i40e_status i40e_nvmupd_command(struct i40e_hw *hw,
- 		*perrno = -ESRCH;
- 		break;
+-	/* Single TC mode enable XPS */
+-	if (vsi->tc_config.numtc <= 1) {
+-		if (!test_and_set_bit(__I40E_TX_XPS_INIT_DONE, &ring->state))
+-			netif_set_xps_queue(ring->netdev,
+-					    &ring->q_vector->affinity_mask,
+-					    ring->queue_index);
+-	} else if (alloc_cpumask_var(&mask, GFP_KERNEL)) {
+-		/* Disable XPS to allow selection based on TC */
+-		bitmap_zero(cpumask_bits(mask), nr_cpumask_bits);
+-		netif_set_xps_queue(ring->netdev, mask, ring->queue_index);
+-		free_cpumask_var(mask);
++	if ((vsi->tc_config.numtc <= 1) &&
++	    !test_and_set_bit(__I40E_TX_XPS_INIT_DONE, &ring->state)) {
++		netif_set_xps_queue(ring->netdev,
++				    &ring->q_vector->affinity_mask,
++				    ring->queue_index);
  	}
-+exit:
- 	mutex_unlock(&hw->aq.arq_mutex);
- 	return status;
- }
+ 
+ 	/* schedule our worker thread which will take care of
 -- 
 2.14.1
