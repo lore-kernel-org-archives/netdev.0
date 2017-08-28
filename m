@@ -1,9 +1,9 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/4] au1000_eth: switch to dma_alloc_attrs
-Date: Mon, 28 Aug 2017 15:42:05 -0700 (PDT)
-Message-ID: <20170828.154205.369953675932001525.davem@davemloft.net>
+Subject: Re: [PATCH 3/4] i825xx: switch to switch to dma_alloc_attrs
+Date: Mon, 28 Aug 2017 15:42:21 -0700 (PDT)
+Message-ID: <20170828.154221.1152120540177040528.davem@davemloft.net>
 References: <20170826072125.9790-1-hch@lst.de>
-        <20170826072125.9790-3-hch@lst.de>
+        <20170826072125.9790-4-hch@lst.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -12,14 +12,15 @@ Cc: netdev@vger.kernel.org, ralf@linux-mips.org,
         linux-kernel@vger.kernel.org
 To: hch@lst.de
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170826072125.9790-3-hch@lst.de>
+In-Reply-To: <20170826072125.9790-4-hch@lst.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Christoph Hellwig <hch@lst.de>
-Date: Sat, 26 Aug 2017 09:21:23 +0200
+Date: Sat, 26 Aug 2017 09:21:24 +0200
 
-> Use dma_alloc_attrs directly instead of the dma_alloc_noncoherent wrapper.
+> This way we can always pass DMA_ATTR_NON_CONSISTENT, the SNI mips version
+> will simply ignore the flag.
 > 
 > Signed-off-by: Christoph Hellwig <hch@lst.de>
 
