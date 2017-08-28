@@ -1,73 +1,55 @@
-From: David Lebrun <david.lebrun@uclouvain.be>
-Subject: Re: [PATCH] ipv6: sr: fix get_srh() to comply with IPv6 standard "RFC
- 8200"
-Date: Mon, 28 Aug 2017 19:48:15 +0100
-Message-ID: <b84d5301-ba0a-f23a-4f8a-697e3cad1fae@uclouvain.be>
-References: <1503944442-8994-1-git-send-email-amsalam20@gmail.com>
+From: Pavel Belous <Pavel.Belous@aquantia.com>
+Subject: [PATCH net v2 0/6] net:ethernet:aquantia: Atlantic driver Update 2017-08-23
+Date: Mon, 28 Aug 2017 21:52:07 +0300
+Message-ID: <cover.1503945861.git.pavel.belous@aquantia.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature";
-        boundary="EbACec4fA0GumBpAq0Vm54UgSWm6IBBMx"
-Cc: <yoshfuji@linux-ipv6.org>, <netdev@vger.kernel.org>
-To: Ahmed Abdelsalam <amsalam20@gmail.com>, <davem@davemloft.net>
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, David Arcari <darcari@redhat.com>,
+        Igor Russkikh <Igor.Russkikh@aquantia.com>,
+        Nadezhda Krupnina <Nadezhda.Krupnina@aquantia.com>,
+        Simon Edelhaus <simon.edelhaus@aquantia.com>,
+        Pavel Belous <pavel.belous@aquantia.com>
+To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:39295 "EHLO
-        smtp6.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751184AbdH1Srp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 14:47:45 -0400
-In-Reply-To: <1503944442-8994-1-git-send-email-amsalam20@gmail.com>
+Received: from mail-by2nam01on0048.outbound.protection.outlook.com ([104.47.34.48]:4736
+        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751192AbdH1Swx (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 28 Aug 2017 14:52:53 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---EbACec4fA0GumBpAq0Vm54UgSWm6IBBMx
-Content-Type: multipart/mixed; boundary="8fxamJTnWr8Sew6PH9UhrPcGODDHhScqR"
-From: David Lebrun <david.lebrun@uclouvain.be>
-To: Ahmed Abdelsalam <amsalam20@gmail.com>, davem@davemloft.net
-Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
-Message-ID: <b84d5301-ba0a-f23a-4f8a-697e3cad1fae@uclouvain.be>
-Subject: Re: [PATCH] ipv6: sr: fix get_srh() to comply with IPv6 standard "RFC
- 8200"
-References: <1503944442-8994-1-git-send-email-amsalam20@gmail.com>
-In-Reply-To: <1503944442-8994-1-git-send-email-amsalam20@gmail.com>
+From: Pavel Belous <pavel.belous@aquantia.com>
 
---8fxamJTnWr8Sew6PH9UhrPcGODDHhScqR
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+This series contains updates for aQuantia Atlantic driver.
 
-On 08/28/2017 07:20 PM, Ahmed Abdelsalam wrote:
-> This patch fixes the get_srh(), so it gets the segment routing header
-> regardless of its position in the chain of the extension headers in IPv=
-6
-> packet, and makes sure that the IPv6 routing extension header is of
-> Type 4.
+It has bugfixes and some improvements.
 
-Ahmed,
+Changes in v2:
+ - "MCP state change" fix removed (will be sent as
+    a separate fix after further investigation.)
 
-You need to initialize srhoff to 0, otherwise ipv6_find_hdr() will crash
-the kernel by dereferencing an uninitialized pointer.
+Igor Russkikh (1):
+  net:ethernet:aquantia: Fix for multicast filter handling.
 
-Please test your patches before submitting them.
+Pavel Belous (5):
+  net:ethernet:aquantia: Extra spinlocks removed.
+  net:ethernet:aquantia: Fix for number of RSS queues.
+  net:ethernet:aquantia: Workaround for HW checksum bug.
+  net:ethernet:aquantia: Fix for incorrect speed index.
+  net:ethernet:aquantia: Show info message if bad firmware version
+    detected.
 
-Furthermore, your pskb_may_pull() check should happen right after the
-call to ipv6_find_hdr, with srhoff + sizeof(*srh) as argument. Once you
-have checked the SRH type, you can then do another pskb_may_pull with
-srhoff + len.
+ drivers/net/ethernet/aquantia/atlantic/aq_hw.h     |  3 +-
+ drivers/net/ethernet/aquantia/atlantic/aq_nic.c    | 92 +++++++++++-----------
+ drivers/net/ethernet/aquantia/atlantic/aq_ring.c   |  1 -
+ drivers/net/ethernet/aquantia/atlantic/aq_utils.h  |  1 -
+ drivers/net/ethernet/aquantia/atlantic/aq_vec.c    | 11 +--
+ .../ethernet/aquantia/atlantic/hw_atl/hw_atl_a0.c  |  6 ++
+ .../ethernet/aquantia/atlantic/hw_atl/hw_atl_b0.c  |  6 ++
+ .../aquantia/atlantic/hw_atl/hw_atl_utils.c        | 10 ++-
+ .../aquantia/atlantic/hw_atl/hw_atl_utils.h        |  3 +-
+ 9 files changed, 68 insertions(+), 65 deletions(-)
 
-David
-
-
---8fxamJTnWr8Sew6PH9UhrPcGODDHhScqR--
-
---EbACec4fA0GumBpAq0Vm54UgSWm6IBBMx
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iF0EARECAB0WIQT8nTbQ2eQR5sQwCJ+NvOfruxnoAwUCWaRlbwAKCRCNvOfruxno
-A6hVAJ9kbnjgNDjYKS0Gp9/UfszSsZqzQgCfSXBbOSQcT5xKYQRqCcPUjlzQiHk=
-=cR9q
------END PGP SIGNATURE-----
-
---EbACec4fA0GumBpAq0Vm54UgSWm6IBBMx--
+-- 
+2.7.4
