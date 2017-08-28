@@ -1,104 +1,77 @@
 From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH v2 21/30] sctp: Define usercopy region in SCTP proto slab cache
-Date: Mon, 28 Aug 2017 14:35:02 -0700
-Message-ID: <1503956111-36652-22-git-send-email-keescook@chromium.org>
+Subject: [PATCH v2 23/30] net: Restrict unwhitelisted proto caches to size 0
+Date: Mon, 28 Aug 2017 14:35:04 -0700
+Message-ID: <1503956111-36652-24-git-send-email-keescook@chromium.org>
 References: <1503956111-36652-1-git-send-email-keescook@chromium.org>
 Cc: Kees Cook <keescook@chromium.org>,
-        David Windsor <dave@nullcore.net>,
-        Vlad Yasevich <vyasevich@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-        linux-mm@kvack.org, kernel-hardening@lists.openwall.com
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Paolo Abeni <pabeni@redhat.com>,
+	David Howells <dhowells@redhat.com>,
+	netdev@vger.kernel.org,
+	linux-mm@kvack.org,
+	kernel-hardening@lists.openwall.com,
+	David Windsor <dave@nullcore.net>
 To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <owner-linux-mm@kvack.org>
 In-Reply-To: <1503956111-36652-1-git-send-email-keescook@chromium.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-From: David Windsor <dave@nullcore.net>
+Now that protocols have been annotated (the copy of icsk_ca_ops->name
+is of an ops field from outside the slab cache):
 
-The SCTP socket event notification subscription information need to be
-copied to/from userspace. In support of usercopy hardening, this patch
-defines a region in the struct proto slab cache in which userspace copy
-operations are allowed. Additionally moves the usercopy fields to be
-adjacent for the region to cover both.
+$ git grep 'copy_.*_user.*sk.*->'
+caif/caif_socket.c: copy_from_user(&cf_sk->conn_req.param.data, ov, ol)) {
+ipv4/raw.c:   if (copy_from_user(&raw_sk(sk)->filter, optval, optlen))
+ipv4/raw.c:       copy_to_user(optval, &raw_sk(sk)->filter, len))
+ipv4/tcp.c:       if (copy_to_user(optval, icsk->icsk_ca_ops->name, len))
+ipv4/tcp.c:       if (copy_to_user(optval, icsk->icsk_ulp_ops->name, len))
+ipv6/raw.c:       if (copy_from_user(&raw6_sk(sk)->filter, optval, optlen))
+ipv6/raw.c:           if (copy_to_user(optval, &raw6_sk(sk)->filter, len))
+sctp/socket.c: if (copy_from_user(&sctp_sk(sk)->subscribe, optval, optlen))
+sctp/socket.c: if (copy_to_user(optval, &sctp_sk(sk)->subscribe, len))
+sctp/socket.c: if (copy_to_user(optval, &sctp_sk(sk)->initmsg, len))
 
-example usage trace:
-
-    net/sctp/socket.c:
-        sctp_getsockopt_events(...):
-            ...
-            copy_to_user(..., &sctp_sk(sk)->subscribe, len)
-
-        sctp_setsockopt_events(...):
-            ...
-            copy_from_user(&sctp_sk(sk)->subscribe, ..., optlen)
-
-        sctp_getsockopt_initmsg(...):
-            ...
-            copy_to_user(..., &sctp_sk(sk)->initmsg, len)
-
-This region is known as the slab cache's usercopy region. Slab caches can
-now check that each copy operation involving cache-managed memory falls
-entirely within the slab's usercopy region.
+we can switch the default proto usercopy region to size 0. Any protocols
+needing to add whitelisted regions must annotate the fields with the
+useroffset and usersize fields of struct proto.
 
 This patch is modified from Brad Spengler/PaX Team's PAX_USERCOPY
 whitelisting code in the last public patch of grsecurity/PaX based on my
 understanding of the code. Changes or omissions from the original code are
 mine and don't reflect the original grsecurity/PaX code.
 
-Signed-off-by: David Windsor <dave@nullcore.net>
-[kees: split from network patch, move struct member adjacent, provide usage]
-Cc: Vlad Yasevich <vyasevich@gmail.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>
 Cc: "David S. Miller" <davem@davemloft.net>
-Cc: linux-sctp@vger.kernel.org
+Cc: Eric Dumazet <edumazet@google.com>
+Cc: Paolo Abeni <pabeni@redhat.com>
+Cc: David Howells <dhowells@redhat.com>
 Cc: netdev@vger.kernel.org
 Signed-off-by: Kees Cook <keescook@chromium.org>
 ---
- include/net/sctp/structs.h | 9 +++++++--
- net/sctp/socket.c          | 4 ++++
- 2 files changed, 11 insertions(+), 2 deletions(-)
+ net/core/sock.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
-diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-index 5ab29af8ca8a..f1d7810e200e 100644
---- a/include/net/sctp/structs.h
-+++ b/include/net/sctp/structs.h
-@@ -202,12 +202,17 @@ struct sctp_sock {
- 	/* Flags controlling Heartbeat, SACK delay, and Path MTU Discovery. */
- 	__u32 param_flags;
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 02dab98ca3e3..c7d0afa1d0b1 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -3112,9 +3112,7 @@ int proto_register(struct proto *prot, int alloc_slab)
+ 		prot->slab = kmem_cache_create_usercopy(prot->name,
+ 					prot->obj_size, 0,
+ 					SLAB_HWCACHE_ALIGN | prot->slab_flags,
+-					prot->usersize ? prot->useroffset : 0,
+-					prot->usersize ? prot->usersize
+-						       : prot->obj_size,
++					prot->useroffset, prot->usersize,
+ 					NULL);
  
--	struct sctp_initmsg initmsg;
- 	struct sctp_rtoinfo rtoinfo;
- 	struct sctp_paddrparams paddrparam;
--	struct sctp_event_subscribe subscribe;
- 	struct sctp_assocparams assocparams;
- 
-+	/*
-+	 * These two structures must be grouped together for the usercopy
-+	 * whitelist region.
-+	 */
-+	struct sctp_event_subscribe subscribe;
-+	struct sctp_initmsg initmsg;
-+
- 	int user_frag;
- 
- 	__u32 autoclose;
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index 1db478e34520..c8784cb216e4 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -8235,6 +8235,10 @@ struct proto sctp_prot = {
- 	.unhash      =	sctp_unhash,
- 	.get_port    =	sctp_get_port,
- 	.obj_size    =  sizeof(struct sctp_sock),
-+	.useroffset  =  offsetof(struct sctp_sock, subscribe),
-+	.usersize    =  offsetof(struct sctp_sock, initmsg) -
-+				offsetof(struct sctp_sock, subscribe) +
-+				sizeof_field(struct sctp_sock, initmsg),
- 	.sysctl_mem  =  sysctl_sctp_mem,
- 	.sysctl_rmem =  sysctl_sctp_rmem,
- 	.sysctl_wmem =  sysctl_sctp_wmem,
+ 		if (prot->slab == NULL) {
 -- 
 2.7.4
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
