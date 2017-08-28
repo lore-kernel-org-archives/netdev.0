@@ -1,56 +1,41 @@
-From: Russell King - ARM Linux <linux@armlinux.org.uk>
-Subject: Re: [PATCH net-next v2 05/14] net: mvpp2: do not force the link mode
-Date: Mon, 28 Aug 2017 09:51:52 +0100
-Message-ID: <20170828085152.GF20805@n2100.armlinux.org.uk>
-References: <20170825144821.31129-1-antoine.tenart@free-electrons.com>
- <20170825144821.31129-6-antoine.tenart@free-electrons.com>
- <20170825224312.GD20805@n2100.armlinux.org.uk>
- <20170828065545.GC2568@kwain>
- <CAPv3WKfSGfSAfade163-Q29SR5mxkV19LmYRxVdRBbfW-e-xfg@mail.gmail.com>
+From: Amine Kherbouche <amine.kherbouche@6wind.com>
+Subject: Re: [PATCH 6/6] mpls: VPLS support
+Date: Mon, 28 Aug 2017 11:21:27 +0200
+Message-ID: <025f7bf9-72d6-53c4-6680-4e20313aecf2@6wind.com>
+References: <20170821171523.951260-1-equinox@diac24.net>
+ <20170821171523.951260-7-equinox@diac24.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
-        "David S. Miller" <davem@davemloft.net>, kishon@ti.com,
-        Andrew Lunn <andrew@lunn.ch>,
-        Jason Cooper <jason@lakedaemon.net>,
-        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-        Gregory =?iso-8859-1?Q?Cl=E9ment?=
-        <gregory.clement@free-electrons.com>,
-        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-        nadavh@marvell.com, linux-kernel@vger.kernel.org,
-        Stefan Chulski <stefanc@marvell.com>,
-        =?iso-8859-1?Q?Miqu=E8l?= Raynal
-        <miquel.raynal@free-electrons.com>, netdev <netdev@vger.kernel.org>
-To: Marcin Wojtas <mw@semihalf.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAPv3WKfSGfSAfade163-Q29SR5mxkV19LmYRxVdRBbfW-e-xfg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: roopa@cumulusnetworks.com, stephen@networkplumber.org
+To: David Lamparter <equinox@diac24.net>, netdev@vger.kernel.org,
+        bridge@lists.linux-foundation.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f182.google.com ([209.85.128.182]:38369 "EHLO
+        mail-wr0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751610AbdH1JVi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 05:21:38 -0400
+Received: by mail-wr0-f182.google.com with SMTP id y14so8676260wrd.5
+        for <netdev@vger.kernel.org>; Mon, 28 Aug 2017 02:21:37 -0700 (PDT)
+In-Reply-To: <20170821171523.951260-7-equinox@diac24.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 28, 2017 at 10:38:37AM +0200, Marcin Wojtas wrote:
-> Hi Antoine,
+any opinion on vpls driver path ?
+
+On 08/21/2017 07:15 PM, David Lamparter wrote:
+> [work-in-progress, works but needs changes]
+> [v2: refactored lots of things, e.g. dst_metadata, no more genetlink]
+> [v4: removed pointless include/net/vpls.h, squashed pseudowire control
+> word support, squashed netlink lwtunnel access bits]
 >
-> Can you be 100% sure that when using SGMII with PHY's (like Marvell
-> Alaska 88E1xxx series), is in-band link information always available?
-> I'd be very cautious with such assumption and use in-band management
-> only when set in the DT, like mvneta. I think phylib can properly can
-> do its work when MDIO connection is provided on the board.
-
-There is another issue to be aware of: if you're wanting to use flow
-control autonegotiation, that is not carried across SGMII's in-band
-signalling.  If you want to use SGMII's in-band signalling for the
-duplex and speed information, you still need phylib's notification
-to properly set the flow control.
-
-<plug>
-Switching mvpp2 to use phylink (which is needed for the 1G SFP slot on
-mcbin) will handle all this for you - dealing with both in-band and
-out-of-band negotiation methods, and combining them in the appropriate
-manner for the selected operation mode.
-</plug>
-
--- 
-RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
-FTTC broadband for 0.8mile line in suburbia: sync at 8.8Mbps down 630kbps up
-According to speedtest.net: 8.21Mbps down 510kbps up
+> Signed-off-by: David Lamparter <equinox@diac24.net>
+> ---
+>  include/net/dst_metadata.h    |  24 ++
+>  include/uapi/linux/lwtunnel.h |   8 +
+>  net/core/lwtunnel.c           |   1 +
+>  net/mpls/Kconfig              |  11 +
+>  net/mpls/Makefile             |   1 +
+>  net/mpls/vpls.c               | 550 ++++++++++++++++++++++++++++++++++++++++++
+>  6 files changed, 595 insertions(+)
+>  create mode 100644 net/mpls/vpls.c
