@@ -1,46 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 net-next 1/1] hv_sock: implements Hyper-V transport
- for Virtual Sockets (AF_VSOCK)
-Date: Mon, 28 Aug 2017 15:38:52 -0700 (PDT)
-Message-ID: <20170828.153852.1182668029079177666.davem@davemloft.net>
-References: <PS1P15301MB00117CF517E0EFF548C9F572BF980@PS1P15301MB0011.APCP153.PROD.OUTLOOK.COM>
+Subject: Re: [patch net-next 0/2] mlxsw: spectrum: Fix couple of dpipe ipv4
+ host table bugs
+Date: Mon, 28 Aug 2017 15:41:29 -0700 (PDT)
+Message-ID: <20170828.154129.1313762960801415437.davem@davemloft.net>
+References: <20170826063539.2741-1-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jhansen@vmware.com, stefanha@redhat.com, netdev@vger.kernel.org,
-        mkubecek@suse.cz, olaf@aepfle.de, sthemmin@microsoft.com,
-        rolf.neugebauer@docker.com, jasowang@redhat.com,
-        dave.scott@docker.com, linux-kernel@vger.kernel.org,
-        apw@canonical.com, marcelo.cerri@canonical.com,
-        dan.carpenter@oracle.com, gregkh@linuxfoundation.org,
-        joe@perches.com, devel@linuxdriverproject.org, vkuznets@redhat.com,
-        haiyangz@microsoft.com, georgezhang@vmware.com
-To: decui@microsoft.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <PS1P15301MB00117CF517E0EFF548C9F572BF980@PS1P15301MB0011.APCP153.PROD.OUTLOOK.COM>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, arkadis@mellanox.com, idosch@mellanox.com,
+        mlxsw@mellanox.com
+To: jiri@resnulli.us
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:50088 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751190AbdH1Wl3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 18:41:29 -0400
+In-Reply-To: <20170826063539.2741-1-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Dexuan Cui <decui@microsoft.com>
-Date: Sat, 26 Aug 2017 04:52:43 +0000
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Sat, 26 Aug 2017 08:35:37 +0200
 
+> From: Jiri Pirko <jiri@mellanox.com>
 > 
-> Hyper-V Sockets (hv_sock) supplies a byte-stream based communication
-> mechanism between the host and the guest. It uses VMBus ringbuffer as the
-> transportation layer.
+> Arkadi Sharshevsky (1):
+>   mlxsw: spectrum_dpipe: Fix host table dump
 > 
-> With hv_sock, applications between the host (Windows 10, Windows Server
-> 2016 or newer) and the guest can talk with each other using the traditional
-> socket APIs.
-> 
-> More info about Hyper-V Sockets is available here:
-> 
-> "Make your own integration services":
-> https://docs.microsoft.com/en-us/virtualization/hyper-v-on-windows/user-guide/make-integration-service
-> 
-> The patch implements the necessary support in Linux guest by introducing a new
-> vsock transport for AF_VSOCK.
-> 
-> Signed-off-by: Dexuan Cui <decui@microsoft.com>
+> Jiri Pirko (1):
+>   mlxsw: spectrum: compile-in dpipe support only if devlink is enabled
 
-Applied, thank you.
+Series applied, thanks Jiri.
