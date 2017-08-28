@@ -1,8 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v2 09/10] net: dsa: restore VLAN dump
-Date: Mon, 28 Aug 2017 15:17:47 -0400
-Message-ID: <20170828191748.19492-10-vivien.didelot@savoirfairelinux.com>
-References: <20170828191748.19492-1-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v2 00/10] net: dsa: add generic debugfs interface
+Date: Mon, 28 Aug 2017 15:17:38 -0400
+Message-ID: <20170828191748.19492-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
         Florian Fainelli <f.fainelli@gmail.com>,
@@ -15,321 +14,104 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         Chris Healy <cphealy@gmail.com>,
         Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:36394 "EHLO
-        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751349AbdH1TVl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 15:21:41 -0400
-In-Reply-To: <20170828191748.19492-1-vivien.didelot@savoirfairelinux.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This commit defines a dsa_vlan_dump_cb_t callback, similar to the FDB
-dump callback and partly reverts commit a0b6b8c9fa3c ("net: dsa: Remove
-support for vlan dump from DSA's drivers") to restore the DSA drivers
-VLAN dump operations.
+This patch series adds a generic debugfs interface for the DSA
+framework, so that all switch devices benefit from it, e.g. Marvell,
+Broadcom, Microchip or any other DSA driver.
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
----
- drivers/net/dsa/b53/b53_common.c       | 41 ++++++++++++++++++++++++++++
- drivers/net/dsa/b53/b53_priv.h         |  2 ++
- drivers/net/dsa/bcm_sf2.c              |  1 +
- drivers/net/dsa/dsa_loop.c             | 38 ++++++++++++++++++++++++++
- drivers/net/dsa/microchip/ksz_common.c | 41 ++++++++++++++++++++++++++++
- drivers/net/dsa/mv88e6xxx/chip.c       | 49 ++++++++++++++++++++++++++++++++++
- include/net/dsa.h                      |  5 ++++
- 7 files changed, 177 insertions(+)
+This is really convenient for debugging, especially CPU ports and DSA
+links which are not exposed to userspace as net device. This interface
+is currently the only way to easily inspect the hardware for such ports.
 
-diff --git a/drivers/net/dsa/b53/b53_common.c b/drivers/net/dsa/b53/b53_common.c
-index 274f3679f33d..be0c5fa8bd9b 100644
---- a/drivers/net/dsa/b53/b53_common.c
-+++ b/drivers/net/dsa/b53/b53_common.c
-@@ -1053,6 +1053,46 @@ int b53_vlan_del(struct dsa_switch *ds, int port,
- }
- EXPORT_SYMBOL(b53_vlan_del);
- 
-+int b53_vlan_dump(struct dsa_switch *ds, int port, dsa_vlan_dump_cb_t *cb,
-+		  void *data)
-+{
-+	struct b53_device *dev = ds->priv;
-+	u16 vid, vid_start = 0, pvid;
-+	struct b53_vlan *vl;
-+	bool untagged;
-+	int err = 0;
-+
-+	if (is5325(dev) || is5365(dev))
-+		vid_start = 1;
-+
-+	b53_read16(dev, B53_VLAN_PAGE, B53_VLAN_PORT_DEF_TAG(port), &pvid);
-+
-+	/* Use our software cache for dumps, since we do not have any HW
-+	 * operation returning only the used/valid VLANs
-+	 */
-+	for (vid = vid_start; vid < dev->num_vlans; vid++) {
-+		vl = &dev->vlans[vid];
-+
-+		if (!vl->valid)
-+			continue;
-+
-+		if (!(vl->members & BIT(port)))
-+			continue;
-+
-+		untagged = false;
-+
-+		if (vl->untag & BIT(port))
-+			untagged = true;
-+
-+		err = cb(vid, pvid == vid, untagged, data);
-+		if (err)
-+			break;
-+	}
-+
-+	return err;
-+}
-+EXPORT_SYMBOL(b53_vlan_dump);
-+
- /* Address Resolution Logic routines */
- static int b53_arl_op_wait(struct b53_device *dev)
- {
-@@ -1503,6 +1543,7 @@ static const struct dsa_switch_ops b53_switch_ops = {
- 	.port_vlan_prepare	= b53_vlan_prepare,
- 	.port_vlan_add		= b53_vlan_add,
- 	.port_vlan_del		= b53_vlan_del,
-+	.port_vlan_dump		= b53_vlan_dump,
- 	.port_fdb_dump		= b53_fdb_dump,
- 	.port_fdb_add		= b53_fdb_add,
- 	.port_fdb_del		= b53_fdb_del,
-diff --git a/drivers/net/dsa/b53/b53_priv.h b/drivers/net/dsa/b53/b53_priv.h
-index 01bd8cbe9a3f..2b3e59d80fdb 100644
---- a/drivers/net/dsa/b53/b53_priv.h
-+++ b/drivers/net/dsa/b53/b53_priv.h
-@@ -393,6 +393,8 @@ void b53_vlan_add(struct dsa_switch *ds, int port,
- 		  struct switchdev_trans *trans);
- int b53_vlan_del(struct dsa_switch *ds, int port,
- 		 const struct switchdev_obj_port_vlan *vlan);
-+int b53_vlan_dump(struct dsa_switch *ds, int port, dsa_vlan_dump_cb_t *cb,
-+		  void *data);
- int b53_fdb_add(struct dsa_switch *ds, int port,
- 		const unsigned char *addr, u16 vid);
- int b53_fdb_del(struct dsa_switch *ds, int port,
-diff --git a/drivers/net/dsa/bcm_sf2.c b/drivers/net/dsa/bcm_sf2.c
-index bbcb4053e04e..1907b27297c3 100644
---- a/drivers/net/dsa/bcm_sf2.c
-+++ b/drivers/net/dsa/bcm_sf2.c
-@@ -1021,6 +1021,7 @@ static const struct dsa_switch_ops bcm_sf2_ops = {
- 	.port_vlan_prepare	= b53_vlan_prepare,
- 	.port_vlan_add		= b53_vlan_add,
- 	.port_vlan_del		= b53_vlan_del,
-+	.port_vlan_dump		= b53_vlan_dump,
- 	.port_fdb_dump		= b53_fdb_dump,
- 	.port_fdb_add		= b53_fdb_add,
- 	.port_fdb_del		= b53_fdb_del,
-diff --git a/drivers/net/dsa/dsa_loop.c b/drivers/net/dsa/dsa_loop.c
-index 7819a9fe8321..0407533f725f 100644
---- a/drivers/net/dsa/dsa_loop.c
-+++ b/drivers/net/dsa/dsa_loop.c
-@@ -257,6 +257,43 @@ static int dsa_loop_port_vlan_del(struct dsa_switch *ds, int port,
- 	return 0;
- }
- 
-+static int dsa_loop_port_vlan_dump(struct dsa_switch *ds, int port,
-+				   dsa_vlan_dump_cb_t *cb, void *data)
-+{
-+	struct dsa_loop_priv *ps = ds->priv;
-+	struct mii_bus *bus = ps->bus;
-+	struct dsa_loop_vlan *vl;
-+	u16 vid, vid_start = 0;
-+	bool pvid, untagged;
-+	int err = 0;
-+
-+	dev_dbg(ds->dev, "%s\n", __func__);
-+
-+	/* Just do a sleeping operation to make lockdep checks effective */
-+	mdiobus_read(bus, ps->port_base + port, MII_BMSR);
-+
-+	for (vid = vid_start; vid < DSA_LOOP_VLANS; vid++) {
-+		vl = &ps->vlans[vid];
-+
-+		if (!(vl->members & BIT(port)))
-+			continue;
-+
-+		untagged = false;
-+		pvid = false;
-+
-+		if (vl->untagged & BIT(port))
-+			untagged = true;
-+		if (ps->pvid == vid)
-+			pvid = true;
-+
-+		err = cb(vid, pvid, untagged, data);
-+		if (err)
-+			break;
-+	}
-+
-+	return err;
-+}
-+
- static const struct dsa_switch_ops dsa_loop_driver = {
- 	.get_tag_protocol	= dsa_loop_get_protocol,
- 	.setup			= dsa_loop_setup,
-@@ -273,6 +310,7 @@ static const struct dsa_switch_ops dsa_loop_driver = {
- 	.port_vlan_prepare	= dsa_loop_port_vlan_prepare,
- 	.port_vlan_add		= dsa_loop_port_vlan_add,
- 	.port_vlan_del		= dsa_loop_port_vlan_del,
-+	.port_vlan_dump		= dsa_loop_port_vlan_dump,
- };
- 
- static int dsa_loop_drv_probe(struct mdio_device *mdiodev)
-diff --git a/drivers/net/dsa/microchip/ksz_common.c b/drivers/net/dsa/microchip/ksz_common.c
-index 56cd6d365352..52c7849acc3c 100644
---- a/drivers/net/dsa/microchip/ksz_common.c
-+++ b/drivers/net/dsa/microchip/ksz_common.c
-@@ -638,6 +638,46 @@ static int ksz_port_vlan_del(struct dsa_switch *ds, int port,
- 	return 0;
- }
- 
-+static int ksz_port_vlan_dump(struct dsa_switch *ds, int port,
-+			      dsa_vlan_dump_cb_t *cb, void *data)
-+{
-+	struct ksz_device *dev = ds->priv;
-+	struct vlan_table *vlan_cache;
-+	bool pvid, untagged;
-+	u16 val;
-+	int vid;
-+	int err = 0;
-+
-+	mutex_lock(&dev->vlan_mutex);
-+
-+	/* use dev->vlan_cache due to lack of searching valid vlan entry */
-+	for (vid = 0; vid < dev->num_vlans; vid++) {
-+		vlan_cache = &dev->vlan_cache[vid];
-+
-+		if (!(vlan_cache->table[0] & VLAN_VALID))
-+			continue;
-+
-+		untagged = false;
-+		pvid = false;
-+
-+		if (vlan_cache->table[2] & BIT(port)) {
-+			if (vlan_cache->table[1] & BIT(port))
-+				untagged = true;
-+			ksz_pread16(dev, port, REG_PORT_DEFAULT_VID, &val);
-+			if (vid == (val & 0xFFFFF))
-+				pvid = true;
-+
-+			err = cb(vid, pvid, untagged, data);
-+			if (err)
-+				break;
-+		}
-+	}
-+
-+	mutex_unlock(&dev->vlan_mutex);
-+
-+	return err;
-+}
-+
- struct alu_struct {
- 	/* entry 1 */
- 	u8	is_static:1;
-@@ -1068,6 +1108,7 @@ static const struct dsa_switch_ops ksz_switch_ops = {
- 	.port_vlan_prepare	= ksz_port_vlan_prepare,
- 	.port_vlan_add		= ksz_port_vlan_add,
- 	.port_vlan_del		= ksz_port_vlan_del,
-+	.port_vlan_dump		= ksz_port_vlan_dump,
- 	.port_fdb_dump		= ksz_port_fdb_dump,
- 	.port_fdb_add		= ksz_port_fdb_add,
- 	.port_fdb_del		= ksz_port_fdb_del,
-diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index c66204423641..3717ae098d58 100644
---- a/drivers/net/dsa/mv88e6xxx/chip.c
-+++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -1011,6 +1011,54 @@ static int mv88e6xxx_vtu_loadpurge(struct mv88e6xxx_chip *chip,
- 	return chip->info->ops->vtu_loadpurge(chip, entry);
- }
- 
-+static int mv88e6xxx_port_vlan_dump(struct dsa_switch *ds, int port,
-+				    dsa_vlan_dump_cb_t *cb, void *data)
-+{
-+	struct mv88e6xxx_chip *chip = ds->priv;
-+	struct mv88e6xxx_vtu_entry next = {
-+		.vid = chip->info->max_vid,
-+	};
-+	bool untagged;
-+	u16 pvid;
-+	int err;
-+
-+	if (!chip->info->max_vid)
-+		return -EOPNOTSUPP;
-+
-+	mutex_lock(&chip->reg_lock);
-+
-+	err = mv88e6xxx_port_get_pvid(chip, port, &pvid);
-+	if (err)
-+		goto unlock;
-+
-+	do {
-+		err = mv88e6xxx_vtu_getnext(chip, &next);
-+		if (err)
-+			break;
-+
-+		if (!next.valid)
-+			break;
-+
-+		if (next.member[port] ==
-+		    MV88E6XXX_G1_VTU_DATA_MEMBER_TAG_NON_MEMBER)
-+			continue;
-+
-+		untagged = false;
-+		if (next.member[port] ==
-+		    MV88E6XXX_G1_VTU_DATA_MEMBER_TAG_UNTAGGED)
-+			untagged = true;
-+
-+		err = cb(next.vid, next.vid == pvid, untagged, data);
-+		if (err)
-+			break;
-+	} while (next.vid < chip->info->max_vid);
-+
-+unlock:
-+	mutex_unlock(&chip->reg_lock);
-+
-+	return err;
-+}
-+
- static int mv88e6xxx_atu_new(struct mv88e6xxx_chip *chip, u16 *fid)
- {
- 	DECLARE_BITMAP(fid_bitmap, MV88E6XXX_N_FID);
-@@ -3820,6 +3868,7 @@ static const struct dsa_switch_ops mv88e6xxx_switch_ops = {
- 	.port_vlan_prepare	= mv88e6xxx_port_vlan_prepare,
- 	.port_vlan_add		= mv88e6xxx_port_vlan_add,
- 	.port_vlan_del		= mv88e6xxx_port_vlan_del,
-+	.port_vlan_dump		= mv88e6xxx_port_vlan_dump,
- 	.port_fdb_add           = mv88e6xxx_port_fdb_add,
- 	.port_fdb_del           = mv88e6xxx_port_fdb_del,
- 	.port_fdb_dump          = mv88e6xxx_port_fdb_dump,
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index c0d1b6c47a50..b4994c58547f 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -315,6 +315,8 @@ static inline u8 dsa_upstream_port(struct dsa_switch *ds)
- /* FDB (and MDB) dump callback */
- typedef int dsa_fdb_dump_cb_t(const unsigned char *addr, u16 vid,
- 			      bool is_static, void *data);
-+typedef int dsa_vlan_dump_cb_t(u16 vid, bool pvid, bool untagged, void *data);
-+
- struct dsa_switch_ops {
- 	/*
- 	 * Legacy probing.
-@@ -421,6 +423,9 @@ struct dsa_switch_ops {
- 				 struct switchdev_trans *trans);
- 	int	(*port_vlan_del)(struct dsa_switch *ds, int port,
- 				 const struct switchdev_obj_port_vlan *vlan);
-+	int	(*port_vlan_dump)(struct dsa_switch *ds, int port,
-+				  dsa_vlan_dump_cb_t *cb, void *data);
-+
- 	/*
- 	 * Forwarding database
- 	 */
+With the patch series, any switch device user is able to query the
+hardware for the supported tagging protocol, the ports stats and
+registers, as well as their FDB, MDB and VLAN entries.
+
+This support is only compiled if CONFIG_DEBUG_FS is enabled. Below is
+and example of usage of this interface on a multi-chip switch fabric:
+
+    # mount -t debugfs none /sys/kernel/debug
+    # cd /sys/kernel/debug/dsa/
+    # ls
+    switch0  switch1 switch2
+    # ls -l switch0/
+    drwxr-xr-x 2 root root 0 Jan  1 00:00 port0
+    drwxr-xr-x 2 root root 0 Jan  1 00:00 port1
+    drwxr-xr-x 2 root root 0 Jan  1 00:00 port2
+    drwxr-xr-x 2 root root 0 Jan  1 00:00 port5
+    drwxr-xr-x 2 root root 0 Jan  1 00:00 port6
+    -r--r--r-- 1 root root 0 Jan  1 00:00 tag_protocol
+    -r--r--r-- 1 root root 0 Jan  1 00:00 tree
+    # ls -l switch0/port6
+    -r--r--r-- 1 root root 0 Jan  1 00:00 fdb
+    -r--r--r-- 1 root root 0 Jan  1 00:00 mdb
+    -r--r--r-- 1 root root 0 Jan  1 00:00 regs
+    -r--r--r-- 1 root root 0 Jan  1 00:00 stats
+    -r--r--r-- 1 root root 0 Jan  1 00:00 vlan
+    # cat switch0/port2/vlan
+    vid 42  untagged  pvid
+    # cat switch0/port1/fdb
+    vid 0  12:34:56:78:90:ab  unicast  static
+    # pr -mt switch0/port{5,6}/stats
+    in_good_octets      : 0             in_good_octets      : 13824
+    in_bad_octets       : 0             in_bad_octets       : 0
+    in_unicast          : 0             in_unicast          : 0
+    in_broadcasts       : 0             in_broadcasts       : 216
+    in_multicasts       : 0             in_multicasts       : 0
+    in_pause            : 0             in_pause            : 0
+    in_undersize        : 0             in_undersize        : 0
+    ...
+    # pr -mt switch0/port{5,6}/regs
+     0: 4e07			     0: 4d04
+     1: 403e			     1: 003d
+     2: 0000			     2: 0000
+     3: 3521			     3: 3521
+     4: 0533			     4: 373f
+     5: 8000			     5: 0000
+     6: 005f			     6: 003f
+     7: 002a			     7: 002a
+    ...
+
+where switch0 port5 and port6 are CPU and DSA ports of a ZII Rev B.
+
+Changes in v2:
+  - KISS, drop the WARN_ON if !dst->applied
+  - use ds->enabled_port_mask instead of OF nodes
+  - add a tag protocol to string helper
+  - use %pM to print MAC addresses
+  - explicit "tagged" VLANs
+
+Vivien Didelot (10):
+  net: dsa: add debugfs interface
+  net: dsa: debugfs: add tree
+  net: dsa: debugfs: add tag_protocol
+  net: dsa: debugfs: add port stats
+  net: dsa: debugfs: add port regs
+  net: dsa: debugfs: add port fdb
+  net: dsa: restore mdb dump
+  net: dsa: debugfs: add port mdb
+  net: dsa: restore VLAN dump
+  net: dsa: debugfs: add port vlan
+
+ drivers/net/dsa/b53/b53_common.c       |  41 ++++
+ drivers/net/dsa/b53/b53_priv.h         |   2 +
+ drivers/net/dsa/bcm_sf2.c              |   1 +
+ drivers/net/dsa/dsa_loop.c             |  38 +++
+ drivers/net/dsa/microchip/ksz_common.c |  41 ++++
+ drivers/net/dsa/mv88e6xxx/chip.c       |  82 ++++++-
+ include/net/dsa.h                      |  41 ++++
+ net/dsa/Kconfig                        |  14 ++
+ net/dsa/Makefile                       |   1 +
+ net/dsa/debugfs.c                      | 409 +++++++++++++++++++++++++++++++++
+ net/dsa/dsa.c                          |   3 +
+ net/dsa/dsa2.c                         |   4 +
+ net/dsa/dsa_priv.h                     |  13 ++
+ net/dsa/legacy.c                       |   4 +
+ 14 files changed, 686 insertions(+), 8 deletions(-)
+ create mode 100644 net/dsa/debugfs.c
+
 -- 
 2.14.1
