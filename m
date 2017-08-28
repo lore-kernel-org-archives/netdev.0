@@ -1,27 +1,73 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [PATCH] packet: Don't write vnet header beyond end of buffer
-Date: Mon, 28 Aug 2017 14:39:55 -0400
-Message-ID: <CAF=yD-Lps0R0LHBm+JjYn+d6BoaC-xmTohzD82MBCnACVyJNag@mail.gmail.com>
-References: <20170828182941.10677-1-bpoirier@suse.com>
+From: David Lebrun <david.lebrun@uclouvain.be>
+Subject: Re: [PATCH] ipv6: sr: fix get_srh() to comply with IPv6 standard "RFC
+ 8200"
+Date: Mon, 28 Aug 2017 19:48:15 +0100
+Message-ID: <b84d5301-ba0a-f23a-4f8a-697e3cad1fae@uclouvain.be>
+References: <1503944442-8994-1-git-send-email-amsalam20@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Network Development <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Willem de Bruijn <willemb@google.com>
-To: Benjamin Poirier <bpoirier@suse.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170828182941.10677-1-bpoirier@suse.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature";
+        boundary="EbACec4fA0GumBpAq0Vm54UgSWm6IBBMx"
+Cc: <yoshfuji@linux-ipv6.org>, <netdev@vger.kernel.org>
+To: Ahmed Abdelsalam <amsalam20@gmail.com>, <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:39295 "EHLO
+        smtp6.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751184AbdH1Srp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 14:47:45 -0400
+In-Reply-To: <1503944442-8994-1-git-send-email-amsalam20@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 28, 2017 at 2:29 PM, Benjamin Poirier <bpoirier@suse.com> wrote:
-> ... which may happen with certain values of tp_reserve and maclen.
->
-> Fixes: 58d19b19cd99 ("packet: vnet_hdr support for tpacket_rcv")
-> Signed-off-by: Benjamin Poirier <bpoirier@suse.com>
-> Cc: Willem de Bruijn <willemb@google.com>
+--EbACec4fA0GumBpAq0Vm54UgSWm6IBBMx
+Content-Type: multipart/mixed; boundary="8fxamJTnWr8Sew6PH9UhrPcGODDHhScqR"
+From: David Lebrun <david.lebrun@uclouvain.be>
+To: Ahmed Abdelsalam <amsalam20@gmail.com>, davem@davemloft.net
+Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
+Message-ID: <b84d5301-ba0a-f23a-4f8a-697e3cad1fae@uclouvain.be>
+Subject: Re: [PATCH] ipv6: sr: fix get_srh() to comply with IPv6 standard "RFC
+ 8200"
+References: <1503944442-8994-1-git-send-email-amsalam20@gmail.com>
+In-Reply-To: <1503944442-8994-1-git-send-email-amsalam20@gmail.com>
 
-Acked-by: Willem de Bruijn <willemb@google.com>
+--8fxamJTnWr8Sew6PH9UhrPcGODDHhScqR
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-Thanks for fixing this, Benjamin.
+On 08/28/2017 07:20 PM, Ahmed Abdelsalam wrote:
+> This patch fixes the get_srh(), so it gets the segment routing header
+> regardless of its position in the chain of the extension headers in IPv=
+6
+> packet, and makes sure that the IPv6 routing extension header is of
+> Type 4.
+
+Ahmed,
+
+You need to initialize srhoff to 0, otherwise ipv6_find_hdr() will crash
+the kernel by dereferencing an uninitialized pointer.
+
+Please test your patches before submitting them.
+
+Furthermore, your pskb_may_pull() check should happen right after the
+call to ipv6_find_hdr, with srhoff + sizeof(*srh) as argument. Once you
+have checked the SRH type, you can then do another pskb_may_pull with
+srhoff + len.
+
+David
+
+
+--8fxamJTnWr8Sew6PH9UhrPcGODDHhScqR--
+
+--EbACec4fA0GumBpAq0Vm54UgSWm6IBBMx
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iF0EARECAB0WIQT8nTbQ2eQR5sQwCJ+NvOfruxnoAwUCWaRlbwAKCRCNvOfruxno
+A6hVAJ9kbnjgNDjYKS0Gp9/UfszSsZqzQgCfSXBbOSQcT5xKYQRqCcPUjlzQiHk=
+=cR9q
+-----END PGP SIGNATURE-----
+
+--EbACec4fA0GumBpAq0Vm54UgSWm6IBBMx--
