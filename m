@@ -1,107 +1,104 @@
 From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net-next 05/11] bnxt: initialize board_info values with proper enums
-Date: Mon, 28 Aug 2017 13:40:29 -0400
-Message-ID: <1503942035-24924-6-git-send-email-michael.chan@broadcom.com>
+Subject: [PATCH net-next 04/11] bnxt: Add PCIe device IDs for bcm58802/bcm58808
+Date: Mon, 28 Aug 2017 13:40:28 -0400
+Message-ID: <1503942035-24924-5-git-send-email-michael.chan@broadcom.com>
 References: <1503942035-24924-1-git-send-email-michael.chan@broadcom.com>
-Cc: netdev@vger.kernel.org, Scott Branden <scott.branden@broadcom.com>
+Cc: netdev@vger.kernel.org, Ray Jui <ray.jui@broadcom.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f171.google.com ([209.85.220.171]:33346 "EHLO
-        mail-qk0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751419AbdH1Rkz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 13:40:55 -0400
-Received: by mail-qk0-f171.google.com with SMTP id l65so5420493qkc.0
-        for <netdev@vger.kernel.org>; Mon, 28 Aug 2017 10:40:55 -0700 (PDT)
+Received: from mail-qt0-f179.google.com ([209.85.216.179]:38803 "EHLO
+        mail-qt0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751410AbdH1Rky (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 13:40:54 -0400
+Received: by mail-qt0-f179.google.com with SMTP id w42so5223480qtg.5
+        for <netdev@vger.kernel.org>; Mon, 28 Aug 2017 10:40:54 -0700 (PDT)
 In-Reply-To: <1503942035-24924-1-git-send-email-michael.chan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Scott Branden <scott.branden@broadcom.com>
+From: Ray Jui <ray.jui@broadcom.com>
 
-initialize board_info values with proper enums for defensive programming
-purposes.  This will avoid any errors of the enums being declared not
-lining up with the board_info array.
+Add PCIe device ID for bcm58802 and bcm58808. Also add chip number
+update to declare bcm588xx as chip class phase 4 and later
 
-Signed-off-by: Scott Branden <scott.branden@broadcom.com>
+Signed-off-by: Ray Jui <ray.jui@broadcom.com>
 Signed-off-by: Michael Chan <michael.chan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt.c | 64 +++++++++++++++----------------
- 1 file changed, 32 insertions(+), 32 deletions(-)
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c | 8 +++++++-
+ drivers/net/ethernet/broadcom/bnxt/bnxt.h | 8 ++++++++
+ 2 files changed, 15 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index 500681d..1afb408 100644
+index 9657bfb..500681d 100644
 --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
 +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -114,38 +114,38 @@ enum board_idx {
- static const struct {
- 	char *name;
- } board_info[] = {
--	{ "Broadcom BCM57301 NetXtreme-C 10Gb Ethernet" },
--	{ "Broadcom BCM57302 NetXtreme-C 10Gb/25Gb Ethernet" },
--	{ "Broadcom BCM57304 NetXtreme-C 10Gb/25Gb/40Gb/50Gb Ethernet" },
--	{ "Broadcom BCM57417 NetXtreme-E Ethernet Partition" },
--	{ "Broadcom BCM58700 Nitro 1Gb/2.5Gb/10Gb Ethernet" },
--	{ "Broadcom BCM57311 NetXtreme-C 10Gb Ethernet" },
--	{ "Broadcom BCM57312 NetXtreme-C 10Gb/25Gb Ethernet" },
--	{ "Broadcom BCM57402 NetXtreme-E 10Gb Ethernet" },
--	{ "Broadcom BCM57404 NetXtreme-E 10Gb/25Gb Ethernet" },
--	{ "Broadcom BCM57406 NetXtreme-E 10GBase-T Ethernet" },
--	{ "Broadcom BCM57402 NetXtreme-E Ethernet Partition" },
--	{ "Broadcom BCM57407 NetXtreme-E 10GBase-T Ethernet" },
--	{ "Broadcom BCM57412 NetXtreme-E 10Gb Ethernet" },
--	{ "Broadcom BCM57414 NetXtreme-E 10Gb/25Gb Ethernet" },
--	{ "Broadcom BCM57416 NetXtreme-E 10GBase-T Ethernet" },
--	{ "Broadcom BCM57417 NetXtreme-E 10GBase-T Ethernet" },
--	{ "Broadcom BCM57412 NetXtreme-E Ethernet Partition" },
--	{ "Broadcom BCM57314 NetXtreme-C 10Gb/25Gb/40Gb/50Gb Ethernet" },
--	{ "Broadcom BCM57417 NetXtreme-E 10Gb/25Gb Ethernet" },
--	{ "Broadcom BCM57416 NetXtreme-E 10Gb Ethernet" },
--	{ "Broadcom BCM57404 NetXtreme-E Ethernet Partition" },
--	{ "Broadcom BCM57406 NetXtreme-E Ethernet Partition" },
--	{ "Broadcom BCM57407 NetXtreme-E 25Gb Ethernet" },
--	{ "Broadcom BCM57407 NetXtreme-E Ethernet Partition" },
--	{ "Broadcom BCM57414 NetXtreme-E Ethernet Partition" },
--	{ "Broadcom BCM57416 NetXtreme-E Ethernet Partition" },
--	{ "Broadcom BCM57452 NetXtreme-E 10Gb/25Gb/40Gb/50Gb Ethernet" },
--	{ "Broadcom BCM57454 NetXtreme-E 10Gb/25Gb/40Gb/50Gb/100Gb Ethernet" },
--	{ "Broadcom BCM58802 NetXtreme-S 10Gb/25Gb/40Gb/50Gb Ethernet" },
--	{ "Broadcom BCM58808 NetXtreme-S 10Gb/25Gb/40Gb/50Gb/100Gb Ethernet" },
--	{ "Broadcom NetXtreme-E Ethernet Virtual Function" },
--	{ "Broadcom NetXtreme-C Ethernet Virtual Function" },
-+	[BCM57301] = { "Broadcom BCM57301 NetXtreme-C 10Gb Ethernet" },
-+	[BCM57302] = { "Broadcom BCM57302 NetXtreme-C 10Gb/25Gb Ethernet" },
-+	[BCM57304] = { "Broadcom BCM57304 NetXtreme-C 10Gb/25Gb/40Gb/50Gb Ethernet" },
-+	[BCM57417_NPAR] = { "Broadcom BCM57417 NetXtreme-E Ethernet Partition" },
-+	[BCM58700] = { "Broadcom BCM58700 Nitro 1Gb/2.5Gb/10Gb Ethernet" },
-+	[BCM57311] = { "Broadcom BCM57311 NetXtreme-C 10Gb Ethernet" },
-+	[BCM57312] = { "Broadcom BCM57312 NetXtreme-C 10Gb/25Gb Ethernet" },
-+	[BCM57402] = { "Broadcom BCM57402 NetXtreme-E 10Gb Ethernet" },
-+	[BCM57404] = { "Broadcom BCM57404 NetXtreme-E 10Gb/25Gb Ethernet" },
-+	[BCM57406] = { "Broadcom BCM57406 NetXtreme-E 10GBase-T Ethernet" },
-+	[BCM57402_NPAR] = { "Broadcom BCM57402 NetXtreme-E Ethernet Partition" },
-+	[BCM57407] = { "Broadcom BCM57407 NetXtreme-E 10GBase-T Ethernet" },
-+	[BCM57412] = { "Broadcom BCM57412 NetXtreme-E 10Gb Ethernet" },
-+	[BCM57414] = { "Broadcom BCM57414 NetXtreme-E 10Gb/25Gb Ethernet" },
-+	[BCM57416] = { "Broadcom BCM57416 NetXtreme-E 10GBase-T Ethernet" },
-+	[BCM57417] = { "Broadcom BCM57417 NetXtreme-E 10GBase-T Ethernet" },
-+	[BCM57412_NPAR] = { "Broadcom BCM57412 NetXtreme-E Ethernet Partition" },
-+	[BCM57314] = { "Broadcom BCM57314 NetXtreme-C 10Gb/25Gb/40Gb/50Gb Ethernet" },
-+	[BCM57417_SFP] = { "Broadcom BCM57417 NetXtreme-E 10Gb/25Gb Ethernet" },
-+	[BCM57416_SFP] = { "Broadcom BCM57416 NetXtreme-E 10Gb Ethernet" },
-+	[BCM57404_NPAR] = { "Broadcom BCM57404 NetXtreme-E Ethernet Partition" },
-+	[BCM57406_NPAR] = { "Broadcom BCM57406 NetXtreme-E Ethernet Partition" },
-+	[BCM57407_SFP] = { "Broadcom BCM57407 NetXtreme-E 25Gb Ethernet" },
-+	[BCM57407_NPAR] = { "Broadcom BCM57407 NetXtreme-E Ethernet Partition" },
-+	[BCM57414_NPAR] = { "Broadcom BCM57414 NetXtreme-E Ethernet Partition" },
-+	[BCM57416_NPAR] = { "Broadcom BCM57416 NetXtreme-E Ethernet Partition" },
-+	[BCM57452] = { "Broadcom BCM57452 NetXtreme-E 10Gb/25Gb/40Gb/50Gb Ethernet" },
-+	[BCM57454] = { "Broadcom BCM57454 NetXtreme-E 10Gb/25Gb/40Gb/50Gb/100Gb Ethernet" },
-+	[BCM58802] = { "Broadcom BCM58802 NetXtreme-S 10Gb/25Gb/40Gb/50Gb Ethernet" },
-+	[BCM58808] = { "Broadcom BCM58808 NetXtreme-S 10Gb/25Gb/40Gb/50Gb/100Gb Ethernet" },
-+	[NETXTREME_E_VF] = { "Broadcom NetXtreme-E Ethernet Virtual Function" },
-+	[NETXTREME_C_VF] = { "Broadcom NetXtreme-C Ethernet Virtual Function" },
+@@ -104,6 +104,8 @@ enum board_idx {
+ 	BCM57416_NPAR,
+ 	BCM57452,
+ 	BCM57454,
++	BCM58802,
++	BCM58808,
+ 	NETXTREME_E_VF,
+ 	NETXTREME_C_VF,
+ };
+@@ -140,11 +142,14 @@ enum board_idx {
+ 	{ "Broadcom BCM57416 NetXtreme-E Ethernet Partition" },
+ 	{ "Broadcom BCM57452 NetXtreme-E 10Gb/25Gb/40Gb/50Gb Ethernet" },
+ 	{ "Broadcom BCM57454 NetXtreme-E 10Gb/25Gb/40Gb/50Gb/100Gb Ethernet" },
++	{ "Broadcom BCM58802 NetXtreme-S 10Gb/25Gb/40Gb/50Gb Ethernet" },
++	{ "Broadcom BCM58808 NetXtreme-S 10Gb/25Gb/40Gb/50Gb/100Gb Ethernet" },
+ 	{ "Broadcom NetXtreme-E Ethernet Virtual Function" },
+ 	{ "Broadcom NetXtreme-C Ethernet Virtual Function" },
  };
  
  static const struct pci_device_id bnxt_pci_tbl[] = {
++	{ PCI_VDEVICE(BROADCOM, 0x1614), .driver_data = BCM57454 },
+ 	{ PCI_VDEVICE(BROADCOM, 0x16c0), .driver_data = BCM57417_NPAR },
+ 	{ PCI_VDEVICE(BROADCOM, 0x16c8), .driver_data = BCM57301 },
+ 	{ PCI_VDEVICE(BROADCOM, 0x16c9), .driver_data = BCM57302 },
+@@ -175,8 +180,9 @@ enum board_idx {
+ 	{ PCI_VDEVICE(BROADCOM, 0x16ed), .driver_data = BCM57414_NPAR },
+ 	{ PCI_VDEVICE(BROADCOM, 0x16ee), .driver_data = BCM57416_NPAR },
+ 	{ PCI_VDEVICE(BROADCOM, 0x16ef), .driver_data = BCM57416_NPAR },
++	{ PCI_VDEVICE(BROADCOM, 0x16f0), .driver_data = BCM58808 },
+ 	{ PCI_VDEVICE(BROADCOM, 0x16f1), .driver_data = BCM57452 },
+-	{ PCI_VDEVICE(BROADCOM, 0x1614), .driver_data = BCM57454 },
++	{ PCI_VDEVICE(BROADCOM, 0xd802), .driver_data = BCM58802 },
+ #ifdef CONFIG_BNXT_SRIOV
+ 	{ PCI_VDEVICE(BROADCOM, 0x1606), .driver_data = NETXTREME_E_VF },
+ 	{ PCI_VDEVICE(BROADCOM, 0x1609), .driver_data = NETXTREME_E_VF },
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.h b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
+index 801c0f7..3521e46 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt.h
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
+@@ -990,6 +990,9 @@ struct bnxt {
+ 
+ #define CHIP_NUM_5745X		0xd730
+ 
++#define CHIP_NUM_58802		0xd802
++#define CHIP_NUM_58808		0xd808
++
+ #define BNXT_CHIP_NUM_5730X(chip_num)		\
+ 	((chip_num) >= CHIP_NUM_57301 &&	\
+ 	 (chip_num) <= CHIP_NUM_57304)
+@@ -1021,6 +1024,10 @@ struct bnxt {
+ #define BNXT_CHIP_NUM_57X1X(chip_num)		\
+ 	(BNXT_CHIP_NUM_5731X(chip_num) || BNXT_CHIP_NUM_5741X(chip_num))
+ 
++#define BNXT_CHIP_NUM_588XX(chip_num)		\
++	((chip_num) == CHIP_NUM_58802 ||	\
++	 (chip_num) == CHIP_NUM_58808)
++
+ 	struct net_device	*dev;
+ 	struct pci_dev		*pdev;
+ 
+@@ -1079,6 +1086,7 @@ struct bnxt {
+ #define BNXT_CHIP_P4_PLUS(bp)			\
+ 	(BNXT_CHIP_NUM_57X1X((bp)->chip_num) ||	\
+ 	 BNXT_CHIP_NUM_5745X((bp)->chip_num) ||	\
++	 BNXT_CHIP_NUM_588XX((bp)->chip_num) ||	\
+ 	 (BNXT_CHIP_NUM_58700((bp)->chip_num) &&	\
+ 	  !BNXT_CHIP_TYPE_NITRO_A0(bp)))
+ 
 -- 
 1.8.3.1
