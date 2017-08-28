@@ -1,188 +1,186 @@
 From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net-next 10/11] bnxt_en: add TC flower offload flow_alloc/free FW cmds
-Date: Mon, 28 Aug 2017 13:40:34 -0400
-Message-ID: <1503942035-24924-11-git-send-email-michael.chan@broadcom.com>
+Subject: [PATCH net-next 02/11] bnxt_en: Improve tx ring reservation logic.
+Date: Mon, 28 Aug 2017 13:40:26 -0400
+Message-ID: <1503942035-24924-3-git-send-email-michael.chan@broadcom.com>
 References: <1503942035-24924-1-git-send-email-michael.chan@broadcom.com>
-Cc: netdev@vger.kernel.org, Sathya Perla <sathya.perla@broadcom.com>
+Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f180.google.com ([209.85.220.180]:37258 "EHLO
-        mail-qk0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751550AbdH1RlD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 13:41:03 -0400
-Received: by mail-qk0-f180.google.com with SMTP id k126so5365475qkb.4
-        for <netdev@vger.kernel.org>; Mon, 28 Aug 2017 10:41:02 -0700 (PDT)
+Received: from mail-qk0-f182.google.com ([209.85.220.182]:35561 "EHLO
+        mail-qk0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751357AbdH1Rkv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 13:40:51 -0400
+Received: by mail-qk0-f182.google.com with SMTP id p67so5392197qkd.2
+        for <netdev@vger.kernel.org>; Mon, 28 Aug 2017 10:40:51 -0700 (PDT)
 In-Reply-To: <1503942035-24924-1-git-send-email-michael.chan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sathya Perla <sathya.perla@broadcom.com>
+When the number of TX rings is changed (e.g. ethtool -L, enabling XDP TX
+rings, etc), the current code tries to reserve the new number of TX rings
+before closing and re-opening the NIC.  If we are unable to reserve the
+new TX rings, we abort the operation and keep the current TX rings.
 
-This patch adds the hwrm_cfa_flow_alloc/free() routines
-that are needed to issue the FW cmds needed for TC flower offload.
+The problem is that the firmware will disable the current TX rings even
+when it cannot reserve the new set of TX rings.  We fix it as follows:
 
-Signed-off-by: Sathya Perla <sathya.perla@broadcom.com>
+1. Instead of reserving the new set of TX rings, just ask the firmware
+to check if the new set of TX rings is available.  There is a flag in
+the firmware message to do that.  If not available, abort and the
+current TX rings will not be disabled.
+
+2. Do the actual TX ring reservation in the path that opens the NIC.
+We keep the number of TX rings currently successfully reserved.  If the
+number of TX rings is different than the reserved TX rings, we call
+firmware and reserve again.
+
 Signed-off-by: Michael Chan <michael.chan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c | 141 ++++++++++++++++++++++++++-
- 1 file changed, 139 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c         | 46 +++++++++++++++++++----
+ drivers/net/ethernet/broadcom/bnxt/bnxt.h         |  5 ++-
+ drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c |  3 +-
+ drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.c     |  4 +-
+ 4 files changed, 44 insertions(+), 14 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c
-index a10df27..5fa0835 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c
-@@ -259,13 +259,150 @@ static int bnxt_tc_parse_flow(struct bnxt *bp,
- 
- static int bnxt_hwrm_cfa_flow_free(struct bnxt *bp, __le16 flow_handle)
- {
--	return 0;
-+	struct hwrm_cfa_flow_free_input req = { 0 };
-+	int rc;
-+
-+	bnxt_hwrm_cmd_hdr_init(bp, &req, HWRM_CFA_FLOW_FREE, -1, -1);
-+	req.flow_handle = flow_handle;
-+
-+	rc = hwrm_send_message(bp, &req, sizeof(req), HWRM_CMD_TIMEOUT);
-+	if (rc)
-+		netdev_info(bp->dev, "Error: %s: flow_handle=0x%x rc=%d",
-+			    __func__, flow_handle, rc);
-+	return rc;
-+}
-+
-+static int ipv6_mask_len(struct in6_addr *mask)
-+{
-+	int mask_len = 0, i;
-+
-+	for (i = 0; i < 4; i++)
-+		mask_len += inet_mask_len(mask->s6_addr32[i]);
-+
-+	return mask_len;
-+}
-+
-+static bool is_wildcard(void *mask, int len)
-+{
-+	const u8 *p = mask;
-+	int i;
-+
-+	for (i = 0; i < len; i++) {
-+		if (p[i] != 0)
-+			return false;
-+	}
-+	return true;
- }
- 
- static int bnxt_hwrm_cfa_flow_alloc(struct bnxt *bp, struct bnxt_tc_flow *flow,
- 				    __le16 ref_flow_handle, __le16 *flow_handle)
- {
--	return 0;
-+	struct hwrm_cfa_flow_alloc_output *resp = bp->hwrm_cmd_resp_addr;
-+	struct bnxt_tc_actions *actions = &flow->actions;
-+	struct bnxt_tc_l3_key *l3_mask = &flow->l3_mask;
-+	struct bnxt_tc_l3_key *l3_key = &flow->l3_key;
-+	struct hwrm_cfa_flow_alloc_input req = { 0 };
-+	u16 flow_flags = 0, action_flags = 0;
-+	int rc;
-+
-+	bnxt_hwrm_cmd_hdr_init(bp, &req, HWRM_CFA_FLOW_ALLOC, -1, -1);
-+
-+	req.src_fid = cpu_to_le16(flow->src_fid);
-+	req.ref_flow_handle = ref_flow_handle;
-+	req.ethertype = flow->l2_key.ether_type;
-+	req.ip_proto = flow->l4_key.ip_proto;
-+
-+	if (flow->flags & BNXT_TC_FLOW_FLAGS_ETH_ADDRS) {
-+		memcpy(req.dmac, flow->l2_key.dmac, ETH_ALEN);
-+		memcpy(req.smac, flow->l2_key.smac, ETH_ALEN);
-+	}
-+
-+	if (flow->l2_key.num_vlans > 0) {
-+		flow_flags |= CFA_FLOW_ALLOC_REQ_FLAGS_NUM_VLAN_ONE;
-+		/* FW expects the inner_vlan_tci value to be set
-+		 * in outer_vlan_tci when num_vlans is 1 (which is
-+		 * always the case in TC.)
-+		 */
-+		req.outer_vlan_tci = flow->l2_key.inner_vlan_tci;
-+	}
-+
-+	/* If all IP and L4 fields are wildcarded then this is an L2 flow */
-+	if (is_wildcard(&l3_mask, sizeof(l3_mask)) &&
-+	    is_wildcard(&flow->l4_mask, sizeof(flow->l4_mask))) {
-+		flow_flags |= CFA_FLOW_ALLOC_REQ_FLAGS_FLOWTYPE_L2;
-+	} else {
-+		flow_flags |= flow->l2_key.ether_type == htons(ETH_P_IP) ?
-+				CFA_FLOW_ALLOC_REQ_FLAGS_FLOWTYPE_IPV4 :
-+				CFA_FLOW_ALLOC_REQ_FLAGS_FLOWTYPE_IPV6;
-+
-+		if (flow->flags & BNXT_TC_FLOW_FLAGS_IPV4_ADDRS) {
-+			req.ip_dst[0] = l3_key->ipv4.daddr.s_addr;
-+			req.ip_dst_mask_len =
-+				inet_mask_len(l3_mask->ipv4.daddr.s_addr);
-+			req.ip_src[0] = l3_key->ipv4.saddr.s_addr;
-+			req.ip_src_mask_len =
-+				inet_mask_len(l3_mask->ipv4.saddr.s_addr);
-+		} else if (flow->flags & BNXT_TC_FLOW_FLAGS_IPV6_ADDRS) {
-+			memcpy(req.ip_dst, l3_key->ipv6.daddr.s6_addr32,
-+			       sizeof(req.ip_dst));
-+			req.ip_dst_mask_len =
-+					ipv6_mask_len(&l3_mask->ipv6.daddr);
-+			memcpy(req.ip_src, l3_key->ipv6.saddr.s6_addr32,
-+			       sizeof(req.ip_src));
-+			req.ip_src_mask_len =
-+					ipv6_mask_len(&l3_mask->ipv6.saddr);
-+		}
-+	}
-+
-+	if (flow->flags & BNXT_TC_FLOW_FLAGS_PORTS) {
-+		req.l4_src_port = flow->l4_key.ports.sport;
-+		req.l4_src_port_mask = flow->l4_mask.ports.sport;
-+		req.l4_dst_port = flow->l4_key.ports.dport;
-+		req.l4_dst_port_mask = flow->l4_mask.ports.dport;
-+	} else if (flow->flags & BNXT_TC_FLOW_FLAGS_ICMP) {
-+		/* l4 ports serve as type/code when ip_proto is ICMP */
-+		req.l4_src_port = htons(flow->l4_key.icmp.type);
-+		req.l4_src_port_mask = htons(flow->l4_mask.icmp.type);
-+		req.l4_dst_port = htons(flow->l4_key.icmp.code);
-+		req.l4_dst_port_mask = htons(flow->l4_mask.icmp.code);
-+	}
-+	req.flags = cpu_to_le16(flow_flags);
-+
-+	if (actions->flags & BNXT_TC_ACTION_FLAG_DROP) {
-+		action_flags |= CFA_FLOW_ALLOC_REQ_ACTION_FLAGS_DROP;
-+	} else {
-+		if (actions->flags & BNXT_TC_ACTION_FLAG_FWD) {
-+			action_flags |= CFA_FLOW_ALLOC_REQ_ACTION_FLAGS_FWD;
-+			req.dst_fid = cpu_to_le16(actions->dst_fid);
-+		}
-+		if (actions->flags & BNXT_TC_ACTION_FLAG_PUSH_VLAN) {
-+			action_flags |=
-+			    CFA_FLOW_ALLOC_REQ_ACTION_FLAGS_L2_HEADER_REWRITE;
-+			req.l2_rewrite_vlan_tpid = actions->push_vlan_tpid;
-+			req.l2_rewrite_vlan_tci = actions->push_vlan_tci;
-+			memcpy(&req.l2_rewrite_dmac, &req.dmac, ETH_ALEN);
-+			memcpy(&req.l2_rewrite_smac, &req.smac, ETH_ALEN);
-+		}
-+		if (actions->flags & BNXT_TC_ACTION_FLAG_POP_VLAN) {
-+			action_flags |=
-+			    CFA_FLOW_ALLOC_REQ_ACTION_FLAGS_L2_HEADER_REWRITE;
-+			/* Rewrite config with tpid = 0 implies vlan pop */
-+			req.l2_rewrite_vlan_tpid = 0;
-+			memcpy(&req.l2_rewrite_dmac, &req.dmac, ETH_ALEN);
-+			memcpy(&req.l2_rewrite_smac, &req.smac, ETH_ALEN);
-+		}
-+	}
-+	req.action_flags = cpu_to_le16(action_flags);
-+
-+	mutex_lock(&bp->hwrm_cmd_lock);
-+
-+	rc = _hwrm_send_message(bp, &req, sizeof(req), HWRM_CMD_TIMEOUT);
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+index 6e14fc4..4b0a807 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+@@ -4461,9 +4461,33 @@ static int bnxt_hwrm_reserve_tx_rings(struct bnxt *bp, int *tx_rings)
+ 	mutex_lock(&bp->hwrm_cmd_lock);
+ 	rc = __bnxt_hwrm_get_tx_rings(bp, 0xffff, tx_rings);
+ 	mutex_unlock(&bp->hwrm_cmd_lock);
 +	if (!rc)
-+		*flow_handle = resp->flow_handle;
-+
-+	mutex_unlock(&bp->hwrm_cmd_lock);
-+
-+	return rc;
++		bp->tx_reserved_rings = *tx_rings;
+ 	return rc;
  }
  
- static int bnxt_tc_put_l2_node(struct bnxt *bp,
++static int bnxt_hwrm_check_tx_rings(struct bnxt *bp, int tx_rings)
++{
++	struct hwrm_func_cfg_input req = {0};
++	int rc;
++
++	if (bp->hwrm_spec_code < 0x10801)
++		return 0;
++
++	if (BNXT_VF(bp))
++		return 0;
++
++	bnxt_hwrm_cmd_hdr_init(bp, &req, HWRM_FUNC_CFG, -1, -1);
++	req.fid = cpu_to_le16(0xffff);
++	req.flags = cpu_to_le32(FUNC_CFG_REQ_FLAGS_TX_ASSETS_TEST);
++	req.enables = cpu_to_le32(FUNC_CFG_REQ_ENABLES_NUM_TX_RINGS);
++	req.num_tx_rings = cpu_to_le16(tx_rings);
++	rc = hwrm_send_message_silent(bp, &req, sizeof(req), HWRM_CMD_TIMEOUT);
++	if (rc)
++		return -ENOMEM;
++	return 0;
++}
++
+ static void bnxt_hwrm_set_coal_params(struct bnxt *bp, u32 max_bufs,
+ 	u32 buf_tmrs, u16 flags,
+ 	struct hwrm_ring_cmpl_ring_cfg_aggint_params_input *req)
+@@ -5115,6 +5139,15 @@ static int bnxt_init_chip(struct bnxt *bp, bool irq_re_init)
+ 				   rc);
+ 			goto err_out;
+ 		}
++		if (bp->tx_reserved_rings != bp->tx_nr_rings) {
++			int tx = bp->tx_nr_rings;
++
++			if (bnxt_hwrm_reserve_tx_rings(bp, &tx) ||
++			    tx < bp->tx_nr_rings) {
++				rc = -ENOMEM;
++				goto err_out;
++			}
++		}
+ 	}
+ 
+ 	rc = bnxt_hwrm_ring_alloc(bp);
+@@ -6998,8 +7031,8 @@ static void bnxt_sp_task(struct work_struct *work)
+ }
+ 
+ /* Under rtnl_lock */
+-int bnxt_reserve_rings(struct bnxt *bp, int tx, int rx, bool sh, int tcs,
+-		       int tx_xdp)
++int bnxt_check_rings(struct bnxt *bp, int tx, int rx, bool sh, int tcs,
++		     int tx_xdp)
+ {
+ 	int max_rx, max_tx, tx_sets = 1;
+ 	int tx_rings_needed;
+@@ -7019,10 +7052,7 @@ int bnxt_reserve_rings(struct bnxt *bp, int tx, int rx, bool sh, int tcs,
+ 	if (max_tx < tx_rings_needed)
+ 		return -ENOMEM;
+ 
+-	if (bnxt_hwrm_reserve_tx_rings(bp, &tx_rings_needed) ||
+-	    tx_rings_needed < (tx * tx_sets + tx_xdp))
+-		return -ENOMEM;
+-	return 0;
++	return bnxt_hwrm_check_tx_rings(bp, tx_rings_needed);
+ }
+ 
+ static void bnxt_unmap_bars(struct bnxt *bp, struct pci_dev *pdev)
+@@ -7211,8 +7241,8 @@ int bnxt_setup_mq_tc(struct net_device *dev, u8 tc)
+ 	if (bp->flags & BNXT_FLAG_SHARED_RINGS)
+ 		sh = true;
+ 
+-	rc = bnxt_reserve_rings(bp, bp->tx_nr_rings_per_tc, bp->rx_nr_rings,
+-				sh, tc, bp->tx_nr_rings_xdp);
++	rc = bnxt_check_rings(bp, bp->tx_nr_rings_per_tc, bp->rx_nr_rings,
++			      sh, tc, bp->tx_nr_rings_xdp);
+ 	if (rc)
+ 		return rc;
+ 
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.h b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
+index 2d84d57..568516f 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt.h
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
+@@ -1118,6 +1118,7 @@ struct bnxt {
+ 	int			tx_nr_rings;
+ 	int			tx_nr_rings_per_tc;
+ 	int			tx_nr_rings_xdp;
++	int			tx_reserved_rings;
+ 
+ 	int			tx_wake_thresh;
+ 	int			tx_push_thresh;
+@@ -1346,8 +1347,8 @@ int bnxt_hwrm_func_rgtr_async_events(struct bnxt *bp, unsigned long *bmap,
+ int bnxt_half_open_nic(struct bnxt *bp);
+ void bnxt_half_close_nic(struct bnxt *bp);
+ int bnxt_close_nic(struct bnxt *, bool, bool);
+-int bnxt_reserve_rings(struct bnxt *bp, int tx, int rx, bool sh, int tcs,
+-		       int tx_xdp);
++int bnxt_check_rings(struct bnxt *bp, int tx, int rx, bool sh, int tcs,
++		     int tx_xdp);
+ int bnxt_setup_mq_tc(struct net_device *dev, u8 tc);
+ int bnxt_get_max_rings(struct bnxt *, int *, int *, bool);
+ void bnxt_restore_pf_fw_resources(struct bnxt *bp);
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
+index 08b870d..8eff05a 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
+@@ -435,8 +435,7 @@ static int bnxt_set_channels(struct net_device *dev,
+ 		}
+ 		tx_xdp = req_rx_rings;
+ 	}
+-	rc = bnxt_reserve_rings(bp, req_tx_rings, req_rx_rings, sh, tcs,
+-				tx_xdp);
++	rc = bnxt_check_rings(bp, req_tx_rings, req_rx_rings, sh, tcs, tx_xdp);
+ 	if (rc) {
+ 		netdev_warn(dev, "Unable to allocate the requested rings\n");
+ 		return rc;
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.c
+index 3961a68..d8f0c83 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.c
+@@ -169,8 +169,8 @@ static int bnxt_xdp_set(struct bnxt *bp, struct bpf_prog *prog)
+ 	tc = netdev_get_num_tc(dev);
+ 	if (!tc)
+ 		tc = 1;
+-	rc = bnxt_reserve_rings(bp, bp->tx_nr_rings_per_tc, bp->rx_nr_rings,
+-				true, tc, tx_xdp);
++	rc = bnxt_check_rings(bp, bp->tx_nr_rings_per_tc, bp->rx_nr_rings,
++			      true, tc, tx_xdp);
+ 	if (rc) {
+ 		netdev_warn(dev, "Unable to reserve enough TX rings to support XDP.\n");
+ 		return rc;
 -- 
 1.8.3.1
