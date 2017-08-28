@@ -1,33 +1,24 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/4] xfrm_user info leaks
-Date: Mon, 28 Aug 2017 15:52:32 -0700 (PDT)
-Message-ID: <20170828.155232.1540318133719787999.davem@davemloft.net>
-References: <1503760140-9095-1-git-send-email-minipli@googlemail.com>
+Subject: Re: [PATCH] net: ethernet: broadcom: Remove null check before kfree
+Date: Mon, 28 Aug 2017 15:53:33 -0700 (PDT)
+Message-ID: <20170828.155333.1067566141697358468.davem@davemloft.net>
+References: <1503778667-4416-1-git-send-email-himanshujha199640@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: steffen.klassert@secunet.com, herbert@gondor.apana.org.au,
-        netdev@vger.kernel.org
-To: minipli@googlemail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:50410 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751231AbdH1Wwd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 18:52:33 -0400
-In-Reply-To: <1503760140-9095-1-git-send-email-minipli@googlemail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jarod@redhat.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: himanshujha199640@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1503778667-4416-1-git-send-email-himanshujha199640@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Mathias Krause <minipli@googlemail.com>
-Date: Sat, 26 Aug 2017 17:08:56 +0200
+From: Himanshu Jha <himanshujha199640@gmail.com>
+Date: Sun, 27 Aug 2017 01:47:47 +0530
 
-> Hi David, Steffen,
+> Kfree on NULL pointer is a no-op and therefore checking is redundant.
 > 
-> the following series fixes a few info leaks due to missing padding byte
-> initialization in the xfrm_user netlink interface.
-> 
-> Please apply!
+> Signed-off-by: Himanshu Jha <himanshujha199640@gmail.com>
 
-Steffen please pick this up if you haven't already.
-
-Thank you.
+Applied.
