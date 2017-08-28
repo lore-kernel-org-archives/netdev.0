@@ -1,49 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] xen-netback: update ubuf_info initialization
- to anonymous union
-Date: Mon, 28 Aug 2017 15:17:52 -0700 (PDT)
-Message-ID: <20170828.151752.246788024466105849.davem@davemloft.net>
-References: <20170825171043.84011-1-willemdebruijn.kernel@gmail.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH iproute2 2/4] tc: m_ife: print IEEE ethertype format
+Date: Mon, 28 Aug 2017 18:18:04 -0400
+Message-ID: <ff74308c-2fe9-7c73-6215-8a269ea1be5e@mojatatu.com>
+References: <20170828190738.26829-1-aring@mojatatu.com>
+ <20170828190738.26829-3-aring@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, wei.liu2@citrix.com,
-        paul.durrant@citrix.com, kbuild-all@01.org, willemb@google.com
-To: willemdebruijn.kernel@gmail.com
+Cc: yotamg@mellanox.com, xiyou.wangcong@gmail.com, jiri@resnulli.us,
+        netdev@vger.kernel.org
+To: Alexander Aring <aring@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:49630 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751215AbdH1WRx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 18:17:53 -0400
-In-Reply-To: <20170825171043.84011-1-willemdebruijn.kernel@gmail.com>
+Received: from mail-io0-f194.google.com ([209.85.223.194]:34648 "EHLO
+        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751215AbdH1WSG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 18:18:06 -0400
+Received: by mail-io0-f194.google.com with SMTP id d81so918295ioj.1
+        for <netdev@vger.kernel.org>; Mon, 28 Aug 2017 15:18:06 -0700 (PDT)
+In-Reply-To: <20170828190738.26829-3-aring@mojatatu.com>
+Content-Language: en-GB
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Date: Fri, 25 Aug 2017 13:10:43 -0400
+Alex,
 
-> From: Willem de Bruijn <willemb@google.com>
-> 
-> The xen driver initializes struct ubuf_info fields using designated
-> initializers. I recently moved these fields inside a nested anonymous
-> struct inside an anonymous union. I had missed this use case.
-> 
-> This breaks compilation of xen-netback with older compilers.
-> From kbuild bot with gcc-4.4.7:
-> 
->    drivers/net//xen-netback/interface.c: In function
->    'xenvif_init_queue':
->    >> drivers/net//xen-netback/interface.c:554: error: unknown field 'ctx' specified in initializer
->    >> drivers/net//xen-netback/interface.c:554: warning: missing braces around initializer
->       drivers/net//xen-netback/interface.c:554: warning: (near initialization for '(anonymous).<anonymous>')
->    >> drivers/net//xen-netback/interface.c:554: warning: initialization makes integer from pointer without a cast
->    >> drivers/net//xen-netback/interface.c:555: error: unknown field 'desc' specified in initializer
-> 
-> Add double braces around the designated initializers to match their
-> nested position in the struct. After this, compilation succeeds again.
-> 
-> Fixes: 4ab6c99d99bb ("sock: MSG_ZEROCOPY notification coalescing")
-> Reported-by: kbuild bot <lpk@intel.com>
-> Signed-off-by: Willem de Bruijn <willemb@google.com>
+I think we should get rid of these fprintfs instead of fixing them.
+They were originally intended to be debug outputs.
 
-APplied.
+cheers,
+jamal
+
+On 17-08-28 03:07 PM, Alexander Aring wrote:
+> This patch uses the usually IEEE format to display an ethertype which is
+> 4-digits and every digit in upper case.
+> 
+> Signed-off-by: Alexander Aring <aring@mojatatu.com>
+> ---
+>   tc/m_ife.c | 2 +-
+>   1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/tc/m_ife.c b/tc/m_ife.c
+> index e05e2276..7b57130e 100644
+> --- a/tc/m_ife.c
+> +++ b/tc/m_ife.c
+> @@ -125,7 +125,7 @@ static int parse_ife(struct action_util *a, int *argc_p, char ***argv_p,
+>   			NEXT_ARG();
+>   			if (get_u16(&ife_type, *argv, 0))
+>   				invarg("ife type is invalid", *argv);
+> -			fprintf(stderr, "IFE type 0x%x\n", ife_type);
+> +			fprintf(stderr, "IFE type 0x%04X\n", ife_type);
+>   			user_type = 1;
+>   		} else if (matches(*argv, "dst") == 0) {
+>   			NEXT_ARG();
+> 
