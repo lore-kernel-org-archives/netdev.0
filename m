@@ -1,34 +1,27 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/5] l2tp: fix some l2tp_tunnel_find() issues in
- l2tp_netlink
-Date: Mon, 28 Aug 2017 11:35:16 -0700 (PDT)
-Message-ID: <20170828.113516.2181846322329552747.davem@davemloft.net>
-References: <cover.1503671776.git.g.nault@alphalink.fr>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: [PATCH] packet: Don't write vnet header beyond end of buffer
+Date: Mon, 28 Aug 2017 14:39:55 -0400
+Message-ID: <CAF=yD-Lps0R0LHBm+JjYn+d6BoaC-xmTohzD82MBCnACVyJNag@mail.gmail.com>
+References: <20170828182941.10677-1-bpoirier@suse.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jchapman@katalix.com
-To: g.nault@alphalink.fr
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:45532 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751184AbdH1SfR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 14:35:17 -0400
-In-Reply-To: <cover.1503671776.git.g.nault@alphalink.fr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Network Development <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Willem de Bruijn <willemb@google.com>
+To: Benjamin Poirier <bpoirier@suse.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170828182941.10677-1-bpoirier@suse.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Guillaume Nault <g.nault@alphalink.fr>
-Date: Fri, 25 Aug 2017 16:51:39 +0200
+On Mon, Aug 28, 2017 at 2:29 PM, Benjamin Poirier <bpoirier@suse.com> wrote:
+> ... which may happen with certain values of tp_reserve and maclen.
+>
+> Fixes: 58d19b19cd99 ("packet: vnet_hdr support for tpacket_rcv")
+> Signed-off-by: Benjamin Poirier <bpoirier@suse.com>
+> Cc: Willem de Bruijn <willemb@google.com>
 
-> Since l2tp_tunnel_find() doesn't take a reference on the tunnel it
-> returns, its users are almost guaranteed to be racy.
-> 
-> This series defines l2tp_tunnel_get() which can be used as a safe
-> replacement, and converts some of l2tp_tunnel_find() users in the
-> l2tp_netlink module.
-> 
-> Other users often combine this issue with other more or less subtle
-> races. They will be fixed incrementally in followup series.
+Acked-by: Willem de Bruijn <willemb@google.com>
 
-Series applied, thank you.
+Thanks for fixing this, Benjamin.
