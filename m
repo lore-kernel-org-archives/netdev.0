@@ -1,109 +1,51 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: Question about ip_defrag
-Date: Mon, 28 Aug 2017 16:00:32 +0200
-Message-ID: <20170828140032.GB12926@breakpoint.cc>
-References: <4F88C5DDA1E80143B232E89585ACE27D018F07E2@DGGEMA502-MBX.china.huawei.com>
- <20170824155300.1e577dae@redhat.com>
- <4F88C5DDA1E80143B232E89585ACE27D018F0AE1@DGGEMA502-MBX.china.huawei.com>
- <20170824205926.2c45e3a1@redhat.com>
- <4F88C5DDA1E80143B232E89585ACE27D018F3157@DGGEMA502-MBX.china.huawei.com>
+From: "Waskiewicz Jr, Peter" <peter.waskiewicz.jr@intel.com>
+Subject: Re: [PATCH] connector: Delete an error message for a failed memory
+ allocation in cn_queue_alloc_callback_entry()
+Date: Mon, 28 Aug 2017 14:05:14 +0000
+Message-ID: <E0D909EE5BB15A4699798539EA149D7F07797141@ORSMSX103.amr.corp.intel.com>
+References: <7b206228-b3e9-5cb9-873c-75b5d8aae23b@users.sourceforge.net>
+ <E0D909EE5BB15A4699798539EA149D7F0779689E@ORSMSX103.amr.corp.intel.com>
+ <20170828060545.yddjpqzitw46lgiu@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "kuznet@ms2.inr.ac.ru" <kuznet@ms2.inr.ac.ru>,
-        "yoshfuji@linux-ipv6.org" <yoshfuji@linux-ipv6.org>,
-        "elena.reshetova@intel.com" <elena.reshetova@intel.com>,
-        "edumazet@google.com" <edumazet@google.com>,
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: SF Markus Elfring <elfring@users.sourceforge.net>,
         "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "Wangkefeng (Kevin)" <wangkefeng.wang@huawei.com>,
-        "weiyongjun (A)" <weiyongjun1@huawei.com>
-To: "liujian (CE)" <liujian56@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:50888 "EHLO
-        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751170AbdH1ODn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 10:03:43 -0400
-Content-Disposition: inline
-In-Reply-To: <4F88C5DDA1E80143B232E89585ACE27D018F3157@DGGEMA502-MBX.china.huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+        Evgeniy Polyakov <zbr@ioremap.net>,
+        LKML <linux-kernel@vger.kernel.org>,
+        "kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
+To: Dan Carpenter <dan.carpenter@oracle.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-liujian (CE) <liujian56@huawei.com> wrote:
-> Hi
+On 8/28/17 2:06 AM, Dan Carpenter wrote:
+> On Sun, Aug 27, 2017 at 11:16:06PM +0000, Waskiewicz Jr, Peter wrote:
+>> On 8/27/17 3:26 PM, SF Markus Elfring wrote:
+>>> From: Markus Elfring <elfring@users.sourceforge.net>
+>>> Date: Sun, 27 Aug 2017 21:18:37 +0200
+>>>
+>>> Omit an extra message for a memory allocation failure in this function.
+>>>
+>>> This issue was detected by using the Coccinelle software.
+>>
+>> Did coccinelle trip on the message or the fact you weren't returning NULL?
+>>
 > 
-> I checked our 3.10 kernel, we had backported all percpu_counter bug fix in lib/percpu_counter.c and include/linux/percpu_counter.h.
-> And I check 4.13-rc6, also has the issue if NIC's rx cpu num big enough.
+> You've misread the patch somehow.  The existing code has a NULL return
+> and it's preserved in Markus's patch.  This sort of patch is to fix a
+> checkpatch.pl warning.  The error message from this kzalloc() isn't going
+> to get printed because it's a small allocation and small allocations
+> always succeed in current kernels.  But probably the main reason
+> checkpatch complains is that kmalloc() already prints a stack trace and
+> a bunch of other information so the printk doesn't add anyting.
+> Removing it saves a little memory.
 > 
-> > > > > the issue:
-> > > > > Ip_defrag fail caused by frag_mem_limit reached 4M(frags.high_thresh).
-> > > > > At this moment,sum_frag_mem_limit is about 10K.
-> 
-> So should we change ipfrag high/low thresh to a reasonable value ? 
-> And if it is, is there a standard to change the value?
+> I'm mostly a fan of running checkpatch on new patches or staging and not
+> on old code...
 
-Each cpu can have frag_percpu_counter_batch bytes rest doesn't know
-about so with 64 cpus that is ~8 mbyte.
+And this is what I get for reading the patch with a crappy 
+mailer...thanks Doubtlook.
 
-possible solutions:
-1. reduce frag_percpu_counter_batch to 16k or so
-2. make both low and high thresh depend on NR_CPUS
-
-liujian, does this change help in any way?
-
-diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
---- a/net/ipv4/inet_fragment.c
-+++ b/net/ipv4/inet_fragment.c
-@@ -123,6 +123,17 @@ static bool inet_fragq_should_evict(const struct inet_frag_queue *q)
- 	       frag_mem_limit(q->net) >= q->net->low_thresh;
- }
- 
-+/* ->mem batch size is huge, this can cause severe discrepancies
-+ * between actual value (sum of pcpu values) and the global estimate.
-+ *
-+ * Use a smaller batch to give an opportunity for the global estimate
-+ * to more accurately reflect current state.
-+ */
-+static void update_frag_mem_limit(struct netns_frags *nf, unsigned int batch)
-+{
-+	 percpu_counter_add_batch(&nf->mem, 0, batch);
-+}
-+
- static unsigned int
- inet_evict_bucket(struct inet_frags *f, struct inet_frag_bucket *hb)
- {
-@@ -146,8 +157,12 @@ inet_evict_bucket(struct inet_frags *f, struct inet_frag_bucket *hb)
- 
- 	spin_unlock(&hb->chain_lock);
- 
--	hlist_for_each_entry_safe(fq, n, &expired, list_evictor)
-+	hlist_for_each_entry_safe(fq, n, &expired, list_evictor) {
-+		struct netns_frags *nf = fq->net;
-+
- 		f->frag_expire((unsigned long) fq);
-+		update_frag_mem_limit(nf, 1);
-+	}
- 
- 	return evicted;
- }
-@@ -396,8 +411,10 @@ struct inet_frag_queue *inet_frag_find(struct netns_frags *nf,
- 	struct inet_frag_queue *q;
- 	int depth = 0;
- 
--	if (frag_mem_limit(nf) > nf->low_thresh)
-+	if (frag_mem_limit(nf) > nf->low_thresh) {
- 		inet_frag_schedule_worker(f);
-+		update_frag_mem_limit(nf, SKB_TRUESIZE(1500) * 16);
-+	}
- 
- 	hash &= (INETFRAGS_HASHSZ - 1);
- 	hb = &f->hash[hash];
-@@ -416,6 +433,8 @@ struct inet_frag_queue *inet_frag_find(struct netns_frags *nf,
- 	if (depth <= INETFRAGS_MAXDEPTH)
- 		return inet_frag_create(nf, f, key);
- 
-+	update_frag_mem_limit(nf, 1);
-+
- 	if (inet_frag_may_rebuild(f)) {
- 		if (!f->rebuild)
- 			f->rebuild = true;
+Sorry for the noise.
