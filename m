@@ -1,141 +1,215 @@
-From: "liujian (CE)" <liujian56@huawei.com>
-Subject: RE: Question about ip_defrag
-Date: Mon, 28 Aug 2017 08:08:14 +0000
-Message-ID: <4F88C5DDA1E80143B232E89585ACE27D018F3157@DGGEMA502-MBX.china.huawei.com>
-References: <4F88C5DDA1E80143B232E89585ACE27D018F07E2@DGGEMA502-MBX.china.huawei.com>
-        <20170824155300.1e577dae@redhat.com>
-        <4F88C5DDA1E80143B232E89585ACE27D018F0AE1@DGGEMA502-MBX.china.huawei.com>
- <20170824205926.2c45e3a1@redhat.com>
+From: Vadim Lomovtsev <vlomovts@redhat.com>
+Subject: Re: [PATCH] net: sunrpc: svcsock: fix NULL-pointer exception
+Date: Mon, 28 Aug 2017 04:38:10 -0400
+Message-ID: <20170828083810.GB7864@dhcp187-32.khw.lab.eng.bos.redhat.com>
+References: <1503050447-13362-1-git-send-email-vlomovts@redhat.com>
+ <20170825220128.GA6276@fieldses.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-        "kuznet@ms2.inr.ac.ru" <kuznet@ms2.inr.ac.ru>,
-        "yoshfuji@linux-ipv6.org" <yoshfuji@linux-ipv6.org>,
-        "elena.reshetova@intel.com" <elena.reshetova@intel.com>,
-        "edumazet@google.com" <edumazet@google.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "Wangkefeng (Kevin)" <wangkefeng.wang@huawei.com>,
-        "weiyongjun (A)" <weiyongjun1@huawei.com>
-To: "liujian (CE)" <liujian56@huawei.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([45.249.212.188]:11821 "EHLO
-        szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753342AbdH1IMF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 04:12:05 -0400
-Content-Language: zh-CN
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: trond.myklebust@primarydata.com, anna.schumaker@netapp.com,
+        jlayton@poochiereds.net, davem@davemloft.net,
+        linux-nfs@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, pabeni@redhat.com,
+        vlomovts@redhat.com
+To: "J. Bruce Fields" <bfields@fieldses.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170825220128.GA6276@fieldses.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-SGkNCg0KSSBjaGVja2VkIG91ciAzLjEwIGtlcm5lbCwgd2UgaGFkIGJhY2twb3J0ZWQgYWxsIHBl
-cmNwdV9jb3VudGVyIGJ1ZyBmaXggaW4gbGliL3BlcmNwdV9jb3VudGVyLmMgYW5kIGluY2x1ZGUv
-bGludXgvcGVyY3B1X2NvdW50ZXIuaC4NCkFuZCBJIGNoZWNrIDQuMTMtcmM2LCBhbHNvIGhhcyB0
-aGUgaXNzdWUgaWYgTklDJ3MgcnggY3B1IG51bSBiaWcgZW5vdWdoLg0KDQo+ID4gPiA+IHRoZSBp
-c3N1ZToNCj4gPiA+ID4gSXBfZGVmcmFnIGZhaWwgY2F1c2VkIGJ5IGZyYWdfbWVtX2xpbWl0IHJl
-YWNoZWQgNE0oZnJhZ3MuaGlnaF90aHJlc2gpLg0KPiA+ID4gPiBBdCB0aGlzIG1vbWVudCxzdW1f
-ZnJhZ19tZW1fbGltaXQgaXMgYWJvdXQgMTBLLg0KDQpTbyBzaG91bGQgd2UgY2hhbmdlIGlwZnJh
-ZyBoaWdoL2xvdyB0aHJlc2ggdG8gYSByZWFzb25hYmxlIHZhbHVlID8gDQpBbmQgaWYgaXQgaXMs
-IGlzIHRoZXJlIGEgc3RhbmRhcmQgdG8gY2hhbmdlIHRoZSB2YWx1ZT8NCg0KDQpyb290QFJIODEw
-MC1WMzovcHJvYy9uZXQjIGNhdCBzb2Nrc3RhdA0Kc29ja2V0czogdXNlZCAxNDg1DQpUQ1A6IGlu
-dXNlIDQgb3JwaGFuIDAgdHcgMCBhbGxvYyA1IG1lbSAxDQpVRFA6IGludXNlIDIwMyBtZW0gMjAx
-DQpVRFBMSVRFOiBpbnVzZSAwDQpSQVc6IGludXNlIDANCkZSQUc6IGludXNlIDEgbWVtb3J5IDE2
-MDQ4LCAzMTU2Njk2Lg0Kcm9vdEBSSDgxMDAtVjM6L3Byb2MvbmV0Iw0KDQpJbiBvcmRlciB0byBw
-cmludCBmcmFnX21lbV9saW1pdCwgY2hhbmdlIHRoZSBjb2RlIGFzIGJlbG93Og0KDQpkaWZmIC0t
-Z2l0IGEvbmV0L2lwdjQvcHJvYy5jIGIvbmV0L2lwdjQvcHJvYy5jDQppbmRleCA0M2ViNjU2Ny4u
-MzhiZmIyMCAxMDA2NDQNCi0tLSBhL25ldC9pcHY0L3Byb2MuYw0KKysrIGIvbmV0L2lwdjQvcHJv
-Yy5jDQpAQCAtNzMsNyArNzMsNyBAQCBzdGF0aWMgaW50IHNvY2tzdGF0X3NlcV9zaG93KHN0cnVj
-dCBzZXFfZmlsZSAqc2VxLCB2b2lkICp2KQ0KICAgICAgICBzZXFfcHJpbnRmKHNlcSwgIlJBVzog
-aW51c2UgJWRcbiIsDQogICAgICAgICAgICAgICAgICAgc29ja19wcm90X2ludXNlX2dldChuZXQs
-ICZyYXdfcHJvdCkpOw0KICAgICAgICBmcmFnX21lbSA9IGlwX2ZyYWdfbWVtKG5ldCk7DQotICAg
-ICAgIHNlcV9wcmludGYoc2VxLCAgIkZSQUc6IGludXNlICV1IG1lbW9yeSAldVxuIiwgISFmcmFn
-X21lbSwgZnJhZ19tZW0pOw0KKyAgICAgICBzZXFfcHJpbnRmKHNlcSwgICJGUkFHOiBpbnVzZSAl
-dSBtZW1vcnkgJXUsICV1LlxuIiwgISFmcmFnX21lbSwgZnJhZ19tZW0sIGZyYWdfbWVtX2xpbWl0
-KCZuZXQtPmlwdjQuZnJhZ3MpKTsNCiAgICAgICAgcmV0dXJuIDA7DQogfQ0KDQpCZXN0IFJlZ2Fy
-ZHMsDQpsaXVqaWFuDQoNCg0KPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBs
-aXVqaWFuIChDRSkNCj4gU2VudDogRnJpZGF5LCBBdWd1c3QgMjUsIDIwMTcgOTozMyBBTQ0KPiBU
-bzogJ0plc3BlciBEYW5nYWFyZCBCcm91ZXInDQo+IENjOiBkYXZlbUBkYXZlbWxvZnQubmV0OyBr
-dXpuZXRAbXMyLmluci5hYy5ydTsgeW9zaGZ1amlAbGludXgtaXB2Ni5vcmc7DQo+IGVsZW5hLnJl
-c2hldG92YUBpbnRlbC5jb207IGVkdW1hemV0QGdvb2dsZS5jb207IG5ldGRldkB2Z2VyLmtlcm5l
-bC5vcmc7DQo+IFdhbmdrZWZlbmcgKEtldmluKTsgd2VpeW9uZ2p1biAoQSkNCj4gU3ViamVjdDog
-UkU6IFF1ZXN0aW9uIGFib3V0IGlwX2RlZnJhZw0KPiANCj4gDQo+ID4gLS0tLS1PcmlnaW5hbCBN
-ZXNzYWdlLS0tLS0NCj4gPiBGcm9tOiBKZXNwZXIgRGFuZ2FhcmQgQnJvdWVyIFttYWlsdG86YnJv
-dWVyQHJlZGhhdC5jb21dDQo+ID4gU2VudDogRnJpZGF5LCBBdWd1c3QgMjUsIDIwMTcgMjo1OSBB
-TQ0KPiA+IFRvOiBsaXVqaWFuIChDRSkNCj4gPiBDYzogZGF2ZW1AZGF2ZW1sb2Z0Lm5ldDsga3V6
-bmV0QG1zMi5pbnIuYWMucnU7DQo+ID4geW9zaGZ1amlAbGludXgtaXB2Ni5vcmc7IGVsZW5hLnJl
-c2hldG92YUBpbnRlbC5jb207DQo+ID4gZWR1bWF6ZXRAZ29vZ2xlLmNvbTsgbmV0ZGV2QHZnZXIu
-a2VybmVsLm9yZzsgYnJvdWVyQHJlZGhhdC5jb20NCj4gPiBTdWJqZWN0OiBSZTogUXVlc3Rpb24g
-YWJvdXQgaXBfZGVmcmFnDQo+ID4NCj4gPg0KPiA+IE9uIFRodSwgMjQgQXVnIDIwMTcgMTY6MDQ6
-NDEgKzAwMDAgImxpdWppYW4gKENFKSINCj4gPiA8bGl1amlhbjU2QGh1YXdlaS5jb20+DQo+ID4g
-d3JvdGU6DQo+ID4NCj4gPiA+ID5XaGF0IGtlcm5lbCB2ZXJzaW9uIGhhdmUgeW91IHNlZW4gdGhp
-cyBpc3N1ZSB3aXRoPw0KPiA+ID4NCj4gPiA+IDMuMTDvvIx3aXRoIHNvbWUgYmFja3BvcnQuDQo+
-ID4gPg0KPiA+ID4gID5BcyBmYXIgYXMgSSByZW1lbWJlciwgdGhpcyBpc3N1ZSBoYXZlIGJlZW4g
-Zml4ZWQgYmVmb3JlLi4uDQo+ID4gPg0KPiA+ID4gd2hpY2ggb25lIHBhdGNoPyBJIGRpZG5vdCBm
-aW5kIG91dCB0aGUgcGF0Y2g6KA0KPiA+DQo+ID4gQUZBSUsgaXQgd2FzIHNvbWUgYnVncyBpbiB0
-aGUgcGVyY3B1X2NvdW50ZXIgY29kZS4gIElmIHlvdSBuZWVkIHRvDQo+ID4gYmFja3BvcnQgbG9v
-ayBhdCB0aGUgZ2l0IGNvbW1pdHM6DQo+ID4NCj4gPiAgZ2l0IGxvZyBsaWIvcGVyY3B1X2NvdW50
-ZXIuYyBpbmNsdWRlL2xpbnV4L3BlcmNwdV9jb3VudGVyLmgNCj4gPg0KPiA+IEFyZSB5b3UgbWFp
-bnRhaW5pbmcgeW91ciBvd24gMy4xMCBrZXJuZWw/DQo+ID4NCj4gPiBJIGtub3cgdGhhdCBmb3Ig
-UkhFTDcgKGFsc28ga2VybmVsIDMuMTApIHdlIGJhY2twb3J0ZWQgdGhlDQo+ID4gcGVyY3B1X2Nv
-dW50ZXIgZml4ZXMuLi4NCj4gPg0KPiBDb3VsZCB5b3UgdGVsbCBtZSB3aGljaCBvbmUgcGF0Y2g/
-ICB3ZSBoYXZlIGJhY2twb3J0ZWQgbW9zdCBvZiB0aGUgdHdvDQo+IGZpbGVzJ3MgY2hhbmdlLg0K
-PiBUaGFuayB5b3Ugfg0KPiANCj4gDQo+ID4gLS1KZXNwZXINCj4gPg0KPiA+DQo+ID4gPiDlj5Hk
-u7bkurrvvJogSmVzcGVyIERhbmdhYXJkIEJyb3Vlcg0KPiA+ID4g5pS25Lu25Lq677yaIGxpdWpp
-YW4NCj4gPiAoQ0UpPGxpdWppYW41NkBodWF3ZWkuY29tPG1haWx0bzpsaXVqaWFuNTZAaHVhd2Vp
-LmNvbT4+DQo+ID4gPiDmioTpgIHvvJoNCj4gPiA+DQo+ID4NCj4gZGF2ZW1AZGF2ZW1sb2Z0Lm5l
-dDxtYWlsdG86ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD47a3V6bmV0QG1zMi5pbnIuYWMucnUNCj4gPiA8
-bQ0KPiA+ID4gYWlsdG86a3V6bmV0QG1zMi5pbnIuYWMucnU+O3lvc2hmdWppQGxpbnV4LWlwdjYu
-b3JnPG1haWx0bzp5b3NoZnVqaUANCj4gPiA+IGxpDQo+ID4gPiBudXgtaXB2Ni5vcmc+O2VsZW5h
-LnJlc2hldG92YUBpbnRlbC5jb208bWFpbHRvOmVsZW5hLnJlc2hldG92YUBpbnRlbA0KPiA+ID4g
-LmMNCj4gPiA+DQo+ID4NCj4gb20+O2VkdW1hemV0QGdvb2dsZS5jb208bWFpbHRvOmVkdW1hemV0
-QGdvb2dsZS5jb20+O25ldGRldkB2Z2VyLmsNCj4gPiBlcm5lbA0KPiA+ID4gLm9yZzxtYWlsdG86
-bmV0ZGV2QHZnZXIua2VybmVsLm9yZz47YnJvdWVyQHJlZGhhdC5jb208bWFpbHRvOmJyb3Vlcg0K
-PiBADQo+ID4gPiByDQo+ID4gZQ0KPiA+ID4gZGhhdC5jb20+DQo+ID4gPiDkuLvpopjvvJogUmU6
-IFF1ZXN0aW9uIGFib3V0IGlwX2RlZnJhZw0KPiA+ID4g5pe26Ze077yaIDIwMTctMDgtMjQgMjE6
-NTM6MTcNCj4gPiA+DQo+ID4gPg0KPiA+ID4gT24gVGh1LCAyNCBBdWcgMjAxNyAxMzoxNTozMyAr
-MDAwMCAibGl1amlhbiAoQ0UpIg0KPiA+ID4gPGxpdWppYW41NkBodWF3ZWkuY29tPg0KPiA+IHdy
-b3RlOg0KPiA+ID4gPiBIZWxsbywNCj4gPiA+ID4NCj4gPiA+ID4gV2l0aCBiZWxvdyBwYXRjaCB3
-ZSBtZXQgb25lIGlzc3VlLg0KPiA+ID4gPiBodHRwczovL2dpdC5rZXJuZWwub3JnL3B1Yi9zY20v
-bGludXgva2VybmVsL2dpdC90b3J2YWxkcy9saW51eC5naXQNCj4gPiA+ID4gL2Mgb21taXQvP2g9
-djQuMTMtcmM2JmlkPTZkN2I4NTdkNTQxZQ0KPiA+ID4gPg0KPiA+ID4gPiB0aGUgaXNzdWU6DQo+
-ID4gPiA+IElwX2RlZnJhZyBmYWlsIGNhdXNlZCBieSBmcmFnX21lbV9saW1pdCByZWFjaGVkIDRN
-KGZyYWdzLmhpZ2hfdGhyZXNoKS4NCj4gPiA+ID4gQXQgdGhpcyBtb21lbnQsc3VtX2ZyYWdfbWVt
-X2xpbWl0IGlzIGFib3V0IDEwSy4NCj4gPiA+ID4gYW5kIG15IHRlc3QgbWFjaGluZSdzIGNwdSBu
-dW0gaXMgNjQuDQo+ID4gPiA+DQo+ID4gPiA+IENhbiBpIG9ubHkgY2hhbmdlIGZyYWdfbWVtX2xp
-bWl0IHRvIHN1bV8gZnJhZ19tZW1fbGltaXQ/DQo+ID4gPiA+DQo+ID4gPiA+DQo+ID4gPiA+IGRp
-ZmYgLS1naXQgYS9uZXQvaXB2NC9pbmV0X2ZyYWdtZW50LmMgYi9uZXQvaXB2NC9pbmV0X2ZyYWdt
-ZW50LmMNCj4gPiA+ID4gaW5kZXggOTZlOTVlOC4uZjA5YzAwYiAxMDA2NDQNCj4gPiA+ID4gLS0t
-IGEvbmV0L2lwdjQvaW5ldF9mcmFnbWVudC5jDQo+ID4gPiA+ICsrKyBiL25ldC9pcHY0L2luZXRf
-ZnJhZ21lbnQuYw0KPiA+ID4gPiBAQCAtMTIwLDcgKzEyMCw3IEBAIHN0YXRpYyB2b2lkIGluZXRf
-ZnJhZ19zZWNyZXRfcmVidWlsZChzdHJ1Y3QNCj4gPiA+ID4gaW5ldF9mcmFncyAqZikgIHN0YXRp
-YyBib29sIGluZXRfZnJhZ3Ffc2hvdWxkX2V2aWN0KGNvbnN0IHN0cnVjdA0KPiA+ID4gPiBpbmV0
-X2ZyYWdfcXVldWUgKnEpICB7DQo+ID4gPiA+ICAgICAgICAgcmV0dXJuIHEtPm5ldC0+bG93X3Ro
-cmVzaCA9PSAwIHx8DQo+ID4gPiA+IC0gICAgICAgICAgICAgIGZyYWdfbWVtX2xpbWl0KHEtPm5l
-dCkgPj0gcS0+bmV0LT5sb3dfdGhyZXNoOw0KPiA+ID4gPiArICAgICAgICAgICAgICBzdW1fZnJh
-Z19tZW1fbGltaXQocS0+bmV0KSA+PSBxLT5uZXQtPmxvd190aHJlc2g7DQo+ID4gPiA+ICB9DQo+
-ID4gPiA+DQo+ID4gPiA+ICBzdGF0aWMgdW5zaWduZWQgaW50DQo+ID4gPiA+IEBAIC0zNTUsNyAr
-MzU1LDcgQEAgc3RhdGljIHN0cnVjdCBpbmV0X2ZyYWdfcXVldWUNCj4gPiA+ID4gKmluZXRfZnJh
-Z19hbGxvYyhzdHJ1Y3QgbmV0bnNfZnJhZ3MgKm5mLCAgew0KPiA+ID4gPiAgICAgICAgIHN0cnVj
-dCBpbmV0X2ZyYWdfcXVldWUgKnE7DQo+ID4gPiA+DQo+ID4gPiA+IC0gICAgICAgaWYgKCFuZi0+
-aGlnaF90aHJlc2ggfHwgZnJhZ19tZW1fbGltaXQobmYpID4gbmYtPmhpZ2hfdGhyZXNoKSB7DQo+
-ID4gPiA+ICsgICAgICAgaWYgKCFuZi0+aGlnaF90aHJlc2ggfHwgc3VtX2ZyYWdfbWVtX2xpbWl0
-KG5mKSA+DQo+ID4gPiA+ICsgbmYtPmhpZ2hfdGhyZXNoKSB7DQo+ID4gPiA+ICAgICAgICAgICAg
-ICAgICBpbmV0X2ZyYWdfc2NoZWR1bGVfd29ya2VyKGYpOw0KPiA+ID4gPiAgICAgICAgICAgICAg
-ICAgcmV0dXJuIE5VTEw7DQo+ID4gPiA+ICAgICAgICAgfQ0KPiA+ID4gPiBAQCAtMzk2LDcgKzM5
-Niw3IEBAIHN0cnVjdCBpbmV0X2ZyYWdfcXVldWUgKmluZXRfZnJhZ19maW5kKHN0cnVjdA0KPiA+
-IG5ldG5zX2ZyYWdzICpuZiwNCj4gPiA+ID4gICAgICAgICBzdHJ1Y3QgaW5ldF9mcmFnX3F1ZXVl
-ICpxOw0KPiA+ID4gPiAgICAgICAgIGludCBkZXB0aCA9IDA7DQo+ID4gPiA+DQo+ID4gPiA+IC0g
-ICAgICAgaWYgKGZyYWdfbWVtX2xpbWl0KG5mKSA+IG5mLT5sb3dfdGhyZXNoKQ0KPiA+ID4gPiAr
-ICAgICAgIGlmIChzdW1fZnJhZ19tZW1fbGltaXQobmYpID4gbmYtPmxvd190aHJlc2gpDQo+ID4g
-PiA+ICAgICAgICAgICAgICAgICBpbmV0X2ZyYWdfc2NoZWR1bGVfd29ya2VyKGYpOw0KPiA+ID4g
-Pg0KPiA+ID4gPiAgICAgICAgIGhhc2ggJj0gKElORVRGUkFHU19IQVNIU1ogLSAxKTsNCj4gPiA+
-ID4gLS0NCj4gPiA+ID4NCj4gPiA+ID4gVGhhbmsgeW91IGZvciB5b3VyIHRpbWUuDQo+ID4gPg0K
-PiA+ID4gV2hhdCBrZXJuZWwgdmVyc2lvbiBoYXZlIHlvdSBzZWVuIHRoaXMgaXNzdWUgd2l0aD8N
-Cj4gPiA+DQo+ID4gPiBBcyBmYXIgYXMgSSByZW1lbWJlciwgdGhpcyBpc3N1ZSBoYXZlIGJlZW4g
-Zml4ZWQgYmVmb3JlLi4uDQo+ID4gPg0KPiA+ID4gLS0NCj4gPiA+IEJlc3QgcmVnYXJkcywNCj4g
-PiA+ICAgSmVzcGVyIERhbmdhYXJkIEJyb3Vlcg0KPiA+ID4gICBNU2MuQ1MsIFByaW5jaXBhbCBL
-ZXJuZWwgRW5naW5lZXIgYXQgUmVkIEhhdA0KPiA+ID4gICBMaW5rZWRJbjogaHR0cDovL3d3dy5s
-aW5rZWRpbi5jb20vaW4vYnJvdWVyDQo+ID4NCj4gPg0KPiA+DQo+ID4gLS0NCj4gPiBCZXN0IHJl
-Z2FyZHMsDQo+ID4gICBKZXNwZXIgRGFuZ2FhcmQgQnJvdWVyDQo+ID4gICBNU2MuQ1MsIFByaW5j
-aXBhbCBLZXJuZWwgRW5naW5lZXIgYXQgUmVkIEhhdA0KPiA+ICAgTGlua2VkSW46IGh0dHA6Ly93
-d3cubGlua2VkaW4uY29tL2luL2Jyb3Vlcg0K
+On Fri, Aug 25, 2017 at 06:01:28PM -0400, J. Bruce Fields wrote:
+> On Fri, Aug 18, 2017 at 06:00:47AM -0400, Vadim Lomovtsev wrote:
+> > While running nfs/connectathon tests kernel NULL-pointer exception
+> > has been observed due to races in svcsock.c.
+> > 
+> > Race is appear when kernel accepts connection by kernel_accept
+> > (which creates new socket) and start queuing ingress packets
+> > to new socket. This happanes in ksoftirq context which concurrently
+> > on a differnt core while new socket setup is not done yet.
+> > 
+> > The fix is to re-order socket user data init sequence, add NULL-ptr
+> > check before callback call along with barriers to prevent kernel crash.
+> > 
+> > Test results: nfs/connectathon reports '0' failed tests for about 200+ iterations.
+> 
+> By the way, is there anything special about your setup that allows you
+> to reproduce this?  There's nothing special about connectathon tests, so
+> I'm just wondering why we haven't had a lot of reports of this.
+
+>From what I have now - nothing special in test setup and/or configuration.
+I believe it is because or high amount of CPU running. It was found at 32
+cores CPU, while simply invoking test by "make run" command.
+
+WBR,
+Vadim
+
+> 
+> --b.
+> 
+> > 
+> > Crash log:
+> > ---<-snip->---
+> > [ 6708.638984] Unable to handle kernel NULL pointer dereference at virtual address 00000000
+> > [ 6708.647093] pgd = ffff0000094e0000
+> > [ 6708.650497] [00000000] *pgd=0000010ffff90003, *pud=0000010ffff90003, *pmd=0000010ffff80003, *pte=0000000000000000
+> > [ 6708.660761] Internal error: Oops: 86000005 [#1] SMP
+> > [ 6708.665630] Modules linked in: nfsv3 nfnetlink_queue nfnetlink_log nfnetlink rpcsec_gss_krb5 nfsv4 dns_resolver nfs fscache overlay xt_CONNSECMARK xt_SECMARK xt_conntrack iptable_security ip_tables ah4 xfrm4_mode_transport sctp tun binfmt_misc ext4 jbd2 mbcache loop tcp_diag udp_diag inet_diag rpcrdma ib_isert iscsi_target_mod ib_iser rdma_cm iw_cm libiscsi scsi_transport_iscsi ib_srpt target_core_mod ib_srp scsi_transport_srp ib_ipoib ib_ucm ib_uverbs ib_umad ib_cm ib_core nls_koi8_u nls_cp932 ts_kmp nf_conntrack_ipv4 nf_defrag_ipv4 nf_conntrack vfat fat ghash_ce sha2_ce sha1_ce cavium_rng_vf i2c_thunderx sg thunderx_edac i2c_smbus edac_core cavium_rng nfsd auth_rpcgss nfs_acl lockd grace sunrpc xfs libcrc32c nicvf nicpf ast i2c_algo_bit drm_kms_helper syscopyarea sysfillrect sysim
+ gblt fb_sys_fops
+> > [ 6708.736446]  ttm drm i2c_core thunder_bgx thunder_xcv mdio_thunder mdio_cavium dm_mirror dm_region_hash dm_log dm_mod [last unloaded: stap_3c300909c5b3f46dcacd49aab3334af_87021]
+> > [ 6708.752275] CPU: 84 PID: 0 Comm: swapper/84 Tainted: G        W  OE   4.11.0-4.el7.aarch64 #1
+> > [ 6708.760787] Hardware name: www.cavium.com CRB-2S/CRB-2S, BIOS 0.3 Mar 13 2017
+> > [ 6708.767910] task: ffff810006842e80 task.stack: ffff81000689c000
+> > [ 6708.773822] PC is at 0x0
+> > [ 6708.776739] LR is at svc_data_ready+0x38/0x88 [sunrpc]
+> > [ 6708.781866] pc : [<0000000000000000>] lr : [<ffff0000029d7378>] pstate: 60000145
+> > [ 6708.789248] sp : ffff810ffbad3900
+> > [ 6708.792551] x29: ffff810ffbad3900 x28: ffff000008c73d58
+> > [ 6708.797853] x27: 0000000000000000 x26: ffff81000bbe1e00
+> > [ 6708.803156] x25: 0000000000000020 x24: ffff800f7410bf28
+> > [ 6708.808458] x23: ffff000008c63000 x22: ffff000008c63000
+> > [ 6708.813760] x21: ffff800f7410bf28 x20: ffff81000bbe1e00
+> > [ 6708.819063] x19: ffff810012412400 x18: 00000000d82a9df2
+> > [ 6708.824365] x17: 0000000000000000 x16: 0000000000000000
+> > [ 6708.829667] x15: 0000000000000000 x14: 0000000000000001
+> > [ 6708.834969] x13: 0000000000000000 x12: 722e736f622e676e
+> > [ 6708.840271] x11: 00000000f814dd99 x10: 0000000000000000
+> > [ 6708.845573] x9 : 7374687225000000 x8 : 0000000000000000
+> > [ 6708.850875] x7 : 0000000000000000 x6 : 0000000000000000
+> > [ 6708.856177] x5 : 0000000000000028 x4 : 0000000000000000
+> > [ 6708.861479] x3 : 0000000000000000 x2 : 00000000e5000000
+> > [ 6708.866781] x1 : 0000000000000000 x0 : ffff81000bbe1e00
+> > [ 6708.872084]
+> > [ 6708.873565] Process swapper/84 (pid: 0, stack limit = 0xffff81000689c000)
+> > [ 6708.880341] Stack: (0xffff810ffbad3900 to 0xffff8100068a0000)
+> > [ 6708.886075] Call trace:
+> > [ 6708.888513] Exception stack(0xffff810ffbad3710 to 0xffff810ffbad3840)
+> > [ 6708.894942] 3700:                                   ffff810012412400 0001000000000000
+> > [ 6708.902759] 3720: ffff810ffbad3900 0000000000000000 0000000060000145 ffff800f79300000
+> > [ 6708.910577] 3740: ffff000009274d00 00000000000003ea 0000000000000015 ffff000008c63000
+> > [ 6708.918395] 3760: ffff810ffbad3830 ffff800f79300000 000000000000004d 0000000000000000
+> > [ 6708.926212] 3780: ffff810ffbad3890 ffff0000080f88dc ffff800f79300000 000000000000004d
+> > [ 6708.934030] 37a0: ffff800f7930093c ffff000008c63000 0000000000000000 0000000000000140
+> > [ 6708.941848] 37c0: ffff000008c2c000 0000000000040b00 ffff81000bbe1e00 0000000000000000
+> > [ 6708.949665] 37e0: 00000000e5000000 0000000000000000 0000000000000000 0000000000000028
+> > [ 6708.957483] 3800: 0000000000000000 0000000000000000 0000000000000000 7374687225000000
+> > [ 6708.965300] 3820: 0000000000000000 00000000f814dd99 722e736f622e676e 0000000000000000
+> > [ 6708.973117] [<          (null)>]           (null)
+> > [ 6708.977824] [<ffff0000086f9fa4>] tcp_data_queue+0x754/0xc5c
+> > [ 6708.983386] [<ffff0000086fa64c>] tcp_rcv_established+0x1a0/0x67c
+> > [ 6708.989384] [<ffff000008704120>] tcp_v4_do_rcv+0x15c/0x22c
+> > [ 6708.994858] [<ffff000008707418>] tcp_v4_rcv+0xaf0/0xb58
+> > [ 6709.000077] [<ffff0000086df784>] ip_local_deliver_finish+0x10c/0x254
+> > [ 6709.006419] [<ffff0000086dfea4>] ip_local_deliver+0xf0/0xfc
+> > [ 6709.011980] [<ffff0000086dfad4>] ip_rcv_finish+0x208/0x3a4
+> > [ 6709.017454] [<ffff0000086e018c>] ip_rcv+0x2dc/0x3c8
+> > [ 6709.022328] [<ffff000008692fc8>] __netif_receive_skb_core+0x2f8/0xa0c
+> > [ 6709.028758] [<ffff000008696068>] __netif_receive_skb+0x38/0x84
+> > [ 6709.034580] [<ffff00000869611c>] netif_receive_skb_internal+0x68/0xdc
+> > [ 6709.041010] [<ffff000008696bc0>] napi_gro_receive+0xcc/0x1a8
+> > [ 6709.046690] [<ffff0000014b0fc4>] nicvf_cq_intr_handler+0x59c/0x730 [nicvf]
+> > [ 6709.053559] [<ffff0000014b1380>] nicvf_poll+0x38/0xb8 [nicvf]
+> > [ 6709.059295] [<ffff000008697a6c>] net_rx_action+0x2f8/0x464
+> > [ 6709.064771] [<ffff000008081824>] __do_softirq+0x11c/0x308
+> > [ 6709.070164] [<ffff0000080d14e4>] irq_exit+0x12c/0x174
+> > [ 6709.075206] [<ffff00000813101c>] __handle_domain_irq+0x78/0xc4
+> > [ 6709.081027] [<ffff000008081608>] gic_handle_irq+0x94/0x190
+> > [ 6709.086501] Exception stack(0xffff81000689fdf0 to 0xffff81000689ff20)
+> > [ 6709.092929] fde0:                                   0000810ff2ec0000 ffff000008c10000
+> > [ 6709.100747] fe00: ffff000008c70ef4 0000000000000001 0000000000000000 ffff810ffbad9b18
+> > [ 6709.108565] fe20: ffff810ffbad9c70 ffff8100169d3800 ffff810006843ab0 ffff81000689fe80
+> > [ 6709.116382] fe40: 0000000000000bd0 0000ffffdf979cd0 183f5913da192500 0000ffff8a254ce4
+> > [ 6709.124200] fe60: 0000ffff8a254b78 0000aaab10339808 0000000000000000 0000ffff8a0c2a50
+> > [ 6709.132018] fe80: 0000ffffdf979b10 ffff000008d6d450 ffff000008c10000 ffff000008d6d000
+> > [ 6709.139836] fea0: 0000000000000054 ffff000008cd3dbc 0000000000000000 0000000000000000
+> > [ 6709.147653] fec0: 0000000000000000 0000000000000000 0000000000000000 ffff81000689ff20
+> > [ 6709.155471] fee0: ffff000008085240 ffff81000689ff20 ffff000008085244 0000000060000145
+> > [ 6709.163289] ff00: ffff81000689ff10 ffff00000813f1e4 ffffffffffffffff ffff00000813f238
+> > [ 6709.171107] [<ffff000008082eb4>] el1_irq+0xb4/0x140
+> > [ 6709.175976] [<ffff000008085244>] arch_cpu_idle+0x44/0x11c
+> > [ 6709.181368] [<ffff0000087bf3b8>] default_idle_call+0x20/0x30
+> > [ 6709.187020] [<ffff000008116d50>] do_idle+0x158/0x1e4
+> > [ 6709.191973] [<ffff000008116ff4>] cpu_startup_entry+0x2c/0x30
+> > [ 6709.197624] [<ffff00000808e7cc>] secondary_start_kernel+0x13c/0x160
+> > [ 6709.203878] [<0000000001bc71c4>] 0x1bc71c4
+> > [ 6709.207967] Code: bad PC value
+> > [ 6709.211061] SMP: stopping secondary CPUs
+> > [ 6709.218830] Starting crashdump kernel...
+> > [ 6709.222749] Bye!
+> > ---<-snip>---
+> > 
+> > Signed-off-by: Vadim Lomovtsev <vlomovts@redhat.com>
+> > ---
+> >  net/sunrpc/svcsock.c | 24 ++++++++++++++++++------
+> >  1 file changed, 18 insertions(+), 6 deletions(-)
+> > 
+> > diff --git a/net/sunrpc/svcsock.c b/net/sunrpc/svcsock.c
+> > index 2b720fa..b6496f3 100644
+> > --- a/net/sunrpc/svcsock.c
+> > +++ b/net/sunrpc/svcsock.c
+> > @@ -421,7 +421,9 @@ static void svc_data_ready(struct sock *sk)
+> >  		dprintk("svc: socket %p(inet %p), busy=%d\n",
+> >  			svsk, sk,
+> >  			test_bit(XPT_BUSY, &svsk->sk_xprt.xpt_flags));
+> > -		svsk->sk_odata(sk);
+> > +		rmb();
+> > +		if (svsk->sk_odata)
+> > +			svsk->sk_odata(sk);
+> >  		if (!test_and_set_bit(XPT_DATA, &svsk->sk_xprt.xpt_flags))
+> >  			svc_xprt_enqueue(&svsk->sk_xprt);
+> >  	}
+> > @@ -437,7 +439,9 @@ static void svc_write_space(struct sock *sk)
+> >  	if (svsk) {
+> >  		dprintk("svc: socket %p(inet %p), write_space busy=%d\n",
+> >  			svsk, sk, test_bit(XPT_BUSY, &svsk->sk_xprt.xpt_flags));
+> > -		svsk->sk_owspace(sk);
+> > +		rmb();
+> > +		if (svsk->sk_owspace)
+> > +			svsk->sk_owspace(sk);
+> >  		svc_xprt_enqueue(&svsk->sk_xprt);
+> >  	}
+> >  }
+> > @@ -760,8 +764,12 @@ static void svc_tcp_listen_data_ready(struct sock *sk)
+> >  	dprintk("svc: socket %p TCP (listen) state change %d\n",
+> >  		sk, sk->sk_state);
+> >  
+> > -	if (svsk)
+> > -		svsk->sk_odata(sk);
+> > +	if (svsk) { 
+> > +		rmb();
+> > +		if (svsk->sk_odata)
+> > +			svsk->sk_odata(sk);
+> > +	}
+> > +
+> >  	/*
+> >  	 * This callback may called twice when a new connection
+> >  	 * is established as a child socket inherits everything
+> > @@ -794,7 +802,10 @@ static void svc_tcp_state_change(struct sock *sk)
+> >  	if (!svsk)
+> >  		printk("svc: socket %p: no user data\n", sk);
+> >  	else {
+> > -		svsk->sk_ostate(sk);
+> > +		rmb();
+> > +		if (svsk->sk_ostate)
+> > +			svsk->sk_ostate(sk);
+> > +
+> >  		if (sk->sk_state != TCP_ESTABLISHED) {
+> >  			set_bit(XPT_CLOSE, &svsk->sk_xprt.xpt_flags);
+> >  			svc_xprt_enqueue(&svsk->sk_xprt);
+> > @@ -1381,12 +1392,13 @@ static struct svc_sock *svc_setup_socket(struct svc_serv *serv,
+> >  		return ERR_PTR(err);
+> >  	}
+> >  
+> > -	inet->sk_user_data = svsk;
+> >  	svsk->sk_sock = sock;
+> >  	svsk->sk_sk = inet;
+> >  	svsk->sk_ostate = inet->sk_state_change;
+> >  	svsk->sk_odata = inet->sk_data_ready;
+> >  	svsk->sk_owspace = inet->sk_write_space;
+> > +	wmb();
+> > +	inet->sk_user_data = svsk;
+> >  
+> >  	/* Initialize the socket */
+> >  	if (sock->type == SOCK_DGRAM)
+> > -- 
+> > 1.8.3.1
