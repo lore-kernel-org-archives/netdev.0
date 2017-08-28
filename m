@@ -1,34 +1,30 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH iproute2 4/4] man: tc-ife: add default type note
-Date: Mon, 28 Aug 2017 18:19:02 -0400
-Message-ID: <5f21135a-3ab2-342b-d17a-dc3d0a18c048@mojatatu.com>
-References: <20170828190738.26829-1-aring@mojatatu.com>
- <20170828190738.26829-5-aring@mojatatu.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 0/3] fix layer calculation and flow dissector use
+Date: Mon, 28 Aug 2017 15:20:39 -0700 (PDT)
+Message-ID: <20170828.152039.355601879528108819.davem@davemloft.net>
+References: <1503682263-17858-1-git-send-email-pieter.jansenvanvuuren@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yotamg@mellanox.com, xiyou.wangcong@gmail.com, jiri@resnulli.us,
-        netdev@vger.kernel.org
-To: Alexander Aring <aring@mojatatu.com>
+Cc: netdev@vger.kernel.org, oss-drivers@netronome.com,
+        simon.horman@netronome.com, jakub.kicinski@netronome.com
+To: pieter.jansenvanvuuren@netronome.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f194.google.com ([209.85.223.194]:38006 "EHLO
-        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751215AbdH1WTE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 18:19:04 -0400
-Received: by mail-io0-f194.google.com with SMTP id m40so1630462ioi.5
-        for <netdev@vger.kernel.org>; Mon, 28 Aug 2017 15:19:04 -0700 (PDT)
-In-Reply-To: <20170828190738.26829-5-aring@mojatatu.com>
-Content-Language: en-GB
+Received: from shards.monkeyblade.net ([184.105.139.130]:49716 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751213AbdH1WUl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 18:20:41 -0400
+In-Reply-To: <1503682263-17858-1-git-send-email-pieter.jansenvanvuuren@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17-08-28 03:07 PM, Alexander Aring wrote:
-> This patch updates the tc-ife man page that the default IFE ethertype
-> will be used if it's not specified.
-> 
-> Signed-off-by: Alexander Aring <aring@mojatatu.com>
+From: Pieter Jansen van Vuuren <pieter.jansenvanvuuren@netronome.com>
+Date: Fri, 25 Aug 2017 19:31:00 +0200
 
-Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
+> Previously when calculating the supported key layers MPLS, IPv4/6
+> TTL and TOS were not considered. Formerly flow dissectors were referenced
+> without first checking that they are in use and correctly populated by TC.
+> Additionally this patch set fixes the incorrect use of mask field for vlan
+> matching.
 
-cheers,
-jamal
+Series applied, thanks.
