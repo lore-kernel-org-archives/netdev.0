@@ -1,47 +1,47 @@
-From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: Re: Fwd: DA850-evm MAC Address is random
-Date: Mon, 28 Aug 2017 13:54:45 -0500
-Message-ID: <b7aab9fc-17ba-077b-3ff3-28087e0b25bc@ti.com>
-References: <CAHCN7xKwFd7dHF0ySEd1hOSr0sZEgh9fuwy=RkUTHvEh59hojQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Adam Ford <aford173@gmail.com>, <linux-omap@vger.kernel.org>,
-        <netdev@vger.kernel.org>, Sekhar Nori <nsekhar@ti.com>
+From: Alexander Aring <aring@mojatatu.com>
+Subject: [PATCH net-next 1/3] if_ether: add forces ife lfb type
+Date: Mon, 28 Aug 2017 15:03:13 -0400
+Message-ID: <20170828190315.26646-2-aring@mojatatu.com>
+References: <20170828190315.26646-1-aring@mojatatu.com>
+Cc: yotamg@mellanox.com, xiyou.wangcong@gmail.com, jiri@resnulli.us,
+        lucasb@mojatatu.com, netdev@vger.kernel.org,
+        linux-kselftest@vger.kernel.org,
+        Alexander Aring <aring@mojatatu.com>
+To: jhs@mojatatu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lelnx194.ext.ti.com ([198.47.27.80]:29750 "EHLO
-        lelnx194.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751203AbdH1Syq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 14:54:46 -0400
-In-Reply-To: <CAHCN7xKwFd7dHF0ySEd1hOSr0sZEgh9fuwy=RkUTHvEh59hojQ@mail.gmail.com>
-Content-Language: en-US
+Received: from mail-io0-f193.google.com ([209.85.223.193]:35943 "EHLO
+        mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751269AbdH1TEa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 15:04:30 -0400
+Received: by mail-io0-f193.google.com with SMTP id v96so1084474ioi.3
+        for <netdev@vger.kernel.org>; Mon, 28 Aug 2017 12:04:30 -0700 (PDT)
+In-Reply-To: <20170828190315.26646-1-aring@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cc: Sekhar
+This patch adds the forces IFE lfb type according to IEEE registered
+ethertypes. See http://standards-oui.ieee.org/ethertype/eth.txt for more
+information. Since there exists the IFE subsystem it can be used there.
 
-On 08/28/2017 10:32 AM, Adam Ford wrote:
-> The davinvi_emac MAC address seems to attempt a call to
-> ti_cm_get_macid in cpsw-common.c but it returns the message
-> 'davinci_emac davinci_emac.1: incompatible machine/device type for
-> reading mac address ' and then generates a random MAC address.
-> 
-> The function appears to lookup varions boards using
-> 'of_machine_is_compaible' and supports dm8148, am33xx, am3517, dm816,
-> am4372 and dra7.  I don't see the ti,davinci-dm6467-emac which is
-> what's shown in the da850 device tree.
-> 
-> Is there a patch somewhere for supporting the da850-evm?
+This patch also use the correct word "ForCES" instead of "FoRCES" which
+is a spelling error inside the IEEE ethertype specification.
 
-Not sure if MAC address can be read from Control module.
-May be Sekhar can say more?
+Signed-off-by: Alexander Aring <aring@mojatatu.com>
+---
+ include/uapi/linux/if_ether.h | 1 +
+ 1 file changed, 1 insertion(+)
 
-> 
-> If not, is there a way to pass the MAC address from U-Boot to the
-> driver so it doesn't generate a random MAC?
-
-"local-mac-address" dt porp
-
+diff --git a/include/uapi/linux/if_ether.h b/include/uapi/linux/if_ether.h
+index 5bc9bfd816b7..22bf8effefef 100644
+--- a/include/uapi/linux/if_ether.h
++++ b/include/uapi/linux/if_ether.h
+@@ -103,6 +103,7 @@
+ #define ETH_P_QINQ2	0x9200		/* deprecated QinQ VLAN [ NOT AN OFFICIALLY REGISTERED ID ] */
+ #define ETH_P_QINQ3	0x9300		/* deprecated QinQ VLAN [ NOT AN OFFICIALLY REGISTERED ID ] */
+ #define ETH_P_EDSA	0xDADA		/* Ethertype DSA [ NOT AN OFFICIALLY REGISTERED ID ] */
++#define ETH_P_IFE	0xED3E		/* ForCES inter-FE LFB type */
+ #define ETH_P_AF_IUCV   0xFBFB		/* IBM af_iucv [ NOT AN OFFICIALLY REGISTERED ID ] */
+ 
+ #define ETH_P_802_3_MIN	0x0600		/* If the value in the ethernet type is less than this value
 -- 
-regards,
--grygorii
+2.11.0
