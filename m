@@ -1,7 +1,7 @@
 From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH net-next v3 08/13] net: mvpp2: dynamic reconfiguration of the comphy/GoP/MAC
-Date: Mon, 28 Aug 2017 16:57:20 +0200
-Message-ID: <20170828145725.2539-9-antoine.tenart@free-electrons.com>
+Subject: [PATCH net-next v3 01/13] phy: add sgmii and 10gkr modes to the phy_mode enum
+Date: Mon, 28 Aug 2017 16:57:13 +0200
+Message-ID: <20170828145725.2539-2-antoine.tenart@free-electrons.com>
 References: <20170828145725.2539-1-antoine.tenart@free-electrons.com>
 Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
         thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
@@ -16,58 +16,27 @@ In-Reply-To: <20170828145725.2539-1-antoine.tenart@free-electrons.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds logic to reconfigure the comphy/GoP/MAC when the link
-state is updated at runtime. This is very useful on boards where many
-link speed are supported: depending on what is negotiated the PPv2
-driver will automatically reconfigures the link between the PHY and the
-MAC.
+This patch adds more generic PHY modes to the phy_mode enum, to
+allow configuring generic PHYs to the SGMII and/or the 10GKR mode
+by using the set_mode callback.
 
 Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
 ---
- drivers/net/ethernet/marvell/mvpp2.c | 21 ++++++++++++++++++++-
- 1 file changed, 20 insertions(+), 1 deletion(-)
+ include/linux/phy/phy.h | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 2f05a0b0773c..9e64b1ba3d43 100644
---- a/drivers/net/ethernet/marvell/mvpp2.c
-+++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -5771,9 +5771,28 @@ static void mvpp2_link_event(struct net_device *dev)
- {
- 	struct mvpp2_port *port = netdev_priv(dev);
- 	struct phy_device *phydev = dev->phydev;
-+	bool link_reconfigured = false;
- 	u32 val;
+diff --git a/include/linux/phy/phy.h b/include/linux/phy/phy.h
+index 78bb0d7f6b11..e694d4008c4a 100644
+--- a/include/linux/phy/phy.h
++++ b/include/linux/phy/phy.h
+@@ -27,6 +27,8 @@ enum phy_mode {
+ 	PHY_MODE_USB_HOST,
+ 	PHY_MODE_USB_DEVICE,
+ 	PHY_MODE_USB_OTG,
++	PHY_MODE_SGMII,
++	PHY_MODE_10GKR,
+ };
  
- 	if (phydev->link) {
-+		if (port->phy_interface != phydev->interface && port->comphy) {
-+	                /* disable current port for reconfiguration */
-+	                mvpp2_interrupts_disable(port);
-+	                netif_carrier_off(port->dev);
-+	                mvpp2_port_disable(port);
-+			phy_power_off(port->comphy);
-+
-+	                /* comphy reconfiguration */
-+	                port->phy_interface = phydev->interface;
-+	                mvpp22_comphy_init(port);
-+
-+	                /* gop/mac reconfiguration */
-+	                mvpp22_gop_init(port);
-+	                mvpp2_port_mii_set(port);
-+
-+	                link_reconfigured = true;
-+		}
-+
- 		if ((port->speed != phydev->speed) ||
- 		    (port->duplex != phydev->duplex)) {
- 			mvpp2_gmac_set_autoneg(port, phydev);
-@@ -5783,7 +5802,7 @@ static void mvpp2_link_event(struct net_device *dev)
- 		}
- 	}
- 
--	if (phydev->link != port->link) {
-+	if (phydev->link != port->link || link_reconfigured) {
- 		port->link = phydev->link;
- 
- 		if (phydev->link) {
+ /**
 -- 
 2.13.5
