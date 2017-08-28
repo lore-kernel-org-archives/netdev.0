@@ -1,33 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] cdc_ncm: flag the u-blox TOBY-L4 as wwan
-Date: Mon, 28 Aug 2017 11:25:37 -0700 (PDT)
-Message-ID: <20170828.112537.478172702651330119.davem@davemloft.net>
-References: <20170825125946.12812-1-aleksander@aleksander.es>
-        <20170825133916.13948-1-aleksander@aleksander.es>
+Subject: Re: [PATCH net v2 1/4] net: mvpp2: fix the mac address used when
+ using PPv2.2
+Date: Mon, 28 Aug 2017 11:25:51 -0700 (PDT)
+Message-ID: <20170828.112551.201104088584393782.davem@davemloft.net>
+References: <20170825141420.14027-1-antoine.tenart@free-electrons.com>
+        <20170825141420.14027-2-antoine.tenart@free-electrons.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: oliver@neukum.org, stefano.godeas@u-blox.com,
-        marco.demarco@u-blox.com, linux-usb@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        gregkh@linuxfoundation.org
-To: aleksander@aleksander.es
+Cc: thomas.petazzoni@free-electrons.com, andrew@lunn.ch,
+        gregory.clement@free-electrons.com, nadavh@marvell.com,
+        linux@armlinux.org.uk, linux-kernel@vger.kernel.org,
+        mw@semihalf.com, stefanc@marvell.com, netdev@vger.kernel.org
+To: antoine.tenart@free-electrons.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170825133916.13948-1-aleksander@aleksander.es>
+In-Reply-To: <20170825141420.14027-2-antoine.tenart@free-electrons.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Aleksander Morgado <aleksander@aleksander.es>
-Date: Fri, 25 Aug 2017 15:39:16 +0200
+From: Antoine Tenart <antoine.tenart@free-electrons.com>
+Date: Fri, 25 Aug 2017 16:14:17 +0200
 
-> The u-blox TOBY-L4 is a LTE Advanced (Cat 6) module with HSPA+ and 2G
-> fallback.
+> The mac address is only retrieved from h/w when using PPv2.1. Otherwise
+> the variable holding it is still checked and used if it contains a valid
+> value. As the variable isn't initialized to an invalid mac address
+> value, we end up with random mac addresses which can be the same for all
+> the ports handled by this PPv2 driver.
 > 
-> Unlike the TOBY-L2, this module has one single USB layout and exposes
-> several TTYs for control and a NCM interface for data. Connecting this
-> module may be done just by activating the desired PDP context with
-> 'AT+CGACT=1,<cid>' and then running DHCP on the NCM interface.
+> Fixes this by initializing the h/w mac address variable to {0}, which is
+> an invalid mac address value. This way the random assignation fallback
+> is called and all ports end up with their own addresses.
 > 
-> Signed-off-by: Aleksander Morgado <aleksander@aleksander.es>
+> Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
+> Fixes: 2697582144dd ("net: mvpp2: handle misc PPv2.1/PPv2.2 differences")
 
-Applied.
+Applied and queued up for -stable, thanks.
