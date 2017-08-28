@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v2 03/10] net: dsa: debugfs: add tag_protocol
-Date: Mon, 28 Aug 2017 15:17:41 -0400
-Message-ID: <20170828191748.19492-4-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v2 05/10] net: dsa: debugfs: add port regs
+Date: Mon, 28 Aug 2017 15:17:43 -0400
+Message-ID: <20170828191748.19492-6-vivien.didelot@savoirfairelinux.com>
 References: <20170828191748.19492-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
@@ -15,107 +15,116 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         Chris Healy <cphealy@gmail.com>,
         Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:36288 "EHLO
-        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751192AbdH1TVj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 15:21:39 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20170828191748.19492-1-vivien.didelot@savoirfairelinux.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Add a debug filesystem "tag_protocol" entry to query the switch tagging
-protocol through the .get_tag_protocol operation.
+Add a debug filesystem "regs" entry to query a port's hardware registers
+through the .get_regs_len and .get_regs_len switch operations.
 
-    # cat switch1/tag_protocol
-    EDSA
+This is very convenient because it allows one to dump the registers of
+DSA links, which are not exposed to userspace.
 
-To ease maintenance of tag protocols, add a dsa_tag_protocol_name helper
-to the public API which to convert a tag protocol enum to a string.
+Here are the registers of a zii-rev-b CPU and DSA ports:
+
+    # pr -mt switch0/port{5,6}/regs
+     0: 4e07			     0: 4d04
+     1: 403e			     1: 003d
+     2: 0000			     2: 0000
+     3: 3521			     3: 3521
+     4: 0533			     4: 373f
+     5: 8000			     5: 0000
+     6: 005f			     6: 003f
+     7: 002a			     7: 002a
+     8: 2080			     8: 2080
+     9: 0001			     9: 0001
+    10: 0000			    10: 0000
+    11: 0020			    11: 0000
+    12: 0000			    12: 0000
+    13: 0000			    13: 0000
+    14: 0000			    14: 0000
+    15: 9100			    15: dada
+    16: 0000			    16: 0000
+    17: 0000			    17: 0000
+    18: 0000			    18: 0000
+    19: 0000			    19: 00d8
+    20: 0000			    20: 0000
+    21: 0000			    21: 0000
+    22: 0022			    22: 0000
+    23: 0000			    23: 0000
+    24: 3210			    24: 3210
+    25: 7654			    25: 7654
+    26: 0000			    26: 0000
+    27: 8000			    27: 8000
+    28: 0000			    28: 0000
+    29: 0000			    29: 0000
+    30: 0000			    30: 0000
+    31: 0000			    31: 0000
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 ---
- include/net/dsa.h | 26 ++++++++++++++++++++++++++
- net/dsa/debugfs.c | 23 +++++++++++++++++++++++
- 2 files changed, 49 insertions(+)
+ net/dsa/debugfs.c | 39 +++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 39 insertions(+)
 
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index 7341178319f5..1309ba0376ae 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -39,6 +39,32 @@ enum dsa_tag_protocol {
- 	DSA_TAG_LAST,		/* MUST BE LAST */
- };
- 
-+static inline const char *dsa_tag_protocol_name(enum dsa_tag_protocol proto)
-+{
-+	switch (proto) {
-+	case DSA_TAG_PROTO_NONE:
-+		return "none";
-+	case DSA_TAG_PROTO_BRCM:
-+		return "BRCM";
-+	case DSA_TAG_PROTO_DSA:
-+		return "DSA";
-+	case DSA_TAG_PROTO_EDSA:
-+		return "EDSA";
-+	case DSA_TAG_PROTO_KSZ:
-+		return "KSZ";
-+	case DSA_TAG_PROTO_LAN9303:
-+		return "LAN9303";
-+	case DSA_TAG_PROTO_MTK:
-+		return "MTK";
-+	case DSA_TAG_PROTO_QCA:
-+		return "QCA";
-+	case DSA_TAG_PROTO_TRAILER:
-+		return "TRAILER";
-+	default:
-+		return "unknown";
-+	}
-+}
-+
- #define DSA_MAX_SWITCHES	4
- #define DSA_MAX_PORTS		12
- 
 diff --git a/net/dsa/debugfs.c b/net/dsa/debugfs.c
-index 54e97e05a9d7..8a0e4311ff8c 100644
+index 997bbc8eb502..7b299c9d9892 100644
 --- a/net/dsa/debugfs.c
 +++ b/net/dsa/debugfs.c
-@@ -109,6 +109,24 @@ static int dsa_debugfs_create_file(struct dsa_switch *ds, struct dentry *dir,
+@@ -109,6 +109,40 @@ static int dsa_debugfs_create_file(struct dsa_switch *ds, struct dentry *dir,
  	return 0;
  }
  
-+static int dsa_debugfs_tag_protocol_read(struct dsa_switch *ds, int id,
-+					 struct seq_file *seq)
++static void dsa_debugfs_regs_read_count(struct dsa_switch *ds, int id,
++					struct seq_file *seq, int count)
 +{
-+	enum dsa_tag_protocol proto;
++	u16 data[count * ETH_GSTRING_LEN];
++	struct ethtool_regs regs;
++	int i;
 +
-+	if (!ds->ops->get_tag_protocol)
++	ds->ops->get_regs(ds, id, &regs, data);
++
++	for (i = 0; i < count / 2; i++)
++		seq_printf(seq, "%2d: %04x\n", i, data[i]);
++}
++
++static int dsa_debugfs_regs_read(struct dsa_switch *ds, int id,
++				 struct seq_file *seq)
++{
++	int count;
++
++	if (!ds->ops->get_regs_len || !ds->ops->get_regs)
 +		return -EOPNOTSUPP;
 +
-+	proto = ds->ops->get_tag_protocol(ds);
-+	seq_printf(seq, "%s\n", dsa_tag_protocol_name(proto));
++	count = ds->ops->get_regs_len(ds, id);
++	if (count < 0)
++		return count;
++
++	dsa_debugfs_regs_read_count(ds, id, seq, count);
 +
 +	return 0;
 +}
 +
-+static const struct dsa_debugfs_ops dsa_debugfs_tag_protocol_ops = {
-+	.read = dsa_debugfs_tag_protocol_read,
++static const struct dsa_debugfs_ops dsa_debugfs_regs_ops = {
++	.read = dsa_debugfs_regs_read,
 +};
 +
- static int dsa_debugfs_tree_read(struct dsa_switch *ds, int id,
- 				 struct seq_file *seq)
+ static void dsa_debugfs_stats_read_count(struct dsa_switch *ds, int id,
+ 					 struct seq_file *seq, int count)
  {
-@@ -150,6 +168,11 @@ static int dsa_debugfs_create_switch(struct dsa_switch *ds)
- 	if (IS_ERR_OR_NULL(ds->debugfs_dir))
+@@ -188,6 +222,11 @@ static int dsa_debugfs_create_port(struct dsa_switch *ds, int port)
+ 	if (IS_ERR_OR_NULL(dir))
  		return -EFAULT;
  
-+	err = dsa_debugfs_create_file(ds, ds->debugfs_dir, "tag_protocol", -1,
-+				      &dsa_debugfs_tag_protocol_ops);
++	err = dsa_debugfs_create_file(ds, dir, "regs", port,
++				      &dsa_debugfs_regs_ops);
 +	if (err)
 +		return err;
 +
- 	err = dsa_debugfs_create_file(ds, ds->debugfs_dir, "tree", -1,
- 				      &dsa_debugfs_tree_ops);
+ 	err = dsa_debugfs_create_file(ds, dir, "stats", port,
+ 				      &dsa_debugfs_stats_ops);
  	if (err)
 -- 
 2.14.1
