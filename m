@@ -1,75 +1,58 @@
-From: Benjamin Poirier <bpoirier@suse.com>
-Subject: [PATCH] packet: Don't write vnet header beyond end of buffer
-Date: Mon, 28 Aug 2017 14:29:41 -0400
-Message-ID: <20170828182941.10677-1-bpoirier@suse.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Willem de Bruijn <willemb@google.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [ethtool] ethtool: Remove UDP Fragmentation Offload use from
+ ethtool
+Date: Mon, 28 Aug 2017 14:22:52 -0400
+Message-ID: <20170828182251.GC3092@tuxdriver.com>
+References: <1503923928-9419-1-git-send-email-tariqt@mellanox.com>
+ <1503932411.11498.67.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Tariq Toukan <tariqt@mellanox.com>, netdev@vger.kernel.org,
+        Eran Ben Elisha <eranbe@mellanox.com>,
+        Shaker Daibes <shakerd@mellanox.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:39153 "EHLO
+        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750735AbdH1SaM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 14:30:12 -0400
+Content-Disposition: inline
+In-Reply-To: <1503932411.11498.67.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-... which may happen with certain values of tp_reserve and maclen.
+On Mon, Aug 28, 2017 at 08:00:11AM -0700, Eric Dumazet wrote:
+> On Mon, 2017-08-28 at 15:38 +0300, Tariq Toukan wrote:
+> > From: Shaker Daibes <shakerd@mellanox.com>
+> > 
+> > UFO was removed in kernel, here we remove it in ethtool app.
+> > 
+> > Fixes the following issue:
+> > Features for ens8:
+> > Cannot get device udp-fragmentation-offload settings: Operation not supported
+> > 
+> > Tested with "make check"
+> > 
+> > Signed-off-by: Shaker Daibes <shakerd@mellanox.com>
+> > Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+> > ---
+> 
+> 
+> Hi guys
+> 
+> I would rather remove the warning, but leave the ability to switch UFO
+> on machines running old kernel but a recent ethtool.
+> 
+> ethtool does not need to be downgraded every time we boot an old
+> kernel ;)
 
-Fixes: 58d19b19cd99 ("packet: vnet_hdr support for tpacket_rcv")
-Signed-off-by: Benjamin Poirier <bpoirier@suse.com>
-Cc: Willem de Bruijn <willemb@google.com>
----
- net/packet/af_packet.c | 12 +++++++++---
- 1 file changed, 9 insertions(+), 3 deletions(-)
-
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 008a45ca3112..1c61af9af67d 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -2191,6 +2191,7 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
- 	struct timespec ts;
- 	__u32 ts_status;
- 	bool is_drop_n_account = false;
-+	bool do_vnet = false;
+No, definitely not.
  
- 	/* struct tpacket{2,3}_hdr is aligned to a multiple of TPACKET_ALIGNMENT.
- 	 * We may add members to them until current aligned size without forcing
-@@ -2241,8 +2242,10 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
- 		netoff = TPACKET_ALIGN(po->tp_hdrlen +
- 				       (maclen < 16 ? 16 : maclen)) +
- 				       po->tp_reserve;
--		if (po->has_vnet_hdr)
-+		if (po->has_vnet_hdr) {
- 			netoff += sizeof(struct virtio_net_hdr);
-+			do_vnet = true;
-+		}
- 		macoff = netoff - maclen;
- 	}
- 	if (po->tp_version <= TPACKET_V2) {
-@@ -2259,8 +2262,10 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
- 					skb_set_owner_r(copy_skb, sk);
- 			}
- 			snaplen = po->rx_ring.frame_size - macoff;
--			if ((int)snaplen < 0)
-+			if ((int)snaplen < 0) {
- 				snaplen = 0;
-+				do_vnet = false;
-+			}
- 		}
- 	} else if (unlikely(macoff + snaplen >
- 			    GET_PBDQC_FROM_RB(&po->rx_ring)->max_frame_len)) {
-@@ -2273,6 +2278,7 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
- 		if (unlikely((int)snaplen < 0)) {
- 			snaplen = 0;
- 			macoff = GET_PBDQC_FROM_RB(&po->rx_ring)->max_frame_len;
-+			do_vnet = false;
- 		}
- 	}
- 	spin_lock(&sk->sk_receive_queue.lock);
-@@ -2298,7 +2304,7 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
- 	}
- 	spin_unlock(&sk->sk_receive_queue.lock);
- 
--	if (po->has_vnet_hdr) {
-+	if (do_vnet) {
- 		if (virtio_net_hdr_from_skb(skb, h.raw + macoff -
- 					    sizeof(struct virtio_net_hdr),
- 					    vio_le(), true)) {
+> Thanks !
+
+Tariq, will you be reworking this as Eric suggests?
+
+John
 -- 
-2.14.1
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
