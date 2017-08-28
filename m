@@ -1,40 +1,62 @@
-From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: Re: [PATCH net-next 1/4] net: Add SRIOV VGT+ support
-Date: Mon, 28 Aug 2017 17:52:17 +0200
-Message-ID: <20170828155217.GA8399@bistromath.localdomain>
-References: <20170827110618.20599-1-saeedm@mellanox.com>
- <20170827110618.20599-2-saeedm@mellanox.com>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: mlxsw and rtnl lock
+Date: Mon, 28 Aug 2017 08:55:56 -0700
+Message-ID: <CAJieiUjvERvBFZ9qaSPLrVj=V3XivsiRGDpOsHqbKdwS-+xJeQ@mail.gmail.com>
+References: <dccefbeb-b5c3-14ed-05d3-07d464989708@gmail.com> <20170826170418.GA22324@shredder>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Eugenia Emantayev <eugenia@mellanox.com>,
-        Mohamad Haj Yahia <mohamad@mellanox.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: Saeed Mahameed <saeedm@mellanox.com>
+Content-Type: text/plain; charset="UTF-8"
+Cc: David Ahern <dsahern@gmail.com>, Jiri Pirko <jiri@resnulli.us>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        mlxsw <mlxsw@mellanox.com>
+To: Ido Schimmel <idosch@idosch.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40380 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751283AbdH1PwV (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 28 Aug 2017 11:52:21 -0400
-Content-Disposition: inline
-In-Reply-To: <20170827110618.20599-2-saeedm@mellanox.com>
+Received: from mail-vk0-f45.google.com ([209.85.213.45]:36023 "EHLO
+        mail-vk0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751297AbdH1Pz5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 11:55:57 -0400
+Received: by mail-vk0-f45.google.com with SMTP id d124so2545016vkf.3
+        for <netdev@vger.kernel.org>; Mon, 28 Aug 2017 08:55:57 -0700 (PDT)
+In-Reply-To: <20170826170418.GA22324@shredder>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2017-08-27, 14:06:15 +0300, Saeed Mahameed wrote:
-[...]
-> +#define VF_VLAN_BITMAP	DIV_ROUND_UP(VF_VLAN_N_VID, sizeof(__u64) * BITS_PER_BYTE)
-> +struct ifla_vf_vlan_trunk {
-> +	__u32 vf;
-> +	__u64 allowed_vlans_8021q_bm[VF_VLAN_BITMAP];
-> +	__u64 allowed_vlans_8021ad_bm[VF_VLAN_BITMAP];
-> +};
+On Sat, Aug 26, 2017 at 10:04 AM, Ido Schimmel <idosch@idosch.org> wrote:
+> On Fri, Aug 25, 2017 at 01:26:07PM -0700, David Ahern wrote:
+>> Jiri / Ido:
+>>
+>>
+[snip]
+>
+> Regarding the silent abort, that's intentional. You can look at the same
+> code in v4.9 - when the chain was still blocking - and you'll see that
+> we didn't propagate the error even then. This was discussed in the past
+> and the conclusion was that user doesn't expect to operation to fail. If
+> hardware resources are exceeded, we let the kernel take care of the
+> forwarding instead.
 
-This is huge (1032B). And you put one of these in the netlink message
-for each VF.  This means that with 51 VF (at least in my environment,
-where each VF takes 1296B), you're going to overflow the u16 size of a
-single attribute (IFLA_VFINFO_LIST), and you cannot dump the device
-anymore. I'm afraid this is going to break existing setups.
+History here is that the initial fib offload hooks were added during
+rocker days.
+subsequently we have had many discussions (on offload policies) to see
+if we can remove that
+check and report the error back to the user (routing daemon in this
+case) since the cpu kernel
+cannot handle 100G or more traffic on such platforms. Basically the
+cpu kernel cannot take care
+of forwarding for such platforms. I believe this came up during the
+last switchdev BOF as well.
+The current silent abort is in there because kernel needs to maintain
+its semantics for hardware offload.
+Which is a valid position but we will need to find a way to make it
+work for switch platforms.
 
--- 
-Sabrina
+IIUC, the only place where switchdev offload returns error to the user is
+'bridge and bond membership offload'
+
+I know fib and bridge fdb offload don't propagate errors to the user
+(maybe they used to before moving to notifiers ?. need to check
+history on this).
+
+Are tc hardware offload errors propagated to the user ?
+
+It is a bit inconsistent today, some errors are propagated to the user
+and some are not.
