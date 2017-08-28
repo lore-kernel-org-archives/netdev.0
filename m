@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v2 01/10] net: dsa: add debugfs interface
-Date: Mon, 28 Aug 2017 15:17:39 -0400
-Message-ID: <20170828191748.19492-2-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v2 07/10] net: dsa: restore mdb dump
+Date: Mon, 28 Aug 2017 15:17:45 -0400
+Message-ID: <20170828191748.19492-8-vivien.didelot@savoirfairelinux.com>
 References: <20170828191748.19492-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
@@ -20,309 +20,134 @@ In-Reply-To: <20170828191748.19492-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This commit adds a DEBUG_FS dependent DSA core file creating a generic
-debug filesystem interface for the DSA switch devices.
+The same dsa_fdb_dump_cb_t callback is used since there is no
+distinction to do between FDB and MDB entries at this layer.
 
-The interface can be mounted with:
-
-    # mount -t debugfs none /sys/kernel/debug
-
-The dsa directory contains one directory per switch chip:
-
-    # cd /sys/kernel/debug/dsa/
-    # ls
-    switch0  switch1 switch2
-
-Each chip directory contains one directory per port:
-
-    # ls -l switch0/
-    drwxr-xr-x 2 root root 0 Jan  1 00:00 port0
-    drwxr-xr-x 2 root root 0 Jan  1 00:00 port1
-    drwxr-xr-x 2 root root 0 Jan  1 00:00 port2
-    drwxr-xr-x 2 root root 0 Jan  1 00:00 port5
-    drwxr-xr-x 2 root root 0 Jan  1 00:00 port6
-
-Future patches will add entry files to these directories.
+Implement mv88e6xxx_port_mdb_dump so that multicast addresses associated
+to a switch port can be dumped.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 ---
- include/net/dsa.h  |   7 ++++
- net/dsa/Kconfig    |  14 +++++++
- net/dsa/Makefile   |   1 +
- net/dsa/debugfs.c  | 118 +++++++++++++++++++++++++++++++++++++++++++++++++++++
- net/dsa/dsa.c      |   3 ++
- net/dsa/dsa2.c     |   4 ++
- net/dsa/dsa_priv.h |  13 ++++++
- net/dsa/legacy.c   |   4 ++
- 8 files changed, 164 insertions(+)
- create mode 100644 net/dsa/debugfs.c
+ drivers/net/dsa/mv88e6xxx/chip.c | 33 +++++++++++++++++++++++++--------
+ include/net/dsa.h                |  3 +++
+ 2 files changed, 28 insertions(+), 8 deletions(-)
 
+diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
+index c6678aa9b4ef..c66204423641 100644
+--- a/drivers/net/dsa/mv88e6xxx/chip.c
++++ b/drivers/net/dsa/mv88e6xxx/chip.c
+@@ -1380,7 +1380,7 @@ static int mv88e6xxx_port_fdb_del(struct dsa_switch *ds, int port,
+ }
+ 
+ static int mv88e6xxx_port_db_dump_fid(struct mv88e6xxx_chip *chip,
+-				      u16 fid, u16 vid, int port,
++				      u16 fid, u16 vid, int port, bool mc,
+ 				      dsa_fdb_dump_cb_t *cb, void *data)
+ {
+ 	struct mv88e6xxx_atu_entry addr;
+@@ -1401,11 +1401,14 @@ static int mv88e6xxx_port_db_dump_fid(struct mv88e6xxx_chip *chip,
+ 		if (addr.trunk || (addr.portvec & BIT(port)) == 0)
+ 			continue;
+ 
+-		if (!is_unicast_ether_addr(addr.mac))
++		if ((is_unicast_ether_addr(addr.mac) && mc) ||
++		    (is_multicast_ether_addr(addr.mac) && !mc))
+ 			continue;
+ 
+-		is_static = (addr.state ==
+-			     MV88E6XXX_G1_ATU_DATA_STATE_UC_STATIC);
++		is_static = addr.state == mc ?
++			MV88E6XXX_G1_ATU_DATA_STATE_MC_STATIC :
++			MV88E6XXX_G1_ATU_DATA_STATE_UC_STATIC;
++
+ 		err = cb(addr.mac, vid, is_static, data);
+ 		if (err)
+ 			return err;
+@@ -1415,7 +1418,7 @@ static int mv88e6xxx_port_db_dump_fid(struct mv88e6xxx_chip *chip,
+ }
+ 
+ static int mv88e6xxx_port_db_dump(struct mv88e6xxx_chip *chip, int port,
+-				  dsa_fdb_dump_cb_t *cb, void *data)
++				  bool mc, dsa_fdb_dump_cb_t *cb, void *data)
+ {
+ 	struct mv88e6xxx_vtu_entry vlan = {
+ 		.vid = chip->info->max_vid,
+@@ -1428,7 +1431,7 @@ static int mv88e6xxx_port_db_dump(struct mv88e6xxx_chip *chip, int port,
+ 	if (err)
+ 		return err;
+ 
+-	err = mv88e6xxx_port_db_dump_fid(chip, fid, 0, port, cb, data);
++	err = mv88e6xxx_port_db_dump_fid(chip, fid, 0, port, mc, cb, data);
+ 	if (err)
+ 		return err;
+ 
+@@ -1442,7 +1445,7 @@ static int mv88e6xxx_port_db_dump(struct mv88e6xxx_chip *chip, int port,
+ 			break;
+ 
+ 		err = mv88e6xxx_port_db_dump_fid(chip, vlan.fid, vlan.vid, port,
+-						 cb, data);
++						 mc, cb, data);
+ 		if (err)
+ 			return err;
+ 	} while (vlan.vid < chip->info->max_vid);
+@@ -1457,7 +1460,7 @@ static int mv88e6xxx_port_fdb_dump(struct dsa_switch *ds, int port,
+ 	int err;
+ 
+ 	mutex_lock(&chip->reg_lock);
+-	err = mv88e6xxx_port_db_dump(chip, port, cb, data);
++	err = mv88e6xxx_port_db_dump(chip, port, false, cb, data);
+ 	mutex_unlock(&chip->reg_lock);
+ 
+ 	return err;
+@@ -3777,6 +3780,19 @@ static int mv88e6xxx_port_mdb_del(struct dsa_switch *ds, int port,
+ 	return err;
+ }
+ 
++static int mv88e6xxx_port_mdb_dump(struct dsa_switch *ds, int port,
++				   dsa_fdb_dump_cb_t *cb, void *data)
++{
++	struct mv88e6xxx_chip *chip = ds->priv;
++	int err;
++
++	mutex_lock(&chip->reg_lock);
++	err = mv88e6xxx_port_db_dump(chip, port, true, cb, data);
++	mutex_unlock(&chip->reg_lock);
++
++	return err;
++}
++
+ static const struct dsa_switch_ops mv88e6xxx_switch_ops = {
+ 	.probe			= mv88e6xxx_drv_probe,
+ 	.get_tag_protocol	= mv88e6xxx_get_tag_protocol,
+@@ -3810,6 +3826,7 @@ static const struct dsa_switch_ops mv88e6xxx_switch_ops = {
+ 	.port_mdb_prepare       = mv88e6xxx_port_mdb_prepare,
+ 	.port_mdb_add           = mv88e6xxx_port_mdb_add,
+ 	.port_mdb_del           = mv88e6xxx_port_mdb_del,
++	.port_mdb_dump          = mv88e6xxx_port_mdb_dump,
+ 	.crosschip_bridge_join	= mv88e6xxx_crosschip_bridge_join,
+ 	.crosschip_bridge_leave	= mv88e6xxx_crosschip_bridge_leave,
+ };
 diff --git a/include/net/dsa.h b/include/net/dsa.h
-index 398ca8d70ccd..7341178319f5 100644
+index 1309ba0376ae..c0d1b6c47a50 100644
 --- a/include/net/dsa.h
 +++ b/include/net/dsa.h
-@@ -210,6 +210,13 @@ struct dsa_switch {
- 	 */
- 	void *priv;
+@@ -312,6 +312,7 @@ static inline u8 dsa_upstream_port(struct dsa_switch *ds)
+ 		return ds->rtable[dst->cpu_dp->ds->index];
+ }
  
-+#ifdef CONFIG_NET_DSA_DEBUGFS
-+	/*
-+	 * Debugfs interface.
-+	 */
-+	struct dentry *debugfs_dir;
-+#endif
-+
++/* FDB (and MDB) dump callback */
+ typedef int dsa_fdb_dump_cb_t(const unsigned char *addr, u16 vid,
+ 			      bool is_static, void *data);
+ struct dsa_switch_ops {
+@@ -441,6 +442,8 @@ struct dsa_switch_ops {
+ 				struct switchdev_trans *trans);
+ 	int	(*port_mdb_del)(struct dsa_switch *ds, int port,
+ 				const struct switchdev_obj_port_mdb *mdb);
++	int	(*port_mdb_dump)(struct dsa_switch *ds, int port,
++				 dsa_fdb_dump_cb_t *cb, void *data);
  	/*
- 	 * Configuration data for this switch.
+ 	 * RXNFC
  	 */
-diff --git a/net/dsa/Kconfig b/net/dsa/Kconfig
-index cc5f8f971689..0f05a1e59dd2 100644
---- a/net/dsa/Kconfig
-+++ b/net/dsa/Kconfig
-@@ -15,6 +15,20 @@ config NET_DSA
- 
- if NET_DSA
- 
-+config NET_DSA_DEBUGFS
-+	bool "Distributed Switch Architecture debugfs interface"
-+	depends on DEBUG_FS
-+	---help---
-+	  Enable creation of debugfs files for the DSA core.
-+
-+	  These debugfs files provide per-switch information, such as the tag
-+	  protocol in use and ports connectivity. They also allow querying the
-+	  hardware directly through the switch operations for debugging instead
-+	  of going through the bridge, switchdev and DSA layers.
-+
-+	  This is also a way to inspect the stats and FDB, MDB or VLAN entries
-+	  of CPU and DSA links, since they are not exposed to userspace.
-+
- # tagging formats
- config NET_DSA_TAG_BRCM
- 	bool
-diff --git a/net/dsa/Makefile b/net/dsa/Makefile
-index fcce25da937c..7f60c6dfaffb 100644
---- a/net/dsa/Makefile
-+++ b/net/dsa/Makefile
-@@ -1,6 +1,7 @@
- # the core
- obj-$(CONFIG_NET_DSA) += dsa_core.o
- dsa_core-y += dsa.o dsa2.o legacy.o port.o slave.o switch.o
-+dsa_core-$(CONFIG_NET_DSA_DEBUGFS) += debugfs.o
- 
- # tagging formats
- dsa_core-$(CONFIG_NET_DSA_TAG_BRCM) += tag_brcm.o
-diff --git a/net/dsa/debugfs.c b/net/dsa/debugfs.c
-new file mode 100644
-index 000000000000..b6b5e5c97389
---- /dev/null
-+++ b/net/dsa/debugfs.c
-@@ -0,0 +1,118 @@
-+/*
-+ * net/dsa/debugfs.c - DSA debugfs interface
-+ * Copyright (c) 2017 Savoir-faire Linux, Inc.
-+ *	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ */
-+
-+#include <linux/debugfs.h>
-+
-+#include "dsa_priv.h"
-+
-+#define DSA_SWITCH_FMT	"switch%d"
-+#define DSA_PORT_FMT	"port%d"
-+
-+/* DSA module debugfs directory */
-+static struct dentry *dsa_debugfs_dir;
-+
-+static int dsa_debugfs_create_port(struct dsa_switch *ds, int port)
-+{
-+	struct dentry *dir;
-+	char name[32];
-+
-+	snprintf(name, sizeof(name), DSA_PORT_FMT, port);
-+
-+	dir = debugfs_create_dir(name, ds->debugfs_dir);
-+	if (IS_ERR_OR_NULL(dir))
-+		return -EFAULT;
-+
-+	return 0;
-+}
-+
-+static int dsa_debugfs_create_switch(struct dsa_switch *ds)
-+{
-+	char name[32];
-+	int i, err;
-+
-+	/* skip if there is no debugfs support */
-+	if (!dsa_debugfs_dir)
-+		return 0;
-+
-+	snprintf(name, sizeof(name), DSA_SWITCH_FMT, ds->index);
-+
-+	ds->debugfs_dir = debugfs_create_dir(name, dsa_debugfs_dir);
-+	if (IS_ERR_OR_NULL(ds->debugfs_dir))
-+		return -EFAULT;
-+
-+	for (i = 0; i < ds->num_ports; i++) {
-+		if (ds->enabled_port_mask & BIT(i)) {
-+			err = dsa_debugfs_create_port(ds, i);
-+			if (err)
-+				return err;
-+		}
-+	}
-+
-+	return 0;
-+}
-+
-+static void dsa_debugfs_destroy_switch(struct dsa_switch *ds)
-+{
-+	/* handles NULL */
-+	debugfs_remove_recursive(ds->debugfs_dir);
-+}
-+
-+void dsa_debugfs_create_tree(struct dsa_switch_tree *dst)
-+{
-+	struct dsa_switch *ds;
-+	int i, err;
-+
-+	for (i = 0; i < DSA_MAX_SWITCHES; i++) {
-+		ds = dst->ds[i];
-+		if (!ds)
-+			continue;
-+
-+		err = dsa_debugfs_create_switch(ds);
-+		if (err) {
-+			pr_warn("DSA: failed to create debugfs interface for switch %d (%d)\n",
-+				ds->index, err);
-+			dsa_debugfs_destroy_tree(dst);
-+			break;
-+		}
-+	}
-+}
-+
-+void dsa_debugfs_destroy_tree(struct dsa_switch_tree *dst)
-+{
-+	struct dsa_switch *ds;
-+	int i;
-+
-+	for (i = 0; i < DSA_MAX_SWITCHES; i++) {
-+		ds = dst->ds[i];
-+		if (!ds)
-+			continue;
-+
-+		dsa_debugfs_destroy_switch(ds);
-+	}
-+}
-+
-+void dsa_debugfs_create_module(void)
-+{
-+	dsa_debugfs_dir = debugfs_create_dir("dsa", NULL);
-+	if (IS_ERR(dsa_debugfs_dir)) {
-+		pr_warn("DSA: failed to create debugfs interface\n");
-+		dsa_debugfs_dir = NULL;
-+	}
-+
-+	if (dsa_debugfs_dir)
-+		pr_info("DSA: debugfs interface created\n");
-+}
-+
-+void dsa_debugfs_destroy_module(void)
-+{
-+	/* handles NULL */
-+	debugfs_remove_recursive(dsa_debugfs_dir);
-+}
-diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index 03c58b0eb082..b23f1be50c71 100644
---- a/net/dsa/dsa.c
-+++ b/net/dsa/dsa.c
-@@ -308,12 +308,15 @@ static int __init dsa_init_module(void)
- 
- 	dev_add_pack(&dsa_pack_type);
- 
-+	dsa_debugfs_create_module();
-+
- 	return 0;
- }
- module_init(dsa_init_module);
- 
- static void __exit dsa_cleanup_module(void)
- {
-+	dsa_debugfs_destroy_module();
- 	dsa_slave_unregister_notifier();
- 	dev_remove_pack(&dsa_pack_type);
- 	dsa_legacy_unregister();
-diff --git a/net/dsa/dsa2.c b/net/dsa/dsa2.c
-index cceaa4dd9f53..5912618ad63d 100644
---- a/net/dsa/dsa2.c
-+++ b/net/dsa/dsa2.c
-@@ -447,6 +447,8 @@ static int dsa_dst_apply(struct dsa_switch_tree *dst)
- 	dst->cpu_dp->netdev->dsa_ptr = dst;
- 	dst->applied = true;
- 
-+	dsa_debugfs_create_tree(dst);
-+
- 	return 0;
- }
- 
-@@ -458,6 +460,8 @@ static void dsa_dst_unapply(struct dsa_switch_tree *dst)
- 	if (!dst->applied)
- 		return;
- 
-+	dsa_debugfs_destroy_tree(dst);
-+
- 	dst->cpu_dp->netdev->dsa_ptr = NULL;
- 
- 	/* If we used a tagging format that doesn't have an ethertype
-diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
-index 9c3eeb72462d..84ca3a50a58b 100644
---- a/net/dsa/dsa_priv.h
-+++ b/net/dsa/dsa_priv.h
-@@ -93,6 +93,19 @@ struct dsa_slave_priv {
- 	struct list_head	mall_tc_list;
- };
- 
-+/* debugfs.c */
-+#ifdef CONFIG_NET_DSA_DEBUGFS
-+void dsa_debugfs_create_module(void);
-+void dsa_debugfs_destroy_module(void);
-+void dsa_debugfs_create_tree(struct dsa_switch_tree *dst);
-+void dsa_debugfs_destroy_tree(struct dsa_switch_tree *dst);
-+#else
-+static inline void dsa_debugfs_create_module(void) { }
-+static inline void dsa_debugfs_destroy_module(void) { }
-+static inline void dsa_debugfs_create_tree(struct dsa_switch_tree *dst) { }
-+static inline void dsa_debugfs_destroy_tree(struct dsa_switch_tree *dst) { }
-+#endif
-+
- /* dsa.c */
- int dsa_cpu_dsa_setup(struct dsa_port *port);
- void dsa_cpu_dsa_destroy(struct dsa_port *dport);
-diff --git a/net/dsa/legacy.c b/net/dsa/legacy.c
-index 91e6f7981d39..8aa3de540552 100644
---- a/net/dsa/legacy.c
-+++ b/net/dsa/legacy.c
-@@ -606,6 +606,8 @@ static int dsa_setup_dst(struct dsa_switch_tree *dst, struct net_device *dev,
- 	wmb();
- 	dev->dsa_ptr = dst;
- 
-+	dsa_debugfs_create_tree(dst);
-+
- 	return 0;
- }
- 
-@@ -671,6 +673,8 @@ static void dsa_remove_dst(struct dsa_switch_tree *dst)
- {
- 	int i;
- 
-+	dsa_debugfs_destroy_tree(dst);
-+
- 	dst->cpu_dp->netdev->dsa_ptr = NULL;
- 
- 	/* If we used a tagging format that doesn't have an ethertype
 -- 
 2.14.1
