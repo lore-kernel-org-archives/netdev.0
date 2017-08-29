@@ -1,37 +1,52 @@
-From: Dave Jiang <dave.jiang@intel.com>
-Subject: [PATCH] net: remove dmaengine.h inclusion from netdevice.h
-Date: Tue, 29 Aug 2017 13:17:51 -0700
-Message-ID: <150403787157.72820.10644938115323539701.stgit@djiang5-desk3.ch.intel.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next 0/4] Endian fixes for SYSTEMPORT/SF2/MDIO
+Date: Tue, 29 Aug 2017 13:17:57 -0700
+Message-ID: <6ca07a0f-d4d0-74a3-f0bf-862b80ee87ef@gmail.com>
+References: <1504031985-52808-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: davem@davemloft.net, opendmb@gmail.com, andrew@lunn.ch,
+        vivien.didelot@savoirfairelinux.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:32767 "EHLO mga01.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750909AbdH2URw (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 29 Aug 2017 16:17:52 -0400
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:35638 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750909AbdH2USD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 16:18:03 -0400
+Received: by mail-wm0-f65.google.com with SMTP id e204so2134694wma.2
+        for <netdev@vger.kernel.org>; Tue, 29 Aug 2017 13:18:03 -0700 (PDT)
+In-Reply-To: <1504031985-52808-1-git-send-email-f.fainelli@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since the removal of NET_DMA, dmaengine.h header file shouldn't be needed
-by netdevice.h anymore.
+On 08/29/2017 11:39 AM, Florian Fainelli wrote:
+> Hi David,
+> 
+> While trying an ARM BE kernel for kinks, the 3 drivers below started not
+> working and the reasons why became pretty obvious because the register space
+> remains LE (hardwired), except for Broadcom MIPS where it follows the CPU's
+> native endian (let's call that a feature).
 
-Signed-off-by: Dave Jiang <dave.jiang@intel.com>
----
- include/linux/netdevice.h |    1 -
- 1 file changed, 1 deletion(-)
+David, I found a minor problem in the RSB endian configuration for
+SYSTEMPOR Lite that uses two bits for that, I will repost shortly.
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 779b235..dd5b440 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -35,7 +35,6 @@
- 
- #include <linux/percpu.h>
- #include <linux/rculist.h>
--#include <linux/dmaengine.h>
- #include <linux/workqueue.h>
- #include <linux/dynamic_queue_limits.h>
- 
+> 
+> Thanks!
+> 
+> Florian Fainelli (4):
+>   net: systemport: Use correct I/O accessors
+>   net: dsa: bcm_sf2: Use correct I/O accessors
+>   net: systemport: Set correct RSB endian bits based on host
+>   net: phy: mdio-bcm-unimac: Use correct I/O accessors
+> 
+>  drivers/net/dsa/bcm_sf2.h                  | 12 +++++------
+>  drivers/net/ethernet/broadcom/bcmsysport.c | 21 ++++++++++++--------
+>  drivers/net/phy/mdio-bcm-unimac.c          | 32 ++++++++++++++++++++++++------
+>  3 files changed, 45 insertions(+), 20 deletions(-)
+> 
+
+
+-- 
+Florian
