@@ -1,82 +1,49 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: XDP redirect measurements, gotchas and tracepoints
-Date: Tue, 29 Aug 2017 15:26:01 +0200
-Message-ID: <20170829152601.02fdb8a3@redhat.com>
-References: <599C7530.2010405@gmail.com>
-        <1503426617.2434.5.camel@intel.com>
-        <CACKFLimMWLto4FRxNE3tzrO5MU+p67J7wu=n1nmg0t8QGYjgrA@mail.gmail.com>
-        <CAKgT0Uf=ZfVeK-wtvNxSyGEVZ3UseUOHiP3ZOg-SrzmqsR=LtQ@mail.gmail.com>
-        <CACKFLinJ0N7b8Xhq4ZoHdB80uXp_MU_vVyzZa7Dq11XrXsvDbw@mail.gmail.com>
-        <20170823102937.79a9c4ed@redhat.com>
-        <CACKFLinGuaDLxYRd=vC99DL5n0mf0rDbPRaDg4ctev=DEAhRSQ@mail.gmail.com>
-        <20170825144513.1ee9fbb1@redhat.com>
-        <59A03DF5.7070806@gmail.com>
-        <CACKFLin-sZEkkCxE2iZRHjgG=K36OJ65B-xrEYVCCSQqhYsH-g@mail.gmail.com>
-        <20170828160237.GA70910@C02RW35GFVH8.dhcp.broadcom.net>
-        <CAKgT0UeZ5Wn+8qY8kbBef5weORwGAXjq6Qp7jtB1bscmjY_oYw@mail.gmail.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [RFC PATCH] net: limit maximum number of packets to mark with
+ xmit_more
+Date: Tue, 29 Aug 2017 13:35:49 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD00684AC@AcuExch.aculab.com>
+References: <20170825152449.29790-1-jacob.e.keller@intel.com>
+ <20170825153418.53864810@cakuba>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Andy Gospodarek <andy@greyhouse.net>,
-        Michael Chan <michael.chan@broadcom.com>,
-        John Fastabend <john.fastabend@gmail.com>,
-        "Duyck, Alexander H" <alexander.h.duyck@intel.com>,
-        "pstaszewski@itcare.pl" <pstaszewski@itcare.pl>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "xdp-newbies@vger.kernel.org" <xdp-newbies@vger.kernel.org>,
-        "borkmann@iogearbox.net" <borkmann@iogearbox.net>,
-        brouer@redhat.com
-To: Alexander Duyck <alexander.duyck@gmail.com>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: 'Jakub Kicinski' <kubakici@wp.pl>,
+        Jacob Keller <jacob.e.keller@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:36070 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752141AbdH2N0K (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 29 Aug 2017 09:26:10 -0400
-In-Reply-To: <CAKgT0UeZ5Wn+8qY8kbBef5weORwGAXjq6Qp7jtB1bscmjY_oYw@mail.gmail.com>
+Received: from smtp-out6.electric.net ([192.162.217.182]:57021 "EHLO
+        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751368AbdH2Nf6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 09:35:58 -0400
+In-Reply-To: <20170825153418.53864810@cakuba>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Jakub Kicinski
+> Sent: 25 August 2017 20:34
+>
+> On Fri, 25 Aug 2017 08:24:49 -0700, Jacob Keller wrote:
+> > Under some circumstances, such as with many stacked devices, it is
+> > possible that dev_hard_start_xmit will bundle many packets together, and
+> > mark them all with xmit_more.
+> 
+> Excuse my ignorance but what are those stacked devices?  Could they
+> perhaps be fixed somehow?  My intuition was that long xmit_more
+> sequences can only happen if NIC and/or BQL are back pressuring, and
+> therefore we shouldn't be seeing a long xmit_more "train" arriving at
+> an empty device ring...
 
-On Mon, 28 Aug 2017 09:11:25 -0700 Alexander Duyck <alexander.duyck@gmail.com> wrote:
+I also suspect that the packets could be coming from multiple sources.
+So getting the sources to limit the number of packets with XMIT_MORE
+set won't really solve any problem.
 
-> My advice would be to not over complicate this. My big concern with
-> all this buffer recycling is what happens the first time somebody
-> introduces something like mirroring? Are you going to copy the data to
-> a new page which would be quite expensive or just have to introduce
-> reference counts? You are going to have to deal with stuff like
-> reference counts eventually so you might as well bite that bullet now.
-> My advice would be to not bother with optimizing for performance right
-> now and instead focus on just getting functionality. The approach we
-> took in ixgbe for the transmit path should work for almost any other
-> driver since all you are looking at is having to free the page
-> reference which takes care of reference counting already.
+At some point the driver for the physical device will have to give it
+a kick to start the transmits.
 
-This return API is not about optimizing performance right now.  It is
-actually about allowing us to change the underlying memory model per RX
-queue for XDP.
+On the systems I've got (desktop x86) PCIe writes aren't really very
+expensive.
+Reads are a different matter entirely (2us into our fpga target).
 
-If a RX-ring is use for both SKBs and XDP, then the refcnt model is
-still enforced.  Although a driver using the 1-packet-per-page model,
-should be able to reuse refcnt==1 pages when returned from XDP.
-
-If a RX-ring is _ONLY_ used for XDP, then the driver have freedom to
-implement another memory model, with the return-API.  We need to
-experiment with the most optimal memory model.  The 1-packet-per-page
-model is actually not the fastest, because of PCI-e bottlenecks.  With
-HW support for packing descriptors and packets over the PCI-e bus, much
-higher rates can be achieved.  Mellanox mlx5-Lx already have the needed HW
-support.  And companies like NetCope also have 100G HW that does
-similar tricks, and they even have a whitepaper[1][2] how they are
-faster than DPDK with their NDP (Netcope Data Plane) API.
-
-We do need the ability/flexibility to change the RX memory model, to
-take advantage of this new NIC hardware.
-
-[1] https://www.netcope.com/en/resources/improving-dpdk-performance
-[2] https://www.netcope.com/en/company/press-center/press-releases/read-new-netcope-whitepaper-on-dpdk-acceleration
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
+	David.
