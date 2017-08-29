@@ -1,91 +1,109 @@
-From: Sekhar Nori <nsekhar@ti.com>
-Subject: Re: Fwd: DA850-evm MAC Address is random
-Date: Tue, 29 Aug 2017 13:53:12 +0530
-Message-ID: <94c4cbb0-1df3-2f2f-69f3-f9a788e610fa@ti.com>
-References: <CAHCN7xKwFd7dHF0ySEd1hOSr0sZEgh9fuwy=RkUTHvEh59hojQ@mail.gmail.com>
- <b7aab9fc-17ba-077b-3ff3-28087e0b25bc@ti.com>
- <CAHCN7xLHEjda9DcVw5iHA9RaJ7UnyMVxf7e4e8NTEj9Op1JaBw@mail.gmail.com>
- <20170828211217.GO6008@atomide.com>
+From: Corentin Labbe <clabbe.montjoie@gmail.com>
+Subject: Re: [PATCH v4 4/5] net: stmmac: dwmac-sun8i: choose internal PHY via
+ phy-is-integrated
+Date: Tue, 29 Aug 2017 10:34:32 +0200
+Message-ID: <20170829083432.GA28818@Red>
+References: <20170826073311.25612-1-clabbe.montjoie@gmail.com>
+ <20170826073311.25612-5-clabbe.montjoie@gmail.com>
+ <20170826212051.GA10418@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Grygorii Strashko <grygorii.strashko@ti.com>,
-        <linux-omap@vger.kernel.org>, <netdev@vger.kernel.org>
-To: Tony Lindgren <tony@atomide.com>, Adam Ford <aford173@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lelnx194.ext.ti.com ([198.47.27.80]:65387 "EHLO
-        lelnx194.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750779AbdH2IXR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 04:23:17 -0400
-In-Reply-To: <20170828211217.GO6008@atomide.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: robh+dt@kernel.org, mark.rutland@arm.com,
+        maxime.ripard@free-electrons.com, wens@csie.org,
+        linux@armlinux.org.uk, peppe.cavallaro@st.com,
+        alexandre.torgue@st.com, f.fainelli@gmail.com, icenowy@aosc.io,
+        netdev@vger.kernel.org, devicetree@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170826212051.GA10418@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tuesday 29 August 2017 02:42 AM, Tony Lindgren wrote:
-> * Adam Ford <aford173@gmail.com> [170828 13:33]:
->> On Mon, Aug 28, 2017 at 1:54 PM, Grygorii Strashko
->> <grygorii.strashko@ti.com> wrote:
->>> Cc: Sekhar
->>>
->>> On 08/28/2017 10:32 AM, Adam Ford wrote:
->>>>
->>>> The davinvi_emac MAC address seems to attempt a call to
->>>> ti_cm_get_macid in cpsw-common.c but it returns the message
->>>> 'davinci_emac davinci_emac.1: incompatible machine/device type for
->>>> reading mac address ' and then generates a random MAC address.
->>>>
->>>> The function appears to lookup varions boards using
->>>> 'of_machine_is_compaible' and supports dm8148, am33xx, am3517, dm816,
->>>> am4372 and dra7.  I don't see the ti,davinci-dm6467-emac which is
->>>> what's shown in the da850 device tree.
->>>>
->>>> Is there a patch somewhere for supporting the da850-evm?
->>>
->>>
->>> Not sure if MAC address can be read from Control module.
->>> May be Sekhar can say more?
->>
->> My understanding is that the MAC address is programmed by Logic PD
->> into the SPI flash.  The Bootloader reads this from either SPI or its
->> env variables.  Looking at the partition info listed in the
->> da850-evm.dts file, it appears as if they've reserved space for it.
->> Unfortunately, I don't see any code that reads it out.  I was hoping
-
-This code is present in U-Boot sources at
-board/davinci/da8xxevm/da850evm.c. See the function get_mac_addr() and
-its usage in misc_init_r().
-
->> there might be a way to just pass cmdline parameter from the
->> bootloader to the kernel to accept the MAC address.
->>
->>>
->>>>
->>>> If not, is there a way to pass the MAC address from U-Boot to the
->>>> driver so it doesn't generate a random MAC?
->>>
->>>
->>> "local-mac-address" dt porp
->>
->> The downside here, is that we'd have to have the Bootloader modify the
->> device tree.
+On Sat, Aug 26, 2017 at 11:20:51PM +0200, Andrew Lunn wrote:
+> Hi Corentin
 > 
-> That piece of code exists somewhere in u-boot already. Note how
-
-Yes, it is fdt_fixup_ethernet() and its usage is in common/image-fdt.c.
-
-> we are populating the mac address for USB Ethernet drivers in
-> u-boot and then the Ethernet driver code parses it. See commit
-> 055d31de7158 ("ARM: omap3: beagleboard-xm: dt: Add ethernet to
-> the device tree") for some more information.
+> I think we have now all agreed this is an mdio-mux, plus it is also an
+> MII mux. We should represent that in device tree. This patchset does
+> this. However, as it is now, the mux structure in DT is ignored. All
+> it does is search for the phy-is-integrated flags and goes on that.
 > 
-> I think u-boot needs the ethernet alias for finding the interface.
+> I made the comment that the device tree representation cannot be
+> implemented using an MDIO mux driver, because of driver loading
+> issues.  However, the core of the MDIO mux code is just a library,
+> symbols exported as GPL, free for anything to use.
+> 
+> What i think should happen is the mdio-mux is implemented inside the
+> MAC driver, using the mux-core as a library. The device tree structure
+> of a mix is then reflected within Linux. The mux switch callback is
+> implemented within the MAC driver. So it can reset the MAC when the
+> mux is switched. The 'phy-is-integrated' property is then no longer
+> needed.
 
-That's exactly what was missing. I have sent a patch for fixing that and
-copied you there.
+It is stilll needed because some settings (allwinner,leds-active-low for example) are only for integrated phy.
 
-Adam, if I can get your Tested-by, I will make an attempt to send it for
-v4.13 itself.
+> 
+> I would suggest a binding something like:
+> 
+> emac: ethernet@1c0b000 {
+>         compatible = "allwinner,sun8i-h3-emac";
+>         syscon = <&syscon>;
+>         reg = <0x01c0b000 0x104>;
+>         interrupts = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>;
+>         interrupt-names = "macirq";
+>         resets = <&ccu RST_BUS_EMAC>;
+>         reset-names = "stmmaceth";
+>         clocks = <&ccu CLK_BUS_EMAC>;
+>         clock-names = "stmmaceth";
+>         #address-cells = <1>;
+>         #size-cells = <0>;
+> 
+>         phy-handle = <&int_mii_phy>;
+>         phy-mode = "mii";
+>         allwinner,leds-active-low;
+> 
+>         mdio: mdio {
+>                 #address-cells = <1>;
+>                 #size-cells = <0>;
+> 	}
+> 
+> 	mdio-mux {
+>                 #address-cells = <1>;
+>                 #size-cells = <0>;
+> 
+> 		mdio@0 {
+> 			reg = <0>;
+>                         #address-cells = <1>;
+>                         #size-cells = <0>;
+> 
+>                         int_mii_phy: ethernet-phy@1 {
+>                                 reg = <1>;
+>                                 clocks = <&ccu CLK_BUS_EPHY>;
+>                                 resets = <&ccu RST_BUS_EPHY>;
+>                         };
+>                 };
+>                 ext_mdio: mdio@0 {
+>                         #address-cells = <1>;
+>                         #size-cells = <0>;
+> 
+>                         ext_rgmii_phy: ethernet-phy@1 {
+>                                 reg = <1>;
+>                         };
+>                 };
+>        };
+> };
+> 
 
-Thanks,
-Sekhar
+I am trying to do that but I get:
+dwmac-sun8i 1c30000.ethernet: Error: Failed to find reg for child /soc/ethernet@1c30000/mdio
+dwmac-sun8i 1c30000.ethernet: Error: Failed to find reg for child /soc/ethernet@1c30000/mdio-mux
+dwmac-sun8i 1c30000.ethernet: Error: No acceptable child buses found
+
+So it seems that mdio_mux_init() must be run on mdio-mux and not on emac node.
+But in the current state it cannot be done.
+
+Do you agree that another mdio_mux_init() must be written ? (taking a of_node (in our case: mdio-mux) instead of a device)
+Or do I miss something ?
+
+Regards
