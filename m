@@ -1,31 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bnxt_en: add a dummy definition for
- bnxt_vf_rep_get_fid()
-Date: Tue, 29 Aug 2017 09:28:57 -0700 (PDT)
-Message-ID: <20170829.092857.571536467798292453.davem@davemloft.net>
-References: <1503987303-12392-1-git-send-email-sathya.perla@broadcom.com>
+Subject: Re: [PATCH net-next] staging: irda: update MAINTAINERS
+Date: Tue, 29 Aug 2017 09:30:11 -0700 (PDT)
+Message-ID: <20170829.093011.1482355851041250949.davem@davemloft.net>
+References: <20170829070929.GA15824@kroah.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: sathya.perla@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:34666 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751186AbdH2Q3A (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 12:29:00 -0400
-In-Reply-To: <1503987303-12392-1-git-send-email-sathya.perla@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org, samuel@sortiz.org,
+ joe@perches.com, linux-kernel@vger.kernel.org
+To: gregkh@linuxfoundation.org
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <20170829070929.GA15824@kroah.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-From: Sathya Perla <sathya.perla@broadcom.com>
-Date: Tue, 29 Aug 2017 11:45:03 +0530
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Date: Tue, 29 Aug 2017 09:09:29 +0200
 
-> When bnxt VF-reps are not compiled in (CONFIG_BNXT_SRIOV is off)
-> bnxt_tc.c needs a dummy definition of the routine bnxt_vf_rep_get_fid().
+> Now that the IRDA code has moved under drivers/staging/irda/, update the
+> MAINTAINERS file with the new location.
 > 
-> Reported-by: kbuild test robot <fengguang.wu@intel.com>
-> Fixes: 2ae7408fedfe ("bnxt_en: bnxt: add TC flower filter offload support")
-> Signed-off-by: Sathya Perla <sathya.perla@broadcom.com>
+> Reported-by: Joe Perches <joe@perches.com>
+> Signed-off-by: Greg Kroah-Hartman gregkh@linuxfoundation.org
 
 Applied.
