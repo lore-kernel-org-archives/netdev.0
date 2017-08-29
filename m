@@ -1,36 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request (net): ipsec 2017-08-29
-Date: Tue, 29 Aug 2017 09:37:41 -0700 (PDT)
-Message-ID: <20170829.093741.419300241043449914.davem@davemloft.net>
-References: <1504002694-1931-1-git-send-email-steffen.klassert@secunet.com>
+Subject: Re: [PATCH 0/4] irda: move it to drivers/staging so we can delete
+ it
+Date: Tue, 29 Aug 2017 09:38:30 -0700 (PDT)
+Message-ID: <20170829.093830.1915256661616331853.davem@davemloft.net>
+References: <20170827150334.32495-1-gregkh@linuxfoundation.org>
+        <CAMuHMdUefXtqv9bFfgrkbu8NZRXeTD6qR-nErf6TCDz4L+OAWw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
-To: steffen.klassert@secunet.com
+Cc: gregkh@linuxfoundation.org, samuel@sortiz.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        devel@driverdev.osuosl.org
+To: geert@linux-m68k.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:34808 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:34840 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751447AbdH2Qhm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 12:37:42 -0400
-In-Reply-To: <1504002694-1931-1-git-send-email-steffen.klassert@secunet.com>
+        with ESMTP id S1751447AbdH2Qib (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 12:38:31 -0400
+In-Reply-To: <CAMuHMdUefXtqv9bFfgrkbu8NZRXeTD6qR-nErf6TCDz4L+OAWw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Date: Tue, 29 Aug 2017 12:31:27 +0200
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Date: Tue, 29 Aug 2017 12:59:00 +0200
 
-> 1) Fix dst_entry refcount imbalance when using socket policies.
->    From Lorenzo Colitti.
+> Hi Greg,
 > 
-> 2) Fix locking when adding the ESP trailers.
+> On Sun, Aug 27, 2017 at 5:03 PM, Greg Kroah-Hartman
+> <gregkh@linuxfoundation.org> wrote:
+>> The IRDA code has long been obsolete and broken.  So, to keep people
+>> from trying to use it, and to prevent people from having to maintain it,
+>> let's move it to drivers/staging/ so that we can delete it entirely from
+>> the kernel in a few releases.
 > 
-> 3) Fix tailroom calculation for the ESP trailer by using
->    skb_tailroom instead of skb_availroom.
+> (diving into an early boot crash)
 > 
-> 4) Fix some info leaks in xfrm_user.
->    From Mathias Krause.
+> Have you tried running this? ;-)
 > 
-> Please pull or let me know if there are problems.
+> irda_init() and net_dev_init() are both subsys_initcall()s.
+> But the former now runs before the latter, leading to:
 
-Pulled, thank you.
+We must find a way to make the ordering proper again when both are
+built-in.
