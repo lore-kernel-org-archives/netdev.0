@@ -1,31 +1,194 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] be2net: Fix some u16 fields appropriately
-Date: Mon, 28 Aug 2017 21:22:52 -0700 (PDT)
-Message-ID: <20170828.212252.121365416573053421.davem@davemloft.net>
-References: <1503818685-32068-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
-        <20170828.161924.1286298670313299855.davem@davemloft.net>
-        <979AB2E6-7D90-4C6B-B43F-1D17EE621D05@cmss.chinamobile.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: sathya.perla@broadcom.com, ajit.khaparde@broadcom.com,
-        sriharsha.basavapatna@broadcom.com, somnath.kotur@broadcom.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: yanhaishuang@cmss.chinamobile.com
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: [PATCH net-next v2] bridge: fdb add and delete tracepoints
+Date: Mon, 28 Aug 2017 21:22:48 -0700
+Message-ID: <1503980568-35240-1-git-send-email-roopa@cumulusnetworks.com>
+Cc: netdev@vger.kernel.org, nikolay@cumulusnetworks.com,
+        f.fainelli@gmail.com, bridge@lists.linux-foundation.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54522 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750815AbdH2EWx (ORCPT
+Received: from mail-pg0-f49.google.com ([74.125.83.49]:33436 "EHLO
+        mail-pg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750796AbdH2EWx (ORCPT
         <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 00:22:53 -0400
-In-Reply-To: <979AB2E6-7D90-4C6B-B43F-1D17EE621D05@cmss.chinamobile.com>
+Received: by mail-pg0-f49.google.com with SMTP id t3so7501825pgt.0
+        for <netdev@vger.kernel.org>; Mon, 28 Aug 2017 21:22:53 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTog5Lil5rW35Y+MIDx5YW5oYWlzaHVhbmdAY21zcy5jaGluYW1vYmlsZS5jb20+DQpEYXRl
-OiBUdWUsIDI5IEF1ZyAyMDE3IDA5OjA0OjU3ICswODAwDQoNCj4gVGhlIEdFVF9UWF9DT01QTF9C
-SVRTIGNvbWVzIGZyb20gYW1hcF9nZXQgd2hpY2ggYWxzbyByZXR1cm5zIGEgMzItYml0IHZhbHVl
-Og0KDQpJdCBuZXZlciByZXR1cm5zIGEgdmFsdWUgd2l0aCBtb3JlIHRoYW4gMTYtYml0cyBvZiBz
-aWduaWZpY2FuY2UgZm9yDQp0aGlzIHNwZWNpZmljIGNhbGwuDQoNClBsZWFzZSBzdG9wIHRyeWlu
-ZyB0byBiZSBzZW1hbnRpY2FsbHkgY2xldmVyIHdoZW4gYXJndWluZyBhYm91dCB0aGlzDQpjaGFu
-Z2UuDQoNCkl0J3Mgbm90IGFib3V0IHR5cGVzLCBpdCdzIGFib3V0IHdoYXQgcmFuZ2Ugb2YgdmFs
-dWVzIHRoZSBzdHJ1Y3QNCm1lbWJlciBjYW4gYWN0dWFsbHkgaG9sZC4NCg==
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+
+A few useful tracepoints to trace bridge forwarding
+database updates.
+
+Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+---
+v2 - address comments from Florian
+
+ include/trace/events/bridge.h |   98 +++++++++++++++++++++++++++++++++++++++++
+ net/bridge/br_fdb.c           |    7 +++
+ net/core/net-traces.c         |    6 +++
+ 3 files changed, 111 insertions(+)
+ create mode 100644 include/trace/events/bridge.h
+
+diff --git a/include/trace/events/bridge.h b/include/trace/events/bridge.h
+new file mode 100644
+index 0000000..3a4ecc3
+--- /dev/null
++++ b/include/trace/events/bridge.h
+@@ -0,0 +1,98 @@
++#undef TRACE_SYSTEM
++#define TRACE_SYSTEM bridge
++
++#if !defined(_TRACE_BRIDGE_H) || defined(TRACE_HEADER_MULTI_READ)
++#define _TRACE_BRIDGE_H
++
++#include <linux/netdevice.h>
++#include <linux/tracepoint.h>
++
++#include "../../../net/bridge/br_private.h"
++
++TRACE_EVENT(br_fdb_add,
++
++	TP_PROTO(struct ndmsg *ndm, struct net_device *dev,
++		 const unsigned char *addr, u16 vid, u16 nlh_flags),
++
++	TP_ARGS(ndm, dev, addr, vid, nlh_flags),
++
++	TP_STRUCT__entry(
++		__field(u8, ndm_flags)
++		__string(dev, dev->name)
++		__array(unsigned char, addr, ETH_ALEN)
++		__field(u16, vid)
++		__field(u16, nlh_flags)
++	),
++
++	TP_fast_assign(
++		__assign_str(dev, dev->name);
++		memcpy(__entry->addr, addr, ETH_ALEN);
++		__entry->vid = vid;
++		__entry->nlh_flags = nlh_flags;
++		__entry->ndm_flags = ndm->ndm_flags;
++	),
++
++	TP_printk("dev %s addr %02x:%02x:%02x:%02x:%02x:%02x vid %u nlh_flags %04x ndm_flags = %02x",
++		  __get_str(dev), __entry->addr[0], __entry->addr[1],
++		  __entry->addr[2], __entry->addr[3], __entry->addr[4],
++		  __entry->addr[5], __entry->vid,
++		  __entry->nlh_flags, __entry->ndm_flags)
++);
++
++TRACE_EVENT(br_fdb_external_learn_add,
++
++	TP_PROTO(struct net_bridge *br, struct net_bridge_port *p,
++		 const unsigned char *addr, u16 vid),
++
++	TP_ARGS(br, p, addr, vid),
++
++	TP_STRUCT__entry(
++		__string(br_dev, br->dev->name)
++		__string(dev, p->dev->name)
++		__array(unsigned char, addr, ETH_ALEN)
++		__field(u16, vid)
++	),
++
++	TP_fast_assign(
++		__assign_str(br_dev, br ? br->dev->name : "null");
++		__assign_str(dev, p ? p->dev->name : "null");
++		memcpy(__entry->addr, addr, ETH_ALEN);
++		__entry->vid = vid;
++	),
++
++	TP_printk("br_dev %s port %s addr %02x:%02x:%02x:%02x:%02x:%02x vid %u",
++		  __get_str(br_dev), __get_str(dev), __entry->addr[0],
++		  __entry->addr[1], __entry->addr[2], __entry->addr[3],
++		  __entry->addr[4], __entry->addr[5], __entry->vid)
++);
++
++TRACE_EVENT(fdb_delete,
++
++	TP_PROTO(struct net_bridge *br, struct net_bridge_fdb_entry *f),
++
++	TP_ARGS(br, f),
++
++	TP_STRUCT__entry(
++		__string(br_dev, br->dev->name)
++		__string(dev, f->dst ? f->dst->dev->name : "null")
++		__array(unsigned char, addr, ETH_ALEN)
++		__field(u16, vid)
++	),
++
++	TP_fast_assign(
++		__assign_str(br_dev, br ? br->dev->name : "null");
++		__assign_str(dev, f->dst ? f->dst->dev->name : "null");
++		memcpy(__entry->addr, f->addr.addr, ETH_ALEN);
++		__entry->vid = f->vlan_id;
++	),
++
++	TP_printk("br_dev %s dev %s addr %02x:%02x:%02x:%02x:%02x:%02x vid %u",
++		  __get_str(br_dev), __get_str(dev), __entry->addr[0],
++		  __entry->addr[1], __entry->addr[2], __entry->addr[3],
++		  __entry->addr[4], __entry->addr[5], __entry->vid)
++);
++
++#endif /* _TRACE_BRIDGE_H */
++
++/* This part must be outside protection */
++#include <trace/define_trace.h>
+diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+index a79b648..be5e1da 100644
+--- a/net/bridge/br_fdb.c
++++ b/net/bridge/br_fdb.c
+@@ -25,6 +25,7 @@
+ #include <asm/unaligned.h>
+ #include <linux/if_vlan.h>
+ #include <net/switchdev.h>
++#include <trace/events/bridge.h>
+ #include "br_private.h"
+ 
+ static struct kmem_cache *br_fdb_cache __read_mostly;
+@@ -171,6 +172,8 @@ static void fdb_del_hw_addr(struct net_bridge *br, const unsigned char *addr)
+ 
+ static void fdb_delete(struct net_bridge *br, struct net_bridge_fdb_entry *f)
+ {
++	trace_fdb_delete(br, f);
++
+ 	if (f->is_static)
+ 		fdb_del_hw_addr(br, f->addr.addr);
+ 
+@@ -870,6 +873,8 @@ int br_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
+ 	struct net_bridge *br = NULL;
+ 	int err = 0;
+ 
++	trace_br_fdb_add(ndm, dev, addr, vid, nlh_flags);
++
+ 	if (!(ndm->ndm_state & (NUD_PERMANENT|NUD_NOARP|NUD_REACHABLE))) {
+ 		pr_info("bridge: RTM_NEWNEIGH with invalid state %#x\n", ndm->ndm_state);
+ 		return -EINVAL;
+@@ -1066,6 +1071,8 @@ int br_fdb_external_learn_add(struct net_bridge *br, struct net_bridge_port *p,
+ 	bool modified = false;
+ 	int err = 0;
+ 
++	trace_br_fdb_external_learn_add(br, p, addr, vid);
++
+ 	spin_lock_bh(&br->hash_lock);
+ 
+ 	head = &br->hash[br_mac_hash(addr, vid)];
+diff --git a/net/core/net-traces.c b/net/core/net-traces.c
+index 4f1468c..4a0292c 100644
+--- a/net/core/net-traces.c
++++ b/net/core/net-traces.c
+@@ -37,6 +37,12 @@
+ #include <trace/events/fib6.h>
+ EXPORT_TRACEPOINT_SYMBOL_GPL(fib6_table_lookup);
+ #endif
++#if IS_ENABLED(CONFIG_BRIDGE)
++#include <trace/events/bridge.h>
++EXPORT_TRACEPOINT_SYMBOL_GPL(br_fdb_add);
++EXPORT_TRACEPOINT_SYMBOL_GPL(br_fdb_external_learn_add);
++EXPORT_TRACEPOINT_SYMBOL_GPL(fdb_delete);
++#endif
+ 
+ EXPORT_TRACEPOINT_SYMBOL_GPL(kfree_skb);
+ 
+-- 
+1.7.10.4
