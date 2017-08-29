@@ -1,34 +1,36 @@
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: Re: [PATCH net] nfp: double free on error in probe
-Date: Tue, 29 Aug 2017 13:05:56 -0700
-Message-ID: <20170829130556.7632d5ed@cakuba>
-References: <20170829190855.fabfktv2dg57x3gs@mwanda>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Simon Horman <simon.horman@netronome.com>,
-        oss-drivers@netronome.com, netdev@vger.kernel.org,
-        kernel-janitors@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: [PATCH RFC 0/2] virtio-net: implement reset request
+Date: Tue, 29 Aug 2017 16:07:57 -0400
+Message-ID: <20170829200759.13975-1-willemdebruijn.kernel@gmail.com>
+Cc: mst@redhat.com, jasowang@redhat.com,
+        virtualization@lists.linux-foundation.org,
+        Willem de Bruijn <willemb@google.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f174.google.com ([209.85.192.174]:36100 "EHLO
-        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751297AbdH2UGC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 16:06:02 -0400
-Received: by mail-pf0-f174.google.com with SMTP id z87so13119957pfi.3
-        for <netdev@vger.kernel.org>; Tue, 29 Aug 2017 13:06:01 -0700 (PDT)
-In-Reply-To: <20170829190855.fabfktv2dg57x3gs@mwanda>
+Received: from mail-qk0-f193.google.com ([209.85.220.193]:32944 "EHLO
+        mail-qk0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750822AbdH2UID (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 16:08:03 -0400
+Received: by mail-qk0-f193.google.com with SMTP id k126so413628qkb.0
+        for <netdev@vger.kernel.org>; Tue, 29 Aug 2017 13:08:03 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 29 Aug 2017 22:15:16 +0300, Dan Carpenter wrote:
-> Both the nfp_net_pf_app_start() and the nfp_net_pci_probe() functions
-> call nfp_net_pf_app_stop_ctrl(pf) so there is a double free.  The free
-> should be done from the probe function because it's allocated there so
-> I have removed the call from nfp_net_pf_app_start().
-> 
-> Fixes: 02082701b974 ("nfp: create control vNICs and wire up rx/tx")
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+From: Willem de Bruijn <willemb@google.com>
 
-Acked-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+Implement VIRTIO_CONFIG_S_NEEDS_RESET (patch 1) and
+add a feature bit to signal support (patch 2)
+
+Further details in the individual patches.
+
+Willem de Bruijn (2):
+  virtio_net: implement VIRTIO_CONFIG_S_NEEDS_RESET
+  virtio_net: enable probing for NEEDS_RESET support
+
+ drivers/net/virtio_net.c           | 71 +++++++++++++++++++++++++++++++++-----
+ include/uapi/linux/virtio_config.h |  3 ++
+ include/uapi/linux/virtio_net.h    |  4 +++
+ 3 files changed, 69 insertions(+), 9 deletions(-)
+
+-- 
+2.14.1.342.g6490525c54-goog
