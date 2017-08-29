@@ -1,80 +1,69 @@
-From: Vadim Pasternak <vadimp-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: [patch v1 1/2] dt-bindings: net: add binding documentation for mlxsw thermal control
-Date: Tue, 29 Aug 2017 18:45:10 +0000
-Message-ID: <1504032311-195988-2-git-send-email-vadimp@mellanox.com>
-References: <1504032311-195988-1-git-send-email-vadimp@mellanox.com>
-Cc: jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org, ivecera-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Vadim Pasternak <vadimp-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1504032311-195988-1-git-send-email-vadimp-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/4] irda: move it to drivers/staging so we can delete it
+Date: Tue, 29 Aug 2017 09:49:12 -0700 (PDT)
+Message-ID: <20170829.094912.1121803194631886017.davem@davemloft.net>
+References: <20170829112805.GB14571@kroah.com>
+ <CAMuHMdVb-oygJkkHwBOfSmNECAfF72QruJSmVTpqdUW+RNJbrg@mail.gmail.com>
+ <20170829144850.GC22532@kroah.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devel@driverdev.osuosl.org, samuel@sortiz.org, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, sbrivio@redhat.com, geert@linux-m68k.org
+To: gregkh@linuxfoundation.org
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <20170829144850.GC22532@kroah.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-Add binding document for Mellanox switch devices.
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Date: Tue, 29 Aug 2017 16:48:50 +0200
 
-Signed-off-by: Vadim Pasternak <vadimp-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
----
- .../devicetree/bindings/net/mellanox,mlxsw.txt     | 46 ++++++++++++++++++++++
- 1 file changed, 46 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/mellanox,mlxsw.txt
+> On Tue, Aug 29, 2017 at 02:11:39PM +0200, Geert Uytterhoeven wrote:
+>> Hi Greg,
+>> 
+>> On Tue, Aug 29, 2017 at 1:28 PM, Greg Kroah-Hartman
+>> <gregkh@linuxfoundation.org> wrote:
+>> > On Tue, Aug 29, 2017 at 01:11:31PM +0200, Stefano Brivio wrote:
+>> >> On Tue, 29 Aug 2017 12:59:00 +0200
+>> >> Geert Uytterhoeven <geert@linux-m68k.org> wrote:
+>> >> > On Sun, Aug 27, 2017 at 5:03 PM, Greg Kroah-Hartman
+>> >> > <gregkh@linuxfoundation.org> wrote:
+>> >> > > The IRDA code has long been obsolete and broken.  So, to keep people
+>> >> > > from trying to use it, and to prevent people from having to maintain it,
+>> >> > > let's move it to drivers/staging/ so that we can delete it entirely from
+>> >> > > the kernel in a few releases.
+>> >> >
+>> >> > (diving into an early boot crash)
+>> >> >
+>> >> > Have you tried running this? ;-)
+>> >> >
+>> >> > irda_init() and net_dev_init() are both subsys_initcall()s.
+>> >> > But the former now runs before the latter, leading to:
+>> >> >
+>> >> > Unable to handle kernel NULL pointer dereference at virtual address 00000004
+>> >>
+>> >> Should be fixed by https://patchwork.ozlabs.org/patch/807006/
+>> >> ("[net-next] staging: irda: force to be a kernel module") I guess...
+>> >
+>> > Yup, that's the fix for this issue.
+>> >
+>> > Geert, does that fix the problem for you?
+>> 
+>> Thanks, that patch fixes the crash, obviously.
+>> 
+>> It does mean you can no longer have IrDA in a non-modular kernel.
+> 
+> Given that irda doesn't really work, I doubt anyone is going to care
+> about it :)
 
-diff --git a/Documentation/devicetree/bindings/net/mellanox,mlxsw.txt b/Documentation/devicetree/bindings/net/mellanox,mlxsw.txt
-new file mode 100644
-index 0000000..55de5ff
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/mellanox,mlxsw.txt
-@@ -0,0 +1,46 @@
-+Mellanox Technologies Switch ASICs
-+
-+This file provides information, what the device node
-+for the Switch ASIC interface contains.
-+
-+Required properties:
-+- compatible		: "mellanox,mlxsw_minimal"
-+- reg			: The I2C address of the device.
-+
-+Optional properties:
-+- cooling-phandle	: phandle of the cooling device, which is to be used
-+			  for the zone thermal control.
-+			  If absent, cooling device controlled internally by
-+			  the ASIC may be used.
-+
-+- trips			: the nodes to describe a point in the temperature
-+			  domain with key temperatures at which cooling is
-+			  recommended. Each node must contain the next values:
-+			  - type: the trip type. Expected values are:
-+			    0 - a trip point to enable active cooling;
-+			    1 - a trip point to enable passive cooling;
-+			    2 - a trip point to notify emergency;
-+			  - temperature: unsigned integer indicating the trip
-+			    temperature level in millicelsius;
-+			  - minimum cooling state allowed within the trip node;
-+			  - maximum cooling state allowed within the trip node;
-+
-+Example:
-+	asic_thermal: mlxsw_minimal@48 {
-+		compatible = "mlxsw_minimal";
-+		reg = <0x48>;
-+		status = "disabled";
-+		cooling-phandle = <&cooling>;
-+
-+		trips {
-+			trip@0 {
-+				trip = <0 75000 0 0>;
-+			};
-+			trip@1 {
-+				trip = <2 85000 1 5>;
-+			};
-+			trip@3 {
-+				trip = <2 105000 5 5>;
-+			};
-+		};
-+	};
--- 
-2.1.4
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+The initialization with everything built-in worked fine before your
+changes.
