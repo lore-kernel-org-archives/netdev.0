@@ -1,7 +1,7 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 1/7] net: xfrm: don't double-hold dst when sk_policy in use.
-Date: Tue, 29 Aug 2017 12:31:28 +0200
-Message-ID: <1504002694-1931-2-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH 7/7] xfrm_user: fix info leak in build_aevent()
+Date: Tue, 29 Aug 2017 12:31:34 +0200
+Message-ID: <1504002694-1931-8-git-send-email-steffen.klassert@secunet.com>
 References: <1504002694-1931-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,50 +10,39 @@ Cc: Herbert Xu <herbert@gondor.apana.org.au>,
         <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:50648 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([62.96.220.36]:50686 "EHLO a.mx.secunet.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751695AbdH2Kbm (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 29 Aug 2017 06:31:42 -0400
+        id S1751238AbdH2Kbp (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 29 Aug 2017 06:31:45 -0400
 In-Reply-To: <1504002694-1931-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Lorenzo Colitti <lorenzo@google.com>
+From: Mathias Krause <minipli@googlemail.com>
 
-While removing dst_entry garbage collection, commit 52df157f17e5
-("xfrm: take refcnt of dst when creating struct xfrm_dst bundle")
-changed xfrm_resolve_and_create_bundle so it returns an xdst with
-a refcount of 1 instead of 0.
+The memory reserved to dump the ID of the xfrm state includes a padding
+byte in struct xfrm_usersa_id added by the compiler for alignment. To
+prevent the heap info leak, memset(0) the sa_id before filling it.
 
-However, it did not delete the dst_hold performed by xfrm_lookup
-when a per-socket policy is in use. This means that when a
-socket policy is in use, dst entries returned by xfrm_lookup have
-a refcount of 2, and are not freed when no longer in use.
-
-Cc: Wei Wang <weiwan@google.com>
-Fixes: 52df157f17 ("xfrm: take refcnt of dst when creating struct xfrm_dst bundle")
-Tested: https://android-review.googlesource.com/417481
-Tested: https://android-review.googlesource.com/418659
-Tested: https://android-review.googlesource.com/424463
-Tested: https://android-review.googlesource.com/452776 passes on net-next
-Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
-Acked-by: Wei Wang <weiwan@google.com>
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+Fixes: d51d081d6504 ("[IPSEC]: Sync series - user")
+Signed-off-by: Mathias Krause <minipli@googlemail.com>
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- net/xfrm/xfrm_policy.c | 1 -
- 1 file changed, 1 deletion(-)
+ net/xfrm/xfrm_user.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index 6f5a0dad..69b16ee 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -2226,7 +2226,6 @@ struct dst_entry *xfrm_lookup(struct net *net, struct dst_entry *dst_orig,
- 				goto no_transform;
- 			}
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+index 2cbdc81..9391ced 100644
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -1869,6 +1869,7 @@ static int build_aevent(struct sk_buff *skb, struct xfrm_state *x, const struct
+ 		return -EMSGSIZE;
  
--			dst_hold(&xdst->u.dst);
- 			route = xdst->route;
- 		}
- 	}
+ 	id = nlmsg_data(nlh);
++	memset(&id->sa_id, 0, sizeof(id->sa_id));
+ 	memcpy(&id->sa_id.daddr, &x->id.daddr, sizeof(x->id.daddr));
+ 	id->sa_id.spi = x->id.spi;
+ 	id->sa_id.family = x->props.family;
 -- 
 2.7.4
