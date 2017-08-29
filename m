@@ -1,59 +1,47 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 3/4] net: systemport: Set correct RSB endian bits based on host
-Date: Tue, 29 Aug 2017 11:39:44 -0700
-Message-ID: <1504031985-52808-4-git-send-email-f.fainelli@gmail.com>
-References: <1504031985-52808-1-git-send-email-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, opendmb@gmail.com, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:34949 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751314AbdH2SqH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 14:46:07 -0400
-Received: by mail-wm0-f68.google.com with SMTP id e204so1904589wma.2
-        for <netdev@vger.kernel.org>; Tue, 29 Aug 2017 11:46:06 -0700 (PDT)
-In-Reply-To: <1504031985-52808-1-git-send-email-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Himanshu Jha <himanshujha199640@gmail.com>
+Subject: [PATCH] rsi: remove memset before memcpy
+Date: Wed, 30 Aug 2017 00:24:50 +0530
+Message-ID: <1504032890-25229-1-git-send-email-himanshujha199640@gmail.com>
+Cc: amit.karwar@redpinesignals.com, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Himanshu Jha <himanshujha199640@gmail.com>
+To: kvalo@codeaurora.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-LE CPU:
-* set RSB_SWAP0 (both SYSTEMPORT and SYSTEMPORT Lite)
-* clear RSB_SWAP1 (SYSTEMPORT Lite only)
+calling memcpy immediately after memset with the same region of memory
+makes memset redundant.
 
-BE CPU:
-* clear RSB_SWAP0 (both SYSTEMPORT and SYSTEMPORTE lite)
-* set RSB_SWAP1 (SYSTEMPORT Lite only)
-
-With these settings, we have the Receive Status Block always match the
-host endian and we do not need to perform any conversion.
-
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+Signed-off-by: Himanshu Jha <himanshujha199640@gmail.com>
 ---
- drivers/net/ethernet/broadcom/bcmsysport.c | 9 +++++++--
- 1 file changed, 7 insertions(+), 2 deletions(-)
+ drivers/net/wireless/rsi/rsi_91x_sdio.c | 1 -
+ drivers/net/wireless/rsi/rsi_91x_usb.c  | 1 -
+ 2 files changed, 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bcmsysport.c b/drivers/net/ethernet/broadcom/bcmsysport.c
-index a7e84292af50..7c7558a6b720 100644
---- a/drivers/net/ethernet/broadcom/bcmsysport.c
-+++ b/drivers/net/ethernet/broadcom/bcmsysport.c
-@@ -1762,9 +1762,14 @@ static void rbuf_init(struct bcm_sysport_priv *priv)
- 	reg = rbuf_readl(priv, RBUF_CONTROL);
- 	reg |= RBUF_4B_ALGN | RBUF_RSB_EN;
- 	/* Set a correct RSB format on SYSTEMPORT Lite */
--	if (priv->is_lite) {
--		reg &= ~RBUF_RSB_SWAP1;
-+	if (!IS_ENABLED(CONFIG_CPU_BIG_ENDIAN)) {
-+		if (priv->is_lite)
-+			reg &= ~RBUF_RSB_SWAP1;
- 		reg |= RBUF_RSB_SWAP0;
-+	} else {
-+		if (priv->is_lite)
-+			reg |= RBUF_RSB_SWAP1;
-+		reg &= ~RBUF_RSB_SWAP0;
+diff --git a/drivers/net/wireless/rsi/rsi_91x_sdio.c b/drivers/net/wireless/rsi/rsi_91x_sdio.c
+index 742f6cd..8d3a483 100644
+--- a/drivers/net/wireless/rsi/rsi_91x_sdio.c
++++ b/drivers/net/wireless/rsi/rsi_91x_sdio.c
+@@ -584,7 +584,6 @@ static int rsi_sdio_load_data_master_write(struct rsi_hw *adapter,
  	}
- 	rbuf_writel(priv, reg, RBUF_CONTROL);
- }
+ 
+ 	for (offset = 0, i = 0; i < num_blocks; i++, offset += block_size) {
+-		memset(temp_buf, 0, block_size);
+ 		memcpy(temp_buf, ta_firmware + offset, block_size);
+ 		lsb_address = (u16)base_address;
+ 		status = rsi_sdio_write_register_multiple
+diff --git a/drivers/net/wireless/rsi/rsi_91x_usb.c b/drivers/net/wireless/rsi/rsi_91x_usb.c
+index 9097f7e..81df09d 100644
+--- a/drivers/net/wireless/rsi/rsi_91x_usb.c
++++ b/drivers/net/wireless/rsi/rsi_91x_usb.c
+@@ -439,7 +439,6 @@ static int rsi_usb_load_data_master_write(struct rsi_hw *adapter,
+ 	rsi_dbg(INFO_ZONE, "num_blocks: %d\n", num_blocks);
+ 
+ 	for (cur_indx = 0, i = 0; i < num_blocks; i++, cur_indx += block_size) {
+-		memset(temp_buf, 0, block_size);
+ 		memcpy(temp_buf, ta_firmware + cur_indx, block_size);
+ 		status = rsi_usb_write_register_multiple(adapter, base_address,
+ 							 (u8 *)(temp_buf),
 -- 
-1.9.1
+2.7.4
