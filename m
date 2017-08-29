@@ -1,50 +1,56 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [PATCH net] nfp: double free on error in probe
-Date: Tue, 29 Aug 2017 22:15:16 +0300
-Message-ID: <20170829190855.fabfktv2dg57x3gs@mwanda>
+From: Arkadi Sharshevsky <arkadis@mellanox.com>
+Subject: Re: mlxsw and rtnl lock
+Date: Tue, 29 Aug 2017 22:16:10 +0300
+Message-ID: <32962969-5999-e475-75f1-6ac7e5d76f1b@mellanox.com>
+References: <dccefbeb-b5c3-14ed-05d3-07d464989708@gmail.com>
+ <20170826170418.GA22324@shredder>
+ <b6dc0a4e-4ed9-ed5f-ac0f-c3fe06d5ed68@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Simon Horman <simon.horman@netronome.com>,
-        oss-drivers@netronome.com, netdev@vger.kernel.org,
-        kernel-janitors@vger.kernel.org
-To: Jakub Kicinski <jakub.kicinski@netronome.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Pirko <jiri@resnulli.us>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        mlxsw@mellanox.com
+To: David Ahern <dsahern@gmail.com>, Ido Schimmel <idosch@idosch.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:45166 "EHLO
-        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751215AbdH2TQL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 15:16:11 -0400
-Content-Disposition: inline
+Received: from mail-eopbgr20053.outbound.protection.outlook.com ([40.107.2.53]:53674
+        "EHLO EUR02-VE1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751215AbdH2TQS (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 29 Aug 2017 15:16:18 -0400
+In-Reply-To: <b6dc0a4e-4ed9-ed5f-ac0f-c3fe06d5ed68@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Both the nfp_net_pf_app_start() and the nfp_net_pci_probe() functions
-call nfp_net_pf_app_stop_ctrl(pf) so there is a double free.  The free
-should be done from the probe function because it's allocated there so
-I have removed the call from nfp_net_pf_app_start().
 
-Fixes: 02082701b974 ("nfp: create control vNICs and wire up rx/tx")
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-index d55f6c5ed1be..7c22cc4654b7 100644
---- a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-+++ b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-@@ -458,7 +458,7 @@ static int nfp_net_pf_app_start(struct nfp_pf *pf)
- 
- 	err = nfp_app_start(pf->app, pf->ctrl_vnic);
- 	if (err)
--		goto err_ctrl_stop;
-+		return err;
- 
- 	if (pf->num_vfs) {
- 		err = nfp_app_sriov_enable(pf->app, pf->num_vfs);
-@@ -470,8 +470,6 @@ static int nfp_net_pf_app_start(struct nfp_pf *pf)
- 
- err_app_stop:
- 	nfp_app_stop(pf->app);
--err_ctrl_stop:
--	nfp_net_pf_app_stop_ctrl(pf);
- 	return err;
- }
- 
+On 08/28/2017 09:00 PM, David Ahern wrote:
+> On 8/26/17 11:04 AM, Ido Schimmel wrote:
+>> Regarding the silent abort, that's intentional. You can look at the same
+>> code in v4.9 - when the chain was still blocking - and you'll see that
+>> we didn't propagate the error even then. This was discussed in the past
+>> and the conclusion was that user doesn't expect to operation to fail. If
+>> hardware resources are exceeded, we let the kernel take care of the
+>> forwarding instead.
+>>
+> 
+> In addition to Roopa's comments... The silent abort is not a good user
+> experience. Right now it's add a network address or route, cross fingers
+> and hope it does not overflow some limit (nexthop, ecmp, neighbor,
+> prefix, etc) that triggers the offload abort.
+> 
+> The mlxsw driver queries for some limits (e.g., max rifs) but I don't
+> see any query related to current usage, and there is no API to pass any
+> of that data to user space so user space has no programmatic way to
+> handle this. I realize you are aware of this limitation. The point is to
+
+The first dpipe table that was introduced was the erif table.
+which gathers L3 statistics.
+
+The rifs are actually also fixed size resource, so maybe it is
+more correct to introduce it as 'resources' and connect it to
+the erif table. That way you will be able to obtain current
+usage, and receive notification when it will be drained out.
+
+> emphasize the need to resolve this.
+> 
