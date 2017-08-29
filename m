@@ -1,48 +1,62 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next 7/7] samples/bpf: xdp_monitor tool based on tracepoints
-Date: Tue, 29 Aug 2017 19:24:38 +0200
-Message-ID: <59A5A356.108@iogearbox.net>
-References: <150401743083.16384.15778781741742858567.stgit@firesoul> <150401749138.16384.17129327124102881342.stgit@firesoul> <20170829170551.5uws25py4fcpem73@ast-mbp>
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH net-next] staging: irda: force to be a kernel module
+Date: Tue, 29 Aug 2017 19:26:08 +0200
+Message-ID: <20170829172608.GA4700@kroah.com>
+References: <20170829070929.GA15824@kroah.com>
+ <20170829091417.GA9481@kroah.com>
+ <20170829.093507.2166038228205751885.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, John Fastabend <john.fastabend@gmail.com>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:44458 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751283AbdH2RYl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 13:24:41 -0400
-In-Reply-To: <20170829170551.5uws25py4fcpem73@ast-mbp>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: samuel@sortiz.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, devel@driverdev.osuosl.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170829.093507.2166038228205751885.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 08/29/2017 07:05 PM, Alexei Starovoitov wrote:
-> On Tue, Aug 29, 2017 at 04:38:11PM +0200, Jesper Dangaard Brouer wrote:
->> This tool xdp_monitor demonstrate how to use the different xdp_redirect
->> tracepoints xdp_redirect{,_map}{,_err} from a BPF program.
->>
->> The default mode is to only monitor the error counters, to avoid
->> affecting the per packet performance. Tracepoints comes with a base
->> overhead of 25 nanosec for an attached bpf_prog, and 48 nanosec for
->> using a full perf record (with non-matching filter).  Thus, default
->> loading the --stats mode could affect the maximum performance.
->>
->> This version of the tool is very simple and count all types of errors
->> as one.  It will be natural to extend this later with the different
->> types of errors that can occur, which should help users quickly
->> identify common mistakes.
->>
->> Because the TP_STRUCT was kept in sync all the tracepoints loads the
->> same BPF code.  It would also be natural to extend the map version to
->> demonstrate how the map information could be used.
->>
->> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
->
-> Nice. Did you consider using libbbpf (instead of old bpf_load.c hack)
-> and make full standalone tool out of it? Looks very useful.
+On Tue, Aug 29, 2017 at 09:35:07AM -0700, David Miller wrote:
+> From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+> Date: Tue, 29 Aug 2017 11:14:17 +0200
+> 
+> > Now that the IRDA networking code has moved into drivers/staging/, the
+> > link order is changed for when it is initialized if built into the
+> > system.  This can cause a crash when initializing as the netfilter core
+> > hasn't been initialized yet.
+> > 
+> > So force the IRDA code to be built as a module, preventing the crash.
+> > 
+> > Reported-by: kernel test robot <fengguang.wu@intel.com>
+> > Signed-off-by: Greg Kroah-Hartman gregkh@linuxfoundation.org
+> 
+> I don't think this is reasonable.
+> 
+> IRDA being built in was broken by moving it to staging, so it's a
+> regression and we should find a way to fix it.
 
-+1 also my suggestion. ;)
+Hm, this is due to netlink coming before irda in the link order before
+this patch series.  I can't change the link order to put all of net/
+before drivers/, which would solve this, and I don't think I can put:
+	obj-$(CONFIG_IRDA) += ../../drivers/staging/irda/net/
+in a networking Makefile, can I?  Does "../" even work in a Makefile
+like that?
 
-> Acked-by: Alexei Starovoitov <ast@kernel.org>
+Any other thoughts?
+
+> It's one thing if IRDA on it's own has deteriorated and broken in some
+> ways over time due to lack of maintainence, it's another to knowingly
+> do something to it that causes a regression which is what happened
+> here.
+
+It has deteriorated and is broken and does not work at all from the
+reports I have gotten, Linus pointing this out to me directly due to his
+involvement in irda-related dive computers.  So I don't think anyone is
+using this at all right now, it seems to crash when used anyway.  So no
+one is running this "build in" code at the moment :)
+
+ideas?
+
+thanks,
+
+greg k-h
