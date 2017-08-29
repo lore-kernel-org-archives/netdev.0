@@ -1,29 +1,91 @@
-From: Christoph Hellwig <hch@lst.de>
-Subject: Re: [PATCH 1/4] sgiseeq: switch to dma_alloc_attrs
-Date: Tue, 29 Aug 2017 10:02:43 +0200
-Message-ID: <20170829080243.GA10358@lst.de>
-References: <20170826072125.9790-1-hch@lst.de> <20170826072125.9790-2-hch@lst.de> <20170828.154151.502026172655565151.davem@davemloft.net>
+From: Sekhar Nori <nsekhar@ti.com>
+Subject: Re: Fwd: DA850-evm MAC Address is random
+Date: Tue, 29 Aug 2017 13:53:12 +0530
+Message-ID: <94c4cbb0-1df3-2f2f-69f3-f9a788e610fa@ti.com>
+References: <CAHCN7xKwFd7dHF0ySEd1hOSr0sZEgh9fuwy=RkUTHvEh59hojQ@mail.gmail.com>
+ <b7aab9fc-17ba-077b-3ff3-28087e0b25bc@ti.com>
+ <CAHCN7xLHEjda9DcVw5iHA9RaJ7UnyMVxf7e4e8NTEj9Op1JaBw@mail.gmail.com>
+ <20170828211217.GO6008@atomide.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: hch@lst.de, netdev@vger.kernel.org, ralf@linux-mips.org,
-        linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170828.154151.502026172655565151.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Grygorii Strashko <grygorii.strashko@ti.com>,
+        <linux-omap@vger.kernel.org>, <netdev@vger.kernel.org>
+To: Tony Lindgren <tony@atomide.com>, Adam Ford <aford173@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from lelnx194.ext.ti.com ([198.47.27.80]:65387 "EHLO
+        lelnx194.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750779AbdH2IXR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 04:23:17 -0400
+In-Reply-To: <20170828211217.GO6008@atomide.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 28, 2017 at 03:41:51PM -0700, David Miller wrote:
-> From: Christoph Hellwig <hch@lst.de>
-> Date: Sat, 26 Aug 2017 09:21:22 +0200
-> 
-> > Use dma_alloc_attrs directly instead of the dma_alloc_noncoherent wrapper.
-> > 
-> > Signed-off-by: Christoph Hellwig <hch@lst.de>
-> 
-> Acked-by: David S. Miller <davem@davemloft.net>
+On Tuesday 29 August 2017 02:42 AM, Tony Lindgren wrote:
+> * Adam Ford <aford173@gmail.com> [170828 13:33]:
+>> On Mon, Aug 28, 2017 at 1:54 PM, Grygorii Strashko
+>> <grygorii.strashko@ti.com> wrote:
+>>> Cc: Sekhar
+>>>
+>>> On 08/28/2017 10:32 AM, Adam Ford wrote:
+>>>>
+>>>> The davinvi_emac MAC address seems to attempt a call to
+>>>> ti_cm_get_macid in cpsw-common.c but it returns the message
+>>>> 'davinci_emac davinci_emac.1: incompatible machine/device type for
+>>>> reading mac address ' and then generates a random MAC address.
+>>>>
+>>>> The function appears to lookup varions boards using
+>>>> 'of_machine_is_compaible' and supports dm8148, am33xx, am3517, dm816,
+>>>> am4372 and dra7.  I don't see the ti,davinci-dm6467-emac which is
+>>>> what's shown in the da850 device tree.
+>>>>
+>>>> Is there a patch somewhere for supporting the da850-evm?
+>>>
+>>>
+>>> Not sure if MAC address can be read from Control module.
+>>> May be Sekhar can say more?
+>>
+>> My understanding is that the MAC address is programmed by Logic PD
+>> into the SPI flash.  The Bootloader reads this from either SPI or its
+>> env variables.  Looking at the partition info listed in the
+>> da850-evm.dts file, it appears as if they've reserved space for it.
+>> Unfortunately, I don't see any code that reads it out.  I was hoping
 
-I take the Acks as an ok to merges these patches through the dma-mapping
-tree.  Thanks Dave!
+This code is present in U-Boot sources at
+board/davinci/da8xxevm/da850evm.c. See the function get_mac_addr() and
+its usage in misc_init_r().
+
+>> there might be a way to just pass cmdline parameter from the
+>> bootloader to the kernel to accept the MAC address.
+>>
+>>>
+>>>>
+>>>> If not, is there a way to pass the MAC address from U-Boot to the
+>>>> driver so it doesn't generate a random MAC?
+>>>
+>>>
+>>> "local-mac-address" dt porp
+>>
+>> The downside here, is that we'd have to have the Bootloader modify the
+>> device tree.
+> 
+> That piece of code exists somewhere in u-boot already. Note how
+
+Yes, it is fdt_fixup_ethernet() and its usage is in common/image-fdt.c.
+
+> we are populating the mac address for USB Ethernet drivers in
+> u-boot and then the Ethernet driver code parses it. See commit
+> 055d31de7158 ("ARM: omap3: beagleboard-xm: dt: Add ethernet to
+> the device tree") for some more information.
+> 
+> I think u-boot needs the ethernet alias for finding the interface.
+
+That's exactly what was missing. I have sent a patch for fixing that and
+copied you there.
+
+Adam, if I can get your Tested-by, I will make an attempt to send it for
+v4.13 itself.
+
+Thanks,
+Sekhar
