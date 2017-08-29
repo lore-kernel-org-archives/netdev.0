@@ -1,124 +1,66 @@
-From: Iyappan Subramanian <isubramanian@apm.com>
-Subject: [PATCH] drivers: net: xgene: Correct probe sequence handling
-Date: Tue, 29 Aug 2017 15:43:12 -0700
-Message-ID: <1504046592-24779-1-git-send-email-isubramanian@apm.com>
-Cc: linux-arm-kernel@lists.infradead.org, dnelson@redhat.com,
-        patches@apm.com, Quan Nguyen <qnguyen@apm.com>,
-        Iyappan Subramanian <isubramanian@apm.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f53.google.com ([74.125.83.53]:35724 "EHLO
-        mail-pg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751270AbdH2WnU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 18:43:20 -0400
-Received: by mail-pg0-f53.google.com with SMTP id 63so14665493pgc.2
-        for <netdev@vger.kernel.org>; Tue, 29 Aug 2017 15:43:19 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: [PATCH net-next] virtio-net: invoke zerocopy callback on xmit
+	path if no tx napi
+Date: Tue, 29 Aug 2017 18:55:32 -0400
+Message-ID: <CAF=yD-LzBowzRNREFCF4fGoQ=Z4hnJR=eTXoAfJZ_mOe-ZznrA@mail.gmail.com>
+References: <CAF=yD-KSek+LmZu0X0TXetmFEQ59iF3NpjZ4KugbwLo1BGfhaA@mail.gmail.com>
+	<20170824160748-mutt-send-email-mst@kernel.org>
+	<CAF=yD-+9Ah8pC9i2w3Ad3WnhQit7Yo479pMrToty7priL6BFLw@mail.gmail.com>
+	<20170824234551-mutt-send-email-mst@kernel.org>
+	<CAF=yD-+1wheMmC+HFKe_B_ULO0Mmh6HMSEbYY5D-HgqxVJee6A@mail.gmail.com>
+	<20170826022744-mutt-send-email-mst@kernel.org>
+	<CAF=yD-Lre0NATUVH8p0zS=G5CiY=WfKSefLmOZw940jZFgECgQ@mail.gmail.com>
+	<CAF=yD-+Wk9sc9dXMUq1+x_hh=3ThTXa6BnZkygP3tgVpjbp93g@mail.gmail.com>
+	<20170829224136-mutt-send-email-mst@kernel.org>
+	<CAF=yD-L5MG5RCZzT8EZ0coFiuQLp-2UQN0zzQefVnEd7rMQbyw@mail.gmail.com>
+	<20170829233920-mutt-send-email-mst@kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Network Development <netdev@vger.kernel.org>,
+	Koichiro Den <den@klaipeden.com>, virtualization@lists.linux-foundation.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20170829233920-mutt-send-email-mst@kernel.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Quan Nguyen <qnguyen@apm.com>
+On Tue, Aug 29, 2017 at 4:40 PM, Michael S. Tsirkin <mst@redhat.com> wrote:
+> On Tue, Aug 29, 2017 at 03:53:08PM -0400, Willem de Bruijn wrote:
+>> On Tue, Aug 29, 2017 at 3:42 PM, Michael S. Tsirkin <mst@redhat.com> wrote:
+>> > On Tue, Aug 29, 2017 at 03:35:38PM -0400, Willem de Bruijn wrote:
+>> >> By the way, I have had an unrelated patch outstanding for a while
+>> >> to have virtio-net support the VIRTIO_CONFIG_S_NEEDS_RESET
+>> >> command. Will send that as RFC.
+>> >
+>> > Oh nice.
+>>
+>> Great :)
+>>
+>> > One needs to be careful about locking there which is why
+>> > no devices support that yet.
+>>
+>> I originally wrote it based on the virtnet_reset function introduced
+>> for xdp. Calling this from virtnet_config_changed_work is non trivial,
+>> as virtnet_freeze_down waits until no config worker is running.
+>>
+>> Otherwise, I could not find any constraints on when freeze may be
+>> called, and it largely follows the same path. I hope I didn't miss anything.
+>
+> The issue is that on freeze processes are not running so we
+> generally know no new packets will arrive (might be wrong
+> for bridging, then it's a bug). On device error you must
+> prevent new skbs from coming in, etc.
 
-The phy is connected at early stage of probe but not properly
-disconnected if error occurs.  This patch fixes the issue.
-
-Also changing the return type of xgene_enet_check_phy_handle(),
-since this function always returns success.
-
-Signed-off-by: Quan Nguyen <qnguyen@apm.com>
-Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
----
- drivers/net/ethernet/apm/xgene/xgene_enet_main.c | 27 ++++++++++++------------
- 1 file changed, 13 insertions(+), 14 deletions(-)
-
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-index 1d307f2..6e253d9 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
-@@ -1661,21 +1661,21 @@ static int xgene_enet_get_irqs(struct xgene_enet_pdata *pdata)
- 	return 0;
- }
- 
--static int xgene_enet_check_phy_handle(struct xgene_enet_pdata *pdata)
-+static void xgene_enet_check_phy_handle(struct xgene_enet_pdata *pdata)
- {
- 	int ret;
- 
- 	if (pdata->phy_mode == PHY_INTERFACE_MODE_XGMII)
--		return 0;
-+		return;
- 
- 	if (!IS_ENABLED(CONFIG_MDIO_XGENE))
--		return 0;
-+		return;
- 
- 	ret = xgene_enet_phy_connect(pdata->ndev);
- 	if (!ret)
- 		pdata->mdio_driver = true;
- 
--	return 0;
-+	return;
- }
- 
- static void xgene_enet_gpiod_get(struct xgene_enet_pdata *pdata)
-@@ -1779,10 +1779,6 @@ static int xgene_enet_get_resources(struct xgene_enet_pdata *pdata)
- 	if (ret)
- 		return ret;
- 
--	ret = xgene_enet_check_phy_handle(pdata);
--	if (ret)
--		return ret;
--
- 	xgene_enet_gpiod_get(pdata);
- 
- 	pdata->clk = devm_clk_get(&pdev->dev, NULL);
-@@ -2097,9 +2093,11 @@ static int xgene_enet_probe(struct platform_device *pdev)
- 		goto err;
- 	}
- 
-+	xgene_enet_check_phy_handle(pdata);
-+
- 	ret = xgene_enet_init_hw(pdata);
- 	if (ret)
--		goto err;
-+		goto err2;
- 
- 	link_state = pdata->mac_ops->link_state;
- 	if (pdata->phy_mode == PHY_INTERFACE_MODE_XGMII) {
-@@ -2117,29 +2115,30 @@ static int xgene_enet_probe(struct platform_device *pdev)
- 	spin_lock_init(&pdata->stats_lock);
- 	ret = xgene_extd_stats_init(pdata);
- 	if (ret)
--		goto err2;
-+		goto err1;
- 
- 	xgene_enet_napi_add(pdata);
- 	ret = register_netdev(ndev);
- 	if (ret) {
- 		netdev_err(ndev, "Failed to register netdev\n");
--		goto err2;
-+		goto err1;
- 	}
- 
- 	return 0;
- 
--err2:
-+err1:
- 	/*
- 	 * If necessary, free_netdev() will call netif_napi_del() and undo
- 	 * the effects of xgene_enet_napi_add()'s calls to netif_napi_add().
- 	 */
- 
-+	xgene_enet_delete_desc_rings(pdata);
-+
-+err2:
- 	if (pdata->mdio_driver)
- 		xgene_enet_phy_disconnect(pdata);
- 	else if (phy_interface_mode_is_rgmii(pdata->phy_mode))
- 		xgene_enet_mdio_remove(pdata);
--err1:
--	xgene_enet_delete_desc_rings(pdata);
- err:
- 	free_netdev(ndev);
- 	return ret;
--- 
-2.7.4
+Thanks a lot for the quick review. I had indeed not yet figured out
+which invariants freeze can depend on that are not universal. Same
+for the virtnet_reset call from the .ndo_xdp. Will need to take a much
+better look at that.
