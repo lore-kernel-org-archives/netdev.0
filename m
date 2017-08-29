@@ -1,55 +1,43 @@
-From: Stefano Brivio <sbrivio@redhat.com>
-Subject: Re: [PATCH 0/4] irda: move it to drivers/staging so we can delete it
-Date: Tue, 29 Aug 2017 13:11:31 +0200
-Message-ID: <20170829131131.6e11c8f9@elisabeth>
-References: <20170827150334.32495-1-gregkh@linuxfoundation.org>
- <CAMuHMdUefXtqv9bFfgrkbu8NZRXeTD6qR-nErf6TCDz4L+OAWw@mail.gmail.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH v2 0/2] enable hires timer to timeout datagram socket
+Date: Tue, 29 Aug 2017 11:16:49 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD006828A@AcuExch.aculab.com>
+References: <1503447027-44399-1-git-send-email-vallish@amazon.com>
+ <20170822.213030.1848111782253505433.davem@davemloft.net>
+ <20170827204725.GA8625@amazon.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: driverdevel <devel@driverdev.osuosl.org>, Samuel Ortiz <samuel@sortiz.org>,
- Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "David S. Miller" <davem@davemloft.net>
-To: Geert Uytterhoeven <geert@linux-m68k.org>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <CAMuHMdUefXtqv9bFfgrkbu8NZRXeTD6qR-nErf6TCDz4L+OAWw@mail.gmail.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "shuah@kernel.org" <shuah@kernel.org>,
+        "richardcochran@gmail.com" <richardcochran@gmail.com>,
+        "xiyou.wangcong@gmail.com" <xiyou.wangcong@gmail.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "eduval@amazon.com" <eduval@amazon.com>,
+        "anchalag@amazon.com" <anchalag@amazon.com>
+To: 'Vallish Vaidyeshwara' <vallish@amazon.com>,
+        David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170827204725.GA8625@amazon.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 29 Aug 2017 12:59:00 +0200
-Geert Uytterhoeven <geert@linux-m68k.org> wrote:
+From: Vallish Vaidyeshwara
+> Sent: 27 August 2017 21:47
+...
+> I respect the decision not to upstream this patch series, however I
+> wanted to provide additional details. Application wanting high
+> resolution events with real guarantees is not the case, but the case
+> here is regression in system call behavior:
+> 
+> 1) Change in system call behavior:
+> strace from 4.4 test run of waiting for 180 seconds on datagram socket:
+> 10:25:48.239685 setsockopt(3, SOL_SOCKET, SO_RCVTIMEO, "\264\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0", 16) = 0
+> 10:25:48.239755 recvmsg(3, 0x7ffd0a3beec0, 0) = -1 EAGAIN (Resource temporarily unavailable)
+> 10:28:48.236989 fstat(1, {st_mode=S_IFCHR|0620, st_rdev=makedev(136, 0), ...}) = 0
 
-> Hi Greg,
-> 
-> On Sun, Aug 27, 2017 at 5:03 PM, Greg Kroah-Hartman
-> <gregkh@linuxfoundation.org> wrote:
-> > The IRDA code has long been obsolete and broken.  So, to keep people
-> > from trying to use it, and to prevent people from having to maintain it,
-> > let's move it to drivers/staging/ so that we can delete it entirely from
-> > the kernel in a few releases.  
-> 
-> (diving into an early boot crash)
-> 
-> Have you tried running this? ;-)
-> 
-> irda_init() and net_dev_init() are both subsys_initcall()s.
-> But the former now runs before the latter, leading to:
-> 
-> Unable to handle kernel NULL pointer dereference at virtual address 00000004
+IMHO you should be complaining to the main kernel group who 'broke' the
+timer code, not the networking group.
 
-Should be fixed by https://patchwork.ozlabs.org/patch/807006/
-("[net-next] staging: irda: force to be a kernel module") I guess...
-
-
---
-Stefano
+	David
