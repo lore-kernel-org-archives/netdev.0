@@ -1,47 +1,46 @@
-From: Himanshu Jha <himanshujha199640@gmail.com>
-Subject: [PATCH] rsi: remove memset before memcpy
-Date: Wed, 30 Aug 2017 00:24:50 +0530
-Message-ID: <1504032890-25229-1-git-send-email-himanshujha199640@gmail.com>
-Cc: amit.karwar@redpinesignals.com, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Himanshu Jha <himanshujha199640@gmail.com>
-To: kvalo@codeaurora.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net] sch_multiq: fix double free on init failure
+Date: Tue, 29 Aug 2017 11:59:45 -0700
+Message-ID: <CAM_iQpVm0EvXsdcsAR546urmqgkeVgVqhJu=GwgWAhOutjzgyw@mail.gmail.com>
+References: <1504031188-11434-1-git-send-email-nikolay@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Jiri Pirko <jiri@resnulli.us>,
+        Roopa Prabhu <roopa@cumulusnetworks.com>
+To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f51.google.com ([74.125.83.51]:35761 "EHLO
+        mail-pg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751186AbdH2TAG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 15:00:06 -0400
+Received: by mail-pg0-f51.google.com with SMTP id 63so13275183pgc.2
+        for <netdev@vger.kernel.org>; Tue, 29 Aug 2017 12:00:06 -0700 (PDT)
+In-Reply-To: <1504031188-11434-1-git-send-email-nikolay@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-calling memcpy immediately after memset with the same region of memory
-makes memset redundant.
+On Tue, Aug 29, 2017 at 11:26 AM, Nikolay Aleksandrov
+<nikolay@cumulusnetworks.com> wrote:
+> diff --git a/net/sched/sch_multiq.c b/net/sched/sch_multiq.c
+> index f143b7bbaa0d..b07f8b01aa07 100644
+> --- a/net/sched/sch_multiq.c
+> +++ b/net/sched/sch_multiq.c
+> @@ -259,9 +259,6 @@ static int multiq_init(struct Qdisc *sch, struct nlattr *opt)
+>
+>         err = multiq_tune(sch, opt);
+>
+> -       if (err)
+> -               kfree(q->queues);
+> -
+>         return err;
 
-Signed-off-by: Himanshu Jha <himanshujha199640@gmail.com>
----
- drivers/net/wireless/rsi/rsi_91x_sdio.c | 1 -
- drivers/net/wireless/rsi/rsi_91x_usb.c  | 1 -
- 2 files changed, 2 deletions(-)
+You can fold them to:
 
-diff --git a/drivers/net/wireless/rsi/rsi_91x_sdio.c b/drivers/net/wireless/rsi/rsi_91x_sdio.c
-index 742f6cd..8d3a483 100644
---- a/drivers/net/wireless/rsi/rsi_91x_sdio.c
-+++ b/drivers/net/wireless/rsi/rsi_91x_sdio.c
-@@ -584,7 +584,6 @@ static int rsi_sdio_load_data_master_write(struct rsi_hw *adapter,
- 	}
- 
- 	for (offset = 0, i = 0; i < num_blocks; i++, offset += block_size) {
--		memset(temp_buf, 0, block_size);
- 		memcpy(temp_buf, ta_firmware + offset, block_size);
- 		lsb_address = (u16)base_address;
- 		status = rsi_sdio_write_register_multiple
-diff --git a/drivers/net/wireless/rsi/rsi_91x_usb.c b/drivers/net/wireless/rsi/rsi_91x_usb.c
-index 9097f7e..81df09d 100644
---- a/drivers/net/wireless/rsi/rsi_91x_usb.c
-+++ b/drivers/net/wireless/rsi/rsi_91x_usb.c
-@@ -439,7 +439,6 @@ static int rsi_usb_load_data_master_write(struct rsi_hw *adapter,
- 	rsi_dbg(INFO_ZONE, "num_blocks: %d\n", num_blocks);
- 
- 	for (cur_indx = 0, i = 0; i < num_blocks; i++, cur_indx += block_size) {
--		memset(temp_buf, 0, block_size);
- 		memcpy(temp_buf, ta_firmware + cur_indx, block_size);
- 		status = rsi_usb_write_register_multiple(adapter, base_address,
- 							 (u8 *)(temp_buf),
--- 
-2.7.4
+    return multiq_tune(sch, opt);
+
+Other than this,
+
+Acked-by : Cong Wang <xiyou.wangcong@gmail.com>
