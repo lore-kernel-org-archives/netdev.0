@@ -1,51 +1,49 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH net-next] staging: irda: force to be a kernel module
-Date: Tue, 29 Aug 2017 19:31:29 +0200
-Message-ID: <20170829173129.GA11029@kroah.com>
-References: <20170829070929.GA15824@kroah.com>
- <20170829091417.GA9481@kroah.com>
- <20170829.093507.2166038228205751885.davem@davemloft.net>
- <20170829172608.GA4700@kroah.com>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next v2] bridge: fdb add and delete tracepoints
+Date: Tue, 29 Aug 2017 10:36:50 -0700
+Message-ID: <CAJieiUh6D5iUBBq1owL-=Sja9bEYYLOT6P7NTgKZYOMDwyLr_Q@mail.gmail.com>
+References: <1503980568-35240-1-git-send-email-roopa@cumulusnetworks.com> <8737eb73-3437-5529-6f4d-7aa52c770357@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org,
-        samuel@sortiz.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170829172608.GA4700@kroah.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+        bridge@lists.linux-foundation.org
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ua0-f178.google.com ([209.85.217.178]:33549 "EHLO
+        mail-ua0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750815AbdH2Rgv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 13:36:51 -0400
+Received: by mail-ua0-f178.google.com with SMTP id 37so12369547ual.0
+        for <netdev@vger.kernel.org>; Tue, 29 Aug 2017 10:36:51 -0700 (PDT)
+In-Reply-To: <8737eb73-3437-5529-6f4d-7aa52c770357@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 29, 2017 at 07:26:08PM +0200, Greg KH wrote:
-> On Tue, Aug 29, 2017 at 09:35:07AM -0700, David Miller wrote:
-> > From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-> > Date: Tue, 29 Aug 2017 11:14:17 +0200
-> > 
-> > > Now that the IRDA networking code has moved into drivers/staging/, the
-> > > link order is changed for when it is initialized if built into the
-> > > system.  This can cause a crash when initializing as the netfilter core
-> > > hasn't been initialized yet.
-> > > 
-> > > So force the IRDA code to be built as a module, preventing the crash.
-> > > 
-> > > Reported-by: kernel test robot <fengguang.wu@intel.com>
-> > > Signed-off-by: Greg Kroah-Hartman gregkh@linuxfoundation.org
-> > 
-> > I don't think this is reasonable.
-> > 
-> > IRDA being built in was broken by moving it to staging, so it's a
-> > regression and we should find a way to fix it.
-> 
-> Hm, this is due to netlink coming before irda in the link order before
-> this patch series.  I can't change the link order to put all of net/
-> before drivers/, which would solve this, and I don't think I can put:
-> 	obj-$(CONFIG_IRDA) += ../../drivers/staging/irda/net/
-> in a networking Makefile, can I?  Does "../" even work in a Makefile
-> like that?
+On Tue, Aug 29, 2017 at 9:46 AM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+> On 08/28/2017 09:22 PM, Roopa Prabhu wrote:
+>> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+>>
+>> A few useful tracepoints to trace bridge forwarding
+>> database updates.
+>>
+>> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+>
+> Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+>
+> Small nit below, but probably not a candidate for a v3
+>
+>> ---
+>
+>> +
+>> +     TP_printk("dev %s addr %02x:%02x:%02x:%02x:%02x:%02x vid %u nlh_flags %04x ndm_flags = %02x",
+>
+> Small nit, any particular reason why ndm_flags got a special treatment
+> with an equal character and not the other?
+>
 
-Wait, I think that does work, let me go test this some more...
 
-thanks,
-
-greg k-h-
+good eyes, thats a typo. I did scan them once and removed the '=' and
+missed a spot.
+i will send v3.
