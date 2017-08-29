@@ -1,57 +1,71 @@
-From: Chris Mi <chrism@mellanox.com>
-Subject: RE: [patch net-next 2/3] net/sched: Change cls_flower to use IDR
-Date: Tue, 29 Aug 2017 01:34:23 +0000
-Message-ID: <VI1PR0501MB2143575D285D155C3AD465D3AB9F0@VI1PR0501MB2143.eurprd05.prod.outlook.com>
-References: <1503902477-39829-1-git-send-email-chrism@mellanox.com>
- <1503902477-39829-3-git-send-email-chrism@mellanox.com>
- <a562fbec-797f-1cb2-8af5-cce36126aa23@mojatatu.com>
+From: Chenbo Feng <fengc@google.com>
+Subject: Re: Permissions for eBPF objects
+Date: Mon, 28 Aug 2017 18:44:25 -0700
+Message-ID: <CAMOXUJknLRNjtfQmFy65xiO974MhPK7As5D7La_3udqmS-BxNg@mail.gmail.com>
+References: <CABXk95AiYO7D8o79TBdt0_0g1TXfULSpL5i7KzHF3R4i-WhwHw@mail.gmail.com>
+ <1503689199.9977.4.camel@tycho.nsa.gov> <CABXk95BkyU5MBLry0PEp+QwhtY7rM4DCmQq3CeQi6=TQtQQPwA@mail.gmail.com>
+ <CAMOXUJkQ-Wh==9nzgx3Sq4RUEBK5ArHk4b=AL0N65L9g6cAqcg@mail.gmail.com>
+ <59A0837F.9090301@iogearbox.net> <20170826010330.tuospq5h43fv3tlp@ast-mbp>
+ <CAMOXUJ=kiZDEpuBfys0Me4o8wqSymCz+Eu_qdQdOH5+Czzfj8g@mail.gmail.com> <20170829011545.hjhpmyaerd44r5xo@ast-mbp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "xiyou.wangcong@gmail.com" <xiyou.wangcong@gmail.com>,
-        "jiri@resnulli.us" <jiri@resnulli.us>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "mawilcox@microsoft.com" <mawilcox@microsoft.com>
-To: Jamal Hadi Salim <jhs@mojatatu.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+        Jeffrey Vander Stoep <jeffv@google.com>,
+        Stephen Smalley <sds@tycho.nsa.gov>, netdev@vger.kernel.org,
+        SELinux <Selinux@tycho.nsa.gov>,
+        =?UTF-8?B?TWlja2HDq2wgU2FsYcO8bg==?= <mic@digikod.net>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve1eur01on0086.outbound.protection.outlook.com ([104.47.1.86]:33184
-        "EHLO EUR01-VE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751211AbdH2Be0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 28 Aug 2017 21:34:26 -0400
-In-Reply-To: <a562fbec-797f-1cb2-8af5-cce36126aa23@mojatatu.com>
-Content-Language: en-US
+Received: from mail-lf0-f41.google.com ([209.85.215.41]:37186 "EHLO
+        mail-lf0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751215AbdH2Bo1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 21:44:27 -0400
+Received: by mail-lf0-f41.google.com with SMTP id y128so2523790lfd.4
+        for <netdev@vger.kernel.org>; Mon, 28 Aug 2017 18:44:27 -0700 (PDT)
+In-Reply-To: <20170829011545.hjhpmyaerd44r5xo@ast-mbp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBKYW1hbCBIYWRpIFNhbGltIFtt
-YWlsdG86amhzQG1vamF0YXR1LmNvbV0NCj4gU2VudDogVHVlc2RheSwgQXVndXN0IDI5LCAyMDE3
-IDU6NTYgQU0NCj4gVG86IENocmlzIE1pIDxjaHJpc21AbWVsbGFub3guY29tPjsgbmV0ZGV2QHZn
-ZXIua2VybmVsLm9yZw0KPiBDYzogeGl5b3Uud2FuZ2NvbmdAZ21haWwuY29tOyBqaXJpQHJlc251
-bGxpLnVzOyBkYXZlbUBkYXZlbWxvZnQubmV0Ow0KPiBtYXdpbGNveEBtaWNyb3NvZnQuY29tDQo+
-IFN1YmplY3Q6IFJlOiBbcGF0Y2ggbmV0LW5leHQgMi8zXSBuZXQvc2NoZWQ6IENoYW5nZSBjbHNf
-Zmxvd2VyIHRvIHVzZSBJRFINCj4gDQo+IE9uIDE3LTA4LTI4IDAyOjQxIEFNLCBDaHJpcyBNaSB3
-cm90ZToNCj4gPiBDdXJyZW50bHksIGFsbCBmaWx0ZXJzIHdpdGggdGhlIHNhbWUgcHJpb3JpdHkg
-YXJlIGxpbmtlZCBpbiBhIGRvdWJseQ0KPiA+IGxpbmtlZCBsaXN0LiBFdmVyeSBmaWx0ZXIgc2hv
-dWxkIGhhdmUgYSB1bmlxdWUgaGFuZGxlLiBUbyBtYWtlIHRoZQ0KPiA+IGhhbmRsZSB1bmlxdWUs
-IHdlIG5lZWQgdG8gaXRlcmF0ZSB0aGUgbGlzdCBldmVyeSB0aW1lIHRvIHNlZSBpZiB0aGUNCj4g
-PiBoYW5kbGUgZXhpc3RzIG9yIG5vdCB3aGVuIGluc2VydGluZyBhIG5ldyBmaWx0ZXIuIEl0IGlz
-IHRpbWUtY29uc3VtaW5nLg0KPiA+IEZvciBleGFtcGxlLCBpdCB0YWtlcyBhYm91dCA1bTMuMTY5
-cyB0byBpbnNlcnQgNjRLIHJ1bGVzLg0KPiA+DQo+ID4gVGhpcyBwYXRjaCBjaGFuZ2VzIGNsc19m
-bG93ZXIgdG8gdXNlIElEUi4gV2l0aCB0aGlzIHBhdGNoLCBpdCB0YWtlcw0KPiA+IGFib3V0IDBt
-MS4xMjdzIHRvIGluc2VydCA2NEsgcnVsZXMuIFRoZSBpbXByb3ZlbWVudCBpcyBodWdlLg0KPiA+
-DQo+ID4gQnV0IHBsZWFzZSBub3RlIHRoYXQgaW4gdGhpcyB0ZXN0aW5nLCBhbGwgZmlsdGVycyBz
-aGFyZSB0aGUgc2FtZSBhY3Rpb24uDQo+ID4gSWYgZXZlcnkgZmlsdGVyIGhhcyBhIHVuaXF1ZSBh
-Y3Rpb24sIHRoYXQgaXMgYW5vdGhlciBib3R0bGVuZWNrLg0KPiA+IEZvbGxvdy11cCBwYXRjaCBp
-biB0aGlzIHBhdGNoc2V0IGFkZHJlc3NlcyB0aGF0Lg0KPiA+DQo+ID4gU2lnbmVkLW9mZi1ieTog
-Q2hyaXMgTWkgPGNocmlzbUBtZWxsYW5veC5jb20+DQo+ID4gU2lnbmVkLW9mZi1ieTogSmlyaSBQ
-aXJrbyA8amlyaUBtZWxsYW5veC5jb20+DQo+IA0KPiBBY2tlZC1ieTogSmFtYWwgSGFkaSBTYWxp
-bSA8amhzQG1vamF0YXR1LmNvbT4NCj4gDQo+IEFzIENvbmcgYXNrZWQgbGFzdCB0aW1lIC0gYW55
-IHBsYW5zIHRvIGFkZCB0byBvdGhlciBjbGFzc2lmaWVycz8NCkkgdGhpbmsgaWYgb3RoZXIgY2xh
-c3NpZmllcnMgZG9uJ3QgbmVlZCBzbyBtYW55IGl0ZW1zLCBsaXN0IGlzIGVub3VnaCBmb3IgdGhl
-bS4NCklmIHdlIGNoYW5nZSBhbGwgb2YgdGhlbSwgd2UgbmVlZCBzcGVuZCBhIGxvdCBvZiB0aW1l
-IHRvIHRlc3QgdGhlbSB0byBtYWtlIHN1cmUNCnRoZXJlIGlzIG5vIHJlZ3Jlc3Npb24uIEJ1dCB0
-aGUgYmVuZWZpdCBpcyBub3QgdmVyeSBiaWcuIElmIGEgY2VydGFpbiBjbGFzc2lmaWVyDQpuZWVk
-IHRvIGNoYW5nZSBpbiB0aGUgZnV0dXJlLCBmbG93ZXIgaXMgYW4gZXhhbXBsZSBmb3IgcmVmZXJl
-bmNlLg0KDQotQ2hyaXMNCj4gDQo+IGNoZWVycywNCj4gamFtYWwNCg==
+On Mon, Aug 28, 2017 at 6:15 PM, Alexei Starovoitov
+<alexei.starovoitov@gmail.com> wrote:
+> On Mon, Aug 28, 2017 at 05:47:19PM -0700, Chenbo Feng wrote:
+>> On Fri, Aug 25, 2017 at 6:03 PM, Alexei Starovoitov
+>> <alexei.starovoitov@gmail.com> wrote:
+>> > On Fri, Aug 25, 2017 at 10:07:27PM +0200, Daniel Borkmann wrote:
+>> >> On 08/25/2017 09:52 PM, Chenbo Feng wrote:
+>> >> > On Fri, Aug 25, 2017 at 12:45 PM, Jeffrey Vander Stoep <jeffv@googl=
+e.com> wrote:
+>> >> > > On Fri, Aug 25, 2017 at 12:26 PM, Stephen Smalley <sds@tycho.nsa.=
+gov> wrote:
+>> >> > > > On Fri, 2017-08-25 at 11:01 -0700, Jeffrey Vander Stoep via Sel=
+inux
+>> >> > > > wrote:
+>> >> > > > > I=E2=80=99d like to get your thoughts on adding LSM permissio=
+n checks on BPF
+>> >> > > > > objects.
+>> >
+>> > before reinventing the wheel please take a look at landlock work.
+>> > Everything that was discussed in this thread is covered by it.
+>> > The patches have been in development for more than a year and most of =
+the early
+>> > issues have been resolved.
+>> > It will be presented again during security summit in LA in September.
+>> >
+>> I am not very familiar with landlock lsm, isn't this module also
+>> depend on the lsm hooks to do
+>> the landlock check? If so then adding lsm hooks for eBPF object seems
+>> not conflict with the
+>> work on progress.
+>
+> I see. I got it the other way around. What lsm checks are you proposing?
+> and why unprivileged_bpf_disabled is not enough?
+> you want to allow unpriv only for specific user(s) ?
+>
+Exactly, the proposal patch I am currently working on will add checks
+before map creation,
+map read,  and map modify, since all these functionalities will be
+available to all users when
+unprivileged_bpf_disabled is turned off. And eBPF prog_load may also
+need a check as well
+since loading some types of program is not restricted either.
