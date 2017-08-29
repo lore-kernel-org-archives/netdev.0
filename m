@@ -1,26 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] hinic: don't build the module by default
-Date: Mon, 28 Aug 2017 21:40:07 -0700 (PDT)
-Message-ID: <20170828.214007.204759535379129218.davem@davemloft.net>
-References: <20170828131605.3173-1-vkuznets@redhat.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH net 0/4] xfrm_user info leaks
+Date: Tue, 29 Aug 2017 06:43:45 +0200
+Message-ID: <20170829044345.GD3311@secunet.com>
+References: <1503760140-9095-1-git-send-email-minipli@googlemail.com>
+ <20170828.155232.1540318133719787999.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, aviad.krawczyk@huawei.com,
-        linux-kernel@vger.kernel.org
-To: vkuznets@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170828131605.3173-1-vkuznets@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: <minipli@googlemail.com>, <herbert@gondor.apana.org.au>,
+        <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([62.96.220.36]:39208 "EHLO a.mx.secunet.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750758AbdH2Ens (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 29 Aug 2017 00:43:48 -0400
+Content-Disposition: inline
+In-Reply-To: <20170828.155232.1540318133719787999.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Vitaly Kuznetsov <vkuznets@redhat.com>
-Date: Mon, 28 Aug 2017 15:16:05 +0200
-
-> We probably don't want to enable code supporting particular hardware by
-> default e.g. when someone does 'make defconfig'. Other ethernet modules
-> don't do it.
+On Mon, Aug 28, 2017 at 03:52:32PM -0700, David Miller wrote:
+> From: Mathias Krause <minipli@googlemail.com>
+> Date: Sat, 26 Aug 2017 17:08:56 +0200
 > 
-> Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+> > Hi David, Steffen,
+> > 
+> > the following series fixes a few info leaks due to missing padding byte
+> > initialization in the xfrm_user netlink interface.
+> > 
+> > Please apply!
+> 
+> Steffen please pick this up if you haven't already.
 
-Applied, thanks.
+I had it already in the ipsec/testing branch, now merged into
+ipsec/master.
+
+Thanks everyone!
