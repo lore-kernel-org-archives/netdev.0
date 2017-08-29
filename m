@@ -1,76 +1,75 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: [PATCH] DSA support for Micrel KSZ8895
-Date: Tue, 29 Aug 2017 23:15:19 +0200
-Message-ID: <20170829211519.GA24221@amd>
-References: <20170816075524.GA18532@amd>
- <20170816140451.GA13006@lunn.ch>
- <9235D6609DB808459E95D78E17F2E43D40AFF8C1@CHN-SV-EXMX02.mchp-main.com>
- <20170827123658.GA727@amd>
- <20170827163122.GG13622@lunn.ch>
- <20170828070232.GA18135@amd>
- <20170828140927.GD10418@lunn.ch>
- <CAJGZr0K46jBd9Sn4HNPgAeHTQtBuBHzX87GveAJf3_5b_WM69g@mail.gmail.com>
- <20170829074130.GA31303@amd>
- <20170829122604.GA22093@lunn.ch>
+From: Arkadi Sharshevsky <arkadis@mellanox.com>
+Subject: Re: mlxsw and rtnl lock
+Date: Wed, 30 Aug 2017 00:18:52 +0300
+Message-ID: <e2a010b4-996e-9ad7-021f-6da7da1492b1@mellanox.com>
+References: <dccefbeb-b5c3-14ed-05d3-07d464989708@gmail.com>
+ <20170826170418.GA22324@shredder>
+ <b6dc0a4e-4ed9-ed5f-ac0f-c3fe06d5ed68@gmail.com>
+ <2723f732-b337-a792-05ee-4a1461bf2aad@mellanox.com>
+ <59774544-88d7-1f2a-82c6-28bb6c7ac747@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="ReaqsoxgOBHFXBhH"
-Cc: Maxim Uvarov <muvarov@gmail.com>, Woojung.Huh@microchip.com,
-        nathan.leigh.conrad@gmail.com,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Tristram.Ha@micrel.com
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170829122604.GA22093@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Pirko <jiri@resnulli.us>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        mlxsw@mellanox.com
+To: David Ahern <dsahern@gmail.com>, Ido Schimmel <idosch@idosch.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-eopbgr10080.outbound.protection.outlook.com ([40.107.1.80]:11680
+        "EHLO EUR02-HE1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751263AbdH2VTB (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 29 Aug 2017 17:19:01 -0400
+In-Reply-To: <59774544-88d7-1f2a-82c6-28bb6c7ac747@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
---ReaqsoxgOBHFXBhH
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
 
-On Tue 2017-08-29 14:26:04, Andrew Lunn wrote:
-> > But the MDIO emaulation code is from their driver, after lots of
-> > deletions.
->=20
-> Is this driver supposed to run on lots of different OSs? That would
-> explain why they ignored the Linux MDIO and PHY layers.
+On 08/29/2017 11:04 PM, David Ahern wrote:
+> On 8/29/17 12:10 AM, Arkadi Sharshevsky wrote:
+>>
+>>
+>> On 08/28/2017 09:00 PM, David Ahern wrote:
+>>> On 8/26/17 11:04 AM, Ido Schimmel wrote:
+>>>> Regarding the silent abort, that's intentional. You can look at the same
+>>>> code in v4.9 - when the chain was still blocking - and you'll see that
+>>>> we didn't propagate the error even then. This was discussed in the past
+>>>> and the conclusion was that user doesn't expect to operation to fail. If
+>>>> hardware resources are exceeded, we let the kernel take care of the
+>>>> forwarding instead.
+>>>>
+>>>
+>>> In addition to Roopa's comments... The silent abort is not a good user
+>>> experience. Right now it's add a network address or route, cross fingers
+>>> and hope it does not overflow some limit (nexthop, ecmp, neighbor,
+>>> prefix, etc) that triggers the offload abort.
+>>>
+>>> The mlxsw driver queries for some limits (e.g., max rifs) but I don't
+>>> see any query related to current usage, and there is no API to pass any
+>>> of that data to user space so user space has no programmatic way to
+>>> handle this. I realize you are aware of this limitation. The point is to
+>>> emphasize the need to resolve this.
+>>>
+>>
+>> We actually thought about providing he user some tools to understand
+>> the ASIC's limitations by introducing the 'resource' object to devlink.
+>>
+>> By linking dpipe tables to resources the user can understand which
+>> hardware processes share a common resource, furthermore this resources
+>> usage could be observed. By this more visibility can be obtained.
+>>
+>> Its not a remedy for the silent abort, but, maybe a notification
+>> can be sent from devlink in case of abort that some resources is
+>> full.
+>>
+>> This proposition was sent as RFC several weeks ago.
+>>
+> 
+> Do you have patches (kernel and devlink) for the proposal?
+> 
 
-It did not look particulary portable.
+No, only the design RFC which describe the UAPI, devlink
+commands and the devlink/driver interactions.
 
-> If possible, please make use of the Linux infrastructure.
-
-I did not find any infrastructure I could use instead
-ksz_mdio_emulation.
-
-Now, drivers/net/phy/spi_ks8995.c can access the PHY registers, and I
-can not see any translation there, so there may be something I'm
-missing.
-
-Pointers would be welcome at this point.
-
-Thanks,
-									Pavel
---=20
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
-g.html
-
---ReaqsoxgOBHFXBhH
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iEYEARECAAYFAlml2WcACgkQMOfwapXb+vLVwwCeNxaoqTnYD9P+yr0n02pguWma
-+R4AoJCrQwv5a0j15654Gwra85sCjnFX
-=cpiH
------END PGP SIGNATURE-----
-
---ReaqsoxgOBHFXBhH--
+I wanted to receive some feedback before the coding.
