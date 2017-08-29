@@ -1,169 +1,40 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH v2 net-next 1/8] bpf: Add support for recursively running
- cgroup sock filters
-Date: Mon, 28 Aug 2017 21:11:20 -0700
-Message-ID: <20170829041118.m6bsjvif2bxwtk6g@ast-mbp>
-References: <1503687941-626-1-git-send-email-dsahern@gmail.com>
- <1503687941-626-2-git-send-email-dsahern@gmail.com>
- <20170826024957.m5ita6usxihywmdd@ast-mbp>
- <bb4398e5-55a3-d63e-ac4d-3f9d7e2efc02@gmail.com>
- <20170828235653.jq62menrcfrh5rco@ast-mbp>
- <45102738-365f-d08b-f3cf-9a81683956c4@gmail.com>
- <20170829011213.suddt5hkptaxd4rp@ast-mbp>
- <32706501-5fc3-7f59-9210-1898e896d384@gmail.com>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: net.ipv4.tcp_max_syn_backlog implementation
+Date: Tue, 29 Aug 2017 06:12:33 +0200
+Message-ID: <20170829041233.GC28122@1wt.eu>
+References: <CAMB9Wx+q9fidTnh3Tyias8KKdbRcKpoXM-ntSqjE_oW36F1W_A@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, daniel@iogearbox.net, ast@kernel.org,
-        tj@kernel.org, davem@davemloft.net, luto@amacapital.net
-To: David Ahern <dsahern@gmail.com>
+Cc: netdev@vger.kernel.org
+To: Harsha Chenji <cjkernel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:33388 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750779AbdH2ELZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 00:11:25 -0400
-Received: by mail-pf0-f196.google.com with SMTP id c28so1578215pfe.0
-        for <netdev@vger.kernel.org>; Mon, 28 Aug 2017 21:11:24 -0700 (PDT)
+Received: from wtarreau.pck.nerim.net ([62.212.114.60]:35775 "EHLO 1wt.eu"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751209AbdH2EMg (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 29 Aug 2017 00:12:36 -0400
 Content-Disposition: inline
-In-Reply-To: <32706501-5fc3-7f59-9210-1898e896d384@gmail.com>
+In-Reply-To: <CAMB9Wx+q9fidTnh3Tyias8KKdbRcKpoXM-ntSqjE_oW36F1W_A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 28, 2017 at 08:22:31PM -0600, David Ahern wrote:
-> On 8/28/17 7:12 PM, Alexei Starovoitov wrote:
-> >>>> To consider what happens on doubling back and changing programs in the
-> >>>> hierarchy, start with $MNT/a/b/c from 3 above (non-recursive on 'a',
-> >>>> recursive on 'b' and recursive on 'c') for each of the following cases:
-> >>>>
-> >>>> 1. Program attached to 'b' is detached, recursive flag is reset in the
-> >>>> request. Attempt fails EINVAL because the recursion flag has to be set.
-> >>>
-> >>> didn't get this point. you mean 'detach' will fail?
-> >>
-> >> Yes, because it tried to reset the flag in the process.
-> >>
-> >> This is something we can make user friendly - the detach succeeds, but
-> >> the recurse flag is ignored and the recurse flag in the group is not
-> >> reset unless it is the base group with the recurse flag (i.e., the
-> >> parent is marked non-recurse).
-> > 
-> > if we don't reset group flags to default it will be even more difficult
-> > for users to use, since attach with recursive flag + immediate detach sets
-> > some internal flag on the cgroup and user space has no way of
-> > either querying this flag or deleting it.
+On Mon, Aug 28, 2017 at 11:47:41PM -0400, Harsha Chenji wrote:
+> So I have ubuntu 12.04 x32 in a VM with syncookies turned off. I tried
+> to do a syn flood (with netwox) on 3 different processes. Each of them
+> returns a different value with netstat -na | grep -c RECV :
 > 
-> We have discussed this before -- the need to know which cgroup has a
-> program and now what is the status of flags. That need is a different
-> problem than this patch set.
+> nc -l 5555 returns 16 (netcat-traditional)
+> apache2 port 80 returns 256
+> vsftpd on 21 returns 64.
+> net.ipv4.tcp_max_syn_backlog is 512.
 > 
-> I'll address the reset of the flags below to keep that discussion together.
-> 
-> > 
-> >>>
-> >>>> 2. Program attached to 'b' is detached, recursive flag is set. Allowed.
-> >>>
-> >>> meaing that detach from 'b' has to pass recurse flag to be detached?
-> >>> That's also odd.
-> >>> imo detach should always succeed and the process doing detach
-> >>> shouldn't need to know what flags were used in attach.
-> >>
-> >> Then, we agree to make it user friendly and handle resetting the recurse
-> >> flag automatically.
-> > 
-> > in that sense yes attach/delete pair should be side-effect free.
-> > 
-> >>>> Process in 'b' opens a socket. No program attached to 'b' so no program
-> >>>> is run. Recursive flag is set to program from 'a' is run. Stop.
-> >>>>
-> >>>> We should allow the recursive flag to be reset if the parent is not
-> >>>> recursive allowing an unwind of settings applied. I'll add that change.
-> >>>
-> >>> I don't get this part.
-> >>> Anyway looking forward to the next patch set with tests and comments like above.
-> >>
-> >> Per above discussion, you don't want 'a' run since it is not marked
-> >> recurse. My last sentence is the user friendly part in resetting the
-> >> flag in the cgroup.
-> > 
-> > I'm still not grasping fully the semantics of what you're proposing.
-> > You keep saying that override and recurse flags are indepedent, but
-> > the more we talk the more it's clear that there is a complicated
-> > relationship between them. Like no_override overrules everything, etc.
-> 
-> yes, I have said that a few times. Override should block everything in
-> terms of installing programs. If it is not enabled, the status of the
-> recurse flag is not relevant at attach / detach time as the call should
-> fail. So installing a program with the recurse flag only works if
-> override is allowed.
-> 
-> 
-> > I'm looking for the simplest to use logic. Not implementation.
-> > Implementation can be complex, but uapi should be as simple to
-> > explain and as simple to understand as possible.
-> > So how about allowing recurse+overide combination only?
-> > All descendents must be recurse+override too and
-> > no program allowed to be set on parent unless it's recurse+override
-> > as well. Then detach anywhere is simple, since all programs in
-> > such chain are always recurse+override.
-> 
-> 
-> Let's walk through examples based on the new ground rule - recursion
-> stops at last cgroup with flag set.
-> 
-> Assuming override is allowed ...
-> 
-> ${MNT}/a/b/c/d
-> 
-> - 'a' has no program
-> 
-> - 'b' has a program, override allowed, recurse set
-> 
-> - 'c' and 'd' inherit the program from 'b' by recursion, not inheritance
-> (ie., bpf.effective is not updated with the program from 'b', but the
-> recurse flag is set on 'c' and 'd').
-> 
-> At this point 'c' and 'd' can ONLY take programs that are recursive.
-> 
-> - 'c' gets a program installed
-> - 'd' gets a program installed.
-> 
-> 
-> Process in 'd' has programs run in this order: 'd', 'c', 'b'
-> 
-> 
-> Now, program 'c' is detached. It is in the middle of the recursive set.
-> It MUST keep the recurse flag set as it inherited the restriction from
-> 'b'. The recurse flag on 'c' can ONLY be reset when the program is
-> detached from 'b' as it is the start of the recursive chain.
-> 
-> I'll stop here to make sure we agree on the above. Considering all
-> permutations is a maze.
+> Why do these different processes on different ports have different
+> queue lengths for incomplete connections? Where exactly in the kernel
+> is this decided?
 
-Agree on the above, but you're mixing semantics of the new recurse
-flag and implementation of it. Ex: we don't have to copy this flag
-from prog->attr into cgroup. So this reset or non-reset discussion
-only makes sense in the context of your current implementation.
-We can implement the logic differently. Like don't copy that flag
-at all and at attach time walk parent->parent->parent and see
-what programs are attached. All of them should have prog->attr & recurse_bit set
-In such implementation detach from 'b' is a nop from reset/non-reset
-point of view. When socket creation in 'c' is invoked the program
-'c' is called first then the code keeps walking parents until root
-invoking 'a' along the way.
-I'm not saying it will be an efficient implementation. The point
-is to discuss UAPI independent of implementation.
+The listening socket's backlog (second argument to the listen() syscall)
+is considered as well. The code path to determine whether or not to start
+to send SYN cookies is far from being trivial but makes sense once you
+write it down completely. I never perfectly remember it, I regularly have
+to recheck when I have a doubt.
 
-> ###
-> 
-> Also, let's agree on this intention. Based on the new ground rule, I
-> want to point out this example:
-> 
-> If 'a' gets a program installed with no recurse flag set, ONLY processes
-> in 'a' have the 'a' program run. Processes in groups 'b', 'c' and 'd'
-> all stop at cgroup 'b' program.
-
-I'm proposing that such situation should not be allowed to happen.
-In a->b->c->d cgroup scenario if override+recurse prog attached to 'b'
-then only the same override+recurse can be attached to c, d, a.
-So at detach time there can be gaps (like only 'b' and 'd' have
-override+recurse progs), but walking up until root from any point
-will guarantee that only override+recurse programs are seen.
+Willy
