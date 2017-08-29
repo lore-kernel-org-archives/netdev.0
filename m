@@ -1,55 +1,68 @@
-From: Chenbo Feng <fengc@google.com>
-Subject: Re: Permissions for eBPF objects
-Date: Mon, 28 Aug 2017 17:47:19 -0700
-Message-ID: <CAMOXUJ=kiZDEpuBfys0Me4o8wqSymCz+Eu_qdQdOH5+Czzfj8g@mail.gmail.com>
-References: <CABXk95AiYO7D8o79TBdt0_0g1TXfULSpL5i7KzHF3R4i-WhwHw@mail.gmail.com>
- <1503689199.9977.4.camel@tycho.nsa.gov> <CABXk95BkyU5MBLry0PEp+QwhtY7rM4DCmQq3CeQi6=TQtQQPwA@mail.gmail.com>
- <CAMOXUJkQ-Wh==9nzgx3Sq4RUEBK5ArHk4b=AL0N65L9g6cAqcg@mail.gmail.com>
- <59A0837F.9090301@iogearbox.net> <20170826010330.tuospq5h43fv3tlp@ast-mbp>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-        Jeffrey Vander Stoep <jeffv@google.com>,
-        Stephen Smalley <sds@tycho.nsa.gov>, netdev@vger.kernel.org,
-        SELinux <Selinux@tycho.nsa.gov>,
-        =?UTF-8?B?TWlja2HDq2wgU2FsYcO8bg==?= <mic@digikod.net>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f42.google.com ([209.85.215.42]:35805 "EHLO
-        mail-lf0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751209AbdH2ArW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 20:47:22 -0400
-Received: by mail-lf0-f42.google.com with SMTP id k186so7863229lfe.2
-        for <netdev@vger.kernel.org>; Mon, 28 Aug 2017 17:47:21 -0700 (PDT)
-In-Reply-To: <20170826010330.tuospq5h43fv3tlp@ast-mbp>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: =?gb2312?B?0c+6o8ur?= <yanhaishuang@cmss.chinamobile.com>
+Subject: Re: [PATCH] be2net: Fix some u16 fields appropriately
+Date: Tue, 29 Aug 2017 09:04:57 +0800
+Message-ID: <979AB2E6-7D90-4C6B-B43F-1D17EE621D05@cmss.chinamobile.com>
+References: <1503818685-32068-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
+ <20170828.161924.1286298670313299855.davem@davemloft.net>
+Mime-Version: 1.0 (Mac OS X Mail 10.3 \(3273\))
+Content-Type: text/plain; charset=gb2312
+Content-Transfer-Encoding: 8BIT
+Cc: sathya.perla@broadcom.com, ajit.khaparde@broadcom.com,
+        sriharsha.basavapatna@broadcom.com, somnath.kotur@broadcom.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170828.161924.1286298670313299855.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 25, 2017 at 6:03 PM, Alexei Starovoitov
-<alexei.starovoitov@gmail.com> wrote:
-> On Fri, Aug 25, 2017 at 10:07:27PM +0200, Daniel Borkmann wrote:
->> On 08/25/2017 09:52 PM, Chenbo Feng wrote:
->> > On Fri, Aug 25, 2017 at 12:45 PM, Jeffrey Vander Stoep <jeffv@google.c=
-om> wrote:
->> > > On Fri, Aug 25, 2017 at 12:26 PM, Stephen Smalley <sds@tycho.nsa.gov=
-> wrote:
->> > > > On Fri, 2017-08-25 at 11:01 -0700, Jeffrey Vander Stoep via Selinu=
-x
->> > > > wrote:
->> > > > > I=E2=80=99d like to get your thoughts on adding LSM permission c=
-hecks on BPF
->> > > > > objects.
->
-> before reinventing the wheel please take a look at landlock work.
-> Everything that was discussed in this thread is covered by it.
-> The patches have been in development for more than a year and most of the=
- early
-> issues have been resolved.
-> It will be presented again during security summit in LA in September.
->
-I am not very familiar with landlock lsm, isn't this module also
-depend on the lsm hooks to do
-the landlock check? If so then adding lsm hooks for eBPF object seems
-not conflict with the
-work on progress.
+
+> On 2017年8月29日, at 上午7:19, David Miller <davem@davemloft.net> wrote:
+> 
+> From: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+> Date: Sun, 27 Aug 2017 15:24:45 +0800
+> 
+>> In be_tx_compl_process, frag_index declared as u32, so it's better to
+>> declare last_index as u32 also.
+>> 
+>> CC: Ajit Khaparde <ajit.khaparde@broadcom.com>
+>> Fixes: b0fd2eb28bd4 ("be2net: Declare some u16 fields as u32 to improve
+>> performance")
+>> Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+> 
+> That is not a legitimate reason for making this change.
+> 
+>> @@ -255,7 +255,7 @@ struct be_tx_stats {
+>> /* Structure to hold some data of interest obtained from a TX CQE */
+>> struct be_tx_compl_info {
+>> 	u8 status;		/* Completion status */
+>> -	u16 end_index;		/* Completed TXQ Index */
+>> +	u32 end_index;		/* Completed TXQ Index */
+>> };
+>> 
+>> struct be_tx_obj {
+> 
+> The ->end_index comes solely from:
+> 
+> 	txcp->end_index = GET_TX_COMPL_BITS(wrb_index, compl);
+> 
+> Which is precisely a 16-bit value.
+> 
+> I'm not applying this, sorry.
+> 
+
+Hi David,
+
+The GET_TX_COMPL_BITS comes from amap_get which also returns a 32-bit value:
+
+  6 static inline u32 amap_get(void *ptr, u32 dw_offset, u32 mask, u32 offset)
+  5 {
+  4     u32 *dw = (u32 *) ptr;
+  3     return mask & (*(dw + dw_offset) >> offset);
+  2 }
+  1
+869 #define AMAP_GET_BITS(_struct, field, ptr)              \
+  1         amap_get(ptr,                       \
+  2             offsetof(_struct, field)/32,            \
+  3             amap_mask(sizeof(((_struct *)0)->field)),   \
+  4             AMAP_BIT_OFFSET(_struct, field))
