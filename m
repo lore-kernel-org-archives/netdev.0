@@ -1,39 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V2 net-next] liquidio: show NIC's U-Boot version in a
- dev_info() message
-Date: Tue, 29 Aug 2017 16:09:18 -0700 (PDT)
-Message-ID: <20170829.160918.198738849211591017.davem@davemloft.net>
-References: <20170829191957.GA12243@felix-thinkpad.cavium.com>
+Subject: Re: [PATCH net-next v2] net: bcmgenet: Use correct I/O accessors
+Date: Tue, 29 Aug 2017 16:09:24 -0700 (PDT)
+Message-ID: <20170829.160924.1500444618699306222.davem@davemloft.net>
+References: <1504034731-31613-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
-        derek.chickles@cavium.com, satananda.burla@cavium.com,
-        weilin.chang@cavium.com
-To: felix.manlunas@cavium.com
+Cc: netdev@vger.kernel.org, opendmb@gmail.com, jaedon.shin@gmail.com
+To: f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:41114 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:41120 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751280AbdH2XJT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 19:09:19 -0400
-In-Reply-To: <20170829191957.GA12243@felix-thinkpad.cavium.com>
+        with ESMTP id S1751687AbdH2XJZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 19:09:25 -0400
+In-Reply-To: <1504034731-31613-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Felix Manlunas <felix.manlunas@cavium.com>
-Date: Tue, 29 Aug 2017 12:19:57 -0700
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Tue, 29 Aug 2017 12:25:31 -0700
 
-> From: Weilin Chang <weilin.chang@cavium.com>
+> The GENET driver currently uses __raw_{read,write}l which means
+> native I/O endian. This works correctly for an ARM LE kernel (default)
+> but fails miserably on an ARM BE (BE8) kernel where registers are kept
+> little endian, so replace uses with {read,write}l_relaxed here which is
+> what we want because this is all performance sensitive code.
 > 
-> Signed-off-by: Weilin Chang <weilin.chang@cavium.com>
-> Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
-> ---
-> Patch Change Log:
->   V1 -> V2:
->     * Move octeon_get_uboot_version() to a proper place to avoid forward
->       declaration.
->     * Remove complicated for-loops that search for substrings; replace them
->       with calls to strstr().
->     * Don't add unnecessary fields to struct octeon_device.
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 
 Applied.
