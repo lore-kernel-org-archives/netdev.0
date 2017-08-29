@@ -1,43 +1,89 @@
-From: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH] dt-binding: net/phy: fix interrupts description
-Date: Tue, 29 Aug 2017 12:15:34 -0500
-Message-ID: <20170829171534.rjgf77nub2ub3msf@rob-hp-laptop>
-References: <b3756346473feadfeba70ecb71960cad48e66621.1503468660.git.baruch@tkos.co.il>
- <20170828102039.wdylojqcrn2avv2f@tarshish>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>
-To: Baruch Siach <baruch-NswTu9S1W3P6gbPvEgmw2w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20170828102039.wdylojqcrn2avv2f@tarshish>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Tom Herbert <tom@quantonium.net>
+Subject: [PATCH net-next 1/6] flow_dissector: Move ETH_P_TEB processing to main switch
+Date: Tue, 29 Aug 2017 10:19:37 -0700
+Message-ID: <20170829171942.8974-2-tom@quantonium.net>
+References: <20170829171942.8974-1-tom@quantonium.net>
+Cc: netdev@vger.kernel.org, Tom Herbert <tom@quantonium.net>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f46.google.com ([74.125.83.46]:38906 "EHLO
+        mail-pg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751300AbdH2RUL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 13:20:11 -0400
+Received: by mail-pg0-f46.google.com with SMTP id b8so12584315pgn.5
+        for <netdev@vger.kernel.org>; Tue, 29 Aug 2017 10:20:11 -0700 (PDT)
+In-Reply-To: <20170829171942.8974-1-tom@quantonium.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 28, 2017 at 01:20:39PM +0300, Baruch Siach wrote:
-> Hi Dave,
-> 
-> On Wed, Aug 23, 2017 at 09:11:00AM +0300, Baruch Siach wrote:
-> > Commit b053dc5a722ea (powerpc: Refactor device tree binding) split the
-> > Ethernet PHY binding documentation out of the big booting-without-of.txt
-> > file, leaving a dangling reference to "section 2" in the 'interrupts'
-> > property description. Drop that reference, and make the description look
-> > more like the rest.
-> > 
-> > While at it, make the example interrupt-parent phandle look more like a
-> > real world phandle, and use an IRQ_TYPE_ macro for the 'interrupts'
-> > type.
-> 
-> This patch is now marked 'Not Applicable' in the netdev patchwork. Why is 
-> that? Should it go through some other tree?
+Support for processing TEB is currently in GRE flow dissection as a
+special case. This can be moved to be a case the main proto switch in
+__skb_flow_dissect.
+---
+ net/core/flow_dissector.c | 44 +++++++++++++++++++++++---------------------
+ 1 file changed, 23 insertions(+), 21 deletions(-)
 
-If it is only a binding change, I can apply. Though David does often 
-pick them up anyway.
-
-Rob
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+index e2eaa1ff948d..12302acdb073 100644
+--- a/net/core/flow_dissector.c
++++ b/net/core/flow_dissector.c
+@@ -288,27 +288,8 @@ __skb_flow_dissect_gre(const struct sk_buff *skb,
+ 	if (hdr->flags & GRE_SEQ)
+ 		offset += sizeof(((struct pptp_gre_header *) 0)->seq);
+ 
+-	if (gre_ver == 0) {
+-		if (*p_proto == htons(ETH_P_TEB)) {
+-			const struct ethhdr *eth;
+-			struct ethhdr _eth;
+-
+-			eth = __skb_header_pointer(skb, *p_nhoff + offset,
+-						   sizeof(_eth),
+-						   data, *p_hlen, &_eth);
+-			if (!eth)
+-				return FLOW_DISSECT_RET_OUT_BAD;
+-			*p_proto = eth->h_proto;
+-			offset += sizeof(*eth);
+-
+-			/* Cap headers that we access via pointers at the
+-			 * end of the Ethernet header as our maximum alignment
+-			 * at that point is only 2 bytes.
+-			 */
+-			if (NET_IP_ALIGN)
+-				*p_hlen = *p_nhoff + offset;
+-		}
+-	} else { /* version 1, must be PPTP */
++	/* version 1, must be PPTP */
++	if (gre_ver == 1) {
+ 		u8 _ppp_hdr[PPP_HDRLEN];
+ 		u8 *ppp_hdr;
+ 
+@@ -573,6 +554,27 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
+ 
+ 		break;
+ 	}
++	case htons(ETH_P_TEB): {
++		const struct ethhdr *eth;
++		struct ethhdr _eth;
++
++		eth = __skb_header_pointer(skb, nhoff, sizeof(_eth),
++					   data, hlen, &_eth);
++		if (!eth)
++			goto out_bad;
++
++		proto = eth->h_proto;
++		nhoff += sizeof(*eth);
++
++		/* Cap headers that we access via pointers at the
++		 * end of the Ethernet header as our maximum alignment
++		 * at that point is only 2 bytes.
++		 */
++		if (NET_IP_ALIGN)
++			hlen = nhoff;
++
++		goto proto_again;
++	}
+ 	case htons(ETH_P_8021AD):
+ 	case htons(ETH_P_8021Q): {
+ 		const struct vlan_hdr *vlan;
+-- 
+2.11.0
