@@ -1,44 +1,45 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: [PATCH net-next] staging: irda: force to be a kernel module
-Date: Tue, 29 Aug 2017 11:14:17 +0200
-Message-ID: <20170829091417.GA9481@kroah.com>
-References: <20170829070929.GA15824@kroah.com>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH net-next v2] bridge: fdb add and delete
+	tracepoints
+Date: Tue, 29 Aug 2017 13:13:44 +0300
+Message-ID: <4163d291-6aec-327d-8708-5a3d32078d3b@cumulusnetworks.com>
+References: <1503980568-35240-1-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        devel@driverdev.osuosl.org
-To: davem@davemloft.net, samuel@sortiz.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170829070929.GA15824@kroah.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, f.fainelli@gmail.com,
+	bridge@lists.linux-foundation.org
+To: Roopa Prabhu <roopa@cumulusnetworks.com>, davem@davemloft.net
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1503980568-35240-1-git-send-email-roopa@cumulusnetworks.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Now that the IRDA networking code has moved into drivers/staging/, the
-link order is changed for when it is initialized if built into the
-system.  This can cause a crash when initializing as the netfilter core
-hasn't been initialized yet.
+On 29/08/17 07:22, Roopa Prabhu wrote:
+> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+> 
+> A few useful tracepoints to trace bridge forwarding
+> database updates.
+> 
+> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+> ---
+> v2 - address comments from Florian
+> 
+>  include/trace/events/bridge.h |   98 +++++++++++++++++++++++++++++++++++++++++
+>  net/bridge/br_fdb.c           |    7 +++
+>  net/core/net-traces.c         |    6 +++
+>  3 files changed, 111 insertions(+)
+>  create mode 100644 include/trace/events/bridge.h
+> 
 
-So force the IRDA code to be built as a module, preventing the crash.
+Very nice and useful, thanks!
 
-Reported-by: kernel test robot <fengguang.wu@intel.com>
-Signed-off-by: Greg Kroah-Hartman gregkh@linuxfoundation.org
----
- drivers/staging/irda/net/Kconfig | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/staging/irda/net/Kconfig b/drivers/staging/irda/net/Kconfig
-index 6abeae6c666a..9c6489bcb596 100644
---- a/drivers/staging/irda/net/Kconfig
-+++ b/drivers/staging/irda/net/Kconfig
-@@ -3,7 +3,7 @@
- #
- 
- menuconfig IRDA
--	depends on NET && !S390
-+	depends on NET && !S390 && m
- 	tristate "IrDA (infrared) subsystem support"
- 	select CRC_CCITT
- 	---help---
--- 
-2.14.1
+Acked-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
