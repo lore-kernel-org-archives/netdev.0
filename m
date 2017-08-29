@@ -1,212 +1,655 @@
-From: Andreas Ziegler <andreas.ziegler@fau.de>
-Subject: Re: staging: r8822be: Add code for halmac sub-driver
-Date: Tue, 29 Aug 2017 12:59:27 +0200
-Message-ID: <0758af1e-f8d5-97be-8308-ba5535ab9415@fau.de>
-References: <20170817174652.17656-5-Larry.Finger@lwfinger.net>
+From: Kishon Vijay Abraham I <kishon@ti.com>
+Subject: Re: [PATCH net-next v3 02/13] phy: add the mvebu cp110 comphy driver
+Date: Tue, 29 Aug 2017 16:34:17 +0530
+Message-ID: <50072fdd-d370-8518-a9f4-73e121114e67@ti.com>
+References: <20170828145725.2539-1-antoine.tenart@free-electrons.com>
+ <20170828145725.2539-3-antoine.tenart@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pkcs7-signature"; micalg=sha-256; boundary="------------ms070509090600040403040709"
-Cc: gregkh@linuxfoundation.org,
-        Yan-Hsuan Chuang <yhchuang@realtek.com>,
-        Birming Chiu <birming@realtek.com>,
-        Shaofu <shaofu@realtek.com>,
-        Steven Ting <steventing@realtek.com>,
-        netdev <netdev@vger.kernel.org>, devel@driverdev.osuosl.org
-To: Ping-Ke Shih <pkshih@realtek.com>,
-        Larry Finger <Larry.Finger@lwfinger.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx-rz-3.rrze.uni-erlangen.de ([131.188.11.22]:50048 "EHLO
-        mx-rz-3.rrze.uni-erlangen.de" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751485AbdH2LFD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 07:05:03 -0400
-In-Reply-To: <20170817174652.17656-5-Larry.Finger@lwfinger.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <thomas.petazzoni@free-electrons.com>, <nadavh@marvell.com>,
+        <linux@armlinux.org.uk>, <linux-kernel@vger.kernel.org>,
+        <mw@semihalf.com>, <stefanc@marvell.com>,
+        <miquel.raynal@free-electrons.com>, <netdev@vger.kernel.org>
+To: Antoine Tenart <antoine.tenart@free-electrons.com>,
+        <davem@davemloft.net>, <andrew@lunn.ch>, <jason@lakedaemon.net>,
+        <sebastian.hesselbarth@gmail.com>,
+        <gregory.clement@free-electrons.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170828145725.2539-3-antoine.tenart@free-electrons.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This is a cryptographically signed message in MIME format.
+Hi Antoine,
 
---------------ms070509090600040403040709
-Content-Type: multipart/mixed;
- boundary="------------0F06B0442C6A49007D59084A"
-Content-Language: de-DE
+On Monday 28 August 2017 08:27 PM, Antoine Tenart wrote:
+> On the CP110 unit, which can be found on various Marvell platforms such
+> as the 7k and 8k (currently), a comphy (common PHYs) hardware block can
+> be found. This block provides a number of PHYs which can be used in
+> various modes by other controllers (network, SATA ...). These common
+> PHYs must be configured for the controllers using them to work correctly
+> either at boot time, or when the system runs to switch the mode used.
+> This patch adds a driver for this comphy hardware block, providing
+> callbacks for the its PHYs so that consumers can configure the modes
+> used.
+> 
+> As of this commit, two modes are supported by the comphy driver: sgmii
+> and 10gkr.
+> 
+> Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
+> ---
+>  drivers/phy/marvell/Kconfig                  |  10 +
+>  drivers/phy/marvell/Makefile                 |   1 +
+>  drivers/phy/marvell/phy-mvebu-cp110-comphy.c | 656 +++++++++++++++++++++++++++
+>  3 files changed, 667 insertions(+)
+>  create mode 100644 drivers/phy/marvell/phy-mvebu-cp110-comphy.c
+> 
+> diff --git a/drivers/phy/marvell/Kconfig b/drivers/phy/marvell/Kconfig
+> index 048d8893bc2e..26755f3d1a9a 100644
+> --- a/drivers/phy/marvell/Kconfig
+> +++ b/drivers/phy/marvell/Kconfig
+> @@ -21,6 +21,16 @@ config PHY_BERLIN_USB
+>  	help
+>  	  Enable this to support the USB PHY on Marvell Berlin SoCs.
+>  
+> +config PHY_MVEBU_CP110_COMPHY
+> +	tristate "Marvell CP110 comphy driver"
+> +	depends on ARCH_MVEBU && OF
 
-This is a multi-part message in MIME format.
---------------0F06B0442C6A49007D59084A
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+(ARCH_MVEBU || COMPILE_TEST) above..
+> +	select GENERIC_PHY
+> +	help
+> +	  This driver allows to control the comphy, an hardware block providing
+> +	  shared serdes PHYs on Marvell Armada 7k/8k (in the CP110). Its serdes
+> +	  lanes can be used by various controllers (Ethernet, sata, usb,
+> +	  PCIe...).
+> +
+>  config PHY_MVEBU_SATA
+>  	def_bool y
+>  	depends on ARCH_DOVE || MACH_DOVE || MACH_KIRKWOOD
+> diff --git a/drivers/phy/marvell/Makefile b/drivers/phy/marvell/Makefile
+> index 3fc188f59118..0cf6a7cbaf9f 100644
+> --- a/drivers/phy/marvell/Makefile
+> +++ b/drivers/phy/marvell/Makefile
+> @@ -1,6 +1,7 @@
+>  obj-$(CONFIG_ARMADA375_USBCLUSTER_PHY)	+= phy-armada375-usb2.o
+>  obj-$(CONFIG_PHY_BERLIN_SATA)		+= phy-berlin-sata.o
+>  obj-$(CONFIG_PHY_BERLIN_USB)		+= phy-berlin-usb.o
+> +obj-$(CONFIG_PHY_MVEBU_CP110_COMPHY)	+= phy-mvebu-cp110-comphy.o
+>  obj-$(CONFIG_PHY_MVEBU_SATA)		+= phy-mvebu-sata.o
+>  obj-$(CONFIG_PHY_PXA_28NM_HSIC)		+= phy-pxa-28nm-hsic.o
+>  obj-$(CONFIG_PHY_PXA_28NM_USB2)		+= phy-pxa-28nm-usb2.o
+> diff --git a/drivers/phy/marvell/phy-mvebu-cp110-comphy.c b/drivers/phy/marvell/phy-mvebu-cp110-comphy.c
+> new file mode 100644
+> index 000000000000..41556e790856
+> --- /dev/null
+> +++ b/drivers/phy/marvell/phy-mvebu-cp110-comphy.c
+> @@ -0,0 +1,656 @@
+> +/*
+> + * Copyright (C) 2017 Marvell
+> + *
+> + * Antoine Tenart <antoine.tenart@free-electrons.com>
+> + *
+> + * This file is licensed under the terms of the GNU General Public
+> + * License version 2. This program is licensed "as is" without any
+> + * warranty of any kind, whether express or implied.
+> + */
+> +
+> +#include <linux/io.h>
+> +#include <linux/iopoll.h>
+> +#include <linux/mfd/syscon.h>
+> +#include <linux/module.h>
+> +#include <linux/phy/phy.h>
+> +#include <linux/platform_device.h>
+> +#include <linux/regmap.h>
+> +
+> +/* Relative to priv->base */
+> +#define MVEBU_COMPHY_SERDES_CFG0(n)		(0x0 + (n) * 0x1000)
+> +#define     MVEBU_COMPHY_SERDES_CFG0_PU_PLL	BIT(1)
+> +#define     MVEBU_COMPHY_SERDES_CFG0_GEN_RX(n)	((n) << 3)
+> +#define     MVEBU_COMPHY_SERDES_CFG0_GEN_TX(n)	((n) << 7)
+> +#define     MVEBU_COMPHY_SERDES_CFG0_PU_RX	BIT(11)
+> +#define     MVEBU_COMPHY_SERDES_CFG0_PU_TX	BIT(12)
+> +#define     MVEBU_COMPHY_SERDES_CFG0_HALF_BUS	BIT(14)
+> +#define MVEBU_COMPHY_SERDES_CFG1(n)		(0x4 + (n) * 0x1000)
+> +#define     MVEBU_COMPHY_SERDES_CFG1_RESET	BIT(3)
+> +#define     MVEBU_COMPHY_SERDES_CFG1_RX_INIT	BIT(4)
+> +#define     MVEBU_COMPHY_SERDES_CFG1_CORE_RESET	BIT(5)
+> +#define     MVEBU_COMPHY_SERDES_CFG1_RF_RESET	BIT(6)
+> +#define MVEBU_COMPHY_SERDES_CFG2(n)		(0x8 + (n) * 0x1000)
+> +#define     MVEBU_COMPHY_SERDES_CFG2_DFE_EN	BIT(4)
+> +#define MVEBU_COMPHY_SERDES_STATUS0(n)		(0x18 + (n) * 0x1000)
+> +#define     MVEBU_COMPHY_SERDES_STATUS0_TX_PLL_RDY	BIT(2)
+> +#define     MVEBU_COMPHY_SERDES_STATUS0_RX_PLL_RDY	BIT(3)
+> +#define     MVEBU_COMPHY_SERDES_STATUS0_RX_INIT		BIT(4)
+> +#define MVEBU_COMPHY_PWRPLL_CTRL(n)		(0x804 + (n) * 0x1000)
+> +#define     MVEBU_COMPHY_PWRPLL_CTRL_RFREQ(n)	((n) << 0)
+> +#define     MVEBU_COMPHY_PWRPLL_PHY_MODE(n)	((n) << 5)
+> +#define MVEBU_COMPHY_IMP_CAL(n)			(0x80c + (n) * 0x1000)
+> +#define     MVEBU_COMPHY_IMP_CAL_TX_EXT(n)	((n) << 10)
+> +#define     MVEBU_COMPHY_IMP_CAL_TX_EXT_EN	BIT(15)
+> +#define MVEBU_COMPHY_DFE_RES(n)			(0x81c + (n) * 0x1000)
+> +#define     MVEBU_COMPHY_DFE_RES_FORCE_GEN_TBL	BIT(15)
+> +#define MVEBU_COMPHY_COEF(n)			(0x828 + (n) * 0x1000)
+> +#define     MVEBU_COMPHY_COEF_DFE_EN		BIT(14)
+> +#define     MVEBU_COMPHY_COEF_DFE_CTRL		BIT(15)
+> +#define MVEBU_COMPHY_GEN1_S0(n)			(0x834 + (n) * 0x1000)
+> +#define     MVEBU_COMPHY_GEN1_S0_TX_AMP(n)	((n) << 1)
+> +#define     MVEBU_COMPHY_GEN1_S0_TX_EMPH(n)	((n) << 7)
+> +#define MVEBU_COMPHY_GEN1_S1(n)			(0x838 + (n) * 0x1000)
+> +#define     MVEBU_COMPHY_GEN1_S1_RX_MUL_PI(n)	((n) << 0)
+> +#define     MVEBU_COMPHY_GEN1_S1_RX_MUL_PF(n)	((n) << 3)
+> +#define     MVEBU_COMPHY_GEN1_S1_RX_MUL_FI(n)	((n) << 6)
+> +#define     MVEBU_COMPHY_GEN1_S1_RX_MUL_FF(n)	((n) << 8)
+> +#define     MVEBU_COMPHY_GEN1_S1_RX_DFE_EN	BIT(10)
+> +#define     MVEBU_COMPHY_GEN1_S1_RX_DIV(n)	((n) << 11)
+> +#define MVEBU_COMPHY_GEN1_S2(n)			(0x8f4 + (n) * 0x1000)
+> +#define     MVEBU_COMPHY_GEN1_S2_TX_EMPH(n)	((n) << 0)
+> +#define     MVEBU_COMPHY_GEN1_S2_TX_EMPH_EN	BIT(4)
+> +#define MVEBU_COMPHY_LOOPBACK(n)		(0x88c + (n) * 0x1000)
+> +#define     MVEBU_COMPHY_LOOPBACK_DBUS_WIDTH(n)	((n) << 1)
+> +#define MVEBU_COMPHY_VDD_CAL0(n)		(0x908 + (n) * 0x1000)
+> +#define     MVEBU_COMPHY_VDD_CAL0_CONT_MODE	BIT(15)
+> +#define MVEBU_COMPHY_EXT_SELV(n)		(0x914 + (n) * 0x1000)
+> +#define     MVEBU_COMPHY_EXT_SELV_RX_SAMPL(n)	((n) << 5)
+> +#define MVEBU_COMPHY_MISC_CTRL0(n)		(0x93c + (n) * 0x1000)
+> +#define     MVEBU_COMPHY_MISC_CTRL0_ICP_FORCE	BIT(5)
+> +#define     MVEBU_COMPHY_MISC_CTRL0_REFCLK_SEL	BIT(10)
+> +#define MVEBU_COMPHY_RX_CTRL1(n)		(0x940 + (n) * 0x1000)
+> +#define     MVEBU_COMPHY_RX_CTRL1_RXCLK2X_SEL	BIT(11)
+> +#define     MVEBU_COMPHY_RX_CTRL1_CLK8T_EN	BIT(12)
+> +#define MVEBU_COMPHY_SPEED_DIV(n)		(0x954 + (n) * 0x1000)
+> +#define     MVEBU_COMPHY_SPEED_DIV_TX_FORCE	BIT(7)
+> +#define MVEBU_SP_CALIB(n)			(0x96c + (n) * 0x1000)
+> +#define     MVEBU_SP_CALIB_SAMPLER(n)		((n) << 8)
+> +#define     MVEBU_SP_CALIB_SAMPLER_EN		BIT(12)
+> +#define MVEBU_COMPHY_TX_SLEW_RATE(n)		(0x974 + (n) * 0x1000)
+> +#define     MVEBU_COMPHY_TX_SLEW_RATE_EMPH(n)	((n) << 5)
+> +#define     MVEBU_COMPHY_TX_SLEW_RATE_SLC(n)	((n) << 10)
+> +#define MVEBU_COMPHY_DLT_CTRL(n)		(0x984 + (n) * 0x1000)
+> +#define     MVEBU_COMPHY_DLT_CTRL_DTL_FLOOP_EN	BIT(2)
+> +#define MVEBU_COMPHY_FRAME_DETECT0(n)		(0xa14 + (n) * 0x1000)
+> +#define     MVEBU_COMPHY_FRAME_DETECT0_PATN(n)	((n) << 7)
+> +#define MVEBU_COMPHY_FRAME_DETECT3(n)		(0xa20 + (n) * 0x1000)
+> +#define     MVEBU_COMPHY_FRAME_DETECT3_LOST_TIMEOUT_EN	BIT(12)
+> +#define MVEBU_COMPHY_DME(n)			(0xa28 + (n) * 0x1000)
+> +#define     MVEBU_COMPHY_DME_ETH_MODE		BIT(7)
+> +#define MVEBU_COMPHY_TRAINING0(n)		(0xa68 + (n) * 0x1000)
+> +#define     MVEBU_COMPHY_TRAINING0_P2P_HOLD	BIT(15)
+> +#define MVEBU_COMPHY_TRAINING5(n)		(0xaa4 + (n) * 0x1000)
+> +#define	    MVEBU_COMPHY_TRAINING5_RX_TIMER(n)	((n) << 0)
+> +#define MVEBU_COMPHY_TX_TRAIN_PRESET(n)		(0xb1c + (n) * 0x1000)
+> +#define     MVEBU_COMPHY_TX_TRAIN_PRESET_16B_AUTO_EN	BIT(8)
+> +#define     MVEBU_COMPHY_TX_TRAIN_PRESET_PRBS11		BIT(9)
+> +#define MVEBU_COMPHY_GEN1_S3(n)			(0xc40 + (n) * 0x1000)
+> +#define     MVEBU_COMPHY_GEN1_S3_FBCK_SEL	BIT(9)
+> +#define MVEBU_COMPHY_GEN1_S4(n)			(0xc44 + (n) * 0x1000)
+> +#define	    MVEBU_COMPHY_GEN1_S4_DFE_RES(n)	((n) << 8)
+> +#define MVEBU_COMPHY_TX_PRESET(n)		(0xc68 + (n) * 0x1000)
+> +#define     MVEBU_COMPHY_TX_PRESET_INDEX(n)	((n) << 0)
+> +#define MVEBU_COMPHY_GEN1_S5(n)			(0xd38 + (n) * 0x1000)
+> +#define     MVEBU_COMPHY_GEN1_S5_ICP(n)		((n) << 0)
+> +
+> +/* Relative to priv->regmap */
+> +#define MVEBU_COMPHY_CONF1(n)			(0x1000 + (n) * 0x28)
+> +#define     MVEBU_COMPHY_CONF1_PWRUP		BIT(1)
+> +#define     MVEBU_COMPHY_CONF1_USB_PCIE		BIT(2)	/* 0: Ethernet/SATA */
+> +#define MVEBU_COMPHY_CONF6(n)			(0x1014 + (n) * 0x28)
+> +#define     MVEBU_COMPHY_CONF6_40B		BIT(18)
+> +#define MVEBU_COMPHY_SELECTOR			0x1140
+> +#define     MVEBU_COMPHY_SELECTOR_PHY(n)	((n) * 0x4)
+> +
+> +#define MVEBU_COMPHY_LANES	6
+> +#define MVEBU_COMPHY_PORTS	3
+> +
+> +struct mvebu_comhy_conf {
+> +	enum phy_mode mode;
+> +	unsigned lane;
+> +	unsigned port;
+> +	u32 mux;
+> +};
+> +
+> +#define MVEBU_COMPHY_CONF(_lane, _port, _mode, _mux)	\
+> +	{						\
+> +		.lane = _lane,				\
+> +		.port = _port,				\
+> +		.mode = _mode,				\
+> +		.mux = _mux,				\
+> +	}
+> +
+> +static const struct mvebu_comhy_conf mvebu_comphy_cp110_modes[] = {
+> +	/* lane 0 */
+> +	MVEBU_COMPHY_CONF(0, 1, PHY_MODE_SGMII, 0x1),
+> +	/* lane 1 */
+> +	MVEBU_COMPHY_CONF(1, 2, PHY_MODE_SGMII, 0x1),
+> +	/* lane 2 */
+> +	MVEBU_COMPHY_CONF(2, 0, PHY_MODE_SGMII, 0x1),
+> +	MVEBU_COMPHY_CONF(2, 0, PHY_MODE_10GKR, 0x1),
+> +	/* lane 3 */
+> +	MVEBU_COMPHY_CONF(3, 1, PHY_MODE_SGMII, 0x2),
+> +	/* lane 4 */
+> +	MVEBU_COMPHY_CONF(4, 0, PHY_MODE_SGMII, 0x2),
+> +	MVEBU_COMPHY_CONF(4, 0, PHY_MODE_10GKR, 0x2),
+> +	MVEBU_COMPHY_CONF(4, 1, PHY_MODE_SGMII, 0x1),
+> +	/* lane 5 */
+> +	MVEBU_COMPHY_CONF(5, 2, PHY_MODE_SGMII, 0x1),
+> +};
 
-Hi Ping-Ke, hi Larry,
+IMHO all the lane and mode configuration should come from dt. That would make
+it more reusable when comphy is configured differently.
+> +
+> +struct mvebu_comphy_priv {
+> +	void __iomem *base;
+> +	struct regmap *regmap;
+> +	struct device *dev;
+> +	struct phy *phys[MVEBU_COMPHY_LANES];
+> +	int modes[MVEBU_COMPHY_LANES];
+> +};
+> +
+> +struct mvebu_comphy_lane {
+> +	struct mvebu_comphy_priv *priv;
+> +	struct device_node *of_node;
+> +	unsigned id;
+> +	enum phy_mode mode;
+> +	int port;
+> +};
+> +
+> +static int mvebu_comphy_get_mux(int lane, int port, enum phy_mode mode)
+> +{
+> +	int i, n = ARRAY_SIZE(mvebu_comphy_cp110_modes);
+> +
+> +	/* Unused PHY mux value is 0x0 */
+> +	if (mode == PHY_MODE_INVALID)
+> +		return 0;
+> +
+> +	for (i = 0; i < n; i++) {
+> +		if (mvebu_comphy_cp110_modes[i].lane == lane &&
+> +		    mvebu_comphy_cp110_modes[i].port == port &&
+> +		    mvebu_comphy_cp110_modes[i].mode == mode)
+> +			break;
+> +	}
+> +
+> +	if (i == n)
+> +		return -EINVAL;
+> +
+> +	return mvebu_comphy_cp110_modes[i].mux;
+> +}
+> +
+> +static void mvebu_comphy_ethernet_init_reset(struct mvebu_comphy_lane *lane,
+> +					     enum phy_mode mode)
+> +{
+> +	struct mvebu_comphy_priv *priv = lane->priv;
+> +	u32 val;
+> +
+> +	regmap_read(priv->regmap, MVEBU_COMPHY_CONF1(lane->id), &val);
+> +	val &= ~MVEBU_COMPHY_CONF1_USB_PCIE;
+> +	val |= MVEBU_COMPHY_CONF1_PWRUP;
+> +	regmap_write(priv->regmap, MVEBU_COMPHY_CONF1(lane->id), val);
+> +
+> +	/* Select baud rates and PLLs */
+> +	val = readl(priv->base + MVEBU_COMPHY_SERDES_CFG0(lane->id));
+> +	val &= ~(MVEBU_COMPHY_SERDES_CFG0_PU_PLL |
+> +		 MVEBU_COMPHY_SERDES_CFG0_PU_RX |
+> +		 MVEBU_COMPHY_SERDES_CFG0_PU_TX |
+> +		 MVEBU_COMPHY_SERDES_CFG0_HALF_BUS |
+> +		 MVEBU_COMPHY_SERDES_CFG0_GEN_RX(0xf) |
+> +		 MVEBU_COMPHY_SERDES_CFG0_GEN_TX(0xf));
+> +	if (mode == PHY_MODE_10GKR)
+> +		val |= MVEBU_COMPHY_SERDES_CFG0_GEN_RX(0xe) |
+> +		       MVEBU_COMPHY_SERDES_CFG0_GEN_TX(0xe);
+> +	else if (mode == PHY_MODE_SGMII)
+> +		val |= MVEBU_COMPHY_SERDES_CFG0_GEN_RX(0x6) |
+> +		       MVEBU_COMPHY_SERDES_CFG0_GEN_TX(0x6) |
+> +		       MVEBU_COMPHY_SERDES_CFG0_HALF_BUS;
+> +	writel(val, priv->base + MVEBU_COMPHY_SERDES_CFG0(lane->id));
+> +
+> +	/* reset */
+> +	val = readl(priv->base + MVEBU_COMPHY_SERDES_CFG1(lane->id));
+> +	val &= ~(MVEBU_COMPHY_SERDES_CFG1_RESET |
+> +		 MVEBU_COMPHY_SERDES_CFG1_CORE_RESET |
+> +		 MVEBU_COMPHY_SERDES_CFG1_RF_RESET);
+> +	writel(val, priv->base + MVEBU_COMPHY_SERDES_CFG1(lane->id));
+> +
+> +	/* de-assert reset */
+> +	val = readl(priv->base + MVEBU_COMPHY_SERDES_CFG1(lane->id));
+> +	val |= MVEBU_COMPHY_SERDES_CFG1_RESET |
+> +	       MVEBU_COMPHY_SERDES_CFG1_CORE_RESET;
+> +	writel(val, priv->base + MVEBU_COMPHY_SERDES_CFG1(lane->id));
+> +
+> +	/* wait until clocks are ready */
+> +	mdelay(1);
+> +
+> +	/* exlicitly disable 40B, the bits isn't clear on reset */
+> +	regmap_read(priv->regmap, MVEBU_COMPHY_CONF6(lane->id), &val);
+> +	val &= ~MVEBU_COMPHY_CONF6_40B;
+> +	regmap_write(priv->regmap, MVEBU_COMPHY_CONF6(lane->id), val);
+> +
+> +	/* refclk selection */
+> +	val = readl(priv->base + MVEBU_COMPHY_MISC_CTRL0(lane->id));
+> +	val &= ~MVEBU_COMPHY_MISC_CTRL0_REFCLK_SEL;
+> +	if (mode == PHY_MODE_10GKR)
+> +		val |= MVEBU_COMPHY_MISC_CTRL0_ICP_FORCE;
+> +	writel(val, priv->base + MVEBU_COMPHY_MISC_CTRL0(lane->id));
+> +
+> +	/* power and pll selection */
+> +	val = readl(priv->base + MVEBU_COMPHY_PWRPLL_CTRL(lane->id));
+> +	val &= ~(MVEBU_COMPHY_PWRPLL_CTRL_RFREQ(0x1f) |
+> +		 MVEBU_COMPHY_PWRPLL_PHY_MODE(0x7));
+> +	val |= MVEBU_COMPHY_PWRPLL_CTRL_RFREQ(0x1) |
+> +	       MVEBU_COMPHY_PWRPLL_PHY_MODE(0x4);
+> +	writel(val, priv->base + MVEBU_COMPHY_PWRPLL_CTRL(lane->id));
+> +
+> +	val = readl(priv->base + MVEBU_COMPHY_LOOPBACK(lane->id));
+> +	val &= ~MVEBU_COMPHY_LOOPBACK_DBUS_WIDTH(0x7);
+> +	val |= MVEBU_COMPHY_LOOPBACK_DBUS_WIDTH(0x1);
+> +	writel(val, priv->base + MVEBU_COMPHY_LOOPBACK(lane->id));
+> +}
+> +
+> +static int mvebu_comphy_init_plls(struct mvebu_comphy_lane *lane,
+> +				  enum phy_mode mode)
+> +{
+> +	struct mvebu_comphy_priv *priv = lane->priv;
+> +	u32 val;
+> +
+> +	/* SERDES external config */
+> +	val = readl(priv->base + MVEBU_COMPHY_SERDES_CFG0(lane->id));
+> +	val |= MVEBU_COMPHY_SERDES_CFG0_PU_PLL |
+> +	       MVEBU_COMPHY_SERDES_CFG0_PU_RX |
+> +	       MVEBU_COMPHY_SERDES_CFG0_PU_TX;
+> +	writel(val, priv->base + MVEBU_COMPHY_SERDES_CFG0(lane->id));
+> +
+> +	/* check rx/tx pll */
+> +	readl_poll_timeout(priv->base + MVEBU_COMPHY_SERDES_STATUS0(lane->id),
+> +			   val,
+> +			   val & (MVEBU_COMPHY_SERDES_STATUS0_RX_PLL_RDY |
+> +				  MVEBU_COMPHY_SERDES_STATUS0_TX_PLL_RDY),
+> +			   1000, 150000);
+> +	if (!(val & (MVEBU_COMPHY_SERDES_STATUS0_RX_PLL_RDY |
+> +		     MVEBU_COMPHY_SERDES_STATUS0_TX_PLL_RDY)))
+> +		return -ETIMEDOUT;
+> +
+> +	/* rx init */
+> +	val = readl(priv->base + MVEBU_COMPHY_SERDES_CFG1(lane->id));
+> +	val |= MVEBU_COMPHY_SERDES_CFG1_RX_INIT;
+> +	writel(val, priv->base + MVEBU_COMPHY_SERDES_CFG1(lane->id));
+> +
+> +	/* check rx */
+> +	readl_poll_timeout(priv->base + MVEBU_COMPHY_SERDES_STATUS0(lane->id),
+> +			   val, val & MVEBU_COMPHY_SERDES_STATUS0_RX_INIT,
+> +			   1000, 10000);
+> +	if (!(val & MVEBU_COMPHY_SERDES_STATUS0_RX_INIT))
+> +		return -ETIMEDOUT;
+> +
+> +	val = readl(priv->base + MVEBU_COMPHY_SERDES_CFG1(lane->id));
+> +	val &= ~MVEBU_COMPHY_SERDES_CFG1_RX_INIT;
+> +	writel(val, priv->base + MVEBU_COMPHY_SERDES_CFG1(lane->id));
+> +
+> +	return 0;
+> +}
+> +
+> +static int mvebu_comphy_set_mode_sgmii(struct phy *phy, enum phy_mode mode)
+> +{
+> +	struct mvebu_comphy_lane *lane = phy_get_drvdata(phy);
+> +	struct mvebu_comphy_priv *priv = lane->priv;
+> +	u32 val;
+> +
+> +	mvebu_comphy_ethernet_init_reset(lane, mode);
+> +
+> +	val = readl(priv->base + MVEBU_COMPHY_RX_CTRL1(lane->id));
+> +	val &= ~MVEBU_COMPHY_RX_CTRL1_CLK8T_EN;
+> +	val |= MVEBU_COMPHY_RX_CTRL1_RXCLK2X_SEL;
+> +	writel(val, priv->base + MVEBU_COMPHY_RX_CTRL1(lane->id));
+> +
+> +	val = readl(priv->base + MVEBU_COMPHY_DLT_CTRL(lane->id));
+> +	val &= ~MVEBU_COMPHY_DLT_CTRL_DTL_FLOOP_EN;
+> +	writel(val, priv->base + MVEBU_COMPHY_DLT_CTRL(lane->id));
+> +
+> +	regmap_read(priv->regmap, MVEBU_COMPHY_CONF1(lane->id), &val);
+> +	val &= ~MVEBU_COMPHY_CONF1_USB_PCIE;
+> +	val |= MVEBU_COMPHY_CONF1_PWRUP;
+> +	regmap_write(priv->regmap, MVEBU_COMPHY_CONF1(lane->id), val);
+> +
+> +	val = readl(priv->base + MVEBU_COMPHY_GEN1_S0(lane->id));
+> +	val &= ~MVEBU_COMPHY_GEN1_S0_TX_EMPH(0xf);
+> +	val |= MVEBU_COMPHY_GEN1_S0_TX_EMPH(0x1);
+> +	writel(val, priv->base + MVEBU_COMPHY_GEN1_S0(lane->id));
+> +
+> +	return mvebu_comphy_init_plls(lane, mode);
+> +}
+> +
+> +static int mvebu_comphy_set_mode_10gkr(struct phy *phy, enum phy_mode mode)
+> +{
+> +	struct mvebu_comphy_lane *lane = phy_get_drvdata(phy);
+> +	struct mvebu_comphy_priv *priv = lane->priv;
+> +	u32 val;
+> +
+> +	mvebu_comphy_ethernet_init_reset(lane, mode);
+> +
+> +	val = readl(priv->base + MVEBU_COMPHY_RX_CTRL1(lane->id));
+> +	val |= MVEBU_COMPHY_RX_CTRL1_RXCLK2X_SEL |
+> +	       MVEBU_COMPHY_RX_CTRL1_CLK8T_EN;
+> +	writel(val, priv->base + MVEBU_COMPHY_RX_CTRL1(lane->id));
+> +
+> +	val = readl(priv->base + MVEBU_COMPHY_DLT_CTRL(lane->id));
+> +	val |= MVEBU_COMPHY_DLT_CTRL_DTL_FLOOP_EN;
+> +	writel(val, priv->base + MVEBU_COMPHY_DLT_CTRL(lane->id));
+> +
+> +	/* Speed divider */
+> +	val = readl(priv->base + MVEBU_COMPHY_SPEED_DIV(lane->id));
+> +	val |= MVEBU_COMPHY_SPEED_DIV_TX_FORCE;
+> +	writel(val, priv->base + MVEBU_COMPHY_SPEED_DIV(lane->id));
+> +
+> +	val = readl(priv->base + MVEBU_COMPHY_SERDES_CFG2(lane->id));
+> +	val |= MVEBU_COMPHY_SERDES_CFG2_DFE_EN;
+> +	writel(val, priv->base + MVEBU_COMPHY_SERDES_CFG2(lane->id));
+> +
+> +	/* DFE resolution */
+> +	val = readl(priv->base + MVEBU_COMPHY_DFE_RES(lane->id));
+> +	val |= MVEBU_COMPHY_DFE_RES_FORCE_GEN_TBL;
+> +	writel(val, priv->base + MVEBU_COMPHY_DFE_RES(lane->id));
+> +
+> +	val = readl(priv->base + MVEBU_COMPHY_GEN1_S0(lane->id));
+> +	val &= ~(MVEBU_COMPHY_GEN1_S0_TX_AMP(0x1f) |
+> +		 MVEBU_COMPHY_GEN1_S0_TX_EMPH(0xf));
+> +	val |= MVEBU_COMPHY_GEN1_S0_TX_AMP(0x1c) |
+> +	       MVEBU_COMPHY_GEN1_S0_TX_EMPH(0xe);
+> +	writel(val, priv->base + MVEBU_COMPHY_GEN1_S0(lane->id));
+> +
+> +	val = readl(priv->base + MVEBU_COMPHY_GEN1_S2(lane->id));
+> +	val &= ~MVEBU_COMPHY_GEN1_S2_TX_EMPH(0xf);
+> +	val |= MVEBU_COMPHY_GEN1_S2_TX_EMPH_EN;
+> +	writel(val, priv->base + MVEBU_COMPHY_GEN1_S2(lane->id));
+> +
+> +	val = readl(priv->base + MVEBU_COMPHY_TX_SLEW_RATE(lane->id));
+> +	val |= MVEBU_COMPHY_TX_SLEW_RATE_EMPH(0x3) |
+> +	       MVEBU_COMPHY_TX_SLEW_RATE_SLC(0x3f);
+> +	writel(val, priv->base + MVEBU_COMPHY_TX_SLEW_RATE(lane->id));
+> +
+> +	/* Impedance calibration */
+> +	val = readl(priv->base + MVEBU_COMPHY_IMP_CAL(lane->id));
+> +	val &= ~MVEBU_COMPHY_IMP_CAL_TX_EXT(0x1f);
+> +	val |= MVEBU_COMPHY_IMP_CAL_TX_EXT(0xe) |
+> +	       MVEBU_COMPHY_IMP_CAL_TX_EXT_EN;
+> +	writel(val, priv->base + MVEBU_COMPHY_IMP_CAL(lane->id));
+> +
+> +	val = readl(priv->base + MVEBU_COMPHY_GEN1_S5(lane->id));
+> +	val &= ~MVEBU_COMPHY_GEN1_S5_ICP(0xf);
+> +	writel(val, priv->base + MVEBU_COMPHY_GEN1_S5(lane->id));
+> +
+> +	val = readl(priv->base + MVEBU_COMPHY_GEN1_S1(lane->id));
+> +	val &= ~(MVEBU_COMPHY_GEN1_S1_RX_MUL_PI(0x7) |
+> +		 MVEBU_COMPHY_GEN1_S1_RX_MUL_PF(0x7) |
+> +		 MVEBU_COMPHY_GEN1_S1_RX_MUL_FI(0x3) |
+> +		 MVEBU_COMPHY_GEN1_S1_RX_MUL_FF(0x3));
+> +	val |= MVEBU_COMPHY_GEN1_S1_RX_DFE_EN |
+> +	       MVEBU_COMPHY_GEN1_S1_RX_MUL_PI(0x2) |
+> +	       MVEBU_COMPHY_GEN1_S1_RX_MUL_PF(0x2) |
+> +	       MVEBU_COMPHY_GEN1_S1_RX_MUL_FF(0x1) |
+> +	       MVEBU_COMPHY_GEN1_S1_RX_DIV(0x3);
+> +	writel(val, priv->base + MVEBU_COMPHY_GEN1_S1(lane->id));
+> +
+> +	val = readl(priv->base + MVEBU_COMPHY_COEF(lane->id));
+> +	val &= ~(MVEBU_COMPHY_COEF_DFE_EN | MVEBU_COMPHY_COEF_DFE_CTRL);
+> +	writel(val, priv->base + MVEBU_COMPHY_COEF(lane->id));
+> +
+> +	val = readl(priv->base + MVEBU_COMPHY_GEN1_S4(lane->id));
+> +	val &= ~MVEBU_COMPHY_GEN1_S4_DFE_RES(0x3);
+> +	val |= MVEBU_COMPHY_GEN1_S4_DFE_RES(0x1);
+> +	writel(val, priv->base + MVEBU_COMPHY_GEN1_S4(lane->id));
+> +
+> +	val = readl(priv->base + MVEBU_COMPHY_GEN1_S3(lane->id));
+> +	val |= MVEBU_COMPHY_GEN1_S3_FBCK_SEL;
+> +	writel(val, priv->base + MVEBU_COMPHY_GEN1_S3(lane->id));
+> +
+> +	/* rx training timer */
+> +	val = readl(priv->base + MVEBU_COMPHY_TRAINING5(lane->id));
+> +	val &= ~MVEBU_COMPHY_TRAINING5_RX_TIMER(0x3ff);
+> +	val |= MVEBU_COMPHY_TRAINING5_RX_TIMER(0x13);
+> +	writel(val, priv->base + MVEBU_COMPHY_TRAINING5(lane->id));
+> +
+> +	/* tx train peak to peak hold */
+> +	val = readl(priv->base + MVEBU_COMPHY_TRAINING0(lane->id));
+> +	val |= MVEBU_COMPHY_TRAINING0_P2P_HOLD;
+> +	writel(val, priv->base + MVEBU_COMPHY_TRAINING0(lane->id));
+> +
+> +	val = readl(priv->base + MVEBU_COMPHY_TX_PRESET(lane->id));
+> +	val &= ~MVEBU_COMPHY_TX_PRESET_INDEX(0xf);
+> +	val |= MVEBU_COMPHY_TX_PRESET_INDEX(0x2);	/* preset coeff */
+> +	writel(val, priv->base + MVEBU_COMPHY_TX_PRESET(lane->id));
+> +
+> +	val = readl(priv->base + MVEBU_COMPHY_FRAME_DETECT3(lane->id));
+> +	val &= ~MVEBU_COMPHY_FRAME_DETECT3_LOST_TIMEOUT_EN;
+> +	writel(val, priv->base + MVEBU_COMPHY_FRAME_DETECT3(lane->id));
+> +
+> +	val = readl(priv->base + MVEBU_COMPHY_TX_TRAIN_PRESET(lane->id));
+> +	val |= MVEBU_COMPHY_TX_TRAIN_PRESET_16B_AUTO_EN |
+> +	       MVEBU_COMPHY_TX_TRAIN_PRESET_PRBS11;
+> +	writel(val, priv->base + MVEBU_COMPHY_TX_TRAIN_PRESET(lane->id));
+> +
+> +	val = readl(priv->base + MVEBU_COMPHY_FRAME_DETECT0(lane->id));
+> +	val &= ~MVEBU_COMPHY_FRAME_DETECT0_PATN(0x1ff);
+> +	val |= MVEBU_COMPHY_FRAME_DETECT0_PATN(0x88);
+> +	writel(val, priv->base + MVEBU_COMPHY_FRAME_DETECT0(lane->id));
+> +
+> +	val = readl(priv->base + MVEBU_COMPHY_DME(lane->id));
+> +	val |= MVEBU_COMPHY_DME_ETH_MODE;
+> +	writel(val, priv->base + MVEBU_COMPHY_DME(lane->id));
+> +
+> +	val = readl(priv->base + MVEBU_COMPHY_VDD_CAL0(lane->id));
+> +	val |= MVEBU_COMPHY_VDD_CAL0_CONT_MODE;
+> +	writel(val, priv->base + MVEBU_COMPHY_VDD_CAL0(lane->id));
+> +
+> +	val = readl(priv->base + MVEBU_SP_CALIB(lane->id));
+> +	val &= ~MVEBU_SP_CALIB_SAMPLER(0x3);
+> +	val |= MVEBU_SP_CALIB_SAMPLER(0x3) |
+> +	       MVEBU_SP_CALIB_SAMPLER_EN;
+> +	writel(val, priv->base + MVEBU_SP_CALIB(lane->id));
+> +	val &= ~MVEBU_SP_CALIB_SAMPLER_EN;
+> +	writel(val, priv->base + MVEBU_SP_CALIB(lane->id));
+> +
+> +	/* External rx regulator */
+> +	val = readl(priv->base + MVEBU_COMPHY_EXT_SELV(lane->id));
+> +	val &= ~MVEBU_COMPHY_EXT_SELV_RX_SAMPL(0x1f);
+> +	val |= MVEBU_COMPHY_EXT_SELV_RX_SAMPL(0x1a);
+> +	writel(val, priv->base + MVEBU_COMPHY_EXT_SELV(lane->id));
+> +
+> +	return mvebu_comphy_init_plls(lane, mode);
+> +}
+> +
+> +static int mvebu_comphy_power_on(struct phy *phy)
+> +{
+> +	struct mvebu_comphy_lane *lane = phy_get_drvdata(phy);
+> +	struct mvebu_comphy_priv *priv = lane->priv;
+> +	int ret;
+> +	u32 mux, val;
+> +
+> +	mux = mvebu_comphy_get_mux(lane->id, lane->port, lane->mode);
+> +	if (mux < 0)
+> +		return -ENOTSUPP;
+> +
+> +	regmap_read(priv->regmap, MVEBU_COMPHY_SELECTOR, &val);
+> +	val &= ~(0xf << MVEBU_COMPHY_SELECTOR_PHY(lane->id));
+> +	val |= mux << MVEBU_COMPHY_SELECTOR_PHY(lane->id);
+> +	regmap_write(priv->regmap, MVEBU_COMPHY_SELECTOR, val);
+> +
+> +	switch (lane->mode) {
+> +	case PHY_MODE_SGMII:
+> +		ret = mvebu_comphy_set_mode_sgmii(phy, lane->mode);
+> +		break;
+> +	case PHY_MODE_10GKR:
+> +		ret = mvebu_comphy_set_mode_10gkr(phy, lane->mode);
+> +		break;
+> +	default:
+> +		return -ENOTSUPP;
+> +	}
+> +
+> +	/* digital reset */
+> +	val = readl(priv->base + MVEBU_COMPHY_SERDES_CFG1(lane->id));
+> +	val |= MVEBU_COMPHY_SERDES_CFG1_RF_RESET;
+> +	writel(val, priv->base + MVEBU_COMPHY_SERDES_CFG1(lane->id));
+> +
+> +	return ret;
+> +}
+> +
+> +static int mvebu_comphy_set_mode(struct phy *phy, enum phy_mode mode)
+> +{
+> +	struct mvebu_comphy_lane *lane = phy_get_drvdata(phy);
+> +
+> +	if (mvebu_comphy_get_mux(lane->id, lane->port, mode) < 0)
+> +		return -EINVAL;
+> +
+> +	lane->mode = mode;
+> +	return 0;
+> +}
+> +
+> +static int mvebu_comphy_power_off(struct phy *phy)
+> +{
+> +	struct mvebu_comphy_lane *lane = phy_get_drvdata(phy);
+> +	struct mvebu_comphy_priv *priv = lane->priv;
+> +	u32 val;
+> +
+> +	val = readl(priv->base + MVEBU_COMPHY_SERDES_CFG1(lane->id));
+> +	val &= ~(MVEBU_COMPHY_SERDES_CFG1_RESET |
+> +		 MVEBU_COMPHY_SERDES_CFG1_CORE_RESET |
+> +		 MVEBU_COMPHY_SERDES_CFG1_RF_RESET);
+> +	writel(val, priv->base + MVEBU_COMPHY_SERDES_CFG1(lane->id));
+> +
+> +	regmap_read(priv->regmap, MVEBU_COMPHY_SELECTOR, &val);
+> +	val &= ~(0xf << MVEBU_COMPHY_SELECTOR_PHY(lane->id));
+> +	regmap_write(priv->regmap, MVEBU_COMPHY_SELECTOR, val);
+> +
+> +	return 0;
+> +}
+> +
+> +static const struct phy_ops mvebu_comphy_ops = {
+> +	.power_on	= mvebu_comphy_power_on,
+> +	.power_off	= mvebu_comphy_power_off,
+> +	.set_mode	= mvebu_comphy_set_mode,
 
-I noticed your commit in linux-next today using the in-tree script at
-scripts/checkkconfigsymbols.py [0]. The script showed that it uses
-CONFIG_RTL_DEBUG in an #ifdef statement - this symbol, however, does not =
-exist,
-and should probably be CONFIG_RTLWIFI_DEBUG instead.
+missing .owner
+> +};
+> +
+> +static struct phy *mvebu_comphy_xlate(struct device *dev,
+> +				      struct of_phandle_args *args)
+> +{
+> +	struct mvebu_comphy_priv *priv = dev_get_drvdata(dev);
+> +	struct mvebu_comphy_lane *lane;
+> +	int i;
+> +
+> +	if (WARN_ON(args->args[0] >= MVEBU_COMPHY_PORTS))
+> +		return ERR_PTR(-EINVAL);
+> +
+> +	for (i = 0; i < MVEBU_COMPHY_LANES; i++) {
+> +		if (!priv->phys[i])
+> +			continue;
+> +
+> +		lane = phy_get_drvdata(priv->phys[i]);
+> +		if (priv->phys[i] && args->np == lane->of_node)
+> +			break;
+> +	}
 
-I attached a patch which fixes this problem.
+You should be able to directly use of_phy_simple_xlate to get the phy pointer.
+(For that to work child node pointer should be passed in devm_phy_create).
 
-Best regards,
-
-Andreas Ziegler
-
-[0]: I called the script like this: './scripts/checkkconfigsymbols.py --f=
-orce -c
-938a0447f094'
-
---------------0F06B0442C6A49007D59084A
-Content-Type: text/x-patch;
- name="0001-staging-r8822be-Fix-typo-for-CONFIG_RTLWIFI_DEBUG.patch"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: attachment;
- filename*0="0001-staging-r8822be-Fix-typo-for-CONFIG_RTLWIFI_DEBUG.patch"
-
-=46rom 6c713900ed877c01f94fb76630f9ffd32c73ec88 Mon Sep 17 00:00:00 2001
-From: Andreas Ziegler <andreas.ziegler@fau.de>
-Date: Tue, 29 Aug 2017 12:50:37 +0200
-Subject: [PATCH] staging: r8822be: Fix typo for CONFIG_RTLWIFI_DEBUG
-
-The debugging output in deinit_priv is guarded by an  #ifdef using
-CONFIG_RTL_DEBUG. This symbol does not exist and should be
-CONFIG_RTLWIFI_DEBUG instead.
-
-Signed-off-by: Andreas Ziegler <andreas.ziegler@fau.de>
----
- drivers/staging/rtlwifi/halmac/rtl_halmac.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/staging/rtlwifi/halmac/rtl_halmac.c b/drivers/stagin=
-g/rtlwifi/halmac/rtl_halmac.c
-index 031bf2c..888ca43 100644
---- a/drivers/staging/rtlwifi/halmac/rtl_halmac.c
-+++ b/drivers/staging/rtlwifi/halmac/rtl_halmac.c
-@@ -386,7 +386,7 @@ static void deinit_priv(struct rtl_halmac *halmac)
- 		u32 count, size;
-=20
- 		count =3D HALMAC_FEATURE_ALL + 1;
--#ifdef CONFIG_RTL_DEBUG
-+#ifdef CONFIG_RTLWIFI_DEBUG
- 		{
- 			struct submit_ctx *sctx;
- 			u32 i;
-@@ -405,7 +405,7 @@ static void deinit_priv(struct rtl_halmac *halmac)
- 				rtl_mfree((u8 *)sctx, sizeof(*sctx));
- 			}
- 		}
--#endif /* !CONFIG_RTL_DEBUG */
-+#endif /* !CONFIG_RTLWIFI_DEBUG */
- 		size =3D sizeof(*indicator) * count;
- 		kfree((u8 *)indicator);
- 	}
---=20
-2.7.4
-
-
---------------0F06B0442C6A49007D59084A--
-
---------------ms070509090600040403040709
-Content-Type: application/pkcs7-signature; name="smime.p7s"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="smime.p7s"
-Content-Description: S/MIME Cryptographic Signature
-
-MIAGCSqGSIb3DQEHAqCAMIACAQExDzANBglghkgBZQMEAgEFADCABgkqhkiG9w0BBwEAAKCC
-ELswggTVMIIDvaADAgECAghQTsb1PRG0ZDANBgkqhkiG9w0BAQsFADBxMQswCQYDVQQGEwJE
-RTEcMBoGA1UEChMTRGV1dHNjaGUgVGVsZWtvbSBBRzEfMB0GA1UECxMWVC1UZWxlU2VjIFRy
-dXN0IENlbnRlcjEjMCEGA1UEAxMaRGV1dHNjaGUgVGVsZWtvbSBSb290IENBIDIwHhcNMTQw
-NzIyMTIwODI2WhcNMTkwNzA5MjM1OTAwWjBaMQswCQYDVQQGEwJERTETMBEGA1UEChMKREZO
-LVZlcmVpbjEQMA4GA1UECxMHREZOLVBLSTEkMCIGA1UEAxMbREZOLVZlcmVpbiBQQ0EgR2xv
-YmFsIC0gRzAxMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA6ZvDZ4X5Da71jVTD
-llA1PWLpbkztlNcAW5UidNQg6zSP1uzAMQQLmYHiphTSUqAoI4SLdIkEXlvg4njBeMsWyyg1
-OXstkEXQ7aAAeny/Sg4bAMOG6VwrMRF7DPOCJEOMHDiLamgAmu7cT3ir0sYTm3at7t4m6O8B
-r3QPwQmi9mvOvdPNFDBP9eXjpMhim4IaAycwDQJlYE3t0QkjKpY1WCfTdsZxtpAdxO3/NYZ9
-bzOz2w/FEcKKg6GUXUFr2NIQ9Uz9ylGs2b3vkoO72uuLFlZWQ8/h1RM9ph8nMM1JVNvJEzSa
-cXXFbOqnC5j5IZ0nrz6jOTlIaoytyZn7wxLyvQIDAQABo4IBhjCCAYIwDgYDVR0PAQH/BAQD
-AgEGMB0GA1UdDgQWBBRJt8bP6D0ff+pEexMp9/EKcD7eZDAfBgNVHSMEGDAWgBQxw3kbuvVT
-1xfgiXotF2wKsyudMzASBgNVHRMBAf8ECDAGAQH/AgECMGIGA1UdIARbMFkwEQYPKwYBBAGB
-rSGCLAEBBAICMBEGDysGAQQBga0hgiwBAQQDADARBg8rBgEEAYGtIYIsAQEEAwEwDwYNKwYB
-BAGBrSGCLAEBBDANBgsrBgEEAYGtIYIsHjA+BgNVHR8ENzA1MDOgMaAvhi1odHRwOi8vcGtp
-MDMzNi50ZWxlc2VjLmRlL3JsL0RUX1JPT1RfQ0FfMi5jcmwweAYIKwYBBQUHAQEEbDBqMCwG
-CCsGAQUFBzABhiBodHRwOi8vb2NzcDAzMzYudGVsZXNlYy5kZS9vY3NwcjA6BggrBgEFBQcw
-AoYuaHR0cDovL3BraTAzMzYudGVsZXNlYy5kZS9jcnQvRFRfUk9PVF9DQV8yLmNlcjANBgkq
-hkiG9w0BAQsFAAOCAQEAYyAo/ZwhhnK+OUZZOTIlvKkBmw3Myn1BnIZtCm4ssxNZdbEzkhth
-Jxb/w7LVNYL7hCoBSb1mu2YvssIGXW4/buMBWlvKQ2NclbbhMacf1QdfTeZlgk4y+cN8ekvN
-TVx07iHydQLsUj7SyWrTkCNuSWc1vn9NVqTszC/Pt6GXqHI+ybxA1lqkCD3WvILDt7cyjrEs
-jmpttzUCGc/1OURYY6ckABCwu/xOr24vOLulV0k/2G5QbyyXltwdRpplic+uzPLl2Z9Tsz6h
-L5Kp2AvGhB8Exuse6J99tXulAvEkxSRjETTMWpMgKnmIOiVCkKllO3yG0xIVIyn8LNrMOVtU
-FzCCBYUwggRtoAMCAQICBxekJTUNxL8wDQYJKoZIhvcNAQELBQAwWjELMAkGA1UEBhMCREUx
-EzARBgNVBAoTCkRGTi1WZXJlaW4xEDAOBgNVBAsTB0RGTi1QS0kxJDAiBgNVBAMTG0RGTi1W
-ZXJlaW4gUENBIEdsb2JhbCAtIEcwMTAeFw0xNDA1MjcxNDU2MzdaFw0xOTA3MDkyMzU5MDBa
-MIGjMQswCQYDVQQGEwJERTEPMA0GA1UECBMGQmF5ZXJuMREwDwYDVQQHEwhFcmxhbmdlbjEo
-MCYGA1UEChMfVW5pdmVyc2l0YWV0IEVybGFuZ2VuLU51ZXJuYmVyZzENMAsGA1UECxMEUlJa
-RTEPMA0GA1UEAxMGRkFVLUNBMSYwJAYJKoZIhvcNAQkBFhdjYUBycnplLnVuaS1lcmxhbmdl
-bi5kZTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBALeM6O3UbAkUYBzi+4jBEF8F
-klzGxWvAHHou8+iNKcRVMU9fMiuJ/n4KuH/3AgzGloyieClmOqe/KlIhWURtMwsOmD3rMclX
-p9ilG7eIU70uE82az1Cw7N2V3o9tlIPlDH61ZXK8XCQO05u/zubqLREeOidcV+irlur548hu
-y+iURMGuowGgH1tm9l1X3735XqkvkFwnUzUkhFiABwtajxIZ022gMCJba5RXj+LSZv+67MPT
-qQmdoMf3WSs8zpM854+RSSPNbinKDo4KARkfaNkTib36HPMfMTu5ViBR5TIuRJ/gAHtV3YC+
-Uccjpj/y4XUN+EoqsqODlFsVv994KAkCAwEAAaOCAgQwggIAMBIGA1UdEwEB/wQIMAYBAf8C
-AQEwDgYDVR0PAQH/BAQDAgEGMBEGA1UdIAQKMAgwBgYEVR0gADAdBgNVHQ4EFgQU9HPz+sZC
-s8ZcacBYvnQ4+WErjmIwHwYDVR0jBBgwFoAUSbfGz+g9H3/qRHsTKffxCnA+3mQwIgYDVR0R
-BBswGYEXY2FAcnJ6ZS51bmktZXJsYW5nZW4uZGUwgYgGA1UdHwSBgDB+MD2gO6A5hjdodHRw
-Oi8vY2RwMS5wY2EuZGZuLmRlL2dsb2JhbC1yb290LWNhL3B1Yi9jcmwvY2FjcmwuY3JsMD2g
-O6A5hjdodHRwOi8vY2RwMi5wY2EuZGZuLmRlL2dsb2JhbC1yb290LWNhL3B1Yi9jcmwvY2Fj
-cmwuY3JsMIHXBggrBgEFBQcBAQSByjCBxzAzBggrBgEFBQcwAYYnaHR0cDovL29jc3AucGNh
-LmRmbi5kZS9PQ1NQLVNlcnZlci9PQ1NQMEcGCCsGAQUFBzAChjtodHRwOi8vY2RwMS5wY2Eu
-ZGZuLmRlL2dsb2JhbC1yb290LWNhL3B1Yi9jYWNlcnQvY2FjZXJ0LmNydDBHBggrBgEFBQcw
-AoY7aHR0cDovL2NkcDIucGNhLmRmbi5kZS9nbG9iYWwtcm9vdC1jYS9wdWIvY2FjZXJ0L2Nh
-Y2VydC5jcnQwDQYJKoZIhvcNAQELBQADggEBAAvdv5tQXS8Y3D2t/HCEcmY7UzcK/b8XU6IY
-0o8b25SNIVX0qkNyC6nkx2NJNpas2cCVs5PgKmAV59oCiNupcUBJ126wiTlzuy4wI1YSJgHw
-PX0rEMLefI/6YAfxgCqH0fcRy0WS845CSZNY7raVwyZBjrvCYio0i2jmniSAT6RPfWATXsrB
-l3gmfBtJ7OFt0l1zLeKhhPhMeIUMojGUKsdyMslBC6Qm5UDA/N683/eGCfk3KOwKVQZ06hml
-bEDwfa8j70R3XFmOVDCKcXJWlTRA/TAExQCz4Y0AWoZJ76PdMzQtjIKpvBq2Kh4L8D5azsp0
-lBqMJ/8X8jD51omx47cwggZVMIIFPaADAgECAgwclFi/j/PFlOAOvOwwDQYJKoZIhvcNAQEL
-BQAwgaMxCzAJBgNVBAYTAkRFMQ8wDQYDVQQIEwZCYXllcm4xETAPBgNVBAcTCEVybGFuZ2Vu
-MSgwJgYDVQQKEx9Vbml2ZXJzaXRhZXQgRXJsYW5nZW4tTnVlcm5iZXJnMQ0wCwYDVQQLEwRS
-UlpFMQ8wDQYDVQQDEwZGQVUtQ0ExJjAkBgkqhkiG9w0BCQEWF2NhQHJyemUudW5pLWVybGFu
-Z2VuLmRlMB4XDTE3MDExMDEzMDEzNVoXDTE5MDcwOTIzNTkwMFowgaAxCzAJBgNVBAYTAkRF
-MQ8wDQYDVQQIDAZCYXllcm4xETAPBgNVBAcMCEVybGFuZ2VuMTwwOgYDVQQKDDNGcmllZHJp
-Y2gtQWxleGFuZGVyLVVuaXZlcnNpdGFldCBFcmxhbmdlbi1OdWVybmJlcmcxFTATBgNVBAsM
-DEluZm9ybWF0aWsgNDEYMBYGA1UEAwwPQW5kcmVhcyBaaWVnbGVyMIIBIjANBgkqhkiG9w0B
-AQEFAAOCAQ8AMIIBCgKCAQEAmtyQgCgFPnLKIEH2ckMjkdT6/Z9QqAOAvLrD3CPGYVBjX60K
-D/vNCSxjmiljAIgA12c8atTvXjm0MPicbp6G1HAwiOZHompyuab7gF8lMiR+6aQTNwawwMRY
-lEeuXVxslwVu4kMu4N5AVid2VRgnodtMdEWzhlnRF1Z4wuY9egLYdZjVVJyWKPGDrgvREn9U
-P5wjvR2IjnrrjXBcEb1StUIYnQGIWySb+TjNd+LAlFy6mBVWiDOaHZO7VTZmwQOl/ezw+8LZ
-b7aVxTPZsJV/Jx4sNDt1XextSSCnGDYUVGSlOhNOeFzJufdNwW6O7ZlS/DT3d1/OLcjf37SA
-XWB/qwIDAQABo4ICiDCCAoQwQAYDVR0gBDkwNzARBg8rBgEEAYGtIYIsAQEEAwUwEQYPKwYB
-BAGBrSGCLAIBBAMBMA8GDSsGAQQBga0hgiwBAQQwCQYDVR0TBAIwADAOBgNVHQ8BAf8EBAMC
-BeAwHQYDVR0lBBYwFAYIKwYBBQUHAwIGCCsGAQUFBwMEMB0GA1UdDgQWBBTgq5FcX/tTXVoT
-pjxFcHQMQIw8NzAfBgNVHSMEGDAWgBT0c/P6xkKzxlxpwFi+dDj5YSuOYjA0BgNVHREELTAr
-gRZhbmRyZWFzLnppZWdsZXJAZmF1LmRlgRF6aWVnbGVyQGNzLmZhdS5kZTCBnwYDVR0fBIGX
-MIGUMEigRqBEhkJodHRwOi8vY2RwMS5wY2EuZGZuLmRlL3VuaS1lcmxhbmdlbi1udWVybmJl
-cmctY2EvcHViL2NybC9jYWNybC5jcmwwSKBGoESGQmh0dHA6Ly9jZHAyLnBjYS5kZm4uZGUv
-dW5pLWVybGFuZ2VuLW51ZXJuYmVyZy1jYS9wdWIvY3JsL2NhY3JsLmNybDCB7QYIKwYBBQUH
-AQEEgeAwgd0wMwYIKwYBBQUHMAGGJ2h0dHA6Ly9vY3NwLnBjYS5kZm4uZGUvT0NTUC1TZXJ2
-ZXIvT0NTUDBSBggrBgEFBQcwAoZGaHR0cDovL2NkcDEucGNhLmRmbi5kZS91bmktZXJsYW5n
-ZW4tbnVlcm5iZXJnLWNhL3B1Yi9jYWNlcnQvY2FjZXJ0LmNydDBSBggrBgEFBQcwAoZGaHR0
-cDovL2NkcDIucGNhLmRmbi5kZS91bmktZXJsYW5nZW4tbnVlcm5iZXJnLWNhL3B1Yi9jYWNl
-cnQvY2FjZXJ0LmNydDANBgkqhkiG9w0BAQsFAAOCAQEAeakOmEmyphLw/P5o/WzEtqrvAa1/
-JhcrbhqS4z+3ffCBxr6vz0Corp4ZqRv5mZ4aPQtP65/w/n28lFQm3AphDnmZCvUB3bH21BM1
-aHOU3vGPTjuK7Ae/E9m77CbVTqnpOed7Dg2mBgy2PcdWOlqoNweM8AWEb3thsPcCdk1AueqZ
-3Mp89KOHzj5wklaDyaA2k+qJdsf9GSdvXvYmoF1g9RgPPVFhwjfmgsixfTYD69E9SNVWP56B
-/iQBm3wPeU+C2e8JGbAnjEoS7mOvrloGqjfpsQ7vg8vYmMwd1fu1ImLrYfxMU3wPsnv1hOd+
-uGVmBu8Qu8FqH8mmhbYmwiUiUDGCBE0wggRJAgEBMIG0MIGjMQswCQYDVQQGEwJERTEPMA0G
-A1UECBMGQmF5ZXJuMREwDwYDVQQHEwhFcmxhbmdlbjEoMCYGA1UEChMfVW5pdmVyc2l0YWV0
-IEVybGFuZ2VuLU51ZXJuYmVyZzENMAsGA1UECxMEUlJaRTEPMA0GA1UEAxMGRkFVLUNBMSYw
-JAYJKoZIhvcNAQkBFhdjYUBycnplLnVuaS1lcmxhbmdlbi5kZQIMHJRYv4/zxZTgDrzsMA0G
-CWCGSAFlAwQCAQUAoIICaTAYBgkqhkiG9w0BCQMxCwYJKoZIhvcNAQcBMBwGCSqGSIb3DQEJ
-BTEPFw0xNzA4MjkxMDU5MjdaMC8GCSqGSIb3DQEJBDEiBCCZ20Bz/kr6lgg8i8NQ7jFbFq6c
-sb8aWfMsX57uuYqeYDBsBgkqhkiG9w0BCQ8xXzBdMAsGCWCGSAFlAwQBKjALBglghkgBZQME
-AQIwCgYIKoZIhvcNAwcwDgYIKoZIhvcNAwICAgCAMA0GCCqGSIb3DQMCAgFAMAcGBSsOAwIH
-MA0GCCqGSIb3DQMCAgEoMIHFBgkrBgEEAYI3EAQxgbcwgbQwgaMxCzAJBgNVBAYTAkRFMQ8w
-DQYDVQQIEwZCYXllcm4xETAPBgNVBAcTCEVybGFuZ2VuMSgwJgYDVQQKEx9Vbml2ZXJzaXRh
-ZXQgRXJsYW5nZW4tTnVlcm5iZXJnMQ0wCwYDVQQLEwRSUlpFMQ8wDQYDVQQDEwZGQVUtQ0Ex
-JjAkBgkqhkiG9w0BCQEWF2NhQHJyemUudW5pLWVybGFuZ2VuLmRlAgwclFi/j/PFlOAOvOww
-gccGCyqGSIb3DQEJEAILMYG3oIG0MIGjMQswCQYDVQQGEwJERTEPMA0GA1UECBMGQmF5ZXJu
-MREwDwYDVQQHEwhFcmxhbmdlbjEoMCYGA1UEChMfVW5pdmVyc2l0YWV0IEVybGFuZ2VuLU51
-ZXJuYmVyZzENMAsGA1UECxMEUlJaRTEPMA0GA1UEAxMGRkFVLUNBMSYwJAYJKoZIhvcNAQkB
-FhdjYUBycnplLnVuaS1lcmxhbmdlbi5kZQIMHJRYv4/zxZTgDrzsMA0GCSqGSIb3DQEBAQUA
-BIIBAAGCPqHv/2y8jk5arBSKbjXxDx4VUlLsD6r7xShlsnGegPYk4+2etVZAToIGP/GFFXwu
-2UF6ZC/Grt091H8pos9ZHzV88LWrpcWzefDFCGuNLhXxI11wTDUzbuImGWP0x6snnWY+smUv
-Vdh6mvEEl+tBUpbtSQjZzoV3USfTlNUHfDSZ2N//rq9vUtXNzEMoUBseLlkJLIW9dVxJ1vXL
-33ijRIAm1h+PkmapU2F1yz7Pt5bf2xhQgIZlsLgA7+cF5qyjsvoUob+GgEwNqwDA/4Y0UAYl
-G9T7hfQhUMq1ptE2xeh+Il3rSBXXjvSwxxqFkNSFaxWRNLQ3ggZ6vXv5G5gAAAAAAAA=
---------------ms070509090600040403040709--
+Thanks
+Kishon
