@@ -1,49 +1,77 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: [PATCH net-next] staging: irda: update MAINTAINERS
-Date: Tue, 29 Aug 2017 09:09:29 +0200
-Message-ID: <20170829070929.GA15824@kroah.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [patch net-next 1/3] idr: Add new APIs to support unsigned long
+Date: Tue, 29 Aug 2017 09:14:04 +0200
+Message-ID: <87y3q27sn7.fsf@stressinduktion.org>
+References: <1503902477-39829-1-git-send-email-chrism@mellanox.com>
+        <1503902477-39829-2-git-send-email-chrism@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org,
- Joe Perches <joe@perches.com>, linux-kernel@vger.kernel.org
-To: davem@davemloft.net, samuel@sortiz.org
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-Content-Disposition: inline
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
+        jiri@resnulli.us, davem@davemloft.net, mawilcox@microsoft.com
+To: Chris Mi <chrism@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:55049 "EHLO
+        out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751219AbdH2HOI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 03:14:08 -0400
+In-Reply-To: <1503902477-39829-2-git-send-email-chrism@mellanox.com> (Chris
+        Mi's message of "Mon, 28 Aug 2017 02:41:15 -0400")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Now that the IRDA code has moved under drivers/staging/irda/, update the
-MAINTAINERS file with the new location.
+Hello,
 
-Reported-by: Joe Perches <joe@perches.com>
-Signed-off-by: Greg Kroah-Hartman gregkh@linuxfoundation.org
----
- MAINTAINERS | 4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
+Chris Mi <chrism@mellanox.com> writes:
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 6fdfe2685eed..ff19b1c3141c 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -7101,9 +7101,7 @@ W:	http://irda.sourceforge.net/
- S:	Maintained
- T:	git git://git.kernel.org/pub/scm/linux/kernel/git/sameo/irda-2.6.git
- F:	Documentation/networking/irda.txt
--F:	drivers/net/irda/
--F:	include/net/irda/
--F:	net/irda/
-+F:	drivers/staging/irda/
- 
- IRQ DOMAINS (IRQ NUMBER MAPPING LIBRARY)
- M:	Marc Zyngier <marc.zyngier@arm.com>
--- 
-2.14.1
+> The following new APIs are added:
+>
+> int idr_alloc_ext(struct idr *idr, void *ptr, unsigned long *index,
+>                   unsigned long start, unsigned long end, gfp_t gfp);
+> static inline void *idr_remove_ext(struct idr *idr, unsigned long id);
+> static inline void *idr_find_ext(const struct idr *idr, unsigned long id);
+> void *idr_replace_ext(struct idr *idr, void *ptr, unsigned long id);
+> void *idr_get_next_ext(struct idr *idr, unsigned long *nextid);
+>
+> Signed-off-by: Chris Mi <chrism@mellanox.com>
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+> ---
+>  include/linux/idr.h        | 16 ++++++++++
+>  include/linux/radix-tree.h |  3 ++
+>  lib/idr.c                  | 56 +++++++++++++++++++++++++++++++++++
+>  lib/radix-tree.c           | 73 ++++++++++++++++++++++++++++++++++++++++++++++
+>  4 files changed, 148 insertions(+)
+>
+
+[...]
+
+> +int idr_alloc_ext(struct idr *idr, void *ptr, unsigned long *index,
+> +		  unsigned long start, unsigned long end, gfp_t gfp)
+> +{
+> +	void __rcu **slot;
+> +	struct radix_tree_iter iter;
+> +
+> +	if (WARN_ON_ONCE(radix_tree_is_internal_node(ptr)))
+> +		return -EINVAL;
+> +
+> +	radix_tree_iter_init(&iter, start);
+> +	slot = idr_get_free_ext(&idr->idr_rt, &iter, gfp, end);
+> +	if (IS_ERR(slot))
+> +		return PTR_ERR(slot);
+> +
+> +	radix_tree_iter_replace(&idr->idr_rt, &iter, slot, ptr);
+> +	radix_tree_iter_tag_clear(&idr->idr_rt, &iter, IDR_FREE);
+> +
+> +	if (index)
+> +		*index = iter.index;
+> +	return 0;
+> +}
+> +EXPORT_SYMBOL_GPL(idr_alloc_ext);
+
+Can you express idr_alloc in terms of idr_alloc_ext? Same for most of
+the other functions (it seems that signed int was used as return value
+to indicate error cases, thus it should be easy to map those).
+
+[...]
+
+Thanks,
+Hannes
