@@ -1,77 +1,76 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [patch net-next 1/3] idr: Add new APIs to support unsigned long
-Date: Tue, 29 Aug 2017 09:14:04 +0200
-Message-ID: <87y3q27sn7.fsf@stressinduktion.org>
-References: <1503902477-39829-1-git-send-email-chrism@mellanox.com>
-        <1503902477-39829-2-git-send-email-chrism@mellanox.com>
+From: "Neftin, Sasha" <sasha.neftin@intel.com>
+Subject: Re: [Intel-wired-lan] [PATCH] e1000e: changed some expensive calls of
+ udelay to usleep_range
+Date: Tue, 29 Aug 2017 10:19:09 +0300
+Message-ID: <a2ff6002-3d8f-1094-c05e-696b1cd07256@intel.com>
+References: <1503503985-3869-1-git-send-email-matthew.tan_1@nxp.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
-        jiri@resnulli.us, davem@davemloft.net, mawilcox@microsoft.com
-To: Chris Mi <chrism@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:55049 "EHLO
-        out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751219AbdH2HOI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 03:14:08 -0400
-In-Reply-To: <1503902477-39829-2-git-send-email-chrism@mellanox.com> (Chris
-        Mi's message of "Mon, 28 Aug 2017 02:41:15 -0400")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: michael.kardonik@nxp.com, mitch.a.williams@intel.com,
+        linux-kernel@vger.kernel.org, john.ronciak@intel.com,
+        intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org
+To: Matthew Tan <matthew.tan_1@nxp.com>, jeffrey.t.kirsher@intel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1503503985-3869-1-git-send-email-matthew.tan_1@nxp.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello,
-
-Chris Mi <chrism@mellanox.com> writes:
-
-> The following new APIs are added:
+On 8/23/2017 18:59, Matthew Tan wrote:
+>      Calls to udelay are not preemtable by userspace so userspace
+>      applications experience a large (~200us) latency when running on core
+>      0. Instead usleep_range can be used to be more friendly to userspace
+>      since it is preemtable. This is due to udelay using busy-wait loops
+>      while usleep_rang uses hrtimers instead. It is recommended to use
+>      udelay when the delay is <10us since at that precision overhead of
+>      usleep_range hrtimer setup causes issues. However, the replaced calls
+>      are for 50us and 100us so this should not be not an issue.
 >
-> int idr_alloc_ext(struct idr *idr, void *ptr, unsigned long *index,
->                   unsigned long start, unsigned long end, gfp_t gfp);
-> static inline void *idr_remove_ext(struct idr *idr, unsigned long id);
-> static inline void *idr_find_ext(const struct idr *idr, unsigned long id);
-> void *idr_replace_ext(struct idr *idr, void *ptr, unsigned long id);
-> void *idr_get_next_ext(struct idr *idr, unsigned long *nextid);
->
-> Signed-off-by: Chris Mi <chrism@mellanox.com>
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+> Signed-off-by: Matthew Tan <matthew.tan_1@nxp.com>
 > ---
->  include/linux/idr.h        | 16 ++++++++++
->  include/linux/radix-tree.h |  3 ++
->  lib/idr.c                  | 56 +++++++++++++++++++++++++++++++++++
->  lib/radix-tree.c           | 73 ++++++++++++++++++++++++++++++++++++++++++++++
->  4 files changed, 148 insertions(+)
+>   drivers/net/ethernet/intel/e1000e/phy.c | 8 ++++----
+>   1 file changed, 4 insertions(+), 4 deletions(-)
 >
+> diff --git a/drivers/net/ethernet/intel/e1000e/phy.c b/drivers/net/ethernet/intel/e1000e/phy.c
+> index de13aea..e318fdc 100644
+> --- a/drivers/net/ethernet/intel/e1000e/phy.c
+> +++ b/drivers/net/ethernet/intel/e1000e/phy.c
+> @@ -158,7 +158,7 @@ s32 e1000e_read_phy_reg_mdic(struct e1000_hw *hw, u32 offset, u16 *data)
+>   	 * the lower time out
+>   	 */
+>   	for (i = 0; i < (E1000_GEN_POLL_TIMEOUT * 3); i++) {
+> -		udelay(50);
+> +		usleep_range(40, 60);
+>   		mdic = er32(MDIC);
+>   		if (mdic & E1000_MDIC_READY)
+>   			break;
+> @@ -183,7 +183,7 @@ s32 e1000e_read_phy_reg_mdic(struct e1000_hw *hw, u32 offset, u16 *data)
+>   	 * reading duplicate data in the next MDIC transaction.
+>   	 */
+>   	if (hw->mac.type == e1000_pch2lan)
+> -		udelay(100);
+> +		usleep_range(90, 100);
+>   
+>   	return 0;
+>   }
+> @@ -222,7 +222,7 @@ s32 e1000e_write_phy_reg_mdic(struct e1000_hw *hw, u32 offset, u16 data)
+>   	 * the lower time out
+>   	 */
+>   	for (i = 0; i < (E1000_GEN_POLL_TIMEOUT * 3); i++) {
+> -		udelay(50);
+> +		usleep_range(40, 60);
+>   		mdic = er32(MDIC);
+>   		if (mdic & E1000_MDIC_READY)
+>   			break;
+> @@ -246,7 +246,7 @@ s32 e1000e_write_phy_reg_mdic(struct e1000_hw *hw, u32 offset, u16 data)
+>   	 * reading duplicate data in the next MDIC transaction.
+>   	 */
+>   	if (hw->mac.type == e1000_pch2lan)
+> -		udelay(100);
+> +		usleep_range(90, 110);
+>   
+>   	return 0;
+>   }
 
-[...]
-
-> +int idr_alloc_ext(struct idr *idr, void *ptr, unsigned long *index,
-> +		  unsigned long start, unsigned long end, gfp_t gfp)
-> +{
-> +	void __rcu **slot;
-> +	struct radix_tree_iter iter;
-> +
-> +	if (WARN_ON_ONCE(radix_tree_is_internal_node(ptr)))
-> +		return -EINVAL;
-> +
-> +	radix_tree_iter_init(&iter, start);
-> +	slot = idr_get_free_ext(&idr->idr_rt, &iter, gfp, end);
-> +	if (IS_ERR(slot))
-> +		return PTR_ERR(slot);
-> +
-> +	radix_tree_iter_replace(&idr->idr_rt, &iter, slot, ptr);
-> +	radix_tree_iter_tag_clear(&idr->idr_rt, &iter, IDR_FREE);
-> +
-> +	if (index)
-> +		*index = iter.index;
-> +	return 0;
-> +}
-> +EXPORT_SYMBOL_GPL(idr_alloc_ext);
-
-Can you express idr_alloc in terms of idr_alloc_ext? Same for most of
-the other functions (it seems that signed int was used as return value
-to indicate error cases, thus it should be easy to map those).
-
-[...]
-
-Thanks,
-Hannes
+Reasonable. Do you have any open bug or other reference describe this 
+problem?
