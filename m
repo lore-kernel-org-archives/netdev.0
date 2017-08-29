@@ -1,72 +1,169 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next v2 00/10] net: dsa: add generic debugfs interface
-Date: Tue, 29 Aug 2017 14:50:04 +0200
-Message-ID: <20170829125004.GB22093@lunn.ch>
-References: <20170828191748.19492-1-vivien.didelot@savoirfairelinux.com>
- <20170828195332.GB1950@nanopsycho.orion>
- <20170828200834.GA1870@lunn.ch>
- <20170829062523.GA1977@nanopsycho.orion>
+From: "liujian (CE)" <liujian56@huawei.com>
+Subject: RE: Question about ip_defrag
+Date: Tue, 29 Aug 2017 13:01:51 +0000
+Message-ID: <4F88C5DDA1E80143B232E89585ACE27D018F4850@DGGEMA502-MBX.china.huawei.com>
+References: <4F88C5DDA1E80143B232E89585ACE27D018F07E2@DGGEMA502-MBX.china.huawei.com>
+ <20170824155300.1e577dae@redhat.com>
+ <4F88C5DDA1E80143B232E89585ACE27D018F0AE1@DGGEMA502-MBX.china.huawei.com>
+ <20170824205926.2c45e3a1@redhat.com>
+ <4F88C5DDA1E80143B232E89585ACE27D018F3157@DGGEMA502-MBX.china.huawei.com>
+ <20170828140032.GB12926@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Egil Hjelmeland <privat@egil-hjelmeland.no>,
-        John Crispin <john@phrozen.org>,
-        Woojung Huh <Woojung.Huh@microchip.com>,
-        Sean Wang <sean.wang@mediatek.com>,
-        Nikita Yushchenko <nikita.yoush@cogentembedded.com>,
-        Chris Healy <cphealy@gmail.com>, mlxsw@mellanox.com
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170829062523.GA1977@nanopsycho.orion>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "kuznet@ms2.inr.ac.ru" <kuznet@ms2.inr.ac.ru>,
+        "yoshfuji@linux-ipv6.org" <yoshfuji@linux-ipv6.org>,
+        "elena.reshetova@intel.com" <elena.reshetova@intel.com>,
+        "edumazet@google.com" <edumazet@google.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "Wangkefeng (Kevin)" <wangkefeng.wang@huawei.com>,
+        "weiyongjun (A)" <weiyongjun1@huawei.com>
+To: "liujian (CE)" <liujian56@huawei.com>,
+        Florian Westphal <fw@strlen.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga02-in.huawei.com ([45.249.212.188]:11822 "EHLO
+        szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751272AbdH2NCZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 09:02:25 -0400
+Content-Language: zh-CN
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 29, 2017 at 08:25:23AM +0200, Jiri Pirko wrote:
-> Mon, Aug 28, 2017 at 10:08:34PM CEST, andrew@lunn.ch wrote:
-> >> I see this overlaps a lot with DPIPE. Why won't you use that to expose
-> >> your hw state?
-> >
-> >We took a look at dpipe and i talked to you about using it for this
-> >sort of thing at netconf/netdev. But dpipe has issues displaying the
-> >sort of information we have. I never figured out how to do two
-> >dimensional tables. The output of the dpipe command is pretty
-> >unreadable. A lot of the information being dumped here is not about
-> >the data pipe, etc.
+
+
+
+Best Regards,
+liujian
+
+
+> -----Original Message-----
+> From: liujian (CE)
+> Sent: Tuesday, August 29, 2017 3:39 PM
+> To: 'Florian Westphal'
+> Cc: Jesper Dangaard Brouer; davem@davemloft.net; kuznet@ms2.inr.ac.ru;
+> yoshfuji@linux-ipv6.org; elena.reshetova@intel.com; edumazet@google.com;
+> netdev@vger.kernel.org; Wangkefeng (Kevin); weiyongjun (A)
+> Subject: RE: Question about ip_defrag
 > 
-> So improve it. No problem. Also, we extend it to support what you neede.
+> 
+> 
+> > -----Original Message-----
+> > From: netdev-owner@vger.kernel.org
+> > [mailto:netdev-owner@vger.kernel.org]
+> > On Behalf Of Florian Westphal
+> > Sent: Monday, August 28, 2017 10:01 PM
+> > To: liujian (CE)
+> > Cc: Jesper Dangaard Brouer; davem@davemloft.net; kuznet@ms2.inr.ac.ru;
+> > yoshfuji@linux-ipv6.org; elena.reshetova@intel.com;
+> > edumazet@google.com; netdev@vger.kernel.org; Wangkefeng (Kevin);
+> > weiyongjun (A)
+> > Subject: Re: Question about ip_defrag
+> >
+> > liujian (CE) <liujian56@huawei.com> wrote:
+> > > Hi
+> > >
+> > > I checked our 3.10 kernel, we had backported all percpu_counter bug
+> > > fix in
+> > lib/percpu_counter.c and include/linux/percpu_counter.h.
+> > > And I check 4.13-rc6, also has the issue if NIC's rx cpu num big enough.
+> > >
+> > > > > > > the issue:
+> > > > > > > Ip_defrag fail caused by frag_mem_limit reached
+> > 4M(frags.high_thresh).
+> > > > > > > At this moment,sum_frag_mem_limit is about 10K.
+> > >
+> > > So should we change ipfrag high/low thresh to a reasonable value ?
+> > > And if it is, is there a standard to change the value?
+> >
+> > Each cpu can have frag_percpu_counter_batch bytes rest doesn't know
+> > about so with 64 cpus that is ~8 mbyte.
+> >
+> > possible solutions:
+> > 1. reduce frag_percpu_counter_batch to 16k or so 2. make both low and
+> > high thresh depend on NR_CPUS
+> >
+> Thank you for your reply.
+> 
+> > liujian, does this change help in any way?
+> 
+> I will have a try.
 
-Will i did try to do this back in March. And i failed.
+Now, I have not the real environment. 
+I use iperf generate fragment packets; 
+and I always change NIC rx irq's affinity cpu, to make sure frag_mem_limit reach to thresh.
+my test machine, CPU num is 384.
+As above , test the patch , seemingly , there is no improving...
+Check /proc/net/snmp, there is no significant difference.
+maybe we should find a good test method!
 
-Lets start with stats. Vivien gives an example on the cover letter:
+root@RH8100-V3:/proc/net# cat sockstat
+sockets: used 1386
+TCP: inuse 3 orphan 0 tw 0 alloc 4 mem 1
+UDP: inuse 44 mem 42
+UDPLITE: inuse 0
+RAW: inuse 0
+FRAG: inuse 1 memory 34336, 3144424.
+ 
 
-    # pr -mt switch0/port{5,6}/stats
-    in_good_octets      : 0             in_good_octets      : 13824
-    in_bad_octets       : 0             in_bad_octets       : 0
-    in_unicast          : 0             in_unicast          : 0
-    in_broadcasts       : 0             in_broadcasts       : 216
-    in_multicasts       : 0             in_multicasts       : 0
-    in_pause            : 0             in_pause            : 0
-    in_undersize        : 0             in_undersize        : 0
-
-This is what i tried to implement using dpipe. It is a simple two
-dimensional table. First column is a string, second a u64. In debugfs
-we have such a table per port. That fits with the hierarchy that each
-port is a directory in debugfs. But it could also be implemented as
-one table with N+1 columns, for N switch ports.
-
-How about you, or one of your team, implement that. It should be able
-to use the dsa_loop driver, which is a simple dummy switch. But it
-does have statistics counters for all ports. Florian or I can help you
-get it running if needed.
-
-This branch contains some of the basic plumbing code from my previous
-attempt:
-
-https://github.com/lunn/linux.git v4.11-rc4-net-next-dpipe
-
-	 Andrew
+> > diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
+> > --- a/net/ipv4/inet_fragment.c
+> > +++ b/net/ipv4/inet_fragment.c
+> > @@ -123,6 +123,17 @@ static bool inet_fragq_should_evict(const struct
+> > inet_frag_queue *q)
+> >  	       frag_mem_limit(q->net) >= q->net->low_thresh;  }
+> >
+> > +/* ->mem batch size is huge, this can cause severe discrepancies
+> > + * between actual value (sum of pcpu values) and the global estimate.
+> > + *
+> > + * Use a smaller batch to give an opportunity for the global estimate
+> > + * to more accurately reflect current state.
+> > + */
+> > +static void update_frag_mem_limit(struct netns_frags *nf, unsigned
+> > +int
+> > +batch) {
+> > +	 percpu_counter_add_batch(&nf->mem, 0, batch); }
+> > +
+> >  static unsigned int
+> >  inet_evict_bucket(struct inet_frags *f, struct inet_frag_bucket *hb)
+> > { @@
+> > -146,8 +157,12 @@ inet_evict_bucket(struct inet_frags *f, struct
+> > inet_frag_bucket *hb)
+> >
+> >  	spin_unlock(&hb->chain_lock);
+> >
+> > -	hlist_for_each_entry_safe(fq, n, &expired, list_evictor)
+> > +	hlist_for_each_entry_safe(fq, n, &expired, list_evictor) {
+> > +		struct netns_frags *nf = fq->net;
+> > +
+> >  		f->frag_expire((unsigned long) fq);
+> > +		update_frag_mem_limit(nf, 1);
+> 
+> > +	}
+> >
+> >  	return evicted;
+> >  }
+> > @@ -396,8 +411,10 @@ struct inet_frag_queue *inet_frag_find(struct
+> > netns_frags *nf,
+> >  	struct inet_frag_queue *q;
+> >  	int depth = 0;
+> >
+> > -	if (frag_mem_limit(nf) > nf->low_thresh)
+> > +	if (frag_mem_limit(nf) > nf->low_thresh) {
+> >  		inet_frag_schedule_worker(f);
+> > +		update_frag_mem_limit(nf, SKB_TRUESIZE(1500) * 16);
+> > +	}
+> >
+> >  	hash &= (INETFRAGS_HASHSZ - 1);
+> >  	hb = &f->hash[hash];
+> > @@ -416,6 +433,8 @@ struct inet_frag_queue *inet_frag_find(struct
+> > netns_frags *nf,
+> >  	if (depth <= INETFRAGS_MAXDEPTH)
+> >  		return inet_frag_create(nf, f, key);
+> >
+> > +	update_frag_mem_limit(nf, 1);
+> > +
+> >  	if (inet_frag_may_rebuild(f)) {
+> >  		if (!f->rebuild)
+> >  			f->rebuild = true;
