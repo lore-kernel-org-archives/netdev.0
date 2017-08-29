@@ -1,88 +1,123 @@
-From: Arkadi Sharshevsky <arkadis@mellanox.com>
-Subject: Re: [PATCH net-next v2 00/10] net: dsa: add generic debugfs interface
-Date: Tue, 29 Aug 2017 22:05:11 +0300
-Message-ID: <8e6fa7ea-fb7b-3026-b9c0-417ef2efae27@mellanox.com>
-References: <20170828191748.19492-1-vivien.didelot@savoirfairelinux.com>
- <20170828195332.GB1950@nanopsycho.orion> <20170828200834.GA1870@lunn.ch>
- <20170829062523.GA1977@nanopsycho.orion> <20170829125004.GB22093@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Egil Hjelmeland <privat@egil-hjelmeland.no>,
-        John Crispin <john@phrozen.org>,
-        Woojung Huh <Woojung.Huh@microchip.com>,
-        Sean Wang <sean.wang@mediatek.com>,
-        Nikita Yushchenko <nikita.yoush@cogentembedded.com>,
-        Chris Healy <cphealy@gmail.com>, mlxsw@mellanox.com
-To: Andrew Lunn <andrew@lunn.ch>, Jiri Pirko <jiri@resnulli.us>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170829125004.GB22093@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: [PATCH net v2] sch_multiq: fix double free on init failure
+Date: Tue, 29 Aug 2017 22:11:11 +0300
+Message-ID: <1504033871-23073-1-git-send-email-nikolay@cumulusnetworks.com>
+References: <CAM_iQpVm0EvXsdcsAR546urmqgkeVgVqhJu=GwgWAhOutjzgyw@mail.gmail.com>
+Cc: edumazet@google.com, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
+        jiri@resnulli.us, roopa@cumulusnetworks.com,
+        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f171.google.com ([209.85.128.171]:35218 "EHLO
+        mail-wr0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751231AbdH2TLR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 15:11:17 -0400
+Received: by mail-wr0-f171.google.com with SMTP id j29so11948185wre.2
+        for <netdev@vger.kernel.org>; Tue, 29 Aug 2017 12:11:16 -0700 (PDT)
+In-Reply-To: <CAM_iQpVm0EvXsdcsAR546urmqgkeVgVqhJu=GwgWAhOutjzgyw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+The below commit added a call to ->destroy() on init failure, but multiq
+still frees ->queues on error in init, but ->queues is also freed by
+->destroy() thus we get double free and corrupted memory.
 
+Very easy to reproduce (eth0 not multiqueue):
+$ tc qdisc add dev eth0 root multiq
+RTNETLINK answers: Operation not supported
+$ ip l add dumdum type dummy
+(crash)
 
-On 08/29/2017 03:50 PM, Andrew Lunn wrote:
-> On Tue, Aug 29, 2017 at 08:25:23AM +0200, Jiri Pirko wrote:
->> Mon, Aug 28, 2017 at 10:08:34PM CEST, andrew@lunn.ch wrote:
->>>> I see this overlaps a lot with DPIPE. Why won't you use that to expose
->>>> your hw state?
->>>
->>> We took a look at dpipe and i talked to you about using it for this
->>> sort of thing at netconf/netdev. But dpipe has issues displaying the
->>> sort of information we have. I never figured out how to do two
->>> dimensional tables. The output of the dpipe command is pretty
->>> unreadable. A lot of the information being dumped here is not about
->>> the data pipe, etc.
->>
->> So improve it. No problem. Also, we extend it to support what you neede.
-> 
-> Will i did try to do this back in March. And i failed.
-> 
-> Lets start with stats. Vivien gives an example on the cover letter:
-> 
->     # pr -mt switch0/port{5,6}/stats
->     in_good_octets      : 0             in_good_octets      : 13824
->     in_bad_octets       : 0             in_bad_octets       : 0
->     in_unicast          : 0             in_unicast          : 0
->     in_broadcasts       : 0             in_broadcasts       : 216
->     in_multicasts       : 0             in_multicasts       : 0
->     in_pause            : 0             in_pause            : 0
->     in_undersize        : 0             in_undersize        : 0
-> 
-> This is what i tried to implement using dpipe. It is a simple two
-> dimensional table. First column is a string, second a u64. In debugfs
-> we have such a table per port. That fits with the hierarchy that each
-> port is a directory in debugfs. But it could also be implemented as
-> one table with N+1 columns, for N switch ports.
->
+Trace log:
+[ 3929.467747] general protection fault: 0000 [#1] SMP
+[ 3929.468083] Modules linked in:
+[ 3929.468302] CPU: 3 PID: 967 Comm: ip Not tainted 4.13.0-rc6+ #56
+[ 3929.468625] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS 1.7.5-20140531_083030-gandalf 04/01/2014
+[ 3929.469124] task: ffff88003716a700 task.stack: ffff88005872c000
+[ 3929.469449] RIP: 0010:__kmalloc_track_caller+0x117/0x1be
+[ 3929.469746] RSP: 0018:ffff88005872f6a0 EFLAGS: 00010246
+[ 3929.470042] RAX: 00000000000002de RBX: 0000000058a59000 RCX: 00000000000002df
+[ 3929.470406] RDX: 0000000000000000 RSI: 0000000000000000 RDI: ffffffff821f7020
+[ 3929.470770] RBP: ffff88005872f6e8 R08: 000000000001f010 R09: 0000000000000000
+[ 3929.471133] R10: ffff88005872f730 R11: 0000000000008cdd R12: ff006d75646d7564
+[ 3929.471496] R13: 00000000014000c0 R14: ffff88005b403c00 R15: ffff88005b403c00
+[ 3929.471869] FS:  00007f0b70480740(0000) GS:ffff88005d980000(0000) knlGS:0000000000000000
+[ 3929.472286] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+[ 3929.472677] CR2: 00007ffcee4f3000 CR3: 0000000059d45000 CR4: 00000000000406e0
+[ 3929.473209] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+[ 3929.474109] DR3: 0000000000000000 DR6: 00000000fffe0ff0 DR7: 0000000000000400
+[ 3929.474873] Call Trace:
+[ 3929.475337]  ? kstrdup_const+0x23/0x25
+[ 3929.475863]  kstrdup+0x2e/0x4b
+[ 3929.476338]  kstrdup_const+0x23/0x25
+[ 3929.478084]  __kernfs_new_node+0x28/0xbc
+[ 3929.478478]  kernfs_new_node+0x35/0x55
+[ 3929.478929]  kernfs_create_link+0x23/0x76
+[ 3929.479478]  sysfs_do_create_link_sd.isra.2+0x85/0xd7
+[ 3929.480096]  sysfs_create_link+0x33/0x35
+[ 3929.480649]  device_add+0x200/0x589
+[ 3929.481184]  netdev_register_kobject+0x7c/0x12f
+[ 3929.481711]  register_netdevice+0x373/0x471
+[ 3929.482174]  rtnl_newlink+0x614/0x729
+[ 3929.482610]  ? rtnl_newlink+0x17f/0x729
+[ 3929.483080]  rtnetlink_rcv_msg+0x188/0x197
+[ 3929.483533]  ? rcu_read_unlock+0x3e/0x5f
+[ 3929.483984]  ? rtnl_newlink+0x729/0x729
+[ 3929.484420]  netlink_rcv_skb+0x6c/0xce
+[ 3929.484858]  rtnetlink_rcv+0x23/0x2a
+[ 3929.485291]  netlink_unicast+0x103/0x181
+[ 3929.485735]  netlink_sendmsg+0x326/0x337
+[ 3929.486181]  sock_sendmsg_nosec+0x14/0x3f
+[ 3929.486614]  sock_sendmsg+0x29/0x2e
+[ 3929.486973]  ___sys_sendmsg+0x209/0x28b
+[ 3929.487340]  ? do_raw_spin_unlock+0xcd/0xf8
+[ 3929.487719]  ? _raw_spin_unlock+0x27/0x31
+[ 3929.488092]  ? __handle_mm_fault+0x651/0xdb1
+[ 3929.488471]  ? check_chain_key+0xb0/0xfd
+[ 3929.488847]  __sys_sendmsg+0x45/0x63
+[ 3929.489206]  ? __sys_sendmsg+0x45/0x63
+[ 3929.489576]  SyS_sendmsg+0x19/0x1b
+[ 3929.489901]  entry_SYSCALL_64_fastpath+0x23/0xc2
+[ 3929.490172] RIP: 0033:0x7f0b6fb93690
+[ 3929.490423] RSP: 002b:00007ffcee4ed588 EFLAGS: 00000246 ORIG_RAX: 000000000000002e
+[ 3929.490881] RAX: ffffffffffffffda RBX: ffffffff810d278c RCX: 00007f0b6fb93690
+[ 3929.491198] RDX: 0000000000000000 RSI: 00007ffcee4ed5d0 RDI: 0000000000000003
+[ 3929.491521] RBP: ffff88005872ff98 R08: 0000000000000001 R09: 0000000000000000
+[ 3929.491801] R10: 00007ffcee4ed350 R11: 0000000000000246 R12: 0000000000000002
+[ 3929.492075] R13: 000000000066f1a0 R14: 00007ffcee4f5680 R15: 0000000000000000
+[ 3929.492352]  ? trace_hardirqs_off_caller+0xa7/0xcf
+[ 3929.492590] Code: 8b 45 c0 48 8b 45 b8 74 17 48 8b 4d c8 83 ca ff 44
+89 ee 4c 89 f7 e8 83 ca ff ff 49 89 c4 eb 49 49 63 56 20 48 8d 48 01 4d
+8b 06 <49> 8b 1c 14 48 89 c2 4c 89 e0 65 49 0f c7 08 0f 94 c0 83 f0 01
+[ 3929.493335] RIP: __kmalloc_track_caller+0x117/0x1be RSP: ffff88005872f6a0
 
-Hi Andrew,
+Fixes: 87b60cfacf9f ("net_sched: fix error recovery at qdisc creation")
+Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Acked-by: Eric Dumazet <edumazet@google.com>
+Acked-by: Cong Wang <xiyou.wangcong@gmail.com>
+---
+v2: added the acks and folded the return as per Cong's comment
 
-This looks to me like basic L2 statistics that are obtained via
-ethtool, I remember you had this problem with the DSA and CPU port.
-Is this still the case?
+ net/sched/sch_multiq.c | 7 +------
+ 1 file changed, 1 insertion(+), 6 deletions(-)
 
-I remembered we wanted to use dpipe for the DSA routing table
-and IP priority table.
-
-I think both those processes really look like match/action table
-, thus they can be modeled successfully by dpipe.
-
-> How about you, or one of your team, implement that. It should be able
-> to use the dsa_loop driver, which is a simple dummy switch. But it
-> does have statistics counters for all ports. Florian or I can help you
-> get it running if needed.
-> 
-> This branch contains some of the basic plumbing code from my previous
-> attempt:
-> 
-> https://emea01.safelinks.protection.outlook.com/?url=https%3A%2F%2Fgithub.com%2Flunn%2Flinux.git&data=02%7C01%7Carkadis%40mellanox.com%7Cb3cac139af204f79259c08d4eedc8410%7Ca652971c7d2e4d9ba6a4d149256f461b%7C0%7C0%7C636396078291326351&sdata=K5D3TAb2spckuF5k88oOaVt0dmtHj0AwE8bEEGPPdGI%3D&reserved=0 v4.11-rc4-net-next-dpipe
-> 
-> 	 Andrew
-> 
+diff --git a/net/sched/sch_multiq.c b/net/sched/sch_multiq.c
+index f143b7bbaa0d..9c454f5d6c38 100644
+--- a/net/sched/sch_multiq.c
++++ b/net/sched/sch_multiq.c
+@@ -257,12 +257,7 @@ static int multiq_init(struct Qdisc *sch, struct nlattr *opt)
+ 	for (i = 0; i < q->max_bands; i++)
+ 		q->queues[i] = &noop_qdisc;
+ 
+-	err = multiq_tune(sch, opt);
+-
+-	if (err)
+-		kfree(q->queues);
+-
+-	return err;
++	return multiq_tune(sch, opt);
+ }
+ 
+ static int multiq_dump(struct Qdisc *sch, struct sk_buff *skb)
+-- 
+2.1.4
