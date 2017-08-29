@@ -1,46 +1,125 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net] sch_multiq: fix double free on init failure
-Date: Tue, 29 Aug 2017 11:59:45 -0700
-Message-ID: <CAM_iQpVm0EvXsdcsAR546urmqgkeVgVqhJu=GwgWAhOutjzgyw@mail.gmail.com>
-References: <1504031188-11434-1-git-send-email-nikolay@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Jiri Pirko <jiri@resnulli.us>,
-        Roopa Prabhu <roopa@cumulusnetworks.com>
-To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: [PATCH net] sch_hhf: fix null pointer dereference on init failure
+Date: Tue, 29 Aug 2017 22:02:15 +0300
+Message-ID: <1504033335-19098-1-git-send-email-nikolay@cumulusnetworks.com>
+Cc: edumazet@google.com, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
+        jiri@resnulli.us, roopa@cumulusnetworks.com,
+        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f51.google.com ([74.125.83.51]:35761 "EHLO
-        mail-pg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751186AbdH2TAG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 15:00:06 -0400
-Received: by mail-pg0-f51.google.com with SMTP id 63so13275183pgc.2
-        for <netdev@vger.kernel.org>; Tue, 29 Aug 2017 12:00:06 -0700 (PDT)
-In-Reply-To: <1504031188-11434-1-git-send-email-nikolay@cumulusnetworks.com>
+Received: from mail-wm0-f51.google.com ([74.125.82.51]:35233 "EHLO
+        mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751415AbdH2TCW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 15:02:22 -0400
+Received: by mail-wm0-f51.google.com with SMTP id a80so3016113wma.0
+        for <netdev@vger.kernel.org>; Tue, 29 Aug 2017 12:02:22 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 29, 2017 at 11:26 AM, Nikolay Aleksandrov
-<nikolay@cumulusnetworks.com> wrote:
-> diff --git a/net/sched/sch_multiq.c b/net/sched/sch_multiq.c
-> index f143b7bbaa0d..b07f8b01aa07 100644
-> --- a/net/sched/sch_multiq.c
-> +++ b/net/sched/sch_multiq.c
-> @@ -259,9 +259,6 @@ static int multiq_init(struct Qdisc *sch, struct nlattr *opt)
->
->         err = multiq_tune(sch, opt);
->
-> -       if (err)
-> -               kfree(q->queues);
-> -
->         return err;
+If sch_hhf fails in its ->init() function (either due to wrong
+user-space arguments as below or memory alloc failure of hh_flows) it
+will do a null pointer deref of q->hh_flows in its ->destroy() function.
 
-You can fold them to:
+To reproduce the crash:
+$ tc qdisc add dev eth0 root hhf quantum 2000000 non_hh_weight 10000000
 
-    return multiq_tune(sch, opt);
+Crash log:
+[  690.654882] BUG: unable to handle kernel NULL pointer dereference at (null)
+[  690.655565] IP: hhf_destroy+0x48/0xbc
+[  690.655944] PGD 37345067
+[  690.655948] P4D 37345067
+[  690.656252] PUD 58402067
+[  690.656554] PMD 0
+[  690.656857]
+[  690.657362] Oops: 0000 [#1] SMP
+[  690.657696] Modules linked in:
+[  690.658032] CPU: 3 PID: 920 Comm: tc Not tainted 4.13.0-rc6+ #57
+[  690.658525] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS 1.7.5-20140531_083030-gandalf 04/01/2014
+[  690.659255] task: ffff880058578000 task.stack: ffff88005acbc000
+[  690.659747] RIP: 0010:hhf_destroy+0x48/0xbc
+[  690.660146] RSP: 0018:ffff88005acbf9e0 EFLAGS: 00010246
+[  690.660601] RAX: 0000000000000000 RBX: 0000000000000020 RCX: 0000000000000000
+[  690.661155] RDX: 0000000000000000 RSI: 0000000000000001 RDI: ffffffff821f63f0
+[  690.661710] RBP: ffff88005acbfa08 R08: ffffffff81b10a90 R09: 0000000000000000
+[  690.662267] R10: 00000000f42b7019 R11: ffff880058578000 R12: 00000000ffffffea
+[  690.662820] R13: ffff8800372f6400 R14: 0000000000000000 R15: 0000000000000000
+[  690.663769] FS:  00007f8ae5e8b740(0000) GS:ffff88005d980000(0000) knlGS:0000000000000000
+[  690.667069] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+[  690.667965] CR2: 0000000000000000 CR3: 0000000058523000 CR4: 00000000000406e0
+[  690.668918] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+[  690.669945] DR3: 0000000000000000 DR6: 00000000fffe0ff0 DR7: 0000000000000400
+[  690.671003] Call Trace:
+[  690.671743]  qdisc_create+0x377/0x3fd
+[  690.672534]  tc_modify_qdisc+0x4d2/0x4fd
+[  690.673324]  rtnetlink_rcv_msg+0x188/0x197
+[  690.674204]  ? rcu_read_unlock+0x3e/0x5f
+[  690.675091]  ? rtnl_newlink+0x729/0x729
+[  690.675877]  netlink_rcv_skb+0x6c/0xce
+[  690.676648]  rtnetlink_rcv+0x23/0x2a
+[  690.677405]  netlink_unicast+0x103/0x181
+[  690.678179]  netlink_sendmsg+0x326/0x337
+[  690.678958]  sock_sendmsg_nosec+0x14/0x3f
+[  690.679743]  sock_sendmsg+0x29/0x2e
+[  690.680506]  ___sys_sendmsg+0x209/0x28b
+[  690.681283]  ? __handle_mm_fault+0xc7d/0xdb1
+[  690.681915]  ? check_chain_key+0xb0/0xfd
+[  690.682449]  __sys_sendmsg+0x45/0x63
+[  690.682954]  ? __sys_sendmsg+0x45/0x63
+[  690.683471]  SyS_sendmsg+0x19/0x1b
+[  690.683974]  entry_SYSCALL_64_fastpath+0x23/0xc2
+[  690.684516] RIP: 0033:0x7f8ae529d690
+[  690.685016] RSP: 002b:00007fff26d2d6b8 EFLAGS: 00000246 ORIG_RAX: 000000000000002e
+[  690.685931] RAX: ffffffffffffffda RBX: ffffffff810d278c RCX: 00007f8ae529d690
+[  690.686573] RDX: 0000000000000000 RSI: 00007fff26d2d700 RDI: 0000000000000003
+[  690.687047] RBP: ffff88005acbff98 R08: 0000000000000001 R09: 0000000000000000
+[  690.687519] R10: 00007fff26d2d480 R11: 0000000000000246 R12: 0000000000000002
+[  690.687996] R13: 0000000001258070 R14: 0000000000000001 R15: 0000000000000000
+[  690.688475]  ? trace_hardirqs_off_caller+0xa7/0xcf
+[  690.688887] Code: 00 00 e8 2a 02 ae ff 49 8b bc 1d 60 02 00 00 48 83
+c3 08 e8 19 02 ae ff 48 83 fb 20 75 dc 45 31 f6 4d 89 f7 4d 03 bd 20 02
+00 00 <49> 8b 07 49 39 c7 75 24 49 83 c6 10 49 81 fe 00 40 00 00 75 e1
+[  690.690200] RIP: hhf_destroy+0x48/0xbc RSP: ffff88005acbf9e0
+[  690.690636] CR2: 0000000000000000
 
-Other than this,
+Fixes: 87b60cfacf9f ("net_sched: fix error recovery at qdisc creation")
+Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+---
+First I did it with the check in the for () conditional, but this is more
+visible and explicit. Let me know if you'd like the shorter version. :-)
 
-Acked-by : Cong Wang <xiyou.wangcong@gmail.com>
+ net/sched/sch_hhf.c | 20 +++++++++++---------
+ 1 file changed, 11 insertions(+), 9 deletions(-)
+
+diff --git a/net/sched/sch_hhf.c b/net/sched/sch_hhf.c
+index 51d3ba682af9..931c6cc23ac2 100644
+--- a/net/sched/sch_hhf.c
++++ b/net/sched/sch_hhf.c
+@@ -477,15 +477,17 @@ static void hhf_destroy(struct Qdisc *sch)
+ 		kvfree(q->hhf_valid_bits[i]);
+ 	}
+ 
+-	for (i = 0; i < HH_FLOWS_CNT; i++) {
+-		struct hh_flow_state *flow, *next;
+-		struct list_head *head = &q->hh_flows[i];
+-
+-		if (list_empty(head))
+-			continue;
+-		list_for_each_entry_safe(flow, next, head, flowchain) {
+-			list_del(&flow->flowchain);
+-			kfree(flow);
++	if (q->hh_flows) {
++		for (i = 0; i < HH_FLOWS_CNT; i++) {
++			struct hh_flow_state *flow, *next;
++			struct list_head *head = &q->hh_flows[i];
++
++			if (list_empty(head))
++				continue;
++			list_for_each_entry_safe(flow, next, head, flowchain) {
++				list_del(&flow->flowchain);
++				kfree(flow);
++			}
+ 		}
+ 	}
+ 	kvfree(q->hh_flows);
+-- 
+2.1.4
