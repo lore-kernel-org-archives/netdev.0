@@ -1,57 +1,72 @@
-From: Harsha Chenji <cjkernel@gmail.com>
-Subject: Re: net.ipv4.tcp_max_syn_backlog implementation
-Date: Tue, 29 Aug 2017 11:05:49 -0400
-Message-ID: <CAMB9WxJ_QHJr1pHKFO0YcYdQhHBL2Ch7ugccmf9gztALiY5f-w@mail.gmail.com>
-References: <CAMB9Wx+q9fidTnh3Tyias8KKdbRcKpoXM-ntSqjE_oW36F1W_A@mail.gmail.com>
- <1503980243.11498.69.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Phil Sutter <phil@nwl.cc>
+Subject: [iproute PATCH] lib/bpf: Fix bytecode-file parsing
+Date: Tue, 29 Aug 2017 17:09:45 +0200
+Message-ID: <20170829150945.7077-1-phil@nwl.cc>
+Cc: netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f196.google.com ([209.85.223.196]:32916 "EHLO
-        mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752516AbdH2PFu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 11:05:50 -0400
-Received: by mail-io0-f196.google.com with SMTP id s101so3973255ioe.0
-        for <netdev@vger.kernel.org>; Tue, 29 Aug 2017 08:05:50 -0700 (PDT)
-In-Reply-To: <1503980243.11498.69.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from orbyte.nwl.cc ([151.80.46.58]:55699 "EHLO mail.nwl.cc"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752435AbdH2PJ6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 29 Aug 2017 11:09:58 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-According to the man:
+The signedness of char type is implementation dependent, and there are
+architectures on which it is unsigned by default. In that case, the
+check whether fgetc() returned EOF failed because the return value was
+assigned an (unsigned) char variable prior to comparison with EOF (which
+is defined to -1). Fix this by using int as type for 'c' variable, which
+also matches the declaration of fgetc().
 
-The behavior of the backlog argument on TCP sockets changed with Linux
-2.2. Now it specifies the queue length for *completely established
-sockets waiting to be accepted*, instead of the number of incomplete
-connection requests. The maximum length of the queue for incomplete
-sockets can be set using /proc/sys/net/ipv4/tcp_max_syn_backlog. When
-syncookies are enabled there is no logical maximum length and this
-setting is ignored. See tcp(7) for more information.
+While being at it, fix the parser logic to correctly handle multiple
+empty lines and consecutive whitespace and tab characters to further
+improve the parser's robustness. Note that this will still detect double
+separator characters, so doesn't soften up the parser too much.
 
+Fixes: 3da3ebfca85b8 ("bpf: Make bytecode-file reading a little more robust")
+Cc: Daniel Borkmann <daniel@iogearbox.net>
+Signed-off-by: Phil Sutter <phil@nwl.cc>
+---
+ lib/bpf.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
 
-On Tue, Aug 29, 2017 at 12:17 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Mon, 2017-08-28 at 23:47 -0400, Harsha Chenji wrote:
->> So I have ubuntu 12.04 x32 in a VM with syncookies turned off. I tried
->> to do a syn flood (with netwox) on 3 different processes. Each of them
->> returns a different value with netstat -na | grep -c RECV :
->>
->> nc -l 5555 returns 16 (netcat-traditional)
->> apache2 port 80 returns 256
->> vsftpd on 21 returns 64.
->> net.ipv4.tcp_max_syn_backlog is 512.
->>
->> Why do these different processes on different ports have different
->> queue lengths for incomplete connections? Where exactly in the kernel
->> is this decided?
->
-> See 2nd argument in listen() system call, ie backlog
->
-> man listen
->
-> Without a synflood, just look at "ss -t state listening"
->
-> The backlog is the 2nd column (Send)
->
->
->
+diff --git a/lib/bpf.c b/lib/bpf.c
+index 0bd0a95eafe6c..77eb8ee27114f 100644
+--- a/lib/bpf.c
++++ b/lib/bpf.c
+@@ -208,8 +208,9 @@ static int bpf_parse_string(char *arg, bool from_file, __u16 *bpf_len,
+ 
+ 	if (from_file) {
+ 		size_t tmp_len, op_len = sizeof("65535 255 255 4294967295,");
+-		char *tmp_string, *pos, c, c_prev = ' ';
++		char *tmp_string, *pos, c_prev = ' ';
+ 		FILE *fp;
++		int c;
+ 
+ 		tmp_len = sizeof("4096,") + BPF_MAXINSNS * op_len;
+ 		tmp_string = pos = calloc(1, tmp_len);
+@@ -228,18 +229,20 @@ static int bpf_parse_string(char *arg, bool from_file, __u16 *bpf_len,
+ 			case '\n':
+ 				if (c_prev != ',')
+ 					*(pos++) = ',';
++				c_prev = ',';
+ 				break;
+ 			case ' ':
+ 			case '\t':
+ 				if (c_prev != ' ')
+ 					*(pos++) = c;
++				c_prev = ' ';
+ 				break;
+ 			default:
+ 				*(pos++) = c;
++				c_prev = c;
+ 			}
+ 			if (pos - tmp_string == tmp_len)
+ 				break;
+-			c_prev = c;
+ 		}
+ 
+ 		if (!feof(fp)) {
+-- 
+2.13.1
