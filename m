@@ -1,75 +1,108 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: net.ipv4.tcp_max_syn_backlog implementation
-Date: Tue, 29 Aug 2017 09:17:10 -0700
-Message-ID: <1504023430.11498.77.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <CAMB9Wx+q9fidTnh3Tyias8KKdbRcKpoXM-ntSqjE_oW36F1W_A@mail.gmail.com>
-         <1503980243.11498.69.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CAMB9WxJ_QHJr1pHKFO0YcYdQhHBL2Ch7ugccmf9gztALiY5f-w@mail.gmail.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: XDP redirect measurements, gotchas and tracepoints
+Date: Tue, 29 Aug 2017 09:23:49 -0700
+Message-ID: <CAKgT0Uebz0dX9wotygOo59UTKt-bQ29Oyd6=MkJYE0a+y2dR2A@mail.gmail.com>
+References: <599C7530.2010405@gmail.com> <1503426617.2434.5.camel@intel.com>
+ <CACKFLimMWLto4FRxNE3tzrO5MU+p67J7wu=n1nmg0t8QGYjgrA@mail.gmail.com>
+ <CAKgT0Uf=ZfVeK-wtvNxSyGEVZ3UseUOHiP3ZOg-SrzmqsR=LtQ@mail.gmail.com>
+ <CACKFLinJ0N7b8Xhq4ZoHdB80uXp_MU_vVyzZa7Dq11XrXsvDbw@mail.gmail.com>
+ <20170823102937.79a9c4ed@redhat.com> <CACKFLinGuaDLxYRd=vC99DL5n0mf0rDbPRaDg4ctev=DEAhRSQ@mail.gmail.com>
+ <20170825144513.1ee9fbb1@redhat.com> <59A03DF5.7070806@gmail.com>
+ <CACKFLin-sZEkkCxE2iZRHjgG=K36OJ65B-xrEYVCCSQqhYsH-g@mail.gmail.com>
+ <20170828160237.GA70910@C02RW35GFVH8.dhcp.broadcom.net> <CAKgT0UeZ5Wn+8qY8kbBef5weORwGAXjq6Qp7jtB1bscmjY_oYw@mail.gmail.com>
+ <20170829152601.02fdb8a3@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Harsha Chenji <cjkernel@gmail.com>
+Cc: Andy Gospodarek <andy@greyhouse.net>,
+        Michael Chan <michael.chan@broadcom.com>,
+        John Fastabend <john.fastabend@gmail.com>,
+        "Duyck, Alexander H" <alexander.h.duyck@intel.com>,
+        "pstaszewski@itcare.pl" <pstaszewski@itcare.pl>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "xdp-newbies@vger.kernel.org" <xdp-newbies@vger.kernel.org>,
+        "borkmann@iogearbox.net" <borkmann@iogearbox.net>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:37739 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751241AbdH2QRL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 12:17:11 -0400
-Received: by mail-pf0-f195.google.com with SMTP id a2so2621603pfj.4
-        for <netdev@vger.kernel.org>; Tue, 29 Aug 2017 09:17:11 -0700 (PDT)
-In-Reply-To: <CAMB9WxJ_QHJr1pHKFO0YcYdQhHBL2Ch7ugccmf9gztALiY5f-w@mail.gmail.com>
+Received: from mail-qt0-f176.google.com ([209.85.216.176]:38560 "EHLO
+        mail-qt0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751218AbdH2QXv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 12:23:51 -0400
+In-Reply-To: <20170829152601.02fdb8a3@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2017-08-29 at 11:05 -0400, Harsha Chenji wrote:
-> According to the man:
-> 
-> The behavior of the backlog argument on TCP sockets changed with Linux
-> 2.2. Now it specifies the queue length for *completely established
-> sockets waiting to be accepted*, instead of the number of incomplete
-> connection requests. The maximum length of the queue for incomplete
-> sockets can be set using /proc/sys/net/ipv4/tcp_max_syn_backlog. When
-> syncookies are enabled there is no logical maximum length and this
-> setting is ignored. See tcp(7) for more information.
-> 
-> 
+On Tue, Aug 29, 2017 at 6:26 AM, Jesper Dangaard Brouer
+<brouer@redhat.com> wrote:
+>
+> On Mon, 28 Aug 2017 09:11:25 -0700 Alexander Duyck <alexander.duyck@gmail.com> wrote:
+>
+>> My advice would be to not over complicate this. My big concern with
+>> all this buffer recycling is what happens the first time somebody
+>> introduces something like mirroring? Are you going to copy the data to
+>> a new page which would be quite expensive or just have to introduce
+>> reference counts? You are going to have to deal with stuff like
+>> reference counts eventually so you might as well bite that bullet now.
+>> My advice would be to not bother with optimizing for performance right
+>> now and instead focus on just getting functionality. The approach we
+>> took in ixgbe for the transmit path should work for almost any other
+>> driver since all you are looking at is having to free the page
+>> reference which takes care of reference counting already.
+>
+> This return API is not about optimizing performance right now.  It is
+> actually about allowing us to change the underlying memory model per RX
+> queue for XDP.
 
+ I would disagree. To me this is a obvious case of premature optimization.
 
-The sysctl was simply there to make sure that someone would not :
+> If a RX-ring is use for both SKBs and XDP, then the refcnt model is
+> still enforced.  Although a driver using the 1-packet-per-page model,
+> should be able to reuse refcnt==1 pages when returned from XDP.
 
-listen(fd, 0x40000000);
+Isn't this the case for all Rx on XDP enabled rings. Last I knew there
+was an option to pass packets up via an SKB if XDP_PASS is returned.
+Are you saying we need to do a special allocation path if an XDP
+program doesn't make use of XDP_PASS?
 
-It served to cap the 2nd argument of listen() to something that the
-admin considered as acceptable.
+> If a RX-ring is _ONLY_ used for XDP, then the driver have freedom to
+> implement another memory model, with the return-API.  We need to
+> experiment with the most optimal memory model.  The 1-packet-per-page
+> model is actually not the fastest, because of PCI-e bottlenecks.  With
+> HW support for packing descriptors and packets over the PCI-e bus, much
+> higher rates can be achieved.  Mellanox mlx5-Lx already have the needed HW
+> support.  And companies like NetCope also have 100G HW that does
+> similar tricks, and they even have a whitepaper[1][2] how they are
+> faster than DPDK with their NDP (Netcope Data Plane) API.
+>
+> We do need the ability/flexibility to change the RX memory model, to
+> take advantage of this new NIC hardware.
 
-This was particularly important few years back when handling of SYN_RECV
-sockets involved O(N) behavior for SYNACK retransmits.
+Looking over the white paper I see nothing that prevents us from using
+the same memory model we do with the Intel NICs. If anything I think
+the Intel drivers in "legacy-rx" mode could support something like
+this now, even if the hardware doesn't simply because we can get away
+with keeping the memory pseudo-pinned. My bigger concern is that we
+keep coming back to this idea that we need to have the network stack
+taking care of the 1 page per packet recycling when I really think it
+has no business being there. We either need to look at implementing
+this in the way we did in the Intel drivers where we use the reference
+counts or implement our own memory handling API like SLUB or something
+similar based on compound page destructors. I would much rather see us
+focus on getting this going with an agnostic memory model where we
+don't have to make the stack aware of where the memory came from or
+where it has to be returned to.
 
-Nowadays, a backlog of 10,000,000 is okay, if you have ram to spend on
-it.
+> [1] https://www.netcope.com/en/resources/improving-dpdk-performance
+> [2] https://www.netcope.com/en/company/press-center/press-releases/read-new-netcope-whitepaper-on-dpdk-acceleration
 
-> On Tue, Aug 29, 2017 at 12:17 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > On Mon, 2017-08-28 at 23:47 -0400, Harsha Chenji wrote:
-> >> So I have ubuntu 12.04 x32 in a VM with syncookies turned off. I tried
-> >> to do a syn flood (with netwox) on 3 different processes. Each of them
-> >> returns a different value with netstat -na | grep -c RECV :
-> >>
-> >> nc -l 5555 returns 16 (netcat-traditional)
-> >> apache2 port 80 returns 256
-> >> vsftpd on 21 returns 64.
-> >> net.ipv4.tcp_max_syn_backlog is 512.
-> >>
-> >> Why do these different processes on different ports have different
-> >> queue lengths for incomplete connections? Where exactly in the kernel
-> >> is this decided?
-> >
-> > See 2nd argument in listen() system call, ie backlog
-> >
-> > man listen
-> >
-> > Without a synflood, just look at "ss -t state listening"
-> >
-> > The backlog is the 2nd column (Send)
-> >
-> >
-> >
+My only concern with something like this is the fact that it is
+optimized for a setup where the data is left in place and nothing
+extra is added. Trying to work with something like this gets more
+expensive when you have to deal with the full stack as you have to
+copy out the headers and still deal with all the skb metadata. I fully
+agree with the basic premise that writing in large blocks provides
+significant gains in throughput, specifically with small packets. The
+only gotcha you would have to deal with is SKB allocation and data
+copying overhead to make room and fill in metadata for the frame and
+any extra headers needed.
+
+- Alex
