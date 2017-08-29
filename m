@@ -1,39 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] irda: fix link order if IRDA is built into
- the kernel
-Date: Tue, 29 Aug 2017 10:49:45 -0700 (PDT)
-Message-ID: <20170829.104945.1786969849973428586.davem@davemloft.net>
-References: <20170829172608.GA4700@kroah.com>
-        <20170829173129.GA11029@kroah.com>
-        <20170829174622.GA25926@kroah.com>
+Subject: Re: [PATCH net-next 0/7] XDP redirect tracepoints
+Date: Tue, 29 Aug 2017 10:51:43 -0700 (PDT)
+Message-ID: <20170829.105143.829989946050016565.davem@davemloft.net>
+References: <150401743083.16384.15778781741742858567.stgit@firesoul>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org,
-        samuel@sortiz.org, linux-kernel@vger.kernel.org,
-        fengguang.wu@intel.com, geert@linux-m68k.org
-To: gregkh@linuxfoundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170829174622.GA25926@kroah.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, john.fastabend@gmail.com
+To: brouer@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:36170 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750822AbdH2Rvo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 13:51:44 -0400
+In-Reply-To: <150401743083.16384.15778781741742858567.stgit@firesoul>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Greg KH <gregkh@linuxfoundation.org>
-Date: Tue, 29 Aug 2017 19:46:22 +0200
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Date: Tue, 29 Aug 2017 16:37:35 +0200
 
-> When moving the IRDA code out of net/ into drivers/staging/irda/net, the
-> link order changes when IRDA is built into the kernel.  That causes a
-> kernel crash at boot time as netfilter isn't initialized yet.
+> I feel this is as far as I can take the tracepoint infrastructure to
+> assist XDP monitoring.
 > 
-> To fix this, build and link the irda networking code in the same exact
-> order that it was previously before the move.
+> Tracepoints comes with a base overhead of 25 nanosec for an attached
+> bpf_prog, and 48 nanosec for using a full perf record. This is
+> problematic for the XDP use-case, but it is very convenient to use the
+> existing perf infrastructure.
 > 
-> Reported-by: kernel test robot <fengguang.wu@intel.com>
-> Reported-by: Geert Uytterhoeven <geert@linux-m68k.org>
-> Signed-off-by: Greg Kroah-Hartman gregkh@linuxfoundation.org
+>>From a performance perspective, the real solution would be to attach
+> another bpf_prog (that understand xdp_buff), but I'm not sure we want
+> to introduce yet another bpf attach API for this.
+> 
+> One thing left is to standardize the possible err return codes, to a
+> limited set, to allow easier (and faster) mapping into a bpf map.
 
-Greg, just change the initializer in IRDA so that it will run
-after subsys_init() when built statically.
-
-IRDA is definitely not the first pontentially statically built
-thing that needs netlink up and available.
+Series applied, thanks Jesper.
