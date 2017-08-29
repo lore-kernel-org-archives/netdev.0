@@ -1,121 +1,55 @@
-From: Tom Herbert <tom@quantonium.net>
-Subject: [PATCH v2 net-next 5/6] fou: Support flow dissection
-Date: Tue, 29 Aug 2017 16:27:10 -0700
-Message-ID: <20170829232711.1465-6-tom@quantonium.net>
-References: <20170829232711.1465-1-tom@quantonium.net>
-Cc: netdev@vger.kernel.org, Tom Herbert <tom@quantonium.net>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f53.google.com ([74.125.83.53]:38270 "EHLO
-        mail-pg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751792AbdH2X1n (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 19:27:43 -0400
-Received: by mail-pg0-f53.google.com with SMTP id b8so14936960pgn.5
-        for <netdev@vger.kernel.org>; Tue, 29 Aug 2017 16:27:43 -0700 (PDT)
-In-Reply-To: <20170829232711.1465-1-tom@quantonium.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "prakash.sangappa" <prakash.sangappa@oracle.com>
+Subject: Re: [RESEND PATCH] Allow passing tid or pid in SCM_CREDENTIALS
+ without CAP_SYS_ADMIN
+Date: Tue, 29 Aug 2017 16:59:18 -0700
+Message-ID: <c9ea9bec-6b0e-70d6-3f74-9b483358edd2@oracle.com>
+References: <1503965540-30393-1-git-send-email-prakash.sangappa@oracle.com>
+ <20170829.160232.1901318933754673000.davem@davemloft.net>
+Reply-To: prakash.sangappa@oracle.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        ebiederm@xmission.com, drepper@redhat.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170829.160232.1901318933754673000.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Populate offload flow_dissect callabck appropriately for fou and gue.
 
-Signed-off-by: Tom Herbert <tom@quantonium.net>
----
- net/ipv4/fou.c | 63 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 63 insertions(+)
 
-diff --git a/net/ipv4/fou.c b/net/ipv4/fou.c
-index 1540db65241a..a831dd49fb28 100644
---- a/net/ipv4/fou.c
-+++ b/net/ipv4/fou.c
-@@ -282,6 +282,20 @@ static int fou_gro_complete(struct sock *sk, struct sk_buff *skb,
- 	return err;
- }
- 
-+static enum flow_dissect_ret fou_flow_dissect(struct sock *sk,
-+			const struct sk_buff *skb,
-+			struct flow_dissector_key_control *key_control,
-+			struct flow_dissector *flow_dissector,
-+			void *target_container, void *data,
-+			__be16 *p_proto, u8 *p_ip_proto, int *p_nhoff,
-+			int *p_hlen, unsigned int flags)
-+{
-+	*p_ip_proto = fou_from_sock(sk)->protocol;
-+	*p_nhoff += sizeof(struct udphdr);
-+
-+	return FLOW_DISSECT_RET_IPPROTO_AGAIN;
-+}
-+
- static struct guehdr *gue_gro_remcsum(struct sk_buff *skb, unsigned int off,
- 				      struct guehdr *guehdr, void *data,
- 				      size_t hdrlen, struct gro_remcsum *grc,
-@@ -500,6 +514,53 @@ static int gue_gro_complete(struct sock *sk, struct sk_buff *skb, int nhoff)
- 	return err;
- }
- 
-+static enum flow_dissect_ret gue_flow_dissect(struct sock *sk,
-+			const struct sk_buff *skb,
-+			struct flow_dissector_key_control *key_control,
-+			struct flow_dissector *flow_dissector,
-+			void *target_container, void *data,
-+			__be16 *p_proto, u8 *p_ip_proto, int *p_nhoff,
-+			int *p_hlen, unsigned int flags)
-+{
-+	struct guehdr *guehdr, _guehdr;
-+
-+	guehdr = __skb_header_pointer(skb, *p_nhoff + sizeof(struct udphdr),
-+				      sizeof(_guehdr), data, *p_hlen, &_guehdr);
-+	if (!guehdr)
-+		return FLOW_DISSECT_RET_OUT_BAD;
-+
-+	switch (guehdr->version) {
-+	case 0:
-+		if (unlikely(guehdr->control))
-+			return FLOW_DISSECT_RET_CONTINUE;
-+
-+		*p_ip_proto = guehdr->proto_ctype;
-+		*p_nhoff += sizeof(struct udphdr) +
-+		    sizeof(*guehdr) + (guehdr->hlen << 2);
-+
-+		break;
-+	case 1:
-+		switch (((struct iphdr *)guehdr)->version) {
-+		case 4:
-+			*p_ip_proto = IPPROTO_IPIP;
-+			break;
-+		case 6:
-+			*p_ip_proto = IPPROTO_IPV6;
-+			break;
-+		default:
-+			return FLOW_DISSECT_RET_CONTINUE;
-+		}
-+
-+		*p_nhoff += sizeof(struct udphdr);
-+
-+		break;
-+	default:
-+		return FLOW_DISSECT_RET_CONTINUE;
-+	}
-+
-+	return FLOW_DISSECT_RET_IPPROTO_AGAIN;
-+}
-+
- static int fou_add_to_port_list(struct net *net, struct fou *fou)
- {
- 	struct fou_net *fn = net_generic(net, fou_net_id);
-@@ -570,12 +631,14 @@ static int fou_create(struct net *net, struct fou_cfg *cfg,
- 		tunnel_cfg.encap_rcv = fou_udp_recv;
- 		tunnel_cfg.gro_receive = fou_gro_receive;
- 		tunnel_cfg.gro_complete = fou_gro_complete;
-+		tunnel_cfg.flow_dissect = fou_flow_dissect;
- 		fou->protocol = cfg->protocol;
- 		break;
- 	case FOU_ENCAP_GUE:
- 		tunnel_cfg.encap_rcv = gue_udp_recv;
- 		tunnel_cfg.gro_receive = gue_gro_receive;
- 		tunnel_cfg.gro_complete = gue_gro_complete;
-+		tunnel_cfg.flow_dissect = gue_flow_dissect;
- 		break;
- 	default:
- 		err = -EINVAL;
--- 
-2.11.0
+On 08/29/2017 04:02 PM, David Miller wrote:
+> From: Prakash Sangappa <prakash.sangappa@oracle.com>
+> Date: Mon, 28 Aug 2017 17:12:20 -0700
+>
+>> Currently passing tid(gettid(2)) of a thread in struct ucred in
+>> SCM_CREDENTIALS message requires CAP_SYS_ADMIN capability otherwise
+>> it fails with EPERM error. Some applications deal with thread id
+>> of a thread(tid) and so it would help to allow tid in SCM_CREDENTIALS
+>> message. Basically, either tgid(pid of the process) or the tid of
+>> the thread should be allowed without the need for CAP_SYS_ADMIN capability.
+>>
+>> SCM_CREDENTIALS will be used to determine the global id of a process or
+>> a thread running inside a pid namespace.
+>>
+>> This patch adds necessary check to accept tid in SCM_CREDENTIALS
+>> struct ucred.
+>>
+>> Signed-off-by: Prakash Sangappa <prakash.sangappa@oracle.com>
+> I'm pretty sure that by the descriptions in previous changes to this
+> function, what you are proposing is basically a minor form of PID
+> spoofing which we only want someone with CAP_SYS_ADMIN over the
+> PID namespace to be able to do.
+
+The fix is to allow passing tid of the calling thread itself not of any
+other thread or process. Curious why would this be considered
+as pid spoofing?
+
+This change would enable a thread in a multi threaded process, running
+inside a pid namespace to be identified by the recipient of the
+message easily.
+
+
+>
+> Sorry, I'm not applying this.
