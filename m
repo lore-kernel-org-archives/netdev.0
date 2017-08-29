@@ -1,8 +1,7 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 2/7] rxrpc: Use correct timestamp from Kerberos 5
- ticket
-Date: Tue, 29 Aug 2017 13:27:01 +0100
-Message-ID: <150400962111.21371.14070227062428070326.stgit@warthog.procyon.org.uk>
+Subject: [PATCH net-next 5/7] rxrpc: Remove some excess whitespace
+Date: Tue, 29 Aug 2017 13:27:21 +0100
+Message-ID: <150400964121.21371.7913121279387534846.stgit@warthog.procyon.org.uk>
 References: <150400960745.21371.15455867950162722742.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -15,27 +14,40 @@ In-Reply-To: <150400960745.21371.15455867950162722742.stgit@warthog.procyon.org.
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When an XDR-encoded Kerberos 5 ticket is added as an rxrpc-type key, the
-expiry time should be drawn from the k5 part of the token union (which was
-what was filled in), rather than the kad part of the union.
+Remove indentation from some blank lines.
 
-Reported-by: Arnd Bergmann <arnd@arndb.de>
 Signed-off-by: David Howells <dhowells@redhat.com>
 ---
 
- net/rxrpc/key.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/rxrpc/af_rxrpc.c |    6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/net/rxrpc/key.c b/net/rxrpc/key.c
-index e2d36619b53a..e7f6b8823eb6 100644
---- a/net/rxrpc/key.c
-+++ b/net/rxrpc/key.c
-@@ -536,7 +536,7 @@ static int rxrpc_preparse_xdr_rxk5(struct key_preparsed_payload *prep,
- 	     pptoken = &(*pptoken)->next)
- 		continue;
- 	*pptoken = token;
--	expiry = rxrpc_u32_to_time64(token->kad->expiry);
-+	expiry = rxrpc_u32_to_time64(token->k5->endtime);
- 	if (expiry < prep->expiry)
- 		prep->expiry = expiry;
+diff --git a/net/rxrpc/af_rxrpc.c b/net/rxrpc/af_rxrpc.c
+index a2ad4482376f..31e97f714ca9 100644
+--- a/net/rxrpc/af_rxrpc.c
++++ b/net/rxrpc/af_rxrpc.c
+@@ -591,13 +591,13 @@ static int rxrpc_getsockopt(struct socket *sock, int level, int optname,
+ 			    char __user *optval, int __user *_optlen)
+ {
+ 	int optlen;
+-	
++
+ 	if (level != SOL_RXRPC)
+ 		return -EOPNOTSUPP;
  
+ 	if (get_user(optlen, _optlen))
+ 		return -EFAULT;
+-	
++
+ 	switch (optname) {
+ 	case RXRPC_SUPPORTED_CMSG:
+ 		if (optlen < sizeof(int))
+@@ -606,7 +606,7 @@ static int rxrpc_getsockopt(struct socket *sock, int level, int optname,
+ 		    put_user(sizeof(int), _optlen))
+ 			return -EFAULT;
+ 		return 0;
+-		
++
+ 	default:
+ 		return -EOPNOTSUPP;
+ 	}
