@@ -1,70 +1,71 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] DSA support for Micrel KSZ8895
-Date: Tue, 29 Aug 2017 14:23:17 -0700
-Message-ID: <237eee82-2edb-56c0-d644-2e6253a178dc@gmail.com>
-References: <20170816075524.GA18532@amd> <20170816140451.GA13006@lunn.ch>
- <9235D6609DB808459E95D78E17F2E43D40AFF8C1@CHN-SV-EXMX02.mchp-main.com>
- <20170827123658.GA727@amd> <20170827163122.GG13622@lunn.ch>
- <20170828070232.GA18135@amd> <20170828140927.GD10418@lunn.ch>
- <CAJGZr0K46jBd9Sn4HNPgAeHTQtBuBHzX87GveAJf3_5b_WM69g@mail.gmail.com>
- <20170829074130.GA31303@amd> <20170829122604.GA22093@lunn.ch>
- <20170829211519.GA24221@amd>
+From: Ondrej Zary <linux@rainbow-software.org>
+Subject: Re: [PATCH 0/4] irda: move it to drivers/staging so we can delete it
+Date: Tue, 29 Aug 2017 23:32:58 +0200
+Message-ID: <201708292332.58569.linux@rainbow-software.org>
+References: <20170827150334.32495-1-gregkh@linuxfoundation.org> <20170828.164208.1908438929113102094.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Maxim Uvarov <muvarov@gmail.com>, nathan.leigh.conrad@gmail.com,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: gregkh@linuxfoundation.org, samuel@sortiz.org,
         netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Tristram.Ha@micrel.com
-To: Pavel Machek <pavel@ucw.cz>, Andrew Lunn <andrew@lunn.ch>,
-        Woojung.Huh@microchip.com
+        devel@driverdev.osuosl.org
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170829211519.GA24221@amd>
-Content-Language: en-US
+In-Reply-To: <20170828.164208.1908438929113102094.davem@davemloft.net>
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 08/29/2017 02:15 PM, Pavel Machek wrote:
-> On Tue 2017-08-29 14:26:04, Andrew Lunn wrote:
->>> But the MDIO emaulation code is from their driver, after lots of
->>> deletions.
->>
->> Is this driver supposed to run on lots of different OSs? That would
->> explain why they ignored the Linux MDIO and PHY layers.
-> 
-> It did not look particulary portable.
+On Tuesday 29 August 2017 01:42:08 David Miller wrote:
+> From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+> Date: Sun, 27 Aug 2017 17:03:30 +0200
+>
+> > The IRDA code has long been obsolete and broken.  So, to keep people
+> > from trying to use it, and to prevent people from having to maintain it,
+> > let's move it to drivers/staging/ so that we can delete it entirely from
+> > the kernel in a few releases.
+>
+> No objection, I'll apply this to net-next, thanks Greg.
 
-Part of the problem is that they need to duplicate the standard MII
-definitions, whereas we could re-use those from include/linux/mii.h
-and/or mdio.h.
+IRDA works fine in Debian 9 (kernel 4.9) and I use it for simple file 
+transfer. Hope I'm not the only one...
 
-> 
->> If possible, please make use of the Linux infrastructure.
-> 
-> I did not find any infrastructure I could use instead
-> ksz_mdio_emulation.
+# irattach /dev/ttyS0 -d tekram -s
+# irdadump
+21:28:52.830350 xid:cmd aed8eb79 > ffffffff S=6 s=0 (14)
+21:28:52.922368 xid:cmd aed8eb79 > ffffffff S=6 s=1 (14)
+21:28:53.014350 xid:cmd aed8eb79 > ffffffff S=6 s=2 (14)
+21:28:53.106338 xid:cmd aed8eb79 > ffffffff S=6 s=3 (14)
+21:28:53.190276 xid:rsp aed8eb79 < 000035d1 S=6 s=3 Nokia 6230i hint=b125 [ 
+PnP Modem Fax Telephony IrCOMM IrOBEX ] (28)
+21:28:53.198384 xid:cmd aed8eb79 > ffffffff S=6 s=4 (14)
+21:28:53.290382 xid:cmd aed8eb79 > ffffffff S=6 s=5 (14)
+21:28:53.382341 xid:cmd aed8eb79 > ffffffff S=6 s=* pentium hint=0400 [ 
+Computer ] (23)
+^C
+8 packets received by filter
 
-fixed PHY/swphy.c is as close as it could get, but it is a highly
-simplified version of this.
-
-> 
-> Now, drivers/net/phy/spi_ks8995.c can access the PHY registers, and I
-> can not see any translation there, so there may be something I'm
-> missing.
-
-I don't see anything in that driver that seems to access PHY registers
-what makes you think it does?
-
-There's got to be a way to perform indirect accesses through SPI,
-Woojung, do you know?
-
-> 
-> Pointers would be welcome at this point.
-> 
-> Thanks,
-> 									Pavel
-> 
+$ obexftp -i -l MMC
+Connecting..\done
+Receiving "MMC".../<?xml version="1.0"?>
+<!DOCTYPE folder-listing SYSTEM "obex-folder-listing.dtd"
+ [ <!ATTLIST folder mem-type CDATA #IMPLIED> ]>
+<folder-listing version="1.0">
+    <parent-folder />
+    <file name="Image000.jpg" size="304300" modified="20160219T135924" 
+user-perm="RWD"/>
+    <file name="Image001.jpg" size="270037" modified="20170811T233122" 
+user-perm="RWD"/>
+    <file name="Image004.jpg" size="53519" modified="20170814T074550" 
+user-perm="RWD"/>
+....
+$ obexftp -i -c MMC -g Image004.jpg
+Connecting..\done
+Sending "MMC"...|done
+Receiving "Image004.jpg"...-done
+Disconnecting..\done
 
 
 -- 
-Florian
+Ondrej Zary
