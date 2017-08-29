@@ -1,96 +1,41 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next v3 2/2] tcp_diag: report TCP MD5 signing keys
- and addresses
-Date: Tue, 29 Aug 2017 16:01:17 -0700
-Message-ID: <1504047677.11498.107.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20170829222954.24863-1-colona@arista.com>
-         <20170829222954.24863-3-colona@arista.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RESEND PATCH] Allow passing tid or pid in SCM_CREDENTIALS
+ without CAP_SYS_ADMIN
+Date: Tue, 29 Aug 2017 16:02:32 -0700 (PDT)
+Message-ID: <20170829.160232.1901318933754673000.davem@davemloft.net>
+References: <1503965540-30393-1-git-send-email-prakash.sangappa@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Ivan Delalande <colona@arista.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:38425 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751746AbdH2XBU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 19:01:20 -0400
-Received: by mail-pf0-f196.google.com with SMTP id r187so3173217pfr.5
-        for <netdev@vger.kernel.org>; Tue, 29 Aug 2017 16:01:20 -0700 (PDT)
-In-Reply-To: <20170829222954.24863-3-colona@arista.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        ebiederm@xmission.com, drepper@redhat.com
+To: prakash.sangappa@oracle.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1503965540-30393-1-git-send-email-prakash.sangappa@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2017-08-29 at 15:29 -0700, Ivan Delalande wrote:
-> Report TCP MD5 (RFC2385) signing keys, addresses and address prefixes to
-> processes with CAP_NET_ADMIN requesting INET_DIAG_INFO. Currently it is
-> not possible to retrieve these from the kernel once they have been
-> configured on sockets.
+From: Prakash Sangappa <prakash.sangappa@oracle.com>
+Date: Mon, 28 Aug 2017 17:12:20 -0700
+
+> Currently passing tid(gettid(2)) of a thread in struct ucred in
+> SCM_CREDENTIALS message requires CAP_SYS_ADMIN capability otherwise
+> it fails with EPERM error. Some applications deal with thread id
+> of a thread(tid) and so it would help to allow tid in SCM_CREDENTIALS
+> message. Basically, either tgid(pid of the process) or the tid of
+> the thread should be allowed without the need for CAP_SYS_ADMIN capability.
 > 
-> Signed-off-by: Ivan Delalande <colona@arista.com>
-> ---
->  include/uapi/linux/inet_diag.h |   1 +
->  net/ipv4/tcp_diag.c            | 115 ++++++++++++++++++++++++++++++++++++++---
->  2 files changed, 110 insertions(+), 6 deletions(-)
+> SCM_CREDENTIALS will be used to determine the global id of a process or
+> a thread running inside a pid namespace.
 > 
-> diff --git a/include/uapi/linux/inet_diag.h b/include/uapi/linux/inet_diag.h
-> index 678496897a68..f52ff62bfabe 100644
-> --- a/include/uapi/linux/inet_diag.h
-> +++ b/include/uapi/linux/inet_diag.h
-> @@ -143,6 +143,7 @@ enum {
->  	INET_DIAG_MARK,
->  	INET_DIAG_BBRINFO,
->  	INET_DIAG_CLASS_ID,
-> +	INET_DIAG_MD5SIG,
->  	__INET_DIAG_MAX,
->  };
->  
-> diff --git a/net/ipv4/tcp_diag.c b/net/ipv4/tcp_diag.c
-> index a748c74aa8b7..f972f9f7eae4 100644
-> --- a/net/ipv4/tcp_diag.c
-> +++ b/net/ipv4/tcp_diag.c
-> @@ -16,6 +16,7 @@
->  
->  #include <linux/tcp.h>
->  
-> +#include <net/netlink.h>
->  #include <net/tcp.h>
->  
->  static void tcp_diag_get_info(struct sock *sk, struct inet_diag_msg *r,
-> @@ -36,6 +37,106 @@ static void tcp_diag_get_info(struct sock *sk, struct inet_diag_msg *r,
->  		tcp_get_info(sk, info);
->  }
->  
-> +#ifdef CONFIG_TCP_MD5SIG
-> +static void inet_diag_md5sig_fill(struct tcp_md5sig *info,
-> +				  const struct tcp_md5sig_key *key)
-> +{
-> +	#if IS_ENABLED(CONFIG_IPV6)
-> +	if (key->family == AF_INET6) {
-> +		struct sockaddr_in6 *sin6 =
-> +			(struct sockaddr_in6 *)&info->tcpm_addr;
-> +
-> +		memcpy(&sin6->sin6_addr, &key->addr.a6,
-> +		       sizeof(struct in6_addr));
-> +	} else
-> +	#endif
-> +	{
-> +		struct sockaddr_in *sin =
-> +			(struct sockaddr_in *)&info->tcpm_addr;
-> +
-> +		memcpy(&sin->sin_addr, &key->addr.a4, sizeof(struct in_addr));
+> This patch adds necessary check to accept tid in SCM_CREDENTIALS
+> struct ucred.
+> 
+> Signed-off-by: Prakash Sangappa <prakash.sangappa@oracle.com>
 
-You probably need a memset(... 0  ...) to clear the XX bytes that are
-not used by IPv4 address.
+I'm pretty sure that by the descriptions in previous changes to this
+function, what you are proposing is basically a minor form of PID
+spoofing which we only want someone with CAP_SYS_ADMIN over the
+PID namespace to be able to do.
 
-Otherwise your patch is going to 'leak'  124 bytes of kernel memory to
-user space and offer yet another way for attackers to build exploits.
-
-AFAIK, struct tcp_md5sig has a huge hole, since it uses
-
-"struct __kernel_sockaddr_storage tcpm_addr "
-
-So a similar problem exists for IPv6.
-
-Maybe it is time to define a much smaller structure, using only 16 bytes
-instead of 128 for the address.
+Sorry, I'm not applying this.
