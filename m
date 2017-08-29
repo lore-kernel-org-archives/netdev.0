@@ -1,8 +1,7 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 1/7] net: rxrpc: Replace time_t type with time64_t
- type
-Date: Tue, 29 Aug 2017 13:26:54 +0100
-Message-ID: <150400961436.21371.5752181815964115532.stgit@warthog.procyon.org.uk>
+Subject: [PATCH net-next 3/7] rxrpc: Fix IPv6 support
+Date: Tue, 29 Aug 2017 13:27:07 +0100
+Message-ID: <150400962771.21371.5301539169789284670.stgit@warthog.procyon.org.uk>
 References: <150400960745.21371.15455867950162722742.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -15,204 +14,207 @@ In-Reply-To: <150400960745.21371.15455867950162722742.stgit@warthog.procyon.org.
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Baolin Wang <baolin.wang@linaro.org>
+Fix IPv6 support in AF_RXRPC in the following ways:
 
-Since the 'expiry' variable of 'struct key_preparsed_payload' has been
-changed to 'time64_t' type, which is year 2038 safe on 32bits system.
+ (1) When extracting the address from a received IPv4 packet, if the local
+     transport socket is open for IPv6 then fill out the sockaddr_rxrpc
+     struct for an IPv4-mapped-to-IPv6 AF_INET6 transport address instead
+     of an AF_INET one.
 
-In net/rxrpc subsystem, we need convert 'u32' type to 'time64_t' type
-when copying ticket expires time to 'prep->expiry', then this patch
-introduces two helper functions to help convert 'u32' to 'time64_t'
-type.
+ (2) When sending CHALLENGE or RESPONSE packets, the transport length needs
+     to be set from the sockaddr_rxrpc::transport_len field rather than
+     sizeof() on the IPv4 transport address.
 
-This patch also uses ktime_get_real_seconds() to get current time instead
-of get_seconds() which is not year 2038 safe on 32bits system.
+ (3) When processing an IPv4 ICMP packet received by an IPv6 socket, set up
+     the address correctly before searching for the affected peer.
 
-Signed-off-by: Baolin Wang <baolin.wang@linaro.org>
 Signed-off-by: David Howells <dhowells@redhat.com>
 ---
 
- include/keys/rxrpc-type.h |   23 +++++++++++++++++++++++
- net/rxrpc/ar-internal.h   |    2 +-
- net/rxrpc/key.c           |   22 ++++++++++++++--------
- net/rxrpc/rxkad.c         |   14 +++++++-------
- 4 files changed, 45 insertions(+), 16 deletions(-)
+ net/rxrpc/ar-internal.h |    4 ++--
+ net/rxrpc/call_accept.c |    2 +-
+ net/rxrpc/conn_object.c |    2 +-
+ net/rxrpc/local_event.c |    2 +-
+ net/rxrpc/output.c      |    2 +-
+ net/rxrpc/peer_event.c  |    6 ++++--
+ net/rxrpc/rxkad.c       |    8 ++++----
+ net/rxrpc/utils.c       |   23 +++++++++++++++++------
+ 8 files changed, 31 insertions(+), 18 deletions(-)
 
-diff --git a/include/keys/rxrpc-type.h b/include/keys/rxrpc-type.h
-index 5de0673f333b..8cf829dbf20e 100644
---- a/include/keys/rxrpc-type.h
-+++ b/include/keys/rxrpc-type.h
-@@ -127,4 +127,27 @@ struct rxrpc_key_data_v1 {
- #define AFSTOKEN_K5_ADDRESSES_MAX	16	/* max K5 addresses */
- #define AFSTOKEN_K5_AUTHDATA_MAX	16	/* max K5 pieces of auth data */
- 
-+/*
-+ * Truncate a time64_t to the range from 1970 to 2106 as in the network
-+ * protocol.
-+ */
-+static inline u32 rxrpc_time64_to_u32(time64_t time)
-+{
-+	if (time < 0)
-+		return 0;
-+
-+	if (time > UINT_MAX)
-+		return UINT_MAX;
-+
-+	return (u32)time;
-+}
-+
-+/*
-+ * Extend u32 back to time64_t using the same 1970-2106 range.
-+ */
-+static inline time64_t rxrpc_u32_to_time64(u32 time)
-+{
-+	return (time64_t)time;
-+}
-+
- #endif /* _KEYS_RXRPC_TYPE_H */
 diff --git a/net/rxrpc/ar-internal.h b/net/rxrpc/ar-internal.h
-index 8c0db9b3e4ab..8cac66774de1 100644
+index 8cac66774de1..227e24794055 100644
 --- a/net/rxrpc/ar-internal.h
 +++ b/net/rxrpc/ar-internal.h
-@@ -894,7 +894,7 @@ extern struct key_type key_type_rxrpc_s;
- 
- int rxrpc_request_key(struct rxrpc_sock *, char __user *, int);
- int rxrpc_server_keyring(struct rxrpc_sock *, char __user *, int);
--int rxrpc_get_server_data_key(struct rxrpc_connection *, const void *, time_t,
-+int rxrpc_get_server_data_key(struct rxrpc_connection *, const void *, time64_t,
- 			      u32);
- 
- /*
-diff --git a/net/rxrpc/key.c b/net/rxrpc/key.c
-index 54369225766e..e2d36619b53a 100644
---- a/net/rxrpc/key.c
-+++ b/net/rxrpc/key.c
-@@ -92,6 +92,7 @@ static int rxrpc_preparse_xdr_rxkad(struct key_preparsed_payload *prep,
- 				    const __be32 *xdr, unsigned int toklen)
- {
- 	struct rxrpc_key_token *token, **pptoken;
-+	time64_t expiry;
- 	size_t plen;
- 	u32 tktlen;
- 
-@@ -158,8 +159,9 @@ static int rxrpc_preparse_xdr_rxkad(struct key_preparsed_payload *prep,
- 	     pptoken = &(*pptoken)->next)
- 		continue;
- 	*pptoken = token;
--	if (token->kad->expiry < prep->expiry)
--		prep->expiry = token->kad->expiry;
-+	expiry = rxrpc_u32_to_time64(token->kad->expiry);
-+	if (expiry < prep->expiry)
-+		prep->expiry = expiry;
- 
- 	_leave(" = 0");
- 	return 0;
-@@ -433,6 +435,7 @@ static int rxrpc_preparse_xdr_rxk5(struct key_preparsed_payload *prep,
- 	struct rxrpc_key_token *token, **pptoken;
- 	struct rxk5_key *rxk5;
- 	const __be32 *end_xdr = xdr + (toklen >> 2);
-+	time64_t expiry;
- 	int ret;
- 
- 	_enter(",{%x,%x,%x,%x},%u",
-@@ -533,8 +536,9 @@ static int rxrpc_preparse_xdr_rxk5(struct key_preparsed_payload *prep,
- 	     pptoken = &(*pptoken)->next)
- 		continue;
- 	*pptoken = token;
--	if (token->kad->expiry < prep->expiry)
--		prep->expiry = token->kad->expiry;
-+	expiry = rxrpc_u32_to_time64(token->kad->expiry);
-+	if (expiry < prep->expiry)
-+		prep->expiry = expiry;
- 
- 	_leave(" = 0");
- 	return 0;
-@@ -691,6 +695,7 @@ static int rxrpc_preparse(struct key_preparsed_payload *prep)
- {
- 	const struct rxrpc_key_data_v1 *v1;
- 	struct rxrpc_key_token *token, **pp;
-+	time64_t expiry;
- 	size_t plen;
- 	u32 kver;
- 	int ret;
-@@ -777,8 +782,9 @@ static int rxrpc_preparse(struct key_preparsed_payload *prep)
- 	while (*pp)
- 		pp = &(*pp)->next;
- 	*pp = token;
--	if (token->kad->expiry < prep->expiry)
--		prep->expiry = token->kad->expiry;
-+	expiry = rxrpc_u32_to_time64(token->kad->expiry);
-+	if (expiry < prep->expiry)
-+		prep->expiry = expiry;
- 	token = NULL;
- 	ret = 0;
- 
-@@ -955,7 +961,7 @@ int rxrpc_server_keyring(struct rxrpc_sock *rx, char __user *optval,
+@@ -830,7 +830,6 @@ void rxrpc_process_connection(struct work_struct *);
   */
- int rxrpc_get_server_data_key(struct rxrpc_connection *conn,
- 			      const void *session_key,
--			      time_t expiry,
-+			      time64_t expiry,
- 			      u32 kvno)
- {
- 	const struct cred *cred = current_cred();
-@@ -982,7 +988,7 @@ int rxrpc_get_server_data_key(struct rxrpc_connection *conn,
- 	data.kver = 1;
- 	data.v1.security_index = RXRPC_SECURITY_RXKAD;
- 	data.v1.ticket_length = 0;
--	data.v1.expiry = expiry;
-+	data.v1.expiry = rxrpc_time64_to_u32(expiry);
- 	data.v1.kvno = 0;
+ extern unsigned int rxrpc_connection_expiry;
  
- 	memcpy(&data.v1.session_key, session_key, sizeof(data.v1.session_key));
+-int rxrpc_extract_addr_from_skb(struct sockaddr_rxrpc *, struct sk_buff *);
+ struct rxrpc_connection *rxrpc_alloc_connection(gfp_t);
+ struct rxrpc_connection *rxrpc_find_connection_rcu(struct rxrpc_local *,
+ 						   struct sk_buff *);
+@@ -1060,7 +1059,8 @@ static inline void rxrpc_sysctl_exit(void) {}
+ /*
+  * utils.c
+  */
+-int rxrpc_extract_addr_from_skb(struct sockaddr_rxrpc *, struct sk_buff *);
++int rxrpc_extract_addr_from_skb(struct rxrpc_local *, struct sockaddr_rxrpc *,
++				struct sk_buff *);
+ 
+ static inline bool before(u32 seq1, u32 seq2)
+ {
+diff --git a/net/rxrpc/call_accept.c b/net/rxrpc/call_accept.c
+index ec3383f97d4c..cbd1701e813a 100644
+--- a/net/rxrpc/call_accept.c
++++ b/net/rxrpc/call_accept.c
+@@ -277,7 +277,7 @@ static struct rxrpc_call *rxrpc_alloc_incoming_call(struct rxrpc_sock *rx,
+ 		 * anticipation - and to save on stack space.
+ 		 */
+ 		xpeer = b->peer_backlog[peer_tail];
+-		if (rxrpc_extract_addr_from_skb(&xpeer->srx, skb) < 0)
++		if (rxrpc_extract_addr_from_skb(local, &xpeer->srx, skb) < 0)
+ 			return NULL;
+ 
+ 		peer = rxrpc_lookup_incoming_peer(local, xpeer);
+diff --git a/net/rxrpc/conn_object.c b/net/rxrpc/conn_object.c
+index 929b50d5afe8..fe575798592f 100644
+--- a/net/rxrpc/conn_object.c
++++ b/net/rxrpc/conn_object.c
+@@ -72,7 +72,7 @@ struct rxrpc_connection *rxrpc_find_connection_rcu(struct rxrpc_local *local,
+ 
+ 	_enter(",%x", sp->hdr.cid & RXRPC_CIDMASK);
+ 
+-	if (rxrpc_extract_addr_from_skb(&srx, skb) < 0)
++	if (rxrpc_extract_addr_from_skb(local, &srx, skb) < 0)
+ 		goto not_found;
+ 
+ 	k.epoch	= sp->hdr.epoch;
+diff --git a/net/rxrpc/local_event.c b/net/rxrpc/local_event.c
+index 540d3955c1bc..93b5d910b4a1 100644
+--- a/net/rxrpc/local_event.c
++++ b/net/rxrpc/local_event.c
+@@ -39,7 +39,7 @@ static void rxrpc_send_version_request(struct rxrpc_local *local,
+ 
+ 	_enter("");
+ 
+-	if (rxrpc_extract_addr_from_skb(&srx, skb) < 0)
++	if (rxrpc_extract_addr_from_skb(local, &srx, skb) < 0)
+ 		return;
+ 
+ 	msg.msg_name	= &srx.transport;
+diff --git a/net/rxrpc/output.c b/net/rxrpc/output.c
+index 5bd2d0fa4a03..71e6f713fbe7 100644
+--- a/net/rxrpc/output.c
++++ b/net/rxrpc/output.c
+@@ -444,7 +444,7 @@ void rxrpc_reject_packets(struct rxrpc_local *local)
+ 		rxrpc_see_skb(skb, rxrpc_skb_rx_seen);
+ 		sp = rxrpc_skb(skb);
+ 
+-		if (rxrpc_extract_addr_from_skb(&srx, skb) == 0) {
++		if (rxrpc_extract_addr_from_skb(local, &srx, skb) == 0) {
+ 			msg.msg_namelen = srx.transport_len;
+ 
+ 			code = htonl(skb->priority);
+diff --git a/net/rxrpc/peer_event.c b/net/rxrpc/peer_event.c
+index 1ed9c0c2e94f..7f749505e699 100644
+--- a/net/rxrpc/peer_event.c
++++ b/net/rxrpc/peer_event.c
+@@ -37,6 +37,7 @@ static struct rxrpc_peer *rxrpc_lookup_peer_icmp_rcu(struct rxrpc_local *local,
+ 
+ 	memset(&srx, 0, sizeof(srx));
+ 	srx.transport_type = local->srx.transport_type;
++	srx.transport_len = local->srx.transport_len;
+ 	srx.transport.family = local->srx.transport.family;
+ 
+ 	/* Can we see an ICMP4 packet on an ICMP6 listening socket?  and vice
+@@ -45,7 +46,6 @@ static struct rxrpc_peer *rxrpc_lookup_peer_icmp_rcu(struct rxrpc_local *local,
+ 	switch (srx.transport.family) {
+ 	case AF_INET:
+ 		srx.transport.sin.sin_port = serr->port;
+-		srx.transport_len = sizeof(struct sockaddr_in);
+ 		switch (serr->ee.ee_origin) {
+ 		case SO_EE_ORIGIN_ICMP:
+ 			_net("Rx ICMP");
+@@ -69,7 +69,6 @@ static struct rxrpc_peer *rxrpc_lookup_peer_icmp_rcu(struct rxrpc_local *local,
+ #ifdef CONFIG_AF_RXRPC_IPV6
+ 	case AF_INET6:
+ 		srx.transport.sin6.sin6_port = serr->port;
+-		srx.transport_len = sizeof(struct sockaddr_in6);
+ 		switch (serr->ee.ee_origin) {
+ 		case SO_EE_ORIGIN_ICMP6:
+ 			_net("Rx ICMP6");
+@@ -79,6 +78,9 @@ static struct rxrpc_peer *rxrpc_lookup_peer_icmp_rcu(struct rxrpc_local *local,
+ 			break;
+ 		case SO_EE_ORIGIN_ICMP:
+ 			_net("Rx ICMP on v6 sock");
++			srx.transport.sin6.sin6_addr.s6_addr32[0] = 0;
++			srx.transport.sin6.sin6_addr.s6_addr32[1] = 0;
++			srx.transport.sin6.sin6_addr.s6_addr32[2] = htonl(0xffff);
+ 			memcpy(srx.transport.sin6.sin6_addr.s6_addr + 12,
+ 			       skb_network_header(skb) + serr->addr_offset,
+ 			       sizeof(struct in_addr));
 diff --git a/net/rxrpc/rxkad.c b/net/rxrpc/rxkad.c
-index 46d1a1f0b55b..34c86d2bcae5 100644
+index 34c86d2bcae5..c38b3a1de56c 100644
 --- a/net/rxrpc/rxkad.c
 +++ b/net/rxrpc/rxkad.c
-@@ -854,7 +854,7 @@ static int rxkad_decrypt_ticket(struct rxrpc_connection *conn,
- 				struct sk_buff *skb,
- 				void *ticket, size_t ticket_len,
- 				struct rxrpc_crypt *_session_key,
--				time_t *_expiry,
-+				time64_t *_expiry,
- 				u32 *_abort_code)
- {
- 	struct skcipher_request *req;
-@@ -864,7 +864,7 @@ static int rxkad_decrypt_ticket(struct rxrpc_connection *conn,
- 	struct in_addr addr;
- 	unsigned int life;
- 	const char *eproto;
--	time_t issue, now;
-+	time64_t issue, now;
- 	bool little_endian;
- 	int ret;
- 	u32 abort_code;
-@@ -960,15 +960,15 @@ static int rxkad_decrypt_ticket(struct rxrpc_connection *conn,
- 	if (little_endian) {
- 		__le32 stamp;
- 		memcpy(&stamp, p, 4);
--		issue = le32_to_cpu(stamp);
-+		issue = rxrpc_u32_to_time64(le32_to_cpu(stamp));
- 	} else {
- 		__be32 stamp;
- 		memcpy(&stamp, p, 4);
--		issue = be32_to_cpu(stamp);
-+		issue = rxrpc_u32_to_time64(be32_to_cpu(stamp));
- 	}
- 	p += 4;
--	now = get_seconds();
--	_debug("KIV ISSUE: %lx [%lx]", issue, now);
-+	now = ktime_get_real_seconds();
-+	_debug("KIV ISSUE: %llx [%llx]", issue, now);
+@@ -634,8 +634,8 @@ static int rxkad_issue_challenge(struct rxrpc_connection *conn)
+ 	challenge.min_level	= htonl(0);
+ 	challenge.__padding	= 0;
  
- 	/* check the ticket is in date */
- 	if (issue > now) {
-@@ -1053,7 +1053,7 @@ static int rxkad_verify_response(struct rxrpc_connection *conn,
- 	struct rxrpc_skb_priv *sp = rxrpc_skb(skb);
- 	struct rxrpc_crypt session_key;
- 	const char *eproto;
--	time_t expiry;
-+	time64_t expiry;
- 	void *ticket;
- 	u32 abort_code, version, kvno, ticket_len, level;
- 	__be32 csum;
+-	msg.msg_name	= &conn->params.peer->srx.transport.sin;
+-	msg.msg_namelen	= sizeof(conn->params.peer->srx.transport.sin);
++	msg.msg_name	= &conn->params.peer->srx.transport;
++	msg.msg_namelen	= conn->params.peer->srx.transport_len;
+ 	msg.msg_control	= NULL;
+ 	msg.msg_controllen = 0;
+ 	msg.msg_flags	= 0;
+@@ -689,8 +689,8 @@ static int rxkad_send_response(struct rxrpc_connection *conn,
+ 
+ 	_enter("");
+ 
+-	msg.msg_name	= &conn->params.peer->srx.transport.sin;
+-	msg.msg_namelen	= sizeof(conn->params.peer->srx.transport.sin);
++	msg.msg_name	= &conn->params.peer->srx.transport;
++	msg.msg_namelen	= conn->params.peer->srx.transport_len;
+ 	msg.msg_control	= NULL;
+ 	msg.msg_controllen = 0;
+ 	msg.msg_flags	= 0;
+diff --git a/net/rxrpc/utils.c b/net/rxrpc/utils.c
+index ff7af71c4b49..e801171fa351 100644
+--- a/net/rxrpc/utils.c
++++ b/net/rxrpc/utils.c
+@@ -17,17 +17,28 @@
+ /*
+  * Fill out a peer address from a socket buffer containing a packet.
+  */
+-int rxrpc_extract_addr_from_skb(struct sockaddr_rxrpc *srx, struct sk_buff *skb)
++int rxrpc_extract_addr_from_skb(struct rxrpc_local *local,
++				struct sockaddr_rxrpc *srx,
++				struct sk_buff *skb)
+ {
+ 	memset(srx, 0, sizeof(*srx));
+ 
+ 	switch (ntohs(skb->protocol)) {
+ 	case ETH_P_IP:
+-		srx->transport_type = SOCK_DGRAM;
+-		srx->transport_len = sizeof(srx->transport.sin);
+-		srx->transport.sin.sin_family = AF_INET;
+-		srx->transport.sin.sin_port = udp_hdr(skb)->source;
+-		srx->transport.sin.sin_addr.s_addr = ip_hdr(skb)->saddr;
++		if (local->srx.transport.family == AF_INET6) {
++			srx->transport_type = SOCK_DGRAM;
++			srx->transport_len = sizeof(srx->transport.sin6);
++			srx->transport.sin6.sin6_family = AF_INET6;
++			srx->transport.sin6.sin6_port = udp_hdr(skb)->source;
++			srx->transport.sin6.sin6_addr.s6_addr32[2] = htonl(0xffff);
++			srx->transport.sin6.sin6_addr.s6_addr32[3] = ip_hdr(skb)->saddr;
++		} else {
++			srx->transport_type = SOCK_DGRAM;
++			srx->transport_len = sizeof(srx->transport.sin);
++			srx->transport.sin.sin_family = AF_INET;
++			srx->transport.sin.sin_port = udp_hdr(skb)->source;
++			srx->transport.sin.sin_addr.s_addr = ip_hdr(skb)->saddr;
++		}
+ 		return 0;
+ 
+ #ifdef CONFIG_AF_RXRPC_IPV6
