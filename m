@@ -1,40 +1,63 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: Hooking on L4 Level with process information
-Date: Mon, 28 Aug 2017 20:19:00 -0700
-Message-ID: <20170828201900.625a10ed@xeon-e3>
-References: <CAEDnJmJZ1-4DFtjmzDO1US2HCuHYDkcsa+tk8mN3CZ6vcDLbVw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Networking <netdev@vger.kernel.org>
-To: Ravish Kumar <ravishk2004@gmail.com>
+From: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+Subject: [net-next] be2net: use shift instead of expensive divide
+Date: Tue, 29 Aug 2017 11:18:39 +0800
+Message-ID: <1503976719-3063-1-git-send-email-zhangshengju@cmss.chinamobile.com>
+To: sathya.perla@broadcom.com, ajit.khaparde@broadcom.com,
+        sriharsha.basavapatna@broadcom.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f175.google.com ([209.85.192.175]:33504 "EHLO
-        mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751237AbdH2DTD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 23:19:03 -0400
-Received: by mail-pf0-f175.google.com with SMTP id r62so6663427pfj.0
-        for <netdev@vger.kernel.org>; Mon, 28 Aug 2017 20:19:03 -0700 (PDT)
-In-Reply-To: <CAEDnJmJZ1-4DFtjmzDO1US2HCuHYDkcsa+tk8mN3CZ6vcDLbVw@mail.gmail.com>
+Received: from cmccmta1.chinamobile.com ([221.176.66.79]:57432 "EHLO
+        cmccmta1.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751213AbdH2DTC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 23:19:02 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 29 Aug 2017 07:34:51 +0530
-Ravish Kumar <ravishk2004@gmail.com> wrote:
+Replace shift instead of expensive divide.
 
-> Hi,
-> 
-> I want to hook tcp/udp packets on L4 Layer and based on process
-> information , content want to deny or allow packets.
-> 
-> Netfilter provides pre/post Routing hooks but not sure that will be
-> right place so thought of asking whether my approach is right.
-> Also how i can get process information whether this packet is send by
-> this process.
-> 
-> Thoughts /source code reference would be appreciated.
-> 
-> Regards,
-> Ravish
+Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+---
+ drivers/net/ethernet/emulex/benet/be_main.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-There is not a 1:1 relationship between sockets/files and processes.
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index 319eee3..e06094f 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -2455,7 +2455,7 @@ static struct be_rx_compl_info *be_rx_compl_get(struct be_rx_obj *rxo)
+ 
+ 	/* For checking the valid bit it is Ok to use either definition as the
+ 	 * valid bit is at the same position in both v0 and v1 Rx compl */
+-	if (compl->dw[offsetof(struct amap_eth_rx_compl_v1, valid) / 32] == 0)
++	if (compl->dw[offsetof(struct amap_eth_rx_compl_v1, valid) >> 5] == 0)
+ 		return NULL;
+ 
+ 	rmb();
+@@ -2486,7 +2486,7 @@ static struct be_rx_compl_info *be_rx_compl_get(struct be_rx_obj *rxo)
+ 	}
+ 
+ 	/* As the compl has been parsed, reset it; we wont touch it again */
+-	compl->dw[offsetof(struct amap_eth_rx_compl_v1, valid) / 32] = 0;
++	compl->dw[offsetof(struct amap_eth_rx_compl_v1, valid) >> 5] = 0;
+ 
+ 	queue_tail_inc(&rxo->cq);
+ 	return rxcp;
+@@ -2590,7 +2590,7 @@ static struct be_tx_compl_info *be_tx_compl_get(struct be_tx_obj *txo)
+ 	struct be_tx_compl_info *txcp = &txo->txcp;
+ 	struct be_eth_tx_compl *compl = queue_tail_node(tx_cq);
+ 
+-	if (compl->dw[offsetof(struct amap_eth_tx_compl, valid) / 32] == 0)
++	if (compl->dw[offsetof(struct amap_eth_tx_compl, valid) >> 5] == 0)
+ 		return NULL;
+ 
+ 	/* Ensure load ordering of valid bit dword and other dwords below */
+@@ -2600,7 +2600,7 @@ static struct be_tx_compl_info *be_tx_compl_get(struct be_tx_obj *txo)
+ 	txcp->status = GET_TX_COMPL_BITS(status, compl);
+ 	txcp->end_index = GET_TX_COMPL_BITS(wrb_index, compl);
+ 
+-	compl->dw[offsetof(struct amap_eth_tx_compl, valid) / 32] = 0;
++	compl->dw[offsetof(struct amap_eth_tx_compl, valid) >> 5] = 0;
+ 	queue_tail_inc(tx_cq);
+ 	return txcp;
+ }
+-- 
+1.8.3.1
