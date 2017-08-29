@@ -1,47 +1,47 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net-next 7/7] samples/bpf: xdp_monitor tool based on
- tracepoints
-Date: Tue, 29 Aug 2017 10:05:52 -0700
-Message-ID: <20170829170551.5uws25py4fcpem73@ast-mbp>
-References: <150401743083.16384.15778781741742858567.stgit@firesoul>
- <150401749138.16384.17129327124102881342.stgit@firesoul>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH net-next 3/4] net: add NSH header structures and helpers
+Date: Tue, 29 Aug 2017 19:10:49 +0200
+Message-ID: <20170829191049.2d7f53e1@griffin>
+References: <cover.1503948295.git.jbenc@redhat.com>
+        <4abd24a9ec958622186efacb4e46d709831fbaae.1503948295.git.jbenc@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, John Fastabend <john.fastabend@gmail.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Yi Yang <yi.y.yang@intel.com>, Eric Garver <e@erig.me>,
+        Jan Scheurich <jan.scheurich@ericsson.com>,
+        Ben Pfaff <blp@ovn.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f49.google.com ([74.125.83.49]:35874 "EHLO
-        mail-pg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750779AbdH2RFz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 13:05:55 -0400
-Received: by mail-pg0-f49.google.com with SMTP id r133so12478647pgr.3
-        for <netdev@vger.kernel.org>; Tue, 29 Aug 2017 10:05:55 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <150401749138.16384.17129327124102881342.stgit@firesoul>
+Received: from mx1.redhat.com ([209.132.183.28]:60792 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751066AbdH2RKx (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 29 Aug 2017 13:10:53 -0400
+In-Reply-To: <4abd24a9ec958622186efacb4e46d709831fbaae.1503948295.git.jbenc@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 29, 2017 at 04:38:11PM +0200, Jesper Dangaard Brouer wrote:
-> This tool xdp_monitor demonstrate how to use the different xdp_redirect
-> tracepoints xdp_redirect{,_map}{,_err} from a BPF program.
+On Mon, 28 Aug 2017 21:43:23 +0200, Jiri Benc wrote:
+> This patch adds NSH header structures and helpers for NSH GSO
+> support and Open vSwitch NSH support.
 > 
-> The default mode is to only monitor the error counters, to avoid
-> affecting the per packet performance. Tracepoints comes with a base
-> overhead of 25 nanosec for an attached bpf_prog, and 48 nanosec for
-> using a full perf record (with non-matching filter).  Thus, default
-> loading the --stats mode could affect the maximum performance.
-> 
-> This version of the tool is very simple and count all types of errors
-> as one.  It will be natural to extend this later with the different
-> types of errors that can occur, which should help users quickly
-> identify common mistakes.
-> 
-> Because the TP_STRUCT was kept in sync all the tracepoints loads the
-> same BPF code.  It would also be natural to extend the map version to
-> demonstrate how the map information could be used.
-> 
-> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+> [1] https://datatracker.ietf.org/doc/draft-ietf-sfc-nsh/
 
-Nice. Did you consider using libbbpf (instead of old bpf_load.c hack)
-and make full standalone tool out of it? Looks very useful.
-Acked-by: Alexei Starovoitov <ast@kernel.org>
+One thing to know before applying this to the kernel: NSH is still a
+draft. It's not standardized yet. And the draft evolves, compare the
+version from February to the latest one:
+
+https://tools.ietf.org/html/draft-ietf-sfc-nsh-12#section-3.2
+https://tools.ietf.org/html/draft-ietf-sfc-nsh-19#section-2.2
+
+There's really no guarantee there won't be further changes.
+
+This patchset by itself is harmless as there's no user and everything
+can be changed. We should think through any uAPIs we're going to merge,
+though. We don't want to repeat the problems with VXLAN and changed UDP
+port.
+
+Again, this patchset is harmless and can be applied even if the draft
+changes. Further patches may not be and need to be designed very
+carefully.
+
+ Jiri
