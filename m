@@ -1,47 +1,40 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net-next 3/4] net: add NSH header structures and helpers
-Date: Tue, 29 Aug 2017 19:10:49 +0200
-Message-ID: <20170829191049.2d7f53e1@griffin>
-References: <cover.1503948295.git.jbenc@redhat.com>
-        <4abd24a9ec958622186efacb4e46d709831fbaae.1503948295.git.jbenc@redhat.com>
+From: Rob Herring <robh@kernel.org>
+Subject: Re: [PATCH] dt-binding: net/phy: fix interrupts description
+Date: Tue, 29 Aug 2017 12:14:27 -0500
+Message-ID: <20170829171427.dna6qfg4ceqwuj33@rob-hp-laptop>
+References: <b3756346473feadfeba70ecb71960cad48e66621.1503468660.git.baruch@tkos.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Yi Yang <yi.y.yang@intel.com>, Eric Garver <e@erig.me>,
-        Jan Scheurich <jan.scheurich@ericsson.com>,
-        Ben Pfaff <blp@ovn.org>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Mark Rutland <mark.rutland@arm.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        devicetree@vger.kernel.org, netdev@vger.kernel.org
+To: Baruch Siach <baruch@tkos.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60792 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751066AbdH2RKx (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 29 Aug 2017 13:10:53 -0400
-In-Reply-To: <4abd24a9ec958622186efacb4e46d709831fbaae.1503948295.git.jbenc@redhat.com>
+Received: from mail-oi0-f68.google.com ([209.85.218.68]:34696 "EHLO
+        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751238AbdH2ROa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 13:14:30 -0400
+Content-Disposition: inline
+In-Reply-To: <b3756346473feadfeba70ecb71960cad48e66621.1503468660.git.baruch@tkos.co.il>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 28 Aug 2017 21:43:23 +0200, Jiri Benc wrote:
-> This patch adds NSH header structures and helpers for NSH GSO
-> support and Open vSwitch NSH support.
+On Wed, Aug 23, 2017 at 09:11:00AM +0300, Baruch Siach wrote:
+> Commit b053dc5a722ea (powerpc: Refactor device tree binding) split the
+> Ethernet PHY binding documentation out of the big booting-without-of.txt
+> file, leaving a dangling reference to "section 2" in the 'interrupts'
+> property description. Drop that reference, and make the description look
+> more like the rest.
 > 
-> [1] https://datatracker.ietf.org/doc/draft-ietf-sfc-nsh/
+> While at it, make the example interrupt-parent phandle look more like a
+> real world phandle, and use an IRQ_TYPE_ macro for the 'interrupts'
+> type.
+> 
+> Signed-off-by: Baruch Siach <baruch@tkos.co.il>
+> ---
+>  Documentation/devicetree/bindings/net/phy.txt | 10 +++-------
+>  1 file changed, 3 insertions(+), 7 deletions(-)
 
-One thing to know before applying this to the kernel: NSH is still a
-draft. It's not standardized yet. And the draft evolves, compare the
-version from February to the latest one:
+Applied.
 
-https://tools.ietf.org/html/draft-ietf-sfc-nsh-12#section-3.2
-https://tools.ietf.org/html/draft-ietf-sfc-nsh-19#section-2.2
-
-There's really no guarantee there won't be further changes.
-
-This patchset by itself is harmless as there's no user and everything
-can be changed. We should think through any uAPIs we're going to merge,
-though. We don't want to repeat the problems with VXLAN and changed UDP
-port.
-
-Again, this patchset is harmless and can be applied even if the draft
-changes. Further patches may not be and need to be designed very
-carefully.
-
- Jiri
+Rob
