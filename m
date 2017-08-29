@@ -1,200 +1,118 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH RFC 1/2] virtio_net: implement VIRTIO_CONFIG_S_NEEDS_RESET
-Date: Tue, 29 Aug 2017 23:20:33 +0300
-Message-ID: <20170829231739-mutt-send-email-mst@kernel.org>
-References: <20170829200759.13975-1-willemdebruijn.kernel@gmail.com>
- <20170829200759.13975-2-willemdebruijn.kernel@gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next v2 00/10] net: dsa: add generic debugfs interface
+Date: Tue, 29 Aug 2017 22:27:17 +0200
+Message-ID: <20170829202717.GE24049@lunn.ch>
+References: <20170828191748.19492-1-vivien.didelot@savoirfairelinux.com>
+ <20170828195332.GB1950@nanopsycho.orion>
+ <20170828200834.GA1870@lunn.ch>
+ <20170829062523.GA1977@nanopsycho.orion>
+ <20170829125004.GB22093@lunn.ch>
+ <8e6fa7ea-fb7b-3026-b9c0-417ef2efae27@mellanox.com>
+ <9dd804f2-8d40-2a76-e692-a60b10182834@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jasowang@redhat.com,
-        virtualization@lists.linux-foundation.org,
-        Willem de Bruijn <willemb@google.com>
-To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:38750 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750909AbdH2UUe (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 29 Aug 2017 16:20:34 -0400
+Cc: Arkadi Sharshevsky <arkadis@mellanox.com>,
+        Jiri Pirko <jiri@resnulli.us>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Egil Hjelmeland <privat@egil-hjelmeland.no>,
+        John Crispin <john@phrozen.org>,
+        Woojung Huh <Woojung.Huh@microchip.com>,
+        Sean Wang <sean.wang@mediatek.com>,
+        Nikita Yushchenko <nikita.yoush@cogentembedded.com>,
+        Chris Healy <cphealy@gmail.com>, mlxsw@mellanox.com
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20170829200759.13975-2-willemdebruijn.kernel@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <9dd804f2-8d40-2a76-e692-a60b10182834@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 29, 2017 at 04:07:58PM -0400, Willem de Bruijn wrote:
-> From: Willem de Bruijn <willemb@google.com>
+On Tue, Aug 29, 2017 at 12:19:08PM -0700, Florian Fainelli wrote:
+> On 08/29/2017 12:05 PM, Arkadi Sharshevsky wrote:
+> > 
+> > 
+> > On 08/29/2017 03:50 PM, Andrew Lunn wrote:
+> >> On Tue, Aug 29, 2017 at 08:25:23AM +0200, Jiri Pirko wrote:
+> >>> Mon, Aug 28, 2017 at 10:08:34PM CEST, andrew@lunn.ch wrote:
+> >>>>> I see this overlaps a lot with DPIPE. Why won't you use that to expose
+> >>>>> your hw state?
+> >>>>
+> >>>> We took a look at dpipe and i talked to you about using it for this
+> >>>> sort of thing at netconf/netdev. But dpipe has issues displaying the
+> >>>> sort of information we have. I never figured out how to do two
+> >>>> dimensional tables. The output of the dpipe command is pretty
+> >>>> unreadable. A lot of the information being dumped here is not about
+> >>>> the data pipe, etc.
+> >>>
+> >>> So improve it. No problem. Also, we extend it to support what you neede.
+> >>
+> >> Will i did try to do this back in March. And i failed.
+> >>
+> >> Lets start with stats. Vivien gives an example on the cover letter:
+> >>
+> >>     # pr -mt switch0/port{5,6}/stats
+> >>     in_good_octets      : 0             in_good_octets      : 13824
+> >>     in_bad_octets       : 0             in_bad_octets       : 0
+> >>     in_unicast          : 0             in_unicast          : 0
+> >>     in_broadcasts       : 0             in_broadcasts       : 216
+> >>     in_multicasts       : 0             in_multicasts       : 0
+> >>     in_pause            : 0             in_pause            : 0
+> >>     in_undersize        : 0             in_undersize        : 0
+> >>
+> >> This is what i tried to implement using dpipe. It is a simple two
+> >> dimensional table. First column is a string, second a u64. In debugfs
+> >> we have such a table per port. That fits with the hierarchy that each
+> >> port is a directory in debugfs. But it could also be implemented as
+> >> one table with N+1 columns, for N switch ports.
+> >>
+> > 
+> > Hi Andrew,
+> > 
+> > This looks to me like basic L2 statistics that are obtained via
+> > ethtool, I remember you had this problem with the DSA and CPU port.
+> > Is this still the case?
 > 
-> Implement the reset communication request defined in the VIRTIO 1.0
-> specification and introduces in Linux in commit c00bbcf862896 ("virtio:
-> add VIRTIO_CONFIG_S_NEEDS_RESET device status bit").
+> Yes, there are no net_device representors for CPU and DSA ports because
+> if we did that, it would be confusing as we would be creating two
+> network devices for both ends of the pipe. For DSA (inter-switch)
+> interfaces you would have one "dsa" netdev for each adjacent switch so
+> two DSA interface represent the inter switch link.
 > 
-> Since that patch, the virtio-net driver has added a virtnet_reset
-> function that implements the requested behavior through calls to the
-> power management freeze and restore functions.
-> 
-> That function has recently been reverted when its sole caller was
-> updated. Bring it back and listen for the request from the host on
-> the config channel.
-> 
-> Implement the feature analogous to other config requests. In
-> particular, acknowledge the request in the same manner as the
-> NET_S_ANNOUNCE link announce request, by responding with a new
-> VIRTIO_NET_CTRL_${TYPE} command. On reception, the host must check
-> the config status register for success or failure.
+> For the "CPU" port, you have the master network device (e.g: eth0) and
+> the "cpu" network device, this is confusing. "cpu" is not usable, since
+> it does not make sense for the "cpu" to send traffic via this interface,
+> the model is to terminate user-facing ports and use a tag to deliver
+> packets to the right interfaces. For "dsa" it's pretty much the same story.
 
+The point of the story is that ethtool does not cover this use
+case. We need a different way to expose these statistics for
+debugging, and ideally the statistics for all the ports, not just DSA
+and CPU.
 
-Pls make it clearer why do you need these interface extensions.
+> > I remembered we wanted to use dpipe for the DSA routing table
+> > and IP priority table.
 
-> The existing freeze handler verifies that no config changes are
-> running concurrently. Elide this check for reset. The request is
-> always handled from the config workqueue. No other config requests
-> can be active or scheduled concurrently on vi->config.
+No, we wanted to use dpipe as a generic mechanism to get debug tables
+out of the switch. The DSA routing table and the IP priority tables
+could be candidates sometime in the future. But since most switches
+don't actually have these, we are not so interested in them at the
+moment. We are concentrating on tables that all DSA switches are
+likely to have. Stuff we can implement once, and it works for all DSA
+switches.
 
-You need to prevent packet TX from being in progress.
+> > I think both those processes really look like match/action table
+> > , thus they can be modeled successfully by dpipe.
 
-> 
-> Signed-off-by: Willem de Bruijn <willemb@google.com>
-> ---
->  drivers/net/virtio_net.c        | 69 +++++++++++++++++++++++++++++++++++------
->  include/uapi/linux/virtio_net.h |  4 +++
+And this is probably the core of the problem with dpipe. Very little
+in an average switch is a match/action. We need a generic table. The
+table is well specified, in that i can tell you the types of the
+columns. We know the number of columns in the table at runtime, but
+maybe not the number of rows until we reach the end of the table.  And
+ideally, we don't want to have to change the user space tool every
+time we add a new table. The type info and the number of columns
+should be enough for the user space tool to print it.
 
-virtio dev or another virtio TC list must be Cc'd on any proposed API changes.
-
-
->  2 files changed, 64 insertions(+), 9 deletions(-)
-> 
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index 52ae78ca3d38..5e349226f7c1 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -1458,12 +1458,11 @@ static void virtnet_netpoll(struct net_device *dev)
->  }
->  #endif
->  
-> -static void virtnet_ack_link_announce(struct virtnet_info *vi)
-> +static void virtnet_ack(struct virtnet_info *vi, u8 class, u8 cmd)
->  {
->  	rtnl_lock();
-> -	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_ANNOUNCE,
-> -				  VIRTIO_NET_CTRL_ANNOUNCE_ACK, NULL))
-> -		dev_warn(&vi->dev->dev, "Failed to ack link announce.\n");
-> +	if (!virtnet_send_command(vi, class, cmd, NULL))
-> +		dev_warn(&vi->dev->dev, "Failed to ack %u.%u\n", class, cmd);
->  	rtnl_unlock();
->  }
->  
-> @@ -1857,13 +1856,16 @@ static const struct ethtool_ops virtnet_ethtool_ops = {
->  	.set_link_ksettings = virtnet_set_link_ksettings,
->  };
->  
-> -static void virtnet_freeze_down(struct virtio_device *vdev)
-> +static void virtnet_freeze_down(struct virtio_device *vdev, bool in_reset)
->  {
->  	struct virtnet_info *vi = vdev->priv;
->  	int i;
->  
-> -	/* Make sure no work handler is accessing the device */
-> -	flush_work(&vi->config_work);
-> +	/* Make sure no work handler is accessing the device,
-> +	 * unless this call is made from the reset work handler itself.
-> +	 */
-> +	if (!in_reset)
-> +		flush_work(&vi->config_work);
->  
->  	netif_device_detach(vi->dev);
->  	netif_tx_disable(vi->dev);
-> @@ -1878,6 +1880,7 @@ static void virtnet_freeze_down(struct virtio_device *vdev)
->  }
->  
->  static int init_vqs(struct virtnet_info *vi);
-> +static void remove_vq_common(struct virtnet_info *vi);
->  
->  static int virtnet_restore_up(struct virtio_device *vdev)
->  {
-> @@ -1906,6 +1909,45 @@ static int virtnet_restore_up(struct virtio_device *vdev)
->  	return err;
->  }
->  
-> +static int virtnet_reset(struct virtnet_info *vi)
-> +{
-> +	struct virtio_device *dev = vi->vdev;
-> +	bool failed;
-> +	int ret;
-> +
-> +	virtio_config_disable(dev);
-> +	failed = dev->config->get_status(dev) & VIRTIO_CONFIG_S_FAILED;
-> +	virtnet_freeze_down(dev, true);
-> +	remove_vq_common(vi);
-> +
-> +	virtio_add_status(dev, VIRTIO_CONFIG_S_ACKNOWLEDGE);
-> +	virtio_add_status(dev, VIRTIO_CONFIG_S_DRIVER);
-> +
-> +	/* Restore the failed status (see virtio_device_restore). */
-> +	if (failed)
-> +		virtio_add_status(dev, VIRTIO_CONFIG_S_FAILED);
-> +
-> +	ret = virtio_finalize_features(dev);
-> +	if (ret)
-> +		goto err;
-> +
-> +	ret = virtnet_restore_up(dev);
-> +	if (ret)
-> +		goto err;
-> +
-> +	ret = virtnet_set_queues(vi, vi->curr_queue_pairs);
-> +	if (ret)
-> +		goto err;
-> +
-> +	virtio_add_status(dev, VIRTIO_CONFIG_S_DRIVER_OK);
-> +	virtio_config_enable(dev);
-> +	return 0;
-> +
-> +err:
-> +	virtio_add_status(dev, VIRTIO_CONFIG_S_FAILED);
-> +	return ret;
-> +}
-> +
->  static int virtnet_set_guest_offloads(struct virtnet_info *vi, u64 offloads)
->  {
->  	struct scatterlist sg;
-> @@ -2085,7 +2127,16 @@ static void virtnet_config_changed_work(struct work_struct *work)
->  
->  	if (v & VIRTIO_NET_S_ANNOUNCE) {
->  		netdev_notify_peers(vi->dev);
-> -		virtnet_ack_link_announce(vi);
-> +		virtnet_ack(vi, VIRTIO_NET_CTRL_ANNOUNCE,
-> +			    VIRTIO_NET_CTRL_ANNOUNCE_ACK);
-> +	}
-> +
-> +	if (vi->vdev->config->get_status(vi->vdev) &
-> +	    VIRTIO_CONFIG_S_NEEDS_RESET) {
-> +		virtnet_reset(vi);
-> +		virtnet_ack(vi, VIRTIO_NET_CTRL_RESET,
-> +			    VIRTIO_NET_CTRL_RESET_ACK);
-> +
->  	}
->  
->  	/* Ignore unknown (future) status bits */
-> @@ -2708,7 +2759,7 @@ static __maybe_unused int virtnet_freeze(struct virtio_device *vdev)
->  	struct virtnet_info *vi = vdev->priv;
->  
->  	virtnet_cpu_notif_remove(vi);
-> -	virtnet_freeze_down(vdev);
-> +	virtnet_freeze_down(vdev, false);
->  	remove_vq_common(vi);
->  
->  	return 0;
-> diff --git a/include/uapi/linux/virtio_net.h b/include/uapi/linux/virtio_net.h
-> index fc353b518288..188fdc528f13 100644
-> --- a/include/uapi/linux/virtio_net.h
-> +++ b/include/uapi/linux/virtio_net.h
-> @@ -245,4 +245,8 @@ struct virtio_net_ctrl_mq {
->  #define VIRTIO_NET_CTRL_GUEST_OFFLOADS   5
->  #define VIRTIO_NET_CTRL_GUEST_OFFLOADS_SET        0
->  
-> +/* Signal that the driver received and executed the reset command. */
-> +#define VIRTIO_NET_CTRL_RESET			6
-> +#define VIRTIO_NET_CTRL_RESET_ACK		0
-> +
->  #endif /* _UAPI_LINUX_VIRTIO_NET_H */
-> -- 
-> 2.14.1.342.g6490525c54-goog
+       Andrew
