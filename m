@@ -1,169 +1,62 @@
-From: "liujian (CE)" <liujian56@huawei.com>
-Subject: RE: Question about ip_defrag
-Date: Tue, 29 Aug 2017 13:01:51 +0000
-Message-ID: <4F88C5DDA1E80143B232E89585ACE27D018F4850@DGGEMA502-MBX.china.huawei.com>
-References: <4F88C5DDA1E80143B232E89585ACE27D018F07E2@DGGEMA502-MBX.china.huawei.com>
- <20170824155300.1e577dae@redhat.com>
- <4F88C5DDA1E80143B232E89585ACE27D018F0AE1@DGGEMA502-MBX.china.huawei.com>
- <20170824205926.2c45e3a1@redhat.com>
- <4F88C5DDA1E80143B232E89585ACE27D018F3157@DGGEMA502-MBX.china.huawei.com>
- <20170828140032.GB12926@breakpoint.cc>
+From: <liujian56@huawei.com>
+Subject: [PATCH ] net: frag: print frag_mem_limit value in sockstat proc file
+Date: Tue, 29 Aug 2017 21:05:34 +0800
+Message-ID: <1504011934-17308-1-git-send-email-liujian56@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "kuznet@ms2.inr.ac.ru" <kuznet@ms2.inr.ac.ru>,
-        "yoshfuji@linux-ipv6.org" <yoshfuji@linux-ipv6.org>,
-        "elena.reshetova@intel.com" <elena.reshetova@intel.com>,
-        "edumazet@google.com" <edumazet@google.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "Wangkefeng (Kevin)" <wangkefeng.wang@huawei.com>,
-        "weiyongjun (A)" <weiyongjun1@huawei.com>
-To: "liujian (CE)" <liujian56@huawei.com>,
-        Florian Westphal <fw@strlen.de>
+Content-Type: text/plain
+Cc: <kuznet@ms2.inr.ac.ru>, <yoshfuji@linux-ipv6.org>,
+        <brouer@redhat.com>, <fw@strlen.de>, <netdev@vger.kernel.org>,
+        <liujian56@huawei.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([45.249.212.188]:11822 "EHLO
-        szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751272AbdH2NCZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 09:02:25 -0400
-Content-Language: zh-CN
+Received: from szxga05-in.huawei.com ([45.249.212.191]:5038 "EHLO
+        szxga05-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751586AbdH2NG7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 09:06:59 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: liujian <liujian56@huawei.com>
 
+>From 6d7b857d5( net: use lib/percpu_counter API for fragmentation mem
+accounting),
+frag_mem_limit and sum_frag_mem_limit have different value if there are
+multiple NIC RX CPU.
+Print frag_mem_limit value, then we can get more debug info.
 
+Signed-off-by: liujian <liujian56@huawei.com>
+---
+ net/ipv4/proc.c | 3 ++-
+ net/ipv6/proc.c | 3 ++-
+ 2 files changed, 4 insertions(+), 2 deletions(-)
 
-Best Regards,
-liujian
-
-
-> -----Original Message-----
-> From: liujian (CE)
-> Sent: Tuesday, August 29, 2017 3:39 PM
-> To: 'Florian Westphal'
-> Cc: Jesper Dangaard Brouer; davem@davemloft.net; kuznet@ms2.inr.ac.ru;
-> yoshfuji@linux-ipv6.org; elena.reshetova@intel.com; edumazet@google.com;
-> netdev@vger.kernel.org; Wangkefeng (Kevin); weiyongjun (A)
-> Subject: RE: Question about ip_defrag
-> 
-> 
-> 
-> > -----Original Message-----
-> > From: netdev-owner@vger.kernel.org
-> > [mailto:netdev-owner@vger.kernel.org]
-> > On Behalf Of Florian Westphal
-> > Sent: Monday, August 28, 2017 10:01 PM
-> > To: liujian (CE)
-> > Cc: Jesper Dangaard Brouer; davem@davemloft.net; kuznet@ms2.inr.ac.ru;
-> > yoshfuji@linux-ipv6.org; elena.reshetova@intel.com;
-> > edumazet@google.com; netdev@vger.kernel.org; Wangkefeng (Kevin);
-> > weiyongjun (A)
-> > Subject: Re: Question about ip_defrag
-> >
-> > liujian (CE) <liujian56@huawei.com> wrote:
-> > > Hi
-> > >
-> > > I checked our 3.10 kernel, we had backported all percpu_counter bug
-> > > fix in
-> > lib/percpu_counter.c and include/linux/percpu_counter.h.
-> > > And I check 4.13-rc6, also has the issue if NIC's rx cpu num big enough.
-> > >
-> > > > > > > the issue:
-> > > > > > > Ip_defrag fail caused by frag_mem_limit reached
-> > 4M(frags.high_thresh).
-> > > > > > > At this moment,sum_frag_mem_limit is about 10K.
-> > >
-> > > So should we change ipfrag high/low thresh to a reasonable value ?
-> > > And if it is, is there a standard to change the value?
-> >
-> > Each cpu can have frag_percpu_counter_batch bytes rest doesn't know
-> > about so with 64 cpus that is ~8 mbyte.
-> >
-> > possible solutions:
-> > 1. reduce frag_percpu_counter_batch to 16k or so 2. make both low and
-> > high thresh depend on NR_CPUS
-> >
-> Thank you for your reply.
-> 
-> > liujian, does this change help in any way?
-> 
-> I will have a try.
-
-Now, I have not the real environment. 
-I use iperf generate fragment packets; 
-and I always change NIC rx irq's affinity cpu, to make sure frag_mem_limit reach to thresh.
-my test machine, CPU num is 384.
-As above , test the patch , seemingly , there is no improving...
-Check /proc/net/snmp, there is no significant difference.
-maybe we should find a good test method!
-
-root@RH8100-V3:/proc/net# cat sockstat
-sockets: used 1386
-TCP: inuse 3 orphan 0 tw 0 alloc 4 mem 1
-UDP: inuse 44 mem 42
-UDPLITE: inuse 0
-RAW: inuse 0
-FRAG: inuse 1 memory 34336, 3144424.
+diff --git a/net/ipv4/proc.c b/net/ipv4/proc.c
+index 43eb6567..370cda1 100644
+--- a/net/ipv4/proc.c
++++ b/net/ipv4/proc.c
+@@ -73,7 +73,8 @@ static int sockstat_seq_show(struct seq_file *seq, void *v)
+ 	seq_printf(seq, "RAW: inuse %d\n",
+ 		   sock_prot_inuse_get(net, &raw_prot));
+ 	frag_mem = ip_frag_mem(net);
+-	seq_printf(seq,  "FRAG: inuse %u memory %u\n", !!frag_mem, frag_mem);
++	seq_printf(seq,  "FRAG: inuse %u memory %u current mem_limit %d\n",
++		!!frag_mem, frag_mem, frag_mem_limit(&net->ipv4.frags));
+ 	return 0;
+ }
  
-
-> > diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
-> > --- a/net/ipv4/inet_fragment.c
-> > +++ b/net/ipv4/inet_fragment.c
-> > @@ -123,6 +123,17 @@ static bool inet_fragq_should_evict(const struct
-> > inet_frag_queue *q)
-> >  	       frag_mem_limit(q->net) >= q->net->low_thresh;  }
-> >
-> > +/* ->mem batch size is huge, this can cause severe discrepancies
-> > + * between actual value (sum of pcpu values) and the global estimate.
-> > + *
-> > + * Use a smaller batch to give an opportunity for the global estimate
-> > + * to more accurately reflect current state.
-> > + */
-> > +static void update_frag_mem_limit(struct netns_frags *nf, unsigned
-> > +int
-> > +batch) {
-> > +	 percpu_counter_add_batch(&nf->mem, 0, batch); }
-> > +
-> >  static unsigned int
-> >  inet_evict_bucket(struct inet_frags *f, struct inet_frag_bucket *hb)
-> > { @@
-> > -146,8 +157,12 @@ inet_evict_bucket(struct inet_frags *f, struct
-> > inet_frag_bucket *hb)
-> >
-> >  	spin_unlock(&hb->chain_lock);
-> >
-> > -	hlist_for_each_entry_safe(fq, n, &expired, list_evictor)
-> > +	hlist_for_each_entry_safe(fq, n, &expired, list_evictor) {
-> > +		struct netns_frags *nf = fq->net;
-> > +
-> >  		f->frag_expire((unsigned long) fq);
-> > +		update_frag_mem_limit(nf, 1);
-> 
-> > +	}
-> >
-> >  	return evicted;
-> >  }
-> > @@ -396,8 +411,10 @@ struct inet_frag_queue *inet_frag_find(struct
-> > netns_frags *nf,
-> >  	struct inet_frag_queue *q;
-> >  	int depth = 0;
-> >
-> > -	if (frag_mem_limit(nf) > nf->low_thresh)
-> > +	if (frag_mem_limit(nf) > nf->low_thresh) {
-> >  		inet_frag_schedule_worker(f);
-> > +		update_frag_mem_limit(nf, SKB_TRUESIZE(1500) * 16);
-> > +	}
-> >
-> >  	hash &= (INETFRAGS_HASHSZ - 1);
-> >  	hb = &f->hash[hash];
-> > @@ -416,6 +433,8 @@ struct inet_frag_queue *inet_frag_find(struct
-> > netns_frags *nf,
-> >  	if (depth <= INETFRAGS_MAXDEPTH)
-> >  		return inet_frag_create(nf, f, key);
-> >
-> > +	update_frag_mem_limit(nf, 1);
-> > +
-> >  	if (inet_frag_may_rebuild(f)) {
-> >  		if (!f->rebuild)
-> >  			f->rebuild = true;
+diff --git a/net/ipv6/proc.c b/net/ipv6/proc.c
+index e88bcb8..00680bc 100644
+--- a/net/ipv6/proc.c
++++ b/net/ipv6/proc.c
+@@ -48,7 +48,8 @@ static int sockstat6_seq_show(struct seq_file *seq, void *v)
+ 			sock_prot_inuse_get(net, &udplitev6_prot));
+ 	seq_printf(seq, "RAW6: inuse %d\n",
+ 		       sock_prot_inuse_get(net, &rawv6_prot));
+-	seq_printf(seq, "FRAG6: inuse %u memory %u\n", !!frag_mem, frag_mem);
++	seq_printf(seq, "FRAG6: inuse %u memory %u current mem_limit %d\n",
++		 !!frag_mem, frag_mem, frag_mem_limit(&net->ipv6.frags));
+ 	return 0;
+ }
+ 
+-- 
+1.8.3.1
