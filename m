@@ -1,65 +1,47 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH 0/4] irda: move it to drivers/staging so we can delete it
-Date: Tue, 29 Aug 2017 14:11:39 +0200
-Message-ID: <CAMuHMdVb-oygJkkHwBOfSmNECAfF72QruJSmVTpqdUW+RNJbrg@mail.gmail.com>
-References: <20170827150334.32495-1-gregkh@linuxfoundation.org>
- <CAMuHMdUefXtqv9bFfgrkbu8NZRXeTD6qR-nErf6TCDz4L+OAWw@mail.gmail.com>
- <20170829131131.6e11c8f9@elisabeth> <20170829112805.GB14571@kroah.com>
+From: Kishon Vijay Abraham I <kishon@ti.com>
+Subject: Re: [PATCH net-next v3 01/13] phy: add sgmii and 10gkr modes to the
+ phy_mode enum
+Date: Tue, 29 Aug 2017 17:51:52 +0530
+Message-ID: <36a628d5-bc3b-e017-0f02-d1a77cfd5aab@ti.com>
+References: <20170828145725.2539-1-antoine.tenart@free-electrons.com>
+ <20170828145725.2539-2-antoine.tenart@free-electrons.com>
+ <4c66e79f-d385-3cf5-6f24-2a4aec9fb3b4@ti.com> <20170829112717.GC31552@kwain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Stefano Brivio <sbrivio@redhat.com>,
-        driverdevel <devel@driverdev.osuosl.org>,
-        Samuel Ortiz <samuel@sortiz.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>
-To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <andrew@lunn.ch>, <jason@lakedaemon.net>,
+        <sebastian.hesselbarth@gmail.com>,
+        <gregory.clement@free-electrons.com>,
+        <thomas.petazzoni@free-electrons.com>, <nadavh@marvell.com>,
+        <linux@armlinux.org.uk>, <linux-kernel@vger.kernel.org>,
+        <mw@semihalf.com>, <stefanc@marvell.com>,
+        <miquel.raynal@free-electrons.com>, <netdev@vger.kernel.org>
+To: Antoine Tenart <antoine.tenart@free-electrons.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170829112805.GB14571@kroah.com>
+In-Reply-To: <20170829112717.GC31552@kwain>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Greg,
+Hi,
 
-On Tue, Aug 29, 2017 at 1:28 PM, Greg Kroah-Hartman
-<gregkh@linuxfoundation.org> wrote:
-> On Tue, Aug 29, 2017 at 01:11:31PM +0200, Stefano Brivio wrote:
->> On Tue, 29 Aug 2017 12:59:00 +0200
->> Geert Uytterhoeven <geert@linux-m68k.org> wrote:
->> > On Sun, Aug 27, 2017 at 5:03 PM, Greg Kroah-Hartman
->> > <gregkh@linuxfoundation.org> wrote:
->> > > The IRDA code has long been obsolete and broken.  So, to keep people
->> > > from trying to use it, and to prevent people from having to maintain it,
->> > > let's move it to drivers/staging/ so that we can delete it entirely from
->> > > the kernel in a few releases.
->> >
->> > (diving into an early boot crash)
->> >
->> > Have you tried running this? ;-)
->> >
->> > irda_init() and net_dev_init() are both subsys_initcall()s.
->> > But the former now runs before the latter, leading to:
->> >
->> > Unable to handle kernel NULL pointer dereference at virtual address 00000004
+On Tuesday 29 August 2017 04:57 PM, Antoine Tenart wrote:
+> Hi Kishon,
+> 
+> On Tue, Aug 29, 2017 at 04:08:29PM +0530, Kishon Vijay Abraham I wrote:
+>> On Monday 28 August 2017 08:27 PM, Antoine Tenart wrote:
+>>> This patch adds more generic PHY modes to the phy_mode enum, to
+>>> allow configuring generic PHYs to the SGMII and/or the 10GKR mode
+>>> by using the set_mode callback.
+>>>
+>>> Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
 >>
->> Should be fixed by https://patchwork.ozlabs.org/patch/807006/
->> ("[net-next] staging: irda: force to be a kernel module") I guess...
->
-> Yup, that's the fix for this issue.
->
-> Geert, does that fix the problem for you?
+>> Acked-by: Kishon Vijay Abraham I <kishon@ti.com>
+> 
+> Does this means the generic PHY patches of this series can go through
+> the net-next tree (once all the comments are taken into account)?
 
-Thanks, that patch fixes the crash, obviously.
+yeah.. I'm already done with my pull request for 4.14 to Greg KH. As long as it
+doesn't cause any conflicts to Linus, it should be okay to merge it in net-next.
 
-It does mean you can no longer have IrDA in a non-modular kernel.
-
-Gr{oetje,eeting}s,
-
-                        Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+Thanks
+Kishon
