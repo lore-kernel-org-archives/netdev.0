@@ -1,24 +1,24 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 1/4] net: systemport: Use correct I/O accessors
-Date: Tue, 29 Aug 2017 11:39:42 -0700
-Message-ID: <1504031985-52808-2-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH net-next 2/4] net: dsa: bcm_sf2: Use correct I/O accessors
+Date: Tue, 29 Aug 2017 11:39:43 -0700
+Message-ID: <1504031985-52808-3-git-send-email-f.fainelli@gmail.com>
 References: <1504031985-52808-1-git-send-email-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, opendmb@gmail.com, andrew@lunn.ch,
         vivien.didelot@savoirfairelinux.com,
         Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:32791 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751215AbdH2Spz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 14:45:55 -0400
-Received: by mail-wm0-f66.google.com with SMTP id e67so4644017wmd.0
-        for <netdev@vger.kernel.org>; Tue, 29 Aug 2017 11:45:54 -0700 (PDT)
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:36849 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751215AbdH2Sp6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 14:45:58 -0400
+Received: by mail-wm0-f67.google.com with SMTP id j72so4619275wmi.3
+        for <netdev@vger.kernel.org>; Tue, 29 Aug 2017 11:45:58 -0700 (PDT)
 In-Reply-To: <1504031985-52808-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The SYSTEMPORT driver currently uses __raw_{read,write}l which means
+The Starfigther 2 driver currently uses __raw_{read,write}l which means
 native I/O endian. This works correctly for an ARM LE kernel (default)
 but fails miserably on an ARM BE (BE8) kernel where registers are kept
 little endian, so replace uses with {read,write}l_relaxed here which is
@@ -26,58 +26,55 @@ what we want because this is all performance sensitive code.
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/ethernet/broadcom/bcmsysport.c | 12 ++++++------
+ drivers/net/dsa/bcm_sf2.h | 12 ++++++------
  1 file changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bcmsysport.c b/drivers/net/ethernet/broadcom/bcmsysport.c
-index b3a21418f511..a7e84292af50 100644
---- a/drivers/net/ethernet/broadcom/bcmsysport.c
-+++ b/drivers/net/ethernet/broadcom/bcmsysport.c
-@@ -32,13 +32,13 @@
- #define BCM_SYSPORT_IO_MACRO(name, offset) \
- static inline u32 name##_readl(struct bcm_sysport_priv *priv, u32 off)	\
+diff --git a/drivers/net/dsa/bcm_sf2.h b/drivers/net/dsa/bcm_sf2.h
+index 7d3030e04f11..d9c96b281fc0 100644
+--- a/drivers/net/dsa/bcm_sf2.h
++++ b/drivers/net/dsa/bcm_sf2.h
+@@ -130,12 +130,12 @@ static inline u32 bcm_sf2_mangle_addr(struct bcm_sf2_priv *priv, u32 off)
+ #define SF2_IO_MACRO(name) \
+ static inline u32 name##_readl(struct bcm_sf2_priv *priv, u32 off)	\
  {									\
--	u32 reg = __raw_readl(priv->base + offset + off);		\
-+	u32 reg = readl_relaxed(priv->base + offset + off);		\
- 	return reg;							\
+-	return __raw_readl(priv->name + off);				\
++	return readl_relaxed(priv->name + off);				\
  }									\
- static inline void name##_writel(struct bcm_sysport_priv *priv,		\
+ static inline void name##_writel(struct bcm_sf2_priv *priv,		\
  				  u32 val, u32 off)			\
  {									\
--	__raw_writel(val, priv->base + offset + off);			\
-+	writel_relaxed(val, priv->base + offset + off);			\
+-	__raw_writel(val, priv->name + off);				\
++	writel_relaxed(val, priv->name + off);				\
  }									\
  
- BCM_SYSPORT_IO_MACRO(intrl2_0, SYS_PORT_INTRL2_0_OFFSET);
-@@ -59,14 +59,14 @@ static inline u32 rdma_readl(struct bcm_sysport_priv *priv, u32 off)
+ /* Accesses to 64-bits register requires us to latch the hi/lo pairs
+@@ -179,23 +179,23 @@ static inline u32 bcm_sf2_mangle_addr(struct bcm_sf2_priv *priv, u32 off)
+ static inline u32 core_readl(struct bcm_sf2_priv *priv, u32 off)
  {
- 	if (priv->is_lite && off >= RDMA_STATUS)
- 		off += 4;
--	return __raw_readl(priv->base + SYS_PORT_RDMA_OFFSET + off);
-+	return readl_relaxed(priv->base + SYS_PORT_RDMA_OFFSET + off);
+ 	u32 tmp = bcm_sf2_mangle_addr(priv, off);
+-	return __raw_readl(priv->core + tmp);
++	return readl_relaxed(priv->core + tmp);
  }
  
- static inline void rdma_writel(struct bcm_sysport_priv *priv, u32 val, u32 off)
+ static inline void core_writel(struct bcm_sf2_priv *priv, u32 val, u32 off)
  {
- 	if (priv->is_lite && off >= RDMA_STATUS)
- 		off += 4;
--	__raw_writel(val, priv->base + SYS_PORT_RDMA_OFFSET + off);
-+	writel_relaxed(val, priv->base + SYS_PORT_RDMA_OFFSET + off);
+ 	u32 tmp = bcm_sf2_mangle_addr(priv, off);
+-	__raw_writel(val, priv->core + tmp);
++	writel_relaxed(val, priv->core + tmp);
  }
  
- static inline u32 tdma_control_bit(struct bcm_sysport_priv *priv, u32 bit)
-@@ -110,10 +110,10 @@ static inline void dma_desc_set_addr(struct bcm_sysport_priv *priv,
- 				     dma_addr_t addr)
+ static inline u32 reg_readl(struct bcm_sf2_priv *priv, u16 off)
  {
- #ifdef CONFIG_PHYS_ADDR_T_64BIT
--	__raw_writel(upper_32_bits(addr) & DESC_ADDR_HI_MASK,
-+	writel_relaxed(upper_32_bits(addr) & DESC_ADDR_HI_MASK,
- 		     d + DESC_ADDR_HI_STATUS_LEN);
- #endif
--	__raw_writel(lower_32_bits(addr), d + DESC_ADDR_LO);
-+	writel_relaxed(lower_32_bits(addr), d + DESC_ADDR_LO);
+-	return __raw_readl(priv->reg + priv->reg_offsets[off]);
++	return readl_relaxed(priv->reg + priv->reg_offsets[off]);
  }
  
- static inline void tdma_port_write_desc_addr(struct bcm_sysport_priv *priv,
+ static inline void reg_writel(struct bcm_sf2_priv *priv, u32 val, u16 off)
+ {
+-	__raw_writel(val, priv->reg + priv->reg_offsets[off]);
++	writel_relaxed(val, priv->reg + priv->reg_offsets[off]);
+ }
+ 
+ SF2_IO64_MACRO(core);
 -- 
 1.9.1
