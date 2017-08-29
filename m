@@ -1,46 +1,40 @@
-From: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
-Subject: Re: [PATCH net-next 1/3 v9] net: ether: Add support for multiplexing
- and aggregation type
-Date: Mon, 28 Aug 2017 21:00:28 -0600
-Message-ID: <c687a1727c0e93ab715ed7daf22aebb8@codeaurora.org>
-References: <1503635966-14076-1-git-send-email-subashab@codeaurora.org>
- <1503635966-14076-2-git-send-email-subashab@codeaurora.org>
- <1503958953.20027.5.camel@redhat.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: Hooking on L4 Level with process information
+Date: Mon, 28 Aug 2017 20:19:00 -0700
+Message-ID: <20170828201900.625a10ed@xeon-e3>
+References: <CAEDnJmJZ1-4DFtjmzDO1US2HCuHYDkcsa+tk8mN3CZ6vcDLbVw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
- format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-        fengguang.wu@intel.com, jiri@resnulli.us,
-        stephen@networkplumber.org, David.Laight@aculab.com,
-        marcel@holtmann.org, andrew@lunn.ch
-To: Dan Williams <dcbw@redhat.com>
+Cc: Networking <netdev@vger.kernel.org>
+To: Ravish Kumar <ravishk2004@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:37430 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751221AbdH2DA3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 23:00:29 -0400
-In-Reply-To: <1503958953.20027.5.camel@redhat.com>
+Received: from mail-pf0-f175.google.com ([209.85.192.175]:33504 "EHLO
+        mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751237AbdH2DTD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 23:19:03 -0400
+Received: by mail-pf0-f175.google.com with SMTP id r62so6663427pfj.0
+        for <netdev@vger.kernel.org>; Mon, 28 Aug 2017 20:19:03 -0700 (PDT)
+In-Reply-To: <CAEDnJmJZ1-4DFtjmzDO1US2HCuHYDkcsa+tk8mN3CZ6vcDLbVw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2017-08-28 16:22, Dan Williams wrote:
-> On Thu, 2017-08-24 at 22:39 -0600, Subash Abhinov Kasiviswanathan
-> wrote:
->> Define the multiplexing and aggregation (MAP) ether type 0x00F9. This
->> is needed for receiving data in the MAP protocol like RMNET. This is
->> not an officially registered ID.
->> 
->> Signed-off-by: Subash Abhinov Kasiviswanathan <subash
->> +#define ETH_P_MAP	0x00F9		/* Multiplex &
->> aggregation proto*/
-> 
-> Any chance you could name this QUALCOMM_MAP or something like that?  Or
-> at least update the comment to include that fact.
-> 
-> Dan
-> 
+On Tue, 29 Aug 2017 07:34:51 +0530
+Ravish Kumar <ravishk2004@gmail.com> wrote:
 
-Hi Dan
+> Hi,
+> 
+> I want to hook tcp/udp packets on L4 Layer and based on process
+> information , content want to deny or allow packets.
+> 
+> Netfilter provides pre/post Routing hooks but not sure that will be
+> right place so thought of asking whether my approach is right.
+> Also how i can get process information whether this packet is send by
+> this process.
+> 
+> Thoughts /source code reference would be appreciated.
+> 
+> Regards,
+> Ravish
 
-Sure, I can add a comment for it.
+There is not a 1:1 relationship between sockets/files and processes.
