@@ -1,125 +1,134 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: [PATCH net] sch_hhf: fix null pointer dereference on init failure
-Date: Tue, 29 Aug 2017 22:02:15 +0300
-Message-ID: <1504033335-19098-1-git-send-email-nikolay@cumulusnetworks.com>
-Cc: edumazet@google.com, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
-        jiri@resnulli.us, roopa@cumulusnetworks.com,
-        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-To: netdev@vger.kernel.org
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: XDP redirect measurements, gotchas and tracepoints
+Date: Tue, 29 Aug 2017 15:02:53 -0400
+Message-ID: <20170829190253.GA77682@C02RW35GFVH8.dhcp.broadcom.net>
+References: <CACKFLinJ0N7b8Xhq4ZoHdB80uXp_MU_vVyzZa7Dq11XrXsvDbw@mail.gmail.com>
+ <20170823102937.79a9c4ed@redhat.com>
+ <CACKFLinGuaDLxYRd=vC99DL5n0mf0rDbPRaDg4ctev=DEAhRSQ@mail.gmail.com>
+ <20170825144513.1ee9fbb1@redhat.com>
+ <59A03DF5.7070806@gmail.com>
+ <CACKFLin-sZEkkCxE2iZRHjgG=K36OJ65B-xrEYVCCSQqhYsH-g@mail.gmail.com>
+ <20170828160237.GA70910@C02RW35GFVH8.dhcp.broadcom.net>
+ <CAKgT0UeZ5Wn+8qY8kbBef5weORwGAXjq6Qp7jtB1bscmjY_oYw@mail.gmail.com>
+ <20170829152601.02fdb8a3@redhat.com>
+ <CAKgT0Uebz0dX9wotygOo59UTKt-bQ29Oyd6=MkJYE0a+y2dR2A@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+        Michael Chan <michael.chan@broadcom.com>,
+        John Fastabend <john.fastabend@gmail.com>,
+        "Duyck, Alexander H" <alexander.h.duyck@intel.com>,
+        "pstaszewski@itcare.pl" <pstaszewski@itcare.pl>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "xdp-newbies@vger.kernel.org" <xdp-newbies@vger.kernel.org>,
+        "borkmann@iogearbox.net" <borkmann@iogearbox.net>
+To: Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f51.google.com ([74.125.82.51]:35233 "EHLO
-        mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751415AbdH2TCW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 15:02:22 -0400
-Received: by mail-wm0-f51.google.com with SMTP id a80so3016113wma.0
-        for <netdev@vger.kernel.org>; Tue, 29 Aug 2017 12:02:22 -0700 (PDT)
+Received: from mail-qt0-f181.google.com ([209.85.216.181]:37964 "EHLO
+        mail-qt0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751690AbdH2TDA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 15:03:00 -0400
+Received: by mail-qt0-f181.google.com with SMTP id w42so18709545qtg.5
+        for <netdev@vger.kernel.org>; Tue, 29 Aug 2017 12:03:00 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAKgT0Uebz0dX9wotygOo59UTKt-bQ29Oyd6=MkJYE0a+y2dR2A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If sch_hhf fails in its ->init() function (either due to wrong
-user-space arguments as below or memory alloc failure of hh_flows) it
-will do a null pointer deref of q->hh_flows in its ->destroy() function.
+On Tue, Aug 29, 2017 at 09:23:49AM -0700, Alexander Duyck wrote:
+> On Tue, Aug 29, 2017 at 6:26 AM, Jesper Dangaard Brouer
+> <brouer@redhat.com> wrote:
+> >
+> > On Mon, 28 Aug 2017 09:11:25 -0700 Alexander Duyck <alexander.duyck@gmail.com> wrote:
+> >
+> >> My advice would be to not over complicate this. My big concern with
+> >> all this buffer recycling is what happens the first time somebody
+> >> introduces something like mirroring? Are you going to copy the data to
+> >> a new page which would be quite expensive or just have to introduce
+> >> reference counts? You are going to have to deal with stuff like
+> >> reference counts eventually so you might as well bite that bullet now.
+> >> My advice would be to not bother with optimizing for performance right
+> >> now and instead focus on just getting functionality. The approach we
+> >> took in ixgbe for the transmit path should work for almost any other
+> >> driver since all you are looking at is having to free the page
+> >> reference which takes care of reference counting already.
+> >
+> > This return API is not about optimizing performance right now.  It is
+> > actually about allowing us to change the underlying memory model per RX
+> > queue for XDP.
+> 
+>  I would disagree. To me this is a obvious case of premature optimization.
+> 
 
-To reproduce the crash:
-$ tc qdisc add dev eth0 root hhf quantum 2000000 non_hh_weight 10000000
+I'm with Jesper on this.  Though it may seem to you that this is an
+optimization that is not a goal.
 
-Crash log:
-[  690.654882] BUG: unable to handle kernel NULL pointer dereference at (null)
-[  690.655565] IP: hhf_destroy+0x48/0xbc
-[  690.655944] PGD 37345067
-[  690.655948] P4D 37345067
-[  690.656252] PUD 58402067
-[  690.656554] PMD 0
-[  690.656857]
-[  690.657362] Oops: 0000 [#1] SMP
-[  690.657696] Modules linked in:
-[  690.658032] CPU: 3 PID: 920 Comm: tc Not tainted 4.13.0-rc6+ #57
-[  690.658525] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS 1.7.5-20140531_083030-gandalf 04/01/2014
-[  690.659255] task: ffff880058578000 task.stack: ffff88005acbc000
-[  690.659747] RIP: 0010:hhf_destroy+0x48/0xbc
-[  690.660146] RSP: 0018:ffff88005acbf9e0 EFLAGS: 00010246
-[  690.660601] RAX: 0000000000000000 RBX: 0000000000000020 RCX: 0000000000000000
-[  690.661155] RDX: 0000000000000000 RSI: 0000000000000001 RDI: ffffffff821f63f0
-[  690.661710] RBP: ffff88005acbfa08 R08: ffffffff81b10a90 R09: 0000000000000000
-[  690.662267] R10: 00000000f42b7019 R11: ffff880058578000 R12: 00000000ffffffea
-[  690.662820] R13: ffff8800372f6400 R14: 0000000000000000 R15: 0000000000000000
-[  690.663769] FS:  00007f8ae5e8b740(0000) GS:ffff88005d980000(0000) knlGS:0000000000000000
-[  690.667069] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-[  690.667965] CR2: 0000000000000000 CR3: 0000000058523000 CR4: 00000000000406e0
-[  690.668918] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-[  690.669945] DR3: 0000000000000000 DR6: 00000000fffe0ff0 DR7: 0000000000000400
-[  690.671003] Call Trace:
-[  690.671743]  qdisc_create+0x377/0x3fd
-[  690.672534]  tc_modify_qdisc+0x4d2/0x4fd
-[  690.673324]  rtnetlink_rcv_msg+0x188/0x197
-[  690.674204]  ? rcu_read_unlock+0x3e/0x5f
-[  690.675091]  ? rtnl_newlink+0x729/0x729
-[  690.675877]  netlink_rcv_skb+0x6c/0xce
-[  690.676648]  rtnetlink_rcv+0x23/0x2a
-[  690.677405]  netlink_unicast+0x103/0x181
-[  690.678179]  netlink_sendmsg+0x326/0x337
-[  690.678958]  sock_sendmsg_nosec+0x14/0x3f
-[  690.679743]  sock_sendmsg+0x29/0x2e
-[  690.680506]  ___sys_sendmsg+0x209/0x28b
-[  690.681283]  ? __handle_mm_fault+0xc7d/0xdb1
-[  690.681915]  ? check_chain_key+0xb0/0xfd
-[  690.682449]  __sys_sendmsg+0x45/0x63
-[  690.682954]  ? __sys_sendmsg+0x45/0x63
-[  690.683471]  SyS_sendmsg+0x19/0x1b
-[  690.683974]  entry_SYSCALL_64_fastpath+0x23/0xc2
-[  690.684516] RIP: 0033:0x7f8ae529d690
-[  690.685016] RSP: 002b:00007fff26d2d6b8 EFLAGS: 00000246 ORIG_RAX: 000000000000002e
-[  690.685931] RAX: ffffffffffffffda RBX: ffffffff810d278c RCX: 00007f8ae529d690
-[  690.686573] RDX: 0000000000000000 RSI: 00007fff26d2d700 RDI: 0000000000000003
-[  690.687047] RBP: ffff88005acbff98 R08: 0000000000000001 R09: 0000000000000000
-[  690.687519] R10: 00007fff26d2d480 R11: 0000000000000246 R12: 0000000000000002
-[  690.687996] R13: 0000000001258070 R14: 0000000000000001 R15: 0000000000000000
-[  690.688475]  ? trace_hardirqs_off_caller+0xa7/0xcf
-[  690.688887] Code: 00 00 e8 2a 02 ae ff 49 8b bc 1d 60 02 00 00 48 83
-c3 08 e8 19 02 ae ff 48 83 fb 20 75 dc 45 31 f6 4d 89 f7 4d 03 bd 20 02
-00 00 <49> 8b 07 49 39 c7 75 24 49 83 c6 10 49 81 fe 00 40 00 00 75 e1
-[  690.690200] RIP: hhf_destroy+0x48/0xbc RSP: ffff88005acbf9e0
-[  690.690636] CR2: 0000000000000000
+> > If a RX-ring is use for both SKBs and XDP, then the refcnt model is
+> > still enforced.  Although a driver using the 1-packet-per-page model,
+> > should be able to reuse refcnt==1 pages when returned from XDP.
+> 
+> Isn't this the case for all Rx on XDP enabled rings. Last I knew there
+> was an option to pass packets up via an SKB if XDP_PASS is returned.
+> Are you saying we need to do a special allocation path if an XDP
+> program doesn't make use of XDP_PASS?
 
-Fixes: 87b60cfacf9f ("net_sched: fix error recovery at qdisc creation")
-Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
----
-First I did it with the check in the for () conditional, but this is more
-visible and explicit. Let me know if you'd like the shorter version. :-)
+I am not proposing that a special allocation path is needed depending on the
+return code from the XDP program.  I'm proposing that in a case where
+the return code is XDP_REDIRECT (or really anytime the ndo_xdp_xmit
+operation is called), that there should be:
 
- net/sched/sch_hhf.c | 20 +++++++++++---------
- 1 file changed, 11 insertions(+), 9 deletions(-)
+(1) notification back to the driver/resource/etc that allocated the page
+that resources are no longer in use.
 
-diff --git a/net/sched/sch_hhf.c b/net/sched/sch_hhf.c
-index 51d3ba682af9..931c6cc23ac2 100644
---- a/net/sched/sch_hhf.c
-+++ b/net/sched/sch_hhf.c
-@@ -477,15 +477,17 @@ static void hhf_destroy(struct Qdisc *sch)
- 		kvfree(q->hhf_valid_bits[i]);
- 	}
- 
--	for (i = 0; i < HH_FLOWS_CNT; i++) {
--		struct hh_flow_state *flow, *next;
--		struct list_head *head = &q->hh_flows[i];
--
--		if (list_empty(head))
--			continue;
--		list_for_each_entry_safe(flow, next, head, flowchain) {
--			list_del(&flow->flowchain);
--			kfree(flow);
-+	if (q->hh_flows) {
-+		for (i = 0; i < HH_FLOWS_CNT; i++) {
-+			struct hh_flow_state *flow, *next;
-+			struct list_head *head = &q->hh_flows[i];
-+
-+			if (list_empty(head))
-+				continue;
-+			list_for_each_entry_safe(flow, next, head, flowchain) {
-+				list_del(&flow->flowchain);
-+				kfree(flow);
-+			}
- 		}
- 	}
- 	kvfree(q->hh_flows);
--- 
-2.1.4
+or 
+
+(2) common alloc/free framework used by drivers that operate on
+xdp->data so that framework takes care of refcounting, etc.
+
+My preference is (1) since it provides drivers the most flexibility in
+the event that some hardware resource (rx ring buffer pointer) or
+software resource (page or other chunk of memory) can be freed.
+
+> > If a RX-ring is _ONLY_ used for XDP, then the driver have freedom to
+> > implement another memory model, with the return-API.  We need to
+> > experiment with the most optimal memory model.  The 1-packet-per-page
+> > model is actually not the fastest, because of PCI-e bottlenecks.  With
+> > HW support for packing descriptors and packets over the PCI-e bus, much
+> > higher rates can be achieved.  Mellanox mlx5-Lx already have the needed HW
+> > support.  And companies like NetCope also have 100G HW that does
+> > similar tricks, and they even have a whitepaper[1][2] how they are
+> > faster than DPDK with their NDP (Netcope Data Plane) API.
+> >
+> > We do need the ability/flexibility to change the RX memory model, to
+> > take advantage of this new NIC hardware.
+> 
+> Looking over the white paper I see nothing that prevents us from using
+> the same memory model we do with the Intel NICs. If anything I think
+> the Intel drivers in "legacy-rx" mode could support something like
+> this now, even if the hardware doesn't simply because we can get away
+> with keeping the memory pseudo-pinned. My bigger concern is that we
+> keep coming back to this idea that we need to have the network stack
+> taking care of the 1 page per packet recycling when I really think it
+> has no business being there. We either need to look at implementing
+> this in the way we did in the Intel drivers where we use the reference
+> counts or implement our own memory handling API like SLUB or something
+> similar based on compound page destructors. I would much rather see us
+> focus on getting this going with an agnostic memory model where we
+> don't have to make the stack aware of where the memory came from or
+> where it has to be returned to.
+> 
+> > [1] https://www.netcope.com/en/resources/improving-dpdk-performance
+> > [2] https://www.netcope.com/en/company/press-center/press-releases/read-new-netcope-whitepaper-on-dpdk-acceleration
+> 
+> My only concern with something like this is the fact that it is
+> optimized for a setup where the data is left in place and nothing
+> extra is added. Trying to work with something like this gets more
+> expensive when you have to deal with the full stack as you have to
+> copy out the headers and still deal with all the skb metadata. I fully
+> agree with the basic premise that writing in large blocks provides
+> significant gains in throughput, specifically with small packets. The
+> only gotcha you would have to deal with is SKB allocation and data
+> copying overhead to make room and fill in metadata for the frame and
+> any extra headers needed.
+> 
+> - Alex
