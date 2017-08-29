@@ -1,109 +1,93 @@
-From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Subject: Re: [PATCH v4 4/5] net: stmmac: dwmac-sun8i: choose internal PHY via
- phy-is-integrated
-Date: Tue, 29 Aug 2017 10:34:32 +0200
-Message-ID: <20170829083432.GA28818@Red>
-References: <20170826073311.25612-1-clabbe.montjoie@gmail.com>
- <20170826073311.25612-5-clabbe.montjoie@gmail.com>
- <20170826212051.GA10418@lunn.ch>
+From: Sebastian Reichel <sebastian.reichel@collabora.co.uk>
+Subject: Re: [PATCH 6/6] power: supply: make device_attribute const
+Date: Tue, 29 Aug 2017 10:44:21 +0200
+Message-ID: <20170829084421.4nm3uoswlx2ftc5m@earth>
+References: <1503315792-14837-1-git-send-email-bhumirks@gmail.com>
+ <1503315792-14837-7-git-send-email-bhumirks@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: robh+dt@kernel.org, mark.rutland@arm.com,
-        maxime.ripard@free-electrons.com, wens@csie.org,
-        linux@armlinux.org.uk, peppe.cavallaro@st.com,
-        alexandre.torgue@st.com, f.fainelli@gmail.com, icenowy@aosc.io,
-        netdev@vger.kernel.org, devicetree@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha512;
+        protocol="application/pgp-signature"; boundary="iboistu4ap57qf3f"
+Cc: julia.lawall@lip6.fr, rjw@rjwysocki.net, lenb@kernel.org,
+        jbacik@fb.com, jikos@kernel.org, benjamin.tissoires@redhat.com,
+        manish.chopra@cavium.com, rahul.verma@cavium.com,
+        Dept-GELinuxNICDev@cavium.com, harish.patil@cavium.com,
+        cascardo@holoscopio.com, don@syst.com.br, dvhart@infradead.org,
+        andy@infradead.org, linux-acpi@vger.kernel.org,
+        linux-kernel@vger.kernel.org, linux-block@vger.kernel.org,
+        nbd-general@lists.sourceforge.net, linux-input@vger.kernel.org,
+        netdev@vger.kernel.org, platform-driver-x86@vger.kernel.org,
+        linux-pm@vger.kernel.org
+To: Bhumika Goyal <bhumirks@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bhuna.collabora.co.uk ([46.235.227.227]:55829 "EHLO
+        bhuna.collabora.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751499AbdH2Io0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 04:44:26 -0400
 Content-Disposition: inline
-In-Reply-To: <20170826212051.GA10418@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1503315792-14837-7-git-send-email-bhumirks@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Aug 26, 2017 at 11:20:51PM +0200, Andrew Lunn wrote:
-> Hi Corentin
-> 
-> I think we have now all agreed this is an mdio-mux, plus it is also an
-> MII mux. We should represent that in device tree. This patchset does
-> this. However, as it is now, the mux structure in DT is ignored. All
-> it does is search for the phy-is-integrated flags and goes on that.
-> 
-> I made the comment that the device tree representation cannot be
-> implemented using an MDIO mux driver, because of driver loading
-> issues.  However, the core of the MDIO mux code is just a library,
-> symbols exported as GPL, free for anything to use.
-> 
-> What i think should happen is the mdio-mux is implemented inside the
-> MAC driver, using the mux-core as a library. The device tree structure
-> of a mix is then reflected within Linux. The mux switch callback is
-> implemented within the MAC driver. So it can reset the MAC when the
-> mux is switched. The 'phy-is-integrated' property is then no longer
-> needed.
 
-It is stilll needed because some settings (allwinner,leds-active-low for example) are only for integrated phy.
+--iboistu4ap57qf3f
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> 
-> I would suggest a binding something like:
-> 
-> emac: ethernet@1c0b000 {
->         compatible = "allwinner,sun8i-h3-emac";
->         syscon = <&syscon>;
->         reg = <0x01c0b000 0x104>;
->         interrupts = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>;
->         interrupt-names = "macirq";
->         resets = <&ccu RST_BUS_EMAC>;
->         reset-names = "stmmaceth";
->         clocks = <&ccu CLK_BUS_EMAC>;
->         clock-names = "stmmaceth";
->         #address-cells = <1>;
->         #size-cells = <0>;
-> 
->         phy-handle = <&int_mii_phy>;
->         phy-mode = "mii";
->         allwinner,leds-active-low;
-> 
->         mdio: mdio {
->                 #address-cells = <1>;
->                 #size-cells = <0>;
-> 	}
-> 
-> 	mdio-mux {
->                 #address-cells = <1>;
->                 #size-cells = <0>;
-> 
-> 		mdio@0 {
-> 			reg = <0>;
->                         #address-cells = <1>;
->                         #size-cells = <0>;
-> 
->                         int_mii_phy: ethernet-phy@1 {
->                                 reg = <1>;
->                                 clocks = <&ccu CLK_BUS_EPHY>;
->                                 resets = <&ccu RST_BUS_EPHY>;
->                         };
->                 };
->                 ext_mdio: mdio@0 {
->                         #address-cells = <1>;
->                         #size-cells = <0>;
-> 
->                         ext_rgmii_phy: ethernet-phy@1 {
->                                 reg = <1>;
->                         };
->                 };
->        };
-> };
-> 
+Hi,
 
-I am trying to do that but I get:
-dwmac-sun8i 1c30000.ethernet: Error: Failed to find reg for child /soc/ethernet@1c30000/mdio
-dwmac-sun8i 1c30000.ethernet: Error: Failed to find reg for child /soc/ethernet@1c30000/mdio-mux
-dwmac-sun8i 1c30000.ethernet: Error: No acceptable child buses found
+On Mon, Aug 21, 2017 at 05:13:12PM +0530, Bhumika Goyal wrote:
+> Make these const as they are only passed as an argument to the
+> function device_create_file and device_remove_file and the corresponding
+> arguments are of type const.
+> Done using Coccinelle.
+>=20
+> Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
+> ---
 
-So it seems that mdio_mux_init() must be run on mdio-mux and not on emac node.
-But in the current state it cannot be done.
+Thanks, queued.
 
-Do you agree that another mdio_mux_init() must be written ? (taking a of_node (in our case: mdio-mux) instead of a device)
-Or do I miss something ?
+-- Sebastian
 
-Regards
+>  drivers/power/supply/olpc_battery.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>=20
+> diff --git a/drivers/power/supply/olpc_battery.c b/drivers/power/supply/o=
+lpc_battery.c
+> index fc20ca3..3bc2eea 100644
+> --- a/drivers/power/supply/olpc_battery.c
+> +++ b/drivers/power/supply/olpc_battery.c
+> @@ -559,7 +559,7 @@ static ssize_t olpc_bat_error_read(struct device *dev,
+>  	return sprintf(buf, "%d\n", ec_byte);
+>  }
+> =20
+> -static struct device_attribute olpc_bat_error =3D {
+> +static const struct device_attribute olpc_bat_error =3D {
+>  	.attr =3D {
+>  		.name =3D "error",
+>  		.mode =3D S_IRUGO,
+> --=20
+> 1.9.1
+>=20
+
+--iboistu4ap57qf3f
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAABCgAdFiEE72YNB0Y/i3JqeVQT2O7X88g7+poFAlmlKWUACgkQ2O7X88g7
++pojrA//WxkyTMch/7SoNoIGVqwKBdT4Xv7H5s/rB2lDnXCBsBlvFDm2vskHQJjQ
+RAoHXz6vAsaYLdbG5pcgvOy4sV4jir2syPPv+GNoXAIuBkP5cx1jXJ1ZN81pWB65
+BDhCe9i27V+HUm7iNqbkXDxILcpPoQki+skr9EvDgku2sgb3XIi9/zK+Gr42THct
+APqsXxFSjDckjlZGJoyb7uS9Uo3SfP58rNaCf5jMHZ1s5IWwuvb9rEb3v6wKAcT9
+uN2/hWOr2EAvS7dCcSOMn/fpWUqx5sf2U+Gm3ki+wU71JpKEvUnpoWNiiOQ1HZ3m
+u3plo2L107xl9JYlJvxMG8dri3nyFTf9hypAqa1vtKI0oRnS10o6CiKtXSzcDHaP
+Yyto1hwy1+1gq9mUrcy3Y754/h/Rtblz3uN7Mnlg9ZHgAYm4sq+z36hVwCvDNRIi
+QspbkoBT0sYILb00j2mqiWDT5iGfGUAN1ybexqE996M3g8Ghja8BioOjO23SoxD/
+SZfWT/Mbz+fkF9ZgyH2dMEWXKPXZoUrhuZGEUzWBU8BPRCoTQEY/zIJyK+Ojguxj
+54GGUP5qq4kmUPZTj2BDzq1F03IgoFnuA7w3TqcKME920VCB/sdnfBV4wXmE4ccB
+TNpI7Ow0/V8ZPXcFxny2GdyBSDjDJbRTQ+3tsQDzhVzx3kzDs5k=
+=hkX3
+-----END PGP SIGNATURE-----
+
+--iboistu4ap57qf3f--
