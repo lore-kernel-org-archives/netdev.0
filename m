@@ -1,51 +1,48 @@
-From: Kishon Vijay Abraham I <kishon@ti.com>
-Subject: Re: [PATCH net-next v3 01/13] phy: add sgmii and 10gkr modes to the
- phy_mode enum
-Date: Tue, 29 Aug 2017 16:08:29 +0530
-Message-ID: <4c66e79f-d385-3cf5-6f24-2a4aec9fb3b4@ti.com>
-References: <20170828145725.2539-1-antoine.tenart@free-electrons.com>
- <20170828145725.2539-2-antoine.tenart@free-electrons.com>
+From: Akshat Kakkar <akshat.1984@gmail.com>
+Subject: nflog performance ...
+Date: Tue, 29 Aug 2017 16:11:52 +0530
+Message-ID: <CAA5aLPj=znm_RDVgPGzZj6VixPdWVMCEVco7yxoa4gL0On+pyg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <thomas.petazzoni@free-electrons.com>, <nadavh@marvell.com>,
-        <linux@armlinux.org.uk>, <linux-kernel@vger.kernel.org>,
-        <mw@semihalf.com>, <stefanc@marvell.com>,
-        <miquel.raynal@free-electrons.com>, <netdev@vger.kernel.org>
-To: Antoine Tenart <antoine.tenart@free-electrons.com>,
-        <davem@davemloft.net>, <andrew@lunn.ch>, <jason@lakedaemon.net>,
-        <sebastian.hesselbarth@gmail.com>,
-        <gregory.clement@free-electrons.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170828145725.2539-2-antoine.tenart@free-electrons.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f182.google.com ([209.85.192.182]:35399 "EHLO
+        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751243AbdH2Klx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 06:41:53 -0400
+Received: by mail-pf0-f182.google.com with SMTP id g13so9227833pfm.2
+        for <netdev@vger.kernel.org>; Tue, 29 Aug 2017 03:41:53 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+I am using ulogd2 to log iptables activity.
+However, when using pgsql as output plugin ... performance is very
+very sluggish. (~130-150 entries per second)
+
+To enhance performance I am trying
+
+modprobe ipt_ULOG nlbufsiz=65535 flushtimeout=1000
+
+but this gives error : ipt_ULOG module not found.
 
 
+On the same lines, I tried
 
-On Monday 28 August 2017 08:27 PM, Antoine Tenart wrote:
-> This patch adds more generic PHY modes to the phy_mode enum, to
-> allow configuring generic PHYs to the SGMII and/or the 10GKR mode
-> by using the set_mode callback.
-> 
-> Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
+modprobe ipt_NFLOG nlbufsiz=65535 flushtimeout=1000
+It didnt give any error !!!
 
-Acked-by: Kishon Vijay Abraham I <kishon@ti.com>
-> ---
->  include/linux/phy/phy.h | 2 ++
->  1 file changed, 2 insertions(+)
-> 
-> diff --git a/include/linux/phy/phy.h b/include/linux/phy/phy.h
-> index 78bb0d7f6b11..e694d4008c4a 100644
-> --- a/include/linux/phy/phy.h
-> +++ b/include/linux/phy/phy.h
-> @@ -27,6 +27,8 @@ enum phy_mode {
->  	PHY_MODE_USB_HOST,
->  	PHY_MODE_USB_DEVICE,
->  	PHY_MODE_USB_OTG,
-> +	PHY_MODE_SGMII,
-> +	PHY_MODE_10GKR,
->  };
->  
->  /**
-> 
+But still there is no increase in performance.
+Are these values effective?
+
+I am also using  --nflog-threshold 50 in iptables rule.
+
+I am setting buffer_size as
+netlink_socket_buffer_size=104857600
+netlink_socket_buffer_maxsize=1048576000
+
+When running ulog, it gives message of setting buffer size as
+21708600. Though it didnt give any message like
+"ulogd_inppkt_NFLOG.c:443 We are losing events, increasing buffer size
+to xxxxxx"
+but again why it is only setting buffer size as 21708600 though I have
+set in config as 104857600?
