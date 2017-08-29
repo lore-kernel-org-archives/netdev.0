@@ -1,41 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RESEND PATCH] Allow passing tid or pid in SCM_CREDENTIALS
- without CAP_SYS_ADMIN
-Date: Tue, 29 Aug 2017 16:02:32 -0700 (PDT)
-Message-ID: <20170829.160232.1901318933754673000.davem@davemloft.net>
-References: <1503965540-30393-1-git-send-email-prakash.sangappa@oracle.com>
+Subject: Re: [PATCH ] net: frag: print frag_mem_limit value in sockstat
+ proc file
+Date: Tue, 29 Aug 2017 16:04:01 -0700 (PDT)
+Message-ID: <20170829.160401.1682245884573191819.davem@davemloft.net>
+References: <1504011934-17308-1-git-send-email-liujian56@huawei.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        ebiederm@xmission.com, drepper@redhat.com
-To: prakash.sangappa@oracle.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1503965540-30393-1-git-send-email-prakash.sangappa@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: kuznet@ms2.inr.ac.ru, yoshfuji@linux-ipv6.org, brouer@redhat.com,
+        fw@strlen.de, netdev@vger.kernel.org
+To: liujian56@huawei.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:41014 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751318AbdH2XEB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 19:04:01 -0400
+In-Reply-To: <1504011934-17308-1-git-send-email-liujian56@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Prakash Sangappa <prakash.sangappa@oracle.com>
-Date: Mon, 28 Aug 2017 17:12:20 -0700
+From: <liujian56@huawei.com>
+Date: Tue, 29 Aug 2017 21:05:34 +0800
 
-> Currently passing tid(gettid(2)) of a thread in struct ucred in
-> SCM_CREDENTIALS message requires CAP_SYS_ADMIN capability otherwise
-> it fails with EPERM error. Some applications deal with thread id
-> of a thread(tid) and so it would help to allow tid in SCM_CREDENTIALS
-> message. Basically, either tgid(pid of the process) or the tid of
-> the thread should be allowed without the need for CAP_SYS_ADMIN capability.
+> From: liujian <liujian56@huawei.com>
 > 
-> SCM_CREDENTIALS will be used to determine the global id of a process or
-> a thread running inside a pid namespace.
+> From 6d7b857d5( net: use lib/percpu_counter API for fragmentation mem
+> accounting),
+> frag_mem_limit and sum_frag_mem_limit have different value if there are
+> multiple NIC RX CPU.
+> Print frag_mem_limit value, then we can get more debug info.
 > 
-> This patch adds necessary check to accept tid in SCM_CREDENTIALS
-> struct ucred.
-> 
-> Signed-off-by: Prakash Sangappa <prakash.sangappa@oracle.com>
+> Signed-off-by: liujian <liujian56@huawei.com>
 
-I'm pretty sure that by the descriptions in previous changes to this
-function, what you are proposing is basically a minor form of PID
-spoofing which we only want someone with CAP_SYS_ADMIN over the
-PID namespace to be able to do.
+Sorry, I don't think it is justified to change the deprecated procfs
+output just for this.
 
-Sorry, I'm not applying this.
+Use tracepoints and other similar facilities to debug situations
+like this if you like.
