@@ -1,44 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] neigh: increase queue_len_bytes to match
- wmem_default
-Date: Tue, 29 Aug 2017 16:11:05 -0700 (PDT)
-Message-ID: <20170829.161105.2284035808066192697.davem@davemloft.net>
-References: <353aa37f-c62b-f5af-8c89-f67af6509497@gmail.com>
-        <1504029689.11498.79.camel@edumazet-glaptop3.roam.corp.google.com>
-        <1504044961.11498.100.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH net] sch_htb: fix crash on init failure
+Date: Wed, 30 Aug 2017 02:11:37 +0300
+Message-ID: <1cd84fde-0a5e-2ac4-9daf-6daf035c3840@cumulusnetworks.com>
+References: <1504029487-7085-1-git-send-email-nikolay@cumulusnetworks.com>
+ <20170829.160625.1623439754611810483.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, edumazet@google.com, jhs@mojatatu.com,
+        xiyou.wangcong@gmail.com, jiri@resnulli.us,
+        roopa@cumulusnetworks.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:41156 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751275AbdH2XLG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 19:11:06 -0400
-In-Reply-To: <1504044961.11498.100.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-wr0-f176.google.com ([209.85.128.176]:37118 "EHLO
+        mail-wr0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751684AbdH2XLl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 19:11:41 -0400
+Received: by mail-wr0-f176.google.com with SMTP id k9so1841652wre.4
+        for <netdev@vger.kernel.org>; Tue, 29 Aug 2017 16:11:41 -0700 (PDT)
+In-Reply-To: <20170829.160625.1623439754611810483.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 29 Aug 2017 15:16:01 -0700
+On 30.08.2017 02:06, David Miller wrote:
+> 
+> I expect that you will resubmit all of these similar fixes as a patch
+> series after you have sorted everything out.
+> 
+> Correct?
+> 
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Florian reported UDP xmit drops that could be root caused to the
-> too small neigh limit.
-> 
-> Current limit is 64 KB, meaning that even a single UDP socket would hit
-> it, since its default sk_sndbuf comes from net.core.wmem_default
-> (~212992 bytes on 64bit arches).
-> 
-> Once ARP/ND resolution is in progress, we should allow a little more
-> packets to be queued, at least for one producer.
-> 
-> Once neigh arp_queue is filled, a rogue socket should hit its sk_sndbuf
-> limit and either block in sendmsg() or return -EAGAIN.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Reported-by: Florian Fainelli <f.fainelli@gmail.com>
-
-Applied, thanks for following up on this.
+Yes, I will. There are a few more places that need fixing, I'll resubmit
+them all as a set.
