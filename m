@@ -1,184 +1,60 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: UDP sockets oddities
-Date: Tue, 29 Aug 2017 10:53:27 -0700
-Message-ID: <353aa37f-c62b-f5af-8c89-f67af6509497@gmail.com>
-References: <1503712322.11498.12.camel@edumazet-glaptop3.roam.corp.google.com>
- <354e6c3a-1771-e8a7-24dd-1b70266563af@gmail.com>
- <1503718844.11498.19.camel@edumazet-glaptop3.roam.corp.google.com>
- <20170825.211905.920493778125075310.davem@davemloft.net>
- <1503751671.11498.25.camel@edumazet-glaptop3.roam.corp.google.com>
- <deb227c9-728a-bd98-f282-1478d71353a8@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] ipv6: do not set sk_destruct in IPV6_ADDRFORM
+ sockopt
+Date: Tue, 29 Aug 2017 10:56:21 -0700 (PDT)
+Message-ID: <20170829.105621.32987354601416287.davem@davemloft.net>
+References: <4cfe77b4a829c0d6134b842fe2ea7c41b6b210ff.1503888301.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, pabeni@redhat.com, willemb@google.com
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-        David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, pabeni@redhat.com, chunwang@redhat.com,
+        syzkaller@googlegroups.com
+To: lucien.xin@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f196.google.com ([209.85.220.196]:36796 "EHLO
-        mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750822AbdH2Rxd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 13:53:33 -0400
-Received: by mail-qk0-f196.google.com with SMTP id l65so3465066qkc.3
-        for <netdev@vger.kernel.org>; Tue, 29 Aug 2017 10:53:32 -0700 (PDT)
-In-Reply-To: <deb227c9-728a-bd98-f282-1478d71353a8@gmail.com>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([184.105.139.130]:36290 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750822AbdH2R4W (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 13:56:22 -0400
+In-Reply-To: <4cfe77b4a829c0d6134b842fe2ea7c41b6b210ff.1503888301.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/26/2017 11:56 AM, Florian Fainelli wrote:
-> 
-> 
-> On 08/26/2017 05:47 AM, Eric Dumazet wrote:
->> On Fri, 2017-08-25 at 21:19 -0700, David Miller wrote:
->>
->>> Agreed, but the ARP resolution queue really needs to scale it's backlog
->>> to the physical technology it is attached to.
->> Yes, last time (in 2011) we increased the old limit of 3 packets :/
->>
->> We probably should match sysctl_wmem_max so that a single socket
->> provider would hit its sk_sndbuf limit
+From: Xin Long <lucien.xin@gmail.com>
+Date: Mon, 28 Aug 2017 10:45:01 +0800
 
-Eric, do you want to post this as a formal patch? I don't think I
-understand these tunables enough to provide a good commit message
-anyways. Thanks!
+> ChunYu found a kernel warn_on during syzkaller fuzzing:
+> 
+> [40226.038539] WARNING: CPU: 5 PID: 23720 at net/ipv4/af_inet.c:152 inet_sock_destruct+0x78d/0x9a0
+> [40226.144849] Call Trace:
+> [40226.147590]  <IRQ>
+> [40226.149859]  dump_stack+0xe2/0x186
+> [40226.176546]  __warn+0x1a4/0x1e0
+> [40226.180066]  warn_slowpath_null+0x31/0x40
+> [40226.184555]  inet_sock_destruct+0x78d/0x9a0
+> [40226.246355]  __sk_destruct+0xfa/0x8c0
+> [40226.290612]  rcu_process_callbacks+0xaa0/0x18a0
+> [40226.336816]  __do_softirq+0x241/0x75e
+> [40226.367758]  irq_exit+0x1f6/0x220
+> [40226.371458]  smp_apic_timer_interrupt+0x7b/0xa0
+> [40226.376507]  apic_timer_interrupt+0x93/0xa0
+> 
+> The warn_on happned when sk->sk_rmem_alloc wasn't 0 in inet_sock_destruct.
+> As after commit f970bd9e3a06 ("udp: implement memory accounting helpers"),
+> udp has changed to use udp_destruct_sock as sk_destruct where it would
+> udp_rmem_release all rmem.
+> 
+> But IPV6_ADDRFORM sockopt sets sk_destruct with inet_sock_destruct after
+> changing family to PF_INET. If rmem is not 0 at that time, and there is
+> no place to release rmem before calling inet_sock_destruct, the warn_on
+> will be triggered.
+> 
+> This patch is to fix it by not setting sk_destruct in IPV6_ADDRFORM sockopt
+> any more. As IPV6_ADDRFORM sockopt only works for tcp and udp. TCP sock has
+> already set it's sk_destruct with inet_sock_destruct and UDP has set with
+> udp_destruct_sock since they're created.
+> 
+> Fixes: f970bd9e3a06 ("udp: implement memory accounting helpers")
+> Reported-by: ChunYu Wang <chunwang@redhat.com>
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
 
-> 
-> Before:
-> /proc/sys/net/ipv4/neigh/eth0/unres_qlen:34
-> /proc/sys/net/ipv4/neigh/eth0/unres_qlen_bytes:65536
-> /proc/sys/net/ipv4/neigh/gphy/unres_qlen:34
-> /proc/sys/net/ipv4/neigh/gphy/unres_qlen_bytes:65536
-> 
-> After:
-> /proc/sys/net/ipv4/neigh/eth0/unres_qlen:106
-> /proc/sys/net/ipv4/neigh/eth0/unres_qlen_bytes:229376
-> /proc/sys/net/ipv4/neigh/gphy/unres_qlen:106
-> /proc/sys/net/ipv4/neigh/gphy/unres_qlen_bytes:229376
-> 
-> and this does help a lot with the test case reported over an hour, only
-> 2 packets lost:
-> 
-> # perf record -a -g -e skb:kfree_skb iperf -c 192.168.1.23 -b 900M -t
-> 3600 -u
-> ------------------------------------------------------------
-> Client connecting to 192.168.1.23, UDP port 5001
-> Sending 1470 byte datagrams, IPG target: 13.07 us (kalman adjust)
-> UDP buffer size:  224 KByte (default)
-> ------------------------------------------------------------
-> [  4] local 192.168.1.66 port 48209 connected with 192.168.1.23 port 5001
-> write failed: Invalid argument
-> [ ID] Interval       Transfer     Bandwidth
-> [  4]  0.0-404.9 sec  4.51 GBytes  95.7 Mbits/sec
-> [  4] Sent 3294727 datagrams
-> [  4] Server Report:
-> [  4]  0.0-405.1 sec  4.51 GBytes  95.6 Mbits/sec  14.979 ms
-> 2/3294728 (6.1e-05%)
-> 
-> Thanks Eric!
-> 
->>
->> Something like :
->>
->> diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
->> index 6b0bc0f715346a097a6df46e2ba2771359abcd23..7777dceb78107c0019fb39d5b69be1959005b78e 100644
->> --- a/Documentation/networking/ip-sysctl.txt
->> +++ b/Documentation/networking/ip-sysctl.txt
->> @@ -109,7 +109,8 @@ neigh/default/unres_qlen_bytes - INTEGER
->>  	queued for each	unresolved address by other network layers.
->>  	(added in linux 3.3)
->>  	Setting negative value is meaningless and will return error.
->> -	Default: 65536 Bytes(64KB)
->> +	Default: SK_WMEM_MAX, enough to store 256 packets of medium size
->> +		 (less than 256 bytes per packet)
->>  
->>  neigh/default/unres_qlen - INTEGER
->>  	The maximum number of packets which may be queued for each
->> diff --git a/include/net/sock.h b/include/net/sock.h
->> index 1c2912d433e81b10f3fdc87bcfcbb091570edc03..03a362568357acc7278a318423dd3873103f90ca 100644
->> --- a/include/net/sock.h
->> +++ b/include/net/sock.h
->> @@ -2368,6 +2368,16 @@ bool sk_net_capable(const struct sock *sk, int cap);
->>  
->>  void sk_get_meminfo(const struct sock *sk, u32 *meminfo);
->>  
->> +/* Take into consideration the size of the struct sk_buff overhead in the
->> + * determination of these values, since that is non-constant across
->> + * platforms.  This makes socket queueing behavior and performance
->> + * not depend upon such differences.
->> + */
->> +#define _SK_MEM_PACKETS		256
->> +#define _SK_MEM_OVERHEAD	SKB_TRUESIZE(256)
->> +#define SK_WMEM_MAX		(_SK_MEM_OVERHEAD * _SK_MEM_PACKETS)
->> +#define SK_RMEM_MAX		(_SK_MEM_OVERHEAD * _SK_MEM_PACKETS)
->> +
->>  extern __u32 sysctl_wmem_max;
->>  extern __u32 sysctl_rmem_max;
->>  
->> diff --git a/net/core/sock.c b/net/core/sock.c
->> index dfdd14cac775e9bfcee0085ee32ffcd0ab28b67b..9b7b6bbb2a23e7652a1f34a305f29d49de00bc8c 100644
->> --- a/net/core/sock.c
->> +++ b/net/core/sock.c
->> @@ -307,16 +307,6 @@ static struct lock_class_key af_wlock_keys[AF_MAX];
->>  static struct lock_class_key af_elock_keys[AF_MAX];
->>  static struct lock_class_key af_kern_callback_keys[AF_MAX];
->>  
->> -/* Take into consideration the size of the struct sk_buff overhead in the
->> - * determination of these values, since that is non-constant across
->> - * platforms.  This makes socket queueing behavior and performance
->> - * not depend upon such differences.
->> - */
->> -#define _SK_MEM_PACKETS		256
->> -#define _SK_MEM_OVERHEAD	SKB_TRUESIZE(256)
->> -#define SK_WMEM_MAX		(_SK_MEM_OVERHEAD * _SK_MEM_PACKETS)
->> -#define SK_RMEM_MAX		(_SK_MEM_OVERHEAD * _SK_MEM_PACKETS)
->> -
->>  /* Run time adjustable parameters. */
->>  __u32 sysctl_wmem_max __read_mostly = SK_WMEM_MAX;
->>  EXPORT_SYMBOL(sysctl_wmem_max);
->> diff --git a/net/decnet/dn_neigh.c b/net/decnet/dn_neigh.c
->> index 21dedf6fd0f76dec22b2b3685beb89cfefea7ded..22bf0b95d6edc3c27ef3a99d27cb70a1551e3e0e 100644
->> --- a/net/decnet/dn_neigh.c
->> +++ b/net/decnet/dn_neigh.c
->> @@ -94,7 +94,7 @@ struct neigh_table dn_neigh_table = {
->>  			[NEIGH_VAR_BASE_REACHABLE_TIME] = 30 * HZ,
->>  			[NEIGH_VAR_DELAY_PROBE_TIME] = 5 * HZ,
->>  			[NEIGH_VAR_GC_STALETIME] = 60 * HZ,
->> -			[NEIGH_VAR_QUEUE_LEN_BYTES] = 64*1024,
->> +			[NEIGH_VAR_QUEUE_LEN_BYTES] = SK_WMEM_MAX,
->>  			[NEIGH_VAR_PROXY_QLEN] = 0,
->>  			[NEIGH_VAR_ANYCAST_DELAY] = 0,
->>  			[NEIGH_VAR_PROXY_DELAY] = 0,
->> diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
->> index 8b52179ddc6e54eabf6d3c2ed0132083228680bb..7c45b8896709815c5dde5972fd57cb5c3bcb2648 100644
->> --- a/net/ipv4/arp.c
->> +++ b/net/ipv4/arp.c
->> @@ -171,7 +171,7 @@ struct neigh_table arp_tbl = {
->>  			[NEIGH_VAR_BASE_REACHABLE_TIME] = 30 * HZ,
->>  			[NEIGH_VAR_DELAY_PROBE_TIME] = 5 * HZ,
->>  			[NEIGH_VAR_GC_STALETIME] = 60 * HZ,
->> -			[NEIGH_VAR_QUEUE_LEN_BYTES] = 64 * 1024,
->> +			[NEIGH_VAR_QUEUE_LEN_BYTES] = SK_WMEM_MAX,
->>  			[NEIGH_VAR_PROXY_QLEN] = 64,
->>  			[NEIGH_VAR_ANYCAST_DELAY] = 1 * HZ,
->>  			[NEIGH_VAR_PROXY_DELAY]	= (8 * HZ) / 10,
->> diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
->> index 5e338eb89509b1df6ebd060f8bd19fcb4b86fe05..266a530414d7be4f1e7be922e465bbab46f7cbac 100644
->> --- a/net/ipv6/ndisc.c
->> +++ b/net/ipv6/ndisc.c
->> @@ -127,7 +127,7 @@ struct neigh_table nd_tbl = {
->>  			[NEIGH_VAR_BASE_REACHABLE_TIME] = ND_REACHABLE_TIME,
->>  			[NEIGH_VAR_DELAY_PROBE_TIME] = 5 * HZ,
->>  			[NEIGH_VAR_GC_STALETIME] = 60 * HZ,
->> -			[NEIGH_VAR_QUEUE_LEN_BYTES] = 64 * 1024,
->> +			[NEIGH_VAR_QUEUE_LEN_BYTES] = SK_WMEM_MAX,
->>  			[NEIGH_VAR_PROXY_QLEN] = 64,
->>  			[NEIGH_VAR_ANYCAST_DELAY] = 1 * HZ,
->>  			[NEIGH_VAR_PROXY_DELAY] = (8 * HZ) / 10,
->>
->>
-> 
-
-
--- 
-Florian
+Applied and queued up for -stable, thanks.
