@@ -1,121 +1,55 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: [PATCH net] sch_htb: fix crash on init failure
-Date: Tue, 29 Aug 2017 20:58:07 +0300
-Message-ID: <1504029487-7085-1-git-send-email-nikolay@cumulusnetworks.com>
-Cc: edumazet@google.com, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
-        jiri@resnulli.us, roopa@cumulusnetworks.com,
-        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: UDP sockets oddities
+Date: Tue, 29 Aug 2017 11:01:29 -0700
+Message-ID: <1504029689.11498.79.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1503712322.11498.12.camel@edumazet-glaptop3.roam.corp.google.com>
+         <354e6c3a-1771-e8a7-24dd-1b70266563af@gmail.com>
+         <1503718844.11498.19.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20170825.211905.920493778125075310.davem@davemloft.net>
+         <1503751671.11498.25.camel@edumazet-glaptop3.roam.corp.google.com>
+         <deb227c9-728a-bd98-f282-1478d71353a8@gmail.com>
+         <353aa37f-c62b-f5af-8c89-f67af6509497@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+        pabeni@redhat.com, willemb@google.com
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f48.google.com ([74.125.82.48]:37153 "EHLO
-        mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750822AbdH2R6W (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 13:58:22 -0400
-Received: by mail-wm0-f48.google.com with SMTP id u26so2499153wma.0
-        for <netdev@vger.kernel.org>; Tue, 29 Aug 2017 10:58:21 -0700 (PDT)
+Received: from mail-pf0-f174.google.com ([209.85.192.174]:35951 "EHLO
+        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750822AbdH2SBc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 14:01:32 -0400
+Received: by mail-pf0-f174.google.com with SMTP id z87so12280246pfi.3
+        for <netdev@vger.kernel.org>; Tue, 29 Aug 2017 11:01:32 -0700 (PDT)
+In-Reply-To: <353aa37f-c62b-f5af-8c89-f67af6509497@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The commit below added a call to the ->destroy() callback for all qdiscs
-which failed in their ->init(), but some were not prepared for such
-change and can't handle partially initialized qdisc. HTB is one of them
-and if any error occurs before the qdisc watchdog timer and qdisc work are
-initialized then we can hit either a null ptr deref (timer->base) when
-canceling in ->destroy or lockdep error info about trying to register
-a non-static key and a stack dump. So to fix these two move the watchdog
-timer and workqueue init before anything that can err out.
-To reproduce userspace needs to send broken htb qdisc create request,
-tested with a modified tc (q_htb.c).
+On Tue, 2017-08-29 at 10:53 -0700, Florian Fainelli wrote:
+> On 08/26/2017 11:56 AM, Florian Fainelli wrote:
+> > 
+> > 
+> > On 08/26/2017 05:47 AM, Eric Dumazet wrote:
+> >> On Fri, 2017-08-25 at 21:19 -0700, David Miller wrote:
+> >>
+> >>> Agreed, but the ARP resolution queue really needs to scale it's backlog
+> >>> to the physical technology it is attached to.
+> >> Yes, last time (in 2011) we increased the old limit of 3 packets :/
+> >>
+> >> We probably should match sysctl_wmem_max so that a single socket
+> >> provider would hit its sk_sndbuf limit
+> 
+> Eric, do you want to post this as a formal patch? I don't think I
+> understand these tunables enough to provide a good commit message
+> anyways. Thanks!
 
-Trace log:
-[ 2710.897602] BUG: unable to handle kernel NULL pointer dereference at (null)
-[ 2710.897977] IP: hrtimer_active+0x17/0x8a
-[ 2710.898174] PGD 58fab067
-[ 2710.898175] P4D 58fab067
-[ 2710.898353] PUD 586c0067
-[ 2710.898531] PMD 0
-[ 2710.898710]
-[ 2710.899045] Oops: 0000 [#1] SMP
-[ 2710.899232] Modules linked in:
-[ 2710.899419] CPU: 1 PID: 950 Comm: tc Not tainted 4.13.0-rc6+ #54
-[ 2710.899646] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS 1.7.5-20140531_083030-gandalf 04/01/2014
-[ 2710.900035] task: ffff880059ed2700 task.stack: ffff88005ad4c000
-[ 2710.900262] RIP: 0010:hrtimer_active+0x17/0x8a
-[ 2710.900467] RSP: 0018:ffff88005ad4f960 EFLAGS: 00010246
-[ 2710.900684] RAX: 0000000000000000 RBX: ffff88003701e298 RCX: 0000000000000000
-[ 2710.900933] RDX: 0000000000000000 RSI: 0000000000000000 RDI: ffff88003701e298
-[ 2710.901177] RBP: ffff88005ad4f980 R08: 0000000000000001 R09: 0000000000000001
-[ 2710.901419] R10: ffff88005ad4f800 R11: 0000000000000400 R12: 0000000000000000
-[ 2710.901663] R13: ffff88003701e298 R14: ffffffff822a4540 R15: ffff88005ad4fac0
-[ 2710.901907] FS:  00007f2f5e90f740(0000) GS:ffff88005d880000(0000) knlGS:0000000000000000
-[ 2710.902277] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-[ 2710.902500] CR2: 0000000000000000 CR3: 0000000058ca3000 CR4: 00000000000406e0
-[ 2710.902744] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-[ 2710.902977] DR3: 0000000000000000 DR6: 00000000fffe0ff0 DR7: 0000000000000400
-[ 2710.903180] Call Trace:
-[ 2710.903332]  hrtimer_try_to_cancel+0x1a/0x93
-[ 2710.903504]  hrtimer_cancel+0x15/0x20
-[ 2710.903667]  qdisc_watchdog_cancel+0x12/0x14
-[ 2710.903866]  htb_destroy+0x2e/0xf7
-[ 2710.904097]  qdisc_create+0x377/0x3fd
-[ 2710.904330]  tc_modify_qdisc+0x4d2/0x4fd
-[ 2710.904511]  rtnetlink_rcv_msg+0x188/0x197
-[ 2710.904682]  ? rcu_read_unlock+0x3e/0x5f
-[ 2710.904849]  ? rtnl_newlink+0x729/0x729
-[ 2710.905017]  netlink_rcv_skb+0x6c/0xce
-[ 2710.905183]  rtnetlink_rcv+0x23/0x2a
-[ 2710.905345]  netlink_unicast+0x103/0x181
-[ 2710.905511]  netlink_sendmsg+0x326/0x337
-[ 2710.905679]  sock_sendmsg_nosec+0x14/0x3f
-[ 2710.905847]  sock_sendmsg+0x29/0x2e
-[ 2710.906010]  ___sys_sendmsg+0x209/0x28b
-[ 2710.906176]  ? do_raw_spin_unlock+0xcd/0xf8
-[ 2710.906346]  ? _raw_spin_unlock+0x27/0x31
-[ 2710.906514]  ? __handle_mm_fault+0x651/0xdb1
-[ 2710.906685]  ? check_chain_key+0xb0/0xfd
-[ 2710.906855]  __sys_sendmsg+0x45/0x63
-[ 2710.907018]  ? __sys_sendmsg+0x45/0x63
-[ 2710.907185]  SyS_sendmsg+0x19/0x1b
-[ 2710.907344]  entry_SYSCALL_64_fastpath+0x23/0xc2
+I will post it today.
 
-Note that probably this bug goes further back because the default qdisc
-handling always calls ->destroy on init failure too.
+I was out of the office yesterday, rafting on the south fork of American
+River ;)
 
-Fixes: 87b60cfacf9f ("net_sched: fix error recovery at qdisc creation")
-Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
----
-Always calling qdisc destroy on init failure in the default qdisc handling
-was added in commit 0fbbeb1ba43b. I'm not sure if I should include that
-one as fixes tag.
 
-There're more fixes to come, some are much easier to trigger without
-modifications to tc.
+This will target net-next.
 
- net/sched/sch_htb.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
-
-diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
-index 5d65ec5207e9..5bf5177b2bd3 100644
---- a/net/sched/sch_htb.c
-+++ b/net/sched/sch_htb.c
-@@ -1017,6 +1017,9 @@ static int htb_init(struct Qdisc *sch, struct nlattr *opt)
- 	int err;
- 	int i;
- 
-+	qdisc_watchdog_init(&q->watchdog, sch);
-+	INIT_WORK(&q->work, htb_work_func);
-+
- 	if (!opt)
- 		return -EINVAL;
- 
-@@ -1041,8 +1044,6 @@ static int htb_init(struct Qdisc *sch, struct nlattr *opt)
- 	for (i = 0; i < TC_HTB_NUMPRIO; i++)
- 		INIT_LIST_HEAD(q->drops + i);
- 
--	qdisc_watchdog_init(&q->watchdog, sch);
--	INIT_WORK(&q->work, htb_work_func);
- 	qdisc_skb_head_init(&q->direct_queue);
- 
- 	if (tb[TCA_HTB_DIRECT_QLEN])
--- 
-2.1.4
+Thanks.
