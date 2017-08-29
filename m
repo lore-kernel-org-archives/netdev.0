@@ -1,102 +1,130 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net-next] Revert "ipv4: make net_protocol const"
-Date: Tue, 29 Aug 2017 08:14:03 -0700
-Message-ID: <20170829081403.41db6bde@xeon-e3>
-References: <1503951789-31836-1-git-send-email-dsahern@gmail.com>
-        <CAOH+1jF3G+Yo30Tk=cgnAPfD8UNe+FkkLjC1uGUd9eeG-ce5KA@mail.gmail.com>
+From: Sekhar Nori <nsekhar@ti.com>
+Subject: Re: Fwd: DA850-evm MAC Address is random
+Date: Tue, 29 Aug 2017 20:46:20 +0530
+Message-ID: <955b0b1b-9bb7-ad25-4d6c-676be1efb943@ti.com>
+References: <CAHCN7xKwFd7dHF0ySEd1hOSr0sZEgh9fuwy=RkUTHvEh59hojQ@mail.gmail.com>
+ <b7aab9fc-17ba-077b-3ff3-28087e0b25bc@ti.com>
+ <CAHCN7xLHEjda9DcVw5iHA9RaJ7UnyMVxf7e4e8NTEj9Op1JaBw@mail.gmail.com>
+ <20170828211217.GO6008@atomide.com>
+ <94c4cbb0-1df3-2f2f-69f3-f9a788e610fa@ti.com>
+ <CAHCN7x+-wymsqw96mt7Du=Huxh5rq=Rj9GidWPLXptJSW7taEA@mail.gmail.com>
+ <f0f5e11f-cd7a-cb86-58b5-8ce44cdbc032@ti.com>
+ <CAHCN7xK2=PN5MOr48HOkZnwKwkM4ypcvQct+Ko+ChNFG3Pv62w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Ahern <dsahern@gmail.com>, netdev@vger.kernel.org,
-        David Miller <davem@davemloft.net>
-To: Bhumika Goyal <bhumirks@gmail.com>
+Cc: Tony Lindgren <tony@atomide.com>,
+        Grygorii Strashko <grygorii.strashko@ti.com>,
+        <linux-omap@vger.kernel.org>, <netdev@vger.kernel.org>
+To: Adam Ford <aford173@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f51.google.com ([74.125.83.51]:35349 "EHLO
-        mail-pg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751343AbdH2POG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 11:14:06 -0400
-Received: by mail-pg0-f51.google.com with SMTP id 63so11631849pgc.2
-        for <netdev@vger.kernel.org>; Tue, 29 Aug 2017 08:14:06 -0700 (PDT)
-In-Reply-To: <CAOH+1jF3G+Yo30Tk=cgnAPfD8UNe+FkkLjC1uGUd9eeG-ce5KA@mail.gmail.com>
+Received: from fllnx210.ext.ti.com ([198.47.19.17]:32188 "EHLO
+        fllnx210.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751394AbdH2PQ0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 11:16:26 -0400
+In-Reply-To: <CAHCN7xK2=PN5MOr48HOkZnwKwkM4ypcvQct+Ko+ChNFG3Pv62w@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 29 Aug 2017 12:16:23 +0530
-Bhumika Goyal <bhumirks@gmail.com> wrote:
+On Tuesday 29 August 2017 05:32 PM, Adam Ford wrote:
+> On Tue, Aug 29, 2017 at 6:42 AM, Sekhar Nori <nsekhar@ti.com> wrote:
+>> On Tuesday 29 August 2017 03:53 PM, Adam Ford wrote:
+>>> On Tue, Aug 29, 2017 at 3:23 AM, Sekhar Nori <nsekhar@ti.com> wrote:
+>>>> On Tuesday 29 August 2017 02:42 AM, Tony Lindgren wrote:
+>>>>> * Adam Ford <aford173@gmail.com> [170828 13:33]:
+>>>>>> On Mon, Aug 28, 2017 at 1:54 PM, Grygorii Strashko
+>>>>>> <grygorii.strashko@ti.com> wrote:
+>>>>>>> Cc: Sekhar
+>>>>>>>
+>>>>>>> On 08/28/2017 10:32 AM, Adam Ford wrote:
+>>>>>>>>
+>>>>>>>> The davinvi_emac MAC address seems to attempt a call to
+>>>>>>>> ti_cm_get_macid in cpsw-common.c but it returns the message
+>>>>>>>> 'davinci_emac davinci_emac.1: incompatible machine/device type for
+>>>>>>>> reading mac address ' and then generates a random MAC address.
+>>>>>>>>
+>>>>>>>> The function appears to lookup varions boards using
+>>>>>>>> 'of_machine_is_compaible' and supports dm8148, am33xx, am3517, dm816,
+>>>>>>>> am4372 and dra7.  I don't see the ti,davinci-dm6467-emac which is
+>>>>>>>> what's shown in the da850 device tree.
+>>>>>>>>
+>>>>>>>> Is there a patch somewhere for supporting the da850-evm?
+>>>>>>>
+>>>>>>>
+>>>>>>> Not sure if MAC address can be read from Control module.
+>>>>>>> May be Sekhar can say more?
+>>>>>>
+>>>>>> My understanding is that the MAC address is programmed by Logic PD
+>>>>>> into the SPI flash.  The Bootloader reads this from either SPI or its
+>>>>>> env variables.  Looking at the partition info listed in the
+>>>>>> da850-evm.dts file, it appears as if they've reserved space for it.
+>>>>>> Unfortunately, I don't see any code that reads it out.  I was hoping
+>>>>
+>>>> This code is present in U-Boot sources at
+>>>> board/davinci/da8xxevm/da850evm.c. See the function get_mac_addr() and
+>>>> its usage in misc_init_r().
+>>>>
+>>>>>> there might be a way to just pass cmdline parameter from the
+>>>>>> bootloader to the kernel to accept the MAC address.
+>>>>>>
+>>>>>>>
+>>>>>>>>
+>>>>>>>> If not, is there a way to pass the MAC address from U-Boot to the
+>>>>>>>> driver so it doesn't generate a random MAC?
+>>>>>>>
+>>>>>>>
+>>>>>>> "local-mac-address" dt porp
+>>>>>>
+>>>>>> The downside here, is that we'd have to have the Bootloader modify the
+>>>>>> device tree.
+>>>>>
+>>>>> That piece of code exists somewhere in u-boot already. Note how
+>>>>
+>>>> Yes, it is fdt_fixup_ethernet() and its usage is in common/image-fdt.c.
+>>>>
+>>>>> we are populating the mac address for USB Ethernet drivers in
+>>>>> u-boot and then the Ethernet driver code parses it. See commit
+>>>>> 055d31de7158 ("ARM: omap3: beagleboard-xm: dt: Add ethernet to
+>>>>> the device tree") for some more information.
+>>>>>
+>>>>> I think u-boot needs the ethernet alias for finding the interface.
+>>>>
+>>>> That's exactly what was missing. I have sent a patch for fixing that and
+>>>> copied you there.
+>>>
+>>> Thanks for doing that.
+>>>
+>>>>
+>>>> Adam, if I can get your Tested-by, I will make an attempt to send it for
+>>>> v4.13 itself.
+>>>
+>>> I will test it.  Do need to run some instruction or do something
+>>> special in U-Boot to pass this in the proper place for the kernel to
+>>> pull it?  Tony's patch reference showed
+>>> command for fdt set, but I am not sure I fully understand the
+>>> parameters that went along with that.
+>>
+>> Nope, just applying the patch and booting the with the new dtb should
+>> result in the random mac address going away.
+> 
+> Unfortunately, I am not seeing any change with the patch (at least
+> with Kernel 4.12.9 from stable).
+> 
+> netconsole: network logging started
+> davinci_emac davinci_emac.1: incompatible machine/device type for
+> reading mac address
+> davinci_emac davinci_emac.1: using random MAC addr: ee:74:c3:3a:15:be
+> 
+> Looking at the source for cpsw-common.c function ti_cm_get_macid()
+> doesn't have a case for the  ti,davinci-dm6467-emac so I wonder if
+> there might be more to it.
 
-> On Tue, Aug 29, 2017 at 1:53 AM, David Ahern <dsahern@gmail.com> wrote:
-> > This reverts commit aa8db499ea67cff1f5f049033810ffede2fe5ae4.
-> >
-> > Early demux structs can not be made const. Doing so results in:
-> > [   84.967355] BUG: unable to handle kernel paging request at ffffffff81684b10
-> > [   84.969272] IP: proc_configure_early_demux+0x1e/0x3d
-> > [   84.970544] PGD 1a0a067
-> > [   84.970546] P4D 1a0a067
-> > [   84.971212] PUD 1a0b063
-> > [   84.971733] PMD 80000000016001e1
-> >
-> > [   84.972669] Oops: 0003 [#1] SMP
-> > [   84.973065] Modules linked in: ip6table_filter ip6_tables veth vrf
-> > [   84.973833] CPU: 0 PID: 955 Comm: sysctl Not tainted 4.13.0-rc6+ #22
-> > [   84.974612] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS 1.7.5-20140531_083030-gandalf 04/01/2014
-> > [   84.975855] task: ffff88003854ce00 task.stack: ffffc900005a4000
-> > [   84.976580] RIP: 0010:proc_configure_early_demux+0x1e/0x3d
-> > [   84.977253] RSP: 0018:ffffc900005a7dd0 EFLAGS: 00010246
-> > [   84.977891] RAX: ffffffff81684b10 RBX: 0000000000000001 RCX: 0000000000000000
-> > [   84.978759] RDX: 0000000000000000 RSI: 0000000000000006 RDI: 0000000000000000
-> > [   84.979628] RBP: ffffc900005a7dd0 R08: 0000000000000000 R09: 0000000000000000
-> > [   84.980501] R10: 0000000000000001 R11: 0000000000000008 R12: 0000000000000001
-> > [   84.981373] R13: ffffffffffffffea R14: ffffffff81a9b4c0 R15: 0000000000000002
-> > [   84.982249] FS:  00007feb237b7700(0000) GS:ffff88003fc00000(0000) knlGS:0000000000000000
-> > [   84.983231] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-> > [   84.983941] CR2: ffffffff81684b10 CR3: 0000000038492000 CR4: 00000000000406f0
-> > [   84.984817] Call Trace:
-> > [   84.985133]  proc_tcp_early_demux+0x29/0x30
-> >
-> > I think this is the second time such a patch has been reverted.
-> >
-> > Cc: Bhumika Goyal <bhumirks@gmail.com>
-> > Signed-off-by: David Ahern <dsahern@gmail.com>
-> > ---
-> > Bhumika: How are you testing these constify changes? In this case a simple
-> > sysctl -w net.ipv4.tcp_early_demux=1 would have shown the problem
-> >  
-> 
-> I am compile testing them. In this case I did:  make
-> net/ipv4/af_inet.o and it compiled. Is this error because of
-> typecasting net_protocol inside inet_add_protocol function?
-> 
-> Thanks,
-> Bhumika
-> 
-> 
-> >  net/ipv4/af_inet.c | 4 ++--
-> >  1 file changed, 2 insertions(+), 2 deletions(-)
-> >
-> > diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-> > index 19aee073ba29..d678820e4306 100644
-> > --- a/net/ipv4/af_inet.c
-> > +++ b/net/ipv4/af_inet.c
-> > @@ -1596,7 +1596,7 @@ static const struct net_protocol igmp_protocol = {
-> >  };
-> >  #endif
-> >
-> > -static const struct net_protocol tcp_protocol = {
-> > +static struct net_protocol tcp_protocol = {
-> >         .early_demux    =       tcp_v4_early_demux,
-> >         .early_demux_handler =  tcp_v4_early_demux,
-> >         .handler        =       tcp_v4_rcv,
-> > @@ -1606,7 +1606,7 @@ static const struct net_protocol tcp_protocol = {
-> >         .icmp_strict_tag_validation = 1,
-> >  };
-> >
-> > -static const struct net_protocol udp_protocol = {
-> > +static struct net_protocol udp_protocol = {
-> >         .early_demux =  udp_v4_early_demux,
-> >         .early_demux_handler =  udp_v4_early_demux,
-> >         .handler =      udp_rcv,
-> > --
-> > 2.1.4
-> >  
+Hmm, it did solve the issue for me when I tried latest -next. And
+reverting the patch brought back the random mac address usage. Could you
+try latest mainline or -next?
 
-You need to change inet_proto datastructure first. 
+Meanwhile let me see whats going on with the observations you have.
+
+Thanks,
+Sekhar
