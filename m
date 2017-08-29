@@ -1,60 +1,59 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with the net tree
-Date: Tue, 29 Aug 2017 12:25:59 +1000
-Message-ID: <20170829122559.6032454a@canb.auug.org.au>
+From: Dexuan Cui <decui@microsoft.com>
+Subject: RE: [PATCH] vsock: only load vmci transport on VMware hypervisor by
+ default
+Date: Tue, 29 Aug 2017 02:36:25 +0000
+Message-ID: <KL1P15301MB0008087A3EF0A8D037CC4D52BF9F0@KL1P15301MB0008.APCP153.PROD.OUTLOOK.COM>
+References: <KL1P15301MB0008F70D4E5248AB7A296CE3BF830@KL1P15301MB0008.APCP153.PROD.OUTLOOK.COM>
+ <20170817135559.GG5539@stefanha-x1.localdomain>
+ <04460E3B-B213-4090-96CD-00CEEBE6AC32@vmware.com>
+ <KL1P15301MB0008A67BF969A47309CFA992BF800@KL1P15301MB0008.APCP153.PROD.OUTLOOK.COM>
+ <20170818153716.GB17572@stefanha-x1.localdomain>
+ <KL1P15301MB00083B1F5B70CBAB7C42BBD3BF800@KL1P15301MB0008.APCP153.PROD.OUTLOOK.COM>
+ <20170822095437.GB16799@stefanha-x1.localdomain>
+ <A6BE88A8-6E79-486E-821F-0D5C8B1B3034@vmware.com>
+ <KL1P15301MB000812AD1EFB8A3986EC6277BF850@KL1P15301MB0008.APCP153.PROD.OUTLOOK.COM>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Linux-Next Mailing List <linux-next@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        Antoine Tenart <antoine.tenart@free-electrons.com>,
-        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-To: David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "'davem@davemloft.net'" <davem@davemloft.net>,
+        "'netdev@vger.kernel.org'" <netdev@vger.kernel.org>,
+        "'gregkh@linuxfoundation.org'" <gregkh@linuxfoundation.org>,
+        "'devel@linuxdriverproject.org'" <devel@linuxdriverproject.org>,
+        KY Srinivasan <kys@microsoft.com>,
+        "Haiyang Zhang" <haiyangz@microsoft.com>,
+        Stephen Hemminger <sthemmin@microsoft.com>,
+        'George Zhang' <georgezhang@vmware.com>,
+        'Michal Kubecek' <mkubecek@suse.cz>,
+        'Asias He' <asias@redhat.com>,
+        'Vitaly Kuznetsov' <vkuznets@redhat.com>,
+        'Cathy Avery' <cavery@redhat.com>,
+        "'jasowang@redhat.com'" <jasowang@redhat.com>,
+        'Rolf Neugebauer' <rolf.neugebauer@docker.com>,
+        "'Dave Scott'" <dave.scott@docker.com>,
+        'Marcelo Cerri' <marcelo.cerri@canonical.com>,
+        "'apw@canonical.com'" <apw@canonical.com>,
+        "'
+To: "'Jorgen S. Hansen'" <jhansen@vmware.com>,
+        'Stefan Hajnoczi' <stefanha@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <KL1P15301MB000812AD1EFB8A3986EC6277BF850@KL1P15301MB0008.APCP153.PROD.OUTLOOK.COM>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
-
-Today's linux-next merge of the net-next tree got a conflict in:
-
-  drivers/net/ethernet/marvell/mvpp2.c
-
-between commit:
-
-  4c2286826451 ("net: mvpp2: fix the mac address used when using PPv2.2")
-
-from the net tree and commits:
-
-  09f8397553a2 ("net: mvpp2: introduce per-port nrxqs/ntxqs variables")
-  213f428f5056 ("net: mvpp2: add support for TX interrupts and RX queue distribution modes")
-
-from the net-next tree.
-
-I fixed it up (see below) and can carry the fix as necessary. This
-is now fixed as far as linux-next is concerned, but any non trivial
-conflicts should be mentioned to your upstream maintainer when your tree
-is submitted for merging.  You may also want to consider cooperating
-with the maintainer of the conflicting tree to minimise any particularly
-complex conflicts.
-
--- 
-Cheers,
-Stephen Rothwell
-
-diff --cc drivers/net/ethernet/marvell/mvpp2.c
-index 4d598ca8503a,fea9ae5b70ba..000000000000
---- a/drivers/net/ethernet/marvell/mvpp2.c
-+++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@@ -6504,7 -7248,9 +7248,9 @@@ static int mvpp2_port_probe(struct plat
-  	struct resource *res;
-  	const char *dt_mac_addr;
-  	const char *mac_from;
- -	char hw_mac_addr[ETH_ALEN];
- +	char hw_mac_addr[ETH_ALEN] = {0};
-+ 	unsigned int ntxqs, nrxqs;
-+ 	bool has_tx_irqs;
-  	u32 id;
-  	int features;
-  	int phy_mode;
+PiBGcm9tOiBEZXh1YW4gQ3VpDQo+IFNlbnQ6IFR1ZXNkYXksIEF1Z3VzdCAyMiwgMjAxNyAyMToy
+MQ0KPiA+IC4uLg0KPiA+IC4uLg0KPiA+IFRoZSBvbmx5IHByb2JsZW0gaGVyZSB3b3VsZCBiZSB0
+aGUgcG90ZW50aWFsIGZvciBhIGd1ZXN0IGFuZCBhIGhvc3QgYXBwDQo+IHRvDQo+ID4gaGF2ZSBh
+IGNvbmZsaWN0IHdydCBwb3J0IG51bWJlcnMsIGV2ZW4gdGhvdWdoIHRoZXkgd291bGQgYmUgYWJs
+ZSB0bw0KPiA+IG9wZXJhdGUgZmluZSwgaWYgcmVzdHJpY3RlZCB0byB0aGVpciBhcHByb3ByaWF0
+ZSB0cmFuc3BvcnQuDQo+ID4NCj4gPiBUaGFua3MsDQo+ID4gSm9yZ2VuDQo+IA0KPiBIaSBKb3Jn
+ZW4sIFN0ZWZhbiwNCj4gVGhhbmsgeW91IGZvciB0aGUgZGV0YWlsZWQgYW5hbHlzaXMhDQo+IFlv
+dSBoYXZlIGEgbXVjaCBiZXR0ZXIgdW5kZXJzdGFuZGluZyB0aGFuIG1lIGFib3V0IHRoZSBjb21w
+bGV4DQo+IHNjZW5hcmlvcy4gQ2FuIHlvdSBwbGVhc2Ugd29yayBvdXQgYSBwYXRjaD8gOi0pDQoN
+CkhpIEpvcmdlbiwgU3RlZmFuLA0KTWF5IEkga25vdyB5b3VyIHBsYW4gZm9yIHRoaXM/IA0KIA0K
+PiBJTU8gTGludXggZHJpdmVyIG9mIEh5cGVyLVYgc29ja2V0cyBpcyB0aGUgc2ltcGxlc3QgY2Fz
+ZSwgYXMgd2Ugb25seSBoYXZlDQo+IHRoZSAidG8gaG9zdCIgb3B0aW9uICh0aGUgaG9zdCBzaWRl
+IGRyaXZlciBvZiBIeXBlci1WIHNvY2tldHMgcnVucyBvbg0KPiBXaW5kb3dzIGtlcm5lbCBhbmQg
+SSBkb24ndCB0aGluayB0aGUgb3RoZXIgaHlwZXJ2aXNvcnMgZW11bGF0ZQ0KPiB0aGUgZnVsbCBI
+eXBlci1WIFZNQnVzIDQuMCwgd2hpY2ggaXMgcmVxdWlyZWQgdG8gc3VwcG9ydCBIeXBlci1WIHNv
+Y2tldHMpLg0KPiANCj4gLS0gRGV4dWFuDQoNClRoYW5rcywNCi0tIERleHVhbg0K
