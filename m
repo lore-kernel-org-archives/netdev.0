@@ -1,110 +1,72 @@
-From: "liujian (CE)" <liujian56@huawei.com>
-Subject: RE: Question about ip_defrag
-Date: Tue, 29 Aug 2017 07:44:09 +0000
-Message-ID: <4F88C5DDA1E80143B232E89585ACE27D018F41EC@DGGEMA502-MBX.china.huawei.com>
-References: <4F88C5DDA1E80143B232E89585ACE27D018F07E2@DGGEMA502-MBX.china.huawei.com>
-        <20170824155300.1e577dae@redhat.com>
-        <4F88C5DDA1E80143B232E89585ACE27D018F0AE1@DGGEMA502-MBX.china.huawei.com>
-        <20170824205926.2c45e3a1@redhat.com>
-        <4F88C5DDA1E80143B232E89585ACE27D018F3157@DGGEMA502-MBX.china.huawei.com>
-        <20170828140032.GB12926@breakpoint.cc> <20170829092021.0a46fffa@redhat.com>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: [PATCH] DSA support for Micrel KSZ8895
+Date: Tue, 29 Aug 2017 09:45:47 +0200
+Message-ID: <20170829074547.GB31303@amd>
+References: <20170816075524.GA18532@amd>
+ <20170816140451.GA13006@lunn.ch>
+ <9235D6609DB808459E95D78E17F2E43D40AFF8C1@CHN-SV-EXMX02.mchp-main.com>
+ <20170827123658.GA727@amd>
+ <20170827163122.GG13622@lunn.ch>
+ <20170828070232.GA18135@amd>
+ <20170828140927.GD10418@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-        "kuznet@ms2.inr.ac.ru" <kuznet@ms2.inr.ac.ru>,
-        "yoshfuji@linux-ipv6.org" <yoshfuji@linux-ipv6.org>,
-        "elena.reshetova@intel.com" <elena.reshetova@intel.com>,
-        "edumazet@google.com" <edumazet@google.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "Wangkefeng (Kevin)" <wangkefeng.wang@huawei.com>,
-        "weiyongjun (A)" <weiyongjun1@huawei.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>,
-        Florian Westphal <fw@strlen.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([45.249.212.187]:11756 "EHLO
-        szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751219AbdH2Hom (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 03:44:42 -0400
-In-Reply-To: <20170829092021.0a46fffa@redhat.com>
-Content-Language: zh-CN
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="lEGEL1/lMxI0MVQ2"
+Cc: Woojung.Huh@microchip.com, nathan.leigh.conrad@gmail.com,
+        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Tristram.Ha@micrel.com
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170828140927.GD10418@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-> -----Original Message-----
-> From: Jesper Dangaard Brouer [mailto:brouer@redhat.com]
-> Sent: Tuesday, August 29, 2017 3:20 PM
-> To: Florian Westphal
-> Cc: liujian (CE); davem@davemloft.net; kuznet@ms2.inr.ac.ru;
-> yoshfuji@linux-ipv6.org; elena.reshetova@intel.com; edumazet@google.com;
-> netdev@vger.kernel.org; Wangkefeng (Kevin); weiyongjun (A);
-> brouer@redhat.com
-> Subject: Re: Question about ip_defrag
-> 
-> On Mon, 28 Aug 2017 16:00:32 +0200
-> Florian Westphal <fw@strlen.de> wrote:
-> 
-> > liujian (CE) <liujian56@huawei.com> wrote:
-> > > Hi
-> > >
-> > > I checked our 3.10 kernel, we had backported all percpu_counter bug fix in
-> lib/percpu_counter.c and include/linux/percpu_counter.h.
-> > > And I check 4.13-rc6, also has the issue if NIC's rx cpu num big enough.
-> > >
-> > > > > > > the issue:
-> > > > > > > Ip_defrag fail caused by frag_mem_limit reached
-> 4M(frags.high_thresh).
-> > > > > > > At this moment,sum_frag_mem_limit is about 10K.
-> > >
-> > > So should we change ipfrag high/low thresh to a reasonable value ?
-> > > And if it is, is there a standard to change the value?
-> >
-> > Each cpu can have frag_percpu_counter_batch bytes rest doesn't know
-> > about so with 64 cpus that is ~8 mbyte.
-> >
-> > possible solutions:
-> > 1. reduce frag_percpu_counter_batch to 16k or so 2. make both low and
-> > high thresh depend on NR_CPUS
-> 
-> To me it looks like we/I have been using the wrong API for comparing against
-> percpu_counters.  I guess we should have used
-> __percpu_counter_compare().
+--lEGEL1/lMxI0MVQ2
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Are you means?
-Change 
-if (frag_mem_limit(nf) > nf->low_thresh)
-to
-__percpu_counter_compare(&nf->mem, nf->low_thresh, frag_percpu_counter_batch)
+On Mon 2017-08-28 16:09:27, Andrew Lunn wrote:
+> > I may be confused here, but AFAICT:
+> >=20
+> > 1) Yes, it has standard layout when accessed over MDIO.=20
+>=20
+>=20
+> Section 4.8 of the datasheet says:
+>=20
+> 	All the registers defined in this section can be also accessed
+> 	via the SPI interface.
+>=20
+> Meaning all PHY registers can be access via the SPI interface. So you
+> should be able to make a standard Linux MDIO bus driver which performs
+> SPI reads.
 
-> /*
->  * Compare counter against given value.
->  * Return 1 if greater, 0 if equal and -1 if less  */ int
-> __percpu_counter_compare(struct percpu_counter *fbc, s64 rhs, s32 batch) {
-> 	s64	count;
-> 
-> 	count = percpu_counter_read(fbc);
-> 	/* Check to see if rough count will be sufficient for comparison */
-> 	if (abs(count - rhs) > (batch * num_online_cpus())) {
-> 		if (count > rhs)
-> 			return 1;
-> 		else
-> 			return -1;
-> 	}
-> 	/* Need to use precise count */
-> 	count = percpu_counter_sum(fbc);
-> 	if (count > rhs)
-> 		return 1;
-> 	else if (count < rhs)
-> 		return -1;
-> 	else
-> 		return 0;
-> }
-> EXPORT_SYMBOL(__percpu_counter_compare);
-> 
-> 
-> --
-> Best regards,
->   Jesper Dangaard Brouer
->   MSc.CS, Principal Kernel Engineer at Red Hat
->   LinkedIn: http://www.linkedin.com/in/brouer
+As far as I can tell (and their driver confirms) -- yes, all those
+registers can be accessed over the SPI, they are just shuffled
+around... hence MDIO emulation code. I copied it from their code (see
+the copyrights) so no, I don't believe there's nicer solution.
+
+Best regards,
+
+									Pavel
+--=20
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
+g.html
+
+--lEGEL1/lMxI0MVQ2
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iEYEARECAAYFAlmlG6sACgkQMOfwapXb+vK4oQCgwPtddQoQkMpdpjc7JWEpBjSI
+9RUAoKbltoD4AwyMB/Q/EjeVdAC3AXSA
+=+nS1
+-----END PGP SIGNATURE-----
+
+--lEGEL1/lMxI0MVQ2--
