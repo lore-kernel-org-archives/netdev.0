@@ -1,32 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next] be2net: use shift instead of expensive divide
-Date: Mon, 28 Aug 2017 21:25:32 -0700 (PDT)
-Message-ID: <20170828.212532.681511354269866877.davem@davemloft.net>
-References: <1503976719-3063-1-git-send-email-zhangshengju@cmss.chinamobile.com>
+Subject: Re: [PATCH net-next v2 00/10] net: dsa: add generic debugfs
+ interface
+Date: Mon, 28 Aug 2017 21:38:37 -0700 (PDT)
+Message-ID: <20170828.213837.1354872205076475221.davem@davemloft.net>
+References: <20170828191748.19492-1-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sathya.perla@broadcom.com, ajit.khaparde@broadcom.com,
-        sriharsha.basavapatna@broadcom.com, netdev@vger.kernel.org
-To: zhangshengju@cmss.chinamobile.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54570 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750779AbdH2EZd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 00:25:33 -0400
-In-Reply-To: <1503976719-3063-1-git-send-email-zhangshengju@cmss.chinamobile.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com, f.fainelli@gmail.com, andrew@lunn.ch,
+        privat@egil-hjelmeland.no, john@phrozen.org,
+        Woojung.Huh@microchip.com, sean.wang@mediatek.com,
+        nikita.yoush@cogentembedded.com, cphealy@gmail.com
+To: vivien.didelot@savoirfairelinux.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170828191748.19492-1-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
-Date: Tue, 29 Aug 2017 11:18:39 +0800
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Date: Mon, 28 Aug 2017 15:17:38 -0400
 
-> Replace shift instead of expensive divide.
-> 
-> Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+> This patch series adds a generic debugfs interface for the DSA
+> framework, so that all switch devices benefit from it, e.g. Marvell,
+> Broadcom, Microchip or any other DSA driver.
 
-The divide is more easier to understand, and it costs the same
-as a shift if the types are unsigned.
+I've been thinking this over and I agree with the feedback given that
+debugfs really isn't appropriate for this.
 
-I'm not applying silly changes like this which actually make
-the code worse off, sorry.
+Please create a DSA device class, and hang these values under
+appropriate sysfs device nodes that can be easily found via
+/sys/class/dsa/ just as easily as they would be /sys/kernel/debug/dsa/
+
+You really intend these values to be consistent across DSA devices,
+and you don't intend to go willy-nilly changig these exported values
+arbitrarily over time.  That's what debugfs is for, throw-away
+stuff.
+
+So please make these proper device sysfs attributes rather than
+debugfs.
+
+Thank you.
