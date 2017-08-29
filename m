@@ -1,72 +1,89 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: [PATCH] DSA support for Micrel KSZ8895
-Date: Tue, 29 Aug 2017 09:45:47 +0200
-Message-ID: <20170829074547.GB31303@amd>
-References: <20170816075524.GA18532@amd>
- <20170816140451.GA13006@lunn.ch>
- <9235D6609DB808459E95D78E17F2E43D40AFF8C1@CHN-SV-EXMX02.mchp-main.com>
- <20170827123658.GA727@amd>
- <20170827163122.GG13622@lunn.ch>
- <20170828070232.GA18135@amd>
- <20170828140927.GD10418@lunn.ch>
+From: Tariq Toukan <tariqt@mellanox.com>
+Subject: Re: [ethtool] ethtool: Remove UDP Fragmentation Offload use from
+ ethtool
+Date: Tue, 29 Aug 2017 10:50:20 +0300
+Message-ID: <a1c55136-c534-bcdf-ccc8-3f38affb69e8@mellanox.com>
+References: <1503923928-9419-1-git-send-email-tariqt@mellanox.com>
+ <1503932411.11498.67.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20170828182251.GC3092@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="lEGEL1/lMxI0MVQ2"
-Cc: Woojung.Huh@microchip.com, nathan.leigh.conrad@gmail.com,
-        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Tristram.Ha@micrel.com
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170828140927.GD10418@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
+        Shaker Daibes <shakerd@mellanox.com>
+To: "John W. Linville" <linville@tuxdriver.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ve1eur01on0080.outbound.protection.outlook.com ([104.47.1.80]:21216
+        "EHLO EUR01-VE1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1750779AbdH2Hu3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 29 Aug 2017 03:50:29 -0400
+In-Reply-To: <20170828182251.GC3092@tuxdriver.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
---lEGEL1/lMxI0MVQ2
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+On 28/08/2017 9:22 PM, John W. Linville wrote:
+> On Mon, Aug 28, 2017 at 08:00:11AM -0700, Eric Dumazet wrote:
+>> On Mon, 2017-08-28 at 15:38 +0300, Tariq Toukan wrote:
+>>> From: Shaker Daibes <shakerd@mellanox.com>
+>>>
+>>> UFO was removed in kernel, here we remove it in ethtool app.
+>>>
+>>> Fixes the following issue:
+>>> Features for ens8:
+>>> Cannot get device udp-fragmentation-offload settings: Operation not supported
+>>>
+>>> Tested with "make check"
+>>>
+>>> Signed-off-by: Shaker Daibes <shakerd@mellanox.com>
+>>> Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+>>> ---
+>>
+>>
+>> Hi guys
+>>
+>> I would rather remove the warning, but leave the ability to switch UFO
+>> on machines running old kernel but a recent ethtool.
+>>
+>> ethtool does not need to be downgraded every time we boot an old
+>> kernel ;)
 
-On Mon 2017-08-28 16:09:27, Andrew Lunn wrote:
-> > I may be confused here, but AFAICT:
-> >=20
-> > 1) Yes, it has standard layout when accessed over MDIO.=20
->=20
->=20
-> Section 4.8 of the datasheet says:
->=20
-> 	All the registers defined in this section can be also accessed
-> 	via the SPI interface.
->=20
-> Meaning all PHY registers can be access via the SPI interface. So you
-> should be able to make a standard Linux MDIO bus driver which performs
-> SPI reads.
+Thanks all for your quick replies.
 
-As far as I can tell (and their driver confirms) -- yes, all those
-registers can be accessed over the SPI, they are just shuffled
-around... hence MDIO emulation code. I copied it from their code (see
-the copyrights) so no, I don't believe there's nicer solution.
+We thought about the backward compatibility issue before getting to 
+writing this patch.
+But, as the feature has very few device support, and is not that useful,
+we thought it would be best to just totally remove it from ethtool.
 
-Best regards,
+We can re-work this so the feature would still be available on old kernels.
 
-									Pavel
---=20
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
-g.html
+But I wonder how the warning removal should be done??
 
---lEGEL1/lMxI0MVQ2
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
+I have some suggestions in mind:
+1) Have a special condition that does not print a warning only in the 
+case of UFO?
+2) Remove the warning totally? I don't like this option.
+3) Add a max_kernel_ver field in struct off_flag_def, and use it to not 
+print the warning, or to mark the feature 'off [fixed]'.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
+Please let me know what you think.
 
-iEYEARECAAYFAlmlG6sACgkQMOfwapXb+vK4oQCgwPtddQoQkMpdpjc7JWEpBjSI
-9RUAoKbltoD4AwyMB/Q/EjeVdAC3AXSA
-=+nS1
------END PGP SIGNATURE-----
+> 
+> No, definitely not.
+>   
+>> Thanks !
+> 
+> Tariq, will you be reworking this as Eric suggests?
 
---lEGEL1/lMxI0MVQ2--
+Yes. Once we decide what is the correct way to keep it backward compatible.
+
+> 
+> John
+> 
+
+Regards,
+Tariq Toukan
