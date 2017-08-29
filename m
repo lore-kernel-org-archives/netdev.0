@@ -1,108 +1,274 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next v2 00/10] net: dsa: add generic debugfs interface
-Date: Tue, 29 Aug 2017 12:19:08 -0700
-Message-ID: <9dd804f2-8d40-2a76-e692-a60b10182834@gmail.com>
-References: <20170828191748.19492-1-vivien.didelot@savoirfairelinux.com>
- <20170828195332.GB1950@nanopsycho.orion> <20170828200834.GA1870@lunn.ch>
- <20170829062523.GA1977@nanopsycho.orion> <20170829125004.GB22093@lunn.ch>
- <8e6fa7ea-fb7b-3026-b9c0-417ef2efae27@mellanox.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Egil Hjelmeland <privat@egil-hjelmeland.no>,
-        John Crispin <john@phrozen.org>,
-        Woojung Huh <Woojung.Huh@microchip.com>,
-        Sean Wang <sean.wang@mediatek.com>,
-        Nikita Yushchenko <nikita.yoush@cogentembedded.com>,
-        Chris Healy <cphealy@gmail.com>, mlxsw@mellanox.com
-To: Arkadi Sharshevsky <arkadis@mellanox.com>,
-        Andrew Lunn <andrew@lunn.ch>, Jiri Pirko <jiri@resnulli.us>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <8e6fa7ea-fb7b-3026-b9c0-417ef2efae27@mellanox.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Subject: [PATCH net-next] net: bcmgenet: Use correct I/O accessors
+Date: Tue, 29 Aug 2017 12:23:07 -0700
+Message-ID: <1504034587-31113-1-git-send-email-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, opendmb@gmail.com, jaedon.shin@gmail.com,
+        Florian Fainelli <florian.fainelli@broadcom.com>,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f193.google.com ([209.85.128.193]:33775 "EHLO
+        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750822AbdH2T3E (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 15:29:04 -0400
+Received: by mail-wr0-f193.google.com with SMTP id k94so2905072wrc.0
+        for <netdev@vger.kernel.org>; Tue, 29 Aug 2017 12:29:03 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/29/2017 12:05 PM, Arkadi Sharshevsky wrote:
-> 
-> 
-> On 08/29/2017 03:50 PM, Andrew Lunn wrote:
->> On Tue, Aug 29, 2017 at 08:25:23AM +0200, Jiri Pirko wrote:
->>> Mon, Aug 28, 2017 at 10:08:34PM CEST, andrew@lunn.ch wrote:
->>>>> I see this overlaps a lot with DPIPE. Why won't you use that to expose
->>>>> your hw state?
->>>>
->>>> We took a look at dpipe and i talked to you about using it for this
->>>> sort of thing at netconf/netdev. But dpipe has issues displaying the
->>>> sort of information we have. I never figured out how to do two
->>>> dimensional tables. The output of the dpipe command is pretty
->>>> unreadable. A lot of the information being dumped here is not about
->>>> the data pipe, etc.
->>>
->>> So improve it. No problem. Also, we extend it to support what you neede.
->>
->> Will i did try to do this back in March. And i failed.
->>
->> Lets start with stats. Vivien gives an example on the cover letter:
->>
->>     # pr -mt switch0/port{5,6}/stats
->>     in_good_octets      : 0             in_good_octets      : 13824
->>     in_bad_octets       : 0             in_bad_octets       : 0
->>     in_unicast          : 0             in_unicast          : 0
->>     in_broadcasts       : 0             in_broadcasts       : 216
->>     in_multicasts       : 0             in_multicasts       : 0
->>     in_pause            : 0             in_pause            : 0
->>     in_undersize        : 0             in_undersize        : 0
->>
->> This is what i tried to implement using dpipe. It is a simple two
->> dimensional table. First column is a string, second a u64. In debugfs
->> we have such a table per port. That fits with the hierarchy that each
->> port is a directory in debugfs. But it could also be implemented as
->> one table with N+1 columns, for N switch ports.
->>
-> 
-> Hi Andrew,
-> 
-> This looks to me like basic L2 statistics that are obtained via
-> ethtool, I remember you had this problem with the DSA and CPU port.
-> Is this still the case?
+From: Florian Fainelli <florian.fainelli@broadcom.com>
 
-Yes, there are no net_device representors for CPU and DSA ports because
-if we did that, it would be confusing as we would be creating two
-network devices for both ends of the pipe. For DSA (inter-switch)
-interfaces you would have one "dsa" netdev for each adjacent switch so
-two DSA interface represent the inter switch link.
+The GENET driver currently uses __raw_{read,write}l which means
+native I/O endian. This works correctly for an ARM LE kernel (default)
+but fails miserably on an ARM BE (BE8) kernel where registers are kept
+little endian, so replace uses with {read,write}l_relaxed here which is
+what we want because this is all performance sensitive code.
 
-For the "CPU" port, you have the master network device (e.g: eth0) and
-the "cpu" network device, this is confusing. "cpu" is not usable, since
-it does not make sense for the "cpu" to send traffic via this interface,
-the model is to terminate user-facing ports and use a tag to deliver
-packets to the right interfaces. For "dsa" it's pretty much the same story.
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+This was tested on ARM LE and ARM BE, but I would appreciate Doug's
+review on this to make sure I did not add bugs
 
-> 
-> I remembered we wanted to use dpipe for the DSA routing table
-> and IP priority table.
-> 
-> I think both those processes really look like match/action table
-> , thus they can be modeled successfully by dpipe.
-> 
->> How about you, or one of your team, implement that. It should be able
->> to use the dsa_loop driver, which is a simple dummy switch. But it
->> does have statistics counters for all ports. Florian or I can help you
->> get it running if needed.
->>
->> This branch contains some of the basic plumbing code from my previous
->> attempt:
->>
->> https://emea01.safelinks.protection.outlook.com/?url=https%3A%2F%2Fgithub.com%2Flunn%2Flinux.git&data=02%7C01%7Carkadis%40mellanox.com%7Cb3cac139af204f79259c08d4eedc8410%7Ca652971c7d2e4d9ba6a4d149256f461b%7C0%7C0%7C636396078291326351&sdata=K5D3TAb2spckuF5k88oOaVt0dmtHj0AwE8bEEGPPdGI%3D&reserved=0 v4.11-rc4-net-next-dpipe
->>
->> 	 Andrew
->>
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c | 75 ++++++++++++++++----------
+ drivers/net/ethernet/broadcom/genet/bcmgenet.h | 13 ++++-
+ 2 files changed, 58 insertions(+), 30 deletions(-)
 
-
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+index a981c4ee9d72..612d1ef3b5f5 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
++++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+@@ -72,23 +72,42 @@
+ #define GENET_RDMA_REG_OFF	(priv->hw_params->rdma_offset + \
+ 				TOTAL_DESC * DMA_DESC_SIZE)
+ 
++static inline void bcmgenet_writel(u32 value, void __iomem *offset)
++{
++	/* MIPS chips strapped for BE will automagically configure the
++	 * peripheral registers for CPU-native byte order.
++	 */
++	if (IS_ENABLED(CONFIG_MIPS) && IS_ENABLED(CONFIG_CPU_BIG_ENDIAN))
++		__raw_writel(value, offset);
++	else
++		writel_relaxed(value, offset);
++}
++
++static inline u32 bcmgenet_readl(void __iomem *offset)
++{
++	if (IS_ENABLED(CONFIG_MIPS) && IS_ENABLED(CONFIG_CPU_BIG_ENDIAN))
++		return __raw_readl(offset);
++	else
++		return readl_relaxed(offset);
++}
++
+ static inline void dmadesc_set_length_status(struct bcmgenet_priv *priv,
+ 					     void __iomem *d, u32 value)
+ {
+-	__raw_writel(value, d + DMA_DESC_LENGTH_STATUS);
++	bcmgenet_writel(value, d + DMA_DESC_LENGTH_STATUS);
+ }
+ 
+ static inline u32 dmadesc_get_length_status(struct bcmgenet_priv *priv,
+ 					    void __iomem *d)
+ {
+-	return __raw_readl(d + DMA_DESC_LENGTH_STATUS);
++	return bcmgenet_readl(d + DMA_DESC_LENGTH_STATUS);
+ }
+ 
+ static inline void dmadesc_set_addr(struct bcmgenet_priv *priv,
+ 				    void __iomem *d,
+ 				    dma_addr_t addr)
+ {
+-	__raw_writel(lower_32_bits(addr), d + DMA_DESC_ADDRESS_LO);
++	bcmgenet_writel(lower_32_bits(addr), d + DMA_DESC_ADDRESS_LO);
+ 
+ 	/* Register writes to GISB bus can take couple hundred nanoseconds
+ 	 * and are done for each packet, save these expensive writes unless
+@@ -96,7 +115,7 @@ static inline void dmadesc_set_addr(struct bcmgenet_priv *priv,
+ 	 */
+ #ifdef CONFIG_PHYS_ADDR_T_64BIT
+ 	if (priv->hw_params->flags & GENET_HAS_40BITS)
+-		__raw_writel(upper_32_bits(addr), d + DMA_DESC_ADDRESS_HI);
++		bcmgenet_writel(upper_32_bits(addr), d + DMA_DESC_ADDRESS_HI);
+ #endif
+ }
+ 
+@@ -113,7 +132,7 @@ static inline dma_addr_t dmadesc_get_addr(struct bcmgenet_priv *priv,
+ {
+ 	dma_addr_t addr;
+ 
+-	addr = __raw_readl(d + DMA_DESC_ADDRESS_LO);
++	addr = bcmgenet_readl(d + DMA_DESC_ADDRESS_LO);
+ 
+ 	/* Register writes to GISB bus can take couple hundred nanoseconds
+ 	 * and are done for each packet, save these expensive writes unless
+@@ -121,7 +140,7 @@ static inline dma_addr_t dmadesc_get_addr(struct bcmgenet_priv *priv,
+ 	 */
+ #ifdef CONFIG_PHYS_ADDR_T_64BIT
+ 	if (priv->hw_params->flags & GENET_HAS_40BITS)
+-		addr |= (u64)__raw_readl(d + DMA_DESC_ADDRESS_HI) << 32;
++		addr |= (u64)bcmgenet_readl(d + DMA_DESC_ADDRESS_HI) << 32;
+ #endif
+ 	return addr;
+ }
+@@ -156,8 +175,8 @@ static inline u32 bcmgenet_tbuf_ctrl_get(struct bcmgenet_priv *priv)
+ 	if (GENET_IS_V1(priv))
+ 		return bcmgenet_rbuf_readl(priv, TBUF_CTRL_V1);
+ 	else
+-		return __raw_readl(priv->base +
+-				priv->hw_params->tbuf_offset + TBUF_CTRL);
++		return bcmgenet_readl(priv->base +
++				      priv->hw_params->tbuf_offset + TBUF_CTRL);
+ }
+ 
+ static inline void bcmgenet_tbuf_ctrl_set(struct bcmgenet_priv *priv, u32 val)
+@@ -165,7 +184,7 @@ static inline void bcmgenet_tbuf_ctrl_set(struct bcmgenet_priv *priv, u32 val)
+ 	if (GENET_IS_V1(priv))
+ 		bcmgenet_rbuf_writel(priv, val, TBUF_CTRL_V1);
+ 	else
+-		__raw_writel(val, priv->base +
++		bcmgenet_writel(val, priv->base +
+ 				priv->hw_params->tbuf_offset + TBUF_CTRL);
+ }
+ 
+@@ -174,8 +193,8 @@ static inline u32 bcmgenet_bp_mc_get(struct bcmgenet_priv *priv)
+ 	if (GENET_IS_V1(priv))
+ 		return bcmgenet_rbuf_readl(priv, TBUF_BP_MC_V1);
+ 	else
+-		return __raw_readl(priv->base +
+-				priv->hw_params->tbuf_offset + TBUF_BP_MC);
++		return bcmgenet_readl(priv->base +
++				      priv->hw_params->tbuf_offset + TBUF_BP_MC);
+ }
+ 
+ static inline void bcmgenet_bp_mc_set(struct bcmgenet_priv *priv, u32 val)
+@@ -183,7 +202,7 @@ static inline void bcmgenet_bp_mc_set(struct bcmgenet_priv *priv, u32 val)
+ 	if (GENET_IS_V1(priv))
+ 		bcmgenet_rbuf_writel(priv, val, TBUF_BP_MC_V1);
+ 	else
+-		__raw_writel(val, priv->base +
++		bcmgenet_writel(val, priv->base +
+ 				priv->hw_params->tbuf_offset + TBUF_BP_MC);
+ }
+ 
+@@ -326,28 +345,28 @@ static inline struct bcmgenet_priv *dev_to_priv(struct device *dev)
+ static inline u32 bcmgenet_tdma_readl(struct bcmgenet_priv *priv,
+ 				      enum dma_reg r)
+ {
+-	return __raw_readl(priv->base + GENET_TDMA_REG_OFF +
+-			DMA_RINGS_SIZE + bcmgenet_dma_regs[r]);
++	return bcmgenet_readl(priv->base + GENET_TDMA_REG_OFF +
++			      DMA_RINGS_SIZE + bcmgenet_dma_regs[r]);
+ }
+ 
+ static inline void bcmgenet_tdma_writel(struct bcmgenet_priv *priv,
+ 					u32 val, enum dma_reg r)
+ {
+-	__raw_writel(val, priv->base + GENET_TDMA_REG_OFF +
++	bcmgenet_writel(val, priv->base + GENET_TDMA_REG_OFF +
+ 			DMA_RINGS_SIZE + bcmgenet_dma_regs[r]);
+ }
+ 
+ static inline u32 bcmgenet_rdma_readl(struct bcmgenet_priv *priv,
+ 				      enum dma_reg r)
+ {
+-	return __raw_readl(priv->base + GENET_RDMA_REG_OFF +
+-			DMA_RINGS_SIZE + bcmgenet_dma_regs[r]);
++	return bcmgenet_readl(priv->base + GENET_RDMA_REG_OFF +
++			      DMA_RINGS_SIZE + bcmgenet_dma_regs[r]);
+ }
+ 
+ static inline void bcmgenet_rdma_writel(struct bcmgenet_priv *priv,
+ 					u32 val, enum dma_reg r)
+ {
+-	__raw_writel(val, priv->base + GENET_RDMA_REG_OFF +
++	bcmgenet_writel(val, priv->base + GENET_RDMA_REG_OFF +
+ 			DMA_RINGS_SIZE + bcmgenet_dma_regs[r]);
+ }
+ 
+@@ -418,16 +437,16 @@ static inline u32 bcmgenet_tdma_ring_readl(struct bcmgenet_priv *priv,
+ 					   unsigned int ring,
+ 					   enum dma_ring_reg r)
+ {
+-	return __raw_readl(priv->base + GENET_TDMA_REG_OFF +
+-			(DMA_RING_SIZE * ring) +
+-			genet_dma_ring_regs[r]);
++	return bcmgenet_readl(priv->base + GENET_TDMA_REG_OFF +
++			      (DMA_RING_SIZE * ring) +
++			      genet_dma_ring_regs[r]);
+ }
+ 
+ static inline void bcmgenet_tdma_ring_writel(struct bcmgenet_priv *priv,
+ 					     unsigned int ring, u32 val,
+ 					     enum dma_ring_reg r)
+ {
+-	__raw_writel(val, priv->base + GENET_TDMA_REG_OFF +
++	bcmgenet_writel(val, priv->base + GENET_TDMA_REG_OFF +
+ 			(DMA_RING_SIZE * ring) +
+ 			genet_dma_ring_regs[r]);
+ }
+@@ -436,16 +455,16 @@ static inline u32 bcmgenet_rdma_ring_readl(struct bcmgenet_priv *priv,
+ 					   unsigned int ring,
+ 					   enum dma_ring_reg r)
+ {
+-	return __raw_readl(priv->base + GENET_RDMA_REG_OFF +
+-			(DMA_RING_SIZE * ring) +
+-			genet_dma_ring_regs[r]);
++	return bcmgenet_readl(priv->base + GENET_RDMA_REG_OFF +
++			      (DMA_RING_SIZE * ring) +
++			      genet_dma_ring_regs[r]);
+ }
+ 
+ static inline void bcmgenet_rdma_ring_writel(struct bcmgenet_priv *priv,
+ 					     unsigned int ring, u32 val,
+ 					     enum dma_ring_reg r)
+ {
+-	__raw_writel(val, priv->base + GENET_RDMA_REG_OFF +
++	bcmgenet_writel(val, priv->base + GENET_RDMA_REG_OFF +
+ 			(DMA_RING_SIZE * ring) +
+ 			genet_dma_ring_regs[r]);
+ }
+@@ -991,12 +1010,12 @@ static void bcmgenet_eee_enable_set(struct net_device *dev, bool enable)
+ 	bcmgenet_umac_writel(priv, reg, UMAC_EEE_CTRL);
+ 
+ 	/* Enable EEE and switch to a 27Mhz clock automatically */
+-	reg = __raw_readl(priv->base + off);
++	reg = bcmgenet_readl(priv->base + off);
+ 	if (enable)
+ 		reg |= TBUF_EEE_EN | TBUF_PM_EN;
+ 	else
+ 		reg &= ~(TBUF_EEE_EN | TBUF_PM_EN);
+-	__raw_writel(reg, priv->base + off);
++	bcmgenet_writel(reg, priv->base + off);
+ 
+ 	/* Do the same for thing for RBUF */
+ 	reg = bcmgenet_rbuf_readl(priv, RBUF_ENERGY_CTRL);
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.h b/drivers/net/ethernet/broadcom/genet/bcmgenet.h
+index 3a34fdba5301..4b31e6c172b6 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmgenet.h
++++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.h
+@@ -671,12 +671,21 @@ struct bcmgenet_priv {
+ static inline u32 bcmgenet_##name##_readl(struct bcmgenet_priv *priv,	\
+ 					u32 off)			\
+ {									\
+-	return __raw_readl(priv->base + offset + off);			\
++	/* MIPS chips strapped for BE will automagically configure the	\
++	 * peripheral registers for CPU-native byte order.		\
++	 */								\
++	if (IS_ENABLED(CONFIG_MIPS) && IS_ENABLED(CONFIG_CPU_BIG_ENDIAN)) \
++		return __raw_readl(priv->base + offset + off);		\
++	else								\
++		return readl_relaxed(priv->base + offset + off);	\
+ }									\
+ static inline void bcmgenet_##name##_writel(struct bcmgenet_priv *priv,	\
+ 					u32 val, u32 off)		\
+ {									\
+-	__raw_writel(val, priv->base + offset + off);			\
++	if (IS_ENABLED(CONFIG_MIPS) && IS_ENABLED(CONFIG_CPU_BIG_ENDIAN)) \
++		return __raw_writel(val, priv->base + offset + off);	\
++	else								\
++		writel_relaxed(val, priv->base + offset + off);		\
+ }
+ 
+ GENET_IO_MACRO(ext, GENET_EXT_OFF);
 -- 
-Florian
+1.9.1
