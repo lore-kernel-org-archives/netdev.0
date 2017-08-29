@@ -1,59 +1,80 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next] virtio-net: invoke zerocopy callback on xmit
- path if no tx napi
-Date: Tue, 29 Aug 2017 23:40:49 +0300
-Message-ID: <20170829233920-mutt-send-email-mst@kernel.org>
-References: <CAF=yD-KSek+LmZu0X0TXetmFEQ59iF3NpjZ4KugbwLo1BGfhaA@mail.gmail.com>
- <20170824160748-mutt-send-email-mst@kernel.org>
- <CAF=yD-+9Ah8pC9i2w3Ad3WnhQit7Yo479pMrToty7priL6BFLw@mail.gmail.com>
- <20170824234551-mutt-send-email-mst@kernel.org>
- <CAF=yD-+1wheMmC+HFKe_B_ULO0Mmh6HMSEbYY5D-HgqxVJee6A@mail.gmail.com>
- <20170826022744-mutt-send-email-mst@kernel.org>
- <CAF=yD-Lre0NATUVH8p0zS=G5CiY=WfKSefLmOZw940jZFgECgQ@mail.gmail.com>
- <CAF=yD-+Wk9sc9dXMUq1+x_hh=3ThTXa6BnZkygP3tgVpjbp93g@mail.gmail.com>
- <20170829224136-mutt-send-email-mst@kernel.org>
- <CAF=yD-L5MG5RCZzT8EZ0coFiuQLp-2UQN0zzQefVnEd7rMQbyw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Koichiro Den <den@klaipeden.com>, Jason Wang <jasowang@redhat.com>,
-        virtualization@lists.linux-foundation.org,
-        Network Development <netdev@vger.kernel.org>
-To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next v2 2/4] net: dsa: bcm_sf2: Use correct I/O accessors
+Date: Tue, 29 Aug 2017 13:35:16 -0700
+Message-ID: <1504038918-49254-3-git-send-email-f.fainelli@gmail.com>
+References: <1504038918-49254-1-git-send-email-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, opendmb@gmail.com, andrew@lunn.ch,
+        vivien.didelot@savoirfairelinux.com,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48898 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751249AbdH2Uku (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 29 Aug 2017 16:40:50 -0400
-Content-Disposition: inline
-In-Reply-To: <CAF=yD-L5MG5RCZzT8EZ0coFiuQLp-2UQN0zzQefVnEd7rMQbyw@mail.gmail.com>
+Received: from mail-qt0-f195.google.com ([209.85.216.195]:38868 "EHLO
+        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751558AbdH2UlS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 16:41:18 -0400
+Received: by mail-qt0-f195.google.com with SMTP id d15so3751713qta.5
+        for <netdev@vger.kernel.org>; Tue, 29 Aug 2017 13:41:18 -0700 (PDT)
+In-Reply-To: <1504038918-49254-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 29, 2017 at 03:53:08PM -0400, Willem de Bruijn wrote:
-> On Tue, Aug 29, 2017 at 3:42 PM, Michael S. Tsirkin <mst@redhat.com> wrote:
-> > On Tue, Aug 29, 2017 at 03:35:38PM -0400, Willem de Bruijn wrote:
-> >> By the way, I have had an unrelated patch outstanding for a while
-> >> to have virtio-net support the VIRTIO_CONFIG_S_NEEDS_RESET
-> >> command. Will send that as RFC.
-> >
-> > Oh nice.
-> 
-> Great :)
-> 
-> > One needs to be careful about locking there which is why
-> > no devices support that yet.
-> 
-> I originally wrote it based on the virtnet_reset function introduced
-> for xdp. Calling this from virtnet_config_changed_work is non trivial,
-> as virtnet_freeze_down waits until no config worker is running.
-> 
-> Otherwise, I could not find any constraints on when freeze may be
-> called, and it largely follows the same path. I hope I didn't miss anything.
+The Starfigther 2 driver currently uses __raw_{read,write}l which means
+native I/O endian. This works correctly for an ARM LE kernel (default)
+but fails miserably on an ARM BE (BE8) kernel where registers are kept
+little endian, so replace uses with {read,write}l_relaxed here which is
+what we want because this is all performance sensitive code.
 
-The issue is that on freeze processes are not running so we
-generally know no new packets will arrive (might be wrong
-for bridging, then it's a bug). On device error you must
-prevent new skbs from coming in, etc.
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/dsa/bcm_sf2.h | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
 
+diff --git a/drivers/net/dsa/bcm_sf2.h b/drivers/net/dsa/bcm_sf2.h
+index 7d3030e04f11..d9c96b281fc0 100644
+--- a/drivers/net/dsa/bcm_sf2.h
++++ b/drivers/net/dsa/bcm_sf2.h
+@@ -130,12 +130,12 @@ static inline u32 bcm_sf2_mangle_addr(struct bcm_sf2_priv *priv, u32 off)
+ #define SF2_IO_MACRO(name) \
+ static inline u32 name##_readl(struct bcm_sf2_priv *priv, u32 off)	\
+ {									\
+-	return __raw_readl(priv->name + off);				\
++	return readl_relaxed(priv->name + off);				\
+ }									\
+ static inline void name##_writel(struct bcm_sf2_priv *priv,		\
+ 				  u32 val, u32 off)			\
+ {									\
+-	__raw_writel(val, priv->name + off);				\
++	writel_relaxed(val, priv->name + off);				\
+ }									\
+ 
+ /* Accesses to 64-bits register requires us to latch the hi/lo pairs
+@@ -179,23 +179,23 @@ static inline u32 bcm_sf2_mangle_addr(struct bcm_sf2_priv *priv, u32 off)
+ static inline u32 core_readl(struct bcm_sf2_priv *priv, u32 off)
+ {
+ 	u32 tmp = bcm_sf2_mangle_addr(priv, off);
+-	return __raw_readl(priv->core + tmp);
++	return readl_relaxed(priv->core + tmp);
+ }
+ 
+ static inline void core_writel(struct bcm_sf2_priv *priv, u32 val, u32 off)
+ {
+ 	u32 tmp = bcm_sf2_mangle_addr(priv, off);
+-	__raw_writel(val, priv->core + tmp);
++	writel_relaxed(val, priv->core + tmp);
+ }
+ 
+ static inline u32 reg_readl(struct bcm_sf2_priv *priv, u16 off)
+ {
+-	return __raw_readl(priv->reg + priv->reg_offsets[off]);
++	return readl_relaxed(priv->reg + priv->reg_offsets[off]);
+ }
+ 
+ static inline void reg_writel(struct bcm_sf2_priv *priv, u32 val, u16 off)
+ {
+-	__raw_writel(val, priv->reg + priv->reg_offsets[off]);
++	writel_relaxed(val, priv->reg + priv->reg_offsets[off]);
+ }
+ 
+ SF2_IO64_MACRO(core);
 -- 
-MST
+1.9.1
