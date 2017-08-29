@@ -1,111 +1,131 @@
-From: Chris Mi <chrism@mellanox.com>
-Subject: RE: [patch net-next 1/3] idr: Add new APIs to support unsigned long
-Date: Tue, 29 Aug 2017 07:34:47 +0000
-Message-ID: <VI1PR0501MB214343F199709BB6EF6EB9B2AB9F0@VI1PR0501MB2143.eurprd05.prod.outlook.com>
-References: <1503902477-39829-1-git-send-email-chrism@mellanox.com>
-        <1503902477-39829-2-git-send-email-chrism@mellanox.com>
- <87y3q27sn7.fsf@stressinduktion.org>
+From: "liujian (CE)" <liujian56@huawei.com>
+Subject: RE: Question about ip_defrag
+Date: Tue, 29 Aug 2017 07:40:43 +0000
+Message-ID: <4F88C5DDA1E80143B232E89585ACE27D018F41D1@DGGEMA502-MBX.china.huawei.com>
+References: <4F88C5DDA1E80143B232E89585ACE27D018F07E2@DGGEMA502-MBX.china.huawei.com>
+ <20170824155300.1e577dae@redhat.com>
+ <4F88C5DDA1E80143B232E89585ACE27D018F0AE1@DGGEMA502-MBX.china.huawei.com>
+ <20170824205926.2c45e3a1@redhat.com>
+ <4F88C5DDA1E80143B232E89585ACE27D018F3157@DGGEMA502-MBX.china.huawei.com>
+ <20170828140032.GB12926@breakpoint.cc>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "jhs@mojatatu.com" <jhs@mojatatu.com>,
-        "xiyou.wangcong@gmail.com" <xiyou.wangcong@gmail.com>,
-        "jiri@resnulli.us" <jiri@resnulli.us>,
+Content-Transfer-Encoding: 8BIT
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
         "davem@davemloft.net" <davem@davemloft.net>,
-        "mawilcox@microsoft.com" <mawilcox@microsoft.com>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+        "kuznet@ms2.inr.ac.ru" <kuznet@ms2.inr.ac.ru>,
+        "yoshfuji@linux-ipv6.org" <yoshfuji@linux-ipv6.org>,
+        "elena.reshetova@intel.com" <elena.reshetova@intel.com>,
+        "edumazet@google.com" <edumazet@google.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "Wangkefeng (Kevin)" <wangkefeng.wang@huawei.com>,
+        "weiyongjun (A)" <weiyongjun1@huawei.com>
+To: Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve1eur01on0055.outbound.protection.outlook.com ([104.47.1.55]:40480
-        "EHLO EUR01-VE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750779AbdH2Heu (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 29 Aug 2017 03:34:50 -0400
-In-Reply-To: <87y3q27sn7.fsf@stressinduktion.org>
-Content-Language: en-US
+Received: from szxga01-in.huawei.com ([45.249.212.187]:11755 "EHLO
+        szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750909AbdH2HlT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 03:41:19 -0400
+In-Reply-To: <20170828140032.GB12926@breakpoint.cc>
+Content-Language: zh-CN
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+
 
 > -----Original Message-----
-> From: Hannes Frederic Sowa [mailto:hannes@stressinduktion.org]
-> Sent: Tuesday, August 29, 2017 3:14 PM
-> To: Chris Mi <chrism@mellanox.com>
-> Cc: netdev@vger.kernel.org; jhs@mojatatu.com;
-> xiyou.wangcong@gmail.com; jiri@resnulli.us; davem@davemloft.net;
-> mawilcox@microsoft.com
-> Subject: Re: [patch net-next 1/3] idr: Add new APIs to support unsigned l=
-ong
->=20
-> Hello,
->=20
-> Chris Mi <chrism@mellanox.com> writes:
->=20
-> > The following new APIs are added:
+> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
+> On Behalf Of Florian Westphal
+> Sent: Monday, August 28, 2017 10:01 PM
+> To: liujian (CE)
+> Cc: Jesper Dangaard Brouer; davem@davemloft.net; kuznet@ms2.inr.ac.ru;
+> yoshfuji@linux-ipv6.org; elena.reshetova@intel.com; edumazet@google.com;
+> netdev@vger.kernel.org; Wangkefeng (Kevin); weiyongjun (A)
+> Subject: Re: Question about ip_defrag
+> 
+> liujian (CE) <liujian56@huawei.com> wrote:
+> > Hi
 > >
-> > int idr_alloc_ext(struct idr *idr, void *ptr, unsigned long *index,
-> >                   unsigned long start, unsigned long end, gfp_t gfp);
-> > static inline void *idr_remove_ext(struct idr *idr, unsigned long id);
-> > static inline void *idr_find_ext(const struct idr *idr, unsigned long
-> > id); void *idr_replace_ext(struct idr *idr, void *ptr, unsigned long
-> > id); void *idr_get_next_ext(struct idr *idr, unsigned long *nextid);
+> > I checked our 3.10 kernel, we had backported all percpu_counter bug fix in
+> lib/percpu_counter.c and include/linux/percpu_counter.h.
+> > And I check 4.13-rc6, also has the issue if NIC's rx cpu num big enough.
 > >
-> > Signed-off-by: Chris Mi <chrism@mellanox.com>
-> > Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-> > ---
-> >  include/linux/idr.h        | 16 ++++++++++
-> >  include/linux/radix-tree.h |  3 ++
-> >  lib/idr.c                  | 56 +++++++++++++++++++++++++++++++++++
-> >  lib/radix-tree.c           | 73
-> ++++++++++++++++++++++++++++++++++++++++++++++
-> >  4 files changed, 148 insertions(+)
+> > > > > > the issue:
+> > > > > > Ip_defrag fail caused by frag_mem_limit reached
+> 4M(frags.high_thresh).
+> > > > > > At this moment,sum_frag_mem_limit is about 10K.
 > >
->=20
-> [...]
->=20
-> > +int idr_alloc_ext(struct idr *idr, void *ptr, unsigned long *index,
-> > +		  unsigned long start, unsigned long end, gfp_t gfp) {
-> > +	void __rcu **slot;
-> > +	struct radix_tree_iter iter;
-> > +
-> > +	if (WARN_ON_ONCE(radix_tree_is_internal_node(ptr)))
-> > +		return -EINVAL;
-> > +
-> > +	radix_tree_iter_init(&iter, start);
-> > +	slot =3D idr_get_free_ext(&idr->idr_rt, &iter, gfp, end);
-> > +	if (IS_ERR(slot))
-> > +		return PTR_ERR(slot);
-> > +
-> > +	radix_tree_iter_replace(&idr->idr_rt, &iter, slot, ptr);
-> > +	radix_tree_iter_tag_clear(&idr->idr_rt, &iter, IDR_FREE);
-> > +
-> > +	if (index)
-> > +		*index =3D iter.index;
-> > +	return 0;
-> > +}
-> > +EXPORT_SYMBOL_GPL(idr_alloc_ext);
->=20
-> Can you express idr_alloc in terms of idr_alloc_ext? Same for most of the
-> other functions (it seems that signed int was used as return value to ind=
-icate
-> error cases, thus it should be easy to map those).
-In idr_alloc(), we have the following check:
+> > So should we change ipfrag high/low thresh to a reasonable value ?
+> > And if it is, is there a standard to change the value?
+> 
+> Each cpu can have frag_percpu_counter_batch bytes rest doesn't know about
+> so with 64 cpus that is ~8 mbyte.
+> 
+> possible solutions:
+> 1. reduce frag_percpu_counter_batch to 16k or so 2. make both low and high
+> thresh depend on NR_CPUS
+> 
+Thank you for your reply.
+ 
+> liujian, does this change help in any way?
 
-        if (WARN_ON_ONCE(start < 0))
-                return -EINVAL;
+I will have a try.
 
-But in idr_alloc_ext(), since we are using unsigned long, we needn't such c=
-heck.
+> diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
+> --- a/net/ipv4/inet_fragment.c
+> +++ b/net/ipv4/inet_fragment.c
+> @@ -123,6 +123,17 @@ static bool inet_fragq_should_evict(const struct
+> inet_frag_queue *q)
+>  	       frag_mem_limit(q->net) >= q->net->low_thresh;  }
+> 
+> +/* ->mem batch size is huge, this can cause severe discrepancies
+> + * between actual value (sum of pcpu values) and the global estimate.
+> + *
+> + * Use a smaller batch to give an opportunity for the global estimate
+> + * to more accurately reflect current state.
+> + */
+> +static void update_frag_mem_limit(struct netns_frags *nf, unsigned int
+> +batch) {
+> +	 percpu_counter_add_batch(&nf->mem, 0, batch); }
+> +
+>  static unsigned int
+>  inet_evict_bucket(struct inet_frags *f, struct inet_frag_bucket *hb)  { @@
+> -146,8 +157,12 @@ inet_evict_bucket(struct inet_frags *f, struct
+> inet_frag_bucket *hb)
+> 
+>  	spin_unlock(&hb->chain_lock);
+> 
+> -	hlist_for_each_entry_safe(fq, n, &expired, list_evictor)
+> +	hlist_for_each_entry_safe(fq, n, &expired, list_evictor) {
+> +		struct netns_frags *nf = fq->net;
+> +
+>  		f->frag_expire((unsigned long) fq);
+> +		update_frag_mem_limit(nf, 1);
 
-In order to reuse several lines of code, I think it is not worth to express=
- idr_alloc()
-In terms of idr_alloc_ext.=20
-
-Thanks,
-Chris
->=20
-> [...]
->=20
-> Thanks,
-> Hannes
+> +	}
+> 
+>  	return evicted;
+>  }
+> @@ -396,8 +411,10 @@ struct inet_frag_queue *inet_frag_find(struct
+> netns_frags *nf,
+>  	struct inet_frag_queue *q;
+>  	int depth = 0;
+> 
+> -	if (frag_mem_limit(nf) > nf->low_thresh)
+> +	if (frag_mem_limit(nf) > nf->low_thresh) {
+>  		inet_frag_schedule_worker(f);
+> +		update_frag_mem_limit(nf, SKB_TRUESIZE(1500) * 16); 
+> +	}
+> 
+>  	hash &= (INETFRAGS_HASHSZ - 1);
+>  	hb = &f->hash[hash];
+> @@ -416,6 +433,8 @@ struct inet_frag_queue *inet_frag_find(struct
+> netns_frags *nf,
+>  	if (depth <= INETFRAGS_MAXDEPTH)
+>  		return inet_frag_create(nf, f, key);
+> 
+> +	update_frag_mem_limit(nf, 1);
+> +
+>  	if (inet_frag_may_rebuild(f)) {
+>  		if (!f->rebuild)
+>  			f->rebuild = true;
