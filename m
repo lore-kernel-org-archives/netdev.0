@@ -1,9 +1,7 @@
 From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [PATCH net-next 2/7] xdp: tracepoint xdp_redirect also need a map
- argument
-Date: Tue, 29 Aug 2017 16:37:45 +0200
-Message-ID: <150401746590.16384.2327051573642942761.stgit@firesoul>
-References: <150401743083.16384.15778781741742858567.stgit@firesoul>
+Subject: [PATCH net-next 0/7] XDP redirect tracepoints
+Date: Tue, 29 Aug 2017 16:37:35 +0200
+Message-ID: <150401743083.16384.15778781741742858567.stgit@firesoul>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -11,134 +9,49 @@ Cc: John Fastabend <john.fastabend@gmail.com>,
         Jesper Dangaard Brouer <brouer@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49500 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:48664 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752746AbdH2Ohu (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 29 Aug 2017 10:37:50 -0400
-In-Reply-To: <150401743083.16384.15778781741742858567.stgit@firesoul>
+        id S1752746AbdH2Ohj (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 29 Aug 2017 10:37:39 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-To make sense of the map index, the tracepoint user also need to know
-that map we are talking about.  Supply the map pointer but only expose
-the map->id.
+I feel this is as far as I can take the tracepoint infrastructure to
+assist XDP monitoring.
 
-The 'to_index' is renamed 'to_ifindex'.  In the xdp_redirect_map case,
-this is the result of the devmap lookup. The map lookup key is exposed
-as map_index, which is needed to troubleshoot in case the lookup failed.
-The 'to_ifindex' is placed after 'err' to keep TP_STRUCT as common as
-possible.
+Tracepoints comes with a base overhead of 25 nanosec for an attached
+bpf_prog, and 48 nanosec for using a full perf record. This is
+problematic for the XDP use-case, but it is very convenient to use the
+existing perf infrastructure.
 
-This also keeps the TP_STRUCT similar enough, that userspace can write
-a monitor program, that doesn't need to care about whether
-bpf_redirect or bpf_redirect_map were used.
+>From a performance perspective, the real solution would be to attach
+another bpf_prog (that understand xdp_buff), but I'm not sure we want
+to introduce yet another bpf attach API for this.
 
-Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+One thing left is to standardize the possible err return codes, to a
+limited set, to allow easier (and faster) mapping into a bpf map.
+
 ---
- include/trace/events/xdp.h |   38 ++++++++++++++++++++++++++++++--------
- net/core/filter.c          |    6 +++---
- 2 files changed, 33 insertions(+), 11 deletions(-)
 
-diff --git a/include/trace/events/xdp.h b/include/trace/events/xdp.h
-index f684f3b36bca..573dcfa1aeaa 100644
---- a/include/trace/events/xdp.h
-+++ b/include/trace/events/xdp.h
-@@ -49,20 +49,23 @@ TRACE_EVENT(xdp_exception,
- 		  __entry->ifindex)
- );
- 
--TRACE_EVENT(xdp_redirect,
-+DECLARE_EVENT_CLASS(xdp_redirect_template,
- 
- 	TP_PROTO(const struct net_device *dev,
- 		 const struct bpf_prog *xdp,
--		 int to_index, int err),
-+		 int to_ifindex, int err,
-+		 const struct bpf_map *map, u32 map_index),
- 
--	TP_ARGS(dev, xdp, to_index, err),
-+	TP_ARGS(dev, xdp, to_ifindex, err, map, map_index),
- 
- 	TP_STRUCT__entry(
- 		__array(u8, prog_tag, 8)
- 		__field(u32, act)
- 		__field(int, ifindex)
--		__field(int, to_index)
- 		__field(int, err)
-+		__field(int, to_ifindex)
-+		__field(u32, map_id)
-+		__field(int, map_index)
- 	),
- 
- 	TP_fast_assign(
-@@ -70,16 +73,35 @@ TRACE_EVENT(xdp_redirect,
- 		memcpy(__entry->prog_tag, xdp->tag, sizeof(xdp->tag));
- 		__entry->act		= XDP_REDIRECT;
- 		__entry->ifindex	= dev->ifindex;
--		__entry->to_index	= to_index;
- 		__entry->err		= err;
-+		__entry->to_ifindex	= to_ifindex;
-+		__entry->map_id		= map ? map->id : 0;
-+		__entry->map_index	= map_index;
- 	),
- 
--	TP_printk("prog=%s action=%s ifindex=%d to_index=%d err=%d",
-+	TP_printk("prog=%s action=%s ifindex=%d to_ifindex=%d err=%d"
-+		  " map_id=%d map_index=%d",
- 		  __print_hex_str(__entry->prog_tag, 8),
- 		  __print_symbolic(__entry->act, __XDP_ACT_SYM_TAB),
--		  __entry->ifindex, __entry->to_index,
--		  __entry->err)
-+		  __entry->ifindex, __entry->to_ifindex,
-+		  __entry->err,
-+		  __entry->map_id, __entry->map_index)
- );
-+
-+DEFINE_EVENT(xdp_redirect_template, xdp_redirect,
-+	TP_PROTO(const struct net_device *dev,
-+		 const struct bpf_prog *xdp,
-+		 int to_ifindex, int err,
-+		 const struct bpf_map *map, u32 map_index),
-+	TP_ARGS(dev, xdp, to_ifindex, err, map, map_index)
-+);
-+
-+#define _trace_xdp_redirect(dev, xdp, to, err)	\
-+	 trace_xdp_redirect(dev, xdp, to, err, NULL, 0);
-+
-+#define trace_xdp_redirect_map(dev, xdp, fwd, err, map, idx)	\
-+	trace_xdp_redirect(dev, xdp, fwd ? fwd->ifindex : 0, err, map, idx);
-+
- #endif /* _TRACE_XDP_H */
- 
- #include <trace/define_trace.h>
-diff --git a/net/core/filter.c b/net/core/filter.c
-index de31fb684ad4..31eab77cc842 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -2524,7 +2524,7 @@ static int xdp_do_redirect_map(struct net_device *dev, struct xdp_buff *xdp,
- 	if (likely(!err))
- 		ri->map_to_flush = map;
- out:
--	trace_xdp_redirect(dev, xdp_prog, index, err);
-+	trace_xdp_redirect_map(dev, xdp_prog, fwd, err, map, index);
- 	return err;
- }
- 
-@@ -2548,7 +2548,7 @@ int xdp_do_redirect(struct net_device *dev, struct xdp_buff *xdp,
- 
- 	err = __bpf_tx_xdp(fwd, NULL, xdp, 0);
- out:
--	trace_xdp_redirect(dev, xdp_prog, index, err);
-+	_trace_xdp_redirect(dev, xdp_prog, index, err);
- 	return err;
- }
- EXPORT_SYMBOL_GPL(xdp_do_redirect);
-@@ -2582,7 +2582,7 @@ int xdp_do_generic_redirect(struct net_device *dev, struct sk_buff *skb,
- 
- 	skb->dev = fwd;
- out:
--	trace_xdp_redirect(dev, xdp_prog, index, err);
-+	_trace_xdp_redirect(dev, xdp_prog, index, err);
- 	return err;
- }
- EXPORT_SYMBOL_GPL(xdp_do_generic_redirect);
+Jesper Dangaard Brouer (7):
+      xdp: remove redundant argument to trace_xdp_redirect
+      xdp: tracepoint xdp_redirect also need a map argument
+      xdp: make xdp tracepoints report bpf prog id instead of prog_tag
+      xdp: separate xdp_redirect tracepoint in error case
+      xdp: separate xdp_redirect tracepoint in map case
+      samples/bpf: xdp_redirect load XDP dummy prog on TX device
+      samples/bpf: xdp_monitor tool based on tracepoints
+
+
+ include/trace/events/xdp.h          |  100 ++++++++++--
+ net/core/filter.c                   |   37 +++-
+ samples/bpf/Makefile                |    4 
+ samples/bpf/xdp_monitor_kern.c      |   88 ++++++++++
+ samples/bpf/xdp_monitor_user.c      |  295 +++++++++++++++++++++++++++++++++++
+ samples/bpf/xdp_redirect_kern.c     |   11 +
+ samples/bpf/xdp_redirect_map_kern.c |   11 +
+ samples/bpf/xdp_redirect_map_user.c |   22 ++-
+ samples/bpf/xdp_redirect_user.c     |   21 ++
+ 9 files changed, 543 insertions(+), 46 deletions(-)
+ create mode 100644 samples/bpf/xdp_monitor_kern.c
+ create mode 100644 samples/bpf/xdp_monitor_user.c
