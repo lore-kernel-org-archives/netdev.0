@@ -1,29 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] Documentation: networking: Add blurb about
- patches in patchwork
-Date: Tue, 29 Aug 2017 15:12:48 -0700 (PDT)
-Message-ID: <20170829.151248.72172948498403409.davem@davemloft.net>
-References: <20170829220751.3814-1-f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next 0/3] tc: act_ife: handle IEEE IFE ethertype as
+ default
+Date: Tue, 29 Aug 2017 15:14:35 -0700 (PDT)
+Message-ID: <20170829.151435.94707661511628920.davem@davemloft.net>
+References: <20170828190315.26646-1-aring@mojatatu.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: f.fainelli@gmail.com
+Cc: jhs@mojatatu.com, yotamg@mellanox.com, xiyou.wangcong@gmail.com,
+        jiri@resnulli.us, lucasb@mojatatu.com, netdev@vger.kernel.org,
+        linux-kselftest@vger.kernel.org
+To: aring@mojatatu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:40190 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:40234 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751368AbdH2WMs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 18:12:48 -0400
-In-Reply-To: <20170829220751.3814-1-f.fainelli@gmail.com>
+        with ESMTP id S1751275AbdH2WOg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 18:14:36 -0400
+In-Reply-To: <20170828190315.26646-1-aring@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Tue, 29 Aug 2017 15:07:51 -0700
+From: Alexander Aring <aring@mojatatu.com>
+Date: Mon, 28 Aug 2017 15:03:12 -0400
 
-> Explain that the patch queue in patchwork should not be touched by patch
-> submitters.
-> 
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> this patch series will introduce the IFE ethertype which is registered by
+> IEEE. If the netlink act_ife type netlink attribute is not given it will
+> use this value by default now.
+> At least it will introduce some UAPI testcases to check if the default type
+> is used if not specified and vice versa.
 
-Applied.
+Series applied, thank you.
