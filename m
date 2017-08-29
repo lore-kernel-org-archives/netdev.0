@@ -1,88 +1,48 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [patch v1 1/2] dt-bindings: net: add binding documentation for
- mlxsw thermal control
-Date: Tue, 29 Aug 2017 19:22:54 +0200
-Message-ID: <20170829172254.GG8235@lunn.ch>
-References: <1504032311-195988-1-git-send-email-vadimp@mellanox.com>
- <1504032311-195988-2-git-send-email-vadimp@mellanox.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next 7/7] samples/bpf: xdp_monitor tool based on tracepoints
+Date: Tue, 29 Aug 2017 19:24:38 +0200
+Message-ID: <59A5A356.108@iogearbox.net>
+References: <150401743083.16384.15778781741742858567.stgit@firesoul> <150401749138.16384.17129327124102881342.stgit@firesoul> <20170829170551.5uws25py4fcpem73@ast-mbp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: robh+dt@kernel.org, davem@davemloft.net, jiri@resnulli.us,
-        ivecera@redhat.com, devicetree@vger.kernel.org,
-        netdev@vger.kernel.org
-To: Vadim Pasternak <vadimp@mellanox.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, John Fastabend <john.fastabend@gmail.com>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:43639 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750822AbdH2RXC (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 29 Aug 2017 13:23:02 -0400
-Content-Disposition: inline
-In-Reply-To: <1504032311-195988-2-git-send-email-vadimp@mellanox.com>
+Received: from www62.your-server.de ([213.133.104.62]:44458 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751283AbdH2RYl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 13:24:41 -0400
+In-Reply-To: <20170829170551.5uws25py4fcpem73@ast-mbp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> +- compatible		: "mellanox,mlxsw_minimal"
+On 08/29/2017 07:05 PM, Alexei Starovoitov wrote:
+> On Tue, Aug 29, 2017 at 04:38:11PM +0200, Jesper Dangaard Brouer wrote:
+>> This tool xdp_monitor demonstrate how to use the different xdp_redirect
+>> tracepoints xdp_redirect{,_map}{,_err} from a BPF program.
+>>
+>> The default mode is to only monitor the error counters, to avoid
+>> affecting the per packet performance. Tracepoints comes with a base
+>> overhead of 25 nanosec for an attached bpf_prog, and 48 nanosec for
+>> using a full perf record (with non-matching filter).  Thus, default
+>> loading the --stats mode could affect the maximum performance.
+>>
+>> This version of the tool is very simple and count all types of errors
+>> as one.  It will be natural to extend this later with the different
+>> types of errors that can occur, which should help users quickly
+>> identify common mistakes.
+>>
+>> Because the TP_STRUCT was kept in sync all the tracepoints loads the
+>> same BPF code.  It would also be natural to extend the map version to
+>> demonstrate how the map information could be used.
+>>
+>> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+>
+> Nice. Did you consider using libbbpf (instead of old bpf_load.c hack)
+> and make full standalone tool out of it? Looks very useful.
 
-Interesting product name. Is there a mlxsw_maximal planned?
++1 also my suggestion. ;)
 
-> +- reg			: The I2C address of the device.
-> +
-> +Optional properties:
-> +- cooling-phandle	: phandle of the cooling device, which is to be used
-> +			  for the zone thermal control.
-> +			  If absent, cooling device controlled internally by
-> +			  the ASIC may be used.
-> +
-> +- trips			: the nodes to describe a point in the temperature
-> +			  domain with key temperatures at which cooling is
-> +			  recommended. Each node must contain the next values:
-> +			  - type: the trip type. Expected values are:
-> +			    0 - a trip point to enable active cooling;
-> +			    1 - a trip point to enable passive cooling;
-> +			    2 - a trip point to notify emergency;
-> +			  - temperature: unsigned integer indicating the trip
-> +			    temperature level in millicelsius;
-> +			  - minimum cooling state allowed within the trip node;
-> +			  - maximum cooling state allowed within the trip node;
-> +
-> +Example:
-> +	asic_thermal: mlxsw_minimal@48 {
-> +		compatible = "mlxsw_minimal";
-
-You missed the vendor part.
-
-> +		reg = <0x48>;
-> +		status = "disabled";
-
-An example with it disabled?
-
-> +		cooling-phandle = <&cooling>;
-> +
-> +		trips {
-> +			trip@0 {
-> +				trip = <0 75000 0 0>;
-> +			};
-
-I don't know much about the thermal subsystem. But looking at other
-example binding documents, you seem to do something different here to
-other drivers. Why do you not use what seems to be the common format:
-
-               trips {
-                        cpu_alert0: cpu-alert0 {
-                                temperature = <90000>; /* millicelsius */
-                                hysteresis = <2000>; /* millicelsius */
-                                type = "active";
-                        };
-                        cpu_alert1: cpu-alert1 {
-                                temperature = <100000>; /* millicelsius */
-                                hysteresis = <2000>; /* millicelsius */
-                                type = "passive";
-                        };
-                        cpu_crit: cpu-crit {
-                                temperature = <125000>; /* millicelsius */
-                                hysteresis = <2000>; /* millicelsius */
-                                type = "critical";
-                        };
-                };
-
-	Andrew
+> Acked-by: Alexei Starovoitov <ast@kernel.org>
