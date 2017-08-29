@@ -1,35 +1,35 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH net] sch_htb: fix crash on init failure
-Date: Wed, 30 Aug 2017 02:11:37 +0300
-Message-ID: <1cd84fde-0a5e-2ac4-9daf-6daf035c3840@cumulusnetworks.com>
-References: <1504029487-7085-1-git-send-email-nikolay@cumulusnetworks.com>
- <20170829.160625.1623439754611810483.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] drivers: net: xgene: Correct probe sequence handling
+Date: Tue, 29 Aug 2017 16:13:32 -0700 (PDT)
+Message-ID: <20170829.161332.1279744093983010191.davem@davemloft.net>
+References: <1504046592-24779-1-git-send-email-isubramanian@apm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com, jhs@mojatatu.com,
-        xiyou.wangcong@gmail.com, jiri@resnulli.us,
-        roopa@cumulusnetworks.com
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+        dnelson@redhat.com, patches@apm.com, qnguyen@apm.com
+To: isubramanian@apm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f176.google.com ([209.85.128.176]:37118 "EHLO
-        mail-wr0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751684AbdH2XLl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 19:11:41 -0400
-Received: by mail-wr0-f176.google.com with SMTP id k9so1841652wre.4
-        for <netdev@vger.kernel.org>; Tue, 29 Aug 2017 16:11:41 -0700 (PDT)
-In-Reply-To: <20170829.160625.1623439754611810483.davem@davemloft.net>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([184.105.139.130]:41218 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751275AbdH2XNd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 19:13:33 -0400
+In-Reply-To: <1504046592-24779-1-git-send-email-isubramanian@apm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 30.08.2017 02:06, David Miller wrote:
-> 
-> I expect that you will resubmit all of these similar fixes as a patch
-> series after you have sorted everything out.
-> 
-> Correct?
-> 
+From: Iyappan Subramanian <isubramanian@apm.com>
+Date: Tue, 29 Aug 2017 15:43:12 -0700
 
-Yes, I will. There are a few more places that need fixing, I'll resubmit
-them all as a set.
+> From: Quan Nguyen <qnguyen@apm.com>
+> 
+> The phy is connected at early stage of probe but not properly
+> disconnected if error occurs.  This patch fixes the issue.
+> 
+> Also changing the return type of xgene_enet_check_phy_handle(),
+> since this function always returns success.
+> 
+> Signed-off-by: Quan Nguyen <qnguyen@apm.com>
+> Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
+
+Applied, thank you.
