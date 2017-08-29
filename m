@@ -1,89 +1,82 @@
-From: Tariq Toukan <tariqt@mellanox.com>
-Subject: Re: [ethtool] ethtool: Remove UDP Fragmentation Offload use from
- ethtool
-Date: Tue, 29 Aug 2017 10:50:20 +0300
-Message-ID: <a1c55136-c534-bcdf-ccc8-3f38affb69e8@mellanox.com>
-References: <1503923928-9419-1-git-send-email-tariqt@mellanox.com>
- <1503932411.11498.67.camel@edumazet-glaptop3.roam.corp.google.com>
- <20170828182251.GC3092@tuxdriver.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next 11/12] mlxsw: spectrum_dpipe: Add support for
+ IPv4 host table dump
+Date: Tue, 29 Aug 2017 09:55:13 +0200
+Message-ID: <20170829075513.GC1977@nanopsycho.orion>
+References: <20170824064010.1646-1-jiri@resnulli.us>
+ <20170824064010.1646-12-jiri@resnulli.us>
+ <e5af97b0-c17b-5360-69f7-8d1428960258@gmail.com>
+ <4d5b031e-3d0a-624f-1285-9540a9dc4716@mellanox.com>
+ <a4335a01-a98b-573c-9747-b4039188340c@gmail.com>
+ <ee012822-1080-fb83-bd8a-72053162d359@mellanox.com>
+ <f5bd669b-6a0f-46e9-97b9-7abe73a228a5@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
-        Shaker Daibes <shakerd@mellanox.com>
-To: "John W. Linville" <linville@tuxdriver.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Arkadi Sharshevsky <arkadis@mellanox.com>, netdev@vger.kernel.org,
+        davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com,
+        roopa <roopa@cumulusnetworks.com>,
+        Shrijeet Mukherjee <shm@cumulusnetworks.com>
+To: David Ahern <dsahern@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve1eur01on0080.outbound.protection.outlook.com ([104.47.1.80]:21216
-        "EHLO EUR01-VE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750779AbdH2Hu3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 29 Aug 2017 03:50:29 -0400
-In-Reply-To: <20170828182251.GC3092@tuxdriver.com>
-Content-Language: en-US
+Received: from mail-wr0-f172.google.com ([209.85.128.172]:33762 "EHLO
+        mail-wr0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751191AbdH2HzR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 03:55:17 -0400
+Received: by mail-wr0-f172.google.com with SMTP id k94so7687905wrc.0
+        for <netdev@vger.kernel.org>; Tue, 29 Aug 2017 00:55:16 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <f5bd669b-6a0f-46e9-97b9-7abe73a228a5@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-On 28/08/2017 9:22 PM, John W. Linville wrote:
-> On Mon, Aug 28, 2017 at 08:00:11AM -0700, Eric Dumazet wrote:
->> On Mon, 2017-08-28 at 15:38 +0300, Tariq Toukan wrote:
->>> From: Shaker Daibes <shakerd@mellanox.com>
+Tue, Aug 29, 2017 at 04:57:12AM CEST, dsahern@gmail.com wrote:
+>On 8/27/17 2:31 AM, Arkadi Sharshevsky wrote:
+>>> Also, this dpipe capability seems to be just dumping data structures
+>>> maintained by the driver. ie., you can compare the mlxsw view of
+>>> networking state to IPv4 and IPv6 level tables. Any plans to offer a
+>>> command that reads data from the h/w and passes that back to the user?
+>>> i.e, a command to compare kernel tables to h/w state?
 >>>
->>> UFO was removed in kernel, here we remove it in ethtool app.
->>>
->>> Fixes the following issue:
->>> Features for ens8:
->>> Cannot get device udp-fragmentation-offload settings: Operation not supported
->>>
->>> Tested with "make check"
->>>
->>> Signed-off-by: Shaker Daibes <shakerd@mellanox.com>
->>> Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
->>> ---
->>
->>
->> Hi guys
->>
->> I would rather remove the warning, but leave the ability to switch UFO
->> on machines running old kernel but a recent ethtool.
->>
->> ethtool does not need to be downgraded every time we boot an old
->> kernel ;)
+>> 
+>> So this infra should provide several things-
+>> 
+>> 1) Reveal the interactions between various hardware tables
+>> 2) Counters for this tables
+>> 3) Debugabillity
+>> 
+>> The first two can be achieved right now. Regarding debugabillity, which
+>> is a bit vague, the current assumption is that the drivers internal data
+>> structures are synced with hardware (which is no always true), and maybe
+>> are not synced with the kernel, so this can be achieved right now by
+>> dumping the internal state of the driver. Furthermore, the counters are
+>> dumped from the hardware and give the user additional indication.
+>> 
+>> I completely agree that the hardware should be dumped in order to
+>> validate the internal data structures are really synced with HW. This
+>> could be usable for observing data corruptions inside the ASIC and
+>> various complex bugs.
+>> 
+>> In order to address that I though about maybe add a flag called
+>> "validate_hw" so that during the dump the driver<-->hw state could be
+>> validated.
+>> 
+>> What do you think about it?
+>
+>It is not just a matter of dumping hardware state. The data returned by
+>dump needs to be consistent across platforms and vendors.
+>
+>If the intent is validating hardware state matches kernel state (ie.,
 
-Thanks all for your quick replies.
+Nope, that is definitelly not the intent. The intent is to provide user
+some more information about how the actual tables in hw look like, so he
+knows exactly what is going on there and eventually can optimize things
+if needed (resource allocations for example)
 
-We thought about the backward compatibility issue before getting to 
-writing this patch.
-But, as the feature has very few device support, and is not that useful,
-we thought it would be best to just totally remove it from ethtool.
 
-We can re-work this so the feature would still be available on old kernels.
-
-But I wonder how the warning removal should be done??
-
-I have some suggestions in mind:
-1) Have a special condition that does not print a warning only in the 
-case of UFO?
-2) Remove the warning totally? I don't like this option.
-3) Add a max_kernel_ver field in struct off_flag_def, and use it to not 
-print the warning, or to mark the feature 'off [fixed]'.
-
-Please let me know what you think.
-
-> 
-> No, definitely not.
->   
->> Thanks !
-> 
-> Tariq, will you be reworking this as Eric suggests?
-
-Yes. Once we decide what is the correct way to keep it backward compatible.
-
-> 
-> John
-> 
-
-Regards,
-Tariq Toukan
+>h/w forwarding matches s/w forwarding), then the hardware state should
+>be dumped by the driver in a form that parallels kernel state. e.g.,
+>dump h/w routes, neighbor entries, fdb's in a form and granularity
+>similar to what is done for kernel tables.
+>
+>With the recent dpipe changes that allows kernel to driver cache and
+>kernel to h/w state comparisons.
