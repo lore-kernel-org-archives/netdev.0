@@ -1,31 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 00/11] bnxt_en: Updates.
-Date: Mon, 28 Aug 2017 16:57:23 -0700 (PDT)
-Message-ID: <20170828.165723.1607285320294641144.davem@davemloft.net>
-References: <1503942035-24924-1-git-send-email-michael.chan@broadcom.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: michael.chan@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:51670 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751194AbdH1X5Y (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 28 Aug 2017 19:57:24 -0400
-In-Reply-To: <1503942035-24924-1-git-send-email-michael.chan@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Prakash Sangappa <prakash.sangappa@oracle.com>
+Subject: [RESEND PATCH] Allow passing tid or pid in SCM_CREDENTIALS without CAP_SYS_ADMIN
+Date: Mon, 28 Aug 2017 17:12:20 -0700
+Message-ID: <1503965540-30393-1-git-send-email-prakash.sangappa@oracle.com>
+Cc: davem@davemloft.net, ebiederm@xmission.com, drepper@redhat.com,
+        prakash.sangappa@oracle.com
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Michael Chan <michael.chan@broadcom.com>
-Date: Mon, 28 Aug 2017 13:40:24 -0400
+Currently passing tid(gettid(2)) of a thread in struct ucred in
+SCM_CREDENTIALS message requires CAP_SYS_ADMIN capability otherwise
+it fails with EPERM error. Some applications deal with thread id
+of a thread(tid) and so it would help to allow tid in SCM_CREDENTIALS
+message. Basically, either tgid(pid of the process) or the tid of
+the thread should be allowed without the need for CAP_SYS_ADMIN capability.
 
-> Various changes including updated firmware interface, improved TX ring
-> allocation scheme, improved out-of-memory logic in NAPI loop, reduced
-> default rings on multi-port devices, new PCI IDs. Of particular note,
-> 
-> CPU affinity hints from Vasundhara Volam.
-> 
-> TC Flower eswitch support from Sathya Perla.
+SCM_CREDENTIALS will be used to determine the global id of a process or
+a thread running inside a pid namespace.
 
-Looks good, series applied, thanks!
+This patch adds necessary check to accept tid in SCM_CREDENTIALS
+struct ucred.
+
+Signed-off-by: Prakash Sangappa <prakash.sangappa@oracle.com>
+---
+ net/core/scm.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/net/core/scm.c b/net/core/scm.c
+index b1ff8a4..9274197 100644
+--- a/net/core/scm.c
++++ b/net/core/scm.c
+@@ -55,6 +55,7 @@ static __inline__ int scm_check_creds(struct ucred *creds)
+ 		return -EINVAL;
+ 
+ 	if ((creds->pid == task_tgid_vnr(current) ||
++	     creds->pid == task_pid_vnr(current) ||
+ 	     ns_capable(task_active_pid_ns(current)->user_ns, CAP_SYS_ADMIN)) &&
+ 	    ((uid_eq(uid, cred->uid)   || uid_eq(uid, cred->euid) ||
+ 	      uid_eq(uid, cred->suid)) || ns_capable(cred->user_ns, CAP_SETUID)) &&
+-- 
+2.7.4
