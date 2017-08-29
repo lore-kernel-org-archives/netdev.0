@@ -1,67 +1,59 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH RFC 2/2] virtio_net: enable probing for NEEDS_RESET
- support
-Date: Tue, 29 Aug 2017 23:38:06 +0300
-Message-ID: <20170829233525-mutt-send-email-mst@kernel.org>
-References: <20170829200759.13975-1-willemdebruijn.kernel@gmail.com>
- <20170829200759.13975-3-willemdebruijn.kernel@gmail.com>
- <20170829231606-mutt-send-email-mst@kernel.org>
- <CAF=yD-L95x1EPKFeiPiZ2hbTzwYmDaG9O54+0tUW_4opuRKDMw@mail.gmail.com>
+Subject: Re: [PATCH net-next] virtio-net: invoke zerocopy callback on xmit
+ path if no tx napi
+Date: Tue, 29 Aug 2017 23:40:49 +0300
+Message-ID: <20170829233920-mutt-send-email-mst@kernel.org>
+References: <CAF=yD-KSek+LmZu0X0TXetmFEQ59iF3NpjZ4KugbwLo1BGfhaA@mail.gmail.com>
+ <20170824160748-mutt-send-email-mst@kernel.org>
+ <CAF=yD-+9Ah8pC9i2w3Ad3WnhQit7Yo479pMrToty7priL6BFLw@mail.gmail.com>
+ <20170824234551-mutt-send-email-mst@kernel.org>
+ <CAF=yD-+1wheMmC+HFKe_B_ULO0Mmh6HMSEbYY5D-HgqxVJee6A@mail.gmail.com>
+ <20170826022744-mutt-send-email-mst@kernel.org>
+ <CAF=yD-Lre0NATUVH8p0zS=G5CiY=WfKSefLmOZw940jZFgECgQ@mail.gmail.com>
+ <CAF=yD-+Wk9sc9dXMUq1+x_hh=3ThTXa6BnZkygP3tgVpjbp93g@mail.gmail.com>
+ <20170829224136-mutt-send-email-mst@kernel.org>
+ <CAF=yD-L5MG5RCZzT8EZ0coFiuQLp-2UQN0zzQefVnEd7rMQbyw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Network Development <netdev@vger.kernel.org>,
-        Jason Wang <jasowang@redhat.com>,
+Cc: Koichiro Den <den@klaipeden.com>, Jason Wang <jasowang@redhat.com>,
         virtualization@lists.linux-foundation.org,
-        Willem de Bruijn <willemb@google.com>
+        Network Development <netdev@vger.kernel.org>
 To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46978 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:48898 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750909AbdH2UiH (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 29 Aug 2017 16:38:07 -0400
+        id S1751249AbdH2Uku (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 29 Aug 2017 16:40:50 -0400
 Content-Disposition: inline
-In-Reply-To: <CAF=yD-L95x1EPKFeiPiZ2hbTzwYmDaG9O54+0tUW_4opuRKDMw@mail.gmail.com>
+In-Reply-To: <CAF=yD-L5MG5RCZzT8EZ0coFiuQLp-2UQN0zzQefVnEd7rMQbyw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 29, 2017 at 04:27:41PM -0400, Willem de Bruijn wrote:
-> On Tue, Aug 29, 2017 at 4:16 PM, Michael S. Tsirkin <mst@redhat.com> wrote:
-> > On Tue, Aug 29, 2017 at 04:07:59PM -0400, Willem de Bruijn wrote:
-> >> From: Willem de Bruijn <willemb@google.com>
-> >>
-> >> Implement a mechanism to signal that a virtio device implements the
-> >> VIRTIO_CONFIG_S_NEEDS_RESET command.
-> >>
-> >> Testing for VIRTIO_CONFIG_S_NEEDS_RESET support by issuing the request
-> >> and verifying the reset state would require an expensive state change.
-> >>
-> >> To avoid that, add a status bit to the feature register used during
-> >> feature negotiation between host and guest.
-> >>
-> >> Set the bit for virtio-net, which supports the feature.
-> >>
-> >> Signed-off-by: Willem de Bruijn <willemb@google.com>
+On Tue, Aug 29, 2017 at 03:53:08PM -0400, Willem de Bruijn wrote:
+> On Tue, Aug 29, 2017 at 3:42 PM, Michael S. Tsirkin <mst@redhat.com> wrote:
+> > On Tue, Aug 29, 2017 at 03:35:38PM -0400, Willem de Bruijn wrote:
+> >> By the way, I have had an unrelated patch outstanding for a while
+> >> to have virtio-net support the VIRTIO_CONFIG_S_NEEDS_RESET
+> >> command. Will send that as RFC.
 > >
-> > All virtio 1 devices have the reset feature
+> > Oh nice.
 > 
-> I don't quite follow. No device drivers implement this request currently?
-
-Depends. Spec 1.0 describes the bit and that driver can respond
-by reseting the device. You seem to do something else
-in this patchset, but as designed in 1.0 it does not seem to need
-a feature bit.
-
-> > so maybe guest does
-> > not need this flag. Does device need it? Does device really
-> > care that guest can't recover?
+> Great :)
 > 
-> If all device drivers support it, then the flag is not needed.
+> > One needs to be careful about locking there which is why
+> > no devices support that yet.
 > 
-> But as long as legacy device drivers can exist that do not support
-> this feature, it has to have a way of differentiating between the two.
+> I originally wrote it based on the virtnet_reset function introduced
+> for xdp. Calling this from virtnet_config_changed_work is non trivial,
+> as virtnet_freeze_down waits until no config worker is running.
+> 
+> Otherwise, I could not find any constraints on when freeze may be
+> called, and it largely follows the same path. I hope I didn't miss anything.
 
-Why? Device won't set this unless it's in a bad state. In that case,
-setting the bit is harmless even if drivers ignore it.
+The issue is that on freeze processes are not running so we
+generally know no new packets will arrive (might be wrong
+for bridging, then it's a bug). On device error you must
+prevent new skbs from coming in, etc.
 
 -- 
 MST
