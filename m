@@ -1,43 +1,39 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 0/4] Endian fixes for SYSTEMPORT/SF2/MDIO
-Date: Tue, 29 Aug 2017 14:45:30 -0700
-Message-ID: <d8ae99de-398d-f314-309f-50c36df9240a@gmail.com>
-References: <1504031985-52808-1-git-send-email-f.fainelli@gmail.com>
- <20170829.144254.740239595444825239.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v3] bridge: fdb add and delete
+	tracepoints
+Date: Tue, 29 Aug 2017 14:49:59 -0700 (PDT)
+Message-ID: <20170829.144959.233090804778101017.davem@davemloft.net>
+References: <1504037817-38107-1-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, opendmb@gmail.com, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f180.google.com ([209.85.216.180]:38480 "EHLO
-        mail-qt0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751294AbdH2Vpf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 17:45:35 -0400
-Received: by mail-qt0-f180.google.com with SMTP id w42so20431247qtg.5
-        for <netdev@vger.kernel.org>; Tue, 29 Aug 2017 14:45:35 -0700 (PDT)
-In-Reply-To: <20170829.144254.740239595444825239.davem@davemloft.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: nikolay@cumulusnetworks.com, netdev@vger.kernel.org, f.fainelli@gmail.com,
+	bridge@lists.linux-foundation.org
+To: roopa@cumulusnetworks.com
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1504037817-38107-1-git-send-email-roopa@cumulusnetworks.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 08/29/2017 02:42 PM, David Miller wrote:
-> From: Florian Fainelli <f.fainelli@gmail.com>
-> Date: Tue, 29 Aug 2017 11:39:41 -0700
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Date: Tue, 29 Aug 2017 13:16:57 -0700
+
+> From: Roopa Prabhu <roopa@cumulusnetworks.com>
 > 
->> While trying an ARM BE kernel for kinks, the 3 drivers below started not
->> working and the reasons why became pretty obvious because the register space
->> remains LE (hardwired), except for Broadcom MIPS where it follows the CPU's
->> native endian (let's call that a feature).
+> A few useful tracepoints to trace bridge forwarding
+> database updates.
 > 
-> Series applied, thanks Florian.
+> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+> ---
+> v2: address comments from florian
+> v3: remove stray character '=' in print (pointed out by florian)
 
-If you have not pushed yet, seems like not, can you check you applied v2
-of this patch series, in particular this patch:
-
-http://patchwork.ozlabs.org/patch/807296/
-
-Thanks!
--- 
-Florian
+Applied, thanks.
