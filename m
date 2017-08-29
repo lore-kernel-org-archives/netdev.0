@@ -1,44 +1,67 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v3] bridge: fdb add and delete
-	tracepoints
-Date: Tue, 29 Aug 2017 23:35:24 +0300
-Message-ID: <0c886358-0771-ed3c-c97f-f8366194eca2@cumulusnetworks.com>
-References: <1504037817-38107-1-git-send-email-roopa@cumulusnetworks.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH RFC 2/2] virtio_net: enable probing for NEEDS_RESET
+ support
+Date: Tue, 29 Aug 2017 23:38:06 +0300
+Message-ID: <20170829233525-mutt-send-email-mst@kernel.org>
+References: <20170829200759.13975-1-willemdebruijn.kernel@gmail.com>
+ <20170829200759.13975-3-willemdebruijn.kernel@gmail.com>
+ <20170829231606-mutt-send-email-mst@kernel.org>
+ <CAF=yD-L95x1EPKFeiPiZ2hbTzwYmDaG9O54+0tUW_4opuRKDMw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, f.fainelli@gmail.com,
-	bridge@lists.linux-foundation.org
-To: Roopa Prabhu <roopa@cumulusnetworks.com>, davem@davemloft.net
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1504037817-38107-1-git-send-email-roopa@cumulusnetworks.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Network Development <netdev@vger.kernel.org>,
+        Jason Wang <jasowang@redhat.com>,
+        virtualization@lists.linux-foundation.org,
+        Willem de Bruijn <willemb@google.com>
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:46978 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750909AbdH2UiH (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 29 Aug 2017 16:38:07 -0400
+Content-Disposition: inline
+In-Reply-To: <CAF=yD-L95x1EPKFeiPiZ2hbTzwYmDaG9O54+0tUW_4opuRKDMw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 29/08/17 23:16, Roopa Prabhu wrote:
-> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+On Tue, Aug 29, 2017 at 04:27:41PM -0400, Willem de Bruijn wrote:
+> On Tue, Aug 29, 2017 at 4:16 PM, Michael S. Tsirkin <mst@redhat.com> wrote:
+> > On Tue, Aug 29, 2017 at 04:07:59PM -0400, Willem de Bruijn wrote:
+> >> From: Willem de Bruijn <willemb@google.com>
+> >>
+> >> Implement a mechanism to signal that a virtio device implements the
+> >> VIRTIO_CONFIG_S_NEEDS_RESET command.
+> >>
+> >> Testing for VIRTIO_CONFIG_S_NEEDS_RESET support by issuing the request
+> >> and verifying the reset state would require an expensive state change.
+> >>
+> >> To avoid that, add a status bit to the feature register used during
+> >> feature negotiation between host and guest.
+> >>
+> >> Set the bit for virtio-net, which supports the feature.
+> >>
+> >> Signed-off-by: Willem de Bruijn <willemb@google.com>
+> >
+> > All virtio 1 devices have the reset feature
 > 
-> A few useful tracepoints to trace bridge forwarding
-> database updates.
-> 
-> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
-> ---
-> v2: address comments from florian
-> v3: remove stray character '=' in print (pointed out by florian)
-> 
->  include/trace/events/bridge.h |   98 +++++++++++++++++++++++++++++++++++++++++
->  net/bridge/br_fdb.c           |    7 +++
->  net/core/net-traces.c         |    6 +++
->  3 files changed, 111 insertions(+)
->  create mode 100644 include/trace/events/bridge.h
-> 
+> I don't quite follow. No device drivers implement this request currently?
 
-Acked-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Depends. Spec 1.0 describes the bit and that driver can respond
+by reseting the device. You seem to do something else
+in this patchset, but as designed in 1.0 it does not seem to need
+a feature bit.
+
+> > so maybe guest does
+> > not need this flag. Does device need it? Does device really
+> > care that guest can't recover?
+> 
+> If all device drivers support it, then the flag is not needed.
+> 
+> But as long as legacy device drivers can exist that do not support
+> this feature, it has to have a way of differentiating between the two.
+
+Why? Device won't set this unless it's in a bad state. In that case,
+setting the bit is harmless even if drivers ignore it.
+
+-- 
+MST
