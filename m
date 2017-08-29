@@ -1,72 +1,102 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH] lib/bpf: Fix bytecode-file parsing
-Date: Tue, 29 Aug 2017 17:09:45 +0200
-Message-ID: <20170829150945.7077-1-phil@nwl.cc>
-Cc: netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
-To: Stephen Hemminger <stephen@networkplumber.org>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net-next] Revert "ipv4: make net_protocol const"
+Date: Tue, 29 Aug 2017 08:14:03 -0700
+Message-ID: <20170829081403.41db6bde@xeon-e3>
+References: <1503951789-31836-1-git-send-email-dsahern@gmail.com>
+        <CAOH+1jF3G+Yo30Tk=cgnAPfD8UNe+FkkLjC1uGUd9eeG-ce5KA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Ahern <dsahern@gmail.com>, netdev@vger.kernel.org,
+        David Miller <davem@davemloft.net>
+To: Bhumika Goyal <bhumirks@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:55699 "EHLO mail.nwl.cc"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752435AbdH2PJ6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 29 Aug 2017 11:09:58 -0400
+Received: from mail-pg0-f51.google.com ([74.125.83.51]:35349 "EHLO
+        mail-pg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751343AbdH2POG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 11:14:06 -0400
+Received: by mail-pg0-f51.google.com with SMTP id 63so11631849pgc.2
+        for <netdev@vger.kernel.org>; Tue, 29 Aug 2017 08:14:06 -0700 (PDT)
+In-Reply-To: <CAOH+1jF3G+Yo30Tk=cgnAPfD8UNe+FkkLjC1uGUd9eeG-ce5KA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The signedness of char type is implementation dependent, and there are
-architectures on which it is unsigned by default. In that case, the
-check whether fgetc() returned EOF failed because the return value was
-assigned an (unsigned) char variable prior to comparison with EOF (which
-is defined to -1). Fix this by using int as type for 'c' variable, which
-also matches the declaration of fgetc().
+On Tue, 29 Aug 2017 12:16:23 +0530
+Bhumika Goyal <bhumirks@gmail.com> wrote:
 
-While being at it, fix the parser logic to correctly handle multiple
-empty lines and consecutive whitespace and tab characters to further
-improve the parser's robustness. Note that this will still detect double
-separator characters, so doesn't soften up the parser too much.
+> On Tue, Aug 29, 2017 at 1:53 AM, David Ahern <dsahern@gmail.com> wrote:
+> > This reverts commit aa8db499ea67cff1f5f049033810ffede2fe5ae4.
+> >
+> > Early demux structs can not be made const. Doing so results in:
+> > [   84.967355] BUG: unable to handle kernel paging request at ffffffff81684b10
+> > [   84.969272] IP: proc_configure_early_demux+0x1e/0x3d
+> > [   84.970544] PGD 1a0a067
+> > [   84.970546] P4D 1a0a067
+> > [   84.971212] PUD 1a0b063
+> > [   84.971733] PMD 80000000016001e1
+> >
+> > [   84.972669] Oops: 0003 [#1] SMP
+> > [   84.973065] Modules linked in: ip6table_filter ip6_tables veth vrf
+> > [   84.973833] CPU: 0 PID: 955 Comm: sysctl Not tainted 4.13.0-rc6+ #22
+> > [   84.974612] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS 1.7.5-20140531_083030-gandalf 04/01/2014
+> > [   84.975855] task: ffff88003854ce00 task.stack: ffffc900005a4000
+> > [   84.976580] RIP: 0010:proc_configure_early_demux+0x1e/0x3d
+> > [   84.977253] RSP: 0018:ffffc900005a7dd0 EFLAGS: 00010246
+> > [   84.977891] RAX: ffffffff81684b10 RBX: 0000000000000001 RCX: 0000000000000000
+> > [   84.978759] RDX: 0000000000000000 RSI: 0000000000000006 RDI: 0000000000000000
+> > [   84.979628] RBP: ffffc900005a7dd0 R08: 0000000000000000 R09: 0000000000000000
+> > [   84.980501] R10: 0000000000000001 R11: 0000000000000008 R12: 0000000000000001
+> > [   84.981373] R13: ffffffffffffffea R14: ffffffff81a9b4c0 R15: 0000000000000002
+> > [   84.982249] FS:  00007feb237b7700(0000) GS:ffff88003fc00000(0000) knlGS:0000000000000000
+> > [   84.983231] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+> > [   84.983941] CR2: ffffffff81684b10 CR3: 0000000038492000 CR4: 00000000000406f0
+> > [   84.984817] Call Trace:
+> > [   84.985133]  proc_tcp_early_demux+0x29/0x30
+> >
+> > I think this is the second time such a patch has been reverted.
+> >
+> > Cc: Bhumika Goyal <bhumirks@gmail.com>
+> > Signed-off-by: David Ahern <dsahern@gmail.com>
+> > ---
+> > Bhumika: How are you testing these constify changes? In this case a simple
+> > sysctl -w net.ipv4.tcp_early_demux=1 would have shown the problem
+> >  
+> 
+> I am compile testing them. In this case I did:  make
+> net/ipv4/af_inet.o and it compiled. Is this error because of
+> typecasting net_protocol inside inet_add_protocol function?
+> 
+> Thanks,
+> Bhumika
+> 
+> 
+> >  net/ipv4/af_inet.c | 4 ++--
+> >  1 file changed, 2 insertions(+), 2 deletions(-)
+> >
+> > diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+> > index 19aee073ba29..d678820e4306 100644
+> > --- a/net/ipv4/af_inet.c
+> > +++ b/net/ipv4/af_inet.c
+> > @@ -1596,7 +1596,7 @@ static const struct net_protocol igmp_protocol = {
+> >  };
+> >  #endif
+> >
+> > -static const struct net_protocol tcp_protocol = {
+> > +static struct net_protocol tcp_protocol = {
+> >         .early_demux    =       tcp_v4_early_demux,
+> >         .early_demux_handler =  tcp_v4_early_demux,
+> >         .handler        =       tcp_v4_rcv,
+> > @@ -1606,7 +1606,7 @@ static const struct net_protocol tcp_protocol = {
+> >         .icmp_strict_tag_validation = 1,
+> >  };
+> >
+> > -static const struct net_protocol udp_protocol = {
+> > +static struct net_protocol udp_protocol = {
+> >         .early_demux =  udp_v4_early_demux,
+> >         .early_demux_handler =  udp_v4_early_demux,
+> >         .handler =      udp_rcv,
+> > --
+> > 2.1.4
+> >  
 
-Fixes: 3da3ebfca85b8 ("bpf: Make bytecode-file reading a little more robust")
-Cc: Daniel Borkmann <daniel@iogearbox.net>
-Signed-off-by: Phil Sutter <phil@nwl.cc>
----
- lib/bpf.c | 7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
-
-diff --git a/lib/bpf.c b/lib/bpf.c
-index 0bd0a95eafe6c..77eb8ee27114f 100644
---- a/lib/bpf.c
-+++ b/lib/bpf.c
-@@ -208,8 +208,9 @@ static int bpf_parse_string(char *arg, bool from_file, __u16 *bpf_len,
- 
- 	if (from_file) {
- 		size_t tmp_len, op_len = sizeof("65535 255 255 4294967295,");
--		char *tmp_string, *pos, c, c_prev = ' ';
-+		char *tmp_string, *pos, c_prev = ' ';
- 		FILE *fp;
-+		int c;
- 
- 		tmp_len = sizeof("4096,") + BPF_MAXINSNS * op_len;
- 		tmp_string = pos = calloc(1, tmp_len);
-@@ -228,18 +229,20 @@ static int bpf_parse_string(char *arg, bool from_file, __u16 *bpf_len,
- 			case '\n':
- 				if (c_prev != ',')
- 					*(pos++) = ',';
-+				c_prev = ',';
- 				break;
- 			case ' ':
- 			case '\t':
- 				if (c_prev != ' ')
- 					*(pos++) = c;
-+				c_prev = ' ';
- 				break;
- 			default:
- 				*(pos++) = c;
-+				c_prev = c;
- 			}
- 			if (pos - tmp_string == tmp_len)
- 				break;
--			c_prev = c;
- 		}
- 
- 		if (!feof(fp)) {
--- 
-2.13.1
+You need to change inet_proto datastructure first. 
