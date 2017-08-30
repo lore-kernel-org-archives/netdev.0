@@ -1,55 +1,49 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: [GIT] Networking
-Date: Wed, 30 Aug 2017 11:48:23 +0200
-Message-ID: <20170830094823.GA31503@amd>
-References: <20170815.175219.753462032002961032.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="bg08WKrSYDhXBjb5"
-Cc: torvalds@linux-foundation.org, akpm@linux-foundation.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>, kvalo@codeaurora.org,
-        xiyou.wangcong@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170815.175219.753462032002961032.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Baruch Siach <baruch-NswTu9S1W3P6gbPvEgmw2w@public.gmane.org>
+Subject: [PATCH v2 3/3] net: phy: sfp: rename the rate-select property
+Date: Wed, 30 Aug 2017 12:51:12 +0300
+Message-ID: <c1ec28250f9a27aa0a0619be8a82e86ee1f8ef9f.1504086672.git.baruch@tkos.co.il>
+References: <d1e64c5752ef0dd5c5b543c2d4c3ef1783318173.1504086672.git.baruch@tkos.co.il>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Baruch Siach <baruch-NswTu9S1W3P6gbPvEgmw2w@public.gmane.org>
+To: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
+        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Russell King <rmk+kernel-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <d1e64c5752ef0dd5c5b543c2d4c3ef1783318173.1504086672.git.baruch-NswTu9S1W3P6gbPvEgmw2w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+Make the Rx rate select control gpio property name match the documented
+binding. This would make the addition of 'rate-select1-gpios' for SFP+
+support more natural.
 
---bg08WKrSYDhXBjb5
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Signed-off-by: Baruch Siach <baruch-NswTu9S1W3P6gbPvEgmw2w@public.gmane.org>
+---
+v2: New patch in this series
+---
+ drivers/net/phy/sfp.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Hi!
+diff --git a/drivers/net/phy/sfp.c b/drivers/net/phy/sfp.c
+index fb2cf4342f48..b44c0e296662 100644
+--- a/drivers/net/phy/sfp.c
++++ b/drivers/net/phy/sfp.c
+@@ -62,7 +62,7 @@ static const char *gpio_of_names[] = {
+ 	"los",
+ 	"tx-fault",
+ 	"tx-disable",
+-	"rate-select",
++	"rate-select0",
+ };
+ 
+ static const enum gpiod_flags gpio_flags[] = {
+-- 
+2.14.1
 
-Could we get this one in?
-
-wl1251 misses a spin_lock_init().
-
-https://www.mail-archive.com/netdev@vger.kernel.org/msg177031.html
-
-It seems pretty trivial, yet getting the backtraces is not nice.
-
-Thanks,
-   	 		     	     	 	       	   Pavel
-
---=20
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
-g.html
-
---bg08WKrSYDhXBjb5
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iEYEARECAAYFAlmmiecACgkQMOfwapXb+vJSdgCePIoHb+VmGHSPeaVsYV7YQLTr
-emQAoJZssZlcj44QAT3WwMPFGuDqrsai
-=pL+G
------END PGP SIGNATURE-----
-
---bg08WKrSYDhXBjb5--
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
