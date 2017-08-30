@@ -1,35 +1,61 @@
-From: "santosh.shilimkar@oracle.com" <santosh.shilimkar@oracle.com>
-Subject: Re: [PATCH] RDS: constify rhashtable_params
-Date: Wed, 30 Aug 2017 06:54:43 -0700
-Message-ID: <c8f861c1-b137-740d-78fe-e03e8232af09@oracle.com>
-References: <3cdaecc7c8080b0f2172d8788b96303528957b08.1504093495.git.arvind.yadav.cs@gmail.com>
+From: "Gustavo A. R. Silva" <gustavo@embeddedor.com>
+Subject: [PATCH] rtlwifi: btcoex: 23b 1ant: fix duplicated code for different
+ branches
+Date: Wed, 30 Aug 2017 08:42:23 -0500
+Message-ID: <20170830134223.GA13596@embeddedgus>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, rds-devel@oss.oracle.com,
-        linux-rdma@vger.kernel.org, netdev@vger.kernel.org
-To: Arvind Yadav <arvind.yadav.cs@gmail.com>, davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        "Gustavo A. R. Silva" <gustavo@embeddedor.com>
+To: Larry Finger <Larry.Finger@lwfinger.net>,
+        Chaoming Li <chaoming_li@realsil.com.cn>,
+        Kalle Valo <kvalo@codeaurora.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:43623 "EHLO
-        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751317AbdH3Nyz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 09:54:55 -0400
-In-Reply-To: <3cdaecc7c8080b0f2172d8788b96303528957b08.1504093495.git.arvind.yadav.cs@gmail.com>
-Content-Language: en-US
+Received: from gateway22.websitewelcome.com ([192.185.46.142]:23690 "EHLO
+        gateway22.websitewelcome.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751326AbdH3OEv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 10:04:51 -0400
+Received: from cm14.websitewelcome.com (cm14.websitewelcome.com [100.42.49.7])
+        by gateway22.websitewelcome.com (Postfix) with ESMTP id CB17F1B5ED
+        for <netdev@vger.kernel.org>; Wed, 30 Aug 2017 08:42:25 -0500 (CDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 8/30/17 4:49 AM, Arvind Yadav wrote:
-> rhashtable_params are not supposed to change at runtime. All
-> Functions rhashtable_* working with const rhashtable_params
-> provided by <linux/rhashtable.h>. So mark the non-const structs
-> as const.
-> 
-> Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
-> ---
-This is already addressed in net-next by [1]
+Refactor code in order to avoid identical code for different branches.
 
-Regards,
-Santosh
+This issue was detected with the help of Coccinelle.
 
-[1] https://lkml.org/lkml/2017/8/25/482
+Addresses-Coverity-ID: 1226788
+Signed-off-by: Gustavo A. R. Silva <gustavo@embeddedor.com>
+---
+This issue was reported by Coverity and it was tested by compilation only.
+I'm suspicious this may be a copy/paste error. Please, verify.
+
+ .../net/wireless/realtek/rtlwifi/btcoexist/halbtc8723b1ant.c   | 10 ++--------
+ 1 file changed, 2 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/net/wireless/realtek/rtlwifi/btcoexist/halbtc8723b1ant.c b/drivers/net/wireless/realtek/rtlwifi/btcoexist/halbtc8723b1ant.c
+index c044252..960ce80f 100644
+--- a/drivers/net/wireless/realtek/rtlwifi/btcoexist/halbtc8723b1ant.c
++++ b/drivers/net/wireless/realtek/rtlwifi/btcoexist/halbtc8723b1ant.c
+@@ -2260,14 +2260,8 @@ static void halbtc8723b1ant_run_coexist_mechanism(struct btc_coexist *btcoexist)
+ 
+ 		if (iot_peer != BTC_IOT_PEER_CISCO &&
+ 		    iot_peer != BTC_IOT_PEER_BROADCOM) {
+-			if (bt_link_info->sco_exist)
+-				halbtc8723b1ant_limited_rx(btcoexist,
+-							   NORMAL_EXEC, false,
+-							   false, 0x5);
+-			else
+-				halbtc8723b1ant_limited_rx(btcoexist,
+-							   NORMAL_EXEC, false,
+-							   false, 0x5);
++			halbtc8723b1ant_limited_rx(btcoexist, NORMAL_EXEC,
++						   false, false, 0x5);
+ 		} else {
+ 			if (bt_link_info->sco_exist) {
+ 				halbtc8723b1ant_limited_rx(btcoexist,
+-- 
+2.5.0
