@@ -1,60 +1,44 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net 07/11] net/mlx5e: Don't override user RSS upon set channels
-Date: Thu, 31 Aug 2017 01:21:06 +0300
-Message-ID: <20170830222110.15737-8-saeedm@mellanox.com>
+Subject: [net 11/11] net/mlx5e: Fix CQ moderation mode not set properly
+Date: Thu, 31 Aug 2017 01:21:10 +0300
+Message-ID: <20170830222110.15737-12-saeedm@mellanox.com>
 References: <20170830222110.15737-1-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Inbar Karmy <inbark@mellanox.com>,
+Cc: netdev@vger.kernel.org, Tal Gilboa <talgi@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:53254 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:53278 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751333AbdH3WVd (ORCPT
+        with ESMTP id S1751375AbdH3WVd (ORCPT
         <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 18:21:33 -0400
 In-Reply-To: <20170830222110.15737-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Inbar Karmy <inbark@mellanox.com>
+From: Tal Gilboa <talgi@mellanox.com>
 
-Currently, increasing the number of combined channels is changing
-the RSS spread to use the new created channels.
-Prevent the RSS spread change in case the user explicitly declare it,
-to avoid overriding user configuration.
+cq_period_mode assignment was mistakenly removed so it was always set to "0",
+which is EQE based moderation, regardless of the device CAPs and
+requested value in ethtool.
 
-Tested:
-when RSS default:
-
-# ethtool -L ens8 combined 4
-RSS spread will change and point to 4 channels.
-
-# ethtool -X ens8 equal 4
-# ethtool -L ens8 combined 6
-RSS will not change after increasing the number of the channels.
-
-Fixes: 8bf368620486 ('ethtool: ensure channel counts are within bounds during SCHANNELS')
-Signed-off-by: Inbar Karmy <inbark@mellanox.com>
+Fixes: 6a9764efb255 ("net/mlx5e: Isolate open_channels from priv->params")
+Signed-off-by: Tal Gilboa <talgi@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-index 917fade5f5d5..f5594014715b 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-@@ -641,8 +641,10 @@ int mlx5e_ethtool_set_channels(struct mlx5e_priv *priv,
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 57f31fa478ce..6ad7f07e7861 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -1969,6 +1969,7 @@ static void mlx5e_build_rx_cq_param(struct mlx5e_priv *priv,
+ 	}
  
- 	new_channels.params = priv->channels.params;
- 	new_channels.params.num_channels = count;
--	mlx5e_build_default_indir_rqt(priv->mdev, new_channels.params.indirection_rqt,
--				      MLX5E_INDIR_RQT_SIZE, count);
-+	if (!netif_is_rxfh_configured(priv->netdev))
-+		mlx5e_build_default_indir_rqt(priv->mdev,
-+					      new_channels.params.indirection_rqt,
-+					      MLX5E_INDIR_RQT_SIZE, count);
+ 	mlx5e_build_common_cq_param(priv, param);
++	param->cq_period_mode = params->rx_cq_period_mode;
+ }
  
- 	if (!test_bit(MLX5E_STATE_OPENED, &priv->state)) {
- 		priv->channels.params = new_channels.params;
+ static void mlx5e_build_tx_cq_param(struct mlx5e_priv *priv,
 -- 
 2.13.0
