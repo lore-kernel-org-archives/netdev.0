@@ -1,278 +1,127 @@
-From: yossiku@mellanox.com
-Subject: [PATCH net-next] xfrm: Add support for network devices capable of removing the ESP trailer
-Date: Wed, 30 Aug 2017 11:30:39 +0300
-Message-ID: <1504081839-22019-1-git-send-email-yossiku@mellanox.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: borisp@mellanox.com, kliteyn@mellanox.com,
-        Yossi Kuperman <yossiku@mellanox.com>
-To: Steffen Klassert <steffen.klassert@secunet.com>,
-        Herbert Xu <herbert@gondor.apana.org.au>,
-        "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+From: Antoine Tenart <antoine.tenart@free-electrons.com>
+Subject: [PATCH net-next v4 10/13] arm64: dts: marvell: add comphy nodes on cp110 master and slave
+Date: Wed, 30 Aug 2017 10:29:21 +0200
+Message-ID: <20170830082924.3180-11-antoine.tenart@free-electrons.com>
+References: <20170830082924.3180-1-antoine.tenart@free-electrons.com>
+Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
+        thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
+        linux@armlinux.org.uk, linux-kernel@vger.kernel.org,
+        mw@semihalf.com, stefanc@marvell.com,
+        miquel.raynal@free-electrons.com, netdev@vger.kernel.org
+To: davem@davemloft.net, kishon@ti.com, andrew@lunn.ch,
+        jason@lakedaemon.net, sebastian.hesselbarth@gmail.com,
+        gregory.clement@free-electrons.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170830082924.3180-1-antoine.tenart@free-electrons.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Yossi Kuperman <yossiku@mellanox.com>
+Now that the comphy driver is available, this patch adds the
+corresponding nodes in the cp110 master and slave device trees.
 
-In conjunction with crypto offload [1], removing the ESP trailer by
-hardware can potentially improve the performance by avoiding (1) a
-cache miss incurred by reading the nexthdr field and (2) the necessity
-to calculate the csum value of the trailer in order to keep skb->csum
-valid.
-
-This patch introduces the changes to the xfrm stack and merely serves
-as an infrastructure. Subsequent patch to mlx5 driver will put this to
-a good use.
-
-[1] https://www.mail-archive.com/netdev@vger.kernel.org/msg175733.html
-
-Signed-off-by: Yossi Kuperman <yossiku@mellanox.com>
+Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
 ---
- include/net/xfrm.h    |  1 +
- net/ipv4/esp4.c       | 70 ++++++++++++++++++++++++++++++++++-----------------
- net/ipv6/esp6.c       | 51 ++++++++++++++++++++++++++-----------
- net/xfrm/xfrm_input.c |  5 ++++
- 4 files changed, 89 insertions(+), 38 deletions(-)
+ .../boot/dts/marvell/armada-cp110-master.dtsi      | 38 ++++++++++++++++++++++
+ .../arm64/boot/dts/marvell/armada-cp110-slave.dtsi | 38 ++++++++++++++++++++++
+ 2 files changed, 76 insertions(+)
 
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 9c7b70c..f002a2c 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -1019,6 +1019,7 @@ struct xfrm_offload {
- #define	CRYPTO_FALLBACK		8
- #define	XFRM_GSO_SEGMENT	16
- #define	XFRM_GRO		32
-+#define	XFRM_ESP_NO_TRAILER	64
+diff --git a/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi b/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi
+index 9b2581473183..f2a50552bad4 100644
+--- a/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi
++++ b/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi
+@@ -91,6 +91,44 @@
+ 				};
+ 			};
  
- 	__u32			status;
- #define CRYPTO_SUCCESS				1
-diff --git a/net/ipv4/esp4.c b/net/ipv4/esp4.c
-index 741acd7..3190005 100644
---- a/net/ipv4/esp4.c
-+++ b/net/ipv4/esp4.c
-@@ -499,19 +499,59 @@ static int esp_output(struct xfrm_state *x, struct sk_buff *skb)
- 	return esp_output_tail(x, skb, &esp);
- }
- 
-+static inline int esp_remove_trailer(struct sk_buff *skb)
-+{
-+	struct xfrm_state *x = xfrm_input_state(skb);
-+	struct xfrm_offload *xo = xfrm_offload(skb);
-+	struct crypto_aead *aead = x->data;
-+	int alen, hlen, elen;
-+	int padlen, trimlen;
-+	__wsum csumdiff;
-+	u8 nexthdr[2];
-+	int ret;
++			cpm_comphy: phy@120000 {
++				compatible = "marvell,comphy-cp110";
++				reg = <0x120000 0x6000>;
++				marvell,system-controller = <&cpm_syscon0>;
++				#address-cells = <1>;
++				#size-cells = <0>;
 +
-+	alen = crypto_aead_authsize(aead);
-+	hlen = sizeof(struct ip_esp_hdr) + crypto_aead_ivsize(aead);
-+	elen = skb->len - hlen;
++				cpm_comphy0: phy@0 {
++					reg = <0>;
++					#phy-cells = <1>;
++				};
 +
-+	if (xo && (xo->flags & XFRM_ESP_NO_TRAILER)) {
-+		ret = xo->proto;
-+		goto out;
-+	}
++				cpm_comphy1: phy@1 {
++					reg = <1>;
++					#phy-cells = <1>;
++				};
 +
-+	if (skb_copy_bits(skb, skb->len - alen - 2, nexthdr, 2))
-+		BUG();
++				cpm_comphy2: phy@2 {
++					reg = <2>;
++					#phy-cells = <1>;
++				};
 +
-+	ret = -EINVAL;
-+	padlen = nexthdr[0];
-+	if (padlen + 2 + alen >= elen) {
-+		net_dbg_ratelimited("ipsec esp packet is garbage padlen=%d, elen=%d\n",
-+				    padlen + 2, elen - alen);
-+		goto out;
-+	}
++				cpm_comphy3: phy@3 {
++					reg = <3>;
++					#phy-cells = <1>;
++				};
 +
-+	trimlen = alen + padlen + 2;
-+	if (skb->ip_summed == CHECKSUM_COMPLETE) {
-+		csumdiff = skb_checksum(skb, skb->len - trimlen, trimlen, 0);
-+		skb->csum = csum_block_sub(skb->csum, csumdiff,
-+					   skb->len - trimlen);
-+	}
-+	pskb_trim(skb, skb->len - trimlen);
++				cpm_comphy4: phy@4 {
++					reg = <4>;
++					#phy-cells = <1>;
++				};
 +
-+	ret = nexthdr[1];
++				cpm_comphy5: phy@5 {
++					reg = <5>;
++					#phy-cells = <1>;
++				};
++			};
 +
-+out:
-+	return ret;
-+}
+ 			cpm_mdio: mdio@12a200 {
+ 				#address-cells = <1>;
+ 				#size-cells = <0>;
+diff --git a/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi b/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi
+index d3902f218c46..bd7f7d0e6de9 100644
+--- a/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi
++++ b/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi
+@@ -98,6 +98,44 @@
+ 				};
+ 			};
+ 
++			cps_comphy: phy@120000 {
++				compatible = "marvell,comphy-cp110";
++				reg = <0x120000 0x6000>;
++				marvell,system-controller = <&cps_syscon0>;
++				#address-cells = <1>;
++				#size-cells = <0>;
 +
- int esp_input_done2(struct sk_buff *skb, int err)
- {
- 	const struct iphdr *iph;
- 	struct xfrm_state *x = xfrm_input_state(skb);
- 	struct xfrm_offload *xo = xfrm_offload(skb);
- 	struct crypto_aead *aead = x->data;
--	int alen = crypto_aead_authsize(aead);
- 	int hlen = sizeof(struct ip_esp_hdr) + crypto_aead_ivsize(aead);
--	int elen = skb->len - hlen;
- 	int ihl;
--	u8 nexthdr[2];
--	int padlen, trimlen;
--	__wsum csumdiff;
- 
- 	if (!xo || (xo && !(xo->flags & CRYPTO_DONE)))
- 		kfree(ESP_SKB_CB(skb)->tmp);
-@@ -519,16 +559,10 @@ int esp_input_done2(struct sk_buff *skb, int err)
- 	if (unlikely(err))
- 		goto out;
- 
--	if (skb_copy_bits(skb, skb->len-alen-2, nexthdr, 2))
--		BUG();
--
--	err = -EINVAL;
--	padlen = nexthdr[0];
--	if (padlen + 2 + alen >= elen)
-+	err = esp_remove_trailer(skb);
-+	if (unlikely(err < 0))
- 		goto out;
- 
--	/* ... check padding bits here. Silly. :-) */
--
- 	iph = ip_hdr(skb);
- 	ihl = iph->ihl * 4;
- 
-@@ -569,22 +603,12 @@ int esp_input_done2(struct sk_buff *skb, int err)
- 			skb->ip_summed = CHECKSUM_UNNECESSARY;
- 	}
- 
--	trimlen = alen + padlen + 2;
--	if (skb->ip_summed == CHECKSUM_COMPLETE) {
--		csumdiff = skb_checksum(skb, skb->len - trimlen, trimlen, 0);
--		skb->csum = csum_block_sub(skb->csum, csumdiff,
--					   skb->len - trimlen);
--	}
--	pskb_trim(skb, skb->len - trimlen);
--
- 	skb_pull_rcsum(skb, hlen);
- 	if (x->props.mode == XFRM_MODE_TUNNEL)
- 		skb_reset_transport_header(skb);
- 	else
- 		skb_set_transport_header(skb, -ihl);
- 
--	err = nexthdr[1];
--
- 	/* RFC4303: Drop dummy packets without any error */
- 	if (err == IPPROTO_NONE)
- 		err = -EINVAL;
-diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
-index 74bde20..7fb41b0 100644
---- a/net/ipv6/esp6.c
-+++ b/net/ipv6/esp6.c
-@@ -461,29 +461,30 @@ static int esp6_output(struct xfrm_state *x, struct sk_buff *skb)
- 	return esp6_output_tail(x, skb, &esp);
- }
- 
--int esp6_input_done2(struct sk_buff *skb, int err)
-+static inline int esp_remove_trailer(struct sk_buff *skb)
- {
- 	struct xfrm_state *x = xfrm_input_state(skb);
- 	struct xfrm_offload *xo = xfrm_offload(skb);
- 	struct crypto_aead *aead = x->data;
--	int alen = crypto_aead_authsize(aead);
--	int hlen = sizeof(struct ip_esp_hdr) + crypto_aead_ivsize(aead);
--	int elen = skb->len - hlen;
--	int hdr_len = skb_network_header_len(skb);
-+	int alen, hlen, elen;
- 	int padlen, trimlen;
- 	__wsum csumdiff;
- 	u8 nexthdr[2];
-+	int ret;
- 
--	if (!xo || (xo && !(xo->flags & CRYPTO_DONE)))
--		kfree(ESP_SKB_CB(skb)->tmp);
-+	alen = crypto_aead_authsize(aead);
-+	hlen = sizeof(struct ip_esp_hdr) + crypto_aead_ivsize(aead);
-+	elen = skb->len - hlen;
- 
--	if (unlikely(err))
-+	if (xo && (xo->flags & XFRM_ESP_NO_TRAILER)) {
-+		ret = xo->proto;
- 		goto out;
-+	}
- 
- 	if (skb_copy_bits(skb, skb->len - alen - 2, nexthdr, 2))
- 		BUG();
- 
--	err = -EINVAL;
-+	ret = -EINVAL;
- 	padlen = nexthdr[0];
- 	if (padlen + 2 + alen >= elen) {
- 		net_dbg_ratelimited("ipsec esp packet is garbage padlen=%d, elen=%d\n",
-@@ -491,26 +492,46 @@ int esp6_input_done2(struct sk_buff *skb, int err)
- 		goto out;
- 	}
- 
--	/* ... check padding bits here. Silly. :-) */
--
- 	trimlen = alen + padlen + 2;
- 	if (skb->ip_summed == CHECKSUM_COMPLETE) {
--		skb_postpull_rcsum(skb, skb_network_header(skb),
--				   skb_network_header_len(skb));
- 		csumdiff = skb_checksum(skb, skb->len - trimlen, trimlen, 0);
- 		skb->csum = csum_block_sub(skb->csum, csumdiff,
- 					   skb->len - trimlen);
- 	}
- 	pskb_trim(skb, skb->len - trimlen);
- 
-+	ret = nexthdr[1];
++				cps_comphy0: phy@0 {
++					reg = <0>;
++					#phy-cells = <1>;
++				};
 +
-+out:
-+	return ret;
-+}
++				cps_comphy1: phy@1 {
++					reg = <1>;
++					#phy-cells = <1>;
++				};
 +
-+int esp6_input_done2(struct sk_buff *skb, int err)
-+{
-+	struct xfrm_state *x = xfrm_input_state(skb);
-+	struct xfrm_offload *xo = xfrm_offload(skb);
-+	struct crypto_aead *aead = x->data;
-+	int hlen = sizeof(struct ip_esp_hdr) + crypto_aead_ivsize(aead);
-+	int hdr_len = skb_network_header_len(skb);
++				cps_comphy2: phy@2 {
++					reg = <2>;
++					#phy-cells = <1>;
++				};
 +
-+	if (!xo || (xo && !(xo->flags & CRYPTO_DONE)))
-+		kfree(ESP_SKB_CB(skb)->tmp);
++				cps_comphy3: phy@3 {
++					reg = <3>;
++					#phy-cells = <1>;
++				};
 +
-+	if (unlikely(err))
-+		goto out;
++				cps_comphy4: phy@4 {
++					reg = <4>;
++					#phy-cells = <1>;
++				};
 +
-+	err = esp_remove_trailer(skb);
-+	if (unlikely(err < 0))
-+		goto out;
++				cps_comphy5: phy@5 {
++					reg = <5>;
++					#phy-cells = <1>;
++				};
++			};
 +
-+	skb_postpull_rcsum(skb, skb_network_header(skb),
-+			   skb_network_header_len(skb));
- 	skb_pull_rcsum(skb, hlen);
- 	if (x->props.mode == XFRM_MODE_TUNNEL)
- 		skb_reset_transport_header(skb);
- 	else
- 		skb_set_transport_header(skb, -hdr_len);
- 
--	err = nexthdr[1];
--
- 	/* RFC4303: Drop dummy packets without any error */
- 	if (err == IPPROTO_NONE)
- 		err = -EINVAL;
-diff --git a/net/xfrm/xfrm_input.c b/net/xfrm/xfrm_input.c
-index f07eec5..2515cd2 100644
---- a/net/xfrm/xfrm_input.c
-+++ b/net/xfrm/xfrm_input.c
-@@ -247,6 +247,11 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
- 					goto drop;
- 				}
- 
-+				if (xo->status & CRYPTO_INVALID_PROTOCOL) {
-+					XFRM_INC_STATS(net, LINUX_MIB_XFRMINSTATEPROTOERROR);
-+					goto drop;
-+				}
-+
- 				XFRM_INC_STATS(net, LINUX_MIB_XFRMINBUFFERERROR);
- 				goto drop;
- 			}
+ 			cps_mdio: mdio@12a200 {
+ 				#address-cells = <1>;
+ 				#size-cells = <0>;
 -- 
-2.8.1
+2.13.5
