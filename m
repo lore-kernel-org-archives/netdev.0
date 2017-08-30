@@ -1,126 +1,67 @@
-From: Andrii Vladyka <tulup@mail.ru>
-Subject: [PATCH] net: dccp: Add handling of IPV6_PKTOPTIONS to
- dccp_v6_do_rcv()
-Date: Wed, 30 Aug 2017 09:04:35 +0300
-Message-ID: <20170830090435.58406d1b@dev>
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Subject: Re: [lkp-robot] [irda]  66d98e78e4: BUG:unable_to_handle_kernel
+Date: Wed, 30 Aug 2017 08:12:15 +0200
+Message-ID: <20170830061215.GA3682@kroah.com>
+References: <20170827150334.32495-2-gregkh@linuxfoundation.org>
+ <20170830060410.GX30390@yexl-desktop>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="MP_/yNhO8aNFP.q9o_53kE9NWpe"
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org (open list), dccp@vger.kernel.org
-To: gerrit@erg.abdn.ac.uk
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fallback11.m.smailru.net ([94.100.179.26]:53516 "EHLO
-        fallback.mail.ru" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1750803AbdH3GGG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 02:06:06 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
---MP_/yNhO8aNFP.q9o_53kE9NWpe
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
+Cc: devel@driverdev.osuosl.org, samuel@sortiz.org, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, lkp@01.org, davem@davemloft.net
+To: kernel test robot <xiaolong.ye@intel.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
 Content-Disposition: inline
+In-Reply-To: <20170830060410.GX30390@yexl-desktop>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-Add handling of IPV6_PKTOPTIONS to dccp_v6_do_rcv() in net/dccp/ipv6.c, similar
-to the handling in net/ipv6/tcp_ipv6.c
+On Wed, Aug 30, 2017 at 02:04:11PM +0800, kernel test robot wrote:
+> FYI, we noticed the following commit:
+> 
+> commit: 66d98e78e44ccb969cb3196995759d200e64b49b ("irda: move net/irda/ to drivers/staging/irda/net/")
+> url: https://github.com/0day-ci/linux/commits/Greg-Kroah-Hartman/irda-move-it-to-drivers-staging-so-we-can-delete-it/20170829-090816
+> 
+> in testcase: trinity
+> with following parameters:
+> 
+> 	runtime: 300s
+> 
+> test-description: Trinity is a linux system call fuzz tester.
+> test-url: http://codemonkey.org.uk/projects/trinity/
+> 
+> on test machine: qemu-system-i386 -enable-kvm -smp 2 -m 320M
+> 
+> caused below changes (please refer to attached dmesg/kmsg for entire log/backtrace):
+> 
+> +-----------------------------------------------------+------------+------------+
+> |                                                     | 89ff9d58e6 | 66d98e78e4 |
+> +-----------------------------------------------------+------------+------------+
+> | boot_successes                                      | 0          | 0          |
+> | boot_failures                                       | 10         | 12         |
+> | IP-Config:Auto-configuration_of_network_failed      | 8          |            |
+> | WARNING:at_arch/x86/mm/dump_pagetables.c:#note_page | 2          |            |
+> | EIP:note_page                                       | 2          |            |
+> | BUG:unable_to_handle_kernel                         | 0          | 12         |
+> | Oops:#[##]                                          | 0          | 12         |
+> | EIP:dev_add_pack                                    | 0          | 12         |
+> | Kernel_panic-not_syncing:Fatal_exception            | 0          | 12         |
+> +-----------------------------------------------------+------------+------------+
+> 
+> [    0.227015] BUG: unable to handle kernel NULL pointer dereference at 00000004
+> [    0.228000] IP: dev_add_pack+0x37/0x80
 
-Signed-off-by: Andrii Vladyka <tulup@mail.ru>
---MP_/yNhO8aNFP.q9o_53kE9NWpe
-Content-Type: text/x-patch
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment; filename=dccp.patch
+Didn't you report this yesterday as well?  Anyway, am working on it,
+give me a few hours to wake up and test...
 
-diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
-index 1b58eac..fdff10b 100644
---- a/net/dccp/ipv6.c
-+++ b/net/dccp/ipv6.c
-@@ -16,6 +16,7 @@
- #include <linux/random.h>
- #include <linux/slab.h>
- #include <linux/xfrm.h>
-+#include <linux/string.h>
- 
- #include <net/addrconf.h>
- #include <net/inet_common.h>
-@@ -30,6 +31,7 @@
- #include <net/ip6_checksum.h>
- #include <net/xfrm.h>
- #include <net/secure_seq.h>
-+#include <net/sock.h>
- 
- #include "dccp.h"
- #include "ipv6.h"
-@@ -597,19 +599,13 @@ static int dccp_v6_do_rcv(struct sock *sk, struct sk_buff *skb)
- 					       --ANK (980728)
- 	 */
- 	if (np->rxopt.all)
--	/*
--	 * FIXME: Add handling of IPV6_PKTOPTIONS skb. See the comments below
--	 *        (wrt ipv6_pktopions) and net/ipv6/tcp_ipv6.c for an example.
--	 */
- 		opt_skb = skb_clone(skb, GFP_ATOMIC);
- 
- 	if (sk->sk_state == DCCP_OPEN) { /* Fast path */
- 		if (dccp_rcv_established(sk, skb, dccp_hdr(skb), skb->len))
- 			goto reset;
--		if (opt_skb) {
--			/* XXX This is where we would goto ipv6_pktoptions. */
--			__kfree_skb(opt_skb);
--		}
-+		if (opt_skb)
-+			goto ipv6_pktoptions;
- 		return 0;
- 	}
- 
-@@ -640,10 +636,8 @@ static int dccp_v6_do_rcv(struct sock *sk, struct sk_buff *skb)
- 
- 	if (dccp_rcv_state_process(sk, skb, dccp_hdr(skb), skb->len))
- 		goto reset;
--	if (opt_skb) {
--		/* XXX This is where we would goto ipv6_pktoptions. */
--		__kfree_skb(opt_skb);
--	}
-+	if (opt_skb) 
-+		goto ipv6_pktoptions;
- 	return 0;
- 
- reset:
-@@ -653,6 +647,36 @@ static int dccp_v6_do_rcv(struct sock *sk, struct sk_buff *skb)
- 		__kfree_skb(opt_skb);
- 	kfree_skb(skb);
- 	return 0;
-+	
-+/*
-+ * Handling IPV6_PKTOPTIONS skb the similar
-+ * way it's done for net/ipv6/tcp_ipv6.c
-+ */
-+ipv6_pktoptions:
-+	if (!((1 << sk->sk_state) & (DCCPF_CLOSED | DCCPF_LISTEN))) {
-+		if (np->rxopt.bits.rxinfo || np->rxopt.bits.rxoinfo)
-+			np->mcast_oif = inet6_iif(opt_skb);
-+		if (np->rxopt.bits.rxhlim || np->rxopt.bits.rxohlim)
-+			np->mcast_hops = ipv6_hdr(opt_skb)->hop_limit;
-+		if (np->rxopt.bits.rxflow || np->rxopt.bits.rxtclass)
-+			np->rcv_flowinfo = ip6_flowinfo(ipv6_hdr(opt_skb));
-+		if (np->repflow)
-+			np->flow_label = ip6_flowlabel(ipv6_hdr(opt_skb));
-+		if (ipv6_opt_accepted(sk, opt_skb,
-+				      &DCCP_SKB_CB(opt_skb)->header.h6)) {
-+			skb_set_owner_r(opt_skb, sk);
-+			memmove(IP6CB(opt_skb),
-+				&DCCP_SKB_CB(opt_skb)->header.h6,
-+			        sizeof(struct inet6_skb_parm));
-+			opt_skb = xchg(&np->pktoptions, opt_skb);
-+		} else {
-+			__kfree_skb(opt_skb);
-+			opt_skb = xchg(&np->pktoptions, NULL);
-+		}
-+	}
-+
-+	kfree_skb(opt_skb);
-+	return 0;
- }
- 
- static int dccp_v6_rcv(struct sk_buff *skb)
+thanks,
 
---MP_/yNhO8aNFP.q9o_53kE9NWpe--
+greg k-h
