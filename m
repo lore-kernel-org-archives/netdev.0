@@ -1,37 +1,37 @@
-From: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
-Subject: Re: [PATCH net-next 3/3 v11] drivers: net: ethernet: qualcomm: rmnet:
- Initial implementation
-Date: Wed, 30 Aug 2017 15:40:01 -0600
-Message-ID: <a88f19fc1dead2c7fe560ed090b79488@codeaurora.org>
-References: <1504068258-16982-4-git-send-email-subashab@codeaurora.org>
- <1504103947.21231.5.camel@redhat.com>
- <c64415aa8d1184303f5916bdd2fd6ce3@codeaurora.org>
- <20170830.142744.324884406082731585.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net: cpsw: Don't handle SIOC[GS]HWTSTAMP when
+ CPTS is disabled
+Date: Wed, 30 Aug 2017 14:47:45 -0700 (PDT)
+Message-ID: <20170830.144745.947488279115809130.davem@davemloft.net>
+References: <20170830065055.419-1-stefan.sorensen@spectralink.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
- format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: dcbw@redhat.com, netdev@vger.kernel.org, fengguang.wu@intel.com,
-        jiri@resnulli.us, stephen@networkplumber.org,
-        David.Laight@aculab.com, marcel@holtmann.org, andrew@lunn.ch
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
+Cc: grygorii.strashko@ti.com, netdev@vger.kernel.org,
+        linux-omap@vger.kernel.org
+To: stefan.sorensen@spectralink.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:39932 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751205AbdH3VkC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 17:40:02 -0400
-In-Reply-To: <20170830.142744.324884406082731585.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([184.105.139.130]:34532 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751291AbdH3Vrq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 17:47:46 -0400
+In-Reply-To: <20170830065055.419-1-stefan.sorensen@spectralink.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Subash, keep in mind that since I applied your v11 patches already you
-> will need to send me relative fixes and changes at this point, rather
-> than resubmit the series.
-> 
-> Thank you.
+From: Stefan Sørensen <stefan.sorensen@spectralink.com>
+Date: Wed, 30 Aug 2017 08:50:55 +0200
 
-Thanks for the heads up David. Will do.
--- 
-Qualcomm Innovation Center, Inc.
-The Qualcomm Innovation Center, Inc. is a member of Code Aurora Forum, a 
-Linux Foundation Collaborative Project
+> There is no reason to handle SIOC[GS]HWTSTAMP and return -EOPNOTSUPP when
+> CPTS is disabled, so just pass them on to the phy. This will allow PTP
+> timestamping on a capable phy by disabling CPTS.
+> 
+> Signed-off-by: Stefan Sørensen <stefan.sorensen@spectralink.com>
+
+It should not be required to disable a Kconfig option just to get PHY
+timestamping to work properly.
+
+Rather, if the CPTS code returns -EOPNOTSUPP we should try to
+fallthrough to the PHY library based methods.
+
+Thanks.
