@@ -1,43 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next v2 0/3] net/sched: Improve getting objects by
- indexes
-Date: Wed, 30 Aug 2017 14:39:15 -0700 (PDT)
-Message-ID: <20170830.143915.721461254974312457.davem@davemloft.net>
-References: <1504074719-15147-1-git-send-email-chrism@mellanox.com>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH net 9/9] sch_tbf: fix two null pointer dereferences on
+ init failure
+Date: Thu, 31 Aug 2017 00:39:04 +0300
+Message-ID: <65893557-1461-9ab6-9ca6-e52e67b84683@cumulusnetworks.com>
+References: <1504086545-7777-1-git-send-email-nikolay@cumulusnetworks.com>
+ <1504086545-7777-10-git-send-email-nikolay@cumulusnetworks.com>
+ <CAM_iQpWn_q4CaOKhw7nxFR40V2JaVwr_5kx-ZUpdFxPa4hxKyA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
-        jiri@resnulli.us, mawilcox@microsoft.com
-To: chrism@mellanox.com
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Jiri Pirko <jiri@resnulli.us>,
+        Roopa Prabhu <roopa@cumulusnetworks.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:34346 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750885AbdH3VjR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 17:39:17 -0400
-In-Reply-To: <1504074719-15147-1-git-send-email-chrism@mellanox.com>
+Received: from mail-wm0-f49.google.com ([74.125.82.49]:34496 "EHLO
+        mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750761AbdH3VjH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 17:39:07 -0400
+Received: by mail-wm0-f49.google.com with SMTP id 137so4418734wmj.1
+        for <netdev@vger.kernel.org>; Wed, 30 Aug 2017 14:39:07 -0700 (PDT)
+In-Reply-To: <CAM_iQpWn_q4CaOKhw7nxFR40V2JaVwr_5kx-ZUpdFxPa4hxKyA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Chris Mi <chrism@mellanox.com>
-Date: Wed, 30 Aug 2017 02:31:56 -0400
+On 30/08/17 20:37, Cong Wang wrote:
+> On Wed, Aug 30, 2017 at 2:49 AM, Nikolay Aleksandrov
+> <nikolay@cumulusnetworks.com> wrote:
+>> Reproduce:
+>> $ sysctl net.core.default_qdisc=tbf
+>> $ ip l set ethX up
+> 
+> I once upon a time had a patch to disallow those qdisc's
+> to be default. Probably I should resend it.
+> 
 
-> Using current TC code, it is very slow to insert a lot of rules.
-> 
-> In order to improve the rules update rate in TC,
-> we introduced the following two changes:
->         1) changed cls_flower to use IDR to manage the filters.
->         2) changed all act_xxx modules to use IDR instead of
->            a small hash table
-> 
-> But IDR has a limitation that it uses int. TC handle uses u32.
-> To make sure there is no regression, we add several new IDR APIs
-> to support unsigned long.
-> 
-> v2
-> ==
-> 
-> Addressed Hannes's comment:
-> express idr_alloc in terms of idr_alloc_ext and most of the other functions
-
-Series applied, thanks.
+That sounds good. A lot of them can't be default anyway, they need
+some options to be set, so it's definitely worth looking into.
