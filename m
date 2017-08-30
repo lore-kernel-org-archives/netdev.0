@@ -1,91 +1,82 @@
 From: Jiri Pirko <jiri@resnulli.us>
 Subject: Re: [PATCH net-next v2 00/10] net: dsa: add generic debugfs interface
-Date: Wed, 30 Aug 2017 09:40:36 +0200
-Message-ID: <20170830074036.GA1903@nanopsycho>
+Date: Wed, 30 Aug 2017 09:43:04 +0200
+Message-ID: <20170830074304.GB1903@nanopsycho>
 References: <20170828191748.19492-1-vivien.didelot@savoirfairelinux.com>
- <20170828.213837.1354872205076475221.davem@davemloft.net>
- <20170829062931.GB1977@nanopsycho.orion>
- <87ziai4b99.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+ <20170828195332.GB1950@nanopsycho.orion>
+ <20170828200834.GA1870@lunn.ch>
+ <20170829062523.GA1977@nanopsycho.orion>
+ <20170829125004.GB22093@lunn.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-        f.fainelli@gmail.com, andrew@lunn.ch, privat@egil-hjelmeland.no,
-        john@phrozen.org, Woojung.Huh@microchip.com,
-        sean.wang@mediatek.com, nikita.yoush@cogentembedded.com,
-        cphealy@gmail.com
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Egil Hjelmeland <privat@egil-hjelmeland.no>,
+        John Crispin <john@phrozen.org>,
+        Woojung Huh <Woojung.Huh@microchip.com>,
+        Sean Wang <sean.wang@mediatek.com>,
+        Nikita Yushchenko <nikita.yoush@cogentembedded.com>,
+        Chris Healy <cphealy@gmail.com>, mlxsw@mellanox.com
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <87ziai4b99.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+In-Reply-To: <20170829125004.GB22093@lunn.ch>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Tue, Aug 29, 2017 at 05:57:54PM CEST, vivien.didelot@savoirfairelinux.com wrote:
->Hi David, Jiri,
+Tue, Aug 29, 2017 at 02:50:04PM CEST, andrew@lunn.ch wrote:
+>On Tue, Aug 29, 2017 at 08:25:23AM +0200, Jiri Pirko wrote:
+>> Mon, Aug 28, 2017 at 10:08:34PM CEST, andrew@lunn.ch wrote:
+>> >> I see this overlaps a lot with DPIPE. Why won't you use that to expose
+>> >> your hw state?
+>> >
+>> >We took a look at dpipe and i talked to you about using it for this
+>> >sort of thing at netconf/netdev. But dpipe has issues displaying the
+>> >sort of information we have. I never figured out how to do two
+>> >dimensional tables. The output of the dpipe command is pretty
+>> >unreadable. A lot of the information being dumped here is not about
+>> >the data pipe, etc.
+>> 
+>> So improve it. No problem. Also, we extend it to support what you neede.
 >
->Jiri Pirko <jiri@resnulli.us> writes:
+>Will i did try to do this back in March. And i failed.
 >
->> Tue, Aug 29, 2017 at 06:38:37AM CEST, davem@davemloft.net wrote:
->>>From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
->>>Date: Mon, 28 Aug 2017 15:17:38 -0400
->>>
->>>> This patch series adds a generic debugfs interface for the DSA
->>>> framework, so that all switch devices benefit from it, e.g. Marvell,
->>>> Broadcom, Microchip or any other DSA driver.
->>>
->>>I've been thinking this over and I agree with the feedback given that
->>>debugfs really isn't appropriate for this.
->>>
->>>Please create a DSA device class, and hang these values under
->>>appropriate sysfs device nodes that can be easily found via
->>>/sys/class/dsa/ just as easily as they would be /sys/kernel/debug/dsa/
->>>
->>>You really intend these values to be consistent across DSA devices,
->>>and you don't intend to go willy-nilly changig these exported values
->>>arbitrarily over time.  That's what debugfs is for, throw-away
->>>stuff.
->>>
->>>So please make these proper device sysfs attributes rather than
->>>debugfs.
->>
->> As I wrote, I believe that there is a big overlap with devlink and its
->> dpipe subset. I think that primary we should focus on extending whatever
->> is needed for dsa there. The iface should be generic for all drivers,
->> not only dsa. dsa-specific sysfs attributes should be last-resort solution,
->> I believe we can avoid them.
+>Lets start with stats. Vivien gives an example on the cover letter:
 >
->Please note that this interface is only meant to provide a _debug_ and
->_development_ interface to DSA users. It is enableable at compile time
->and can be ditched anytime we want, in contrary to other interfaces
->which cannot be broken or changed because they are part of the ABI.
+>    # pr -mt switch0/port{5,6}/stats
+>    in_good_octets      : 0             in_good_octets      : 13824
+>    in_bad_octets       : 0             in_bad_octets       : 0
+>    in_unicast          : 0             in_unicast          : 0
+>    in_broadcasts       : 0             in_broadcasts       : 216
+>    in_multicasts       : 0             in_multicasts       : 0
+>    in_pause            : 0             in_pause            : 0
+>    in_undersize        : 0             in_undersize        : 0
 >
->I see sysfs as a script-friendly way to access and configure kernel
->structures, so I agree with Jiri that it doesn't seem appropriate.
->
->Extending devlink is a good option for long term, but it'll take a bit
->of time to extend data structures and not duplicate stats and regs
->accesses for ports which have a net device attached to it or not.
->
->In the meantime, I didn't find anything more useful and easier to debug
->a switch fabric than dumping side-by-side stats of all ports part of the
->data plane, for example like this:
+>This is what i tried to implement using dpipe. It is a simple two
+>dimensional table. First column is a string, second a u64. In debugfs
+>we have such a table per port. That fits with the hierarchy that each
+>port is a directory in debugfs. But it could also be implemented as
+>one table with N+1 columns, for N switch ports.
 
-So in the meantime, if you need some quick ugly think, you can always
-have it out of the tree. Sorry but these are just excuses :/
+Andrew, we talked about this in Montreal. What I suggested then was for
+port stats to introduce devlink port statistics. Then you can have stats
+for all sorts of ports that don't have netlink instance associated,
+including cpu port. It aligns.
 
 
 >
->    # watch -n1 pr -mt {switch0/port5,switch0/port6,switch1/port5,switch1/port3}/stats
+>How about you, or one of your team, implement that. It should be able
+>to use the dsa_loop driver, which is a simple dummy switch. But it
+>does have statistics counters for all ports. Florian or I can help you
+>get it running if needed.
 >
->where ports 5 and 6 of both switches are DSA/CPU ports (without net
->devices attached to them) and port3 is a user port. This way one can
->easily see where and why packets get dropped.
+>This branch contains some of the basic plumbing code from my previous
+>attempt:
 >
->We could keep this interface and simply ditch net/dsa/debugfs.c when a
->convenient devlink alternative is in place.
+>https://github.com/lunn/linux.git v4.11-rc4-net-next-dpipe
 >
+>	 Andrew
 >
->Thanks,
->
->        Vivien
