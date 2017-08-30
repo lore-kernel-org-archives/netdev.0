@@ -1,101 +1,67 @@
-From: Maxim Uvarov <muvarov@gmail.com>
-Subject: Re: [PATCH] DSA support for Micrel KSZ8895
-Date: Wed, 30 Aug 2017 13:06:06 +0300
-Message-ID: <CAJGZr0L9bv6+3NyL5j4y0hFaJAMTfDyPntiTTaHDCxDf1w=JSQ@mail.gmail.com>
-References: <20170816075524.GA18532@amd> <20170816140451.GA13006@lunn.ch>
- <9235D6609DB808459E95D78E17F2E43D40AFF8C1@CHN-SV-EXMX02.mchp-main.com>
- <20170827123658.GA727@amd> <20170827163122.GG13622@lunn.ch>
- <20170828070232.GA18135@amd> <20170828140927.GD10418@lunn.ch>
- <CAJGZr0K46jBd9Sn4HNPgAeHTQtBuBHzX87GveAJf3_5b_WM69g@mail.gmail.com>
- <20170829074130.GA31303@amd> <20170829122604.GA22093@lunn.ch>
- <20170829211519.GA24221@amd> <237eee82-2edb-56c0-d644-2e6253a178dc@gmail.com>
+From: Corentin Labbe <clabbe.montjoie@gmail.com>
+Subject: Re: [PATCH] net: stmmac: dwmac-sun8i: Use reset exclusive
+Date: Wed, 30 Aug 2017 12:21:36 +0200
+Message-ID: <20170830102136.GA21940@Red>
+References: <20170825143805.21733-1-clabbe.montjoie@gmail.com>
+ <20170825144832.3w6izhri5vstbndp@flea.lan>
+ <20170825151733.GB9475@Red>
+ <20170825171233.4xoihzakca3mqscd@flea.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Pavel Machek <pavel@ucw.cz>, Andrew Lunn <andrew@lunn.ch>,
-        Woojung.Huh@microchip.com,
-        Nathan Conrad <nathan.leigh.conrad@gmail.com>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Tristram.Ha@micrel.com
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com, wens@csie.org,
+        netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+        linux-kernel@vger.kernel.org
+To: Maxime Ripard <maxime.ripard@free-electrons.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <237eee82-2edb-56c0-d644-2e6253a178dc@gmail.com>
+Content-Disposition: inline
+In-Reply-To: <20170825171233.4xoihzakca3mqscd@flea.lan>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-2017-08-30 0:23 GMT+03:00 Florian Fainelli <f.fainelli@gmail.com>:
-> On 08/29/2017 02:15 PM, Pavel Machek wrote:
->> On Tue 2017-08-29 14:26:04, Andrew Lunn wrote:
->>>> But the MDIO emaulation code is from their driver, after lots of
->>>> deletions.
->>>
->>> Is this driver supposed to run on lots of different OSs? That would
->>> explain why they ignored the Linux MDIO and PHY layers.
->>
->> It did not look particulary portable.
->
-> Part of the problem is that they need to duplicate the standard MII
-> definitions, whereas we could re-use those from include/linux/mii.h
-> and/or mdio.h.
->
->>
->>> If possible, please make use of the Linux infrastructure.
->>
->> I did not find any infrastructure I could use instead
->> ksz_mdio_emulation.
->
-> fixed PHY/swphy.c is as close as it could get, but it is a highly
-> simplified version of this.
->
->>
->> Now, drivers/net/phy/spi_ks8995.c can access the PHY registers, and I
->> can not see any translation there, so there may be something I'm
->> missing.
->
-> I don't see anything in that driver that seems to access PHY registers
-> what makes you think it does?
->
-> There's got to be a way to perform indirect accesses through SPI,
-> Woojung, do you know?
->
+On Fri, Aug 25, 2017 at 07:12:33PM +0200, Maxime Ripard wrote:
+> On Fri, Aug 25, 2017 at 05:17:33PM +0200, Corentin Labbe wrote:
+> > On Fri, Aug 25, 2017 at 04:48:32PM +0200, Maxime Ripard wrote:
+> > > On Fri, Aug 25, 2017 at 04:38:05PM +0200, Corentin Labbe wrote:
+> > > > The current dwmac_sun8i module cannot be rmmod/modprobe due to that
+> > > > the reset controller was not released when removed.
+> > > > 
+> > > > This patch remove ambiguity, by using of_reset_control_get_exclusive and
+> > > > add the missing reset_control_put().
+> > > > 
+> > > > Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
+> > > > ---
+> > > >  drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c | 3 ++-
+> > > >  1 file changed, 2 insertions(+), 1 deletion(-)
+> > > > 
+> > > > diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
+> > > > index fffd6d5fc907..675a09629d85 100644
+> > > > --- a/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
+> > > > +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
+> > > > @@ -782,6 +782,7 @@ static int sun8i_dwmac_unpower_internal_phy(struct sunxi_priv_data *gmac)
+> > > >  
+> > > >  	clk_disable_unprepare(gmac->ephy_clk);
+> > > >  	reset_control_assert(gmac->rst_ephy);
+> > > > +	reset_control_put(gmac->rst_ephy);
+> > > >  	return 0;
+> > > >  }
+> > > >  
+> > > > @@ -942,7 +943,7 @@ static int sun8i_dwmac_probe(struct platform_device *pdev)
+> > > >  			return -EINVAL;
+> > > >  		}
+> > > >  
+> > > > -		gmac->rst_ephy = of_reset_control_get(plat_dat->phy_node, NULL);
+> > > > +		gmac->rst_ephy = of_reset_control_get_exclusive(plat_dat->phy_node, NULL);
+> > > 
+> > > Why not just use devm_reset_control_get?
+> > > 
+> > 
+> > Because there no devm_ functions with of_
+> 
+> devm_reset_control_get uses of_reset_control_get internally.
 
-As I understand they just attach phy on spi bus with generic driver:
+Hello
 
-        phy_addr = 0;
-        phy_mode = PHY_INTERFACE_MODE_MII;
-        snprintf(bus_id, MII_BUS_ID_SIZE, "sw.%d", sw_device_present);
-        snprintf(phy_id, MII_BUS_ID_SIZE, PHY_ID_FMT, bus_id, phy_addr);
-        phydev = phy_attach(netdev, phy_id, 0, phy_mode);
-        if (!IS_ERR(phydev)) {
-                phydev->adjust_link = sw_adjust_link;
-                return phydev;
-        }
+You are right.
+But since the ephy reset is in a child node, devm_ does not find it.
 
-Where is bus is:
-bus = mdiobus_alloc();
-bus->read = ksz_mii_read; (spi read function)
-bus->write = ksz_mii_write;
-
-Then just generic reads:
-    .config_aneg    = genphy_config_aneg,
-    .read_status    = genphy_read_status,
-
-
-Maxim.
-
->>
->> Pointers would be welcome at this point.
->>
->> Thanks,
->>                                                                       Pavel
->>
->
->
-> --
-> Florian
-
-
-
--- 
-Best regards,
-Maxim Uvarov
+Regards
