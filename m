@@ -1,33 +1,31 @@
 From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH 1/2] staging: r8822be: Remove some dead code
-Date: Wed, 30 Aug 2017 14:43:12 -0500
-Message-ID: <20170830194313.9659-2-Larry.Finger@lwfinger.net>
+Subject: [PATCH 2/2] staging: r8822be: Simplify deinit_priv()
+Date: Wed, 30 Aug 2017 14:43:13 -0500
+Message-ID: <20170830194313.9659-3-Larry.Finger@lwfinger.net>
 References: <20170830194313.9659-1-Larry.Finger@lwfinger.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, Yan-Hsuan Chuang <yhchuang@realtek.com>,
- netdev@vger.kernel.org, Birming Chiu <birming@realtek.com>,
- Steven Ting <steventing@realtek.com>, Larry Finger <Larry.Finger@lwfinger.net>
+Cc: netdev@vger.kernel.org, devel@driverdev.osuosl.org,
+        Larry Finger <Larry.Finger@lwfinger.net>,
+        Ping-Ke Shih <pkshih@realtek.com>,
+        Yan-Hsuan Chuang <yhchuang@realtek.com>,
+        Birming Chiu <birming@realtek.com>,
+        Shaofu <shaofu@realtek.com>, Steven Ting <steventing@realtek.com>
 To: gregkh@linuxfoundation.org
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f67.google.com ([209.85.218.67]:35686 "EHLO
+        mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751264AbdH3TnU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 15:43:20 -0400
+Received: by mail-oi0-f67.google.com with SMTP id k77so6471392oib.2
+        for <netdev@vger.kernel.org>; Wed, 30 Aug 2017 12:43:20 -0700 (PDT)
 In-Reply-To: <20170830194313.9659-1-Larry.Finger@lwfinger.net>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The code found inside an #ifdef CONFIG_RTL_DEBUG ... #endif section
-is left over from debugging of the original driver, and should be
-deleted.
+Now that the extraneous debugging code is removed, routine deinit_priv()
+clearly contains code that serves no useful purpose.
 
-Reported by: Andreas Ziegler <andreas.ziegler@fau.de>
+A null test before a call to kfree() and a spurious cast are also removed.
+
 Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
 Cc: Ping-Ke Shih <pkshih@realtek.com>
 Cc: Yan-Hsuan Chuang <yhchuang@realtek.com>
@@ -35,39 +33,27 @@ Cc: Birming Chiu <birming@realtek.com>
 Cc: Shaofu <shaofu@realtek.com>
 Cc: Steven Ting <steventing@realtek.com>
 ---
- drivers/staging/rtlwifi/halmac/rtl_halmac.c | 20 --------------------
- 1 file changed, 20 deletions(-)
+ drivers/staging/rtlwifi/halmac/rtl_halmac.c | 8 +-------
+ 1 file changed, 1 insertion(+), 7 deletions(-)
 
 diff --git a/drivers/staging/rtlwifi/halmac/rtl_halmac.c b/drivers/staging/rtlwifi/halmac/rtl_halmac.c
-index 031bf2c6078f..2b1c5fae64ef 100644
+index 2b1c5fae64ef..6448a8bfc14b 100644
 --- a/drivers/staging/rtlwifi/halmac/rtl_halmac.c
 +++ b/drivers/staging/rtlwifi/halmac/rtl_halmac.c
-@@ -386,26 +386,6 @@ static void deinit_priv(struct rtl_halmac *halmac)
- 		u32 count, size;
+@@ -382,13 +382,7 @@ static void deinit_priv(struct rtl_halmac *halmac)
  
- 		count = HALMAC_FEATURE_ALL + 1;
--#ifdef CONFIG_RTL_DEBUG
--		{
--			struct submit_ctx *sctx;
--			u32 i;
+ 	indicator = halmac->indicator;
+ 	halmac->indicator = NULL;
+-	if (indicator) {
+-		u32 count, size;
 -
--			for (i = 0; i < count; i++) {
--				if (!indicator[i].sctx)
--					continue;
--
--				RT_TRACE(
--					rtlpriv, COMP_HALMAC, DBG_LOUD,
--					"%s: <WARN> %s id(%d) sctx still exist!!\n",
--					__func__, RTL_HALMAC_FEATURE_NAME[i],
--					i);
--				sctx = indicator[i].sctx;
--				indicator[i].sctx = NULL;
--				rtl_mfree((u8 *)sctx, sizeof(*sctx));
--			}
--		}
--#endif /* !CONFIG_RTL_DEBUG */
- 		size = sizeof(*indicator) * count;
- 		kfree((u8 *)indicator);
- 	}
+-		count = HALMAC_FEATURE_ALL + 1;
+-		size = sizeof(*indicator) * count;
+-		kfree((u8 *)indicator);
+-	}
++	kfree(indicator);
+ }
+ 
+ int rtl_halmac_init_adapter(struct rtl_priv *rtlpriv)
 -- 
 2.12.3
