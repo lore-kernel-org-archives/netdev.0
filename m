@@ -1,37 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT] Networking
-Date: Wed, 30 Aug 2017 10:11:43 -0700 (PDT)
-Message-ID: <20170830.101143.2305098064824357647.davem@davemloft.net>
-References: <20170815.175219.753462032002961032.davem@davemloft.net>
-        <20170830094823.GA31503@amd>
-        <87pobdt8qc.fsf@kamboji.qca.qualcomm.com>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH][net-next][V3] bpf: test_maps: fix typos, "conenct" and "listeen"
+Date: Wed, 30 Aug 2017 18:15:25 +0100
+Message-ID: <20170830171525.5688-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: pavel@ucw.cz, xiyou.wangcong@gmail.com,
-        torvalds@linux-foundation.org, akpm@linux-foundation.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: kvalo@codeaurora.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+To: Alexei Starovoitov <ast@kernel.org>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Shuah Khan <shuah@kernel.org>, netdev@vger.kernel.org,
+        linux-kselftest@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87pobdt8qc.fsf@kamboji.qca.qualcomm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Kalle Valo <kvalo@codeaurora.org>
-Date: Wed, 30 Aug 2017 17:45:31 +0300
+From: Colin Ian King <colin.king@canonical.com>
 
-> Pavel Machek <pavel@ucw.cz> writes:
-> 
->> Could we get this one in?
->>
->> wl1251 misses a spin_lock_init().
->>
->> https://www.mail-archive.com/netdev@vger.kernel.org/msg177031.html
->>
->> It seems pretty trivial, yet getting the backtraces is not nice.
-> 
-> It's in wireless-drivers-next and will be in 4.14-rc1:
-> 
-> https://git.kernel.org/pub/scm/linux/kernel/git/kvalo/wireless-drivers-next.git/commit/?id=6e9aae179f290f1a44fce7ef8e9a8e2dd68ed1e4
+Trivial fix to typos in printf error messages:
+"conenct" -> "connect"
+"listeen" -> "listen"
 
-Is the bug only present in net-next?
+thanks to Daniel Borkmann for spotting one of these mistakes
+
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ tools/testing/selftests/bpf/test_maps.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/tools/testing/selftests/bpf/test_maps.c b/tools/testing/selftests/bpf/test_maps.c
+index 7059bb315a10..4acc772a28c0 100644
+--- a/tools/testing/selftests/bpf/test_maps.c
++++ b/tools/testing/selftests/bpf/test_maps.c
+@@ -504,7 +504,7 @@ static void test_sockmap(int tasks, void *data)
+ 		}
+ 		err = listen(sfd[i], 32);
+ 		if (err < 0) {
+-			printf("failed to listeen\n");
++			printf("failed to listen\n");
+ 			goto out;
+ 		}
+ 	}
+@@ -525,7 +525,7 @@ static void test_sockmap(int tasks, void *data)
+ 		addr.sin_port = htons(ports[i - 2]);
+ 		err = connect(sfd[i], (struct sockaddr *)&addr, sizeof(addr));
+ 		if (err) {
+-			printf("failed to conenct\n");
++			printf("failed to connect\n");
+ 			goto out;
+ 		}
+ 	}
+-- 
+2.14.1
