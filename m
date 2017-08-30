@@ -1,68 +1,55 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [Patch net-next] net_sched: add reverse binding for tc class
-Date: Thu, 31 Aug 2017 00:22:38 +0200
-Message-ID: <59A73AAE.509@iogearbox.net>
-References: <20170830213036.24250-1-xiyou.wangcong@gmail.com> <59A732B8.6020405@iogearbox.net> <CAM_iQpU9B71C5cWs969k464T7HvNhcwps7NYNQx8Q3KCijOfnA@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 0/9] net/sched: init failure fixes
+Date: Wed, 30 Aug 2017 15:26:27 -0700 (PDT)
+Message-ID: <20170830.152627.1894578527302246567.davem@davemloft.net>
+References: <1504086545-7777-1-git-send-email-nikolay@cumulusnetworks.com>
+        <58c39495-8667-d983-94ba-b1a242f56945@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Jamal Hadi Salim <jhs@mojatatu.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Cc: nikolay@cumulusnetworks.com, netdev@vger.kernel.org,
+        edumazet@google.com, xiyou.wangcong@gmail.com, jiri@resnulli.us,
+        roopa@cumulusnetworks.com, lucasb@mojatatu.com
+To: jhs@mojatatu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:55829 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751250AbdH3WWk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 18:22:40 -0400
-In-Reply-To: <CAM_iQpU9B71C5cWs969k464T7HvNhcwps7NYNQx8Q3KCijOfnA@mail.gmail.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:35390 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750814AbdH3W03 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 18:26:29 -0400
+In-Reply-To: <58c39495-8667-d983-94ba-b1a242f56945@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/31/2017 12:01 AM, Cong Wang wrote:
-> On Wed, Aug 30, 2017 at 2:48 PM, Daniel Borkmann <daniel@iogearbox.net> wrote:
->> On 08/30/2017 11:30 PM, Cong Wang wrote:
->> [...]
->>>
->>> Note, we still can NOT totally get rid of those class lookup in
->>> ->enqueue() because cgroup and flow filters have no way to determine
->>> the classid at setup time, they still have to go through dynamic lookup.
->>
->> [...]
->>>
->>> ---
->>>    include/net/sch_generic.h |  1 +
->>>    net/sched/cls_basic.c     |  9 +++++++
->>>    net/sched/cls_bpf.c       |  9 +++++++
->>
->> Same is for cls_bpf as well, so bind_class wouldn't work there
->> either as we could return dynamic classids. bind_class cannot
->> be added here, too.
->
-> I think you are probably right, but the following code is
-> misleading there:
->
->          if (tb[TCA_BPF_CLASSID]) {
->                  prog->res.classid = nla_get_u32(tb[TCA_BPF_CLASSID]);
->                  tcf_bind_filter(tp, &prog->res, base);
->          }
->
-> If the classid is dynamic, why this tb[TCA_BPF_CLASSID]?
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Date: Wed, 30 Aug 2017 08:15:37 -0400
 
-The prog->res.classid is the default one, but can be overridden
-later depending on the specified program. cls_bpf_classify() does
-after prog return (filter_res holds return code):
+> On 17-08-30 05:48 AM, Nikolay Aleksandrov wrote:
+>> Hi all,
+>> I went over all qdiscs' init, destroy and reset callbacks and found
+>> the
+>> issues fixed in each patch. Mostly they are null pointer dereferences
+>> due
+>> to uninitialized timer (qdisc watchdog) or double frees due to
+>> ->destroy
+>> cleaning up a second time. There's more information in each patch.
+>> I've tested these by either sending wrong attributes from user-spaces,
+>> no
+>> attributes or by simulating memory alloc failure where
+>> applicable. Also
+>> tried all of the qdiscs as a default qdisc.
+>> Most of these bugs were present before commit 87b60cfacf9f, I've tried
+>> to
+>> include proper fixes tags in each patch.
+>> I haven't included individual patch acks in the set, I'd appreciate it
+>> if
+>> you take another look and resend them.
+>> 
+> 
+> 
+> Hi Nik,
+> 
+> For all patches:
+> 
+> Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
 
-	[...]
-		if (filter_res == 0)
-			continue;
-		if (filter_res != -1) {
-			res->class   = 0;
-			res->classid = filter_res;
-		} else {
-			*res = prog->res;
-		}
-	[...]
-
-Meaning in case of a match (-1), we use the default bound one,
-but prog may as well return an alternative found classid if it
-wants to. So both versions are possible.
+Series applied, thanks Nikolay.
