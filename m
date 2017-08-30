@@ -1,54 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v4 00/13] net: mvpp2: comphy configuration
-Date: Wed, 30 Aug 2017 15:18:24 -0700 (PDT)
-Message-ID: <20170830.151824.2294408281974075576.davem@davemloft.net>
-References: <20170830082924.3180-1-antoine.tenart@free-electrons.com>
+Subject: Re: [PATCH v2] ipv6: sr: fix get_srh() to comply with IPv6
+ standard "RFC 8200"
+Date: Wed, 30 Aug 2017 15:19:47 -0700 (PDT)
+Message-ID: <20170830.151947.1646224839367558973.davem@davemloft.net>
+References: <1504083037-1605-1-git-send-email-amsalam20@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kishon@ti.com, andrew@lunn.ch, jason@lakedaemon.net,
-        sebastian.hesselbarth@gmail.com,
-        gregory.clement@free-electrons.com,
-        thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
-        linux@armlinux.org.uk, linux-kernel@vger.kernel.org,
-        mw@semihalf.com, stefanc@marvell.com,
-        miquel.raynal@free-electrons.com, netdev@vger.kernel.org
-To: antoine.tenart@free-electrons.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170830082924.3180-1-antoine.tenart@free-electrons.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, david.lebrun@uclouvain.be
+To: amsalam20@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:35206 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750814AbdH3WTs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 18:19:48 -0400
+In-Reply-To: <1504083037-1605-1-git-send-email-amsalam20@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Date: Wed, 30 Aug 2017 10:29:11 +0200
+From: Ahmed Abdelsalam <amsalam20@gmail.com>
+Date: Wed, 30 Aug 2017 10:50:37 +0200
 
-> This series, following up the one one the GoP/MAC configuration, aims at
-> stopping to depend on the firmware/bootloader configuration when using
-> the PPv2 engine. With this series the PPv2 driver does not need to rely
-> on a previous configuration, and dynamic reconfiguration while the
-> kernel is running can be done (i.e. switch one port from SGMII to 10G,
-> or the opposite). A port can now be configured in a different mode than
-> what's done in the firmware/bootloader as well.
+> IPv6 packet may carry more than one extension header, and IPv6 nodes must
+> accept and attempt to process extension headers in any order and occurring
+> any number of times in the same packet. Hence, there should be no
+> assumption that Segment Routing extension header is to appear immediately
+> after the IPv6 header.
 > 
-> The series first contain patches in the generic PHY framework to support
-> what is called the comphy (common PHYs), which is an h/w block providing
-> PHYs that can be configured in various modes ranging from SGMII, 10G
-> to SATA and others. As of now only the SGMII and 10G modes are
-> supported by the comphy driver.
+> Moreover, section 4.1 of RFC 8200 gives a recommendation on the order of
+> appearance of those extension headers within an IPv6 packet. According to
+> this recommendation, Segment Routing extension header should appear after
+> Hop-by-Hop and Destination Options headers (if they present).
 > 
-> Then patches are modifying the PPv2 driver to first add the comphy
-> initialization sequence (i.e. calls to the generic PHY framework) and to
-> then take advantage of this to allow dynamic reconfiguration (i.e.
-> configuring the mode of a port given what's connected, between sgmii and
-> 10G). Note the use of the comphy in the PPv2 driver is kept optional
-> (i.e. if not described in dt the driver still as before an relies on the
-> firmware/bootloader configuration).
+> This patch fixes the get_srh(), so it gets the segment routing header
+> regardless of its position in the chain of the extension headers in IPv6
+> packet, and makes sure that the IPv6 routing extension header is of Type 4.
 > 
-> Finally there are dt/defconfig patches to describe and take advantage of
-> this.
-> 
-> This was tested on a range of devices: 8040-db, 8040-mcbin and 7040-db.
-> 
-> @Dave: the dt patches should go through the mvebu tree (patches 9-13).
+> Signed-off-by: Ahmed Abdelsalam <amsalam20@gmail.com>
 
-Ok, patches 1-8 applied to net-next, thanks!
+Applied.
