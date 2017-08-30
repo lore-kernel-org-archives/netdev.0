@@ -1,13 +1,13 @@
 From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH net-next v4 03/13] Documentation/bindings: phy: document the Marvell comphy driver
-Date: Wed, 30 Aug 2017 10:29:14 +0200
-Message-ID: <20170830082924.3180-4-antoine.tenart@free-electrons.com>
+Subject: [PATCH net-next v4 13/13] arm64: defconfig: enable Marvell CP110 comphy
+Date: Wed, 30 Aug 2017 10:29:24 +0200
+Message-ID: <20170830082924.3180-14-antoine.tenart@free-electrons.com>
 References: <20170830082924.3180-1-antoine.tenart@free-electrons.com>
-Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
+Cc: Miquel Raynal <miquel.raynal@free-electrons.com>,
         thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
         linux@armlinux.org.uk, linux-kernel@vger.kernel.org,
-        mw@semihalf.com, stefanc@marvell.com,
-        miquel.raynal@free-electrons.com, netdev@vger.kernel.org
+        mw@semihalf.com, stefanc@marvell.com, netdev@vger.kernel.org,
+        Antoine Tenart <antoine.tenart@free-electrons.com>
 To: davem@davemloft.net, kishon@ti.com, andrew@lunn.ch,
         jason@lakedaemon.net, sebastian.hesselbarth@gmail.com,
         gregory.clement@free-electrons.com
@@ -16,65 +16,29 @@ In-Reply-To: <20170830082924.3180-1-antoine.tenart@free-electrons.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The Marvell Armada 7K/8K SoCs contains an hardware block called COMPHY
-that provides a number of shared PHYs used by various interfaces in the
-SoC: network, SATA, PCIe, etc. This Device Tree binding allows to
-describe this COMPHY hardware block.
+From: Miquel Raynal <miquel.raynal@free-electrons.com>
 
+The comphy is an hardware block giving access to common PHYs that can be
+used by various other engines (Network, SATA, ...). This is used on
+Marvell 7k/8k platforms for now. Enable the corresponding driver.
+
+Signed-off-by: Miquel Raynal <miquel.raynal@free-electrons.com>
 Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
 ---
- .../devicetree/bindings/phy/phy-mvebu-comphy.txt   | 43 ++++++++++++++++++++++
- 1 file changed, 43 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/phy/phy-mvebu-comphy.txt
+ arch/arm64/configs/defconfig | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/Documentation/devicetree/bindings/phy/phy-mvebu-comphy.txt b/Documentation/devicetree/bindings/phy/phy-mvebu-comphy.txt
-new file mode 100644
-index 000000000000..bfcf80341657
---- /dev/null
-+++ b/Documentation/devicetree/bindings/phy/phy-mvebu-comphy.txt
-@@ -0,0 +1,43 @@
-+mvebu comphy driver
-+-------------------
-+
-+A comphy controller can be found on Marvell Armada 7k/8k on the CP110. It
-+provides a number of shared PHYs used by various interfaces (network, sata,
-+usb, PCIe...).
-+
-+Required properties:
-+
-+- compatible: should be "marvell,comphy-cp110"
-+- reg: should contain the comphy register location and length.
-+- marvell,system-controller: should contain a phandle to the
-+                             system controller node.
-+- #address-cells: should be 1.
-+- #size-cells: should be 0.
-+
-+A sub-node is required for each comphy lane provided by the comphy.
-+
-+Required properties (child nodes):
-+
-+- reg: comphy lane number.
-+- #phy-cells : from the generic phy bindings, must be 1. Defines the
-+               input port to use for a given comphy lane.
-+
-+Example:
-+
-+	cpm_comphy: phy@120000 {
-+		compatible = "marvell,comphy-cp110";
-+		reg = <0x120000 0x6000>;
-+		marvell,system-controller = <&cpm_syscon0>;
-+		#address-cells = <1>;
-+		#size-cells = <0>;
-+
-+		cpm_comphy0: phy@0 {
-+			reg = <0>;
-+			#phy-cells = <1>;
-+		};
-+
-+		cpm_comphy1: phy@1 {
-+			reg = <1>;
-+			#phy-cells = <1>;
-+		};
-+	};
+diff --git a/arch/arm64/configs/defconfig b/arch/arm64/configs/defconfig
+index 6b26a05ae5b4..d453ba50df43 100644
+--- a/arch/arm64/configs/defconfig
++++ b/arch/arm64/configs/defconfig
+@@ -510,6 +510,7 @@ CONFIG_PWM_TEGRA=m
+ CONFIG_PHY_RCAR_GEN3_USB2=y
+ CONFIG_PHY_HI6220_USB=y
+ CONFIG_PHY_SUN4I_USB=y
++CONFIG_PHY_MVEBU_CP110_COMPHY=y
+ CONFIG_PHY_ROCKCHIP_INNO_USB2=y
+ CONFIG_PHY_ROCKCHIP_EMMC=y
+ CONFIG_PHY_ROCKCHIP_PCIE=m
 -- 
 2.13.5
