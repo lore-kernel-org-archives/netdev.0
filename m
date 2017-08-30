@@ -1,10 +1,9 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH 4/5] net: mdio-mux-mmioreg: Can handle 8/16/32 bits
- registers
-Date: Wed, 30 Aug 2017 20:49:39 +0200
-Message-ID: <20170830184939.GI22289@lunn.ch>
+Subject: Re: [PATCH 5/5] net: mdio-mux: fix unbalanced put_device
+Date: Wed, 30 Aug 2017 20:53:46 +0200
+Message-ID: <20170830185346.GJ22289@lunn.ch>
 References: <20170830174651.30325-1-clabbe.montjoie@gmail.com>
- <20170830174651.30325-5-clabbe.montjoie@gmail.com>
+ <20170830174651.30325-6-clabbe.montjoie@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
@@ -12,17 +11,20 @@ Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
 To: Corentin Labbe <clabbe.montjoie@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20170830174651.30325-5-clabbe.montjoie@gmail.com>
+In-Reply-To: <20170830174651.30325-6-clabbe.montjoie@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 30, 2017 at 07:46:50PM +0200, Corentin Labbe wrote:
-> This patch fix an old information that mdio-mux-mmioreg can only handle
-> 8bit registers.
-> This is not true anymore.
-> 
-> Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
+>  err_pb_kz:
+>  	/* balance the reference of_mdio_find_bus() took */
 
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+Hi Corentin
 
-    Andrew
+This comment should probably be updated as well. 
+
+> -	if (!mux_bus)
+> -		put_device(&parent_bus->dev);
+> +	put_device(&parent_bus->dev);
+
+  Thanks
+     Andrew
