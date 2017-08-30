@@ -1,67 +1,65 @@
-From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Subject: Re: [PATCH] net: stmmac: dwmac-sun8i: Use reset exclusive
-Date: Wed, 30 Aug 2017 12:21:36 +0200
-Message-ID: <20170830102136.GA21940@Red>
-References: <20170825143805.21733-1-clabbe.montjoie@gmail.com>
- <20170825144832.3w6izhri5vstbndp@flea.lan>
- <20170825151733.GB9475@Red>
- <20170825171233.4xoihzakca3mqscd@flea.lan>
+From: David Lebrun <david.lebrun@uclouvain.be>
+Subject: Re: [PATCH v2] ipv6: sr: fix get_srh() to comply with IPv6 standard
+ "RFC 8200"
+Date: Wed, 30 Aug 2017 12:24:04 +0200
+Message-ID: <d4187569-a9ef-2525-becc-b3b81090db4c@uclouvain.be>
+References: <1504083037-1605-1-git-send-email-amsalam20@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com, wens@csie.org,
-        netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-        linux-kernel@vger.kernel.org
-To: Maxime Ripard <maxime.ripard@free-electrons.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170825171233.4xoihzakca3mqscd@flea.lan>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature";
+        boundary="IFuMCiPlQXlJF29IfTfxkvLCKJr3cegvV"
+Cc: <netdev@vger.kernel.org>
+To: Ahmed Abdelsalam <amsalam20@gmail.com>, <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:35832 "EHLO
+        smtp5.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751319AbdH3KXd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 06:23:33 -0400
+In-Reply-To: <1504083037-1605-1-git-send-email-amsalam20@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 25, 2017 at 07:12:33PM +0200, Maxime Ripard wrote:
-> On Fri, Aug 25, 2017 at 05:17:33PM +0200, Corentin Labbe wrote:
-> > On Fri, Aug 25, 2017 at 04:48:32PM +0200, Maxime Ripard wrote:
-> > > On Fri, Aug 25, 2017 at 04:38:05PM +0200, Corentin Labbe wrote:
-> > > > The current dwmac_sun8i module cannot be rmmod/modprobe due to that
-> > > > the reset controller was not released when removed.
-> > > > 
-> > > > This patch remove ambiguity, by using of_reset_control_get_exclusive and
-> > > > add the missing reset_control_put().
-> > > > 
-> > > > Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
-> > > > ---
-> > > >  drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c | 3 ++-
-> > > >  1 file changed, 2 insertions(+), 1 deletion(-)
-> > > > 
-> > > > diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
-> > > > index fffd6d5fc907..675a09629d85 100644
-> > > > --- a/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
-> > > > +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
-> > > > @@ -782,6 +782,7 @@ static int sun8i_dwmac_unpower_internal_phy(struct sunxi_priv_data *gmac)
-> > > >  
-> > > >  	clk_disable_unprepare(gmac->ephy_clk);
-> > > >  	reset_control_assert(gmac->rst_ephy);
-> > > > +	reset_control_put(gmac->rst_ephy);
-> > > >  	return 0;
-> > > >  }
-> > > >  
-> > > > @@ -942,7 +943,7 @@ static int sun8i_dwmac_probe(struct platform_device *pdev)
-> > > >  			return -EINVAL;
-> > > >  		}
-> > > >  
-> > > > -		gmac->rst_ephy = of_reset_control_get(plat_dat->phy_node, NULL);
-> > > > +		gmac->rst_ephy = of_reset_control_get_exclusive(plat_dat->phy_node, NULL);
-> > > 
-> > > Why not just use devm_reset_control_get?
-> > > 
-> > 
-> > Because there no devm_ functions with of_
-> 
-> devm_reset_control_get uses of_reset_control_get internally.
+--IFuMCiPlQXlJF29IfTfxkvLCKJr3cegvV
+Content-Type: multipart/mixed; boundary="ibK47astqljOvrOuJgRJomoiiH6qD9fOE"
+From: David Lebrun <david.lebrun@uclouvain.be>
+To: Ahmed Abdelsalam <amsalam20@gmail.com>, davem@davemloft.net
+Cc: netdev@vger.kernel.org
+Message-ID: <d4187569-a9ef-2525-becc-b3b81090db4c@uclouvain.be>
+Subject: Re: [PATCH v2] ipv6: sr: fix get_srh() to comply with IPv6 standard
+ "RFC 8200"
+References: <1504083037-1605-1-git-send-email-amsalam20@gmail.com>
+In-Reply-To: <1504083037-1605-1-git-send-email-amsalam20@gmail.com>
 
-Hello
+--ibK47astqljOvrOuJgRJomoiiH6qD9fOE
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-You are right.
-But since the ephy reset is in a child node, devm_ does not find it.
+On 08/30/2017 10:50 AM, Ahmed Abdelsalam wrote:
+> This patch fixes the get_srh(), so it gets the segment routing header
+> regardless of its position in the chain of the extension headers in IPv=
+6
+> packet, and makes sure that the IPv6 routing extension header is of Typ=
+e 4.
+>=20
+> Signed-off-by: Ahmed Abdelsalam <amsalam20@gmail.com>
 
-Regards
+Note that this patch applies to net-next.
+
+Acked-by: David Lebrun <david.lebrun@uclouvain.be>
+
+
+--ibK47astqljOvrOuJgRJomoiiH6qD9fOE--
+
+--IFuMCiPlQXlJF29IfTfxkvLCKJr3cegvV
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iF0EARECAB0WIQT8nTbQ2eQR5sQwCJ+NvOfruxnoAwUCWaaSRwAKCRCNvOfruxno
+A5kbAKCEOHpj84dHDgub1UeKJQQkfM+iUwCdEVTujyHaxmAEZTvySr/tS1zDFGU=
+=GL4I
+-----END PGP SIGNATURE-----
+
+--IFuMCiPlQXlJF29IfTfxkvLCKJr3cegvV--
