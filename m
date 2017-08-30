@@ -1,158 +1,47 @@
-From: Tom Herbert <tom@quantonium.net>
-Subject: Re: [PATCH v2 net-next 4/6] udp: flow dissector offload
-Date: Wed, 30 Aug 2017 07:56:44 -0700
-Message-ID: <CAPDqMepe=jBrjy+nFBA7g53Ex=bvn9h9qcazry_3uQ8Hd3iBPw@mail.gmail.com>
-References: <20170829232711.1465-1-tom@quantonium.net> <20170829232711.1465-5-tom@quantonium.net>
- <1504089372.2480.55.camel@redhat.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH v2 2/3] dt-binding: net: sfp binding documentation
+Date: Wed, 30 Aug 2017 16:58:29 +0200
+Message-ID: <20170830145829.GA22289@lunn.ch>
+References: <d1e64c5752ef0dd5c5b543c2d4c3ef1783318173.1504086672.git.baruch@tkos.co.il>
+ <7ae5d883fd038cf518949b0aa9cbe5369e2a1851.1504086672.git.baruch@tkos.co.il>
+ <89261369-d97c-a78c-5a21-a269b2c7e513@cogentembedded.com>
+ <20170830111118.wy62va6sjzsxrgoo@tarshish>
+ <c3e8af44-bf58-81d7-bd51-d2538dcd41d9@cogentembedded.com>
+ <20170830112557.dhcl3pv7gmuzg22v@tarshish>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: "David S . Miller" <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Paolo Abeni <pabeni@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Russell King <rmk+kernel@arm.linux.org.uk>,
+        netdev@vger.kernel.org, devicetree@vger.kernel.org
+To: Baruch Siach <baruch@tkos.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f179.google.com ([209.85.128.179]:38398 "EHLO
-        mail-wr0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751323AbdH3O4q (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 10:56:46 -0400
-Received: by mail-wr0-f179.google.com with SMTP id 40so18708320wrv.5
-        for <netdev@vger.kernel.org>; Wed, 30 Aug 2017 07:56:46 -0700 (PDT)
-In-Reply-To: <1504089372.2480.55.camel@redhat.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:45152 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751317AbdH3O6k (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 30 Aug 2017 10:58:40 -0400
+Content-Disposition: inline
+In-Reply-To: <20170830112557.dhcl3pv7gmuzg22v@tarshish>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 30, 2017 at 3:36 AM, Paolo Abeni <pabeni@redhat.com> wrote:
-> On Tue, 2017-08-29 at 16:27 -0700, Tom Herbert wrote:
->> Add support to perform UDP specific flow dissection. This is
->> primarily intended for dissecting encapsulated packets in UDP
->> encapsulation.
->>
->> This patch adds a flow_dissect offload for UDP4 and UDP6. The backend
->> function performs a socket lookup and calls the flow_dissect function
->> if a socket is found.
->>
->> Signed-off-by: Tom Herbert <tom@quantonium.net>
->> ---
->>  include/linux/udp.h      |  8 ++++++++
->>  include/net/udp.h        |  8 ++++++++
->>  include/net/udp_tunnel.h |  8 ++++++++
->>  net/ipv4/udp_offload.c   | 45 +++++++++++++++++++++++++++++++++++++++++++++
->>  net/ipv4/udp_tunnel.c    |  1 +
->>  net/ipv6/udp_offload.c   | 13 +++++++++++++
->>  6 files changed, 83 insertions(+)
->>
->> diff --git a/include/linux/udp.h b/include/linux/udp.h
->> index eaea63bc79bb..2e90b189ef6a 100644
->> --- a/include/linux/udp.h
->> +++ b/include/linux/udp.h
->> @@ -79,6 +79,14 @@ struct udp_sock {
->>       int                     (*gro_complete)(struct sock *sk,
->>                                               struct sk_buff *skb,
->>                                               int nhoff);
->> +     /* Flow dissector function for a UDP socket */
->> +     enum flow_dissect_ret (*flow_dissect)(struct sock *sk,
->> +                     const struct sk_buff *skb,
->> +                     struct flow_dissector_key_control *key_control,
->> +                     struct flow_dissector *flow_dissector,
->> +                     void *target_container, void *data,
->> +                     __be16 *p_proto, u8 *p_ip_proto, int *p_nhoff,
->> +                     int *p_hlen, unsigned int flags);
->>
->>       /* udp_recvmsg try to use this before splicing sk_receive_queue */
->>       struct sk_buff_head     reader_queue ____cacheline_aligned_in_smp;
->> diff --git a/include/net/udp.h b/include/net/udp.h
->> index f3d1de6f0983..499e4faf8b14 100644
->> --- a/include/net/udp.h
->> +++ b/include/net/udp.h
->> @@ -174,6 +174,14 @@ struct sk_buff **udp_gro_receive(struct sk_buff **head, struct sk_buff *skb,
->>                                struct udphdr *uh, udp_lookup_t lookup);
->>  int udp_gro_complete(struct sk_buff *skb, int nhoff, udp_lookup_t lookup);
->>
->> +enum flow_dissect_ret udp_flow_dissect(const struct sk_buff *skb,
->> +                     udp_lookup_t lookup,
->> +                     struct flow_dissector_key_control *key_control,
->> +                     struct flow_dissector *flow_dissector,
->> +                     void *target_container, void *data,
->> +                     __be16 *p_proto, u8 *p_ip_proto, int *p_nhoff,
->> +                     int *p_hlen, unsigned int flags);
->> +
->>  static inline struct udphdr *udp_gro_udphdr(struct sk_buff *skb)
->>  {
->>       struct udphdr *uh;
->> diff --git a/include/net/udp_tunnel.h b/include/net/udp_tunnel.h
->> index 10cce0dd4450..b7102e0f41a9 100644
->> --- a/include/net/udp_tunnel.h
->> +++ b/include/net/udp_tunnel.h
->> @@ -69,6 +69,13 @@ typedef struct sk_buff **(*udp_tunnel_gro_receive_t)(struct sock *sk,
->>                                                    struct sk_buff *skb);
->>  typedef int (*udp_tunnel_gro_complete_t)(struct sock *sk, struct sk_buff *skb,
->>                                        int nhoff);
->> +typedef enum flow_dissect_ret (*udp_tunnel_flow_dissect_t)(struct sock *sk,
->> +                     const struct sk_buff *skb,
->> +                     struct flow_dissector_key_control *key_control,
->> +                     struct flow_dissector *flow_dissector,
->> +                     void *target_container, void *data,
->> +                     __be16 *p_proto, u8 *p_ip_proto, int *p_nhoff,
->> +                     int *p_hlen, unsigned int flags);
->>
->>  struct udp_tunnel_sock_cfg {
->>       void *sk_user_data;     /* user data used by encap_rcv call back */
->> @@ -78,6 +85,7 @@ struct udp_tunnel_sock_cfg {
->>       udp_tunnel_encap_destroy_t encap_destroy;
->>       udp_tunnel_gro_receive_t gro_receive;
->>       udp_tunnel_gro_complete_t gro_complete;
->> +     udp_tunnel_flow_dissect_t flow_dissect;
->>  };
->>
->>  /* Setup the given (UDP) sock to receive UDP encapsulated packets */
->> diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
->> index 97658bfc1b58..7f0a7ed4a6f7 100644
->> --- a/net/ipv4/udp_offload.c
->> +++ b/net/ipv4/udp_offload.c
->> @@ -328,11 +328,56 @@ static int udp4_gro_complete(struct sk_buff *skb, int nhoff)
->>       return udp_gro_complete(skb, nhoff, udp4_lib_lookup_skb);
->>  }
->>
->> +enum flow_dissect_ret udp_flow_dissect(const struct sk_buff *skb,
->> +                     udp_lookup_t lookup,
->> +                     struct flow_dissector_key_control *key_control,
->> +                     struct flow_dissector *flow_dissector,
->> +                     void *target_container, void *data,
->> +                     __be16 *p_proto, u8 *p_ip_proto, int *p_nhoff,
->> +                     int *p_hlen, unsigned int flags)
->> +{
->> +     enum flow_dissect_ret ret = FLOW_DISSECT_RET_CONTINUE;
->> +     struct udphdr *uh, _uh;
->> +     struct sock *sk;
->> +
->> +     uh = __skb_header_pointer(skb, *p_nhoff, sizeof(_uh), data,
->> +                               *p_hlen, &_uh);
->> +     if (!uh)
->> +             return FLOW_DISSECT_RET_OUT_BAD;
->> +
->> +     rcu_read_lock();
->> +
->> +     sk = (*lookup)(skb, uh->source, uh->dest);
->> +
->> +     if (sk && udp_sk(sk)->flow_dissect)
->> +             ret = udp_sk(sk)->flow_dissect(sk, skb, key_control,
->> +                                            flow_dissector, target_container,
->> +                                            data, p_proto, p_ip_proto,
->> +                                            p_nhoff, p_hlen, flags);
->> +     rcu_read_unlock();
->> +
->> +     return ret;
->> +}
->> +EXPORT_SYMBOL(udp_flow_dissect);
->
-> If I read the above correctly, this is going to add another full UDP
-> lookup per UDP packet, can we avoid it with some static key enabled by
-> vxlan/fou/etc. ?
->
-That's a good idea! Should just check udp_encap_needed. Also makes
-sense to have in udp_gro_receive.
+> > > >     Your example shows there's GPIO phandle *and* specifier.
+> > > 
+> > > Would "GPIO specifier" be enough here?
+> > 
+> >    No, specifier is the cells following GPIO (or any other) phandle.
+> 
+> So this should be "GPIO phandle and specifier of ...", is that correct?
+> 
+> I have found very few (< 4) occurrences of this language in (lots of) '-gpios' 
+> property descriptions under Documentation/devicetree/bindings/. Is this a new 
+> requirement?
 
-Tom
+Sometimes it is just easier to refer to another document:
 
-> Thanks,
->
-> Paolo
+GPIO, as defined in Documentation/devicetree/binding/gpio/gpio.txt
+
+      Andrew
