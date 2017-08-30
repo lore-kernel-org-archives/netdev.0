@@ -1,240 +1,55 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [PATCH net-next] virtio-net: invoke zerocopy callback on xmit
- path if no tx napi
-Date: Tue, 29 Aug 2017 23:11:24 -0400
-Message-ID: <CAF=yD-KUoW6hxZtpAmyVrJXCY+=Fq1FOcbD3h=HmDQaPoC1MLg@mail.gmail.com>
-References: <64d451ae-9944-e978-5a05-54bb1a62aaad@redhat.com>
- <20170822204015-mutt-send-email-mst@kernel.org> <1503498504.8694.26.camel@klaipeden.com>
- <CAF=yD-+U_aWxSmPPY8v8t=JO0MRZ+N+DzVJTAMKYQ5F=pE1PfA@mail.gmail.com>
- <20170824014553-mutt-send-email-mst@kernel.org> <CAF=yD-KSek+LmZu0X0TXetmFEQ59iF3NpjZ4KugbwLo1BGfhaA@mail.gmail.com>
- <20170824160748-mutt-send-email-mst@kernel.org> <CAF=yD-+9Ah8pC9i2w3Ad3WnhQit7Yo479pMrToty7priL6BFLw@mail.gmail.com>
- <20170824234551-mutt-send-email-mst@kernel.org> <CAF=yD-+1wheMmC+HFKe_B_ULO0Mmh6HMSEbYY5D-HgqxVJee6A@mail.gmail.com>
- <20170826022744-mutt-send-email-mst@kernel.org> <CAF=yD-Lre0NATUVH8p0zS=G5CiY=WfKSefLmOZw940jZFgECgQ@mail.gmail.com>
- <CAF=yD-+Wk9sc9dXMUq1+x_hh=3ThTXa6BnZkygP3tgVpjbp93g@mail.gmail.com> <b8893b72-4d09-2492-0d31-5135286e6874@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] ipv6: Use rt6i_idev index for echo replies to
+ a local address
+Date: Tue, 29 Aug 2017 20:18:14 -0700
+Message-ID: <1504063094.11498.112.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1503953614-32395-1-git-send-email-dsahern@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-        Koichiro Den <den@klaipeden.com>,
-        virtualization@lists.linux-foundation.org,
-        Network Development <netdev@vger.kernel.org>
-To: Jason Wang <jasowang@redhat.com>
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, tariqt@mellanox.com
+To: David Ahern <dsahern@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f51.google.com ([209.85.218.51]:33884 "EHLO
-        mail-oi0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751440AbdH3DMG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 23:12:06 -0400
-Received: by mail-oi0-f51.google.com with SMTP id w10so42178531oie.1
-        for <netdev@vger.kernel.org>; Tue, 29 Aug 2017 20:12:05 -0700 (PDT)
-In-Reply-To: <b8893b72-4d09-2492-0d31-5135286e6874@redhat.com>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:32965 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751440AbdH3DSP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 23:18:15 -0400
+Received: by mail-pf0-f196.google.com with SMTP id r62so742011pfj.0
+        for <netdev@vger.kernel.org>; Tue, 29 Aug 2017 20:18:15 -0700 (PDT)
+In-Reply-To: <1503953614-32395-1-git-send-email-dsahern@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 29, 2017 at 9:45 PM, Jason Wang <jasowang@redhat.com> wrote:
->
->
-> On 2017=E5=B9=B408=E6=9C=8830=E6=97=A5 03:35, Willem de Bruijn wrote:
->>
->> On Fri, Aug 25, 2017 at 9:03 PM, Willem de Bruijn
->> <willemdebruijn.kernel@gmail.com> wrote:
->>>
->>> On Fri, Aug 25, 2017 at 7:32 PM, Michael S. Tsirkin <mst@redhat.com>
->>> wrote:
->>>>
->>>> On Fri, Aug 25, 2017 at 06:44:36PM -0400, Willem de Bruijn wrote:
->>>>>>>>>>
->>>>>>>>>> We don't enable network watchdog on virtio but we could and mayb=
-e
->>>>>>>>>> should.
->>>>>>>>>
->>>>>>>>> Can you elaborate?
->>>>>>>>
->>>>>>>> The issue is that holding onto buffers for very long times makes
->>>>>>>> guests
->>>>>>>> think they are stuck. This is funamentally because from guest poin=
-t
->>>>>>>> of
->>>>>>>> view this is a NIC, so it is supposed to transmit things out in
->>>>>>>> a timely manner. If host backs the virtual NIC by something that i=
-s
->>>>>>>> not
->>>>>>>> a NIC, with traffic shaping etc introducing unbounded latencies,
->>>>>>>> guest will be confused.
->>>>>>>
->>>>>>> That assumes that guests are fragile in this regard. A linux guest
->>>>>>> does not make such assumptions.
->>>>>>
->>>>>> Yes it does. Examples above:
->>>>>>          > > - a single slow flow can occupy the whole ring, you wil=
-l
->>>>>> not
->>>>>>          > >   be able to make any new buffers available for the fas=
-t
->>>>>> flow
->>>>>
->>>>> Oh, right. Though those are due to vring_desc pool exhaustion
->>>>> rather than an upper bound on latency of any single packet.
->>>>>
->>>>> Limiting the number of zerocopy packets in flight to some fraction
->>>>> of the ring ensures that fast flows can always grab a slot.
->>>>> Running
->>>>> out of ubuf_info slots reverts to copy, so indirectly does this. But
->>>>> I read it correclty the zerocopy pool may be equal to or larger than
->>>>> the descriptor pool. Should we refine the zcopy_used test
->>>>>
->>>>>      (nvq->upend_idx + 1) % UIO_MAXIOV !=3D nvq->done_idx
->>>>>
->>>>> to also return false if the number of outstanding ubuf_info is greate=
-r
->>>>> than, say, vq->num >> 1?
->>>>
->>>>
->>>> We'll need to think about where to put the threshold, but I think it's
->>>> a good idea.
->>>>
->>>> Maybe even a fixed number, e.g. max(vq->num >> 1, X) to limit host
->>>> resources.
->>>>
->>>> In a sense it still means once you run out of slots zcopt gets disable=
-d
->>>> possibly permanently.
->>>>
->>>> Need to experiment with some numbers.
->>>
->>> I can take a stab with two flows, one delayed in a deep host qdisc
->>> queue. See how this change affects the other flow and also how
->>> sensitive that is to the chosen threshold value.
->>
->> Incomplete results at this stage, but I do see this correlation between
->> flows. It occurs even while not running out of zerocopy descriptors,
->> which I cannot yet explain.
->>
->> Running two threads in a guest, each with a udp socket, each
->> sending up to 100 datagrams, or until EAGAIN, every msec.
->>
->> Sender A sends 1B datagrams.
->> Sender B sends VHOST_GOODCOPY_LEN, which is enough
->> to trigger zcopy_used in vhost net.
->>
->> A local receive process on the host receives both flows. To avoid
->> a deep copy when looping the packet onto the receive path,
->> changed skb_orphan_frags_rx to always return false (gross hack).
->>
->> The flow with the larger packets is redirected through netem on ifb0:
->>
->>    modprobe ifb
->>    ip link set dev ifb0 up
->>    tc qdisc add dev ifb0 root netem limit $LIMIT rate 1MBit
->>
->>    tc qdisc add dev tap0 ingress
->>    tc filter add dev tap0 parent ffff: protocol ip \
->>        u32 match ip dport 8000 0xffff \
->>        action mirred egress redirect dev ifb0
->>
->> For 10 second run, packet count with various ifb0 queue lengths $LIMIT:
->>
->> no filter
->>    rx.A: ~840,000
->>    rx.B: ~840,000
->
->
-> Just to make sure I understand the case here. What did rx.B mean here? I
-> thought all traffic sent by Sender B has been redirected to ifb0?
+On Mon, 2017-08-28 at 13:53 -0700, David Ahern wrote:
+> Tariq repored local pings to linklocal address is failing:
+> $ ifconfig ens8
+> ens8: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+>         inet 11.141.16.6  netmask 255.255.0.0  broadcast 11.141.255.255
+>         inet6 fe80::7efe:90ff:fecb:7502  prefixlen 64  scopeid 0x20<link>
+>         ether 7c:fe:90:cb:75:02  txqueuelen 1000  (Ethernet)
+>         RX packets 12  bytes 1164 (1.1 KiB)
+>         RX errors 0  dropped 0  overruns 0  frame 0
+>         TX packets 30  bytes 2484 (2.4 KiB)
+>         TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+> 
+> $  /bin/ping6 -c 3 fe80::7efe:90ff:fecb:7502%ens8
+> PING fe80::7efe:90ff:fecb:7502%ens8(fe80::7efe:90ff:fecb:7502) 56 data bytes
+> 
+> --- fe80::7efe:90ff:fecb:7502%ens8 ping statistics ---
 
-It has been, but the packet still arrives at the destination socket.
-IFB is a special virtual device that applies traffic shaping and
-then reinjects it back at the point it was intercept by mirred.
+Note that the presence of this leading --- had the effect of truncating
+the merged patch from this point. (all tags were ignored)
 
-rx.B is indeed arrival rate at the receiver, similar to rx.A.
-
->>
->> limit 1
->>    rx.A: ~500,000
->>    rx.B: ~3100
->>    ifb0: 3273 sent, 371141 dropped
->>
->> limit 100
->>    rx.A: ~9000
->>    rx.B: ~4200
->>    ifb0: 4630 sent, 1491 dropped
->>
->> limit 1000
->>    rx.A: ~6800
->>    rx.B: ~4200
->>    ifb0: 4651 sent, 0 dropped
->>
->> Sender B is always correctly rate limited to 1 MBps or less. With a
->> short queue, it ends up dropping a lot and sending even less.
->>
->> When a queue builds up for sender B, sender A throughput is strongly
->> correlated with queue length. With queue length 1, it can send almost
->> at unthrottled speed. But even at limit 100 its throughput is on the
->> same order as sender B.
->>
->> What is surprising to me is that this happens even though the number
->> of ubuf_info in use at limit 100 is around 100 at all times. In other
->> words,
->> it does not exhaust the pool.
->>
->> When forcing zcopy_used to be false for all packets, this effect of
->> sender A throughput being correlated with sender B does not happen.
->>
->> no filter
->>    rx.A: ~850,000
->>    rx.B: ~850,000
->>
->> limit 100
->>    rx.A: ~850,000
->>    rx.B: ~4200
->>    ifb0: 4518 sent, 876182 dropped
->>
->> Also relevant is that with zerocopy, the sender processes back off
->> and report the same count as the receiver. Without zerocopy,
->> both senders send at full speed, even if only 4200 packets from flow
->> B arrive at the receiver.
->>
->> This is with the default virtio_net driver, so without napi-tx.
->
->
-> What kind of qdisc do you use in guest? I suspect we should use something
-> which could do fair queueing (e.g sfq).
-
-Or fq. The test was using the default, pfifo_fast.
-
-This particular two flow test probably would not be affected,
-as something else is delaying both flows equally once some
-completions are delayed.
-
-One obvious candidate would be hitting VHOST_MAX_PEND.
-But I instrumented that and handle_tx is never throttled by
-vhost_exceeds_maxpend.
-
-Btw, vhost_exceeds_maxpend implements almost what I
-suggested earlier and was planning to test here: ensure that
-only part of the descriptor pool is filled with zerocopy requests.
-
-Only, it currently breaks out of the loop when the max is
-reached. I think that we should move it into the main
-zcopy_used calculation, so that hitting this threshold reverts to
-copy-based transmission, instead of delaying all tx until
-zerocopy budget opens up.
-
-
->>
->> It appears that the zerocopy notifications are pausing the guest.
->> Will look at that now.
->
->
-> Another factor is the tx interrupt coalescing parameters of ifb0, maybe w=
-e
-> should disable it during the test.
->
-> Thanks
->
->
->>
->> By the way, I have had an unrelated patch outstanding for a while
->> to have virtio-net support the VIRTIO_CONFIG_S_NEEDS_RESET
->> command. Will send that as RFC.
->
->
+> 3 packets transmitted, 0 received, 100% packet loss, time 2043ms
+> 
+> icmpv6_echo_reply needs to use the rt6i_idev dev index for local traffic
+> similar to how icmp6_send does. Convert the change for icmp6_send into a
+> helper that can be used in both places. Add the long over due
+> skb_rt6_info helper to convert dst on an skb to rt6_info similar to
+> skb_rtable for ipv4.
+> 
+> Fixes: 4832c30d5458 ("net: ipv6: put host and anycast routes on
+>        device with address")
+> Reported-by: Tariq Toukan <tariqt@mellanox.com>
+> Signed-off-by: David Ahern <dsahern@gmail.com>
+> ---
