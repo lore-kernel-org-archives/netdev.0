@@ -1,40 +1,37 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH][next][V2] bpf: test_maps: fix typo "conenct" -> "connect"
-Date: Wed, 30 Aug 2017 12:47:30 +0100
-Message-ID: <20170830114730.28550-1-colin.king@canonical.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org
-To: Alexei Starovoitov <ast@kernel.org>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Shuah Khan <shuah@kernel.org>, netdev@vger.kernel.org,
-        linux-kselftest@vger.kernel.org
+From: Arvind Yadav <arvind.yadav.cs@gmail.com>
+Subject: [PATCH] netfilter: nat: constify rhashtable_params
+Date: Wed, 30 Aug 2017 17:18:04 +0530
+Message-ID: <d978194ca83e9aa41a330a42442eecd8be9e9a60.1504093452.git.arvind.yadav.cs@gmail.com>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        coreteam@netfilter.org, netfilter-devel@vger.kernel.org
+To: davem@davemloft.net, fw@strlen.de, kadlec@blackhole.kfki.hu,
+        pablo@netfilter.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Colin Ian King <colin.king@canonical.com>
+rhashtable_params are not supposed to change at runtime. All
+Functions rhashtable_* working with const rhashtable_params
+provided by <linux/rhashtable.h>. So mark the non-const structs
+as const.
 
-Trivial fix to typo in printf error message
-
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
+Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
 ---
- tools/testing/selftests/bpf/test_maps.c | 2 +-
+ net/netfilter/nf_nat_core.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/tools/testing/selftests/bpf/test_maps.c b/tools/testing/selftests/bpf/test_maps.c
-index 7059bb315a10..8fdaf2e21c8a 100644
---- a/tools/testing/selftests/bpf/test_maps.c
-+++ b/tools/testing/selftests/bpf/test_maps.c
-@@ -525,7 +525,7 @@ static void test_sockmap(int tasks, void *data)
- 		addr.sin_port = htons(ports[i - 2]);
- 		err = connect(sfd[i], (struct sockaddr *)&addr, sizeof(addr));
- 		if (err) {
--			printf("failed to conenct\n");
-+			printf("failed to connect\n");
- 			goto out;
- 		}
- 	}
+diff --git a/net/netfilter/nf_nat_core.c b/net/netfilter/nf_nat_core.c
+index eb54178..d1f355e 100644
+--- a/net/netfilter/nf_nat_core.c
++++ b/net/netfilter/nf_nat_core.c
+@@ -198,7 +198,7 @@ static int nf_nat_bysource_cmp(struct rhashtable_compare_arg *arg,
+ 	return 0;
+ }
+ 
+-static struct rhashtable_params nf_nat_bysource_params = {
++static const struct rhashtable_params nf_nat_bysource_params = {
+ 	.head_offset = offsetof(struct nf_conn, nat_bysource),
+ 	.obj_hashfn = nf_nat_bysource_hash,
+ 	.obj_cmpfn = nf_nat_bysource_cmp,
 -- 
-2.14.1
+1.9.1
