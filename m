@@ -1,37 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: cpsw: Don't handle SIOC[GS]HWTSTAMP when
- CPTS is disabled
-Date: Wed, 30 Aug 2017 14:47:45 -0700 (PDT)
-Message-ID: <20170830.144745.947488279115809130.davem@davemloft.net>
-References: <20170830065055.419-1-stefan.sorensen@spectralink.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [Patch net-next] net_sched: add reverse binding for tc class
+Date: Wed, 30 Aug 2017 23:48:40 +0200
+Message-ID: <59A732B8.6020405@iogearbox.net>
+References: <20170830213036.24250-1-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
-Cc: grygorii.strashko@ti.com, netdev@vger.kernel.org,
-        linux-omap@vger.kernel.org
-To: stefan.sorensen@spectralink.com
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:34532 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751291AbdH3Vrq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 17:47:46 -0400
-In-Reply-To: <20170830065055.419-1-stefan.sorensen@spectralink.com>
+Received: from www62.your-server.de ([213.133.104.62]:52367 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750824AbdH3Vsl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 17:48:41 -0400
+In-Reply-To: <20170830213036.24250-1-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stefan Sørensen <stefan.sorensen@spectralink.com>
-Date: Wed, 30 Aug 2017 08:50:55 +0200
+On 08/30/2017 11:30 PM, Cong Wang wrote:
+[...]
+> Note, we still can NOT totally get rid of those class lookup in
+> ->enqueue() because cgroup and flow filters have no way to determine
+> the classid at setup time, they still have to go through dynamic lookup.
+[...]
+> ---
+>   include/net/sch_generic.h |  1 +
+>   net/sched/cls_basic.c     |  9 +++++++
+>   net/sched/cls_bpf.c       |  9 +++++++
 
-> There is no reason to handle SIOC[GS]HWTSTAMP and return -EOPNOTSUPP when
-> CPTS is disabled, so just pass them on to the phy. This will allow PTP
-> timestamping on a capable phy by disabling CPTS.
-> 
-> Signed-off-by: Stefan Sørensen <stefan.sorensen@spectralink.com>
+Same is for cls_bpf as well, so bind_class wouldn't work there
+either as we could return dynamic classids. bind_class cannot
+be added here, too.
 
-It should not be required to disable a Kconfig option just to get PHY
-timestamping to work properly.
-
-Rather, if the CPTS code returns -EOPNOTSUPP we should try to
-fallthrough to the PHY library based methods.
-
-Thanks.
+>   net/sched/cls_flower.c    |  9 +++++++
+>   net/sched/cls_fw.c        |  9 +++++++
+>   net/sched/cls_matchall.c  |  9 +++++++
+>   net/sched/cls_route.c     |  9 +++++++
+>   net/sched/cls_rsvp.h      |  9 +++++++
+>   net/sched/cls_tcindex.c   |  9 +++++++
+>   net/sched/cls_u32.c       |  9 +++++++
+>   net/sched/sch_api.c       | 68 +++++++++++++++++++++++++++++++++++++++++++++--
+>   11 files changed, 148 insertions(+), 2 deletions(-)
