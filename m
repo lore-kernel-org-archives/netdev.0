@@ -1,39 +1,36 @@
-From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Subject: [PATCH 3/5] net: mdio-mux: printing driver version is useless
-Date: Wed, 30 Aug 2017 19:46:49 +0200
-Message-ID: <20170830174651.30325-4-clabbe.montjoie@gmail.com>
-References: <20170830174651.30325-1-clabbe.montjoie@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Corentin Labbe <clabbe.montjoie@gmail.com>
-To: andrew@lunn.ch, f.fainelli@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:37933 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751763AbdH3RtD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 13:49:03 -0400
-In-Reply-To: <20170830174651.30325-1-clabbe.montjoie@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: linux-next: Signed-off-by missing for commit in the net-next
+ tree
+Date: Wed, 30 Aug 2017 10:52:08 -0700 (PDT)
+Message-ID: <20170830.105208.866936923406230960.davem@davemloft.net>
+References: <20170831025131.56d2cf92@canb.auug.org.au>
+        <32dc9201-c7a2-2cf0-e8a1-1c735b8784ee@gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org,
+        linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
+To: dsahern@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <32dc9201-c7a2-2cf0-e8a1-1c735b8784ee@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Remove the driver version information because this information
-is not useful in an upstream kernel driver.
+From: David Ahern <dsahern@gmail.com>
+Date: Wed, 30 Aug 2017 10:53:48 -0600
 
-Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
----
- drivers/net/phy/mdio-mux.c | 1 -
- 1 file changed, 1 deletion(-)
+> On 8/30/17 10:51 AM, Stephen Rothwell wrote:
+>> Hi all,
+>> 
+>> Commit
+>> 
+>>   1b70d792cf67 ("ipv6: Use rt6i_idev index for echo replies to a local address")
+>> 
+>> is missing a Signed-off-by from its author.
+>> 
+> 
+> Eric pointed this out last night. The commit message copied output from
+> a command that contained '---' so git ignored the remainder of the message.
 
-diff --git a/drivers/net/phy/mdio-mux.c b/drivers/net/phy/mdio-mux.c
-index 5e08e89465c5..9a889a529b9c 100644
---- a/drivers/net/phy/mdio-mux.c
-+++ b/drivers/net/phy/mdio-mux.c
-@@ -179,7 +179,6 @@ int mdio_mux_init(struct device *dev,
- 	}
- 	if (pb->children) {
- 		*mux_handle = pb;
--		dev_info(dev, "Version " DRV_VERSION "\n");
- 		return 0;
- 	}
- 
--- 
-2.13.5
+Yes, it unfortunately got clipped off by GIT due to how the
+commit message was written. :(
