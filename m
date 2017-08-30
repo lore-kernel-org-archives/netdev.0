@@ -1,119 +1,67 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH v2 net-next 1/8] bpf: Add support for recursively running
- cgroup sock filters
-Date: Tue, 29 Aug 2017 21:11:48 -0700
-Message-ID: <20170830041146.q2b52d77x2gwyhco@ast-mbp>
-References: <20170826024957.m5ita6usxihywmdd@ast-mbp>
- <bb4398e5-55a3-d63e-ac4d-3f9d7e2efc02@gmail.com>
- <20170828235653.jq62menrcfrh5rco@ast-mbp>
- <45102738-365f-d08b-f3cf-9a81683956c4@gmail.com>
- <20170829011213.suddt5hkptaxd4rp@ast-mbp>
- <32706501-5fc3-7f59-9210-1898e896d384@gmail.com>
- <20170829041118.m6bsjvif2bxwtk6g@ast-mbp>
- <ab9b2874-fadc-5ab6-7710-2ccb1d65bb2c@gmail.com>
- <20170830025850.wlp2hp7d4kreodif@ast-mbp>
- <79498e9c-2b22-d4d7-4b51-8a08e62ba237@gmail.com>
+From: Samuel Mendoza-Jonas <sam@mendozajonas.com>
+Subject: Re: [PATCH net-next v3 0/3] NCSI VLAN Filtering Support
+Date: Wed, 30 Aug 2017 14:37:21 +1000
+Message-ID: <1504067841.1361.11.camel@mendozajonas.com>
+References: <20170828061843.24349-1-sam@mendozajonas.com>
+         <20170828.165001.1442421762159241248.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, daniel@iogearbox.net, ast@kernel.org,
-        tj@kernel.org, davem@davemloft.net, luto@amacapital.net
-To: David Ahern <dsahern@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f171.google.com ([209.85.192.171]:36216 "EHLO
-        mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751927AbdH3ELw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 00:11:52 -0400
-Received: by mail-pf0-f171.google.com with SMTP id z87so15997274pfi.3
-        for <netdev@vger.kernel.org>; Tue, 29 Aug 2017 21:11:52 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <79498e9c-2b22-d4d7-4b51-8a08e62ba237@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        openbmc@lists.ozlabs.org, joel@jms.id.au, benh@kernel.crashing.org,
+        gwshan@linux.vnet.ibm.com, ratagupt@in.ibm.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170828.165001.1442421762159241248.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 29, 2017 at 09:38:16PM -0600, David Ahern wrote:
-> On 8/29/17 8:58 PM, Alexei Starovoitov wrote:
-> > On Tue, Aug 29, 2017 at 07:03:43PM -0600, David Ahern wrote:
-> >> On 8/28/17 10:11 PM, Alexei Starovoitov wrote:
-> >>>
-> >>> Agree on the above, but you're mixing semantics of the new recurse
-> >>> flag and implementation of it. Ex: we don't have to copy this flag
-> >>> from prog->attr into cgroup. So this reset or non-reset discussion
-> >>> only makes sense in the context of your current implementation.
-> >>> We can implement the logic differently. Like don't copy that flag
-> >>> at all and at attach time walk parent->parent->parent and see
-> >>> what programs are attached. All of them should have prog->attr & recurse_bit set
-> >>> In such implementation detach from 'b' is a nop from reset/non-reset
-> >>> point of view. When socket creation in 'c' is invoked the program
-> >>> 'c' is called first then the code keeps walking parents until root
-> >>> invoking 'a' along the way.
-> >>
-> >> So you are suggesting there is no recursive flag per cgroup? How do you
-> >> know you need to walk cgroups? How do you know when to stop running
-> >> programs?
-> > 
-> > you're talking about implementation, right?
-> > My 'proposed' implemenation of walking from cgroup all the way to the root
-> > is just an example. It's not efficient. More below...
-> > 
-> >>> I'm not saying it will be an efficient implementation. The point
-> >>> is to discuss UAPI independent of implementation.
-> >>>
-> >>>> ###
-> >>>>
-> >>>> Also, let's agree on this intention. Based on the new ground rule, I
-> >>>> want to point out this example:
-> >>>>
-> >>>> If 'a' gets a program installed with no recurse flag set, ONLY processes
-> >>>> in 'a' have the 'a' program run. Processes in groups 'b', 'c' and 'd'
-> >>>> all stop at cgroup 'b' program.
-> >>>
-> >>> I'm proposing that such situation should not be allowed to happen.
-> >>> In a->b->c->d cgroup scenario if override+recurse prog attached to 'b'
-> >>> then only the same override+recurse can be attached to c, d, a.
-> >>> So at detach time there can be gaps (like only 'b' and 'd' have
-> >>> override+recurse progs), but walking up until root from any point
-> >>> will guarantee that only override+recurse programs are seen.
-> >>>
-> >>
-> >> That seems very limiting to me. Seems like you are suggesting the entire
-> >> cgroup tree is recursive or non-recursive, but never a mix.
-> > 
-> > Entire cgroup subtree. Yes. It's the simplest uapi I could think of.
+On Mon, 2017-08-28 at 16:50 -0700, David Miller wrote:
+> From: Samuel Mendoza-Jonas <sam@mendozajonas.com>
+> Date: Mon, 28 Aug 2017 16:18:40 +1000
 > 
-> So 10 email exchanges later you agree on the UAPI I implemented in this
-> patch: user opts in to recursive behavior via a new flag at attach time,
-> and once a recursive program is installed at some point in the cgroup
-> tree it applies to all descendant cgroups.
+> > This series (mainly patch 2) adds VLAN filtering to the NCSI implementation.
+> > A fair amount of code already exists in the NCSI stack for VLAN filtering but
+> > none of it is actually hooked up. This goes the final mile and fixes a few
+> > bugs in the existing code found along the way (patch 1).
+> > 
+> > Patch 3 adds the appropriate flag and callbacks to the ftgmac100 driver to
+> > enable filtering as it's a large consumer of NCSI (and what I've been
+> > testing on).
+> > 
+> > v3:   - Add comment describing change to ncsi_find_filter()
+> >       - Catch NULL in clear_one_vid() from ncsi_get_filter()
+> >       - Simplify state changes when kicking updated channel
 > 
-> So all of these exchanges weren't about the UAPI, but your disagreement
-> in my implementation. The only user visible change here is only programs
-> marked recursive are run versus going back to the first cgroup marked
-> non-recursive.
+> Series applied.
 
-you cannot be serious. Your implemention is not at all what i'm proposing
-above as a simplest uapi. Should we all go back and re-read from the beginning?
+Thanks David,
 
-> > Easy to understand and argue about and I think it's solving your use case.
-> > It's also easily extendable. New combination and features won't break
-> > the users. It feels you're in rush to get this stuff for this merge
-> > window, therefore I want to agree on something that is simple,
-> > non-controversial and extensible.
-> 
-> I am in no-rush, but this does not to fall by the wayside like the net
-> namespace specification.
+The kbuild bot caught a build error where the add/kill callbacks aren't
+defined without CONFIG_NET_NCSI:
 
-It's more than that! I think you only looking at it from vrf perspective
-whereas cgroup-bpf became a corner stone feature and enabler for tcp-bpf
-which in turn became a stepping stone for bpf_sk_redirect.
-So no, I'm not going to let something half baked that touches
-the core idea of cgroup-bpf slide in.
-Tejun and Andy also need to take a look, so yes it will take long
-time for everyone to agree on this core uapi.
+>> ERROR: "ncsi_vlan_rx_kill_vid" [drivers/net/ethernet/faraday/ftgmac100.ko] undefined!
+>> ERROR: "ncsi_vlan_rx_add_vid" [drivers/net/ethernet/faraday/ftgmac100.ko] undefined!
 
-> Given the pending release of 4.13 net-next will close which gives a 2+
-> week window to work on v3 before the next merge window. Plenty of time
-> for me to work it into the many other things on my plate.
+It's a quick fixup to patch 3 as below, would you like me to send it as a v4?
 
-As I proposed several emails ago, please repost patches 2 and 3 that
-I already acked and we can continue discussing this patch without
-the agitation.
+
+diff --git a/include/net/ncsi.h b/include/net/ncsi.h
+index 1f96af46df49..2b13b6b91a4d 100644
+--- a/include/net/ncsi.h
++++ b/include/net/ncsi.h
+@@ -36,6 +36,14 @@ int ncsi_start_dev(struct ncsi_dev *nd);
+ void ncsi_stop_dev(struct ncsi_dev *nd);
+ void ncsi_unregister_dev(struct ncsi_dev *nd);
+ #else /* !CONFIG_NET_NCSI */
++int ncsi_vlan_rx_add_vid(struct net_device *dev, __be16 proto, u16 vid)
++{
++       return -ENOTTY;
++}
++int ncsi_vlan_rx_kill_vid(struct net_device *dev, __be16 proto, u16 vid)
++{
++       return -ENOTTY;
++}
+ static inline struct ncsi_dev *ncsi_register_dev(struct net_device *dev,
+                                        void (*notifier)(struct ncsi_dev *nd))
+ {
