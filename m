@@ -1,52 +1,55 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: [PATCH net 8/9] sch_sfq: fix null pointer dereference on init failure
-Date: Wed, 30 Aug 2017 12:49:04 +0300
-Message-ID: <1504086545-7777-9-git-send-email-nikolay@cumulusnetworks.com>
-References: <1504086545-7777-1-git-send-email-nikolay@cumulusnetworks.com>
-Cc: edumazet@google.com, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
-        jiri@resnulli.us, roopa@cumulusnetworks.com,
-        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f181.google.com ([209.85.128.181]:38198 "EHLO
-        mail-wr0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751933AbdH3Jtc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 05:49:32 -0400
-Received: by mail-wr0-f181.google.com with SMTP id 40so16418504wrv.5
-        for <netdev@vger.kernel.org>; Wed, 30 Aug 2017 02:49:31 -0700 (PDT)
-In-Reply-To: <1504086545-7777-1-git-send-email-nikolay@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: [GIT] Networking
+Date: Wed, 30 Aug 2017 11:48:23 +0200
+Message-ID: <20170830094823.GA31503@amd>
+References: <20170815.175219.753462032002961032.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="bg08WKrSYDhXBjb5"
+Cc: torvalds@linux-foundation.org, akpm@linux-foundation.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>, kvalo@codeaurora.org,
+        xiyou.wangcong@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170815.175219.753462032002961032.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Currently only a memory allocation failure can lead to this, so let's
-initialize the timer first.
 
-Fixes: 6529eaba33f0 ("net: sched: introduce tcf block infractructure")
-Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
----
- net/sched/sch_sfq.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+--bg08WKrSYDhXBjb5
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
-index 82469ef9655e..fc69fc5956e9 100644
---- a/net/sched/sch_sfq.c
-+++ b/net/sched/sch_sfq.c
-@@ -716,13 +716,13 @@ static int sfq_init(struct Qdisc *sch, struct nlattr *opt)
- 	int i;
- 	int err;
- 
-+	setup_deferrable_timer(&q->perturb_timer, sfq_perturbation,
-+			       (unsigned long)sch);
-+
- 	err = tcf_block_get(&q->block, &q->filter_list);
- 	if (err)
- 		return err;
- 
--	setup_deferrable_timer(&q->perturb_timer, sfq_perturbation,
--			       (unsigned long)sch);
--
- 	for (i = 0; i < SFQ_MAX_DEPTH + 1; i++) {
- 		q->dep[i].next = i + SFQ_MAX_FLOWS;
- 		q->dep[i].prev = i + SFQ_MAX_FLOWS;
--- 
-2.1.4
+Hi!
+
+Could we get this one in?
+
+wl1251 misses a spin_lock_init().
+
+https://www.mail-archive.com/netdev@vger.kernel.org/msg177031.html
+
+It seems pretty trivial, yet getting the backtraces is not nice.
+
+Thanks,
+   	 		     	     	 	       	   Pavel
+
+--=20
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
+g.html
+
+--bg08WKrSYDhXBjb5
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iEYEARECAAYFAlmmiecACgkQMOfwapXb+vJSdgCePIoHb+VmGHSPeaVsYV7YQLTr
+emQAoJZssZlcj44QAT3WwMPFGuDqrsai
+=pL+G
+-----END PGP SIGNATURE-----
+
+--bg08WKrSYDhXBjb5--
