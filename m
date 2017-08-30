@@ -1,41 +1,80 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 net-next] staging: irda: fix init level for irda core
-Date: Wed, 30 Aug 2017 10:15:32 -0700 (PDT)
-Message-ID: <20170830.101532.1535425571044102908.davem@davemloft.net>
-References: <20170829173129.GA11029@kroah.com>
-        <20170829174622.GA25926@kroah.com>
-        <20170830111649.GA13000@kroah.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [net-next PATCHv6 2/2] net: socionext: Add NetSec driver
+Date: Wed, 30 Aug 2017 19:17:59 +0200
+Message-ID: <20170830171759.GC22289@lunn.ch>
+References: <1504088657-6102-1-git-send-email-jaswinder.singh@linaro.org>
+ <1504088771-6255-1-git-send-email-jaswinder.singh@linaro.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org,
-        samuel@sortiz.org, linux-kernel@vger.kernel.org,
-        fengguang.wu@intel.com, geert@linux-m68k.org
-To: gregkh@linuxfoundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170830111649.GA13000@kroah.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org, davem@davemloft.net,
+        mark.rutland@arm.com, arnd@arndb.de, patches@linaro.org,
+        Jassi Brar <jaswinder.singh@linaro.org>, robh+dt@kernel.org,
+        andy@warmcat.com
+To: Jassi Brar <jassisinghbrar@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:45296 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751984AbdH3RSF (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 30 Aug 2017 13:18:05 -0400
+Content-Disposition: inline
+In-Reply-To: <1504088771-6255-1-git-send-email-jaswinder.singh@linaro.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Greg KH <gregkh@linuxfoundation.org>
-Date: Wed, 30 Aug 2017 13:16:49 +0200
+> +static int netsec_mac_update_to_phy_state(struct netsec_priv *priv)
+> +{
+> +	struct phy_device *phydev = priv->ndev->phydev;
+> +	u32 value = 0;
+> +
+> +	value = phydev->duplex ? NETSEC_GMAC_MCR_REG_FULL_DUPLEX_COMMON :
+> +				       NETSEC_GMAC_MCR_REG_HALF_DUPLEX_COMMON;
+> +
+> +	if (phydev->speed != SPEED_1000)
+> +		value |= NETSEC_MCR_PS;
+> +
+> +	if ((priv->phy_interface != PHY_INTERFACE_MODE_GMII) &&
+> +	    (phydev->speed == SPEED_100))
+> +		value |= NETSEC_GMAC_MCR_REG_FES;
+> +
+> +	value |= NETSEC_GMAC_MCR_REG_CST | NETSEC_GMAC_MCR_REG_JE;
+> +
+> +	if (priv->phy_interface == PHY_INTERFACE_MODE_RGMII)
+> +		value |= NETSEC_GMAC_MCR_REG_IBN;
+> +
+> +	if (netsec_mac_write(priv, GMAC_REG_MCR, value))
+> +		return -ETIMEDOUT;
+> +
+> +	priv->actual_link_speed = phydev->speed;
+> +	priv->actual_duplex = phydev->duplex;
+> +	netif_info(priv, drv, priv->ndev, "%s: %uMbps, duplex:%d\n",
+> +		   __func__, phydev->speed, phydev->duplex);
 
-> When moving the IRDA code out of net/ into drivers/staging/irda/net, the
-> link order changes when IRDA is built into the kernel.  That causes a
-> kernel crash at boot time as netfilter isn't initialized yet.
-> 
-> To fix this, move the init call level of the irda core to be
-> device_initcall() as the link order keeps this being initialized at the
-> correct time.
-> 
-> Reported-by: kernel test robot <fengguang.wu@intel.com>
-> Reported-by: Geert Uytterhoeven <geert@linux-m68k.org>
-> Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-> ---
-> 
-> v3 - just change the initcall level, works so much simpler, thanks to
->      DaveM for the idea.
-> v2 - don't force irda to be a module, make the Makefiles put irda back
->      where it was before in the link order.
+phy_print_status()
 
-Applied, thanks for following up on this Greg.
+> +	mac = of_get_mac_address(pdev->dev.of_node);
+> +	if (mac)
+> +		ether_addr_copy(ndev->dev_addr, mac);
+> +
+> +	if (!is_valid_ether_addr(ndev->dev_addr)) {
+> +		eth_hw_addr_random(ndev);
+> +		dev_warn(&pdev->dev, "No MAC address found, using random\n");
+> +	}
+
+So the mac address is optional, unlike what the binding document says.
+
+> +	priv->phy_np = of_parse_phandle(pdev->dev.of_node, "phy-handle", 0);
+> +	if (!priv->phy_np) {
+> +		netif_err(priv, probe, ndev, "missing phy in DT\n");
+
+It is the phy-handle which is missing, not the phy.
+
+> +
+> +	/* MTU range */
+> +	ndev->min_mtu = ETH_MIN_MTU;
+
+No need to set this, it is the default.
+
+Otherwise, this looks good, in terms of phy and mdio.
+
+	   Andrew
