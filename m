@@ -1,143 +1,101 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: [PATCH net 5/9] sch_cbq: fix null pointer dereferences on init failure
-Date: Wed, 30 Aug 2017 12:49:01 +0300
-Message-ID: <1504086545-7777-6-git-send-email-nikolay@cumulusnetworks.com>
-References: <1504086545-7777-1-git-send-email-nikolay@cumulusnetworks.com>
-Cc: edumazet@google.com, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
-        jiri@resnulli.us, roopa@cumulusnetworks.com,
-        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f43.google.com ([74.125.82.43]:35083 "EHLO
-        mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751298AbdH3J4u (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 05:56:50 -0400
-Received: by mail-wm0-f43.google.com with SMTP id a80so6630669wma.0
-        for <netdev@vger.kernel.org>; Wed, 30 Aug 2017 02:56:49 -0700 (PDT)
-In-Reply-To: <1504086545-7777-1-git-send-email-nikolay@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Maxim Uvarov <muvarov@gmail.com>
+Subject: Re: [PATCH] DSA support for Micrel KSZ8895
+Date: Wed, 30 Aug 2017 13:06:06 +0300
+Message-ID: <CAJGZr0L9bv6+3NyL5j4y0hFaJAMTfDyPntiTTaHDCxDf1w=JSQ@mail.gmail.com>
+References: <20170816075524.GA18532@amd> <20170816140451.GA13006@lunn.ch>
+ <9235D6609DB808459E95D78E17F2E43D40AFF8C1@CHN-SV-EXMX02.mchp-main.com>
+ <20170827123658.GA727@amd> <20170827163122.GG13622@lunn.ch>
+ <20170828070232.GA18135@amd> <20170828140927.GD10418@lunn.ch>
+ <CAJGZr0K46jBd9Sn4HNPgAeHTQtBuBHzX87GveAJf3_5b_WM69g@mail.gmail.com>
+ <20170829074130.GA31303@amd> <20170829122604.GA22093@lunn.ch>
+ <20170829211519.GA24221@amd> <237eee82-2edb-56c0-d644-2e6253a178dc@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: Pavel Machek <pavel@ucw.cz>, Andrew Lunn <andrew@lunn.ch>,
+        Woojung.Huh@microchip.com,
+        Nathan Conrad <nathan.leigh.conrad@gmail.com>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Tristram.Ha@micrel.com
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <237eee82-2edb-56c0-d644-2e6253a178dc@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-CBQ can fail on ->init by wrong nl attributes or simply for missing any,
-f.e. if it's set as a default qdisc then TCA_OPTIONS (opt) will be NULL
-when it is activated. The first thing init does is parse opt but it will
-dereference a null pointer if used as a default qdisc, also since init
-failure at default qdisc invokes ->reset() which cancels all timers then
-we'll also dereference two more null pointers (timer->base) as they were
-never initialized.
+2017-08-30 0:23 GMT+03:00 Florian Fainelli <f.fainelli@gmail.com>:
+> On 08/29/2017 02:15 PM, Pavel Machek wrote:
+>> On Tue 2017-08-29 14:26:04, Andrew Lunn wrote:
+>>>> But the MDIO emaulation code is from their driver, after lots of
+>>>> deletions.
+>>>
+>>> Is this driver supposed to run on lots of different OSs? That would
+>>> explain why they ignored the Linux MDIO and PHY layers.
+>>
+>> It did not look particulary portable.
+>
+> Part of the problem is that they need to duplicate the standard MII
+> definitions, whereas we could re-use those from include/linux/mii.h
+> and/or mdio.h.
+>
+>>
+>>> If possible, please make use of the Linux infrastructure.
+>>
+>> I did not find any infrastructure I could use instead
+>> ksz_mdio_emulation.
+>
+> fixed PHY/swphy.c is as close as it could get, but it is a highly
+> simplified version of this.
+>
+>>
+>> Now, drivers/net/phy/spi_ks8995.c can access the PHY registers, and I
+>> can not see any translation there, so there may be something I'm
+>> missing.
+>
+> I don't see anything in that driver that seems to access PHY registers
+> what makes you think it does?
+>
+> There's got to be a way to perform indirect accesses through SPI,
+> Woojung, do you know?
+>
 
-To reproduce:
-$ sysctl net.core.default_qdisc=cbq
-$ ip l set ethX up
+As I understand they just attach phy on spi bus with generic driver:
 
-Crash log of the first null ptr deref:
-[44727.907454] BUG: unable to handle kernel NULL pointer dereference at (null)
-[44727.907600] IP: cbq_init+0x27/0x205
-[44727.907676] PGD 59ff4067
-[44727.907677] P4D 59ff4067
-[44727.907742] PUD 59c70067
-[44727.907807] PMD 0
-[44727.907873]
-[44727.907982] Oops: 0000 [#1] SMP
-[44727.908054] Modules linked in:
-[44727.908126] CPU: 1 PID: 21312 Comm: ip Not tainted 4.13.0-rc6+ #60
-[44727.908235] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS 1.7.5-20140531_083030-gandalf 04/01/2014
-[44727.908477] task: ffff88005ad42700 task.stack: ffff880037214000
-[44727.908672] RIP: 0010:cbq_init+0x27/0x205
-[44727.908838] RSP: 0018:ffff8800372175f0 EFLAGS: 00010286
-[44727.909018] RAX: ffffffff816c3852 RBX: ffff880058c53800 RCX: 0000000000000000
-[44727.909222] RDX: 0000000000000004 RSI: 0000000000000000 RDI: ffff8800372175f8
-[44727.909427] RBP: ffff880037217650 R08: ffffffff81b0f380 R09: 0000000000000000
-[44727.909631] R10: ffff880037217660 R11: 0000000000000020 R12: ffffffff822a44c0
-[44727.909835] R13: ffff880058b92000 R14: 00000000ffffffff R15: 0000000000000001
-[44727.910040] FS:  00007ff8bc583740(0000) GS:ffff88005d880000(0000) knlGS:0000000000000000
-[44727.910339] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-[44727.910525] CR2: 0000000000000000 CR3: 00000000371e5000 CR4: 00000000000406e0
-[44727.910731] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-[44727.910936] DR3: 0000000000000000 DR6: 00000000fffe0ff0 DR7: 0000000000000400
-[44727.911141] Call Trace:
-[44727.911291]  ? lockdep_init_map+0xb6/0x1ba
-[44727.911461]  ? qdisc_alloc+0x14e/0x187
-[44727.911626]  qdisc_create_dflt+0x7a/0x94
-[44727.911794]  ? dev_activate+0x129/0x129
-[44727.911959]  attach_one_default_qdisc+0x36/0x63
-[44727.912132]  netdev_for_each_tx_queue+0x3d/0x48
-[44727.912305]  dev_activate+0x4b/0x129
-[44727.912468]  __dev_open+0xe7/0x104
-[44727.912631]  __dev_change_flags+0xc6/0x15c
-[44727.912799]  dev_change_flags+0x25/0x59
-[44727.912966]  do_setlink+0x30c/0xb3f
-[44727.913129]  ? check_chain_key+0xb0/0xfd
-[44727.913294]  ? check_chain_key+0xb0/0xfd
-[44727.913463]  rtnl_newlink+0x3a4/0x729
-[44727.913626]  ? rtnl_newlink+0x117/0x729
-[44727.913801]  ? ns_capable_common+0xd/0xb1
-[44727.913968]  ? ns_capable+0x13/0x15
-[44727.914131]  rtnetlink_rcv_msg+0x188/0x197
-[44727.914300]  ? rcu_read_unlock+0x3e/0x5f
-[44727.914465]  ? rtnl_newlink+0x729/0x729
-[44727.914630]  netlink_rcv_skb+0x6c/0xce
-[44727.914796]  rtnetlink_rcv+0x23/0x2a
-[44727.914956]  netlink_unicast+0x103/0x181
-[44727.915122]  netlink_sendmsg+0x326/0x337
-[44727.915291]  sock_sendmsg_nosec+0x14/0x3f
-[44727.915459]  sock_sendmsg+0x29/0x2e
-[44727.915619]  ___sys_sendmsg+0x209/0x28b
-[44727.915784]  ? do_raw_spin_unlock+0xcd/0xf8
-[44727.915954]  ? _raw_spin_unlock+0x27/0x31
-[44727.916121]  ? __handle_mm_fault+0x651/0xdb1
-[44727.916290]  ? check_chain_key+0xb0/0xfd
-[44727.916461]  __sys_sendmsg+0x45/0x63
-[44727.916626]  ? __sys_sendmsg+0x45/0x63
-[44727.916792]  SyS_sendmsg+0x19/0x1b
-[44727.916950]  entry_SYSCALL_64_fastpath+0x23/0xc2
-[44727.917125] RIP: 0033:0x7ff8bbc96690
-[44727.917286] RSP: 002b:00007ffc360991e8 EFLAGS: 00000246 ORIG_RAX: 000000000000002e
-[44727.917579] RAX: ffffffffffffffda RBX: ffffffff810d278c RCX: 00007ff8bbc96690
-[44727.917783] RDX: 0000000000000000 RSI: 00007ffc36099230 RDI: 0000000000000003
-[44727.917987] RBP: ffff880037217f98 R08: 0000000000000001 R09: 0000000000000003
-[44727.918190] R10: 00007ffc36098fb0 R11: 0000000000000246 R12: 0000000000000006
-[44727.918393] R13: 000000000066f1a0 R14: 00007ffc360a12e0 R15: 0000000000000000
-[44727.918597]  ? trace_hardirqs_off_caller+0xa7/0xcf
-[44727.918774] Code: 41 5f 5d c3 66 66 66 66 90 55 48 8d 56 04 45 31 c9
-49 c7 c0 80 f3 b0 81 48 89 e5 41 55 41 54 53 48 89 fb 48 8d 7d a8 48 83
-ec 48 <0f> b7 0e be 07 00 00 00 83 e9 04 e8 e6 f7 d8 ff 85 c0 0f 88 bb
-[44727.919332] RIP: cbq_init+0x27/0x205 RSP: ffff8800372175f0
-[44727.919516] CR2: 0000000000000000
+        phy_addr = 0;
+        phy_mode = PHY_INTERFACE_MODE_MII;
+        snprintf(bus_id, MII_BUS_ID_SIZE, "sw.%d", sw_device_present);
+        snprintf(phy_id, MII_BUS_ID_SIZE, PHY_ID_FMT, bus_id, phy_addr);
+        phydev = phy_attach(netdev, phy_id, 0, phy_mode);
+        if (!IS_ERR(phydev)) {
+                phydev->adjust_link = sw_adjust_link;
+                return phydev;
+        }
 
-Fixes: 0fbbeb1ba43b ("[PKT_SCHED]: Fix missing qdisc_destroy() in qdisc_create_dflt()")
-Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
----
- net/sched/sch_cbq.c | 10 +++++++---
- 1 file changed, 7 insertions(+), 3 deletions(-)
+Where is bus is:
+bus = mdiobus_alloc();
+bus->read = ksz_mii_read; (spi read function)
+bus->write = ksz_mii_write;
 
-diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
-index 780db43300b1..156c8a33c677 100644
---- a/net/sched/sch_cbq.c
-+++ b/net/sched/sch_cbq.c
-@@ -1139,6 +1139,13 @@ static int cbq_init(struct Qdisc *sch, struct nlattr *opt)
- 	struct tc_ratespec *r;
- 	int err;
- 
-+	qdisc_watchdog_init(&q->watchdog, sch);
-+	hrtimer_init(&q->delay_timer, CLOCK_MONOTONIC, HRTIMER_MODE_ABS_PINNED);
-+	q->delay_timer.function = cbq_undelay;
-+
-+	if (!opt)
-+		return -EINVAL;
-+
- 	err = nla_parse_nested(tb, TCA_CBQ_MAX, opt, cbq_policy, NULL);
- 	if (err < 0)
- 		return err;
-@@ -1177,9 +1184,6 @@ static int cbq_init(struct Qdisc *sch, struct nlattr *opt)
- 	q->link.avpkt = q->link.allot/2;
- 	q->link.minidle = -0x7FFFFFFF;
- 
--	qdisc_watchdog_init(&q->watchdog, sch);
--	hrtimer_init(&q->delay_timer, CLOCK_MONOTONIC, HRTIMER_MODE_ABS_PINNED);
--	q->delay_timer.function = cbq_undelay;
- 	q->toplevel = TC_CBQ_MAXLEVEL;
- 	q->now = psched_get_time();
- 
+Then just generic reads:
+    .config_aneg    = genphy_config_aneg,
+    .read_status    = genphy_read_status,
+
+
+Maxim.
+
+>>
+>> Pointers would be welcome at this point.
+>>
+>> Thanks,
+>>                                                                       Pavel
+>>
+>
+>
+> --
+> Florian
+
+
+
 -- 
-2.1.4
+Best regards,
+Maxim Uvarov
