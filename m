@@ -1,108 +1,132 @@
 From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: [PATCH net 3/9] sch_hhf: fix null pointer dereference on init failure
-Date: Wed, 30 Aug 2017 12:48:59 +0300
-Message-ID: <1504086545-7777-4-git-send-email-nikolay@cumulusnetworks.com>
+Subject: [PATCH net 9/9] sch_tbf: fix two null pointer dereferences on init failure
+Date: Wed, 30 Aug 2017 12:49:05 +0300
+Message-ID: <1504086545-7777-10-git-send-email-nikolay@cumulusnetworks.com>
 References: <1504086545-7777-1-git-send-email-nikolay@cumulusnetworks.com>
 Cc: edumazet@google.com, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
         jiri@resnulli.us, roopa@cumulusnetworks.com,
         Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f182.google.com ([209.85.128.182]:33271 "EHLO
-        mail-wr0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751319AbdH3JtY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 05:49:24 -0400
-Received: by mail-wr0-f182.google.com with SMTP id k94so16997911wrc.0
-        for <netdev@vger.kernel.org>; Wed, 30 Aug 2017 02:49:24 -0700 (PDT)
+Received: from mail-wr0-f179.google.com ([209.85.128.179]:37516 "EHLO
+        mail-wr0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751944AbdH3Jte (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 05:49:34 -0400
+Received: by mail-wr0-f179.google.com with SMTP id k9so4664072wre.4
+        for <netdev@vger.kernel.org>; Wed, 30 Aug 2017 02:49:33 -0700 (PDT)
 In-Reply-To: <1504086545-7777-1-git-send-email-nikolay@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If sch_hhf fails in its ->init() function (either due to wrong
-user-space arguments as below or memory alloc failure of hh_flows) it
-will do a null pointer deref of q->hh_flows in its ->destroy() function.
+sch_tbf calls qdisc_watchdog_cancel() in both its ->reset and ->destroy
+callbacks but it may fail before the timer is initialized due to missing
+options (either not supplied by user-space or set as a default qdisc),
+also q->qdisc is used by ->reset and ->destroy so we need it initialized.
 
-To reproduce the crash:
-$ tc qdisc add dev eth0 root hhf quantum 2000000 non_hh_weight 10000000
+Reproduce:
+$ sysctl net.core.default_qdisc=tbf
+$ ip l set ethX up
 
 Crash log:
-[  690.654882] BUG: unable to handle kernel NULL pointer dereference at (null)
-[  690.655565] IP: hhf_destroy+0x48/0xbc
-[  690.655944] PGD 37345067
-[  690.655948] P4D 37345067
-[  690.656252] PUD 58402067
-[  690.656554] PMD 0
-[  690.656857]
-[  690.657362] Oops: 0000 [#1] SMP
-[  690.657696] Modules linked in:
-[  690.658032] CPU: 3 PID: 920 Comm: tc Not tainted 4.13.0-rc6+ #57
-[  690.658525] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS 1.7.5-20140531_083030-gandalf 04/01/2014
-[  690.659255] task: ffff880058578000 task.stack: ffff88005acbc000
-[  690.659747] RIP: 0010:hhf_destroy+0x48/0xbc
-[  690.660146] RSP: 0018:ffff88005acbf9e0 EFLAGS: 00010246
-[  690.660601] RAX: 0000000000000000 RBX: 0000000000000020 RCX: 0000000000000000
-[  690.661155] RDX: 0000000000000000 RSI: 0000000000000001 RDI: ffffffff821f63f0
-[  690.661710] RBP: ffff88005acbfa08 R08: ffffffff81b10a90 R09: 0000000000000000
-[  690.662267] R10: 00000000f42b7019 R11: ffff880058578000 R12: 00000000ffffffea
-[  690.662820] R13: ffff8800372f6400 R14: 0000000000000000 R15: 0000000000000000
-[  690.663769] FS:  00007f8ae5e8b740(0000) GS:ffff88005d980000(0000) knlGS:0000000000000000
-[  690.667069] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-[  690.667965] CR2: 0000000000000000 CR3: 0000000058523000 CR4: 00000000000406e0
-[  690.668918] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-[  690.669945] DR3: 0000000000000000 DR6: 00000000fffe0ff0 DR7: 0000000000000400
-[  690.671003] Call Trace:
-[  690.671743]  qdisc_create+0x377/0x3fd
-[  690.672534]  tc_modify_qdisc+0x4d2/0x4fd
-[  690.673324]  rtnetlink_rcv_msg+0x188/0x197
-[  690.674204]  ? rcu_read_unlock+0x3e/0x5f
-[  690.675091]  ? rtnl_newlink+0x729/0x729
-[  690.675877]  netlink_rcv_skb+0x6c/0xce
-[  690.676648]  rtnetlink_rcv+0x23/0x2a
-[  690.677405]  netlink_unicast+0x103/0x181
-[  690.678179]  netlink_sendmsg+0x326/0x337
-[  690.678958]  sock_sendmsg_nosec+0x14/0x3f
-[  690.679743]  sock_sendmsg+0x29/0x2e
-[  690.680506]  ___sys_sendmsg+0x209/0x28b
-[  690.681283]  ? __handle_mm_fault+0xc7d/0xdb1
-[  690.681915]  ? check_chain_key+0xb0/0xfd
-[  690.682449]  __sys_sendmsg+0x45/0x63
-[  690.682954]  ? __sys_sendmsg+0x45/0x63
-[  690.683471]  SyS_sendmsg+0x19/0x1b
-[  690.683974]  entry_SYSCALL_64_fastpath+0x23/0xc2
-[  690.684516] RIP: 0033:0x7f8ae529d690
-[  690.685016] RSP: 002b:00007fff26d2d6b8 EFLAGS: 00000246 ORIG_RAX: 000000000000002e
-[  690.685931] RAX: ffffffffffffffda RBX: ffffffff810d278c RCX: 00007f8ae529d690
-[  690.686573] RDX: 0000000000000000 RSI: 00007fff26d2d700 RDI: 0000000000000003
-[  690.687047] RBP: ffff88005acbff98 R08: 0000000000000001 R09: 0000000000000000
-[  690.687519] R10: 00007fff26d2d480 R11: 0000000000000246 R12: 0000000000000002
-[  690.687996] R13: 0000000001258070 R14: 0000000000000001 R15: 0000000000000000
-[  690.688475]  ? trace_hardirqs_off_caller+0xa7/0xcf
-[  690.688887] Code: 00 00 e8 2a 02 ae ff 49 8b bc 1d 60 02 00 00 48 83
-c3 08 e8 19 02 ae ff 48 83 fb 20 75 dc 45 31 f6 4d 89 f7 4d 03 bd 20 02
-00 00 <49> 8b 07 49 39 c7 75 24 49 83 c6 10 49 81 fe 00 40 00 00 75 e1
-[  690.690200] RIP: hhf_destroy+0x48/0xbc RSP: ffff88005acbf9e0
-[  690.690636] CR2: 0000000000000000
+[  959.160172] BUG: unable to handle kernel NULL pointer dereference at 0000000000000018
+[  959.160323] IP: qdisc_reset+0xa/0x5c
+[  959.160400] PGD 59cdb067
+[  959.160401] P4D 59cdb067
+[  959.160466] PUD 59ccb067
+[  959.160532] PMD 0
+[  959.160597]
+[  959.160706] Oops: 0000 [#1] SMP
+[  959.160778] Modules linked in: sch_tbf sch_sfb sch_prio sch_netem
+[  959.160891] CPU: 2 PID: 1562 Comm: ip Not tainted 4.13.0-rc6+ #62
+[  959.160998] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS 1.7.5-20140531_083030-gandalf 04/01/2014
+[  959.161157] task: ffff880059c9a700 task.stack: ffff8800376d0000
+[  959.161263] RIP: 0010:qdisc_reset+0xa/0x5c
+[  959.161347] RSP: 0018:ffff8800376d3610 EFLAGS: 00010286
+[  959.161531] RAX: ffffffffa001b1dd RBX: ffff8800373a2800 RCX: 0000000000000000
+[  959.161733] RDX: ffffffff8215f160 RSI: ffffffff8215f160 RDI: 0000000000000000
+[  959.161939] RBP: ffff8800376d3618 R08: 00000000014080c0 R09: 00000000ffffffff
+[  959.162141] R10: ffff8800376d3578 R11: 0000000000000020 R12: ffffffffa001d2c0
+[  959.162343] R13: ffff880037538000 R14: 00000000ffffffff R15: 0000000000000001
+[  959.162546] FS:  00007fcc5126b740(0000) GS:ffff88005d900000(0000) knlGS:0000000000000000
+[  959.162844] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+[  959.163030] CR2: 0000000000000018 CR3: 000000005abc4000 CR4: 00000000000406e0
+[  959.163233] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+[  959.163436] DR3: 0000000000000000 DR6: 00000000fffe0ff0 DR7: 0000000000000400
+[  959.163638] Call Trace:
+[  959.163788]  tbf_reset+0x19/0x64 [sch_tbf]
+[  959.163957]  qdisc_destroy+0x8b/0xe5
+[  959.164119]  qdisc_create_dflt+0x86/0x94
+[  959.164284]  ? dev_activate+0x129/0x129
+[  959.164449]  attach_one_default_qdisc+0x36/0x63
+[  959.164623]  netdev_for_each_tx_queue+0x3d/0x48
+[  959.164795]  dev_activate+0x4b/0x129
+[  959.164957]  __dev_open+0xe7/0x104
+[  959.165118]  __dev_change_flags+0xc6/0x15c
+[  959.165287]  dev_change_flags+0x25/0x59
+[  959.165451]  do_setlink+0x30c/0xb3f
+[  959.165613]  ? check_chain_key+0xb0/0xfd
+[  959.165782]  rtnl_newlink+0x3a4/0x729
+[  959.165947]  ? rtnl_newlink+0x117/0x729
+[  959.166121]  ? ns_capable_common+0xd/0xb1
+[  959.166288]  ? ns_capable+0x13/0x15
+[  959.166450]  rtnetlink_rcv_msg+0x188/0x197
+[  959.166617]  ? rcu_read_unlock+0x3e/0x5f
+[  959.166783]  ? rtnl_newlink+0x729/0x729
+[  959.166948]  netlink_rcv_skb+0x6c/0xce
+[  959.167113]  rtnetlink_rcv+0x23/0x2a
+[  959.167273]  netlink_unicast+0x103/0x181
+[  959.167439]  netlink_sendmsg+0x326/0x337
+[  959.167607]  sock_sendmsg_nosec+0x14/0x3f
+[  959.167772]  sock_sendmsg+0x29/0x2e
+[  959.167932]  ___sys_sendmsg+0x209/0x28b
+[  959.168098]  ? do_raw_spin_unlock+0xcd/0xf8
+[  959.168267]  ? _raw_spin_unlock+0x27/0x31
+[  959.168432]  ? __handle_mm_fault+0x651/0xdb1
+[  959.168602]  ? check_chain_key+0xb0/0xfd
+[  959.168773]  __sys_sendmsg+0x45/0x63
+[  959.168934]  ? __sys_sendmsg+0x45/0x63
+[  959.169100]  SyS_sendmsg+0x19/0x1b
+[  959.169260]  entry_SYSCALL_64_fastpath+0x23/0xc2
+[  959.169432] RIP: 0033:0x7fcc5097e690
+[  959.169592] RSP: 002b:00007ffd0d5c7b48 EFLAGS: 00000246 ORIG_RAX: 000000000000002e
+[  959.169887] RAX: ffffffffffffffda RBX: ffffffff810d278c RCX: 00007fcc5097e690
+[  959.170089] RDX: 0000000000000000 RSI: 00007ffd0d5c7b90 RDI: 0000000000000003
+[  959.170292] RBP: ffff8800376d3f98 R08: 0000000000000001 R09: 0000000000000003
+[  959.170494] R10: 00007ffd0d5c7910 R11: 0000000000000246 R12: 0000000000000006
+[  959.170697] R13: 000000000066f1a0 R14: 00007ffd0d5cfc40 R15: 0000000000000000
+[  959.170900]  ? trace_hardirqs_off_caller+0xa7/0xcf
+[  959.171076] Code: 00 41 c7 84 24 14 01 00 00 00 00 00 00 41 c7 84 24
+98 00 00 00 00 00 00 00 41 5c 41 5d 41 5e 5d c3 66 66 66 66 90 55 48 89
+e5 53 <48> 8b 47 18 48 89 fb 48 8b 40 48 48 85 c0 74 02 ff d0 48 8b bb
+[  959.171637] RIP: qdisc_reset+0xa/0x5c RSP: ffff8800376d3610
+[  959.171821] CR2: 0000000000000018
 
 Fixes: 87b60cfacf9f ("net_sched: fix error recovery at qdisc creation")
-Fixes: 10239edf86f1 ("net-qdisc-hhf: Heavy-Hitter Filter (HHF) qdisc")
+Fixes: 0fbbeb1ba43b ("[PKT_SCHED]: Fix missing qdisc_destroy() in qdisc_create_dflt()")
 Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 ---
- net/sched/sch_hhf.c | 3 +++
- 1 file changed, 3 insertions(+)
+ net/sched/sch_tbf.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/net/sched/sch_hhf.c b/net/sched/sch_hhf.c
-index 51d3ba682af9..73a53c08091b 100644
---- a/net/sched/sch_hhf.c
-+++ b/net/sched/sch_hhf.c
-@@ -477,6 +477,9 @@ static void hhf_destroy(struct Qdisc *sch)
- 		kvfree(q->hhf_valid_bits[i]);
- 	}
+diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
+index b2e4b6ad241a..493270f0d5b0 100644
+--- a/net/sched/sch_tbf.c
++++ b/net/sched/sch_tbf.c
+@@ -425,12 +425,13 @@ static int tbf_init(struct Qdisc *sch, struct nlattr *opt)
+ {
+ 	struct tbf_sched_data *q = qdisc_priv(sch);
  
-+	if (!q->hh_flows)
-+		return;
++	qdisc_watchdog_init(&q->watchdog, sch);
++	q->qdisc = &noop_qdisc;
 +
- 	for (i = 0; i < HH_FLOWS_CNT; i++) {
- 		struct hh_flow_state *flow, *next;
- 		struct list_head *head = &q->hh_flows[i];
+ 	if (opt == NULL)
+ 		return -EINVAL;
+ 
+ 	q->t_c = ktime_get_ns();
+-	qdisc_watchdog_init(&q->watchdog, sch);
+-	q->qdisc = &noop_qdisc;
+ 
+ 	return tbf_change(sch, opt);
+ }
 -- 
 2.1.4
