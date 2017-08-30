@@ -1,50 +1,36 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [GIT] Networking
-Date: Wed, 30 Aug 2017 20:31:31 +0300
-Message-ID: <87val5rmh8.fsf@kamboji.qca.qualcomm.com>
-References: <20170815.175219.753462032002961032.davem@davemloft.net>
-        <20170830094823.GA31503@amd> <87pobdt8qc.fsf@kamboji.qca.qualcomm.com>
-        <20170830.101143.2305098064824357647.davem@davemloft.net>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [PATCH][net-next][V3] bpf: test_maps: fix typos, "conenct" and
+ "listeen"
+Date: Wed, 30 Aug 2017 10:31:51 -0700
+Message-ID: <59A6F687.5020204@gmail.com>
+References: <20170830171525.5688-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: pavel@ucw.cz, xiyou.wangcong@gmail.com,
-        torvalds@linux-foundation.org, akpm@linux-foundation.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: Colin King <colin.king@canonical.com>,
+        Alexei Starovoitov <ast@kernel.org>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Shuah Khan <shuah@kernel.org>, netdev@vger.kernel.org,
+        linux-kselftest@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170830.101143.2305098064824357647.davem@davemloft.net> (David
-        Miller's message of "Wed, 30 Aug 2017 10:11:43 -0700 (PDT)")
+In-Reply-To: <20170830171525.5688-1-colin.king@canonical.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Miller <davem@davemloft.net> writes:
+On 08/30/2017 10:15 AM, Colin King wrote:
+> From: Colin Ian King <colin.king@canonical.com>
+> 
+> Trivial fix to typos in printf error messages:
+> "conenct" -> "connect"
+> "listeen" -> "listen"
+> 
+> thanks to Daniel Borkmann for spotting one of these mistakes
+> 
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> ---
 
-> From: Kalle Valo <kvalo@codeaurora.org>
-> Date: Wed, 30 Aug 2017 17:45:31 +0300
->
->> Pavel Machek <pavel@ucw.cz> writes:
->> 
->>> Could we get this one in?
->>>
->>> wl1251 misses a spin_lock_init().
->>>
->>> https://www.mail-archive.com/netdev@vger.kernel.org/msg177031.html
->>>
->>> It seems pretty trivial, yet getting the backtraces is not nice.
->> 
->> It's in wireless-drivers-next and will be in 4.14-rc1:
->> 
->> https://git.kernel.org/pub/scm/linux/kernel/git/kvalo/wireless-drivers-next.git/commit/?id=6e9aae179f290f1a44fce7ef8e9a8e2dd68ed1e4
->
-> Is the bug only present in net-next?
+Thanks. Even though its a spelling typo best to add fixes tag
+I think.
 
-AFAICS the bug was introduced by 9df86e2e702c6 back in 2010. If the bug
-has been there for 7 years so waiting for a few more weeks should not
-hurt.
-
-And Pavel can also submit it to the stable release, it should apply
-without problems as wl1251 doesn't have had that many patches during the
-last few years (if ever).
-
--- 
-Kalle Valo
+Fixes: 6f6d33f3b3d0 ("bpf: selftests add sockmap tests")
+Acked-by: John Fastabend <john.fastabend@gmail.com>
