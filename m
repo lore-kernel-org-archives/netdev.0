@@ -1,35 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT] Networking
-Date: Wed, 30 Aug 2017 10:54:47 -0700 (PDT)
-Message-ID: <20170830.105447.125174575140677062.davem@davemloft.net>
-References: <87pobdt8qc.fsf@kamboji.qca.qualcomm.com>
-        <20170830.101143.2305098064824357647.davem@davemloft.net>
-        <87val5rmh8.fsf@kamboji.qca.qualcomm.com>
+Subject: Re: [PATCH net-next 0/2] tcp: re-add header prediction
+Date: Wed, 30 Aug 2017 11:20:51 -0700 (PDT)
+Message-ID: <20170830.112051.1883418035935384084.davem@davemloft.net>
+References: <20170830172458.18544-1-fw@strlen.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: pavel@ucw.cz, xiyou.wangcong@gmail.com,
-        torvalds@linux-foundation.org, akpm@linux-foundation.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: kvalo@codeaurora.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87val5rmh8.fsf@kamboji.qca.qualcomm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, edumazet@google.com
+To: fw@strlen.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:58630 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752090AbdH3SUx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 14:20:53 -0400
+In-Reply-To: <20170830172458.18544-1-fw@strlen.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Kalle Valo <kvalo@codeaurora.org>
-Date: Wed, 30 Aug 2017 20:31:31 +0300
+From: Florian Westphal <fw@strlen.de>
+Date: Wed, 30 Aug 2017 19:24:56 +0200
 
-> AFAICS the bug was introduced by 9df86e2e702c6 back in 2010. If the bug
-> has been there for 7 years so waiting for a few more weeks should not
-> hurt.
+> Eric reported a performance regression caused by header prediction
+> removal.
+> 
+> We now call tcp_ack() much more frequently, for some workloads
+> this brings in enough cache line misses to become noticeable.
+> 
+> We could possibly still kill HP provided we find a different
+> way to suppress unneeded tcp_ack, but given we're late in
+> the cycle it seems preferable to revert.
 
-As a maintainer you have a right to handle bug fixing in that way, but
-certainly that is not how I would handle this.
+Indeed, reverting at this point in the game is the best thing
+to do right now.
 
-It's easy to validate this fix, it's extremely unlikely to cause
-a regression, and fixes a problem someone actually was able to
-trigger.
-
-Deferring to -next only has the side effect of making people wait
-longer for the fix.
+Applied, thanks.
