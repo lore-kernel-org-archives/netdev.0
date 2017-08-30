@@ -1,27 +1,32 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: Signed-off-by missing for commit in the net-next tree
-Date: Thu, 31 Aug 2017 02:51:31 +1000
-Message-ID: <20170831025131.56d2cf92@canb.auug.org.au>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: rsi: remove memset before memcpy
+Date: Wed, 30 Aug 2017 16:51:44 +0000 (UTC)
+Message-ID: <20170830165144.5D82E60209@smtp.codeaurora.org>
+References: <1504032890-25229-1-git-send-email-himanshujha199640@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Linux-Next Mailing List <linux-next@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        David Ahern <dsahern@gmail.com>
-To: David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>
+Cc: amit.karwar@redpinesignals.com, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Himanshu Jha <himanshujha199640@gmail.com>
+To: Himanshu Jha <himanshujha199640@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1504032890-25229-1-git-send-email-himanshujha199640@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+Himanshu Jha <himanshujha199640@gmail.com> wrote:
 
-Commit
+> calling memcpy immediately after memset with the same region of memory
+> makes memset redundant.
+> 
+> Signed-off-by: Himanshu Jha <himanshujha199640@gmail.com>
 
-  1b70d792cf67 ("ipv6: Use rt6i_idev index for echo replies to a local address")
+Patch applied to wireless-drivers-next.git, thanks.
 
-is missing a Signed-off-by from its author.
+66a3479e1217 rsi: remove memset before memcpy
 
 -- 
-Cheers,
-Stephen Rothwell
+https://patchwork.kernel.org/patch/9927943/
+
+https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
