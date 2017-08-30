@@ -1,69 +1,39 @@
 From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [PATCH net-next 1/4] net: Add SRIOV VGT+ support
-Date: Wed, 30 Aug 2017 21:30:23 +0300
-Message-ID: <CALzJLG9FKcfB3-huh2sa+0aAKtOcwbFNVqi4nRgamRnw+2H0GQ@mail.gmail.com>
-References: <20170827110618.20599-1-saeedm@mellanox.com> <20170827110618.20599-2-saeedm@mellanox.com>
- <20170828155217.GA8399@bistromath.localdomain> <CALzJLG8EqGLw66bzBdor629mvJdcN+YOAesTxW8_QYt_teUMiA@mail.gmail.com>
- <20170829164330.GA22607@bistromath.localdomain>
+Subject: Re: [PATCH net-next 0/4] SRIOV VF VGT+ and violation counters support
+Date: Wed, 30 Aug 2017 21:33:18 +0300
+Message-ID: <CALzJLG9FDh9XJKOGBxqxLqrJf3FSFxX8dZRLALxJRA7G-NQBBA@mail.gmail.com>
+References: <20170827110618.20599-1-saeedm@mellanox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Saeed Mahameed <saeedm@mellanox.com>,
-        "David S. Miller" <davem@davemloft.net>,
+Cc: "David S. Miller" <davem@davemloft.net>,
         Linux Netdev List <netdev@vger.kernel.org>,
-        Eugenia Emantayev <eugenia@mellanox.com>,
-        Mohamad Haj Yahia <mohamad@mellanox.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: Sabrina Dubroca <sd@queasysnail.net>
+        Eugenia Emantayev <eugenia@mellanox.com>
+To: Saeed Mahameed <saeedm@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f66.google.com ([209.85.215.66]:38576 "EHLO
-        mail-lf0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751546AbdH3Sap (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 14:30:45 -0400
-Received: by mail-lf0-f66.google.com with SMTP id z12so2922524lfd.5
-        for <netdev@vger.kernel.org>; Wed, 30 Aug 2017 11:30:44 -0700 (PDT)
-In-Reply-To: <20170829164330.GA22607@bistromath.localdomain>
+Received: from mail-lf0-f43.google.com ([209.85.215.43]:35561 "EHLO
+        mail-lf0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751980AbdH3Sdk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 14:33:40 -0400
+Received: by mail-lf0-f43.google.com with SMTP id g18so8406487lfl.2
+        for <netdev@vger.kernel.org>; Wed, 30 Aug 2017 11:33:40 -0700 (PDT)
+In-Reply-To: <20170827110618.20599-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 29, 2017 at 7:43 PM, Sabrina Dubroca <sd@queasysnail.net> wrote:
-> 2017-08-29, 13:13:09 +0300, Saeed Mahameed wrote:
->> On Mon, Aug 28, 2017 at 6:52 PM, Sabrina Dubroca <sd@queasysnail.net> wrote:
->> > 2017-08-27, 14:06:15 +0300, Saeed Mahameed wrote:
->> > [...]
->> >> +#define VF_VLAN_BITMAP       DIV_ROUND_UP(VF_VLAN_N_VID, sizeof(__u64) * BITS_PER_BYTE)
->> >> +struct ifla_vf_vlan_trunk {
->> >> +     __u32 vf;
->> >> +     __u64 allowed_vlans_8021q_bm[VF_VLAN_BITMAP];
->> >> +     __u64 allowed_vlans_8021ad_bm[VF_VLAN_BITMAP];
->> >> +};
->> >
->> > This is huge (1032B). And you put one of these in the netlink message
->> > for each VF.  This means that with 51 VF (at least in my environment,
->> > where each VF takes 1296B), you're going to overflow the u16 size of a
->> > single attribute (IFLA_VFINFO_LIST), and you cannot dump the device
->> > anymore. I'm afraid this is going to break existing setups.
->> >
->>
->> Yes ! We will fix this,
->> we are considering to report only a boolean in VFINFO which indecates
->> if VGT+ is enable or not
->> and provide a new attribute per VF to report only the vlan list of specific VF.
+On Sun, Aug 27, 2017 at 2:06 PM, Saeed Mahameed <saeedm@mellanox.com> wrote:
+> Hi Dave
 >
-> I don't see what this is going to look like. Maybe you can describe
-> more precisely what you want to add to the netlink message? (otherwise
-> I'll wait for the patches)
+> This series provides two security SRIOV related features (VGT+ and VF violation counters).
+>
+> VGT+ is a security feature that gives the administrator the ability of controlling
+> the allowed VGT vlan IDs list that can be transmitted/received from/to the VF.
+> The allowed VGT vlan IDs list is called "trunk".
 >
 
-We are still looking for the best way from user experience perspective.
-Currently we think we will only allow to query VF vlan list on one VF
-at a time, with vlan list special ip route command.
+Dave, I would like to drop this series for now since we need to respin
+and find a better API to query vlan lists. it seems that it will take
+some time for our developer to complete this. So i would like to
+submit something else in the meanwhile.
 
-Still under definition, we will let you know once ready.
-
-> If you add large attributes for each VF, this is still going to break.
->
->
-> Thanks.
->
-> --
-> Sabrina
+Thanks,
+Saeed.
