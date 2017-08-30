@@ -1,35 +1,36 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net-next 0/4] nsh: headers, GSO
-Date: Wed, 30 Aug 2017 09:44:58 +0200
-Message-ID: <20170830094458.5564ec0b@griffin>
-References: <cover.1503948295.git.jbenc@redhat.com>
-        <20170829.151707.1911972805135395713.davem@davemloft.net>
-        <20170830052303.GA109175@cran64.bj.intel.com>
-        <20170830092040.61e5f09b@griffin>
-        <20170830071936.GA111152@cran64.bj.intel.com>
+From: Akshat Kakkar <akshat.1984@gmail.com>
+Subject: Re: NFCT writing localhost conntrack entries too
+Date: Wed, 30 Aug 2017 13:27:33 +0530
+Message-ID: <CAA5aLPicZ4Ax0kQoVE26ey-mAgBXu7NemENzM+d6dLk=647QcQ@mail.gmail.com>
+References: <CAA5aLPhyBj=ZE1OPuDw-vKqpceHZ2r8EdPiSdW66V74ya_HCdg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "e@erig.me" <e@erig.me>,
-        "jan.scheurich@ericsson.com" <jan.scheurich@ericsson.com>,
-        "blp@ovn.org" <blp@ovn.org>
-To: "Yang, Yi" <yi.y.yang@intel.com>
+Content-Type: text/plain; charset="UTF-8"
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:34812 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751186AbdH3HpC (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 30 Aug 2017 03:45:02 -0400
-In-Reply-To: <20170830071936.GA111152@cran64.bj.intel.com>
+Received: from mail-pg0-f49.google.com ([74.125.83.49]:36124 "EHLO
+        mail-pg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750839AbdH3H5f (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 03:57:35 -0400
+Received: by mail-pg0-f49.google.com with SMTP id r133so17900739pgr.3
+        for <netdev@vger.kernel.org>; Wed, 30 Aug 2017 00:57:34 -0700 (PDT)
+In-Reply-To: <CAA5aLPhyBj=ZE1OPuDw-vKqpceHZ2r8EdPiSdW66V74ya_HCdg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 30 Aug 2017 15:19:37 +0800, Yang, Yi wrote:
-> Do you mean we need move push_nsh from net/openvswitch/actions.c to
-> net/nsh/nsh.c in order that kernel can load nsh kernel module
-> automatically?
+Anybody ?
 
-Yes. Without that struct sw_flow_key parameter but that's obvious.
-
- Jiri
+On Tue, Aug 29, 2017 at 3:53 PM, Akshat Kakkar <akshat.1984@gmail.com> wrote:
+> With ulog/nflog, NFCT plugin, is it possible to not log entries with src ip
+> as 127.0.0.1
+>
+> I can see following options in ulogd.conf
+> #accept_src_filter=192.168.1.0/24,1:2::/64 # source ip of connection
+> must belong to these networks
+> #accept_dst_filter=192.168.1.0/24 # destination ip of connection must
+> belong to these networks
+> #accept_proto_filter=tcp,sctp # layer 4 proto of connections
+>
+>
+> ... but what I am looking for is like deny_src_filter.
+>
+> Is it possible?
