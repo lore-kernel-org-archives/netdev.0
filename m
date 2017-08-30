@@ -1,47 +1,99 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v2 2/3] dt-binding: net: sfp binding documentation
-Date: Wed, 30 Aug 2017 16:58:29 +0200
-Message-ID: <20170830145829.GA22289@lunn.ch>
-References: <d1e64c5752ef0dd5c5b543c2d4c3ef1783318173.1504086672.git.baruch@tkos.co.il>
- <7ae5d883fd038cf518949b0aa9cbe5369e2a1851.1504086672.git.baruch@tkos.co.il>
- <89261369-d97c-a78c-5a21-a269b2c7e513@cogentembedded.com>
- <20170830111118.wy62va6sjzsxrgoo@tarshish>
- <c3e8af44-bf58-81d7-bd51-d2538dcd41d9@cogentembedded.com>
- <20170830112557.dhcl3pv7gmuzg22v@tarshish>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [ovs-dev] [PATCH net-next v6 3/3] openvswitch: enable NSH support
+Date: Wed, 30 Aug 2017 17:15:45 +0200
+Message-ID: <87inh56q8u.fsf@stressinduktion.org>
+References: <1503670805-31051-1-git-send-email-yi.y.yang@intel.com>
+        <1503670805-31051-4-git-send-email-yi.y.yang@intel.com>
+        <87wp5l7560.fsf@stressinduktion.org>
+        <4B1BB321037C0849AAE171801564DFA6888FAED3@IRSMSX107.ger.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-        Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Russell King <rmk+kernel@arm.linux.org.uk>,
-        netdev@vger.kernel.org, devicetree@vger.kernel.org
-To: Baruch Siach <baruch@tkos.co.il>
+Content-Type: text/plain
+Cc: "Yang\, Yi Y" <yi.y.yang@intel.com>,
+        "dev\@openvswitch.org" <dev@openvswitch.org>,
+        "netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
+        "jbenc\@redhat.com" <jbenc@redhat.com>, "e\@erig.me" <e@erig.me>
+To: "Mooney\, Sean K" <sean.k.mooney@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:45152 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751317AbdH3O6k (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 30 Aug 2017 10:58:40 -0400
-Content-Disposition: inline
-In-Reply-To: <20170830112557.dhcl3pv7gmuzg22v@tarshish>
+Received: from out4-smtp.messagingengine.com ([66.111.4.28]:33757 "EHLO
+        out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751317AbdH3PPv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 11:15:51 -0400
+In-Reply-To: <4B1BB321037C0849AAE171801564DFA6888FAED3@IRSMSX107.ger.corp.intel.com>
+        (Sean K. Mooney's message of "Wed, 30 Aug 2017 11:36:17 +0000")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> > > >     Your example shows there's GPIO phandle *and* specifier.
-> > > 
-> > > Would "GPIO specifier" be enough here?
-> > 
-> >    No, specifier is the cells following GPIO (or any other) phandle.
-> 
-> So this should be "GPIO phandle and specifier of ...", is that correct?
-> 
-> I have found very few (< 4) occurrences of this language in (lots of) '-gpios' 
-> property descriptions under Documentation/devicetree/bindings/. Is this a new 
-> requirement?
+"Mooney, Sean K" <sean.k.mooney@intel.com> writes:
 
-Sometimes it is just easier to refer to another document:
+>> -----Original Message-----
+>> From: ovs-dev-bounces@openvswitch.org [mailto:ovs-dev-
+>> bounces@openvswitch.org] On Behalf Of Hannes Frederic Sowa
+>> Sent: Wednesday, August 30, 2017 10:53 AM
+>> To: Yang, Yi Y <yi.y.yang@intel.com>
+>> Cc: dev@openvswitch.org; netdev@vger.kernel.org; jbenc@redhat.com;
+>> e@erig.me
+>> Subject: Re: [ovs-dev] [PATCH net-next v6 3/3] openvswitch: enable NSH
+>> support
+>> 
+>> Hello,
+>> 
+>> Yi Yang <yi.y.yang@intel.com> writes:
+>> 
+>> [...]
+>> 
+>> > +struct ovs_key_nsh {
+>> > +	u8 flags;
+>> > +	u8 ttl;
+>> > +	u8 mdtype;
+>> > +	u8 np;
+>> > +	__be32 path_hdr;
+>> > +	__be32 context[NSH_MD1_CONTEXT_SIZE]; };
+>> > +
+>> >  struct sw_flow_key {
+>> >  	u8 tun_opts[IP_TUNNEL_OPTS_MAX];
+>> >  	u8 tun_opts_len;
+>> > @@ -144,6 +154,7 @@ struct sw_flow_key {
+>> >  			};
+>> >  		} ipv6;
+>> >  	};
+>> > +	struct ovs_key_nsh nsh;         /* network service header */
+>> >  	struct {
+>> >  		/* Connection tracking fields not packed above. */
+>> >  		struct {
+>> 
+>> Does it makes sense to keep the context headers as part of the flow?
+>> What is the reasoning behind it? With mdtype 2 headers this might
+>> either not work very well or will increase sw_flow_key size causing
+>> slowdowns for all protocols.
+> [Mooney, Sean K]
+> Having the nsh context headers in the flow is quite useful It would
+> allow loadblancing on values stored in the context headers Or other
+> use. I belive odl previously used context header 4 to store a Flow id
+> so this could potentialy be used with the multipath action to have ovs
+> Choose between several possible next hops in the chain.
 
-GPIO, as defined in Documentation/devicetree/binding/gpio/gpio.txt
+In OVS, masks are a list(!) for matching. How can this work for
+different paths that might require different masks? If they can't be
+unified you even get exact matches. Thus, for OVS the context should not
+be part of the flow.
 
-      Andrew
+> Another example of where this is usefull is branching chains.  if I
+> assume that both the classifier and Service function forwarder are
+> collocated in ovs on the host, and is send A packet to a firewall
+> service function which tags the packet as suspicious Via setting a
+> context header metadata field to 1, I as the sdn controller can
+> Install a high priority rule that will reclassify the packet as part
+> of as separate Service function chain the will prefer dpi on the
+> packet before returning it to The original chain if demand not a
+> threat.
+
+You can do that with different path id's, too?
+
+> So while a sff dose not in general have to be able to match on the
+> context header If I assume I want to use ovs to implenet a classifier
+> or service function(e.g. loadblancer) The its desirable to be able to
+> both match on the context headers in md type1 and also be able To set
+> them(this is something classifies and service fuction are allowed to
+> do).
+
+I don't think it is practical at all?
