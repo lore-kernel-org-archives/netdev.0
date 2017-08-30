@@ -1,15 +1,15 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net-next 2/3] net/mlx5e: Support TSO and TX checksum offloads for GRE tunnels
-Date: Thu, 31 Aug 2017 02:04:08 +0300
-Message-ID: <20170830230409.15176-3-saeedm@mellanox.com>
+Subject: [net-next 3/3] net/mlx5e: Support RSS for GRE tunneled packets
+Date: Thu, 31 Aug 2017 02:04:09 +0300
+Message-ID: <20170830230409.15176-4-saeedm@mellanox.com>
 References: <20170830230409.15176-1-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Gal Pressman <galp@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:34552 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:34554 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751301AbdH3XEV (ORCPT
+        with ESMTP id S1751283AbdH3XEV (ORCPT
         <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 19:04:21 -0400
 In-Reply-To: <20170830230409.15176-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
@@ -17,124 +17,578 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Gal Pressman <galp@mellanox.com>
 
-Add TX offloads support for GRE tunneled packets by reporting the needed
-netdev features.
+Introduce a new flow table and indirect TIRs which are used to hash the
+inner packet headers of GRE tunneled packets.
+
+When a GRE tunneled packet is received, the TTC flow table will match
+the new IPv4/6->GRE rules which will forward it to the inner TTC table.
+The inner TTC is similar to its counterpart outer TTC table, but
+matching the inner packet headers instead of the outer ones (and does
+not include the new IPv4/6->GRE rules).
+The new rules will not add steering hops since they are added to an
+already existing flow group which will be matched regardless of this
+patch. Non GRE traffic will not be affected.
+
+The inner flow table will forward the packet to inner indirect TIRs
+which hash the inner packet and thus result in RSS for the tunneled
+packets.
+
+Testing 8 TCP streams bandwidth over GRE:
+System: Intel(R) Xeon(R) CPU E5-2680 v3 @ 2.50GHz
+NIC: Mellanox Technologies MT28800 Family [ConnectX-5 Ex]
+Before: 21.3 Gbps (Single RQ)
+Now   : 90.5 Gbps (RSS spread on 8 RQs)
 
 Signed-off-by: Gal Pressman <galp@mellanox.com>
 Reviewed-by: Or Gerlitz <ogerlitz@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 51 +++++++++++++++--------
- include/linux/mlx5/mlx5_ifc.h                     |  2 +-
- 2 files changed, 34 insertions(+), 19 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en.h       |  18 +-
+ .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |  11 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_fs.c    | 248 ++++++++++++++++++++-
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |  57 ++++-
+ drivers/net/ethernet/mellanox/mlx5/core/fs_core.c  |   4 +-
+ 5 files changed, 321 insertions(+), 17 deletions(-)
 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index 0039b4725405..a31912415264 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -620,6 +620,12 @@ enum mlx5e_traffic_types {
+ 	MLX5E_NUM_INDIR_TIRS = MLX5E_TT_ANY,
+ };
+ 
++enum mlx5e_tunnel_types {
++	MLX5E_TT_IPV4_GRE,
++	MLX5E_TT_IPV6_GRE,
++	MLX5E_NUM_TUNNEL_TT,
++};
++
+ enum {
+ 	MLX5E_STATE_ASYNC_EVENTS_ENABLED,
+ 	MLX5E_STATE_OPENED,
+@@ -679,6 +685,7 @@ struct mlx5e_l2_table {
+ struct mlx5e_ttc_table {
+ 	struct mlx5e_flow_table  ft;
+ 	struct mlx5_flow_handle	 *rules[MLX5E_NUM_TT];
++	struct mlx5_flow_handle  *tunnel_rules[MLX5E_NUM_TUNNEL_TT];
+ };
+ 
+ #define ARFS_HASH_SHIFT BITS_PER_BYTE
+@@ -711,6 +718,7 @@ enum {
+ 	MLX5E_VLAN_FT_LEVEL = 0,
+ 	MLX5E_L2_FT_LEVEL,
+ 	MLX5E_TTC_FT_LEVEL,
++	MLX5E_INNER_TTC_FT_LEVEL,
+ 	MLX5E_ARFS_FT_LEVEL
+ };
+ 
+@@ -736,6 +744,7 @@ struct mlx5e_flow_steering {
+ 	struct mlx5e_vlan_table         vlan;
+ 	struct mlx5e_l2_table           l2;
+ 	struct mlx5e_ttc_table          ttc;
++	struct mlx5e_ttc_table          inner_ttc;
+ 	struct mlx5e_arfs_tables        arfs;
+ };
+ 
+@@ -769,6 +778,7 @@ struct mlx5e_priv {
+ 	u32                        tisn[MLX5E_MAX_NUM_TC];
+ 	struct mlx5e_rqt           indir_rqt;
+ 	struct mlx5e_tir           indir_tir[MLX5E_NUM_INDIR_TIRS];
++	struct mlx5e_tir           inner_indir_tir[MLX5E_NUM_INDIR_TIRS];
+ 	struct mlx5e_tir           direct_tir[MLX5E_MAX_NUM_CHANNELS];
+ 	u32                        tx_rates[MLX5E_MAX_NUM_SQS];
+ 	int                        hard_mtu;
+@@ -903,7 +913,7 @@ int mlx5e_redirect_rqt(struct mlx5e_priv *priv, u32 rqtn, int sz,
+ 		       struct mlx5e_redirect_rqt_param rrp);
+ void mlx5e_build_indir_tir_ctx_hash(struct mlx5e_params *params,
+ 				    enum mlx5e_traffic_types tt,
+-				    void *tirc);
++				    void *tirc, bool inner);
+ 
+ int mlx5e_open_locked(struct net_device *netdev);
+ int mlx5e_close_locked(struct net_device *netdev);
+@@ -932,6 +942,12 @@ void mlx5e_set_rx_cq_mode_params(struct mlx5e_params *params,
+ void mlx5e_set_rq_type_params(struct mlx5_core_dev *mdev,
+ 			      struct mlx5e_params *params, u8 rq_type);
+ 
++static inline bool mlx5e_tunnel_inner_ft_supported(struct mlx5_core_dev *mdev)
++{
++	return (MLX5_CAP_ETH(mdev, tunnel_stateless_gre) &&
++		MLX5_CAP_FLOWTABLE_NIC_RX(mdev, ft_field_support.inner_ip_version));
++}
++
+ static inline
+ struct mlx5e_tx_wqe *mlx5e_post_nop(struct mlx5_wq_cyc *wq, u32 sqn, u16 *pc)
+ {
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+index 0dd7e9caf150..c6ec90e9c95b 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+@@ -1212,9 +1212,18 @@ static void mlx5e_modify_tirs_hash(struct mlx5e_priv *priv, void *in, int inlen)
+ 
+ 	for (tt = 0; tt < MLX5E_NUM_INDIR_TIRS; tt++) {
+ 		memset(tirc, 0, ctxlen);
+-		mlx5e_build_indir_tir_ctx_hash(&priv->channels.params, tt, tirc);
++		mlx5e_build_indir_tir_ctx_hash(&priv->channels.params, tt, tirc, false);
+ 		mlx5_core_modify_tir(mdev, priv->indir_tir[tt].tirn, in, inlen);
+ 	}
++
++	if (!mlx5e_tunnel_inner_ft_supported(priv->mdev))
++		return;
++
++	for (tt = 0; tt < MLX5E_NUM_INDIR_TIRS; tt++) {
++		memset(tirc, 0, ctxlen);
++		mlx5e_build_indir_tir_ctx_hash(&priv->channels.params, tt, tirc, true);
++		mlx5_core_modify_tir(mdev, priv->inner_indir_tir[tt].tirn, in, inlen);
++	}
+ }
+ 
+ static int mlx5e_set_rxfh(struct net_device *dev, const u32 *indir,
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_fs.c b/drivers/net/ethernet/mellanox/mlx5/core/en_fs.c
+index 85e6226dacfb..f11fd07ac4dd 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_fs.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_fs.c
+@@ -608,12 +608,21 @@ static void mlx5e_cleanup_ttc_rules(struct mlx5e_ttc_table *ttc)
+ 			ttc->rules[i] = NULL;
+ 		}
+ 	}
++
++	for (i = 0; i < MLX5E_NUM_TUNNEL_TT; i++) {
++		if (!IS_ERR_OR_NULL(ttc->tunnel_rules[i])) {
++			mlx5_del_flow_rules(ttc->tunnel_rules[i]);
++			ttc->tunnel_rules[i] = NULL;
++		}
++	}
+ }
+ 
+-static struct {
++struct mlx5e_etype_proto {
+ 	u16 etype;
+ 	u8 proto;
+-} ttc_rules[] = {
++};
++
++static struct mlx5e_etype_proto ttc_rules[] = {
+ 	[MLX5E_TT_IPV4_TCP] = {
+ 		.etype = ETH_P_IP,
+ 		.proto = IPPROTO_TCP,
+@@ -660,6 +669,17 @@ static struct {
+ 	},
+ };
+ 
++static struct mlx5e_etype_proto ttc_tunnel_rules[] = {
++	[MLX5E_TT_IPV4_GRE] = {
++		.etype = ETH_P_IP,
++		.proto = IPPROTO_GRE,
++	},
++	[MLX5E_TT_IPV6_GRE] = {
++		.etype = ETH_P_IPV6,
++		.proto = IPPROTO_GRE,
++	},
++};
++
+ static u8 mlx5e_etype_to_ipv(u16 ethertype)
+ {
+ 	if (ethertype == ETH_P_IP)
+@@ -742,6 +762,20 @@ static int mlx5e_generate_ttc_table_rules(struct mlx5e_priv *priv)
+ 			goto del_rules;
+ 	}
+ 
++	if (!mlx5e_tunnel_inner_ft_supported(priv->mdev))
++		return 0;
++
++	rules     = ttc->tunnel_rules;
++	dest.type = MLX5_FLOW_DESTINATION_TYPE_FLOW_TABLE;
++	dest.ft   = priv->fs.inner_ttc.ft.t;
++	for (tt = 0; tt < MLX5E_NUM_TUNNEL_TT; tt++) {
++		rules[tt] = mlx5e_generate_ttc_rule(priv, ft, &dest,
++						    ttc_tunnel_rules[tt].etype,
++						    ttc_tunnel_rules[tt].proto);
++		if (IS_ERR(rules[tt]))
++			goto del_rules;
++	}
++
+ 	return 0;
+ 
+ del_rules:
+@@ -752,13 +786,21 @@ static int mlx5e_generate_ttc_table_rules(struct mlx5e_priv *priv)
+ }
+ 
+ #define MLX5E_TTC_NUM_GROUPS	3
+-#define MLX5E_TTC_GROUP1_SIZE	BIT(3)
+-#define MLX5E_TTC_GROUP2_SIZE	BIT(1)
+-#define MLX5E_TTC_GROUP3_SIZE	BIT(0)
++#define MLX5E_TTC_GROUP1_SIZE	(BIT(3) + MLX5E_NUM_TUNNEL_TT)
++#define MLX5E_TTC_GROUP2_SIZE	 BIT(1)
++#define MLX5E_TTC_GROUP3_SIZE	 BIT(0)
+ #define MLX5E_TTC_TABLE_SIZE	(MLX5E_TTC_GROUP1_SIZE +\
+ 				 MLX5E_TTC_GROUP2_SIZE +\
+ 				 MLX5E_TTC_GROUP3_SIZE)
+ 
++#define MLX5E_INNER_TTC_NUM_GROUPS	3
++#define MLX5E_INNER_TTC_GROUP1_SIZE	BIT(3)
++#define MLX5E_INNER_TTC_GROUP2_SIZE	BIT(1)
++#define MLX5E_INNER_TTC_GROUP3_SIZE	BIT(0)
++#define MLX5E_INNER_TTC_TABLE_SIZE	(MLX5E_INNER_TTC_GROUP1_SIZE +\
++					 MLX5E_INNER_TTC_GROUP2_SIZE +\
++					 MLX5E_INNER_TTC_GROUP3_SIZE)
++
+ static int mlx5e_create_ttc_table_groups(struct mlx5e_ttc_table *ttc,
+ 					 bool use_ipv)
+ {
+@@ -826,6 +868,190 @@ static int mlx5e_create_ttc_table_groups(struct mlx5e_ttc_table *ttc,
+ 	return err;
+ }
+ 
++static struct mlx5_flow_handle *
++mlx5e_generate_inner_ttc_rule(struct mlx5e_priv *priv,
++			      struct mlx5_flow_table *ft,
++			      struct mlx5_flow_destination *dest,
++			      u16 etype, u8 proto)
++{
++	MLX5_DECLARE_FLOW_ACT(flow_act);
++	struct mlx5_flow_handle *rule;
++	struct mlx5_flow_spec *spec;
++	int err = 0;
++	u8 ipv;
++
++	spec = kvzalloc(sizeof(*spec), GFP_KERNEL);
++	if (!spec)
++		return ERR_PTR(-ENOMEM);
++
++	ipv = mlx5e_etype_to_ipv(etype);
++	if (etype && ipv) {
++		spec->match_criteria_enable = MLX5_MATCH_INNER_HEADERS;
++		MLX5_SET_TO_ONES(fte_match_param, spec->match_criteria, inner_headers.ip_version);
++		MLX5_SET(fte_match_param, spec->match_value, inner_headers.ip_version, ipv);
++	}
++
++	if (proto) {
++		spec->match_criteria_enable = MLX5_MATCH_INNER_HEADERS;
++		MLX5_SET_TO_ONES(fte_match_param, spec->match_criteria, inner_headers.ip_protocol);
++		MLX5_SET(fte_match_param, spec->match_value, inner_headers.ip_protocol, proto);
++	}
++
++	rule = mlx5_add_flow_rules(ft, spec, &flow_act, dest, 1);
++	if (IS_ERR(rule)) {
++		err = PTR_ERR(rule);
++		netdev_err(priv->netdev, "%s: add rule failed\n", __func__);
++	}
++
++	kvfree(spec);
++	return err ? ERR_PTR(err) : rule;
++}
++
++static int mlx5e_generate_inner_ttc_table_rules(struct mlx5e_priv *priv)
++{
++	struct mlx5_flow_destination dest;
++	struct mlx5_flow_handle **rules;
++	struct mlx5e_ttc_table *ttc;
++	struct mlx5_flow_table *ft;
++	int err;
++	int tt;
++
++	ttc =  &priv->fs.inner_ttc;
++	ft = ttc->ft.t;
++	rules = ttc->rules;
++
++	dest.type = MLX5_FLOW_DESTINATION_TYPE_TIR;
++	for (tt = 0; tt < MLX5E_NUM_TT; tt++) {
++		if (tt == MLX5E_TT_ANY)
++			dest.tir_num = priv->direct_tir[0].tirn;
++		else
++			dest.tir_num = priv->inner_indir_tir[tt].tirn;
++
++		rules[tt] = mlx5e_generate_inner_ttc_rule(priv, ft, &dest,
++							  ttc_rules[tt].etype,
++							  ttc_rules[tt].proto);
++		if (IS_ERR(rules[tt]))
++			goto del_rules;
++	}
++
++	return 0;
++
++del_rules:
++	err = PTR_ERR(rules[tt]);
++	rules[tt] = NULL;
++	mlx5e_cleanup_ttc_rules(ttc);
++	return err;
++}
++
++static int mlx5e_create_inner_ttc_table_groups(struct mlx5e_ttc_table *ttc)
++{
++	int inlen = MLX5_ST_SZ_BYTES(create_flow_group_in);
++	struct mlx5e_flow_table *ft = &ttc->ft;
++	int ix = 0;
++	u32 *in;
++	int err;
++	u8 *mc;
++
++	ft->g = kcalloc(MLX5E_INNER_TTC_NUM_GROUPS, sizeof(*ft->g), GFP_KERNEL);
++	if (!ft->g)
++		return -ENOMEM;
++	in = kvzalloc(inlen, GFP_KERNEL);
++	if (!in) {
++		kfree(ft->g);
++		return -ENOMEM;
++	}
++
++	/* L4 Group */
++	mc = MLX5_ADDR_OF(create_flow_group_in, in, match_criteria);
++	MLX5_SET_TO_ONES(fte_match_param, mc, inner_headers.ip_protocol);
++	MLX5_SET_TO_ONES(fte_match_param, mc, inner_headers.ip_version);
++	MLX5_SET_CFG(in, match_criteria_enable, MLX5_MATCH_INNER_HEADERS);
++	MLX5_SET_CFG(in, start_flow_index, ix);
++	ix += MLX5E_INNER_TTC_GROUP1_SIZE;
++	MLX5_SET_CFG(in, end_flow_index, ix - 1);
++	ft->g[ft->num_groups] = mlx5_create_flow_group(ft->t, in);
++	if (IS_ERR(ft->g[ft->num_groups]))
++		goto err;
++	ft->num_groups++;
++
++	/* L3 Group */
++	MLX5_SET(fte_match_param, mc, inner_headers.ip_protocol, 0);
++	MLX5_SET_CFG(in, start_flow_index, ix);
++	ix += MLX5E_INNER_TTC_GROUP2_SIZE;
++	MLX5_SET_CFG(in, end_flow_index, ix - 1);
++	ft->g[ft->num_groups] = mlx5_create_flow_group(ft->t, in);
++	if (IS_ERR(ft->g[ft->num_groups]))
++		goto err;
++	ft->num_groups++;
++
++	/* Any Group */
++	memset(in, 0, inlen);
++	MLX5_SET_CFG(in, start_flow_index, ix);
++	ix += MLX5E_INNER_TTC_GROUP3_SIZE;
++	MLX5_SET_CFG(in, end_flow_index, ix - 1);
++	ft->g[ft->num_groups] = mlx5_create_flow_group(ft->t, in);
++	if (IS_ERR(ft->g[ft->num_groups]))
++		goto err;
++	ft->num_groups++;
++
++	kvfree(in);
++	return 0;
++
++err:
++	err = PTR_ERR(ft->g[ft->num_groups]);
++	ft->g[ft->num_groups] = NULL;
++	kvfree(in);
++
++	return err;
++}
++
++static int mlx5e_create_inner_ttc_table(struct mlx5e_priv *priv)
++{
++	struct mlx5e_ttc_table *ttc = &priv->fs.inner_ttc;
++	struct mlx5_flow_table_attr ft_attr = {};
++	struct mlx5e_flow_table *ft = &ttc->ft;
++	int err;
++
++	if (!mlx5e_tunnel_inner_ft_supported(priv->mdev))
++		return 0;
++
++	ft_attr.max_fte = MLX5E_INNER_TTC_TABLE_SIZE;
++	ft_attr.level   = MLX5E_INNER_TTC_FT_LEVEL;
++	ft_attr.prio    = MLX5E_NIC_PRIO;
++
++	ft->t = mlx5_create_flow_table(priv->fs.ns, &ft_attr);
++	if (IS_ERR(ft->t)) {
++		err = PTR_ERR(ft->t);
++		ft->t = NULL;
++		return err;
++	}
++
++	err = mlx5e_create_inner_ttc_table_groups(ttc);
++	if (err)
++		goto err;
++
++	err = mlx5e_generate_inner_ttc_table_rules(priv);
++	if (err)
++		goto err;
++
++	return 0;
++
++err:
++	mlx5e_destroy_flow_table(ft);
++	return err;
++}
++
++static void mlx5e_destroy_inner_ttc_table(struct mlx5e_priv *priv)
++{
++	struct mlx5e_ttc_table *ttc = &priv->fs.inner_ttc;
++
++	if (!mlx5e_tunnel_inner_ft_supported(priv->mdev))
++		return;
++
++	mlx5e_cleanup_ttc_rules(ttc);
++	mlx5e_destroy_flow_table(&ttc->ft);
++}
++
+ void mlx5e_destroy_ttc_table(struct mlx5e_priv *priv)
+ {
+ 	struct mlx5e_ttc_table *ttc = &priv->fs.ttc;
+@@ -1179,11 +1405,18 @@ int mlx5e_create_flow_steering(struct mlx5e_priv *priv)
+ 		priv->netdev->hw_features &= ~NETIF_F_NTUPLE;
+ 	}
+ 
++	err = mlx5e_create_inner_ttc_table(priv);
++	if (err) {
++		netdev_err(priv->netdev, "Failed to create inner ttc table, err=%d\n",
++			   err);
++		goto err_destroy_arfs_tables;
++	}
++
+ 	err = mlx5e_create_ttc_table(priv);
+ 	if (err) {
+ 		netdev_err(priv->netdev, "Failed to create ttc table, err=%d\n",
+ 			   err);
+-		goto err_destroy_arfs_tables;
++		goto err_destroy_inner_ttc_table;
+ 	}
+ 
+ 	err = mlx5e_create_l2_table(priv);
+@@ -1208,6 +1441,8 @@ int mlx5e_create_flow_steering(struct mlx5e_priv *priv)
+ 	mlx5e_destroy_l2_table(priv);
+ err_destroy_ttc_table:
+ 	mlx5e_destroy_ttc_table(priv);
++err_destroy_inner_ttc_table:
++	mlx5e_destroy_inner_ttc_table(priv);
+ err_destroy_arfs_tables:
+ 	mlx5e_arfs_destroy_tables(priv);
+ 
+@@ -1219,6 +1454,7 @@ void mlx5e_destroy_flow_steering(struct mlx5e_priv *priv)
+ 	mlx5e_destroy_vlan_table(priv);
+ 	mlx5e_destroy_l2_table(priv);
+ 	mlx5e_destroy_ttc_table(priv);
++	mlx5e_destroy_inner_ttc_table(priv);
+ 	mlx5e_arfs_destroy_tables(priv);
+ 	mlx5e_ethtool_cleanup_steering(priv);
+ }
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index fdc2b92f020b..9475fb89a744 100644
+index 9475fb89a744..111c7523d448 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -3499,13 +3499,13 @@ static void mlx5e_del_vxlan_port(struct net_device *netdev,
- 	mlx5e_vxlan_queue_work(priv, ti->sa_family, be16_to_cpu(ti->port), 0);
- }
+@@ -2349,9 +2349,10 @@ static void mlx5e_build_tir_ctx_lro(struct mlx5e_params *params, void *tirc)
  
--static netdev_features_t mlx5e_vxlan_features_check(struct mlx5e_priv *priv,
--						    struct sk_buff *skb,
--						    netdev_features_t features)
-+static netdev_features_t mlx5e_tunnel_features_check(struct mlx5e_priv *priv,
-+						     struct sk_buff *skb,
-+						     netdev_features_t features)
+ void mlx5e_build_indir_tir_ctx_hash(struct mlx5e_params *params,
+ 				    enum mlx5e_traffic_types tt,
+-				    void *tirc)
++				    void *tirc, bool inner)
  {
- 	struct udphdr *udph;
--	u16 proto;
--	u16 port = 0;
-+	u8 proto;
-+	u16 port;
+-	void *hfso = MLX5_ADDR_OF(tirc, tirc, rx_hash_field_selector_outer);
++	void *hfso = inner ? MLX5_ADDR_OF(tirc, tirc, rx_hash_field_selector_inner) :
++			     MLX5_ADDR_OF(tirc, tirc, rx_hash_field_selector_outer);
  
- 	switch (vlan_get_protocol(skb)) {
- 	case htons(ETH_P_IP):
-@@ -3518,14 +3518,17 @@ static netdev_features_t mlx5e_vxlan_features_check(struct mlx5e_priv *priv,
- 		goto out;
- 	}
- 
--	if (proto == IPPROTO_UDP) {
-+	switch (proto) {
-+	case IPPROTO_GRE:
-+		return features;
-+	case IPPROTO_UDP:
- 		udph = udp_hdr(skb);
- 		port = be16_to_cpu(udph->dest);
--	}
- 
--	/* Verify if UDP port is being offloaded by HW */
--	if (port && mlx5e_vxlan_lookup_port(priv, port))
--		return features;
-+		/* Verify if UDP port is being offloaded by HW */
-+		if (mlx5e_vxlan_lookup_port(priv, port))
-+			return features;
-+	}
- 
- out:
- 	/* Disable CSUM and GSO if the udp dport is not offloaded by HW */
-@@ -3549,7 +3552,7 @@ static netdev_features_t mlx5e_features_check(struct sk_buff *skb,
- 	/* Validate if the tunneled packet is being offloaded by HW */
- 	if (skb->encapsulation &&
- 	    (features & NETIF_F_CSUM_MASK || features & NETIF_F_GSO_MASK))
--		return mlx5e_vxlan_features_check(priv, skb, features);
-+		return mlx5e_tunnel_features_check(priv, skb, features);
- 
- 	return features;
+ #define MLX5_HASH_IP            (MLX5_HASH_FIELD_SEL_SRC_IP   |\
+ 				 MLX5_HASH_FIELD_SEL_DST_IP)
+@@ -2500,6 +2501,21 @@ static int mlx5e_modify_tirs_lro(struct mlx5e_priv *priv)
+ 	return err;
  }
-@@ -4014,20 +4017,32 @@ static void mlx5e_build_nic_netdev(struct net_device *netdev)
- 	netdev->hw_features      |= NETIF_F_HW_VLAN_CTAG_RX;
- 	netdev->hw_features      |= NETIF_F_HW_VLAN_CTAG_FILTER;
  
--	if (mlx5e_vxlan_allowed(mdev)) {
--		netdev->hw_features     |= NETIF_F_GSO_UDP_TUNNEL |
--					   NETIF_F_GSO_UDP_TUNNEL_CSUM |
--					   NETIF_F_GSO_PARTIAL;
-+	if (mlx5e_vxlan_allowed(mdev) || MLX5_CAP_ETH(mdev, tunnel_stateless_gre)) {
-+		netdev->hw_features     |= NETIF_F_GSO_PARTIAL;
- 		netdev->hw_enc_features |= NETIF_F_IP_CSUM;
- 		netdev->hw_enc_features |= NETIF_F_IPV6_CSUM;
- 		netdev->hw_enc_features |= NETIF_F_TSO;
- 		netdev->hw_enc_features |= NETIF_F_TSO6;
--		netdev->hw_enc_features |= NETIF_F_GSO_UDP_TUNNEL;
--		netdev->hw_enc_features |= NETIF_F_GSO_UDP_TUNNEL_CSUM |
--					   NETIF_F_GSO_PARTIAL;
-+		netdev->hw_enc_features |= NETIF_F_GSO_PARTIAL;
-+	}
++static void mlx5e_build_inner_indir_tir_ctx(struct mlx5e_priv *priv,
++					    enum mlx5e_traffic_types tt,
++					    u32 *tirc)
++{
++	MLX5_SET(tirc, tirc, transport_domain, priv->mdev->mlx5e_res.td.tdn);
 +
-+	if (mlx5e_vxlan_allowed(mdev)) {
-+		netdev->hw_features     |= NETIF_F_GSO_UDP_TUNNEL |
-+					   NETIF_F_GSO_UDP_TUNNEL_CSUM;
-+		netdev->hw_enc_features |= NETIF_F_GSO_UDP_TUNNEL |
-+					   NETIF_F_GSO_UDP_TUNNEL_CSUM;
- 		netdev->gso_partial_features = NETIF_F_GSO_UDP_TUNNEL_CSUM;
++	mlx5e_build_tir_ctx_lro(&priv->channels.params, tirc);
++
++	MLX5_SET(tirc, tirc, disp_type, MLX5_TIRC_DISP_TYPE_INDIRECT);
++	MLX5_SET(tirc, tirc, indirect_table, priv->indir_rqt.rqtn);
++	MLX5_SET(tirc, tirc, tunneled_offload_en, 0x1);
++
++	mlx5e_build_indir_tir_ctx_hash(&priv->channels.params, tt, tirc, true);
++}
++
+ static int mlx5e_set_mtu(struct mlx5e_priv *priv, u16 mtu)
+ {
+ 	struct mlx5_core_dev *mdev = priv->mdev;
+@@ -2865,7 +2881,7 @@ static void mlx5e_build_indir_tir_ctx(struct mlx5e_priv *priv,
+ 
+ 	MLX5_SET(tirc, tirc, disp_type, MLX5_TIRC_DISP_TYPE_INDIRECT);
+ 	MLX5_SET(tirc, tirc, indirect_table, priv->indir_rqt.rqtn);
+-	mlx5e_build_indir_tir_ctx_hash(&priv->channels.params, tt, tirc);
++	mlx5e_build_indir_tir_ctx_hash(&priv->channels.params, tt, tirc, false);
+ }
+ 
+ static void mlx5e_build_direct_tir_ctx(struct mlx5e_priv *priv, u32 rqtn, u32 *tirc)
+@@ -2884,6 +2900,7 @@ int mlx5e_create_indirect_tirs(struct mlx5e_priv *priv)
+ 	struct mlx5e_tir *tir;
+ 	void *tirc;
+ 	int inlen;
++	int i = 0;
+ 	int err;
+ 	u32 *in;
+ 	int tt;
+@@ -2899,16 +2916,36 @@ int mlx5e_create_indirect_tirs(struct mlx5e_priv *priv)
+ 		tirc = MLX5_ADDR_OF(create_tir_in, in, ctx);
+ 		mlx5e_build_indir_tir_ctx(priv, tt, tirc);
+ 		err = mlx5e_create_tir(priv->mdev, tir, in, inlen);
+-		if (err)
+-			goto err_destroy_tirs;
++		if (err) {
++			mlx5_core_warn(priv->mdev, "create indirect tirs failed, %d\n", err);
++			goto err_destroy_inner_tirs;
++		}
  	}
  
-+	if (MLX5_CAP_ETH(mdev, tunnel_stateless_gre)) {
-+		netdev->hw_features     |= NETIF_F_GSO_GRE |
-+					   NETIF_F_GSO_GRE_CSUM;
-+		netdev->hw_enc_features |= NETIF_F_GSO_GRE |
-+					   NETIF_F_GSO_GRE_CSUM;
-+		netdev->gso_partial_features |= NETIF_F_GSO_GRE |
-+						NETIF_F_GSO_GRE_CSUM;
++	if (!mlx5e_tunnel_inner_ft_supported(priv->mdev))
++		goto out;
++
++	for (i = 0; i < MLX5E_NUM_INDIR_TIRS; i++) {
++		memset(in, 0, inlen);
++		tir = &priv->inner_indir_tir[i];
++		tirc = MLX5_ADDR_OF(create_tir_in, in, ctx);
++		mlx5e_build_inner_indir_tir_ctx(priv, i, tirc);
++		err = mlx5e_create_tir(priv->mdev, tir, in, inlen);
++		if (err) {
++			mlx5_core_warn(priv->mdev, "create inner indirect tirs failed, %d\n", err);
++			goto err_destroy_inner_tirs;
++		}
 +	}
 +
- 	mlx5_query_port_fcs(mdev, &fcs_supported, &fcs_enabled);
++out:
+ 	kvfree(in);
  
- 	if (fcs_supported)
-diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
-index ae7d09b9c52f..3d5d32e5446c 100644
---- a/include/linux/mlx5/mlx5_ifc.h
-+++ b/include/linux/mlx5/mlx5_ifc.h
-@@ -602,7 +602,7 @@ struct mlx5_ifc_per_protocol_networking_offload_caps_bits {
- 	u8         reserved_at_1a[0x1];
- 	u8         tunnel_lso_const_out_ip_id[0x1];
- 	u8         reserved_at_1c[0x2];
--	u8         tunnel_statless_gre[0x1];
-+	u8         tunnel_stateless_gre[0x1];
- 	u8         tunnel_stateless_vxlan[0x1];
+ 	return 0;
  
- 	u8         swp[0x1];
+-err_destroy_tirs:
+-	mlx5_core_warn(priv->mdev, "create indirect tirs failed, %d\n", err);
++err_destroy_inner_tirs:
++	for (i--; i >= 0; i--)
++		mlx5e_destroy_tir(priv->mdev, &priv->inner_indir_tir[i]);
++
+ 	for (tt--; tt >= 0; tt--)
+ 		mlx5e_destroy_tir(priv->mdev, &priv->indir_tir[tt]);
+ 
+@@ -2962,6 +2999,12 @@ void mlx5e_destroy_indirect_tirs(struct mlx5e_priv *priv)
+ 
+ 	for (i = 0; i < MLX5E_NUM_INDIR_TIRS; i++)
+ 		mlx5e_destroy_tir(priv->mdev, &priv->indir_tir[i]);
++
++	if (!mlx5e_tunnel_inner_ft_supported(priv->mdev))
++		return;
++
++	for (i = 0; i < MLX5E_NUM_INDIR_TIRS; i++)
++		mlx5e_destroy_tir(priv->mdev, &priv->inner_indir_tir[i]);
+ }
+ 
+ void mlx5e_destroy_direct_tirs(struct mlx5e_priv *priv)
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+index d731d57a996a..5a7bea688ec8 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+@@ -83,8 +83,8 @@
+ #define ETHTOOL_PRIO_NUM_LEVELS 1
+ #define ETHTOOL_NUM_PRIOS 11
+ #define ETHTOOL_MIN_LEVEL (KERNEL_MIN_LEVEL + ETHTOOL_NUM_PRIOS)
+-/* Vlan, mac, ttc, aRFS */
+-#define KERNEL_NIC_PRIO_NUM_LEVELS 4
++/* Vlan, mac, ttc, inner ttc, aRFS */
++#define KERNEL_NIC_PRIO_NUM_LEVELS 5
+ #define KERNEL_NIC_NUM_PRIOS 1
+ /* One more level for tc */
+ #define KERNEL_MIN_LEVEL (KERNEL_NIC_PRIO_NUM_LEVELS + 1)
 -- 
 2.13.0
