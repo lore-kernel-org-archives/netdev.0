@@ -1,75 +1,49 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 7/8] mlxsw: spectrum_router: Add support for setting counters on IPv6 neighbors
-Date: Wed, 30 Aug 2017 14:03:05 +0200
-Message-ID: <20170830120306.6128-8-jiri@resnulli.us>
-References: <20170830120306.6128-1-jiri@resnulli.us>
-Cc: davem@davemloft.net, arkadis@mellanox.com, idosch@mellanox.com,
-        mlxsw@mellanox.com
-To: netdev@vger.kernel.org
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [patch net-next v2 2/3] net/sched: Change cls_flower to use IDR
+Date: Wed, 30 Aug 2017 08:09:14 -0400
+Message-ID: <38cea4fa-1ca2-1055-0595-4febf3c08e27@mojatatu.com>
+References: <1504074719-15147-1-git-send-email-chrism@mellanox.com>
+ <1504074719-15147-3-git-send-email-chrism@mellanox.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: xiyou.wangcong@gmail.com, jiri@resnulli.us, davem@davemloft.net,
+        mawilcox@microsoft.com
+To: Chris Mi <chrism@mellanox.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:33303 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751425AbdH3MDY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 08:03:24 -0400
-Received: by mail-wm0-f66.google.com with SMTP id m85so1058638wma.0
-        for <netdev@vger.kernel.org>; Wed, 30 Aug 2017 05:03:23 -0700 (PDT)
-In-Reply-To: <20170830120306.6128-1-jiri@resnulli.us>
+Received: from mail-it0-f67.google.com ([209.85.214.67]:33239 "EHLO
+        mail-it0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751282AbdH3MJV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 08:09:21 -0400
+Received: by mail-it0-f67.google.com with SMTP id 77so915740itj.0
+        for <netdev@vger.kernel.org>; Wed, 30 Aug 2017 05:09:21 -0700 (PDT)
+In-Reply-To: <1504074719-15147-3-git-send-email-chrism@mellanox.com>
+Content-Language: en-GB
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Arkadi Sharshevsky <arkadis@mellanox.com>
+On 17-08-30 02:31 AM, Chris Mi wrote:
+> Currently, all filters with the same priority are linked in a doubly
+> linked list. Every filter should have a unique handle. To make the
+> handle unique, we need to iterate the list every time to see if the
+> handle exists or not when inserting a new filter. It is time-consuming.
+> For example, it takes about 5m3.169s to insert 64K rules.
+> 
+> This patch changes cls_flower to use IDR. With this patch, it
+> takes about 0m1.127s to insert 64K rules. The improvement is huge.
+> 
+> But please note that in this testing, all filters share the same action.
+> If every filter has a unique action, that is another bottleneck.
+> Follow-up patch in this patchset addresses that.
+> 
+> Signed-off-by: Chris Mi <chrism@mellanox.com>
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 
-Add support for setting counters on IPv6 neighbors based on dpipe's host6
-table counter status.
+Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
 
-Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 22 +++++++++++++++++-----
- 1 file changed, 17 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-index db57c0c..0cf6810 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-@@ -1008,21 +1008,33 @@ mlxsw_sp_neigh_entry_remove(struct mlxsw_sp *mlxsw_sp,
- }
- 
- static bool
--mlxsw_sp_neigh4_counter_should_alloc(struct mlxsw_sp *mlxsw_sp)
-+mlxsw_sp_neigh_counter_should_alloc(struct mlxsw_sp *mlxsw_sp,
-+				    struct mlxsw_sp_neigh_entry *neigh_entry)
- {
- 	struct devlink *devlink;
-+	const char *table_name;
-+
-+	switch (mlxsw_sp_neigh_entry_type(neigh_entry)) {
-+	case AF_INET:
-+		table_name = MLXSW_SP_DPIPE_TABLE_NAME_HOST4;
-+		break;
-+	case AF_INET6:
-+		table_name = MLXSW_SP_DPIPE_TABLE_NAME_HOST6;
-+		break;
-+	default:
-+		WARN_ON(1);
-+		return false;
-+	}
- 
- 	devlink = priv_to_devlink(mlxsw_sp->core);
--	return devlink_dpipe_table_counter_enabled(devlink,
--						   MLXSW_SP_DPIPE_TABLE_NAME_HOST4);
-+	return devlink_dpipe_table_counter_enabled(devlink, table_name);
- }
- 
- static void
- mlxsw_sp_neigh_counter_alloc(struct mlxsw_sp *mlxsw_sp,
- 			     struct mlxsw_sp_neigh_entry *neigh_entry)
- {
--	if (mlxsw_sp_neigh_entry_type(neigh_entry) != AF_INET ||
--	    !mlxsw_sp_neigh4_counter_should_alloc(mlxsw_sp))
-+	if (!mlxsw_sp_neigh_counter_should_alloc(mlxsw_sp, neigh_entry))
- 		return;
- 
- 	if (mlxsw_sp_flow_counter_alloc(mlxsw_sp, &neigh_entry->counter_index))
--- 
-2.9.3
+BTW: I'd already acked this before but you left it out in this
+version.
+
+cheers,
+jamal
