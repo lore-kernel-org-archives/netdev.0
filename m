@@ -1,41 +1,37 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH net 9/9] sch_tbf: fix two null pointer dereferences on
- init failure
-Date: Thu, 31 Aug 2017 00:39:04 +0300
-Message-ID: <65893557-1461-9ab6-9ca6-e52e67b84683@cumulusnetworks.com>
-References: <1504086545-7777-1-git-send-email-nikolay@cumulusnetworks.com>
- <1504086545-7777-10-git-send-email-nikolay@cumulusnetworks.com>
- <CAM_iQpWn_q4CaOKhw7nxFR40V2JaVwr_5kx-ZUpdFxPa4hxKyA@mail.gmail.com>
+From: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+Subject: Re: [PATCH net-next 3/3 v11] drivers: net: ethernet: qualcomm: rmnet:
+ Initial implementation
+Date: Wed, 30 Aug 2017 15:40:01 -0600
+Message-ID: <a88f19fc1dead2c7fe560ed090b79488@codeaurora.org>
+References: <1504068258-16982-4-git-send-email-subashab@codeaurora.org>
+ <1504103947.21231.5.camel@redhat.com>
+ <c64415aa8d1184303f5916bdd2fd6ce3@codeaurora.org>
+ <20170830.142744.324884406082731585.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=US-ASCII;
+ format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Jiri Pirko <jiri@resnulli.us>,
-        Roopa Prabhu <roopa@cumulusnetworks.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Cc: dcbw@redhat.com, netdev@vger.kernel.org, fengguang.wu@intel.com,
+        jiri@resnulli.us, stephen@networkplumber.org,
+        David.Laight@aculab.com, marcel@holtmann.org, andrew@lunn.ch
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f49.google.com ([74.125.82.49]:34496 "EHLO
-        mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750761AbdH3VjH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 17:39:07 -0400
-Received: by mail-wm0-f49.google.com with SMTP id 137so4418734wmj.1
-        for <netdev@vger.kernel.org>; Wed, 30 Aug 2017 14:39:07 -0700 (PDT)
-In-Reply-To: <CAM_iQpWn_q4CaOKhw7nxFR40V2JaVwr_5kx-ZUpdFxPa4hxKyA@mail.gmail.com>
+Received: from smtp.codeaurora.org ([198.145.29.96]:39932 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751205AbdH3VkC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 17:40:02 -0400
+In-Reply-To: <20170830.142744.324884406082731585.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 30/08/17 20:37, Cong Wang wrote:
-> On Wed, Aug 30, 2017 at 2:49 AM, Nikolay Aleksandrov
-> <nikolay@cumulusnetworks.com> wrote:
->> Reproduce:
->> $ sysctl net.core.default_qdisc=tbf
->> $ ip l set ethX up
+> Subash, keep in mind that since I applied your v11 patches already you
+> will need to send me relative fixes and changes at this point, rather
+> than resubmit the series.
 > 
-> I once upon a time had a patch to disallow those qdisc's
-> to be default. Probably I should resend it.
-> 
+> Thank you.
 
-That sounds good. A lot of them can't be default anyway, they need
-some options to be set, so it's definitely worth looking into.
+Thanks for the heads up David. Will do.
+-- 
+Qualcomm Innovation Center, Inc.
+The Qualcomm Innovation Center, Inc. is a member of Code Aurora Forum, a 
+Linux Foundation Collaborative Project
