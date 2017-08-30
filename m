@@ -1,109 +1,130 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: Question about ip_defrag
-Date: Wed, 30 Aug 2017 12:58:43 +0200
-Message-ID: <20170830125843.250c91c1@redhat.com>
-References: <4F88C5DDA1E80143B232E89585ACE27D018F07E2@DGGEMA502-MBX.china.huawei.com>
-        <20170824155300.1e577dae@redhat.com>
-        <4F88C5DDA1E80143B232E89585ACE27D018F0AE1@DGGEMA502-MBX.china.huawei.com>
-        <20170824205926.2c45e3a1@redhat.com>
-        <4F88C5DDA1E80143B232E89585ACE27D018F3157@DGGEMA502-MBX.china.huawei.com>
-        <20170828140032.GB12926@breakpoint.cc>
-        <20170829092021.0a46fffa@redhat.com>
-        <20170829075315.GA9993@breakpoint.cc>
+From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+Subject: Re: [PATCH v2 2/3] dt-binding: net: sfp binding documentation
+Date: Wed, 30 Aug 2017 14:04:11 +0300
+Message-ID: <89261369-d97c-a78c-5a21-a269b2c7e513@cogentembedded.com>
+References: <d1e64c5752ef0dd5c5b543c2d4c3ef1783318173.1504086672.git.baruch@tkos.co.il>
+ <7ae5d883fd038cf518949b0aa9cbe5369e2a1851.1504086672.git.baruch@tkos.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "liujian (CE)" <liujian56@huawei.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "edumazet@google.com" <edumazet@google.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "Wangkefeng (Kevin)" <wangkefeng.wang@huawei.com>,
-        "weiyongjun (A)" <weiyongjun1@huawei.com>, brouer@redhat.com
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44966 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751263AbdH3K66 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 30 Aug 2017 06:58:58 -0400
-In-Reply-To: <20170829075315.GA9993@breakpoint.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Baruch Siach <baruch-NswTu9S1W3P6gbPvEgmw2w@public.gmane.org>, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
+        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Russell King <rmk+kernel-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <7ae5d883fd038cf518949b0aa9cbe5369e2a1851.1504086672.git.baruch-NswTu9S1W3P6gbPvEgmw2w@public.gmane.org>
+Content-Language: en-US
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-(trimmed CC list a bit)
+Hello!
 
-On Tue, 29 Aug 2017 09:53:15 +0200 Florian Westphal <fw@strlen.de> wrote:
+On 8/30/2017 12:51 PM, Baruch Siach wrote:
 
-> Jesper Dangaard Brouer <brouer@redhat.com> wrote:
-> > On Mon, 28 Aug 2017 16:00:32 +0200
-> > Florian Westphal <fw@strlen.de> wrote:
-> >   
-> > > liujian (CE) <liujian56@huawei.com> wrote:  
-> > > > Hi
-> > > > 
-> > > > I checked our 3.10 kernel, we had backported all percpu_counter
-> > > > bug fix in lib/percpu_counter.c and include/linux/percpu_counter.h.
-> > > > And I check 4.13-rc6, also has the issue if NIC's rx cpu num big enough.
-> > > >     
-> > > > > > > > the issue:
-> > > > > > > > Ip_defrag fail caused by frag_mem_limit reached 4M(frags.high_thresh).
-> > > > > > > > At this moment,sum_frag_mem_limit is about 10K.    
-> > > > 
-> > > > So should we change ipfrag high/low thresh to a reasonable value ? 
-> > > > And if it is, is there a standard to change the value?    
-> > > 
-> > > Each cpu can have frag_percpu_counter_batch bytes rest doesn't know
-> > > about so with 64 cpus that is ~8 mbyte.
-> > > 
-> > > possible solutions:
-> > > 1. reduce frag_percpu_counter_batch to 16k or so
-> > > 2. make both low and high thresh depend on NR_CPUS  
+> Add device-tree binding documentation SFP transceivers. Support for SFP
+> transceivers has been recently introduced (drivers/net/phy/sfp.c).
 > 
-> I take 2) back.  Its wrong to do this, for large NR_CPU values it
-> would even overflow.
-
-Alternatively solution 3:
-Why do we want to maintain a (4MBytes) memory limit, across all CPUs?
-Couldn't we just allow each CPU to have a memory limit?
-
-
-> > To me it looks like we/I have been using the wrong API for comparing
-> > against percpu_counters.  I guess we should have used __percpu_counter_compare().  
+> Signed-off-by: Baruch Siach <baruch-NswTu9S1W3P6gbPvEgmw2w@public.gmane.org>
+> ---
+> v2:
+>    Rename -gpio properties to -gpios
+>    Rename the rate-select-gpio property to rate-select0-gpios
+>    Add the rate-select1-gpios property
+>    Add examples
+> ---
+>   Documentation/devicetree/bindings/net/sff,sfp.txt | 74 +++++++++++++++++++++++
+>   1 file changed, 74 insertions(+)
+>   create mode 100644 Documentation/devicetree/bindings/net/sff,sfp.txt
 > 
-> Are you sure?  For liujian use case (64 cores) it looks like we would
-> always fall through to percpu_counter_sum() so we eat spinlock_irqsave
-> cost for all compares.
-> 
-> Before we entertain this we should consider reducing frag_percpu_counter_batch
-> to a smaller value.
+> diff --git a/Documentation/devicetree/bindings/net/sff,sfp.txt b/Documentation/devicetree/bindings/net/sff,sfp.txt
+> new file mode 100644
+> index 000000000000..1d9c786d6287
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/net/sff,sfp.txt
+> @@ -0,0 +1,74 @@
+> +Small Form Factor (SFF) Committee Small Form-factor Pluggable (SFP)
+> +Transceiver
+> +
+> +Required properties:
+> +
+> +- compatible : must be "sff,sfp"
+> +
+> +Optional Properties:
+> +
+> +- i2c-bus : phandle of an I2C bus controller for the SFP two wire serial
+> +  interface
+ > +
+> +- moddef0-gpios : phandle of the MOD-DEF0 (AKA Mod_ABS) module presence input
+> +  gpio signal
 
-Yes, I agree, we really need to lower/reduce the frag_percpu_counter_batch.
-As you say, else the __percpu_counter_compare() call will be useless
-(around systems with >= 32 CPUs).
+    Your example shows there's GPIO phandle *and* specifier.
 
-I think the bug is in frag_mem_limit().  It just reads the global
-counter (fbc->count), without considering other CPUs can have upto 130K
-that haven't been subtracted yet (due to 3M low limit, become dangerous
-at >=24 CPUs).  The  __percpu_counter_compare() does the right thing,
-and takes into account the number of (online) CPUs and batch size, to
-account for this.
+ > +
+> +- los-gpios : phandle of the Receiver Loss of Signal Indication input gpio
+> +  signal
 
-If we choose 16K (16384), and use __percpu_counter_compare(), then we
-can scale to systems with 256 CPUs (4*1024*1024/16384=256), before this
-memory accounting becomes more expensive (than not using percpu_counters).
-But Liujian, reports he have a 384 CPU system, so he would still need
-to increase the lower+high threshold.
+    Ditto.
 
+> +
+> +- tx-fault-gpios : phandle of the Module Transmitter Fault input gpio signal
 
-$ grep -H .  /proc/sys/net/ipv*/ip*frag_*_thresh /proc/sys/net/netfilter/nf_conntrack_frag6_*_thresh
-/proc/sys/net/ipv4/ipfrag_high_thresh:4194304
-/proc/sys/net/ipv4/ipfrag_low_thresh:3145728
-/proc/sys/net/ipv6/ip6frag_high_thresh:4194304
-/proc/sys/net/ipv6/ip6frag_low_thresh:3145728
-/proc/sys/net/netfilter/nf_conntrack_frag6_high_thresh:4194304
-/proc/sys/net/netfilter/nf_conntrack_frag6_low_thresh:3145728
+    Ditto.
 
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
+> +
+> +- tx-disable-gpios : phandle of the Transmitter Disable output gpio signal
+
+    Ditto.
+
+> +
+> +- rate-select0-gpios : phandle of the Rx Signaling Rate Select (AKA RS0) output
+> +  gpio
+> +
+> +- rate-select1-gpios : phandle of the Tx Signaling Rate Select (AKA RS1) output
+> +  gpio (SFP+ only)
+> +
+> +Example #1: Direct serdes to SFP connection
+> +
+> +sfp_eth3: sfp-eth3 {
+> +	compatible = "sff,sfp";
+> +	i2c-bus = <&sfp_1g_i2c>;
+> +	los-gpios = <&cpm_gpio2 22 GPIO_ACTIVE_HIGH>;
+> +	moddef0-gpios = <&cpm_gpio2 21 GPIO_ACTIVE_LOW>;
+> +	pinctrl-names = "default";
+> +	pinctrl-0 = <&cpm_sfp_1g_pins &cps_sfp_1g_pins>;
+> +	tx-disable-gpios = <&cps_gpio1 24 GPIO_ACTIVE_HIGH>;
+> +	tx-fault-gpios = <&cpm_gpio2 19 GPIO_ACTIVE_HIGH>;
+> +};
+[...]
+> +Example #2: Serdes to PHY to SFP connection
+> +
+> +sfp_eth0: sfp-eth0 {
+> +	compatible = "sff,sfp+";
+> +	i2c-bus = <&sfpp0_i2c>;
+> +	los-gpio = <&cps_gpio1 28 GPIO_ACTIVE_HIGH>;
+
+    You describe "los-gpios" above , not "los-gpio" (which is a deprecated form).
+
+> +	moddef0-gpio = <&cps_gpio1 27 GPIO_ACTIVE_LOW>;
+
+    Ditto.
+
+> +	pinctrl-names = "default";
+> +	pinctrl-0 = <&cps_sfpp0_pins>;
+> +	tx-disable-gpio = <&cps_gpio1 29 GPIO_ACTIVE_HIGH>;
+
+    Ditto.
+
+> +	tx-fault-gpio  = <&cps_gpio1 26 GPIO_ACTIVE_HIGH>;
+
+    Ditto.
+
+[...]
+
+MBR, Sergei
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
