@@ -1,7 +1,7 @@
 From: Colin King <colin.king@canonical.com>
-Subject: [PATCH][next] bpf: test_maps: fix typo "conenct" -> "connext"
-Date: Wed, 30 Aug 2017 12:47:07 +0100
-Message-ID: <20170830114707.28493-1-colin.king@canonical.com>
+Subject: [PATCH][next][V2] bpf: test_maps: fix typo "conenct" -> "connect"
+Date: Wed, 30 Aug 2017 12:47:30 +0100
+Message-ID: <20170830114730.28550-1-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 8bit
