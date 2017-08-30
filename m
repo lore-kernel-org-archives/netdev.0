@@ -1,70 +1,57 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: RE: [PATCH net-next v2] net: bcmgenet: Use correct I/O accessors
-Date: Wed, 30 Aug 2017 09:00:39 -0700
-Message-ID: <9B0290AA-64A9-4DF5-80E5-94AEA41D9D72@gmail.com>
-References: <1504034731-31613-1-git-send-email-f.fainelli@gmail.com> <063D6719AE5E284EB5DD2968C1650D6DD0069792@AcuExch.aculab.com>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: [PATCH] staging: r8822be: Fix typo for CONFIG_RTLWIFI_DEBUG
+Date: Wed, 30 Aug 2017 11:28:11 -0500
+Message-ID: <bd847ff7-8777-a89f-807c-df726d7561f7@lwfinger.net>
+References: <20170829112643.GA14571@kroah.com>
+ <1504006208-18965-1-git-send-email-andreas.ziegler@fau.de>
+ <fcab4e04-be42-5a05-c5ad-4947d2d41164@lwfinger.net>
+ <20170829144216.GA22295@kroah.com>
+ <bd895fab-dfb1-aa80-1ce5-4cad55d0e234@fau.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-        "opendmb@gmail.com" <opendmb@gmail.com>,
-        "jaedon.shin@gmail.com" <jaedon.shin@gmail.com>
-To: David Laight <David.Laight@ACULAB.COM>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f65.google.com ([209.85.218.65]:38289 "EHLO
-        mail-oi0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751405AbdH3QAw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 12:00:52 -0400
-Received: by mail-oi0-f65.google.com with SMTP id r203so5899837oih.5
-        for <netdev@vger.kernel.org>; Wed, 30 Aug 2017 09:00:52 -0700 (PDT)
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DD0069792@AcuExch.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: devel@driverdev.osuosl.org, netdev <netdev@vger.kernel.org>,
+ Yan-Hsuan Chuang <yhchuang@realtek.com>, Steven Ting <steventing@realtek.com>,
+ Birming Chiu <birming@realtek.com>
+To: Andreas Ziegler <andreas.ziegler@fau.de>,
+ Greg KH <gregkh@linuxfoundation.org>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <bd895fab-dfb1-aa80-1ce5-4cad55d0e234@fau.de>
+Content-Language: en-US
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-On August 30, 2017 4:39:52 AM PDT, David Laight <David=2ELaight@ACULAB=2ECO=
-M> wrote:
->From: Florian Fainelli
->> Sent: 29 August 2017 20:26
->> The GENET driver currently uses __raw_{read,write}l which means
->> native I/O endian=2E This works correctly for an ARM LE kernel
->(default)
->> but fails miserably on an ARM BE (BE8) kernel where registers are
->kept
->> little endian, so replace uses with {read,write}l_relaxed here which
->is
->> what we want because this is all performance sensitive code=2E
->=2E=2E=2E
->> +	if (IS_ENABLED(CONFIG_MIPS) && IS_ENABLED(CONFIG_CPU_BIG_ENDIAN))
->> +		__raw_writel(value, offset);
->> +	else
->> +		writel_relaxed(value, offset);
->
->How do you know that all BE MIPS that might have this driver have
->the BE registers of your card?
->(Or that all ARM BE systems have LE registers=2E)
->
+On 08/30/2017 02:58 AM, Andreas Ziegler wrote:
+> Indeed, sorry I missed that as well.
+> 
+> So what should we make of that #ifdef? The code inside it doesn't compile
+> (anymore? I didn't find any development history for that patch except the
+> original mail), as there is no definition of struct submit_ctx in the headers
+> (for other rtl drivers - 8188eu, 8723bs - that struct lives in
+> include/rtw_xmit.h). Is a comparable header simply missing?
+> 
+> Regards,
+> 
+> Andreas
 
-This is the embedded network controller found on Broadcom STB SoCs, they w=
-ere MIPS-based before, now ARM/ARM64-based=2E Any MIPS-based SoC that has t=
-his controller is using one of Broadcom's BMIPS processor (4350/4380/5000/5=
-200) and all obey the same rule that their endian strap propagates to bus r=
-egister endian setting as such that the result is always native endian for =
-them=2E All ARM/ARM64-based SoC are paired with a newer version of the regi=
-ster bus that voluntarily dropped support for changing its endian, such tha=
-t it is always LE for these newer SoCs=2E
+Andreas,
 
-You won't find this controller in any other product from Broadcom, just li=
-ke there was not a version designed for e=2Eg: running on a PCI(e) attached=
- FPGA or anything=2E
+I'm sorry that I did not have time yesterday to properly analyze the situation. 
+All I knew is that your patch was not the correct one. It turns out that the 
+extra code was left over from the original writing/testing of the driver and 
+should have been deleted. I have prepared a patch that does that and will submit 
+it soon.
 
->If nothing else the driver code should be predicated on a
->condition set by the kernel config that depends on the cpu build
->rather than embedding that condition in a lot of drivers
+When the extraneous code was deleted, addition simplifications of the code were 
+apparent. I am currently testing that change, and will submit the two patches at 
+the same time.
 
-The driver is made to build for as many configurations as possible but it =
-won't get probed unless the appropriate DT nodes are populated=2E
-
---=20
-Florian
+Larry
