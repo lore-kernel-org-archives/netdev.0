@@ -1,59 +1,50 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net 03/11] net/mlx5: Fix arm SRQ command for ISSI version 0
-Date: Thu, 31 Aug 2017 01:21:02 +0300
-Message-ID: <20170830222110.15737-4-saeedm@mellanox.com>
+Subject: [net 09/11] net/mlx5: E-Switch, Unload the representors in the correct order
+Date: Thu, 31 Aug 2017 01:21:08 +0300
+Message-ID: <20170830222110.15737-10-saeedm@mellanox.com>
 References: <20170830222110.15737-1-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Noa Osherovich <noaos@mellanox.com>,
+Cc: netdev@vger.kernel.org, Shahar Klein <shahark@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:53228 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:53280 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751286AbdH3WVc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 18:21:32 -0400
+        with ESMTP id S1751382AbdH3WVd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 18:21:33 -0400
 In-Reply-To: <20170830222110.15737-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Noa Osherovich <noaos@mellanox.com>
+From: Shahar Klein <shahark@mellanox.com>
 
-Support for ISSI version 0 was recently broken as the arm_srq_cmd
-command, which is used only for ISSI version 0, was given the opcode
-for ISSI version 1 instead of ISSI version 0.
+When changing from switchdev to legacy mode, all the representor port
+devices (uplink nic and reps) are cleaned up. Part of this cleaning
+process is removing the neigh entries and the hash table containing them.
+However, a representor neigh entry might be linked to the uplink port
+hash table and if the uplink nic is cleaned first the cleaning of the
+representor will end up in null deref.
+Fix that by unloading the representors in the opposite order of load.
 
-Change arm_srq_cmd to use the correct command opcode for ISSI version
-0.
-
-Fixes: af1ba291c5e4 ('{net, IB}/mlx5: Refactor internal SRQ API')
-Signed-off-by: Noa Osherovich <noaos@mellanox.com>
+Fixes: cb67b832921c ("net/mlx5e: Introduce SRIOV VF representors")
+Signed-off-by: Shahar Klein <shahark@mellanox.com>
+Reviewed-by: Roi Dayan <roid@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/srq.c | 12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/srq.c b/drivers/net/ethernet/mellanox/mlx5/core/srq.c
-index f774de6f5fcb..520f6382dfde 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/srq.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/srq.c
-@@ -201,13 +201,13 @@ static int destroy_srq_cmd(struct mlx5_core_dev *dev,
- static int arm_srq_cmd(struct mlx5_core_dev *dev, struct mlx5_core_srq *srq,
- 		       u16 lwm, int is_srq)
- {
--	/* arm_srq structs missing using identical xrc ones */
--	u32 srq_in[MLX5_ST_SZ_DW(arm_xrc_srq_in)] = {0};
--	u32 srq_out[MLX5_ST_SZ_DW(arm_xrc_srq_out)] = {0};
-+	u32 srq_in[MLX5_ST_SZ_DW(arm_rq_in)] = {0};
-+	u32 srq_out[MLX5_ST_SZ_DW(arm_rq_out)] = {0};
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+index 95b64025ce36..5bc0593bd76e 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+@@ -815,7 +815,7 @@ void esw_offloads_cleanup(struct mlx5_eswitch *esw, int nvports)
+ 	struct mlx5_eswitch_rep *rep;
+ 	int vport;
  
--	MLX5_SET(arm_xrc_srq_in, srq_in, opcode,   MLX5_CMD_OP_ARM_XRC_SRQ);
--	MLX5_SET(arm_xrc_srq_in, srq_in, xrc_srqn, srq->srqn);
--	MLX5_SET(arm_xrc_srq_in, srq_in, lwm,      lwm);
-+	MLX5_SET(arm_rq_in, srq_in, opcode, MLX5_CMD_OP_ARM_RQ);
-+	MLX5_SET(arm_rq_in, srq_in, op_mod, MLX5_ARM_RQ_IN_OP_MOD_SRQ);
-+	MLX5_SET(arm_rq_in, srq_in, srq_number, srq->srqn);
-+	MLX5_SET(arm_rq_in, srq_in, lwm,      lwm);
- 
- 	return  mlx5_cmd_exec(dev, srq_in, sizeof(srq_in),
- 			      srq_out, sizeof(srq_out));
+-	for (vport = 0; vport < nvports; vport++) {
++	for (vport = nvports - 1; vport >= 0; vport--) {
+ 		rep = &esw->offloads.vport_reps[vport];
+ 		if (!rep->valid)
+ 			continue;
 -- 
 2.13.0
