@@ -1,37 +1,54 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: DSA mv88e6xxx RX frame errors and TCP/IP RX failure
-Date: Thu, 31 Aug 2017 00:06:31 +0200
-Message-ID: <20170830220631.GM22289@lunn.ch>
-References: <CAJ+vNU0VzgDkH-ksHgaA0cn3nbCOfcUs_BU90v6xw_QappssgA@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v4 00/13] net: mvpp2: comphy configuration
+Date: Wed, 30 Aug 2017 15:18:24 -0700 (PDT)
+Message-ID: <20170830.151824.2294408281974075576.davem@davemloft.net>
+References: <20170830082924.3180-1-antoine.tenart@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Tim Harvey <tharvey@gateworks.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kishon@ti.com, andrew@lunn.ch, jason@lakedaemon.net,
+        sebastian.hesselbarth@gmail.com,
+        gregory.clement@free-electrons.com,
+        thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
+        linux@armlinux.org.uk, linux-kernel@vger.kernel.org,
+        mw@semihalf.com, stefanc@marvell.com,
+        miquel.raynal@free-electrons.com, netdev@vger.kernel.org
+To: antoine.tenart@free-electrons.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAJ+vNU0VzgDkH-ksHgaA0cn3nbCOfcUs_BU90v6xw_QappssgA@mail.gmail.com>
+In-Reply-To: <20170830082924.3180-1-antoine.tenart@free-electrons.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 30, 2017 at 12:53:56PM -0700, Tim Harvey wrote:
-> Greetings,
+From: Antoine Tenart <antoine.tenart@free-electrons.com>
+Date: Wed, 30 Aug 2017 10:29:11 +0200
+
+> This series, following up the one one the GoP/MAC configuration, aims at
+> stopping to depend on the firmware/bootloader configuration when using
+> the PPv2 engine. With this series the PPv2 driver does not need to rely
+> on a previous configuration, and dynamic reconfiguration while the
+> kernel is running can be done (i.e. switch one port from SGMII to 10G,
+> or the opposite). A port can now be configured in a different mode than
+> what's done in the firmware/bootloader as well.
 > 
-> I'm seeing RX frame errors when using the mv88e6xxx DSA driver on
-> 4.13-rc7. The board I'm using is a GW5904 [1] which has an IMX6 FEC
-> MAC (eth0) connected via RGMII to a MV88E6176 with its downstream
-> P0/P1/P2/P3 to front panel RJ45's (lan1-lan4).
+> The series first contain patches in the generic PHY framework to support
+> what is called the comphy (common PHYs), which is an h/w block providing
+> PHYs that can be configured in various modes ranging from SGMII, 10G
+> to SATA and others. As of now only the SGMII and 10G modes are
+> supported by the comphy driver.
+> 
+> Then patches are modifying the PPv2 driver to first add the comphy
+> initialization sequence (i.e. calls to the generic PHY framework) and to
+> then take advantage of this to allow dynamic reconfiguration (i.e.
+> configuring the mode of a port given what's connected, between sgmii and
+> 10G). Note the use of the comphy in the PPv2 driver is kept optional
+> (i.e. if not described in dt the driver still as before an relies on the
+> firmware/bootloader configuration).
+> 
+> Finally there are dt/defconfig patches to describe and take advantage of
+> this.
+> 
+> This was tested on a range of devices: 8040-db, 8040-mcbin and 7040-db.
+> 
+> @Dave: the dt patches should go through the mvebu tree (patches 9-13).
 
-Hi Tim
-
-Can you confirm the counter is this one:
-
-                       /* Report late collisions as a frame error. */
-                        if (status & (BD_ENET_RX_NO | BD_ENET_RX_CL))
-                                ndev->stats.rx_frame_errors++;
-
-I don't see anywhere else frame errors are counted, but it would be
-good to prove we are looking in the right place.
-
-     Andrew
+Ok, patches 1-8 applied to net-next, thanks!
