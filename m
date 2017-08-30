@@ -1,136 +1,62 @@
-From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH net-next v4 04/13] net: mvpp2: initialize the comphy
-Date: Wed, 30 Aug 2017 10:29:15 +0200
-Message-ID: <20170830082924.3180-5-antoine.tenart@free-electrons.com>
-References: <20170830082924.3180-1-antoine.tenart@free-electrons.com>
-Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
-        thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
-        linux@armlinux.org.uk, linux-kernel@vger.kernel.org,
-        mw@semihalf.com, stefanc@marvell.com,
-        miquel.raynal@free-electrons.com, netdev@vger.kernel.org
-To: davem@davemloft.net, kishon@ti.com, andrew@lunn.ch,
-        jason@lakedaemon.net, sebastian.hesselbarth@gmail.com,
-        gregory.clement@free-electrons.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170830082924.3180-1-antoine.tenart@free-electrons.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH v2 net-next 0/6] flow_dissector: Protocol specific flow dissector offload
+Date: Wed, 30 Aug 2017 10:41:10 +0200
+Message-ID: <874lsp8n2x.fsf@stressinduktion.org>
+References: <20170829232711.1465-1-tom@quantonium.net>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Tom Herbert <tom@quantonium.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:40947 "EHLO
+        out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751263AbdH3IlN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 04:41:13 -0400
+In-Reply-To: <20170829232711.1465-1-tom@quantonium.net> (Tom Herbert's message
+        of "Tue, 29 Aug 2017 16:27:05 -0700")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On some platforms, the comphy is between the MAC GoP and the PHYs. The
-mvpp2 driver currently relies on the firmware/bootloader to configure
-the comphy. As a comphy driver was added to the generic PHY framework,
-this patch uses it in the mvpp2 driver to configure the comphy at boot
-time to avoid relying on the bootloader.
+Hello Tom,
 
-Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
----
- drivers/net/ethernet/marvell/mvpp2.c | 44 +++++++++++++++++++++++++++++++++++-
- 1 file changed, 43 insertions(+), 1 deletion(-)
+Tom Herbert <tom@quantonium.net> writes:
 
-diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index e312dfc3555b..fab231858a41 100644
---- a/drivers/net/ethernet/marvell/mvpp2.c
-+++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -28,6 +28,7 @@
- #include <linux/of_address.h>
- #include <linux/of_device.h>
- #include <linux/phy.h>
-+#include <linux/phy/phy.h>
- #include <linux/clk.h>
- #include <linux/hrtimer.h>
- #include <linux/ktime.h>
-@@ -861,6 +862,7 @@ struct mvpp2_port {
- 
- 	phy_interface_t phy_interface;
- 	struct device_node *phy_node;
-+	struct phy *comphy;
- 	unsigned int link;
- 	unsigned int duplex;
- 	unsigned int speed;
-@@ -4420,6 +4422,32 @@ static int mvpp22_gop_init(struct mvpp2_port *port)
- 	return -EINVAL;
- }
- 
-+static int mvpp22_comphy_init(struct mvpp2_port *port)
-+{
-+	enum phy_mode mode;
-+	int ret;
-+
-+	if (!port->comphy)
-+		return 0;
-+
-+	switch (port->phy_interface) {
-+	case PHY_INTERFACE_MODE_SGMII:
-+		mode = PHY_MODE_SGMII;
-+		break;
-+	case PHY_INTERFACE_MODE_10GKR:
-+		mode = PHY_MODE_10GKR;
-+		break;
-+	default:
-+		return -EINVAL;
-+	}
-+
-+	ret = phy_set_mode(port->comphy, mode);
-+	if (ret)
-+		return ret;
-+
-+	return phy_power_on(port->comphy);
-+}
-+
- static void mvpp2_port_mii_gmac_configure_mode(struct mvpp2_port *port)
- {
- 	u32 val;
-@@ -6404,8 +6432,10 @@ static void mvpp2_start_dev(struct mvpp2_port *port)
- 	/* Enable interrupts on all CPUs */
- 	mvpp2_interrupts_enable(port);
- 
--	if (port->priv->hw_version == MVPP22)
-+	if (port->priv->hw_version == MVPP22) {
-+		mvpp22_comphy_init(port);
- 		mvpp22_gop_init(port);
-+	}
- 
- 	mvpp2_port_mii_set(port);
- 	mvpp2_port_enable(port);
-@@ -6436,6 +6466,7 @@ static void mvpp2_stop_dev(struct mvpp2_port *port)
- 	mvpp2_egress_disable(port);
- 	mvpp2_port_disable(port);
- 	phy_stop(ndev->phydev);
-+	phy_power_off(port->comphy);
- }
- 
- static int mvpp2_check_ringparam_valid(struct net_device *dev,
-@@ -7270,6 +7301,7 @@ static int mvpp2_port_probe(struct platform_device *pdev,
- 			    struct mvpp2 *priv)
- {
- 	struct device_node *phy_node;
-+	struct phy *comphy;
- 	struct mvpp2_port *port;
- 	struct mvpp2_port_pcpu *port_pcpu;
- 	struct net_device *dev;
-@@ -7311,6 +7343,15 @@ static int mvpp2_port_probe(struct platform_device *pdev,
- 		goto err_free_netdev;
- 	}
- 
-+	comphy = devm_of_phy_get(&pdev->dev, port_node, NULL);
-+	if (IS_ERR(comphy)) {
-+		if (PTR_ERR(comphy) == -EPROBE_DEFER) {
-+			err = -EPROBE_DEFER;
-+			goto err_free_netdev;
-+		}
-+		comphy = NULL;
-+	}
-+
- 	if (of_property_read_u32(port_node, "port-id", &id)) {
- 		err = -EINVAL;
- 		dev_err(&pdev->dev, "missing port-id value\n");
-@@ -7344,6 +7385,7 @@ static int mvpp2_port_probe(struct platform_device *pdev,
- 
- 	port->phy_node = phy_node;
- 	port->phy_interface = phy_mode;
-+	port->comphy = comphy;
- 
- 	if (priv->hw_version == MVPP21) {
- 		res = platform_get_resource(pdev, IORESOURCE_MEM, 2 + id);
--- 
-2.13.5
+> This patch set adds a new offload type to perform flow dissection for
+> specific protocols (either by EtherType or by IP protocol). This is
+> primary useful to crack open UDP encapsulations (like VXLAN, GUE) for
+> the purposes of parsing the encapsulated packet.
+>
+> Items in this patch set:
+> - Constify skb argument to UDP lookup functions
+> - Create new protocol case in __skb_dissect for ETH_P_TEB. This is based
+>   on the code in the GRE dissect function and the special handling in
+>   GRE can now be removed (it sets protocol to ETH_P_TEB and returns so
+>   goto proto_again is done)
+> - Add infrastructure for protocol specific flow dissection offload
+> - Add infrastructure to perform UDP flow dissection. Uses same model of
+>   GRO where a flow_dissect callback can be associated with a UDP
+>   socket
+> - Use the infrastructure to support flow dissection of VXLAN and GUE
+>
+> Tested:
+>
+> Forced RPS to call flow dissection for VXLAN, FOU, and GUE. Observed
+> that inner packet was being properly dissected.
+>
+> v2: Add signed off
+
+[...]
+
+Can you provide more context on why you did this series? Is the entropy
+insufficient you receive via UDP source ports? I assume this is the case
+for HW RSS hashing but actually not for the software dissector.
+
+Btw. we forbid hardware to use L4 information if IP_PROTO is UDP but we
+allow it in RPS (not in IPv6 if flowlabel is present). Your series could
+solve this problem by being more protocol specific and disallow
+fragmentation on a particular quadtuple, very much the same like hw
+encap offload, where we tell the specific port number to the hardware
+and then disallow using L4 information for all other UDP protocols.
+
+Thanks,
+Hannes
