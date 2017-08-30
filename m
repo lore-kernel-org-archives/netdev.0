@@ -1,128 +1,150 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [patch net-next 2/3] net/sched: Change cls_flower to use IDR
-Date: Wed, 30 Aug 2017 12:30:07 +0200
-Message-ID: <20170830103006.GB14786@vergenet.net>
-References: <1503902477-39829-1-git-send-email-chrism@mellanox.com>
- <1503902477-39829-3-git-send-email-chrism@mellanox.com>
- <20170828113721.GA14697@vergenet.net>
- <VI1PR0501MB2143DEF749AEB68635BEEC0CAB9F0@VI1PR0501MB2143.eurprd05.prod.outlook.com>
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: Re: [PATCH v2 net-next 4/6] udp: flow dissector offload
+Date: Wed, 30 Aug 2017 12:36:12 +0200
+Message-ID: <1504089372.2480.55.camel@redhat.com>
+References: <20170829232711.1465-1-tom@quantonium.net>
+         <20170829232711.1465-5-tom@quantonium.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "jhs@mojatatu.com" <jhs@mojatatu.com>,
-        "xiyou.wangcong@gmail.com" <xiyou.wangcong@gmail.com>,
-        "jiri@resnulli.us" <jiri@resnulli.us>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "mawilcox@microsoft.com" <mawilcox@microsoft.com>
-To: Chris Mi <chrism@mellanox.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Tom Herbert <tom@quantonium.net>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f53.google.com ([74.125.82.53]:38110 "EHLO
-        mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751357AbdH3KaL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 06:30:11 -0400
-Received: by mail-wm0-f53.google.com with SMTP id t201so7640471wmt.1
-        for <netdev@vger.kernel.org>; Wed, 30 Aug 2017 03:30:10 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <VI1PR0501MB2143DEF749AEB68635BEEC0CAB9F0@VI1PR0501MB2143.eurprd05.prod.outlook.com>
+Received: from mx1.redhat.com ([209.132.183.28]:42286 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751186AbdH3KgO (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 30 Aug 2017 06:36:14 -0400
+In-Reply-To: <20170829232711.1465-5-tom@quantonium.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 29, 2017 at 03:25:35AM +0000, Chris Mi wrote:
+On Tue, 2017-08-29 at 16:27 -0700, Tom Herbert wrote:
+> Add support to perform UDP specific flow dissection. This is
+> primarily intended for dissecting encapsulated packets in UDP
+> encapsulation.
 > 
+> This patch adds a flow_dissect offload for UDP4 and UDP6. The backend
+> function performs a socket lookup and calls the flow_dissect function
+> if a socket is found.
 > 
-> > -----Original Message-----
-> > From: Simon Horman [mailto:simon.horman@netronome.com]
-> > Sent: Monday, August 28, 2017 7:37 PM
-> > To: Chris Mi <chrism@mellanox.com>
-> > Cc: netdev@vger.kernel.org; jhs@mojatatu.com;
-> > xiyou.wangcong@gmail.com; jiri@resnulli.us; davem@davemloft.net;
-> > mawilcox@microsoft.com
-> > Subject: Re: [patch net-next 2/3] net/sched: Change cls_flower to use IDR
-> > 
-> > On Mon, Aug 28, 2017 at 02:41:16AM -0400, Chris Mi wrote:
-> > > Currently, all filters with the same priority are linked in a doubly
-> > > linked list. Every filter should have a unique handle. To make the
-> > > handle unique, we need to iterate the list every time to see if the
-> > > handle exists or not when inserting a new filter. It is time-consuming.
-> > > For example, it takes about 5m3.169s to insert 64K rules.
-> > >
-> > > This patch changes cls_flower to use IDR. With this patch, it takes
-> > > about 0m1.127s to insert 64K rules. The improvement is huge.
-> > 
-> > Very nice :)
-> > 
-> > > But please note that in this testing, all filters share the same action.
-> > > If every filter has a unique action, that is another bottleneck.
-> > > Follow-up patch in this patchset addresses that.
-> > >
-> > > Signed-off-by: Chris Mi <chrism@mellanox.com>
-> > > Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-> > > ---
-> > >  net/sched/cls_flower.c | 55
-> > > +++++++++++++++++++++-----------------------------
-> > >  1 file changed, 23 insertions(+), 32 deletions(-)
-> > >
-> > > diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c index
-> > > bd9dab4..3d041d2 100644
-> > > --- a/net/sched/cls_flower.c
-> > > +++ b/net/sched/cls_flower.c
-> > 
-> > ...
-> > 
-> > > @@ -890,6 +870,7 @@ static int fl_change(struct net *net, struct sk_buff
-> > *in_skb,
-> > >  	struct cls_fl_filter *fnew;
-> > >  	struct nlattr **tb;
-> > >  	struct fl_flow_mask mask = {};
-> > > +	unsigned long idr_index;
-> > >  	int err;
-> > >
-> > >  	if (!tca[TCA_OPTIONS])
-> > > @@ -920,13 +901,21 @@ static int fl_change(struct net *net, struct sk_buff
-> > *in_skb,
-> > >  		goto errout;
-> > >
-> > >  	if (!handle) {
-> > > -		handle = fl_grab_new_handle(tp, head);
-> > > -		if (!handle) {
-> > > -			err = -EINVAL;
-> > > +		err = idr_alloc_ext(&head->handle_idr, fnew, &idr_index,
-> > > +				    1, 0x80000000, GFP_KERNEL);
-> > > +		if (err)
-> > >  			goto errout;
-> > > -		}
-> > > +		fnew->handle = idr_index;
-> > > +	}
-> > > +
-> > > +	/* user specifies a handle and it doesn't exist */
-> > > +	if (handle && !fold) {
-> > > +		err = idr_alloc_ext(&head->handle_idr, fnew, &idr_index,
-> > > +				    handle, handle + 1, GFP_KERNEL);
-> > > +		if (err)
-> > > +			goto errout;
-> > > +		fnew->handle = idr_index;
-> > >  	}
-> > > -	fnew->handle = handle;
-> > >
-> > >  	if (tb[TCA_FLOWER_FLAGS]) {
-> > >  		fnew->flags = nla_get_u32(tb[TCA_FLOWER_FLAGS]);
-> > > @@ -980,6 +969,8 @@ static int fl_change(struct net *net, struct sk_buff
-> > *in_skb,
-> > >  	*arg = fnew;
-> > >
-> > >  	if (fold) {
-> > > +		fnew->handle = handle;
-> > 
-> > Can it be the case that fold is non-NULL and handle is zero?
-> > The handling of that case seem to have changed in this patch.
-> I don't think that could happen.  In function tc_ctl_tfilter(),
+> Signed-off-by: Tom Herbert <tom@quantonium.net>
+> ---
+>  include/linux/udp.h      |  8 ++++++++
+>  include/net/udp.h        |  8 ++++++++
+>  include/net/udp_tunnel.h |  8 ++++++++
+>  net/ipv4/udp_offload.c   | 45 +++++++++++++++++++++++++++++++++++++++++++++
+>  net/ipv4/udp_tunnel.c    |  1 +
+>  net/ipv6/udp_offload.c   | 13 +++++++++++++
+>  6 files changed, 83 insertions(+)
 > 
-> fl_get() will be called.  If handle is zero, fl_get() will return NULL.
-> That means fold is NULL.
+> diff --git a/include/linux/udp.h b/include/linux/udp.h
+> index eaea63bc79bb..2e90b189ef6a 100644
+> --- a/include/linux/udp.h
+> +++ b/include/linux/udp.h
+> @@ -79,6 +79,14 @@ struct udp_sock {
+>  	int			(*gro_complete)(struct sock *sk,
+>  						struct sk_buff *skb,
+>  						int nhoff);
+> +	/* Flow dissector function for a UDP socket */
+> +	enum flow_dissect_ret (*flow_dissect)(struct sock *sk,
+> +			const struct sk_buff *skb,
+> +			struct flow_dissector_key_control *key_control,
+> +			struct flow_dissector *flow_dissector,
+> +			void *target_container, void *data,
+> +			__be16 *p_proto, u8 *p_ip_proto, int *p_nhoff,
+> +			int *p_hlen, unsigned int flags);
+>  
+>  	/* udp_recvmsg try to use this before splicing sk_receive_queue */
+>  	struct sk_buff_head	reader_queue ____cacheline_aligned_in_smp;
+> diff --git a/include/net/udp.h b/include/net/udp.h
+> index f3d1de6f0983..499e4faf8b14 100644
+> --- a/include/net/udp.h
+> +++ b/include/net/udp.h
+> @@ -174,6 +174,14 @@ struct sk_buff **udp_gro_receive(struct sk_buff **head, struct sk_buff *skb,
+>  				 struct udphdr *uh, udp_lookup_t lookup);
+>  int udp_gro_complete(struct sk_buff *skb, int nhoff, udp_lookup_t lookup);
+>  
+> +enum flow_dissect_ret udp_flow_dissect(const struct sk_buff *skb,
+> +			udp_lookup_t lookup,
+> +			struct flow_dissector_key_control *key_control,
+> +			struct flow_dissector *flow_dissector,
+> +			void *target_container, void *data,
+> +			__be16 *p_proto, u8 *p_ip_proto, int *p_nhoff,
+> +			int *p_hlen, unsigned int flags);
+> +
+>  static inline struct udphdr *udp_gro_udphdr(struct sk_buff *skb)
+>  {
+>  	struct udphdr *uh;
+> diff --git a/include/net/udp_tunnel.h b/include/net/udp_tunnel.h
+> index 10cce0dd4450..b7102e0f41a9 100644
+> --- a/include/net/udp_tunnel.h
+> +++ b/include/net/udp_tunnel.h
+> @@ -69,6 +69,13 @@ typedef struct sk_buff **(*udp_tunnel_gro_receive_t)(struct sock *sk,
+>  						     struct sk_buff *skb);
+>  typedef int (*udp_tunnel_gro_complete_t)(struct sock *sk, struct sk_buff *skb,
+>  					 int nhoff);
+> +typedef enum flow_dissect_ret (*udp_tunnel_flow_dissect_t)(struct sock *sk,
+> +			const struct sk_buff *skb,
+> +			struct flow_dissector_key_control *key_control,
+> +			struct flow_dissector *flow_dissector,
+> +			void *target_container, void *data,
+> +			__be16 *p_proto, u8 *p_ip_proto, int *p_nhoff,
+> +			int *p_hlen, unsigned int flags);
+>  
+>  struct udp_tunnel_sock_cfg {
+>  	void *sk_user_data;     /* user data used by encap_rcv call back */
+> @@ -78,6 +85,7 @@ struct udp_tunnel_sock_cfg {
+>  	udp_tunnel_encap_destroy_t encap_destroy;
+>  	udp_tunnel_gro_receive_t gro_receive;
+>  	udp_tunnel_gro_complete_t gro_complete;
+> +	udp_tunnel_flow_dissect_t flow_dissect;
+>  };
+>  
+>  /* Setup the given (UDP) sock to receive UDP encapsulated packets */
+> diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
+> index 97658bfc1b58..7f0a7ed4a6f7 100644
+> --- a/net/ipv4/udp_offload.c
+> +++ b/net/ipv4/udp_offload.c
+> @@ -328,11 +328,56 @@ static int udp4_gro_complete(struct sk_buff *skb, int nhoff)
+>  	return udp_gro_complete(skb, nhoff, udp4_lib_lookup_skb);
+>  }
+>  
+> +enum flow_dissect_ret udp_flow_dissect(const struct sk_buff *skb,
+> +			udp_lookup_t lookup,
+> +			struct flow_dissector_key_control *key_control,
+> +			struct flow_dissector *flow_dissector,
+> +			void *target_container, void *data,
+> +			__be16 *p_proto, u8 *p_ip_proto, int *p_nhoff,
+> +			int *p_hlen, unsigned int flags)
+> +{
+> +	enum flow_dissect_ret ret = FLOW_DISSECT_RET_CONTINUE;
+> +	struct udphdr *uh, _uh;
+> +	struct sock *sk;
+> +
+> +	uh = __skb_header_pointer(skb, *p_nhoff, sizeof(_uh), data,
+> +				  *p_hlen, &_uh);
+> +	if (!uh)
+> +		return FLOW_DISSECT_RET_OUT_BAD;
+> +
+> +	rcu_read_lock();
+> +
+> +	sk = (*lookup)(skb, uh->source, uh->dest);
+> +
+> +	if (sk && udp_sk(sk)->flow_dissect)
+> +		ret = udp_sk(sk)->flow_dissect(sk, skb, key_control,
+> +					       flow_dissector, target_container,
+> +					       data, p_proto, p_ip_proto,
+> +					       p_nhoff, p_hlen, flags);
+> +	rcu_read_unlock();
+> +
+> +	return ret;
+> +}
+> +EXPORT_SYMBOL(udp_flow_dissect);
 
-Thanks for the explanation, I see that now.
+If I read the above correctly, this is going to add another full UDP
+lookup per UDP packet, can we avoid it with some static key enabled by
+vxlan/fou/etc. ?
 
-> > > +		idr_replace_ext(&head->handle_idr, fnew, fnew->handle);
-> > >  		list_replace_rcu(&fold->list, &fnew->list);
-> > >  		tcf_unbind_filter(tp, &fold->res);
-> > >  		call_rcu(&fold->rcu, fl_destroy_filter);
+Thanks,
+
+Paolo
