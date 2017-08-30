@@ -1,55 +1,34 @@
-From: Michael Ellerman <mpe@ellerman.id.au>
-Subject: Re: [PATCH v3 3/6] dt: booting-without-of: DT fix s/#interrupt-cell/#interrupt-cells/
-Date: Wed, 30 Aug 2017 19:20:39 +1000
-Message-ID: <87wp5l1kew.fsf@concordia.ellerman.id.au>
-References: <1496407129-13527-1-git-send-email-geert+renesas@glider.be> <1496407129-13527-4-git-send-email-geert+renesas@glider.be>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Neil Armstrong <narmstrong@baylibre.com>,
-        Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-        Paul Mackerras <paulus@samba.org>,
-        dri-devel@lists.freedesktop.org, linux-amlogic@lists.infradead.org,
-        devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        linuxppc-dev@lists.ozlabs.org,
-        Geert Uytterhoeven <geert+renesas@glider.be>
-To: Geert Uytterhoeven <geert+renesas@glider.be>,
-        David Airlie <airlied@linux.ie>,
-        Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Carlo Caione <carlo@caione.org>,
-        Kevin Hilman <khilman@baylibre.com>,
-        Chanho Min <chanho.min@lge.com>,
-        Catalin Marinas <catalin.marinas@arm.com>,
-        Will Deacon <will.deacon@arm.com>
+From: Bhumika Goyal <bhumirks@gmail.com>
+Subject: [PATCH] net: bcm63xx_enet: make bcm_enetsw_ethtool_ops const
+Date: Wed, 30 Aug 2017 14:55:08 +0530
+Message-ID: <1504085108-23495-1-git-send-email-bhumirks@gmail.com>
+Cc: Bhumika Goyal <bhumirks@gmail.com>
+To: julia.lawall@lip6.fr, f.fainelli@gmail.com,
+        bcm-kernel-feedback-list@broadcom.com, netdev@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1496407129-13527-4-git-send-email-geert+renesas@glider.be>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Geert Uytterhoeven <geert+renesas@glider.be> writes:
+Make this const as it is never modified.
 
-> Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
-> Acked-by: Rob Herring <robh@kernel.org>
-> ---
+Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
+---
+ drivers/net/ethernet/broadcom/bcm63xx_enet.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Rob this has your ack, but I'd expect it to go via your tree? Or should
-I grab it?
-
-cheers
-
-> diff --git a/Documentation/devicetree/booting-without-of.txt b/Documentation/devicetree/booting-without-of.txt
-> index 280d283304bb82d8..f35d3adacb987f7d 100644
-> --- a/Documentation/devicetree/booting-without-of.txt
-> +++ b/Documentation/devicetree/booting-without-of.txt
-> @@ -1309,7 +1309,7 @@ number and level/sense information. All interrupt children in an
->  OpenPIC interrupt domain use 2 cells per interrupt in their interrupts
->  property.
->  
-> -The PCI bus binding specifies a #interrupt-cell value of 1 to encode
-> +The PCI bus binding specifies a #interrupt-cells value of 1 to encode
->  which interrupt pin (INTA,INTB,INTC,INTD) is used.
->  
->  2) interrupt-parent property
-> -- 
-> 2.7.4
+diff --git a/drivers/net/ethernet/broadcom/bcm63xx_enet.c b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
+index 61a88b6..4f3845a 100644
+--- a/drivers/net/ethernet/broadcom/bcm63xx_enet.c
++++ b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
+@@ -2674,7 +2674,7 @@ static int bcm_enetsw_set_ringparam(struct net_device *dev,
+ 	return 0;
+ }
+ 
+-static struct ethtool_ops bcm_enetsw_ethtool_ops = {
++static const struct ethtool_ops bcm_enetsw_ethtool_ops = {
+ 	.get_strings		= bcm_enetsw_get_strings,
+ 	.get_sset_count		= bcm_enetsw_get_sset_count,
+ 	.get_ethtool_stats      = bcm_enetsw_get_ethtool_stats,
+-- 
+1.9.1
