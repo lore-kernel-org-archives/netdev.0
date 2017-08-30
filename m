@@ -1,99 +1,119 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: multi-queue over IFF_NO_QUEUE "virtual" devices
-Date: Tue, 29 Aug 2017 20:49:42 -0700
-Message-ID: <85342893-b84f-4922-1e23-8c9fe0e5f1e0@gmail.com>
-References: <21cdcfc2-0efc-c0df-6542-05bb8078d866@gmail.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH v2 net-next 1/8] bpf: Add support for recursively running
+ cgroup sock filters
+Date: Tue, 29 Aug 2017 21:11:48 -0700
+Message-ID: <20170830041146.q2b52d77x2gwyhco@ast-mbp>
+References: <20170826024957.m5ita6usxihywmdd@ast-mbp>
+ <bb4398e5-55a3-d63e-ac4d-3f9d7e2efc02@gmail.com>
+ <20170828235653.jq62menrcfrh5rco@ast-mbp>
+ <45102738-365f-d08b-f3cf-9a81683956c4@gmail.com>
+ <20170829011213.suddt5hkptaxd4rp@ast-mbp>
+ <32706501-5fc3-7f59-9210-1898e896d384@gmail.com>
+ <20170829041118.m6bsjvif2bxwtk6g@ast-mbp>
+ <ab9b2874-fadc-5ab6-7710-2ccb1d65bb2c@gmail.com>
+ <20170830025850.wlp2hp7d4kreodif@ast-mbp>
+ <79498e9c-2b22-d4d7-4b51-8a08e62ba237@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: davem@davemloft.net, vivien.didelot@savoirfairelinux.com
-To: netdev@vger.kernel.org, jiri@resnulli.us, jhs@mojatatu.com,
-        xiyou.wangcong@gmail.com, andrew@lunn.ch
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, daniel@iogearbox.net, ast@kernel.org,
+        tj@kernel.org, davem@davemloft.net, luto@amacapital.net
+To: David Ahern <dsahern@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f53.google.com ([209.85.218.53]:33587 "EHLO
-        mail-oi0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751318AbdH3Dtq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 23:49:46 -0400
-Received: by mail-oi0-f53.google.com with SMTP id r203so42551312oih.0
-        for <netdev@vger.kernel.org>; Tue, 29 Aug 2017 20:49:46 -0700 (PDT)
-In-Reply-To: <21cdcfc2-0efc-c0df-6542-05bb8078d866@gmail.com>
-Content-Language: en-US
+Received: from mail-pf0-f171.google.com ([209.85.192.171]:36216 "EHLO
+        mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751927AbdH3ELw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 00:11:52 -0400
+Received: by mail-pf0-f171.google.com with SMTP id z87so15997274pfi.3
+        for <netdev@vger.kernel.org>; Tue, 29 Aug 2017 21:11:52 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <79498e9c-2b22-d4d7-4b51-8a08e62ba237@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 08/07/17 à 15:26, Florian Fainelli a écrit :
-> Hi,
+On Tue, Aug 29, 2017 at 09:38:16PM -0600, David Ahern wrote:
+> On 8/29/17 8:58 PM, Alexei Starovoitov wrote:
+> > On Tue, Aug 29, 2017 at 07:03:43PM -0600, David Ahern wrote:
+> >> On 8/28/17 10:11 PM, Alexei Starovoitov wrote:
+> >>>
+> >>> Agree on the above, but you're mixing semantics of the new recurse
+> >>> flag and implementation of it. Ex: we don't have to copy this flag
+> >>> from prog->attr into cgroup. So this reset or non-reset discussion
+> >>> only makes sense in the context of your current implementation.
+> >>> We can implement the logic differently. Like don't copy that flag
+> >>> at all and at attach time walk parent->parent->parent and see
+> >>> what programs are attached. All of them should have prog->attr & recurse_bit set
+> >>> In such implementation detach from 'b' is a nop from reset/non-reset
+> >>> point of view. When socket creation in 'c' is invoked the program
+> >>> 'c' is called first then the code keeps walking parents until root
+> >>> invoking 'a' along the way.
+> >>
+> >> So you are suggesting there is no recursive flag per cgroup? How do you
+> >> know you need to walk cgroups? How do you know when to stop running
+> >> programs?
+> > 
+> > you're talking about implementation, right?
+> > My 'proposed' implemenation of walking from cgroup all the way to the root
+> > is just an example. It's not efficient. More below...
+> > 
+> >>> I'm not saying it will be an efficient implementation. The point
+> >>> is to discuss UAPI independent of implementation.
+> >>>
+> >>>> ###
+> >>>>
+> >>>> Also, let's agree on this intention. Based on the new ground rule, I
+> >>>> want to point out this example:
+> >>>>
+> >>>> If 'a' gets a program installed with no recurse flag set, ONLY processes
+> >>>> in 'a' have the 'a' program run. Processes in groups 'b', 'c' and 'd'
+> >>>> all stop at cgroup 'b' program.
+> >>>
+> >>> I'm proposing that such situation should not be allowed to happen.
+> >>> In a->b->c->d cgroup scenario if override+recurse prog attached to 'b'
+> >>> then only the same override+recurse can be attached to c, d, a.
+> >>> So at detach time there can be gaps (like only 'b' and 'd' have
+> >>> override+recurse progs), but walking up until root from any point
+> >>> will guarantee that only override+recurse programs are seen.
+> >>>
+> >>
+> >> That seems very limiting to me. Seems like you are suggesting the entire
+> >> cgroup tree is recursive or non-recursive, but never a mix.
+> > 
+> > Entire cgroup subtree. Yes. It's the simplest uapi I could think of.
 > 
-> Most DSA supported Broadcom switches have multiple queues per ports
-> (usually 8) and each of these queues can be configured with different
-> pause, drop, hysteresis thresholds and so on in order to make use of the
-> switch's internal buffering scheme and have some queues achieve some
-> kind of lossless behavior (e.g: LAN to LAN traffic for Q7 has a higher
-> priority than LAN to WAN for Q0).
+> So 10 email exchanges later you agree on the UAPI I implemented in this
+> patch: user opts in to recursive behavior via a new flag at attach time,
+> and once a recursive program is installed at some point in the cgroup
+> tree it applies to all descendant cgroups.
 > 
-> This is obviously very workload specific, so I'd want maximum
-> programmability as much as possible.
+> So all of these exchanges weren't about the UAPI, but your disagreement
+> in my implementation. The only user visible change here is only programs
+> marked recursive are run versus going back to the first cgroup marked
+> non-recursive.
+
+you cannot be serious. Your implemention is not at all what i'm proposing
+above as a simplest uapi. Should we all go back and re-read from the beginning?
+
+> > Easy to understand and argue about and I think it's solving your use case.
+> > It's also easily extendable. New combination and features won't break
+> > the users. It feels you're in rush to get this stuff for this merge
+> > window, therefore I want to agree on something that is simple,
+> > non-controversial and extensible.
 > 
-> This brings me to a few questions:
-> 
-> 1) If we have the DSA slave network devices currently flagged with
-> IFF_NO_QUEUE becoming multi-queue (on TX) aware such that an application
-> can control exactly which switch egress queue is used on a per-flow
-> basis, would that be a problem (this is the dynamic selection of the TX
-> queue)?
+> I am in no-rush, but this does not to fall by the wayside like the net
+> namespace specification.
 
-So I have this part figured out, with a bunch of changes network devices
-created by DSA are now multiqueue aware and the Broadcom tag layer is
-capable of extracting the queue index, passing it in the tag where
-expected and having the switch forward to the appropriate switch port
-and queue within that port. It also sets the queue mapping in the SKB
-for later consumption by the master network device driver: bcmsysport.c
-because of 2).
+It's more than that! I think you only looking at it from vrf perspective
+whereas cgroup-bpf became a corner stone feature and enabler for tcp-bpf
+which in turn became a stepping stone for bpf_sk_redirect.
+So no, I'm not going to let something half baked that touches
+the core idea of cgroup-bpf slide in.
+Tejun and Andy also need to take a look, so yes it will take long
+time for everyone to agree on this core uapi.
 
-> 
-> 2) The conduit interface (CPU) port network interface has a congestion
-> control scheme which requires each of its TX queues (32 or 16) to be
-> statically mapped to each of the underlying switch port queues because
-> the congestion/ HW needs to inspect the queue depths of the switch to
-> accept/reject a packet at the CPU's TX ring level. Do we have a good way
-> with tc to map a virtual/stacked device's queue(s) on-top of its
-> physical/underlying device's queues (this is the static queue mapping
-> necessary for congestion to work)?
+> Given the pending release of 4.13 net-next will close which gives a 2+
+> week window to work on v3 before the next merge window. Plenty of time
+> for me to work it into the many other things on my plate.
 
-That part I have not figured out yet, with some static mapping I can
-obtain the results that I want and was even considering the possibility
-of doing something like this:
-
-- register a network device notifier with bcmsysport.c (master network
-device) for this setup
-- expose a helper function allowing me to obtain a given DSA network
-device port index
-- whenever DSA creates network devices reconfigure the ring and queue
-mapping of the TX queues managed by bcmsysport.c with the DSA network
-device port index that has just been registered and just do a 1-1
-mapping of the 8 queues
-
-You would end-up with something like:
-
-gphy (port 0) queues 0-7 mapped to systemport queues 0-7
-rgmii_1 (port 1) queues 0-7 mapped to systemport queues 8-15
-rgmii_2 (port 2) queues 0-7 mapped to systemport queues 16 through 23
-moca (port 7) queues 0-7 mapped to systemport queues 24-31
-
-This should be working because bcmsysport's TX queues are not under
-direct control by the user, they are used via DSA created network
-devices which indicate the queue they want to use. When the DSA
-interfaces are brought down, their respective systemport queues now
-become unused. This also works because the number of physical ports of
-the switch times the number of queues is matching the number of TX
-queues from systemport (like if someone designed it with that exact
-purpose in mind ;)).
-
-The only problem with that approach of course is that it embeds a policy
-within the systemport driver.
-
-Ideally I would really like to configure this via tc by setting up a
-mapping between queues of one network devices to queues of another
-network device, is that a possible thing, Jamal, Cong, Jiri, do you know?
--- 
-Florian
+As I proposed several emails ago, please repost patches 2 and 3 that
+I already acked and we can continue discussing this patch without
+the agitation.
