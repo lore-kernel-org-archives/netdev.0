@@ -1,7 +1,7 @@
 From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH net-next v4 07/13] net: mvpp2: do not set GMAC autoneg when using XLG MAC
-Date: Wed, 30 Aug 2017 10:29:18 +0200
-Message-ID: <20170830082924.3180-8-antoine.tenart@free-electrons.com>
+Subject: [PATCH net-next v4 09/13] arm64: dts: marvell: extend the cp110 syscon register area length
+Date: Wed, 30 Aug 2017 10:29:20 +0200
+Message-ID: <20170830082924.3180-10-antoine.tenart@free-electrons.com>
 References: <20170830082924.3180-1-antoine.tenart@free-electrons.com>
 Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
         thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
@@ -16,103 +16,40 @@ In-Reply-To: <20170830082924.3180-1-antoine.tenart@free-electrons.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When using the XLG MAC, it does not make sense to force the GMAC autoneg
-parameters. This patch adds checks to only set the GMAC autoneg
-parameters when needed (i.e. when not using the XLG MAC).
+This patch extends on both cp110 the system register area length to
+include some of the comphy registers as well.
 
 Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
 ---
- drivers/net/ethernet/marvell/mvpp2.c | 64 +++++++++++++++++++++++-------------
- 1 file changed, 42 insertions(+), 22 deletions(-)
+ arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi | 2 +-
+ arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi  | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 09cad32734f3..2f05a0b0773c 100644
---- a/drivers/net/ethernet/marvell/mvpp2.c
-+++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -5735,6 +5735,37 @@ static irqreturn_t mvpp2_isr(int irq, void *dev_id)
- 	return IRQ_HANDLED;
- }
+diff --git a/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi b/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi
+index 18299e164cb7..9b2581473183 100644
+--- a/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi
++++ b/arch/arm64/boot/dts/marvell/armada-cp110-master.dtsi
+@@ -118,7 +118,7 @@
  
-+static void mvpp2_gmac_set_autoneg(struct mvpp2_port *port,
-+				   struct phy_device *phydev)
-+{
-+	u32 val;
-+
-+	if (port->phy_interface != PHY_INTERFACE_MODE_RGMII &&
-+	    port->phy_interface != PHY_INTERFACE_MODE_RGMII_ID &&
-+	    port->phy_interface != PHY_INTERFACE_MODE_RGMII_RXID &&
-+	    port->phy_interface != PHY_INTERFACE_MODE_RGMII_TXID &&
-+	    port->phy_interface != PHY_INTERFACE_MODE_SGMII)
-+		return;
-+
-+	val = readl(port->base + MVPP2_GMAC_AUTONEG_CONFIG);
-+	val &= ~(MVPP2_GMAC_CONFIG_MII_SPEED |
-+		 MVPP2_GMAC_CONFIG_GMII_SPEED |
-+		 MVPP2_GMAC_CONFIG_FULL_DUPLEX |
-+		 MVPP2_GMAC_AN_SPEED_EN |
-+		 MVPP2_GMAC_AN_DUPLEX_EN);
-+
-+	if (phydev->duplex)
-+		val |= MVPP2_GMAC_CONFIG_FULL_DUPLEX;
-+
-+	if (phydev->speed == SPEED_1000)
-+		val |= MVPP2_GMAC_CONFIG_GMII_SPEED;
-+	else if (phydev->speed == SPEED_100)
-+		val |= MVPP2_GMAC_CONFIG_MII_SPEED;
-+
-+	writel(val, port->base + MVPP2_GMAC_AUTONEG_CONFIG);
-+
-+}
-+
- /* Adjust link */
- static void mvpp2_link_event(struct net_device *dev)
- {
-@@ -5745,24 +5776,7 @@ static void mvpp2_link_event(struct net_device *dev)
- 	if (phydev->link) {
- 		if ((port->speed != phydev->speed) ||
- 		    (port->duplex != phydev->duplex)) {
--			u32 val;
--
--			val = readl(port->base + MVPP2_GMAC_AUTONEG_CONFIG);
--			val &= ~(MVPP2_GMAC_CONFIG_MII_SPEED |
--				 MVPP2_GMAC_CONFIG_GMII_SPEED |
--				 MVPP2_GMAC_CONFIG_FULL_DUPLEX |
--				 MVPP2_GMAC_AN_SPEED_EN |
--				 MVPP2_GMAC_AN_DUPLEX_EN);
--
--			if (phydev->duplex)
--				val |= MVPP2_GMAC_CONFIG_FULL_DUPLEX;
--
--			if (phydev->speed == SPEED_1000)
--				val |= MVPP2_GMAC_CONFIG_GMII_SPEED;
--			else if (phydev->speed == SPEED_100)
--				val |= MVPP2_GMAC_CONFIG_MII_SPEED;
--
--			writel(val, port->base + MVPP2_GMAC_AUTONEG_CONFIG);
-+			mvpp2_gmac_set_autoneg(port, phydev);
+ 			cpm_syscon0: system-controller@440000 {
+ 				compatible = "syscon", "simple-mfd";
+-				reg = <0x440000 0x1000>;
++				reg = <0x440000 0x2000>;
  
- 			port->duplex = phydev->duplex;
- 			port->speed  = phydev->speed;
-@@ -5773,10 +5787,16 @@ static void mvpp2_link_event(struct net_device *dev)
- 		port->link = phydev->link;
+ 				cpm_clk: clock {
+ 					compatible = "marvell,cp110-clock";
+diff --git a/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi b/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi
+index 5ae8fa575859..d3902f218c46 100644
+--- a/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi
++++ b/arch/arm64/boot/dts/marvell/armada-cp110-slave.dtsi
+@@ -125,7 +125,7 @@
  
- 		if (phydev->link) {
--			val = readl(port->base + MVPP2_GMAC_AUTONEG_CONFIG);
--			val |= (MVPP2_GMAC_FORCE_LINK_PASS |
--				MVPP2_GMAC_FORCE_LINK_DOWN);
--			writel(val, port->base + MVPP2_GMAC_AUTONEG_CONFIG);
-+			if (port->phy_interface == PHY_INTERFACE_MODE_RGMII ||
-+			    port->phy_interface == PHY_INTERFACE_MODE_RGMII_ID ||
-+			    port->phy_interface == PHY_INTERFACE_MODE_RGMII_RXID ||
-+			    port->phy_interface == PHY_INTERFACE_MODE_RGMII_TXID ||
-+			    port->phy_interface == PHY_INTERFACE_MODE_SGMII) {
-+				val = readl(port->base + MVPP2_GMAC_AUTONEG_CONFIG);
-+				val |= (MVPP2_GMAC_FORCE_LINK_PASS |
-+					MVPP2_GMAC_FORCE_LINK_DOWN);
-+				writel(val, port->base + MVPP2_GMAC_AUTONEG_CONFIG);
-+			}
+ 			cps_syscon0: system-controller@440000 {
+ 				compatible = "syscon", "simple-mfd";
+-				reg = <0x440000 0x1000>;
++				reg = <0x440000 0x2000>;
  
- 			mvpp2_interrupts_enable(port);
- 			mvpp2_port_enable(port);
+ 				cps_clk: clock {
+ 					compatible = "marvell,cp110-clock";
 -- 
 2.13.5
