@@ -1,7 +1,7 @@
 From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH net-next v4 05/13] net: mvpp2: simplify the link_event function
-Date: Wed, 30 Aug 2017 10:29:16 +0200
-Message-ID: <20170830082924.3180-6-antoine.tenart@free-electrons.com>
+Subject: [PATCH net-next v4 06/13] net: mvpp2: improve the link management function
+Date: Wed, 30 Aug 2017 10:29:17 +0200
+Message-ID: <20170830082924.3180-7-antoine.tenart@free-electrons.com>
 References: <20170830082924.3180-1-antoine.tenart@free-electrons.com>
 Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
         thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
@@ -16,56 +16,47 @@ In-Reply-To: <20170830082924.3180-1-antoine.tenart@free-electrons.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The link_event function is somewhat complicated. This cosmetic patch
-simplifies it.
+When the link status changes, the phylib calls the link_event function
+in the mvpp2 driver. Before this patch only the egress/ingress transmit
+was enabled/disabled. This patch adds more functionality to the link
+status management code by enabling/disabling the port per-cpu
+interrupts, and the port itself. The queues are now stopped as well, and
+the netif carrier helpers are called.
 
 Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
 ---
- drivers/net/ethernet/marvell/mvpp2.c | 13 ++++---------
- 1 file changed, 4 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/marvell/mvpp2.c | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
 
 diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index fab231858a41..9c0c81e68d55 100644
+index 9c0c81e68d55..09cad32734f3 100644
 --- a/drivers/net/ethernet/marvell/mvpp2.c
 +++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -5740,7 +5740,6 @@ static void mvpp2_link_event(struct net_device *dev)
- {
- 	struct mvpp2_port *port = netdev_priv(dev);
- 	struct phy_device *phydev = dev->phydev;
--	int status_change = 0;
- 	u32 val;
- 
- 	if (phydev->link) {
-@@ -5771,16 +5770,8 @@ static void mvpp2_link_event(struct net_device *dev)
- 	}
- 
- 	if (phydev->link != port->link) {
--		if (!phydev->link) {
--			port->duplex = -1;
--			port->speed = 0;
--		}
--
- 		port->link = phydev->link;
--		status_change = 1;
--	}
- 
--	if (status_change) {
- 		if (phydev->link) {
- 			val = readl(port->base + MVPP2_GMAC_AUTONEG_CONFIG);
+@@ -5777,14 +5777,25 @@ static void mvpp2_link_event(struct net_device *dev)
  			val |= (MVPP2_GMAC_FORCE_LINK_PASS |
-@@ -5789,9 +5780,13 @@ static void mvpp2_link_event(struct net_device *dev)
+ 				MVPP2_GMAC_FORCE_LINK_DOWN);
+ 			writel(val, port->base + MVPP2_GMAC_AUTONEG_CONFIG);
++
++			mvpp2_interrupts_enable(port);
++			mvpp2_port_enable(port);
++
  			mvpp2_egress_enable(port);
  			mvpp2_ingress_enable(port);
++			netif_carrier_on(dev);
++			netif_tx_wake_all_queues(dev);
  		} else {
-+			port->duplex = -1;
-+			port->speed = 0;
-+
+ 			port->duplex = -1;
+ 			port->speed = 0;
+ 
++			netif_tx_stop_all_queues(dev);
++			netif_carrier_off(dev);
  			mvpp2_ingress_disable(port);
  			mvpp2_egress_disable(port);
- 		}
 +
++			mvpp2_port_disable(port);
++			mvpp2_interrupts_disable(port);
+ 		}
+ 
  		phy_print_status(phydev);
- 	}
- }
 -- 
 2.13.5
