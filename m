@@ -1,45 +1,49 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [iproute PATCH] ss: Fix for added diag support check
-Date: Wed, 30 Aug 2017 08:20:13 -0700
-Message-ID: <20170830082013.4b188a26@xeon-e3>
-References: <20170828173122.11458-1-phil@nwl.cc>
+Subject: Re: [PATCH net-next 0/3] tc: act_ife: handle IEEE IFE ethertype as
+ default
+Date: Wed, 30 Aug 2017 08:27:32 -0700
+Message-ID: <20170830082732.365864e3@xeon-e3>
+References: <20170828190315.26646-1-aring@mojatatu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Phil Sutter <phil@nwl.cc>
+Cc: jhs@mojatatu.com, yotamg@mellanox.com, xiyou.wangcong@gmail.com,
+        jiri@resnulli.us, lucasb@mojatatu.com, netdev@vger.kernel.org,
+        linux-kselftest@vger.kernel.org
+To: Alexander Aring <aring@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f51.google.com ([74.125.83.51]:36789 "EHLO
-        mail-pg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751710AbdH3PUR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 11:20:17 -0400
-Received: by mail-pg0-f51.google.com with SMTP id r133so20720631pgr.3
-        for <netdev@vger.kernel.org>; Wed, 30 Aug 2017 08:20:17 -0700 (PDT)
-In-Reply-To: <20170828173122.11458-1-phil@nwl.cc>
+Received: from mail-pg0-f45.google.com ([74.125.83.45]:36376 "EHLO
+        mail-pg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751415AbdH3P1e (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 11:27:34 -0400
+Received: by mail-pg0-f45.google.com with SMTP id r133so20775833pgr.3
+        for <netdev@vger.kernel.org>; Wed, 30 Aug 2017 08:27:34 -0700 (PDT)
+In-Reply-To: <20170828190315.26646-1-aring@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 28 Aug 2017 19:31:22 +0200
-Phil Sutter <phil@nwl.cc> wrote:
+On Mon, 28 Aug 2017 15:03:12 -0400
+Alexander Aring <aring@mojatatu.com> wrote:
 
-> Commit 9f66764e308e9 ("libnetlink: Add test for error code returned from
-> netlink reply") changed rtnl_dump_filter_l() to return an error in case
-> NLMSG_DONE would contain one, even if it was ENOENT.
+> Hi,
 > 
-> This in turn breaks ss when it tries to dump DCCP sockets on a system
-> without support for it: The function tcp_show(), which is shared between
-> TCP and DCCP, will start parsing /proc since inet_show_netlink() returns
-> an error - yet it parses /proc/net/tcp which doesn't make sense for DCCP
-> sockets at all.
+> this patch series will introduce the IFE ethertype which is registered by
+> IEEE. If the netlink act_ife type netlink attribute is not given it will
+> use this value by default now.
+> At least it will introduce some UAPI testcases to check if the default type
+> is used if not specified and vice versa.
 > 
-> On my system, a call to 'ss' without further arguments prints the list
-> of connected TCP sockets twice.
+> - Alex
 > 
-> Fix this by introducing a dedicated function dccp_show() which does not
-> have a fallback to /proc, just like sctp_show(). And since tcp_show()
-> is no longer "multi-purpose", drop it's socktype parameter.
+> Alexander Aring (3):
+>   if_ether: add forces ife lfb type
+>   act_ife: use registered ife_type as fallback
+>   tc-testing: add test for testing ife type
 > 
-> Fixes: 9f66764e308e9 ("libnetlink: Add test for error code returned from netlink reply")
-> Signed-off-by: Phil Sutter <phil@nwl.cc>
+>  include/uapi/linux/if_ether.h                      |  1 +
+>  net/sched/act_ife.c                                | 17 ++------
+>  .../tc-testing/tc-tests/actions/tests.json         | 50 ++++++++++++++++++++++
+>  3 files changed, 54 insertions(+), 14 deletions(-)
+> 
 
-Applied
+Applied to net-next
