@@ -1,7 +1,7 @@
 From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH net-next v4 11/13] arm64: dts: marvell: mcbin: add comphy references to Ethernet ports
-Date: Wed, 30 Aug 2017 10:29:22 +0200
-Message-ID: <20170830082924.3180-12-antoine.tenart@free-electrons.com>
+Subject: [PATCH net-next v4 08/13] net: mvpp2: dynamic reconfiguration of the comphy/GoP/MAC
+Date: Wed, 30 Aug 2017 10:29:19 +0200
+Message-ID: <20170830082924.3180-9-antoine.tenart@free-electrons.com>
 References: <20170830082924.3180-1-antoine.tenart@free-electrons.com>
 Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
         thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
@@ -16,42 +16,58 @@ In-Reply-To: <20170830082924.3180-1-antoine.tenart@free-electrons.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds comphy phandles to the Ethernet ports in the mcbin
-device tree. The comphy is used to configure the serdes PHYs used by
-these ports.
+This patch adds logic to reconfigure the comphy/GoP/MAC when the link
+state is updated at runtime. This is very useful on boards where many
+link speed are supported: depending on what is negotiated the PPv2
+driver will automatically reconfigures the link between the PHY and the
+MAC.
 
 Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
 ---
- arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts | 3 +++
- 1 file changed, 3 insertions(+)
+ drivers/net/ethernet/marvell/mvpp2.c | 21 ++++++++++++++++++++-
+ 1 file changed, 20 insertions(+), 1 deletion(-)
 
-diff --git a/arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts b/arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts
-index 9f0a00802452..970081ca197b 100644
---- a/arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts
-+++ b/arch/arm64/boot/dts/marvell/armada-8040-mcbin.dts
-@@ -148,6 +148,7 @@
- &cpm_eth0 {
- 	status = "okay";
- 	phy = <&phy0>;
-+	phys = <&cpm_comphy4 0>;
- 	phy-mode = "10gbase-kr";
- };
+diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
+index 2f05a0b0773c..9e64b1ba3d43 100644
+--- a/drivers/net/ethernet/marvell/mvpp2.c
++++ b/drivers/net/ethernet/marvell/mvpp2.c
+@@ -5771,9 +5771,28 @@ static void mvpp2_link_event(struct net_device *dev)
+ {
+ 	struct mvpp2_port *port = netdev_priv(dev);
+ 	struct phy_device *phydev = dev->phydev;
++	bool link_reconfigured = false;
+ 	u32 val;
  
-@@ -181,6 +182,7 @@
- &cps_eth0 {
- 	status = "okay";
- 	phy = <&phy8>;
-+	phys = <&cps_comphy4 0>;
- 	phy-mode = "10gbase-kr";
- };
+ 	if (phydev->link) {
++		if (port->phy_interface != phydev->interface && port->comphy) {
++	                /* disable current port for reconfiguration */
++	                mvpp2_interrupts_disable(port);
++	                netif_carrier_off(port->dev);
++	                mvpp2_port_disable(port);
++			phy_power_off(port->comphy);
++
++	                /* comphy reconfiguration */
++	                port->phy_interface = phydev->interface;
++	                mvpp22_comphy_init(port);
++
++	                /* gop/mac reconfiguration */
++	                mvpp22_gop_init(port);
++	                mvpp2_port_mii_set(port);
++
++	                link_reconfigured = true;
++		}
++
+ 		if ((port->speed != phydev->speed) ||
+ 		    (port->duplex != phydev->duplex)) {
+ 			mvpp2_gmac_set_autoneg(port, phydev);
+@@ -5783,7 +5802,7 @@ static void mvpp2_link_event(struct net_device *dev)
+ 		}
+ 	}
  
-@@ -189,6 +191,7 @@
- 	status = "okay";
- 	phy = <&ge_phy>;
- 	phy-mode = "sgmii";
-+	phys = <&cps_comphy0 1>;
- };
+-	if (phydev->link != port->link) {
++	if (phydev->link != port->link || link_reconfigured) {
+ 		port->link = phydev->link;
  
- &cps_sata0 {
+ 		if (phydev->link) {
 -- 
 2.13.5
