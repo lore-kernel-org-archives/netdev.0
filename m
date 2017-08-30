@@ -1,66 +1,71 @@
 From: =?UTF-8?q?Stefan=20S=C3=B8rensen?=
         <stefan.sorensen@spectralink.com>
-Subject: [PATCH net-next] net: cpsw: Don't handle SIOC[GS]HWTSTAMP when CPTS is disabled
-Date: Wed, 30 Aug 2017 08:50:55 +0200
-Message-ID: <20170830065055.419-1-stefan.sorensen@spectralink.com>
+Subject: [PATCH net-next] dp83640: don't hold spinlock while calling netif_rx_ni
+Date: Wed, 30 Aug 2017 08:58:47 +0200
+Message-ID: <20170830065847.2444-1-stefan.sorensen@spectralink.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
 Cc: =?UTF-8?q?Stefan=20S=C3=B8rensen?=
         <stefan.sorensen@spectralink.com>
-To: grygorii.strashko@ti.com, davem@davemloft.net,
-        netdev@vger.kernel.org, linux-omap@vger.kernel.org
+To: richardcochran@gmail.com, netdev@vger.kernel.org,
+        davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam03on0129.outbound.protection.outlook.com ([104.47.42.129]:20699
+Received: from mail-by2nam03on0118.outbound.protection.outlook.com ([104.47.42.118]:23245
         "EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750756AbdH3Gvb (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 30 Aug 2017 02:51:31 -0400
+        id S1750824AbdH3G7P (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 30 Aug 2017 02:59:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There is no reason to handle SIOC[GS]HWTSTAMP and return -EOPNOTSUPP when
-CPTS is disabled, so just pass them on to the phy. This will allow PTP
-timestamping on a capable phy by disabling CPTS.
+We should not hold a spinlock while pushing the skb into the networking
+stack, so move the call to netif_rx_ni out of the critical region to where
+we have dropped the spinlock.
 
 Signed-off-by: Stefan Sørensen <stefan.sorensen@spectralink.com>
 ---
- drivers/net/ethernet/ti/cpsw.c | 12 ++----------
- 1 file changed, 2 insertions(+), 10 deletions(-)
+ drivers/net/phy/dp83640.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index db8a4bcfc6c7..4413a669fd79 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -1791,16 +1791,6 @@ static int cpsw_hwtstamp_get(struct net_device *dev, struct ifreq *ifr)
- 
- 	return copy_to_user(ifr->ifr_data, &cfg, sizeof(cfg)) ? -EFAULT : 0;
+diff --git a/drivers/net/phy/dp83640.c b/drivers/net/phy/dp83640.c
+index c3065236ffcc..cbd629822f04 100644
+--- a/drivers/net/phy/dp83640.c
++++ b/drivers/net/phy/dp83640.c
+@@ -874,7 +874,6 @@ static void decode_rxts(struct dp83640_private *dp83640,
+ 			shhwtstamps = skb_hwtstamps(skb);
+ 			memset(shhwtstamps, 0, sizeof(*shhwtstamps));
+ 			shhwtstamps->hwtstamp = ns_to_ktime(rxts->ns);
+-			netif_rx_ni(skb);
+ 			list_add(&rxts->list, &dp83640->rxpool);
+ 			break;
+ 		}
+@@ -885,6 +884,9 @@ static void decode_rxts(struct dp83640_private *dp83640,
+ 		list_add_tail(&rxts->list, &dp83640->rxts);
+ out:
+ 	spin_unlock_irqrestore(&dp83640->rx_lock, flags);
++
++	if (shhwtstamps)
++		netif_rx_ni(skb);
  }
--#else
--static int cpsw_hwtstamp_get(struct net_device *dev, struct ifreq *ifr)
--{
--	return -EOPNOTSUPP;
--}
--
--static int cpsw_hwtstamp_set(struct net_device *dev, struct ifreq *ifr)
--{
--	return -EOPNOTSUPP;
--}
- #endif /*CONFIG_TI_CPTS*/
  
- static int cpsw_ndo_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
-@@ -1813,10 +1803,12 @@ static int cpsw_ndo_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
- 		return -EINVAL;
- 
- 	switch (cmd) {
-+#if IS_ENABLED(CONFIG_TI_CPTS)
- 	case SIOCSHWTSTAMP:
- 		return cpsw_hwtstamp_set(dev, req);
- 	case SIOCGHWTSTAMP:
- 		return cpsw_hwtstamp_get(dev, req);
-+#endif
+ static void decode_txts(struct dp83640_private *dp83640,
+@@ -1425,7 +1427,6 @@ static bool dp83640_rxtstamp(struct phy_device *phydev,
+ 			shhwtstamps = skb_hwtstamps(skb);
+ 			memset(shhwtstamps, 0, sizeof(*shhwtstamps));
+ 			shhwtstamps->hwtstamp = ns_to_ktime(rxts->ns);
+-			netif_rx_ni(skb);
+ 			list_del_init(&rxts->list);
+ 			list_add(&rxts->list, &dp83640->rxpool);
+ 			break;
+@@ -1438,6 +1439,8 @@ static bool dp83640_rxtstamp(struct phy_device *phydev,
+ 		skb_info->tmo = jiffies + SKB_TIMESTAMP_TIMEOUT;
+ 		skb_queue_tail(&dp83640->rx_queue, skb);
+ 		schedule_delayed_work(&dp83640->ts_work, SKB_TIMESTAMP_TIMEOUT);
++	} else {
++		netif_rx_ni(skb);
  	}
  
- 	if (!cpsw->slaves[slave_no].phy)
+ 	return true;
 -- 
 2.13.5
