@@ -1,51 +1,37 @@
-From: "Gustavo A. R. Silva" <gustavo@embeddedor.com>
-Subject: [PATCH] rtlwifi: rtl8723be: fix duplicated code for different
- branches
-Date: Wed, 30 Aug 2017 12:04:24 -0500
-Message-ID: <20170830170424.GA19424@embeddedgus>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: ti: cpsw-common: dont print error if
+ ti_cm_get_macid() fails
+Date: Wed, 30 Aug 2017 10:09:22 -0700 (PDT)
+Message-ID: <20170830.100922.2045071081491642186.davem@davemloft.net>
+References: <423afc6874d8911615c4df941957067aebfc09dd.1504080198.git.nsekhar@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        "Gustavo A. R. Silva" <gustavo@embeddedor.com>
-To: Larry Finger <Larry.Finger@lwfinger.net>,
-        Chaoming Li <chaoming_li@realsil.com.cn>,
-        Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: grygorii.strashko@ti.com, linux-omap@vger.kernel.org,
+        netdev@vger.kernel.org, tony@atomide.com, aford173@gmail.com
+To: nsekhar@ti.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:57064 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751333AbdH3RJ0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 13:09:26 -0400
+In-Reply-To: <423afc6874d8911615c4df941957067aebfc09dd.1504080198.git.nsekhar@ti.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Refactor code in order to avoid identical code for different branches.
+From: Sekhar Nori <nsekhar@ti.com>
+Date: Wed, 30 Aug 2017 13:37:13 +0530
 
-Addresses-Coverity-ID: 1248728
-Signed-off-by: Gustavo A. R. Silva <gustavo@embeddedor.com>
----
-This issue was reported by Coverity and it was tested by compilation only.
-Please, verify if this is not a copy/paste error.
-Also, notice this code has been there since 2014.
+> It is quite common for ti_cm_get_macid() to fail on some of the
+> platforms it is invoked on. They include any platform where
+> mac address is not part of SoC register space.
+> 
+> On these platforms, mac address is read and populated in
+> device-tree by bootloader. An example is TI DA850.
+> 
+> Downgrade the severity of message to "information", so it does
+> not spam logs when 'quiet' boot is desired.
+> 
+> Signed-off-by: Sekhar Nori <nsekhar@ti.com>
 
- drivers/net/wireless/realtek/rtlwifi/rtl8723be/dm.c | 8 ++------
- 1 file changed, 2 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/wireless/realtek/rtlwifi/rtl8723be/dm.c b/drivers/net/wireless/realtek/rtlwifi/rtl8723be/dm.c
-index 131c0d1..15c117e 100644
---- a/drivers/net/wireless/realtek/rtlwifi/rtl8723be/dm.c
-+++ b/drivers/net/wireless/realtek/rtlwifi/rtl8723be/dm.c
-@@ -883,12 +883,8 @@ static void rtl8723be_dm_txpower_tracking_callback_thermalmeter(
- 	if ((rtldm->power_index_offset[RF90_PATH_A] != 0) &&
- 	    (rtldm->txpower_track_control)) {
- 		rtldm->done_txpower = true;
--		if (thermalvalue > rtlefuse->eeprom_thermalmeter)
--			rtl8723be_dm_tx_power_track_set_power(hw, BBSWING, 0,
--							     index_for_channel);
--		else
--			rtl8723be_dm_tx_power_track_set_power(hw, BBSWING, 0,
--							     index_for_channel);
-+		rtl8723be_dm_tx_power_track_set_power(hw, BBSWING, 0,
-+						      index_for_channel);
- 
- 		rtldm->swing_idx_cck_base = rtldm->swing_idx_cck;
- 		rtldm->swing_idx_ofdm_base[RF90_PATH_A] =
--- 
-2.5.0
+Applied, thank you.
