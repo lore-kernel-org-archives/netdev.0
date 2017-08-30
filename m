@@ -1,98 +1,45 @@
-From: "Mooney, Sean K" <sean.k.mooney-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net-next v6 3/3] openvswitch: enable
-	NSH	support
-Date: Wed, 30 Aug 2017 11:36:17 +0000
-Message-ID: <4B1BB321037C0849AAE171801564DFA6888FAED3@IRSMSX107.ger.corp.intel.com>
-References: <1503670805-31051-1-git-send-email-yi.y.yang@intel.com>
-	<1503670805-31051-4-git-send-email-yi.y.yang@intel.com>
-	<87wp5l7560.fsf@stressinduktion.org>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next v2] net: bcmgenet: Use correct I/O accessors
+Date: Wed, 30 Aug 2017 11:39:52 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD0069792@AcuExch.aculab.com>
+References: <1504034731-31613-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"e@erig.me" <e@erig.me>, "jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-To: Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>, "Yang, Yi Y"
-	<yi.y.yang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <87wp5l7560.fsf-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+        "opendmb@gmail.com" <opendmb@gmail.com>,
+        "jaedon.shin@gmail.com" <jaedon.shin@gmail.com>
+To: 'Florian Fainelli' <f.fainelli@gmail.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out4.electric.net ([192.162.216.192]:60857 "EHLO
+        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751332AbdH3LkA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 07:40:00 -0400
+In-Reply-To: <1504034731-31613-1-git-send-email-f.fainelli@gmail.com>
 Content-Language: en-US
-List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
-List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Florian Fainelli
+> Sent: 29 August 2017 20:26
+> The GENET driver currently uses __raw_{read,write}l which means
+> native I/O endian. This works correctly for an ARM LE kernel (default)
+> but fails miserably on an ARM BE (BE8) kernel where registers are kept
+> little endian, so replace uses with {read,write}l_relaxed here which is
+> what we want because this is all performance sensitive code.
+...
+> +	if (IS_ENABLED(CONFIG_MIPS) && IS_ENABLED(CONFIG_CPU_BIG_ENDIAN))
+> +		__raw_writel(value, offset);
+> +	else
+> +		writel_relaxed(value, offset);
 
+How do you know that all BE MIPS that might have this driver have
+the BE registers of your card?
+(Or that all ARM BE systems have LE registers.)
 
-> -----Original Message-----
-> From: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org [mailto:ovs-dev-
-> bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org] On Behalf Of Hannes Frederic Sowa
-> Sent: Wednesday, August 30, 2017 10:53 AM
-> To: Yang, Yi Y <yi.y.yang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-> Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org; netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org;
-> e@erig.me
-> Subject: Re: [ovs-dev] [PATCH net-next v6 3/3] openvswitch: enable NSH
-> support
-> 
-> Hello,
-> 
-> Yi Yang <yi.y.yang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org> writes:
-> 
-> [...]
-> 
-> > +struct ovs_key_nsh {
-> > +	u8 flags;
-> > +	u8 ttl;
-> > +	u8 mdtype;
-> > +	u8 np;
-> > +	__be32 path_hdr;
-> > +	__be32 context[NSH_MD1_CONTEXT_SIZE]; };
-> > +
-> >  struct sw_flow_key {
-> >  	u8 tun_opts[IP_TUNNEL_OPTS_MAX];
-> >  	u8 tun_opts_len;
-> > @@ -144,6 +154,7 @@ struct sw_flow_key {
-> >  			};
-> >  		} ipv6;
-> >  	};
-> > +	struct ovs_key_nsh nsh;         /* network service header */
-> >  	struct {
-> >  		/* Connection tracking fields not packed above. */
-> >  		struct {
-> 
-> Does it makes sense to keep the context headers as part of the flow?
-> What is the reasoning behind it? With mdtype 2 headers this might
-> either not work very well or will increase sw_flow_key size causing
-> slowdowns for all protocols.
-[Mooney, Sean K] 
-Having the nsh context headers in the flow is quite useful
-It would allow loadblancing on values stored in the context headers
-Or other use. I belive odl previously used context header 4 to store a
-Flow id so this could potentialy be used with the multipath action to have ovs
-Choose between several possible next hops in the chain.
+If nothing else the driver code should be predicated on a
+condition set by the kernel config that depends on the cpu build
+rather than embedding that condition in a lot of drivers
 
-Another example of where this is usefull is branching chains.
-if I assume that both the classifier and
-Service function forwarder are collocated in ovs on the host, and is send
-A packet to a firewall service function which tags the packet as suspicious
-Via setting a context header metadata field to 1, I as the sdn controller can
-Install a high priority rule that will reclassify the packet as part of as separate
-Service function chain the will prefer dpi on the packet before returning it to
-The original chain if demand not a threat.
-
-So while a sff dose not in general have to be able to match on the context header
-If I assume I want to use ovs to implenet a classifier or service function(e.g. loadblancer)
-The its desirable to be able to both match on the context headers in md type1  and also be able
-To set them(this is something classifies and service fuction are allowed to do).
-> 
-> [...]
-> _______________________________________________
-> dev mailing list
-> dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-> https://mail.openvswitch.org/mailman/listinfo/ovs-dev
+	David
