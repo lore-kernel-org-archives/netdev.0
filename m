@@ -1,65 +1,82 @@
-From: Jassi Brar <jassisinghbrar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [net-next PATCHv6 0/2] net: ethernet: Socionext Netsec
-Date: Wed, 30 Aug 2017 15:54:17 +0530
-Message-ID: <1504088657-6102-1-git-send-email-jaswinder.singh@linaro.org>
-Cc: patches-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, arnd-r2nGTMty4D4@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
-        robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, andy-/Zus8d0mwwtBDgjK7y7TUQ@public.gmane.org,
-        Jassi Brar <jaswinder.singh-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Jassi Brar <jassisinghbrar@gmail.com>
+Subject: [net-next PATCHv6 1/2] dt-bindings: net: Add DT bindings for Socionext Netsec
+Date: Wed, 30 Aug 2017 15:55:52 +0530
+Message-ID: <1504088752-6204-1-git-send-email-jaswinder.singh@linaro.org>
+References: <1504088657-6102-1-git-send-email-jaswinder.singh@linaro.org>
+Cc: patches@linaro.org, arnd@arndb.de, mark.rutland@arm.com,
+        robh+dt@kernel.org, andy@warmcat.com,
+        Jassi Brar <jaswinder.singh@linaro.org>
+To: netdev@vger.kernel.org, devicetree@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:38847 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751300AbdH3K0C (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 06:26:02 -0400
+In-Reply-To: <1504088657-6102-1-git-send-email-jaswinder.singh@linaro.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
+This patch adds documentation for Device-Tree bindings for the
+Socionext NetSec Controller driver.
 
-  The OGMA/Netsec controller is used in latest SoC from Socionext/Fujitsu.
-
-I am refreshing the patchset by basically using official name of the IP
-from 'OGMA' to 'Netsec'. And the company is renamed too, from Fujitsu
-to Socionext to better reflect the reality.
-
- I have addressed comments (that could be) on the last revision -->
-https://patchwork.kernel.org/patch/4540651/
-
- Of course, I have scanned changes to the drivers/net/ethernet since
-last submission and integrated whichever applicable and rebased the
-driver on top of last rc.
-
-Thanks.
-
-Jassi Brar (2):
-  dt-bindings: net: Add DT bindings for Socionext Netsec
-  net: socionext: Add NetSec driver
-
- .../devicetree/bindings/net/socionext-netsec.txt   |  46 ++
- drivers/net/ethernet/Kconfig                       |   1 +
- drivers/net/ethernet/Makefile                      |   1 +
- drivers/net/ethernet/socionext/Kconfig             |  29 +
- drivers/net/ethernet/socionext/Makefile            |   1 +
- drivers/net/ethernet/socionext/netsec/Makefile     |   6 +
- drivers/net/ethernet/socionext/netsec/netsec.h     | 386 +++++++++++++
- .../socionext/netsec/netsec_desc_ring_access.c     | 618 +++++++++++++++++++++
- .../net/ethernet/socionext/netsec/netsec_ethtool.c |  76 +++
- .../ethernet/socionext/netsec/netsec_gmac_access.c | 329 +++++++++++
- .../net/ethernet/socionext/netsec/netsec_netdev.c  | 558 +++++++++++++++++++
- .../ethernet/socionext/netsec/netsec_platform.c    | 330 +++++++++++
- 12 files changed, 2381 insertions(+)
+Signed-off-by: Jassi Brar <jaswinder.singh@linaro.org>
+---
+ .../devicetree/bindings/net/socionext-netsec.txt   | 46 ++++++++++++++++++++++
+ 1 file changed, 46 insertions(+)
  create mode 100644 Documentation/devicetree/bindings/net/socionext-netsec.txt
- create mode 100644 drivers/net/ethernet/socionext/Kconfig
- create mode 100644 drivers/net/ethernet/socionext/Makefile
- create mode 100644 drivers/net/ethernet/socionext/netsec/Makefile
- create mode 100644 drivers/net/ethernet/socionext/netsec/netsec.h
- create mode 100644 drivers/net/ethernet/socionext/netsec/netsec_desc_ring_access.c
- create mode 100644 drivers/net/ethernet/socionext/netsec/netsec_ethtool.c
- create mode 100644 drivers/net/ethernet/socionext/netsec/netsec_gmac_access.c
- create mode 100644 drivers/net/ethernet/socionext/netsec/netsec_netdev.c
- create mode 100644 drivers/net/ethernet/socionext/netsec/netsec_platform.c
 
+diff --git a/Documentation/devicetree/bindings/net/socionext-netsec.txt b/Documentation/devicetree/bindings/net/socionext-netsec.txt
+new file mode 100644
+index 0000000..12d596c
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/socionext-netsec.txt
+@@ -0,0 +1,46 @@
++* Socionext NetSec Ethernet Controller IP
++
++Required properties:
++- compatible: Should be "socionext,netsecv5"
++- reg: Address and length of the register sets, the first is the main
++	registers, then the rdlar and tdlar regions for the SoC
++- interrupts: Should contain ethernet controller interrupt
++- clocks: phandle to any clocks to be switched by runtime_pm
++- phy-mode: See ethernet.txt file in the same directory
++- max-speed: See ethernet.txt file in the same directory
++- max-frame-size: See ethernet.txt file in the same directory, if 9000 or
++	above jumbo frames are enabled
++- local-mac-address: See ethernet.txt file in the same directory
++- phy-handle: phandle to select child phy
++
++Optional properties:
++- use-jumbo: Boolean property to suggest if jumbo packets should be used or not
++
++For the child phy
++
++- compatible "ethernet-phy-ieee802.3-c22" is needed
++- device_type "ethernet-phy"
++- reg: phy address
++
++
++Example:
++	eth0: ethernet {
++		compatible = "socionext,netsecv5";
++		reg = <0 0x31600000 0x10000>, <0 0x31618000 0x4000>, <0 0x3161c000 0x4000>;
++		interrupts = <0 163 0x4>;
++		clocks = <&clk_alw_0_8>;
++		phy-mode = "rgmii";
++		max-speed = <1000>;
++		max-frame-size = <9000>;
++		local-mac-address = [ a4 17 31 00 00 ed ];
++		phy-handle = <&ethphy0>;
++
++		#address-cells = <1>;
++		#size-cells = <0>;
++
++		ethphy0: ethernet-phy@1 {
++			device_type = "ethernet-phy";
++			compatible = "ethernet-phy-ieee802.3-c22";
++			reg = <1>;
++		};
++	};
 -- 
 2.7.4
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
