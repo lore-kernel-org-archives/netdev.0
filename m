@@ -1,65 +1,65 @@
-From: David Lebrun <david.lebrun@uclouvain.be>
-Subject: Re: [PATCH v2] ipv6: sr: fix get_srh() to comply with IPv6 standard
- "RFC 8200"
-Date: Wed, 30 Aug 2017 12:24:04 +0200
-Message-ID: <d4187569-a9ef-2525-becc-b3b81090db4c@uclouvain.be>
-References: <1504083037-1605-1-git-send-email-amsalam20@gmail.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature";
-        boundary="IFuMCiPlQXlJF29IfTfxkvLCKJr3cegvV"
-Cc: <netdev@vger.kernel.org>
-To: Ahmed Abdelsalam <amsalam20@gmail.com>, <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:35832 "EHLO
-        smtp5.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751319AbdH3KXd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 06:23:33 -0400
-In-Reply-To: <1504083037-1605-1-git-send-email-amsalam20@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jassi Brar <jassisinghbrar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [net-next PATCHv6 0/2] net: ethernet: Socionext Netsec
+Date: Wed, 30 Aug 2017 15:54:17 +0530
+Message-ID: <1504088657-6102-1-git-send-email-jaswinder.singh@linaro.org>
+Cc: patches-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, arnd-r2nGTMty4D4@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+        robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, andy-/Zus8d0mwwtBDgjK7y7TUQ@public.gmane.org,
+        Jassi Brar <jaswinder.singh-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
---IFuMCiPlQXlJF29IfTfxkvLCKJr3cegvV
-Content-Type: multipart/mixed; boundary="ibK47astqljOvrOuJgRJomoiiH6qD9fOE"
-From: David Lebrun <david.lebrun@uclouvain.be>
-To: Ahmed Abdelsalam <amsalam20@gmail.com>, davem@davemloft.net
-Cc: netdev@vger.kernel.org
-Message-ID: <d4187569-a9ef-2525-becc-b3b81090db4c@uclouvain.be>
-Subject: Re: [PATCH v2] ipv6: sr: fix get_srh() to comply with IPv6 standard
- "RFC 8200"
-References: <1504083037-1605-1-git-send-email-amsalam20@gmail.com>
-In-Reply-To: <1504083037-1605-1-git-send-email-amsalam20@gmail.com>
+Hello,
 
---ibK47astqljOvrOuJgRJomoiiH6qD9fOE
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+  The OGMA/Netsec controller is used in latest SoC from Socionext/Fujitsu.
 
-On 08/30/2017 10:50 AM, Ahmed Abdelsalam wrote:
-> This patch fixes the get_srh(), so it gets the segment routing header
-> regardless of its position in the chain of the extension headers in IPv=
-6
-> packet, and makes sure that the IPv6 routing extension header is of Typ=
-e 4.
->=20
-> Signed-off-by: Ahmed Abdelsalam <amsalam20@gmail.com>
+I am refreshing the patchset by basically using official name of the IP
+from 'OGMA' to 'Netsec'. And the company is renamed too, from Fujitsu
+to Socionext to better reflect the reality.
 
-Note that this patch applies to net-next.
+ I have addressed comments (that could be) on the last revision -->
+https://patchwork.kernel.org/patch/4540651/
 
-Acked-by: David Lebrun <david.lebrun@uclouvain.be>
+ Of course, I have scanned changes to the drivers/net/ethernet since
+last submission and integrated whichever applicable and rebased the
+driver on top of last rc.
 
+Thanks.
 
---ibK47astqljOvrOuJgRJomoiiH6qD9fOE--
+Jassi Brar (2):
+  dt-bindings: net: Add DT bindings for Socionext Netsec
+  net: socionext: Add NetSec driver
 
---IFuMCiPlQXlJF29IfTfxkvLCKJr3cegvV
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+ .../devicetree/bindings/net/socionext-netsec.txt   |  46 ++
+ drivers/net/ethernet/Kconfig                       |   1 +
+ drivers/net/ethernet/Makefile                      |   1 +
+ drivers/net/ethernet/socionext/Kconfig             |  29 +
+ drivers/net/ethernet/socionext/Makefile            |   1 +
+ drivers/net/ethernet/socionext/netsec/Makefile     |   6 +
+ drivers/net/ethernet/socionext/netsec/netsec.h     | 386 +++++++++++++
+ .../socionext/netsec/netsec_desc_ring_access.c     | 618 +++++++++++++++++++++
+ .../net/ethernet/socionext/netsec/netsec_ethtool.c |  76 +++
+ .../ethernet/socionext/netsec/netsec_gmac_access.c | 329 +++++++++++
+ .../net/ethernet/socionext/netsec/netsec_netdev.c  | 558 +++++++++++++++++++
+ .../ethernet/socionext/netsec/netsec_platform.c    | 330 +++++++++++
+ 12 files changed, 2381 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/socionext-netsec.txt
+ create mode 100644 drivers/net/ethernet/socionext/Kconfig
+ create mode 100644 drivers/net/ethernet/socionext/Makefile
+ create mode 100644 drivers/net/ethernet/socionext/netsec/Makefile
+ create mode 100644 drivers/net/ethernet/socionext/netsec/netsec.h
+ create mode 100644 drivers/net/ethernet/socionext/netsec/netsec_desc_ring_access.c
+ create mode 100644 drivers/net/ethernet/socionext/netsec/netsec_ethtool.c
+ create mode 100644 drivers/net/ethernet/socionext/netsec/netsec_gmac_access.c
+ create mode 100644 drivers/net/ethernet/socionext/netsec/netsec_netdev.c
+ create mode 100644 drivers/net/ethernet/socionext/netsec/netsec_platform.c
 
------BEGIN PGP SIGNATURE-----
+-- 
+2.7.4
 
-iF0EARECAB0WIQT8nTbQ2eQR5sQwCJ+NvOfruxnoAwUCWaaSRwAKCRCNvOfruxno
-A5kbAKCEOHpj84dHDgub1UeKJQQkfM+iUwCdEVTujyHaxmAEZTvySr/tS1zDFGU=
-=GL4I
------END PGP SIGNATURE-----
-
---IFuMCiPlQXlJF29IfTfxkvLCKJr3cegvV--
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
