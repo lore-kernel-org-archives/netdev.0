@@ -1,99 +1,70 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [ovs-dev] [PATCH net-next v6 3/3] openvswitch: enable NSH support
-Date: Wed, 30 Aug 2017 17:15:45 +0200
-Message-ID: <87inh56q8u.fsf@stressinduktion.org>
-References: <1503670805-31051-1-git-send-email-yi.y.yang@intel.com>
-        <1503670805-31051-4-git-send-email-yi.y.yang@intel.com>
-        <87wp5l7560.fsf@stressinduktion.org>
-        <4B1BB321037C0849AAE171801564DFA6888FAED3@IRSMSX107.ger.corp.intel.com>
+From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Subject: Re: [net-next PATCHv6 1/2] dt-bindings: net: Add DT bindings for
+ Socionext Netsec
+Date: Wed, 30 Aug 2017 17:19:42 +0200
+Message-ID: <20170830151942.GB22289@lunn.ch>
+References: <1504088657-6102-1-git-send-email-jaswinder.singh@linaro.org>
+ <1504088752-6204-1-git-send-email-jaswinder.singh@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "Yang\, Yi Y" <yi.y.yang@intel.com>,
-        "dev\@openvswitch.org" <dev@openvswitch.org>,
-        "netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
-        "jbenc\@redhat.com" <jbenc@redhat.com>, "e\@erig.me" <e@erig.me>
-To: "Mooney\, Sean K" <sean.k.mooney@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out4-smtp.messagingengine.com ([66.111.4.28]:33757 "EHLO
-        out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751317AbdH3PPv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 11:15:51 -0400
-In-Reply-To: <4B1BB321037C0849AAE171801564DFA6888FAED3@IRSMSX107.ger.corp.intel.com>
-        (Sean K. Mooney's message of "Wed, 30 Aug 2017 11:36:17 +0000")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+        mark.rutland-5wv7dgnIgG8@public.gmane.org, arnd-r2nGTMty4D4@public.gmane.org, patches-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org,
+        Jassi Brar <jaswinder.singh-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+        andy-/Zus8d0mwwtBDgjK7y7TUQ@public.gmane.org
+To: Jassi Brar <jassisinghbrar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1504088752-6204-1-git-send-email-jaswinder.singh-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-"Mooney, Sean K" <sean.k.mooney@intel.com> writes:
+On Wed, Aug 30, 2017 at 03:55:52PM +0530, Jassi Brar wrote:
+> This patch adds documentation for Device-Tree bindings for the
+> Socionext NetSec Controller driver.
+> 
+> Signed-off-by: Jassi Brar <jaswinder.singh-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+> ---
+>  .../devicetree/bindings/net/socionext-netsec.txt   | 46 ++++++++++++++++++++++
+>  1 file changed, 46 insertions(+)
+>  create mode 100644 Documentation/devicetree/bindings/net/socionext-netsec.txt
+> 
+> diff --git a/Documentation/devicetree/bindings/net/socionext-netsec.txt b/Documentation/devicetree/bindings/net/socionext-netsec.txt
+> new file mode 100644
+> index 0000000..12d596c
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/net/socionext-netsec.txt
+> @@ -0,0 +1,46 @@
+> +* Socionext NetSec Ethernet Controller IP
+> +
+> +Required properties:
+> +- compatible: Should be "socionext,netsecv5"
+> +- reg: Address and length of the register sets, the first is the main
+> +	registers, then the rdlar and tdlar regions for the SoC
+> +- interrupts: Should contain ethernet controller interrupt
+> +- clocks: phandle to any clocks to be switched by runtime_pm
+> +- phy-mode: See ethernet.txt file in the same directory
 
->> -----Original Message-----
->> From: ovs-dev-bounces@openvswitch.org [mailto:ovs-dev-
->> bounces@openvswitch.org] On Behalf Of Hannes Frederic Sowa
->> Sent: Wednesday, August 30, 2017 10:53 AM
->> To: Yang, Yi Y <yi.y.yang@intel.com>
->> Cc: dev@openvswitch.org; netdev@vger.kernel.org; jbenc@redhat.com;
->> e@erig.me
->> Subject: Re: [ovs-dev] [PATCH net-next v6 3/3] openvswitch: enable NSH
->> support
->> 
->> Hello,
->> 
->> Yi Yang <yi.y.yang@intel.com> writes:
->> 
->> [...]
->> 
->> > +struct ovs_key_nsh {
->> > +	u8 flags;
->> > +	u8 ttl;
->> > +	u8 mdtype;
->> > +	u8 np;
->> > +	__be32 path_hdr;
->> > +	__be32 context[NSH_MD1_CONTEXT_SIZE]; };
->> > +
->> >  struct sw_flow_key {
->> >  	u8 tun_opts[IP_TUNNEL_OPTS_MAX];
->> >  	u8 tun_opts_len;
->> > @@ -144,6 +154,7 @@ struct sw_flow_key {
->> >  			};
->> >  		} ipv6;
->> >  	};
->> > +	struct ovs_key_nsh nsh;         /* network service header */
->> >  	struct {
->> >  		/* Connection tracking fields not packed above. */
->> >  		struct {
->> 
->> Does it makes sense to keep the context headers as part of the flow?
->> What is the reasoning behind it? With mdtype 2 headers this might
->> either not work very well or will increase sw_flow_key size causing
->> slowdowns for all protocols.
-> [Mooney, Sean K]
-> Having the nsh context headers in the flow is quite useful It would
-> allow loadblancing on values stored in the context headers Or other
-> use. I belive odl previously used context header 4 to store a Flow id
-> so this could potentialy be used with the multipath action to have ovs
-> Choose between several possible next hops in the chain.
+> +- max-speed: See ethernet.txt file in the same directory
+> +- max-frame-size: See ethernet.txt file in the same directory, if 9000 or
+> +	above jumbo frames are enabled
+> +- local-mac-address: See ethernet.txt file in the same directory
 
-In OVS, masks are a list(!) for matching. How can this work for
-different paths that might require different masks? If they can't be
-unified you even get exact matches. Thus, for OVS the context should not
-be part of the flow.
+These three are required, not optimal?
 
-> Another example of where this is usefull is branching chains.  if I
-> assume that both the classifier and Service function forwarder are
-> collocated in ovs on the host, and is send A packet to a firewall
-> service function which tags the packet as suspicious Via setting a
-> context header metadata field to 1, I as the sdn controller can
-> Install a high priority rule that will reclassify the packet as part
-> of as separate Service function chain the will prefer dpi on the
-> packet before returning it to The original chain if demand not a
-> threat.
+> +- phy-handle: phandle to select child phy
+> +
+> +Optional properties:
+> +- use-jumbo: Boolean property to suggest if jumbo packets should be used or not
+> +
+> +For the child phy
+> +
+> +- compatible "ethernet-phy-ieee802.3-c22" is needed
 
-You can do that with different path id's, too?
+This is normally considered optional. Why require it?
 
-> So while a sff dose not in general have to be able to match on the
-> context header If I assume I want to use ovs to implenet a classifier
-> or service function(e.g. loadblancer) The its desirable to be able to
-> both match on the context headers in md type1 and also be able To set
-> them(this is something classifies and service fuction are allowed to
-> do).
-
-I don't think it is practical at all?
+     Andrew
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
