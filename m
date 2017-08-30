@@ -1,50 +1,68 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net 09/11] net/mlx5: E-Switch, Unload the representors in the correct order
-Date: Thu, 31 Aug 2017 01:21:08 +0300
-Message-ID: <20170830222110.15737-10-saeedm@mellanox.com>
-References: <20170830222110.15737-1-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Shahar Klein <shahark@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [Patch net-next] net_sched: add reverse binding for tc class
+Date: Thu, 31 Aug 2017 00:22:38 +0200
+Message-ID: <59A73AAE.509@iogearbox.net>
+References: <20170830213036.24250-1-xiyou.wangcong@gmail.com> <59A732B8.6020405@iogearbox.net> <CAM_iQpU9B71C5cWs969k464T7HvNhcwps7NYNQx8Q3KCijOfnA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Jamal Hadi Salim <jhs@mojatatu.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:53280 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751382AbdH3WVd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 18:21:33 -0400
-In-Reply-To: <20170830222110.15737-1-saeedm@mellanox.com>
+Received: from www62.your-server.de ([213.133.104.62]:55829 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751250AbdH3WWk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 18:22:40 -0400
+In-Reply-To: <CAM_iQpU9B71C5cWs969k464T7HvNhcwps7NYNQx8Q3KCijOfnA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shahar Klein <shahark@mellanox.com>
+On 08/31/2017 12:01 AM, Cong Wang wrote:
+> On Wed, Aug 30, 2017 at 2:48 PM, Daniel Borkmann <daniel@iogearbox.net> wrote:
+>> On 08/30/2017 11:30 PM, Cong Wang wrote:
+>> [...]
+>>>
+>>> Note, we still can NOT totally get rid of those class lookup in
+>>> ->enqueue() because cgroup and flow filters have no way to determine
+>>> the classid at setup time, they still have to go through dynamic lookup.
+>>
+>> [...]
+>>>
+>>> ---
+>>>    include/net/sch_generic.h |  1 +
+>>>    net/sched/cls_basic.c     |  9 +++++++
+>>>    net/sched/cls_bpf.c       |  9 +++++++
+>>
+>> Same is for cls_bpf as well, so bind_class wouldn't work there
+>> either as we could return dynamic classids. bind_class cannot
+>> be added here, too.
+>
+> I think you are probably right, but the following code is
+> misleading there:
+>
+>          if (tb[TCA_BPF_CLASSID]) {
+>                  prog->res.classid = nla_get_u32(tb[TCA_BPF_CLASSID]);
+>                  tcf_bind_filter(tp, &prog->res, base);
+>          }
+>
+> If the classid is dynamic, why this tb[TCA_BPF_CLASSID]?
 
-When changing from switchdev to legacy mode, all the representor port
-devices (uplink nic and reps) are cleaned up. Part of this cleaning
-process is removing the neigh entries and the hash table containing them.
-However, a representor neigh entry might be linked to the uplink port
-hash table and if the uplink nic is cleaned first the cleaning of the
-representor will end up in null deref.
-Fix that by unloading the representors in the opposite order of load.
+The prog->res.classid is the default one, but can be overridden
+later depending on the specified program. cls_bpf_classify() does
+after prog return (filter_res holds return code):
 
-Fixes: cb67b832921c ("net/mlx5e: Introduce SRIOV VF representors")
-Signed-off-by: Shahar Klein <shahark@mellanox.com>
-Reviewed-by: Roi Dayan <roid@mellanox.com>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+	[...]
+		if (filter_res == 0)
+			continue;
+		if (filter_res != -1) {
+			res->class   = 0;
+			res->classid = filter_res;
+		} else {
+			*res = prog->res;
+		}
+	[...]
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
-index 95b64025ce36..5bc0593bd76e 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
-@@ -815,7 +815,7 @@ void esw_offloads_cleanup(struct mlx5_eswitch *esw, int nvports)
- 	struct mlx5_eswitch_rep *rep;
- 	int vport;
- 
--	for (vport = 0; vport < nvports; vport++) {
-+	for (vport = nvports - 1; vport >= 0; vport--) {
- 		rep = &esw->offloads.vport_reps[vport];
- 		if (!rep->valid)
- 			continue;
--- 
-2.13.0
+Meaning in case of a match (-1), we use the default bound one,
+but prog may as well return an alternative found classid if it
+wants to. So both versions are possible.
