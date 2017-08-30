@@ -1,70 +1,45 @@
-From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Subject: Re: [net-next PATCHv6 1/2] dt-bindings: net: Add DT bindings for
- Socionext Netsec
-Date: Wed, 30 Aug 2017 17:19:42 +0200
-Message-ID: <20170830151942.GB22289@lunn.ch>
-References: <1504088657-6102-1-git-send-email-jaswinder.singh@linaro.org>
- <1504088752-6204-1-git-send-email-jaswinder.singh@linaro.org>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [iproute PATCH] ss: Fix for added diag support check
+Date: Wed, 30 Aug 2017 08:20:13 -0700
+Message-ID: <20170830082013.4b188a26@xeon-e3>
+References: <20170828173122.11458-1-phil@nwl.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-        mark.rutland-5wv7dgnIgG8@public.gmane.org, arnd-r2nGTMty4D4@public.gmane.org, patches-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org,
-        Jassi Brar <jaswinder.singh-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-        andy-/Zus8d0mwwtBDgjK7y7TUQ@public.gmane.org
-To: Jassi Brar <jassisinghbrar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1504088752-6204-1-git-send-email-jaswinder.singh-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Phil Sutter <phil@nwl.cc>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f51.google.com ([74.125.83.51]:36789 "EHLO
+        mail-pg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751710AbdH3PUR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 11:20:17 -0400
+Received: by mail-pg0-f51.google.com with SMTP id r133so20720631pgr.3
+        for <netdev@vger.kernel.org>; Wed, 30 Aug 2017 08:20:17 -0700 (PDT)
+In-Reply-To: <20170828173122.11458-1-phil@nwl.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 30, 2017 at 03:55:52PM +0530, Jassi Brar wrote:
-> This patch adds documentation for Device-Tree bindings for the
-> Socionext NetSec Controller driver.
+On Mon, 28 Aug 2017 19:31:22 +0200
+Phil Sutter <phil@nwl.cc> wrote:
+
+> Commit 9f66764e308e9 ("libnetlink: Add test for error code returned from
+> netlink reply") changed rtnl_dump_filter_l() to return an error in case
+> NLMSG_DONE would contain one, even if it was ENOENT.
 > 
-> Signed-off-by: Jassi Brar <jaswinder.singh-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-> ---
->  .../devicetree/bindings/net/socionext-netsec.txt   | 46 ++++++++++++++++++++++
->  1 file changed, 46 insertions(+)
->  create mode 100644 Documentation/devicetree/bindings/net/socionext-netsec.txt
+> This in turn breaks ss when it tries to dump DCCP sockets on a system
+> without support for it: The function tcp_show(), which is shared between
+> TCP and DCCP, will start parsing /proc since inet_show_netlink() returns
+> an error - yet it parses /proc/net/tcp which doesn't make sense for DCCP
+> sockets at all.
 > 
-> diff --git a/Documentation/devicetree/bindings/net/socionext-netsec.txt b/Documentation/devicetree/bindings/net/socionext-netsec.txt
-> new file mode 100644
-> index 0000000..12d596c
-> --- /dev/null
-> +++ b/Documentation/devicetree/bindings/net/socionext-netsec.txt
-> @@ -0,0 +1,46 @@
-> +* Socionext NetSec Ethernet Controller IP
-> +
-> +Required properties:
-> +- compatible: Should be "socionext,netsecv5"
-> +- reg: Address and length of the register sets, the first is the main
-> +	registers, then the rdlar and tdlar regions for the SoC
-> +- interrupts: Should contain ethernet controller interrupt
-> +- clocks: phandle to any clocks to be switched by runtime_pm
-> +- phy-mode: See ethernet.txt file in the same directory
+> On my system, a call to 'ss' without further arguments prints the list
+> of connected TCP sockets twice.
+> 
+> Fix this by introducing a dedicated function dccp_show() which does not
+> have a fallback to /proc, just like sctp_show(). And since tcp_show()
+> is no longer "multi-purpose", drop it's socktype parameter.
+> 
+> Fixes: 9f66764e308e9 ("libnetlink: Add test for error code returned from netlink reply")
+> Signed-off-by: Phil Sutter <phil@nwl.cc>
 
-> +- max-speed: See ethernet.txt file in the same directory
-> +- max-frame-size: See ethernet.txt file in the same directory, if 9000 or
-> +	above jumbo frames are enabled
-> +- local-mac-address: See ethernet.txt file in the same directory
-
-These three are required, not optimal?
-
-> +- phy-handle: phandle to select child phy
-> +
-> +Optional properties:
-> +- use-jumbo: Boolean property to suggest if jumbo packets should be used or not
-> +
-> +For the child phy
-> +
-> +- compatible "ethernet-phy-ieee802.3-c22" is needed
-
-This is normally considered optional. Why require it?
-
-     Andrew
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied
