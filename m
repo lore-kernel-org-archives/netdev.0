@@ -1,47 +1,49 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net-next 0/4] nsh: headers, GSO
-Date: Wed, 30 Aug 2017 09:20:40 +0200
-Message-ID: <20170830092040.61e5f09b@griffin>
-References: <cover.1503948295.git.jbenc@redhat.com>
-        <20170829.151707.1911972805135395713.davem@davemloft.net>
-        <20170830052303.GA109175@cran64.bj.intel.com>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH net] sch_hhf: fix null pointer dereference on init failure
+Date: Wed, 30 Aug 2017 10:27:20 +0300
+Message-ID: <04bea369-e2d9-954a-0da0-eb3ff831a1c7@cumulusnetworks.com>
+References: <1504033335-19098-1-git-send-email-nikolay@cumulusnetworks.com>
+ <CAM_iQpWN6bubnnFfqoZeiuH5NF3tpQ7nb91CBp09Yw-NJzRcng@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "e@erig.me" <e@erig.me>,
-        "jan.scheurich@ericsson.com" <jan.scheurich@ericsson.com>,
-        "blp@ovn.org" <blp@ovn.org>
-To: "Yang, Yi" <yi.y.yang@intel.com>
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Jiri Pirko <jiri@resnulli.us>,
+        Roopa Prabhu <roopa@cumulusnetworks.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60070 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751186AbdH3HUo (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 30 Aug 2017 03:20:44 -0400
-In-Reply-To: <20170830052303.GA109175@cran64.bj.intel.com>
+Received: from mail-wr0-f173.google.com ([209.85.128.173]:36199 "EHLO
+        mail-wr0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751242AbdH3H1X (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 03:27:23 -0400
+Received: by mail-wr0-f173.google.com with SMTP id p14so16020202wrg.3
+        for <netdev@vger.kernel.org>; Wed, 30 Aug 2017 00:27:23 -0700 (PDT)
+In-Reply-To: <CAM_iQpWN6bubnnFfqoZeiuH5NF3tpQ7nb91CBp09Yw-NJzRcng@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 30 Aug 2017 13:23:04 +0800, Yang, Yi wrote:
-> David has merged your NSH GSO series, do you have one more patch series
-> to fix VxLAN-gpe+NSH GSO issue? I think we still need do something in
-> skb_udp_tunnel_segment in net/ipv4/udp_offload.c to support
-> VxLAN-gpe+NSH GSO.
+On 30/08/17 04:24, Cong Wang wrote:
+> On Tue, Aug 29, 2017 at 12:02 PM, Nikolay Aleksandrov
+> <nikolay@cumulusnetworks.com> wrote:
+>> First I did it with the check in the for () conditional, but this is more
+>> visible and explicit. Let me know if you'd like the shorter version. :-)
+> 
+> Or, if you want to make the patch size smaller, just check NULL
+> before for():
+> 
+> if (!q->hh_flows)
+>     return;
+> 
+> for (...)
+> 
+> Up to you, I have no strong opinion here, slightly prefer a smaller
+> one for backport.
+> 
 
-This should work as is.
+Sure, either one is fine with me too. Since I'll be resubmitting these in a set
+I'll use the smaller version for this one.
 
-The only issue is VXLAN-GPE offloading where not all drivers distinguish
-VXLAN from VXLAN-GPE in ndo_features_check, while I'm not sure their
-firmware actually supports VXLAN-GPE. We don't make it easy for the
-drivers to distinguish those two, the only way is to examine the
-headers. We could do better here but that's for future improvement.
-
-> I'll post new OVS NSH kernel datapath patch series if NSH GSO is done.
-
-Please do. Note that it's important to ensure that whenever there's a
-NSH header added, the nsh module gets loaded. The easiest way is to
-factor out code that will be shared by the NSH tc action into nsh.c.
-This would have to be done anyway so let's do it right away.
-
- Jiri
+Thanks,
+ Nik
