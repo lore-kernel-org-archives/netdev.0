@@ -1,36 +1,53 @@
 From: Akshat Kakkar <akshat.1984@gmail.com>
-Subject: Re: NFCT writing localhost conntrack entries too
-Date: Wed, 30 Aug 2017 13:27:33 +0530
-Message-ID: <CAA5aLPicZ4Ax0kQoVE26ey-mAgBXu7NemENzM+d6dLk=647QcQ@mail.gmail.com>
-References: <CAA5aLPhyBj=ZE1OPuDw-vKqpceHZ2r8EdPiSdW66V74ya_HCdg@mail.gmail.com>
+Subject: Re: nflog performance ...
+Date: Wed, 30 Aug 2017 13:27:57 +0530
+Message-ID: <CAA5aLPjzMd71S-L47G=2pdF+v+SruZ4kEavV03r4datDwdAJ-Q@mail.gmail.com>
+References: <CAA5aLPj=znm_RDVgPGzZj6VixPdWVMCEVco7yxoa4gL0On+pyg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f49.google.com ([74.125.83.49]:36124 "EHLO
-        mail-pg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750839AbdH3H5f (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 03:57:35 -0400
-Received: by mail-pg0-f49.google.com with SMTP id r133so17900739pgr.3
-        for <netdev@vger.kernel.org>; Wed, 30 Aug 2017 00:57:34 -0700 (PDT)
-In-Reply-To: <CAA5aLPhyBj=ZE1OPuDw-vKqpceHZ2r8EdPiSdW66V74ya_HCdg@mail.gmail.com>
+Received: from mail-pg0-f48.google.com ([74.125.83.48]:38494 "EHLO
+        mail-pg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751324AbdH3H56 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 03:57:58 -0400
+Received: by mail-pg0-f48.google.com with SMTP id b8so17921692pgn.5
+        for <netdev@vger.kernel.org>; Wed, 30 Aug 2017 00:57:58 -0700 (PDT)
+In-Reply-To: <CAA5aLPj=znm_RDVgPGzZj6VixPdWVMCEVco7yxoa4gL0On+pyg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Anybody ?
+Anybody?
 
-On Tue, Aug 29, 2017 at 3:53 PM, Akshat Kakkar <akshat.1984@gmail.com> wrote:
-> With ulog/nflog, NFCT plugin, is it possible to not log entries with src ip
-> as 127.0.0.1
+On Tue, Aug 29, 2017 at 4:11 PM, Akshat Kakkar <akshat.1984@gmail.com> wrote:
+> I am using ulogd2 to log iptables activity.
+> However, when using pgsql as output plugin ... performance is very
+> very sluggish. (~130-150 entries per second)
 >
-> I can see following options in ulogd.conf
-> #accept_src_filter=192.168.1.0/24,1:2::/64 # source ip of connection
-> must belong to these networks
-> #accept_dst_filter=192.168.1.0/24 # destination ip of connection must
-> belong to these networks
-> #accept_proto_filter=tcp,sctp # layer 4 proto of connections
+> To enhance performance I am trying
+>
+> modprobe ipt_ULOG nlbufsiz=65535 flushtimeout=1000
+>
+> but this gives error : ipt_ULOG module not found.
 >
 >
-> ... but what I am looking for is like deny_src_filter.
+> On the same lines, I tried
 >
-> Is it possible?
+> modprobe ipt_NFLOG nlbufsiz=65535 flushtimeout=1000
+> It didnt give any error !!!
+>
+> But still there is no increase in performance.
+> Are these values effective?
+>
+> I am also using  --nflog-threshold 50 in iptables rule.
+>
+> I am setting buffer_size as
+> netlink_socket_buffer_size=104857600
+> netlink_socket_buffer_maxsize=1048576000
+>
+> When running ulog, it gives message of setting buffer size as
+> 21708600. Though it didnt give any message like
+> "ulogd_inppkt_NFLOG.c:443 We are losing events, increasing buffer size
+> to xxxxxx"
+> but again why it is only setting buffer size as 21708600 though I have
+> set in config as 104857600?
