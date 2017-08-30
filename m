@@ -1,37 +1,39 @@
-From: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
-Subject: Re: [PATCH net-next 0/3 v10] Add support for rmnet driver
-Date: Tue, 29 Aug 2017 19:18:05 -0600
-Message-ID: <178ce09c87a24b63f6b5057fcd606583@codeaurora.org>
-References: <1504054078-10173-1-git-send-email-subashab@codeaurora.org>
- <20170829.180557.1826943085634265902.davem@davemloft.net>
- <20170829.181244.658164638453646342.davem@davemloft.net>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net] sch_hhf: fix null pointer dereference on init failure
+Date: Tue, 29 Aug 2017 18:24:44 -0700
+Message-ID: <CAM_iQpWN6bubnnFfqoZeiuH5NF3tpQ7nb91CBp09Yw-NJzRcng@mail.gmail.com>
+References: <1504033335-19098-1-git-send-email-nikolay@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
- format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fengguang.wu@intel.com, dcbw@redhat.com,
-        jiri@resnulli.us, stephen@networkplumber.org,
-        David.Laight@aculab.com, marcel@holtmann.org, andrew@lunn.ch
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Jiri Pirko <jiri@resnulli.us>,
+        Roopa Prabhu <roopa@cumulusnetworks.com>
+To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:53714 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751240AbdH3BSG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 21:18:06 -0400
-In-Reply-To: <20170829.181244.658164638453646342.davem@davemloft.net>
+Received: from mail-pf0-f174.google.com ([209.85.192.174]:32854 "EHLO
+        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751380AbdH3BZF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 29 Aug 2017 21:25:05 -0400
+Received: by mail-pf0-f174.google.com with SMTP id r62so15031120pfj.0
+        for <netdev@vger.kernel.org>; Tue, 29 Aug 2017 18:25:05 -0700 (PDT)
+In-Reply-To: <1504033335-19098-1-git-send-email-nikolay@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2017-08-29 19:12, David Miller wrote:
-> Sigh, I had to revert.
-> 
-> You only allow RMNET to take on the values 'y' and 'n'.
-> 
-> You must allow for it to be 'm' and modular as well.
+On Tue, Aug 29, 2017 at 12:02 PM, Nikolay Aleksandrov
+<nikolay@cumulusnetworks.com> wrote:
+> First I did it with the check in the for () conditional, but this is more
+> visible and explicit. Let me know if you'd like the shorter version. :-)
 
-Hi David
+Or, if you want to make the patch size smaller, just check NULL
+before for():
 
-I'll fix this now.
+if (!q->hh_flows)
+    return;
 
-Sorry about the cover letter. I'll explain it better in subsequent 
-submission.
+for (...)
+
+Up to you, I have no strong opinion here, slightly prefer a smaller
+one for backport.
