@@ -1,7 +1,7 @@
 From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH net-next v4 12/13] arm64: dts: marvell: 7040-db: add comphy references to Ethernet ports
-Date: Wed, 30 Aug 2017 10:29:23 +0200
-Message-ID: <20170830082924.3180-13-antoine.tenart@free-electrons.com>
+Subject: [PATCH net-next v4 05/13] net: mvpp2: simplify the link_event function
+Date: Wed, 30 Aug 2017 10:29:16 +0200
+Message-ID: <20170830082924.3180-6-antoine.tenart@free-electrons.com>
 References: <20170830082924.3180-1-antoine.tenart@free-electrons.com>
 Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
         thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
@@ -16,26 +16,56 @@ In-Reply-To: <20170830082924.3180-1-antoine.tenart@free-electrons.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds comphy phandles to the Ethernet ports in the 7040-db
-device tree. The comphy is used to configure the serdes PHYs used by
-these ports.
+The link_event function is somewhat complicated. This cosmetic patch
+simplifies it.
 
 Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
 ---
- arch/arm64/boot/dts/marvell/armada-7040-db.dts | 1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/ethernet/marvell/mvpp2.c | 13 ++++---------
+ 1 file changed, 4 insertions(+), 9 deletions(-)
 
-diff --git a/arch/arm64/boot/dts/marvell/armada-7040-db.dts b/arch/arm64/boot/dts/marvell/armada-7040-db.dts
-index 92c761c380d3..03d1c42d7c47 100644
---- a/arch/arm64/boot/dts/marvell/armada-7040-db.dts
-+++ b/arch/arm64/boot/dts/marvell/armada-7040-db.dts
-@@ -180,6 +180,7 @@
- 	status = "okay";
- 	phy = <&phy0>;
- 	phy-mode = "sgmii";
-+	phys = <&cpm_comphy0 1>;
- };
+diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
+index fab231858a41..9c0c81e68d55 100644
+--- a/drivers/net/ethernet/marvell/mvpp2.c
++++ b/drivers/net/ethernet/marvell/mvpp2.c
+@@ -5740,7 +5740,6 @@ static void mvpp2_link_event(struct net_device *dev)
+ {
+ 	struct mvpp2_port *port = netdev_priv(dev);
+ 	struct phy_device *phydev = dev->phydev;
+-	int status_change = 0;
+ 	u32 val;
  
- &cpm_eth2 {
+ 	if (phydev->link) {
+@@ -5771,16 +5770,8 @@ static void mvpp2_link_event(struct net_device *dev)
+ 	}
+ 
+ 	if (phydev->link != port->link) {
+-		if (!phydev->link) {
+-			port->duplex = -1;
+-			port->speed = 0;
+-		}
+-
+ 		port->link = phydev->link;
+-		status_change = 1;
+-	}
+ 
+-	if (status_change) {
+ 		if (phydev->link) {
+ 			val = readl(port->base + MVPP2_GMAC_AUTONEG_CONFIG);
+ 			val |= (MVPP2_GMAC_FORCE_LINK_PASS |
+@@ -5789,9 +5780,13 @@ static void mvpp2_link_event(struct net_device *dev)
+ 			mvpp2_egress_enable(port);
+ 			mvpp2_ingress_enable(port);
+ 		} else {
++			port->duplex = -1;
++			port->speed = 0;
++
+ 			mvpp2_ingress_disable(port);
+ 			mvpp2_egress_disable(port);
+ 		}
++
+ 		phy_print_status(phydev);
+ 	}
+ }
 -- 
 2.13.5
