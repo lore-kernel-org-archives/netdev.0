@@ -1,34 +1,50 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [patch net-next 0/8] mlxsw: Add IPv6 host dpipe table
-Date: Wed, 30 Aug 2017 19:26:09 +0200
-Message-ID: <20170830172609.GD22289@lunn.ch>
-References: <20170830120306.6128-1-jiri@resnulli.us>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [GIT] Networking
+Date: Wed, 30 Aug 2017 20:31:31 +0300
+Message-ID: <87val5rmh8.fsf@kamboji.qca.qualcomm.com>
+References: <20170815.175219.753462032002961032.davem@davemloft.net>
+        <20170830094823.GA31503@amd> <87pobdt8qc.fsf@kamboji.qca.qualcomm.com>
+        <20170830.101143.2305098064824357647.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, arkadis@mellanox.com,
-        idosch@mellanox.com, mlxsw@mellanox.com
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:45315 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751329AbdH3R0M (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 30 Aug 2017 13:26:12 -0400
-Content-Disposition: inline
-In-Reply-To: <20170830120306.6128-1-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: pavel@ucw.cz, xiyou.wangcong@gmail.com,
+        torvalds@linux-foundation.org, akpm@linux-foundation.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170830.101143.2305098064824357647.davem@davemloft.net> (David
+        Miller's message of "Wed, 30 Aug 2017 10:11:43 -0700 (PDT)")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 30, 2017 at 02:02:58PM +0200, Jiri Pirko wrote:
-> From: Jiri Pirko <jiri@mellanox.com>
-> 
-> Arkadi says:
-> 
-> This patchset adds IPv6 host dpipe table support. This will provide the
-> ability to observe the hardware offloaded IPv6 neighbors.
+David Miller <davem@davemloft.net> writes:
 
-Hi Jiri, Arkadi
+> From: Kalle Valo <kvalo@codeaurora.org>
+> Date: Wed, 30 Aug 2017 17:45:31 +0300
+>
+>> Pavel Machek <pavel@ucw.cz> writes:
+>> 
+>>> Could we get this one in?
+>>>
+>>> wl1251 misses a spin_lock_init().
+>>>
+>>> https://www.mail-archive.com/netdev@vger.kernel.org/msg177031.html
+>>>
+>>> It seems pretty trivial, yet getting the backtraces is not nice.
+>> 
+>> It's in wireless-drivers-next and will be in 4.14-rc1:
+>> 
+>> https://git.kernel.org/pub/scm/linux/kernel/git/kvalo/wireless-drivers-next.git/commit/?id=6e9aae179f290f1a44fce7ef8e9a8e2dd68ed1e4
+>
+> Is the bug only present in net-next?
 
-Could you give us an example of the output seen in user space.
+AFAICS the bug was introduced by 9df86e2e702c6 back in 2010. If the bug
+has been there for 7 years so waiting for a few more weeks should not
+hurt.
 
-Thanks
-	Andrew
+And Pavel can also submit it to the stable release, it should apply
+without problems as wl1251 doesn't have had that many patches during the
+last few years (if ever).
+
+-- 
+Kalle Valo
