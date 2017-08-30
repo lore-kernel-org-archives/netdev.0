@@ -1,33 +1,41 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net 9/9] sch_tbf: fix two null pointer dereferences on
- init failure
-Date: Wed, 30 Aug 2017 10:37:53 -0700
-Message-ID: <CAM_iQpWn_q4CaOKhw7nxFR40V2JaVwr_5kx-ZUpdFxPa4hxKyA@mail.gmail.com>
-References: <1504086545-7777-1-git-send-email-nikolay@cumulusnetworks.com> <1504086545-7777-10-git-send-email-nikolay@cumulusnetworks.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: linux-next: Signed-off-by missing for commit in the net-next
+ tree
+Date: Thu, 31 Aug 2017 03:38:49 +1000
+Message-ID: <20170831033849.6a458de5@canb.auug.org.au>
+References: <20170831025131.56d2cf92@canb.auug.org.au>
+        <32dc9201-c7a2-2cf0-e8a1-1c735b8784ee@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Jiri Pirko <jiri@resnulli.us>,
-        Roopa Prabhu <roopa@cumulusnetworks.com>
-To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f174.google.com ([209.85.192.174]:36181 "EHLO
-        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752122AbdH3RiO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 13:38:14 -0400
-Received: by mail-pf0-f174.google.com with SMTP id r187so473233pfr.3
-        for <netdev@vger.kernel.org>; Wed, 30 Aug 2017 10:38:14 -0700 (PDT)
-In-Reply-To: <1504086545-7777-10-git-send-email-nikolay@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>,
+        Linux-Next Mailing List <linux-next@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: David Ahern <dsahern@gmail.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <32dc9201-c7a2-2cf0-e8a1-1c735b8784ee@gmail.com>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 30, 2017 at 2:49 AM, Nikolay Aleksandrov
-<nikolay@cumulusnetworks.com> wrote:
-> Reproduce:
-> $ sysctl net.core.default_qdisc=tbf
-> $ ip l set ethX up
+Hi David,
 
-I once upon a time had a patch to disallow those qdisc's
-to be default. Probably I should resend it.
+On Wed, 30 Aug 2017 10:53:48 -0600 David Ahern <dsahern@gmail.com> wrote:
+>
+> On 8/30/17 10:51 AM, Stephen Rothwell wrote:
+> > Hi all,
+> > 
+> > Commit
+> > 
+> >   1b70d792cf67 ("ipv6: Use rt6i_idev index for echo replies to a local address")
+> > 
+> > is missing a Signed-off-by from its author.
+> 
+> Eric pointed this out last night. The commit message copied output from
+> a command that contained '---' so git ignored the remainder of the message.
+
+Rats!
+
+-- 
+Cheers,
+Stephen Rothwell
