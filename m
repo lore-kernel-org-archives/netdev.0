@@ -1,44 +1,35 @@
-From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Subject: [PATCH 1/5] net: mdio-mux: Fix NULL Comparison style
-Date: Wed, 30 Aug 2017 19:46:47 +0200
-Message-ID: <20170830174651.30325-2-clabbe.montjoie@gmail.com>
-References: <20170830174651.30325-1-clabbe.montjoie@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Corentin Labbe <clabbe.montjoie@gmail.com>
-To: andrew@lunn.ch, f.fainelli@gmail.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [GIT] Networking
+Date: Wed, 30 Aug 2017 10:54:47 -0700 (PDT)
+Message-ID: <20170830.105447.125174575140677062.davem@davemloft.net>
+References: <87pobdt8qc.fsf@kamboji.qca.qualcomm.com>
+        <20170830.101143.2305098064824357647.davem@davemloft.net>
+        <87val5rmh8.fsf@kamboji.qca.qualcomm.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: pavel@ucw.cz, xiyou.wangcong@gmail.com,
+        torvalds@linux-foundation.org, akpm@linux-foundation.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: kvalo@codeaurora.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170830174651.30325-1-clabbe.montjoie@gmail.com>
+In-Reply-To: <87val5rmh8.fsf@kamboji.qca.qualcomm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch fix checkpatch warning about NULL Comparison style.
+From: Kalle Valo <kvalo@codeaurora.org>
+Date: Wed, 30 Aug 2017 20:31:31 +0300
 
-Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
----
- drivers/net/phy/mdio-mux.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+> AFAICS the bug was introduced by 9df86e2e702c6 back in 2010. If the bug
+> has been there for 7 years so waiting for a few more weeks should not
+> hurt.
 
-diff --git a/drivers/net/phy/mdio-mux.c b/drivers/net/phy/mdio-mux.c
-index 942ceaf3fd3f..b18ad7082b88 100644
---- a/drivers/net/phy/mdio-mux.c
-+++ b/drivers/net/phy/mdio-mux.c
-@@ -120,7 +120,7 @@ int mdio_mux_init(struct device *dev,
- 	}
- 
- 	pb = devm_kzalloc(dev, sizeof(*pb), GFP_KERNEL);
--	if (pb == NULL) {
-+	if (!pb) {
- 		ret_val = -ENOMEM;
- 		goto err_pb_kz;
- 	}
-@@ -144,7 +144,7 @@ int mdio_mux_init(struct device *dev,
- 		}
- 
- 		cb = devm_kzalloc(dev, sizeof(*cb), GFP_KERNEL);
--		if (cb == NULL) {
-+		if (!cb) {
- 			dev_err(dev,
- 				"Error: Failed to allocate memory for child %pOF\n",
- 				child_bus_node);
--- 
-2.13.5
+As a maintainer you have a right to handle bug fixing in that way, but
+certainly that is not how I would handle this.
+
+It's easy to validate this fix, it's extremely unlikely to cause
+a regression, and fixes a problem someone actually was able to
+trigger.
+
+Deferring to -next only has the side effect of making people wait
+longer for the fix.
