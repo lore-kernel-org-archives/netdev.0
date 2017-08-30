@@ -1,79 +1,59 @@
-From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH v2 2/3] dt-binding: net: sfp binding documentation
-Date: Wed, 30 Aug 2017 14:15:32 +0300
-Message-ID: <c3e8af44-bf58-81d7-bd51-d2538dcd41d9@cogentembedded.com>
-References: <d1e64c5752ef0dd5c5b543c2d4c3ef1783318173.1504086672.git.baruch@tkos.co.il>
- <7ae5d883fd038cf518949b0aa9cbe5369e2a1851.1504086672.git.baruch@tkos.co.il>
- <89261369-d97c-a78c-5a21-a269b2c7e513@cogentembedded.com>
- <20170830111118.wy62va6sjzsxrgoo@tarshish>
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: [PATCH v3 net-next] staging: irda: fix init level for irda core
+Date: Wed, 30 Aug 2017 13:16:49 +0200
+Message-ID: <20170830111649.GA13000@kroah.com>
+References: <20170829070929.GA15824@kroah.com>
+ <20170829091417.GA9481@kroah.com>
+ <20170829.093507.2166038228205751885.davem@davemloft.net>
+ <20170829172608.GA4700@kroah.com>
+ <20170829173129.GA11029@kroah.com>
+ <20170829174622.GA25926@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
-        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Russell King <rmk+kernel-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Baruch Siach <baruch-NswTu9S1W3P6gbPvEgmw2w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170830111118.wy62va6sjzsxrgoo@tarshish>
-Content-Language: en-US
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org,
+        samuel@sortiz.org, linux-kernel@vger.kernel.org,
+        kernel test robot <fengguang.wu@intel.com>,
+        Geert Uytterhoeven <geert@linux-m68k.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170829174622.GA25926@kroah.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 8/30/2017 2:11 PM, Baruch Siach wrote:
+When moving the IRDA code out of net/ into drivers/staging/irda/net, the
+link order changes when IRDA is built into the kernel.  That causes a
+kernel crash at boot time as netfilter isn't initialized yet.
 
-> On Wed, Aug 30, 2017 at 02:04:11PM +0300, Sergei Shtylyov wrote:
->> On 8/30/2017 12:51 PM, Baruch Siach wrote:
->>
->>> Add device-tree binding documentation SFP transceivers. Support for SFP
->>> transceivers has been recently introduced (drivers/net/phy/sfp.c).
->>>
->>> Signed-off-by: Baruch Siach <baruch-NswTu9S1W3P6gbPvEgmw2w@public.gmane.org>
->>> ---
->>> v2:
->>>     Rename -gpio properties to -gpios
->>>     Rename the rate-select-gpio property to rate-select0-gpios
->>>     Add the rate-select1-gpios property
->>>     Add examples
->>> ---
->>>    Documentation/devicetree/bindings/net/sff,sfp.txt | 74 +++++++++++++++++++++++
->>>    1 file changed, 74 insertions(+)
->>>    create mode 100644 Documentation/devicetree/bindings/net/sff,sfp.txt
->>>
->>> diff --git a/Documentation/devicetree/bindings/net/sff,sfp.txt b/Documentation/devicetree/bindings/net/sff,sfp.txt
->>> new file mode 100644
->>> index 000000000000..1d9c786d6287
->>> --- /dev/null
->>> +++ b/Documentation/devicetree/bindings/net/sff,sfp.txt
->>> @@ -0,0 +1,74 @@
->>> +Small Form Factor (SFF) Committee Small Form-factor Pluggable (SFP)
->>> +Transceiver
->>> +
->>> +Required properties:
->>> +
->>> +- compatible : must be "sff,sfp"
->>> +
->>> +Optional Properties:
->>> +
->>> +- i2c-bus : phandle of an I2C bus controller for the SFP two wire serial
->>> +  interface
->>> +
->>> +- moddef0-gpios : phandle of the MOD-DEF0 (AKA Mod_ABS) module presence input
->>> +  gpio signal
->>
->>     Your example shows there's GPIO phandle *and* specifier.
-> 
-> Would "GPIO specifier" be enough here?
+To fix this, move the init call level of the irda core to be
+device_initcall() as the link order keeps this being initialized at the
+correct time.
 
-    No, specifier is the cells following GPIO (or any other) phandle.
+Reported-by: kernel test robot <fengguang.wu@intel.com>
+Reported-by: Geert Uytterhoeven <geert@linux-m68k.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+---
 
-> [...]
+v3 - just change the initcall level, works so much simpler, thanks to
+     DaveM for the idea.
+v2 - don't force irda to be a module, make the Makefiles put irda back
+     where it was before in the link order.
 
-MBR, Sergei
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ drivers/staging/irda/net/irmod.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/staging/irda/net/irmod.c b/drivers/staging/irda/net/irmod.c
+index c5e35b85c477..4319f4ff66b0 100644
+--- a/drivers/staging/irda/net/irmod.c
++++ b/drivers/staging/irda/net/irmod.c
+@@ -190,7 +190,7 @@ static void __exit irda_cleanup(void)
+  *
+  * Jean II
+  */
+-subsys_initcall(irda_init);
++device_initcall(irda_init);
+ module_exit(irda_cleanup);
+ 
+ MODULE_AUTHOR("Dag Brattli <dagb@cs.uit.no> & Jean Tourrilhes <jt@hpl.hp.com>");
+-- 
+2.14.1
