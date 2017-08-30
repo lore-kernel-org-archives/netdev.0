@@ -1,28 +1,30 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH 3/5] net: mdio-mux: printing driver version is useless
-Date: Wed, 30 Aug 2017 20:46:58 +0200
-Message-ID: <20170830184658.GF22289@lunn.ch>
-References: <20170830174651.30325-1-clabbe.montjoie@gmail.com>
- <20170830174651.30325-4-clabbe.montjoie@gmail.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH][net-next][V3] bpf: test_maps: fix typos, "conenct" and
+ "listeen"
+Date: Wed, 30 Aug 2017 20:47:13 +0200
+Message-ID: <59A70831.6080501@iogearbox.net>
+References: <20170830171525.5688-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Corentin Labbe <clabbe.montjoie@gmail.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Colin King <colin.king@canonical.com>,
+        Alexei Starovoitov <ast@kernel.org>,
+        Shuah Khan <shuah@kernel.org>, netdev@vger.kernel.org,
+        linux-kselftest@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170830174651.30325-4-clabbe.montjoie@gmail.com>
+In-Reply-To: <20170830171525.5688-1-colin.king@canonical.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 30, 2017 at 07:46:49PM +0200, Corentin Labbe wrote:
-> Remove the driver version information because this information
-> is not useful in an upstream kernel driver.
-> 
-> Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
+On 08/30/2017 07:15 PM, Colin King wrote:
+> From: Colin Ian King <colin.king@canonical.com>
+>
+> Trivial fix to typos in printf error messages:
+> "conenct" -> "connect"
+> "listeen" -> "listen"
+>
+> thanks to Daniel Borkmann for spotting one of these mistakes
+>
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
-Hi Corentin
-
-You may as well remove DRV_VERSION from this file, not just here.
-
-    Andrew
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
