@@ -1,81 +1,158 @@
 From: Tom Herbert <tom@quantonium.net>
-Subject: Re: [PATCH v2 net-next 0/6] flow_dissector: Protocol specific flow
- dissector offload
-Date: Wed, 30 Aug 2017 07:50:09 -0700
-Message-ID: <CAPDqMepnrDRecc5FcrKK39+_EMvpvpNjhJW7LyReZBGjcZ9TJw@mail.gmail.com>
-References: <20170829232711.1465-1-tom@quantonium.net> <874lsp8n2x.fsf@stressinduktion.org>
+Subject: Re: [PATCH v2 net-next 4/6] udp: flow dissector offload
+Date: Wed, 30 Aug 2017 07:56:44 -0700
+Message-ID: <CAPDqMepe=jBrjy+nFBA7g53Ex=bvn9h9qcazry_3uQ8Hd3iBPw@mail.gmail.com>
+References: <20170829232711.1465-1-tom@quantonium.net> <20170829232711.1465-5-tom@quantonium.net>
+ <1504089372.2480.55.camel@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Cc: "David S . Miller" <davem@davemloft.net>,
         Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: Paolo Abeni <pabeni@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f177.google.com ([209.85.128.177]:33039 "EHLO
-        mail-wr0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751377AbdH3OuL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 10:50:11 -0400
-Received: by mail-wr0-f177.google.com with SMTP id k94so19238316wrc.0
-        for <netdev@vger.kernel.org>; Wed, 30 Aug 2017 07:50:11 -0700 (PDT)
-In-Reply-To: <874lsp8n2x.fsf@stressinduktion.org>
+Received: from mail-wr0-f179.google.com ([209.85.128.179]:38398 "EHLO
+        mail-wr0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751323AbdH3O4q (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 10:56:46 -0400
+Received: by mail-wr0-f179.google.com with SMTP id 40so18708320wrv.5
+        for <netdev@vger.kernel.org>; Wed, 30 Aug 2017 07:56:46 -0700 (PDT)
+In-Reply-To: <1504089372.2480.55.camel@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 30, 2017 at 1:41 AM, Hannes Frederic Sowa
-<hannes@stressinduktion.org> wrote:
-> Hello Tom,
->
-> Tom Herbert <tom@quantonium.net> writes:
->
->> This patch set adds a new offload type to perform flow dissection for
->> specific protocols (either by EtherType or by IP protocol). This is
->> primary useful to crack open UDP encapsulations (like VXLAN, GUE) for
->> the purposes of parsing the encapsulated packet.
+On Wed, Aug 30, 2017 at 3:36 AM, Paolo Abeni <pabeni@redhat.com> wrote:
+> On Tue, 2017-08-29 at 16:27 -0700, Tom Herbert wrote:
+>> Add support to perform UDP specific flow dissection. This is
+>> primarily intended for dissecting encapsulated packets in UDP
+>> encapsulation.
 >>
->> Items in this patch set:
->> - Constify skb argument to UDP lookup functions
->> - Create new protocol case in __skb_dissect for ETH_P_TEB. This is based
->>   on the code in the GRE dissect function and the special handling in
->>   GRE can now be removed (it sets protocol to ETH_P_TEB and returns so
->>   goto proto_again is done)
->> - Add infrastructure for protocol specific flow dissection offload
->> - Add infrastructure to perform UDP flow dissection. Uses same model of
->>   GRO where a flow_dissect callback can be associated with a UDP
->>   socket
->> - Use the infrastructure to support flow dissection of VXLAN and GUE
+>> This patch adds a flow_dissect offload for UDP4 and UDP6. The backend
+>> function performs a socket lookup and calls the flow_dissect function
+>> if a socket is found.
 >>
->> Tested:
+>> Signed-off-by: Tom Herbert <tom@quantonium.net>
+>> ---
+>>  include/linux/udp.h      |  8 ++++++++
+>>  include/net/udp.h        |  8 ++++++++
+>>  include/net/udp_tunnel.h |  8 ++++++++
+>>  net/ipv4/udp_offload.c   | 45 +++++++++++++++++++++++++++++++++++++++++++++
+>>  net/ipv4/udp_tunnel.c    |  1 +
+>>  net/ipv6/udp_offload.c   | 13 +++++++++++++
+>>  6 files changed, 83 insertions(+)
 >>
->> Forced RPS to call flow dissection for VXLAN, FOU, and GUE. Observed
->> that inner packet was being properly dissected.
+>> diff --git a/include/linux/udp.h b/include/linux/udp.h
+>> index eaea63bc79bb..2e90b189ef6a 100644
+>> --- a/include/linux/udp.h
+>> +++ b/include/linux/udp.h
+>> @@ -79,6 +79,14 @@ struct udp_sock {
+>>       int                     (*gro_complete)(struct sock *sk,
+>>                                               struct sk_buff *skb,
+>>                                               int nhoff);
+>> +     /* Flow dissector function for a UDP socket */
+>> +     enum flow_dissect_ret (*flow_dissect)(struct sock *sk,
+>> +                     const struct sk_buff *skb,
+>> +                     struct flow_dissector_key_control *key_control,
+>> +                     struct flow_dissector *flow_dissector,
+>> +                     void *target_container, void *data,
+>> +                     __be16 *p_proto, u8 *p_ip_proto, int *p_nhoff,
+>> +                     int *p_hlen, unsigned int flags);
 >>
->> v2: Add signed off
+>>       /* udp_recvmsg try to use this before splicing sk_receive_queue */
+>>       struct sk_buff_head     reader_queue ____cacheline_aligned_in_smp;
+>> diff --git a/include/net/udp.h b/include/net/udp.h
+>> index f3d1de6f0983..499e4faf8b14 100644
+>> --- a/include/net/udp.h
+>> +++ b/include/net/udp.h
+>> @@ -174,6 +174,14 @@ struct sk_buff **udp_gro_receive(struct sk_buff **head, struct sk_buff *skb,
+>>                                struct udphdr *uh, udp_lookup_t lookup);
+>>  int udp_gro_complete(struct sk_buff *skb, int nhoff, udp_lookup_t lookup);
+>>
+>> +enum flow_dissect_ret udp_flow_dissect(const struct sk_buff *skb,
+>> +                     udp_lookup_t lookup,
+>> +                     struct flow_dissector_key_control *key_control,
+>> +                     struct flow_dissector *flow_dissector,
+>> +                     void *target_container, void *data,
+>> +                     __be16 *p_proto, u8 *p_ip_proto, int *p_nhoff,
+>> +                     int *p_hlen, unsigned int flags);
+>> +
+>>  static inline struct udphdr *udp_gro_udphdr(struct sk_buff *skb)
+>>  {
+>>       struct udphdr *uh;
+>> diff --git a/include/net/udp_tunnel.h b/include/net/udp_tunnel.h
+>> index 10cce0dd4450..b7102e0f41a9 100644
+>> --- a/include/net/udp_tunnel.h
+>> +++ b/include/net/udp_tunnel.h
+>> @@ -69,6 +69,13 @@ typedef struct sk_buff **(*udp_tunnel_gro_receive_t)(struct sock *sk,
+>>                                                    struct sk_buff *skb);
+>>  typedef int (*udp_tunnel_gro_complete_t)(struct sock *sk, struct sk_buff *skb,
+>>                                        int nhoff);
+>> +typedef enum flow_dissect_ret (*udp_tunnel_flow_dissect_t)(struct sock *sk,
+>> +                     const struct sk_buff *skb,
+>> +                     struct flow_dissector_key_control *key_control,
+>> +                     struct flow_dissector *flow_dissector,
+>> +                     void *target_container, void *data,
+>> +                     __be16 *p_proto, u8 *p_ip_proto, int *p_nhoff,
+>> +                     int *p_hlen, unsigned int flags);
+>>
+>>  struct udp_tunnel_sock_cfg {
+>>       void *sk_user_data;     /* user data used by encap_rcv call back */
+>> @@ -78,6 +85,7 @@ struct udp_tunnel_sock_cfg {
+>>       udp_tunnel_encap_destroy_t encap_destroy;
+>>       udp_tunnel_gro_receive_t gro_receive;
+>>       udp_tunnel_gro_complete_t gro_complete;
+>> +     udp_tunnel_flow_dissect_t flow_dissect;
+>>  };
+>>
+>>  /* Setup the given (UDP) sock to receive UDP encapsulated packets */
+>> diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
+>> index 97658bfc1b58..7f0a7ed4a6f7 100644
+>> --- a/net/ipv4/udp_offload.c
+>> +++ b/net/ipv4/udp_offload.c
+>> @@ -328,11 +328,56 @@ static int udp4_gro_complete(struct sk_buff *skb, int nhoff)
+>>       return udp_gro_complete(skb, nhoff, udp4_lib_lookup_skb);
+>>  }
+>>
+>> +enum flow_dissect_ret udp_flow_dissect(const struct sk_buff *skb,
+>> +                     udp_lookup_t lookup,
+>> +                     struct flow_dissector_key_control *key_control,
+>> +                     struct flow_dissector *flow_dissector,
+>> +                     void *target_container, void *data,
+>> +                     __be16 *p_proto, u8 *p_ip_proto, int *p_nhoff,
+>> +                     int *p_hlen, unsigned int flags)
+>> +{
+>> +     enum flow_dissect_ret ret = FLOW_DISSECT_RET_CONTINUE;
+>> +     struct udphdr *uh, _uh;
+>> +     struct sock *sk;
+>> +
+>> +     uh = __skb_header_pointer(skb, *p_nhoff, sizeof(_uh), data,
+>> +                               *p_hlen, &_uh);
+>> +     if (!uh)
+>> +             return FLOW_DISSECT_RET_OUT_BAD;
+>> +
+>> +     rcu_read_lock();
+>> +
+>> +     sk = (*lookup)(skb, uh->source, uh->dest);
+>> +
+>> +     if (sk && udp_sk(sk)->flow_dissect)
+>> +             ret = udp_sk(sk)->flow_dissect(sk, skb, key_control,
+>> +                                            flow_dissector, target_container,
+>> +                                            data, p_proto, p_ip_proto,
+>> +                                            p_nhoff, p_hlen, flags);
+>> +     rcu_read_unlock();
+>> +
+>> +     return ret;
+>> +}
+>> +EXPORT_SYMBOL(udp_flow_dissect);
 >
-> [...]
+> If I read the above correctly, this is going to add another full UDP
+> lookup per UDP packet, can we avoid it with some static key enabled by
+> vxlan/fou/etc. ?
 >
-> Can you provide more context on why you did this series? Is the entropy
-> insufficient you receive via UDP source ports? I assume this is the case
-> for HW RSS hashing but actually not for the software dissector.
->
-Hi Hannes,
-
-I think entropy is sufficient looking at UDP source ports, but there
-is not universal agreement on that. In any case there are now many
-other uses of flow dissector, for those that want DPI like getting TCP
-flags, UDP encapsulation is currently a blind spot.
-
-> Btw. we forbid hardware to use L4 information if IP_PROTO is UDP but we
-> allow it in RPS (not in IPv6 if flowlabel is present). Your series could
-> solve this problem by being more protocol specific and disallow
-> fragmentation on a particular quadtuple, very much the same like hw
-> encap offload, where we tell the specific port number to the hardware
-> and then disallow using L4 information for all other UDP protocols.
->
-IMO the fact that HW is protocol specific and operates solely on ports
-is a problem (remember Less Is More...). It's better to be protocol
-generic and do the socket lookup in SW which no longer has atomic
-operations. Matching by bound socket tuple is more accurate than just
-a port. However, technically this solution still isn't 100% correct
-since it's possible that macvlan or ipvlan may intercede and steer
-packet to a namespace where the socket isn't valid.
+That's a good idea! Should just check udp_encap_needed. Also makes
+sense to have in udp_gro_receive.
 
 Tom
+
+> Thanks,
+>
+> Paolo
