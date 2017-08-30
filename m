@@ -1,87 +1,58 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net 04/11] net/mlx5: Skip mlx5_unload_one if mlx5_load_one fails
-Date: Thu, 31 Aug 2017 01:21:03 +0300
-Message-ID: <20170830222110.15737-5-saeedm@mellanox.com>
+Subject: [net 08/11] net/mlx5e: Properly resolve TC offloaded ipv6 vxlan tunnel source address
+Date: Thu, 31 Aug 2017 01:21:07 +0300
+Message-ID: <20170830222110.15737-9-saeedm@mellanox.com>
 References: <20170830222110.15737-1-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Huy Nguyen <huyn@mellanox.com>,
+Cc: netdev@vger.kernel.org, Paul Blakey <paulb@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:53238 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:53266 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751330AbdH3WVd (ORCPT
+        with ESMTP id S1751372AbdH3WVd (ORCPT
         <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 18:21:33 -0400
 In-Reply-To: <20170830222110.15737-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Huy Nguyen <huyn@mellanox.com>
+From: Paul Blakey <paulb@mellanox.com>
 
-There is an issue where the firmware fails during mlx5_load_one,
-the health_care timer detects the issue and schedules a health_care call.
-Then the mlx5_load_one detects the issue, cleans up and quits. Then
-the health_care starts and calls mlx5_unload_one to clean up the resources
-that no longer exist and causes kernel panic.
+Currently if vxlan tunnel ipv6 src isn't supplied the driver fails to
+resolve it as part of the route lookup. The resulting encap header
+is left with a zeroed out ipv6 src address so the packets are sent
+with this src ip.
 
-The root cause is that the bit MLX5_INTERFACE_STATE_DOWN is not set
-after mlx5_load_one fails. The solution is removing the bit
-MLX5_INTERFACE_STATE_DOWN and quit mlx5_unload_one if the
-bit MLX5_INTERFACE_STATE_UP is not set. The bit MLX5_INTERFACE_STATE_DOWN
-is redundant and we can use MLX5_INTERFACE_STATE_UP instead.
+Use an appropriate route lookup API that also resolves the source
+ipv6 address if it's not supplied.
 
-Fixes: 5fc7197d3a25 ("net/mlx5: Add pci shutdown callback")
-Signed-off-by: Huy Nguyen <huyn@mellanox.com>
-Reviewed-by: Daniel Jurgens <danielj@mellanox.com>
+Fixes: ce99f6b97fcd ('net/mlx5e: Support SRIOV TC encapsulation offloads for IPv6 tunnels')
+Signed-off-by: Paul Blakey <paulb@mellanox.com>
+Reviewed-by: Or Gerlitz <ogerlitz@mellanox.com>
+Reviewed-by: Roi Dayan <roid@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/main.c | 4 +---
- include/linux/mlx5/driver.h                    | 5 ++---
- 2 files changed, 3 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.c | 8 +++-----
+ 1 file changed, 3 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-index c065132b956d..4cdb414aa2d5 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-@@ -1186,7 +1186,6 @@ static int mlx5_load_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv,
- 		}
- 	}
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+index 3c536f560dd2..7f282e8f4e7f 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+@@ -1443,12 +1443,10 @@ static int mlx5e_route_lookup_ipv6(struct mlx5e_priv *priv,
+ 	struct mlx5_eswitch *esw = priv->mdev->priv.eswitch;
+ 	int ret;
  
--	clear_bit(MLX5_INTERFACE_STATE_DOWN, &dev->intf_state);
- 	set_bit(MLX5_INTERFACE_STATE_UP, &dev->intf_state);
- out:
- 	mutex_unlock(&dev->intf_state_mutex);
-@@ -1261,7 +1260,7 @@ static int mlx5_unload_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv,
- 		mlx5_drain_health_recovery(dev);
+-	dst = ip6_route_output(dev_net(mirred_dev), NULL, fl6);
+-	ret = dst->error;
+-	if (ret) {
+-		dst_release(dst);
++	ret = ipv6_stub->ipv6_dst_lookup(dev_net(mirred_dev), NULL, &dst,
++					 fl6);
++	if (ret < 0)
+ 		return ret;
+-	}
  
- 	mutex_lock(&dev->intf_state_mutex);
--	if (test_bit(MLX5_INTERFACE_STATE_DOWN, &dev->intf_state)) {
-+	if (!test_bit(MLX5_INTERFACE_STATE_UP, &dev->intf_state)) {
- 		dev_warn(&dev->pdev->dev, "%s: interface is down, NOP\n",
- 			 __func__);
- 		if (cleanup)
-@@ -1270,7 +1269,6 @@ static int mlx5_unload_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv,
- 	}
+ 	*out_ttl = ip6_dst_hoplimit(dst);
  
- 	clear_bit(MLX5_INTERFACE_STATE_UP, &dev->intf_state);
--	set_bit(MLX5_INTERFACE_STATE_DOWN, &dev->intf_state);
- 
- 	if (mlx5_device_registered(dev))
- 		mlx5_detach_device(dev);
-diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
-index df6ce59a1f95..918f5e644506 100644
---- a/include/linux/mlx5/driver.h
-+++ b/include/linux/mlx5/driver.h
-@@ -673,9 +673,8 @@ enum mlx5_device_state {
- };
- 
- enum mlx5_interface_state {
--	MLX5_INTERFACE_STATE_DOWN = BIT(0),
--	MLX5_INTERFACE_STATE_UP = BIT(1),
--	MLX5_INTERFACE_STATE_SHUTDOWN = BIT(2),
-+	MLX5_INTERFACE_STATE_UP = BIT(0),
-+	MLX5_INTERFACE_STATE_SHUTDOWN = BIT(1),
- };
- 
- enum mlx5_pci_status {
 -- 
 2.13.0
