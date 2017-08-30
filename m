@@ -1,36 +1,69 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] tcp: re-add header prediction
-Date: Wed, 30 Aug 2017 11:20:51 -0700 (PDT)
-Message-ID: <20170830.112051.1883418035935384084.davem@davemloft.net>
-References: <20170830172458.18544-1-fw@strlen.de>
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: [PATCH net-next 1/4] net: Add SRIOV VGT+ support
+Date: Wed, 30 Aug 2017 21:30:23 +0300
+Message-ID: <CALzJLG9FKcfB3-huh2sa+0aAKtOcwbFNVqi4nRgamRnw+2H0GQ@mail.gmail.com>
+References: <20170827110618.20599-1-saeedm@mellanox.com> <20170827110618.20599-2-saeedm@mellanox.com>
+ <20170828155217.GA8399@bistromath.localdomain> <CALzJLG8EqGLw66bzBdor629mvJdcN+YOAesTxW8_QYt_teUMiA@mail.gmail.com>
+ <20170829164330.GA22607@bistromath.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com
-To: fw@strlen.de
+Content-Type: text/plain; charset="UTF-8"
+Cc: Saeed Mahameed <saeedm@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        Eugenia Emantayev <eugenia@mellanox.com>,
+        Mohamad Haj Yahia <mohamad@mellanox.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: Sabrina Dubroca <sd@queasysnail.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:58630 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752090AbdH3SUx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 14:20:53 -0400
-In-Reply-To: <20170830172458.18544-1-fw@strlen.de>
+Received: from mail-lf0-f66.google.com ([209.85.215.66]:38576 "EHLO
+        mail-lf0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751546AbdH3Sap (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 14:30:45 -0400
+Received: by mail-lf0-f66.google.com with SMTP id z12so2922524lfd.5
+        for <netdev@vger.kernel.org>; Wed, 30 Aug 2017 11:30:44 -0700 (PDT)
+In-Reply-To: <20170829164330.GA22607@bistromath.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
-Date: Wed, 30 Aug 2017 19:24:56 +0200
+On Tue, Aug 29, 2017 at 7:43 PM, Sabrina Dubroca <sd@queasysnail.net> wrote:
+> 2017-08-29, 13:13:09 +0300, Saeed Mahameed wrote:
+>> On Mon, Aug 28, 2017 at 6:52 PM, Sabrina Dubroca <sd@queasysnail.net> wrote:
+>> > 2017-08-27, 14:06:15 +0300, Saeed Mahameed wrote:
+>> > [...]
+>> >> +#define VF_VLAN_BITMAP       DIV_ROUND_UP(VF_VLAN_N_VID, sizeof(__u64) * BITS_PER_BYTE)
+>> >> +struct ifla_vf_vlan_trunk {
+>> >> +     __u32 vf;
+>> >> +     __u64 allowed_vlans_8021q_bm[VF_VLAN_BITMAP];
+>> >> +     __u64 allowed_vlans_8021ad_bm[VF_VLAN_BITMAP];
+>> >> +};
+>> >
+>> > This is huge (1032B). And you put one of these in the netlink message
+>> > for each VF.  This means that with 51 VF (at least in my environment,
+>> > where each VF takes 1296B), you're going to overflow the u16 size of a
+>> > single attribute (IFLA_VFINFO_LIST), and you cannot dump the device
+>> > anymore. I'm afraid this is going to break existing setups.
+>> >
+>>
+>> Yes ! We will fix this,
+>> we are considering to report only a boolean in VFINFO which indecates
+>> if VGT+ is enable or not
+>> and provide a new attribute per VF to report only the vlan list of specific VF.
+>
+> I don't see what this is going to look like. Maybe you can describe
+> more precisely what you want to add to the netlink message? (otherwise
+> I'll wait for the patches)
+>
 
-> Eric reported a performance regression caused by header prediction
-> removal.
-> 
-> We now call tcp_ack() much more frequently, for some workloads
-> this brings in enough cache line misses to become noticeable.
-> 
-> We could possibly still kill HP provided we find a different
-> way to suppress unneeded tcp_ack, but given we're late in
-> the cycle it seems preferable to revert.
+We are still looking for the best way from user experience perspective.
+Currently we think we will only allow to query VF vlan list on one VF
+at a time, with vlan list special ip route command.
 
-Indeed, reverting at this point in the game is the best thing
-to do right now.
+Still under definition, we will let you know once ready.
 
-Applied, thanks.
+> If you add large attributes for each VF, this is still going to break.
+>
+>
+> Thanks.
+>
+> --
+> Sabrina
