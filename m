@@ -1,150 +1,109 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: Re: [PATCH v2 net-next 4/6] udp: flow dissector offload
-Date: Wed, 30 Aug 2017 12:36:12 +0200
-Message-ID: <1504089372.2480.55.camel@redhat.com>
-References: <20170829232711.1465-1-tom@quantonium.net>
-         <20170829232711.1465-5-tom@quantonium.net>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: Question about ip_defrag
+Date: Wed, 30 Aug 2017 12:58:43 +0200
+Message-ID: <20170830125843.250c91c1@redhat.com>
+References: <4F88C5DDA1E80143B232E89585ACE27D018F07E2@DGGEMA502-MBX.china.huawei.com>
+        <20170824155300.1e577dae@redhat.com>
+        <4F88C5DDA1E80143B232E89585ACE27D018F0AE1@DGGEMA502-MBX.china.huawei.com>
+        <20170824205926.2c45e3a1@redhat.com>
+        <4F88C5DDA1E80143B232E89585ACE27D018F3157@DGGEMA502-MBX.china.huawei.com>
+        <20170828140032.GB12926@breakpoint.cc>
+        <20170829092021.0a46fffa@redhat.com>
+        <20170829075315.GA9993@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Tom Herbert <tom@quantonium.net>, davem@davemloft.net
+Cc: "liujian (CE)" <liujian56@huawei.com>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "edumazet@google.com" <edumazet@google.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "Wangkefeng (Kevin)" <wangkefeng.wang@huawei.com>,
+        "weiyongjun (A)" <weiyongjun1@huawei.com>, brouer@redhat.com
+To: Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42286 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:44966 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751186AbdH3KgO (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 30 Aug 2017 06:36:14 -0400
-In-Reply-To: <20170829232711.1465-5-tom@quantonium.net>
+        id S1751263AbdH3K66 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 30 Aug 2017 06:58:58 -0400
+In-Reply-To: <20170829075315.GA9993@breakpoint.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2017-08-29 at 16:27 -0700, Tom Herbert wrote:
-> Add support to perform UDP specific flow dissection. This is
-> primarily intended for dissecting encapsulated packets in UDP
-> encapsulation.
-> 
-> This patch adds a flow_dissect offload for UDP4 and UDP6. The backend
-> function performs a socket lookup and calls the flow_dissect function
-> if a socket is found.
-> 
-> Signed-off-by: Tom Herbert <tom@quantonium.net>
-> ---
->  include/linux/udp.h      |  8 ++++++++
->  include/net/udp.h        |  8 ++++++++
->  include/net/udp_tunnel.h |  8 ++++++++
->  net/ipv4/udp_offload.c   | 45 +++++++++++++++++++++++++++++++++++++++++++++
->  net/ipv4/udp_tunnel.c    |  1 +
->  net/ipv6/udp_offload.c   | 13 +++++++++++++
->  6 files changed, 83 insertions(+)
-> 
-> diff --git a/include/linux/udp.h b/include/linux/udp.h
-> index eaea63bc79bb..2e90b189ef6a 100644
-> --- a/include/linux/udp.h
-> +++ b/include/linux/udp.h
-> @@ -79,6 +79,14 @@ struct udp_sock {
->  	int			(*gro_complete)(struct sock *sk,
->  						struct sk_buff *skb,
->  						int nhoff);
-> +	/* Flow dissector function for a UDP socket */
-> +	enum flow_dissect_ret (*flow_dissect)(struct sock *sk,
-> +			const struct sk_buff *skb,
-> +			struct flow_dissector_key_control *key_control,
-> +			struct flow_dissector *flow_dissector,
-> +			void *target_container, void *data,
-> +			__be16 *p_proto, u8 *p_ip_proto, int *p_nhoff,
-> +			int *p_hlen, unsigned int flags);
->  
->  	/* udp_recvmsg try to use this before splicing sk_receive_queue */
->  	struct sk_buff_head	reader_queue ____cacheline_aligned_in_smp;
-> diff --git a/include/net/udp.h b/include/net/udp.h
-> index f3d1de6f0983..499e4faf8b14 100644
-> --- a/include/net/udp.h
-> +++ b/include/net/udp.h
-> @@ -174,6 +174,14 @@ struct sk_buff **udp_gro_receive(struct sk_buff **head, struct sk_buff *skb,
->  				 struct udphdr *uh, udp_lookup_t lookup);
->  int udp_gro_complete(struct sk_buff *skb, int nhoff, udp_lookup_t lookup);
->  
-> +enum flow_dissect_ret udp_flow_dissect(const struct sk_buff *skb,
-> +			udp_lookup_t lookup,
-> +			struct flow_dissector_key_control *key_control,
-> +			struct flow_dissector *flow_dissector,
-> +			void *target_container, void *data,
-> +			__be16 *p_proto, u8 *p_ip_proto, int *p_nhoff,
-> +			int *p_hlen, unsigned int flags);
-> +
->  static inline struct udphdr *udp_gro_udphdr(struct sk_buff *skb)
->  {
->  	struct udphdr *uh;
-> diff --git a/include/net/udp_tunnel.h b/include/net/udp_tunnel.h
-> index 10cce0dd4450..b7102e0f41a9 100644
-> --- a/include/net/udp_tunnel.h
-> +++ b/include/net/udp_tunnel.h
-> @@ -69,6 +69,13 @@ typedef struct sk_buff **(*udp_tunnel_gro_receive_t)(struct sock *sk,
->  						     struct sk_buff *skb);
->  typedef int (*udp_tunnel_gro_complete_t)(struct sock *sk, struct sk_buff *skb,
->  					 int nhoff);
-> +typedef enum flow_dissect_ret (*udp_tunnel_flow_dissect_t)(struct sock *sk,
-> +			const struct sk_buff *skb,
-> +			struct flow_dissector_key_control *key_control,
-> +			struct flow_dissector *flow_dissector,
-> +			void *target_container, void *data,
-> +			__be16 *p_proto, u8 *p_ip_proto, int *p_nhoff,
-> +			int *p_hlen, unsigned int flags);
->  
->  struct udp_tunnel_sock_cfg {
->  	void *sk_user_data;     /* user data used by encap_rcv call back */
-> @@ -78,6 +85,7 @@ struct udp_tunnel_sock_cfg {
->  	udp_tunnel_encap_destroy_t encap_destroy;
->  	udp_tunnel_gro_receive_t gro_receive;
->  	udp_tunnel_gro_complete_t gro_complete;
-> +	udp_tunnel_flow_dissect_t flow_dissect;
->  };
->  
->  /* Setup the given (UDP) sock to receive UDP encapsulated packets */
-> diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
-> index 97658bfc1b58..7f0a7ed4a6f7 100644
-> --- a/net/ipv4/udp_offload.c
-> +++ b/net/ipv4/udp_offload.c
-> @@ -328,11 +328,56 @@ static int udp4_gro_complete(struct sk_buff *skb, int nhoff)
->  	return udp_gro_complete(skb, nhoff, udp4_lib_lookup_skb);
->  }
->  
-> +enum flow_dissect_ret udp_flow_dissect(const struct sk_buff *skb,
-> +			udp_lookup_t lookup,
-> +			struct flow_dissector_key_control *key_control,
-> +			struct flow_dissector *flow_dissector,
-> +			void *target_container, void *data,
-> +			__be16 *p_proto, u8 *p_ip_proto, int *p_nhoff,
-> +			int *p_hlen, unsigned int flags)
-> +{
-> +	enum flow_dissect_ret ret = FLOW_DISSECT_RET_CONTINUE;
-> +	struct udphdr *uh, _uh;
-> +	struct sock *sk;
-> +
-> +	uh = __skb_header_pointer(skb, *p_nhoff, sizeof(_uh), data,
-> +				  *p_hlen, &_uh);
-> +	if (!uh)
-> +		return FLOW_DISSECT_RET_OUT_BAD;
-> +
-> +	rcu_read_lock();
-> +
-> +	sk = (*lookup)(skb, uh->source, uh->dest);
-> +
-> +	if (sk && udp_sk(sk)->flow_dissect)
-> +		ret = udp_sk(sk)->flow_dissect(sk, skb, key_control,
-> +					       flow_dissector, target_container,
-> +					       data, p_proto, p_ip_proto,
-> +					       p_nhoff, p_hlen, flags);
-> +	rcu_read_unlock();
-> +
-> +	return ret;
-> +}
-> +EXPORT_SYMBOL(udp_flow_dissect);
+(trimmed CC list a bit)
 
-If I read the above correctly, this is going to add another full UDP
-lookup per UDP packet, can we avoid it with some static key enabled by
-vxlan/fou/etc. ?
+On Tue, 29 Aug 2017 09:53:15 +0200 Florian Westphal <fw@strlen.de> wrote:
 
-Thanks,
+> Jesper Dangaard Brouer <brouer@redhat.com> wrote:
+> > On Mon, 28 Aug 2017 16:00:32 +0200
+> > Florian Westphal <fw@strlen.de> wrote:
+> >   
+> > > liujian (CE) <liujian56@huawei.com> wrote:  
+> > > > Hi
+> > > > 
+> > > > I checked our 3.10 kernel, we had backported all percpu_counter
+> > > > bug fix in lib/percpu_counter.c and include/linux/percpu_counter.h.
+> > > > And I check 4.13-rc6, also has the issue if NIC's rx cpu num big enough.
+> > > >     
+> > > > > > > > the issue:
+> > > > > > > > Ip_defrag fail caused by frag_mem_limit reached 4M(frags.high_thresh).
+> > > > > > > > At this moment,sum_frag_mem_limit is about 10K.    
+> > > > 
+> > > > So should we change ipfrag high/low thresh to a reasonable value ? 
+> > > > And if it is, is there a standard to change the value?    
+> > > 
+> > > Each cpu can have frag_percpu_counter_batch bytes rest doesn't know
+> > > about so with 64 cpus that is ~8 mbyte.
+> > > 
+> > > possible solutions:
+> > > 1. reduce frag_percpu_counter_batch to 16k or so
+> > > 2. make both low and high thresh depend on NR_CPUS  
+> 
+> I take 2) back.  Its wrong to do this, for large NR_CPU values it
+> would even overflow.
 
-Paolo
+Alternatively solution 3:
+Why do we want to maintain a (4MBytes) memory limit, across all CPUs?
+Couldn't we just allow each CPU to have a memory limit?
+
+
+> > To me it looks like we/I have been using the wrong API for comparing
+> > against percpu_counters.  I guess we should have used __percpu_counter_compare().  
+> 
+> Are you sure?  For liujian use case (64 cores) it looks like we would
+> always fall through to percpu_counter_sum() so we eat spinlock_irqsave
+> cost for all compares.
+> 
+> Before we entertain this we should consider reducing frag_percpu_counter_batch
+> to a smaller value.
+
+Yes, I agree, we really need to lower/reduce the frag_percpu_counter_batch.
+As you say, else the __percpu_counter_compare() call will be useless
+(around systems with >= 32 CPUs).
+
+I think the bug is in frag_mem_limit().  It just reads the global
+counter (fbc->count), without considering other CPUs can have upto 130K
+that haven't been subtracted yet (due to 3M low limit, become dangerous
+at >=24 CPUs).  The  __percpu_counter_compare() does the right thing,
+and takes into account the number of (online) CPUs and batch size, to
+account for this.
+
+If we choose 16K (16384), and use __percpu_counter_compare(), then we
+can scale to systems with 256 CPUs (4*1024*1024/16384=256), before this
+memory accounting becomes more expensive (than not using percpu_counters).
+But Liujian, reports he have a 384 CPU system, so he would still need
+to increase the lower+high threshold.
+
+
+$ grep -H .  /proc/sys/net/ipv*/ip*frag_*_thresh /proc/sys/net/netfilter/nf_conntrack_frag6_*_thresh
+/proc/sys/net/ipv4/ipfrag_high_thresh:4194304
+/proc/sys/net/ipv4/ipfrag_low_thresh:3145728
+/proc/sys/net/ipv6/ip6frag_high_thresh:4194304
+/proc/sys/net/ipv6/ip6frag_low_thresh:3145728
+/proc/sys/net/netfilter/nf_conntrack_frag6_high_thresh:4194304
+/proc/sys/net/netfilter/nf_conntrack_frag6_low_thresh:3145728
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
