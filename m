@@ -1,54 +1,73 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH net-next] bridge: add tracepoint in br_fdb_update
-Date: Thu, 31 Aug 2017 23:50:26 +0200
-Message-ID: <20170831235026.6377bf86@redhat.com>
-References: <1504156693-24692-1-git-send-email-roopa@cumulusnetworks.com>
-        <20170831.114325.2027598728601121750.davem@davemloft.net>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: [GIT] Networking
+Date: Thu, 31 Aug 2017 08:52:04 +0200
+Message-ID: <20170831065204.GA17812@amd>
+References: <87pobdt8qc.fsf@kamboji.qca.qualcomm.com>
+ <20170830.101143.2305098064824357647.davem@davemloft.net>
+ <87val5rmh8.fsf@kamboji.qca.qualcomm.com>
+ <20170830.105447.125174575140677062.davem@davemloft.net>
+ <87fuc8s5v9.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: brouer@redhat.com, roopa@cumulusnetworks.com,
-        netdev@vger.kernel.org, nikolay@cumulusnetworks.com,
-        f.fainelli@gmail.com, andrew@lunn.ch,
-        bridge@lists.linux-foundation.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46248 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750908AbdHaVuc (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 31 Aug 2017 17:50:32 -0400
-In-Reply-To: <20170831.114325.2027598728601121750.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="IJpNTDwzlM2Ie8A6"
+Cc: David Miller <davem@davemloft.net>, xiyou.wangcong@gmail.com,
+        torvalds@linux-foundation.org, akpm@linux-foundation.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <87fuc8s5v9.fsf@kamboji.qca.qualcomm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 31 Aug 2017 11:43:25 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
 
-> From: Roopa Prabhu <roopa@cumulusnetworks.com>
-> Date: Wed, 30 Aug 2017 22:18:13 -0700
-> 
-> > From: Roopa Prabhu <roopa@cumulusnetworks.com>
-> > 
-> > This extends bridge fdb table tracepoints to also cover
-> > learned fdb entries in the br_fdb_update path. Note that
-> > unlike other tracepoints I have moved this to when the fdb
-> > is modified because this is in the datapath and can generate
-> > a lot of noise in the trace output. br_fdb_update is also called
-> > from added_by_user context in the NTF_USE case which is already
-> > traced ..hence the !added_by_user check.
-> > 
-> > Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>  
-> 
-> Applied.
-> 
-> Let's use dev->name for now and if the tooling can eventually
-> do transparent ifindex->name then we can consider redoing
-> a bunch of networking tracepoints.
+--IJpNTDwzlM2Ie8A6
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-I agree! :-)
+On Thu 2017-08-31 07:44:58, Kalle Valo wrote:
+> David Miller <davem@davemloft.net> writes:
+>=20
+> > From: Kalle Valo <kvalo@codeaurora.org>
+> > Date: Wed, 30 Aug 2017 20:31:31 +0300
+> >
+> >> AFAICS the bug was introduced by 9df86e2e702c6 back in 2010. If the bug
+> >> has been there for 7 years so waiting for a few more weeks should not
+> >> hurt.
+> >
+> > As a maintainer you have a right to handle bug fixing in that way, but
+> > certainly that is not how I would handle this.
+> >
+> > It's easy to validate this fix, it's extremely unlikely to cause
+> > a regression, and fixes a problem someone actually was able to
+> > trigger.
+> >
+> > Deferring to -next only has the side effect of making people wait
+> > longer for the fix.
+>=20
+> Yeah, you are right there. I did actually ponder which I tree should
+> commit it back in July but due to various reasons decided differently.
 
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
+Can we still get the fix to v4.13-final? :-).
+
+Thanks,
+									Pavel
+--=20
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
+g.html
+
+--IJpNTDwzlM2Ie8A6
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iEYEARECAAYFAlmnshQACgkQMOfwapXb+vJNsgCfX036Hgk1RrEOFRJjB95fe7f/
+0n0AoJ7IEtEiYnyhR2NdHwwsBkjUmOXg
+=AwV2
+-----END PGP SIGNATURE-----
+
+--IJpNTDwzlM2Ie8A6--
