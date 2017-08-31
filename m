@@ -1,76 +1,132 @@
-From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: Re: [PATCH net-next 2/3] net: mvpp2: use the GoP interrupt for link
- status changes
-Date: Thu, 31 Aug 2017 15:52:55 +0200
-Message-ID: <20170831135255.GA26758@kwain>
-References: <20170831071256.18416-1-antoine.tenart@free-electrons.com>
- <20170831071256.18416-3-antoine.tenart@free-electrons.com>
- <20170831134724.GO22289@lunn.ch>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
-        protocol="application/pgp-signature"; boundary="pf9I7BMVVzbSWLtt"
-Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
-        davem@davemloft.net, gregory.clement@free-electrons.com,
-        thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
-        linux@armlinux.org.uk, linux-kernel@vger.kernel.org,
-        mw@semihalf.com, stefanc@marvell.com,
-        miquel.raynal@free-electrons.com, netdev@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>
+From: Romain Perier <romain.perier@collabora.com>
+Subject: [PATCH net-next v6] net: stmmac: Delete dead code for MDIO registration
+Date: Thu, 31 Aug 2017 15:53:03 +0200
+Message-ID: <20170831135303.12381-1-romain.perier@collabora.com>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        Romain Perier <romain.perier@collabora.com>
+To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+        Alexandre Torgue <alexandre.torgue@st.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170831134724.GO22289@lunn.ch>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+This code is no longer used, the logging function was changed by commit
+fbca164776e4 ("net: stmmac: Use the right logging function in stmmac_mdio_register").
+It was previously showing information about the type of the IRQ, if it's
+polled, ignored or a normal interrupt. As we don't want information loss,
+I have moved this code to phy_attached_print().
 
---pf9I7BMVVzbSWLtt
-Content-Type: text/plain; charset=iso-8859-1
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Fixes: fbca164776e4 ("net: stmmac: Use the right logging function in stmmac_mdio_register")
+Signed-off-by: Romain Perier <romain.perier@collabora.com>
+---
+Hello,
 
-Hi Andrew,
+This is the continuity of "[PATCH v2 0/2] net: stmmac: phy logging fixes",
+see https://lkml.org/lkml/2017/8/21/288
 
-On Thu, Aug 31, 2017 at 03:47:24PM +0200, Andrew Lunn wrote:
-> On Thu, Aug 31, 2017 at 09:12:55AM +0200, Antoine Tenart wrote:
-> > +static void mvpp22_gop_unmask_irq(struct mvpp2_port *port)
-> > +{
-> > +	u32 val;
-> > +
-> > +	if (port->phy_interface =3D=3D PHY_INTERFACE_MODE_RGMII ||
-> > +	    port->phy_interface =3D=3D PHY_INTERFACE_MODE_RGMII_ID ||
-> > +	    port->phy_interface =3D=3D PHY_INTERFACE_MODE_RGMII_RXID ||
-> > +	    port->phy_interface =3D=3D PHY_INTERFACE_MODE_RGMII_TXID ||
->=20
-> phy_interface_mode_is_rgmii()
+Changes in v6:
+- Rebased onto net-next
 
-Right, and you already made that comment before... I'll fix it.
+Changes in v5:
+- Don't truncater commit fbca164776e4 in the message of *this* commit
+- Fixed typo
 
-Thanks!
-Antoine
+Changes in v4:
+- Don't truncate the commit subject for "Fixes"
+- Fixed invalid sizeof() used with snprintf
+- Added "net-next" prefix to the title of the commit
 
---=20
-Antoine T=E9nart, Free Electrons
-Embedded Linux and Kernel engineering
-http://free-electrons.com
+Changes in v3:
+- Removed patch 2/2: "net: phy: Don't use drv when it is NULL in phy_attached_print",
+  fixed upstream by fcd03e362b1c
+  ("net: phy: Deal with unbound PHY driver in phy_attached_print()")
+- Moved this code to phy_attached_print(), so we have more informations
+  about the IRQ (poll, ignore or normal irq) and no information are loss.
+- Re-worded commit message
 
---pf9I7BMVVzbSWLtt
-Content-Type: application/pgp-signature; name="signature.asc"
+ drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c | 16 ----------------
+ drivers/net/phy/phy_device.c                      | 22 +++++++++++++++++++---
+ 2 files changed, 19 insertions(+), 19 deletions(-)
 
------BEGIN PGP SIGNATURE-----
-
-iQIzBAABCgAdFiEEM7Tg8N8kXOlT7hOhXE2LyK3bvNgFAlmoFLUACgkQXE2LyK3b
-vNgZag/+NSqttzqvCO29x+GvIKjEJw8hEw1T8Q12xCeOnMu34e5B34bAYSoDvd0D
-jgi4b5pMsEaE49vyHojTbr68lIxkSQyi0brXS0ugVDXsHGEXvEtQdFpOARvc8zyC
-LvvIWmnhHD+vWA7l8odaseVQnZJONTMdo1SCc/7R6OmJoaHbfzal7FegrV/zLcOF
-eqks6xKM9j/Cx1kPP27XoebM57oiW7GA2QPPI9P686SPaWxwvql/uV3OWBx34NKL
-Yt5BFKwQGXoiEO/NKxd45fjwGpOCJkDEotBfP71BeHe/DLK0pL5+3RWfwAYWi3qj
-gzSOUo1zVQjsKtIK5HE/gM0ol0MvMsKt+IypERGYeJ+9xRtTmlIbaCPtysSqGJa2
-mhaZ/Mrq3v7psPEMHEp/V7L31O6fPqvg7TXzI9JizPIA9MeOCfv7e2Qstbh/Hctj
-Oxv9vCeZ0Q77hgjRVVH2tD+PZU3K2EXYDTimjudzw8UGXswGJVP0he5U4I45Kl8o
-LUFq4x3Y2pTwZjFAXIeshuN5XdkzX/Ky7ieM7X2SmXC0KO63QoBQCy/W+hTeqvYt
-vrdoxUXBaWiFqkb4fGgd5nRtyn1cMPreeXVuqSYGZUA3f5zCu5gfkAxDMVG3iUHc
-yICw/y7F/yueoHzZrvjT0WoVLmhGXfdYYe8bXR8eIV9x6Yhs3wQ=
-=iw0B
------END PGP SIGNATURE-----
-
---pf9I7BMVVzbSWLtt--
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+index 72ec711fcba2..f5f37bfa1d58 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+@@ -248,9 +248,6 @@ int stmmac_mdio_register(struct net_device *ndev)
+ 	found = 0;
+ 	for (addr = 0; addr < PHY_MAX_ADDR; addr++) {
+ 		struct phy_device *phydev = mdiobus_get_phy(new_bus, addr);
+-		int act = 0;
+-		char irq_num[4];
+-		char *irq_str;
+ 
+ 		if (!phydev)
+ 			continue;
+@@ -273,19 +270,6 @@ int stmmac_mdio_register(struct net_device *ndev)
+ 		if (priv->plat->phy_addr == -1)
+ 			priv->plat->phy_addr = addr;
+ 
+-		act = (priv->plat->phy_addr == addr);
+-		switch (phydev->irq) {
+-		case PHY_POLL:
+-			irq_str = "POLL";
+-			break;
+-		case PHY_IGNORE_INTERRUPT:
+-			irq_str = "IGNORE";
+-			break;
+-		default:
+-			sprintf(irq_num, "%d", phydev->irq);
+-			irq_str = irq_num;
+-			break;
+-		}
+ 		phy_attached_info(phydev);
+ 		found = 1;
+ 	}
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index 9493fb369682..c2f46e5053f7 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -874,19 +874,35 @@ void phy_attached_info(struct phy_device *phydev)
+ }
+ EXPORT_SYMBOL(phy_attached_info);
+ 
+-#define ATTACHED_FMT "attached PHY driver [%s] (mii_bus:phy_addr=%s, irq=%d)"
++#define ATTACHED_FMT "attached PHY driver [%s] (mii_bus:phy_addr=%s, irq=%s)"
+ void phy_attached_print(struct phy_device *phydev, const char *fmt, ...)
+ {
++	char *irq_str;
++	char irq_num[4];
++
++	switch(phydev->irq) {
++	case PHY_POLL:
++		irq_str = "POLL";
++		break;
++	case PHY_IGNORE_INTERRUPT:
++		irq_str = "IGNORE";
++		break;
++	default:
++		snprintf(irq_num, sizeof(irq_num), "%d", phydev->irq);
++		irq_str = irq_num;
++		break;
++	}
++
+ 	if (!fmt) {
+ 		dev_info(&phydev->mdio.dev, ATTACHED_FMT "\n",
+ 			 phydev->drv->name, phydev_name(phydev),
+-			 phydev->irq);
++			 irq_str);
+ 	} else {
+ 		va_list ap;
+ 
+ 		dev_info(&phydev->mdio.dev, ATTACHED_FMT,
+ 			 phydev->drv->name, phydev_name(phydev),
+-			 phydev->irq);
++			 irq_str);
+ 
+ 		va_start(ap, fmt);
+ 		vprintk(fmt, ap);
+-- 
+2.11.0
