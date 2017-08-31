@@ -1,45 +1,29 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [PATCH] rtlwifi: btcoex: 23b 1ant: fix duplicated code for
- different branches
-Date: Wed, 30 Aug 2017 23:48:40 -0500
-Message-ID: <ae09e952-112e-9616-735a-b86ba01ad398@lwfinger.net>
-References: <20170830134223.GA13596@embeddedgus>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] devlink: Maintain consistency in mac field
+ name
+Date: Wed, 30 Aug 2017 22:06:31 -0700 (PDT)
+Message-ID: <20170830.220631.522263616973761041.davem@davemloft.net>
+References: <1504138050-20170-1-git-send-email-dsahern@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: "Gustavo A. R. Silva" <gustavo@embeddedor.com>,
-        Chaoming Li <chaoming_li@realsil.com.cn>,
-        Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170830134223.GA13596@embeddedgus>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, arkadis@mellanox.com
+To: dsahern@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:41922 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750747AbdHaFGc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 01:06:32 -0400
+In-Reply-To: <1504138050-20170-1-git-send-email-dsahern@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/30/2017 08:42 AM, Gustavo A. R. Silva wrote:
-> Refactor code in order to avoid identical code for different branches.
+From: David Ahern <dsahern@gmail.com>
+Date: Wed, 30 Aug 2017 17:07:30 -0700
+
+> IPv4 name uses "destination ip" as does the IPv6 patch set.
+> Make the mac field consistent.
 > 
-> This issue was detected with the help of Coccinelle.
-> 
-> Addresses-Coverity-ID: 1226788
-> Signed-off-by: Gustavo A. R. Silva <gustavo@embeddedor.com>
-> ---
-> This issue was reported by Coverity and it was tested by compilation only.
-> I'm suspicious this may be a copy/paste error. Please, verify.
-> 
->   .../net/wireless/realtek/rtlwifi/btcoexist/halbtc8723b1ant.c   | 10 ++--------
->   1 file changed, 2 insertions(+), 8 deletions(-)
+> Signed-off-by: David Ahern <dsahern@gmail.com>
 
-This change is not correct. When bt_link_info->sco_exist is true, the call should be
-
-				halbtc8723b1ant_limited_rx(btcoexist,
-							   NORMAL_EXEC, true,
-							   false, 0x5);
-
-NACK
-
-I will push the correct patch.
-
-Larry
+Applied, thanks.
