@@ -1,65 +1,69 @@
-From: Marc Gonzalez <marc_gonzalez@sigmadesigns.com>
-Subject: Re: [PATCH net] Revert "net: phy: Correctly process PHY_HALTED in
- phy_stop_machine()"
-Date: Thu, 31 Aug 2017 16:21:42 +0200
-Message-ID: <986d76a0-0972-c99d-b87b-ca6924ec03c0@sigmadesigns.com>
-References: <1504140569-2063-1-git-send-email-f.fainelli@gmail.com>
- <f4bb5ac8-dae8-c0af-7aa6-e546fc0783fa@sigmadesigns.com>
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: [PATCH v2 net-next 1/8] bpf: Add support for recursively running
+ cgroup sock filters
+Date: Thu, 31 Aug 2017 07:22:01 -0700
+Message-ID: <20170831142201.GB1599492@devbig577.frc2.facebook.com>
+References: <1503687941-626-1-git-send-email-dsahern@gmail.com>
+ <1503687941-626-2-git-send-email-dsahern@gmail.com>
+ <20170826024957.m5ita6usxihywmdd@ast-mbp>
+ <bb4398e5-55a3-d63e-ac4d-3f9d7e2efc02@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
-Cc: David Daney <ddaney.cavm@gmail.com>,
-        netdev <netdev@vger.kernel.org>,
-        Geert Uytterhoeven <geert+renesas@glider.be>,
-        David Miller <davem@davemloft.net>,
-        Andrew Lunn <andrew@lunn.ch>, Mason <slash.tmp@free.fr>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-        Mans Rullgard <mans@mansr.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        netdev@vger.kernel.org, daniel@iogearbox.net, ast@kernel.org,
+        davem@davemloft.net
+To: David Ahern <dsahern@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from us-smtp-delivery-107.mimecast.com ([63.128.21.107]:59636 "EHLO
-        us-smtp-delivery-107.mimecast.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751205AbdHaOVs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 10:21:48 -0400
-In-Reply-To: <f4bb5ac8-dae8-c0af-7aa6-e546fc0783fa@sigmadesigns.com>
+Received: from mail-qt0-f196.google.com ([209.85.216.196]:37129 "EHLO
+        mail-qt0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751398AbdHaOWG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 10:22:06 -0400
+Received: by mail-qt0-f196.google.com with SMTP id g13so601926qta.4
+        for <netdev@vger.kernel.org>; Thu, 31 Aug 2017 07:22:06 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <bb4398e5-55a3-d63e-ac4d-3f9d7e2efc02@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 31/08/2017 14:29, Marc Gonzalez wrote:
+Hello, David, Alexei.
 
-> On 31/08/2017 02:49, Florian Fainelli wrote:
-> 
->> The original motivation for this change originated from Marc Gonzalez
->> indicating that his network driver did not have its adjust_link callback
->> executing with phydev->link = 0 while he was expecting it.
-> 
-> I expect the core to call phy_adjust_link() for link changes.
-> This used to work back in 3.4 and was broken somewhere along
-> the way.
-> 
->> PHYLIB has never made any such guarantees ever because phy_stop() merely
->> just tells the workqueue to move into PHY_HALTED state which will happen
->> asynchronously.
-> 
-> My original proposal was to fix the issue in the driver.
-> I'll try locating it in my archives.
+Sorry about late reply.
 
-The original proposal was:
-(I.e. basically a copy of phy_state_machine()'s PHY_HALTED case)
-Is this what I need to submit, now that the synchronous call to
-phy_state_machine() has been removed?
+On Sun, Aug 27, 2017 at 08:49:23AM -0600, David Ahern wrote:
+> On 8/25/17 8:49 PM, Alexei Starovoitov wrote:
+> > 
+> >> +	if (prog && curr_recursive && !new_recursive)
+> >> +		/* if a parent has recursive prog attached, only
+> >> +		 * allow recursive programs in descendent cgroup
+> >> +		 */
+> >> +		return -EINVAL;
+> >> +
+> >>  	old_prog = cgrp->bpf.prog[type];
+> > 
+> > ... I'm struggling to completely understand how it interacts
+> > with BPF_F_ALLOW_OVERRIDE.
+> 
+> The 2 flags are completely independent. The existing override logic is
+> unchanged. If a program can not be overridden, then the new recursive
+> flag is irrelevant.
 
-diff --git a/drivers/net/ethernet/aurora/nb8800.c b/drivers/net/ethernet/aurora/nb8800.c
-index 607064a6d7a1..8b9a981c55c1 100644
---- a/drivers/net/ethernet/aurora/nb8800.c
-+++ b/drivers/net/ethernet/aurora/nb8800.c
-@@ -1017,6 +1017,10 @@ static int nb8800_stop(struct net_device *dev)
- 
-        phy_disconnect(phydev);
- 
-+       phydev->link = 0;
-+       netif_carrier_off(dev);
-+       nb8800_link_reconfigure(dev);
-+
-        free_irq(dev->irq, dev);
- 
-        nb8800_dma_free(dev);
+I'm not sure all four combo of the two flags makes sense.  Can't we
+have something simpler like the following?
+
+1. None: No further bpf programs allowed in the subtree.
+
+2. Overridable: If a sub-cgroup installs the same bpf program, this
+   one yields to that one.
+
+3. Recursive: If a sub-cgroup installs the same bpf program, that
+   cgroup program gets run in addition to this one.
+
+Note that we can have combinations of overridables and recursives -
+both allow further programs in the sub-hierarchy and the only
+distinction is whether that specific program behaves when that
+happens.
+
+Thanks.
+
+-- 
+tejun
