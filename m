@@ -1,63 +1,39 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] fsl/fman: make arrays port_ids static, reduces object code size
-Date: Thu, 31 Aug 2017 14:24:49 +0100
-Message-ID: <20170831132449.27600-1-colin.king@canonical.com>
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH 24/25] net/cdc_ncm: Replace tasklet with softirq hrtimer
+Date: Thu, 31 Aug 2017 15:33:53 +0200
+Message-ID: <20170831133353.GB22739@kroah.com>
+References: <20170831105725.809317030@linutronix.de>
+ <20170831105827.479650817@linutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Madalin Bucur <madalin.bucur@nxp.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: LKML <linux-kernel@vger.kernel.org>,
+        Peter Zijlstra <peterz@infradead.org>,
+        Ingo Molnar <mingo@redhat.com>,
+        Christoph Hellwig <hch@lst.org>, keescook@chromium.org,
+        John Stultz <john.stultz@linaro.org>,
+        Thomas Gleixner <tglx@linutronix.de>,
+        Oliver Neukum <oliver@neukum.org>, linux-usb@vger.kernel.org,
+        netdev@vger.kernel.org
+To: Anna-Maria Gleixner <anna-maria@linutronix.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170831105827.479650817@linutronix.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Colin Ian King <colin.king@canonical.com>
+On Thu, Aug 31, 2017 at 12:23:46PM -0000, Anna-Maria Gleixner wrote:
+> From: Thomas Gleixner <tglx@linutronix.de>
+> 
+> The bh tasklet is used in invoke the hrtimer (cdc_ncm_tx_timer_cb) in
+> softirq context. This can be also achieved without the tasklet but with
+> CLOCK_MONOTONIC_SOFT as hrtimer base.
+> 
+> Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+> Signed-off-by: Anna-Maria Gleixner <anna-maria@linutronix.de>
+> Cc: Oliver Neukum <oliver@neukum.org>
+> Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+> Cc: linux-usb@vger.kernel.org
+> Cc: netdev@vger.kernel.org
 
-Don't populate the arrays port_ids on the stack, instead make them static.
-Makes the object code smaller by over 700 bytes:
 
-Before:
-   text	   data	    bss	    dec	    hex	filename
-  28785	   5832	    192	  34809	   87f9	fman.o
-
-After:
-   text	   data	    bss	    dec	    hex	filename
-  27921	   5992	    192	  34105	   8539	fman.o
-
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- drivers/net/ethernet/freescale/fman/fman.c | 14 ++++++++++----
- 1 file changed, 10 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/ethernet/freescale/fman/fman.c b/drivers/net/ethernet/freescale/fman/fman.c
-index f420dac2f484..9530405030a7 100644
---- a/drivers/net/ethernet/freescale/fman/fman.c
-+++ b/drivers/net/ethernet/freescale/fman/fman.c
-@@ -2368,15 +2368,21 @@ u32 fman_get_qman_channel_id(struct fman *fman, u32 port_id)
- 	int i;
- 
- 	if (fman->state->rev_info.major >= 6) {
--		u32 port_ids[] = {0x30, 0x31, 0x28, 0x29, 0x2a, 0x2b,
--				  0x2c, 0x2d, 0x2, 0x3, 0x4, 0x5, 0x7, 0x7};
-+		static const u32 port_ids[] = {
-+			0x30, 0x31, 0x28, 0x29, 0x2a, 0x2b,
-+			0x2c, 0x2d, 0x2, 0x3, 0x4, 0x5, 0x7, 0x7
-+		};
-+
- 		for (i = 0; i < fman->state->num_of_qman_channels; i++) {
- 			if (port_ids[i] == port_id)
- 				break;
- 		}
- 	} else {
--		u32 port_ids[] = {0x30, 0x28, 0x29, 0x2a, 0x2b, 0x2c, 0x1,
--				  0x2, 0x3, 0x4, 0x5, 0x7, 0x7};
-+		static const u32 port_ids[] = {
-+			0x30, 0x28, 0x29, 0x2a, 0x2b, 0x2c, 0x1,
-+			0x2, 0x3, 0x4, 0x5, 0x7, 0x7
-+		};
-+
- 		for (i = 0; i < fman->state->num_of_qman_channels; i++) {
- 			if (port_ids[i] == port_id)
- 				break;
--- 
-2.14.1
+Acked-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
