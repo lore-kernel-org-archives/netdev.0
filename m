@@ -1,40 +1,35 @@
-From: Dmitry Torokhov <dmitry.torokhov@gmail.com>
-Subject: Re: [PATCH 31/31] timer: Switch to testing for .function instead of .data
-Date: Thu, 31 Aug 2017 16:45:37 -0700
-Message-ID: <CAKdAkRTSgs+JTKRa2nvcSPD+zQ5OhsLx_aM8WaZyg304QQN3hA@mail.gmail.com>
-References: <1504222183-61202-1-git-send-email-keescook@chromium.org> <1504222183-61202-32-git-send-email-keescook@chromium.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Thomas Gleixner <tglx@linutronix.de>,
-        "Rafael J. Wysocki" <rjw@rjwysocki.net>,
-        Pavel Machek <pavel@ucw.cz>, Len Brown <len.brown@intel.com>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        Mike Marciniszyn <mike.marciniszyn@intel.com>,
-        Dennis Dalessandro <dennis.dalessandro@intel.com>,
-        Doug Ledford <dledford@redhat.com>,
-        Sean Hefty <sean.hefty@intel.com>,
-        Hal Rosenstock <hal.rosenstock@gmail.com>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        "linux-pm@vger.kernel.org" <linux-pm@vger.kernel.org>,
-        linux-rdma@vger.kernel.org,
-        "linux-input@vger.kernel.org" <linux-input@vger.kernel.org>,
-        intel-wired-lan@lists.osuosl.org, netdev <netdev@vger.kernel.org>,
-        lkml <linux-kernel@vger.kernel.org>
-To: Kees Cook <keescook@chromium.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1504222183-61202-32-git-send-email-keescook@chromium.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <edumazet@google.com>
+Subject: [PATCH v2 net-next 0/2] net: ubuf_info.refcnt conversion
+Date: Thu, 31 Aug 2017 16:48:20 -0700
+Message-ID: <20170831234822.26612-1-edumazet@google.com>
+Cc: netdev <netdev@vger.kernel.org>,
+        Willem de Bruijn <willemb@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>
+To: "David S . Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f53.google.com ([74.125.83.53]:38592 "EHLO
+        mail-pg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751848AbdHaXs1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 19:48:27 -0400
+Received: by mail-pg0-f53.google.com with SMTP id b8so3166390pgn.5
+        for <netdev@vger.kernel.org>; Thu, 31 Aug 2017 16:48:27 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 31, 2017 at 4:29 PM, Kees Cook <keescook@chromium.org> wrote:
-> In several places, .data is checked for initialization to gate early
-> calls to del_timer_sync(). Checking for .function is equally valid, so
-> switch to this in all callers.
+Yet another atomic_t -> refcount_t conversion, split in two patches.
 
-Not seeing the rest of patches it is unclear from the patch
-description why this is needed/wanted.
+First patch prepares the automatic conversion done in the second patch.
 
-Thanks.
+Eric Dumazet (2):
+  net: prepare (struct ubuf_info)->refcnt conversion
+  net: convert (struct ubuf_info)->refcnt to refcount_t
+
+ drivers/vhost/net.c    |  2 +-
+ include/linux/skbuff.h |  5 +++--
+ net/core/skbuff.c      | 14 ++++----------
+ net/ipv4/tcp.c         |  2 --
+ 4 files changed, 8 insertions(+), 15 deletions(-)
 
 -- 
-Dmitry
+2.14.1.581.gf28d330327-goog
