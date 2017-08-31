@@ -1,62 +1,48 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [PATCH] rtlwifi: rtl8723be: fix duplicated code for different
- branches
-Date: Wed, 30 Aug 2017 23:42:18 -0500
-Message-ID: <d26873ed-3c1e-f47c-0aab-e8e670c8ced5@lwfinger.net>
-References: <20170830170424.GA19424@embeddedgus>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [GIT] Networking
+Date: Thu, 31 Aug 2017 07:44:58 +0300
+Message-ID: <87fuc8s5v9.fsf@kamboji.qca.qualcomm.com>
+References: <87pobdt8qc.fsf@kamboji.qca.qualcomm.com>
+        <20170830.101143.2305098064824357647.davem@davemloft.net>
+        <87val5rmh8.fsf@kamboji.qca.qualcomm.com>
+        <20170830.105447.125174575140677062.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: "Gustavo A. R. Silva" <gustavo@embeddedor.com>,
-        Chaoming Li <chaoming_li@realsil.com.cn>,
-        Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170830170424.GA19424@embeddedgus>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: pavel@ucw.cz, xiyou.wangcong@gmail.com,
+        torvalds@linux-foundation.org, akpm@linux-foundation.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.codeaurora.org ([198.145.29.96]:33288 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750781AbdHaEpG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 00:45:06 -0400
+In-Reply-To: <20170830.105447.125174575140677062.davem@davemloft.net> (David
+        Miller's message of "Wed, 30 Aug 2017 10:54:47 -0700 (PDT)")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/30/2017 12:04 PM, Gustavo A. R. Silva wrote:
-> Refactor code in order to avoid identical code for different branches.
-> 
-> Addresses-Coverity-ID: 1248728
-> Signed-off-by: Gustavo A. R. Silva <gustavo@embeddedor.com>
+David Miller <davem@davemloft.net> writes:
 
-According to Realtek, this change is OK.
+> From: Kalle Valo <kvalo@codeaurora.org>
+> Date: Wed, 30 Aug 2017 20:31:31 +0300
+>
+>> AFAICS the bug was introduced by 9df86e2e702c6 back in 2010. If the bug
+>> has been there for 7 years so waiting for a few more weeks should not
+>> hurt.
+>
+> As a maintainer you have a right to handle bug fixing in that way, but
+> certainly that is not how I would handle this.
+>
+> It's easy to validate this fix, it's extremely unlikely to cause
+> a regression, and fixes a problem someone actually was able to
+> trigger.
+>
+> Deferring to -next only has the side effect of making people wait
+> longer for the fix.
 
-Acked-by: Larry Finger <Larry.Finger@lwfinger.net>
+Yeah, you are right there. I did actually ponder which I tree should
+commit it back in July but due to various reasons decided differently.
 
-Thanks,
-
-Larry
-
-> ---
-> This issue was reported by Coverity and it was tested by compilation only.
-> Please, verify if this is not a copy/paste error.
-> Also, notice this code has been there since 2014.
-> 
->   drivers/net/wireless/realtek/rtlwifi/rtl8723be/dm.c | 8 ++------
->   1 file changed, 2 insertions(+), 6 deletions(-)
-> 
-> diff --git a/drivers/net/wireless/realtek/rtlwifi/rtl8723be/dm.c b/drivers/net/wireless/realtek/rtlwifi/rtl8723be/dm.c
-> index 131c0d1..15c117e 100644
-> --- a/drivers/net/wireless/realtek/rtlwifi/rtl8723be/dm.c
-> +++ b/drivers/net/wireless/realtek/rtlwifi/rtl8723be/dm.c
-> @@ -883,12 +883,8 @@ static void rtl8723be_dm_txpower_tracking_callback_thermalmeter(
->   	if ((rtldm->power_index_offset[RF90_PATH_A] != 0) &&
->   	    (rtldm->txpower_track_control)) {
->   		rtldm->done_txpower = true;
-> -		if (thermalvalue > rtlefuse->eeprom_thermalmeter)
-> -			rtl8723be_dm_tx_power_track_set_power(hw, BBSWING, 0,
-> -							     index_for_channel);
-> -		else
-> -			rtl8723be_dm_tx_power_track_set_power(hw, BBSWING, 0,
-> -							     index_for_channel);
-> +		rtl8723be_dm_tx_power_track_set_power(hw, BBSWING, 0,
-> +						      index_for_channel);
->   
->   		rtldm->swing_idx_cck_base = rtldm->swing_idx_cck;
->   		rtldm->swing_idx_ofdm_base[RF90_PATH_A] =
-> 
+-- 
+Kalle Valo
