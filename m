@@ -1,60 +1,50 @@
-From: Tariq Toukan <tariqt@mellanox.com>
-Subject: [PATCH net-next] samples/bpf: Fix compilation issue in redirect dummy program
-Date: Thu, 31 Aug 2017 14:16:39 +0300
-Message-ID: <1504178199-12410-1-git-send-email-tariqt@mellanox.com>
-Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>,
-        Tariq Toukan <tariqt@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH net-next] samples/bpf: Fix compilation issue in redirect
+ dummy program
+Date: Thu, 31 Aug 2017 13:27:10 +0200
+Message-ID: <20170831132710.3b245a6a@redhat.com>
+References: <1504178199-12410-1-git-send-email-tariqt@mellanox.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: brouer@redhat.com, "David S. Miller" <davem@davemloft.net>,
+        netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>
+To: Tariq Toukan <tariqt@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:38330 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1750884AbdHaLRu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 07:17:50 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:50520 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751250AbdHaL1Q (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 31 Aug 2017 07:27:16 -0400
+In-Reply-To: <1504178199-12410-1-git-send-email-tariqt@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix compilation error below:
+On Thu, 31 Aug 2017 14:16:39 +0300
+Tariq Toukan <tariqt@mellanox.com> wrote:
 
-$ make samples/bpf/
+> Fix compilation error below:
+> 
+> $ make samples/bpf/
+> 
+> LLVM ERROR: 'xdp_redirect_dummy' label emitted multiple times to
+> assembly file
+> make[1]: *** [samples/bpf/xdp_redirect_kern.o] Error 1
+> make: *** [samples/bpf/] Error 2
+> 
+> Fixes: 306da4e685b4 ("samples/bpf: xdp_redirect load XDP dummy prog on TX device")
+> Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+> ---
 
-LLVM ERROR: 'xdp_redirect_dummy' label emitted multiple times to
-assembly file
-make[1]: *** [samples/bpf/xdp_redirect_kern.o] Error 1
-make: *** [samples/bpf/] Error 2
+Acked-by: Jesper Dangaard Brouer <brouer@redhat.com>
 
-Fixes: 306da4e685b4 ("samples/bpf: xdp_redirect load XDP dummy prog on TX device")
-Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
----
- samples/bpf/xdp_redirect_kern.c     | 2 +-
- samples/bpf/xdp_redirect_map_kern.c | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+What LLVM/clang version do you use?
 
-diff --git a/samples/bpf/xdp_redirect_kern.c b/samples/bpf/xdp_redirect_kern.c
-index 1c90288d0203..8abb151e385f 100644
---- a/samples/bpf/xdp_redirect_kern.c
-+++ b/samples/bpf/xdp_redirect_kern.c
-@@ -82,7 +82,7 @@ int xdp_redirect_prog(struct xdp_md *ctx)
- 
- /* Redirect require an XDP bpf_prog loaded on the TX device */
- SEC("xdp_redirect_dummy")
--int xdp_redirect_dummy(struct xdp_md *ctx)
-+int xdp_redirect_dummy_prog(struct xdp_md *ctx)
- {
- 	return XDP_PASS;
- }
-diff --git a/samples/bpf/xdp_redirect_map_kern.c b/samples/bpf/xdp_redirect_map_kern.c
-index 79795d41ad0d..740a529ba84f 100644
---- a/samples/bpf/xdp_redirect_map_kern.c
-+++ b/samples/bpf/xdp_redirect_map_kern.c
-@@ -84,7 +84,7 @@ int xdp_redirect_map_prog(struct xdp_md *ctx)
- 
- /* Redirect require an XDP bpf_prog loaded on the TX device */
- SEC("xdp_redirect_dummy")
--int xdp_redirect_dummy(struct xdp_md *ctx)
-+int xdp_redirect_dummy_prog(struct xdp_md *ctx)
- {
- 	return XDP_PASS;
- }
+I don't see this compile error, and I have:
+ $ clang --version
+ clang version 3.9.1 (tags/RELEA
+
 -- 
-1.8.3.1
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
