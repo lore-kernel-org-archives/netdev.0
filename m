@@ -1,46 +1,77 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: net/ipv4: divide error in __tcp_select_window
-Date: Thu, 31 Aug 2017 15:37:13 -0400
-Message-ID: <CADVnQy=GA_neQ2CsXmdZbPozcd-N6iUoX-jXZkNgXocPVo2efg@mail.gmail.com>
-References: <CADUsjNnba_AmnTdoY45Bh7HasqjmBja-W1+-+6eMt-d_dCs2qA@mail.gmail.com>
- <CADVnQynuyK5H1SDOnzDZPOnVn701JhrSQRCORVJ_6c=z_EooBw@mail.gmail.com> <20170831.122543.754410467437404852.davem@davemloft.net>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: [PATCH] wl1251: add a missing spin_lock_init()
+Date: Thu, 31 Aug 2017 21:59:33 +0200
+Message-ID: <20170831195933.GA2788@amd>
+References: <20170831144743.GA21261@amd>
+ <20170831.103305.1809212990680774811.davem@davemloft.net>
+ <20170831185718.GA31245@amd>
+ <20170831.122645.872320547726000124.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: idaifish <idaifish@gmail.com>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        Netdev <netdev@vger.kernel.org>, syzkaller@googlegroups.com,
-        Wei Wang <weiwan@google.com>,
-        Eric Dumazet <edumazet@google.com>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="dDRMvlgZJXvWKvBx"
+Cc: kvalo@codeaurora.org, torvalds@linux-foundation.org,
+        xiyou.wangcong@gmail.com, akpm@linux-foundation.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-wireless@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f181.google.com ([209.85.216.181]:36342 "EHLO
-        mail-qt0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750968AbdHaTho (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 15:37:44 -0400
-Received: by mail-qt0-f181.google.com with SMTP id v20so2821676qtg.3
-        for <netdev@vger.kernel.org>; Thu, 31 Aug 2017 12:37:44 -0700 (PDT)
-In-Reply-To: <20170831.122543.754410467437404852.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170831.122645.872320547726000124.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 31, 2017 at 3:25 PM, David Miller <davem@davemloft.net> wrote:
->
-> From: Neal Cardwell <ncardwell@google.com>
-> Date: Thu, 31 Aug 2017 07:11:28 -0400
->
-> > Thanks for the report. I believe this tcp_recvmsg  => tcp_cleanup_rbuf
-> >  => __tcp_select_window divide-by-zero issue was fixed in May by Wei,
-> > in:
-> >
-> >  499350a5a6e7 tcp: initialize rcv_mss to TCP_MIN_MSS instead of 0
-> >  https://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git/commit/?id=499350a5a6e7
-> >
-> > Looks like we should probably mark this as a -stable candidate, so
-> > that it will eventually make it to 4.4.y, 4.9.y, 4.12.y users, etc. (I
-> > don't see the commit in those stable branches.)
->
-> Ok, queued up for -stable, thanks.
 
-Great. Thanks!
+--dDRMvlgZJXvWKvBx
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-neal
+Hi!
+
+On Thu 2017-08-31 12:26:45, David Miller wrote:
+> From: Pavel Machek <pavel@ucw.cz>
+> Date: Thu, 31 Aug 2017 20:57:19 +0200
+>=20
+> > Hi!
+> >=20
+> >> From: Pavel Machek <pavel@ucw.cz>
+> >> Date: Thu, 31 Aug 2017 16:47:43 +0200
+> >>=20
+> >> > Dave, Linus -- can you still take the patch?
+> >>=20
+> >> Pavel, please do not bypass maintainers like this.
+> >>=20
+> >> It's really rude, and if you do things like that instead of
+> >> trying to work properly with us, your relationship with
+> >> these maintainers will suffer in the long term.
+> >=20
+> > Do you mean I'm being rude to Kalle, or rude to you?
+>=20
+> He said "to David", not "David and Linus".
+
+Ok. If I knew you would be replying so quickly, I'd acted
+differently. I did not want to be rude.
+
+But I'd still like to get the patch in. Do you plan to send another
+pull request to Linus, and can you take the patch, please?
+
+Thanks,
+								Pavel
+--=20
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
+g.html
+
+--dDRMvlgZJXvWKvBx
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iEYEARECAAYFAlmoaqUACgkQMOfwapXb+vKDsQCfS+k/79ig5tuk9NcT1L2TXedC
+QKEAn2YfG+rXCyYpX7ZX54P+JwYUM9ND
+=9eTa
+-----END PGP SIGNATURE-----
+
+--dDRMvlgZJXvWKvBx--
