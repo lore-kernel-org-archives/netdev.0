@@ -1,106 +1,122 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [PATCH net-next] bridge: add tracepoint in br_fdb_update
-Date: Thu, 31 Aug 2017 09:30:05 -0600
-Message-ID: <a9349049-bfd7-b6c0-d1c7-2f70b0b0ab11@gmail.com>
-References: <1504156693-24692-1-git-send-email-roopa@cumulusnetworks.com>
- <20170831143814.68709334@redhat.com>
- <CAJieiUjZ5dTNpBFb8c2KMRgjXRCKVGhJsTfQcpiw+p6fyNVwDw@mail.gmail.com>
+From: Tim Harvey <tharvey@gateworks.com>
+Subject: Re: DSA mv88e6xxx RX frame errors and TCP/IP RX failure
+Date: Thu, 31 Aug 2017 08:37:47 -0700
+Message-ID: <CAJ+vNU0dq-ULUj3PbQH_biGviJURj2z5McCXx_vYxcB0k94WkA@mail.gmail.com>
+References: <CAJ+vNU0VzgDkH-ksHgaA0cn3nbCOfcUs_BU90v6xw_QappssgA@mail.gmail.com>
+ <20170830220631.GM22289@lunn.ch> <CAJ+vNU3Qto9iNdCUExb4NWaa3PA1UWe1kbY1b=sBLPgw_xiz7g@mail.gmail.com>
+ <20170831014624.GA18554@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>, bridge@lists.linux-foundation.org
-To: Roopa Prabhu <roopa@cumulusnetworks.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>
+Content-Type: text/plain; charset="UTF-8"
+Cc: netdev <netdev@vger.kernel.org>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        Fugang Duan <fugang.duan@nxp.com>,
+        Ilia Mirkin <imirkin@alum.mit.edu>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:33894 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751040AbdHaPaI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 11:30:08 -0400
-Received: by mail-pg0-f68.google.com with SMTP id 63so694554pgc.1
-        for <netdev@vger.kernel.org>; Thu, 31 Aug 2017 08:30:08 -0700 (PDT)
-In-Reply-To: <CAJieiUjZ5dTNpBFb8c2KMRgjXRCKVGhJsTfQcpiw+p6fyNVwDw@mail.gmail.com>
-Content-Language: en-US
+Received: from mail-wm0-f45.google.com ([74.125.82.45]:36912 "EHLO
+        mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751743AbdHaPh4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 11:37:56 -0400
+Received: by mail-wm0-f45.google.com with SMTP id u26so48568wma.0
+        for <netdev@vger.kernel.org>; Thu, 31 Aug 2017 08:37:55 -0700 (PDT)
+In-Reply-To: <20170831014624.GA18554@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 8/31/17 9:21 AM, Roopa Prabhu wrote:
-> On Thu, Aug 31, 2017 at 5:38 AM, Jesper Dangaard Brouer
-> <brouer@redhat.com> wrote:
->> On Wed, 30 Aug 2017 22:18:13 -0700
->> Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
+On Wed, Aug 30, 2017 at 6:46 PM, Andrew Lunn <andrew@lunn.ch> wrote:
+>> >                        /* Report late collisions as a frame error. */
+>> >                         if (status & (BD_ENET_RX_NO | BD_ENET_RX_CL))
+>> >                                 ndev->stats.rx_frame_errors++;
+>> >
+>> > I don't see anywhere else frame errors are counted, but it would be
+>> > good to prove we are looking in the right place.
+>> >
 >>
->>> From: Roopa Prabhu <roopa@cumulusnetworks.com>
->>>
->>> This extends bridge fdb table tracepoints to also cover
->>> learned fdb entries in the br_fdb_update path. Note that
->>> unlike other tracepoints I have moved this to when the fdb
->>> is modified because this is in the datapath and can generate
->>> a lot of noise in the trace output. br_fdb_update is also called
->>> from added_by_user context in the NTF_USE case which is already
->>> traced ..hence the !added_by_user check.
->>>
->>> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
->>> ---
->>>  include/trace/events/bridge.h | 31 +++++++++++++++++++++++++++++++
->>>  net/bridge/br_fdb.c           |  5 ++++-
->>>  net/core/net-traces.c         |  1 +
->>>  3 files changed, 36 insertions(+), 1 deletion(-)
->>>
->>> diff --git a/include/trace/events/bridge.h b/include/trace/events/bridge.h
->>> index 0f1cde0..1bee3e7 100644
->>> --- a/include/trace/events/bridge.h
->>> +++ b/include/trace/events/bridge.h
->>> @@ -92,6 +92,37 @@ TRACE_EVENT(fdb_delete,
->>>                 __entry->addr[4], __entry->addr[5], __entry->vid)
->>>  );
->>>
->>> +TRACE_EVENT(br_fdb_update,
->>> +
->>> +     TP_PROTO(struct net_bridge *br, struct net_bridge_port *source,
->>> +              const unsigned char *addr, u16 vid, bool added_by_user),
->>> +
->>> +     TP_ARGS(br, source, addr, vid, added_by_user),
->>> +
->>> +     TP_STRUCT__entry(
->>> +             __string(br_dev, br->dev->name)
->>> +             __string(dev, source->dev->name)
+>> Andrew,
 >>
->> I have found that using the device string name is
+>> (adding IMX FEC driver maintainer to CC)
 >>
->> (1) slow as it involves strcpy+strlen
+>> Yes, that's one of them being hit. It looks like ifconfig reports
+>> 'frame' as the accumulation of a few stats so here are some more
+>> specifics from /sys/class/net/eth0/statistics:
 >>
->>  See [1]+[2] where a single dev-name costed me 16 ns, and the base
->>  overhead of a bpf attached tracepoint is 25 ns (see [3]).
+>> root@xenial:/sys/devices/soc0/soc/2100000.aips-bus/2188000.ethernet/net/eth0/statistics#
+>> for i in `ls rx_*`; do echo $i:$(cat $i); done
+>> rx_bytes:103229
+>> rx_compressed:0
+>> rx_crc_errors:22
+>> rx_dropped:0
+>> rx_errors:22
+>> rx_fifo_errors:0
+>> rx_frame_errors:22
+>> rx_length_errors:22
+>> rx_missed_errors:0
+>> rx_nohandler:0
+>> rx_over_errors:0
+>> rx_packets:1174
+>> root@xenial:/sys/devices/soc0/soc/2100000.aips-bus/2188000.ethernet/net/eth0/statistics#
+>> ifconfig eth0
+>> eth0      Link encap:Ethernet  HWaddr 00:D0:12:41:F3:E7
+>>           inet6 addr: fe80::2d0:12ff:fe41:f3e7/64 Scope:Link
+>>           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+>>           RX packets:1207 errors:22 dropped:0 overruns:0 frame:66
+>>           TX packets:42 errors:0 dropped:0 overruns:0 carrier:0
+>>           collisions:0 txqueuelen:1000
+>>           RX bytes:106009 (103.5 KiB)  TX bytes:4604 (4.4 KiB)
 >>
->>  [1] https://git.kernel.org/davem/net-next/c/e7d12ce121a
->>  [2] https://git.kernel.org/davem/net-next/c/315ec3990ef
->>  [3] https://git.kernel.org/davem/net-next/c/25d4dae1a64
+>> Instrumenting fec driver I see the following getting hit:
 >>
->> (2) strings are also harder to work-with/extract when attaching a bpf_prog
+>> status & BD_ENET_RX_LG /* rx_length_errors: Frame too long */
+>> status & BD_ENET_RX_CR  /* rx_crc_errors: CRC Error */
+>> status & BD_ENET_RX_CL /* rx_frame_errors: Collision? */
 >>
->> See the trouble I'm in accessing a dev string here napi:napi_poll here:
->>  https://github.com/netoptimizer/prototype-kernel/blob/103b955a080/kernel/samples/bpf/napi_monitor_kern.c#L52-L58
->>
->> Using ifindex'es in userspace is fairly easy see man if_indextoname(3).
->>
-> 
-> Jesper thanks for the data!. GTK. Looking at include/trace/events,
-> currently almost all tracepoints use dev->name.
-> These bridge tracepoints in context are primarily for debugging fdb
-> updates only, not for every packet and hence not in the performance
-> path.
-> In large scale deployments with thousands of bridge ports and fdb
-> entries, dev->name will definately make it easier to trouble-shoot.
-> So, I did like to leave these with dev->name unless there are strong objections.
+>> Is this a frame size issue where the MV88E6176 is sending frames down
+>> that exceed the MTU because of headers added?
+>
+> I did fix an issue recently with that. See
+>
+> commit fbbeefdd21049fcf9437c809da3828b210577f36
+> Author: Andrew Lunn <andrew@lunn.ch>
+> Date:   Sun Jul 30 19:36:05 2017 +0200
+>
+>     net: fec: Allow reception of frames bigger than 1522 bytes
+>
+>     The FEC Receive Control Register has a 14 bit field indicating the
+>     longest frame that may be received. It is being set to 1522. Frames
+>     longer than this are discarded, but counted as being in error.
+>
+>     When using DSA, frames from the switch has an additional header,
+>     either 4 or 8 bytes if a Marvell switch is used. Thus a full MTU frame
+>     of 1522 bytes received by the switch on a port becomes 1530 bytes when
+>     passed to the host via the FEC interface.
+>
+>     Change the maximum receive size to 2048 - 64, where 64 is the maximum
+>     rx_alignment applied on the receive buffer for AVB capable FEC
+>     cores. Use this value also for the maximum receive buffer size. The
+>     driver is already allocating a receive SKB of 2048 bytes, so this
+>     change should not have any significant effects.
+>
+>     Tested on imx51, imx6, vf610.
+>
+>     Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+>     Signed-off-by: David S. Miller <davem@davemloft.net>
+>
+>
+> However, this is was of an all/nothing problem. All frames with the
+> full MTU were getting dropped, where as i think you are only seeing a
+> few dropped?
+>
 
-+1 for user friendliness for debugging tracepoints. The device name is
-also more user friendly when adding filters to the data collection.
+Andrew,
 
-Being able to add bpf everywhere certainly changes the game a bit, but
-we should not relinquish ease of use and understanding for the potential
-that someone might want to put a bpf program on the tracepoint and want
-to maintain high performance.
+Indeed this does resolve the issue. I see a burst of FIFO overruns
+initially when receiving an iperf bandwidth test but that would be
+caused by the IMX6 errata and should be mitigated via pause frames.
+After that short burst I see no other errors and iperf works fine.
+
+Should we get this patch in the linux-stable tree for the 4.9 kernel?
+
+Thanks!
+
+Tim
