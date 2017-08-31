@@ -1,145 +1,204 @@
 From: David Ahern <dsahern@gmail.com>
-Subject: [PATCH v3 net-next 5/7] samples/bpf: Add option to dump socket settings
-Date: Thu, 31 Aug 2017 15:05:48 -0700
-Message-ID: <1504217150-16151-6-git-send-email-dsahern@gmail.com>
+Subject: [PATCH v3 net-next 6/7] samples/bpf: Update cgrp2 socket tests
+Date: Thu, 31 Aug 2017 15:05:49 -0700
+Message-ID: <1504217150-16151-7-git-send-email-dsahern@gmail.com>
 References: <1504217150-16151-1-git-send-email-dsahern@gmail.com>
 Cc: David Ahern <dsahern@gmail.com>
 To: netdev@vger.kernel.org, daniel@iogearbox.net, ast@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:35645 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751001AbdHaWGN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 18:06:13 -0400
-Received: by mail-pf0-f196.google.com with SMTP id g13so532898pfm.2
-        for <netdev@vger.kernel.org>; Thu, 31 Aug 2017 15:06:13 -0700 (PDT)
+Received: from mail-pf0-f169.google.com ([209.85.192.169]:33346 "EHLO
+        mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751205AbdHaWGP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 18:06:15 -0400
+Received: by mail-pf0-f169.google.com with SMTP id n73so2711417pfj.0
+        for <netdev@vger.kernel.org>; Thu, 31 Aug 2017 15:06:14 -0700 (PDT)
 In-Reply-To: <1504217150-16151-1-git-send-email-dsahern@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add option to dump socket settings. Will be used in the next patch
-to verify bpf programs are correctly setting mark, priority and
-device based on the cgroup attachment for the program run.
+Update cgrp2 bpf sock tests to check that device, mark and priority
+can all be set on a socket via bpf programs attached to a cgroup.
 
 Signed-off-by: David Ahern <dsahern@gmail.com>
 ---
- samples/bpf/test_cgrp2_sock.c | 75 +++++++++++++++++++++++++++++++++++++++++--
- 1 file changed, 73 insertions(+), 2 deletions(-)
+ samples/bpf/test_cgrp2_sock.sh | 162 +++++++++++++++++++++++++++++++----------
+ 1 file changed, 124 insertions(+), 38 deletions(-)
 
-diff --git a/samples/bpf/test_cgrp2_sock.c b/samples/bpf/test_cgrp2_sock.c
-index 15396761c5cc..5a688837720c 100644
---- a/samples/bpf/test_cgrp2_sock.c
-+++ b/samples/bpf/test_cgrp2_sock.c
-@@ -112,6 +112,70 @@ static int prog_load(__u32 idx, __u32 mark, __u32 prio)
- 	return ret;
+diff --git a/samples/bpf/test_cgrp2_sock.sh b/samples/bpf/test_cgrp2_sock.sh
+index 1153c33e8964..a81f38eef417 100755
+--- a/samples/bpf/test_cgrp2_sock.sh
++++ b/samples/bpf/test_cgrp2_sock.sh
+@@ -1,47 +1,133 @@
+-#!/bin/bash
+-
+-function config_device {
+-	ip netns add at_ns0
+-	ip link add veth0 type veth peer name veth0b
+-	ip link set veth0b up
+-	ip link set veth0 netns at_ns0
+-	ip netns exec at_ns0 ip addr add 172.16.1.100/24 dev veth0
+-	ip netns exec at_ns0 ip addr add 2401:db00::1/64 dev veth0 nodad
+-	ip netns exec at_ns0 ip link set dev veth0 up
+-	ip link add foo type vrf table 1234
+-	ip link set foo up
+-	ip addr add 172.16.1.101/24 dev veth0b
+-	ip addr add 2401:db00::2/64 dev veth0b nodad
+-	ip link set veth0b master foo
++#!/bin/sh
++
++# Test various socket options that can be set by attaching programs to cgroups.
++
++CGRP_MNT="/tmp/cgroupv2-test_cgrp2_sock"
++
++################################################################################
++#
++print_result()
++{
++	local rc=$1
++	local status=" OK "
++
++	[ $rc -ne 0 ] && status="FAIL"
++
++	printf "%-50s    [%4s]\n" "$2" "$status"
  }
  
-+static int get_bind_to_device(int sd, char *name, size_t len)
+-function attach_bpf {
+-	rm -rf /tmp/cgroupv2
+-	mkdir -p /tmp/cgroupv2
+-	mount -t cgroup2 none /tmp/cgroupv2
+-	mkdir -p /tmp/cgroupv2/foo
+-	test_cgrp2_sock -b foo /tmp/cgroupv2/foo
+-	echo $$ >> /tmp/cgroupv2/foo/cgroup.procs
++check_sock()
 +{
-+	socklen_t optlen = len;
-+	int rc;
-+
-+	name[0] = '\0';
-+	rc = getsockopt(sd, SOL_SOCKET, SO_BINDTODEVICE, name, &optlen);
-+	if (rc < 0)
-+		perror("setsockopt(SO_BINDTODEVICE)");
-+
-+	return rc;
-+}
-+
-+static unsigned int get_somark(int sd)
-+{
-+	unsigned int mark = 0;
-+	socklen_t optlen = sizeof(mark);
-+	int rc;
-+
-+	rc = getsockopt(sd, SOL_SOCKET, SO_MARK, &mark, &optlen);
-+	if (rc < 0)
-+		perror("getsockopt(SO_MARK)");
-+
-+	return mark;
-+}
-+
-+static unsigned int get_priority(int sd)
-+{
-+	unsigned int prio = 0;
-+	socklen_t optlen = sizeof(prio);
-+	int rc;
-+
-+	rc = getsockopt(sd, SOL_SOCKET, SO_PRIORITY, &prio, &optlen);
-+	if (rc < 0)
-+		perror("getsockopt(SO_PRIORITY)");
-+
-+	return prio;
-+}
-+
-+static int show_sockopts(int family)
-+{
-+	unsigned int mark, prio;
-+	char name[16];
-+	int sd;
-+
-+	sd = socket(family, SOCK_DGRAM, 17);
-+	if (sd < 0) {
-+		perror("socket");
-+		return 1;
-+	}
-+
-+	if (get_bind_to_device(sd, name, sizeof(name)) < 0)
-+		return 1;
-+
-+	mark = get_somark(sd);
-+	prio = get_priority(sd);
-+
-+	close(sd);
-+
-+	printf("sd %d: dev %s, mark %u, priority %u\n", sd, name, mark, prio);
-+
-+	return 0;
-+}
-+
- static int usage(const char *argv0)
- {
- 	printf("Usage:\n");
-@@ -120,6 +184,9 @@ static int usage(const char *argv0)
- 	printf("\n");
- 	printf("  Detach a program\n");
- 	printf("  %s -d cg-path\n", argv0);
-+	printf("\n");
-+	printf("  Show inherited socket settings (mark, priority, and device)\n");
-+	printf("  %s [-6]\n", argv0);
- 	return EXIT_FAILURE;
++	out=$(test_cgrp2_sock)
++	echo $out | grep -q "$1"
++	if [ $? -ne 0 ]; then
++		print_result 1 "IPv4: $2"
++		echo "    expected: $1"
++		echo "        have: $out"
++		rc=1
++	else
++		print_result 0 "IPv4: $2"
++	fi
  }
  
-@@ -128,10 +195,11 @@ int main(int argc, char **argv)
- 	__u32 idx = 0, mark = 0, prio = 0;
- 	const char *cgrp_path = NULL;
- 	int cg_fd, prog_fd, ret;
-+	int family = PF_INET;
- 	int do_attach = 1;
- 	int rc;
+-function cleanup {
+-	set +ex
+-	ip netns delete at_ns0
+-	ip link del veth0
+-	ip link del foo
+-	umount /tmp/cgroupv2
+-	rm -rf /tmp/cgroupv2
+-	set -ex
++check_sock6()
++{
++	out=$(test_cgrp2_sock -6)
++	echo $out | grep -q "$1"
++	if [ $? -ne 0 ]; then
++		print_result 1 "IPv6: $2"
++		echo "    expected: $1"
++		echo "        have: $out"
++		rc=1
++	else
++		print_result 0 "IPv6: $2"
++	fi
+ }
  
--	while ((rc = getopt(argc, argv, "db:m:p:")) != -1) {
-+	while ((rc = getopt(argc, argv, "db:m:p:6")) != -1) {
- 		switch (rc) {
- 		case 'd':
- 			do_attach = 0;
-@@ -152,13 +220,16 @@ int main(int argc, char **argv)
- 		case 'p':
- 			prio = strtoumax(optarg, NULL, 0);
- 			break;
-+		case '6':
-+			family = PF_INET6;
-+			break;
- 		default:
- 			return usage(argv[0]);
- 		}
- 	}
+-function do_test {
+-	ping -c1 -w1 172.16.1.100
+-	ping6 -c1 -w1 2401:db00::1
++################################################################################
++#
++
++cleanup()
++{
++	echo $$ >> ${CGRP_MNT}/cgroup.procs
++	rmdir ${CGRP_MNT}/sockopts
+ }
  
- 	if (optind == argc)
--		return usage(argv[0]);
-+		return show_sockopts(family);
- 
- 	cgrp_path = argv[optind];
- 	if (!cgrp_path) {
++cleanup_and_exit()
++{
++	local rc=$1
++	local msg="$2"
++
++	[ -n "$msg" ] && echo "ERROR: $msg"
++
++	ip li del cgrp2_sock
++	umount ${CGRP_MNT}
++
++	exit $rc
++}
++
++
++################################################################################
++# main
++
++rc=0
++
++ip li add cgrp2_sock type dummy 2>/dev/null
++
++set -e
++mkdir -p ${CGRP_MNT}
++mount -t cgroup2 none ${CGRP_MNT}
++set +e
++
++
++# make sure we have a known start point
+ cleanup 2>/dev/null
+-config_device
+-attach_bpf
+-do_test
+-cleanup
+-echo "*** PASS ***"
++
++mkdir -p ${CGRP_MNT}/sockopts
++[ $? -ne 0 ] && cleanup_and_exit 1 "Failed to create cgroup hierarchy"
++
++
++# set pid into cgroup
++echo $$ > ${CGRP_MNT}/sockopts/cgroup.procs
++
++# no bpf program attached, so socket should show no settings
++check_sock "dev , mark 0, priority 0" "No programs attached"
++check_sock6 "dev , mark 0, priority 0" "No programs attached"
++
++# verify device is set
++#
++test_cgrp2_sock -b cgrp2_sock ${CGRP_MNT}/sockopts
++if [ $? -ne 0 ]; then
++	cleanup_and_exit 1 "Failed to install program to set device"
++fi
++check_sock "dev cgrp2_sock, mark 0, priority 0" "Device set"
++check_sock6 "dev cgrp2_sock, mark 0, priority 0" "Device set"
++
++# verify mark is set
++#
++test_cgrp2_sock -m 666 ${CGRP_MNT}/sockopts
++if [ $? -ne 0 ]; then
++	cleanup_and_exit 1 "Failed to install program to set mark"
++fi
++check_sock "dev , mark 666, priority 0" "Mark set"
++check_sock6 "dev , mark 666, priority 0" "Mark set"
++
++# verify priority is set
++#
++test_cgrp2_sock -p 123 ${CGRP_MNT}/sockopts
++if [ $? -ne 0 ]; then
++	cleanup_and_exit 1 "Failed to install program to set priority"
++fi
++check_sock "dev , mark 0, priority 123" "Priority set"
++check_sock6 "dev , mark 0, priority 123" "Priority set"
++
++# all 3 at once
++#
++test_cgrp2_sock -b cgrp2_sock -m 666 -p 123 ${CGRP_MNT}/sockopts
++if [ $? -ne 0 ]; then
++	cleanup_and_exit 1 "Failed to install program to set device, mark and priority"
++fi
++check_sock "dev cgrp2_sock, mark 666, priority 123" "Priority set"
++check_sock6 "dev cgrp2_sock, mark 666, priority 123" "Priority set"
++
++cleanup_and_exit $rc
 -- 
 2.1.4
