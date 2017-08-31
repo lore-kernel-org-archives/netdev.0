@@ -1,36 +1,41 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [RFC net-next 1/8] net: dsa: Allow switch drivers to indicate
- number of RX/TX queues
-Date: Fri, 1 Sep 2017 01:44:12 +0200
-Message-ID: <20170831234412.GA28960@lunn.ch>
-References: <1504138732-65383-1-git-send-email-f.fainelli@gmail.com>
- <1504138732-65383-2-git-send-email-f.fainelli@gmail.com>
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: Re: [PATCH net] ipv4: Don't override return code from
+ ip_route_input_noref()
+Date: Fri, 1 Sep 2017 01:45:06 +0200
+Message-ID: <20170831234506.GA1838@bistromath.localdomain>
+References: <c4d8970306e614ac139cf2f33ab5e6bb73b30154.1504194307.git.sbrivio@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jiri@resnulli.us, jhs@mojatatu.com,
-        davem@davemloft.net, xiyou.wangcong@gmail.com,
-        vivien.didelot@savoirfairelinux.com
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Cc: "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        Wei Wang <weiwan@google.com>
+To: Stefano Brivio <sbrivio@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:47595 "EHLO vps0.lunn.ch"
+Received: from mx1.redhat.com ([209.132.183.28]:53406 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751404AbdHaXoQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 31 Aug 2017 19:44:16 -0400
+        id S1751618AbdHaXpK (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 31 Aug 2017 19:45:10 -0400
 Content-Disposition: inline
-In-Reply-To: <1504138732-65383-2-git-send-email-f.fainelli@gmail.com>
+In-Reply-To: <c4d8970306e614ac139cf2f33ab5e6bb73b30154.1504194307.git.sbrivio@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 30, 2017 at 05:18:45PM -0700, Florian Fainelli wrote:
-> Let switch drivers indicate how many RX and TX queues they support. Some
-> switches, such as Broadcom Starfighter 2 are resigned with 8 egress
-> queues.
+2017-08-31, 18:11:41 +0200, Stefano Brivio wrote:
+> After ip_route_input() calls ip_route_input_noref(), another
+> check on skb_dst() is done, but if this fails, we shouldn't
+> override the return code from ip_route_input_noref(), as it
+> could have been more specific (i.e. -EHOSTUNREACH).
+> 
+> This also saves one call to skb_dst_force_safe() and one to
+> skb_dst() in case the ip_route_input_noref() check fails.
+> 
+> Reported-by: Sabrina Dubroca <sdubroca@redhat.com>
+> Fixes: ad65a2f05695 ("ipv4: call dst_hold_safe() properly")
 
-Marvell switches also have egress queue.
+That should be instead:
 
-Does the SF2 have ingress queues? Marvel don't as far as i known.  So
-i wounder if num_rx_queues is useful?
+Fixes: 9df16efadd2a ("ipv4: call dst_hold_safe() properly")
 
-Do switches in general have ingress queues? 
+Acked-by: Sabrina Dubroca <sd@queasysnail.net>
 
-   Andrew
+-- 
+Sabrina
