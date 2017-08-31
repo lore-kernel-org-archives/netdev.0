@@ -1,133 +1,100 @@
-From: Anna-Maria Gleixner <anna-maria@linutronix.de>
-Subject: [PATCH 24/25] net/cdc_ncm: Replace tasklet with softirq hrtimer
-Date: Thu, 31 Aug 2017 12:23:46 -0000
-Message-ID: <20170831105827.479650817@linutronix.de>
-References: <20170831105725.809317030@linutronix.de>
+From: Arkadi Sharshevsky <arkadis@mellanox.com>
+Subject: Re: [patch net-next 0/8] mlxsw: Add IPv6 host dpipe table
+Date: Thu, 31 Aug 2017 15:26:35 +0300
+Message-ID: <71d02a50-1ff3-3fc8-effa-9e27c05fa48d@mellanox.com>
+References: <20170830120306.6128-1-jiri@resnulli.us>
+ <20170830172609.GD22289@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Peter Zijlstra <peterz@infradead.org>,
-        Ingo Molnar <mingo@redhat.com>,
-        Christoph Hellwig <hch@lst.org>, keescook@chromium.org,
-        John Stultz <john.stultz@linaro.org>,
-        Thomas Gleixner <tglx@linutronix.de>,
-        Oliver Neukum <oliver@neukum.org>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        linux-usb@vger.kernel.org, netdev@vger.kernel.org
-To: LKML <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline;
- filename=netcdc_ncm_Replace_tasklet_with_softirq_hrtimer.patch
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, idosch@mellanox.com,
+        mlxsw@mellanox.com
+To: Andrew Lunn <andrew@lunn.ch>, Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-he1eur01on0067.outbound.protection.outlook.com ([104.47.0.67]:64512
+        "EHLO EUR01-HE1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751802AbdHaM0o (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 31 Aug 2017 08:26:44 -0400
+In-Reply-To: <20170830172609.GD22289@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Gleixner <tglx@linutronix.de>
 
-The bh tasklet is used in invoke the hrtimer (cdc_ncm_tx_timer_cb) in
-softirq context. This can be also achieved without the tasklet but with
-CLOCK_MONOTONIC_SOFT as hrtimer base.
 
-Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
-Signed-off-by: Anna-Maria Gleixner <anna-maria@linutronix.de>
-Cc: Oliver Neukum <oliver@neukum.org>
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Cc: linux-usb@vger.kernel.org
-Cc: netdev@vger.kernel.org
----
- drivers/net/usb/cdc_ncm.c   |   37 ++++++++++++++++---------------------
- include/linux/usb/cdc_ncm.h |    2 +-
- 2 files changed, 17 insertions(+), 22 deletions(-)
+On 08/30/2017 08:26 PM, Andrew Lunn wrote:
+> On Wed, Aug 30, 2017 at 02:02:58PM +0200, Jiri Pirko wrote:
+>> From: Jiri Pirko <jiri@mellanox.com>
+>>
+>> Arkadi says:
+>>
+>> This patchset adds IPv6 host dpipe table support. This will provide the
+>> ability to observe the hardware offloaded IPv6 neighbors.
+> 
+> Hi Jiri, Arkadi
+> 
+> Could you give us an example of the output seen in user space.
+> 
+> Thanks
+> 	Andrew
+> 
 
---- a/drivers/net/usb/cdc_ncm.c
-+++ b/drivers/net/usb/cdc_ncm.c
-@@ -61,7 +61,6 @@ static bool prefer_mbim;
- module_param(prefer_mbim, bool, S_IRUGO | S_IWUSR);
- MODULE_PARM_DESC(prefer_mbim, "Prefer MBIM setting on dual NCM/MBIM functions");
- 
--static void cdc_ncm_txpath_bh(unsigned long param);
- static void cdc_ncm_tx_timeout_start(struct cdc_ncm_ctx *ctx);
- static enum hrtimer_restart cdc_ncm_tx_timer_cb(struct hrtimer *hr_timer);
- static struct usb_driver cdc_ncm_driver;
-@@ -777,10 +776,9 @@ int cdc_ncm_bind_common(struct usbnet *d
- 	if (!ctx)
- 		return -ENOMEM;
- 
--	hrtimer_init(&ctx->tx_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
-+	hrtimer_init(&ctx->tx_timer, CLOCK_MONOTONIC_SOFT, HRTIMER_MODE_REL);
- 	ctx->tx_timer.function = &cdc_ncm_tx_timer_cb;
--	ctx->bh.data = (unsigned long)dev;
--	ctx->bh.func = cdc_ncm_txpath_bh;
-+	ctx->usbnet = dev;
- 	atomic_set(&ctx->stop, 0);
- 	spin_lock_init(&ctx->mtx);
- 
-@@ -967,10 +965,7 @@ void cdc_ncm_unbind(struct usbnet *dev,
- 
- 	atomic_set(&ctx->stop, 1);
- 
--	if (hrtimer_active(&ctx->tx_timer))
--		hrtimer_cancel(&ctx->tx_timer);
--
--	tasklet_kill(&ctx->bh);
-+	hrtimer_cancel(&ctx->tx_timer);
- 
- 	/* handle devices with combined control and data interface */
- 	if (ctx->control == ctx->data)
-@@ -1348,20 +1343,9 @@ static void cdc_ncm_tx_timeout_start(str
- 				HRTIMER_MODE_REL);
- }
- 
--static enum hrtimer_restart cdc_ncm_tx_timer_cb(struct hrtimer *timer)
-+static void cdc_ncm_txpath_bh(struct cdc_ncm_ctx *ctx)
- {
--	struct cdc_ncm_ctx *ctx =
--			container_of(timer, struct cdc_ncm_ctx, tx_timer);
--
--	if (!atomic_read(&ctx->stop))
--		tasklet_schedule(&ctx->bh);
--	return HRTIMER_NORESTART;
--}
--
--static void cdc_ncm_txpath_bh(unsigned long param)
--{
--	struct usbnet *dev = (struct usbnet *)param;
--	struct cdc_ncm_ctx *ctx = (struct cdc_ncm_ctx *)dev->data[0];
-+	struct usbnet *dev = ctx->usbnet;
- 
- 	spin_lock_bh(&ctx->mtx);
- 	if (ctx->tx_timer_pending != 0) {
-@@ -1379,6 +1363,17 @@ static void cdc_ncm_txpath_bh(unsigned l
- 	}
- }
- 
-+static enum hrtimer_restart cdc_ncm_tx_timer_cb(struct hrtimer *timer)
-+{
-+	struct cdc_ncm_ctx *ctx =
-+			container_of(timer, struct cdc_ncm_ctx, tx_timer);
-+
-+	if (!atomic_read(&ctx->stop))
-+		cdc_ncm_txpath_bh(ctx);
-+
-+	return HRTIMER_NORESTART;
-+}
-+
- struct sk_buff *
- cdc_ncm_tx_fixup(struct usbnet *dev, struct sk_buff *skb, gfp_t flags)
- {
---- a/include/linux/usb/cdc_ncm.h
-+++ b/include/linux/usb/cdc_ncm.h
-@@ -92,7 +92,6 @@
- struct cdc_ncm_ctx {
- 	struct usb_cdc_ncm_ntb_parameters ncm_parm;
- 	struct hrtimer tx_timer;
--	struct tasklet_struct bh;
- 
- 	const struct usb_cdc_ncm_desc *func_desc;
- 	const struct usb_cdc_mbim_desc *mbim_desc;
-@@ -101,6 +100,7 @@ struct cdc_ncm_ctx {
- 
- 	struct usb_interface *control;
- 	struct usb_interface *data;
-+	struct usbnet *usbnet;
- 
- 	struct sk_buff *tx_curr_skb;
- 	struct sk_buff *tx_rem_skb;
+Yeah Sure,
+
+Andrew, please note that the output can be done in JSON format with -j
+-p flags so you always can expose multiple tables, and in user space
+easily present the data as 2D array as you wish. This is just formatting
+
+This is example for IPV4/6 host (neighbor) tables with two entries. The
+table is an hash table which performs match on rif and dst_ip, then sets
+the dst mac. The rif is an internal object which is mapped to ifindex.
+
+This is an example for the IPv4:
+
+$devlink dpipe table dump pci/0000:03:00.0 name mlxsw_host4
+pci/0000:03:00.0:
+  index 0
+  match_value:
+    type field_exact header mlxsw_meta field erif_port mapping ifindex
+mapping_value 732 value 0
+    type field_exact header ipv4 field destination ip value 20.0.0.1
+  action_value:
+    type field_modify header ethernet field destination_mac value
+e4:1d:2d:a5:f0:4a
+
+  index 1
+  match_value:
+    type field_exact header mlxsw_meta field erif_port mapping ifindex
+mapping_value 733 value 1
+    type field_exact header ipv4 field destination ip value 10.0.0.1
+  action_value:
+    type field_modify header ethernet field destination_mac value
+e4:1d:2d:a5:f1:7e
+
+This is an example for IPv6:
+
+$devlink dpipe table dump pci/0000:03:00.0 name mlxsw_host6
+pci/0000:03:00.0:
+  index 0
+  match_value:
+    type field_exact header mlxsw_meta field erif_port mapping ifindex
+mapping_value 732 value 0
+    type field_exact header ipv6 field destination ip value
+2001:2011:0:f101::2
+  action_value:
+    type field_modify header ethernet field destination_mac value
+e4:1d:2d:a5:f0:4a
+
+  index 1
+  match_value:
+    type field_exact header mlxsw_meta field erif_port mapping ifindex
+mapping_value 733 value 1
+    type field_exact header ipv6 field destination ip value
+2001:1011:0:f101::2
+  action_value:
+    type field_modify header ethernet field destination_mac value
+e4:1d:2d:a5:f1:7e
+
+
+Thanks,
+Arkadi
