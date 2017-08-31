@@ -1,36 +1,34 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 2/3] net: mvpp2: use the GoP interrupt for link
- status changes
-Date: Thu, 31 Aug 2017 15:47:24 +0200
-Message-ID: <20170831134724.GO22289@lunn.ch>
-References: <20170831071256.18416-1-antoine.tenart@free-electrons.com>
- <20170831071256.18416-3-antoine.tenart@free-electrons.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [pull request][net-next 0/3] Mellanox, mlx5 GRE tunnel offloads
+Date: Thu, 31 Aug 2017 15:51:11 +0200
+Message-ID: <87fuc7ong0.fsf@stressinduktion.org>
+References: <20170830230409.15176-1-saeedm@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, gregory.clement@free-electrons.com,
-        thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
-        linux@armlinux.org.uk, linux-kernel@vger.kernel.org,
-        mw@semihalf.com, stefanc@marvell.com,
-        miquel.raynal@free-electrons.com, netdev@vger.kernel.org
-To: Antoine Tenart <antoine.tenart@free-electrons.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170831071256.18416-3-antoine.tenart@free-electrons.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Saeed Mahameed <saeedm@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:59921 "EHLO
+        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751034AbdHaNvV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 09:51:21 -0400
+In-Reply-To: <20170830230409.15176-1-saeedm@mellanox.com> (Saeed Mahameed's
+        message of "Thu, 31 Aug 2017 02:04:06 +0300")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 31, 2017 at 09:12:55AM +0200, Antoine Tenart wrote:
-> +static void mvpp22_gop_unmask_irq(struct mvpp2_port *port)
-> +{
-> +	u32 val;
-> +
-> +	if (port->phy_interface == PHY_INTERFACE_MODE_RGMII ||
-> +	    port->phy_interface == PHY_INTERFACE_MODE_RGMII_ID ||
-> +	    port->phy_interface == PHY_INTERFACE_MODE_RGMII_RXID ||
-> +	    port->phy_interface == PHY_INTERFACE_MODE_RGMII_TXID ||
+Saeed Mahameed <saeedm@mellanox.com> writes:
 
-Hi Antoine
+> The first patch from Gal and Ariel provides the mlx5 driver support for
+> ConnectX capability to perform IP version identification and matching in
+> order to distinguish between IPv4 and IPv6 without the need to specify the
+> encapsulation type, thus perform RSS in MPLS automatically without
+> specifying MPLS ethertyoe. This patch will also serve for inner GRE IPv4/6
+> classification for inner GRE RSS.
 
-phy_interface_mode_is_rgmii()
+I don't think this is legal at all or did I misunderstood something?
 
-	Andrew
+<https://tools.ietf.org/html/rfc3032#section-2.2>
+
+Thanks,
+Hannes
