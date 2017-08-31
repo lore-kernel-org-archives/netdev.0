@@ -1,63 +1,49 @@
-From: Bhadram Varka <vbhadram@nvidia.com>
-Subject: RE: netdev carrier changes is one even after ethernet link up.
-Date: Thu, 31 Aug 2017 06:03:10 +0000
-Message-ID: <ec9b998eae874abf96ec8f378aea2610@bgmail102.nvidia.com>
-References: <974898714b3e4e59b933983ded977ce2@bgmail102.nvidia.com>
+From: Jassi Brar <jassisinghbrar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [net-next PATCHv6 0/2] net: ethernet: Socionext Netsec
+Date: Thu, 31 Aug 2017 12:01:37 +0530
+Message-ID: <CABb+yY0r8ZgeYTdmYqTd3RhUnr1ufOaUUe3+81Q2JKm+xY8PRQ@mail.gmail.com>
+References: <1504088657-6102-1-git-send-email-jaswinder.singh@linaro.org> <27A7C5A5-AFF4-49F3-B0DF-7F53283EC2A4@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: 8BIT
-Cc: linux-netdev <netdev@vger.kernel.org>
-To: "andrew@lunn.ch" <andrew@lunn.ch>,
-        "f.fainelli@gmail.com" <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hqemgate15.nvidia.com ([216.228.121.64]:7089 "EHLO
-        hqemgate15.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750711AbdHaGE3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 02:04:29 -0400
-In-Reply-To: <974898714b3e4e59b933983ded977ce2@bgmail102.nvidia.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: "linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
+        <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Devicetree List <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        "arnd-r2nGTMty4D4@public.gmane.org" <arnd-r2nGTMty4D4@public.gmane.org>,
+        "patches-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org" <patches-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+        Jassi Brar <jaswinder.singh-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Andy Green <andy-/Zus8d0mwwtBDgjK7y7TUQ@public.gmane.org>
+To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <27A7C5A5-AFF4-49F3-B0DF-7F53283EC2A4-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-+ netdev
+On Thu, Aug 31, 2017 at 9:36 AM, Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> On August 30, 2017 3:24:17 AM PDT, Jassi Brar <jassisinghbrar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+>>Hello,
+>>
+>>The OGMA/Netsec controller is used in latest SoC from
+>>Socionext/Fujitsu.
+>>
+>>I am refreshing the patchset by basically using official name of the IP
+>>from 'OGMA' to 'Netsec'. And the company is renamed too, from Fujitsu
+>>to Socionext to better reflect the reality.
+>>
+>> I have addressed comments (that could be) on the last revision -->
+>>https://patchwork.kernel.org/patch/4540651/
+>>
+>> Of course, I have scanned changes to the drivers/net/ethernet since
+>>last submission and integrated whichever applicable and rebased the
+>>driver on top of last rc.
+>
+> It does not appear to be at first glance, but I will just ask anyways, this is not yet another variant of stmmac glued just a little bit differently into the SoC right?
+>
+Sorry, no idea. I will be glad if we could reuse existing code.
 
-From: Bhadram Varka 
-Sent: Thursday, August 31, 2017 11:24 AM
-To: 'andrew@lunn.ch' <andrew@lunn.ch>; 'f.fainelli@gmail.com' <f.fainelli@gmail.com>
-Cc: linux-netdev <netdev@vger.kernel.org>
-Subject: netdev carrier changes is one even after ethernet link up.
-
-Hi,
-
-I have observed that carrier_changes is one even in case of the ethernet link is up.
- 
-After investigating the code below is my observation -
-
-ethernet_driver_probe()
-+--->phy_connect()
-|     +--->phy_attach_direct()
-|           +---> netif_carrier_off()    : which increments carrier_changes to one.
-+--->register_netdevice() : will the carrier_changes becomes zero here ?
-+--->netif_carrier_off(): not increment the carrier_changes since __LINK_STATE_NOCARRIER already set.
- 
->From ethernet driver open will start the PHY and trigger the phy_state_machine. 
-Phy_state_machine workqueue calling netif_carrier_on() once the link is UP.
-netif_carrier_on() increments the carrier_changes by one.
- 
-After link is UP if we check the carrier_changes sysfs node - it will be one only.
- 
-$ cat /sys/class/net/eth0/carrier_changes
-1
- 
-After reverting the change - https://lkml.org/lkml/2016/1/9/173 (net: phy: turn carrier off on phy attach) then I could see the carrier changes incremented to 2 after Link UP.
-$ cat /sys/class/net/eth0/carrier_changes
-2
-
-Thanks,
-Bhadram.
------------------------------------------------------------------------------------
-This email message is for the sole use of the intended recipient(s) and may contain
-confidential information.  Any unauthorized review, use, disclosure or distribution
-is prohibited.  If you are not the intended recipient, please contact the sender by
-reply email and destroy all copies of the original message.
------------------------------------------------------------------------------------
+Thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
