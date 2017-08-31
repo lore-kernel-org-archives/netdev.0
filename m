@@ -1,81 +1,68 @@
-From: Tim Harvey <tharvey@gateworks.com>
-Subject: Re: DSA mv88e6xxx RX frame errors and TCP/IP RX failure
-Date: Wed, 30 Aug 2017 17:22:42 -0700
-Message-ID: <CAJ+vNU3Qto9iNdCUExb4NWaa3PA1UWe1kbY1b=sBLPgw_xiz7g@mail.gmail.com>
-References: <CAJ+vNU0VzgDkH-ksHgaA0cn3nbCOfcUs_BU90v6xw_QappssgA@mail.gmail.com>
- <20170830220631.GM22289@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: netdev <netdev@vger.kernel.org>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Fugang Duan <fugang.duan@nxp.com>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170830220631.GM22289@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [RFC net-next 0/8] net: dsa: Multi-queue awareness
+Date: Wed, 30 Aug 2017 17:18:44 -0700
+Message-ID: <1504138732-65383-1-git-send-email-f.fainelli@gmail.com>
+Cc: jiri@resnulli.us, jhs@mojatatu.com, davem@davemloft.net,
+        xiyou.wangcong@gmail.com, andrew@lunn.ch,
+        vivien.didelot@savoirfairelinux.com,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:33573 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750814AbdHaA0k (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 20:26:40 -0400
+Received: by mail-wm0-f68.google.com with SMTP id m85so2858413wma.0
+        for <netdev@vger.kernel.org>; Wed, 30 Aug 2017 17:26:39 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 30, 2017 at 3:06 PM, Andrew Lunn <andrew@lunn.ch> wrote:
-> On Wed, Aug 30, 2017 at 12:53:56PM -0700, Tim Harvey wrote:
->> Greetings,
->>
->> I'm seeing RX frame errors when using the mv88e6xxx DSA driver on
->> 4.13-rc7. The board I'm using is a GW5904 [1] which has an IMX6 FEC
->> MAC (eth0) connected via RGMII to a MV88E6176 with its downstream
->> P0/P1/P2/P3 to front panel RJ45's (lan1-lan4).
->
-> Hi Tim
->
-> Can you confirm the counter is this one:
->
->                        /* Report late collisions as a frame error. */
->                         if (status & (BD_ENET_RX_NO | BD_ENET_RX_CL))
->                                 ndev->stats.rx_frame_errors++;
->
-> I don't see anywhere else frame errors are counted, but it would be
-> good to prove we are looking in the right place.
->
+This patch series is sent as reference, especially because the last patch
+is trying not to be creating too many layer violations, but clearly there
+are a little bit being created here anyways.
 
-Andrew,
+Essentially what I am trying to achieve is that you have a stacked device which
+is multi-queue aware, that applications will be using, and for which they can
+control the queue selection (using mq) the way they want. Each of each stacked
+network devices are created for each port of the switch (this is what DSA
+does). When a skb is submitted from say net_device X, we can derive its port
+number and look at the queue_mapping value to determine which port of the
+switch and queue we should be sending this to. The information is embedded in a
+tag (4 bytes) and is used by the switch to steer the transmission.
 
-(adding IMX FEC driver maintainer to CC)
+These stacked devices will actually transmit using a "master" or conduit
+network device which has a number of queues as well. In one version of the
+hardware that I work with, we have up to 4 ports, each with 8 queues, and the
+master device has a total of 32 hardware queues, so a 1:1 mapping is easy. With
+another version of the hardware, same number of ports and queues, but only 16
+hardware queues, so only a 2:1 mapping is possible.
 
-Yes, that's one of them being hit. It looks like ifconfig reports
-'frame' as the accumulation of a few stats so here are some more
-specifics from /sys/class/net/eth0/statistics:
+In order for congestion information to work properly, I need to establish a
+mapping, preferably before transmission starts (but reconfiguration while
+interfaces are running would be possible too) between these stacked device's
+queue and the conduit interface's queue.
 
-root@xenial:/sys/devices/soc0/soc/2100000.aips-bus/2188000.ethernet/net/eth0/statistics#
-for i in `ls rx_*`; do echo $i:$(cat $i); done
-rx_bytes:103229
-rx_compressed:0
-rx_crc_errors:22
-rx_dropped:0
-rx_errors:22
-rx_fifo_errors:0
-rx_frame_errors:22
-rx_length_errors:22
-rx_missed_errors:0
-rx_nohandler:0
-rx_over_errors:0
-rx_packets:1174
-root@xenial:/sys/devices/soc0/soc/2100000.aips-bus/2188000.ethernet/net/eth0/statistics#
-ifconfig eth0
-eth0      Link encap:Ethernet  HWaddr 00:D0:12:41:F3:E7
-          inet6 addr: fe80::2d0:12ff:fe41:f3e7/64 Scope:Link
-          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-          RX packets:1207 errors:22 dropped:0 overruns:0 frame:66
-          TX packets:42 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:1000
-          RX bytes:106009 (103.5 KiB)  TX bytes:4604 (4.4 KiB)
+Comments, flames, rotten tomatoes, anything!
 
-Instrumenting fec driver I see the following getting hit:
+Florian Fainelli (8):
+  net: dsa: Allow switch drivers to indicate number of RX/TX queues
+  net: dsa: tag_brcm: Set output queue from skb queue mapping
+  net: dsa: bcm_sf2: Advertise number of egress queues
+  net: dsa: bcm_sf2: Configure IMP port TC2QOS mapping
+  net: dsa: bcm_sf2: Fix number of CFP entries for BCM7278
+  net: dsa: Expose dsa_slave_dev_check and dsa_slave_dev_port_num
+  net: dsa: tag_brcm: Indicate to master netdevice port + queue
+  net: systemport: Establish DSA network device queue mapping
 
-status & BD_ENET_RX_LG /* rx_length_errors: Frame too long */
-status & BD_ENET_RX_CR  /* rx_crc_errors: CRC Error */
-status & BD_ENET_RX_CL /* rx_frame_errors: Collision? */
+ drivers/net/dsa/bcm_sf2.c                  |  16 +++++
+ drivers/net/dsa/bcm_sf2.h                  |   1 +
+ drivers/net/dsa/bcm_sf2_cfp.c              |   8 +--
+ drivers/net/ethernet/broadcom/bcmsysport.c | 100 +++++++++++++++++++++++++++--
+ drivers/net/ethernet/broadcom/bcmsysport.h |  11 +++-
+ include/net/dsa.h                          |  19 ++++++
+ net/dsa/slave.c                            |  22 +++++--
+ net/dsa/tag_brcm.c                         |   8 ++-
+ 8 files changed, 170 insertions(+), 15 deletions(-)
 
-Is this a frame size issue where the MV88E6176 is sending frames down
-that exceed the MTU because of headers added?
-
-Tim
+-- 
+1.9.1
