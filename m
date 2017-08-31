@@ -1,80 +1,106 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [PATCH] rtlwifi: refactor code in halbtcoutsrc module
-Date: Thu, 31 Aug 2017 10:25:30 -0500
-Message-ID: <08aeadde-8a44-c49f-bc64-5b91226d4cec@lwfinger.net>
-References: <20170830164602.GA16413@embeddedgus>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [PATCH net-next] bridge: add tracepoint in br_fdb_update
+Date: Thu, 31 Aug 2017 09:30:05 -0600
+Message-ID: <a9349049-bfd7-b6c0-d1c7-2f70b0b0ab11@gmail.com>
+References: <1504156693-24692-1-git-send-email-roopa@cumulusnetworks.com>
+ <20170831143814.68709334@redhat.com>
+ <CAJieiUjZ5dTNpBFb8c2KMRgjXRCKVGhJsTfQcpiw+p6fyNVwDw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: "Gustavo A. R. Silva" <gustavo@embeddedor.com>,
-        Chaoming Li <chaoming_li@realsil.com.cn>,
-        Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170830164602.GA16413@embeddedgus>
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>, bridge@lists.linux-foundation.org
+To: Roopa Prabhu <roopa@cumulusnetworks.com>,
+        Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:33894 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751040AbdHaPaI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 11:30:08 -0400
+Received: by mail-pg0-f68.google.com with SMTP id 63so694554pgc.1
+        for <netdev@vger.kernel.org>; Thu, 31 Aug 2017 08:30:08 -0700 (PDT)
+In-Reply-To: <CAJieiUjZ5dTNpBFb8c2KMRgjXRCKVGhJsTfQcpiw+p6fyNVwDw@mail.gmail.com>
 Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/30/2017 11:46 AM, Gustavo A. R. Silva wrote:
-> Function halbtc_get_wifi_rssi always returns rtlpriv->dm.undec_sm_pwdb.
-> So this function can be removed and the value of
-> rtlpriv->dm.undec_sm_pwdb assigned to *s32_tmp directly.
+On 8/31/17 9:21 AM, Roopa Prabhu wrote:
+> On Thu, Aug 31, 2017 at 5:38 AM, Jesper Dangaard Brouer
+> <brouer@redhat.com> wrote:
+>> On Wed, 30 Aug 2017 22:18:13 -0700
+>> Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
+>>
+>>> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+>>>
+>>> This extends bridge fdb table tracepoints to also cover
+>>> learned fdb entries in the br_fdb_update path. Note that
+>>> unlike other tracepoints I have moved this to when the fdb
+>>> is modified because this is in the datapath and can generate
+>>> a lot of noise in the trace output. br_fdb_update is also called
+>>> from added_by_user context in the NTF_USE case which is already
+>>> traced ..hence the !added_by_user check.
+>>>
+>>> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+>>> ---
+>>>  include/trace/events/bridge.h | 31 +++++++++++++++++++++++++++++++
+>>>  net/bridge/br_fdb.c           |  5 ++++-
+>>>  net/core/net-traces.c         |  1 +
+>>>  3 files changed, 36 insertions(+), 1 deletion(-)
+>>>
+>>> diff --git a/include/trace/events/bridge.h b/include/trace/events/bridge.h
+>>> index 0f1cde0..1bee3e7 100644
+>>> --- a/include/trace/events/bridge.h
+>>> +++ b/include/trace/events/bridge.h
+>>> @@ -92,6 +92,37 @@ TRACE_EVENT(fdb_delete,
+>>>                 __entry->addr[4], __entry->addr[5], __entry->vid)
+>>>  );
+>>>
+>>> +TRACE_EVENT(br_fdb_update,
+>>> +
+>>> +     TP_PROTO(struct net_bridge *br, struct net_bridge_port *source,
+>>> +              const unsigned char *addr, u16 vid, bool added_by_user),
+>>> +
+>>> +     TP_ARGS(br, source, addr, vid, added_by_user),
+>>> +
+>>> +     TP_STRUCT__entry(
+>>> +             __string(br_dev, br->dev->name)
+>>> +             __string(dev, source->dev->name)
+>>
+>> I have found that using the device string name is
+>>
+>> (1) slow as it involves strcpy+strlen
+>>
+>>  See [1]+[2] where a single dev-name costed me 16 ns, and the base
+>>  overhead of a bpf attached tracepoint is 25 ns (see [3]).
+>>
+>>  [1] https://git.kernel.org/davem/net-next/c/e7d12ce121a
+>>  [2] https://git.kernel.org/davem/net-next/c/315ec3990ef
+>>  [3] https://git.kernel.org/davem/net-next/c/25d4dae1a64
+>>
+>> (2) strings are also harder to work-with/extract when attaching a bpf_prog
+>>
+>> See the trouble I'm in accessing a dev string here napi:napi_poll here:
+>>  https://github.com/netoptimizer/prototype-kernel/blob/103b955a080/kernel/samples/bpf/napi_monitor_kern.c#L52-L58
+>>
+>> Using ifindex'es in userspace is fairly easy see man if_indextoname(3).
+>>
 > 
-> This issue was first reported by Coverity as "identical code for different
-> branches" in function halbtc_get_wifi_rssi.
-> 
-> Addresses-Coverity-ID: 1226793
-> Signed-off-by: Gustavo A. R. Silva <gustavo@embeddedor.com>
-> ---
-> This code was reported by Coverity and it was tested by compilation only.
-> Chances are this may be a copy/paste error in function
-> halbtc_get_wifi_rssi. Please, verify.
-> Also, notice this code has been there since 2014.
+> Jesper thanks for the data!. GTK. Looking at include/trace/events,
+> currently almost all tracepoints use dev->name.
+> These bridge tracepoints in context are primarily for debugging fdb
+> updates only, not for every packet and hence not in the performance
+> path.
+> In large scale deployments with thousands of bridge ports and fdb
+> entries, dev->name will definately make it easier to trouble-shoot.
+> So, I did like to leave these with dev->name unless there are strong objections.
 
-The value of *s32_tmp is not dependent on the link state, thus this patch is 
-correct, but I request that it be changed. Future developments will modify 
-halbtc_get_wifi_rssi() making it more complicated and not as easily inlined as 
-this patch. In short, if you remove it here, we will have to add it later.
++1 for user friendliness for debugging tracepoints. The device name is
+also more user friendly when adding filters to the data collection.
 
-Thanks,
-
-Larrt
-
-> 
->   .../net/wireless/realtek/rtlwifi/btcoexist/halbtcoutsrc.c   | 13 +------------
->   1 file changed, 1 insertion(+), 12 deletions(-)
-> 
-> diff --git a/drivers/net/wireless/realtek/rtlwifi/btcoexist/halbtcoutsrc.c b/drivers/net/wireless/realtek/rtlwifi/btcoexist/halbtcoutsrc.c
-> index c1eacd8..2a47b97 100644
-> --- a/drivers/net/wireless/realtek/rtlwifi/btcoexist/halbtcoutsrc.c
-> +++ b/drivers/net/wireless/realtek/rtlwifi/btcoexist/halbtcoutsrc.c
-> @@ -373,17 +373,6 @@ u32 halbtc_get_wifi_link_status(struct btc_coexist *btcoexist)
->   	return ret_val;
->   }
->   
-> -static s32 halbtc_get_wifi_rssi(struct rtl_priv *rtlpriv)
-> -{
-> -	int undec_sm_pwdb = 0;
-> -
-> -	if (rtlpriv->mac80211.link_state >= MAC80211_LINKED)
-> -		undec_sm_pwdb = rtlpriv->dm.undec_sm_pwdb;
-> -	else /* associated entry pwdb */
-> -		undec_sm_pwdb = rtlpriv->dm.undec_sm_pwdb;
-> -	return undec_sm_pwdb;
-> -}
-> -
->   static bool halbtc_get(void *void_btcoexist, u8 get_type, void *out_buf)
->   {
->   	struct btc_coexist *btcoexist = (struct btc_coexist *)void_btcoexist;
-> @@ -479,7 +468,7 @@ static bool halbtc_get(void *void_btcoexist, u8 get_type, void *out_buf)
->   		*bool_tmp = false;
->   		break;
->   	case BTC_GET_S4_WIFI_RSSI:
-> -		*s32_tmp = halbtc_get_wifi_rssi(rtlpriv);
-> +		*s32_tmp = rtlpriv->dm.undec_sm_pwdb;
->   		break;
->   	case BTC_GET_S4_HS_RSSI:
->   		*s32_tmp = 0;
-> 
+Being able to add bpf everywhere certainly changes the game a bit, but
+we should not relinquish ease of use and understanding for the potential
+that someone might want to put a bpf program on the tracepoint and want
+to maintain high performance.
