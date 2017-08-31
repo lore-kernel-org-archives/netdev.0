@@ -1,161 +1,85 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [PATCH v2 net-next 4/6] udp: flow dissector offload
-Date: Thu, 31 Aug 2017 11:53:18 -0400
-Message-ID: <CAF=yD-JpGn8qrjcdxHopb1uW1_10r_MW-VeBxegQtpCyYfOQXw@mail.gmail.com>
-References: <20170829232711.1465-1-tom@quantonium.net> <20170829232711.1465-5-tom@quantonium.net>
- <1504089372.2480.55.camel@redhat.com>
+From: Y Song <ys114321@gmail.com>
+Subject: Re: [PATCH net-next] samples/bpf: Fix compilation issue in redirect
+ dummy program
+Date: Thu, 31 Aug 2017 08:54:26 -0700
+Message-ID: <CAH3MdRVszTVtjruq=-rh26jBtY9evuv7yBz37Ydb8EWSexL+zQ@mail.gmail.com>
+References: <1504178199-12410-1-git-send-email-tariqt@mellanox.com>
+ <20170831132710.3b245a6a@redhat.com> <59A7F658.4020606@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Tom Herbert <tom@quantonium.net>,
-        David Miller <davem@davemloft.net>,
-        Network Development <netdev@vger.kernel.org>
-To: Paolo Abeni <pabeni@redhat.com>
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Eran Ben Elisha <eranbe@mellanox.com>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f66.google.com ([209.85.218.66]:34921 "EHLO
-        mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751970AbdHaPyA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 11:54:00 -0400
-Received: by mail-oi0-f66.google.com with SMTP id k77so45751oib.2
-        for <netdev@vger.kernel.org>; Thu, 31 Aug 2017 08:53:59 -0700 (PDT)
-In-Reply-To: <1504089372.2480.55.camel@redhat.com>
+Received: from mail-ua0-f177.google.com ([209.85.217.177]:36659 "EHLO
+        mail-ua0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751610AbdHaPzH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 11:55:07 -0400
+Received: by mail-ua0-f177.google.com with SMTP id 105so101152uad.3
+        for <netdev@vger.kernel.org>; Thu, 31 Aug 2017 08:55:07 -0700 (PDT)
+In-Reply-To: <59A7F658.4020606@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 30, 2017 at 6:36 AM, Paolo Abeni <pabeni@redhat.com> wrote:
-> On Tue, 2017-08-29 at 16:27 -0700, Tom Herbert wrote:
->> Add support to perform UDP specific flow dissection. This is
->> primarily intended for dissecting encapsulated packets in UDP
->> encapsulation.
+On Thu, Aug 31, 2017 at 4:43 AM, Daniel Borkmann <daniel@iogearbox.net> wrote:
+> On 08/31/2017 01:27 PM, Jesper Dangaard Brouer wrote:
 >>
->> This patch adds a flow_dissect offload for UDP4 and UDP6. The backend
->> function performs a socket lookup and calls the flow_dissect function
->> if a socket is found.
+>> On Thu, 31 Aug 2017 14:16:39 +0300
+>> Tariq Toukan <tariqt@mellanox.com> wrote:
 >>
->> Signed-off-by: Tom Herbert <tom@quantonium.net>
->> ---
->>  include/linux/udp.h      |  8 ++++++++
->>  include/net/udp.h        |  8 ++++++++
->>  include/net/udp_tunnel.h |  8 ++++++++
->>  net/ipv4/udp_offload.c   | 45 +++++++++++++++++++++++++++++++++++++++++++++
->>  net/ipv4/udp_tunnel.c    |  1 +
->>  net/ipv6/udp_offload.c   | 13 +++++++++++++
->>  6 files changed, 83 insertions(+)
+>>> Fix compilation error below:
+>>>
+>>> $ make samples/bpf/
+>>>
+>>> LLVM ERROR: 'xdp_redirect_dummy' label emitted multiple times to
+>>> assembly file
+>>> make[1]: *** [samples/bpf/xdp_redirect_kern.o] Error 1
+>>> make: *** [samples/bpf/] Error 2
+>>>
+>>> Fixes: 306da4e685b4 ("samples/bpf: xdp_redirect load XDP dummy prog on TX
+>>> device")
+>>> Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+>>> ---
 >>
->> diff --git a/include/linux/udp.h b/include/linux/udp.h
->> index eaea63bc79bb..2e90b189ef6a 100644
->> --- a/include/linux/udp.h
->> +++ b/include/linux/udp.h
->> @@ -79,6 +79,14 @@ struct udp_sock {
->>       int                     (*gro_complete)(struct sock *sk,
->>                                               struct sk_buff *skb,
->>                                               int nhoff);
->> +     /* Flow dissector function for a UDP socket */
->> +     enum flow_dissect_ret (*flow_dissect)(struct sock *sk,
->> +                     const struct sk_buff *skb,
->> +                     struct flow_dissector_key_control *key_control,
->> +                     struct flow_dissector *flow_dissector,
->> +                     void *target_container, void *data,
->> +                     __be16 *p_proto, u8 *p_ip_proto, int *p_nhoff,
->> +                     int *p_hlen, unsigned int flags);
 >>
->>       /* udp_recvmsg try to use this before splicing sk_receive_queue */
->>       struct sk_buff_head     reader_queue ____cacheline_aligned_in_smp;
->> diff --git a/include/net/udp.h b/include/net/udp.h
->> index f3d1de6f0983..499e4faf8b14 100644
->> --- a/include/net/udp.h
->> +++ b/include/net/udp.h
->> @@ -174,6 +174,14 @@ struct sk_buff **udp_gro_receive(struct sk_buff **head, struct sk_buff *skb,
->>                                struct udphdr *uh, udp_lookup_t lookup);
->>  int udp_gro_complete(struct sk_buff *skb, int nhoff, udp_lookup_t lookup);
->>
->> +enum flow_dissect_ret udp_flow_dissect(const struct sk_buff *skb,
->> +                     udp_lookup_t lookup,
->> +                     struct flow_dissector_key_control *key_control,
->> +                     struct flow_dissector *flow_dissector,
->> +                     void *target_container, void *data,
->> +                     __be16 *p_proto, u8 *p_ip_proto, int *p_nhoff,
->> +                     int *p_hlen, unsigned int flags);
->> +
->>  static inline struct udphdr *udp_gro_udphdr(struct sk_buff *skb)
->>  {
->>       struct udphdr *uh;
->> diff --git a/include/net/udp_tunnel.h b/include/net/udp_tunnel.h
->> index 10cce0dd4450..b7102e0f41a9 100644
->> --- a/include/net/udp_tunnel.h
->> +++ b/include/net/udp_tunnel.h
->> @@ -69,6 +69,13 @@ typedef struct sk_buff **(*udp_tunnel_gro_receive_t)(struct sock *sk,
->>                                                    struct sk_buff *skb);
->>  typedef int (*udp_tunnel_gro_complete_t)(struct sock *sk, struct sk_buff *skb,
->>                                        int nhoff);
->> +typedef enum flow_dissect_ret (*udp_tunnel_flow_dissect_t)(struct sock *sk,
->> +                     const struct sk_buff *skb,
->> +                     struct flow_dissector_key_control *key_control,
->> +                     struct flow_dissector *flow_dissector,
->> +                     void *target_container, void *data,
->> +                     __be16 *p_proto, u8 *p_ip_proto, int *p_nhoff,
->> +                     int *p_hlen, unsigned int flags);
->>
->>  struct udp_tunnel_sock_cfg {
->>       void *sk_user_data;     /* user data used by encap_rcv call back */
->> @@ -78,6 +85,7 @@ struct udp_tunnel_sock_cfg {
->>       udp_tunnel_encap_destroy_t encap_destroy;
->>       udp_tunnel_gro_receive_t gro_receive;
->>       udp_tunnel_gro_complete_t gro_complete;
->> +     udp_tunnel_flow_dissect_t flow_dissect;
->>  };
->>
->>  /* Setup the given (UDP) sock to receive UDP encapsulated packets */
->> diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
->> index 97658bfc1b58..7f0a7ed4a6f7 100644
->> --- a/net/ipv4/udp_offload.c
->> +++ b/net/ipv4/udp_offload.c
->> @@ -328,11 +328,56 @@ static int udp4_gro_complete(struct sk_buff *skb, int nhoff)
->>       return udp_gro_complete(skb, nhoff, udp4_lib_lookup_skb);
->>  }
->>
->> +enum flow_dissect_ret udp_flow_dissect(const struct sk_buff *skb,
->> +                     udp_lookup_t lookup,
->> +                     struct flow_dissector_key_control *key_control,
->> +                     struct flow_dissector *flow_dissector,
->> +                     void *target_container, void *data,
->> +                     __be16 *p_proto, u8 *p_ip_proto, int *p_nhoff,
->> +                     int *p_hlen, unsigned int flags)
->> +{
->> +     enum flow_dissect_ret ret = FLOW_DISSECT_RET_CONTINUE;
->> +     struct udphdr *uh, _uh;
->> +     struct sock *sk;
->> +
->> +     uh = __skb_header_pointer(skb, *p_nhoff, sizeof(_uh), data,
->> +                               *p_hlen, &_uh);
->> +     if (!uh)
->> +             return FLOW_DISSECT_RET_OUT_BAD;
->> +
->> +     rcu_read_lock();
->> +
->> +     sk = (*lookup)(skb, uh->source, uh->dest);
->> +
->> +     if (sk && udp_sk(sk)->flow_dissect)
->> +             ret = udp_sk(sk)->flow_dissect(sk, skb, key_control,
->> +                                            flow_dissector, target_container,
->> +                                            data, p_proto, p_ip_proto,
->> +                                            p_nhoff, p_hlen, flags);
->> +     rcu_read_unlock();
->> +
->> +     return ret;
->> +}
->> +EXPORT_SYMBOL(udp_flow_dissect);
+>> Acked-by: Jesper Dangaard Brouer <brouer@redhat.com>
 >
-> If I read the above correctly, this is going to add another full UDP
-> lookup per UDP packet, can we avoid it with some static key enabled by
-> vxlan/fou/etc. ?
+>
+> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+>
+>> What LLVM/clang version do you use?
+>>
+>> I don't see this compile error, and I have:
+>>   $ clang --version
+>>   clang version 3.9.1 (tags/RELEA
+>
+>
+> I'm seeing the error as well with a fairly recent LLVM from git
+> tree (6.0.0git-2d810c2).
+>
+> Looks like the llvm error is triggered when section name and
+> the function name for XDP prog is the same. Changing either the
+> function or the section name right above resolves the issue. If
+> such error didn't trigger on older versions, people could be
+> using such naming scheme as done here, so seems to me like a
+> regression on LLVM side we might need to look at ...
 
-That would also limit the exposure if a bug is discovered. The
-vulnerability of this critical path also came up with the recent
-flow dissector expansion for ipv6 neighbor discovery.
+Martin fixed a similar bug earlier:
+=====
+commit a2e8bbd2ef5457485f00b6b947bbbfa2778e5b1e
+Author: Martin KaFai Lau <kafai@fb.com>
+Date:   Thu Jun 8 22:30:17 2017 -0700
 
-  http://patchwork.ozlabs.org/patch/722957/
+    bpf: Fix test_obj_id.c for llvm 5.0
 
-Ideally, flow dissector support for less common protocols can be
-disabled administratively.
+    llvm 5.0 does not like the section name and the function name
+    to be the same:
+...
+=====
 
-That said, the parser code looks great to me.
+gcc also has this behavior. Section name is treated as global
+and hence cannot collide with a function name...
