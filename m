@@ -1,64 +1,223 @@
 From: David Ahern <dsahern@gmail.com>
-Subject: [PATCH v3 net-next 2/7] bpf: Allow cgroup sock filters to use get_current_uid_gid helper
-Date: Thu, 31 Aug 2017 15:05:45 -0700
-Message-ID: <1504217150-16151-3-git-send-email-dsahern@gmail.com>
+Subject: [PATCH v3 net-next 3/7] samples/bpf: Update sock test to allow setting mark and priority
+Date: Thu, 31 Aug 2017 15:05:46 -0700
+Message-ID: <1504217150-16151-4-git-send-email-dsahern@gmail.com>
 References: <1504217150-16151-1-git-send-email-dsahern@gmail.com>
 Cc: David Ahern <dsahern@gmail.com>
 To: netdev@vger.kernel.org, daniel@iogearbox.net, ast@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:35639 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751001AbdHaWGL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 18:06:11 -0400
-Received: by mail-pf0-f195.google.com with SMTP id g13so532849pfm.2
-        for <netdev@vger.kernel.org>; Thu, 31 Aug 2017 15:06:10 -0700 (PDT)
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:37803 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751363AbdHaWGM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 18:06:12 -0400
+Received: by mail-pf0-f196.google.com with SMTP id a2so523380pfj.4
+        for <netdev@vger.kernel.org>; Thu, 31 Aug 2017 15:06:11 -0700 (PDT)
 In-Reply-To: <1504217150-16151-1-git-send-email-dsahern@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Allow BPF programs run on sock create to use the get_current_uid_gid
-helper. IPv4 and IPv6 sockets are created in a process context so
-there is always a valid uid/gid
+Update sock test to set mark and priority on socket create.
 
 Signed-off-by: David Ahern <dsahern@gmail.com>
-Acked-by: Alexei Starovoitov <ast@kernel.org>
 ---
- net/core/filter.c | 16 +++++++++++++++-
- 1 file changed, 15 insertions(+), 1 deletion(-)
+ samples/bpf/test_cgrp2_sock.c  | 134 ++++++++++++++++++++++++++++++++++++-----
+ samples/bpf/test_cgrp2_sock.sh |   2 +-
+ 2 files changed, 119 insertions(+), 17 deletions(-)
 
-diff --git a/net/core/filter.c b/net/core/filter.c
-index f51b9690adf3..9dad3e7e2e10 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -3150,6 +3150,20 @@ bpf_base_func_proto(enum bpf_func_id func_id)
+diff --git a/samples/bpf/test_cgrp2_sock.c b/samples/bpf/test_cgrp2_sock.c
+index c3cfb23e23b5..681abbe6c85e 100644
+--- a/samples/bpf/test_cgrp2_sock.c
++++ b/samples/bpf/test_cgrp2_sock.c
+@@ -19,59 +19,161 @@
+ #include <errno.h>
+ #include <fcntl.h>
+ #include <net/if.h>
++#include <inttypes.h>
+ #include <linux/bpf.h>
+ 
+ #include "libbpf.h"
+ 
+ char bpf_log_buf[BPF_LOG_BUF_SIZE];
+ 
+-static int prog_load(int idx)
++static int prog_load(__u32 idx, __u32 mark, __u32 prio)
+ {
+-	struct bpf_insn prog[] = {
++	/* save pointer to context */
++	struct bpf_insn prog_start[] = {
+ 		BPF_MOV64_REG(BPF_REG_6, BPF_REG_1),
++	};
++	struct bpf_insn prog_end[] = {
++		BPF_MOV64_IMM(BPF_REG_0, 1), /* r0 = verdict */
++		BPF_EXIT_INSN(),
++	};
++
++	/* set sk_bound_dev_if on socket */
++	struct bpf_insn prog_dev[] = {
+ 		BPF_MOV64_IMM(BPF_REG_3, idx),
+ 		BPF_MOV64_IMM(BPF_REG_2, offsetof(struct bpf_sock, bound_dev_if)),
+ 		BPF_STX_MEM(BPF_W, BPF_REG_1, BPF_REG_3, offsetof(struct bpf_sock, bound_dev_if)),
+-		BPF_MOV64_IMM(BPF_REG_0, 1), /* r0 = verdict */
+-		BPF_EXIT_INSN(),
+ 	};
+-	size_t insns_cnt = sizeof(prog) / sizeof(struct bpf_insn);
+ 
+-	return bpf_load_program(BPF_PROG_TYPE_CGROUP_SOCK, prog, insns_cnt,
++	/* set mark on socket */
++	struct bpf_insn prog_mark[] = {
++		BPF_MOV64_REG(BPF_REG_1, BPF_REG_6),
++		BPF_MOV64_IMM(BPF_REG_3, mark),
++		BPF_MOV64_IMM(BPF_REG_2, offsetof(struct bpf_sock, mark)),
++		BPF_STX_MEM(BPF_W, BPF_REG_1, BPF_REG_3, offsetof(struct bpf_sock, mark)),
++	};
++
++	/* set priority on socket */
++	struct bpf_insn prog_prio[] = {
++		BPF_MOV64_REG(BPF_REG_1, BPF_REG_6),
++		BPF_MOV64_IMM(BPF_REG_3, prio),
++		BPF_MOV64_IMM(BPF_REG_2, offsetof(struct bpf_sock, priority)),
++		BPF_STX_MEM(BPF_W, BPF_REG_1, BPF_REG_3, offsetof(struct bpf_sock, priority)),
++	};
++
++	struct bpf_insn *prog;
++	size_t insns_cnt;
++	void *p;
++	int ret;
++
++	insns_cnt = sizeof(prog_start) + sizeof(prog_end);
++	if (idx)
++		insns_cnt += sizeof(prog_dev);
++
++	if (mark)
++		insns_cnt += sizeof(prog_mark);
++
++	if (prio)
++		insns_cnt += sizeof(prog_prio);
++
++	p = prog = malloc(insns_cnt);
++	if (!prog) {
++		fprintf(stderr, "Failed to allocate memory for instructions\n");
++		return EXIT_FAILURE;
++	}
++
++	memcpy(p, prog_start, sizeof(prog_start));
++	p += sizeof(prog_start);
++
++	if (idx) {
++		memcpy(p, prog_dev, sizeof(prog_dev));
++		p += sizeof(prog_dev);
++	}
++
++	if (mark) {
++		memcpy(p, prog_mark, sizeof(prog_mark));
++		p += sizeof(prog_mark);
++	}
++
++	if (prio) {
++		memcpy(p, prog_prio, sizeof(prog_prio));
++		p += sizeof(prog_prio);
++	}
++
++	memcpy(p, prog_end, sizeof(prog_end));
++	p += sizeof(prog_end);
++
++	insns_cnt /= sizeof(struct bpf_insn);
++
++	ret = bpf_load_program(BPF_PROG_TYPE_CGROUP_SOCK, prog, insns_cnt,
+ 				"GPL", 0, bpf_log_buf, BPF_LOG_BUF_SIZE);
++
++	free(prog);
++
++	return ret;
  }
  
- static const struct bpf_func_proto *
-+sock_filter_func_proto(enum bpf_func_id func_id)
-+{
-+	switch (func_id) {
-+	/* inet and inet6 sockets are created in a process
-+	 * context so there is always a valid uid/gid
-+	 */
-+	case BPF_FUNC_get_current_uid_gid:
-+		return &bpf_get_current_uid_gid_proto;
-+	default:
-+		return bpf_base_func_proto(func_id);
-+	}
-+}
-+
-+static const struct bpf_func_proto *
- sk_filter_func_proto(enum bpf_func_id func_id)
+ static int usage(const char *argv0)
  {
- 	switch (func_id) {
-@@ -4233,7 +4247,7 @@ const struct bpf_verifier_ops lwt_xmit_prog_ops = {
- };
+-	printf("Usage: %s cg-path device-index\n", argv0);
++	printf("Usage: %s -b bind-to-dev -m mark -p prio cg-path\n", argv0);
+ 	return EXIT_FAILURE;
+ }
  
- const struct bpf_verifier_ops cg_sock_prog_ops = {
--	.get_func_proto		= bpf_base_func_proto,
-+	.get_func_proto		= sock_filter_func_proto,
- 	.is_valid_access	= sock_filter_is_valid_access,
- 	.convert_ctx_access	= sock_filter_convert_ctx_access,
- };
+ int main(int argc, char **argv)
+ {
++	__u32 idx = 0, mark = 0, prio = 0;
++	const char *cgrp_path = NULL;
+ 	int cg_fd, prog_fd, ret;
+-	unsigned int idx;
++	int rc;
++
++	while ((rc = getopt(argc, argv, "b:m:p:")) != -1) {
++		switch (rc) {
++		case 'b':
++			idx = if_nametoindex(optarg);
++			if (!idx) {
++				idx = strtoumax(optarg, NULL, 0);
++				if (!idx) {
++					printf("Invalid device name\n");
++					return EXIT_FAILURE;
++				}
++			}
++			break;
++		case 'm':
++			mark = strtoumax(optarg, NULL, 0);
++			break;
++		case 'p':
++			prio = strtoumax(optarg, NULL, 0);
++			break;
++		default:
++			return usage(argv[0]);
++		}
++	}
+ 
+-	if (argc < 2)
++	if (optind == argc)
+ 		return usage(argv[0]);
+ 
+-	idx = if_nametoindex(argv[2]);
+-	if (!idx) {
+-		printf("Invalid device name\n");
++	cgrp_path = argv[optind];
++	if (!cgrp_path) {
++		fprintf(stderr, "cgroup path not given\n");
+ 		return EXIT_FAILURE;
+ 	}
+ 
+-	cg_fd = open(argv[1], O_DIRECTORY | O_RDONLY);
++	if (!idx && !mark && !prio) {
++		fprintf(stderr,
++			"One of device, mark or priority must be given\n");
++		return EXIT_FAILURE;
++	}
++
++	cg_fd = open(cgrp_path, O_DIRECTORY | O_RDONLY);
+ 	if (cg_fd < 0) {
+ 		printf("Failed to open cgroup path: '%s'\n", strerror(errno));
+ 		return EXIT_FAILURE;
+ 	}
+ 
+-	prog_fd = prog_load(idx);
+-	printf("Output from kernel verifier:\n%s\n-------\n", bpf_log_buf);
+-
++	prog_fd = prog_load(idx, mark, prio);
+ 	if (prog_fd < 0) {
+ 		printf("Failed to load prog: '%s'\n", strerror(errno));
++		printf("Output from kernel verifier:\n%s\n-------\n",
++		       bpf_log_buf);
+ 		return EXIT_FAILURE;
+ 	}
+ 
+diff --git a/samples/bpf/test_cgrp2_sock.sh b/samples/bpf/test_cgrp2_sock.sh
+index 925fd467c7cc..1153c33e8964 100755
+--- a/samples/bpf/test_cgrp2_sock.sh
++++ b/samples/bpf/test_cgrp2_sock.sh
+@@ -20,7 +20,7 @@ function attach_bpf {
+ 	mkdir -p /tmp/cgroupv2
+ 	mount -t cgroup2 none /tmp/cgroupv2
+ 	mkdir -p /tmp/cgroupv2/foo
+-	test_cgrp2_sock /tmp/cgroupv2/foo foo
++	test_cgrp2_sock -b foo /tmp/cgroupv2/foo
+ 	echo $$ >> /tmp/cgroupv2/foo/cgroup.procs
+ }
+ 
 -- 
 2.1.4
