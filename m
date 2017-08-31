@@ -1,117 +1,83 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next v4 2/2] tcp_diag: report TCP MD5 signing keys
- and addresses
-Date: Wed, 30 Aug 2017 21:10:43 -0700
-Message-ID: <1504152643.15310.3.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20170831013312.29142-1-colona@arista.com>
-         <20170831013312.29142-3-colona@arista.com>
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH 0/4] irda: move it to drivers/staging so we can delete it
+Date: Thu, 31 Aug 2017 06:30:42 +0200
+Message-ID: <20170831043042.GB3359@kroah.com>
+References: <20170827150334.32495-1-gregkh@linuxfoundation.org>
+ <20170828.164208.1908438929113102094.davem@davemloft.net>
+ <201708292332.58569.linux@rainbow-software.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Ivan Delalande <colona@arista.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:35685 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751053AbdHaEKp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 00:10:45 -0400
-Received: by mail-pg0-f67.google.com with SMTP id r133so6476952pgr.2
-        for <netdev@vger.kernel.org>; Wed, 30 Aug 2017 21:10:45 -0700 (PDT)
-In-Reply-To: <20170831013312.29142-3-colona@arista.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org, samuel@sortiz.org,
+ David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org
+To: Ondrej Zary <linux@rainbow-software.org>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Disposition: inline
+In-Reply-To: <201708292332.58569.linux@rainbow-software.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2017-08-30 at 18:33 -0700, Ivan Delalande wrote:
-> Report TCP MD5 (RFC2385) signing keys, addresses and address prefixes to
-> processes with CAP_NET_ADMIN requesting INET_DIAG_INFO. Currently it is
-> not possible to retrieve these from the kernel once they have been
-> configured on sockets.
+On Tue, Aug 29, 2017 at 11:32:58PM +0200, Ondrej Zary wrote:
+> On Tuesday 29 August 2017 01:42:08 David Miller wrote:
+> > From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+> > Date: Sun, 27 Aug 2017 17:03:30 +0200
+> >
+> > > The IRDA code has long been obsolete and broken.  So, to keep people
+> > > from trying to use it, and to prevent people from having to maintain it,
+> > > let's move it to drivers/staging/ so that we can delete it entirely from
+> > > the kernel in a few releases.
+> >
+> > No objection, I'll apply this to net-next, thanks Greg.
 > 
-> Signed-off-by: Ivan Delalande <colona@arista.com>
-> ---
->  include/uapi/linux/inet_diag.h |   1 +
->  include/uapi/linux/tcp.h       |   9 ++++
->  net/ipv4/tcp_diag.c            | 110 ++++++++++++++++++++++++++++++++++++++---
->  3 files changed, 114 insertions(+), 6 deletions(-)
+> IRDA works fine in Debian 9 (kernel 4.9) and I use it for simple file 
+> transfer. Hope I'm not the only one...
 > 
-> diff --git a/include/uapi/linux/inet_diag.h b/include/uapi/linux/inet_diag.h
-> index 678496897a68..f52ff62bfabe 100644
-> --- a/include/uapi/linux/inet_diag.h
-> +++ b/include/uapi/linux/inet_diag.h
-> @@ -143,6 +143,7 @@ enum {
->  	INET_DIAG_MARK,
->  	INET_DIAG_BBRINFO,
->  	INET_DIAG_CLASS_ID,
-> +	INET_DIAG_MD5SIG,
->  	__INET_DIAG_MAX,
->  };
->  
-> diff --git a/include/uapi/linux/tcp.h b/include/uapi/linux/tcp.h
-> index 030e594bab45..15c25eccab2b 100644
-> --- a/include/uapi/linux/tcp.h
-> +++ b/include/uapi/linux/tcp.h
-> @@ -256,4 +256,13 @@ struct tcp_md5sig {
->  	__u8	tcpm_key[TCP_MD5SIG_MAXKEYLEN];		/* key (binary) */
->  };
->  
-> +/* INET_DIAG_MD5SIG */
-> +struct tcp_diag_md5sig {
-> +	__u8	tcpm_family;
-> +	__u8	tcpm_prefixlen;
-> +	__u16	tcpm_keylen;
-> +	__be32	tcpm_addr[4];
-> +	__u8	tcpm_key[TCP_MD5SIG_MAXKEYLEN];
-> +};
-> +
->  #endif /* _UAPI_LINUX_TCP_H */
-> diff --git a/net/ipv4/tcp_diag.c b/net/ipv4/tcp_diag.c
-> index a748c74aa8b7..65d0c34a76ee 100644
-> --- a/net/ipv4/tcp_diag.c
-> +++ b/net/ipv4/tcp_diag.c
-> @@ -16,6 +16,7 @@
->  
->  #include <linux/tcp.h>
->  
-> +#include <net/netlink.h>
->  #include <net/tcp.h>
->  
->  static void tcp_diag_get_info(struct sock *sk, struct inet_diag_msg *r,
-> @@ -36,6 +37,101 @@ static void tcp_diag_get_info(struct sock *sk, struct inet_diag_msg *r,
->  		tcp_get_info(sk, info);
->  }
->  
-> +#ifdef CONFIG_TCP_MD5SIG
-> +static void tcp_diag_md5sig_fill(struct tcp_diag_md5sig *info,
-> +				 const struct tcp_md5sig_key *key)
-> +{
-> +	info->tcpm_family = key->family;
-> +	info->tcpm_prefixlen = key->prefixlen;
-> +	info->tcpm_keylen = key->keylen;
-> +	memcpy(info->tcpm_key, key->key, key->keylen);
+> # irattach /dev/ttyS0 -d tekram -s
+> # irdadump
+> 21:28:52.830350 xid:cmd aed8eb79 > ffffffff S=6 s=0 (14)
+> 21:28:52.922368 xid:cmd aed8eb79 > ffffffff S=6 s=1 (14)
+> 21:28:53.014350 xid:cmd aed8eb79 > ffffffff S=6 s=2 (14)
+> 21:28:53.106338 xid:cmd aed8eb79 > ffffffff S=6 s=3 (14)
+> 21:28:53.190276 xid:rsp aed8eb79 < 000035d1 S=6 s=3 Nokia 6230i hint=b125 [ 
+> PnP Modem Fax Telephony IrCOMM IrOBEX ] (28)
+> 21:28:53.198384 xid:cmd aed8eb79 > ffffffff S=6 s=4 (14)
+> 21:28:53.290382 xid:cmd aed8eb79 > ffffffff S=6 s=5 (14)
+> 21:28:53.382341 xid:cmd aed8eb79 > ffffffff S=6 s=* pentium hint=0400 [ 
+> Computer ] (23)
+> ^C
+> 8 packets received by filter
+> 
+> $ obexftp -i -l MMC
+> Connecting..\done
+> Receiving "MMC".../<?xml version="1.0"?>
+> <!DOCTYPE folder-listing SYSTEM "obex-folder-listing.dtd"
+>  [ <!ATTLIST folder mem-type CDATA #IMPLIED> ]>
+> <folder-listing version="1.0">
+>     <parent-folder />
+>     <file name="Image000.jpg" size="304300" modified="20160219T135924" 
+> user-perm="RWD"/>
+>     <file name="Image001.jpg" size="270037" modified="20170811T233122" 
+> user-perm="RWD"/>
+>     <file name="Image004.jpg" size="53519" modified="20170814T074550" 
+> user-perm="RWD"/>
+> ....
+> $ obexftp -i -c MMC -g Image004.jpg
+> Connecting..\done
+> Sending "MMC"...|done
+> Receiving "Image004.jpg"...-done
+> Disconnecting..\done
 
+Odd, and is this just a ir device connected to a "real" serial port, or
+a specific IRDA device?
 
-if (key->keylen < TCP_MD5SIG_MAXKEYLEN), 
-then you'll leak sensitive kernel data to user space.
+thanks,
 
-Since I doubt many sockets are using MD5SIG, you could simply do at the
-beginning of this function :
-
-memset(info, 0, sizeof(*info));
-
-> +
-> +	if (key->family == AF_INET) {
-> +		memset(info->tcpm_addr, 0, sizeof(info->tcpm_addr));
-
-then also remove this memset() since the prior memset would do this
-already.
-
-> +		info->tcpm_addr[0] = key->addr.a4.s_addr;
-> +	}
-> +	#if IS_ENABLED(CONFIG_IPV6)
-> +	else if (key->family == AF_INET6) {
-> +		memcpy(&info->tcpm_addr, &key->addr.a6,
-> +		       sizeof(info->tcpm_addr));
-> +	}
-> +	#endif
-> +}
-> +
+greg k-h
