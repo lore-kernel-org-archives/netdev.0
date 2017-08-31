@@ -1,39 +1,31 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH net-next] xfrm: Add support for network devices capable
- of removing the ESP trailer
-Date: Thu, 31 Aug 2017 13:56:28 +0200
-Message-ID: <20170831115628.GN3311@secunet.com>
-References: <1504081839-22019-1-git-send-email-yossiku@mellanox.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH net 0/2] netfilter: ipvs: some fixes in sctp_conn_schedule
+Date: Thu, 31 Aug 2017 13:59:08 +0200
+Message-ID: <20170831115904.GA16979@verge.net.au>
+References: <cover.1503207076.git.lucien.xin@gmail.com>
+ <20170828161732.GA13738@salvia>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-        "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        "Hideaki YOSHIFUJI" <yoshfuji@linux-ipv6.org>,
-        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-        <borisp@mellanox.com>, <kliteyn@mellanox.com>
-To: <yossiku@mellanox.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Xin Long <lucien.xin@gmail.com>, netfilter-devel@vger.kernel.org,
+        Alex Gartrell <agartrell@fb.com>, lvs-devel@vger.kernel.org,
+        netdev@vger.kernel.org, ja@ssi.bg, wensong@linux-vs.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1504081839-22019-1-git-send-email-yossiku@mellanox.com>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20170828161732.GA13738@salvia>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 30, 2017 at 11:30:39AM +0300, yossiku@mellanox.com wrote:
-> From: Yossi Kuperman <yossiku@mellanox.com>
+On Mon, Aug 28, 2017 at 06:17:32PM +0200, Pablo Neira Ayuso wrote:
+> On Sun, Aug 20, 2017 at 01:38:06PM +0800, Xin Long wrote:
+> > Patch 1/2 fixes the regression introduced by commit 5e26b1b3abce.
+> > Patch 2/2 makes ipvs not create conn for sctp ABORT packet.
 > 
-> In conjunction with crypto offload [1], removing the ESP trailer by
-> hardware can potentially improve the performance by avoiding (1) a
-> cache miss incurred by reading the nexthdr field and (2) the necessity
-> to calculate the csum value of the trailer in order to keep skb->csum
-> valid.
-> 
-> This patch introduces the changes to the xfrm stack and merely serves
-> as an infrastructure. Subsequent patch to mlx5 driver will put this to
-> a good use.
-> 
-> [1] https://www.mail-archive.com/netdev@vger.kernel.org/msg175733.html
-> 
-> Signed-off-by: Yossi Kuperman <yossiku@mellanox.com>
+> Will wait for Julian and Simon to tell me what I should do with this.
 
-Applied to ipsec-next, thanks Yossi!
+Hi Pablo,
+
+could you take these directly with Julian's Ack and the following?
+
+Signed-off-by: Simon Horman <horms@verge.net.au>
+
