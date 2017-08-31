@@ -1,135 +1,94 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: [PATCH] wl1251: add a missing spin_lock_init()
-Date: Thu, 31 Aug 2017 16:47:43 +0200
-Message-ID: <20170831144743.GA21261@amd>
-References: <87pobdt8qc.fsf@kamboji.qca.qualcomm.com>
- <20170830.101143.2305098064824357647.davem@davemloft.net>
- <87val5rmh8.fsf@kamboji.qca.qualcomm.com>
- <20170830.105447.125174575140677062.davem@davemloft.net>
- <87fuc8s5v9.fsf@kamboji.qca.qualcomm.com>
- <20170831065204.GA17812@amd>
- <87y3q0q7ln.fsf@kamboji.qca.qualcomm.com>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next] bridge: add tracepoint in br_fdb_update
+Date: Thu, 31 Aug 2017 08:21:30 -0700
+Message-ID: <CAJieiUjZ5dTNpBFb8c2KMRgjXRCKVGhJsTfQcpiw+p6fyNVwDw@mail.gmail.com>
+References: <1504156693-24692-1-git-send-email-roopa@cumulusnetworks.com> <20170831143814.68709334@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="7JfCtLOvnd9MIVvH"
-Cc: David Miller <davem@davemloft.net>, xiyou.wangcong@gmail.com,
-        torvalds@linux-foundation.org, akpm@linux-foundation.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-wireless@vger.kernel.org
-To: Kalle Valo <kvalo@codeaurora.org>,
-        Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <87y3q0q7ln.fsf@kamboji.qca.qualcomm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>, bridge@lists.linux-foundation.org
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ua0-f180.google.com ([209.85.217.180]:33787 "EHLO
+        mail-ua0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751011AbdHaPVc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 11:21:32 -0400
+Received: by mail-ua0-f180.google.com with SMTP id 37so3033301ual.0
+        for <netdev@vger.kernel.org>; Thu, 31 Aug 2017 08:21:32 -0700 (PDT)
+In-Reply-To: <20170831143814.68709334@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Thu, Aug 31, 2017 at 5:38 AM, Jesper Dangaard Brouer
+<brouer@redhat.com> wrote:
+> On Wed, 30 Aug 2017 22:18:13 -0700
+> Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
+>
+>> From: Roopa Prabhu <roopa@cumulusnetworks.com>
+>>
+>> This extends bridge fdb table tracepoints to also cover
+>> learned fdb entries in the br_fdb_update path. Note that
+>> unlike other tracepoints I have moved this to when the fdb
+>> is modified because this is in the datapath and can generate
+>> a lot of noise in the trace output. br_fdb_update is also called
+>> from added_by_user context in the NTF_USE case which is already
+>> traced ..hence the !added_by_user check.
+>>
+>> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+>> ---
+>>  include/trace/events/bridge.h | 31 +++++++++++++++++++++++++++++++
+>>  net/bridge/br_fdb.c           |  5 ++++-
+>>  net/core/net-traces.c         |  1 +
+>>  3 files changed, 36 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/include/trace/events/bridge.h b/include/trace/events/bridge.h
+>> index 0f1cde0..1bee3e7 100644
+>> --- a/include/trace/events/bridge.h
+>> +++ b/include/trace/events/bridge.h
+>> @@ -92,6 +92,37 @@ TRACE_EVENT(fdb_delete,
+>>                 __entry->addr[4], __entry->addr[5], __entry->vid)
+>>  );
+>>
+>> +TRACE_EVENT(br_fdb_update,
+>> +
+>> +     TP_PROTO(struct net_bridge *br, struct net_bridge_port *source,
+>> +              const unsigned char *addr, u16 vid, bool added_by_user),
+>> +
+>> +     TP_ARGS(br, source, addr, vid, added_by_user),
+>> +
+>> +     TP_STRUCT__entry(
+>> +             __string(br_dev, br->dev->name)
+>> +             __string(dev, source->dev->name)
+>
+> I have found that using the device string name is
+>
+> (1) slow as it involves strcpy+strlen
+>
+>  See [1]+[2] where a single dev-name costed me 16 ns, and the base
+>  overhead of a bpf attached tracepoint is 25 ns (see [3]).
+>
+>  [1] https://git.kernel.org/davem/net-next/c/e7d12ce121a
+>  [2] https://git.kernel.org/davem/net-next/c/315ec3990ef
+>  [3] https://git.kernel.org/davem/net-next/c/25d4dae1a64
+>
+> (2) strings are also harder to work-with/extract when attaching a bpf_prog
+>
+> See the trouble I'm in accessing a dev string here napi:napi_poll here:
+>  https://github.com/netoptimizer/prototype-kernel/blob/103b955a080/kernel/samples/bpf/napi_monitor_kern.c#L52-L58
+>
+> Using ifindex'es in userspace is fairly easy see man if_indextoname(3).
+>
 
---7JfCtLOvnd9MIVvH
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Jesper thanks for the data!. GTK. Looking at include/trace/events,
+currently almost all tracepoints use dev->name.
+These bridge tracepoints in context are primarily for debugging fdb
+updates only, not for every packet and hence not in the performance
+path.
+In large scale deployments with thousands of bridge ports and fdb
+entries, dev->name will definately make it easier to trouble-shoot.
+So, I did like to leave these with dev->name unless there are strong objections.
 
-=46rom: Cong Wang <xiyou.wangcong@gmail.com>
-
-wl1251: add a missing spin_lock_init()
-   =20
-This fixes the following kernel warning:
-   =20
- [ 5668.771453] BUG: spinlock bad magic on CPU#0, kworker/u2:3/9745
- [ 5668.771850]  lock: 0xce63ef20, .magic: 00000000, .owner: <none>/-1,
- .owner_cpu: 0
- [ 5668.772277] CPU: 0 PID: 9745 Comm: kworker/u2:3 Tainted: G        W
- 4.12.0-03002-gec979a4-dirty #40
- [ 5668.772796] Hardware name: Nokia RX-51 board
- [ 5668.773071] Workqueue: phy1 wl1251_irq_work
- [ 5668.773345] [<c010c9e4>] (unwind_backtrace) from [<c010a274>]
- (show_stack+0x10/0x14)
- [ 5668.773803] [<c010a274>] (show_stack) from [<c01545a4>]
- (do_raw_spin_lock+0x6c/0xa0)
- [ 5668.774230] [<c01545a4>] (do_raw_spin_lock) from [<c06ca578>]
- (_raw_spin_lock_irqsave+0x10/0x18)
- [ 5668.774658] [<c06ca578>] (_raw_spin_lock_irqsave) from [<c048c010>]
- (wl1251_op_tx+0x38/0x5c)
- [ 5668.775115] [<c048c010>] (wl1251_op_tx) from [<c06a12e8>]
- (ieee80211_tx_frags+0x188/0x1c0)
- [ 5668.775543] [<c06a12e8>] (ieee80211_tx_frags) from [<c06a138c>]
- (__ieee80211_tx+0x6c/0x130)
- [ 5668.775970] [<c06a138c>] (__ieee80211_tx) from [<c06a3dbc>]
- (ieee80211_tx+0xdc/0x104)
- [ 5668.776367] [<c06a3dbc>] (ieee80211_tx) from [<c06a4af0>]
- (__ieee80211_subif_start_xmit+0x454/0x8c8)
- [ 5668.776824] [<c06a4af0>] (__ieee80211_subif_start_xmit) from
- [<c06a4f94>] (ieee80211_subif_start_xmit+0x30/0x2fc)
- [ 5668.777343] [<c06a4f94>] (ieee80211_subif_start_xmit) from
- [<c0578848>] (dev_hard_start_xmit+0x80/0x118)
-=2E..
-   =20
-    by adding the missing spin_lock_init().
-   =20
-Reported-by: Pavel Machek <pavel@ucw.cz>
-Cc: Kalle Valo <kvalo@codeaurora.org>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
-Acked-by: Pavel Machek <pavel@ucw.cz>
-Signed-off-by: Kalle Valo <kvalo@codeaurora.org>
-Signed-off-by: Pavel Machek <pavel@ucw.cz>
-Cc: stable@kernel.org
-
----
-
-> >> Yeah, you are right there. I did actually ponder which I tree should
-> >> commit it back in July but due to various reasons decided differently.
-> >
-> > Can we still get the fix to v4.13-final? :-).
->=20
-> I'm not planning to submit pull requests to 4.13 anymore. If you think
-> this is so important that it needs to be applied in the last minute (I
-> don't) you could always try to convince Dave to take it directly.
->=20
-> Or better yet, push it to the stable tree. If the merge window opens on
-> Sunday I suspect that the commit will be in Linus' tree sometime next
-> week. Then you can submit the request to the stable team to take it.
-
-I don't think we should use stable tree as an excuse for not fixing
-the bugs in mainline. Original patch is from Jul 6, thats 7 weeks ago.
-
-Dave, Linus -- can you still take the patch?
-
-Thanks,
-								Pavel
-
-
-diff --git a/drivers/net/wireless/ti/wl1251/main.c b/drivers/net/wireless/t=
-i/wl1251/main.c
-index 08f0477..9915d83 100644
---- a/drivers/net/wireless/ti/wl1251/main.c
-+++ b/drivers/net/wireless/ti/wl1251/main.c
-@@ -1571,6 +1571,7 @@ struct ieee80211_hw *wl1251_alloc_hw(void)
-=20
- 	wl->state =3D WL1251_STATE_OFF;
- 	mutex_init(&wl->mutex);
-+	spin_lock_init(&wl->wl_lock);
-=20
- 	wl->tx_mgmt_frm_rate =3D DEFAULT_HW_GEN_TX_RATE;
- 	wl->tx_mgmt_frm_mod =3D DEFAULT_HW_GEN_MODULATION_TYPE;
-
-
-
---=20
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
-g.html
-
---7JfCtLOvnd9MIVvH
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iEYEARECAAYFAlmoIY8ACgkQMOfwapXb+vKSWQCdE/a4LL+Pa55ni6WOlhCa+Vv1
-XzcAnRKBGbrsApwcPZdfM1KC+sn3FXaq
-=4uNE
------END PGP SIGNATURE-----
-
---7JfCtLOvnd9MIVvH--
+thanks.
