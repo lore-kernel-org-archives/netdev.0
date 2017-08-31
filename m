@@ -1,7 +1,7 @@
 From: Lipeng <lipeng321@huawei.com>
-Subject: [PATCH net-next 1/8] net: hns3: add check when initialize
-Date: Thu, 31 Aug 2017 21:39:02 +0800
-Message-ID: <1504186749-8926-2-git-send-email-lipeng321@huawei.com>
+Subject: [PATCH net-next 6/8] net: hns3: fix bug of reuse command description
+Date: Thu, 31 Aug 2017 21:39:07 +0800
+Message-ID: <1504186749-8926-7-git-send-email-lipeng321@huawei.com>
 References: <1504186749-8926-1-git-send-email-lipeng321@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -14,103 +14,69 @@ In-Reply-To: <1504186749-8926-1-git-send-email-lipeng321@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-private waterline and and common packet buffer
+When reuse command description, the in/out bit and W/R bit of the
+command flag should be both updated. The old code did not update
+in/out bit, this patch fix it.
 
-Command HCLGE_OPC_RX_PRIV_WL_ALLOC configure waterline for TC's PFC,
-which has private buffer.Command HCLGE_OPC_RX_COM_THRD_ALLOC Control
-each TC's occupation in common packet buffer, also generate PFC for
-TC, which has not private buffer.When device do not support DCB,
-command HCLGE_OPC_RX_PRIV_WL_ALLOC and HCLGE_OPC_RX_COM_THRD_ALLOC
-should not be used.
-
-The current code does not support DCB feature, DCB feature will be added
-later. The current code works well if device support DCB though it do
-not enable DCB feature, but it works fail if device do not support DCB.
-
+Signed-off-by: Mingguang Qu <qumingguang@huawei.com>
 Signed-off-by: Lipeng <lipeng321@huawei.com>
 ---
- drivers/net/ethernet/hisilicon/hns3/hnae3.h        |  1 +
- .../ethernet/hisilicon/hns3/hns3pf/hclge_main.c    | 41 ++++++++++++++++------
- 2 files changed, 31 insertions(+), 11 deletions(-)
+ drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.c  | 9 +++++++++
+ drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.h  | 2 +-
+ drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c | 6 +++---
+ 3 files changed, 13 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/hisilicon/hns3/hnae3.h b/drivers/net/ethernet/hisilicon/hns3/hnae3.h
-index b2f28ae..e23e028 100644
---- a/drivers/net/ethernet/hisilicon/hns3/hnae3.h
-+++ b/drivers/net/ethernet/hisilicon/hns3/hnae3.h
-@@ -50,6 +50,7 @@
+diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.c
+index 8b511e6..fe2b116 100644
+--- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.c
++++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.c
+@@ -85,6 +85,15 @@ static int hclge_init_cmd_queue(struct hclge_dev *hdev, int ring_type)
+ 	return 0;
+ }
  
- #define HNAE3_DEV_INITED_B			0x0
- #define HNAE_DEV_SUPPORT_ROCE_B			0x1
-+#define HNAE_DEV_SUPPORT_DCB_B			0x2
++void hclge_cmd_reuse_desc(struct hclge_desc *desc, bool is_read)
++{
++	desc->flag = cpu_to_le16(HCLGE_CMD_FLAG_NO_INTR | HCLGE_CMD_FLAG_IN);
++	if (is_read)
++		desc->flag |= cpu_to_le16(HCLGE_CMD_FLAG_WR);
++	else
++		desc->flag &= cpu_to_le16(~HCLGE_CMD_FLAG_WR);
++}
++
+ void hclge_cmd_setup_basic_desc(struct hclge_desc *desc,
+ 				enum hclge_opcode_type opcode, bool is_read)
+ {
+diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.h b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.h
+index b841df1..5887418 100644
+--- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.h
++++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.h
+@@ -753,7 +753,7 @@ static inline u32 hclge_read_reg(u8 __iomem *base, u32 reg)
+ int hclge_cmd_send(struct hclge_hw *hw, struct hclge_desc *desc, int num);
+ void hclge_cmd_setup_basic_desc(struct hclge_desc *desc,
+ 				enum hclge_opcode_type opcode, bool is_read);
+-
++void hclge_cmd_reuse_desc(struct hclge_desc *desc, bool is_read);
+ int hclge_cmd_set_promisc_mode(struct hclge_dev *hdev,
+ 			       struct hclge_promisc_param *param);
  
- #define ring_ptr_move_fw(ring, p) \
- 	((ring)->p = ((ring)->p + 1) % (ring)->desc_num)
 diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
-index bb45365..acc4016 100644
+index f2ea88f..12be24f 100644
 --- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
 +++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
-@@ -60,6 +60,16 @@ static int hclge_set_mta_filter_mode(struct hclge_dev *hdev,
- 	{0, }
- };
- 
-+static const struct pci_device_id dcb_pci_tbl[] = {
-+	{PCI_VDEVICE(HUAWEI, HNAE3_DEV_ID_25GE_RDMA), 0},
-+	{PCI_VDEVICE(HUAWEI, HNAE3_DEV_ID_25GE_RDMA_MACSEC), 0},
-+	{PCI_VDEVICE(HUAWEI, HNAE3_DEV_ID_50GE_RDMA), 0},
-+	{PCI_VDEVICE(HUAWEI, HNAE3_DEV_ID_50GE_RDMA_MACSEC), 0},
-+	{PCI_VDEVICE(HUAWEI, HNAE3_DEV_ID_100G_RDMA_MACSEC), 0},
-+	/* Required last entry */
-+	{0, }
-+};
-+
- static const char hns3_nic_test_strs[][ETH_GSTRING_LEN] = {
- 	"Mac    Loopback test",
- 	"Serdes Loopback test",
-@@ -1782,18 +1792,23 @@ int hclge_buffer_alloc(struct hclge_dev *hdev)
- 		return ret;
- 	}
- 
--	ret = hclge_rx_priv_wl_config(hdev);
--	if (ret) {
--		dev_err(&hdev->pdev->dev,
--			"could not configure rx private waterline %d\n", ret);
--		return ret;
--	}
-+	if (hnae_get_bit(hdev->ae_dev->flag,
-+			 HNAE_DEV_SUPPORT_DCB_B)) {
-+		ret = hclge_rx_priv_wl_config(hdev);
-+		if (ret) {
-+			dev_err(&hdev->pdev->dev,
-+				"could not configure rx private waterline %d\n",
-+				ret);
-+			return ret;
-+		}
- 
--	ret = hclge_common_thrd_config(hdev);
--	if (ret) {
--		dev_err(&hdev->pdev->dev,
--			"could not configure common threshold %d\n", ret);
--		return ret;
-+		ret = hclge_common_thrd_config(hdev);
-+		if (ret) {
-+			dev_err(&hdev->pdev->dev,
-+				"could not configure common threshold %d\n",
-+				ret);
-+			return ret;
-+		}
- 	}
- 
- 	ret = hclge_common_wl_config(hdev);
-@@ -4076,6 +4091,10 @@ static int hclge_init_ae_dev(struct hnae3_ae_dev *ae_dev)
- 	if (id)
- 		hnae_set_bit(ae_dev->flag, HNAE_DEV_SUPPORT_ROCE_B, 1);
- 
-+	id = pci_match_id(dcb_pci_tbl, ae_dev->pdev);
-+	if (id)
-+		hnae_set_bit(ae_dev->flag, HNAE_DEV_SUPPORT_DCB_B, 1);
-+
- 	ret = hclge_pci_init(hdev);
- 	if (ret) {
- 		dev_err(&pdev->dev, "PCI init failed\n");
+@@ -3302,11 +3302,11 @@ static int hclge_add_mac_vlan_tbl(struct hclge_vport *vport,
+ 							   resp_code,
+ 							   HCLGE_MAC_VLAN_ADD);
+ 	} else {
+-		mc_desc[0].flag &= cpu_to_le16(~HCLGE_CMD_FLAG_WR);
++		hclge_cmd_reuse_desc(&mc_desc[0], false);
+ 		mc_desc[0].flag |= cpu_to_le16(HCLGE_CMD_FLAG_NEXT);
+-		mc_desc[1].flag &= cpu_to_le16(~HCLGE_CMD_FLAG_WR);
++		hclge_cmd_reuse_desc(&mc_desc[1], false);
+ 		mc_desc[1].flag |= cpu_to_le16(HCLGE_CMD_FLAG_NEXT);
+-		mc_desc[2].flag &= cpu_to_le16(~HCLGE_CMD_FLAG_WR);
++		hclge_cmd_reuse_desc(&mc_desc[2], false);
+ 		mc_desc[2].flag &= cpu_to_le16(~HCLGE_CMD_FLAG_NEXT);
+ 		memcpy(mc_desc[0].data, req,
+ 		       sizeof(struct hclge_mac_vlan_tbl_entry));
 -- 
 1.9.1
