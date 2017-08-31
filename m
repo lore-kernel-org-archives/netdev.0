@@ -1,54 +1,66 @@
 From: Chris Mi <chrism@mellanox.com>
-Subject: RE: [patch net-next v2 3/3] net/sched: Change act_api and act_xxx
- modules to use IDR
-Date: Thu, 31 Aug 2017 01:05:04 +0000
-Message-ID: <VI1PR0501MB214338E35631CF03BAA74CD7AB9D0@VI1PR0501MB2143.eurprd05.prod.outlook.com>
+Subject: RE: [patch net-next v2 0/3] net/sched: Improve getting objects by
+ indexes
+Date: Thu, 31 Aug 2017 01:05:40 +0000
+Message-ID: <VI1PR0501MB21431977FD1FCECC1D3AC1FCAB9D0@VI1PR0501MB2143.eurprd05.prod.outlook.com>
 References: <1504074719-15147-1-git-send-email-chrism@mellanox.com>
- <1504074719-15147-4-git-send-email-chrism@mellanox.com>
- <5b54f1c5-688a-5a7d-25bd-05dc9cbecebd@mojatatu.com>
+ <20170830.143915.721461254974312457.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "xiyou.wangcong@gmail.com" <xiyou.wangcong@gmail.com>,
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "jhs@mojatatu.com" <jhs@mojatatu.com>,
+        "xiyou.wangcong@gmail.com" <xiyou.wangcong@gmail.com>,
         "jiri@resnulli.us" <jiri@resnulli.us>,
-        "davem@davemloft.net" <davem@davemloft.net>,
         "mawilcox@microsoft.com" <mawilcox@microsoft.com>
-To: Jamal Hadi Salim <jhs@mojatatu.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve1eur01on0086.outbound.protection.outlook.com ([104.47.1.86]:49056
+Received: from mail-ve1eur01on0089.outbound.protection.outlook.com ([104.47.1.89]:43184
         "EHLO EUR01-VE1-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750822AbdHaBFI (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 30 Aug 2017 21:05:08 -0400
-In-Reply-To: <5b54f1c5-688a-5a7d-25bd-05dc9cbecebd@mojatatu.com>
+        id S1750822AbdHaBFn (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 30 Aug 2017 21:05:43 -0400
+In-Reply-To: <20170830.143915.721461254974312457.davem@davemloft.net>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogSmFtYWwgSGFkaSBTYWxp
-bSBbbWFpbHRvOmpoc0Btb2phdGF0dS5jb21dDQo+IFNlbnQ6IFdlZG5lc2RheSwgQXVndXN0IDMw
-LCAyMDE3IDg6MTEgUE0NCj4gVG86IENocmlzIE1pIDxjaHJpc21AbWVsbGFub3guY29tPjsgbmV0
-ZGV2QHZnZXIua2VybmVsLm9yZw0KPiBDYzogeGl5b3Uud2FuZ2NvbmdAZ21haWwuY29tOyBqaXJp
-QHJlc251bGxpLnVzOyBkYXZlbUBkYXZlbWxvZnQubmV0Ow0KPiBtYXdpbGNveEBtaWNyb3NvZnQu
-Y29tDQo+IFN1YmplY3Q6IFJlOiBbcGF0Y2ggbmV0LW5leHQgdjIgMy8zXSBuZXQvc2NoZWQ6IENo
-YW5nZSBhY3RfYXBpIGFuZCBhY3RfeHh4DQo+IG1vZHVsZXMgdG8gdXNlIElEUg0KPiANCj4gT24g
-MTctMDgtMzAgMDI6MzEgQU0sIENocmlzIE1pIHdyb3RlOg0KPiA+IFR5cGljYWxseSwgZWFjaCBU
-QyBmaWx0ZXIgaGFzIGl0cyBvd24gYWN0aW9uLiBBbGwgdGhlIGFjdGlvbnMgb2YgdGhlDQo+ID4g
-c2FtZSB0eXBlIGFyZSBzYXZlZCBpbiBpdHMgaGFzaCB0YWJsZS4gQnV0IHRoZSBoYXNoIGJ1Y2tl
-dHMgYXJlIHRvbw0KPiA+IHNtYWxsIHRoYXQgaXQgZGVncmFkZXMgdG8gYSBsaXN0LiBBbmQgdGhl
-IHBlcmZvcm1hbmNlIGlzIGdyZWF0bHkNCj4gPiBhZmZlY3RlZC4gRm9yIGV4YW1wbGUsIGl0IHRh
-a2VzIGFib3V0IDBtMTEuOTE0cyB0byBpbnNlcnQgNjRLIHJ1bGVzLg0KPiA+IElmIHdlIGNvbnZl
-cnQgdGhlIGhhc2ggdGFibGUgdG8gSURSLCBpdCBvbmx5IHRha2VzIGFib3V0IDBtMS41MDBzLg0K
-PiA+IFRoZSBpbXByb3ZlbWVudCBpcyBodWdlLg0KPiA+DQo+ID4gQnV0IHBsZWFzZSBub3RlIHRo
-YXQgdGhlIHRlc3QgcmVzdWx0IGlzIGJhc2VkIG9uIHByZXZpb3VzIHBhdGNoIHRoYXQNCj4gPiBj
-bHNfZmxvd2VyIHVzZXMgSURSLg0KPiA+DQo+ID4gU2lnbmVkLW9mZi1ieTogQ2hyaXMgTWkgPGNo
-cmlzbUBtZWxsYW5veC5jb20+DQo+ID4gU2lnbmVkLW9mZi1ieTogSmlyaSBQaXJrbyA8amlyaUBt
-ZWxsYW5veC5jb20+DQo+IA0KPiBBY2tlZC1ieTogSmFtYWwgSGFkaSBTYWxpbSA8amhzQG1vamF0
-YXR1LmNvbT4NCj4gDQo+IEFsc28gYWxyZWFkeSBhY2tlZCB0aGlzIGJlZm9yZSBidXQgeW91IGxl
-ZnQgaXQgb3V0IGluIHRoaXMgdmVyc2lvbi4gSWYgeW91IG1ha2UNCj4gY2hhbmdlcyB0byB0aGUg
-cGF0Y2ggdGhlbiB5b3Ugd2lsbCBuZWVkIGEgbmV3IEFDSy4NClNvcnJ5IGFib3V0IHRoYXQsIEph
-bWFsLiBJIHRoaW5rIEkgbmVlZCB0byBtYWtlIGEgbm90ZSBvZiB0aGUgcmV2aWV3IGNvbW1lbnQN
-CkluIGNhc2UgSSBmb3JnZXQgaXQuDQo+IA0KPiBEb250IGZvcmdldCB0byB1cGRhdGUgc2VsZnRl
-c3RzIHBsZWFzZS4NClN1cmUsIHdlIHdpbGwgd29yayBvbiB0aGF0Lg0KDQpUaGFua3MsDQpDaHJp
-cw0KPiANCj4gY2hlZXJzLA0KPiBqYW1hbA0K
+
+
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Thursday, August 31, 2017 5:39 AM
+> To: Chris Mi <chrism@mellanox.com>
+> Cc: netdev@vger.kernel.org; jhs@mojatatu.com;
+> xiyou.wangcong@gmail.com; jiri@resnulli.us; mawilcox@microsoft.com
+> Subject: Re: [patch net-next v2 0/3] net/sched: Improve getting objects b=
+y
+> indexes
+>=20
+> From: Chris Mi <chrism@mellanox.com>
+> Date: Wed, 30 Aug 2017 02:31:56 -0400
+>=20
+> > Using current TC code, it is very slow to insert a lot of rules.
+> >
+> > In order to improve the rules update rate in TC, we introduced the
+> > following two changes:
+> >         1) changed cls_flower to use IDR to manage the filters.
+> >         2) changed all act_xxx modules to use IDR instead of
+> >            a small hash table
+> >
+> > But IDR has a limitation that it uses int. TC handle uses u32.
+> > To make sure there is no regression, we add several new IDR APIs to
+> > support unsigned long.
+> >
+> > v2
+> > =3D=3D
+> >
+> > Addressed Hannes's comment:
+> > express idr_alloc in terms of idr_alloc_ext and most of the other
+> > functions
+>=20
+> Series applied, thanks.
+
+Thank you, David,
+
+-Chris
