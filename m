@@ -1,30 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [pull request][net-next 0/3] Mellanox, mlx5 GRE tunnel offloads
-Date: Wed, 30 Aug 2017 22:15:08 -0700 (PDT)
-Message-ID: <20170830.221508.1057740864304760206.davem@davemloft.net>
-References: <20170830230409.15176-1-saeedm@mellanox.com>
+Subject: Re: [PATCH] net: dccp: Add handling of IPV6_PKTOPTIONS to
+ dccp_v6_do_rcv()
+Date: Wed, 30 Aug 2017 22:16:49 -0700 (PDT)
+Message-ID: <20170830.221649.818214075248119092.davem@davemloft.net>
+References: <20170830090435.58406d1b@dev>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: saeedm@mellanox.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:42012 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750826AbdHaFPJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 01:15:09 -0400
-In-Reply-To: <20170830230409.15176-1-saeedm@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: gerrit@erg.abdn.ac.uk, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, dccp@vger.kernel.org
+To: tulup@mail.ru
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170830090435.58406d1b@dev>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Saeed Mahameed <saeedm@mellanox.com>
-Date: Thu, 31 Aug 2017 02:04:06 +0300
+From: Andrii Vladyka <tulup@mail.ru>
+Date: Wed, 30 Aug 2017 09:04:35 +0300
 
-> The following changes provide GRE tunnel offloads for mlx5 ethernet netdevice driver.
-> 
-> For more details please see tag log message below.
-> Please pull and let me know if there's any problem.
-> 
-> Note: this series doesn't conflict with the ongoing net mlx5 submission.
+> +	if (opt_skb) 
+                    ^^^^
 
-Looks good, pulled.
+Trailing whitespace.
+
+> @@ -653,6 +647,36 @@ static int dccp_v6_do_rcv(struct sock *sk, struct sk_buff *skb)
+>  		__kfree_skb(opt_skb);
+>  	kfree_skb(skb);
+>  	return 0;
+> +	
+   ^^^^^^^
+
+Likewise.
