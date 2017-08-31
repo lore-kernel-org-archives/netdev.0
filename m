@@ -1,47 +1,61 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH][net-next] net: qualcomm: rmnet: remove unused variable priv
-Date: Thu, 31 Aug 2017 15:07:27 +0100
-Message-ID: <20170831140727.28170-1-colin.king@canonical.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>,
-        "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:49505 "EHLO
-        youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751205AbdHaOHc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 10:07:32 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Thomas Meyer <thomas@m3y3r.de>
+Subject: [PATCH] ipv6: sr: Use ARRAY_SIZE macro
+Date: Thu, 31 Aug 2017 16:18:15 +0200
+Message-ID: <20170831141815.28003-1-thomas@m3y3r.de>
+Cc: Thomas Meyer <thomas@m3y3r.de>
+To: davem@davemloft.net, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Colin Ian King <colin.king@canonical.com>
+Grepping for "sizeof\(.+\) / sizeof\(" found this as one of the first
+candidates.
+Maybe a coccinelle can catch all of those.
 
-priv is being assigned but is never used, so remove it.
-
-Cleans up clang build warning:
-"warning: Value stored to 'priv' is never read"
-
-Fixes: ceed73a2cf4a ("drivers: net: ethernet: qualcomm: rmnet: Initial implementation")
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
+Signed-off-by: Thomas Meyer <thomas@m3y3r.de>
 ---
- drivers/net/ethernet/qualcomm/rmnet/rmnet_vnd.c | 3 ---
- 1 file changed, 3 deletions(-)
+ net/ipv6/seg6_hmac.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/qualcomm/rmnet/rmnet_vnd.c b/drivers/net/ethernet/qualcomm/rmnet/rmnet_vnd.c
-index c8b573d28dcf..bf7455fdafcc 100644
---- a/drivers/net/ethernet/qualcomm/rmnet/rmnet_vnd.c
-+++ b/drivers/net/ethernet/qualcomm/rmnet/rmnet_vnd.c
-@@ -73,9 +73,6 @@ static const struct net_device_ops rmnet_vnd_ops = {
+diff --git a/net/ipv6/seg6_hmac.c b/net/ipv6/seg6_hmac.c
+index f950cb53d5e3..33fb35cbfac1 100644
+--- a/net/ipv6/seg6_hmac.c
++++ b/net/ipv6/seg6_hmac.c
+@@ -12,6 +12,7 @@
   */
- void rmnet_vnd_setup(struct net_device *rmnet_dev)
- {
--	struct rmnet_priv *priv;
--
--	priv = netdev_priv(rmnet_dev);
- 	netdev_dbg(rmnet_dev, "Setting up device %s\n", rmnet_dev->name);
  
- 	rmnet_dev->netdev_ops = &rmnet_vnd_ops;
+ #include <linux/errno.h>
++#include <linux/kernel.h>
+ #include <linux/types.h>
+ #include <linux/socket.h>
+ #include <linux/sockios.h>
+@@ -110,7 +111,7 @@ static struct seg6_hmac_algo *__hmac_get_algo(u8 alg_id)
+ 	struct seg6_hmac_algo *algo;
+ 	int i, alg_count;
+ 
+-	alg_count = sizeof(hmac_algos) / sizeof(struct seg6_hmac_algo);
++	alg_count = ARRAY_SIZE(hmac_algos);
+ 	for (i = 0; i < alg_count; i++) {
+ 		algo = &hmac_algos[i];
+ 		if (algo->alg_id == alg_id)
+@@ -360,7 +361,7 @@ static int seg6_hmac_init_algo(void)
+ 	struct shash_desc *shash;
+ 	int i, alg_count, cpu;
+ 
+-	alg_count = sizeof(hmac_algos) / sizeof(struct seg6_hmac_algo);
++	alg_count = ARRAY_SIZE(hmac_algos);
+ 
+ 	for (i = 0; i < alg_count; i++) {
+ 		struct crypto_shash **p_tfm;
+@@ -421,7 +422,7 @@ void seg6_hmac_exit(void)
+ 	struct seg6_hmac_algo *algo = NULL;
+ 	int i, alg_count, cpu;
+ 
+-	alg_count = sizeof(hmac_algos) / sizeof(struct seg6_hmac_algo);
++	alg_count = ARRAY_SIZE(hmac_algos);
+ 	for (i = 0; i < alg_count; i++) {
+ 		algo = &hmac_algos[i];
+ 		for_each_possible_cpu(cpu) {
 -- 
-2.14.1
+2.11.0
