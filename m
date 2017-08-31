@@ -1,115 +1,54 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net] Revert "net: phy: Correctly process PHY_HALTED in phy_stop_machine()"
-Date: Wed, 30 Aug 2017 17:49:29 -0700
-Message-ID: <1504140569-2063-1-git-send-email-f.fainelli@gmail.com>
-Cc: Geert Uytterhoeven <geert+renesas@glider.be>,
-        David Daney <ddaney.cavm@gmail.com>, slash.tmp@free.fr,
-        marc_gonzales@sigmadesigns.com, davem@davemloft.net,
-        andrew@lunn.ch, Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+From: Chris Mi <chrism@mellanox.com>
+Subject: RE: [patch net-next v2 3/3] net/sched: Change act_api and act_xxx
+ modules to use IDR
+Date: Thu, 31 Aug 2017 01:05:04 +0000
+Message-ID: <VI1PR0501MB214338E35631CF03BAA74CD7AB9D0@VI1PR0501MB2143.eurprd05.prod.outlook.com>
+References: <1504074719-15147-1-git-send-email-chrism@mellanox.com>
+ <1504074719-15147-4-git-send-email-chrism@mellanox.com>
+ <5b54f1c5-688a-5a7d-25bd-05dc9cbecebd@mojatatu.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "xiyou.wangcong@gmail.com" <xiyou.wangcong@gmail.com>,
+        "jiri@resnulli.us" <jiri@resnulli.us>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "mawilcox@microsoft.com" <mawilcox@microsoft.com>
+To: Jamal Hadi Salim <jhs@mojatatu.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:37408 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751086AbdHaAzj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 20:55:39 -0400
-Received: by mail-wm0-f66.google.com with SMTP id x189so3384514wmg.4
-        for <netdev@vger.kernel.org>; Wed, 30 Aug 2017 17:55:38 -0700 (PDT)
+Received: from mail-ve1eur01on0086.outbound.protection.outlook.com ([104.47.1.86]:49056
+        "EHLO EUR01-VE1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1750822AbdHaBFI (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 30 Aug 2017 21:05:08 -0400
+In-Reply-To: <5b54f1c5-688a-5a7d-25bd-05dc9cbecebd@mojatatu.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This reverts commit 7ad813f208533cebfcc32d3d7474dc1677d1b09a ("net: phy:
-Correctly process PHY_HALTED in phy_stop_machine()") because it is
-creating the possibility for a NULL pointer dereference.
-
-David Daney provide the following call trace and diagram of events:
-
-When ndo_stop() is called we call:
-
- phy_disconnect()
-    +---> phy_stop_interrupts() implies: phydev->irq = PHY_POLL;
-    +---> phy_stop_machine()
-    |      +---> phy_state_machine()
-    |              +----> queue_delayed_work(): Work queued.
-    +--->phy_detach() implies: phydev->attached_dev = NULL;
-
-Now at a later time the queued work does:
-
- phy_state_machine()
-    +---->netif_carrier_off(phydev->attached_dev): Oh no! It is NULL:
-
- CPU 12 Unable to handle kernel paging request at virtual address
-0000000000000048, epc == ffffffff80de37ec, ra == ffffffff80c7c
-Oops[#1]:
-CPU: 12 PID: 1502 Comm: kworker/12:1 Not tainted 4.9.43-Cavium-Octeon+ #1
-Workqueue: events_power_efficient phy_state_machine
-task: 80000004021ed100 task.stack: 8000000409d70000
-$ 0   : 0000000000000000 ffffffff84720060 0000000000000048 0000000000000004
-$ 4   : 0000000000000000 0000000000000001 0000000000000004 0000000000000000
-$ 8   : 0000000000000000 0000000000000000 00000000ffff98f3 0000000000000000
-$12   : 8000000409d73fe0 0000000000009c00 ffffffff846547c8 000000000000af3b
-$16   : 80000004096bab68 80000004096babd0 0000000000000000 80000004096ba800
-$20   : 0000000000000000 0000000000000000 ffffffff81090000 0000000000000008
-$24   : 0000000000000061 ffffffff808637b0
-$28   : 8000000409d70000 8000000409d73cf0 80000000271bd300 ffffffff80c7804c
-Hi    : 000000000000002a
-Lo    : 000000000000003f
-epc   : ffffffff80de37ec netif_carrier_off+0xc/0x58
-ra    : ffffffff80c7804c phy_state_machine+0x48c/0x4f8
-Status: 14009ce3        KX SX UX KERNEL EXL IE
-Cause : 00800008 (ExcCode 02)
-BadVA : 0000000000000048
-PrId  : 000d9501 (Cavium Octeon III)
-Modules linked in:
-Process kworker/12:1 (pid: 1502, threadinfo=8000000409d70000,
-task=80000004021ed100, tls=0000000000000000)
-Stack : 8000000409a54000 80000004096bab68 80000000271bd300 80000000271c1e00
-        0000000000000000 ffffffff808a1708 8000000409a54000 80000000271bd300
-        80000000271bd320 8000000409a54030 ffffffff80ff0f00 0000000000000001
-        ffffffff81090000 ffffffff808a1ac0 8000000402182080 ffffffff84650000
-        8000000402182080 ffffffff84650000 ffffffff80ff0000 8000000409a54000
-        ffffffff808a1970 0000000000000000 80000004099e8000 8000000402099240
-        0000000000000000 ffffffff808a8598 0000000000000000 8000000408eeeb00
-        8000000409a54000 00000000810a1d00 0000000000000000 8000000409d73de8
-        8000000409d73de8 0000000000000088 000000000c009c00 8000000409d73e08
-        8000000409d73e08 8000000402182080 ffffffff808a84d0 8000000402182080
-        ...
-Call Trace:
-[<ffffffff80de37ec>] netif_carrier_off+0xc/0x58
-[<ffffffff80c7804c>] phy_state_machine+0x48c/0x4f8
-[<ffffffff808a1708>] process_one_work+0x158/0x368
-[<ffffffff808a1ac0>] worker_thread+0x150/0x4c0
-[<ffffffff808a8598>] kthread+0xc8/0xe0
-[<ffffffff808617f0>] ret_from_kernel_thread+0x14/0x1c
-
-The original motivation for this change originated from Marc Gonzales
-indicating that his network driver did not have its adjust_link callback
-executing with phydev->link = 0 while he was expecting it.
-
-PHYLIB has never made any such guarantees ever because phy_stop() merely just
-tells the workqueue to move into PHY_HALTED state which will happen
-asynchronously.
-
-Reported-by: Geert Uytterhoeven <geert+renesas@glider.be>
-Reported-by: David Daney <ddaney.cavm@gmail.com>
-Fixes: 7ad813f20853 ("net: phy: Correctly process PHY_HALTED in phy_stop_machine()")
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/phy/phy.c | 3 ---
- 1 file changed, 3 deletions(-)
-
-diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-index 5068c582d502..d0626bf5c540 100644
---- a/drivers/net/phy/phy.c
-+++ b/drivers/net/phy/phy.c
-@@ -749,9 +749,6 @@ void phy_stop_machine(struct phy_device *phydev)
- 	if (phydev->state > PHY_UP && phydev->state != PHY_HALTED)
- 		phydev->state = PHY_UP;
- 	mutex_unlock(&phydev->lock);
--
--	/* Now we can run the state machine synchronously */
--	phy_state_machine(&phydev->state_queue.work);
- }
- 
- /**
--- 
-1.9.1
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogSmFtYWwgSGFkaSBTYWxp
+bSBbbWFpbHRvOmpoc0Btb2phdGF0dS5jb21dDQo+IFNlbnQ6IFdlZG5lc2RheSwgQXVndXN0IDMw
+LCAyMDE3IDg6MTEgUE0NCj4gVG86IENocmlzIE1pIDxjaHJpc21AbWVsbGFub3guY29tPjsgbmV0
+ZGV2QHZnZXIua2VybmVsLm9yZw0KPiBDYzogeGl5b3Uud2FuZ2NvbmdAZ21haWwuY29tOyBqaXJp
+QHJlc251bGxpLnVzOyBkYXZlbUBkYXZlbWxvZnQubmV0Ow0KPiBtYXdpbGNveEBtaWNyb3NvZnQu
+Y29tDQo+IFN1YmplY3Q6IFJlOiBbcGF0Y2ggbmV0LW5leHQgdjIgMy8zXSBuZXQvc2NoZWQ6IENo
+YW5nZSBhY3RfYXBpIGFuZCBhY3RfeHh4DQo+IG1vZHVsZXMgdG8gdXNlIElEUg0KPiANCj4gT24g
+MTctMDgtMzAgMDI6MzEgQU0sIENocmlzIE1pIHdyb3RlOg0KPiA+IFR5cGljYWxseSwgZWFjaCBU
+QyBmaWx0ZXIgaGFzIGl0cyBvd24gYWN0aW9uLiBBbGwgdGhlIGFjdGlvbnMgb2YgdGhlDQo+ID4g
+c2FtZSB0eXBlIGFyZSBzYXZlZCBpbiBpdHMgaGFzaCB0YWJsZS4gQnV0IHRoZSBoYXNoIGJ1Y2tl
+dHMgYXJlIHRvbw0KPiA+IHNtYWxsIHRoYXQgaXQgZGVncmFkZXMgdG8gYSBsaXN0LiBBbmQgdGhl
+IHBlcmZvcm1hbmNlIGlzIGdyZWF0bHkNCj4gPiBhZmZlY3RlZC4gRm9yIGV4YW1wbGUsIGl0IHRh
+a2VzIGFib3V0IDBtMTEuOTE0cyB0byBpbnNlcnQgNjRLIHJ1bGVzLg0KPiA+IElmIHdlIGNvbnZl
+cnQgdGhlIGhhc2ggdGFibGUgdG8gSURSLCBpdCBvbmx5IHRha2VzIGFib3V0IDBtMS41MDBzLg0K
+PiA+IFRoZSBpbXByb3ZlbWVudCBpcyBodWdlLg0KPiA+DQo+ID4gQnV0IHBsZWFzZSBub3RlIHRo
+YXQgdGhlIHRlc3QgcmVzdWx0IGlzIGJhc2VkIG9uIHByZXZpb3VzIHBhdGNoIHRoYXQNCj4gPiBj
+bHNfZmxvd2VyIHVzZXMgSURSLg0KPiA+DQo+ID4gU2lnbmVkLW9mZi1ieTogQ2hyaXMgTWkgPGNo
+cmlzbUBtZWxsYW5veC5jb20+DQo+ID4gU2lnbmVkLW9mZi1ieTogSmlyaSBQaXJrbyA8amlyaUBt
+ZWxsYW5veC5jb20+DQo+IA0KPiBBY2tlZC1ieTogSmFtYWwgSGFkaSBTYWxpbSA8amhzQG1vamF0
+YXR1LmNvbT4NCj4gDQo+IEFsc28gYWxyZWFkeSBhY2tlZCB0aGlzIGJlZm9yZSBidXQgeW91IGxl
+ZnQgaXQgb3V0IGluIHRoaXMgdmVyc2lvbi4gSWYgeW91IG1ha2UNCj4gY2hhbmdlcyB0byB0aGUg
+cGF0Y2ggdGhlbiB5b3Ugd2lsbCBuZWVkIGEgbmV3IEFDSy4NClNvcnJ5IGFib3V0IHRoYXQsIEph
+bWFsLiBJIHRoaW5rIEkgbmVlZCB0byBtYWtlIGEgbm90ZSBvZiB0aGUgcmV2aWV3IGNvbW1lbnQN
+CkluIGNhc2UgSSBmb3JnZXQgaXQuDQo+IA0KPiBEb250IGZvcmdldCB0byB1cGRhdGUgc2VsZnRl
+c3RzIHBsZWFzZS4NClN1cmUsIHdlIHdpbGwgd29yayBvbiB0aGF0Lg0KDQpUaGFua3MsDQpDaHJp
+cw0KPiANCj4gY2hlZXJzLA0KPiBqYW1hbA0K
