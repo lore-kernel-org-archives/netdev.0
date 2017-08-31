@@ -1,94 +1,68 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next] bridge: add tracepoint in br_fdb_update
-Date: Thu, 31 Aug 2017 08:21:30 -0700
-Message-ID: <CAJieiUjZ5dTNpBFb8c2KMRgjXRCKVGhJsTfQcpiw+p6fyNVwDw@mail.gmail.com>
-References: <1504156693-24692-1-git-send-email-roopa@cumulusnetworks.com> <20170831143814.68709334@redhat.com>
+From: Vernon Mauery <vernon.mauery@linux.intel.com>
+Subject: Re: [PATCH net-next] net/ncsi: Define {add, kill}_vid callbacks for
+ !CONFIG_NET_NCSI
+Date: Thu, 31 Aug 2017 08:24:14 -0700
+Message-ID: <20170831152414.GB69617@mauery>
+References: <20170831033846.23538-1-sam@mendozajonas.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>, bridge@lists.linux-foundation.org
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        OpenBMC Maillist <openbmc@lists.ozlabs.org>,
+        Gavin Shan <gwshan@linux.vnet.ibm.com>
+To: Samuel Mendoza-Jonas <sam@mendozajonas.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f180.google.com ([209.85.217.180]:33787 "EHLO
-        mail-ua0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751011AbdHaPVc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 11:21:32 -0400
-Received: by mail-ua0-f180.google.com with SMTP id 37so3033301ual.0
-        for <netdev@vger.kernel.org>; Thu, 31 Aug 2017 08:21:32 -0700 (PDT)
-In-Reply-To: <20170831143814.68709334@redhat.com>
+Received: from mga06.intel.com ([134.134.136.31]:57165 "EHLO mga06.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751276AbdHaPYP (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 31 Aug 2017 11:24:15 -0400
+Content-Disposition: inline
+In-Reply-To: <20170831033846.23538-1-sam@mendozajonas.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 31, 2017 at 5:38 AM, Jesper Dangaard Brouer
-<brouer@redhat.com> wrote:
-> On Wed, 30 Aug 2017 22:18:13 -0700
-> Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
->
->> From: Roopa Prabhu <roopa@cumulusnetworks.com>
->>
->> This extends bridge fdb table tracepoints to also cover
->> learned fdb entries in the br_fdb_update path. Note that
->> unlike other tracepoints I have moved this to when the fdb
->> is modified because this is in the datapath and can generate
->> a lot of noise in the trace output. br_fdb_update is also called
->> from added_by_user context in the NTF_USE case which is already
->> traced ..hence the !added_by_user check.
->>
->> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
->> ---
->>  include/trace/events/bridge.h | 31 +++++++++++++++++++++++++++++++
->>  net/bridge/br_fdb.c           |  5 ++++-
->>  net/core/net-traces.c         |  1 +
->>  3 files changed, 36 insertions(+), 1 deletion(-)
->>
->> diff --git a/include/trace/events/bridge.h b/include/trace/events/bridge.h
->> index 0f1cde0..1bee3e7 100644
->> --- a/include/trace/events/bridge.h
->> +++ b/include/trace/events/bridge.h
->> @@ -92,6 +92,37 @@ TRACE_EVENT(fdb_delete,
->>                 __entry->addr[4], __entry->addr[5], __entry->vid)
->>  );
->>
->> +TRACE_EVENT(br_fdb_update,
->> +
->> +     TP_PROTO(struct net_bridge *br, struct net_bridge_port *source,
->> +              const unsigned char *addr, u16 vid, bool added_by_user),
->> +
->> +     TP_ARGS(br, source, addr, vid, added_by_user),
->> +
->> +     TP_STRUCT__entry(
->> +             __string(br_dev, br->dev->name)
->> +             __string(dev, source->dev->name)
->
-> I have found that using the device string name is
->
-> (1) slow as it involves strcpy+strlen
->
->  See [1]+[2] where a single dev-name costed me 16 ns, and the base
->  overhead of a bpf attached tracepoint is 25 ns (see [3]).
->
->  [1] https://git.kernel.org/davem/net-next/c/e7d12ce121a
->  [2] https://git.kernel.org/davem/net-next/c/315ec3990ef
->  [3] https://git.kernel.org/davem/net-next/c/25d4dae1a64
->
-> (2) strings are also harder to work-with/extract when attaching a bpf_prog
->
-> See the trouble I'm in accessing a dev string here napi:napi_poll here:
->  https://github.com/netoptimizer/prototype-kernel/blob/103b955a080/kernel/samples/bpf/napi_monitor_kern.c#L52-L58
->
-> Using ifindex'es in userspace is fairly easy see man if_indextoname(3).
->
+On 31-Aug-2017 01:38 PM, Samuel Mendoza-Jonas wrote:
+> Patch "net/ncsi: Configure VLAN tag filter" defined two new callback
+> functions in include/net/ncsi.h, but neglected the !CONFIG_NET_NCSI
+> case. This can cause a build error if these are referenced elsewhere
+> without NCSI enabled, for example in ftgmac100:
+> 
+> >>> ERROR: "ncsi_vlan_rx_kill_vid" [drivers/net/ethernet/faraday/ftgmac100.ko] undefined!
+> >>> ERROR: "ncsi_vlan_rx_add_vid" [drivers/net/ethernet/faraday/ftgmac100.ko] undefined!
+> 
+> Add definitions for !CONFIG_NET_NCSI to bring it into line with the rest
+> of ncsi.h
+> 
+> Signed-off-by: Samuel Mendoza-Jonas <sam@mendozajonas.com>
+> ---
+>  include/net/ncsi.h | 8 ++++++++
+>  1 file changed, 8 insertions(+)
+> 
+> diff --git a/include/net/ncsi.h b/include/net/ncsi.h
+> index 1f96af46df49..2b13b6b91a4d 100644
+> --- a/include/net/ncsi.h
+> +++ b/include/net/ncsi.h
+> @@ -36,6 +36,14 @@ int ncsi_start_dev(struct ncsi_dev *nd);
+>  void ncsi_stop_dev(struct ncsi_dev *nd);
+>  void ncsi_unregister_dev(struct ncsi_dev *nd);
+>  #else /* !CONFIG_NET_NCSI */
+> +int ncsi_vlan_rx_add_vid(struct net_device *dev, __be16 proto, u16 vid)
+> +{
+> +	return -ENOTTY;
+> +}
+> +int ncsi_vlan_rx_kill_vid(struct net_device *dev, __be16 proto, u16 vid)
+> +{
+> +	return -ENOTTY;
+> +}
 
-Jesper thanks for the data!. GTK. Looking at include/trace/events,
-currently almost all tracepoints use dev->name.
-These bridge tracepoints in context are primarily for debugging fdb
-updates only, not for every packet and hence not in the performance
-path.
-In large scale deployments with thousands of bridge ports and fdb
-entries, dev->name will definately make it easier to trouble-shoot.
-So, I did like to leave these with dev->name unless there are strong objections.
+These should be static functions because they are defined in the header 
+file or you will get multiple symbol definitions.
 
-thanks.
+--Vernon
+
+>  static inline struct ncsi_dev *ncsi_register_dev(struct net_device *dev,
+>  					void (*notifier)(struct ncsi_dev *nd))
+>  {
+> -- 
+> 2.14.1
+> 
