@@ -1,223 +1,143 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: [PATCH v3 net-next 3/7] samples/bpf: Update sock test to allow setting mark and priority
-Date: Thu, 31 Aug 2017 15:05:46 -0700
-Message-ID: <1504217150-16151-4-git-send-email-dsahern@gmail.com>
-References: <1504217150-16151-1-git-send-email-dsahern@gmail.com>
-Cc: David Ahern <dsahern@gmail.com>
-To: netdev@vger.kernel.org, daniel@iogearbox.net, ast@kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:37803 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751363AbdHaWGM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 18:06:12 -0400
-Received: by mail-pf0-f196.google.com with SMTP id a2so523380pfj.4
-        for <netdev@vger.kernel.org>; Thu, 31 Aug 2017 15:06:11 -0700 (PDT)
-In-Reply-To: <1504217150-16151-1-git-send-email-dsahern@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Chenbo Feng <fengc@google.com>
+Subject: Re: [PATCH 2/3] security: bpf: Add eBPF LSM hooks and security field
+ to eBPF map
+Date: Thu, 31 Aug 2017 15:17:40 -0700
+Message-ID: <CAMOXUJ=5hyjOs57KPpqPs2NTiL6mP0vega+=GWLb_7sjr_O9fw@mail.gmail.com>
+References: <20170831205635.80256-1-chenbofeng.kernel@gmail.com>
+ <20170831205635.80256-3-chenbofeng.kernel@gmail.com> <1504214241.6901.31.camel@linux.vnet.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: Chenbo Feng <chenbofeng.kernel@gmail.com>,
+        linux-security-module@vger.kernel.org,
+        Jeffrey Vander Stoep <jeffv@google.com>,
+        netdev@vger.kernel.org, SELinux <Selinux@tycho.nsa.gov>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Lorenzo Colitti <lorenzo@google.com>
+To: Mimi Zohar <zohar@linux.vnet.ibm.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <1504214241.6901.31.camel@linux.vnet.ibm.com>
+Sender: owner-linux-security-module@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Update sock test to set mark and priority on socket create.
+On Thu, Aug 31, 2017 at 2:17 PM, Mimi Zohar <zohar@linux.vnet.ibm.com> wrote:
+> On Thu, 2017-08-31 at 13:56 -0700, Chenbo Feng wrote:
+>> From: Chenbo Feng <fengc@google.com>
+>>
+>> Introduce a pointer into struct bpf_map to hold the security information
+>> about the map. The actual security struct varies based on the security
+>> models implemented. Place the LSM hooks before each of the unrestricted
+>> eBPF operations, the map_update_elem and map_delete_elem operations are
+>> checked by security_map_modify. The map_lookup_elem and map_get_next_key
+>> operations are checked by securtiy_map_read.
+>>
+>> Signed-off-by: Chenbo Feng <fengc@google.com>
+>> ---
+>>  include/linux/bpf.h  |  3 +++
+>>  kernel/bpf/syscall.c | 28 ++++++++++++++++++++++++++++
+>>  2 files changed, 31 insertions(+)
+>>
+>> diff --git a/include/linux/bpf.h b/include/linux/bpf.h
+>> index b69e7a5869ff..ca3e6ff7091d 100644
+>> --- a/include/linux/bpf.h
+>> +++ b/include/linux/bpf.h
+>> @@ -53,6 +53,9 @@ struct bpf_map {
+>>       struct work_struct work;
+>>       atomic_t usercnt;
+>>       struct bpf_map *inner_map_meta;
+>> +#ifdef CONFIG_SECURITY
+>> +     void *security;
+>> +#endif
+>>  };
+>>
+>>  /* function argument constraints */
+>> diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
+>> index 045646da97cc..b15580bcf3b1 100644
+>> --- a/kernel/bpf/syscall.c
+>> +++ b/kernel/bpf/syscall.c
+>> @@ -279,6 +279,10 @@ static int map_create(union bpf_attr *attr)
+>>       if (err)
+>>               return -EINVAL;
+>>
+>> +     err = security_map_create();
+>> +     if (err)
+>> +             return -EACCES;
+>
+> Any reason not to just return err?
+>
+> Mimi
+>
+Nope... return err might be better. I will fix this in next version.
 
-Signed-off-by: David Ahern <dsahern@gmail.com>
----
- samples/bpf/test_cgrp2_sock.c  | 134 ++++++++++++++++++++++++++++++++++++-----
- samples/bpf/test_cgrp2_sock.sh |   2 +-
- 2 files changed, 119 insertions(+), 17 deletions(-)
-
-diff --git a/samples/bpf/test_cgrp2_sock.c b/samples/bpf/test_cgrp2_sock.c
-index c3cfb23e23b5..681abbe6c85e 100644
---- a/samples/bpf/test_cgrp2_sock.c
-+++ b/samples/bpf/test_cgrp2_sock.c
-@@ -19,59 +19,161 @@
- #include <errno.h>
- #include <fcntl.h>
- #include <net/if.h>
-+#include <inttypes.h>
- #include <linux/bpf.h>
- 
- #include "libbpf.h"
- 
- char bpf_log_buf[BPF_LOG_BUF_SIZE];
- 
--static int prog_load(int idx)
-+static int prog_load(__u32 idx, __u32 mark, __u32 prio)
- {
--	struct bpf_insn prog[] = {
-+	/* save pointer to context */
-+	struct bpf_insn prog_start[] = {
- 		BPF_MOV64_REG(BPF_REG_6, BPF_REG_1),
-+	};
-+	struct bpf_insn prog_end[] = {
-+		BPF_MOV64_IMM(BPF_REG_0, 1), /* r0 = verdict */
-+		BPF_EXIT_INSN(),
-+	};
-+
-+	/* set sk_bound_dev_if on socket */
-+	struct bpf_insn prog_dev[] = {
- 		BPF_MOV64_IMM(BPF_REG_3, idx),
- 		BPF_MOV64_IMM(BPF_REG_2, offsetof(struct bpf_sock, bound_dev_if)),
- 		BPF_STX_MEM(BPF_W, BPF_REG_1, BPF_REG_3, offsetof(struct bpf_sock, bound_dev_if)),
--		BPF_MOV64_IMM(BPF_REG_0, 1), /* r0 = verdict */
--		BPF_EXIT_INSN(),
- 	};
--	size_t insns_cnt = sizeof(prog) / sizeof(struct bpf_insn);
- 
--	return bpf_load_program(BPF_PROG_TYPE_CGROUP_SOCK, prog, insns_cnt,
-+	/* set mark on socket */
-+	struct bpf_insn prog_mark[] = {
-+		BPF_MOV64_REG(BPF_REG_1, BPF_REG_6),
-+		BPF_MOV64_IMM(BPF_REG_3, mark),
-+		BPF_MOV64_IMM(BPF_REG_2, offsetof(struct bpf_sock, mark)),
-+		BPF_STX_MEM(BPF_W, BPF_REG_1, BPF_REG_3, offsetof(struct bpf_sock, mark)),
-+	};
-+
-+	/* set priority on socket */
-+	struct bpf_insn prog_prio[] = {
-+		BPF_MOV64_REG(BPF_REG_1, BPF_REG_6),
-+		BPF_MOV64_IMM(BPF_REG_3, prio),
-+		BPF_MOV64_IMM(BPF_REG_2, offsetof(struct bpf_sock, priority)),
-+		BPF_STX_MEM(BPF_W, BPF_REG_1, BPF_REG_3, offsetof(struct bpf_sock, priority)),
-+	};
-+
-+	struct bpf_insn *prog;
-+	size_t insns_cnt;
-+	void *p;
-+	int ret;
-+
-+	insns_cnt = sizeof(prog_start) + sizeof(prog_end);
-+	if (idx)
-+		insns_cnt += sizeof(prog_dev);
-+
-+	if (mark)
-+		insns_cnt += sizeof(prog_mark);
-+
-+	if (prio)
-+		insns_cnt += sizeof(prog_prio);
-+
-+	p = prog = malloc(insns_cnt);
-+	if (!prog) {
-+		fprintf(stderr, "Failed to allocate memory for instructions\n");
-+		return EXIT_FAILURE;
-+	}
-+
-+	memcpy(p, prog_start, sizeof(prog_start));
-+	p += sizeof(prog_start);
-+
-+	if (idx) {
-+		memcpy(p, prog_dev, sizeof(prog_dev));
-+		p += sizeof(prog_dev);
-+	}
-+
-+	if (mark) {
-+		memcpy(p, prog_mark, sizeof(prog_mark));
-+		p += sizeof(prog_mark);
-+	}
-+
-+	if (prio) {
-+		memcpy(p, prog_prio, sizeof(prog_prio));
-+		p += sizeof(prog_prio);
-+	}
-+
-+	memcpy(p, prog_end, sizeof(prog_end));
-+	p += sizeof(prog_end);
-+
-+	insns_cnt /= sizeof(struct bpf_insn);
-+
-+	ret = bpf_load_program(BPF_PROG_TYPE_CGROUP_SOCK, prog, insns_cnt,
- 				"GPL", 0, bpf_log_buf, BPF_LOG_BUF_SIZE);
-+
-+	free(prog);
-+
-+	return ret;
- }
- 
- static int usage(const char *argv0)
- {
--	printf("Usage: %s cg-path device-index\n", argv0);
-+	printf("Usage: %s -b bind-to-dev -m mark -p prio cg-path\n", argv0);
- 	return EXIT_FAILURE;
- }
- 
- int main(int argc, char **argv)
- {
-+	__u32 idx = 0, mark = 0, prio = 0;
-+	const char *cgrp_path = NULL;
- 	int cg_fd, prog_fd, ret;
--	unsigned int idx;
-+	int rc;
-+
-+	while ((rc = getopt(argc, argv, "b:m:p:")) != -1) {
-+		switch (rc) {
-+		case 'b':
-+			idx = if_nametoindex(optarg);
-+			if (!idx) {
-+				idx = strtoumax(optarg, NULL, 0);
-+				if (!idx) {
-+					printf("Invalid device name\n");
-+					return EXIT_FAILURE;
-+				}
-+			}
-+			break;
-+		case 'm':
-+			mark = strtoumax(optarg, NULL, 0);
-+			break;
-+		case 'p':
-+			prio = strtoumax(optarg, NULL, 0);
-+			break;
-+		default:
-+			return usage(argv[0]);
-+		}
-+	}
- 
--	if (argc < 2)
-+	if (optind == argc)
- 		return usage(argv[0]);
- 
--	idx = if_nametoindex(argv[2]);
--	if (!idx) {
--		printf("Invalid device name\n");
-+	cgrp_path = argv[optind];
-+	if (!cgrp_path) {
-+		fprintf(stderr, "cgroup path not given\n");
- 		return EXIT_FAILURE;
- 	}
- 
--	cg_fd = open(argv[1], O_DIRECTORY | O_RDONLY);
-+	if (!idx && !mark && !prio) {
-+		fprintf(stderr,
-+			"One of device, mark or priority must be given\n");
-+		return EXIT_FAILURE;
-+	}
-+
-+	cg_fd = open(cgrp_path, O_DIRECTORY | O_RDONLY);
- 	if (cg_fd < 0) {
- 		printf("Failed to open cgroup path: '%s'\n", strerror(errno));
- 		return EXIT_FAILURE;
- 	}
- 
--	prog_fd = prog_load(idx);
--	printf("Output from kernel verifier:\n%s\n-------\n", bpf_log_buf);
--
-+	prog_fd = prog_load(idx, mark, prio);
- 	if (prog_fd < 0) {
- 		printf("Failed to load prog: '%s'\n", strerror(errno));
-+		printf("Output from kernel verifier:\n%s\n-------\n",
-+		       bpf_log_buf);
- 		return EXIT_FAILURE;
- 	}
- 
-diff --git a/samples/bpf/test_cgrp2_sock.sh b/samples/bpf/test_cgrp2_sock.sh
-index 925fd467c7cc..1153c33e8964 100755
---- a/samples/bpf/test_cgrp2_sock.sh
-+++ b/samples/bpf/test_cgrp2_sock.sh
-@@ -20,7 +20,7 @@ function attach_bpf {
- 	mkdir -p /tmp/cgroupv2
- 	mount -t cgroup2 none /tmp/cgroupv2
- 	mkdir -p /tmp/cgroupv2/foo
--	test_cgrp2_sock /tmp/cgroupv2/foo foo
-+	test_cgrp2_sock -b foo /tmp/cgroupv2/foo
- 	echo $$ >> /tmp/cgroupv2/foo/cgroup.procs
- }
- 
--- 
-2.1.4
+Thanks
+Chenbo
+>> +
+>>       /* find map type and init map: hashtable vs rbtree vs bloom vs ... */
+>>       map = find_and_alloc_map(attr);
+>>       if (IS_ERR(map))
+>> @@ -291,6 +295,10 @@ static int map_create(union bpf_attr *attr)
+>>       if (err)
+>>               goto free_map_nouncharge;
+>>
+>> +     err = security_post_create(map);
+>> +     if (err < 0)
+>> +             goto free_map;
+>> +
+>>       err = bpf_map_alloc_id(map);
+>>       if (err)
+>>               goto free_map;
+>> @@ -410,6 +418,10 @@ static int map_lookup_elem(union bpf_attr *attr)
+>>       if (IS_ERR(map))
+>>               return PTR_ERR(map);
+>>
+>> +     err = security_map_read(map);
+>> +     if (err)
+>> +             return -EACCES;
+>> +
+>>       key = memdup_user(ukey, map->key_size);
+>>       if (IS_ERR(key)) {
+>>               err = PTR_ERR(key);
+>> @@ -490,6 +502,10 @@ static int map_update_elem(union bpf_attr *attr)
+>>       if (IS_ERR(map))
+>>               return PTR_ERR(map);
+>>
+>> +     err = security_map_modify(map);
+>> +     if (err)
+>> +             return -EACCES;
+>> +
+>>       key = memdup_user(ukey, map->key_size);
+>>       if (IS_ERR(key)) {
+>>               err = PTR_ERR(key);
+>> @@ -573,6 +589,10 @@ static int map_delete_elem(union bpf_attr *attr)
+>>       if (IS_ERR(map))
+>>               return PTR_ERR(map);
+>>
+>> +     err = security_map_modify(map);
+>> +     if (err)
+>> +             return -EACCES;
+>> +
+>>       key = memdup_user(ukey, map->key_size);
+>>       if (IS_ERR(key)) {
+>>               err = PTR_ERR(key);
+>> @@ -616,6 +636,10 @@ static int map_get_next_key(union bpf_attr *attr)
+>>       if (IS_ERR(map))
+>>               return PTR_ERR(map);
+>>
+>> +     err = security_map_read(map);
+>> +     if (err)
+>> +             return -EACCES;
+>> +
+>>       if (ukey) {
+>>               key = memdup_user(ukey, map->key_size);
+>>               if (IS_ERR(key)) {
+>> @@ -935,6 +959,10 @@ static int bpf_prog_load(union bpf_attr *attr)
+>>       if (CHECK_ATTR(BPF_PROG_LOAD))
+>>               return -EINVAL;
+>>
+>> +     err = security_prog_load();
+>> +     if (err)
+>> +             return -EACCES;
+>> +
+>>       if (attr->prog_flags & ~BPF_F_STRICT_ALIGNMENT)
+>>               return -EINVAL;
+>>
+>
