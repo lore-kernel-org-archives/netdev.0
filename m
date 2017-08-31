@@ -1,29 +1,30 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
+From: David Daney <ddaney.cavm@gmail.com>
 Subject: Re: [PATCH net v2] net: phy: Correctly process PHY_HALTED in
  phy_stop_machine()
-Date: Wed, 30 Aug 2017 17:16:08 -0700
-Message-ID: <500c773d-deca-72c9-2b48-7a8a87bb08d2@gmail.com>
+Date: Wed, 30 Aug 2017 17:16:39 -0700
+Message-ID: <697f7861-1365-2f1c-e983-ddbc661df1e4@gmail.com>
 References: <20170728185836.28759-1-f.fainelli@gmail.com>
  <20170731.172818.1505741655348122155.davem@davemloft.net>
  <57dfe1c5-1816-cf94-7676-293a9dcd343c@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, andrew@lunn.ch, slash.tmp@free.fr,
         marc_gonzalez@sigmadesigns.com, rmk+kernel@armlinux.org.uk
-To: David Daney <ddaney.cavm@gmail.com>,
-        David Miller <davem@davemloft.net>
+To: David Miller <davem@davemloft.net>, f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f194.google.com ([209.85.128.194]:37685 "EHLO
-        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750761AbdHaAQU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 20:16:20 -0400
-Received: by mail-wr0-f194.google.com with SMTP id k9so2259528wre.4
-        for <netdev@vger.kernel.org>; Wed, 30 Aug 2017 17:16:20 -0700 (PDT)
+Received: from mail-io0-f194.google.com ([209.85.223.194]:37719 "EHLO
+        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751242AbdHaAQm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 20:16:42 -0400
+Received: by mail-io0-f194.google.com with SMTP id j99so2522024ioo.4
+        for <netdev@vger.kernel.org>; Wed, 30 Aug 2017 17:16:41 -0700 (PDT)
 In-Reply-To: <57dfe1c5-1816-cf94-7676-293a9dcd343c@gmail.com>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
+
+And of course I mess up my pretty picture, see below.
 
 On 08/30/2017 05:13 PM, David Daney wrote:
 > On 07/31/2017 05:28 PM, David Miller wrote:
@@ -55,30 +56,32 @@ On 08/30/2017 05:13 PM, David Daney wrote:
 > 
 > 
 > This is broken.  Please revert.
-
-This has been causing problem for Geert as well, 2 vs 1, Marc, you lose,
-I will send a revert for this shortly, sorry about that.
-
 > 
 > Upstream commit 7ad813f20853 and in the stable branches as well.
 > 
 > When ndo_stop() is called we call:
 > 
 > 
->  phy_disconnect()
->     +---> phy_stop_interrupts() implies: phydev->irq = PHY_POLL;
->     +---> phy_stop_machine()
->     |      +---> phy_stop_machine()
->     |              +----> queue_delayed_work(): Work queued.
->     +--->phy_detach() implies: phydev->attached_dev = NULL;
+>   phy_disconnect()
+>      +---> phy_stop_interrupts() implies: phydev->irq = PHY_POLL;
+>      +---> phy_stop_machine()
+>      |      +---> phy_stop_machine()
+
+s/phy_stop_machine/phy_state_machine/
+
+The call that the offending patch adds.
+
+
+>      |              +----> queue_delayed_work(): Work queued.
+>      +--->phy_detach() implies: phydev->attached_dev = NULL;
 > 
 > Now at a later time the queued work does:
 > 
->  phy_state_machine()
->     +---->netif_carrier_off(phydev->attached_dev): Oh no! It is NULL:
+>   phy_state_machine()
+>      +---->netif_carrier_off(phydev->attached_dev): Oh no! It is NULL:
 > 
 > 
->  CPU 12 Unable to handle kernel paging request at virtual address
+>   CPU 12 Unable to handle kernel paging request at virtual address
 > 0000000000000048, epc == ffffffff80de37ec, ra == ffffffff80c7c
 > Oops[#1]:
 > CPU: 12 PID: 1502 Comm: kworker/12:1 Not tainted 4.9.43-Cavium-Octeon+ #1
@@ -104,16 +107,25 @@ I will send a revert for this shortly, sorry about that.
 > Process kworker/12:1 (pid: 1502, threadinfo=8000000409d70000,
 > task=80000004021ed100, tls=0000000000000000)
 > Stack : 8000000409a54000 80000004096bab68 80000000271bd300 80000000271c1e00
->         0000000000000000 ffffffff808a1708 8000000409a54000 80000000271bd300
->         80000000271bd320 8000000409a54030 ffffffff80ff0f00 0000000000000001
->         ffffffff81090000 ffffffff808a1ac0 8000000402182080 ffffffff84650000
->         8000000402182080 ffffffff84650000 ffffffff80ff0000 8000000409a54000
->         ffffffff808a1970 0000000000000000 80000004099e8000 8000000402099240
->         0000000000000000 ffffffff808a8598 0000000000000000 8000000408eeeb00
->         8000000409a54000 00000000810a1d00 0000000000000000 8000000409d73de8
->         8000000409d73de8 0000000000000088 000000000c009c00 8000000409d73e08
->         8000000409d73e08 8000000402182080 ffffffff808a84d0 8000000402182080
->         ...
+>          0000000000000000 ffffffff808a1708 8000000409a54000 
+> 80000000271bd300
+>          80000000271bd320 8000000409a54030 ffffffff80ff0f00 
+> 0000000000000001
+>          ffffffff81090000 ffffffff808a1ac0 8000000402182080 
+> ffffffff84650000
+>          8000000402182080 ffffffff84650000 ffffffff80ff0000 
+> 8000000409a54000
+>          ffffffff808a1970 0000000000000000 80000004099e8000 
+> 8000000402099240
+>          0000000000000000 ffffffff808a8598 0000000000000000 
+> 8000000408eeeb00
+>          8000000409a54000 00000000810a1d00 0000000000000000 
+> 8000000409d73de8
+>          8000000409d73de8 0000000000000088 000000000c009c00 
+> 8000000409d73e08
+>          8000000409d73e08 8000000402182080 ffffffff808a84d0 
+> 8000000402182080
+>          ...
 > Call Trace:
 > [<ffffffff80de37ec>] netif_carrier_off+0xc/0x58
 > [<ffffffff80c7804c>] phy_state_machine+0x48c/0x4f8
@@ -121,7 +133,3 @@ I will send a revert for this shortly, sorry about that.
 > [<ffffffff808a1ac0>] worker_thread+0x150/0x4c0
 > [<ffffffff808a8598>] kthread+0xc8/0xe0
 > [<ffffffff808617f0>] ret_from_kernel_thread+0x14/0x1c
-
-
--- 
-Florian
