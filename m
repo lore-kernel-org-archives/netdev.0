@@ -1,122 +1,161 @@
-From: Tim Harvey <tharvey@gateworks.com>
-Subject: Re: DSA mv88e6xxx RX frame errors and TCP/IP RX failure
-Date: Thu, 31 Aug 2017 08:37:47 -0700
-Message-ID: <CAJ+vNU0dq-ULUj3PbQH_biGviJURj2z5McCXx_vYxcB0k94WkA@mail.gmail.com>
-References: <CAJ+vNU0VzgDkH-ksHgaA0cn3nbCOfcUs_BU90v6xw_QappssgA@mail.gmail.com>
- <20170830220631.GM22289@lunn.ch> <CAJ+vNU3Qto9iNdCUExb4NWaa3PA1UWe1kbY1b=sBLPgw_xiz7g@mail.gmail.com>
- <20170831014624.GA18554@lunn.ch>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: [PATCH v2 net-next 4/6] udp: flow dissector offload
+Date: Thu, 31 Aug 2017 11:53:18 -0400
+Message-ID: <CAF=yD-JpGn8qrjcdxHopb1uW1_10r_MW-VeBxegQtpCyYfOQXw@mail.gmail.com>
+References: <20170829232711.1465-1-tom@quantonium.net> <20170829232711.1465-5-tom@quantonium.net>
+ <1504089372.2480.55.camel@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: netdev <netdev@vger.kernel.org>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Fugang Duan <fugang.duan@nxp.com>,
-        Ilia Mirkin <imirkin@alum.mit.edu>
-To: Andrew Lunn <andrew@lunn.ch>
+Cc: Tom Herbert <tom@quantonium.net>,
+        David Miller <davem@davemloft.net>,
+        Network Development <netdev@vger.kernel.org>
+To: Paolo Abeni <pabeni@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f45.google.com ([74.125.82.45]:36912 "EHLO
-        mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751743AbdHaPh4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 11:37:56 -0400
-Received: by mail-wm0-f45.google.com with SMTP id u26so48568wma.0
-        for <netdev@vger.kernel.org>; Thu, 31 Aug 2017 08:37:55 -0700 (PDT)
-In-Reply-To: <20170831014624.GA18554@lunn.ch>
+Received: from mail-oi0-f66.google.com ([209.85.218.66]:34921 "EHLO
+        mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751970AbdHaPyA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 11:54:00 -0400
+Received: by mail-oi0-f66.google.com with SMTP id k77so45751oib.2
+        for <netdev@vger.kernel.org>; Thu, 31 Aug 2017 08:53:59 -0700 (PDT)
+In-Reply-To: <1504089372.2480.55.camel@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 30, 2017 at 6:46 PM, Andrew Lunn <andrew@lunn.ch> wrote:
->> >                        /* Report late collisions as a frame error. */
->> >                         if (status & (BD_ENET_RX_NO | BD_ENET_RX_CL))
->> >                                 ndev->stats.rx_frame_errors++;
->> >
->> > I don't see anywhere else frame errors are counted, but it would be
->> > good to prove we are looking in the right place.
->> >
+On Wed, Aug 30, 2017 at 6:36 AM, Paolo Abeni <pabeni@redhat.com> wrote:
+> On Tue, 2017-08-29 at 16:27 -0700, Tom Herbert wrote:
+>> Add support to perform UDP specific flow dissection. This is
+>> primarily intended for dissecting encapsulated packets in UDP
+>> encapsulation.
 >>
->> Andrew,
+>> This patch adds a flow_dissect offload for UDP4 and UDP6. The backend
+>> function performs a socket lookup and calls the flow_dissect function
+>> if a socket is found.
 >>
->> (adding IMX FEC driver maintainer to CC)
+>> Signed-off-by: Tom Herbert <tom@quantonium.net>
+>> ---
+>>  include/linux/udp.h      |  8 ++++++++
+>>  include/net/udp.h        |  8 ++++++++
+>>  include/net/udp_tunnel.h |  8 ++++++++
+>>  net/ipv4/udp_offload.c   | 45 +++++++++++++++++++++++++++++++++++++++++++++
+>>  net/ipv4/udp_tunnel.c    |  1 +
+>>  net/ipv6/udp_offload.c   | 13 +++++++++++++
+>>  6 files changed, 83 insertions(+)
 >>
->> Yes, that's one of them being hit. It looks like ifconfig reports
->> 'frame' as the accumulation of a few stats so here are some more
->> specifics from /sys/class/net/eth0/statistics:
+>> diff --git a/include/linux/udp.h b/include/linux/udp.h
+>> index eaea63bc79bb..2e90b189ef6a 100644
+>> --- a/include/linux/udp.h
+>> +++ b/include/linux/udp.h
+>> @@ -79,6 +79,14 @@ struct udp_sock {
+>>       int                     (*gro_complete)(struct sock *sk,
+>>                                               struct sk_buff *skb,
+>>                                               int nhoff);
+>> +     /* Flow dissector function for a UDP socket */
+>> +     enum flow_dissect_ret (*flow_dissect)(struct sock *sk,
+>> +                     const struct sk_buff *skb,
+>> +                     struct flow_dissector_key_control *key_control,
+>> +                     struct flow_dissector *flow_dissector,
+>> +                     void *target_container, void *data,
+>> +                     __be16 *p_proto, u8 *p_ip_proto, int *p_nhoff,
+>> +                     int *p_hlen, unsigned int flags);
 >>
->> root@xenial:/sys/devices/soc0/soc/2100000.aips-bus/2188000.ethernet/net/eth0/statistics#
->> for i in `ls rx_*`; do echo $i:$(cat $i); done
->> rx_bytes:103229
->> rx_compressed:0
->> rx_crc_errors:22
->> rx_dropped:0
->> rx_errors:22
->> rx_fifo_errors:0
->> rx_frame_errors:22
->> rx_length_errors:22
->> rx_missed_errors:0
->> rx_nohandler:0
->> rx_over_errors:0
->> rx_packets:1174
->> root@xenial:/sys/devices/soc0/soc/2100000.aips-bus/2188000.ethernet/net/eth0/statistics#
->> ifconfig eth0
->> eth0      Link encap:Ethernet  HWaddr 00:D0:12:41:F3:E7
->>           inet6 addr: fe80::2d0:12ff:fe41:f3e7/64 Scope:Link
->>           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
->>           RX packets:1207 errors:22 dropped:0 overruns:0 frame:66
->>           TX packets:42 errors:0 dropped:0 overruns:0 carrier:0
->>           collisions:0 txqueuelen:1000
->>           RX bytes:106009 (103.5 KiB)  TX bytes:4604 (4.4 KiB)
+>>       /* udp_recvmsg try to use this before splicing sk_receive_queue */
+>>       struct sk_buff_head     reader_queue ____cacheline_aligned_in_smp;
+>> diff --git a/include/net/udp.h b/include/net/udp.h
+>> index f3d1de6f0983..499e4faf8b14 100644
+>> --- a/include/net/udp.h
+>> +++ b/include/net/udp.h
+>> @@ -174,6 +174,14 @@ struct sk_buff **udp_gro_receive(struct sk_buff **head, struct sk_buff *skb,
+>>                                struct udphdr *uh, udp_lookup_t lookup);
+>>  int udp_gro_complete(struct sk_buff *skb, int nhoff, udp_lookup_t lookup);
 >>
->> Instrumenting fec driver I see the following getting hit:
+>> +enum flow_dissect_ret udp_flow_dissect(const struct sk_buff *skb,
+>> +                     udp_lookup_t lookup,
+>> +                     struct flow_dissector_key_control *key_control,
+>> +                     struct flow_dissector *flow_dissector,
+>> +                     void *target_container, void *data,
+>> +                     __be16 *p_proto, u8 *p_ip_proto, int *p_nhoff,
+>> +                     int *p_hlen, unsigned int flags);
+>> +
+>>  static inline struct udphdr *udp_gro_udphdr(struct sk_buff *skb)
+>>  {
+>>       struct udphdr *uh;
+>> diff --git a/include/net/udp_tunnel.h b/include/net/udp_tunnel.h
+>> index 10cce0dd4450..b7102e0f41a9 100644
+>> --- a/include/net/udp_tunnel.h
+>> +++ b/include/net/udp_tunnel.h
+>> @@ -69,6 +69,13 @@ typedef struct sk_buff **(*udp_tunnel_gro_receive_t)(struct sock *sk,
+>>                                                    struct sk_buff *skb);
+>>  typedef int (*udp_tunnel_gro_complete_t)(struct sock *sk, struct sk_buff *skb,
+>>                                        int nhoff);
+>> +typedef enum flow_dissect_ret (*udp_tunnel_flow_dissect_t)(struct sock *sk,
+>> +                     const struct sk_buff *skb,
+>> +                     struct flow_dissector_key_control *key_control,
+>> +                     struct flow_dissector *flow_dissector,
+>> +                     void *target_container, void *data,
+>> +                     __be16 *p_proto, u8 *p_ip_proto, int *p_nhoff,
+>> +                     int *p_hlen, unsigned int flags);
 >>
->> status & BD_ENET_RX_LG /* rx_length_errors: Frame too long */
->> status & BD_ENET_RX_CR  /* rx_crc_errors: CRC Error */
->> status & BD_ENET_RX_CL /* rx_frame_errors: Collision? */
+>>  struct udp_tunnel_sock_cfg {
+>>       void *sk_user_data;     /* user data used by encap_rcv call back */
+>> @@ -78,6 +85,7 @@ struct udp_tunnel_sock_cfg {
+>>       udp_tunnel_encap_destroy_t encap_destroy;
+>>       udp_tunnel_gro_receive_t gro_receive;
+>>       udp_tunnel_gro_complete_t gro_complete;
+>> +     udp_tunnel_flow_dissect_t flow_dissect;
+>>  };
 >>
->> Is this a frame size issue where the MV88E6176 is sending frames down
->> that exceed the MTU because of headers added?
+>>  /* Setup the given (UDP) sock to receive UDP encapsulated packets */
+>> diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
+>> index 97658bfc1b58..7f0a7ed4a6f7 100644
+>> --- a/net/ipv4/udp_offload.c
+>> +++ b/net/ipv4/udp_offload.c
+>> @@ -328,11 +328,56 @@ static int udp4_gro_complete(struct sk_buff *skb, int nhoff)
+>>       return udp_gro_complete(skb, nhoff, udp4_lib_lookup_skb);
+>>  }
+>>
+>> +enum flow_dissect_ret udp_flow_dissect(const struct sk_buff *skb,
+>> +                     udp_lookup_t lookup,
+>> +                     struct flow_dissector_key_control *key_control,
+>> +                     struct flow_dissector *flow_dissector,
+>> +                     void *target_container, void *data,
+>> +                     __be16 *p_proto, u8 *p_ip_proto, int *p_nhoff,
+>> +                     int *p_hlen, unsigned int flags)
+>> +{
+>> +     enum flow_dissect_ret ret = FLOW_DISSECT_RET_CONTINUE;
+>> +     struct udphdr *uh, _uh;
+>> +     struct sock *sk;
+>> +
+>> +     uh = __skb_header_pointer(skb, *p_nhoff, sizeof(_uh), data,
+>> +                               *p_hlen, &_uh);
+>> +     if (!uh)
+>> +             return FLOW_DISSECT_RET_OUT_BAD;
+>> +
+>> +     rcu_read_lock();
+>> +
+>> +     sk = (*lookup)(skb, uh->source, uh->dest);
+>> +
+>> +     if (sk && udp_sk(sk)->flow_dissect)
+>> +             ret = udp_sk(sk)->flow_dissect(sk, skb, key_control,
+>> +                                            flow_dissector, target_container,
+>> +                                            data, p_proto, p_ip_proto,
+>> +                                            p_nhoff, p_hlen, flags);
+>> +     rcu_read_unlock();
+>> +
+>> +     return ret;
+>> +}
+>> +EXPORT_SYMBOL(udp_flow_dissect);
 >
-> I did fix an issue recently with that. See
->
-> commit fbbeefdd21049fcf9437c809da3828b210577f36
-> Author: Andrew Lunn <andrew@lunn.ch>
-> Date:   Sun Jul 30 19:36:05 2017 +0200
->
->     net: fec: Allow reception of frames bigger than 1522 bytes
->
->     The FEC Receive Control Register has a 14 bit field indicating the
->     longest frame that may be received. It is being set to 1522. Frames
->     longer than this are discarded, but counted as being in error.
->
->     When using DSA, frames from the switch has an additional header,
->     either 4 or 8 bytes if a Marvell switch is used. Thus a full MTU frame
->     of 1522 bytes received by the switch on a port becomes 1530 bytes when
->     passed to the host via the FEC interface.
->
->     Change the maximum receive size to 2048 - 64, where 64 is the maximum
->     rx_alignment applied on the receive buffer for AVB capable FEC
->     cores. Use this value also for the maximum receive buffer size. The
->     driver is already allocating a receive SKB of 2048 bytes, so this
->     change should not have any significant effects.
->
->     Tested on imx51, imx6, vf610.
->
->     Signed-off-by: Andrew Lunn <andrew@lunn.ch>
->     Signed-off-by: David S. Miller <davem@davemloft.net>
->
->
-> However, this is was of an all/nothing problem. All frames with the
-> full MTU were getting dropped, where as i think you are only seeing a
-> few dropped?
->
+> If I read the above correctly, this is going to add another full UDP
+> lookup per UDP packet, can we avoid it with some static key enabled by
+> vxlan/fou/etc. ?
 
-Andrew,
+That would also limit the exposure if a bug is discovered. The
+vulnerability of this critical path also came up with the recent
+flow dissector expansion for ipv6 neighbor discovery.
 
-Indeed this does resolve the issue. I see a burst of FIFO overruns
-initially when receiving an iperf bandwidth test but that would be
-caused by the IMX6 errata and should be mitigated via pause frames.
-After that short burst I see no other errors and iperf works fine.
+  http://patchwork.ozlabs.org/patch/722957/
 
-Should we get this patch in the linux-stable tree for the 4.9 kernel?
+Ideally, flow dissector support for less common protocols can be
+disabled administratively.
 
-Thanks!
-
-Tim
+That said, the parser code looks great to me.
