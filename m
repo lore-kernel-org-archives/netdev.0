@@ -1,74 +1,54 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next] net/ncsi: Define {add,kill}_vid callbacks for !CONFIG_NET_NCSI
-Date: Wed, 30 Aug 2017 20:59:55 -0700
-Message-ID: <6D0042A3-C029-4CAC-86B1-F570E541D8C0@gmail.com>
-References: <20170831033846.23538-1-sam@mendozajonas.com>
+From: Kees Cook <keescook@chromium.org>
+Subject: Re: tip -ENOBOOT - bisected to locking/refcounts, x86/asm: Implement
+ fast refcount overflow protection
+Date: Wed, 30 Aug 2017 21:01:55 -0700
+Message-ID: <CAGXu5j+uNU+wqWoCV+Kpdp+DQer4E3VuwO0mtXiW3Dtw_61QKA@mail.gmail.com>
+References: <1503996623.8323.20.camel@gmx.de> <CAGXu5jLYHy6Damtg_Pc4=G76OUiMV3fcY9+Ru1-Lmiq6VWEgsw@mail.gmail.com>
+ <1504025721.6024.25.camel@gmx.de> <1504030207.6560.0.camel@gmx.de>
+ <CAGXu5jKSWiZ8NkgUqO6G8fs5R06bMtdFBmZz9MMX-HAk8nXXNw@mail.gmail.com>
+ <1504069332.8352.3.camel@gmx.de> <CAGXu5jJim=r8b+y1qQXtuzm9fPyv1tp9ANebxbCc9ic2c83_Mg@mail.gmail.com>
+ <1504113212.5852.6.camel@gmx.de> <CAGXu5jJd80-0PJvB51x9ZDETPSoAtRVQ7dQ6HWwd0DYpKBgPFA@mail.gmail.com>
+ <1504115735.5852.11.camel@gmx.de> <CAGXu5j+BLj6_LPfKs-vts-mbyJHu8D--WrmWbiT8Zbt-iD65KA@mail.gmail.com>
+ <CAGXu5j+neSYAqb8=r42=jQ0LsJTGjCSdpgc9Hv+ipyAFURbCdw@mail.gmail.com>
+ <1504145389.23109.4.camel@gmx.de> <CAGXu5jLKXEDdSpxxVM5oHHUWKbSTozx4FZRn70bQm4tQAhMqUQ@mail.gmail.com>
+ <1504149176.23109.9.camel@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Joel Stanley <joel@jms.id.au>,
-        Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-        Gavin Shan <gwshan@linux.vnet.ibm.com>
-To: Samuel Mendoza-Jonas <sam@mendozajonas.com>,
-        "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        OpenBMC Maillist <openbmc@lists.ozlabs.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: LKML <linux-kernel@vger.kernel.org>, Ingo Molnar <mingo@elte.hu>,
+        "Reshetova, Elena" <elena.reshetova@intel.com>,
+        Network Development <netdev@vger.kernel.org>
+To: Mike Galbraith <efault@gmx.de>,
+        "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170831033846.23538-1-sam@mendozajonas.com>
+In-Reply-To: <1504149176.23109.9.camel@gmx.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On August 30, 2017 8:38:46 PM PDT, Samuel Mendoza-Jonas <sam@mendozajonas=
-=2Ecom> wrote:
->Patch "net/ncsi: Configure VLAN tag filter" defined two new callback
->functions in include/net/ncsi=2Eh, but neglected the !CONFIG_NET_NCSI
->case=2E This can cause a build error if these are referenced elsewhere
->without NCSI enabled, for example in ftgmac100:
+On Wed, Aug 30, 2017 at 8:12 PM, Mike Galbraith <efault@gmx.de> wrote:
+> On Wed, 2017-08-30 at 19:27 -0700, Kees Cook wrote:
 >
->>>> ERROR: "ncsi_vlan_rx_kill_vid"
->[drivers/net/ethernet/faraday/ftgmac100=2Eko] undefined!
->>>> ERROR: "ncsi_vlan_rx_add_vid"
->[drivers/net/ethernet/faraday/ftgmac100=2Eko] undefined!
+>> Interesting! Can you try with 633547973ffc3 ("net: convert
+>> sk_buff.users from atomic_t to refcount_t") reverted? I'll see if
+>> running haveged will help me trigger this on my system...
 >
->Add definitions for !CONFIG_NET_NCSI to bring it into line with the
->rest
->of ncsi=2Eh
->
->Signed-off-by: Samuel Mendoza-Jonas <sam@mendozajonas=2Ecom>
->---
-> include/net/ncsi=2Eh | 8 ++++++++
-> 1 file changed, 8 insertions(+)
->
->diff --git a/include/net/ncsi=2Eh b/include/net/ncsi=2Eh
->index 1f96af46df49=2E=2E2b13b6b91a4d 100644
->--- a/include/net/ncsi=2Eh
->+++ b/include/net/ncsi=2Eh
->@@ -36,6 +36,14 @@ int ncsi_start_dev(struct ncsi_dev *nd);
-> void ncsi_stop_dev(struct ncsi_dev *nd);
-> void ncsi_unregister_dev(struct ncsi_dev *nd);
-> #else /* !CONFIG_NET_NCSI */
->+int ncsi_vlan_rx_add_vid(struct net_device *dev, __be16 proto, u16
->vid)
->+{
->+	return -ENOTTY;
+> With that (plus 230cd1279d001 fix to it) reverted, vbox boots.
 
-Returning -EOPNOTSUPP would probably be more correct here=2E
+Wonderful! Thank you so much for helping track this down.
 
->+}
->+int ncsi_vlan_rx_kill_vid(struct net_device *dev, __be16 proto, u16
->vid)
->+{
->+	return -ENOTTY;
+So, it seems that sk_buff.users will need some more special attention
+before we can convert it to refcount.
 
-Likewise=2E
+x86-refcount will saturate with refcount_dec_and_test() if the result
+is negative. But that would mean at least starting at 0. FULL should
+have WARNed in this case, so I remain slightly confused why it was
+missed by FULL.
 
->+}
->static inline struct ncsi_dev *ncsi_register_dev(struct net_device
->*dev,
-> 					void (*notifier)(struct ncsi_dev *nd))
-> {
+Ingo, I'm not sure the best path for this. It seems we need to revert
+230cd1279d001 and 633547973ffc3 and then we can restore
+ARCH_HAS_REFCOUNT.
 
+-Kees
 
---=20
-Florian
+-- 
+Kees Cook
+Pixel Security
