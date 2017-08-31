@@ -1,85 +1,122 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next] samples/bpf: Fix compilation issue in redirect
- dummy program
-Date: Thu, 31 Aug 2017 18:20:55 +0200
-Message-ID: <59A83767.6020801@iogearbox.net>
-References: <1504178199-12410-1-git-send-email-tariqt@mellanox.com> <20170831132710.3b245a6a@redhat.com> <59A7F658.4020606@iogearbox.net> <CAH3MdRVszTVtjruq=-rh26jBtY9evuv7yBz37Ydb8EWSexL+zQ@mail.gmail.com>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: Re: [RFC PATCH] net: frag limit checks need to use
+ percpu_counter_compare
+Date: Thu, 31 Aug 2017 18:23:49 +0200
+Message-ID: <20170831162349.k3qnkfgkygdh2zqw@unicorn.suse.cz>
+References: <150417481955.28907.15567119824187929000.stgit@firesoul>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Eran Ben Elisha <eranbe@mellanox.com>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>
-To: Y Song <ys114321@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: liujian56@huawei.com, netdev@vger.kernel.org,
+        Florian Westphal <fw@strlen.de>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:46669 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751693AbdHaQVO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 12:21:14 -0400
-In-Reply-To: <CAH3MdRVszTVtjruq=-rh26jBtY9evuv7yBz37Ydb8EWSexL+zQ@mail.gmail.com>
+Received: from mx2.suse.de ([195.135.220.15]:34595 "EHLO mx1.suse.de"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751752AbdHaQXv (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 31 Aug 2017 12:23:51 -0400
+Content-Disposition: inline
+In-Reply-To: <150417481955.28907.15567119824187929000.stgit@firesoul>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/31/2017 05:54 PM, Y Song wrote:
-> On Thu, Aug 31, 2017 at 4:43 AM, Daniel Borkmann <daniel@iogearbox.net> wrote:
->> On 08/31/2017 01:27 PM, Jesper Dangaard Brouer wrote:
->>> On Thu, 31 Aug 2017 14:16:39 +0300
->>> Tariq Toukan <tariqt@mellanox.com> wrote:
->>>
->>>> Fix compilation error below:
->>>>
->>>> $ make samples/bpf/
->>>>
->>>> LLVM ERROR: 'xdp_redirect_dummy' label emitted multiple times to
->>>> assembly file
->>>> make[1]: *** [samples/bpf/xdp_redirect_kern.o] Error 1
->>>> make: *** [samples/bpf/] Error 2
->>>>
->>>> Fixes: 306da4e685b4 ("samples/bpf: xdp_redirect load XDP dummy prog on TX
->>>> device")
->>>> Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
->>>> ---
->>>
->>> Acked-by: Jesper Dangaard Brouer <brouer@redhat.com>
->>
->> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
->>
->>> What LLVM/clang version do you use?
->>>
->>> I don't see this compile error, and I have:
->>>    $ clang --version
->>>    clang version 3.9.1 (tags/RELEA
->>
->> I'm seeing the error as well with a fairly recent LLVM from git
->> tree (6.0.0git-2d810c2).
->>
->> Looks like the llvm error is triggered when section name and
->> the function name for XDP prog is the same. Changing either the
->> function or the section name right above resolves the issue. If
->> such error didn't trigger on older versions, people could be
->> using such naming scheme as done here, so seems to me like a
->> regression on LLVM side we might need to look at ...
->
-> Martin fixed a similar bug earlier:
-> =====
-> commit a2e8bbd2ef5457485f00b6b947bbbfa2778e5b1e
-> Author: Martin KaFai Lau <kafai@fb.com>
-> Date:   Thu Jun 8 22:30:17 2017 -0700
->
->      bpf: Fix test_obj_id.c for llvm 5.0
->
->      llvm 5.0 does not like the section name and the function name
->      to be the same:
-> ...
-> =====
+On Thu, Aug 31, 2017 at 12:20:19PM +0200, Jesper Dangaard Brouer wrote:
+> To: Liujian can you please test this patch?
+>  I want to understand if using __percpu_counter_compare() solves
+>  the problem correctness wise (even-though this will be slower
+>  than using a simple atomic_t on your big system).
+> 
+> Fix bug in fragmentation codes use of the percpu_counter API, that
+> cause issues on systems with many CPUs.
+> 
+> The frag_mem_limit() just reads the global counter (fbc->count),
+> without considering other CPUs can have upto batch size (130K) that
+> haven't been subtracted yet.  Due to the 3MBytes lower thresh limit,
+> this become dangerous at >=24 CPUs (3*1024*1024/130000=24).
+> 
+> The __percpu_counter_compare() does the right thing, and takes into
+> account the number of (online) CPUs and batch size, to account for
+> this and call __percpu_counter_sum() when needed.
+> 
+> On systems with many CPUs this will unfortunately always result in the
+> heavier fully locked __percpu_counter_sum() which touch the
+> per_cpu_ptr of all (online) CPUs.
+> 
+> On systems with a smaller number of CPUs this solution is also not
+> optimal, because __percpu_counter_compare()/__percpu_counter_sum()
+> doesn't help synchronize the global counter.
+>  Florian Westphal have an idea of adding some counter sync points,
+> which should help address this issue.
+> ---
+>  include/net/inet_frag.h  |   16 ++++++++++++++--
+>  net/ipv4/inet_fragment.c |    6 +++---
+>  2 files changed, 17 insertions(+), 5 deletions(-)
+> 
+> diff --git a/include/net/inet_frag.h b/include/net/inet_frag.h
+> index 6fdcd2427776..b586e320783d 100644
+> --- a/include/net/inet_frag.h
+> +++ b/include/net/inet_frag.h
+> @@ -147,9 +147,21 @@ static inline bool inet_frag_evicting(struct inet_frag_queue *q)
+>   */
+>  static unsigned int frag_percpu_counter_batch = 130000;
+>  
+> -static inline int frag_mem_limit(struct netns_frags *nf)
+> +static inline bool frag_mem_over_limit(struct netns_frags *nf, int thresh)
+>  {
+> -	return percpu_counter_read(&nf->mem);
+> +	/* When reading counter here, __percpu_counter_compare() call
+> +	 * will invoke __percpu_counter_sum() when needed.  Which
+> +	 * depend on num_online_cpus()*batch size, as each CPU can
+> +	 * potentential can hold a batch count.
+> +	 *
+> +	 * With many CPUs this heavier sum operation will
+> +	 * unfortunately always occur.
+> +	 */
+> +	if (__percpu_counter_compare(&nf->mem, thresh,
+> +				     frag_percpu_counter_batch) > 0)
+> +		return true;
+> +	else
+> +		return false;
+>  }
+>  
+>  static inline void sub_frag_mem_limit(struct netns_frags *nf, int i)
+> diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
+> index 96e95e83cc61..ee2cf56900e6 100644
+> --- a/net/ipv4/inet_fragment.c
+> +++ b/net/ipv4/inet_fragment.c
+> @@ -120,7 +120,7 @@ static void inet_frag_secret_rebuild(struct inet_frags *f)
+>  static bool inet_fragq_should_evict(const struct inet_frag_queue *q)
+>  {
+>  	return q->net->low_thresh == 0 ||
+> -	       frag_mem_limit(q->net) >= q->net->low_thresh;
+> +		frag_mem_over_limit(q->net, q->net->low_thresh);
+>  }
+>  
+>  static unsigned int
+> @@ -355,7 +355,7 @@ static struct inet_frag_queue *inet_frag_alloc(struct netns_frags *nf,
+>  {
+>  	struct inet_frag_queue *q;
+>  
+> -	if (!nf->high_thresh || frag_mem_limit(nf) > nf->high_thresh) {
+> +	if (!nf->high_thresh || frag_mem_over_limit(nf, nf->high_thresh)) {
+>  		inet_frag_schedule_worker(f);
+>  		return NULL;
+>  	}
 
-Yeah indeed.
+If we go this way (which would IMHO require some benchmarks to make sure
+it doesn't harm performance too much) we can drop the explicit checks
+for zero thresholds which were added to work around the unreliability of
+fast checks of percpu counters (or at least the second one was by commit
+30759219f562 ("net: disable fragment reassembly if high_thresh is zero").
+ 
+Michal Kubecek
 
-> gcc also has this behavior. Section name is treated as global
-> and hence cannot collide with a function name...
-
-Okay, so seems at least 3.9.1 treated this slightly different then
-where it didn't cause a collision.
+> @@ -396,7 +396,7 @@ struct inet_frag_queue *inet_frag_find(struct netns_frags *nf,
+>  	struct inet_frag_queue *q;
+>  	int depth = 0;
+>  
+> -	if (frag_mem_limit(nf) > nf->low_thresh)
+> +	if (frag_mem_over_limit(nf, nf->low_thresh))
+>  		inet_frag_schedule_worker(f);
+>  
+>  	hash &= (INETFRAGS_HASHSZ - 1);
+> 
