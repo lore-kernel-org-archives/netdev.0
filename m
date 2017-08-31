@@ -1,52 +1,87 @@
 From: David Ahern <dsahern@gmail.com>
-Subject: [PATCH v3 net-next 0/7] bpf: Add option to set mark and priority in cgroup sock programs
-Date: Thu, 31 Aug 2017 15:05:43 -0700
-Message-ID: <1504217150-16151-1-git-send-email-dsahern@gmail.com>
+Subject: [PATCH v3 net-next 1/7] bpf: Add mark and priority to sock options that can be set
+Date: Thu, 31 Aug 2017 15:05:44 -0700
+Message-ID: <1504217150-16151-2-git-send-email-dsahern@gmail.com>
+References: <1504217150-16151-1-git-send-email-dsahern@gmail.com>
 Cc: David Ahern <dsahern@gmail.com>
 To: netdev@vger.kernel.org, daniel@iogearbox.net, ast@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:38399 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751001AbdHaWGJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 18:06:09 -0400
-Received: by mail-pf0-f194.google.com with SMTP id r187so518455pfr.5
-        for <netdev@vger.kernel.org>; Thu, 31 Aug 2017 15:06:09 -0700 (PDT)
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:36316 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751205AbdHaWGK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 18:06:10 -0400
+Received: by mail-pf0-f193.google.com with SMTP id k3so530060pfc.3
+        for <netdev@vger.kernel.org>; Thu, 31 Aug 2017 15:06:10 -0700 (PDT)
+In-Reply-To: <1504217150-16151-1-git-send-email-dsahern@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add option to set mark and priority in addition to bound device for newly
-created sockets. Also, allow the bpf programs to use the get_current_uid_gid
-helper meaning socket marks, priority and device can be set based on the
-uid/gid of the running process.
+Add socket mark and priority to fields that can be set by
+ebpf program when a socket is created.
 
-Sample programs are updated to demonstrate the new options.
+Signed-off-by: David Ahern <dsahern@gmail.com>
+Acked-by: Alexei Starovoitov <ast@kernel.org>
+---
+ include/uapi/linux/bpf.h |  2 ++
+ net/core/filter.c        | 26 ++++++++++++++++++++++++++
+ 2 files changed, 28 insertions(+)
 
-v3
-- no changes to Patches 1 and 2 which Alexei acked in previous versions
-- dropped change related to recursive programs in a cgroup
-- updated tests per dropped patch
-
-v2
-- added flag to control recursive behavior as requested by Alexei
-- added comment to sock_filter_func_proto regarding use of
-  get_current_uid_gid helper
-- updated test programs for recursive option
-
-David Ahern (7):
-  bpf: Add mark and priority to sock options that can be set
-  bpf: Allow cgroup sock filters to use get_current_uid_gid helper
-  samples/bpf: Update sock test to allow setting mark and priority
-  samples/bpf: Add detach option to test_cgrp2_sock
-  samples/bpf: Add option to dump socket settings
-  samples/bpf: Update cgrp2 socket tests
-  samples/bpf: Update cgroup socket examples to use uid gid helper
-
- include/uapi/linux/bpf.h       |   2 +
- net/core/filter.c              |  42 ++++++-
- samples/bpf/sock_flags_kern.c  |   5 +
- samples/bpf/test_cgrp2_sock.c  | 255 ++++++++++++++++++++++++++++++++++++-----
- samples/bpf/test_cgrp2_sock.sh | 162 ++++++++++++++++++++------
- 5 files changed, 401 insertions(+), 65 deletions(-)
-
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index d46cf326b95f..e9c89e20adff 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -758,6 +758,8 @@ struct bpf_sock {
+ 	__u32 family;
+ 	__u32 type;
+ 	__u32 protocol;
++	__u32 mark;
++	__u32 priority;
+ };
+ 
+ #define XDP_PACKET_HEADROOM 256
+diff --git a/net/core/filter.c b/net/core/filter.c
+index c6a37fe0285b..f51b9690adf3 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -3455,6 +3455,10 @@ static bool sock_filter_is_valid_access(int off, int size,
+ 		switch (off) {
+ 		case offsetof(struct bpf_sock, bound_dev_if):
+ 			break;
++		case offsetof(struct bpf_sock, mark):
++			break;
++		case offsetof(struct bpf_sock, priority):
++			break;
+ 		default:
+ 			return false;
+ 		}
+@@ -3958,6 +3962,28 @@ static u32 sock_filter_convert_ctx_access(enum bpf_access_type type,
+ 				      offsetof(struct sock, sk_bound_dev_if));
+ 		break;
+ 
++	case offsetof(struct bpf_sock, mark):
++		BUILD_BUG_ON(FIELD_SIZEOF(struct sock, sk_mark) != 4);
++
++		if (type == BPF_WRITE)
++			*insn++ = BPF_STX_MEM(BPF_W, si->dst_reg, si->src_reg,
++					offsetof(struct sock, sk_mark));
++		else
++			*insn++ = BPF_LDX_MEM(BPF_W, si->dst_reg, si->src_reg,
++				      offsetof(struct sock, sk_mark));
++		break;
++
++	case offsetof(struct bpf_sock, priority):
++		BUILD_BUG_ON(FIELD_SIZEOF(struct sock, sk_priority) != 4);
++
++		if (type == BPF_WRITE)
++			*insn++ = BPF_STX_MEM(BPF_W, si->dst_reg, si->src_reg,
++					offsetof(struct sock, sk_priority));
++		else
++			*insn++ = BPF_LDX_MEM(BPF_W, si->dst_reg, si->src_reg,
++				      offsetof(struct sock, sk_priority));
++		break;
++
+ 	case offsetof(struct bpf_sock, family):
+ 		BUILD_BUG_ON(FIELD_SIZEOF(struct sock, sk_family) != 2);
+ 
 -- 
 2.1.4
