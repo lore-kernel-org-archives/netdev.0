@@ -1,37 +1,55 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [PATCH v2 net-next 2/2] net: convert (struct ubuf_info)->refcnt
- to refcount_t
-Date: Thu, 31 Aug 2017 19:55:30 -0400
-Message-ID: <CAF=yD-JMATnR-JR9W4=gJKNuZrO17fSh9KLJtBakCajwEr5bDQ@mail.gmail.com>
-References: <20170831234822.26612-1-edumazet@google.com> <20170831234822.26612-3-edumazet@google.com>
+From: Kees Cook <keescook@chromium.org>
+Subject: Re: [PATCH 31/31] timer: Switch to testing for .function instead of .data
+Date: Thu, 31 Aug 2017 16:59:05 -0700
+Message-ID: <CAGXu5jK84cN9MdjfzaipD7GN8a37JMfD8X0Em4mk2_aFGuaOUg@mail.gmail.com>
+References: <1504222183-61202-1-git-send-email-keescook@chromium.org>
+ <1504222183-61202-32-git-send-email-keescook@chromium.org> <CAKdAkRTSgs+JTKRa2nvcSPD+zQ5OhsLx_aM8WaZyg304QQN3hA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: "David S . Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Willem de Bruijn <willemb@google.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>
-To: Eric Dumazet <edumazet@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f65.google.com ([209.85.218.65]:33458 "EHLO
-        mail-oi0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751345AbdHaX4L (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 19:56:11 -0400
-Received: by mail-oi0-f65.google.com with SMTP id t124so975117oih.0
-        for <netdev@vger.kernel.org>; Thu, 31 Aug 2017 16:56:11 -0700 (PDT)
-In-Reply-To: <20170831234822.26612-3-edumazet@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Thomas Gleixner <tglx@linutronix.de>,
+        "Rafael J. Wysocki" <rjw@rjwysocki.net>,
+        Pavel Machek <pavel@ucw.cz>, Len Brown <len.brown@intel.com>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        Mike Marciniszyn <mike.marciniszyn@intel.com>,
+        Dennis Dalessandro <dennis.dalessandro@intel.com>,
+        Doug Ledford <dledford@redhat.com>,
+        Sean Hefty <sean.hefty@intel.com>,
+        Hal Rosenstock <hal.rosenstock@gmail.com>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        "linux-pm@vger.kernel.org" <linux-pm@vger.kernel.org>,
+        linux-rdma <linux-rdma@vger.kernel.org>,
+        "linux-input@vger.kernel.org" <linux-input@vger.kernel.org>,
+        intel-wired-lan@lists.osuosl.org, netdev <netdev@vger.kernel.org>,
+        lkml <linux-kernel@vger.kernel.org>
+To: Dmitry Torokhov <dmitry.torokhov@gmail.com>
+Return-path: <linux-pm-owner@vger.kernel.org>
+In-Reply-To: <CAKdAkRTSgs+JTKRa2nvcSPD+zQ5OhsLx_aM8WaZyg304QQN3hA@mail.gmail.com>
+Sender: linux-pm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 31, 2017 at 7:48 PM, Eric Dumazet <edumazet@google.com> wrote:
-> refcount_t type and corresponding API should be
-> used instead of atomic_t when the variable is used as
-> a reference counter. This allows to avoid accidental
-> refcounter overflows that might lead to use-after-free
-> situations.
+On Thu, Aug 31, 2017 at 4:45 PM, Dmitry Torokhov
+<dmitry.torokhov@gmail.com> wrote:
+> On Thu, Aug 31, 2017 at 4:29 PM, Kees Cook <keescook@chromium.org> wrote:
+>> In several places, .data is checked for initialization to gate early
+>> calls to del_timer_sync(). Checking for .function is equally valid, so
+>> switch to this in all callers.
 >
-> v2: added the change in drivers/vhost/net.c as spotted
-> by Willem.
->
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Not seeing the rest of patches it is unclear from the patch
+> description why this is needed/wanted.
 
-Acked-by: Willem de Bruijn <willemb@google.com>
+The CC list would have been really giant, but here is the first patch
+and the earlier series list:
+
+https://lkml.org/lkml/2017/8/31/904
+https://lkml.org/lkml/2017/8/30/760
+
+tl;dr: We're going to switch all struct timer_list callbacks to get
+the timer pointer as the argument instead of from the .data field.
+This patch is one step in removing open-coded users of the .data
+field.
+
+-Kees
+
+-- 
+Kees Cook
+Pixel Security
