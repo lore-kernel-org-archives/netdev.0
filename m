@@ -1,34 +1,76 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [pull request][net-next 0/3] Mellanox, mlx5 GRE tunnel offloads
-Date: Thu, 31 Aug 2017 15:51:11 +0200
-Message-ID: <87fuc7ong0.fsf@stressinduktion.org>
-References: <20170830230409.15176-1-saeedm@mellanox.com>
+From: Antoine Tenart <antoine.tenart@free-electrons.com>
+Subject: Re: [PATCH net-next 2/3] net: mvpp2: use the GoP interrupt for link
+ status changes
+Date: Thu, 31 Aug 2017 15:52:55 +0200
+Message-ID: <20170831135255.GA26758@kwain>
+References: <20170831071256.18416-1-antoine.tenart@free-electrons.com>
+ <20170831071256.18416-3-antoine.tenart@free-electrons.com>
+ <20170831134724.GO22289@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Saeed Mahameed <saeedm@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:59921 "EHLO
-        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751034AbdHaNvV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 09:51:21 -0400
-In-Reply-To: <20170830230409.15176-1-saeedm@mellanox.com> (Saeed Mahameed's
-        message of "Thu, 31 Aug 2017 02:04:06 +0300")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha512;
+        protocol="application/pgp-signature"; boundary="pf9I7BMVVzbSWLtt"
+Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
+        davem@davemloft.net, gregory.clement@free-electrons.com,
+        thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
+        linux@armlinux.org.uk, linux-kernel@vger.kernel.org,
+        mw@semihalf.com, stefanc@marvell.com,
+        miquel.raynal@free-electrons.com, netdev@vger.kernel.org
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170831134724.GO22289@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Saeed Mahameed <saeedm@mellanox.com> writes:
 
-> The first patch from Gal and Ariel provides the mlx5 driver support for
-> ConnectX capability to perform IP version identification and matching in
-> order to distinguish between IPv4 and IPv6 without the need to specify the
-> encapsulation type, thus perform RSS in MPLS automatically without
-> specifying MPLS ethertyoe. This patch will also serve for inner GRE IPv4/6
-> classification for inner GRE RSS.
+--pf9I7BMVVzbSWLtt
+Content-Type: text/plain; charset=iso-8859-1
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-I don't think this is legal at all or did I misunderstood something?
+Hi Andrew,
 
-<https://tools.ietf.org/html/rfc3032#section-2.2>
+On Thu, Aug 31, 2017 at 03:47:24PM +0200, Andrew Lunn wrote:
+> On Thu, Aug 31, 2017 at 09:12:55AM +0200, Antoine Tenart wrote:
+> > +static void mvpp22_gop_unmask_irq(struct mvpp2_port *port)
+> > +{
+> > +	u32 val;
+> > +
+> > +	if (port->phy_interface =3D=3D PHY_INTERFACE_MODE_RGMII ||
+> > +	    port->phy_interface =3D=3D PHY_INTERFACE_MODE_RGMII_ID ||
+> > +	    port->phy_interface =3D=3D PHY_INTERFACE_MODE_RGMII_RXID ||
+> > +	    port->phy_interface =3D=3D PHY_INTERFACE_MODE_RGMII_TXID ||
+>=20
+> phy_interface_mode_is_rgmii()
 
-Thanks,
-Hannes
+Right, and you already made that comment before... I'll fix it.
+
+Thanks!
+Antoine
+
+--=20
+Antoine T=E9nart, Free Electrons
+Embedded Linux and Kernel engineering
+http://free-electrons.com
+
+--pf9I7BMVVzbSWLtt
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAABCgAdFiEEM7Tg8N8kXOlT7hOhXE2LyK3bvNgFAlmoFLUACgkQXE2LyK3b
+vNgZag/+NSqttzqvCO29x+GvIKjEJw8hEw1T8Q12xCeOnMu34e5B34bAYSoDvd0D
+jgi4b5pMsEaE49vyHojTbr68lIxkSQyi0brXS0ugVDXsHGEXvEtQdFpOARvc8zyC
+LvvIWmnhHD+vWA7l8odaseVQnZJONTMdo1SCc/7R6OmJoaHbfzal7FegrV/zLcOF
+eqks6xKM9j/Cx1kPP27XoebM57oiW7GA2QPPI9P686SPaWxwvql/uV3OWBx34NKL
+Yt5BFKwQGXoiEO/NKxd45fjwGpOCJkDEotBfP71BeHe/DLK0pL5+3RWfwAYWi3qj
+gzSOUo1zVQjsKtIK5HE/gM0ol0MvMsKt+IypERGYeJ+9xRtTmlIbaCPtysSqGJa2
+mhaZ/Mrq3v7psPEMHEp/V7L31O6fPqvg7TXzI9JizPIA9MeOCfv7e2Qstbh/Hctj
+Oxv9vCeZ0Q77hgjRVVH2tD+PZU3K2EXYDTimjudzw8UGXswGJVP0he5U4I45Kl8o
+LUFq4x3Y2pTwZjFAXIeshuN5XdkzX/Ky7ieM7X2SmXC0KO63QoBQCy/W+hTeqvYt
+vrdoxUXBaWiFqkb4fGgd5nRtyn1cMPreeXVuqSYGZUA3f5zCu5gfkAxDMVG3iUHc
+yICw/y7F/yueoHzZrvjT0WoVLmhGXfdYYe8bXR8eIV9x6Yhs3wQ=
+=iw0B
+-----END PGP SIGNATURE-----
+
+--pf9I7BMVVzbSWLtt--
