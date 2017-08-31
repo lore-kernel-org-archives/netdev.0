@@ -1,36 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] samples/bpf: Fix compilation issue in
- redirect dummy program
-Date: Thu, 31 Aug 2017 11:58:07 -0700 (PDT)
-Message-ID: <20170831.115807.699861430358386392.davem@davemloft.net>
-References: <1504178199-12410-1-git-send-email-tariqt@mellanox.com>
+Subject: Re: [PATCH net-next] net: fix two typos in net_device_ops
+ documentation.
+Date: Thu, 31 Aug 2017 11:57:56 -0700 (PDT)
+Message-ID: <20170831.115756.1527134193072129088.davem@davemloft.net>
+References: <1504176100-28914-1-git-send-email-rami.rosen@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eranbe@mellanox.com, brouer@redhat.com
-To: tariqt@mellanox.com
+Cc: netdev@vger.kernel.org, jasowang@redhat.com
+To: rami.rosen@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55964 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:55948 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751727AbdHaS6H (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 14:58:07 -0400
-In-Reply-To: <1504178199-12410-1-git-send-email-tariqt@mellanox.com>
+        with ESMTP id S1751521AbdHaS55 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 14:57:57 -0400
+In-Reply-To: <1504176100-28914-1-git-send-email-rami.rosen@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tariq Toukan <tariqt@mellanox.com>
-Date: Thu, 31 Aug 2017 14:16:39 +0300
+From: Rami Rosen <rami.rosen@intel.com>
+Date: Thu, 31 Aug 2017 13:41:40 +0300
 
-> Fix compilation error below:
+> This patch fixes two trivial typos in net_device_ops documentation,
+> related to ndo_xdp_flush callback.
 > 
-> $ make samples/bpf/
-> 
-> LLVM ERROR: 'xdp_redirect_dummy' label emitted multiple times to
-> assembly file
-> make[1]: *** [samples/bpf/xdp_redirect_kern.o] Error 1
-> make: *** [samples/bpf/] Error 2
-> 
-> Fixes: 306da4e685b4 ("samples/bpf: xdp_redirect load XDP dummy prog on TX device")
-> Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+> Signed-off-by: Rami Rosen <rami.rosen@intel.com>
 
 Applied.
