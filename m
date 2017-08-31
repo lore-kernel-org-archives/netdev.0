@@ -1,44 +1,62 @@
-From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH net-next 3/3] Documentation/bindings: net: marvell-pp2: add the link interrupt
-Date: Thu, 31 Aug 2017 09:12:56 +0200
-Message-ID: <20170831071256.18416-4-antoine.tenart@free-electrons.com>
-References: <20170831071256.18416-1-antoine.tenart@free-electrons.com>
-Cc: Antoine Tenart <antoine.tenart@free-electrons.com>, andrew@lunn.ch,
-        gregory.clement@free-electrons.com,
-        thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
-        linux@armlinux.org.uk, linux-kernel@vger.kernel.org,
-        mw@semihalf.com, stefanc@marvell.com,
-        miquel.raynal@free-electrons.com, netdev@vger.kernel.org
-To: davem@davemloft.net
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next 3/8] mlxsw: spectrum_dpipe: Add IPv6 host table
+ initial support
+Date: Thu, 31 Aug 2017 09:17:58 +0200
+Message-ID: <20170831071758.GA1973@nanopsycho>
+References: <20170830120306.6128-1-jiri@resnulli.us>
+ <20170830120306.6128-4-jiri@resnulli.us>
+ <200b2c64-f252-c8cd-9e7c-e237bb7a8ce2@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, arkadis@mellanox.com,
+        idosch@mellanox.com, mlxsw@mellanox.com
+To: David Ahern <dsahern@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:39160 "EHLO
-        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750928AbdHaHPD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 03:15:03 -0400
-In-Reply-To: <20170831071256.18416-1-antoine.tenart@free-electrons.com>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:33584 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750907AbdHaHSA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 03:18:00 -0400
+Received: by mail-wm0-f67.google.com with SMTP id m85so3481891wma.0
+        for <netdev@vger.kernel.org>; Thu, 31 Aug 2017 00:18:00 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <200b2c64-f252-c8cd-9e7c-e237bb7a8ce2@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A link interrupt can be described. Document this valid interrupt name.
+Wed, Aug 30, 2017 at 07:36:13PM CEST, dsahern@gmail.com wrote:
+>On 8/30/17 6:03 AM, Jiri Pirko wrote:
+>> @@ -328,9 +329,21 @@ static int mlxsw_sp_dpipe_table_host_matches_dump(struct sk_buff *skb, int type)
+>>  	if (err)
+>>  		return err;
+>>  
+>> -	match.type = DEVLINK_DPIPE_MATCH_TYPE_FIELD_EXACT;
+>> -	match.header = &devlink_dpipe_header_ipv4;
+>> -	match.field_id = DEVLINK_DPIPE_FIELD_IPV4_DST_IP;
+>> +	switch (type) {
+>> +	case AF_INET:
+>> +		match.type = DEVLINK_DPIPE_MATCH_TYPE_FIELD_EXACT;
+>> +		match.header = &devlink_dpipe_header_ipv4;
+>> +		match.field_id = DEVLINK_DPIPE_FIELD_IPV4_DST_IP;
+>> +		break;
+>> +	case AF_INET6:
+>> +		match.type = DEVLINK_DPIPE_MATCH_TYPE_FIELD_EXACT;
+>> +		match.header = &devlink_dpipe_header_ipv6;
+>> +		match.field_id = DEVLINK_DPIPE_FIELD_IPV6_DST_IP;
+>> +		break;
+>> +	default:
+>> +		WARN_ON(1);
+>
+>Why a warn for dump request of an unsupported family?
 
-Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
-Tested-by: Marcin Wojtas <mw@semihalf.com>
----
- Documentation/devicetree/bindings/net/marvell-pp2.txt | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+It's a handling of default case that should not happen unless there is a
+bug in kernel.
 
-diff --git a/Documentation/devicetree/bindings/net/marvell-pp2.txt b/Documentation/devicetree/bindings/net/marvell-pp2.txt
-index 49484db81583..c78f3187dfea 100644
---- a/Documentation/devicetree/bindings/net/marvell-pp2.txt
-+++ b/Documentation/devicetree/bindings/net/marvell-pp2.txt
-@@ -44,7 +44,7 @@ Optional properties (port):
- - interrupt-names: if more than a single interrupt for rx is given, must
-                    be the name associated to the interrupts listed. Valid
-                    names are: "tx-cpu0", "tx-cpu1", "tx-cpu2", "tx-cpu3",
--		   "rx-shared".
-+		   "rx-shared", "link".
- - marvell,system-controller: a phandle to the system controller.
- 
- Example for marvell,armada-375-pp2:
--- 
-2.13.5
+
+>
+>> +		return -EINVAL;
+>> +	}
+>>  
+>>  	return devlink_dpipe_match_put(skb, &match);
+>>  }
+>> @@ -342,7 +355,7 @@ mlxsw_sp_dpipe_table_host4_matches_dump(void *priv, struct sk_buff *skb)
+>
