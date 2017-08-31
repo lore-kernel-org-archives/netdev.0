@@ -1,234 +1,162 @@
 From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH 31/31] timer: Switch to testing for .function instead of .data
-Date: Thu, 31 Aug 2017 16:29:43 -0700
-Message-ID: <1504222183-61202-32-git-send-email-keescook@chromium.org>
+Subject: [PATCH 19/31] timer: Remove open-coded casts for .data and .function
+Date: Thu, 31 Aug 2017 16:29:31 -0700
+Message-ID: <1504222183-61202-20-git-send-email-keescook@chromium.org>
 References: <1504222183-61202-1-git-send-email-keescook@chromium.org>
-Cc: Kees Cook <keescook@chromium.org>,
-        "Rafael J. Wysocki" <rjw@rjwysocki.net>,
-        Pavel Machek <pavel@ucw.cz>, Len Brown <len.brown@intel.com>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        Mike Marciniszyn <mike.marciniszyn@intel.com>,
-        Dennis Dalessandro <dennis.dalessandro@intel.com>,
-        Doug Ledford <dledford@redhat.com>,
-        Sean Hefty <sean.hefty@intel.com>,
-        Hal Rosenstock <hal.rosenstock@gmail.com>,
-        Dmitry Torokhov <dmitry.torokhov@gmail.com>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        linux-pm@vger.kernel.org, linux-rdma@vger.kernel.org,
-        linux-input@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: Samuel Ortiz <samuel@sortiz.org>,
+ "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
+ Kees Cook <keescook@chromium.org>,
+ "Martin K. Petersen" <martin.petersen@oracle.com>,
+ linux-kernel@vger.kernel.org, linux-scsi@vger.kernel.org,
+ netdev@vger.kernel.org, Paul Mackerras <paulus@samba.org>,
+ Tyrel Datwyler <tyreld@linux.vnet.ibm.com>, linuxppc-dev@lists.ozlabs.org
 To: Thomas Gleixner <tglx@linutronix.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f170.google.com ([209.85.192.170]:33127 "EHLO
-        mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751904AbdHaXj1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 19:39:27 -0400
-Received: by mail-pf0-f170.google.com with SMTP id n73so3230307pfj.0
-        for <netdev@vger.kernel.org>; Thu, 31 Aug 2017 16:39:26 -0700 (PDT)
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
 In-Reply-To: <1504222183-61202-1-git-send-email-keescook@chromium.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Id: netdev.vger.kernel.org
 
-In several places, .data is checked for initialization to gate early
-calls to del_timer_sync(). Checking for .function is equally valid, so
-switch to this in all callers.
+This standardizes the callback and data prototypes in several places that
+perform casting, in an effort to remove more open-coded .data and
+.function uses in favor of setup_timer().
 
-Cc: "Rafael J. Wysocki" <rjw@rjwysocki.net>
-Cc: Pavel Machek <pavel@ucw.cz>
-Cc: Len Brown <len.brown@intel.com>
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Cc: Mike Marciniszyn <mike.marciniszyn@intel.com>
-Cc: Dennis Dalessandro <dennis.dalessandro@intel.com>
-Cc: Doug Ledford <dledford@redhat.com>
-Cc: Sean Hefty <sean.hefty@intel.com>
-Cc: Hal Rosenstock <hal.rosenstock@gmail.com>
-Cc: Dmitry Torokhov <dmitry.torokhov@gmail.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Cc: linux-pm@vger.kernel.org
-Cc: linux-rdma@vger.kernel.org
-Cc: linux-input@vger.kernel.org
-Cc: intel-wired-lan@lists.osuosl.org
+Cc: Samuel Ortiz <samuel@sortiz.org>
+Cc: Tyrel Datwyler <tyreld@linux.vnet.ibm.com>
+Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Cc: Paul Mackerras <paulus@samba.org>
+Cc: Michael Ellerman <mpe@ellerman.id.au>
+Cc: "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>
+Cc: "Martin K. Petersen" <martin.petersen@oracle.com>
 Cc: netdev@vger.kernel.org
+Cc: linux-scsi@vger.kernel.org
+Cc: linuxppc-dev@lists.ozlabs.org
 Signed-off-by: Kees Cook <keescook@chromium.org>
 ---
- drivers/base/power/wakeup.c                 |  3 +--
- drivers/infiniband/hw/hfi1/chip.c           |  6 ++----
- drivers/infiniband/hw/hfi1/init.c           |  2 +-
- drivers/infiniband/hw/qib/qib_iba7220.c     |  2 +-
- drivers/infiniband/hw/qib/qib_iba7322.c     |  2 +-
- drivers/infiniband/hw/qib/qib_init.c        | 14 +++++---------
- drivers/infiniband/hw/qib/qib_mad.c         |  2 +-
- drivers/input/input.c                       |  5 ++---
- drivers/net/ethernet/intel/i40e/i40e_main.c |  2 +-
- 9 files changed, 15 insertions(+), 23 deletions(-)
+ drivers/net/irda/bfin_sir.c      |  5 +++--
+ drivers/scsi/ibmvscsi/ibmvfc.c   | 14 ++++++--------
+ drivers/scsi/ibmvscsi/ibmvscsi.c |  8 ++++----
+ 3 files changed, 13 insertions(+), 14 deletions(-)
 
-diff --git a/drivers/base/power/wakeup.c b/drivers/base/power/wakeup.c
-index 144e6d8fafc8..79a3c1b204af 100644
---- a/drivers/base/power/wakeup.c
-+++ b/drivers/base/power/wakeup.c
-@@ -479,8 +479,7 @@ static bool wakeup_source_not_registered(struct wakeup_source *ws)
- 	 * Use timer struct to check if the given source is initialized
- 	 * by wakeup_source_add.
- 	 */
--	return ws->timer.function != pm_wakeup_timer_fn ||
--		   ws->timer.data != (unsigned long)ws;
-+	return ws->timer.function != pm_wakeup_timer_fn;
+diff --git a/drivers/net/irda/bfin_sir.c b/drivers/net/irda/bfin_sir.c
+index 3151b580dbd6..c9413bd580a7 100644
+--- a/drivers/net/irda/bfin_sir.c
++++ b/drivers/net/irda/bfin_sir.c
+@@ -317,8 +317,9 @@ static void bfin_sir_dma_rx_chars(struct net_device *dev)
+ 		async_unwrap_char(dev, &self->stats, &self->rx_buff, port->rx_dma_buf.buf[i]);
  }
  
- /*
-diff --git a/drivers/infiniband/hw/hfi1/chip.c b/drivers/infiniband/hw/hfi1/chip.c
-index 94b54850ec75..53a6596cd7d6 100644
---- a/drivers/infiniband/hw/hfi1/chip.c
-+++ b/drivers/infiniband/hw/hfi1/chip.c
-@@ -5513,9 +5513,8 @@ static int init_rcverr(struct hfi1_devdata *dd)
- 
- static void free_rcverr(struct hfi1_devdata *dd)
+-void bfin_sir_rx_dma_timeout(struct net_device *dev)
++void bfin_sir_rx_dma_timeout(unsigned long data)
  {
--	if (dd->rcverr_timer.data)
-+	if (dd->rcverr_timer.function)
- 		del_timer_sync(&dd->rcverr_timer);
--	dd->rcverr_timer.data = 0;
- }
++	struct net_device *dev = (struct net_device *)data;
+ 	struct bfin_sir_self *self = netdev_priv(dev);
+ 	struct bfin_sir_port *port = self->sir_port;
+ 	int x_pos, pos;
+@@ -406,7 +407,7 @@ static int bfin_sir_startup(struct bfin_sir_port *port, struct net_device *dev)
+ 	enable_dma(port->rx_dma_channel);
  
- static void handle_rxe_err(struct hfi1_devdata *dd, u32 unused, u64 reg)
-@@ -11992,9 +11991,8 @@ static void free_cntrs(struct hfi1_devdata *dd)
- 	struct hfi1_pportdata *ppd;
- 	int i;
+ 	port->rx_dma_timer.data = (unsigned long)(dev);
+-	port->rx_dma_timer.function = (void *)bfin_sir_rx_dma_timeout;
++	port->rx_dma_timer.function = bfin_sir_rx_dma_timeout;
  
--	if (dd->synth_stats_timer.data)
-+	if (dd->synth_stats_timer.function)
- 		del_timer_sync(&dd->synth_stats_timer);
--	dd->synth_stats_timer.data = 0;
- 	ppd = (struct hfi1_pportdata *)(dd + 1);
- 	for (i = 0; i < dd->num_pports; i++, ppd++) {
- 		kfree(ppd->cntrs);
-diff --git a/drivers/infiniband/hw/hfi1/init.c b/drivers/infiniband/hw/hfi1/init.c
-index 4a11d4da4c92..bc2af709c111 100644
---- a/drivers/infiniband/hw/hfi1/init.c
-+++ b/drivers/infiniband/hw/hfi1/init.c
-@@ -839,7 +839,7 @@ static void stop_timers(struct hfi1_devdata *dd)
+ #else
  
- 	for (pidx = 0; pidx < dd->num_pports; ++pidx) {
- 		ppd = dd->pport + pidx;
--		if (ppd->led_override_timer.data) {
-+		if (ppd->led_override_timer.function) {
- 			del_timer_sync(&ppd->led_override_timer);
- 			atomic_set(&ppd->led_override_timer_active, 0);
- 		}
-diff --git a/drivers/infiniband/hw/qib/qib_iba7220.c b/drivers/infiniband/hw/qib/qib_iba7220.c
-index b1d512c7ff4b..22fd65fe7193 100644
---- a/drivers/infiniband/hw/qib/qib_iba7220.c
-+++ b/drivers/infiniband/hw/qib/qib_iba7220.c
-@@ -1662,7 +1662,7 @@ static void qib_7220_quiet_serdes(struct qib_pportdata *ppd)
- 		       dd->control | QLOGIC_IB_C_FREEZEMODE);
+diff --git a/drivers/scsi/ibmvscsi/ibmvfc.c b/drivers/scsi/ibmvscsi/ibmvfc.c
+index cc4e05be8d4a..1be20688dd1f 100644
+--- a/drivers/scsi/ibmvscsi/ibmvfc.c
++++ b/drivers/scsi/ibmvscsi/ibmvfc.c
+@@ -1393,8 +1393,9 @@ static int ibmvfc_map_sg_data(struct scsi_cmnd *scmd,
+  *
+  * Called when an internally generated command times out
+  **/
+-static void ibmvfc_timeout(struct ibmvfc_event *evt)
++static void ibmvfc_timeout(unsigned long data)
+ {
++	struct ibmvfc_event *evt = (struct ibmvfc_event *)data;
+ 	struct ibmvfc_host *vhost = evt->vhost;
+ 	dev_err(vhost->dev, "Command timed out (%p). Resetting connection\n", evt);
+ 	ibmvfc_reset_host(vhost);
+@@ -1424,12 +1425,10 @@ static int ibmvfc_send_event(struct ibmvfc_event *evt,
+ 		BUG();
  
- 	ppd->cpspec->chase_end = 0;
--	if (ppd->cpspec->chase_timer.data) /* if initted */
-+	if (ppd->cpspec->chase_timer.function) /* if initted */
- 		del_timer_sync(&ppd->cpspec->chase_timer);
+ 	list_add_tail(&evt->queue, &vhost->sent);
+-	init_timer(&evt->timer);
++	setup_timer(&evt->timer, ibmvfc_timeout, (unsigned long)evt);
  
- 	if (ppd->cpspec->ibsymdelta || ppd->cpspec->iblnkerrdelta ||
-diff --git a/drivers/infiniband/hw/qib/qib_iba7322.c b/drivers/infiniband/hw/qib/qib_iba7322.c
-index bb2439fff8fa..471aaf6bcbf2 100644
---- a/drivers/infiniband/hw/qib/qib_iba7322.c
-+++ b/drivers/infiniband/hw/qib/qib_iba7322.c
-@@ -2531,7 +2531,7 @@ static void qib_7322_mini_quiet_serdes(struct qib_pportdata *ppd)
- 		cancel_delayed_work_sync(&ppd->cpspec->ipg_work);
- 
- 	ppd->cpspec->chase_end = 0;
--	if (ppd->cpspec->chase_timer.data) /* if initted */
-+	if (ppd->cpspec->chase_timer.function) /* if initted */
- 		del_timer_sync(&ppd->cpspec->chase_timer);
- 
- 	/*
-diff --git a/drivers/infiniband/hw/qib/qib_init.c b/drivers/infiniband/hw/qib/qib_init.c
-index 6c16ba1107ba..66fb0318660b 100644
---- a/drivers/infiniband/hw/qib/qib_init.c
-+++ b/drivers/infiniband/hw/qib/qib_init.c
-@@ -815,23 +815,19 @@ static void qib_stop_timers(struct qib_devdata *dd)
- 	struct qib_pportdata *ppd;
- 	int pidx;
- 
--	if (dd->stats_timer.data) {
-+	if (dd->stats_timer.function)
- 		del_timer_sync(&dd->stats_timer);
--		dd->stats_timer.data = 0;
--	}
--	if (dd->intrchk_timer.data) {
-+	if (dd->intrchk_timer.function)
- 		del_timer_sync(&dd->intrchk_timer);
--		dd->intrchk_timer.data = 0;
--	}
- 	for (pidx = 0; pidx < dd->num_pports; ++pidx) {
- 		ppd = dd->pport + pidx;
--		if (ppd->hol_timer.data)
-+		if (ppd->hol_timer.function)
- 			del_timer_sync(&ppd->hol_timer);
--		if (ppd->led_override_timer.data) {
-+		if (ppd->led_override_timer.function) {
- 			del_timer_sync(&ppd->led_override_timer);
- 			atomic_set(&ppd->led_override_timer_active, 0);
- 		}
--		if (ppd->symerr_clear_timer.data)
-+		if (ppd->symerr_clear_timer.function)
- 			del_timer_sync(&ppd->symerr_clear_timer);
+ 	if (timeout) {
+-		evt->timer.data = (unsigned long) evt;
+ 		evt->timer.expires = jiffies + (timeout * HZ);
+-		evt->timer.function = (void (*)(unsigned long))ibmvfc_timeout;
+ 		add_timer(&evt->timer);
  	}
- }
-diff --git a/drivers/infiniband/hw/qib/qib_mad.c b/drivers/infiniband/hw/qib/qib_mad.c
-index f5a2aed31a89..37483f32935c 100644
---- a/drivers/infiniband/hw/qib/qib_mad.c
-+++ b/drivers/infiniband/hw/qib/qib_mad.c
-@@ -2496,7 +2496,7 @@ void qib_notify_free_mad_agent(struct rvt_dev_info *rdi, int port_idx)
- 	struct qib_devdata *dd = container_of(ibdev,
- 					      struct qib_devdata, verbs_dev);
  
--	if (dd->pport[port_idx].cong_stats.timer.data)
-+	if (dd->pport[port_idx].cong_stats.timer.function)
- 		del_timer_sync(&dd->pport[port_idx].cong_stats.timer);
- 
- 	if (dd->pport[port_idx].ibport_data.smi_ah)
-diff --git a/drivers/input/input.c b/drivers/input/input.c
-index 7e6842bd525c..a91fbbfc1b32 100644
---- a/drivers/input/input.c
-+++ b/drivers/input/input.c
-@@ -76,7 +76,7 @@ static void input_start_autorepeat(struct input_dev *dev, int code)
+@@ -3696,8 +3695,9 @@ static void ibmvfc_tgt_adisc_cancel_done(struct ibmvfc_event *evt)
+  * out, reset the CRQ. When the ADISC comes back as cancelled,
+  * log back into the target.
+  **/
+-static void ibmvfc_adisc_timeout(struct ibmvfc_target *tgt)
++static void ibmvfc_adisc_timeout(unsigned long data)
  {
- 	if (test_bit(EV_REP, dev->evbit) &&
- 	    dev->rep[REP_PERIOD] && dev->rep[REP_DELAY] &&
--	    dev->timer.data) {
-+	    dev->timer.function) {
- 		dev->repeat_key = code;
- 		mod_timer(&dev->timer,
- 			  jiffies + msecs_to_jiffies(dev->rep[REP_DELAY]));
-@@ -1790,7 +1790,7 @@ struct input_dev *input_allocate_device(void)
- 		device_initialize(&dev->dev);
- 		mutex_init(&dev->mutex);
- 		spin_lock_init(&dev->event_lock);
--		init_timer(&dev->timer);
-+		setup_timer(&dev->timer, NULL, (unsigned long)dev);
- 		INIT_LIST_HEAD(&dev->h_list);
- 		INIT_LIST_HEAD(&dev->node);
++	struct ibmvfc_target *tgt = (struct ibmvfc_target *)data;
+ 	struct ibmvfc_host *vhost = tgt->vhost;
+ 	struct ibmvfc_event *evt;
+ 	struct ibmvfc_tmf *tmf;
+@@ -3782,9 +3782,7 @@ static void ibmvfc_tgt_adisc(struct ibmvfc_target *tgt)
+ 	if (timer_pending(&tgt->timer))
+ 		mod_timer(&tgt->timer, jiffies + (IBMVFC_ADISC_TIMEOUT * HZ));
+ 	else {
+-		tgt->timer.data = (unsigned long) tgt;
+ 		tgt->timer.expires = jiffies + (IBMVFC_ADISC_TIMEOUT * HZ);
+-		tgt->timer.function = (void (*)(unsigned long))ibmvfc_adisc_timeout;
+ 		add_timer(&tgt->timer);
+ 	}
  
-@@ -2053,7 +2053,6 @@ static void devm_input_device_unregister(struct device *dev, void *res)
-  */
- void input_enable_softrepeat(struct input_dev *dev, int delay, int period)
+@@ -3916,7 +3914,7 @@ static int ibmvfc_alloc_target(struct ibmvfc_host *vhost, u64 scsi_id)
+ 	tgt->vhost = vhost;
+ 	tgt->need_login = 1;
+ 	tgt->cancel_key = vhost->task_set++;
+-	init_timer(&tgt->timer);
++	setup_timer(&tgt->timer, ibmvfc_adisc_timeout, (unsigned long)tgt);
+ 	kref_init(&tgt->kref);
+ 	ibmvfc_init_tgt(tgt, ibmvfc_tgt_implicit_logout);
+ 	spin_lock_irqsave(vhost->host->host_lock, flags);
+diff --git a/drivers/scsi/ibmvscsi/ibmvscsi.c b/drivers/scsi/ibmvscsi/ibmvscsi.c
+index da22b3665cb0..44ae85903a00 100644
+--- a/drivers/scsi/ibmvscsi/ibmvscsi.c
++++ b/drivers/scsi/ibmvscsi/ibmvscsi.c
+@@ -837,8 +837,9 @@ static void ibmvscsi_reset_host(struct ibmvscsi_host_data *hostdata)
+  *
+  * Called when an internally generated command times out
+ */
+-static void ibmvscsi_timeout(struct srp_event_struct *evt_struct)
++static void ibmvscsi_timeout(unsigned long data)
  {
--	dev->timer.data = (unsigned long) dev;
- 	dev->timer.function = input_repeat_key;
- 	dev->rep[REP_DELAY] = delay;
- 	dev->rep[REP_PERIOD] = period;
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 2db93d3f6d23..b9a4c1a6e4ba 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -11797,7 +11797,7 @@ static void i40e_remove(struct pci_dev *pdev)
- 	/* no more scheduling of any task */
- 	set_bit(__I40E_SUSPENDED, pf->state);
- 	set_bit(__I40E_DOWN, pf->state);
--	if (pf->service_timer.data)
-+	if (pf->service_timer.function)
- 		del_timer_sync(&pf->service_timer);
- 	if (pf->service_task.func)
- 		cancel_work_sync(&pf->service_task);
++	struct srp_event_struct *evt_struct = (struct srp_event_struct *)data;
+ 	struct ibmvscsi_host_data *hostdata = evt_struct->hostdata;
+ 
+ 	dev_err(hostdata->dev, "Command timed out (%x). Resetting connection\n",
+@@ -927,11 +928,10 @@ static int ibmvscsi_send_srp_event(struct srp_event_struct *evt_struct,
+ 	 */
+ 	list_add_tail(&evt_struct->list, &hostdata->sent);
+ 
+-	init_timer(&evt_struct->timer);
++	setup_timer(&evt_struct->timer, ibmvscsi_timeout,
++		    (unsigned long)evt_struct);
+ 	if (timeout) {
+-		evt_struct->timer.data = (unsigned long) evt_struct;
+ 		evt_struct->timer.expires = jiffies + (timeout * HZ);
+-		evt_struct->timer.function = (void (*)(unsigned long))ibmvscsi_timeout;
+ 		add_timer(&evt_struct->timer);
+ 	}
+ 
 -- 
 2.7.4
