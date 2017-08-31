@@ -1,128 +1,89 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: multi-queue over IFF_NO_QUEUE "virtual" devices
-Date: Wed, 30 Aug 2017 17:30:56 -0700
-Message-ID: <1e996bad-8b60-a065-e053-2ba892ceaf42@gmail.com>
-References: <21cdcfc2-0efc-c0df-6542-05bb8078d866@gmail.com>
- <85342893-b84f-4922-1e23-8c9fe0e5f1e0@gmail.com>
- <CAM_iQpV4y2sd=5UJ5vLzXwM4UpTNA2GY6mf5AfBLJ_UpGGWc_A@mail.gmail.com>
+From: Ilia Mirkin <imirkin@alum.mit.edu>
+Subject: Re: DSA mv88e6xxx RX frame errors and TCP/IP RX failure
+Date: Wed, 30 Aug 2017 20:38:39 -0400
+Message-ID: <CAKb7UvhZ5Sft9wbfOSDN4RJkwRp-fvhcmadZZ+=oAtaLcFMV8Q@mail.gmail.com>
+References: <CAJ+vNU0VzgDkH-ksHgaA0cn3nbCOfcUs_BU90v6xw_QappssgA@mail.gmail.com>
+ <20170830220631.GM22289@lunn.ch> <CAJ+vNU3Qto9iNdCUExb4NWaa3PA1UWe1kbY1b=sBLPgw_xiz7g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Jiri Pirko <jiri@resnulli.us>,
-        Jamal Hadi Salim <jhs@mojatatu.com>, andrew@lunn.ch,
-        David Miller <davem@davemloft.net>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f175.google.com ([209.85.128.175]:34642 "EHLO
-        mail-wr0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750814AbdHaAbI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 20:31:08 -0400
-Received: by mail-wr0-f175.google.com with SMTP id z91so22391148wrc.1
-        for <netdev@vger.kernel.org>; Wed, 30 Aug 2017 17:31:07 -0700 (PDT)
-In-Reply-To: <CAM_iQpV4y2sd=5UJ5vLzXwM4UpTNA2GY6mf5AfBLJ_UpGGWc_A@mail.gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Andrew Lunn <andrew@lunn.ch>, netdev <netdev@vger.kernel.org>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        Fugang Duan <fugang.duan@nxp.com>
+To: Tim Harvey <tharvey@gateworks.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAJ+vNU3Qto9iNdCUExb4NWaa3PA1UWe1kbY1b=sBLPgw_xiz7g@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 08/30/2017 04:37 PM, Cong Wang wrote:
-> On Tue, Aug 29, 2017 at 8:49 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
->> Le 08/07/17 à 15:26, Florian Fainelli a écrit :
->>> Hi,
+On Wed, Aug 30, 2017 at 8:22 PM, Tim Harvey <tharvey@gateworks.com> wrote:
+> On Wed, Aug 30, 2017 at 3:06 PM, Andrew Lunn <andrew@lunn.ch> wrote:
+>> On Wed, Aug 30, 2017 at 12:53:56PM -0700, Tim Harvey wrote:
+>>> Greetings,
 >>>
->>> Most DSA supported Broadcom switches have multiple queues per ports
->>> (usually 8) and each of these queues can be configured with different
->>> pause, drop, hysteresis thresholds and so on in order to make use of the
->>> switch's internal buffering scheme and have some queues achieve some
->>> kind of lossless behavior (e.g: LAN to LAN traffic for Q7 has a higher
->>> priority than LAN to WAN for Q0).
->>>
->>> This is obviously very workload specific, so I'd want maximum
->>> programmability as much as possible.
->>>
->>> This brings me to a few questions:
->>>
->>> 1) If we have the DSA slave network devices currently flagged with
->>> IFF_NO_QUEUE becoming multi-queue (on TX) aware such that an application
->>> can control exactly which switch egress queue is used on a per-flow
->>> basis, would that be a problem (this is the dynamic selection of the TX
->>> queue)?
+>>> I'm seeing RX frame errors when using the mv88e6xxx DSA driver on
+>>> 4.13-rc7. The board I'm using is a GW5904 [1] which has an IMX6 FEC
+>>> MAC (eth0) connected via RGMII to a MV88E6176 with its downstream
+>>> P0/P1/P2/P3 to front panel RJ45's (lan1-lan4).
 >>
->> So I have this part figured out, with a bunch of changes network devices
->> created by DSA are now multiqueue aware and the Broadcom tag layer is
->> capable of extracting the queue index, passing it in the tag where
->> expected and having the switch forward to the appropriate switch port
->> and queue within that port. It also sets the queue mapping in the SKB
->> for later consumption by the master network device driver: bcmsysport.c
->> because of 2).
+>> Hi Tim
 >>
->>>
->>> 2) The conduit interface (CPU) port network interface has a congestion
->>> control scheme which requires each of its TX queues (32 or 16) to be
->>> statically mapped to each of the underlying switch port queues because
->>> the congestion/ HW needs to inspect the queue depths of the switch to
->>> accept/reject a packet at the CPU's TX ring level. Do we have a good way
->>> with tc to map a virtual/stacked device's queue(s) on-top of its
->>> physical/underlying device's queues (this is the static queue mapping
->>> necessary for congestion to work)?
+>> Can you confirm the counter is this one:
 >>
->> That part I have not figured out yet, with some static mapping I can
->> obtain the results that I want and was even considering the possibility
->> of doing something like this:
+>>                        /* Report late collisions as a frame error. */
+>>                         if (status & (BD_ENET_RX_NO | BD_ENET_RX_CL))
+>>                                 ndev->stats.rx_frame_errors++;
 >>
->> - register a network device notifier with bcmsysport.c (master network
->> device) for this setup
->> - expose a helper function allowing me to obtain a given DSA network
->> device port index
->> - whenever DSA creates network devices reconfigure the ring and queue
->> mapping of the TX queues managed by bcmsysport.c with the DSA network
->> device port index that has just been registered and just do a 1-1
->> mapping of the 8 queues
+>> I don't see anywhere else frame errors are counted, but it would be
+>> good to prove we are looking in the right place.
 >>
->> You would end-up with something like:
->>
->> gphy (port 0) queues 0-7 mapped to systemport queues 0-7
->> rgmii_1 (port 1) queues 0-7 mapped to systemport queues 8-15
->> rgmii_2 (port 2) queues 0-7 mapped to systemport queues 16 through 23
->> moca (port 7) queues 0-7 mapped to systemport queues 24-31
->>
->> This should be working because bcmsysport's TX queues are not under
->> direct control by the user, they are used via DSA created network
->> devices which indicate the queue they want to use. When the DSA
->> interfaces are brought down, their respective systemport queues now
->> become unused. This also works because the number of physical ports of
->> the switch times the number of queues is matching the number of TX
->> queues from systemport (like if someone designed it with that exact
->> purpose in mind ;)).
->>
->> The only problem with that approach of course is that it embeds a policy
->> within the systemport driver.
->>
->> Ideally I would really like to configure this via tc by setting up a
->> mapping between queues of one network devices to queues of another
->> network device, is that a possible thing, Jamal, Cong, Jiri, do you know?
-> 
-> I am not sure if I understand the mapping you are talking about here.
-> 
-> TC layer rarely deals with hardware queues directly (except probably mq),
-> so this question probably don't belong to TC.
-> 
-> OTOH, TC can modify skb->hash, so you can redirect packets to a specific
-> queue, but this doesn't sound like what you are you looking for.
+>
+> Andrew,
+>
+> (adding IMX FEC driver maintainer to CC)
+>
+> Yes, that's one of them being hit. It looks like ifconfig reports
+> 'frame' as the accumulation of a few stats so here are some more
+> specifics from /sys/class/net/eth0/statistics:
+>
+> root@xenial:/sys/devices/soc0/soc/2100000.aips-bus/2188000.ethernet/net/eth0/statistics#
+> for i in `ls rx_*`; do echo $i:$(cat $i); done
+> rx_bytes:103229
+> rx_compressed:0
+> rx_crc_errors:22
+> rx_dropped:0
+> rx_errors:22
+> rx_fifo_errors:0
+> rx_frame_errors:22
+> rx_length_errors:22
+> rx_missed_errors:0
+> rx_nohandler:0
+> rx_over_errors:0
+> rx_packets:1174
+> root@xenial:/sys/devices/soc0/soc/2100000.aips-bus/2188000.ethernet/net/eth0/statistics#
+> ifconfig eth0
+> eth0      Link encap:Ethernet  HWaddr 00:D0:12:41:F3:E7
+>           inet6 addr: fe80::2d0:12ff:fe41:f3e7/64 Scope:Link
+>           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+>           RX packets:1207 errors:22 dropped:0 overruns:0 frame:66
+>           TX packets:42 errors:0 dropped:0 overruns:0 carrier:0
+>           collisions:0 txqueuelen:1000
+>           RX bytes:106009 (103.5 KiB)  TX bytes:4604 (4.4 KiB)
+>
+> Instrumenting fec driver I see the following getting hit:
+>
+> status & BD_ENET_RX_LG /* rx_length_errors: Frame too long */
+> status & BD_ENET_RX_CR  /* rx_crc_errors: CRC Error */
+> status & BD_ENET_RX_CL /* rx_frame_errors: Collision? */
+>
+> Is this a frame size issue where the MV88E6176 is sending frames down
+> that exceed the MTU because of headers added?
 
-I am actually building on TC being able to influence the value of
-skb->queue_mapping, but that is just for the stacked devices, not the
-underlying conduit device that does the actual transmission.
+Not sure if this is relevant to you, but
+https://github.com/laanwj/linux-freedreno-a2xx/commit/076b6542fa27499072ec6c3a7941c8b3c79ba1fd
+was necessary to fix some MTU issues on a i.MX51. Not sure if it's
+upstream yet or not.
 
-> 
-> Maybe Jiri has more thoughts here since he works on TC offloading things.
-> 
+Cheers,
 
-Patches with explanations and context (hopefully clearer) here:
-
-http://patchwork.ozlabs.org/project/netdev/list/?series=728
-
-Thanks!
--- 
-Florian
+  -ilia
