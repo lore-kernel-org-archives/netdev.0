@@ -1,7 +1,7 @@
 From: Lipeng <lipeng321@huawei.com>
-Subject: [PATCH net-next 3/8] net: hns3: set default mac vlan mask
-Date: Thu, 31 Aug 2017 21:39:04 +0800
-Message-ID: <1504186749-8926-4-git-send-email-lipeng321@huawei.com>
+Subject: [PATCH net-next 5/8] net: hns3: set the VLAN Ethernet type to HW
+Date: Thu, 31 Aug 2017 21:39:06 +0800
+Message-ID: <1504186749-8926-6-git-send-email-lipeng321@huawei.com>
 References: <1504186749-8926-1-git-send-email-lipeng321@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,113 +9,156 @@ Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
         <linuxarm@huawei.com>, <yisen.zhuang@huawei.com>,
         <salil.mehta@huawei.com>, <lipeng321@huawei.com>
 To: <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga05-in.huawei.com ([45.249.212.191]:5069 "EHLO
+        szxga05-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751034AbdHaNLY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 09:11:24 -0400
 In-Reply-To: <1504186749-8926-1-git-send-email-lipeng321@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add the mask configuration of the MAC_VLAN table. Command
-HCLGE_OPC_MAC_VLAN_MASK_SET is used to add/read the mask
-configuration of the MAC_VLAN (u/m vlan) table. Set default mask
-as {0x00, 0x00, 0x00, 0x00, 0x00, 0x00} means that all bits of
-mac_vlan are not masked.
+This patch set the VLAN Ethetnet type(0x8100) to HW. With this
+configure, HW can identify vlan packets.
 
 Signed-off-by: Mingguang Qu <qumingguang@huawei.com>
 Signed-off-by: Lipeng <lipeng321@huawei.com>
 ---
- .../net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.h |  9 +++++
- .../ethernet/hisilicon/hns3/hns3pf/hclge_main.c    | 43 +++++++++++++++++++++-
- 2 files changed, 51 insertions(+), 1 deletion(-)
+ .../net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.h | 13 +++++
+ .../ethernet/hisilicon/hns3/hns3pf/hclge_main.c    | 58 +++++++++++++++++++++-
+ .../ethernet/hisilicon/hns3/hns3pf/hclge_main.h    | 11 ++++
+ 3 files changed, 80 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.h b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.h
-index c2b613b..dd8e513 100644
+index dd8e513..b841df1 100644
 --- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.h
 +++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.h
-@@ -186,6 +186,7 @@ enum hclge_opcode_type {
- 	HCLGE_OPC_MAC_VLAN_INSERT	    = 0x1003,
- 	HCLGE_OPC_MAC_ETHTYPE_ADD	    = 0x1010,
- 	HCLGE_OPC_MAC_ETHTYPE_REMOVE	= 0x1011,
-+	HCLGE_OPC_MAC_VLAN_MASK_SET	= 0x1012,
- 
- 	/* Multicast linear table cmd */
- 	HCLGE_OPC_MTA_MAC_MODE_CFG	    = 0x1020,
-@@ -575,6 +576,14 @@ struct hclge_mac_vlan_tbl_entry {
- 	u8      rsv2[6];
+@@ -655,6 +655,19 @@ struct hclge_vlan_filter_vf_cfg {
+ 	u8  vf_bitmap[16];
  };
  
-+#define HCLGE_VLAN_MASK_EN_B		0x0
-+struct hclge_mac_vlan_mask_entry {
-+	u8 rsv0[2];
-+	u8 vlan_mask;
-+	u8 rsv1;
-+	u8 mac_mask[6];
-+	u8 rsv2[14];
++struct hclge_tx_vlan_type_cfg {
++	u16 ot_vlan_type;
++	u16 in_vlan_type;
++	u8 rsv[20];
 +};
- #define HCLGE_CFG_MTA_MAC_SEL_S		0x0
- #define HCLGE_CFG_MTA_MAC_SEL_M		(0x3 << HCLGE_CFG_MTA_MAC_SEL_S)
- #define HCLGE_CFG_MTA_MAC_EN_B		0x7
++
++struct hclge_rx_vlan_type_cfg {
++	u16 ot_fst_vlan_type;
++	u16 ot_sec_vlan_type;
++	u16 in_fst_vlan_type;
++	u16 in_sec_vlan_type;
++	u8 rsv[16];
++};
+ struct hclge_cfg_com_tqp_queue {
+ 	__le16 tqp_id;
+ 	__le16 stream_id;
 diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
-index 3a8cb40..5d49856 100644
+index 7374053..f2ea88f 100644
 --- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
 +++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
-@@ -2089,8 +2089,37 @@ static int hclge_get_autoneg(struct hnae3_handle *handle)
- 	return hdev->hw.mac.autoneg;
+@@ -3694,10 +3694,52 @@ static int hclge_set_vf_vlan_filter(struct hnae3_handle *handle, int vfid,
+ 	return hclge_set_vf_vlan_common(hdev, vfid, false, vlan, qos, proto);
  }
  
-+static int hclge_set_default_mac_vlan_mask(struct hclge_dev *hdev,
-+					   bool mask_vlan,
-+					   u8 *mac_mask)
++static int hclge_set_vlan_protocol_type(struct hclge_dev *hdev)
 +{
-+	struct hclge_mac_vlan_mask_entry *req;
-+	enum hclge_cmd_status status;
 +	struct hclge_desc desc;
-+	int i;
++	struct hclge_rx_vlan_type_cfg *rx_req =
++		(struct hclge_rx_vlan_type_cfg *)&desc.data[0];
++	struct hclge_tx_vlan_type_cfg *tx_req =
++		(struct hclge_tx_vlan_type_cfg *)&desc.data[0];
++	enum hclge_cmd_status status;
 +
-+	req = (struct hclge_mac_vlan_mask_entry *)desc.data;
-+	hclge_cmd_setup_basic_desc(&desc, HCLGE_OPC_MAC_VLAN_MASK_SET, false);
++	hclge_cmd_setup_basic_desc(&desc,
++				   HCLGE_OPC_MAC_VLAN_TYPE_ID, false);
 +
-+	hnae_set_bit(req->vlan_mask, HCLGE_VLAN_MASK_EN_B,
-+		     mask_vlan);
-+	for (i = 0; i < ETH_ALEN; i++)
-+		req->mac_mask[i] = mac_mask[i];
++	rx_req->ot_fst_vlan_type = hdev->vlan_type_cfg.rx_ot_fst_vlan_type;
++	rx_req->ot_sec_vlan_type = hdev->vlan_type_cfg.rx_ot_sec_vlan_type;
++	rx_req->in_fst_vlan_type = hdev->vlan_type_cfg.rx_in_fst_vlan_type;
++	rx_req->in_sec_vlan_type = hdev->vlan_type_cfg.rx_in_sec_vlan_type;
 +
 +	status = hclge_cmd_send(&hdev->hw, &desc, 1);
 +	if (status) {
 +		dev_err(&hdev->pdev->dev,
-+			"Config mac_vlan_mask failed for cmd_send, ret =%d.\n",
++			"Send rxvlan protocol type command fail, ret =%d.\n",
 +			status);
 +		return -EIO;
 +	}
 +
++	hclge_cmd_setup_basic_desc(&desc,
++				   HCLGE_OPC_MAC_VLAN_INSERT, false);
++
++	tx_req->ot_vlan_type = hdev->vlan_type_cfg.tx_ot_vlan_type;
++	tx_req->in_vlan_type = hdev->vlan_type_cfg.tx_in_vlan_type;
++
++	status = hclge_cmd_send(&hdev->hw, &desc, 1);
++	if (status) {
++		dev_err(&hdev->pdev->dev,
++			"Send txvlan protocol type command fail, ret =%d.\n",
++			status);
++		return -EIO;
++	}
 +	return 0;
 +}
 +
- static int hclge_mac_init(struct hclge_dev *hdev)
+ static int hclge_init_vlan_config(struct hclge_dev *hdev)
  {
-+	u8 mac_mask[ETH_ALEN] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
- 	struct hclge_mac *mac = &hdev->hw.mac;
+-#define HCLGE_VLAN_TYPE_VF_TABLE   0
+-#define HCLGE_VLAN_TYPE_PORT_TABLE 1
++#define HCLGE_VLAN_TYPE_VF_TABLE	0
++#define HCLGE_VLAN_TYPE_PORT_TABLE	1
++#define HCLGE_DEF_VLAN_TYPE		0x8100
+ 	struct hnae3_handle *handle;
  	int ret;
  
-@@ -2124,7 +2153,19 @@ static int hclge_mac_init(struct hclge_dev *hdev)
- 		return ret;
- 	}
+@@ -3708,6 +3750,18 @@ static int hclge_init_vlan_config(struct hclge_dev *hdev)
  
--	return hclge_cfg_func_mta_filter(hdev, 0, hdev->accept_mta_mc);
-+	ret = hclge_cfg_func_mta_filter(hdev, 0, hdev->accept_mta_mc);
-+	if (ret) {
-+		dev_err(&hdev->pdev->dev,
-+			"set mta filter mode fail ret=%d\n", ret);
-+		return ret;
-+	}
+ 	ret = hclge_set_vlan_filter_ctrl(hdev, HCLGE_VLAN_TYPE_PORT_TABLE,
+ 					 true);
 +
-+	ret = hclge_set_default_mac_vlan_mask(hdev, true, mac_mask);
++	hdev->vlan_type_cfg.rx_in_fst_vlan_type = HCLGE_DEF_VLAN_TYPE;
++	hdev->vlan_type_cfg.rx_in_sec_vlan_type = HCLGE_DEF_VLAN_TYPE;
++	hdev->vlan_type_cfg.rx_ot_fst_vlan_type = HCLGE_DEF_VLAN_TYPE;
++	hdev->vlan_type_cfg.rx_ot_sec_vlan_type = HCLGE_DEF_VLAN_TYPE;
++	hdev->vlan_type_cfg.tx_ot_vlan_type = HCLGE_DEF_VLAN_TYPE;
++	hdev->vlan_type_cfg.tx_in_vlan_type = HCLGE_DEF_VLAN_TYPE;
++
++	ret = hclge_set_vlan_protocol_type(hdev);
 +	if (ret)
-+		dev_err(&hdev->pdev->dev,
-+			"set default mac_vlan_mask fail ret=%d\n", ret);
++		return ret;
 +
-+	return ret;
- }
+ 	handle = &hdev->vport[0].nic;
+ 	ret = hclge_set_port_vlan_filter(handle, htons(ETH_P_8021Q), 0, false);
  
- static void hclge_task_schedule(struct hclge_dev *hdev)
+diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.h b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.h
+index edb10ad..0905ae5 100644
+--- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.h
++++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.h
+@@ -388,6 +388,15 @@ struct hclge_hw_stats {
+ 	struct hclge_32_bit_stats   all_32_bit_stats;
+ };
+ 
++struct hclge_vlan_type_cfg {
++	u16 rx_ot_fst_vlan_type;
++	u16 rx_ot_sec_vlan_type;
++	u16 rx_in_fst_vlan_type;
++	u16 rx_in_sec_vlan_type;
++	u16 tx_ot_vlan_type;
++	u16 tx_in_vlan_type;
++};
++
+ struct hclge_dev {
+ 	struct pci_dev *pdev;
+ 	struct hnae3_ae_dev *ae_dev;
+@@ -469,6 +478,8 @@ struct hclge_dev {
+ 	enum hclge_mta_dmac_sel_type mta_mac_sel_type;
+ 	bool enable_mta; /* Mutilcast filter enable */
+ 	bool accept_mta_mc; /* Whether accept mta filter multicast */
++
++	struct hclge_vlan_type_cfg vlan_type_cfg;
+ };
+ 
+ struct hclge_vport {
 -- 
 1.9.1
