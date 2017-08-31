@@ -1,71 +1,62 @@
-From: Mike Galbraith <efault@gmx.de>
-Subject: Re: tip -ENOBOOT - bisected to locking/refcounts, x86/asm:
- Implement fast refcount overflow protection
-Date: Thu, 31 Aug 2017 06:38:18 +0200
-Message-ID: <1504154298.23109.23.camel@gmx.de>
-References: <1503996623.8323.20.camel@gmx.de>
-         <CAGXu5jLYHy6Damtg_Pc4=G76OUiMV3fcY9+Ru1-Lmiq6VWEgsw@mail.gmail.com>
-         <1504025721.6024.25.camel@gmx.de> <1504030207.6560.0.camel@gmx.de>
-         <CAGXu5jKSWiZ8NkgUqO6G8fs5R06bMtdFBmZz9MMX-HAk8nXXNw@mail.gmail.com>
-         <1504069332.8352.3.camel@gmx.de>
-         <CAGXu5jJim=r8b+y1qQXtuzm9fPyv1tp9ANebxbCc9ic2c83_Mg@mail.gmail.com>
-         <1504113212.5852.6.camel@gmx.de>
-         <CAGXu5jJd80-0PJvB51x9ZDETPSoAtRVQ7dQ6HWwd0DYpKBgPFA@mail.gmail.com>
-         <1504115735.5852.11.camel@gmx.de>
-         <CAGXu5j+BLj6_LPfKs-vts-mbyJHu8D--WrmWbiT8Zbt-iD65KA@mail.gmail.com>
-         <CAGXu5j+neSYAqb8=r42=jQ0LsJTGjCSdpgc9Hv+ipyAFURbCdw@mail.gmail.com>
-         <1504145389.23109.4.camel@gmx.de>
-         <CAGXu5jLKXEDdSpxxVM5oHHUWKbSTozx4FZRn70bQm4tQAhMqUQ@mail.gmail.com>
-         <1504149176.23109.9.camel@gmx.de>
-         <CAGXu5j+uNU+wqWoCV+Kpdp+DQer4E3VuwO0mtXiW3Dtw_61QKA@mail.gmail.com>
-         <CAGXu5jKYPp5D+YxtqrJXsi48UUbjfeREngsys-dU1eP4RnnL+w@mail.gmail.com>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: [PATCH] rtlwifi: rtl8723be: fix duplicated code for different
+ branches
+Date: Wed, 30 Aug 2017 23:42:18 -0500
+Message-ID: <d26873ed-3c1e-f47c-0aab-e8e670c8ced5@lwfinger.net>
+References: <20170830170424.GA19424@embeddedgus>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>, Ingo Molnar <mingo@elte.hu>,
-        "Reshetova, Elena" <elena.reshetova@intel.com>,
-        Network Development <netdev@vger.kernel.org>
-To: Kees Cook <keescook@chromium.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Peter Zijlstra <peterz@infradead.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.17.22]:64841 "EHLO mout.gmx.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750883AbdHaEjI (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 31 Aug 2017 00:39:08 -0400
-In-Reply-To: <CAGXu5jKYPp5D+YxtqrJXsi48UUbjfeREngsys-dU1eP4RnnL+w@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: "Gustavo A. R. Silva" <gustavo@embeddedor.com>,
+        Chaoming Li <chaoming_li@realsil.com.cn>,
+        Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170830170424.GA19424@embeddedgus>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2017-08-30 at 21:10 -0700, Kees Cook wrote:
-> On Wed, Aug 30, 2017 at 9:01 PM, Kees Cook <keescook@chromium.org> wrote:
-> > On Wed, Aug 30, 2017 at 8:12 PM, Mike Galbraith <efault@gmx.de> wrote:
-> >> On Wed, 2017-08-30 at 19:27 -0700, Kees Cook wrote:
-> >>
-> >>> Interesting! Can you try with 633547973ffc3 ("net: convert
-> >>> sk_buff.users from atomic_t to refcount_t") reverted? I'll see if
-> >>> running haveged will help me trigger this on my system...
-> >>
-> >> With that (plus 230cd1279d001 fix to it) reverted, vbox boots.
-> >
-> > Wonderful! Thank you so much for helping track this down.
-> >
-> > So, it seems that sk_buff.users will need some more special attention
-> > before we can convert it to refcount.
-> >
-> > x86-refcount will saturate with refcount_dec_and_test() if the result
-> > is negative. But that would mean at least starting at 0. FULL should
-> > have WARNed in this case, so I remain slightly confused why it was
-> > missed by FULL.
+On 08/30/2017 12:04 PM, Gustavo A. R. Silva wrote:
+> Refactor code in order to avoid identical code for different branches.
 > 
-> Actually, if this is a race condition it's possible that FULL is slow
-> enough to miss it...
+> Addresses-Coverity-ID: 1248728
+> Signed-off-by: Gustavo A. R. Silva <gustavo@embeddedor.com>
+
+According to Realtek, this change is OK.
+
+Acked-by: Larry Finger <Larry.Finger@lwfinger.net>
+
+Thanks,
+
+Larry
+
+> ---
+> This issue was reported by Coverity and it was tested by compilation only.
+> Please, verify if this is not a copy/paste error.
+> Also, notice this code has been there since 2014.
 > 
-> I bet something briefly takes the refcount negative, and with
-> unchecked atomics, it come back up positive again during the race.
-> FULL may miss the race, and x86-refcount will catch it and saturate...
-
-Hm, I'll go have a stare.. not that that's likely to turn anything up,
-memory ordering stares usually inducing a zombie like state.
-
-	-Mike
+>   drivers/net/wireless/realtek/rtlwifi/rtl8723be/dm.c | 8 ++------
+>   1 file changed, 2 insertions(+), 6 deletions(-)
+> 
+> diff --git a/drivers/net/wireless/realtek/rtlwifi/rtl8723be/dm.c b/drivers/net/wireless/realtek/rtlwifi/rtl8723be/dm.c
+> index 131c0d1..15c117e 100644
+> --- a/drivers/net/wireless/realtek/rtlwifi/rtl8723be/dm.c
+> +++ b/drivers/net/wireless/realtek/rtlwifi/rtl8723be/dm.c
+> @@ -883,12 +883,8 @@ static void rtl8723be_dm_txpower_tracking_callback_thermalmeter(
+>   	if ((rtldm->power_index_offset[RF90_PATH_A] != 0) &&
+>   	    (rtldm->txpower_track_control)) {
+>   		rtldm->done_txpower = true;
+> -		if (thermalvalue > rtlefuse->eeprom_thermalmeter)
+> -			rtl8723be_dm_tx_power_track_set_power(hw, BBSWING, 0,
+> -							     index_for_channel);
+> -		else
+> -			rtl8723be_dm_tx_power_track_set_power(hw, BBSWING, 0,
+> -							     index_for_channel);
+> +		rtl8723be_dm_tx_power_track_set_power(hw, BBSWING, 0,
+> +						      index_for_channel);
+>   
+>   		rtldm->swing_idx_cck_base = rtldm->swing_idx_cck;
+>   		rtldm->swing_idx_ofdm_base[RF90_PATH_A] =
+> 
