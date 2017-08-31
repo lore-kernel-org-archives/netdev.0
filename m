@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 3/4] net: dsa: change dsa_ptr for a dsa_master
-Date: Thu, 31 Aug 2017 14:37:45 -0400
-Message-ID: <20170831183746.2109-4-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 2/4] net: dsa: move master ethtool ops in dsa_master
+Date: Thu, 31 Aug 2017 14:37:44 -0400
+Message-ID: <20170831183746.2109-3-vivien.didelot@savoirfairelinux.com>
 References: <20170831183746.2109-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
@@ -14,467 +14,387 @@ In-Reply-To: <20170831183746.2109-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The dsa_ptr of a net_device currently points to a dsa_switch_tree.
+The copy of the master netdev ethtool_ops is currently stored in the
+dsa_port structure, but it is specific to the DSA master (CPU) port.
 
-This is not correct because the interface is physically linked to a
-switch port, and because several network interface could point to
-several (so called "CPU") ports of the same DSA switch tree.
+Move it in the new dsa_master structure. While modifying the ethtool
+functions to take this structure as argument, move them in a new
+master.c DSA core file.
 
-Because the tagging operations are specific to the DSA master port and
-not the whole switch tree, move the tag_ops pointer in dsa_master.
-
-Finally change the dsa_ptr from dsa_switch_tree to a dsa_master.
+Also the ethtool ops were the only remaining users for
+master->port->netdev thus remove this assignment now.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- include/linux/netdevice.h |  4 ++--
- include/net/dsa.h         | 21 ++++++++++-----------
- net/dsa/dsa.c             |  6 +++---
- net/dsa/dsa2.c            | 13 +++++--------
- net/dsa/dsa_priv.h        |  8 ++------
- net/dsa/legacy.c          | 13 ++++---------
- net/dsa/master.c          | 28 ++++++++++++++++++++++------
- net/dsa/slave.c           |  2 +-
- net/dsa/tag_brcm.c        |  5 ++---
- net/dsa/tag_dsa.c         |  3 ++-
- net/dsa/tag_edsa.c        |  3 ++-
- net/dsa/tag_ksz.c         |  5 ++---
- net/dsa/tag_lan9303.c     |  6 ++----
- net/dsa/tag_mtk.c         | 12 ++----------
- net/dsa/tag_qca.c         | 12 ++----------
- net/dsa/tag_trailer.c     |  5 ++---
- 16 files changed, 65 insertions(+), 81 deletions(-)
+ include/net/dsa.h  |   9 ++---
+ net/dsa/dsa.c      |  28 --------------
+ net/dsa/dsa2.c     |   4 +-
+ net/dsa/dsa_priv.h |   5 +--
+ net/dsa/legacy.c   |   4 +-
+ net/dsa/master.c   | 105 ++++++++++++++++++++++++++++++++++++++++++++++++++++-
+ net/dsa/slave.c    |  80 ----------------------------------------
+ 7 files changed, 114 insertions(+), 121 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 29bf06ff157c..eb0501c9afc5 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -55,7 +55,7 @@
- struct netpoll_info;
- struct device;
- struct phy_device;
--struct dsa_switch_tree;
-+struct dsa_master;
- 
- /* 802.11 specific */
- struct wireless_dev;
-@@ -1752,7 +1752,7 @@ struct net_device {
- 	struct vlan_info __rcu	*vlan_info;
- #endif
- #if IS_ENABLED(CONFIG_NET_DSA)
--	struct dsa_switch_tree	*dsa_ptr;
-+	struct dsa_master	*dsa_ptr;
- #endif
- #if IS_ENABLED(CONFIG_TIPC)
- 	struct tipc_bearer __rcu *tipc_ptr;
 diff --git a/include/net/dsa.h b/include/net/dsa.h
-index f4a5afc4255b..d5b24cd10f79 100644
+index 217e36cfc69f..f4a5afc4255b 100644
 --- a/include/net/dsa.h
 +++ b/include/net/dsa.h
-@@ -130,11 +130,6 @@ struct dsa_switch_tree {
- 	 */
- 	struct dsa_platform_data	*pd;
- 
--	/* Copy of tag_ops->rcv for faster access in hot path */
--	struct sk_buff *	(*rcv)(struct sk_buff *skb,
--				       struct net_device *dev,
--				       struct packet_type *pt);
--
- 	/*
- 	 * The switch port to which the CPU is attached.
- 	 */
-@@ -144,12 +139,6 @@ struct dsa_switch_tree {
- 	 * Data for the individual switch chips.
- 	 */
- 	struct dsa_switch	*ds[DSA_MAX_SWITCHES];
--
--	/*
--	 * Tagging protocol operations for adding and removing an
--	 * encapsulation tag.
--	 */
--	const struct dsa_device_ops *tag_ops;
- };
- 
- /* TC matchall action types, only mirroring for now */
-@@ -177,6 +166,16 @@ struct dsa_master {
+@@ -176,6 +176,10 @@ struct dsa_mall_tc_entry {
+ struct dsa_master {
  	struct dsa_port *port;
  	struct net_device *netdev;
- 
-+	/*
-+	 * Tagging protocol operations for adding and removing an
-+	 * encapsulation tag.
-+	 */
-+	const struct dsa_device_ops *tag_ops;
 +
-+	/* Copy of tag_ops->rcv for faster access in hot path */
-+	struct sk_buff *(*rcv)(struct sk_buff *skb, struct net_device *dev,
-+			       struct packet_type *pt);
-+
- 	/* Original copy of the master netdev ethtool_ops */
- 	const struct ethtool_ops *orig_ethtool_ops;
- 	struct ethtool_ops ethtool_ops;
-diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index 81c852e32821..f2ebd3572d6f 100644
---- a/net/dsa/dsa.c
-+++ b/net/dsa/dsa.c
-@@ -160,12 +160,12 @@ EXPORT_SYMBOL_GPL(dsa_dev_to_net_device);
- static int dsa_switch_rcv(struct sk_buff *skb, struct net_device *dev,
- 			  struct packet_type *pt, struct net_device *unused)
- {
--	struct dsa_switch_tree *dst = dev->dsa_ptr;
-+	struct dsa_master *master = dev->dsa_ptr;
- 	struct sk_buff *nskb = NULL;
- 	struct pcpu_sw_netstats *s;
- 	struct dsa_slave_priv *p;
- 
--	if (unlikely(dst == NULL)) {
-+	if (unlikely(!master)) {
- 		kfree_skb(skb);
- 		return 0;
- 	}
-@@ -174,7 +174,7 @@ static int dsa_switch_rcv(struct sk_buff *skb, struct net_device *dev,
- 	if (!skb)
- 		return 0;
- 
--	nskb = dst->rcv(skb, dev, pt);
-+	nskb = master->rcv(skb, dev, pt);
- 	if (!nskb) {
- 		kfree_skb(skb);
- 		return 0;
-diff --git a/net/dsa/dsa2.c b/net/dsa/dsa2.c
-index d60f681b96cc..80a9706324f2 100644
---- a/net/dsa/dsa2.c
-+++ b/net/dsa/dsa2.c
-@@ -444,7 +444,7 @@ static int dsa_dst_apply(struct dsa_switch_tree *dst)
- 	 * sent to the tag format's receive function.
- 	 */
- 	wmb();
--	dst->master->netdev->dsa_ptr = dst;
-+	dst->master->netdev->dsa_ptr = dst->master;
- 	dst->applied = true;
- 
- 	return 0;
-@@ -487,9 +487,9 @@ static int dsa_cpu_parse(struct dsa_port *port, u32 index,
- 			 struct dsa_switch_tree *dst,
- 			 struct dsa_switch *ds)
- {
--	enum dsa_tag_protocol tag_protocol;
- 	struct net_device *ethernet_dev;
- 	struct device_node *ethernet;
-+	int err;
- 
- 	if (port->dn) {
- 		ethernet = of_parse_phandle(port->dn, "ethernet", 0);
-@@ -516,16 +516,13 @@ static int dsa_cpu_parse(struct dsa_port *port, u32 index,
- 	 */
- 	ds->cpu_port_mask |= BIT(index);
- 
--	tag_protocol = ds->ops->get_tag_protocol(ds);
--	dst->tag_ops = dsa_resolve_tag_protocol(tag_protocol);
--	if (IS_ERR(dst->tag_ops)) {
-+	err = dsa_master_tag_protocol(dst->master);
-+	if (err) {
- 		dev_warn(ds->dev, "No tagger for this switch\n");
- 		ds->cpu_port_mask &= ~BIT(index);
--		return PTR_ERR(dst->tag_ops);
-+		return err;
- 	}
- 
--	dst->rcv = dst->tag_ops->rcv;
--
- 	return 0;
- }
- 
-diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
-index 4fa14b4305b9..59f155cbbe87 100644
---- a/net/dsa/dsa_priv.h
-+++ b/net/dsa/dsa_priv.h
-@@ -66,7 +66,7 @@ struct dsa_notifier_vlan_info {
++	/* Original copy of the master netdev ethtool_ops */
++	const struct ethtool_ops *orig_ethtool_ops;
++	struct ethtool_ops ethtool_ops;
  };
  
- struct dsa_slave_priv {
--	/* Copy of dp->ds->dst->tag_ops->xmit for faster access in hot path */
-+	/* Copy of the master xmit tagging op for faster access in hot path */
- 	struct sk_buff *	(*xmit)(struct sk_buff *skb,
- 					struct net_device *dev);
+ struct dsa_port {
+@@ -189,11 +193,6 @@ struct dsa_port {
+ 	u8			stp_state;
+ 	struct net_device	*bridge_dev;
+ 	struct devlink_port	devlink_port;
+-	/*
+-	 * Original copy of the master netdev ethtool_ops
+-	 */
+-	struct ethtool_ops	ethtool_ops;
+-	const struct ethtool_ops *orig_ethtool_ops;
+ };
  
-@@ -115,6 +115,7 @@ struct dsa_master *dsa_master_create(struct dsa_port *port,
+ struct dsa_switch {
+diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+index 03c58b0eb082..81c852e32821 100644
+--- a/net/dsa/dsa.c
++++ b/net/dsa/dsa.c
+@@ -112,34 +112,6 @@ const struct dsa_device_ops *dsa_resolve_tag_protocol(int tag_protocol)
+ 	return ops;
+ }
+ 
+-int dsa_cpu_port_ethtool_setup(struct dsa_port *cpu_dp)
+-{
+-	struct dsa_switch *ds = cpu_dp->ds;
+-	struct net_device *master;
+-	struct ethtool_ops *cpu_ops;
+-
+-	master = cpu_dp->netdev;
+-
+-	cpu_ops = devm_kzalloc(ds->dev, sizeof(*cpu_ops), GFP_KERNEL);
+-	if (!cpu_ops)
+-		return -ENOMEM;
+-
+-	memcpy(&cpu_dp->ethtool_ops, master->ethtool_ops,
+-	       sizeof(struct ethtool_ops));
+-	cpu_dp->orig_ethtool_ops = master->ethtool_ops;
+-	memcpy(cpu_ops, &cpu_dp->ethtool_ops,
+-	       sizeof(struct ethtool_ops));
+-	dsa_cpu_port_ethtool_init(cpu_ops);
+-	master->ethtool_ops = cpu_ops;
+-
+-	return 0;
+-}
+-
+-void dsa_cpu_port_ethtool_restore(struct dsa_port *cpu_dp)
+-{
+-	cpu_dp->netdev->ethtool_ops = cpu_dp->orig_ethtool_ops;
+-}
+-
+ void dsa_cpu_dsa_destroy(struct dsa_port *port)
+ {
+ 	struct device_node *port_dn = port->dn;
+diff --git a/net/dsa/dsa2.c b/net/dsa/dsa2.c
+index 4c4381b7aafb..d60f681b96cc 100644
+--- a/net/dsa/dsa2.c
++++ b/net/dsa/dsa2.c
+@@ -434,7 +434,7 @@ static int dsa_dst_apply(struct dsa_switch_tree *dst)
+ 	}
+ 
+ 	if (dst->master) {
+-		err = dsa_cpu_port_ethtool_setup(dst->master->port);
++		err = dsa_master_ethtool_setup(dst->master);
+ 		if (err)
+ 			return err;
+ 	}
+@@ -475,7 +475,7 @@ static void dsa_dst_unapply(struct dsa_switch_tree *dst)
+ 	}
+ 
+ 	if (dst->master) {
+-		dsa_cpu_port_ethtool_restore(dst->master->port);
++		dsa_master_ethtool_restore(dst->master);
+ 		dst->master = NULL;
+ 	}
+ 
+diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
+index 70f576b3d6fb..4fa14b4305b9 100644
+--- a/net/dsa/dsa_priv.h
++++ b/net/dsa/dsa_priv.h
+@@ -97,8 +97,6 @@ struct dsa_slave_priv {
+ int dsa_cpu_dsa_setup(struct dsa_port *port);
+ void dsa_cpu_dsa_destroy(struct dsa_port *dport);
+ const struct dsa_device_ops *dsa_resolve_tag_protocol(int tag_protocol);
+-int dsa_cpu_port_ethtool_setup(struct dsa_port *cpu_dp);
+-void dsa_cpu_port_ethtool_restore(struct dsa_port *cpu_dp);
+ bool dsa_schedule_work(struct work_struct *work);
+ 
+ /* legacy.c */
+@@ -115,6 +113,8 @@ int dsa_legacy_fdb_del(struct ndmsg *ndm, struct nlattr *tb[],
+ /* master.c */
+ struct dsa_master *dsa_master_create(struct dsa_port *port,
  				     struct net_device *netdev);
- int dsa_master_ethtool_setup(struct dsa_master *master);
- void dsa_master_ethtool_restore(struct dsa_master *master);
-+int dsa_master_tag_protocol(struct dsa_master *master);
++int dsa_master_ethtool_setup(struct dsa_master *master);
++void dsa_master_ethtool_restore(struct dsa_master *master);
  
  /* port.c */
  int dsa_port_set_state(struct dsa_port *dp, u8 state,
-@@ -183,9 +184,4 @@ static inline struct net_device *dsa_master_netdev(struct dsa_slave_priv *p)
- 	return p->dp->ds->dst->master->netdev;
- }
- 
--static inline struct dsa_port *dsa_get_cpu_port(struct dsa_switch_tree *dst)
--{
--	return dst->master->port;
--}
--
- #endif
+@@ -143,7 +143,6 @@ int dsa_port_vlan_del(struct dsa_port *dp,
+ /* slave.c */
+ extern const struct dsa_device_ops notag_netdev_ops;
+ void dsa_slave_mii_bus_init(struct dsa_switch *ds);
+-void dsa_cpu_port_ethtool_init(struct ethtool_ops *ops);
+ int dsa_slave_create(struct dsa_port *port, const char *name);
+ void dsa_slave_destroy(struct net_device *slave_dev);
+ int dsa_slave_suspend(struct net_device *slave_dev);
 diff --git a/net/dsa/legacy.c b/net/dsa/legacy.c
-index acd81c488bf4..3afedd9758c5 100644
+index 7a21415d2a81..acd81c488bf4 100644
 --- a/net/dsa/legacy.c
 +++ b/net/dsa/legacy.c
-@@ -147,14 +147,9 @@ static int dsa_switch_setup_one(struct dsa_switch *ds,
- 	 * switch.
- 	 */
- 	if (dst->master->port->ds == ds) {
--		enum dsa_tag_protocol tag_protocol;
--
--		tag_protocol = ops->get_tag_protocol(ds);
--		dst->tag_ops = dsa_resolve_tag_protocol(tag_protocol);
--		if (IS_ERR(dst->tag_ops))
--			return PTR_ERR(dst->tag_ops);
--
--		dst->rcv = dst->tag_ops->rcv;
-+		ret = dsa_master_tag_protocol(dst->master);
-+		if (ret)
-+			return ret;
+@@ -209,7 +209,7 @@ static int dsa_switch_setup_one(struct dsa_switch *ds,
+ 		netdev_err(master, "[%d] : can't configure CPU and DSA ports\n",
+ 			   index);
+ 
+-	ret = dsa_cpu_port_ethtool_setup(ds->dst->master->port);
++	ret = dsa_master_ethtool_setup(ds->dst->master);
+ 	if (ret)
+ 		return ret;
+ 
+@@ -689,7 +689,7 @@ static void dsa_remove_dst(struct dsa_switch_tree *dst)
+ 			dsa_switch_destroy(ds);
  	}
  
- 	memcpy(ds->rtable, cd->rtable, sizeof(ds->rtable));
-@@ -607,7 +602,7 @@ static int dsa_setup_dst(struct dsa_switch_tree *dst, struct net_device *dev,
- 	 * sent to the tag format's receive function.
- 	 */
- 	wmb();
--	dev->dsa_ptr = dst;
-+	dev->dsa_ptr = dst->master;
+-	dsa_cpu_port_ethtool_restore(dst->master->port);
++	dsa_master_ethtool_restore(dst->master);
  
- 	return 0;
+ 	dev_put(dst->master->netdev);
  }
 diff --git a/net/dsa/master.c b/net/dsa/master.c
-index 9ecce3e7c8df..6714750ee13f 100644
+index 294b82b9c114..9ecce3e7c8df 100644
 --- a/net/dsa/master.c
 +++ b/net/dsa/master.c
-@@ -16,8 +16,7 @@ static void dsa_master_get_ethtool_stats(struct net_device *dev,
- 					 struct ethtool_stats *stats,
- 					 uint64_t *data)
- {
--	struct dsa_switch_tree *dst = dev->dsa_ptr;
--	struct dsa_master *master = dst->master;
-+	struct dsa_master *master = dev->dsa_ptr;
- 	struct dsa_port *port = master->port;
- 	struct dsa_switch *ds = port->ds;
- 	int count = 0;
-@@ -33,8 +32,7 @@ static void dsa_master_get_ethtool_stats(struct net_device *dev,
+@@ -12,6 +12,110 @@
  
- static int dsa_master_get_sset_count(struct net_device *dev, int sset)
- {
--	struct dsa_switch_tree *dst = dev->dsa_ptr;
--	struct dsa_master *master = dst->master;
-+	struct dsa_master *master = dev->dsa_ptr;
- 	struct dsa_port *port = master->port;
- 	struct dsa_switch *ds = port->ds;
- 	int count = 0;
-@@ -51,8 +49,7 @@ static int dsa_master_get_sset_count(struct net_device *dev, int sset)
- static void dsa_master_get_strings(struct net_device *dev, uint32_t stringset,
- 				   uint8_t *data)
- {
--	struct dsa_switch_tree *dst = dev->dsa_ptr;
--	struct dsa_master *master = dst->master;
-+	struct dsa_master *master = dev->dsa_ptr;
- 	struct dsa_port *port = master->port;
- 	struct dsa_switch *ds = port->ds;
- 	int len = ETH_GSTRING_LEN;
-@@ -116,6 +113,25 @@ void dsa_master_ethtool_restore(struct dsa_master *master)
- 	master->orig_ethtool_ops = NULL;
- }
+ #include "dsa_priv.h"
  
-+int dsa_master_tag_protocol(struct dsa_master *master)
++static void dsa_master_get_ethtool_stats(struct net_device *dev,
++					 struct ethtool_stats *stats,
++					 uint64_t *data)
 +{
-+	struct dsa_switch *ds = master->port->ds;
-+	enum dsa_tag_protocol proto;
++	struct dsa_switch_tree *dst = dev->dsa_ptr;
++	struct dsa_master *master = dst->master;
++	struct dsa_port *port = master->port;
++	struct dsa_switch *ds = port->ds;
++	int count = 0;
 +
-+	if (!ds->ops->get_tag_protocol)
-+		return -EOPNOTSUPP;
++	if (master->ethtool_ops.get_sset_count) {
++		count = master->ethtool_ops.get_sset_count(dev, ETH_SS_STATS);
++		master->ethtool_ops.get_ethtool_stats(dev, stats, data);
++	}
 +
-+	proto = ds->ops->get_tag_protocol(ds);
++	if (ds->ops->get_ethtool_stats)
++		ds->ops->get_ethtool_stats(ds, port->index, data + count);
++}
 +
-+	master->tag_ops = dsa_resolve_tag_protocol(proto);
-+	if (IS_ERR(master->tag_ops))
-+		return PTR_ERR(master->tag_ops);
++static int dsa_master_get_sset_count(struct net_device *dev, int sset)
++{
++	struct dsa_switch_tree *dst = dev->dsa_ptr;
++	struct dsa_master *master = dst->master;
++	struct dsa_port *port = master->port;
++	struct dsa_switch *ds = port->ds;
++	int count = 0;
 +
-+	master->rcv = master->tag_ops->rcv;
++	if (master->ethtool_ops.get_sset_count)
++		count += master->ethtool_ops.get_sset_count(dev, sset);
++
++	if (sset == ETH_SS_STATS && ds->ops->get_sset_count)
++		count += ds->ops->get_sset_count(ds);
++
++	return count;
++}
++
++static void dsa_master_get_strings(struct net_device *dev, uint32_t stringset,
++				   uint8_t *data)
++{
++	struct dsa_switch_tree *dst = dev->dsa_ptr;
++	struct dsa_master *master = dst->master;
++	struct dsa_port *port = master->port;
++	struct dsa_switch *ds = port->ds;
++	int len = ETH_GSTRING_LEN;
++	int mcount = 0, count;
++	unsigned int i;
++	uint8_t pfx[4];
++	uint8_t *ndata;
++
++	snprintf(pfx, sizeof(pfx), "p%.2d", port->index);
++	/* We do not want to be NULL-terminated, since this is a prefix */
++	pfx[sizeof(pfx) - 1] = '_';
++
++	if (master->ethtool_ops.get_sset_count) {
++		mcount = master->ethtool_ops.get_sset_count(dev, ETH_SS_STATS);
++		master->ethtool_ops.get_strings(dev, stringset, data);
++	}
++
++	if (stringset == ETH_SS_STATS && ds->ops->get_strings) {
++		ndata = data + mcount * len;
++		/* This function copies ETH_GSTRINGS_LEN bytes, we will mangle
++		 * the output after to prepend our CPU port prefix we
++		 * constructed earlier
++		 */
++		ds->ops->get_strings(ds, port->index, ndata);
++		count = ds->ops->get_sset_count(ds);
++		for (i = 0; i < count; i++) {
++			memmove(ndata + (i * len + sizeof(pfx)),
++				ndata + i * len, len - sizeof(pfx));
++			memcpy(ndata + i * len, pfx, sizeof(pfx));
++		}
++	}
++}
++
++int dsa_master_ethtool_setup(struct dsa_master *master)
++{
++	struct device *dev = master->port->ds->dev;
++	struct net_device *netdev = master->netdev;
++	struct ethtool_ops *ops;
++
++	ops = devm_kzalloc(dev, sizeof(*ops), GFP_KERNEL);
++	if (!ops)
++		return -ENOMEM;
++
++	/* Back up the original master netdev ethtool_ops */
++	master->orig_ethtool_ops = netdev->ethtool_ops;
++	memcpy(&master->ethtool_ops, master->orig_ethtool_ops, sizeof(*ops));
++	memcpy(ops, &master->ethtool_ops, sizeof(*ops));
++
++	/* Change the master netdev ethtool_ops */
++	ops->get_sset_count = dsa_master_get_sset_count;
++	ops->get_ethtool_stats = dsa_master_get_ethtool_stats;
++	ops->get_strings = dsa_master_get_strings;
++	netdev->ethtool_ops = ops;
 +
 +	return 0;
++}
++
++void dsa_master_ethtool_restore(struct dsa_master *master)
++{
++	master->netdev->ethtool_ops = master->orig_ethtool_ops;
++	master->orig_ethtool_ops = NULL;
 +}
 +
  struct dsa_master *dsa_master_create(struct dsa_port *port,
  				     struct net_device *netdev)
  {
+@@ -24,7 +128,6 @@ struct dsa_master *dsa_master_create(struct dsa_port *port,
+ 
+ 	master->port = port;
+ 	master->netdev = netdev;
+-	master->port->netdev = netdev;
+ 
+ 	return master;
+ }
 diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 99f9e48a6cee..d5a03ef8d0e0 100644
+index 6d47eca47a0c..99f9e48a6cee 100644
 --- a/net/dsa/slave.c
 +++ b/net/dsa/slave.c
-@@ -1206,7 +1206,7 @@ int dsa_slave_create(struct dsa_port *port, const char *name)
+@@ -567,79 +567,6 @@ static void dsa_slave_get_strings(struct net_device *dev,
  	}
- 	p->dp = port;
- 	INIT_LIST_HEAD(&p->mall_tc_list);
--	p->xmit = dst->tag_ops->xmit;
-+	p->xmit = dst->master->tag_ops->xmit;
+ }
  
- 	p->old_pause = -1;
- 	p->old_link = -1;
-diff --git a/net/dsa/tag_brcm.c b/net/dsa/tag_brcm.c
-index de74c3f77818..417266f23bed 100644
---- a/net/dsa/tag_brcm.c
-+++ b/net/dsa/tag_brcm.c
-@@ -91,9 +91,8 @@ static struct sk_buff *brcm_tag_xmit(struct sk_buff *skb, struct net_device *dev
- static struct sk_buff *brcm_tag_rcv(struct sk_buff *skb, struct net_device *dev,
- 				    struct packet_type *pt)
- {
+-static void dsa_cpu_port_get_ethtool_stats(struct net_device *dev,
+-					   struct ethtool_stats *stats,
+-					   uint64_t *data)
+-{
 -	struct dsa_switch_tree *dst = dev->dsa_ptr;
 -	struct dsa_port *cpu_dp = dsa_get_cpu_port(dst);
 -	struct dsa_switch *ds = cpu_dp->ds;
-+	struct dsa_master *master = dev->dsa_ptr;
-+	struct dsa_switch *ds = master->port->ds;
- 	int source_port;
- 	u8 *brcm_tag;
- 
-diff --git a/net/dsa/tag_dsa.c b/net/dsa/tag_dsa.c
-index fbf9ca954773..7897bbd1a110 100644
---- a/net/dsa/tag_dsa.c
-+++ b/net/dsa/tag_dsa.c
-@@ -67,7 +67,8 @@ static struct sk_buff *dsa_xmit(struct sk_buff *skb, struct net_device *dev)
- static struct sk_buff *dsa_rcv(struct sk_buff *skb, struct net_device *dev,
- 			       struct packet_type *pt)
- {
--	struct dsa_switch_tree *dst = dev->dsa_ptr;
-+	struct dsa_master *master = dev->dsa_ptr;
-+	struct dsa_switch_tree *dst = master->port->ds->dst;
- 	struct dsa_switch *ds;
- 	u8 *dsa_header;
- 	int source_device;
-diff --git a/net/dsa/tag_edsa.c b/net/dsa/tag_edsa.c
-index 76367ba1b2e2..12f9efed6251 100644
---- a/net/dsa/tag_edsa.c
-+++ b/net/dsa/tag_edsa.c
-@@ -80,7 +80,8 @@ static struct sk_buff *edsa_xmit(struct sk_buff *skb, struct net_device *dev)
- static struct sk_buff *edsa_rcv(struct sk_buff *skb, struct net_device *dev,
- 				struct packet_type *pt)
- {
--	struct dsa_switch_tree *dst = dev->dsa_ptr;
-+	struct dsa_master *master = dev->dsa_ptr;
-+	struct dsa_switch_tree *dst = master->port->ds->dst;
- 	struct dsa_switch *ds;
- 	u8 *edsa_header;
- 	int source_device;
-diff --git a/net/dsa/tag_ksz.c b/net/dsa/tag_ksz.c
-index 17f30675c15c..7043d51a7a80 100644
---- a/net/dsa/tag_ksz.c
-+++ b/net/dsa/tag_ksz.c
-@@ -78,9 +78,8 @@ static struct sk_buff *ksz_xmit(struct sk_buff *skb, struct net_device *dev)
- static struct sk_buff *ksz_rcv(struct sk_buff *skb, struct net_device *dev,
- 			       struct packet_type *pt)
- {
+-	s8 cpu_port = cpu_dp->index;
+-	int count = 0;
+-
+-	if (cpu_dp->ethtool_ops.get_sset_count) {
+-		count = cpu_dp->ethtool_ops.get_sset_count(dev, ETH_SS_STATS);
+-		cpu_dp->ethtool_ops.get_ethtool_stats(dev, stats, data);
+-	}
+-
+-	if (ds->ops->get_ethtool_stats)
+-		ds->ops->get_ethtool_stats(ds, cpu_port, data + count);
+-}
+-
+-static int dsa_cpu_port_get_sset_count(struct net_device *dev, int sset)
+-{
 -	struct dsa_switch_tree *dst = dev->dsa_ptr;
 -	struct dsa_port *cpu_dp = dsa_get_cpu_port(dst);
 -	struct dsa_switch *ds = cpu_dp->ds;
-+	struct dsa_master *master = dev->dsa_ptr;
-+	struct dsa_switch *ds = master->port->ds;
- 	u8 *tag;
- 	int source_port;
- 
-diff --git a/net/dsa/tag_lan9303.c b/net/dsa/tag_lan9303.c
-index 0b9826105e42..afb3df46712a 100644
---- a/net/dsa/tag_lan9303.c
-+++ b/net/dsa/tag_lan9303.c
-@@ -70,13 +70,11 @@ static struct sk_buff *lan9303_xmit(struct sk_buff *skb, struct net_device *dev)
- static struct sk_buff *lan9303_rcv(struct sk_buff *skb, struct net_device *dev,
- 			struct packet_type *pt)
- {
-+	struct dsa_master *master = dev->dsa_ptr;
-+	struct dsa_switch *ds = master->port->ds;
- 	u16 *lan9303_tag;
--	struct dsa_switch_tree *dst = dev->dsa_ptr;
--	struct dsa_switch *ds;
- 	unsigned int source_port;
- 
--	ds = dst->ds[0];
+-	int count = 0;
 -
- 	if (unlikely(!ds)) {
- 		dev_warn_ratelimited(&dev->dev, "Dropping packet, due to missing DSA switch device\n");
- 		return NULL;
-diff --git a/net/dsa/tag_mtk.c b/net/dsa/tag_mtk.c
-index ec8ee5f43255..7af26afaa8ac 100644
---- a/net/dsa/tag_mtk.c
-+++ b/net/dsa/tag_mtk.c
-@@ -46,8 +46,8 @@ static struct sk_buff *mtk_tag_xmit(struct sk_buff *skb,
- static struct sk_buff *mtk_tag_rcv(struct sk_buff *skb, struct net_device *dev,
- 				   struct packet_type *pt)
- {
--	struct dsa_switch_tree *dst = dev->dsa_ptr;
--	struct dsa_switch *ds;
-+	struct dsa_master *master = dev->dsa_ptr;
-+	struct dsa_switch *ds = master->port->ds;
- 	int port;
- 	__be16 *phdr, hdr;
- 
-@@ -68,14 +68,6 @@ static struct sk_buff *mtk_tag_rcv(struct sk_buff *skb, struct net_device *dev,
- 		skb->data - ETH_HLEN - MTK_HDR_LEN,
- 		2 * ETH_ALEN);
- 
--	/* This protocol doesn't support cascading multiple
--	 * switches so it's safe to assume the switch is first
--	 * in the tree.
--	 */
--	ds = dst->ds[0];
--	if (!ds)
--		return NULL;
+-	if (cpu_dp->ethtool_ops.get_sset_count)
+-		count += cpu_dp->ethtool_ops.get_sset_count(dev, sset);
 -
- 	/* Get source port information */
- 	port = (hdr & MTK_HDR_RECV_SOURCE_PORT_MASK);
- 	if (!ds->ports[port].netdev)
-diff --git a/net/dsa/tag_qca.c b/net/dsa/tag_qca.c
-index 1d4c70711c0f..a49cc7c6fac9 100644
---- a/net/dsa/tag_qca.c
-+++ b/net/dsa/tag_qca.c
-@@ -65,9 +65,8 @@ static struct sk_buff *qca_tag_xmit(struct sk_buff *skb, struct net_device *dev)
- static struct sk_buff *qca_tag_rcv(struct sk_buff *skb, struct net_device *dev,
- 				   struct packet_type *pt)
- {
--	struct dsa_switch_tree *dst = dev->dsa_ptr;
--	struct dsa_port *cpu_dp = dsa_get_cpu_port(dst);
--	struct dsa_switch *ds;
-+	struct dsa_master *master = dev->dsa_ptr;
-+	struct dsa_switch *ds = master->port->ds;
- 	u8 ver;
- 	int port;
- 	__be16 *phdr, hdr;
-@@ -92,13 +91,6 @@ static struct sk_buff *qca_tag_rcv(struct sk_buff *skb, struct net_device *dev,
- 	memmove(skb->data - ETH_HLEN, skb->data - ETH_HLEN - QCA_HDR_LEN,
- 		ETH_HLEN - QCA_HDR_LEN);
- 
--	/* This protocol doesn't support cascading multiple switches so it's
--	 * safe to assume the switch is first in the tree
--	 */
--	ds = cpu_dp->ds;
--	if (!ds)
--		return NULL;
+-	if (sset == ETH_SS_STATS && ds->ops->get_sset_count)
+-		count += ds->ops->get_sset_count(ds);
 -
- 	/* Get source port information */
- 	port = (hdr & QCA_HDR_RECV_SOURCE_PORT_MASK);
- 	if (!ds->ports[port].netdev)
-diff --git a/net/dsa/tag_trailer.c b/net/dsa/tag_trailer.c
-index 8707157dea32..a3dacfb48dc0 100644
---- a/net/dsa/tag_trailer.c
-+++ b/net/dsa/tag_trailer.c
-@@ -58,9 +58,8 @@ static struct sk_buff *trailer_xmit(struct sk_buff *skb, struct net_device *dev)
- static struct sk_buff *trailer_rcv(struct sk_buff *skb, struct net_device *dev,
- 				   struct packet_type *pt)
- {
+-	return count;
+-}
+-
+-static void dsa_cpu_port_get_strings(struct net_device *dev,
+-				     uint32_t stringset, uint8_t *data)
+-{
 -	struct dsa_switch_tree *dst = dev->dsa_ptr;
 -	struct dsa_port *cpu_dp = dsa_get_cpu_port(dst);
 -	struct dsa_switch *ds = cpu_dp->ds;
-+	struct dsa_master *master = dev->dsa_ptr;
-+	struct dsa_switch *ds = master->port->ds;
- 	u8 *trailer;
- 	int source_port;
+-	s8 cpu_port = cpu_dp->index;
+-	int len = ETH_GSTRING_LEN;
+-	int mcount = 0, count;
+-	unsigned int i;
+-	uint8_t pfx[4];
+-	uint8_t *ndata;
+-
+-	snprintf(pfx, sizeof(pfx), "p%.2d", cpu_port);
+-	/* We do not want to be NULL-terminated, since this is a prefix */
+-	pfx[sizeof(pfx) - 1] = '_';
+-
+-	if (cpu_dp->ethtool_ops.get_sset_count) {
+-		mcount = cpu_dp->ethtool_ops.get_sset_count(dev, ETH_SS_STATS);
+-		cpu_dp->ethtool_ops.get_strings(dev, stringset, data);
+-	}
+-
+-	if (stringset == ETH_SS_STATS && ds->ops->get_strings) {
+-		ndata = data + mcount * len;
+-		/* This function copies ETH_GSTRINGS_LEN bytes, we will mangle
+-		 * the output after to prepend our CPU port prefix we
+-		 * constructed earlier
+-		 */
+-		ds->ops->get_strings(ds, cpu_port, ndata);
+-		count = ds->ops->get_sset_count(ds);
+-		for (i = 0; i < count; i++) {
+-			memmove(ndata + (i * len + sizeof(pfx)),
+-				ndata + i * len, len - sizeof(pfx));
+-			memcpy(ndata + i * len, pfx, sizeof(pfx));
+-		}
+-	}
+-}
+-
+ static void dsa_slave_get_ethtool_stats(struct net_device *dev,
+ 					struct ethtool_stats *stats,
+ 					uint64_t *data)
+@@ -976,13 +903,6 @@ static void dsa_slave_get_stats64(struct net_device *dev,
+ 	}
+ }
  
+-void dsa_cpu_port_ethtool_init(struct ethtool_ops *ops)
+-{
+-	ops->get_sset_count = dsa_cpu_port_get_sset_count;
+-	ops->get_ethtool_stats = dsa_cpu_port_get_ethtool_stats;
+-	ops->get_strings = dsa_cpu_port_get_strings;
+-}
+-
+ static int dsa_slave_get_rxnfc(struct net_device *dev,
+ 			       struct ethtool_rxnfc *nfc, u32 *rule_locs)
+ {
 -- 
 2.14.1
