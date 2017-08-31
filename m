@@ -1,61 +1,61 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next] samples/bpf: Fix compilation issue in redirect
- dummy program
-Date: Thu, 31 Aug 2017 13:43:20 +0200
-Message-ID: <59A7F658.4020606@iogearbox.net>
-References: <1504178199-12410-1-git-send-email-tariqt@mellanox.com> <20170831132710.3b245a6a@redhat.com>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [GIT] Networking
+Date: Thu, 31 Aug 2017 14:50:28 +0300
+Message-ID: <87y3q0q7ln.fsf@kamboji.qca.qualcomm.com>
+References: <87pobdt8qc.fsf@kamboji.qca.qualcomm.com>
+        <20170830.101143.2305098064824357647.davem@davemloft.net>
+        <87val5rmh8.fsf@kamboji.qca.qualcomm.com>
+        <20170830.105447.125174575140677062.davem@davemloft.net>
+        <87fuc8s5v9.fsf@kamboji.qca.qualcomm.com> <20170831065204.GA17812@amd>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Eran Ben Elisha <eranbe@mellanox.com>, ys114321@gmail.com,
-        alexei.starovoitov@gmail.com
-To: Jesper Dangaard Brouer <brouer@redhat.com>,
-        Tariq Toukan <tariqt@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:37874 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750908AbdHaLn3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 07:43:29 -0400
-In-Reply-To: <20170831132710.3b245a6a@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: David Miller <davem@davemloft.net>, xiyou.wangcong@gmail.com,
+        torvalds@linux-foundation.org, akpm@linux-foundation.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-wireless@vger.kernel.org
+To: Pavel Machek <pavel@ucw.cz>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170831065204.GA17812@amd> (Pavel Machek's message of "Thu, 31
+        Aug 2017 08:52:04 +0200")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 08/31/2017 01:27 PM, Jesper Dangaard Brouer wrote:
-> On Thu, 31 Aug 2017 14:16:39 +0300
-> Tariq Toukan <tariqt@mellanox.com> wrote:
+(Adding linux-wireless)
+
+Pavel Machek <pavel@ucw.cz> writes:
+
+> On Thu 2017-08-31 07:44:58, Kalle Valo wrote:
+>> David Miller <davem@davemloft.net> writes:
+>> 
+>> > From: Kalle Valo <kvalo@codeaurora.org>
+>> > Date: Wed, 30 Aug 2017 20:31:31 +0300
+>> >
+>> >> AFAICS the bug was introduced by 9df86e2e702c6 back in 2010. If the bug
+>> >> has been there for 7 years so waiting for a few more weeks should not
+>> >> hurt.
+>> >
+>> > As a maintainer you have a right to handle bug fixing in that way, but
+>> > certainly that is not how I would handle this.
+>> >
+>> > It's easy to validate this fix, it's extremely unlikely to cause
+>> > a regression, and fixes a problem someone actually was able to
+>> > trigger.
+>> >
+>> > Deferring to -next only has the side effect of making people wait
+>> > longer for the fix.
+>> 
+>> Yeah, you are right there. I did actually ponder which I tree should
+>> commit it back in July but due to various reasons decided differently.
 >
->> Fix compilation error below:
->>
->> $ make samples/bpf/
->>
->> LLVM ERROR: 'xdp_redirect_dummy' label emitted multiple times to
->> assembly file
->> make[1]: *** [samples/bpf/xdp_redirect_kern.o] Error 1
->> make: *** [samples/bpf/] Error 2
->>
->> Fixes: 306da4e685b4 ("samples/bpf: xdp_redirect load XDP dummy prog on TX device")
->> Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
->> ---
->
-> Acked-by: Jesper Dangaard Brouer <brouer@redhat.com>
+> Can we still get the fix to v4.13-final? :-).
 
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+I'm not planning to submit pull requests to 4.13 anymore. If you think
+this is so important that it needs to be applied in the last minute (I
+don't) you could always try to convince Dave to take it directly.
 
-> What LLVM/clang version do you use?
->
-> I don't see this compile error, and I have:
->   $ clang --version
->   clang version 3.9.1 (tags/RELEA
+Or better yet, push it to the stable tree. If the merge window opens on
+Sunday I suspect that the commit will be in Linus' tree sometime next
+week. Then you can submit the request to the stable team to take it.
 
-I'm seeing the error as well with a fairly recent LLVM from git
-tree (6.0.0git-2d810c2).
-
-Looks like the llvm error is triggered when section name and
-the function name for XDP prog is the same. Changing either the
-function or the section name right above resolves the issue. If
-such error didn't trigger on older versions, people could be
-using such naming scheme as done here, so seems to me like a
-regression on LLVM side we might need to look at ...
-
-In any case, patch here is fine, thanks!
+-- 
+Kalle Valo
