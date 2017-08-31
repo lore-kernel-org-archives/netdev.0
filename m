@@ -1,109 +1,40 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [RFC PATCH] net: frag limit checks need to use
- percpu_counter_compare
-Date: Thu, 31 Aug 2017 12:20:19 +0200
-Message-ID: <150417481955.28907.15567119824187929000.stgit@firesoul>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Florian Westphal <fw@strlen.de>,
-        Jesper Dangaard Brouer <brouer@redhat.com>
-To: liujian56@huawei.com
+From: Rami Rosen <rami.rosen@intel.com>
+Subject: [PATCH net-next] net: fix two typos in net_device_ops documentation.
+Date: Thu, 31 Aug 2017 13:41:40 +0300
+Message-ID: <1504176100-28914-1-git-send-email-rami.rosen@intel.com>
+Cc: netdev@vger.kernel.org, jasowang@redhat.com,
+        Rami Rosen <rami.rosen@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:52218 "EHLO mx1.redhat.com"
+Received: from mga02.intel.com ([134.134.136.20]:44618 "EHLO mga02.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750880AbdHaKUY (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 31 Aug 2017 06:20:24 -0400
+        id S1750757AbdHaKlp (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 31 Aug 2017 06:41:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-To: Liujian can you please test this patch?
- I want to understand if using __percpu_counter_compare() solves
- the problem correctness wise (even-though this will be slower
- than using a simple atomic_t on your big system).
+This patch fixes two trivial typos in net_device_ops documentation,
+related to ndo_xdp_flush callback.
 
-Fix bug in fragmentation codes use of the percpu_counter API, that
-cause issues on systems with many CPUs.
-
-The frag_mem_limit() just reads the global counter (fbc->count),
-without considering other CPUs can have upto batch size (130K) that
-haven't been subtracted yet.  Due to the 3MBytes lower thresh limit,
-this become dangerous at >=24 CPUs (3*1024*1024/130000=24).
-
-The __percpu_counter_compare() does the right thing, and takes into
-account the number of (online) CPUs and batch size, to account for
-this and call __percpu_counter_sum() when needed.
-
-On systems with many CPUs this will unfortunately always result in the
-heavier fully locked __percpu_counter_sum() which touch the
-per_cpu_ptr of all (online) CPUs.
-
-On systems with a smaller number of CPUs this solution is also not
-optimal, because __percpu_counter_compare()/__percpu_counter_sum()
-doesn't help synchronize the global counter.
- Florian Westphal have an idea of adding some counter sync points,
-which should help address this issue.
+Signed-off-by: Rami Rosen <rami.rosen@intel.com>
 ---
- include/net/inet_frag.h  |   16 ++++++++++++++--
- net/ipv4/inet_fragment.c |    6 +++---
- 2 files changed, 17 insertions(+), 5 deletions(-)
+ include/linux/netdevice.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/include/net/inet_frag.h b/include/net/inet_frag.h
-index 6fdcd2427776..b586e320783d 100644
---- a/include/net/inet_frag.h
-+++ b/include/net/inet_frag.h
-@@ -147,9 +147,21 @@ static inline bool inet_frag_evicting(struct inet_frag_queue *q)
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 29bf06f..35de831 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1124,8 +1124,8 @@ struct xfrmdev_ops {
+  *	This function is used to submit a XDP packet for transmit on a
+  *	netdevice.
+  * void (*ndo_xdp_flush)(struct net_device *dev);
+- *	This function is used to inform the driver to flush a paticular
+- *	xpd tx queue. Must be called on same CPU as xdp_xmit.
++ *	This function is used to inform the driver to flush a particular
++ *	xdp tx queue. Must be called on same CPU as xdp_xmit.
   */
- static unsigned int frag_percpu_counter_batch = 130000;
- 
--static inline int frag_mem_limit(struct netns_frags *nf)
-+static inline bool frag_mem_over_limit(struct netns_frags *nf, int thresh)
- {
--	return percpu_counter_read(&nf->mem);
-+	/* When reading counter here, __percpu_counter_compare() call
-+	 * will invoke __percpu_counter_sum() when needed.  Which
-+	 * depend on num_online_cpus()*batch size, as each CPU can
-+	 * potentential can hold a batch count.
-+	 *
-+	 * With many CPUs this heavier sum operation will
-+	 * unfortunately always occur.
-+	 */
-+	if (__percpu_counter_compare(&nf->mem, thresh,
-+				     frag_percpu_counter_batch) > 0)
-+		return true;
-+	else
-+		return false;
- }
- 
- static inline void sub_frag_mem_limit(struct netns_frags *nf, int i)
-diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
-index 96e95e83cc61..ee2cf56900e6 100644
---- a/net/ipv4/inet_fragment.c
-+++ b/net/ipv4/inet_fragment.c
-@@ -120,7 +120,7 @@ static void inet_frag_secret_rebuild(struct inet_frags *f)
- static bool inet_fragq_should_evict(const struct inet_frag_queue *q)
- {
- 	return q->net->low_thresh == 0 ||
--	       frag_mem_limit(q->net) >= q->net->low_thresh;
-+		frag_mem_over_limit(q->net, q->net->low_thresh);
- }
- 
- static unsigned int
-@@ -355,7 +355,7 @@ static struct inet_frag_queue *inet_frag_alloc(struct netns_frags *nf,
- {
- 	struct inet_frag_queue *q;
- 
--	if (!nf->high_thresh || frag_mem_limit(nf) > nf->high_thresh) {
-+	if (!nf->high_thresh || frag_mem_over_limit(nf, nf->high_thresh)) {
- 		inet_frag_schedule_worker(f);
- 		return NULL;
- 	}
-@@ -396,7 +396,7 @@ struct inet_frag_queue *inet_frag_find(struct netns_frags *nf,
- 	struct inet_frag_queue *q;
- 	int depth = 0;
- 
--	if (frag_mem_limit(nf) > nf->low_thresh)
-+	if (frag_mem_over_limit(nf, nf->low_thresh))
- 		inet_frag_schedule_worker(f);
- 
- 	hash &= (INETFRAGS_HASHSZ - 1);
+ struct net_device_ops {
+ 	int			(*ndo_init)(struct net_device *dev);
+-- 
+1.9.1
