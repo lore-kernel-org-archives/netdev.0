@@ -1,7 +1,7 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH net-next 2/2] net: convert (struct ubuf_info)->refcnt to refcount_t
-Date: Thu, 31 Aug 2017 13:30:13 -0700
-Message-ID: <20170831203013.9219-3-edumazet@google.com>
+Subject: [PATCH net-next 1/2] net: prepare (struct ubuf_info)->refcnt conversion
+Date: Thu, 31 Aug 2017 13:30:12 -0700
+Message-ID: <20170831203013.9219-2-edumazet@google.com>
 References: <20170831203013.9219-1-edumazet@google.com>
 Cc: netdev <netdev@vger.kernel.org>,
         Willem de Bruijn <willemb@google.com>,
@@ -9,97 +9,61 @@ Cc: netdev <netdev@vger.kernel.org>,
         Eric Dumazet <eric.dumazet@gmail.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f52.google.com ([74.125.83.52]:36916 "EHLO
-        mail-pg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751053AbdHaUaZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 16:30:25 -0400
-Received: by mail-pg0-f52.google.com with SMTP id 83so2018808pgb.4
-        for <netdev@vger.kernel.org>; Thu, 31 Aug 2017 13:30:25 -0700 (PDT)
+Received: from mail-pf0-f169.google.com ([209.85.192.169]:33430 "EHLO
+        mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751053AbdHaUaW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 16:30:22 -0400
+Received: by mail-pf0-f169.google.com with SMTP id n73so2123185pfj.0
+        for <netdev@vger.kernel.org>; Thu, 31 Aug 2017 13:30:22 -0700 (PDT)
 In-Reply-To: <20170831203013.9219-1-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-refcount_t type and corresponding API should be
-used instead of atomic_t when the variable is used as
-a reference counter. This allows to avoid accidental
-refcounter overflows that might lead to use-after-free
-situations.
+In order to convert this atomic_t refcnt to refcount_t,
+we need to init the refcount to one to not trigger
+a 0 -> 1 transition.
+
+This also removes one atomic operation in fast path.
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- include/linux/skbuff.h | 5 +++--
- net/core/skbuff.c      | 8 ++++----
- 2 files changed, 7 insertions(+), 6 deletions(-)
+ net/core/skbuff.c | 3 ++-
+ net/ipv4/tcp.c    | 2 --
+ 2 files changed, 2 insertions(+), 3 deletions(-)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 7594e19bce622a38dc39c054093c3da15b99b67b..316a92b45351f53709886ee0099cbc83b66f1b15 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -22,6 +22,7 @@
- #include <linux/cache.h>
- #include <linux/rbtree.h>
- #include <linux/socket.h>
-+#include <linux/refcount.h>
- 
- #include <linux/atomic.h>
- #include <asm/types.h>
-@@ -456,7 +457,7 @@ struct ubuf_info {
- 			u32 bytelen;
- 		};
- 	};
--	atomic_t refcnt;
-+	refcount_t refcnt;
- 
- 	struct mmpin {
- 		struct user_struct *user;
-@@ -472,7 +473,7 @@ struct ubuf_info *sock_zerocopy_realloc(struct sock *sk, size_t size,
- 
- static inline void sock_zerocopy_get(struct ubuf_info *uarg)
- {
--	atomic_inc(&uarg->refcnt);
-+	refcount_inc(&uarg->refcnt);
- }
- 
- void sock_zerocopy_put(struct ubuf_info *uarg);
 diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 65b9ca3945f8fd2b1bef4aef5dd774be04e5d128..ed86ca9afd9d8d1ac47983acf6006c179285a612 100644
+index 917da73d3ab3b82163cf0a9ee944da09cb5a391f..65b9ca3945f8fd2b1bef4aef5dd774be04e5d128 100644
 --- a/net/core/skbuff.c
 +++ b/net/core/skbuff.c
 @@ -963,7 +963,7 @@ struct ubuf_info *sock_zerocopy_alloc(struct sock *sk, size_t size)
  	uarg->len = 1;
  	uarg->bytelen = size;
  	uarg->zerocopy = 1;
--	atomic_set(&uarg->refcnt, 1);
-+	refcount_set(&uarg->refcnt, 1);
+-	atomic_set(&uarg->refcnt, 0);
++	atomic_set(&uarg->refcnt, 1);
  	sock_hold(sk);
  
  	return uarg;
-@@ -1086,7 +1086,7 @@ EXPORT_SYMBOL_GPL(sock_zerocopy_callback);
- 
- void sock_zerocopy_put(struct ubuf_info *uarg)
- {
--	if (uarg && atomic_dec_and_test(&uarg->refcnt)) {
-+	if (uarg && refcount_dec_and_test(&uarg->refcnt)) {
- 		if (uarg->callback)
- 			uarg->callback(uarg, uarg->zerocopy);
- 		else
-@@ -1108,7 +1108,7 @@ void sock_zerocopy_put_abort(struct ubuf_info *uarg)
- 		 * avoid an skb send inside the main loop triggering uarg free.
- 		 */
- 		if (sk->sk_type != SOCK_STREAM)
--			atomic_inc(&uarg->refcnt);
-+			refcount_inc(&uarg->refcnt);
- 
- 		sock_zerocopy_put(uarg);
+@@ -1005,6 +1005,7 @@ struct ubuf_info *sock_zerocopy_realloc(struct sock *sk, size_t size,
+ 			uarg->len++;
+ 			uarg->bytelen = bytelen;
+ 			atomic_set(&sk->sk_zckey, ++next);
++			sock_zerocopy_get(uarg);
+ 			return uarg;
+ 		}
  	}
-@@ -1490,7 +1490,7 @@ int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail,
- 		if (skb_orphan_frags(skb, gfp_mask))
- 			goto nofrags;
- 		if (skb_zcopy(skb))
--			atomic_inc(&skb_uarg(skb)->refcnt);
-+			refcount_inc(&skb_uarg(skb)->refcnt);
- 		for (i = 0; i < skb_shinfo(skb)->nr_frags; i++)
- 			skb_frag_ref(skb, i);
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 21ca2df274c5130a13d31a391a1408d779af34af..fff4d7bc3b8b46174e7bd0a04d7c212307e55cb5 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -1190,8 +1190,6 @@ int tcp_sendmsg_locked(struct sock *sk, struct msghdr *msg, size_t size)
+ 			goto out_err;
+ 		}
  
+-		/* skb may be freed in main loop, keep extra ref on uarg */
+-		sock_zerocopy_get(uarg);
+ 		if (!(sk_check_csum_caps(sk) && sk->sk_route_caps & NETIF_F_SG))
+ 			uarg->zerocopy = 0;
+ 	}
 -- 
 2.14.1.581.gf28d330327-goog
