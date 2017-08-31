@@ -1,80 +1,73 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] x86: bpf_jit: small optimization in
- emit_bpf_tail_call()
-Date: Thu, 31 Aug 2017 04:53:42 -0700
-Message-ID: <1504180422.15310.12.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Stefan Hajnoczi <stefanha@redhat.com>
+Subject: Re: [PATCH] vsock: only load vmci transport on VMware hypervisor by
+ default
+Date: Thu, 31 Aug 2017 12:54:55 +0100
+Message-ID: <20170831115455.GP13619@stefanha-x1.localdomain>
+References: <20170817135559.GG5539@stefanha-x1.localdomain>
+ <04460E3B-B213-4090-96CD-00CEEBE6AC32@vmware.com>
+ <KL1P15301MB0008A67BF969A47309CFA992BF800@KL1P15301MB0008.APCP153.PROD.OUTLOOK.COM>
+ <20170818153716.GB17572@stefanha-x1.localdomain>
+ <KL1P15301MB00083B1F5B70CBAB7C42BBD3BF800@KL1P15301MB0008.APCP153.PROD.OUTLOOK.COM>
+ <20170822095437.GB16799@stefanha-x1.localdomain>
+ <A6BE88A8-6E79-486E-821F-0D5C8B1B3034@vmware.com>
+ <KL1P15301MB000812AD1EFB8A3986EC6277BF850@KL1P15301MB0008.APCP153.PROD.OUTLOOK.COM>
+ <KL1P15301MB0008087A3EF0A8D037CC4D52BF9F0@KL1P15301MB0008.APCP153.PROD.OUTLOOK.COM>
+ <61AE41B3-D143-46D2-8C68-009B78AF12C8@vmware.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Daniel Borkmann <daniel@iogearbox.net>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f194.google.com ([209.85.223.194]:33168 "EHLO
-        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750893AbdHaLxp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 07:53:45 -0400
-Received: by mail-io0-f194.google.com with SMTP id f99so1167861ioi.0
-        for <netdev@vger.kernel.org>; Thu, 31 Aug 2017 04:53:45 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Michal Kubecek <mkubecek@suse.cz>,
+ "jasowang@redhat.com" <jasowang@redhat.com>,
+ George Zhang <georgezhang@vmware.com>,
+ Stephen Hemminger <sthemmin@microsoft.com>,
+ Rolf Neugebauer <rolf.neugebauer@docker.com>,
+ Marcelo Cerri <marcelo.cerri@canonical.com>, Asias He <asias@redhat.com>,
+ Dan Carpenter <dan.carpenter@oracle.com>, "olaf@aepfle.de" <olaf@aepfle.de>,
+ Haiyang Zhang <haiyangz@microsoft.com>, Dave Scott <dave.scott@docker.com>,
+ "apw@canonical.com" <apw@canonical.com>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
+ "joe@perches.com" <joe@perches.com>,
+ "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
+ Vitaly Kuznetsov <vkuznets@redhat.com>,
+ "davem@davemloft.net" <davem@davemloft.net>
+To: "Jorgen S. Hansen" <jhansen@vmware.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Disposition: inline
+In-Reply-To: <61AE41B3-D143-46D2-8C68-009B78AF12C8@vmware.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+On Tue, Aug 29, 2017 at 03:37:07PM +0000, Jorgen S. Hansen wrote:
+> > On Aug 29, 2017, at 4:36 AM, Dexuan Cui <decui@microsoft.com> wrote:
+> If we allow multiple host side transports, virtio host side support and
+> vmci should be able to coexist regardless of the order of initialization.
 
-Saves 4 bytes replacing following instructions :
+That sounds good to me.
 
-lea rax, [rsi + rdx * 8 + offsetof(...)] 
-mov rax, qword ptr [rax]
-cmp rax, 0
+This means af_vsock.c needs to be aware of CID allocation.  Currently the
+vhost_vsock.ko driver handles this itself (it keeps a list of CIDs and
+checks that they are not used twice).  It should be possible to move
+that state into af_vsock.c so we have <cid, host_transport> pairs.
 
-by :
+I'm currently working on NFS over AF_VSOCK and sock_diag support (for
+ss(8) and netstat-like tools).
 
-mov rax, [rsi + rdx * 8 + offsetof(...)] 
-test rax, rax
+Multi-transport support is lower priority for me at the moment.  I'm
+happy to review patches though.  If there is no progress on this by the
+end of the year then I will have time to work on it.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Alexei Starovoitov <ast@kernel.org>
-Cc: Daniel Borkmann <daniel@iogearbox.net>
----
- arch/x86/net/bpf_jit_comp.c |    9 ++++-----
- 1 file changed, 4 insertions(+), 5 deletions(-)
+Are either of you are in Prague, Czech Republic on October 25-27 for
+Linux Kernel Summit, Open Source Summit Europe, Embedded Linux
+Conference Europe, KVM Forum, or MesosCon Europe?
 
-diff --git a/arch/x86/net/bpf_jit_comp.c b/arch/x86/net/bpf_jit_comp.c
-index 8194696e2805852a8246bf1db2a5862d5758f76b..7af5ee584bf8546f3c1b92df9d9f513416f2089d 100644
---- a/arch/x86/net/bpf_jit_comp.c
-+++ b/arch/x86/net/bpf_jit_comp.c
-@@ -287,7 +287,7 @@ static void emit_bpf_tail_call(u8 **pprog)
- 	EMIT4(0x48, 0x8B, 0x46,                   /* mov rax, qword ptr [rsi + 16] */
- 	      offsetof(struct bpf_array, map.max_entries));
- 	EMIT3(0x48, 0x39, 0xD0);                  /* cmp rax, rdx */
--#define OFFSET1 47 /* number of bytes to jump */
-+#define OFFSET1 43 /* number of bytes to jump */
- 	EMIT2(X86_JBE, OFFSET1);                  /* jbe out */
- 	label1 = cnt;
- 
-@@ -296,21 +296,20 @@ static void emit_bpf_tail_call(u8 **pprog)
- 	 */
- 	EMIT2_off32(0x8B, 0x85, 36);              /* mov eax, dword ptr [rbp + 36] */
- 	EMIT3(0x83, 0xF8, MAX_TAIL_CALL_CNT);     /* cmp eax, MAX_TAIL_CALL_CNT */
--#define OFFSET2 36
-+#define OFFSET2 32
- 	EMIT2(X86_JA, OFFSET2);                   /* ja out */
- 	label2 = cnt;
- 	EMIT3(0x83, 0xC0, 0x01);                  /* add eax, 1 */
- 	EMIT2_off32(0x89, 0x85, 36);              /* mov dword ptr [rbp + 36], eax */
- 
- 	/* prog = array->ptrs[index]; */
--	EMIT4_off32(0x48, 0x8D, 0x84, 0xD6,       /* lea rax, [rsi + rdx * 8 + offsetof(...)] */
-+	EMIT4_off32(0x48, 0x8B, 0x84, 0xD6,       /* mov rax, [rsi + rdx * 8 + offsetof(...)] */
- 		    offsetof(struct bpf_array, ptrs));
--	EMIT3(0x48, 0x8B, 0x00);                  /* mov rax, qword ptr [rax] */
- 
- 	/* if (prog == NULL)
- 	 *   goto out;
- 	 */
--	EMIT4(0x48, 0x83, 0xF8, 0x00);            /* cmp rax, 0 */
-+	EMIT3(0x48, 0x85, 0xC0);		  /* test rax,rax */
- #define OFFSET3 10
- 	EMIT2(X86_JE, OFFSET3);                   /* je out */
- 	label3 = cnt;
+Stefan
