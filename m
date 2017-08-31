@@ -1,41 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] liquidio: fix crash in presence of zeroed-out
- base address regs
-Date: Wed, 30 Aug 2017 22:07:49 -0700 (PDT)
-Message-ID: <20170830.220749.1080721940498362679.davem@davemloft.net>
-References: <20170830231953.GA14744@felix-thinkpad.cavium.com>
+Subject: Re: [pull request][net-next 0/3] Mellanox, mlx5 GRE tunnel offloads
+Date: Wed, 30 Aug 2017 22:15:08 -0700 (PDT)
+Message-ID: <20170830.221508.1057740864304760206.davem@davemloft.net>
+References: <20170830230409.15176-1-saeedm@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
-        derek.chickles@cavium.com, satananda.burla@cavium.com,
-        ricardo.farrington@cavium.com
-To: felix.manlunas@cavium.com
+Cc: netdev@vger.kernel.org
+To: saeedm@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:41932 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:42012 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750883AbdHaFHu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 01:07:50 -0400
-In-Reply-To: <20170830231953.GA14744@felix-thinkpad.cavium.com>
+        with ESMTP id S1750826AbdHaFPJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 01:15:09 -0400
+In-Reply-To: <20170830230409.15176-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Felix Manlunas <felix.manlunas@cavium.com>
-Date: Wed, 30 Aug 2017 16:19:53 -0700
+From: Saeed Mahameed <saeedm@mellanox.com>
+Date: Thu, 31 Aug 2017 02:04:06 +0300
 
-> From: Rick Farrington <ricardo.farrington@cavium.com>
+> The following changes provide GRE tunnel offloads for mlx5 ethernet netdevice driver.
 > 
-> Fix crash in linux PF driver when BARs have been cleared/de-programmed;
-> fail early init (prior to mapping BARs) if the BAR0 or
-> BAR1 registers are zero.
+> For more details please see tag log message below.
+> Please pull and let me know if there's any problem.
 > 
-> This situation can arise when the PF is added to a VM (PCI pass-through),
-> then a PF FLR is issued (in the VM).  After this occurs, the BAR registers
-> will be zero. If we attempt to load the PF driver in the host
-> (after VM has been shutdown), the host can reset.
-> 
-> Signed-off-by: Rick Farrington <ricardo.farrington@cavium.com>
-> Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@cavium.com>
-> Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
+> Note: this series doesn't conflict with the ongoing net mlx5 submission.
 
-Applied, thanks.
+Looks good, pulled.
