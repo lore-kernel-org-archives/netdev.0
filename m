@@ -1,7 +1,7 @@
 From: Chenbo Feng <chenbofeng.kernel@gmail.com>
-Subject: [PATCH 3/3] selinux: bpf: Implement the selinux checks for eBPF object
-Date: Thu, 31 Aug 2017 13:56:35 -0700
-Message-ID: <20170831205635.80256-4-chenbofeng.kernel@gmail.com>
+Subject: [PATCH 1/3] security: bpf: Add eBPF LSM hooks to security module
+Date: Thu, 31 Aug 2017 13:56:33 -0700
+Message-ID: <20170831205635.80256-2-chenbofeng.kernel@gmail.com>
 References: <20170831205635.80256-1-chenbofeng.kernel@gmail.com>
 Cc: Jeffrey Vander Stoep <jeffv@google.com>, netdev@vger.kernel.org,
         SELinux <Selinux@tycho.nsa.gov>,
@@ -9,133 +9,192 @@ Cc: Jeffrey Vander Stoep <jeffv@google.com>, netdev@vger.kernel.org,
         lorenzo@google.com, Chenbo Feng <fengc@google.com>
 To: linux-security-module@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:36708 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751443AbdHaU5L (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 16:57:11 -0400
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:35360 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751309AbdHaU5I (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 16:57:08 -0400
 In-Reply-To: <20170831205635.80256-1-chenbofeng.kernel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Chenbo Feng <fengc@google.com>
 
-Introduce 5 new selinux checks for eBPF object related operations. The
-check is based on the ownership information of eBPF maps and the
-capability of creating eBPF object.
+Introduce 5 LSM hooks to provide finer granularity controls on eBPF
+related operations including create eBPF maps, modify and read eBPF maps
+content and load eBPF programs to the kernel. Hooks use the new security
+pointer inside the eBPF map struct to store the owner's security
+information and the different security modules can perform different
+checks based on the information stored inside the security field.
 
 Signed-off-by: Chenbo Feng <fengc@google.com>
 ---
- security/selinux/hooks.c            | 54 +++++++++++++++++++++++++++++++++++++
- security/selinux/include/classmap.h |  2 ++
- security/selinux/include/objsec.h   |  4 +++
- 3 files changed, 60 insertions(+)
+ include/linux/lsm_hooks.h | 41 +++++++++++++++++++++++++++++++++++++++++
+ include/linux/security.h  | 36 ++++++++++++++++++++++++++++++++++++
+ security/security.c       | 28 ++++++++++++++++++++++++++++
+ 3 files changed, 105 insertions(+)
 
-diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
-index 33fd061305c4..39ad7d9f335d 100644
---- a/security/selinux/hooks.c
-+++ b/security/selinux/hooks.c
-@@ -85,6 +85,7 @@
- #include <linux/export.h>
- #include <linux/msg.h>
- #include <linux/shm.h>
+diff --git a/include/linux/lsm_hooks.h b/include/linux/lsm_hooks.h
+index ce02f76a6188..3aaf9a08a983 100644
+--- a/include/linux/lsm_hooks.h
++++ b/include/linux/lsm_hooks.h
+@@ -1353,6 +1353,32 @@
+  *	@inode we wish to get the security context of.
+  *	@ctx is a pointer in which to place the allocated security context.
+  *	@ctxlen points to the place to put the length of @ctx.
++ *
++ * Security hooks for using the eBPF maps and programs functionalities through
++ * eBPF syscalls.
++ *
++ * @bpf_map_create:
++ *	Check permissions prior to creating a new bpf map.
++ *	Return 0 if the permission is granted.
++ *
++ * @bpf_map_modify:
++ *	Check permission prior to insert, update and delete map content.
++ *	@map pointer to the struct bpf_map that contains map information.
++ *	Return 0 if the permission is granted.
++ *
++ * @bpf_map_read:
++ *	Check permission prior to read a bpf map content.
++ *	@map pointer to the struct bpf_map that contains map information.
++ *	Return 0 if the permission is granted.
++ *
++ * @bpf_prog_load:
++ *	Check permission prior to load eBPF program.
++ *	Return 0 if the permission is granted.
++ *
++ * @bpf_post_create:
++ *	Initialize the bpf object security field inside struct bpf_maps and
++ *	it is used for future security checks.
++ *
+  */
+ union security_list_options {
+ 	int (*binder_set_context_mgr)(struct task_struct *mgr);
+@@ -1685,6 +1711,14 @@ union security_list_options {
+ 				struct audit_context *actx);
+ 	void (*audit_rule_free)(void *lsmrule);
+ #endif /* CONFIG_AUDIT */
++
++#ifdef CONFIG_BPF_SYSCALL
++	int (*bpf_map_create)(void);
++	int (*bpf_map_read)(struct bpf_map *map);
++	int (*bpf_map_modify)(struct bpf_map *map);
++	int (*bpf_prog_load)(void);
++	int (*bpf_post_create)(struct bpf_map *map);
++#endif /* CONFIG_BPF_SYSCALL */
+ };
+ 
+ struct security_hook_heads {
+@@ -1905,6 +1939,13 @@ struct security_hook_heads {
+ 	struct list_head audit_rule_match;
+ 	struct list_head audit_rule_free;
+ #endif /* CONFIG_AUDIT */
++#ifdef CONFIG_BPF_SYSCALL
++	struct list_head bpf_map_create;
++	struct list_head bpf_map_read;
++	struct list_head bpf_map_modify;
++	struct list_head bpf_prog_load;
++	struct list_head bpf_post_create;
++#endif /* CONFIG_BPF_SYSCALL */
+ } __randomize_layout;
+ 
+ /*
+diff --git a/include/linux/security.h b/include/linux/security.h
+index 458e24bea2d4..0656a4f74d14 100644
+--- a/include/linux/security.h
++++ b/include/linux/security.h
+@@ -31,6 +31,7 @@
+ #include <linux/string.h>
+ #include <linux/mm.h>
+ #include <linux/fs.h>
 +#include <linux/bpf.h>
  
- #include "avc.h"
- #include "objsec.h"
-@@ -6245,6 +6246,52 @@ static void selinux_ib_free_security(void *ib_sec)
- }
+ struct linux_binprm;
+ struct cred;
+@@ -1735,6 +1736,41 @@ static inline void securityfs_remove(struct dentry *dentry)
+ 
  #endif
  
 +#ifdef CONFIG_BPF_SYSCALL
-+static int selinux_bpf_map_create(void)
++#ifdef CONFIG_SECURITY
++int security_map_create(void);
++int security_map_modify(struct bpf_map *map);
++int security_map_read(struct bpf_map *map);
++int security_prog_load(void);
++int security_post_create(struct bpf_map *map);
++#else
++static inline int security_map_create(void)
 +{
-+	u32 sid = current_sid();
-+
-+	return avc_has_perm(sid, sid, SECCLASS_BPF, BPF__MAP_CREATE, NULL);
-+}
-+
-+static int selinux_bpf_map_modify(struct bpf_map *map)
-+{
-+	struct bpf_security_struct *bpfsec = map->security;
-+
-+	return avc_has_perm(current_sid(), bpfsec->sid, SECCLASS_BPF,
-+			    BPF__MAP_MODIFY, NULL);
-+}
-+
-+static int selinux_bpf_map_read(struct bpf_map *map)
-+{
-+	struct bpf_security_struct *bpfsec = map->security;
-+
-+	return avc_has_perm(current_sid(), bpfsec->sid, SECCLASS_BPF,
-+			    BPF__MAP_READ, NULL);
-+}
-+
-+static int selinux_bpf_prog_load(void)
-+{
-+	u32 sid = current_sid();
-+
-+	return avc_has_perm(sid, sid, SECCLASS_BPF, BPF__PROG_LOAD, NULL);
-+}
-+
-+static int selinux_bpf_post_create(struct bpf_map *map)
-+{
-+	struct bpf_security_struct *bpfsec;
-+
-+	bpfsec = kzalloc(sizeof(*bpfsec), GFP_KERNEL);
-+	if (!bpfsec)
-+		return -ENOMEM;
-+
-+	bpfsec->sid = current_sid();
-+	map->security = bpfsec;
-+
 +	return 0;
 +}
-+#endif
 +
- static struct security_hook_list selinux_hooks[] __lsm_ro_after_init = {
- 	LSM_HOOK_INIT(binder_set_context_mgr, selinux_binder_set_context_mgr),
- 	LSM_HOOK_INIT(binder_transaction, selinux_binder_transaction),
-@@ -6465,6 +6512,13 @@ static struct security_hook_list selinux_hooks[] __lsm_ro_after_init = {
- 	LSM_HOOK_INIT(audit_rule_match, selinux_audit_rule_match),
- 	LSM_HOOK_INIT(audit_rule_free, selinux_audit_rule_free),
- #endif
++static inline int security_map_read(struct bpf_map *map)
++{
++	return 0;
++}
++
++static inline int security_map_modify(struct bpf_map *map)
++{
++	return 0;
++}
++
++static inline int security_prog_load(void)
++{
++	return 0;
++}
++
++static inline int security_post_create(struct bpf_map *map)
++{
++	return 0;
++}
++#endif /* CONFIG_SECURITY */
++#endif /* CONFIG_BPF_SYSCALL */
++
+ #ifdef CONFIG_SECURITY
+ 
+ static inline char *alloc_secdata(void)
+diff --git a/security/security.c b/security/security.c
+index 55b5997e4b72..02272f93a89e 100644
+--- a/security/security.c
++++ b/security/security.c
+@@ -12,6 +12,7 @@
+  *	(at your option) any later version.
+  */
+ 
++#include <linux/bpf.h>
+ #include <linux/capability.h>
+ #include <linux/dcache.h>
+ #include <linux/module.h>
+@@ -1708,3 +1709,30 @@ int security_audit_rule_match(u32 secid, u32 field, u32 op, void *lsmrule,
+ 				actx);
+ }
+ #endif /* CONFIG_AUDIT */
++
 +#ifdef CONFIG_BPF_SYSCALL
-+	LSM_HOOK_INIT(bpf_map_create, selinux_bpf_map_create),
-+	LSM_HOOK_INIT(bpf_map_modify, selinux_bpf_map_modify),
-+	LSM_HOOK_INIT(bpf_map_read, selinux_bpf_map_read),
-+	LSM_HOOK_INIT(bpf_prog_load, selinux_bpf_prog_load),
-+	LSM_HOOK_INIT(bpf_post_create, selinux_bpf_post_create),
-+#endif
- };
- 
- static __init int selinux_init(void)
-diff --git a/security/selinux/include/classmap.h b/security/selinux/include/classmap.h
-index b9fe3434b036..83c880fb17b4 100644
---- a/security/selinux/include/classmap.h
-+++ b/security/selinux/include/classmap.h
-@@ -235,6 +235,8 @@ struct security_class_mapping secclass_map[] = {
- 	  { "access", NULL } },
- 	{ "infiniband_endport",
- 	  { "manage_subnet", NULL } },
-+	{ "bpf",
-+	  {"map_create", "map_modify", "map_read", "prog_load" } },
- 	{ NULL }
-   };
- 
-diff --git a/security/selinux/include/objsec.h b/security/selinux/include/objsec.h
-index 6ebc61e370ff..ba564f662b0d 100644
---- a/security/selinux/include/objsec.h
-+++ b/security/selinux/include/objsec.h
-@@ -150,6 +150,10 @@ struct pkey_security_struct {
- 	u32	sid;	/* SID of pkey */
- };
- 
-+struct bpf_security_struct {
-+	u32 sid;	/*SID of bpf obj creater*/
-+};
++int security_map_create(void)
++{
++	return call_int_hook(bpf_map_create, 0);
++}
 +
- extern unsigned int selinux_checkreqprot;
- 
- #endif /* _SELINUX_OBJSEC_H_ */
++int security_map_modify(struct bpf_map *map)
++{
++	return call_int_hook(bpf_map_modify, 0, map);
++}
++
++int security_map_read(struct bpf_map *map)
++{
++	return call_int_hook(bpf_map_read, 0, map);
++}
++
++int security_prog_load(void)
++{
++	return call_int_hook(bpf_prog_load, 0);
++}
++
++int security_post_create(struct bpf_map *map)
++{
++	return call_int_hook(bpf_post_create, 0, map);
++}
++#endif /* CONFIG_BPF_SYSCALL */
 -- 
 2.14.1.581.gf28d330327-goog
