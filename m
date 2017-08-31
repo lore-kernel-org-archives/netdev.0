@@ -1,88 +1,290 @@
-From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Subject: Re: [PATCH v4 4/5] net: stmmac: dwmac-sun8i: choose internal PHY via
- phy-is-integrated
-Date: Thu, 31 Aug 2017 22:59:28 +0200
-Message-ID: <20170831205928.GS22289@lunn.ch>
-References: <20170826073311.25612-1-clabbe.montjoie@gmail.com>
- <20170826073311.25612-5-clabbe.montjoie@gmail.com>
- <20170826212051.GA10418@lunn.ch>
- <20170831201803.x6vwftfcllrfpk6q@rob-hp-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, mark.rutland-5wv7dgnIgG8@public.gmane.org,
-        maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org,
-        linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
-        alexandre.torgue-qxv4g6HH51o@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, icenowy-h8G6r0blFSE@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20170831201803.x6vwftfcllrfpk6q@rob-hp-laptop>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: [PATCH net-next] doc: document MSG_ZEROCOPY
+Date: Thu, 31 Aug 2017 17:00:13 -0400
+Message-ID: <20170831210013.85220-1-willemdebruijn.kernel@gmail.com>
+Cc: davem@davemloft.net, Willem de Bruijn <willemb@google.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qt0-f174.google.com ([209.85.216.174]:35070 "EHLO
+        mail-qt0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751001AbdHaVA0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 17:00:26 -0400
+Received: by mail-qt0-f174.google.com with SMTP id x36so3776836qtx.2
+        for <netdev@vger.kernel.org>; Thu, 31 Aug 2017 14:00:26 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 31, 2017 at 03:18:03PM -0500, Rob Herring wrote:
-> On Sat, Aug 26, 2017 at 11:20:51PM +0200, Andrew Lunn wrote:
-> > Hi Corentin
-> > 
-> > I think we have now all agreed this is an mdio-mux, plus it is also an
-> > MII mux. We should represent that in device tree. This patchset does
-> > this. However, as it is now, the mux structure in DT is ignored. All
-> > it does is search for the phy-is-integrated flags and goes on that.
-> > 
-> > I made the comment that the device tree representation cannot be
-> > implemented using an MDIO mux driver, because of driver loading
-> > issues.  However, the core of the MDIO mux code is just a library,
-> > symbols exported as GPL, free for anything to use.
-> > 
-> > What i think should happen is the mdio-mux is implemented inside the
-> > MAC driver, using the mux-core as a library. The device tree structure
-> > of a mix is then reflected within Linux. The mux switch callback is
-> > implemented within the MAC driver. So it can reset the MAC when the
-> > mux is switched. The 'phy-is-integrated' property is then no longer
-> > needed.
-> > 
-> > I would suggest a binding something like:
-> 
-> This is looks better to me, but...
->  
-> > emac: ethernet@1c0b000 {
-> >         compatible = "allwinner,sun8i-h3-emac";
-> >         syscon = <&syscon>;
-> >         reg = <0x01c0b000 0x104>;
-> >         interrupts = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>;
-> >         interrupt-names = "macirq";
-> >         resets = <&ccu RST_BUS_EMAC>;
-> >         reset-names = "stmmaceth";
-> >         clocks = <&ccu CLK_BUS_EMAC>;
-> >         clock-names = "stmmaceth";
-> >         #address-cells = <1>;
-> >         #size-cells = <0>;
-> > 
-> >         phy-handle = <&int_mii_phy>;
-> >         phy-mode = "mii";
-> >         allwinner,leds-active-low;
-> > 
-> >         mdio: mdio {
-> >                 #address-cells = <1>;
-> >                 #size-cells = <0>;
-> > 	}
-> 
-> Why do you need this node still?
+From: Willem de Bruijn <willemb@google.com>
 
-Hi Rob
- 
-It might not be needed, depending on how it is implemented. But:
+Documentation for this feature was missing from the patchset.
+Copied a lot from the netdev 2.1 paper, addressing some small
+interface changes since then.
 
-Documentation/devicetree/bindings/net/mdio-mux.txt
+Signed-off-by: Willem de Bruijn <willemb@google.com>
+---
+ Documentation/networking/msg_zerocopy.rst | 254 ++++++++++++++++++++++++++++++
+ 1 file changed, 254 insertions(+)
+ create mode 100644 Documentation/networking/msg_zerocopy.rst
 
-It is normal for an mdio bus mux to have a phandle back to the parent
-mdio bus.  Also, i think the stmmac driver will only instantiate the
-mdio bus if there is a node for it in the device tree.
-
-     Andrew
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/Documentation/networking/msg_zerocopy.rst b/Documentation/networking/msg_zerocopy.rst
+new file mode 100644
+index 000000000000..2e2a3410b947
+--- /dev/null
++++ b/Documentation/networking/msg_zerocopy.rst
+@@ -0,0 +1,254 @@
++
++============
++MSG_ZEROCOPY
++============
++
++Intro
++=====
++
++The MSG_ZEROCOPY flag enables copy avoidance for socket send calls.
++The feature is currently implemented for TCP sockets.
++
++
++Opportunity and Caveats
++-----------------------
++
++Copying large buffers between user process and kernel can be
++expensive. Linux supports various interfaces that eschew copying,
++such as sendpage and splice. The MSG_ZEROCOPY flag extends the
++underlying copy avoidance mechanism to common socket send calls.
++
++Copy avoidance is not a free lunch. As implemented, with page pinning,
++it replaces per byte copy cost with page accounting and completion
++notification overhead. As a result, MSG_ZEROCOPY is generally only
++effective at writes over around 10 KB.
++
++Page pinning also changes system call semantics. It temporarily shares
++the buffer between process and network stack. Unlike with copying, the
++process cannot immediately overwrite the buffer after system call
++return without possibly modifying the data in flight. Kernel integrity
++is not affected, but a buggy program can possibly corrupt its own data
++stream.
++
++The kernel returns a notification when it is safe to modify data.
++Converting an existing application to MSG_ZEROCOPY is not always as
++trivial as just passing the flag, then.
++
++
++More Info
++---------
++
++Much of this document was derived from a longer paper presented at
++netdev 2.1. For more in-depth information see that paper and talk,
++the excellent reporting over at LWN.net or read the original code.
++
++  paper, slides, video
++    https://netdevconf.org/2.1/session.html?debruijn
++
++  LWN article
++    https://lwn.net/Articles/726917/
++
++  patchset
++    [PATCH net-next v4 0/9] socket sendmsg MSG_ZEROCOPY
++    https://lwn.net/Articles/730010/
++    https://www.spinics.net/lists/netdev/msg447552.html
++
++
++Interface
++=========
++
++Passing the MSG_ZEROCOPY flag is the most obvious step to enable copy
++avoidance, but not the only one.
++
++Socket Setup
++------------
++
++The kernel is permissive when applications pass undefined flags to the
++send system call. By default it simply ignores these. To avoid enabling
++copy avoidance mode for legacy processes that accidentally pass this
++flag, a process must first signal intent by setting a socket option:
++
++::
++
++	if (setsockopt(fd, SOL_SOCKET, SO_ZEROCOPY, &one, sizeof(one)))
++		error(1, errno, "setsockopt zerocopy");
++
++
++Transmission
++------------
++
++The change to send (or sendto, sendmsg, sendmmsg) itself is trivial.
++Pass the new flag.
++
++::
++
++	ret = send(fd, buf, sizeof(buf), MSG_ZEROCOPY);
++	if (ret != sizeof(buf))
++		error(1, errno, "send");
++
++
++Mixing copy avoidance and copying
++~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
++
++Many workloads have a mixture of large and small buffers. Because copy
++avoidance is more expensive than copying for small packets, the
++feature is implemented as a flag. It is safe to mix calls with the flag
++with those without.
++
++
++Notifications
++-------------
++
++The kernel has to notify the process when it is safe to reuse a
++previously passed buffer. It queues completion notifications on the
++socket error queue, akin to the transmit timestamping interface.
++
++The notification itself is a simple scalar value. Each socket
++maintains an internal 32-bit counter. Each send call with MSG_ZEROCOPY
++that successfully sends data increments the counter. The counter is
++not incremented on failure or if called with length zero.
++
++
++Notification Reception
++~~~~~~~~~~~~~~~~~~~~~~
++
++The below snippet demonstrates the API. In the simplest case, each
++send syscall is followed by a poll and recvmsg on the error queue.
++
++Reading from the error queue is always a non-blocking operation. The
++poll call is there to block until an error is outstanding. It will set
++POLLERR in its output flags. That flag does not have to be set in the
++events field: errors are signaled unconditionally.
++
++::
++
++	pfd.fd = fd;
++	pfd.events = 0;
++	if (poll(&pfd, 1, -1) != 1 || pfd.revents & POLLERR == 0)
++		error(1, errno, "poll");
++
++	ret = recvmsg(fd, &msg, MSG_ERRQUEUE);
++	if (ret == -1)
++		error(1, errno, "recvmsg");
++
++	read_notification(msg);
++
++The example is for demonstration purpose only. In practice, it is more
++efficient to not wait for notifications, but read without blocking
++every couple of send calls.
++
++Notifications can be processed out of order with other operations on
++the socket. A socket that has an error queued would normally block
++other operations until the error is read. Zerocopy notifications have
++a zero error code, however, to not block send and recv calls.
++
++
++Notification Batching
++~~~~~~~~~~~~~~~~~~~~~
++
++Multiple outstanding packets can be read at once using the recvmmsg
++call. This is often not needed. In each message the kernel returns not
++a single value, but a range. It coalesces consecutive notifications
++while one is outstanding for reception on the error queue.
++
++When a new notification is about to be queued, it checks whether the
++new value extends the range of the notification at the tail of the
++queue. If so, it drops the new notification packet and instead increases
++the range upper value of the outstanding notification.
++
++For protocols that acknowledge data in-order, like TCP, each
++notification can be squashed into the previous one, so that no more
++than one notification is outstanding at any one point.
++
++Ordered delivery is the common case, but not guaranteed. Notifications
++may arrive out of order on retransmission and socket teardown.
++
++
++Notification Parsing
++~~~~~~~~~~~~~~~~~~~~
++
++The below snippet demonstrates how to parse the control message: the
++read_notification() call in the previous snippet. A notification
++is encoded in the standard error format, sock_extended_err.
++
++The level and type fields in the control data are protocol family
++specific, IP_RECVERR or IPV6_RECVERR.
++
++Error origin is the new type SO_EE_ORIGIN_ZEROCOPY. The errno is zero,
++as explained before, to avoid blocking read and write system calls on
++the socket.
++
++The 32-bit notification range is encoded as [ee_info, ee_data]. This
++range is inclusive. Other fields in the struct must be treated as
++undefined, bar for ee_code, as discussed below.
++
++::
++
++	struct sock_extended_err *serr;
++	struct cmsghdr *cm;
++
++	cm = CMSG_FIRSTHDR(msg);
++	if (cm->cmsg_level != SOL_IP &&
++	    cm->cmsg_type != IP_RECVERR)
++		error(1, 0, "cmsg");
++
++	serr = (void *) CMSG_DATA(cm);
++	if (serr->ee_errno != 0 ||
++	    serr->ee_origin != SO_EE_ORIGIN_ZEROCOPY)
++		error(1, 0, "serr");
++
++	printf("completed: %u..%u\n", serr->ee_info, serr->ee_data);
++
++
++Deferred copies
++~~~~~~~~~~~~~~~
++
++Passing flag MSG_ZEROCOPY is a hint to the kernel to apply copy
++avoidance, and a contract that the kernel will queue a completion
++notification. It is not a guarantee that the copy is elided.
++
++Copy avoidance is not always feasible. Devices that do not support
++scatter-gather I/O cannot send packets made up of kernel generated
++protocol headers plus zerocopy user data. A packet may need to be
++converted to having a private copy of data deep in the stack, say to
++compute a checksum.
++
++In all these cases, the kernel returns a completion notification when
++it releases its hold on the shared pages. The notification may arrive
++before the (copied) data is fully transmitted. A zerocopy completion
++notification is not a transmit completion notification, therefore.
++
++Deferred copies can be more expensive than a copy immediately in the
++system call, if the data is no longer warm in the cache. The process
++also incurs notification processing cost for no benefit. For this
++reason, the kernel signals if data was completed with a copy, by
++setting flag SO_EE_CODE_ZEROCOPY_COPIED in field ee_code on return.
++A process may use this signal to stop passing flag MSG_ZEROCOPY on
++subsequent requests on the same socket.
++
++Implementation
++==============
++
++Loopback
++--------
++
++Data sent to local sockets can be queued indefinitely if the receive
++process does not read its socket. Unbound notification latency is not
++acceptable. For this reason all packets generated with MSG_ZEROCOPY
++that are looped to a local socket will incur a deferred copy. This
++includes looping onto packet sockets (e.g., tcpdump) and tun devices.
++
++
++Testing
++=======
++
++More realistic example code can be found in the kernel source under
++tools/testing/selftests/net/msg_zerocopy.c.
++
++Be cognizant of the loopback constraint. The test can be run between
++a pair of hosts. But if run between a local pair of processes, for
++instance when run with msg_zerocopy.sh between a veth pair across
++namespaces, the test will not show any improvement. For testing, the
++loopback restriction can be temporarily avoided by making
++skb_orphan_frags_rx identical to skb_orphan_frags.
++
+-- 
+2.14.1.581.gf28d330327-goog
