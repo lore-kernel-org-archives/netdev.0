@@ -1,87 +1,176 @@
-From: Andrii <tulup@mail.ru>
-Subject: [PATCH] net: dccp: Add handling of IPV6_PKTOPTIONS to
- dccp_v6_do_rcv()
-Date: Thu, 31 Aug 2017 08:28:01 +0300
-Message-ID: <d782f2bb-ade5-62ed-f20f-4854e68a2b93@mail.ru>
-References: <20170830090435.58406d1b@dev>
- <20170830.221649.818214075248119092.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------C8691BE71D1BFDEA4BD4D82E"
-Cc: gerrit@erg.abdn.ac.uk, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, dccp@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170830.221649.818214075248119092.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Axtens <dja@axtens.net>
+Subject: [PATCH] bnx2x: drop packets where gso_size is too big for hardware
+Date: Thu, 31 Aug 2017 15:46:42 +1000
+Message-ID: <20170831054642.13721-1-dja@axtens.net>
+Cc: tlfalcon@linux.vnet.ibm.com, Yuval.Mintz@cavium.com,
+        ariel.elior@cavium.com, everest-linux-l2@cavium.com,
+        jay.vosburgh@canonical.com, Daniel Axtens <dja@axtens.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:32867 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750781AbdHaFqy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 01:46:54 -0400
+Received: by mail-pf0-f196.google.com with SMTP id r62so2892312pfj.0
+        for <netdev@vger.kernel.org>; Wed, 30 Aug 2017 22:46:54 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------C8691BE71D1BFDEA4BD4D82E
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
+If a bnx2x card is passed a GSO packet with a gso_size larger than
+~9700 bytes, it will cause a firmware error that will bring the card
+down:
 
-Add handling of IPV6_PKTOPTIONS to dccp_v6_do_rcv() in net/dccp/ipv6.c, 
-similar
-to the handling in net/ipv6/tcp_ipv6.c
+bnx2x: [bnx2x_attn_int_deasserted3:4323(enP24p1s0f0)]MC assert!
+bnx2x: [bnx2x_mc_assert:720(enP24p1s0f0)]XSTORM_ASSERT_LIST_INDEX 0x2
+bnx2x: [bnx2x_mc_assert:736(enP24p1s0f0)]XSTORM_ASSERT_INDEX 0x0 = 0x00000000 0x25e43e47 0x00463e01 0x00010052
+bnx2x: [bnx2x_mc_assert:750(enP24p1s0f0)]Chip Revision: everest3, FW Version: 7_13_1
+... (dump of values continues) ...
 
-Signed-off-by: Andrii Vladyka <tulup@mail.ru>
+Detect when gso_size + header length is greater than the maximum
+packet size (9700 bytes) and drop the packet.
+
+This raises the obvious question - how do we end up with a packet with
+a gso_size that's greater than 9700? This has been observed on an
+powerpc system when Open vSwitch is forwarding a packet from an
+ibmveth device.
+
+ibmveth is a bit special. It's the driver for communication between
+virtual machines (aka 'partitions'/LPARs) running under IBM's
+proprietary hypervisor on ppc machines. It allows sending very large
+packets (up to 64kB) between LPARs. This involves some quite
+'interesting' things: for example, when talking TCP, the MSS is stored
+the checksum field (see ibmveth_rx_mss_helper() in ibmveth.c).
+
+Normally on a box like this, there would be a Virtual I/O Server
+(VIOS) partition that owns the physical network card. VIOS lets the
+AIX partitions know when they're talking to a real network and that
+they should drop their MSS. This works fine if VIOS owns the physical
+network card.
+
+However, in this case, a Linux partition owns the card (this is known
+as a NovaLink setup). The negotiation between VIOS and AIX uses a
+non-standard TCP option, so Linux has never supported that.  Instead,
+Linux just supports receiving large packets. It doesn't support any
+form of messaging/MSS negotiation back to other LPARs.
+
+To get some clarity about where the large MSS was coming from, I asked
+Thomas Falcon, the maintainer of ibmveth, for some background:
+
+"In most cases, large segments are an aggregation of smaller packets
+by the Virtual I/O Server (VIOS) partition and then are forwarded to
+the Linux LPAR / ibmveth driver. These segments can be as large as
+64KB. In this case, since the customer is using Novalink, I believe
+what is happening is pretty straightforward: the large segments are
+created by the AIX partition and then forwarded to the Linux
+partition, ... The ibmveth driver doesn't do any aggregation itself
+but just ensures the proper bits are set before sending the frame up
+to avoid giving the upper layers indigestion."
+
+It is possible to stop AIX from sending these large segments, but it
+requires configuration on each LPAR. While ibmveth's behaviour is
+admittedly weird, we should fix this here: it shouldn't be possible
+for it to cause a firmware panic on another card.
+
+Cc: Thomas Falcon <tlfalcon@linux.vnet.ibm.com> # ibmveth
+Cc: Yuval Mintz <Yuval.Mintz@cavium.com> # bnx2x
+Thanks-to: Jay Vosburgh <jay.vosburgh@canonical.com> # veth info
+Signed-off-by: Daniel Axtens <dja@axtens.net>
 ---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h      |  2 ++
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c  | 33 +++++++++++++++---------
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c |  1 -
+ 3 files changed, 23 insertions(+), 13 deletions(-)
 
-
---------------C8691BE71D1BFDEA4BD4D82E
-Content-Type: text/plain; charset=UTF-8;
- name="dccp.patch"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment;
- filename="dccp.patch"
-
-ZGlmZiAtLWdpdCBhL25ldC9kY2NwL2lwdjYuYyBiL25ldC9kY2NwL2lwdjYuYwppbmRleCAx
-YjU4ZWFjLi4zNWMyZWRiIDEwMDY0NAotLS0gYS9uZXQvZGNjcC9pcHY2LmMKKysrIGIvbmV0
-L2RjY3AvaXB2Ni5jCkBAIC0xNiw2ICsxNiw3IEBACiAjaW5jbHVkZSA8bGludXgvcmFuZG9t
-Lmg+CiAjaW5jbHVkZSA8bGludXgvc2xhYi5oPgogI2luY2x1ZGUgPGxpbnV4L3hmcm0uaD4K
-KyNpbmNsdWRlIDxsaW51eC9zdHJpbmcuaD4KIAogI2luY2x1ZGUgPG5ldC9hZGRyY29uZi5o
-PgogI2luY2x1ZGUgPG5ldC9pbmV0X2NvbW1vbi5oPgpAQCAtMzAsNiArMzEsNyBAQAogI2lu
-Y2x1ZGUgPG5ldC9pcDZfY2hlY2tzdW0uaD4KICNpbmNsdWRlIDxuZXQveGZybS5oPgogI2lu
-Y2x1ZGUgPG5ldC9zZWN1cmVfc2VxLmg+CisjaW5jbHVkZSA8bmV0L3NvY2suaD4KIAogI2lu
-Y2x1ZGUgImRjY3AuaCIKICNpbmNsdWRlICJpcHY2LmgiCkBAIC01OTcsMTkgKzU5OSwxMyBA
-QCBzdGF0aWMgaW50IGRjY3BfdjZfZG9fcmN2KHN0cnVjdCBzb2NrICpzaywgc3RydWN0IHNr
-X2J1ZmYgKnNrYikKIAkJCQkJICAgICAgIC0tQU5LICg5ODA3MjgpCiAJICovCiAJaWYgKG5w
-LT5yeG9wdC5hbGwpCi0JLyoKLQkgKiBGSVhNRTogQWRkIGhhbmRsaW5nIG9mIElQVjZfUEtU
-T1BUSU9OUyBza2IuIFNlZSB0aGUgY29tbWVudHMgYmVsb3cKLQkgKiAgICAgICAgKHdydCBp
-cHY2X3BrdG9waW9ucykgYW5kIG5ldC9pcHY2L3RjcF9pcHY2LmMgZm9yIGFuIGV4YW1wbGUu
-Ci0JICovCiAJCW9wdF9za2IgPSBza2JfY2xvbmUoc2tiLCBHRlBfQVRPTUlDKTsKIAogCWlm
-IChzay0+c2tfc3RhdGUgPT0gRENDUF9PUEVOKSB7IC8qIEZhc3QgcGF0aCAqLwogCQlpZiAo
-ZGNjcF9yY3ZfZXN0YWJsaXNoZWQoc2ssIHNrYiwgZGNjcF9oZHIoc2tiKSwgc2tiLT5sZW4p
-KQogCQkJZ290byByZXNldDsKLQkJaWYgKG9wdF9za2IpIHsKLQkJCS8qIFhYWCBUaGlzIGlz
-IHdoZXJlIHdlIHdvdWxkIGdvdG8gaXB2Nl9wa3RvcHRpb25zLiAqLwotCQkJX19rZnJlZV9z
-a2Iob3B0X3NrYik7Ci0JCX0KKwkJaWYgKG9wdF9za2IpCisJCQlnb3RvIGlwdjZfcGt0b3B0
-aW9uczsKIAkJcmV0dXJuIDA7CiAJfQogCkBAIC02NDAsMTAgKzYzNiw4IEBAIHN0YXRpYyBp
-bnQgZGNjcF92Nl9kb19yY3Yoc3RydWN0IHNvY2sgKnNrLCBzdHJ1Y3Qgc2tfYnVmZiAqc2ti
-KQogCiAJaWYgKGRjY3BfcmN2X3N0YXRlX3Byb2Nlc3Moc2ssIHNrYiwgZGNjcF9oZHIoc2ti
-KSwgc2tiLT5sZW4pKQogCQlnb3RvIHJlc2V0OwotCWlmIChvcHRfc2tiKSB7Ci0JCS8qIFhY
-WCBUaGlzIGlzIHdoZXJlIHdlIHdvdWxkIGdvdG8gaXB2Nl9wa3RvcHRpb25zLiAqLwotCQlf
-X2tmcmVlX3NrYihvcHRfc2tiKTsKLQl9CisJaWYgKG9wdF9za2IpCisJCWdvdG8gaXB2Nl9w
-a3RvcHRpb25zOwogCXJldHVybiAwOwogCiByZXNldDoKQEAgLTY1Myw2ICs2NDcsMzUgQEAg
-c3RhdGljIGludCBkY2NwX3Y2X2RvX3JjdihzdHJ1Y3Qgc29jayAqc2ssIHN0cnVjdCBza19i
-dWZmICpza2IpCiAJCV9fa2ZyZWVfc2tiKG9wdF9za2IpOwogCWtmcmVlX3NrYihza2IpOwog
-CXJldHVybiAwOworCisvKiBIYW5kbGluZyBJUFY2X1BLVE9QVElPTlMgc2tiIHRoZSBzaW1p
-bGFyCisgKiB3YXkgaXQncyBkb25lIGZvciBuZXQvaXB2Ni90Y3BfaXB2Ni5jCisgKi8KK2lw
-djZfcGt0b3B0aW9uczoKKwlpZiAoISgoMSA8PCBzay0+c2tfc3RhdGUpICYgKERDQ1BGX0NM
-T1NFRCB8IERDQ1BGX0xJU1RFTikpKSB7CisJCWlmIChucC0+cnhvcHQuYml0cy5yeGluZm8g
-fHwgbnAtPnJ4b3B0LmJpdHMucnhvaW5mbykKKwkJCW5wLT5tY2FzdF9vaWYgPSBpbmV0Nl9p
-aWYob3B0X3NrYik7CisJCWlmIChucC0+cnhvcHQuYml0cy5yeGhsaW0gfHwgbnAtPnJ4b3B0
-LmJpdHMucnhvaGxpbSkKKwkJCW5wLT5tY2FzdF9ob3BzID0gaXB2Nl9oZHIob3B0X3NrYikt
-PmhvcF9saW1pdDsKKwkJaWYgKG5wLT5yeG9wdC5iaXRzLnJ4ZmxvdyB8fCBucC0+cnhvcHQu
-Yml0cy5yeHRjbGFzcykKKwkJCW5wLT5yY3ZfZmxvd2luZm8gPSBpcDZfZmxvd2luZm8oaXB2
-Nl9oZHIob3B0X3NrYikpOworCQlpZiAobnAtPnJlcGZsb3cpCisJCQlucC0+Zmxvd19sYWJl
-bCA9IGlwNl9mbG93bGFiZWwoaXB2Nl9oZHIob3B0X3NrYikpOworCQlpZiAoaXB2Nl9vcHRf
-YWNjZXB0ZWQoc2ssIG9wdF9za2IsCisJCQkJICAgICAgJkRDQ1BfU0tCX0NCKG9wdF9za2Ip
-LT5oZWFkZXIuaDYpKSB7CisJCQlza2Jfc2V0X293bmVyX3Iob3B0X3NrYiwgc2spOworCQkJ
-bWVtbW92ZShJUDZDQihvcHRfc2tiKSwKKwkJCQkmRENDUF9TS0JfQ0Iob3B0X3NrYiktPmhl
-YWRlci5oNiwKKwkJCQlzaXplb2Yoc3RydWN0IGluZXQ2X3NrYl9wYXJtKSk7CisJCQlvcHRf
-c2tiID0geGNoZygmbnAtPnBrdG9wdGlvbnMsIG9wdF9za2IpOworCQl9IGVsc2UgeworCQkJ
-X19rZnJlZV9za2Iob3B0X3NrYik7CisJCQlvcHRfc2tiID0geGNoZygmbnAtPnBrdG9wdGlv
-bnMsIE5VTEwpOworCQl9CisJfQorCisJa2ZyZWVfc2tiKG9wdF9za2IpOworCXJldHVybiAw
-OwogfQogCiBzdGF0aWMgaW50IGRjY3BfdjZfcmN2KHN0cnVjdCBza19idWZmICpza2IpCg==
---------------C8691BE71D1BFDEA4BD4D82E--
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+index 352beff796ae..b36d54737d70 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+@@ -2517,4 +2517,6 @@ void bnx2x_set_rx_ts(struct bnx2x *bp, struct sk_buff *skb);
+  */
+ int bnx2x_vlan_reconfigure_vid(struct bnx2x *bp);
+ 
++#define MAX_PACKET_SIZE	(9700)
++
+ #endif /* bnx2x.h */
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+index 1216c1f1e052..1c5517a9348c 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+@@ -3742,6 +3742,7 @@ netdev_tx_t bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	__le16 pkt_size = 0;
+ 	struct ethhdr *eth;
+ 	u8 mac_type = UNICAST_ADDRESS;
++	unsigned int pkts_compl = 0, bytes_compl = 0;
+ 
+ #ifdef BNX2X_STOP_ON_ERROR
+ 	if (unlikely(bp->panic))
+@@ -4029,6 +4030,14 @@ netdev_tx_t bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		   skb->len, hlen, skb_headlen(skb),
+ 		   skb_shinfo(skb)->gso_size);
+ 
++		if (unlikely(skb_shinfo(skb)->gso_size + hlen > MAX_PACKET_SIZE)) {
++			BNX2X_ERR("reported gso segment size plus headers "
++				  "(%d + %d) > MAX_PACKET_SIZE; dropping pkt!",
++				  skb_shinfo(skb)->gso_size, hlen);
++
++			goto free_and_drop;
++		}
++
+ 		tx_start_bd->bd_flags.as_bitfield |= ETH_TX_BD_FLAGS_SW_LSO;
+ 
+ 		if (unlikely(skb_headlen(skb) > hlen)) {
+@@ -4061,21 +4070,10 @@ netdev_tx_t bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		mapping = skb_frag_dma_map(&bp->pdev->dev, frag, 0,
+ 					   skb_frag_size(frag), DMA_TO_DEVICE);
+ 		if (unlikely(dma_mapping_error(&bp->pdev->dev, mapping))) {
+-			unsigned int pkts_compl = 0, bytes_compl = 0;
+-
+ 			DP(NETIF_MSG_TX_QUEUED,
+ 			   "Unable to map page - dropping packet...\n");
+ 
+-			/* we need unmap all buffers already mapped
+-			 * for this SKB;
+-			 * first_bd->nbd need to be properly updated
+-			 * before call to bnx2x_free_tx_pkt
+-			 */
+-			first_bd->nbd = cpu_to_le16(nbd);
+-			bnx2x_free_tx_pkt(bp, txdata,
+-					  TX_BD(txdata->tx_pkt_prod),
+-					  &pkts_compl, &bytes_compl);
+-			return NETDEV_TX_OK;
++			goto free_and_drop;
+ 		}
+ 
+ 		bd_prod = TX_BD(NEXT_TX_IDX(bd_prod));
+@@ -4176,6 +4174,17 @@ netdev_tx_t bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	txdata->tx_pkt++;
+ 
+ 	return NETDEV_TX_OK;
++
++free_and_drop:
++	/*
++	 * we need unmap all buffers already mapped for this SKB;
++	 * first_bd->nbd need to be properly updated before call to
++	 * bnx2x_free_tx_pkt
++	 */
++	first_bd->nbd = cpu_to_le16(nbd);
++	bnx2x_free_tx_pkt(bp, txdata, TX_BD(txdata->tx_pkt_prod),
++			  &pkts_compl, &bytes_compl);
++	return NETDEV_TX_OK;
+ }
+ 
+ void bnx2x_get_c2s_mapping(struct bnx2x *bp, u8 *c2s_map, u8 *c2s_default)
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
+index 7dd83d0ef0a0..59a3a9419cde 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
+@@ -189,7 +189,6 @@ typedef int (*read_sfp_module_eeprom_func_p)(struct bnx2x_phy *phy,
+ #define ETS_E3B0_NIG_MIN_W_VAL_20GBPS			(2720)
+ #define ETS_E3B0_PBF_MIN_W_VAL				(10000)
+ 
+-#define MAX_PACKET_SIZE					(9700)
+ #define MAX_KR_LINK_RETRY				4
+ #define DEFAULT_TX_DRV_BRDCT		2
+ #define DEFAULT_TX_DRV_IFIR		0
+-- 
+2.11.0
