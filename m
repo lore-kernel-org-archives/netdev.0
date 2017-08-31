@@ -1,47 +1,45 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [RFC PATCH] net: frag limit checks need to use
- percpu_counter_compare
-Date: Thu, 31 Aug 2017 08:58:02 -0700
-Message-ID: <20170831085802.2d4cdc87@xeon-e3>
-References: <150417481955.28907.15567119824187929000.stgit@firesoul>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: liujian56@huawei.com, netdev@vger.kernel.org,
-        Florian Westphal <fw@strlen.de>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next repost 0/8] mlxsw: Add IPv6 host dpipe table
+Date: Thu, 31 Aug 2017 17:59:11 +0200
+Message-ID: <20170831155919.1366-1-jiri@resnulli.us>
+Cc: davem@davemloft.net, arkadis@mellanox.com, idosch@mellanox.com,
+        mlxsw@mellanox.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f171.google.com ([209.85.192.171]:35291 "EHLO
-        mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751770AbdHaP6G (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 11:58:06 -0400
-Received: by mail-pf0-f171.google.com with SMTP id g13so131846pfm.2
-        for <netdev@vger.kernel.org>; Thu, 31 Aug 2017 08:58:06 -0700 (PDT)
-In-Reply-To: <150417481955.28907.15567119824187929000.stgit@firesoul>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:38336 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751583AbdHaP7W (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 11:59:22 -0400
+Received: by mail-wm0-f66.google.com with SMTP id u26so41214wma.5
+        for <netdev@vger.kernel.org>; Thu, 31 Aug 2017 08:59:22 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 31 Aug 2017 12:20:19 +0200
-Jesper Dangaard Brouer <brouer@redhat.com> wrote:
+From: Jiri Pirko <jiri@mellanox.com>
 
-> +static inline bool frag_mem_over_limit(struct netns_frags *nf, int thresh)
->  {
-> -	return percpu_counter_read(&nf->mem);
-> +	/* When reading counter here, __percpu_counter_compare() call
-> +	 * will invoke __percpu_counter_sum() when needed.  Which
-> +	 * depend on num_online_cpus()*batch size, as each CPU can
-> +	 * potentential can hold a batch count.
-> +	 *
-> +	 * With many CPUs this heavier sum operation will
-> +	 * unfortunately always occur.
-> +	 */
-> +	if (__percpu_counter_compare(&nf->mem, thresh,
-> +				     frag_percpu_counter_batch) > 0)
-> +		return true;
-> +	else
-> +		return false;
+This patchset adds IPv6 host dpipe table support. This will provide the
+ability to observe the hardware offloaded IPv6 neighbors.
 
-You don't need an if() here.
+Arkadi Sharshevsky (8):
+  devlink: Add IPv6 header for dpipe
+  mlxsw: spectrum_router: Export IPv6 link local address check helper
+  mlxsw: spectrum_dpipe: Add IPv6 host table initial support
+  mlxsw: spectrum_router: Add IPv6 neighbor access helper
+  mlxsw: spectrum_dpipe: Make host entry fill handler more generic
+  mlxsw: spectrum_dpipe: Add support for IPv6 host table dump
+  mlxsw: spectrum_router: Add support for setting counters on IPv6
+    neighbors
+  mlxsw: spectrum_dpipe: Add support for controlling IPv6 neighbor
+    counters
 
-	return __percpu_counter_compare(&nf->mem, thresh,
-				     frag_percpu_counter_batch) > 0;
+ .../net/ethernet/mellanox/mlxsw/spectrum_dpipe.c   | 182 ++++++++++++++++++---
+ .../net/ethernet/mellanox/mlxsw/spectrum_dpipe.h   |   1 +
+ .../net/ethernet/mellanox/mlxsw/spectrum_router.c  |  37 ++++-
+ .../net/ethernet/mellanox/mlxsw/spectrum_router.h  |   3 +
+ include/net/devlink.h                              |   1 +
+ include/uapi/linux/devlink.h                       |   5 +
+ net/core/devlink.c                                 |  17 ++
+ 7 files changed, 219 insertions(+), 27 deletions(-)
+
+-- 
+2.9.3
