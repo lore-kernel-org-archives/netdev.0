@@ -1,71 +1,50 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next repost 2/8] mlxsw: spectrum_router: Export IPv6 link local address check helper
-Date: Thu, 31 Aug 2017 17:59:13 +0200
-Message-ID: <20170831155919.1366-3-jiri@resnulli.us>
-References: <20170831155919.1366-1-jiri@resnulli.us>
-Cc: davem@davemloft.net, arkadis@mellanox.com, idosch@mellanox.com,
-        mlxsw@mellanox.com
-To: netdev@vger.kernel.org
+From: Stefano Brivio <sbrivio@redhat.com>
+Subject: [PATCH net] ipv4: Don't override return code from ip_route_input_noref()
+Date: Thu, 31 Aug 2017 18:11:41 +0200
+Message-ID: <c4d8970306e614ac139cf2f33ab5e6bb73b30154.1504194307.git.sbrivio@redhat.com>
+Cc: Sabrina Dubroca <sdubroca@redhat.com>, Wei Wang <weiwan@google.com>
+To: "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:34014 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751752AbdHaP70 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 11:59:26 -0400
-Received: by mail-wm0-f68.google.com with SMTP id l19so65712wmi.1
-        for <netdev@vger.kernel.org>; Thu, 31 Aug 2017 08:59:25 -0700 (PDT)
-In-Reply-To: <20170831155919.1366-1-jiri@resnulli.us>
+Received: from mx1.redhat.com ([209.132.183.28]:58380 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751662AbdHaQMa (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 31 Aug 2017 12:12:30 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Arkadi Sharshevsky <arkadis@mellanox.com>
+After ip_route_input() calls ip_route_input_noref(), another
+check on skb_dst() is done, but if this fails, we shouldn't
+override the return code from ip_route_input_noref(), as it
+could have been more specific (i.e. -EHOSTUNREACH).
 
-Neighbors with link local addresses are not offloaded to the host table,
-yet, the are maintained in the driver for adjacency table usage. When
-dumping the IPv6 host neighbors this link local neighbors should be
-ignored. This patch exports this helper for dpipe usage.
+This also saves one call to skb_dst_force_safe() and one to
+skb_dst() in case the ip_route_input_noref() check fails.
 
-Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Reported-by: Sabrina Dubroca <sdubroca@redhat.com>
+Fixes: ad65a2f05695 ("ipv4: call dst_hold_safe() properly")
+Signed-off-by: Stefano Brivio <sbrivio@redhat.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c | 6 ++++--
- drivers/net/ethernet/mellanox/mlxsw/spectrum_router.h | 1 +
- 2 files changed, 5 insertions(+), 2 deletions(-)
+ include/net/route.h | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-index 377d85c..1f41bcd 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-@@ -1396,8 +1396,10 @@ mlxsw_sp_router_neigh_entry_op6(struct mlxsw_sp *mlxsw_sp,
- 	mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(rauht), rauht_pl);
- }
+diff --git a/include/net/route.h b/include/net/route.h
+index cb0a76d9dde1..1b09a9368c68 100644
+--- a/include/net/route.h
++++ b/include/net/route.h
+@@ -189,10 +189,11 @@ static inline int ip_route_input(struct sk_buff *skb, __be32 dst, __be32 src,
  
--static bool mlxsw_sp_neigh_ipv6_ignore(struct neighbour *n)
-+bool mlxsw_sp_neigh_ipv6_ignore(struct mlxsw_sp_neigh_entry *neigh_entry)
- {
-+	struct neighbour *n = neigh_entry->key.n;
-+
- 	/* Packets with a link-local destination address are trapped
- 	 * after LPM lookup and never reach the neighbour table, so
- 	 * there is no need to program such neighbours to the device.
-@@ -1420,7 +1422,7 @@ mlxsw_sp_neigh_entry_update(struct mlxsw_sp *mlxsw_sp,
- 		mlxsw_sp_router_neigh_entry_op4(mlxsw_sp, neigh_entry,
- 						mlxsw_sp_rauht_op(adding));
- 	} else if (neigh_entry->key.n->tbl->family == AF_INET6) {
--		if (mlxsw_sp_neigh_ipv6_ignore(neigh_entry->key.n))
-+		if (mlxsw_sp_neigh_ipv6_ignore(neigh_entry))
- 			return;
- 		mlxsw_sp_router_neigh_entry_op6(mlxsw_sp, neigh_entry,
- 						mlxsw_sp_rauht_op(adding));
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.h
-index fb0f971..5b68616 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.h
-@@ -76,5 +76,6 @@ void
- mlxsw_sp_neigh_entry_counter_update(struct mlxsw_sp *mlxsw_sp,
- 				    struct mlxsw_sp_neigh_entry *neigh_entry,
- 				    bool adding);
-+bool mlxsw_sp_neigh_ipv6_ignore(struct mlxsw_sp_neigh_entry *neigh_entry);
+ 	rcu_read_lock();
+ 	err = ip_route_input_noref(skb, dst, src, tos, devin);
+-	if (!err)
++	if (!err) {
+ 		skb_dst_force_safe(skb);
+-	if (!skb_dst(skb))
+-		err = -EINVAL;
++		if (!skb_dst(skb))
++			err = -EINVAL;
++	}
+ 	rcu_read_unlock();
  
- #endif /* _MLXSW_ROUTER_H_*/
+ 	return err;
 -- 
-2.9.3
+2.9.4
