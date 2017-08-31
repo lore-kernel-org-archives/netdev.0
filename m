@@ -1,83 +1,71 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH 0/4] irda: move it to drivers/staging so we can delete it
-Date: Thu, 31 Aug 2017 06:30:42 +0200
-Message-ID: <20170831043042.GB3359@kroah.com>
-References: <20170827150334.32495-1-gregkh@linuxfoundation.org>
- <20170828.164208.1908438929113102094.davem@davemloft.net>
- <201708292332.58569.linux@rainbow-software.org>
+From: Mike Galbraith <efault@gmx.de>
+Subject: Re: tip -ENOBOOT - bisected to locking/refcounts, x86/asm:
+ Implement fast refcount overflow protection
+Date: Thu, 31 Aug 2017 06:38:18 +0200
+Message-ID: <1504154298.23109.23.camel@gmx.de>
+References: <1503996623.8323.20.camel@gmx.de>
+         <CAGXu5jLYHy6Damtg_Pc4=G76OUiMV3fcY9+Ru1-Lmiq6VWEgsw@mail.gmail.com>
+         <1504025721.6024.25.camel@gmx.de> <1504030207.6560.0.camel@gmx.de>
+         <CAGXu5jKSWiZ8NkgUqO6G8fs5R06bMtdFBmZz9MMX-HAk8nXXNw@mail.gmail.com>
+         <1504069332.8352.3.camel@gmx.de>
+         <CAGXu5jJim=r8b+y1qQXtuzm9fPyv1tp9ANebxbCc9ic2c83_Mg@mail.gmail.com>
+         <1504113212.5852.6.camel@gmx.de>
+         <CAGXu5jJd80-0PJvB51x9ZDETPSoAtRVQ7dQ6HWwd0DYpKBgPFA@mail.gmail.com>
+         <1504115735.5852.11.camel@gmx.de>
+         <CAGXu5j+BLj6_LPfKs-vts-mbyJHu8D--WrmWbiT8Zbt-iD65KA@mail.gmail.com>
+         <CAGXu5j+neSYAqb8=r42=jQ0LsJTGjCSdpgc9Hv+ipyAFURbCdw@mail.gmail.com>
+         <1504145389.23109.4.camel@gmx.de>
+         <CAGXu5jLKXEDdSpxxVM5oHHUWKbSTozx4FZRn70bQm4tQAhMqUQ@mail.gmail.com>
+         <1504149176.23109.9.camel@gmx.de>
+         <CAGXu5j+uNU+wqWoCV+Kpdp+DQer4E3VuwO0mtXiW3Dtw_61QKA@mail.gmail.com>
+         <CAGXu5jKYPp5D+YxtqrJXsi48UUbjfeREngsys-dU1eP4RnnL+w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org, samuel@sortiz.org,
- David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org
-To: Ondrej Zary <linux@rainbow-software.org>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-Content-Disposition: inline
-In-Reply-To: <201708292332.58569.linux@rainbow-software.org>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: LKML <linux-kernel@vger.kernel.org>, Ingo Molnar <mingo@elte.hu>,
+        "Reshetova, Elena" <elena.reshetova@intel.com>,
+        Network Development <netdev@vger.kernel.org>
+To: Kees Cook <keescook@chromium.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Peter Zijlstra <peterz@infradead.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.gmx.net ([212.227.17.22]:64841 "EHLO mout.gmx.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750883AbdHaEjI (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 31 Aug 2017 00:39:08 -0400
+In-Reply-To: <CAGXu5jKYPp5D+YxtqrJXsi48UUbjfeREngsys-dU1eP4RnnL+w@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 29, 2017 at 11:32:58PM +0200, Ondrej Zary wrote:
-> On Tuesday 29 August 2017 01:42:08 David Miller wrote:
-> > From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-> > Date: Sun, 27 Aug 2017 17:03:30 +0200
+On Wed, 2017-08-30 at 21:10 -0700, Kees Cook wrote:
+> On Wed, Aug 30, 2017 at 9:01 PM, Kees Cook <keescook@chromium.org> wrote:
+> > On Wed, Aug 30, 2017 at 8:12 PM, Mike Galbraith <efault@gmx.de> wrote:
+> >> On Wed, 2017-08-30 at 19:27 -0700, Kees Cook wrote:
+> >>
+> >>> Interesting! Can you try with 633547973ffc3 ("net: convert
+> >>> sk_buff.users from atomic_t to refcount_t") reverted? I'll see if
+> >>> running haveged will help me trigger this on my system...
+> >>
+> >> With that (plus 230cd1279d001 fix to it) reverted, vbox boots.
 > >
-> > > The IRDA code has long been obsolete and broken.  So, to keep people
-> > > from trying to use it, and to prevent people from having to maintain it,
-> > > let's move it to drivers/staging/ so that we can delete it entirely from
-> > > the kernel in a few releases.
+> > Wonderful! Thank you so much for helping track this down.
 > >
-> > No objection, I'll apply this to net-next, thanks Greg.
+> > So, it seems that sk_buff.users will need some more special attention
+> > before we can convert it to refcount.
+> >
+> > x86-refcount will saturate with refcount_dec_and_test() if the result
+> > is negative. But that would mean at least starting at 0. FULL should
+> > have WARNed in this case, so I remain slightly confused why it was
+> > missed by FULL.
 > 
-> IRDA works fine in Debian 9 (kernel 4.9) and I use it for simple file 
-> transfer. Hope I'm not the only one...
+> Actually, if this is a race condition it's possible that FULL is slow
+> enough to miss it...
 > 
-> # irattach /dev/ttyS0 -d tekram -s
-> # irdadump
-> 21:28:52.830350 xid:cmd aed8eb79 > ffffffff S=6 s=0 (14)
-> 21:28:52.922368 xid:cmd aed8eb79 > ffffffff S=6 s=1 (14)
-> 21:28:53.014350 xid:cmd aed8eb79 > ffffffff S=6 s=2 (14)
-> 21:28:53.106338 xid:cmd aed8eb79 > ffffffff S=6 s=3 (14)
-> 21:28:53.190276 xid:rsp aed8eb79 < 000035d1 S=6 s=3 Nokia 6230i hint=b125 [ 
-> PnP Modem Fax Telephony IrCOMM IrOBEX ] (28)
-> 21:28:53.198384 xid:cmd aed8eb79 > ffffffff S=6 s=4 (14)
-> 21:28:53.290382 xid:cmd aed8eb79 > ffffffff S=6 s=5 (14)
-> 21:28:53.382341 xid:cmd aed8eb79 > ffffffff S=6 s=* pentium hint=0400 [ 
-> Computer ] (23)
-> ^C
-> 8 packets received by filter
-> 
-> $ obexftp -i -l MMC
-> Connecting..\done
-> Receiving "MMC".../<?xml version="1.0"?>
-> <!DOCTYPE folder-listing SYSTEM "obex-folder-listing.dtd"
->  [ <!ATTLIST folder mem-type CDATA #IMPLIED> ]>
-> <folder-listing version="1.0">
->     <parent-folder />
->     <file name="Image000.jpg" size="304300" modified="20160219T135924" 
-> user-perm="RWD"/>
->     <file name="Image001.jpg" size="270037" modified="20170811T233122" 
-> user-perm="RWD"/>
->     <file name="Image004.jpg" size="53519" modified="20170814T074550" 
-> user-perm="RWD"/>
-> ....
-> $ obexftp -i -c MMC -g Image004.jpg
-> Connecting..\done
-> Sending "MMC"...|done
-> Receiving "Image004.jpg"...-done
-> Disconnecting..\done
+> I bet something briefly takes the refcount negative, and with
+> unchecked atomics, it come back up positive again during the race.
+> FULL may miss the race, and x86-refcount will catch it and saturate...
 
-Odd, and is this just a ir device connected to a "real" serial port, or
-a specific IRDA device?
+Hm, I'll go have a stare.. not that that's likely to turn anything up,
+memory ordering stares usually inducing a zombie like state.
 
-thanks,
-
-greg k-h
+	-Mike
