@@ -1,105 +1,103 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: DSA mv88e6xxx RX frame errors and TCP/IP RX failure
-Date: Thu, 31 Aug 2017 03:46:24 +0200
-Message-ID: <20170831014624.GA18554@lunn.ch>
-References: <CAJ+vNU0VzgDkH-ksHgaA0cn3nbCOfcUs_BU90v6xw_QappssgA@mail.gmail.com>
- <20170830220631.GM22289@lunn.ch>
- <CAJ+vNU3Qto9iNdCUExb4NWaa3PA1UWe1kbY1b=sBLPgw_xiz7g@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] Revert "net: phy: Correctly process PHY_HALTED in
+ phy_stop_machine()"
+Date: Wed, 30 Aug 2017 18:47:59 -0700 (PDT)
+Message-ID: <20170830.184759.686464284014904531.davem@davemloft.net>
+References: <1504140569-2063-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Fugang Duan <fugang.duan@nxp.com>
-To: Tim Harvey <tharvey@gateworks.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAJ+vNU3Qto9iNdCUExb4NWaa3PA1UWe1kbY1b=sBLPgw_xiz7g@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, geert+renesas@glider.be,
+        ddaney.cavm@gmail.com, slash.tmp@free.fr,
+        marc_gonzales@sigmadesigns.com, andrew@lunn.ch
+To: f.fainelli@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:39054 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750814AbdHaBsC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 21:48:02 -0400
+In-Reply-To: <1504140569-2063-1-git-send-email-f.fainelli@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> >                        /* Report late collisions as a frame error. */
-> >                         if (status & (BD_ENET_RX_NO | BD_ENET_RX_CL))
-> >                                 ndev->stats.rx_frame_errors++;
-> >
-> > I don't see anywhere else frame errors are counted, but it would be
-> > good to prove we are looking in the right place.
-> >
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Wed, 30 Aug 2017 17:49:29 -0700
+
+> This reverts commit 7ad813f208533cebfcc32d3d7474dc1677d1b09a ("net: phy:
+> Correctly process PHY_HALTED in phy_stop_machine()") because it is
+> creating the possibility for a NULL pointer dereference.
 > 
-> Andrew,
+> David Daney provide the following call trace and diagram of events:
 > 
-> (adding IMX FEC driver maintainer to CC)
+> When ndo_stop() is called we call:
 > 
-> Yes, that's one of them being hit. It looks like ifconfig reports
-> 'frame' as the accumulation of a few stats so here are some more
-> specifics from /sys/class/net/eth0/statistics:
+>  phy_disconnect()
+>     +---> phy_stop_interrupts() implies: phydev->irq = PHY_POLL;
+>     +---> phy_stop_machine()
+>     |      +---> phy_state_machine()
+>     |              +----> queue_delayed_work(): Work queued.
+>     +--->phy_detach() implies: phydev->attached_dev = NULL;
 > 
-> root@xenial:/sys/devices/soc0/soc/2100000.aips-bus/2188000.ethernet/net/eth0/statistics#
-> for i in `ls rx_*`; do echo $i:$(cat $i); done
-> rx_bytes:103229
-> rx_compressed:0
-> rx_crc_errors:22
-> rx_dropped:0
-> rx_errors:22
-> rx_fifo_errors:0
-> rx_frame_errors:22
-> rx_length_errors:22
-> rx_missed_errors:0
-> rx_nohandler:0
-> rx_over_errors:0
-> rx_packets:1174
-> root@xenial:/sys/devices/soc0/soc/2100000.aips-bus/2188000.ethernet/net/eth0/statistics#
-> ifconfig eth0
-> eth0      Link encap:Ethernet  HWaddr 00:D0:12:41:F3:E7
->           inet6 addr: fe80::2d0:12ff:fe41:f3e7/64 Scope:Link
->           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
->           RX packets:1207 errors:22 dropped:0 overruns:0 frame:66
->           TX packets:42 errors:0 dropped:0 overruns:0 carrier:0
->           collisions:0 txqueuelen:1000
->           RX bytes:106009 (103.5 KiB)  TX bytes:4604 (4.4 KiB)
+> Now at a later time the queued work does:
 > 
-> Instrumenting fec driver I see the following getting hit:
+>  phy_state_machine()
+>     +---->netif_carrier_off(phydev->attached_dev): Oh no! It is NULL:
 > 
-> status & BD_ENET_RX_LG /* rx_length_errors: Frame too long */
-> status & BD_ENET_RX_CR  /* rx_crc_errors: CRC Error */
-> status & BD_ENET_RX_CL /* rx_frame_errors: Collision? */
+>  CPU 12 Unable to handle kernel paging request at virtual address
+> 0000000000000048, epc == ffffffff80de37ec, ra == ffffffff80c7c
+> Oops[#1]:
+> CPU: 12 PID: 1502 Comm: kworker/12:1 Not tainted 4.9.43-Cavium-Octeon+ #1
+> Workqueue: events_power_efficient phy_state_machine
+> task: 80000004021ed100 task.stack: 8000000409d70000
+> $ 0   : 0000000000000000 ffffffff84720060 0000000000000048 0000000000000004
+> $ 4   : 0000000000000000 0000000000000001 0000000000000004 0000000000000000
+> $ 8   : 0000000000000000 0000000000000000 00000000ffff98f3 0000000000000000
+> $12   : 8000000409d73fe0 0000000000009c00 ffffffff846547c8 000000000000af3b
+> $16   : 80000004096bab68 80000004096babd0 0000000000000000 80000004096ba800
+> $20   : 0000000000000000 0000000000000000 ffffffff81090000 0000000000000008
+> $24   : 0000000000000061 ffffffff808637b0
+> $28   : 8000000409d70000 8000000409d73cf0 80000000271bd300 ffffffff80c7804c
+> Hi    : 000000000000002a
+> Lo    : 000000000000003f
+> epc   : ffffffff80de37ec netif_carrier_off+0xc/0x58
+> ra    : ffffffff80c7804c phy_state_machine+0x48c/0x4f8
+> Status: 14009ce3        KX SX UX KERNEL EXL IE
+> Cause : 00800008 (ExcCode 02)
+> BadVA : 0000000000000048
+> PrId  : 000d9501 (Cavium Octeon III)
+> Modules linked in:
+> Process kworker/12:1 (pid: 1502, threadinfo=8000000409d70000,
+> task=80000004021ed100, tls=0000000000000000)
+> Stack : 8000000409a54000 80000004096bab68 80000000271bd300 80000000271c1e00
+>         0000000000000000 ffffffff808a1708 8000000409a54000 80000000271bd300
+>         80000000271bd320 8000000409a54030 ffffffff80ff0f00 0000000000000001
+>         ffffffff81090000 ffffffff808a1ac0 8000000402182080 ffffffff84650000
+>         8000000402182080 ffffffff84650000 ffffffff80ff0000 8000000409a54000
+>         ffffffff808a1970 0000000000000000 80000004099e8000 8000000402099240
+>         0000000000000000 ffffffff808a8598 0000000000000000 8000000408eeeb00
+>         8000000409a54000 00000000810a1d00 0000000000000000 8000000409d73de8
+>         8000000409d73de8 0000000000000088 000000000c009c00 8000000409d73e08
+>         8000000409d73e08 8000000402182080 ffffffff808a84d0 8000000402182080
+>         ...
+> Call Trace:
+> [<ffffffff80de37ec>] netif_carrier_off+0xc/0x58
+> [<ffffffff80c7804c>] phy_state_machine+0x48c/0x4f8
+> [<ffffffff808a1708>] process_one_work+0x158/0x368
+> [<ffffffff808a1ac0>] worker_thread+0x150/0x4c0
+> [<ffffffff808a8598>] kthread+0xc8/0xe0
+> [<ffffffff808617f0>] ret_from_kernel_thread+0x14/0x1c
 > 
-> Is this a frame size issue where the MV88E6176 is sending frames down
-> that exceed the MTU because of headers added?
+> The original motivation for this change originated from Marc Gonzales
+> indicating that his network driver did not have its adjust_link callback
+> executing with phydev->link = 0 while he was expecting it.
+> 
+> PHYLIB has never made any such guarantees ever because phy_stop() merely just
+> tells the workqueue to move into PHY_HALTED state which will happen
+> asynchronously.
+> 
+> Reported-by: Geert Uytterhoeven <geert+renesas@glider.be>
+> Reported-by: David Daney <ddaney.cavm@gmail.com>
+> Fixes: 7ad813f20853 ("net: phy: Correctly process PHY_HALTED in phy_stop_machine()")
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 
-I did fix an issue recently with that. See 
-
-commit fbbeefdd21049fcf9437c809da3828b210577f36
-Author: Andrew Lunn <andrew@lunn.ch>
-Date:   Sun Jul 30 19:36:05 2017 +0200
-
-    net: fec: Allow reception of frames bigger than 1522 bytes
-    
-    The FEC Receive Control Register has a 14 bit field indicating the
-    longest frame that may be received. It is being set to 1522. Frames
-    longer than this are discarded, but counted as being in error.
-    
-    When using DSA, frames from the switch has an additional header,
-    either 4 or 8 bytes if a Marvell switch is used. Thus a full MTU frame
-    of 1522 bytes received by the switch on a port becomes 1530 bytes when
-    passed to the host via the FEC interface.
-    
-    Change the maximum receive size to 2048 - 64, where 64 is the maximum
-    rx_alignment applied on the receive buffer for AVB capable FEC
-    cores. Use this value also for the maximum receive buffer size. The
-    driver is already allocating a receive SKB of 2048 bytes, so this
-    change should not have any significant effects.
-    
-    Tested on imx51, imx6, vf610.
-    
-    Signed-off-by: Andrew Lunn <andrew@lunn.ch>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
-
-
-However, this is was of an all/nothing problem. All frames with the
-full MTU were getting dropped, where as i think you are only seeing a
-few dropped?
-
-Anyway, try cherry picking that patch and see if it helps.
-
-	Andrew
+Applied and queued up for -stable, thanks Florian.
