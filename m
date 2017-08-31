@@ -1,27 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [pull request][net 00/11] Mellanox, mlx5 fixes 2017-08-30
-Date: Wed, 30 Aug 2017 17:06:16 -0700 (PDT)
-Message-ID: <20170830.170616.664760180027627829.davem@davemloft.net>
-References: <20170830222110.15737-1-saeedm@mellanox.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: saeedm@mellanox.com
+From: David Ahern <dsahern@gmail.com>
+Subject: [PATCH net-next] devlink: Maintain consistency in mac field name
+Date: Wed, 30 Aug 2017 17:07:30 -0700
+Message-ID: <1504138050-20170-1-git-send-email-dsahern@gmail.com>
+Cc: arkadis@mellanox.com, David Ahern <dsahern@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:37360 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750761AbdHaAGT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 20:06:19 -0400
-In-Reply-To: <20170830222110.15737-1-saeedm@mellanox.com>
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:32899 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750828AbdHaAHh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 20:07:37 -0400
+Received: by mail-pg0-f66.google.com with SMTP id m15so6127414pgc.0
+        for <netdev@vger.kernel.org>; Wed, 30 Aug 2017 17:07:37 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Saeed Mahameed <saeedm@mellanox.com>
-Date: Thu, 31 Aug 2017 01:20:59 +0300
+IPv4 name uses "destination ip" as does the IPv6 patch set.
+Make the mac field consistent.
 
-> This series contains some misc fixes to the mlx5 driver.
-> 
-> Please pull and let me know if there's any problem.
+Signed-off-by: David Ahern <dsahern@gmail.com>
+---
+ net/core/devlink.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Series applied, thanks.
+diff --git a/net/core/devlink.c b/net/core/devlink.c
+index 47931a202a0c..7d430c1d9c3e 100644
+--- a/net/core/devlink.c
++++ b/net/core/devlink.c
+@@ -31,7 +31,7 @@
+ 
+ static struct devlink_dpipe_field devlink_dpipe_fields_ethernet[] = {
+ 	{
+-		.name = "destination_mac",
++		.name = "destination mac",
+ 		.id = DEVLINK_DPIPE_FIELD_ETHERNET_DST_MAC,
+ 		.bitwidth = 48,
+ 	},
+-- 
+2.1.4
