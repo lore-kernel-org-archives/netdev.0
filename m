@@ -1,116 +1,105 @@
-From: Ivan Delalande <colona@arista.com>
-Subject: [PATCH net-next v4 1/2] inet_diag: allow protocols to provide additional data
-Date: Wed, 30 Aug 2017 18:33:11 -0700
-Message-ID: <20170831013312.29142-2-colona@arista.com>
-References: <20170831013312.29142-1-colona@arista.com>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-        Ivan Delalande <colona@arista.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from prod-mx.aristanetworks.com ([162.210.130.12]:54315 "EHLO
-        prod-mx.aristanetworks.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750774AbdHaBdN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 21:33:13 -0400
-In-Reply-To: <20170831013312.29142-1-colona@arista.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: DSA mv88e6xxx RX frame errors and TCP/IP RX failure
+Date: Thu, 31 Aug 2017 03:46:24 +0200
+Message-ID: <20170831014624.GA18554@lunn.ch>
+References: <CAJ+vNU0VzgDkH-ksHgaA0cn3nbCOfcUs_BU90v6xw_QappssgA@mail.gmail.com>
+ <20170830220631.GM22289@lunn.ch>
+ <CAJ+vNU3Qto9iNdCUExb4NWaa3PA1UWe1kbY1b=sBLPgw_xiz7g@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        Fugang Duan <fugang.duan@nxp.com>
+To: Tim Harvey <tharvey@gateworks.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAJ+vNU3Qto9iNdCUExb4NWaa3PA1UWe1kbY1b=sBLPgw_xiz7g@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Extend inet_diag_handler to allow individual protocols to report
-additional data on INET_DIAG_INFO through idiag_get_aux. The size
-can be dynamic and is computed by idiag_get_aux_size.
+> >                        /* Report late collisions as a frame error. */
+> >                         if (status & (BD_ENET_RX_NO | BD_ENET_RX_CL))
+> >                                 ndev->stats.rx_frame_errors++;
+> >
+> > I don't see anywhere else frame errors are counted, but it would be
+> > good to prove we are looking in the right place.
+> >
+> 
+> Andrew,
+> 
+> (adding IMX FEC driver maintainer to CC)
+> 
+> Yes, that's one of them being hit. It looks like ifconfig reports
+> 'frame' as the accumulation of a few stats so here are some more
+> specifics from /sys/class/net/eth0/statistics:
+> 
+> root@xenial:/sys/devices/soc0/soc/2100000.aips-bus/2188000.ethernet/net/eth0/statistics#
+> for i in `ls rx_*`; do echo $i:$(cat $i); done
+> rx_bytes:103229
+> rx_compressed:0
+> rx_crc_errors:22
+> rx_dropped:0
+> rx_errors:22
+> rx_fifo_errors:0
+> rx_frame_errors:22
+> rx_length_errors:22
+> rx_missed_errors:0
+> rx_nohandler:0
+> rx_over_errors:0
+> rx_packets:1174
+> root@xenial:/sys/devices/soc0/soc/2100000.aips-bus/2188000.ethernet/net/eth0/statistics#
+> ifconfig eth0
+> eth0      Link encap:Ethernet  HWaddr 00:D0:12:41:F3:E7
+>           inet6 addr: fe80::2d0:12ff:fe41:f3e7/64 Scope:Link
+>           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+>           RX packets:1207 errors:22 dropped:0 overruns:0 frame:66
+>           TX packets:42 errors:0 dropped:0 overruns:0 carrier:0
+>           collisions:0 txqueuelen:1000
+>           RX bytes:106009 (103.5 KiB)  TX bytes:4604 (4.4 KiB)
+> 
+> Instrumenting fec driver I see the following getting hit:
+> 
+> status & BD_ENET_RX_LG /* rx_length_errors: Frame too long */
+> status & BD_ENET_RX_CR  /* rx_crc_errors: CRC Error */
+> status & BD_ENET_RX_CL /* rx_frame_errors: Collision? */
+> 
+> Is this a frame size issue where the MV88E6176 is sending frames down
+> that exceed the MTU because of headers added?
 
-Signed-off-by: Ivan Delalande <colona@arista.com>
----
- include/linux/inet_diag.h |  7 +++++++
- net/ipv4/inet_diag.c      | 22 ++++++++++++++++++----
- 2 files changed, 25 insertions(+), 4 deletions(-)
+I did fix an issue recently with that. See 
 
-diff --git a/include/linux/inet_diag.h b/include/linux/inet_diag.h
-index 65da430e260f..ee251c585854 100644
---- a/include/linux/inet_diag.h
-+++ b/include/linux/inet_diag.h
-@@ -25,6 +25,13 @@ struct inet_diag_handler {
- 					  struct inet_diag_msg *r,
- 					  void *info);
- 
-+	int		(*idiag_get_aux)(struct sock *sk,
-+					 bool net_admin,
-+					 struct sk_buff *skb);
-+
-+	size_t		(*idiag_get_aux_size)(struct sock *sk,
-+					      bool net_admin);
-+
- 	int		(*destroy)(struct sk_buff *in_skb,
- 				   const struct inet_diag_req_v2 *req);
- 
-diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
-index 67325d5832d7..cb7012d1720f 100644
---- a/net/ipv4/inet_diag.c
-+++ b/net/ipv4/inet_diag.c
-@@ -93,8 +93,17 @@ void inet_diag_msg_common_fill(struct inet_diag_msg *r, struct sock *sk)
- }
- EXPORT_SYMBOL_GPL(inet_diag_msg_common_fill);
- 
--static size_t inet_sk_attr_size(void)
-+static size_t inet_sk_attr_size(struct sock *sk,
-+				const struct inet_diag_req_v2 *req,
-+				bool net_admin)
- {
-+	const struct inet_diag_handler *handler;
-+	size_t aux = 0;
-+
-+	handler = inet_diag_table[req->sdiag_protocol];
-+	if (handler && handler->idiag_get_aux_size)
-+		aux = handler->idiag_get_aux_size(sk, net_admin);
-+
- 	return	  nla_total_size(sizeof(struct tcp_info))
- 		+ nla_total_size(1) /* INET_DIAG_SHUTDOWN */
- 		+ nla_total_size(1) /* INET_DIAG_TOS */
-@@ -105,6 +114,7 @@ static size_t inet_sk_attr_size(void)
- 		+ nla_total_size(SK_MEMINFO_VARS * sizeof(u32))
- 		+ nla_total_size(TCP_CA_NAME_MAX)
- 		+ nla_total_size(sizeof(struct tcpvegas_info))
-+		+ nla_total_size(aux)
- 		+ 64;
- }
- 
-@@ -260,6 +270,10 @@ int inet_sk_diag_fill(struct sock *sk, struct inet_connection_sock *icsk,
- 
- 	handler->idiag_get_info(sk, r, info);
- 
-+	if (ext & (1 << (INET_DIAG_INFO - 1)) && handler->idiag_get_aux)
-+		if (handler->idiag_get_aux(sk, net_admin, skb) < 0)
-+			goto errout;
-+
- 	if (sk->sk_state < TCP_TIME_WAIT) {
- 		union tcp_cc_info info;
- 		size_t sz = 0;
-@@ -449,6 +463,7 @@ int inet_diag_dump_one_icsk(struct inet_hashinfo *hashinfo,
- 			    const struct nlmsghdr *nlh,
- 			    const struct inet_diag_req_v2 *req)
- {
-+	bool net_admin = netlink_net_capable(in_skb, CAP_NET_ADMIN);
- 	struct net *net = sock_net(in_skb->sk);
- 	struct sk_buff *rep;
- 	struct sock *sk;
-@@ -458,7 +473,7 @@ int inet_diag_dump_one_icsk(struct inet_hashinfo *hashinfo,
- 	if (IS_ERR(sk))
- 		return PTR_ERR(sk);
- 
--	rep = nlmsg_new(inet_sk_attr_size(), GFP_KERNEL);
-+	rep = nlmsg_new(inet_sk_attr_size(sk, req, net_admin), GFP_KERNEL);
- 	if (!rep) {
- 		err = -ENOMEM;
- 		goto out;
-@@ -467,8 +482,7 @@ int inet_diag_dump_one_icsk(struct inet_hashinfo *hashinfo,
- 	err = sk_diag_fill(sk, rep, req,
- 			   sk_user_ns(NETLINK_CB(in_skb).sk),
- 			   NETLINK_CB(in_skb).portid,
--			   nlh->nlmsg_seq, 0, nlh,
--			   netlink_net_capable(in_skb, CAP_NET_ADMIN));
-+			   nlh->nlmsg_seq, 0, nlh, net_admin);
- 	if (err < 0) {
- 		WARN_ON(err == -EMSGSIZE);
- 		nlmsg_free(rep);
--- 
-2.14.1
+commit fbbeefdd21049fcf9437c809da3828b210577f36
+Author: Andrew Lunn <andrew@lunn.ch>
+Date:   Sun Jul 30 19:36:05 2017 +0200
+
+    net: fec: Allow reception of frames bigger than 1522 bytes
+    
+    The FEC Receive Control Register has a 14 bit field indicating the
+    longest frame that may be received. It is being set to 1522. Frames
+    longer than this are discarded, but counted as being in error.
+    
+    When using DSA, frames from the switch has an additional header,
+    either 4 or 8 bytes if a Marvell switch is used. Thus a full MTU frame
+    of 1522 bytes received by the switch on a port becomes 1530 bytes when
+    passed to the host via the FEC interface.
+    
+    Change the maximum receive size to 2048 - 64, where 64 is the maximum
+    rx_alignment applied on the receive buffer for AVB capable FEC
+    cores. Use this value also for the maximum receive buffer size. The
+    driver is already allocating a receive SKB of 2048 bytes, so this
+    change should not have any significant effects.
+    
+    Tested on imx51, imx6, vf610.
+    
+    Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+
+However, this is was of an all/nothing problem. All frames with the
+full MTU were getting dropped, where as i think you are only seeing a
+few dropped?
+
+Anyway, try cherry picking that patch and see if it helps.
+
+	Andrew
