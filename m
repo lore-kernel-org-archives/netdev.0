@@ -1,368 +1,116 @@
-From: Himanshu Jha <himanshujha199640@gmail.com>
-Subject: [PATCH] ath9k: remove cast to void pointer
-Date: Thu, 31 Aug 2017 18:37:43 +0530
-Message-ID: <1504184863-9732-1-git-send-email-himanshujha199640@gmail.com>
-Cc: ath9k-devel@qca.qualcomm.com, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Himanshu Jha <himanshujha199640@gmail.com>
-To: kvalo@codeaurora.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:36360 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750895AbdHaNIE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 09:08:04 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Lipeng <lipeng321@huawei.com>
+Subject: [PATCH net-next 1/8] net: hns3: add check when initialize
+Date: Thu, 31 Aug 2017 21:39:02 +0800
+Message-ID: <1504186749-8926-2-git-send-email-lipeng321@huawei.com>
+References: <1504186749-8926-1-git-send-email-lipeng321@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        <linuxarm@huawei.com>, <yisen.zhuang@huawei.com>,
+        <salil.mehta@huawei.com>, <lipeng321@huawei.com>
+To: <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1504186749-8926-1-git-send-email-lipeng321@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-casting to void pointer from any pointer type and vice-versa is done
-implicitly and therefore casting is not needed in such a case.
+private waterline and and common packet buffer
 
-Signed-off-by: Himanshu Jha <himanshujha199640@gmail.com>
+Command HCLGE_OPC_RX_PRIV_WL_ALLOC configure waterline for TC's PFC,
+which has private buffer.Command HCLGE_OPC_RX_COM_THRD_ALLOC Control
+each TC's occupation in common packet buffer, also generate PFC for
+TC, which has not private buffer.When device do not support DCB,
+command HCLGE_OPC_RX_PRIV_WL_ALLOC and HCLGE_OPC_RX_COM_THRD_ALLOC
+should not be used.
+
+The current code does not support DCB feature, DCB feature will be added
+later. The current code works well if device support DCB though it do
+not enable DCB feature, but it works fail if device do not support DCB.
+
+Signed-off-by: Lipeng <lipeng321@huawei.com>
 ---
- drivers/net/wireless/ath/ath9k/ar9003_mac.c     |  4 ++--
- drivers/net/wireless/ath/ath9k/dfs.c            |  2 +-
- drivers/net/wireless/ath/ath9k/hif_usb.c        |  8 ++++----
- drivers/net/wireless/ath/ath9k/htc_drv_beacon.c |  2 +-
- drivers/net/wireless/ath/ath9k/htc_drv_init.c   | 24 ++++++++++++------------
- drivers/net/wireless/ath/ath9k/htc_drv_main.c   |  2 +-
- drivers/net/wireless/ath/ath9k/htc_drv_txrx.c   |  6 +++---
- drivers/net/wireless/ath/ath9k/init.c           |  8 ++++----
- drivers/net/wireless/ath/ath9k/main.c           |  2 +-
- drivers/net/wireless/ath/ath9k/mci.c            |  2 +-
- drivers/net/wireless/ath/ath9k/wmi.c            |  4 ++--
- 11 files changed, 32 insertions(+), 32 deletions(-)
+ drivers/net/ethernet/hisilicon/hns3/hnae3.h        |  1 +
+ .../ethernet/hisilicon/hns3/hns3pf/hclge_main.c    | 41 ++++++++++++++++------
+ 2 files changed, 31 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/wireless/ath/ath9k/ar9003_mac.c b/drivers/net/wireless/ath/ath9k/ar9003_mac.c
-index b3f20b3..e1fe7a7 100644
---- a/drivers/net/wireless/ath/ath9k/ar9003_mac.c
-+++ b/drivers/net/wireless/ath/ath9k/ar9003_mac.c
-@@ -480,7 +480,7 @@ EXPORT_SYMBOL(ath9k_hw_addrxbuf_edma);
- int ath9k_hw_process_rxdesc_edma(struct ath_hw *ah, struct ath_rx_status *rxs,
- 				 void *buf_addr)
- {
--	struct ar9003_rxs *rxsp = (struct ar9003_rxs *) buf_addr;
-+	struct ar9003_rxs *rxsp = buf_addr;
- 	unsigned int phyerr;
+diff --git a/drivers/net/ethernet/hisilicon/hns3/hnae3.h b/drivers/net/ethernet/hisilicon/hns3/hnae3.h
+index b2f28ae..e23e028 100644
+--- a/drivers/net/ethernet/hisilicon/hns3/hnae3.h
++++ b/drivers/net/ethernet/hisilicon/hns3/hnae3.h
+@@ -50,6 +50,7 @@
  
- 	if ((rxsp->status11 & AR_RxDone) == 0)
-@@ -610,7 +610,7 @@ void ath9k_hw_setup_statusring(struct ath_hw *ah, void *ts_start,
- 	ah->ts_paddr_start = ts_paddr_start;
- 	ah->ts_paddr_end = ts_paddr_start + (size * sizeof(struct ar9003_txs));
- 	ah->ts_size = size;
--	ah->ts_ring = (struct ar9003_txs *) ts_start;
-+	ah->ts_ring = ts_start;
+ #define HNAE3_DEV_INITED_B			0x0
+ #define HNAE_DEV_SUPPORT_ROCE_B			0x1
++#define HNAE_DEV_SUPPORT_DCB_B			0x2
  
- 	ath9k_hw_reset_txstatus_ring(ah);
- }
-diff --git a/drivers/net/wireless/ath/ath9k/dfs.c b/drivers/net/wireless/ath/ath9k/dfs.c
-index 1ece42c..40a397f 100644
---- a/drivers/net/wireless/ath/ath9k/dfs.c
-+++ b/drivers/net/wireless/ath/ath9k/dfs.c
-@@ -326,7 +326,7 @@ void ath9k_dfs_process_phyerr(struct ath_softc *sc, void *data,
- 	if (ard.ext_rssi & 0x80)
- 		ard.ext_rssi = 0;
+ #define ring_ptr_move_fw(ring, p) \
+ 	((ring)->p = ((ring)->p + 1) % (ring)->desc_num)
+diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
+index bb45365..acc4016 100644
+--- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
++++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
+@@ -60,6 +60,16 @@ static int hclge_set_mta_filter_mode(struct hclge_dev *hdev,
+ 	{0, }
+ };
  
--	vdata_end = (char *)data + datalen;
-+	vdata_end = data + datalen;
- 	ard.pulse_bw_info = vdata_end[-1];
- 	ard.pulse_length_ext = vdata_end[-2];
- 	ard.pulse_length_pri = vdata_end[-3];
-diff --git a/drivers/net/wireless/ath/ath9k/hif_usb.c b/drivers/net/wireless/ath/ath9k/hif_usb.c
-index 0d9687a..71d1725 100644
---- a/drivers/net/wireless/ath/ath9k/hif_usb.c
-+++ b/drivers/net/wireless/ath/ath9k/hif_usb.c
-@@ -424,7 +424,7 @@ static int hif_usb_send_tx(struct hif_device_usb *hif_dev, struct sk_buff *skb)
++static const struct pci_device_id dcb_pci_tbl[] = {
++	{PCI_VDEVICE(HUAWEI, HNAE3_DEV_ID_25GE_RDMA), 0},
++	{PCI_VDEVICE(HUAWEI, HNAE3_DEV_ID_25GE_RDMA_MACSEC), 0},
++	{PCI_VDEVICE(HUAWEI, HNAE3_DEV_ID_50GE_RDMA), 0},
++	{PCI_VDEVICE(HUAWEI, HNAE3_DEV_ID_50GE_RDMA_MACSEC), 0},
++	{PCI_VDEVICE(HUAWEI, HNAE3_DEV_ID_100G_RDMA_MACSEC), 0},
++	/* Required last entry */
++	{0, }
++};
++
+ static const char hns3_nic_test_strs[][ETH_GSTRING_LEN] = {
+ 	"Mac    Loopback test",
+ 	"Serdes Loopback test",
+@@ -1782,18 +1792,23 @@ int hclge_buffer_alloc(struct hclge_dev *hdev)
+ 		return ret;
+ 	}
  
- static void hif_usb_start(void *hif_handle)
- {
--	struct hif_device_usb *hif_dev = (struct hif_device_usb *)hif_handle;
-+	struct hif_device_usb *hif_dev = hif_handle;
- 	unsigned long flags;
+-	ret = hclge_rx_priv_wl_config(hdev);
+-	if (ret) {
+-		dev_err(&hdev->pdev->dev,
+-			"could not configure rx private waterline %d\n", ret);
+-		return ret;
+-	}
++	if (hnae_get_bit(hdev->ae_dev->flag,
++			 HNAE_DEV_SUPPORT_DCB_B)) {
++		ret = hclge_rx_priv_wl_config(hdev);
++		if (ret) {
++			dev_err(&hdev->pdev->dev,
++				"could not configure rx private waterline %d\n",
++				ret);
++			return ret;
++		}
  
- 	hif_dev->flags |= HIF_USB_START;
-@@ -436,7 +436,7 @@ static void hif_usb_start(void *hif_handle)
+-	ret = hclge_common_thrd_config(hdev);
+-	if (ret) {
+-		dev_err(&hdev->pdev->dev,
+-			"could not configure common threshold %d\n", ret);
+-		return ret;
++		ret = hclge_common_thrd_config(hdev);
++		if (ret) {
++			dev_err(&hdev->pdev->dev,
++				"could not configure common threshold %d\n",
++				ret);
++			return ret;
++		}
+ 	}
  
- static void hif_usb_stop(void *hif_handle)
- {
--	struct hif_device_usb *hif_dev = (struct hif_device_usb *)hif_handle;
-+	struct hif_device_usb *hif_dev = hif_handle;
- 	struct tx_buf *tx_buf = NULL, *tx_buf_tmp = NULL;
- 	unsigned long flags;
+ 	ret = hclge_common_wl_config(hdev);
+@@ -4076,6 +4091,10 @@ static int hclge_init_ae_dev(struct hnae3_ae_dev *ae_dev)
+ 	if (id)
+ 		hnae_set_bit(ae_dev->flag, HNAE_DEV_SUPPORT_ROCE_B, 1);
  
-@@ -457,7 +457,7 @@ static void hif_usb_stop(void *hif_handle)
- 
- static int hif_usb_send(void *hif_handle, u8 pipe_id, struct sk_buff *skb)
- {
--	struct hif_device_usb *hif_dev = (struct hif_device_usb *)hif_handle;
-+	struct hif_device_usb *hif_dev = hif_handle;
- 	int ret = 0;
- 
- 	switch (pipe_id) {
-@@ -492,7 +492,7 @@ static inline bool check_index(struct sk_buff *skb, u8 idx)
- 
- static void hif_usb_sta_drain(void *hif_handle, u8 idx)
- {
--	struct hif_device_usb *hif_dev = (struct hif_device_usb *)hif_handle;
-+	struct hif_device_usb *hif_dev = hif_handle;
- 	struct sk_buff *skb, *tmp;
- 	unsigned long flags;
- 
-diff --git a/drivers/net/wireless/ath/ath9k/htc_drv_beacon.c b/drivers/net/wireless/ath/ath9k/htc_drv_beacon.c
-index 2c0e4d2..f20c839 100644
---- a/drivers/net/wireless/ath/ath9k/htc_drv_beacon.c
-+++ b/drivers/net/wireless/ath/ath9k/htc_drv_beacon.c
-@@ -384,7 +384,7 @@ void ath9k_htc_set_tsfadjust(struct ath9k_htc_priv *priv,
- 
- static void ath9k_htc_beacon_iter(void *data, u8 *mac, struct ieee80211_vif *vif)
- {
--	bool *beacon_configured = (bool *)data;
-+	bool *beacon_configured = data;
- 	struct ath9k_htc_vif *avp = (struct ath9k_htc_vif *) vif->drv_priv;
- 
- 	if (vif->type == NL80211_IFTYPE_STATION &&
-diff --git a/drivers/net/wireless/ath/ath9k/htc_drv_init.c b/drivers/net/wireless/ath/ath9k/htc_drv_init.c
-index defacc6..9e0c237 100644
---- a/drivers/net/wireless/ath/ath9k/htc_drv_init.c
-+++ b/drivers/net/wireless/ath/ath9k/htc_drv_init.c
-@@ -233,7 +233,7 @@ static void ath9k_reg_notifier(struct wiphy *wiphy,
- 
- static unsigned int ath9k_regread(void *hw_priv, u32 reg_offset)
- {
--	struct ath_hw *ah = (struct ath_hw *) hw_priv;
-+	struct ath_hw *ah = hw_priv;
- 	struct ath_common *common = ath9k_hw_common(ah);
- 	struct ath9k_htc_priv *priv = (struct ath9k_htc_priv *) common->priv;
- 	__be32 val, reg = cpu_to_be32(reg_offset);
-@@ -255,7 +255,7 @@ static unsigned int ath9k_regread(void *hw_priv, u32 reg_offset)
- static void ath9k_multi_regread(void *hw_priv, u32 *addr,
- 				u32 *val, u16 count)
- {
--	struct ath_hw *ah = (struct ath_hw *) hw_priv;
-+	struct ath_hw *ah = hw_priv;
- 	struct ath_common *common = ath9k_hw_common(ah);
- 	struct ath9k_htc_priv *priv = (struct ath9k_htc_priv *) common->priv;
- 	__be32 tmpaddr[8];
-@@ -301,7 +301,7 @@ static void ath9k_regwrite_multi(struct ath_common *common)
- 
- static void ath9k_regwrite_single(void *hw_priv, u32 val, u32 reg_offset)
- {
--	struct ath_hw *ah = (struct ath_hw *) hw_priv;
-+	struct ath_hw *ah = hw_priv;
- 	struct ath_common *common = ath9k_hw_common(ah);
- 	struct ath9k_htc_priv *priv = (struct ath9k_htc_priv *) common->priv;
- 	const __be32 buf[2] = {
-@@ -322,7 +322,7 @@ static void ath9k_regwrite_single(void *hw_priv, u32 val, u32 reg_offset)
- 
- static void ath9k_regwrite_buffer(void *hw_priv, u32 val, u32 reg_offset)
- {
--	struct ath_hw *ah = (struct ath_hw *) hw_priv;
-+	struct ath_hw *ah = hw_priv;
- 	struct ath_common *common = ath9k_hw_common(ah);
- 	struct ath9k_htc_priv *priv = (struct ath9k_htc_priv *) common->priv;
- 
-@@ -345,7 +345,7 @@ static void ath9k_regwrite_buffer(void *hw_priv, u32 val, u32 reg_offset)
- 
- static void ath9k_regwrite(void *hw_priv, u32 val, u32 reg_offset)
- {
--	struct ath_hw *ah = (struct ath_hw *) hw_priv;
-+	struct ath_hw *ah = hw_priv;
- 	struct ath_common *common = ath9k_hw_common(ah);
- 	struct ath9k_htc_priv *priv = (struct ath9k_htc_priv *) common->priv;
- 
-@@ -357,7 +357,7 @@ static void ath9k_regwrite(void *hw_priv, u32 val, u32 reg_offset)
- 
- static void ath9k_enable_regwrite_buffer(void *hw_priv)
- {
--	struct ath_hw *ah = (struct ath_hw *) hw_priv;
-+	struct ath_hw *ah = hw_priv;
- 	struct ath_common *common = ath9k_hw_common(ah);
- 	struct ath9k_htc_priv *priv = (struct ath9k_htc_priv *) common->priv;
- 
-@@ -366,7 +366,7 @@ static void ath9k_enable_regwrite_buffer(void *hw_priv)
- 
- static void ath9k_regwrite_flush(void *hw_priv)
- {
--	struct ath_hw *ah = (struct ath_hw *) hw_priv;
-+	struct ath_hw *ah = hw_priv;
- 	struct ath_common *common = ath9k_hw_common(ah);
- 	struct ath9k_htc_priv *priv = (struct ath9k_htc_priv *) common->priv;
- 
-@@ -383,7 +383,7 @@ static void ath9k_regwrite_flush(void *hw_priv)
- static void ath9k_reg_rmw_buffer(void *hw_priv,
- 				 u32 reg_offset, u32 set, u32 clr)
- {
--	struct ath_hw *ah = (struct ath_hw *) hw_priv;
-+	struct ath_hw *ah = hw_priv;
- 	struct ath_common *common = ath9k_hw_common(ah);
- 	struct ath9k_htc_priv *priv = (struct ath9k_htc_priv *) common->priv;
- 	u32 rsp_status;
-@@ -421,7 +421,7 @@ static void ath9k_reg_rmw_buffer(void *hw_priv,
- 
- static void ath9k_reg_rmw_flush(void *hw_priv)
- {
--	struct ath_hw *ah = (struct ath_hw *) hw_priv;
-+	struct ath_hw *ah = hw_priv;
- 	struct ath_common *common = ath9k_hw_common(ah);
- 	struct ath9k_htc_priv *priv = (struct ath9k_htc_priv *) common->priv;
- 	u32 rsp_status;
-@@ -453,7 +453,7 @@ static void ath9k_reg_rmw_flush(void *hw_priv)
- 
- static void ath9k_enable_rmw_buffer(void *hw_priv)
- {
--	struct ath_hw *ah = (struct ath_hw *) hw_priv;
-+	struct ath_hw *ah = hw_priv;
- 	struct ath_common *common = ath9k_hw_common(ah);
- 	struct ath9k_htc_priv *priv = (struct ath9k_htc_priv *) common->priv;
- 
-@@ -466,7 +466,7 @@ static void ath9k_enable_rmw_buffer(void *hw_priv)
- static u32 ath9k_reg_rmw_single(void *hw_priv,
- 				 u32 reg_offset, u32 set, u32 clr)
- {
--	struct ath_hw *ah = (struct ath_hw *) hw_priv;
-+	struct ath_hw *ah = hw_priv;
- 	struct ath_common *common = ath9k_hw_common(ah);
- 	struct ath9k_htc_priv *priv = (struct ath9k_htc_priv *) common->priv;
- 	struct register_rmw buf, buf_ret;
-@@ -490,7 +490,7 @@ static u32 ath9k_reg_rmw_single(void *hw_priv,
- 
- static u32 ath9k_reg_rmw(void *hw_priv, u32 reg_offset, u32 set, u32 clr)
- {
--	struct ath_hw *ah = (struct ath_hw *) hw_priv;
-+	struct ath_hw *ah = hw_priv;
- 	struct ath_common *common = ath9k_hw_common(ah);
- 	struct ath9k_htc_priv *priv = (struct ath9k_htc_priv *) common->priv;
- 
-diff --git a/drivers/net/wireless/ath/ath9k/htc_drv_main.c b/drivers/net/wireless/ath/ath9k/htc_drv_main.c
-index a553c91..f808e58 100644
---- a/drivers/net/wireless/ath/ath9k/htc_drv_main.c
-+++ b/drivers/net/wireless/ath/ath9k/htc_drv_main.c
-@@ -1483,7 +1483,7 @@ static void ath9k_htc_set_bssid(struct ath9k_htc_priv *priv)
- 
- static void ath9k_htc_bss_iter(void *data, u8 *mac, struct ieee80211_vif *vif)
- {
--	struct ath9k_htc_priv *priv = (struct ath9k_htc_priv *)data;
-+	struct ath9k_htc_priv *priv = data;
- 	struct ath_common *common = ath9k_hw_common(priv->ah);
- 	struct ieee80211_bss_conf *bss_conf = &vif->bss_conf;
- 
-diff --git a/drivers/net/wireless/ath/ath9k/htc_drv_txrx.c b/drivers/net/wireless/ath/ath9k/htc_drv_txrx.c
-index b38a586..2682da0 100644
---- a/drivers/net/wireless/ath/ath9k/htc_drv_txrx.c
-+++ b/drivers/net/wireless/ath/ath9k/htc_drv_txrx.c
-@@ -641,7 +641,7 @@ static struct sk_buff* ath9k_htc_tx_get_packet(struct ath9k_htc_priv *priv,
- 
- void ath9k_htc_txstatus(struct ath9k_htc_priv *priv, void *wmi_event)
- {
--	struct wmi_event_txstatus *txs = (struct wmi_event_txstatus *)wmi_event;
-+	struct wmi_event_txstatus *txs = wmi_event;
- 	struct __wmi_event_txstatus *__txs;
- 	struct sk_buff *skb;
- 	struct ath9k_htc_tx_event *tx_pend;
-@@ -684,7 +684,7 @@ void ath9k_htc_txstatus(struct ath9k_htc_priv *priv, void *wmi_event)
- void ath9k_htc_txep(void *drv_priv, struct sk_buff *skb,
- 		    enum htc_endpoint_id ep_id, bool txok)
- {
--	struct ath9k_htc_priv *priv = (struct ath9k_htc_priv *) drv_priv;
-+	struct ath9k_htc_priv *priv = drv_priv;
- 	struct ath9k_htc_tx_ctl *tx_ctl;
- 	struct sk_buff_head *epid_queue;
- 
-@@ -1103,7 +1103,7 @@ void ath9k_rx_tasklet(unsigned long data)
- void ath9k_htc_rxep(void *drv_priv, struct sk_buff *skb,
- 		    enum htc_endpoint_id ep_id)
- {
--	struct ath9k_htc_priv *priv = (struct ath9k_htc_priv *)drv_priv;
-+	struct ath9k_htc_priv *priv = drv_priv;
- 	struct ath_hw *ah = priv->ah;
- 	struct ath_common *common = ath9k_hw_common(ah);
- 	struct ath9k_htc_rxbuf *rxbuf = NULL, *tmp_buf = NULL;
-diff --git a/drivers/net/wireless/ath/ath9k/init.c b/drivers/net/wireless/ath/ath9k/init.c
-index fd9a618..b46f982 100644
---- a/drivers/net/wireless/ath/ath9k/init.c
-+++ b/drivers/net/wireless/ath/ath9k/init.c
-@@ -117,7 +117,7 @@ static struct ath_ps_ops ath9k_ps_ops = {
- 
- static void ath9k_iowrite32(void *hw_priv, u32 val, u32 reg_offset)
- {
--	struct ath_hw *ah = (struct ath_hw *) hw_priv;
-+	struct ath_hw *ah = hw_priv;
- 	struct ath_common *common = ath9k_hw_common(ah);
- 	struct ath_softc *sc = (struct ath_softc *) common->priv;
- 
-@@ -132,7 +132,7 @@ static void ath9k_iowrite32(void *hw_priv, u32 val, u32 reg_offset)
- 
- static unsigned int ath9k_ioread32(void *hw_priv, u32 reg_offset)
- {
--	struct ath_hw *ah = (struct ath_hw *) hw_priv;
-+	struct ath_hw *ah = hw_priv;
- 	struct ath_common *common = ath9k_hw_common(ah);
- 	struct ath_softc *sc = (struct ath_softc *) common->priv;
- 	u32 val;
-@@ -172,7 +172,7 @@ static unsigned int __ath9k_reg_rmw(struct ath_softc *sc, u32 reg_offset,
- 
- static unsigned int ath9k_reg_rmw(void *hw_priv, u32 reg_offset, u32 set, u32 clr)
- {
--	struct ath_hw *ah = (struct ath_hw *) hw_priv;
-+	struct ath_hw *ah = hw_priv;
- 	struct ath_common *common = ath9k_hw_common(ah);
- 	struct ath_softc *sc = (struct ath_softc *) common->priv;
- 	unsigned long uninitialized_var(flags);
-@@ -275,7 +275,7 @@ int ath_descdma_setup(struct ath_softc *sc, struct ath_descdma *dd,
- 	if (!dd->dd_desc)
- 		return -ENOMEM;
- 
--	ds = (u8 *) dd->dd_desc;
-+	ds = dd->dd_desc;
- 	ath_dbg(common, CONFIG, "%s DMA map: %p (%u) -> %llx (%u)\n",
- 		name, ds, (u32) dd->dd_desc_len,
- 		ito64(dd->dd_desc_paddr), /*XXX*/(u32) dd->dd_desc_len);
-diff --git a/drivers/net/wireless/ath/ath9k/main.c b/drivers/net/wireless/ath/ath9k/main.c
-index 8b4ac7f..9c24bc0 100644
---- a/drivers/net/wireless/ath/ath9k/main.c
-+++ b/drivers/net/wireless/ath/ath9k/main.c
-@@ -1193,7 +1193,7 @@ void ath9k_calculate_summary_state(struct ath_softc *sc,
- 
- static void ath9k_tpc_vif_iter(void *data, u8 *mac, struct ieee80211_vif *vif)
- {
--	int *power = (int *)data;
-+	int *power = data;
- 
- 	if (*power < vif->bss_conf.txpower)
- 		*power = vif->bss_conf.txpower;
-diff --git a/drivers/net/wireless/ath/ath9k/mci.c b/drivers/net/wireless/ath/ath9k/mci.c
-index cf23fd8..39d46c2 100644
---- a/drivers/net/wireless/ath/ath9k/mci.c
-+++ b/drivers/net/wireless/ath/ath9k/mci.c
-@@ -453,7 +453,7 @@ int ath_mci_setup(struct ath_softc *sc)
- 	mci->sched_buf.bf_len = ATH_MCI_SCHED_BUF_SIZE;
- 
- 	mci->gpm_buf.bf_len = ATH_MCI_GPM_BUF_SIZE;
--	mci->gpm_buf.bf_addr = (u8 *)mci->sched_buf.bf_addr + mci->sched_buf.bf_len;
-+	mci->gpm_buf.bf_addr = mci->sched_buf.bf_addr + mci->sched_buf.bf_len;
- 	mci->gpm_buf.bf_paddr = mci->sched_buf.bf_paddr + mci->sched_buf.bf_len;
- 
- 	ret = ar9003_mci_setup(sc->sc_ah, mci->gpm_buf.bf_paddr,
-diff --git a/drivers/net/wireless/ath/ath9k/wmi.c b/drivers/net/wireless/ath/ath9k/wmi.c
-index 64a354f..b0b5579 100644
---- a/drivers/net/wireless/ath/ath9k/wmi.c
-+++ b/drivers/net/wireless/ath/ath9k/wmi.c
-@@ -159,7 +159,7 @@ void ath9k_wmi_event_tasklet(unsigned long data)
- 
- 		switch (cmd_id) {
- 		case WMI_SWBA_EVENTID:
--			swba = (struct wmi_event_swba *) wmi_event;
-+			swba = wmi_event;
- 			ath9k_htc_swba(priv, swba);
- 			break;
- 		case WMI_FATAL_EVENTID:
-@@ -207,7 +207,7 @@ static void ath9k_wmi_rsp_callback(struct wmi *wmi, struct sk_buff *skb)
- static void ath9k_wmi_ctrl_rx(void *priv, struct sk_buff *skb,
- 			      enum htc_endpoint_id epid)
- {
--	struct wmi *wmi = (struct wmi *) priv;
-+	struct wmi *wmi = priv;
- 	struct wmi_cmd_hdr *hdr;
- 	u16 cmd_id;
- 
++	id = pci_match_id(dcb_pci_tbl, ae_dev->pdev);
++	if (id)
++		hnae_set_bit(ae_dev->flag, HNAE_DEV_SUPPORT_DCB_B, 1);
++
+ 	ret = hclge_pci_init(hdev);
+ 	if (ret) {
+ 		dev_err(&pdev->dev, "PCI init failed\n");
 -- 
-2.7.4
+1.9.1
