@@ -1,36 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] wl1251: add a missing spin_lock_init()
-Date: Thu, 31 Aug 2017 10:33:05 -0700 (PDT)
-Message-ID: <20170831.103305.1809212990680774811.davem@davemloft.net>
-References: <20170831065204.GA17812@amd>
-        <87y3q0q7ln.fsf@kamboji.qca.qualcomm.com>
-        <20170831144743.GA21261@amd>
+From: Mason <slash.tmp@free.fr>
+Subject: Re: [PATCH net] Revert "net: phy: Correctly process PHY_HALTED in
+ phy_stop_machine()"
+Date: Thu, 31 Aug 2017 19:35:05 +0200
+Message-ID: <e5063ab9-643b-15eb-290d-bdfba3b5fd28@free.fr>
+References: <1504140569-2063-1-git-send-email-f.fainelli@gmail.com>
+ <f4bb5ac8-dae8-c0af-7aa6-e546fc0783fa@sigmadesigns.com>
+ <e24693e8-d8ae-188a-2a38-c9a83fdc94e3@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: kvalo@codeaurora.org, torvalds@linux-foundation.org,
-        xiyou.wangcong@gmail.com, akpm@linux-foundation.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-wireless@vger.kernel.org
-To: pavel@ucw.cz
+Cc: Marc Gonzalez <marc_gonzalez@sigmadesigns.com>,
+        netdev <netdev@vger.kernel.org>,
+        Geert Uytterhoeven <geert+renesas@glider.be>,
+        David Miller <davem@davemloft.net>,
+        Andrew Lunn <andrew@lunn.ch>, Mans Rullgard <mans@mansr.com>
+To: David Daney <ddaney.cavm@gmail.com>,
+        Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54420 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751622AbdHaRdH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 13:33:07 -0400
-In-Reply-To: <20170831144743.GA21261@amd>
+Received: from smtp2-g21.free.fr ([212.27.42.2]:31717 "EHLO smtp2-g21.free.fr"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751622AbdHaRfM (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 31 Aug 2017 13:35:12 -0400
+In-Reply-To: <e24693e8-d8ae-188a-2a38-c9a83fdc94e3@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pavel Machek <pavel@ucw.cz>
-Date: Thu, 31 Aug 2017 16:47:43 +0200
+On 31/08/2017 18:36, David Daney wrote:
+> On 08/31/2017 05:29 AM, Marc Gonzalez wrote:
+>> On 31/08/2017 02:49, Florian Fainelli wrote:
+>>
+>>> This reverts commit 7ad813f208533cebfcc32d3d7474dc1677d1b09a ("net: phy:
+>>> Correctly process PHY_HALTED in phy_stop_machine()") because it is
+>>> creating the possibility for a NULL pointer dereference.
+>>>
+>>> David Daney provide the following call trace and diagram of events:
+>>>
+>>> When ndo_stop() is called we call:
+>>>
+>>>   phy_disconnect()
+>>>      +---> phy_stop_interrupts() implies: phydev->irq = PHY_POLL;
+>>
+>> What does this mean?
+> 
+> I meant that after the call to phy_stop_interrupts(), phydev->irq = 
+> PHY_POLL;
 
-> Dave, Linus -- can you still take the patch?
+I must be missing something.
 
-Pavel, please do not bypass maintainers like this.
+http://elixir.free-electrons.com/linux/latest/source/drivers/net/phy/phy.c#L868
 
-It's really rude, and if you do things like that instead of
-trying to work properly with us, your relationship with
-these maintainers will suffer in the long term.
+phy_stop_interrupts() doesn't change phydev->irq right?
 
-Thank you.
+Only phy_start_interrupts() sets phydev->irq to
+PHY_POLL if it cannot set up interrupt mode.
+
+Regards.
