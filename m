@@ -1,143 +1,72 @@
-From: Chenbo Feng <fengc@google.com>
-Subject: Re: [PATCH 2/3] security: bpf: Add eBPF LSM hooks and security field
- to eBPF map
-Date: Thu, 31 Aug 2017 15:17:40 -0700
-Message-ID: <CAMOXUJ=5hyjOs57KPpqPs2NTiL6mP0vega+=GWLb_7sjr_O9fw@mail.gmail.com>
-References: <20170831205635.80256-1-chenbofeng.kernel@gmail.com>
- <20170831205635.80256-3-chenbofeng.kernel@gmail.com> <1504214241.6901.31.camel@linux.vnet.ibm.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH v3 net-next 1/7] bpf: Add mark and priority to sock options
+ that can be set
+Date: Fri, 01 Sep 2017 00:21:14 +0200
+Message-ID: <59A88BDA.9070609@iogearbox.net>
+References: <1504217150-16151-1-git-send-email-dsahern@gmail.com> <1504217150-16151-2-git-send-email-dsahern@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Chenbo Feng <chenbofeng.kernel@gmail.com>,
-        linux-security-module@vger.kernel.org,
-        Jeffrey Vander Stoep <jeffv@google.com>,
-        netdev@vger.kernel.org, SELinux <Selinux@tycho.nsa.gov>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Lorenzo Colitti <lorenzo@google.com>
-To: Mimi Zohar <zohar@linux.vnet.ibm.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <1504214241.6901.31.camel@linux.vnet.ibm.com>
-Sender: owner-linux-security-module@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+To: David Ahern <dsahern@gmail.com>, netdev@vger.kernel.org,
+        ast@kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:44182 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750925AbdHaWVS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 18:21:18 -0400
+In-Reply-To: <1504217150-16151-2-git-send-email-dsahern@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 31, 2017 at 2:17 PM, Mimi Zohar <zohar@linux.vnet.ibm.com> wrote:
-> On Thu, 2017-08-31 at 13:56 -0700, Chenbo Feng wrote:
->> From: Chenbo Feng <fengc@google.com>
->>
->> Introduce a pointer into struct bpf_map to hold the security information
->> about the map. The actual security struct varies based on the security
->> models implemented. Place the LSM hooks before each of the unrestricted
->> eBPF operations, the map_update_elem and map_delete_elem operations are
->> checked by security_map_modify. The map_lookup_elem and map_get_next_key
->> operations are checked by securtiy_map_read.
->>
->> Signed-off-by: Chenbo Feng <fengc@google.com>
->> ---
->>  include/linux/bpf.h  |  3 +++
->>  kernel/bpf/syscall.c | 28 ++++++++++++++++++++++++++++
->>  2 files changed, 31 insertions(+)
->>
->> diff --git a/include/linux/bpf.h b/include/linux/bpf.h
->> index b69e7a5869ff..ca3e6ff7091d 100644
->> --- a/include/linux/bpf.h
->> +++ b/include/linux/bpf.h
->> @@ -53,6 +53,9 @@ struct bpf_map {
->>       struct work_struct work;
->>       atomic_t usercnt;
->>       struct bpf_map *inner_map_meta;
->> +#ifdef CONFIG_SECURITY
->> +     void *security;
->> +#endif
->>  };
->>
->>  /* function argument constraints */
->> diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
->> index 045646da97cc..b15580bcf3b1 100644
->> --- a/kernel/bpf/syscall.c
->> +++ b/kernel/bpf/syscall.c
->> @@ -279,6 +279,10 @@ static int map_create(union bpf_attr *attr)
->>       if (err)
->>               return -EINVAL;
->>
->> +     err = security_map_create();
->> +     if (err)
->> +             return -EACCES;
+On 09/01/2017 12:05 AM, David Ahern wrote:
+> Add socket mark and priority to fields that can be set by
+> ebpf program when a socket is created.
 >
-> Any reason not to just return err?
+> Signed-off-by: David Ahern <dsahern@gmail.com>
+> Acked-by: Alexei Starovoitov <ast@kernel.org>
+> ---
+>   include/uapi/linux/bpf.h |  2 ++
+>   net/core/filter.c        | 26 ++++++++++++++++++++++++++
+>   2 files changed, 28 insertions(+)
 >
-> Mimi
+> diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+> index d46cf326b95f..e9c89e20adff 100644
+> --- a/include/uapi/linux/bpf.h
+> +++ b/include/uapi/linux/bpf.h
+> @@ -758,6 +758,8 @@ struct bpf_sock {
+>   	__u32 family;
+>   	__u32 type;
+>   	__u32 protocol;
+> +	__u32 mark;
+> +	__u32 priority;
+>   };
 >
-Nope... return err might be better. I will fix this in next version.
+>   #define XDP_PACKET_HEADROOM 256
+> diff --git a/net/core/filter.c b/net/core/filter.c
+> index c6a37fe0285b..f51b9690adf3 100644
+> --- a/net/core/filter.c
+> +++ b/net/core/filter.c
+> @@ -3455,6 +3455,10 @@ static bool sock_filter_is_valid_access(int off, int size,
+>   		switch (off) {
+>   		case offsetof(struct bpf_sock, bound_dev_if):
+>   			break;
+> +		case offsetof(struct bpf_sock, mark):
+> +			break;
+> +		case offsetof(struct bpf_sock, priority):
+> +			break;
 
-Thanks
-Chenbo
->> +
->>       /* find map type and init map: hashtable vs rbtree vs bloom vs ... */
->>       map = find_and_alloc_map(attr);
->>       if (IS_ERR(map))
->> @@ -291,6 +295,10 @@ static int map_create(union bpf_attr *attr)
->>       if (err)
->>               goto free_map_nouncharge;
->>
->> +     err = security_post_create(map);
->> +     if (err < 0)
->> +             goto free_map;
->> +
->>       err = bpf_map_alloc_id(map);
->>       if (err)
->>               goto free_map;
->> @@ -410,6 +418,10 @@ static int map_lookup_elem(union bpf_attr *attr)
->>       if (IS_ERR(map))
->>               return PTR_ERR(map);
->>
->> +     err = security_map_read(map);
->> +     if (err)
->> +             return -EACCES;
->> +
->>       key = memdup_user(ukey, map->key_size);
->>       if (IS_ERR(key)) {
->>               err = PTR_ERR(key);
->> @@ -490,6 +502,10 @@ static int map_update_elem(union bpf_attr *attr)
->>       if (IS_ERR(map))
->>               return PTR_ERR(map);
->>
->> +     err = security_map_modify(map);
->> +     if (err)
->> +             return -EACCES;
->> +
->>       key = memdup_user(ukey, map->key_size);
->>       if (IS_ERR(key)) {
->>               err = PTR_ERR(key);
->> @@ -573,6 +589,10 @@ static int map_delete_elem(union bpf_attr *attr)
->>       if (IS_ERR(map))
->>               return PTR_ERR(map);
->>
->> +     err = security_map_modify(map);
->> +     if (err)
->> +             return -EACCES;
->> +
->>       key = memdup_user(ukey, map->key_size);
->>       if (IS_ERR(key)) {
->>               err = PTR_ERR(key);
->> @@ -616,6 +636,10 @@ static int map_get_next_key(union bpf_attr *attr)
->>       if (IS_ERR(map))
->>               return PTR_ERR(map);
->>
->> +     err = security_map_read(map);
->> +     if (err)
->> +             return -EACCES;
->> +
->>       if (ukey) {
->>               key = memdup_user(ukey, map->key_size);
->>               if (IS_ERR(key)) {
->> @@ -935,6 +959,10 @@ static int bpf_prog_load(union bpf_attr *attr)
->>       if (CHECK_ATTR(BPF_PROG_LOAD))
->>               return -EINVAL;
->>
->> +     err = security_prog_load();
->> +     if (err)
->> +             return -EACCES;
->> +
->>       if (attr->prog_flags & ~BPF_F_STRICT_ALIGNMENT)
->>               return -EINVAL;
->>
->
+Can also be follow-up, but please do keep this consistent
+to all the other *_is_valid_access() helpers, meaning:
+
+	switch (off) {
+	case offsetof(struct bpf_sock, bound_dev_if):
+	case offsetof(struct bpf_sock, mark):
+	case offsetof(struct bpf_sock, priority):
+		break;
+	default:
+		return false;
+	}
+
+Rest:
+
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
