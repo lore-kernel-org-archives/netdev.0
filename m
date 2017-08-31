@@ -1,36 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: net/ipv4: divide error in __tcp_select_window
-Date: Thu, 31 Aug 2017 12:25:43 -0700 (PDT)
-Message-ID: <20170831.122543.754410467437404852.davem@davemloft.net>
-References: <CADUsjNnba_AmnTdoY45Bh7HasqjmBja-W1+-+6eMt-d_dCs2qA@mail.gmail.com>
-        <CADVnQynuyK5H1SDOnzDZPOnVn701JhrSQRCORVJ_6c=z_EooBw@mail.gmail.com>
+Subject: Re: [PATCH] wl1251: add a missing spin_lock_init()
+Date: Thu, 31 Aug 2017 12:26:45 -0700 (PDT)
+Message-ID: <20170831.122645.872320547726000124.davem@davemloft.net>
+References: <20170831144743.GA21261@amd>
+        <20170831.103305.1809212990680774811.davem@davemloft.net>
+        <20170831185718.GA31245@amd>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: idaifish@gmail.com, kuznet@ms2.inr.ac.ru, netdev@vger.kernel.org,
-        syzkaller@googlegroups.com, weiwan@google.com, edumazet@google.com
-To: ncardwell@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:56518 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750952AbdHaTZq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 15:25:46 -0400
-In-Reply-To: <CADVnQynuyK5H1SDOnzDZPOnVn701JhrSQRCORVJ_6c=z_EooBw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kvalo@codeaurora.org, torvalds@linux-foundation.org,
+        xiyou.wangcong@gmail.com, akpm@linux-foundation.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-wireless@vger.kernel.org
+To: pavel@ucw.cz
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170831185718.GA31245@amd>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Neal Cardwell <ncardwell@google.com>
-Date: Thu, 31 Aug 2017 07:11:28 -0400
+From: Pavel Machek <pavel@ucw.cz>
+Date: Thu, 31 Aug 2017 20:57:19 +0200
 
-> Thanks for the report. I believe this tcp_recvmsg  => tcp_cleanup_rbuf
->  => __tcp_select_window divide-by-zero issue was fixed in May by Wei,
-> in:
+> Hi!
 > 
->  499350a5a6e7 tcp: initialize rcv_mss to TCP_MIN_MSS instead of 0
->  https://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git/commit/?id=499350a5a6e7
+>> From: Pavel Machek <pavel@ucw.cz>
+>> Date: Thu, 31 Aug 2017 16:47:43 +0200
+>> 
+>> > Dave, Linus -- can you still take the patch?
+>> 
+>> Pavel, please do not bypass maintainers like this.
+>> 
+>> It's really rude, and if you do things like that instead of
+>> trying to work properly with us, your relationship with
+>> these maintainers will suffer in the long term.
 > 
-> Looks like we should probably mark this as a -stable candidate, so
-> that it will eventually make it to 4.4.y, 4.9.y, 4.12.y users, etc. (I
-> don't see the commit in those stable branches.)
+> Do you mean I'm being rude to Kalle, or rude to you?
 
-Ok, queued up for -stable, thanks.
+He said "to David", not "David and Linus".
