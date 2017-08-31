@@ -1,7 +1,7 @@
 From: Anna-Maria Gleixner <anna-maria@linutronix.de>
-Subject: [PATCH 21/25] xfrm: Replace hrtimer tasklet with softirq hrtimer
-Date: Thu, 31 Aug 2017 12:23:44 -0000
-Message-ID: <20170831105827.249029237@linutronix.de>
+Subject: [PATCH 24/25] net/cdc_ncm: Replace tasklet with softirq hrtimer
+Date: Thu, 31 Aug 2017 12:23:46 -0000
+Message-ID: <20170831105827.479650817@linutronix.de>
 References: <20170831105725.809317030@linutronix.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -10,142 +10,124 @@ Cc: Peter Zijlstra <peterz@infradead.org>,
         Christoph Hellwig <hch@lst.org>, keescook@chromium.org,
         John Stultz <john.stultz@linaro.org>,
         Thomas Gleixner <tglx@linutronix.de>,
-        Steffen Klassert <steffen.klassert@secunet.com>,
-        Herbert Xu <herbert@gondor.apana.org.au>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+        Oliver Neukum <oliver@neukum.org>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        linux-usb@vger.kernel.org, netdev@vger.kernel.org
 To: LKML <linux-kernel@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline;
- filename=xfrm_Replace_hrtimer_tasklet_with_softirq_hrtimer.patch
+ filename=netcdc_ncm_Replace_tasklet_with_softirq_hrtimer.patch
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Thomas Gleixner <tglx@linutronix.de>
 
-Switch the timer to CLOCK_MONOTONIC_SOFT, which executed the timer
-callback in softirq context and remove the hrtimer_tasklet.
+The bh tasklet is used in invoke the hrtimer (cdc_ncm_tx_timer_cb) in
+softirq context. This can be also achieved without the tasklet but with
+CLOCK_MONOTONIC_SOFT as hrtimer base.
 
 Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 Signed-off-by: Anna-Maria Gleixner <anna-maria@linutronix.de>
-Cc: Steffen Klassert <steffen.klassert@secunet.com>
-Cc: Herbert Xu <herbert@gondor.apana.org.au>
-Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Oliver Neukum <oliver@neukum.org>
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: linux-usb@vger.kernel.org
 Cc: netdev@vger.kernel.org
-
 ---
- include/net/xfrm.h    |    2 +-
- net/xfrm/xfrm_state.c |   29 +++++++++++++++++------------
- 2 files changed, 18 insertions(+), 13 deletions(-)
+ drivers/net/usb/cdc_ncm.c   |   37 ++++++++++++++++---------------------
+ include/linux/usb/cdc_ncm.h |    2 +-
+ 2 files changed, 17 insertions(+), 22 deletions(-)
 
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -213,7 +213,7 @@ struct xfrm_state {
- 	struct xfrm_stats	stats;
+--- a/drivers/net/usb/cdc_ncm.c
++++ b/drivers/net/usb/cdc_ncm.c
+@@ -61,7 +61,6 @@ static bool prefer_mbim;
+ module_param(prefer_mbim, bool, S_IRUGO | S_IWUSR);
+ MODULE_PARM_DESC(prefer_mbim, "Prefer MBIM setting on dual NCM/MBIM functions");
  
- 	struct xfrm_lifetime_cur curlft;
--	struct tasklet_hrtimer	mtimer;
-+	struct hrtimer		mtimer;
+-static void cdc_ncm_txpath_bh(unsigned long param);
+ static void cdc_ncm_tx_timeout_start(struct cdc_ncm_ctx *ctx);
+ static enum hrtimer_restart cdc_ncm_tx_timer_cb(struct hrtimer *hr_timer);
+ static struct usb_driver cdc_ncm_driver;
+@@ -777,10 +776,9 @@ int cdc_ncm_bind_common(struct usbnet *d
+ 	if (!ctx)
+ 		return -ENOMEM;
  
- 	struct xfrm_state_offload xso;
+-	hrtimer_init(&ctx->tx_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
++	hrtimer_init(&ctx->tx_timer, CLOCK_MONOTONIC_SOFT, HRTIMER_MODE_REL);
+ 	ctx->tx_timer.function = &cdc_ncm_tx_timer_cb;
+-	ctx->bh.data = (unsigned long)dev;
+-	ctx->bh.func = cdc_ncm_txpath_bh;
++	ctx->usbnet = dev;
+ 	atomic_set(&ctx->stop, 0);
+ 	spin_lock_init(&ctx->mtx);
  
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -418,7 +418,7 @@ static void xfrm_put_mode(struct xfrm_mo
+@@ -967,10 +965,7 @@ void cdc_ncm_unbind(struct usbnet *dev,
  
- static void xfrm_state_gc_destroy(struct xfrm_state *x)
- {
--	tasklet_hrtimer_cancel(&x->mtimer);
-+	hrtimer_cancel(&x->mtimer);
- 	del_timer_sync(&x->rtimer);
- 	kfree(x->aead);
- 	kfree(x->aalg);
-@@ -463,8 +463,8 @@ static void xfrm_state_gc_task(struct wo
+ 	atomic_set(&ctx->stop, 1);
  
- static enum hrtimer_restart xfrm_timer_handler(struct hrtimer *me)
- {
--	struct tasklet_hrtimer *thr = container_of(me, struct tasklet_hrtimer, timer);
--	struct xfrm_state *x = container_of(thr, struct xfrm_state, mtimer);
-+	struct xfrm_state *x = container_of(me, struct xfrm_state, mtimer);
-+	enum hrtimer_restart ret = HRTIMER_NORESTART;
- 	unsigned long now = get_seconds();
- 	long next = LONG_MAX;
- 	int warn = 0;
-@@ -528,7 +528,8 @@ static enum hrtimer_restart xfrm_timer_h
- 		km_state_expired(x, 0, 0);
- resched:
- 	if (next != LONG_MAX) {
--		tasklet_hrtimer_start(&x->mtimer, ktime_set(next, 0), HRTIMER_MODE_REL);
-+		hrtimer_forward_now(&x->mtimer, ktime_set(next, 0));
-+		ret = HRTIMER_RESTART;
- 	}
+-	if (hrtimer_active(&ctx->tx_timer))
+-		hrtimer_cancel(&ctx->tx_timer);
+-
+-	tasklet_kill(&ctx->bh);
++	hrtimer_cancel(&ctx->tx_timer);
  
- 	goto out;
-@@ -545,7 +546,7 @@ static enum hrtimer_restart xfrm_timer_h
- 
- out:
- 	spin_unlock(&x->lock);
--	return HRTIMER_NORESTART;
-+	return ret;
+ 	/* handle devices with combined control and data interface */
+ 	if (ctx->control == ctx->data)
+@@ -1348,20 +1343,9 @@ static void cdc_ncm_tx_timeout_start(str
+ 				HRTIMER_MODE_REL);
  }
  
- static void xfrm_replay_timer_handler(unsigned long data);
-@@ -564,8 +565,8 @@ struct xfrm_state *xfrm_state_alloc(stru
- 		INIT_HLIST_NODE(&x->bydst);
- 		INIT_HLIST_NODE(&x->bysrc);
- 		INIT_HLIST_NODE(&x->byspi);
--		tasklet_hrtimer_init(&x->mtimer, xfrm_timer_handler,
--					CLOCK_BOOTTIME, HRTIMER_MODE_ABS);
-+		hrtimer_init(&x->mtimer, CLOCK_BOOTTIME_SOFT, HRTIMER_MODE_ABS);
-+		x->mtimer.function = xfrm_timer_handler;
- 		setup_timer(&x->rtimer, xfrm_replay_timer_handler,
- 				(unsigned long)x);
- 		x->curlft.add_time = get_seconds();
-@@ -1021,7 +1022,9 @@ xfrm_state_find(const xfrm_address_t *da
- 				hlist_add_head_rcu(&x->byspi, net->xfrm.state_byspi + h);
- 			}
- 			x->lft.hard_add_expires_seconds = net->xfrm.sysctl_acq_expires;
--			tasklet_hrtimer_start(&x->mtimer, ktime_set(net->xfrm.sysctl_acq_expires, 0), HRTIMER_MODE_REL);
-+			hrtimer_start(&x->mtimer,
-+				      ktime_set(net->xfrm.sysctl_acq_expires, 0),
-+				      HRTIMER_MODE_REL);
- 			net->xfrm.state_num++;
- 			xfrm_hash_grow_check(net, x->bydst.next != NULL);
- 			spin_unlock_bh(&net->xfrm.xfrm_state_lock);
-@@ -1132,7 +1135,7 @@ static void __xfrm_state_insert(struct x
- 		hlist_add_head_rcu(&x->byspi, net->xfrm.state_byspi + h);
+-static enum hrtimer_restart cdc_ncm_tx_timer_cb(struct hrtimer *timer)
++static void cdc_ncm_txpath_bh(struct cdc_ncm_ctx *ctx)
+ {
+-	struct cdc_ncm_ctx *ctx =
+-			container_of(timer, struct cdc_ncm_ctx, tx_timer);
+-
+-	if (!atomic_read(&ctx->stop))
+-		tasklet_schedule(&ctx->bh);
+-	return HRTIMER_NORESTART;
+-}
+-
+-static void cdc_ncm_txpath_bh(unsigned long param)
+-{
+-	struct usbnet *dev = (struct usbnet *)param;
+-	struct cdc_ncm_ctx *ctx = (struct cdc_ncm_ctx *)dev->data[0];
++	struct usbnet *dev = ctx->usbnet;
+ 
+ 	spin_lock_bh(&ctx->mtx);
+ 	if (ctx->tx_timer_pending != 0) {
+@@ -1379,6 +1363,17 @@ static void cdc_ncm_txpath_bh(unsigned l
  	}
+ }
  
--	tasklet_hrtimer_start(&x->mtimer, ktime_set(1, 0), HRTIMER_MODE_REL);
-+	hrtimer_start(&x->mtimer, ktime_set(1, 0), HRTIMER_MODE_REL);
- 	if (x->replay_maxage)
- 		mod_timer(&x->rtimer, jiffies + x->replay_maxage);
++static enum hrtimer_restart cdc_ncm_tx_timer_cb(struct hrtimer *timer)
++{
++	struct cdc_ncm_ctx *ctx =
++			container_of(timer, struct cdc_ncm_ctx, tx_timer);
++
++	if (!atomic_read(&ctx->stop))
++		cdc_ncm_txpath_bh(ctx);
++
++	return HRTIMER_NORESTART;
++}
++
+ struct sk_buff *
+ cdc_ncm_tx_fixup(struct usbnet *dev, struct sk_buff *skb, gfp_t flags)
+ {
+--- a/include/linux/usb/cdc_ncm.h
++++ b/include/linux/usb/cdc_ncm.h
+@@ -92,7 +92,6 @@
+ struct cdc_ncm_ctx {
+ 	struct usb_cdc_ncm_ntb_parameters ncm_parm;
+ 	struct hrtimer tx_timer;
+-	struct tasklet_struct bh;
  
-@@ -1236,7 +1239,9 @@ static struct xfrm_state *__find_acq_cor
- 		x->mark.m = m->m;
- 		x->lft.hard_add_expires_seconds = net->xfrm.sysctl_acq_expires;
- 		xfrm_state_hold(x);
--		tasklet_hrtimer_start(&x->mtimer, ktime_set(net->xfrm.sysctl_acq_expires, 0), HRTIMER_MODE_REL);
-+		hrtimer_start(&x->mtimer,
-+			      ktime_set(net->xfrm.sysctl_acq_expires, 0),
-+			      HRTIMER_MODE_REL);
- 		list_add(&x->km.all, &net->xfrm.state_all);
- 		hlist_add_head_rcu(&x->bydst, net->xfrm.state_bydst + h);
- 		h = xfrm_src_hash(net, daddr, saddr, family);
-@@ -1535,7 +1540,7 @@ int xfrm_state_update(struct xfrm_state
- 		memcpy(&x1->lft, &x->lft, sizeof(x1->lft));
- 		x1->km.dying = 0;
+ 	const struct usb_cdc_ncm_desc *func_desc;
+ 	const struct usb_cdc_mbim_desc *mbim_desc;
+@@ -101,6 +100,7 @@ struct cdc_ncm_ctx {
  
--		tasklet_hrtimer_start(&x1->mtimer, ktime_set(1, 0), HRTIMER_MODE_REL);
-+		hrtimer_start(&x1->mtimer, ktime_set(1, 0), HRTIMER_MODE_REL);
- 		if (x1->curlft.use_time)
- 			xfrm_state_check_expire(x1);
+ 	struct usb_interface *control;
+ 	struct usb_interface *data;
++	struct usbnet *usbnet;
  
-@@ -1559,7 +1564,7 @@ int xfrm_state_check_expire(struct xfrm_
- 	if (x->curlft.bytes >= x->lft.hard_byte_limit ||
- 	    x->curlft.packets >= x->lft.hard_packet_limit) {
- 		x->km.state = XFRM_STATE_EXPIRED;
--		tasklet_hrtimer_start(&x->mtimer, 0, HRTIMER_MODE_REL);
-+		hrtimer_start(&x->mtimer, 0, HRTIMER_MODE_REL);
- 		return -EINVAL;
- 	}
- 
+ 	struct sk_buff *tx_curr_skb;
+ 	struct sk_buff *tx_rem_skb;
