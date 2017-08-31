@@ -1,48 +1,45 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [GIT] Networking
-Date: Thu, 31 Aug 2017 07:44:58 +0300
-Message-ID: <87fuc8s5v9.fsf@kamboji.qca.qualcomm.com>
-References: <87pobdt8qc.fsf@kamboji.qca.qualcomm.com>
-        <20170830.101143.2305098064824357647.davem@davemloft.net>
-        <87val5rmh8.fsf@kamboji.qca.qualcomm.com>
-        <20170830.105447.125174575140677062.davem@davemloft.net>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: [PATCH] rtlwifi: btcoex: 23b 1ant: fix duplicated code for
+ different branches
+Date: Wed, 30 Aug 2017 23:48:40 -0500
+Message-ID: <ae09e952-112e-9616-735a-b86ba01ad398@lwfinger.net>
+References: <20170830134223.GA13596@embeddedgus>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: pavel@ucw.cz, xiyou.wangcong@gmail.com,
-        torvalds@linux-foundation.org, akpm@linux-foundation.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:33288 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750781AbdHaEpG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 00:45:06 -0400
-In-Reply-To: <20170830.105447.125174575140677062.davem@davemloft.net> (David
-        Miller's message of "Wed, 30 Aug 2017 10:54:47 -0700 (PDT)")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: "Gustavo A. R. Silva" <gustavo@embeddedor.com>,
+        Chaoming Li <chaoming_li@realsil.com.cn>,
+        Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170830134223.GA13596@embeddedgus>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-David Miller <davem@davemloft.net> writes:
+On 08/30/2017 08:42 AM, Gustavo A. R. Silva wrote:
+> Refactor code in order to avoid identical code for different branches.
+> 
+> This issue was detected with the help of Coccinelle.
+> 
+> Addresses-Coverity-ID: 1226788
+> Signed-off-by: Gustavo A. R. Silva <gustavo@embeddedor.com>
+> ---
+> This issue was reported by Coverity and it was tested by compilation only.
+> I'm suspicious this may be a copy/paste error. Please, verify.
+> 
+>   .../net/wireless/realtek/rtlwifi/btcoexist/halbtc8723b1ant.c   | 10 ++--------
+>   1 file changed, 2 insertions(+), 8 deletions(-)
 
-> From: Kalle Valo <kvalo@codeaurora.org>
-> Date: Wed, 30 Aug 2017 20:31:31 +0300
->
->> AFAICS the bug was introduced by 9df86e2e702c6 back in 2010. If the bug
->> has been there for 7 years so waiting for a few more weeks should not
->> hurt.
->
-> As a maintainer you have a right to handle bug fixing in that way, but
-> certainly that is not how I would handle this.
->
-> It's easy to validate this fix, it's extremely unlikely to cause
-> a regression, and fixes a problem someone actually was able to
-> trigger.
->
-> Deferring to -next only has the side effect of making people wait
-> longer for the fix.
+This change is not correct. When bt_link_info->sco_exist is true, the call should be
 
-Yeah, you are right there. I did actually ponder which I tree should
-commit it back in July but due to various reasons decided differently.
+				halbtc8723b1ant_limited_rx(btcoexist,
+							   NORMAL_EXEC, true,
+							   false, 0x5);
 
--- 
-Kalle Valo
+NACK
+
+I will push the correct patch.
+
+Larry
