@@ -1,89 +1,146 @@
-From: Ilia Mirkin <imirkin@alum.mit.edu>
-Subject: Re: DSA mv88e6xxx RX frame errors and TCP/IP RX failure
-Date: Wed, 30 Aug 2017 20:38:39 -0400
-Message-ID: <CAKb7UvhZ5Sft9wbfOSDN4RJkwRp-fvhcmadZZ+=oAtaLcFMV8Q@mail.gmail.com>
-References: <CAJ+vNU0VzgDkH-ksHgaA0cn3nbCOfcUs_BU90v6xw_QappssgA@mail.gmail.com>
- <20170830220631.GM22289@lunn.ch> <CAJ+vNU3Qto9iNdCUExb4NWaa3PA1UWe1kbY1b=sBLPgw_xiz7g@mail.gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net v2] net: phy: Correctly process PHY_HALTED in
+ phy_stop_machine()
+Date: Wed, 30 Aug 2017 17:52:47 -0700
+Message-ID: <6607b397-8240-ea34-81ab-3d4f95abbc6f@gmail.com>
+References: <20170728185836.28759-1-f.fainelli@gmail.com>
+ <20170731.172818.1505741655348122155.davem@davemloft.net>
+ <57dfe1c5-1816-cf94-7676-293a9dcd343c@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Andrew Lunn <andrew@lunn.ch>, netdev <netdev@vger.kernel.org>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Fugang Duan <fugang.duan@nxp.com>
-To: Tim Harvey <tharvey@gateworks.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAJ+vNU3Qto9iNdCUExb4NWaa3PA1UWe1kbY1b=sBLPgw_xiz7g@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, andrew@lunn.ch, slash.tmp@free.fr,
+        marc_gonzalez@sigmadesigns.com, rmk+kernel@armlinux.org.uk,
+        Geert Uytterhoeven <geert+renesas@glider.be>
+To: David Daney <ddaney.cavm@gmail.com>,
+        David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f196.google.com ([209.85.220.196]:35462 "EHLO
+        mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750802AbdHaAwz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 20:52:55 -0400
+Received: by mail-qk0-f196.google.com with SMTP id p67so6508620qkd.2
+        for <netdev@vger.kernel.org>; Wed, 30 Aug 2017 17:52:55 -0700 (PDT)
+In-Reply-To: <57dfe1c5-1816-cf94-7676-293a9dcd343c@gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 30, 2017 at 8:22 PM, Tim Harvey <tharvey@gateworks.com> wrote:
-> On Wed, Aug 30, 2017 at 3:06 PM, Andrew Lunn <andrew@lunn.ch> wrote:
->> On Wed, Aug 30, 2017 at 12:53:56PM -0700, Tim Harvey wrote:
->>> Greetings,
+On 08/30/2017 05:13 PM, David Daney wrote:
+> On 07/31/2017 05:28 PM, David Miller wrote:
+>> From: Florian Fainelli <f.fainelli@gmail.com>
+>> Date: Fri, 28 Jul 2017 11:58:36 -0700
+>>
+>>> Marc reported that he was not getting the PHY library adjust_link()
+>>> callback function to run when calling phy_stop() + phy_disconnect()
+>>> which does not indeed happen because we set the state machine to
+>>> PHY_HALTED but we don't get to run it to process this state past that
+>>> point.
 >>>
->>> I'm seeing RX frame errors when using the mv88e6xxx DSA driver on
->>> 4.13-rc7. The board I'm using is a GW5904 [1] which has an IMX6 FEC
->>> MAC (eth0) connected via RGMII to a MV88E6176 with its downstream
->>> P0/P1/P2/P3 to front panel RJ45's (lan1-lan4).
+>>> Fix this with a synchronous call to phy_state_machine() in order to have
+>>> the state machine actually act on PHY_HALTED, set the PHY device's link
+>>> down, turn the network device's carrier off and finally call the
+>>> adjust_link() function.
+>>>
+>>> Reported-by: Marc Gonzalez <marc_gonzalez@sigmadesigns.com>
+>>> Fixes: a390d1f379cf ("phylib: convert state_queue work to delayed_work")
+>>> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+>>> ---
+>>> Changes in v2:
+>>>
+>>> - reword subject and commit message based on changes
+>>> - dropped flush_scheduled_work() since it is redundant
 >>
->> Hi Tim
+>> Applied and queued up for -stable, thanks.
 >>
->> Can you confirm the counter is this one:
->>
->>                        /* Report late collisions as a frame error. */
->>                         if (status & (BD_ENET_RX_NO | BD_ENET_RX_CL))
->>                                 ndev->stats.rx_frame_errors++;
->>
->> I don't see anywhere else frame errors are counted, but it would be
->> good to prove we are looking in the right place.
->>
->
-> Andrew,
->
-> (adding IMX FEC driver maintainer to CC)
->
-> Yes, that's one of them being hit. It looks like ifconfig reports
-> 'frame' as the accumulation of a few stats so here are some more
-> specifics from /sys/class/net/eth0/statistics:
->
-> root@xenial:/sys/devices/soc0/soc/2100000.aips-bus/2188000.ethernet/net/eth0/statistics#
-> for i in `ls rx_*`; do echo $i:$(cat $i); done
-> rx_bytes:103229
-> rx_compressed:0
-> rx_crc_errors:22
-> rx_dropped:0
-> rx_errors:22
-> rx_fifo_errors:0
-> rx_frame_errors:22
-> rx_length_errors:22
-> rx_missed_errors:0
-> rx_nohandler:0
-> rx_over_errors:0
-> rx_packets:1174
-> root@xenial:/sys/devices/soc0/soc/2100000.aips-bus/2188000.ethernet/net/eth0/statistics#
-> ifconfig eth0
-> eth0      Link encap:Ethernet  HWaddr 00:D0:12:41:F3:E7
->           inet6 addr: fe80::2d0:12ff:fe41:f3e7/64 Scope:Link
->           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
->           RX packets:1207 errors:22 dropped:0 overruns:0 frame:66
->           TX packets:42 errors:0 dropped:0 overruns:0 carrier:0
->           collisions:0 txqueuelen:1000
->           RX bytes:106009 (103.5 KiB)  TX bytes:4604 (4.4 KiB)
->
-> Instrumenting fec driver I see the following getting hit:
->
-> status & BD_ENET_RX_LG /* rx_length_errors: Frame too long */
-> status & BD_ENET_RX_CR  /* rx_crc_errors: CRC Error */
-> status & BD_ENET_RX_CL /* rx_frame_errors: Collision? */
->
-> Is this a frame size issue where the MV88E6176 is sending frames down
-> that exceed the MTU because of headers added?
+> 
+> 
+> This is broken.  Please revert.
+> 
+> Upstream commit 7ad813f20853 and in the stable branches as well.
+> 
+> When ndo_stop() is called we call:
+> 
+> 
+>  phy_disconnect()
+>     +---> phy_stop_interrupts() implies: phydev->irq = PHY_POLL;
+>     +---> phy_stop_machine()
+>     |      +---> phy_stop_machine()
+>     |              +----> queue_delayed_work(): Work queued.
+>     +--->phy_detach() implies: phydev->attached_dev = NULL;
+> 
+> Now at a later time the queued work does:
+> 
+>  phy_state_machine()
+>     +---->netif_carrier_off(phydev->attached_dev): Oh no! It is NULL:
 
-Not sure if this is relevant to you, but
-https://github.com/laanwj/linux-freedreno-a2xx/commit/076b6542fa27499072ec6c3a7941c8b3c79ba1fd
-was necessary to fix some MTU issues on a i.MX51. Not sure if it's
-upstream yet or not.
+How about the following instead of a revert (which I have queued locally
+as well along with your correct call graph). This still would not fix
+Geert's problem where with this change, we do actually call back into
+adjust_link after a phy_stop() which may be problematic for him so I
+think the revert is just easier and Marc, we'll figure out something for
+nb8800?
 
-Cheers,
+diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+index d0626bf5c540..78168e19bd5d 100644
+--- a/drivers/net/phy/phy.c
++++ b/drivers/net/phy/phy.c
+@@ -1234,7 +1234,7 @@ void phy_state_machine(struct work_struct *work)
+         * PHY, if PHY_IGNORE_INTERRUPT is set, then we will be moving
+         * between states from phy_mac_interrupt()
+         */
+-       if (phydev->irq == PHY_POLL)
++       if (phydev->irq == PHY_POLL && phydev->state != PHY_HALTED)
+                queue_delayed_work(system_power_efficient_wq,
+&phydev->state_queue,
+                                   PHY_STATE_TIME * HZ);
+ }
+> 
+> 
+>  CPU 12 Unable to handle kernel paging request at virtual address
+> 0000000000000048, epc == ffffffff80de37ec, ra == ffffffff80c7c
+> Oops[#1]:
+> CPU: 12 PID: 1502 Comm: kworker/12:1 Not tainted 4.9.43-Cavium-Octeon+ #1
+> Workqueue: events_power_efficient phy_state_machine
+> task: 80000004021ed100 task.stack: 8000000409d70000
+> $ 0   : 0000000000000000 ffffffff84720060 0000000000000048 0000000000000004
+> $ 4   : 0000000000000000 0000000000000001 0000000000000004 0000000000000000
+> $ 8   : 0000000000000000 0000000000000000 00000000ffff98f3 0000000000000000
+> $12   : 8000000409d73fe0 0000000000009c00 ffffffff846547c8 000000000000af3b
+> $16   : 80000004096bab68 80000004096babd0 0000000000000000 80000004096ba800
+> $20   : 0000000000000000 0000000000000000 ffffffff81090000 0000000000000008
+> $24   : 0000000000000061 ffffffff808637b0
+> $28   : 8000000409d70000 8000000409d73cf0 80000000271bd300 ffffffff80c7804c
+> Hi    : 000000000000002a
+> Lo    : 000000000000003f
+> epc   : ffffffff80de37ec netif_carrier_off+0xc/0x58
+> ra    : ffffffff80c7804c phy_state_machine+0x48c/0x4f8
+> Status: 14009ce3        KX SX UX KERNEL EXL IE
+> Cause : 00800008 (ExcCode 02)
+> BadVA : 0000000000000048
+> PrId  : 000d9501 (Cavium Octeon III)
+> Modules linked in:
+> Process kworker/12:1 (pid: 1502, threadinfo=8000000409d70000,
+> task=80000004021ed100, tls=0000000000000000)
+> Stack : 8000000409a54000 80000004096bab68 80000000271bd300 80000000271c1e00
+>         0000000000000000 ffffffff808a1708 8000000409a54000 80000000271bd300
+>         80000000271bd320 8000000409a54030 ffffffff80ff0f00 0000000000000001
+>         ffffffff81090000 ffffffff808a1ac0 8000000402182080 ffffffff84650000
+>         8000000402182080 ffffffff84650000 ffffffff80ff0000 8000000409a54000
+>         ffffffff808a1970 0000000000000000 80000004099e8000 8000000402099240
+>         0000000000000000 ffffffff808a8598 0000000000000000 8000000408eeeb00
+>         8000000409a54000 00000000810a1d00 0000000000000000 8000000409d73de8
+>         8000000409d73de8 0000000000000088 000000000c009c00 8000000409d73e08
+>         8000000409d73e08 8000000402182080 ffffffff808a84d0 8000000402182080
+>         ...
+> Call Trace:
+> [<ffffffff80de37ec>] netif_carrier_off+0xc/0x58
+> [<ffffffff80c7804c>] phy_state_machine+0x48c/0x4f8
+> [<ffffffff808a1708>] process_one_work+0x158/0x368
+> [<ffffffff808a1ac0>] worker_thread+0x150/0x4c0
+> [<ffffffff808a8598>] kthread+0xc8/0xe0
+> [<ffffffff808617f0>] ret_from_kernel_thread+0x14/0x1c
 
-  -ilia
+
+-- 
+Florian
