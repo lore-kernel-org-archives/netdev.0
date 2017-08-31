@@ -1,7 +1,7 @@
 From: Chenbo Feng <chenbofeng.kernel@gmail.com>
-Subject: [PATCH 1/3] security: bpf: Add eBPF LSM hooks to security module
-Date: Thu, 31 Aug 2017 13:56:33 -0700
-Message-ID: <20170831205635.80256-2-chenbofeng.kernel@gmail.com>
+Subject: [PATCH 2/3] security: bpf: Add eBPF LSM hooks and security field to eBPF map
+Date: Thu, 31 Aug 2017 13:56:34 -0700
+Message-ID: <20170831205635.80256-3-chenbofeng.kernel@gmail.com>
 References: <20170831205635.80256-1-chenbofeng.kernel@gmail.com>
 Cc: Jeffrey Vander Stoep <jeffv@google.com>, netdev@vger.kernel.org,
         SELinux <Selinux@tycho.nsa.gov>,
@@ -9,192 +9,123 @@ Cc: Jeffrey Vander Stoep <jeffv@google.com>, netdev@vger.kernel.org,
         lorenzo@google.com, Chenbo Feng <fengc@google.com>
 To: linux-security-module@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:35360 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751309AbdHaU5I (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 16:57:08 -0400
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:37337 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751393AbdHaU5K (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 16:57:10 -0400
 In-Reply-To: <20170831205635.80256-1-chenbofeng.kernel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Chenbo Feng <fengc@google.com>
 
-Introduce 5 LSM hooks to provide finer granularity controls on eBPF
-related operations including create eBPF maps, modify and read eBPF maps
-content and load eBPF programs to the kernel. Hooks use the new security
-pointer inside the eBPF map struct to store the owner's security
-information and the different security modules can perform different
-checks based on the information stored inside the security field.
+Introduce a pointer into struct bpf_map to hold the security information
+about the map. The actual security struct varies based on the security
+models implemented. Place the LSM hooks before each of the unrestricted
+eBPF operations, the map_update_elem and map_delete_elem operations are
+checked by security_map_modify. The map_lookup_elem and map_get_next_key
+operations are checked by securtiy_map_read.
 
 Signed-off-by: Chenbo Feng <fengc@google.com>
 ---
- include/linux/lsm_hooks.h | 41 +++++++++++++++++++++++++++++++++++++++++
- include/linux/security.h  | 36 ++++++++++++++++++++++++++++++++++++
- security/security.c       | 28 ++++++++++++++++++++++++++++
- 3 files changed, 105 insertions(+)
+ include/linux/bpf.h  |  3 +++
+ kernel/bpf/syscall.c | 28 ++++++++++++++++++++++++++++
+ 2 files changed, 31 insertions(+)
 
-diff --git a/include/linux/lsm_hooks.h b/include/linux/lsm_hooks.h
-index ce02f76a6188..3aaf9a08a983 100644
---- a/include/linux/lsm_hooks.h
-+++ b/include/linux/lsm_hooks.h
-@@ -1353,6 +1353,32 @@
-  *	@inode we wish to get the security context of.
-  *	@ctx is a pointer in which to place the allocated security context.
-  *	@ctxlen points to the place to put the length of @ctx.
-+ *
-+ * Security hooks for using the eBPF maps and programs functionalities through
-+ * eBPF syscalls.
-+ *
-+ * @bpf_map_create:
-+ *	Check permissions prior to creating a new bpf map.
-+ *	Return 0 if the permission is granted.
-+ *
-+ * @bpf_map_modify:
-+ *	Check permission prior to insert, update and delete map content.
-+ *	@map pointer to the struct bpf_map that contains map information.
-+ *	Return 0 if the permission is granted.
-+ *
-+ * @bpf_map_read:
-+ *	Check permission prior to read a bpf map content.
-+ *	@map pointer to the struct bpf_map that contains map information.
-+ *	Return 0 if the permission is granted.
-+ *
-+ * @bpf_prog_load:
-+ *	Check permission prior to load eBPF program.
-+ *	Return 0 if the permission is granted.
-+ *
-+ * @bpf_post_create:
-+ *	Initialize the bpf object security field inside struct bpf_maps and
-+ *	it is used for future security checks.
-+ *
-  */
- union security_list_options {
- 	int (*binder_set_context_mgr)(struct task_struct *mgr);
-@@ -1685,6 +1711,14 @@ union security_list_options {
- 				struct audit_context *actx);
- 	void (*audit_rule_free)(void *lsmrule);
- #endif /* CONFIG_AUDIT */
-+
-+#ifdef CONFIG_BPF_SYSCALL
-+	int (*bpf_map_create)(void);
-+	int (*bpf_map_read)(struct bpf_map *map);
-+	int (*bpf_map_modify)(struct bpf_map *map);
-+	int (*bpf_prog_load)(void);
-+	int (*bpf_post_create)(struct bpf_map *map);
-+#endif /* CONFIG_BPF_SYSCALL */
+diff --git a/include/linux/bpf.h b/include/linux/bpf.h
+index b69e7a5869ff..ca3e6ff7091d 100644
+--- a/include/linux/bpf.h
++++ b/include/linux/bpf.h
+@@ -53,6 +53,9 @@ struct bpf_map {
+ 	struct work_struct work;
+ 	atomic_t usercnt;
+ 	struct bpf_map *inner_map_meta;
++#ifdef CONFIG_SECURITY
++	void *security;
++#endif
  };
  
- struct security_hook_heads {
-@@ -1905,6 +1939,13 @@ struct security_hook_heads {
- 	struct list_head audit_rule_match;
- 	struct list_head audit_rule_free;
- #endif /* CONFIG_AUDIT */
-+#ifdef CONFIG_BPF_SYSCALL
-+	struct list_head bpf_map_create;
-+	struct list_head bpf_map_read;
-+	struct list_head bpf_map_modify;
-+	struct list_head bpf_prog_load;
-+	struct list_head bpf_post_create;
-+#endif /* CONFIG_BPF_SYSCALL */
- } __randomize_layout;
+ /* function argument constraints */
+diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
+index 045646da97cc..b15580bcf3b1 100644
+--- a/kernel/bpf/syscall.c
++++ b/kernel/bpf/syscall.c
+@@ -279,6 +279,10 @@ static int map_create(union bpf_attr *attr)
+ 	if (err)
+ 		return -EINVAL;
  
- /*
-diff --git a/include/linux/security.h b/include/linux/security.h
-index 458e24bea2d4..0656a4f74d14 100644
---- a/include/linux/security.h
-+++ b/include/linux/security.h
-@@ -31,6 +31,7 @@
- #include <linux/string.h>
- #include <linux/mm.h>
- #include <linux/fs.h>
-+#include <linux/bpf.h>
++	err = security_map_create();
++	if (err)
++		return -EACCES;
++
+ 	/* find map type and init map: hashtable vs rbtree vs bloom vs ... */
+ 	map = find_and_alloc_map(attr);
+ 	if (IS_ERR(map))
+@@ -291,6 +295,10 @@ static int map_create(union bpf_attr *attr)
+ 	if (err)
+ 		goto free_map_nouncharge;
  
- struct linux_binprm;
- struct cred;
-@@ -1735,6 +1736,41 @@ static inline void securityfs_remove(struct dentry *dentry)
++	err = security_post_create(map);
++	if (err < 0)
++		goto free_map;
++
+ 	err = bpf_map_alloc_id(map);
+ 	if (err)
+ 		goto free_map;
+@@ -410,6 +418,10 @@ static int map_lookup_elem(union bpf_attr *attr)
+ 	if (IS_ERR(map))
+ 		return PTR_ERR(map);
  
- #endif
++	err = security_map_read(map);
++	if (err)
++		return -EACCES;
++
+ 	key = memdup_user(ukey, map->key_size);
+ 	if (IS_ERR(key)) {
+ 		err = PTR_ERR(key);
+@@ -490,6 +502,10 @@ static int map_update_elem(union bpf_attr *attr)
+ 	if (IS_ERR(map))
+ 		return PTR_ERR(map);
  
-+#ifdef CONFIG_BPF_SYSCALL
-+#ifdef CONFIG_SECURITY
-+int security_map_create(void);
-+int security_map_modify(struct bpf_map *map);
-+int security_map_read(struct bpf_map *map);
-+int security_prog_load(void);
-+int security_post_create(struct bpf_map *map);
-+#else
-+static inline int security_map_create(void)
-+{
-+	return 0;
-+}
++	err = security_map_modify(map);
++	if (err)
++		return -EACCES;
 +
-+static inline int security_map_read(struct bpf_map *map)
-+{
-+	return 0;
-+}
-+
-+static inline int security_map_modify(struct bpf_map *map)
-+{
-+	return 0;
-+}
-+
-+static inline int security_prog_load(void)
-+{
-+	return 0;
-+}
-+
-+static inline int security_post_create(struct bpf_map *map)
-+{
-+	return 0;
-+}
-+#endif /* CONFIG_SECURITY */
-+#endif /* CONFIG_BPF_SYSCALL */
-+
- #ifdef CONFIG_SECURITY
+ 	key = memdup_user(ukey, map->key_size);
+ 	if (IS_ERR(key)) {
+ 		err = PTR_ERR(key);
+@@ -573,6 +589,10 @@ static int map_delete_elem(union bpf_attr *attr)
+ 	if (IS_ERR(map))
+ 		return PTR_ERR(map);
  
- static inline char *alloc_secdata(void)
-diff --git a/security/security.c b/security/security.c
-index 55b5997e4b72..02272f93a89e 100644
---- a/security/security.c
-+++ b/security/security.c
-@@ -12,6 +12,7 @@
-  *	(at your option) any later version.
-  */
++	err = security_map_modify(map);
++	if (err)
++		return -EACCES;
++
+ 	key = memdup_user(ukey, map->key_size);
+ 	if (IS_ERR(key)) {
+ 		err = PTR_ERR(key);
+@@ -616,6 +636,10 @@ static int map_get_next_key(union bpf_attr *attr)
+ 	if (IS_ERR(map))
+ 		return PTR_ERR(map);
  
-+#include <linux/bpf.h>
- #include <linux/capability.h>
- #include <linux/dcache.h>
- #include <linux/module.h>
-@@ -1708,3 +1709,30 @@ int security_audit_rule_match(u32 secid, u32 field, u32 op, void *lsmrule,
- 				actx);
- }
- #endif /* CONFIG_AUDIT */
++	err = security_map_read(map);
++	if (err)
++		return -EACCES;
 +
-+#ifdef CONFIG_BPF_SYSCALL
-+int security_map_create(void)
-+{
-+	return call_int_hook(bpf_map_create, 0);
-+}
+ 	if (ukey) {
+ 		key = memdup_user(ukey, map->key_size);
+ 		if (IS_ERR(key)) {
+@@ -935,6 +959,10 @@ static int bpf_prog_load(union bpf_attr *attr)
+ 	if (CHECK_ATTR(BPF_PROG_LOAD))
+ 		return -EINVAL;
+ 
++	err = security_prog_load();
++	if (err)
++		return -EACCES;
 +
-+int security_map_modify(struct bpf_map *map)
-+{
-+	return call_int_hook(bpf_map_modify, 0, map);
-+}
-+
-+int security_map_read(struct bpf_map *map)
-+{
-+	return call_int_hook(bpf_map_read, 0, map);
-+}
-+
-+int security_prog_load(void)
-+{
-+	return call_int_hook(bpf_prog_load, 0);
-+}
-+
-+int security_post_create(struct bpf_map *map)
-+{
-+	return call_int_hook(bpf_post_create, 0, map);
-+}
-+#endif /* CONFIG_BPF_SYSCALL */
+ 	if (attr->prog_flags & ~BPF_F_STRICT_ALIGNMENT)
+ 		return -EINVAL;
+ 
 -- 
 2.14.1.581.gf28d330327-goog
