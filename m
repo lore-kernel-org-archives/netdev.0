@@ -1,113 +1,76 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH v2 net-next 2/2] net: convert (struct ubuf_info)->refcnt to refcount_t
-Date: Thu, 31 Aug 2017 16:48:22 -0700
-Message-ID: <20170831234822.26612-3-edumazet@google.com>
-References: <20170831234822.26612-1-edumazet@google.com>
-Cc: netdev <netdev@vger.kernel.org>,
-        Willem de Bruijn <willemb@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>
-To: "David S . Miller" <davem@davemloft.net>
+From: Kees Cook <keescook@chromium.org>
+Subject: [PATCH 25/31] net/atm/mpc: Use separate static data field with with static timer
+Date: Thu, 31 Aug 2017 16:29:37 -0700
+Message-ID: <1504222183-61202-26-git-send-email-keescook@chromium.org>
+References: <1504222183-61202-1-git-send-email-keescook@chromium.org>
+Cc: Kees Cook <keescook@chromium.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Andrew Morton <akpm@linux-foundation.org>,
+        Alexey Dobriyan <adobriyan@gmail.com>,
+        "Reshetova, Elena" <elena.reshetova@intel.com>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Thomas Gleixner <tglx@linutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f52.google.com ([74.125.83.52]:34601 "EHLO
-        mail-pg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752175AbdHaXsb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 19:48:31 -0400
-Received: by mail-pg0-f52.google.com with SMTP id t193so3302214pgc.1
-        for <netdev@vger.kernel.org>; Thu, 31 Aug 2017 16:48:31 -0700 (PDT)
-In-Reply-To: <20170831234822.26612-1-edumazet@google.com>
+Received: from mail-pg0-f42.google.com ([74.125.83.42]:37107 "EHLO
+        mail-pg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752242AbdHaXtT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 19:49:19 -0400
+Received: by mail-pg0-f42.google.com with SMTP id 83so3183336pgb.4
+        for <netdev@vger.kernel.org>; Thu, 31 Aug 2017 16:49:18 -0700 (PDT)
+In-Reply-To: <1504222183-61202-1-git-send-email-keescook@chromium.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-refcount_t type and corresponding API should be
-used instead of atomic_t when the variable is used as
-a reference counter. This allows to avoid accidental
-refcounter overflows that might lead to use-after-free
-situations.
+In preparation for changing the timer callback argument to the timer
+pointer, move to a separate static data variable.
 
-v2: added the change in drivers/vhost/net.c as spotted
-by Willem.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: Alexey Dobriyan <adobriyan@gmail.com>
+Cc: "Reshetova, Elena" <elena.reshetova@intel.com>
+Cc: netdev@vger.kernel.org
+Signed-off-by: Kees Cook <keescook@chromium.org>
 ---
- drivers/vhost/net.c    | 2 +-
- include/linux/skbuff.h | 5 +++--
- net/core/skbuff.c      | 6 +++---
- 3 files changed, 7 insertions(+), 6 deletions(-)
+ net/atm/mpc.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-index ba08b78ed630c429ccf415af69bf27f2433af4f0..8d2bcae53a2ec9ea1c876625e581bcd429abe365 100644
---- a/drivers/vhost/net.c
-+++ b/drivers/vhost/net.c
-@@ -533,7 +533,7 @@ static void handle_tx(struct vhost_net *net)
- 			ubuf->callback = vhost_zerocopy_callback;
- 			ubuf->ctx = nvq->ubufs;
- 			ubuf->desc = nvq->upend_idx;
--			atomic_set(&ubuf->refcnt, 1);
-+			refcount_set(&ubuf->refcnt, 1);
- 			msg.msg_control = ubuf;
- 			msg.msg_controllen = sizeof(ubuf);
- 			ubufs = nvq->ubufs;
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 7594e19bce622a38dc39c054093c3da15b99b67b..316a92b45351f53709886ee0099cbc83b66f1b15 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -22,6 +22,7 @@
- #include <linux/cache.h>
- #include <linux/rbtree.h>
- #include <linux/socket.h>
-+#include <linux/refcount.h>
+diff --git a/net/atm/mpc.c b/net/atm/mpc.c
+index 5baa31b8500c..fc24a46500ae 100644
+--- a/net/atm/mpc.c
++++ b/net/atm/mpc.c
+@@ -95,7 +95,7 @@ static netdev_tx_t mpc_send_packet(struct sk_buff *skb,
+ static int mpoa_event_listener(struct notifier_block *mpoa_notifier,
+ 			       unsigned long event, void *dev);
+ static void mpc_timer_refresh(void);
+-static void mpc_cache_check(unsigned long checking_time);
++static void mpc_cache_check(unsigned long unused);
  
- #include <linux/atomic.h>
- #include <asm/types.h>
-@@ -456,7 +457,7 @@ struct ubuf_info {
- 			u32 bytelen;
- 		};
- 	};
--	atomic_t refcnt;
-+	refcount_t refcnt;
+ static struct llc_snap_hdr llc_snap_mpoa_ctrl = {
+ 	0xaa, 0xaa, 0x03,
+@@ -121,7 +121,8 @@ static struct notifier_block mpoa_notifier = {
  
- 	struct mmpin {
- 		struct user_struct *user;
-@@ -472,7 +473,7 @@ struct ubuf_info *sock_zerocopy_realloc(struct sock *sk, size_t size,
+ struct mpoa_client *mpcs = NULL; /* FIXME */
+ static struct atm_mpoa_qos *qos_head = NULL;
+-static DEFINE_TIMER(mpc_timer, NULL);
++static DEFINE_TIMER(mpc_timer, mpc_cache_check);
++static unsigned long checking_time;
  
- static inline void sock_zerocopy_get(struct ubuf_info *uarg)
+ 
+ static struct mpoa_client *find_mpc_by_itfnum(int itf)
+@@ -1411,12 +1412,11 @@ static void clean_up(struct k_message *msg, struct mpoa_client *mpc, int action)
+ static void mpc_timer_refresh(void)
  {
--	atomic_inc(&uarg->refcnt);
-+	refcount_inc(&uarg->refcnt);
+ 	mpc_timer.expires = jiffies + (MPC_P2 * HZ);
+-	mpc_timer.data = mpc_timer.expires;
+-	mpc_timer.function = mpc_cache_check;
++	checking_time = mpc_timer.expires;
+ 	add_timer(&mpc_timer);
  }
  
- void sock_zerocopy_put(struct ubuf_info *uarg);
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 1a754d7896ceac1eb85e3b13c1422b4d6a88fedf..06b9ddca3188442d1d1d2052fc060cf5b1e2a6f4 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -963,7 +963,7 @@ struct ubuf_info *sock_zerocopy_alloc(struct sock *sk, size_t size)
- 	uarg->len = 1;
- 	uarg->bytelen = size;
- 	uarg->zerocopy = 1;
--	atomic_set(&uarg->refcnt, 1);
-+	refcount_set(&uarg->refcnt, 1);
- 	sock_hold(sk);
- 
- 	return uarg;
-@@ -1086,7 +1086,7 @@ EXPORT_SYMBOL_GPL(sock_zerocopy_callback);
- 
- void sock_zerocopy_put(struct ubuf_info *uarg)
+-static void mpc_cache_check(unsigned long checking_time)
++static void mpc_cache_check(unsigned long unused)
  {
--	if (uarg && atomic_dec_and_test(&uarg->refcnt)) {
-+	if (uarg && refcount_dec_and_test(&uarg->refcnt)) {
- 		if (uarg->callback)
- 			uarg->callback(uarg, uarg->zerocopy);
- 		else
-@@ -1483,7 +1483,7 @@ int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail,
- 		if (skb_orphan_frags(skb, gfp_mask))
- 			goto nofrags;
- 		if (skb_zcopy(skb))
--			atomic_inc(&skb_uarg(skb)->refcnt);
-+			refcount_inc(&skb_uarg(skb)->refcnt);
- 		for (i = 0; i < skb_shinfo(skb)->nr_frags; i++)
- 			skb_frag_ref(skb, i);
- 
+ 	struct mpoa_client *mpc = mpcs;
+ 	static unsigned long previous_resolving_check_time;
 -- 
-2.14.1.581.gf28d330327-goog
+2.7.4
