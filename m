@@ -1,52 +1,46 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: Re: tip -ENOBOOT - bisected to locking/refcounts, x86/asm: Implement
- fast refcount overflow protection
-Date: Thu, 31 Aug 2017 12:28:40 -0700
-Message-ID: <CAGXu5jKRNXGqN8=90qy1NJQ1bmzKCfjJPhY1Ewi9wLE5VofwRQ@mail.gmail.com>
-References: <1503996623.8323.20.camel@gmx.de> <CAGXu5jLYHy6Damtg_Pc4=G76OUiMV3fcY9+Ru1-Lmiq6VWEgsw@mail.gmail.com>
- <1504025721.6024.25.camel@gmx.de> <1504030207.6560.0.camel@gmx.de>
- <CAGXu5jKSWiZ8NkgUqO6G8fs5R06bMtdFBmZz9MMX-HAk8nXXNw@mail.gmail.com>
- <1504069332.8352.3.camel@gmx.de> <CAGXu5jJim=r8b+y1qQXtuzm9fPyv1tp9ANebxbCc9ic2c83_Mg@mail.gmail.com>
- <1504113212.5852.6.camel@gmx.de> <CAGXu5jJd80-0PJvB51x9ZDETPSoAtRVQ7dQ6HWwd0DYpKBgPFA@mail.gmail.com>
- <1504115735.5852.11.camel@gmx.de> <CAGXu5j+BLj6_LPfKs-vts-mbyJHu8D--WrmWbiT8Zbt-iD65KA@mail.gmail.com>
- <CAGXu5j+neSYAqb8=r42=jQ0LsJTGjCSdpgc9Hv+ipyAFURbCdw@mail.gmail.com>
- <1504145389.23109.4.camel@gmx.de> <CAGXu5jLKXEDdSpxxVM5oHHUWKbSTozx4FZRn70bQm4tQAhMqUQ@mail.gmail.com>
- <1504149176.23109.9.camel@gmx.de> <CAGXu5j+uNU+wqWoCV+Kpdp+DQer4E3VuwO0mtXiW3Dtw_61QKA@mail.gmail.com>
- <CAGXu5jKYPp5D+YxtqrJXsi48UUbjfeREngsys-dU1eP4RnnL+w@mail.gmail.com> <1504187918.27500.16.camel@gmx.de>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: net/ipv4: divide error in __tcp_select_window
+Date: Thu, 31 Aug 2017 15:37:13 -0400
+Message-ID: <CADVnQy=GA_neQ2CsXmdZbPozcd-N6iUoX-jXZkNgXocPVo2efg@mail.gmail.com>
+References: <CADUsjNnba_AmnTdoY45Bh7HasqjmBja-W1+-+6eMt-d_dCs2qA@mail.gmail.com>
+ <CADVnQynuyK5H1SDOnzDZPOnVn701JhrSQRCORVJ_6c=z_EooBw@mail.gmail.com> <20170831.122543.754410467437404852.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Peter Zijlstra <peterz@infradead.org>,
-        LKML <linux-kernel@vger.kernel.org>, Ingo Molnar <mingo@elte.hu>,
-        "Reshetova, Elena" <elena.reshetova@intel.com>,
-        Network Development <netdev@vger.kernel.org>
-To: Mike Galbraith <efault@gmx.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1504187918.27500.16.camel@gmx.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: idaifish <idaifish@gmail.com>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        Netdev <netdev@vger.kernel.org>, syzkaller@googlegroups.com,
+        Wei Wang <weiwan@google.com>,
+        Eric Dumazet <edumazet@google.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qt0-f181.google.com ([209.85.216.181]:36342 "EHLO
+        mail-qt0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750968AbdHaTho (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 15:37:44 -0400
+Received: by mail-qt0-f181.google.com with SMTP id v20so2821676qtg.3
+        for <netdev@vger.kernel.org>; Thu, 31 Aug 2017 12:37:44 -0700 (PDT)
+In-Reply-To: <20170831.122543.754410467437404852.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 31, 2017 at 6:58 AM, Mike Galbraith <efault@gmx.de> wrote:
-> gdb) list *in6_dev_get+0x10
-> 0xffffffff8166d3d0 is in in6_dev_get (./include/net/addrconf.h:318).
-> 313     {
-> 314             struct inet6_dev *idev;
-> 315
-> 316             rcu_read_lock();
-> 317             idev = rcu_dereference(dev->ip6_ptr);
-> 318             if (idev)
-> 319                     refcount_inc(&idev->refcnt);
-> 320             rcu_read_unlock();
-> 321             return idev;
-> 322
+On Thu, Aug 31, 2017 at 3:25 PM, David Miller <davem@davemloft.net> wrote:
+>
+> From: Neal Cardwell <ncardwell@google.com>
+> Date: Thu, 31 Aug 2017 07:11:28 -0400
+>
+> > Thanks for the report. I believe this tcp_recvmsg  => tcp_cleanup_rbuf
+> >  => __tcp_select_window divide-by-zero issue was fixed in May by Wei,
+> > in:
+> >
+> >  499350a5a6e7 tcp: initialize rcv_mss to TCP_MIN_MSS instead of 0
+> >  https://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git/commit/?id=499350a5a6e7
+> >
+> > Looks like we should probably mark this as a -stable candidate, so
+> > that it will eventually make it to 4.4.y, 4.9.y, 4.12.y users, etc. (I
+> > don't see the commit in those stable branches.)
+>
+> Ok, queued up for -stable, thanks.
 
-And this is a completely different refcount from the other that
-tripped. This one is quite simple, too, though I see it uses
-refcount_dec(), which is a path to saturation. I've sent a patch to
-try to clarify this further...
+Great. Thanks!
 
--Kees
-
--- 
-Kees Cook
-Pixel Security
+neal
