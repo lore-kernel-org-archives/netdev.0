@@ -1,103 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] Revert "net: phy: Correctly process PHY_HALTED in
- phy_stop_machine()"
-Date: Wed, 30 Aug 2017 18:47:59 -0700 (PDT)
-Message-ID: <20170830.184759.686464284014904531.davem@davemloft.net>
-References: <1504140569-2063-1-git-send-email-f.fainelli@gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH][next] bpf: test_maps: fix typo "conenct" -> "connext"
+Date: Wed, 30 Aug 2017 19:33:20 -0700
+Message-ID: <1504146800.2786.34.camel@perches.com>
+References: <20170830114707.28493-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, geert+renesas@glider.be,
-        ddaney.cavm@gmail.com, slash.tmp@free.fr,
-        marc_gonzales@sigmadesigns.com, andrew@lunn.ch
-To: f.fainelli@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:39054 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750814AbdHaBsC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 30 Aug 2017 21:48:02 -0400
-In-Reply-To: <1504140569-2063-1-git-send-email-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org
+To: Colin King <colin.king@canonical.com>,
+        Alexei Starovoitov <ast@kernel.org>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Shuah Khan <shuah@kernel.org>, netdev@vger.kernel.org,
+        linux-kselftest@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170830114707.28493-1-colin.king@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Wed, 30 Aug 2017 17:49:29 -0700
+On Wed, 2017-08-30 at 12:47 +0100, Colin King wrote:
+> From: Colin Ian King <colin.king@canonical.com>
 
-> This reverts commit 7ad813f208533cebfcc32d3d7474dc1677d1b09a ("net: phy:
-> Correctly process PHY_HALTED in phy_stop_machine()") because it is
-> creating the possibility for a NULL pointer dereference.
-> 
-> David Daney provide the following call trace and diagram of events:
-> 
-> When ndo_stop() is called we call:
-> 
->  phy_disconnect()
->     +---> phy_stop_interrupts() implies: phydev->irq = PHY_POLL;
->     +---> phy_stop_machine()
->     |      +---> phy_state_machine()
->     |              +----> queue_delayed_work(): Work queued.
->     +--->phy_detach() implies: phydev->attached_dev = NULL;
-> 
-> Now at a later time the queued work does:
-> 
->  phy_state_machine()
->     +---->netif_carrier_off(phydev->attached_dev): Oh no! It is NULL:
-> 
->  CPU 12 Unable to handle kernel paging request at virtual address
-> 0000000000000048, epc == ffffffff80de37ec, ra == ffffffff80c7c
-> Oops[#1]:
-> CPU: 12 PID: 1502 Comm: kworker/12:1 Not tainted 4.9.43-Cavium-Octeon+ #1
-> Workqueue: events_power_efficient phy_state_machine
-> task: 80000004021ed100 task.stack: 8000000409d70000
-> $ 0   : 0000000000000000 ffffffff84720060 0000000000000048 0000000000000004
-> $ 4   : 0000000000000000 0000000000000001 0000000000000004 0000000000000000
-> $ 8   : 0000000000000000 0000000000000000 00000000ffff98f3 0000000000000000
-> $12   : 8000000409d73fe0 0000000000009c00 ffffffff846547c8 000000000000af3b
-> $16   : 80000004096bab68 80000004096babd0 0000000000000000 80000004096ba800
-> $20   : 0000000000000000 0000000000000000 ffffffff81090000 0000000000000008
-> $24   : 0000000000000061 ffffffff808637b0
-> $28   : 8000000409d70000 8000000409d73cf0 80000000271bd300 ffffffff80c7804c
-> Hi    : 000000000000002a
-> Lo    : 000000000000003f
-> epc   : ffffffff80de37ec netif_carrier_off+0xc/0x58
-> ra    : ffffffff80c7804c phy_state_machine+0x48c/0x4f8
-> Status: 14009ce3        KX SX UX KERNEL EXL IE
-> Cause : 00800008 (ExcCode 02)
-> BadVA : 0000000000000048
-> PrId  : 000d9501 (Cavium Octeon III)
-> Modules linked in:
-> Process kworker/12:1 (pid: 1502, threadinfo=8000000409d70000,
-> task=80000004021ed100, tls=0000000000000000)
-> Stack : 8000000409a54000 80000004096bab68 80000000271bd300 80000000271c1e00
->         0000000000000000 ffffffff808a1708 8000000409a54000 80000000271bd300
->         80000000271bd320 8000000409a54030 ffffffff80ff0f00 0000000000000001
->         ffffffff81090000 ffffffff808a1ac0 8000000402182080 ffffffff84650000
->         8000000402182080 ffffffff84650000 ffffffff80ff0000 8000000409a54000
->         ffffffff808a1970 0000000000000000 80000004099e8000 8000000402099240
->         0000000000000000 ffffffff808a8598 0000000000000000 8000000408eeeb00
->         8000000409a54000 00000000810a1d00 0000000000000000 8000000409d73de8
->         8000000409d73de8 0000000000000088 000000000c009c00 8000000409d73e08
->         8000000409d73e08 8000000402182080 ffffffff808a84d0 8000000402182080
->         ...
-> Call Trace:
-> [<ffffffff80de37ec>] netif_carrier_off+0xc/0x58
-> [<ffffffff80c7804c>] phy_state_machine+0x48c/0x4f8
-> [<ffffffff808a1708>] process_one_work+0x158/0x368
-> [<ffffffff808a1ac0>] worker_thread+0x150/0x4c0
-> [<ffffffff808a8598>] kthread+0xc8/0xe0
-> [<ffffffff808617f0>] ret_from_kernel_thread+0x14/0x1c
-> 
-> The original motivation for this change originated from Marc Gonzales
-> indicating that his network driver did not have its adjust_link callback
-> executing with phydev->link = 0 while he was expecting it.
-> 
-> PHYLIB has never made any such guarantees ever because phy_stop() merely just
-> tells the workqueue to move into PHY_HALTED state which will happen
-> asynchronously.
-> 
-> Reported-by: Geert Uytterhoeven <geert+renesas@glider.be>
-> Reported-by: David Daney <ddaney.cavm@gmail.com>
-> Fixes: 7ad813f20853 ("net: phy: Correctly process PHY_HALTED in phy_stop_machine()")
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+connext->connect typo in patch subject
 
-Applied and queued up for -stable, thanks Florian.
+> Trivial fix to typo in printf error message
+> 
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> ---
+>  tools/testing/selftests/bpf/test_maps.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/tools/testing/selftests/bpf/test_maps.c b/tools/testing/selftests/bpf/test_maps.c
+> index 7059bb315a10..8fdaf2e21c8a 100644
+> --- a/tools/testing/selftests/bpf/test_maps.c
+> +++ b/tools/testing/selftests/bpf/test_maps.c
+> @@ -525,7 +525,7 @@ static void test_sockmap(int tasks, void *data)
+>  		addr.sin_port = htons(ports[i - 2]);
+>  		err = connect(sfd[i], (struct sockaddr *)&addr, sizeof(addr));
+>  		if (err) {
+> -			printf("failed to conenct\n");
+> +			printf("failed to connect\n");
+>  			goto out;
+>  		}
+>  	}
