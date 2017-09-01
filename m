@@ -1,179 +1,159 @@
 From: Guillaume Nault <g.nault@alphalink.fr>
-Subject: [PATCH net 1/2] l2tp: prevent creation of sessions on terminated
- tunnels
-Date: Fri, 1 Sep 2017 17:58:48 +0200
-Message-ID: <7d7d80950bd0456de42dbf015785688680165f3f.1504277892.git.g.nault@alphalink.fr>
+Subject: [PATCH net 2/2] l2tp: pass tunnel pointer to ->session_create()
+Date: Fri, 1 Sep 2017 17:58:51 +0200
+Message-ID: <17c6806db17f27621fbf4fd12d864775cf0411da.1504277892.git.g.nault@alphalink.fr>
 References: <cover.1504277892.git.g.nault@alphalink.fr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: James Chapman <jchapman@katalix.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbra.alphalink.fr ([217.15.80.77]:46000 "EHLO
+Received: from zimbra.alphalink.fr ([217.15.80.77]:46016 "EHLO
         zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751968AbdIAP6w (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 1 Sep 2017 11:58:52 -0400
+        with ESMTP id S1752148AbdIAP67 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 1 Sep 2017 11:58:59 -0400
 Content-Disposition: inline
 In-Reply-To: <cover.1504277892.git.g.nault@alphalink.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-l2tp_tunnel_destruct() sets tunnel->sock to NULL, then removes the
-tunnel from the pernet list and finally closes all its sessions.
-Therefore, it's possible to add a session to a tunnel that is still
-reachable, but for which tunnel->sock has already been reset. This can
-make l2tp_session_create() dereference a NULL pointer when calling
-sock_hold(tunnel->sock).
+Using l2tp_tunnel_find() in pppol2tp_session_create() and
+l2tp_eth_create() is racy, because no reference is held on the
+returned session. These functions are only used to implement the
+->session_create callback which is run by l2tp_nl_cmd_session_create().
+Therefore searching for the parent tunnel isn't necessary because
+l2tp_nl_cmd_session_create() already has a pointer to it and holds a
+reference.
 
-This patch adds the .acpt_newsess field to struct l2tp_tunnel, which is
-used by l2tp_tunnel_closeall() to prevent addition of new sessions to
-tunnels. Resetting tunnel->sock is done after l2tp_tunnel_closeall()
-returned, so that l2tp_session_add_to_tunnel() can safely take a
-reference on it when .acpt_newsess is true.
+This patch modifies ->session_create()'s prototype to directly pass the
+the parent tunnel as parameter, thus avoiding searching for it in
+pppol2tp_session_create() and l2tp_eth_create().
 
-The .acpt_newsess field is modified in l2tp_tunnel_closeall(), rather
-than in l2tp_tunnel_destruct(), so that it benefits all tunnel removal
-mechanisms. E.g. on UDP tunnels, a session could be added to a tunnel
-after l2tp_udp_encap_destroy() proceeded. This would prevent the tunnel
-from being removed because of the references held by this new session
-on the tunnel and its socket. Even though the session could be removed
-manually later on, this defeats the purpose of
-commit 9980d001cec8 ("l2tp: add udp encap socket destroy handler").
+Since we have to touch the ->session_create() call in
+l2tp_nl_cmd_session_create(), let's also remove the useless conditional:
+we know that ->session_create isn't NULL at this point because it's
+already been checked earlier in this same function.
 
-Fixes: fd558d186df2 ("l2tp: Split pppol2tp patch into separate l2tp and ppp parts")
+Finally, one might be tempted to think that the removed
+l2tp_tunnel_find() calls were harmless because they would return the
+same tunnel as the one held by l2tp_nl_cmd_session_create() anyway.
+But that tunnel might be removed and a new one created with same tunnel
+Id before the l2tp_tunnel_find() call. In this case l2tp_tunnel_find()
+would return the new tunnel which wouldn't be protected by the
+reference held by l2tp_nl_cmd_session_create().
+
+Fixes: 309795f4bec2 ("l2tp: Add netlink control API for L2TP")
+Fixes: d9e31d17ceba ("l2tp: Add L2TP ethernet pseudowire support")
 Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
 ---
- net/l2tp/l2tp_core.c | 41 ++++++++++++++++++++++++++++-------------
- net/l2tp/l2tp_core.h |  4 ++++
- 2 files changed, 32 insertions(+), 13 deletions(-)
+ net/l2tp/l2tp_core.h    |  4 +++-
+ net/l2tp/l2tp_eth.c     | 11 +++--------
+ net/l2tp/l2tp_netlink.c |  8 ++++----
+ net/l2tp/l2tp_ppp.c     | 19 +++++++------------
+ 4 files changed, 17 insertions(+), 25 deletions(-)
 
-diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
-index 90165a6874bc..ee485df73ccd 100644
---- a/net/l2tp/l2tp_core.c
-+++ b/net/l2tp/l2tp_core.c
-@@ -329,13 +329,21 @@ static int l2tp_session_add_to_tunnel(struct l2tp_tunnel *tunnel,
- 	struct hlist_head *g_head;
- 	struct hlist_head *head;
- 	struct l2tp_net *pn;
-+	int err;
- 
- 	head = l2tp_session_id_hash(tunnel, session->session_id);
- 
- 	write_lock_bh(&tunnel->hlist_lock);
-+	if (!tunnel->acpt_newsess) {
-+		err = -ENODEV;
-+		goto err_tlock;
-+	}
-+
- 	hlist_for_each_entry(session_walk, head, hlist)
--		if (session_walk->session_id == session->session_id)
--			goto exist;
-+		if (session_walk->session_id == session->session_id) {
-+			err = -EEXIST;
-+			goto err_tlock;
-+		}
- 
- 	if (tunnel->version == L2TP_HDR_VER_3) {
- 		pn = l2tp_pernet(tunnel->l2tp_net);
-@@ -343,12 +351,21 @@ static int l2tp_session_add_to_tunnel(struct l2tp_tunnel *tunnel,
- 						session->session_id);
- 
- 		spin_lock_bh(&pn->l2tp_session_hlist_lock);
-+
- 		hlist_for_each_entry(session_walk, g_head, global_hlist)
--			if (session_walk->session_id == session->session_id)
--				goto exist_glob;
-+			if (session_walk->session_id == session->session_id) {
-+				err = -EEXIST;
-+				goto err_tlock_pnlock;
-+			}
- 
-+		l2tp_tunnel_inc_refcount(tunnel);
-+		sock_hold(tunnel->sock);
- 		hlist_add_head_rcu(&session->global_hlist, g_head);
-+
- 		spin_unlock_bh(&pn->l2tp_session_hlist_lock);
-+	} else {
-+		l2tp_tunnel_inc_refcount(tunnel);
-+		sock_hold(tunnel->sock);
- 	}
- 
- 	hlist_add_head(&session->hlist, head);
-@@ -356,12 +373,12 @@ static int l2tp_session_add_to_tunnel(struct l2tp_tunnel *tunnel,
- 
- 	return 0;
- 
--exist_glob:
-+err_tlock_pnlock:
- 	spin_unlock_bh(&pn->l2tp_session_hlist_lock);
--exist:
-+err_tlock:
- 	write_unlock_bh(&tunnel->hlist_lock);
- 
--	return -EEXIST;
-+	return err;
- }
- 
- /* Lookup a tunnel by id
-@@ -1251,7 +1268,6 @@ static void l2tp_tunnel_destruct(struct sock *sk)
- 	/* Remove hooks into tunnel socket */
- 	sk->sk_destruct = tunnel->old_sk_destruct;
- 	sk->sk_user_data = NULL;
--	tunnel->sock = NULL;
- 
- 	/* Remove the tunnel struct from the tunnel list */
- 	pn = l2tp_pernet(tunnel->l2tp_net);
-@@ -1261,6 +1277,8 @@ static void l2tp_tunnel_destruct(struct sock *sk)
- 	atomic_dec(&l2tp_tunnel_count);
- 
- 	l2tp_tunnel_closeall(tunnel);
-+
-+	tunnel->sock = NULL;
- 	l2tp_tunnel_dec_refcount(tunnel);
- 
- 	/* Call the original destructor */
-@@ -1285,6 +1303,7 @@ void l2tp_tunnel_closeall(struct l2tp_tunnel *tunnel)
- 		  tunnel->name);
- 
- 	write_lock_bh(&tunnel->hlist_lock);
-+	tunnel->acpt_newsess = false;
- 	for (hash = 0; hash < L2TP_HASH_SIZE; hash++) {
- again:
- 		hlist_for_each_safe(walk, tmp, &tunnel->session_hlist[hash]) {
-@@ -1581,6 +1600,7 @@ int l2tp_tunnel_create(struct net *net, int fd, int version, u32 tunnel_id, u32
- 	tunnel->magic = L2TP_TUNNEL_MAGIC;
- 	sprintf(&tunnel->name[0], "tunl %u", tunnel_id);
- 	rwlock_init(&tunnel->hlist_lock);
-+	tunnel->acpt_newsess = true;
- 
- 	/* The net we belong to */
- 	tunnel->l2tp_net = net;
-@@ -1829,11 +1849,6 @@ struct l2tp_session *l2tp_session_create(int priv_size, struct l2tp_tunnel *tunn
- 			return ERR_PTR(err);
- 		}
- 
--		l2tp_tunnel_inc_refcount(tunnel);
--
--		/* Ensure tunnel socket isn't deleted */
--		sock_hold(tunnel->sock);
--
- 		/* Ignore management session in session count value */
- 		if (session->session_id != 0)
- 			atomic_inc(&l2tp_session_count);
 diff --git a/net/l2tp/l2tp_core.h b/net/l2tp/l2tp_core.h
-index 9101297f27ad..4593d48df953 100644
+index 4593d48df953..a305e0c5925a 100644
 --- a/net/l2tp/l2tp_core.h
 +++ b/net/l2tp/l2tp_core.h
-@@ -162,6 +162,10 @@ struct l2tp_tunnel {
- 	int			magic;		/* Should be L2TP_TUNNEL_MAGIC */
- 	struct rcu_head rcu;
- 	rwlock_t		hlist_lock;	/* protect session_hlist */
-+	bool			acpt_newsess;	/* Indicates whether this
-+						 * tunnel accepts new sessions.
-+						 * Protected by hlist_lock.
-+						 */
- 	struct hlist_head	session_hlist[L2TP_HASH_SIZE];
- 						/* hashed list of sessions,
- 						 * hashed by id */
+@@ -201,7 +201,9 @@ struct l2tp_tunnel {
+ };
+ 
+ struct l2tp_nl_cmd_ops {
+-	int (*session_create)(struct net *net, u32 tunnel_id, u32 session_id, u32 peer_session_id, struct l2tp_session_cfg *cfg);
++	int (*session_create)(struct net *net, struct l2tp_tunnel *tunnel,
++			      u32 session_id, u32 peer_session_id,
++			      struct l2tp_session_cfg *cfg);
+ 	int (*session_delete)(struct l2tp_session *session);
+ };
+ 
+diff --git a/net/l2tp/l2tp_eth.c b/net/l2tp/l2tp_eth.c
+index 4de2ec94b08c..87da9ef61860 100644
+--- a/net/l2tp/l2tp_eth.c
++++ b/net/l2tp/l2tp_eth.c
+@@ -262,24 +262,19 @@ static void l2tp_eth_adjust_mtu(struct l2tp_tunnel *tunnel,
+ 	dev->needed_headroom += session->hdr_len;
+ }
+ 
+-static int l2tp_eth_create(struct net *net, u32 tunnel_id, u32 session_id, u32 peer_session_id, struct l2tp_session_cfg *cfg)
++static int l2tp_eth_create(struct net *net, struct l2tp_tunnel *tunnel,
++			   u32 session_id, u32 peer_session_id,
++			   struct l2tp_session_cfg *cfg)
+ {
+ 	unsigned char name_assign_type;
+ 	struct net_device *dev;
+ 	char name[IFNAMSIZ];
+-	struct l2tp_tunnel *tunnel;
+ 	struct l2tp_session *session;
+ 	struct l2tp_eth *priv;
+ 	struct l2tp_eth_sess *spriv;
+ 	int rc;
+ 	struct l2tp_eth_net *pn;
+ 
+-	tunnel = l2tp_tunnel_find(net, tunnel_id);
+-	if (!tunnel) {
+-		rc = -ENODEV;
+-		goto out;
+-	}
+-
+ 	if (cfg->ifname) {
+ 		strlcpy(name, cfg->ifname, IFNAMSIZ);
+ 		name_assign_type = NET_NAME_USER;
+diff --git a/net/l2tp/l2tp_netlink.c b/net/l2tp/l2tp_netlink.c
+index 57427d430f10..7135f4645d3a 100644
+--- a/net/l2tp/l2tp_netlink.c
++++ b/net/l2tp/l2tp_netlink.c
+@@ -643,10 +643,10 @@ static int l2tp_nl_cmd_session_create(struct sk_buff *skb, struct genl_info *inf
+ 		break;
+ 	}
+ 
+-	ret = -EPROTONOSUPPORT;
+-	if (l2tp_nl_cmd_ops[cfg.pw_type]->session_create)
+-		ret = (*l2tp_nl_cmd_ops[cfg.pw_type]->session_create)(net, tunnel_id,
+-			session_id, peer_session_id, &cfg);
++	ret = l2tp_nl_cmd_ops[cfg.pw_type]->session_create(net, tunnel,
++							   session_id,
++							   peer_session_id,
++							   &cfg);
+ 
+ 	if (ret >= 0) {
+ 		session = l2tp_session_get(net, tunnel, session_id, false);
+diff --git a/net/l2tp/l2tp_ppp.c b/net/l2tp/l2tp_ppp.c
+index f0edb7209079..50e3ee9a9d61 100644
+--- a/net/l2tp/l2tp_ppp.c
++++ b/net/l2tp/l2tp_ppp.c
+@@ -788,25 +788,20 @@ static int pppol2tp_connect(struct socket *sock, struct sockaddr *uservaddr,
+ 
+ #ifdef CONFIG_L2TP_V3
+ 
+-/* Called when creating sessions via the netlink interface.
+- */
+-static int pppol2tp_session_create(struct net *net, u32 tunnel_id, u32 session_id, u32 peer_session_id, struct l2tp_session_cfg *cfg)
++/* Called when creating sessions via the netlink interface. */
++static int pppol2tp_session_create(struct net *net, struct l2tp_tunnel *tunnel,
++				   u32 session_id, u32 peer_session_id,
++				   struct l2tp_session_cfg *cfg)
+ {
+ 	int error;
+-	struct l2tp_tunnel *tunnel;
+ 	struct l2tp_session *session;
+ 	struct pppol2tp_session *ps;
+ 
+-	tunnel = l2tp_tunnel_find(net, tunnel_id);
+-
+-	/* Error if we can't find the tunnel */
+-	error = -ENOENT;
+-	if (tunnel == NULL)
+-		goto out;
+-
+ 	/* Error if tunnel socket is not prepped */
+-	if (tunnel->sock == NULL)
++	if (!tunnel->sock) {
++		error = -ENOENT;
+ 		goto out;
++	}
+ 
+ 	/* Default MTU values. */
+ 	if (cfg->mtu == 0)
 -- 
 2.14.1
