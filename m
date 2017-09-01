@@ -1,76 +1,55 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [RFC PATCH] net: frag limit checks need to use
- percpu_counter_compare
-Date: Fri, 1 Sep 2017 09:16:41 +0200
-Message-ID: <20170901091641.4c62af06@redhat.com>
-References: <150417481955.28907.15567119824187929000.stgit@firesoul>
-        <20170831162349.k3qnkfgkygdh2zqw@unicorn.suse.cz>
-        <4F88C5DDA1E80143B232E89585ACE27D018F6A9B@DGGEMA502-MBX.china.huawei.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: pull request (net-next): ipsec-next 2017-09-01
+Date: Fri, 1 Sep 2017 09:30:44 +0200
+Message-ID: <1504251046-17106-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Michal Kubecek <mkubecek@suse.cz>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Florian Westphal <fw@strlen.de>, brouer@redhat.com
-To: "liujian (CE)" <liujian56@huawei.com>
+Content-Type: text/plain
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+        Steffen Klassert <steffen.klassert@secunet.com>,
+        <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:41378 "EHLO mx1.redhat.com"
+Received: from a.mx.secunet.com ([62.96.220.36]:50288 "EHLO a.mx.secunet.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751237AbdIAHQr (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 1 Sep 2017 03:16:47 -0400
-In-Reply-To: <4F88C5DDA1E80143B232E89585ACE27D018F6A9B@DGGEMA502-MBX.china.huawei.com>
+        id S1751422AbdIAHaw (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 1 Sep 2017 03:30:52 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This should be the last ipsec-next pull request for this
+release cycle:
 
-On Fri, 1 Sep 2017 02:25:32 +0000 "liujian (CE)" <liujian56@huawei.com> wrote:
+1) Support netdevice ESP trailer removal when decryption
+   is offloaded. From Yossi Kuperman.
 
-> > -----Original Message-----
-> > From: Michal Kubecek [mailto:mkubecek@suse.cz]
-> > Sent: Friday, September 01, 2017 12:24 AM
-> > To: Jesper Dangaard Brouer
-> > Cc: liujian (CE); netdev@vger.kernel.org; Florian Westphal
-> > Subject: Re: [RFC PATCH] net: frag limit checks need to use
-> > percpu_counter_compare
-> > 
-> > On Thu, Aug 31, 2017 at 12:20:19PM +0200, Jesper Dangaard Brouer wrote:  
-> > > To: Liujian can you please test this patch?
-> > >  I want to understand if using __percpu_counter_compare() solves  the
-> > > problem correctness wise (even-though this will be slower  than using
-> > > a simple atomic_t on your big system).  
-> 
-> I have test the patch, it can work. 
+2) Fix overwritten return value of copy_sec_ctx().
 
-Thanks for confirming this.
+Please pull or let me know if there are problems.
 
-> 1. make sure frag_mem_limit reach to thresh
->   ===>FRAG: inuse 0 memory 0 frag_mem_limit 5386864  
-> 2. change NIC rx irq's affinity to a fixed CPU
+Thanks!
 
-If you pin the NIC RX queue to a single CPU, then the error issue
-basically cannot happen.  Different CPU need to have a chance to "own"
-part of the percpu_counter.  I guess default setup with irqbalance
-could eventually screw the percpu_counter enough given enough CPUs, or
-a network load with enough different L2-headers to high different RX
-queues.
+The following changes since commit acfb98b99647aa7dc7c111db52d5f4199d2b641f:
 
-> 3. iperf -u -c 9.83.1.41 -l 10000 -i 1 -t 1000 -P 10 -b 20M
->   And check /proc/net/snmp, there are no ReasmFails.
+  liquidio: fix crash in presence of zeroed-out base address regs (2017-08-30 22:07:09 -0700)
 
-My quick check command is:
- nstat > /dev/null && sleep 1 && nstat && grep FRAG /proc/net/sockstat
+are available in the git repository at:
 
-> And I think it is a better way that adding some counter sync points
-> as you said.
+  git://git.kernel.org/pub/scm/linux/kernel/git/klassert/ipsec-next.git master
 
-I've discussed this offlist with Florian, while it is doable, we are
-adding too much complexity for something that can be solved much
-simpler with an atomic_t (as before my patch).  Thus, I'm now looking
-at reverting my original change (commit 6d7b857d541e ("net: use
-lib/percpu_counter API for fragmentation mem accounting")).
+for you to fetch changes up to 8598112d04af21cf6c895670e72dcb8a9f58e74f:
 
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
+  xfrm: Fix return value check of copy_sec_ctx. (2017-08-31 10:37:00 +0200)
+
+----------------------------------------------------------------
+Steffen Klassert (1):
+      xfrm: Fix return value check of copy_sec_ctx.
+
+Yossi Kuperman (1):
+      xfrm: Add support for network devices capable of removing the ESP trailer
+
+ include/net/xfrm.h    |  1 +
+ net/ipv4/esp4.c       | 70 ++++++++++++++++++++++++++++++++++-----------------
+ net/ipv6/esp6.c       | 51 ++++++++++++++++++++++++++-----------
+ net/xfrm/xfrm_input.c |  5 ++++
+ net/xfrm/xfrm_user.c  |  4 +--
+ 5 files changed, 91 insertions(+), 40 deletions(-)
