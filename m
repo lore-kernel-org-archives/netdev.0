@@ -1,63 +1,69 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next 2/3] bpf: Inline LRU map lookup
-Date: Fri, 01 Sep 2017 11:18:28 +0200
-Message-ID: <59A925E4.6060802@iogearbox.net>
-References: <20170901062713.1842249-1-kafai@fb.com> <20170901062713.1842249-3-kafai@fb.com>
+From: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
+Subject: [PATCH] net: phy: broadcom: force master mode for BCM54210E and B50212E
+Date: Fri,  1 Sep 2017 11:21:21 +0200
+Message-ID: <20170901092121.4596-1-zajec5@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <ast@fb.com>, kernel-team@fb.com
-To: Martin KaFai Lau <kafai@fb.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: Andrew Lunn <andrew@lunn.ch>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Hauke Mehrtens <hauke@hauke-m.de>,
+        bcm-kernel-feedback-list@broadcom.com,
+        =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <rafal@milecki.pl>
+To: "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:39236 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751457AbdIAJSa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 1 Sep 2017 05:18:30 -0400
-In-Reply-To: <20170901062713.1842249-3-kafai@fb.com>
+Received: from mail-lf0-f65.google.com ([209.85.215.65]:33170 "EHLO
+        mail-lf0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751457AbdIAJVm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 1 Sep 2017 05:21:42 -0400
+Received: by mail-lf0-f65.google.com with SMTP id y15so1144715lfd.0
+        for <netdev@vger.kernel.org>; Fri, 01 Sep 2017 02:21:42 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/01/2017 08:27 AM, Martin KaFai Lau wrote:
-> Inline the lru map lookup to save the cost in making calls to
-> bpf_map_lookup_elem() and htab_lru_map_lookup_elem().
->
-> Different LRU hash size is tested.  The benefit diminishes when
-> the cache miss starts to dominate in the bigger LRU hash.
-> Considering the change is simple, it is still worth to optimize.
->
-> First column: Size of the LRU hash
-> Second column: Number of lookups/s
->
-> Before:
->> for i in $(seq 9 20); do echo "$((2**i+1)): $(./map_perf_test 1024 1 $((2**i+1)) 10000000 | awk '{print $3}')"; done
-> 513: 1132020
-> 1025: 1056826
-> 2049: 1007024
-> 4097: 853298
-> 8193: 742723
-> 16385: 712600
-> 32769: 688142
-> 65537: 677028
-> 131073: 619437
-> 262145: 498770
-> 524289: 316695
-> 1048577: 260038
->
-> After:
->> for i in $(seq 9 20); do echo "$((2**i+1)): $(./map_perf_test 1024 1 $((2**i+1)) 10000000 | awk '{print $3}')"; done
-> 513: 1221851
-> 1025: 1144695
-> 2049: 1049902
-> 4097: 884460
-> 8193: 773731
-> 16385: 729673
-> 32769: 721989
-> 65537: 715530
-> 131073: 671665
-> 262145: 516987
-> 524289: 321125
-> 1048577: 260048
->
-> Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+From: Rafał Miłecki <rafal@milecki.pl>
 
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+First of all let me explain that the code we use for BCM54210E is also
+executed for the B50212E. They are very similar so it probably makes
+sense but it may be worth noting. The IDs are:
+0x600d84a1: BCM54210E (rev B0)
+0x600d84a2: BCM54210E (rev B1)
+0x600d84a5: B50212E (rev B0)
+0x600d84a6: B50212E (rev B1)
+
+I got a report that a board with BCM47189 SoC and B50212E B1 PHY doesn't
+work well with Intel's I217-LM and I218-LM:
+http://ark.intel.com/products/60019/Intel-Ethernet-Connection-I217-LM
+http://ark.intel.com/products/71307/Intel-Ethernet-Connection-I218-LM
+I was told there are massive ping loss.
+
+A solution to this problem is setting master mode in the 1000BASE-T
+register. I noticed a similar fix is present in the tg3 driver. One
+thing I'm not sure if this is needed for BCM54210E. It shouldn't hurt
+however since both are so similar.
+
+Signed-off-by: Rafał Miłecki <rafal@milecki.pl>
+---
+David: I'm not 100% sure if this is the best fix, so let's give others
+(Florian?) a moment to look at it / review it, please.
+---
+ drivers/net/phy/broadcom.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/net/phy/broadcom.c b/drivers/net/phy/broadcom.c
+index 1e9ad30a35c8..2569db0923b0 100644
+--- a/drivers/net/phy/broadcom.c
++++ b/drivers/net/phy/broadcom.c
+@@ -43,6 +43,10 @@ static int bcm54210e_config_init(struct phy_device *phydev)
+ 	val &= ~BCM54810_SHD_CLK_CTL_GTXCLK_EN;
+ 	bcm_phy_write_shadow(phydev, BCM54810_SHD_CLK_CTL, val);
+ 
++	val = phy_read(phydev, MII_CTRL1000);
++	val |= CTL1000_AS_MASTER | CTL1000_ENABLE_MASTER;
++	phy_write(phydev, MII_CTRL1000, val);
++
+ 	return 0;
+ }
+ 
+-- 
+2.11.0
