@@ -1,41 +1,30 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [iproute PATCH 0/2] Fix and enhance link_gre6
-Date: Fri, 1 Sep 2017 12:13:33 -0700
-Message-ID: <20170901121333.700624f6@xeon-e3>
-References: <20170901140809.13230-1-phil@nwl.cc>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH 1/1] bpf: take advantage of stack_depth tracking in powerpc
+ JIT
+Date: Fri, 01 Sep 2017 21:15:33 +0200
+Message-ID: <59A9B1D5.7030307@iogearbox.net>
+References: <20170901185301.17978-1-sandipan@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Phil Sutter <phil@nwl.cc>
+Cc: naveen.n.rao@linux.vnet.ibm.com, ast@fb.com,
+        netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
+To: Sandipan Das <sandipan@linux.vnet.ibm.com>, mpe@ellerman.id.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f182.google.com ([209.85.192.182]:33334 "EHLO
-        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752223AbdIATNf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 1 Sep 2017 15:13:35 -0400
-Received: by mail-pf0-f182.google.com with SMTP id n73so3019273pfj.0
-        for <netdev@vger.kernel.org>; Fri, 01 Sep 2017 12:13:35 -0700 (PDT)
-In-Reply-To: <20170901140809.13230-1-phil@nwl.cc>
+Received: from www62.your-server.de ([213.133.104.62]:40880 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751715AbdIATPl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 1 Sep 2017 15:15:41 -0400
+In-Reply-To: <20170901185301.17978-1-sandipan@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri,  1 Sep 2017 16:08:07 +0200
-Phil Sutter <phil@nwl.cc> wrote:
+On 09/01/2017 08:53 PM, Sandipan Das wrote:
+> Take advantage of stack_depth tracking, originally introduced for
+> x64, in powerpc JIT as well. Round up allocated stack by 16 bytes
+> to make sure it stays aligned for functions called from JITed bpf
+> program.
+>
+> Signed-off-by: Sandipan Das <sandipan@linux.vnet.ibm.com>
 
-> Changing a tunnel's flowlabel value was broken if it was set to a
-> non-zero value before. Since the same problem existed for tclass, patch
-> 1 fixes both instances at once.
-> 
-> Patch 2 enhances 'ip link show' to also print the tclass value. This
-> change was necessary to properly test the first patch's result.
-> 
-> Phil Sutter (2):
->   link_gre6: Fix for changing tclass/flowlabel
->   link_gre6: Print the tunnel's tclass setting
-> 
->  ip/link_gre6.c | 11 ++++++++++-
->  1 file changed, 10 insertions(+), 1 deletion(-)
-> 
-
-This doesn't work with net-next where json has been added.
-I fixing it now
+Awesome, thanks for following up! :)
