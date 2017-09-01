@@ -1,33 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request (net-next): ipsec-next 2017-09-01
-Date: Fri, 01 Sep 2017 09:54:48 -0700 (PDT)
-Message-ID: <20170901.095448.1483052059481969830.davem@davemloft.net>
-References: <1504251046-17106-1-git-send-email-steffen.klassert@secunet.com>
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: [iproute PATCH 50/51] Check user supplied interface name lengths
+Date: Fri, 1 Sep 2017 18:56:29 +0200
+Message-ID: <20170901165629.GW20614@orbyte.nwl.cc>
+References: <20170812120510.28750-1-phil@nwl.cc>
+ <20170812120510.28750-51-phil@nwl.cc>
+ <20170815090945.62b2c4d7@xeon-e3>
+ <20170815165132.GI16375@orbyte.nwl.cc>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
-To: steffen.klassert@secunet.com
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+To: Stephen Hemminger <stephen@networkplumber.org>,
+        netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:49280 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751863AbdIAQyt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 1 Sep 2017 12:54:49 -0400
-In-Reply-To: <1504251046-17106-1-git-send-email-steffen.klassert@secunet.com>
+Received: from orbyte.nwl.cc ([151.80.46.58]:42097 "EHLO mail.nwl.cc"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752261AbdIAQ4a (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 1 Sep 2017 12:56:30 -0400
+Content-Disposition: inline
+In-Reply-To: <20170815165132.GI16375@orbyte.nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Date: Fri, 1 Sep 2017 09:30:44 +0200
+Hi Stephen,
 
-> This should be the last ipsec-next pull request for this
-> release cycle:
+On Tue, Aug 15, 2017 at 06:51:32PM +0200, Phil Sutter wrote:
+> On Tue, Aug 15, 2017 at 09:09:45AM -0700, Stephen Hemminger wrote:
+> > On Sat, 12 Aug 2017 14:05:09 +0200
+> > Phil Sutter <phil@nwl.cc> wrote:
+> > 
+> > > +void assert_valid_dev_name(const char *, const char *);
+> > 
+> > Not a fan of long function names.
+> > “I have only made this letter longer because I have not had the time to make it shorter."
 > 
-> 1) Support netdevice ESP trailer removal when decryption
->    is offloaded. From Yossi Kuperman.
+> :)
 > 
-> 2) Fix overwritten return value of copy_sec_ctx().
+> > Maybe just add a new function addattr_ifname() and add the checking there?
 > 
-> Please pull or let me know if there are problems.
+> It is not only about netlink attributes - these are in fact
+> unproblematic, since they allow for interface names longer than
+> IFNAMSIZ-1 and the kernel will then reject. The length check has to
+> happen before copying into any IFNAMSIZ-sized buffer takes place (e.g.
+> ifr_name of struct ifreq). Logically I would prefer to perform the
+> checks right at the point user input parsing takes place since it
+> belongs there.
+> 
+> I could rename the function to 'ifname_valid' instead? I liked having
+> 'assert' in the name though, since the function calls exit() on error.
 
-Pulled, thanks Steffen.
+Any thoughts on this?
+
+Cheers, Phil
