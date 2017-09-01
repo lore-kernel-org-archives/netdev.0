@@ -1,52 +1,179 @@
 From: Guillaume Nault <g.nault@alphalink.fr>
-Subject: [PATCH net 0/2] l2tp: session creation fixes
-Date: Fri, 1 Sep 2017 17:58:45 +0200
-Message-ID: <cover.1504277892.git.g.nault@alphalink.fr>
+Subject: [PATCH net 1/2] l2tp: prevent creation of sessions on terminated
+ tunnels
+Date: Fri, 1 Sep 2017 17:58:48 +0200
+Message-ID: <7d7d80950bd0456de42dbf015785688680165f3f.1504277892.git.g.nault@alphalink.fr>
+References: <cover.1504277892.git.g.nault@alphalink.fr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: James Chapman <jchapman@katalix.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbra.alphalink.fr ([217.15.80.77]:46012 "EHLO
+Received: from zimbra.alphalink.fr ([217.15.80.77]:46000 "EHLO
         zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752091AbdIAP6x (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 1 Sep 2017 11:58:53 -0400
+        with ESMTP id S1751968AbdIAP6w (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 1 Sep 2017 11:58:52 -0400
 Content-Disposition: inline
+In-Reply-To: <cover.1504277892.git.g.nault@alphalink.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The session creation process has a few issues wrt. concurrent tunnel
-deletion.
+l2tp_tunnel_destruct() sets tunnel->sock to NULL, then removes the
+tunnel from the pernet list and finally closes all its sessions.
+Therefore, it's possible to add a session to a tunnel that is still
+reachable, but for which tunnel->sock has already been reset. This can
+make l2tp_session_create() dereference a NULL pointer when calling
+sock_hold(tunnel->sock).
 
-Patch #1 avoids creating sessions in tunnels that are getting removed.
-This prevents races where sessions could try to take tunnel resources
-that were already released.
+This patch adds the .acpt_newsess field to struct l2tp_tunnel, which is
+used by l2tp_tunnel_closeall() to prevent addition of new sessions to
+tunnels. Resetting tunnel->sock is done after l2tp_tunnel_closeall()
+returned, so that l2tp_session_add_to_tunnel() can safely take a
+reference on it when .acpt_newsess is true.
 
-Patch #2 removes some racy l2tp_tunnel_find() calls in session creation
-callbacks. Together with path #1 it ensures that sessions can only
-access tunnel resources that are guaranteed to remain valid during the
-session creation process.
+The .acpt_newsess field is modified in l2tp_tunnel_closeall(), rather
+than in l2tp_tunnel_destruct(), so that it benefits all tunnel removal
+mechanisms. E.g. on UDP tunnels, a session could be added to a tunnel
+after l2tp_udp_encap_destroy() proceeded. This would prevent the tunnel
+from being removed because of the references held by this new session
+on the tunnel and its socket. Even though the session could be removed
+manually later on, this defeats the purpose of
+commit 9980d001cec8 ("l2tp: add udp encap socket destroy handler").
 
+Fixes: fd558d186df2 ("l2tp: Split pppol2tp patch into separate l2tp and ppp parts")
+Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
+---
+ net/l2tp/l2tp_core.c | 41 ++++++++++++++++++++++++++++-------------
+ net/l2tp/l2tp_core.h |  4 ++++
+ 2 files changed, 32 insertions(+), 13 deletions(-)
 
-There are other problems with how sessions are created: pseudo-wire
-specific data are set after the session is added to the tunnel. So
-the session can be used, or deleted, before it has been completely
-initialised. Separating session allocation from session registration
-would be necessary, but we'd still have circular dependencies
-preventing race-free registration. I'll consider this issue in future
-series.
-
-
-Guillaume Nault (2):
-  l2tp: prevent creation of sessions on terminated tunnels
-  l2tp: pass tunnel pointer to ->session_create()
-
- net/l2tp/l2tp_core.c    | 41 ++++++++++++++++++++++++++++-------------
- net/l2tp/l2tp_core.h    |  8 +++++++-
- net/l2tp/l2tp_eth.c     | 11 +++--------
- net/l2tp/l2tp_netlink.c |  8 ++++----
- net/l2tp/l2tp_ppp.c     | 19 +++++++------------
- 5 files changed, 49 insertions(+), 38 deletions(-)
-
+diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
+index 90165a6874bc..ee485df73ccd 100644
+--- a/net/l2tp/l2tp_core.c
++++ b/net/l2tp/l2tp_core.c
+@@ -329,13 +329,21 @@ static int l2tp_session_add_to_tunnel(struct l2tp_tunnel *tunnel,
+ 	struct hlist_head *g_head;
+ 	struct hlist_head *head;
+ 	struct l2tp_net *pn;
++	int err;
+ 
+ 	head = l2tp_session_id_hash(tunnel, session->session_id);
+ 
+ 	write_lock_bh(&tunnel->hlist_lock);
++	if (!tunnel->acpt_newsess) {
++		err = -ENODEV;
++		goto err_tlock;
++	}
++
+ 	hlist_for_each_entry(session_walk, head, hlist)
+-		if (session_walk->session_id == session->session_id)
+-			goto exist;
++		if (session_walk->session_id == session->session_id) {
++			err = -EEXIST;
++			goto err_tlock;
++		}
+ 
+ 	if (tunnel->version == L2TP_HDR_VER_3) {
+ 		pn = l2tp_pernet(tunnel->l2tp_net);
+@@ -343,12 +351,21 @@ static int l2tp_session_add_to_tunnel(struct l2tp_tunnel *tunnel,
+ 						session->session_id);
+ 
+ 		spin_lock_bh(&pn->l2tp_session_hlist_lock);
++
+ 		hlist_for_each_entry(session_walk, g_head, global_hlist)
+-			if (session_walk->session_id == session->session_id)
+-				goto exist_glob;
++			if (session_walk->session_id == session->session_id) {
++				err = -EEXIST;
++				goto err_tlock_pnlock;
++			}
+ 
++		l2tp_tunnel_inc_refcount(tunnel);
++		sock_hold(tunnel->sock);
+ 		hlist_add_head_rcu(&session->global_hlist, g_head);
++
+ 		spin_unlock_bh(&pn->l2tp_session_hlist_lock);
++	} else {
++		l2tp_tunnel_inc_refcount(tunnel);
++		sock_hold(tunnel->sock);
+ 	}
+ 
+ 	hlist_add_head(&session->hlist, head);
+@@ -356,12 +373,12 @@ static int l2tp_session_add_to_tunnel(struct l2tp_tunnel *tunnel,
+ 
+ 	return 0;
+ 
+-exist_glob:
++err_tlock_pnlock:
+ 	spin_unlock_bh(&pn->l2tp_session_hlist_lock);
+-exist:
++err_tlock:
+ 	write_unlock_bh(&tunnel->hlist_lock);
+ 
+-	return -EEXIST;
++	return err;
+ }
+ 
+ /* Lookup a tunnel by id
+@@ -1251,7 +1268,6 @@ static void l2tp_tunnel_destruct(struct sock *sk)
+ 	/* Remove hooks into tunnel socket */
+ 	sk->sk_destruct = tunnel->old_sk_destruct;
+ 	sk->sk_user_data = NULL;
+-	tunnel->sock = NULL;
+ 
+ 	/* Remove the tunnel struct from the tunnel list */
+ 	pn = l2tp_pernet(tunnel->l2tp_net);
+@@ -1261,6 +1277,8 @@ static void l2tp_tunnel_destruct(struct sock *sk)
+ 	atomic_dec(&l2tp_tunnel_count);
+ 
+ 	l2tp_tunnel_closeall(tunnel);
++
++	tunnel->sock = NULL;
+ 	l2tp_tunnel_dec_refcount(tunnel);
+ 
+ 	/* Call the original destructor */
+@@ -1285,6 +1303,7 @@ void l2tp_tunnel_closeall(struct l2tp_tunnel *tunnel)
+ 		  tunnel->name);
+ 
+ 	write_lock_bh(&tunnel->hlist_lock);
++	tunnel->acpt_newsess = false;
+ 	for (hash = 0; hash < L2TP_HASH_SIZE; hash++) {
+ again:
+ 		hlist_for_each_safe(walk, tmp, &tunnel->session_hlist[hash]) {
+@@ -1581,6 +1600,7 @@ int l2tp_tunnel_create(struct net *net, int fd, int version, u32 tunnel_id, u32
+ 	tunnel->magic = L2TP_TUNNEL_MAGIC;
+ 	sprintf(&tunnel->name[0], "tunl %u", tunnel_id);
+ 	rwlock_init(&tunnel->hlist_lock);
++	tunnel->acpt_newsess = true;
+ 
+ 	/* The net we belong to */
+ 	tunnel->l2tp_net = net;
+@@ -1829,11 +1849,6 @@ struct l2tp_session *l2tp_session_create(int priv_size, struct l2tp_tunnel *tunn
+ 			return ERR_PTR(err);
+ 		}
+ 
+-		l2tp_tunnel_inc_refcount(tunnel);
+-
+-		/* Ensure tunnel socket isn't deleted */
+-		sock_hold(tunnel->sock);
+-
+ 		/* Ignore management session in session count value */
+ 		if (session->session_id != 0)
+ 			atomic_inc(&l2tp_session_count);
+diff --git a/net/l2tp/l2tp_core.h b/net/l2tp/l2tp_core.h
+index 9101297f27ad..4593d48df953 100644
+--- a/net/l2tp/l2tp_core.h
++++ b/net/l2tp/l2tp_core.h
+@@ -162,6 +162,10 @@ struct l2tp_tunnel {
+ 	int			magic;		/* Should be L2TP_TUNNEL_MAGIC */
+ 	struct rcu_head rcu;
+ 	rwlock_t		hlist_lock;	/* protect session_hlist */
++	bool			acpt_newsess;	/* Indicates whether this
++						 * tunnel accepts new sessions.
++						 * Protected by hlist_lock.
++						 */
+ 	struct hlist_head	session_hlist[L2TP_HASH_SIZE];
+ 						/* hashed list of sessions,
+ 						 * hashed by id */
 -- 
 2.14.1
