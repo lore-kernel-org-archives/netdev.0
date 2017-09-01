@@ -1,72 +1,62 @@
-From: Yonghong Song <yhs@fb.com>
-Subject: Re: [PATCH net-next 1/4] bpf: add helper bpf_perf_read_counter_time
- for perf event array map
-Date: Fri, 1 Sep 2017 14:01:31 -0700
-Message-ID: <8d1f83e7-da7a-075c-0931-eb669134ed24@fb.com>
-References: <20170901165357.465121-1-yhs@fb.com>
- <20170901165357.465121-2-yhs@fb.com>
- <a1905aeb-b49f-d4e8-91ee-a28a92869da1@fb.com>
- <20170901205040.GU6524@worktop.programming.kicks-ass.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] inetpeer: fix RCU lookup()
+Date: Fri, 01 Sep 2017 14:03:32 -0700
+Message-ID: <1504299812.15310.26.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <rostedt@goodmis.org>, <daniel@iogearbox.net>,
-        <netdev@vger.kernel.org>, <kernel-team@fb.com>
-To: Peter Zijlstra <peterz@infradead.org>,
-        Alexei Starovoitov <ast@fb.com>
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:43916 "EHLO
-        mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752367AbdIAVCg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 1 Sep 2017 17:02:36 -0400
-In-Reply-To: <20170901205040.GU6524@worktop.programming.kicks-ass.net>
-Content-Language: en-US
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:37822 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752436AbdIAVDe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 1 Sep 2017 17:03:34 -0400
+Received: by mail-pg0-f67.google.com with SMTP id t193so773159pgc.4
+        for <netdev@vger.kernel.org>; Fri, 01 Sep 2017 14:03:34 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Eric Dumazet <edumazet@google.com>
 
+Excess of seafood or something happened while I cooked the commit
+adding RB tree to inetpeer.
 
-On 9/1/17 1:50 PM, Peter Zijlstra wrote:
-> On Fri, Sep 01, 2017 at 01:29:17PM -0700, Alexei Starovoitov wrote:
-> 
->>> +BPF_CALL_4(bpf_perf_read_counter_time, struct bpf_map *, map, u64, flags,
->>> +	struct bpf_perf_counter_time *, buf, u32, size)
->>> +{
->>> +	struct perf_event *pe;
->>> +	u64 now;
->>> +	int err;
->>> +
->>> +	if (unlikely(size != sizeof(struct bpf_perf_counter_time)))
->>> +		return -EINVAL;
->>> +	err = get_map_perf_counter(map, flags, &buf->counter, &pe);
->>> +	if (err)
->>> +		return err;
->>> +
->>> +	calc_timer_values(pe, &now, &buf->time.enabled, &buf->time.running);
->>> +	return 0;
->>> +}
->>
->> Peter,
->> I believe we're doing it correctly above.
->> It's a copy paste of the same logic as in total_time_enabled/running.
->> We cannot expose total_time_enabled/running to bpf, since they are
->> different counters. The above two are specific to bpf usage.
->> See commit log.
-> 
-> No, the patch is atrocious and the usage is wrong.
-> 
-> Exporting a function called 'calc_timer_values' is a horrible violation
-> of the namespace.
-> 
-> And its wrong because it should be done in conjunction with
-> perf_event_read_local(). You cannot afterwards call this because you
-> don't know if the event was active when you read it and you don't have
-> temporal guarantees; that is, reading these timestamps long after or
-> before the read is wrong, and this interface allows it.
+Of course, RCU rules need to be respected or bad things can happen.
 
-Thanks for explanation. Will push the read/calculate time 
-enabled/running inside the perf_event_read_local then.
+In this particular loop, we need to read *pp once per iteration, not
+twice.
 
-> 
-> So no, sorry this is just fail.
-> 
+Fixes: b145425f269a ("inetpeer: remove AVL implementation in favor of RB tree")
+Reported-by: John Sperbeck <jsperbeck@google.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/ipv4/inetpeer.c |    9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/net/ipv4/inetpeer.c b/net/ipv4/inetpeer.c
+index 337ad41bb80a5fcd3db7ac674292c5b5d462982e..e7eb590c86ce2b33654c17c61619de74ff07bfd1 100644
+--- a/net/ipv4/inetpeer.c
++++ b/net/ipv4/inetpeer.c
+@@ -102,15 +102,18 @@ static struct inet_peer *lookup(const struct inetpeer_addr *daddr,
+ 				struct rb_node **parent_p,
+ 				struct rb_node ***pp_p)
+ {
+-	struct rb_node **pp, *parent;
++	struct rb_node **pp, *parent, *next;
+ 	struct inet_peer *p;
+ 
+ 	pp = &base->rb_root.rb_node;
+ 	parent = NULL;
+-	while (*pp) {
++	while (1) {
+ 		int cmp;
+ 
+-		parent = rcu_dereference_raw(*pp);
++		next = rcu_dereference_raw(*pp);
++		if (!next)
++			break;
++		parent = next;
+ 		p = rb_entry(parent, struct inet_peer, rb_node);
+ 		cmp = inetpeer_addr_cmp(daddr, &p->daddr);
+ 		if (cmp == 0) {
