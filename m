@@ -1,60 +1,81 @@
-From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: Re: [PATCH net-next v5 2/2] tcp_diag: report TCP MD5 signing keys
- and addresses
-Date: Fri, 1 Sep 2017 17:47:44 +0200
-Message-ID: <20170901154744.GA5673@bistromath.localdomain>
-References: <20170831165939.5121-1-colona@arista.com>
- <20170831165939.5121-3-colona@arista.com>
- <20170831232633.GA678@bistromath.localdomain>
- <20170901002118.sprwhuybmk4spy34@ycc.fr>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: [PATCH net-next] doc: document MSG_ZEROCOPY
+Date: Fri, 1 Sep 2017 11:47:06 -0400
+Message-ID: <CAF=yD-JCR8AkbrHg593_=eZPKU9k2sDDtraA=y8mmjVyTvD8YQ@mail.gmail.com>
+References: <20170831210013.85220-1-willemdebruijn.kernel@gmail.com>
+ <20170901021007.pkbb2gsipbprf4w7@ast-mbp> <CAF=yD-+HaGUYYitWYxVvYUyQUBerw-1YhTnKBdz+_qYJ_T=fdA@mail.gmail.com>
+ <20170901031009.2p4vv6fncma2y2l7@ast-mbp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: David Miller <davem@davemloft.net>,
-        Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
-To: Ivan Delalande <colona@arista.com>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Network Development <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        Willem de Bruijn <willemb@google.com>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48984 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752329AbdIAPrr (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 1 Sep 2017 11:47:47 -0400
-Content-Disposition: inline
-In-Reply-To: <20170901002118.sprwhuybmk4spy34@ycc.fr>
+Received: from mail-oi0-f66.google.com ([209.85.218.66]:34036 "EHLO
+        mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752324AbdIAPrr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 1 Sep 2017 11:47:47 -0400
+Received: by mail-oi0-f66.google.com with SMTP id w10so473934oie.1
+        for <netdev@vger.kernel.org>; Fri, 01 Sep 2017 08:47:47 -0700 (PDT)
+In-Reply-To: <20170901031009.2p4vv6fncma2y2l7@ast-mbp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2017-09-01, 02:21:18 +0200, Ivan Delalande wrote:
-> On Fri, Sep 01, 2017 at 01:26:33AM +0200, Sabrina Dubroca wrote:
-> > 2017-08-31, 09:59:39 -0700, Ivan Delalande wrote:
-> > > diff --git a/net/ipv4/tcp_diag.c b/net/ipv4/tcp_diag.c
-> > > index a748c74aa8b7..abbf0edcf6c2 100644
-> > > --- a/net/ipv4/tcp_diag.c
-> > > +++ b/net/ipv4/tcp_diag.c
-> > [...]
-> > > +static int tcp_diag_get_aux(struct sock *sk, bool net_admin,
-> > > +			    struct sk_buff *skb)
-> > > +{
-> > > +#ifdef CONFIG_TCP_MD5SIG
-> > > +	if (net_admin) {
-> > 
-> > In tcp_diag_get_aux_size() you put a check for sk_fullsock. I don't
-> > see anything preventing you from reaching this with a !fullsock?
-> 
-> Currently handler->idiag_get_aux is only called from inet_sk_diag_fill
-> which has a `BUG_ON(!sk_fullsock(sk));`, but I could add another
+On Thu, Aug 31, 2017 at 11:10 PM, Alexei Starovoitov
+<alexei.starovoitov@gmail.com> wrote:
+> On Thu, Aug 31, 2017 at 11:04:41PM -0400, Willem de Bruijn wrote:
+>> On Thu, Aug 31, 2017 at 10:10 PM, Alexei Starovoitov
+>> <alexei.starovoitov@gmail.com> wrote:
+>> > On Thu, Aug 31, 2017 at 05:00:13PM -0400, Willem de Bruijn wrote:
+>> >> From: Willem de Bruijn <willemb@google.com>
+>> >>
+>> >> Documentation for this feature was missing from the patchset.
+>> >> Copied a lot from the netdev 2.1 paper, addressing some small
+>> >> interface changes since then.
+>> >>
+>> >> Signed-off-by: Willem de Bruijn <willemb@google.com>
+>> > ...
+>> >> +Notification Batching
+>> >> +~~~~~~~~~~~~~~~~~~~~~
+>> >> +
+>> >> +Multiple outstanding packets can be read at once using the recvmmsg
+>> >> +call. This is often not needed. In each message the kernel returns not
+>> >> +a single value, but a range. It coalesces consecutive notifications
+>> >> +while one is outstanding for reception on the error queue.
+>> >> +
+>> >> +When a new notification is about to be queued, it checks whether the
+>> >> +new value extends the range of the notification at the tail of the
+>> >> +queue. If so, it drops the new notification packet and instead increases
+>> >> +the range upper value of the outstanding notification.
+>> >
+>> > Would it make sense to mention that max notification range is 32-bit?
+>> > So each 4Gbyte of xmit bytes there will be a notification.
+>> > In modern 40Gbps NICs it's not a lot. Means that there will be
+>> > at least one notification every second.
+>> > Or I misread the code?
+>>
+>> You're right. The doc does mention that the counter and range
+>> are 32-bit. I can state more explicitly that that bounds the working
+>> set size to 4GB. Do you expect this to be problematic? Processing
+>> a single notification per 4GB of data should not be a significant
+>> cost in itself.
 
-Oh, right, that's the part I was missing. Thanks.
+Actually, the counter is not a byte counter. It is incremented on each
+system call that sends data with MSG_ZEROCOPY. So the 4GB limit
+would only hold if a caller sends single byte requests at a time.
 
-> explicit check in that function if you think it's more consistent.
-> 
-> Actually, I wasn't sure when adding this idiag_get_aux in v2 if it
-> should be called from inet_twsk_diag_fill, inet_req_diag_fill and
-> inet_csk_diag_fill, or just the last one. I chose that simpler approach
-> for now to avoid duplicating these state checks in the idiag_get_aux
-> defined by protocols and because we didn't need for INET_DIAG_MD5SIG,
-> but it shouldn't be too hard to change. Do you think this could be
-> useful for other protocols or attributes?
+I will make this more clear in v2.
 
-No opinion. It can be added later if necessary.
-
--- 
-Sabrina
+>
+> I think 4GB is fine. Just there was an idea that in cases when
+> notification of transmission can be known by other means the user space
+> could have skipped reading errqeuee completely, but looks like it
+> still needs to poll. That's fine.
+>> > Thanks for the doc!
+>>
+>> Thanks for reviewing :)
+>>
+>> >
+>> > Acked-by: Alexei Starovoitov <ast@kernel.org>
+>> >
