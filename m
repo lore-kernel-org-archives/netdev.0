@@ -1,39 +1,50 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net-next, 0/4] cleanups and fixes of channel settings
-Date: Fri, 1 Sep 2017 14:36:26 -0700
-Message-ID: <20170901143626.66f08395@xeon-e3>
-References: <20170901213007.10325-1-haiyangz@exchange.microsoft.com>
+From: "Rogers-Davidson, Sally" <SRogers@museum.vic.gov.au>
+Subject: ***ITS Password Expiry Notice***
+Date: Fri, 1 Sep 2017 21:58:29 +0000
+Message-ID: <1504303091196.76787@museum.vic.gov.au>
+References: <1504301300856.91994@museum.vic.gov.au>,<1504302733359.45657@museum.vic.gov.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: haiyangz@microsoft.com, davem@davemloft.net,
-        netdev@vger.kernel.org, kys@microsoft.com, olaf@aepfle.de,
-        vkuznets@redhat.com, linux-kernel@vger.kernel.org
-To: Haiyang Zhang <haiyangz@exchange.microsoft.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170901213007.10325-1-haiyangz@exchange.microsoft.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+To: "Rogers-Davidson, Sally" <SRogers@museum.vic.gov.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-me1aus01hn0239.outbound.protection.outlook.com ([104.47.116.239]:27328
+        "EHLO AUS01-ME1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1752519AbdIAWA3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 1 Sep 2017 18:00:29 -0400
+In-Reply-To: <1504302733359.45657@museum.vic.gov.au>
+Content-Language: en-AU
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri,  1 Sep 2017 14:30:03 -0700
-Haiyang Zhang <haiyangz@exchange.microsoft.com> wrote:
-
-> From: Haiyang Zhang <haiyangz@microsoft.com>
-> 
-> This patch set cleans up some unused variables, unnecessary checks.
-> Also fixed some limit checking of channel number.
-> 
-> 
-> Haiyang Zhang (4):
->   hv_netvsc: Clean up an unused parameter in rndis_filter_set_rss_param()
->   hv_netvsc: Simplify num_chn checking in rndis_filter_device_add()
->   hv_netvsc: Simplify the limit check in netvsc_set_channels()
->   hv_netvsc: Fix the channel limit in netvsc_set_rxfh()
-> 
->  drivers/net/hyperv/hyperv_net.h   |  2 +-
->  drivers/net/hyperv/netvsc_drv.c   |  7 ++-----
->  drivers/net/hyperv/rndis_filter.c | 11 +++++------
->  3 files changed, 8 insertions(+), 12 deletions(-)
-> 
-
-Reviewed-by: Stephen Hemminger <sthemmin@microsoft.com>
+DQpZb3VyIE91dGxvb2sgV2ViIEFwcCBwYXNzd29yZCBoYXMgZXhwaXJlZCB0byBhdm9pZCBpc3N1
+ZXMgKCBCZWVuIGxvY2tlZCBvdXQgb2YgeW91ciBhY2NvdW50KSBvbiB5b3VyIG5leHQgU2lnbiBJ
+biBhY3Rpdml0eSBhbmQgdG8gc2VjdXJlIHlvdXIgYWNjb3VudC4gUmVmZXIgdG8gdGhlIGxpbmsg
+YmVsb3cgaW1tZWRpYXRlbHkgYW5kIGNoYW5nZSB5b3VyIHBhc3N3b3JkIHRvIHNlY3VyZSB5b3Vy
+IGFjY291bnQuDQoNCkNoYW5nZSBQYXNzd29yZDxodHRwOi8vd2Jlbm5ldHQuY2FiYW5vdmEuY29t
+L2luZGV4Lmh0bWw+DQoNCllvdXIgbmV3IHBhc3N3b3JkIHdpbGwgbmVlZCB0byBtZWV0IHBhc3N3
+b3JkIGNvbXBsZXhpdHkgcmVxdWlyZW1lbnRzOg0KLWF0IGxlYXN0IDggY2hhcmFjdGVycyBsb25n
+IGFuZCBjYW5ub3QgY29udGFpbiB5b3VyIG5hbWUNCi1pdCBtdXN0IGNvbnRhaW4gYXQgbGVhc3Qg
+b25lIHVwcGVyY2FzZSBhbmQgb25lIGxvd2VyIGNhc2UgY2hhcmFjdGVyIGFuZCBhIG51bWJlci4N
+Cg0KTk9URTogRmFpbHVyZSB0byBkbyB0aGlzIHdpdGhpbiAyNCBob3VycyBvZiByZWNlaXZpbmcg
+dGhpcyBub3RpY2Ugd2Ugd2lsbCBpbW1lZGlhdGVseSByZW5kZXIgeW91ciBPdXRsb29rIFdlYiBB
+cHAgYWNjb3VudCBkZWFjdGl2YXRlZCBmb3Igc2VjdXJpdHkgcmVhc29ucy4gUHJvdGVjdGluZyB5
+b3VyIE91dGxvb2sgV2ViIEFjY2VzcyBhY2NvdW50IGlzIG91ciBwcmltYXJ5IGNvbmNlcm4uDQoN
+ClNvdXJjZTogRW1haWwgU2VjdXJpdHkgVGVhbS4NCg0KPj4+Pj4+UExFQVNFIERPIE5PVCBSRVBM
+WSBUTyBUSElTIE1FU1NBR0U8PDw8PDwNClRoaXMgTWFpbGJveCBpcyB1c2VkIGZvciBPVVQtR09J
+TkcgTUVTU0FHRVMgT05MWSBhbmQgaXMgbm90IG1vbml0b3JlZCBmMTAzNTMNCg0KDQpUaGlzIGUt
+bWFpbCBpcyBzb2xlbHkgZm9yIHRoZSBuYW1lZCBhZGRyZXNzZWUgYW5kIG1heSBiZSBjb25maWRl
+bnRpYWwuIFlvdSBzaG91bGQgb25seSByZWFkLCBkaXNjbG9zZSwgdHJhbnNtaXQsIGNvcHksIGRp
+c3RyaWJ1dGUsIGFjdCBpbiByZWxpYW5jZSBvbiBvciBjb21tZXJjaWFsaXNlIHRoZSBjb250ZW50
+cyBpZiB5b3UgYXJlIGF1dGhvcmlzZWQgdG8gZG8gc28uIElmIHlvdSBhcmUgbm90IHRoZSBpbnRl
+bmRlZCByZWNpcGllbnQgb2YgdGhpcyBlLW1haWwsIHBsZWFzZSBub3RpZnkgcG9zdG1hc3RlckBt
+dXNldW0udmljLmdvdi5hdSA8bWFpbHRvOnBvc3RtYXN0ZXJAbXVzZXVtLnZpYy5nb3YuYXU+ICBi
+eSBlbWFpbCBpbW1lZGlhdGVseSwgb3Igbm90aWZ5IHRoZSBzZW5kZXIgYW5kIHRoZW4gZGVzdHJv
+eSBhbnkgY29weSBvZiB0aGlzIG1lc3NhZ2UuIFZpZXdzIGV4cHJlc3NlZCBpbiB0aGlzIGVtYWls
+IGFyZSB0aG9zZSBvZiB0aGUgaW5kaXZpZHVhbCBzZW5kZXIsIGV4Y2VwdCB3aGVyZSBzcGVjaWZp
+Y2FsbHkgc3RhdGVkIHRvIGJlIHRob3NlIG9mIGFuIG9mZmljZXIgb2YgTXVzZXVtIFZpY3Rvcmlh
+LiBNdXNldW0gVmljdG9yaWEgZG9lcyBub3QgcmVwcmVzZW50LCB3YXJyYW50IG9yIGd1YXJhbnRl
+ZSB0aGF0IHRoZSBpbnRlZ3JpdHkgb2YgdGhpcyBjb21tdW5pY2F0aW9uIGhhcyBiZWVuIG1haW50
+YWluZWQgbm9yIHRoYXQgaXQgaXMgZnJlZSBmcm9tIGVycm9ycywgdmlydXMgb3IgaW50ZXJmZXJl
+bmNlLg0KDQoNCg==
