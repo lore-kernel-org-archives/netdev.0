@@ -1,46 +1,84 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: virtio_net: ethtool supported link modes
-Date: Fri, 1 Sep 2017 11:36:01 +0800
-Message-ID: <38286395-683f-f285-aaa5-68f0e8b68675@redhat.com>
-References: <1504199044.22080.11.camel@arista.com>
+From: Orson Zhai <orson.zhai@linaro.org>
+Subject: [RFC] tools: selftests: psock_tpacket: skip un-supported tpacket_v3 test
+Date: Fri, 1 Sep 2017 11:53:45 +0800
+Message-ID: <20170901035345.15512-1-orson.zhai@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: "Michael S. Tsirkin" <mst@redhat.com>
-To: Radu Rendec <rrendec@arista.com>,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1504199044.22080.11.camel@arista.com>
-Content-Language: en-US
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-kselftest@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>, Orson Zhai <orson.zhai@linaro.org>
+To: "David S . Miller" <davem@davemloft.net>,
+        Shuah Khan <shuah@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-CgpPbiAyMDE35bm0MDnmnIgwMeaXpSAwMTowNCwgUmFkdSBSZW5kZWMgd3JvdGU6Cj4gSGVsbG8s
-Cj4KPiBMb29raW5nIGF0IHRoZSBjb2RlIGluIHZpcnRuZXRfc2V0X2xpbmtfa3NldHRpbmdzLCBp
-dCBzZWVtcyB0aGUgc3BlZWQKPiBhbmQgZHVwbGV4IGNhbiBiZSBzZXQgdG8gYW55IHZhbGlkIHZh
-bHVlLiBUaGUgZHJpdmVyIHdpbGwgInJlbWVtYmVyIgo+IHRoZW0gYW5kIHJlcG9ydCB0aGVtIGJh
-Y2sgaW4gdmlydG5ldF9nZXRfbGlua19rc2V0dGluZ3MuCj4KPiBIb3dldmVyLCB0aGUgc3VwcG9y
-dGVkIGxpbmsgbW9kZXMgKGxpbmtfbW9kZXMuc3VwcG9ydGVkIGluIHN0cnVjdAo+IGV0aHRvb2xf
-bGlua19rc2V0dGluZ3MpIGlzIGFsd2F5cyAwLCBpbmRpY2F0aW5nIHRoYXQgbm8gc3BlZWQvZHVw
-bGV4Cj4gc2V0dGluZyBpcyBzdXBwb3J0ZWQuCj4KPiBEb2VzIGl0IG1ha2UgbW9yZSBzZW5zZSB0
-byBzZXQgKGF0IGxlYXN0IGEgZmV3IG9mKSB0aGUgc3VwcG9ydGVkIGxpbmsKPiBtb2Rlcywgc3Vj
-aCBhcyAxMGJhc2VUX0hhbGYgLi4uIDEwMDAwYmFzZVRfRnVsbD8KPgo+IEkgd291bGQgZXhwZWN0
-IHRvIHNlZSBjb25zaXN0ZW5jeSBiZXR3ZWVuIHdoYXQgaXMgcmVwb3J0ZWQgaW4KPiBsaW5rX21v
-ZGVzLnN1cHBvcnRlZCBhbmQgd2hhdCBjYW4gYWN0dWFsbHkgYmUgc2V0LiBDb3VsZCB5b3UgcGxl
-YXNlCj4gc2hhcmUgeW91ciBvcGluaW9uIG9uIHRoaXM/CgpJIHRoaW5rIHRoZSBtYXkgbWFrZSBz
-ZW5zZSBvbmx5IGlmIHRoZXJlJ3MgYSBoYXJkd2FyZSBpbXBsZW1lbnRhdGlvbiBmb3IgCnZpcnRp
-by4gQW5kIHdlIHByb2JhYmx5IG5lZWQgdG8gZXh0ZW5kIHZpcnRpbyBzcGVjIGZvciBhZGRpbmcg
-bmV3IGNvbW1hbmRzLgoKVGhhbmtzCgo+Cj4gVGhhbmsgeW91LAo+IFJhZHUgUmVuZGVjCj4KCl9f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fClZpcnR1YWxpemF0
-aW9uIG1haWxpbmcgbGlzdApWaXJ0dWFsaXphdGlvbkBsaXN0cy5saW51eC1mb3VuZGF0aW9uLm9y
-ZwpodHRwczovL2xpc3RzLmxpbnV4Zm91bmRhdGlvbi5vcmcvbWFpbG1hbi9saXN0aW5mby92aXJ0
-dWFsaXphdGlvbg==
+The TPACKET_V3 test of PACKET_TX_RING will fail with kernel version
+lower than v4.11. Supported code of tx ring was add with commit id
+<7f953ab2ba46: af_packet: TX_RING support for TPACKET_V3> at Jan. 3
+of 2017.
+
+So skip this item test instead of reporting failing for old kernels.
+
+Signed-off-by: Orson Zhai <orson.zhai@linaro.org>
+---
+ tools/testing/selftests/net/psock_tpacket.c | 17 ++++++++++++++---
+ 1 file changed, 14 insertions(+), 3 deletions(-)
+
+diff --git a/tools/testing/selftests/net/psock_tpacket.c b/tools/testing/selftests/net/psock_tpacket.c
+index 7f6cd9fdacf3..f0cfc18c3726 100644
+--- a/tools/testing/selftests/net/psock_tpacket.c
++++ b/tools/testing/selftests/net/psock_tpacket.c
+@@ -57,6 +57,7 @@
+ #include <net/if.h>
+ #include <inttypes.h>
+ #include <poll.h>
++#include <errno.h>
+ 
+ #include "psock_lib.h"
+ 
+@@ -676,7 +677,7 @@ static void __v3_fill(struct ring *ring, unsigned int blocks, int type)
+ 	ring->flen = ring->req3.tp_block_size;
+ }
+ 
+-static void setup_ring(int sock, struct ring *ring, int version, int type)
++static int setup_ring(int sock, struct ring *ring, int version, int type)
+ {
+ 	int ret = 0;
+ 	unsigned int blocks = 256;
+@@ -703,7 +704,11 @@ static void setup_ring(int sock, struct ring *ring, int version, int type)
+ 
+ 	if (ret == -1) {
+ 		perror("setsockopt");
+-		exit(1);
++		if (errno == EINVAL) {
++			printf("[SKIP] This type seems un-supported in current kernel, skipped.\n");
++			return -1;
++		} else
++			exit(1);
+ 	}
+ 
+ 	ring->rd_len = ring->rd_num * sizeof(*ring->rd);
+@@ -715,6 +720,7 @@ static void setup_ring(int sock, struct ring *ring, int version, int type)
+ 
+ 	total_packets = 0;
+ 	total_bytes = 0;
++	return 0;
+ }
+ 
+ static void mmap_ring(int sock, struct ring *ring)
+@@ -830,7 +836,12 @@ static int test_tpacket(int version, int type)
+ 
+ 	sock = pfsocket(version);
+ 	memset(&ring, 0, sizeof(ring));
+-	setup_ring(sock, &ring, version, type);
++	if(setup_ring(sock, &ring, version, type)) {
++		/* skip test when error of invalid argument */
++		close(sock);
++		return 0;
++	}
++
+ 	mmap_ring(sock, &ring);
+ 	bind_ring(sock, &ring);
+ 	walk_ring(sock, &ring);
+-- 
+2.12.2
