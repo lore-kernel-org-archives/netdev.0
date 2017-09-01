@@ -1,148 +1,53 @@
-From: Claudiu Manoil <claudiu.manoil@nxp.com>
-Subject: [net 2/3] gianfar: Refactor link speed update (adjust_link)
-Date: Fri, 1 Sep 2017 12:41:02 +0300
-Message-ID: <1504258863-2058-3-git-send-email-claudiu.manoil@nxp.com>
-References: <1504258863-2058-1-git-send-email-claudiu.manoil@nxp.com>
+From: Alban Crequy <alban.crequy@gmail.com>
+Subject: Re: [PATCH net-next v7 08/10] bpf: Add a Landlock sandbox example
+Date: Fri, 1 Sep 2017 12:25:24 +0200
+Message-ID: <CAMXgnP64XxJGLyWqqNQ7P-Ok+UDydb+t8Pm9dUyXZ_9cx+Cfmw@mail.gmail.com>
+References: <20170821000933.13024-1-mic@digikod.net> <20170821000933.13024-9-mic@digikod.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "David S . Miller" <davem@davemloft.net>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2nam02on0076.outbound.protection.outlook.com ([104.47.38.76]:57818
-        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751828AbdIAJlL (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 1 Sep 2017 05:41:11 -0400
-In-Reply-To: <1504258863-2058-1-git-send-email-claudiu.manoil@nxp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        Alexei Starovoitov <ast@kernel.org>,
+        Andy Lutomirski <luto@amacapital.net>,
+        Arnaldo Carvalho de Melo <acme@kernel.org>,
+        Casey Schaufler <casey@schaufler-ca.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        David Drysdale <drysdale@google.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        "Eric W . Biederman" <ebiederm@xmission.com>,
+        James Morris <james.l.morris@oracle.com>,
+        Jann Horn <jann@thejh.net>, Jonathan Corbet <corbet@lwn.net>,
+        Matthew Garrett <mjg59@srcf.ucam.org>,
+        Michael Kerrisk <mtk.manpages@gmail.com>,
+        Kees Cook <keescook@chromium.org>,
+        Paul Moore <paul@paul-moore.com>,
+        Sargun Dhillon <sargun@sargun.me>,
+        "Serge E . Hallyn" <serge@hallyn.com>,
+        Shuah Khan <shuah@kernel.org>, Tejun Heo
+To: =?UTF-8?B?TWlja2HDq2wgU2FsYcO8bg==?= <mic@digikod.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170821000933.13024-9-mic@digikod.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Encapsulate link speed update logic. These settings affect only
-the maccfg2 and ecntrl regs.
+Hi Micka=C3=ABl,
 
-Signed-off-by: Claudiu Manoil <claudiu.manoil@nxp.com>
----
- drivers/net/ethernet/freescale/gianfar.c | 92 +++++++++++++++++---------------
- 1 file changed, 49 insertions(+), 43 deletions(-)
+On 21 August 2017 at 02:09, Micka=C3=ABl Sala=C3=BCn <mic@digikod.net> wrot=
+e:
+> Add a basic sandbox tool to create a process isolated from some part of
+> the system. This sandbox create a read-only environment. It is only
+> allowed to write to a character device such as a TTY:
+...
+> +       /*
+> +        * This check allows the action on the file if it is a directory =
+or a
+> +        * pipe. Otherwise, a message is printed to the eBPF log.
+> +        */
+> +       if (S_ISCHR(ret) || S_ISFIFO(ret))
+> +               return 0;
 
-diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
-index 5be52d8..46880a9 100644
---- a/drivers/net/ethernet/freescale/gianfar.c
-+++ b/drivers/net/ethernet/freescale/gianfar.c
-@@ -3672,6 +3672,54 @@ static u32 gfar_get_flowctrl_cfg(struct gfar_private *priv)
- 	return val;
- }
- 
-+static void gfar_update_link_speed(struct gfar_private *priv)
-+{
-+	struct gfar __iomem *regs = priv->gfargrp[0].regs;
-+	struct phy_device *phydev = priv->ndev->phydev;
-+	u32 maccfg2, ecntrl;
-+
-+	maccfg2 = gfar_read(&regs->maccfg2);
-+	ecntrl = gfar_read(&regs->ecntrl);
-+
-+	if (phydev->duplex != priv->oldduplex) {
-+		if (!(phydev->duplex))
-+			maccfg2 &= ~(MACCFG2_FULL_DUPLEX);
-+		else
-+			maccfg2 |= MACCFG2_FULL_DUPLEX;
-+
-+		priv->oldduplex = phydev->duplex;
-+	}
-+
-+	if (phydev->speed != priv->oldspeed) {
-+		switch (phydev->speed) {
-+		case 1000:
-+			maccfg2 = ((maccfg2 & ~(MACCFG2_IF)) | MACCFG2_GMII);
-+
-+			ecntrl &= ~(ECNTRL_R100);
-+			break;
-+		case 100:
-+		case 10:
-+			maccfg2 = ((maccfg2 & ~(MACCFG2_IF)) | MACCFG2_MII);
-+
-+			/* Reduced mode distinguishes between 10 and 100 */
-+			if (phydev->speed == SPEED_100)
-+				ecntrl |= ECNTRL_R100;
-+			else
-+				ecntrl &= ~(ECNTRL_R100);
-+			break;
-+		default:
-+			netif_warn(priv, link, priv->ndev,
-+				   "Invalid link speed!\n");
-+			break;
-+		}
-+
-+		priv->oldspeed = phydev->speed;
-+	}
-+
-+	gfar_write(&regs->maccfg2, maccfg2);
-+	gfar_write(&regs->ecntrl, ecntrl);
-+}
-+
- static noinline void gfar_update_link_state(struct gfar_private *priv)
- {
- 	struct gfar __iomem *regs = priv->gfargrp[0].regs;
-@@ -3685,49 +3733,9 @@ static noinline void gfar_update_link_state(struct gfar_private *priv)
- 
- 	if (phydev->link) {
- 		u32 tempval1 = gfar_read(&regs->maccfg1);
--		u32 tempval = gfar_read(&regs->maccfg2);
--		u32 ecntrl = gfar_read(&regs->ecntrl);
- 		u32 tx_flow_oldval = (tempval1 & MACCFG1_TX_FLOW);
- 
--		if (phydev->duplex != priv->oldduplex) {
--			if (!(phydev->duplex))
--				tempval &= ~(MACCFG2_FULL_DUPLEX);
--			else
--				tempval |= MACCFG2_FULL_DUPLEX;
--
--			priv->oldduplex = phydev->duplex;
--		}
--
--		if (phydev->speed != priv->oldspeed) {
--			switch (phydev->speed) {
--			case 1000:
--				tempval =
--				    ((tempval & ~(MACCFG2_IF)) | MACCFG2_GMII);
--
--				ecntrl &= ~(ECNTRL_R100);
--				break;
--			case 100:
--			case 10:
--				tempval =
--				    ((tempval & ~(MACCFG2_IF)) | MACCFG2_MII);
--
--				/* Reduced mode distinguishes
--				 * between 10 and 100
--				 */
--				if (phydev->speed == SPEED_100)
--					ecntrl |= ECNTRL_R100;
--				else
--					ecntrl &= ~(ECNTRL_R100);
--				break;
--			default:
--				netif_warn(priv, link, priv->ndev,
--					   "Ack!  Speed (%d) is not 10/100/1000!\n",
--					   phydev->speed);
--				break;
--			}
--
--			priv->oldspeed = phydev->speed;
--		}
-+		gfar_update_link_speed(priv);
- 
- 		tempval1 &= ~(MACCFG1_TX_FLOW | MACCFG1_RX_FLOW);
- 		tempval1 |= gfar_get_flowctrl_cfg(priv);
-@@ -3749,8 +3757,6 @@ static noinline void gfar_update_link_state(struct gfar_private *priv)
- 			priv->tx_actual_en = 0;
- 
- 		gfar_write(&regs->maccfg1, tempval1);
--		gfar_write(&regs->maccfg2, tempval);
--		gfar_write(&regs->ecntrl, ecntrl);
- 
- 		if (!priv->oldlink)
- 			priv->oldlink = 1;
--- 
-2.7.4
+
+The comment says "directory", but the code checks for "character device".
+
+Thanks!
+Alban
