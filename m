@@ -1,50 +1,133 @@
-From: "Rogers-Davidson, Sally" <SRogers@museum.vic.gov.au>
-Subject: ***ITS Password Expiry Notice***
-Date: Fri, 1 Sep 2017 21:58:29 +0000
-Message-ID: <1504303091196.76787@museum.vic.gov.au>
-References: <1504301300856.91994@museum.vic.gov.au>,<1504302733359.45657@museum.vic.gov.au>
+From: Bjorn Andersson <bjorn.andersson@linaro.org>
+Subject: Re: [PATCH 2/2] Bluetooth: btqcomsmd: BD address setup
+Date: Fri, 1 Sep 2017 15:15:03 -0700
+Message-ID: <20170901221503.GA1165@minitux>
+References: <20170901204118.17123-1-bjorn.andersson@linaro.org>
+ <20170901204118.17123-3-bjorn.andersson@linaro.org>
+ <5EC41247-54CD-4F1D-84EC-E94F80A67805@holtmann.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-To: "Rogers-Davidson, Sally" <SRogers@museum.vic.gov.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-me1aus01hn0239.outbound.protection.outlook.com ([104.47.116.239]:27328
-        "EHLO AUS01-ME1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752519AbdIAWA3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 1 Sep 2017 18:00:29 -0400
-In-Reply-To: <1504302733359.45657@museum.vic.gov.au>
-Content-Language: en-AU
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Gustavo F. Padovan" <gustavo@padovan.org>,
+        Johan Hedberg <johan.hedberg@gmail.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        "open list:BLUETOOTH DRIVERS" <linux-bluetooth@vger.kernel.org>,
+        Network Development <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        linux-arm-msm@vger.kernel.org,
+        Loic Poulain <loic.poulain@linaro.org>,
+        Rob Herring <robh@kernel.org>
+To: Marcel Holtmann <marcel@holtmann.org>
+Return-path: <linux-arm-msm-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <5EC41247-54CD-4F1D-84EC-E94F80A67805@holtmann.org>
+Sender: linux-arm-msm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-DQpZb3VyIE91dGxvb2sgV2ViIEFwcCBwYXNzd29yZCBoYXMgZXhwaXJlZCB0byBhdm9pZCBpc3N1
-ZXMgKCBCZWVuIGxvY2tlZCBvdXQgb2YgeW91ciBhY2NvdW50KSBvbiB5b3VyIG5leHQgU2lnbiBJ
-biBhY3Rpdml0eSBhbmQgdG8gc2VjdXJlIHlvdXIgYWNjb3VudC4gUmVmZXIgdG8gdGhlIGxpbmsg
-YmVsb3cgaW1tZWRpYXRlbHkgYW5kIGNoYW5nZSB5b3VyIHBhc3N3b3JkIHRvIHNlY3VyZSB5b3Vy
-IGFjY291bnQuDQoNCkNoYW5nZSBQYXNzd29yZDxodHRwOi8vd2Jlbm5ldHQuY2FiYW5vdmEuY29t
-L2luZGV4Lmh0bWw+DQoNCllvdXIgbmV3IHBhc3N3b3JkIHdpbGwgbmVlZCB0byBtZWV0IHBhc3N3
-b3JkIGNvbXBsZXhpdHkgcmVxdWlyZW1lbnRzOg0KLWF0IGxlYXN0IDggY2hhcmFjdGVycyBsb25n
-IGFuZCBjYW5ub3QgY29udGFpbiB5b3VyIG5hbWUNCi1pdCBtdXN0IGNvbnRhaW4gYXQgbGVhc3Qg
-b25lIHVwcGVyY2FzZSBhbmQgb25lIGxvd2VyIGNhc2UgY2hhcmFjdGVyIGFuZCBhIG51bWJlci4N
-Cg0KTk9URTogRmFpbHVyZSB0byBkbyB0aGlzIHdpdGhpbiAyNCBob3VycyBvZiByZWNlaXZpbmcg
-dGhpcyBub3RpY2Ugd2Ugd2lsbCBpbW1lZGlhdGVseSByZW5kZXIgeW91ciBPdXRsb29rIFdlYiBB
-cHAgYWNjb3VudCBkZWFjdGl2YXRlZCBmb3Igc2VjdXJpdHkgcmVhc29ucy4gUHJvdGVjdGluZyB5
-b3VyIE91dGxvb2sgV2ViIEFjY2VzcyBhY2NvdW50IGlzIG91ciBwcmltYXJ5IGNvbmNlcm4uDQoN
-ClNvdXJjZTogRW1haWwgU2VjdXJpdHkgVGVhbS4NCg0KPj4+Pj4+UExFQVNFIERPIE5PVCBSRVBM
-WSBUTyBUSElTIE1FU1NBR0U8PDw8PDwNClRoaXMgTWFpbGJveCBpcyB1c2VkIGZvciBPVVQtR09J
-TkcgTUVTU0FHRVMgT05MWSBhbmQgaXMgbm90IG1vbml0b3JlZCBmMTAzNTMNCg0KDQpUaGlzIGUt
-bWFpbCBpcyBzb2xlbHkgZm9yIHRoZSBuYW1lZCBhZGRyZXNzZWUgYW5kIG1heSBiZSBjb25maWRl
-bnRpYWwuIFlvdSBzaG91bGQgb25seSByZWFkLCBkaXNjbG9zZSwgdHJhbnNtaXQsIGNvcHksIGRp
-c3RyaWJ1dGUsIGFjdCBpbiByZWxpYW5jZSBvbiBvciBjb21tZXJjaWFsaXNlIHRoZSBjb250ZW50
-cyBpZiB5b3UgYXJlIGF1dGhvcmlzZWQgdG8gZG8gc28uIElmIHlvdSBhcmUgbm90IHRoZSBpbnRl
-bmRlZCByZWNpcGllbnQgb2YgdGhpcyBlLW1haWwsIHBsZWFzZSBub3RpZnkgcG9zdG1hc3RlckBt
-dXNldW0udmljLmdvdi5hdSA8bWFpbHRvOnBvc3RtYXN0ZXJAbXVzZXVtLnZpYy5nb3YuYXU+ICBi
-eSBlbWFpbCBpbW1lZGlhdGVseSwgb3Igbm90aWZ5IHRoZSBzZW5kZXIgYW5kIHRoZW4gZGVzdHJv
-eSBhbnkgY29weSBvZiB0aGlzIG1lc3NhZ2UuIFZpZXdzIGV4cHJlc3NlZCBpbiB0aGlzIGVtYWls
-IGFyZSB0aG9zZSBvZiB0aGUgaW5kaXZpZHVhbCBzZW5kZXIsIGV4Y2VwdCB3aGVyZSBzcGVjaWZp
-Y2FsbHkgc3RhdGVkIHRvIGJlIHRob3NlIG9mIGFuIG9mZmljZXIgb2YgTXVzZXVtIFZpY3Rvcmlh
-LiBNdXNldW0gVmljdG9yaWEgZG9lcyBub3QgcmVwcmVzZW50LCB3YXJyYW50IG9yIGd1YXJhbnRl
-ZSB0aGF0IHRoZSBpbnRlZ3JpdHkgb2YgdGhpcyBjb21tdW5pY2F0aW9uIGhhcyBiZWVuIG1haW50
-YWluZWQgbm9yIHRoYXQgaXQgaXMgZnJlZSBmcm9tIGVycm9ycywgdmlydXMgb3IgaW50ZXJmZXJl
-bmNlLg0KDQoNCg==
+On Fri 01 Sep 13:47 PDT 2017, Marcel Holtmann wrote:
+
+> Hi Bjorn,
+> 
+> > Bluetooth BD address can be retrieved in the same way as
+> > for wcnss-wlan MAC address. This patch mainly stores the
+> > local-mac-address property and sets the BD address during
+> > hci device setup.
+> > 
+> > Signed-off-by: Loic Poulain <loic.poulain@linaro.org>
+> > Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
+> > ---
+> > drivers/bluetooth/btqcomsmd.c | 28 ++++++++++++++++++++++++++++
+> > 1 file changed, 28 insertions(+)
+> > 
+> > diff --git a/drivers/bluetooth/btqcomsmd.c b/drivers/bluetooth/btqcomsmd.c
+> > index d00c4fdae924..443bb2099329 100644
+> > --- a/drivers/bluetooth/btqcomsmd.c
+> > +++ b/drivers/bluetooth/btqcomsmd.c
+> > @@ -26,6 +26,7 @@
+> > struct btqcomsmd {
+> > 	struct hci_dev *hdev;
+> > 
+> > +	const bdaddr_t *addr;
+> > 	struct rpmsg_endpoint *acl_channel;
+> > 	struct rpmsg_endpoint *cmd_channel;
+> > };
+> > @@ -100,6 +101,27 @@ static int btqcomsmd_close(struct hci_dev *hdev)
+> > 	return 0;
+> > }
+> > 
+> > +static int btqcomsmd_setup(struct hci_dev *hdev)
+> > +{
+> > +	struct btqcomsmd *btq = hci_get_drvdata(hdev);
+> > +	struct sk_buff *skb;
+> > +
+> > +	skb = __hci_cmd_sync(hdev, HCI_OP_RESET, 0, NULL, HCI_INIT_TIMEOUT);
+> > +	if (IS_ERR(skb))
+> > +		return PTR_ERR(skb);
+> > +	kfree_skb(skb);
+> > +
+> > +	if (btq->addr) {
+> > +		bdaddr_t bdaddr;
+> > +
+> > +		/* btq->addr stored with most significant byte first */
+> > +		baswap(&bdaddr, btq->addr);
+> > +		return qca_set_bdaddr_rome(hdev, &bdaddr);
+> > +	}
+> > +
+> > +	return 0;
+> > +}
+> > +
+> > static int btqcomsmd_probe(struct platform_device *pdev)
+> > {
+> > 	struct btqcomsmd *btq;
+> > @@ -123,6 +145,11 @@ static int btqcomsmd_probe(struct platform_device *pdev)
+> > 	if (IS_ERR(btq->cmd_channel))
+> > 		return PTR_ERR(btq->cmd_channel);
+> > 
+> > +	btq->addr = of_get_property(pdev->dev.of_node, "local-mac-address",
+> > +				    &ret);
+> > +	if (ret != sizeof(bdaddr_t))
+> > +		btq->addr = NULL;
+> > +
+> > 	hdev = hci_alloc_dev();
+> > 	if (!hdev)
+> > 		return -ENOMEM;
+> > @@ -135,6 +162,7 @@ static int btqcomsmd_probe(struct platform_device *pdev)
+> > 	hdev->open = btqcomsmd_open;
+> > 	hdev->close = btqcomsmd_close;
+> > 	hdev->send = btqcomsmd_send;
+> > +	hdev->setup = btqcomsmd_setup;
+> > 	hdev->set_bdaddr = qca_set_bdaddr_rome;
+> 
+> I do not like this patch. Why not just set HCI_QUIRK_INVALID_BDADDR
+> and let a userspace tool deal with reading the BD_ADDR from some
+> storage.
+> 
+
+That's what we currently have, but we regularly get complaints from
+developers using our board (DB410c).
+
+We're maintaining a Debian-based and an OpenEmbedded-based build and at
+least in the past btmgmt was not available in these - so we would have
+to maintain both a custom BlueZ package and then some scripts to inject
+the appropriate mac address.
+
+Beyond these reference builds our users tend to build their own system
+images and I was hoping that they would not be forced to have a custom
+hook running each time hci0 is registered.
+
+> Frankly I do not get this WiFI MAC address or BD_ADDR stored in DT. I
+> assumed the DT is suppose to describe hardware and not some value that
+> is normally retrieved for OTP or alike.
+> 
+
+While I share your skepticism here I find it way superior over the
+various cases where this information is hard coded in some firmware file
+that has to be patched for each device - in particular when considering
+the out-of-tree workarounds that follow when said firmware file is not
+allowed to be modified on the device (e.g. in Android).
+
+And note that it's not _stored_ in DT, it's passed from the boot loader
+in DT - and it's still optional, so if an OEM has other means to
+provision the BD_ADDR they can still handle this in user space.
+
+Regards,
+Bjorn
