@@ -1,80 +1,46 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [PATCH net-next] doc: document MSG_ZEROCOPY
-Date: Thu, 31 Aug 2017 23:31:54 -0400
-Message-ID: <CAF=yD-Kx+nOf_56TvWvRo=pupjf_VH+E_0pKBMawx+N=7BsOpQ@mail.gmail.com>
-References: <20170831210013.85220-1-willemdebruijn.kernel@gmail.com>
- <20170901021007.pkbb2gsipbprf4w7@ast-mbp> <CAF=yD-+HaGUYYitWYxVvYUyQUBerw-1YhTnKBdz+_qYJ_T=fdA@mail.gmail.com>
- <20170901031009.2p4vv6fncma2y2l7@ast-mbp>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: virtio_net: ethtool supported link modes
+Date: Fri, 1 Sep 2017 11:36:01 +0800
+Message-ID: <38286395-683f-f285-aaa5-68f0e8b68675@redhat.com>
+References: <1504199044.22080.11.camel@arista.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Network Development <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Willem de Bruijn <willemb@google.com>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f68.google.com ([209.85.218.68]:36448 "EHLO
-        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750925AbdIADcf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 23:32:35 -0400
-Received: by mail-oi0-f68.google.com with SMTP id x184so1215285oia.3
-        for <netdev@vger.kernel.org>; Thu, 31 Aug 2017 20:32:34 -0700 (PDT)
-In-Reply-To: <20170901031009.2p4vv6fncma2y2l7@ast-mbp>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: "Michael S. Tsirkin" <mst@redhat.com>
+To: Radu Rendec <rrendec@arista.com>,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1504199044.22080.11.camel@arista.com>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 31, 2017 at 11:10 PM, Alexei Starovoitov
-<alexei.starovoitov@gmail.com> wrote:
-> On Thu, Aug 31, 2017 at 11:04:41PM -0400, Willem de Bruijn wrote:
->> On Thu, Aug 31, 2017 at 10:10 PM, Alexei Starovoitov
->> <alexei.starovoitov@gmail.com> wrote:
->> > On Thu, Aug 31, 2017 at 05:00:13PM -0400, Willem de Bruijn wrote:
->> >> From: Willem de Bruijn <willemb@google.com>
->> >>
->> >> Documentation for this feature was missing from the patchset.
->> >> Copied a lot from the netdev 2.1 paper, addressing some small
->> >> interface changes since then.
->> >>
->> >> Signed-off-by: Willem de Bruijn <willemb@google.com>
->> > ...
->> >> +Notification Batching
->> >> +~~~~~~~~~~~~~~~~~~~~~
->> >> +
->> >> +Multiple outstanding packets can be read at once using the recvmmsg
->> >> +call. This is often not needed. In each message the kernel returns not
->> >> +a single value, but a range. It coalesces consecutive notifications
->> >> +while one is outstanding for reception on the error queue.
->> >> +
->> >> +When a new notification is about to be queued, it checks whether the
->> >> +new value extends the range of the notification at the tail of the
->> >> +queue. If so, it drops the new notification packet and instead increases
->> >> +the range upper value of the outstanding notification.
->> >
->> > Would it make sense to mention that max notification range is 32-bit?
->> > So each 4Gbyte of xmit bytes there will be a notification.
->> > In modern 40Gbps NICs it's not a lot. Means that there will be
->> > at least one notification every second.
->> > Or I misread the code?
->>
->> You're right. The doc does mention that the counter and range
->> are 32-bit. I can state more explicitly that that bounds the working
->> set size to 4GB. Do you expect this to be problematic? Processing
->> a single notification per 4GB of data should not be a significant
->> cost in itself.
->
-> I think 4GB is fine. Just there was an idea that in cases when
-> notification of transmission can be known by other means
-
-Some kind of unspoofable response from the peer (i.e., not just
-a tcp ack), or a kernel mechanism independent from the error
-queue? The first does not guarantee that a retransmit is
-not in progress.
-
-> the user space
-> could have skipped reading errqeuee completely, but looks like it
-> still needs to poll.
-
-If a process has no need to see the notification, say because
-it is sending out a buffer that is constant for the process lifetime,
-then it could conceivably skip the recv, and poll with it. The code
-as written will not coalesce more than 4GB of data, but that could
-be revised.
+CgpPbiAyMDE35bm0MDnmnIgwMeaXpSAwMTowNCwgUmFkdSBSZW5kZWMgd3JvdGU6Cj4gSGVsbG8s
+Cj4KPiBMb29raW5nIGF0IHRoZSBjb2RlIGluIHZpcnRuZXRfc2V0X2xpbmtfa3NldHRpbmdzLCBp
+dCBzZWVtcyB0aGUgc3BlZWQKPiBhbmQgZHVwbGV4IGNhbiBiZSBzZXQgdG8gYW55IHZhbGlkIHZh
+bHVlLiBUaGUgZHJpdmVyIHdpbGwgInJlbWVtYmVyIgo+IHRoZW0gYW5kIHJlcG9ydCB0aGVtIGJh
+Y2sgaW4gdmlydG5ldF9nZXRfbGlua19rc2V0dGluZ3MuCj4KPiBIb3dldmVyLCB0aGUgc3VwcG9y
+dGVkIGxpbmsgbW9kZXMgKGxpbmtfbW9kZXMuc3VwcG9ydGVkIGluIHN0cnVjdAo+IGV0aHRvb2xf
+bGlua19rc2V0dGluZ3MpIGlzIGFsd2F5cyAwLCBpbmRpY2F0aW5nIHRoYXQgbm8gc3BlZWQvZHVw
+bGV4Cj4gc2V0dGluZyBpcyBzdXBwb3J0ZWQuCj4KPiBEb2VzIGl0IG1ha2UgbW9yZSBzZW5zZSB0
+byBzZXQgKGF0IGxlYXN0IGEgZmV3IG9mKSB0aGUgc3VwcG9ydGVkIGxpbmsKPiBtb2Rlcywgc3Vj
+aCBhcyAxMGJhc2VUX0hhbGYgLi4uIDEwMDAwYmFzZVRfRnVsbD8KPgo+IEkgd291bGQgZXhwZWN0
+IHRvIHNlZSBjb25zaXN0ZW5jeSBiZXR3ZWVuIHdoYXQgaXMgcmVwb3J0ZWQgaW4KPiBsaW5rX21v
+ZGVzLnN1cHBvcnRlZCBhbmQgd2hhdCBjYW4gYWN0dWFsbHkgYmUgc2V0LiBDb3VsZCB5b3UgcGxl
+YXNlCj4gc2hhcmUgeW91ciBvcGluaW9uIG9uIHRoaXM/CgpJIHRoaW5rIHRoZSBtYXkgbWFrZSBz
+ZW5zZSBvbmx5IGlmIHRoZXJlJ3MgYSBoYXJkd2FyZSBpbXBsZW1lbnRhdGlvbiBmb3IgCnZpcnRp
+by4gQW5kIHdlIHByb2JhYmx5IG5lZWQgdG8gZXh0ZW5kIHZpcnRpbyBzcGVjIGZvciBhZGRpbmcg
+bmV3IGNvbW1hbmRzLgoKVGhhbmtzCgo+Cj4gVGhhbmsgeW91LAo+IFJhZHUgUmVuZGVjCj4KCl9f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fClZpcnR1YWxpemF0
+aW9uIG1haWxpbmcgbGlzdApWaXJ0dWFsaXphdGlvbkBsaXN0cy5saW51eC1mb3VuZGF0aW9uLm9y
+ZwpodHRwczovL2xpc3RzLmxpbnV4Zm91bmRhdGlvbi5vcmcvbWFpbG1hbi9saXN0aW5mby92aXJ0
+dWFsaXphdGlvbg==
