@@ -1,53 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bridge: switchdev: Clear forward mark when
- transmitting packet
-Date: Fri, 01 Sep 2017 10:12:00 -0700 (PDT)
-Message-ID: <20170901.101200.1178632155073906923.davem@davemloft.net>
-References: <20170901092225.31597-1-idosch@mellanox.com>
+From: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH v2 2/3] dt-binding: net: sfp binding documentation
+Date: Fri, 1 Sep 2017 12:12:37 -0500
+Message-ID: <20170901171237.ge7dconrtrog2tah@rob-hp-laptop>
+References: <d1e64c5752ef0dd5c5b543c2d4c3ef1783318173.1504086672.git.baruch@tkos.co.il>
+ <7ae5d883fd038cf518949b0aa9cbe5369e2a1851.1504086672.git.baruch@tkos.co.il>
+ <89261369-d97c-a78c-5a21-a269b2c7e513@cogentembedded.com>
+ <20170830111118.wy62va6sjzsxrgoo@tarshish>
+ <c3e8af44-bf58-81d7-bd51-d2538dcd41d9@cogentembedded.com>
+ <20170830112557.dhcl3pv7gmuzg22v@tarshish>
+ <20170830145829.GA22289@lunn.ch>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: mlxsw@mellanox.com, yotamg@mellanox.com, nikolay@cumulusnetworks.com,
-	netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	jiri@mellanox.com
-To: idosch@mellanox.com
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20170901092225.31597-1-idosch@mellanox.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Baruch Siach <baruch-NswTu9S1W3P6gbPvEgmw2w@public.gmane.org>,
+        Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Russell King <rmk+kernel-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20170830145829.GA22289-g2DYL2Zd6BY@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Ido Schimmel <idosch@mellanox.com>
-Date: Fri,  1 Sep 2017 12:22:25 +0300
+On Wed, Aug 30, 2017 at 04:58:29PM +0200, Andrew Lunn wrote:
+> > > > >     Your example shows there's GPIO phandle *and* specifier.
+> > > > 
+> > > > Would "GPIO specifier" be enough here?
+> > > 
+> > >    No, specifier is the cells following GPIO (or any other) phandle.
+> > 
+> > So this should be "GPIO phandle and specifier of ...", is that correct?
+> > 
+> > I have found very few (< 4) occurrences of this language in (lots of) '-gpios' 
+> > property descriptions under Documentation/devicetree/bindings/. Is this a new 
+> > requirement?
+> 
+> Sometimes it is just easier to refer to another document:
+> 
+> GPIO, as defined in Documentation/devicetree/binding/gpio/gpio.txt
 
-> Commit 6bc506b4fb06 ("bridge: switchdev: Add forward mark support for
-> stacked devices") added the 'offload_fwd_mark' bit to the skb in order
-> to allow drivers to indicate to the bridge driver that they already
-> forwarded the packet in L2.
-> 
-> In case the bit is set, before transmitting the packet from each port,
-> the port's mark is compared with the mark stored in the skb's control
-> block. If both marks are equal, we know the packet arrived from a switch
-> device that already forwarded the packet and it's not re-transmitted.
-> 
-> However, if the packet is transmitted from the bridge device itself
-> (e.g., br0), we should clear the 'offload_fwd_mark' bit as the mark
-> stored in the skb's control block isn't valid.
-> 
-> This scenario can happen in rare cases where a packet was trapped during
-> L3 forwarding and forwarded by the kernel to a bridge device.
-> 
-> Fixes: 6bc506b4fb06 ("bridge: switchdev: Add forward mark support for stacked devices")
-> Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-> Reported-by: Yotam Gigi <yotamg@mellanox.com>
-> Tested-by: Yotam Gigi <yotamg@mellanox.com>
-> Reviewed-by: Jiri Pirko <jiri@mellanox.com>
+Yes, and what I care about here is how many GPIOs, direction and active 
+state. IOW, worry about the information necessary to validate a specific 
+instance is correct. And hopefully someday we'll have a format parseable 
+to do that checking, and all the free form text will be gone.
 
-Applied and queued up for -stable, thanks.
+Rob
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
