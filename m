@@ -1,62 +1,40 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [iproute PATCH 0/6] strlcpy() and strlcat() for iproute2
-Date: Fri, 1 Sep 2017 12:12:17 -0700
-Message-ID: <20170901121217.33e93cf9@xeon-e3>
-References: <20170901165256.21459-1-phil@nwl.cc>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [iproute PATCH] lib/bpf: Fix bytecode-file parsing
+Date: Fri, 01 Sep 2017 21:13:32 +0200
+Message-ID: <59A9B15C.3060404@iogearbox.net>
+References: <20170829150945.7077-1-phil@nwl.cc> <59A6C377.90705@iogearbox.net> <20170830141155.GH20614@orbyte.nwl.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Phil Sutter <phil@nwl.cc>
+To: Phil Sutter <phil@nwl.cc>,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f177.google.com ([209.85.192.177]:33135 "EHLO
-        mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751715AbdIATMU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 1 Sep 2017 15:12:20 -0400
-Received: by mail-pf0-f177.google.com with SMTP id n73so3012206pfj.0
-        for <netdev@vger.kernel.org>; Fri, 01 Sep 2017 12:12:20 -0700 (PDT)
-In-Reply-To: <20170901165256.21459-1-phil@nwl.cc>
+Received: from www62.your-server.de ([213.133.104.62]:40577 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752202AbdIATNf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 1 Sep 2017 15:13:35 -0400
+In-Reply-To: <20170830141155.GH20614@orbyte.nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri,  1 Sep 2017 18:52:50 +0200
-Phil Sutter <phil@nwl.cc> wrote:
+On 08/30/2017 04:11 PM, Phil Sutter wrote:
+> On Wed, Aug 30, 2017 at 03:53:59PM +0200, Daniel Borkmann wrote:
+>> On 08/29/2017 05:09 PM, Phil Sutter wrote:
+[...]
+>>
+>> I don't really have a strong opinion on this, but the logic for
+>> normalizing here is getting a bit convoluted. Is your use case
+>> for making the parser more robust mainly so you can just use the
+>> -ddd output from tcpdump for cBPF w/o piping through tr? But even
+>> that shouldn't give multiple empty lines afaik, no?
+>
+> Well, using tcpdump output was functional before already. I just noticed
+> that if I add an empty line to the end of bytecode-file, it will fail
+> and I didn't like that. Then while searching for the EOF issue, I
+> noticed that the parser logic above is a bit faulty in that it will
+> treat different characters equally but doesn't make sure c_prev will be
+> assigned only one of them. So apart from the added robustness, it really
+> fixes an inconsistency in the parsing logic.
 
-> The following series adds my own implementations of strlcpy() and
-> strlcat() in patch 1 and changes the code to make use of them in the
-> following patches but the last two: Patch 5 just eliminates a line of
-> useless code I found while searching for potential users of the
-> introduced functions, patch 6 sanitizes a call to strncpy() in
-> misc/lnstat_util.c without using strlcpy() since lnstat is not being
-> linked against libutil.
-> 
-> I implemented both functions solely based on information in libbsd's man
-> pages, so they are safe to be released under the GPL.
-> 
-> Phil Sutter (6):
->   utils: Implement strlcpy() and strlcat()
->   Convert the obvious cases to strlcpy()
->   Convert harmful calls to strncpy() to strlcpy()
->   ipxfrm: Replace STRBUF_CAT macro with strlcat()
->   tc_util: No need to terminate an snprintf'ed buffer
->   lnstat_util: Make sure buffer is NUL-terminated
-> 
->  genl/ctrl.c           |  2 +-
->  include/utils.h       |  3 +++
->  ip/ipnetns.c          |  3 +--
->  ip/iproute_lwtunnel.c |  3 +--
->  ip/ipvrf.c            |  5 ++---
->  ip/ipxfrm.c           | 21 +++++----------------
->  ip/xfrm_state.c       |  2 +-
->  lib/bpf.c             |  3 +--
->  lib/fs.c              |  3 +--
->  lib/inet_proto.c      |  3 +--
->  lib/utils.c           | 19 +++++++++++++++++++
->  misc/lnstat_util.c    |  3 ++-
->  misc/ss.c             |  3 +--
->  tc/em_ipset.c         |  3 +--
->  tc/tc_util.c          |  1 -
->  15 files changed, 40 insertions(+), 37 deletions(-)
-> 
-
-Applied, thanks.
+Ok, fine by me.
