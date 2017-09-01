@@ -1,53 +1,27 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: [iproute PATCH 50/51] Check user supplied interface name lengths
-Date: Fri, 1 Sep 2017 18:56:29 +0200
-Message-ID: <20170901165629.GW20614@orbyte.nwl.cc>
-References: <20170812120510.28750-1-phil@nwl.cc>
- <20170812120510.28750-51-phil@nwl.cc>
- <20170815090945.62b2c4d7@xeon-e3>
- <20170815165132.GI16375@orbyte.nwl.cc>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/3] bpf: Improve LRU map lookup performance
+Date: Fri, 01 Sep 2017 09:57:53 -0700 (PDT)
+Message-ID: <20170901.095753.1991310161072568284.davem@davemloft.net>
+References: <20170901062713.1842249-1-kafai@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-To: Stephen Hemminger <stephen@networkplumber.org>,
-        netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ast@fb.com, daniel@iogearbox.net,
+        kernel-team@fb.com
+To: kafai@fb.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:42097 "EHLO mail.nwl.cc"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752261AbdIAQ4a (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 1 Sep 2017 12:56:30 -0400
-Content-Disposition: inline
-In-Reply-To: <20170815165132.GI16375@orbyte.nwl.cc>
+Received: from shards.monkeyblade.net ([184.105.139.130]:49338 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752244AbdIAQ5y (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 1 Sep 2017 12:57:54 -0400
+In-Reply-To: <20170901062713.1842249-1-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Stephen,
+From: Martin KaFai Lau <kafai@fb.com>
+Date: Thu, 31 Aug 2017 23:27:10 -0700
 
-On Tue, Aug 15, 2017 at 06:51:32PM +0200, Phil Sutter wrote:
-> On Tue, Aug 15, 2017 at 09:09:45AM -0700, Stephen Hemminger wrote:
-> > On Sat, 12 Aug 2017 14:05:09 +0200
-> > Phil Sutter <phil@nwl.cc> wrote:
-> > 
-> > > +void assert_valid_dev_name(const char *, const char *);
-> > 
-> > Not a fan of long function names.
-> > “I have only made this letter longer because I have not had the time to make it shorter."
-> 
-> :)
-> 
-> > Maybe just add a new function addattr_ifname() and add the checking there?
-> 
-> It is not only about netlink attributes - these are in fact
-> unproblematic, since they allow for interface names longer than
-> IFNAMSIZ-1 and the kernel will then reject. The length check has to
-> happen before copying into any IFNAMSIZ-sized buffer takes place (e.g.
-> ifr_name of struct ifreq). Logically I would prefer to perform the
-> checks right at the point user input parsing takes place since it
-> belongs there.
-> 
-> I could rename the function to 'ifname_valid' instead? I liked having
-> 'assert' in the name though, since the function calls exit() on error.
+> This patchset improves the lookup performance of the LRU map.
+> Please see individual patch for details.
 
-Any thoughts on this?
-
-Cheers, Phil
+Series applied, thanks Martin.
