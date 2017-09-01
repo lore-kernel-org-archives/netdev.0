@@ -1,35 +1,95 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] selftests: correct define in msg_zerocopy.c
-Date: Fri, 01 Sep 2017 10:41:31 -0700 (PDT)
-Message-ID: <20170901.104131.458901946836313233.davem@davemloft.net>
-References: <20170901163151.106867-1-willemdebruijn.kernel@gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: virtio_net: ethtool supported link modes
+Date: Fri, 1 Sep 2017 20:45:11 +0300
+Message-ID: <20170901204222-mutt-send-email-mst@kernel.org>
+References: <1504199044.22080.11.camel@arista.com>
+ <20170901183517-mutt-send-email-mst@kernel.org>
+ <1504282793.12952.17.camel@arista.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ast@fb.com, dmm@fb.com, willemb@google.com
-To: willemdebruijn.kernel@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:50206 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752148AbdIARlc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 1 Sep 2017 13:41:32 -0400
-In-Reply-To: <20170901163151.106867-1-willemdebruijn.kernel@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, Jason Wang <jasowang@redhat.com>,
+        virtio-dev@lists.oasis-open.org
+To: Radu Rendec <rrendec@arista.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1504282793.12952.17.camel@arista.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Date: Fri,  1 Sep 2017 12:31:51 -0400
+On Fri, Sep 01, 2017 at 05:19:53PM +0100, Radu Rendec wrote:
+> On Fri, 2017-09-01 at 18:43 +0300, Michael S. Tsirkin wrote:
+> > On Thu, Aug 31, 2017 at 06:04:04PM +0100, Radu Rendec wrote:
+> > > Looking at the code in virtnet_set_link_ksettings, it seems the speed
+> > > and duplex can be set to any valid value. The driver will "remember"
+> > > them and report them back in virtnet_get_link_ksettings.
+> > > 
+> > > However, the supported link modes (link_modes.supported in struct
+> > > ethtool_link_ksettings) is always 0, indicating that no speed/duplex
+> > > setting is supported.
+> > > 
+> > > Does it make more sense to set (at least a few of) the supported link
+> > > modes, such as 10baseT_Half ... 10000baseT_Full?
+> > > 
+> > > I would expect to see consistency between what is reported in
+> > > link_modes.supported and what can actually be set. Could you please
+> > > share your opinion on this?
+> > 
+> > I would like to know more about why this is desirable.
+> > 
+> > We used not to support the modes at all, but it turned out
+> > some tools are confused by this: e.g. people would try to
+> > bond virtio with a hardware device, tools would see
+> > a mismatch in speed and features between bonded devices
+> > and get confused.
+> > 
+> > See
+> > 
+> > 	commit 16032be56c1f66770da15cb94f0eb366c37aff6e
+> > 	Author: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+> > 	Date:   Wed Feb 3 04:04:37 2016 +0100
+> > 
+> > 	    virtio_net: add ethtool support for set and get of settings
+> > 
+> > 
+> > as well as the discussion around it
+> > 	https://www.spinics.net/lists/netdev/msg362111.html
+> 
+> Thanks for pointing these out. It is much more clear now why modes
+> support is implemented the way it is and what the expectations are.
+> 
+> > If you think we need to add more hacks like this, a stronger
+> > motivation than "to see consistency" would be needed.
+> 
+> The use case behind my original question is very simple:
+>  * Net device is queried via ethtool for supported modes.
+>  * Supported modes are presented to user.
+>  * User can configure any of the supported modes.
 
-> From: Willem de Bruijn <willemb@google.com>
-> 
-> The msg_zerocopy test defines SO_ZEROCOPY if necessary, but its value
-> is inconsistent with the one in asm-generic.h. Correct that.
-> 
-> Also convert one error to a warning. When the test is complete, report
-> throughput and close cleanly even if the process did not wait for all
-> completions.
-> 
-> Reported-by: Dan Melnic <dmm@fb.com>
-> Signed-off-by: Willem de Bruijn <willemb@google.com>
+Since this has no effect on virtio, isn't presenting
+"no supported modes" to user the right thing to do?
 
-Applied.
+> This is done transparently to the net device type (driver), so it
+> actually makes sense for physical NICs.
+> 
+> This alone of course is not a good enough motivation to modify the
+> driver. And it can be easily addressed in user-space at the application
+> level by testing for the driver.
+
+I think you might want to special-case no supported modes.
+Special-casing virtio is probably best avoided.
+
+> I was merely trying to avoid driver-specific workarounds (i.e. keep the
+> application driver agnostic)
+
+I think that's the right approach. So if driver does not present
+any supported modes this probably means it is not necessary
+to display or program any.
+
+> and wondered if "advertising" supported
+> modes through ethtool made any sense and/or would be a desirable change
+> from the driver perspective. I believe I have my answers now.
+> 
+> Thanks,
+> Radu
