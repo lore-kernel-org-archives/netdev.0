@@ -1,152 +1,47 @@
-From: "liujian (CE)" <liujian56@huawei.com>
-Subject: RE: [RFC PATCH] net: frag limit checks need to use
- percpu_counter_compare
-Date: Fri, 1 Sep 2017 02:25:32 +0000
-Message-ID: <4F88C5DDA1E80143B232E89585ACE27D018F6A9B@DGGEMA502-MBX.china.huawei.com>
-References: <150417481955.28907.15567119824187929000.stgit@firesoul>
- <20170831162349.k3qnkfgkygdh2zqw@unicorn.suse.cz>
+From: Daniel Axtens <dja@axtens.net>
+Subject: Re: [PATCH] bnx2x: drop packets where gso_size is too big for hardware
+Date: Fri, 01 Sep 2017 12:42:41 +1000
+Message-ID: <87a82f3zry.fsf@linkitivity.dja.id.au>
+References: <20170831054642.13721-1-dja@axtens.net> <1504159341.15310.6.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Florian Westphal <fw@strlen.de>
-To: Michal Kubecek <mkubecek@suse.cz>,
-        Jesper Dangaard Brouer <brouer@redhat.com>
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, tlfalcon@linux.vnet.ibm.com,
+        Yuval.Mintz@cavium.com, ariel.elior@cavium.com,
+        everest-linux-l2@cavium.com, jay.vosburgh@canonical.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([45.249.212.188]:11824 "EHLO
-        szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750925AbdIACZo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 22:25:44 -0400
-In-Reply-To: <20170831162349.k3qnkfgkygdh2zqw@unicorn.suse.cz>
-Content-Language: zh-CN
+Received: from mail-pf0-f181.google.com ([209.85.192.181]:36412 "EHLO
+        mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750996AbdIACmq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 22:42:46 -0400
+Received: by mail-pf0-f181.google.com with SMTP id r187so4118625pfr.3
+        for <netdev@vger.kernel.org>; Thu, 31 Aug 2017 19:42:46 -0700 (PDT)
+In-Reply-To: <1504159341.15310.6.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Eric Dumazet <eric.dumazet@gmail.com> writes:
 
+> If you had this test in bnx2x_features_check(), packet could be
+> segmented by core networking stack before reaching bnx2x_start_xmit() by
+> clearing NETIF_F_GSO_MASK
+>
+> -> No drop would be involved.
 
+Thanks for the pointer - networking code is all a bit new to me.
 
-Best Regards,
-liujian
+I'm just struggling at the moment to figure out what the right way to
+calculate the length. My original patch uses gso_size + hlen, but:
 
+ - On reflection, while this solves the immediate bug, I'm not 100% sure
+   this is the right thing to be calculating
 
-> -----Original Message-----
-> From: Michal Kubecek [mailto:mkubecek@suse.cz]
-> Sent: Friday, September 01, 2017 12:24 AM
-> To: Jesper Dangaard Brouer
-> Cc: liujian (CE); netdev@vger.kernel.org; Florian Westphal
-> Subject: Re: [RFC PATCH] net: frag limit checks need to use
-> percpu_counter_compare
-> 
-> On Thu, Aug 31, 2017 at 12:20:19PM +0200, Jesper Dangaard Brouer wrote:
-> > To: Liujian can you please test this patch?
-> >  I want to understand if using __percpu_counter_compare() solves  the
-> > problem correctness wise (even-though this will be slower  than using
-> > a simple atomic_t on your big system).
+ - If it is, then we have the problem that hlen is calculated in a bunch
+   of weird and wonderful ways which make it a nightmare to extract.
 
-I have test the patch, it can work. 
-1. make sure frag_mem_limit reach to thresh
-  ===>FRAG: inuse 0 memory 0 frag_mem_limit 5386864
-2. change NIC rx irq's affinity to a fixed CPU
-3. iperf -u -c 9.83.1.41 -l 10000 -i 1 -t 1000 -P 10 -b 20M
-  And check /proc/net/snmp, there are no ReasmFails.
+Yuval (or anyone else who groks the driver properly) - what's the right
+test to be doing here to make sure we don't write to much data to the
+card?
 
-And I think it is a better way that adding some counter sync points as you said.
-
-> > Fix bug in fragmentation codes use of the percpu_counter API, that
-> > cause issues on systems with many CPUs.
-> >
-> > The frag_mem_limit() just reads the global counter (fbc->count),
-> > without considering other CPUs can have upto batch size (130K) that
-> > haven't been subtracted yet.  Due to the 3MBytes lower thresh limit,
-> > this become dangerous at >=24 CPUs (3*1024*1024/130000=24).
-> >
-> > The __percpu_counter_compare() does the right thing, and takes into
-> > account the number of (online) CPUs and batch size, to account for
-> > this and call __percpu_counter_sum() when needed.
-> >
-> > On systems with many CPUs this will unfortunately always result in the
-> > heavier fully locked __percpu_counter_sum() which touch the
-> > per_cpu_ptr of all (online) CPUs.
-> >
-> > On systems with a smaller number of CPUs this solution is also not
-> > optimal, because __percpu_counter_compare()/__percpu_counter_sum()
-> > doesn't help synchronize the global counter.
-> >  Florian Westphal have an idea of adding some counter sync points,
-> > which should help address this issue.
-> > ---
-> >  include/net/inet_frag.h  |   16 ++++++++++++++--
-> >  net/ipv4/inet_fragment.c |    6 +++---
-> >  2 files changed, 17 insertions(+), 5 deletions(-)
-> >
-> > diff --git a/include/net/inet_frag.h b/include/net/inet_frag.h index
-> > 6fdcd2427776..b586e320783d 100644
-> > --- a/include/net/inet_frag.h
-> > +++ b/include/net/inet_frag.h
-> > @@ -147,9 +147,21 @@ static inline bool inet_frag_evicting(struct
-> inet_frag_queue *q)
-> >   */
-> >  static unsigned int frag_percpu_counter_batch = 130000;
-> >
-> > -static inline int frag_mem_limit(struct netns_frags *nf)
-> > +static inline bool frag_mem_over_limit(struct netns_frags *nf, int
-> > +thresh)
-> >  {
-> > -	return percpu_counter_read(&nf->mem);
-> > +	/* When reading counter here, __percpu_counter_compare() call
-> > +	 * will invoke __percpu_counter_sum() when needed.  Which
-> > +	 * depend on num_online_cpus()*batch size, as each CPU can
-> > +	 * potentential can hold a batch count.
-> > +	 *
-> > +	 * With many CPUs this heavier sum operation will
-> > +	 * unfortunately always occur.
-> > +	 */
-> > +	if (__percpu_counter_compare(&nf->mem, thresh,
-> > +				     frag_percpu_counter_batch) > 0)
-> > +		return true;
-> > +	else
-> > +		return false;
-> >  }
-> >
-> >  static inline void sub_frag_mem_limit(struct netns_frags *nf, int i)
-> > diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c index
-> > 96e95e83cc61..ee2cf56900e6 100644
-> > --- a/net/ipv4/inet_fragment.c
-> > +++ b/net/ipv4/inet_fragment.c
-> > @@ -120,7 +120,7 @@ static void inet_frag_secret_rebuild(struct
-> > inet_frags *f)  static bool inet_fragq_should_evict(const struct
-> > inet_frag_queue *q)  {
-> >  	return q->net->low_thresh == 0 ||
-> > -	       frag_mem_limit(q->net) >= q->net->low_thresh;
-> > +		frag_mem_over_limit(q->net, q->net->low_thresh);
-> >  }
-> >
-> >  static unsigned int
-> > @@ -355,7 +355,7 @@ static struct inet_frag_queue
-> > *inet_frag_alloc(struct netns_frags *nf,  {
-> >  	struct inet_frag_queue *q;
-> >
-> > -	if (!nf->high_thresh || frag_mem_limit(nf) > nf->high_thresh) {
-> > +	if (!nf->high_thresh || frag_mem_over_limit(nf, nf->high_thresh)) {
-> >  		inet_frag_schedule_worker(f);
-> >  		return NULL;
-> >  	}
-> 
-> If we go this way (which would IMHO require some benchmarks to make sure it
-> doesn't harm performance too much) we can drop the explicit checks for zero
-> thresholds which were added to work around the unreliability of fast checks of
-> percpu counters (or at least the second one was by commit
-> 30759219f562 ("net: disable fragment reassembly if high_thresh is zero").
-> 
-> Michal Kubecek
-> 
-> > @@ -396,7 +396,7 @@ struct inet_frag_queue *inet_frag_find(struct
-> netns_frags *nf,
-> >  	struct inet_frag_queue *q;
-> >  	int depth = 0;
-> >
-> > -	if (frag_mem_limit(nf) > nf->low_thresh)
-> > +	if (frag_mem_over_limit(nf, nf->low_thresh))
-> >  		inet_frag_schedule_worker(f);
-> >
-> >  	hash &= (INETFRAGS_HASHSZ - 1);
-> >
+Regards,
+Daniel
