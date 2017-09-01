@@ -1,36 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] udp: fix secpath leak
-Date: Fri, 01 Sep 2017 10:30:22 -0700 (PDT)
-Message-ID: <20170901.103022.450258953816266474.davem@davemloft.net>
-References: <5bd7a6e643340d833718722c0508474c6c3a0a3a.1504260470.git.pabeni@redhat.com>
+From: Prakash Sangappa <prakash.sangappa@oracle.com>
+Subject: Re: [RESEND PATCH] Allow passing tid or pid in SCM_CREDENTIALS
+ without CAP_SYS_ADMIN
+Date: Fri, 1 Sep 2017 10:30:31 -0700
+Message-ID: <ca086e10-764c-4389-808e-43fd1ace4e0c@oracle.com>
+References: <1503965540-30393-1-git-send-email-prakash.sangappa@oracle.com>
+ <20170829.160232.1901318933754673000.davem@davemloft.net>
+ <c9ea9bec-6b0e-70d6-3f74-9b483358edd2@oracle.com>
+ <87ziahzzhx.fsf@xmission.com>
+ <d23ec1ae-e2f0-659c-ce67-9b1b1e9ad8a5@oracle.com>
+ <87inh5ymv2.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yossiku@mellanox.com, paul@paul-moore.com
-To: pabeni@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:49960 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752236AbdIARaX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 1 Sep 2017 13:30:23 -0400
-In-Reply-To: <5bd7a6e643340d833718722c0508474c6c3a0a3a.1504260470.git.pabeni@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org, drepper@redhat.com
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87inh5ymv2.fsf@xmission.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Paolo Abeni <pabeni@redhat.com>
-Date: Fri,  1 Sep 2017 14:42:30 +0200
 
-> From: Yossi Kuperman <yossiku@mellanox.com>
-> 
-> After commit dce4551cb2ad ("udp: preserve head state for IP_CMSG_PASSSEC")
-> we preserve the secpath for the whole skb lifecycle, but we also
-> end up leaking a reference to it.
-> 
-> We must clear the head state on skb reception, if secpath is
-> present.
-> 
-> Fixes: dce4551cb2ad ("udp: preserve head state for IP_CMSG_PASSSEC")
-> Signed-off-by: Yossi Kuperman <yossiku@mellanox.com>
-> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
 
-Applied.
+On 8/30/17 10:41 AM, ebiederm@xmission.com wrote:
+> Prakash Sangappa <prakash.sangappa@oracle.com> writes:
+>
+>
+>> With regards to security, the question basically is what is the consequence
+>> of passing the wrong id. As I understand it, Interpreting the id to be pid
+>> or tid, the effective uid and gid will be the same. It would be a problem
+>> only if the incorrect interpretation of the id would refer a different process.
+>> But that cannot happen as the the global tid(gettid() of a thread is
+>> unique.
+> There is also the issue that the receiving process could look, not see
+> the pid in proc and assume the sending process is dead.  That I suspect
+> is the larger danger.
+>
+
+Will this not be a bug in the application, if it is sending the wrong id?
+
+>> As long as the thread is alive, that id cannot reference another process / thread.
+>> Unless the thread were to exit and the id gets recycled and got used for another
+>> thread or process. This would be no different from a process exiting and its
+>> pid getting recycled which is the case now.
+> Largely I agree.
+>
+> If all you want are pid translations I suspect the are far easier ways
+> thant updating the SCM_CREDENTIALS code.
+
+What would be an another easier & efficient way of doing pid translation?
+
+Should a new API/mechanism be considered mainly for pid translation purpose
+for use with pid namespaces, say based on 'pipe' something similar to 
+I_SENDFD?
+
+Thanks,
+-Prakash.
+
+> Eric
+>
