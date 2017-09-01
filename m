@@ -1,83 +1,73 @@
-From: Bhadram Varka <vbhadram@nvidia.com>
-Subject: RE: netdev carrier changes is one even after ethernet link up.
-Date: Fri, 1 Sep 2017 05:49:12 +0000
-Message-ID: <cd860399cf9148d193a08636a6d82a68@DRBGMAIL102.nvidia.com>
-References: <974898714b3e4e59b933983ded977ce2@bgmail102.nvidia.com>
- <25c3b4ca-02d7-e217-fe27-ca3b7d2cbf07@gmail.com>
+From: Jeffrey Vander Stoep <jeffv@google.com>
+Subject: Re: [PATCH 2/3] security: bpf: Add eBPF LSM hooks and security field
+ to eBPF map
+Date: Thu, 31 Aug 2017 22:50:45 -0700
+Message-ID: <CABXk95AaepfP94aPZM6kOBgKVM8e2Ma8g63DLdpOLAAyDF=eSQ@mail.gmail.com>
+References: <20170831205635.80256-1-chenbofeng.kernel@gmail.com>
+ <20170831205635.80256-3-chenbofeng.kernel@gmail.com> <20170901020520.uifv6b7tvelgxumf@ast-mbp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: linux-netdev <netdev@vger.kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-        "andrew@lunn.ch" <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nat-hk.nvidia.com ([203.18.50.4]:10798 "EHLO nat-hk.nvidia.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751318AbdIAFu1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 1 Sep 2017 01:50:27 -0400
-In-Reply-To: <25c3b4ca-02d7-e217-fe27-ca3b7d2cbf07@gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Chenbo Feng <chenbofeng.kernel@gmail.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        LSM List <linux-security-module@vger.kernel.org>,
+        netdev@vger.kernel.org, SELinux <Selinux@tycho.nsa.gov>,
+        Lorenzo Colitti <lorenzo@google.com>,
+        Chenbo Feng <fengc@google.com>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <20170901020520.uifv6b7tvelgxumf@ast-mbp>
+Sender: owner-linux-security-module@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-VGhhbmtzIGZvciByZXNwb25kaW5nLiBOb3cgcmVzcG9uZGluZyBpbmxpbmUNCg0KPiAtLS0tLU9y
-aWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBGbG9yaWFuIEZhaW5lbGxpIFttYWlsdG86Zi5m
-YWluZWxsaUBnbWFpbC5jb21dDQo+IFNlbnQ6IEZyaWRheSwgU2VwdGVtYmVyIDAxLCAyMDE3IDU6
-NTMgQU0NCj4gVG86IEJoYWRyYW0gVmFya2EgPHZiaGFkcmFtQG52aWRpYS5jb20+OyBhbmRyZXdA
-bHVubi5jaA0KPiBDYzogbGludXgtbmV0ZGV2IDxuZXRkZXZAdmdlci5rZXJuZWwub3JnPg0KPiBT
-dWJqZWN0OiBSZTogbmV0ZGV2IGNhcnJpZXIgY2hhbmdlcyBpcyBvbmUgZXZlbiBhZnRlciBldGhl
-cm5ldCBsaW5rIHVwLg0KPiANCj4gT24gMDgvMzAvMjAxNyAxMDo1MyBQTSwgQmhhZHJhbSBWYXJr
-YSB3cm90ZToNCj4gPiBIaSwNCj4gPg0KPiA+DQo+ID4NCj4gPiBJIGhhdmUgb2JzZXJ2ZWQgdGhh
-dCBjYXJyaWVyX2NoYW5nZXMgaXMgb25lIGV2ZW4gaW4gY2FzZSBvZiB0aGUNCj4gPiBldGhlcm5l
-dCBsaW5rIGlzIHVwLg0KPiA+DQo+ID4NCj4gPg0KPiA+IEFmdGVyIGludmVzdGlnYXRpbmcgdGhl
-IGNvZGUgYmVsb3cgaXMgbXkgb2JzZXJ2YXRpb24g4oCTDQo+ID4NCj4gPg0KPiA+DQo+ID4gZXRo
-ZXJuZXRfZHJpdmVyX3Byb2JlKCkNCj4gPg0KPiA+ICstLS0+cGh5X2Nvbm5lY3QoKQ0KPiA+DQo+
-ID4gfCAgICAgKy0tLT5waHlfYXR0YWNoX2RpcmVjdCgpDQo+ID4NCj4gPiB8ICAgICAgICAgICAr
-LS0tPiBuZXRpZl9jYXJyaWVyX29mZigpICAgIDogd2hpY2ggaW5jcmVtZW50cw0KPiA+IGNhcnJp
-ZXJfY2hhbmdlcyB0byBvbmUuDQo+ID4NCj4gPiArLS0tPnJlZ2lzdGVyX25ldGRldmljZSgpIDog
-d2lsbCB0aGUgY2Fycmllcl9jaGFuZ2VzIGJlY29tZXMgemVybyBoZXJlID8NCj4gPg0KPiA+ICst
-LS0+bmV0aWZfY2Fycmllcl9vZmYoKTogbm90IGluY3JlbWVudCB0aGUgY2Fycmllcl9jaGFuZ2Vz
-IHNpbmNlDQo+ID4gX19MSU5LX1NUQVRFX05PQ0FSUklFUiBhbHJlYWR5IHNldC4NCj4gPg0KPiA+
-DQo+ID4NCj4gPiBGcm9tIGV0aGVybmV0IGRyaXZlciBvcGVuIHdpbGwgc3RhcnQgdGhlIFBIWSBh
-bmQgdHJpZ2dlciB0aGUNCj4gPiBwaHlfc3RhdGVfbWFjaGluZS4NCj4gPg0KPiA+IFBoeV9zdGF0
-ZV9tYWNoaW5lIHdvcmtxdWV1ZSBjYWxsaW5nIG5ldGlmX2NhcnJpZXJfb24oKSBvbmNlIHRoZSBs
-aW5rIGlzDQo+IFVQLg0KPiA+DQo+ID4gbmV0aWZfY2Fycmllcl9vbigpIGluY3JlbWVudHMgdGhl
-IGNhcnJpZXJfY2hhbmdlcyBieSBvbmUuDQo+IA0KPiBJZiB0aGUgY2FsbCB0cmFjZSBpcyBjb3Jy
-ZWN0LCB0aGVuIHRoZXJlIGlzIGF0IGxlYXN0IHR3byBwcm9ibGVtcyBoZXJlOg0KPiANCj4gLSBw
-aHlfY29ubmVjdCgpIGRvZXMgc3RhcnQgdGhlIFBIWSBtYWNoaW5lIHdoaWNoIG1lYW5zIHRoYXQg
-YXMgc29vbiBhcyBpdA0KPiBkZXRlY3RzIGEgbGluayBzdGF0ZSBvZiBhbnkga2luZCAodXAgb3Ig
-ZG93bikgaXQgY2FuIGNhbGwNCj4gbmV0aWZfY2Fycmllcl9vZmYoKSByZXNwZWN0aXZlbHkgbmV0
-aWZfY2Fycmllcl9vbigpDQo+IA0KPiAtIGFzIHNvb24gYXMgeW91IGNhbGwgcmVnaXN0ZXJfbmV0
-ZGV2aWNlKCkgbm90aWZpZXJzIHJ1biBhbmQgb3RoZXIgcGFydHMgb2YgdGhlDQo+IGtlcm5lbCBv
-ciB1c2VyLXNwYWNlIHByb2dyYW1zIGNhbiBzZWUgYW4gaW5jb25zaXN0ZW50IGxpbmsgc3RhdGUN
-Cj4gDQo+IEkgd291bGQgc3VnZ2VzdCBkb2luZyB0aGUgZm9sbG93aW5nIHNlcXVlbmNlIGluc3Rl
-YWQ6DQo+IA0KPiBuZXRpZl9jYXJyaWVyX29mZigpDQo+IHJlZ2lzdGVyX25ldGRldmljZSgpDQo+
-IHBoeV9jb25uZWN0KCkNCj4gDQo+IFdoaWNoIHNob3VsZCByZXN1bHQgaW4gYSBjb25zaXN0ZW50
-IGxpbmsgc3RhdGUgYW5kIGNhcnJpZXIgdmFsdWUuDQo+IA0KWWVzLCBJdCB3aWxsIGFkZHJlc3Mg
-dGhlIGlzc3VlLiANCg0KSWYgd2UgZGlkIHRoZSBwaHlfY29uZWN0IGluIG5kb19vcGVuIGl0IHdp
-bGwgbWFrZSB0aGUgY2FycmllciBjaGFuZ2VzIGFzIHR3by4gQnV0IGlmIHdlIGRpZCBpbiBwcm9i
-ZSBmdW5jdGlvbiB0aGVuIGl0J3Mgbm90IHdvcmtpbmcuDQoNCkluIGV0aGVybmV0IGRyaXZlciBw
-cm9iZSAtIChiZWxvdyBzZXF1ZW5jZSBpcyBub3Qgd29ya2luZykNCnBoeV9jb25uZWN0KCkNCnJl
-Z2lzdGVyX25ldGRldmljZSgpDQpuZXRpZl9jYXJyaWVyX29mZigpDQoNCndvcmtpbmcgc2VxdWVu
-Y2U6DQpJbiBwcm9iZSgpOg0KcmVnaXN0ZXJfbmV0ZGV2aWNlKCkNCm5kb19vcGVuOg0KICAgICAg
-ICAgICBwaHlfY29ubmVjdCgpDQoNCkFmdGVyIHJldmVydGluZyAtIGh0dHBzOi8vbGttbC5vcmcv
-bGttbC8yMDE2LzEvOS8xNzMgdGhpcyB3b3JrcyBpZiB3ZSBkbyBwaHlfY29ubmVjdCBpbiBwcm9i
-ZSBhcyB3ZWxsLg0KDQpUaGFua3MsDQpCaGFkcmFtLg0KPiA+DQo+ID4NCj4gPg0KPiA+IEFmdGVy
-IGxpbmsgaXMgVVAgaWYgd2UgY2hlY2sgdGhlIGNhcnJpZXJfY2hhbmdlcyBzeXNmcyBub2RlIC0g
-aXQgd2lsbA0KPiA+IGJlIG9uZSBvbmx5Lg0KPiA+DQo+ID4NCj4gPg0KPiA+ICQgY2F0IC9zeXMv
-Y2xhc3MvbmV0L2V0aDAvY2Fycmllcl9jaGFuZ2VzDQo+ID4NCj4gPiAxDQo+ID4NCj4gPg0KPiA+
-DQo+ID4gQWZ0ZXIgcmV2ZXJ0aW5nIHRoZSBjaGFuZ2UgLSBodHRwczovL2xrbWwub3JnL2xrbWwv
-MjAxNi8xLzkvMTczIChuZXQ6DQo+ID4gcGh5OiB0dXJuIGNhcnJpZXIgb2ZmIG9uIHBoeSBhdHRh
-Y2gpIHRoZW4gSSBjb3VsZCBzZWUgdGhlIGNhcnJpZXINCj4gPiBjaGFuZ2VzIGluY3JlbWVudGVk
-IHRvIDIgYWZ0ZXIgTGluayBVUC4NCj4gPg0KPiA+ICQgY2F0IC9zeXMvY2xhc3MvbmV0L2V0aDAv
-Y2Fycmllcl9jaGFuZ2VzDQo+ID4NCj4gPiAyDQo+ID4NCj4gPg0KPiA+DQo+ID4gVGhhbmtzLA0K
-PiA+DQo+ID4gQmhhZHJhbS4NCj4gPg0KPiA+IC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0NCj4gPiAtLSBUaGlzIGVt
-YWlsIG1lc3NhZ2UgaXMgZm9yIHRoZSBzb2xlIHVzZSBvZiB0aGUgaW50ZW5kZWQgcmVjaXBpZW50
-KHMpDQo+ID4gYW5kIG1heSBjb250YWluIGNvbmZpZGVudGlhbCBpbmZvcm1hdGlvbi4gIEFueSB1
-bmF1dGhvcml6ZWQgcmV2aWV3LA0KPiA+IHVzZSwgZGlzY2xvc3VyZSBvciBkaXN0cmlidXRpb24g
-aXMgcHJvaGliaXRlZC4gIElmIHlvdSBhcmUgbm90IHRoZQ0KPiA+IGludGVuZGVkIHJlY2lwaWVu
-dCwgcGxlYXNlIGNvbnRhY3QgdGhlIHNlbmRlciBieSByZXBseSBlbWFpbCBhbmQNCj4gPiBkZXN0
-cm95IGFsbCBjb3BpZXMgb2YgdGhlIG9yaWdpbmFsIG1lc3NhZ2UuDQo+ID4gLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LQ0KPiA+IC0tDQo+IA0KPiANCj4gLS0NCj4gRmxvcmlhbg0K
+On Thu, Aug 31, 2017 at 7:05 PM, Alexei Starovoitov
+<alexei.starovoitov@gmail.com> wrote:
+> On Thu, Aug 31, 2017 at 01:56:34PM -0700, Chenbo Feng wrote:
+>> From: Chenbo Feng <fengc@google.com>
+>>
+>> Introduce a pointer into struct bpf_map to hold the security information
+>> about the map. The actual security struct varies based on the security
+>> models implemented. Place the LSM hooks before each of the unrestricted
+>> eBPF operations, the map_update_elem and map_delete_elem operations are
+>> checked by security_map_modify. The map_lookup_elem and map_get_next_key
+>> operations are checked by securtiy_map_read.
+>>
+>> Signed-off-by: Chenbo Feng <fengc@google.com>
+>
+> ...
+>
+>> @@ -410,6 +418,10 @@ static int map_lookup_elem(union bpf_attr *attr)
+>>       if (IS_ERR(map))
+>>               return PTR_ERR(map);
+>>
+>> +     err = security_map_read(map);
+>> +     if (err)
+>> +             return -EACCES;
+>> +
+>>       key = memdup_user(ukey, map->key_size);
+>>       if (IS_ERR(key)) {
+>>               err = PTR_ERR(key);
+>> @@ -490,6 +502,10 @@ static int map_update_elem(union bpf_attr *attr)
+>>       if (IS_ERR(map))
+>>               return PTR_ERR(map);
+>>
+>> +     err = security_map_modify(map);
+>
+> I don't feel these extra hooks are really thought through.
+> With such hook you'll disallow map_update for given map. That's it.
+> The key/values etc won't be used in such security decision.
+> In such case you don't need such hooks in update/lookup at all.
+> Only in map_creation and object_get calls where FD can be received.
+> In other words I suggest to follow standard unix practices:
+> Do permissions checks in open() and allow read/write() if FD is valid.
+> Same here. Do permission checks in prog_load/map_create/obj_pin/get
+> and that will be enough to jail bpf subsystem.
+> bpf cmds that need to be fast (like lookup and update) should not
+> have security hooks.
+>
+
+I do think we want to distinguish between read/write (or read/modify)
+for these objects. Essentially, we want to implement the example
+described in patch 0/3 where eBPF objects can be passed to less
+privileged processes which can read, but not modify the map. What
+would be the best way to do this? Add a mode field to the bpf_map
+struct?
