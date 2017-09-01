@@ -1,30 +1,35 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH net 1/2] Revert "net: use lib/percpu_counter API for
- fragmentation mem accounting"
-Date: Fri, 1 Sep 2017 11:30:30 +0200
-Message-ID: <20170901093030.GA951@breakpoint.cc>
-References: <150425790711.22227.12264977619066874632.stgit@firesoul>
- <150425796850.22227.6149901788992481211.stgit@firesoul>
+From: Claudiu Manoil <claudiu.manoil@nxp.com>
+Subject: [net 0/3] gianfar: Tx flow control fix (adjust_link)
+Date: Fri, 1 Sep 2017 12:41:00 +0300
+Message-ID: <1504258863-2058-1-git-send-email-claudiu.manoil@nxp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Content-Type: text/plain
+Cc: "David S . Miller" <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:44882 "EHLO
-        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751595AbdIAJdS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 1 Sep 2017 05:33:18 -0400
-Content-Disposition: inline
-In-Reply-To: <150425796850.22227.6149901788992481211.stgit@firesoul>
+Received: from mail-cys01nam02on0074.outbound.protection.outlook.com ([104.47.37.74]:39800
+        "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751705AbdIAJlI (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 1 Sep 2017 05:41:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jesper Dangaard Brouer <brouer@redhat.com> wrote:
-> This reverts commit 6d7b857d541ecd1d9bd997c97242d4ef94b19de2.
-> 
-> There is a bug in fragmentation codes use of the percpu_counter API,
-> that can cause issues on systems with many CPUs.
+Fix a small blunder in the Tx pause frame settings, that
+went unnoticed in the tangled code of adjust_link().
+I followed up with a couple of simple refactoring patches,
+aiming to make adjust_link() more manageable.
 
-Acked-by: Florian Westphal <fw@strlen.de>
+(The last 2 patches may be postponed if they are too much
+for the current stage of net.)
 
-Thanks Jesper.
+Claudiu Manoil (3):
+  gianfar: Fix Tx flow control deactivation
+  gianfar: Refactor link speed update (adjust_link)
+  gianfar: Refactor link flow control update (adjust_link)
+
+ drivers/net/ethernet/freescale/gianfar.c | 134 ++++++++++++++++---------------
+ 1 file changed, 70 insertions(+), 64 deletions(-)
+
+-- 
+2.7.4
