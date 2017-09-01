@@ -1,63 +1,44 @@
-From: Ido Schimmel <idosch@mellanox.com>
-Subject: [PATCH net] bridge: switchdev: Clear forward mark when transmitting packet
-Date: Fri,  1 Sep 2017 12:22:25 +0300
-Message-ID: <20170901092225.31597-1-idosch@mellanox.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: [PATCH net 0/2] net: revert lib/percpu_counter API for
+ fragmentation mem accounting
+Date: Fri, 01 Sep 2017 11:26:03 +0200
+Message-ID: <150425790711.22227.12264977619066874632.stgit@firesoul>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: davem@davemloft.net, stephen@networkplumber.org,
-        nikolay@cumulusnetworks.com, jiri@mellanox.com,
-        yotamg@mellanox.com, mlxsw@mellanox.com,
-        bridge@lists.linux-foundation.org,
-        Ido Schimmel <idosch@mellanox.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: mkubecek@suse.cz, Florian Westphal <fw@strlen.de>,
+        liujian56@huawei.com, Jesper Dangaard Brouer <brouer@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-eopbgr10043.outbound.protection.outlook.com ([40.107.1.43]:22560
-        "EHLO EUR02-HE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751618AbdIAJW6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 1 Sep 2017 05:22:58 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:56726 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751457AbdIAJ0I (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 1 Sep 2017 05:26:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 6bc506b4fb06 ("bridge: switchdev: Add forward mark support for
-stacked devices") added the 'offload_fwd_mark' bit to the skb in order
-to allow drivers to indicate to the bridge driver that they already
-forwarded the packet in L2.
+There is a bug in fragmentation codes use of the percpu_counter API,
+that can cause issues on systems with many CPUs, above 24 CPUs.
 
-In case the bit is set, before transmitting the packet from each port,
-the port's mark is compared with the mark stored in the skb's control
-block. If both marks are equal, we know the packet arrived from a switch
-device that already forwarded the packet and it's not re-transmitted.
+After much consideration and different attempts at solving the API
+usage.  The conclusion is to revert to the simple atomic_t API instead.
 
-However, if the packet is transmitted from the bridge device itself
-(e.g., br0), we should clear the 'offload_fwd_mark' bit as the mark
-stored in the skb's control block isn't valid.
+The ratio between batch size and threshold size make it a bad use-case
+for the lib/percpu_counter API.  As using the correct API calls will
+unfortunately cause systems with many CPUs to always execute an
+expensive sum across all CPUs. Plus the added complexity is not worth it.
 
-This scenario can happen in rare cases where a packet was trapped during
-L3 forwarding and forwarded by the kernel to a bridge device.
-
-Fixes: 6bc506b4fb06 ("bridge: switchdev: Add forward mark support for stacked devices")
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-Reported-by: Yotam Gigi <yotamg@mellanox.com>
-Tested-by: Yotam Gigi <yotamg@mellanox.com>
-Reviewed-by: Jiri Pirko <jiri@mellanox.com>
 ---
- net/bridge/br_device.c | 3 +++
- 1 file changed, 3 insertions(+)
 
-diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
-index 861ae2a165f4..5a7be3bddfa9 100644
---- a/net/bridge/br_device.c
-+++ b/net/bridge/br_device.c
-@@ -53,6 +53,9 @@ netdev_tx_t br_dev_xmit(struct sk_buff *skb, struct net_device *dev)
- 	brstats->tx_bytes += skb->len;
- 	u64_stats_update_end(&brstats->syncp);
- 
-+#ifdef CONFIG_NET_SWITCHDEV
-+	skb->offload_fwd_mark = 0;
-+#endif
- 	BR_INPUT_SKB_CB(skb)->brdev = dev;
- 
- 	skb_reset_mac_header(skb);
--- 
-2.13.5
+Jesper Dangaard Brouer (2):
+      Revert "net: use lib/percpu_counter API for fragmentation mem accounting"
+      Revert "net: fix percpu memory leaks"
+
+
+ include/net/inet_frag.h                 |   35 ++++++++-----------------------
+ net/ieee802154/6lowpan/reassembly.c     |   11 +++-------
+ net/ipv4/inet_fragment.c                |    4 +---
+ net/ipv4/ip_fragment.c                  |   12 +++--------
+ net/ipv6/netfilter/nf_conntrack_reasm.c |   12 +++--------
+ net/ipv6/reassembly.c                   |   12 +++--------
+ 6 files changed, 22 insertions(+), 64 deletions(-)
