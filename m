@@ -1,7 +1,7 @@
 From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Subject: [PATCH v2 5/5] net: mdio-mux: fix unbalanced put_device
-Date: Fri,  1 Sep 2017 13:56:04 +0200
-Message-ID: <20170901115604.27513-6-clabbe.montjoie@gmail.com>
+Subject: [PATCH v2 4/5] net: mdio-mux-mmioreg: Can handle 8/16/32 bits registers
+Date: Fri,  1 Sep 2017 13:56:03 +0200
+Message-ID: <20170901115604.27513-5-clabbe.montjoie@gmail.com>
 References: <20170901115604.27513-1-clabbe.montjoie@gmail.com>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
         Corentin Labbe <clabbe.montjoie@gmail.com>
@@ -11,49 +11,28 @@ In-Reply-To: <20170901115604.27513-1-clabbe.montjoie@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-mdio_mux_uninit() call put_device (unconditionally) because of
-of_mdio_find_bus() in mdio_mux_init.
-But of_mdio_find_bus is only called if mux_bus is empty.
-If mux_bus is set, mdio_mux_uninit will print a "refcount_t: underflow"
-trace.
-
-This patch add a get_device in the other branch of "if (mux_bus)".
+This patch fix an old information that mdio-mux-mmioreg can only handle
+8bit registers.
+This is not true anymore.
 
 Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 ---
- drivers/net/phy/mdio-mux.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+ drivers/net/phy/Kconfig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/phy/mdio-mux.c b/drivers/net/phy/mdio-mux.c
-index 282828551bdd..6f75e9f27fed 100644
---- a/drivers/net/phy/mdio-mux.c
-+++ b/drivers/net/phy/mdio-mux.c
-@@ -116,6 +116,7 @@ int mdio_mux_init(struct device *dev,
- 	} else {
- 		parent_bus_node = NULL;
- 		parent_bus = mux_bus;
-+		get_device(&parent_bus->dev);
- 	}
+diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+index 5afe6fdcc968..a9d16a3af514 100644
+--- a/drivers/net/phy/Kconfig
++++ b/drivers/net/phy/Kconfig
+@@ -85,7 +85,7 @@ config MDIO_BUS_MUX_MMIOREG
+ 	  parent bus.  Child bus selection is under the control of one of
+ 	  the FPGA's registers.
  
- 	pb = devm_kzalloc(dev, sizeof(*pb), GFP_KERNEL);
-@@ -184,9 +185,7 @@ int mdio_mux_init(struct device *dev,
- 	dev_err(dev, "Error: No acceptable child buses found\n");
- 	devm_kfree(dev, pb);
- err_pb_kz:
--	/* balance the reference of_mdio_find_bus() took */
--	if (!mux_bus)
--		put_device(&parent_bus->dev);
-+	put_device(&parent_bus->dev);
- err_parent_bus:
- 	of_node_put(parent_bus_node);
- 	return ret_val;
-@@ -204,7 +203,6 @@ void mdio_mux_uninit(void *mux_handle)
- 		cb = cb->next;
- 	}
+-	  Currently, only 8-bit registers are supported.
++	  Currently, only 8/16/32 bits registers are supported.
  
--	/* balance the reference of_mdio_find_bus() in mdio_mux_init() took */
- 	put_device(&pb->mii_bus->dev);
- }
- EXPORT_SYMBOL_GPL(mdio_mux_uninit);
+ config MDIO_CAVIUM
+ 	tristate
 -- 
 2.13.5
