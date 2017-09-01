@@ -1,54 +1,92 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: [PATCH net-next 1/4] bpf: add helper bpf_perf_read_counter_time
- for perf event array map
-Date: Fri, 1 Sep 2017 22:41:09 +0200
-Message-ID: <20170901204109.GT6524@worktop.programming.kicks-ass.net>
-References: <20170901165357.465121-1-yhs@fb.com>
- <20170901165357.465121-2-yhs@fb.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: rostedt@goodmis.org, ast@fb.com, daniel@iogearbox.net,
-        netdev@vger.kernel.org, kernel-team@fb.com
-To: Yonghong Song <yhs@fb.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([65.50.211.133]:56847 "EHLO
-        bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752406AbdIAUlS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 1 Sep 2017 16:41:18 -0400
-Content-Disposition: inline
-In-Reply-To: <20170901165357.465121-2-yhs@fb.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Bjorn Andersson <bjorn.andersson@linaro.org>
+Subject: [PATCH 2/2] Bluetooth: btqcomsmd: BD address setup
+Date: Fri,  1 Sep 2017 13:41:18 -0700
+Message-ID: <20170901204118.17123-3-bjorn.andersson@linaro.org>
+References: <20170901204118.17123-1-bjorn.andersson@linaro.org>
+Cc: "David S. Miller" <davem@davemloft.net>,
+        linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, linux-arm-msm@vger.kernel.org,
+        Loic Poulain <loic.poulain@linaro.org>
+To: Marcel Holtmann <marcel@holtmann.org>,
+        Gustavo Padovan <gustavo@padovan.org>,
+        Johan Hedberg <johan.hedberg@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170901204118.17123-1-bjorn.andersson@linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 01, 2017 at 09:53:54AM -0700, Yonghong Song wrote:
-> diff --git a/include/linux/perf_event.h b/include/linux/perf_event.h
-> index b14095b..7fd5e94 100644
-> --- a/include/linux/perf_event.h
-> +++ b/include/linux/perf_event.h
-> @@ -901,6 +901,8 @@ extern void perf_pmu_migrate_context(struct pmu *pmu,
->  int perf_event_read_local(struct perf_event *event, u64 *value);
->  extern u64 perf_event_read_value(struct perf_event *event,
->  				 u64 *enabled, u64 *running);
-> +extern void calc_timer_values(struct perf_event *event, u64 *now,
-> +         u64 *enabled, u64 *running);
->  
->  
+From: Loic Poulain <loic.poulain@linaro.org>
 
-> diff --git a/kernel/events/core.c b/kernel/events/core.c
-> index 8c01572..ef5c7fb 100644
-> --- a/kernel/events/core.c
-> +++ b/kernel/events/core.c
-> @@ -4883,7 +4883,7 @@ static int perf_event_index(struct perf_event *event)
->  	return event->pmu->event_idx(event);
->  }
->  
-> -static void calc_timer_values(struct perf_event *event,
-> +void calc_timer_values(struct perf_event *event,
->  				u64 *now,
->  				u64 *enabled,
->  				u64 *running)
+Bluetooth BD address can be retrieved in the same way as
+for wcnss-wlan MAC address. This patch mainly stores the
+local-mac-address property and sets the BD address during
+hci device setup.
 
-Yeah, not going to happen...
+Signed-off-by: Loic Poulain <loic.poulain@linaro.org>
+Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
+---
+ drivers/bluetooth/btqcomsmd.c | 28 ++++++++++++++++++++++++++++
+ 1 file changed, 28 insertions(+)
 
-Why not do the obvious thing and extend perf_event_read_local() to
-optionally return the enabled/running times?
+diff --git a/drivers/bluetooth/btqcomsmd.c b/drivers/bluetooth/btqcomsmd.c
+index d00c4fdae924..443bb2099329 100644
+--- a/drivers/bluetooth/btqcomsmd.c
++++ b/drivers/bluetooth/btqcomsmd.c
+@@ -26,6 +26,7 @@
+ struct btqcomsmd {
+ 	struct hci_dev *hdev;
+ 
++	const bdaddr_t *addr;
+ 	struct rpmsg_endpoint *acl_channel;
+ 	struct rpmsg_endpoint *cmd_channel;
+ };
+@@ -100,6 +101,27 @@ static int btqcomsmd_close(struct hci_dev *hdev)
+ 	return 0;
+ }
+ 
++static int btqcomsmd_setup(struct hci_dev *hdev)
++{
++	struct btqcomsmd *btq = hci_get_drvdata(hdev);
++	struct sk_buff *skb;
++
++	skb = __hci_cmd_sync(hdev, HCI_OP_RESET, 0, NULL, HCI_INIT_TIMEOUT);
++	if (IS_ERR(skb))
++		return PTR_ERR(skb);
++	kfree_skb(skb);
++
++	if (btq->addr) {
++		bdaddr_t bdaddr;
++
++		/* btq->addr stored with most significant byte first */
++		baswap(&bdaddr, btq->addr);
++		return qca_set_bdaddr_rome(hdev, &bdaddr);
++	}
++
++	return 0;
++}
++
+ static int btqcomsmd_probe(struct platform_device *pdev)
+ {
+ 	struct btqcomsmd *btq;
+@@ -123,6 +145,11 @@ static int btqcomsmd_probe(struct platform_device *pdev)
+ 	if (IS_ERR(btq->cmd_channel))
+ 		return PTR_ERR(btq->cmd_channel);
+ 
++	btq->addr = of_get_property(pdev->dev.of_node, "local-mac-address",
++				    &ret);
++	if (ret != sizeof(bdaddr_t))
++		btq->addr = NULL;
++
+ 	hdev = hci_alloc_dev();
+ 	if (!hdev)
+ 		return -ENOMEM;
+@@ -135,6 +162,7 @@ static int btqcomsmd_probe(struct platform_device *pdev)
+ 	hdev->open = btqcomsmd_open;
+ 	hdev->close = btqcomsmd_close;
+ 	hdev->send = btqcomsmd_send;
++	hdev->setup = btqcomsmd_setup;
+ 	hdev->set_bdaddr = qca_set_bdaddr_rome;
+ 
+ 	ret = hci_register_dev(hdev);
+-- 
+2.12.0
