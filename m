@@ -1,32 +1,42 @@
 From: Alexei Starovoitov <ast@fb.com>
-Subject: Re: [PATCH net-next 1/3] bpf: Add lru_hash_lookup performance test
-Date: Fri, 1 Sep 2017 07:22:32 -0700
-Message-ID: <21166cda-609b-8843-d223-83ce72e62a10@fb.com>
+Subject: Re: [PATCH net-next 3/3] bpf: Only set node->ref = 1 if it has not
+ been set
+Date: Fri, 1 Sep 2017 07:22:52 -0700
+Message-ID: <376e7393-143b-aca6-4cb5-0d8987bbe8b3@fb.com>
 References: <20170901062713.1842249-1-kafai@fb.com>
- <20170901062713.1842249-2-kafai@fb.com>
+ <20170901062713.1842249-4-kafai@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: Daniel Borkmann <daniel@iogearbox.net>, <kernel-team@fb.com>
 To: Martin KaFai Lau <kafai@fb.com>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:54288 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751964AbdIAOXJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 1 Sep 2017 10:23:09 -0400
-In-Reply-To: <20170901062713.1842249-2-kafai@fb.com>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:44285 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751979AbdIAOXK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 1 Sep 2017 10:23:10 -0400
+In-Reply-To: <20170901062713.1842249-4-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On 8/31/17 11:27 PM, Martin KaFai Lau wrote:
-> Create a new case to test the LRU lookup performance.
+> This patch writes 'node->ref = 1' only if node->ref is 0.
+> The number of lookups/s for a ~1M entries LRU map increased by
+> ~30% (260097 to 343313).
 >
-> At the beginning, the LRU map is fully loaded (i.e. the number of keys
-> is equal to map->max_entries).   The lookup is done through key 0
-> to num_map_entries and then repeats from 0 again.
+> Other writes on 'node->ref = 0' is not changed.  In those cases, the
+> same cache line has to be changed anyway.
 >
-> This patch also creates an anonymous struct to properly
-> name the test params in stress_lru_hmap_alloc() in map_perf_test_kern.c.
+> First column: Size of the LRU hash
+> Second column: Number of lookups/s
+>
+> Before:
+>> echo "$((2**20+1)): $(./map_perf_test 1024 1 $((2**20+1)) 10000000 | awk '{print $3}')"
+> 1048577: 260097
+>
+> After:
+>> echo "$((2**20+1)): $(./map_perf_test 1024 1 $((2**20+1)) 10000000 | awk '{print $3}')"
+> 1048577: 343313
 >
 > Signed-off-by: Martin KaFai Lau <kafai@fb.com>
 
