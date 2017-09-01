@@ -1,100 +1,207 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [RFC net-next 0/8] net: dsa: Multi-queue awareness
-Date: Fri, 1 Sep 2017 09:46:26 -0700
-Message-ID: <a0b9ab3a-45d8-3371-901b-2249a26b9192@gmail.com>
-References: <1504138732-65383-1-git-send-email-f.fainelli@gmail.com>
- <20170901000502.GB28960@lunn.ch>
- <7d738ef5-c312-e0b3-3605-1f31fa7dc019@gmail.com>
- <20170901132921.GV22289@lunn.ch>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH net-next 2/2] flow_dissector: Add limits for encapsulation
+ and EH
+Date: Fri, 1 Sep 2017 09:49:59 -0700
+Message-ID: <CALx6S37304j28=TdDYaj8dS6G=bhjzMkaVsieCcK3hLWNSVKzA@mail.gmail.com>
+References: <20170831222239.21509-1-tom@quantonium.net> <20170831222239.21509-3-tom@quantonium.net>
+ <87fuc6zgra.fsf@stressinduktion.org> <CAPDqMeq9=DrGCfkH-EdpXDGqtzzKun4UAv6T5h354VHH-TaAqg@mail.gmail.com>
+ <87tw0mjs11.fsf@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-        xiyou.wangcong@gmail.com, vivien.didelot@savoirfairelinux.com
-To: Andrew Lunn <andrew@lunn.ch>, jiri@resnulli.us, jhs@mojatatu.com
+Content-Type: text/plain; charset="UTF-8"
+Cc: Tom Herbert <tom@quantonium.net>,
+        "David S . Miller" <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        alex.popov@linux.com
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f172.google.com ([209.85.128.172]:34849 "EHLO
-        mail-wr0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751863AbdIAQqh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 1 Sep 2017 12:46:37 -0400
-Received: by mail-wr0-f172.google.com with SMTP id y15so1955958wrc.2
-        for <netdev@vger.kernel.org>; Fri, 01 Sep 2017 09:46:37 -0700 (PDT)
-In-Reply-To: <20170901132921.GV22289@lunn.ch>
-Content-Language: en-US
+Received: from mail-qk0-f171.google.com ([209.85.220.171]:37075 "EHLO
+        mail-qk0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751863AbdIAQuA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 1 Sep 2017 12:50:00 -0400
+Received: by mail-qk0-f171.google.com with SMTP id k126so3327943qkb.4
+        for <netdev@vger.kernel.org>; Fri, 01 Sep 2017 09:50:00 -0700 (PDT)
+In-Reply-To: <87tw0mjs11.fsf@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/01/2017 06:29 AM, Andrew Lunn wrote:
->> I suppose that you could somehow use TC to influence how the traffic
->> from host to CPU works, but without a "CPU" port representor the
->> question is how do we get that done? If we used "eth0" we need to
->> callback into the switch driver for programming..
-> 
-> We need to compare how the different switches work with respect to
-> QoS. Marvell switches do a lot of the classification on the ingress
-> port where it determines what queue the frame should be placed in on
-> the egress port. The egress port then schedules its queues.
-> 
-> This does not map to TC too well.
-> 
->> Regarding the last patch in this series, what I would ideally to replace
->> it with is something along the lines of:
+On Fri, Sep 1, 2017 at 9:35 AM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> Hello Tom,
+>
+> Tom Herbert <tom@quantonium.net> writes:
+>
+>> On Fri, Sep 1, 2017 at 6:32 AM, Hannes Frederic Sowa
+>> <hannes@stressinduktion.org> wrote:
+>>> Tom Herbert <tom@quantonium.net> writes:
+>>>
+>>>> In flow dissector there are no limits to the number of nested
+>>>> encapsulations that might be dissected which makes for a nice DOS
+>>>> attack. This patch limits for dissecting nested encapsulations
+>>>> as well as for dissecting over extension headers.
+>>>
+>>> I was actually more referring to your patch, because the flow dissector
+>>> right now is not stack recursive. Your changes would make it doing
+>>> recursion on the stack.
 >>
->> tc bind dev sw0p0 queue 0 dev eth0 queue 16
-> 
-> Why do you need this? sw0p0 has 8 queues? So i assume you use TC on
-> sw0p0 to place frames into these queues? The queue then gets passed
-> transparently down through the conduit interface and then used by the
-> tagger. I don't see why you need eth0 here? We try our best to avoid
-> eth0 wherever possible, it causes confusion. So i would prefer not to
-> have to use eth0 with TC commands.
+>> I don't believe those patches had any recursion.
+>
+> I was wrong with stack recursion, you handle that using the
+> FLOW_DISSECT_RET_PROTO_AGAIN return value thus leaving the stack frame
+> again, sorry.
+>
+> But otherwise the walk would be unlimited (based on the packet size) in
+> your first patchset, correct? See this malicious example:
+>
+> | IP1 | UDP1 | VXLAN1 | Ethernet | IP2 | UDP2 | VXLAN2 | ...
+>
+Without the limits patch I subsequently proposed, yes. However, this
+is true for all the other encapsulations anyway; there's is nothing
+unique about UDP encapsulations in this regard (hence with the limit
+patch should generally apply to all encapsulations).
 
-Well, if you read through patch 8 maybe this is explained. The dynamic
-queue selection is working fine through the use of the DSA network
-device's queue being passed to the Broadcom tag. If there was just I
-would agree with you, but here is the catch below.
+> where IP1 == IP2, UDP1 == UDP2 and VXLAN1 != VXLAN2?
+>
+> Notice that because IP1 == IP2 and UDP1 == UDP2 it seems to me it would
+> hit the same socket again. We would be prone to overwrite vxlan id 1
+> with vxlan id 2 in the key thus the key would be malicious and traffic
+> could be injected into other tenant networks, if the encapsulated
+> packets within VXLAN1 could be generated by a malicious user?
+>
+This is why flow dissection is not an authoritative parsing of the
+packet. It can be wrong or misleading because it doesn't have all the
+context, doesn't necessarily parse the whole chain, and only returns
+one set of information (for instance only one pair of IP addresses
+when there may be more in a packet). It's just a best effort mechanism
+that is great for computing a hash for instance. If someone is
+steering a packet to a VM based on the output of flow dissector that
+is a bug; the only correct way to do this is to go through the normal
+receive protocol processing path.
 
-We also have this unique (AFAICT) hardware feature called Advanced
-Congestion Buffering (ACB) where the CPU Ethernet MAC can receive
-congestion information from the switch queues directly, but out of band
-from specifically added HW logic and signals. This is not using pause
-frames.
+> I was actually not concerned about the "recursion" but merely about
+> updating the values to the innermost values.
+>
+See my previous comment about use STOP_AT_ENCAP.
 
-This is useful for instance when your CPU is linking at 1Gbits/sec (or
-more) internally with the switch, but you have connected external hosts
-that are only 10/100 capable. When you push 1Gbits/sec of traffic
-towards such hosts, you would get severe packet loss, unless you have
-pause frames enabled. The problem with Pause frames within the SF2
-switch design is that they are not per-flow though, so you can't resolve
-from the pause frames which egress queue to backpressure. With ACB
-though, you get end-to-end backpressure between say, Port 8 and Port 0.
-In order for this to work though, you need the CPU MAC to be inspecting
-or rather receiving congestion notification from the switch port and
-queues directly.
+Tom
 
-This is why I need to define a mapping between switch (port P,queue Q)
-and CPU MAC queues (Q'). In the first generation HW, we have up to 4
-ports exposed, each with 8 queues, and we have 32 CPU queues, 1:1
-mapping is possible. On 2nd generation hardware, same number of ports
-and queues per port, but only 16 queues, so a 2:1 mapping is possible only.
-
-If I do not establish the mapping, several problems can occur but the
-most severe is that congestion notification logic gets its congestion
-information from the wrong port and queue, so it can be permanently
-backpressuring the CPU queue based on e.g: a disabled port. This results
-in the transmit queue being disabled, and so you get the netdev watchdog
-to kick in and scream.
-
-As you can see from the last patch, I used a notifier to receive
-information when DSA slave network devices are added, from which I
-extract their port number and set up an internal mapping to the CPU
-queues, but this is creating a layering violation since I have now the
-CPU driver extracting DSA specific net_device information.
-
-The idea behind exposing a command like the proposed "tc bind" is to let
-users define the mapping as they see fit. 1:1 or 2:1 mapping is fine as
-a default, but may not be satisfactory for some use cases.
-
-Hope this helps understand the bigger picture ;)
--- 
-Florian
+>>>> Reported-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+>>>> Signed-off-by: Tom Herbert <tom@quantonium.net>
+>>>> ---
+>>>>  net/core/flow_dissector.c | 48 ++++++++++++++++++++++++++++++++++++++++++++---
+>>>>  1 file changed, 45 insertions(+), 3 deletions(-)
+>>>>
+>>>> diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+>>>> index 5110180a3e96..1bca748de27d 100644
+>>>> --- a/net/core/flow_dissector.c
+>>>> +++ b/net/core/flow_dissector.c
+>>>> @@ -396,6 +396,35 @@ __skb_flow_dissect_ipv6(const struct sk_buff *skb,
+>>>>       key_ip->ttl = iph->hop_limit;
+>>>>  }
+>>>>
+>>>> +/* Maximum number of nested encapsulations that can be processed in
+>>>> + * __skb_flow_dissect
+>>>> + */
+>>>> +#define MAX_FLOW_DISSECT_ENCAPS      5
+>>>
+>>> I think you can exactly parse one encapsulation layer safely. This is
+>>> because you can only keep state on one encapsulation layer protocol
+>>> right now.
+>>>
+>>> For example this scenario:
+>>>
+>>> I would like to circumvent tc flower rules that filter base
+>>> simply construct a packet looking like:
+>>>
+>>> Ethernet|Vlan|IP|GRE|Ethernet|Vlan|
+>>>
+>>> because we don't recurse in the flow keys either, the second vlan header
+>>> would overwrite the information of the first one.
+>>>
+>> Flow dissector returns the inner most information it sees. If only
+>> information from the outermost headers is needed then the caller
+>> should set FLOW_DISSECTOR_F_STOP_AT_ENCAP in the flags.
+>
+> Right now, flower does not do so and seems to be prone to be fooled like
+> that.
+>
+> Additionally, flow_dissector does not update all keys to its inner most
+> values also, e.g. I don't see the inner packets updating
+> FLOW_DISSECTOR_KEY_ETH_ADDRS (e.g. with ETH_P_TEB).
+>
+> To me it would make more sense to be able to specificy
+> FLOW_DISSECTOR_F_AFTER_FIRST_ENCAP, so that we get the first
+> encapsulation information with the key, do policy decision, pull headers
+> and recurse here.
+>
+>>>> +
+>>>> +static bool skb_flow_dissect_encap_allowed(int *num_encaps, unsigned int *flags)
+>>>> +{
+>>>> +     ++*num_encaps;
+>>>> +
+>>>> +     if (*num_encaps >= MAX_FLOW_DISSECT_ENCAPS) {
+>>>> +             if (*num_encaps == MAX_FLOW_DISSECT_ENCAPS) {
+>>>> +                     /* Allow one more pass but ignore disregard
+>>>> +                      * further encapsulations
+>>>> +                      */
+>>>> +                     *flags |= FLOW_DISSECTOR_F_STOP_AT_ENCAP;
+>>>> +             } else {
+>>>> +                     /* Max encaps reached */
+>>>> +                     return  false;
+>>>> +             }
+>>>> +     }
+>>>> +
+>>>> +     return true;
+>>>> +}
+>>>> +
+>>>> +/* Maximum number of extension headers can be processed in __skb_flow_dissect
+>>>> + * per IPv6 packet
+>>>> + */
+>>>> +#define MAX_FLOW_DISSECT_EH  5
+>>>
+>>> I would at least allow each extension header once, DEST_OPS twice, thus
+>>> let's say 12? It is safe in this version because it does not consume
+>>> stack space anyway and doesn't update internal state.
+>>
+>> This per each IPv6 header. This patch would allow up to five
+>> encapsulations of IPv6/IPv6 so maximum number of EHs we would consider
+>> is 6*5=30.
+>
+> I would still increase the limit, but also no hard feelings. The reason
+> I came up with 12 is that anyway each header (besides DST_OPS) is only
+> allowed to show up once per header (11 + 1).
+>
+> I am fine that this is a per-IPv6 header limit.
+>
+>>>
+>>>> +
+>>>>  /**
+>>>>   * __skb_flow_dissect - extract the flow_keys struct and return it
+>>>>   * @skb: sk_buff to extract the flow from, can be NULL if the rest are specified
+>>>> @@ -426,6 +455,7 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
+>>>>       struct flow_dissector_key_tags *key_tags;
+>>>>       struct flow_dissector_key_vlan *key_vlan;
+>>>>       enum flow_dissect_ret fdret;
+>>>> +     int num_eh, num_encaps = 0;
+>>>>       bool skip_vlan = false;
+>>>>       u8 ip_proto = 0;
+>>>>       bool ret;
+>>>> @@ -714,7 +744,9 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
+>>>>       case FLOW_DISSECT_RET_OUT_GOOD:
+>>>>               goto out_good;
+>>>>       case FLOW_DISSECT_RET_PROTO_AGAIN:
+>>>> -             goto proto_again;
+>>>> +             if (skb_flow_dissect_encap_allowed(&num_encaps, &flags))
+>>>> +                     goto proto_again;
+>>>
+>>> I think you should get the check to the proto_again label. In case you
+>>> loop to often you can `goto out_good'.
+>>>
+>> That would add an extra conditional in the common case of no
+>> encapsulation. Having it here means we only care about the
+>> encapsulation limit when there is encapsulation.
+>
+> In my opinion it would make the limits easier to grasp, but no hard
+> feelings about that.
+>
+> Thanks,
+> Hannes
