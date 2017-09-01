@@ -1,7 +1,7 @@
 From: Martin KaFai Lau <kafai@fb.com>
-Subject: [PATCH net-next 3/3] bpf: Only set node->ref = 1 if it has not been set
-Date: Thu, 31 Aug 2017 23:27:13 -0700
-Message-ID: <20170901062713.1842249-4-kafai@fb.com>
+Subject: [PATCH net-next 1/3] bpf: Add lru_hash_lookup performance test
+Date: Thu, 31 Aug 2017 23:27:11 -0700
+Message-ID: <20170901062713.1842249-2-kafai@fb.com>
 References: <20170901062713.1842249-1-kafai@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,78 +9,283 @@ Cc: Alexei Starovoitov <ast@fb.com>,
         Daniel Borkmann <daniel@iogearbox.net>, <kernel-team@fb.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:59520 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751022AbdIAG1R (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 1 Sep 2017 02:27:17 -0400
-Received: from pps.filterd (m0109334.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v816RHPD024820
-        for <netdev@vger.kernel.org>; Thu, 31 Aug 2017 23:27:17 -0700
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:35261 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751250AbdIAG1P (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 1 Sep 2017 02:27:15 -0400
+Received: from pps.filterd (m0089730.ppops.net [127.0.0.1])
+        by m0089730.ppops.net (8.16.0.21/8.16.0.21) with SMTP id v816NdwK013558
+        for <netdev@vger.kernel.org>; Thu, 31 Aug 2017 23:27:15 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 2cq17wr9sy-2
+        by m0089730.ppops.net with ESMTP id 2cq1810a2d-1
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Thu, 31 Aug 2017 23:27:17 -0700
+        for <netdev@vger.kernel.org>; Thu, 31 Aug 2017 23:27:15 -0700
 In-Reply-To: <20170901062713.1842249-1-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch writes 'node->ref = 1' only if node->ref is 0.
-The number of lookups/s for a ~1M entries LRU map increased by
-~30% (260097 to 343313).
+Create a new case to test the LRU lookup performance.
 
-Other writes on 'node->ref = 0' is not changed.  In those cases, the
-same cache line has to be changed anyway.
+At the beginning, the LRU map is fully loaded (i.e. the number of keys
+is equal to map->max_entries).   The lookup is done through key 0
+to num_map_entries and then repeats from 0 again.
 
-First column: Size of the LRU hash
-Second column: Number of lookups/s
-
-Before:
-> echo "$((2**20+1)): $(./map_perf_test 1024 1 $((2**20+1)) 10000000 | awk '{print $3}')"
-1048577: 260097
-
-After:
-> echo "$((2**20+1)): $(./map_perf_test 1024 1 $((2**20+1)) 10000000 | awk '{print $3}')"
-1048577: 343313
+This patch also creates an anonymous struct to properly
+name the test params in stress_lru_hmap_alloc() in map_perf_test_kern.c.
 
 Signed-off-by: Martin KaFai Lau <kafai@fb.com>
 ---
- kernel/bpf/bpf_lru_list.h | 3 ++-
- kernel/bpf/hashtab.c      | 7 ++++++-
- 2 files changed, 8 insertions(+), 2 deletions(-)
+ samples/bpf/map_perf_test_kern.c | 44 +++++++++++++++++++----
+ samples/bpf/map_perf_test_user.c | 77 ++++++++++++++++++++++++++++++++++++++--
+ 2 files changed, 112 insertions(+), 9 deletions(-)
 
-diff --git a/kernel/bpf/bpf_lru_list.h b/kernel/bpf/bpf_lru_list.h
-index 5c35a98d02bf..7d4f89b7cb84 100644
---- a/kernel/bpf/bpf_lru_list.h
-+++ b/kernel/bpf/bpf_lru_list.h
-@@ -69,7 +69,8 @@ static inline void bpf_lru_node_set_ref(struct bpf_lru_node *node)
- 	/* ref is an approximation on access frequency.  It does not
- 	 * have to be very accurate.  Hence, no protection is used.
- 	 */
--	node->ref = 1;
-+	if (!node->ref)
-+		node->ref = 1;
+diff --git a/samples/bpf/map_perf_test_kern.c b/samples/bpf/map_perf_test_kern.c
+index ca3b22ed577a..098c857f1eda 100644
+--- a/samples/bpf/map_perf_test_kern.c
++++ b/samples/bpf/map_perf_test_kern.c
+@@ -88,6 +88,13 @@ struct bpf_map_def SEC("maps") array_map = {
+ 	.max_entries = MAX_ENTRIES,
+ };
+ 
++struct bpf_map_def SEC("maps") lru_hash_lookup_map = {
++	.type = BPF_MAP_TYPE_LRU_HASH,
++	.key_size = sizeof(u32),
++	.value_size = sizeof(long),
++	.max_entries = MAX_ENTRIES,
++};
++
+ SEC("kprobe/sys_getuid")
+ int stress_hmap(struct pt_regs *ctx)
+ {
+@@ -148,12 +155,23 @@ int stress_percpu_hmap_alloc(struct pt_regs *ctx)
+ SEC("kprobe/sys_connect")
+ int stress_lru_hmap_alloc(struct pt_regs *ctx)
+ {
++	char fmt[] = "Failed at stress_lru_hmap_alloc. ret:%dn";
++	union {
++		u16 dst6[8];
++		struct {
++			u16 magic0;
++			u16 magic1;
++			u16 tcase;
++			u16 unused16;
++			u32 unused32;
++			u32 key;
++		};
++	} test_params;
+ 	struct sockaddr_in6 *in6;
+-	u16 test_case, dst6[8];
++	u16 test_case;
+ 	int addrlen, ret;
+-	char fmt[] = "Failed at stress_lru_hmap_alloc. ret:%d\n";
+ 	long val = 1;
+-	u32 key = bpf_get_prandom_u32();
++	u32 key = 0;
+ 
+ 	in6 = (struct sockaddr_in6 *)PT_REGS_PARM2(ctx);
+ 	addrlen = (int)PT_REGS_PARM3(ctx);
+@@ -161,14 +179,18 @@ int stress_lru_hmap_alloc(struct pt_regs *ctx)
+ 	if (addrlen != sizeof(*in6))
+ 		return 0;
+ 
+-	ret = bpf_probe_read(dst6, sizeof(dst6), &in6->sin6_addr);
++	ret = bpf_probe_read(test_params.dst6, sizeof(test_params.dst6),
++			     &in6->sin6_addr);
+ 	if (ret)
+ 		goto done;
+ 
+-	if (dst6[0] != 0xdead || dst6[1] != 0xbeef)
++	if (test_params.magic0 != 0xdead ||
++	    test_params.magic1 != 0xbeef)
+ 		return 0;
+ 
+-	test_case = dst6[7];
++	test_case = test_params.tcase;
++	if (test_case != 3)
++		key = bpf_get_prandom_u32();
+ 
+ 	if (test_case == 0) {
+ 		ret = bpf_map_update_elem(&lru_hash_map, &key, &val, BPF_ANY);
+@@ -188,6 +210,16 @@ int stress_lru_hmap_alloc(struct pt_regs *ctx)
+ 
+ 		ret = bpf_map_update_elem(nolocal_lru_map, &key, &val,
+ 					  BPF_ANY);
++	} else if (test_case == 3) {
++		u32 i;
++
++		key = test_params.key;
++
++#pragma clang loop unroll(full)
++		for (i = 0; i < 32; i++) {
++			bpf_map_lookup_elem(&lru_hash_lookup_map, &key);
++			key++;
++		}
+ 	} else {
+ 		ret = -EINVAL;
+ 	}
+diff --git a/samples/bpf/map_perf_test_user.c b/samples/bpf/map_perf_test_user.c
+index bccbf8478e43..f388254896f6 100644
+--- a/samples/bpf/map_perf_test_user.c
++++ b/samples/bpf/map_perf_test_user.c
+@@ -46,6 +46,7 @@ enum test_type {
+ 	HASH_LOOKUP,
+ 	ARRAY_LOOKUP,
+ 	INNER_LRU_HASH_PREALLOC,
++	LRU_HASH_LOOKUP,
+ 	NR_TESTS,
+ };
+ 
+@@ -60,6 +61,7 @@ const char *test_map_names[NR_TESTS] = {
+ 	[HASH_LOOKUP] = "hash_map",
+ 	[ARRAY_LOOKUP] = "array_map",
+ 	[INNER_LRU_HASH_PREALLOC] = "inner_lru_hash_map",
++	[LRU_HASH_LOOKUP] = "lru_hash_lookup_map",
+ };
+ 
+ static int test_flags = ~0;
+@@ -67,6 +69,8 @@ static uint32_t num_map_entries;
+ static uint32_t inner_lru_hash_size;
+ static int inner_lru_hash_idx = -1;
+ static int array_of_lru_hashs_idx = -1;
++static int lru_hash_lookup_idx = -1;
++static int lru_hash_lookup_test_entries = 32;
+ static uint32_t max_cnt = 1000000;
+ 
+ static int check_test_flags(enum test_type t)
+@@ -86,6 +90,32 @@ static void test_hash_prealloc(int cpu)
+ 	       cpu, max_cnt * 1000000000ll / (time_get_ns() - start_time));
  }
  
- int bpf_lru_init(struct bpf_lru *lru, bool percpu, u32 hash_offset,
-diff --git a/kernel/bpf/hashtab.c b/kernel/bpf/hashtab.c
-index 682f4543fefa..431126f31ea3 100644
---- a/kernel/bpf/hashtab.c
-+++ b/kernel/bpf/hashtab.c
-@@ -519,9 +519,14 @@ static u32 htab_lru_map_gen_lookup(struct bpf_map *map,
++static int pre_test_lru_hash_lookup(int tasks)
++{
++	int fd = map_fd[lru_hash_lookup_idx];
++	uint32_t key;
++	long val = 1;
++	int ret;
++
++	if (num_map_entries > lru_hash_lookup_test_entries)
++		lru_hash_lookup_test_entries = num_map_entries;
++
++	/* Populate the lru_hash_map for LRU_HASH_LOOKUP perf test.
++	 *
++	 * It is fine that the user requests for a map with
++	 * num_map_entries < 32 and some of the later lru hash lookup
++	 * may return not found.  For LRU map, we are not interested
++	 * in such small map performance.
++	 */
++	for (key = 0; key < lru_hash_lookup_test_entries; key++) {
++		ret = bpf_map_update_elem(fd, &key, &val, BPF_NOEXIST);
++		if (ret)
++			return ret;
++	}
++
++	return 0;
++}
++
+ static void do_test_lru(enum test_type test, int cpu)
  {
- 	struct bpf_insn *insn = insn_buf;
- 	const int ret = BPF_REG_0;
-+	const int ref_reg = BPF_REG_1;
+ 	static int inner_lru_map_fds[MAX_NR_CPUS];
+@@ -135,13 +165,17 @@ static void do_test_lru(enum test_type test, int cpu)
  
- 	*insn++ = BPF_EMIT_CALL((u64 (*)(u64, u64, u64, u64, u64))__htab_map_lookup_elem);
--	*insn++ = BPF_JMP_IMM(BPF_JEQ, ret, 0, 2);
-+	*insn++ = BPF_JMP_IMM(BPF_JEQ, ret, 0, 4);
-+	*insn++ = BPF_LDX_MEM(BPF_B, ref_reg, ret,
-+			      offsetof(struct htab_elem, lru_node) +
-+			      offsetof(struct bpf_lru_node, ref));
-+	*insn++ = BPF_JMP_IMM(BPF_JNE, ref_reg, 0, 1);
- 	*insn++ = BPF_ST_MEM(BPF_B, ret,
- 			     offsetof(struct htab_elem, lru_node) +
- 			     offsetof(struct bpf_lru_node, ref),
+ 	if (test == LRU_HASH_PREALLOC) {
+ 		test_name = "lru_hash_map_perf";
+-		in6.sin6_addr.s6_addr16[7] = 0;
++		in6.sin6_addr.s6_addr16[2] = 0;
+ 	} else if (test == NOCOMMON_LRU_HASH_PREALLOC) {
+ 		test_name = "nocommon_lru_hash_map_perf";
+-		in6.sin6_addr.s6_addr16[7] = 1;
++		in6.sin6_addr.s6_addr16[2] = 1;
+ 	} else if (test == INNER_LRU_HASH_PREALLOC) {
+ 		test_name = "inner_lru_hash_map_perf";
+-		in6.sin6_addr.s6_addr16[7] = 2;
++		in6.sin6_addr.s6_addr16[2] = 2;
++	} else if (test == LRU_HASH_LOOKUP) {
++		test_name = "lru_hash_lookup_perf";
++		in6.sin6_addr.s6_addr16[2] = 3;
++		in6.sin6_addr.s6_addr32[3] = 0;
+ 	} else {
+ 		assert(0);
+ 	}
+@@ -150,6 +184,11 @@ static void do_test_lru(enum test_type test, int cpu)
+ 	for (i = 0; i < max_cnt; i++) {
+ 		ret = connect(-1, (const struct sockaddr *)&in6, sizeof(in6));
+ 		assert(ret == -1 && errno == EBADF);
++		if (in6.sin6_addr.s6_addr32[3] <
++		    lru_hash_lookup_test_entries - 32)
++			in6.sin6_addr.s6_addr32[3] += 32;
++		else
++			in6.sin6_addr.s6_addr32[3] = 0;
+ 	}
+ 	printf("%d:%s pre-alloc %lld events per sec\n",
+ 	       cpu, test_name,
+@@ -171,6 +210,11 @@ static void test_inner_lru_hash_prealloc(int cpu)
+ 	do_test_lru(INNER_LRU_HASH_PREALLOC, cpu);
+ }
+ 
++static void test_lru_hash_lookup(int cpu)
++{
++	do_test_lru(LRU_HASH_LOOKUP, cpu);
++}
++
+ static void test_percpu_hash_prealloc(int cpu)
+ {
+ 	__u64 start_time;
+@@ -243,6 +287,11 @@ static void test_array_lookup(int cpu)
+ 	       cpu, max_cnt * 1000000000ll * 64 / (time_get_ns() - start_time));
+ }
+ 
++typedef int (*pre_test_func)(int tasks);
++const pre_test_func pre_test_funcs[] = {
++	[LRU_HASH_LOOKUP] = pre_test_lru_hash_lookup,
++};
++
+ typedef void (*test_func)(int cpu);
+ const test_func test_funcs[] = {
+ 	[HASH_PREALLOC] = test_hash_prealloc,
+@@ -255,8 +304,25 @@ const test_func test_funcs[] = {
+ 	[HASH_LOOKUP] = test_hash_lookup,
+ 	[ARRAY_LOOKUP] = test_array_lookup,
+ 	[INNER_LRU_HASH_PREALLOC] = test_inner_lru_hash_prealloc,
++	[LRU_HASH_LOOKUP] = test_lru_hash_lookup,
+ };
+ 
++static int pre_test(int tasks)
++{
++	int i;
++
++	for (i = 0; i < NR_TESTS; i++) {
++		if (pre_test_funcs[i] && check_test_flags(i)) {
++			int ret = pre_test_funcs[i](tasks);
++
++			if (ret)
++				return ret;
++		}
++	}
++
++	return 0;
++}
++
+ static void loop(int cpu)
+ {
+ 	cpu_set_t cpuset;
+@@ -277,6 +343,8 @@ static void run_perf_test(int tasks)
+ 	pid_t pid[tasks];
+ 	int i;
+ 
++	assert(!pre_test(tasks));
++
+ 	for (i = 0; i < tasks; i++) {
+ 		pid[i] = fork();
+ 		if (pid[i] == 0) {
+@@ -344,6 +412,9 @@ static void fixup_map(struct bpf_map_data *map, int idx)
+ 		array_of_lru_hashs_idx = idx;
+ 	}
+ 
++	if (!strcmp("lru_hash_lookup_map", map->name))
++		lru_hash_lookup_idx = idx;
++
+ 	if (num_map_entries <= 0)
+ 		return;
+ 
 -- 
 2.9.5
