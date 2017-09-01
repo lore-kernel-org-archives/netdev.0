@@ -1,43 +1,65 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: Re: [net-next PATCH] bpf: sockmap update/simplify memory accounting
- scheme
-Date: Fri, 1 Sep 2017 12:25:57 -0700
-Message-ID: <b91b19a8-b60b-2483-e878-d1f1e2b8e501@fb.com>
-References: <20170901182926.8981.77450.stgit@john-Precision-Tower-5810>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [RESEND PATCH] Allow passing tid or pid in SCM_CREDENTIALS without CAP_SYS_ADMIN
+Date: Fri, 01 Sep 2017 14:29:09 -0500
+Message-ID: <878thyw73u.fsf@xmission.com>
+References: <1503965540-30393-1-git-send-email-prakash.sangappa@oracle.com>
+        <20170829.160232.1901318933754673000.davem@davemloft.net>
+        <c9ea9bec-6b0e-70d6-3f74-9b483358edd2@oracle.com>
+        <87ziahzzhx.fsf@xmission.com>
+        <d23ec1ae-e2f0-659c-ce67-9b1b1e9ad8a5@oracle.com>
+        <87inh5ymv2.fsf@xmission.com>
+        <ca086e10-764c-4389-808e-43fd1ace4e0c@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <daniel@iogearbox.net>
-To: John Fastabend <john.fastabend@gmail.com>, <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:49556 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752170AbdIAT0U (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 1 Sep 2017 15:26:20 -0400
-In-Reply-To: <20170901182926.8981.77450.stgit@john-Precision-Tower-5810>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org, drepper@redhat.com
+To: Prakash Sangappa <prakash.sangappa@oracle.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <ca086e10-764c-4389-808e-43fd1ace4e0c@oracle.com> (Prakash
+        Sangappa's message of "Fri, 1 Sep 2017 10:30:31 -0700")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 9/1/17 11:29 AM, John Fastabend wrote:
-> Instead of tracking wmem_queued and sk_mem_charge by incrementing
-> in the verdict SK_REDIRECT paths and decrementing in the tx work
-> path use skb_set_owner_w and sock_writeable helpers. This solves
-> a few issues with the current code. First, in SK_REDIRECT inc on
-> sk_wmem_queued and sk_mem_charge were being done without the peers
-> sock lock being held. Under stress this can result in accounting
-> errors when tx work and/or multiple verdict decisions are working
-> on the peer psock.
+Prakash Sangappa <prakash.sangappa@oracle.com> writes:
+
+> On 8/30/17 10:41 AM, ebiederm@xmission.com wrote:
+>> Prakash Sangappa <prakash.sangappa@oracle.com> writes:
+>>
+>>
+>>> With regards to security, the question basically is what is the consequence
+>>> of passing the wrong id. As I understand it, Interpreting the id to be pid
+>>> or tid, the effective uid and gid will be the same. It would be a problem
+>>> only if the incorrect interpretation of the id would refer a different process.
+>>> But that cannot happen as the the global tid(gettid() of a thread is
+>>> unique.
+>> There is also the issue that the receiving process could look, not see
+>> the pid in proc and assume the sending process is dead.  That I suspect
+>> is the larger danger.
+>>
 >
-> Additionally, this cleans up the code because we can rely on the
-> default destructor to decrement memory accounting on kfree_skb. Also
-> this will trigger sk_write_space when space becomes available on
-> kfree_skb() which wasn't happening before and prevent __sk_free
-> from being called until all in-flight packets are completed.
+> Will this not be a bug in the application, if it is sending the wrong
+> id?
+
+No.  It could be deliberate and malicious.
+
+>>> As long as the thread is alive, that id cannot reference another process / thread.
+>>> Unless the thread were to exit and the id gets recycled and got used for another
+>>> thread or process. This would be no different from a process exiting and its
+>>> pid getting recycled which is the case now.
+>> Largely I agree.
+>>
+>> If all you want are pid translations I suspect the are far easier ways
+>> thant updating the SCM_CREDENTIALS code.
 >
-> Fixes: 174a79ff9515 ("bpf: sockmap with sk redirect support")
-> Signed-off-by: John Fastabend <john.fastabend@gmail.com>
-> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+> What would be an another easier & efficient way of doing pid translation?
+>
+> Should a new API/mechanism be considered mainly for pid translation purpose
+> for use with pid namespaces, say based on 'pipe' something similar to
+> I_SENDFD?
 
-thanks. it's cleaner indeed.
+There are proc files that provide all of the pids of a process you can
+read those.
 
-Acked-by: Alexei Starovoitov <ast@kernel.org>
+Other possibilities exist if you want to go that fast.
+
+Eric
