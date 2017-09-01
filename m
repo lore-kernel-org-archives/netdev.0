@@ -1,106 +1,37 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next 2/2] flow_dissector: Add limits for encapsulation and EH
-Date: Fri, 01 Sep 2017 19:05:36 +0200
-Message-ID: <87mv6ejqn3.fsf@stressinduktion.org>
-References: <20170831222239.21509-1-tom@quantonium.net>
-        <20170831222239.21509-3-tom@quantonium.net>
-        <87fuc6zgra.fsf@stressinduktion.org>
-        <CAPDqMeq9=DrGCfkH-EdpXDGqtzzKun4UAv6T5h354VHH-TaAqg@mail.gmail.com>
-        <87tw0mjs11.fsf@stressinduktion.org>
-        <CALx6S37304j28=TdDYaj8dS6G=bhjzMkaVsieCcK3hLWNSVKzA@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 0/4] net: mvpp2: optional PHYs and GoP link
+ irq
+Date: Fri, 01 Sep 2017 10:09:06 -0700 (PDT)
+Message-ID: <20170901.100906.960417981534309612.davem@davemloft.net>
+References: <20170901090455.32316-1-antoine.tenart@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Tom Herbert <tom@quantonium.net>,
-        "David S . Miller" <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        alex.popov@linux.com
-To: Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:44459 "EHLO
-        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752179AbdIARFj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 1 Sep 2017 13:05:39 -0400
-In-Reply-To: <CALx6S37304j28=TdDYaj8dS6G=bhjzMkaVsieCcK3hLWNSVKzA@mail.gmail.com>
-        (Tom Herbert's message of "Fri, 1 Sep 2017 09:49:59 -0700")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: andrew@lunn.ch, gregory.clement@free-electrons.com,
+        thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
+        linux@armlinux.org.uk, linux-kernel@vger.kernel.org,
+        mw@semihalf.com, stefanc@marvell.com,
+        miquel.raynal@free-electrons.com, netdev@vger.kernel.org
+To: antoine.tenart@free-electrons.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170901090455.32316-1-antoine.tenart@free-electrons.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Tom Herbert <tom@herbertland.com> writes:
+From: Antoine Tenart <antoine.tenart@free-electrons.com>
+Date: Fri,  1 Sep 2017 11:04:51 +0200
 
-> On Fri, Sep 1, 2017 at 9:35 AM, Hannes Frederic Sowa
-> <hannes@stressinduktion.org> wrote:
->> Hello Tom,
->>
->> Tom Herbert <tom@quantonium.net> writes:
->>
->>> On Fri, Sep 1, 2017 at 6:32 AM, Hannes Frederic Sowa
->>> <hannes@stressinduktion.org> wrote:
->>>> Tom Herbert <tom@quantonium.net> writes:
->>>>
->>>>> In flow dissector there are no limits to the number of nested
->>>>> encapsulations that might be dissected which makes for a nice DOS
->>>>> attack. This patch limits for dissecting nested encapsulations
->>>>> as well as for dissecting over extension headers.
->>>>
->>>> I was actually more referring to your patch, because the flow dissector
->>>> right now is not stack recursive. Your changes would make it doing
->>>> recursion on the stack.
->>>
->>> I don't believe those patches had any recursion.
->>
->> I was wrong with stack recursion, you handle that using the
->> FLOW_DISSECT_RET_PROTO_AGAIN return value thus leaving the stack frame
->> again, sorry.
->>
->> But otherwise the walk would be unlimited (based on the packet size) in
->> your first patchset, correct? See this malicious example:
->>
->> | IP1 | UDP1 | VXLAN1 | Ethernet | IP2 | UDP2 | VXLAN2 | ...
->>
-> Without the limits patch I subsequently proposed, yes. However, this
-> is true for all the other encapsulations anyway; there's is nothing
-> unique about UDP encapsulations in this regard (hence with the limit
-> patch should generally apply to all encapsulations).
+> This series aims at making the driver work when no PHY is connected
+> between a port and the physical layer and not described as a fixed-phy.
+> This is useful for some usecases such as when a switch is connected
+> directly to the serdes lanes. It can also be used for SFP ports on the
+> 7k-db and 8k-db while waiting for the phylink support to land in (which
+> should be part of another series).
+> 
+> This series makes the phy optional in the PPv2 driver, and then adds
+> the support for the GoP port link interrupt to handle link status
+> changes on such ports.
+> 
+> This was tested using the SFP ports on the 7k-db and 8k-db boards.
 
-I used this example to show its possible security implications. Other
-encaps definitely have the same problems.
-
->> where IP1 == IP2, UDP1 == UDP2 and VXLAN1 != VXLAN2?
->>
->> Notice that because IP1 == IP2 and UDP1 == UDP2 it seems to me it would
->> hit the same socket again. We would be prone to overwrite vxlan id 1
->> with vxlan id 2 in the key thus the key would be malicious and traffic
->> could be injected into other tenant networks, if the encapsulated
->> packets within VXLAN1 could be generated by a malicious user?
->>
-> This is why flow dissection is not an authoritative parsing of the
-> packet. It can be wrong or misleading because it doesn't have all the
-> context, doesn't necessarily parse the whole chain, and only returns
-> one set of information (for instance only one pair of IP addresses
-> when there may be more in a packet). It's just a best effort mechanism
-> that is great for computing a hash for instance. If someone is
-> steering a packet to a VM based on the output of flow dissector that
-> is a bug; the only correct way to do this is to go through the normal
-> receive protocol processing path.
-
-I think it must be agreed upon what flow dissector is. Especially I am
-concerned about its use in cls_flower (or vice versa this patch).
-
->> I was actually not concerned about the "recursion" but merely about
->> updating the values to the innermost values.
->>
-> See my previous comment about use STOP_AT_ENCAP.
-
-For an authorative parser, for which it gets used in flower right now
-STOP_AT_ENCAP might not make too much sense, because it might want to
-look at one additional level of encapsulation information. But if you
-don't consider the dissector to be an authorative parser for packets, it
-would be okay.
-
-Btw., I fear this recursion problem exists right now also with flower's
-use of lwt.
-
-[...]
-
-Thanks,
-Hannes
+Series applied.
