@@ -1,110 +1,77 @@
-From: Rob Herring <robh@kernel.org>
-Subject: Re: [PATCH 2/2] Bluetooth: btqcomsmd: BD address setup
-Date: Fri, 1 Sep 2017 16:26:53 -0500
-Message-ID: <CAL_JsqK7skzd1c4Y2nxfspA-CeyK4dqjJB2L3tZztT=w8y4==w@mail.gmail.com>
-References: <20170901204118.17123-1-bjorn.andersson@linaro.org>
- <20170901204118.17123-3-bjorn.andersson@linaro.org> <5EC41247-54CD-4F1D-84EC-E94F80A67805@holtmann.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Bjorn Andersson <bjorn.andersson@linaro.org>,
-        "Gustavo F. Padovan" <gustavo@padovan.org>,
-        Johan Hedberg <johan.hedberg@gmail.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        "open list:BLUETOOTH DRIVERS" <linux-bluetooth@vger.kernel.org>,
-        Network Development <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        linux-arm-msm <linux-arm-msm@vger.kernel.org>,
-        Loic Poulain <loic.poulain@linaro.org>
-To: Marcel Holtmann <marcel@holtmann.org>
+From: Haiyang Zhang <haiyangz@exchange.microsoft.com>
+Subject: [PATCH net-next, 1/4] hv_netvsc: Clean up an unused parameter in rndis_filter_set_rss_param()
+Date: Fri,  1 Sep 2017 14:30:04 -0700
+Message-ID: <20170901213007.10325-2-haiyangz@exchange.microsoft.com>
+References: <20170901213007.10325-1-haiyangz@exchange.microsoft.com>
+Reply-To: haiyangz@microsoft.com
+Cc: haiyangz@microsoft.com, kys@microsoft.com, olaf@aepfle.de,
+        vkuznets@redhat.com, linux-kernel@vger.kernel.org
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5EC41247-54CD-4F1D-84EC-E94F80A67805@holtmann.org>
+In-Reply-To: <20170901213007.10325-1-haiyangz@exchange.microsoft.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 1, 2017 at 3:47 PM, Marcel Holtmann <marcel@holtmann.org> wrote:
-> Hi Bjorn,
->
->> Bluetooth BD address can be retrieved in the same way as
->> for wcnss-wlan MAC address. This patch mainly stores the
->> local-mac-address property and sets the BD address during
->> hci device setup.
->>
->> Signed-off-by: Loic Poulain <loic.poulain@linaro.org>
->> Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
->> ---
->> drivers/bluetooth/btqcomsmd.c | 28 ++++++++++++++++++++++++++++
->> 1 file changed, 28 insertions(+)
->>
->> diff --git a/drivers/bluetooth/btqcomsmd.c b/drivers/bluetooth/btqcomsmd.c
->> index d00c4fdae924..443bb2099329 100644
->> --- a/drivers/bluetooth/btqcomsmd.c
->> +++ b/drivers/bluetooth/btqcomsmd.c
->> @@ -26,6 +26,7 @@
->> struct btqcomsmd {
->>       struct hci_dev *hdev;
->>
->> +     const bdaddr_t *addr;
->>       struct rpmsg_endpoint *acl_channel;
->>       struct rpmsg_endpoint *cmd_channel;
->> };
->> @@ -100,6 +101,27 @@ static int btqcomsmd_close(struct hci_dev *hdev)
->>       return 0;
->> }
->>
->> +static int btqcomsmd_setup(struct hci_dev *hdev)
->> +{
->> +     struct btqcomsmd *btq = hci_get_drvdata(hdev);
->> +     struct sk_buff *skb;
->> +
->> +     skb = __hci_cmd_sync(hdev, HCI_OP_RESET, 0, NULL, HCI_INIT_TIMEOUT);
->> +     if (IS_ERR(skb))
->> +             return PTR_ERR(skb);
->> +     kfree_skb(skb);
->> +
->> +     if (btq->addr) {
->> +             bdaddr_t bdaddr;
->> +
->> +             /* btq->addr stored with most significant byte first */
->> +             baswap(&bdaddr, btq->addr);
->> +             return qca_set_bdaddr_rome(hdev, &bdaddr);
->> +     }
->> +
->> +     return 0;
->> +}
->> +
->> static int btqcomsmd_probe(struct platform_device *pdev)
->> {
->>       struct btqcomsmd *btq;
->> @@ -123,6 +145,11 @@ static int btqcomsmd_probe(struct platform_device *pdev)
->>       if (IS_ERR(btq->cmd_channel))
->>               return PTR_ERR(btq->cmd_channel);
->>
->> +     btq->addr = of_get_property(pdev->dev.of_node, "local-mac-address",
->> +                                 &ret);
->> +     if (ret != sizeof(bdaddr_t))
->> +             btq->addr = NULL;
->> +
->>       hdev = hci_alloc_dev();
->>       if (!hdev)
->>               return -ENOMEM;
->> @@ -135,6 +162,7 @@ static int btqcomsmd_probe(struct platform_device *pdev)
->>       hdev->open = btqcomsmd_open;
->>       hdev->close = btqcomsmd_close;
->>       hdev->send = btqcomsmd_send;
->> +     hdev->setup = btqcomsmd_setup;
->>       hdev->set_bdaddr = qca_set_bdaddr_rome;
->
-> I do not like this patch. Why not just set HCI_QUIRK_INVALID_BDADDR and let a userspace tool deal with reading the BD_ADDR from some storage.
->
-> Frankly I do not get this WiFI MAC address or BD_ADDR stored in DT. I assumed the DT is suppose to describe hardware and not some value that is normally retrieved for OTP or alike.
+From: Haiyang Zhang <haiyangz@microsoft.com>
 
-Use of "local-mac-address" for ethernet at least has existed as long
-at OpenFirmware I think. For some platforms, DT is the only OTP. And
-sometimes, the bootloader (like u-boot) stores MAC addresses and then
-populates them on boot.
+This patch removes the parameter, num_queue in
+rndis_filter_set_rss_param(), which is no longer in use.
 
-Seems like if we just let userspace deal with it, then we're back to a
-btattach tool with every platform's specific way of reading the MAC
-address.
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+---
+ drivers/net/hyperv/hyperv_net.h   | 2 +-
+ drivers/net/hyperv/netvsc_drv.c   | 2 +-
+ drivers/net/hyperv/rndis_filter.c | 5 ++---
+ 3 files changed, 4 insertions(+), 5 deletions(-)
 
-Rob
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index ff1c0c8d5e0d..ec546da86683 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -213,7 +213,7 @@ void rndis_filter_update(struct netvsc_device *nvdev);
+ void rndis_filter_device_remove(struct hv_device *dev,
+ 				struct netvsc_device *nvdev);
+ int rndis_filter_set_rss_param(struct rndis_device *rdev,
+-			       const u8 *key, int num_queue);
++			       const u8 *key);
+ int rndis_filter_receive(struct net_device *ndev,
+ 			 struct netvsc_device *net_dev,
+ 			 struct hv_device *dev,
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 97ed4bdc439f..b8e23e257f00 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -1424,7 +1424,7 @@ static int netvsc_set_rxfh(struct net_device *dev, const u32 *indir,
+ 		key = rndis_dev->rss_key;
+ 	}
+ 
+-	return rndis_filter_set_rss_param(rndis_dev, key, ndev->num_chn);
++	return rndis_filter_set_rss_param(rndis_dev, key);
+ }
+ 
+ /* Hyper-V RNDIS protocol does not have ring in the HW sense.
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index 36e9ee82ec6f..496fefa7c7c4 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -717,7 +717,7 @@ rndis_filter_set_offload_params(struct net_device *ndev,
+ }
+ 
+ int rndis_filter_set_rss_param(struct rndis_device *rdev,
+-			       const u8 *rss_key, int num_queue)
++			       const u8 *rss_key)
+ {
+ 	struct net_device *ndev = rdev->ndev;
+ 	struct rndis_request *request;
+@@ -1258,8 +1258,7 @@ struct netvsc_device *rndis_filter_device_add(struct hv_device *dev,
+ 		   atomic_read(&net_device->open_chn) == net_device->num_chn);
+ 
+ 	/* ignore failues from setting rss parameters, still have channels */
+-	rndis_filter_set_rss_param(rndis_device, netvsc_hash_key,
+-				   net_device->num_chn);
++	rndis_filter_set_rss_param(rndis_device, netvsc_hash_key);
+ out:
+ 	if (ret) {
+ 		net_device->max_chn = 1;
+-- 
+2.14.1
