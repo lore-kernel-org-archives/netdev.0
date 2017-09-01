@@ -1,7 +1,7 @@
 From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Subject: [PATCH v2 4/5] net: mdio-mux-mmioreg: Can handle 8/16/32 bits registers
-Date: Fri,  1 Sep 2017 13:56:03 +0200
-Message-ID: <20170901115604.27513-5-clabbe.montjoie@gmail.com>
+Subject: [PATCH v2 1/5] net: mdio-mux: Fix NULL Comparison style
+Date: Fri,  1 Sep 2017 13:56:00 +0200
+Message-ID: <20170901115604.27513-2-clabbe.montjoie@gmail.com>
 References: <20170901115604.27513-1-clabbe.montjoie@gmail.com>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
         Corentin Labbe <clabbe.montjoie@gmail.com>
@@ -11,28 +11,35 @@ In-Reply-To: <20170901115604.27513-1-clabbe.montjoie@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch fix an old information that mdio-mux-mmioreg can only handle
-8bit registers.
-This is not true anymore.
+This patch fix checkpatch warning about NULL Comparison style.
 
 Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
 Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 ---
- drivers/net/phy/Kconfig | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/phy/mdio-mux.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-index 5afe6fdcc968..a9d16a3af514 100644
---- a/drivers/net/phy/Kconfig
-+++ b/drivers/net/phy/Kconfig
-@@ -85,7 +85,7 @@ config MDIO_BUS_MUX_MMIOREG
- 	  parent bus.  Child bus selection is under the control of one of
- 	  the FPGA's registers.
+diff --git a/drivers/net/phy/mdio-mux.c b/drivers/net/phy/mdio-mux.c
+index 942ceaf3fd3f..b18ad7082b88 100644
+--- a/drivers/net/phy/mdio-mux.c
++++ b/drivers/net/phy/mdio-mux.c
+@@ -120,7 +120,7 @@ int mdio_mux_init(struct device *dev,
+ 	}
  
--	  Currently, only 8-bit registers are supported.
-+	  Currently, only 8/16/32 bits registers are supported.
+ 	pb = devm_kzalloc(dev, sizeof(*pb), GFP_KERNEL);
+-	if (pb == NULL) {
++	if (!pb) {
+ 		ret_val = -ENOMEM;
+ 		goto err_pb_kz;
+ 	}
+@@ -144,7 +144,7 @@ int mdio_mux_init(struct device *dev,
+ 		}
  
- config MDIO_CAVIUM
- 	tristate
+ 		cb = devm_kzalloc(dev, sizeof(*cb), GFP_KERNEL);
+-		if (cb == NULL) {
++		if (!cb) {
+ 			dev_err(dev,
+ 				"Error: Failed to allocate memory for child %pOF\n",
+ 				child_bus_node);
 -- 
 2.13.5
