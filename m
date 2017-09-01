@@ -1,7 +1,8 @@
 From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [PATCH net 2/2] Revert "net: fix percpu memory leaks"
-Date: Fri, 01 Sep 2017 11:26:13 +0200
-Message-ID: <150425797359.22227.15278983956249837004.stgit@firesoul>
+Subject: [PATCH net 1/2] Revert "net: use lib/percpu_counter API for
+ fragmentation mem accounting"
+Date: Fri, 01 Sep 2017 11:26:08 +0200
+Message-ID: <150425796850.22227.6149901788992481211.stgit@firesoul>
 References: <150425790711.22227.12264977619066874632.stgit@firesoul>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,160 +11,143 @@ Cc: mkubecek@suse.cz, Florian Westphal <fw@strlen.de>,
         liujian56@huawei.com, Jesper Dangaard Brouer <brouer@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:41488 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:60344 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751741AbdIAJ0S (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 1 Sep 2017 05:26:18 -0400
+        id S1751581AbdIAJ0K (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 1 Sep 2017 05:26:10 -0400
 In-Reply-To: <150425790711.22227.12264977619066874632.stgit@firesoul>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This reverts commit 1d6119baf0610f813eb9d9580eb4fd16de5b4ceb.
+This reverts commit 6d7b857d541ecd1d9bd997c97242d4ef94b19de2.
 
-After reverting commit 6d7b857d541e ("net: use lib/percpu_counter API
-for fragmentation mem accounting") then here is no need for this
-fix-up patch.  As percpu_counter is no longer used, it cannot
-memory leak it any-longer.
+There is a bug in fragmentation codes use of the percpu_counter API,
+that can cause issues on systems with many CPUs.
+
+The frag_mem_limit() just reads the global counter (fbc->count),
+without considering other CPUs can have upto batch size (130K) that
+haven't been subtracted yet.  Due to the 3MBytes lower thresh limit,
+this become dangerous at >=24 CPUs (3*1024*1024/130000=24).
+
+The correct API usage would be to use __percpu_counter_compare() which
+does the right thing, and takes into account the number of (online)
+CPUs and batch size, to account for this and call __percpu_counter_sum()
+when needed.
+
+We choose to revert the use of the lib/percpu_counter API for frag
+memory accounting for several reasons:
+
+1) On systems with CPUs > 24, the heavier fully locked
+   __percpu_counter_sum() is always invoked, which will be more
+   expensive than the atomic_t that is reverted to.
+
+Given systems with more than 24 CPUs are becoming common this doesn't
+seem like a good option.  To mitigate this, the batch size could be
+decreased and thresh be increased.
+
+2) The add_frag_mem_limit+sub_frag_mem_limit pairs happen on the RX
+   CPU, before SKBs are pushed into sockets on remote CPUs.  Given
+   NICs can only hash on L2 part of the IP-header, the NIC-RXq's will
+   likely be limited.  Thus, a fair chance that atomic add+dec happen
+   on the same CPU.
+
+Revert note that commit 1d6119baf061 ("net: fix percpu memory leaks")
+removed init_frag_mem_limit() and instead use inet_frags_init_net().
+After this revert, inet_frags_uninit_net() becomes empty.
 
 Fixes: 6d7b857d541e ("net: use lib/percpu_counter API for fragmentation mem accounting")
 Fixes: 1d6119baf061 ("net: fix percpu memory leaks")
 Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
 ---
- include/net/inet_frag.h                 |    7 +------
- net/ieee802154/6lowpan/reassembly.c     |   11 +++--------
- net/ipv4/ip_fragment.c                  |   12 +++---------
- net/ipv6/netfilter/nf_conntrack_reasm.c |   12 +++---------
- net/ipv6/reassembly.c                   |   12 +++---------
- 5 files changed, 13 insertions(+), 41 deletions(-)
+ include/net/inet_frag.h  |   30 +++++++++---------------------
+ net/ipv4/inet_fragment.c |    4 +---
+ 2 files changed, 10 insertions(+), 24 deletions(-)
 
 diff --git a/include/net/inet_frag.h b/include/net/inet_frag.h
-index fa635aa6d0b9..fc59e0775e00 100644
+index 6fdcd2427776..fa635aa6d0b9 100644
 --- a/include/net/inet_frag.h
 +++ b/include/net/inet_frag.h
-@@ -103,15 +103,10 @@ struct inet_frags {
- int inet_frags_init(struct inet_frags *);
- void inet_frags_fini(struct inet_frags *);
+@@ -1,14 +1,9 @@
+ #ifndef __NET_FRAG_H__
+ #define __NET_FRAG_H__
  
--static inline int inet_frags_init_net(struct netns_frags *nf)
-+static inline void inet_frags_init_net(struct netns_frags *nf)
- {
- 	atomic_set(&nf->mem, 0);
--	return 0;
- }
--static inline void inet_frags_uninit_net(struct netns_frags *nf)
--{
--}
+-#include <linux/percpu_counter.h>
 -
+ struct netns_frags {
+-	/* The percpu_counter "mem" need to be cacheline aligned.
+-	 *  mem.count must not share cacheline with other writers
+-	 */
+-	struct percpu_counter   mem ____cacheline_aligned_in_smp;
+-
++	/* Keep atomic mem on separate cachelines in structs that include it */
++	atomic_t		mem ____cacheline_aligned_in_smp;
+ 	/* sysctls */
+ 	int			timeout;
+ 	int			high_thresh;
+@@ -110,11 +105,11 @@ void inet_frags_fini(struct inet_frags *);
+ 
+ static inline int inet_frags_init_net(struct netns_frags *nf)
+ {
+-	return percpu_counter_init(&nf->mem, 0, GFP_KERNEL);
++	atomic_set(&nf->mem, 0);
++	return 0;
+ }
+ static inline void inet_frags_uninit_net(struct netns_frags *nf)
+ {
+-	percpu_counter_destroy(&nf->mem);
+ }
+ 
  void inet_frags_exit_net(struct netns_frags *nf, struct inet_frags *f);
+@@ -140,31 +135,24 @@ static inline bool inet_frag_evicting(struct inet_frag_queue *q)
  
- void inet_frag_kill(struct inet_frag_queue *q, struct inet_frags *f);
-diff --git a/net/ieee802154/6lowpan/reassembly.c b/net/ieee802154/6lowpan/reassembly.c
-index 30d875dff6b5..f85b08baff16 100644
---- a/net/ieee802154/6lowpan/reassembly.c
-+++ b/net/ieee802154/6lowpan/reassembly.c
-@@ -580,19 +580,14 @@ static int __net_init lowpan_frags_init_net(struct net *net)
- {
- 	struct netns_ieee802154_lowpan *ieee802154_lowpan =
- 		net_ieee802154_lowpan(net);
--	int res;
+ /* Memory Tracking Functions. */
  
- 	ieee802154_lowpan->frags.high_thresh = IPV6_FRAG_HIGH_THRESH;
- 	ieee802154_lowpan->frags.low_thresh = IPV6_FRAG_LOW_THRESH;
- 	ieee802154_lowpan->frags.timeout = IPV6_FRAG_TIMEOUT;
- 
--	res = inet_frags_init_net(&ieee802154_lowpan->frags);
--	if (res)
--		return res;
--	res = lowpan_frags_ns_sysctl_register(net);
--	if (res)
--		inet_frags_uninit_net(&ieee802154_lowpan->frags);
--	return res;
-+	inet_frags_init_net(&ieee802154_lowpan->frags);
-+
-+	return lowpan_frags_ns_sysctl_register(net);
- }
- 
- static void __net_exit lowpan_frags_exit_net(struct net *net)
-diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
-index 9a8cfac503dc..46408c220d9d 100644
---- a/net/ipv4/ip_fragment.c
-+++ b/net/ipv4/ip_fragment.c
-@@ -844,8 +844,6 @@ static void __init ip4_frags_ctl_register(void)
- 
- static int __net_init ipv4_frags_init_net(struct net *net)
- {
--	int res;
+-/* The default percpu_counter batch size is not big enough to scale to
+- * fragmentation mem acct sizes.
+- * The mem size of a 64K fragment is approx:
+- *  (44 fragments * 2944 truesize) + frag_queue struct(200) = 129736 bytes
+- */
+-static unsigned int frag_percpu_counter_batch = 130000;
 -
- 	/* Fragment cache limits.
- 	 *
- 	 * The fragment memory accounting code, (tries to) account for
-@@ -871,13 +869,9 @@ static int __net_init ipv4_frags_init_net(struct net *net)
- 
- 	net->ipv4.frags.max_dist = 64;
- 
--	res = inet_frags_init_net(&net->ipv4.frags);
--	if (res)
--		return res;
--	res = ip4_frags_ns_ctl_register(net);
--	if (res)
--		inet_frags_uninit_net(&net->ipv4.frags);
--	return res;
-+	inet_frags_init_net(&net->ipv4.frags);
-+
-+	return ip4_frags_ns_ctl_register(net);
- }
- 
- static void __net_exit ipv4_frags_exit_net(struct net *net)
-diff --git a/net/ipv6/netfilter/nf_conntrack_reasm.c b/net/ipv6/netfilter/nf_conntrack_reasm.c
-index 986d4ca38832..b263bf3a19f7 100644
---- a/net/ipv6/netfilter/nf_conntrack_reasm.c
-+++ b/net/ipv6/netfilter/nf_conntrack_reasm.c
-@@ -622,18 +622,12 @@ EXPORT_SYMBOL_GPL(nf_ct_frag6_gather);
- 
- static int nf_ct_net_init(struct net *net)
+ static inline int frag_mem_limit(struct netns_frags *nf)
  {
--	int res;
--
- 	net->nf_frag.frags.high_thresh = IPV6_FRAG_HIGH_THRESH;
- 	net->nf_frag.frags.low_thresh = IPV6_FRAG_LOW_THRESH;
- 	net->nf_frag.frags.timeout = IPV6_FRAG_TIMEOUT;
--	res = inet_frags_init_net(&net->nf_frag.frags);
--	if (res)
--		return res;
--	res = nf_ct_frag6_sysctl_register(net);
--	if (res)
--		inet_frags_uninit_net(&net->nf_frag.frags);
--	return res;
-+	inet_frags_init_net(&net->nf_frag.frags);
-+
-+	return nf_ct_frag6_sysctl_register(net);
+-	return percpu_counter_read(&nf->mem);
++	return atomic_read(&nf->mem);
  }
  
- static void nf_ct_net_exit(struct net *net)
-diff --git a/net/ipv6/reassembly.c b/net/ipv6/reassembly.c
-index e1da5b888cc4..846012eae526 100644
---- a/net/ipv6/reassembly.c
-+++ b/net/ipv6/reassembly.c
-@@ -714,19 +714,13 @@ static void ip6_frags_sysctl_unregister(void)
- 
- static int __net_init ipv6_frags_init_net(struct net *net)
+ static inline void sub_frag_mem_limit(struct netns_frags *nf, int i)
  {
--	int res;
--
- 	net->ipv6.frags.high_thresh = IPV6_FRAG_HIGH_THRESH;
- 	net->ipv6.frags.low_thresh = IPV6_FRAG_LOW_THRESH;
- 	net->ipv6.frags.timeout = IPV6_FRAG_TIMEOUT;
- 
--	res = inet_frags_init_net(&net->ipv6.frags);
--	if (res)
--		return res;
--	res = ip6_frags_ns_sysctl_register(net);
--	if (res)
--		inet_frags_uninit_net(&net->ipv6.frags);
--	return res;
-+	inet_frags_init_net(&net->ipv6.frags);
-+
-+	return ip6_frags_ns_sysctl_register(net);
+-	percpu_counter_add_batch(&nf->mem, -i, frag_percpu_counter_batch);
++	atomic_sub(i, &nf->mem);
  }
  
- static void __net_exit ipv6_frags_exit_net(struct net *net)
+ static inline void add_frag_mem_limit(struct netns_frags *nf, int i)
+ {
+-	percpu_counter_add_batch(&nf->mem, i, frag_percpu_counter_batch);
++	atomic_add(i, &nf->mem);
+ }
+ 
+-static inline unsigned int sum_frag_mem_limit(struct netns_frags *nf)
++static inline int sum_frag_mem_limit(struct netns_frags *nf)
+ {
+-	return percpu_counter_sum_positive(&nf->mem);
++	return atomic_read(&nf->mem);
+ }
+ 
+ /* RFC 3168 support :
+diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
+index 96e95e83cc61..af74d0433453 100644
+--- a/net/ipv4/inet_fragment.c
++++ b/net/ipv4/inet_fragment.c
+@@ -234,10 +234,8 @@ void inet_frags_exit_net(struct netns_frags *nf, struct inet_frags *f)
+ 	cond_resched();
+ 
+ 	if (read_seqretry(&f->rnd_seqlock, seq) ||
+-	    percpu_counter_sum(&nf->mem))
++	    sum_frag_mem_limit(nf))
+ 		goto evict_again;
+-
+-	percpu_counter_destroy(&nf->mem);
+ }
+ EXPORT_SYMBOL(inet_frags_exit_net);
+ 
