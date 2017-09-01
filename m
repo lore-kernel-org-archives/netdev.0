@@ -1,47 +1,53 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: [PATCH net] udp: fix secpath leak
-Date: Fri,  1 Sep 2017 14:42:30 +0200
-Message-ID: <5bd7a6e643340d833718722c0508474c6c3a0a3a.1504260470.git.pabeni@redhat.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Yossi Kuperman <yossiku@mellanox.com>,
-        Paul Moore <paul@paul-moore.com>
-To: netdev@vger.kernel.org
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH net-next] doc: document MSG_ZEROCOPY
+Date: Fri, 1 Sep 2017 14:44:24 +0200
+Message-ID: <20170901144424.72f9c9e9@redhat.com>
+References: <20170831210013.85220-1-willemdebruijn.kernel@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: brouer@redhat.com, netdev@vger.kernel.org, davem@davemloft.net,
+        Willem de Bruijn <willemb@google.com>
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46312 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:50608 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751778AbdIAMoS (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 1 Sep 2017 08:44:18 -0400
+        id S1751778AbdIAMob (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 1 Sep 2017 08:44:31 -0400
+In-Reply-To: <20170831210013.85220-1-willemdebruijn.kernel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yossi Kuperman <yossiku@mellanox.com>
+On Thu, 31 Aug 2017 17:00:13 -0400
+Willem de Bruijn <willemdebruijn.kernel@gmail.com> wrote:
 
-After commit dce4551cb2ad ("udp: preserve head state for IP_CMSG_PASSSEC")
-we preserve the secpath for the whole skb lifecycle, but we also
-end up leaking a reference to it.
+> +More Info
+> +---------
+> +
+> +Much of this document was derived from a longer paper presented at
+> +netdev 2.1. For more in-depth information see that paper and talk,
+> +the excellent reporting over at LWN.net or read the original code.
+> +
+> +  paper, slides, video
+> +    https://netdevconf.org/2.1/session.html?debruijn
+> +
+> +  LWN article
+> +    https://lwn.net/Articles/726917/
+> +
+> +  patchset
+> +    [PATCH net-next v4 0/9] socket sendmsg MSG_ZEROCOPY
+> +    https://lwn.net/Articles/730010/
+> +    https://www.spinics.net/lists/netdev/msg447552.html
 
-We must clear the head state on skb reception, if secpath is
-present.
+IMHO I think it would be better to use the type links also used in the
+git log.  If you look at the kernel git log, then the "Link:" tag have
+the form: http://lkml.kernel.org/r/
+And you can simply append the "Message-Id:" email header.
 
-Fixes: dce4551cb2ad ("udp: preserve head state for IP_CMSG_PASSSEC")
-Signed-off-by: Yossi Kuperman <yossiku@mellanox.com>
-Signed-off-by: Paolo Abeni <pabeni@redhat.com>
----
- net/ipv4/udp.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index a6dc48d76a29..62344804baae 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1176,7 +1176,7 @@ static void udp_set_dev_scratch(struct sk_buff *skb)
- 	scratch->csum_unnecessary = !!skb_csum_unnecessary(skb);
- 	scratch->is_linear = !skb_is_nonlinear(skb);
- #endif
--	if (likely(!skb->_skb_refdst))
-+	if (likely(!skb->_skb_refdst && !skb_sec_path(skb)))
- 		scratch->_tsize_state |= UDP_SKB_IS_STATELESS;
- }
- 
+In this case the link would be:
+  http://lkml.kernel.org/r/20170803202945.70750-1-willemdebruijn.kernel@gmail.com
 -- 
-2.13.5
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
