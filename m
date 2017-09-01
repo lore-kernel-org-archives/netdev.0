@@ -1,37 +1,57 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [RFC net-next 0/8] net: dsa: Multi-queue awareness
-Date: Fri, 1 Sep 2017 19:55:29 +0200
-Message-ID: <20170901175529.GA1249@lunn.ch>
-References: <1504138732-65383-1-git-send-email-f.fainelli@gmail.com>
- <20170901000502.GB28960@lunn.ch>
- <7d738ef5-c312-e0b3-3605-1f31fa7dc019@gmail.com>
- <20170901132921.GV22289@lunn.ch>
- <a0b9ab3a-45d8-3371-901b-2249a26b9192@gmail.com>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: [PATCH 13/31] timer: Remove meaningless .data/.function assignments
+Date: Fri, 01 Sep 2017 19:59:02 +0200
+Message-ID: <m34lsmb8rd.fsf@pm.waw.pl>
+References: <1504222183-61202-1-git-send-email-keescook@chromium.org>
+        <1504222183-61202-14-git-send-email-keescook@chromium.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jiri@resnulli.us, jhs@mojatatu.com, netdev@vger.kernel.org,
-        davem@davemloft.net, xiyou.wangcong@gmail.com,
-        vivien.didelot@savoirfairelinux.com
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:49937 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752143AbdIARzd (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 1 Sep 2017 13:55:33 -0400
-Content-Disposition: inline
-In-Reply-To: <a0b9ab3a-45d8-3371-901b-2249a26b9192@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Thomas Gleixner <tglx@linutronix.de>,
+        Aditya Shankar <aditya.shankar@microchip.com>,
+        Ganesh Krishna <ganesh.krishna@microchip.com>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        Jens Axboe <axboe@fb.com>, netdev@vger.kernel.org,
+        linux-wireless@vger.kernel.org, devel@driverdev.osuosl.org,
+        linux-kernel@vger.kernel.org
+To: Kees Cook <keescook@chromium.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1504222183-61202-14-git-send-email-keescook@chromium.org> (Kees
+        Cook's message of "Thu, 31 Aug 2017 16:29:25 -0700")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Florian
+Kees Cook <keescook@chromium.org> writes:
 
-> >> tc bind dev sw0p0 queue 0 dev eth0 queue 16
+> Several timer users needlessly reset their .function/.data fields during
+> their timer callback, but nothing else changes them. Some users do not
+> use their .data field at all. Each instance is removed here.
 
-It this the eth0 i don't like here. Why not in the implementation just
-use something like netdev_master_upper_dev_get('sw0p0')? Or does
+For *wan/hdlc*
+Acked-by: Krzysztof Halasa <khc@pm.waw.pl>
 
-tc bind dev sw0p0 queue 0 dev lo queue 16
+> --- a/drivers/net/wan/hdlc_cisco.c
+> +++ b/drivers/net/wan/hdlc_cisco.c
+> @@ -276,8 +276,6 @@ static void cisco_timer(unsigned long arg)
+>  	spin_unlock(&st->lock);
+>  
+>  	st->timer.expires = jiffies + st->settings.interval * HZ;
+> -	st->timer.function = cisco_timer;
+> -	st->timer.data = arg;
+>  	add_timer(&st->timer);
+>  }
+>  
+> diff --git a/drivers/net/wan/hdlc_fr.c b/drivers/net/wan/hdlc_fr.c
+> index de42faca076a..7da2424c28a4 100644
+> --- a/drivers/net/wan/hdlc_fr.c
+> +++ b/drivers/net/wan/hdlc_fr.c
+> @@ -644,8 +644,6 @@ static void fr_timer(unsigned long arg)
+>  			state(hdlc)->settings.t391 * HZ;
+>  	}
+>  
+> -	state(hdlc)->timer.function = fr_timer;
+> -	state(hdlc)->timer.data = arg;
+>  	add_timer(&state(hdlc)->timer);
+>  }
 
-make sense?
-
-     Andrew
+-- 
+Krzysztof Halasa
