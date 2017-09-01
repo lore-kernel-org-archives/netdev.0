@@ -1,133 +1,75 @@
-From: Bjorn Andersson <bjorn.andersson@linaro.org>
-Subject: Re: [PATCH 2/2] Bluetooth: btqcomsmd: BD address setup
-Date: Fri, 1 Sep 2017 15:15:03 -0700
-Message-ID: <20170901221503.GA1165@minitux>
-References: <20170901204118.17123-1-bjorn.andersson@linaro.org>
- <20170901204118.17123-3-bjorn.andersson@linaro.org>
- <5EC41247-54CD-4F1D-84EC-E94F80A67805@holtmann.org>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] DSA support for Micrel KSZ8895
+Date: Fri, 1 Sep 2017 15:18:12 -0700
+Message-ID: <16a7fede-d308-f759-9444-22e754903612@gmail.com>
+References: <20170816075524.GA18532@amd> <20170816140451.GA13006@lunn.ch>
+ <9235D6609DB808459E95D78E17F2E43D40AFF8C1@CHN-SV-EXMX02.mchp-main.com>
+ <20170827123658.GA727@amd> <20170827163122.GG13622@lunn.ch>
+ <20170828070232.GA18135@amd> <20170828140927.GD10418@lunn.ch>
+ <20170829074547.GB31303@amd>
+ <93AF473E2DA327428DE3D46B72B1E9FD4111FA48@CHN-SV-EXMX02.mchp-main.com>
+ <20170901121506.GA32169@amd>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Gustavo F. Padovan" <gustavo@padovan.org>,
-        Johan Hedberg <johan.hedberg@gmail.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        "open list:BLUETOOTH DRIVERS" <linux-bluetooth@vger.kernel.org>,
-        Network Development <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        linux-arm-msm@vger.kernel.org,
-        Loic Poulain <loic.poulain@linaro.org>,
-        Rob Herring <robh@kernel.org>
-To: Marcel Holtmann <marcel@holtmann.org>
-Return-path: <linux-arm-msm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <5EC41247-54CD-4F1D-84EC-E94F80A67805@holtmann.org>
-Sender: linux-arm-msm-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Woojung.Huh@microchip.com, nathan.leigh.conrad@gmail.com,
+        vivien.didelot@savoirfairelinux.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, andrew@lunn.ch
+To: Pavel Machek <pavel@ucw.cz>, Tristram.Ha@microchip.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170901121506.GA32169@amd>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri 01 Sep 13:47 PDT 2017, Marcel Holtmann wrote:
-
-> Hi Bjorn,
+On 09/01/2017 05:15 AM, Pavel Machek wrote:
+> Hi!
 > 
-> > Bluetooth BD address can be retrieved in the same way as
-> > for wcnss-wlan MAC address. This patch mainly stores the
-> > local-mac-address property and sets the BD address during
-> > hci device setup.
-> > 
-> > Signed-off-by: Loic Poulain <loic.poulain@linaro.org>
-> > Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
-> > ---
-> > drivers/bluetooth/btqcomsmd.c | 28 ++++++++++++++++++++++++++++
-> > 1 file changed, 28 insertions(+)
-> > 
-> > diff --git a/drivers/bluetooth/btqcomsmd.c b/drivers/bluetooth/btqcomsmd.c
-> > index d00c4fdae924..443bb2099329 100644
-> > --- a/drivers/bluetooth/btqcomsmd.c
-> > +++ b/drivers/bluetooth/btqcomsmd.c
-> > @@ -26,6 +26,7 @@
-> > struct btqcomsmd {
-> > 	struct hci_dev *hdev;
-> > 
-> > +	const bdaddr_t *addr;
-> > 	struct rpmsg_endpoint *acl_channel;
-> > 	struct rpmsg_endpoint *cmd_channel;
-> > };
-> > @@ -100,6 +101,27 @@ static int btqcomsmd_close(struct hci_dev *hdev)
-> > 	return 0;
-> > }
-> > 
-> > +static int btqcomsmd_setup(struct hci_dev *hdev)
-> > +{
-> > +	struct btqcomsmd *btq = hci_get_drvdata(hdev);
-> > +	struct sk_buff *skb;
-> > +
-> > +	skb = __hci_cmd_sync(hdev, HCI_OP_RESET, 0, NULL, HCI_INIT_TIMEOUT);
-> > +	if (IS_ERR(skb))
-> > +		return PTR_ERR(skb);
-> > +	kfree_skb(skb);
-> > +
-> > +	if (btq->addr) {
-> > +		bdaddr_t bdaddr;
-> > +
-> > +		/* btq->addr stored with most significant byte first */
-> > +		baswap(&bdaddr, btq->addr);
-> > +		return qca_set_bdaddr_rome(hdev, &bdaddr);
-> > +	}
-> > +
-> > +	return 0;
-> > +}
-> > +
-> > static int btqcomsmd_probe(struct platform_device *pdev)
-> > {
-> > 	struct btqcomsmd *btq;
-> > @@ -123,6 +145,11 @@ static int btqcomsmd_probe(struct platform_device *pdev)
-> > 	if (IS_ERR(btq->cmd_channel))
-> > 		return PTR_ERR(btq->cmd_channel);
-> > 
-> > +	btq->addr = of_get_property(pdev->dev.of_node, "local-mac-address",
-> > +				    &ret);
-> > +	if (ret != sizeof(bdaddr_t))
-> > +		btq->addr = NULL;
-> > +
-> > 	hdev = hci_alloc_dev();
-> > 	if (!hdev)
-> > 		return -ENOMEM;
-> > @@ -135,6 +162,7 @@ static int btqcomsmd_probe(struct platform_device *pdev)
-> > 	hdev->open = btqcomsmd_open;
-> > 	hdev->close = btqcomsmd_close;
-> > 	hdev->send = btqcomsmd_send;
-> > +	hdev->setup = btqcomsmd_setup;
-> > 	hdev->set_bdaddr = qca_set_bdaddr_rome;
+> On Wed 2017-08-30 21:32:07, Tristram.Ha@microchip.com wrote:
+>>> On Mon 2017-08-28 16:09:27, Andrew Lunn wrote:
+>>>>> I may be confused here, but AFAICT:
+>>>>>
+>>>>> 1) Yes, it has standard layout when accessed over MDIO.
+>>>>
+>>>>
+>>>> Section 4.8 of the datasheet says:
+>>>>
+>>>> 	All the registers defined in this section can be also accessed
+>>>> 	via the SPI interface.
+>>>>
+>>>> Meaning all PHY registers can be access via the SPI interface. So you
+>>>> should be able to make a standard Linux MDIO bus driver which performs
+>>>> SPI reads.
+>>>
+>>> As far as I can tell (and their driver confirms) -- yes, all those registers can be
+>>> accessed over the SPI, they are just shuffled around... hence MDIO
+>>> emulation code. I copied it from their code (see the copyrights) so no, I don't
+>>> believe there's nicer solution.
+>>>
+>>> Best regards,
+>>
+>> Can you hold on your developing work on KSZ8895 driver?  I am afraid your effort may be in vain.  We at Microchip are planning to release DSA drivers for all KSZ switches, starting at KSZ8795, then KSZ8895, and KSZ8863.
+>>
 > 
-> I do not like this patch. Why not just set HCI_QUIRK_INVALID_BDADDR
-> and let a userspace tool deal with reading the BD_ADDR from some
-> storage.
+> Well, thanks for heads up... but its too late to stop now. I already
+> have working code, without the advanced features.
+
+No driver has landed yet nor has any driver been posted in a proper form
+or shape, so at this point neither of you are able to make any claims as
+to which one should be chosen.
+
 > 
+> I don't know how far away you are with the development. You may want
+> to start from my driver (but its probably too late now).
 
-That's what we currently have, but we regularly get complaints from
-developers using our board (DB410c).
+I would tend to favor Tristram's submission when we see it because he
+claims support for more devices and it is likely to be backed and
+maintained by Microchip in the future.
 
-We're maintaining a Debian-based and an OpenEmbedded-based build and at
-least in the past btmgmt was not available in these - so we would have
-to maintain both a custom BlueZ package and then some scripts to inject
-the appropriate mac address.
-
-Beyond these reference builds our users tend to build their own system
-images and I was hoping that they would not be forced to have a custom
-hook running each time hci0 is registered.
-
-> Frankly I do not get this WiFI MAC address or BD_ADDR stored in DT. I
-> assumed the DT is suppose to describe hardware and not some value that
-> is normally retrieved for OTP or alike.
-> 
-
-While I share your skepticism here I find it way superior over the
-various cases where this information is hard coded in some firmware file
-that has to be patched for each device - in particular when considering
-the out-of-tree workarounds that follow when said firmware file is not
-allowed to be modified on the device (e.g. in Android).
-
-And note that it's not _stored_ in DT, it's passed from the boot loader
-in DT - and it's still optional, so if an OEM has other means to
-provision the BD_ADDR they can still handle this in user space.
-
-Regards,
-Bjorn
+I am sure there will be opportunity for you to contribute a lot to this
+driver. Of course, this all depends on the code quality and timing, but
+having two people work on the same things in parallel is just a complete
+waste of each other's time so we might as well wait for Tristram to post
+the said driver and define a plan of action from there?
+-- 
+Florian
