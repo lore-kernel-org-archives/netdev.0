@@ -1,53 +1,46 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 2/2] mlxsw: spectrum_router: Set abort trap in all virtual routers
-Date: Fri,  1 Sep 2017 10:58:56 +0200
-Message-ID: <20170901085856.2286-3-jiri@resnulli.us>
-References: <20170901085856.2286-1-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f195.google.com ([209.85.128.195]:36193 "EHLO
-        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751589AbdIAI7C (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 1 Sep 2017 04:59:02 -0400
-Received: by mail-wr0-f195.google.com with SMTP id 40so981575wrv.3
-        for <netdev@vger.kernel.org>; Fri, 01 Sep 2017 01:59:01 -0700 (PDT)
-In-Reply-To: <20170901085856.2286-1-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jason Wang <jasowang@redhat.com>
+Subject: [PATCH net] vhost_net: correctly check tx avail during rx busy polling
+Date: Fri,  1 Sep 2017 17:02:50 +0800
+Message-ID: <1504256570-3488-1-git-send-email-jasowang@redhat.com>
+Cc: kvm@vger.kernel.org, virtualization@lists.linux-foundation.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: mst@redhat.com, jasowang@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ido Schimmel <idosch@mellanox.com>
+We check tx avail through vhost_enable_notify() in the past which is
+wrong since it only checks whether or not guest has filled more
+available buffer since last avail idx synchronization which was just
+done by vhost_vq_avail_empty() before. What we really want is checking
+pending buffers in the avail ring. Fix this by calling
+vhost_vq_avail_empty() instead.
 
-When the abort mechanism is invoked a default route directing packets to
-the CPU is programmed in all the virtual routers currently in use. This
-can result in packet loss in case a new VRF is configured.
+This issue could be noticed by doing netperf TCP_RR benchmark as
+client from guest (but not host). With this fix, TCP_RR from guest to
+localhost restores from 1375.91 trans per sec to 55235.28 trans per
+sec on my laptop (Intel(R) Core(TM) i7-5600U CPU @ 2.60GHz).
 
-Upon abort, program the default route in all virtual routers, whether
-they are in use or not.
-
-The patch is directed at net-next since post-abort fixes aren't critical
-and packet loss due to a missing default route will be insignificant
-compared to packet loss caused by the CPU port policer.
-
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Fixes: 030881372460 ("vhost_net: basic polling support")
+Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c | 3 ---
- 1 file changed, 3 deletions(-)
+- The patch is needed for -stable
+---
+ drivers/vhost/net.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-index 00e3aec..de15eac 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-@@ -3993,9 +3993,6 @@ static int __mlxsw_sp_router_set_abort_trap(struct mlxsw_sp *mlxsw_sp,
- 		char raltb_pl[MLXSW_REG_RALTB_LEN];
- 		char ralue_pl[MLXSW_REG_RALUE_LEN];
+diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+index 06d0448..1b68253 100644
+--- a/drivers/vhost/net.c
++++ b/drivers/vhost/net.c
+@@ -634,7 +634,7 @@ static int vhost_net_rx_peek_head_len(struct vhost_net *net, struct sock *sk)
  
--		if (!mlxsw_sp_vr_is_used(vr))
--			continue;
--
- 		mlxsw_reg_raltb_pack(raltb_pl, vr->id, proto, tree_id);
- 		err = mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(raltb),
- 				      raltb_pl);
+ 		preempt_enable();
+ 
+-		if (vhost_enable_notify(&net->dev, vq))
++		if (!vhost_vq_avail_empty(&net->dev, vq))
+ 			vhost_poll_queue(&vq->poll);
+ 		mutex_unlock(&vq->mutex);
+ 
 -- 
-2.9.3
+2.7.4
