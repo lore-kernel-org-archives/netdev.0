@@ -1,153 +1,42 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [PATCH net 1/2] Revert "net: use lib/percpu_counter API for
- fragmentation mem accounting"
-Date: Fri, 01 Sep 2017 11:26:08 +0200
-Message-ID: <150425796850.22227.6149901788992481211.stgit@firesoul>
-References: <150425790711.22227.12264977619066874632.stgit@firesoul>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next 3/3] bpf: Only set node->ref = 1 if it has not
+ been set
+Date: Fri, 01 Sep 2017 11:28:15 +0200
+Message-ID: <59A9282F.5080906@iogearbox.net>
+References: <20170901062713.1842249-1-kafai@fb.com> <20170901062713.1842249-4-kafai@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: mkubecek@suse.cz, Florian Westphal <fw@strlen.de>,
-        liujian56@huawei.com, Jesper Dangaard Brouer <brouer@redhat.com>
-To: netdev@vger.kernel.org
+Cc: Alexei Starovoitov <ast@fb.com>, kernel-team@fb.com
+To: Martin KaFai Lau <kafai@fb.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60344 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751581AbdIAJ0K (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 1 Sep 2017 05:26:10 -0400
-In-Reply-To: <150425790711.22227.12264977619066874632.stgit@firesoul>
+Received: from www62.your-server.de ([213.133.104.62]:41208 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751755AbdIAJ2Q (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 1 Sep 2017 05:28:16 -0400
+In-Reply-To: <20170901062713.1842249-4-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This reverts commit 6d7b857d541ecd1d9bd997c97242d4ef94b19de2.
+On 09/01/2017 08:27 AM, Martin KaFai Lau wrote:
+> This patch writes 'node->ref = 1' only if node->ref is 0.
+> The number of lookups/s for a ~1M entries LRU map increased by
+> ~30% (260097 to 343313).
+>
+> Other writes on 'node->ref = 0' is not changed.  In those cases, the
+> same cache line has to be changed anyway.
+>
+> First column: Size of the LRU hash
+> Second column: Number of lookups/s
+>
+> Before:
+>> echo "$((2**20+1)): $(./map_perf_test 1024 1 $((2**20+1)) 10000000 | awk '{print $3}')"
+> 1048577: 260097
+>
+> After:
+>> echo "$((2**20+1)): $(./map_perf_test 1024 1 $((2**20+1)) 10000000 | awk '{print $3}')"
+> 1048577: 343313
+>
+> Signed-off-by: Martin KaFai Lau <kafai@fb.com>
 
-There is a bug in fragmentation codes use of the percpu_counter API,
-that can cause issues on systems with many CPUs.
-
-The frag_mem_limit() just reads the global counter (fbc->count),
-without considering other CPUs can have upto batch size (130K) that
-haven't been subtracted yet.  Due to the 3MBytes lower thresh limit,
-this become dangerous at >=24 CPUs (3*1024*1024/130000=24).
-
-The correct API usage would be to use __percpu_counter_compare() which
-does the right thing, and takes into account the number of (online)
-CPUs and batch size, to account for this and call __percpu_counter_sum()
-when needed.
-
-We choose to revert the use of the lib/percpu_counter API for frag
-memory accounting for several reasons:
-
-1) On systems with CPUs > 24, the heavier fully locked
-   __percpu_counter_sum() is always invoked, which will be more
-   expensive than the atomic_t that is reverted to.
-
-Given systems with more than 24 CPUs are becoming common this doesn't
-seem like a good option.  To mitigate this, the batch size could be
-decreased and thresh be increased.
-
-2) The add_frag_mem_limit+sub_frag_mem_limit pairs happen on the RX
-   CPU, before SKBs are pushed into sockets on remote CPUs.  Given
-   NICs can only hash on L2 part of the IP-header, the NIC-RXq's will
-   likely be limited.  Thus, a fair chance that atomic add+dec happen
-   on the same CPU.
-
-Revert note that commit 1d6119baf061 ("net: fix percpu memory leaks")
-removed init_frag_mem_limit() and instead use inet_frags_init_net().
-After this revert, inet_frags_uninit_net() becomes empty.
-
-Fixes: 6d7b857d541e ("net: use lib/percpu_counter API for fragmentation mem accounting")
-Fixes: 1d6119baf061 ("net: fix percpu memory leaks")
-Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
----
- include/net/inet_frag.h  |   30 +++++++++---------------------
- net/ipv4/inet_fragment.c |    4 +---
- 2 files changed, 10 insertions(+), 24 deletions(-)
-
-diff --git a/include/net/inet_frag.h b/include/net/inet_frag.h
-index 6fdcd2427776..fa635aa6d0b9 100644
---- a/include/net/inet_frag.h
-+++ b/include/net/inet_frag.h
-@@ -1,14 +1,9 @@
- #ifndef __NET_FRAG_H__
- #define __NET_FRAG_H__
- 
--#include <linux/percpu_counter.h>
--
- struct netns_frags {
--	/* The percpu_counter "mem" need to be cacheline aligned.
--	 *  mem.count must not share cacheline with other writers
--	 */
--	struct percpu_counter   mem ____cacheline_aligned_in_smp;
--
-+	/* Keep atomic mem on separate cachelines in structs that include it */
-+	atomic_t		mem ____cacheline_aligned_in_smp;
- 	/* sysctls */
- 	int			timeout;
- 	int			high_thresh;
-@@ -110,11 +105,11 @@ void inet_frags_fini(struct inet_frags *);
- 
- static inline int inet_frags_init_net(struct netns_frags *nf)
- {
--	return percpu_counter_init(&nf->mem, 0, GFP_KERNEL);
-+	atomic_set(&nf->mem, 0);
-+	return 0;
- }
- static inline void inet_frags_uninit_net(struct netns_frags *nf)
- {
--	percpu_counter_destroy(&nf->mem);
- }
- 
- void inet_frags_exit_net(struct netns_frags *nf, struct inet_frags *f);
-@@ -140,31 +135,24 @@ static inline bool inet_frag_evicting(struct inet_frag_queue *q)
- 
- /* Memory Tracking Functions. */
- 
--/* The default percpu_counter batch size is not big enough to scale to
-- * fragmentation mem acct sizes.
-- * The mem size of a 64K fragment is approx:
-- *  (44 fragments * 2944 truesize) + frag_queue struct(200) = 129736 bytes
-- */
--static unsigned int frag_percpu_counter_batch = 130000;
--
- static inline int frag_mem_limit(struct netns_frags *nf)
- {
--	return percpu_counter_read(&nf->mem);
-+	return atomic_read(&nf->mem);
- }
- 
- static inline void sub_frag_mem_limit(struct netns_frags *nf, int i)
- {
--	percpu_counter_add_batch(&nf->mem, -i, frag_percpu_counter_batch);
-+	atomic_sub(i, &nf->mem);
- }
- 
- static inline void add_frag_mem_limit(struct netns_frags *nf, int i)
- {
--	percpu_counter_add_batch(&nf->mem, i, frag_percpu_counter_batch);
-+	atomic_add(i, &nf->mem);
- }
- 
--static inline unsigned int sum_frag_mem_limit(struct netns_frags *nf)
-+static inline int sum_frag_mem_limit(struct netns_frags *nf)
- {
--	return percpu_counter_sum_positive(&nf->mem);
-+	return atomic_read(&nf->mem);
- }
- 
- /* RFC 3168 support :
-diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
-index 96e95e83cc61..af74d0433453 100644
---- a/net/ipv4/inet_fragment.c
-+++ b/net/ipv4/inet_fragment.c
-@@ -234,10 +234,8 @@ void inet_frags_exit_net(struct netns_frags *nf, struct inet_frags *f)
- 	cond_resched();
- 
- 	if (read_seqretry(&f->rnd_seqlock, seq) ||
--	    percpu_counter_sum(&nf->mem))
-+	    sum_frag_mem_limit(nf))
- 		goto evict_again;
--
--	percpu_counter_destroy(&nf->mem);
- }
- EXPORT_SYMBOL(inet_frags_exit_net);
- 
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
