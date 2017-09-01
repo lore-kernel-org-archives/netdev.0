@@ -1,40 +1,32 @@
-From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH net-next v2 4/4] Documentation/bindings: net: marvell-pp2: add the link interrupt
-Date: Fri,  1 Sep 2017 11:04:55 +0200
-Message-ID: <20170901090455.32316-5-antoine.tenart@free-electrons.com>
-References: <20170901090455.32316-1-antoine.tenart@free-electrons.com>
-Cc: Antoine Tenart <antoine.tenart@free-electrons.com>, andrew@lunn.ch,
-        gregory.clement@free-electrons.com,
-        thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
-        linux@armlinux.org.uk, linux-kernel@vger.kernel.org,
-        mw@semihalf.com, stefanc@marvell.com,
-        miquel.raynal@free-electrons.com, netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170901090455.32316-1-antoine.tenart@free-electrons.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next 1/3] bpf: Add lru_hash_lookup performance test
+Date: Fri, 01 Sep 2017 11:12:39 +0200
+Message-ID: <59A92487.2060609@iogearbox.net>
+References: <20170901062713.1842249-1-kafai@fb.com> <20170901062713.1842249-2-kafai@fb.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Alexei Starovoitov <ast@fb.com>, kernel-team@fb.com
+To: Martin KaFai Lau <kafai@fb.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:38251 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751595AbdIAJMl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 1 Sep 2017 05:12:41 -0400
+In-Reply-To: <20170901062713.1842249-2-kafai@fb.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-A link interrupt can be described. Document this valid interrupt name.
+On 09/01/2017 08:27 AM, Martin KaFai Lau wrote:
+> Create a new case to test the LRU lookup performance.
+>
+> At the beginning, the LRU map is fully loaded (i.e. the number of keys
+> is equal to map->max_entries).   The lookup is done through key 0
+> to num_map_entries and then repeats from 0 again.
+>
+> This patch also creates an anonymous struct to properly
+> name the test params in stress_lru_hmap_alloc() in map_perf_test_kern.c.
+>
+> Signed-off-by: Martin KaFai Lau <kafai@fb.com>
 
-Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
-Tested-by: Marcin Wojtas <mw@semihalf.com>
----
- Documentation/devicetree/bindings/net/marvell-pp2.txt | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/Documentation/devicetree/bindings/net/marvell-pp2.txt b/Documentation/devicetree/bindings/net/marvell-pp2.txt
-index 49484db81583..c78f3187dfea 100644
---- a/Documentation/devicetree/bindings/net/marvell-pp2.txt
-+++ b/Documentation/devicetree/bindings/net/marvell-pp2.txt
-@@ -44,7 +44,7 @@ Optional properties (port):
- - interrupt-names: if more than a single interrupt for rx is given, must
-                    be the name associated to the interrupts listed. Valid
-                    names are: "tx-cpu0", "tx-cpu1", "tx-cpu2", "tx-cpu3",
--		   "rx-shared".
-+		   "rx-shared", "link".
- - marvell,system-controller: a phandle to the system controller.
- 
- Example for marvell,armada-375-pp2:
--- 
-2.13.5
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
