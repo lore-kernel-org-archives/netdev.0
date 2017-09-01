@@ -1,47 +1,35 @@
-From: Daniel Axtens <dja@axtens.net>
-Subject: Re: [PATCH] bnx2x: drop packets where gso_size is too big for hardware
-Date: Fri, 01 Sep 2017 12:42:41 +1000
-Message-ID: <87a82f3zry.fsf@linkitivity.dja.id.au>
-References: <20170831054642.13721-1-dja@axtens.net> <1504159341.15310.6.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next v5 1/2] inet_diag: allow protocols to provide
+ additional data
+Date: Thu, 31 Aug 2017 19:57:00 -0700
+Message-ID: <1504234620.15310.19.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20170831165939.5121-1-colona@arista.com>
+         <20170831165939.5121-2-colona@arista.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, tlfalcon@linux.vnet.ibm.com,
-        Yuval.Mintz@cavium.com, ariel.elior@cavium.com,
-        everest-linux-l2@cavium.com, jay.vosburgh@canonical.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Ivan Delalande <colona@arista.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f181.google.com ([209.85.192.181]:36412 "EHLO
-        mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750996AbdIACmq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 22:42:46 -0400
-Received: by mail-pf0-f181.google.com with SMTP id r187so4118625pfr.3
-        for <netdev@vger.kernel.org>; Thu, 31 Aug 2017 19:42:46 -0700 (PDT)
-In-Reply-To: <1504159341.15310.6.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:33943 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751127AbdIAC5C (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 22:57:02 -0400
+Received: by mail-pf0-f196.google.com with SMTP id v22so861247pfk.1
+        for <netdev@vger.kernel.org>; Thu, 31 Aug 2017 19:57:02 -0700 (PDT)
+In-Reply-To: <20170831165939.5121-2-colona@arista.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet <eric.dumazet@gmail.com> writes:
+On Thu, 2017-08-31 at 09:59 -0700, Ivan Delalande wrote:
+> Extend inet_diag_handler to allow individual protocols to report
+> additional data on INET_DIAG_INFO through idiag_get_aux. The size
+> can be dynamic and is computed by idiag_get_aux_size.
+> 
+> Signed-off-by: Ivan Delalande <colona@arista.com>
+> ---
+>  include/linux/inet_diag.h |  7 +++++++
+>  net/ipv4/inet_diag.c      | 22 ++++++++++++++++++----
+>  2 files changed, 25 insertions(+), 4 deletions(-)
 
-> If you had this test in bnx2x_features_check(), packet could be
-> segmented by core networking stack before reaching bnx2x_start_xmit() by
-> clearing NETIF_F_GSO_MASK
->
-> -> No drop would be involved.
-
-Thanks for the pointer - networking code is all a bit new to me.
-
-I'm just struggling at the moment to figure out what the right way to
-calculate the length. My original patch uses gso_size + hlen, but:
-
- - On reflection, while this solves the immediate bug, I'm not 100% sure
-   this is the right thing to be calculating
-
- - If it is, then we have the problem that hlen is calculated in a bunch
-   of weird and wonderful ways which make it a nightmare to extract.
-
-Yuval (or anyone else who groks the driver properly) - what's the right
-test to be doing here to make sure we don't write to much data to the
-card?
-
-Regards,
-Daniel
+Acked-by: Eric Dumazet <edumazet@google.com>
