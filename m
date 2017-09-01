@@ -1,55 +1,63 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: Re: [PATCH 31/31] timer: Switch to testing for .function instead of .data
-Date: Thu, 31 Aug 2017 16:59:05 -0700
-Message-ID: <CAGXu5jK84cN9MdjfzaipD7GN8a37JMfD8X0Em4mk2_aFGuaOUg@mail.gmail.com>
-References: <1504222183-61202-1-git-send-email-keescook@chromium.org>
- <1504222183-61202-32-git-send-email-keescook@chromium.org> <CAKdAkRTSgs+JTKRa2nvcSPD+zQ5OhsLx_aM8WaZyg304QQN3hA@mail.gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [RFC net-next 0/8] net: dsa: Multi-queue awareness
+Date: Fri, 1 Sep 2017 02:05:02 +0200
+Message-ID: <20170901000502.GB28960@lunn.ch>
+References: <1504138732-65383-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Thomas Gleixner <tglx@linutronix.de>,
-        "Rafael J. Wysocki" <rjw@rjwysocki.net>,
-        Pavel Machek <pavel@ucw.cz>, Len Brown <len.brown@intel.com>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        Mike Marciniszyn <mike.marciniszyn@intel.com>,
-        Dennis Dalessandro <dennis.dalessandro@intel.com>,
-        Doug Ledford <dledford@redhat.com>,
-        Sean Hefty <sean.hefty@intel.com>,
-        Hal Rosenstock <hal.rosenstock@gmail.com>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        "linux-pm@vger.kernel.org" <linux-pm@vger.kernel.org>,
-        linux-rdma <linux-rdma@vger.kernel.org>,
-        "linux-input@vger.kernel.org" <linux-input@vger.kernel.org>,
-        intel-wired-lan@lists.osuosl.org, netdev <netdev@vger.kernel.org>,
-        lkml <linux-kernel@vger.kernel.org>
-To: Dmitry Torokhov <dmitry.torokhov@gmail.com>
-Return-path: <linux-pm-owner@vger.kernel.org>
-In-Reply-To: <CAKdAkRTSgs+JTKRa2nvcSPD+zQ5OhsLx_aM8WaZyg304QQN3hA@mail.gmail.com>
-Sender: linux-pm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, jiri@resnulli.us, jhs@mojatatu.com,
+        davem@davemloft.net, xiyou.wangcong@gmail.com,
+        vivien.didelot@savoirfairelinux.com
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:47640 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751242AbdIAAFF (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 31 Aug 2017 20:05:05 -0400
+Content-Disposition: inline
+In-Reply-To: <1504138732-65383-1-git-send-email-f.fainelli@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 31, 2017 at 4:45 PM, Dmitry Torokhov
-<dmitry.torokhov@gmail.com> wrote:
-> On Thu, Aug 31, 2017 at 4:29 PM, Kees Cook <keescook@chromium.org> wrote:
->> In several places, .data is checked for initialization to gate early
->> calls to del_timer_sync(). Checking for .function is equally valid, so
->> switch to this in all callers.
->
-> Not seeing the rest of patches it is unclear from the patch
-> description why this is needed/wanted.
+On Wed, Aug 30, 2017 at 05:18:44PM -0700, Florian Fainelli wrote:
+> This patch series is sent as reference, especially because the last patch
+> is trying not to be creating too many layer violations, but clearly there
+> are a little bit being created here anyways.
+> 
+> Essentially what I am trying to achieve is that you have a stacked device which
+> is multi-queue aware, that applications will be using, and for which they can
+> control the queue selection (using mq) the way they want. Each of each stacked
+> network devices are created for each port of the switch (this is what DSA
+> does). When a skb is submitted from say net_device X, we can derive its port
+> number and look at the queue_mapping value to determine which port of the
+> switch and queue we should be sending this to. The information is embedded in a
+> tag (4 bytes) and is used by the switch to steer the transmission.
+> 
+> These stacked devices will actually transmit using a "master" or conduit
+> network device which has a number of queues as well. In one version of the
+> hardware that I work with, we have up to 4 ports, each with 8 queues, and the
+> master device has a total of 32 hardware queues, so a 1:1 mapping is easy. With
+> another version of the hardware, same number of ports and queues, but only 16
+> hardware queues, so only a 2:1 mapping is possible.
+> 
+> In order for congestion information to work properly, I need to establish a
+> mapping, preferably before transmission starts (but reconfiguration while
+> interfaces are running would be possible too) between these stacked device's
+> queue and the conduit interface's queue.
+> 
+> Comments, flames, rotten tomatoes, anything!
 
-The CC list would have been really giant, but here is the first patch
-and the earlier series list:
+Right, i think i understand.
 
-https://lkml.org/lkml/2017/8/31/904
-https://lkml.org/lkml/2017/8/30/760
+This works just for traffic between the host and ports.  The host can
+set the egress queue. And i assume the queues are priorities, either
+absolute or weighted round robin, etc.
 
-tl;dr: We're going to switch all struct timer_list callbacks to get
-the timer pointer as the argument instead of from the .data field.
-This patch is one step in removing open-coded users of the .data
-field.
+But this has no effect on traffic going from port to port. At some
+point, i expect you will want to offload TC for that.
 
--Kees
+How will the two interact? Could the TC rules also act on traffic from
+the host to a port? Would it be simpler in the long run to just
+implement TC rules?
 
--- 
-Kees Cook
-Pixel Security
+	  Andrew
