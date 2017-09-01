@@ -1,51 +1,106 @@
-From: Jan Scheurich <jan.scheurich-IzeFyvvaP7pWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH net-next v6 3/3] openvswitch: enable
-	NSH	support
-Date: Fri, 1 Sep 2017 12:11:03 +0000
-Message-ID: <CFF8EF42F1132E4CBE2BF0AB6C21C58D787F33C4@ESESSMB107.ericsson.se>
-References: <1503670805-31051-1-git-send-email-yi.y.yang@intel.com>
-	<1503670805-31051-4-git-send-email-yi.y.yang@intel.com>
-	<87wp5l7560.fsf@stressinduktion.org>
-	<4B1BB321037C0849AAE171801564DFA6888FAED3@IRSMSX107.ger.corp.intel.com>
-	<87inh56q8u.fsf@stressinduktion.org>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: [PATCH] DSA support for Micrel KSZ8895
+Date: Fri, 1 Sep 2017 14:15:06 +0200
+Message-ID: <20170901121506.GA32169@amd>
+References: <20170816075524.GA18532@amd>
+ <20170816140451.GA13006@lunn.ch>
+ <9235D6609DB808459E95D78E17F2E43D40AFF8C1@CHN-SV-EXMX02.mchp-main.com>
+ <20170827123658.GA727@amd>
+ <20170827163122.GG13622@lunn.ch>
+ <20170828070232.GA18135@amd>
+ <20170828140927.GD10418@lunn.ch>
+ <20170829074547.GB31303@amd>
+ <93AF473E2DA327428DE3D46B72B1E9FD4111FA48@CHN-SV-EXMX02.mchp-main.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"e@erig.me" <e@erig.me>, "jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-To: Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>, "Mooney, Sean K"
-	<sean.k.mooney-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <87inh56q8u.fsf-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>
-Content-Language: en-US
-List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
-List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="M9NhX3UHpAaciwkO"
+Cc: Woojung.Huh@microchip.com, nathan.leigh.conrad@gmail.com,
+        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        andrew@lunn.ch
+To: Tristram.Ha@microchip.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <93AF473E2DA327428DE3D46B72B1E9FD4111FA48@CHN-SV-EXMX02.mchp-main.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> > [Mooney, Sean K]
-> > Having the nsh context headers in the flow is quite useful It would
-> > allow loadblancing on values stored in the context headers Or other
-> > use. I belive odl previously used context header 4 to store a Flow id
-> > so this could potentialy be used with the multipath action to have ovs
-> > Choose between several possible next hops in the chain.
-> 
-> In OVS, masks are a list(!) for matching. How can this work for different
-> paths that might require different masks? If they can't be unified you even
-> get exact matches. Thus, for OVS the context should not be part of the
-> flow.
 
-The NSH support in OVS 2.8 (for the user-space datapath only, so far) supports matching on and manipulating the fixed size MD1 context headers C1-C4. They are part of the flow and there are corresponding OXM fields defined. It is up to the SDN controller to program pipelines that match on or set these fields. 
+--M9NhX3UHpAaciwkO
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-The goal was to support all relevant NSH use cases for MD1: Classifier, SFF, and (with certain limitations) NSH proxy, and SF.
+Hi!
 
-We also support MD2 TLV context headers but not yet for matching and setting, so MD2 TLVs are not part of the flow. OVS 2.8 can add MD2 context TLVs with the encap(nsh) action (classifier use case), can transparently forward MD2 headers (SFF use case) and pop an NSH header with MD2 context (final SFF use case). Support for matching and setting MD2 TLVs is FFS and can be added in a later release.
+On Wed 2017-08-30 21:32:07, Tristram.Ha@microchip.com wrote:
+> > On Mon 2017-08-28 16:09:27, Andrew Lunn wrote:
+> > > > I may be confused here, but AFAICT:
+> > > >
+> > > > 1) Yes, it has standard layout when accessed over MDIO.
+> > >
+> > >
+> > > Section 4.8 of the datasheet says:
+> > >
+> > > 	All the registers defined in this section can be also accessed
+> > > 	via the SPI interface.
+> > >
+> > > Meaning all PHY registers can be access via the SPI interface. So you
+> > > should be able to make a standard Linux MDIO bus driver which performs
+> > > SPI reads.
+> >=20
+> > As far as I can tell (and their driver confirms) -- yes, all those regi=
+sters can be
+> > accessed over the SPI, they are just shuffled around... hence MDIO
+> > emulation code. I copied it from their code (see the copyrights) so no,=
+ I don't
+> > believe there's nicer solution.
+> >=20
+> > Best regards,
+>=20
+> Can you hold on your developing work on KSZ8895 driver?  I am afraid your=
+ effort may be in vain.  We at Microchip are planning to release DSA driver=
+s for all KSZ switches, starting at KSZ8795, then KSZ8895, and KSZ8863.
+>
 
-BR, Jan
+Well, thanks for heads up... but its too late to stop now. I already
+have working code, without the advanced features.
+
+I don't know how far away you are with the development. You may want
+to start from my driver (but its probably too late now).
+
+> The driver files all follow the structures of the current KSZ9477 DSA dri=
+ver, and the file tag_ksz.c will be updated to handle the tail tag of diffe=
+rent chips, which requires including the ksz_priv.h header.  That is requir=
+ed nevertheless to support using the offload_fwd_mark indication.
+>=20
+> The KSZ8795 driver will be submitted after Labor Day (9/4) if
+> testing reveals no problem.  The KSZ8895 driver will be submitted
+> right after that.  You should have no problem using the driver right
+> away.
+
+Well, normally world can help with the testing, too. It would be nice
+to see the code, as [RFC]. There's great chance that you'll have to
+modify the code to adress review feedback, which is why seeing code
+soon is useful.
+
+Best regards,
+									Pavel
+--=20
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
+g.html
+
+--M9NhX3UHpAaciwkO
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iEYEARECAAYFAlmpT0oACgkQMOfwapXb+vIefACfedeQ1Ng+BhSoc+ScEFDnYjZf
+kGUAn1QcG2Ocxcy2XakSs5GMtJzUunwB
+=hXQl
+-----END PGP SIGNATURE-----
+
+--M9NhX3UHpAaciwkO--
