@@ -1,47 +1,78 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH 13/31] timer: Remove meaningless .data/.function
- assignments
-Date: Fri, 1 Sep 2017 07:09:10 +0200
-Message-ID: <20170901050910.GB2584@kroah.com>
-References: <1504222183-61202-1-git-send-email-keescook@chromium.org>
- <1504222183-61202-14-git-send-email-keescook@chromium.org>
+From: Bhadram Varka <vbhadram@nvidia.com>
+Subject: RE: netdev carrier changes is one even after ethernet link up.
+Date: Fri, 1 Sep 2017 05:41:00 +0000
+Message-ID: <659fae8d72734eae92b847ba73655dcd@DRBGMAIL102.nvidia.com>
+References: <974898714b3e4e59b933983ded977ce2@bgmail102.nvidia.com>
+ <25c3b4ca-02d7-e217-fe27-ca3b7d2cbf07@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Thomas Gleixner <tglx@linutronix.de>,
-        Krzysztof Halasa <khc@pm.waw.pl>,
-        Aditya Shankar <aditya.shankar@microchip.com>,
-        Ganesh Krishna <ganesh.krishna@microchip.com>,
-        Jens Axboe <axboe@fb.com>, netdev@vger.kernel.org,
-        linux-wireless@vger.kernel.org, devel@driverdev.osuosl.org,
-        linux-kernel@vger.kernel.org
-To: Kees Cook <keescook@chromium.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1504222183-61202-14-git-send-email-keescook@chromium.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: linux-netdev <netdev@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+        "andrew@lunn.ch" <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nat-hk.nvidia.com ([203.18.50.4]:6877 "EHLO nat-hk.nvidia.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751022AbdIAFlv (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 1 Sep 2017 01:41:51 -0400
+In-Reply-To: <25c3b4ca-02d7-e217-fe27-ca3b7d2cbf07@gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 31, 2017 at 04:29:25PM -0700, Kees Cook wrote:
-> Several timer users needlessly reset their .function/.data fields during
-> their timer callback, but nothing else changes them. Some users do not
-> use their .data field at all. Each instance is removed here.
-> 
-> Cc: Krzysztof Halasa <khc@pm.waw.pl>
-> Cc: Aditya Shankar <aditya.shankar@microchip.com>
-> Cc: Ganesh Krishna <ganesh.krishna@microchip.com>
-> Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-> Cc: Jens Axboe <axboe@fb.com>
-> Cc: netdev@vger.kernel.org
-> Cc: linux-wireless@vger.kernel.org
-> Cc: devel@driverdev.osuosl.org
-> Signed-off-by: Kees Cook <keescook@chromium.org>
-> ---
->  drivers/block/amiflop.c                           | 3 +--
->  drivers/net/wan/hdlc_cisco.c                      | 2 --
->  drivers/net/wan/hdlc_fr.c                         | 2 --
->  drivers/staging/wilc1000/wilc_wfi_cfgoperations.c | 4 +---
->  4 files changed, 2 insertions(+), 9 deletions(-)
-
-For the staging driver:
-
-Acked-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+VGhhbmtzIGZvciByZXNwb25kaW5nLg0KDQotLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KRnJv
+bTogRmxvcmlhbiBGYWluZWxsaSBbbWFpbHRvOmYuZmFpbmVsbGlAZ21haWwuY29tXSANClNlbnQ6
+IEZyaWRheSwgU2VwdGVtYmVyIDAxLCAyMDE3IDU6NTMgQU0NClRvOiBCaGFkcmFtIFZhcmthIDx2
+YmhhZHJhbUBudmlkaWEuY29tPjsgYW5kcmV3QGx1bm4uY2gNCkNjOiBsaW51eC1uZXRkZXYgPG5l
+dGRldkB2Z2VyLmtlcm5lbC5vcmc+DQpTdWJqZWN0OiBSZTogbmV0ZGV2IGNhcnJpZXIgY2hhbmdl
+cyBpcyBvbmUgZXZlbiBhZnRlciBldGhlcm5ldCBsaW5rIHVwLg0KDQpPbiAwOC8zMC8yMDE3IDEw
+OjUzIFBNLCBCaGFkcmFtIFZhcmthIHdyb3RlOg0KPiBIaSwNCj4gDQo+ICANCj4gDQo+IEkgaGF2
+ZSBvYnNlcnZlZCB0aGF0IGNhcnJpZXJfY2hhbmdlcyBpcyBvbmUgZXZlbiBpbiBjYXNlIG9mIHRo
+ZSANCj4gZXRoZXJuZXQgbGluayBpcyB1cC4NCj4gDQo+ICANCj4gDQo+IEFmdGVyIGludmVzdGln
+YXRpbmcgdGhlIGNvZGUgYmVsb3cgaXMgbXkgb2JzZXJ2YXRpb24g4oCTDQo+IA0KPiAgDQo+IA0K
+PiBldGhlcm5ldF9kcml2ZXJfcHJvYmUoKQ0KPiANCj4gKy0tLT5waHlfY29ubmVjdCgpDQo+IA0K
+PiB8ICAgICArLS0tPnBoeV9hdHRhY2hfZGlyZWN0KCkNCj4gDQo+IHwgICAgICAgICAgICstLS0+
+IG5ldGlmX2NhcnJpZXJfb2ZmKCkgICAgOiB3aGljaCBpbmNyZW1lbnRzDQo+IGNhcnJpZXJfY2hh
+bmdlcyB0byBvbmUuDQo+IA0KPiArLS0tPnJlZ2lzdGVyX25ldGRldmljZSgpIDogd2lsbCB0aGUg
+Y2Fycmllcl9jaGFuZ2VzIGJlY29tZXMgemVybyBoZXJlID8NCj4gDQo+ICstLS0+bmV0aWZfY2Fy
+cmllcl9vZmYoKTogbm90IGluY3JlbWVudCB0aGUgY2Fycmllcl9jaGFuZ2VzIHNpbmNlDQo+IF9f
+TElOS19TVEFURV9OT0NBUlJJRVIgYWxyZWFkeSBzZXQuDQo+IA0KPiAgDQo+IA0KPiBGcm9tIGV0
+aGVybmV0IGRyaXZlciBvcGVuIHdpbGwgc3RhcnQgdGhlIFBIWSBhbmQgdHJpZ2dlciB0aGUgDQo+
+IHBoeV9zdGF0ZV9tYWNoaW5lLg0KPiANCj4gUGh5X3N0YXRlX21hY2hpbmUgd29ya3F1ZXVlIGNh
+bGxpbmcgbmV0aWZfY2Fycmllcl9vbigpIG9uY2UgdGhlIGxpbmsgaXMgVVAuDQo+IA0KPiBuZXRp
+Zl9jYXJyaWVyX29uKCkgaW5jcmVtZW50cyB0aGUgY2Fycmllcl9jaGFuZ2VzIGJ5IG9uZS4NCg0K
+SWYgdGhlIGNhbGwgdHJhY2UgaXMgY29ycmVjdCwgdGhlbiB0aGVyZSBpcyBhdCBsZWFzdCB0d28g
+cHJvYmxlbXMgaGVyZToNCg0KLSBwaHlfY29ubmVjdCgpIGRvZXMgc3RhcnQgdGhlIFBIWSBtYWNo
+aW5lIHdoaWNoIG1lYW5zIHRoYXQgYXMgc29vbiBhcyBpdCBkZXRlY3RzIGEgbGluayBzdGF0ZSBv
+ZiBhbnkga2luZCAodXAgb3IgZG93bikgaXQgY2FuIGNhbGwNCm5ldGlmX2NhcnJpZXJfb2ZmKCkg
+cmVzcGVjdGl2ZWx5IG5ldGlmX2NhcnJpZXJfb24oKQ0KDQotIGFzIHNvb24gYXMgeW91IGNhbGwg
+cmVnaXN0ZXJfbmV0ZGV2aWNlKCkgbm90aWZpZXJzIHJ1biBhbmQgb3RoZXIgcGFydHMgb2YgdGhl
+IGtlcm5lbCBvciB1c2VyLXNwYWNlIHByb2dyYW1zIGNhbiBzZWUgYW4gaW5jb25zaXN0ZW50IGxp
+bmsgc3RhdGUNCg0KSSB3b3VsZCBzdWdnZXN0IGRvaW5nIHRoZSBmb2xsb3dpbmcgc2VxdWVuY2Ug
+aW5zdGVhZDoNCg0KbmV0aWZfY2Fycmllcl9vZmYoKQ0KcmVnaXN0ZXJfbmV0ZGV2aWNlKCkNCnBo
+eV9jb25uZWN0KCkNCg0KV2hpY2ggc2hvdWxkIHJlc3VsdCBpbiBhIGNvbnNpc3RlbnQgbGluayBz
+dGF0ZSBhbmQgY2FycmllciB2YWx1ZS4NCg0KWWVzLCBJdCB3aWxsIGFkZHJlc3MgdGhlIGlzc3Vl
+LiANCg0KSWYgd2UgZGlkIHRoZSBwaHlfY29uZWN0IGluIG5kb19vcGVuIGl0IHdpbGwgbWFrZSB0
+aGUgY2FycmllciBjaGFuZ2VzIGFzIG9uZS4gQnV0IGlmIHdlIGRpZCBpbiBwcm9iZSBmdW5jdGlv
+biB0aGVuIGl0J3Mgbm90IHdvcmtpbmcuDQoNCkluIGV0aGVybmV0IGRyaXZlciBwcm9iZSAtIChi
+ZWxvdyBzZXF1ZW5jZSBpcyBub3Qgd29ya2luZykNCnBoeV9jb25uZWN0KCkNCnJlZ2lzdGVyX25l
+dGRldmljZSgpDQpuZXRpZl9jYXJyaWVyX29mZigpDQoNCndvcmtpbmcgc2VxdWVuY2U6DQpJbiBw
+cm9iZSgpOg0KcmVnaXN0ZXJfbmV0ZGV2aWNlKCkNCm5kb19vcGVuOg0KICAgICAgICAgICBwaHlf
+Y29ubmVjdCgpDQoNClRoYW5rcywNCkJoYWRyYW0uDQo+IA0KPiAgDQo+IA0KPiBBZnRlciBsaW5r
+IGlzIFVQIGlmIHdlIGNoZWNrIHRoZSBjYXJyaWVyX2NoYW5nZXMgc3lzZnMgbm9kZSAtIGl0IHdp
+bGwgDQo+IGJlIG9uZSBvbmx5Lg0KPiANCj4gIA0KPiANCj4gJCBjYXQgL3N5cy9jbGFzcy9uZXQv
+ZXRoMC9jYXJyaWVyX2NoYW5nZXMNCj4gDQo+IDENCj4gDQo+ICANCj4gDQo+IEFmdGVyIHJldmVy
+dGluZyB0aGUgY2hhbmdlIC0gaHR0cHM6Ly9sa21sLm9yZy9sa21sLzIwMTYvMS85LzE3MyAobmV0
+Og0KPiBwaHk6IHR1cm4gY2FycmllciBvZmYgb24gcGh5IGF0dGFjaCkgdGhlbiBJIGNvdWxkIHNl
+ZSB0aGUgY2FycmllciANCj4gY2hhbmdlcyBpbmNyZW1lbnRlZCB0byAyIGFmdGVyIExpbmsgVVAu
+DQo+IA0KPiAkIGNhdCAvc3lzL2NsYXNzL25ldC9ldGgwL2NhcnJpZXJfY2hhbmdlcw0KPiANCj4g
+Mg0KPiANCj4gIA0KPiANCj4gVGhhbmtzLA0KPiANCj4gQmhhZHJhbS4NCj4gDQo+IC0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0NCj4gLS0gVGhpcyBlbWFpbCBtZXNzYWdlIGlzIGZvciB0aGUgc29sZSB1c2Ugb2YgdGhl
+IGludGVuZGVkIHJlY2lwaWVudChzKSANCj4gYW5kIG1heSBjb250YWluIGNvbmZpZGVudGlhbCBp
+bmZvcm1hdGlvbi4gIEFueSB1bmF1dGhvcml6ZWQgcmV2aWV3LCANCj4gdXNlLCBkaXNjbG9zdXJl
+IG9yIGRpc3RyaWJ1dGlvbiBpcyBwcm9oaWJpdGVkLiAgSWYgeW91IGFyZSBub3QgdGhlIA0KPiBp
+bnRlbmRlZCByZWNpcGllbnQsIHBsZWFzZSBjb250YWN0IHRoZSBzZW5kZXIgYnkgcmVwbHkgZW1h
+aWwgYW5kIA0KPiBkZXN0cm95IGFsbCBjb3BpZXMgb2YgdGhlIG9yaWdpbmFsIG1lc3NhZ2UuDQo+
+IC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0NCj4gLS0NCg0KDQotLQ0KRmxvcmlhbg0K
