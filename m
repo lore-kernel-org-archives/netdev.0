@@ -1,156 +1,159 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: Re: tip -ENOBOOT - bisected to locking/refcounts, x86/asm: Implement
- fast refcount overflow protection
-Date: Fri, 1 Sep 2017 11:58:41 -0700
-Message-ID: <CAGXu5jKiGFAp8Lp2Nt1yHg_nYsY_rfrUjMgOPTNxMLkbQ8V-ng@mail.gmail.com>
-References: <1503996623.8323.20.camel@gmx.de> <CAGXu5jLYHy6Damtg_Pc4=G76OUiMV3fcY9+Ru1-Lmiq6VWEgsw@mail.gmail.com>
- <1504025721.6024.25.camel@gmx.de> <1504030207.6560.0.camel@gmx.de>
- <CAGXu5jKSWiZ8NkgUqO6G8fs5R06bMtdFBmZz9MMX-HAk8nXXNw@mail.gmail.com>
- <1504069332.8352.3.camel@gmx.de> <CAGXu5jJim=r8b+y1qQXtuzm9fPyv1tp9ANebxbCc9ic2c83_Mg@mail.gmail.com>
- <1504113212.5852.6.camel@gmx.de> <CAGXu5jJd80-0PJvB51x9ZDETPSoAtRVQ7dQ6HWwd0DYpKBgPFA@mail.gmail.com>
- <1504115735.5852.11.camel@gmx.de> <CAGXu5j+BLj6_LPfKs-vts-mbyJHu8D--WrmWbiT8Zbt-iD65KA@mail.gmail.com>
- <CAGXu5j+neSYAqb8=r42=jQ0LsJTGjCSdpgc9Hv+ipyAFURbCdw@mail.gmail.com>
- <1504145389.23109.4.camel@gmx.de> <CAGXu5jLKXEDdSpxxVM5oHHUWKbSTozx4FZRn70bQm4tQAhMqUQ@mail.gmail.com>
- <1504149176.23109.9.camel@gmx.de> <CAGXu5j+uNU+wqWoCV+Kpdp+DQer4E3VuwO0mtXiW3Dtw_61QKA@mail.gmail.com>
- <CAGXu5jKYPp5D+YxtqrJXsi48UUbjfeREngsys-dU1eP4RnnL+w@mail.gmail.com>
- <1504187918.27500.16.camel@gmx.de> <CAGXu5jL8Ueuw-DLY+Hz8Jd7NgqgyaaN8OVDicFxmcjBhScebOA@mail.gmail.com>
- <1504199967.666.16.camel@gmx.de> <CAGXu5j+RPDAP-dK+dizQV4prmWBhqU_G1PccWpME=924-2985w@mail.gmail.com>
- <1504249070.17604.20.camel@gmx.de> <1504271369.332.29.camel@gmx.de>
- <CAGXu5jJ+zq=4Un2JpwWk==sThEYeyqYuvesN6=H-1XeLxW_C0Q@mail.gmail.com> <1504288357.6035.21.camel@gmx.de>
+From: "Naveen N. Rao" <naveen.n.rao@linux.vnet.ibm.com>
+Subject: Re: [PATCH 1/1] bpf: take advantage of stack_depth tracking in
+ powerpc JIT
+Date: Sat, 2 Sep 2017 00:33:49 +0530
+Message-ID: <20170901190349.mc63kiia45m3fxul@naverao1-tp.localdomain>
+References: <20170901185301.17978-1-sandipan@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Peter Zijlstra <peterz@infradead.org>,
-        LKML <linux-kernel@vger.kernel.org>, Ingo Molnar <mingo@elte.hu>,
-        "Reshetova, Elena" <elena.reshetova@intel.com>,
-        Network Development <netdev@vger.kernel.org>
-To: Mike Galbraith <efault@gmx.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1504288357.6035.21.camel@gmx.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: mpe@ellerman.id.au, daniel@iogearbox.net, ast@fb.com,
+        netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
+To: Sandipan Das <sandipan@linux.vnet.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:37146 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1752118AbdIATEE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 1 Sep 2017 15:04:04 -0400
+Received: from pps.filterd (m0098417.ppops.net [127.0.0.1])
+        by mx0a-001b2d01.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v81IwjkZ069075
+        for <netdev@vger.kernel.org>; Fri, 1 Sep 2017 15:04:03 -0400
+Received: from e23smtp06.au.ibm.com (e23smtp06.au.ibm.com [202.81.31.148])
+        by mx0a-001b2d01.pphosted.com with ESMTP id 2cq90ur7pd-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Fri, 01 Sep 2017 15:03:59 -0400
+Received: from localhost
+        by e23smtp06.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <naveen.n.rao@linux.vnet.ibm.com>;
+        Sat, 2 Sep 2017 05:03:56 +1000
+Received: from d23av03.au.ibm.com (d23av03.au.ibm.com [9.190.234.97])
+        by d23relay07.au.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id v81J3sZP38862850
+        for <netdev@vger.kernel.org>; Sat, 2 Sep 2017 05:03:54 +1000
+Received: from d23av03.au.ibm.com (localhost [127.0.0.1])
+        by d23av03.au.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id v81J3jo4015394
+        for <netdev@vger.kernel.org>; Sat, 2 Sep 2017 05:03:46 +1000
+Content-Disposition: inline
+In-Reply-To: <20170901185301.17978-1-sandipan@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 1, 2017 at 10:52 AM, Mike Galbraith <efault@gmx.de> wrote:
-> On Fri, 2017-09-01 at 10:12 -0700, Kees Cook wrote:
->> On Fri, Sep 1, 2017 at 6:09 AM, Mike Galbraith <efault@gmx.de> wrote:
->> > On Fri, 2017-09-01 at 08:57 +0200, Mike Galbraith wrote:
->> >> On Thu, 2017-08-31 at 11:45 -0700, Kees Cook wrote:
->> >> > On Thu, Aug 31, 2017 at 10:19 AM, Mike Galbraith <efault@gmx.de> wrote:
->> >> > > On Thu, 2017-08-31 at 10:00 -0700, Kees Cook wrote:
->> >> > >>
->> >> > >> Oh! So it's gcc-version sensitive? That's alarming. Is this mapping correct:
->> >> > >>
->> >> > >> 4.8.5: WARN, eventual kernel hang
->> >> > >> 6.3.1, 7.0.1: WARN, but continues working
->> >> > >
->> >> > > Yeah, that's correct.  I find that troubling, simply because this gcc
->> >> > > version has been through one hell of a lot of kernels with me.  Yeah, I
->> >> > > know, that doesn't exempt it from having bugs, but color me suspicious.
->> >> >
->> >> > I still can't hit this with a 4.8.5 build. :(
->> >> >
->> >> > With _RATELIMIT removed, this should, in theory, report whatever goes
->> >> > negative first...
->> >>
->> >> I applied the other patch you posted, and built with gcc-6.3.1 to
->> >> remove the gcc-4.8.5 aspect.  Look below the resulting splat.
->> >
->> > Grr, that one has a in6_dev_getx() line missing for the first
->> > increment, where things go pear shaped.
->> >
->> > With that added, looking at counter both before, and after incl, with a
->> > trace_printk() in the exception handler showing it doing its saturate
->> > thing, irqs disabled across the whole damn refcount_inc(), and even
->> > booting box nr_cpus=1 for extra credit...
->> >
->> > HTH can that first refcount_inc() get there?
->> >
->> > # tracer: nop
->> > #
->> > #                              _-----=> irqs-off
->> > #                             / _----=> need-resched
->> > #                            | / _---=> hardirq/softirq
->> > #                            || / _--=> preempt-depth
->> > #                            ||| /     delay
->> > #           TASK-PID   CPU#  ||||    TIMESTAMP  FUNCTION
->> > #              | |       |   ||||       |         |
->> >          systemd-1     [000] d..1     1.937284: in6_dev_getx: PRE refs.counter:3
->> >          systemd-1     [000] d..1     1.937295: ex_handler_refcount: *(int *)regs->cx = -1073741824
->> >          systemd-1     [000] d..1     1.937296: in6_dev_getx: POST refs.counter:-1073741824
->>
->> O_o
->>
->> Can you paste the disassembly of in6_dev_getx? I can't understand how
->> we're landing in the exception handler.
->
-> I was hoping you'd say that.
->
->    0xffffffff816b2f72 <+0>:     push   %rbp
->    0xffffffff816b2f73 <+1>:     mov    %rsp,%rbp
->    0xffffffff816b2f76 <+4>:     push   %r12
->    0xffffffff816b2f78 <+6>:     push   %rbx
->    0xffffffff816b2f79 <+7>:     incl   %gs:0x7e95a2d0(%rip)        # 0xd250 <__preempt_count>
->    0xffffffff816b2f80 <+14>:    mov    0x308(%rdi),%rbx
->    0xffffffff816b2f87 <+21>:    test   %rbx,%rbx
->    0xffffffff816b2f8a <+24>:    je     0xffffffff816b2feb <in6_dev_getx+121>
->    0xffffffff816b2f8c <+26>:    callq  *0xffffffff81c35a00
->    0xffffffff816b2f93 <+33>:    mov    %rax,%r12
->    0xffffffff816b2f96 <+36>:    callq  *0xffffffff81c35a10
->    0xffffffff816b2f9d <+43>:    mov    0x769ad4(%rip),%rsi        # 0xffffffff81e1ca78 <trace_printk_fmt.21733>
->    0xffffffff816b2fa4 <+50>:    mov    0xf0(%rbx),%edx
->    0xffffffff816b2faa <+56>:    mov    $0xffffffff816b2f8c,%rdi
->    0xffffffff816b2fb1 <+63>:    callq  0xffffffff81171fc0 <__trace_bprintk>
->    0xffffffff816b2fb6 <+68>:    lock incl 0xf0(%rbx)
->    0xffffffff816b2fbd <+75>:    js     0xffffffff816b2fbf <in6_dev_getx+77>
->    0xffffffff816b2fbf <+77>:    lea    0xf0(%rbx),%rcx
->    0xffffffff816b2fc6 <+84>:    (bad)
->    0xffffffff816b2fc8 <+86>:    mov    0x769a99(%rip),%rsi        # 0xffffffff81e1ca68 <trace_printk_fmt.21744>
->    0xffffffff816b2fcf <+93>:    mov    0xf0(%rbx),%edx
->    0xffffffff816b2fd5 <+99>:    mov    $0xffffffff816b2f8c,%rdi
->    0xffffffff816b2fdc <+106>:   callq  0xffffffff81171fc0 <__trace_bprintk>
->    0xffffffff816b2fe1 <+111>:   mov    %r12,%rdi
->    0xffffffff816b2fe4 <+114>:   callq  *0xffffffff81c35a08
->    0xffffffff816b2feb <+121>:   decl   %gs:0x7e95a25e(%rip)        # 0xd250 <__preempt_count>
->    0xffffffff816b2ff2 <+128>:   mov    %rbx,%rax
->    0xffffffff816b2ff5 <+131>:   pop    %rbx
->    0xffffffff816b2ff6 <+132>:   pop    %r12
->    0xffffffff816b2ff8 <+134>:   pop    %rbp
->    0xffffffff816b2ff9 <+135>:   retq
->
-> I don't get the section business at all, +75 looks to me like we're
-> gonna trap no matter what.. as we appear to be doing.
+On 2017/09/02 12:23AM, Sandipan Das wrote:
+> Take advantage of stack_depth tracking, originally introduced for
+> x64, in powerpc JIT as well. Round up allocated stack by 16 bytes
+> to make sure it stays aligned for functions called from JITed bpf
+> program.
+> 
+> Signed-off-by: Sandipan Das <sandipan@linux.vnet.ibm.com>
+> ---
 
-The section stuff is supposed to be a trick to push the error case off
-into the .text.unlikely area to avoid needing a jmp over the handler
-and with possibly some redundancy removal done by the compiler (though
-this appears to be rather limited) if it notices a bunch of error
-paths are the same. However, in your disassembly, it's inline (!!) in
-the code, as if "pushsection" and "popsection" were entirely ignored.
+LGTM, thanks!
+Reviewed-by: Naveen N. Rao <naveen.n.rao@linux.vnet.ibm.com>
 
-And when I make my own in6_dev_getx(), I see the same disassembly:
+Michael,
+Seeing as this is powerpc specific, can you please take this through 
+your tree?
 
-   0xffffffff818a757b <+181>:   lock incl 0x1e0(%rbx)
-   0xffffffff818a7582 <+188>:   js     0xffffffff818a7584 <in6_dev_getx+190>
-   0xffffffff818a7584 <+190>:   lea    0x1e0(%rbx),%rcx
-   0xffffffff818a758b <+197>:   (bad)
 
-Which is VERY different from how it looks in other places!
+Thanks,
+Naveen
 
-e.g. from lkdtm_REFCOUNT_INC_SATURATED:
-
-   0xffffffff815657df <+47>:    lock incl -0xc(%rbp)
-   0xffffffff815657e3 <+51>:    js     0xffffffff81565cac
-...
-   0xffffffff81565cac:  lea    -0xc(%rbp),%rcx
-   0xffffffff81565cb0:  (bad)
-
-So, at least I can reproduce this in the build now. I must not be
-exercising these paths. FWIW, this is with Ubuntu's 6.3.0 gcc.
-
-I'll try to figure out what's going on here...
-
--Kees
-
--- 
-Kees Cook
-Pixel Security
+>  arch/powerpc/net/bpf_jit64.h      |  7 ++++---
+>  arch/powerpc/net/bpf_jit_comp64.c | 16 ++++++++++------
+>  2 files changed, 14 insertions(+), 9 deletions(-)
+> 
+> diff --git a/arch/powerpc/net/bpf_jit64.h b/arch/powerpc/net/bpf_jit64.h
+> index 62fa7589db2b..8bdef7ed28a8 100644
+> --- a/arch/powerpc/net/bpf_jit64.h
+> +++ b/arch/powerpc/net/bpf_jit64.h
+> @@ -23,7 +23,7 @@
+>   *		[   nv gpr save area	] 8*8		|
+>   *		[    tail_call_cnt	] 8		|
+>   *		[    local_tmp_var	] 8		|
+> - * fp (r31) -->	[   ebpf stack space	] 512		|
+> + * fp (r31) -->	[   ebpf stack space	] upto 512	|
+>   *		[     frame header	] 32/112	|
+>   * sp (r1) --->	[    stack pointer	] --------------
+>   */
+> @@ -32,8 +32,8 @@
+>  #define BPF_PPC_STACK_SAVE	(8*8)
+>  /* for bpf JIT code internal usage */
+>  #define BPF_PPC_STACK_LOCALS	16
+> -/* Ensure this is quadword aligned */
+> -#define BPF_PPC_STACKFRAME	(STACK_FRAME_MIN_SIZE + MAX_BPF_STACK + \
+> +/* stack frame excluding BPF stack, ensure this is quadword aligned */
+> +#define BPF_PPC_STACKFRAME	(STACK_FRAME_MIN_SIZE + \
+>  				 BPF_PPC_STACK_LOCALS + BPF_PPC_STACK_SAVE)
+> 
+>  #ifndef __ASSEMBLY__
+> @@ -103,6 +103,7 @@ struct codegen_context {
+>  	 */
+>  	unsigned int seen;
+>  	unsigned int idx;
+> +	unsigned int stack_size;
+>  };
+> 
+>  #endif /* !__ASSEMBLY__ */
+> diff --git a/arch/powerpc/net/bpf_jit_comp64.c b/arch/powerpc/net/bpf_jit_comp64.c
+> index 6ba5d253e857..a01362c88f6a 100644
+> --- a/arch/powerpc/net/bpf_jit_comp64.c
+> +++ b/arch/powerpc/net/bpf_jit_comp64.c
+> @@ -69,7 +69,7 @@ static inline bool bpf_has_stack_frame(struct codegen_context *ctx)
+>  static int bpf_jit_stack_local(struct codegen_context *ctx)
+>  {
+>  	if (bpf_has_stack_frame(ctx))
+> -		return STACK_FRAME_MIN_SIZE + MAX_BPF_STACK;
+> +		return STACK_FRAME_MIN_SIZE + ctx->stack_size;
+>  	else
+>  		return -(BPF_PPC_STACK_SAVE + 16);
+>  }
+> @@ -82,8 +82,9 @@ static int bpf_jit_stack_tailcallcnt(struct codegen_context *ctx)
+>  static int bpf_jit_stack_offsetof(struct codegen_context *ctx, int reg)
+>  {
+>  	if (reg >= BPF_PPC_NVR_MIN && reg < 32)
+> -		return (bpf_has_stack_frame(ctx) ? BPF_PPC_STACKFRAME : 0)
+> -							- (8 * (32 - reg));
+> +		return (bpf_has_stack_frame(ctx) ?
+> +			(BPF_PPC_STACKFRAME + ctx->stack_size) : 0)
+> +				- (8 * (32 - reg));
+> 
+>  	pr_err("BPF JIT is asking about unknown registers");
+>  	BUG();
+> @@ -134,7 +135,7 @@ static void bpf_jit_build_prologue(u32 *image, struct codegen_context *ctx)
+>  			PPC_BPF_STL(0, 1, PPC_LR_STKOFF);
+>  		}
+> 
+> -		PPC_BPF_STLU(1, 1, -BPF_PPC_STACKFRAME);
+> +		PPC_BPF_STLU(1, 1, -(BPF_PPC_STACKFRAME + ctx->stack_size));
+>  	}
+> 
+>  	/*
+> @@ -161,7 +162,7 @@ static void bpf_jit_build_prologue(u32 *image, struct codegen_context *ctx)
+>  	/* Setup frame pointer to point to the bpf stack area */
+>  	if (bpf_is_seen_register(ctx, BPF_REG_FP))
+>  		PPC_ADDI(b2p[BPF_REG_FP], 1,
+> -				STACK_FRAME_MIN_SIZE + MAX_BPF_STACK);
+> +				STACK_FRAME_MIN_SIZE + ctx->stack_size);
+>  }
+> 
+>  static void bpf_jit_emit_common_epilogue(u32 *image, struct codegen_context *ctx)
+> @@ -183,7 +184,7 @@ static void bpf_jit_emit_common_epilogue(u32 *image, struct codegen_context *ctx
+> 
+>  	/* Tear down our stack frame */
+>  	if (bpf_has_stack_frame(ctx)) {
+> -		PPC_ADDI(1, 1, BPF_PPC_STACKFRAME);
+> +		PPC_ADDI(1, 1, BPF_PPC_STACKFRAME + ctx->stack_size);
+>  		if (ctx->seen & SEEN_FUNC) {
+>  			PPC_BPF_LL(0, 1, PPC_LR_STKOFF);
+>  			PPC_MTLR(0);
+> @@ -993,6 +994,9 @@ struct bpf_prog *bpf_int_jit_compile(struct bpf_prog *fp)
+> 
+>  	memset(&cgctx, 0, sizeof(struct codegen_context));
+> 
+> +	/* Make sure that the stack is quadword aligned. */
+> +	cgctx.stack_size = round_up(fp->aux->stack_depth, 16);
+> +
+>  	/* Scouting faux-generate pass 0 */
+>  	if (bpf_jit_build_body(fp, 0, &cgctx, addrs)) {
+>  		/* We hit something illegal or unsupported. */
+> -- 
+> 2.13.5
+> 
