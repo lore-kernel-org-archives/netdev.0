@@ -1,74 +1,67 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Problem compiling iproute2 on older systems
-Date: Fri, 1 Sep 2017 16:52:20 -0700
-Message-ID: <bf2c63d1-42cc-7fd3-7d79-945feabda50e@candelatech.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>,
-        Stephen Hemminger <stephen@networkplumber.org>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next 1/4] net: dsa: Allow switch drivers to indicate number of TX queues
+Date: Fri,  1 Sep 2017 16:59:11 -0700
+Message-ID: <1504310354-42773-2-git-send-email-f.fainelli@gmail.com>
+References: <1504310354-42773-1-git-send-email-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, andrew@lunn.ch,
+        vivien.didelot@savoirfairelinux.com, jiri@resnulli.us,
+        jhs@mojatatu.com, xiyou.wangcong@gmail.com,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.candelatech.com ([208.74.158.173]:36894 "EHLO
-        mail2.candelatech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750955AbdIAXwW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 1 Sep 2017 19:52:22 -0400
+Received: from mail-qt0-f194.google.com ([209.85.216.194]:33771 "EHLO
+        mail-qt0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752329AbdIBAFT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 1 Sep 2017 20:05:19 -0400
+Received: by mail-qt0-f194.google.com with SMTP id h15so1255353qta.0
+        for <netdev@vger.kernel.org>; Fri, 01 Sep 2017 17:05:19 -0700 (PDT)
+In-Reply-To: <1504310354-42773-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In the patch below, usage of __kernel_ulong_t and __kernel_long_t is
-introduced, but that is not available on older system (fedora-14, at least).
+Let switch drivers indicate how many TX queues they support. Some
+switches, such as Broadcom Starfighter 2 are designed with 8 egress
+queues. Future changes will allow us to leverage the queue mapping and
+direct the transmission towards a particular queue.
 
-It is not a #define, so I am having trouble finding a quick hack
-around this.
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ include/net/dsa.h | 3 +++
+ net/dsa/slave.c   | 8 ++++++--
+ 2 files changed, 9 insertions(+), 2 deletions(-)
 
-Any ideas on how to make this work better on older OSs running
-modern kernels?
-
-
-Author: Stephen Hemminger <stephen@networkplumber.org>  2017-01-12 17:54:39
-Committer: Stephen Hemminger <stephen@networkplumber.org>  2017-01-12 17:54:39
-Child:  c7ec7697e3f000359aa317394e6dd972e35c1f84 (Fix build on fedora-14 (and other older systems))
-Branches: master, remotes/origin/master
-Follows: v3.10.0
-Precedes:
-
-     add more uapi header files
-
-     In order to ensure no backward/forward compatiablity problems,
-     make sure that all kernel headers used come from the local copy.
-
-     Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
-
---------------------------- include/linux/sysinfo.h ---------------------------
-new file mode 100644
-index 0000000..934335a
-@@ -0,0 +1,24 @@
-+#ifndef _LINUX_SYSINFO_H
-+#define _LINUX_SYSINFO_H
+diff --git a/include/net/dsa.h b/include/net/dsa.h
+index 398ca8d70ccd..dd44d6ce1097 100644
+--- a/include/net/dsa.h
++++ b/include/net/dsa.h
+@@ -243,6 +243,9 @@ struct dsa_switch {
+ 	/* devlink used to represent this switch device */
+ 	struct devlink		*devlink;
+ 
++	/* Number of switch port queues */
++	unsigned int		num_tx_queues;
 +
-+#include <linux/types.h>
+ 	/* Dynamically allocated ports, keep last */
+ 	size_t num_ports;
+ 	struct dsa_port ports[];
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index 78e78a6e6833..2afa99506f8b 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -1259,8 +1259,12 @@ int dsa_slave_create(struct dsa_port *port, const char *name)
+ 	cpu_dp = ds->dst->cpu_dp;
+ 	master = cpu_dp->netdev;
+ 
+-	slave_dev = alloc_netdev(sizeof(struct dsa_slave_priv), name,
+-				 NET_NAME_UNKNOWN, ether_setup);
++	if (!ds->num_tx_queues)
++		ds->num_tx_queues = 1;
 +
-+#define SI_LOAD_SHIFT	16
-+struct sysinfo {
-+	__kernel_long_t uptime;		/* Seconds since boot */
-+	__kernel_ulong_t loads[3];	/* 1, 5, and 15 minute load averages */
-+	__kernel_ulong_t totalram;	/* Total usable main memory size */
-+	__kernel_ulong_t freeram;	/* Available memory size */
-+	__kernel_ulong_t sharedram;	/* Amount of shared memory */
-+	__kernel_ulong_t bufferram;	/* Memory used by buffers */
-+	__kernel_ulong_t totalswap;	/* Total swap space size */
-+	__kernel_ulong_t freeswap;	/* swap space still available */
-+	__u16 procs;		   	/* Number of current processes */
-+	__u16 pad;		   	/* Explicit padding for m68k */
-+	__kernel_ulong_t totalhigh;	/* Total high memory size */
-+	__kernel_ulong_t freehigh;	/* Available high memory size */
-+	__u32 mem_unit;			/* Memory unit size in bytes */
-+	char _f[20-2*sizeof(__kernel_ulong_t)-sizeof(__u32)];	/* Padding: libc5 uses this.. */
-+};
-+
-+#endif /* _LINUX_SYSINFO_H */
-
-
++	slave_dev = alloc_netdev_mqs(sizeof(struct dsa_slave_priv), name,
++				     NET_NAME_UNKNOWN, ether_setup,
++				     ds->num_tx_queues, 1);
+ 	if (slave_dev == NULL)
+ 		return -ENOMEM;
+ 
 -- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+1.9.1
