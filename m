@@ -1,18 +1,18 @@
-From: <agar2000@hotmail.com>
+From: <doctornina@abv.bg>
 Subject: (unknown)
-Date: Fri, 01 Sep 2017 01:48:11 -0000
-Message-ID: <150423049114.3470.2958516332390436322@safaricombusiness.co.ke>
+Date: Fri, 01 Sep 2017 01:48:51 -0000
+Message-ID: <150423053146.2453.10939921206657810818@vnpt.vn>
 Mime-Version: 1.0
-Content-Type: application/msword; name="674423596.doc"
+Content-Type: application/msword; name="204118348.doc"
 Content-Transfer-Encoding: base64
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 197-248-37-170.safaricombusiness.co.ke ([197.248.37.170]:60518
-        "HELO safaricombusiness.co.ke" rhost-flags-OK-FAIL-OK-FAIL)
-        by vger.kernel.org with SMTP id S1751109AbdIABsS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 31 Aug 2017 21:48:18 -0400
-Subject: 
+Received: from static.vnpt.vn ([113.172.125.18]:55685 "HELO vnpt.vn"
+        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
+        id S1751814AbdIABs7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 31 Aug 2017 21:48:59 -0400
 Content-Disposition: attachment
+Subject: 
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
