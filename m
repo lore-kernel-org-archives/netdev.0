@@ -1,7 +1,7 @@
 From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH net-next v2 3/4] net: mvpp2: use the GoP interrupt for link status changes
-Date: Fri,  1 Sep 2017 11:04:54 +0200
-Message-ID: <20170901090455.32316-4-antoine.tenart@free-electrons.com>
+Subject: [PATCH net-next v2 4/4] Documentation/bindings: net: marvell-pp2: add the link interrupt
+Date: Fri,  1 Sep 2017 11:04:55 +0200
+Message-ID: <20170901090455.32316-5-antoine.tenart@free-electrons.com>
 References: <20170901090455.32316-1-antoine.tenart@free-electrons.com>
 Cc: Antoine Tenart <antoine.tenart@free-electrons.com>, andrew@lunn.ch,
         gregory.clement@free-electrons.com,
@@ -10,338 +10,31 @@ Cc: Antoine Tenart <antoine.tenart@free-electrons.com>, andrew@lunn.ch,
         mw@semihalf.com, stefanc@marvell.com,
         miquel.raynal@free-electrons.com, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:45335 "EHLO
-        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751532AbdIAJFD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 1 Sep 2017 05:05:03 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20170901090455.32316-1-antoine.tenart@free-electrons.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch adds the GoP link interrupt support for when a port isn't
-connected to a PHY. Because of this the phylib callback is never called
-and the link status management isn't done. This patch use the GoP link
-interrupt in such cases to still have a minimal link management. Without
-this patch ports not connected to a PHY cannot work.
+A link interrupt can be described. Document this valid interrupt name.
 
 Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
 Tested-by: Marcin Wojtas <mw@semihalf.com>
 ---
- drivers/net/ethernet/marvell/mvpp2.c | 177 ++++++++++++++++++++++++++++++++++-
- 1 file changed, 172 insertions(+), 5 deletions(-)
+ Documentation/devicetree/bindings/net/marvell-pp2.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index b4d4759ddc25..dd0ee2691c86 100644
---- a/drivers/net/ethernet/marvell/mvpp2.c
-+++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -348,16 +348,24 @@
- #define     MVPP2_GMAC_FLOW_CTRL_AUTONEG	BIT(11)
- #define     MVPP2_GMAC_CONFIG_FULL_DUPLEX	BIT(12)
- #define     MVPP2_GMAC_AN_DUPLEX_EN		BIT(13)
-+#define MVPP2_GMAC_STATUS0			0x10
-+#define     MVPP2_GMAC_STATUS0_LINK_UP		BIT(0)
- #define MVPP2_GMAC_PORT_FIFO_CFG_1_REG		0x1c
- #define     MVPP2_GMAC_TX_FIFO_MIN_TH_OFFS	6
- #define     MVPP2_GMAC_TX_FIFO_MIN_TH_ALL_MASK	0x1fc0
- #define     MVPP2_GMAC_TX_FIFO_MIN_TH_MASK(v)	(((v) << 6) & \
- 					MVPP2_GMAC_TX_FIFO_MIN_TH_ALL_MASK)
-+#define MVPP22_GMAC_INT_STAT			0x20
-+#define     MVPP22_GMAC_INT_STAT_LINK		BIT(1)
-+#define MVPP22_GMAC_INT_MASK			0x24
-+#define     MVPP22_GMAC_INT_MASK_LINK_STAT	BIT(1)
- #define MVPP22_GMAC_CTRL_4_REG			0x90
- #define     MVPP22_CTRL4_EXT_PIN_GMII_SEL	BIT(0)
- #define     MVPP22_CTRL4_DP_CLK_SEL		BIT(5)
- #define     MVPP22_CTRL4_SYNC_BYPASS_DIS	BIT(6)
- #define     MVPP22_CTRL4_QSGMII_BYPASS_ACTIVE	BIT(7)
-+#define MVPP22_GMAC_INT_SUM_MASK		0xa4
-+#define     MVPP22_GMAC_INT_SUM_MASK_LINK_STAT	BIT(1)
+diff --git a/Documentation/devicetree/bindings/net/marvell-pp2.txt b/Documentation/devicetree/bindings/net/marvell-pp2.txt
+index 49484db81583..c78f3187dfea 100644
+--- a/Documentation/devicetree/bindings/net/marvell-pp2.txt
++++ b/Documentation/devicetree/bindings/net/marvell-pp2.txt
+@@ -44,7 +44,7 @@ Optional properties (port):
+ - interrupt-names: if more than a single interrupt for rx is given, must
+                    be the name associated to the interrupts listed. Valid
+                    names are: "tx-cpu0", "tx-cpu1", "tx-cpu2", "tx-cpu3",
+-		   "rx-shared".
++		   "rx-shared", "link".
+ - marvell,system-controller: a phandle to the system controller.
  
- /* Per-port XGMAC registers. PPv2.2 only, only for GOP port 0,
-  * relative to port->base.
-@@ -370,11 +378,19 @@
- #define MVPP22_XLG_CTRL1_REG			0x104
- #define     MVPP22_XLG_CTRL1_FRAMESIZELIMIT_OFFS	0
- #define     MVPP22_XLG_CTRL1_FRAMESIZELIMIT_MASK	0x1fff
-+#define MVPP22_XLG_STATUS			0x10c
-+#define     MVPP22_XLG_STATUS_LINK_UP		BIT(0)
-+#define MVPP22_XLG_INT_STAT			0x114
-+#define     MVPP22_XLG_INT_STAT_LINK		BIT(1)
-+#define MVPP22_XLG_INT_MASK			0x118
-+#define     MVPP22_XLG_INT_MASK_LINK		BIT(1)
- #define MVPP22_XLG_CTRL3_REG			0x11c
- #define     MVPP22_XLG_CTRL3_MACMODESELECT_MASK	(7 << 13)
- #define     MVPP22_XLG_CTRL3_MACMODESELECT_GMAC	(0 << 13)
- #define     MVPP22_XLG_CTRL3_MACMODESELECT_10G	(1 << 13)
--
-+#define MVPP22_XLG_EXT_INT_MASK			0x15c
-+#define     MVPP22_XLG_EXT_INT_MASK_XLG		BIT(1)
-+#define     MVPP22_XLG_EXT_INT_MASK_GIG		BIT(2)
- #define MVPP22_XLG_CTRL4_REG			0x184
- #define     MVPP22_XLG_CTRL4_FWD_FC		BIT(5)
- #define     MVPP22_XLG_CTRL4_FWD_PFC		BIT(6)
-@@ -837,6 +853,8 @@ struct mvpp2_port {
- 	 */
- 	int gop_id;
- 
-+	int link_irq;
-+
- 	struct mvpp2 *priv;
- 
- 	/* Per-port registers' base address */
-@@ -4422,6 +4440,68 @@ static int mvpp22_gop_init(struct mvpp2_port *port)
- 	return -EINVAL;
- }
- 
-+static void mvpp22_gop_unmask_irq(struct mvpp2_port *port)
-+{
-+	u32 val;
-+
-+	if (phy_interface_mode_is_rgmii(port->phy_interface) ||
-+	    port->phy_interface == PHY_INTERFACE_MODE_SGMII) {
-+		/* Enable the GMAC link status irq for this port */
-+		val = readl(port->base + MVPP22_GMAC_INT_SUM_MASK);
-+		val |= MVPP22_GMAC_INT_SUM_MASK_LINK_STAT;
-+		writel(val, port->base + MVPP22_GMAC_INT_SUM_MASK);
-+	}
-+
-+	if (port->gop_id == 0) {
-+		/* Enable the XLG/GIG irqs for this port */
-+		val = readl(port->base + MVPP22_XLG_EXT_INT_MASK);
-+		if (port->phy_interface == PHY_INTERFACE_MODE_10GKR)
-+			val |= MVPP22_XLG_EXT_INT_MASK_XLG;
-+		else
-+			val |= MVPP22_XLG_EXT_INT_MASK_GIG;
-+		writel(val, port->base + MVPP22_XLG_EXT_INT_MASK);
-+	}
-+}
-+
-+static void mvpp22_gop_mask_irq(struct mvpp2_port *port)
-+{
-+	u32 val;
-+
-+	if (port->gop_id == 0) {
-+		val = readl(port->base + MVPP22_XLG_EXT_INT_MASK);
-+		val &= ~(MVPP22_XLG_EXT_INT_MASK_XLG |
-+		         MVPP22_XLG_EXT_INT_MASK_GIG);
-+		writel(val, port->base + MVPP22_XLG_EXT_INT_MASK);
-+	}
-+
-+	if (phy_interface_mode_is_rgmii(port->phy_interface) ||
-+	    port->phy_interface == PHY_INTERFACE_MODE_SGMII) {
-+		val = readl(port->base + MVPP22_GMAC_INT_SUM_MASK);
-+		val &= ~MVPP22_GMAC_INT_SUM_MASK_LINK_STAT;
-+		writel(val, port->base + MVPP22_GMAC_INT_SUM_MASK);
-+	}
-+}
-+
-+static void mvpp22_gop_setup_irq(struct mvpp2_port *port)
-+{
-+	u32 val;
-+
-+	if (phy_interface_mode_is_rgmii(port->phy_interface) ||
-+	    port->phy_interface == PHY_INTERFACE_MODE_SGMII) {
-+		val = readl(port->base + MVPP22_GMAC_INT_MASK);
-+		val |= MVPP22_GMAC_INT_MASK_LINK_STAT;
-+		writel(val, port->base + MVPP22_GMAC_INT_MASK);
-+	}
-+
-+	if (port->gop_id == 0) {
-+		val = readl(port->base + MVPP22_XLG_INT_MASK);
-+		val |= MVPP22_XLG_INT_MASK_LINK;
-+		writel(val, port->base + MVPP22_XLG_INT_MASK);
-+	}
-+
-+	mvpp22_gop_unmask_irq(port);
-+}
-+
- static int mvpp22_comphy_init(struct mvpp2_port *port)
- {
- 	enum phy_mode mode;
-@@ -5726,6 +5806,60 @@ static irqreturn_t mvpp2_isr(int irq, void *dev_id)
- 	return IRQ_HANDLED;
- }
- 
-+/* Per-port interrupt for link status changes */
-+static irqreturn_t mvpp2_link_status_isr(int irq, void *dev_id)
-+{
-+	struct mvpp2_port *port = (struct mvpp2_port *)dev_id;
-+	struct net_device *dev = port->dev;
-+	bool event = false, link = false;
-+	u32 val;
-+
-+	mvpp22_gop_mask_irq(port);
-+
-+	if (port->gop_id == 0 &&
-+	    port->phy_interface == PHY_INTERFACE_MODE_10GKR) {
-+		val = readl(port->base + MVPP22_XLG_INT_STAT);
-+		if (val & MVPP22_XLG_INT_STAT_LINK) {
-+			event = true;
-+			val = readl(port->base + MVPP22_XLG_STATUS);
-+			if (val & MVPP22_XLG_STATUS_LINK_UP)
-+				link = true;
-+		}
-+	} else if (phy_interface_mode_is_rgmii(port->phy_interface) ||
-+		   port->phy_interface == PHY_INTERFACE_MODE_SGMII) {
-+		val = readl(port->base + MVPP22_GMAC_INT_STAT);
-+		if (val & MVPP22_GMAC_INT_STAT_LINK) {
-+			event = true;
-+			val = readl(port->base + MVPP2_GMAC_STATUS0);
-+			if (val & MVPP2_GMAC_STATUS0_LINK_UP)
-+				link = true;
-+		}
-+	}
-+
-+	if (!netif_running(dev) || !event)
-+		goto handled;
-+
-+	if (link) {
-+		mvpp2_interrupts_enable(port);
-+
-+		mvpp2_egress_enable(port);
-+		mvpp2_ingress_enable(port);
-+		netif_carrier_on(dev);
-+		netif_tx_wake_all_queues(dev);
-+	} else {
-+		netif_tx_stop_all_queues(dev);
-+		netif_carrier_off(dev);
-+		mvpp2_ingress_disable(port);
-+		mvpp2_egress_disable(port);
-+
-+		mvpp2_interrupts_disable(port);
-+	}
-+
-+handled:
-+	mvpp22_gop_unmask_irq(port);
-+	return IRQ_HANDLED;
-+}
-+
- static void mvpp2_gmac_set_autoneg(struct mvpp2_port *port,
- 				   struct phy_device *phydev)
- {
-@@ -5754,7 +5888,6 @@ static void mvpp2_gmac_set_autoneg(struct mvpp2_port *port,
- 		val |= MVPP2_GMAC_CONFIG_MII_SPEED;
- 
- 	writel(val, port->base + MVPP2_GMAC_AUTONEG_CONFIG);
--
- }
- 
- /* Adjust link */
-@@ -6633,6 +6766,7 @@ static void mvpp2_irqs_deinit(struct mvpp2_port *port)
- static int mvpp2_open(struct net_device *dev)
- {
- 	struct mvpp2_port *port = netdev_priv(dev);
-+	struct mvpp2 *priv = port->priv;
- 	unsigned char mac_bcast[ETH_ALEN] = {
- 			0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
- 	int err;
-@@ -6678,12 +6812,24 @@ static int mvpp2_open(struct net_device *dev)
- 		goto err_cleanup_txqs;
- 	}
- 
-+	if (priv->hw_version == MVPP22 && !port->phy_node && port->link_irq) {
-+		err = request_irq(port->link_irq, mvpp2_link_status_isr, 0,
-+				  dev->name, port);
-+		if (err) {
-+			netdev_err(port->dev, "cannot request link IRQ %d\n",
-+				   port->link_irq);
-+			goto err_free_irq;
-+		}
-+
-+		mvpp22_gop_setup_irq(port);
-+	}
-+
- 	/* In default link is down */
- 	netif_carrier_off(port->dev);
- 
- 	err = mvpp2_phy_connect(port);
- 	if (err < 0)
--		goto err_free_irq;
-+		goto err_free_link_irq;
- 
- 	/* Unmask interrupts on all CPUs */
- 	on_each_cpu(mvpp2_interrupts_unmask, port, 1);
-@@ -6693,6 +6839,9 @@ static int mvpp2_open(struct net_device *dev)
- 
- 	return 0;
- 
-+err_free_link_irq:
-+	if (priv->hw_version == MVPP22 && !port->phy_node && port->link_irq)
-+		free_irq(port->link_irq, port);
- err_free_irq:
- 	mvpp2_irqs_deinit(port);
- err_cleanup_txqs:
-@@ -6706,6 +6855,7 @@ static int mvpp2_stop(struct net_device *dev)
- {
- 	struct mvpp2_port *port = netdev_priv(dev);
- 	struct mvpp2_port_pcpu *port_pcpu;
-+	struct mvpp2 *priv = port->priv;
- 	int cpu;
- 
- 	mvpp2_stop_dev(port);
-@@ -6715,6 +6865,9 @@ static int mvpp2_stop(struct net_device *dev)
- 	on_each_cpu(mvpp2_interrupts_mask, port, 1);
- 	mvpp2_shared_interrupt_mask_unmask(port, true);
- 
-+	if (priv->hw_version == MVPP22 && !port->phy_node && port->link_irq)
-+		free_irq(port->link_irq, port);
-+
- 	mvpp2_irqs_deinit(port);
- 	if (!port->has_tx_irqs) {
- 		for_each_present_cpu(cpu) {
-@@ -7413,6 +7566,15 @@ static int mvpp2_port_probe(struct platform_device *pdev,
- 	if (err)
- 		goto err_free_netdev;
- 
-+	port->link_irq = of_irq_get_byname(port_node, "link");
-+	if (port->link_irq == -EPROBE_DEFER) {
-+		err = -EPROBE_DEFER;
-+		goto err_deinit_qvecs;
-+	}
-+	if (port->link_irq <= 0)
-+		/* the link irq is optional */
-+		port->link_irq = 0;
-+
- 	if (of_property_read_bool(port_node, "marvell,loopback"))
- 		port->flags |= MVPP2_F_LOOPBACK;
- 
-@@ -7431,7 +7593,7 @@ static int mvpp2_port_probe(struct platform_device *pdev,
- 		port->base = devm_ioremap_resource(&pdev->dev, res);
- 		if (IS_ERR(port->base)) {
- 			err = PTR_ERR(port->base);
--			goto err_deinit_qvecs;
-+			goto err_free_irq;
- 		}
- 	} else {
- 		if (of_property_read_u32(port_node, "gop-port-id",
-@@ -7448,7 +7610,7 @@ static int mvpp2_port_probe(struct platform_device *pdev,
- 	port->stats = netdev_alloc_pcpu_stats(struct mvpp2_pcpu_stats);
- 	if (!port->stats) {
- 		err = -ENOMEM;
--		goto err_deinit_qvecs;
-+		goto err_free_irq;
- 	}
- 
- 	mvpp2_port_copy_mac_addr(dev, priv, port_node, &mac_from);
-@@ -7518,6 +7680,9 @@ static int mvpp2_port_probe(struct platform_device *pdev,
- 		free_percpu(port->txqs[i]->pcpu);
- err_free_stats:
- 	free_percpu(port->stats);
-+err_free_irq:
-+	if (port->link_irq)
-+		irq_dispose_mapping(port->link_irq);
- err_deinit_qvecs:
- 	mvpp2_queue_vectors_deinit(port);
- err_free_netdev:
-@@ -7538,6 +7703,8 @@ static void mvpp2_port_remove(struct mvpp2_port *port)
- 	for (i = 0; i < port->ntxqs; i++)
- 		free_percpu(port->txqs[i]->pcpu);
- 	mvpp2_queue_vectors_deinit(port);
-+	if (port->link_irq)
-+		irq_dispose_mapping(port->link_irq);
- 	free_netdev(port->dev);
- }
- 
+ Example for marvell,armada-375-pp2:
 -- 
 2.13.5
