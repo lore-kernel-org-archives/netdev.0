@@ -1,8 +1,8 @@
 From: Michal Kubecek <mkubecek@suse.cz>
-Subject: [PATCH iproute2 1/2] iplink: check for message truncation in
+Subject: [PATCH iproute2 2/2] iplink: double the buffer size also in
  iplink_get()
-Date: Fri,  1 Sep 2017 18:39:11 +0200 (CEST)
-Message-ID: <b54be39a6f4688613fba5f0b7a1dcad245149b20.1504283683.git.mkubecek@suse.cz>
+Date: Fri,  1 Sep 2017 18:39:16 +0200 (CEST)
+Message-ID: <a9d6a8d91f9b17690be6d1270f0db3def0574999.1504283683.git.mkubecek@suse.cz>
 References: <cover.1504283683.git.mkubecek@suse.cz>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: Stephen Hemminger <stephen@networkplumber.org>
@@ -11,37 +11,34 @@ In-Reply-To: <cover.1504283683.git.mkubecek@suse.cz>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-If message length exceeds maxlen argument of rtnl_talk(), it is truncated
-to maxlen but unlike in the case of truncation to the length of local
-buffer in rtnl_talk(), the caller doesn't get any indication of a problem.
+Commit 72b365e8e0fd ("libnetlink: Double the dump buffer size") increased
+the buffer size for "ip link show" command to 32 KB to handle NICs with
+large number of VFs. With "dev" filter, a different code path is taken and
+iplink_get() still uses only 16 KB buffer.
 
-In particular, iplink_get() passes the truncated message on and parsing it
-results in various warnings and sometimes even a segfault (observed with
-"ip link show dev ..." for a NIC with 125 VFs).
-
-Handle message truncation in iplink_get() the same way as truncation in
-rtnl_talk() would be handled: return an error.
+The size of 32768 is not very future-proof as NICs supporting 120-128 VFs
+are already in use so that single RTM_NEWLINK message in the dump can
+exceed 30000 bytes. But it's what rtnl_talk() and rtnl_dump_filter_l() use
+so let's be consistent. Once this proves insufficient, all three sizes
+should be increased.
 
 Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
 ---
- ip/iplink.c | 5 +++++
- 1 file changed, 5 insertions(+)
+ ip/iplink.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/ip/iplink.c b/ip/iplink.c
-index 5aff2fde38da..790e3a138bb0 100644
+index 790e3a138bb0..72c347932068 100644
 --- a/ip/iplink.c
 +++ b/ip/iplink.c
-@@ -1040,6 +1040,11 @@ int iplink_get(unsigned int flags, char *name, __u32 filt_mask)
+@@ -1024,7 +1024,7 @@ int iplink_get(unsigned int flags, char *name, __u32 filt_mask)
+ 	};
+ 	struct {
+ 		struct nlmsghdr n;
+-		char buf[16384];
++		char buf[32768];
+ 	} answer;
  
- 	if (rtnl_talk(&rth, &req.n, &answer.n, sizeof(answer)) < 0)
- 		return -2;
-+	if (answer.n.nlmsg_len > sizeof(answer.buf)) {
-+		fprintf(stderr, "Message truncated from %u to %lu\n",
-+			answer.n.nlmsg_len, sizeof(answer.buf));
-+		return -2;
-+	}
- 
- 	if (brief)
- 		print_linkinfo_brief(NULL, &answer.n, stdout, NULL);
+ 	if (name) {
 -- 
 2.14.1
