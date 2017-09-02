@@ -1,144 +1,124 @@
-From: Yonghong Song <yhs@fb.com>
-Subject: [PATCH v2 net-next 3/4] bpf: add helper bpf_perf_prog_read_time
-Date: Fri, 1 Sep 2017 22:48:23 -0700
-Message-ID: <20170902054824.371962-4-yhs@fb.com>
-References: <20170902054824.371962-1-yhs@fb.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <kernel-team@fb.com>
-To: <peterz@infradead.org>, <rostedt@goodmis.org>, <ast@fb.com>,
-        <daniel@iogearbox.net>, <netdev@vger.kernel.org>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCH 2/2] Bluetooth: btqcomsmd: BD address setup
+Date: Sat, 2 Sep 2017 08:12:17 +0200
+Message-ID: <CD710538-22CB-45E5-B54E-ACB97E84D42E@holtmann.org>
+References: <20170901204118.17123-1-bjorn.andersson@linaro.org>
+ <20170901204118.17123-3-bjorn.andersson@linaro.org>
+ <5EC41247-54CD-4F1D-84EC-E94F80A67805@holtmann.org>
+ <CAL_JsqK7skzd1c4Y2nxfspA-CeyK4dqjJB2L3tZztT=w8y4==w@mail.gmail.com>
+Mime-Version: 1.0 (Mac OS X Mail 10.3 \(3273\))
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+Cc: Bjorn Andersson <bjorn.andersson@linaro.org>,
+        "Gustavo F. Padovan" <gustavo@padovan.org>,
+        Johan Hedberg <johan.hedberg@gmail.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        "open list:BLUETOOTH DRIVERS" <linux-bluetooth@vger.kernel.org>,
+        Network Development <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        linux-arm-msm <linux-arm-msm@vger.kernel.org>,
+        Loic Poulain <loic.poulain@linaro.org>
+To: Rob Herring <robh@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:53450 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750980AbdIBFs0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 2 Sep 2017 01:48:26 -0400
-Received: from pps.filterd (m0109333.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v82557Le018906
-        for <netdev@vger.kernel.org>; Fri, 1 Sep 2017 22:48:25 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 2cqkgd0bug-3
-        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Fri, 01 Sep 2017 22:48:25 -0700
-In-Reply-To: <20170902054824.371962-1-yhs@fb.com>
+Received: from coyote.holtmann.net ([212.227.132.17]:33056 "EHLO
+        mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751677AbdIBGMT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 2 Sep 2017 02:12:19 -0400
+In-Reply-To: <CAL_JsqK7skzd1c4Y2nxfspA-CeyK4dqjJB2L3tZztT=w8y4==w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds helper bpf_perf_prog_read_time for perf event based bpf
-programs, to read event enabled/running time.
-The enabled/running time is accumulated since the perf event open.
+Hi Rob,
 
-The typical use case for perf event based bpf program is to attach itself
-to a single event. In such cases, if it is desirable to get scaling factor
-between two bpf invocations, users can can save the time values in a map,
-and use the value from the map and the current value to calculate
-the scaling factor.
+>>> Bluetooth BD address can be retrieved in the same way as
+>>> for wcnss-wlan MAC address. This patch mainly stores the
+>>> local-mac-address property and sets the BD address during
+>>> hci device setup.
+>>> 
+>>> Signed-off-by: Loic Poulain <loic.poulain@linaro.org>
+>>> Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
+>>> ---
+>>> drivers/bluetooth/btqcomsmd.c | 28 ++++++++++++++++++++++++++++
+>>> 1 file changed, 28 insertions(+)
+>>> 
+>>> diff --git a/drivers/bluetooth/btqcomsmd.c b/drivers/bluetooth/btqcomsmd.c
+>>> index d00c4fdae924..443bb2099329 100644
+>>> --- a/drivers/bluetooth/btqcomsmd.c
+>>> +++ b/drivers/bluetooth/btqcomsmd.c
+>>> @@ -26,6 +26,7 @@
+>>> struct btqcomsmd {
+>>>      struct hci_dev *hdev;
+>>> 
+>>> +     const bdaddr_t *addr;
+>>>      struct rpmsg_endpoint *acl_channel;
+>>>      struct rpmsg_endpoint *cmd_channel;
+>>> };
+>>> @@ -100,6 +101,27 @@ static int btqcomsmd_close(struct hci_dev *hdev)
+>>>      return 0;
+>>> }
+>>> 
+>>> +static int btqcomsmd_setup(struct hci_dev *hdev)
+>>> +{
+>>> +     struct btqcomsmd *btq = hci_get_drvdata(hdev);
+>>> +     struct sk_buff *skb;
+>>> +
+>>> +     skb = __hci_cmd_sync(hdev, HCI_OP_RESET, 0, NULL, HCI_INIT_TIMEOUT);
+>>> +     if (IS_ERR(skb))
+>>> +             return PTR_ERR(skb);
+>>> +     kfree_skb(skb);
+>>> +
+>>> +     if (btq->addr) {
+>>> +             bdaddr_t bdaddr;
+>>> +
+>>> +             /* btq->addr stored with most significant byte first */
+>>> +             baswap(&bdaddr, btq->addr);
+>>> +             return qca_set_bdaddr_rome(hdev, &bdaddr);
+>>> +     }
+>>> +
+>>> +     return 0;
+>>> +}
+>>> +
+>>> static int btqcomsmd_probe(struct platform_device *pdev)
+>>> {
+>>>      struct btqcomsmd *btq;
+>>> @@ -123,6 +145,11 @@ static int btqcomsmd_probe(struct platform_device *pdev)
+>>>      if (IS_ERR(btq->cmd_channel))
+>>>              return PTR_ERR(btq->cmd_channel);
+>>> 
+>>> +     btq->addr = of_get_property(pdev->dev.of_node, "local-mac-address",
+>>> +                                 &ret);
+>>> +     if (ret != sizeof(bdaddr_t))
+>>> +             btq->addr = NULL;
+>>> +
+>>>      hdev = hci_alloc_dev();
+>>>      if (!hdev)
+>>>              return -ENOMEM;
+>>> @@ -135,6 +162,7 @@ static int btqcomsmd_probe(struct platform_device *pdev)
+>>>      hdev->open = btqcomsmd_open;
+>>>      hdev->close = btqcomsmd_close;
+>>>      hdev->send = btqcomsmd_send;
+>>> +     hdev->setup = btqcomsmd_setup;
+>>>      hdev->set_bdaddr = qca_set_bdaddr_rome;
+>> 
+>> I do not like this patch. Why not just set HCI_QUIRK_INVALID_BDADDR and let a userspace tool deal with reading the BD_ADDR from some storage.
+>> 
+>> Frankly I do not get this WiFI MAC address or BD_ADDR stored in DT. I assumed the DT is suppose to describe hardware and not some value that is normally retrieved for OTP or alike.
+> 
+> Use of "local-mac-address" for ethernet at least has existed as long
+> at OpenFirmware I think. For some platforms, DT is the only OTP. And
+> sometimes, the bootloader (like u-boot) stores MAC addresses and then
+> populates them on boot.
+> 
+> Seems like if we just let userspace deal with it, then we're back to a
+> btattach tool with every platform's specific way of reading the MAC
+> address.
 
-Signed-off-by: Yonghong Song <yhs@fb.com>
----
- include/linux/perf_event.h |  1 +
- include/uapi/linux/bpf.h   |  8 ++++++++
- kernel/events/core.c       |  1 +
- kernel/trace/bpf_trace.c   | 23 +++++++++++++++++++++++
- 4 files changed, 33 insertions(+)
+for Bluetooth that is not true. We have Set Public Address command that is uniquely handling this and the HCI_QUIRK_INVALID_BDADDR address does the right magic to allow userspace to identify a missing address. It is done nicely and correctly and works fine.
 
-diff --git a/include/linux/perf_event.h b/include/linux/perf_event.h
-index 5a50808..6756ae7 100644
---- a/include/linux/perf_event.h
-+++ b/include/linux/perf_event.h
-@@ -821,6 +821,7 @@ struct perf_output_handle {
- struct bpf_perf_event_data_kern {
- 	struct pt_regs *regs;
- 	struct perf_sample_data *data;
-+	struct perf_event *event;
- };
- 
- #ifdef CONFIG_CGROUP_PERF
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index 9c23bef..1ae55c8 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -590,6 +590,13 @@ union bpf_attr {
-  *     @counter_time_buf: buf to fill
-  *     @buf_size: size of the counter_time_buf
-  *     Return: 0 on success or negative error code
-+ *
-+ * int bpf_perf_prog_read_time(ctx, time_buf, buf_size)
-+ *     Read perf event enabled and running time
-+ *     @ctx: pointer to ctx
-+ *     @time_buf: buf to fill
-+ *     @buf_size: size of the time_buf
-+ *     Return : 0 on success or negative error code
-  */
- #define __BPF_FUNC_MAPPER(FN)		\
- 	FN(unspec),			\
-@@ -647,6 +654,7 @@ union bpf_attr {
- 	FN(sk_redirect_map),		\
- 	FN(sock_map_update),		\
- 	FN(perf_read_counter_time),		\
-+	FN(perf_prog_read_time),		\
- 
- /* integer value in 'imm' field of BPF_CALL instruction selects which helper
-  * function eBPF program intends to call
-diff --git a/kernel/events/core.c b/kernel/events/core.c
-index 20c4039..338f564 100644
---- a/kernel/events/core.c
-+++ b/kernel/events/core.c
-@@ -8026,6 +8026,7 @@ static void bpf_overflow_handler(struct perf_event *event,
- 	struct bpf_perf_event_data_kern ctx = {
- 		.data = data,
- 		.regs = regs,
-+		.event = event,
- 	};
- 	int ret = 0;
- 
-diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
-index 7ef953f..89b0744 100644
---- a/kernel/trace/bpf_trace.c
-+++ b/kernel/trace/bpf_trace.c
-@@ -603,6 +603,18 @@ BPF_CALL_3(bpf_get_stackid_tp, void *, tp_buff, struct bpf_map *, map,
- 			       flags, 0, 0);
- }
- 
-+BPF_CALL_3(bpf_perf_prog_read_time_tp, void *, ctx, struct bpf_perf_time *,
-+	time_buf, u32, size)
-+{
-+	struct bpf_perf_event_data_kern *kctx = (struct bpf_perf_event_data_kern *)ctx;
-+
-+	if (size != sizeof(struct bpf_perf_time))
-+		return -EINVAL;
-+
-+	return perf_event_read_local(kctx->event, NULL, &time_buf->enabled,
-+				     &time_buf->running);
-+}
-+
- static const struct bpf_func_proto bpf_get_stackid_proto_tp = {
- 	.func		= bpf_get_stackid_tp,
- 	.gpl_only	= true,
-@@ -612,6 +624,15 @@ static const struct bpf_func_proto bpf_get_stackid_proto_tp = {
- 	.arg3_type	= ARG_ANYTHING,
- };
- 
-+static const struct bpf_func_proto bpf_perf_prog_read_time_proto_tp = {
-+         .func           = bpf_perf_prog_read_time_tp,
-+         .gpl_only       = true,
-+         .ret_type       = RET_INTEGER,
-+         .arg1_type      = ARG_PTR_TO_CTX,
-+         .arg2_type      = ARG_PTR_TO_UNINIT_MEM,
-+         .arg3_type      = ARG_CONST_SIZE,
-+};
-+
- static const struct bpf_func_proto *tp_prog_func_proto(enum bpf_func_id func_id)
- {
- 	switch (func_id) {
-@@ -619,6 +640,8 @@ static const struct bpf_func_proto *tp_prog_func_proto(enum bpf_func_id func_id)
- 		return &bpf_perf_event_output_proto_tp;
- 	case BPF_FUNC_get_stackid:
- 		return &bpf_get_stackid_proto_tp;
-+	case BPF_FUNC_perf_prog_read_time:
-+		return &bpf_perf_prog_read_time_proto_tp;
- 	default:
- 		return tracing_func_proto(func_id);
- 	}
--- 
-2.9.5
+Mind you this is even used when there actually is a BD_ADDR, but the device manufacturer wants to have one from its own OUI range compared to the chip manufacturer’s OUI range.
+
+If DT is really the only place for the BD_ADDR and the bootloader kinda does add / merge it into the DT, then by all means that is fine. However if it is not, then this feature is dangerous since it can lead to multiple devices with the same address. I rather have these devices leave the kernel in unconfigured mode. And then force a userspace tool to use Set Public Address to bring it into configured mode.
+
+Regards
+
+Marcel
