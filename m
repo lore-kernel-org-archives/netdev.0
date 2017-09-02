@@ -1,67 +1,55 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 07/21] mlxsw: reg: Give mlxsw_reg_ratr_pack a type parameter
-Date: Sat,  2 Sep 2017 23:49:15 +0200
-Message-ID: <20170902214929.2890-8-jiri@resnulli.us>
+Subject: [patch net-next v2 04/21] mlxsw: reg: Add mlxsw_reg_ralue_act_ip2me_tun_pack()
+Date: Sat,  2 Sep 2017 23:49:12 +0200
+Message-ID: <20170902214929.2890-5-jiri@resnulli.us>
 References: <20170902214929.2890-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, petrm@mellanox.com, idosch@mellanox.com,
         mlxsw@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f194.google.com ([209.85.128.194]:35037 "EHLO
-        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752776AbdIBVto (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 2 Sep 2017 17:49:44 -0400
-Received: by mail-wr0-f194.google.com with SMTP id a47so1622657wra.2
-        for <netdev@vger.kernel.org>; Sat, 02 Sep 2017 14:49:43 -0700 (PDT)
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:35939 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752790AbdIBVtk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 2 Sep 2017 17:49:40 -0400
+Received: by mail-wm0-f65.google.com with SMTP id p17so3153791wmd.3
+        for <netdev@vger.kernel.org>; Sat, 02 Sep 2017 14:49:39 -0700 (PDT)
 In-Reply-To: <20170902214929.2890-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Petr Machata <petrm@mellanox.com>
 
-To support IPIP, the driver needs to be able to construct an IPIP
-adjacency. Change mlxsw_reg_ratr_pack to take an adjacency type as an
-argument. Adjust the one existing caller.
+To implement IP-in-IP decapsulation, Spectrum uses LPM entries of type
+IP2ME with tunnel validity bit and tunnel pointer set. The necessary
+register fields are already available, so add a function to pack the
+RALUE as appropriate.
 
 Signed-off-by: Petr Machata <petrm@mellanox.com>
 Reviewed-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/reg.h             | 2 ++
- drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c | 3 ++-
- 2 files changed, 4 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/mellanox/mlxsw/reg.h | 9 +++++++++
+ 1 file changed, 9 insertions(+)
 
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-index d80cf9b..cc27c5d 100644
+index bf936b6..24296cf 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
 +++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-@@ -4483,11 +4483,13 @@ MLXSW_ITEM32(reg, ratr, ipip_ipv6_ptr, 0x1C, 0, 24);
- static inline void
- mlxsw_reg_ratr_pack(char *payload,
- 		    enum mlxsw_reg_ratr_op op, bool valid,
-+		    enum mlxsw_reg_ratr_type type,
- 		    u32 adjacency_index, u16 egress_rif)
- {
- 	MLXSW_REG_ZERO(ratr, payload);
- 	mlxsw_reg_ratr_op_set(payload, op);
- 	mlxsw_reg_ratr_v_set(payload, valid);
-+	mlxsw_reg_ratr_type_set(payload, type);
- 	mlxsw_reg_ratr_adjacency_index_low_set(payload, adjacency_index);
- 	mlxsw_reg_ratr_adjacency_index_high_set(payload, adjacency_index >> 16);
- 	mlxsw_reg_ratr_egress_router_interface_set(payload, egress_rif);
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-index 3ddfbe3..4e47d45 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-@@ -1928,7 +1928,8 @@ static int mlxsw_sp_nexthop_mac_update(struct mlxsw_sp *mlxsw_sp, u32 adj_index,
- 	char ratr_pl[MLXSW_REG_RATR_LEN];
- 
- 	mlxsw_reg_ratr_pack(ratr_pl, MLXSW_REG_RATR_OP_WRITE_WRITE_ENTRY,
--			    true, adj_index, neigh_entry->rif);
-+			    true, MLXSW_REG_RATR_TYPE_ETHERNET,
-+			    adj_index, neigh_entry->rif);
- 	mlxsw_reg_ratr_eth_entry_pack(ratr_pl, neigh_entry->ha);
- 	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(ratr), ratr_pl);
+@@ -5054,6 +5054,15 @@ mlxsw_reg_ralue_act_ip2me_pack(char *payload)
+ 					MLXSW_REG_RALUE_ACTION_TYPE_IP2ME);
  }
+ 
++static inline void
++mlxsw_reg_ralue_act_ip2me_tun_pack(char *payload, u32 tunnel_ptr)
++{
++	mlxsw_reg_ralue_action_type_set(payload,
++					MLXSW_REG_RALUE_ACTION_TYPE_IP2ME);
++	mlxsw_reg_ralue_ip2me_v_set(payload, 1);
++	mlxsw_reg_ralue_ip2me_tunnel_ptr_set(payload, tunnel_ptr);
++}
++
+ /* RAUHT - Router Algorithmic LPM Unicast Host Table Register
+  * ----------------------------------------------------------
+  * The RAUHT register is used to configure and query the Unicast Host table in
 -- 
 2.9.3
