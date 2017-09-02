@@ -1,108 +1,146 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: Problem compiling iproute2 on older systems
-Date: Sat, 2 Sep 2017 07:17:28 -0700
-Message-ID: <29fe7a44-7086-d31c-6cde-ed39afa4a467@candelatech.com>
-References: <bf2c63d1-42cc-7fd3-7d79-945feabda50e@candelatech.com>
- <20170902075523.aton5r4p4bgcupra@unicorn.suse.cz>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-        Stephen Hemminger <stephen@networkplumber.org>
-To: Michal Kubecek <mkubecek@suse.cz>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next 01/21] mlxsw: reg: Update RITR to support loopback device
+Date: Sat,  2 Sep 2017 17:21:06 +0200
+Message-ID: <20170902152126.17286-2-jiri@resnulli.us>
+References: <20170902152126.17286-1-jiri@resnulli.us>
+Cc: davem@davemloft.net, petrm@mellanox.com, idosch@mellanox.com,
+        mlxsw@mellanox.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.candelatech.com ([208.74.158.173]:51924 "EHLO
-        mail2.candelatech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752649AbdIBOR3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 2 Sep 2017 10:17:29 -0400
-In-Reply-To: <20170902075523.aton5r4p4bgcupra@unicorn.suse.cz>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:33320 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752712AbdIBPVc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 2 Sep 2017 11:21:32 -0400
+Received: by mail-wm0-f68.google.com with SMTP id 187so2416528wmn.0
+        for <netdev@vger.kernel.org>; Sat, 02 Sep 2017 08:21:32 -0700 (PDT)
+In-Reply-To: <20170902152126.17286-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Petr Machata <petrm@mellanox.com>
 
+Update the register so that loopback RIFs can be created and loopback
+properties specified.
 
-On 09/02/2017 12:55 AM, Michal Kubecek wrote:
-> On Fri, Sep 01, 2017 at 04:52:20PM -0700, Ben Greear wrote:
->> In the patch below, usage of __kernel_ulong_t and __kernel_long_t is
->> introduced, but that is not available on older system (fedora-14, at least).
->>
->> It is not a #define, so I am having trouble finding a quick hack
->> around this.
->>
->> Any ideas on how to make this work better on older OSs running
->> modern kernels?
->>
->>
->> Author: Stephen Hemminger <stephen@networkplumber.org>  2017-01-12 17:54:39
->> Committer: Stephen Hemminger <stephen@networkplumber.org>  2017-01-12 17:54:39
->> Child:  c7ec7697e3f000359aa317394e6dd972e35c1f84 (Fix build on fedora-14 (and other older systems))
->> Branches: master, remotes/origin/master
->> Follows: v3.10.0
->> Precedes:
->>
->>     add more uapi header files
->>
->>     In order to ensure no backward/forward compatiablity problems,
->>     make sure that all kernel headers used come from the local copy.
->>
->>     Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
->>
->> --------------------------- include/linux/sysinfo.h ---------------------------
->> new file mode 100644
->> index 0000000..934335a
->> @@ -0,0 +1,24 @@
->> +#ifndef _LINUX_SYSINFO_H
->> +#define _LINUX_SYSINFO_H
->> +
->> +#include <linux/types.h>
->> +
->> +#define SI_LOAD_SHIFT	16
->> +struct sysinfo {
->> +	__kernel_long_t uptime;		/* Seconds since boot */
->> +	__kernel_ulong_t loads[3];	/* 1, 5, and 15 minute load averages */
->> +	__kernel_ulong_t totalram;	/* Total usable main memory size */
->> +	__kernel_ulong_t freeram;	/* Available memory size */
->> +	__kernel_ulong_t sharedram;	/* Amount of shared memory */
->> +	__kernel_ulong_t bufferram;	/* Memory used by buffers */
->> +	__kernel_ulong_t totalswap;	/* Total swap space size */
->> +	__kernel_ulong_t freeswap;	/* swap space still available */
->> +	__u16 procs;		   	/* Number of current processes */
->> +	__u16 pad;		   	/* Explicit padding for m68k */
->> +	__kernel_ulong_t totalhigh;	/* Total high memory size */
->> +	__kernel_ulong_t freehigh;	/* Available high memory size */
->> +	__u32 mem_unit;			/* Memory unit size in bytes */
->> +	char _f[20-2*sizeof(__kernel_ulong_t)-sizeof(__u32)];	/* Padding: libc5 uses this.. */
->> +};
->> +
->> +#endif /* _LINUX_SYSINFO_H */
->
-> I've been already thinking about this a bit. Normally, we would simply
-> add the file where __kernel_long_t and __kernel_ulong_t are defined.
-> The problem is this is <asm/posix_types.h> which depends on
-> architecture - which is the point of these types.
->
-> Good thing is iproute2 doesn't actually use struct sysinfo anywhere so
-> we don't need to have them defined correctly. One possible workaround
-> would therefore be defining them as long and unsigned long. As long as
-> we don't use the types anywhere, we would be fine.
->
-> Another option would be to replace include/linux/sysinfo.h with an empty
-> file. The problem I can see with this is that if someone uses a script
-> to refresh all copies of uapi headers automatically, the script would
-> have to be aware that it must not update this file and preserve the fake
-> empty one.
+Signed-off-by: Petr Machata <petrm@mellanox.com>
+Reviewed-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/reg.h | 88 +++++++++++++++++++++++++++++++
+ 1 file changed, 88 insertions(+)
 
-I just sent a patch that appears to compile on all of my build systems, which are
-generally fedora-14 to fedora-24 currently.
-
-I haven't actually tested functionality yet, but if you say it is unused, then
-it is very likely to be OK, and even if not, I think it will be fine unless
-someone is trying to cross-compile.  And in that case, probably more than one
-issue involved...
-
-Thanks,
-Ben
-
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+index 11e290c..8736f8492 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+@@ -3998,6 +3998,8 @@ enum mlxsw_reg_ritr_if_type {
+ 	MLXSW_REG_RITR_FID_IF,
+ 	/* Sub-port interface. */
+ 	MLXSW_REG_RITR_SP_IF,
++	/* Loopback Interface. */
++	MLXSW_REG_RITR_LOOPBACK_IF,
+ };
+ 
+ /* reg_ritr_type
+@@ -4129,6 +4131,67 @@ MLXSW_ITEM32(reg, ritr, sp_if_system_port, 0x08, 0, 16);
+  */
+ MLXSW_ITEM32(reg, ritr, sp_if_vid, 0x18, 0, 12);
+ 
++/* Loopback Interface */
++
++enum mlxsw_reg_ritr_loopback_protocol {
++	/* IPinIP IPv4 underlay Unicast */
++	MLXSW_REG_RITR_LOOPBACK_PROTOCOL_IPIP_IPV4,
++	/* IPinIP IPv6 underlay Unicast */
++	MLXSW_REG_RITR_LOOPBACK_PROTOCOL_IPIP_IPV6,
++};
++
++/* reg_ritr_loopback_protocol
++ * Access: RW
++ */
++MLXSW_ITEM32(reg, ritr, loopback_protocol, 0x08, 28, 4);
++
++enum mlxsw_reg_ritr_loopback_ipip_type {
++	/* Tunnel is IPinIP. */
++	MLXSW_REG_RITR_LOOPBACK_IPIP_TYPE_IP_IN_IP,
++	/* Tunnel is GRE, no key. */
++	MLXSW_REG_RITR_LOOPBACK_IPIP_TYPE_IP_IN_GRE_IN_IP,
++	/* Tunnel is GRE, with a key. */
++	MLXSW_REG_RITR_LOOPBACK_IPIP_TYPE_IP_IN_GRE_KEY_IN_IP,
++};
++
++/* reg_ritr_loopback_ipip_type
++ * Encapsulation type.
++ * Access: RW
++ */
++MLXSW_ITEM32(reg, ritr, loopback_ipip_type, 0x10, 24, 4);
++
++enum mlxsw_reg_ritr_loopback_ipip_options {
++	/* The key is defined by gre_key. */
++	MLXSW_REG_RITR_LOOPBACK_IPIP_OPTIONS_GRE_KEY_PRESET,
++};
++
++/* reg_ritr_loopback_ipip_options
++ * Access: RW
++ */
++MLXSW_ITEM32(reg, ritr, loopback_ipip_options, 0x10, 20, 4);
++
++/* reg_ritr_loopback_ipip_uvr
++ * Underlay Virtual Router ID.
++ * Range is 0..cap_max_virtual_routers-1.
++ * Reserved for Spectrum-2.
++ * Access: RW
++ */
++MLXSW_ITEM32(reg, ritr, loopback_ipip_uvr, 0x10, 0, 16);
++
++/* reg_ritr_loopback_ipip_usip*
++ * Encapsulation Underlay source IP.
++ * Access: RW
++ */
++MLXSW_ITEM_BUF(reg, ritr, loopback_ipip_usip6, 0x18, 16);
++MLXSW_ITEM32(reg, ritr, loopback_ipip_usip4, 0x24, 0, 32);
++
++/* reg_ritr_loopback_ipip_gre_key
++ * GRE Key.
++ * Reserved when ipip_type is not IP_IN_GRE_KEY_IN_IP.
++ * Access: RW
++ */
++MLXSW_ITEM32(reg, ritr, loopback_ipip_gre_key, 0x28, 0, 32);
++
+ /* Shared between ingress/egress */
+ enum mlxsw_reg_ritr_counter_set_type {
+ 	/* No Count. */
+@@ -4219,6 +4282,31 @@ static inline void mlxsw_reg_ritr_pack(char *payload, bool enable,
+ 	mlxsw_reg_ritr_if_mac_memcpy_to(payload, mac);
+ }
+ 
++static inline void
++mlxsw_reg_ritr_loopback_ipip_common_pack(char *payload,
++			    enum mlxsw_reg_ritr_loopback_ipip_type ipip_type,
++			    enum mlxsw_reg_ritr_loopback_ipip_options options,
++			    u16 uvr_id, u32 gre_key)
++{
++	mlxsw_reg_ritr_loopback_ipip_type_set(payload, ipip_type);
++	mlxsw_reg_ritr_loopback_ipip_options_set(payload, options);
++	mlxsw_reg_ritr_loopback_ipip_uvr_set(payload, uvr_id);
++	mlxsw_reg_ritr_loopback_ipip_gre_key_set(payload, gre_key);
++}
++
++static inline void
++mlxsw_reg_ritr_loopback_ipip4_pack(char *payload,
++			    enum mlxsw_reg_ritr_loopback_ipip_type ipip_type,
++			    enum mlxsw_reg_ritr_loopback_ipip_options options,
++			    u16 uvr_id, u32 usip, u32 gre_key)
++{
++	mlxsw_reg_ritr_loopback_protocol_set(payload,
++				    MLXSW_REG_RITR_LOOPBACK_PROTOCOL_IPIP_IPV4);
++	mlxsw_reg_ritr_loopback_ipip_common_pack(payload, ipip_type, options,
++						 uvr_id, gre_key);
++	mlxsw_reg_ritr_loopback_ipip_usip4_set(payload, usip);
++}
++
+ /* RATR - Router Adjacency Table Register
+  * --------------------------------------
+  * The RATR register is used to configure the Router Adjacency (next-hop)
 -- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+2.9.3
