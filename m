@@ -1,155 +1,146 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 18/21] mlxsw: spectrum_router: Use existing decap route
-Date: Sat,  2 Sep 2017 23:49:26 +0200
-Message-ID: <20170902214929.2890-19-jiri@resnulli.us>
+Subject: [patch net-next v2 01/21] mlxsw: reg: Update RITR to support loopback device
+Date: Sat,  2 Sep 2017 23:49:09 +0200
+Message-ID: <20170902214929.2890-2-jiri@resnulli.us>
 References: <20170902214929.2890-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, petrm@mellanox.com, idosch@mellanox.com,
         mlxsw@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f194.google.com ([209.85.128.194]:34810 "EHLO
-        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752862AbdIBVuB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 2 Sep 2017 17:50:01 -0400
-Received: by mail-wr0-f194.google.com with SMTP id w62so542840wrc.1
-        for <netdev@vger.kernel.org>; Sat, 02 Sep 2017 14:50:00 -0700 (PDT)
+Received: from mail-wr0-f196.google.com ([209.85.128.196]:38896 "EHLO
+        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752776AbdIBVtg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 2 Sep 2017 17:49:36 -0400
+Received: by mail-wr0-f196.google.com with SMTP id j3so1613399wrb.5
+        for <netdev@vger.kernel.org>; Sat, 02 Sep 2017 14:49:35 -0700 (PDT)
 In-Reply-To: <20170902214929.2890-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Petr Machata <petrm@mellanox.com>
 
-The local route that points at IPIP's underlay device (decap route) can
-be present long before the GRE device. Thus when an encap route is
-added, it's necessary to look inside the underlay FIB if the decap route
-is already present. If so, the current trap offload needs to be
-withdrawn and replaced with a decap offload.
+Update the register so that loopback RIFs can be created and loopback
+properties specified.
 
 Signed-off-by: Petr Machata <petrm@mellanox.com>
 Reviewed-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 80 ++++++++++++++++++++--
- 1 file changed, 76 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/mellanox/mlxsw/reg.h | 88 +++++++++++++++++++++++++++++++
+ 1 file changed, 88 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-index 0d09f81..2189cf0 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-@@ -1072,6 +1072,9 @@ static void mlxsw_sp_fib_entry_decap_fini(struct mlxsw_sp *mlxsw_sp,
- 	mlxsw_sp_kvdl_free(mlxsw_sp, fib_entry->decap.tunnel_index);
- }
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+index 11e290c..8736f8492 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+@@ -3998,6 +3998,8 @@ enum mlxsw_reg_ritr_if_type {
+ 	MLXSW_REG_RITR_FID_IF,
+ 	/* Sub-port interface. */
+ 	MLXSW_REG_RITR_SP_IF,
++	/* Loopback Interface. */
++	MLXSW_REG_RITR_LOOPBACK_IF,
+ };
  
-+static struct mlxsw_sp_fib_node *
-+mlxsw_sp_fib_node_lookup(struct mlxsw_sp_fib *fib, const void *addr,
-+			 size_t addr_len, unsigned char prefix_len);
- static int mlxsw_sp_fib_entry_update(struct mlxsw_sp *mlxsw_sp,
- 				     struct mlxsw_sp_fib_entry *fib_entry);
+ /* reg_ritr_type
+@@ -4129,6 +4131,67 @@ MLXSW_ITEM32(reg, ritr, sp_if_system_port, 0x08, 0, 16);
+  */
+ MLXSW_ITEM32(reg, ritr, sp_if_vid, 0x18, 0, 12);
  
-@@ -1087,6 +1090,73 @@ mlxsw_sp_ipip_entry_demote_decap(struct mlxsw_sp *mlxsw_sp,
- 	mlxsw_sp_fib_entry_update(mlxsw_sp, fib_entry);
- }
- 
-+static void
-+mlxsw_sp_ipip_entry_promote_decap(struct mlxsw_sp *mlxsw_sp,
-+				  struct mlxsw_sp_ipip_entry *ipip_entry,
-+				  struct mlxsw_sp_fib_entry *decap_fib_entry)
-+{
-+	if (mlxsw_sp_fib_entry_decap_init(mlxsw_sp, decap_fib_entry,
-+					  ipip_entry))
-+		return;
-+	decap_fib_entry->type = MLXSW_SP_FIB_ENTRY_TYPE_IPIP_DECAP;
++/* Loopback Interface */
 +
-+	if (mlxsw_sp_fib_entry_update(mlxsw_sp, decap_fib_entry))
-+		mlxsw_sp_ipip_entry_demote_decap(mlxsw_sp, ipip_entry);
++enum mlxsw_reg_ritr_loopback_protocol {
++	/* IPinIP IPv4 underlay Unicast */
++	MLXSW_REG_RITR_LOOPBACK_PROTOCOL_IPIP_IPV4,
++	/* IPinIP IPv6 underlay Unicast */
++	MLXSW_REG_RITR_LOOPBACK_PROTOCOL_IPIP_IPV6,
++};
++
++/* reg_ritr_loopback_protocol
++ * Access: RW
++ */
++MLXSW_ITEM32(reg, ritr, loopback_protocol, 0x08, 28, 4);
++
++enum mlxsw_reg_ritr_loopback_ipip_type {
++	/* Tunnel is IPinIP. */
++	MLXSW_REG_RITR_LOOPBACK_IPIP_TYPE_IP_IN_IP,
++	/* Tunnel is GRE, no key. */
++	MLXSW_REG_RITR_LOOPBACK_IPIP_TYPE_IP_IN_GRE_IN_IP,
++	/* Tunnel is GRE, with a key. */
++	MLXSW_REG_RITR_LOOPBACK_IPIP_TYPE_IP_IN_GRE_KEY_IN_IP,
++};
++
++/* reg_ritr_loopback_ipip_type
++ * Encapsulation type.
++ * Access: RW
++ */
++MLXSW_ITEM32(reg, ritr, loopback_ipip_type, 0x10, 24, 4);
++
++enum mlxsw_reg_ritr_loopback_ipip_options {
++	/* The key is defined by gre_key. */
++	MLXSW_REG_RITR_LOOPBACK_IPIP_OPTIONS_GRE_KEY_PRESET,
++};
++
++/* reg_ritr_loopback_ipip_options
++ * Access: RW
++ */
++MLXSW_ITEM32(reg, ritr, loopback_ipip_options, 0x10, 20, 4);
++
++/* reg_ritr_loopback_ipip_uvr
++ * Underlay Virtual Router ID.
++ * Range is 0..cap_max_virtual_routers-1.
++ * Reserved for Spectrum-2.
++ * Access: RW
++ */
++MLXSW_ITEM32(reg, ritr, loopback_ipip_uvr, 0x10, 0, 16);
++
++/* reg_ritr_loopback_ipip_usip*
++ * Encapsulation Underlay source IP.
++ * Access: RW
++ */
++MLXSW_ITEM_BUF(reg, ritr, loopback_ipip_usip6, 0x18, 16);
++MLXSW_ITEM32(reg, ritr, loopback_ipip_usip4, 0x24, 0, 32);
++
++/* reg_ritr_loopback_ipip_gre_key
++ * GRE Key.
++ * Reserved when ipip_type is not IP_IN_GRE_KEY_IN_IP.
++ * Access: RW
++ */
++MLXSW_ITEM32(reg, ritr, loopback_ipip_gre_key, 0x28, 0, 32);
++
+ /* Shared between ingress/egress */
+ enum mlxsw_reg_ritr_counter_set_type {
+ 	/* No Count. */
+@@ -4219,6 +4282,31 @@ static inline void mlxsw_reg_ritr_pack(char *payload, bool enable,
+ 	mlxsw_reg_ritr_if_mac_memcpy_to(payload, mac);
+ }
+ 
++static inline void
++mlxsw_reg_ritr_loopback_ipip_common_pack(char *payload,
++			    enum mlxsw_reg_ritr_loopback_ipip_type ipip_type,
++			    enum mlxsw_reg_ritr_loopback_ipip_options options,
++			    u16 uvr_id, u32 gre_key)
++{
++	mlxsw_reg_ritr_loopback_ipip_type_set(payload, ipip_type);
++	mlxsw_reg_ritr_loopback_ipip_options_set(payload, options);
++	mlxsw_reg_ritr_loopback_ipip_uvr_set(payload, uvr_id);
++	mlxsw_reg_ritr_loopback_ipip_gre_key_set(payload, gre_key);
 +}
 +
-+/* Given an IPIP entry, find the corresponding decap route. */
-+static struct mlxsw_sp_fib_entry *
-+mlxsw_sp_ipip_entry_find_decap(struct mlxsw_sp *mlxsw_sp,
-+			       struct mlxsw_sp_ipip_entry *ipip_entry)
++static inline void
++mlxsw_reg_ritr_loopback_ipip4_pack(char *payload,
++			    enum mlxsw_reg_ritr_loopback_ipip_type ipip_type,
++			    enum mlxsw_reg_ritr_loopback_ipip_options options,
++			    u16 uvr_id, u32 usip, u32 gre_key)
 +{
-+	static struct mlxsw_sp_fib_node *fib_node;
-+	const struct mlxsw_sp_ipip_ops *ipip_ops;
-+	struct mlxsw_sp_fib_entry *fib_entry;
-+	unsigned char saddr_prefix_len;
-+	union mlxsw_sp_l3addr saddr;
-+	struct mlxsw_sp_fib *ul_fib;
-+	struct mlxsw_sp_vr *ul_vr;
-+	const void *saddrp;
-+	size_t saddr_len;
-+	u32 ul_tb_id;
-+	u32 saddr4;
-+
-+	ipip_ops = mlxsw_sp->router->ipip_ops_arr[ipip_entry->ipipt];
-+
-+	ul_tb_id = mlxsw_sp_ipip_dev_ul_tb_id(ipip_entry->ol_dev);
-+	ul_vr = mlxsw_sp_vr_find(mlxsw_sp, ul_tb_id);
-+	if (!ul_vr)
-+		return NULL;
-+
-+	ul_fib = mlxsw_sp_vr_fib(ul_vr, ipip_ops->ul_proto);
-+	saddr = mlxsw_sp_ipip_netdev_saddr(ipip_ops->ul_proto,
-+					   ipip_entry->ol_dev);
-+
-+	switch (ipip_ops->ul_proto) {
-+	case MLXSW_SP_L3_PROTO_IPV4:
-+		saddr4 = be32_to_cpu(saddr.addr4);
-+		saddrp = &saddr4;
-+		saddr_len = 4;
-+		saddr_prefix_len = 32;
-+		break;
-+	case MLXSW_SP_L3_PROTO_IPV6:
-+		WARN_ON(1);
-+		return NULL;
-+	}
-+
-+	fib_node = mlxsw_sp_fib_node_lookup(ul_fib, saddrp, saddr_len,
-+					    saddr_prefix_len);
-+	if (!fib_node || list_empty(&fib_node->entry_list))
-+		return NULL;
-+
-+	fib_entry = list_first_entry(&fib_node->entry_list,
-+				     struct mlxsw_sp_fib_entry, list);
-+	if (fib_entry->type != MLXSW_SP_FIB_ENTRY_TYPE_TRAP)
-+		return NULL;
-+
-+	return fib_entry;
++	mlxsw_reg_ritr_loopback_protocol_set(payload,
++				    MLXSW_REG_RITR_LOOPBACK_PROTOCOL_IPIP_IPV4);
++	mlxsw_reg_ritr_loopback_ipip_common_pack(payload, ipip_type, options,
++						 uvr_id, gre_key);
++	mlxsw_reg_ritr_loopback_ipip_usip4_set(payload, usip);
 +}
 +
- static struct mlxsw_sp_ipip_entry *
- mlxsw_sp_ipip_entry_get(struct mlxsw_sp *mlxsw_sp,
- 			enum mlxsw_sp_ipip_type ipipt,
-@@ -1094,6 +1164,7 @@ mlxsw_sp_ipip_entry_get(struct mlxsw_sp *mlxsw_sp,
- {
- 	u32 ul_tb_id = mlxsw_sp_ipip_dev_ul_tb_id(ol_dev);
- 	struct mlxsw_sp_router *router = mlxsw_sp->router;
-+	struct mlxsw_sp_fib_entry *decap_fib_entry;
- 	struct mlxsw_sp_ipip_entry *ipip_entry;
- 	enum mlxsw_sp_l3proto ul_proto;
- 	union mlxsw_sp_l3addr saddr;
-@@ -1118,6 +1189,11 @@ mlxsw_sp_ipip_entry_get(struct mlxsw_sp *mlxsw_sp,
- 	if (IS_ERR(ipip_entry))
- 		return ipip_entry;
- 
-+	decap_fib_entry = mlxsw_sp_ipip_entry_find_decap(mlxsw_sp, ipip_entry);
-+	if (decap_fib_entry)
-+		mlxsw_sp_ipip_entry_promote_decap(mlxsw_sp, ipip_entry,
-+						  decap_fib_entry);
-+
- 	list_add_tail(&ipip_entry->ipip_list_node,
- 		      &mlxsw_sp->router->ipip_list);
- 
-@@ -3259,10 +3335,6 @@ static void mlxsw_sp_fib4_entry_destroy(struct mlxsw_sp *mlxsw_sp,
- 	kfree(fib4_entry);
- }
- 
--static struct mlxsw_sp_fib_node *
--mlxsw_sp_fib_node_lookup(struct mlxsw_sp_fib *fib, const void *addr,
--			 size_t addr_len, unsigned char prefix_len);
--
- static struct mlxsw_sp_fib4_entry *
- mlxsw_sp_fib4_entry_lookup(struct mlxsw_sp *mlxsw_sp,
- 			   const struct fib_entry_notifier_info *fen_info)
+ /* RATR - Router Adjacency Table Register
+  * --------------------------------------
+  * The RATR register is used to configure the Router Adjacency (next-hop)
 -- 
 2.9.3
