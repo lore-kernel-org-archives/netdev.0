@@ -1,123 +1,85 @@
-From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>
-Subject: Re: [PATCH net-next v7 08/10] bpf: Add a Landlock sandbox example
-Date: Sat, 2 Sep 2017 15:19:30 +0200
-Message-ID: <d603fc80-ee31-704d-5d42-67ca38e0800f@digikod.net>
-References: <20170821000933.13024-1-mic@digikod.net>
- <20170821000933.13024-9-mic@digikod.net>
- <CAMXgnP64XxJGLyWqqNQ7P-Ok+UDydb+t8Pm9dUyXZ_9cx+Cfmw@mail.gmail.com>
+From: "Rafael J. Wysocki" <rjw@rjwysocki.net>
+Subject: Re: [PATCH 31/31] timer: Switch to testing for .function instead of .data
+Date: Sat, 02 Sep 2017 15:47:20 +0200
+Message-ID: <1857082.urnTVIQKcg@aspire.rjw.lan>
+References: <1504222183-61202-1-git-send-email-keescook@chromium.org> <1504222183-61202-32-git-send-email-keescook@chromium.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="LPEX4SLw9tcG5Ht2Iqlv7baDHGW2TBt3L"
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Andy Lutomirski <luto@amacapital.net>,
-        Arnaldo Carvalho de Melo <acme@kernel.org>,
-        Casey Schaufler <casey@schaufler-ca.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        David Drysdale
- <drysdale@google.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        "Eric W . Biederman" <ebiederm@xmission.com>,
-        James Morris <james.l.morris@oracle.com>, Jann Horn <jann@thejh.net>,
-        Jonathan Corbet <corbet@lwn.net>,
-        Matthew Garrett <mjg59@srcf.ucam.org>,
-        Michael Kerrisk <mtk.manpages@gmail.com>,
-        Kees Cook <keescook@chromium.org>, Paul Moore <paul@paul-moore.com>,
-        Sargun Dhillon <sargun@sargun.me>,
-        "Serge E . Hallyn" <serge@hallyn.com>, Shuah Khan <shuah@kernel.org>,
-        Tejun Heo <tj@ker
-To: Alban Crequy <alban.crequy@gmail.com>
-Return-path: <kernel-hardening-return-9647-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-In-Reply-To: <CAMXgnP64XxJGLyWqqNQ7P-Ok+UDydb+t8Pm9dUyXZ_9cx+Cfmw@mail.gmail.com>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Thomas Gleixner <tglx@linutronix.de>, Pavel Machek <pavel@ucw.cz>,
+        Len Brown <len.brown@intel.com>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        Mike Marciniszyn <mike.marciniszyn@intel.com>,
+        Dennis Dalessandro <dennis.dalessandro@intel.com>,
+        Doug Ledford <dledford@redhat.com>,
+        Sean Hefty <sean.hefty@intel.com>,
+        Hal Rosenstock <hal.rosenstock@gmail.com>,
+        Dmitry Torokhov <dmitry.torokhov@gmail.com>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        linux-pm@vger.kernel.org, linux-rdma@vger.kernel.org,
+        linux-input@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Kees Cook <keescook@chromium.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cloudserver094114.home.net.pl ([79.96.170.134]:60563 "EHLO
+        cloudserver094114.home.net.pl" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752441AbdIBN4H (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 2 Sep 2017 09:56:07 -0400
+In-Reply-To: <1504222183-61202-32-git-send-email-keescook@chromium.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---LPEX4SLw9tcG5Ht2Iqlv7baDHGW2TBt3L
-Content-Type: multipart/mixed; boundary="26EWw87RgULwiglfXrfILK2QjoxDFJ89a";
- protected-headers="v1"
-From: =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic@digikod.net>
-To: Alban Crequy <alban.crequy@gmail.com>
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- Alexei Starovoitov <ast@kernel.org>, Andy Lutomirski <luto@amacapital.net>,
- Arnaldo Carvalho de Melo <acme@kernel.org>,
- Casey Schaufler <casey@schaufler-ca.com>,
- Daniel Borkmann <daniel@iogearbox.net>, David Drysdale
- <drysdale@google.com>, "David S . Miller" <davem@davemloft.net>,
- "Eric W . Biederman" <ebiederm@xmission.com>,
- James Morris <james.l.morris@oracle.com>, Jann Horn <jann@thejh.net>,
- Jonathan Corbet <corbet@lwn.net>, Matthew Garrett <mjg59@srcf.ucam.org>,
- Michael Kerrisk <mtk.manpages@gmail.com>, Kees Cook <keescook@chromium.org>,
- Paul Moore <paul@paul-moore.com>, Sargun Dhillon <sargun@sargun.me>,
- "Serge E . Hallyn" <serge@hallyn.com>, Shuah Khan <shuah@kernel.org>,
- Tejun Heo <tj@kernel.org>, Thomas Graf <tgraf@suug.ch>,
- Will Drewry <wad@chromium.org>, kernel-hardening@lists.openwall.com,
- Linux API <linux-api@vger.kernel.org>,
- LSM <linux-security-module@vger.kernel.org>, netdev@vger.kernel.org,
- Michael Schubert <michael@kinvolk.io>, Iago Lopez Galeiras
- <iago@kinvolk.io>, Alban Crequy <alban@kinvolk.io>
-Message-ID: <d603fc80-ee31-704d-5d42-67ca38e0800f@digikod.net>
-Subject: Re: [PATCH net-next v7 08/10] bpf: Add a Landlock sandbox example
-References: <20170821000933.13024-1-mic@digikod.net>
- <20170821000933.13024-9-mic@digikod.net>
- <CAMXgnP64XxJGLyWqqNQ7P-Ok+UDydb+t8Pm9dUyXZ_9cx+Cfmw@mail.gmail.com>
-In-Reply-To: <CAMXgnP64XxJGLyWqqNQ7P-Ok+UDydb+t8Pm9dUyXZ_9cx+Cfmw@mail.gmail.com>
+On Friday, September 1, 2017 1:29:43 AM CEST Kees Cook wrote:
+> In several places, .data is checked for initialization to gate early
+> calls to del_timer_sync(). Checking for .function is equally valid, so
+> switch to this in all callers.
+> 
+> Cc: "Rafael J. Wysocki" <rjw@rjwysocki.net>
+> Cc: Pavel Machek <pavel@ucw.cz>
+> Cc: Len Brown <len.brown@intel.com>
+> Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+> Cc: Mike Marciniszyn <mike.marciniszyn@intel.com>
+> Cc: Dennis Dalessandro <dennis.dalessandro@intel.com>
+> Cc: Doug Ledford <dledford@redhat.com>
+> Cc: Sean Hefty <sean.hefty@intel.com>
+> Cc: Hal Rosenstock <hal.rosenstock@gmail.com>
+> Cc: Dmitry Torokhov <dmitry.torokhov@gmail.com>
+> Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Cc: linux-pm@vger.kernel.org
+> Cc: linux-rdma@vger.kernel.org
+> Cc: linux-input@vger.kernel.org
+> Cc: intel-wired-lan@lists.osuosl.org
+> Cc: netdev@vger.kernel.org
+> Signed-off-by: Kees Cook <keescook@chromium.org>
+> ---
+>  drivers/base/power/wakeup.c                 |  3 +--
+>  drivers/infiniband/hw/hfi1/chip.c           |  6 ++----
+>  drivers/infiniband/hw/hfi1/init.c           |  2 +-
+>  drivers/infiniband/hw/qib/qib_iba7220.c     |  2 +-
+>  drivers/infiniband/hw/qib/qib_iba7322.c     |  2 +-
+>  drivers/infiniband/hw/qib/qib_init.c        | 14 +++++---------
+>  drivers/infiniband/hw/qib/qib_mad.c         |  2 +-
+>  drivers/input/input.c                       |  5 ++---
+>  drivers/net/ethernet/intel/i40e/i40e_main.c |  2 +-
+>  9 files changed, 15 insertions(+), 23 deletions(-)
+> 
+> diff --git a/drivers/base/power/wakeup.c b/drivers/base/power/wakeup.c
+> index 144e6d8fafc8..79a3c1b204af 100644
+> --- a/drivers/base/power/wakeup.c
+> +++ b/drivers/base/power/wakeup.c
+> @@ -479,8 +479,7 @@ static bool wakeup_source_not_registered(struct wakeup_source *ws)
+>  	 * Use timer struct to check if the given source is initialized
+>  	 * by wakeup_source_add.
+>  	 */
+> -	return ws->timer.function != pm_wakeup_timer_fn ||
+> -		   ws->timer.data != (unsigned long)ws;
+> +	return ws->timer.function != pm_wakeup_timer_fn;
+>  }
+>  
+>  /*
 
---26EWw87RgULwiglfXrfILK2QjoxDFJ89a
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+Acked-by: Rafael J. Wysocki <rafael.j.wysocki@intel.com>
 
+for the above.
 
-On 01/09/2017 12:25, Alban Crequy wrote:
-> Hi Micka=C3=ABl,
->=20
-> On 21 August 2017 at 02:09, Micka=C3=ABl Sala=C3=BCn <mic@digikod.net> =
-wrote:
->> Add a basic sandbox tool to create a process isolated from some part o=
-f
->> the system. This sandbox create a read-only environment. It is only
->> allowed to write to a character device such as a TTY:
-> ...
->> +       /*
->> +        * This check allows the action on the file if it is a directo=
-ry or a
->> +        * pipe. Otherwise, a message is printed to the eBPF log.
->> +        */
->> +       if (S_ISCHR(ret) || S_ISFIFO(ret))
->> +               return 0;
->=20
->=20
-> The comment says "directory", but the code checks for "character device=
-".
->=20
-> Thanks!
-> Alban
->=20
-
-Fixed, thanks!
-
-
---26EWw87RgULwiglfXrfILK2QjoxDFJ89a--
-
---LPEX4SLw9tcG5Ht2Iqlv7baDHGW2TBt3L
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEzBAEBCgAdFiEEUysCyY8er9Axt7hqIt7+33O9apUFAlmqr+IACgkQIt7+33O9
-apU0OwgAm3iR12+mCshM4L1yyw7+OfJ+JWHZbwOQ+LSlqM957nKEZ4x4LedO6v8a
-0i6yKQpwuCdGiXC9WAcTACQzNQDAWnL7L0lWOOz7RQZQyoekhf1HVQZpHhRFWcRC
-1xi/1j/MWbNJZ1ZXHwaDpbQctz69ylR0zmHhd2hudqYCxg5Jh/H0mZIv+snfXDw9
-9QbUzcjB3Bdt35qpshDKn1pB+Pmn7N3g8WBHdVwdgypY9i9pj6g4NI1Rx6QsP2SX
-s4pH3Xk+wV5FqrxoTPajruQFr+NtUNbM/rO4GN9reaWp826SzAMklz5/jDWwAMXw
-aZPSIn+8x721bMENZqoE3Zms6IfMQA==
-=q9o+
------END PGP SIGNATURE-----
-
---LPEX4SLw9tcG5Ht2Iqlv7baDHGW2TBt3L--
+Thanks!
