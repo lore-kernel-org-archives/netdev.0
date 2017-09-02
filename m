@@ -1,85 +1,84 @@
-From: "Rafael J. Wysocki" <rjw@rjwysocki.net>
-Subject: Re: [PATCH 31/31] timer: Switch to testing for .function instead of .data
-Date: Sat, 02 Sep 2017 15:47:20 +0200
-Message-ID: <1857082.urnTVIQKcg@aspire.rjw.lan>
-References: <1504222183-61202-1-git-send-email-keescook@chromium.org> <1504222183-61202-32-git-send-email-keescook@chromium.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Thomas Gleixner <tglx@linutronix.de>, Pavel Machek <pavel@ucw.cz>,
-        Len Brown <len.brown@intel.com>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        Mike Marciniszyn <mike.marciniszyn@intel.com>,
-        Dennis Dalessandro <dennis.dalessandro@intel.com>,
-        Doug Ledford <dledford@redhat.com>,
-        Sean Hefty <sean.hefty@intel.com>,
-        Hal Rosenstock <hal.rosenstock@gmail.com>,
-        Dmitry Torokhov <dmitry.torokhov@gmail.com>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        linux-pm@vger.kernel.org, linux-rdma@vger.kernel.org,
-        linux-input@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Kees Cook <keescook@chromium.org>
+From: greearb@candelatech.com
+Subject: [PATCH] Fix build on fedora-14 (and other older systems)
+Date: Sat,  2 Sep 2017 07:15:02 -0700
+Message-ID: <1504361702-30266-1-git-send-email-greearb@candelatech.com>
+Cc: Ben Greear <greearb@candelatech.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cloudserver094114.home.net.pl ([79.96.170.134]:60563 "EHLO
-        cloudserver094114.home.net.pl" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752441AbdIBN4H (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 2 Sep 2017 09:56:07 -0400
-In-Reply-To: <1504222183-61202-32-git-send-email-keescook@chromium.org>
+Received: from mail2.candelatech.com ([208.74.158.173]:51838 "EHLO
+        mail2.candelatech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752649AbdIBOPI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 2 Sep 2017 10:15:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Friday, September 1, 2017 1:29:43 AM CEST Kees Cook wrote:
-> In several places, .data is checked for initialization to gate early
-> calls to del_timer_sync(). Checking for .function is equally valid, so
-> switch to this in all callers.
-> 
-> Cc: "Rafael J. Wysocki" <rjw@rjwysocki.net>
-> Cc: Pavel Machek <pavel@ucw.cz>
-> Cc: Len Brown <len.brown@intel.com>
-> Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-> Cc: Mike Marciniszyn <mike.marciniszyn@intel.com>
-> Cc: Dennis Dalessandro <dennis.dalessandro@intel.com>
-> Cc: Doug Ledford <dledford@redhat.com>
-> Cc: Sean Hefty <sean.hefty@intel.com>
-> Cc: Hal Rosenstock <hal.rosenstock@gmail.com>
-> Cc: Dmitry Torokhov <dmitry.torokhov@gmail.com>
-> Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> Cc: linux-pm@vger.kernel.org
-> Cc: linux-rdma@vger.kernel.org
-> Cc: linux-input@vger.kernel.org
-> Cc: intel-wired-lan@lists.osuosl.org
-> Cc: netdev@vger.kernel.org
-> Signed-off-by: Kees Cook <keescook@chromium.org>
-> ---
->  drivers/base/power/wakeup.c                 |  3 +--
->  drivers/infiniband/hw/hfi1/chip.c           |  6 ++----
->  drivers/infiniband/hw/hfi1/init.c           |  2 +-
->  drivers/infiniband/hw/qib/qib_iba7220.c     |  2 +-
->  drivers/infiniband/hw/qib/qib_iba7322.c     |  2 +-
->  drivers/infiniband/hw/qib/qib_init.c        | 14 +++++---------
->  drivers/infiniband/hw/qib/qib_mad.c         |  2 +-
->  drivers/input/input.c                       |  5 ++---
->  drivers/net/ethernet/intel/i40e/i40e_main.c |  2 +-
->  9 files changed, 15 insertions(+), 23 deletions(-)
-> 
-> diff --git a/drivers/base/power/wakeup.c b/drivers/base/power/wakeup.c
-> index 144e6d8fafc8..79a3c1b204af 100644
-> --- a/drivers/base/power/wakeup.c
-> +++ b/drivers/base/power/wakeup.c
-> @@ -479,8 +479,7 @@ static bool wakeup_source_not_registered(struct wakeup_source *ws)
->  	 * Use timer struct to check if the given source is initialized
->  	 * by wakeup_source_add.
->  	 */
-> -	return ws->timer.function != pm_wakeup_timer_fn ||
-> -		   ws->timer.data != (unsigned long)ws;
-> +	return ws->timer.function != pm_wakeup_timer_fn;
->  }
->  
->  /*
+From: Ben Greear <greearb@candelatech.com>
 
-Acked-by: Rafael J. Wysocki <rafael.j.wysocki@intel.com>
+Seems Fedora-20 and below fail, hopefully this fixes
+them.
 
-for the above.
+Signed-off-by: Ben Greear <greearb@candelatech.com>
+---
+ include/linux/sysinfo.h | 8 ++++++++
+ ip/ipxfrm.c             | 1 +
+ ip/xfrm_policy.c        | 1 +
+ ip/xfrm_state.c         | 1 +
+ 4 files changed, 11 insertions(+)
 
-Thanks!
+diff --git a/include/linux/sysinfo.h b/include/linux/sysinfo.h
+index 934335a..3596b02 100644
+--- a/include/linux/sysinfo.h
++++ b/include/linux/sysinfo.h
+@@ -3,6 +3,14 @@
+ 
+ #include <linux/types.h>
+ 
++/* So we can compile on older OSs, hopefully this is correct. --Ben */
++#ifndef __kernel_long_t
++typedef long __kernel_long_t;
++#endif
++#ifndef __kernel_ulong_t
++typedef unsigned long __kernel_ulong_t;
++#endif
++
+ #define SI_LOAD_SHIFT	16
+ struct sysinfo {
+ 	__kernel_long_t uptime;		/* Seconds since boot */
+diff --git a/ip/ipxfrm.c b/ip/ipxfrm.c
+index 12c2f72..492a6af 100644
+--- a/ip/ipxfrm.c
++++ b/ip/ipxfrm.c
+@@ -38,6 +38,7 @@
+ #include "utils.h"
+ #include "xfrm.h"
+ #include "ip_common.h"
++#include "xtables.h"
+ 
+ #define STRBUF_SIZE	(128)
+ 
+diff --git a/ip/xfrm_policy.c b/ip/xfrm_policy.c
+index de689c4..0f957c1 100644
+--- a/ip/xfrm_policy.c
++++ b/ip/xfrm_policy.c
+@@ -32,6 +32,7 @@
+ #include "utils.h"
+ #include "xfrm.h"
+ #include "ip_common.h"
++#include "xtables.h"
+ 
+ /* #define NLMSG_DELETEALL_BUF_SIZE (4096-512) */
+ #define NLMSG_DELETEALL_BUF_SIZE 8192
+diff --git a/ip/xfrm_state.c b/ip/xfrm_state.c
+index 4483fb8..5a6a895 100644
+--- a/ip/xfrm_state.c
++++ b/ip/xfrm_state.c
+@@ -31,6 +31,7 @@
+ #include "utils.h"
+ #include "xfrm.h"
+ #include "ip_common.h"
++#include "xtables.h"
+ 
+ /* #define NLMSG_DELETEALL_BUF_SIZE (4096-512) */
+ #define NLMSG_DELETEALL_BUF_SIZE 8192
+-- 
+2.4.11
