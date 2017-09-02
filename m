@@ -1,85 +1,62 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 06/21] mlxsw: reg: Extract mlxsw_reg_ritr_mac_pack()
-Date: Sat,  2 Sep 2017 23:49:14 +0200
-Message-ID: <20170902214929.2890-7-jiri@resnulli.us>
+Subject: [patch net-next v2 03/21] mlxsw: reg: Move enum mlxsw_reg_ratr_trap_id
+Date: Sat,  2 Sep 2017 23:49:11 +0200
+Message-ID: <20170902214929.2890-4-jiri@resnulli.us>
 References: <20170902214929.2890-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, petrm@mellanox.com, idosch@mellanox.com,
         mlxsw@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f194.google.com ([209.85.128.194]:36641 "EHLO
-        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752761AbdIBVtn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 2 Sep 2017 17:49:43 -0400
-Received: by mail-wr0-f194.google.com with SMTP id 40so1620578wrv.3
-        for <netdev@vger.kernel.org>; Sat, 02 Sep 2017 14:49:42 -0700 (PDT)
+Received: from mail-wr0-f196.google.com ([209.85.128.196]:37539 "EHLO
+        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752776AbdIBVti (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 2 Sep 2017 17:49:38 -0400
+Received: by mail-wr0-f196.google.com with SMTP id y15so1123010wrc.4
+        for <netdev@vger.kernel.org>; Sat, 02 Sep 2017 14:49:38 -0700 (PDT)
 In-Reply-To: <20170902214929.2890-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Petr Machata <petrm@mellanox.com>
 
-Unlike other interface types, loopback RIFs do not have MAC address. So
-drop the corresponding argument from mlxsw_reg_ritr_pack() and move it
-to a new function. Call that from callers of mlxsw_reg_ritr_pack.
+This enum is used with reg_ratr_trap_id, so move it next to the register
+definition.
+
+While at it, drop the enumerator initializers.
 
 Signed-off-by: Petr Machata <petrm@mellanox.com>
 Reviewed-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/reg.h             | 7 +++++--
- drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c | 7 ++++---
- 2 files changed, 9 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/mellanox/mlxsw/reg.h | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-index a6eb96f..d80cf9b 100644
+index 6a7757f..bf936b6 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
 +++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-@@ -4263,8 +4263,7 @@ static inline void mlxsw_reg_ritr_sp_if_pack(char *payload, bool lag,
+@@ -4423,17 +4423,17 @@ enum mlxsw_reg_ratr_trap_action {
+  */
+ MLXSW_ITEM32(reg, ratr, trap_action, 0x0C, 28, 4);
  
- static inline void mlxsw_reg_ritr_pack(char *payload, bool enable,
- 				       enum mlxsw_reg_ritr_if_type type,
--				       u16 rif, u16 vr_id, u16 mtu,
--				       const char *mac)
-+				       u16 rif, u16 vr_id, u16 mtu)
- {
- 	bool op = enable ? MLXSW_REG_RITR_RIF_CREATE : MLXSW_REG_RITR_RIF_DEL;
+-enum mlxsw_reg_ratr_trap_id {
+-	MLXSW_REG_RATR_TRAP_ID_RTR_EGRESS0 = 0,
+-	MLXSW_REG_RATR_TRAP_ID_RTR_EGRESS1 = 1,
+-};
+-
+ /* reg_ratr_adjacency_index_high
+  * Bits 23:16 of the adjacency_index.
+  * Access: Index
+  */
+ MLXSW_ITEM32(reg, ratr, adjacency_index_high, 0x0C, 16, 8);
  
-@@ -4280,6 +4279,10 @@ static inline void mlxsw_reg_ritr_pack(char *payload, bool enable,
- 	mlxsw_reg_ritr_lb_en_set(payload, 1);
- 	mlxsw_reg_ritr_virtual_router_set(payload, vr_id);
- 	mlxsw_reg_ritr_mtu_set(payload, mtu);
-+}
++enum mlxsw_reg_ratr_trap_id {
++	MLXSW_REG_RATR_TRAP_ID_RTR_EGRESS0,
++	MLXSW_REG_RATR_TRAP_ID_RTR_EGRESS1,
++};
 +
-+static inline void mlxsw_reg_ritr_mac_pack(char *payload, const char *mac)
-+{
- 	mlxsw_reg_ritr_if_mac_memcpy_to(payload, mac);
- }
- 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-index de15eac..3ddfbe3 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-@@ -4955,8 +4955,8 @@ static int mlxsw_sp_rif_subport_op(struct mlxsw_sp_rif *rif, bool enable)
- 
- 	rif_subport = mlxsw_sp_rif_subport_rif(rif);
- 	mlxsw_reg_ritr_pack(ritr_pl, enable, MLXSW_REG_RITR_SP_IF,
--			    rif->rif_index, rif->vr_id, rif->dev->mtu,
--			    rif->dev->dev_addr);
-+			    rif->rif_index, rif->vr_id, rif->dev->mtu);
-+	mlxsw_reg_ritr_mac_pack(ritr_pl, rif->dev->dev_addr);
- 	mlxsw_reg_ritr_sp_if_pack(ritr_pl, rif_subport->lag,
- 				  rif_subport->lag ? rif_subport->lag_id :
- 						     rif_subport->system_port,
-@@ -4998,7 +4998,8 @@ static int mlxsw_sp_rif_vlan_fid_op(struct mlxsw_sp_rif *rif,
- 	char ritr_pl[MLXSW_REG_RITR_LEN];
- 
- 	mlxsw_reg_ritr_pack(ritr_pl, enable, type, rif->rif_index, rif->vr_id,
--			    rif->dev->mtu, rif->dev->dev_addr);
-+			    rif->dev->mtu);
-+	mlxsw_reg_ritr_mac_pack(ritr_pl, rif->dev->dev_addr);
- 	mlxsw_reg_ritr_fid_set(ritr_pl, type, vid_fid);
- 
- 	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(ritr), ritr_pl);
+ /* reg_ratr_trap_id
+  * Trap ID to be reported to CPU.
+  * Trap-ID is RTR_EGRESS0 or RTR_EGRESS1.
 -- 
 2.9.3
