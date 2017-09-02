@@ -1,90 +1,126 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 12/21] mlxsw: spectrum_router: Extract mlxsw_sp_rt6_is_gateway()
-Date: Sat,  2 Sep 2017 17:21:17 +0200
-Message-ID: <20170902152126.17286-13-jiri@resnulli.us>
+Subject: [patch net-next 02/21] mlxsw: reg: Update RATR to support IP-in-IP tunnels
+Date: Sat,  2 Sep 2017 17:21:07 +0200
+Message-ID: <20170902152126.17286-3-jiri@resnulli.us>
 References: <20170902152126.17286-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, petrm@mellanox.com, idosch@mellanox.com,
         mlxsw@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:33372 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752753AbdIBPVt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 2 Sep 2017 11:21:49 -0400
-Received: by mail-wm0-f65.google.com with SMTP id 187so2417009wmn.0
-        for <netdev@vger.kernel.org>; Sat, 02 Sep 2017 08:21:48 -0700 (PDT)
+Received: from mail-wr0-f193.google.com ([209.85.128.193]:38503 "EHLO
+        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752660AbdIBPVe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 2 Sep 2017 11:21:34 -0400
+Received: by mail-wr0-f193.google.com with SMTP id j3so1341936wrb.5
+        for <netdev@vger.kernel.org>; Sat, 02 Sep 2017 08:21:33 -0700 (PDT)
 In-Reply-To: <20170902152126.17286-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Petr Machata <petrm@mellanox.com>
 
-IPv6 counterpart of the previous patch: introduce a function to
-determine whether a given route is a gateway route.
-
-The new function takes a mlxsw_sp argument which follow-up patches will
-use. Thus mlxsw_sp_fib6_entry_type_set() got that argument as well.
+So far, adjacencies have always been of type Ethernet (with value of 0),
+and thus there was no need to explicitly support RATR type. However to
+support IP-in-IP adjacencies, this type and a suite of IP-in-IP-specific
+attributes need to be added.
 
 Signed-off-by: Petr Machata <petrm@mellanox.com>
 Reviewed-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c | 15 +++++++++++----
- 1 file changed, 11 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/mellanox/mlxsw/reg.h | 66 +++++++++++++++++++++++++++++++
+ 1 file changed, 66 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-index 04e1887..563e803 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-@@ -3526,6 +3526,12 @@ static void mlxsw_sp_nexthop6_fini(struct mlxsw_sp *mlxsw_sp,
- 	mlxsw_sp_nexthop_rif_fini(nh);
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+index 8736f8492..6a7757f 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+@@ -4362,6 +4362,38 @@ MLXSW_ITEM32(reg, ratr, v, 0x00, 24, 1);
+  */
+ MLXSW_ITEM32(reg, ratr, a, 0x00, 16, 1);
+ 
++enum mlxsw_reg_ratr_type {
++	/* Ethernet */
++	MLXSW_REG_RATR_TYPE_ETHERNET,
++	/* IPoIB Unicast without GRH.
++	 * Reserved for Spectrum.
++	 */
++	MLXSW_REG_RATR_TYPE_IPOIB_UC,
++	/* IPoIB Unicast with GRH. Supported only in table 0 (Ethernet unicast
++	 * adjacency).
++	 * Reserved for Spectrum.
++	 */
++	MLXSW_REG_RATR_TYPE_IPOIB_UC_W_GRH,
++	/* IPoIB Multicast.
++	 * Reserved for Spectrum.
++	 */
++	MLXSW_REG_RATR_TYPE_IPOIB_MC,
++	/* MPLS.
++	 * Reserved for SwitchX/-2.
++	 */
++	MLXSW_REG_RATR_TYPE_MPLS,
++	/* IPinIP Encap.
++	 * Reserved for SwitchX/-2.
++	 */
++	MLXSW_REG_RATR_TYPE_IPIP,
++};
++
++/* reg_ratr_type
++ * Adjacency entry type.
++ * Access: RW
++ */
++MLXSW_ITEM32(reg, ratr, type, 0x04, 28, 4);
++
+ /* reg_ratr_adjacency_index_low
+  * Bits 15:0 of index into the adjacency table.
+  * For SwitchX and SwitchX-2, the adjacency table is linear and
+@@ -4416,6 +4448,34 @@ MLXSW_ITEM32(reg, ratr, trap_id, 0x0C, 0, 8);
+  */
+ MLXSW_ITEM_BUF(reg, ratr, eth_destination_mac, 0x12, 6);
+ 
++enum mlxsw_reg_ratr_ipip_type {
++	/* IPv4, address set by mlxsw_reg_ratr_ipip_ipv4_udip. */
++	MLXSW_REG_RATR_IPIP_TYPE_IPV4,
++	/* IPv6, address set by mlxsw_reg_ratr_ipip_ipv6_ptr. */
++	MLXSW_REG_RATR_IPIP_TYPE_IPV6,
++};
++
++/* reg_ratr_ipip_type
++ * Underlay destination ip type.
++ * Note: the type field must match the protocol of the router interface.
++ * Access: RW
++ */
++MLXSW_ITEM32(reg, ratr, ipip_type, 0x10, 16, 4);
++
++/* reg_ratr_ipip_ipv4_udip
++ * Underlay ipv4 dip.
++ * Reserved when ipip_type is IPv6.
++ * Access: RW
++ */
++MLXSW_ITEM32(reg, ratr, ipip_ipv4_udip, 0x18, 0, 32);
++
++/* reg_ratr_ipip_ipv6_ptr
++ * Pointer to IPv6 underlay destination ip address.
++ * For Spectrum: Pointer to KVD linear space.
++ * Access: RW
++ */
++MLXSW_ITEM32(reg, ratr, ipip_ipv6_ptr, 0x1C, 0, 24);
++
+ static inline void
+ mlxsw_reg_ratr_pack(char *payload,
+ 		    enum mlxsw_reg_ratr_op op, bool valid,
+@@ -4435,6 +4495,12 @@ static inline void mlxsw_reg_ratr_eth_entry_pack(char *payload,
+ 	mlxsw_reg_ratr_eth_destination_mac_memcpy_to(payload, dest_mac);
  }
  
-+static bool mlxsw_sp_rt6_is_gateway(const struct mlxsw_sp *mlxsw_sp,
-+				    const struct rt6_info *rt)
++static inline void mlxsw_reg_ratr_ipip4_entry_pack(char *payload, u32 ipv4_udip)
 +{
-+	return rt->rt6i_flags & RTF_GATEWAY;
++	mlxsw_reg_ratr_ipip_type_set(payload, MLXSW_REG_RATR_IPIP_TYPE_IPV4);
++	mlxsw_reg_ratr_ipip_ipv4_udip_set(payload, ipv4_udip);
 +}
 +
- static struct mlxsw_sp_nexthop_group *
- mlxsw_sp_nexthop6_group_create(struct mlxsw_sp *mlxsw_sp,
- 			       struct mlxsw_sp_fib6_entry *fib6_entry)
-@@ -3548,7 +3554,7 @@ mlxsw_sp_nexthop6_group_create(struct mlxsw_sp *mlxsw_sp,
- #endif
- 	mlxsw_sp_rt6 = list_first_entry(&fib6_entry->rt6_list,
- 					struct mlxsw_sp_rt6, list);
--	nh_grp->gateway = !!(mlxsw_sp_rt6->rt->rt6i_flags & RTF_GATEWAY);
-+	nh_grp->gateway = mlxsw_sp_rt6_is_gateway(mlxsw_sp, mlxsw_sp_rt6->rt);
- 	nh_grp->count = fib6_entry->nrt6;
- 	for (i = 0; i < nh_grp->count; i++) {
- 		struct rt6_info *rt = mlxsw_sp_rt6->rt;
-@@ -3705,7 +3711,8 @@ mlxsw_sp_fib6_entry_nexthop_del(struct mlxsw_sp *mlxsw_sp,
- 	mlxsw_sp_rt6_destroy(mlxsw_sp_rt6);
- }
- 
--static void mlxsw_sp_fib6_entry_type_set(struct mlxsw_sp_fib_entry *fib_entry,
-+static void mlxsw_sp_fib6_entry_type_set(struct mlxsw_sp *mlxsw_sp,
-+					 struct mlxsw_sp_fib_entry *fib_entry,
- 					 const struct rt6_info *rt)
- {
- 	/* Packets hitting RTF_REJECT routes need to be discarded by the
-@@ -3718,7 +3725,7 @@ static void mlxsw_sp_fib6_entry_type_set(struct mlxsw_sp_fib_entry *fib_entry,
- 		fib_entry->type = MLXSW_SP_FIB_ENTRY_TYPE_TRAP;
- 	else if (rt->rt6i_flags & RTF_REJECT)
- 		fib_entry->type = MLXSW_SP_FIB_ENTRY_TYPE_LOCAL;
--	else if (rt->rt6i_flags & RTF_GATEWAY)
-+	else if (mlxsw_sp_rt6_is_gateway(mlxsw_sp, rt))
- 		fib_entry->type = MLXSW_SP_FIB_ENTRY_TYPE_REMOTE;
- 	else
- 		fib_entry->type = MLXSW_SP_FIB_ENTRY_TYPE_LOCAL;
-@@ -3758,7 +3765,7 @@ mlxsw_sp_fib6_entry_create(struct mlxsw_sp *mlxsw_sp,
- 		goto err_rt6_create;
- 	}
- 
--	mlxsw_sp_fib6_entry_type_set(fib_entry, mlxsw_sp_rt6->rt);
-+	mlxsw_sp_fib6_entry_type_set(mlxsw_sp, fib_entry, mlxsw_sp_rt6->rt);
- 
- 	INIT_LIST_HEAD(&fib6_entry->rt6_list);
- 	list_add_tail(&mlxsw_sp_rt6->list, &fib6_entry->rt6_list);
+ /* RICNT - Router Interface Counter Register
+  * -----------------------------------------
+  * The RICNT register retrieves per port performance counters
 -- 
 2.9.3
