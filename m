@@ -1,85 +1,90 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 05/21] mlxsw: reg: Extract mlxsw_reg_ritr_mac_pack()
-Date: Sat,  2 Sep 2017 17:21:10 +0200
-Message-ID: <20170902152126.17286-6-jiri@resnulli.us>
+Subject: [patch net-next 12/21] mlxsw: spectrum_router: Extract mlxsw_sp_rt6_is_gateway()
+Date: Sat,  2 Sep 2017 17:21:17 +0200
+Message-ID: <20170902152126.17286-13-jiri@resnulli.us>
 References: <20170902152126.17286-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, petrm@mellanox.com, idosch@mellanox.com,
         mlxsw@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f196.google.com ([209.85.128.196]:35838 "EHLO
-        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752735AbdIBPVi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 2 Sep 2017 11:21:38 -0400
-Received: by mail-wr0-f196.google.com with SMTP id a47so1352473wra.2
-        for <netdev@vger.kernel.org>; Sat, 02 Sep 2017 08:21:37 -0700 (PDT)
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:33372 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752753AbdIBPVt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 2 Sep 2017 11:21:49 -0400
+Received: by mail-wm0-f65.google.com with SMTP id 187so2417009wmn.0
+        for <netdev@vger.kernel.org>; Sat, 02 Sep 2017 08:21:48 -0700 (PDT)
 In-Reply-To: <20170902152126.17286-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Petr Machata <petrm@mellanox.com>
 
-Unlike other interface types, loopback RIFs do not have MAC address. So
-drop the corresponding argument from mlxsw_reg_ritr_pack() and move it
-to a new function. Call that from callers of mlxsw_reg_ritr_pack.
+IPv6 counterpart of the previous patch: introduce a function to
+determine whether a given route is a gateway route.
+
+The new function takes a mlxsw_sp argument which follow-up patches will
+use. Thus mlxsw_sp_fib6_entry_type_set() got that argument as well.
 
 Signed-off-by: Petr Machata <petrm@mellanox.com>
 Reviewed-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/reg.h             | 7 +++++--
- drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c | 7 ++++---
- 2 files changed, 9 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c | 15 +++++++++++----
+ 1 file changed, 11 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-index 24296cf..27a378d 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-@@ -4262,8 +4262,7 @@ static inline void mlxsw_reg_ritr_sp_if_pack(char *payload, bool lag,
- 
- static inline void mlxsw_reg_ritr_pack(char *payload, bool enable,
- 				       enum mlxsw_reg_ritr_if_type type,
--				       u16 rif, u16 vr_id, u16 mtu,
--				       const char *mac)
-+				       u16 rif, u16 vr_id, u16 mtu)
- {
- 	bool op = enable ? MLXSW_REG_RITR_RIF_CREATE : MLXSW_REG_RITR_RIF_DEL;
- 
-@@ -4279,6 +4278,10 @@ static inline void mlxsw_reg_ritr_pack(char *payload, bool enable,
- 	mlxsw_reg_ritr_lb_en_set(payload, 1);
- 	mlxsw_reg_ritr_virtual_router_set(payload, vr_id);
- 	mlxsw_reg_ritr_mtu_set(payload, mtu);
-+}
-+
-+static inline void mlxsw_reg_ritr_mac_pack(char *payload, const char *mac)
-+{
- 	mlxsw_reg_ritr_if_mac_memcpy_to(payload, mac);
- }
- 
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-index de15eac..3ddfbe3 100644
+index 04e1887..563e803 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
 +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-@@ -4955,8 +4955,8 @@ static int mlxsw_sp_rif_subport_op(struct mlxsw_sp_rif *rif, bool enable)
+@@ -3526,6 +3526,12 @@ static void mlxsw_sp_nexthop6_fini(struct mlxsw_sp *mlxsw_sp,
+ 	mlxsw_sp_nexthop_rif_fini(nh);
+ }
  
- 	rif_subport = mlxsw_sp_rif_subport_rif(rif);
- 	mlxsw_reg_ritr_pack(ritr_pl, enable, MLXSW_REG_RITR_SP_IF,
--			    rif->rif_index, rif->vr_id, rif->dev->mtu,
--			    rif->dev->dev_addr);
-+			    rif->rif_index, rif->vr_id, rif->dev->mtu);
-+	mlxsw_reg_ritr_mac_pack(ritr_pl, rif->dev->dev_addr);
- 	mlxsw_reg_ritr_sp_if_pack(ritr_pl, rif_subport->lag,
- 				  rif_subport->lag ? rif_subport->lag_id :
- 						     rif_subport->system_port,
-@@ -4998,7 +4998,8 @@ static int mlxsw_sp_rif_vlan_fid_op(struct mlxsw_sp_rif *rif,
- 	char ritr_pl[MLXSW_REG_RITR_LEN];
++static bool mlxsw_sp_rt6_is_gateway(const struct mlxsw_sp *mlxsw_sp,
++				    const struct rt6_info *rt)
++{
++	return rt->rt6i_flags & RTF_GATEWAY;
++}
++
+ static struct mlxsw_sp_nexthop_group *
+ mlxsw_sp_nexthop6_group_create(struct mlxsw_sp *mlxsw_sp,
+ 			       struct mlxsw_sp_fib6_entry *fib6_entry)
+@@ -3548,7 +3554,7 @@ mlxsw_sp_nexthop6_group_create(struct mlxsw_sp *mlxsw_sp,
+ #endif
+ 	mlxsw_sp_rt6 = list_first_entry(&fib6_entry->rt6_list,
+ 					struct mlxsw_sp_rt6, list);
+-	nh_grp->gateway = !!(mlxsw_sp_rt6->rt->rt6i_flags & RTF_GATEWAY);
++	nh_grp->gateway = mlxsw_sp_rt6_is_gateway(mlxsw_sp, mlxsw_sp_rt6->rt);
+ 	nh_grp->count = fib6_entry->nrt6;
+ 	for (i = 0; i < nh_grp->count; i++) {
+ 		struct rt6_info *rt = mlxsw_sp_rt6->rt;
+@@ -3705,7 +3711,8 @@ mlxsw_sp_fib6_entry_nexthop_del(struct mlxsw_sp *mlxsw_sp,
+ 	mlxsw_sp_rt6_destroy(mlxsw_sp_rt6);
+ }
  
- 	mlxsw_reg_ritr_pack(ritr_pl, enable, type, rif->rif_index, rif->vr_id,
--			    rif->dev->mtu, rif->dev->dev_addr);
-+			    rif->dev->mtu);
-+	mlxsw_reg_ritr_mac_pack(ritr_pl, rif->dev->dev_addr);
- 	mlxsw_reg_ritr_fid_set(ritr_pl, type, vid_fid);
+-static void mlxsw_sp_fib6_entry_type_set(struct mlxsw_sp_fib_entry *fib_entry,
++static void mlxsw_sp_fib6_entry_type_set(struct mlxsw_sp *mlxsw_sp,
++					 struct mlxsw_sp_fib_entry *fib_entry,
+ 					 const struct rt6_info *rt)
+ {
+ 	/* Packets hitting RTF_REJECT routes need to be discarded by the
+@@ -3718,7 +3725,7 @@ static void mlxsw_sp_fib6_entry_type_set(struct mlxsw_sp_fib_entry *fib_entry,
+ 		fib_entry->type = MLXSW_SP_FIB_ENTRY_TYPE_TRAP;
+ 	else if (rt->rt6i_flags & RTF_REJECT)
+ 		fib_entry->type = MLXSW_SP_FIB_ENTRY_TYPE_LOCAL;
+-	else if (rt->rt6i_flags & RTF_GATEWAY)
++	else if (mlxsw_sp_rt6_is_gateway(mlxsw_sp, rt))
+ 		fib_entry->type = MLXSW_SP_FIB_ENTRY_TYPE_REMOTE;
+ 	else
+ 		fib_entry->type = MLXSW_SP_FIB_ENTRY_TYPE_LOCAL;
+@@ -3758,7 +3765,7 @@ mlxsw_sp_fib6_entry_create(struct mlxsw_sp *mlxsw_sp,
+ 		goto err_rt6_create;
+ 	}
  
- 	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(ritr), ritr_pl);
+-	mlxsw_sp_fib6_entry_type_set(fib_entry, mlxsw_sp_rt6->rt);
++	mlxsw_sp_fib6_entry_type_set(mlxsw_sp, fib_entry, mlxsw_sp_rt6->rt);
+ 
+ 	INIT_LIST_HEAD(&fib6_entry->rt6_list);
+ 	list_add_tail(&mlxsw_sp_rt6->list, &fib6_entry->rt6_list);
 -- 
 2.9.3
