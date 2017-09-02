@@ -1,49 +1,79 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 4/4] net: dsa: bcm_sf2: Configure IMP port TC2QOS
- mapping
-Date: Sat, 2 Sep 2017 09:32:08 -0700
-Message-ID: <e0d92f15-342d-2b5b-2f7d-aedba328116f@gmail.com>
-References: <1504310354-42773-1-git-send-email-f.fainelli@gmail.com>
- <1504310354-42773-5-git-send-email-f.fainelli@gmail.com>
- <20170902163057.GB5463@lunn.ch>
+Subject: Re: [PATCH net-next 0/4] net: dsa: add master interface
+Date: Sat, 2 Sep 2017 09:42:01 -0700
+Message-ID: <a49d59fb-956f-a849-7add-ec2ed0de197b@gmail.com>
+References: <20170831183746.2109-1-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-        vivien.didelot@savoirfairelinux.com, jiri@resnulli.us,
-        jhs@mojatatu.com, xiyou.wangcong@gmail.com
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f47.google.com ([209.85.218.47]:34771 "EHLO
-        mail-oi0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752702AbdIBQcL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 2 Sep 2017 12:32:11 -0400
-Received: by mail-oi0-f47.google.com with SMTP id w10so20902136oie.1
-        for <netdev@vger.kernel.org>; Sat, 02 Sep 2017 09:32:11 -0700 (PDT)
-In-Reply-To: <20170902163057.GB5463@lunn.ch>
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Andrew Lunn <andrew@lunn.ch>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170831183746.2109-1-vivien.didelot@savoirfairelinux.com>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Hi Vivien,
 
-
-On 09/02/2017 09:30 AM, Andrew Lunn wrote:
->> @@ -129,6 +130,14 @@ static void bcm_sf2_imp_setup(struct dsa_switch *ds, int port)
->>  	reg |= MII_DUMB_FWDG_EN;
->>  	core_writel(priv, reg, CORE_SWITCH_CTRL);
->>  
->> +	/* Configure Traffic Class to QoS mapping, allow each priority to map
->> +	 * to a different queue number
->> +	 */
->> +	reg = core_readl(priv, CORE_PORT_TC2_QOS_MAP_PORT(port));
->> +	for (i = 0; i < 8; i++)
->> +		reg |= i << (PRT_TO_QID_SHIFT * i);
+On 08/31/2017 11:37 AM, Vivien Didelot wrote:
+> Currently the SoC network interface (called master) to which a switch
+> fabric hangs, has its dsa_ptr pointing to a dsa_switch_tree instance.
 > 
-> Hi Florian
+> This is not quite correct, because this interface is physically wired to
+> one of the switch ports (called CPU port), and because in a switch
+> fabric with multiple CPU ports, several master interfaces will point to
+> several CPU ports of the same dsa_switch_tree.
 > 
-> Rather than 8, would ds->num_tx_queues be more descriptive?
+> This patchset adds a new dsa_master structure to represent the pipe
+> between the SoC master interface and its switch CPU port. This structure
+> will store specific data such as the master ethtool_ops copy and the
+> tagging protocol used to pass frames with the associated slave ports.
+> The dsa_ptr is changed to a dsa_master instance, and each DSA slave now
+> has a pointer to a master port.
+> 
+> This is a step forward better control over the CPU conduit and support
+> for multiple CPU ports.
 
-I actually have a patch on top of this which defines a constant for the
-number of queues instead of open coding 8 here. Thanks!
+Looked briefly over this series and this looks good to me, Andrew has a
+valid point about reducing the number of dereferences in hot paths
+though. Thanks!
+
+> 
+> Vivien Didelot (4):
+>   net: dsa: introduce dsa_master
+>   net: dsa: move master ethtool ops in dsa_master
+>   net: dsa: change dsa_ptr for a dsa_master
+>   net: dsa: assign a master to slave ports
+> 
+>  drivers/net/dsa/b53/b53_common.c |   4 +-
+>  drivers/net/dsa/bcm_sf2.c        |   8 +--
+>  drivers/net/dsa/mt7530.c         |   4 +-
+>  drivers/net/dsa/mv88e6060.c      |   2 +-
+>  drivers/net/dsa/qca8k.c          |   2 +-
+>  include/linux/netdevice.h        |   4 +-
+>  include/net/dsa.h                |  42 +++++------
+>  net/dsa/Makefile                 |   2 +-
+>  net/dsa/dsa.c                    |  34 +--------
+>  net/dsa/dsa2.c                   |  38 +++++-----
+>  net/dsa/dsa_priv.h               |  24 +++----
+>  net/dsa/legacy.c                 |  34 +++++----
+>  net/dsa/master.c                 | 149 +++++++++++++++++++++++++++++++++++++++
+>  net/dsa/slave.c                  | 117 +++++-------------------------
+>  net/dsa/tag_brcm.c               |   5 +-
+>  net/dsa/tag_dsa.c                |   3 +-
+>  net/dsa/tag_edsa.c               |   3 +-
+>  net/dsa/tag_ksz.c                |   5 +-
+>  net/dsa/tag_lan9303.c            |   6 +-
+>  net/dsa/tag_mtk.c                |  12 +---
+>  net/dsa/tag_qca.c                |  12 +---
+>  net/dsa/tag_trailer.c            |   5 +-
+>  22 files changed, 265 insertions(+), 250 deletions(-)
+>  create mode 100644 net/dsa/master.c
+> 
+
 -- 
 Florian
