@@ -1,146 +1,286 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 01/21] mlxsw: reg: Update RITR to support loopback device
-Date: Sat,  2 Sep 2017 23:49:09 +0200
-Message-ID: <20170902214929.2890-2-jiri@resnulli.us>
+Subject: [patch net-next v2 21/21] mlxsw: spectrum_router: Support GRE tunnels
+Date: Sat,  2 Sep 2017 23:49:29 +0200
+Message-ID: <20170902214929.2890-22-jiri@resnulli.us>
 References: <20170902214929.2890-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, petrm@mellanox.com, idosch@mellanox.com,
         mlxsw@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f196.google.com ([209.85.128.196]:38896 "EHLO
-        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752776AbdIBVtg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 2 Sep 2017 17:49:36 -0400
-Received: by mail-wr0-f196.google.com with SMTP id j3so1613399wrb.5
-        for <netdev@vger.kernel.org>; Sat, 02 Sep 2017 14:49:35 -0700 (PDT)
+Received: from mail-wr0-f193.google.com ([209.85.128.193]:37920 "EHLO
+        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752834AbdIBVuG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 2 Sep 2017 17:50:06 -0400
+Received: by mail-wr0-f193.google.com with SMTP id j3so1613655wrb.5
+        for <netdev@vger.kernel.org>; Sat, 02 Sep 2017 14:50:05 -0700 (PDT)
 In-Reply-To: <20170902214929.2890-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Petr Machata <petrm@mellanox.com>
 
-Update the register so that loopback RIFs can be created and loopback
-properties specified.
+This patch introduces callbacks and tunnel type to offload GRE tunnels.
 
 Signed-off-by: Petr Machata <petrm@mellanox.com>
 Reviewed-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/reg.h | 88 +++++++++++++++++++++++++++++++
- 1 file changed, 88 insertions(+)
+ .../net/ethernet/mellanox/mlxsw/spectrum_ipip.c    | 176 +++++++++++++++++++++
+ .../net/ethernet/mellanox/mlxsw/spectrum_ipip.h    |   1 +
+ .../net/ethernet/mellanox/mlxsw/spectrum_router.c  |  26 +++
+ .../net/ethernet/mellanox/mlxsw/spectrum_router.h  |   4 +
+ 4 files changed, 207 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-index 11e290c..8736f8492 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-@@ -3998,6 +3998,8 @@ enum mlxsw_reg_ritr_if_type {
- 	MLXSW_REG_RITR_FID_IF,
- 	/* Sub-port interface. */
- 	MLXSW_REG_RITR_SP_IF,
-+	/* Loopback Interface. */
-+	MLXSW_REG_RITR_LOOPBACK_IF,
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_ipip.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_ipip.c
+index 20b0b96..702fe94 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_ipip.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_ipip.c
+@@ -32,7 +32,183 @@
+  * POSSIBILITY OF SUCH DAMAGE.
+  */
+ 
++#include <net/ip_tunnels.h>
++
+ #include "spectrum_ipip.h"
+ 
++static bool
++mlxsw_sp_ipip_netdev_has_ikey(const struct net_device *ol_dev)
++{
++	struct ip_tunnel *tun = netdev_priv(ol_dev);
++
++	return !!(tun->parms.i_flags & TUNNEL_KEY);
++}
++
++static bool
++mlxsw_sp_ipip_netdev_has_okey(const struct net_device *ol_dev)
++{
++	struct ip_tunnel *tun = netdev_priv(ol_dev);
++
++	return !!(tun->parms.o_flags & TUNNEL_KEY);
++}
++
++static u32 mlxsw_sp_ipip_netdev_ikey(const struct net_device *ol_dev)
++{
++	struct ip_tunnel *tun = netdev_priv(ol_dev);
++
++	return mlxsw_sp_ipip_netdev_has_ikey(ol_dev) ?
++		be32_to_cpu(tun->parms.i_key) : 0;
++}
++
++static u32 mlxsw_sp_ipip_netdev_okey(const struct net_device *ol_dev)
++{
++	struct ip_tunnel *tun = netdev_priv(ol_dev);
++
++	return mlxsw_sp_ipip_netdev_has_okey(ol_dev) ?
++		be32_to_cpu(tun->parms.o_key) : 0;
++}
++
++static int
++mlxsw_sp_ipip_nexthop_update_gre4(struct mlxsw_sp *mlxsw_sp, u32 adj_index,
++				  struct mlxsw_sp_ipip_entry *ipip_entry)
++{
++	u16 rif_index = mlxsw_sp_ipip_lb_rif_index(ipip_entry->ol_lb);
++	__be32 daddr4 = mlxsw_sp_ipip_netdev_daddr4(ipip_entry->ol_dev);
++	char ratr_pl[MLXSW_REG_RATR_LEN];
++
++	mlxsw_reg_ratr_pack(ratr_pl, MLXSW_REG_RATR_OP_WRITE_WRITE_ENTRY,
++			    true, MLXSW_REG_RATR_TYPE_IPIP,
++			    adj_index, rif_index);
++	mlxsw_reg_ratr_ipip4_entry_pack(ratr_pl, be32_to_cpu(daddr4));
++
++	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(ratr), ratr_pl);
++}
++
++static int
++mlxsw_sp_ipip_fib_entry_op_gre4_rtdp(struct mlxsw_sp *mlxsw_sp,
++				     u32 tunnel_index,
++				     struct mlxsw_sp_ipip_entry *ipip_entry)
++{
++	bool has_ikey = mlxsw_sp_ipip_netdev_has_ikey(ipip_entry->ol_dev);
++	u16 rif_index = mlxsw_sp_ipip_lb_rif_index(ipip_entry->ol_lb);
++	u32 ikey = mlxsw_sp_ipip_netdev_ikey(ipip_entry->ol_dev);
++	char rtdp_pl[MLXSW_REG_RTDP_LEN];
++	unsigned int type_check;
++	u32 daddr4;
++
++	mlxsw_reg_rtdp_pack(rtdp_pl, MLXSW_REG_RTDP_TYPE_IPIP, tunnel_index);
++
++	type_check = has_ikey ?
++		MLXSW_REG_RTDP_IPIP_TYPE_CHECK_ALLOW_GRE_KEY :
++		MLXSW_REG_RTDP_IPIP_TYPE_CHECK_ALLOW_GRE;
++
++	/* Linux demuxes tunnels based on packet SIP (which must match tunnel
++	 * remote IP). Thus configure decap so that it filters out packets that
++	 * are not IPv4 or have the wrong SIP. IPIP_DECAP_ERROR trap is
++	 * generated for packets that fail this criterion. Linux then handles
++	 * such packets in slow path and generates ICMP destination unreachable.
++	 */
++	daddr4 = be32_to_cpu(mlxsw_sp_ipip_netdev_daddr4(ipip_entry->ol_dev));
++	mlxsw_reg_rtdp_ipip4_pack(rtdp_pl, rif_index,
++				  MLXSW_REG_RTDP_IPIP_SIP_CHECK_FILTER_IPV4,
++				  type_check, has_ikey, daddr4, ikey);
++
++	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(rtdp), rtdp_pl);
++}
++
++static int
++mlxsw_sp_ipip_fib_entry_op_gre4_ralue(struct mlxsw_sp *mlxsw_sp,
++				      u32 dip, u8 prefix_len, u16 ul_vr_id,
++				      enum mlxsw_reg_ralue_op op,
++				      u32 tunnel_index)
++{
++	char ralue_pl[MLXSW_REG_RALUE_LEN];
++
++	mlxsw_reg_ralue_pack4(ralue_pl, MLXSW_REG_RALXX_PROTOCOL_IPV4, op,
++			      ul_vr_id, prefix_len, dip);
++	mlxsw_reg_ralue_act_ip2me_tun_pack(ralue_pl, tunnel_index);
++	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(ralue), ralue_pl);
++}
++
++static int mlxsw_sp_ipip_fib_entry_op_gre4(struct mlxsw_sp *mlxsw_sp,
++					struct mlxsw_sp_ipip_entry *ipip_entry,
++					enum mlxsw_reg_ralue_op op,
++					u32 tunnel_index)
++{
++	u16 ul_vr_id = mlxsw_sp_ipip_lb_ul_vr_id(ipip_entry->ol_lb);
++	__be32 dip;
++	int err;
++
++	err = mlxsw_sp_ipip_fib_entry_op_gre4_rtdp(mlxsw_sp, tunnel_index,
++						   ipip_entry);
++	if (err)
++		return err;
++
++	dip = mlxsw_sp_ipip_netdev_saddr(MLXSW_SP_L3_PROTO_IPV4,
++					 ipip_entry->ol_dev).addr4;
++	return mlxsw_sp_ipip_fib_entry_op_gre4_ralue(mlxsw_sp, be32_to_cpu(dip),
++						     32, ul_vr_id, op,
++						     tunnel_index);
++}
++
++static bool mlxsw_sp_ipip_tunnel_complete(enum mlxsw_sp_l3proto proto,
++					  const struct net_device *ol_dev)
++{
++	union mlxsw_sp_l3addr saddr = mlxsw_sp_ipip_netdev_saddr(proto, ol_dev);
++	union mlxsw_sp_l3addr daddr = mlxsw_sp_ipip_netdev_daddr(proto, ol_dev);
++	union mlxsw_sp_l3addr naddr = {0};
++
++	/* Tunnels with unset local or remote address are valid in Linux and
++	 * used for lightweight tunnels (LWT) and Non-Broadcast Multi-Access
++	 * (NBMA) tunnels. In principle these can be offloaded, but the driver
++	 * currently doesn't support this. So punt.
++	 */
++	return memcmp(&saddr, &naddr, sizeof(naddr)) &&
++	       memcmp(&daddr, &naddr, sizeof(naddr));
++}
++
++static bool mlxsw_sp_ipip_can_offload_gre4(const struct mlxsw_sp *mlxsw_sp,
++					   const struct net_device *ol_dev,
++					   enum mlxsw_sp_l3proto ol_proto)
++{
++	struct ip_tunnel *tunnel = netdev_priv(ol_dev);
++	__be16 okflags = TUNNEL_KEY; /* We can't offload any other features. */
++	bool inherit_ttl = tunnel->parms.iph.ttl == 0;
++	bool inherit_tos = tunnel->parms.iph.tos & 0x1;
++
++	return (tunnel->parms.i_flags & ~okflags) == 0 &&
++	       (tunnel->parms.o_flags & ~okflags) == 0 &&
++	       inherit_ttl && inherit_tos &&
++	       mlxsw_sp_ipip_tunnel_complete(MLXSW_SP_L3_PROTO_IPV4, ol_dev);
++}
++
++static struct mlxsw_sp_rif_ipip_lb_config
++mlxsw_sp_ipip_ol_loopback_config_gre4(struct mlxsw_sp *mlxsw_sp,
++				      const struct net_device *ol_dev)
++{
++	enum mlxsw_reg_ritr_loopback_ipip_type lb_ipipt;
++
++	lb_ipipt = mlxsw_sp_ipip_netdev_has_okey(ol_dev) ?
++		MLXSW_REG_RITR_LOOPBACK_IPIP_TYPE_IP_IN_GRE_KEY_IN_IP :
++		MLXSW_REG_RITR_LOOPBACK_IPIP_TYPE_IP_IN_GRE_IN_IP;
++	return (struct mlxsw_sp_rif_ipip_lb_config){
++		.lb_ipipt = lb_ipipt,
++		.okey = mlxsw_sp_ipip_netdev_okey(ol_dev),
++		.ul_protocol = MLXSW_SP_L3_PROTO_IPV4,
++		.saddr = mlxsw_sp_ipip_netdev_saddr(MLXSW_SP_L3_PROTO_IPV4,
++						    ol_dev),
++	};
++}
++
++static const struct mlxsw_sp_ipip_ops mlxsw_sp_ipip_gre4_ops = {
++	.dev_type = ARPHRD_IPGRE,
++	.ul_proto = MLXSW_SP_L3_PROTO_IPV4,
++	.nexthop_update = mlxsw_sp_ipip_nexthop_update_gre4,
++	.fib_entry_op = mlxsw_sp_ipip_fib_entry_op_gre4,
++	.can_offload = mlxsw_sp_ipip_can_offload_gre4,
++	.ol_loopback_config = mlxsw_sp_ipip_ol_loopback_config_gre4,
++};
++
+ const struct mlxsw_sp_ipip_ops *mlxsw_sp_ipip_ops_arr[] = {
++	[MLXSW_SP_IPIP_TYPE_GRE4] = &mlxsw_sp_ipip_gre4_ops,
+ };
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_ipip.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum_ipip.h
+index cd986bd..1c2db83 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_ipip.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_ipip.h
+@@ -39,6 +39,7 @@
+ #include <net/ip_fib.h>
+ 
+ enum mlxsw_sp_ipip_type {
++	MLXSW_SP_IPIP_TYPE_GRE4,
+ 	MLXSW_SP_IPIP_TYPE_MAX,
  };
  
- /* reg_ritr_type
-@@ -4129,6 +4131,67 @@ MLXSW_ITEM32(reg, ritr, sp_if_system_port, 0x08, 0, 16);
-  */
- MLXSW_ITEM32(reg, ritr, sp_if_vid, 0x18, 0, 12);
- 
-+/* Loopback Interface */
-+
-+enum mlxsw_reg_ritr_loopback_protocol {
-+	/* IPinIP IPv4 underlay Unicast */
-+	MLXSW_REG_RITR_LOOPBACK_PROTOCOL_IPIP_IPV4,
-+	/* IPinIP IPv6 underlay Unicast */
-+	MLXSW_REG_RITR_LOOPBACK_PROTOCOL_IPIP_IPV6,
-+};
-+
-+/* reg_ritr_loopback_protocol
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, ritr, loopback_protocol, 0x08, 28, 4);
-+
-+enum mlxsw_reg_ritr_loopback_ipip_type {
-+	/* Tunnel is IPinIP. */
-+	MLXSW_REG_RITR_LOOPBACK_IPIP_TYPE_IP_IN_IP,
-+	/* Tunnel is GRE, no key. */
-+	MLXSW_REG_RITR_LOOPBACK_IPIP_TYPE_IP_IN_GRE_IN_IP,
-+	/* Tunnel is GRE, with a key. */
-+	MLXSW_REG_RITR_LOOPBACK_IPIP_TYPE_IP_IN_GRE_KEY_IN_IP,
-+};
-+
-+/* reg_ritr_loopback_ipip_type
-+ * Encapsulation type.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, ritr, loopback_ipip_type, 0x10, 24, 4);
-+
-+enum mlxsw_reg_ritr_loopback_ipip_options {
-+	/* The key is defined by gre_key. */
-+	MLXSW_REG_RITR_LOOPBACK_IPIP_OPTIONS_GRE_KEY_PRESET,
-+};
-+
-+/* reg_ritr_loopback_ipip_options
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, ritr, loopback_ipip_options, 0x10, 20, 4);
-+
-+/* reg_ritr_loopback_ipip_uvr
-+ * Underlay Virtual Router ID.
-+ * Range is 0..cap_max_virtual_routers-1.
-+ * Reserved for Spectrum-2.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, ritr, loopback_ipip_uvr, 0x10, 0, 16);
-+
-+/* reg_ritr_loopback_ipip_usip*
-+ * Encapsulation Underlay source IP.
-+ * Access: RW
-+ */
-+MLXSW_ITEM_BUF(reg, ritr, loopback_ipip_usip6, 0x18, 16);
-+MLXSW_ITEM32(reg, ritr, loopback_ipip_usip4, 0x24, 0, 32);
-+
-+/* reg_ritr_loopback_ipip_gre_key
-+ * GRE Key.
-+ * Reserved when ipip_type is not IP_IN_GRE_KEY_IN_IP.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, ritr, loopback_ipip_gre_key, 0x28, 0, 32);
-+
- /* Shared between ingress/egress */
- enum mlxsw_reg_ritr_counter_set_type {
- 	/* No Count. */
-@@ -4219,6 +4282,31 @@ static inline void mlxsw_reg_ritr_pack(char *payload, bool enable,
- 	mlxsw_reg_ritr_if_mac_memcpy_to(payload, mac);
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+index 6068eea..f0fb898 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+@@ -1020,6 +1020,32 @@ mlxsw_sp_ipip_netdev_saddr(enum mlxsw_sp_l3proto proto,
+ 	};
  }
  
-+static inline void
-+mlxsw_reg_ritr_loopback_ipip_common_pack(char *payload,
-+			    enum mlxsw_reg_ritr_loopback_ipip_type ipip_type,
-+			    enum mlxsw_reg_ritr_loopback_ipip_options options,
-+			    u16 uvr_id, u32 gre_key)
++__be32 mlxsw_sp_ipip_netdev_daddr4(const struct net_device *ol_dev)
 +{
-+	mlxsw_reg_ritr_loopback_ipip_type_set(payload, ipip_type);
-+	mlxsw_reg_ritr_loopback_ipip_options_set(payload, options);
-+	mlxsw_reg_ritr_loopback_ipip_uvr_set(payload, uvr_id);
-+	mlxsw_reg_ritr_loopback_ipip_gre_key_set(payload, gre_key);
++	struct ip_tunnel *tun = netdev_priv(ol_dev);
++
++	return tun->parms.iph.daddr;
 +}
 +
-+static inline void
-+mlxsw_reg_ritr_loopback_ipip4_pack(char *payload,
-+			    enum mlxsw_reg_ritr_loopback_ipip_type ipip_type,
-+			    enum mlxsw_reg_ritr_loopback_ipip_options options,
-+			    u16 uvr_id, u32 usip, u32 gre_key)
++union mlxsw_sp_l3addr
++mlxsw_sp_ipip_netdev_daddr(enum mlxsw_sp_l3proto proto,
++			   const struct net_device *ol_dev)
 +{
-+	mlxsw_reg_ritr_loopback_protocol_set(payload,
-+				    MLXSW_REG_RITR_LOOPBACK_PROTOCOL_IPIP_IPV4);
-+	mlxsw_reg_ritr_loopback_ipip_common_pack(payload, ipip_type, options,
-+						 uvr_id, gre_key);
-+	mlxsw_reg_ritr_loopback_ipip_usip4_set(payload, usip);
++	switch (proto) {
++	case MLXSW_SP_L3_PROTO_IPV4:
++		return (union mlxsw_sp_l3addr) {
++			.addr4 = mlxsw_sp_ipip_netdev_daddr4(ol_dev),
++		};
++	case MLXSW_SP_L3_PROTO_IPV6:
++		break;
++	};
++
++	WARN_ON(1);
++	return (union mlxsw_sp_l3addr) {
++		.addr4 = 0,
++	};
 +}
 +
- /* RATR - Router Adjacency Table Register
-  * --------------------------------------
-  * The RATR register is used to configure the Router Adjacency (next-hop)
+ static bool mlxsw_sp_l3addr_eq(const union mlxsw_sp_l3addr *addr1,
+ 			       const union mlxsw_sp_l3addr *addr2)
+ {
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.h
+index 9632476..345fcc4 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.h
+@@ -103,5 +103,9 @@ bool mlxsw_sp_neigh_ipv6_ignore(struct mlxsw_sp_neigh_entry *neigh_entry);
+ union mlxsw_sp_l3addr
+ mlxsw_sp_ipip_netdev_saddr(enum mlxsw_sp_l3proto proto,
+ 			   const struct net_device *ol_dev);
++union mlxsw_sp_l3addr
++mlxsw_sp_ipip_netdev_daddr(enum mlxsw_sp_l3proto proto,
++			   const struct net_device *ol_dev);
++__be32 mlxsw_sp_ipip_netdev_daddr4(const struct net_device *ol_dev);
+ 
+ #endif /* _MLXSW_ROUTER_H_*/
 -- 
 2.9.3
