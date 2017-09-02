@@ -1,70 +1,39 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 4/4] net: dsa: assign a master to slave ports
-Date: Sat, 2 Sep 2017 09:29:06 -0700
-Message-ID: <153b5e2d-f904-3836-4eeb-0ef9698f7090@gmail.com>
-References: <20170831183746.2109-1-vivien.didelot@savoirfairelinux.com>
- <20170831183746.2109-5-vivien.didelot@savoirfairelinux.com>
- <20170902153435.GB21003@lunn.ch>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 4/4] net: dsa: bcm_sf2: Configure IMP port
+ TC2QOS mapping
+Date: Sat, 2 Sep 2017 18:30:57 +0200
+Message-ID: <20170902163057.GB5463@lunn.ch>
+References: <1504310354-42773-1-git-send-email-f.fainelli@gmail.com>
+ <1504310354-42773-5-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>
-To: Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+        vivien.didelot@savoirfairelinux.com, jiri@resnulli.us,
+        jhs@mojatatu.com, xiyou.wangcong@gmail.com
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f66.google.com ([209.85.218.66]:34940 "EHLO
-        mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752697AbdIBQ3K (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 2 Sep 2017 12:29:10 -0400
-In-Reply-To: <20170902153435.GB21003@lunn.ch>
-Content-Language: en-US
+Received: from vps0.lunn.ch ([178.209.37.122]:54500 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752712AbdIBQbB (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 2 Sep 2017 12:31:01 -0400
+Content-Disposition: inline
+In-Reply-To: <1504310354-42773-5-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+> @@ -129,6 +130,14 @@ static void bcm_sf2_imp_setup(struct dsa_switch *ds, int port)
+>  	reg |= MII_DUMB_FWDG_EN;
+>  	core_writel(priv, reg, CORE_SWITCH_CTRL);
+>  
+> +	/* Configure Traffic Class to QoS mapping, allow each priority to map
+> +	 * to a different queue number
+> +	 */
+> +	reg = core_readl(priv, CORE_PORT_TC2_QOS_MAP_PORT(port));
+> +	for (i = 0; i < 8; i++)
+> +		reg |= i << (PRT_TO_QID_SHIFT * i);
 
+Hi Florian
 
-On 09/02/2017 08:34 AM, Andrew Lunn wrote:
-> On Thu, Aug 31, 2017 at 02:37:46PM -0400, Vivien Didelot wrote:
->> Because each DSA slave port may use a different DSA master port, add a
->> pointer to a master in the slave structure. This is a preparatory patch
->> for multiple CPU ports.
->>
->> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
->> ---
->>  net/dsa/dsa_priv.h |  7 ++-----
->>  net/dsa/slave.c    | 33 ++++++++++++++++++---------------
->>  2 files changed, 20 insertions(+), 20 deletions(-)
->>
->> diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
->> index 59f155cbbe87..a8cd6cbe4061 100644
->> --- a/net/dsa/dsa_priv.h
->> +++ b/net/dsa/dsa_priv.h
->> @@ -66,6 +66,8 @@ struct dsa_notifier_vlan_info {
->>  };
->>  
->>  struct dsa_slave_priv {
->> +	struct dsa_master *master;
->> +
->>  	/* Copy of the master xmit tagging op for faster access in hot path */
->>  	struct sk_buff *	(*xmit)(struct sk_buff *skb,
->>  					struct net_device *dev);
->> @@ -179,9 +181,4 @@ extern const struct dsa_device_ops qca_netdev_ops;
->>  /* tag_trailer.c */
->>  extern const struct dsa_device_ops trailer_netdev_ops;
->>  
->> -static inline struct net_device *dsa_master_netdev(struct dsa_slave_priv *p)
->> -{
->> -	return p->dp->ds->dst->master->netdev;
->> -}
->> -
-> 
-> Hi Vivien
-> 
-> Why remove this helper, when it could become p->master->netdev ?
+Rather than 8, would ds->num_tx_queues be more descriptive?
 
-Agreed, I would keep the helper at this point to minimize the delta, it
-should really identical in terms of code generated.
--- 
-Florian
+       Andrew
