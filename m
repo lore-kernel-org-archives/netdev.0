@@ -1,79 +1,65 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 0/4] net: dsa: add master interface
-Date: Sat, 2 Sep 2017 09:42:01 -0700
-Message-ID: <a49d59fb-956f-a849-7add-ec2ed0de197b@gmail.com>
-References: <20170831183746.2109-1-vivien.didelot@savoirfairelinux.com>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: Re: [PATCH] Fix build on fedora-14 (and other older systems)
+Date: Sat, 2 Sep 2017 19:03:36 +0200
+Message-ID: <20170902170336.piispo3i3xk62pxq@unicorn.suse.cz>
+References: <1504361702-30266-1-git-send-email-greearb@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Andrew Lunn <andrew@lunn.ch>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170831183746.2109-1-vivien.didelot@savoirfairelinux.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: greearb@candelatech.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.suse.de ([195.135.220.15]:47412 "EHLO mx1.suse.de"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1752732AbdIBRDi (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 2 Sep 2017 13:03:38 -0400
+Content-Disposition: inline
+In-Reply-To: <1504361702-30266-1-git-send-email-greearb@candelatech.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Vivien,
+On Sat, Sep 02, 2017 at 07:15:02AM -0700, greearb@candelatech.com wrote:
+> From: Ben Greear <greearb@candelatech.com>
+> 
+> Seems Fedora-20 and below fail, hopefully this fixes
+> them.
+> 
+> Signed-off-by: Ben Greear <greearb@candelatech.com>
+> ---
+>  include/linux/sysinfo.h | 8 ++++++++
+>  ip/ipxfrm.c             | 1 +
+>  ip/xfrm_policy.c        | 1 +
+>  ip/xfrm_state.c         | 1 +
+>  4 files changed, 11 insertions(+)
 
-On 08/31/2017 11:37 AM, Vivien Didelot wrote:
-> Currently the SoC network interface (called master) to which a switch
-> fabric hangs, has its dsa_ptr pointing to a dsa_switch_tree instance.
-> 
-> This is not quite correct, because this interface is physically wired to
-> one of the switch ports (called CPU port), and because in a switch
-> fabric with multiple CPU ports, several master interfaces will point to
-> several CPU ports of the same dsa_switch_tree.
-> 
-> This patchset adds a new dsa_master structure to represent the pipe
-> between the SoC master interface and its switch CPU port. This structure
-> will store specific data such as the master ethtool_ops copy and the
-> tagging protocol used to pass frames with the associated slave ports.
-> The dsa_ptr is changed to a dsa_master instance, and each DSA slave now
-> has a pointer to a master port.
-> 
-> This is a step forward better control over the CPU conduit and support
-> for multiple CPU ports.
+Works for me from openSUSE Tumbleweed to SLE11 SP4 (kernel 3.0). The
+build on SLE11 SP2 (also 3.0 but older headers in /usr/include)
+fails with unknown MS_PRIVATE and MS_REC in lib/bpf.c
+Newer systems have these defined in <sys/mount.h>
 
-Looked briefly over this series and this looks good to me, Andrew has a
-valid point about reducing the number of dereferences in hot paths
-though. Thanks!
+Including <linux/fs.h> directly in lib/bpf.c fixes that but if we do
+that, a copy of the file would have to be included.
 
-> 
-> Vivien Didelot (4):
->   net: dsa: introduce dsa_master
->   net: dsa: move master ethtool ops in dsa_master
->   net: dsa: change dsa_ptr for a dsa_master
->   net: dsa: assign a master to slave ports
-> 
->  drivers/net/dsa/b53/b53_common.c |   4 +-
->  drivers/net/dsa/bcm_sf2.c        |   8 +--
->  drivers/net/dsa/mt7530.c         |   4 +-
->  drivers/net/dsa/mv88e6060.c      |   2 +-
->  drivers/net/dsa/qca8k.c          |   2 +-
->  include/linux/netdevice.h        |   4 +-
->  include/net/dsa.h                |  42 +++++------
->  net/dsa/Makefile                 |   2 +-
->  net/dsa/dsa.c                    |  34 +--------
->  net/dsa/dsa2.c                   |  38 +++++-----
->  net/dsa/dsa_priv.h               |  24 +++----
->  net/dsa/legacy.c                 |  34 +++++----
->  net/dsa/master.c                 | 149 +++++++++++++++++++++++++++++++++++++++
->  net/dsa/slave.c                  | 117 +++++-------------------------
->  net/dsa/tag_brcm.c               |   5 +-
->  net/dsa/tag_dsa.c                |   3 +-
->  net/dsa/tag_edsa.c               |   3 +-
->  net/dsa/tag_ksz.c                |   5 +-
->  net/dsa/tag_lan9303.c            |   6 +-
->  net/dsa/tag_mtk.c                |  12 +---
->  net/dsa/tag_qca.c                |  12 +---
->  net/dsa/tag_trailer.c            |   5 +-
->  22 files changed, 265 insertions(+), 250 deletions(-)
->  create mode 100644 net/dsa/master.c
-> 
+> diff --git a/include/linux/sysinfo.h b/include/linux/sysinfo.h
+> index 934335a..3596b02 100644
+> --- a/include/linux/sysinfo.h
+> +++ b/include/linux/sysinfo.h
+> @@ -3,6 +3,14 @@
+>  
+>  #include <linux/types.h>
+>  
+> +/* So we can compile on older OSs, hopefully this is correct. --Ben */
+> +#ifndef __kernel_long_t
+> +typedef long __kernel_long_t;
+> +#endif
+> +#ifndef __kernel_ulong_t
+> +typedef unsigned long __kernel_ulong_t;
+> +#endif
+> +
+>  #define SI_LOAD_SHIFT	16
+>  struct sysinfo {
+>  	__kernel_long_t uptime;		/* Seconds since boot */
 
--- 
-Florian
+I'm not sure if it is acceptable to modify a file which is supposed to
+be a direct copy of kernel uapi header.
+
+Michal Kubecek
