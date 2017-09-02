@@ -1,61 +1,67 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 4/4] net: dsa: bcm_sf2: Configure IMP port TC2QOS
- mapping
-Date: Sat, 2 Sep 2017 10:57:26 -0700
-Message-ID: <bd44fa58-ad75-246d-0fe9-d6228fbf85b9@gmail.com>
-References: <1504310354-42773-1-git-send-email-f.fainelli@gmail.com>
- <1504310354-42773-5-git-send-email-f.fainelli@gmail.com>
- <20170902163057.GB5463@lunn.ch>
- <e0d92f15-342d-2b5b-2f7d-aedba328116f@gmail.com>
- <20170902174753.GA8981@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
+Subject: [PATCH net-next v2 1/4] net: dsa: Allow switch drivers to indicate number of TX queues
+Date: Sat,  2 Sep 2017 11:06:06 -0700
+Message-ID: <20170902180609.23122-2-f.fainelli@gmail.com>
+References: <20170902180609.23122-1-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, andrew@lunn.ch,
         vivien.didelot@savoirfairelinux.com, jiri@resnulli.us,
-        jhs@mojatatu.com, xiyou.wangcong@gmail.com
-To: Andrew Lunn <andrew@lunn.ch>
+        jhs@mojatatu.com, xiyou.wangcong@gmail.com,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f66.google.com ([209.85.218.66]:35487 "EHLO
-        mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752709AbdIBR5a (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 2 Sep 2017 13:57:30 -0400
-Received: by mail-oi0-f66.google.com with SMTP id n18so2404669oig.2
-        for <netdev@vger.kernel.org>; Sat, 02 Sep 2017 10:57:30 -0700 (PDT)
-In-Reply-To: <20170902174753.GA8981@lunn.ch>
-Content-Language: en-US
+Received: from mail-oi0-f67.google.com ([209.85.218.67]:38083 "EHLO
+        mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752723AbdIBSGQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 2 Sep 2017 14:06:16 -0400
+Received: by mail-oi0-f67.google.com with SMTP id r203so2382924oih.5
+        for <netdev@vger.kernel.org>; Sat, 02 Sep 2017 11:06:16 -0700 (PDT)
+In-Reply-To: <20170902180609.23122-1-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Let switch drivers indicate how many TX queues they support. Some
+switches, such as Broadcom Starfighter 2 are designed with 8 egress
+queues. Future changes will allow us to leverage the queue mapping and
+direct the transmission towards a particular queue.
 
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ include/net/dsa.h | 3 +++
+ net/dsa/slave.c   | 8 ++++++--
+ 2 files changed, 9 insertions(+), 2 deletions(-)
 
-On 09/02/2017 10:47 AM, Andrew Lunn wrote:
-> On Sat, Sep 02, 2017 at 09:32:08AM -0700, Florian Fainelli wrote:
->>
->>
->> On 09/02/2017 09:30 AM, Andrew Lunn wrote:
->>>> @@ -129,6 +130,14 @@ static void bcm_sf2_imp_setup(struct dsa_switch *ds, int port)
->>>>  	reg |= MII_DUMB_FWDG_EN;
->>>>  	core_writel(priv, reg, CORE_SWITCH_CTRL);
->>>>  
->>>> +	/* Configure Traffic Class to QoS mapping, allow each priority to map
->>>> +	 * to a different queue number
->>>> +	 */
->>>> +	reg = core_readl(priv, CORE_PORT_TC2_QOS_MAP_PORT(port));
->>>> +	for (i = 0; i < 8; i++)
->>>> +		reg |= i << (PRT_TO_QID_SHIFT * i);
->>>
->>> Hi Florian
->>>
->>> Rather than 8, would ds->num_tx_queues be more descriptive?
->>
->> I actually have a patch on top of this which defines a constant for the
->> number of queues instead of open coding 8 here. Thanks!
-> 
-> Hi Florian
-> 
-> It sounds like it should be part of 3/4?
-
-Right, let me re-submit with that change included. Thanks
+diff --git a/include/net/dsa.h b/include/net/dsa.h
+index 398ca8d70ccd..dd44d6ce1097 100644
+--- a/include/net/dsa.h
++++ b/include/net/dsa.h
+@@ -243,6 +243,9 @@ struct dsa_switch {
+ 	/* devlink used to represent this switch device */
+ 	struct devlink		*devlink;
+ 
++	/* Number of switch port queues */
++	unsigned int		num_tx_queues;
++
+ 	/* Dynamically allocated ports, keep last */
+ 	size_t num_ports;
+ 	struct dsa_port ports[];
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index 78e78a6e6833..2afa99506f8b 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -1259,8 +1259,12 @@ int dsa_slave_create(struct dsa_port *port, const char *name)
+ 	cpu_dp = ds->dst->cpu_dp;
+ 	master = cpu_dp->netdev;
+ 
+-	slave_dev = alloc_netdev(sizeof(struct dsa_slave_priv), name,
+-				 NET_NAME_UNKNOWN, ether_setup);
++	if (!ds->num_tx_queues)
++		ds->num_tx_queues = 1;
++
++	slave_dev = alloc_netdev_mqs(sizeof(struct dsa_slave_priv), name,
++				     NET_NAME_UNKNOWN, ether_setup,
++				     ds->num_tx_queues, 1);
+ 	if (slave_dev == NULL)
+ 		return -ENOMEM;
+ 
 -- 
-Florian
+2.11.0
