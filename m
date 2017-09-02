@@ -1,187 +1,213 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 21/21] mlxsw: reg: Add Routing Tunnel Decap Properties Register
-Date: Sat,  2 Sep 2017 17:21:26 +0200
-Message-ID: <20170902152126.17286-22-jiri@resnulli.us>
+Subject: [patch net-next 09/21] mlxsw: spectrum_router: Support FID-less RIFs
+Date: Sat,  2 Sep 2017 17:21:14 +0200
+Message-ID: <20170902152126.17286-10-jiri@resnulli.us>
 References: <20170902152126.17286-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, petrm@mellanox.com, idosch@mellanox.com,
         mlxsw@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f196.google.com ([209.85.128.196]:34859 "EHLO
-        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752765AbdIBPWC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 2 Sep 2017 11:22:02 -0400
-Received: by mail-wr0-f196.google.com with SMTP id a47so1352749wra.2
-        for <netdev@vger.kernel.org>; Sat, 02 Sep 2017 08:22:01 -0700 (PDT)
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:36193 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752742AbdIBPVo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 2 Sep 2017 11:21:44 -0400
+Received: by mail-wm0-f65.google.com with SMTP id p17so2641086wmd.3
+        for <netdev@vger.kernel.org>; Sat, 02 Sep 2017 08:21:43 -0700 (PDT)
 In-Reply-To: <20170902152126.17286-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Petr Machata <petrm@mellanox.com>
 
-The RTDP register is used for configuring the tunnel decap properties of
-NVE and IPinIP.
+Loopback RIFs, which will be introduced in a follow-up patch, differ
+from other RIFs in that they do not have a FID associated with them.
+
+To support this, demote FID allocation from mlxsw_sp_rif_create to
+configure op of the existing RIF types, and likewise the FID release
+from mlxsw_sp_rif_destroy to deconfigure op.
 
 Signed-off-by: Petr Machata <petrm@mellanox.com>
 Reviewed-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/reg.h | 129 ++++++++++++++++++++++++++++++
- 1 file changed, 129 insertions(+)
+ .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 85 ++++++++++++++++------
+ 1 file changed, 63 insertions(+), 22 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-index 680bc7e..cc27c5d 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-@@ -5,6 +5,7 @@
-  * Copyright (c) 2015 Elad Raz <eladr@mellanox.com>
-  * Copyright (c) 2015-2017 Jiri Pirko <jiri@mellanox.com>
-  * Copyright (c) 2016 Yotam Gigi <yotamg@mellanox.com>
-+ * Copyright (c) 2017 Petr Machata <petrm@mellanox.com>
-  *
-  * Redistribution and use in source and binary forms, with or without
-  * modification, are permitted provided that the following conditions are met:
-@@ -5468,6 +5469,133 @@ static inline void mlxsw_reg_rauhtd_ent_ipv6_unpack(char *payload,
- 	mlxsw_reg_rauhtd_ipv6_ent_dip_memcpy_from(payload, rec_index, p_dip);
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+index f85d249..38477c5 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+@@ -4444,9 +4444,9 @@ mlxsw_sp_rif_create(struct mlxsw_sp *mlxsw_sp,
+ {
+ 	u32 tb_id = l3mdev_fib_table(params->dev);
+ 	const struct mlxsw_sp_rif_ops *ops;
++	struct mlxsw_sp_fid *fid = NULL;
+ 	enum mlxsw_sp_rif_type type;
+ 	struct mlxsw_sp_rif *rif;
+-	struct mlxsw_sp_fid *fid;
+ 	struct mlxsw_sp_vr *vr;
+ 	u16 rif_index;
+ 	int err;
+@@ -4470,12 +4470,14 @@ mlxsw_sp_rif_create(struct mlxsw_sp *mlxsw_sp,
+ 	rif->mlxsw_sp = mlxsw_sp;
+ 	rif->ops = ops;
+ 
+-	fid = ops->fid_get(rif);
+-	if (IS_ERR(fid)) {
+-		err = PTR_ERR(fid);
+-		goto err_fid_get;
++	if (ops->fid_get) {
++		fid = ops->fid_get(rif);
++		if (IS_ERR(fid)) {
++			err = PTR_ERR(fid);
++			goto err_fid_get;
++		}
++		rif->fid = fid;
+ 	}
+-	rif->fid = fid;
+ 
+ 	if (ops->setup)
+ 		ops->setup(rif, params);
+@@ -4484,22 +4486,15 @@ mlxsw_sp_rif_create(struct mlxsw_sp *mlxsw_sp,
+ 	if (err)
+ 		goto err_configure;
+ 
+-	err = mlxsw_sp_rif_fdb_op(mlxsw_sp, params->dev->dev_addr,
+-				  mlxsw_sp_fid_index(fid), true);
+-	if (err)
+-		goto err_rif_fdb_op;
+-
+ 	mlxsw_sp_rif_counters_alloc(rif);
+-	mlxsw_sp_fid_rif_set(fid, rif);
+ 	mlxsw_sp->router->rifs[rif_index] = rif;
+ 	vr->rif_count++;
+ 
+ 	return rif;
+ 
+-err_rif_fdb_op:
+-	ops->deconfigure(rif);
+ err_configure:
+-	mlxsw_sp_fid_put(fid);
++	if (fid)
++		mlxsw_sp_fid_put(fid);
+ err_fid_get:
+ 	kfree(rif);
+ err_rif_alloc:
+@@ -4520,12 +4515,11 @@ void mlxsw_sp_rif_destroy(struct mlxsw_sp_rif *rif)
+ 
+ 	vr->rif_count--;
+ 	mlxsw_sp->router->rifs[rif->rif_index] = NULL;
+-	mlxsw_sp_fid_rif_set(fid, NULL);
+ 	mlxsw_sp_rif_counters_free(rif);
+-	mlxsw_sp_rif_fdb_op(mlxsw_sp, rif->dev->dev_addr,
+-			    mlxsw_sp_fid_index(fid), false);
+ 	ops->deconfigure(rif);
+-	mlxsw_sp_fid_put(fid);
++	if (fid)
++		/* Loopback RIFs are not associated with a FID. */
++		mlxsw_sp_fid_put(fid);
+ 	kfree(rif);
+ 	mlxsw_sp_vr_put(vr);
+ }
+@@ -4965,11 +4959,32 @@ static int mlxsw_sp_rif_subport_op(struct mlxsw_sp_rif *rif, bool enable)
+ 
+ static int mlxsw_sp_rif_subport_configure(struct mlxsw_sp_rif *rif)
+ {
+-	return mlxsw_sp_rif_subport_op(rif, true);
++	int err;
++
++	err = mlxsw_sp_rif_subport_op(rif, true);
++	if (err)
++		return err;
++
++	err = mlxsw_sp_rif_fdb_op(rif->mlxsw_sp, rif->dev->dev_addr,
++				  mlxsw_sp_fid_index(rif->fid), true);
++	if (err)
++		goto err_rif_fdb_op;
++
++	mlxsw_sp_fid_rif_set(rif->fid, rif);
++	return 0;
++
++err_rif_fdb_op:
++	mlxsw_sp_rif_subport_op(rif, false);
++	return err;
  }
  
-+/* RTDP - Routing Tunnel Decap Properties Register
-+ * -----------------------------------------------
-+ * The RTDP register is used for configuring the tunnel decap properties of NVE
-+ * and IPinIP.
-+ */
-+#define MLXSW_REG_RTDP_ID 0x8020
-+#define MLXSW_REG_RTDP_LEN 0x44
+ static void mlxsw_sp_rif_subport_deconfigure(struct mlxsw_sp_rif *rif)
+ {
++	struct mlxsw_sp_fid *fid = rif->fid;
 +
-+MLXSW_REG_DEFINE(rtdp, MLXSW_REG_RTDP_ID, MLXSW_REG_RTDP_LEN);
++	mlxsw_sp_fid_rif_set(fid, NULL);
++	mlxsw_sp_rif_fdb_op(rif->mlxsw_sp, rif->dev->dev_addr,
++			    mlxsw_sp_fid_index(fid), false);
+ 	mlxsw_sp_rif_subport_op(rif, false);
+ }
+ 
+@@ -5028,8 +5043,17 @@ static int mlxsw_sp_rif_vlan_configure(struct mlxsw_sp_rif *rif)
+ 	if (err)
+ 		goto err_fid_bc_flood_set;
+ 
++	err = mlxsw_sp_rif_fdb_op(rif->mlxsw_sp, rif->dev->dev_addr,
++				  mlxsw_sp_fid_index(rif->fid), true);
++	if (err)
++		goto err_rif_fdb_op;
 +
-+enum mlxsw_reg_rtdp_type {
-+	MLXSW_REG_RTDP_TYPE_NVE,
-+	MLXSW_REG_RTDP_TYPE_IPIP,
-+};
++	mlxsw_sp_fid_rif_set(rif->fid, rif);
+ 	return 0;
+ 
++err_rif_fdb_op:
++	mlxsw_sp_fid_flood_set(rif->fid, MLXSW_SP_FLOOD_TYPE_BC,
++			       mlxsw_sp_router_port(mlxsw_sp), false);
+ err_fid_bc_flood_set:
+ 	mlxsw_sp_fid_flood_set(rif->fid, MLXSW_SP_FLOOD_TYPE_MC,
+ 			       mlxsw_sp_router_port(mlxsw_sp), false);
+@@ -5040,9 +5064,13 @@ static int mlxsw_sp_rif_vlan_configure(struct mlxsw_sp_rif *rif)
+ 
+ static void mlxsw_sp_rif_vlan_deconfigure(struct mlxsw_sp_rif *rif)
+ {
+-	struct mlxsw_sp *mlxsw_sp = rif->mlxsw_sp;
+ 	u16 vid = mlxsw_sp_fid_8021q_vid(rif->fid);
++	struct mlxsw_sp *mlxsw_sp = rif->mlxsw_sp;
++	struct mlxsw_sp_fid *fid = rif->fid;
+ 
++	mlxsw_sp_fid_rif_set(fid, NULL);
++	mlxsw_sp_rif_fdb_op(rif->mlxsw_sp, rif->dev->dev_addr,
++			    mlxsw_sp_fid_index(fid), false);
+ 	mlxsw_sp_fid_flood_set(rif->fid, MLXSW_SP_FLOOD_TYPE_BC,
+ 			       mlxsw_sp_router_port(mlxsw_sp), false);
+ 	mlxsw_sp_fid_flood_set(rif->fid, MLXSW_SP_FLOOD_TYPE_MC,
+@@ -5087,8 +5115,17 @@ static int mlxsw_sp_rif_fid_configure(struct mlxsw_sp_rif *rif)
+ 	if (err)
+ 		goto err_fid_bc_flood_set;
+ 
++	err = mlxsw_sp_rif_fdb_op(rif->mlxsw_sp, rif->dev->dev_addr,
++				  mlxsw_sp_fid_index(rif->fid), true);
++	if (err)
++		goto err_rif_fdb_op;
 +
-+/* reg_rtdp_type
-+ * Type of the RTDP entry as per enum mlxsw_reg_rtdp_type.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, rtdp, type, 0x00, 28, 4);
-+
-+/* reg_rtdp_tunnel_index
-+ * Index to the Decap entry.
-+ * For Spectrum, Index to KVD Linear.
-+ * Access: Index
-+ */
-+MLXSW_ITEM32(reg, rtdp, tunnel_index, 0x00, 0, 24);
-+
-+/* IPinIP */
-+
-+/* reg_rtdp_ipip_irif
-+ * Ingress Router Interface for the overlay router
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, rtdp, ipip_irif, 0x04, 16, 16);
-+
-+enum mlxsw_reg_rtdp_ipip_sip_check {
-+	/* No sip checks. */
-+	MLXSW_REG_RTDP_IPIP_SIP_CHECK_NO,
-+	/* Filter packet if underlay is not IPv4 or if underlay SIP does not
-+	 * equal ipv4_usip.
-+	 */
-+	MLXSW_REG_RTDP_IPIP_SIP_CHECK_FILTER_IPV4,
-+	/* Filter packet if underlay is not IPv6 or if underlay SIP does not
-+	 * equal ipv6_usip.
-+	 */
-+	MLXSW_REG_RTDP_IPIP_SIP_CHECK_FILTER_IPV6 = 3,
-+};
-+
-+/* reg_rtdp_ipip_sip_check
-+ * SIP check to perform. If decapsulation failed due to these configurations
-+ * then trap_id is IPIP_DECAP_ERROR.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, rtdp, ipip_sip_check, 0x04, 0, 3);
-+
-+/* If set, allow decapsulation of IPinIP (without GRE). */
-+#define MLXSW_REG_RTDP_IPIP_TYPE_CHECK_ALLOW_IPIP	BIT(0)
-+/* If set, allow decapsulation of IPinGREinIP without a key. */
-+#define MLXSW_REG_RTDP_IPIP_TYPE_CHECK_ALLOW_GRE	BIT(1)
-+/* If set, allow decapsulation of IPinGREinIP with a key. */
-+#define MLXSW_REG_RTDP_IPIP_TYPE_CHECK_ALLOW_GRE_KEY	BIT(2)
-+
-+/* reg_rtdp_ipip_type_check
-+ * Flags as per MLXSW_REG_RTDP_IPIP_TYPE_CHECK_*. If decapsulation failed due to
-+ * these configurations then trap_id is IPIP_DECAP_ERROR.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, rtdp, ipip_type_check, 0x08, 24, 3);
-+
-+/* reg_rtdp_ipip_gre_key_check
-+ * Whether GRE key should be checked. When check is enabled:
-+ * - A packet received as IPinIP (without GRE) will always pass.
-+ * - A packet received as IPinGREinIP without a key will not pass the check.
-+ * - A packet received as IPinGREinIP with a key will pass the check only if the
-+ *   key in the packet is equal to expected_gre_key.
-+ * If decapsulation failed due to GRE key then trap_id is IPIP_DECAP_ERROR.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, rtdp, ipip_gre_key_check, 0x08, 23, 1);
-+
-+/* reg_rtdp_ipip_ipv4_usip
-+ * Underlay IPv4 address for ipv4 source address check.
-+ * Reserved when sip_check is not '1'.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, rtdp, ipip_ipv4_usip, 0x0C, 0, 32);
-+
-+/* reg_rtdp_ipip_ipv6_usip_ptr
-+ * This field is valid when sip_check is "sipv6 check explicitly". This is a
-+ * pointer to the IPv6 DIP which is configured by RIPS. For Spectrum, the index
-+ * is to the KVD linear.
-+ * Reserved when sip_check is not MLXSW_REG_RTDP_IPIP_SIP_CHECK_FILTER_IPV6.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, rtdp, ipip_ipv6_usip_ptr, 0x10, 0, 24);
-+
-+/* reg_rtdp_ipip_expected_gre_key
-+ * GRE key for checking.
-+ * Reserved when gre_key_check is '0'.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, rtdp, ipip_expected_gre_key, 0x14, 0, 32);
-+
-+static inline void mlxsw_reg_rtdp_pack(char *payload,
-+				       enum mlxsw_reg_rtdp_type type,
-+				       u32 tunnel_index)
-+{
-+	MLXSW_REG_ZERO(rtdp, payload);
-+	mlxsw_reg_rtdp_type_set(payload, type);
-+	mlxsw_reg_rtdp_tunnel_index_set(payload, tunnel_index);
-+}
-+
-+static inline void
-+mlxsw_reg_rtdp_ipip4_pack(char *payload, u16 irif,
-+			  enum mlxsw_reg_rtdp_ipip_sip_check sip_check,
-+			  unsigned int type_check, bool gre_key_check,
-+			  u32 ipv4_usip, u32 expected_gre_key)
-+{
-+	mlxsw_reg_rtdp_ipip_irif_set(payload, irif);
-+	mlxsw_reg_rtdp_ipip_sip_check_set(payload, sip_check);
-+	mlxsw_reg_rtdp_ipip_type_check_set(payload, type_check);
-+	mlxsw_reg_rtdp_ipip_gre_key_check_set(payload, gre_key_check);
-+	mlxsw_reg_rtdp_ipip_ipv4_usip_set(payload, ipv4_usip);
-+	mlxsw_reg_rtdp_ipip_expected_gre_key_set(payload, expected_gre_key);
-+}
-+
- /* MFCR - Management Fan Control Register
-  * --------------------------------------
-  * This register controls the settings of the Fan Speed PWM mechanism.
-@@ -6729,6 +6857,7 @@ static const struct mlxsw_reg_info *mlxsw_reg_infos[] = {
- 	MLXSW_REG(rgcr),
- 	MLXSW_REG(ritr),
- 	MLXSW_REG(ratr),
-+	MLXSW_REG(rtdp),
- 	MLXSW_REG(ricnt),
- 	MLXSW_REG(ralta),
- 	MLXSW_REG(ralst),
++	mlxsw_sp_fid_rif_set(rif->fid, rif);
+ 	return 0;
+ 
++err_rif_fdb_op:
++	mlxsw_sp_fid_flood_set(rif->fid, MLXSW_SP_FLOOD_TYPE_BC,
++			       mlxsw_sp_router_port(mlxsw_sp), false);
+ err_fid_bc_flood_set:
+ 	mlxsw_sp_fid_flood_set(rif->fid, MLXSW_SP_FLOOD_TYPE_MC,
+ 			       mlxsw_sp_router_port(mlxsw_sp), false);
+@@ -5099,9 +5136,13 @@ static int mlxsw_sp_rif_fid_configure(struct mlxsw_sp_rif *rif)
+ 
+ static void mlxsw_sp_rif_fid_deconfigure(struct mlxsw_sp_rif *rif)
+ {
+-	struct mlxsw_sp *mlxsw_sp = rif->mlxsw_sp;
+ 	u16 fid_index = mlxsw_sp_fid_index(rif->fid);
++	struct mlxsw_sp *mlxsw_sp = rif->mlxsw_sp;
++	struct mlxsw_sp_fid *fid = rif->fid;
+ 
++	mlxsw_sp_fid_rif_set(fid, NULL);
++	mlxsw_sp_rif_fdb_op(rif->mlxsw_sp, rif->dev->dev_addr,
++			    mlxsw_sp_fid_index(fid), false);
+ 	mlxsw_sp_fid_flood_set(rif->fid, MLXSW_SP_FLOOD_TYPE_BC,
+ 			       mlxsw_sp_router_port(mlxsw_sp), false);
+ 	mlxsw_sp_fid_flood_set(rif->fid, MLXSW_SP_FLOOD_TYPE_MC,
 -- 
 2.9.3
