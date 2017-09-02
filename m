@@ -1,65 +1,52 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: Re: [PATCH] Fix build on fedora-14 (and other older systems)
-Date: Sat, 2 Sep 2017 19:03:36 +0200
-Message-ID: <20170902170336.piispo3i3xk62pxq@unicorn.suse.cz>
-References: <1504361702-30266-1-git-send-email-greearb@candelatech.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 4/4] net: dsa: bcm_sf2: Configure IMP port
+ TC2QOS mapping
+Date: Sat, 2 Sep 2017 19:47:53 +0200
+Message-ID: <20170902174753.GA8981@lunn.ch>
+References: <1504310354-42773-1-git-send-email-f.fainelli@gmail.com>
+ <1504310354-42773-5-git-send-email-f.fainelli@gmail.com>
+ <20170902163057.GB5463@lunn.ch>
+ <e0d92f15-342d-2b5b-2f7d-aedba328116f@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: greearb@candelatech.com
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+        vivien.didelot@savoirfairelinux.com, jiri@resnulli.us,
+        jhs@mojatatu.com, xiyou.wangcong@gmail.com
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:47412 "EHLO mx1.suse.de"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752732AbdIBRDi (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 2 Sep 2017 13:03:38 -0400
+Received: from vps0.lunn.ch ([178.209.37.122]:54548 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752708AbdIBRr6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 2 Sep 2017 13:47:58 -0400
 Content-Disposition: inline
-In-Reply-To: <1504361702-30266-1-git-send-email-greearb@candelatech.com>
+In-Reply-To: <e0d92f15-342d-2b5b-2f7d-aedba328116f@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Sep 02, 2017 at 07:15:02AM -0700, greearb@candelatech.com wrote:
-> From: Ben Greear <greearb@candelatech.com>
+On Sat, Sep 02, 2017 at 09:32:08AM -0700, Florian Fainelli wrote:
 > 
-> Seems Fedora-20 and below fail, hopefully this fixes
-> them.
 > 
-> Signed-off-by: Ben Greear <greearb@candelatech.com>
-> ---
->  include/linux/sysinfo.h | 8 ++++++++
->  ip/ipxfrm.c             | 1 +
->  ip/xfrm_policy.c        | 1 +
->  ip/xfrm_state.c         | 1 +
->  4 files changed, 11 insertions(+)
+> On 09/02/2017 09:30 AM, Andrew Lunn wrote:
+> >> @@ -129,6 +130,14 @@ static void bcm_sf2_imp_setup(struct dsa_switch *ds, int port)
+> >>  	reg |= MII_DUMB_FWDG_EN;
+> >>  	core_writel(priv, reg, CORE_SWITCH_CTRL);
+> >>  
+> >> +	/* Configure Traffic Class to QoS mapping, allow each priority to map
+> >> +	 * to a different queue number
+> >> +	 */
+> >> +	reg = core_readl(priv, CORE_PORT_TC2_QOS_MAP_PORT(port));
+> >> +	for (i = 0; i < 8; i++)
+> >> +		reg |= i << (PRT_TO_QID_SHIFT * i);
+> > 
+> > Hi Florian
+> > 
+> > Rather than 8, would ds->num_tx_queues be more descriptive?
+> 
+> I actually have a patch on top of this which defines a constant for the
+> number of queues instead of open coding 8 here. Thanks!
 
-Works for me from openSUSE Tumbleweed to SLE11 SP4 (kernel 3.0). The
-build on SLE11 SP2 (also 3.0 but older headers in /usr/include)
-fails with unknown MS_PRIVATE and MS_REC in lib/bpf.c
-Newer systems have these defined in <sys/mount.h>
+Hi Florian
 
-Including <linux/fs.h> directly in lib/bpf.c fixes that but if we do
-that, a copy of the file would have to be included.
+It sounds like it should be part of 3/4?
 
-> diff --git a/include/linux/sysinfo.h b/include/linux/sysinfo.h
-> index 934335a..3596b02 100644
-> --- a/include/linux/sysinfo.h
-> +++ b/include/linux/sysinfo.h
-> @@ -3,6 +3,14 @@
->  
->  #include <linux/types.h>
->  
-> +/* So we can compile on older OSs, hopefully this is correct. --Ben */
-> +#ifndef __kernel_long_t
-> +typedef long __kernel_long_t;
-> +#endif
-> +#ifndef __kernel_ulong_t
-> +typedef unsigned long __kernel_ulong_t;
-> +#endif
-> +
->  #define SI_LOAD_SHIFT	16
->  struct sysinfo {
->  	__kernel_long_t uptime;		/* Seconds since boot */
-
-I'm not sure if it is acceptable to modify a file which is supposed to
-be a direct copy of kernel uapi header.
-
-Michal Kubecek
+   Andrew
