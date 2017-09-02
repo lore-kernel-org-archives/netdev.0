@@ -1,34 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v6] net: stmmac: Delete dead code for MDIO
- registration
-Date: Fri, 01 Sep 2017 18:30:21 -0700 (PDT)
-Message-ID: <20170901.183021.213999374982995750.davem@davemloft.net>
-References: <20170831135303.12381-1-romain.perier@collabora.com>
+Subject: Re: [PATCH] net: phy: bcm7xxx: make array bcm7xxx_suspend_cfg
+ static, reduces object code size
+Date: Fri, 01 Sep 2017 18:31:07 -0700 (PDT)
+Message-ID: <20170901.183107.1909375784040394690.davem@davemloft.net>
+References: <20170831135715.27978-1-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com, andrew@lunn.ch,
-        f.fainelli@gmail.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: romain.perier@collabora.com
+Cc: andrew@lunn.ch, f.fainelli@gmail.com, netdev@vger.kernel.org,
+        kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: colin.king@canonical.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170831135303.12381-1-romain.perier@collabora.com>
+In-Reply-To: <20170831135715.27978-1-colin.king@canonical.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Romain Perier <romain.perier@collabora.com>
-Date: Thu, 31 Aug 2017 15:53:03 +0200
+From: Colin King <colin.king@canonical.com>
+Date: Thu, 31 Aug 2017 14:57:15 +0100
 
-> This code is no longer used, the logging function was changed by commit
-> fbca164776e4 ("net: stmmac: Use the right logging function in stmmac_mdio_register").
-> It was previously showing information about the type of the IRQ, if it's
-> polled, ignored or a normal interrupt. As we don't want information loss,
-> I have moved this code to phy_attached_print().
+> From: Colin Ian King <colin.king@canonical.com>
 > 
-> Fixes: fbca164776e4 ("net: stmmac: Use the right logging function in stmmac_mdio_register")
-> Signed-off-by: Romain Perier <romain.perier@collabora.com>
+> Don't populate the array bcm7xxx_suspend_cfg A on the stack, instead
+> make it static.  Makes the object code smaller by over 300 bytes:
+> 
+> Before:
+>    text	   data	    bss	    dec	    hex	filename
+>    6351	   8146	      0	  14497	   38a1	drivers/net/phy/bcm7xxx.o
+> 
+> After:
+>    text	   data	    bss	    dec	    hex	filename
+>    5986	   8210	      0	  14196	   3774	drivers/net/phy/bcm7xxx.o
+> 
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
-You'll need to respin this against net-next as phy_attached_print() has had
-some changes recently.
-
-Thanks.
+Applied.
