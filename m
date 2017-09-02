@@ -1,66 +1,315 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 08/21] mlxsw: spectrum_router: Publish mlxsw_sp_l3proto
-Date: Sat,  2 Sep 2017 23:49:16 +0200
-Message-ID: <20170902214929.2890-9-jiri@resnulli.us>
+Subject: [patch net-next v2 14/21] mlxsw: spectrum_router: Make nexthops typed
+Date: Sat,  2 Sep 2017 23:49:22 +0200
+Message-ID: <20170902214929.2890-15-jiri@resnulli.us>
 References: <20170902214929.2890-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, petrm@mellanox.com, idosch@mellanox.com,
         mlxsw@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:33739 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752790AbdIBVtq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 2 Sep 2017 17:49:46 -0400
-Received: by mail-wm0-f67.google.com with SMTP id 187so2929363wmn.0
-        for <netdev@vger.kernel.org>; Sat, 02 Sep 2017 14:49:45 -0700 (PDT)
+Received: from mail-wr0-f194.google.com ([209.85.128.194]:37563 "EHLO
+        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752776AbdIBVtz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 2 Sep 2017 17:49:55 -0400
+Received: by mail-wr0-f194.google.com with SMTP id y15so1123131wrc.4
+        for <netdev@vger.kernel.org>; Sat, 02 Sep 2017 14:49:54 -0700 (PDT)
 In-Reply-To: <20170902214929.2890-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Petr Machata <petrm@mellanox.com>
 
-The spectrum_ipip module that will be introduced in the follow-up
-patches needs to know the data type.
+In the router, some next hops may reference an encapsulating netdevice,
+such as GRE or IPIP. To properly offload these next hops, mlxsw needs to
+keep track of whether a given next hop is a regular Ethernet entry, or
+an IP-in-IP tunneling entry.
+
+To facilitate this book-keeping, add a type field to struct
+mlxsw_sp_nexthop. There is, as of this patch, only one next hop type:
+MLXSW_SP_NEXTHOP_TYPE_ETH. Follow-up patches will introduce the IP-in-IP
+variant.
+
+There are several places where next hops are initialized in the IPv4
+path. Instead of replicating the logic at every one of them, factor it
+out to a function mlxsw_sp_nexthop4_type_init(). The corresponding fini
+is actually protocol-neutral, so put it to mlxsw_sp_nexthop_type_fini(),
+but create a corresponding protocoled _fini function that dispatches to
+the protocol-neutral one.
+
+The IPv6 path is simpler, but for symmetry with IPv4, create the same
+suite of functions with corresponding logic.
 
 Signed-off-by: Petr Machata <petrm@mellanox.com>
 Reviewed-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c | 5 -----
- drivers/net/ethernet/mellanox/mlxsw/spectrum_router.h | 5 +++++
- 2 files changed, 5 insertions(+), 5 deletions(-)
+ .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 138 ++++++++++++++-------
+ 1 file changed, 95 insertions(+), 43 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-index 4e47d45..f866ac5 100644
+index 563e803..53bdd0f 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
 +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-@@ -405,11 +405,6 @@ struct mlxsw_sp_rt6 {
- 	struct rt6_info *rt;
- };
+@@ -1652,6 +1652,10 @@ static void mlxsw_sp_neigh_rif_gone_sync(struct mlxsw_sp *mlxsw_sp,
+ 	}
+ }
  
--enum mlxsw_sp_l3proto {
--	MLXSW_SP_L3_PROTO_IPV4,
--	MLXSW_SP_L3_PROTO_IPV6,
--};
--
- struct mlxsw_sp_lpm_tree {
- 	u8 id; /* tree ID */
- 	unsigned int ref_count;
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.h
-index 87a04af..67c6c1d 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.h
-@@ -37,6 +37,11 @@
- 
- #include "spectrum.h"
- 
-+enum mlxsw_sp_l3proto {
-+	MLXSW_SP_L3_PROTO_IPV4,
-+	MLXSW_SP_L3_PROTO_IPV6,
++enum mlxsw_sp_nexthop_type {
++	MLXSW_SP_NEXTHOP_TYPE_ETH,
 +};
 +
- enum mlxsw_sp_rif_counter_dir {
- 	MLXSW_SP_RIF_COUNTER_INGRESS,
- 	MLXSW_SP_RIF_COUNTER_EGRESS,
+ struct mlxsw_sp_nexthop_key {
+ 	struct fib_nh *fib_nh;
+ };
+@@ -1676,7 +1680,10 @@ struct mlxsw_sp_nexthop {
+ 	   update:1; /* set indicates that MAC of this neigh should be
+ 		      * updated in HW
+ 		      */
+-	struct mlxsw_sp_neigh_entry *neigh_entry;
++	enum mlxsw_sp_nexthop_type type;
++	union {
++		struct mlxsw_sp_neigh_entry *neigh_entry;
++	};
+ };
+ 
+ struct mlxsw_sp_nexthop_group {
+@@ -1964,9 +1971,9 @@ static int mlxsw_sp_nexthop_mac_update(struct mlxsw_sp *mlxsw_sp, u32 adj_index,
+ }
+ 
+ static int
+-mlxsw_sp_nexthop_group_mac_update(struct mlxsw_sp *mlxsw_sp,
+-				  struct mlxsw_sp_nexthop_group *nh_grp,
+-				  bool reallocate)
++mlxsw_sp_nexthop_group_update(struct mlxsw_sp *mlxsw_sp,
++			      struct mlxsw_sp_nexthop_group *nh_grp,
++			      bool reallocate)
+ {
+ 	u32 adj_index = nh_grp->adj_index; /* base */
+ 	struct mlxsw_sp_nexthop *nh;
+@@ -1982,8 +1989,12 @@ mlxsw_sp_nexthop_group_mac_update(struct mlxsw_sp *mlxsw_sp,
+ 		}
+ 
+ 		if (nh->update || reallocate) {
+-			err = mlxsw_sp_nexthop_mac_update(mlxsw_sp,
+-							  adj_index, nh);
++			switch (nh->type) {
++			case MLXSW_SP_NEXTHOP_TYPE_ETH:
++				err = mlxsw_sp_nexthop_mac_update
++					    (mlxsw_sp, adj_index, nh);
++				break;
++			}
+ 			if (err)
+ 				return err;
+ 			nh->update = 0;
+@@ -2071,8 +2082,7 @@ mlxsw_sp_nexthop_group_refresh(struct mlxsw_sp *mlxsw_sp,
+ 		/* Nothing was added or removed, so no need to reallocate. Just
+ 		 * update MAC on existing adjacency indexes.
+ 		 */
+-		err = mlxsw_sp_nexthop_group_mac_update(mlxsw_sp, nh_grp,
+-							false);
++		err = mlxsw_sp_nexthop_group_update(mlxsw_sp, nh_grp, false);
+ 		if (err) {
+ 			dev_warn(mlxsw_sp->bus_info->dev, "Failed to update neigh MAC in adjacency table.\n");
+ 			goto set_trap;
+@@ -2099,7 +2109,7 @@ mlxsw_sp_nexthop_group_refresh(struct mlxsw_sp *mlxsw_sp,
+ 	nh_grp->adj_index_valid = 1;
+ 	nh_grp->adj_index = adj_index;
+ 	nh_grp->ecmp_size = ecmp_size;
+-	err = mlxsw_sp_nexthop_group_mac_update(mlxsw_sp, nh_grp, true);
++	err = mlxsw_sp_nexthop_group_update(mlxsw_sp, nh_grp, true);
+ 	if (err) {
+ 		dev_warn(mlxsw_sp->bus_info->dev, "Failed to update neigh MAC in adjacency table.\n");
+ 		goto set_trap;
+@@ -2287,6 +2297,48 @@ static bool mlxsw_sp_netdev_ipip_type(const struct mlxsw_sp *mlxsw_sp,
+ 	return false;
+ }
+ 
++static void mlxsw_sp_nexthop_type_fini(struct mlxsw_sp *mlxsw_sp,
++				       struct mlxsw_sp_nexthop *nh)
++{
++	switch (nh->type) {
++	case MLXSW_SP_NEXTHOP_TYPE_ETH:
++		mlxsw_sp_nexthop_neigh_fini(mlxsw_sp, nh);
++		mlxsw_sp_nexthop_rif_fini(nh);
++		break;
++	}
++}
++
++static int mlxsw_sp_nexthop4_type_init(struct mlxsw_sp *mlxsw_sp,
++				       struct mlxsw_sp_nexthop *nh,
++				       struct fib_nh *fib_nh)
++{
++	struct net_device *dev = fib_nh->nh_dev;
++	struct mlxsw_sp_rif *rif;
++	int err;
++
++	nh->type = MLXSW_SP_NEXTHOP_TYPE_ETH;
++	rif = mlxsw_sp_rif_find_by_dev(mlxsw_sp, dev);
++	if (!rif)
++		return 0;
++
++	mlxsw_sp_nexthop_rif_init(nh, rif);
++	err = mlxsw_sp_nexthop_neigh_init(mlxsw_sp, nh);
++	if (err)
++		goto err_neigh_init;
++
++	return 0;
++
++err_neigh_init:
++	mlxsw_sp_nexthop_rif_fini(nh);
++	return err;
++}
++
++static void mlxsw_sp_nexthop4_type_fini(struct mlxsw_sp *mlxsw_sp,
++					struct mlxsw_sp_nexthop *nh)
++{
++	mlxsw_sp_nexthop_type_fini(mlxsw_sp, nh);
++}
++
+ static int mlxsw_sp_nexthop4_init(struct mlxsw_sp *mlxsw_sp,
+ 				  struct mlxsw_sp_nexthop_group *nh_grp,
+ 				  struct mlxsw_sp_nexthop *nh,
+@@ -2294,7 +2346,6 @@ static int mlxsw_sp_nexthop4_init(struct mlxsw_sp *mlxsw_sp,
+ {
+ 	struct net_device *dev = fib_nh->nh_dev;
+ 	struct in_device *in_dev;
+-	struct mlxsw_sp_rif *rif;
+ 	int err;
+ 
+ 	nh->nh_grp = nh_grp;
+@@ -2312,19 +2363,13 @@ static int mlxsw_sp_nexthop4_init(struct mlxsw_sp *mlxsw_sp,
+ 	    fib_nh->nh_flags & RTNH_F_LINKDOWN)
+ 		return 0;
+ 
+-	rif = mlxsw_sp_rif_find_by_dev(mlxsw_sp, dev);
+-	if (!rif)
+-		return 0;
+-	mlxsw_sp_nexthop_rif_init(nh, rif);
+-
+-	err = mlxsw_sp_nexthop_neigh_init(mlxsw_sp, nh);
++	err = mlxsw_sp_nexthop4_type_init(mlxsw_sp, nh, fib_nh);
+ 	if (err)
+ 		goto err_nexthop_neigh_init;
+ 
+ 	return 0;
+ 
+ err_nexthop_neigh_init:
+-	mlxsw_sp_nexthop_rif_fini(nh);
+ 	mlxsw_sp_nexthop_remove(mlxsw_sp, nh);
+ 	return err;
+ }
+@@ -2332,8 +2377,7 @@ static int mlxsw_sp_nexthop4_init(struct mlxsw_sp *mlxsw_sp,
+ static void mlxsw_sp_nexthop4_fini(struct mlxsw_sp *mlxsw_sp,
+ 				   struct mlxsw_sp_nexthop *nh)
+ {
+-	mlxsw_sp_nexthop_neigh_fini(mlxsw_sp, nh);
+-	mlxsw_sp_nexthop_rif_fini(nh);
++	mlxsw_sp_nexthop4_type_fini(mlxsw_sp, nh);
+ 	mlxsw_sp_nexthop_remove(mlxsw_sp, nh);
+ }
+ 
+@@ -2342,7 +2386,6 @@ static void mlxsw_sp_nexthop4_event(struct mlxsw_sp *mlxsw_sp,
+ {
+ 	struct mlxsw_sp_nexthop_key key;
+ 	struct mlxsw_sp_nexthop *nh;
+-	struct mlxsw_sp_rif *rif;
+ 
+ 	if (mlxsw_sp->router->aborted)
+ 		return;
+@@ -2352,18 +2395,12 @@ static void mlxsw_sp_nexthop4_event(struct mlxsw_sp *mlxsw_sp,
+ 	if (WARN_ON_ONCE(!nh))
+ 		return;
+ 
+-	rif = mlxsw_sp_rif_find_by_dev(mlxsw_sp, fib_nh->nh_dev);
+-	if (!rif)
+-		return;
+-
+ 	switch (event) {
+ 	case FIB_EVENT_NH_ADD:
+-		mlxsw_sp_nexthop_rif_init(nh, rif);
+-		mlxsw_sp_nexthop_neigh_init(mlxsw_sp, nh);
++		mlxsw_sp_nexthop4_type_init(mlxsw_sp, nh, fib_nh);
+ 		break;
+ 	case FIB_EVENT_NH_DEL:
+-		mlxsw_sp_nexthop_neigh_fini(mlxsw_sp, nh);
+-		mlxsw_sp_nexthop_rif_fini(nh);
++		mlxsw_sp_nexthop4_type_fini(mlxsw_sp, nh);
+ 		break;
+ 	}
+ 
+@@ -2376,8 +2413,7 @@ static void mlxsw_sp_nexthop_rif_gone_sync(struct mlxsw_sp *mlxsw_sp,
+ 	struct mlxsw_sp_nexthop *nh, *tmp;
+ 
+ 	list_for_each_entry_safe(nh, tmp, &rif->nexthop_list, rif_list_node) {
+-		mlxsw_sp_nexthop_neigh_fini(mlxsw_sp, nh);
+-		mlxsw_sp_nexthop_rif_fini(nh);
++		mlxsw_sp_nexthop_type_fini(mlxsw_sp, nh);
+ 		mlxsw_sp_nexthop_group_refresh(mlxsw_sp, nh->nh_grp);
+ 	}
+ }
+@@ -3487,22 +3523,16 @@ mlxsw_sp_fib6_entry_rt_find(const struct mlxsw_sp_fib6_entry *fib6_entry,
+ 	return NULL;
+ }
+ 
+-static int mlxsw_sp_nexthop6_init(struct mlxsw_sp *mlxsw_sp,
+-				  struct mlxsw_sp_nexthop_group *nh_grp,
+-				  struct mlxsw_sp_nexthop *nh,
+-				  const struct rt6_info *rt)
++static int mlxsw_sp_nexthop6_type_init(struct mlxsw_sp *mlxsw_sp,
++				       struct mlxsw_sp_nexthop_group *nh_grp,
++				       struct mlxsw_sp_nexthop *nh,
++				       const struct rt6_info *rt)
+ {
+ 	struct net_device *dev = rt->dst.dev;
+ 	struct mlxsw_sp_rif *rif;
+ 	int err;
+ 
+-	nh->nh_grp = nh_grp;
+-	memcpy(&nh->gw_addr, &rt->rt6i_gateway, sizeof(nh->gw_addr));
+-
+-	if (!dev)
+-		return 0;
+-	nh->ifindex = dev->ifindex;
+-
++	nh->type = MLXSW_SP_NEXTHOP_TYPE_ETH;
+ 	rif = mlxsw_sp_rif_find_by_dev(mlxsw_sp, dev);
+ 	if (!rif)
+ 		return 0;
+@@ -3519,11 +3549,33 @@ static int mlxsw_sp_nexthop6_init(struct mlxsw_sp *mlxsw_sp,
+ 	return err;
+ }
+ 
++static void mlxsw_sp_nexthop6_type_fini(struct mlxsw_sp *mlxsw_sp,
++					struct mlxsw_sp_nexthop *nh)
++{
++	mlxsw_sp_nexthop_type_fini(mlxsw_sp, nh);
++}
++
++static int mlxsw_sp_nexthop6_init(struct mlxsw_sp *mlxsw_sp,
++				  struct mlxsw_sp_nexthop_group *nh_grp,
++				  struct mlxsw_sp_nexthop *nh,
++				  const struct rt6_info *rt)
++{
++	struct net_device *dev = rt->dst.dev;
++
++	nh->nh_grp = nh_grp;
++	memcpy(&nh->gw_addr, &rt->rt6i_gateway, sizeof(nh->gw_addr));
++
++	if (!dev)
++		return 0;
++	nh->ifindex = dev->ifindex;
++
++	return mlxsw_sp_nexthop6_type_init(mlxsw_sp, nh_grp, nh, rt);
++}
++
+ static void mlxsw_sp_nexthop6_fini(struct mlxsw_sp *mlxsw_sp,
+ 				   struct mlxsw_sp_nexthop *nh)
+ {
+-	mlxsw_sp_nexthop_neigh_fini(mlxsw_sp, nh);
+-	mlxsw_sp_nexthop_rif_fini(nh);
++	mlxsw_sp_nexthop6_type_fini(mlxsw_sp, nh);
+ }
+ 
+ static bool mlxsw_sp_rt6_is_gateway(const struct mlxsw_sp *mlxsw_sp,
 -- 
 2.9.3
