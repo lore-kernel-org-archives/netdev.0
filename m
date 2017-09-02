@@ -1,289 +1,223 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 10/21] mlxsw: spectrum_router: Introduce loopback RIFs
-Date: Sat,  2 Sep 2017 17:21:15 +0200
-Message-ID: <20170902152126.17286-11-jiri@resnulli.us>
+Subject: [patch net-next 08/21] mlxsw: spectrum_router: Add mlxsw_sp_ipip_ops
+Date: Sat,  2 Sep 2017 17:21:13 +0200
+Message-ID: <20170902152126.17286-9-jiri@resnulli.us>
 References: <20170902152126.17286-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, petrm@mellanox.com, idosch@mellanox.com,
         mlxsw@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f195.google.com ([209.85.128.195]:38527 "EHLO
-        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752741AbdIBPVq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 2 Sep 2017 11:21:46 -0400
-Received: by mail-wr0-f195.google.com with SMTP id j3so1342069wrb.5
-        for <netdev@vger.kernel.org>; Sat, 02 Sep 2017 08:21:45 -0700 (PDT)
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:36188 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752735AbdIBPVn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 2 Sep 2017 11:21:43 -0400
+Received: by mail-wm0-f65.google.com with SMTP id p17so2641060wmd.3
+        for <netdev@vger.kernel.org>; Sat, 02 Sep 2017 08:21:42 -0700 (PDT)
 In-Reply-To: <20170902152126.17286-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Petr Machata <petrm@mellanox.com>
 
-When offloading L3 tunnels, an adjacency entry is created that loops the
-packet back into the underlay router. Loopback interfaces then hold the
-corresponding information and are created for IP-in-IP netdevices.
+Details of individual tunnel types are kept in an array of
+mlxsw_sp_ipip_ops objects. Follow-up patches will use the list to
+determine whether a constructed RIF should be a loopback, and to decide
+whether a next hop references a tunnel.
+
+The list is currently empty, follow-up patches will add support for GRE.
 
 Signed-off-by: Petr Machata <petrm@mellanox.com>
 Reviewed-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |   1 +
- .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 152 ++++++++++++++++++++-
- .../net/ethernet/mellanox/mlxsw/spectrum_router.h  |  13 ++
- 3 files changed, 164 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/mellanox/mlxsw/Makefile       |  4 +-
+ .../net/ethernet/mellanox/mlxsw/spectrum_ipip.c    | 38 ++++++++++++++++
+ .../net/ethernet/mellanox/mlxsw/spectrum_ipip.h    | 51 ++++++++++++++++++++++
+ .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 19 ++++++++
+ 4 files changed, 110 insertions(+), 2 deletions(-)
+ create mode 100644 drivers/net/ethernet/mellanox/mlxsw/spectrum_ipip.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlxsw/spectrum_ipip.h
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-index f8c7f7e..84ce83a 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-@@ -77,6 +77,7 @@ enum mlxsw_sp_rif_type {
- 	MLXSW_SP_RIF_TYPE_SUBPORT,
- 	MLXSW_SP_RIF_TYPE_VLAN,
- 	MLXSW_SP_RIF_TYPE_FID,
-+	MLXSW_SP_RIF_TYPE_IPIP_LB, /* IP-in-IP loopback. */
- 	MLXSW_SP_RIF_TYPE_MAX,
- };
- 
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/Makefile b/drivers/net/ethernet/mellanox/mlxsw/Makefile
+index f9956f3..891ff41 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/Makefile
++++ b/drivers/net/ethernet/mellanox/mlxsw/Makefile
+@@ -16,8 +16,8 @@ mlxsw_spectrum-objs		:= spectrum.o spectrum_buffers.o \
+ 				   spectrum_switchdev.o spectrum_router.o \
+ 				   spectrum_kvdl.o spectrum_acl_tcam.o \
+ 				   spectrum_acl.o spectrum_flower.o \
+-				   spectrum_cnt.o \
+-				   spectrum_fid.o
++				   spectrum_cnt.o spectrum_fid.o \
++				   spectrum_ipip.o
+ mlxsw_spectrum-$(CONFIG_MLXSW_SPECTRUM_DCB)	+= spectrum_dcb.o
+ mlxsw_spectrum-$(CONFIG_NET_DEVLINK) += spectrum_dpipe.o
+ obj-$(CONFIG_MLXSW_MINIMAL)	+= mlxsw_minimal.o
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_ipip.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_ipip.c
+new file mode 100644
+index 0000000..20b0b96
+--- /dev/null
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_ipip.c
+@@ -0,0 +1,38 @@
++/*
++ * drivers/net/ethernet/mellanox/mlxsw/spectrum_ipip.c
++ * Copyright (c) 2017 Mellanox Technologies. All rights reserved.
++ * Copyright (c) 2017 Petr Machata <petrm@mellanox.com>
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions are met:
++ *
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ * 3. Neither the names of the copyright holders nor the names of its
++ *    contributors may be used to endorse or promote products derived from
++ *    this software without specific prior written permission.
++ *
++ * Alternatively, this software may be distributed under the terms of the
++ * GNU General Public License ("GPL") version 2 as published by the Free
++ * Software Foundation.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
++ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
++ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
++ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
++ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
++ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
++ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
++ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
++ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
++ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
++ * POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#include "spectrum_ipip.h"
++
++const struct mlxsw_sp_ipip_ops *mlxsw_sp_ipip_ops_arr[] = {
++};
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_ipip.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum_ipip.h
+new file mode 100644
+index 0000000..65eb493
+--- /dev/null
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_ipip.h
+@@ -0,0 +1,51 @@
++/*
++ * drivers/net/ethernet/mellanox/mlxsw/spectrum_ipip.h
++ * Copyright (c) 2017 Mellanox Technologies. All rights reserved.
++ * Copyright (c) 2017 Petr Machata <petrm@mellanox.com>
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions are met:
++ *
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ * 3. Neither the names of the copyright holders nor the names of its
++ *    contributors may be used to endorse or promote products derived from
++ *    this software without specific prior written permission.
++ *
++ * Alternatively, this software may be distributed under the terms of the
++ * GNU General Public License ("GPL") version 2 as published by the Free
++ * Software Foundation.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
++ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
++ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
++ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
++ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
++ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
++ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
++ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
++ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
++ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
++ * POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#ifndef _MLXSW_IPIP_H_
++#define _MLXSW_IPIP_H_
++
++#include "spectrum_router.h"
++
++enum mlxsw_sp_ipip_type {
++	MLXSW_SP_IPIP_TYPE_MAX,
++};
++
++struct mlxsw_sp_ipip_ops {
++	int dev_type;
++	enum mlxsw_sp_l3proto ul_proto; /* Underlay. */
++};
++
++extern const struct mlxsw_sp_ipip_ops *mlxsw_sp_ipip_ops_arr[];
++
++#endif /* _MLXSW_IPIP_H_*/
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-index 38477c5..72e386b 100644
+index f866ac5..f85d249 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
 +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-@@ -1,9 +1,10 @@
- /*
-  * drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-- * Copyright (c) 2016 Mellanox Technologies. All rights reserved.
-+ * Copyright (c) 2016-2017 Mellanox Technologies. All rights reserved.
-  * Copyright (c) 2016 Jiri Pirko <jiri@mellanox.com>
-  * Copyright (c) 2016 Ido Schimmel <idosch@mellanox.com>
-  * Copyright (c) 2016 Yotam Gigi <yotamg@mellanox.com>
-+ * Copyright (c) 2017 Petr Machata <petrm@mellanox.com>
-  *
-  * Redistribution and use in source and binary forms, with or without
-  * modification, are permitted provided that the following conditions are met:
-@@ -51,6 +52,7 @@
- #include <net/ip_fib.h>
- #include <net/ip6_fib.h>
- #include <net/fib_rules.h>
-+#include <net/ip_tunnels.h>
- #include <net/l3mdev.h>
- #include <net/addrconf.h>
- #include <net/ndisc.h>
-@@ -131,6 +133,17 @@ struct mlxsw_sp_rif_subport {
- 	bool lag;
+@@ -62,6 +62,7 @@
+ #include "reg.h"
+ #include "spectrum_cnt.h"
+ #include "spectrum_dpipe.h"
++#include "spectrum_ipip.h"
+ #include "spectrum_router.h"
+ 
+ struct mlxsw_sp_vr;
+@@ -89,6 +90,7 @@ struct mlxsw_sp_router {
+ 	bool aborted;
+ 	struct notifier_block fib_nb;
+ 	const struct mlxsw_sp_rif_ops **rif_ops_arr;
++	const struct mlxsw_sp_ipip_ops **ipip_ops_arr;
  };
  
-+struct mlxsw_sp_rif_ipip_lb {
-+	struct mlxsw_sp_rif common;
-+	struct mlxsw_sp_rif_ipip_lb_config lb_config;
-+	u16 ul_vr_id; /* Reserved for Spectrum-2. */
-+};
-+
-+struct mlxsw_sp_rif_params_ipip_lb {
-+	struct mlxsw_sp_rif_params common;
-+	struct mlxsw_sp_rif_ipip_lb_config lb_config;
-+};
-+
- struct mlxsw_sp_rif_ops {
- 	enum mlxsw_sp_rif_type type;
- 	size_t rif_size;
-@@ -883,6 +896,25 @@ static void mlxsw_sp_vrs_fini(struct mlxsw_sp *mlxsw_sp)
- 	kfree(mlxsw_sp->router->vrs);
+ struct mlxsw_sp_rif {
+@@ -5152,6 +5154,16 @@ static void mlxsw_sp_rifs_fini(struct mlxsw_sp *mlxsw_sp)
+ 	kfree(mlxsw_sp->router->rifs);
  }
  
-+static struct net_device *
-+__mlxsw_sp_ipip_netdev_ul_dev_get(const struct net_device *ol_dev)
++static int mlxsw_sp_ipips_init(struct mlxsw_sp *mlxsw_sp)
 +{
-+	struct ip_tunnel *tun = netdev_priv(ol_dev);
-+	struct net *net = dev_net(ol_dev);
-+
-+	return __dev_get_by_index(net, tun->parms.link);
-+}
-+
-+static u32 mlxsw_sp_ipip_dev_ul_tb_id(const struct net_device *ol_dev)
-+{
-+	struct net_device *d = __mlxsw_sp_ipip_netdev_ul_dev_get(ol_dev);
-+
-+	if (d)
-+		return l3mdev_fib_table(d) ? : RT_TABLE_MAIN;
-+	else
-+		return l3mdev_fib_table(ol_dev) ? : RT_TABLE_MAIN;
-+}
-+
- struct mlxsw_sp_neigh_key {
- 	struct neighbour *n;
- };
-@@ -2236,6 +2268,25 @@ static void mlxsw_sp_nexthop_neigh_fini(struct mlxsw_sp *mlxsw_sp,
- 	neigh_release(n);
- }
- 
-+static bool mlxsw_sp_netdev_ipip_type(const struct mlxsw_sp *mlxsw_sp,
-+				      const struct net_device *dev,
-+				      enum mlxsw_sp_ipip_type *p_type)
-+{
-+	struct mlxsw_sp_router *router = mlxsw_sp->router;
-+	const struct mlxsw_sp_ipip_ops *ipip_ops;
-+	enum mlxsw_sp_ipip_type ipipt;
-+
-+	for (ipipt = 0; ipipt < MLXSW_SP_IPIP_TYPE_MAX; ++ipipt) {
-+		ipip_ops = router->ipip_ops_arr[ipipt];
-+		if (dev->type == ipip_ops->dev_type) {
-+			if (p_type)
-+				*p_type = ipipt;
-+			return true;
-+		}
-+	}
-+	return false;
-+}
-+
- static int mlxsw_sp_nexthop4_init(struct mlxsw_sp *mlxsw_sp,
- 				  struct mlxsw_sp_nexthop_group *nh_grp,
- 				  struct mlxsw_sp_nexthop *nh,
-@@ -4374,7 +4425,10 @@ mlxsw_sp_dev_rif_type(const struct mlxsw_sp *mlxsw_sp,
- {
- 	enum mlxsw_sp_fid_type type;
- 
--	/* RIF type is derived from the type of the underlying FID */
-+	if (mlxsw_sp_netdev_ipip_type(mlxsw_sp, dev, NULL))
-+		return MLXSW_SP_RIF_TYPE_IPIP_LB;
-+
-+	/* Otherwise RIF type is derived from the type of the underlying FID. */
- 	if (is_vlan_dev(dev) && netif_is_bridge_master(vlan_dev_real_dev(dev)))
- 		type = MLXSW_SP_FID_TYPE_8021Q;
- 	else if (netif_is_bridge_master(dev) && br_vlan_enabled(dev))
-@@ -5164,10 +5218,104 @@ static const struct mlxsw_sp_rif_ops mlxsw_sp_rif_fid_ops = {
- 	.fid_get		= mlxsw_sp_rif_fid_fid_get,
- };
- 
-+static struct mlxsw_sp_rif_ipip_lb *
-+mlxsw_sp_rif_ipip_lb_rif(struct mlxsw_sp_rif *rif)
-+{
-+	return container_of(rif, struct mlxsw_sp_rif_ipip_lb, common);
-+}
-+
-+static void
-+mlxsw_sp_rif_ipip_lb_setup(struct mlxsw_sp_rif *rif,
-+			   const struct mlxsw_sp_rif_params *params)
-+{
-+	struct mlxsw_sp_rif_params_ipip_lb *params_lb;
-+	struct mlxsw_sp_rif_ipip_lb *rif_lb;
-+
-+	params_lb = container_of(params, struct mlxsw_sp_rif_params_ipip_lb,
-+				 common);
-+	rif_lb = mlxsw_sp_rif_ipip_lb_rif(rif);
-+	rif_lb->lb_config = params_lb->lb_config;
-+}
-+
-+static int
-+mlxsw_sp_rif_ipip_lb_op(struct mlxsw_sp_rif_ipip_lb *lb_rif,
-+			struct mlxsw_sp_vr *ul_vr, bool enable)
-+{
-+	struct mlxsw_sp_rif_ipip_lb_config lb_cf = lb_rif->lb_config;
-+	struct mlxsw_sp_rif *rif = &lb_rif->common;
-+	struct mlxsw_sp *mlxsw_sp = rif->mlxsw_sp;
-+	char ritr_pl[MLXSW_REG_RITR_LEN];
-+	u32 saddr4;
-+
-+	switch (lb_cf.ul_protocol) {
-+	case MLXSW_SP_L3_PROTO_IPV4:
-+		saddr4 = be32_to_cpu(lb_cf.saddr.addr4);
-+		mlxsw_reg_ritr_pack(ritr_pl, enable, MLXSW_REG_RITR_LOOPBACK_IF,
-+				    rif->rif_index, rif->vr_id, rif->dev->mtu);
-+		mlxsw_reg_ritr_loopback_ipip4_pack(ritr_pl, lb_cf.lb_ipipt,
-+			    MLXSW_REG_RITR_LOOPBACK_IPIP_OPTIONS_GRE_KEY_PRESET,
-+			    ul_vr->id, saddr4, lb_cf.okey);
-+		break;
-+
-+	case MLXSW_SP_L3_PROTO_IPV6:
-+		return -EAFNOSUPPORT;
-+	}
-+
-+	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(ritr), ritr_pl);
-+}
-+
-+static int
-+mlxsw_sp_rif_ipip_lb_configure(struct mlxsw_sp_rif *rif)
-+{
-+	struct mlxsw_sp_rif_ipip_lb *lb_rif = mlxsw_sp_rif_ipip_lb_rif(rif);
-+	u32 ul_tb_id = mlxsw_sp_ipip_dev_ul_tb_id(rif->dev);
-+	struct mlxsw_sp *mlxsw_sp = rif->mlxsw_sp;
-+	struct mlxsw_sp_vr *ul_vr;
-+	int err;
-+
-+	ul_vr = mlxsw_sp_vr_get(mlxsw_sp, ul_tb_id);
-+	if (IS_ERR(ul_vr))
-+		return PTR_ERR(ul_vr);
-+
-+	err = mlxsw_sp_rif_ipip_lb_op(lb_rif, ul_vr, true);
-+	if (err)
-+		goto err_loopback_op;
-+
-+	lb_rif->ul_vr_id = ul_vr->id;
-+	++ul_vr->rif_count;
++	mlxsw_sp->router->ipip_ops_arr = mlxsw_sp_ipip_ops_arr;
 +	return 0;
-+
-+err_loopback_op:
-+	mlxsw_sp_vr_put(ul_vr);
-+	return err;
 +}
 +
-+static void mlxsw_sp_rif_ipip_lb_deconfigure(struct mlxsw_sp_rif *rif)
++static void mlxsw_sp_ipips_fini(struct mlxsw_sp *mlxsw_sp)
 +{
-+	struct mlxsw_sp_rif_ipip_lb *lb_rif = mlxsw_sp_rif_ipip_lb_rif(rif);
-+	struct mlxsw_sp *mlxsw_sp = rif->mlxsw_sp;
-+	struct mlxsw_sp_vr *ul_vr;
-+
-+	ul_vr = &mlxsw_sp->router->vrs[lb_rif->ul_vr_id];
-+	mlxsw_sp_rif_ipip_lb_op(lb_rif, ul_vr, false);
-+
-+	--ul_vr->rif_count;
-+	mlxsw_sp_vr_put(ul_vr);
 +}
 +
-+static const struct mlxsw_sp_rif_ops mlxsw_sp_rif_ipip_lb_ops = {
-+	.type			= MLXSW_SP_RIF_TYPE_IPIP_LB,
-+	.rif_size		= sizeof(struct mlxsw_sp_rif_ipip_lb),
-+	.setup                  = mlxsw_sp_rif_ipip_lb_setup,
-+	.configure		= mlxsw_sp_rif_ipip_lb_configure,
-+	.deconfigure		= mlxsw_sp_rif_ipip_lb_deconfigure,
-+};
+ static void mlxsw_sp_router_fib_dump_flush(struct notifier_block *nb)
+ {
+ 	struct mlxsw_sp_router *router;
+@@ -5211,6 +5223,10 @@ int mlxsw_sp_router_init(struct mlxsw_sp *mlxsw_sp)
+ 	if (err)
+ 		goto err_rifs_init;
+ 
++	err = mlxsw_sp_ipips_init(mlxsw_sp);
++	if (err)
++		goto err_ipips_init;
 +
- static const struct mlxsw_sp_rif_ops *mlxsw_sp_rif_ops_arr[] = {
- 	[MLXSW_SP_RIF_TYPE_SUBPORT]	= &mlxsw_sp_rif_subport_ops,
- 	[MLXSW_SP_RIF_TYPE_VLAN]	= &mlxsw_sp_rif_vlan_ops,
- 	[MLXSW_SP_RIF_TYPE_FID]		= &mlxsw_sp_rif_fid_ops,
-+	[MLXSW_SP_RIF_TYPE_IPIP_LB]	= &mlxsw_sp_rif_ipip_lb_ops,
- };
- 
- static int mlxsw_sp_rifs_init(struct mlxsw_sp *mlxsw_sp)
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.h
-index 67c6c1d..a5732aa 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.h
-@@ -36,12 +36,25 @@
- #define _MLXSW_ROUTER_H_
- 
- #include "spectrum.h"
-+#include "reg.h"
- 
- enum mlxsw_sp_l3proto {
- 	MLXSW_SP_L3_PROTO_IPV4,
- 	MLXSW_SP_L3_PROTO_IPV6,
- };
- 
-+union mlxsw_sp_l3addr {
-+	__be32 addr4;
-+	struct in6_addr addr6;
-+};
-+
-+struct mlxsw_sp_rif_ipip_lb_config {
-+	enum mlxsw_reg_ritr_loopback_ipip_type lb_ipipt;
-+	u32 okey;
-+	enum mlxsw_sp_l3proto ul_protocol; /* Underlay. */
-+	union mlxsw_sp_l3addr saddr;
-+};
-+
- enum mlxsw_sp_rif_counter_dir {
- 	MLXSW_SP_RIF_COUNTER_INGRESS,
- 	MLXSW_SP_RIF_COUNTER_EGRESS,
+ 	err = rhashtable_init(&mlxsw_sp->router->nexthop_ht,
+ 			      &mlxsw_sp_nexthop_ht_params);
+ 	if (err)
+@@ -5252,6 +5268,8 @@ int mlxsw_sp_router_init(struct mlxsw_sp *mlxsw_sp)
+ err_nexthop_group_ht_init:
+ 	rhashtable_destroy(&mlxsw_sp->router->nexthop_ht);
+ err_nexthop_ht_init:
++	mlxsw_sp_ipips_fini(mlxsw_sp);
++err_ipips_init:
+ 	mlxsw_sp_rifs_fini(mlxsw_sp);
+ err_rifs_init:
+ 	__mlxsw_sp_router_fini(mlxsw_sp);
+@@ -5268,6 +5286,7 @@ void mlxsw_sp_router_fini(struct mlxsw_sp *mlxsw_sp)
+ 	mlxsw_sp_lpm_fini(mlxsw_sp);
+ 	rhashtable_destroy(&mlxsw_sp->router->nexthop_group_ht);
+ 	rhashtable_destroy(&mlxsw_sp->router->nexthop_ht);
++	mlxsw_sp_ipips_fini(mlxsw_sp);
+ 	mlxsw_sp_rifs_fini(mlxsw_sp);
+ 	__mlxsw_sp_router_fini(mlxsw_sp);
+ 	kfree(mlxsw_sp->router);
 -- 
 2.9.3
