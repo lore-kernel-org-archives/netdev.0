@@ -1,61 +1,34 @@
-From: Ganesh Goudar <ganeshgr@chelsio.com>
-Subject: [PATCH net-next] cxgb4: Ignore MPS_TX_INT_CAUSE[Bubble] for T6
-Date: Mon,  4 Sep 2017 11:25:34 +0530
-Message-ID: <1504504534-22115-1-git-send-email-ganeshgr@chelsio.com>
-Cc: nirranjan@chelsio.com, indranil@chelsio.com, venkatesh@chelsio.com,
-        Ganesh Goudar <ganeshgr@chelsio.com>,
-        Casey Leedom <leedom@chelsio.com>
-To: netdev@vger.kernel.org, davem@davemloft.net
+From: info@dssmks.com
+Subject: We'll ship you a 30-day supply of our weight loss product
+Date: Sat, 2 Sep 2017 10:45:54 +0200
+Message-ID: <547D6303-940B-8C73-647C-8FAD1FBDF945@dssmks.com>
+Mime-Version: 1.0 (1.0)
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: base64
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:22983 "EHLO
-        stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750805AbdIDF4b (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 4 Sep 2017 01:56:31 -0400
+Received: from host.68.113.218.houtos.com ([111.68.113.218]:35818 "EHLO
+        jkt-serv218.onecubed.tv" rhost-flags-OK-FAIL-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1750817AbdIDGML (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 4 Sep 2017 02:12:11 -0400
+Received: from cablelink-187-161-144-158.pcs.intercable.net ([187.161.144.158]:40996 helo=[127.0.0.1])
+        by jkt-serv218.onecubed.tv with esmtpsa (TLSv1:DHE-RSA-AES256-SHA:256)
+        (Exim 4.87)
+        (envelope-from <info@dssmks.com>)
+        id 1do447-0000pS-Pz
+        for netdev@vger.kernel.org; Sat, 02 Sep 2017 15:46:08 +0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-MPS_TX_INT_CAUSE[Bubble] is a normal condition for T6, hence
-ignore this interrupt for T6.
-
-Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
-Signed-off-by: Casey Leedom <leedom@chelsio.com>
----
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.c | 16 +++++++++++++++-
- 1 file changed, 15 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-index 08624db..b0f9aea 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-@@ -4548,6 +4548,18 @@ static void mps_intr_handler(struct adapter *adapter)
- 		{ FRMERR_F, "MPS Tx framing error", -1, 1 },
- 		{ 0 }
- 	};
-+	static const struct intr_info t6_mps_tx_intr_info[] = {
-+		{ TPFIFO_V(TPFIFO_M), "MPS Tx TP FIFO parity error", -1, 1 },
-+		{ NCSIFIFO_F, "MPS Tx NC-SI FIFO parity error", -1, 1 },
-+		{ TXDATAFIFO_V(TXDATAFIFO_M), "MPS Tx data FIFO parity error",
-+		  -1, 1 },
-+		{ TXDESCFIFO_V(TXDESCFIFO_M), "MPS Tx desc FIFO parity error",
-+		  -1, 1 },
-+		/* MPS Tx Bubble is normal for T6 */
-+		{ SECNTERR_F, "MPS Tx SOP/EOP error", -1, 1 },
-+		{ FRMERR_F, "MPS Tx framing error", -1, 1 },
-+		{ 0 }
-+	};
- 	static const struct intr_info mps_trc_intr_info[] = {
- 		{ FILTMEM_V(FILTMEM_M), "MPS TRC filter parity error", -1, 1 },
- 		{ PKTFIFO_V(PKTFIFO_M), "MPS TRC packet FIFO parity error",
-@@ -4579,7 +4591,9 @@ static void mps_intr_handler(struct adapter *adapter)
- 	fat = t4_handle_intr_status(adapter, MPS_RX_PERR_INT_CAUSE_A,
- 				    mps_rx_intr_info) +
- 	      t4_handle_intr_status(adapter, MPS_TX_INT_CAUSE_A,
--				    mps_tx_intr_info) +
-+				    is_t6(adapter->params.chip)
-+				    ? t6_mps_tx_intr_info
-+				    : mps_tx_intr_info) +
- 	      t4_handle_intr_status(adapter, MPS_TRC_INT_CAUSE_A,
- 				    mps_trc_intr_info) +
- 	      t4_handle_intr_status(adapter, MPS_STAT_PERR_INT_CAUSE_SRAM_A,
--- 
-2.1.0
+VGFraW5nIGEgcHJlbWl1bSBxdWFsaXR5IHdlaWdodCBsb3NzIGFpZCBzb2x1dGlvbiBsaWtlIG91
+cnMgZGFpbHkgaXMgc2ltcGx5IHRoZSBvbmx5IHdheSB0byBtYWtlIHN1cmUgeW91ciBib2R5IGdl
+dHMgdGhlIHZpdGFtaW5zIGl0IG5lZWRzIHRvIGJ1cm4gZXhjZXNzaXZlIGZhdCBhbmQgc3RheSBh
+Y3RpdmUuDQpJdCB3YXMgY3JlYXRlZCB3aXRoIHByZW1pdW0gYWRkaXRpdmVzLCBvdXIgZGlldCBh
+aWQgc29sdXRpb24gd2lsbCBoZWxwIHlvdSBmZWVsIGFtYXppbmcgYW5kIGxvb2sgeW91ciBiZXN0
+IQ0KT3VyIGRpZXQgcGlsbCBpbmNsdWRlcyBvdmVyIDI0IGRpZmZlcmVudCBudXRyaWVudHMgYW5k
+IG1pbmVyYWxzIGFuZCBpdCBoZWxwcyBwcmVzZXJ2ZSB5b3VyOg0KCUJvb3N0ZWQgbWV0YWJvbGlz
+bSwNCglJbW11bmUgc3lzdGVtLCANCglQaHlzaWNhbCBlbmVyZ3ksDQoJTXVzY2xlIG1hc3MuDQpX
+ZSB3aWxsIHNlbmQgeW91IGEgMjUtZGF5IHN1cHBseSBvZiBvdXIgd2VpZ2h0IHJlZHVjdGlvbiBz
+dXBwbGVtZW50IG9ubHkgaWYgeW91IHVzZSB0aGlzIGxpbmsgd2l0aGluIHRoZSBuZXh0IHRocmVl
+IGRheXMuDQpUaGlzIFVSTCBpcyBvbmx5IHByb3ZpZGVkIGZvciB0aGlzIElQDQoNCmh0dHA6Ly92
+enRnam4uZ3JlZW5lcnBhc3R1cmVzaXAueHl6L09TOHlMekl3TVRjN01UQTZORFU2TlRJPQ0K
