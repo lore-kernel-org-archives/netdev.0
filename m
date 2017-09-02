@@ -1,135 +1,67 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] net: ethernet: ibm-emac: Add 5482 PHY init for OpenBlocks
- 600
-Date: Fri, 1 Sep 2017 17:35:37 -0700
-Message-ID: <816adc32-9df6-3433-b30c-79490a6328d1@gmail.com>
-References: <1504241089.4974.67.camel@kernel.crashing.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-        netdev@vger.kernel.org
+Subject: [PATCH net-next] net: systemport: Correctly set TSB endian for host
+Date: Fri,  1 Sep 2017 17:32:34 -0700
+Message-ID: <1504312354-62020-1-git-send-email-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f193.google.com ([209.85.220.193]:36734 "EHLO
+Received: from mail-qk0-f193.google.com ([209.85.220.193]:37873 "EHLO
         mail-qk0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752642AbdIBAfo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 1 Sep 2017 20:35:44 -0400
-Received: by mail-qk0-f193.google.com with SMTP id l65so1237511qkc.3
-        for <netdev@vger.kernel.org>; Fri, 01 Sep 2017 17:35:43 -0700 (PDT)
-In-Reply-To: <1504241089.4974.67.camel@kernel.crashing.org>
-Content-Language: en-US
+        with ESMTP id S1752264AbdIBAic (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 1 Sep 2017 20:38:32 -0400
+Received: by mail-qk0-f193.google.com with SMTP id c6so499044qkh.4
+        for <netdev@vger.kernel.org>; Fri, 01 Sep 2017 17:38:31 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/31/2017 09:44 PM, Benjamin Herrenschmidt wrote:
-> The vendor patches initialize those registers to get the
-> PHY working properly.
-> 
-> Sadly I don't have that PHY spec and whatever Broadcom PHY
-> code we already have don't seem to document these two shadow
-> registers (unless I miscalculated the address) so I'm keeping
-> this as "vendor magic for that board". The vendor has long
-> abandoned that product, but I find it handy to test ppc405
-> kernels and so would like to keep it alive upstream :-)
-> 
-> Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-> ---
-> 
-> Note: Ideally, the whole driver should switch over to the
-> generic PHY layer. However this is a much bigger undertaking
-> which requires access to a bunch of HW to test, and for which
-> I have neither the time nor the HW available these days.
+Similarly to how we configure the RSB (Receive Status Block) we also
+need to set the TSB (Transmit Status Block) based on the host endian.
+This was missing from the commit indicated below.
 
-Yes it sure does and the function names are so close, it is almost
-irresistible not to do it.
+Fixes: 389a06bc534e ("net: systemport: Set correct RSB endian bits based on host")
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/ethernet/broadcom/bcmsysport.c | 13 +++++++++++++
+ drivers/net/ethernet/broadcom/bcmsysport.h |  3 ++-
+ 2 files changed, 15 insertions(+), 1 deletion(-)
 
-> 
-> (Some of the HW could prove hard to find ...)
-> ---
->  drivers/net/ethernet/ibm/emac/phy.c | 30 ++++++++++++++++++++++++++++++
->  1 file changed, 30 insertions(+)
-> 
-> diff --git a/drivers/net/ethernet/ibm/emac/phy.c b/drivers/net/ethernet/ibm/emac/phy.c
-> index 35865d05fccd..daa10de542fb 100644
-> --- a/drivers/net/ethernet/ibm/emac/phy.c
-> +++ b/drivers/net/ethernet/ibm/emac/phy.c
-> @@ -24,6 +24,7 @@
->  #include <linux/mii.h>
->  #include <linux/ethtool.h>
->  #include <linux/delay.h>
-> +#include <linux/of.h>
->  
->  #include "emac.h"
->  #include "phy.h"
-> @@ -363,6 +364,34 @@ static struct mii_phy_def bcm5248_phy_def = {
->  	.ops		= &generic_phy_ops
->  };
->  
-> +static int bcm5482_init(struct mii_phy *phy)
-> +{
-> +	if (!of_machine_is_compatible("plathome,obs600"))
-> +		return 0;
-
-You can probably include brcmphy.h and pull the definition for at least
-0x1c: MII_BCM54XX_SHD
-
-> +
-> +	/* Magic inits from vendor original patches */
-> +	phy_write(phy, 0x1c, 0xa410);
-
-What you are doing here is write to shadow register 9 (9 << 10) which is
-the LED control register, and making the activity LED be driven on
-activity/link as opposed to just activity. So this can probably be
-written as:
-
-	phy_write(phy, MII_BCM54XX_SHD, MII_BCM54XX_SHD_WRITE |
-		  MII_BCM54XX_SHD_VAL(9) | MII_BCM54XX_SHD_DATA(BIT(4));
-
-> +	phy_write(phy, 0x1c, 0x8804);
-
-And here you are writing to the spare control 1 register and setting bit
-2 (which appears reserved but this is not clear) which would be enabling
-the activity LED for 10BaseT or no link which can be written as:
-
-	phy_write(phy, MII_BCM54XX_SHD, MII_BCM54XX_SHD_WRITE |
-		  MII_BCM54XX_SHD_VAL(2) | MII_BCM4XX_SHD_DATA(BIT(2));
-
-So basically you are touching registers that only affect LED
-configuration and should not be doing anything else...
-
-> +
-> +	return 0;
-> +}
-> +
-> +static const struct mii_phy_ops bcm5482_phy_ops = {
-> +	.init		= bcm5482_init,
-> +	.setup_aneg	= genmii_setup_aneg,
-> +	.setup_forced	= genmii_setup_forced,
-> +	.poll_link	= genmii_poll_link,
-> +	.read_link	= genmii_read_link
-> +};
-> +
-> +static struct mii_phy_def bcm5482_phy_def = {
-> +
-> +	.phy_id		= 0x0143bcb0,
-> +	.phy_id_mask	= 0x0ffffff0,
-> +	.name		= "BCM5482 Gigabit Ethernet",
-> +	.ops		= &bcm5482_phy_ops
-> +};
-> +
->  static int m88e1111_init(struct mii_phy *phy)
->  {
->  	pr_debug("%s: Marvell 88E1111 Ethernet\n", __func__);
-> @@ -499,6 +528,7 @@ static struct mii_phy_def *mii_phy_table[] = {
->  	&et1011c_phy_def,
->  	&cis8201_phy_def,
->  	&bcm5248_phy_def,
-> +	&bcm5482_phy_def,
->  	&m88e1111_phy_def,
->  	&m88e1112_phy_def,
->  	&ar8035_phy_def,
-> 
-
-
+diff --git a/drivers/net/ethernet/broadcom/bcmsysport.c b/drivers/net/ethernet/broadcom/bcmsysport.c
+index 931751e4f369..ef13b6041ef1 100644
+--- a/drivers/net/ethernet/broadcom/bcmsysport.c
++++ b/drivers/net/ethernet/broadcom/bcmsysport.c
+@@ -1390,6 +1390,19 @@ static int bcm_sysport_init_tx_ring(struct bcm_sysport_priv *priv,
+ 	tdma_writel(priv, RING_IGNORE_STATUS, TDMA_DESC_RING_MAPPING(index));
+ 	tdma_writel(priv, 0, TDMA_DESC_RING_PCP_DEI_VID(index));
+ 
++	/* Do not use tdma_control_bit() here because TSB_SWAP1 collides
++	 * with the original definition of ACB_ALGO
++	 */
++	reg = tdma_readl(priv, TDMA_CONTROL);
++	if (priv->is_lite)
++		reg &= ~BIT(TSB_SWAP1);
++	/* Set a correct TSB format based on host endian */
++	if (!IS_ENABLED(CONFIG_CPU_BIG_ENDIAN))
++		reg |= tdma_control_bit(priv, TSB_SWAP0);
++	else
++		reg &= ~tdma_control_bit(priv, TSB_SWAP0);
++	tdma_writel(priv, reg, TDMA_CONTROL);
++
+ 	/* Program the number of descriptors as MAX_THRESHOLD and half of
+ 	 * its size for the hysteresis trigger
+ 	 */
+diff --git a/drivers/net/ethernet/broadcom/bcmsysport.h b/drivers/net/ethernet/broadcom/bcmsysport.h
+index 80b4ffff63b7..82e401df199e 100644
+--- a/drivers/net/ethernet/broadcom/bcmsysport.h
++++ b/drivers/net/ethernet/broadcom/bcmsysport.h
+@@ -449,7 +449,8 @@ struct bcm_rsb {
+ /* Uses 2 bits on SYSTEMPORT Lite and shifts everything by 1 bit, we
+  * keep the SYSTEMPORT layout here and adjust with tdma_control_bit()
+  */
+-#define  TSB_SWAP			2
++#define  TSB_SWAP0			2
++#define  TSB_SWAP1			3
+ #define  ACB_ALGO			3
+ #define  BUF_DATA_OFFSET_SHIFT		4
+ #define  BUF_DATA_OFFSET_MASK		0x3ff
 -- 
-Florian
+1.9.1
