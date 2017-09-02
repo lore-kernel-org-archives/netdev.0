@@ -1,213 +1,155 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 10/21] mlxsw: spectrum_router: Support FID-less RIFs
-Date: Sat,  2 Sep 2017 23:49:18 +0200
-Message-ID: <20170902214929.2890-11-jiri@resnulli.us>
+Subject: [patch net-next v2 18/21] mlxsw: spectrum_router: Use existing decap route
+Date: Sat,  2 Sep 2017 23:49:26 +0200
+Message-ID: <20170902214929.2890-19-jiri@resnulli.us>
 References: <20170902214929.2890-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, petrm@mellanox.com, idosch@mellanox.com,
         mlxsw@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:37224 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752827AbdIBVtt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 2 Sep 2017 17:49:49 -0400
-Received: by mail-wm0-f67.google.com with SMTP id x189so3152533wmg.4
-        for <netdev@vger.kernel.org>; Sat, 02 Sep 2017 14:49:48 -0700 (PDT)
+Received: from mail-wr0-f194.google.com ([209.85.128.194]:34810 "EHLO
+        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752862AbdIBVuB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 2 Sep 2017 17:50:01 -0400
+Received: by mail-wr0-f194.google.com with SMTP id w62so542840wrc.1
+        for <netdev@vger.kernel.org>; Sat, 02 Sep 2017 14:50:00 -0700 (PDT)
 In-Reply-To: <20170902214929.2890-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Petr Machata <petrm@mellanox.com>
 
-Loopback RIFs, which will be introduced in a follow-up patch, differ
-from other RIFs in that they do not have a FID associated with them.
-
-To support this, demote FID allocation from mlxsw_sp_rif_create to
-configure op of the existing RIF types, and likewise the FID release
-from mlxsw_sp_rif_destroy to deconfigure op.
+The local route that points at IPIP's underlay device (decap route) can
+be present long before the GRE device. Thus when an encap route is
+added, it's necessary to look inside the underlay FIB if the decap route
+is already present. If so, the current trap offload needs to be
+withdrawn and replaced with a decap offload.
 
 Signed-off-by: Petr Machata <petrm@mellanox.com>
 Reviewed-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 85 ++++++++++++++++------
- 1 file changed, 63 insertions(+), 22 deletions(-)
+ .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 80 ++++++++++++++++++++--
+ 1 file changed, 76 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-index f85d249..38477c5 100644
+index 0d09f81..2189cf0 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
 +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-@@ -4444,9 +4444,9 @@ mlxsw_sp_rif_create(struct mlxsw_sp *mlxsw_sp,
+@@ -1072,6 +1072,9 @@ static void mlxsw_sp_fib_entry_decap_fini(struct mlxsw_sp *mlxsw_sp,
+ 	mlxsw_sp_kvdl_free(mlxsw_sp, fib_entry->decap.tunnel_index);
+ }
+ 
++static struct mlxsw_sp_fib_node *
++mlxsw_sp_fib_node_lookup(struct mlxsw_sp_fib *fib, const void *addr,
++			 size_t addr_len, unsigned char prefix_len);
+ static int mlxsw_sp_fib_entry_update(struct mlxsw_sp *mlxsw_sp,
+ 				     struct mlxsw_sp_fib_entry *fib_entry);
+ 
+@@ -1087,6 +1090,73 @@ mlxsw_sp_ipip_entry_demote_decap(struct mlxsw_sp *mlxsw_sp,
+ 	mlxsw_sp_fib_entry_update(mlxsw_sp, fib_entry);
+ }
+ 
++static void
++mlxsw_sp_ipip_entry_promote_decap(struct mlxsw_sp *mlxsw_sp,
++				  struct mlxsw_sp_ipip_entry *ipip_entry,
++				  struct mlxsw_sp_fib_entry *decap_fib_entry)
++{
++	if (mlxsw_sp_fib_entry_decap_init(mlxsw_sp, decap_fib_entry,
++					  ipip_entry))
++		return;
++	decap_fib_entry->type = MLXSW_SP_FIB_ENTRY_TYPE_IPIP_DECAP;
++
++	if (mlxsw_sp_fib_entry_update(mlxsw_sp, decap_fib_entry))
++		mlxsw_sp_ipip_entry_demote_decap(mlxsw_sp, ipip_entry);
++}
++
++/* Given an IPIP entry, find the corresponding decap route. */
++static struct mlxsw_sp_fib_entry *
++mlxsw_sp_ipip_entry_find_decap(struct mlxsw_sp *mlxsw_sp,
++			       struct mlxsw_sp_ipip_entry *ipip_entry)
++{
++	static struct mlxsw_sp_fib_node *fib_node;
++	const struct mlxsw_sp_ipip_ops *ipip_ops;
++	struct mlxsw_sp_fib_entry *fib_entry;
++	unsigned char saddr_prefix_len;
++	union mlxsw_sp_l3addr saddr;
++	struct mlxsw_sp_fib *ul_fib;
++	struct mlxsw_sp_vr *ul_vr;
++	const void *saddrp;
++	size_t saddr_len;
++	u32 ul_tb_id;
++	u32 saddr4;
++
++	ipip_ops = mlxsw_sp->router->ipip_ops_arr[ipip_entry->ipipt];
++
++	ul_tb_id = mlxsw_sp_ipip_dev_ul_tb_id(ipip_entry->ol_dev);
++	ul_vr = mlxsw_sp_vr_find(mlxsw_sp, ul_tb_id);
++	if (!ul_vr)
++		return NULL;
++
++	ul_fib = mlxsw_sp_vr_fib(ul_vr, ipip_ops->ul_proto);
++	saddr = mlxsw_sp_ipip_netdev_saddr(ipip_ops->ul_proto,
++					   ipip_entry->ol_dev);
++
++	switch (ipip_ops->ul_proto) {
++	case MLXSW_SP_L3_PROTO_IPV4:
++		saddr4 = be32_to_cpu(saddr.addr4);
++		saddrp = &saddr4;
++		saddr_len = 4;
++		saddr_prefix_len = 32;
++		break;
++	case MLXSW_SP_L3_PROTO_IPV6:
++		WARN_ON(1);
++		return NULL;
++	}
++
++	fib_node = mlxsw_sp_fib_node_lookup(ul_fib, saddrp, saddr_len,
++					    saddr_prefix_len);
++	if (!fib_node || list_empty(&fib_node->entry_list))
++		return NULL;
++
++	fib_entry = list_first_entry(&fib_node->entry_list,
++				     struct mlxsw_sp_fib_entry, list);
++	if (fib_entry->type != MLXSW_SP_FIB_ENTRY_TYPE_TRAP)
++		return NULL;
++
++	return fib_entry;
++}
++
+ static struct mlxsw_sp_ipip_entry *
+ mlxsw_sp_ipip_entry_get(struct mlxsw_sp *mlxsw_sp,
+ 			enum mlxsw_sp_ipip_type ipipt,
+@@ -1094,6 +1164,7 @@ mlxsw_sp_ipip_entry_get(struct mlxsw_sp *mlxsw_sp,
  {
- 	u32 tb_id = l3mdev_fib_table(params->dev);
- 	const struct mlxsw_sp_rif_ops *ops;
-+	struct mlxsw_sp_fid *fid = NULL;
- 	enum mlxsw_sp_rif_type type;
- 	struct mlxsw_sp_rif *rif;
--	struct mlxsw_sp_fid *fid;
- 	struct mlxsw_sp_vr *vr;
- 	u16 rif_index;
- 	int err;
-@@ -4470,12 +4470,14 @@ mlxsw_sp_rif_create(struct mlxsw_sp *mlxsw_sp,
- 	rif->mlxsw_sp = mlxsw_sp;
- 	rif->ops = ops;
+ 	u32 ul_tb_id = mlxsw_sp_ipip_dev_ul_tb_id(ol_dev);
+ 	struct mlxsw_sp_router *router = mlxsw_sp->router;
++	struct mlxsw_sp_fib_entry *decap_fib_entry;
+ 	struct mlxsw_sp_ipip_entry *ipip_entry;
+ 	enum mlxsw_sp_l3proto ul_proto;
+ 	union mlxsw_sp_l3addr saddr;
+@@ -1118,6 +1189,11 @@ mlxsw_sp_ipip_entry_get(struct mlxsw_sp *mlxsw_sp,
+ 	if (IS_ERR(ipip_entry))
+ 		return ipip_entry;
  
--	fid = ops->fid_get(rif);
--	if (IS_ERR(fid)) {
--		err = PTR_ERR(fid);
--		goto err_fid_get;
-+	if (ops->fid_get) {
-+		fid = ops->fid_get(rif);
-+		if (IS_ERR(fid)) {
-+			err = PTR_ERR(fid);
-+			goto err_fid_get;
-+		}
-+		rif->fid = fid;
- 	}
--	rif->fid = fid;
++	decap_fib_entry = mlxsw_sp_ipip_entry_find_decap(mlxsw_sp, ipip_entry);
++	if (decap_fib_entry)
++		mlxsw_sp_ipip_entry_promote_decap(mlxsw_sp, ipip_entry,
++						  decap_fib_entry);
++
+ 	list_add_tail(&ipip_entry->ipip_list_node,
+ 		      &mlxsw_sp->router->ipip_list);
  
- 	if (ops->setup)
- 		ops->setup(rif, params);
-@@ -4484,22 +4486,15 @@ mlxsw_sp_rif_create(struct mlxsw_sp *mlxsw_sp,
- 	if (err)
- 		goto err_configure;
+@@ -3259,10 +3335,6 @@ static void mlxsw_sp_fib4_entry_destroy(struct mlxsw_sp *mlxsw_sp,
+ 	kfree(fib4_entry);
+ }
  
--	err = mlxsw_sp_rif_fdb_op(mlxsw_sp, params->dev->dev_addr,
--				  mlxsw_sp_fid_index(fid), true);
--	if (err)
--		goto err_rif_fdb_op;
+-static struct mlxsw_sp_fib_node *
+-mlxsw_sp_fib_node_lookup(struct mlxsw_sp_fib *fib, const void *addr,
+-			 size_t addr_len, unsigned char prefix_len);
 -
- 	mlxsw_sp_rif_counters_alloc(rif);
--	mlxsw_sp_fid_rif_set(fid, rif);
- 	mlxsw_sp->router->rifs[rif_index] = rif;
- 	vr->rif_count++;
- 
- 	return rif;
- 
--err_rif_fdb_op:
--	ops->deconfigure(rif);
- err_configure:
--	mlxsw_sp_fid_put(fid);
-+	if (fid)
-+		mlxsw_sp_fid_put(fid);
- err_fid_get:
- 	kfree(rif);
- err_rif_alloc:
-@@ -4520,12 +4515,11 @@ void mlxsw_sp_rif_destroy(struct mlxsw_sp_rif *rif)
- 
- 	vr->rif_count--;
- 	mlxsw_sp->router->rifs[rif->rif_index] = NULL;
--	mlxsw_sp_fid_rif_set(fid, NULL);
- 	mlxsw_sp_rif_counters_free(rif);
--	mlxsw_sp_rif_fdb_op(mlxsw_sp, rif->dev->dev_addr,
--			    mlxsw_sp_fid_index(fid), false);
- 	ops->deconfigure(rif);
--	mlxsw_sp_fid_put(fid);
-+	if (fid)
-+		/* Loopback RIFs are not associated with a FID. */
-+		mlxsw_sp_fid_put(fid);
- 	kfree(rif);
- 	mlxsw_sp_vr_put(vr);
- }
-@@ -4965,11 +4959,32 @@ static int mlxsw_sp_rif_subport_op(struct mlxsw_sp_rif *rif, bool enable)
- 
- static int mlxsw_sp_rif_subport_configure(struct mlxsw_sp_rif *rif)
- {
--	return mlxsw_sp_rif_subport_op(rif, true);
-+	int err;
-+
-+	err = mlxsw_sp_rif_subport_op(rif, true);
-+	if (err)
-+		return err;
-+
-+	err = mlxsw_sp_rif_fdb_op(rif->mlxsw_sp, rif->dev->dev_addr,
-+				  mlxsw_sp_fid_index(rif->fid), true);
-+	if (err)
-+		goto err_rif_fdb_op;
-+
-+	mlxsw_sp_fid_rif_set(rif->fid, rif);
-+	return 0;
-+
-+err_rif_fdb_op:
-+	mlxsw_sp_rif_subport_op(rif, false);
-+	return err;
- }
- 
- static void mlxsw_sp_rif_subport_deconfigure(struct mlxsw_sp_rif *rif)
- {
-+	struct mlxsw_sp_fid *fid = rif->fid;
-+
-+	mlxsw_sp_fid_rif_set(fid, NULL);
-+	mlxsw_sp_rif_fdb_op(rif->mlxsw_sp, rif->dev->dev_addr,
-+			    mlxsw_sp_fid_index(fid), false);
- 	mlxsw_sp_rif_subport_op(rif, false);
- }
- 
-@@ -5028,8 +5043,17 @@ static int mlxsw_sp_rif_vlan_configure(struct mlxsw_sp_rif *rif)
- 	if (err)
- 		goto err_fid_bc_flood_set;
- 
-+	err = mlxsw_sp_rif_fdb_op(rif->mlxsw_sp, rif->dev->dev_addr,
-+				  mlxsw_sp_fid_index(rif->fid), true);
-+	if (err)
-+		goto err_rif_fdb_op;
-+
-+	mlxsw_sp_fid_rif_set(rif->fid, rif);
- 	return 0;
- 
-+err_rif_fdb_op:
-+	mlxsw_sp_fid_flood_set(rif->fid, MLXSW_SP_FLOOD_TYPE_BC,
-+			       mlxsw_sp_router_port(mlxsw_sp), false);
- err_fid_bc_flood_set:
- 	mlxsw_sp_fid_flood_set(rif->fid, MLXSW_SP_FLOOD_TYPE_MC,
- 			       mlxsw_sp_router_port(mlxsw_sp), false);
-@@ -5040,9 +5064,13 @@ static int mlxsw_sp_rif_vlan_configure(struct mlxsw_sp_rif *rif)
- 
- static void mlxsw_sp_rif_vlan_deconfigure(struct mlxsw_sp_rif *rif)
- {
--	struct mlxsw_sp *mlxsw_sp = rif->mlxsw_sp;
- 	u16 vid = mlxsw_sp_fid_8021q_vid(rif->fid);
-+	struct mlxsw_sp *mlxsw_sp = rif->mlxsw_sp;
-+	struct mlxsw_sp_fid *fid = rif->fid;
- 
-+	mlxsw_sp_fid_rif_set(fid, NULL);
-+	mlxsw_sp_rif_fdb_op(rif->mlxsw_sp, rif->dev->dev_addr,
-+			    mlxsw_sp_fid_index(fid), false);
- 	mlxsw_sp_fid_flood_set(rif->fid, MLXSW_SP_FLOOD_TYPE_BC,
- 			       mlxsw_sp_router_port(mlxsw_sp), false);
- 	mlxsw_sp_fid_flood_set(rif->fid, MLXSW_SP_FLOOD_TYPE_MC,
-@@ -5087,8 +5115,17 @@ static int mlxsw_sp_rif_fid_configure(struct mlxsw_sp_rif *rif)
- 	if (err)
- 		goto err_fid_bc_flood_set;
- 
-+	err = mlxsw_sp_rif_fdb_op(rif->mlxsw_sp, rif->dev->dev_addr,
-+				  mlxsw_sp_fid_index(rif->fid), true);
-+	if (err)
-+		goto err_rif_fdb_op;
-+
-+	mlxsw_sp_fid_rif_set(rif->fid, rif);
- 	return 0;
- 
-+err_rif_fdb_op:
-+	mlxsw_sp_fid_flood_set(rif->fid, MLXSW_SP_FLOOD_TYPE_BC,
-+			       mlxsw_sp_router_port(mlxsw_sp), false);
- err_fid_bc_flood_set:
- 	mlxsw_sp_fid_flood_set(rif->fid, MLXSW_SP_FLOOD_TYPE_MC,
- 			       mlxsw_sp_router_port(mlxsw_sp), false);
-@@ -5099,9 +5136,13 @@ static int mlxsw_sp_rif_fid_configure(struct mlxsw_sp_rif *rif)
- 
- static void mlxsw_sp_rif_fid_deconfigure(struct mlxsw_sp_rif *rif)
- {
--	struct mlxsw_sp *mlxsw_sp = rif->mlxsw_sp;
- 	u16 fid_index = mlxsw_sp_fid_index(rif->fid);
-+	struct mlxsw_sp *mlxsw_sp = rif->mlxsw_sp;
-+	struct mlxsw_sp_fid *fid = rif->fid;
- 
-+	mlxsw_sp_fid_rif_set(fid, NULL);
-+	mlxsw_sp_rif_fdb_op(rif->mlxsw_sp, rif->dev->dev_addr,
-+			    mlxsw_sp_fid_index(fid), false);
- 	mlxsw_sp_fid_flood_set(rif->fid, MLXSW_SP_FLOOD_TYPE_BC,
- 			       mlxsw_sp_router_port(mlxsw_sp), false);
- 	mlxsw_sp_fid_flood_set(rif->fid, MLXSW_SP_FLOOD_TYPE_MC,
+ static struct mlxsw_sp_fib4_entry *
+ mlxsw_sp_fib4_entry_lookup(struct mlxsw_sp *mlxsw_sp,
+ 			   const struct fib_entry_notifier_info *fen_info)
 -- 
 2.9.3
