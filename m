@@ -1,75 +1,80 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 12/21] mlxsw: spectrum_router: Extract mlxsw_sp_fi_is_gateway()
-Date: Sat,  2 Sep 2017 23:49:20 +0200
-Message-ID: <20170902214929.2890-13-jiri@resnulli.us>
+Subject: [patch net-next v2 16/21] mlxsw: spectrum_router: Support IPv6 overlay encap
+Date: Sat,  2 Sep 2017 23:49:24 +0200
+Message-ID: <20170902214929.2890-17-jiri@resnulli.us>
 References: <20170902214929.2890-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, petrm@mellanox.com, idosch@mellanox.com,
         mlxsw@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:37232 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752834AbdIBVtw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 2 Sep 2017 17:49:52 -0400
-Received: by mail-wm0-f66.google.com with SMTP id x189so3152576wmg.4
-        for <netdev@vger.kernel.org>; Sat, 02 Sep 2017 14:49:51 -0700 (PDT)
+Received: from mail-wr0-f194.google.com ([209.85.128.194]:37568 "EHLO
+        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752827AbdIBVt6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 2 Sep 2017 17:49:58 -0400
+Received: by mail-wr0-f194.google.com with SMTP id y15so1123156wrc.4
+        for <netdev@vger.kernel.org>; Sat, 02 Sep 2017 14:49:57 -0700 (PDT)
 In-Reply-To: <20170902214929.2890-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Petr Machata <petrm@mellanox.com>
 
-For IPv4 IP-in-IP offload, routes that direct traffic to IP-in-IP
-devices need to be considered gateway routes as well. That involves a
-bit more logic, so extract the current test to a separate function,
-where the logic can be later added.
+Add the missing bits to recognize IPv6 next hops as IPIP ones to enable
+offloading of IPv6 overlay encapsulation.
 
 Signed-off-by: Petr Machata <petrm@mellanox.com>
 Reviewed-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c | 14 ++++++++++----
- 1 file changed, 10 insertions(+), 4 deletions(-)
+ .../net/ethernet/mellanox/mlxsw/spectrum_router.c    | 20 +++++++++++++++++++-
+ 1 file changed, 19 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-index 72e386b..04e1887 100644
+index 231b597..05afd53 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
 +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-@@ -2382,6 +2382,12 @@ static void mlxsw_sp_nexthop_rif_gone_sync(struct mlxsw_sp *mlxsw_sp,
- 	}
+@@ -3757,15 +3757,32 @@ mlxsw_sp_fib6_entry_rt_find(const struct mlxsw_sp_fib6_entry *fib6_entry,
+ 	return NULL;
  }
  
-+static bool mlxsw_sp_fi_is_gateway(const struct mlxsw_sp *mlxsw_sp,
-+				   const struct fib_info *fi)
++static bool mlxsw_sp_nexthop6_ipip_type(const struct mlxsw_sp *mlxsw_sp,
++					const struct rt6_info *rt,
++					enum mlxsw_sp_ipip_type *ret)
 +{
-+	return fi->fib_nh->nh_scope == RT_SCOPE_LINK;
++	return rt->dst.dev &&
++	       mlxsw_sp_netdev_ipip_type(mlxsw_sp, rt->dst.dev, ret);
 +}
 +
- static struct mlxsw_sp_nexthop_group *
- mlxsw_sp_nexthop4_group_create(struct mlxsw_sp *mlxsw_sp, struct fib_info *fi)
+ static int mlxsw_sp_nexthop6_type_init(struct mlxsw_sp *mlxsw_sp,
+ 				       struct mlxsw_sp_nexthop_group *nh_grp,
+ 				       struct mlxsw_sp_nexthop *nh,
+ 				       const struct rt6_info *rt)
  {
-@@ -2401,7 +2407,7 @@ mlxsw_sp_nexthop4_group_create(struct mlxsw_sp *mlxsw_sp, struct fib_info *fi)
- 	INIT_LIST_HEAD(&nh_grp->fib_list);
- 	nh_grp->neigh_tbl = &arp_tbl;
++	struct mlxsw_sp_router *router = mlxsw_sp->router;
+ 	struct net_device *dev = rt->dst.dev;
++	enum mlxsw_sp_ipip_type ipipt;
+ 	struct mlxsw_sp_rif *rif;
+ 	int err;
  
--	nh_grp->gateway = fi->fib_nh->nh_scope == RT_SCOPE_LINK;
-+	nh_grp->gateway = mlxsw_sp_fi_is_gateway(mlxsw_sp, fi);
- 	nh_grp->count = fi->fib_nhs;
- 	fib_info_hold(fi);
- 	for (i = 0; i < nh_grp->count; i++) {
-@@ -2801,10 +2807,10 @@ mlxsw_sp_fib4_entry_type_set(struct mlxsw_sp *mlxsw_sp,
- 		fib_entry->type = MLXSW_SP_FIB_ENTRY_TYPE_LOCAL;
- 		return 0;
- 	case RTN_UNICAST:
--		if (fi->fib_nh->nh_scope != RT_SCOPE_LINK)
--			fib_entry->type = MLXSW_SP_FIB_ENTRY_TYPE_LOCAL;
--		else
-+		if (mlxsw_sp_fi_is_gateway(mlxsw_sp, fi))
- 			fib_entry->type = MLXSW_SP_FIB_ENTRY_TYPE_REMOTE;
-+		else
-+			fib_entry->type = MLXSW_SP_FIB_ENTRY_TYPE_LOCAL;
- 		return 0;
- 	default:
- 		return -EINVAL;
++	if (mlxsw_sp_nexthop6_ipip_type(mlxsw_sp, rt, &ipipt) &&
++	    router->ipip_ops_arr[ipipt]->can_offload(mlxsw_sp, dev,
++						     MLXSW_SP_L3_PROTO_IPV6)) {
++		nh->type = MLXSW_SP_NEXTHOP_TYPE_IPIP;
++		return mlxsw_sp_nexthop_ipip_init(mlxsw_sp, ipipt, nh, dev);
++	}
++
+ 	nh->type = MLXSW_SP_NEXTHOP_TYPE_ETH;
+ 	rif = mlxsw_sp_rif_find_by_dev(mlxsw_sp, dev);
+ 	if (!rif)
+@@ -3815,7 +3832,8 @@ static void mlxsw_sp_nexthop6_fini(struct mlxsw_sp *mlxsw_sp,
+ static bool mlxsw_sp_rt6_is_gateway(const struct mlxsw_sp *mlxsw_sp,
+ 				    const struct rt6_info *rt)
+ {
+-	return rt->rt6i_flags & RTF_GATEWAY;
++	return rt->rt6i_flags & RTF_GATEWAY ||
++	       mlxsw_sp_nexthop6_ipip_type(mlxsw_sp, rt, NULL);
+ }
+ 
+ static struct mlxsw_sp_nexthop_group *
 -- 
 2.9.3
