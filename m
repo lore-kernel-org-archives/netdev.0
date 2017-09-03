@@ -1,345 +1,117 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net-next 11/17] net/mlx5e: Type-specific optimizations for RX post WQEs function
-Date: Sun,  3 Sep 2017 07:21:11 +0300
-Message-ID: <20170903042117.28923-12-saeedm@mellanox.com>
+Subject: [net-next 05/17] net/mlx5e: Small enhancements for RX MPWQE allocation and free
+Date: Sun,  3 Sep 2017 07:21:05 +0300
+Message-ID: <20170903042117.28923-6-saeedm@mellanox.com>
 References: <20170903042117.28923-1-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, kernel-team@fb.com,
         Tariq Toukan <tariqt@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:60072 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:59998 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751287AbdICEWN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 3 Sep 2017 00:22:13 -0400
+        with ESMTP id S1751070AbdICEWL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 3 Sep 2017 00:22:11 -0400
 In-Reply-To: <20170903042117.28923-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Tariq Toukan <tariqt@mellanox.com>
 
-Separate the RX post WQEs function of the different RQ types.
-This enables RQ type-specific optimizations in data-path.
+The dma offset of a MPWQE (Multi-Packet WQE) in memory region
+is fixed for all rounds. Calculate it once on creation time,
+instead of in runtime. This also obsoletes the wqe argument in
+the function.
 
-Poll the ICOSQ completion queue only for Striding RQ,
-and only when a UMR post completion could be possibly available.
+In addition, optimize dma_info iterator calculation.
 
 Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en.h      |  10 +--
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c |   4 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_rx.c   | 101 ++++++++++++++++++----
- drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c |  64 +-------------
- 4 files changed, 92 insertions(+), 87 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c |  6 ++++++
+ drivers/net/ethernet/mellanox/mlx5/core/en_rx.c   | 18 ++++++------------
+ 2 files changed, 12 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index bce2080eb86a..8d29a6eb9406 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -517,7 +517,7 @@ struct mlx5e_page_cache {
- 
- struct mlx5e_rq;
- typedef void (*mlx5e_fp_handle_rx_cqe)(struct mlx5e_rq*, struct mlx5_cqe64*);
--typedef int (*mlx5e_fp_alloc_wqe)(struct mlx5e_rq*, struct mlx5e_rx_wqe*, u16);
-+typedef bool (*mlx5e_fp_post_rx_wqes)(struct mlx5e_rq *rq);
- typedef void (*mlx5e_fp_dealloc_wqe)(struct mlx5e_rq*, u16);
- 
- struct mlx5e_rq {
-@@ -547,6 +547,7 @@ struct mlx5e_rq {
- 		u8             map_dir;   /* dma map direction */
- 	} buff;
- 
-+	struct mlx5e_channel  *channel;
- 	struct device         *pdev;
- 	struct net_device     *netdev;
- 	struct mlx5e_tstamp   *tstamp;
-@@ -555,7 +556,7 @@ struct mlx5e_rq {
- 	struct mlx5e_page_cache page_cache;
- 
- 	mlx5e_fp_handle_rx_cqe handle_rx_cqe;
--	mlx5e_fp_alloc_wqe     alloc_wqe;
-+	mlx5e_fp_post_rx_wqes  post_wqes;
- 	mlx5e_fp_dealloc_wqe   dealloc_wqe;
- 
- 	unsigned long          state;
-@@ -572,7 +573,6 @@ struct mlx5e_rq {
- 	__be32                 mkey_be;
- 	u8                     wq_type;
- 	u32                    rqn;
--	struct mlx5e_channel  *channel;
- 	struct mlx5_core_dev  *mdev;
- 	struct mlx5_core_mkey  umr_mkey;
- } ____cacheline_aligned_in_smp;
-@@ -853,11 +853,9 @@ void mlx5e_page_release(struct mlx5e_rq *rq, struct mlx5e_dma_info *dma_info,
- void mlx5e_handle_rx_cqe(struct mlx5e_rq *rq, struct mlx5_cqe64 *cqe);
- void mlx5e_handle_rx_cqe_mpwrq(struct mlx5e_rq *rq, struct mlx5_cqe64 *cqe);
- bool mlx5e_post_rx_wqes(struct mlx5e_rq *rq);
--int mlx5e_alloc_rx_wqe(struct mlx5e_rq *rq, struct mlx5e_rx_wqe *wqe, u16 ix);
--int mlx5e_alloc_rx_mpwqe(struct mlx5e_rq *rq, struct mlx5e_rx_wqe *wqe,	u16 ix);
-+bool mlx5e_post_rx_mpwqes(struct mlx5e_rq *rq);
- void mlx5e_dealloc_rx_wqe(struct mlx5e_rq *rq, u16 ix);
- void mlx5e_dealloc_rx_mpwqe(struct mlx5e_rq *rq, u16 ix);
--void mlx5e_post_rx_mpwqe(struct mlx5e_rq *rq);
- void mlx5e_free_rx_mpwqe(struct mlx5e_rq *rq, struct mlx5e_mpw_info *wi);
- 
- void mlx5e_rx_am(struct mlx5e_rq *rq);
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 2767a3ee81bc..162ba6ab749a 100644
+index 591e0dca9671..5aa4681f7c3c 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -598,7 +598,7 @@ static int mlx5e_alloc_rq(struct mlx5e_channel *c,
- 	switch (rq->wq_type) {
- 	case MLX5_WQ_TYPE_LINKED_LIST_STRIDING_RQ:
+@@ -674,6 +674,12 @@ static int mlx5e_alloc_rq(struct mlx5e_channel *c,
+ 	for (i = 0; i < wq_sz; i++) {
+ 		struct mlx5e_rx_wqe *wqe = mlx5_wq_ll_get_wqe(&rq->wq, i);
  
--		rq->alloc_wqe = mlx5e_alloc_rx_mpwqe;
-+		rq->post_wqes = mlx5e_post_rx_mpwqes;
- 		rq->dealloc_wqe = mlx5e_dealloc_rx_mpwqe;
- 
- 		rq->handle_rx_cqe = c->priv->profile->rx_handlers.handle_rx_cqe_mpwqe;
-@@ -637,7 +637,7 @@ static int mlx5e_alloc_rq(struct mlx5e_channel *c,
- 			err = -ENOMEM;
- 			goto err_rq_wq_destroy;
- 		}
--		rq->alloc_wqe = mlx5e_alloc_rx_wqe;
-+		rq->post_wqes = mlx5e_post_rx_wqes;
- 		rq->dealloc_wqe = mlx5e_dealloc_rx_wqe;
- 
- #ifdef CONFIG_MLX5_EN_IPSEC
++		if (rq->wq_type == MLX5_WQ_TYPE_LINKED_LIST_STRIDING_RQ) {
++			u64 dma_offset = (u64)mlx5e_get_wqe_mtt_offset(rq, i) << PAGE_SHIFT;
++
++			wqe->data.addr = cpu_to_be64(dma_offset);
++		}
++
+ 		wqe->data.byte_count = cpu_to_be32(byte_count);
+ 		wqe->data.lkey = rq->mkey_be;
+ 	}
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-index 11dba9940029..b236dfd71c18 100644
+index db372dcecbe0..fb3b83609aea 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-@@ -252,7 +252,7 @@ static inline bool mlx5e_page_reuse(struct mlx5e_rq *rq,
- 		!mlx5e_page_is_reserved(wi->di.page);
+@@ -374,18 +374,15 @@ static inline void mlx5e_post_umr_wqe(struct mlx5e_rq *rq, u16 ix)
  }
  
--int mlx5e_alloc_rx_wqe(struct mlx5e_rq *rq, struct mlx5e_rx_wqe *wqe, u16 ix)
-+static int mlx5e_alloc_rx_wqe(struct mlx5e_rq *rq, struct mlx5e_rx_wqe *wqe, u16 ix)
+ static int mlx5e_alloc_rx_umr_mpwqe(struct mlx5e_rq *rq,
+-				    struct mlx5e_rx_wqe *wqe,
+ 				    u16 ix)
  {
- 	struct mlx5e_wqe_frag_info *wi = &rq->wqe.frag_info[ix];
+ 	struct mlx5e_mpw_info *wi = &rq->mpwqe.info[ix];
+-	u64 dma_offset = (u64)mlx5e_get_wqe_mtt_offset(rq, ix) << PAGE_SHIFT;
+ 	int pg_strides = mlx5e_mpwqe_strides_per_page(rq);
++	struct mlx5e_dma_info *dma_info = &wi->umr.dma_info[0];
+ 	int err;
+ 	int i;
  
-@@ -417,18 +417,13 @@ void mlx5e_free_rx_mpwqe(struct mlx5e_rq *rq, struct mlx5e_mpw_info *wi)
- 	}
- }
- 
--void mlx5e_post_rx_mpwqe(struct mlx5e_rq *rq)
-+static void mlx5e_post_rx_mpwqe(struct mlx5e_rq *rq)
- {
- 	struct mlx5_wq_ll *wq = &rq->wq;
- 	struct mlx5e_rx_wqe *wqe = mlx5_wq_ll_get_wqe(wq, wq->head);
- 
- 	rq->mpwqe.umr_in_progress = false;
- 
--	if (unlikely(!MLX5E_TEST_BIT(rq->state, MLX5E_RQ_STATE_ENABLED))) {
--		mlx5e_free_rx_mpwqe(rq, &rq->mpwqe.info[wq->head]);
--		return;
--	}
+-	for (i = 0; i < MLX5_MPWRQ_PAGES_PER_WQE; i++) {
+-		struct mlx5e_dma_info *dma_info = &wi->umr.dma_info[i];
 -
- 	mlx5_wq_ll_push(wq, be16_to_cpu(wqe->next.next_wqe_index));
++	for (i = 0; i < MLX5_MPWRQ_PAGES_PER_WQE; i++, dma_info++) {
+ 		err = mlx5e_page_alloc_mapped(rq, dma_info);
+ 		if (unlikely(err))
+ 			goto err_unmap;
+@@ -395,14 +392,12 @@ static int mlx5e_alloc_rx_umr_mpwqe(struct mlx5e_rq *rq,
  
- 	/* ensure wqes are visible to device before updating doorbell record */
-@@ -437,19 +432,18 @@ void mlx5e_post_rx_mpwqe(struct mlx5e_rq *rq)
- 	mlx5_wq_ll_update_db_record(wq);
- }
+ 	memset(wi->skbs_frags, 0, sizeof(*wi->skbs_frags) * MLX5_MPWRQ_PAGES_PER_WQE);
+ 	wi->consumed_strides = 0;
+-	wqe->data.addr = cpu_to_be64(dma_offset);
  
--int mlx5e_alloc_rx_mpwqe(struct mlx5e_rq *rq, struct mlx5e_rx_wqe *wqe, u16 ix)
-+static int mlx5e_alloc_rx_mpwqe(struct mlx5e_rq *rq, u16 ix)
+ 	return 0;
+ 
+ err_unmap:
+ 	while (--i >= 0) {
+-		struct mlx5e_dma_info *dma_info = &wi->umr.dma_info[i];
+-
++		dma_info--;
+ 		page_ref_sub(dma_info->page, pg_strides);
+ 		mlx5e_page_release(rq, dma_info, true);
+ 	}
+@@ -413,11 +408,10 @@ static int mlx5e_alloc_rx_umr_mpwqe(struct mlx5e_rq *rq,
+ void mlx5e_free_rx_mpwqe(struct mlx5e_rq *rq, struct mlx5e_mpw_info *wi)
+ {
+ 	int pg_strides = mlx5e_mpwqe_strides_per_page(rq);
++	struct mlx5e_dma_info *dma_info = &wi->umr.dma_info[0];
+ 	int i;
+ 
+-	for (i = 0; i < MLX5_MPWRQ_PAGES_PER_WQE; i++) {
+-		struct mlx5e_dma_info *dma_info = &wi->umr.dma_info[i];
+-
++	for (i = 0; i < MLX5_MPWRQ_PAGES_PER_WQE; i++, dma_info++) {
+ 		page_ref_sub(dma_info->page, pg_strides - wi->skbs_frags[i]);
+ 		mlx5e_page_release(rq, dma_info, true);
+ 	}
+@@ -447,7 +441,7 @@ int mlx5e_alloc_rx_mpwqe(struct mlx5e_rq *rq, struct mlx5e_rx_wqe *wqe, u16 ix)
  {
  	int err;
  
--	if (rq->mpwqe.umr_in_progress)
--		return -EBUSY;
--
- 	err = mlx5e_alloc_rx_umr_mpwqe(rq, ix);
--	if (unlikely(err))
-+	if (unlikely(err)) {
-+		rq->stats.buff_alloc_err++;
+-	err = mlx5e_alloc_rx_umr_mpwqe(rq, wqe, ix);
++	err = mlx5e_alloc_rx_umr_mpwqe(rq, ix);
+ 	if (unlikely(err))
  		return err;
-+	}
- 	rq->mpwqe.umr_in_progress = true;
- 	mlx5e_post_umr_wqe(rq, ix);
--	return -EBUSY;
-+	return 0;
- }
- 
- void mlx5e_dealloc_rx_mpwqe(struct mlx5e_rq *rq, u16 ix)
-@@ -473,9 +467,7 @@ bool mlx5e_post_rx_wqes(struct mlx5e_rq *rq)
- 	do {
- 		struct mlx5e_rx_wqe *wqe = mlx5_wq_ll_get_wqe(wq, wq->head);
- 
--		err = rq->alloc_wqe(rq, wqe, wq->head);
--		if (err == -EBUSY)
--			return true;
-+		err = mlx5e_alloc_rx_wqe(rq, wqe, wq->head);
- 		if (unlikely(err)) {
- 			rq->stats.buff_alloc_err++;
- 			break;
-@@ -492,6 +484,83 @@ bool mlx5e_post_rx_wqes(struct mlx5e_rq *rq)
- 	return !!err;
- }
- 
-+static inline void mlx5e_poll_ico_single_cqe(struct mlx5e_cq *cq,
-+					     struct mlx5e_icosq *sq,
-+					     struct mlx5e_rq *rq,
-+					     struct mlx5_cqe64 *cqe,
-+					     u16 *sqcc)
-+{
-+	struct mlx5_wq_cyc *wq = &sq->wq;
-+	u16 ci = be16_to_cpu(cqe->wqe_counter) & wq->sz_m1;
-+	struct mlx5e_sq_wqe_info *icowi = &sq->db.ico_wqe[ci];
-+
-+	mlx5_cqwq_pop(&cq->wq);
-+	*sqcc += icowi->num_wqebbs;
-+
-+	if (unlikely((cqe->op_own >> 4) != MLX5_CQE_REQ)) {
-+		WARN_ONCE(true, "mlx5e: Bad OP in ICOSQ CQE: 0x%x\n",
-+			  cqe->op_own);
-+		return;
-+	}
-+
-+	if (likely(icowi->opcode == MLX5_OPCODE_UMR)) {
-+		mlx5e_post_rx_mpwqe(rq);
-+		return;
-+	}
-+
-+	if (unlikely(icowi->opcode != MLX5_OPCODE_NOP))
-+		WARN_ONCE(true,
-+			  "mlx5e: Bad OPCODE in ICOSQ WQE info: 0x%x\n",
-+			  icowi->opcode);
-+}
-+
-+static void mlx5e_poll_ico_cq(struct mlx5e_cq *cq, struct mlx5e_rq *rq)
-+{
-+	struct mlx5e_icosq *sq = container_of(cq, struct mlx5e_icosq, cq);
-+	struct mlx5_cqe64 *cqe;
-+	u16 sqcc;
-+
-+	if (unlikely(!MLX5E_TEST_BIT(sq->state, MLX5E_SQ_STATE_ENABLED)))
-+		return;
-+
-+	cqe = mlx5_cqwq_get_cqe(&cq->wq);
-+	if (likely(!cqe))
-+		return;
-+
-+	/* sq->cc must be updated only after mlx5_cqwq_update_db_record(),
-+	 * otherwise a cq overrun may occur
-+	 */
-+	sqcc = sq->cc;
-+
-+	/* by design, there's only a single cqe */
-+	mlx5e_poll_ico_single_cqe(cq, sq, rq, cqe, &sqcc);
-+
-+	mlx5_cqwq_update_db_record(&cq->wq);
-+
-+	/* ensure cq space is freed before enabling more cqes */
-+	wmb();
-+
-+	sq->cc = sqcc;
-+}
-+
-+bool mlx5e_post_rx_mpwqes(struct mlx5e_rq *rq)
-+{
-+	struct mlx5_wq_ll *wq = &rq->wq;
-+
-+	if (unlikely(!MLX5E_TEST_BIT(rq->state, MLX5E_RQ_STATE_ENABLED)))
-+		return false;
-+
-+	mlx5e_poll_ico_cq(&rq->channel->icosq.cq, rq);
-+
-+	if (mlx5_wq_ll_is_full(wq))
-+		return false;
-+
-+	if (!rq->mpwqe.umr_in_progress)
-+		mlx5e_alloc_rx_mpwqe(rq, wq->head);
-+
-+	return true;
-+}
-+
- static void mlx5e_lro_update_hdr(struct sk_buff *skb, struct mlx5_cqe64 *cqe,
- 				 u32 cqe_bcnt)
- {
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
-index 7311b937e434..439ba1f2ffbc 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
-@@ -32,66 +32,6 @@
- 
- #include "en.h"
- 
--static inline void mlx5e_poll_ico_single_cqe(struct mlx5e_cq *cq,
--					     struct mlx5e_icosq *sq,
--					     struct mlx5_cqe64 *cqe,
--					     u16 *sqcc)
--{
--	struct mlx5_wq_cyc *wq = &sq->wq;
--	u16 ci = be16_to_cpu(cqe->wqe_counter) & wq->sz_m1;
--	struct mlx5e_sq_wqe_info *icowi = &sq->db.ico_wqe[ci];
--	struct mlx5e_rq *rq = &sq->channel->rq;
--
--	prefetch(rq);
--	mlx5_cqwq_pop(&cq->wq);
--	*sqcc += icowi->num_wqebbs;
--
--	if (unlikely((cqe->op_own >> 4) != MLX5_CQE_REQ)) {
--		WARN_ONCE(true, "mlx5e: Bad OP in ICOSQ CQE: 0x%x\n",
--			  cqe->op_own);
--		return;
--	}
--
--	if (likely(icowi->opcode == MLX5_OPCODE_UMR)) {
--		mlx5e_post_rx_mpwqe(rq);
--		return;
--	}
--
--	if (unlikely(icowi->opcode != MLX5_OPCODE_NOP))
--		WARN_ONCE(true,
--			  "mlx5e: Bad OPCODE in ICOSQ WQE info: 0x%x\n",
--			  icowi->opcode);
--}
--
--static void mlx5e_poll_ico_cq(struct mlx5e_cq *cq)
--{
--	struct mlx5e_icosq *sq = container_of(cq, struct mlx5e_icosq, cq);
--	struct mlx5_cqe64 *cqe;
--	u16 sqcc;
--
--	if (unlikely(!MLX5E_TEST_BIT(sq->state, MLX5E_SQ_STATE_ENABLED)))
--		return;
--
--	cqe = mlx5_cqwq_get_cqe(&cq->wq);
--	if (likely(!cqe))
--		return;
--
--	/* sq->cc must be updated only after mlx5_cqwq_update_db_record(),
--	 * otherwise a cq overrun may occur
--	 */
--	sqcc = sq->cc;
--
--	/* by design, there's only a single cqe */
--	mlx5e_poll_ico_single_cqe(cq, sq, cqe, &sqcc);
--
--	mlx5_cqwq_update_db_record(&cq->wq);
--
--	/* ensure cq space is freed before enabling more cqes */
--	wmb();
--
--	sq->cc = sqcc;
--}
--
- int mlx5e_napi_poll(struct napi_struct *napi, int budget)
- {
- 	struct mlx5e_channel *c = container_of(napi, struct mlx5e_channel,
-@@ -111,9 +51,7 @@ int mlx5e_napi_poll(struct napi_struct *napi, int budget)
- 	work_done = mlx5e_poll_rx_cq(&c->rq.cq, budget);
- 	busy |= work_done == budget;
- 
--	mlx5e_poll_ico_cq(&c->icosq.cq);
--
--	busy |= mlx5e_post_rx_wqes(&c->rq);
-+	busy |= c->rq.post_wqes(&c->rq);
- 
- 	if (busy)
- 		return budget;
+ 	set_bit(MLX5E_RQ_STATE_UMR_WQE_IN_PROGRESS, &rq->state);
 -- 
 2.13.0
