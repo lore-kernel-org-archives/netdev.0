@@ -1,7 +1,8 @@
 From: Joel Fernandes <joelaf@google.com>
-Subject: [PATCH RFC v3 1/4] samples/bpf: Use getppid instead of getpgrp for array map stress
-Date: Sun,  3 Sep 2017 11:25:46 -0700
-Message-ID: <20170903182549.30866-1-joelaf@google.com>
+Subject: [PATCH RFC v3 2/4] samples/bpf: Enable cross compiler support
+Date: Sun,  3 Sep 2017 11:25:47 -0700
+Message-ID: <20170903182549.30866-2-joelaf@google.com>
+References: <20170903182549.30866-1-joelaf@google.com>
 Cc: kernel-team@android.com, Juri Lelli <juri.lelli@arm.com>,
         Alison Chaiken <alison@she-devel.com>,
         Chenbo Feng <fengc@google.com>,
@@ -11,48 +12,38 @@ Cc: kernel-team@android.com, Juri Lelli <juri.lelli@arm.com>,
         David Miller <davem@davemloft.net>
 To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170903182549.30866-1-joelaf@google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When cross-compiling the bpf sample map_perf_test for aarch64, I find that
-__NR_getpgrp is undefined. This causes build errors. This syscall is deprecated
-and requires defining __ARCH_WANT_SYSCALL_DEPRECATED. To avoid having to define
-that, just use a different syscall (getppid) for the array map stress test.
+When cross compiling, bpf samples use HOSTCC for compiling the non-BPF part of
+the sample, however what we really want is to use the cross compiler to build
+for the cross target since that is what will load and run the BPF sample.
+Detect this and compile samples correctly.
 
 CC: Alexei Starovoitov <ast@kernel.org>
 CC: Daniel Borkmann <daniel@iogearbox.net>
 Cc: David Miller <davem@davemloft.net>
 Signed-off-by: Joel Fernandes <joelaf@google.com>
 ---
- samples/bpf/map_perf_test_kern.c | 2 +-
- samples/bpf/map_perf_test_user.c | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ samples/bpf/Makefile | 5 +++++
+ 1 file changed, 5 insertions(+)
 
-diff --git a/samples/bpf/map_perf_test_kern.c b/samples/bpf/map_perf_test_kern.c
-index 098c857f1eda..2b2ffb97018b 100644
---- a/samples/bpf/map_perf_test_kern.c
-+++ b/samples/bpf/map_perf_test_kern.c
-@@ -266,7 +266,7 @@ int stress_hash_map_lookup(struct pt_regs *ctx)
- 	return 0;
- }
+diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
+index cf17c7932a6e..13f74b67ca44 100644
+--- a/samples/bpf/Makefile
++++ b/samples/bpf/Makefile
+@@ -177,6 +177,11 @@ HOSTLOADLIBES_syscall_tp += -lelf
+ LLC ?= llc
+ CLANG ?= clang
  
--SEC("kprobe/sys_getpgrp")
-+SEC("kprobe/sys_getppid")
- int stress_array_map_lookup(struct pt_regs *ctx)
- {
- 	u32 key = 1, i;
-diff --git a/samples/bpf/map_perf_test_user.c b/samples/bpf/map_perf_test_user.c
-index f388254896f6..a0310fc70057 100644
---- a/samples/bpf/map_perf_test_user.c
-+++ b/samples/bpf/map_perf_test_user.c
-@@ -282,7 +282,7 @@ static void test_array_lookup(int cpu)
- 
- 	start_time = time_get_ns();
- 	for (i = 0; i < max_cnt; i++)
--		syscall(__NR_getpgrp, 0);
-+		syscall(__NR_getppid, 0);
- 	printf("%d:array_lookup %lld lookups per sec\n",
- 	       cpu, max_cnt * 1000000000ll * 64 / (time_get_ns() - start_time));
- }
++# Detect that we're cross compiling and use the cross compiler
++ifdef CROSS_COMPILE
++HOSTCC = $(CROSS_COMPILE)gcc
++endif
++
+ # Trick to allow make to be run from this directory
+ all:
+ 	$(MAKE) -C ../../ $(CURDIR)/
 -- 
 2.14.1.581.gf28d330327-goog
