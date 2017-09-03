@@ -1,205 +1,176 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 15/47] netfilter: nf_tables: Allow table names of up to 255 chars
-Date: Mon,  4 Sep 2017 00:27:15 +0200
-Message-ID: <1504477667-12130-6-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 19/47] netfilter: nft_set_rbtree: use seqcount to avoid lock in most cases
+Date: Mon,  4 Sep 2017 00:27:19 +0200
+Message-ID: <1504477667-12130-10-git-send-email-pablo@netfilter.org>
 References: <1504477667-12130-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:51182 "EHLO mail.us.es"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753182AbdICW2N (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 3 Sep 2017 18:28:13 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id EFF45190F63
-        for <netdev@vger.kernel.org>; Mon,  4 Sep 2017 00:27:45 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id DE7C82DC8A
-        for <netdev@vger.kernel.org>; Mon,  4 Sep 2017 00:27:45 +0200 (CEST)
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1504477667-12130-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Phil Sutter <phil@nwl.cc>
+From: Florian Westphal <fw@strlen.de>
 
-Allocate all table names dynamically to allow for arbitrary lengths but
-introduce NFT_NAME_MAXLEN as an upper sanity boundary. It's value was
-chosen to allow using a domain name as per RFC 1035.
+switch to lockless lockup. write side now also increments sequence
+counter.  On lookup, sample counter value and only take the lock
+if we did not find a match and the counter has changed.
 
-Signed-off-by: Phil Sutter <phil@nwl.cc>
+This avoids need to write to private area in normal (lookup) cases.
+
+In case we detect a writer (seqretry is true) we fall back to taking
+the readlock.
+
+The readlock is also used during dumps to ensure we get a consistent
+tree walk.
+
+Similar technique (rbtree+seqlock) was used by David Howells in rxrpc.
+
+Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/net/netfilter/nf_tables.h        |  2 +-
- include/uapi/linux/netfilter/nf_tables.h |  3 +-
- net/netfilter/nf_tables_api.c            | 49 +++++++++++++++++++++++---------
- net/netfilter/nf_tables_trace.c          |  2 +-
- 4 files changed, 40 insertions(+), 16 deletions(-)
+ net/netfilter/nft_set_rbtree.c | 49 +++++++++++++++++++++++++++++++-----------
+ 1 file changed, 37 insertions(+), 12 deletions(-)
 
-diff --git a/include/net/netfilter/nf_tables.h b/include/net/netfilter/nf_tables.h
-index bd5be0d691d5..05ecf78ec078 100644
---- a/include/net/netfilter/nf_tables.h
-+++ b/include/net/netfilter/nf_tables.h
-@@ -957,7 +957,7 @@ struct nft_table {
- 	u32				use;
- 	u16				flags:14,
- 					genmask:2;
--	char				name[NFT_TABLE_MAXNAMELEN];
-+	char				*name;
+diff --git a/net/netfilter/nft_set_rbtree.c b/net/netfilter/nft_set_rbtree.c
+index bce5382f1d49..d83a4ec5900d 100644
+--- a/net/netfilter/nft_set_rbtree.c
++++ b/net/netfilter/nft_set_rbtree.c
+@@ -19,8 +19,9 @@
+ #include <net/netfilter/nf_tables.h>
+ 
+ struct nft_rbtree {
+-	rwlock_t		lock;
+ 	struct rb_root		root;
++	rwlock_t		lock;
++	seqcount_t		count;
  };
  
- enum nft_af_flags {
-diff --git a/include/uapi/linux/netfilter/nf_tables.h b/include/uapi/linux/netfilter/nf_tables.h
-index 6f0a950e21c3..0b94e572ef16 100644
---- a/include/uapi/linux/netfilter/nf_tables.h
-+++ b/include/uapi/linux/netfilter/nf_tables.h
-@@ -1,7 +1,8 @@
- #ifndef _LINUX_NF_TABLES_H
- #define _LINUX_NF_TABLES_H
+ struct nft_rbtree_elem {
+@@ -40,8 +41,9 @@ static bool nft_rbtree_equal(const struct nft_set *set, const void *this,
+ 	return memcmp(this, nft_set_ext_key(&interval->ext), set->klen) == 0;
+ }
  
--#define NFT_TABLE_MAXNAMELEN	32
-+#define NFT_NAME_MAXLEN		256
-+#define NFT_TABLE_MAXNAMELEN	NFT_NAME_MAXLEN
- #define NFT_CHAIN_MAXNAMELEN	32
- #define NFT_SET_MAXNAMELEN	32
- #define NFT_OBJ_MAXNAMELEN	32
-diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
-index b77ad0813564..c2e392d5e512 100644
---- a/net/netfilter/nf_tables_api.c
-+++ b/net/netfilter/nf_tables_api.c
-@@ -726,7 +726,10 @@ static int nf_tables_newtable(struct net *net, struct sock *nlsk,
- 	if (table == NULL)
- 		goto err2;
- 
--	nla_strlcpy(table->name, name, NFT_TABLE_MAXNAMELEN);
-+	table->name = nla_strdup(name, GFP_KERNEL);
-+	if (table->name == NULL)
-+		goto err3;
-+
- 	INIT_LIST_HEAD(&table->chains);
- 	INIT_LIST_HEAD(&table->sets);
- 	INIT_LIST_HEAD(&table->objects);
-@@ -735,10 +738,12 @@ static int nf_tables_newtable(struct net *net, struct sock *nlsk,
- 	nft_ctx_init(&ctx, net, skb, nlh, afi, table, NULL, nla);
- 	err = nft_trans_table_add(&ctx, NFT_MSG_NEWTABLE);
- 	if (err < 0)
--		goto err3;
-+		goto err4;
- 
- 	list_add_tail_rcu(&table->list, &afi->tables);
- 	return 0;
-+err4:
-+	kfree(table->name);
- err3:
- 	kfree(table);
- err2:
-@@ -865,6 +870,7 @@ static void nf_tables_table_destroy(struct nft_ctx *ctx)
+-static bool nft_rbtree_lookup(const struct net *net, const struct nft_set *set,
+-			      const u32 *key, const struct nft_set_ext **ext)
++static bool __nft_rbtree_lookup(const struct net *net, const struct nft_set *set,
++				const u32 *key, const struct nft_set_ext **ext,
++				unsigned int seq)
  {
- 	BUG_ON(ctx->table->use > 0);
+ 	struct nft_rbtree *priv = nft_set_priv(set);
+ 	const struct nft_rbtree_elem *rbe, *interval = NULL;
+@@ -50,15 +52,17 @@ static bool nft_rbtree_lookup(const struct net *net, const struct nft_set *set,
+ 	const void *this;
+ 	int d;
  
-+	kfree(ctx->table->name);
- 	kfree(ctx->table);
- 	module_put(ctx->afi->owner);
- }
-@@ -1972,7 +1978,7 @@ static void nf_tables_rule_notify(const struct nft_ctx *ctx,
- }
+-	read_lock_bh(&priv->lock);
+-	parent = priv->root.rb_node;
++	parent = rcu_dereference_raw(priv->root.rb_node);
+ 	while (parent != NULL) {
++		if (read_seqcount_retry(&priv->count, seq))
++			return false;
++
+ 		rbe = rb_entry(parent, struct nft_rbtree_elem, node);
  
- struct nft_rule_dump_ctx {
--	char table[NFT_TABLE_MAXNAMELEN];
-+	char *table;
- 	char chain[NFT_CHAIN_MAXNAMELEN];
- };
- 
-@@ -1997,7 +2003,7 @@ static int nf_tables_dump_rules(struct sk_buff *skb,
- 			continue;
- 
- 		list_for_each_entry_rcu(table, &afi->tables, list) {
--			if (ctx && ctx->table[0] &&
-+			if (ctx && ctx->table &&
- 			    strcmp(ctx->table, table->name) != 0)
+ 		this = nft_set_ext_key(&rbe->ext);
+ 		d = memcmp(this, key, set->klen);
+ 		if (d < 0) {
+-			parent = parent->rb_left;
++			parent = rcu_dereference_raw(parent->rb_left);
+ 			if (interval &&
+ 			    nft_rbtree_equal(set, this, interval) &&
+ 			    nft_rbtree_interval_end(this) &&
+@@ -66,15 +70,14 @@ static bool nft_rbtree_lookup(const struct net *net, const struct nft_set *set,
  				continue;
+ 			interval = rbe;
+ 		} else if (d > 0)
+-			parent = parent->rb_right;
++			parent = rcu_dereference_raw(parent->rb_right);
+ 		else {
+ 			if (!nft_set_elem_active(&rbe->ext, genmask)) {
+-				parent = parent->rb_left;
++				parent = rcu_dereference_raw(parent->rb_left);
+ 				continue;
+ 			}
+ 			if (nft_rbtree_interval_end(rbe))
+ 				goto out;
+-			read_unlock_bh(&priv->lock);
  
-@@ -2037,7 +2043,12 @@ static int nf_tables_dump_rules(struct sk_buff *skb,
+ 			*ext = &rbe->ext;
+ 			return true;
+@@ -84,15 +87,32 @@ static bool nft_rbtree_lookup(const struct net *net, const struct nft_set *set,
+ 	if (set->flags & NFT_SET_INTERVAL && interval != NULL &&
+ 	    nft_set_elem_active(&interval->ext, genmask) &&
+ 	    !nft_rbtree_interval_end(interval)) {
+-		read_unlock_bh(&priv->lock);
+ 		*ext = &interval->ext;
+ 		return true;
+ 	}
+ out:
+-	read_unlock_bh(&priv->lock);
+ 	return false;
+ }
  
- static int nf_tables_dump_rules_done(struct netlink_callback *cb)
- {
--	kfree(cb->data);
-+	struct nft_rule_dump_ctx *ctx = cb->data;
++static bool nft_rbtree_lookup(const struct net *net, const struct nft_set *set,
++			      const u32 *key, const struct nft_set_ext **ext)
++{
++	struct nft_rbtree *priv = nft_set_priv(set);
++	unsigned int seq = read_seqcount_begin(&priv->count);
++	bool ret;
 +
-+	if (ctx) {
-+		kfree(ctx->table);
-+		kfree(ctx);
-+	}
++	ret = __nft_rbtree_lookup(net, set, key, ext, seq);
++	if (ret || !read_seqcount_retry(&priv->count, seq))
++		return ret;
++
++	read_lock_bh(&priv->lock);
++	seq = read_seqcount_begin(&priv->count);
++	ret = __nft_rbtree_lookup(net, set, key, ext, seq);
++	read_unlock_bh(&priv->lock);
++
++	return ret;
++}
++
+ static int __nft_rbtree_insert(const struct net *net, const struct nft_set *set,
+ 			       struct nft_rbtree_elem *new,
+ 			       struct nft_set_ext **ext)
+@@ -130,7 +150,7 @@ static int __nft_rbtree_insert(const struct net *net, const struct nft_set *set,
+ 			}
+ 		}
+ 	}
+-	rb_link_node(&new->node, parent, p);
++	rb_link_node_rcu(&new->node, parent, p);
+ 	rb_insert_color(&new->node, &priv->root);
  	return 0;
  }
+@@ -144,7 +164,9 @@ static int nft_rbtree_insert(const struct net *net, const struct nft_set *set,
+ 	int err;
  
-@@ -2069,9 +2080,14 @@ static int nf_tables_getrule(struct net *net, struct sock *nlsk,
- 			if (!ctx)
- 				return -ENOMEM;
+ 	write_lock_bh(&priv->lock);
++	write_seqcount_begin(&priv->count);
+ 	err = __nft_rbtree_insert(net, set, rbe, ext);
++	write_seqcount_end(&priv->count);
+ 	write_unlock_bh(&priv->lock);
  
--			if (nla[NFTA_RULE_TABLE])
--				nla_strlcpy(ctx->table, nla[NFTA_RULE_TABLE],
--					    sizeof(ctx->table));
-+			if (nla[NFTA_RULE_TABLE]) {
-+				ctx->table = nla_strdup(nla[NFTA_RULE_TABLE],
-+							GFP_KERNEL);
-+				if (!ctx->table) {
-+					kfree(ctx);
-+					return -ENOMEM;
-+				}
-+			}
- 			if (nla[NFTA_RULE_CHAIN])
- 				nla_strlcpy(ctx->chain, nla[NFTA_RULE_CHAIN],
- 					    sizeof(ctx->chain));
-@@ -4410,7 +4426,7 @@ static int nf_tables_fill_obj_info(struct sk_buff *skb, struct net *net,
+ 	return err;
+@@ -158,7 +180,9 @@ static void nft_rbtree_remove(const struct net *net,
+ 	struct nft_rbtree_elem *rbe = elem->priv;
+ 
+ 	write_lock_bh(&priv->lock);
++	write_seqcount_begin(&priv->count);
+ 	rb_erase(&rbe->node, &priv->root);
++	write_seqcount_end(&priv->count);
+ 	write_unlock_bh(&priv->lock);
  }
  
- struct nft_obj_filter {
--	char		table[NFT_OBJ_MAXNAMELEN];
-+	char		*table;
- 	u32		type;
- };
+@@ -264,6 +288,7 @@ static int nft_rbtree_init(const struct nft_set *set,
+ 	struct nft_rbtree *priv = nft_set_priv(set);
  
-@@ -4475,7 +4491,10 @@ static int nf_tables_dump_obj(struct sk_buff *skb, struct netlink_callback *cb)
- 
- static int nf_tables_dump_obj_done(struct netlink_callback *cb)
- {
--	kfree(cb->data);
-+	struct nft_obj_filter *filter = cb->data;
-+
-+	kfree(filter->table);
-+	kfree(filter);
- 
+ 	rwlock_init(&priv->lock);
++	seqcount_init(&priv->count);
+ 	priv->root = RB_ROOT;
  	return 0;
  }
-@@ -4489,9 +4508,13 @@ nft_obj_filter_alloc(const struct nlattr * const nla[])
- 	if (!filter)
- 		return ERR_PTR(-ENOMEM);
- 
--	if (nla[NFTA_OBJ_TABLE])
--		nla_strlcpy(filter->table, nla[NFTA_OBJ_TABLE],
--			    NFT_TABLE_MAXNAMELEN);
-+	if (nla[NFTA_OBJ_TABLE]) {
-+		filter->table = nla_strdup(nla[NFTA_OBJ_TABLE], GFP_KERNEL);
-+		if (!filter->table) {
-+			kfree(filter);
-+			return ERR_PTR(-ENOMEM);
-+		}
-+	}
- 	if (nla[NFTA_OBJ_TYPE])
- 		filter->type = ntohl(nla_get_be32(nla[NFTA_OBJ_TYPE]));
- 
-diff --git a/net/netfilter/nf_tables_trace.c b/net/netfilter/nf_tables_trace.c
-index 0c3a0049e4aa..62787d985e9d 100644
---- a/net/netfilter/nf_tables_trace.c
-+++ b/net/netfilter/nf_tables_trace.c
-@@ -175,7 +175,7 @@ void nft_trace_notify(struct nft_traceinfo *info)
- 		return;
- 
- 	size = nlmsg_total_size(sizeof(struct nfgenmsg)) +
--		nla_total_size(NFT_TABLE_MAXNAMELEN) +
-+		nla_total_size(strlen(info->chain->table->name)) +
- 		nla_total_size(NFT_CHAIN_MAXNAMELEN) +
- 		nla_total_size_64bit(sizeof(__be64)) +	/* rule handle */
- 		nla_total_size(sizeof(__be32)) +	/* trace type */
 -- 
 2.1.4
+
+
