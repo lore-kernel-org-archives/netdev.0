@@ -1,99 +1,72 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 11/47] netfilter: nfnetlink_queue: don't queue dying conntracks to userspace
-Date: Mon,  4 Sep 2017 00:27:11 +0200
-Message-ID: <1504477667-12130-2-git-send-email-pablo@netfilter.org>
-References: <1504477667-12130-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 10/47] netfilter: conntrack: destroy functions need to free queued packets
+Date: Mon,  4 Sep 2017 00:27:10 +0200
+Message-ID: <1504477667-12130-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1504477667-12130-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Florian Westphal <fw@strlen.de>
 
-When skb is queued to userspace it leaves softirq/rcu protection.
-skb->nfct (via conntrack extensions such as helper) could then reference
-modules that no longer exist if the conntrack was not yet confirmed.
+queued skbs might be using conntrack extensions that are being removed,
+such as timeout.  This happens for skbs that have a skb->nfct in
+unconfirmed state (i.e., not in hash table yet).
 
-nf_ct_iterate_destroy() will set the DYING bit for unconfirmed
-conntracks, we therefore solve this race as follows:
-
-1. take the queue spinlock.
-2. check if the conntrack is unconfirmed and has dying bit set.
-   In this case, we must discard skb while we're still inside
-   rcu read-side section.
-3. If nf_ct_iterate_destroy() is called right after the packet is queued
-   to userspace, it will be removed from the queue via
-   nf_ct_iterate_destroy -> nf_queue_nf_hook_drop.
-
-When userspace sends the verdict (nfnetlink takes rcu read lock), there
-are two cases to consider:
-
-1. nf_ct_iterate_destroy() was called while packet was out.
-   In this case, skb will have been removed from the queue already
-   and no reinject takes place as we won't find a matching entry for the
-   packet id.
-
-2. nf_ct_iterate_destroy() gets called right after verdict callback
-   found and removed the skb from queue list.
-
-   In this case, skb->nfct is marked as dying but it is still valid.
-   The skb will be dropped either in nf_conntrack_confirm (we don't
-   insert DYING conntracks into hash table) or when we try to queue
-   the skb again, but either events don't occur before the rcu read lock
-   is dropped.
+This is destructive, but there are only two use cases:
+ - module removal (rare)
+ - netns cleanup (most likely no conntracks exist, and if they do,
+   they are removed anyway later on).
 
 Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nfnetlink_queue.c | 19 +++++++++++++++++++
- 1 file changed, 19 insertions(+)
+ net/netfilter/nf_conntrack_core.c | 4 ++++
+ net/netfilter/nf_queue.c          | 1 +
+ 2 files changed, 5 insertions(+)
 
-diff --git a/net/netfilter/nfnetlink_queue.c b/net/netfilter/nfnetlink_queue.c
-index 7c543bfbf624..c9796629858f 100644
---- a/net/netfilter/nfnetlink_queue.c
-+++ b/net/netfilter/nfnetlink_queue.c
-@@ -41,6 +41,10 @@
- #include "../bridge/br_private.h"
- #endif
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+index 80ab4e937765..2bc499186186 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -56,6 +56,8 @@
+ #include <net/netfilter/nf_nat_helper.h>
+ #include <net/netns/hash.h>
  
-+#if IS_ENABLED(CONFIG_NF_CONNTRACK)
-+#include <net/netfilter/nf_conntrack.h>
-+#endif
++#include "nf_internals.h"
 +
- #define NFQNL_QMAX_DEFAULT 1024
+ #define NF_CONNTRACK_VERSION	"0.5.0"
  
- /* We're using struct nlattr which has 16bit nla_len. Note that nla_len
-@@ -612,6 +616,18 @@ nfqnl_build_packet_message(struct net *net, struct nfqnl_instance *queue,
- 	return NULL;
- }
+ int (*nfnetlink_parse_nat_setup_hook)(struct nf_conn *ct,
+@@ -1692,6 +1694,7 @@ void nf_ct_unconfirmed_destroy(struct net *net)
  
-+static bool nf_ct_drop_unconfirmed(const struct nf_queue_entry *entry)
-+{
-+#if IS_ENABLED(CONFIG_NF_CONNTRACK)
-+	static const unsigned long flags = IPS_CONFIRMED | IPS_DYING;
-+	const struct nf_conn *ct = (void *)skb_nfct(entry->skb);
-+
-+	if (ct && ((ct->status & flags) == IPS_DYING))
-+		return true;
-+#endif
-+	return false;
-+}
-+
- static int
- __nfqnl_enqueue_packet(struct net *net, struct nfqnl_instance *queue,
- 			struct nf_queue_entry *entry)
-@@ -628,6 +644,9 @@ __nfqnl_enqueue_packet(struct net *net, struct nfqnl_instance *queue,
+ 	if (atomic_read(&net->ct.count) > 0) {
+ 		__nf_ct_unconfirmed_destroy(net);
++		nf_queue_nf_hook_drop(net);
+ 		synchronize_net();
  	}
- 	spin_lock_bh(&queue->lock);
+ }
+@@ -1737,6 +1740,7 @@ nf_ct_iterate_destroy(int (*iter)(struct nf_conn *i, void *data), void *data)
+ 		if (atomic_read(&net->ct.count) == 0)
+ 			continue;
+ 		__nf_ct_unconfirmed_destroy(net);
++		nf_queue_nf_hook_drop(net);
+ 	}
+ 	rtnl_unlock();
  
-+	if (nf_ct_drop_unconfirmed(entry))
-+		goto err_out_free_nskb;
-+
- 	if (queue->queue_total >= queue->queue_maxlen) {
- 		if (queue->flags & NFQA_CFG_F_FAIL_OPEN) {
- 			failopen = 1;
+diff --git a/net/netfilter/nf_queue.c b/net/netfilter/nf_queue.c
+index 043850c9d154..4f4d80a58fb5 100644
+--- a/net/netfilter/nf_queue.c
++++ b/net/netfilter/nf_queue.c
+@@ -109,6 +109,7 @@ unsigned int nf_queue_nf_hook_drop(struct net *net)
+ 
+ 	return count;
+ }
++EXPORT_SYMBOL_GPL(nf_queue_nf_hook_drop);
+ 
+ static int __nf_queue(struct sk_buff *skb, const struct nf_hook_state *state,
+ 		      struct nf_hook_entry *hook_entry, unsigned int queuenum)
 -- 
 2.1.4
 
