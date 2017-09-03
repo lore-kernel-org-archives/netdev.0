@@ -1,168 +1,60 @@
-From: Joel Fernandes <joelaf@google.com>
-Subject: [PATCH RFC v3 3/4] samples/bpf: Fix pt_regs issues when cross-compiling
-Date: Sun,  3 Sep 2017 11:25:48 -0700
-Message-ID: <20170903182549.30866-3-joelaf@google.com>
-References: <20170903182549.30866-1-joelaf@google.com>
-Cc: kernel-team@android.com, Juri Lelli <juri.lelli@arm.com>,
-        Alison Chaiken <alison@she-devel.com>,
-        Chenbo Feng <fengc@google.com>,
-        Joel Fernandes <joelaf@google.com>,
-        Alexei Starovoitov <ast@kernel.org>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        David Miller <davem@davemloft.net>
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170903182549.30866-1-joelaf@google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [PATCH] Fix build on fedora-14 (and other older systems)
+Date: Sun, 3 Sep 2017 11:28:20 -0700
+Message-ID: <7cdfe2a6-9235-ce67-e5d6-db39ed03c936@candelatech.com>
+References: <1504361702-30266-1-git-send-email-greearb@candelatech.com>
+ <20170903085004.5b5ded4f@xeon-e3>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail2.candelatech.com ([208.74.158.173]:55638 "EHLO
+        mail2.candelatech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751287AbdICS2W (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 3 Sep 2017 14:28:22 -0400
+In-Reply-To: <20170903085004.5b5ded4f@xeon-e3>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-BPF samples fail to build when cross-compiling for ARM64 because of incorrect
-pt_regs param selection. This is because clang defines __x86_64__ and
-bpf_headers thinks we're building for x86. Since clang is building for the BPF
-target, it shouldn't make assumptions about what target the BPF program is
-going to run on. To fix this, lets pass ARCH so the header knows which target
-the BPF program is being compiled for and can use the correct pt_regs code.
 
-CC: Alexei Starovoitov <ast@kernel.org>
-CC: Daniel Borkmann <daniel@iogearbox.net>
-Cc: David Miller <davem@davemloft.net>
-Signed-off-by: Joel Fernandes <joelaf@google.com>
----
- samples/bpf/Makefile                      |  2 +-
- tools/testing/selftests/bpf/bpf_helpers.h | 56 +++++++++++++++++++++++++++----
- 2 files changed, 50 insertions(+), 8 deletions(-)
 
-diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
-index 13f74b67ca44..ebc2ad69b62c 100644
---- a/samples/bpf/Makefile
-+++ b/samples/bpf/Makefile
-@@ -230,7 +230,7 @@ $(obj)/%.o: $(src)/%.c
- 	$(CLANG) $(NOSTDINC_FLAGS) $(LINUXINCLUDE) $(EXTRA_CFLAGS) -I$(obj) \
- 		-I$(srctree)/tools/testing/selftests/bpf/ \
- 		-D__KERNEL__ -D__ASM_SYSREG_H -Wno-unused-value -Wno-pointer-sign \
--		-Wno-compare-distinct-pointer-types \
-+		-D__TARGET_ARCH_$(ARCH) -Wno-compare-distinct-pointer-types \
- 		-Wno-gnu-variable-sized-type-not-at-end \
- 		-Wno-address-of-packed-member -Wno-tautological-compare \
- 		-Wno-unknown-warning-option \
-diff --git a/tools/testing/selftests/bpf/bpf_helpers.h b/tools/testing/selftests/bpf/bpf_helpers.h
-index 36fb9161b34a..4875395b0b52 100644
---- a/tools/testing/selftests/bpf/bpf_helpers.h
-+++ b/tools/testing/selftests/bpf/bpf_helpers.h
-@@ -109,7 +109,47 @@ static int (*bpf_skb_under_cgroup)(void *ctx, void *map, int index) =
- static int (*bpf_skb_change_head)(void *, int len, int flags) =
- 	(void *) BPF_FUNC_skb_change_head;
- 
-+/* Scan the ARCH passed in from ARCH env variable (see Makefile) */
-+#if defined(__TARGET_ARCH_x86)
-+	#define bpf_target_x86
-+	#define bpf_target_defined
-+#elif defined(__TARGET_ARCH_s930x)
-+	#define bpf_target_s930x
-+	#define bpf_target_defined
-+#elif defined(__TARGET_ARCH_arm64)
-+	#define bpf_target_arm64
-+	#define bpf_target_defined
-+#elif defined(__TARGET_ARCH_mips)
-+	#define bpf_target_mips
-+	#define bpf_target_defined
-+#elif defined(__TARGET_ARCH_powerpc)
-+	#define bpf_target_powerpc
-+	#define bpf_target_defined
-+#elif defined(__TARGET_ARCH_sparc)
-+	#define bpf_target_sparc
-+	#define bpf_target_defined
-+#else
-+	#undef bpf_target_defined
-+#endif
-+
-+/* Fall back to what the compiler says */
-+#ifndef bpf_target_defined
- #if defined(__x86_64__)
-+	#define bpf_target_x86
-+#elif defined(__s390x__)
-+	#define bpf_target_s930x
-+#elif defined(__aarch64__)
-+	#define bpf_target_arm64
-+#elif defined(__mips__)
-+	#define bpf_target_mips
-+#elif defined(__powerpc__)
-+	#define bpf_target_powerpc
-+#elif defined(__sparc__)
-+	#define bpf_target_sparc
-+#endif
-+#endif
-+
-+#if defined(bpf_target_x86)
- 
- #define PT_REGS_PARM1(x) ((x)->di)
- #define PT_REGS_PARM2(x) ((x)->si)
-@@ -122,7 +162,7 @@ static int (*bpf_skb_change_head)(void *, int len, int flags) =
- #define PT_REGS_SP(x) ((x)->sp)
- #define PT_REGS_IP(x) ((x)->ip)
- 
--#elif defined(__s390x__)
-+#elif defined(bpf_target_s390x)
- 
- #define PT_REGS_PARM1(x) ((x)->gprs[2])
- #define PT_REGS_PARM2(x) ((x)->gprs[3])
-@@ -135,7 +175,7 @@ static int (*bpf_skb_change_head)(void *, int len, int flags) =
- #define PT_REGS_SP(x) ((x)->gprs[15])
- #define PT_REGS_IP(x) ((x)->psw.addr)
- 
--#elif defined(__aarch64__)
-+#elif defined(bpf_target_arm64)
- 
- #define PT_REGS_PARM1(x) ((x)->regs[0])
- #define PT_REGS_PARM2(x) ((x)->regs[1])
-@@ -148,7 +188,7 @@ static int (*bpf_skb_change_head)(void *, int len, int flags) =
- #define PT_REGS_SP(x) ((x)->sp)
- #define PT_REGS_IP(x) ((x)->pc)
- 
--#elif defined(__mips__)
-+#elif defined(bpf_target_mips)
- 
- #define PT_REGS_PARM1(x) ((x)->regs[4])
- #define PT_REGS_PARM2(x) ((x)->regs[5])
-@@ -161,7 +201,7 @@ static int (*bpf_skb_change_head)(void *, int len, int flags) =
- #define PT_REGS_SP(x) ((x)->regs[29])
- #define PT_REGS_IP(x) ((x)->cp0_epc)
- 
--#elif defined(__powerpc__)
-+#elif defined(bpf_target_powerpc)
- 
- #define PT_REGS_PARM1(x) ((x)->gpr[3])
- #define PT_REGS_PARM2(x) ((x)->gpr[4])
-@@ -172,7 +212,7 @@ static int (*bpf_skb_change_head)(void *, int len, int flags) =
- #define PT_REGS_SP(x) ((x)->sp)
- #define PT_REGS_IP(x) ((x)->nip)
- 
--#elif defined(__sparc__)
-+#elif defined(bpf_target_sparc)
- 
- #define PT_REGS_PARM1(x) ((x)->u_regs[UREG_I0])
- #define PT_REGS_PARM2(x) ((x)->u_regs[UREG_I1])
-@@ -182,6 +222,8 @@ static int (*bpf_skb_change_head)(void *, int len, int flags) =
- #define PT_REGS_RET(x) ((x)->u_regs[UREG_I7])
- #define PT_REGS_RC(x) ((x)->u_regs[UREG_I0])
- #define PT_REGS_SP(x) ((x)->u_regs[UREG_FP])
-+
-+/* Should this also be a bpf_target check for the sparc case? */
- #if defined(__arch64__)
- #define PT_REGS_IP(x) ((x)->tpc)
- #else
-@@ -190,10 +232,10 @@ static int (*bpf_skb_change_head)(void *, int len, int flags) =
- 
- #endif
- 
--#ifdef __powerpc__
-+#ifdef bpf_target_powerpc
- #define BPF_KPROBE_READ_RET_IP(ip, ctx)		({ (ip) = (ctx)->link; })
- #define BPF_KRETPROBE_READ_RET_IP		BPF_KPROBE_READ_RET_IP
--#elif defined(__sparc__)
-+#elif bpf_target_sparc
- #define BPF_KPROBE_READ_RET_IP(ip, ctx)		({ (ip) = PT_REGS_RET(ctx); })
- #define BPF_KRETPROBE_READ_RET_IP		BPF_KPROBE_READ_RET_IP
- #else
+On 09/03/2017 08:50 AM, Stephen Hemminger wrote:
+> On Sat,  2 Sep 2017 07:15:02 -0700
+> greearb@candelatech.com wrote:
+>
+>> diff --git a/include/linux/sysinfo.h b/include/linux/sysinfo.h
+>> index 934335a..3596b02 100644
+>> --- a/include/linux/sysinfo.h
+>> +++ b/include/linux/sysinfo.h
+>> @@ -3,6 +3,14 @@
+>>
+>>  #include <linux/types.h>
+>>
+>> +/* So we can compile on older OSs, hopefully this is correct. --Ben */
+>> +#ifndef __kernel_long_t
+>> +typedef long __kernel_long_t;
+>> +#endif
+>> +#ifndef __kernel_ulong_t
+>> +typedef unsigned long __kernel_ulong_t;
+>> +#endif
+>> +
+>>  #define SI_LOAD_SHIFT	16
+>>  struct sysinfo {
+>>  	__kernel_long_t uptime;		/* Seconds since boot */
+>
+> I am not accepting this patch because all files in include/linux are automatically
+> regenerated from kernel 'make install_headers'. No exceptions. If you want to change
+> a header in include/linux it has to go through upstream kernel inclusion.
+
+It would be wrong to add this to the actual kernel header I think.
+
+Do you have another suggestion for fixing iproute2 compile?
+
+Thanks,
+Ben
+
 -- 
-2.14.1.581.gf28d330327-goog
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
