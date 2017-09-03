@@ -1,155 +1,85 @@
-From: Bjorn Andersson <bjorn.andersson@linaro.org>
-Subject: Re: [PATCH 2/2] Bluetooth: btqcomsmd: BD address setup
-Date: Sun, 3 Sep 2017 14:10:12 -0700
-Message-ID: <20170903211012.GJ2016@tuxbook>
-References: <20170901204118.17123-1-bjorn.andersson@linaro.org>
- <20170901204118.17123-3-bjorn.andersson@linaro.org>
- <5EC41247-54CD-4F1D-84EC-E94F80A67805@holtmann.org>
- <CAL_JsqK7skzd1c4Y2nxfspA-CeyK4dqjJB2L3tZztT=w8y4==w@mail.gmail.com>
- <CD710538-22CB-45E5-B54E-ACB97E84D42E@holtmann.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 8bit
-Cc: Rob Herring <robh@kernel.org>,
-        "Gustavo F. Padovan" <gustavo@padovan.org>,
-        Johan Hedberg <johan.hedberg@gmail.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        "open list:BLUETOOTH DRIVERS" <linux-bluetooth@vger.kernel.org>,
-        Network Development <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        linux-arm-msm <linux-arm-msm@vger.kernel.org>,
-        Loic Poulain <loic.poulain@linaro.org>
-To: Marcel Holtmann <marcel@holtmann.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CD710538-22CB-45E5-B54E-ACB97E84D42E@holtmann.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH nf-next 5/5] netfilter: nf_tables: support for recursive chain deletion
+Date: Sun,  3 Sep 2017 23:56:01 +0200
+Message-ID: <1504475761-11454-3-git-send-email-pablo@netfilter.org>
+References: <1504475761-11454-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1504475761-11454-1-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri 01 Sep 23:12 PDT 2017, Marcel Holtmann wrote:
+This patch sorts out an asymmetry in deletions. Currently, table and set
+deletion commands come with an implicit content flush on deletion.
+However, chain deletion results in -EBUSY if there is content in this
+chain, so no implicit flush happens. So you have to send a flush command
+in first place to delete chains, this is inconsistent and it can be
+annoying in terms of user experience.
 
-> Hi Rob,
-> 
-> >>> Bluetooth BD address can be retrieved in the same way as
-> >>> for wcnss-wlan MAC address. This patch mainly stores the
-> >>> local-mac-address property and sets the BD address during
-> >>> hci device setup.
-> >>> 
-> >>> Signed-off-by: Loic Poulain <loic.poulain@linaro.org>
-> >>> Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
-> >>> ---
-> >>> drivers/bluetooth/btqcomsmd.c | 28 ++++++++++++++++++++++++++++
-> >>> 1 file changed, 28 insertions(+)
-> >>> 
-> >>> diff --git a/drivers/bluetooth/btqcomsmd.c b/drivers/bluetooth/btqcomsmd.c
-> >>> index d00c4fdae924..443bb2099329 100644
-> >>> --- a/drivers/bluetooth/btqcomsmd.c
-> >>> +++ b/drivers/bluetooth/btqcomsmd.c
-> >>> @@ -26,6 +26,7 @@
-> >>> struct btqcomsmd {
-> >>>      struct hci_dev *hdev;
-> >>> 
-> >>> +     const bdaddr_t *addr;
-> >>>      struct rpmsg_endpoint *acl_channel;
-> >>>      struct rpmsg_endpoint *cmd_channel;
-> >>> };
-> >>> @@ -100,6 +101,27 @@ static int btqcomsmd_close(struct hci_dev *hdev)
-> >>>      return 0;
-> >>> }
-> >>> 
-> >>> +static int btqcomsmd_setup(struct hci_dev *hdev)
-> >>> +{
-> >>> +     struct btqcomsmd *btq = hci_get_drvdata(hdev);
-> >>> +     struct sk_buff *skb;
-> >>> +
-> >>> +     skb = __hci_cmd_sync(hdev, HCI_OP_RESET, 0, NULL, HCI_INIT_TIMEOUT);
-> >>> +     if (IS_ERR(skb))
-> >>> +             return PTR_ERR(skb);
-> >>> +     kfree_skb(skb);
-> >>> +
-> >>> +     if (btq->addr) {
-> >>> +             bdaddr_t bdaddr;
-> >>> +
-> >>> +             /* btq->addr stored with most significant byte first */
-> >>> +             baswap(&bdaddr, btq->addr);
-> >>> +             return qca_set_bdaddr_rome(hdev, &bdaddr);
-> >>> +     }
-> >>> +
-> >>> +     return 0;
-> >>> +}
-> >>> +
-> >>> static int btqcomsmd_probe(struct platform_device *pdev)
-> >>> {
-> >>>      struct btqcomsmd *btq;
-> >>> @@ -123,6 +145,11 @@ static int btqcomsmd_probe(struct platform_device *pdev)
-> >>>      if (IS_ERR(btq->cmd_channel))
-> >>>              return PTR_ERR(btq->cmd_channel);
-> >>> 
-> >>> +     btq->addr = of_get_property(pdev->dev.of_node, "local-mac-address",
-> >>> +                                 &ret);
-> >>> +     if (ret != sizeof(bdaddr_t))
-> >>> +             btq->addr = NULL;
-> >>> +
-> >>>      hdev = hci_alloc_dev();
-> >>>      if (!hdev)
-> >>>              return -ENOMEM;
-> >>> @@ -135,6 +162,7 @@ static int btqcomsmd_probe(struct platform_device *pdev)
-> >>>      hdev->open = btqcomsmd_open;
-> >>>      hdev->close = btqcomsmd_close;
-> >>>      hdev->send = btqcomsmd_send;
-> >>> +     hdev->setup = btqcomsmd_setup;
-> >>>      hdev->set_bdaddr = qca_set_bdaddr_rome;
-> >> 
-> >> I do not like this patch. Why not just set HCI_QUIRK_INVALID_BDADDR and let a userspace tool deal with reading the BD_ADDR from some storage.
-> >> 
-> >> Frankly I do not get this WiFI MAC address or BD_ADDR stored in DT. I assumed the DT is suppose to describe hardware and not some value that is normally retrieved for OTP or alike.
-> > 
-> > Use of "local-mac-address" for ethernet at least has existed as long
-> > at OpenFirmware I think. For some platforms, DT is the only OTP. And
-> > sometimes, the bootloader (like u-boot) stores MAC addresses and then
-> > populates them on boot.
-> > 
-> > Seems like if we just let userspace deal with it, then we're back to a
-> > btattach tool with every platform's specific way of reading the MAC
-> > address.
-> 
-> for Bluetooth that is not true. We have Set Public Address command
-> that is uniquely handling this and the HCI_QUIRK_INVALID_BDADDR
-> address does the right magic to allow userspace to identify a missing
-> address. It is done nicely and correctly and works fine.
-> 
+This patch uses the new NLM_F_NONREC flag to request non-recursive chain
+deletion, ie. if the chain to be removed contains rules, then this
+returns EBUSY. This problem was discussed during the NFWS'17 in Faro,
+Portugal. In iptables, you hit -EBUSY if you try to delete a chain that
+contains rules, so you have to flush first before you can remove
+anything. Since iptables-compat uses the nf_tables netlink interface, it
+has to use the NLM_F_NONREC flag from userspace to retain the original
+iptables semantics, ie.  bail out on removing chains that contain rules.
 
-You're right in that we have a nice standardized way of informing user
-space that the bd address is invalid and a nice standardized way for the
-user to specify an address.
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ net/netfilter/nf_tables_api.c | 24 +++++++++++++++++++++++-
+ 1 file changed, 23 insertions(+), 1 deletion(-)
 
-What I believe Rob is saying (and what is my problem) is that the user
-space tool reading the address from somewhere and calling this API is
-not standard - so we end up maintaining some custom
-"read-address-and-call-public-address"-tool for both Debian and
-OpenEmbedded, plus we need to ensure that all our customers include and
-launch this tool in their own systems.
-
-> Mind you this is even used when there actually is a BD_ADDR, but the
-> device manufacturer wants to have one from its own OUI range compared
-> to the chip manufacturer’s OUI range.
-> 
-> If DT is really the only place for the BD_ADDR and the bootloader
-> kinda does add / merge it into the DT, then by all means that is fine.
-> However if it is not, then this feature is dangerous since it can lead
-> to multiple devices with the same address. I rather have these devices
-> leave the kernel in unconfigured mode. And then force a userspace tool
-> to use Set Public Address to bring it into configured mode.
-> 
-
-The "new" property is optional and think that for devices that has not
-been provisioned with a bd address the boot loader should not add this
-property.
+diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
+index 2ea043e5b344..5e2cfdbd51bd 100644
+--- a/net/netfilter/nf_tables_api.c
++++ b/net/netfilter/nf_tables_api.c
+@@ -1617,8 +1617,11 @@ static int nf_tables_delchain(struct net *net, struct sock *nlsk,
+ 	struct nft_af_info *afi;
+ 	struct nft_table *table;
+ 	struct nft_chain *chain;
++	struct nft_rule *rule;
+ 	int family = nfmsg->nfgen_family;
+ 	struct nft_ctx ctx;
++	u32 use;
++	int err;
+ 
+ 	afi = nf_tables_afinfo_lookup(net, family, false);
+ 	if (IS_ERR(afi))
+@@ -1631,11 +1634,30 @@ static int nf_tables_delchain(struct net *net, struct sock *nlsk,
+ 	chain = nf_tables_chain_lookup(table, nla[NFTA_CHAIN_NAME], genmask);
+ 	if (IS_ERR(chain))
+ 		return PTR_ERR(chain);
+-	if (chain->use > 0)
++
++	if (nlh->nlmsg_flags & NLM_F_NONREC &&
++	    chain->use > 0)
+ 		return -EBUSY;
+ 
+ 	nft_ctx_init(&ctx, net, skb, nlh, afi, table, chain, nla);
+ 
++	use = chain->use;
++	list_for_each_entry(rule, &chain->rules, list) {
++		if (!nft_is_active_next(net, rule))
++			continue;
++		use--;
++
++		err = nft_delrule(&ctx, rule);
++		if (err < 0)
++			return err;
++	}
++
++	/* There are rules and elements that are still holding references to us,
++	 * we cannot do a recursive removal in this case.
++	 */
++	if (use > 0)
++		return -EBUSY;
++
+ 	return nft_delchain(&ctx);
+ }
+ 
+-- 
+2.1.4
 
 
-Base on the fact that the firmware is built with the assumption that the
-host will set the bd address I think the patch should be amended to
-specify HCI_QUIRK_INVALID_BDADDR in the absence of this property.
-
-Regards,
-Bjorn
