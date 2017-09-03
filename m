@@ -1,126 +1,346 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 3/6] nfp: move the start/stop app callbacks back
-Date: Sat,  2 Sep 2017 18:26:02 -0700
-Message-ID: <20170903012605.7435-4-jakub.kicinski@netronome.com>
+Subject: [PATCH net-next 1/6] nfp: separate app vNIC init/clean from alloc/free
+Date: Sat,  2 Sep 2017 18:26:00 -0700
+Message-ID: <20170903012605.7435-2-jakub.kicinski@netronome.com>
 References: <20170903012605.7435-1-jakub.kicinski@netronome.com>
 Cc: oss-drivers@netronome.com,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f169.google.com ([209.85.192.169]:32884 "EHLO
-        mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752959AbdICB0Q (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 2 Sep 2017 21:26:16 -0400
-Received: by mail-pf0-f169.google.com with SMTP id n73so9572532pfj.0
-        for <netdev@vger.kernel.org>; Sat, 02 Sep 2017 18:26:16 -0700 (PDT)
+Received: from mail-pg0-f41.google.com ([74.125.83.41]:35662 "EHLO
+        mail-pg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752952AbdICB0O (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 2 Sep 2017 21:26:14 -0400
+Received: by mail-pg0-f41.google.com with SMTP id 63so9891469pgc.2
+        for <netdev@vger.kernel.org>; Sat, 02 Sep 2017 18:26:14 -0700 (PDT)
 In-Reply-To: <20170903012605.7435-1-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since representors are now created with a separate callback
-start/stop app callbacks can be moved again to their original
-location.  They are intended to app-specific init/clean up
-over the control channel.
+We currently only have one app callback for vNIC creation
+and destruction.  This is insufficient, because some actions
+have to be taken before netdev is registered, after it's
+registered and after it's unregistered.  Old callbacks
+were really corresponding to alloc/free actions.  Rename
+them and add proper init/clean.  Apps using representors
+will be able to use new callbacks to manage lifetime of
+upper devices.
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 Reviewed-by: Simon Horman <simon.horman@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/nfp_net_main.c | 26 ++++++++++-------------
- 1 file changed, 11 insertions(+), 15 deletions(-)
+ drivers/net/ethernet/netronome/nfp/bpf/main.c     | 10 +++----
+ drivers/net/ethernet/netronome/nfp/flower/cmsg.c  |  2 +-
+ drivers/net/ethernet/netronome/nfp/flower/main.c  | 27 +++++++++++++----
+ drivers/net/ethernet/netronome/nfp/flower/main.h  |  2 ++
+ drivers/net/ethernet/netronome/nfp/nfp_app.c      |  2 +-
+ drivers/net/ethernet/netronome/nfp/nfp_app.h      | 35 +++++++++++++++++------
+ drivers/net/ethernet/netronome/nfp/nfp_app_nic.c  |  4 +--
+ drivers/net/ethernet/netronome/nfp/nfp_net_main.c | 16 +++++++++--
+ drivers/net/ethernet/netronome/nfp/nic/main.c     |  2 +-
+ 9 files changed, 73 insertions(+), 27 deletions(-)
 
+diff --git a/drivers/net/ethernet/netronome/nfp/bpf/main.c b/drivers/net/ethernet/netronome/nfp/bpf/main.c
+index f4de3a7377b0..be2cf10a2cd7 100644
+--- a/drivers/net/ethernet/netronome/nfp/bpf/main.c
++++ b/drivers/net/ethernet/netronome/nfp/bpf/main.c
+@@ -84,7 +84,7 @@ static const char *nfp_bpf_extra_cap(struct nfp_app *app, struct nfp_net *nn)
+ }
+ 
+ static int
+-nfp_bpf_vnic_init(struct nfp_app *app, struct nfp_net *nn, unsigned int id)
++nfp_bpf_vnic_alloc(struct nfp_app *app, struct nfp_net *nn, unsigned int id)
+ {
+ 	struct nfp_net_bpf_priv *priv;
+ 	int ret;
+@@ -106,14 +106,14 @@ nfp_bpf_vnic_init(struct nfp_app *app, struct nfp_net *nn, unsigned int id)
+ 	setup_timer(&priv->rx_filter_stats_timer,
+ 		    nfp_net_filter_stats_timer, (unsigned long)nn);
+ 
+-	ret = nfp_app_nic_vnic_init(app, nn, id);
++	ret = nfp_app_nic_vnic_alloc(app, nn, id);
+ 	if (ret)
+ 		kfree(priv);
+ 
+ 	return ret;
+ }
+ 
+-static void nfp_bpf_vnic_clean(struct nfp_app *app, struct nfp_net *nn)
++static void nfp_bpf_vnic_free(struct nfp_app *app, struct nfp_net *nn)
+ {
+ 	if (nn->dp.bpf_offload_xdp)
+ 		nfp_bpf_xdp_offload(app, nn, NULL);
+@@ -149,8 +149,8 @@ const struct nfp_app_type app_bpf = {
+ 
+ 	.extra_cap	= nfp_bpf_extra_cap,
+ 
+-	.vnic_init	= nfp_bpf_vnic_init,
+-	.vnic_clean	= nfp_bpf_vnic_clean,
++	.vnic_alloc	= nfp_bpf_vnic_alloc,
++	.vnic_free	= nfp_bpf_vnic_free,
+ 
+ 	.setup_tc	= nfp_bpf_setup_tc,
+ 	.tc_busy	= nfp_bpf_tc_busy,
+diff --git a/drivers/net/ethernet/netronome/nfp/flower/cmsg.c b/drivers/net/ethernet/netronome/nfp/flower/cmsg.c
+index 806924b82adc..d82d9888d676 100644
+--- a/drivers/net/ethernet/netronome/nfp/flower/cmsg.c
++++ b/drivers/net/ethernet/netronome/nfp/flower/cmsg.c
+@@ -203,7 +203,7 @@ void nfp_flower_cmsg_process_rx(struct work_struct *work)
+ 	priv = container_of(work, struct nfp_flower_priv, cmsg_work);
+ 
+ 	while ((skb = skb_dequeue(&priv->cmsg_skbs)))
+-		nfp_flower_cmsg_process_one_rx(priv->nn->app, skb);
++		nfp_flower_cmsg_process_one_rx(priv->app, skb);
+ }
+ 
+ void nfp_flower_cmsg_rx(struct nfp_app *app, struct sk_buff *skb)
+diff --git a/drivers/net/ethernet/netronome/nfp/flower/main.c b/drivers/net/ethernet/netronome/nfp/flower/main.c
+index 126a6b5233bf..db59858c0f19 100644
+--- a/drivers/net/ethernet/netronome/nfp/flower/main.c
++++ b/drivers/net/ethernet/netronome/nfp/flower/main.c
+@@ -313,18 +313,14 @@ static int nfp_flower_start(struct nfp_app *app)
+ 					   NFP_REPR_TYPE_PF, 1);
+ }
+ 
+-static int nfp_flower_vnic_init(struct nfp_app *app, struct nfp_net *nn,
+-				unsigned int id)
++static int nfp_flower_vnic_alloc(struct nfp_app *app, struct nfp_net *nn,
++				 unsigned int id)
+ {
+-	struct nfp_flower_priv *priv = app->priv;
+-
+ 	if (id > 0) {
+ 		nfp_warn(app->cpp, "FlowerNIC doesn't support more than one data vNIC\n");
+ 		goto err_invalid_port;
+ 	}
+ 
+-	priv->nn = nn;
+-
+ 	eth_hw_addr_random(nn->dp.netdev);
+ 	netif_keep_dst(nn->dp.netdev);
+ 
+@@ -335,6 +331,22 @@ static int nfp_flower_vnic_init(struct nfp_app *app, struct nfp_net *nn,
+ 	return PTR_ERR_OR_ZERO(nn->port);
+ }
+ 
++static void nfp_flower_vnic_clean(struct nfp_app *app, struct nfp_net *nn)
++{
++	struct nfp_flower_priv *priv = app->priv;
++
++	priv->nn = NULL;
++}
++
++static int nfp_flower_vnic_init(struct nfp_app *app, struct nfp_net *nn)
++{
++	struct nfp_flower_priv *priv = app->priv;
++
++	priv->nn = nn;
++
++	return 0;
++}
++
+ static int nfp_flower_init(struct nfp_app *app)
+ {
+ 	const struct nfp_pf *pf = app->pf;
+@@ -374,6 +386,7 @@ static int nfp_flower_init(struct nfp_app *app)
+ 		return -ENOMEM;
+ 
+ 	app->priv = app_priv;
++	app_priv->app = app;
+ 	skb_queue_head_init(&app_priv->cmsg_skbs);
+ 	INIT_WORK(&app_priv->cmsg_work, nfp_flower_cmsg_process_rx);
+ 
+@@ -410,7 +423,9 @@ const struct nfp_app_type app_flower = {
+ 	.init		= nfp_flower_init,
+ 	.clean		= nfp_flower_clean,
+ 
++	.vnic_alloc	= nfp_flower_vnic_alloc,
+ 	.vnic_init	= nfp_flower_vnic_init,
++	.vnic_clean	= nfp_flower_vnic_clean,
+ 
+ 	.repr_open	= nfp_flower_repr_netdev_open,
+ 	.repr_stop	= nfp_flower_repr_netdev_stop,
+diff --git a/drivers/net/ethernet/netronome/nfp/flower/main.h b/drivers/net/ethernet/netronome/nfp/flower/main.h
+index b7043ca9b9fc..c20dd00a1cae 100644
+--- a/drivers/net/ethernet/netronome/nfp/flower/main.h
++++ b/drivers/net/ethernet/netronome/nfp/flower/main.h
+@@ -72,6 +72,7 @@ struct nfp_fl_stats_id {
+ 
+ /**
+  * struct nfp_flower_priv - Flower APP per-vNIC priv data
++ * @app:		Back pointer to app
+  * @nn:			Pointer to vNIC
+  * @mask_id_seed:	Seed used for mask hash table
+  * @flower_version:	HW version of flower
+@@ -83,6 +84,7 @@ struct nfp_fl_stats_id {
+  * @cmsg_skbs:		List of skbs for control message processing
+  */
+ struct nfp_flower_priv {
++	struct nfp_app *app;
+ 	struct nfp_net *nn;
+ 	u32 mask_id_seed;
+ 	u64 flower_version;
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_app.c b/drivers/net/ethernet/netronome/nfp/nfp_app.c
+index 505e63f47419..82c290763529 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_app.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_app.c
+@@ -125,7 +125,7 @@ struct nfp_app *nfp_app_alloc(struct nfp_pf *pf, enum nfp_app_id id)
+ 		return ERR_PTR(-EINVAL);
+ 	}
+ 
+-	if (WARN_ON(!apps[i]->name || !apps[i]->vnic_init))
++	if (WARN_ON(!apps[i]->name || !apps[i]->vnic_alloc))
+ 		return ERR_PTR(-EINVAL);
+ 
+ 	app = kzalloc(sizeof(*app), GFP_KERNEL);
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_app.h b/drivers/net/ethernet/netronome/nfp/nfp_app.h
+index c13b9bbe7e62..af640b5c2108 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_app.h
++++ b/drivers/net/ethernet/netronome/nfp/nfp_app.h
+@@ -69,8 +69,10 @@ extern const struct nfp_app_type app_flower;
+  * @init:	perform basic app checks and init
+  * @clean:	clean app state
+  * @extra_cap:	extra capabilities string
+- * @vnic_init:	init vNICs (assign port types, etc.)
+- * @vnic_clean:	clean up app's vNIC state
++ * @vnic_alloc:	allocate vNICs (assign port types, etc.)
++ * @vnic_free:	free up app's vNIC state
++ * @vnic_init:	vNIC netdev was registered
++ * @vnic_clean:	vNIC netdev about to be unregistered
+  * @repr_open:	representor netdev open callback
+  * @repr_stop:	representor netdev stop callback
+  * @start:	start application logic
+@@ -95,8 +97,10 @@ struct nfp_app_type {
+ 
+ 	const char *(*extra_cap)(struct nfp_app *app, struct nfp_net *nn);
+ 
+-	int (*vnic_init)(struct nfp_app *app, struct nfp_net *nn,
+-			 unsigned int id);
++	int (*vnic_alloc)(struct nfp_app *app, struct nfp_net *nn,
++			  unsigned int id);
++	void (*vnic_free)(struct nfp_app *app, struct nfp_net *nn);
++	int (*vnic_init)(struct nfp_app *app, struct nfp_net *nn);
+ 	void (*vnic_clean)(struct nfp_app *app, struct nfp_net *nn);
+ 
+ 	int (*repr_open)(struct nfp_app *app, struct nfp_repr *repr);
+@@ -157,10 +161,23 @@ static inline void nfp_app_clean(struct nfp_app *app)
+ 		app->type->clean(app);
+ }
+ 
+-static inline int nfp_app_vnic_init(struct nfp_app *app, struct nfp_net *nn,
+-				    unsigned int id)
++static inline int nfp_app_vnic_alloc(struct nfp_app *app, struct nfp_net *nn,
++				     unsigned int id)
+ {
+-	return app->type->vnic_init(app, nn, id);
++	return app->type->vnic_alloc(app, nn, id);
++}
++
++static inline void nfp_app_vnic_free(struct nfp_app *app, struct nfp_net *nn)
++{
++	if (app->type->vnic_free)
++		app->type->vnic_free(app, nn);
++}
++
++static inline int nfp_app_vnic_init(struct nfp_app *app, struct nfp_net *nn)
++{
++	if (!app->type->vnic_init)
++		return 0;
++	return app->type->vnic_init(app, nn);
+ }
+ 
+ static inline void nfp_app_vnic_clean(struct nfp_app *app, struct nfp_net *nn)
+@@ -308,7 +325,7 @@ void nfp_app_free(struct nfp_app *app);
+ 
+ /* Callbacks shared between apps */
+ 
+-int nfp_app_nic_vnic_init(struct nfp_app *app, struct nfp_net *nn,
+-			  unsigned int id);
++int nfp_app_nic_vnic_alloc(struct nfp_app *app, struct nfp_net *nn,
++			   unsigned int id);
+ 
+ #endif
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_app_nic.c b/drivers/net/ethernet/netronome/nfp/nfp_app_nic.c
+index 4e37c81f9eaf..2a2f2fbc8850 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_app_nic.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_app_nic.c
+@@ -60,8 +60,8 @@ nfp_app_nic_vnic_init_phy_port(struct nfp_pf *pf, struct nfp_app *app,
+ 	return nn->port->type == NFP_PORT_INVALID;
+ }
+ 
+-int nfp_app_nic_vnic_init(struct nfp_app *app, struct nfp_net *nn,
+-			  unsigned int id)
++int nfp_app_nic_vnic_alloc(struct nfp_app *app, struct nfp_net *nn,
++			   unsigned int id)
+ {
+ 	int err;
+ 
 diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-index f2a1a4e2ce8b..5abb9ba31e7d 100644
+index 7c22cc4654b7..f2a1a4e2ce8b 100644
 --- a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
 +++ b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
-@@ -469,10 +469,14 @@ static int nfp_net_pf_app_start(struct nfp_pf *pf)
+@@ -161,6 +161,8 @@ nfp_net_pf_map_rtsym(struct nfp_pf *pf, const char *name, const char *sym_fmt,
+ 
+ static void nfp_net_pf_free_vnic(struct nfp_pf *pf, struct nfp_net *nn)
  {
- 	int err;
++	if (nfp_net_is_data_vnic(nn))
++		nfp_app_vnic_free(pf->app, nn);
+ 	nfp_port_free(nn->port);
+ 	list_del(&nn->vnic_list);
+ 	pf->num_vnics--;
+@@ -205,7 +207,7 @@ nfp_net_pf_alloc_vnic(struct nfp_pf *pf, bool needs_netdev,
+ 	nn->stride_tx = stride;
  
--	err = nfp_app_start(pf->app, pf->ctrl_vnic);
-+	err = nfp_net_pf_app_start_ctrl(pf);
- 	if (err)
- 		return err;
+ 	if (needs_netdev) {
+-		err = nfp_app_vnic_init(pf->app, nn, id);
++		err = nfp_app_vnic_alloc(pf->app, nn, id);
+ 		if (err) {
+ 			nfp_net_free(nn);
+ 			return ERR_PTR(err);
+@@ -243,8 +245,17 @@ nfp_net_pf_init_vnic(struct nfp_pf *pf, struct nfp_net *nn, unsigned int id)
  
-+	err = nfp_app_start(pf->app, pf->ctrl_vnic);
-+	if (err)
-+		goto err_ctrl_stop;
+ 	nfp_net_info(nn);
+ 
++	if (nfp_net_is_data_vnic(nn)) {
++		err = nfp_app_vnic_init(pf->app, nn);
++		if (err)
++			goto err_devlink_port_clean;
++	}
 +
- 	if (pf->num_vfs) {
- 		err = nfp_app_sriov_enable(pf->app, pf->num_vfs);
- 		if (err)
-@@ -483,6 +487,8 @@ static int nfp_net_pf_app_start(struct nfp_pf *pf)
- 
- err_app_stop:
- 	nfp_app_stop(pf->app);
-+err_ctrl_stop:
-+	nfp_net_pf_app_stop_ctrl(pf);
- 	return err;
- }
- 
-@@ -491,6 +497,7 @@ static void nfp_net_pf_app_stop(struct nfp_pf *pf)
- 	if (pf->num_vfs)
- 		nfp_app_sriov_disable(pf->app);
- 	nfp_app_stop(pf->app);
-+	nfp_net_pf_app_stop_ctrl(pf);
- }
- 
- static void nfp_net_pci_unmap_mem(struct nfp_pf *pf)
-@@ -582,7 +589,7 @@ static int nfp_net_pci_map_mem(struct nfp_pf *pf)
- 
- static void nfp_net_pci_remove_finish(struct nfp_pf *pf)
- {
--	nfp_net_pf_app_stop_ctrl(pf);
-+	nfp_net_pf_app_stop(pf);
- 	/* stop app first, to avoid double free of ctrl vNIC's ddir */
- 	nfp_net_debugfs_dir_clean(&pf->ddir);
- 
-@@ -713,7 +720,6 @@ int nfp_net_pci_probe(struct nfp_pf *pf)
- {
- 	struct nfp_net_fw_version fw_ver;
- 	u8 __iomem *ctrl_bar, *qc_bar;
--	struct nfp_net *nn;
- 	int stride;
- 	int err;
- 
-@@ -790,7 +796,7 @@ int nfp_net_pci_probe(struct nfp_pf *pf)
- 	if (err)
- 		goto err_free_vnics;
- 
--	err = nfp_net_pf_app_start_ctrl(pf);
-+	err = nfp_net_pf_app_start(pf);
- 	if (err)
- 		goto err_free_irqs;
- 
-@@ -798,20 +804,12 @@ int nfp_net_pci_probe(struct nfp_pf *pf)
- 	if (err)
- 		goto err_stop_app;
- 
--	err = nfp_net_pf_app_start(pf);
--	if (err)
--		goto err_clean_vnics;
--
- 	mutex_unlock(&pf->lock);
- 
  	return 0;
  
--err_clean_vnics:
--	list_for_each_entry(nn, &pf->vnics, vnic_list)
--		if (nfp_net_is_data_vnic(nn))
--			nfp_net_pf_clean_vnic(pf, nn);
- err_stop_app:
--	nfp_net_pf_app_stop_ctrl(pf);
-+	nfp_net_pf_app_stop(pf);
- err_free_irqs:
- 	nfp_net_pf_free_irqs(pf);
- err_free_vnics:
-@@ -835,8 +833,6 @@ void nfp_net_pci_remove(struct nfp_pf *pf)
- 	if (list_empty(&pf->vnics))
- 		goto out;
++err_devlink_port_clean:
++	if (nn->port)
++		nfp_devlink_port_unregister(nn->port);
+ err_dfs_clean:
+ 	nfp_net_debugfs_dir_clean(&nn->debugfs_dir);
+ 	nfp_net_clean(nn);
+@@ -288,11 +299,12 @@ nfp_net_pf_alloc_vnics(struct nfp_pf *pf, void __iomem *ctrl_bar,
  
--	nfp_net_pf_app_stop(pf);
--
- 	list_for_each_entry(nn, &pf->vnics, vnic_list)
- 		if (nfp_net_is_data_vnic(nn))
- 			nfp_net_pf_clean_vnic(pf, nn);
+ static void nfp_net_pf_clean_vnic(struct nfp_pf *pf, struct nfp_net *nn)
+ {
++	if (nfp_net_is_data_vnic(nn))
++		nfp_app_vnic_clean(pf->app, nn);
+ 	if (nn->port)
+ 		nfp_devlink_port_unregister(nn->port);
+ 	nfp_net_debugfs_dir_clean(&nn->debugfs_dir);
+ 	nfp_net_clean(nn);
+-	nfp_app_vnic_clean(pf->app, nn);
+ }
+ 
+ static int nfp_net_pf_alloc_irqs(struct nfp_pf *pf)
+diff --git a/drivers/net/ethernet/netronome/nfp/nic/main.c b/drivers/net/ethernet/netronome/nfp/nic/main.c
+index 8287a85d22c1..d5b587fccaa3 100644
+--- a/drivers/net/ethernet/netronome/nfp/nic/main.c
++++ b/drivers/net/ethernet/netronome/nfp/nic/main.c
+@@ -63,7 +63,7 @@ const struct nfp_app_type app_nic = {
+ 	.name		= "nic",
+ 
+ 	.init		= nfp_nic_init,
+-	.vnic_init	= nfp_app_nic_vnic_init,
++	.vnic_alloc	= nfp_app_nic_vnic_alloc,
+ 
+ 	.sriov_enable	= nfp_nic_sriov_enable,
+ 	.sriov_disable	= nfp_nic_sriov_disable,
 -- 
 2.14.1
