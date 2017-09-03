@@ -1,43 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ipv4: Don't override return code from
- ip_route_input_noref()
-Date: Sun, 03 Sep 2017 10:55:48 -0700 (PDT)
-Message-ID: <20170903.105548.660408350943707381.davem@davemloft.net>
-References: <c4d8970306e614ac139cf2f33ab5e6bb73b30154.1504194307.git.sbrivio@redhat.com>
-        <20170831234506.GA1838@bistromath.localdomain>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH][next] net/mlx4_core: fix incorrect size allocation for
+ dev->caps.spec_qps
+Date: Sun, 03 Sep 2017 10:57:38 -0700 (PDT)
+Message-ID: <20170903.105738.1741058008003610763.davem@davemloft.net>
+References: <20170831170724.3747-1-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sbrivio@redhat.com, netdev@vger.kernel.org, weiwan@google.com
-To: sd@queasysnail.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:56354 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753061AbdICRzt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 3 Sep 2017 13:55:49 -0400
-In-Reply-To: <20170831234506.GA1838@bistromath.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: tariqt-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170831170724.3747-1-colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Sabrina Dubroca <sd@queasysnail.net>
-Date: Fri, 1 Sep 2017 01:45:06 +0200
+From: Colin King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Date: Thu, 31 Aug 2017 18:07:24 +0100
 
-> 2017-08-31, 18:11:41 +0200, Stefano Brivio wrote:
->> After ip_route_input() calls ip_route_input_noref(), another
->> check on skb_dst() is done, but if this fails, we shouldn't
->> override the return code from ip_route_input_noref(), as it
->> could have been more specific (i.e. -EHOSTUNREACH).
->> 
->> This also saves one call to skb_dst_force_safe() and one to
->> skb_dst() in case the ip_route_input_noref() check fails.
->> 
->> Reported-by: Sabrina Dubroca <sdubroca@redhat.com>
->> Fixes: ad65a2f05695 ("ipv4: call dst_hold_safe() properly")
+> From: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
 > 
-> That should be instead:
+> The current allocation for dev->caps.spec_qps is for the size of the
+> pointer and not the size of the actual  mlx4_spec_qps structure.  Fix
+> this by using the correct size.   Also splint allocation over a few
+> lines to make it cppcheck clean on overly wide lines.
 > 
-> Fixes: 9df16efadd2a ("ipv4: call dst_hold_safe() properly")
+> Detected by CoverityScan, CID#1455222 ("Wrong sizeof argument")
 > 
-> Acked-by: Sabrina Dubroca <sd@queasysnail.net>
+> Fixes: c73c8b1e47ca ("net/mlx4_core: Dynamically allocate structs at mlx4_slave_cap")
+> Signed-off-by: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
 
-Applied with fixed Fixes: tag, thanks.
+Applied.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
