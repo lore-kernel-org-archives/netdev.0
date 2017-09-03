@@ -1,175 +1,100 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 05/47] netfilter: nf_tables: fib: use skb_header_pointer
-Date: Mon,  4 Sep 2017 00:25:47 +0200
-Message-ID: <1504477589-12045-6-git-send-email-pablo@netfilter.org>
-References: <1504477589-12045-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 11/47] netfilter: nfnetlink_queue: don't queue dying conntracks to userspace
+Date: Mon,  4 Sep 2017 00:27:11 +0200
+Message-ID: <1504477667-12130-2-git-send-email-pablo@netfilter.org>
+References: <1504477667-12130-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:50808 "EHLO mail.us.es"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753152AbdICW0m (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 3 Sep 2017 18:26:42 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id 96917190F6D
-        for <netdev@vger.kernel.org>; Mon,  4 Sep 2017 00:26:15 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 80F7EB502E
-        for <netdev@vger.kernel.org>; Mon,  4 Sep 2017 00:26:15 +0200 (CEST)
-In-Reply-To: <1504477589-12045-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1504477667-12130-1-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Pablo M. Bermudo Garay" <pablombg@gmail.com>
+From: Florian Westphal <fw@strlen.de>
 
-This is a preparatory patch for adding fib support to the netdev family.
+When skb is queued to userspace it leaves softirq/rcu protection.
+skb->nfct (via conntrack extensions such as helper) could then reference
+modules that no longer exist if the conntrack was not yet confirmed.
 
-The netdev family receives the packets from ingress hook. At this point
-we have no guarantee that the ip header is linear. So this patch
-replaces ip_hdr with skb_header_pointer in order to address that
-possible situation.
+nf_ct_iterate_destroy() will set the DYING bit for unconfirmed
+conntracks, we therefore solve this race as follows:
 
-Signed-off-by: Pablo M. Bermudo Garay <pablombg@gmail.com>
+1. take the queue spinlock.
+2. check if the conntrack is unconfirmed and has dying bit set.
+   In this case, we must discard skb while we're still inside
+   rcu read-side section.
+3. If nf_ct_iterate_destroy() is called right after the packet is queued
+   to userspace, it will be removed from the queue via
+   nf_ct_iterate_destroy -> nf_queue_nf_hook_drop.
+
+When userspace sends the verdict (nfnetlink takes rcu read lock), there
+are two cases to consider:
+
+1. nf_ct_iterate_destroy() was called while packet was out.
+   In this case, skb will have been removed from the queue already
+   and no reinject takes place as we won't find a matching entry for the
+   packet id.
+
+2. nf_ct_iterate_destroy() gets called right after verdict callback
+   found and removed the skb from queue list.
+
+   In this case, skb->nfct is marked as dying but it is still valid.
+   The skb will be dropped either in nf_conntrack_confirm (we don't
+   insert DYING conntracks into hash table) or when we try to queue
+   the skb again, but either events don't occur before the rcu read lock
+   is dropped.
+
+Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/ipv4/netfilter/nft_fib_ipv4.c | 20 ++++++++++++++++----
- net/ipv6/netfilter/nft_fib_ipv6.c | 29 +++++++++++++++++++++++------
- 2 files changed, 39 insertions(+), 10 deletions(-)
+ net/netfilter/nfnetlink_queue.c | 19 +++++++++++++++++++
+ 1 file changed, 19 insertions(+)
 
-diff --git a/net/ipv4/netfilter/nft_fib_ipv4.c b/net/ipv4/netfilter/nft_fib_ipv4.c
-index de3681df2ce7..e50976e3c213 100644
---- a/net/ipv4/netfilter/nft_fib_ipv4.c
-+++ b/net/ipv4/netfilter/nft_fib_ipv4.c
-@@ -32,9 +32,10 @@ void nft_fib4_eval_type(const struct nft_expr *expr, struct nft_regs *regs,
- 			const struct nft_pktinfo *pkt)
- {
- 	const struct nft_fib *priv = nft_expr_priv(expr);
-+	int noff = skb_network_offset(pkt->skb);
- 	u32 *dst = &regs->data[priv->dreg];
- 	const struct net_device *dev = NULL;
--	const struct iphdr *iph;
-+	struct iphdr *iph, _iph;
- 	__be32 addr;
+diff --git a/net/netfilter/nfnetlink_queue.c b/net/netfilter/nfnetlink_queue.c
+index 7c543bfbf624..c9796629858f 100644
+--- a/net/netfilter/nfnetlink_queue.c
++++ b/net/netfilter/nfnetlink_queue.c
+@@ -41,6 +41,10 @@
+ #include "../bridge/br_private.h"
+ #endif
  
- 	if (priv->flags & NFTA_FIB_F_IIF)
-@@ -42,7 +43,12 @@ void nft_fib4_eval_type(const struct nft_expr *expr, struct nft_regs *regs,
- 	else if (priv->flags & NFTA_FIB_F_OIF)
- 		dev = nft_out(pkt);
- 
--	iph = ip_hdr(pkt->skb);
-+	iph = skb_header_pointer(pkt->skb, noff, sizeof(_iph), &_iph);
-+	if (!iph) {
-+		regs->verdict.code = NFT_BREAK;
-+		return;
-+	}
++#if IS_ENABLED(CONFIG_NF_CONNTRACK)
++#include <net/netfilter/nf_conntrack.h>
++#endif
 +
- 	if (priv->flags & NFTA_FIB_F_DADDR)
- 		addr = iph->daddr;
- 	else
-@@ -61,8 +67,9 @@ void nft_fib4_eval(const struct nft_expr *expr, struct nft_regs *regs,
- 		   const struct nft_pktinfo *pkt)
- {
- 	const struct nft_fib *priv = nft_expr_priv(expr);
-+	int noff = skb_network_offset(pkt->skb);
- 	u32 *dest = &regs->data[priv->dreg];
--	const struct iphdr *iph;
-+	struct iphdr *iph, _iph;
- 	struct fib_result res;
- 	struct flowi4 fl4 = {
- 		.flowi4_scope = RT_SCOPE_UNIVERSE,
-@@ -95,7 +102,12 @@ void nft_fib4_eval(const struct nft_expr *expr, struct nft_regs *regs,
- 		return;
+ #define NFQNL_QMAX_DEFAULT 1024
+ 
+ /* We're using struct nlattr which has 16bit nla_len. Note that nla_len
+@@ -612,6 +616,18 @@ nfqnl_build_packet_message(struct net *net, struct nfqnl_instance *queue,
+ 	return NULL;
+ }
+ 
++static bool nf_ct_drop_unconfirmed(const struct nf_queue_entry *entry)
++{
++#if IS_ENABLED(CONFIG_NF_CONNTRACK)
++	static const unsigned long flags = IPS_CONFIRMED | IPS_DYING;
++	const struct nf_conn *ct = (void *)skb_nfct(entry->skb);
++
++	if (ct && ((ct->status & flags) == IPS_DYING))
++		return true;
++#endif
++	return false;
++}
++
+ static int
+ __nfqnl_enqueue_packet(struct net *net, struct nfqnl_instance *queue,
+ 			struct nf_queue_entry *entry)
+@@ -628,6 +644,9 @@ __nfqnl_enqueue_packet(struct net *net, struct nfqnl_instance *queue,
  	}
+ 	spin_lock_bh(&queue->lock);
  
--	iph = ip_hdr(pkt->skb);
-+	iph = skb_header_pointer(pkt->skb, noff, sizeof(_iph), &_iph);
-+	if (!iph) {
-+		regs->verdict.code = NFT_BREAK;
-+		return;
-+	}
++	if (nf_ct_drop_unconfirmed(entry))
++		goto err_out_free_nskb;
 +
- 	if (ipv4_is_zeronet(iph->saddr)) {
- 		if (ipv4_is_lbcast(iph->daddr) ||
- 		    ipv4_is_local_multicast(iph->daddr)) {
-diff --git a/net/ipv6/netfilter/nft_fib_ipv6.c b/net/ipv6/netfilter/nft_fib_ipv6.c
-index 43f91d9b086c..54b5899543ef 100644
---- a/net/ipv6/netfilter/nft_fib_ipv6.c
-+++ b/net/ipv6/netfilter/nft_fib_ipv6.c
-@@ -25,9 +25,9 @@ static int get_ifindex(const struct net_device *dev)
- 
- static int nft_fib6_flowi_init(struct flowi6 *fl6, const struct nft_fib *priv,
- 			       const struct nft_pktinfo *pkt,
--			       const struct net_device *dev)
-+			       const struct net_device *dev,
-+			       struct ipv6hdr *iph)
- {
--	const struct ipv6hdr *iph = ipv6_hdr(pkt->skb);
- 	int lookup_flags = 0;
- 
- 	if (priv->flags & NFTA_FIB_F_DADDR) {
-@@ -55,7 +55,8 @@ static int nft_fib6_flowi_init(struct flowi6 *fl6, const struct nft_fib *priv,
- }
- 
- static u32 __nft_fib6_eval_type(const struct nft_fib *priv,
--				const struct nft_pktinfo *pkt)
-+				const struct nft_pktinfo *pkt,
-+				struct ipv6hdr *iph)
- {
- 	const struct net_device *dev = NULL;
- 	const struct nf_ipv6_ops *v6ops;
-@@ -77,7 +78,7 @@ static u32 __nft_fib6_eval_type(const struct nft_fib *priv,
- 	else if (priv->flags & NFTA_FIB_F_OIF)
- 		dev = nft_out(pkt);
- 
--	nft_fib6_flowi_init(&fl6, priv, pkt, dev);
-+	nft_fib6_flowi_init(&fl6, priv, pkt, dev, iph);
- 
- 	v6ops = nf_get_ipv6_ops();
- 	if (dev && v6ops && v6ops->chk_addr(nft_net(pkt), &fl6.daddr, dev, true))
-@@ -131,9 +132,17 @@ void nft_fib6_eval_type(const struct nft_expr *expr, struct nft_regs *regs,
- 			const struct nft_pktinfo *pkt)
- {
- 	const struct nft_fib *priv = nft_expr_priv(expr);
-+	int noff = skb_network_offset(pkt->skb);
- 	u32 *dest = &regs->data[priv->dreg];
-+	struct ipv6hdr *iph, _iph;
- 
--	*dest = __nft_fib6_eval_type(priv, pkt);
-+	iph = skb_header_pointer(pkt->skb, noff, sizeof(_iph), &_iph);
-+	if (!iph) {
-+		regs->verdict.code = NFT_BREAK;
-+		return;
-+	}
-+
-+	*dest = __nft_fib6_eval_type(priv, pkt, iph);
- }
- EXPORT_SYMBOL_GPL(nft_fib6_eval_type);
- 
-@@ -141,8 +150,10 @@ void nft_fib6_eval(const struct nft_expr *expr, struct nft_regs *regs,
- 		   const struct nft_pktinfo *pkt)
- {
- 	const struct nft_fib *priv = nft_expr_priv(expr);
-+	int noff = skb_network_offset(pkt->skb);
- 	const struct net_device *oif = NULL;
- 	u32 *dest = &regs->data[priv->dreg];
-+	struct ipv6hdr *iph, _iph;
- 	struct flowi6 fl6 = {
- 		.flowi6_iif = LOOPBACK_IFINDEX,
- 		.flowi6_proto = pkt->tprot,
-@@ -155,7 +166,13 @@ void nft_fib6_eval(const struct nft_expr *expr, struct nft_regs *regs,
- 	else if (priv->flags & NFTA_FIB_F_OIF)
- 		oif = nft_out(pkt);
- 
--	lookup_flags = nft_fib6_flowi_init(&fl6, priv, pkt, oif);
-+	iph = skb_header_pointer(pkt->skb, noff, sizeof(_iph), &_iph);
-+	if (!iph) {
-+		regs->verdict.code = NFT_BREAK;
-+		return;
-+	}
-+
-+	lookup_flags = nft_fib6_flowi_init(&fl6, priv, pkt, oif, iph);
- 
- 	if (nft_hook(pkt) == NF_INET_PRE_ROUTING &&
- 	    nft_fib_is_loopback(pkt->skb, nft_in(pkt))) {
+ 	if (queue->queue_total >= queue->queue_maxlen) {
+ 		if (queue->flags & NFQA_CFG_F_FAIL_OPEN) {
+ 			failopen = 1;
 -- 
 2.1.4
+
+
