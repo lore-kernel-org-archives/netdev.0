@@ -1,83 +1,204 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 27/47] netfilter: exthdr: factor out tcp option access
-Date: Mon,  4 Sep 2017 00:40:15 +0200
-Message-ID: <1504478435-13160-5-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 32/47] netfilter: conntrack: compute l3proto nla size at compile time
+Date: Mon,  4 Sep 2017 00:40:20 +0200
+Message-ID: <1504478435-13160-10-git-send-email-pablo@netfilter.org>
 References: <1504478435-13160-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:52698 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:52766 "EHLO mail.us.es"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753168AbdICWky (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 3 Sep 2017 18:40:54 -0400
+        id S1753305AbdICWlA (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 3 Sep 2017 18:41:00 -0400
 Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id 97DCE190F67
-        for <netdev@vger.kernel.org>; Mon,  4 Sep 2017 00:40:27 +0200 (CEST)
+        by mail.us.es (Postfix) with ESMTP id 67E45190F61
+        for <netdev@vger.kernel.org>; Mon,  4 Sep 2017 00:40:33 +0200 (CEST)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 7B3BDB5056
-        for <netdev@vger.kernel.org>; Mon,  4 Sep 2017 00:40:27 +0200 (CEST)
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 59ADEB503F
+        for <netdev@vger.kernel.org>; Mon,  4 Sep 2017 00:40:33 +0200 (CEST)
 In-Reply-To: <1504478435-13160-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Florian Westphal <fw@strlen.de>
 
+avoids a pointer and allows struct to be const later on.
+
 Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nft_exthdr.c | 33 +++++++++++++++++++++------------
- 1 file changed, 21 insertions(+), 12 deletions(-)
+ include/net/netfilter/nf_conntrack_l3proto.h   | 19 ++++++++-----------
+ net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c | 13 +++++++------
+ net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c | 14 ++++++++------
+ net/netfilter/nf_conntrack_netlink.c           |  3 ++-
+ net/netfilter/nf_conntrack_proto.c             |  9 +++------
+ 5 files changed, 28 insertions(+), 30 deletions(-)
 
-diff --git a/net/netfilter/nft_exthdr.c b/net/netfilter/nft_exthdr.c
-index 1ec49fe5845f..921c95f2c583 100644
---- a/net/netfilter/nft_exthdr.c
-+++ b/net/netfilter/nft_exthdr.c
-@@ -61,6 +61,26 @@ static void nft_exthdr_ipv6_eval(const struct nft_expr *expr,
- 	regs->verdict.code = NFT_BREAK;
+diff --git a/include/net/netfilter/nf_conntrack_l3proto.h b/include/net/netfilter/nf_conntrack_l3proto.h
+index 1b8de164d744..6a27ffea7480 100644
+--- a/include/net/netfilter/nf_conntrack_l3proto.h
++++ b/include/net/netfilter/nf_conntrack_l3proto.h
+@@ -20,6 +20,9 @@ struct nf_conntrack_l3proto {
+ 	/* L3 Protocol Family number. ex) PF_INET */
+ 	u_int16_t l3proto;
+ 
++	/* size of tuple nlattr, fills a hole */
++	u16 nla_size;
++
+ 	/* Protocol name */
+ 	const char *name;
+ 
+@@ -49,23 +52,17 @@ struct nf_conntrack_l3proto {
+ 	int (*get_l4proto)(const struct sk_buff *skb, unsigned int nhoff,
+ 			   unsigned int *dataoff, u_int8_t *protonum);
+ 
++#if IS_ENABLED(CONFIG_NF_CT_NETLINK)
+ 	int (*tuple_to_nlattr)(struct sk_buff *skb,
+ 			       const struct nf_conntrack_tuple *t);
+-
+-	/* Called when netns wants to use connection tracking */
+-	int (*net_ns_get)(struct net *);
+-	void (*net_ns_put)(struct net *);
+-
+-	/*
+-	 * Calculate size of tuple nlattr
+-	 */
+-	int (*nlattr_tuple_size)(void);
+-
+ 	int (*nlattr_to_tuple)(struct nlattr *tb[],
+ 			       struct nf_conntrack_tuple *t);
+ 	const struct nla_policy *nla_policy;
++#endif
+ 
+-	size_t nla_size;
++	/* Called when netns wants to use connection tracking */
++	int (*net_ns_get)(struct net *);
++	void (*net_ns_put)(struct net *);
+ 
+ 	/* Module (if any) which this is connected to. */
+ 	struct module *me;
+diff --git a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
+index de5f0e6ddd1b..9fb8cb033d80 100644
+--- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
++++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
+@@ -303,11 +303,6 @@ static int ipv4_nlattr_to_tuple(struct nlattr *tb[],
+ 
+ 	return 0;
  }
- 
-+static void *
-+nft_tcp_header_pointer(const struct nft_pktinfo *pkt,
-+		       unsigned int len, void *buffer, unsigned int *tcphdr_len)
-+{
-+	struct tcphdr *tcph;
-+
-+	if (!pkt->tprot_set || pkt->tprot != IPPROTO_TCP)
-+		return NULL;
-+
-+	tcph = skb_header_pointer(pkt->skb, pkt->xt.thoff, sizeof(*tcph), buffer);
-+	if (!tcph)
-+		return NULL;
-+
-+	*tcphdr_len = __tcp_hdrlen(tcph);
-+	if (*tcphdr_len < sizeof(*tcph) || *tcphdr_len > len)
-+		return NULL;
-+
-+	return skb_header_pointer(pkt->skb, pkt->xt.thoff, *tcphdr_len, buffer);
-+}
-+
- static void nft_exthdr_tcp_eval(const struct nft_expr *expr,
- 				struct nft_regs *regs,
- 				const struct nft_pktinfo *pkt)
-@@ -72,18 +92,7 @@ static void nft_exthdr_tcp_eval(const struct nft_expr *expr,
- 	struct tcphdr *tcph;
- 	u8 *opt;
- 
--	if (!pkt->tprot_set || pkt->tprot != IPPROTO_TCP)
--		goto err;
 -
--	tcph = skb_header_pointer(pkt->skb, pkt->xt.thoff, sizeof(*tcph), buff);
--	if (!tcph)
--		goto err;
--
--	tcphdr_len = __tcp_hdrlen(tcph);
--	if (tcphdr_len < sizeof(*tcph))
--		goto err;
--
--	tcph = skb_header_pointer(pkt->skb, pkt->xt.thoff, tcphdr_len, buff);
-+	tcph = nft_tcp_header_pointer(pkt, sizeof(buff), buff, &tcphdr_len);
- 	if (!tcph)
- 		goto err;
+-static int ipv4_nlattr_tuple_size(void)
+-{
+-	return nla_policy_len(ipv4_nla_policy, CTA_IP_MAX + 1);
+-}
+ #endif
  
+ static struct nf_sockopt_ops so_getorigdst = {
+@@ -365,9 +360,10 @@ struct nf_conntrack_l3proto nf_conntrack_l3proto_ipv4 __read_mostly = {
+ 	.get_l4proto	 = ipv4_get_l4proto,
+ #if IS_ENABLED(CONFIG_NF_CT_NETLINK)
+ 	.tuple_to_nlattr = ipv4_tuple_to_nlattr,
+-	.nlattr_tuple_size = ipv4_nlattr_tuple_size,
+ 	.nlattr_to_tuple = ipv4_nlattr_to_tuple,
+ 	.nla_policy	 = ipv4_nla_policy,
++	.nla_size	 = NLA_ALIGN(NLA_HDRLEN + sizeof(u32)) + /* CTA_IP_V4_SRC */
++			   NLA_ALIGN(NLA_HDRLEN + sizeof(u32)),  /* CTA_IP_V4_DST */
+ #endif
+ 	.net_ns_get	 = ipv4_hooks_register,
+ 	.net_ns_put	 = ipv4_hooks_unregister,
+@@ -421,6 +417,11 @@ static int __init nf_conntrack_l3proto_ipv4_init(void)
+ 
+ 	need_conntrack();
+ 
++#if IS_ENABLED(CONFIG_NF_CT_NETLINK)
++	if (WARN_ON(nla_policy_len(ipv4_nla_policy, CTA_IP_MAX + 1) !=
++	    nf_conntrack_l3proto_ipv4.nla_size))
++		return -EINVAL;
++#endif
+ 	ret = nf_register_sockopt(&so_getorigdst);
+ 	if (ret < 0) {
+ 		pr_err("Unable to register netfilter socket option\n");
+diff --git a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
+index ddef5ee9e0a8..6b4d59fd0214 100644
+--- a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
++++ b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
+@@ -308,11 +308,6 @@ static int ipv6_nlattr_to_tuple(struct nlattr *tb[],
+ 
+ 	return 0;
+ }
+-
+-static int ipv6_nlattr_tuple_size(void)
+-{
+-	return nla_policy_len(ipv6_nla_policy, CTA_IP_MAX + 1);
+-}
+ #endif
+ 
+ static int ipv6_hooks_register(struct net *net)
+@@ -360,9 +355,10 @@ struct nf_conntrack_l3proto nf_conntrack_l3proto_ipv6 __read_mostly = {
+ 	.get_l4proto		= ipv6_get_l4proto,
+ #if IS_ENABLED(CONFIG_NF_CT_NETLINK)
+ 	.tuple_to_nlattr	= ipv6_tuple_to_nlattr,
+-	.nlattr_tuple_size	= ipv6_nlattr_tuple_size,
+ 	.nlattr_to_tuple	= ipv6_nlattr_to_tuple,
+ 	.nla_policy		= ipv6_nla_policy,
++	.nla_size		= NLA_ALIGN(NLA_HDRLEN + sizeof(u32[4])) +
++				  NLA_ALIGN(NLA_HDRLEN + sizeof(u32[4])),
+ #endif
+ 	.net_ns_get		= ipv6_hooks_register,
+ 	.net_ns_put		= ipv6_hooks_unregister,
+@@ -421,6 +417,12 @@ static int __init nf_conntrack_l3proto_ipv6_init(void)
+ 
+ 	need_conntrack();
+ 
++#if IS_ENABLED(CONFIG_NF_CT_NETLINK)
++	if (WARN_ON(nla_policy_len(ipv6_nla_policy, CTA_IP_MAX + 1) !=
++	    nf_conntrack_l3proto_ipv6.nla_size))
++		return -EINVAL;
++#endif
++
+ 	ret = nf_register_sockopt(&so_getorigdst6);
+ 	if (ret < 0) {
+ 		pr_err("Unable to register netfilter socket option\n");
+diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
+index f4ca48817f66..b59a453a0fd8 100644
+--- a/net/netfilter/nf_conntrack_netlink.c
++++ b/net/netfilter/nf_conntrack_netlink.c
+@@ -540,7 +540,8 @@ static inline size_t ctnetlink_proto_size(const struct nf_conn *ct)
+ 	size_t len = 0;
+ 
+ 	l3proto = __nf_ct_l3proto_find(nf_ct_l3num(ct));
+-	len += l3proto->nla_size;
++	len = l3proto->nla_size;
++	len *= 3u; /* ORIG, REPLY, MASTER */
+ 
+ 	l4proto = __nf_ct_l4proto_find(nf_ct_l3num(ct), nf_ct_protonum(ct));
+ 	len += l4proto->nla_size;
+diff --git a/net/netfilter/nf_conntrack_proto.c b/net/netfilter/nf_conntrack_proto.c
+index 27810cf816a6..85104a27cc89 100644
+--- a/net/netfilter/nf_conntrack_proto.c
++++ b/net/netfilter/nf_conntrack_proto.c
+@@ -214,10 +214,10 @@ int nf_ct_l3proto_register(struct nf_conntrack_l3proto *proto)
+ 
+ 	if (proto->l3proto >= NFPROTO_NUMPROTO)
+ 		return -EBUSY;
+-
+-	if (proto->tuple_to_nlattr && !proto->nlattr_tuple_size)
++#if IS_ENABLED(CONFIG_NF_CT_NETLINK)
++	if (proto->tuple_to_nlattr && proto->nla_size == 0)
+ 		return -EINVAL;
+-
++#endif
+ 	mutex_lock(&nf_ct_proto_mutex);
+ 	old = rcu_dereference_protected(nf_ct_l3protos[proto->l3proto],
+ 					lockdep_is_held(&nf_ct_proto_mutex));
+@@ -226,9 +226,6 @@ int nf_ct_l3proto_register(struct nf_conntrack_l3proto *proto)
+ 		goto out_unlock;
+ 	}
+ 
+-	if (proto->nlattr_tuple_size)
+-		proto->nla_size = 3 * proto->nlattr_tuple_size();
+-
+ 	rcu_assign_pointer(nf_ct_l3protos[proto->l3proto], proto);
+ 
+ out_unlock:
 -- 
 2.1.4
