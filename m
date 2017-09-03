@@ -1,126 +1,112 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net-next 08/17] net/mlx5e: Refactor data-path lro header function
-Date: Sun,  3 Sep 2017 07:21:08 +0300
-Message-ID: <20170903042117.28923-9-saeedm@mellanox.com>
+Subject: [net-next 10/17] net/mlx5e: Non-atomic RQ state indicator for UMR WQE in progress
+Date: Sun,  3 Sep 2017 07:21:10 +0300
+Message-ID: <20170903042117.28923-11-saeedm@mellanox.com>
 References: <20170903042117.28923-1-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, kernel-team@fb.com,
         Tariq Toukan <tariqt@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:60042 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:60094 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751119AbdICEWM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 3 Sep 2017 00:22:12 -0400
+        with ESMTP id S1750858AbdICEWO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 3 Sep 2017 00:22:14 -0400
 In-Reply-To: <20170903042117.28923-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Tariq Toukan <tariqt@mellanox.com>
 
-Refactor function mlx5e_lro_update_hdr() to reduce number of
-branches.
+The indication for a UMR WQE in progress is needed only within
+the NAPI context, and hence no races possible and no need for
+the use of atomic operations.
+The only place the flag is read outside of NAPI context is
+in closure flow, after RQ is disabled flag is no more accessed
+in NAPI.
+Use a boolean instead of a bit in ring state, so that its
+non-atomic set operations do not race with the atomic sets of
+the other bits.
 
 Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_rx.c | 45 +++++++++++--------------
- include/linux/mlx5/device.h                     |  2 +-
- 2 files changed, 21 insertions(+), 26 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en.h      |  2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c |  3 ++-
+ drivers/net/ethernet/mellanox/mlx5/core/en_rx.c   | 10 +++++-----
+ 3 files changed, 8 insertions(+), 7 deletions(-)
 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index 0c4f1f30085a..bce2080eb86a 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -291,7 +291,6 @@ struct mlx5e_tstamp {
+ 
+ enum {
+ 	MLX5E_RQ_STATE_ENABLED,
+-	MLX5E_RQ_STATE_UMR_WQE_IN_PROGRESS,
+ 	MLX5E_RQ_STATE_AM,
+ };
+ 
+@@ -539,6 +538,7 @@ struct mlx5e_rq {
+ 			void                  *mtt_no_align;
+ 			u16                    num_strides;
+ 			u8                     log_stride_sz;
++			bool                   umr_in_progress;
+ 		} mpwqe;
+ 	};
+ 	struct {
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 411fb68794bc..2767a3ee81bc 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -886,7 +886,8 @@ static void mlx5e_free_rx_descs(struct mlx5e_rq *rq)
+ 	u16 wqe_ix;
+ 
+ 	/* UMR WQE (if in progress) is always at wq->head */
+-	if (test_bit(MLX5E_RQ_STATE_UMR_WQE_IN_PROGRESS, &rq->state))
++	if (rq->wq_type == MLX5_WQ_TYPE_LINKED_LIST_STRIDING_RQ &&
++	    rq->mpwqe.umr_in_progress)
+ 		mlx5e_free_rx_mpwqe(rq, &rq->mpwqe.info[wq->head]);
+ 
+ 	while (!mlx5_wq_ll_is_empty(wq)) {
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-index ab1213a3615e..9d9c13ae6b83 100644
+index a5522c3992a2..11dba9940029 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-@@ -496,56 +496,51 @@ static void mlx5e_lro_update_hdr(struct sk_buff *skb, struct mlx5_cqe64 *cqe,
- 				 u32 cqe_bcnt)
+@@ -422,7 +422,7 @@ void mlx5e_post_rx_mpwqe(struct mlx5e_rq *rq)
+ 	struct mlx5_wq_ll *wq = &rq->wq;
+ 	struct mlx5e_rx_wqe *wqe = mlx5_wq_ll_get_wqe(wq, wq->head);
+ 
+-	clear_bit(MLX5E_RQ_STATE_UMR_WQE_IN_PROGRESS, &rq->state);
++	rq->mpwqe.umr_in_progress = false;
+ 
+ 	if (unlikely(!MLX5E_TEST_BIT(rq->state, MLX5E_RQ_STATE_ENABLED))) {
+ 		mlx5e_free_rx_mpwqe(rq, &rq->mpwqe.info[wq->head]);
+@@ -441,10 +441,13 @@ int mlx5e_alloc_rx_mpwqe(struct mlx5e_rq *rq, struct mlx5e_rx_wqe *wqe, u16 ix)
  {
- 	struct ethhdr	*eth = (struct ethhdr *)(skb->data);
--	struct iphdr	*ipv4;
--	struct ipv6hdr	*ipv6;
- 	struct tcphdr	*tcp;
- 	int network_depth = 0;
- 	__be16 proto;
- 	u16 tot_len;
-+	void *ip_p;
+ 	int err;
  
- 	u8 l4_hdr_type = get_cqe_l4_hdr_type(cqe);
--	int tcp_ack = ((l4_hdr_type == CQE_L4_HDR_TYPE_TCP_ACK_NO_DATA) ||
--		       (l4_hdr_type == CQE_L4_HDR_TYPE_TCP_ACK_AND_DATA));
-+	u8 tcp_ack = (l4_hdr_type == CQE_L4_HDR_TYPE_TCP_ACK_NO_DATA) ||
-+		(l4_hdr_type == CQE_L4_HDR_TYPE_TCP_ACK_AND_DATA);
++	if (rq->mpwqe.umr_in_progress)
++		return -EBUSY;
++
+ 	err = mlx5e_alloc_rx_umr_mpwqe(rq, ix);
+ 	if (unlikely(err))
+ 		return err;
+-	set_bit(MLX5E_RQ_STATE_UMR_WQE_IN_PROGRESS, &rq->state);
++	rq->mpwqe.umr_in_progress = true;
+ 	mlx5e_post_umr_wqe(rq, ix);
+ 	return -EBUSY;
+ }
+@@ -467,9 +470,6 @@ bool mlx5e_post_rx_wqes(struct mlx5e_rq *rq)
+ 	if (mlx5_wq_ll_is_full(wq))
+ 		return false;
  
- 	skb->mac_len = ETH_HLEN;
- 	proto = __vlan_get_protocol(skb, eth->h_proto, &network_depth);
- 
--	ipv4 = (struct iphdr *)(skb->data + network_depth);
--	ipv6 = (struct ipv6hdr *)(skb->data + network_depth);
- 	tot_len = cqe_bcnt - network_depth;
-+	ip_p = skb->data + network_depth;
- 
- 	if (proto == htons(ETH_P_IP)) {
--		tcp = (struct tcphdr *)(skb->data + network_depth +
--					sizeof(struct iphdr));
--		ipv6 = NULL;
--		skb_shinfo(skb)->gso_type = SKB_GSO_TCPV4;
--	} else {
--		tcp = (struct tcphdr *)(skb->data + network_depth +
--					sizeof(struct ipv6hdr));
--		ipv4 = NULL;
--		skb_shinfo(skb)->gso_type = SKB_GSO_TCPV6;
--	}
+-	if (test_bit(MLX5E_RQ_STATE_UMR_WQE_IN_PROGRESS, &rq->state))
+-		return true;
 -
--	if (get_cqe_lro_tcppsh(cqe))
--		tcp->psh                = 1;
-+		struct iphdr *ipv4 = ip_p;
+ 	do {
+ 		struct mlx5e_rx_wqe *wqe = mlx5_wq_ll_get_wqe(wq, wq->head);
  
--	if (tcp_ack) {
--		tcp->ack                = 1;
--		tcp->ack_seq            = cqe->lro_ack_seq_num;
--		tcp->window             = cqe->lro_tcp_win;
--	}
-+		tcp = ip_p + sizeof(struct iphdr);
-+		skb_shinfo(skb)->gso_type = SKB_GSO_TCPV4;
- 
--	if (ipv4) {
- 		ipv4->ttl               = cqe->lro_min_ttl;
- 		ipv4->tot_len           = cpu_to_be16(tot_len);
- 		ipv4->check             = 0;
- 		ipv4->check             = ip_fast_csum((unsigned char *)ipv4,
- 						       ipv4->ihl);
- 	} else {
-+		struct ipv6hdr *ipv6 = ip_p;
-+
-+		tcp = ip_p + sizeof(struct ipv6hdr);
-+		skb_shinfo(skb)->gso_type = SKB_GSO_TCPV6;
-+
- 		ipv6->hop_limit         = cqe->lro_min_ttl;
- 		ipv6->payload_len       = cpu_to_be16(tot_len -
- 						      sizeof(struct ipv6hdr));
- 	}
-+
-+	tcp->psh = get_cqe_lro_tcppsh(cqe);
-+
-+	if (tcp_ack) {
-+		tcp->ack                = 1;
-+		tcp->ack_seq            = cqe->lro_ack_seq_num;
-+		tcp->window             = cqe->lro_tcp_win;
-+	}
- }
- 
- static inline void mlx5e_skb_set_hash(struct mlx5_cqe64 *cqe,
-diff --git a/include/linux/mlx5/device.h b/include/linux/mlx5/device.h
-index 3c7442b56460..7031d655ec32 100644
---- a/include/linux/mlx5/device.h
-+++ b/include/linux/mlx5/device.h
-@@ -709,7 +709,7 @@ static inline int mlx5_get_cqe_format(struct mlx5_cqe64 *cqe)
- 	return (cqe->op_own >> 2) & 0x3;
- }
- 
--static inline int get_cqe_lro_tcppsh(struct mlx5_cqe64 *cqe)
-+static inline u8 get_cqe_lro_tcppsh(struct mlx5_cqe64 *cqe)
- {
- 	return (cqe->lro_tcppsh_abort_dupack >> 6) & 1;
- }
 -- 
 2.13.0
