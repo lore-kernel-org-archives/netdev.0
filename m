@@ -1,90 +1,101 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [pull request][net-next 0/3] Mellanox, mlx5 GRE tunnel offloads
-Date: Sat, 2 Sep 2017 21:11:07 -0700
-Message-ID: <CALzJLG--t8VLs1GiRRVfejenB=XgpLiJHnHC+eokQ4=kwj9hGw@mail.gmail.com>
-References: <20170830230409.15176-1-saeedm@mellanox.com> <87fuc7ong0.fsf@stressinduktion.org>
- <CALzJLG-u3k11LYFXtZQKT5cvn-iJ4FehBUgkhCHT5Z7XMsMkpA@mail.gmail.com>
- <1504402349.3299394.1093467800.72B91372@webmail.messagingengine.com> <CALx6S34kfb5GEH9AAecsaKJ9AtjK=fP_3L=2i98kUwv_sE2s7A@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Linux Netdev List <netdev@vger.kernel.org>
-To: Tom Herbert <tom@herbertland.com>
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: [net-next 17/17] net/mlx5e: Distribute RSS table among all RX rings
+Date: Sun,  3 Sep 2017 07:21:17 +0300
+Message-ID: <20170903042117.28923-18-saeedm@mellanox.com>
+References: <20170903042117.28923-1-saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, kernel-team@fb.com,
+        Tariq Toukan <tariqt@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f43.google.com ([209.85.215.43]:38825 "EHLO
-        mail-lf0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750795AbdICEL3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 3 Sep 2017 00:11:29 -0400
-Received: by mail-lf0-f43.google.com with SMTP id d202so10898703lfd.5
-        for <netdev@vger.kernel.org>; Sat, 02 Sep 2017 21:11:29 -0700 (PDT)
-In-Reply-To: <CALx6S34kfb5GEH9AAecsaKJ9AtjK=fP_3L=2i98kUwv_sE2s7A@mail.gmail.com>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:60128 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1750904AbdICEWQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 3 Sep 2017 00:22:16 -0400
+In-Reply-To: <20170903042117.28923-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Sep 2, 2017 at 6:37 PM, Tom Herbert <tom@herbertland.com> wrote:
-> On Sat, Sep 2, 2017 at 6:32 PM, Hannes Frederic Sowa
-> <hannes@stressinduktion.org> wrote:
->> Hi Saeed,
->>
->> On Sun, Sep 3, 2017, at 01:01, Saeed Mahameed wrote:
->>> On Thu, Aug 31, 2017 at 6:51 AM, Hannes Frederic Sowa
->>> <hannes@stressinduktion.org> wrote:
->>> > Saeed Mahameed <saeedm@mellanox.com> writes:
->>> >
->>> >> The first patch from Gal and Ariel provides the mlx5 driver support for
->>> >> ConnectX capability to perform IP version identification and matching in
->>> >> order to distinguish between IPv4 and IPv6 without the need to specify the
->>> >> encapsulation type, thus perform RSS in MPLS automatically without
->>> >> specifying MPLS ethertyoe. This patch will also serve for inner GRE IPv4/6
->>> >> classification for inner GRE RSS.
->>> >
->>> > I don't think this is legal at all or did I misunderstood something?
->>> >
->>> > <https://tools.ietf.org/html/rfc3032#section-2.2>
->>>
->>> It seems you misunderstood the cover letter.  The HW will still
->>> identify MPLS (IPv4/IPv6) packets using a new bit we specify in the HW
->>> steering rules rather than adding new specific rules with  {MPLS
->>> ethertype} X {IPv4,IPv6} to classify MPLS IPv{4,6} traffic, Same
->>> functionality a better and general way to approach it.
->>> Bottom line the hardware is capable of processing MPLS headers and
->>> perform RSS on the inner packet (IPv4/6) without the need of the
->>> driver to provide precise steering MPLS rules.
->>
->> Sorry, I think I am still confused.
->>
->> I just want to make sure that you don't use the first nibble after the
->> mpls bottom of stack label in any way as an indicator if that is an IPv4
->> or IPv6 packet by default. It can be anything. The forward equivalence
->> class tells the stack which protocol you see.
->>
->> If you match on the first nibble behind the MPLS bottom of stack label
->> the '4' or '6' respectively could be part of a MAC address with its
->> first nibble being 4 or 6, because the particular pseudowire is EoMPLS
->> and uses no control world.
->>
->> I wanted to mention it, because with addition of e.g. VPLS this could
->> cause problems down the road and should at least be controllable? It is
->> probably better to use Entropy Labels in future.
->>
-> Or just use IPv6 with flow label for RSS (or MPLS/UDP, GRE/UDP if you
-> prefer) then all this protocol specific DPI for RSS just goes away ;-)
+From: Tariq Toukan <tariqt@mellanox.com>
 
-Hi Tom,
+In default, uniformly distribute the RSS indirection table entries
+among all RX rings, rather than restricting this only to the rings
+on the close NUMA node. irqbalancer would anyway dynamically override
+the default affinities set to the RX rings.
+This gives better multi-stream performance and CPU util.
 
-How does MPLS/UDP or GRE/UDP RSS works without protocol specific DPI ?
-unlike vxlan those protocols are not over UDP and you can't just play
-with the outer header udp src port, or do you ?
+Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en.h         |  3 +--
+ drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c |  3 +--
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c    | 15 ++-------------
+ 3 files changed, 4 insertions(+), 17 deletions(-)
 
-Can you elaborate ?
-
-Thanks,
-Saeed.
-
->
-> Tom
->
->> Thanks,
->> Hannes
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index 1388a1e2f835..8b7d83bcc11a 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -925,8 +925,7 @@ void mlx5e_switch_priv_channels(struct mlx5e_priv *priv,
+ void mlx5e_activate_priv_channels(struct mlx5e_priv *priv);
+ void mlx5e_deactivate_priv_channels(struct mlx5e_priv *priv);
+ 
+-void mlx5e_build_default_indir_rqt(struct mlx5_core_dev *mdev,
+-				   u32 *indirection_rqt, int len,
++void mlx5e_build_default_indir_rqt(u32 *indirection_rqt, int len,
+ 				   int num_channels);
+ int mlx5e_get_max_linkspeed(struct mlx5_core_dev *mdev, u32 *speed);
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+index 6127e0d2f310..d12e9fc0d76b 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+@@ -663,8 +663,7 @@ int mlx5e_ethtool_set_channels(struct mlx5e_priv *priv,
+ 	new_channels.params = priv->channels.params;
+ 	new_channels.params.num_channels = count;
+ 	if (!netif_is_rxfh_configured(priv->netdev))
+-		mlx5e_build_default_indir_rqt(priv->mdev,
+-					      new_channels.params.indirection_rqt,
++		mlx5e_build_default_indir_rqt(new_channels.params.indirection_rqt,
+ 					      MLX5E_INDIR_RQT_SIZE, count);
+ 
+ 	if (!test_bit(MLX5E_STATE_OPENED, &priv->state)) {
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 20f34131d4e5..77068609a153 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -3833,22 +3833,11 @@ u16 mlx5e_get_max_inline_cap(struct mlx5_core_dev *mdev)
+ 	       2 /*sizeof(mlx5e_tx_wqe.inline_hdr_start)*/;
+ }
+ 
+-void mlx5e_build_default_indir_rqt(struct mlx5_core_dev *mdev,
+-				   u32 *indirection_rqt, int len,
++void mlx5e_build_default_indir_rqt(u32 *indirection_rqt, int len,
+ 				   int num_channels)
+ {
+-	int node = mdev->priv.numa_node;
+-	int node_num_of_cores;
+ 	int i;
+ 
+-	if (node == -1)
+-		node = first_online_node;
+-
+-	node_num_of_cores = cpumask_weight(cpumask_of_node(node));
+-
+-	if (node_num_of_cores)
+-		num_channels = min_t(int, num_channels, node_num_of_cores);
+-
+ 	for (i = 0; i < len; i++)
+ 		indirection_rqt[i] = i % num_channels;
+ }
+@@ -3987,7 +3976,7 @@ void mlx5e_build_nic_params(struct mlx5_core_dev *mdev,
+ 	/* RSS */
+ 	params->rss_hfunc = ETH_RSS_HASH_XOR;
+ 	netdev_rss_key_fill(params->toeplitz_hash_key, sizeof(params->toeplitz_hash_key));
+-	mlx5e_build_default_indir_rqt(mdev, params->indirection_rqt,
++	mlx5e_build_default_indir_rqt(params->indirection_rqt,
+ 				      MLX5E_INDIR_RQT_SIZE, max_channels);
+ }
+ 
+-- 
+2.13.0
