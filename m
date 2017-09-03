@@ -1,153 +1,68 @@
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH net-next 2/6] nfp: flower: base lifetime of representors on existence of lower vNIC
-Date: Sat,  2 Sep 2017 18:26:01 -0700
-Message-ID: <20170903012605.7435-3-jakub.kicinski@netronome.com>
-References: <20170903012605.7435-1-jakub.kicinski@netronome.com>
-Cc: oss-drivers@netronome.com,
-        Jakub Kicinski <jakub.kicinski@netronome.com>
-To: netdev@vger.kernel.org
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [pull request][net-next 0/3] Mellanox, mlx5 GRE tunnel offloads
+Date: Sun, 03 Sep 2017 03:32:29 +0200
+Message-ID: <1504402349.3299394.1093467800.72B91372@webmail.messagingengine.com>
+References: <20170830230409.15176-1-saeedm@mellanox.com>
+ <87fuc7ong0.fsf@stressinduktion.org>
+ <CALzJLG-u3k11LYFXtZQKT5cvn-iJ4FehBUgkhCHT5Z7XMsMkpA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Saeed Mahameed <saeedm@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Linux Netdev List <netdev@vger.kernel.org>
+To: Saeed Mahameed <saeedm@dev.mellanox.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f173.google.com ([209.85.192.173]:32882 "EHLO
-        mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752954AbdICB0P (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 2 Sep 2017 21:26:15 -0400
-Received: by mail-pf0-f173.google.com with SMTP id n73so9572482pfj.0
-        for <netdev@vger.kernel.org>; Sat, 02 Sep 2017 18:26:15 -0700 (PDT)
-In-Reply-To: <20170903012605.7435-1-jakub.kicinski@netronome.com>
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:38151 "EHLO
+        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752806AbdICBc3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 2 Sep 2017 21:32:29 -0400
+In-Reply-To: <CALzJLG-u3k11LYFXtZQKT5cvn-iJ4FehBUgkhCHT5Z7XMsMkpA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Create representors after lower vNIC is registered and destroy
-them before it is destroyed.  Move the code out of start/stop
-callbacks directly into vnic_init/clean callbacks.  Make sure
-SR-IOV callbacks don't try to create representors when lower
-device does not exist.
+Hi Saeed,
 
-Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
-Reviewed-by: Simon Horman <simon.horman@netronome.com>
----
- drivers/net/ethernet/netronome/nfp/flower/main.c | 66 +++++++++++++++---------
- 1 file changed, 43 insertions(+), 23 deletions(-)
+On Sun, Sep 3, 2017, at 01:01, Saeed Mahameed wrote:
+> On Thu, Aug 31, 2017 at 6:51 AM, Hannes Frederic Sowa
+> <hannes@stressinduktion.org> wrote:
+> > Saeed Mahameed <saeedm@mellanox.com> writes:
+> >
+> >> The first patch from Gal and Ariel provides the mlx5 driver support for
+> >> ConnectX capability to perform IP version identification and matching in
+> >> order to distinguish between IPv4 and IPv6 without the need to specify the
+> >> encapsulation type, thus perform RSS in MPLS automatically without
+> >> specifying MPLS ethertyoe. This patch will also serve for inner GRE IPv4/6
+> >> classification for inner GRE RSS.
+> >
+> > I don't think this is legal at all or did I misunderstood something?
+> >
+> > <https://tools.ietf.org/html/rfc3032#section-2.2>
+> 
+> It seems you misunderstood the cover letter.  The HW will still
+> identify MPLS (IPv4/IPv6) packets using a new bit we specify in the HW
+> steering rules rather than adding new specific rules with  {MPLS
+> ethertype} X {IPv4,IPv6} to classify MPLS IPv{4,6} traffic, Same
+> functionality a better and general way to approach it.
+> Bottom line the hardware is capable of processing MPLS headers and
+> perform RSS on the inner packet (IPv4/6) without the need of the
+> driver to provide precise steering MPLS rules.
 
-diff --git a/drivers/net/ethernet/netronome/nfp/flower/main.c b/drivers/net/ethernet/netronome/nfp/flower/main.c
-index db59858c0f19..91fe03617106 100644
---- a/drivers/net/ethernet/netronome/nfp/flower/main.c
-+++ b/drivers/net/ethernet/netronome/nfp/flower/main.c
-@@ -127,6 +127,11 @@ nfp_flower_repr_netdev_stop(struct nfp_app *app, struct nfp_repr *repr)
- 
- static void nfp_flower_sriov_disable(struct nfp_app *app)
- {
-+	struct nfp_flower_priv *priv = app->priv;
-+
-+	if (!priv->nn)
-+		return;
-+
- 	nfp_reprs_clean_and_free_by_type(app, NFP_REPR_TYPE_VF);
- }
- 
-@@ -203,18 +208,16 @@ nfp_flower_spawn_vnic_reprs(struct nfp_app *app,
- 
- static int nfp_flower_sriov_enable(struct nfp_app *app, int num_vfs)
- {
-+	struct nfp_flower_priv *priv = app->priv;
-+
-+	if (!priv->nn)
-+		return 0;
-+
- 	return nfp_flower_spawn_vnic_reprs(app,
- 					   NFP_FLOWER_CMSG_PORT_VNIC_TYPE_VF,
- 					   NFP_REPR_TYPE_VF, num_vfs);
- }
- 
--static void nfp_flower_stop(struct nfp_app *app)
--{
--	nfp_reprs_clean_and_free_by_type(app, NFP_REPR_TYPE_PF);
--	nfp_reprs_clean_and_free_by_type(app, NFP_REPR_TYPE_PHYS_PORT);
--
--}
--
- static int
- nfp_flower_spawn_phy_reprs(struct nfp_app *app, struct nfp_flower_priv *priv)
- {
-@@ -300,19 +303,6 @@ nfp_flower_spawn_phy_reprs(struct nfp_app *app, struct nfp_flower_priv *priv)
- 	return err;
- }
- 
--static int nfp_flower_start(struct nfp_app *app)
--{
--	int err;
--
--	err = nfp_flower_spawn_phy_reprs(app, app->priv);
--	if (err)
--		return err;
--
--	return nfp_flower_spawn_vnic_reprs(app,
--					   NFP_FLOWER_CMSG_PORT_VNIC_TYPE_PF,
--					   NFP_REPR_TYPE_PF, 1);
--}
--
- static int nfp_flower_vnic_alloc(struct nfp_app *app, struct nfp_net *nn,
- 				 unsigned int id)
- {
-@@ -335,16 +325,49 @@ static void nfp_flower_vnic_clean(struct nfp_app *app, struct nfp_net *nn)
- {
- 	struct nfp_flower_priv *priv = app->priv;
- 
-+	if (app->pf->num_vfs)
-+		nfp_reprs_clean_and_free_by_type(app, NFP_REPR_TYPE_VF);
-+	nfp_reprs_clean_and_free_by_type(app, NFP_REPR_TYPE_PF);
-+	nfp_reprs_clean_and_free_by_type(app, NFP_REPR_TYPE_PHYS_PORT);
-+
- 	priv->nn = NULL;
- }
- 
- static int nfp_flower_vnic_init(struct nfp_app *app, struct nfp_net *nn)
- {
- 	struct nfp_flower_priv *priv = app->priv;
-+	int err;
- 
- 	priv->nn = nn;
- 
-+	err = nfp_flower_spawn_phy_reprs(app, app->priv);
-+	if (err)
-+		goto err_clear_nn;
-+
-+	err = nfp_flower_spawn_vnic_reprs(app,
-+					  NFP_FLOWER_CMSG_PORT_VNIC_TYPE_PF,
-+					  NFP_REPR_TYPE_PF, 1);
-+	if (err)
-+		goto err_destroy_reprs_phy;
-+
-+	if (app->pf->num_vfs) {
-+		err = nfp_flower_spawn_vnic_reprs(app,
-+						  NFP_FLOWER_CMSG_PORT_VNIC_TYPE_VF,
-+						  NFP_REPR_TYPE_VF,
-+						  app->pf->num_vfs);
-+		if (err)
-+			goto err_destroy_reprs_pf;
-+	}
-+
- 	return 0;
-+
-+err_destroy_reprs_pf:
-+	nfp_reprs_clean_and_free_by_type(app, NFP_REPR_TYPE_PF);
-+err_destroy_reprs_phy:
-+	nfp_reprs_clean_and_free_by_type(app, NFP_REPR_TYPE_PHYS_PORT);
-+err_clear_nn:
-+	priv->nn = NULL;
-+	return err;
- }
- 
- static int nfp_flower_init(struct nfp_app *app)
-@@ -430,9 +453,6 @@ const struct nfp_app_type app_flower = {
- 	.repr_open	= nfp_flower_repr_netdev_open,
- 	.repr_stop	= nfp_flower_repr_netdev_stop,
- 
--	.start		= nfp_flower_start,
--	.stop		= nfp_flower_stop,
--
- 	.ctrl_msg_rx	= nfp_flower_cmsg_rx,
- 
- 	.sriov_enable	= nfp_flower_sriov_enable,
--- 
-2.14.1
+Sorry, I think I am still confused.
+
+I just want to make sure that you don't use the first nibble after the
+mpls bottom of stack label in any way as an indicator if that is an IPv4
+or IPv6 packet by default. It can be anything. The forward equivalence
+class tells the stack which protocol you see.
+
+If you match on the first nibble behind the MPLS bottom of stack label
+the '4' or '6' respectively could be part of a MAC address with its
+first nibble being 4 or 6, because the particular pseudowire is EoMPLS
+and uses no control world.
+
+I wanted to mention it, because with addition of e.g. VPLS this could
+cause problems down the road and should at least be controllable? It is
+probably better to use Entropy Labels in future.
+
+Thanks,
+Hannes
