@@ -1,70 +1,54 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 39/47] netfilter: ebtables: fix indent on if statements
-Date: Mon,  4 Sep 2017 00:42:46 +0200
-Message-ID: <1504478574-13281-4-git-send-email-pablo@netfilter.org>
-References: <1504478574-13281-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 47/47] netfilter: rt: account for tcp header size too
+Date: Mon,  4 Sep 2017 00:43:45 +0200
+Message-ID: <1504478625-13330-2-git-send-email-pablo@netfilter.org>
+References: <1504478625-13330-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:53062 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:53224 "EHLO mail.us.es"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753359AbdICWnK (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 3 Sep 2017 18:43:10 -0400
+        id S1753023AbdICWn6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 3 Sep 2017 18:43:58 -0400
 Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id 76F6A190F67
-        for <netdev@vger.kernel.org>; Mon,  4 Sep 2017 00:42:43 +0200 (CEST)
+        by mail.us.es (Postfix) with ESMTP id 6ECE2190F66
+        for <netdev@vger.kernel.org>; Mon,  4 Sep 2017 00:43:31 +0200 (CEST)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 67428B5027
-        for <netdev@vger.kernel.org>; Mon,  4 Sep 2017 00:42:43 +0200 (CEST)
-In-Reply-To: <1504478574-13281-1-git-send-email-pablo@netfilter.org>
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 5E197B502C
+        for <netdev@vger.kernel.org>; Mon,  4 Sep 2017 00:43:31 +0200 (CEST)
+In-Reply-To: <1504478625-13330-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Colin Ian King <colin.king@canonical.com>
+From: Florian Westphal <fw@strlen.de>
 
-The returns on some if statements are not indented correctly,
-add in the missing tab.
+This needs to accout for the ipv4/ipv6 header size and the tcp
+header without options.
 
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
+Fixes: 6b5dc98e8fac0 ("netfilter: rt: add support to fetch path mss")
+Reported-by: Matteo Croce <technoboy85@gmail.com>
+Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/bridge/netfilter/ebt_ip.c  | 4 ++--
- net/bridge/netfilter/ebt_ip6.c | 2 +-
- 2 files changed, 3 insertions(+), 3 deletions(-)
+ net/netfilter/nft_rt.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/net/bridge/netfilter/ebt_ip.c b/net/bridge/netfilter/ebt_ip.c
-index d06968bdf5ec..2b46c50abce0 100644
---- a/net/bridge/netfilter/ebt_ip.c
-+++ b/net/bridge/netfilter/ebt_ip.c
-@@ -64,14 +64,14 @@ ebt_ip_mt(const struct sk_buff *skb, struct xt_action_param *par)
- 			if (NF_INVF(info, EBT_IP_DPORT,
- 				    dst < info->dport[0] ||
- 				    dst > info->dport[1]))
--			return false;
-+				return false;
- 		}
- 		if (info->bitmask & EBT_IP_SPORT) {
- 			u32 src = ntohs(pptr->src);
- 			if (NF_INVF(info, EBT_IP_SPORT,
- 				    src < info->sport[0] ||
- 				    src > info->sport[1]))
--			return false;
-+				return false;
- 		}
+diff --git a/net/netfilter/nft_rt.c b/net/netfilter/nft_rt.c
+index 61fd3acaa3c9..a6b7d05aeacf 100644
+--- a/net/netfilter/nft_rt.c
++++ b/net/netfilter/nft_rt.c
+@@ -35,10 +35,11 @@ static u16 get_tcpmss(const struct nft_pktinfo *pkt, const struct dst_entry *skb
+ 	switch (nft_pf(pkt)) {
+ 	case NFPROTO_IPV4:
+ 		fl.u.ip4.daddr = ip_hdr(skb)->saddr;
+-		minlen = sizeof(struct iphdr);
++		minlen = sizeof(struct iphdr) + sizeof(struct tcphdr);
+ 		break;
+ 	case NFPROTO_IPV6:
+ 		fl.u.ip6.daddr = ipv6_hdr(skb)->saddr;
++		minlen = sizeof(struct ipv6hdr) + sizeof(struct tcphdr);
+ 		break;
  	}
- 	return true;
-diff --git a/net/bridge/netfilter/ebt_ip6.c b/net/bridge/netfilter/ebt_ip6.c
-index 4617491be41e..2a5a52a53ec4 100644
---- a/net/bridge/netfilter/ebt_ip6.c
-+++ b/net/bridge/netfilter/ebt_ip6.c
-@@ -89,7 +89,7 @@ ebt_ip6_mt(const struct sk_buff *skb, struct xt_action_param *par)
- 			if (NF_INVF(info, EBT_IP6_SPORT,
- 				    src < info->sport[0] ||
- 				    src > info->sport[1]))
--			return false;
-+				return false;
- 		}
- 		if ((info->bitmask & EBT_IP6_ICMP6) &&
- 		    NF_INVF(info, EBT_IP6_ICMP6,
+ 
 -- 
 2.1.4
