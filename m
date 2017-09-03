@@ -1,115 +1,155 @@
-From: Russell King - ARM Linux <linux@armlinux.org.uk>
-Subject: Re: [PATCH v3 2/3] dt-binding: net: sfp binding documentation
-Date: Sun, 3 Sep 2017 21:46:35 +0100
-Message-ID: <20170903204634.GZ20805@n2100.armlinux.org.uk>
-References: <c2a27566a8eb358ee2566a213c385d0bf3d64307.1504441874.git.baruch@tkos.co.il>
- <01ae7bc45d68322669d18a4feeaeef733ba888d7.1504441874.git.baruch@tkos.co.il>
+From: Bjorn Andersson <bjorn.andersson@linaro.org>
+Subject: Re: [PATCH 2/2] Bluetooth: btqcomsmd: BD address setup
+Date: Sun, 3 Sep 2017 14:10:12 -0700
+Message-ID: <20170903211012.GJ2016@tuxbook>
+References: <20170901204118.17123-1-bjorn.andersson@linaro.org>
+ <20170901204118.17123-3-bjorn.andersson@linaro.org>
+ <5EC41247-54CD-4F1D-84EC-E94F80A67805@holtmann.org>
+ <CAL_JsqK7skzd1c4Y2nxfspA-CeyK4dqjJB2L3tZztT=w8y4==w@mail.gmail.com>
+ <CD710538-22CB-45E5-B54E-ACB97E84D42E@holtmann.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        devicetree@vger.kernel.org,
-        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-To: Baruch Siach <baruch@tkos.co.il>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.armlinux.org.uk ([78.32.30.218]:44978 "EHLO
-        pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751649AbdICUqy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 3 Sep 2017 16:46:54 -0400
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 8bit
+Cc: Rob Herring <robh@kernel.org>,
+        "Gustavo F. Padovan" <gustavo@padovan.org>,
+        Johan Hedberg <johan.hedberg@gmail.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        "open list:BLUETOOTH DRIVERS" <linux-bluetooth@vger.kernel.org>,
+        Network Development <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        linux-arm-msm <linux-arm-msm@vger.kernel.org>,
+        Loic Poulain <loic.poulain@linaro.org>
+To: Marcel Holtmann <marcel@holtmann.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <01ae7bc45d68322669d18a4feeaeef733ba888d7.1504441874.git.baruch@tkos.co.il>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <CD710538-22CB-45E5-B54E-ACB97E84D42E@holtmann.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Sep 03, 2017 at 03:31:13PM +0300, Baruch Siach wrote:
-> Add device-tree binding documentation SFP transceivers. Support for SFP
-> transceivers has been recently introduced (drivers/net/phy/sfp.c).
+On Fri 01 Sep 23:12 PDT 2017, Marcel Holtmann wrote:
+
+> Hi Rob,
 > 
-> Signed-off-by: Baruch Siach <baruch@tkos.co.il>
-> ---
-> v3:
->   Mention gpios phandle and specifier
->   Mention the polarity of each gpio
->   Fix example property names
+> >>> Bluetooth BD address can be retrieved in the same way as
+> >>> for wcnss-wlan MAC address. This patch mainly stores the
+> >>> local-mac-address property and sets the BD address during
+> >>> hci device setup.
+> >>> 
+> >>> Signed-off-by: Loic Poulain <loic.poulain@linaro.org>
+> >>> Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
+> >>> ---
+> >>> drivers/bluetooth/btqcomsmd.c | 28 ++++++++++++++++++++++++++++
+> >>> 1 file changed, 28 insertions(+)
+> >>> 
+> >>> diff --git a/drivers/bluetooth/btqcomsmd.c b/drivers/bluetooth/btqcomsmd.c
+> >>> index d00c4fdae924..443bb2099329 100644
+> >>> --- a/drivers/bluetooth/btqcomsmd.c
+> >>> +++ b/drivers/bluetooth/btqcomsmd.c
+> >>> @@ -26,6 +26,7 @@
+> >>> struct btqcomsmd {
+> >>>      struct hci_dev *hdev;
+> >>> 
+> >>> +     const bdaddr_t *addr;
+> >>>      struct rpmsg_endpoint *acl_channel;
+> >>>      struct rpmsg_endpoint *cmd_channel;
+> >>> };
+> >>> @@ -100,6 +101,27 @@ static int btqcomsmd_close(struct hci_dev *hdev)
+> >>>      return 0;
+> >>> }
+> >>> 
+> >>> +static int btqcomsmd_setup(struct hci_dev *hdev)
+> >>> +{
+> >>> +     struct btqcomsmd *btq = hci_get_drvdata(hdev);
+> >>> +     struct sk_buff *skb;
+> >>> +
+> >>> +     skb = __hci_cmd_sync(hdev, HCI_OP_RESET, 0, NULL, HCI_INIT_TIMEOUT);
+> >>> +     if (IS_ERR(skb))
+> >>> +             return PTR_ERR(skb);
+> >>> +     kfree_skb(skb);
+> >>> +
+> >>> +     if (btq->addr) {
+> >>> +             bdaddr_t bdaddr;
+> >>> +
+> >>> +             /* btq->addr stored with most significant byte first */
+> >>> +             baswap(&bdaddr, btq->addr);
+> >>> +             return qca_set_bdaddr_rome(hdev, &bdaddr);
+> >>> +     }
+> >>> +
+> >>> +     return 0;
+> >>> +}
+> >>> +
+> >>> static int btqcomsmd_probe(struct platform_device *pdev)
+> >>> {
+> >>>      struct btqcomsmd *btq;
+> >>> @@ -123,6 +145,11 @@ static int btqcomsmd_probe(struct platform_device *pdev)
+> >>>      if (IS_ERR(btq->cmd_channel))
+> >>>              return PTR_ERR(btq->cmd_channel);
+> >>> 
+> >>> +     btq->addr = of_get_property(pdev->dev.of_node, "local-mac-address",
+> >>> +                                 &ret);
+> >>> +     if (ret != sizeof(bdaddr_t))
+> >>> +             btq->addr = NULL;
+> >>> +
+> >>>      hdev = hci_alloc_dev();
+> >>>      if (!hdev)
+> >>>              return -ENOMEM;
+> >>> @@ -135,6 +162,7 @@ static int btqcomsmd_probe(struct platform_device *pdev)
+> >>>      hdev->open = btqcomsmd_open;
+> >>>      hdev->close = btqcomsmd_close;
+> >>>      hdev->send = btqcomsmd_send;
+> >>> +     hdev->setup = btqcomsmd_setup;
+> >>>      hdev->set_bdaddr = qca_set_bdaddr_rome;
+> >> 
+> >> I do not like this patch. Why not just set HCI_QUIRK_INVALID_BDADDR and let a userspace tool deal with reading the BD_ADDR from some storage.
+> >> 
+> >> Frankly I do not get this WiFI MAC address or BD_ADDR stored in DT. I assumed the DT is suppose to describe hardware and not some value that is normally retrieved for OTP or alike.
+> > 
+> > Use of "local-mac-address" for ethernet at least has existed as long
+> > at OpenFirmware I think. For some platforms, DT is the only OTP. And
+> > sometimes, the bootloader (like u-boot) stores MAC addresses and then
+> > populates them on boot.
+> > 
+> > Seems like if we just let userspace deal with it, then we're back to a
+> > btattach tool with every platform's specific way of reading the MAC
+> > address.
 > 
-> v2:
->   Rename -gpio properties to -gpios
->   Rename the rate-select-gpio property to rate-select0-gpios
->   Add the rate-select1-gpios property
->   Add examples
-> ---
->  Documentation/devicetree/bindings/net/sff,sfp.txt | 78 +++++++++++++++++++++++
->  1 file changed, 78 insertions(+)
->  create mode 100644 Documentation/devicetree/bindings/net/sff,sfp.txt
+> for Bluetooth that is not true. We have Set Public Address command
+> that is uniquely handling this and the HCI_QUIRK_INVALID_BDADDR
+> address does the right magic to allow userspace to identify a missing
+> address. It is done nicely and correctly and works fine.
 > 
-> diff --git a/Documentation/devicetree/bindings/net/sff,sfp.txt b/Documentation/devicetree/bindings/net/sff,sfp.txt
-> new file mode 100644
-> index 000000000000..b98ee5945265
-> --- /dev/null
-> +++ b/Documentation/devicetree/bindings/net/sff,sfp.txt
-> @@ -0,0 +1,78 @@
-> +Small Form Factor (SFF) Committee Small Form-factor Pluggable (SFP)
-> +Transceiver
-> +
-> +Required properties:
-> +
-> +- compatible : must be "sff,sfp"
-> +
-> +Optional Properties:
-> +
-> +- i2c-bus : phandle of an I2C bus controller for the SFP two wire serial
-> +  interface
-> +
-> +- moddef0-gpios : GPIO phandle and a single specifier of the MOD-DEF0 (AKA
-> +  Mod_ABS) module presence input gpio signal, active (module absent) high
-> +
-> +- los-gpios : GPIO phandle and a single specifier of the Receiver Loss of
-> +  Signal Indication input gpio signal, active (signal lost) high
-> +
-> +- tx-fault-gpios : GPIO phandle and a single specifier of the Module
-> +  Transmitter Fault input gpio signal, active (fault condition) high
-> +
-> +- tx-disable-gpios : GPIO phandle and a single specifier of the Transmitter
-> +  Disable output gpio signal, active (Tx disable) high
-> +
-> +- rate-select0-gpios : GPIO phandle and a single specifier of the Rx Signaling
-> +  Rate Select (AKA RS0) output gpio signal, low: low Rx rate, high: high Rx
-> +  rate
-> +
-> +- rate-select1-gpios : GPIO phandle and a single specifier of the Tx Signaling
-> +  Rate Select (AKA RS1) output gpio signal (SFP+ only), low: low Tx rate,
-> +  high: high Tx rate
-> +
-> +Example #1: Direct serdes to SFP connection
-> +
-> +sfp_eth3: sfp-eth3 {
-> +	compatible = "sff,sfp";
-> +	i2c-bus = <&sfp_1g_i2c>;
-> +	los-gpios = <&cpm_gpio2 22 GPIO_ACTIVE_HIGH>;
-> +	moddef0-gpios = <&cpm_gpio2 21 GPIO_ACTIVE_LOW>;
-> +	pinctrl-names = "default";
-> +	pinctrl-0 = <&cpm_sfp_1g_pins &cps_sfp_1g_pins>;
-> +	tx-disable-gpios = <&cps_gpio1 24 GPIO_ACTIVE_HIGH>;
-> +	tx-fault-gpios = <&cpm_gpio2 19 GPIO_ACTIVE_HIGH>;
-> +};
-> +
-> +&cps_emac3 {
-> +	phy-mode = "sgmii";
-> +	phy-names = "comphy";
-> +	phys = <&cps_comphy 5 COMPHY_SGMII2>;
 
-I don't like this level of example - SGMII is Cisco SGMII which is not
-the same as 1000Base-X - the two are incompatible.  Fibre SFP modules
-only work with 1000Base-X.
+You're right in that we have a nice standardized way of informing user
+space that the bd address is invalid and a nice standardized way for the
+user to specify an address.
 
-The SFP/phylink takes care of informing the MAC which mode it should
-be in, and the MAC must configure itself appropriately in response to
-that, otherwise the module can't be supported.
+What I believe Rob is saying (and what is my problem) is that the user
+space tool reading the address from somewhere and calling this API is
+not standard - so we end up maintaining some custom
+"read-address-and-call-public-address"-tool for both Debian and
+OpenEmbedded, plus we need to ensure that all our customers include and
+launch this tool in their own systems.
 
--- 
-RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
-FTTC broadband for 0.8mile line in suburbia: sync at 8.8Mbps down 630kbps up
-According to speedtest.net: 8.21Mbps down 510kbps up
+> Mind you this is even used when there actually is a BD_ADDR, but the
+> device manufacturer wants to have one from its own OUI range compared
+> to the chip manufacturer’s OUI range.
+> 
+> If DT is really the only place for the BD_ADDR and the bootloader
+> kinda does add / merge it into the DT, then by all means that is fine.
+> However if it is not, then this feature is dangerous since it can lead
+> to multiple devices with the same address. I rather have these devices
+> leave the kernel in unconfigured mode. And then force a userspace tool
+> to use Set Public Address to bring it into configured mode.
+> 
+
+The "new" property is optional and think that for devices that has not
+been provisioned with a bd address the boot loader should not add this
+property.
+
+
+Base on the fact that the firmware is built with the assumption that the
+host will set the bd address I think the patch should be amended to
+specify HCI_QUIRK_INVALID_BDADDR in the absence of this property.
+
+Regards,
+Bjorn
