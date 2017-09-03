@@ -1,94 +1,161 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 24/47] netfilter: connlimit: merge root4 and root6.
-Date: Mon,  4 Sep 2017 00:40:12 +0200
-Message-ID: <1504478435-13160-2-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 30/47] netfilter: rt: add support to fetch path mss
+Date: Mon,  4 Sep 2017 00:40:18 +0200
+Message-ID: <1504478435-13160-8-git-send-email-pablo@netfilter.org>
 References: <1504478435-13160-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:52688 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:52724 "EHLO mail.us.es"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753168AbdICWku (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 3 Sep 2017 18:40:50 -0400
+        id S1753289AbdICWk5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 3 Sep 2017 18:40:57 -0400
 Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id C611B190F64
-        for <netdev@vger.kernel.org>; Mon,  4 Sep 2017 00:40:23 +0200 (CEST)
+        by mail.us.es (Postfix) with ESMTP id 81555190F61
+        for <netdev@vger.kernel.org>; Mon,  4 Sep 2017 00:40:30 +0200 (CEST)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id B58222DC87
-        for <netdev@vger.kernel.org>; Mon,  4 Sep 2017 00:40:23 +0200 (CEST)
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 702562DC84
+        for <netdev@vger.kernel.org>; Mon,  4 Sep 2017 00:40:30 +0200 (CEST)
 In-Reply-To: <1504478435-13160-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Taehee Yoo <ap420073@gmail.com>
+From: Florian Westphal <fw@strlen.de>
 
-The root4 variable is used only when connlimit extension module has been
-stored by the iptables command. and the roo6 variable is used only when
-connlimit extension module has been stored by the ip6tables command.
-So the root4 and roo6 variable does not be used at the same time.
+to be used in combination with tcp option set support to mimic
+iptables TCPMSS --clamp-mss-to-pmtu.
 
-Signed-off-by: Taehee Yoo <ap420073@gmail.com>
+v2: Eric Dumazet points out dst must be initialized.
+
+Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/xt_connlimit.c | 23 ++++++++---------------
- 1 file changed, 8 insertions(+), 15 deletions(-)
+ include/uapi/linux/netfilter/nf_tables.h |  2 +
+ net/netfilter/nft_rt.c                   | 66 ++++++++++++++++++++++++++++++++
+ 2 files changed, 68 insertions(+)
 
-diff --git a/net/netfilter/xt_connlimit.c b/net/netfilter/xt_connlimit.c
-index 97589b8a2a40..ffa8eec980e9 100644
---- a/net/netfilter/xt_connlimit.c
-+++ b/net/netfilter/xt_connlimit.c
-@@ -58,8 +58,7 @@ struct xt_connlimit_rb {
- static spinlock_t xt_connlimit_locks[CONNLIMIT_LOCK_SLOTS] __cacheline_aligned_in_smp;
- 
- struct xt_connlimit_data {
--	struct rb_root climit_root4[CONNLIMIT_SLOTS];
--	struct rb_root climit_root6[CONNLIMIT_SLOTS];
-+	struct rb_root climit_root[CONNLIMIT_SLOTS];
+diff --git a/include/uapi/linux/netfilter/nf_tables.h b/include/uapi/linux/netfilter/nf_tables.h
+index 40fd199f7531..b49da72efa68 100644
+--- a/include/uapi/linux/netfilter/nf_tables.h
++++ b/include/uapi/linux/netfilter/nf_tables.h
+@@ -811,11 +811,13 @@ enum nft_meta_keys {
+  * @NFT_RT_CLASSID: realm value of packet's route (skb->dst->tclassid)
+  * @NFT_RT_NEXTHOP4: routing nexthop for IPv4
+  * @NFT_RT_NEXTHOP6: routing nexthop for IPv6
++ * @NFT_RT_TCPMSS: fetch current path tcp mss
+  */
+ enum nft_rt_keys {
+ 	NFT_RT_CLASSID,
+ 	NFT_RT_NEXTHOP4,
+ 	NFT_RT_NEXTHOP6,
++	NFT_RT_TCPMSS,
  };
  
- static u_int32_t connlimit_rnd __read_mostly;
-@@ -294,13 +293,11 @@ static int count_them(struct net *net,
- 	int count;
- 	u32 hash;
+ /**
+diff --git a/net/netfilter/nft_rt.c b/net/netfilter/nft_rt.c
+index c7383d8f88d0..e142e65d3176 100644
+--- a/net/netfilter/nft_rt.c
++++ b/net/netfilter/nft_rt.c
+@@ -23,6 +23,42 @@ struct nft_rt {
+ 	enum nft_registers	dreg:8;
+ };
  
--	if (family == NFPROTO_IPV6) {
-+	if (family == NFPROTO_IPV6)
- 		hash = connlimit_iphash6(addr, mask);
--		root = &data->climit_root6[hash];
--	} else {
-+	else
- 		hash = connlimit_iphash(addr->ip & mask->ip);
--		root = &data->climit_root4[hash];
--	}
-+	root = &data->climit_root[hash];
- 
- 	spin_lock_bh(&xt_connlimit_locks[hash % CONNLIMIT_LOCK_SLOTS]);
- 
-@@ -379,10 +376,8 @@ static int connlimit_mt_check(const struct xt_mtchk_param *par)
- 		return -ENOMEM;
++static u16 get_tcpmss(const struct nft_pktinfo *pkt, const struct dst_entry *skbdst)
++{
++	u32 minlen = sizeof(struct ipv6hdr), mtu = dst_mtu(skbdst);
++	const struct sk_buff *skb = pkt->skb;
++	const struct nf_afinfo *ai;
++	struct flowi fl;
++
++	memset(&fl, 0, sizeof(fl));
++
++	switch (nft_pf(pkt)) {
++	case NFPROTO_IPV4:
++		fl.u.ip4.daddr = ip_hdr(skb)->saddr;
++		minlen = sizeof(struct iphdr);
++		break;
++	case NFPROTO_IPV6:
++		fl.u.ip6.daddr = ipv6_hdr(skb)->saddr;
++		break;
++	}
++
++	ai = nf_get_afinfo(nft_pf(pkt));
++	if (ai) {
++		struct dst_entry *dst = NULL;
++
++		ai->route(nft_net(pkt), &dst, &fl, false);
++		if (dst) {
++			mtu = min(mtu, dst_mtu(dst));
++			dst_release(dst);
++		}
++	}
++
++	if (mtu <= minlen || mtu > 0xffff)
++		return TCP_MSS_DEFAULT;
++
++	return mtu - minlen;
++}
++
+ static void nft_rt_get_eval(const struct nft_expr *expr,
+ 			    struct nft_regs *regs,
+ 			    const struct nft_pktinfo *pkt)
+@@ -57,6 +93,9 @@ static void nft_rt_get_eval(const struct nft_expr *expr,
+ 					 &ipv6_hdr(skb)->daddr),
+ 		       sizeof(struct in6_addr));
+ 		break;
++	case NFT_RT_TCPMSS:
++		nft_reg_store16(dest, get_tcpmss(pkt, dst));
++		break;
+ 	default:
+ 		WARN_ON(1);
+ 		goto err;
+@@ -94,6 +133,9 @@ static int nft_rt_get_init(const struct nft_ctx *ctx,
+ 	case NFT_RT_NEXTHOP6:
+ 		len = sizeof(struct in6_addr);
+ 		break;
++	case NFT_RT_TCPMSS:
++		len = sizeof(u16);
++		break;
+ 	default:
+ 		return -EOPNOTSUPP;
  	}
- 
--	for (i = 0; i < ARRAY_SIZE(info->data->climit_root4); ++i)
--		info->data->climit_root4[i] = RB_ROOT;
--	for (i = 0; i < ARRAY_SIZE(info->data->climit_root6); ++i)
--		info->data->climit_root6[i] = RB_ROOT;
-+	for (i = 0; i < ARRAY_SIZE(info->data->climit_root); ++i)
-+		info->data->climit_root[i] = RB_ROOT;
- 
- 	return 0;
+@@ -118,6 +160,29 @@ static int nft_rt_get_dump(struct sk_buff *skb,
+ 	return -1;
  }
-@@ -413,10 +408,8 @@ static void connlimit_mt_destroy(const struct xt_mtdtor_param *par)
  
- 	nf_ct_netns_put(par->net, par->family);
++static int nft_rt_validate(const struct nft_ctx *ctx, const struct nft_expr *expr,
++			   const struct nft_data **data)
++{
++	const struct nft_rt *priv = nft_expr_priv(expr);
++	unsigned int hooks;
++
++	switch (priv->key) {
++	case NFT_RT_NEXTHOP4:
++	case NFT_RT_NEXTHOP6:
++	case NFT_RT_CLASSID:
++		return 0;
++	case NFT_RT_TCPMSS:
++		hooks = (1 << NF_INET_FORWARD) |
++			(1 << NF_INET_LOCAL_OUT) |
++			(1 << NF_INET_POST_ROUTING);
++		break;
++	default:
++		return -EINVAL;
++	}
++
++	return nft_chain_validate_hooks(ctx->chain, hooks);
++}
++
+ static struct nft_expr_type nft_rt_type;
+ static const struct nft_expr_ops nft_rt_get_ops = {
+ 	.type		= &nft_rt_type,
+@@ -125,6 +190,7 @@ static const struct nft_expr_ops nft_rt_get_ops = {
+ 	.eval		= nft_rt_get_eval,
+ 	.init		= nft_rt_get_init,
+ 	.dump		= nft_rt_get_dump,
++	.validate	= nft_rt_validate,
+ };
  
--	for (i = 0; i < ARRAY_SIZE(info->data->climit_root4); ++i)
--		destroy_tree(&info->data->climit_root4[i]);
--	for (i = 0; i < ARRAY_SIZE(info->data->climit_root6); ++i)
--		destroy_tree(&info->data->climit_root6[i]);
-+	for (i = 0; i < ARRAY_SIZE(info->data->climit_root); ++i)
-+		destroy_tree(&info->data->climit_root[i]);
- 
- 	kfree(info->data);
- }
+ static struct nft_expr_type nft_rt_type __read_mostly = {
 -- 
 2.1.4
