@@ -1,93 +1,49 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 09/47] netfilter: add and use nf_ct_unconfirmed_destroy
-Date: Mon,  4 Sep 2017 00:25:51 +0200
-Message-ID: <1504477589-12045-10-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 07/47] netfilter: conntrack: Change to deferable work queue
+Date: Mon,  4 Sep 2017 00:25:49 +0200
+Message-ID: <1504477589-12045-8-git-send-email-pablo@netfilter.org>
 References: <1504477589-12045-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:50796 "EHLO mail.us.es"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753160AbdICW0n (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 3 Sep 2017 18:26:43 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id 20C8F190F70
+        for <netdev@vger.kernel.org>; Mon,  4 Sep 2017 00:26:17 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 0DC552DC87
+        for <netdev@vger.kernel.org>; Mon,  4 Sep 2017 00:26:17 +0200 (CEST)
 In-Reply-To: <1504477589-12045-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
+From: "subashab@codeaurora.org" <subashab@codeaurora.org>
 
-This also removes __nf_ct_unconfirmed_destroy() call from
-nf_ct_iterate_cleanup_net, so that function can be used only
-when missing conntracks from unconfirmed list isn't a problem.
+Delayed workqueue causes wakeups to idle CPUs. This was
+causing a power impact for devices. Use deferable work
+queue instead so that gc_worker runs when CPU is active only.
 
-Signed-off-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/net/netfilter/nf_conntrack.h |  3 +++
- net/netfilter/nf_conntrack_core.c    | 15 +++++++++++----
- net/netfilter/nfnetlink_cttimeout.c  |  1 +
- 3 files changed, 15 insertions(+), 4 deletions(-)
+ net/netfilter/nf_conntrack_core.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/include/net/netfilter/nf_conntrack.h b/include/net/netfilter/nf_conntrack.h
-index 48407569585d..6e6f678aaac7 100644
---- a/include/net/netfilter/nf_conntrack.h
-+++ b/include/net/netfilter/nf_conntrack.h
-@@ -224,6 +224,9 @@ extern s32 (*nf_ct_nat_offset)(const struct nf_conn *ct,
- 			       enum ip_conntrack_dir dir,
- 			       u32 seq);
- 
-+/* Set all unconfirmed conntrack as dying */
-+void nf_ct_unconfirmed_destroy(struct net *);
-+
- /* Iterate over all conntracks: if iter returns true, it's deleted. */
- void nf_ct_iterate_cleanup_net(struct net *net,
- 			       int (*iter)(struct nf_conn *i, void *data),
 diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index c6f1cf0bff56..80ab4e937765 100644
+index 69746928cc0a..c6f1cf0bff56 100644
 --- a/net/netfilter/nf_conntrack_core.c
 +++ b/net/netfilter/nf_conntrack_core.c
-@@ -1686,6 +1686,17 @@ __nf_ct_unconfirmed_destroy(struct net *net)
- 	}
- }
+@@ -1081,7 +1081,7 @@ static void gc_worker(struct work_struct *work)
  
-+void nf_ct_unconfirmed_destroy(struct net *net)
-+{
-+	might_sleep();
-+
-+	if (atomic_read(&net->ct.count) > 0) {
-+		__nf_ct_unconfirmed_destroy(net);
-+		synchronize_net();
-+	}
-+}
-+EXPORT_SYMBOL_GPL(nf_ct_unconfirmed_destroy);
-+
- void nf_ct_iterate_cleanup_net(struct net *net,
- 			       int (*iter)(struct nf_conn *i, void *data),
- 			       void *data, u32 portid, int report)
-@@ -1697,14 +1708,10 @@ void nf_ct_iterate_cleanup_net(struct net *net,
- 	if (atomic_read(&net->ct.count) == 0)
- 		return;
- 
--	__nf_ct_unconfirmed_destroy(net);
--
- 	d.iter = iter;
- 	d.data = data;
- 	d.net = net;
- 
--	synchronize_net();
--
- 	nf_ct_iterate_cleanup(iter_net_only, &d, portid, report);
- }
- EXPORT_SYMBOL_GPL(nf_ct_iterate_cleanup_net);
-diff --git a/net/netfilter/nfnetlink_cttimeout.c b/net/netfilter/nfnetlink_cttimeout.c
-index 7ce9e86d374c..f4fb6d4dd0b9 100644
---- a/net/netfilter/nfnetlink_cttimeout.c
-+++ b/net/netfilter/nfnetlink_cttimeout.c
-@@ -570,6 +570,7 @@ static void __net_exit cttimeout_net_exit(struct net *net)
+ static void conntrack_gc_work_init(struct conntrack_gc_work *gc_work)
  {
- 	struct ctnl_timeout *cur, *tmp;
- 
-+	nf_ct_unconfirmed_destroy(net);
- 	ctnl_untimeout(net, NULL);
- 
- 	list_for_each_entry_safe(cur, tmp, &net->nfct_timeout_list, head) {
+-	INIT_DELAYED_WORK(&gc_work->dwork, gc_worker);
++	INIT_DEFERRABLE_WORK(&gc_work->dwork, gc_worker);
+ 	gc_work->next_gc_run = HZ;
+ 	gc_work->exiting = false;
+ }
 -- 
 2.1.4
-
-
