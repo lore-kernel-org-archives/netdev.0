@@ -1,114 +1,164 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net-next 15/17] net/mlx5e: Use kernel's mechanism to avoid missing NAPIs
-Date: Sun,  3 Sep 2017 07:21:15 +0300
-Message-ID: <20170903042117.28923-16-saeedm@mellanox.com>
+Subject: [net-next 12/17] net/mlx5e: Remove unnecessary fields in ICO SQ
+Date: Sun,  3 Sep 2017 07:21:12 +0300
+Message-ID: <20170903042117.28923-13-saeedm@mellanox.com>
 References: <20170903042117.28923-1-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, kernel-team@fb.com,
         Tariq Toukan <tariqt@mellanox.com>,
-        Eric Dumazet <edumazet@google.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:60146 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:60110 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751528AbdICEWQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 3 Sep 2017 00:22:16 -0400
+        with ESMTP id S1751454AbdICEWO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 3 Sep 2017 00:22:14 -0400
 In-Reply-To: <20170903042117.28923-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Tariq Toukan <tariqt@mellanox.com>
 
-We used a channel state bit MLX5E_CHANNEL_NAPI_SCHED to make
-sure no NAPI is missed when a channel's napi_schedule() is called
-for completion events of the different channel's resources/rings
-while NAPI is currently running.
-Now, as similar mechanism is implemented in kernel,
-("39e6c8208d7b net: solve a NAPI race"),
-we obsolete our own implementation and rely on the return value
-of napi_complete_done().
+As of current design, in each NAPI, only a single UMR WQE
+completion could be available in the completion queue of the
+the internal control operations (ICO) send queue, in addition
+to nop operations that require no actions upon completion.
+This renders the consume index obsolete, as the wqe_counter
+field in CQE is sufficient.
 
-This patch removes a redundant overhead of atomic bit operations.
+This helps removing a memory barrier, and obsoletes the need
+for tracking the num_wqebbs to update the consumer counter.
+
+In addition, remove other unused fields in icosq struct:
+pdev, dma_fifo_pc, and prev_cc.
 
 Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
-Cc: Eric Dumazet <edumazet@google.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en.h      |  5 -----
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c |  1 -
- drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c | 10 +---------
- 3 files changed, 1 insertion(+), 15 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en.h      |  7 -------
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c |  2 --
+ drivers/net/ethernet/mellanox/mlx5/core/en_rx.c   | 19 ++-----------------
+ 3 files changed, 2 insertions(+), 26 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index 9c0c07ffe557..7c046ae8b18e 100644
+index 8d29a6eb9406..e55d9439bc12 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -570,10 +570,6 @@ struct mlx5e_rq {
- 	struct mlx5_core_mkey  umr_mkey;
- } ____cacheline_aligned_in_smp;
+@@ -343,7 +343,6 @@ enum {
  
--enum channel_flags {
--	MLX5E_CHANNEL_NAPI_SCHED = 1,
--};
--
- struct mlx5e_channel {
+ struct mlx5e_sq_wqe_info {
+ 	u8  opcode;
+-	u8  num_wqebbs;
+ };
+ 
+ struct mlx5e_txqsq {
+@@ -419,13 +418,8 @@ struct mlx5e_xdpsq {
+ struct mlx5e_icosq {
  	/* data path */
- 	struct mlx5e_rq            rq;
-@@ -585,7 +581,6 @@ struct mlx5e_channel {
- 	struct net_device         *netdev;
- 	__be32                     mkey_be;
- 	u8                         num_tc;
--	unsigned long              flags;
  
- 	/* control */
- 	struct mlx5e_priv         *priv;
+-	/* dirtied @completion */
+-	u16                        cc;
+-
+ 	/* dirtied @xmit */
+ 	u16                        pc ____cacheline_aligned_in_smp;
+-	u32                        dma_fifo_pc;
+-	u16                        prev_cc;
+ 
+ 	struct mlx5e_cq            cq;
+ 
+@@ -439,7 +433,6 @@ struct mlx5e_icosq {
+ 	void __iomem              *uar_map;
+ 	u32                        sqn;
+ 	u16                        edge;
+-	struct device             *pdev;
+ 	__be32                     mkey_be;
+ 	unsigned long              state;
+ 
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 2da2ea222aaa..b2f689ec0d72 100644
+index 162ba6ab749a..a4c9a0a2c408 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -3697,7 +3697,6 @@ static int mlx5e_xdp_set(struct net_device *netdev, struct bpf_prog *prog)
+@@ -950,7 +950,6 @@ static void mlx5e_activate_rq(struct mlx5e_rq *rq)
  
- 		set_bit(MLX5E_RQ_STATE_ENABLED, &c->rq.state);
- 		/* napi_schedule in case we have missed anything */
--		set_bit(MLX5E_CHANNEL_NAPI_SCHED, &c->flags);
- 		napi_schedule(&c->napi);
+ 	set_bit(MLX5E_RQ_STATE_ENABLED, &rq->state);
+ 	sq->db.ico_wqe[pi].opcode     = MLX5_OPCODE_NOP;
+-	sq->db.ico_wqe[pi].num_wqebbs = 1;
+ 	nopwqe = mlx5e_post_nop(&sq->wq, sq->sqn, &sq->pc);
+ 	mlx5e_notify_hw(&sq->wq, sq->pc, sq->uar_map, &nopwqe->ctrl);
+ }
+@@ -1052,7 +1051,6 @@ static int mlx5e_alloc_icosq(struct mlx5e_channel *c,
+ 	struct mlx5_core_dev *mdev = c->mdev;
+ 	int err;
  
- 		if (old_prog)
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
-index 439ba1f2ffbc..92d9aa1cddd6 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
-@@ -40,8 +40,6 @@ int mlx5e_napi_poll(struct napi_struct *napi, int budget)
- 	int work_done;
- 	int i;
+-	sq->pdev      = c->pdev;
+ 	sq->mkey_be   = c->mkey_be;
+ 	sq->channel   = c;
+ 	sq->uar_map   = mdev->mlx5e_res.bfreg.map;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+index b236dfd71c18..88a8749c67d6 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+@@ -357,7 +357,6 @@ static inline void mlx5e_post_umr_wqe(struct mlx5e_rq *rq, u16 ix)
+ 	/* fill sq edge with nops to avoid wqe wrap around */
+ 	while ((pi = (sq->pc & wq->sz_m1)) > sq->edge) {
+ 		sq->db.ico_wqe[pi].opcode = MLX5_OPCODE_NOP;
+-		sq->db.ico_wqe[pi].num_wqebbs = 1;
+ 		mlx5e_post_nop(wq, sq->sqn, &sq->pc);
+ 	}
  
--	clear_bit(MLX5E_CHANNEL_NAPI_SCHED, &c->flags);
+@@ -368,7 +367,6 @@ static inline void mlx5e_post_umr_wqe(struct mlx5e_rq *rq, u16 ix)
+ 			    MLX5_OPCODE_UMR);
+ 
+ 	sq->db.ico_wqe[pi].opcode = MLX5_OPCODE_UMR;
+-	sq->db.ico_wqe[pi].num_wqebbs = num_wqebbs;
+ 	sq->pc += num_wqebbs;
+ 	mlx5e_notify_hw(&sq->wq, sq->pc, sq->uar_map, &wqe->ctrl);
+ }
+@@ -487,15 +485,13 @@ bool mlx5e_post_rx_wqes(struct mlx5e_rq *rq)
+ static inline void mlx5e_poll_ico_single_cqe(struct mlx5e_cq *cq,
+ 					     struct mlx5e_icosq *sq,
+ 					     struct mlx5e_rq *rq,
+-					     struct mlx5_cqe64 *cqe,
+-					     u16 *sqcc)
++					     struct mlx5_cqe64 *cqe)
+ {
+ 	struct mlx5_wq_cyc *wq = &sq->wq;
+ 	u16 ci = be16_to_cpu(cqe->wqe_counter) & wq->sz_m1;
+ 	struct mlx5e_sq_wqe_info *icowi = &sq->db.ico_wqe[ci];
+ 
+ 	mlx5_cqwq_pop(&cq->wq);
+-	*sqcc += icowi->num_wqebbs;
+ 
+ 	if (unlikely((cqe->op_own >> 4) != MLX5_CQE_REQ)) {
+ 		WARN_ONCE(true, "mlx5e: Bad OP in ICOSQ CQE: 0x%x\n",
+@@ -518,7 +514,6 @@ static void mlx5e_poll_ico_cq(struct mlx5e_cq *cq, struct mlx5e_rq *rq)
+ {
+ 	struct mlx5e_icosq *sq = container_of(cq, struct mlx5e_icosq, cq);
+ 	struct mlx5_cqe64 *cqe;
+-	u16 sqcc;
+ 
+ 	if (unlikely(!MLX5E_TEST_BIT(sq->state, MLX5E_SQ_STATE_ENABLED)))
+ 		return;
+@@ -527,20 +522,10 @@ static void mlx5e_poll_ico_cq(struct mlx5e_cq *cq, struct mlx5e_rq *rq)
+ 	if (likely(!cqe))
+ 		return;
+ 
+-	/* sq->cc must be updated only after mlx5_cqwq_update_db_record(),
+-	 * otherwise a cq overrun may occur
+-	 */
+-	sqcc = sq->cc;
 -
- 	for (i = 0; i < c->num_tc; i++)
- 		busy |= mlx5e_poll_tx_cq(&c->sq[i].cq, budget);
+ 	/* by design, there's only a single cqe */
+-	mlx5e_poll_ico_single_cqe(cq, sq, rq, cqe, &sqcc);
++	mlx5e_poll_ico_single_cqe(cq, sq, rq, cqe);
  
-@@ -56,13 +54,8 @@ int mlx5e_napi_poll(struct napi_struct *napi, int budget)
- 	if (busy)
- 		return budget;
- 
--	napi_complete_done(napi, work_done);
+ 	mlx5_cqwq_update_db_record(&cq->wq);
 -
--	/* avoid losing completion event during/after polling cqs */
--	if (test_bit(MLX5E_CHANNEL_NAPI_SCHED, &c->flags)) {
--		napi_schedule(napi);
-+	if (unlikely(!napi_complete_done(napi, work_done)))
- 		return work_done;
--	}
- 
- 	for (i = 0; i < c->num_tc; i++)
- 		mlx5e_cq_arm(&c->sq[i].cq);
-@@ -81,7 +74,6 @@ void mlx5e_completion_event(struct mlx5_core_cq *mcq)
- 	struct mlx5e_cq *cq = container_of(mcq, struct mlx5e_cq, mcq);
- 
- 	cq->event_ctr++;
--	set_bit(MLX5E_CHANNEL_NAPI_SCHED, &cq->channel->flags);
- 	napi_schedule(cq->napi);
+-	/* ensure cq space is freed before enabling more cqes */
+-	wmb();
+-
+-	sq->cc = sqcc;
  }
  
+ bool mlx5e_post_rx_mpwqes(struct mlx5e_rq *rq)
 -- 
 2.13.0
