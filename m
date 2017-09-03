@@ -1,100 +1,70 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 43/47] netfilter: core: batch nf_unregister_net_hooks synchronize_net calls
-Date: Mon,  4 Sep 2017 00:42:50 +0200
-Message-ID: <1504478574-13281-8-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 39/47] netfilter: ebtables: fix indent on if statements
+Date: Mon,  4 Sep 2017 00:42:46 +0200
+Message-ID: <1504478574-13281-4-git-send-email-pablo@netfilter.org>
 References: <1504478574-13281-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:53062 "EHLO mail.us.es"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753359AbdICWnK (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 3 Sep 2017 18:43:10 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id 76F6A190F67
+        for <netdev@vger.kernel.org>; Mon,  4 Sep 2017 00:42:43 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 67428B5027
+        for <netdev@vger.kernel.org>; Mon,  4 Sep 2017 00:42:43 +0200 (CEST)
 In-Reply-To: <1504478574-13281-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
+From: Colin Ian King <colin.king@canonical.com>
 
-re-add batching in nf_unregister_net_hooks().
+The returns on some if statements are not indented correctly,
+add in the missing tab.
 
-Similar as before, just store an array with to-be-free'd rule arrays
-on stack, then call synchronize_net once per batch.
-
-Signed-off-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/core.c | 59 +++++++++++++++++++++++++++++++++++++++++++++++++---
- 1 file changed, 56 insertions(+), 3 deletions(-)
+ net/bridge/netfilter/ebt_ip.c  | 4 ++--
+ net/bridge/netfilter/ebt_ip6.c | 2 +-
+ 2 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/net/netfilter/core.c b/net/netfilter/core.c
-index 164ad20d0bd2..04fe25abc5f6 100644
---- a/net/netfilter/core.c
-+++ b/net/netfilter/core.c
-@@ -395,10 +395,63 @@ EXPORT_SYMBOL(nf_register_net_hooks);
- void nf_unregister_net_hooks(struct net *net, const struct nf_hook_ops *reg,
- 			     unsigned int hookcount)
- {
--	unsigned int i;
-+	struct nf_hook_entries *to_free[16], *p;
-+	struct nf_hook_entries __rcu **pp;
-+	unsigned int i, j, n;
-+
-+	mutex_lock(&nf_hook_mutex);
-+	for (i = 0; i < hookcount; i++) {
-+		pp = nf_hook_entry_head(net, &reg[i]);
-+		if (!pp)
-+			continue;
-+
-+		p = nf_entry_dereference(*pp);
-+		if (WARN_ON_ONCE(!p))
-+			continue;
-+		__nf_unregister_net_hook(p, &reg[i]);
-+	}
-+	mutex_unlock(&nf_hook_mutex);
-+
-+	do {
-+		n = min_t(unsigned int, hookcount, ARRAY_SIZE(to_free));
-+
-+		mutex_lock(&nf_hook_mutex);
-+
-+		for (i = 0, j = 0; i < hookcount && j < n; i++) {
-+			pp = nf_hook_entry_head(net, &reg[i]);
-+			if (!pp)
-+				continue;
-+
-+			p = nf_entry_dereference(*pp);
-+			if (!p)
-+				continue;
-+
-+			to_free[j] = __nf_hook_entries_try_shrink(pp);
-+			if (to_free[j])
-+				++j;
-+		}
-+
-+		mutex_unlock(&nf_hook_mutex);
-+
-+		if (j) {
-+			unsigned int nfq;
-+
-+			synchronize_net();
-+
-+			/* need 2nd synchronize_net() if nfqueue is used, skb
-+			 * can get reinjected right before nf_queue_hook_drop()
-+			 */
-+			nfq = nf_queue_nf_hook_drop(net);
-+			if (nfq)
-+				synchronize_net();
-+
-+			for (i = 0; i < j; i++)
-+				kvfree(to_free[i]);
-+		}
- 
--	for (i = 0; i < hookcount; i++)
--		nf_unregister_net_hook(net, &reg[i]);
-+		reg += n;
-+		hookcount -= n;
-+	} while (hookcount > 0);
- }
- EXPORT_SYMBOL(nf_unregister_net_hooks);
- 
+diff --git a/net/bridge/netfilter/ebt_ip.c b/net/bridge/netfilter/ebt_ip.c
+index d06968bdf5ec..2b46c50abce0 100644
+--- a/net/bridge/netfilter/ebt_ip.c
++++ b/net/bridge/netfilter/ebt_ip.c
+@@ -64,14 +64,14 @@ ebt_ip_mt(const struct sk_buff *skb, struct xt_action_param *par)
+ 			if (NF_INVF(info, EBT_IP_DPORT,
+ 				    dst < info->dport[0] ||
+ 				    dst > info->dport[1]))
+-			return false;
++				return false;
+ 		}
+ 		if (info->bitmask & EBT_IP_SPORT) {
+ 			u32 src = ntohs(pptr->src);
+ 			if (NF_INVF(info, EBT_IP_SPORT,
+ 				    src < info->sport[0] ||
+ 				    src > info->sport[1]))
+-			return false;
++				return false;
+ 		}
+ 	}
+ 	return true;
+diff --git a/net/bridge/netfilter/ebt_ip6.c b/net/bridge/netfilter/ebt_ip6.c
+index 4617491be41e..2a5a52a53ec4 100644
+--- a/net/bridge/netfilter/ebt_ip6.c
++++ b/net/bridge/netfilter/ebt_ip6.c
+@@ -89,7 +89,7 @@ ebt_ip6_mt(const struct sk_buff *skb, struct xt_action_param *par)
+ 			if (NF_INVF(info, EBT_IP6_SPORT,
+ 				    src < info->sport[0] ||
+ 				    src > info->sport[1]))
+-			return false;
++				return false;
+ 		}
+ 		if ((info->bitmask & EBT_IP6_ICMP6) &&
+ 		    NF_INVF(info, EBT_IP6_ICMP6,
 -- 
 2.1.4
-
-
