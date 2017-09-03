@@ -1,7 +1,7 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 40/47] netfilter: fix a few (harmless) sparse warnings
-Date: Mon,  4 Sep 2017 00:42:47 +0200
-Message-ID: <1504478574-13281-5-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 45/47] netfilter: Remove NFDEBUG()
+Date: Mon,  4 Sep 2017 00:42:52 +0200
+Message-ID: <1504478574-13281-10-git-send-email-pablo@netfilter.org>
 References: <1504478574-13281-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -10,71 +10,47 @@ In-Reply-To: <1504478574-13281-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Florian Westphal <fw@strlen.de>
+From: Varsha Rao <rvarsha016@gmail.com>
 
-net/netfilter/nft_payload.c:187:18: warning: incorrect type in return expression (expected bool got restricted __sum16 [usertype] check)
-net/netfilter/nft_exthdr.c:222:14: warning: cast to restricted __be32
-net/netfilter/nft_rt.c:49:23: warning: incorrect type in assignment (different base types expected unsigned int got restricted __be32)
-net/netfilter/nft_rt.c:70:25: warning: symbol 'nft_rt_policy' was not declared. Should it be static?
+Remove NFDEBUG and use pr_debug() instead of it.
 
-Signed-off-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Varsha Rao <rvarsha016@gmail.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nft_exthdr.c  | 2 +-
- net/netfilter/nft_payload.c | 2 +-
- net/netfilter/nft_rt.c      | 6 +++---
- 3 files changed, 5 insertions(+), 5 deletions(-)
+ net/netfilter/nf_internals.h | 6 ------
+ net/netfilter/nf_sockopt.c   | 2 +-
+ 2 files changed, 1 insertion(+), 7 deletions(-)
 
-diff --git a/net/netfilter/nft_exthdr.c b/net/netfilter/nft_exthdr.c
-index f5a0bf5e3bdd..a0a93d987a3b 100644
---- a/net/netfilter/nft_exthdr.c
-+++ b/net/netfilter/nft_exthdr.c
-@@ -388,7 +388,7 @@ nft_exthdr_select_ops(const struct nft_ctx *ctx,
- 	if (tb[NFTA_EXTHDR_SREG] && tb[NFTA_EXTHDR_DREG])
- 		return ERR_PTR(-EOPNOTSUPP);
+diff --git a/net/netfilter/nf_internals.h b/net/netfilter/nf_internals.h
+index bacd6363946e..49f87ec093a3 100644
+--- a/net/netfilter/nf_internals.h
++++ b/net/netfilter/nf_internals.h
+@@ -5,12 +5,6 @@
+ #include <linux/skbuff.h>
+ #include <linux/netdevice.h>
  
--	op = ntohl(nla_get_u32(tb[NFTA_EXTHDR_OP]));
-+	op = ntohl(nla_get_be32(tb[NFTA_EXTHDR_OP]));
- 	switch (op) {
- 	case NFT_EXTHDR_OP_TCPOPT:
- 		if (tb[NFTA_EXTHDR_SREG])
-diff --git a/net/netfilter/nft_payload.c b/net/netfilter/nft_payload.c
-index 7d699bbd45b0..e110b0ebbf58 100644
---- a/net/netfilter/nft_payload.c
-+++ b/net/netfilter/nft_payload.c
-@@ -184,7 +184,7 @@ static bool nft_payload_udp_checksum(struct sk_buff *skb, unsigned int thoff)
- 	if (!uh)
- 		return false;
- 
--	return uh->check;
-+	return (__force bool)uh->check;
- }
- 
- static int nft_payload_l4csum_offset(const struct nft_pktinfo *pkt,
-diff --git a/net/netfilter/nft_rt.c b/net/netfilter/nft_rt.c
-index e142e65d3176..61fd3acaa3c9 100644
---- a/net/netfilter/nft_rt.c
-+++ b/net/netfilter/nft_rt.c
-@@ -82,8 +82,8 @@ static void nft_rt_get_eval(const struct nft_expr *expr,
- 		if (nft_pf(pkt) != NFPROTO_IPV4)
- 			goto err;
- 
--		*dest = rt_nexthop((const struct rtable *)dst,
--				   ip_hdr(skb)->daddr);
-+		*dest = (__force u32)rt_nexthop((const struct rtable *)dst,
-+						ip_hdr(skb)->daddr);
- 		break;
- 	case NFT_RT_NEXTHOP6:
- 		if (nft_pf(pkt) != NFPROTO_IPV6)
-@@ -106,7 +106,7 @@ static void nft_rt_get_eval(const struct nft_expr *expr,
- 	regs->verdict.code = NFT_BREAK;
- }
- 
--const struct nla_policy nft_rt_policy[NFTA_RT_MAX + 1] = {
-+static const struct nla_policy nft_rt_policy[NFTA_RT_MAX + 1] = {
- 	[NFTA_RT_DREG]		= { .type = NLA_U32 },
- 	[NFTA_RT_KEY]		= { .type = NLA_U32 },
- };
+-#ifdef CONFIG_NETFILTER_DEBUG
+-#define NFDEBUG(format, args...)  printk(KERN_DEBUG format , ## args)
+-#else
+-#define NFDEBUG(format, args...)
+-#endif
+-
+ /* nf_queue.c */
+ int nf_queue(struct sk_buff *skb, struct nf_hook_state *state,
+ 	     const struct nf_hook_entries *entries, unsigned int index,
+diff --git a/net/netfilter/nf_sockopt.c b/net/netfilter/nf_sockopt.c
+index c68c1e58b362..d2a9e6b5d01f 100644
+--- a/net/netfilter/nf_sockopt.c
++++ b/net/netfilter/nf_sockopt.c
+@@ -33,7 +33,7 @@ int nf_register_sockopt(struct nf_sockopt_ops *reg)
+ 				reg->set_optmin, reg->set_optmax)
+ 			|| overlap(ops->get_optmin, ops->get_optmax,
+ 				   reg->get_optmin, reg->get_optmax))) {
+-			NFDEBUG("nf_sock overlap: %u-%u/%u-%u v %u-%u/%u-%u\n",
++			pr_debug("nf_sock overlap: %u-%u/%u-%u v %u-%u/%u-%u\n",
+ 				ops->set_optmin, ops->set_optmax,
+ 				ops->get_optmin, ops->get_optmax,
+ 				reg->set_optmin, reg->set_optmax,
 -- 
 2.1.4
 
