@@ -1,54 +1,38 @@
-From: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
-Subject: [PATCH] geneve: Fix setting ttl value in collect metadata mode
-Date: Sun,  3 Sep 2017 20:49:42 +0800
-Message-ID: <1504442982-12431-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
-To: "David S. Miller" <davem@davemloft.net>,
-        pravin shelar <pshelar@ovn.org>,
-        Girish Moodalbail <girish.moodalbail@oracle.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Tariq Toukan <tariqt@mellanox.com>
+Subject: Re: [PATCH 7/10] net/mlx4_core: Use ARRAY_SIZE macro
+Date: Sun, 3 Sep 2017 16:14:38 +0300
+Message-ID: <d11331cc-d5d8-e4bb-2a0b-c97c46b5b0a3@mellanox.com>
+References: <1504439110050-939061377-0-diffsplit-thomas@m3y3r.de>
+ <1504439110050-1961876957-7-diffsplit-thomas@m3y3r.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Thomas Meyer <thomas@m3y3r.de>, netdev@vger.kernel.org,
+        linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-db5eur01on0061.outbound.protection.outlook.com ([104.47.2.61]:42832
+        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751617AbdICNOr (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 3 Sep 2017 09:14:47 -0400
+In-Reply-To: <1504439110050-1961876957-7-diffsplit-thomas@m3y3r.de>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-If key->tos is zero in collect metadata mode, tos should fallback to
-ip{4,6}_dst_hoplimit, same as normal mode.
 
-Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
----
- drivers/net/geneve.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
-index f640407..d52a65f 100644
---- a/drivers/net/geneve.c
-+++ b/drivers/net/geneve.c
-@@ -834,11 +834,10 @@ static int geneve_xmit_skb(struct sk_buff *skb, struct net_device *dev,
- 	sport = udp_flow_src_port(geneve->net, skb, 1, USHRT_MAX, true);
- 	if (geneve->collect_md) {
- 		tos = ip_tunnel_ecn_encap(key->tos, ip_hdr(skb), skb);
--		ttl = key->ttl;
- 	} else {
- 		tos = ip_tunnel_ecn_encap(fl4.flowi4_tos, ip_hdr(skb), skb);
--		ttl = key->ttl ? : ip4_dst_hoplimit(&rt->dst);
- 	}
-+	ttl = key->ttl ? : ip4_dst_hoplimit(&rt->dst);
- 	df = key->tun_flags & TUNNEL_DONT_FRAGMENT ? htons(IP_DF) : 0;
- 
- 	err = geneve_build_skb(&rt->dst, skb, info, xnet, sizeof(struct iphdr));
-@@ -873,12 +872,11 @@ static int geneve6_xmit_skb(struct sk_buff *skb, struct net_device *dev,
- 	sport = udp_flow_src_port(geneve->net, skb, 1, USHRT_MAX, true);
- 	if (geneve->collect_md) {
- 		prio = ip_tunnel_ecn_encap(key->tos, ip_hdr(skb), skb);
--		ttl = key->ttl;
- 	} else {
- 		prio = ip_tunnel_ecn_encap(ip6_tclass(fl6.flowlabel),
- 					   ip_hdr(skb), skb);
--		ttl = key->ttl ? : ip6_dst_hoplimit(dst);
- 	}
-+	ttl = key->ttl ? : ip6_dst_hoplimit(dst);
- 	err = geneve_build_skb(dst, skb, info, xnet, sizeof(struct ipv6hdr));
- 	if (unlikely(err))
- 		return err;
--- 
-1.8.3.1
+On 03/09/2017 3:19 PM, Thomas Meyer wrote:
+> Use ARRAY_SIZE macro, rather than explicitly coding some variant of it
+> yourself.
+> Found with: find -type f -name "*.c" -o -name "*.h" | xargs perl -p -i -e
+> 's/\bsizeof\s*\(\s*(\w+)\s*\)\s*\ /\s*sizeof\s*\(\s*\1\s*\[\s*0\s*\]\s*\)
+> /ARRAY_SIZE(\1)/g' and manual check/verification.
+> 
+> Signed-off-by: Thomas Meyer <thomas@m3y3r.de>
+> ---
+
+
+Reviewed-by: Tariq Toukan <tariqt@mellanox.com>
+
+Thanks Thomas!
