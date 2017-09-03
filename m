@@ -1,38 +1,37 @@
-From: Tariq Toukan <tariqt@mellanox.com>
-Subject: Re: [PATCH 7/10] net/mlx4_core: Use ARRAY_SIZE macro
-Date: Sun, 3 Sep 2017 16:14:38 +0300
-Message-ID: <d11331cc-d5d8-e4bb-2a0b-c97c46b5b0a3@mellanox.com>
-References: <1504439110050-939061377-0-diffsplit-thomas@m3y3r.de>
- <1504439110050-1961876957-7-diffsplit-thomas@m3y3r.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Thomas Meyer <thomas@m3y3r.de>, netdev@vger.kernel.org,
-        linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0061.outbound.protection.outlook.com ([104.47.2.61]:42832
-        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751617AbdICNOr (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 3 Sep 2017 09:14:47 -0400
-In-Reply-To: <1504439110050-1961876957-7-diffsplit-thomas@m3y3r.de>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Baruch Siach <baruch@tkos.co.il>
+Subject: [PATCH] dt-binding: phy: don't confuse with Ethernet phy properties
+Date: Sun,  3 Sep 2017 17:32:16 +0300
+Message-ID: <0a90f4b3cc903af6f82002e502deba67f374c602.1504449136.git.baruch@tkos.co.il>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        Baruch Siach <baruch@tkos.co.il>
+To: Kishon Vijay Abraham I <kishon@ti.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+The generic PHY 'phys' property sometime appears in the same node with
+the Ethernet PHY 'phy' or 'phy-handle' properties. Add a warning in
+phy-bindings.txt to reduce confusion.
 
+Signed-off-by: Baruch Siach <baruch@tkos.co.il>
+---
+ Documentation/devicetree/bindings/phy/phy-bindings.txt | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-On 03/09/2017 3:19 PM, Thomas Meyer wrote:
-> Use ARRAY_SIZE macro, rather than explicitly coding some variant of it
-> yourself.
-> Found with: find -type f -name "*.c" -o -name "*.h" | xargs perl -p -i -e
-> 's/\bsizeof\s*\(\s*(\w+)\s*\)\s*\ /\s*sizeof\s*\(\s*\1\s*\[\s*0\s*\]\s*\)
-> /ARRAY_SIZE(\1)/g' and manual check/verification.
-> 
-> Signed-off-by: Thomas Meyer <thomas@m3y3r.de>
-> ---
-
-
-Reviewed-by: Tariq Toukan <tariqt@mellanox.com>
-
-Thanks Thomas!
+diff --git a/Documentation/devicetree/bindings/phy/phy-bindings.txt b/Documentation/devicetree/bindings/phy/phy-bindings.txt
+index 1293c321754c..a403b81d0679 100644
+--- a/Documentation/devicetree/bindings/phy/phy-bindings.txt
++++ b/Documentation/devicetree/bindings/phy/phy-bindings.txt
+@@ -34,7 +34,9 @@ PHY user node
+ =============
+ 
+ Required Properties:
+-phys : the phandle for the PHY device (used by the PHY subsystem)
++phys : the phandle for the PHY device (used by the PHY subsystem; not to be
++       confused with the Ethernet specific 'phy' and 'phy-handle' properties,
++       see Documentation/devicetree/bindings/net/ethernet.txt for these)
+ phy-names : the names of the PHY corresponding to the PHYs present in the
+ 	    *phys* phandle
+ 
+-- 
+2.14.1
