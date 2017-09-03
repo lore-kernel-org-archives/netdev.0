@@ -1,50 +1,75 @@
 From: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
-Subject: [PATCH net-next 0/6] net: qualcomm: rmnet: Fix comments on initial patchset
-Date: Sat,  2 Sep 2017 23:30:40 -0600
-Message-ID: <1504416646-9527-1-git-send-email-subashab@codeaurora.org>
-Cc: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+Subject: [PATCH net-next 2/6] net: qualcomm: rmnet: Remove the unused endpoint -1
+Date: Sat,  2 Sep 2017 23:30:42 -0600
+Message-ID: <1504416646-9527-3-git-send-email-subashab@codeaurora.org>
+References: <1504416646-9527-1-git-send-email-subashab@codeaurora.org>
+Cc: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>,
+        Dan Williams <dcbw@redhat.com>
 To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:42546 "EHLO
+Received: from smtp.codeaurora.org ([198.145.29.96]:42644 "EHLO
         smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750795AbdICFbq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 3 Sep 2017 01:31:46 -0400
+        with ESMTP id S1751196AbdICFbw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 3 Sep 2017 01:31:52 -0400
+In-Reply-To: <1504416646-9527-1-git-send-email-subashab@codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series fixes the comments from Dan on the first patch series.
+This was used only in the original patch series where the IOCTLs were
+present and is no longer in use.
 
-Fixes a memory corruption which could occur if mux_id was higher than 32.
-Remove the RMNET_LOCAL_LOGICAL_ENDPOINT which is no longer used.
-Make a log message more useful.
-Combine __rmnet_set_endpoint_config() with rmnet_set_endpoint_config().
-Set the mux_id in rmnet_vnd_newlink().
-Set the ingress and egress data format directly in newlink.
-Implement ndo_get_iflink to find the real_dev.
-Rename the real_dev_info to port to make it similar to other drivers.
+Fixes: ceed73a2cf4a ("drivers: net: ethernet: qualcomm: rmnet: Initial implementation")
+Signed-off-by: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+Cc: Dan Williams <dcbw@redhat.com>
+---
+ drivers/net/ethernet/qualcomm/rmnet/rmnet_config.c | 14 +++-----------
+ 1 file changed, 3 insertions(+), 11 deletions(-)
 
-The conversion of rmnet_devices to a list and hash lookup will be sent
-as part of a seperate patch.
-
-Subash Abhinov Kasiviswanathan (6):
-  net: qualcomm: rmnet: Fix memory corruption if mux_id is greater than
-    32
-  net: qualcomm: rmnet: Remove the unused endpoint -1
-  net: qualcomm: rmnet: Move the device creation log
-  net: qualcomm: rmnet: Refactor the new rmnet dev creation
-  net: qualcomm: rmnet: Implement ndo_get_iflink
-  net: qualcomm: rmnet: Rename real_dev_info to port
-
- drivers/net/ethernet/qualcomm/rmnet/rmnet_config.c | 163 +++++++--------------
- drivers/net/ethernet/qualcomm/rmnet/rmnet_config.h |   9 +-
- .../net/ethernet/qualcomm/rmnet/rmnet_handlers.c   |  56 +++----
- drivers/net/ethernet/qualcomm/rmnet/rmnet_map.h    |   6 +-
- .../ethernet/qualcomm/rmnet/rmnet_map_command.c    |  13 +-
- .../net/ethernet/qualcomm/rmnet/rmnet_map_data.c   |   3 +-
- .../net/ethernet/qualcomm/rmnet/rmnet_private.h    |   1 -
- drivers/net/ethernet/qualcomm/rmnet/rmnet_vnd.c    |  43 +++---
- drivers/net/ethernet/qualcomm/rmnet/rmnet_vnd.h    |   6 +-
- 9 files changed, 119 insertions(+), 181 deletions(-)
-
+diff --git a/drivers/net/ethernet/qualcomm/rmnet/rmnet_config.c b/drivers/net/ethernet/qualcomm/rmnet/rmnet_config.c
+index e836d26..3ca98ec 100644
+--- a/drivers/net/ethernet/qualcomm/rmnet/rmnet_config.c
++++ b/drivers/net/ethernet/qualcomm/rmnet/rmnet_config.c
+@@ -42,7 +42,6 @@
+  */
+ 
+ /* Local Definitions and Declarations */
+-#define RMNET_LOCAL_LOGICAL_ENDPOINT -1
+ 
+ struct rmnet_walk_data {
+ 	struct net_device *real_dev;
+@@ -89,10 +88,7 @@ static int rmnet_is_real_dev_registered(const struct net_device *real_dev)
+ 		if (!r)
+ 			return NULL;
+ 
+-		if (config_id == RMNET_LOCAL_LOGICAL_ENDPOINT)
+-			ep = &r->local_ep;
+-		else
+-			ep = &r->muxed_ep[config_id];
++		ep = &r->muxed_ep[config_id];
+ 	}
+ 
+ 	return ep;
+@@ -182,10 +178,7 @@ static int __rmnet_set_endpoint_config(struct net_device *dev, int config_id,
+ 		return -EINVAL;
+ 
+ 	memcpy(dev_ep, ep, sizeof(struct rmnet_endpoint));
+-	if (config_id == RMNET_LOCAL_LOGICAL_ENDPOINT)
+-		dev_ep->mux_id = 0;
+-	else
+-		dev_ep->mux_id = config_id;
++	dev_ep->mux_id = config_id;
+ 
+ 	return 0;
+ }
+@@ -199,8 +192,7 @@ static int rmnet_set_endpoint_config(struct net_device *dev,
+ 	netdev_dbg(dev, "id %d mode %d dev %s\n",
+ 		   config_id, rmnet_mode, egress_dev->name);
+ 
+-	if (config_id < RMNET_LOCAL_LOGICAL_ENDPOINT ||
+-	    config_id >= RMNET_MAX_LOGICAL_EP)
++	if (config_id >= RMNET_MAX_LOGICAL_EP)
+ 		return -EINVAL;
+ 
+ 	/* This config is cleared on every set, so its ok to not
 -- 
 1.9.1
