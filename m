@@ -1,44 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/2] l2tp: session creation fixes
-Date: Sun, 03 Sep 2017 11:04:36 -0700 (PDT)
-Message-ID: <20170903.110436.325862367776935727.davem@davemloft.net>
-References: <cover.1504277892.git.g.nault@alphalink.fr>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jchapman@katalix.com
-To: g.nault@alphalink.fr
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:56498 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753099AbdICSEh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 3 Sep 2017 14:04:37 -0400
-In-Reply-To: <cover.1504277892.git.g.nault@alphalink.fr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joel Fernandes <joelaf@google.com>
+Subject: [PATCH RFC v3 0/4] Add cross-compilation support to eBPF samples
+Date: Sun,  3 Sep 2017 11:23:21 -0700
+Message-ID: <20170903182326.30547-1-joelaf@google.com>
+Cc: kernel-team@android.com, Juri Lelli <juri.lelli@arm.com>,
+        Alison Chaiken <alison@she-devel.com>,
+        Chenbo Feng <fengc@google.com>,
+        Joel Fernandes <joelaf@google.com>,
+        Alexei Starovoitov <ast@kernel.org>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        David Miller <davem@davemloft.net>
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Guillaume Nault <g.nault@alphalink.fr>
-Date: Fri, 1 Sep 2017 17:58:45 +0200
+These patches fix issues seen when cross-compiling eBPF samples on arm64.
+Compared to [1], I dropped the controversial inline-asm patch pending further
+discussion on the right way to do it. However these patches are still a step in
+the right direction and I wanted them to get in before the more controversial
+bit.
 
-> The session creation process has a few issues wrt. concurrent tunnel
-> deletion.
-> 
-> Patch #1 avoids creating sessions in tunnels that are getting removed.
-> This prevents races where sessions could try to take tunnel resources
-> that were already released.
-> 
-> Patch #2 removes some racy l2tp_tunnel_find() calls in session creation
-> callbacks. Together with path #1 it ensures that sessions can only
-> access tunnel resources that are guaranteed to remain valid during the
-> session creation process.
-> 
-> 
-> There are other problems with how sessions are created: pseudo-wire
-> specific data are set after the session is added to the tunnel. So
-> the session can be used, or deleted, before it has been completely
-> initialised. Separating session allocation from session registration
-> would be necessary, but we'd still have circular dependencies
-> preventing race-free registration. I'll consider this issue in future
-> series.
+[1] https://lkml.org/lkml/2017/8/7/417
 
-Series applied, thanks.
+Joel Fernandes (4):
+  samples/bpf: Use getppid instead of getpgrp for array map stress
+  samples/bpf: Enable cross compiler support
+  samples/bpf: Fix pt_regs issues when cross-compiling
+  samples/bpf: Add documentation on cross compilation
+
+ samples/bpf/Makefile                      |  7 +++-
+ samples/bpf/README.rst                    | 10 ++++++
+ samples/bpf/map_perf_test_kern.c          |  2 +-
+ samples/bpf/map_perf_test_user.c          |  2 +-
+ tools/testing/selftests/bpf/bpf_helpers.h | 56 +++++++++++++++++++++++++++----
+ 5 files changed, 67 insertions(+), 10 deletions(-)
+
+CC: Alexei Starovoitov <ast@kernel.org>
+CC: Daniel Borkmann <daniel@iogearbox.net>
+Cc: David Miller <davem@davemloft.net>
+-- 
+2.14.1.581.gf28d330327-goog
