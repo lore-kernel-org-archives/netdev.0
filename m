@@ -1,114 +1,114 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net-next 16/17] net/mlx5e: Stop NAPI when irq balancer changes affinity
-Date: Sun,  3 Sep 2017 07:21:16 +0300
-Message-ID: <20170903042117.28923-17-saeedm@mellanox.com>
+Subject: [net-next 15/17] net/mlx5e: Use kernel's mechanism to avoid missing NAPIs
+Date: Sun,  3 Sep 2017 07:21:15 +0300
+Message-ID: <20170903042117.28923-16-saeedm@mellanox.com>
 References: <20170903042117.28923-1-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, kernel-team@fb.com,
         Tariq Toukan <tariqt@mellanox.com>,
+        Eric Dumazet <edumazet@google.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:60120 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:60146 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751482AbdICEWP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 3 Sep 2017 00:22:15 -0400
+        with ESMTP id S1751528AbdICEWQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 3 Sep 2017 00:22:16 -0400
 In-Reply-To: <20170903042117.28923-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Tariq Toukan <tariqt@mellanox.com>
 
-NAPI context keeps rescheduling on same CPU as long as it's busy.
-This doesn't give the oppurtunity for changes in irq affinities
-to take effect.
-Fix that by calling napi_complete_done() upon a change in affinity.
-This would stop the NAPI and reschedule it on the new CPU.
+We used a channel state bit MLX5E_CHANNEL_NAPI_SCHED to make
+sure no NAPI is missed when a channel's napi_schedule() is called
+for completion events of the different channel's resources/rings
+while NAPI is currently running.
+Now, as similar mechanism is implemented in kernel,
+("39e6c8208d7b net: solve a NAPI race"),
+we obsolete our own implementation and rely on the return value
+of napi_complete_done().
+
+This patch removes a redundant overhead of atomic bit operations.
 
 Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+Cc: Eric Dumazet <edumazet@google.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en.h      |  3 +++
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c |  5 +++++
- drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c | 20 ++++++++++++++++++--
- 3 files changed, 26 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en.h      |  5 -----
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c |  1 -
+ drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c | 10 +---------
+ 3 files changed, 1 insertion(+), 15 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index 7c046ae8b18e..1388a1e2f835 100644
+index 9c0c07ffe557..7c046ae8b18e 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -582,6 +582,9 @@ struct mlx5e_channel {
+@@ -570,10 +570,6 @@ struct mlx5e_rq {
+ 	struct mlx5_core_mkey  umr_mkey;
+ } ____cacheline_aligned_in_smp;
+ 
+-enum channel_flags {
+-	MLX5E_CHANNEL_NAPI_SCHED = 1,
+-};
+-
+ struct mlx5e_channel {
+ 	/* data path */
+ 	struct mlx5e_rq            rq;
+@@ -585,7 +581,6 @@ struct mlx5e_channel {
+ 	struct net_device         *netdev;
  	__be32                     mkey_be;
  	u8                         num_tc;
+-	unsigned long              flags;
  
-+	/* data path - accessed per napi poll */
-+	struct irq_desc *irq_desc;
-+
  	/* control */
  	struct mlx5e_priv         *priv;
- 	struct mlx5_core_dev      *mdev;
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index b2f689ec0d72..20f34131d4e5 100644
+index 2da2ea222aaa..b2f689ec0d72 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -1761,7 +1761,9 @@ static int mlx5e_open_channel(struct mlx5e_priv *priv, int ix,
- 	struct net_device *netdev = priv->netdev;
- 	int cpu = mlx5e_get_cpu(priv, ix);
- 	struct mlx5e_channel *c;
-+	unsigned int irq;
- 	int err;
-+	int eqn;
+@@ -3697,7 +3697,6 @@ static int mlx5e_xdp_set(struct net_device *netdev, struct bpf_prog *prog)
  
- 	c = kzalloc_node(sizeof(*c), GFP_KERNEL, cpu_to_node(cpu));
- 	if (!c)
-@@ -1778,6 +1780,9 @@ static int mlx5e_open_channel(struct mlx5e_priv *priv, int ix,
- 	c->num_tc   = params->num_tc;
- 	c->xdp      = !!params->xdp_prog;
+ 		set_bit(MLX5E_RQ_STATE_ENABLED, &c->rq.state);
+ 		/* napi_schedule in case we have missed anything */
+-		set_bit(MLX5E_CHANNEL_NAPI_SCHED, &c->flags);
+ 		napi_schedule(&c->napi);
  
-+	mlx5_vector2eqn(priv->mdev, ix, &eqn, &irq);
-+	c->irq_desc = irq_to_desc(irq);
-+
- 	netif_napi_add(netdev, &c->napi, mlx5e_napi_poll, 64);
- 
- 	err = mlx5e_open_cq(c, icocq_moder, &cparam->icosq_cq, &c->icosq.cq);
+ 		if (old_prog)
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
-index 92d9aa1cddd6..e906b754415c 100644
+index 439ba1f2ffbc..92d9aa1cddd6 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
-@@ -30,8 +30,20 @@
-  * SOFTWARE.
-  */
+@@ -40,8 +40,6 @@ int mlx5e_napi_poll(struct napi_struct *napi, int budget)
+ 	int work_done;
+ 	int i;
  
-+#include <linux/irq.h>
- #include "en.h"
+-	clear_bit(MLX5E_CHANNEL_NAPI_SCHED, &c->flags);
+-
+ 	for (i = 0; i < c->num_tc; i++)
+ 		busy |= mlx5e_poll_tx_cq(&c->sq[i].cq, budget);
  
-+static inline bool mlx5e_channel_no_affinity_change(struct mlx5e_channel *c)
-+{
-+	int current_cpu = smp_processor_id();
-+	const struct cpumask *aff;
-+	struct irq_data *idata;
-+
-+	idata = irq_desc_get_irq_data(c->irq_desc);
-+	aff = irq_data_get_affinity_mask(idata);
-+	return cpumask_test_cpu(current_cpu, aff);
-+}
-+
- int mlx5e_napi_poll(struct napi_struct *napi, int budget)
- {
- 	struct mlx5e_channel *c = container_of(napi, struct mlx5e_channel,
-@@ -51,8 +63,12 @@ int mlx5e_napi_poll(struct napi_struct *napi, int budget)
+@@ -56,13 +54,8 @@ int mlx5e_napi_poll(struct napi_struct *napi, int budget)
+ 	if (busy)
+ 		return budget;
  
- 	busy |= c->rq.post_wqes(&c->rq);
- 
--	if (busy)
--		return budget;
-+	if (busy) {
-+		if (likely(mlx5e_channel_no_affinity_change(c)))
-+			return budget;
-+		if (work_done == budget)
-+			work_done--;
-+	}
- 
- 	if (unlikely(!napi_complete_done(napi, work_done)))
+-	napi_complete_done(napi, work_done);
+-
+-	/* avoid losing completion event during/after polling cqs */
+-	if (test_bit(MLX5E_CHANNEL_NAPI_SCHED, &c->flags)) {
+-		napi_schedule(napi);
++	if (unlikely(!napi_complete_done(napi, work_done)))
  		return work_done;
+-	}
+ 
+ 	for (i = 0; i < c->num_tc; i++)
+ 		mlx5e_cq_arm(&c->sq[i].cq);
+@@ -81,7 +74,6 @@ void mlx5e_completion_event(struct mlx5_core_cq *mcq)
+ 	struct mlx5e_cq *cq = container_of(mcq, struct mlx5e_cq, mcq);
+ 
+ 	cq->event_ctr++;
+-	set_bit(MLX5E_CHANNEL_NAPI_SCHED, &cq->channel->flags);
+ 	napi_schedule(cq->napi);
+ }
+ 
 -- 
 2.13.0
