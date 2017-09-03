@@ -1,33 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][next] net/mlx4_core: fix memory leaks on error exit
- path
-Date: Sun, 03 Sep 2017 10:57:32 -0700 (PDT)
-Message-ID: <20170903.105732.1712307481321249919.davem@davemloft.net>
-References: <20170831163053.2349-1-colin.king@canonical.com>
+Subject: Re: [PATCH net 0/2] net: revert lib/percpu_counter API for
+ fragmentation mem accounting
+Date: Sun, 03 Sep 2017 11:01:20 -0700 (PDT)
+Message-ID: <20170903.110120.230269539906979454.davem@davemloft.net>
+References: <150425790711.22227.12264977619066874632.stgit@firesoul>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tariqt@mellanox.com, netdev@vger.kernel.org,
-        linux-rdma@vger.kernel.org, kernel-janitors@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: colin.king@canonical.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170831163053.2349-1-colin.king@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, mkubecek@suse.cz, fw@strlen.de,
+        liujian56@huawei.com
+To: brouer@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:56454 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753099AbdICSBV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 3 Sep 2017 14:01:21 -0400
+In-Reply-To: <150425790711.22227.12264977619066874632.stgit@firesoul>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin King <colin.king@canonical.com>
-Date: Thu, 31 Aug 2017 17:30:53 +0100
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Date: Fri, 01 Sep 2017 11:26:03 +0200
 
-> From: Colin Ian King <colin.king@canonical.com>
+> There is a bug in fragmentation codes use of the percpu_counter API,
+> that can cause issues on systems with many CPUs, above 24 CPUs.
 > 
-> The structures hca_param and func_cap are not being kfree'd on an error
-> exit path causing two memory leaks. Fix this by jumping to the existing
-> free memory error exit path.
+> After much consideration and different attempts at solving the API
+> usage.  The conclusion is to revert to the simple atomic_t API instead.
 > 
-> Detected by CoverityScan, CID#1455219, CID#1455224 ("Resource Leak")
-> 
-> Fixes: c73c8b1e47ca ("net/mlx4_core: Dynamically allocate structs at mlx4_slave_cap")
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> The ratio between batch size and threshold size make it a bad use-case
+> for the lib/percpu_counter API.  As using the correct API calls will
+> unfortunately cause systems with many CPUs to always execute an
+> expensive sum across all CPUs. Plus the added complexity is not worth it.
 
-Applied.
+Series applied, thanks Jesper.
