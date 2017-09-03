@@ -1,16 +1,16 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net-next 05/17] net/mlx5e: Small enhancements for RX MPWQE allocation and free
-Date: Sun,  3 Sep 2017 07:21:05 +0300
-Message-ID: <20170903042117.28923-6-saeedm@mellanox.com>
+Subject: [net-next 02/17] net/mlx5e: Replace multiplication by stride size with a shift
+Date: Sun,  3 Sep 2017 07:21:02 +0300
+Message-ID: <20170903042117.28923-3-saeedm@mellanox.com>
 References: <20170903042117.28923-1-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, kernel-team@fb.com,
         Tariq Toukan <tariqt@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:59998 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:59978 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751070AbdICEWL (ORCPT
+        with ESMTP id S1750858AbdICEWL (ORCPT
         <rfc822;netdev@vger.kernel.org>); Sun, 3 Sep 2017 00:22:11 -0400
 In-Reply-To: <20170903042117.28923-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,100 +18,69 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Tariq Toukan <tariqt@mellanox.com>
 
-The dma offset of a MPWQE (Multi-Packet WQE) in memory region
-is fixed for all rounds. Calculate it once on creation time,
-instead of in runtime. This also obsoletes the wqe argument in
-the function.
-
-In addition, optimize dma_info iterator calculation.
+In RX data-path, use shift operations instead of a regular multiplication
+by stride size, as it is a power of two.
 
 Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c |  6 ++++++
- drivers/net/ethernet/mellanox/mlx5/core/en_rx.c   | 18 ++++++------------
- 2 files changed, 12 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en.h      | 2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 4 ++--
+ drivers/net/ethernet/mellanox/mlx5/core/en_rx.c   | 4 ++--
+ 3 files changed, 5 insertions(+), 5 deletions(-)
 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index d964db286c95..44bd8df905ca 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -535,8 +535,8 @@ struct mlx5e_rq {
+ 		struct {
+ 			struct mlx5e_mpw_info *info;
+ 			void                  *mtt_no_align;
+-			u16                    stride_sz;
+ 			u16                    num_strides;
++			u8                     log_stride_sz;
+ 		} mpwqe;
+ 	};
+ 	struct {
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 591e0dca9671..5aa4681f7c3c 100644
+index 94761d0e1b33..7a25d952c922 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -674,6 +674,12 @@ static int mlx5e_alloc_rq(struct mlx5e_channel *c,
- 	for (i = 0; i < wq_sz; i++) {
- 		struct mlx5e_rx_wqe *wqe = mlx5_wq_ll_get_wqe(&rq->wq, i);
+@@ -615,10 +615,10 @@ static int mlx5e_alloc_rq(struct mlx5e_channel *c,
+ 			goto err_rq_wq_destroy;
+ 		}
  
-+		if (rq->wq_type == MLX5_WQ_TYPE_LINKED_LIST_STRIDING_RQ) {
-+			u64 dma_offset = (u64)mlx5e_get_wqe_mtt_offset(rq, i) << PAGE_SHIFT;
-+
-+			wqe->data.addr = cpu_to_be64(dma_offset);
-+		}
-+
- 		wqe->data.byte_count = cpu_to_be32(byte_count);
- 		wqe->data.lkey = rq->mkey_be;
- 	}
+-		rq->mpwqe.stride_sz = BIT(params->mpwqe_log_stride_sz);
++		rq->mpwqe.log_stride_sz = params->mpwqe_log_stride_sz;
+ 		rq->mpwqe.num_strides = BIT(params->mpwqe_log_num_strides);
+ 
+-		rq->buff.wqe_sz = rq->mpwqe.stride_sz * rq->mpwqe.num_strides;
++		rq->buff.wqe_sz = rq->mpwqe.num_strides << rq->mpwqe.log_stride_sz;
+ 		byte_count = rq->buff.wqe_sz;
+ 
+ 		err = mlx5e_create_rq_umr_mkey(mdev, rq);
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-index db372dcecbe0..fb3b83609aea 100644
+index 1b50f1e7e48a..aa5cc1590859 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-@@ -374,18 +374,15 @@ static inline void mlx5e_post_umr_wqe(struct mlx5e_rq *rq, u16 ix)
- }
- 
- static int mlx5e_alloc_rx_umr_mpwqe(struct mlx5e_rq *rq,
--				    struct mlx5e_rx_wqe *wqe,
- 				    u16 ix)
+@@ -304,7 +304,7 @@ static inline void mlx5e_add_skb_frag_mpwqe(struct mlx5e_rq *rq,
+ 					    u32 page_idx, u32 frag_offset,
+ 					    u32 len)
  {
- 	struct mlx5e_mpw_info *wi = &rq->mpwqe.info[ix];
--	u64 dma_offset = (u64)mlx5e_get_wqe_mtt_offset(rq, ix) << PAGE_SHIFT;
- 	int pg_strides = mlx5e_mpwqe_strides_per_page(rq);
-+	struct mlx5e_dma_info *dma_info = &wi->umr.dma_info[0];
- 	int err;
- 	int i;
+-	unsigned int truesize = ALIGN(len, rq->mpwqe.stride_sz);
++	unsigned int truesize = ALIGN(len, BIT(rq->mpwqe.log_stride_sz));
  
--	for (i = 0; i < MLX5_MPWRQ_PAGES_PER_WQE; i++) {
--		struct mlx5e_dma_info *dma_info = &wi->umr.dma_info[i];
--
-+	for (i = 0; i < MLX5_MPWRQ_PAGES_PER_WQE; i++, dma_info++) {
- 		err = mlx5e_page_alloc_mapped(rq, dma_info);
- 		if (unlikely(err))
- 			goto err_unmap;
-@@ -395,14 +392,12 @@ static int mlx5e_alloc_rx_umr_mpwqe(struct mlx5e_rq *rq,
- 
- 	memset(wi->skbs_frags, 0, sizeof(*wi->skbs_frags) * MLX5_MPWRQ_PAGES_PER_WQE);
- 	wi->consumed_strides = 0;
--	wqe->data.addr = cpu_to_be64(dma_offset);
- 
- 	return 0;
- 
- err_unmap:
- 	while (--i >= 0) {
--		struct mlx5e_dma_info *dma_info = &wi->umr.dma_info[i];
--
-+		dma_info--;
- 		page_ref_sub(dma_info->page, pg_strides);
- 		mlx5e_page_release(rq, dma_info, true);
- 	}
-@@ -413,11 +408,10 @@ static int mlx5e_alloc_rx_umr_mpwqe(struct mlx5e_rq *rq,
- void mlx5e_free_rx_mpwqe(struct mlx5e_rq *rq, struct mlx5e_mpw_info *wi)
+ 	dma_sync_single_for_cpu(rq->pdev,
+ 				wi->umr.dma_info[page_idx].addr + frag_offset,
+@@ -910,7 +910,7 @@ static inline void mlx5e_mpwqe_fill_rx_skb(struct mlx5e_rq *rq,
+ 					   struct sk_buff *skb)
  {
- 	int pg_strides = mlx5e_mpwqe_strides_per_page(rq);
-+	struct mlx5e_dma_info *dma_info = &wi->umr.dma_info[0];
- 	int i;
- 
--	for (i = 0; i < MLX5_MPWRQ_PAGES_PER_WQE; i++) {
--		struct mlx5e_dma_info *dma_info = &wi->umr.dma_info[i];
--
-+	for (i = 0; i < MLX5_MPWRQ_PAGES_PER_WQE; i++, dma_info++) {
- 		page_ref_sub(dma_info->page, pg_strides - wi->skbs_frags[i]);
- 		mlx5e_page_release(rq, dma_info, true);
- 	}
-@@ -447,7 +441,7 @@ int mlx5e_alloc_rx_mpwqe(struct mlx5e_rq *rq, struct mlx5e_rx_wqe *wqe, u16 ix)
- {
- 	int err;
- 
--	err = mlx5e_alloc_rx_umr_mpwqe(rq, wqe, ix);
-+	err = mlx5e_alloc_rx_umr_mpwqe(rq, ix);
- 	if (unlikely(err))
- 		return err;
- 	set_bit(MLX5E_RQ_STATE_UMR_WQE_IN_PROGRESS, &rq->state);
+ 	u16 stride_ix      = mpwrq_get_cqe_stride_index(cqe);
+-	u32 wqe_offset     = stride_ix * rq->mpwqe.stride_sz;
++	u32 wqe_offset     = stride_ix << rq->mpwqe.log_stride_sz;
+ 	u32 head_offset    = wqe_offset & (PAGE_SIZE - 1);
+ 	u32 page_idx       = wqe_offset >> PAGE_SHIFT;
+ 	u32 head_page_idx  = page_idx;
 -- 
 2.13.0
