@@ -1,112 +1,345 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [net-next 10/17] net/mlx5e: Non-atomic RQ state indicator for UMR WQE in progress
-Date: Sun,  3 Sep 2017 07:21:10 +0300
-Message-ID: <20170903042117.28923-11-saeedm@mellanox.com>
+Subject: [net-next 11/17] net/mlx5e: Type-specific optimizations for RX post WQEs function
+Date: Sun,  3 Sep 2017 07:21:11 +0300
+Message-ID: <20170903042117.28923-12-saeedm@mellanox.com>
 References: <20170903042117.28923-1-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, kernel-team@fb.com,
         Tariq Toukan <tariqt@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:60094 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:60072 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1750858AbdICEWO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 3 Sep 2017 00:22:14 -0400
+        with ESMTP id S1751287AbdICEWN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 3 Sep 2017 00:22:13 -0400
 In-Reply-To: <20170903042117.28923-1-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Tariq Toukan <tariqt@mellanox.com>
 
-The indication for a UMR WQE in progress is needed only within
-the NAPI context, and hence no races possible and no need for
-the use of atomic operations.
-The only place the flag is read outside of NAPI context is
-in closure flow, after RQ is disabled flag is no more accessed
-in NAPI.
-Use a boolean instead of a bit in ring state, so that its
-non-atomic set operations do not race with the atomic sets of
-the other bits.
+Separate the RX post WQEs function of the different RQ types.
+This enables RQ type-specific optimizations in data-path.
+
+Poll the ICOSQ completion queue only for Striding RQ,
+and only when a UMR post completion could be possibly available.
 
 Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en.h      |  2 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c |  3 ++-
- drivers/net/ethernet/mellanox/mlx5/core/en_rx.c   | 10 +++++-----
- 3 files changed, 8 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en.h      |  10 +--
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c |   4 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_rx.c   | 101 ++++++++++++++++++----
+ drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c |  64 +-------------
+ 4 files changed, 92 insertions(+), 87 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index 0c4f1f30085a..bce2080eb86a 100644
+index bce2080eb86a..8d29a6eb9406 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -291,7 +291,6 @@ struct mlx5e_tstamp {
+@@ -517,7 +517,7 @@ struct mlx5e_page_cache {
  
- enum {
- 	MLX5E_RQ_STATE_ENABLED,
--	MLX5E_RQ_STATE_UMR_WQE_IN_PROGRESS,
- 	MLX5E_RQ_STATE_AM,
- };
+ struct mlx5e_rq;
+ typedef void (*mlx5e_fp_handle_rx_cqe)(struct mlx5e_rq*, struct mlx5_cqe64*);
+-typedef int (*mlx5e_fp_alloc_wqe)(struct mlx5e_rq*, struct mlx5e_rx_wqe*, u16);
++typedef bool (*mlx5e_fp_post_rx_wqes)(struct mlx5e_rq *rq);
+ typedef void (*mlx5e_fp_dealloc_wqe)(struct mlx5e_rq*, u16);
  
-@@ -539,6 +538,7 @@ struct mlx5e_rq {
- 			void                  *mtt_no_align;
- 			u16                    num_strides;
- 			u8                     log_stride_sz;
-+			bool                   umr_in_progress;
- 		} mpwqe;
- 	};
- 	struct {
+ struct mlx5e_rq {
+@@ -547,6 +547,7 @@ struct mlx5e_rq {
+ 		u8             map_dir;   /* dma map direction */
+ 	} buff;
+ 
++	struct mlx5e_channel  *channel;
+ 	struct device         *pdev;
+ 	struct net_device     *netdev;
+ 	struct mlx5e_tstamp   *tstamp;
+@@ -555,7 +556,7 @@ struct mlx5e_rq {
+ 	struct mlx5e_page_cache page_cache;
+ 
+ 	mlx5e_fp_handle_rx_cqe handle_rx_cqe;
+-	mlx5e_fp_alloc_wqe     alloc_wqe;
++	mlx5e_fp_post_rx_wqes  post_wqes;
+ 	mlx5e_fp_dealloc_wqe   dealloc_wqe;
+ 
+ 	unsigned long          state;
+@@ -572,7 +573,6 @@ struct mlx5e_rq {
+ 	__be32                 mkey_be;
+ 	u8                     wq_type;
+ 	u32                    rqn;
+-	struct mlx5e_channel  *channel;
+ 	struct mlx5_core_dev  *mdev;
+ 	struct mlx5_core_mkey  umr_mkey;
+ } ____cacheline_aligned_in_smp;
+@@ -853,11 +853,9 @@ void mlx5e_page_release(struct mlx5e_rq *rq, struct mlx5e_dma_info *dma_info,
+ void mlx5e_handle_rx_cqe(struct mlx5e_rq *rq, struct mlx5_cqe64 *cqe);
+ void mlx5e_handle_rx_cqe_mpwrq(struct mlx5e_rq *rq, struct mlx5_cqe64 *cqe);
+ bool mlx5e_post_rx_wqes(struct mlx5e_rq *rq);
+-int mlx5e_alloc_rx_wqe(struct mlx5e_rq *rq, struct mlx5e_rx_wqe *wqe, u16 ix);
+-int mlx5e_alloc_rx_mpwqe(struct mlx5e_rq *rq, struct mlx5e_rx_wqe *wqe,	u16 ix);
++bool mlx5e_post_rx_mpwqes(struct mlx5e_rq *rq);
+ void mlx5e_dealloc_rx_wqe(struct mlx5e_rq *rq, u16 ix);
+ void mlx5e_dealloc_rx_mpwqe(struct mlx5e_rq *rq, u16 ix);
+-void mlx5e_post_rx_mpwqe(struct mlx5e_rq *rq);
+ void mlx5e_free_rx_mpwqe(struct mlx5e_rq *rq, struct mlx5e_mpw_info *wi);
+ 
+ void mlx5e_rx_am(struct mlx5e_rq *rq);
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 411fb68794bc..2767a3ee81bc 100644
+index 2767a3ee81bc..162ba6ab749a 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -886,7 +886,8 @@ static void mlx5e_free_rx_descs(struct mlx5e_rq *rq)
- 	u16 wqe_ix;
+@@ -598,7 +598,7 @@ static int mlx5e_alloc_rq(struct mlx5e_channel *c,
+ 	switch (rq->wq_type) {
+ 	case MLX5_WQ_TYPE_LINKED_LIST_STRIDING_RQ:
  
- 	/* UMR WQE (if in progress) is always at wq->head */
--	if (test_bit(MLX5E_RQ_STATE_UMR_WQE_IN_PROGRESS, &rq->state))
-+	if (rq->wq_type == MLX5_WQ_TYPE_LINKED_LIST_STRIDING_RQ &&
-+	    rq->mpwqe.umr_in_progress)
- 		mlx5e_free_rx_mpwqe(rq, &rq->mpwqe.info[wq->head]);
+-		rq->alloc_wqe = mlx5e_alloc_rx_mpwqe;
++		rq->post_wqes = mlx5e_post_rx_mpwqes;
+ 		rq->dealloc_wqe = mlx5e_dealloc_rx_mpwqe;
  
- 	while (!mlx5_wq_ll_is_empty(wq)) {
+ 		rq->handle_rx_cqe = c->priv->profile->rx_handlers.handle_rx_cqe_mpwqe;
+@@ -637,7 +637,7 @@ static int mlx5e_alloc_rq(struct mlx5e_channel *c,
+ 			err = -ENOMEM;
+ 			goto err_rq_wq_destroy;
+ 		}
+-		rq->alloc_wqe = mlx5e_alloc_rx_wqe;
++		rq->post_wqes = mlx5e_post_rx_wqes;
+ 		rq->dealloc_wqe = mlx5e_dealloc_rx_wqe;
+ 
+ #ifdef CONFIG_MLX5_EN_IPSEC
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-index a5522c3992a2..11dba9940029 100644
+index 11dba9940029..b236dfd71c18 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
-@@ -422,7 +422,7 @@ void mlx5e_post_rx_mpwqe(struct mlx5e_rq *rq)
+@@ -252,7 +252,7 @@ static inline bool mlx5e_page_reuse(struct mlx5e_rq *rq,
+ 		!mlx5e_page_is_reserved(wi->di.page);
+ }
+ 
+-int mlx5e_alloc_rx_wqe(struct mlx5e_rq *rq, struct mlx5e_rx_wqe *wqe, u16 ix)
++static int mlx5e_alloc_rx_wqe(struct mlx5e_rq *rq, struct mlx5e_rx_wqe *wqe, u16 ix)
+ {
+ 	struct mlx5e_wqe_frag_info *wi = &rq->wqe.frag_info[ix];
+ 
+@@ -417,18 +417,13 @@ void mlx5e_free_rx_mpwqe(struct mlx5e_rq *rq, struct mlx5e_mpw_info *wi)
+ 	}
+ }
+ 
+-void mlx5e_post_rx_mpwqe(struct mlx5e_rq *rq)
++static void mlx5e_post_rx_mpwqe(struct mlx5e_rq *rq)
+ {
  	struct mlx5_wq_ll *wq = &rq->wq;
  	struct mlx5e_rx_wqe *wqe = mlx5_wq_ll_get_wqe(wq, wq->head);
  
--	clear_bit(MLX5E_RQ_STATE_UMR_WQE_IN_PROGRESS, &rq->state);
-+	rq->mpwqe.umr_in_progress = false;
+ 	rq->mpwqe.umr_in_progress = false;
  
- 	if (unlikely(!MLX5E_TEST_BIT(rq->state, MLX5E_RQ_STATE_ENABLED))) {
- 		mlx5e_free_rx_mpwqe(rq, &rq->mpwqe.info[wq->head]);
-@@ -441,10 +441,13 @@ int mlx5e_alloc_rx_mpwqe(struct mlx5e_rq *rq, struct mlx5e_rx_wqe *wqe, u16 ix)
+-	if (unlikely(!MLX5E_TEST_BIT(rq->state, MLX5E_RQ_STATE_ENABLED))) {
+-		mlx5e_free_rx_mpwqe(rq, &rq->mpwqe.info[wq->head]);
+-		return;
+-	}
+-
+ 	mlx5_wq_ll_push(wq, be16_to_cpu(wqe->next.next_wqe_index));
+ 
+ 	/* ensure wqes are visible to device before updating doorbell record */
+@@ -437,19 +432,18 @@ void mlx5e_post_rx_mpwqe(struct mlx5e_rq *rq)
+ 	mlx5_wq_ll_update_db_record(wq);
+ }
+ 
+-int mlx5e_alloc_rx_mpwqe(struct mlx5e_rq *rq, struct mlx5e_rx_wqe *wqe, u16 ix)
++static int mlx5e_alloc_rx_mpwqe(struct mlx5e_rq *rq, u16 ix)
  {
  	int err;
  
-+	if (rq->mpwqe.umr_in_progress)
-+		return -EBUSY;
-+
- 	err = mlx5e_alloc_rx_umr_mpwqe(rq, ix);
- 	if (unlikely(err))
- 		return err;
--	set_bit(MLX5E_RQ_STATE_UMR_WQE_IN_PROGRESS, &rq->state);
-+	rq->mpwqe.umr_in_progress = true;
- 	mlx5e_post_umr_wqe(rq, ix);
- 	return -EBUSY;
- }
-@@ -467,9 +470,6 @@ bool mlx5e_post_rx_wqes(struct mlx5e_rq *rq)
- 	if (mlx5_wq_ll_is_full(wq))
- 		return false;
- 
--	if (test_bit(MLX5E_RQ_STATE_UMR_WQE_IN_PROGRESS, &rq->state))
--		return true;
+-	if (rq->mpwqe.umr_in_progress)
+-		return -EBUSY;
 -
+ 	err = mlx5e_alloc_rx_umr_mpwqe(rq, ix);
+-	if (unlikely(err))
++	if (unlikely(err)) {
++		rq->stats.buff_alloc_err++;
+ 		return err;
++	}
+ 	rq->mpwqe.umr_in_progress = true;
+ 	mlx5e_post_umr_wqe(rq, ix);
+-	return -EBUSY;
++	return 0;
+ }
+ 
+ void mlx5e_dealloc_rx_mpwqe(struct mlx5e_rq *rq, u16 ix)
+@@ -473,9 +467,7 @@ bool mlx5e_post_rx_wqes(struct mlx5e_rq *rq)
  	do {
  		struct mlx5e_rx_wqe *wqe = mlx5_wq_ll_get_wqe(wq, wq->head);
  
+-		err = rq->alloc_wqe(rq, wqe, wq->head);
+-		if (err == -EBUSY)
+-			return true;
++		err = mlx5e_alloc_rx_wqe(rq, wqe, wq->head);
+ 		if (unlikely(err)) {
+ 			rq->stats.buff_alloc_err++;
+ 			break;
+@@ -492,6 +484,83 @@ bool mlx5e_post_rx_wqes(struct mlx5e_rq *rq)
+ 	return !!err;
+ }
+ 
++static inline void mlx5e_poll_ico_single_cqe(struct mlx5e_cq *cq,
++					     struct mlx5e_icosq *sq,
++					     struct mlx5e_rq *rq,
++					     struct mlx5_cqe64 *cqe,
++					     u16 *sqcc)
++{
++	struct mlx5_wq_cyc *wq = &sq->wq;
++	u16 ci = be16_to_cpu(cqe->wqe_counter) & wq->sz_m1;
++	struct mlx5e_sq_wqe_info *icowi = &sq->db.ico_wqe[ci];
++
++	mlx5_cqwq_pop(&cq->wq);
++	*sqcc += icowi->num_wqebbs;
++
++	if (unlikely((cqe->op_own >> 4) != MLX5_CQE_REQ)) {
++		WARN_ONCE(true, "mlx5e: Bad OP in ICOSQ CQE: 0x%x\n",
++			  cqe->op_own);
++		return;
++	}
++
++	if (likely(icowi->opcode == MLX5_OPCODE_UMR)) {
++		mlx5e_post_rx_mpwqe(rq);
++		return;
++	}
++
++	if (unlikely(icowi->opcode != MLX5_OPCODE_NOP))
++		WARN_ONCE(true,
++			  "mlx5e: Bad OPCODE in ICOSQ WQE info: 0x%x\n",
++			  icowi->opcode);
++}
++
++static void mlx5e_poll_ico_cq(struct mlx5e_cq *cq, struct mlx5e_rq *rq)
++{
++	struct mlx5e_icosq *sq = container_of(cq, struct mlx5e_icosq, cq);
++	struct mlx5_cqe64 *cqe;
++	u16 sqcc;
++
++	if (unlikely(!MLX5E_TEST_BIT(sq->state, MLX5E_SQ_STATE_ENABLED)))
++		return;
++
++	cqe = mlx5_cqwq_get_cqe(&cq->wq);
++	if (likely(!cqe))
++		return;
++
++	/* sq->cc must be updated only after mlx5_cqwq_update_db_record(),
++	 * otherwise a cq overrun may occur
++	 */
++	sqcc = sq->cc;
++
++	/* by design, there's only a single cqe */
++	mlx5e_poll_ico_single_cqe(cq, sq, rq, cqe, &sqcc);
++
++	mlx5_cqwq_update_db_record(&cq->wq);
++
++	/* ensure cq space is freed before enabling more cqes */
++	wmb();
++
++	sq->cc = sqcc;
++}
++
++bool mlx5e_post_rx_mpwqes(struct mlx5e_rq *rq)
++{
++	struct mlx5_wq_ll *wq = &rq->wq;
++
++	if (unlikely(!MLX5E_TEST_BIT(rq->state, MLX5E_RQ_STATE_ENABLED)))
++		return false;
++
++	mlx5e_poll_ico_cq(&rq->channel->icosq.cq, rq);
++
++	if (mlx5_wq_ll_is_full(wq))
++		return false;
++
++	if (!rq->mpwqe.umr_in_progress)
++		mlx5e_alloc_rx_mpwqe(rq, wq->head);
++
++	return true;
++}
++
+ static void mlx5e_lro_update_hdr(struct sk_buff *skb, struct mlx5_cqe64 *cqe,
+ 				 u32 cqe_bcnt)
+ {
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
+index 7311b937e434..439ba1f2ffbc 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c
+@@ -32,66 +32,6 @@
+ 
+ #include "en.h"
+ 
+-static inline void mlx5e_poll_ico_single_cqe(struct mlx5e_cq *cq,
+-					     struct mlx5e_icosq *sq,
+-					     struct mlx5_cqe64 *cqe,
+-					     u16 *sqcc)
+-{
+-	struct mlx5_wq_cyc *wq = &sq->wq;
+-	u16 ci = be16_to_cpu(cqe->wqe_counter) & wq->sz_m1;
+-	struct mlx5e_sq_wqe_info *icowi = &sq->db.ico_wqe[ci];
+-	struct mlx5e_rq *rq = &sq->channel->rq;
+-
+-	prefetch(rq);
+-	mlx5_cqwq_pop(&cq->wq);
+-	*sqcc += icowi->num_wqebbs;
+-
+-	if (unlikely((cqe->op_own >> 4) != MLX5_CQE_REQ)) {
+-		WARN_ONCE(true, "mlx5e: Bad OP in ICOSQ CQE: 0x%x\n",
+-			  cqe->op_own);
+-		return;
+-	}
+-
+-	if (likely(icowi->opcode == MLX5_OPCODE_UMR)) {
+-		mlx5e_post_rx_mpwqe(rq);
+-		return;
+-	}
+-
+-	if (unlikely(icowi->opcode != MLX5_OPCODE_NOP))
+-		WARN_ONCE(true,
+-			  "mlx5e: Bad OPCODE in ICOSQ WQE info: 0x%x\n",
+-			  icowi->opcode);
+-}
+-
+-static void mlx5e_poll_ico_cq(struct mlx5e_cq *cq)
+-{
+-	struct mlx5e_icosq *sq = container_of(cq, struct mlx5e_icosq, cq);
+-	struct mlx5_cqe64 *cqe;
+-	u16 sqcc;
+-
+-	if (unlikely(!MLX5E_TEST_BIT(sq->state, MLX5E_SQ_STATE_ENABLED)))
+-		return;
+-
+-	cqe = mlx5_cqwq_get_cqe(&cq->wq);
+-	if (likely(!cqe))
+-		return;
+-
+-	/* sq->cc must be updated only after mlx5_cqwq_update_db_record(),
+-	 * otherwise a cq overrun may occur
+-	 */
+-	sqcc = sq->cc;
+-
+-	/* by design, there's only a single cqe */
+-	mlx5e_poll_ico_single_cqe(cq, sq, cqe, &sqcc);
+-
+-	mlx5_cqwq_update_db_record(&cq->wq);
+-
+-	/* ensure cq space is freed before enabling more cqes */
+-	wmb();
+-
+-	sq->cc = sqcc;
+-}
+-
+ int mlx5e_napi_poll(struct napi_struct *napi, int budget)
+ {
+ 	struct mlx5e_channel *c = container_of(napi, struct mlx5e_channel,
+@@ -111,9 +51,7 @@ int mlx5e_napi_poll(struct napi_struct *napi, int budget)
+ 	work_done = mlx5e_poll_rx_cq(&c->rq.cq, budget);
+ 	busy |= work_done == budget;
+ 
+-	mlx5e_poll_ico_cq(&c->icosq.cq);
+-
+-	busy |= mlx5e_post_rx_wqes(&c->rq);
++	busy |= c->rq.post_wqes(&c->rq);
+ 
+ 	if (busy)
+ 		return budget;
 -- 
 2.13.0
