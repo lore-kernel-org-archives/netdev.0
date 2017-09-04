@@ -1,52 +1,51 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [iproute PATCH 1/6] utils: Implement strlcpy() and strlcat()
-Date: Mon, 4 Sep 2017 14:49:20 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD006D878@AcuExch.aculab.com>
-References: <20170901165256.21459-1-phil@nwl.cc>
- <20170901165256.21459-2-phil@nwl.cc>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: 'Phil Sutter' <phil@nwl.cc>,
-        Stephen Hemminger <stephen@networkplumber.org>
+From: Mike Manning <mmanning@brocade.com>
+Subject: [PATCH] net: ipv6: fix regression of no RTM_DELADDR sent after DAD failure
+Date: Mon,  4 Sep 2017 15:52:55 +0100
+Message-ID: <1504536775-23533-1-git-send-email-mmanning@brocade.com>
+Cc: Mahesh Bandewar <maheshb@google.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.192]:54145 "EHLO
-        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753662AbdIDOtZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 4 Sep 2017 10:49:25 -0400
-In-Reply-To: <20170901165256.21459-2-phil@nwl.cc>
-Content-Language: en-US
+Received: from [144.49.130.148] ([144.49.130.148]:59460 "EHLO
+        mail.eng.vyatta.net" rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1753838AbdIDO7D (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 4 Sep 2017 10:59:03 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Phil Sutter
-> Sent: 01 September 2017 17:53
-> By making use of strncpy(), both implementations are really simple so
-> there is no need to add libbsd as additional dependency.
-> 
-...
-> +
-> +size_t strlcpy(char *dst, const char *src, size_t size)
-> +{
-> +	if (size) {
-> +		strncpy(dst, src, size - 1);
-> +		dst[size - 1] = '\0';
-> +	}
-> +	return strlen(src);
-> +}
+Commit f784ad3d79e5 ("ipv6: do not send RTM_DELADDR for tentative
+addresses") incorrectly assumes that no RTM_NEWADDR are sent for
+addresses in tentative state, as this does happen for the standard
+IPv6 use-case of DAD failure, see the call to ipv6_ifa_notify() in
+addconf_dad_stop(). So as a result of this change, no RTM_DELADDR is
+sent after DAD failure for a link-local when strict DAD (accept_dad=2)
+is configured, or on the next admin down in other cases. The absence
+of this notification breaks backwards compatibility and causes problems
+after DAD failure if this notification was being relied on. The
+solution is to allow RTM_DELADDR to still be sent after DAD failure.
 
-Except that isn't really strlcpy().
-Better would be:
-	len = strlen(src) + 1;
-	if (len <= size)
-		memcpy(dst, src, len);
-	else if (size) {
-		dst[size - 1] = 0;
-		memcpy(dst, src, size - 1);
-	}
-	return len - 1;
+Fixes: f784ad3d79e5("ipv6: do not send RTM_DELADDR for tentative addresses")
+Signed-off-by: Mike Manning <mmanning@brocade.com>
+Cc: Mahesh Bandewar <maheshb@google.com>
+---
+ net/ipv6/addrconf.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-WTF strlcpy() has that return value I don't know.
-
-	David
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 936e9ab..ba757c2 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -4982,9 +4982,10 @@ static void inet6_ifa_notify(int event, struct inet6_ifaddr *ifa)
+ 
+ 	/* Don't send DELADDR notification for TENTATIVE address,
+ 	 * since NEWADDR notification is sent only after removing
+-	 * TENTATIVE flag.
++	 * TENTATIVE flag, if DAD has not failed.
+ 	 */
+-	if (ifa->flags & IFA_F_TENTATIVE && event == RTM_DELADDR)
++	if (ifa->flags & IFA_F_TENTATIVE && !(ifa->flags & IFA_F_DADFAILED) &&
++	    event == RTM_DELADDR)
+ 		return;
+ 
+ 	skb = nlmsg_new(inet6_ifaddr_msgsize(), GFP_ATOMIC);
+-- 
+2.1.4
