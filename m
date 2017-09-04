@@ -1,85 +1,95 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net-next 2/2] tun: rename generic_xdp to skb_xdp
-Date: Mon,  4 Sep 2017 11:36:09 +0800
-Message-ID: <1504496169-31190-2-git-send-email-jasowang@redhat.com>
-References: <1504496169-31190-1-git-send-email-jasowang@redhat.com>
+Subject: [PATCH net-next 1/2] tun: reserve extra headroom only when XDP is set
+Date: Mon,  4 Sep 2017 11:36:08 +0800
+Message-ID: <1504496169-31190-1-git-send-email-jasowang@redhat.com>
 Cc: mst@redhat.com, Jason Wang <jasowang@redhat.com>,
-        Daniel Borkmann <daniel@iogearbox.net>
+        Jakub Kicinski <kubakici@wp.pl>
 To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1504496169-31190-1-git-send-email-jasowang@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Rename "generic_xdp" to "skb_xdp" to avoid confusing it with the
-generic XDP which will be done at netif_receive_skb().
+We reserve headroom unconditionally which could cause unnecessary
+stress on socket memory accounting because of increased trusesize. Fix
+this by only reserve extra headroom when XDP is set.
 
-Cc: Daniel Borkmann <daniel@iogearbox.net>
+Cc: Jakub Kicinski <kubakici@wp.pl>
 Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
- drivers/net/tun.c | 18 +++++++++++-------
- 1 file changed, 11 insertions(+), 7 deletions(-)
+ drivers/net/tun.c | 26 ++++++++++++++++++--------
+ 1 file changed, 18 insertions(+), 8 deletions(-)
 
 diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 80ac18f..3c9985f 100644
+index 06e8f0b..80ac18f 100644
 --- a/drivers/net/tun.c
 +++ b/drivers/net/tun.c
-@@ -1267,7 +1267,7 @@ static struct sk_buff *tun_build_skb(struct tun_struct *tun,
- 				     struct tun_file *tfile,
- 				     struct iov_iter *from,
- 				     struct virtio_net_hdr *hdr,
--				     int len, int *generic_xdp)
-+				     int len, int *skb_xdp)
- {
+@@ -108,7 +108,7 @@ do {								\
+ #endif
+ 
+ #define TUN_HEADROOM 256
+-#define TUN_RX_PAD (NET_IP_ALIGN + NET_SKB_PAD + TUN_HEADROOM)
++#define TUN_RX_PAD (NET_IP_ALIGN + NET_SKB_PAD)
+ 
+ /* TUN device flags */
+ 
+@@ -1272,25 +1272,35 @@ static struct sk_buff *tun_build_skb(struct tun_struct *tun,
  	struct page_frag *alloc_frag = &current->task_frag;
  	struct sk_buff *skb;
-@@ -1301,13 +1301,13 @@ static struct sk_buff *tun_build_skb(struct tun_struct *tun,
- 	 * we do XDP on skb in case the headroom is not enough.
- 	 */
- 	if (hdr->gso_type || !xdp_prog)
--		*generic_xdp = 1;
-+		*skb_xdp = 1;
+ 	struct bpf_prog *xdp_prog;
+-	int buflen = SKB_DATA_ALIGN(len + TUN_RX_PAD) +
+-		     SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
++	int buflen = SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
+ 	unsigned int delta = 0;
+ 	char *buf;
+ 	size_t copied;
+ 	bool xdp_xmit = false;
+-	int err;
++	int err, pad = TUN_RX_PAD;
++
++	rcu_read_lock();
++	xdp_prog = rcu_dereference(tun->xdp_prog);
++	if (xdp_prog)
++		pad += TUN_HEADROOM;
++	buflen += SKB_DATA_ALIGN(len + pad);
++	rcu_read_unlock();
+ 
+ 	if (unlikely(!skb_page_frag_refill(buflen, alloc_frag, GFP_KERNEL)))
+ 		return ERR_PTR(-ENOMEM);
+ 
+ 	buf = (char *)page_address(alloc_frag->page) + alloc_frag->offset;
+ 	copied = copy_page_from_iter(alloc_frag->page,
+-				     alloc_frag->offset + TUN_RX_PAD,
++				     alloc_frag->offset + pad,
+ 				     len, from);
+ 	if (copied != len)
+ 		return ERR_PTR(-EFAULT);
+ 
+-	if (hdr->gso_type)
++	/* There's a small window that XDP may be set after the check
++	 * of xdp_prog above, this should be rare and for simplicity
++	 * we do XDP on skb in case the headroom is not enough.
++	 */
++	if (hdr->gso_type || !xdp_prog)
+ 		*generic_xdp = 1;
  	else
--		*generic_xdp = 0;
-+		*skb_xdp = 0;
- 
- 	rcu_read_lock();
- 	xdp_prog = rcu_dereference(tun->xdp_prog);
--	if (xdp_prog && !*generic_xdp) {
-+	if (xdp_prog && !*skb_xdp) {
- 		struct xdp_buff xdp;
- 		void *orig_data;
+ 		*generic_xdp = 0;
+@@ -1303,7 +1313,7 @@ static struct sk_buff *tun_build_skb(struct tun_struct *tun,
  		u32 act;
-@@ -1389,7 +1389,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
- 	bool zerocopy = false;
- 	int err;
- 	u32 rxhash;
--	int generic_xdp = 1;
-+	int skb_xdp = 1;
  
- 	if (!(tun->dev->flags & IFF_UP))
- 		return -EIO;
-@@ -1448,7 +1448,11 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 		xdp.data_hard_start = buf;
+-		xdp.data = buf + TUN_RX_PAD;
++		xdp.data = buf + pad;
+ 		xdp.data_end = xdp.data + len;
+ 		orig_data = xdp.data;
+ 		act = bpf_prog_run_xdp(xdp_prog, &xdp);
+@@ -1339,7 +1349,7 @@ static struct sk_buff *tun_build_skb(struct tun_struct *tun,
+ 		return ERR_PTR(-ENOMEM);
  	}
  
- 	if (tun_can_build_skb(tun, tfile, len, noblock, zerocopy)) {
--		skb = tun_build_skb(tun, tfile, from, &gso, len, &generic_xdp);
-+		/* For the packet that is not easy to be processed
-+		 * (e.g gso or jumbo packet), we will do it at after
-+		 * skb was created with generic XDP routine.
-+		 */
-+		skb = tun_build_skb(tun, tfile, from, &gso, len, &skb_xdp);
- 		if (IS_ERR(skb)) {
- 			this_cpu_inc(tun->pcpu_stats->rx_dropped);
- 			return PTR_ERR(skb);
-@@ -1528,7 +1532,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
- 	skb_reset_network_header(skb);
- 	skb_probe_transport_header(skb, 0);
- 
--	if (generic_xdp) {
-+	if (skb_xdp) {
- 		struct bpf_prog *xdp_prog;
- 		int ret;
- 
+-	skb_reserve(skb, TUN_RX_PAD - delta);
++	skb_reserve(skb, pad - delta);
+ 	skb_put(skb, len + delta);
+ 	get_page(alloc_frag->page);
+ 	alloc_frag->offset += buflen;
 -- 
 2.7.4
