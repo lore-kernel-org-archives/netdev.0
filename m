@@ -1,55 +1,66 @@
-From: Daurnimator <quae@daurnimator.com>
-Subject: Re: EINVAL when using connect() for udp sockets
-Date: Mon, 4 Sep 2017 23:23:16 +1000
-Message-ID: <CAEnbY+dgx0W_V2yS2L6eNFVzcSO6iQd0Y7=MKiS-+A+JsMLHtw@mail.gmail.com>
-References: <CAEnbY+cYpX8naDpRkXgwCP=i64AwWgK9=_7AacmYip-ykot7mQ@mail.gmail.com>
- <CAEnbY+fPLamzXF8nOF-SEFE8LaE88XAyKNt81zs6bM866R4oGg@mail.gmail.com>
- <1490246287.16816.201.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAM_iQpVVBfwd7P0-dY08Bw7QNr_w77va4AEMFj5xMuOddQoq2g@mail.gmail.com>
- <1490397560.24891.0.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAM_iQpUQ52aiKQntMsrm2aMQ56G=tHCpN93A0+mffss+6m39jw@mail.gmail.com>
- <1490742712.24891.25.camel@edumazet-glaptop3.roam.corp.google.com>
- <1490748756.24891.27.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAM_iQpWyQJ+XN_4mSarzHRYX4eio81G49i=wyE5MHS+AUFWU8g@mail.gmail.com>
- <1490918579.24891.82.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAM_iQpXmx1GN3zvnuB6SAp9fBo_yf8G3nubGeec6tMYs4BTt2A@mail.gmail.com>
- <CAEnbY+cu_b1NddDcKMumK2npmxh4yh4kEoeeY1db2Ct3JntG9g@mail.gmail.com> <1493354932.31837.9.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [pull request][net-next 0/3] Mellanox, mlx5 GRE tunnel offloads
+Date: Mon, 04 Sep 2017 15:50:12 +0200
+Message-ID: <87pob6bmjv.fsf@stressinduktion.org>
+References: <20170830230409.15176-1-saeedm@mellanox.com>
+        <87fuc7ong0.fsf@stressinduktion.org>
+        <CALzJLG-u3k11LYFXtZQKT5cvn-iJ4FehBUgkhCHT5Z7XMsMkpA@mail.gmail.com>
+        <1504402349.3299394.1093467800.72B91372@webmail.messagingengine.com>
+        <CALx6S34kfb5GEH9AAecsaKJ9AtjK=fP_3L=2i98kUwv_sE2s7A@mail.gmail.com>
+        <CALzJLG--t8VLs1GiRRVfejenB=XgpLiJHnHC+eokQ4=kwj9hGw@mail.gmail.com>
+        <CALx6S356vRYfcsN6FaRmpn2oC0GN9-JwLsF7ybC+w4sEGGsa7w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        William Ahern <william@25thandclement.com>,
-        "Santi T." <santitm99@gmail.com>,
-        Michael Kerrisk-manpages <mtk.manpages@gmail.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain
+Cc: Saeed Mahameed <saeedm@dev.mellanox.co.il>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Linux Netdev List <netdev@vger.kernel.org>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f51.google.com ([209.85.218.51]:36537 "EHLO
-        mail-oi0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753658AbdIDNXT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 4 Sep 2017 09:23:19 -0400
-Received: by mail-oi0-f51.google.com with SMTP id t75so3706710oie.3
-        for <netdev@vger.kernel.org>; Mon, 04 Sep 2017 06:23:19 -0700 (PDT)
-Received: from mail-it0-f45.google.com (mail-it0-f45.google.com. [209.85.214.45])
-        by smtp.gmail.com with ESMTPSA id s83sm7837242oif.39.2017.09.04.06.23.17
-        for <netdev@vger.kernel.org>
-        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Mon, 04 Sep 2017 06:23:18 -0700 (PDT)
-Received: by mail-it0-f45.google.com with SMTP id t134so9431301ita.0
-        for <netdev@vger.kernel.org>; Mon, 04 Sep 2017 06:23:17 -0700 (PDT)
-In-Reply-To: <1493354932.31837.9.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:49615 "EHLO
+        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1753566AbdIDNuP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 4 Sep 2017 09:50:15 -0400
+In-Reply-To: <CALx6S356vRYfcsN6FaRmpn2oC0GN9-JwLsF7ybC+w4sEGGsa7w@mail.gmail.com>
+        (Tom Herbert's message of "Sun, 3 Sep 2017 08:43:27 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 28 April 2017 at 14:48, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Fri, 2017-04-28 at 12:55 +1000, Daurnimator wrote:
->> On 1 April 2017 at 03:52, Cong Wang <xiyou.wangcong@gmail.com> wrote:
->> > Please submit your patch formally and with a man page patch too.
->>
->> Did a patch get submitted? I had a look but couldn't see it.
->
-> Not yet.
->
-> I will probably wait for next cycle (linux-4.13), I have been busy on
-> other work lately.
+Tom Herbert <tom@herbertland.com> writes:
 
-Will you have time to work on this soon?
+> An encapsulator sets the UDP source port to be the flow entropy of the
+> packet being encapsulated. So when the packet traverses the network
+> devices can base their hash just on the canonical 5-tuple which is
+> sufficient for ECMP and RSS. IPv6 flow label is even better since the
+> middleboxes don't even need to look at the transport header, a packet
+> is steered based on the 3-tuple of addresses and flow label. In the
+> Linux stack,  udp_flow_src_port is used by UDP encapsulations to set
+> the source port. Flow label is similarly set by ip6_make_flowlabel.
+> Both of these functions use the skb->hash which is computed by calling
+> flow dissector at most once per packet (if the packet was received
+> with an L4 HW hash or locally originated on a connection the hash does
+> not need to be computed).
+
+This would require the MPLS stack copying the flowlabel of IPv6
+connections between MPLS routers over their whole lifetime in the MPLS
+network. The same would hold for MPLS encapsulated inside UDP, the
+source port needs to be kept constant. This is very impractical. The
+hash for the flow label can often not be recomputed by interim routers,
+because they might lack the knowledge of the upper layer protocol.
+
+UDP source port entropy still has the problem that we don't respect the
+source port as RSS entropy by default in network cards, because of
+possible fragmentation and thus possible reordering of packets. GRE does
+not have this problem and is way easier to identify by hardware.
+
+Basically we need to tell network cards that they can use specific
+destination UDP ports where we allow the source port to be used in RSS
+hash calculation. I don't see how this is any easier than just using GRE
+with a defined protocol field? I do like the combination of ipv6
+flowlabel + GRE.
+
+Btw. people are using the GRE Key as additional entropy without looking
+into the GRE payload.
+
+Bye,
+Hannes
