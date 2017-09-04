@@ -1,46 +1,51 @@
-From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Subject: [PATCH 0/1] net: mdio-mux: add mdio_mux parameter to mdio_mux_init()
-Date: Mon,  4 Sep 2017 18:30:13 +0200
-Message-ID: <20170904163014.955-1-clabbe.montjoie@gmail.com>
-Cc: bcm-kernel-feedback-list@broadcom.com, netdev@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
-        Corentin Labbe <clabbe.montjoie@gmail.com>
-To: andrew@lunn.ch, f.fainelli@gmail.com, rjui@broadcom.com,
-        sbranden@broadcom.com, jonmason@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:33182 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752687AbdIDQcY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 4 Sep 2017 12:32:24 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Paul Menzel <pmenzel@molgen.mpg.de>
+Subject: Re: [Intel-wired-lan] [PATCH] e1000e: changed some expensive calls of
+ udelay to usleep_range
+Date: Mon, 4 Sep 2017 18:36:02 +0200
+Message-ID: <fd5c453e-bd2e-3dc7-5f93-5af0ca216fd8@molgen.mpg.de>
+References: <1503503985-3869-1-git-send-email-matthew.tan_1@nxp.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: jeffrey.t.kirsher@intel.com, michael.kardonik@nxp.com,
+        mitch.a.williams@intel.com, linux-kernel@vger.kernel.org,
+        john.ronciak@intel.com, intel-wired-lan@lists.osuosl.org,
+        netdev@vger.kernel.org
+To: Matthew Tan <matthew.tan_1@nxp.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1503503985-3869-1-git-send-email-matthew.tan_1@nxp.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello
+Dear Matthew,
 
-For dwmac-sun8i, we need to set a MDIO mux which is not itself a device
-(it is part of a device but have its own DT node)
 
-This patch permit to use a MDIO mux for such case.
-See agreement at https://lkml.org/lkml/2017/8/29/407
+On 08/23/17 17:59, Matthew Tan wrote:
+>      Calls to udelay are not preemtable by userspace so userspace
+>      applications experience a large (~200us) latency when running on core
+>      0. Instead usleep_range can be used to be more friendly to userspace
+>      since it is preemtable. This is due to udelay using busy-wait loops
+>      while usleep_rang uses hrtimers instead. It is recommended to use
+>      udelay when the delay is <10us since at that precision overhead of
+>      usleep_range hrtimer setup causes issues. However, the replaced calls
+>      are for 50us and 100us so this should not be not an issue.
 
-Since all mdio_mux_init() users are within drivers/net/phy/ and the changes are
-trivial, I have done all in one patch, instead of having a complex series of
-patch converting one by one callers.
+Is there a reason for indenting the paragraph. (I guess, you did `git 
+show` or `git log -p` and copied the message?) Anyway, please remove 
+whitespace in the front, if there is no reason.
 
-This patch is a dependency for restoring dwmac-sun8i so it is why I target "net:"
-But I send it alone, for be sure that this conversion in one patch is acceptable.
+Also, it looks like you ran benchmarks, so what is the delay for 
+userspace applications with your changes?
 
-Regards
+> Signed-off-by: Matthew Tan <matthew.tan_1@nxp.com>
+> ---
+>   drivers/net/ethernet/intel/e1000e/phy.c | 8 ++++----
+>   1 file changed, 4 insertions(+), 4 deletions(-)
 
-Corentin Labbe (1):
-  net: mdio-mux: add mdio_mux parameter to mdio_mux_init()
+[…]
 
- drivers/net/phy/mdio-mux-bcm-iproc.c | 2 +-
- drivers/net/phy/mdio-mux-gpio.c      | 2 +-
- drivers/net/phy/mdio-mux-mmioreg.c   | 3 ++-
- drivers/net/phy/mdio-mux.c           | 7 ++++---
- include/linux/mdio-mux.h             | 9 +++++++++
- 5 files changed, 17 insertions(+), 6 deletions(-)
 
--- 
-2.13.5
+Kind regards,
+
+Paul
