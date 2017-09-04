@@ -1,114 +1,76 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [net-next PATCH V2] ixgbe: add counter for times rx pages gets
- allocated, not recycled
-Date: Mon, 04 Sep 2017 20:40:22 +0200
-Message-ID: <150455042211.455.6804897285651927718.stgit@firesoul>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [pull request][net-next 0/3] Mellanox, mlx5 GRE tunnel offloads
+Date: Mon, 4 Sep 2017 11:56:00 -0700
+Message-ID: <CALx6S34aDER1Gzpcw+p7+yr91mjiixCh6gnawKSxy7zhVQz+6Q@mail.gmail.com>
+References: <20170830230409.15176-1-saeedm@mellanox.com> <87fuc7ong0.fsf@stressinduktion.org>
+ <CALzJLG-u3k11LYFXtZQKT5cvn-iJ4FehBUgkhCHT5Z7XMsMkpA@mail.gmail.com>
+ <1504402349.3299394.1093467800.72B91372@webmail.messagingengine.com>
+ <CALx6S34kfb5GEH9AAecsaKJ9AtjK=fP_3L=2i98kUwv_sE2s7A@mail.gmail.com>
+ <CALzJLG--t8VLs1GiRRVfejenB=XgpLiJHnHC+eokQ4=kwj9hGw@mail.gmail.com>
+ <CALx6S356vRYfcsN6FaRmpn2oC0GN9-JwLsF7ybC+w4sEGGsa7w@mail.gmail.com>
+ <87pob6bmjv.fsf@stressinduktion.org> <CALx6S37wcp1om0Dwr1=-6jF=HkAuZj313pLJ7sVhgsyJ4yZDjg@mail.gmail.com>
+ <8760cytnif.fsf@stressinduktion.org> <CALx6S34cOL4Gy9DMWnLV0iCVUYo+siMEeNNn9v5tBHr2P6yjYw@mail.gmail.com>
+ <87k21ez6r9.fsf@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-        Alexander Duyck <alexander.duyck@gmail.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>
-To: intel-wired-lan@lists.osuosl.org,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Saeed Mahameed <saeedm@dev.mellanox.co.il>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Linux Netdev List <netdev@vger.kernel.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:36474 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753932AbdIDSk0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 4 Sep 2017 14:40:26 -0400
+Received: from mail-qk0-f178.google.com ([209.85.220.178]:36530 "EHLO
+        mail-qk0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753953AbdIDS4B (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 4 Sep 2017 14:56:01 -0400
+Received: by mail-qk0-f178.google.com with SMTP id z143so4603023qkb.3
+        for <netdev@vger.kernel.org>; Mon, 04 Sep 2017 11:56:01 -0700 (PDT)
+In-Reply-To: <87k21ez6r9.fsf@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The ixgbe driver have page recycle scheme based around the RX-ring
-queue, where a RX page is shared between two packets. Based on the
-refcnt, the driver can determine if the RX-page is currently only used
-by a single packet, if so it can then directly refill/recycle the
-RX-slot by with the opposite "side" of the page.
+On Mon, Sep 4, 2017 at 10:57 AM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> Hi Tom,
+>
+> Tom Herbert <tom@herbertland.com> writes:
+>
+>>> The problem is that you end up having two streams, one fragmented and
+>>> one non-fragmented, but actually they belong to the same stream. It is
+>>> known to break stuff, see:
+>>>
+>>> <https://patchwork.ozlabs.org/patch/59235/>
+>>>
+>>> I would agree with you, but we can't break existing setups,
+>>> unfortunately.
+>>>
+>> I'm not sure what "existing setups" means here. If this is referring
+>> to the Internet then out of order packets and fragments abound-- any
+>> assumption of in order delivery for IP packets is useless there.
+>
+> Network cards don't know where traffic originates from, even on the same
+> card. Clouds nowadays try to convince everyone to virtualize existing
+> workloads. So I *assume* that at least for traffic that seems to be in
+> one L2 domain out of order should not occur or things will break.
+>
+> Ethernet for a long time appeared to do very much in order delivery and
+> guarantees that. Thus for people it appeared that UDP packets are also
+> strictly in order. Encapsulating Ethernet inside UDP thus must preserve
+> those properties, especially if used for virtualization. Unfortunately
+> fragmentation happens and the stack has to deal with it somehow.
+>
+There is absolutely no requirement in IP that packets are delivered in
+order-- there never has been and there never will be! If the ULP, like
+Ethernet encapsulation, requires in order deliver then it needs to
+implement that itself like TCP, GRE, and other protocols ensure that
+with sequence numbers and reassembly. All of these hoops we do make
+sure that packets always follow the same path and are always in order
+are done for benefit of middlebox devices like stateful firewalls that
+have force us to adopt their concept of network architecture-- in the
+long run this is self-defeating and kills our ability to innovate.
 
-While this is a clever trick, it is hard to determine when this
-recycling is successful and when it fails.  Adding a counter, which is
-available via ethtool --statistics as 'alloc_rx_page'.  Which counts
-the number of times the recycle fails and the real page allocator is
-invoked.  When interpreting the stats, do remember that every alloc
-will serve two packets.
+I'm not saying that we shouldn't consider legacy devices, but we
+should scrutinize new development or solutions that perpetuate
+incorrect design or bad assumptions.
 
-The counter is collected per rx_ring, but is summed and ethtool
-exported as 'alloc_rx_page'.  It would be relevant to know what
-rx_ring that cannot keep up, but that can be exported later if
-someone experience a need for this.
-
-Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe.h         |    2 ++
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |    1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |    4 ++++
- 3 files changed, 7 insertions(+)
-
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index dd5578756ae0..008d0085e01f 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -275,6 +275,7 @@ struct ixgbe_rx_queue_stats {
- 	u64 rsc_count;
- 	u64 rsc_flush;
- 	u64 non_eop_descs;
-+	u64 alloc_rx_page;
- 	u64 alloc_rx_page_failed;
- 	u64 alloc_rx_buff_failed;
- 	u64 csum_err;
-@@ -655,6 +656,7 @@ struct ixgbe_adapter {
- 	u64 rsc_total_count;
- 	u64 rsc_total_flush;
- 	u64 non_eop_descs;
-+	u32 alloc_rx_page;
- 	u32 alloc_rx_page_failed;
- 	u32 alloc_rx_buff_failed;
- 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-index 72c565712a5f..d96d9d6c3492 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-@@ -104,6 +104,7 @@ static const struct ixgbe_stats ixgbe_gstrings_stats[] = {
- 	{"tx_flow_control_xoff", IXGBE_STAT(stats.lxofftxc)},
- 	{"rx_flow_control_xoff", IXGBE_STAT(stats.lxoffrxc)},
- 	{"rx_csum_offload_errors", IXGBE_STAT(hw_csum_rx_error)},
-+	{"alloc_rx_page", IXGBE_STAT(alloc_rx_page)},
- 	{"alloc_rx_page_failed", IXGBE_STAT(alloc_rx_page_failed)},
- 	{"alloc_rx_buff_failed", IXGBE_STAT(alloc_rx_buff_failed)},
- 	{"rx_no_dma_resources", IXGBE_STAT(hw_rx_no_dma_resources)},
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index d962368d08d0..d6ac9da8d628 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -1620,6 +1620,7 @@ static bool ixgbe_alloc_mapped_page(struct ixgbe_ring *rx_ring,
- 	bi->page = page;
- 	bi->page_offset = ixgbe_rx_offset(rx_ring);
- 	bi->pagecnt_bias = 1;
-+	rx_ring->rx_stats.alloc_rx_page++;
- 
- 	return true;
- }
-@@ -6771,6 +6772,7 @@ void ixgbe_update_stats(struct ixgbe_adapter *adapter)
- 	u32 i, missed_rx = 0, mpc, bprc, lxon, lxoff, xon_off_tot;
- 	u64 non_eop_descs = 0, restart_queue = 0, tx_busy = 0;
- 	u64 alloc_rx_page_failed = 0, alloc_rx_buff_failed = 0;
-+	u64 alloc_rx_page = 0;
- 	u64 bytes = 0, packets = 0, hw_csum_rx_error = 0;
- 
- 	if (test_bit(__IXGBE_DOWN, &adapter->state) ||
-@@ -6791,6 +6793,7 @@ void ixgbe_update_stats(struct ixgbe_adapter *adapter)
- 	for (i = 0; i < adapter->num_rx_queues; i++) {
- 		struct ixgbe_ring *rx_ring = adapter->rx_ring[i];
- 		non_eop_descs += rx_ring->rx_stats.non_eop_descs;
-+		alloc_rx_page += rx_ring->rx_stats.alloc_rx_page;
- 		alloc_rx_page_failed += rx_ring->rx_stats.alloc_rx_page_failed;
- 		alloc_rx_buff_failed += rx_ring->rx_stats.alloc_rx_buff_failed;
- 		hw_csum_rx_error += rx_ring->rx_stats.csum_err;
-@@ -6798,6 +6801,7 @@ void ixgbe_update_stats(struct ixgbe_adapter *adapter)
- 		packets += rx_ring->stats.packets;
- 	}
- 	adapter->non_eop_descs = non_eop_descs;
-+	adapter->alloc_rx_page = alloc_rx_page;
- 	adapter->alloc_rx_page_failed = alloc_rx_page_failed;
- 	adapter->alloc_rx_buff_failed = alloc_rx_buff_failed;
- 	adapter->hw_csum_rx_error = hw_csum_rx_error;
+Tom
