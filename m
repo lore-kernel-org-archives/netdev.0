@@ -1,34 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/47] Netfilter updates for net-next
-Date: Sun, 03 Sep 2017 17:09:19 -0700 (PDT)
-Message-ID: <20170903.170919.1569443200092136658.davem@davemloft.net>
-References: <1504477589-12045-1-git-send-email-pablo@netfilter.org>
+Subject: Re: [PATCH nf-next 3/5] netlink: add NLM_F_NONREC flag for
+ deletion requests
+Date: Sun, 03 Sep 2017 17:14:18 -0700 (PDT)
+Message-ID: <20170903.171418.350656093498203113.davem@davemloft.net>
+References: <1504475761-11454-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: pablo@netfilter.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1504477589-12045-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:33006 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753046AbdIDAOT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 3 Sep 2017 20:14:19 -0400
+In-Reply-To: <1504475761-11454-1-git-send-email-pablo@netfilter.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Mon,  4 Sep 2017 00:25:42 +0200
 
-> The following patchset contains Netfilter updates for your net-next
-> tree. Basically, updates to the conntrack core, enhancements for
-> nf_tables, conversion of netfilter hooks from linked list to array to
-> improve memory locality and asorted improvements for the Netfilter
-> codebase. More specifically, they are:
- ...
-> I think I will have material for a second Netfilter batch in my queue if
-> time allow to make it fit in this merge window.
+I only see patches 3, 4, and 5 of this series.
 
-Ok, but please be swift about it.
+If this is meant for net-next inclusion, you'll have to submit it such that
+I see the entire series on netdev and thus in patchwork.
 
-> You can pull these changes from:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git
-
-Pulled, thanks.
+Thanks.
