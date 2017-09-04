@@ -1,109 +1,117 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: [PATCH v2 net-next 1/4] bpf: add helper
- bpf_perf_read_counter_time for perf event array map
-Date: Mon, 4 Sep 2017 09:46:36 +0200
-Message-ID: <20170904074636.smsygnxfofr46we5@hirez.programming.kicks-ass.net>
-References: <20170902054824.371962-1-yhs@fb.com>
- <20170902054824.371962-2-yhs@fb.com>
+From: "Yang, Yi" <yi.y.yang@intel.com>
+Subject: Re: [PATCH net-next v7] openvswitch: enable NSH support
+Date: Mon, 4 Sep 2017 16:00:05 +0800
+Message-ID: <20170904080005.GA70767@cran64.bj.intel.com>
+References: <1504096752-102003-1-git-send-email-yi.y.yang@intel.com>
+ <20170831124516.0c5db686@griffin>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: rostedt@goodmis.org, ast@fb.com, daniel@iogearbox.net,
-        netdev@vger.kernel.org, kernel-team@fb.com
-To: Yonghong Song <yhs@fb.com>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "dev@openvswitch.org" <dev@openvswitch.org>,
+        "e@erig.me" <e@erig.me>, "blp@ovn.org" <blp@ovn.org>,
+        "jan.scheurich@ericsson.com" <jan.scheurich@ericsson.com>
+To: Jiri Benc <jbenc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([65.50.211.133]:60970 "EHLO
-        bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753259AbdIDHqo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 4 Sep 2017 03:46:44 -0400
+Received: from mga09.intel.com ([134.134.136.24]:56928 "EHLO mga09.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753329AbdIDIPE (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 4 Sep 2017 04:15:04 -0400
 Content-Disposition: inline
-In-Reply-To: <20170902054824.371962-2-yhs@fb.com>
+In-Reply-To: <20170831124516.0c5db686@griffin>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 01, 2017 at 10:48:21PM -0700, Yonghong Song wrote:
-> diff --git a/include/linux/perf_event.h b/include/linux/perf_event.h
-> index b14095b..5a50808 100644
-> --- a/include/linux/perf_event.h
-> +++ b/include/linux/perf_event.h
-> @@ -898,7 +898,8 @@ perf_event_create_kernel_counter(struct perf_event_attr *attr,
->  				void *context);
->  extern void perf_pmu_migrate_context(struct pmu *pmu,
->  				int src_cpu, int dst_cpu);
-> -int perf_event_read_local(struct perf_event *event, u64 *value);
-> +int perf_event_read_local(struct perf_event *event, u64 *value,
-> +			  u64 *enabled, u64 *running);
->  extern u64 perf_event_read_value(struct perf_event *event,
->  				 u64 *enabled, u64 *running);
->  
+On Thu, Aug 31, 2017 at 06:45:16PM +0800, Jiri Benc wrote:
+> > +				       mask->context[i]);
+> > +		}
+> > +		memcpy(flow_key->nsh.context, nsh->md1.context,
+> > +		       sizeof(nsh->md1.context));
+> 
+> Do you follow the discussion that Hannes Sowa started on the ovs list
+> regarding matching on the context fields? It would be better to hold on this
+> until there's a conclusion reached.
+>
 
-> diff --git a/kernel/events/core.c b/kernel/events/core.c
-> index 8c01572..20c4039 100644
-> --- a/kernel/events/core.c
-> +++ b/kernel/events/core.c
-> @@ -3670,7 +3670,8 @@ static inline u64 perf_event_count(struct perf_event *event)
->   *     will not be local and we cannot read them atomically
->   *   - must not have a pmu::count method
->   */
-> -int perf_event_read_local(struct perf_event *event, u64 *value)
-> +int perf_event_read_local(struct perf_event *event, u64 *value,
-> +			  u64 *enabled, u64 *running)
->  {
->  	unsigned long flags;
->  	int ret = 0;
-> @@ -3694,7 +3695,7 @@ int perf_event_read_local(struct perf_event *event, u64 *value)
->  	 * It must not have a pmu::count method, those are not
->  	 * NMI safe.
->  	 */
-> -	if (event->pmu->count) {
-> +	if (value && event->pmu->count) {
->  		ret = -EOPNOTSUPP;
->  		goto out;
->  	}
+I think we have had similiar discussion about this, the issue is we have
+no way to handle both MD type 1 and MD type 2 by using a common flow key struct.
 
-No, value _must_ be !NULL. Otherwise you allow getting timestamps
-independently from the count value and that is broken.
+So we have to do so, there is miniflow to handle such issue in
+userspace, but kernel data path didn't provide such mechanism. I think
+every newly-added key will result in the same space-wasting issue for
+kernel data path, isn't it?
 
-The {value, enabled, running} tuple is temporally related.
+> > +		err = nsh_key_from_nlattr(&attr.nla, &nsh);
+> > +		if (err)
+> > +			break;
+> > +		err = nsh_key_from_nlattr(&mask.nla, &nsh_mask);
+> > +		if (err)
+> > +			break;
+> 
+> This is a lot of copying to just be able to use nla_for_each_nested. While
+> I'm not a fan of how ovs uses the attributes to store both value and mask,
+> it's not completely irrational. However, I don't think that the intent was
+> to store a copy of the whole nested group. It's quite obvious that it does
+> not fit the pattern from the gymnastics you need to do.
+> 
+> Instead, store the mask in each of the nested attributes individually. There
+> will be no need for the copying above and the code will get cleaner and
+> faster. It's not that the nsh_key_from_nlattr function needs to be able to
+> work separately for the key and mask. Nothing else than the line above uses
+> this function. Just move the logic inside.
+> 
+> Actually, it seems it can be moved directly to set_nsh.
 
-> @@ -3718,10 +3719,16 @@ int perf_event_read_local(struct perf_event *event, u64 *value)
->  	 * or local to this CPU. Furthermore it means its ACTIVE (otherwise
->  	 * oncpu == -1).
->  	 */
-> -	if (event->oncpu == smp_processor_id())
-> -		event->pmu->read(event);
-> -
-> -	*value = local64_read(&event->count);
-> +	if (value) {
-> +		if (event->oncpu == smp_processor_id())
-> +			event->pmu->read(event);
-> +		*value = local64_read(&event->count);
-> +	}
-> +	if (enabled && running) {
-> +		u64 ctx_time = event->shadow_ctx_time + perf_clock();
-> +		*enabled = ctx_time - event->tstamp_enabled;
-> +		*running = ctx_time - event->tstamp_running;
-> +	}
->  out:
->  	local_irq_restore(flags);
+OVS_ATTR_KEY_NSH is the first case to use nested attributes for set
+action, so no reference code for this, set action has two use cases, one
+has mask but the other hasn't, so it will be easier an nested attribute is
+handled as a whole, in user space, nsh_key_from_nlattr is used in
+several places. If we change it per your proposal, there will be a lot
+of rework, we have to provide two functions to handle this, one is for
+the case with mask, the other is for the case without mask.
 
-Please make that something like:
+> 
+> > +		err = set_nsh(skb, flow_key, &nsh, &nsh_mask);
+> > +		break;
+> > +	}
+> > +
+> >  	case OVS_KEY_ATTR_IPV4:
+> >  		err = set_ipv4(skb, flow_key, nla_data(a),
+> >  			       get_mask(a, struct ovs_key_ipv4 *));
+> > @@ -1210,6 +1336,21 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
+> >  		case OVS_ACTION_ATTR_POP_ETH:
+> >  			err = pop_eth(skb, key);
+> >  			break;
+> > +
+> > +		case OVS_ACTION_ATTR_PUSH_NSH: {
+> > +			u8 buffer[NSH_HDR_MAX_LEN];
+> > +			struct nshhdr *nsh_hdr = (struct nshhdr *)buffer;
+> > +			const struct nshhdr *nsh_src = nsh_hdr;
+> > +
+> > +			nsh_hdr_from_nlattr(nla_data(a), nsh_hdr,
+> > +					    NSH_HDR_MAX_LEN);
+> 
+> This is costly. This is called for every packet in the fast path. We should
+> precompute and store the header instead.
 
+How can we do so? I see batch process code in user space implementation,
+but kernel data path didn't such infrastructure, how can we know next
+push_nsh uses the same nsh header as previous one?
 
-	u64 now = event->shadow_ctx_time + perf_clock();
+> > +	case NSH_M_TYPE2:
+> > +		/* Don't support MD type 2 metedata parsing yet */
+> > +		if (length < NSH_BASE_HDR_LEN)
+> > +			return -EINVAL;
+> 
+> Shouldn't we reject the packet, then? Pretending that something was parsed
+> correctly while in fact it was not, does not look correct.
 
-	if (enabled)
-		*enabled = now - event->tstamp_enabled;
+For MD type 2, we don't implement metadata parsing, but it can still
+work. I'm not sure what you mean here, how do we reject a packet here?
 
-	if (event->oncpu == smp_processor_id()) {
-		event->pmu->read(event);
-		if (running)
-			*running = now - event->tstamp_running;
-	} else {
-		*running = event->total_time_running;
-	}
+> 
+> These checks should be done only once when the action is configured, not for
+> each packet.
 
-And I'll fix it up when I make:
-
-  https://lkml.kernel.org/r/20170831171837.njnc6r6elsvkl7lt@hirez.programming.kicks-ass.net
-
-happen.
+I don't know how to implement a batch processing in kernel data path, it
+seems there isn't such code for reference.
