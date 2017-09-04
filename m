@@ -1,95 +1,152 @@
-From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH v3 2/3] dt-binding: net: sfp binding documentation
-Date: Mon, 4 Sep 2017 12:59:29 +0300
-Message-ID: <d7eb151f-0967-7ffb-91a1-5e27f9db4050@cogentembedded.com>
-References: <c2a27566a8eb358ee2566a213c385d0bf3d64307.1504441874.git.baruch@tkos.co.il>
- <01ae7bc45d68322669d18a4feeaeef733ba888d7.1504441874.git.baruch@tkos.co.il>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Baruch Siach <baruch-NswTu9S1W3P6gbPvEgmw2w@public.gmane.org>, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
-        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Russell King <rmk+kernel-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <01ae7bc45d68322669d18a4feeaeef733ba888d7.1504441874.git.baruch-NswTu9S1W3P6gbPvEgmw2w@public.gmane.org>
-Content-Language: en-US
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Ilya Lesokhin <ilyal@mellanox.com>
+Subject: [PATCH v3 net-next 2/2] tls: Use correct sk->sk_prot for IPV6
+Date: Mon,  4 Sep 2017 13:14:01 +0300
+Message-ID: <1504520041-55634-3-git-send-email-ilyal@mellanox.com>
+References: <1504520041-55634-1-git-send-email-ilyal@mellanox.com>
+Cc: davejwatson@fb.com, aviadye@mellanox.com,
+        Ilya Lesokhin <ilyal@mellanox.com>,
+        Boris Pismenny <borisp@mellanox.com>
+To: netdev@vger.kernel.org, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:37788 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1753380AbdIDKOI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 4 Sep 2017 06:14:08 -0400
+In-Reply-To: <1504520041-55634-1-git-send-email-ilyal@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello!
+The tls ulp overrides sk->prot with a new tls specific proto structs.
+The tls specific structs were previously based on the ipv4 specific
+tcp_prot sturct.
+As a result, attaching the tls ulp to an ipv6 tcp socket replaced
+some ipv6 callback with the ipv4 equivalents.
 
-On 9/3/2017 3:31 PM, Baruch Siach wrote:
+This patch adds ipv6 tls proto structs and uses them when
+attached to ipv6 sockets.
 
-> Add device-tree binding documentation SFP transceivers. Support for SFP
-> transceivers has been recently introduced (drivers/net/phy/sfp.c).
-> 
-> Signed-off-by: Baruch Siach <baruch-NswTu9S1W3P6gbPvEgmw2w@public.gmane.org>
-[...]
-> diff --git a/Documentation/devicetree/bindings/net/sff,sfp.txt b/Documentation/devicetree/bindings/net/sff,sfp.txt
-> new file mode 100644
-> index 000000000000..b98ee5945265
-> --- /dev/null
-> +++ b/Documentation/devicetree/bindings/net/sff,sfp.txt
-> @@ -0,0 +1,78 @@
-> +Small Form Factor (SFF) Committee Small Form-factor Pluggable (SFP)
-> +Transceiver
-> +
-> +Required properties:
-> +
-> +- compatible : must be "sff,sfp"
-> +
-> +Optional Properties:
-> +
-> +- i2c-bus : phandle of an I2C bus controller for the SFP two wire serial
-> +  interface
-> +
-> +- moddef0-gpios : GPIO phandle and a single specifier of the MOD-DEF0 (AKA
+Fixes: 3c4d7559159b ('tls: kernel TLS support')
+Signed-off-by: Boris Pismenny <borisp@mellanox.com>
+Signed-off-by: Ilya Lesokhin <ilyal@mellanox.com>
+---
+ net/tls/Kconfig    |  1 +
+ net/tls/tls_main.c | 50 ++++++++++++++++++++++++++++++++++++++------------
+ 2 files changed, 39 insertions(+), 12 deletions(-)
 
-    There's always a single specifier following a phandle, tho it may have 
-different # of cells, no need to spell that out.
-
-> +  Mod_ABS) module presence input gpio signal, active (module absent) high
-> +
-> +- los-gpios : GPIO phandle and a single specifier of the Receiver Loss of
-
-    Same here.
-
-> +  Signal Indication input gpio signal, active (signal lost) high
-> +
-> +- tx-fault-gpios : GPIO phandle and a single specifier of the Module
-
-    And here.
-
-> +  Transmitter Fault input gpio signal, active (fault condition) high
-> +
-> +- tx-disable-gpios : GPIO phandle and a single specifier of the Transmitter
-
-    And here.
-
-> +  Disable output gpio signal, active (Tx disable) high
-> +
-> +- rate-select0-gpios : GPIO phandle and a single specifier of the Rx Signaling
-
-    Here too.
-
-> +  Rate Select (AKA RS0) output gpio signal, low: low Rx rate, high: high Rx
-> +  rate
-> +
-> +- rate-select1-gpios : GPIO phandle and a single specifier of the Tx Signaling
-
-    Here ass well.
-
-> +  Rate Select (AKA RS1) output gpio signal (SFP+ only), low: low Tx rate,
-> +  high: high Tx rate
-> +
-[...]
-
-MBR, Sergei
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/tls/Kconfig b/net/tls/Kconfig
+index eb58303..7e9cf8b 100644
+--- a/net/tls/Kconfig
++++ b/net/tls/Kconfig
+@@ -7,6 +7,7 @@ config TLS
+ 	select CRYPTO
+ 	select CRYPTO_AES
+ 	select CRYPTO_GCM
++	select IPV6
+ 	default n
+ 	---help---
+ 	Enable kernel support for TLS protocol. This allows symmetric
+diff --git a/net/tls/tls_main.c b/net/tls/tls_main.c
+index 60aff60..33c499e 100644
+--- a/net/tls/tls_main.c
++++ b/net/tls/tls_main.c
+@@ -40,13 +40,25 @@
+ #include <linux/sched/signal.h>
+ 
+ #include <net/tls.h>
++#include <net/transp_v6.h>
+ 
+ MODULE_AUTHOR("Mellanox Technologies");
+ MODULE_DESCRIPTION("Transport Layer Security Support");
+ MODULE_LICENSE("Dual BSD/GPL");
+ 
+-static struct proto tls_base_prot;
+-static struct proto tls_sw_prot;
++enum {
++	TLSV4,
++	TLSV6,
++	TLS_NUM_PROTS,
++};
++
++enum {
++	TLS_BASE_TX,
++	TLS_SW_TX,
++	TLS_NUM_CONFIG,
++};
++
++static struct proto tls_prots[TLS_NUM_PROTS][TLS_NUM_CONFIG];
+ 
+ int wait_on_pending_writer(struct sock *sk, long *timeo)
+ {
+@@ -342,6 +354,7 @@ static int do_tls_setsockopt_tx(struct sock *sk, char __user *optval,
+ 	struct tls_context *ctx = tls_get_ctx(sk);
+ 	struct proto *prot = NULL;
+ 	int rc = 0;
++	int ip_ver = sk->sk_family == AF_INET6 ? TLSV6 : TLSV4;
+ 
+ 	if (!optval || (optlen < sizeof(*crypto_info))) {
+ 		rc = -EINVAL;
+@@ -396,7 +409,7 @@ static int do_tls_setsockopt_tx(struct sock *sk, char __user *optval,
+ 
+ 	/* currently SW is default, we will have ethtool in future */
+ 	rc = tls_set_sw_offload(sk, ctx);
+-	prot = &tls_sw_prot;
++	prot = &tls_prots[ip_ver][TLS_SW_TX];
+ 	if (rc)
+ 		goto err_crypto_info;
+ 
+@@ -443,6 +456,12 @@ static int tls_init(struct sock *sk)
+ 	struct inet_connection_sock *icsk = inet_csk(sk);
+ 	struct tls_context *ctx;
+ 	int rc = 0;
++	int ip_ver = TLSV4;
++
++	if (sk->sk_prot == &tcpv6_prot)
++		ip_ver = TLSV6;
++	else if (sk->sk_prot != &tcp_prot)
++		return -EINVAL;
+ 
+ 	/* allocate tls context */
+ 	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
+@@ -453,7 +472,8 @@ static int tls_init(struct sock *sk)
+ 	icsk->icsk_ulp_data = ctx;
+ 	ctx->setsockopt = sk->sk_prot->setsockopt;
+ 	ctx->getsockopt = sk->sk_prot->getsockopt;
+-	sk->sk_prot = &tls_base_prot;
++
++	sk->sk_prot = &tls_prots[ip_ver][TLS_BASE_TX];
+ out:
+ 	return rc;
+ }
+@@ -464,16 +484,22 @@ static int tls_init(struct sock *sk)
+ 	.init			= tls_init,
+ };
+ 
++static void build_protos(struct proto *prot, struct proto *base)
++{
++	prot[TLS_BASE_TX] = *base;
++	prot[TLS_BASE_TX].setsockopt = tls_setsockopt;
++	prot[TLS_BASE_TX].getsockopt = tls_getsockopt;
++
++	prot[TLS_SW_TX] = prot[TLS_BASE_TX];
++	prot[TLS_SW_TX].close		= tls_sk_proto_close;
++	prot[TLS_SW_TX].sendmsg		= tls_sw_sendmsg;
++	prot[TLS_SW_TX].sendpage	= tls_sw_sendpage;
++}
++
+ static int __init tls_register(void)
+ {
+-	tls_base_prot			= tcp_prot;
+-	tls_base_prot.setsockopt	= tls_setsockopt;
+-	tls_base_prot.getsockopt	= tls_getsockopt;
+-
+-	tls_sw_prot			= tls_base_prot;
+-	tls_sw_prot.sendmsg		= tls_sw_sendmsg;
+-	tls_sw_prot.sendpage            = tls_sw_sendpage;
+-	tls_sw_prot.close               = tls_sk_proto_close;
++	build_protos(tls_prots[TLSV4], &tcp_prot);
++	build_protos(tls_prots[TLSV6], &tcpv6_prot);
+ 
+ 	tcp_register_ulp(&tcp_tls_ulp_ops);
+ 
+-- 
+1.8.3.1
