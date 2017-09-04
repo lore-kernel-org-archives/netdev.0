@@ -1,34 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 0/3] net: mvpp2: improve the mac address
- retrieval logic
-Date: Sun, 03 Sep 2017 20:17:12 -0700 (PDT)
-Message-ID: <20170903.201712.965418842136022662.davem@davemloft.net>
-References: <20170902090649.28426-1-antoine.tenart@free-electrons.com>
+Subject: Re: [PATCH net] net: dsa: loop: Do not unregister invalid fixed PHY
+Date: Sun, 03 Sep 2017 20:19:23 -0700 (PDT)
+Message-ID: <20170903.201923.1025438565183602962.davem@davemloft.net>
+References: <20170902155645.19071-1-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andrew@lunn.ch, gregory.clement@free-electrons.com,
-        thomas.petazzoni@free-electrons.com, nadavh@marvell.com,
-        linux@armlinux.org.uk, linux-kernel@vger.kernel.org,
-        mw@semihalf.com, stefanc@marvell.com, netdev@vger.kernel.org
-To: antoine.tenart@free-electrons.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170902090649.28426-1-antoine.tenart@free-electrons.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, andrew@lunn.ch,
+        vivien.didelot@savoirfairelinux.com, linux-kernel@vger.kernel.org
+To: f.fainelli@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:34922 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753124AbdIDDTY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 3 Sep 2017 23:19:24 -0400
+In-Reply-To: <20170902155645.19071-1-f.fainelli@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Date: Sat,  2 Sep 2017 11:06:46 +0200
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Sat,  2 Sep 2017 08:56:45 -0700
 
-> This series aims at fixing the logic behind the MAC address retrieval in the
-> PPv2 driver. A possible issue is also fixed in patch 3/3 to introduce fallbacks
-> when the address given in the device tree isn't valid.
- ...
-> Since v2:
->   - Patch 1/4 from v2 was applied on net (and net was merged in net-next).
->   - Rebased on net-next.
+> During error injection it was possible to crash in dsa_loop_exit() because of
+> an attempt to unregister an invalid PHY. We actually want to the driver probing
+> in dsa_loop_init() even though fixed_phy_register() may return an error to
+> exercise how DSA deals with such cases, but we should not be crashing during
+> driver removal.
 > 
-> Since v1:
->   - Rebased onto net (was on net-next).
+> Fixes: 98cd1552ea27 ("net: dsa: Mock-up driver")
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 
-Series applied, thank you.
+Applied and queued up for -stable, thanks.
