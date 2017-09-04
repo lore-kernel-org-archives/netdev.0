@@ -1,185 +1,140 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 04/12] netfilter: nft_limit: add stateful object type
-Date: Mon,  4 Sep 2017 22:11:06 +0200
-Message-ID: <1504555874-4168-5-git-send-email-pablo@netfilter.org>
-References: <1504555874-4168-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1504555874-4168-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH v3 2/3] dt-binding: net: sfp binding documentation
+Date: Mon, 4 Sep 2017 13:16:26 -0700
+Message-ID: <5df7f2f5-04f7-85b1-4a53-935360001b7c@gmail.com>
+References: <c2a27566a8eb358ee2566a213c385d0bf3d64307.1504441874.git.baruch@tkos.co.il>
+ <01ae7bc45d68322669d18a4feeaeef733ba888d7.1504441874.git.baruch@tkos.co.il>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
+        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+To: Baruch Siach <baruch@tkos.co.il>, Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        "David S. Miller" <davem@davemloft.net>,
+        Russell King <rmk+kernel@arm.linux.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f68.google.com ([209.85.218.68]:36140 "EHLO
+        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753968AbdIDUQb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 4 Sep 2017 16:16:31 -0400
+In-Reply-To: <01ae7bc45d68322669d18a4feeaeef733ba888d7.1504441874.git.baruch@tkos.co.il>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Pablo M. Bermudo Garay" <pablombg@gmail.com>
+Le 09/03/17 à 05:31, Baruch Siach a écrit :
+> Add device-tree binding documentation SFP transceivers. Support for SFP
+> transceivers has been recently introduced (drivers/net/phy/sfp.c).
+> 
+> Signed-off-by: Baruch Siach <baruch@tkos.co.il>
+> ---
+> v3:
+>   Mention gpios phandle and specifier
+>   Mention the polarity of each gpio
+>   Fix example property names
+> 
+> v2:
+>   Rename -gpio properties to -gpios
+>   Rename the rate-select-gpio property to rate-select0-gpios
+>   Add the rate-select1-gpios property
+>   Add examples
+> ---
+>  Documentation/devicetree/bindings/net/sff,sfp.txt | 78 +++++++++++++++++++++++
+>  1 file changed, 78 insertions(+)
+>  create mode 100644 Documentation/devicetree/bindings/net/sff,sfp.txt
+> 
+> diff --git a/Documentation/devicetree/bindings/net/sff,sfp.txt b/Documentation/devicetree/bindings/net/sff,sfp.txt
+> new file mode 100644
+> index 000000000000..b98ee5945265
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/net/sff,sfp.txt
+> @@ -0,0 +1,78 @@
+> +Small Form Factor (SFF) Committee Small Form-factor Pluggable (SFP)
+> +Transceiver
+> +
+> +Required properties:
+> +
+> +- compatible : must be "sff,sfp"
+> +
+> +Optional Properties:
+> +
+> +- i2c-bus : phandle of an I2C bus controller for the SFP two wire serial
+> +  interface
+> +
+> +- moddef0-gpios : GPIO phandle and a single specifier of the MOD-DEF0 (AKA
+> +  Mod_ABS) module presence input gpio signal, active (module absent) high
 
-Register a new limit stateful object type into the stateful object
-infrastructure.
+Sorry for nitpicking on this, why are not we naming this mod-def0-gpios
+which would be consistent with how other GPIOs are named?
 
-Signed-off-by: Pablo M. Bermudo Garay <pablombg@gmail.com>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- include/uapi/linux/netfilter/nf_tables.h |   3 +-
- net/netfilter/nft_limit.c                | 122 ++++++++++++++++++++++++++++++-
- 2 files changed, 123 insertions(+), 2 deletions(-)
+> +
+> +- los-gpios : GPIO phandle and a single specifier of the Receiver Loss of
+> +  Signal Indication input gpio signal, active (signal lost) high
+> +
+> +- tx-fault-gpios : GPIO phandle and a single specifier of the Module
+> +  Transmitter Fault input gpio signal, active (fault condition) high
+> +
+> +- tx-disable-gpios : GPIO phandle and a single specifier of the Transmitter
+> +  Disable output gpio signal, active (Tx disable) high
+> +
+> +- rate-select0-gpios : GPIO phandle and a single specifier of the Rx Signaling
+> +  Rate Select (AKA RS0) output gpio signal, low: low Rx rate, high: high Rx
+> +  rate
+> +
+> +- rate-select1-gpios : GPIO phandle and a single specifier of the Tx Signaling
+> +  Rate Select (AKA RS1) output gpio signal (SFP+ only), low: low Tx rate,
+> +  high: high Tx rate
+> +
+> +Example #1: Direct serdes to SFP connection
+> +
+> +sfp_eth3: sfp-eth3 {
+> +	compatible = "sff,sfp";
+> +	i2c-bus = <&sfp_1g_i2c>;
+> +	los-gpios = <&cpm_gpio2 22 GPIO_ACTIVE_HIGH>;
+> +	moddef0-gpios = <&cpm_gpio2 21 GPIO_ACTIVE_LOW>;
+> +	pinctrl-names = "default";
+> +	pinctrl-0 = <&cpm_sfp_1g_pins &cps_sfp_1g_pins>;
+> +	tx-disable-gpios = <&cps_gpio1 24 GPIO_ACTIVE_HIGH>;
+> +	tx-fault-gpios = <&cpm_gpio2 19 GPIO_ACTIVE_HIGH>;
+> +};
+> +
+> +&cps_emac3 {
+> +	phy-mode = "sgmii";
+> +	phy-names = "comphy";
+> +	phys = <&cps_comphy 5 COMPHY_SGMII2>;
+> +	sfp = <&sfp_eth3>;
+> +};
+> +
+> +Example #2: Serdes to PHY to SFP connection
+> +
+> +sfp_eth0: sfp-eth0 {
+> +	compatible = "sff,sfp+";
+> +	i2c-bus = <&sfpp0_i2c>;
+> +	los-gpios = <&cps_gpio1 28 GPIO_ACTIVE_HIGH>;
+> +	moddef0-gpios = <&cps_gpio1 27 GPIO_ACTIVE_LOW>;
+> +	pinctrl-names = "default";
+> +	pinctrl-0 = <&cps_sfpp0_pins>;
+> +	tx-disable-gpios = <&cps_gpio1 29 GPIO_ACTIVE_HIGH>;
+> +	tx-fault-gpios  = <&cps_gpio1 26 GPIO_ACTIVE_HIGH>;
+> +};
+> +
+> +p0_phy: ethernet-phy@0 {
+> +	compatible = "ethernet-phy-ieee802.3-c45";
+> +	pinctrl-names = "default";
+> +	pinctrl-0 = <&cpm_phy0_pins &cps_phy0_pins>;
+> +	reg = <0>;
+> +	interrupt = <&cpm_gpio2 18 IRQ_TYPE_EDGE_FALLING>;
+> +	sfp = <&sfp_eth0>;
+> +};
+> +
+> +&cpm_eth0 {
+> +	phy = <&p0_phy>;
+> +	phy-mode = "10gbase-kr";
+> +};
+> 
 
-diff --git a/include/uapi/linux/netfilter/nf_tables.h b/include/uapi/linux/netfilter/nf_tables.h
-index b49da72efa68..871afa4871bf 100644
---- a/include/uapi/linux/netfilter/nf_tables.h
-+++ b/include/uapi/linux/netfilter/nf_tables.h
-@@ -1282,7 +1282,8 @@ enum nft_ct_helper_attributes {
- #define NFT_OBJECT_COUNTER	1
- #define NFT_OBJECT_QUOTA	2
- #define NFT_OBJECT_CT_HELPER	3
--#define __NFT_OBJECT_MAX	4
-+#define NFT_OBJECT_LIMIT	4
-+#define __NFT_OBJECT_MAX	5
- #define NFT_OBJECT_MAX		(__NFT_OBJECT_MAX - 1)
- 
- /**
-diff --git a/net/netfilter/nft_limit.c b/net/netfilter/nft_limit.c
-index aae2d1ec27f3..a9fc298ef4c3 100644
---- a/net/netfilter/nft_limit.c
-+++ b/net/netfilter/nft_limit.c
-@@ -229,14 +229,133 @@ static struct nft_expr_type nft_limit_type __read_mostly = {
- 	.owner		= THIS_MODULE,
- };
- 
-+static void nft_limit_obj_pkts_eval(struct nft_object *obj,
-+				    struct nft_regs *regs,
-+				    const struct nft_pktinfo *pkt)
-+{
-+	struct nft_limit_pkts *priv = nft_obj_data(obj);
-+
-+	if (nft_limit_eval(&priv->limit, priv->cost))
-+		regs->verdict.code = NFT_BREAK;
-+}
-+
-+static int nft_limit_obj_pkts_init(const struct nft_ctx *ctx,
-+				   const struct nlattr * const tb[],
-+				   struct nft_object *obj)
-+{
-+	struct nft_limit_pkts *priv = nft_obj_data(obj);
-+	int err;
-+
-+	err = nft_limit_init(&priv->limit, tb);
-+	if (err < 0)
-+		return err;
-+
-+	priv->cost = div64_u64(priv->limit.nsecs, priv->limit.rate);
-+	return 0;
-+}
-+
-+static int nft_limit_obj_pkts_dump(struct sk_buff *skb,
-+				   struct nft_object *obj,
-+				   bool reset)
-+{
-+	const struct nft_limit_pkts *priv = nft_obj_data(obj);
-+
-+	return nft_limit_dump(skb, &priv->limit, NFT_LIMIT_PKTS);
-+}
-+
-+static struct nft_object_type nft_limit_obj_type;
-+static const struct nft_object_ops nft_limit_obj_pkts_ops = {
-+	.type		= &nft_limit_obj_type,
-+	.size		= NFT_EXPR_SIZE(sizeof(struct nft_limit_pkts)),
-+	.init		= nft_limit_obj_pkts_init,
-+	.eval		= nft_limit_obj_pkts_eval,
-+	.dump		= nft_limit_obj_pkts_dump,
-+};
-+
-+static void nft_limit_obj_bytes_eval(struct nft_object *obj,
-+				     struct nft_regs *regs,
-+				     const struct nft_pktinfo *pkt)
-+{
-+	struct nft_limit *priv = nft_obj_data(obj);
-+	u64 cost = div64_u64(priv->nsecs * pkt->skb->len, priv->rate);
-+
-+	if (nft_limit_eval(priv, cost))
-+		regs->verdict.code = NFT_BREAK;
-+}
-+
-+static int nft_limit_obj_bytes_init(const struct nft_ctx *ctx,
-+				    const struct nlattr * const tb[],
-+				    struct nft_object *obj)
-+{
-+	struct nft_limit *priv = nft_obj_data(obj);
-+
-+	return nft_limit_init(priv, tb);
-+}
-+
-+static int nft_limit_obj_bytes_dump(struct sk_buff *skb,
-+				    struct nft_object *obj,
-+				    bool reset)
-+{
-+	const struct nft_limit *priv = nft_obj_data(obj);
-+
-+	return nft_limit_dump(skb, priv, NFT_LIMIT_PKT_BYTES);
-+}
-+
-+static struct nft_object_type nft_limit_obj_type;
-+static const struct nft_object_ops nft_limit_obj_bytes_ops = {
-+	.type		= &nft_limit_obj_type,
-+	.size		= sizeof(struct nft_limit),
-+	.init		= nft_limit_obj_bytes_init,
-+	.eval		= nft_limit_obj_bytes_eval,
-+	.dump		= nft_limit_obj_bytes_dump,
-+};
-+
-+static const struct nft_object_ops *
-+nft_limit_obj_select_ops(const struct nft_ctx *ctx,
-+			 const struct nlattr * const tb[])
-+{
-+	if (!tb[NFTA_LIMIT_TYPE])
-+		return &nft_limit_obj_pkts_ops;
-+
-+	switch (ntohl(nla_get_be32(tb[NFTA_LIMIT_TYPE]))) {
-+	case NFT_LIMIT_PKTS:
-+		return &nft_limit_obj_pkts_ops;
-+	case NFT_LIMIT_PKT_BYTES:
-+		return &nft_limit_obj_bytes_ops;
-+	}
-+	return ERR_PTR(-EOPNOTSUPP);
-+}
-+
-+static struct nft_object_type nft_limit_obj_type __read_mostly = {
-+	.select_ops	= nft_limit_obj_select_ops,
-+	.type		= NFT_OBJECT_LIMIT,
-+	.maxattr	= NFTA_LIMIT_MAX,
-+	.policy		= nft_limit_policy,
-+	.owner		= THIS_MODULE,
-+};
-+
- static int __init nft_limit_module_init(void)
- {
--	return nft_register_expr(&nft_limit_type);
-+	int err;
-+
-+	err = nft_register_obj(&nft_limit_obj_type);
-+	if (err < 0)
-+		return err;
-+
-+	err = nft_register_expr(&nft_limit_type);
-+	if (err < 0)
-+		goto err1;
-+
-+	return 0;
-+err1:
-+	nft_unregister_obj(&nft_limit_obj_type);
-+	return err;
- }
- 
- static void __exit nft_limit_module_exit(void)
- {
- 	nft_unregister_expr(&nft_limit_type);
-+	nft_unregister_obj(&nft_limit_obj_type);
- }
- 
- module_init(nft_limit_module_init);
-@@ -245,3 +364,4 @@ module_exit(nft_limit_module_exit);
- MODULE_LICENSE("GPL");
- MODULE_AUTHOR("Patrick McHardy <kaber@trash.net>");
- MODULE_ALIAS_NFT_EXPR("limit");
-+MODULE_ALIAS_NFT_OBJ(NFT_OBJECT_LIMIT);
+
 -- 
-2.1.4
-
+Florian
