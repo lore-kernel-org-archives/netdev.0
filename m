@@ -1,39 +1,42 @@
-From: Ilya Lesokhin <ilyal@mellanox.com>
-Subject: [PATCH v3 net-next 1/2] net: Export tcpv6_prot
-Date: Mon,  4 Sep 2017 13:14:00 +0300
-Message-ID: <1504520041-55634-2-git-send-email-ilyal@mellanox.com>
-References: <1504520041-55634-1-git-send-email-ilyal@mellanox.com>
-Cc: davejwatson@fb.com, aviadye@mellanox.com,
-        Ilya Lesokhin <ilyal@mellanox.com>,
-        Boris Pismenny <borisp@mellanox.com>
-To: netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:37790 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1753386AbdIDKOI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 4 Sep 2017 06:14:08 -0400
-In-Reply-To: <1504520041-55634-1-git-send-email-ilyal@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 1/2] netfilter/xt_hashlimit: new feature/algorithm for
+ xt_hashlimit
+Date: Mon, 4 Sep 2017 12:14:33 +0200
+Message-ID: <20170904101433.GA3979@salvia>
+References: <1503089939-15938-1-git-send-email-vpai@akamai.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: kadlec@blackhole.kfki.hu, netfilter-devel@vger.kernel.org,
+        johunt@akamai.com, fw@strlen.de, netdev@vger.kernel.org,
+        pai.vishwain@gmail.com
+To: Vishwanath Pai <vpai@akamai.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1503089939-15938-1-git-send-email-vpai@akamai.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Want to be able to use these in TLS.
+On Fri, Aug 18, 2017 at 04:58:59PM -0400, Vishwanath Pai wrote:
+[...]
+> The main difference between the existing algorithm and the new one is
+> that the existing algorithm rate-limits the flow whereas the new
+> algorithm does not. Instead it *classifies* the flow based on whether
+> it is above or below a certain rate. I will demonstrate this with an
+> example below. Let us assume this rule:
+> 
+> iptables -A INPUT -m hashlimit --hashlimit-above 10/s -j new_chain
+> 
+> If the packet rate is 15/s, the existing algorithm would ACCEPT 10
+> packets every second and send 5 packets to "new_chain".
+> 
+> But with the new algorithm, as long as the rate of 15/s is sustained,
+> all packets will continue to match and every packet is sent to new_chain.
 
-Signed-off-by: Boris Pismenny <borisp@mellanox.com>
----
- net/ipv6/tcp_ipv6.c | 1 +
- 1 file changed, 1 insertion(+)
+Sounds good, applied, thanks.
 
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 38f76d8..60d0629 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1948,6 +1948,7 @@ struct proto tcpv6_prot = {
- #endif
- 	.diag_destroy		= tcp_abort,
- };
-+EXPORT_SYMBOL_GPL(tcpv6_prot);
- 
- /* thinking of making this const? Don't.
-  * early_demux can change based on sysctl.
--- 
-1.8.3.1
+A couple of questions: Does it really make sense to expose
+--hashlimit-rate-interval or are you using 1 second always there? I
+always wonder if it makes sense to expose yet another toggle that it's
+not clear to me how the user would take advantage from this.
+
+Just curious here.
