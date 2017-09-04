@@ -1,57 +1,35 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: stable-kernel-rules: wireless and netdev-FAQ
-Date: Mon, 04 Sep 2017 15:58:15 +0300
-Message-ID: <87ziaaoc2g.fsf_-_@kamboji.qca.qualcomm.com>
-References: <b08798d4-21eb-6fda-3972-50bc1f4d0e9a@lwfinger.net>
-        <20170831075514.GA12340@redhat.com>
-        <26ef3184-a19e-1bb7-7aa4-4e8647210763@lwfinger.net>
-        <20170901085738.GA18397@redhat.com> <87y3pymqw2.fsf@purkki.adurom.net>
-        <20170902082223.GA11293@redhat.com>
+From: Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH net-next v7] openvswitch: enable NSH support
+Date: Mon, 4 Sep 2017 15:10:24 +0200
+Message-ID: <20170904151024.707f614e@griffin>
+References: <1504096752-102003-1-git-send-email-yi.y.yang@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Larry Finger <Larry.Finger@lwfinger.net>,
-        Helmut Schaa <helmut.schaa@googlemail.com>,
-        linux-wireless <linux-wireless@vger.kernel.org>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Stanislaw Gruszka <sgruszka@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170902082223.GA11293@redhat.com> (Stanislaw Gruszka's message
-        of "Sat, 2 Sep 2017 10:22:24 +0200")
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, e@erig.me, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: Yi Yang <yi.y.yang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1504096752-102003-1-git-send-email-yi.y.yang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
+	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
+List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
+	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-(adding netdev and lkml)
+On Wed, 30 Aug 2017 20:39:12 +0800, Yi Yang wrote:
+> +enum ovs_nsh_key_attr {
+> +	OVS_NSH_KEY_ATTR_BASE,  /* struct ovs_nsh_key_base. */
+> +	OVS_NSH_KEY_ATTR_MD1,   /* struct ovs_nsh_key_md1. */
+> +	OVS_NSH_KEY_ATTR_MD2,   /* variable-length octets for MD type 2. */
+> +	__OVS_NSH_KEY_ATTR_MAX
+> +};
 
-Stanislaw Gruszka <sgruszka@redhat.com> writes:
+One more thing: 0 is reserved, the first attr must be
+OVS_NSH_KEY_ATTR_UNSPEC.
 
-> On Fri, Sep 01, 2017 at 05:31:57PM +0300, Kalle Valo wrote:
->> Stanislaw Gruszka <sgruszka@redhat.com> writes:
->> 
->> > On Thu, Aug 31, 2017 at 10:33:28AM -0500, Larry Finger wrote:
->> >> Should the patch to wireless-drivers be annotated with a Stable reference so
->> >> that it is added to 4.12 and 4.13?
->> >
->> > According to Documentation/networking/netdev-FAQ.txt networking patches
->> > should not be marked cc:stable, instead a decent commit log should
->> > be written describing a bugfix. Which I believe it is done for
->> > this patch.
->> 
->> But that's for net and net-next trees, not for wireless trees. With
->> wireless patches we use "Cc: stable@..." references.
->
-> Oh, ok. I was confused by below part of
-> Documentation/process/stable-kernel-rules.rst 
-> (because wireless drivers are located in drivers/net/)
->
->  - If the patch covers files in net/ or drivers/net please follow netdev stable
->    submission guidelines as described in
->    Documentation/networking/netdev-FAQ.txt
-
-Yeah, that's confusing and should be clarified that wireless follows
-traditional stable process. IIRC bluetooth does the same so it's not
-just wireless.
-
-Any volunteers to fix it? :)
-
--- 
-Kalle Valo
+ Jiri
