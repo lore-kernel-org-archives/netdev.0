@@ -1,160 +1,144 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: linux-next: manual merge of the pci tree with the net tree
-Date: Mon, 4 Sep 2017 14:54:27 +1000
-Message-ID: <20170904145427.60b35b0c@canb.auug.org.au>
-References: <20170816095128.7205e4f1@canb.auug.org.au>
+From: Bhadram Varka <vbhadram@nvidia.com>
+Subject: RE: netdev carrier changes is one even after ethernet link up.
+Date: Mon, 4 Sep 2017 05:07:40 +0000
+Message-ID: <67a9f7aa73f348558b2b3f097d2c040f@bgmail102.nvidia.com>
+References: <974898714b3e4e59b933983ded977ce2@bgmail102.nvidia.com>
+ <25c3b4ca-02d7-e217-fe27-ca3b7d2cbf07@gmail.com>
+ <cd860399cf9148d193a08636a6d82a68@DRBGMAIL102.nvidia.com>
+ <a7bf6cf0-c534-95f9-47f6-ee56a95fe961@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Linux-Next Mailing List <linux-next@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        Ding Tianhong <dingtianhong@huawei.com>,
-        Casey Leedom <leedom@chelsio.com>,
-        Sinan Kaya <okaya@codeaurora.org>
-To: Bjorn Helgaas <bhelgaas@google.com>,
-        David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170816095128.7205e4f1@canb.auug.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: linux-netdev <netdev@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+        "andrew@lunn.ch" <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from hqemgate15.nvidia.com ([216.228.121.64]:18085 "EHLO
+        hqemgate15.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750734AbdIDFIN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 4 Sep 2017 01:08:13 -0400
+In-Reply-To: <a7bf6cf0-c534-95f9-47f6-ee56a95fe961@gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+Hi Florian,
 
-On Wed, 16 Aug 2017 09:51:28 +1000 Stephen Rothwell <sfr@canb.auug.org.au> wrote:
->
-> Today's linux-next merge of the pci tree got a conflict in:
+> -----Original Message-----
+> From: Florian Fainelli [mailto:f.fainelli@gmail.com]
+> Sent: Saturday, September 02, 2017 7:25 AM
+> To: Bhadram Varka <vbhadram@nvidia.com>; andrew@lunn.ch
+> Cc: linux-netdev <netdev@vger.kernel.org>
+> Subject: Re: netdev carrier changes is one even after ethernet link up.
 > 
->   drivers/pci/probe.c
+> On 08/31/2017 10:49 PM, Bhadram Varka wrote:
+> > Thanks for responding. Now responding inline
+> >
+> >> -----Original Message-----
+> >> From: Florian Fainelli [mailto:f.fainelli@gmail.com]
+> >> Sent: Friday, September 01, 2017 5:53 AM
+> >> To: Bhadram Varka <vbhadram@nvidia.com>; andrew@lunn.ch
+> >> Cc: linux-netdev <netdev@vger.kernel.org>
+> >> Subject: Re: netdev carrier changes is one even after ethernet link up.
+> >>
+> >> On 08/30/2017 10:53 PM, Bhadram Varka wrote:
+> >>> Hi,
+> >>>
+> >>>
+> >>>
+> >>> I have observed that carrier_changes is one even in case of the
+> >>> ethernet link is up.
+> >>>
+> >>>
+> >>>
+> >>> After investigating the code below is my observation -
+> >>>
+> >>>
+> >>>
+> >>> ethernet_driver_probe()
+> >>>
+> >>> +--->phy_connect()
+> >>>
+> >>> |     +--->phy_attach_direct()
+> >>>
+> >>> |           +---> netif_carrier_off()    : which increments
+> >>> carrier_changes to one.
+> >>>
+> >>> +--->register_netdevice() : will the carrier_changes becomes zero here ?
+> >>>
+> >>> +--->netif_carrier_off(): not increment the carrier_changes since
+> >>> __LINK_STATE_NOCARRIER already set.
+> >>>
+> >>>
+> >>>
+> >>> From ethernet driver open will start the PHY and trigger the
+> >>> phy_state_machine.
+> >>>
+> >>> Phy_state_machine workqueue calling netif_carrier_on() once the link
+> >>> is
+> >> UP.
+> >>>
+> >>> netif_carrier_on() increments the carrier_changes by one.
+> >>
+> >> If the call trace is correct, then there is at least two problems here:
+> >>
+> >> - phy_connect() does start the PHY machine which means that as soon
+> >> as it detects a link state of any kind (up or down) it can call
+> >> netif_carrier_off() respectively netif_carrier_on()
+> >>
+> >> - as soon as you call register_netdevice() notifiers run and other
+> >> parts of the kernel or user-space programs can see an inconsistent
+> >> link state
+> >>
+> >> I would suggest doing the following sequence instead:
+> >>
+> >> netif_carrier_off()
+> >> register_netdevice()
+> >> phy_connect()
+> >>
+> >> Which should result in a consistent link state and carrier value.
+> >>
+> > Yes, It will address the issue.
+> >
+> > If we did the phy_conect in ndo_open it will make the carrier changes as
+> two. But if we did in probe function then it's not working.
+> >
+> > In ethernet driver probe - (below sequence is not working)
+> > phy_connect()
+> > register_netdevice()
+> > netif_carrier_off()
+> >
+> > working sequence:
+> > In probe():
+> > register_netdevice()
+> > ndo_open:
+> >            phy_connect()
+> >
+> > After reverting - https://lkml.org/lkml/2016/1/9/173 this works if we do
+> phy_connect in probe as well.
 > 
-> between commit:
+> But as mentioned before you should not be doing the PHY probe in your
+> driver's probe function for different reasons:
 > 
->   a99b646afa8a ("PCI: Disable PCIe Relaxed Ordering if unsupported")
+> - the probe function's responsibility is to initialize the driver and the HW to a
+> state where they both have everything needed but it should be in quiesced
+> state. There is no guarantee that your network device may ever be used
+> after probe unless something calls ndo_open(), you should therefore keep
+> all resources to a minimum: memory allocated, HW powered down etc.
 > 
-> from the net tree and commit:
+> - there is a race condition between the PHY state machine started in
+> phy_connect(), and when register_netdevice() is called and notifiers running
+> which can lead to an inconsistent state for the carrier
 > 
->   62ce94a7a5a5 ("PCI: Mark Broadcom HT2100 Root Port Extended Tags as broken")
-> 
-> from the pci tree.
-> 
-> I fixed it up (see below) and can carry the fix as necessary. This
-> is now fixed as far as linux-next is concerned, but any non trivial
-> conflicts should be mentioned to your upstream maintainer when your tree
-> is submitted for merging.  You may also want to consider cooperating
-> with the maintainer of the conflicting tree to minimise any particularly
-> complex conflicts.
-> 
-> -- 
-> Cheers,
-> Stephen Rothwell
-> 
-> diff --cc drivers/pci/probe.c
-> index e6a917b4acd3,d11fede6bd53..000000000000
-> --- a/drivers/pci/probe.c
-> +++ b/drivers/pci/probe.c
-> @@@ -1751,67 -1753,51 +1753,94 @@@ int pci_configure_extended_tags(struct 
->   	int ret;
->   
->   	if (!pci_is_pcie(dev))
-> - 		return;
-> + 		return 0;
->   
-> - 	ret = pcie_capability_read_dword(dev, PCI_EXP_DEVCAP, &dev_cap);
-> + 	ret = pcie_capability_read_dword(dev, PCI_EXP_DEVCAP, &cap);
->   	if (ret)
-> - 		return;
-> + 		return 0;
-> + 
-> + 	if (!(cap & PCI_EXP_DEVCAP_EXT_TAG))
-> + 		return 0;
-> + 
-> + 	ret = pcie_capability_read_word(dev, PCI_EXP_DEVCTL, &ctl);
-> + 	if (ret)
-> + 		return 0;
-> + 
-> + 	host = pci_find_host_bridge(dev->bus);
-> + 	if (!host)
-> + 		return 0;
-> + 
-> + 	/*
-> + 	 * If some device in the hierarchy doesn't handle Extended Tags
-> + 	 * correctly, make sure they're disabled.
-> + 	 */
-> + 	if (host->no_ext_tags) {
-> + 		if (ctl & PCI_EXP_DEVCTL_EXT_TAG) {
-> + 			dev_info(&dev->dev, "disabling Extended Tags\n");
-> + 			pcie_capability_clear_word(dev, PCI_EXP_DEVCTL,
-> + 						   PCI_EXP_DEVCTL_EXT_TAG);
-> + 		}
-> + 		return 0;
-> + 	}
->   
-> - 	if (dev_cap & PCI_EXP_DEVCAP_EXT_TAG)
-> + 	if (!(ctl & PCI_EXP_DEVCTL_EXT_TAG)) {
-> + 		dev_info(&dev->dev, "enabling Extended Tags\n");
->   		pcie_capability_set_word(dev, PCI_EXP_DEVCTL,
->   					 PCI_EXP_DEVCTL_EXT_TAG);
-> + 	}
-> + 	return 0;
->   }
->   
->  +/**
->  + * pcie_relaxed_ordering_enabled - Probe for PCIe relaxed ordering enable
->  + * @dev: PCI device to query
->  + *
->  + * Returns true if the device has enabled relaxed ordering attribute.
->  + */
->  +bool pcie_relaxed_ordering_enabled(struct pci_dev *dev)
->  +{
->  +	u16 v;
->  +
->  +	pcie_capability_read_word(dev, PCI_EXP_DEVCTL, &v);
->  +
->  +	return !!(v & PCI_EXP_DEVCTL_RELAX_EN);
->  +}
->  +EXPORT_SYMBOL(pcie_relaxed_ordering_enabled);
->  +
->  +static void pci_configure_relaxed_ordering(struct pci_dev *dev)
->  +{
->  +	struct pci_dev *root;
->  +
->  +	/* PCI_EXP_DEVICE_RELAX_EN is RsvdP in VFs */
->  +	if (dev->is_virtfn)
->  +		return;
->  +
->  +	if (!pcie_relaxed_ordering_enabled(dev))
->  +		return;
->  +
->  +	/*
->  +	 * For now, we only deal with Relaxed Ordering issues with Root
->  +	 * Ports. Peer-to-Peer DMA is another can of worms.
->  +	 */
->  +	root = pci_find_pcie_root_port(dev);
->  +	if (!root)
->  +		return;
->  +
->  +	if (root->dev_flags & PCI_DEV_FLAGS_NO_RELAXED_ORDERING) {
->  +		pcie_capability_clear_word(dev, PCI_EXP_DEVCTL,
->  +					   PCI_EXP_DEVCTL_RELAX_EN);
->  +		dev_info(&dev->dev, "Disable Relaxed Ordering because the Root Port didn't support it\n");
->  +	}
->  +}
->  +
->   static void pci_configure_device(struct pci_dev *dev)
->   {
->   	struct hotplug_params hpp;
->   	int ret;
->   
->   	pci_configure_mps(dev);
-> - 	pci_configure_extended_tags(dev);
-> + 	pci_configure_extended_tags(dev, NULL);
->  +	pci_configure_relaxed_ordering(dev);
->   
->   	memset(&hpp, 0, sizeof(hpp));
->   	ret = pci_get_hp_params(dev, &hpp);
+Agreed. But I could see lot of drivers performing the phy_connect() in driver_probe() function itself. 
+Also observed that these drivers are performing netif_carrier_off() after register_netdevice().
 
-Just a reminder that this conflict still exists.
+My point is that we do we need to do netif_carrier_off() in phy_connect since we already doing the same after register_netdevice() ?
 
--- 
-Cheers,
-Stephen Rothwell
+Thanks!
+-----------------------------------------------------------------------------------
+This email message is for the sole use of the intended recipient(s) and may contain
+confidential information.  Any unauthorized review, use, disclosure or distribution
+is prohibited.  If you are not the intended recipient, please contact the sender by
+reply email and destroy all copies of the original message.
+-----------------------------------------------------------------------------------
