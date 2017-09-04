@@ -1,38 +1,160 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/6] net: qualcomm: rmnet: Fix comments on
- initial patchset
-Date: Sun, 03 Sep 2017 21:27:31 -0700 (PDT)
-Message-ID: <20170903.212731.1651031812138547466.davem@davemloft.net>
-References: <1504416646-9527-1-git-send-email-subashab@codeaurora.org>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: linux-next: manual merge of the pci tree with the net tree
+Date: Mon, 4 Sep 2017 14:54:27 +1000
+Message-ID: <20170904145427.60b35b0c@canb.auug.org.au>
+References: <20170816095128.7205e4f1@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: subashab@codeaurora.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:35606 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753335AbdIDE1c (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 4 Sep 2017 00:27:32 -0400
-In-Reply-To: <1504416646-9527-1-git-send-email-subashab@codeaurora.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Linux-Next Mailing List <linux-next@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        Ding Tianhong <dingtianhong@huawei.com>,
+        Casey Leedom <leedom@chelsio.com>,
+        Sinan Kaya <okaya@codeaurora.org>
+To: Bjorn Helgaas <bhelgaas@google.com>,
+        David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170816095128.7205e4f1@canb.auug.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
-Date: Sat,  2 Sep 2017 23:30:40 -0600
+Hi all,
 
-> This series fixes the comments from Dan on the first patch series.
+On Wed, 16 Aug 2017 09:51:28 +1000 Stephen Rothwell <sfr@canb.auug.org.au> wrote:
+>
+> Today's linux-next merge of the pci tree got a conflict in:
 > 
-> Fixes a memory corruption which could occur if mux_id was higher than 32.
-> Remove the RMNET_LOCAL_LOGICAL_ENDPOINT which is no longer used.
-> Make a log message more useful.
-> Combine __rmnet_set_endpoint_config() with rmnet_set_endpoint_config().
-> Set the mux_id in rmnet_vnd_newlink().
-> Set the ingress and egress data format directly in newlink.
-> Implement ndo_get_iflink to find the real_dev.
-> Rename the real_dev_info to port to make it similar to other drivers.
+>   drivers/pci/probe.c
 > 
-> The conversion of rmnet_devices to a list and hash lookup will be sent
-> as part of a seperate patch.
+> between commit:
+> 
+>   a99b646afa8a ("PCI: Disable PCIe Relaxed Ordering if unsupported")
+> 
+> from the net tree and commit:
+> 
+>   62ce94a7a5a5 ("PCI: Mark Broadcom HT2100 Root Port Extended Tags as broken")
+> 
+> from the pci tree.
+> 
+> I fixed it up (see below) and can carry the fix as necessary. This
+> is now fixed as far as linux-next is concerned, but any non trivial
+> conflicts should be mentioned to your upstream maintainer when your tree
+> is submitted for merging.  You may also want to consider cooperating
+> with the maintainer of the conflicting tree to minimise any particularly
+> complex conflicts.
+> 
+> -- 
+> Cheers,
+> Stephen Rothwell
+> 
+> diff --cc drivers/pci/probe.c
+> index e6a917b4acd3,d11fede6bd53..000000000000
+> --- a/drivers/pci/probe.c
+> +++ b/drivers/pci/probe.c
+> @@@ -1751,67 -1753,51 +1753,94 @@@ int pci_configure_extended_tags(struct 
+>   	int ret;
+>   
+>   	if (!pci_is_pcie(dev))
+> - 		return;
+> + 		return 0;
+>   
+> - 	ret = pcie_capability_read_dword(dev, PCI_EXP_DEVCAP, &dev_cap);
+> + 	ret = pcie_capability_read_dword(dev, PCI_EXP_DEVCAP, &cap);
+>   	if (ret)
+> - 		return;
+> + 		return 0;
+> + 
+> + 	if (!(cap & PCI_EXP_DEVCAP_EXT_TAG))
+> + 		return 0;
+> + 
+> + 	ret = pcie_capability_read_word(dev, PCI_EXP_DEVCTL, &ctl);
+> + 	if (ret)
+> + 		return 0;
+> + 
+> + 	host = pci_find_host_bridge(dev->bus);
+> + 	if (!host)
+> + 		return 0;
+> + 
+> + 	/*
+> + 	 * If some device in the hierarchy doesn't handle Extended Tags
+> + 	 * correctly, make sure they're disabled.
+> + 	 */
+> + 	if (host->no_ext_tags) {
+> + 		if (ctl & PCI_EXP_DEVCTL_EXT_TAG) {
+> + 			dev_info(&dev->dev, "disabling Extended Tags\n");
+> + 			pcie_capability_clear_word(dev, PCI_EXP_DEVCTL,
+> + 						   PCI_EXP_DEVCTL_EXT_TAG);
+> + 		}
+> + 		return 0;
+> + 	}
+>   
+> - 	if (dev_cap & PCI_EXP_DEVCAP_EXT_TAG)
+> + 	if (!(ctl & PCI_EXP_DEVCTL_EXT_TAG)) {
+> + 		dev_info(&dev->dev, "enabling Extended Tags\n");
+>   		pcie_capability_set_word(dev, PCI_EXP_DEVCTL,
+>   					 PCI_EXP_DEVCTL_EXT_TAG);
+> + 	}
+> + 	return 0;
+>   }
+>   
+>  +/**
+>  + * pcie_relaxed_ordering_enabled - Probe for PCIe relaxed ordering enable
+>  + * @dev: PCI device to query
+>  + *
+>  + * Returns true if the device has enabled relaxed ordering attribute.
+>  + */
+>  +bool pcie_relaxed_ordering_enabled(struct pci_dev *dev)
+>  +{
+>  +	u16 v;
+>  +
+>  +	pcie_capability_read_word(dev, PCI_EXP_DEVCTL, &v);
+>  +
+>  +	return !!(v & PCI_EXP_DEVCTL_RELAX_EN);
+>  +}
+>  +EXPORT_SYMBOL(pcie_relaxed_ordering_enabled);
+>  +
+>  +static void pci_configure_relaxed_ordering(struct pci_dev *dev)
+>  +{
+>  +	struct pci_dev *root;
+>  +
+>  +	/* PCI_EXP_DEVICE_RELAX_EN is RsvdP in VFs */
+>  +	if (dev->is_virtfn)
+>  +		return;
+>  +
+>  +	if (!pcie_relaxed_ordering_enabled(dev))
+>  +		return;
+>  +
+>  +	/*
+>  +	 * For now, we only deal with Relaxed Ordering issues with Root
+>  +	 * Ports. Peer-to-Peer DMA is another can of worms.
+>  +	 */
+>  +	root = pci_find_pcie_root_port(dev);
+>  +	if (!root)
+>  +		return;
+>  +
+>  +	if (root->dev_flags & PCI_DEV_FLAGS_NO_RELAXED_ORDERING) {
+>  +		pcie_capability_clear_word(dev, PCI_EXP_DEVCTL,
+>  +					   PCI_EXP_DEVCTL_RELAX_EN);
+>  +		dev_info(&dev->dev, "Disable Relaxed Ordering because the Root Port didn't support it\n");
+>  +	}
+>  +}
+>  +
+>   static void pci_configure_device(struct pci_dev *dev)
+>   {
+>   	struct hotplug_params hpp;
+>   	int ret;
+>   
+>   	pci_configure_mps(dev);
+> - 	pci_configure_extended_tags(dev);
+> + 	pci_configure_extended_tags(dev, NULL);
+>  +	pci_configure_relaxed_ordering(dev);
+>   
+>   	memset(&hpp, 0, sizeof(hpp));
+>   	ret = pci_get_hp_params(dev, &hpp);
 
-Series applied.
+Just a reminder that this conflict still exists.
+
+-- 
+Cheers,
+Stephen Rothwell
