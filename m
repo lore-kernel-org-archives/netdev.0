@@ -1,229 +1,70 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: linux-next: manual merge of the net-next tree with the rockchip
- tree
-Date: Mon, 4 Sep 2017 15:26:09 +1000
-Message-ID: <20170904152609.72aa1b9e@canb.auug.org.au>
-References: <20170822112414.06f3b00f@canb.auug.org.au>
+From: Zahari Doychev <zahari.doychev@linux.com>
+Subject: Re: [PATCH][next] rocker: fix kcalloc parameter order
+Date: Mon, 4 Sep 2017 07:40:04 +0200
+Message-ID: <20170904054004.GA10456@mail>
+References: <4d8a3c58c2a4e89319034f5faf41ba4682dc15ae.1504461594.git.zahari.doychev@linux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Linux-Next Mailing List <linux-next@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        David Wu <david.wu@rock-chips.com>,
-        Rocky Hao <rocky.hao@rock-chips.com>,
-        Joseph Chen <chenjh@rock-chips.com>
-To: David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>,
-        Heiko Stuebner <heiko@sntech.de>,
-        Olof Johansson <olof@lixom.net>, Arnd Bergmann <arnd@arndb.de>,
-        ARM <linux-arm-kernel@lists.infradead.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20170822112414.06f3b00f@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: jiri@resnulli.us, netdev@vger.kernel.org
+To: Zahari Doychev <zahari.doychev@linux.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f196.google.com ([209.85.128.196]:35579 "EHLO
+        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750703AbdIDFdb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 4 Sep 2017 01:33:31 -0400
+Received: by mail-wr0-f196.google.com with SMTP id a47so2789499wra.2
+        for <netdev@vger.kernel.org>; Sun, 03 Sep 2017 22:33:30 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <4d8a3c58c2a4e89319034f5faf41ba4682dc15ae.1504461594.git.zahari.doychev@linux.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+On Sun, Sep 03, 2017 at 10:26:03PM +0200, Zahari Doychev wrote:
+> The function calls to kcalloc use wrong parameter order. The flags
+> have to be passed as last parameter.
+> 
+> The change was done using the following coccinelle script:
+> 
+> @@
+> expression E1,E2;
+> type T;
+> @@
+> 
+> -kcalloc(E1, E2, sizeof(T))
+> +kcalloc(E2, sizeof(T), E1)
+> 
+> Signed-off-by: Zahari Doychev <zahari.doychev@linux.com>
+> ---
+>  drivers/net/ethernet/rocker/rocker_ofdpa.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/rocker/rocker_ofdpa.c b/drivers/net/ethernet/rocker/rocker_ofdpa.c
+> index da4e26b53a52..2708451ce22a 100644
+> --- a/drivers/net/ethernet/rocker/rocker_ofdpa.c
+> +++ b/drivers/net/ethernet/rocker/rocker_ofdpa.c
+> @@ -1177,7 +1177,7 @@ static int ofdpa_group_l2_fan_out(struct ofdpa_port *ofdpa_port,
+>  	entry->group_id = group_id;
+>  	entry->group_count = group_count;
+>  
+> -	entry->group_ids = kcalloc(flags, group_count, sizeof(u32));
+> +	entry->group_ids = kcalloc(group_count, sizeof(u32), flags);
 
-On Tue, 22 Aug 2017 11:24:14 +1000 Stephen Rothwell <sfr@canb.auug.org.au> wrote:
->
-> Today's linux-next merge of the net-next tree got a conflict in:
-> 
->   arch/arm64/boot/dts/rockchip/rk3328-evb.dts
-> 
-> between commits:
-> 
->   ab78718bda79 ("arm64: dts: rockchip: Enable tsadc module on RK3328 eavluation board")
->   1e28037ec88e ("arm64: dts: rockchip: add rk805 node for rk3328-evb")
-> 
-> from the rockchip tree and commit:
-> 
->   4b05bc6157eb ("ARM64: dts: rockchip: Enable gmac2phy for rk3328-evb")
-> 
-> from the net-next tree.
-> 
-> I fixed it up (see below) and can carry the fix as necessary. This
-> is now fixed as far as linux-next is concerned, but any non trivial
-> conflicts should be mentioned to your upstream maintainer when your tree
-> is submitted for merging.  You may also want to consider cooperating
-> with the maintainer of the conflicting tree to minimise any particularly
-> complex conflicts.
-> 
+I think that the flags are also not used correctly, so I will have to resend
+the patch.
+
+
+>  	if (!entry->group_ids) {
+>  		kfree(entry);
+>  		return -ENOMEM;
+> @@ -1456,7 +1456,7 @@ static int ofdpa_port_vlan_flood_group(struct ofdpa_port *ofdpa_port,
+>  	int err = 0;
+>  	int i;
+>  
+> -	group_ids = kcalloc(flags, port_count, sizeof(u32));
+> +	group_ids = kcalloc(port_count, sizeof(u32), flags);
+>  	if (!group_ids)
+>  		return -ENOMEM;
+>  
 > -- 
-> Cheers,
-> Stephen Rothwell
+> 2.13.0
 > 
-> diff --cc arch/arm64/boot/dts/rockchip/rk3328-evb.dts
-> index 86605ae7b6f5,b9f36dad17e6..000000000000
-> --- a/arch/arm64/boot/dts/rockchip/rk3328-evb.dts
-> +++ b/arch/arm64/boot/dts/rockchip/rk3328-evb.dts
-> @@@ -51,147 -51,24 +51,164 @@@
->   		stdout-path = "serial2:1500000n8";
->   	};
->   
->  +	dc_12v: dc-12v {
->  +		compatible = "regulator-fixed";
->  +		regulator-name = "dc_12v";
->  +		regulator-always-on;
->  +		regulator-boot-on;
->  +		regulator-min-microvolt = <12000000>;
->  +		regulator-max-microvolt = <12000000>;
->  +	};
->  +
-> + 	vcc_phy: vcc-phy-regulator {
-> + 		compatible = "regulator-fixed";
-> + 		regulator-name = "vcc_phy";
-> + 		regulator-always-on;
-> + 		regulator-boot-on;
-> + 	};
-> ++
->  +	vcc_sys: vcc-sys {
->  +		compatible = "regulator-fixed";
->  +		regulator-name = "vcc_sys";
->  +		regulator-always-on;
->  +		regulator-boot-on;
->  +		regulator-min-microvolt = <5000000>;
->  +		regulator-max-microvolt = <5000000>;
->  +		vin-supply = <&dc_12v>;
->  +	};
->   };
->   
-> + &gmac2phy {
-> + 	phy-supply = <&vcc_phy>;
-> + 	clock_in_out = "output";
-> + 	assigned-clocks = <&cru SCLK_MAC2PHY_SRC>;
-> + 	assigned-clock-rate = <50000000>;
-> + 	assigned-clocks = <&cru SCLK_MAC2PHY>;
-> + 	assigned-clock-parents = <&cru SCLK_MAC2PHY_SRC>;
-> + 	status = "okay";
-> + };
-> + 
->  +&i2c1 {
->  +	status = "okay";
->  +
->  +	rk805: rk805@18 {
->  +		compatible = "rockchip,rk805";
->  +		reg = <0x18>;
->  +		interrupt-parent = <&gpio2>;
->  +		interrupts = <6 IRQ_TYPE_LEVEL_LOW>;
->  +		#clock-cells = <1>;
->  +		clock-output-names = "xin32k", "rk805-clkout2";
->  +		gpio-controller;
->  +		#gpio-cells = <2>;
->  +		pinctrl-names = "default";
->  +		pinctrl-0 = <&pmic_int_l>;
->  +		rockchip,system-power-controller;
->  +		wakeup-source;
->  +
->  +		vcc1-supply = <&vcc_sys>;
->  +		vcc2-supply = <&vcc_sys>;
->  +		vcc3-supply = <&vcc_sys>;
->  +		vcc4-supply = <&vcc_sys>;
->  +		vcc5-supply = <&vcc_io>;
->  +		vcc6-supply = <&vcc_io>;
->  +
->  +		regulators {
->  +			vdd_logic: DCDC_REG1 {
->  +				regulator-name = "vdd_logic";
->  +				regulator-min-microvolt = <712500>;
->  +				regulator-max-microvolt = <1450000>;
->  +				regulator-always-on;
->  +				regulator-boot-on;
->  +				regulator-state-mem {
->  +					regulator-on-in-suspend;
->  +					regulator-suspend-microvolt = <1000000>;
->  +				};
->  +			};
->  +
->  +			vdd_arm: DCDC_REG2 {
->  +				regulator-name = "vdd_arm";
->  +				regulator-min-microvolt = <712500>;
->  +				regulator-max-microvolt = <1450000>;
->  +				regulator-always-on;
->  +				regulator-boot-on;
->  +				regulator-state-mem {
->  +					regulator-on-in-suspend;
->  +					regulator-suspend-microvolt = <950000>;
->  +				};
->  +			};
->  +
->  +			vcc_ddr: DCDC_REG3 {
->  +				regulator-name = "vcc_ddr";
->  +				regulator-always-on;
->  +				regulator-boot-on;
->  +				regulator-state-mem {
->  +					regulator-on-in-suspend;
->  +				};
->  +			};
->  +
->  +			vcc_io: DCDC_REG4 {
->  +				regulator-name = "vcc_io";
->  +				regulator-min-microvolt = <3300000>;
->  +				regulator-max-microvolt = <3300000>;
->  +				regulator-always-on;
->  +				regulator-boot-on;
->  +				regulator-state-mem {
->  +					regulator-on-in-suspend;
->  +					regulator-suspend-microvolt = <3300000>;
->  +				};
->  +			};
->  +
->  +			vcc_18: LDO_REG1 {
->  +				regulator-name = "vcc_18";
->  +				regulator-min-microvolt = <1800000>;
->  +				regulator-max-microvolt = <1800000>;
->  +				regulator-always-on;
->  +				regulator-boot-on;
->  +				regulator-state-mem {
->  +					regulator-on-in-suspend;
->  +					regulator-suspend-microvolt = <1800000>;
->  +				};
->  +			};
->  +
->  +			vcc18_emmc: LDO_REG2 {
->  +				regulator-name = "vcc18_emmc";
->  +				regulator-min-microvolt = <1800000>;
->  +				regulator-max-microvolt = <1800000>;
->  +				regulator-always-on;
->  +				regulator-boot-on;
->  +				regulator-state-mem {
->  +					regulator-on-in-suspend;
->  +					regulator-suspend-microvolt = <1800000>;
->  +				};
->  +			};
->  +
->  +			vdd_10: LDO_REG3 {
->  +				regulator-name = "vdd_10";
->  +				regulator-min-microvolt = <1000000>;
->  +				regulator-max-microvolt = <1000000>;
->  +				regulator-always-on;
->  +				regulator-boot-on;
->  +				regulator-state-mem {
->  +					regulator-on-in-suspend;
->  +					regulator-suspend-microvolt = <1000000>;
->  +				};
->  +			};
->  +		};
->  +	};
->  +};
->  +
->  +&pinctrl {
->  +	pmic {
->  +		pmic_int_l: pmic-int-l {
->  +			rockchip,pins = <2 RK_PA6 RK_FUNC_GPIO &pcfg_pull_up>;
->  +		};
->  +	};
->  +};
->  +
->  +&tsadc {
->  +	status = "okay";
->  +};
->  +
->   &uart2 {
->   	status = "okay";
->   };
-
-Just a reminder that these conflicts still exist.
-
--- 
-Cheers,
-Stephen Rothwell
