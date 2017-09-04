@@ -1,54 +1,52 @@
-From: Jan Scheurich <jan.scheurich-IzeFyvvaP7pWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH net-next v7] openvswitch: enable NSH support
-Date: Mon, 4 Sep 2017 14:45:50 +0000
-Message-ID: <CFF8EF42F1132E4CBE2BF0AB6C21C58D787F4F69@ESESSMB107.ericsson.se>
-References: <1504096752-102003-1-git-send-email-yi.y.yang@intel.com>
-	<20170831124516.0c5db686@griffin>
-	<20170904080005.GA70767@cran64.bj.intel.com>
-	<20170904124216.6db68e8c@griffin>
-	<CFF8EF42F1132E4CBE2BF0AB6C21C58D787F4E84@ESESSMB107.ericsson.se>
-	<20170904151601.2f198a53@griffin>
-	<CFF8EF42F1132E4CBE2BF0AB6C21C58D787F4EEB@ESESSMB107.ericsson.se>
-	<20170904161303.69624386@griffin>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [iproute PATCH 1/6] utils: Implement strlcpy() and strlcat()
+Date: Mon, 4 Sep 2017 14:49:20 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD006D878@AcuExch.aculab.com>
+References: <20170901165256.21459-1-phil@nwl.cc>
+ <20170901165256.21459-2-phil@nwl.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "e@erig.me" <e@erig.me>,
-	"davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <20170904161303.69624386@griffin>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: 'Phil Sutter' <phil@nwl.cc>,
+        Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out4.electric.net ([192.162.216.192]:54145 "EHLO
+        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753662AbdIDOtZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 4 Sep 2017 10:49:25 -0400
+In-Reply-To: <20170901165256.21459-2-phil@nwl.cc>
 Content-Language: en-US
-List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
-List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> On Mon, 4 Sep 2017 14:07:45 +0000, Jan Scheurich wrote:
-> > Then perhaps I misunderstood your comment. I thought you didn't like that the
-> > SET_MASKED action wrapped OVS_KEY_ATTR_NSH which in itself was nested.
-> > I was aiming to avoid this by lifting the two components of the NSH header
-> > components to the top level:
-> > OVS_NSH_ATTR_BASE_HEADER --> OVS_KEY_ATTR_NSH_BASE_HEADER
-> > OVS_NSH_ATTR_MD1_CONTEXT --> OVS_KEY_ATTR_NSH_MD1_CONTEXT
+From: Phil Sutter
+> Sent: 01 September 2017 17:53
+> By making use of strncpy(), both implementations are really simple so
+> there is no need to add libbsd as additional dependency.
 > 
-> No, this should be a nested attr.
-> 
-> I objected to the way value+mask combo is handled.
+...
+> +
+> +size_t strlcpy(char *dst, const char *src, size_t size)
+> +{
+> +	if (size) {
+> +		strncpy(dst, src, size - 1);
+> +		dst[size - 1] = '\0';
+> +	}
+> +	return strlen(src);
+> +}
 
-OK, sorry for the confusion. 
+Except that isn't really strlcpy().
+Better would be:
+	len = strlen(src) + 1;
+	if (len <= size)
+		memcpy(dst, src, len);
+	else if (size) {
+		dst[size - 1] = 0;
+		memcpy(dst, src, size - 1);
+	}
+	return len - 1;
 
-So what is the correct layout for MASKED_SET action with nested fields?
-1. All nested values, followed by all nested masks, or
-2. For each nested field value followed by mask?
+WTF strlcpy() has that return value I don't know.
 
-I guess alternative 1, but just to be sure.
-
-Jan
+	David
