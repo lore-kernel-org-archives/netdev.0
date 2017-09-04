@@ -1,51 +1,127 @@
-From: Paul Menzel <pmenzel@molgen.mpg.de>
-Subject: Re: [Intel-wired-lan] [PATCH] e1000e: changed some expensive calls of
- udelay to usleep_range
-Date: Mon, 4 Sep 2017 18:36:02 +0200
-Message-ID: <fd5c453e-bd2e-3dc7-5f93-5af0ca216fd8@molgen.mpg.de>
-References: <1503503985-3869-1-git-send-email-matthew.tan_1@nxp.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [pull request][net-next 0/3] Mellanox, mlx5 GRE tunnel offloads
+Date: Mon, 04 Sep 2017 18:52:08 +0200
+Message-ID: <8760cytnif.fsf@stressinduktion.org>
+References: <20170830230409.15176-1-saeedm@mellanox.com>
+        <87fuc7ong0.fsf@stressinduktion.org>
+        <CALzJLG-u3k11LYFXtZQKT5cvn-iJ4FehBUgkhCHT5Z7XMsMkpA@mail.gmail.com>
+        <1504402349.3299394.1093467800.72B91372@webmail.messagingengine.com>
+        <CALx6S34kfb5GEH9AAecsaKJ9AtjK=fP_3L=2i98kUwv_sE2s7A@mail.gmail.com>
+        <CALzJLG--t8VLs1GiRRVfejenB=XgpLiJHnHC+eokQ4=kwj9hGw@mail.gmail.com>
+        <CALx6S356vRYfcsN6FaRmpn2oC0GN9-JwLsF7ybC+w4sEGGsa7w@mail.gmail.com>
+        <87pob6bmjv.fsf@stressinduktion.org>
+        <CALx6S37wcp1om0Dwr1=-6jF=HkAuZj313pLJ7sVhgsyJ4yZDjg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: jeffrey.t.kirsher@intel.com, michael.kardonik@nxp.com,
-        mitch.a.williams@intel.com, linux-kernel@vger.kernel.org,
-        john.ronciak@intel.com, intel-wired-lan@lists.osuosl.org,
-        netdev@vger.kernel.org
-To: Matthew Tan <matthew.tan_1@nxp.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1503503985-3869-1-git-send-email-matthew.tan_1@nxp.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Saeed Mahameed <saeedm@dev.mellanox.co.il>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Linux Netdev List <netdev@vger.kernel.org>
+To: Tom Herbert <tom@herbertland.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:38277 "EHLO
+        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1753847AbdIDQwL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 4 Sep 2017 12:52:11 -0400
+In-Reply-To: <CALx6S37wcp1om0Dwr1=-6jF=HkAuZj313pLJ7sVhgsyJ4yZDjg@mail.gmail.com>
+        (Tom Herbert's message of "Mon, 4 Sep 2017 09:15:42 -0700")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Dear Matthew,
+Hello Tom,
 
+Tom Herbert <tom@herbertland.com> writes:
 
-On 08/23/17 17:59, Matthew Tan wrote:
->      Calls to udelay are not preemtable by userspace so userspace
->      applications experience a large (~200us) latency when running on core
->      0. Instead usleep_range can be used to be more friendly to userspace
->      since it is preemtable. This is due to udelay using busy-wait loops
->      while usleep_rang uses hrtimers instead. It is recommended to use
->      udelay when the delay is <10us since at that precision overhead of
->      usleep_range hrtimer setup causes issues. However, the replaced calls
->      are for 50us and 100us so this should not be not an issue.
+> On Mon, Sep 4, 2017 at 6:50 AM, Hannes Frederic Sowa
+> <hannes@stressinduktion.org> wrote:
+>> Tom Herbert <tom@herbertland.com> writes:
+>>
+>>> An encapsulator sets the UDP source port to be the flow entropy of the
+>>> packet being encapsulated. So when the packet traverses the network
+>>> devices can base their hash just on the canonical 5-tuple which is
+>>> sufficient for ECMP and RSS. IPv6 flow label is even better since the
+>>> middleboxes don't even need to look at the transport header, a packet
+>>> is steered based on the 3-tuple of addresses and flow label. In the
+>>> Linux stack,  udp_flow_src_port is used by UDP encapsulations to set
+>>> the source port. Flow label is similarly set by ip6_make_flowlabel.
+>>> Both of these functions use the skb->hash which is computed by calling
+>>> flow dissector at most once per packet (if the packet was received
+>>> with an L4 HW hash or locally originated on a connection the hash does
+>>> not need to be computed).
+>>
+>> This would require the MPLS stack copying the flowlabel of IPv6
+>> connections between MPLS routers over their whole lifetime in the MPLS
+>> network. The same would hold for MPLS encapsulated inside UDP, the
+>> source port needs to be kept constant. This is very impractical. The
+>> hash for the flow label can often not be recomputed by interim routers,
+>> because they might lack the knowledge of the upper layer protocol.
+>>
+> Hannes,
+>
+> When the flow label is set the packet will traverse the network and be
+> ECMP routed regardless of whether the payload is MPLS at anything
+> else-- the important characteristic is that network devices don't need
+> to know how to parse MPLS (or GRE, or IPIP, or L2TP, ESP, or ...) to
+> provide good ECMP. At a source the flow label or UDP source port needs
+> to be generated. That can be based on DPI, derived from the MPLS
+> entropy label, use SPI in ESP, etc. I don't see anything special about
+> MPLS in this regard.
 
-Is there a reason for indenting the paragraph. (I guess, you did `git 
-show` or `git log -p` and copied the message?) Anyway, please remove 
-whitespace in the front, if there is no reason.
+The MPLS circuit is only end to end in terms of IP processing if MPLS is
+used for multitenant separation.
 
-Also, it looks like you ran benchmarks, so what is the delay for 
-userspace applications with your changes?
+Normally the IP connection is done between two label switch routers,
+thus is not end to end. One LSR will decapsulate the packet and throw
+the IP header away, do the label processing and will reencapsulate it
+with the new next hop information. To keep the assigned entropy alive it
+would have to save the UDP source port or flowlabel and patch the
+outgoing IP header again. This is certainly possible it just seems more
+unnatural.
 
-> Signed-off-by: Matthew Tan <matthew.tan_1@nxp.com>
-> ---
->   drivers/net/ethernet/intel/e1000e/phy.c | 8 ++++----
->   1 file changed, 4 insertions(+), 4 deletions(-)
+Normally every next hop does MPLS processing and thus the packet
+traverses up the stack. Special purpose (entropy) MPLS labels allow the
+stack to achieve RSS just based on the label stack and will be
+end-to-end in a MPLS cloud.
 
-[…]
+>> UDP source port entropy still has the problem that we don't respect the
+>> source port as RSS entropy by default in network cards, because of
+>> possible fragmentation and thus possible reordering of packets. GRE does
+>> not have this problem and is way easier to identify by hardware.
+>>
+>> Basically we need to tell network cards that they can use specific
+>> destination UDP ports where we allow the source port to be used in RSS
+>> hash calculation. I don't see how this is any easier than just using GRE
+>> with a defined protocol field? I do like the combination of ipv6
+>> flowlabel + GRE.
+>>
+> No, we don't any more want port specific configuration in NICs! The
+> NIC should just fallback to 3-tuple hash when it see MF or offset set
+> in IPv4 header. But even if it doesn't implement this, receiving OOO
+> fragments is hardly the end of the world-- IP packets are always
+> allowed to be received OOO. If something breaks because in order
+> delivery is assumed then that is the bug that needs to be fixed. So at
+> best handling fragmentation in this manner is proposed om
+> optimization whose benefits will pale to getting good ECMP and RSS
+> when encapsulation is in use.
 
+The problem is that you end up having two streams, one fragmented and
+one non-fragmented, but actually they belong to the same stream. It is
+known to break stuff, see:
 
-Kind regards,
+<https://patchwork.ozlabs.org/patch/59235/>
 
-Paul
+I would agree with you, but we can't break existing setups,
+unfortunately.
+
+>> Btw. people are using the GRE Key as additional entropy without looking
+>> into the GRE payload.
+>>
+> Sure some are, but the GRE key is not defined to be flow entropy so
+> it's not ubiquitous it used for that so it gives sufficient entropy or
+> is even constant per flow. GRE/UDP (RFC8086) was primarily written to
+> allow a more consistent method (as was RFC7510 for doing MPLS/UDP).
+
+I agree with that, just wanted to mention it.
+
+Bye,
+Hannes
