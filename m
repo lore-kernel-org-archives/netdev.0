@@ -1,144 +1,229 @@
-From: Bhadram Varka <vbhadram@nvidia.com>
-Subject: RE: netdev carrier changes is one even after ethernet link up.
-Date: Mon, 4 Sep 2017 05:10:50 +0000
-Message-ID: <660c953a9963443483bdac4390e3c3a5@bgmail102.nvidia.com>
-References: <974898714b3e4e59b933983ded977ce2@bgmail102.nvidia.com>
- <25c3b4ca-02d7-e217-fe27-ca3b7d2cbf07@gmail.com>
- <cd860399cf9148d193a08636a6d82a68@DRBGMAIL102.nvidia.com>
- <a7bf6cf0-c534-95f9-47f6-ee56a95fe961@gmail.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: linux-next: manual merge of the net-next tree with the rockchip
+ tree
+Date: Mon, 4 Sep 2017 15:26:09 +1000
+Message-ID: <20170904152609.72aa1b9e@canb.auug.org.au>
+References: <20170822112414.06f3b00f@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: linux-netdev <netdev@vger.kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-        "andrew@lunn.ch" <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hqemgate16.nvidia.com ([216.228.121.65]:8556 "EHLO
-        hqemgate16.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750782AbdIDFLR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 4 Sep 2017 01:11:17 -0400
-In-Reply-To: <a7bf6cf0-c534-95f9-47f6-ee56a95fe961@gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Linux-Next Mailing List <linux-next@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        David Wu <david.wu@rock-chips.com>,
+        Rocky Hao <rocky.hao@rock-chips.com>,
+        Joseph Chen <chenjh@rock-chips.com>
+To: David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>,
+        Heiko Stuebner <heiko@sntech.de>,
+        Olof Johansson <olof@lixom.net>, Arnd Bergmann <arnd@arndb.de>,
+        ARM <linux-arm-kernel@lists.infradead.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20170822112414.06f3b00f@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Hi all,
 
-
-> -----Original Message-----
-> From: Florian Fainelli [mailto:f.fainelli@gmail.com]
-> Sent: Saturday, September 02, 2017 7:25 AM
-> To: Bhadram Varka <vbhadram@nvidia.com>; andrew@lunn.ch
-> Cc: linux-netdev <netdev@vger.kernel.org>
-> Subject: Re: netdev carrier changes is one even after ethernet link up.
+On Tue, 22 Aug 2017 11:24:14 +1000 Stephen Rothwell <sfr@canb.auug.org.au> wrote:
+>
+> Today's linux-next merge of the net-next tree got a conflict in:
 > 
-> On 08/31/2017 10:49 PM, Bhadram Varka wrote:
-> > Thanks for responding. Now responding inline
-> >
-> >> -----Original Message-----
-> >> From: Florian Fainelli [mailto:f.fainelli@gmail.com]
-> >> Sent: Friday, September 01, 2017 5:53 AM
-> >> To: Bhadram Varka <vbhadram@nvidia.com>; andrew@lunn.ch
-> >> Cc: linux-netdev <netdev@vger.kernel.org>
-> >> Subject: Re: netdev carrier changes is one even after ethernet link up.
-> >>
-> >> On 08/30/2017 10:53 PM, Bhadram Varka wrote:
-> >>> Hi,
-> >>>
-> >>>
-> >>>
-> >>> I have observed that carrier_changes is one even in case of the
-> >>> ethernet link is up.
-> >>>
-> >>>
-> >>>
-> >>> After investigating the code below is my observation -
-> >>>
-> >>>
-> >>>
-> >>> ethernet_driver_probe()
-> >>>
-> >>> +--->phy_connect()
-> >>>
-> >>> |     +--->phy_attach_direct()
-> >>>
-> >>> |           +---> netif_carrier_off()    : which increments
-> >>> carrier_changes to one.
-> >>>
-> >>> +--->register_netdevice() : will the carrier_changes becomes zero here ?
-> >>>
-> >>> +--->netif_carrier_off(): not increment the carrier_changes since
-> >>> __LINK_STATE_NOCARRIER already set.
-> >>>
-> >>>
-> >>>
-> >>> From ethernet driver open will start the PHY and trigger the
-> >>> phy_state_machine.
-> >>>
-> >>> Phy_state_machine workqueue calling netif_carrier_on() once the link
-> >>> is
-> >> UP.
-> >>>
-> >>> netif_carrier_on() increments the carrier_changes by one.
-> >>
-> >> If the call trace is correct, then there is at least two problems here:
-> >>
-> >> - phy_connect() does start the PHY machine which means that as soon
-> >> as it detects a link state of any kind (up or down) it can call
-> >> netif_carrier_off() respectively netif_carrier_on()
-> >>
-> >> - as soon as you call register_netdevice() notifiers run and other
-> >> parts of the kernel or user-space programs can see an inconsistent
-> >> link state
-> >>
-> >> I would suggest doing the following sequence instead:
-> >>
-> >> netif_carrier_off()
-> >> register_netdevice()
-> >> phy_connect()
-> >>
-> >> Which should result in a consistent link state and carrier value.
-> >>
-> > Yes, It will address the issue.
-> >
-> > If we did the phy_conect in ndo_open it will make the carrier changes as
-> two. But if we did in probe function then it's not working.
-> >
-> > In ethernet driver probe - (below sequence is not working)
-> > phy_connect()
-> > register_netdevice()
-> > netif_carrier_off()
-> >
-> > working sequence:
-> > In probe():
-> > register_netdevice()
-> > ndo_open:
-> >            phy_connect()
-> >
-> > After reverting - https://lkml.org/lkml/2016/1/9/173 this works if we do
-> phy_connect in probe as well.
+>   arch/arm64/boot/dts/rockchip/rk3328-evb.dts
 > 
-> But as mentioned before you should not be doing the PHY probe in your
-> driver's probe function for different reasons:
+> between commits:
 > 
-> - the probe function's responsibility is to initialize the driver and the HW to a
-> state where they both have everything needed but it should be in quiesced
-> state. There is no guarantee that your network device may ever be used
-> after probe unless something calls ndo_open(), you should therefore keep
-> all resources to a minimum: memory allocated, HW powered down etc.
+>   ab78718bda79 ("arm64: dts: rockchip: Enable tsadc module on RK3328 eavluation board")
+>   1e28037ec88e ("arm64: dts: rockchip: add rk805 node for rk3328-evb")
 > 
-> - there is a race condition between the PHY state machine started in
-> phy_connect(), and when register_netdevice() is called and notifiers running
-> which can lead to an inconsistent state for the carrier
+> from the rockchip tree and commit:
+> 
+>   4b05bc6157eb ("ARM64: dts: rockchip: Enable gmac2phy for rk3328-evb")
+> 
+> from the net-next tree.
+> 
+> I fixed it up (see below) and can carry the fix as necessary. This
+> is now fixed as far as linux-next is concerned, but any non trivial
+> conflicts should be mentioned to your upstream maintainer when your tree
+> is submitted for merging.  You may also want to consider cooperating
+> with the maintainer of the conflicting tree to minimise any particularly
+> complex conflicts.
+> 
+> -- 
+> Cheers,
+> Stephen Rothwell
+> 
+> diff --cc arch/arm64/boot/dts/rockchip/rk3328-evb.dts
+> index 86605ae7b6f5,b9f36dad17e6..000000000000
+> --- a/arch/arm64/boot/dts/rockchip/rk3328-evb.dts
+> +++ b/arch/arm64/boot/dts/rockchip/rk3328-evb.dts
+> @@@ -51,147 -51,24 +51,164 @@@
+>   		stdout-path = "serial2:1500000n8";
+>   	};
+>   
+>  +	dc_12v: dc-12v {
+>  +		compatible = "regulator-fixed";
+>  +		regulator-name = "dc_12v";
+>  +		regulator-always-on;
+>  +		regulator-boot-on;
+>  +		regulator-min-microvolt = <12000000>;
+>  +		regulator-max-microvolt = <12000000>;
+>  +	};
+>  +
+> + 	vcc_phy: vcc-phy-regulator {
+> + 		compatible = "regulator-fixed";
+> + 		regulator-name = "vcc_phy";
+> + 		regulator-always-on;
+> + 		regulator-boot-on;
+> + 	};
+> ++
+>  +	vcc_sys: vcc-sys {
+>  +		compatible = "regulator-fixed";
+>  +		regulator-name = "vcc_sys";
+>  +		regulator-always-on;
+>  +		regulator-boot-on;
+>  +		regulator-min-microvolt = <5000000>;
+>  +		regulator-max-microvolt = <5000000>;
+>  +		vin-supply = <&dc_12v>;
+>  +	};
+>   };
+>   
+> + &gmac2phy {
+> + 	phy-supply = <&vcc_phy>;
+> + 	clock_in_out = "output";
+> + 	assigned-clocks = <&cru SCLK_MAC2PHY_SRC>;
+> + 	assigned-clock-rate = <50000000>;
+> + 	assigned-clocks = <&cru SCLK_MAC2PHY>;
+> + 	assigned-clock-parents = <&cru SCLK_MAC2PHY_SRC>;
+> + 	status = "okay";
+> + };
+> + 
+>  +&i2c1 {
+>  +	status = "okay";
+>  +
+>  +	rk805: rk805@18 {
+>  +		compatible = "rockchip,rk805";
+>  +		reg = <0x18>;
+>  +		interrupt-parent = <&gpio2>;
+>  +		interrupts = <6 IRQ_TYPE_LEVEL_LOW>;
+>  +		#clock-cells = <1>;
+>  +		clock-output-names = "xin32k", "rk805-clkout2";
+>  +		gpio-controller;
+>  +		#gpio-cells = <2>;
+>  +		pinctrl-names = "default";
+>  +		pinctrl-0 = <&pmic_int_l>;
+>  +		rockchip,system-power-controller;
+>  +		wakeup-source;
+>  +
+>  +		vcc1-supply = <&vcc_sys>;
+>  +		vcc2-supply = <&vcc_sys>;
+>  +		vcc3-supply = <&vcc_sys>;
+>  +		vcc4-supply = <&vcc_sys>;
+>  +		vcc5-supply = <&vcc_io>;
+>  +		vcc6-supply = <&vcc_io>;
+>  +
+>  +		regulators {
+>  +			vdd_logic: DCDC_REG1 {
+>  +				regulator-name = "vdd_logic";
+>  +				regulator-min-microvolt = <712500>;
+>  +				regulator-max-microvolt = <1450000>;
+>  +				regulator-always-on;
+>  +				regulator-boot-on;
+>  +				regulator-state-mem {
+>  +					regulator-on-in-suspend;
+>  +					regulator-suspend-microvolt = <1000000>;
+>  +				};
+>  +			};
+>  +
+>  +			vdd_arm: DCDC_REG2 {
+>  +				regulator-name = "vdd_arm";
+>  +				regulator-min-microvolt = <712500>;
+>  +				regulator-max-microvolt = <1450000>;
+>  +				regulator-always-on;
+>  +				regulator-boot-on;
+>  +				regulator-state-mem {
+>  +					regulator-on-in-suspend;
+>  +					regulator-suspend-microvolt = <950000>;
+>  +				};
+>  +			};
+>  +
+>  +			vcc_ddr: DCDC_REG3 {
+>  +				regulator-name = "vcc_ddr";
+>  +				regulator-always-on;
+>  +				regulator-boot-on;
+>  +				regulator-state-mem {
+>  +					regulator-on-in-suspend;
+>  +				};
+>  +			};
+>  +
+>  +			vcc_io: DCDC_REG4 {
+>  +				regulator-name = "vcc_io";
+>  +				regulator-min-microvolt = <3300000>;
+>  +				regulator-max-microvolt = <3300000>;
+>  +				regulator-always-on;
+>  +				regulator-boot-on;
+>  +				regulator-state-mem {
+>  +					regulator-on-in-suspend;
+>  +					regulator-suspend-microvolt = <3300000>;
+>  +				};
+>  +			};
+>  +
+>  +			vcc_18: LDO_REG1 {
+>  +				regulator-name = "vcc_18";
+>  +				regulator-min-microvolt = <1800000>;
+>  +				regulator-max-microvolt = <1800000>;
+>  +				regulator-always-on;
+>  +				regulator-boot-on;
+>  +				regulator-state-mem {
+>  +					regulator-on-in-suspend;
+>  +					regulator-suspend-microvolt = <1800000>;
+>  +				};
+>  +			};
+>  +
+>  +			vcc18_emmc: LDO_REG2 {
+>  +				regulator-name = "vcc18_emmc";
+>  +				regulator-min-microvolt = <1800000>;
+>  +				regulator-max-microvolt = <1800000>;
+>  +				regulator-always-on;
+>  +				regulator-boot-on;
+>  +				regulator-state-mem {
+>  +					regulator-on-in-suspend;
+>  +					regulator-suspend-microvolt = <1800000>;
+>  +				};
+>  +			};
+>  +
+>  +			vdd_10: LDO_REG3 {
+>  +				regulator-name = "vdd_10";
+>  +				regulator-min-microvolt = <1000000>;
+>  +				regulator-max-microvolt = <1000000>;
+>  +				regulator-always-on;
+>  +				regulator-boot-on;
+>  +				regulator-state-mem {
+>  +					regulator-on-in-suspend;
+>  +					regulator-suspend-microvolt = <1000000>;
+>  +				};
+>  +			};
+>  +		};
+>  +	};
+>  +};
+>  +
+>  +&pinctrl {
+>  +	pmic {
+>  +		pmic_int_l: pmic-int-l {
+>  +			rockchip,pins = <2 RK_PA6 RK_FUNC_GPIO &pcfg_pull_up>;
+>  +		};
+>  +	};
+>  +};
+>  +
+>  +&tsadc {
+>  +	status = "okay";
+>  +};
+>  +
+>   &uart2 {
+>   	status = "okay";
+>   };
 
-Agreed. But I could see lot of drivers performing the phy_connect() in driver_probe() function itself.
-Also observed that these drivers are performing netif_carrier_off() after register_netdevice().
+Just a reminder that these conflicts still exist.
 
-My point is that why do we need to do netif_carrier_off() in phy_connect() since we already doing the same after register_netdevice() in MAC driver ?
-
-Thanks!
------------------------------------------------------------------------------------
-This email message is for the sole use of the intended recipient(s) and may contain
-confidential information.  Any unauthorized review, use, disclosure or distribution
-is prohibited.  If you are not the intended recipient, please contact the sender by
-reply email and destroy all copies of the original message.
------------------------------------------------------------------------------------
+-- 
+Cheers,
+Stephen Rothwell
