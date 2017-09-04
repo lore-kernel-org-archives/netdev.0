@@ -1,117 +1,78 @@
-From: "Yang, Yi" <yi.y.yang@intel.com>
-Subject: Re: [PATCH net-next v7] openvswitch: enable NSH support
-Date: Mon, 4 Sep 2017 16:00:05 +0800
-Message-ID: <20170904080005.GA70767@cran64.bj.intel.com>
-References: <1504096752-102003-1-git-send-email-yi.y.yang@intel.com>
- <20170831124516.0c5db686@griffin>
+From: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
+Subject: Re: [PATCH] mm/vmstats: add counters for the page frag cache
+Date: Mon, 4 Sep 2017 11:30:55 +0300
+Message-ID: <d6120888-344a-4449-4ca6-ac98508bb3cf@yandex-team.ru>
+References: <1504222631-2635-1-git-send-email-kyeongdon.kim@lge.com>
+ <50592560-af4d-302c-c0bc-1e854e35139d@yandex-team.ru>
+ <19156a13-6153-f570-317b-7b80505347e7@lge.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "dev@openvswitch.org" <dev@openvswitch.org>,
-        "e@erig.me" <e@erig.me>, "blp@ovn.org" <blp@ovn.org>,
-        "jan.scheurich@ericsson.com" <jan.scheurich@ericsson.com>
-To: Jiri Benc <jbenc@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:56928 "EHLO mga09.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753329AbdIDIPE (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 4 Sep 2017 04:15:04 -0400
-Content-Disposition: inline
-In-Reply-To: <20170831124516.0c5db686@griffin>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: ying.huang@intel.com, vbabka@suse.cz, hannes@cmpxchg.org,
+ xieyisheng1@huawei.com, luto@kernel.org, shli@fb.com, mhocko@suse.com,
+ mgorman@techsingularity.net, hillf.zj@alibaba-inc.com, kemi.wang@intel.com,
+ rientjes@google.com, bigeasy@linutronix.de, iamjoonsoo.kim@lge.com,
+ bongkyu.kim@lge.com, linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+ netdev <netdev@vger.kernel.org>
+To: Kyeongdon Kim <kyeongdon.kim@lge.com>, akpm@linux-foundation.org,
+ sfr@canb.auug.org.au
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <19156a13-6153-f570-317b-7b80505347e7@lge.com>
+Content-Language: en-US
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 31, 2017 at 06:45:16PM +0800, Jiri Benc wrote:
-> > +				       mask->context[i]);
-> > +		}
-> > +		memcpy(flow_key->nsh.context, nsh->md1.context,
-> > +		       sizeof(nsh->md1.context));
+On 04.09.2017 04:35, Kyeongdon Kim wrote:
+> Thanks for your reply,
+> But I couldn't find "NR_FRAGMENT_PAGES" in linux-next.git .. is that vmstat counter? or others?
 > 
-> Do you follow the discussion that Hannes Sowa started on the ovs list
-> regarding matching on the context fields? It would be better to hold on this
-> until there's a conclusion reached.
->
 
-I think we have had similiar discussion about this, the issue is we have
-no way to handle both MD type 1 and MD type 2 by using a common flow key struct.
+I mean rather than adding bunch vmstat counters for operations it might be
+worth to add page counter which will show current amount of these pages.
+But this seems too low-level for tracking, common counters for all network
+buffers would be more useful but much harder to implement.
 
-So we have to do so, there is miniflow to handle such issue in
-userspace, but kernel data path didn't provide such mechanism. I think
-every newly-added key will result in the same space-wasting issue for
-kernel data path, isn't it?
+As I can see page owner is able to save stacktrace where allocation happened,
+this makes debugging mostly trivial without any counters. If it adds too much
+overhead - just track random 1% of pages, should be enough for finding leak.
 
-> > +		err = nsh_key_from_nlattr(&attr.nla, &nsh);
-> > +		if (err)
-> > +			break;
-> > +		err = nsh_key_from_nlattr(&mask.nla, &nsh_mask);
-> > +		if (err)
-> > +			break;
+> As you know, page_frag_alloc() directly calls __alloc_pages_nodemask() function,
+> so that makes too difficult to see memory usage in real time even though we have "/meminfo or /slabinfo.." information.
+> If there was a way already to figure out the memory leakage from page_frag_cache in mainline, I agree your opinion
+> but I think we don't have it now.
 > 
-> This is a lot of copying to just be able to use nla_for_each_nested. While
-> I'm not a fan of how ovs uses the attributes to store both value and mask,
-> it's not completely irrational. However, I don't think that the intent was
-> to store a copy of the whole nested group. It's quite obvious that it does
-> not fit the pattern from the gymnastics you need to do.
+> If those counters too much in my patch,
+> I can say two values (pgfrag_alloc and pgfrag_free) are enough to guess what will happen
+> and would remove pgfrag_alloc_calls and pgfrag_free_calls.
 > 
-> Instead, store the mask in each of the nested attributes individually. There
-> will be no need for the copying above and the code will get cleaner and
-> faster. It's not that the nsh_key_from_nlattr function needs to be able to
-> work separately for the key and mask. Nothing else than the line above uses
-> this function. Just move the logic inside.
+> Thanks,
+> Kyeongdon Kim
 > 
-> Actually, it seems it can be moved directly to set_nsh.
+> On 2017-09-01 오후 6:12, Konstantin Khlebnikov wrote:
+>> IMHO that's too much counters.
+>> Per-node NR_FRAGMENT_PAGES should be enough for guessing what's going on.
+>> Perf probes provides enough features for furhter debugging.
+>>
+>> On 01.09.2017 02:37, Kyeongdon Kim wrote:
+>> > There was a memory leak problem when we did stressful test
+>> > on Android device.
+>> > The root cause of this was from page_frag_cache alloc
+>> > and it was very hard to find out.
+>> >
+>> > We add to count the page frag allocation and free with function call.
+>> > The gap between pgfrag_alloc and pgfrag_free is good to to calculate
+>> > for the amount of page.
+>> > The gap between pgfrag_alloc_calls and pgfrag_free_calls is for
+>> > sub-indicator.
+>> > They can see trends of memory usage during the test.
+>> > Without it, it's difficult to check page frag usage so I believe we
+>> > should add it.
+>> >
+>> > Signed-off-by: Kyeongdon Kim <kyeongdon.kim@lge.com>
+>> > ---
 
-OVS_ATTR_KEY_NSH is the first case to use nested attributes for set
-action, so no reference code for this, set action has two use cases, one
-has mask but the other hasn't, so it will be easier an nested attribute is
-handled as a whole, in user space, nsh_key_from_nlattr is used in
-several places. If we change it per your proposal, there will be a lot
-of rework, we have to provide two functions to handle this, one is for
-the case with mask, the other is for the case without mask.
-
-> 
-> > +		err = set_nsh(skb, flow_key, &nsh, &nsh_mask);
-> > +		break;
-> > +	}
-> > +
-> >  	case OVS_KEY_ATTR_IPV4:
-> >  		err = set_ipv4(skb, flow_key, nla_data(a),
-> >  			       get_mask(a, struct ovs_key_ipv4 *));
-> > @@ -1210,6 +1336,21 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
-> >  		case OVS_ACTION_ATTR_POP_ETH:
-> >  			err = pop_eth(skb, key);
-> >  			break;
-> > +
-> > +		case OVS_ACTION_ATTR_PUSH_NSH: {
-> > +			u8 buffer[NSH_HDR_MAX_LEN];
-> > +			struct nshhdr *nsh_hdr = (struct nshhdr *)buffer;
-> > +			const struct nshhdr *nsh_src = nsh_hdr;
-> > +
-> > +			nsh_hdr_from_nlattr(nla_data(a), nsh_hdr,
-> > +					    NSH_HDR_MAX_LEN);
-> 
-> This is costly. This is called for every packet in the fast path. We should
-> precompute and store the header instead.
-
-How can we do so? I see batch process code in user space implementation,
-but kernel data path didn't such infrastructure, how can we know next
-push_nsh uses the same nsh header as previous one?
-
-> > +	case NSH_M_TYPE2:
-> > +		/* Don't support MD type 2 metedata parsing yet */
-> > +		if (length < NSH_BASE_HDR_LEN)
-> > +			return -EINVAL;
-> 
-> Shouldn't we reject the packet, then? Pretending that something was parsed
-> correctly while in fact it was not, does not look correct.
-
-For MD type 2, we don't implement metadata parsing, but it can still
-work. I'm not sure what you mean here, how do we reject a packet here?
-
-> 
-> These checks should be done only once when the action is configured, not for
-> each packet.
-
-I don't know how to implement a batch processing in kernel data path, it
-seems there isn't such code for reference.
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
