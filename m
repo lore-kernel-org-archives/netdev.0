@@ -1,112 +1,114 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [iproute PATCH 1/6] utils: Implement strlcpy() and strlcat()
-Date: Mon, 4 Sep 2017 11:25:25 -0700
-Message-ID: <20170904112525.04bc66d5@xeon-e3>
-References: <20170901165256.21459-1-phil@nwl.cc>
-        <20170901165256.21459-2-phil@nwl.cc>
-        <063D6719AE5E284EB5DD2968C1650D6DD006D878@AcuExch.aculab.com>
-        <20170904150015.GB30364@orbyte.nwl.cc>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: [net-next PATCH V2] ixgbe: add counter for times rx pages gets
+ allocated, not recycled
+Date: Mon, 04 Sep 2017 20:40:22 +0200
+Message-ID: <150455042211.455.6804897285651927718.stgit@firesoul>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Laight <David.Laight@ACULAB.COM>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Phil Sutter <phil@nwl.cc>
+Cc: netdev@vger.kernel.org,
+        Alexander Duyck <alexander.duyck@gmail.com>,
+        Jesper Dangaard Brouer <brouer@redhat.com>
+To: intel-wired-lan@lists.osuosl.org,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f169.google.com ([209.85.192.169]:33119 "EHLO
-        mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753932AbdIDSZd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 4 Sep 2017 14:25:33 -0400
-Received: by mail-pf0-f169.google.com with SMTP id y68so2504040pfd.0
-        for <netdev@vger.kernel.org>; Mon, 04 Sep 2017 11:25:33 -0700 (PDT)
-In-Reply-To: <20170904150015.GB30364@orbyte.nwl.cc>
+Received: from mx1.redhat.com ([209.132.183.28]:36474 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753932AbdIDSk0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 4 Sep 2017 14:40:26 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 4 Sep 2017 17:00:15 +0200
-Phil Sutter <phil@nwl.cc> wrote:
+The ixgbe driver have page recycle scheme based around the RX-ring
+queue, where a RX page is shared between two packets. Based on the
+refcnt, the driver can determine if the RX-page is currently only used
+by a single packet, if so it can then directly refill/recycle the
+RX-slot by with the opposite "side" of the page.
 
-> On Mon, Sep 04, 2017 at 02:49:20PM +0000, David Laight wrote:
-> > From: Phil Sutter  
-> > > Sent: 01 September 2017 17:53
-> > > By making use of strncpy(), both implementations are really simple so
-> > > there is no need to add libbsd as additional dependency.
-> > >   
-> > ...  
-> > > +
-> > > +size_t strlcpy(char *dst, const char *src, size_t size)
-> > > +{
-> > > +	if (size) {
-> > > +		strncpy(dst, src, size - 1);
-> > > +		dst[size - 1] = '\0';
-> > > +	}
-> > > +	return strlen(src);
-> > > +}  
-> > 
-> > Except that isn't really strlcpy().
-> > Better would be:
-> > 	len = strlen(src) + 1;
-> > 	if (len <= size)
-> > 		memcpy(dst, src, len);
-> > 	else if (size) {
-> > 		dst[size - 1] = 0;
-> > 		memcpy(dst, src, size - 1);
-> > 	}
-> > 	return len - 1;  
-> 
-> Please elaborate: Why isn't my version "really" strlcpy()? Why is your
-> proposed version better?
-> 
-> Thanks, Phil
+While this is a clever trick, it is hard to determine when this
+recycling is successful and when it fails.  Adding a counter, which is
+available via ethtool --statistics as 'alloc_rx_page'.  Which counts
+the number of times the recycle fails and the real page allocator is
+invoked.  When interpreting the stats, do remember that every alloc
+will serve two packets.
 
-Linux kernel:
-size_t strlcpy(char *dest, const char *src, size_t size)
-{
-	size_t ret = strlen(src);
+The counter is collected per rx_ring, but is summed and ethtool
+exported as 'alloc_rx_page'.  It would be relevant to know what
+rx_ring that cannot keep up, but that can be exported later if
+someone experience a need for this.
 
-	if (size) {
-		size_t len = (ret >= size) ? size - 1 : ret;
-		memcpy(dest, src, len);
-		dest[len] = '\0';
-	}
-	return ret;
-}
+Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h         |    2 ++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |    1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |    4 ++++
+ 3 files changed, 7 insertions(+)
 
-FreeBSD:
-size_t
-strlcpy(char * __restrict dst, const char * __restrict src, size_t dsize)
-{
-	const char *osrc = src;
-	size_t nleft = dsize;
-
-	/* Copy as many bytes as will fit. */
-	if (nleft != 0) {
-		while (--nleft != 0) {
-			if ((*dst++ = *src++) == '\0')
-				break;
-		}
-	}
-
-	/* Not enough room in dst, add NUL and traverse rest of src. */
-	if (nleft == 0) {
-		if (dsize != 0)
-			*dst = '\0';		/* NUL-terminate dst */
-		while (*src++)
-			;
-	}
-
-	return(src - osrc - 1);	/* count does not include NUL */
-}
-
-
-They all give the same results for some basic tests.
-Test			FreeBSD		Linux		Iproute2
-"",0:           	0 "JUNK"      	0 "JUNK"      	0 "JUNK"      
-"",1:           	0 ""          	0 ""          	0 ""          
-"",8:           	0 ""          	0 ""          	0 ""          
-"foo",0:        	3 "JUNK"      	3 "JUNK"      	3 "JUNK"      
-"foo",3:        	3 "fo"        	3 "fo"        	3 "fo"        
-"foo",4:        	3 "foo"       	3 "foo"       	3 "foo"       
-"foo",8:        	3 "foo"       	3 "foo"       	3 "foo"       
-"longstring",0: 	10 "JUNK"     	10 "JUNK"     	10 "JUNK"     
-"longstring",8: 	10 "longstr"  	10 "longstr"  	10 "longstr"  
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+index dd5578756ae0..008d0085e01f 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+@@ -275,6 +275,7 @@ struct ixgbe_rx_queue_stats {
+ 	u64 rsc_count;
+ 	u64 rsc_flush;
+ 	u64 non_eop_descs;
++	u64 alloc_rx_page;
+ 	u64 alloc_rx_page_failed;
+ 	u64 alloc_rx_buff_failed;
+ 	u64 csum_err;
+@@ -655,6 +656,7 @@ struct ixgbe_adapter {
+ 	u64 rsc_total_count;
+ 	u64 rsc_total_flush;
+ 	u64 non_eop_descs;
++	u32 alloc_rx_page;
+ 	u32 alloc_rx_page_failed;
+ 	u32 alloc_rx_buff_failed;
+ 
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+index 72c565712a5f..d96d9d6c3492 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+@@ -104,6 +104,7 @@ static const struct ixgbe_stats ixgbe_gstrings_stats[] = {
+ 	{"tx_flow_control_xoff", IXGBE_STAT(stats.lxofftxc)},
+ 	{"rx_flow_control_xoff", IXGBE_STAT(stats.lxoffrxc)},
+ 	{"rx_csum_offload_errors", IXGBE_STAT(hw_csum_rx_error)},
++	{"alloc_rx_page", IXGBE_STAT(alloc_rx_page)},
+ 	{"alloc_rx_page_failed", IXGBE_STAT(alloc_rx_page_failed)},
+ 	{"alloc_rx_buff_failed", IXGBE_STAT(alloc_rx_buff_failed)},
+ 	{"rx_no_dma_resources", IXGBE_STAT(hw_rx_no_dma_resources)},
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index d962368d08d0..d6ac9da8d628 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -1620,6 +1620,7 @@ static bool ixgbe_alloc_mapped_page(struct ixgbe_ring *rx_ring,
+ 	bi->page = page;
+ 	bi->page_offset = ixgbe_rx_offset(rx_ring);
+ 	bi->pagecnt_bias = 1;
++	rx_ring->rx_stats.alloc_rx_page++;
+ 
+ 	return true;
+ }
+@@ -6771,6 +6772,7 @@ void ixgbe_update_stats(struct ixgbe_adapter *adapter)
+ 	u32 i, missed_rx = 0, mpc, bprc, lxon, lxoff, xon_off_tot;
+ 	u64 non_eop_descs = 0, restart_queue = 0, tx_busy = 0;
+ 	u64 alloc_rx_page_failed = 0, alloc_rx_buff_failed = 0;
++	u64 alloc_rx_page = 0;
+ 	u64 bytes = 0, packets = 0, hw_csum_rx_error = 0;
+ 
+ 	if (test_bit(__IXGBE_DOWN, &adapter->state) ||
+@@ -6791,6 +6793,7 @@ void ixgbe_update_stats(struct ixgbe_adapter *adapter)
+ 	for (i = 0; i < adapter->num_rx_queues; i++) {
+ 		struct ixgbe_ring *rx_ring = adapter->rx_ring[i];
+ 		non_eop_descs += rx_ring->rx_stats.non_eop_descs;
++		alloc_rx_page += rx_ring->rx_stats.alloc_rx_page;
+ 		alloc_rx_page_failed += rx_ring->rx_stats.alloc_rx_page_failed;
+ 		alloc_rx_buff_failed += rx_ring->rx_stats.alloc_rx_buff_failed;
+ 		hw_csum_rx_error += rx_ring->rx_stats.csum_err;
+@@ -6798,6 +6801,7 @@ void ixgbe_update_stats(struct ixgbe_adapter *adapter)
+ 		packets += rx_ring->stats.packets;
+ 	}
+ 	adapter->non_eop_descs = non_eop_descs;
++	adapter->alloc_rx_page = alloc_rx_page;
+ 	adapter->alloc_rx_page_failed = alloc_rx_page_failed;
+ 	adapter->alloc_rx_buff_failed = alloc_rx_buff_failed;
+ 	adapter->hw_csum_rx_error = hw_csum_rx_error;
