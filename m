@@ -1,95 +1,38 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net-next 1/2] tun: reserve extra headroom only when XDP is set
-Date: Mon,  4 Sep 2017 11:36:08 +0800
-Message-ID: <1504496169-31190-1-git-send-email-jasowang@redhat.com>
-Cc: mst@redhat.com, Jason Wang <jasowang@redhat.com>,
-        Jakub Kicinski <kubakici@wp.pl>
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/6] nfp: refactor app init, and minor flower
+ fixes
+Date: Sun, 03 Sep 2017 21:22:21 -0700 (PDT)
+Message-ID: <20170903.212221.1440891147611396315.davem@davemloft.net>
+References: <20170903012605.7435-1-jakub.kicinski@netronome.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, oss-drivers@netronome.com
+To: jakub.kicinski@netronome.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:35550 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755010AbdIDEWW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 4 Sep 2017 00:22:22 -0400
+In-Reply-To: <20170903012605.7435-1-jakub.kicinski@netronome.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-We reserve headroom unconditionally which could cause unnecessary
-stress on socket memory accounting because of increased trusesize. Fix
-this by only reserve extra headroom when XDP is set.
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Date: Sat,  2 Sep 2017 18:25:59 -0700
 
-Cc: Jakub Kicinski <kubakici@wp.pl>
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
- drivers/net/tun.c | 26 ++++++++++++++++++--------
- 1 file changed, 18 insertions(+), 8 deletions(-)
+> This series is a part 2 to what went into net as a simpler fix.
+> In net we simply moved when existing callbacks are invoked to
+> ensure flower app does not still use representors when lower 
+> netdev has already been destroyed.  In this series we add a
+> callback to notify apps when vNIC netdevs are fully initialized
+> and they are about to be destroyed.  This allows flower to spawn
+> representors at the right time, while keeping the start/stop
+> callbacks for what they are intended to be used - FW initialization
+> over control channel.
+> 
+> Patch 4 improves drop monitor interaction and patch 5 changes 
+> the default Kconfig selection of flower offload.  Patch 6 fixes
+> locking around representor updates which got lost in net-next.
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 06e8f0b..80ac18f 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -108,7 +108,7 @@ do {								\
- #endif
- 
- #define TUN_HEADROOM 256
--#define TUN_RX_PAD (NET_IP_ALIGN + NET_SKB_PAD + TUN_HEADROOM)
-+#define TUN_RX_PAD (NET_IP_ALIGN + NET_SKB_PAD)
- 
- /* TUN device flags */
- 
-@@ -1272,25 +1272,35 @@ static struct sk_buff *tun_build_skb(struct tun_struct *tun,
- 	struct page_frag *alloc_frag = &current->task_frag;
- 	struct sk_buff *skb;
- 	struct bpf_prog *xdp_prog;
--	int buflen = SKB_DATA_ALIGN(len + TUN_RX_PAD) +
--		     SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
-+	int buflen = SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
- 	unsigned int delta = 0;
- 	char *buf;
- 	size_t copied;
- 	bool xdp_xmit = false;
--	int err;
-+	int err, pad = TUN_RX_PAD;
-+
-+	rcu_read_lock();
-+	xdp_prog = rcu_dereference(tun->xdp_prog);
-+	if (xdp_prog)
-+		pad += TUN_HEADROOM;
-+	buflen += SKB_DATA_ALIGN(len + pad);
-+	rcu_read_unlock();
- 
- 	if (unlikely(!skb_page_frag_refill(buflen, alloc_frag, GFP_KERNEL)))
- 		return ERR_PTR(-ENOMEM);
- 
- 	buf = (char *)page_address(alloc_frag->page) + alloc_frag->offset;
- 	copied = copy_page_from_iter(alloc_frag->page,
--				     alloc_frag->offset + TUN_RX_PAD,
-+				     alloc_frag->offset + pad,
- 				     len, from);
- 	if (copied != len)
- 		return ERR_PTR(-EFAULT);
- 
--	if (hdr->gso_type)
-+	/* There's a small window that XDP may be set after the check
-+	 * of xdp_prog above, this should be rare and for simplicity
-+	 * we do XDP on skb in case the headroom is not enough.
-+	 */
-+	if (hdr->gso_type || !xdp_prog)
- 		*generic_xdp = 1;
- 	else
- 		*generic_xdp = 0;
-@@ -1303,7 +1313,7 @@ static struct sk_buff *tun_build_skb(struct tun_struct *tun,
- 		u32 act;
- 
- 		xdp.data_hard_start = buf;
--		xdp.data = buf + TUN_RX_PAD;
-+		xdp.data = buf + pad;
- 		xdp.data_end = xdp.data + len;
- 		orig_data = xdp.data;
- 		act = bpf_prog_run_xdp(xdp_prog, &xdp);
-@@ -1339,7 +1349,7 @@ static struct sk_buff *tun_build_skb(struct tun_struct *tun,
- 		return ERR_PTR(-ENOMEM);
- 	}
- 
--	skb_reserve(skb, TUN_RX_PAD - delta);
-+	skb_reserve(skb, pad - delta);
- 	skb_put(skb, len + delta);
- 	get_page(alloc_frag->page);
- 	alloc_frag->offset += buflen;
--- 
-2.7.4
+Series applied, thanks.
