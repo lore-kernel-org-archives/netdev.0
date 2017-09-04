@@ -1,46 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 0/4] net: dsa: Allow switch drivers to
- indicate number of TX queues
-Date: Sun, 03 Sep 2017 20:20:09 -0700 (PDT)
-Message-ID: <20170903.202009.2104340600797726296.davem@davemloft.net>
-References: <20170902180609.23122-1-f.fainelli@gmail.com>
+Subject: Re: [patch net-next v2 00/21] mlxsw: Offloading GRE tunnels
+Date: Sun, 03 Sep 2017 20:23:42 -0700 (PDT)
+Message-ID: <20170903.202342.1762146416558057758.davem@davemloft.net>
+References: <20170902214929.2890-1-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com, jiri@resnulli.us,
-        jhs@mojatatu.com, xiyou.wangcong@gmail.com
-To: f.fainelli@gmail.com
+Cc: netdev@vger.kernel.org, petrm@mellanox.com, idosch@mellanox.com,
+        mlxsw@mellanox.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:34936 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:34966 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753124AbdIDDUK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 3 Sep 2017 23:20:10 -0400
-In-Reply-To: <20170902180609.23122-1-f.fainelli@gmail.com>
+        with ESMTP id S1753124AbdIDDXo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 3 Sep 2017 23:23:44 -0400
+In-Reply-To: <20170902214929.2890-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Sat,  2 Sep 2017 11:06:05 -0700
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Sat,  2 Sep 2017 23:49:08 +0200
 
-> This patch series extracts the parts of the patch set that are likely not to be
-> controversial and actually bringing multi-queue support to DSA-created network
-> devices.
+> From: Jiri Pirko <jiri@mellanox.com>
 > 
-> With these patches, we can now use sch_multiq as documented under
-> Documentation/networking/multique.txt and let applications dedice the switch
-> port output queue they want to use. Currently only Broadcom tags utilize that
-> information.
+> Petr says:
 > 
-> Changes in v2:
-> - use a proper define for the number of TX queues in bcm_sf2.c (Andrew)
+> This patch series introduces to mlxsw driver support for offloading
+> IP-in-IP tunnels in general, and for (subset of) GRE in particular.
+ ...
 
-Hello Florian.
-
-For some reason this series didn't make it completely into patchwork, I only
-see patch #1 there.
-
-Can you try submitting again?  If it doesn't work this time I'll just apply
-it by hand from my inbox.
-
-Thanks.
+Series applied, thanks!
