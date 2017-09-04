@@ -1,90 +1,112 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [pull request][net-next 0/3] Mellanox, mlx5 GRE tunnel offloads
-Date: Mon, 04 Sep 2017 19:57:30 +0200
-Message-ID: <87k21ez6r9.fsf@stressinduktion.org>
-References: <20170830230409.15176-1-saeedm@mellanox.com>
-        <87fuc7ong0.fsf@stressinduktion.org>
-        <CALzJLG-u3k11LYFXtZQKT5cvn-iJ4FehBUgkhCHT5Z7XMsMkpA@mail.gmail.com>
-        <1504402349.3299394.1093467800.72B91372@webmail.messagingengine.com>
-        <CALx6S34kfb5GEH9AAecsaKJ9AtjK=fP_3L=2i98kUwv_sE2s7A@mail.gmail.com>
-        <CALzJLG--t8VLs1GiRRVfejenB=XgpLiJHnHC+eokQ4=kwj9hGw@mail.gmail.com>
-        <CALx6S356vRYfcsN6FaRmpn2oC0GN9-JwLsF7ybC+w4sEGGsa7w@mail.gmail.com>
-        <87pob6bmjv.fsf@stressinduktion.org>
-        <CALx6S37wcp1om0Dwr1=-6jF=HkAuZj313pLJ7sVhgsyJ4yZDjg@mail.gmail.com>
-        <8760cytnif.fsf@stressinduktion.org>
-        <CALx6S34cOL4Gy9DMWnLV0iCVUYo+siMEeNNn9v5tBHr2P6yjYw@mail.gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [iproute PATCH 1/6] utils: Implement strlcpy() and strlcat()
+Date: Mon, 4 Sep 2017 11:25:25 -0700
+Message-ID: <20170904112525.04bc66d5@xeon-e3>
+References: <20170901165256.21459-1-phil@nwl.cc>
+        <20170901165256.21459-2-phil@nwl.cc>
+        <063D6719AE5E284EB5DD2968C1650D6DD006D878@AcuExch.aculab.com>
+        <20170904150015.GB30364@orbyte.nwl.cc>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Saeed Mahameed <saeedm@dev.mellanox.co.il>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Linux Netdev List <netdev@vger.kernel.org>
-To: Tom Herbert <tom@herbertland.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Laight <David.Laight@ACULAB.COM>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Phil Sutter <phil@nwl.cc>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:38869 "EHLO
-        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1753949AbdIDR5d (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 4 Sep 2017 13:57:33 -0400
-In-Reply-To: <CALx6S34cOL4Gy9DMWnLV0iCVUYo+siMEeNNn9v5tBHr2P6yjYw@mail.gmail.com>
-        (Tom Herbert's message of "Mon, 4 Sep 2017 10:11:21 -0700")
+Received: from mail-pf0-f169.google.com ([209.85.192.169]:33119 "EHLO
+        mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753932AbdIDSZd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 4 Sep 2017 14:25:33 -0400
+Received: by mail-pf0-f169.google.com with SMTP id y68so2504040pfd.0
+        for <netdev@vger.kernel.org>; Mon, 04 Sep 2017 11:25:33 -0700 (PDT)
+In-Reply-To: <20170904150015.GB30364@orbyte.nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Tom,
+On Mon, 4 Sep 2017 17:00:15 +0200
+Phil Sutter <phil@nwl.cc> wrote:
 
-Tom Herbert <tom@herbertland.com> writes:
+> On Mon, Sep 04, 2017 at 02:49:20PM +0000, David Laight wrote:
+> > From: Phil Sutter  
+> > > Sent: 01 September 2017 17:53
+> > > By making use of strncpy(), both implementations are really simple so
+> > > there is no need to add libbsd as additional dependency.
+> > >   
+> > ...  
+> > > +
+> > > +size_t strlcpy(char *dst, const char *src, size_t size)
+> > > +{
+> > > +	if (size) {
+> > > +		strncpy(dst, src, size - 1);
+> > > +		dst[size - 1] = '\0';
+> > > +	}
+> > > +	return strlen(src);
+> > > +}  
+> > 
+> > Except that isn't really strlcpy().
+> > Better would be:
+> > 	len = strlen(src) + 1;
+> > 	if (len <= size)
+> > 		memcpy(dst, src, len);
+> > 	else if (size) {
+> > 		dst[size - 1] = 0;
+> > 		memcpy(dst, src, size - 1);
+> > 	}
+> > 	return len - 1;  
+> 
+> Please elaborate: Why isn't my version "really" strlcpy()? Why is your
+> proposed version better?
+> 
+> Thanks, Phil
 
->> The problem is that you end up having two streams, one fragmented and
->> one non-fragmented, but actually they belong to the same stream. It is
->> known to break stuff, see:
->>
->> <https://patchwork.ozlabs.org/patch/59235/>
->>
->> I would agree with you, but we can't break existing setups,
->> unfortunately.
->>
-> I'm not sure what "existing setups" means here. If this is referring
-> to the Internet then out of order packets and fragments abound-- any
-> assumption of in order delivery for IP packets is useless there.
+Linux kernel:
+size_t strlcpy(char *dest, const char *src, size_t size)
+{
+	size_t ret = strlen(src);
 
-Network cards don't know where traffic originates from, even on the same
-card. Clouds nowadays try to convince everyone to virtualize existing
-workloads. So I *assume* that at least for traffic that seems to be in
-one L2 domain out of order should not occur or things will break.
+	if (size) {
+		size_t len = (ret >= size) ? size - 1 : ret;
+		memcpy(dest, src, len);
+		dest[len] = '\0';
+	}
+	return ret;
+}
 
-Ethernet for a long time appeared to do very much in order delivery and
-guarantees that. Thus for people it appeared that UDP packets are also
-strictly in order. Encapsulating Ethernet inside UDP thus must preserve
-those properties, especially if used for virtualization. Unfortunately
-fragmentation happens and the stack has to deal with it somehow.
+FreeBSD:
+size_t
+strlcpy(char * __restrict dst, const char * __restrict src, size_t dsize)
+{
+	const char *osrc = src;
+	size_t nleft = dsize;
 
-I do know about some software that uses UDP in multicast that is prone
-to misbehave in case of OoO frames. It uses a small reassemble queue but
-if reordering gets too high, it will simply drop data. This might be
-acceptable up to a specific degree.
+	/* Copy as many bytes as will fit. */
+	if (nleft != 0) {
+		while (--nleft != 0) {
+			if ((*dst++ = *src++) == '\0')
+				break;
+		}
+	}
 
-I guess one application you could harm is plain old simple syslog, which
-often generated fragmented packets. Luckily one often has time stamps in
-there to reassemble the log lines but one had to do this manually.
+	/* Not enough room in dst, add NUL and traverse rest of src. */
+	if (nleft == 0) {
+		if (dsize != 0)
+			*dst = '\0';		/* NUL-terminate dst */
+		while (*src++)
+			;
+	}
 
-L2 domains are not bound to local networks anymore, thanks to vxlan etc.
+	return(src - osrc - 1);	/* count does not include NUL */
+}
 
-If you are in a controlled environment and you do know your software
-that runs perfectly well, certainly, no doubt, UDP hashing can be
-enabled. I would argue we can't do that generally.
 
-> Btw, TCP has exactly the same problem in this regard that UDP has with
-> regard to fragmentation. The reason that TCP isn't considered an issue
-> is the assumption that TCP will do PMTU discovery and set DF (I would
-> bet that devices don't actually check for DF and vendors don't test
-> when it's not set!).
-
-I don't know.
-
-For the application the stream will appear in order at the socket level
-and OoO or fragmentation won't break anything. End systems will have a
-harder time reassembling the stream and thus fast paths couldn't be
-used. Is that what you are referring to?
-
-Thanks,
-Hannes
+They all give the same results for some basic tests.
+Test			FreeBSD		Linux		Iproute2
+"",0:           	0 "JUNK"      	0 "JUNK"      	0 "JUNK"      
+"",1:           	0 ""          	0 ""          	0 ""          
+"",8:           	0 ""          	0 ""          	0 ""          
+"foo",0:        	3 "JUNK"      	3 "JUNK"      	3 "JUNK"      
+"foo",3:        	3 "fo"        	3 "fo"        	3 "fo"        
+"foo",4:        	3 "foo"       	3 "foo"       	3 "foo"       
+"foo",8:        	3 "foo"       	3 "foo"       	3 "foo"       
+"longstring",0: 	10 "JUNK"     	10 "JUNK"     	10 "JUNK"     
+"longstring",8: 	10 "longstr"  	10 "longstr"  	10 "longstr"  
