@@ -1,57 +1,140 @@
-From: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
-Subject: [PATCH v3 2/2] ip6_tunnel: fix ip6 tunnel lookup in collect_md mode
-Date: Mon,  4 Sep 2017 16:36:14 +0800
-Message-ID: <1504514174-14958-2-git-send-email-yanhaishuang@cmss.chinamobile.com>
-References: <1504514174-14958-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Haishuang Yan <yanhaishuang@cmss.chinamobile.com>,
-        Alexei Starovoitov <ast@fb.com>
-To: "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmccmta3.chinamobile.com ([221.176.66.81]:64502 "EHLO
-        cmccmta3.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750839AbdIDIgd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 4 Sep 2017 04:36:33 -0400
-In-Reply-To: <1504514174-14958-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Romain Perier <romain.perier@collabora.com>
+Subject: [PATCH net-next v7] net: stmmac: Delete dead code for MDIO registration
+Date: Mon,  4 Sep 2017 10:41:36 +0200
+Message-ID: <20170904084136.21490-1-romain.perier@collabora.com>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        Romain Perier <romain.perier@collabora.com>
+To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+        Alexandre Torgue <alexandre.torgue@st.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In collect_md mode, if the tun dev is down, it still can call
-__ip6_tnl_rcv to receive on packets, and the rx statistics increase
-improperly.
+This code is no longer used, the logging function was changed by commit
+fbca164776e4 ("net: stmmac: Use the right logging function in stmmac_mdio_register").
+It was previously showing information about the type of the IRQ, if it's
+polled, ignored or a normal interrupt. As we don't want information loss,
+I have moved this code to phy_attached_print().
 
-Fixes: 8d79266bc48c ("ip6_tunnel: add collect_md mode to IPv6 tunnels")
-Cc: Alexei Starovoitov <ast@fb.com>
-Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
-
+Fixes: fbca164776e4 ("net: stmmac: Use the right logging function in stmmac_mdio_register")
+Signed-off-by: Romain Perier <romain.perier@collabora.com>
 ---
-Change since v3:
-  * Increment rx_dropped if tunnel device is not up, suggested by
-  Pravin B Shelar
-  * Fix wrong recipient address
----
- net/ipv6/ip6_tunnel.c | 7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
 
-diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
-index 10a693a..e91d3b6 100644
---- a/net/ipv6/ip6_tunnel.c
-+++ b/net/ipv6/ip6_tunnel.c
-@@ -171,8 +171,11 @@ static struct net_device_stats *ip6_get_stats(struct net_device *dev)
+Hello,
+
+This is the continuity of "[PATCH v2 0/2] net: stmmac: phy logging fixes",
+see https://lkml.org/lkml/2017/8/21/288
+
+Changes in v7:
+- Rebased onto net-next
+
+Changes in v6:
+- Rebased onto net-next
+
+Changes in v5:
+- Don't truncater commit fbca164776e4 in the message of *this* commit
+- Fixed typo
+
+Changes in v4:
+- Don't truncate the commit subject for "Fixes"
+- Fixed invalid sizeof() used with snprintf
+- Added "net-next" prefix to the title of the commit
+
+Changes in v3:
+- Removed patch 2/2: "net: phy: Don't use drv when it is NULL in phy_attached_print",
+  fixed upstream by fcd03e362b1c
+  ("net: phy: Deal with unbound PHY driver in phy_attached_print()")
+- Moved this code to phy_attached_print(), so we have more informations
+  about the IRQ (poll, ignore or normal irq) and no information are loss.
+- Re-worded commit message
+
+
+
+ drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c | 16 ----------------
+ drivers/net/phy/phy_device.c                      | 22 +++++++++++++++++++---
+ 2 files changed, 19 insertions(+), 19 deletions(-)
+
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+index 72ec711fcba2..f5f37bfa1d58 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+@@ -248,9 +248,6 @@ int stmmac_mdio_register(struct net_device *ndev)
+ 	found = 0;
+ 	for (addr = 0; addr < PHY_MAX_ADDR; addr++) {
+ 		struct phy_device *phydev = mdiobus_get_phy(new_bus, addr);
+-		int act = 0;
+-		char irq_num[4];
+-		char *irq_str;
+ 
+ 		if (!phydev)
+ 			continue;
+@@ -273,19 +270,6 @@ int stmmac_mdio_register(struct net_device *ndev)
+ 		if (priv->plat->phy_addr == -1)
+ 			priv->plat->phy_addr = addr;
+ 
+-		act = (priv->plat->phy_addr == addr);
+-		switch (phydev->irq) {
+-		case PHY_POLL:
+-			irq_str = "POLL";
+-			break;
+-		case PHY_IGNORE_INTERRUPT:
+-			irq_str = "IGNORE";
+-			break;
+-		default:
+-			sprintf(irq_num, "%d", phydev->irq);
+-			irq_str = irq_num;
+-			break;
+-		}
+ 		phy_attached_info(phydev);
+ 		found = 1;
  	}
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index 810f6fd2f639..8cf0c5901f95 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -874,21 +874,37 @@ void phy_attached_info(struct phy_device *phydev)
+ }
+ EXPORT_SYMBOL(phy_attached_info);
  
- 	t = rcu_dereference(ip6n->collect_md_tun);
--	if (t)
--		return t;
-+	if (t) {
-+		if (t->dev->flags & IFF_UP)
-+			return t;
-+		t->dev->stats.rx_dropped++;
+-#define ATTACHED_FMT "attached PHY driver [%s] (mii_bus:phy_addr=%s, irq=%d)"
++#define ATTACHED_FMT "attached PHY driver [%s] (mii_bus:phy_addr=%s, irq=%s)"
+ void phy_attached_print(struct phy_device *phydev, const char *fmt, ...)
+ {
+ 	const char *drv_name = phydev->drv ? phydev->drv->name : "unbound";
++	char *irq_str;
++	char irq_num[4];
++
++	switch(phydev->irq) {
++	case PHY_POLL:
++		irq_str = "POLL";
++		break;
++	case PHY_IGNORE_INTERRUPT:
++		irq_str = "IGNORE";
++		break;
++	default:
++		snprintf(irq_num, sizeof(irq_num), "%d", phydev->irq);
++		irq_str = irq_num;
++		break;
 +	}
++
  
- 	t = rcu_dereference(ip6n->tnls_wc[0]);
- 	if (t && (t->dev->flags & IFF_UP))
+ 	if (!fmt) {
+ 		dev_info(&phydev->mdio.dev, ATTACHED_FMT "\n",
+ 			 drv_name, phydev_name(phydev),
+-			 phydev->irq);
++			 irq_str);
+ 	} else {
+ 		va_list ap;
+ 
+ 		dev_info(&phydev->mdio.dev, ATTACHED_FMT,
+ 			 drv_name, phydev_name(phydev),
+-			 phydev->irq);
++			 irq_str);
+ 
+ 		va_start(ap, fmt);
+ 		vprintk(fmt, ap);
 -- 
-1.8.3.1
+2.11.0
