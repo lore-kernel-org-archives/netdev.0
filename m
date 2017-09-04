@@ -1,7 +1,7 @@
 From: Bhadram Varka <vbhadram@nvidia.com>
 Subject: RE: netdev carrier changes is one even after ethernet link up.
-Date: Mon, 4 Sep 2017 05:07:40 +0000
-Message-ID: <67a9f7aa73f348558b2b3f097d2c040f@bgmail102.nvidia.com>
+Date: Mon, 4 Sep 2017 05:10:50 +0000
+Message-ID: <660c953a9963443483bdac4390e3c3a5@bgmail102.nvidia.com>
 References: <974898714b3e4e59b933983ded977ce2@bgmail102.nvidia.com>
  <25c3b4ca-02d7-e217-fe27-ca3b7d2cbf07@gmail.com>
  <cd860399cf9148d193a08636a6d82a68@DRBGMAIL102.nvidia.com>
@@ -13,16 +13,16 @@ Cc: linux-netdev <netdev@vger.kernel.org>
 To: Florian Fainelli <f.fainelli@gmail.com>,
         "andrew@lunn.ch" <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hqemgate15.nvidia.com ([216.228.121.64]:18085 "EHLO
-        hqemgate15.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750734AbdIDFIN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 4 Sep 2017 01:08:13 -0400
+Received: from hqemgate16.nvidia.com ([216.228.121.65]:8556 "EHLO
+        hqemgate16.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750782AbdIDFLR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 4 Sep 2017 01:11:17 -0400
 In-Reply-To: <a7bf6cf0-c534-95f9-47f6-ee56a95fe961@gmail.com>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Florian,
+
 
 > -----Original Message-----
 > From: Florian Fainelli [mailto:f.fainelli@gmail.com]
@@ -129,11 +129,11 @@ Hi Florian,
 > - there is a race condition between the PHY state machine started in
 > phy_connect(), and when register_netdevice() is called and notifiers running
 > which can lead to an inconsistent state for the carrier
-> 
-Agreed. But I could see lot of drivers performing the phy_connect() in driver_probe() function itself. 
+
+Agreed. But I could see lot of drivers performing the phy_connect() in driver_probe() function itself.
 Also observed that these drivers are performing netif_carrier_off() after register_netdevice().
 
-My point is that we do we need to do netif_carrier_off() in phy_connect since we already doing the same after register_netdevice() ?
+My point is that why do we need to do netif_carrier_off() in phy_connect() since we already doing the same after register_netdevice() in MAC driver ?
 
 Thanks!
 -----------------------------------------------------------------------------------
