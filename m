@@ -1,56 +1,53 @@
-From: gfree.wind@vip.163.com
-Subject: [PATCH net-next 1/1] sched: Use __qdisc_drop instead of kfree_skb in sch_prio and sch_qfq
-Date: Mon,  4 Sep 2017 14:21:12 +0800
-Message-ID: <1504506072-46207-1-git-send-email-gfree.wind@vip.163.com>
-Cc: Gao Feng <gfree.wind@vip.163.com>
-To: jhs@mojatatu.com, xiyou.wangcong@gmail.com, jiri@resnulli.us,
-        davem@davemloft.net, edumazet@google.com, netdev@vger.kernel.org
+From: Claudiu Manoil <claudiu.manoil@nxp.com>
+Subject: [net v2] gianfar: Fix Tx flow control deactivation
+Date: Mon, 4 Sep 2017 10:45:28 +0300
+Message-ID: <1504511128-25294-1-git-send-email-claudiu.manoil@nxp.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: "David S . Miller" <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-177180.vip.163.com ([123.58.177.180]:54318 "EHLO
-        mail-177180.vip.163.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750782AbdIDGYX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 4 Sep 2017 02:24:23 -0400
+Received: from mail-sn1nam01on0075.outbound.protection.outlook.com ([104.47.32.75]:21920
+        "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1753259AbdIDHpe (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 4 Sep 2017 03:45:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gao Feng <gfree.wind@vip.163.com>
+The wrong register is checked for the Tx flow control bit,
+it should have been maccfg1 not maccfg2.
+This went unnoticed for so long probably because the impact is
+hardly visible, not to mention the tangled code from adjust_link().
+First, link flow control (i.e. handling of Rx/Tx link level pause frames)
+is disabled by default (needs to be enabled via 'ethtool -A').
+Secondly, maccfg2 always returns 0 for tx_flow_oldval (except for a few
+old boards), which results in Tx flow control remaining always on
+once activated.
 
-The commit 520ac30f4551 ("net_sched: drop packets after root qdisc lock
-is released) made a big change of tc for performance. There are two points
-left in sch_prio and sch_qfq which are not changed with that commit. Now
-enhance them now with __qdisc_drop.
+Should be queued for -stable, thanks.
 
-Signed-off-by: Gao Feng <gfree.wind@vip.163.com>
+Fixes: 45b679c9a3ccd9e34f28e6ec677b812a860eb8eb ("gianfar: Implement PAUSE frame generation support")
+
+Signed-off-by: Claudiu Manoil <claudiu.manoil@nxp.com>
 ---
- net/sched/sch_prio.c | 2 +-
- net/sched/sch_qfq.c  | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+v2: "Fixes" tag formatting and removed CC: stable from comments.
 
-diff --git a/net/sched/sch_prio.c b/net/sched/sch_prio.c
-index f31b28f..2dd6c68 100644
---- a/net/sched/sch_prio.c
-+++ b/net/sched/sch_prio.c
-@@ -80,7 +80,7 @@ struct prio_sched_data {
+ drivers/net/ethernet/freescale/gianfar.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
+index c4b4b0a..5be52d8 100644
+--- a/drivers/net/ethernet/freescale/gianfar.c
++++ b/drivers/net/ethernet/freescale/gianfar.c
+@@ -3687,7 +3687,7 @@ static noinline void gfar_update_link_state(struct gfar_private *priv)
+ 		u32 tempval1 = gfar_read(&regs->maccfg1);
+ 		u32 tempval = gfar_read(&regs->maccfg2);
+ 		u32 ecntrl = gfar_read(&regs->ecntrl);
+-		u32 tx_flow_oldval = (tempval & MACCFG1_TX_FLOW);
++		u32 tx_flow_oldval = (tempval1 & MACCFG1_TX_FLOW);
  
- 		if (ret & __NET_XMIT_BYPASS)
- 			qdisc_qstats_drop(sch);
--		kfree_skb(skb);
-+		__qdisc_drop(skb, to_free);
- 		return ret;
- 	}
- #endif
-diff --git a/net/sched/sch_qfq.c b/net/sched/sch_qfq.c
-index cd661a7..6ddfd49 100644
---- a/net/sched/sch_qfq.c
-+++ b/net/sched/sch_qfq.c
-@@ -1215,7 +1215,7 @@ static int qfq_enqueue(struct sk_buff *skb, struct Qdisc *sch,
- 	if (cl == NULL) {
- 		if (err & __NET_XMIT_BYPASS)
- 			qdisc_qstats_drop(sch);
--		kfree_skb(skb);
-+		__qdisc_drop(skb, to_free);
- 		return err;
- 	}
- 	pr_debug("qfq_enqueue: cl = %x\n", cl->common.classid);
+ 		if (phydev->duplex != priv->oldduplex) {
+ 			if (!(phydev->duplex))
 -- 
-1.9.1
+2.7.4
