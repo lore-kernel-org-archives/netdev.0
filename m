@@ -1,7 +1,7 @@
 From: Gilad Ben-Yossef <gilad@benyossef.com>
-Subject: [PATCH v8 10/20] crypto: move gcm to generic async completion
-Date: Tue,  5 Sep 2017 15:38:49 +0300
-Message-ID: <1504615144-29770-11-git-send-email-gilad__36333.6521586918$1504615378$gmane$org@benyossef.com>
+Subject: [PATCH v8 17/20] crypto: talitos: move to generic async completion
+Date: Tue,  5 Sep 2017 15:38:56 +0300
+Message-ID: <1504615144-29770-18-git-send-email-gilad__10882.0593836301$1504615457$gmane$org@benyossef.com>
 References: <1504615144-29770-1-git-send-email-gilad@benyossef.com>
 Cc: Ofir Drang <ofir.drang@arm.com>
 To: Herbert Xu <herbert@gondor.apana.org.au>,
@@ -23,99 +23,90 @@ To: Herbert Xu <herbert@gondor.apana.org.au>,
         Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
         Mimi Zohar <zohar@linux.vnet.ibm.com>,
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usa-sjc-mx-foss1.foss.arm.com ([217.140.101.70]:39464 "EHLO
-        foss.arm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751036AbdIEMls (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 5 Sep 2017 08:41:48 -0400
+Received: from foss.arm.com ([217.140.101.70]:39866 "EHLO foss.arm.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752182AbdIEMna (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 5 Sep 2017 08:43:30 -0400
 In-Reply-To: <1504615144-29770-1-git-send-email-gilad@benyossef.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-gcm is starting an async. crypto op and waiting for it complete.
-Move it over to generic code doing the same.
+The talitos driver starts several async crypto ops and  waits for their
+completions. Move it over to generic code doing the same.
 
 Signed-off-by: Gilad Ben-Yossef <gilad@benyossef.com>
 ---
- crypto/gcm.c | 32 ++++++--------------------------
- 1 file changed, 6 insertions(+), 26 deletions(-)
+ drivers/crypto/talitos.c | 38 +++++---------------------------------
+ 1 file changed, 5 insertions(+), 33 deletions(-)
 
-diff --git a/crypto/gcm.c b/crypto/gcm.c
-index 3841b5e..fb923a5 100644
---- a/crypto/gcm.c
-+++ b/crypto/gcm.c
-@@ -16,7 +16,6 @@
- #include <crypto/scatterwalk.h>
- #include <crypto/hash.h>
- #include "internal.h"
--#include <linux/completion.h>
- #include <linux/err.h>
- #include <linux/init.h>
- #include <linux/kernel.h>
-@@ -78,11 +77,6 @@ struct crypto_gcm_req_priv_ctx {
- 	} u;
- };
- 
--struct crypto_gcm_setkey_result {
--	int err;
--	struct completion completion;
--};
--
- static struct {
- 	u8 buf[16];
- 	struct scatterlist sg;
-@@ -98,17 +92,6 @@ static inline struct crypto_gcm_req_priv_ctx *crypto_gcm_reqctx(
- 	return (void *)PTR_ALIGN((u8 *)aead_request_ctx(req), align + 1);
+diff --git a/drivers/crypto/talitos.c b/drivers/crypto/talitos.c
+index 79791c6..194a307 100644
+--- a/drivers/crypto/talitos.c
++++ b/drivers/crypto/talitos.c
+@@ -2037,22 +2037,6 @@ static int ahash_import(struct ahash_request *areq, const void *in)
+ 	return 0;
  }
  
--static void crypto_gcm_setkey_done(struct crypto_async_request *req, int err)
+-struct keyhash_result {
+-	struct completion completion;
+-	int err;
+-};
+-
+-static void keyhash_complete(struct crypto_async_request *req, int err)
 -{
--	struct crypto_gcm_setkey_result *result = req->data;
+-	struct keyhash_result *res = req->data;
 -
 -	if (err == -EINPROGRESS)
 -		return;
 -
--	result->err = err;
--	complete(&result->completion);
+-	res->err = err;
+-	complete(&res->completion);
 -}
 -
- static int crypto_gcm_setkey(struct crypto_aead *aead, const u8 *key,
- 			     unsigned int keylen)
+ static int keyhash(struct crypto_ahash *tfm, const u8 *key, unsigned int keylen,
+ 		   u8 *hash)
  {
-@@ -119,7 +102,7 @@ static int crypto_gcm_setkey(struct crypto_aead *aead, const u8 *key,
- 		be128 hash;
- 		u8 iv[16];
+@@ -2060,10 +2044,10 @@ static int keyhash(struct crypto_ahash *tfm, const u8 *key, unsigned int keylen,
  
--		struct crypto_gcm_setkey_result result;
-+		struct crypto_wait wait;
+ 	struct scatterlist sg[1];
+ 	struct ahash_request *req;
+-	struct keyhash_result hresult;
++	struct crypto_wait wait;
+ 	int ret;
  
- 		struct scatterlist sg[1];
- 		struct skcipher_request req;
-@@ -140,21 +123,18 @@ static int crypto_gcm_setkey(struct crypto_aead *aead, const u8 *key,
- 	if (!data)
- 		return -ENOMEM;
+-	init_completion(&hresult.completion);
++	crypto_init_wait(&wait);
  
--	init_completion(&data->result.completion);
-+	crypto_init_wait(&data->wait);
- 	sg_init_one(data->sg, &data->hash, sizeof(data->hash));
- 	skcipher_request_set_tfm(&data->req, ctr);
- 	skcipher_request_set_callback(&data->req, CRYPTO_TFM_REQ_MAY_SLEEP |
- 						  CRYPTO_TFM_REQ_MAY_BACKLOG,
--				      crypto_gcm_setkey_done,
--				      &data->result);
-+				      crypto_req_done,
-+				      &data->wait);
- 	skcipher_request_set_crypt(&data->req, data->sg, data->sg,
- 				   sizeof(data->hash), data->iv);
+ 	req = ahash_request_alloc(tfm, GFP_KERNEL);
+ 	if (!req)
+@@ -2072,25 +2056,13 @@ static int keyhash(struct crypto_ahash *tfm, const u8 *key, unsigned int keylen,
+ 	/* Keep tfm keylen == 0 during hash of the long key */
+ 	ctx->keylen = 0;
+ 	ahash_request_set_callback(req, CRYPTO_TFM_REQ_MAY_BACKLOG,
+-				   keyhash_complete, &hresult);
++				   crypto_req_done, &wait);
  
--	err = crypto_skcipher_encrypt(&data->req);
--	if (err == -EINPROGRESS || err == -EBUSY) {
--		wait_for_completion(&data->result.completion);
--		err = data->result.err;
+ 	sg_init_one(&sg[0], key, keylen);
+ 
+ 	ahash_request_set_crypt(req, sg, hash, keylen);
+-	ret = crypto_ahash_digest(req);
+-	switch (ret) {
+-	case 0:
+-		break;
+-	case -EINPROGRESS:
+-	case -EBUSY:
+-		ret = wait_for_completion_interruptible(
+-			&hresult.completion);
+-		if (!ret)
+-			ret = hresult.err;
+-		break;
+-	default:
+-		break;
 -	}
-+	err = crypto_wait_req(crypto_skcipher_encrypt(&data->req),
-+							&data->wait);
++	ret = crypto_wait_req(crypto_ahash_digest(req), &wait);
++
+ 	ahash_request_free(req);
  
- 	if (err)
- 		goto out;
+ 	return ret;
 -- 
 2.1.4
