@@ -1,33 +1,32 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 7/10] net/mlx4_core: Use ARRAY_SIZE macro
-Date: Tue, 05 Sep 2017 11:50:51 -0700 (PDT)
-Message-ID: <20170905.115051.353243810279371029.davem@davemloft.net>
-References: <1504439110050-939061377-0-diffsplit-thomas@m3y3r.de>
-        <1504439110050-1961876957-7-diffsplit-thomas@m3y3r.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] bridge: switchdev: Use an helper to clear
+ forward mark
+Date: Tue, 05 Sep 2017 11:51:56 -0700 (PDT)
+Message-ID: <20170905.115156.375758250405492055.davem@davemloft.net>
+References: <20170903144413.21946-1-idosch@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: thomas-VsYtu1Qij5c@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1504439110050-1961876957-7-diffsplit-thomas-VsYtu1Qij5c@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, stephen@networkplumber.org,
+        nikolay@cumulusnetworks.com, yotamg@mellanox.com,
+        bridge@lists.linux-foundation.org, mlxsw@mellanox.com
+To: idosch@mellanox.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:36906 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753324AbdIESv5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 5 Sep 2017 14:51:57 -0400
+In-Reply-To: <20170903144413.21946-1-idosch@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Meyer <thomas-VsYtu1Qij5c@public.gmane.org>
-Date: Sun, 03 Sep 2017 14:19:31 +0200
+From: Ido Schimmel <idosch@mellanox.com>
+Date: Sun,  3 Sep 2017 17:44:13 +0300
 
-> Use ARRAY_SIZE macro, rather than explicitly coding some variant of it
-> yourself.
-> Found with: find -type f -name "*.c" -o -name "*.h" | xargs perl -p -i -e
-> 's/\bsizeof\s*\(\s*(\w+)\s*\)\s*\ /\s*sizeof\s*\(\s*\1\s*\[\s*0\s*\]\s*\)
-> /ARRAY_SIZE(\1)/g' and manual check/verification.
+> Instead of using ifdef in the C file.
 > 
-> Signed-off-by: Thomas Meyer <thomas-VsYtu1Qij5c@public.gmane.org>
+> Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+> Suggested-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+> Tested-by: Yotam Gigi <yotamg@mellanox.com>
 
 Applied.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
