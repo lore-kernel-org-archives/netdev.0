@@ -1,42 +1,58 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net-next v7] openvswitch: enable NSH support
-Date: Tue, 5 Sep 2017 11:49:49 +0200
-Message-ID: <20170905114949.5849b75f@griffin>
-References: <1504096752-102003-1-git-send-email-yi.y.yang@intel.com>
-        <20170831124516.0c5db686@griffin>
-        <20170904080005.GA70767@cran64.bj.intel.com>
-        <20170904124216.6db68e8c@griffin>
-        <CFF8EF42F1132E4CBE2BF0AB6C21C58D787F4E84@ESESSMB107.ericsson.se>
-        <20170904151601.2f198a53@griffin>
-        <CFF8EF42F1132E4CBE2BF0AB6C21C58D787F4EEB@ESESSMB107.ericsson.se>
-        <20170904161303.69624386@griffin>
-        <CFF8EF42F1132E4CBE2BF0AB6C21C58D787F4F69@ESESSMB107.ericsson.se>
+From: Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>
+Subject: Re: [PATCH net-next v6 3/3] openvswitch: enable NSH
+	support
+Date: Tue, 05 Sep 2017 12:30:09 +0200
+Message-ID: <87vakxsaj2.fsf@stressinduktion.org>
+References: <1503670805-31051-1-git-send-email-yi.y.yang@intel.com>
+	<1503670805-31051-4-git-send-email-yi.y.yang@intel.com>
+	<87wp5l7560.fsf@stressinduktion.org>
+	<20170904023831.GA68062@cran64.bj.intel.com>
+	<87mv6abte5.fsf@stressinduktion.org>
+	<20170905021112.GA86057@cran64.bj.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "Yang, Yi" <yi.y.yang@intel.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "dev@openvswitch.org" <dev@openvswitch.org>,
-        "e@erig.me" <e@erig.me>, "blp@ovn.org" <blp@ovn.org>
-To: Jan Scheurich <jan.scheurich@ericsson.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:52992 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751017AbdIEJtx (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 5 Sep 2017 05:49:53 -0400
-In-Reply-To: <CFF8EF42F1132E4CBE2BF0AB6C21C58D787F4F69@ESESSMB107.ericsson.se>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, "e@erig.me" <e@erig.me>
+To: "Yang\, Yi" <yi.y.yang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20170905021112.GA86057-re2EX8HDrk21gSHoDXDV2kEOCMrvLtNR@public.gmane.org> (Yi Yang's message
+	of "Tue, 5 Sep 2017 10:11:12 +0800")
+List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
+	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
+List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
+	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 4 Sep 2017 14:45:50 +0000, Jan Scheurich wrote:
-> So what is the correct layout for MASKED_SET action with nested fields?
-> 1. All nested values, followed by all nested masks, or
-> 2. For each nested field value followed by mask?
-> 
-> I guess alternative 1, but just to be sure.
+"Yang, Yi" <yi.y.yang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org> writes:
 
-It's 2. Alternative 1 breaks netlink assumptions, is ugly to implement
-and probably impossible to be properly validated.
+> I'm not sure what new action you expect to bring here, I think group
+> action is just for this, as you said it isn't only bound to NSH, you can
+> start a new thread to discuss this. I don't think it is in scope of NSH.
 
- Jiri
+It is in scope of this discussion as you will provide a user space API
+that makes the NSH context fields accessible from user space in a
+certain way. If you commit to this, there is no way going back.
+
+I haven't yet grasped the idea on how those fields will be used in OVS
+besides load balancing. Even for load balancing the tunnel itself
+(vxlan-gpe + UDP source port or ipv6 flowlabel) already provides enough
+entropy to do per-flow load balancing. What else is needed?  Why a
+context header for that? You just need multiple action chains and pick
+one randomly.
+
+The only protocol that I can compare that to is geneve with TLVs, but
+the TLVs are global and uniquie and a property of the networking
+forwarding backplane and not a property of the path inside a tenant. So
+I expect this actually to be the first case where I think that matters.
+
+Why are context labels that special that they are not part of tun_ops?
+
+Thanks,
+Hannes
