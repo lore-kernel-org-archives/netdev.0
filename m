@@ -1,55 +1,61 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [pull request][net-next 0/3] Mellanox, mlx5 GRE tunnel offloads
-Date: Tue, 5 Sep 2017 14:13:05 -0700
-Message-ID: <CALx6S3698iBwLX3wXw8_rhHbhztLh-BAkkhn68=z=2FgbfTkZg@mail.gmail.com>
-References: <20170830230409.15176-1-saeedm@mellanox.com> <87fuc7ong0.fsf@stressinduktion.org>
- <CALzJLG-u3k11LYFXtZQKT5cvn-iJ4FehBUgkhCHT5Z7XMsMkpA@mail.gmail.com>
- <1504402349.3299394.1093467800.72B91372@webmail.messagingengine.com>
- <CALx6S34kfb5GEH9AAecsaKJ9AtjK=fP_3L=2i98kUwv_sE2s7A@mail.gmail.com>
- <CALzJLG--t8VLs1GiRRVfejenB=XgpLiJHnHC+eokQ4=kwj9hGw@mail.gmail.com>
- <CALx6S356vRYfcsN6FaRmpn2oC0GN9-JwLsF7ybC+w4sEGGsa7w@mail.gmail.com>
- <87pob6bmjv.fsf@stressinduktion.org> <CALx6S37wcp1om0Dwr1=-6jF=HkAuZj313pLJ7sVhgsyJ4yZDjg@mail.gmail.com>
- <8760cytnif.fsf@stressinduktion.org> <CALx6S34cOL4Gy9DMWnLV0iCVUYo+siMEeNNn9v5tBHr2P6yjYw@mail.gmail.com>
- <87k21ez6r9.fsf@stressinduktion.org> <CALx6S34aDER1Gzpcw+p7+yr91mjiixCh6gnawKSxy7zhVQz+6Q@mail.gmail.com>
- <87r2vls8hp.fsf@stressinduktion.org> <CALx6S345jR6UtAGju9TaPxAOMgkBG2RZ+eMWz80ix1joSmQCog@mail.gmail.com>
- <87fuc1q7en.fsf@stressinduktion.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 6/10] ixgbe: Use ARRAY_SIZE macro
+Date: Tue, 05 Sep 2017 14:22:05 -0700 (PDT)
+Message-ID: <20170905.142205.14687531780483930.davem@davemloft.net>
+References: <20170905.115044.551456011251065741.davem@davemloft.net>
+        <20170905194419.pdwrkqdad6tbq7hs@olymp>
+        <1504641678.28899.12.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Saeed Mahameed <saeedm@dev.mellanox.co.il>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Linux Netdev List <netdev@vger.kernel.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f169.google.com ([209.85.216.169]:35067 "EHLO
-        mail-qt0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752312AbdIEVNH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 5 Sep 2017 17:13:07 -0400
-Received: by mail-qt0-f169.google.com with SMTP id k2so15408627qte.2
-        for <netdev@vger.kernel.org>; Tue, 05 Sep 2017 14:13:07 -0700 (PDT)
-In-Reply-To: <87fuc1q7en.fsf@stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: thomas@m3y3r.de, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: joe@perches.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1504641678.28899.12.camel@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> The situation with encapsulation is even more complicated:
->
-> We are basically only interested in the UDP/vxlan/Ethernet/IP/UDP
-> constellation. If we do the fragmentation inside the vxlan tunnel and
-> carry over the skb hash to all resulting UDP/vxlan packets source ports,
-> we are fine and reordering on the receiver NIC won't happen in this
-> case. If the fragmentation happens on the outer UDP header, this will
-> result in reordering of the inner L2 flow. Unfortunately this depends on
-> how the vxlan tunnel was set up, how other devices do that and (I
-> believe so) on the kernel version.
->
-This really isn't that complicated. The assumption that an IP network
-always delivers packets in order is simply wrong. The inventors of
-VXLAN must have know full well that when you use IP, packets can and
-eventually will be delivered out of order. This isn't just because of
-fragmentation, there are many other reasons that packets can be
-delivered OOO. This also must have been known when IP/GRE and any
-other protocol that carries L2 over IP was invented. If OOO is an
-issue for these protocols then they need to be fixed-- this is not a
-concern with IP protocol nor the stack.
+From: Joe Perches <joe@perches.com>
+Date: Tue, 05 Sep 2017 13:01:18 -0700
 
-Tom
+> On Tue, 2017-09-05 at 21:45 +0200, Thomas Meyer wrote:
+>> On Tue, Sep 05, 2017 at 11:50:44AM -0700, David Miller wrote:
+>> > From: Thomas Meyer <thomas@m3y3r.de>
+>> > Date: Sun, 03 Sep 2017 14:19:31 +0200
+>> > 
+>> > > Use ARRAY_SIZE macro, rather than explicitly coding some variant of it
+>> > > yourself.
+>> > > Found with: find -type f -name "*.c" -o -name "*.h" | xargs perl -p -i -e
+>> > > 's/\bsizeof\s*\(\s*(\w+)\s*\)\s*\ /\s*sizeof\s*\(\s*\1\s*\[\s*0\s*\]\s*\)
+>> > > /ARRAY_SIZE(\1)/g' and manual check/verification.
+>> > > 
+>> > > Signed-off-by: Thomas Meyer <thomas@m3y3r.de>
+>> > 
+>> > This should be submitted to the Intel ethernet driver maintainers.
+>> 
+>> Hi,
+>> 
+>> my script checks the output of get_maintainer scripts and only sends to "open
+>> list" entries.
+>> 
+>> The intel-wired-lan@lists.osuosl.org is moderated, so that's why the patch
+>> wasn't send there.
+>> 
+>> Strangely the lists for nouveau@lists.freedesktop.org and
+>> intel-gvt-dev@lists.freedesktop.org appears as open lists in the MAINTAINERS
+>> file but seems to be also moderated lists... At least I got some reply that my
+>> message awaits approval. Maybe an update to the MAINTAINERS file is missing
+>> here?
+>> 
+>> I may drop above check in my script and send to all mailing lists that
+>> get_maintainer.pl will return.
+> 
+> There's a difference between moderated and subscriber-only
+> entries in MAINTAINERS.
+> 
+> get_maintainers will by default list moderated lists and
+> not show subscriber-only lists unless using the -s switch.
+
+Furthermore, nothing prevented you from CC:'ing the maintainer,
+Jeff Kirscher.
