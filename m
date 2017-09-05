@@ -1,62 +1,40 @@
-From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Subject: Re: [PATCH net] rds: Fix non-atomic operation on shared flag variable
-Date: Tue, 5 Sep 2017 09:33:04 -0700
-Message-ID: <6a4e095f-20f1-53af-a2eb-047866c1695d@oracle.com>
-References: <20170905154201.30198-1-Haakon.Bugge@oracle.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2 master 2/2] bpf: consolidate dumps to use
+ bpf_dump_prog_info
+Date: Tue, 5 Sep 2017 09:35:01 -0700
+Message-ID: <20170905093501.2f1fbbfc@xeon-e3>
+References: <cover.1504570627.git.daniel@iogearbox.net>
+        <1e96ef342a4f34ee8c8119ee8cc1ed7092ea5ced.1504570627.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        linux-rdma@vger.kernel.org, rds-devel@oss.oracle.com,
-        linux-kernel@vger.kernel.org, knut.omang@oracle.com,
-        wei.lin.guay@oracle.com
-To: =?UTF-8?Q?H=c3=a5kon_Bugge?= <Haakon.Bugge@oracle.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: ast@fb.com, netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:40346 "EHLO
-        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751863AbdIEQcb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 5 Sep 2017 12:32:31 -0400
-In-Reply-To: <20170905154201.30198-1-Haakon.Bugge@oracle.com>
-Content-Language: en-US
+Received: from mail-pg0-f47.google.com ([74.125.83.47]:38650 "EHLO
+        mail-pg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751774AbdIEQfJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 5 Sep 2017 12:35:09 -0400
+Received: by mail-pg0-f47.google.com with SMTP id v66so10267586pgb.5
+        for <netdev@vger.kernel.org>; Tue, 05 Sep 2017 09:35:09 -0700 (PDT)
+In-Reply-To: <1e96ef342a4f34ee8c8119ee8cc1ed7092ea5ced.1504570627.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 9/5/2017 8:42 AM, Håkon Bugge wrote:
-> The bits in m_flags in struct rds_message are used for a plurality of
-> reasons, and from different contexts. To avoid any missing updates to
-> m_flags, use the atomic set_bit() instead of the non-atomic equivalent.
-> 
-> Signed-off-by: Håkon Bugge <haakon.bugge@oracle.com>
-> Reviewed-by: Knut Omang <knut.omang@oracle.com>
-> Reviewed-by: Wei Lin Guay <wei.lin.guay@oracle.com>
-> ---
->   net/rds/send.c | 4 ++--
->   1 file changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/rds/send.c b/net/rds/send.c
-> index 41b9f0f..058a407 100644
-> --- a/net/rds/send.c
-> +++ b/net/rds/send.c
-> @@ -273,7 +273,7 @@ int rds_send_xmit(struct rds_conn_path *cp)
->   			len = ntohl(rm->m_inc.i_hdr.h_len);
->   			if (cp->cp_unacked_packets == 0 ||
->   			    cp->cp_unacked_bytes < len) {
-> -				__set_bit(RDS_MSG_ACK_REQUIRED, &rm->m_flags);
-> +				set_bit(RDS_MSG_ACK_REQUIRED, &rm->m_flags);
->   
->   				cp->cp_unacked_packets =
->   					rds_sysctl_max_unacked_packets;
-> @@ -829,7 +829,7 @@ static int rds_send_queue_rm(struct rds_sock *rs, struct rds_connection *conn,
->   		 * throughput hits a certain threshold.
->   		 */
->   		if (rs->rs_snd_bytes >= rds_sk_sndbuf(rs) / 2)
-> -			__set_bit(RDS_MSG_ACK_REQUIRED, &rm->m_flags);
-> +			set_bit(RDS_MSG_ACK_REQUIRED, &rm->m_flags);
->   
->   		list_add_tail(&rm->m_sock_item, &rs->rs_send_queue);
->   		set_bit(RDS_MSG_ON_SOCK, &rm->m_flags);
-> 
-Indeed, these couple of instances remained for the m_flags.
-Patch looks good. Thanks !!
+On Tue,  5 Sep 2017 02:24:32 +0200
+Daniel Borkmann <daniel@iogearbox.net> wrote:
 
-Acked-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+> Consolidate dump of prog info to use bpf_dump_prog_info() when possible.
+> Moving forward, we want to have a consistent output for BPF progs when
+> being dumped. E.g. in cls/act case we used to dump tag as a separate
+> netlink attribute before we had BPF_OBJ_GET_INFO_BY_FD bpf(2) command.
+> 
+> Move dumping tag into bpf_dump_prog_info() as well, and only dump the
+> netlink attribute for older kernels. Also, reuse bpf_dump_prog_info()
+> for XDP case, so we can dump tag and whether program was jited, which
+> we currently don't show.
+> 
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+
+I applied this to master, and resolved conflicts with net-next.
+But the dump with JSON of xdp is now incomplete.
