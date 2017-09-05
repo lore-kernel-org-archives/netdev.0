@@ -1,26 +1,43 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH iproute2 master 2/2] bpf: consolidate dumps to use bpf_dump_prog_info
-Date: Tue, 05 Sep 2017 18:37:11 +0200
-Message-ID: <59AED2B7.2010000@iogearbox.net>
-References: <cover.1504570627.git.daniel@iogearbox.net> <1e96ef342a4f34ee8c8119ee8cc1ed7092ea5ced.1504570627.git.daniel@iogearbox.net> <20170905093501.2f1fbbfc@xeon-e3>
+From: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
+Subject: Re: 915f3e3f76 ("mac80211_hwsim: Replace bogus hrtimer clockid"):
+ BUG: kernel reboot-without-warning in test stage
+Date: Tue, 5 Sep 2017 18:41:04 +0200
+Message-ID: <20170905164103.tkrhxzca4b5ulps2@breakpoint.cc>
+References: <59ade247.WzhbxWeytBOa6Xu4%fengguang.wu@intel.com>
+ <alpine.DEB.2.20.1709050910150.1900@nanos>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: ast@fb.com, netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:57420 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751774AbdIEQhP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 5 Sep 2017 12:37:15 -0400
-In-Reply-To: <20170905093501.2f1fbbfc@xeon-e3>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Cc: kernel test robot <fengguang.wu@intel.com>, LKP <lkp@01.org>,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        linux-wireless@vger.kernel.org, wfg@linux.intel.com
+To: Thomas Gleixner <tglx@linutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.DEB.2.20.1709050910150.1900@nanos>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 09/05/2017 06:35 PM, Stephen Hemminger wrote:
-[...]
-> I applied this to master, and resolved conflicts with net-next.
-> But the dump with JSON of xdp is now incomplete.
+On 2017-09-05 09:12:40 [+0200], Thomas Gleixner wrote:
+> Sorry, no. That bisect is completely bogus. The commit in question merily
+> replaces the unsupported clockid with a valid one.
 
-Ok, I will check it out, and send a follow-up to make it
-complete again.
+The bisect is correct. It just has problems to express itself properly. So
+the table says:
+
+| WARNING:at_kernel/time/hrtimer.c:#hrtimer_init  | 7   |     |    |   |                                                                                
+| BUG:kernel_reboot-without-warning_in_test_stage | 0   | 12  | 6  | 6 |                                                                                
+
+which means _before_ your commit it counted a warning in hrtimer_init()
+(an unsupported clock id was used). With your commit, the warning was
+gone and I *think* the userland then printed
+"BUG:kernel_reboot-without-warning_in_test_stage" because it had no
+warning.
+It seems that the bot learned to live with that warning which was around
+for more than three years. Now that you removed it, it seems to be a
+mistake to do so because nobody complained about it so far.
+
+> Thanks,
+> 
+> 	tglx
+
+Sebastian
