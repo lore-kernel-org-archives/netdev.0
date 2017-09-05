@@ -1,8 +1,8 @@
 Return-Path: <netdev-owner@vger.kernel.org>
-Received: from usa-sjc-mx-foss1.foss.arm.com ([217.140.101.70]:39242 "EHLO
-        foss.arm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751386AbdIEMks (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 5 Sep 2017 08:40:48 -0400
+Received: from foss.arm.com ([217.140.101.70]:39866 "EHLO foss.arm.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752182AbdIEMna (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 5 Sep 2017 08:43:30 -0400
 From: Gilad Ben-Yossef <gilad@benyossef.com>
 To: Herbert Xu <herbert@gondor.apana.org.au>,
         "David S. Miller" <davem@davemloft.net>,
@@ -33,120 +33,91 @@ To: Herbert Xu <herbert@gondor.apana.org.au>,
         linux-ima-devel@lists.sourceforge.net,
         linux-ima-user@lists.sourceforge.net,
         linux-security-module@vger.kernel.org
-Cc: Ofir Drang <ofir.drang@arm.com>,
-        Eric Biggers <ebiggers3@gmail.com>,
-        Jonathan Cameron <Jonathan.Cameron@huawei.com>
-Subject: [PATCH v8 06/20] crypto: introduce crypto wait for async op
-Date: Tue,  5 Sep 2017 15:38:45 +0300
-Message-Id: <1504615144-29770-7-git-send-email-gilad@benyossef.com>
+Cc: Ofir Drang <ofir.drang@arm.com>
+Subject: [PATCH v8 17/20] crypto: talitos: move to generic async completion
+Date: Tue,  5 Sep 2017 15:38:56 +0300
+Message-Id: <1504615144-29770-18-git-send-email-gilad@benyossef.com>
 In-Reply-To: <1504615144-29770-1-git-send-email-gilad@benyossef.com>
 References: <1504615144-29770-1-git-send-email-gilad@benyossef.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Invoking a possibly async. crypto op and waiting for completion
-while correctly handling backlog processing is a common task
-in the crypto API implementation and outside users of it.
-
-This patch adds a generic implementation for doing so in
-preparation for using it across the board instead of hand
-rolled versions.
+The talitos driver starts several async crypto ops and  waits for their
+completions. Move it over to generic code doing the same.
 
 Signed-off-by: Gilad Ben-Yossef <gilad@benyossef.com>
-CC: Eric Biggers <ebiggers3@gmail.com>
-CC: Jonathan Cameron <Jonathan.Cameron@huawei.com>
 ---
- crypto/api.c           | 13 +++++++++++++
- include/linux/crypto.h | 40 ++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 53 insertions(+)
+ drivers/crypto/talitos.c | 38 +++++---------------------------------
+ 1 file changed, 5 insertions(+), 33 deletions(-)
 
-diff --git a/crypto/api.c b/crypto/api.c
-index 941cd4c..2a2479d 100644
---- a/crypto/api.c
-+++ b/crypto/api.c
-@@ -24,6 +24,7 @@
- #include <linux/sched/signal.h>
- #include <linux/slab.h>
- #include <linux/string.h>
-+#include <linux/completion.h>
- #include "internal.h"
- 
- LIST_HEAD(crypto_alg_list);
-@@ -595,5 +596,17 @@ int crypto_has_alg(const char *name, u32 type, u32 mask)
+diff --git a/drivers/crypto/talitos.c b/drivers/crypto/talitos.c
+index 79791c6..194a307 100644
+--- a/drivers/crypto/talitos.c
++++ b/drivers/crypto/talitos.c
+@@ -2037,22 +2037,6 @@ static int ahash_import(struct ahash_request *areq, const void *in)
+ 	return 0;
  }
- EXPORT_SYMBOL_GPL(crypto_has_alg);
  
-+void crypto_req_done(struct crypto_async_request *req, int err)
-+{
-+	struct crypto_wait *wait = req->data;
-+
-+	if (err == -EINPROGRESS)
-+		return;
-+
-+	wait->err = err;
-+	complete(&wait->completion);
-+}
-+EXPORT_SYMBOL_GPL(crypto_req_done);
-+
- MODULE_DESCRIPTION("Cryptographic core API");
- MODULE_LICENSE("GPL");
-diff --git a/include/linux/crypto.h b/include/linux/crypto.h
-index 84da997..78508ca 100644
---- a/include/linux/crypto.h
-+++ b/include/linux/crypto.h
-@@ -24,6 +24,7 @@
- #include <linux/slab.h>
- #include <linux/string.h>
- #include <linux/uaccess.h>
-+#include <linux/completion.h>
+-struct keyhash_result {
+-	struct completion completion;
+-	int err;
+-};
+-
+-static void keyhash_complete(struct crypto_async_request *req, int err)
+-{
+-	struct keyhash_result *res = req->data;
+-
+-	if (err == -EINPROGRESS)
+-		return;
+-
+-	res->err = err;
+-	complete(&res->completion);
+-}
+-
+ static int keyhash(struct crypto_ahash *tfm, const u8 *key, unsigned int keylen,
+ 		   u8 *hash)
+ {
+@@ -2060,10 +2044,10 @@ static int keyhash(struct crypto_ahash *tfm, const u8 *key, unsigned int keylen,
  
- /*
-  * Autoloaded crypto modules should only use a prefixed name to avoid allowing
-@@ -468,6 +469,45 @@ struct crypto_alg {
- } CRYPTO_MINALIGN_ATTR;
+ 	struct scatterlist sg[1];
+ 	struct ahash_request *req;
+-	struct keyhash_result hresult;
++	struct crypto_wait wait;
+ 	int ret;
  
- /*
-+ * A helper struct for waiting for completion of async crypto ops
-+ */
-+struct crypto_wait {
-+	struct completion completion;
-+	int err;
-+};
+-	init_completion(&hresult.completion);
++	crypto_init_wait(&wait);
+ 
+ 	req = ahash_request_alloc(tfm, GFP_KERNEL);
+ 	if (!req)
+@@ -2072,25 +2056,13 @@ static int keyhash(struct crypto_ahash *tfm, const u8 *key, unsigned int keylen,
+ 	/* Keep tfm keylen == 0 during hash of the long key */
+ 	ctx->keylen = 0;
+ 	ahash_request_set_callback(req, CRYPTO_TFM_REQ_MAY_BACKLOG,
+-				   keyhash_complete, &hresult);
++				   crypto_req_done, &wait);
+ 
+ 	sg_init_one(&sg[0], key, keylen);
+ 
+ 	ahash_request_set_crypt(req, sg, hash, keylen);
+-	ret = crypto_ahash_digest(req);
+-	switch (ret) {
+-	case 0:
+-		break;
+-	case -EINPROGRESS:
+-	case -EBUSY:
+-		ret = wait_for_completion_interruptible(
+-			&hresult.completion);
+-		if (!ret)
+-			ret = hresult.err;
+-		break;
+-	default:
+-		break;
+-	}
++	ret = crypto_wait_req(crypto_ahash_digest(req), &wait);
 +
-+/*
-+ * Macro for declaring a crypto op async wait object on stack
-+ */
-+#define DECLARE_CRYPTO_WAIT(_wait) \
-+	struct crypto_wait _wait = { \
-+		COMPLETION_INITIALIZER_ONSTACK((_wait).completion), 0 }
-+
-+/*
-+ * Async ops completion helper functioons
-+ */
-+void crypto_req_done(struct crypto_async_request *req, int err);
-+
-+static inline int crypto_wait_req(int err, struct crypto_wait *wait)
-+{
-+	switch (err) {
-+	case -EINPROGRESS:
-+	case -EBUSY:
-+		wait_for_completion(&wait->completion);
-+		reinit_completion(&wait->completion);
-+		err = wait->err;
-+		break;
-+	};
-+
-+	return err;
-+}
-+
-+static inline void crypto_init_wait(struct crypto_wait *wait)
-+{
-+	init_completion(&wait->completion);
-+}
-+
-+/*
-  * Algorithm registration interface.
-  */
- int crypto_register_alg(struct crypto_alg *alg);
+ 	ahash_request_free(req);
+ 
+ 	return ret;
 -- 
 2.1.4
