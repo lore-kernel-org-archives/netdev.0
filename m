@@ -1,241 +1,73 @@
-From: Chenbo Feng <fengc@google.com>
-Subject: Re: [PATCH 1/3] security: bpf: Add eBPF LSM hooks to security module
-Date: Tue, 5 Sep 2017 15:24:22 -0700
-Message-ID: <CAMOXUJ=r1AEO_6Pg7-tio9UPn2YCJKOrLS=xbn7U4SE_mBYyJQ@mail.gmail.com>
-References: <20170831205635.80256-1-chenbofeng.kernel@gmail.com>
- <20170831205635.80256-2-chenbofeng.kernel@gmail.com> <1504270223.8240.2.camel@tycho.nsa.gov>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [RFC net-next] net: sch_clsact: add support for global per-netns
+ classifier mode
+Date: Tue, 5 Sep 2017 18:25:47 -0400
+Message-ID: <87ec7558-5714-845f-82d8-7fe45f4c68ec@mojatatu.com>
+References: <1504615701-20912-1-git-send-email-nikolay@cumulusnetworks.com>
+ <CAM_iQpUYGH4BQ-ZUShbRAy6aJD2fYuM+oc_kWYyQ51n+===CQw@mail.gmail.com>
+ <CAJieiUj_-o-Cg2AzN5b0vrdnBD69ryMmpu4fcC64-MHEmQ-u4g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Chenbo Feng <chenbofeng.kernel@gmail.com>,
-        linux-security-module@vger.kernel.org,
-        SELinux <Selinux@tycho.nsa.gov>, netdev@vger.kernel.org,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Lorenzo Colitti <lorenzo@google.com>
-To: Stephen Smalley <sds@tycho.nsa.gov>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <1504270223.8240.2.camel@tycho.nsa.gov>
-Sender: owner-linux-security-module@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        David Ahern <dsa@cumulusnetworks.com>,
+        Jiri Pirko <jiri@resnulli.us>
+To: Roopa Prabhu <roopa@cumulusnetworks.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-it0-f66.google.com ([209.85.214.66]:33509 "EHLO
+        mail-it0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753789AbdIEWZu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 5 Sep 2017 18:25:50 -0400
+Received: by mail-it0-f66.google.com with SMTP id f64so787076itf.0
+        for <netdev@vger.kernel.org>; Tue, 05 Sep 2017 15:25:49 -0700 (PDT)
+In-Reply-To: <CAJieiUj_-o-Cg2AzN5b0vrdnBD69ryMmpu4fcC64-MHEmQ-u4g@mail.gmail.com>
+Content-Language: en-GB
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 1, 2017 at 5:50 AM, Stephen Smalley <sds@tycho.nsa.gov> wrote:
-> On Thu, 2017-08-31 at 13:56 -0700, Chenbo Feng wrote:
->> From: Chenbo Feng <fengc@google.com>
->>
->> Introduce 5 LSM hooks to provide finer granularity controls on eBPF
->> related operations including create eBPF maps, modify and read eBPF
->> maps
->> content and load eBPF programs to the kernel. Hooks use the new
->> security
->> pointer inside the eBPF map struct to store the owner's security
->> information and the different security modules can perform different
->> checks based on the information stored inside the security field.
->>
->> Signed-off-by: Chenbo Feng <fengc@google.com>
->> ---
->>  include/linux/lsm_hooks.h | 41
->> +++++++++++++++++++++++++++++++++++++++++
->>  include/linux/security.h  | 36 ++++++++++++++++++++++++++++++++++++
->>  security/security.c       | 28 ++++++++++++++++++++++++++++
->>  3 files changed, 105 insertions(+)
->>
->> diff --git a/include/linux/lsm_hooks.h b/include/linux/lsm_hooks.h
->> index ce02f76a6188..3aaf9a08a983 100644
->> --- a/include/linux/lsm_hooks.h
->> +++ b/include/linux/lsm_hooks.h
->> @@ -1353,6 +1353,32 @@
->>   *   @inode we wish to get the security context of.
->>   *   @ctx is a pointer in which to place the allocated security
->> context.
->>   *   @ctxlen points to the place to put the length of @ctx.
->> + *
->> + * Security hooks for using the eBPF maps and programs
->> functionalities through
->> + * eBPF syscalls.
->> + *
->> + * @bpf_map_create:
->> + *   Check permissions prior to creating a new bpf map.
->> + *   Return 0 if the permission is granted.
->> + *
->> + * @bpf_map_modify:
->> + *   Check permission prior to insert, update and delete map
->> content.
->> + *   @map pointer to the struct bpf_map that contains map
->> information.
->> + *   Return 0 if the permission is granted.
->> + *
->> + * @bpf_map_read:
->> + *   Check permission prior to read a bpf map content.
->> + *   @map pointer to the struct bpf_map that contains map
->> information.
->> + *   Return 0 if the permission is granted.
->> + *
->> + * @bpf_prog_load:
->> + *   Check permission prior to load eBPF program.
->> + *   Return 0 if the permission is granted.
->> + *
->> + * @bpf_post_create:
->> + *   Initialize the bpf object security field inside struct
->> bpf_maps and
->> + *   it is used for future security checks.
->> + *
->>   */
->>  union security_list_options {
->>       int (*binder_set_context_mgr)(struct task_struct *mgr);
->> @@ -1685,6 +1711,14 @@ union security_list_options {
->>                               struct audit_context *actx);
->>       void (*audit_rule_free)(void *lsmrule);
->>  #endif /* CONFIG_AUDIT */
->> +
->> +#ifdef CONFIG_BPF_SYSCALL
->> +     int (*bpf_map_create)(void);
->> +     int (*bpf_map_read)(struct bpf_map *map);
->> +     int (*bpf_map_modify)(struct bpf_map *map);
->> +     int (*bpf_prog_load)(void);
->> +     int (*bpf_post_create)(struct bpf_map *map);
->> +#endif /* CONFIG_BPF_SYSCALL */
->>  };
->>
->>  struct security_hook_heads {
->> @@ -1905,6 +1939,13 @@ struct security_hook_heads {
->>       struct list_head audit_rule_match;
->>       struct list_head audit_rule_free;
->>  #endif /* CONFIG_AUDIT */
->> +#ifdef CONFIG_BPF_SYSCALL
->> +     struct list_head bpf_map_create;
->> +     struct list_head bpf_map_read;
->> +     struct list_head bpf_map_modify;
->> +     struct list_head bpf_prog_load;
->> +     struct list_head bpf_post_create;
->> +#endif /* CONFIG_BPF_SYSCALL */
->>  } __randomize_layout;
->>
->>  /*
->> diff --git a/include/linux/security.h b/include/linux/security.h
->> index 458e24bea2d4..0656a4f74d14 100644
->> --- a/include/linux/security.h
->> +++ b/include/linux/security.h
->> @@ -31,6 +31,7 @@
->>  #include <linux/string.h>
->>  #include <linux/mm.h>
->>  #include <linux/fs.h>
->> +#include <linux/bpf.h>
->>
->>  struct linux_binprm;
->>  struct cred;
->> @@ -1735,6 +1736,41 @@ static inline void securityfs_remove(struct
->> dentry *dentry)
->>
->>  #endif
->>
->> +#ifdef CONFIG_BPF_SYSCALL
->> +#ifdef CONFIG_SECURITY
->> +int security_map_create(void);
->> +int security_map_modify(struct bpf_map *map);
->> +int security_map_read(struct bpf_map *map);
->> +int security_prog_load(void);
->> +int security_post_create(struct bpf_map *map);
->> +#else
->> +static inline int security_map_create(void)
->> +{
->> +     return 0;
->> +}
->> +
->> +static inline int security_map_read(struct bpf_map *map)
->> +{
->> +     return 0;
->> +}
->> +
->> +static inline int security_map_modify(struct bpf_map *map)
->> +{
->> +     return 0;
->> +}
->> +
->> +static inline int security_prog_load(void)
->> +{
->> +     return 0;
->> +}
->> +
->> +static inline int security_post_create(struct bpf_map *map)
->> +{
->> +     return 0;
->> +}
->> +#endif /* CONFIG_SECURITY */
->> +#endif /* CONFIG_BPF_SYSCALL */
->
-> These should be named consistently with the ones in lsm_hooks.h and
-> should unambiguously indicate that these are hooks for bpf
-> objects/operations, i.e. security_bpf_map_create(),
-> security_bpf_map_read(), etc.
->
-Thanks for pointing out, will fix this.
-> Do you need this level of granularity?
->
-The cover letter of this patch series described a possible use cases of
-these lsm hooks and this level of granularity would be ideal to reach that
-goal. We can also implement two hooks such as bpf_obj_create and
-bpf_obj_use to restrict the creation and using when get the bpf fd from
-kernel. But that will be less powerful and flexible.
-> Could you coalesce the map_create() and post_map_create() hooks into
-> one hook and just unwind the create in that case?
->
-Okay, I will take a look on how to fix this.
-> Why do you label bpf maps but not bpf progs?  Should we be controlling
-> the ability to attach/detach a bpf prog (partly controlled by
-> CAP_NET_ADMIN, but also somewhat broad in scope and doesn't allow
-> control based on who created the prog)?
->
-> Should there be a top-level security_bpf_use() hook and permission
-> check that limits ability to use bpf() at all?
->
-This could be useful but having additional lsm hooks check when reading
-and write to eBPF maps may cause performance issue. Instead maybe we
-could have a hook for creating eBPF object and retrieve object fd to restrict
-the access.
->> +
->>  #ifdef CONFIG_SECURITY
->>
->>  static inline char *alloc_secdata(void)
->> diff --git a/security/security.c b/security/security.c
->> index 55b5997e4b72..02272f93a89e 100644
->> --- a/security/security.c
->> +++ b/security/security.c
->> @@ -12,6 +12,7 @@
->>   *   (at your option) any later version.
->>   */
->>
->> +#include <linux/bpf.h>
->>  #include <linux/capability.h>
->>  #include <linux/dcache.h>
->>  #include <linux/module.h>
->> @@ -1708,3 +1709,30 @@ int security_audit_rule_match(u32 secid, u32
->> field, u32 op, void *lsmrule,
->>                               actx);
->>  }
->>  #endif /* CONFIG_AUDIT */
->> +
->> +#ifdef CONFIG_BPF_SYSCALL
->> +int security_map_create(void)
->> +{
->> +     return call_int_hook(bpf_map_create, 0);
->> +}
->> +
->> +int security_map_modify(struct bpf_map *map)
->> +{
->> +     return call_int_hook(bpf_map_modify, 0, map);
->> +}
->> +
->> +int security_map_read(struct bpf_map *map)
->> +{
->> +     return call_int_hook(bpf_map_read, 0, map);
->> +}
->> +
->> +int security_prog_load(void)
->> +{
->> +     return call_int_hook(bpf_prog_load, 0);
->> +}
->> +
->> +int security_post_create(struct bpf_map *map)
->> +{
->> +     return call_int_hook(bpf_post_create, 0, map);
->> +}
->> +#endif /* CONFIG_BPF_SYSCALL */
+On 17-09-05 06:01 PM, Roopa Prabhu wrote:
+
+> 
+> yes, like Nikolay says we have been discussing this as well. Nikolay's
+> patch is a cleaver and most importantly non-invasive
+> way today given the anchor point for tc rules is a netdev. we have
+> also considered a separate implicit tc anchor device.
+>   lo seemed like a good fit for all global rules given it is already
+> available. And it is not uncommon to hang off global
+> network config on the loopback interface.
+> 
+
+IMO, Jiri has done all the necessary work already with the concept of
+blocks. We dont really need the netdev to be the attachment point.
+
+You can add to a block in many locations in the kernel by
+constructing the proper "coordinates" in the tcmsg.
+i.e this:
+   tcmsg {
+         unsigned char   tcm_family;
+         unsigned char   tcm__pad1;
+         unsigned short  tcm__pad2;
+         int             tcm_ifindex;
+         __u32           tcm_handle;
+         __u32           tcm_parent;
+}
+
+If you were to set tcm_ifindex to -1 (since that is not a legit
+ifindex) then all we need to do is define a parent for a
+different location. Current locations tied to netdevs are:
+-----
+#define TC_H_ROOT       (0xFFFFFFFFU)
+#define TC_H_INGRESS    (0xFFFFFFF1U)
+#define TC_H_CLSACT     TC_H_INGRESS
+
+#define TC_H_MIN_INGRESS        0xFFF2U
+#define TC_H_MIN_EGRESS         0xFFF3U
+-----
+
+You should be able to say add a location which maps to a pre-routing
+or post-routing etc; and this would work as well...
+
+cheers,
+jamal
