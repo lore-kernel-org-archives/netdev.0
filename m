@@ -1,65 +1,62 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2/master] tc actions: store and dump correct
- length of user cookies
-Date: Tue, 5 Sep 2017 09:27:52 -0700
-Message-ID: <20170905092752.6d0e9d4e@xeon-e3>
-References: <1504609584-20026-1-git-send-email-simon.horman@netronome.com>
+From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+Subject: Re: [PATCH net] rds: Fix non-atomic operation on shared flag variable
+Date: Tue, 5 Sep 2017 09:33:04 -0700
+Message-ID: <6a4e095f-20f1-53af-a2eb-047866c1695d@oracle.com>
+References: <20170905154201.30198-1-Haakon.Bugge@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, oss-drivers@netronome.com,
-        Jamal Hadi Salim <jhs@mojatatu.com>
-To: Simon Horman <simon.horman@netronome.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        linux-rdma@vger.kernel.org, rds-devel@oss.oracle.com,
+        linux-kernel@vger.kernel.org, knut.omang@oracle.com,
+        wei.lin.guay@oracle.com
+To: =?UTF-8?Q?H=c3=a5kon_Bugge?= <Haakon.Bugge@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f49.google.com ([74.125.83.49]:33352 "EHLO
-        mail-pg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751896AbdIEQ1z (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 5 Sep 2017 12:27:55 -0400
-Received: by mail-pg0-f49.google.com with SMTP id t3so10400188pgt.0
-        for <netdev@vger.kernel.org>; Tue, 05 Sep 2017 09:27:55 -0700 (PDT)
-In-Reply-To: <1504609584-20026-1-git-send-email-simon.horman@netronome.com>
+Received: from userp1040.oracle.com ([156.151.31.81]:40346 "EHLO
+        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751863AbdIEQcb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 5 Sep 2017 12:32:31 -0400
+In-Reply-To: <20170905154201.30198-1-Haakon.Bugge@oracle.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue,  5 Sep 2017 13:06:24 +0200
-Simon Horman <simon.horman@netronome.com> wrote:
+On 9/5/2017 8:42 AM, Håkon Bugge wrote:
+> The bits in m_flags in struct rds_message are used for a plurality of
+> reasons, and from different contexts. To avoid any missing updates to
+> m_flags, use the atomic set_bit() instead of the non-atomic equivalent.
+> 
+> Signed-off-by: Håkon Bugge <haakon.bugge@oracle.com>
+> Reviewed-by: Knut Omang <knut.omang@oracle.com>
+> Reviewed-by: Wei Lin Guay <wei.lin.guay@oracle.com>
+> ---
+>   net/rds/send.c | 4 ++--
+>   1 file changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/rds/send.c b/net/rds/send.c
+> index 41b9f0f..058a407 100644
+> --- a/net/rds/send.c
+> +++ b/net/rds/send.c
+> @@ -273,7 +273,7 @@ int rds_send_xmit(struct rds_conn_path *cp)
+>   			len = ntohl(rm->m_inc.i_hdr.h_len);
+>   			if (cp->cp_unacked_packets == 0 ||
+>   			    cp->cp_unacked_bytes < len) {
+> -				__set_bit(RDS_MSG_ACK_REQUIRED, &rm->m_flags);
+> +				set_bit(RDS_MSG_ACK_REQUIRED, &rm->m_flags);
+>   
+>   				cp->cp_unacked_packets =
+>   					rds_sysctl_max_unacked_packets;
+> @@ -829,7 +829,7 @@ static int rds_send_queue_rm(struct rds_sock *rs, struct rds_connection *conn,
+>   		 * throughput hits a certain threshold.
+>   		 */
+>   		if (rs->rs_snd_bytes >= rds_sk_sndbuf(rs) / 2)
+> -			__set_bit(RDS_MSG_ACK_REQUIRED, &rm->m_flags);
+> +			set_bit(RDS_MSG_ACK_REQUIRED, &rm->m_flags);
+>   
+>   		list_add_tail(&rm->m_sock_item, &rs->rs_send_queue);
+>   		set_bit(RDS_MSG_ON_SOCK, &rm->m_flags);
+> 
+Indeed, these couple of instances remained for the m_flags.
+Patch looks good. Thanks !!
 
-> Correct two errors which cancel each other out:
-> * Do not send twice the length of the actual provided by the user to the kernel
-> * Do not dump half the length of the cookie provided by the kernel
-> 
-> As the cookie is now stored in the kernel at its correct length rather
-> than double the that length cookies of up to the maximum size of 16 bytes
-> may now be stored rather than a maximum of half that length.
-> 
-> Output of dump is the same before and after this change,
-> but the data stored in the kernel is now exactly the cookie
-> rather than the cookie + as many trailing zeros.
-> 
-> Before:
->  # tc filter add dev eth0 protocol ip parent ffff: \
->        flower ip_proto udp action drop \
->        cookie 0123456789abcdef0123456789abcdef
->  RTNETLINK answers: Invalid argument
-> 
-> After:
->  # tc filter add dev eth0 protocol ip parent ffff: \
->        flower ip_proto udp action drop \
->        cookie 0123456789abcdef0123456789abcdef
->  # tc filter show dev eth0 ingress
->    eth_type ipv4
->    ip_proto udp
->    not_in_hw
-> 	 action order 1: gact action drop
-> 	  random type none pass val 0
-> 	  index 1 ref 1 bind 1 installed 1 sec used 1 sec
-> 	 Action statistics:
-> 	 Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-> 	 backlog 0b 0p requeues 0
-> 	 cookie len 16 0123456789abcdef0123456789abcdef
-> 
-> Fixes: fd8b3d2c1b9b ("actions: Add support for user cookies")
-> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-> Signed-off-by: Simon Horman <simon.horman@netronome.com>
-
-Applied thanks
+Acked-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
