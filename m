@@ -1,73 +1,59 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: VLAN/bridge "compression" in wifi (was: Re: [PATCH 3/8] qtnfmac:
- implement AP_VLAN iftype support)
-Date: Tue, 05 Sep 2017 16:20:33 +0200
-Message-ID: <1504621233.12380.21.camel@sipsolutions.net>
-References: <20170620195517.18373-1-sergey.matyukevich.os@quantenna.com>
-         <20170620195517.18373-4-sergey.matyukevich.os@quantenna.com>
-         (sfid-20170620_215603_912928_26F5E0B9) <1504619151.12380.16.camel@sipsolutions.net>
-         (sfid-20170905_154707_931614_625FC941)
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [RFC net-next] net: sch_clsact: add support for global per-netns
+ classifier mode
+Date: Tue, 5 Sep 2017 16:23:30 +0200
+Message-ID: <20170905142330.GC7936@nanopsycho>
+References: <1504615701-20912-1-git-send-email-nikolay@cumulusnetworks.com>
+ <20170905140750.GB7936@nanopsycho>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Igor Mitsyanko <igor.mitsyanko.os-P/7pdk10T0iB+jHODAdFcQ@public.gmane.org>,
-        Avinash Patil <avinashp-P/7pdk10T0iB+jHODAdFcQ@public.gmane.org>
-To: Sergey Matyukevich <sergey.matyukevich.os-P/7pdk10T0iB+jHODAdFcQ@public.gmane.org>,
-        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1504619151.12380.16.camel-cdvu00un1VgdHxzADdlk8Q@public.gmane.org> (sfid-20170905_154707_931614_625FC941)
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+        dsa@cumulusnetworks.com, xiyou.wangcong@gmail.com, jhs@mojatatu.com
+To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f46.google.com ([74.125.82.46]:35545 "EHLO
+        mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751845AbdIEOXd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 5 Sep 2017 10:23:33 -0400
+Received: by mail-wm0-f46.google.com with SMTP id f199so49438wme.0
+        for <netdev@vger.kernel.org>; Tue, 05 Sep 2017 07:23:32 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20170905140750.GB7936@nanopsycho>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-+netdev
+Tue, Sep 05, 2017 at 04:07:51PM CEST, jiri@resnulli.us wrote:
+>Tue, Sep 05, 2017 at 02:48:21PM CEST, nikolay@cumulusnetworks.com wrote:
+>>Hi all,
+>>This RFC adds a new mode for clsact which designates a device's egress
+>>classifier as global per netns. The packets that are not classified for
+>>a particular device will be classified using the global classifier.
+>>We have needed a global classifier for some time now for various
+>>purposes and setting the single bridge or loopback/vrf device as the
+>>global classifier device is acceptable for us. Doing it this way avoids
+>>the act/cls device and queue dependencies.
+>>
+>>This is strictly an RFC patch just to show the intent, if we agree on
+>>the details the proposed patch will have support for both ingress and
+>>egress, and will be using a static key to avoid the fast path test when no
+>>global classifier has been configured.
+>>
+>>Example (need a modified tc that adds TCA_OPTIONS when using q_clsact):
+>>$ tc qdisc add dev lo clsact global
+>>$ tc filter add dev lo egress protocol ip u32 match ip dst 4.3.2.1/32 action drop
+>>
+>>the last filter will be global for all devices that don't have a
+>>specific egress_cl_list (i.e. have clsact configured).
+>>
+>>Any comments and thoughts would be greatly appreciated.
 
-On Tue, 2017-09-05 at 15:45 +0200, Johannes Berg wrote:
-> 
-> In a way this feature seems mis-designed - you never have 802.1Q tags
-> over the air, but you're inserting them on RX and stripping them on
-> TX, probably in order to make bridging to ethernet easier and not
-> have to have 802.1Q acceleration on the ethernet port, or - well - in
-> order to have an ability to do this with an ethernet card that only
-> has a single CPU port.
-
-Ok this isn't really right either - it's only for saving the 802.1Q
-acceleration on the Ethernet port, really - and saving the extra
-bridges.
-
-To clarify, I think what you - conceptually - want is the following
-topology:
-
-        +--- eth0.1  ---  br.1  ---  wlan0.1
-        |
-eth0 ---+--- eth0.2  ---  br.2  ---  wlan0.2
-        | 
-        +--- eth0.3  ---  br.3  ---  wlan0.3
-
-where eth0.N is just "ip link add link eth0 name eth0.N type vlan id N"
-and br.N is obviously a bridge for each, and the wlan0.N are AP_VLAN
-type interfaces that isolate the clients against each other as far as
-wifi is concerned.
-
-Is this correct? As far as I understand, that's the baseline topology
-that you're trying to achieve, expressed in terms of Linux networking.
-
-Now, you seem to want to compress this to
-
-                  +---  wlan0.1
-                  |
-eth0  ---  br  ---+---  wlan0.2
-                  |
-                  +---  wlan0.3
-
-and have the 802.1Q tag insertion/removal that's normally configured to
-happen in eth0.N already be handled in wlan0.N.
-
-Also correct?
+For the record, I think this "global" thing is a hack similar to
+cls_u32 shared hashlists.
 
 
-We clearly don't have APIs for this, and I don't think it makes sense
-in the Linux space - the bridge and wlan0.N suddenly have tagged
-traffic rather than untagged, and the VLAN tagging is completely hidden
-from the management view.
-
-johannes
+>
+>Did you see my shared blocks work? I believe that it should resolve your
+>usecase, in a generic way. You just have to bind the devices you need to
+>the shared block. Please see the RFC:
+>
+>https://www.spinics.net/lists/netdev/msg444067.html
