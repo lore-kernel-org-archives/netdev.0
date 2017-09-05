@@ -1,40 +1,48 @@
-From: "Yang, Yi" <yi.y.yang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net-next v7] openvswitch: enable NSH support
-Date: Tue, 5 Sep 2017 14:37:05 +0800
-Message-ID: <20170905063705.GA89551@cran64.bj.intel.com>
-References: <1504096752-102003-1-git-send-email-yi.y.yang@intel.com>
-	<20170831124516.0c5db686@griffin>
-	<20170904080005.GA70767@cran64.bj.intel.com>
-	<20170904124216.6db68e8c@griffin>
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: Re: 915f3e3f76 ("mac80211_hwsim: Replace bogus hrtimer clockid"):
+ BUG: kernel reboot-without-warning in test stage
+Date: Tue, 5 Sep 2017 09:12:40 +0200 (CEST)
+Message-ID: <alpine.DEB.2.20.1709050910150.1900@nanos>
+References: <59ade247.WzhbxWeytBOa6Xu4%fengguang.wu@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "e@erig.me" <e@erig.me>,
-	"davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20170904124216.6db68e8c@griffin>
-List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
-List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Cc: LKP <lkp@01.org>, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+        wfg@linux.intel.com
+To: kernel test robot <fengguang.wu@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Galois.linutronix.de ([146.0.238.70]:43981 "EHLO
+        Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751721AbdIEHNB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 5 Sep 2017 03:13:01 -0400
+In-Reply-To: <59ade247.WzhbxWeytBOa6Xu4%fengguang.wu@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 04, 2017 at 06:42:16PM +0800, Jiri Benc wrote:
-> On Mon, 4 Sep 2017 16:00:05 +0800, Yang, Yi wrote:
-> > how can we know next push_nsh uses the same nsh header as previous
-> > one?
+On Tue, 5 Sep 2017, kernel test robot wrote:
+
+> Greetings,
 > 
-> We store the prepopulated header together with the action.
->
+> 0day kernel testing robot got the below dmesg and the first bad commit is
+> 
+> https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git master
+> 
+> commit 915f3e3f76c05b2da93c4cc278eebc2d9219d9f4
+> Author:     Thomas Gleixner <tglx@linutronix.de>
+> AuthorDate: Sat Feb 25 11:27:37 2017 +0100
+> Commit:     Linus Torvalds <torvalds@linux-foundation.org>
+> CommitDate: Sat Feb 25 09:48:16 2017 -0800
+> 
+>     mac80211_hwsim: Replace bogus hrtimer clockid
+>     
+>     mac80211_hwsim initializes a hrtimer with clockid CLOCK_MONOTONIC_RAW.
+>     That's not supported.
+>     
+>     Use CLOCK_MONOTNIC instead.
 
-I checked source code but can't find where we can prepopulate it and how
-we can deliver the prepopulated header to push_nsh, can you expand it in
-order that I can know how to do this in code level?
+Sorry, no. That bisect is completely bogus. The commit in question merily
+replaces the unsupported clockid with a valid one.
+
+Thanks,
+
+	tglx
