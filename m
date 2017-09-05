@@ -1,32 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bridge: switchdev: Use an helper to clear
- forward mark
-Date: Tue, 05 Sep 2017 11:51:56 -0700 (PDT)
-Message-ID: <20170905.115156.375758250405492055.davem@davemloft.net>
-References: <20170903144413.21946-1-idosch@mellanox.com>
+Subject: Re: [PATCH net-next v2 RESEND 0/4] net: dsa: Allow switch drivers
+ to indicate number of TX queues
+Date: Tue, 05 Sep 2017 11:53:50 -0700 (PDT)
+Message-ID: <20170905.115350.1831561116655584584.davem@davemloft.net>
+References: <20170904032703.4593-1-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stephen@networkplumber.org,
-        nikolay@cumulusnetworks.com, yotamg@mellanox.com,
-        bridge@lists.linux-foundation.org, mlxsw@mellanox.com
-To: idosch@mellanox.com
+Cc: netdev@vger.kernel.org, andrew@lunn.ch,
+        vivien.didelot@savoirfairelinux.com
+To: f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:36906 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:36928 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753324AbdIESv5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 5 Sep 2017 14:51:57 -0400
-In-Reply-To: <20170903144413.21946-1-idosch@mellanox.com>
+        with ESMTP id S1752011AbdIESxv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 5 Sep 2017 14:53:51 -0400
+In-Reply-To: <20170904032703.4593-1-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ido Schimmel <idosch@mellanox.com>
-Date: Sun,  3 Sep 2017 17:44:13 +0300
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Sun,  3 Sep 2017 20:26:59 -0700
 
-> Instead of using ifdef in the C file.
+> This patch series extracts the parts of the patch set that are likely not to be
+> controversial and actually bringing multi-queue support to DSA-created network
+> devices.
 > 
-> Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-> Suggested-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-> Tested-by: Yotam Gigi <yotamg@mellanox.com>
+> With these patches, we can now use sch_multiq as documented under
+> Documentation/networking/multique.txt and let applications dedice the switch
+> port output queue they want to use. Currently only Broadcom tags utilize that
+> information.
+> 
+> Resending based on David's feedback regarding the patches not in patchwork.
+> 
+> Changes in v2:
+> - use a proper define for the number of TX queues in bcm_sf2.c (Andrew)
+> 
+> Changes from RFC:
+> 
+> - dropped the ability to configure RX queues since we don't do anything with
+>   those just yet
+> - dropped the patches that dealt with binding the DSA slave network devices
+>   queues with their master network devices queues this will be worked on
+>   separately.
 
-Applied.
+Series applied, thanks.
