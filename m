@@ -1,59 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] radix-tree: must check __radix_tree_preload() return
- value
-Date: Tue, 05 Sep 2017 11:34:35 -0700
-Message-ID: <1504636475.15310.60.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1504634367.15310.59.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CA+55aFwNK39yB_wbwKSkk4VfLSxALzeZHT6dShpT1zZdpmeq1Q@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next 0/2] flow_dissector: Flow dissector fixes
+Date: Tue, 05 Sep 2017 11:45:04 -0700 (PDT)
+Message-ID: <20170905.114504.207582830119826554.davem@davemloft.net>
+References: <20170901210412.2915-1-tom@quantonium.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Matthew Wilcox <willy@infradead.org>,
-        Matthew Wilcox <mawilcox@microsoft.com>,
-        "Kirill A. Shutemov" <kirill.shutemov@linux.intel.com>,
-        Andrew Morton <akpm@linux-foundation.org>,
-        netdev <netdev@vger.kernel.org>,
-        linux-kernel <linux-kernel@vger.kernel.org>
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+55aFwNK39yB_wbwKSkk4VfLSxALzeZHT6dShpT1zZdpmeq1Q@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, hannes@stressinduktion.org,
+        alex.popov@linux.com
+To: tom@quantonium.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:36802 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752129AbdIESpH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 5 Sep 2017 14:45:07 -0400
+In-Reply-To: <20170901210412.2915-1-tom@quantonium.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2017-09-05 at 11:07 -0700, Linus Torvalds wrote:
-> On Tue, Sep 5, 2017 at 10:59 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > @@ -2104,7 +2104,10 @@ EXPORT_SYMBOL(radix_tree_tagged);
-> >   */
-> >  void idr_preload(gfp_t gfp_mask)
-> >  {
-> > -       __radix_tree_preload(gfp_mask, IDR_PRELOAD_SIZE);
-> > +       int ret = __radix_tree_preload(gfp_mask, IDR_PRELOAD_SIZE);
-> > +
-> > +       if (ret)
-> > +               preempt_disable();
-> >  }
-> >  EXPORT_SYMBOL(idr_preload);
-> 
-> Is there a reason for the "ret" variable that is entirely mis-named,
-> since it's never actually used as a return value?
-> 
-> (Sure. it's the return value of a function, but that is entirely
-> useless and pointless information, and adds no value. We should name
-> variables by the data they contain or how they are used, not by "it
-> was the return value of a function").
-> 
-> In other words, why isn't this just
-> 
->         if (__radix_tree_preload(..))
->                 preempt_disable();
-> 
-> which is shorter and clearer and not confusing?
+From: Tom Herbert <tom@quantonium.net>
+Date: Fri,  1 Sep 2017 14:04:10 -0700
 
-
-...
-
-> Same issue, but this time strengthened by an additional "why doesn't
-> this just use that idr_preload function then?" question..
+> This patch set fixes some basic issues with __skb_flow_dissect function.
 > 
+> Items addressed:
+>   - Cleanup control flow in the function; in particular eliminate a
+>     bunch of goto's and implement a simplified control flow model
+>   - Add limits for number of encapsulations and headers that can be
+>     dissected
+> 
+> v2:
+>   - Simplify the logic for limits on flow dissection. Just set the
+>     limit based on the number of headers the flow dissector can
+>     processes. The accounted headers includes encapsulation headers,
+>     extension headers, or other shim headers.
+> 
+> Tested:
+> 
+> Ran normal traffic, GUE, and VXLAN traffic.
 
-Yep, I will send a v2, thanks.
+Applied, thanks Tom.
