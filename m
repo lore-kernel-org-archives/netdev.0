@@ -1,66 +1,44 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [PATCH] radix-tree: must check __radix_tree_preload() return value
-Date: Tue, 5 Sep 2017 11:07:37 -0700
-Message-ID: <CA+55aFwNK39yB_wbwKSkk4VfLSxALzeZHT6dShpT1zZdpmeq1Q@mail.gmail.com>
-References: <1504634367.15310.59.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH 1/2] b43: fix unitialized reads of ret by initializing the array to zero
+Date: Tue,  5 Sep 2017 19:15:50 +0100
+Message-ID: <20170905181550.23839-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Matthew Wilcox <willy@infradead.org>,
-        Matthew Wilcox <mawilcox@microsoft.com>,
-        "Kirill A. Shutemov" <kirill.shutemov@linux.intel.com>,
-        Andrew Morton <akpm@linux-foundation.org>,
-        netdev <netdev@vger.kernel.org>,
-        linux-kernel <linux-kernel@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Kalle Valo <kvalo@codeaurora.org>, linux-wireless@vger.kernel.org,
+        b43-dev@lists.infradead.org, netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1504634367.15310.59.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 5, 2017 at 10:59 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> @@ -2104,7 +2104,10 @@ EXPORT_SYMBOL(radix_tree_tagged);
->   */
->  void idr_preload(gfp_t gfp_mask)
->  {
-> -       __radix_tree_preload(gfp_mask, IDR_PRELOAD_SIZE);
-> +       int ret = __radix_tree_preload(gfp_mask, IDR_PRELOAD_SIZE);
-> +
-> +       if (ret)
-> +               preempt_disable();
->  }
->  EXPORT_SYMBOL(idr_preload);
+From: Colin Ian King <colin.king@canonical.com>
 
-Is there a reason for the "ret" variable that is entirely mis-named,
-since it's never actually used as a return value?
+The u8 char array ret is not being initialized and elements outside
+the range start to end contain just garbage values from the stack.
+This results in a later scan of the array to read potentially
+uninitialized values.  Fix this by initializing the array to zero.
+This seems to have been an issue since the very first commit.
 
-(Sure. it's the return value of a function, but that is entirely
-useless and pointless information, and adds no value. We should name
-variables by the data they contain or how they are used, not by "it
-was the return value of a function").
+Detected by CoverityScan CID#139652 ("Uninitialized scalar variable")
 
-In other words, why isn't this just
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ drivers/net/wireless/broadcom/b43/phy_g.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-        if (__radix_tree_preload(..))
-                preempt_disable();
-
-which is shorter and clearer and not confusing?
-
-> @@ -2118,13 +2121,14 @@ EXPORT_SYMBOL(idr_preload);
->   */
->  int ida_pre_get(struct ida *ida, gfp_t gfp)
->  {
-> -       __radix_tree_preload(gfp, IDA_PRELOAD_SIZE);
-> +       int ret = __radix_tree_preload(gfp, IDA_PRELOAD_SIZE);
->         /*
->          * The IDA API has no preload_end() equivalent.  Instead,
->          * ida_get_new() can return -EAGAIN, prompting the caller
->          * to return to the ida_pre_get() step.
->          */
-> -       preempt_enable();
-> +       if (!ret)
-> +               preempt_enable();
-
-Same issue, but this time strengthened by an additional "why doesn't
-this just use that idr_preload function then?" question..
-
-               Linus
+diff --git a/drivers/net/wireless/broadcom/b43/phy_g.c b/drivers/net/wireless/broadcom/b43/phy_g.c
+index 822dcaa8ace6..f59c02166462 100644
+--- a/drivers/net/wireless/broadcom/b43/phy_g.c
++++ b/drivers/net/wireless/broadcom/b43/phy_g.c
+@@ -2297,7 +2297,7 @@ static u8 b43_gphy_aci_detect(struct b43_wldev *dev, u8 channel)
+ static u8 b43_gphy_aci_scan(struct b43_wldev *dev)
+ {
+ 	struct b43_phy *phy = &dev->phy;
+-	u8 ret[13];
++	u8 ret[13] = { 0 };
+ 	unsigned int channel = phy->channel;
+ 	unsigned int i, j, start, end;
+ 
+-- 
+2.14.1
