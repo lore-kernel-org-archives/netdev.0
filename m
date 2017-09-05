@@ -1,49 +1,58 @@
-From: Thomas Meyer <thomas@m3y3r.de>
-Subject: Re: [PATCH 6/10] ixgbe: Use ARRAY_SIZE macro
-Date: Tue, 5 Sep 2017 21:45:09 +0200
-Message-ID: <20170905194419.pdwrkqdad6tbq7hs@olymp>
-References: <1504439110050-939061377-0-diffsplit-thomas@m3y3r.de>
- <1504439110050-1907815276-6-diffsplit-thomas@m3y3r.de>
- <20170905.115044.551456011251065741.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170905.115044.551456011251065741.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Zahari Doychev <zahari.doychev@linux.com>
+Subject: [PATCH][next v2] rocker: fix kcalloc parameter order
+Date: Tue,  5 Sep 2017 21:49:58 +0200
+Message-ID: <20170905194958.3436-1-zahari.doychev@linux.com>
+Cc: Zahari Doychev <zahari.doychev@linux.com>
+To: jiri@resnulli.us, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:33011 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752186AbdIETuK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 5 Sep 2017 15:50:10 -0400
+Received: by mail-wm0-f67.google.com with SMTP id 187so3753532wmn.0
+        for <netdev@vger.kernel.org>; Tue, 05 Sep 2017 12:50:09 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 05, 2017 at 11:50:44AM -0700, David Miller wrote:
-> From: Thomas Meyer <thomas@m3y3r.de>
-> Date: Sun, 03 Sep 2017 14:19:31 +0200
-> 
-> > Use ARRAY_SIZE macro, rather than explicitly coding some variant of it
-> > yourself.
-> > Found with: find -type f -name "*.c" -o -name "*.h" | xargs perl -p -i -e
-> > 's/\bsizeof\s*\(\s*(\w+)\s*\)\s*\ /\s*sizeof\s*\(\s*\1\s*\[\s*0\s*\]\s*\)
-> > /ARRAY_SIZE(\1)/g' and manual check/verification.
-> > 
-> > Signed-off-by: Thomas Meyer <thomas@m3y3r.de>
-> 
-> This should be submitted to the Intel ethernet driver maintainers.
-Hi,
+The function calls to kcalloc use wrong parameter order and incorrect flags
+values. GFP_KERNEL is used instead of flags now and the order is corrected.
 
-my script checks the output of get_maintainer scripts and only sends to "open
-list" entries.
+The change was done using the following coccinelle script:
 
-The intel-wired-lan@lists.osuosl.org is moderated, so that's why the patch
-wasn't send there.
+@@
+expression E1,E2;
+type T;
+@@
 
-Strangely the lists for nouveau@lists.freedesktop.org and
-intel-gvt-dev@lists.freedesktop.org appears as open lists in the MAINTAINERS
-file but seems to be also moderated lists... At least I got some reply that my
-message awaits approval. Maybe an update to the MAINTAINERS file is missing
-here?
+-kcalloc(E1, E2, sizeof(T))
++kcalloc(E2, sizeof(T), GFP_KERNEL)
 
-I may drop above check in my script and send to all mailing lists that
-get_maintainer.pl will return.
+Signed-off-by: Zahari Doychev <zahari.doychev@linux.com>
+---
+ drivers/net/ethernet/rocker/rocker_ofdpa.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-> 
-> Thank you.
+diff --git a/drivers/net/ethernet/rocker/rocker_ofdpa.c b/drivers/net/ethernet/rocker/rocker_ofdpa.c
+index da4e26b53a52..0653b70723a3 100644
+--- a/drivers/net/ethernet/rocker/rocker_ofdpa.c
++++ b/drivers/net/ethernet/rocker/rocker_ofdpa.c
+@@ -1177,7 +1177,7 @@ static int ofdpa_group_l2_fan_out(struct ofdpa_port *ofdpa_port,
+ 	entry->group_id = group_id;
+ 	entry->group_count = group_count;
+ 
+-	entry->group_ids = kcalloc(flags, group_count, sizeof(u32));
++	entry->group_ids = kcalloc(group_count, sizeof(u32), GFP_KERNEL);
+ 	if (!entry->group_ids) {
+ 		kfree(entry);
+ 		return -ENOMEM;
+@@ -1456,7 +1456,7 @@ static int ofdpa_port_vlan_flood_group(struct ofdpa_port *ofdpa_port,
+ 	int err = 0;
+ 	int i;
+ 
+-	group_ids = kcalloc(flags, port_count, sizeof(u32));
++	group_ids = kcalloc(port_count, sizeof(u32), GFP_KERNEL);
+ 	if (!group_ids)
+ 		return -ENOMEM;
+ 
+-- 
+2.13.0
