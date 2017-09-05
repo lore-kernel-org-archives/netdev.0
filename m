@@ -1,58 +1,50 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [pull request][net-next 0/3] Mellanox, mlx5 GRE tunnel offloads
-Date: Tue, 05 Sep 2017 13:14:10 +0200
-Message-ID: <87r2vls8hp.fsf@stressinduktion.org>
-References: <20170830230409.15176-1-saeedm@mellanox.com>
-        <87fuc7ong0.fsf@stressinduktion.org>
-        <CALzJLG-u3k11LYFXtZQKT5cvn-iJ4FehBUgkhCHT5Z7XMsMkpA@mail.gmail.com>
-        <1504402349.3299394.1093467800.72B91372@webmail.messagingengine.com>
-        <CALx6S34kfb5GEH9AAecsaKJ9AtjK=fP_3L=2i98kUwv_sE2s7A@mail.gmail.com>
-        <CALzJLG--t8VLs1GiRRVfejenB=XgpLiJHnHC+eokQ4=kwj9hGw@mail.gmail.com>
-        <CALx6S356vRYfcsN6FaRmpn2oC0GN9-JwLsF7ybC+w4sEGGsa7w@mail.gmail.com>
-        <87pob6bmjv.fsf@stressinduktion.org>
-        <CALx6S37wcp1om0Dwr1=-6jF=HkAuZj313pLJ7sVhgsyJ4yZDjg@mail.gmail.com>
-        <8760cytnif.fsf@stressinduktion.org>
-        <CALx6S34cOL4Gy9DMWnLV0iCVUYo+siMEeNNn9v5tBHr2P6yjYw@mail.gmail.com>
-        <87k21ez6r9.fsf@stressinduktion.org>
-        <CALx6S34aDER1Gzpcw+p7+yr91mjiixCh6gnawKSxy7zhVQz+6Q@mail.gmail.com>
+From: "Yang, Yi" <yi.y.yang@intel.com>
+Subject: Re: [PATCH net-next v7] openvswitch: enable NSH support
+Date: Tue, 5 Sep 2017 19:03:11 +0800
+Message-ID: <20170905110310.GB92895@cran64.bj.intel.com>
+References: <1504096752-102003-1-git-send-email-yi.y.yang@intel.com>
+ <20170831124516.0c5db686@griffin>
+ <20170904080005.GA70767@cran64.bj.intel.com>
+ <20170904124216.6db68e8c@griffin>
+ <20170904120907.GA75461@cran64.bj.intel.com>
+ <20170904145744.4d8b7fd5@griffin>
+ <20170905055144.GA88800@cran64.bj.intel.com>
+ <20170905114645.33bf0e32@griffin>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Saeed Mahameed <saeedm@dev.mellanox.co.il>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Linux Netdev List <netdev@vger.kernel.org>
-To: Tom Herbert <tom@herbertland.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "dev@openvswitch.org" <dev@openvswitch.org>,
+        "e@erig.me" <e@erig.me>, "blp@ovn.org" <blp@ovn.org>,
+        "jan.scheurich@ericsson.com" <jan.scheurich@ericsson.com>
+To: Jiri Benc <jbenc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:56071 "EHLO
-        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750755AbdIELON (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 5 Sep 2017 07:14:13 -0400
-In-Reply-To: <CALx6S34aDER1Gzpcw+p7+yr91mjiixCh6gnawKSxy7zhVQz+6Q@mail.gmail.com>
-        (Tom Herbert's message of "Mon, 4 Sep 2017 11:56:00 -0700")
+Received: from mga02.intel.com ([134.134.136.20]:34421 "EHLO mga02.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750755AbdIELSD (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 5 Sep 2017 07:18:03 -0400
+Content-Disposition: inline
+In-Reply-To: <20170905114645.33bf0e32@griffin>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tom Herbert <tom@herbertland.com> writes:
-
-> There is absolutely no requirement in IP that packets are delivered in
-> order-- there never has been and there never will be! If the ULP, like
-> Ethernet encapsulation, requires in order deliver then it needs to
-> implement that itself like TCP, GRE, and other protocols ensure that
-> with sequence numbers and reassembly. All of these hoops we do make
-> sure that packets always follow the same path and are always in order
-> are done for benefit of middlebox devices like stateful firewalls that
-> have force us to adopt their concept of network architecture-- in the
-> long run this is self-defeating and kills our ability to innovate.
+On Tue, Sep 05, 2017 at 11:46:45AM +0200, Jiri Benc wrote:
+> On Tue, 5 Sep 2017 13:51:45 +0800, Yang, Yi wrote:
+> > But if we follow your way, how does nla_for_each_nested handle such
+> > pattern?
+> > 
+> > attribute1
+> > attribute1_mask
+> > attribute2
+> > attribute2_mask
+> > attribute3
+> > attribute3_mask
+> 
+> Uh? That will just work. Note that nla len contains the size of the
+> whole attribute, i.e. includes both fields.
+> 
+> > I don't think this can increase performance and readability.
 >
-> I'm not saying that we shouldn't consider legacy devices, but we
-> should scrutinize new development or solutions that perpetuate
-> incorrect design or bad assumptions.
 
-So configure RSS per port and ensure no fragments are send to those
-ports. This is possible and rather easy to do. It solves the problem
-with legacy software and it spreads out packets for your applications.
-
-It is not perfect but it is working and solves both problems.
-
-Bye,
-Hannes
+I got the point, actually value and mask are data of one attribute, so
+they are three attributes but not six. 
