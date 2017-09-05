@@ -1,65 +1,73 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] net: sched: don't use GFP_KERNEL under spin lock
-Date: Tue, 05 Sep 2017 07:10:21 -0700
-Message-ID: <1504620621.15310.39.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20170905105442.30972-1-jakub.kicinski@netronome.com>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: VLAN/bridge "compression" in wifi (was: Re: [PATCH 3/8] qtnfmac:
+ implement AP_VLAN iftype support)
+Date: Tue, 05 Sep 2017 16:20:33 +0200
+Message-ID: <1504621233.12380.21.camel@sipsolutions.net>
+References: <20170620195517.18373-1-sergey.matyukevich.os@quantenna.com>
+         <20170620195517.18373-4-sergey.matyukevich.os@quantenna.com>
+         (sfid-20170620_215603_912928_26F5E0B9) <1504619151.12380.16.camel@sipsolutions.net>
+         (sfid-20170905_154707_931614_625FC941)
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jiri@resnulli.us,
-        Chris Mi <chrism@mellanox.com>, xiyou.wangcong@gmail.com,
-        jhs@mojatatu.com, oss-drivers@netronome.com
-To: Jakub Kicinski <jakub.kicinski@netronome.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:34014 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751348AbdIEOKX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 5 Sep 2017 10:10:23 -0400
-Received: by mail-pg0-f65.google.com with SMTP id v82so1412576pgb.1
-        for <netdev@vger.kernel.org>; Tue, 05 Sep 2017 07:10:23 -0700 (PDT)
-In-Reply-To: <20170905105442.30972-1-jakub.kicinski@netronome.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Igor Mitsyanko <igor.mitsyanko.os-P/7pdk10T0iB+jHODAdFcQ@public.gmane.org>,
+        Avinash Patil <avinashp-P/7pdk10T0iB+jHODAdFcQ@public.gmane.org>
+To: Sergey Matyukevich <sergey.matyukevich.os-P/7pdk10T0iB+jHODAdFcQ@public.gmane.org>,
+        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1504619151.12380.16.camel-cdvu00un1VgdHxzADdlk8Q@public.gmane.org> (sfid-20170905_154707_931614_625FC941)
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2017-09-05 at 03:54 -0700, Jakub Kicinski wrote:
-> The new TC IDR code uses GFP_KERNEL under spinlocks.  Which leads
-> to:
++netdev
 
-> ...
+On Tue, 2017-09-05 at 15:45 +0200, Johannes Berg wrote:
 > 
-> Fixes: 65a206c01e8e ("net/sched: Change act_api and act_xxx modules to use IDR")
-> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
-> Reviewed-by: Simon Horman <simon.horman@netronome.com>
-> ---
->  net/sched/act_api.c | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/sched/act_api.c b/net/sched/act_api.c
-> index 0eb545bcb247..a48e4b45722d 100644
-> --- a/net/sched/act_api.c
-> +++ b/net/sched/act_api.c
-> @@ -298,7 +298,7 @@ int tcf_idr_create(struct tc_action_net *tn, u32 index, struct nlattr *est,
->  	if (!index) {
+> In a way this feature seems mis-designed - you never have 802.1Q tags
+> over the air, but you're inserting them on RX and stripping them on
+> TX, probably in order to make bridging to ethernet easier and not
+> have to have 802.1Q acceleration on the ethernet port, or - well - in
+> order to have an ability to do this with an ethernet card that only
+> has a single CPU port.
+
+Ok this isn't really right either - it's only for saving the 802.1Q
+acceleration on the Ethernet port, really - and saving the extra
+bridges.
+
+To clarify, I think what you - conceptually - want is the following
+topology:
+
+        +--- eth0.1  ---  br.1  ---  wlan0.1
+        |
+eth0 ---+--- eth0.2  ---  br.2  ---  wlan0.2
+        | 
+        +--- eth0.3  ---  br.3  ---  wlan0.3
+
+where eth0.N is just "ip link add link eth0 name eth0.N type vlan id N"
+and br.N is obviously a bridge for each, and the wlan0.N are AP_VLAN
+type interfaces that isolate the clients against each other as far as
+wifi is concerned.
+
+Is this correct? As far as I understand, that's the baseline topology
+that you're trying to achieve, expressed in terms of Linux networking.
+
+Now, you seem to want to compress this to
+
+                  +---  wlan0.1
+                  |
+eth0  ---  br  ---+---  wlan0.2
+                  |
+                  +---  wlan0.3
+
+and have the 802.1Q tag insertion/removal that's normally configured to
+happen in eth0.N already be handled in wlan0.N.
+
+Also correct?
 
 
-		idr_preload(GFP_KERNEL);
+We clearly don't have APIs for this, and I don't think it makes sense
+in the Linux space - the bridge and wlan0.N suddenly have tagged
+traffic rather than untagged, and the VLAN tagging is completely hidden
+from the management view.
 
->  		spin_lock_bh(&idrinfo->lock);
->  		err = idr_alloc_ext(idr, NULL, &idr_index, 1, 0,
-> -				    GFP_KERNEL);
-> +				    GFP_ATOMIC);
->  		spin_unlock_bh(&idrinfo->lock);
->  		if (err) {
->  err3:
-> @@ -309,7 +309,7 @@ int tcf_idr_create(struct tc_action_net *tn, u32 index, struct nlattr *est,
->  	} else {
-
-		idr_preload(GFP_KERNEL);
-
->  		spin_lock_bh(&idrinfo->lock);
->  		err = idr_alloc_ext(idr, NULL, NULL, index, index + 1,
-> -				    GFP_KERNEL);
-> +				    GFP_ATOMIC);
->  		spin_unlock_bh(&idrinfo->lock);
->  		if (err)
->  			goto err3;
+johannes
