@@ -1,35 +1,38 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net] rds: Fix non-atomic operation on shared flag
- variable
-Date: Tue, 05 Sep 2017 14:50:00 -0700 (PDT)
-Message-ID: <20170905.145000.2066751800287170482.davem@davemloft.net>
-References: <20170905154201.30198-1-Haakon.Bugge@oracle.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH][next v2] rocker: fix kcalloc parameter order
+Date: Tue, 05 Sep 2017 14:57:40 -0700 (PDT)
+Message-ID: <20170905.145740.1996370074892542800.davem@davemloft.net>
+References: <20170905194958.3436-1-zahari.doychev@linux.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
-Cc: santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, knut.omang-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org,
-        wei.lin.guay-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org
-To: Haakon.Bugge-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170905154201.30198-1-Haakon.Bugge-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jiri@resnulli.us, netdev@vger.kernel.org
+To: zahari.doychev@linux.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:40060 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752819AbdIEV5l (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 5 Sep 2017 17:57:41 -0400
+In-Reply-To: <20170905194958.3436-1-zahari.doychev@linux.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Håkon Bugge <Haakon.Bugge-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Date: Tue,  5 Sep 2017 17:42:01 +0200
+From: Zahari Doychev <zahari.doychev@linux.com>
+Date: Tue,  5 Sep 2017 21:49:58 +0200
 
-> The bits in m_flags in struct rds_message are used for a plurality of
-> reasons, and from different contexts. To avoid any missing updates to
-> m_flags, use the atomic set_bit() instead of the non-atomic equivalent.
+> The function calls to kcalloc use wrong parameter order and incorrect flags
+> values. GFP_KERNEL is used instead of flags now and the order is corrected.
 > 
-> Signed-off-by: Håkon Bugge <haakon.bugge-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-> Reviewed-by: Knut Omang <knut.omang-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-> Reviewed-by: Wei Lin Guay <wei.lin.guay-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+> The change was done using the following coccinelle script:
+> 
+> @@
+> expression E1,E2;
+> type T;
+> @@
+> 
+> -kcalloc(E1, E2, sizeof(T))
+> +kcalloc(E2, sizeof(T), GFP_KERNEL)
+> 
+> Signed-off-by: Zahari Doychev <zahari.doychev@linux.com>
 
-Applied.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied, thank you.
