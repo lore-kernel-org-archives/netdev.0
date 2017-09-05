@@ -1,57 +1,46 @@
-From: Iyappan Subramanian <isubramanian@apm.com>
-Subject: [PATCH 2/3] drivers: net: xgene: Configure tx/rx delay for ACPI
-Date: Tue,  5 Sep 2017 11:16:31 -0700
-Message-ID: <1504635392-19089-3-git-send-email-isubramanian@apm.com>
-References: <1504635392-19089-1-git-send-email-isubramanian@apm.com>
-Cc: linux-arm-kernel@lists.infradead.org, dnelson@redhat.com,
-        patches@apm.com, Quan Nguyen <qnguyen@apm.com>,
-        Iyappan Subramanian <isubramanian@apm.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f45.google.com ([74.125.83.45]:37014 "EHLO
-        mail-pg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752681AbdIESQw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 5 Sep 2017 14:16:52 -0400
-Received: by mail-pg0-f45.google.com with SMTP id d8so10797959pgt.4
-        for <netdev@vger.kernel.org>; Tue, 05 Sep 2017 11:16:51 -0700 (PDT)
-In-Reply-To: <1504635392-19089-1-git-send-email-isubramanian@apm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH 2/2] b43legacy: fix unitialized reads of ret by initializing the array to zero
+Date: Tue,  5 Sep 2017 19:16:58 +0100
+Message-ID: <20170905181658.23893-1-colin.king@canonical.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Larry Finger <Larry.Finger@lwfinger.net>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        linux-wireless@vger.kernel.org, b43-dev@lists.infradead.org,
+        netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Quan Nguyen <qnguyen@apm.com>
+From: Colin Ian King <colin.king@canonical.com>
 
-This patch fixes configuring tx/rx delay values for ACPI.
+The u8 char array ret is not being initialized and elements outside
+the range start to end contain just garbage values from the stack.
+This results in a later scan of the array to read potentially
+uninitialized values.  Fix this by initializing the array to zero.
+This seems to have been an issue since the very first commit.
 
-Signed-off-by: Quan Nguyen <qnguyen@apm.com>
-Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
+Detected by CoverityScan CID#139653 ("Uninitialized scalar variable")
+
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
 ---
- drivers/net/ethernet/apm/xgene/xgene_enet_hw.c | 7 ++-----
- 1 file changed, 2 insertions(+), 5 deletions(-)
+ drivers/net/wireless/broadcom/b43legacy/radio.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
-index e45b587..3188f55 100644
---- a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
-+++ b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
-@@ -468,7 +468,6 @@ static void xgene_enet_configure_clock(struct xgene_enet_pdata *pdata)
- 
- static void xgene_gmac_set_speed(struct xgene_enet_pdata *pdata)
+diff --git a/drivers/net/wireless/broadcom/b43legacy/radio.c b/drivers/net/wireless/broadcom/b43legacy/radio.c
+index 9501420340a9..eab1c9387846 100644
+--- a/drivers/net/wireless/broadcom/b43legacy/radio.c
++++ b/drivers/net/wireless/broadcom/b43legacy/radio.c
+@@ -280,7 +280,7 @@ u8 b43legacy_radio_aci_detect(struct b43legacy_wldev *dev, u8 channel)
+ u8 b43legacy_radio_aci_scan(struct b43legacy_wldev *dev)
  {
--	struct device *dev = &pdata->pdev->dev;
- 	u32 icm0, icm2, mc2;
- 	u32 intf_ctl, rgmii, value;
- 
-@@ -500,10 +499,8 @@ static void xgene_gmac_set_speed(struct xgene_enet_pdata *pdata)
- 		intf_ctl |= ENET_GHD_MODE;
- 		CFG_MACMODE_SET(&icm0, 2);
- 		CFG_WAITASYNCRD_SET(&icm2, 0);
--		if (dev->of_node) {
--			CFG_TXCLK_MUXSEL0_SET(&rgmii, pdata->tx_delay);
--			CFG_RXCLK_MUXSEL0_SET(&rgmii, pdata->rx_delay);
--		}
-+		CFG_TXCLK_MUXSEL0_SET(&rgmii, pdata->tx_delay);
-+		CFG_RXCLK_MUXSEL0_SET(&rgmii, pdata->rx_delay);
- 		rgmii |= CFG_SPEED_1250;
- 
- 		xgene_enet_rd_csr(pdata, DEBUG_REG_ADDR, &value);
+ 	struct b43legacy_phy *phy = &dev->phy;
+-	u8 ret[13];
++	u8 ret[13] = { 0 };
+ 	unsigned int channel = phy->channel;
+ 	unsigned int i;
+ 	unsigned int j;
 -- 
-2.7.4
+2.14.1
