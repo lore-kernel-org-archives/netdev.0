@@ -1,106 +1,90 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] bpf: fix numa_node validation
-Date: Mon, 04 Sep 2017 22:41:02 -0700
-Message-ID: <1504590062.15310.36.camel@edumazet-glaptop3.roam.corp.google.com>
+From: "Yang, Yi" <yi.y.yang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net-next v7] openvswitch: enable NSH support
+Date: Tue, 5 Sep 2017 13:51:45 +0800
+Message-ID: <20170905055144.GA88800@cran64.bj.intel.com>
+References: <1504096752-102003-1-git-send-email-yi.y.yang@intel.com>
+	<20170831124516.0c5db686@griffin>
+	<20170904080005.GA70767@cran64.bj.intel.com>
+	<20170904124216.6db68e8c@griffin>
+	<20170904120907.GA75461@cran64.bj.intel.com>
+	<20170904145744.4d8b7fd5@griffin>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Martin KaFai Lau <kafai@fb.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Alexei Starovoitov <ast@fb.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f196.google.com ([209.85.223.196]:34515 "EHLO
-        mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750969AbdIEFlG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 5 Sep 2017 01:41:06 -0400
-Received: by mail-io0-f196.google.com with SMTP id b142so516562ioe.1
-        for <netdev@vger.kernel.org>; Mon, 04 Sep 2017 22:41:05 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "e@erig.me" <e@erig.me>,
+	"davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20170904145744.4d8b7fd5@griffin>
+List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
+	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
+List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
+	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+On Mon, Sep 04, 2017 at 08:57:44PM +0800, Jiri Benc wrote:
+> On Mon, 4 Sep 2017 20:09:07 +0800, Yang, Yi wrote:
+> > So we must do many changes if we want to break this assumption.
+> 
+> We may do as many changes as we want to. This is uAPI we're talking
+> about and we need to get it right since the beginning. Sure, it may
+> mean that some user space programs need some changes in order to make
+> use of the new features. That happens every day.
+> 
+> I also don't understand where's the problem. It's very easy to check
+> for NLA_F_NESTED and generically act based on that in the function you
+> quoted. Just call a different function than format_odp_key_attr to
+> handle ovs_nsh_key_attr attributes in case the nested flag is set and
+> the attribute is OVS_KEY_ATTR_NSH and you're done. You'll need such
+> function anyway, it's not much different code size wise to call it from
+> format_odp_key_attr or from format_odp_action.
 
-syzkaller reported crashes in bpf map creation or map update [1]
+But if we follow your way, how does nla_for_each_nested handle such
+pattern?
 
-Problem is that nr_node_ids is a signed integer,
-NUMA_NO_NODE is also an integer, so it is very tempting
-to declare numa_node as a signed integer.
+attribute1
+attribute1_mask
+attribute2
+attribute2_mask
+attribute3
+attribute3_mask
 
-This means the typical test to validate a user provided value :
+I don't think this can increase performance and readability.
 
-        if (numa_node != NUMA_NO_NODE &&
-            (numa_node >= nr_node_ids ||
-             !node_online(numa_node)))
+In current way, we just call nla_for_each_nested twice
 
-must be written :
+one is for
 
-        if (numa_node != NUMA_NO_NODE &&
-            ((unsigned int)numa_node >= nr_node_ids ||
-             !node_online(numa_node)))
+attribute1
+attribute2
+attribute3
 
+another is for
 
-[1]
-kernel BUG at mm/slab.c:3256!
-invalid opcode: 0000 [#1] SMP KASAN
-Dumping ftrace buffer:
-   (ftrace buffer empty)
-Modules linked in:
-CPU: 0 PID: 2946 Comm: syzkaller916108 Not tainted 4.13.0-rc7+ #35
-Hardware name: Google Google Compute Engine/Google Compute Engine, BIOS Google 01/01/2011
-task: ffff8801d2bc60c0 task.stack: ffff8801c0c90000
-RIP: 0010:____cache_alloc_node+0x1d4/0x1e0 mm/slab.c:3292
-RSP: 0018:ffff8801c0c97638 EFLAGS: 00010096
-RAX: ffffffffffff8b7b RBX: 0000000001080220 RCX: 0000000000000000
-RDX: 00000000ffff8b7b RSI: 0000000001080220 RDI: ffff8801dac00040
-RBP: ffff8801c0c976c0 R08: 0000000000000000 R09: 0000000000000000
-R10: ffff8801c0c97620 R11: 0000000000000001 R12: ffff8801dac00040
-R13: ffff8801dac00040 R14: 0000000000000000 R15: 00000000ffff8b7b
-FS:  0000000002119940(0000) GS:ffff8801db200000(0000) knlGS:0000000000000000
-CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-CR2: 0000000020001fec CR3: 00000001d2980000 CR4: 00000000001406f0
-Call Trace:
- __do_kmalloc_node mm/slab.c:3688 [inline]
- __kmalloc_node+0x33/0x70 mm/slab.c:3696
- kmalloc_node include/linux/slab.h:535 [inline]
- alloc_htab_elem+0x2a8/0x480 kernel/bpf/hashtab.c:740
- htab_map_update_elem+0x740/0xb80 kernel/bpf/hashtab.c:820
- map_update_elem kernel/bpf/syscall.c:587 [inline]
- SYSC_bpf kernel/bpf/syscall.c:1468 [inline]
- SyS_bpf+0x20c5/0x4c40 kernel/bpf/syscall.c:1443
- entry_SYSCALL_64_fastpath+0x1f/0xbe
-RIP: 0033:0x440409
-RSP: 002b:00007ffd1f1792b8 EFLAGS: 00000246 ORIG_RAX: 0000000000000141
-RAX: ffffffffffffffda RBX: 00000000004002c8 RCX: 0000000000440409
-RDX: 0000000000000020 RSI: 0000000020006000 RDI: 0000000000000002
-RBP: 0000000000000086 R08: 0000000000000000 R09: 0000000000000000
-R10: 0000000000000000 R11: 0000000000000246 R12: 0000000000401d70
-R13: 0000000000401e00 R14: 0000000000000000 R15: 0000000000000000
-Code: 83 c2 01 89 50 18 4c 03 70 08 e8 38 f4 ff ff 4d 85 f6 0f 85 3e ff ff ff 44 89 fe 4c 89 ef e8 94 fb ff ff 49 89 c6 e9 2b ff ff ff <0f> 0b 0f 0b 0f 0b 66 0f 1f 44 00 00 55 48 89 e5 41 57 41 56 41 
-RIP: ____cache_alloc_node+0x1d4/0x1e0 mm/slab.c:3292 RSP: ffff8801c0c97638
----[ end trace d745f355da2e33ce ]---
-Kernel panic - not syncing: Fatal exception
+attribute1_mask
+attribute2_mask
+attribute3_mask
 
-Fixes: 96eabe7a40aa ("bpf: Allow selecting numa node during map creation")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Martin KaFai Lau <kafai@fb.com>
-Cc: Alexei Starovoitov <ast@fb.com>
-Cc: Daniel Borkmann <daniel@iogearbox.net>
----
- kernel/bpf/syscall.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+if we use one function to handle both attributes and masks, I can't
+see any substantial difference between two ways as far as the
+performance is concerned.
 
-diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-index 021a05d9d80095303bdfed51ee85bd9067582774..70ad8e220343c7825c8e331f19c1f65c78fdb796 100644
---- a/kernel/bpf/syscall.c
-+++ b/kernel/bpf/syscall.c
-@@ -323,7 +323,8 @@ static int map_create(union bpf_attr *attr)
- 		return -EINVAL;
- 
- 	if (numa_node != NUMA_NO_NODE &&
--	    (numa_node >= nr_node_ids || !node_online(numa_node)))
-+	    ((unsigned int)numa_node >= nr_node_ids ||
-+	     !node_online(numa_node)))
- 		return -EINVAL;
- 
- 	/* find map type and init map: hashtable vs rbtree vs bloom vs ... */
+So my proposal is we needn't introduce special handling case for
+OVS_KEY_ATTR_NSH in OVS_ACTION_ATTR_SET_MASKED, that will open Pandora's
+box.
+
+If we consider OVS_KEY_ATTR_NSH as a big attribute, current way is
+precisely following current design pattern
+
+attribute
+mask
+
+> 
+>  Jiri
