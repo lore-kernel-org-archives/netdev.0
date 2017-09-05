@@ -1,102 +1,161 @@
-From: Gilad Ben-Yossef <gilad@benyossef.com>
-Subject: [PATCH v8 03/20] net: use -EAGAIN for transient busy indication
-Date: Tue,  5 Sep 2017 15:38:42 +0300
-Message-ID: <1504615144-29770-4-git-send-email-gilad__49712.9912059338$1504615773$gmane$org@benyossef.com>
-References: <1504615144-29770-1-git-send-email-gilad@benyossef.com>
-Cc: Ofir Drang <ofir.drang@arm.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>,
-        "David S. Miller" <davem@davemloft.net>,
-        Jonathan Corbet <corbet@lwn.net>,
-        David Howells <dhowells@redhat.com>,
-        Tom Lendacky <thomas.lendacky@amd.com>,
-        Gary Hook <gary.hook@amd.com>,
-        Boris Brezillon <boris.brezillon@free-electrons.com>,
-        Arnaud Ebalard <arno@natisbad.org>,
-        Matthias Brugger <matthias.bgg@gmail.com>,
-        Alasdair Kergon <agk@redhat.com>,
-        Mike Snitzer <snitzer@redhat.com>, dm-devel@redhat.com,
-        Shaohua Li <shli@kernel.org>, Steve French <sfrench@samba.org>,
-        "Theodore Y. Ts'o" <tytso@mit.edu>,
-        Jaegeuk Kim <jaegeuk@kernel.org>,
-        Steffen Klassert <steffen.klassert@secunet.com>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Mimi Zohar <zohar@linux.vnet.ibm.com>,
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net] net: sched: don't use GFP_KERNEL under spin lock
+Date: Tue, 5 Sep 2017 14:52:21 +0200
+Message-ID: <20170905125221.GA7936@nanopsycho>
+References: <20170905105442.30972-1-jakub.kicinski@netronome.com>
+ <20170905115948.2fd38785@cakuba.netronome.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, oss-drivers@netronome.com
+To: Jakub Kicinski <kubakici@wp.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from usa-sjc-mx-foss1.foss.arm.com ([217.140.101.70]:39050 "EHLO
-        foss.arm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751671AbdIEMkF (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 5 Sep 2017 08:40:05 -0400
-In-Reply-To: <1504615144-29770-1-git-send-email-gilad@benyossef.com>
+Received: from mail-wr0-f194.google.com ([209.85.128.194]:34381 "EHLO
+        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751002AbdIEMwZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 5 Sep 2017 08:52:25 -0400
+Received: by mail-wr0-f194.google.com with SMTP id n33so1453690wrn.1
+        for <netdev@vger.kernel.org>; Tue, 05 Sep 2017 05:52:24 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20170905115948.2fd38785@cakuba.netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Replace -EBUSY with -EAGAIN when handling transient busy
-indication in the absence of backlog.
+Tue, Sep 05, 2017 at 12:59:48PM CEST, kubakici@wp.pl wrote:
+>Jiri, FWIW I also just noticed these, but they seem related to the
+>earlier TC chain work?
 
-Signed-off-by: Gilad Ben-Yossef <gilad@benyossef.com>
+What do you do to trigger this?
 
----
-
-Please squash this patch with the previous one when merging upstream.
----
- net/ipv4/ah4.c  | 2 +-
- net/ipv4/esp4.c | 2 +-
- net/ipv6/ah6.c  | 2 +-
- net/ipv6/esp6.c | 2 +-
- 4 files changed, 4 insertions(+), 4 deletions(-)
-
-diff --git a/net/ipv4/ah4.c b/net/ipv4/ah4.c
-index 37db44f..049cb0a 100644
---- a/net/ipv4/ah4.c
-+++ b/net/ipv4/ah4.c
-@@ -240,7 +240,7 @@ static int ah_output(struct xfrm_state *x, struct sk_buff *skb)
- 		if (err == -EINPROGRESS)
- 			goto out;
- 
--		if (err == -EBUSY)
-+		if (err == -EAGAIN)
- 			err = NET_XMIT_DROP;
- 		goto out_free;
- 	}
-diff --git a/net/ipv4/esp4.c b/net/ipv4/esp4.c
-index b00e4a4..ff8e088 100644
---- a/net/ipv4/esp4.c
-+++ b/net/ipv4/esp4.c
-@@ -432,7 +432,7 @@ int esp_output_tail(struct xfrm_state *x, struct sk_buff *skb, struct esp_info *
- 	case -EINPROGRESS:
- 		goto error;
- 
--	case -EBUSY:
-+	case -EAGAIN:
- 		err = NET_XMIT_DROP;
- 		break;
- 
-diff --git a/net/ipv6/ah6.c b/net/ipv6/ah6.c
-index 7802b72..ba0c145 100644
---- a/net/ipv6/ah6.c
-+++ b/net/ipv6/ah6.c
-@@ -443,7 +443,7 @@ static int ah6_output(struct xfrm_state *x, struct sk_buff *skb)
- 		if (err == -EINPROGRESS)
- 			goto out;
- 
--		if (err == -EBUSY)
-+		if (err == -EAGAIN)
- 			err = NET_XMIT_DROP;
- 		goto out_free;
- 	}
-diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
-index 89910e2..1a71ee5 100644
---- a/net/ipv6/esp6.c
-+++ b/net/ipv6/esp6.c
-@@ -396,7 +396,7 @@ int esp6_output_tail(struct xfrm_state *x, struct sk_buff *skb, struct esp_info
- 	case -EINPROGRESS:
- 		goto error;
- 
--	case -EBUSY:
-+	case -EAGAIN:
- 		err = NET_XMIT_DROP;
- 		break;
- 
--- 
-2.1.4
+>
+>unreferenced object 0xffff8807466f70c8 (size 64):
+>  comm "tc", pid 1812, jiffies 4294932641 (age 1537.192s)
+>  hex dump (first 32 bytes):
+>    00 00 00 00 00 00 00 00 a0 83 e1 31 07 88 ff ff  ...........1....
+>    d8 70 6f 46 07 88 ff ff d8 70 6f 46 07 88 ff ff  .poF.....poF....
+>  backtrace:
+>    [<ffffffffaa6b0118>] kmemleak_alloc+0x28/0x50
+>    [<ffffffffa89a89b6>] kmem_cache_alloc_trace+0x1e6/0x550
+>    [<ffffffffaa102827>] tcf_chain_create+0x97/0x460
+>    [<ffffffffaa102f67>] tcf_block_get+0x127/0x230
+>    [<ffffffffc03e8546>] ingress_init+0x76/0x110 [sch_ingress]
+>    [<ffffffffaa0fbb1c>] qdisc_create+0x2ec/0x1100
+>    [<ffffffffaa0fce1a>] tc_modify_qdisc+0x4ea/0x1ae0
+>    [<ffffffffaa0355dc>] rtnetlink_rcv_msg+0xa3c/0x1400
+>    [<ffffffffaa12e3cb>] netlink_rcv_skb+0x22b/0x4e0
+>    [<ffffffffaa024b55>] rtnetlink_rcv+0x15/0x20
+>    [<ffffffffaa12bddd>] netlink_unicast+0x47d/0x710
+>    [<ffffffffaa12caef>] netlink_sendmsg+0xa7f/0x1140
+>    [<ffffffffa9f15c52>] sock_sendmsg+0xe2/0x170
+>    [<ffffffffa9f188bd>] ___sys_sendmsg+0x72d/0xcc0
+>    [<ffffffffa9f1bfa2>] __sys_sendmsg+0xe2/0x260
+>    [<ffffffffa9f1c132>] SyS_sendmsg+0x12/0x20
+>unreferenced object 0xffff88074db6c008 (size 64):
+>  comm "tc", pid 2097, jiffies 4294953636 (age 1453.212s)
+>  hex dump (first 32 bytes):
+>    00 00 00 00 00 00 00 00 60 a6 d1 31 07 88 ff ff  ........`..1....
+>    18 c0 b6 4d 07 88 ff ff 18 c0 b6 4d 07 88 ff ff  ...M.......M....
+>  backtrace:
+>    [<ffffffffaa6b0118>] kmemleak_alloc+0x28/0x50
+>    [<ffffffffa89a89b6>] kmem_cache_alloc_trace+0x1e6/0x550
+>    [<ffffffffaa102827>] tcf_chain_create+0x97/0x460
+>    [<ffffffffaa102f67>] tcf_block_get+0x127/0x230
+>    [<ffffffffc03e8546>] ingress_init+0x76/0x110 [sch_ingress]
+>    [<ffffffffaa0fbb1c>] qdisc_create+0x2ec/0x1100
+>    [<ffffffffaa0fce1a>] tc_modify_qdisc+0x4ea/0x1ae0
+>    [<ffffffffaa0355dc>] rtnetlink_rcv_msg+0xa3c/0x1400
+>    [<ffffffffaa12e3cb>] netlink_rcv_skb+0x22b/0x4e0
+>    [<ffffffffaa024b55>] rtnetlink_rcv+0x15/0x20
+>    [<ffffffffaa12bddd>] netlink_unicast+0x47d/0x710
+>    [<ffffffffaa12caef>] netlink_sendmsg+0xa7f/0x1140
+>    [<ffffffffa9f15c52>] sock_sendmsg+0xe2/0x170
+>    [<ffffffffa9f188bd>] ___sys_sendmsg+0x72d/0xcc0
+>    [<ffffffffa9f1bfa2>] __sys_sendmsg+0xe2/0x260
+>    [<ffffffffa9f1c132>] SyS_sendmsg+0x12/0x20
+>unreferenced object 0xffff880749f82a48 (size 64):
+>  comm "tc", pid 2381, jiffies 4294972986 (age 1375.812s)
+>  hex dump (first 32 bytes):
+>    00 00 00 00 00 00 00 00 c0 b7 31 31 07 88 ff ff  ..........11....
+>    58 2a f8 49 07 88 ff ff 58 2a f8 49 07 88 ff ff  X*.I....X*.I....
+>  backtrace:
+>    [<ffffffffaa6b0118>] kmemleak_alloc+0x28/0x50
+>    [<ffffffffa89a89b6>] kmem_cache_alloc_trace+0x1e6/0x550
+>    [<ffffffffaa102827>] tcf_chain_create+0x97/0x460
+>    [<ffffffffaa102f67>] tcf_block_get+0x127/0x230
+>    [<ffffffffc03e8546>] ingress_init+0x76/0x110 [sch_ingress]
+>    [<ffffffffaa0fbb1c>] qdisc_create+0x2ec/0x1100
+>    [<ffffffffaa0fce1a>] tc_modify_qdisc+0x4ea/0x1ae0
+>    [<ffffffffaa0355dc>] rtnetlink_rcv_msg+0xa3c/0x1400
+>    [<ffffffffaa12e3cb>] netlink_rcv_skb+0x22b/0x4e0
+>    [<ffffffffaa024b55>] rtnetlink_rcv+0x15/0x20
+>    [<ffffffffaa12bddd>] netlink_unicast+0x47d/0x710
+>    [<ffffffffaa12caef>] netlink_sendmsg+0xa7f/0x1140
+>    [<ffffffffa9f15c52>] sock_sendmsg+0xe2/0x170
+>    [<ffffffffa9f188bd>] ___sys_sendmsg+0x72d/0xcc0
+>    [<ffffffffa9f1bfa2>] __sys_sendmsg+0xe2/0x260
+>    [<ffffffffa9f1c132>] SyS_sendmsg+0x12/0x20
+>unreferenced object 0xffff8803fd855a08 (size 64):
+>  comm "tc", pid 2663, jiffies 4294992152 (age 1299.328s)
+>  hex dump (first 32 bytes):
+>    00 00 00 00 00 00 00 00 20 49 80 31 07 88 ff ff  ........ I.1....
+>    18 5a 85 fd 03 88 ff ff 18 5a 85 fd 03 88 ff ff  .Z.......Z......
+>  backtrace:
+>    [<ffffffffaa6b0118>] kmemleak_alloc+0x28/0x50
+>    [<ffffffffa89a89b6>] kmem_cache_alloc_trace+0x1e6/0x550
+>    [<ffffffffaa102827>] tcf_chain_create+0x97/0x460
+>    [<ffffffffaa102f67>] tcf_block_get+0x127/0x230
+>    [<ffffffffc03e8546>] ingress_init+0x76/0x110 [sch_ingress]
+>    [<ffffffffaa0fbb1c>] qdisc_create+0x2ec/0x1100
+>    [<ffffffffaa0fce1a>] tc_modify_qdisc+0x4ea/0x1ae0
+>    [<ffffffffaa0355dc>] rtnetlink_rcv_msg+0xa3c/0x1400
+>    [<ffffffffaa12e3cb>] netlink_rcv_skb+0x22b/0x4e0
+>    [<ffffffffaa024b55>] rtnetlink_rcv+0x15/0x20
+>    [<ffffffffaa12bddd>] netlink_unicast+0x47d/0x710
+>    [<ffffffffaa12caef>] netlink_sendmsg+0xa7f/0x1140
+>    [<ffffffffa9f15c52>] sock_sendmsg+0xe2/0x170
+>    [<ffffffffa9f188bd>] ___sys_sendmsg+0x72d/0xcc0
+>    [<ffffffffa9f1bfa2>] __sys_sendmsg+0xe2/0x260
+>    [<ffffffffa9f1c132>] SyS_sendmsg+0x12/0x20
+>unreferenced object 0xffff88071b096f28 (size 64):
+>  comm "tc", pid 2943, jiffies 4295013397 (age 1214.352s)
+>  hex dump (first 32 bytes):
+>    00 00 00 00 00 00 00 00 c0 37 e7 30 07 88 ff ff  .........7.0....
+>    38 6f 09 1b 07 88 ff ff 38 6f 09 1b 07 88 ff ff  8o......8o......
+>  backtrace:
+>    [<ffffffffaa6b0118>] kmemleak_alloc+0x28/0x50
+>    [<ffffffffa89a89b6>] kmem_cache_alloc_trace+0x1e6/0x550
+>    [<ffffffffaa102827>] tcf_chain_create+0x97/0x460
+>    [<ffffffffaa102f67>] tcf_block_get+0x127/0x230
+>    [<ffffffffc03e8546>] ingress_init+0x76/0x110 [sch_ingress]
+>    [<ffffffffaa0fbb1c>] qdisc_create+0x2ec/0x1100
+>    [<ffffffffaa0fce1a>] tc_modify_qdisc+0x4ea/0x1ae0
+>    [<ffffffffaa0355dc>] rtnetlink_rcv_msg+0xa3c/0x1400
+>    [<ffffffffaa12e3cb>] netlink_rcv_skb+0x22b/0x4e0
+>    [<ffffffffaa024b55>] rtnetlink_rcv+0x15/0x20
+>    [<ffffffffaa12bddd>] netlink_unicast+0x47d/0x710
+>    [<ffffffffaa12caef>] netlink_sendmsg+0xa7f/0x1140
+>    [<ffffffffa9f15c52>] sock_sendmsg+0xe2/0x170
+>    [<ffffffffa9f188bd>] ___sys_sendmsg+0x72d/0xcc0
+>    [<ffffffffa9f1bfa2>] __sys_sendmsg+0xe2/0x260
+>    [<ffffffffa9f1c132>] SyS_sendmsg+0x12/0x20
+>unreferenced object 0xffff880731f66568 (size 64):
+>  comm "tc", pid 3263, jiffies 4295033366 (age 1134.480s)
+>  hex dump (first 32 bytes):
+>    00 00 00 00 00 00 00 00 00 95 64 65 07 88 ff ff  ..........de....
+>    78 65 f6 31 07 88 ff ff 78 65 f6 31 07 88 ff ff  xe.1....xe.1....
+>  backtrace:
+>    [<ffffffffaa6b0118>] kmemleak_alloc+0x28/0x50
+>    [<ffffffffa89a89b6>] kmem_cache_alloc_trace+0x1e6/0x550
+>    [<ffffffffaa102827>] tcf_chain_create+0x97/0x460
+>    [<ffffffffaa102f67>] tcf_block_get+0x127/0x230
+>    [<ffffffffc03e8546>] ingress_init+0x76/0x110 [sch_ingress]
+>    [<ffffffffaa0fbb1c>] qdisc_create+0x2ec/0x1100
+>    [<ffffffffaa0fce1a>] tc_modify_qdisc+0x4ea/0x1ae0
+>    [<ffffffffaa0355dc>] rtnetlink_rcv_msg+0xa3c/0x1400
+>    [<ffffffffaa12e3cb>] netlink_rcv_skb+0x22b/0x4e0
+>    [<ffffffffaa024b55>] rtnetlink_rcv+0x15/0x20
+>    [<ffffffffaa12bddd>] netlink_unicast+0x47d/0x710
+>    [<ffffffffaa12caef>] netlink_sendmsg+0xa7f/0x1140
+>    [<ffffffffa9f15c52>] sock_sendmsg+0xe2/0x170
+>    [<ffffffffa9f188bd>] ___sys_sendmsg+0x72d/0xcc0
+>    [<ffffffffa9f1bfa2>] __sys_sendmsg+0xe2/0x260
+>    [<ffffffffa9f1c132>] SyS_sendmsg+0x12/0x20
