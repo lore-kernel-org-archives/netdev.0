@@ -1,37 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] rxrpc: Make service connection lookup always
- check for retry
-Date: Tue, 05 Sep 2017 14:41:53 -0700 (PDT)
-Message-ID: <20170905.144153.67687828247988369.davem@davemloft.net>
-References: <150453530801.20359.17059994007095255872.stgit@warthog.procyon.org.uk>
+Subject: Re: [PATCH net V2] vhost_net: correctly check tx avail during rx
+ busy polling
+Date: Tue, 05 Sep 2017 14:48:04 -0700 (PDT)
+Message-ID: <20170905.144804.755338183074090970.davem@davemloft.net>
+References: <1504574525-4711-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-afs@lists.infradead.org,
+Cc: mst@redhat.com, netdev@vger.kernel.org, kvm@vger.kernel.org,
+        virtualization@lists.linux-foundation.org,
         linux-kernel@vger.kernel.org
-To: dhowells@redhat.com
+To: jasowang@redhat.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <150453530801.20359.17059994007095255872.stgit@warthog.procyon.org.uk>
+In-Reply-To: <1504574525-4711-1-git-send-email-jasowang@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: David Howells <dhowells@redhat.com>
-Date: Mon, 04 Sep 2017 15:28:28 +0100
+From: Jason Wang <jasowang@redhat.com>
+Date: Tue,  5 Sep 2017 09:22:05 +0800
 
-> When an RxRPC service packet comes in, the target connection is looked up
-> by an rb-tree search under RCU and a read-locked seqlock; the seqlock retry
-> check is, however, currently skipped if we got a match, but probably
-> shouldn't be in case the connection we found gets replaced whilst we're
-> doing a search.
+> We check tx avail through vhost_enable_notify() in the past which is
+> wrong since it only checks whether or not guest has filled more
+> available buffer since last avail idx synchronization which was just
+> done by vhost_vq_avail_empty() before. What we really want is checking
+> pending buffers in the avail ring. Fix this by calling
+> vhost_vq_avail_empty() instead.
 > 
-> Make the lookup procedure always go through need_seqretry(), even if the
-> lookup was successful.  This makes sure we always pick up on a write-lock
-> event.
+> This issue could be noticed by doing netperf TCP_RR benchmark as
+> client from guest (but not host). With this fix, TCP_RR from guest to
+> localhost restores from 1375.91 trans per sec to 55235.28 trans per
+> sec on my laptop (Intel(R) Core(TM) i7-5600U CPU @ 2.60GHz).
 > 
-> On the other hand, since we don't take a ref on the object, but rely on RCU
-> to prevent its destruction after dropping the seqlock, I'm not sure this is
-> necessary.
-> 
-> Signed-off-by: David Howells <dhowells@redhat.com>
+> Fixes: 030881372460 ("vhost_net: basic polling support")
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-Applied, thanks David.
+Applied and queued up for -stable, thanks.
