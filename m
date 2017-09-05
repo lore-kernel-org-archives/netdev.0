@@ -1,82 +1,93 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] net/ncsi: fix ncsi_vlan_rx_{add,kill}_vid references
-Date: Tue,  5 Sep 2017 10:05:47 +0200
-Message-ID: <20170905080615.1131665-1-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd@arndb.de>, Joel Stanley <joel@jms.id.au>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>,
-        Gavin Shan <gwshan@linux.vnet.ibm.com>,
-        Samuel Mendoza-Jonas <sam@mendozajonas.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next] bpf: fix numa_node validation
+Date: Tue, 05 Sep 2017 10:14:19 +0200
+Message-ID: <59AE5CDB.3020506@iogearbox.net>
+References: <1504590062.15310.36.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, Martin KaFai Lau <kafai@fb.com>,
+        Alexei Starovoitov <ast@fb.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+        David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.126.130]:52981 "EHLO
-        mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750814AbdIEIGb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 5 Sep 2017 04:06:31 -0400
+Received: from www62.your-server.de ([213.133.104.62]:39298 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751677AbdIEIOZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 5 Sep 2017 04:14:25 -0400
+In-Reply-To: <1504590062.15310.36.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We get a new link error in allmodconfig kernels after ftgmac100
-started using the ncsi helpers:
+On 09/05/2017 07:41 AM, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
+>
+> syzkaller reported crashes in bpf map creation or map update [1]
+>
+> Problem is that nr_node_ids is a signed integer,
+> NUMA_NO_NODE is also an integer, so it is very tempting
+> to declare numa_node as a signed integer.
+>
+> This means the typical test to validate a user provided value :
+>
+>          if (numa_node != NUMA_NO_NODE &&
+>              (numa_node >= nr_node_ids ||
+>               !node_online(numa_node)))
+>
+> must be written :
+>
+>          if (numa_node != NUMA_NO_NODE &&
+>              ((unsigned int)numa_node >= nr_node_ids ||
+>               !node_online(numa_node)))
+>
+>
+> [1]
+> kernel BUG at mm/slab.c:3256!
+> invalid opcode: 0000 [#1] SMP KASAN
+> Dumping ftrace buffer:
+>     (ftrace buffer empty)
+> Modules linked in:
+> CPU: 0 PID: 2946 Comm: syzkaller916108 Not tainted 4.13.0-rc7+ #35
+> Hardware name: Google Google Compute Engine/Google Compute Engine, BIOS Google 01/01/2011
+> task: ffff8801d2bc60c0 task.stack: ffff8801c0c90000
+> RIP: 0010:____cache_alloc_node+0x1d4/0x1e0 mm/slab.c:3292
+> RSP: 0018:ffff8801c0c97638 EFLAGS: 00010096
+> RAX: ffffffffffff8b7b RBX: 0000000001080220 RCX: 0000000000000000
+> RDX: 00000000ffff8b7b RSI: 0000000001080220 RDI: ffff8801dac00040
+> RBP: ffff8801c0c976c0 R08: 0000000000000000 R09: 0000000000000000
+> R10: ffff8801c0c97620 R11: 0000000000000001 R12: ffff8801dac00040
+> R13: ffff8801dac00040 R14: 0000000000000000 R15: 00000000ffff8b7b
+> FS:  0000000002119940(0000) GS:ffff8801db200000(0000) knlGS:0000000000000000
+> CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+> CR2: 0000000020001fec CR3: 00000001d2980000 CR4: 00000000001406f0
+> Call Trace:
+>   __do_kmalloc_node mm/slab.c:3688 [inline]
+>   __kmalloc_node+0x33/0x70 mm/slab.c:3696
+>   kmalloc_node include/linux/slab.h:535 [inline]
+>   alloc_htab_elem+0x2a8/0x480 kernel/bpf/hashtab.c:740
+>   htab_map_update_elem+0x740/0xb80 kernel/bpf/hashtab.c:820
+>   map_update_elem kernel/bpf/syscall.c:587 [inline]
+>   SYSC_bpf kernel/bpf/syscall.c:1468 [inline]
+>   SyS_bpf+0x20c5/0x4c40 kernel/bpf/syscall.c:1443
+>   entry_SYSCALL_64_fastpath+0x1f/0xbe
+> RIP: 0033:0x440409
+> RSP: 002b:00007ffd1f1792b8 EFLAGS: 00000246 ORIG_RAX: 0000000000000141
+> RAX: ffffffffffffffda RBX: 00000000004002c8 RCX: 0000000000440409
+> RDX: 0000000000000020 RSI: 0000000020006000 RDI: 0000000000000002
+> RBP: 0000000000000086 R08: 0000000000000000 R09: 0000000000000000
+> R10: 0000000000000000 R11: 0000000000000246 R12: 0000000000401d70
+> R13: 0000000000401e00 R14: 0000000000000000 R15: 0000000000000000
+> Code: 83 c2 01 89 50 18 4c 03 70 08 e8 38 f4 ff ff 4d 85 f6 0f 85 3e ff ff ff 44 89 fe 4c 89 ef e8 94 fb ff ff 49 89 c6 e9 2b ff ff ff <0f> 0b 0f 0b 0f 0b 66 0f 1f 44 00 00 55 48 89 e5 41 57 41 56 41
+> RIP: ____cache_alloc_node+0x1d4/0x1e0 mm/slab.c:3292 RSP: ffff8801c0c97638
+> ---[ end trace d745f355da2e33ce ]---
+> Kernel panic - not syncing: Fatal exception
+>
+> Fixes: 96eabe7a40aa ("bpf: Allow selecting numa node during map creation")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Martin KaFai Lau <kafai@fb.com>
+> Cc: Alexei Starovoitov <ast@fb.com>
+> Cc: Daniel Borkmann <daniel@iogearbox.net>
 
-ERROR: "ncsi_vlan_rx_kill_vid" [drivers/net/ethernet/faraday/ftgmac100.ko] undefined!
-ERROR: "ncsi_vlan_rx_add_vid" [drivers/net/ethernet/faraday/ftgmac100.ko] undefined!
+Yeah, thanks for catching this, Eric!
 
-Related to that, we get another error when CONFIG_NET_NCSI is disabled:
-
-drivers/net/ethernet/faraday/ftgmac100.c:1626:25: error: 'ncsi_vlan_rx_add_vid' undeclared here (not in a function); did you mean 'ncsi_start_dev'?
-drivers/net/ethernet/faraday/ftgmac100.c:1627:26: error: 'ncsi_vlan_rx_kill_vid' undeclared here (not in a function); did you mean 'ncsi_vlan_rx_add_vid'?
-
-This fixes both problems at once, using a 'static inline' stub helper
-for the disabled case, and exporting the functions when they are present.
-
-Fixes: 51564585d8c6 ("ftgmac100: Support NCSI VLAN filtering when available")
-Fixes: 21acf63013ed ("net/ncsi: Configure VLAN tag filter")
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
----
- include/net/ncsi.h     | 10 ++++++++++
- net/ncsi/ncsi-manage.c |  2 ++
- 2 files changed, 12 insertions(+)
-
-diff --git a/include/net/ncsi.h b/include/net/ncsi.h
-index 1f96af46df49..fdc60ff2511d 100644
---- a/include/net/ncsi.h
-+++ b/include/net/ncsi.h
-@@ -36,6 +36,16 @@ int ncsi_start_dev(struct ncsi_dev *nd);
- void ncsi_stop_dev(struct ncsi_dev *nd);
- void ncsi_unregister_dev(struct ncsi_dev *nd);
- #else /* !CONFIG_NET_NCSI */
-+static inline int ncsi_vlan_rx_add_vid(struct net_device *dev, __be16 proto, u16 vid)
-+{
-+	return -EINVAL;
-+}
-+
-+static inline int ncsi_vlan_rx_kill_vid(struct net_device *dev, __be16 proto, u16 vid)
-+{
-+	return -EINVAL;
-+}
-+
- static inline struct ncsi_dev *ncsi_register_dev(struct net_device *dev,
- 					void (*notifier)(struct ncsi_dev *nd))
- {
-diff --git a/net/ncsi/ncsi-manage.c b/net/ncsi/ncsi-manage.c
-index 11904b3b702d..3fd3c39e6278 100644
---- a/net/ncsi/ncsi-manage.c
-+++ b/net/ncsi/ncsi-manage.c
-@@ -1453,6 +1453,7 @@ int ncsi_vlan_rx_add_vid(struct net_device *dev, __be16 proto, u16 vid)
- 
- 	return found ? ncsi_process_next_channel(ndp) : 0;
- }
-+EXPORT_SYMBOL_GPL(ncsi_vlan_rx_add_vid);
- 
- int ncsi_vlan_rx_kill_vid(struct net_device *dev, __be16 proto, u16 vid)
- {
-@@ -1491,6 +1492,7 @@ int ncsi_vlan_rx_kill_vid(struct net_device *dev, __be16 proto, u16 vid)
- 
- 	return found ? ncsi_process_next_channel(ndp) : 0;
- }
-+EXPORT_SYMBOL_GPL(ncsi_vlan_rx_kill_vid);
- 
- struct ncsi_dev *ncsi_register_dev(struct net_device *dev,
- 				   void (*handler)(struct ncsi_dev *ndev))
--- 
-2.9.0
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
