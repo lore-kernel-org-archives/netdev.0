@@ -1,24 +1,27 @@
-From: Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>
-Subject: Re: [PATCH net-next v6 3/3] openvswitch: enable NSH
-	support
-Date: Tue, 05 Sep 2017 12:30:09 +0200
-Message-ID: <87vakxsaj2.fsf@stressinduktion.org>
-References: <1503670805-31051-1-git-send-email-yi.y.yang@intel.com>
-	<1503670805-31051-4-git-send-email-yi.y.yang@intel.com>
-	<87wp5l7560.fsf@stressinduktion.org>
-	<20170904023831.GA68062@cran64.bj.intel.com>
-	<87mv6abte5.fsf@stressinduktion.org>
-	<20170905021112.GA86057@cran64.bj.intel.com>
+From: Jan Scheurich <jan.scheurich-IzeFyvvaP7pWk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH net-next v7] openvswitch: enable NSH support
+Date: Tue, 5 Sep 2017 10:36:12 +0000
+Message-ID: <CFF8EF42F1132E4CBE2BF0AB6C21C58D787F5387@ESESSMB107.ericsson.se>
+References: <1504096752-102003-1-git-send-email-yi.y.yang@intel.com>
+	<20170831124516.0c5db686@griffin>
+	<20170904080005.GA70767@cran64.bj.intel.com>
+	<20170904124216.6db68e8c@griffin>
+	<CFF8EF42F1132E4CBE2BF0AB6C21C58D787F4E84@ESESSMB107.ericsson.se>
+	<20170904151601.2f198a53@griffin>
+	<CFF8EF42F1132E4CBE2BF0AB6C21C58D787F4EEB@ESESSMB107.ericsson.se>
+	<20170904161303.69624386@griffin>
+	<CFF8EF42F1132E4CBE2BF0AB6C21C58D787F4F69@ESESSMB107.ericsson.se>
+	<20170905114949.5849b75f@griffin>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, "e@erig.me" <e@erig.me>
-To: "Yang\, Yi" <yi.y.yang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "e@erig.me" <e@erig.me>,
+	"davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <20170905021112.GA86057-re2EX8HDrk21gSHoDXDV2kEOCMrvLtNR@public.gmane.org> (Yi Yang's message
-	of "Tue, 5 Sep 2017 10:11:12 +0800")
+In-Reply-To: <20170905114949.5849b75f@griffin>
+Content-Language: en-US
 List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
 	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
@@ -30,29 +33,21 @@ Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-"Yang, Yi" <yi.y.yang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org> writes:
+> From: Jiri Benc [mailto:jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org]
 
-> I'm not sure what new action you expect to bring here, I think group
-> action is just for this, as you said it isn't only bound to NSH, you can
-> start a new thread to discuss this. I don't think it is in scope of NSH.
+> > So what is the correct layout for MASKED_SET action with nested fields?
+> > 1. All nested values, followed by all nested masks, or
+> > 2. For each nested field value followed by mask?
+> >
+> > I guess alternative 1, but just to be sure.
+> 
+> It's 2. Alternative 1 breaks netlink assumptions, is ugly to implement
+> and probably impossible to be properly validated.
 
-It is in scope of this discussion as you will provide a user space API
-that makes the NSH context fields accessible from user space in a
-certain way. If you commit to this, there is no way going back.
+OK. For outsiders this was far from obvious :-)
 
-I haven't yet grasped the idea on how those fields will be used in OVS
-besides load balancing. Even for load balancing the tunnel itself
-(vxlan-gpe + UDP source port or ipv6 flowlabel) already provides enough
-entropy to do per-flow load balancing. What else is needed?  Why a
-context header for that? You just need multiple action chains and pick
-one randomly.
+So, for OVS_ACTION_ATTR_SET_MASKED any nested attribute, no matter on which nesting level, must contain value directly followed by mask.
 
-The only protocol that I can compare that to is geneve with TLVs, but
-the TLVs are global and uniquie and a property of the networking
-forwarding backplane and not a property of the path inside a tenant. So
-I expect this actually to be the first case where I think that matters.
+If that is the principle of handling masks in Netlink APIs, than we must adhere to it.
 
-Why are context labels that special that they are not part of tun_ops?
-
-Thanks,
-Hannes
+BR, Jan
