@@ -1,45 +1,49 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: Re: 915f3e3f76 ("mac80211_hwsim: Replace bogus hrtimer clockid"):
- BUG: kernel reboot-without-warning in test stage
-Date: Tue, 5 Sep 2017 21:30:40 +0200 (CEST)
-Message-ID: <alpine.DEB.2.20.1709052129510.2393@nanos>
-References: <59ade247.WzhbxWeytBOa6Xu4%fengguang.wu@intel.com> <alpine.DEB.2.20.1709050910150.1900@nanos> <20170905164103.tkrhxzca4b5ulps2@breakpoint.cc>
+From: Thomas Meyer <thomas@m3y3r.de>
+Subject: Re: [PATCH 6/10] ixgbe: Use ARRAY_SIZE macro
+Date: Tue, 5 Sep 2017 21:45:09 +0200
+Message-ID: <20170905194419.pdwrkqdad6tbq7hs@olymp>
+References: <1504439110050-939061377-0-diffsplit-thomas@m3y3r.de>
+ <1504439110050-1907815276-6-diffsplit-thomas@m3y3r.de>
+ <20170905.115044.551456011251065741.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: kernel test robot <fengguang.wu@intel.com>, LKP <lkp@01.org>,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        linux-wireless@vger.kernel.org, wfg@linux.intel.com
-To: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Galois.linutronix.de ([146.0.238.70]:46716 "EHLO
-        Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751863AbdIETax (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 5 Sep 2017 15:30:53 -0400
-In-Reply-To: <20170905164103.tkrhxzca4b5ulps2@breakpoint.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170905.115044.551456011251065741.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 5 Sep 2017, Sebastian Andrzej Siewior wrote:
-
-> On 2017-09-05 09:12:40 [+0200], Thomas Gleixner wrote:
-> > Sorry, no. That bisect is completely bogus. The commit in question merily
-> > replaces the unsupported clockid with a valid one.
+On Tue, Sep 05, 2017 at 11:50:44AM -0700, David Miller wrote:
+> From: Thomas Meyer <thomas@m3y3r.de>
+> Date: Sun, 03 Sep 2017 14:19:31 +0200
 > 
-> The bisect is correct. It just has problems to express itself properly. So
-> the table says:
+> > Use ARRAY_SIZE macro, rather than explicitly coding some variant of it
+> > yourself.
+> > Found with: find -type f -name "*.c" -o -name "*.h" | xargs perl -p -i -e
+> > 's/\bsizeof\s*\(\s*(\w+)\s*\)\s*\ /\s*sizeof\s*\(\s*\1\s*\[\s*0\s*\]\s*\)
+> > /ARRAY_SIZE(\1)/g' and manual check/verification.
+> > 
+> > Signed-off-by: Thomas Meyer <thomas@m3y3r.de>
 > 
-> | WARNING:at_kernel/time/hrtimer.c:#hrtimer_init  | 7   |     |    |   |                                                                                
-> | BUG:kernel_reboot-without-warning_in_test_stage | 0   | 12  | 6  | 6 |                                                                                
+> This should be submitted to the Intel ethernet driver maintainers.
+Hi,
+
+my script checks the output of get_maintainer scripts and only sends to "open
+list" entries.
+
+The intel-wired-lan@lists.osuosl.org is moderated, so that's why the patch
+wasn't send there.
+
+Strangely the lists for nouveau@lists.freedesktop.org and
+intel-gvt-dev@lists.freedesktop.org appears as open lists in the MAINTAINERS
+file but seems to be also moderated lists... At least I got some reply that my
+message awaits approval. Maybe an update to the MAINTAINERS file is missing
+here?
+
+I may drop above check in my script and send to all mailing lists that
+get_maintainer.pl will return.
+
 > 
-> which means _before_ your commit it counted a warning in hrtimer_init()
-> (an unsupported clock id was used). With your commit, the warning was
-> gone and I *think* the userland then printed
-> "BUG:kernel_reboot-without-warning_in_test_stage" because it had no
-> warning.
-> It seems that the bot learned to live with that warning which was around
-> for more than three years. Now that you removed it, it seems to be a
-> mistake to do so because nobody complained about it so far.
-
-Thanks for the translation. I'll never learn to decode these reports.
-
-       tglx
+> Thank you.
