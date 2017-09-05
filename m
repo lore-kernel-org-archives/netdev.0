@@ -1,8 +1,4 @@
-Return-Path: <netdev-owner@vger.kernel.org>
-Received: from usa-sjc-mx-foss1.foss.arm.com ([217.140.101.70]:39464 "EHLO
-        foss.arm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751036AbdIEMls (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 5 Sep 2017 08:41:48 -0400
+Return-Path: <linux-kernel-owner@vger.kernel.org>
 From: Gilad Ben-Yossef <gilad@benyossef.com>
 To: Herbert Xu <herbert@gondor.apana.org.au>,
         "David S. Miller" <davem@davemloft.net>,
@@ -34,99 +30,81 @@ To: Herbert Xu <herbert@gondor.apana.org.au>,
         linux-ima-user@lists.sourceforge.net,
         linux-security-module@vger.kernel.org
 Cc: Ofir Drang <ofir.drang@arm.com>
-Subject: [PATCH v8 10/20] crypto: move gcm to generic async completion
-Date: Tue,  5 Sep 2017 15:38:49 +0300
-Message-Id: <1504615144-29770-11-git-send-email-gilad@benyossef.com>
+Subject: [PATCH v8 14/20] cifs: move to generic async completion
+Date: Tue,  5 Sep 2017 15:38:53 +0300
+Message-Id: <1504615144-29770-15-git-send-email-gilad@benyossef.com>
 In-Reply-To: <1504615144-29770-1-git-send-email-gilad@benyossef.com>
 References: <1504615144-29770-1-git-send-email-gilad@benyossef.com>
-Sender: netdev-owner@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-gcm is starting an async. crypto op and waiting for it complete.
+cifs starts an async. crypto op and waits for their completion.
 Move it over to generic code doing the same.
 
 Signed-off-by: Gilad Ben-Yossef <gilad@benyossef.com>
+Acked-by: Pavel Shilovsky <pshilov@microsoft.com>
 ---
- crypto/gcm.c | 32 ++++++--------------------------
- 1 file changed, 6 insertions(+), 26 deletions(-)
+ fs/cifs/smb2ops.c | 30 ++++--------------------------
+ 1 file changed, 4 insertions(+), 26 deletions(-)
 
-diff --git a/crypto/gcm.c b/crypto/gcm.c
-index 3841b5e..fb923a5 100644
---- a/crypto/gcm.c
-+++ b/crypto/gcm.c
-@@ -16,7 +16,6 @@
- #include <crypto/scatterwalk.h>
- #include <crypto/hash.h>
- #include "internal.h"
--#include <linux/completion.h>
- #include <linux/err.h>
- #include <linux/init.h>
- #include <linux/kernel.h>
-@@ -78,11 +77,6 @@ struct crypto_gcm_req_priv_ctx {
- 	} u;
- };
+diff --git a/fs/cifs/smb2ops.c b/fs/cifs/smb2ops.c
+index fb2934b..982b39d 100644
+--- a/fs/cifs/smb2ops.c
++++ b/fs/cifs/smb2ops.c
+@@ -2066,22 +2066,6 @@ init_sg(struct smb_rqst *rqst, u8 *sign)
+ 	return sg;
+ }
  
--struct crypto_gcm_setkey_result {
+-struct cifs_crypt_result {
 -	int err;
 -	struct completion completion;
 -};
 -
- static struct {
- 	u8 buf[16];
- 	struct scatterlist sg;
-@@ -98,17 +92,6 @@ static inline struct crypto_gcm_req_priv_ctx *crypto_gcm_reqctx(
- 	return (void *)PTR_ALIGN((u8 *)aead_request_ctx(req), align + 1);
- }
- 
--static void crypto_gcm_setkey_done(struct crypto_async_request *req, int err)
+-static void cifs_crypt_complete(struct crypto_async_request *req, int err)
 -{
--	struct crypto_gcm_setkey_result *result = req->data;
+-	struct cifs_crypt_result *res = req->data;
 -
 -	if (err == -EINPROGRESS)
 -		return;
 -
--	result->err = err;
--	complete(&result->completion);
+-	res->err = err;
+-	complete(&res->completion);
 -}
 -
- static int crypto_gcm_setkey(struct crypto_aead *aead, const u8 *key,
- 			     unsigned int keylen)
+ static int
+ smb2_get_enc_key(struct TCP_Server_Info *server, __u64 ses_id, int enc, u8 *key)
  {
-@@ -119,7 +102,7 @@ static int crypto_gcm_setkey(struct crypto_aead *aead, const u8 *key,
- 		be128 hash;
- 		u8 iv[16];
+@@ -2122,12 +2106,10 @@ crypt_message(struct TCP_Server_Info *server, struct smb_rqst *rqst, int enc)
+ 	struct aead_request *req;
+ 	char *iv;
+ 	unsigned int iv_len;
+-	struct cifs_crypt_result result = {0, };
++	DECLARE_CRYPTO_WAIT(wait);
+ 	struct crypto_aead *tfm;
+ 	unsigned int crypt_len = le32_to_cpu(tr_hdr->OriginalMessageSize);
  
--		struct crypto_gcm_setkey_result result;
-+		struct crypto_wait wait;
+-	init_completion(&result.completion);
+-
+ 	rc = smb2_get_enc_key(server, tr_hdr->SessionId, enc, key);
+ 	if (rc) {
+ 		cifs_dbg(VFS, "%s: Could not get %scryption key\n", __func__,
+@@ -2187,14 +2169,10 @@ crypt_message(struct TCP_Server_Info *server, struct smb_rqst *rqst, int enc)
+ 	aead_request_set_ad(req, assoc_data_len);
  
- 		struct scatterlist sg[1];
- 		struct skcipher_request req;
-@@ -140,21 +123,18 @@ static int crypto_gcm_setkey(struct crypto_aead *aead, const u8 *key,
- 	if (!data)
- 		return -ENOMEM;
+ 	aead_request_set_callback(req, CRYPTO_TFM_REQ_MAY_BACKLOG,
+-				  cifs_crypt_complete, &result);
++				  crypto_req_done, &wait);
  
--	init_completion(&data->result.completion);
-+	crypto_init_wait(&data->wait);
- 	sg_init_one(data->sg, &data->hash, sizeof(data->hash));
- 	skcipher_request_set_tfm(&data->req, ctr);
- 	skcipher_request_set_callback(&data->req, CRYPTO_TFM_REQ_MAY_SLEEP |
- 						  CRYPTO_TFM_REQ_MAY_BACKLOG,
--				      crypto_gcm_setkey_done,
--				      &data->result);
-+				      crypto_req_done,
-+				      &data->wait);
- 	skcipher_request_set_crypt(&data->req, data->sg, data->sg,
- 				   sizeof(data->hash), data->iv);
- 
--	err = crypto_skcipher_encrypt(&data->req);
--	if (err == -EINPROGRESS || err == -EBUSY) {
--		wait_for_completion(&data->result.completion);
--		err = data->result.err;
+-	rc = enc ? crypto_aead_encrypt(req) : crypto_aead_decrypt(req);
+-
+-	if (rc == -EINPROGRESS || rc == -EBUSY) {
+-		wait_for_completion(&result.completion);
+-		rc = result.err;
 -	}
-+	err = crypto_wait_req(crypto_skcipher_encrypt(&data->req),
-+							&data->wait);
++	rc = crypto_wait_req(enc ? crypto_aead_encrypt(req)
++				: crypto_aead_decrypt(req), &wait);
  
- 	if (err)
- 		goto out;
+ 	if (!rc && enc)
+ 		memcpy(&tr_hdr->Signature, sign, SMB2_SIGNATURE_SIZE);
 -- 
 2.1.4
