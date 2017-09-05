@@ -1,112 +1,317 @@
-From: Martin KaFai Lau <kafai@fb.com>
-Subject: Re: [PATCH net-next] bpf: fix numa_node validation
-Date: Tue, 5 Sep 2017 15:30:21 -0700
-Message-ID: <20170905223021.uclihvksjmunfikj@kafai-mba.dhcp.thefacebook.com>
-References: <1504590062.15310.36.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Alexei Starovoitov <ast@fb.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Petar Penkov <ppenkov@google.com>
+Subject: [PATCH net-next RFC 2/2] tun: enable napi_gro_frags() for TUN/TAP driver
+Date: Tue,  5 Sep 2017 15:35:51 -0700
+Message-ID: <20170905223551.27925-3-ppenkov@google.com>
+References: <20170905223551.27925-1-ppenkov@google.com>
+Cc: Petar Penkov <ppenkov@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Mahesh Bandewar <maheshb@google.com>,
+        Willem de Bruijn <willemb@google.com>, davem@davemloft.net,
+        ppenkov@stanford.edu
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:58651 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1753074AbdIEWap (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 5 Sep 2017 18:30:45 -0400
-Content-Disposition: inline
-In-Reply-To: <1504590062.15310.36.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-pf0-f173.google.com ([209.85.192.173]:34580 "EHLO
+        mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754335AbdIEWgh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 5 Sep 2017 18:36:37 -0400
+Received: by mail-pf0-f173.google.com with SMTP id m1so9953089pfk.1
+        for <netdev@vger.kernel.org>; Tue, 05 Sep 2017 15:36:37 -0700 (PDT)
+In-Reply-To: <20170905223551.27925-1-ppenkov@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 04, 2017 at 10:41:02PM -0700, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
->
-> syzkaller reported crashes in bpf map creation or map update [1]
->
-> Problem is that nr_node_ids is a signed integer,
-> NUMA_NO_NODE is also an integer, so it is very tempting
-> to declare numa_node as a signed integer.
->
-> This means the typical test to validate a user provided value :
->
->         if (numa_node != NUMA_NO_NODE &&
->             (numa_node >= nr_node_ids ||
->              !node_online(numa_node)))
->
-> must be written :
->
->         if (numa_node != NUMA_NO_NODE &&
->             ((unsigned int)numa_node >= nr_node_ids ||
-Thanks for fixing it.
+Add a TUN/TAP receive mode that exercises the napi_gro_frags()
+interface. This mode is available only in TAP mode, as the interface
+expects packets with Ethernet headers.
 
->              !node_online(numa_node)))
->
->
-> [1]
-> kernel BUG at mm/slab.c:3256!
-> invalid opcode: 0000 [#1] SMP KASAN
-> Dumping ftrace buffer:
->    (ftrace buffer empty)
-> Modules linked in:
-> CPU: 0 PID: 2946 Comm: syzkaller916108 Not tainted 4.13.0-rc7+ #35
-> Hardware name: Google Google Compute Engine/Google Compute Engine, BIOS Google 01/01/2011
-> task: ffff8801d2bc60c0 task.stack: ffff8801c0c90000
-> RIP: 0010:____cache_alloc_node+0x1d4/0x1e0 mm/slab.c:3292
-> RSP: 0018:ffff8801c0c97638 EFLAGS: 00010096
-> RAX: ffffffffffff8b7b RBX: 0000000001080220 RCX: 0000000000000000
-> RDX: 00000000ffff8b7b RSI: 0000000001080220 RDI: ffff8801dac00040
-> RBP: ffff8801c0c976c0 R08: 0000000000000000 R09: 0000000000000000
-> R10: ffff8801c0c97620 R11: 0000000000000001 R12: ffff8801dac00040
-> R13: ffff8801dac00040 R14: 0000000000000000 R15: 00000000ffff8b7b
-> FS:  0000000002119940(0000) GS:ffff8801db200000(0000) knlGS:0000000000000000
-> CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-> CR2: 0000000020001fec CR3: 00000001d2980000 CR4: 00000000001406f0
-> Call Trace:
->  __do_kmalloc_node mm/slab.c:3688 [inline]
->  __kmalloc_node+0x33/0x70 mm/slab.c:3696
->  kmalloc_node include/linux/slab.h:535 [inline]
->  alloc_htab_elem+0x2a8/0x480 kernel/bpf/hashtab.c:740
->  htab_map_update_elem+0x740/0xb80 kernel/bpf/hashtab.c:820
->  map_update_elem kernel/bpf/syscall.c:587 [inline]
->  SYSC_bpf kernel/bpf/syscall.c:1468 [inline]
->  SyS_bpf+0x20c5/0x4c40 kernel/bpf/syscall.c:1443
->  entry_SYSCALL_64_fastpath+0x1f/0xbe
-> RIP: 0033:0x440409
-> RSP: 002b:00007ffd1f1792b8 EFLAGS: 00000246 ORIG_RAX: 0000000000000141
-> RAX: ffffffffffffffda RBX: 00000000004002c8 RCX: 0000000000440409
-> RDX: 0000000000000020 RSI: 0000000020006000 RDI: 0000000000000002
-> RBP: 0000000000000086 R08: 0000000000000000 R09: 0000000000000000
-> R10: 0000000000000000 R11: 0000000000000246 R12: 0000000000401d70
-> R13: 0000000000401e00 R14: 0000000000000000 R15: 0000000000000000
-> Code: 83 c2 01 89 50 18 4c 03 70 08 e8 38 f4 ff ff 4d 85 f6 0f 85 3e ff ff ff 44 89 fe 4c 89 ef e8 94 fb ff ff 49 89 c6 e9 2b ff ff ff <0f> 0b 0f 0b 0f 0b 66 0f 1f 44 00 00 55 48 89 e5 41 57 41 56 41
-> RIP: ____cache_alloc_node+0x1d4/0x1e0 mm/slab.c:3292 RSP: ffff8801c0c97638
-> ---[ end trace d745f355da2e33ce ]---
-> Kernel panic - not syncing: Fatal exception
->
-> Fixes: 96eabe7a40aa ("bpf: Allow selecting numa node during map creation")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Martin KaFai Lau <kafai@fb.com>
-> Cc: Alexei Starovoitov <ast@fb.com>
-> Cc: Daniel Borkmann <daniel@iogearbox.net>
-> ---
->  kernel/bpf/syscall.c |    3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
->
-> diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-> index 021a05d9d80095303bdfed51ee85bd9067582774..70ad8e220343c7825c8e331f19c1f65c78fdb796 100644
-> --- a/kernel/bpf/syscall.c
-> +++ b/kernel/bpf/syscall.c
-> @@ -323,7 +323,8 @@ static int map_create(union bpf_attr *attr)
->  		return -EINVAL;
->
->  	if (numa_node != NUMA_NO_NODE &&
-> -	    (numa_node >= nr_node_ids || !node_online(numa_node)))
-> +	    ((unsigned int)numa_node >= nr_node_ids ||
-> +	     !node_online(numa_node)))
->  		return -EINVAL;
->
->  	/* find map type and init map: hashtable vs rbtree vs bloom vs ... */
->
->
+Furthermore, packets follow the layout of the iovec_iter that was
+received. The first iovec is the linear data, and every one after the
+first is a fragment. If there are more fragments than the max number,
+drop the packet. Additionally, invoke eth_get_headlen() to exercise flow
+dissector code and to verify that the header resides in the linear data.
+
+The napi_gro_frags() mode requires setting the IFF_NAPI_FRAGS option.
+This is imposed because this mode is intended for testing via tools like
+syzkaller and packetdrill, and the increased flexibility it provides can
+introduce security vulnerabilities.
+
+Signed-off-by: Petar Penkov <ppenkov@google.com>
+Cc: Eric Dumazet <edumazet@google.com>
+Cc: Mahesh Bandewar <maheshb@google.com>
+Cc: Willem de Bruijn <willemb@google.com>
+Cc: davem@davemloft.net
+Cc: ppenkov@stanford.edu
+---
+ drivers/net/tun.c           | 135 ++++++++++++++++++++++++++++++++++++++++++--
+ include/uapi/linux/if_tun.h |   1 +
+ 2 files changed, 130 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index d5c824e3ec42..2ba9809ab6cd 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -75,6 +75,7 @@
+ #include <linux/skb_array.h>
+ #include <linux/bpf.h>
+ #include <linux/bpf_trace.h>
++#include <linux/mutex.h>
+ 
+ #include <linux/uaccess.h>
+ 
+@@ -120,8 +121,15 @@ do {								\
+ #define TUN_VNET_LE     0x80000000
+ #define TUN_VNET_BE     0x40000000
+ 
++#if IS_ENABLED(CONFIG_TUN_NAPI)
++#define TUN_FEATURES_EXTRA IFF_NAPI_FRAGS
++#else
++#define TUN_FEATURES_EXTRA 0
++#endif
++
+ #define TUN_FEATURES (IFF_NO_PI | IFF_ONE_QUEUE | IFF_VNET_HDR | \
+-		      IFF_MULTI_QUEUE)
++		      IFF_MULTI_QUEUE | TUN_FEATURES_EXTRA)
++
+ #define GOODCOPY_LEN 128
+ 
+ #define FLT_EXACT_COUNT 8
+@@ -173,6 +181,7 @@ struct tun_file {
+ 		unsigned int ifindex;
+ 	};
+ 	struct napi_struct napi;
++	struct mutex napi_mutex;	/* Protects access to the above napi */
+ 	struct list_head next;
+ 	struct tun_struct *detached;
+ 	struct skb_array tx_array;
+@@ -276,6 +285,7 @@ static void tun_napi_init(struct tun_struct *tun, struct tun_file *tfile)
+ 		netif_napi_add(tun->dev, &tfile->napi, tun_napi_poll,
+ 			       NAPI_POLL_WEIGHT);
+ 		napi_enable(&tfile->napi);
++		mutex_init(&tfile->napi_mutex);
+ 	}
+ }
+ 
+@@ -291,6 +301,11 @@ static void tun_napi_del(struct tun_file *tfile)
+ 		netif_napi_del(&tfile->napi);
+ }
+ 
++static bool tun_napi_frags_enabled(const struct tun_struct *tun)
++{
++	return READ_ONCE(tun->flags) & IFF_NAPI_FRAGS;
++}
++
+ #ifdef CONFIG_TUN_VNET_CROSS_LE
+ static inline bool tun_legacy_is_little_endian(struct tun_struct *tun)
+ {
+@@ -1034,7 +1049,8 @@ static void tun_poll_controller(struct net_device *dev)
+ 	 * supports polling, which enables bridge devices in virt setups to
+ 	 * still use netconsole
+ 	 * If NAPI is enabled, however, we need to schedule polling for all
+-	 * queues.
++	 * queues unless we are using napi_gro_frags(), which we call in
++	 * process context and not in NAPI context.
+ 	 */
+ 
+ 	if (IS_ENABLED(CONFIG_TUN_NAPI)) {
+@@ -1042,6 +1058,9 @@ static void tun_poll_controller(struct net_device *dev)
+ 		struct tun_file *tfile;
+ 		int i;
+ 
++		if (tun_napi_frags_enabled(tun))
++			return;
++
+ 		rcu_read_lock();
+ 		for (i = 0; i < tun->numqueues; i++) {
+ 			tfile = rcu_dereference(tun->tfiles[i]);
+@@ -1264,6 +1283,64 @@ static unsigned int tun_chr_poll(struct file *file, poll_table *wait)
+ 	return mask;
+ }
+ 
++static struct sk_buff *tun_napi_alloc_frags(struct tun_file *tfile,
++					    size_t len,
++					    const struct iov_iter *it)
++{
++	struct sk_buff *skb;
++	size_t linear;
++	int err;
++	int i;
++
++	if (it->nr_segs > MAX_SKB_FRAGS + 1)
++		return ERR_PTR(-ENOMEM);
++
++	local_bh_disable();
++	skb = napi_get_frags(&tfile->napi);
++	local_bh_enable();
++	if (!skb)
++		return ERR_PTR(-ENOMEM);
++
++	linear = iov_iter_single_seg_count(it);
++	err = __skb_grow(skb, linear);
++	if (err)
++		goto free;
++
++	skb->len = len;
++	skb->data_len = len - linear;
++	skb->truesize += skb->data_len;
++
++	for (i = 1; i < it->nr_segs; i++) {
++		size_t fragsz = it->iov[i].iov_len;
++		unsigned long offset;
++		struct page *page;
++		void *data;
++
++		if (fragsz == 0 || fragsz > PAGE_SIZE) {
++			err = -EINVAL;
++			goto free;
++		}
++
++		local_bh_disable();
++		data = napi_alloc_frag(fragsz);
++		local_bh_enable();
++		if (!data) {
++			err = -ENOMEM;
++			goto free;
++		}
++
++		page = virt_to_page(data);
++		offset = offset_in_page(data);
++		skb_fill_page_desc(skb, i - 1, page, offset, fragsz);
++	}
++
++	return skb;
++free:
++	/* frees skb and all frags allocated with napi_alloc_frag() */
++	napi_free_frags(&tfile->napi);
++	return ERR_PTR(err);
++}
++
+ /* prepad is the amount to reserve at front.  len is length after that.
+  * linear is a hint as to how much to copy (usually headers). */
+ static struct sk_buff *tun_alloc_skb(struct tun_file *tfile,
+@@ -1466,6 +1543,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 	int err;
+ 	u32 rxhash;
+ 	int generic_xdp = 1;
++	bool frags = tun_napi_frags_enabled(tun);
+ 
+ 	if (!(tun->dev->flags & IFF_UP))
+ 		return -EIO;
+@@ -1523,7 +1601,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 			zerocopy = true;
+ 	}
+ 
+-	if (tun_can_build_skb(tun, tfile, len, noblock, zerocopy)) {
++	if (!frags && tun_can_build_skb(tun, tfile, len, noblock, zerocopy)) {
+ 		skb = tun_build_skb(tun, tfile, from, &gso, len, &generic_xdp);
+ 		if (IS_ERR(skb)) {
+ 			this_cpu_inc(tun->pcpu_stats->rx_dropped);
+@@ -1540,10 +1618,24 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 				linear = tun16_to_cpu(tun, gso.hdr_len);
+ 		}
+ 
+-		skb = tun_alloc_skb(tfile, align, copylen, linear, noblock);
++		if (frags) {
++			mutex_lock(&tfile->napi_mutex);
++			skb = tun_napi_alloc_frags(tfile, copylen, from);
++			/* tun_napi_alloc_frags() enforces a layout for the skb.
++			 * If zerocopy is enabled, then this layout will be
++			 * overwritten by zerocopy_sg_from_iter().
++			 */
++			zerocopy = false;
++		} else {
++			skb = tun_alloc_skb(tfile, align, copylen, linear,
++					    noblock);
++		}
++
+ 		if (IS_ERR(skb)) {
+ 			if (PTR_ERR(skb) != -EAGAIN)
+ 				this_cpu_inc(tun->pcpu_stats->rx_dropped);
++			if (frags)
++				mutex_unlock(&tfile->napi_mutex);
+ 			return PTR_ERR(skb);
+ 		}
+ 
+@@ -1555,6 +1647,11 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 		if (err) {
+ 			this_cpu_inc(tun->pcpu_stats->rx_dropped);
+ 			kfree_skb(skb);
++			if (frags) {
++				tfile->napi.skb = NULL;
++				mutex_unlock(&tfile->napi_mutex);
++			}
++
+ 			return -EFAULT;
+ 		}
+ 	}
+@@ -1562,6 +1659,11 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 	if (virtio_net_hdr_to_skb(skb, &gso, tun_is_little_endian(tun))) {
+ 		this_cpu_inc(tun->pcpu_stats->rx_frame_errors);
+ 		kfree_skb(skb);
++		if (frags) {
++			tfile->napi.skb = NULL;
++			mutex_unlock(&tfile->napi_mutex);
++		}
++
+ 		return -EINVAL;
+ 	}
+ 
+@@ -1587,7 +1689,8 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 		skb->dev = tun->dev;
+ 		break;
+ 	case IFF_TAP:
+-		skb->protocol = eth_type_trans(skb, tun->dev);
++		if (!frags)
++			skb->protocol = eth_type_trans(skb, tun->dev);
+ 		break;
+ 	}
+ 
+@@ -1622,7 +1725,23 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 
+ 	rxhash = __skb_get_hash_symmetric(skb);
+ 
+-	if (IS_ENABLED(CONFIG_TUN_NAPI)) {
++	if (frags) {
++		/* Exercise flow dissector code path. */
++		u32 headlen = eth_get_headlen(skb->data, skb_headlen(skb));
++
++		if (headlen > skb_headlen(skb) || headlen < ETH_HLEN) {
++			this_cpu_inc(tun->pcpu_stats->rx_dropped);
++			napi_free_frags(&tfile->napi);
++			mutex_unlock(&tfile->napi_mutex);
++			WARN_ON(1);
++			return -ENOMEM;
++		}
++
++		local_bh_disable();
++		napi_gro_frags(&tfile->napi);
++		local_bh_enable();
++		mutex_unlock(&tfile->napi_mutex);
++	} else if (IS_ENABLED(CONFIG_TUN_NAPI)) {
+ 		struct sk_buff_head *queue = &tfile->sk.sk_write_queue;
+ 		int queue_len;
+ 
+@@ -2168,6 +2287,10 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+ 	tun->flags = (tun->flags & ~TUN_FEATURES) |
+ 		(ifr->ifr_flags & TUN_FEATURES);
+ 
++	if (!IS_ENABLED(CONFIG_TUN_NAPI) ||
++	    (tun->flags & TUN_TYPE_MASK) != IFF_TAP)
++		tun->flags = tun->flags & ~IFF_NAPI_FRAGS;
++
+ 	/* Make sure persistent devices do not get stuck in
+ 	 * xoff state.
+ 	 */
+diff --git a/include/uapi/linux/if_tun.h b/include/uapi/linux/if_tun.h
+index 3cb5e1d85ddd..1eb1eb42f151 100644
+--- a/include/uapi/linux/if_tun.h
++++ b/include/uapi/linux/if_tun.h
+@@ -60,6 +60,7 @@
+ /* TUNSETIFF ifr flags */
+ #define IFF_TUN		0x0001
+ #define IFF_TAP		0x0002
++#define IFF_NAPI_FRAGS	0x0010
+ #define IFF_NO_PI	0x1000
+ /* This flag has no real effect */
+ #define IFF_ONE_QUEUE	0x2000
+-- 
+2.14.1.581.gf28d330327-goog
