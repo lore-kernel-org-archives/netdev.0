@@ -1,34 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] cxgb4: Fix pause frame count in
- t4_get_port_stats
-Date: Tue, 05 Sep 2017 14:28:33 -0700 (PDT)
-Message-ID: <20170905.142833.1662741216295283523.davem@davemloft.net>
-References: <1504504056-21956-1-git-send-email-ganeshgr@chelsio.com>
+Subject: Re: [net v2] gianfar: Fix Tx flow control deactivation
+Date: Tue, 05 Sep 2017 14:35:43 -0700 (PDT)
+Message-ID: <20170905.143543.1026660660946884756.davem@davemloft.net>
+References: <1504511128-25294-1-git-send-email-claudiu.manoil@nxp.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nirranjan@chelsio.com,
-        indranil@chelsio.com, venkatesh@chelsio.com, leedom@chelsio.com
-To: ganeshgr@chelsio.com
+Cc: netdev@vger.kernel.org
+To: claudiu.manoil@nxp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:39390 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:39552 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753490AbdIEV2e (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 5 Sep 2017 17:28:34 -0400
-In-Reply-To: <1504504056-21956-1-git-send-email-ganeshgr@chelsio.com>
+        with ESMTP id S1752145AbdIEVfo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 5 Sep 2017 17:35:44 -0400
+In-Reply-To: <1504511128-25294-1-git-send-email-claudiu.manoil@nxp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ganesh Goudar <ganeshgr@chelsio.com>
-Date: Mon,  4 Sep 2017 11:17:36 +0530
+From: Claudiu Manoil <claudiu.manoil@nxp.com>
+Date: Mon, 4 Sep 2017 10:45:28 +0300
 
-> MPS_STAT_CTL[CountPauseStatTx] and MPS_STAT_CTL[CountPauseStatRx]
-> only control whether or not Pause Frames will be counted as part
-> of the 64-Byte Tx/Rx Frame counters.  These bits do not control
-> whether Pause Frames are counted in the Total Tx/Rx Frames/Bytes
-> counters.
+> The wrong register is checked for the Tx flow control bit,
+> it should have been maccfg1 not maccfg2.
+> This went unnoticed for so long probably because the impact is
+> hardly visible, not to mention the tangled code from adjust_link().
+> First, link flow control (i.e. handling of Rx/Tx link level pause frames)
+> is disabled by default (needs to be enabled via 'ethtool -A').
+> Secondly, maccfg2 always returns 0 for tx_flow_oldval (except for a few
+> old boards), which results in Tx flow control remaining always on
+> once activated.
 > 
-> Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
-> Signed-off-by: Casey Leedom <leedom@chelsio.com>
+> Fixes: 45b679c9a3ccd9e34f28e6ec677b812a860eb8eb ("gianfar: Implement PAUSE frame generation support")
+> 
+> Signed-off-by: Claudiu Manoil <claudiu.manoil@nxp.com>
 
-Applied.
+Please do not put an empty line between Fixes: and other tags.  All tags
+are equal and should be in one uninterrupted block of text.
+
+Applied, and queued up for -stable, thanks.
