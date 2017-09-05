@@ -1,38 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][next v2] rocker: fix kcalloc parameter order
-Date: Tue, 05 Sep 2017 14:57:40 -0700 (PDT)
-Message-ID: <20170905.145740.1996370074892542800.davem@davemloft.net>
-References: <20170905194958.3436-1-zahari.doychev@linux.com>
+Subject: Re: [PATCH 0/3] drivers: net: xgene: Misc bug fixes
+Date: Tue, 05 Sep 2017 14:58:44 -0700 (PDT)
+Message-ID: <20170905.145844.649087066908439588.davem@davemloft.net>
+References: <1504635392-19089-1-git-send-email-isubramanian@apm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: jiri@resnulli.us, netdev@vger.kernel.org
-To: zahari.doychev@linux.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:40060 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752819AbdIEV5l (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 5 Sep 2017 17:57:41 -0400
-In-Reply-To: <20170905194958.3436-1-zahari.doychev@linux.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, dnelson@redhat.com, patches@apm.com,
+ linux-arm-kernel@lists.infradead.org
+To: isubramanian@apm.com
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1504635392-19089-1-git-send-email-isubramanian@apm.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-From: Zahari Doychev <zahari.doychev@linux.com>
-Date: Tue,  5 Sep 2017 21:49:58 +0200
+From: Iyappan Subramanian <isubramanian@apm.com>
+Date: Tue,  5 Sep 2017 11:16:29 -0700
 
-> The function calls to kcalloc use wrong parameter order and incorrect flags
-> values. GFP_KERNEL is used instead of flags now and the order is corrected.
+> This patch set fixes bugs related to handling the case for ACPI for,
+> reading and programming tx/rx delay values.
 > 
-> The change was done using the following coccinelle script:
-> 
-> @@
-> expression E1,E2;
-> type T;
-> @@
-> 
-> -kcalloc(E1, E2, sizeof(T))
-> +kcalloc(E2, sizeof(T), GFP_KERNEL)
-> 
-> Signed-off-by: Zahari Doychev <zahari.doychev@linux.com>
+> Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
 
-Applied, thank you.
+Series applied, thank you.
