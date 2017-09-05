@@ -1,8 +1,8 @@
 Return-Path: <netdev-owner@vger.kernel.org>
-Received: from usa-sjc-mx-foss1.foss.arm.com ([217.140.101.70]:39592 "EHLO
+Received: from usa-sjc-mx-foss1.foss.arm.com ([217.140.101.70]:38840 "EHLO
         foss.arm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751149AbdIEMmR (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 5 Sep 2017 08:42:17 -0400
+        id S1750891AbdIEMjV (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 5 Sep 2017 08:39:21 -0400
 From: Gilad Ben-Yossef <gilad@benyossef.com>
 To: Herbert Xu <herbert@gondor.apana.org.au>,
         "David S. Miller" <davem@davemloft.net>,
@@ -34,245 +34,149 @@ To: Herbert Xu <herbert@gondor.apana.org.au>,
         linux-ima-user@lists.sourceforge.net,
         linux-security-module@vger.kernel.org
 Cc: Ofir Drang <ofir.drang@arm.com>
-Subject: [PATCH v8 12/20] fscrypt: move to generic async completion
-Date: Tue,  5 Sep 2017 15:38:51 +0300
-Message-Id: <1504615144-29770-13-git-send-email-gilad@benyossef.com>
-In-Reply-To: <1504615144-29770-1-git-send-email-gilad@benyossef.com>
-References: <1504615144-29770-1-git-send-email-gilad@benyossef.com>
+Subject: [PATCH v8 00/20] simplify crypto wait for async op
+Date: Tue,  5 Sep 2017 15:38:39 +0300
+Message-Id: <1504615144-29770-1-git-send-email-gilad@benyossef.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-fscrypt starts several async. crypto ops and waiting for them to
-complete. Move it over to generic code doing the same.
+Many users of kernel async. crypto services have a pattern of
+starting an async. crypto op and than using a completion
+to wait for it to end.
 
-Signed-off-by: Gilad Ben-Yossef <gilad@benyossef.com>
----
- fs/crypto/crypto.c          | 28 ++++------------------------
- fs/crypto/fname.c           | 36 ++++++------------------------------
- fs/crypto/fscrypt_private.h | 10 ----------
- fs/crypto/keyinfo.c         | 21 +++------------------
- 4 files changed, 13 insertions(+), 82 deletions(-)
+This patch set simplifies this common use case in two ways:
 
-diff --git a/fs/crypto/crypto.c b/fs/crypto/crypto.c
-index c7835df..80a3cad 100644
---- a/fs/crypto/crypto.c
-+++ b/fs/crypto/crypto.c
-@@ -126,21 +126,6 @@ struct fscrypt_ctx *fscrypt_get_ctx(const struct inode *inode, gfp_t gfp_flags)
- }
- EXPORT_SYMBOL(fscrypt_get_ctx);
- 
--/**
-- * page_crypt_complete() - completion callback for page crypto
-- * @req: The asynchronous cipher request context
-- * @res: The result of the cipher operation
-- */
--static void page_crypt_complete(struct crypto_async_request *req, int res)
--{
--	struct fscrypt_completion_result *ecr = req->data;
--
--	if (res == -EINPROGRESS)
--		return;
--	ecr->res = res;
--	complete(&ecr->completion);
--}
--
- int fscrypt_do_page_crypto(const struct inode *inode, fscrypt_direction_t rw,
- 			   u64 lblk_num, struct page *src_page,
- 			   struct page *dest_page, unsigned int len,
-@@ -151,7 +136,7 @@ int fscrypt_do_page_crypto(const struct inode *inode, fscrypt_direction_t rw,
- 		u8 padding[FS_IV_SIZE - sizeof(__le64)];
- 	} iv;
- 	struct skcipher_request *req = NULL;
--	DECLARE_FS_COMPLETION_RESULT(ecr);
-+	DECLARE_CRYPTO_WAIT(wait);
- 	struct scatterlist dst, src;
- 	struct fscrypt_info *ci = inode->i_crypt_info;
- 	struct crypto_skcipher *tfm = ci->ci_ctfm;
-@@ -179,7 +164,7 @@ int fscrypt_do_page_crypto(const struct inode *inode, fscrypt_direction_t rw,
- 
- 	skcipher_request_set_callback(
- 		req, CRYPTO_TFM_REQ_MAY_BACKLOG | CRYPTO_TFM_REQ_MAY_SLEEP,
--		page_crypt_complete, &ecr);
-+		crypto_req_done, &wait);
- 
- 	sg_init_table(&dst, 1);
- 	sg_set_page(&dst, dest_page, len, offs);
-@@ -187,14 +172,9 @@ int fscrypt_do_page_crypto(const struct inode *inode, fscrypt_direction_t rw,
- 	sg_set_page(&src, src_page, len, offs);
- 	skcipher_request_set_crypt(req, &src, &dst, len, &iv);
- 	if (rw == FS_DECRYPT)
--		res = crypto_skcipher_decrypt(req);
-+		res = crypto_wait_req(crypto_skcipher_decrypt(req), &wait);
- 	else
--		res = crypto_skcipher_encrypt(req);
--	if (res == -EINPROGRESS || res == -EBUSY) {
--		BUG_ON(req->base.data != &ecr);
--		wait_for_completion(&ecr.completion);
--		res = ecr.res;
--	}
-+		res = crypto_wait_req(crypto_skcipher_encrypt(req), &wait);
- 	skcipher_request_free(req);
- 	if (res) {
- 		printk_ratelimited(KERN_ERR
-diff --git a/fs/crypto/fname.c b/fs/crypto/fname.c
-index ad9f814..a80a0d3 100644
---- a/fs/crypto/fname.c
-+++ b/fs/crypto/fname.c
-@@ -15,21 +15,6 @@
- #include "fscrypt_private.h"
- 
- /**
-- * fname_crypt_complete() - completion callback for filename crypto
-- * @req: The asynchronous cipher request context
-- * @res: The result of the cipher operation
-- */
--static void fname_crypt_complete(struct crypto_async_request *req, int res)
--{
--	struct fscrypt_completion_result *ecr = req->data;
--
--	if (res == -EINPROGRESS)
--		return;
--	ecr->res = res;
--	complete(&ecr->completion);
--}
--
--/**
-  * fname_encrypt() - encrypt a filename
-  *
-  * The caller must have allocated sufficient memory for the @oname string.
-@@ -40,7 +25,7 @@ static int fname_encrypt(struct inode *inode,
- 			const struct qstr *iname, struct fscrypt_str *oname)
- {
- 	struct skcipher_request *req = NULL;
--	DECLARE_FS_COMPLETION_RESULT(ecr);
-+	DECLARE_CRYPTO_WAIT(wait);
- 	struct fscrypt_info *ci = inode->i_crypt_info;
- 	struct crypto_skcipher *tfm = ci->ci_ctfm;
- 	int res = 0;
-@@ -76,17 +61,12 @@ static int fname_encrypt(struct inode *inode,
- 	}
- 	skcipher_request_set_callback(req,
- 			CRYPTO_TFM_REQ_MAY_BACKLOG | CRYPTO_TFM_REQ_MAY_SLEEP,
--			fname_crypt_complete, &ecr);
-+			crypto_req_done, &wait);
- 	sg_init_one(&sg, oname->name, cryptlen);
- 	skcipher_request_set_crypt(req, &sg, &sg, cryptlen, iv);
- 
- 	/* Do the encryption */
--	res = crypto_skcipher_encrypt(req);
--	if (res == -EINPROGRESS || res == -EBUSY) {
--		/* Request is being completed asynchronously; wait for it */
--		wait_for_completion(&ecr.completion);
--		res = ecr.res;
--	}
-+	res = crypto_wait_req(crypto_skcipher_encrypt(req), &wait);
- 	skcipher_request_free(req);
- 	if (res < 0) {
- 		printk_ratelimited(KERN_ERR
-@@ -110,7 +90,7 @@ static int fname_decrypt(struct inode *inode,
- 				struct fscrypt_str *oname)
- {
- 	struct skcipher_request *req = NULL;
--	DECLARE_FS_COMPLETION_RESULT(ecr);
-+	DECLARE_CRYPTO_WAIT(wait);
- 	struct scatterlist src_sg, dst_sg;
- 	struct fscrypt_info *ci = inode->i_crypt_info;
- 	struct crypto_skcipher *tfm = ci->ci_ctfm;
-@@ -131,7 +111,7 @@ static int fname_decrypt(struct inode *inode,
- 	}
- 	skcipher_request_set_callback(req,
- 		CRYPTO_TFM_REQ_MAY_BACKLOG | CRYPTO_TFM_REQ_MAY_SLEEP,
--		fname_crypt_complete, &ecr);
-+		crypto_req_done, &wait);
- 
- 	/* Initialize IV */
- 	memset(iv, 0, FS_CRYPTO_BLOCK_SIZE);
-@@ -140,11 +120,7 @@ static int fname_decrypt(struct inode *inode,
- 	sg_init_one(&src_sg, iname->name, iname->len);
- 	sg_init_one(&dst_sg, oname->name, oname->len);
- 	skcipher_request_set_crypt(req, &src_sg, &dst_sg, iname->len, iv);
--	res = crypto_skcipher_decrypt(req);
--	if (res == -EINPROGRESS || res == -EBUSY) {
--		wait_for_completion(&ecr.completion);
--		res = ecr.res;
--	}
-+	res = crypto_wait_req(crypto_skcipher_decrypt(req), &wait);
- 	skcipher_request_free(req);
- 	if (res < 0) {
- 		printk_ratelimited(KERN_ERR
-diff --git a/fs/crypto/fscrypt_private.h b/fs/crypto/fscrypt_private.h
-index a1d5021..c0f1881 100644
---- a/fs/crypto/fscrypt_private.h
-+++ b/fs/crypto/fscrypt_private.h
-@@ -69,16 +69,6 @@ typedef enum {
- #define FS_CTX_REQUIRES_FREE_ENCRYPT_FL		0x00000001
- #define FS_CTX_HAS_BOUNCE_BUFFER_FL		0x00000002
- 
--struct fscrypt_completion_result {
--	struct completion completion;
--	int res;
--};
--
--#define DECLARE_FS_COMPLETION_RESULT(ecr) \
--	struct fscrypt_completion_result ecr = { \
--		COMPLETION_INITIALIZER_ONSTACK((ecr).completion), 0 }
--
--
- /* crypto.c */
- extern int fscrypt_initialize(unsigned int cop_flags);
- extern struct workqueue_struct *fscrypt_read_workqueue;
-diff --git a/fs/crypto/keyinfo.c b/fs/crypto/keyinfo.c
-index 018c588..3c84cac 100644
---- a/fs/crypto/keyinfo.c
-+++ b/fs/crypto/keyinfo.c
-@@ -17,17 +17,6 @@
- 
- static struct crypto_shash *essiv_hash_tfm;
- 
--static void derive_crypt_complete(struct crypto_async_request *req, int rc)
--{
--	struct fscrypt_completion_result *ecr = req->data;
--
--	if (rc == -EINPROGRESS)
--		return;
--
--	ecr->res = rc;
--	complete(&ecr->completion);
--}
--
- /**
-  * derive_key_aes() - Derive a key using AES-128-ECB
-  * @deriving_key: Encryption key used for derivation.
-@@ -42,7 +31,7 @@ static int derive_key_aes(u8 deriving_key[FS_AES_128_ECB_KEY_SIZE],
- {
- 	int res = 0;
- 	struct skcipher_request *req = NULL;
--	DECLARE_FS_COMPLETION_RESULT(ecr);
-+	DECLARE_CRYPTO_WAIT(wait);
- 	struct scatterlist src_sg, dst_sg;
- 	struct crypto_skcipher *tfm = crypto_alloc_skcipher("ecb(aes)", 0, 0);
- 
-@@ -59,7 +48,7 @@ static int derive_key_aes(u8 deriving_key[FS_AES_128_ECB_KEY_SIZE],
- 	}
- 	skcipher_request_set_callback(req,
- 			CRYPTO_TFM_REQ_MAY_BACKLOG | CRYPTO_TFM_REQ_MAY_SLEEP,
--			derive_crypt_complete, &ecr);
-+			crypto_req_done, &wait);
- 	res = crypto_skcipher_setkey(tfm, deriving_key,
- 					FS_AES_128_ECB_KEY_SIZE);
- 	if (res < 0)
-@@ -69,11 +58,7 @@ static int derive_key_aes(u8 deriving_key[FS_AES_128_ECB_KEY_SIZE],
- 	sg_init_one(&dst_sg, derived_raw_key, source_key->size);
- 	skcipher_request_set_crypt(req, &src_sg, &dst_sg, source_key->size,
- 				   NULL);
--	res = crypto_skcipher_encrypt(req);
--	if (res == -EINPROGRESS || res == -EBUSY) {
--		wait_for_completion(&ecr.completion);
--		res = ecr.res;
--	}
-+	res = crypto_wait_req(crypto_skcipher_encrypt(req), &wait);
- out:
- 	skcipher_request_free(req);
- 	crypto_free_skcipher(tfm);
+First, by separating the return codes of the case where a
+request is queued to a backlog due to the provider being
+busy (-EBUSY) from the case the request has failed due
+to the provider being busy and backlogging is not enabled
+(-EAGAIN).
+
+Next, this change is than built on to create a generic API
+to wait for a async. crypto operation to complete.
+
+The end result is a smaller code base and an API that is
+easier to use and more difficult to get wrong.
+
+The patch set was boot tested on x86_64 and arm64 which
+at the very least tests the crypto users via testmgr and
+tcrypt but I do note that I do not have access to some
+of the HW whose drivers are modified nor do I claim I was
+able to test all of the corner cases.
+
+The patch set is based upon linux-next release tagged
+next-20170905.
+
+Changes from v7:
+- Turn -EBUSY to -EAGAIN also in crypto using net
+  code which I missed before, as has been pointed
+  out by Harsh Jain.
+
+Changes from v6:
+- Fix brown paper bag compile error on marvell/cesa
+  code.
+
+Changes from v5:
+- Remove redundant new line as spotted by Jonathan
+  Cameron.
+- Reworded dm-verity change commit message to better
+  clarify potential issue averted by change as
+  pointed out by Mikulas Patocka.
+
+Changes from v4:
+- Rebase on top of latest algif changes from Stephan
+  Mueller.
+- Fix typo in ccp patch title.
+
+Changes from v3:
+- Instead of changing the return code to indicate
+  backlog queueing, change the return code to indicate
+  transient busy state, as suggested by Herbert Xu.
+
+Changes from v2:
+- Patch title changed from "introduce crypto wait for
+  async op" to better reflect the current state.
+- Rebase on top of latest linux-next.
+- Add a new return code of -EIOCBQUEUED for backlog
+  queueing, as suggested by Herbert Xu.
+- Transform more users to the new API.
+- Update the drbg change to account for new init as
+  indicated by Stephan Muller.
+
+Changes from v1:
+- Address review comments from Eric Biggers.
+- Separated out bug fixes of existing code and rebase
+  on top of that patch set.
+- Rename 'ecr' to 'wait' in fscrypto code.
+- Split patch introducing the new API from the change
+  moving over the algif code which it originated from
+  to the new API.
+- Inline crypto_wait_req().
+- Some code indentation fixes.
+
+Gilad Ben-Yossef (20):
+  crypto: change transient busy return code to -EAGAIN
+  crypto: ccp: use -EAGAIN for transient busy indication
+  net: use -EAGAIN for transient busy indication
+  crypto: remove redundant backlog checks on EBUSY
+  crypto: marvell/cesa: remove redundant backlog checks on EBUSY
+  crypto: introduce crypto wait for async op
+  crypto: move algif to generic async completion
+  crypto: move pub key to generic async completion
+  crypto: move drbg to generic async completion
+  crypto: move gcm to generic async completion
+  crypto: move testmgr to generic async completion
+  fscrypt: move to generic async completion
+  dm: move dm-verity to generic async completion
+  cifs: move to generic async completion
+  ima: move to generic async completion
+  crypto: tcrypt: move to generic async completion
+  crypto: talitos: move to generic async completion
+  crypto: qce: move to generic async completion
+  crypto: mediatek: move to generic async completion
+  crypto: adapt api sample to use async. op wait
+
+ Documentation/crypto/api-samples.rst |  52 ++-------
+ crypto/af_alg.c                      |  27 -----
+ crypto/ahash.c                       |  12 +--
+ crypto/algapi.c                      |   6 +-
+ crypto/algif_aead.c                  |   8 +-
+ crypto/algif_hash.c                  |  50 +++++----
+ crypto/algif_skcipher.c              |   9 +-
+ crypto/api.c                         |  13 +++
+ crypto/asymmetric_keys/public_key.c  |  28 +----
+ crypto/cryptd.c                      |   4 +-
+ crypto/cts.c                         |   6 +-
+ crypto/drbg.c                        |  36 ++-----
+ crypto/gcm.c                         |  32 ++----
+ crypto/lrw.c                         |   8 +-
+ crypto/rsa-pkcs1pad.c                |  16 +--
+ crypto/tcrypt.c                      |  84 +++++----------
+ crypto/testmgr.c                     | 204 ++++++++++++-----------------------
+ crypto/xts.c                         |   8 +-
+ drivers/crypto/ccp/ccp-crypto-main.c |   8 +-
+ drivers/crypto/ccp/ccp-dev.c         |   7 +-
+ drivers/crypto/marvell/cesa.c        |   3 +-
+ drivers/crypto/marvell/cesa.h        |   2 +-
+ drivers/crypto/mediatek/mtk-aes.c    |  31 +-----
+ drivers/crypto/qce/sha.c             |  30 +-----
+ drivers/crypto/talitos.c             |  38 +------
+ drivers/md/dm-verity-target.c        |  81 ++++----------
+ drivers/md/dm-verity.h               |   5 -
+ fs/cifs/smb2ops.c                    |  30 +-----
+ fs/crypto/crypto.c                   |  28 +----
+ fs/crypto/fname.c                    |  36 ++-----
+ fs/crypto/fscrypt_private.h          |  10 --
+ fs/crypto/keyinfo.c                  |  21 +---
+ include/crypto/drbg.h                |   3 +-
+ include/crypto/if_alg.h              |  15 +--
+ include/linux/crypto.h               |  40 +++++++
+ net/ipv4/ah4.c                       |   2 +-
+ net/ipv4/esp4.c                      |   2 +-
+ net/ipv6/ah6.c                       |   2 +-
+ net/ipv6/esp6.c                      |   2 +-
+ security/integrity/ima/ima_crypto.c  |  56 +++-------
+ 40 files changed, 314 insertions(+), 741 deletions(-)
+
 -- 
 2.1.4
