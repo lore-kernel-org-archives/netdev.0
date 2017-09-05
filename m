@@ -1,45 +1,49 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [oss-drivers] Re: [PATCH net] net: sched: don't use GFP_KERNEL
- under spin lock
-Date: Tue, 5 Sep 2017 16:31:25 +0200
-Message-ID: <20170905143125.GD7936@nanopsycho>
-References: <20170905105442.30972-1-jakub.kicinski@netronome.com>
- <20170905115948.2fd38785@cakuba.netronome.com>
- <20170905125221.GA7936@nanopsycho>
- <20170905152551.748e4af2@cakuba.netronome.com>
+From: Alexei Starovoitov <ast@fb.com>
+Subject: Re: [PATCH net-next] bpf: fix numa_node validation
+Date: Tue, 5 Sep 2017 07:43:12 -0700
+Message-ID: <8bcc1ff5-7b0e-1d4e-fb4e-8e5033630443@fb.com>
+References: <1504590062.15310.36.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, oss-drivers@netronome.com
-To: Jakub Kicinski <kubakici@wp.pl>
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, Martin KaFai Lau <kafai@fb.com>,
+        Daniel Borkmann <daniel@iogearbox.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+        David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f195.google.com ([209.85.128.195]:36480 "EHLO
-        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751647AbdIEOb2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 5 Sep 2017 10:31:28 -0400
-Received: by mail-wr0-f195.google.com with SMTP id 40so1808964wrv.3
-        for <netdev@vger.kernel.org>; Tue, 05 Sep 2017 07:31:27 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20170905152551.748e4af2@cakuba.netronome.com>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:49938 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751345AbdIEOnM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 5 Sep 2017 10:43:12 -0400
+In-Reply-To: <1504590062.15310.36.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tue, Sep 05, 2017 at 04:25:51PM CEST, kubakici@wp.pl wrote:
->On Tue, 5 Sep 2017 14:52:21 +0200, Jiri Pirko wrote:
->> Tue, Sep 05, 2017 at 12:59:48PM CEST, kubakici@wp.pl wrote:
->> >Jiri, FWIW I also just noticed these, but they seem related to the
->> >earlier TC chain work?  
->> 
->> What do you do to trigger this?
+On 9/4/17 10:41 PM, Eric Dumazet wrote:
+> Call Trace:
+>  __do_kmalloc_node mm/slab.c:3688 [inline]
+>  __kmalloc_node+0x33/0x70 mm/slab.c:3696
+>  kmalloc_node include/linux/slab.h:535 [inline]
+>  alloc_htab_elem+0x2a8/0x480 kernel/bpf/hashtab.c:740
+>  htab_map_update_elem+0x740/0xb80 kernel/bpf/hashtab.c:820
+>  map_update_elem kernel/bpf/syscall.c:587 [inline]
+>  SYSC_bpf kernel/bpf/syscall.c:1468 [inline]
+>  SyS_bpf+0x20c5/0x4c40 kernel/bpf/syscall.c:1443
+>  entry_SYSCALL_64_fastpath+0x1f/0xbe
+> RIP: 0033:0x440409
+> RSP: 002b:00007ffd1f1792b8 EFLAGS: 00000246 ORIG_RAX: 0000000000000141
+> RAX: ffffffffffffffda RBX: 00000000004002c8 RCX: 0000000000440409
+> RDX: 0000000000000020 RSI: 0000000020006000 RDI: 0000000000000002
+> RBP: 0000000000000086 R08: 0000000000000000 R09: 0000000000000000
+> R10: 0000000000000000 R11: 0000000000000246 R12: 0000000000401d70
+> R13: 0000000000401e00 R14: 0000000000000000 R15: 0000000000000000
+> Code: 83 c2 01 89 50 18 4c 03 70 08 e8 38 f4 ff ff 4d 85 f6 0f 85 3e ff ff ff 44 89 fe 4c 89 ef e8 94 fb ff ff 49 89 c6 e9 2b ff ff ff <0f> 0b 0f 0b 0f 0b 66 0f 1f 44 00 00 55 48 89 e5 41 57 41 56 41
+> RIP: ____cache_alloc_node+0x1d4/0x1e0 mm/slab.c:3292 RSP: ffff8801c0c97638
+> ---[ end trace d745f355da2e33ce ]---
+> Kernel panic - not syncing: Fatal exception
 >
->Sorry, I wasted a bit of time there because kmemleak takes surprisingly
->long to notice the memory leak...  In the end this is sufficient:
->
-> modprobe nfp
-> ifconfig p4p1 10.8.1.1/24 up
-> tc qdisc add dev p4p1 handle ffff: ingress
-> tc filter add dev p4p1 parent ffff: protocol 802.1Q flower vlan_id 600 \
->     action mirred egress redirect dev p4p1
-> tc filter del dev p4p1 parent ffff:
-> rmmod nfp
+> Fixes: 96eabe7a40aa ("bpf: Allow selecting numa node during map creation")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Will try. Thanks!
+Good catch. Thanks!
+Acked-by: Alexei Starovoitov <ast@kernel.org>
