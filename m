@@ -1,49 +1,70 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: Re: [PATCH net-next] bpf: fix numa_node validation
-Date: Tue, 5 Sep 2017 07:43:12 -0700
-Message-ID: <8bcc1ff5-7b0e-1d4e-fb4e-8e5033630443@fb.com>
-References: <1504590062.15310.36.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [RFC net-next] net: sch_clsact: add support for global per-netns
+ classifier mode
+Date: Tue, 5 Sep 2017 08:17:01 -0700
+Message-ID: <CAJieiUgsHBCXB2F9tp7pNYLjDAApqH-5eHReef6dQAc5WY=+9Q@mail.gmail.com>
+References: <1504615701-20912-1-git-send-email-nikolay@cumulusnetworks.com> <20170905140750.GB7936@nanopsycho>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Martin KaFai Lau <kafai@fb.com>,
-        Daniel Borkmann <daniel@iogearbox.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-        David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        David Ahern <dsa@cumulusnetworks.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:49938 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751345AbdIEOnM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 5 Sep 2017 10:43:12 -0400
-In-Reply-To: <1504590062.15310.36.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-pg0-f49.google.com ([74.125.83.49]:35928 "EHLO
+        mail-pg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751386AbdIEPRC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 5 Sep 2017 11:17:02 -0400
+Received: by mail-pg0-f49.google.com with SMTP id m9so10023531pgd.3
+        for <netdev@vger.kernel.org>; Tue, 05 Sep 2017 08:17:02 -0700 (PDT)
+In-Reply-To: <20170905140750.GB7936@nanopsycho>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 9/4/17 10:41 PM, Eric Dumazet wrote:
-> Call Trace:
->  __do_kmalloc_node mm/slab.c:3688 [inline]
->  __kmalloc_node+0x33/0x70 mm/slab.c:3696
->  kmalloc_node include/linux/slab.h:535 [inline]
->  alloc_htab_elem+0x2a8/0x480 kernel/bpf/hashtab.c:740
->  htab_map_update_elem+0x740/0xb80 kernel/bpf/hashtab.c:820
->  map_update_elem kernel/bpf/syscall.c:587 [inline]
->  SYSC_bpf kernel/bpf/syscall.c:1468 [inline]
->  SyS_bpf+0x20c5/0x4c40 kernel/bpf/syscall.c:1443
->  entry_SYSCALL_64_fastpath+0x1f/0xbe
-> RIP: 0033:0x440409
-> RSP: 002b:00007ffd1f1792b8 EFLAGS: 00000246 ORIG_RAX: 0000000000000141
-> RAX: ffffffffffffffda RBX: 00000000004002c8 RCX: 0000000000440409
-> RDX: 0000000000000020 RSI: 0000000020006000 RDI: 0000000000000002
-> RBP: 0000000000000086 R08: 0000000000000000 R09: 0000000000000000
-> R10: 0000000000000000 R11: 0000000000000246 R12: 0000000000401d70
-> R13: 0000000000401e00 R14: 0000000000000000 R15: 0000000000000000
-> Code: 83 c2 01 89 50 18 4c 03 70 08 e8 38 f4 ff ff 4d 85 f6 0f 85 3e ff ff ff 44 89 fe 4c 89 ef e8 94 fb ff ff 49 89 c6 e9 2b ff ff ff <0f> 0b 0f 0b 0f 0b 66 0f 1f 44 00 00 55 48 89 e5 41 57 41 56 41
-> RIP: ____cache_alloc_node+0x1d4/0x1e0 mm/slab.c:3292 RSP: ffff8801c0c97638
-> ---[ end trace d745f355da2e33ce ]---
-> Kernel panic - not syncing: Fatal exception
+On Tue, Sep 5, 2017 at 7:07 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+> Tue, Sep 05, 2017 at 02:48:21PM CEST, nikolay@cumulusnetworks.com wrote:
+>>Hi all,
+>>This RFC adds a new mode for clsact which designates a device's egress
+>>classifier as global per netns. The packets that are not classified for
+>>a particular device will be classified using the global classifier.
+>>We have needed a global classifier for some time now for various
+>>purposes and setting the single bridge or loopback/vrf device as the
+>>global classifier device is acceptable for us. Doing it this way avoids
+>>the act/cls device and queue dependencies.
+>>
+>>This is strictly an RFC patch just to show the intent, if we agree on
+>>the details the proposed patch will have support for both ingress and
+>>egress, and will be using a static key to avoid the fast path test when no
+>>global classifier has been configured.
+>>
+>>Example (need a modified tc that adds TCA_OPTIONS when using q_clsact):
+>>$ tc qdisc add dev lo clsact global
+>>$ tc filter add dev lo egress protocol ip u32 match ip dst 4.3.2.1/32 action drop
+>>
+>>the last filter will be global for all devices that don't have a
+>>specific egress_cl_list (i.e. have clsact configured).
+>>
+>>Any comments and thoughts would be greatly appreciated.
 >
-> Fixes: 96eabe7a40aa ("bpf: Allow selecting numa node during map creation")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Did you see my shared blocks work? I believe that it should resolve your
+> usecase, in a generic way. You just have to bind the devices you need to
+> the shared block. Please see the RFC:
+>
+> https://www.spinics.net/lists/netdev/msg444067.html
 
-Good catch. Thanks!
-Acked-by: Alexei Starovoitov <ast@kernel.org>
+
+Jiri, yes, we have seen this series. This still requires one to make
+the association between dev and tc shared block..and
+the rules are associated with every device. Your work will help the
+case and is needed for tc in general and can co-exist.
+It takes us closer but is still not a way to create global tc rules.
+imagine thousands of netdevs. We would ideally like the show to also
+display a single set of rules.
+Given tc has a rich set of classifiers and actions (and very
+extensible!), we are trying to see if those can
+be easily applied globally than being tied to a device. Maybe there
+are other better ways to achieve this...this thread
+is to start that discussion. I think solving this once will help the
+scale issue for your hardware offload case as well.
