@@ -1,158 +1,83 @@
-From: Jakub Kicinski <kubakici@wp.pl>
-Subject: Re: [PATCH net] net: sched: don't use GFP_KERNEL under spin lock
-Date: Tue, 5 Sep 2017 11:59:48 +0100
-Message-ID: <20170905115948.2fd38785@cakuba.netronome.com>
-References: <20170905105442.30972-1-jakub.kicinski@netronome.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: jiri@resnulli.us, oss-drivers@netronome.com
-To: netdev@vger.kernel.org
+From: Simon Horman <simon.horman@netronome.com>
+Subject: [PATCH iproute2/master] tc actions: store and dump correct length of user cookies
+Date: Tue,  5 Sep 2017 13:06:24 +0200
+Message-ID: <1504609584-20026-1-git-send-email-simon.horman@netronome.com>
+Cc: netdev@vger.kernel.org, oss-drivers@netronome.com,
+        Simon Horman <simon.horman@netronome.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx3.wp.pl ([212.77.101.9]:32981 "EHLO mx3.wp.pl"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750748AbdIEK7y (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 5 Sep 2017 06:59:54 -0400
-Received: from host-79-78-33-110.static.as9105.net (HELO cakuba.netronome.com) (kubakici@wp.pl@[79.78.33.110])
-          (envelope-sender <kubakici@wp.pl>)
-          by smtp.wp.pl (WP-SMTPD) with ECDHE-RSA-AES256-GCM-SHA384 encrypted SMTP
-          for <netdev@vger.kernel.org>; 5 Sep 2017 12:59:51 +0200
-In-Reply-To: <20170905105442.30972-1-jakub.kicinski@netronome.com>
+Received: from mail-wm0-f46.google.com ([74.125.82.46]:33651 "EHLO
+        mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751710AbdIELGt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 5 Sep 2017 07:06:49 -0400
+Received: by mail-wm0-f46.google.com with SMTP id f145so10438569wme.0
+        for <netdev@vger.kernel.org>; Tue, 05 Sep 2017 04:06:49 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jiri, FWIW I also just noticed these, but they seem related to the
-earlier TC chain work?
+Correct two errors which cancel each other out:
+* Do not send twice the length of the actual provided by the user to the kernel
+* Do not dump half the length of the cookie provided by the kernel
 
-unreferenced object 0xffff8807466f70c8 (size 64):
-  comm "tc", pid 1812, jiffies 4294932641 (age 1537.192s)
-  hex dump (first 32 bytes):
-    00 00 00 00 00 00 00 00 a0 83 e1 31 07 88 ff ff  ...........1....
-    d8 70 6f 46 07 88 ff ff d8 70 6f 46 07 88 ff ff  .poF.....poF....
-  backtrace:
-    [<ffffffffaa6b0118>] kmemleak_alloc+0x28/0x50
-    [<ffffffffa89a89b6>] kmem_cache_alloc_trace+0x1e6/0x550
-    [<ffffffffaa102827>] tcf_chain_create+0x97/0x460
-    [<ffffffffaa102f67>] tcf_block_get+0x127/0x230
-    [<ffffffffc03e8546>] ingress_init+0x76/0x110 [sch_ingress]
-    [<ffffffffaa0fbb1c>] qdisc_create+0x2ec/0x1100
-    [<ffffffffaa0fce1a>] tc_modify_qdisc+0x4ea/0x1ae0
-    [<ffffffffaa0355dc>] rtnetlink_rcv_msg+0xa3c/0x1400
-    [<ffffffffaa12e3cb>] netlink_rcv_skb+0x22b/0x4e0
-    [<ffffffffaa024b55>] rtnetlink_rcv+0x15/0x20
-    [<ffffffffaa12bddd>] netlink_unicast+0x47d/0x710
-    [<ffffffffaa12caef>] netlink_sendmsg+0xa7f/0x1140
-    [<ffffffffa9f15c52>] sock_sendmsg+0xe2/0x170
-    [<ffffffffa9f188bd>] ___sys_sendmsg+0x72d/0xcc0
-    [<ffffffffa9f1bfa2>] __sys_sendmsg+0xe2/0x260
-    [<ffffffffa9f1c132>] SyS_sendmsg+0x12/0x20
-unreferenced object 0xffff88074db6c008 (size 64):
-  comm "tc", pid 2097, jiffies 4294953636 (age 1453.212s)
-  hex dump (first 32 bytes):
-    00 00 00 00 00 00 00 00 60 a6 d1 31 07 88 ff ff  ........`..1....
-    18 c0 b6 4d 07 88 ff ff 18 c0 b6 4d 07 88 ff ff  ...M.......M....
-  backtrace:
-    [<ffffffffaa6b0118>] kmemleak_alloc+0x28/0x50
-    [<ffffffffa89a89b6>] kmem_cache_alloc_trace+0x1e6/0x550
-    [<ffffffffaa102827>] tcf_chain_create+0x97/0x460
-    [<ffffffffaa102f67>] tcf_block_get+0x127/0x230
-    [<ffffffffc03e8546>] ingress_init+0x76/0x110 [sch_ingress]
-    [<ffffffffaa0fbb1c>] qdisc_create+0x2ec/0x1100
-    [<ffffffffaa0fce1a>] tc_modify_qdisc+0x4ea/0x1ae0
-    [<ffffffffaa0355dc>] rtnetlink_rcv_msg+0xa3c/0x1400
-    [<ffffffffaa12e3cb>] netlink_rcv_skb+0x22b/0x4e0
-    [<ffffffffaa024b55>] rtnetlink_rcv+0x15/0x20
-    [<ffffffffaa12bddd>] netlink_unicast+0x47d/0x710
-    [<ffffffffaa12caef>] netlink_sendmsg+0xa7f/0x1140
-    [<ffffffffa9f15c52>] sock_sendmsg+0xe2/0x170
-    [<ffffffffa9f188bd>] ___sys_sendmsg+0x72d/0xcc0
-    [<ffffffffa9f1bfa2>] __sys_sendmsg+0xe2/0x260
-    [<ffffffffa9f1c132>] SyS_sendmsg+0x12/0x20
-unreferenced object 0xffff880749f82a48 (size 64):
-  comm "tc", pid 2381, jiffies 4294972986 (age 1375.812s)
-  hex dump (first 32 bytes):
-    00 00 00 00 00 00 00 00 c0 b7 31 31 07 88 ff ff  ..........11....
-    58 2a f8 49 07 88 ff ff 58 2a f8 49 07 88 ff ff  X*.I....X*.I....
-  backtrace:
-    [<ffffffffaa6b0118>] kmemleak_alloc+0x28/0x50
-    [<ffffffffa89a89b6>] kmem_cache_alloc_trace+0x1e6/0x550
-    [<ffffffffaa102827>] tcf_chain_create+0x97/0x460
-    [<ffffffffaa102f67>] tcf_block_get+0x127/0x230
-    [<ffffffffc03e8546>] ingress_init+0x76/0x110 [sch_ingress]
-    [<ffffffffaa0fbb1c>] qdisc_create+0x2ec/0x1100
-    [<ffffffffaa0fce1a>] tc_modify_qdisc+0x4ea/0x1ae0
-    [<ffffffffaa0355dc>] rtnetlink_rcv_msg+0xa3c/0x1400
-    [<ffffffffaa12e3cb>] netlink_rcv_skb+0x22b/0x4e0
-    [<ffffffffaa024b55>] rtnetlink_rcv+0x15/0x20
-    [<ffffffffaa12bddd>] netlink_unicast+0x47d/0x710
-    [<ffffffffaa12caef>] netlink_sendmsg+0xa7f/0x1140
-    [<ffffffffa9f15c52>] sock_sendmsg+0xe2/0x170
-    [<ffffffffa9f188bd>] ___sys_sendmsg+0x72d/0xcc0
-    [<ffffffffa9f1bfa2>] __sys_sendmsg+0xe2/0x260
-    [<ffffffffa9f1c132>] SyS_sendmsg+0x12/0x20
-unreferenced object 0xffff8803fd855a08 (size 64):
-  comm "tc", pid 2663, jiffies 4294992152 (age 1299.328s)
-  hex dump (first 32 bytes):
-    00 00 00 00 00 00 00 00 20 49 80 31 07 88 ff ff  ........ I.1....
-    18 5a 85 fd 03 88 ff ff 18 5a 85 fd 03 88 ff ff  .Z.......Z......
-  backtrace:
-    [<ffffffffaa6b0118>] kmemleak_alloc+0x28/0x50
-    [<ffffffffa89a89b6>] kmem_cache_alloc_trace+0x1e6/0x550
-    [<ffffffffaa102827>] tcf_chain_create+0x97/0x460
-    [<ffffffffaa102f67>] tcf_block_get+0x127/0x230
-    [<ffffffffc03e8546>] ingress_init+0x76/0x110 [sch_ingress]
-    [<ffffffffaa0fbb1c>] qdisc_create+0x2ec/0x1100
-    [<ffffffffaa0fce1a>] tc_modify_qdisc+0x4ea/0x1ae0
-    [<ffffffffaa0355dc>] rtnetlink_rcv_msg+0xa3c/0x1400
-    [<ffffffffaa12e3cb>] netlink_rcv_skb+0x22b/0x4e0
-    [<ffffffffaa024b55>] rtnetlink_rcv+0x15/0x20
-    [<ffffffffaa12bddd>] netlink_unicast+0x47d/0x710
-    [<ffffffffaa12caef>] netlink_sendmsg+0xa7f/0x1140
-    [<ffffffffa9f15c52>] sock_sendmsg+0xe2/0x170
-    [<ffffffffa9f188bd>] ___sys_sendmsg+0x72d/0xcc0
-    [<ffffffffa9f1bfa2>] __sys_sendmsg+0xe2/0x260
-    [<ffffffffa9f1c132>] SyS_sendmsg+0x12/0x20
-unreferenced object 0xffff88071b096f28 (size 64):
-  comm "tc", pid 2943, jiffies 4295013397 (age 1214.352s)
-  hex dump (first 32 bytes):
-    00 00 00 00 00 00 00 00 c0 37 e7 30 07 88 ff ff  .........7.0....
-    38 6f 09 1b 07 88 ff ff 38 6f 09 1b 07 88 ff ff  8o......8o......
-  backtrace:
-    [<ffffffffaa6b0118>] kmemleak_alloc+0x28/0x50
-    [<ffffffffa89a89b6>] kmem_cache_alloc_trace+0x1e6/0x550
-    [<ffffffffaa102827>] tcf_chain_create+0x97/0x460
-    [<ffffffffaa102f67>] tcf_block_get+0x127/0x230
-    [<ffffffffc03e8546>] ingress_init+0x76/0x110 [sch_ingress]
-    [<ffffffffaa0fbb1c>] qdisc_create+0x2ec/0x1100
-    [<ffffffffaa0fce1a>] tc_modify_qdisc+0x4ea/0x1ae0
-    [<ffffffffaa0355dc>] rtnetlink_rcv_msg+0xa3c/0x1400
-    [<ffffffffaa12e3cb>] netlink_rcv_skb+0x22b/0x4e0
-    [<ffffffffaa024b55>] rtnetlink_rcv+0x15/0x20
-    [<ffffffffaa12bddd>] netlink_unicast+0x47d/0x710
-    [<ffffffffaa12caef>] netlink_sendmsg+0xa7f/0x1140
-    [<ffffffffa9f15c52>] sock_sendmsg+0xe2/0x170
-    [<ffffffffa9f188bd>] ___sys_sendmsg+0x72d/0xcc0
-    [<ffffffffa9f1bfa2>] __sys_sendmsg+0xe2/0x260
-    [<ffffffffa9f1c132>] SyS_sendmsg+0x12/0x20
-unreferenced object 0xffff880731f66568 (size 64):
-  comm "tc", pid 3263, jiffies 4295033366 (age 1134.480s)
-  hex dump (first 32 bytes):
-    00 00 00 00 00 00 00 00 00 95 64 65 07 88 ff ff  ..........de....
-    78 65 f6 31 07 88 ff ff 78 65 f6 31 07 88 ff ff  xe.1....xe.1....
-  backtrace:
-    [<ffffffffaa6b0118>] kmemleak_alloc+0x28/0x50
-    [<ffffffffa89a89b6>] kmem_cache_alloc_trace+0x1e6/0x550
-    [<ffffffffaa102827>] tcf_chain_create+0x97/0x460
-    [<ffffffffaa102f67>] tcf_block_get+0x127/0x230
-    [<ffffffffc03e8546>] ingress_init+0x76/0x110 [sch_ingress]
-    [<ffffffffaa0fbb1c>] qdisc_create+0x2ec/0x1100
-    [<ffffffffaa0fce1a>] tc_modify_qdisc+0x4ea/0x1ae0
-    [<ffffffffaa0355dc>] rtnetlink_rcv_msg+0xa3c/0x1400
-    [<ffffffffaa12e3cb>] netlink_rcv_skb+0x22b/0x4e0
-    [<ffffffffaa024b55>] rtnetlink_rcv+0x15/0x20
-    [<ffffffffaa12bddd>] netlink_unicast+0x47d/0x710
-    [<ffffffffaa12caef>] netlink_sendmsg+0xa7f/0x1140
-    [<ffffffffa9f15c52>] sock_sendmsg+0xe2/0x170
-    [<ffffffffa9f188bd>] ___sys_sendmsg+0x72d/0xcc0
-    [<ffffffffa9f1bfa2>] __sys_sendmsg+0xe2/0x260
-    [<ffffffffa9f1c132>] SyS_sendmsg+0x12/0x20
+As the cookie is now stored in the kernel at its correct length rather
+than double the that length cookies of up to the maximum size of 16 bytes
+may now be stored rather than a maximum of half that length.
+
+Output of dump is the same before and after this change,
+but the data stored in the kernel is now exactly the cookie
+rather than the cookie + as many trailing zeros.
+
+Before:
+ # tc filter add dev eth0 protocol ip parent ffff: \
+       flower ip_proto udp action drop \
+       cookie 0123456789abcdef0123456789abcdef
+ RTNETLINK answers: Invalid argument
+
+After:
+ # tc filter add dev eth0 protocol ip parent ffff: \
+       flower ip_proto udp action drop \
+       cookie 0123456789abcdef0123456789abcdef
+ # tc filter show dev eth0 ingress
+   eth_type ipv4
+   ip_proto udp
+   not_in_hw
+	 action order 1: gact action drop
+	  random type none pass val 0
+	  index 1 ref 1 bind 1 installed 1 sec used 1 sec
+	 Action statistics:
+	 Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+	 backlog 0b 0p requeues 0
+	 cookie len 16 0123456789abcdef0123456789abcdef
+
+Fixes: fd8b3d2c1b9b ("actions: Add support for user cookies")
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+Signed-off-by: Simon Horman <simon.horman@netronome.com>
+---
+ tc/m_action.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/tc/m_action.c b/tc/m_action.c
+index 6ebe85e1cbe3..397e9c5d4a7b 100644
+--- a/tc/m_action.c
++++ b/tc/m_action.c
+@@ -242,7 +242,7 @@ done0:
+ 					invarg("cookie must be a hex string\n",
+ 					       *argv);
+ 
+-				act_ck_len = slen;
++				act_ck_len = slen / 2;
+ 				argc--;
+ 				argv++;
+ 			}
+@@ -307,7 +307,7 @@ static int tc_print_one_action(FILE *f, struct rtattr *arg)
+ 		print_tcstats2_attr(f, tb[TCA_ACT_STATS], "\t", NULL);
+ 		if (tb[TCA_ACT_COOKIE]) {
+ 			int strsz = RTA_PAYLOAD(tb[TCA_ACT_COOKIE]);
+-			char b1[strsz+1];
++			char b1[strsz * 2 + 1];
+ 
+ 			fprintf(f, "\n\tcookie len %d %s ", strsz,
+ 				hexstring_n2a(RTA_DATA(tb[TCA_ACT_COOKIE]),
+-- 
+2.1.4
