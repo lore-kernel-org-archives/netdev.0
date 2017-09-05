@@ -1,48 +1,39 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: Re: 915f3e3f76 ("mac80211_hwsim: Replace bogus hrtimer clockid"):
- BUG: kernel reboot-without-warning in test stage
-Date: Tue, 5 Sep 2017 09:12:40 +0200 (CEST)
-Message-ID: <alpine.DEB.2.20.1709050910150.1900@nanos>
-References: <59ade247.WzhbxWeytBOa6Xu4%fengguang.wu@intel.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [RFC net-next 0/5] TSN: Add qdisc-based config interfaces for
+ traffic shapers
+Date: Tue, 5 Sep 2017 09:20:58 +0200
+Message-ID: <20170905072058.giqnqfhcooqzc46w@localhost>
+References: <20170901012625.14838-1-vinicius.gomes@intel.com>
+ <20170901130311.v5nyx6e6gfats5dg@localhost>
+ <1519366e-5418-4dda-db00-5bf50a1c67c4@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: LKP <lkp@01.org>, linux-kernel@vger.kernel.org,
-        netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-        wfg@linux.intel.com
-To: kernel test robot <fengguang.wu@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Vinicius Costa Gomes <vinicius.gomes@intel.com>,
+        netdev@vger.kernel.org, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
+        jiri@resnulli.us, intel-wired-lan@lists.osuosl.org,
+        andre.guedes@intel.com, ivan.briano@intel.com,
+        boon.leong.ong@intel.com
+To: Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Galois.linutronix.de ([146.0.238.70]:43981 "EHLO
-        Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751721AbdIEHNB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 5 Sep 2017 03:13:01 -0400
-In-Reply-To: <59ade247.WzhbxWeytBOa6Xu4%fengguang.wu@intel.com>
+Received: from mail-wr0-f195.google.com ([209.85.128.195]:35244 "EHLO
+        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751717AbdIEHVD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 5 Sep 2017 03:21:03 -0400
+Received: by mail-wr0-f195.google.com with SMTP id a47so1250767wra.2
+        for <netdev@vger.kernel.org>; Tue, 05 Sep 2017 00:21:03 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1519366e-5418-4dda-db00-5bf50a1c67c4@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 5 Sep 2017, kernel test robot wrote:
+On Fri, Sep 01, 2017 at 09:12:17AM -0700, Jesus Sanchez-Palencia wrote:
+> On 09/01/2017 06:03 AM, Richard Cochran wrote:
+> > The timing of this RFC is good, as I am just finishing up an RFC that
+> > implements time-based transmit using the i210.  I'll try and get that
+> > out ASAP.
 
-> Greetings,
-> 
-> 0day kernel testing robot got the below dmesg and the first bad commit is
-> 
-> https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git master
-> 
-> commit 915f3e3f76c05b2da93c4cc278eebc2d9219d9f4
-> Author:     Thomas Gleixner <tglx@linutronix.de>
-> AuthorDate: Sat Feb 25 11:27:37 2017 +0100
-> Commit:     Linus Torvalds <torvalds@linux-foundation.org>
-> CommitDate: Sat Feb 25 09:48:16 2017 -0800
-> 
->     mac80211_hwsim: Replace bogus hrtimer clockid
->     
->     mac80211_hwsim initializes a hrtimer with clockid CLOCK_MONOTONIC_RAW.
->     That's not supported.
->     
->     Use CLOCK_MONOTNIC instead.
-
-Sorry, no. That bisect is completely bogus. The commit in question merily
-replaces the unsupported clockid with a valid one.
+I have an RFC series ready for net-next, but the the merge window just
+started.  I'll post it when the window closes again...
 
 Thanks,
-
-	tglx
+Richard
