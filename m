@@ -1,44 +1,36 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH 1/2] b43: fix unitialized reads of ret by initializing the array to zero
-Date: Tue,  5 Sep 2017 19:15:50 +0100
-Message-ID: <20170905181550.23839-1-colin.king@canonical.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Kalle Valo <kvalo@codeaurora.org>, linux-wireless@vger.kernel.org,
-        b43-dev@lists.infradead.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Iyappan Subramanian <isubramanian@apm.com>
+Subject: [PATCH 0/3] drivers: net: xgene: Misc bug fixes
+Date: Tue,  5 Sep 2017 11:16:29 -0700
+Message-ID: <1504635392-19089-1-git-send-email-isubramanian@apm.com>
+Cc: linux-arm-kernel@lists.infradead.org, dnelson@redhat.com,
+        patches@apm.com, Iyappan Subramanian <isubramanian@apm.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f54.google.com ([74.125.83.54]:38643 "EHLO
+        mail-pg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752404AbdIESQs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 5 Sep 2017 14:16:48 -0400
+Received: by mail-pg0-f54.google.com with SMTP id v66so10735428pgb.5
+        for <netdev@vger.kernel.org>; Tue, 05 Sep 2017 11:16:48 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin Ian King <colin.king@canonical.com>
+This patch set fixes bugs related to handling the case for ACPI for,
+reading and programming tx/rx delay values.
 
-The u8 char array ret is not being initialized and elements outside
-the range start to end contain just garbage values from the stack.
-This results in a later scan of the array to read potentially
-uninitialized values.  Fix this by initializing the array to zero.
-This seems to have been an issue since the very first commit.
-
-Detected by CoverityScan CID#139652 ("Uninitialized scalar variable")
-
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
+Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
 ---
- drivers/net/wireless/broadcom/b43/phy_g.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/wireless/broadcom/b43/phy_g.c b/drivers/net/wireless/broadcom/b43/phy_g.c
-index 822dcaa8ace6..f59c02166462 100644
---- a/drivers/net/wireless/broadcom/b43/phy_g.c
-+++ b/drivers/net/wireless/broadcom/b43/phy_g.c
-@@ -2297,7 +2297,7 @@ static u8 b43_gphy_aci_detect(struct b43_wldev *dev, u8 channel)
- static u8 b43_gphy_aci_scan(struct b43_wldev *dev)
- {
- 	struct b43_phy *phy = &dev->phy;
--	u8 ret[13];
-+	u8 ret[13] = { 0 };
- 	unsigned int channel = phy->channel;
- 	unsigned int i, j, start, end;
- 
+Iyappan Subramanian (2):
+  drivers: net: xgene: Read tx/rx delay for ACPI
+  drivers: net: xgene: Remove return statement from void function
+
+Quan Nguyen (1):
+  drivers: net: xgene: Configure tx/rx delay for ACPI
+
+ drivers/net/ethernet/apm/xgene/xgene_enet_hw.c   | 7 ++-----
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.c | 6 ++----
+ 2 files changed, 4 insertions(+), 9 deletions(-)
+
 -- 
-2.14.1
+2.7.4
