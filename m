@@ -1,58 +1,54 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] soc: ti/knav_dma: include dmaengine header
-Date: Tue,  5 Sep 2017 10:31:35 +0200
-Message-ID: <20170905083146.1289546-1-arnd@arndb.de>
-Cc: Dave Jiang <dave.jiang@intel.com>, netdev@vger.kernel.org,
-        Arnd Bergmann <arnd@arndb.de>,
-        "Karicheri, Muralidharan" <m-karicheri2@ti.com>,
-        linux-kernel@vger.kernel.org
-To: arm@kernel.org, "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCH net] ip6_gre: update mtu properly in ip6gre_err
+Date: Tue,  5 Sep 2017 17:26:33 +0800
+Message-ID: <bcd5956b4342a889e686a475e2ec4fcb36db3e57.1504603593.git.lucien.xin@gmail.com>
+Cc: davem@davemloft.net
+To: network dev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:37036 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751264AbdIEJ0m (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 5 Sep 2017 05:26:42 -0400
+Received: by mail-pg0-f65.google.com with SMTP id j6so1639693pgc.4
+        for <netdev@vger.kernel.org>; Tue, 05 Sep 2017 02:26:42 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-A header file cleanup apparently caused a build regression
-with one driver using the knav infrastructure:
+Now when probessing ICMPV6_PKT_TOOBIG, ip6gre_err only subtracts the
+offset of gre header from mtu info. The expected mtu of gre device
+should also subtract gre header. Otherwise, the next packets still
+can't be sent out.
 
-In file included from drivers/net/ethernet/ti/netcp_core.c:30:0:
-include/linux/soc/ti/knav_dma.h:129:30: error: field 'direction' has incomplete type
-  enum dma_transfer_direction direction;
-                              ^~~~~~~~~
-drivers/net/ethernet/ti/netcp_core.c: In function 'netcp_txpipe_open':
-drivers/net/ethernet/ti/netcp_core.c:1349:21: error: 'DMA_MEM_TO_DEV' undeclared (first use in this function); did you mean 'DMA_MEMORY_MAP'?
-  config.direction = DMA_MEM_TO_DEV;
-                     ^~~~~~~~~~~~~~
-                     DMA_MEMORY_MAP
-drivers/net/ethernet/ti/netcp_core.c:1349:21: note: each undeclared identifier is reported only once for each function it appears in
-drivers/net/ethernet/ti/netcp_core.c: In function 'netcp_setup_navigator_resources':
-drivers/net/ethernet/ti/netcp_core.c:1659:22: error: 'DMA_DEV_TO_MEM' undeclared (first use in this function); did you mean 'DMA_DESC_HOST'?
-  config.direction  = DMA_DEV_TO_MEM;
+Jianlin found this issue when using the topo:
+  client(ip6gre)<---->(nic1)route(nic2)<----->(ip6gre)server
 
-As the header is no longer included implicitly through netdevice.h,
-we should include it in the header that references the enum.
+and reducing nic2's mtu, then both tcp and sctp's performance with
+big size data became 0.
 
-Fixes: 0dd5759dbb1c ("net: remove dmaengine.h inclusion from netdevice.h")
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+This patch is to fix it by also subtracting grehdr (tun->tun_hlen)
+from mtu info when updating gre device's mtu in ip6gre_err(). It
+also needs to subtract ETH_HLEN if gre dev'type is ARPHRD_ETHER.
+
+Reported-by: Jianlin Shi <jishi@redhat.com>
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
 ---
-If the cleanup patch hasn't been submitted for mainline yet, please
-add this fixup to the net-next tree, otherwise I'll merge it through
-arm-soc.
----
- include/linux/soc/ti/knav_dma.h | 2 ++
- 1 file changed, 2 insertions(+)
+ net/ipv6/ip6_gre.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/include/linux/soc/ti/knav_dma.h b/include/linux/soc/ti/knav_dma.h
-index 2b7882666ef6..66693bc4c6ad 100644
---- a/include/linux/soc/ti/knav_dma.h
-+++ b/include/linux/soc/ti/knav_dma.h
-@@ -17,6 +17,8 @@
- #ifndef __SOC_TI_KEYSTONE_NAVIGATOR_DMA_H__
- #define __SOC_TI_KEYSTONE_NAVIGATOR_DMA_H__
- 
-+#include <linux/dmaengine.h>
-+
- /*
-  * PKTDMA descriptor manipulation macros for host packet descriptor
-  */
+diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
+index 67ff2aa..b7a72d4 100644
+--- a/net/ipv6/ip6_gre.c
++++ b/net/ipv6/ip6_gre.c
+@@ -432,7 +432,9 @@ static void ip6gre_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
+ 		}
+ 		break;
+ 	case ICMPV6_PKT_TOOBIG:
+-		mtu = be32_to_cpu(info) - offset;
++		mtu = be32_to_cpu(info) - offset - t->tun_hlen;
++		if (t->dev->type == ARPHRD_ETHER)
++			mtu -= ETH_HLEN;
+ 		if (mtu < IPV6_MIN_MTU)
+ 			mtu = IPV6_MIN_MTU;
+ 		t->dev->mtu = mtu;
 -- 
-2.9.0
+2.1.0
