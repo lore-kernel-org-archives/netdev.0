@@ -1,82 +1,34 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH v2] radix-tree: must check __radix_tree_preload() return
- value
-Date: Tue, 05 Sep 2017 11:46:30 -0700
-Message-ID: <1504637190.15310.62.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1504634367.15310.59.camel@edumazet-glaptop3.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 6/10] ixgbe: Use ARRAY_SIZE macro
+Date: Tue, 05 Sep 2017 11:50:44 -0700 (PDT)
+Message-ID: <20170905.115044.551456011251065741.davem@davemloft.net>
+References: <1504439110050-939061377-0-diffsplit-thomas@m3y3r.de>
+        <1504439110050-1907815276-6-diffsplit-thomas@m3y3r.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Matthew Wilcox <mawilcox@microsoft.com>,
-        "Kirill A. Shutemov" <kirill.shutemov@linux.intel.com>,
-        Andrew Morton <akpm@linux-foundation.org>,
-        netdev <netdev@vger.kernel.org>,
-        Linus Torvalds <torvalds@linux-foundation.org>,
-        linux-kernel <linux-kernel@vger.kernel.org>
-To: Matthew Wilcox <willy@infradead.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1504634367.15310.59.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: thomas@m3y3r.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:36888 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752113AbdIESup (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 5 Sep 2017 14:50:45 -0400
+In-Reply-To: <1504439110050-1907815276-6-diffsplit-thomas@m3y3r.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+From: Thomas Meyer <thomas@m3y3r.de>
+Date: Sun, 03 Sep 2017 14:19:31 +0200
 
-__radix_tree_preload() only disables preemption if no error is returned.
+> Use ARRAY_SIZE macro, rather than explicitly coding some variant of it
+> yourself.
+> Found with: find -type f -name "*.c" -o -name "*.h" | xargs perl -p -i -e
+> 's/\bsizeof\s*\(\s*(\w+)\s*\)\s*\ /\s*sizeof\s*\(\s*\1\s*\[\s*0\s*\]\s*\)
+> /ARRAY_SIZE(\1)/g' and manual check/verification.
+> 
+> Signed-off-by: Thomas Meyer <thomas@m3y3r.de>
 
-So we really need to make sure callers always check the return value.
+This should be submitted to the Intel ethernet driver maintainers.
 
-idr_preload() contract is to always disable preemption, so we need
-to add a missing preempt_disable() if an error happened.
-
-Similarly, ida_pre_get() only needs to call preempt_enable() in the
-case no error happened.
-
-Fixes: 0a835c4f090a ("Reimplement IDR and IDA using the radix tree")
-Fixes: 7ad3d4d85c7a ("ida: Move ida_bitmap to a percpu variable")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: <stable@vger.kernel.org>    [4.11+]
----
-v2: addressed Linus feedback, not adding useless/confusing 'ret' variables.
-
- lib/radix-tree.c |    9 +++++----
- 1 file changed, 5 insertions(+), 4 deletions(-)
-
-diff --git a/lib/radix-tree.c b/lib/radix-tree.c
-index 3527eb364964..afb3cb4d44b6 100644
---- a/lib/radix-tree.c
-+++ b/lib/radix-tree.c
-@@ -463,7 +463,7 @@ radix_tree_node_free(struct radix_tree_node *node)
-  * To make use of this facility, the radix tree must be initialised without
-  * __GFP_DIRECT_RECLAIM being passed to INIT_RADIX_TREE().
-  */
--static int __radix_tree_preload(gfp_t gfp_mask, unsigned nr)
-+static __must_check int __radix_tree_preload(gfp_t gfp_mask, unsigned nr)
- {
- 	struct radix_tree_preload *rtp;
- 	struct radix_tree_node *node;
-@@ -2104,7 +2104,8 @@ EXPORT_SYMBOL(radix_tree_tagged);
-  */
- void idr_preload(gfp_t gfp_mask)
- {
--	__radix_tree_preload(gfp_mask, IDR_PRELOAD_SIZE);
-+	if (__radix_tree_preload(gfp_mask, IDR_PRELOAD_SIZE))
-+		preempt_disable();
- }
- EXPORT_SYMBOL(idr_preload);
- 
-@@ -2118,13 +2119,13 @@ EXPORT_SYMBOL(idr_preload);
-  */
- int ida_pre_get(struct ida *ida, gfp_t gfp)
- {
--	__radix_tree_preload(gfp, IDA_PRELOAD_SIZE);
- 	/*
- 	 * The IDA API has no preload_end() equivalent.  Instead,
- 	 * ida_get_new() can return -EAGAIN, prompting the caller
- 	 * to return to the ida_pre_get() step.
- 	 */
--	preempt_enable();
-+	if (!__radix_tree_preload(gfp, IDA_PRELOAD_SIZE))
-+		preempt_enable();
- 
- 	if (!this_cpu_read(ida_bitmap)) {
- 		struct ida_bitmap *bitmap = kmalloc(sizeof(*bitmap), gfp);
+Thank you.
