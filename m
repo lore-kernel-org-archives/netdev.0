@@ -1,50 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bpf: fix numa_node validation
-Date: Tue, 05 Sep 2017 09:10:27 -0700 (PDT)
-Message-ID: <20170905.091027.204977527174006202.davem@davemloft.net>
-References: <1504590062.15310.36.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [PATCH] net/ncsi: fix ncsi_vlan_rx_{add,kill}_vid references
+Date: Tue, 05 Sep 2017 09:12:43 -0700 (PDT)
+Message-ID: <20170905.091243.2291345820364652641.davem@davemloft.net>
+References: <20170905080615.1131665-1-arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kafai@fb.com, daniel@iogearbox.net,
-        ast@fb.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:34284 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750858AbdIEQKb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 5 Sep 2017 12:10:31 -0400
-In-Reply-To: <1504590062.15310.36.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: gwshan@linux.vnet.ibm.com, sam@mendozajonas.com, joel@jms.id.au,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: arnd@arndb.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170905080615.1131665-1-arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 04 Sep 2017 22:41:02 -0700
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Tue,  5 Sep 2017 10:05:47 +0200
 
-> From: Eric Dumazet <edumazet@google.com>
+> We get a new link error in allmodconfig kernels after ftgmac100
+> started using the ncsi helpers:
 > 
-> syzkaller reported crashes in bpf map creation or map update [1]
+> ERROR: "ncsi_vlan_rx_kill_vid" [drivers/net/ethernet/faraday/ftgmac100.ko] undefined!
+> ERROR: "ncsi_vlan_rx_add_vid" [drivers/net/ethernet/faraday/ftgmac100.ko] undefined!
 > 
-> Problem is that nr_node_ids is a signed integer,
-> NUMA_NO_NODE is also an integer, so it is very tempting
-> to declare numa_node as a signed integer.
+> Related to that, we get another error when CONFIG_NET_NCSI is disabled:
 > 
-> This means the typical test to validate a user provided value :
+> drivers/net/ethernet/faraday/ftgmac100.c:1626:25: error: 'ncsi_vlan_rx_add_vid' undeclared here (not in a function); did you mean 'ncsi_start_dev'?
+> drivers/net/ethernet/faraday/ftgmac100.c:1627:26: error: 'ncsi_vlan_rx_kill_vid' undeclared here (not in a function); did you mean 'ncsi_vlan_rx_add_vid'?
 > 
->         if (numa_node != NUMA_NO_NODE &&
->             (numa_node >= nr_node_ids ||
->              !node_online(numa_node)))
+> This fixes both problems at once, using a 'static inline' stub helper
+> for the disabled case, and exporting the functions when they are present.
 > 
-> must be written :
-> 
->         if (numa_node != NUMA_NO_NODE &&
->             ((unsigned int)numa_node >= nr_node_ids ||
->              !node_online(numa_node)))
-> 
-> 
-> [1]
- ...
-> Fixes: 96eabe7a40aa ("bpf: Allow selecting numa node during map creation")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Fixes: 51564585d8c6 ("ftgmac100: Support NCSI VLAN filtering when available")
+> Fixes: 21acf63013ed ("net/ncsi: Configure VLAN tag filter")
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-Applied, thanks.
+Applied.
