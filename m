@@ -1,8 +1,4 @@
-Return-Path: <netdev-owner@vger.kernel.org>
-Received: from foss.arm.com ([217.140.101.70]:39866 "EHLO foss.arm.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752182AbdIEMna (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 5 Sep 2017 08:43:30 -0400
+Return-Path: <linux-kernel-owner@vger.kernel.org>
 From: Gilad Ben-Yossef <gilad@benyossef.com>
 To: Herbert Xu <herbert@gondor.apana.org.au>,
         "David S. Miller" <davem@davemloft.net>,
@@ -34,90 +30,92 @@ To: Herbert Xu <herbert@gondor.apana.org.au>,
         linux-ima-user@lists.sourceforge.net,
         linux-security-module@vger.kernel.org
 Cc: Ofir Drang <ofir.drang@arm.com>
-Subject: [PATCH v8 17/20] crypto: talitos: move to generic async completion
-Date: Tue,  5 Sep 2017 15:38:56 +0300
-Message-Id: <1504615144-29770-18-git-send-email-gilad@benyossef.com>
+Subject: [PATCH v8 19/20] crypto: mediatek: move to generic async completion
+Date: Tue,  5 Sep 2017 15:38:58 +0300
+Message-Id: <1504615144-29770-20-git-send-email-gilad@benyossef.com>
 In-Reply-To: <1504615144-29770-1-git-send-email-gilad@benyossef.com>
 References: <1504615144-29770-1-git-send-email-gilad@benyossef.com>
-Sender: netdev-owner@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The talitos driver starts several async crypto ops and  waits for their
+The mediatek driver starts several async crypto ops and waits for their
 completions. Move it over to generic code doing the same.
 
 Signed-off-by: Gilad Ben-Yossef <gilad@benyossef.com>
+Acked-by: Ryder Lee <ryder.lee@mediatek.com>
 ---
- drivers/crypto/talitos.c | 38 +++++---------------------------------
- 1 file changed, 5 insertions(+), 33 deletions(-)
+ drivers/crypto/mediatek/mtk-aes.c | 31 +++++--------------------------
+ 1 file changed, 5 insertions(+), 26 deletions(-)
 
-diff --git a/drivers/crypto/talitos.c b/drivers/crypto/talitos.c
-index 79791c6..194a307 100644
---- a/drivers/crypto/talitos.c
-+++ b/drivers/crypto/talitos.c
-@@ -2037,22 +2037,6 @@ static int ahash_import(struct ahash_request *areq, const void *in)
- 	return 0;
- }
+diff --git a/drivers/crypto/mediatek/mtk-aes.c b/drivers/crypto/mediatek/mtk-aes.c
+index 9e845e8..e2c7c95 100644
+--- a/drivers/crypto/mediatek/mtk-aes.c
++++ b/drivers/crypto/mediatek/mtk-aes.c
+@@ -137,11 +137,6 @@ struct mtk_aes_gcm_ctx {
+ 	struct crypto_skcipher *ctr;
+ };
  
--struct keyhash_result {
--	struct completion completion;
+-struct mtk_aes_gcm_setkey_result {
 -	int err;
+-	struct completion completion;
 -};
 -
--static void keyhash_complete(struct crypto_async_request *req, int err)
+ struct mtk_aes_drv {
+ 	struct list_head dev_list;
+ 	/* Device list lock */
+@@ -936,17 +931,6 @@ static int mtk_aes_gcm_crypt(struct aead_request *req, u64 mode)
+ 				    &req->base);
+ }
+ 
+-static void mtk_gcm_setkey_done(struct crypto_async_request *req, int err)
 -{
--	struct keyhash_result *res = req->data;
+-	struct mtk_aes_gcm_setkey_result *result = req->data;
 -
 -	if (err == -EINPROGRESS)
 -		return;
 -
--	res->err = err;
--	complete(&res->completion);
+-	result->err = err;
+-	complete(&result->completion);
 -}
 -
- static int keyhash(struct crypto_ahash *tfm, const u8 *key, unsigned int keylen,
- 		   u8 *hash)
- {
-@@ -2060,10 +2044,10 @@ static int keyhash(struct crypto_ahash *tfm, const u8 *key, unsigned int keylen,
+ /*
+  * Because of the hardware limitation, we need to pre-calculate key(H)
+  * for the GHASH operation. The result of the encryption operation
+@@ -962,7 +946,7 @@ static int mtk_aes_gcm_setkey(struct crypto_aead *aead, const u8 *key,
+ 		u32 hash[4];
+ 		u8 iv[8];
  
- 	struct scatterlist sg[1];
- 	struct ahash_request *req;
--	struct keyhash_result hresult;
-+	struct crypto_wait wait;
- 	int ret;
+-		struct mtk_aes_gcm_setkey_result result;
++		struct crypto_wait wait;
  
--	init_completion(&hresult.completion);
-+	crypto_init_wait(&wait);
+ 		struct scatterlist sg[1];
+ 		struct skcipher_request req;
+@@ -1002,22 +986,17 @@ static int mtk_aes_gcm_setkey(struct crypto_aead *aead, const u8 *key,
+ 	if (!data)
+ 		return -ENOMEM;
  
- 	req = ahash_request_alloc(tfm, GFP_KERNEL);
- 	if (!req)
-@@ -2072,25 +2056,13 @@ static int keyhash(struct crypto_ahash *tfm, const u8 *key, unsigned int keylen,
- 	/* Keep tfm keylen == 0 during hash of the long key */
- 	ctx->keylen = 0;
- 	ahash_request_set_callback(req, CRYPTO_TFM_REQ_MAY_BACKLOG,
--				   keyhash_complete, &hresult);
-+				   crypto_req_done, &wait);
+-	init_completion(&data->result.completion);
++	crypto_init_wait(&data->wait);
+ 	sg_init_one(data->sg, &data->hash, AES_BLOCK_SIZE);
+ 	skcipher_request_set_tfm(&data->req, ctr);
+ 	skcipher_request_set_callback(&data->req, CRYPTO_TFM_REQ_MAY_SLEEP |
+ 				      CRYPTO_TFM_REQ_MAY_BACKLOG,
+-				      mtk_gcm_setkey_done, &data->result);
++				      crypto_req_done, &data->wait);
+ 	skcipher_request_set_crypt(&data->req, data->sg, data->sg,
+ 				   AES_BLOCK_SIZE, data->iv);
  
- 	sg_init_one(&sg[0], key, keylen);
- 
- 	ahash_request_set_crypt(req, sg, hash, keylen);
--	ret = crypto_ahash_digest(req);
--	switch (ret) {
--	case 0:
--		break;
--	case -EINPROGRESS:
--	case -EBUSY:
--		ret = wait_for_completion_interruptible(
--			&hresult.completion);
--		if (!ret)
--			ret = hresult.err;
--		break;
--	default:
--		break;
+-	err = crypto_skcipher_encrypt(&data->req);
+-	if (err == -EINPROGRESS || err == -EBUSY) {
+-		err = wait_for_completion_interruptible(
+-			&data->result.completion);
+-		if (!err)
+-			err = data->result.err;
 -	}
-+	ret = crypto_wait_req(crypto_ahash_digest(req), &wait);
-+
- 	ahash_request_free(req);
++	err = crypto_wait_req(crypto_skcipher_encrypt(&data->req),
++			      &data->wait);
+ 	if (err)
+ 		goto out;
  
- 	return ret;
 -- 
 2.1.4
