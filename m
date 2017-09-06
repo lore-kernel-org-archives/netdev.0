@@ -1,73 +1,138 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net] net_sched: fix a memory leak of filter chain
-Date: Wed, 6 Sep 2017 10:25:51 -0700
-Message-ID: <CAM_iQpVJ8PmF7cL2aNpc6nH6JmTBTJ_LS_ekwU4sQhOcdoAA8g@mail.gmail.com>
-References: <20170906050310.26474-1-xiyou.wangcong@gmail.com> <20170906073839.GD2523@nanopsycho>
+From: <Nisar.Sayed@microchip.com>
+Subject: RE: [PATCH net 1/4] lan78xx: Fix for crash associated with System
+ suspend
+Date: Wed, 6 Sep 2017 17:34:48 +0000
+Message-ID: <CE371C1263339941885964188A0225FA3335B8@CHN-SV-EXMX03.mchp-main.com>
+References: <CE371C1263339941885964188A0225FA333370@CHN-SV-EXMX03.mchp-main.com>
+ <20170906135908.GB11864@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Jakub Kicinski <jakub.kicinski@netronome.com>,
-        Jiri Pirko <jiri@mellanox.com>
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <davem@davemloft.net>, <UNGLinuxDriver@microchip.com>,
+        <netdev@vger.kernel.org>
+To: <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:38671 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932130AbdIFR0M (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2017 13:26:12 -0400
-Received: by mail-pf0-f195.google.com with SMTP id q76so3329860pfq.5
-        for <netdev@vger.kernel.org>; Wed, 06 Sep 2017 10:26:12 -0700 (PDT)
-In-Reply-To: <20170906073839.GD2523@nanopsycho>
+Received: from esa5.microchip.iphmx.com ([216.71.150.166]:20200 "EHLO
+        esa5.microchip.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750789AbdIFRfG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2017 13:35:06 -0400
+In-Reply-To: <20170906135908.GB11864@lunn.ch>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 6, 2017 at 12:38 AM, Jiri Pirko <jiri@resnulli.us> wrote:
-> Wed, Sep 06, 2017 at 07:03:10AM CEST, xiyou.wangcong@gmail.com wrote:
->>tcf_chain_destroy() is called by tcf_block_put() and tcf_chain_put().
->>tcf_chain_put() is refcn'ed and paired with tcf_chain_get(),
->>but tcf_block_put() is not, it should be paired with tcf_block_get()
->>and we still need to decrease the refcnt. However, tcf_block_put()
->>is special, it stores the chains too, we have to detach them if
->>it is not the last user.
->
-> You don't describe the original issue, or I am missing that from your
-> description.
+Thanks Andrew inputs.
+ 
+> On Wed, Sep 06, 2017 at 10:51:31AM +0000, Nisar.Sayed@microchip.com
+> wrote:
+> > From: Nisar Sayed <Nisar.Sayed@microchip.com>
+> >
+> > Fix for crash associated with System suspend
+> >
+> > Since ndo_stop removes phydev which makes phydev NULL.
+> > Whenever system suspend is initiated or after "ifconfig <interface>
+> > down", if set_wol or get_wol is triggered phydev is NULL leads system
+> crash.
+> > Hence phy_start/phy_stop for ndo_start/ndo_stop fixes the issues
+> > instead of adding/removing phydevice
+> 
+> Looking at this patch, there apears to be lots of different things going on.
+> Please can you split it up into multiple patches.
 
-The original issue is the mismatch of tcf_block_put() and tcf_block_get()
-w.r.t. refcnt. Think it in this way: if you call tcf_bock_put() immediately
-after tcf_block_get(), would you get effectively a nop?
+Sure will split it up.
+
+> 
+> > Signed-off-by: Nisar Sayed <Nisar.Sayed@microchip.com>
+> > ---
+> >  drivers/net/usb/lan78xx.c | 44
+> > ++++++++++++++++++++++++++++----------------
+> >  1 file changed, 28 insertions(+), 16 deletions(-)
+> >
+> > diff --git a/drivers/net/usb/lan78xx.c b/drivers/net/usb/lan78xx.c
+> > index b99a7fb..955ab3b 100644
+> > --- a/drivers/net/usb/lan78xx.c
+> > +++ b/drivers/net/usb/lan78xx.c
+> > @@ -2024,6 +2024,8 @@ static int lan78xx_phy_init(struct lan78xx_net
+> *dev)
+> >  						 lan8835_fixup);
+> >  		if (ret < 0) {
+> >  			netdev_err(dev->net, "fail to register fixup\n");
+> > +			phy_unregister_fixup_for_uid(PHY_KSZ9031RNX,
+> > +						     0xfffffff0);
+> 
+> goto error; would be better. phy_unregister_fixup_for_uid() does not care if
+> you try to unregister something which has not been registered.
+> 
+> Also, this should be a separate patch.
+
+Ok, will make it as separate patch
+
+> 
+> >  			return ret;
+> >  		}
+> >  		/* add more external PHY fixup here if needed */ @@ -
+> 2031,8 +2033,7
+> > @@ static int lan78xx_phy_init(struct lan78xx_net *dev)
+> >  		phydev->is_internal = false;
+> >  	} else {
+> >  		netdev_err(dev->net, "unknown ID found\n");
+> > -		ret = -EIO;
+> > -		goto error;
+> > +		return -EIO;
+> >  	}
+> >
+> >  	/* if phyirq is not set, use polling mode in phylib */ @@ -2051,7
+> > +2052,10 @@ static int lan78xx_phy_init(struct lan78xx_net *dev)
+> >  	if (ret) {
+> >  		netdev_err(dev->net, "can't attach PHY to %s\n",
+> >  			   dev->mdiobus->id);
+> > -		return -EIO;
+> > +		ret = -EIO;
+> > +		if (dev->chipid == ID_REV_CHIP_ID_7801_)
+> > +			goto error;
+> > +		return ret;
+> 
+> Why not add the if (dev->chipid == ID_REV_CHIP_ID_7801_) after the
+> error: label?
+> 
+> 
 
 
->
->
->>
->>What's more, index 0 is not special at all, it should be treated
->>like other chains. This also makes the code more readable.
->
-> [...]
->
->
->>@@ -246,10 +246,7 @@ EXPORT_SYMBOL(tcf_chain_get);
->>
->> void tcf_chain_put(struct tcf_chain *chain)
->> {
->>-      /* Destroy unused chain, with exception of chain 0, which is the
->>-       * default one and has to be always present.
->>-       */
->>-      if (--chain->refcnt == 0 && !chain->filter_chain && chain->index != 0)
->>+      if (--chain->refcnt == 0)
->
-> The refcounting is only done for actions holding reference to the chain.
-> You still need to check is the filter chain is not empty.
-> See tc_ctl_tfilter.
+Yes, will correct it
 
-With my patch refcnt is done for block too, if you notice the
-tcf_chain_put() in tcf_block_put().
+> 
+> >  	}
+> >
+> >  	/* MAC doesn't support 1000T Half */ @@ -2067,8 +2071,6 @@ static
+> > int lan78xx_phy_init(struct lan78xx_net *dev)
+> >
+> >  	dev->fc_autoneg = phydev->autoneg;
+> >
+> > -	phy_start(phydev);
+> > -
+> >  	netif_dbg(dev, ifup, dev->net, "phy initialised successfully");
+> >
+> >  	return 0;
+> > @@ -2497,9 +2499,9 @@ static int lan78xx_open(struct net_device *net)
+> >  	if (ret < 0)
+> >  		goto done;
+> >
+> > -	ret = lan78xx_phy_init(dev);
+> > -	if (ret < 0)
+> > -		goto done;
+> > +	if (dev->domain_data.phyirq > 0)
+> > +		phy_start_interrupts(dev->net->phydev);
+> 
+> This is unusual. I don't see any other MAC driver starting interrupts.
+> This needs explaining.
+> 
+>      Andrew
 
+Since "lan78xx_open" calls  "lan78xx_reset" (Device reset) it is required to start/enable interrupt back
+Initially when "phydev->state = PHY_READY" state  "phy_start" will not enable interrupts,
+However after "lan78xx_stop" when "phy_stop" makes "phydev->state = PHY_HALTED"
+Subsequent call to "phy_start" will enable interrupt.
 
->
-> Also, chain 0 is created by default on a block creation. It has to be
-> present always for a reason. Please see tcf_block_get. The pointer to
-> chain 0 is assigned to the qdisc filter list pointer.
+Hence "phy_start_interrupts" used after "lan78xx_reset"
 
-Sure, this is why block holds a refcnt to chain (not just chain 0) with
-my patch, aka why the initial refcnt is 1 rather than 0.
+- Nisar
