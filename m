@@ -1,113 +1,94 @@
-From: Jonas Gorski <jonas.gorski-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 4/8] tty/bcm63xx_uart: allow naming clock in device tree
-Date: Wed, 6 Sep 2017 14:37:27 +0200
-Message-ID: <CAOiHx==oPYiALNL-cHNWCH+YMFswJt4uz-ob++5z+hMauWuRqQ@mail.gmail.com>
-References: <20170802093429.12572-1-jonas.gorski@gmail.com>
- <20170802093429.12572-5-jonas.gorski@gmail.com> <CAOiHx=mC=GfX0VvuRWR-AmXYfVOEkuruwGHooS08WrL_z-60UA@mail.gmail.com>
- <20170906121715.GA27869@kroah.com>
+From: Stefano Brivio <sbrivio@redhat.com>
+Subject: Re: hung task in mac80211
+Date: Wed, 6 Sep 2017 14:40:19 +0200
+Message-ID: <20170906144019.1c98a636@elisabeth>
+References: <CAGnkfhwi9MmtLneeU23iWEGLj9cb1ODb3KzzOqTDvA6nNVsugg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: MIPS Mailing List <linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org>,
-        "linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
-        <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-        "linux-serial-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-serial-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        Ralf Baechle <ralf-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org>,
-        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        bcm-kernel-feedback-list <bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Kevin Cernekee <cernekee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Jiri Slaby <jslaby-IBi9RG/b67k@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Russell King <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>
-To: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170906121715.GA27869-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        Johannes Berg <johannes.berg@intel.com>
+To: Matteo Croce <mcroce@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAGnkfhwi9MmtLneeU23iWEGLj9cb1ODb3KzzOqTDvA6nNVsugg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 6 September 2017 at 14:17, Greg Kroah-Hartman
-<gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org> wrote:
-> On Wed, Sep 06, 2017 at 01:01:32PM +0200, Jonas Gorski wrote:
->> Hi Greg,
->>
->> On 2 August 2017 at 11:34, Jonas Gorski <jonas.gorski-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
->> > Codify using a named clock for the refclk of the uart. This makes it
->> > easier if we might need to add a gating clock (like present on the
->> > BCM6345).
->> >
->> > Signed-off-by: Jonas Gorski <jonas.gorski-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
->>
->> Could I please get a (N)Ack so Ralf can add this patch to his tree?
->>
->>
->> Regards
->> Jonas
->>
->>
->> > ---
->> >  Documentation/devicetree/bindings/serial/brcm,bcm6345-uart.txt | 6 ++++++
->> >  drivers/tty/serial/bcm63xx_uart.c                              | 6 ++++--
->> >  2 files changed, 10 insertions(+), 2 deletions(-)
->> >
->> > diff --git a/Documentation/devicetree/bindings/serial/brcm,bcm6345-uart.txt b/Documentation/devicetree/bindings/serial/brcm,bcm6345-uart.txt
->> > index 5c52e5eef16d..8b2b0460259a 100644
->> > --- a/Documentation/devicetree/bindings/serial/brcm,bcm6345-uart.txt
->> > +++ b/Documentation/devicetree/bindings/serial/brcm,bcm6345-uart.txt
->> > @@ -11,6 +11,11 @@ Required properties:
->> >  - clocks: Clock driving the hardware; used to figure out the baud rate
->> >    divisor.
->> >
->> > +
->> > +Optional properties:
->> > +
->> > +- clock-names: Should be "refclk".
->> > +
->> >  Example:
->> >
->> >         uart0: serial@14e00520 {
->> > @@ -19,6 +24,7 @@ Example:
->> >                 interrupt-parent = <&periph_intc>;
->> >                 interrupts = <2>;
->> >                 clocks = <&periph_clk>;
->> > +               clock-names = "refclk";
->> >         };
->> >
->> >         clocks {
->
-> I don't ack devtree changes :)
->
->> > diff --git a/drivers/tty/serial/bcm63xx_uart.c b/drivers/tty/serial/bcm63xx_uart.c
->> > index a2b9376ec861..f227eff28d3a 100644
->> > --- a/drivers/tty/serial/bcm63xx_uart.c
->> > +++ b/drivers/tty/serial/bcm63xx_uart.c
->> > @@ -841,8 +841,10 @@ static int bcm_uart_probe(struct platform_device *pdev)
->> >         if (!res_irq)
->> >                 return -ENODEV;
->> >
->> > -       clk = pdev->dev.of_node ? of_clk_get(pdev->dev.of_node, 0) :
->> > -                                 clk_get(&pdev->dev, "refclk");
->> > +       clk = clk_get(&pdev->dev, "refclk");
->> > +       if (IS_ERR(clk) && pdev->dev.of_node)
->> > +               clk = of_clk_get(pdev->dev.of_node, 0);
->> > +
->> >         if (IS_ERR(clk))
->> >                 return -ENODEV;
->> >
->
-> This part is fine with me:
+On Wed, 6 Sep 2017 13:57:47 +0200
+Matteo Croce <mcroce@redhat.com> wrote:
 
-That's all I wanted :)
->
-> Acked-by: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
+> Hi,
+> 
+> I have an hung task on vanilla 4.13 kernel which I haven't on 4.12.
+> The problem is present both on my AP and on my notebook,
+> so it seems it affects AP and STA mode as well.
+> The generated messages are:
+> 
+> INFO: task kworker/u16:6:120 blocked for more than 120 seconds.
+>       Not tainted 4.13.0 #57
+> "echo 0 > /proc/sys/kernel/hung_task_timeout_secs" disables this message.
+> kworker/u16:6   D    0   120      2 0x00000000
+> Workqueue: phy0 ieee80211_ba_session_work [mac80211]
+> Call Trace:
+>  ? __schedule+0x174/0x5b0
+>  ? schedule+0x31/0x80
+>  ? schedule_preempt_disabled+0x9/0x10
+>  ? __mutex_lock.isra.2+0x163/0x480
+>  ? select_task_rq_fair+0xb9f/0xc60
+>  ? __ieee80211_start_rx_ba_session+0x135/0x4d0 [mac80211]
+>  ? __ieee80211_start_rx_ba_session+0x135/0x4d0 [mac80211]
 
-Thank you!
+This is ugly and maybe wrong, but you could check perhaps...:
 
-
-Jonas
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/mac80211/ht.c b/net/mac80211/ht.c
+index c92df492e898..bd7512a656f2 100644
+--- a/net/mac80211/ht.c
++++ b/net/mac80211/ht.c
+@@ -320,28 +320,40 @@ void ieee80211_ba_session_work(struct work_struct *work)
+ 
+ 	mutex_lock(&sta->ampdu_mlme.mtx);
+ 	for (tid = 0; tid < IEEE80211_NUM_TIDS; tid++) {
+-		if (test_and_clear_bit(tid, sta->ampdu_mlme.tid_rx_timer_expired))
++		if (test_and_clear_bit(tid, sta->ampdu_mlme.tid_rx_timer_expired)) {
++			mutex_unlock(&sta->ampdu_mlme.mtx);
+ 			___ieee80211_stop_rx_ba_session(
+ 				sta, tid, WLAN_BACK_RECIPIENT,
+ 				WLAN_REASON_QSTA_TIMEOUT, true);
++			mutex_lock(&sta->ampdu_mlme.mtx);
++		}
+ 
+ 		if (test_and_clear_bit(tid,
+-				       sta->ampdu_mlme.tid_rx_stop_requested))
++				       sta->ampdu_mlme.tid_rx_stop_requested)) {
++			mutex_unlock(&sta->ampdu_mlme.mtx);
+ 			___ieee80211_stop_rx_ba_session(
+ 				sta, tid, WLAN_BACK_RECIPIENT,
+ 				WLAN_REASON_UNSPECIFIED, true);
++			mutex_lock(&sta->ampdu_mlme.mtx);
++		}
+ 
+ 		if (test_and_clear_bit(tid,
+-				       sta->ampdu_mlme.tid_rx_manage_offl))
++				       sta->ampdu_mlme.tid_rx_manage_offl)) {
++			mutex_unlock(&sta->ampdu_mlme.mtx);
+ 			__ieee80211_start_rx_ba_session(sta, 0, 0, 0, 1, tid,
+ 							IEEE80211_MAX_AMPDU_BUF,
+ 							false, true);
++			mutex_lock(&sta->ampdu_mlme.mtx);
++		}
+ 
+ 		if (test_and_clear_bit(tid + IEEE80211_NUM_TIDS,
+-				       sta->ampdu_mlme.tid_rx_manage_offl))
++				       sta->ampdu_mlme.tid_rx_manage_offl)) {
++			mutex_unlock(&sta->ampdu_mlme.mtx);
+ 			___ieee80211_stop_rx_ba_session(
+ 				sta, tid, WLAN_BACK_RECIPIENT,
+ 				0, false);
++			mutex_lock(&sta->ampdu_mlme.mtx);
++		}
+ 
+ 		spin_lock_bh(&sta->lock);
+ 
+-- 
+Stefano
