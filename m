@@ -1,77 +1,61 @@
-From: Matthias May <matthias.may@neratec.com>
-Subject: Re: [PATCH v2 rfc 0/8] IGMP snooping for local traffic
-Date: Wed, 6 Sep 2017 16:46:51 +0200
-Message-ID: <edf02eb7-e6bf-e88c-f655-40f6f71a3446@neratec.com>
-References: <1504654510-31004-1-git-send-email-andrew@lunn.ch>
- <20170906004703.GB27385@lunn.ch>
+From: Mason <slash.tmp@free.fr>
+Subject: Re: [PATCH net] Revert "net: phy: Correctly process PHY_HALTED in
+ phy_stop_machine()"
+Date: Wed, 6 Sep 2017 16:55:20 +0200
+Message-ID: <927413e9-4f1f-963c-2d3a-5a88de2eac9e@free.fr>
+References: <1504140569-2063-1-git-send-email-f.fainelli@gmail.com>
+ <f4bb5ac8-dae8-c0af-7aa6-e546fc0783fa@sigmadesigns.com>
+ <a75691d9-c22a-9b89-2cce-604315062739@gmail.com>
+ <d54d0555-c448-741c-eb63-5a773bed5a30@free.fr>
+ <7b1c1dc9-b6e3-a1bd-2e36-474946741a79@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8BIT
-To: Andrew Lunn <andrew@lunn.ch>, netdev <netdev@vger.kernel.org>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Woojung.Huh@microchip.com, jbe@pengutronix.de,
-        sean.wang@mediatek.com, john@phrozen.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Marc Gonzalez <marc_gonzalez@sigmadesigns.com>,
+        David Daney <ddaney.cavm@gmail.com>,
+        netdev <netdev@vger.kernel.org>,
+        Geert Uytterhoeven <geert+renesas@glider.be>,
+        David Miller <davem@davemloft.net>,
+        Andrew Lunn <andrew@lunn.ch>, Mans Rullgard <mans@mansr.com>,
+        Thibaud Cornic <thibaud_cornic@sigmadesigns.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.neratec.com ([46.140.151.2]:2720 "EHLO mail.neratec.com"
+Received: from smtp5-g21.free.fr ([212.27.42.5]:19542 "EHLO smtp5-g21.free.fr"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932586AbdIFOxO (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 6 Sep 2017 10:53:14 -0400
-In-Reply-To: <20170906004703.GB27385@lunn.ch>
-Content-Language: en-GB
+        id S932682AbdIFOzl (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 6 Sep 2017 10:55:41 -0400
+In-Reply-To: <7b1c1dc9-b6e3-a1bd-2e36-474946741a79@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/09/17 02:47, Andrew Lunn wrote:
->> The third and last issue will be explained in a followup email.
-> 
-> Hi DSA hackers
-> 
-> So there is the third issue. It affects just DSA, but it possible
-> affects all DSA drivers.
-> 
-> This patchset broken broadcast with the Marvell drivers. It could
-> break broadcast on others drivers as well.
-> 
-> What i found is that the Marvell chips don't flood broadcast frames
-> between bridged ports. What appears to happen is there is a fdb miss,
-> so it gets forwarded to the CPU port for the host to deal with. The
-> software bridge when floods it out all ports of the bridge.
-> 
-> But the set offload_fwd_mark patch changes this. The software bridge
-> now assumes the hardware has already flooded broadcast out all ports
-> of the switch as needed. So it does not do any flooding itself. As a
-> result, on Marvell devices, broadcast packets don't get flooded at
-> all.
-> 
-> The issue can be fixed. I just need to add an mdb entry for the
-> broadcast address to each port of the bridge in the switch, and the
-> CPU port.  But i don't know at what level to do this.
-> 
-> Should this be done at the DSA level, or at the driver level?  Do any
-> chips do broadcast flooding in hardware already? Hence they currently
-> see broadcast duplication? If i add a broadcast mdb at the DSA level,
-> and the chip is already hard wired to flooding broadcast, is it going
-> to double flood?
-> 
-> 	Andrew
-> 
+On 31/08/2017 21:18, Florian Fainelli wrote:
 
-Hi Andrew
-We are using the 88E6321.
-In our setup we are using openvswitch and not a bridge, however the problem you describe seems to be the same.
+> On 08/31/2017 12:09 PM, Mason wrote:
+> 
+>> 1) nb8800_link_reconfigure() calls phy_print_status()
+>> which prints the "Link down" and "Link up" messages
+>> to the console. With the patch reverted, nothing is
+>> printed when the link goes down, and the result is
+>> random when the link comes up. Sometimes, we get
+>> down + up, sometimes just up.
+> 
+> Nothing printed when you bring down the network interface as a result of
+> not signaling the link down, there is a small nuance here.
 
-We had to configure the switch to flood unknown multicast (Egress Floods = 0x3, bits 3:2, offset 0x4 in port control)
-and
-unset FloodBC (FloodBC = 0x0, bit 12, offset 0x5 in global 2) which defines if a broadcast should be considered as
-multicast for the above config.
+Let me first focus on the "Link down" message.
 
-Regarding the looping problem:
-Since OVS isn't aware of the fdb of the switch, we configure the ports representing the switch ports (in ovs) as
-"protected" which prevents looping them back between (even when flooding) see [1].
-I'm not sure if the bridge has a similar feature.
+Do you agree that such a message should be printed when the
+link goes down, not when the link comes up?
 
-BR
-Matthias
+Perhaps the issue is that the 2 following cases need to be
+handled differently:
+A) operator sets link down on the command-line
+B) asynchronous event makes link go down (peer is dead, cable is cut, etc)
 
-[1]http://openvswitch.org/support/dist-docs/ovs-vswitchd.conf.db.5.txt ctrl-f: "protected: boolean"
+In B) the PHY state machine keeps on running, and eventually
+calls adjust_link()
+
+In A) the driver calls phy_stop() and phy_disconnect() and
+therefore adjust_link() will not be called?
+
+Regards.
