@@ -1,114 +1,31 @@
-From: Tuomas Tynkkynen <tuomas@tuxera.com>
-Subject: [PATCH 2/2] net/9p: Switch to wait_event_killable()
-Date: Wed, 6 Sep 2017 17:59:08 +0300
-Message-ID: <20170906145908.8082-3-tuomas@tuxera.com>
-References: <20170906145908.8082-1-tuomas@tuxera.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: hung task in mac80211
+Date: Wed, 06 Sep 2017 17:11:51 +0200
+Message-ID: <1504710711.23905.17.camel@sipsolutions.net>
+References: <CAGnkfhwi9MmtLneeU23iWEGLj9cb1ODb3KzzOqTDvA6nNVsugg@mail.gmail.com>
+         <1504702728.13457.17.camel@sipsolutions.net>
+         <CAGnkfhyBMKT-Tf10NxjN40Znuj7OK2pSM3qLUidPSkQqh8gjwQ@mail.gmail.com>
+         (sfid-20170906_170509_159201_9F9A1278)
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <v9fs-developer@lists.sourceforge.net>,
-        Eric Van Hensbergen <ericvh@gmail.com>,
-        Ron Minnich <rminnich@sandia.gov>,
-        Latchesar Ionkov <lucho@ionkov.net>,
-        "David S. Miller" <davem@davemloft.net>,
-        <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-        <linux-fsdevel@vger.kernel.org>,
-        Tuomas Tynkkynen <tuomas@tuxera.com>, <stable@vger.kernel.org>
-To: Al Viro <viro@zeniv.linux.org.uk>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Matteo Croce <mcroce@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170906145908.8082-1-tuomas@tuxera.com>
+In-Reply-To: <CAGnkfhyBMKT-Tf10NxjN40Znuj7OK2pSM3qLUidPSkQqh8gjwQ@mail.gmail.com> (sfid-20170906_170509_159201_9F9A1278)
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Because userspace gets Very Unhappy when calls like stat() and execve()
-return -EINTR on 9p filesystem mounts. For instance, when bash is
-looking in PATH for things to execute and some SIGCHLD interrupts
-stat(), bash can throw a spurious 'command not found' since it doesn't
-retry the stat().
+On Wed, 2017-09-06 at 17:04 +0200, Matteo Croce wrote:
+> 
+> I confirm that this patch fixes the hang too.
 
-In practice, hitting the problem is rare and needs a really
-slow/bogged down 9p server.
+Cool, I'll go apply it.
 
-Cc: stable@vger.kernel.org
-Signed-off-by: Tuomas Tynkkynen <tuomas@tuxera.com>
----
- net/9p/client.c       |  3 +--
- net/9p/trans_virtio.c | 13 ++++++-------
- net/9p/trans_xen.c    |  4 ++--
- 3 files changed, 9 insertions(+), 11 deletions(-)
+> I'm curious to see if there are noticeable performance differences
+> between the two solutions.
 
-diff --git a/net/9p/client.c b/net/9p/client.c
-index 4674235b0d9b..1beb131dd3e1 100644
---- a/net/9p/client.c
-+++ b/net/9p/client.c
-@@ -773,8 +773,7 @@ p9_client_rpc(struct p9_client *c, int8_t type, const char *fmt, ...)
- 	}
- again:
- 	/* Wait for the response */
--	err = wait_event_interruptible(*req->wq,
--				       req->status >= REQ_STATUS_RCVD);
-+	err = wait_event_killable(*req->wq, req->status >= REQ_STATUS_RCVD);
- 
- 	/*
- 	 * Make sure our req is coherent with regard to updates in other
-diff --git a/net/9p/trans_virtio.c b/net/9p/trans_virtio.c
-index f24b25c25106..f3a4efcf1456 100644
---- a/net/9p/trans_virtio.c
-+++ b/net/9p/trans_virtio.c
-@@ -286,8 +286,8 @@ p9_virtio_request(struct p9_client *client, struct p9_req_t *req)
- 		if (err == -ENOSPC) {
- 			chan->ring_bufs_avail = 0;
- 			spin_unlock_irqrestore(&chan->lock, flags);
--			err = wait_event_interruptible(*chan->vc_wq,
--							chan->ring_bufs_avail);
-+			err = wait_event_killable(*chan->vc_wq,
-+						  chan->ring_bufs_avail);
- 			if (err  == -ERESTARTSYS)
- 				return err;
- 
-@@ -327,7 +327,7 @@ static int p9_get_mapped_pages(struct virtio_chan *chan,
- 		 * Other zc request to finish here
- 		 */
- 		if (atomic_read(&vp_pinned) >= chan->p9_max_pages) {
--			err = wait_event_interruptible(vp_wq,
-+			err = wait_event_killable(vp_wq,
- 			      (atomic_read(&vp_pinned) < chan->p9_max_pages));
- 			if (err == -ERESTARTSYS)
- 				return err;
-@@ -471,8 +471,8 @@ p9_virtio_zc_request(struct p9_client *client, struct p9_req_t *req,
- 		if (err == -ENOSPC) {
- 			chan->ring_bufs_avail = 0;
- 			spin_unlock_irqrestore(&chan->lock, flags);
--			err = wait_event_interruptible(*chan->vc_wq,
--						       chan->ring_bufs_avail);
-+			err = wait_event_killable(*chan->vc_wq,
-+						  chan->ring_bufs_avail);
- 			if (err  == -ERESTARTSYS)
- 				goto err_out;
- 
-@@ -489,8 +489,7 @@ p9_virtio_zc_request(struct p9_client *client, struct p9_req_t *req,
- 	virtqueue_kick(chan->vq);
- 	spin_unlock_irqrestore(&chan->lock, flags);
- 	p9_debug(P9_DEBUG_TRANS, "virtio request kicked\n");
--	err = wait_event_interruptible(*req->wq,
--				       req->status >= REQ_STATUS_RCVD);
-+	err = wait_event_killable(*req->wq, req->status >= REQ_STATUS_RCVD);
- 	/*
- 	 * Non kernel buffers are pinned, unpin them
- 	 */
-diff --git a/net/9p/trans_xen.c b/net/9p/trans_xen.c
-index 6ad3e043c617..325c56043007 100644
---- a/net/9p/trans_xen.c
-+++ b/net/9p/trans_xen.c
-@@ -156,8 +156,8 @@ static int p9_xen_request(struct p9_client *client, struct p9_req_t *p9_req)
- 	ring = &priv->rings[num];
- 
- again:
--	while (wait_event_interruptible(ring->wq,
--					p9_xen_write_todo(ring, size)) != 0)
-+	while (wait_event_killable(ring->wq,
-+				   p9_xen_write_todo(ring, size)) != 0)
- 		;
- 
- 	spin_lock_irqsave(&ring->lock, flags);
--- 
-2.13.0
+Nope, you hit this code path essentially once.
+
+johannes
