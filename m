@@ -1,128 +1,93 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [iproute PATCH 1/6] utils: Implement strlcpy() and strlcat()
-Date: Wed, 6 Sep 2017 08:25:55 -0700
-Message-ID: <20170906082555.516720d4@xeon-e3>
-References: <20170901165256.21459-1-phil@nwl.cc>
-        <20170901165256.21459-2-phil@nwl.cc>
-        <063D6719AE5E284EB5DD2968C1650D6DD006D878@AcuExch.aculab.com>
-        <20170904150015.GB30364@orbyte.nwl.cc>
-        <20170904112525.04bc66d5@xeon-e3>
-        <063D6719AE5E284EB5DD2968C1650D6DD006EC26@AcuExch.aculab.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: [PATCH net-next] xdp: implement xdp_redirect_map for generic XDP
+Date: Wed, 06 Sep 2017 17:26:25 +0200
+Message-ID: <150471158528.3727.12324542627400287360.stgit@firesoul>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Phil Sutter <phil@nwl.cc>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>
+Cc: John Fastabend <john.fastabend@gmail.com>,
+        Andy Gospodarek <andy@greyhouse.net>,
+        Jesper Dangaard Brouer <brouer@redhat.com>
+To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f177.google.com ([209.85.192.177]:36184 "EHLO
-        mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932263AbdIFPZ6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2017 11:25:58 -0400
-Received: by mail-pf0-f177.google.com with SMTP id e199so13286051pfh.3
-        for <netdev@vger.kernel.org>; Wed, 06 Sep 2017 08:25:58 -0700 (PDT)
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DD006EC26@AcuExch.aculab.com>
+Received: from mx1.redhat.com ([209.132.183.28]:52908 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932263AbdIFP0h (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 6 Sep 2017 11:26:37 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 6 Sep 2017 13:59:27 +0000
-David Laight <David.Laight@ACULAB.COM> wrote:
+Using bpf_redirect_map is allowed for generic XDP programs, but the
+appropriate map lookup was never performed in xdp_do_generic_redirect().
 
-> From: Stephen Hemminger [mailto:stephen@networkplumber.org]
-> > Sent: 04 September 2017 19:25
-> > On Mon, 4 Sep 2017 17:00:15 +0200
-> > Phil Sutter <phil@nwl.cc> wrote:
-> >   
-> > > On Mon, Sep 04, 2017 at 02:49:20PM +0000, David Laight wrote:  
-> > > > From: Phil Sutter  
-> > > > > Sent: 01 September 2017 17:53
-> > > > > By making use of strncpy(), both implementations are really simple so
-> > > > > there is no need to add libbsd as additional dependency.
-> > > > >  
-> > > > ...  
-> > > > > +
-> > > > > +size_t strlcpy(char *dst, const char *src, size_t size)
-> > > > > +{
-> > > > > +	if (size) {
-> > > > > +		strncpy(dst, src, size - 1);
-> > > > > +		dst[size - 1] = '\0';
-> > > > > +	}
-> > > > > +	return strlen(src);
-> > > > > +}  
-> > > >
-> > > > Except that isn't really strlcpy().
-> > > > Better would be:
-> > > > 	len = strlen(src) + 1;
-> > > > 	if (len <= size)
-> > > > 		memcpy(dst, src, len);
-> > > > 	else if (size) {
-> > > > 		dst[size - 1] = 0;
-> > > > 		memcpy(dst, src, size - 1);
-> > > > 	}
-> > > > 	return len - 1;  
-> > >
-> > > Please elaborate: Why isn't my version "really" strlcpy()? Why is your
-> > > proposed version better?
-> > >
-> > > Thanks, Phil  
-> > 
-> > Linux kernel:
-> > size_t strlcpy(char *dest, const char *src, size_t size)
-> > {
-> > 	size_t ret = strlen(src);
-> > 
-> > 	if (size) {
-> > 		size_t len = (ret >= size) ? size - 1 : ret;
-> > 		memcpy(dest, src, len);
-> > 		dest[len] = '\0';
-> > 	}
-> > 	return ret;
-> > }
-> > 
-> > FreeBSD:
-> > size_t
-> > strlcpy(char * __restrict dst, const char * __restrict src, size_t dsize)
-> > {
-> > 	const char *osrc = src;
-> > 	size_t nleft = dsize;
-> > 
-> > 	/* Copy as many bytes as will fit. */
-> > 	if (nleft != 0) {
-> > 		while (--nleft != 0) {
-> > 			if ((*dst++ = *src++) == '\0')
-> > 				break;
-> > 		}
-> > 	}
-> > 
-> > 	/* Not enough room in dst, add NUL and traverse rest of src. */
-> > 	if (nleft == 0) {
-> > 		if (dsize != 0)
-> > 			*dst = '\0';		/* NUL-terminate dst */
-> > 		while (*src++)
-> > 			;
-> > 	}
-> > 
-> > 	return(src - osrc - 1);	/* count does not include NUL */
-> > }
-> > 
-> > 
-> > They all give the same results for some basic tests.
-> > Test			FreeBSD		Linux		Iproute2
-> > "",0:           	0 "JUNK"      	0 "JUNK"      	0 "JUNK"
-> > "",1:           	0 ""          	0 ""          	0 ""
-> > "",8:           	0 ""          	0 ""          	0 ""
-> > "foo",0:        	3 "JUNK"      	3 "JUNK"      	3 "JUNK"
-> > "foo",3:        	3 "fo"        	3 "fo"        	3 "fo"
-> > "foo",4:        	3 "foo"       	3 "foo"       	3 "foo"
-> > "foo",8:        	3 "foo"       	3 "foo"       	3 "foo"
-> > "longstring",0: 	10 "JUNK"     	10 "JUNK"     	10 "JUNK"
-> > "longstring",8: 	10 "longstr"  	10 "longstr"  	10 "longstr"  
-> 
-> You need to look at the contents of the destination buffer after the
-> first '\0'.
-> strlcpy() shouldn't change it.
-> 
-> 	David
+Instead the map-index is directly used as the ifindex.  For the
+xdp_redirect_map sample in SKB-mode '-S', this resulted in trying
+sending on ifindex 0 which isn't valid, resulting in getting SKB
+packets dropped.  Thus, the reported performance numbers are wrong in
+commit 24251c264798 ("samples/bpf: add option for native and skb mode
+for redirect apps") for the 'xdp_redirect_map -S' case.
 
-Zeroing the bytes after the first null character should not be a big issue
-other than a few nanoseconds extra work.
+It might seem innocent this was lacking, but it can actually crash the
+kernel.  The potential crash is caused by not consuming redirect_info->map.
+The bpf_redirect_map helper will set this_cpu_ptr(&redirect_info)->map
+pointer, which will survive even after unloading the xdp bpf_prog and
+deallocating the devmap data-structure.  This leaves a dead map
+pointer around.  The kernel will crash when loading the xdp_redirect
+sample (in native XDP mode) as it doesn't reset map (via bpf_redirect)
+and returns XDP_REDIRECT, which will cause it to dereference the map
+pointer.
+
+Fixes: 6103aa96ec07 ("net: implement XDP_REDIRECT for xdp generic")
+Fixes: 24251c264798 ("samples/bpf: add option for native and skb mode for redirect apps")
+Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+---
+ net/core/filter.c |   29 +++++++++++++++++++++++++++++
+ 1 file changed, 29 insertions(+)
+
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 5912c738a7b2..6a4745bf2c9f 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -2562,6 +2562,32 @@ int xdp_do_redirect(struct net_device *dev, struct xdp_buff *xdp,
+ }
+ EXPORT_SYMBOL_GPL(xdp_do_redirect);
+ 
++static int xdp_do_generic_redirect_map(struct net_device *dev,
++				       struct sk_buff *skb,
++				       struct bpf_prog *xdp_prog)
++{
++	struct redirect_info *ri = this_cpu_ptr(&redirect_info);
++	struct bpf_map *map = ri->map;
++	u32 index = ri->ifindex;
++	struct net_device *fwd;
++	int err;
++
++	ri->ifindex = 0;
++	ri->map = NULL;
++
++	fwd = __dev_map_lookup_elem(map, index);
++	if (!fwd) {
++		err = -EINVAL;
++		goto err;
++	}
++	skb->dev = fwd;
++	_trace_xdp_redirect_map(dev, xdp_prog, fwd, map, index);
++	return 0;
++err:
++	_trace_xdp_redirect_map_err(dev, xdp_prog, fwd, map, index, err);
++	return err;
++}
++
+ int xdp_do_generic_redirect(struct net_device *dev, struct sk_buff *skb,
+ 			    struct bpf_prog *xdp_prog)
+ {
+@@ -2571,6 +2597,9 @@ int xdp_do_generic_redirect(struct net_device *dev, struct sk_buff *skb,
+ 	unsigned int len;
+ 	int err = 0;
+ 
++	if (ri->map)
++		return xdp_do_generic_redirect_map(dev, skb, xdp_prog);
++
+ 	fwd = dev_get_by_index_rcu(dev_net(dev), index);
+ 	ri->ifindex = 0;
+ 	if (unlikely(!fwd)) {
