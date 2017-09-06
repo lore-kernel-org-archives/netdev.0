@@ -1,139 +1,109 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH v2 rfc 1/8] net: bridge: Rename mglist to host_joined
-Date: Wed,  6 Sep 2017 01:35:03 +0200
-Message-ID: <1504654510-31004-2-git-send-email-andrew@lunn.ch>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH v2 rfc 0/8] IGMP snooping for local traffic
+Date: Tue, 5 Sep 2017 17:11:41 -0700
+Message-ID: <20170905171141.7040519b@xeon-e3>
 References: <1504654510-31004-1-git-send-email-andrew@lunn.ch>
-Cc: jiri@resnulli.us, nikolay@cumulusnetworks.com,
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, jiri@resnulli.us,
+        nikolay@cumulusnetworks.com,
         Florian Fainelli <f.fainelli@gmail.com>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Andrew Lunn <andrew@lunn.ch>
-To: netdev <netdev@vger.kernel.org>
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:58249 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753652AbdIEXkC (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 5 Sep 2017 19:40:02 -0400
+Received: from mail-pg0-f45.google.com ([74.125.83.45]:38889 "EHLO
+        mail-pg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753614AbdIFALt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 5 Sep 2017 20:11:49 -0400
+Received: by mail-pg0-f45.google.com with SMTP id v66so12144882pgb.5
+        for <netdev@vger.kernel.org>; Tue, 05 Sep 2017 17:11:48 -0700 (PDT)
 In-Reply-To: <1504654510-31004-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The boolean mglist indicates the host has joined a particular
-multicast group on the bridge interface. It is badly named, obscuring
-what is means. Rename it.
+On Wed,  6 Sep 2017 01:35:02 +0200
+Andrew Lunn <andrew@lunn.ch> wrote:
 
-Signed-off-by: Andrew Lunn <andrew@lunn.ch>
----
- net/bridge/br_input.c     |  2 +-
- net/bridge/br_mdb.c       |  2 +-
- net/bridge/br_multicast.c | 14 +++++++-------
- net/bridge/br_private.h   |  2 +-
- 4 files changed, 10 insertions(+), 10 deletions(-)
+> After the very useful feedback from Nikolay, i threw away what i had,
+> and started again. To recap:
+> 
+> The linux bridge supports IGMP snooping. It will listen to IGMP
+> reports on bridge ports and keep track of which groups have been
+> joined on an interface. It will then forward multicast based on this
+> group membership.
+> 
+> When the bridge adds or removed groups from an interface, it uses
+> switchdev to request the hardware add an mdb to a port, so the
+> hardware can perform the selective forwarding between ports.
+> 
+> What is not covered by the current bridge code, is IGMP joins/leaves
+> from the host on the brX interface. These are not reported via
+> switchdev so that hardware knows the local host is interested in the
+> multicast frames.
+> 
+> Luckily, the bridge does track joins/leaves on the brX interface. The
+> code is obfusticated, which is why i missed it with my first attempt.
+> So the first patch tries to remove this obfustication. Currently,
+> there is no notifications sent when the bridge interface joins a
+> group. The second patch adds them. bridge monitor then shows
+> joins/leaves in the same way as for other ports of the bridge.
+> 
+> Then starts the work passing down to the hardware that the host has
+> joined/left a group. The existing switchdev mdb object cannot be used,
+> since the semantics are different. The existing
+> SWITCHDEV_OBJ_ID_PORT_MDB is used to indicate a specific multicast
+> group should be forwarded out that port of the switch. However here we
+> require the exact opposite. We want multicast frames for the group
+> received on the port to the forwarded to the host. Hence add a new
+> object SWITCHDEV_OBJ_ID_HOST_MDB, a multicast database entry to
+> forward to the host. This new object is then propagated through the
+> DSA layers. No DSA driver changes should be needed, this should just
+> work...
+> 
+> Getting the frames to the bridge as requested turned up an issue or
+> three. The offload_fwd_mark is not being set by DSA, so the bridge
+> floods the received frames back to the switch ports, resulting in
+> duplication since the hardware has already flooded the packet. Fixing
+> that turned up an issue with the meaning of
+> SWITCHDEV_ATTR_ID_PORT_PARENT_ID in DSA. A DSA fabric of three
+> switches needs to look to the software bridge as a single
+> switch. Otherwise the offload_fwd_mark does not work, and we get
+> duplication on the non-ingress switch. But each switch returned a
+> different value. And they were not unique.
+> 
+> The third and last issue will be explained in a followup email.
+> 
+> Open questions:
+> 
+> Is sending notifications going to break userspace?
+> Is this new switchdev object O.K. for the few non-DSA switches that exist?
+> Is the SWITCHDEV_ATTR_ID_PORT_PARENT_ID change acceptable?
+> 
+>    Andrew
+> 
+> Andrew Lunn (8):
+>   net: bridge: Rename mglist to host_joined
+>   net: bridge: Send notification when host join/leaves a group
+>   net: bridge: Add/del switchdev object on host join/leave
+>   net: dsa: slave: Handle switchdev host mdb add/del
+>   net: dsa: switch: handle host mdb add/remove
+>   net: dsa: switch: Don't add CPU port to an mdb by default
+>   net: dsa: set offload_fwd_mark on received packets
+>   net: dsa: Fix SWITCHDEV_ATTR_ID_PORT_PARENT_ID
+> 
+>  include/net/switchdev.h   |  1 +
+>  net/bridge/br_input.c     |  2 +-
+>  net/bridge/br_mdb.c       | 50 +++++++++++++++++++++++++++++---
+>  net/bridge/br_multicast.c | 18 +++++++-----
+>  net/bridge/br_private.h   |  2 +-
+>  net/dsa/dsa.c             |  1 +
+>  net/dsa/dsa_priv.h        |  7 +++++
+>  net/dsa/port.c            | 26 +++++++++++++++++
+>  net/dsa/slave.c           | 16 ++++++++---
+>  net/dsa/switch.c          | 72 +++++++++++++++++++++++++++++++++++++++--------
+>  net/switchdev/switchdev.c |  2 ++
+>  11 files changed, 168 insertions(+), 29 deletions(-)
+> 
 
-diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
-index 7637f58c1226..0dd55a183391 100644
---- a/net/bridge/br_input.c
-+++ b/net/bridge/br_input.c
-@@ -179,7 +179,7 @@ int br_handle_frame_finish(struct net *net, struct sock *sk, struct sk_buff *skb
- 		mdst = br_mdb_get(br, skb, vid);
- 		if ((mdst || BR_INPUT_SKB_CB_MROUTERS_ONLY(skb)) &&
- 		    br_multicast_querier_exists(br, eth_hdr(skb))) {
--			if ((mdst && mdst->mglist) ||
-+			if ((mdst && mdst->host_joined) ||
- 			    br_multicast_is_router(br)) {
- 				local_rcv = true;
- 				br->dev->stats.multicast++;
-diff --git a/net/bridge/br_mdb.c b/net/bridge/br_mdb.c
-index ca01def49af0..71885e251988 100644
---- a/net/bridge/br_mdb.c
-+++ b/net/bridge/br_mdb.c
-@@ -654,7 +654,7 @@ static int __br_mdb_del(struct net_bridge *br, struct br_mdb_entry *entry)
- 		call_rcu_bh(&p->rcu, br_multicast_free_pg);
- 		err = 0;
- 
--		if (!mp->ports && !mp->mglist &&
-+		if (!mp->ports && !mp->host_joined &&
- 		    netif_running(br->dev))
- 			mod_timer(&mp->timer, jiffies);
- 		break;
-diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-index 8dc5c8d69bcd..c6b2b8d419e7 100644
---- a/net/bridge/br_multicast.c
-+++ b/net/bridge/br_multicast.c
-@@ -249,7 +249,7 @@ static void br_multicast_group_expired(unsigned long data)
- 	if (!netif_running(br->dev) || timer_pending(&mp->timer))
- 		goto out;
- 
--	mp->mglist = false;
-+	mp->host_joined = false;
- 
- 	if (mp->ports)
- 		goto out;
-@@ -292,7 +292,7 @@ static void br_multicast_del_pg(struct net_bridge *br,
- 			      p->flags);
- 		call_rcu_bh(&p->rcu, br_multicast_free_pg);
- 
--		if (!mp->ports && !mp->mglist &&
-+		if (!mp->ports && !mp->host_joined &&
- 		    netif_running(br->dev))
- 			mod_timer(&mp->timer, jiffies);
- 
-@@ -775,7 +775,7 @@ static int br_multicast_add_group(struct net_bridge *br,
- 		goto err;
- 
- 	if (!port) {
--		mp->mglist = true;
-+		mp->host_joined = true;
- 		mod_timer(&mp->timer, now + br->multicast_membership_interval);
- 		goto out;
- 	}
-@@ -1451,7 +1451,7 @@ static int br_ip4_multicast_query(struct net_bridge *br,
- 
- 	max_delay *= br->multicast_last_member_count;
- 
--	if (mp->mglist &&
-+	if (mp->host_joined &&
- 	    (timer_pending(&mp->timer) ?
- 	     time_after(mp->timer.expires, now + max_delay) :
- 	     try_to_del_timer_sync(&mp->timer) >= 0))
-@@ -1535,7 +1535,7 @@ static int br_ip6_multicast_query(struct net_bridge *br,
- 		goto out;
- 
- 	max_delay *= br->multicast_last_member_count;
--	if (mp->mglist &&
-+	if (mp->host_joined &&
- 	    (timer_pending(&mp->timer) ?
- 	     time_after(mp->timer.expires, now + max_delay) :
- 	     try_to_del_timer_sync(&mp->timer) >= 0))
-@@ -1596,7 +1596,7 @@ br_multicast_leave_group(struct net_bridge *br,
- 			br_mdb_notify(br->dev, port, group, RTM_DELMDB,
- 				      p->flags);
- 
--			if (!mp->ports && !mp->mglist &&
-+			if (!mp->ports && !mp->host_joined &&
- 			    netif_running(br->dev))
- 				mod_timer(&mp->timer, jiffies);
- 		}
-@@ -1636,7 +1636,7 @@ br_multicast_leave_group(struct net_bridge *br,
- 		     br->multicast_last_member_interval;
- 
- 	if (!port) {
--		if (mp->mglist &&
-+		if (mp->host_joined &&
- 		    (timer_pending(&mp->timer) ?
- 		     time_after(mp->timer.expires, time) :
- 		     try_to_del_timer_sync(&mp->timer) >= 0)) {
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index fd9ee73e0a6d..e79e0611908d 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -202,7 +202,7 @@ struct net_bridge_mdb_entry
- 	struct rcu_head			rcu;
- 	struct timer_list		timer;
- 	struct br_ip			addr;
--	bool				mglist;
-+	bool				host_joined;
- };
- 
- struct net_bridge_mdb_htable
--- 
-2.14.1
+This looks much cleaner. I don't have DSA hardware or infrastructure to look deeper.
