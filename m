@@ -1,43 +1,54 @@
-From: Salil Mehta <salil.mehta@huawei.com>
-Subject: RE: hns3 use of pci_enable_msix_range
-Date: Wed, 6 Sep 2017 08:43:10 +0000
-Message-ID: <F4CC6FACFEB3C54C9141D49AD221F7F93B89D963@FRAEML521-MBX.china.huawei.com>
-References: <20170901082633.GA23568@lst.de>
+From: Jiri Kosina <jikos@kernel.org>
+Subject: Re: [PATCH 3/6] hid: make device_attribute const
+Date: Wed, 6 Sep 2017 10:57:29 +0200 (CEST)
+Message-ID: <nycvar.YFH.7.76.1709061057200.4077@jbgna.fhfr.qr>
+References: <1503315792-14837-1-git-send-email-bhumirks@gmail.com> <1503315792-14837-4-git-send-email-bhumirks@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: huangdaode <huangdaode@hisilicon.com>,
-        "lipeng (Y)" <lipeng321@huawei.com>,
-        "Zhuangyuzeng (Yisen)" <yisen.zhuang@huawei.com>,
-        "Huwei (Xavier)" <xavier.huwei@huawei.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Christoph Hellwig <hch@lst.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lhrrgout.huawei.com ([194.213.3.17]:34334 "EHLO
-        lhrrgout.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750832AbdIFIn1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2017 04:43:27 -0400
-In-Reply-To: <20170901082633.GA23568@lst.de>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Cc: julia.lawall@lip6.fr, rjw@rjwysocki.net, lenb@kernel.org,
+        jbacik@fb.com, benjamin.tissoires@redhat.com,
+        manish.chopra@cavium.com, rahul.verma@cavium.com,
+        Dept-GELinuxNICDev@cavium.com, harish.patil@cavium.com,
+        cascardo@holoscopio.com, don@syst.com.br, dvhart@infradead.org,
+        andy@infradead.org, sre@kernel.org, linux-acpi@vger.kernel.org,
+        linux-kernel@vger.kernel.org, linux-block@vger.kernel.org,
+        nbd-general@lists.sourceforge.net, linux-input@vger.kernel.org,
+        netdev@vger.kernel.org, platform-driver-x86@vger.kernel.org,
+        linux-pm@vger.kernel.org
+To: Bhumika Goyal <bhumirks@gmail.com>
+Return-path: <linux-input-owner@vger.kernel.org>
+In-Reply-To: <1503315792-14837-4-git-send-email-bhumirks@gmail.com>
+Sender: linux-input-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Christoph,
-Thanks for bringing this into notice. I will change and send this patch
-in the next cycle after we have tested it internally. 
+On Mon, 21 Aug 2017, Bhumika Goyal wrote:
 
-Best regards
-Salil
-> -----Original Message-----
-> From: Christoph Hellwig [mailto:hch@lst.de]
-> Sent: Friday, September 01, 2017 9:27 AM
-> To: Salil Mehta
-> Cc: huangdaode; lipeng (Y); Zhuangyuzeng (Yisen); Huwei (Xavier);
-> netdev@vger.kernel.org
-> Subject: hns3 use of pci_enable_msix_range
+> Make this const as it is only passed as an argument to the
+> function device_create_file and device_remove_file and the corresponding
+> arguments are of type const.
+> Done using Coccinelle
 > 
-> Hi Salil,
+> Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
+> ---
+>  drivers/hid/hid-core.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 > 
-> can you please switch your new hns3 driver to use pci_alloc_irq_vectors
-> instead of the deprecated pci_enable_msix_range interface?  Take a
-> look at Documentation/PCI/MSI-HOWTO.txt for the details.
+> diff --git a/drivers/hid/hid-core.c b/drivers/hid/hid-core.c
+> index 9bc9116..24e929c 100644
+> --- a/drivers/hid/hid-core.c
+> +++ b/drivers/hid/hid-core.c
+> @@ -1662,7 +1662,7 @@ static bool hid_hiddev(struct hid_device *hdev)
+>  	.size = HID_MAX_DESCRIPTOR_SIZE,
+>  };
+>  
+> -static struct device_attribute dev_attr_country = {
+> +static const struct device_attribute dev_attr_country = {
+>  	.attr = { .name = "country", .mode = 0444 },
+>  	.show = show_country,
+
+Applied, thanks.
+
+-- 
+Jiri Kosina
+SUSE Labs
+
