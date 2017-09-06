@@ -1,68 +1,117 @@
-From: =?gb2312?B?0c+6o8ur?= <yanhaishuang@cmss.chinamobile.com>
-Subject: Re: [PATCH v3 2/2] ip6_tunnel: fix ip6 tunnel lookup in collect_md
- mode
-Date: Wed, 6 Sep 2017 14:39:02 +0800
-Message-ID: <A1C63C57-98E9-4736-980E-83113E4545B4@cmss.chinamobile.com>
-References: <1504514174-14958-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
- <1504514174-14958-2-git-send-email-yanhaishuang@cmss.chinamobile.com>
- <ece190cd-b8a1-225a-84c6-80ca2b46a44d@fb.com>
-Mime-Version: 1.0 (Mac OS X Mail 10.3 \(3273\))
-Content-Type: text/plain; charset=gb2312
-Content-Transfer-Encoding: 8BIT
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Pravin Shelar <pshelar@ovn.org>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>
-To: Alexei Starovoitov <ast@fb.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <ece190cd-b8a1-225a-84c6-80ca2b46a44d@fb.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "Neftin, Sasha" <sasha.neftin@intel.com>
+Subject: Re: [Intel-wired-lan] [PATCH net-next v3] e1000e: Be drop monitor
+ friendly
+Date: Wed, 6 Sep 2017 10:06:39 +0300
+Message-ID: <bdd7d5a3-2004-ad2e-3c09-8198d76acafa@intel.com>
+References: <20170826011424.27251-1-f.fainelli@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: edumazet@gmail.com, open list <linux-kernel@vger.kernel.org>,
+        "moderated list:INTEL ETHERNET DRIVERS"
+        <intel-wired-lan@lists.osuosl.org>, davem@davemloft.net
+To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga07.intel.com ([134.134.136.100]:15531 "EHLO mga07.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750832AbdIFHGn (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 6 Sep 2017 03:06:43 -0400
+In-Reply-To: <20170826011424.27251-1-f.fainelli@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> On 2017年9月6日, at 上午11:14, Alexei Starovoitov <ast@fb.com> wrote:
-> 
-> On 9/4/17 1:36 AM, Haishuang Yan wrote:
->> In collect_md mode, if the tun dev is down, it still can call
->> __ip6_tnl_rcv to receive on packets, and the rx statistics increase
->> improperly.
->> 
->> Fixes: 8d79266bc48c ("ip6_tunnel: add collect_md mode to IPv6 tunnels")
->> Cc: Alexei Starovoitov <ast@fb.com>
->> Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
->> 
->> ---
->> Change since v3:
->>  * Increment rx_dropped if tunnel device is not up, suggested by
->>  Pravin B Shelar
->>  * Fix wrong recipient address
->> ---
->> net/ipv6/ip6_tunnel.c | 7 +++++--
->> 1 file changed, 5 insertions(+), 2 deletions(-)
->> 
->> diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
->> index 10a693a..e91d3b6 100644
->> --- a/net/ipv6/ip6_tunnel.c
->> +++ b/net/ipv6/ip6_tunnel.c
->> @@ -171,8 +171,11 @@ static struct net_device_stats *ip6_get_stats(struct net_device *dev)
->> 	}
->> 
->> 	t = rcu_dereference(ip6n->collect_md_tun);
->> -	if (t)
->> -		return t;
->> +	if (t) {
->> +		if (t->dev->flags & IFF_UP)
->> +			return t;
->> +		t->dev->stats.rx_dropped++;
->> +	}
-> 
-> Why increment the stats only for this drop case?
-Because It was suggested by Pravin on v2 commit of the patch.
+On 8/26/2017 04:14, Florian Fainelli wrote:
+> e1000e_put_txbuf() can be called from normal reclamation path as well as
+> when a DMA mapping failure, so we need to differentiate these two cases
+> when freeing SKBs to be drop monitor friendly. e1000e_tx_hwtstamp_work()
+> and e1000_remove() are processing TX timestamped SKBs and those should
+> not be accounted as drops either.
+>
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> ---
+> Changes in v3:
+>
+> - differentiate normal reclamation from TX DMA fragment mapping errors
+> - removed a few invalid dev_kfree_skb() replacements (those are already
+>    drop monitor friendly)
+>
+> Changes in v2:
+>
+> - make it compile
+>
+>   drivers/net/ethernet/intel/e1000e/netdev.c | 18 +++++++++++-------
+>   1 file changed, 11 insertions(+), 7 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+> index 327dfe5bedc0..cfd21858c095 100644
+> --- a/drivers/net/ethernet/intel/e1000e/netdev.c
+> +++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+> @@ -1071,7 +1071,8 @@ static bool e1000_clean_rx_irq(struct e1000_ring *rx_ring, int *work_done,
+>   }
+>   
+>   static void e1000_put_txbuf(struct e1000_ring *tx_ring,
+> -			    struct e1000_buffer *buffer_info)
+> +			    struct e1000_buffer *buffer_info,
+> +			    bool drop)
+>   {
+>   	struct e1000_adapter *adapter = tx_ring->adapter;
+>   
+> @@ -1085,7 +1086,10 @@ static void e1000_put_txbuf(struct e1000_ring *tx_ring,
+>   		buffer_info->dma = 0;
+>   	}
+>   	if (buffer_info->skb) {
+> -		dev_kfree_skb_any(buffer_info->skb);
+> +		if (drop)
+> +			dev_kfree_skb_any(buffer_info->skb);
+> +		else
+> +			dev_consume_skb_any(buffer_info->skb);
+>   		buffer_info->skb = NULL;
+>   	}
+>   	buffer_info->time_stamp = 0;
+> @@ -1199,7 +1203,7 @@ static void e1000e_tx_hwtstamp_work(struct work_struct *work)
+>   		wmb(); /* force write prior to skb_tstamp_tx */
+>   
+>   		skb_tstamp_tx(skb, &shhwtstamps);
+> -		dev_kfree_skb_any(skb);
+> +		dev_consume_skb_any(skb);
+>   	} else if (time_after(jiffies, adapter->tx_hwtstamp_start
+>   			      + adapter->tx_timeout_factor * HZ)) {
+>   		dev_kfree_skb_any(adapter->tx_hwtstamp_skb);
+> @@ -1254,7 +1258,7 @@ static bool e1000_clean_tx_irq(struct e1000_ring *tx_ring)
+>   				}
+>   			}
+>   
+> -			e1000_put_txbuf(tx_ring, buffer_info);
+> +			e1000_put_txbuf(tx_ring, buffer_info, false);
+>   			tx_desc->upper.data = 0;
+>   
+>   			i++;
+> @@ -2421,7 +2425,7 @@ static void e1000_clean_tx_ring(struct e1000_ring *tx_ring)
+>   
+>   	for (i = 0; i < tx_ring->count; i++) {
+>   		buffer_info = &tx_ring->buffer_info[i];
+> -		e1000_put_txbuf(tx_ring, buffer_info);
+> +		e1000_put_txbuf(tx_ring, buffer_info, false);
+>   	}
+>   
+>   	netdev_reset_queue(adapter->netdev);
+> @@ -5614,7 +5618,7 @@ static int e1000_tx_map(struct e1000_ring *tx_ring, struct sk_buff *skb,
+>   			i += tx_ring->count;
+>   		i--;
+>   		buffer_info = &tx_ring->buffer_info[i];
+> -		e1000_put_txbuf(tx_ring, buffer_info);
+> +		e1000_put_txbuf(tx_ring, buffer_info, true);
+>   	}
+>   
+>   	return 0;
+> @@ -7411,7 +7415,7 @@ static void e1000_remove(struct pci_dev *pdev)
+>   	if (adapter->flags & FLAG_HAS_HW_TIMESTAMP) {
+>   		cancel_work_sync(&adapter->tx_hwtstamp_work);
+>   		if (adapter->tx_hwtstamp_skb) {
+> -			dev_kfree_skb_any(adapter->tx_hwtstamp_skb);
+> +			dev_consume_skb_any(adapter->tx_hwtstamp_skb);
+>   			adapter->tx_hwtstamp_skb = NULL;
+>   		}
+>   	}
 
-> There are plenty of other conditions where packet
-> will be dropped in ip6 tunnel. I think it's important
-> to present consistent behavior to the users,
-> so I'd increment drop stats either for all drop cases
-> or for none. And today it's none.
-> The ! IFF_UP case should probably be return NULL too
-> 
-> 
+i am ok with this patch
