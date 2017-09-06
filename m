@@ -1,120 +1,56 @@
-From: Mason <slash.tmp@free.fr>
-Subject: Re: [PATCH net] Revert "net: phy: Correctly process PHY_HALTED in
- phy_stop_machine()"
-Date: Wed, 6 Sep 2017 16:33:54 +0200
-Message-ID: <6721135d-8c3f-57a0-f423-9d18cd6e0947@free.fr>
-References: <1504140569-2063-1-git-send-email-f.fainelli@gmail.com>
- <f4bb5ac8-dae8-c0af-7aa6-e546fc0783fa@sigmadesigns.com>
- <e24693e8-d8ae-188a-2a38-c9a83fdc94e3@gmail.com>
- <931bf454-81ff-94dc-82e6-bc2b889bd43a@gmail.com>
- <d6a6b552-95a7-8353-54c8-fa804f9366a1@free.fr>
- <f74f1aad-3990-ae54-316f-751c3b15de41@gmail.com>
- <ebee6e5d-5bc1-1c5b-b31d-6d50618d6074@free.fr>
- <4ea8b432-4968-1616-eff9-48a2689dd3ce@gmail.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH v2 rfc 8/8] net: dsa: Fix SWITCHDEV_ATTR_ID_PORT_PARENT_ID
+Date: Wed, 06 Sep 2017 10:46:48 -0400
+Message-ID: <87d17351gn.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+References: <1504654510-31004-1-git-send-email-andrew@lunn.ch> <1504654510-31004-9-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Marc Gonzalez <marc_gonzalez@sigmadesigns.com>,
-        netdev <netdev@vger.kernel.org>,
-        Geert Uytterhoeven <geert+renesas@glider.be>,
-        David Miller <davem@davemloft.net>,
-        Andrew Lunn <andrew@lunn.ch>, Mans Rullgard <mans@mansr.com>,
-        Thibaud Cornic <thibaud_cornic@sigmadesigns.com>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-        David Daney <ddaney.cavm@gmail.com>
+Content-Type: text/plain
+Cc: jiri@resnulli.us, nikolay@cumulusnetworks.com,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>
+To: Andrew Lunn <andrew@lunn.ch>, netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp5-g21.free.fr ([212.27.42.5]:8613 "EHLO smtp5-g21.free.fr"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932345AbdIFOeQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 6 Sep 2017 10:34:16 -0400
-In-Reply-To: <4ea8b432-4968-1616-eff9-48a2689dd3ce@gmail.com>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:58758 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932562AbdIFOuN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2017 10:50:13 -0400
+In-Reply-To: <1504654510-31004-9-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 31/08/2017 20:29, Florian Fainelli wrote:
-> On 08/31/2017 11:12 AM, Mason wrote:
->> On 31/08/2017 19:53, Florian Fainelli wrote:
->>> On 08/31/2017 10:49 AM, Mason wrote:
->>>> On 31/08/2017 18:57, Florian Fainelli wrote:
->>>>> And the race is between phy_detach() setting phydev->attached_dev = NULL
->>>>> and phy_state_machine() running in PHY_HALTED state and calling
->>>>> netif_carrier_off().
->>>>
->>>> I must be missing something.
->>>> (Since a thread cannot race against itself.)
->>>>
->>>> phy_disconnect calls phy_stop_machine which
->>>> 1) stops the work queue from running in a separate thread
->>>> 2) calls phy_state_machine *synchronously*
->>>>       which runs the PHY_HALTED case with everything well-defined
->>>> end of phy_stop_machine
->>>>
->>>> phy_disconnect only then calls phy_detach()
->>>> which makes future calls of phy_state_machine perilous.
->>>>
->>>> This all happens in the same thread, so I'm not yet
->>>> seeing where the race happens?
->>>
->>> The race is as described in David's earlier email, so let's recap:
->>>
->>> Thread 1			Thread 2
->>> phy_disconnect()
->>> phy_stop_interrupts()
->>> phy_stop_machine()
->>> phy_state_machine()
->>>   -> queue_delayed_work()
->>> phy_detach()
->>> 				phy_state_machine()
->>> 				-> netif_carrier_off()
->>>
->>> If phy_detach() finishes earlier than the workqueue had a chance to be
->>> scheduled and process PHY_HALTED again, then we trigger the NULL pointer
->>> de-reference.
->>>
->>> workqueues are not tasklets, the CPU scheduling them gets no guarantee
->>> they will run on the same CPU.
->>
->> Something does not add up.
->>
->> The synchronous call to phy_state_machine() does:
->>
->> 	case PHY_HALTED:
->> 		if (phydev->link) {
->> 			phydev->link = 0;
->> 			netif_carrier_off(phydev->attached_dev);
->> 			phy_adjust_link(phydev);
->> 			do_suspend = true;
->> 		}
->>
->> then sets phydev->link = 0; therefore subsequent calls to
->> phy_state_machin() will be no-op.
-> 
-> Actually you are right, once phydev->link is set to 0 these would become
-> no-ops. Still scratching my head as to what happens for David then...
-> 
->>
->> Also, queue_delayed_work() is only called in polling mode.
->> David stated that he's using interrupt mode.
-> 
-> Right that's confusing too now. David can you check if you tree has:
-> 
-> 49d52e8108a21749dc2114b924c907db43358984 ("net: phy: handle state
-> correctly in phy_stop_machine")
+Hi Andrew,
 
-Hello David,
+Andrew Lunn <andrew@lunn.ch> writes:
 
-A week ago, you wrote about my patch:
-"This is broken.  Please revert."
+> SWITCHDEV_ATTR_ID_PORT_PARENT_ID is used by the software bridge when
+> determining which ports to flood a packet out. If the packet
+> originated from a switch, it assumes the switch has already flooded
+> the packet out the switches ports, so the bridge should not flood the
+> packet itself out switch ports. Ports on the same switch are expected
+> to return the same parent ID when SWITCHDEV_ATTR_ID_PORT_PARENT_ID is
+> called.
+>
+> DSA gets this wrong with clusters of switches. As far as the software
+> bridge is concerned, the cluster is all one switch. A packet from any
+> switch in the cluster can be assumed to of been flooded as needed out
+> all ports of the cluster, not just the switch it originated
+> from. Hence all ports of a cluster should return the same parent. The
+> old implementation did not, each switch in the cluster had its own ID.
+>
+> Also wrong was that the ID was not unique if multiple DSA instances
+> are in operation.
+>
+> Use the MAC address of the master interface as the parent ID. This is
+> the same for all switches in a cluster, and should be unique if there
+> are multiple clusters.
 
-I assume you tested the revert locally, and that reverting did make
-the crash disappear. Is that correct?
+That is not correct. Support for multiple CPU ports is coming and in
+this case, you can have two CPU host interfaces wired to two switch
+ports of the same tree. So two different master MAC addresses.
 
-The reason I ask is because the analysis you provided contains some
-flaws, as noted above. But, if reverting my patch did fix your issue,
-then perhaps understanding *why* is unimportant.
+Only the tree ID assigned by DSA core is unique to a given tree.
 
-I'm a bit baffled that it took less than 90 minutes for your request
-to be approved, and the patch reverted in all branches, before I even
-had a chance to comment.
 
-Regards.
+Thanks,
+
+        Vivien
