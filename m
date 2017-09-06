@@ -1,128 +1,80 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next] virtio-net: invoke zerocopy callback on xmit
- path if no tx napi
-Date: Wed, 6 Sep 2017 06:27:12 +0300
-Message-ID: <20170906062441-mutt-send-email-mst@kernel.org>
-References: <CAF=yD-+1wheMmC+HFKe_B_ULO0Mmh6HMSEbYY5D-HgqxVJee6A@mail.gmail.com>
- <20170826022744-mutt-send-email-mst@kernel.org>
- <CAF=yD-Lre0NATUVH8p0zS=G5CiY=WfKSefLmOZw940jZFgECgQ@mail.gmail.com>
- <CAF=yD-+Wk9sc9dXMUq1+x_hh=3ThTXa6BnZkygP3tgVpjbp93g@mail.gmail.com>
- <CAF=yD-+AjQLLUKdvnrwd2tqFtw4Hm81cR7WUJd65oLnziNGM8A@mail.gmail.com>
- <5ef7fcf3-d4f0-be16-6ddb-724d954cfc68@redhat.com>
- <CAF=yD-JREJqpsRdCi31qo1QNFEE2DDCaTGYw1f1waPgtov8WEg@mail.gmail.com>
- <CAF=yD-LZ4Abn8CFSQyuNnYSRZkHx4FTzK4hSi9WQaHO-28rsHQ@mail.gmail.com>
- <96819b6a-6d44-fd7e-37af-5a0db81b3840@redhat.com>
- <CAF=yD-JQ5vL8fhLwtz9yY9B4NZR3Tf0kmZHAi-9ht_-Bz0n4Sw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Jason Wang <jasowang@redhat.com>, Koichiro Den <den@klaipeden.com>,
-        virtualization@lists.linux-foundation.org,
-        Network Development <netdev@vger.kernel.org>
-To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCH net] netlink: fix an use-after-free issue for nlk groups
+Date: Wed,  6 Sep 2017 11:47:12 +0800
+Message-ID: <1217baf9faf9d034ba8224cb6362b822c51a0eae.1504669632.git.lucien.xin@gmail.com>
+Cc: davem@davemloft.net, fw@strlen.de, chunwang@redhat.com,
+        syzkaller@googlegroups.com
+To: network dev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49076 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754386AbdIFD1Q (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 5 Sep 2017 23:27:16 -0400
-Content-Disposition: inline
-In-Reply-To: <CAF=yD-JQ5vL8fhLwtz9yY9B4NZR3Tf0kmZHAi-9ht_-Bz0n4Sw@mail.gmail.com>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:37890 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751956AbdIFDrV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 5 Sep 2017 23:47:21 -0400
+Received: by mail-pf0-f195.google.com with SMTP id q76so2526238pfq.5
+        for <netdev@vger.kernel.org>; Tue, 05 Sep 2017 20:47:21 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 05, 2017 at 04:09:19PM +0200, Willem de Bruijn wrote:
-> On Mon, Sep 4, 2017 at 5:03 AM, Jason Wang <jasowang@redhat.com> wrote:
-> >
-> >
-> > On 2017年09月02日 00:17, Willem de Bruijn wrote:
-> >>>>>
-> >>>>> This is not a 50/50 split, which impliesTw that some packets from the
-> >>>>> large
-> >>>>> packet flow are still converted to copying. Without the change the rate
-> >>>>> without queue was 80k zerocopy vs 80k copy, so this choice of
-> >>>>> (vq->num >> 2) appears too conservative.
-> >>>>>
-> >>>>> However, testing with (vq->num >> 1) was not as effective at mitigating
-> >>>>> stalls. I did not save that data, unfortunately. Can run more tests on
-> >>>>> fine
-> >>>>> tuning this variable, if the idea sounds good.
-> >>>>
-> >>>>
-> >>>> Looks like there're still two cases were left:
-> >>>
-> >>> To be clear, this patch is not intended to fix all issues. It is a small
-> >>> improvement to avoid HoL blocking due to queued zerocopy skbs.
-> >
-> >
-> > Right, just want to see if there's anything left.
-> >
-> >>>
-> >>> The trade-off is that reverting to copying in these cases increases
-> >>> cycle cost. I think that that is a trade-off worth making compared to
-> >>> the alternative drop in throughput. It probably would be good to be
-> >>> able to measure this without kernel instrumentation: export
-> >>> counters similar to net->tx_zcopy_err and net->tx_packets (though
-> >>> without reset to zero, as in vhost_net_tx_packet).
-> >
-> >
-> > I think it's acceptable if extra cycles were spent if we detect HOL anyhow.
-> >
-> >>>
-> >>>> 1) sndbuf is not INT_MAX
-> >>>
-> >>> You mean the case where the device stalls, later zerocopy notifications
-> >>> are queued, but these are never cleaned in free_old_xmit_skbs,
-> >>> because it requires a start_xmit and by now the (only) socket is out of
-> >>> descriptors?
-> >>
-> >> Typo, sorry. I meant out of sndbuf.
-> >
-> >
-> > I mean e.g for tun. If its sndbuf is smaller than e.g (vq->num >> 1) *
-> > $pkt_size and if all packet were held by some modules, limitation like
-> > vq->num >> 1 won't work since we hit sudbuf before it.
-> 
-> Good point.
+ChunYu found a netlink use-after-free issue by syzkaller:
 
-I agree however anyone using SNDBUF < infinity already hits HOQ blocking
-in some scenarios.
+[28448.842981] BUG: KASAN: use-after-free in __nla_put+0x37/0x40 at addr ffff8807185e2378
+[28448.969918] Call Trace:
+[...]
+[28449.117207]  __nla_put+0x37/0x40
+[28449.132027]  nla_put+0xf5/0x130
+[28449.146261]  sk_diag_fill.isra.4.constprop.5+0x5a0/0x750 [netlink_diag]
+[28449.176608]  __netlink_diag_dump+0x25a/0x700 [netlink_diag]
+[28449.202215]  netlink_diag_dump+0x176/0x240 [netlink_diag]
+[28449.226834]  netlink_dump+0x488/0xbb0
+[28449.298014]  __netlink_dump_start+0x4e8/0x760
+[28449.317924]  netlink_diag_handler_dump+0x261/0x340 [netlink_diag]
+[28449.413414]  sock_diag_rcv_msg+0x207/0x390
+[28449.432409]  netlink_rcv_skb+0x149/0x380
+[28449.467647]  sock_diag_rcv+0x2d/0x40
+[28449.484362]  netlink_unicast+0x562/0x7b0
+[28449.564790]  netlink_sendmsg+0xaa8/0xe60
+[28449.661510]  sock_sendmsg+0xcf/0x110
+[28449.865631]  __sys_sendmsg+0xf3/0x240
+[28450.000964]  SyS_sendmsg+0x32/0x50
+[28450.016969]  do_syscall_64+0x25c/0x6c0
+[28450.154439]  entry_SYSCALL64_slow_path+0x25/0x25
 
+It was caused by no protection between nlk groups' free in netlink_release
+and nlk groups' accessing in sk_diag_dump_groups. The similar issue also
+exists in netlink_seq_show().
 
-> >>
-> >>> A watchdog would help somewhat. With tx-napi, this case cannot occur,
-> >>> either, as free_old_xmit_skbs no longer depends on a call to start_xmit.
-> >>>
-> >>>> 2) tx napi is used for virtio-net
-> >>>
-> >>> I am not aware of any issue specific to the use of tx-napi?
-> >
-> >
-> > Might not be clear here, I mean e.g virtio_net (tx-napi) in guest +
-> > vhost_net (zerocopy) in host. In this case, even if we switch to datacopy if
-> > ubuf counts exceeds vq->num >> 1, we still complete tx buffers in order, tx
-> > interrupt could be delayed for indefinite time.
-> 
-> Copied buffers are completed immediately in handle_tx.
-> 
-> Do you mean when a process sends fewer packets than vq->num >> 1,
-> so that all are queued? Yes, then the latency is indeed that of the last
-> element leaving the qdisc.
-> 
-> >>>
-> >>>> 1) could be a corner case, and for 2) what your suggest here may not
-> >>>> solve
-> >>>> the issue since it still do in order completion.
-> >>>
-> >>> Somewhat tangential, but it might also help to break the in-order
-> >>> completion processing in vhost_zerocopy_signal_used. Complete
-> >>> all descriptors between done_idx and upend_idx. done_idx should
-> >>> then only be forward to the oldest still not-completed descriptor.
-> >>>
-> >>> In the test I ran, where the oldest descriptors are held in a queue and
-> >>> all newer ones are tail-dropped,
-> >
-> >
-> > Do you mean the descriptors were tail-dropped by vhost?
-> 
-> Tail-dropped by netem. The dropped items are completed out of
-> order by vhost before the held items.
+This patch is to defer nlk groups' free in deferred_put_nlk_sk.
+
+Reported-by: ChunYu Wang <chunwang@redhat.com>
+Acked-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
+---
+ net/netlink/af_netlink.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index 5acee49..94a61e6 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -691,6 +691,9 @@ static void deferred_put_nlk_sk(struct rcu_head *head)
+ 	struct netlink_sock *nlk = container_of(head, struct netlink_sock, rcu);
+ 	struct sock *sk = &nlk->sk;
+ 
++	kfree(nlk->groups);
++	nlk->groups = NULL;
++
+ 	if (!refcount_dec_and_test(&sk->sk_refcnt))
+ 		return;
+ 
+@@ -769,9 +772,6 @@ static int netlink_release(struct socket *sock)
+ 		netlink_table_ungrab();
+ 	}
+ 
+-	kfree(nlk->groups);
+-	nlk->groups = NULL;
+-
+ 	local_bh_disable();
+ 	sock_prot_inuse_add(sock_net(sk), &netlink_proto, -1);
+ 	local_bh_enable();
+-- 
+2.1.0
