@@ -1,75 +1,76 @@
-From: =?UTF-8?q?H=C3=A5kon=20Bugge?= <Haakon.Bugge@oracle.com>
-Subject: [PATCH net] rds: Fix incorrect statistics counting
-Date: Wed,  6 Sep 2017 17:29:50 +0200
-Message-ID: <20170906152950.17766-1-Haakon.Bugge@oracle.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Fw: [Bug 196839] New: use_time of IPsec policy is updated even when
+ receiving error packets.
+Date: Wed, 6 Sep 2017 08:38:33 -0700
+Message-ID: <20170906083833.0dcab8a6@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
-        rds-devel@oss.oracle.com, linux-kernel@vger.kernel.org,
-        knut.omang@oracle.com
-To: Santosh Shilimkar <santosh.shilimkar@oracle.com>,
-        "David S . Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:21489 "EHLO
-        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932770AbdIFPav (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2017 11:30:51 -0400
+Received: from mail-pg0-f52.google.com ([74.125.83.52]:38286 "EHLO
+        mail-pg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932823AbdIFPil (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2017 11:38:41 -0400
+Received: by mail-pg0-f52.google.com with SMTP id v66so15757022pgb.5
+        for <netdev@vger.kernel.org>; Wed, 06 Sep 2017 08:38:41 -0700 (PDT)
+Received: from xeon-e3 (76-14-207-240.or.wavecable.com. [76.14.207.240])
+        by smtp.gmail.com with ESMTPSA id j9sm171325pgc.11.2017.09.06.08.38.40
+        for <netdev@vger.kernel.org>
+        (version=TLS1_2 cipher=ECDHE-RSA-CHACHA20-POLY1305 bits=256/256);
+        Wed, 06 Sep 2017 08:38:40 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In rds_send_xmit() there is logic to batch the sends. However, if
-another thread has acquired the lock, it is considered a race and we
-yield. The code incrementing the s_send_lock_queue_raced statistics
-counter did not count this event correctly.
 
-This commit removes a small race in determining the race and
-increments the statistics counter correctly.
 
-Signed-off-by: Håkon Bugge <haakon.bugge@oracle.com>
-Reviewed-by: Knut Omang <knut.omang@oracle.com>
----
- net/rds/send.c | 16 +++++++++++++---
- 1 file changed, 13 insertions(+), 3 deletions(-)
+Begin forwarded message:
 
-diff --git a/net/rds/send.c b/net/rds/send.c
-index 058a407..ecfe0b5 100644
---- a/net/rds/send.c
-+++ b/net/rds/send.c
-@@ -101,6 +101,11 @@ void rds_send_path_reset(struct rds_conn_path *cp)
- }
- EXPORT_SYMBOL_GPL(rds_send_path_reset);
- 
-+static bool someone_in_xmit(struct rds_conn_path *cp)
-+{
-+	return test_bit(RDS_IN_XMIT, &cp->cp_flags);
-+}
-+
- static int acquire_in_xmit(struct rds_conn_path *cp)
- {
- 	return test_and_set_bit(RDS_IN_XMIT, &cp->cp_flags) == 0;
-@@ -428,14 +433,19 @@ int rds_send_xmit(struct rds_conn_path *cp)
- 	 * some work and we will skip our goto
- 	 */
- 	if (ret == 0) {
-+		bool raced;
-+
- 		smp_mb();
-+		raced = someone_in_xmit(cp) ||
-+			send_gen != READ_ONCE(cp->cp_send_gen);
-+
- 		if ((test_bit(0, &conn->c_map_queued) ||
--		     !list_empty(&cp->cp_send_queue)) &&
--			send_gen == READ_ONCE(cp->cp_send_gen)) {
--			rds_stats_inc(s_send_lock_queue_raced);
-+				!list_empty(&cp->cp_send_queue)) && !raced) {
- 			if (batch_count < send_batch_count)
- 				goto restart;
- 			queue_delayed_work(rds_wq, &cp->cp_send_w, 1);
-+		} else if (raced) {
-+			rds_stats_inc(s_send_lock_queue_raced);
- 		}
- 	}
- out:
+Date: Wed, 06 Sep 2017 10:18:33 +0000
+From: bugzilla-daemon@bugzilla.kernel.org
+To: stephen@networkplumber.org
+Subject: [Bug 196839] New: use_time of IPsec policy is updated even when receiving error packets.
+
+
+https://bugzilla.kernel.org/show_bug.cgi?id=196839
+
+            Bug ID: 196839
+           Summary: use_time of IPsec policy is updated even when
+                    receiving error packets.
+           Product: Networking
+           Version: 2.5
+    Kernel Version: 4.8.0
+          Hardware: Intel
+                OS: Linux
+              Tree: Mainline
+            Status: NEW
+          Severity: normal
+          Priority: P1
+         Component: Other
+          Assignee: stephen@networkplumber.org
+          Reporter: cchenme@gmail.com
+        Regression: No
+
+Normally the use_time of policy in SPD is updated if the policy is matched by
+incoming or outgoing IP packets. For protect policy, it is updated if ESP/AH
+packets are sent or received.
+
+The use_time of SPD_IN policy used by IKE implementation like strongSwan to
+check whether there is inbound traffic, thus determine whether it is necessary
+to send DPD(dead peer detection, rfc3706) request to check liveness of IPsec
+peer.
+
+In case an unprotected packet is received but matches the IPsec SPD IN protect
+policy, the packet will be discarded and the error counter XfrmInTmplMismatch
+in /proc/net/xfrm_stat is incremented.
+
+But in such error/malicious case, the use_time of SPD IN policy is also
+updated. This cause strongSwan to mistakenly regard that the policy is in use
+and not to trigger DPD request even when it should.
+
+In short, this is a security hole in kernel and could lead to DoS attack on
+IPsec gateway running on Linux.
+
 -- 
-2.9.3
+You are receiving this mail because:
+You are the assignee for the bug.
