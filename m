@@ -1,66 +1,72 @@
-From: Vishwanath Pai <vpai@akamai.com>
-Subject: Re: [PATCH] netfilter: xt_hashlimit: avoid 64-bit division
-Date: Wed, 6 Sep 2017 16:22:30 -0400
-Message-ID: <7791dee1-64a9-dcaa-c5d9-0b04a44bc526@akamai.com>
-References: <20170906195825.3715290-1-arnd@arndb.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Josh Hunt <johunt@akamai.com>, netfilter-devel@vger.kernel.org,
-        coreteam@netfilter.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>,
-        Pablo Neira Ayuso <pablo@netfilter.org>,
-        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        Florian Westphal <fw@strlen.de>,
-        "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170906195825.3715290-1-arnd@arndb.de>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Helge Deller <deller@gmx.de>
+Subject: [PATCH 13/14] netfilter/ipvs: Use %pS printk format for direct addresses
+Date: Wed,  6 Sep 2017 22:28:00 +0200
+Message-ID: <1504729681-3504-14-git-send-email-deller@gmx.de>
+References: <1504729681-3504-1-git-send-email-deller@gmx.de>
+Cc: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>,
+        Petr Mladek <pmladek@suse.com>,
+        Andrew Morton <akpm@linux-foundation.org>,
+        Wensong Zhang <wensong@linux-vs.org>, netdev@vger.kernel.org,
+        lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.gmx.net ([212.227.15.18]:64434 "EHLO mout.gmx.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752693AbdIFU2S (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 6 Sep 2017 16:28:18 -0400
+In-Reply-To: <1504729681-3504-1-git-send-email-deller@gmx.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/06/2017 03:57 PM, Arnd Bergmann wrote:
-> 64-bit division is expensive on 32-bit architectures, and
-> requires a special function call to avoid a link error like:
-> 
-> net/netfilter/xt_hashlimit.o: In function `hashlimit_mt_common':
-> xt_hashlimit.c:(.text+0x1328): undefined reference to `__aeabi_uldivmod'
-> 
-> In the case of hashlimit_mt_common, we don't actually need a
-> 64-bit operation, we can simply rewrite the function slightly
-> to make that clear to the compiler.
-> 
-> Fixes: bea74641e378 ("netfilter: xt_hashlimit: add rate match mode")
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> ---
->  net/netfilter/xt_hashlimit.c | 5 ++++-
->  1 file changed, 4 insertions(+), 1 deletion(-)
-> 
-> diff --git a/net/netfilter/xt_hashlimit.c b/net/netfilter/xt_hashlimit.c
-> index 10d48234f5f4..50b53d86eef5 100644
-> --- a/net/netfilter/xt_hashlimit.c
-> +++ b/net/netfilter/xt_hashlimit.c
-> @@ -531,7 +531,10 @@ static u64 user2rate_bytes(u64 user)
->  {
->  	u64 r;
->  
-> -	r = user ? 0xFFFFFFFFULL / user : 0xFFFFFFFFULL;
-> +	if (user > 0xFFFFFFFFULL)
-> +		return 0;
-> +
-> +	r = user ? 0xFFFFFFFFULL / (u32)user : 0xFFFFFFFFULL;
->  	r = (r - 1) << 4;
->  	return r;
->  }
-> 
+The debug and error printk functions in ipvs uses wrongly the %pF instead of
+the %pS printk format specifier for printing symbols for the address returned
+by _builtin_return_address(0). Fix it for the ia64, ppc64 and parisc64
+architectures.
 
-I have submitted another patch to fix this:
-https://patchwork.ozlabs.org/patch/809881/
+Signed-off-by: Helge Deller <deller@gmx.de>
+Cc: Wensong Zhang <wensong@linux-vs.org>
+Cc: netdev@vger.kernel.org
+Cc: lvs-devel@vger.kernel.org
+Cc: netfilter-devel@vger.kernel.org
+---
+ net/netfilter/ipvs/ip_vs_conn.c | 2 +-
+ net/netfilter/ipvs/ip_vs_ctl.c  | 4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
 
-We have seen this problem before, I was careful not to introduce this
-again in the new patch but clearly I overlooked this particular line :(
-
-In the other cases we fixed it by replacing division with div64_u64().
-
--Vishwanath
+diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
+index 3d2ac71a..f73561c 100644
+--- a/net/netfilter/ipvs/ip_vs_conn.c
++++ b/net/netfilter/ipvs/ip_vs_conn.c
+@@ -185,7 +185,7 @@ static inline int ip_vs_conn_hash(struct ip_vs_conn *cp)
+ 		hlist_add_head_rcu(&cp->c_list, &ip_vs_conn_tab[hash]);
+ 		ret = 1;
+ 	} else {
+-		pr_err("%s(): request for already hashed, called from %pF\n",
++		pr_err("%s(): request for already hashed, called from %pS\n",
+ 		       __func__, __builtin_return_address(0));
+ 		ret = 0;
+ 	}
+diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+index 1fa3c23..88fc58a 100644
+--- a/net/netfilter/ipvs/ip_vs_ctl.c
++++ b/net/netfilter/ipvs/ip_vs_ctl.c
+@@ -300,7 +300,7 @@ static int ip_vs_svc_hash(struct ip_vs_service *svc)
+ 	unsigned int hash;
+ 
+ 	if (svc->flags & IP_VS_SVC_F_HASHED) {
+-		pr_err("%s(): request for already hashed, called from %pF\n",
++		pr_err("%s(): request for already hashed, called from %pS\n",
+ 		       __func__, __builtin_return_address(0));
+ 		return 0;
+ 	}
+@@ -334,7 +334,7 @@ static int ip_vs_svc_hash(struct ip_vs_service *svc)
+ static int ip_vs_svc_unhash(struct ip_vs_service *svc)
+ {
+ 	if (!(svc->flags & IP_VS_SVC_F_HASHED)) {
+-		pr_err("%s(): request for unhash flagged, called from %pF\n",
++		pr_err("%s(): request for unhash flagged, called from %pS\n",
+ 		       __func__, __builtin_return_address(0));
+ 		return 0;
+ 	}
+-- 
+2.1.0
