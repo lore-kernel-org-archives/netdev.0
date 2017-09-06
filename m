@@ -1,93 +1,27 @@
-From: "Yang, Yi" <yi.y.yang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net-next v6 3/3] openvswitch: enable NSH
-	support
-Date: Wed, 6 Sep 2017 08:53:59 +0800
-Message-ID: <20170906005359.GA103260@cran64.bj.intel.com>
-References: <1503670805-31051-1-git-send-email-yi.y.yang@intel.com>
-	<1503670805-31051-4-git-send-email-yi.y.yang@intel.com>
-	<87wp5l7560.fsf@stressinduktion.org>
-	<20170904023831.GA68062@cran64.bj.intel.com>
-	<87mv6abte5.fsf@stressinduktion.org>
-	<20170905021112.GA86057@cran64.bj.intel.com>
-	<87vakxsaj2.fsf@stressinduktion.org>
-	<20170905113848.GC92895@cran64.bj.intel.com>
-	<878thtmgra.fsf@stressinduktion.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net 0/2][pull request] Intel Wired LAN Driver Updates
+ 2017-09-05
+Date: Tue, 05 Sep 2017 20:03:55 -0700 (PDT)
+Message-ID: <20170905.200355.2251400654090057350.davem@davemloft.net>
+References: <20170906010418.39007-1-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, "e@erig.me" <e@erig.me>
-To: Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>
-Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <878thtmgra.fsf-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>
-List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
-List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+        jogreene@redhat.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:44330 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754416AbdIFDD7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 5 Sep 2017 23:03:59 -0400
+In-Reply-To: <20170906010418.39007-1-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 05, 2017 at 09:12:09PM +0800, Hannes Frederic Sowa wrote:
-> "Yang, Yi" <yi.y.yang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org> writes:
-> 
-> > We can change this later if we really find a better way to handle this
-> > because it isn't defined in include/uapi/linux/openvswitch.h, so I still
-> > have backdoor to do this if needed :-)
-> 
-> Sorry, I can't follow you.
-> 
-> It doesn't matter if something is defined in uapi headers, the
-> observable behavior matters. If you allow users to configure flows with
-> specific fields, it should not stop working at a future point in time.
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Tue,  5 Sep 2017 18:04:16 -0700
 
-Anyway this can be changed if it is really needed, so far current way is
-the best one we can come up with, we would like to use it if you can
-have better proposal. We have explained repeatedly context headers must
-be matched and set, this is bottom line.
+> This series contains fixes for i40e only.
 
-> 
-> > For our sfc use case in Opendaylight, we use context[0] for tunnel ID,
-> > context[1] for destination IP for reverse RSP, they are used to match
-> > and set in OpenFlow table, you can't limit users to use them in such
-> > ways.
-> 
-> So in your specific case you expect the masks to be completely stable
-> because you defined a protocol on top of NSH, understood. And that is
-> stable accross all possible paths. Understood as well.
-> 
-> > If you check GENEVE implementation, tun_metadata* can be set or matched
-> > as any other match field.
-> 
-> Yes, I wrote that in my previous mail. I wonder why NSH context metadata
-> is not in tun_metadata as well?
-
-tun_metadata is tunnel metadata, GENEVE needs tunnel port, but NSH is
-not so, NSH can't directly use tun_metadata, for MD type 2, we need to a
-lot of rework on tun_metadata to make it shared between GENEVE and NSH,
-I don't think this can happen in near term. So tun_metadata isn't option
-for this now.
-
-> 
-> > Actually the most important information in NSH are just these context
-> > headers, you can't limit imagination of users by removing them from flow
-> > keys.
-> >
-> > My point is to bring miniflow into kernel data path to fix your concern,
-> > this will benefit your employer directly :-)
-> 
-> Okay, interesting. It will probably not help if you still have a hash of
-> a packet inside the flow table and use that for load balancing.
-> 
-> [...]
-> 
-> BTW I don't want to stop this patch, I am merely interested in how the
-> bigger picture will look like in the end.
-> 
-> Bye,
-> Hannes
+Pulled, thanks Jeff.
