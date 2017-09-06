@@ -1,45 +1,42 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v2 rfc 0/8] IGMP snooping for local traffic
-Date: Wed, 6 Sep 2017 17:16:40 +0200
-Message-ID: <20170906151640.GC15315@lunn.ch>
-References: <1504654510-31004-1-git-send-email-andrew@lunn.ch>
- <20170906004703.GB27385@lunn.ch>
- <edf02eb7-e6bf-e88c-f655-40f6f71a3446@neratec.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 6/10] ixgbe: Use ARRAY_SIZE macro
+Date: Wed, 06 Sep 2017 08:19:18 -0700
+Message-ID: <1504711158.7546.1.camel@perches.com>
+References: <20170905.115044.551456011251065741.davem@davemloft.net>
+         <20170905194419.pdwrkqdad6tbq7hs@olymp>
+         <1504641678.28899.12.camel@perches.com>
+         <20170905.142205.14687531780483930.davem@davemloft.net>
+         <20170906090817.f7qir5okeeajfcsc@olymp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Woojung.Huh@microchip.com, jbe@pengutronix.de,
-        sean.wang@mediatek.com, john@phrozen.org
-To: Matthias May <matthias.may@neratec.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:58760 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932657AbdIFPQq (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 6 Sep 2017 11:16:46 -0400
-Content-Disposition: inline
-In-Reply-To: <edf02eb7-e6bf-e88c-f655-40f6f71a3446@neratec.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Thomas Meyer <thomas@m3y3r.de>, David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170906090817.f7qir5okeeajfcsc@olymp>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 06, 2017 at 04:46:51PM +0200, Matthias May wrote:
-> 
-> Hi Andrew
-> We are using the 88E6321.
-> In our setup we are using openvswitch and not a bridge, however the problem you describe seems to be the same.
-> 
-> We had to configure the switch to flood unknown multicast (Egress Floods = 0x3, bits 3:2, offset 0x4 in port control)
-> and
-> unset FloodBC (FloodBC = 0x0, bit 12, offset 0x5 in global 2) which defines if a broadcast should be considered as
-> multicast for the above config.
+On Wed, 2017-09-06 at 11:08 +0200, Thomas Meyer wrote:
+> On Tue, Sep 05, 2017 at 02:22:05PM -0700, David Miller wrote:
+> > nothing prevented you from CC:'ing the maintainer,
+> > Jeff Kirscher.
+[]
+> That's the other condition in my script. I only send to the role
+> "maintainer" from the output of get_maintainer.pl. But Mr Jeff
+> Kirscher is only listed as supporter...
 
-Hi Matthias
+Supporter means he gets paid to look after that
+subsystem so he is something other than a volunteer.
 
-I might look at this.
-
-But architecturally it seems better to add an mdb entry for the
-broadcast address. I hope that work across all switches, where as what
-you suggests only works for Marvell devices.
-
-    Andrew
+from MAINTAINERS:
+	S: Status, one of the following:
+	   Supported:	Someone is actually paid to look after this.
+	   Maintained:	Someone actually looks after it.
+	   Odd Fixes:	It has a maintainer but they don't have time to do
+			much other than throw the odd patch in. See below..
+	   Orphan:	No current maintainer [but maybe you could take the
+			role as you write your new code].
+	   Obsolete:	Old code. Something tagged obsolete generally means
+			it has been replaced by a better system and you
+			should be using that.
