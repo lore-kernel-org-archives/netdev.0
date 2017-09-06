@@ -1,90 +1,68 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net] net_sched: fix a memory leak of filter chain
-Date: Tue,  5 Sep 2017 22:03:10 -0700
-Message-ID: <20170906050310.26474-1-xiyou.wangcong@gmail.com>
-Cc: jakub.kicinski@netronome.com, Cong Wang <xiyou.wangcong@gmail.com>,
-        Jiri Pirko <jiri@mellanox.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:36000 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750819AbdIFFDS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2017 01:03:18 -0400
-Received: by mail-pg0-f68.google.com with SMTP id d8so2974988pgt.3
-        for <netdev@vger.kernel.org>; Tue, 05 Sep 2017 22:03:18 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: =?gb2312?B?0c+6o8ur?= <yanhaishuang@cmss.chinamobile.com>
+Subject: Re: [PATCH v3 2/2] ip6_tunnel: fix ip6 tunnel lookup in collect_md
+ mode
+Date: Wed, 6 Sep 2017 14:39:02 +0800
+Message-ID: <A1C63C57-98E9-4736-980E-83113E4545B4@cmss.chinamobile.com>
+References: <1504514174-14958-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
+ <1504514174-14958-2-git-send-email-yanhaishuang@cmss.chinamobile.com>
+ <ece190cd-b8a1-225a-84c6-80ca2b46a44d@fb.com>
+Mime-Version: 1.0 (Mac OS X Mail 10.3 \(3273\))
+Content-Type: text/plain; charset=gb2312
+Content-Transfer-Encoding: 8BIT
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Pravin Shelar <pshelar@ovn.org>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>
+To: Alexei Starovoitov <ast@fb.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <ece190cd-b8a1-225a-84c6-80ca2b46a44d@fb.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-tcf_chain_destroy() is called by tcf_block_put() and tcf_chain_put().
-tcf_chain_put() is refcn'ed and paired with tcf_chain_get(),
-but tcf_block_put() is not, it should be paired with tcf_block_get()
-and we still need to decrease the refcnt. However, tcf_block_put()
-is special, it stores the chains too, we have to detach them if
-it is not the last user.
+> On 2017年9月6日, at 上午11:14, Alexei Starovoitov <ast@fb.com> wrote:
+> 
+> On 9/4/17 1:36 AM, Haishuang Yan wrote:
+>> In collect_md mode, if the tun dev is down, it still can call
+>> __ip6_tnl_rcv to receive on packets, and the rx statistics increase
+>> improperly.
+>> 
+>> Fixes: 8d79266bc48c ("ip6_tunnel: add collect_md mode to IPv6 tunnels")
+>> Cc: Alexei Starovoitov <ast@fb.com>
+>> Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+>> 
+>> ---
+>> Change since v3:
+>>  * Increment rx_dropped if tunnel device is not up, suggested by
+>>  Pravin B Shelar
+>>  * Fix wrong recipient address
+>> ---
+>> net/ipv6/ip6_tunnel.c | 7 +++++--
+>> 1 file changed, 5 insertions(+), 2 deletions(-)
+>> 
+>> diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+>> index 10a693a..e91d3b6 100644
+>> --- a/net/ipv6/ip6_tunnel.c
+>> +++ b/net/ipv6/ip6_tunnel.c
+>> @@ -171,8 +171,11 @@ static struct net_device_stats *ip6_get_stats(struct net_device *dev)
+>> 	}
+>> 
+>> 	t = rcu_dereference(ip6n->collect_md_tun);
+>> -	if (t)
+>> -		return t;
+>> +	if (t) {
+>> +		if (t->dev->flags & IFF_UP)
+>> +			return t;
+>> +		t->dev->stats.rx_dropped++;
+>> +	}
+> 
+> Why increment the stats only for this drop case?
+Because It was suggested by Pravin on v2 commit of the patch.
 
-What's more, index 0 is not special at all, it should be treated
-like other chains. This also makes the code more readable.
-
-Fixes: 744a4cf63e52 ("net: sched: fix use after free when tcf_chain_destroy is called multiple times")
-Reported-by: Jakub Kicinski <jakub.kicinski@netronome.com>
-Cc: Jiri Pirko <jiri@mellanox.com>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
----
- net/sched/cls_api.c | 22 +++++++++++-----------
- 1 file changed, 11 insertions(+), 11 deletions(-)
-
-diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
-index 6c5ea84d2682..c6d25b29bcd4 100644
---- a/net/sched/cls_api.c
-+++ b/net/sched/cls_api.c
-@@ -213,17 +213,17 @@ static void tcf_chain_flush(struct tcf_chain *chain)
- 	}
- }
- 
--static void tcf_chain_destroy(struct tcf_chain *chain)
-+static void tcf_chain_detach(struct tcf_chain *chain)
- {
- 	/* May be already removed from the list by the previous call. */
- 	if (!list_empty(&chain->list))
- 		list_del_init(&chain->list);
-+}
- 
--	/* There might still be a reference held when we got here from
--	 * tcf_block_put. Wait for the user to drop reference before free.
--	 */
--	if (!chain->refcnt)
--		kfree(chain);
-+static void tcf_chain_destroy(struct tcf_chain *chain)
-+{
-+	tcf_chain_detach(chain);
-+	kfree(chain);
- }
- 
- struct tcf_chain *tcf_chain_get(struct tcf_block *block, u32 chain_index,
-@@ -246,10 +246,7 @@ EXPORT_SYMBOL(tcf_chain_get);
- 
- void tcf_chain_put(struct tcf_chain *chain)
- {
--	/* Destroy unused chain, with exception of chain 0, which is the
--	 * default one and has to be always present.
--	 */
--	if (--chain->refcnt == 0 && !chain->filter_chain && chain->index != 0)
-+	if (--chain->refcnt == 0)
- 		tcf_chain_destroy(chain);
- }
- EXPORT_SYMBOL(tcf_chain_put);
-@@ -296,8 +293,11 @@ void tcf_block_put(struct tcf_block *block)
- 
- 	list_for_each_entry_safe(chain, tmp, &block->chain_list, list) {
- 		tcf_chain_flush(chain);
--		tcf_chain_destroy(chain);
-+		tcf_chain_put(chain);
- 	}
-+	/* If tc actions still hold the chain, just detach it. */
-+	list_for_each_entry_safe(chain, tmp, &block->chain_list, list)
-+		tcf_chain_detach(chain);
- 	kfree(block);
- }
- EXPORT_SYMBOL(tcf_block_put);
--- 
-2.13.0
+> There are plenty of other conditions where packet
+> will be dropped in ip6 tunnel. I think it's important
+> to present consistent behavior to the users,
+> so I'd increment drop stats either for all drop cases
+> or for none. And today it's none.
+> The ! IFF_UP case should probably be return NULL too
+> 
+> 
