@@ -1,73 +1,60 @@
-From: Stefano Brivio <sbrivio@redhat.com>
-Subject: [PATCH net 2/2] i40e: Avoid some useless variables and initializers in nvm functions
-Date: Wed,  6 Sep 2017 10:11:39 +0200
-Message-ID: <d0881adf53a3f0a546b3e7940b92b4ce938e7e50.1504684488.git.sbrivio@redhat.com>
-References: <cover.1504684488.git.sbrivio@redhat.com>
-Cc: "David S . Miller" <davem@davemloft.net>,
-        Anjali Singhai Jain <anjali.singhai@intel.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-        intel-wired-lan@lists.osuosl.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:59632 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751938AbdIFIML (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 6 Sep 2017 04:12:11 -0400
-In-Reply-To: <cover.1504684488.git.sbrivio@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jan Scheurich <jan.scheurich-IzeFyvvaP7pWk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH net-next v6 3/3] openvswitch: enable NSH
+	support
+Date: Wed, 6 Sep 2017 08:27:00 +0000
+Message-ID: <CFF8EF42F1132E4CBE2BF0AB6C21C58D787F5D2E@ESESSMB107.ericsson.se>
+References: <1503670805-31051-1-git-send-email-yi.y.yang@intel.com>
+	<1503670805-31051-4-git-send-email-yi.y.yang@intel.com>
+	<87wp5l7560.fsf@stressinduktion.org>
+	<20170904023831.GA68062@cran64.bj.intel.com>
+	<87mv6abte5.fsf@stressinduktion.org>
+	<20170905021112.GA86057@cran64.bj.intel.com>
+	<87vakxsaj2.fsf@stressinduktion.org>
+	<20170905113848.GC92895@cran64.bj.intel.com>
+	<878thtmgra.fsf@stressinduktion.org>
+	<20170906005359.GA103260@cran64.bj.intel.com>
+	<87o9qo9ru6.fsf@stressinduktion.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"e@erig.me" <e@erig.me>, "jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+To: Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>, "Yang, Yi"
+	<yi.y.yang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <87o9qo9ru6.fsf-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>
+Content-Language: en-US
+List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
+	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
+List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
+	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Fixes: 09f79fd49d94 ("i40e: avoid NVM acquire deadlock during NVM update")
-Signed-off-by: Stefano Brivio <sbrivio@redhat.com>
----
- drivers/net/ethernet/intel/i40e/i40e_nvm.c | 20 +++++++-------------
- 1 file changed, 7 insertions(+), 13 deletions(-)
+> >> Yes, I wrote that in my previous mail. I wonder why NSH context metadata
+> >> is not in tun_metadata as well?
+> >
+> > tun_metadata is tunnel metadata, GENEVE needs tunnel port, but NSH is
+> > not so, NSH can't directly use tun_metadata, for MD type 2, we need to a
+> > lot of rework on tun_metadata to make it shared between GENEVE and NSH,
+> > I don't think this can happen in near term. So tun_metadata isn't option
+> > for this now.
+> 
+> Sorry, I couldn't follow you. Why can't you store the context headers in
+> tun_metadata exactly?
+> 
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_nvm.c b/drivers/net/ethernet/intel/i40e/i40e_nvm.c
-index 200779d5c124..4a8a81cd3e32 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_nvm.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_nvm.c
-@@ -294,13 +294,10 @@ static i40e_status i40e_read_nvm_word_aq(struct i40e_hw *hw, u16 offset,
- static i40e_status __i40e_read_nvm_word(struct i40e_hw *hw,
- 					u16 offset, u16 *data)
- {
--	i40e_status ret_code = 0;
--
- 	if (hw->flags & I40E_HW_FLAG_AQ_SRCTL_ACCESS_ENABLE)
--		ret_code = i40e_read_nvm_word_aq(hw, offset, data);
--	else
--		ret_code = i40e_read_nvm_word_srctl(hw, offset, data);
--	return ret_code;
-+		return i40e_read_nvm_word_aq(hw, offset, data);
-+
-+	return i40e_read_nvm_word_srctl(hw, offset, data);
- }
- 
- /**
-@@ -314,7 +311,7 @@ static i40e_status __i40e_read_nvm_word(struct i40e_hw *hw,
- i40e_status i40e_read_nvm_word(struct i40e_hw *hw, u16 offset,
- 			       u16 *data)
- {
--	i40e_status ret_code = 0;
-+	i40e_status ret_code;
- 
- 	ret_code = i40e_acquire_nvm(hw, I40E_RESOURCE_READ);
- 	if (ret_code)
-@@ -429,13 +426,10 @@ static i40e_status __i40e_read_nvm_buffer(struct i40e_hw *hw,
- 					  u16 offset, u16 *words,
- 					  u16 *data)
- {
--	i40e_status ret_code = 0;
--
- 	if (hw->flags & I40E_HW_FLAG_AQ_SRCTL_ACCESS_ENABLE)
--		ret_code = i40e_read_nvm_buffer_aq(hw, offset, words, data);
--	else
--		ret_code = i40e_read_nvm_buffer_srctl(hw, offset, words, data);
--	return ret_code;
-+		return i40e_read_nvm_buffer_aq(hw, offset, words, data);
-+
-+	return i40e_read_nvm_buffer_srctl(hw, offset, words, data);
- }
- 
- /**
--- 
-2.9.4
+I think we mixing things. Let me try to clarify:
+
+1. NSH context metadata has end-to-end significance for the SFP. They must be part of the NSH header and cannot be transported as tunnel metadata, because transport tunnels (e.g. Geneve) only connect pairs of SFFs in the path. So we need OVS to be able to match on and set NSH context header fields, also for MD2 TLVs in the future. 
+
+2. OVS today has support for matching on TLV tunnel metadata after termination of a Geneve tunnel. This infrastructure is only usable for OVS tunnel ports (like Geneve) but not for matching on TLV headers of the NSH protocol, which is not modelled as an OVS tunnel port but handled in the OpenFlow pipeline (with generic encp/decap actions to enter/terminate an NSH SFP). This was a strategic decision by the OVS community two years ago.
+
+There is no way we can re-use the existing TLV tunnel metadata infrastructure in OVS for matching and setting NSH MD2 TLV headers. We will need to introduce a new (perhaps similar) scheme for modelling generic TLV match registers in OVS that are assigned to protocol TLVs by the controller. This is FFS.
+
+BR, Jan
