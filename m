@@ -1,72 +1,66 @@
-From: Helge Deller <deller@gmx.de>
-Subject: [PATCH 13/14] netfilter/ipvs: Use %pS printk format for direct addresses
-Date: Wed,  6 Sep 2017 22:28:00 +0200
-Message-ID: <1504729681-3504-14-git-send-email-deller@gmx.de>
-References: <1504729681-3504-1-git-send-email-deller@gmx.de>
-Cc: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>,
-        Petr Mladek <pmladek@suse.com>,
-        Andrew Morton <akpm@linux-foundation.org>,
-        Wensong Zhang <wensong@linux-vs.org>, netdev@vger.kernel.org,
-        lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: linux-kernel@vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net] net: sched: fix memleak for chain zero
+Date: Wed, 6 Sep 2017 22:33:23 +0200
+Message-ID: <20170906203323.GA16570@nanopsycho>
+References: <20170906111419.5115-1-jiri@resnulli.us>
+ <CAM_iQpWZJ9VVD66h6RMNofobKyoFyztx2jYqBEHuE6_iAu7PNQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Jakub Kicinski <kubakici@wp.pl>, mlxsw@mellanox.com
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.15.18]:64434 "EHLO mout.gmx.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752693AbdIFU2S (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 6 Sep 2017 16:28:18 -0400
-In-Reply-To: <1504729681-3504-1-git-send-email-deller@gmx.de>
+Received: from mail-wr0-f196.google.com ([209.85.128.196]:35409 "EHLO
+        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752313AbdIFUd0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2017 16:33:26 -0400
+Received: by mail-wr0-f196.google.com with SMTP id n64so114536wrb.2
+        for <netdev@vger.kernel.org>; Wed, 06 Sep 2017 13:33:26 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAM_iQpWZJ9VVD66h6RMNofobKyoFyztx2jYqBEHuE6_iAu7PNQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The debug and error printk functions in ipvs uses wrongly the %pF instead of
-the %pS printk format specifier for printing symbols for the address returned
-by _builtin_return_address(0). Fix it for the ia64, ppc64 and parisc64
-architectures.
+Wed, Sep 06, 2017 at 07:40:02PM CEST, xiyou.wangcong@gmail.com wrote:
+>On Wed, Sep 6, 2017 at 4:14 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+>> From: Jiri Pirko <jiri@mellanox.com>
+>>
+>> There's a memleak happening for chain 0. The thing is, chain 0 needs to
+>> be always present, not created on demand. Therefore tcf_block_get upon
+>> creation of block calls the tcf_chain_create function directly. The
+>> chain is created with refcnt == 1, which is not correct in this case and
+>> causes the memleak. So move the refcnt increment into tcf_chain_get
+>> function even for the case when chain needs to be created.
+>>
+>
+>Your approach could work but you just make the code even
+>uglier than it is now:
+>
+>1. The current code is already ugly for special-casing chain 0:
+>
+>        if (--chain->refcnt == 0 && !chain->filter_chain && chain->index != 0)
+>                tcf_chain_destroy(chain);
+>
+>2. With your patch, chain 0 has a different _initial_ refcnt with others.
 
-Signed-off-by: Helge Deller <deller@gmx.de>
-Cc: Wensong Zhang <wensong@linux-vs.org>
-Cc: netdev@vger.kernel.org
-Cc: lvs-devel@vger.kernel.org
-Cc: netfilter-devel@vger.kernel.org
----
- net/netfilter/ipvs/ip_vs_conn.c | 2 +-
- net/netfilter/ipvs/ip_vs_ctl.c  | 4 ++--
- 2 files changed, 3 insertions(+), 3 deletions(-)
+No. Initial refcnt is the same. ! for every action that holds the chain.
+So actually, it returns it back where it should be.
 
-diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
-index 3d2ac71a..f73561c 100644
---- a/net/netfilter/ipvs/ip_vs_conn.c
-+++ b/net/netfilter/ipvs/ip_vs_conn.c
-@@ -185,7 +185,7 @@ static inline int ip_vs_conn_hash(struct ip_vs_conn *cp)
- 		hlist_add_head_rcu(&cp->c_list, &ip_vs_conn_tab[hash]);
- 		ret = 1;
- 	} else {
--		pr_err("%s(): request for already hashed, called from %pF\n",
-+		pr_err("%s(): request for already hashed, called from %pS\n",
- 		       __func__, __builtin_return_address(0));
- 		ret = 0;
- 	}
-diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index 1fa3c23..88fc58a 100644
---- a/net/netfilter/ipvs/ip_vs_ctl.c
-+++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -300,7 +300,7 @@ static int ip_vs_svc_hash(struct ip_vs_service *svc)
- 	unsigned int hash;
- 
- 	if (svc->flags & IP_VS_SVC_F_HASHED) {
--		pr_err("%s(): request for already hashed, called from %pF\n",
-+		pr_err("%s(): request for already hashed, called from %pS\n",
- 		       __func__, __builtin_return_address(0));
- 		return 0;
- 	}
-@@ -334,7 +334,7 @@ static int ip_vs_svc_hash(struct ip_vs_service *svc)
- static int ip_vs_svc_unhash(struct ip_vs_service *svc)
- {
- 	if (!(svc->flags & IP_VS_SVC_F_HASHED)) {
--		pr_err("%s(): request for unhash flagged, called from %pF\n",
-+		pr_err("%s(): request for unhash flagged, called from %pS\n",
- 		       __func__, __builtin_return_address(0));
- 		return 0;
- 	}
--- 
-2.1.0
+
+>
+>3. Allowing an object (chain 0) exists with refcnt==0
+
+So? That is for every chain that does not have goto_chain action
+pointing at. Please read the code.
+
+
+>
+>Compare it with my patch:
+>
+>1. No special-case for chain 0, the above ugly part is removed
+>
+>2. Every chain is equal and created with refcnt==1
+>
+>3. Any chain with refcnt==0 is destroyed
