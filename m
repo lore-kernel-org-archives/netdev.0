@@ -1,48 +1,78 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Subject: Re: [PATCH v2 rfc 0/8] IGMP snooping for local traffic
-Date: Wed, 6 Sep 2017 08:27:55 -0700
-Message-ID: <20170906082755.58ff6c8f@xeon-e3>
+Date: Wed, 06 Sep 2017 11:25:26 -0400
+Message-ID: <874lsfg87t.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
 References: <1504654510-31004-1-git-send-email-andrew@lunn.ch>
-        <20170906004703.GB27385@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
+Content-Type: text/plain
+Cc: jiri@resnulli.us, nikolay@cumulusnetworks.com,
         Florian Fainelli <f.fainelli@gmail.com>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Woojung.Huh@microchip.com, jbe@pengutronix.de,
-        sean.wang@mediatek.com, john@phrozen.org
-To: Andrew Lunn <andrew@lunn.ch>
+        Andrew Lunn <andrew@lunn.ch>
+To: Andrew Lunn <andrew@lunn.ch>, netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f180.google.com ([209.85.192.180]:34621 "EHLO
-        mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932263AbdIFP2D (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2017 11:28:03 -0400
-Received: by mail-pf0-f180.google.com with SMTP id m1so13325684pfk.1
-        for <netdev@vger.kernel.org>; Wed, 06 Sep 2017 08:28:03 -0700 (PDT)
-In-Reply-To: <20170906004703.GB27385@lunn.ch>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:34636 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932263AbdIFP2u (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2017 11:28:50 -0400
+In-Reply-To: <1504654510-31004-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 6 Sep 2017 02:47:03 +0200
-Andrew Lunn <andrew@lunn.ch> wrote:
+Hi Andrew, Nikolay,
 
-> > The third and last issue will be explained in a followup email.  
-> 
-> Hi DSA hackers
-> 
-> So there is the third issue. It affects just DSA, but it possible
-> affects all DSA drivers.
-> 
-> This patchset broken broadcast with the Marvell drivers. It could
-> break broadcast on others drivers as well.
-> 
-> What i found is that the Marvell chips don't flood broadcast frames
-> between bridged ports. What appears to happen is there is a fdb miss,
-> so it gets forwarded to the CPU port for the host to deal with. The
-> software bridge when floods it out all ports of the bridge.
-> 
+Andrew Lunn <andrew@lunn.ch> writes:
 
-That sounds like a good feature. There environments where you want
-to disable broadcast between certain ports. It lets the bridge get
-at the traffic for firewall filtering.
+> Then starts the work passing down to the hardware that the host has
+> joined/left a group. The existing switchdev mdb object cannot be used,
+> since the semantics are different. The existing
+> SWITCHDEV_OBJ_ID_PORT_MDB is used to indicate a specific multicast
+> group should be forwarded out that port of the switch. However here we
+> require the exact opposite. We want multicast frames for the group
+> received on the port to the forwarded to the host. Hence add a new
+> object SWITCHDEV_OBJ_ID_HOST_MDB, a multicast database entry to
+> forward to the host. This new object is then propagated through the
+> DSA layers. No DSA driver changes should be needed, this should just
+> work...
+
+I'm not sure if you already explained that, if so, sorry in advance.
+
+I don't understand why SWITCHDEV_OBJ_ID_PORT_MDB cannot be used. Isn't
+setting the obj->orig_dev to the bridge device itself enough to
+distinguish br0 from a switch port?
+
+This way, the only change necessary in net/dsa/slave.c is something
+like (abbreviated):
+
+    static int dsa_slave_port_obj_add(struct net_device *dev,
+                                    const struct switchdev_obj *obj,
+                                    struct switchdev_trans *trans)
+    {
+            struct dsa_slave_priv *p = netdev_priv(dev);
+            struct dsa_port *port = p->dp;
+
+            /* Is the target port the bridge device itself? */
+            if (obj->orig_dev == port->br)
+                    port = port->cpu_dp;
+
+            return dsa_port_mdb_add(port, obj, trans);
+    }
+
+The main problem is that we will soon want support for multiple CPU
+ports. This means that each DSA slave will have its dedicated CPU port,
+instead of having only one for the whole switch tree.
+
+So adding the MDB entry to all CPU ports as you did in a patch 5/8 in
+dsa_switch_host_mdb_*() is not correct because you can have CPU port
+sw0p0 being a member of br0 and CPU port sw0p10 being a member of br1.
+
+So is it correct to simply notify SWITCHDEV_OBJ_ID_PORT_MDB with
+orig_dev = br->dev so that its members get recursively notified?
+
+Even if SWITCHDEV_OBJ_ID_HOST_MDB is necessary, we need to handle it the
+way I described, otherwise we don't have a correct mapping between a
+slave port and its CPU port that we need to configure.
+
+
+Thanks,
+
+        Vivien
