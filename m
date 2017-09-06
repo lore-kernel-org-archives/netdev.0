@@ -1,43 +1,311 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH v2 net-next 2/2] hv_netvsc: avoid unnecessary wakeups on subchannel creation
-Date: Wed,  6 Sep 2017 13:53:06 -0700
-Message-ID: <20170906205306.10541-3-sthemmin@microsoft.com>
-References: <20170906205306.10541-1-sthemmin@microsoft.com>
-Cc: devel@linuxdriverproject.org, netdev@vger.kernel.org
-To: kys@microsoft.com, haiyangz@microsoft.com, sthemmin@microsoft.com
+Subject: [PATCH net] hv_netvsc: fix deadlock on hotplug
+Date: Wed,  6 Sep 2017 14:11:14 -0700
+Message-ID: <20170906211114.4394-1-sthemmin@microsoft.com>
+Cc: haiyangz@microsft.com, netdev@vger.kernel.org,
+        Stephen Hemminger <sthemmin@microsoft.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f171.google.com ([209.85.192.171]:34557 "EHLO
-        mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753242AbdIFUxS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2017 16:53:18 -0400
-Received: by mail-pf0-f171.google.com with SMTP id e1so583448pfk.1
-        for <netdev@vger.kernel.org>; Wed, 06 Sep 2017 13:53:18 -0700 (PDT)
-In-Reply-To: <20170906205306.10541-1-sthemmin@microsoft.com>
+Received: from mail-pg0-f47.google.com ([74.125.83.47]:33719 "EHLO
+        mail-pg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752306AbdIFVat (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2017 17:30:49 -0400
+Received: by mail-pg0-f47.google.com with SMTP id t3so17456439pgt.0
+        for <netdev@vger.kernel.org>; Wed, 06 Sep 2017 14:30:49 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Only need to wakeup the initiator after all sub-channels
-are opened.
+When a virtual device is added dynamically (via host console), then
+the vmbus sends an offer message for the primary channel. The processing
+of this message for networking causes the network device to then
+initialize the sub channels.
 
+The problem is that setting up the sub channels needs to wait until
+the subsequent subchannel offers have been processed. These offers
+come in on the same ring buffer and work queue as where the primary
+offer is being processed; leading to a deadlock.
+
+This did not happen in older kernels, because the sub channel waiting
+logic was broken (it wasn't really waiting).
+
+The solution is to do the sub channel setup in its own work queue
+context that is scheduled by the primary channel setup; and then
+happens later.
+
+Fixes: 732e49850c5e ("netvsc: fix race on sub channel creation")
+Reported-by: Dexuan Cui <decui@microsoft.com>
 Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
 ---
- drivers/net/hyperv/rndis_filter.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+This is version for 4.13 (linux-net)
 
-diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
-index 731bc7cc6f43..065b204d8e17 100644
---- a/drivers/net/hyperv/rndis_filter.c
-+++ b/drivers/net/hyperv/rndis_filter.c
-@@ -1048,8 +1048,8 @@ static void netvsc_sc_open(struct vmbus_channel *new_sc)
- 	else
- 		netdev_notice(ndev, "sub channel open failed: %d\n", ret);
+ drivers/net/hyperv/hyperv_net.h   |   3 +
+ drivers/net/hyperv/netvsc.c       |   3 +
+ drivers/net/hyperv/netvsc_drv.c   |  18 +-----
+ drivers/net/hyperv/rndis_filter.c | 118 +++++++++++++++++++++++++++-----------
+ 4 files changed, 94 insertions(+), 48 deletions(-)
+
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index 12cc64bfcff8..b82119be14e9 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -200,6 +200,8 @@ int netvsc_recv_callback(struct net_device *net,
+ 			 const struct ndis_pkt_8021q_info *vlan);
+ void netvsc_channel_cb(void *context);
+ int netvsc_poll(struct napi_struct *napi, int budget);
++
++void rndis_set_subchannel(struct work_struct *w);
+ int rndis_filter_open(struct netvsc_device *nvdev);
+ int rndis_filter_close(struct netvsc_device *nvdev);
+ int rndis_filter_device_add(struct hv_device *dev,
+@@ -766,6 +768,7 @@ struct netvsc_device {
+ 	u32 num_chn;
  
--	atomic_inc(&nvscdev->open_chn);
--	wake_up(&nvscdev->subchan_open);
-+	if (atomic_inc_return(&nvscdev->open_chn) == nvscdev->num_chn)
-+		wake_up(&nvscdev->subchan_open);
+ 	atomic_t open_chn;
++	struct work_struct subchan_work;
+ 	wait_queue_head_t subchan_open;
+ 
+ 	struct rndis_device *extension;
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index d18c3326a1f7..76ef14cf55a1 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -79,6 +79,7 @@ static struct netvsc_device *alloc_net_device(void)
+ 	net_device->pkt_align = RNDIS_PKT_ALIGN_DEFAULT;
+ 	init_completion(&net_device->channel_init_wait);
+ 	init_waitqueue_head(&net_device->subchan_open);
++	INIT_WORK(&net_device->subchan_work, rndis_set_subchannel);
+ 
+ 	return net_device;
+ }
+@@ -553,6 +554,8 @@ void netvsc_device_remove(struct hv_device *device)
+ 	struct netvsc_device *net_device = net_device_ctx->nvdev;
+ 	int i;
+ 
++	cancel_work_sync(&net_device->subchan_work);
++
+ 	netvsc_disconnect_vsp(device);
+ 
+ 	RCU_INIT_POINTER(net_device_ctx->nvdev, NULL);
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index d91cbc6c3ca4..9c8dd86a663e 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -740,24 +740,13 @@ static int netvsc_set_queues(struct net_device *net, struct hv_device *dev,
+ 			     u32 num_chn)
+ {
+ 	struct netvsc_device_info device_info;
+-	int ret;
+ 
+ 	memset(&device_info, 0, sizeof(device_info));
+ 	device_info.num_chn = num_chn;
+ 	device_info.ring_size = ring_size;
+ 	device_info.max_num_vrss_chns = num_chn;
+ 
+-	ret = rndis_filter_device_add(dev, &device_info);
+-	if (ret)
+-		return ret;
+-
+-	ret = netif_set_real_num_tx_queues(net, num_chn);
+-	if (ret)
+-		return ret;
+-
+-	ret = netif_set_real_num_rx_queues(net, num_chn);
+-
+-	return ret;
++	return rndis_filter_device_add(dev, &device_info);
  }
  
- /* Open sub-channels after completing the handling of the device probe.
+ static int netvsc_set_channels(struct net_device *net,
+@@ -1573,8 +1562,6 @@ static int netvsc_probe(struct hv_device *dev,
+ 
+ 	/* RCU not necessary here, device not registered */
+ 	nvdev = net_device_ctx->nvdev;
+-	netif_set_real_num_tx_queues(net, nvdev->num_chn);
+-	netif_set_real_num_rx_queues(net, nvdev->num_chn);
+ 
+ 	/* MTU range: 68 - 1500 or 65521 */
+ 	net->min_mtu = NETVSC_MTU_MIN;
+@@ -1616,11 +1603,10 @@ static int netvsc_remove(struct hv_device *dev)
+ 	 * removed. Also blocks mtu and channel changes.
+ 	 */
+ 	rtnl_lock();
++	unregister_netdevice(net);
+ 	rndis_filter_device_remove(dev, ndev_ctx->nvdev);
+ 	rtnl_unlock();
+ 
+-	unregister_netdev(net);
+-
+ 	hv_set_drvdata(dev, NULL);
+ 
+ 	free_netdev(net);
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index d6308ffda53e..015a8e2b733c 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -1037,8 +1037,6 @@ static void netvsc_sc_open(struct vmbus_channel *new_sc)
+ 
+ 	/* Set the channel before opening.*/
+ 	nvchan->channel = new_sc;
+-	netif_napi_add(ndev, &nvchan->napi,
+-		       netvsc_poll, NAPI_POLL_WEIGHT);
+ 
+ 	ret = vmbus_open(new_sc, nvscdev->ring_size * PAGE_SIZE,
+ 			 nvscdev->ring_size * PAGE_SIZE, NULL, 0,
+@@ -1046,12 +1044,90 @@ static void netvsc_sc_open(struct vmbus_channel *new_sc)
+ 	if (ret == 0)
+ 		napi_enable(&nvchan->napi);
+ 	else
+-		netif_napi_del(&nvchan->napi);
++		netdev_notice(ndev, "sub channel open failed: %d\n", ret);
+ 
+ 	atomic_inc(&nvscdev->open_chn);
+ 	wake_up(&nvscdev->subchan_open);
+ }
+ 
++
++/* Open sub-channels after completing the handling of the device probe.
++ * This breaks overlap of processing the host message for the
++ * new primary channel with the initialization of sub-channels.
++ */
++void rndis_set_subchannel(struct work_struct *w)
++{
++	struct netvsc_device *nvdev
++		= container_of(w, struct netvsc_device, subchan_work);
++	struct nvsp_message *init_packet = &nvdev->channel_init_pkt;
++	struct net_device_context *ndev_ctx;
++	struct rndis_device *rdev;
++	struct net_device *ndev;
++	struct hv_device *hv_dev;
++	int i, ret;
++
++	if (!rtnl_trylock()) {
++		schedule_work(w);
++		return;
++	}
++
++	rdev = nvdev->extension;
++	if (!rdev)
++		goto unlock;	/* device was removed */
++
++	ndev = rdev->ndev;
++	ndev_ctx = netdev_priv(ndev);
++	hv_dev = ndev_ctx->device_ctx;
++
++	memset(init_packet, 0, sizeof(struct nvsp_message));
++	init_packet->hdr.msg_type = NVSP_MSG5_TYPE_SUBCHANNEL;
++	init_packet->msg.v5_msg.subchn_req.op = NVSP_SUBCHANNEL_ALLOCATE;
++	init_packet->msg.v5_msg.subchn_req.num_subchannels =
++						nvdev->num_chn - 1;
++	ret = vmbus_sendpacket(hv_dev->channel, init_packet,
++			       sizeof(struct nvsp_message),
++			       (unsigned long)init_packet,
++			       VM_PKT_DATA_INBAND,
++			       VMBUS_DATA_PACKET_FLAG_COMPLETION_REQUESTED);
++	if (ret) {
++		netdev_err(ndev, "sub channel allocate send failed: %d\n", ret);
++		goto failed;
++	}
++
++	wait_for_completion(&nvdev->channel_init_wait);
++	if (init_packet->msg.v5_msg.subchn_comp.status != NVSP_STAT_SUCCESS) {
++		netdev_err(ndev, "sub channel request failed\n");
++		goto failed;
++	}
++
++	nvdev->num_chn = 1 +
++		init_packet->msg.v5_msg.subchn_comp.num_subchannels;
++
++	/* wait for all sub channels to open */
++	wait_event(nvdev->subchan_open,
++		   atomic_read(&nvdev->open_chn) == nvdev->num_chn);
++
++	/* ignore failues from setting rss parameters, still have channels */
++	rndis_filter_set_rss_param(rdev, netvsc_hash_key,
++				   nvdev->num_chn);
++
++	netif_set_real_num_tx_queues(ndev, nvdev->num_chn);
++	netif_set_real_num_rx_queues(ndev, nvdev->num_chn);
++
++	rtnl_unlock();
++	return;
++
++failed:
++	/* fallback to only primary channel */
++	for (i = 1; i < nvdev->num_chn; i++)
++		netif_napi_del(&nvdev->chan_table[i].napi);
++
++	nvdev->max_chn = 1;
++	nvdev->num_chn = 1;
++unlock:
++	rtnl_unlock();
++}
++
+ int rndis_filter_device_add(struct hv_device *dev,
+ 			    struct netvsc_device_info *device_info)
+ {
+@@ -1061,7 +1137,6 @@ int rndis_filter_device_add(struct hv_device *dev,
+ 	struct rndis_device *rndis_device;
+ 	struct ndis_offload hwcaps;
+ 	struct ndis_offload_params offloads;
+-	struct nvsp_message *init_packet;
+ 	struct ndis_recv_scale_cap rsscap;
+ 	u32 rsscap_size = sizeof(struct ndis_recv_scale_cap);
+ 	unsigned int gso_max_size = GSO_MAX_SIZE;
+@@ -1226,37 +1301,16 @@ int rndis_filter_device_add(struct hv_device *dev,
+ 
+ 	vmbus_set_sc_create_callback(dev->channel, netvsc_sc_open);
+ 
+-	init_packet = &net_device->channel_init_pkt;
+-	memset(init_packet, 0, sizeof(struct nvsp_message));
+-	init_packet->hdr.msg_type = NVSP_MSG5_TYPE_SUBCHANNEL;
+-	init_packet->msg.v5_msg.subchn_req.op = NVSP_SUBCHANNEL_ALLOCATE;
+-	init_packet->msg.v5_msg.subchn_req.num_subchannels =
+-						net_device->num_chn - 1;
+-	ret = vmbus_sendpacket(dev->channel, init_packet,
+-			       sizeof(struct nvsp_message),
+-			       (unsigned long)init_packet,
+-			       VM_PKT_DATA_INBAND,
+-			       VMBUS_DATA_PACKET_FLAG_COMPLETION_REQUESTED);
+-	if (ret)
+-		goto out;
+ 
+-	wait_for_completion(&net_device->channel_init_wait);
+-	if (init_packet->msg.v5_msg.subchn_comp.status != NVSP_STAT_SUCCESS) {
+-		ret = -ENODEV;
+-		goto out;
+-	}
++	for (i = 1; i < net_device->num_chn; i++)
++		netif_napi_add(net, &net_device->chan_table[i].napi,
++			       netvsc_poll, NAPI_POLL_WEIGHT);
+ 
+-	net_device->num_chn = 1 +
+-		init_packet->msg.v5_msg.subchn_comp.num_subchannels;
+-
+-	/* wait for all sub channels to open */
+-	wait_event(net_device->subchan_open,
+-		   atomic_read(&net_device->open_chn) == net_device->num_chn);
++	if (net_device->num_chn > 1)
++		schedule_work(&net_device->subchan_work);
+ 
+-	/* ignore failues from setting rss parameters, still have channels */
+-	rndis_filter_set_rss_param(rndis_device, netvsc_hash_key,
+-				   net_device->num_chn);
+ out:
++	/* if unavailable, just proceed with one queue */
+ 	if (ret) {
+ 		net_device->max_chn = 1;
+ 		net_device->num_chn = 1;
+@@ -1277,10 +1331,10 @@ void rndis_filter_device_remove(struct hv_device *dev,
+ 	/* Halt and release the rndis device */
+ 	rndis_filter_halt_device(rndis_dev);
+ 
+-	kfree(rndis_dev);
+ 	net_dev->extension = NULL;
+ 
+ 	netvsc_device_remove(dev);
++	kfree(rndis_dev);
+ }
+ 
+ int rndis_filter_open(struct netvsc_device *nvdev)
 -- 
 2.11.0
