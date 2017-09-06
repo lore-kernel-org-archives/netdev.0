@@ -1,115 +1,61 @@
-From: David Daney <ddaney@caviumnetworks.com>
-Subject: Re: [PATCH net] Revert "net: phy: Correctly process PHY_HALTED in
- phy_stop_machine()"
-Date: Wed, 6 Sep 2017 11:00:53 -0700
-Message-ID: <ff070239-28b7-d41b-8abe-c9f810561372@caviumnetworks.com>
-References: <1504140569-2063-1-git-send-email-f.fainelli@gmail.com>
- <f4bb5ac8-dae8-c0af-7aa6-e546fc0783fa@sigmadesigns.com>
- <e24693e8-d8ae-188a-2a38-c9a83fdc94e3@gmail.com>
- <931bf454-81ff-94dc-82e6-bc2b889bd43a@gmail.com>
- <d6a6b552-95a7-8353-54c8-fa804f9366a1@free.fr>
- <f74f1aad-3990-ae54-316f-751c3b15de41@gmail.com>
- <ebee6e5d-5bc1-1c5b-b31d-6d50618d6074@free.fr>
- <4ea8b432-4968-1616-eff9-48a2689dd3ce@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next RFC 2/2] tun: enable napi_gro_frags() for
+ TUN/TAP driver
+Date: Wed, 06 Sep 2017 11:01:35 -0700
+Message-ID: <1504720895.15310.69.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20170905223551.27925-1-ppenkov@google.com>
+         <20170905223551.27925-3-ppenkov@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Marc Gonzalez <marc_gonzalez@sigmadesigns.com>,
-        netdev <netdev@vger.kernel.org>,
-        Geert Uytterhoeven <geert+renesas@glider.be>,
-        David Miller <davem@davemloft.net>,
-        Andrew Lunn <andrew@lunn.ch>, Mans Rullgard <mans@mansr.com>
-To: Florian Fainelli <f.fainelli@gmail.com>, Mason <slash.tmp@free.fr>
+Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
+        Mahesh Bandewar <maheshb@google.com>,
+        Willem de Bruijn <willemb@google.com>, davem@davemloft.net,
+        ppenkov@stanford.edu
+To: Petar Penkov <ppenkov@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam01on0080.outbound.protection.outlook.com ([104.47.34.80]:39901
-        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750836AbdIFSA7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 6 Sep 2017 14:00:59 -0400
-In-Reply-To: <4ea8b432-4968-1616-eff9-48a2689dd3ce@gmail.com>
-Content-Language: en-US
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:34693 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750980AbdIFSBi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2017 14:01:38 -0400
+Received: by mail-pf0-f194.google.com with SMTP id y68so3372975pfd.1
+        for <netdev@vger.kernel.org>; Wed, 06 Sep 2017 11:01:37 -0700 (PDT)
+In-Reply-To: <20170905223551.27925-3-ppenkov@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/31/2017 11:29 AM, Florian Fainelli wrote:
-> On 08/31/2017 11:12 AM, Mason wrote:
->> On 31/08/2017 19:53, Florian Fainelli wrote:
->>> On 08/31/2017 10:49 AM, Mason wrote:
->>>> On 31/08/2017 18:57, Florian Fainelli wrote:
->>>>> And the race is between phy_detach() setting phydev->attached_dev = NULL
->>>>> and phy_state_machine() running in PHY_HALTED state and calling
->>>>> netif_carrier_off().
->>>>
->>>> I must be missing something.
->>>> (Since a thread cannot race against itself.)
->>>>
->>>> phy_disconnect calls phy_stop_machine which
->>>> 1) stops the work queue from running in a separate thread
->>>> 2) calls phy_state_machine *synchronously*
->>>>       which runs the PHY_HALTED case with everything well-defined
->>>> end of phy_stop_machine
->>>>
->>>> phy_disconnect only then calls phy_detach()
->>>> which makes future calls of phy_state_machine perilous.
->>>>
->>>> This all happens in the same thread, so I'm not yet
->>>> seeing where the race happens?
->>>
->>> The race is as described in David's earlier email, so let's recap:
->>>
->>> Thread 1			Thread 2
->>> phy_disconnect()
->>> phy_stop_interrupts()
->>> phy_stop_machine()
->>> phy_state_machine()
->>>   -> queue_delayed_work()
->>> phy_detach()
->>> 				phy_state_machine()
->>> 				-> netif_carrier_off()
->>>
->>> If phy_detach() finishes earlier than the workqueue had a chance to be
->>> scheduled and process PHY_HALTED again, then we trigger the NULL pointer
->>> de-reference.
->>>
->>> workqueues are not tasklets, the CPU scheduling them gets no guarantee
->>> they will run on the same CPU.
->>
->> Something does not add up.
->>
->> The synchronous call to phy_state_machine() does:
->>
->> 	case PHY_HALTED:
->> 		if (phydev->link) {
->> 			phydev->link = 0;
->> 			netif_carrier_off(phydev->attached_dev);
->> 			phy_adjust_link(phydev);
->> 			do_suspend = true;
->> 		}
->>
->> then sets phydev->link = 0; therefore subsequent calls to
->> phy_state_machin() will be no-op.
-> 
-> Actually you are right, once phydev->link is set to 0 these would become
-> no-ops. Still scratching my head as to what happens for David then...
-> 
->>
->> Also, queue_delayed_work() is only called in polling mode.
->> David stated that he's using interrupt mode.
-
-Did you see what I wrote?
-
-phy_disconnect() calls phy_stop_interrupts() which puts it into polling 
-mode.  So the polling work gets queued unconditionally.
-
-
-
-> 
-> Right that's confusing too now. David can you check if you tree has:
-> 
-> 49d52e8108a21749dc2114b924c907db43358984 ("net: phy: handle state
-> correctly in phy_stop_machine")
+On Tue, 2017-09-05 at 15:35 -0700, Petar Penkov wrote:
+> Add a TUN/TAP receive mode that exercises the napi_gro_frags()
+> interface. This mode is available only in TAP mode, as the interface
+> expects packets with Ethernet headers.
 > 
 
-Yes, I am using the 4.9 stable branch, and that commit was also present.
 
-David.
+Hi Petar, thanks a lot for this work.
+
+I must confess I have to retract one feedback I gave while reviewing
+your patches.
+
+
+> +		local_bh_disable();
+> +		data = napi_alloc_frag(fragsz);
+> +		local_bh_enable();
+> +		if (!data) {
+> +			err = -ENOMEM;
+> +			goto free;
+> +		}
+> +
+> +		page = virt_to_page(data);
+> +		offset = offset_in_page(data);
+
+These two lines above indeed trigger too many problems in the kernel.
+(Like the one you tried to cover here
+https://patchwork.kernel.org/patch/9927927/ )
+
+Please use for your next submission the code you originally had :
+
+	page = virt_to_head_page(data);
+	offset = data - page_address(page);
+
+
+Thanks !
