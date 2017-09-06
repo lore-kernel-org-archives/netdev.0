@@ -1,80 +1,99 @@
 From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net] netlink: fix an use-after-free issue for nlk groups
-Date: Wed,  6 Sep 2017 11:47:12 +0800
-Message-ID: <1217baf9faf9d034ba8224cb6362b822c51a0eae.1504669632.git.lucien.xin@gmail.com>
-Cc: davem@davemloft.net, fw@strlen.de, chunwang@redhat.com,
-        syzkaller@googlegroups.com
+Subject: [PATCH net] netlink: access nlk groups safely in netlink bind and getname
+Date: Wed,  6 Sep 2017 11:53:29 +0800
+Message-ID: <cfb5c05d158b278beb2f1441c67a068a8bb27d44.1504670009.git.lucien.xin@gmail.com>
+Cc: davem@davemloft.net, fw@strlen.de
 To: network dev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:37890 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751956AbdIFDrV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 5 Sep 2017 23:47:21 -0400
-Received: by mail-pf0-f195.google.com with SMTP id q76so2526238pfq.5
-        for <netdev@vger.kernel.org>; Tue, 05 Sep 2017 20:47:21 -0700 (PDT)
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:34445 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750880AbdIFDxh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 5 Sep 2017 23:53:37 -0400
+Received: by mail-pg0-f66.google.com with SMTP id v82so2280719pgb.1
+        for <netdev@vger.kernel.org>; Tue, 05 Sep 2017 20:53:37 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ChunYu found a netlink use-after-free issue by syzkaller:
+Now there is no lock protecting nlk ngroups/groups' accessing in
+netlink bind and getname. It's safe from nlk groups' setting in
+netlink_release, but not from netlink_realloc_groups called by
+netlink_setsockopt.
 
-[28448.842981] BUG: KASAN: use-after-free in __nla_put+0x37/0x40 at addr ffff8807185e2378
-[28448.969918] Call Trace:
-[...]
-[28449.117207]  __nla_put+0x37/0x40
-[28449.132027]  nla_put+0xf5/0x130
-[28449.146261]  sk_diag_fill.isra.4.constprop.5+0x5a0/0x750 [netlink_diag]
-[28449.176608]  __netlink_diag_dump+0x25a/0x700 [netlink_diag]
-[28449.202215]  netlink_diag_dump+0x176/0x240 [netlink_diag]
-[28449.226834]  netlink_dump+0x488/0xbb0
-[28449.298014]  __netlink_dump_start+0x4e8/0x760
-[28449.317924]  netlink_diag_handler_dump+0x261/0x340 [netlink_diag]
-[28449.413414]  sock_diag_rcv_msg+0x207/0x390
-[28449.432409]  netlink_rcv_skb+0x149/0x380
-[28449.467647]  sock_diag_rcv+0x2d/0x40
-[28449.484362]  netlink_unicast+0x562/0x7b0
-[28449.564790]  netlink_sendmsg+0xaa8/0xe60
-[28449.661510]  sock_sendmsg+0xcf/0x110
-[28449.865631]  __sys_sendmsg+0xf3/0x240
-[28450.000964]  SyS_sendmsg+0x32/0x50
-[28450.016969]  do_syscall_64+0x25c/0x6c0
-[28450.154439]  entry_SYSCALL64_slow_path+0x25/0x25
+netlink_lock_table is needed in both netlink bind and getname when
+accessing nlk groups.
 
-It was caused by no protection between nlk groups' free in netlink_release
-and nlk groups' accessing in sk_diag_dump_groups. The similar issue also
-exists in netlink_seq_show().
-
-This patch is to defer nlk groups' free in deferred_put_nlk_sk.
-
-Reported-by: ChunYu Wang <chunwang@redhat.com>
 Acked-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Xin Long <lucien.xin@gmail.com>
 ---
- net/netlink/af_netlink.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ net/netlink/af_netlink.c | 16 ++++++++++++----
+ 1 file changed, 12 insertions(+), 4 deletions(-)
 
 diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 5acee49..94a61e6 100644
+index 94a61e6..3278077 100644
 --- a/net/netlink/af_netlink.c
 +++ b/net/netlink/af_netlink.c
-@@ -691,6 +691,9 @@ static void deferred_put_nlk_sk(struct rcu_head *head)
- 	struct netlink_sock *nlk = container_of(head, struct netlink_sock, rcu);
- 	struct sock *sk = &nlk->sk;
+@@ -955,7 +955,7 @@ static int netlink_bind(struct socket *sock, struct sockaddr *addr,
+ 	struct net *net = sock_net(sk);
+ 	struct netlink_sock *nlk = nlk_sk(sk);
+ 	struct sockaddr_nl *nladdr = (struct sockaddr_nl *)addr;
+-	int err;
++	int err = 0;
+ 	long unsigned int groups = nladdr->nl_groups;
+ 	bool bound;
  
-+	kfree(nlk->groups);
-+	nlk->groups = NULL;
-+
- 	if (!refcount_dec_and_test(&sk->sk_refcnt))
- 		return;
- 
-@@ -769,9 +772,6 @@ static int netlink_release(struct socket *sock)
- 		netlink_table_ungrab();
+@@ -983,6 +983,7 @@ static int netlink_bind(struct socket *sock, struct sockaddr *addr,
+ 			return -EINVAL;
  	}
  
--	kfree(nlk->groups);
--	nlk->groups = NULL;
--
- 	local_bh_disable();
- 	sock_prot_inuse_add(sock_net(sk), &netlink_proto, -1);
- 	local_bh_enable();
++	netlink_lock_table();
+ 	if (nlk->netlink_bind && groups) {
+ 		int group;
+ 
+@@ -993,7 +994,7 @@ static int netlink_bind(struct socket *sock, struct sockaddr *addr,
+ 			if (!err)
+ 				continue;
+ 			netlink_undo_bind(group, groups, sk);
+-			return err;
++			goto unlock;
+ 		}
+ 	}
+ 
+@@ -1006,12 +1007,13 @@ static int netlink_bind(struct socket *sock, struct sockaddr *addr,
+ 			netlink_autobind(sock);
+ 		if (err) {
+ 			netlink_undo_bind(nlk->ngroups, groups, sk);
+-			return err;
++			goto unlock;
+ 		}
+ 	}
+ 
+ 	if (!groups && (nlk->groups == NULL || !(u32)nlk->groups[0]))
+-		return 0;
++		goto unlock;
++	netlink_unlock_table();
+ 
+ 	netlink_table_grab();
+ 	netlink_update_subscriptions(sk, nlk->subscriptions +
+@@ -1022,6 +1024,10 @@ static int netlink_bind(struct socket *sock, struct sockaddr *addr,
+ 	netlink_table_ungrab();
+ 
+ 	return 0;
++
++unlock:
++	netlink_unlock_table();
++	return err;
+ }
+ 
+ static int netlink_connect(struct socket *sock, struct sockaddr *addr,
+@@ -1079,7 +1085,9 @@ static int netlink_getname(struct socket *sock, struct sockaddr *addr,
+ 		nladdr->nl_groups = netlink_group_mask(nlk->dst_group);
+ 	} else {
+ 		nladdr->nl_pid = nlk->portid;
++		netlink_lock_table();
+ 		nladdr->nl_groups = nlk->groups ? nlk->groups[0] : 0;
++		netlink_unlock_table();
+ 	}
+ 	return 0;
+ }
 -- 
 2.1.0
