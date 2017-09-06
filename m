@@ -1,70 +1,80 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH net-next] xdp: implement xdp_redirect_map for generic
- XDP
-Date: Wed, 6 Sep 2017 18:01:39 +0200
-Message-ID: <20170906180139.1764ca77@redhat.com>
-References: <150471158528.3727.12324542627400287360.stgit@firesoul>
-        <CAHashqBPDDETq2qdj3n8uL3hE61f=a5cv_eF6a9apoRzNVqaxA@mail.gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH v2 rfc 0/8] IGMP snooping for local traffic
+Date: Wed, 06 Sep 2017 09:06:23 -0700
+Message-ID: <9ECEF4E4-A39B-4578-8BDC-7842D20F3C81@gmail.com>
+References: <1504654510-31004-1-git-send-email-andrew@lunn.ch> <20170906004703.GB27385@lunn.ch> <CAJieiUj-ObfKAZa18JxnWSswLGK-mRLjqE7qyCrZ5tsVftf46w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        John Fastabend <john.fastabend@gmail.com>, brouer@redhat.com
-To: Andy Gospodarek <andy@greyhouse.net>
+Content-Type: text/plain;
+ charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev <netdev@vger.kernel.org>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Woojung.Huh@microchip.com, jbe@pengutronix.de,
+        sean.wang@mediatek.com, john@phrozen.org
+To: Roopa Prabhu <roopa@cumulusnetworks.com>,
+        Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:34762 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753586AbdIFQBp (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 6 Sep 2017 12:01:45 -0400
-In-Reply-To: <CAHashqBPDDETq2qdj3n8uL3hE61f=a5cv_eF6a9apoRzNVqaxA@mail.gmail.com>
+Received: from mail-oi0-f43.google.com ([209.85.218.43]:32824 "EHLO
+        mail-oi0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932136AbdIFQGa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2017 12:06:30 -0400
+Received: by mail-oi0-f43.google.com with SMTP id r20so15301889oie.0
+        for <netdev@vger.kernel.org>; Wed, 06 Sep 2017 09:06:30 -0700 (PDT)
+In-Reply-To: <CAJieiUj-ObfKAZa18JxnWSswLGK-mRLjqE7qyCrZ5tsVftf46w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 6 Sep 2017 11:44:18 -0400
-Andy Gospodarek <andy@greyhouse.net> wrote:
+On September 6, 2017 8:54:33 AM PDT, Roopa Prabhu <roopa@cumulusnetworks=2E=
+com> wrote:
+>On Tue, Sep 5, 2017 at 5:47 PM, Andrew Lunn <andrew@lunn=2Ech> wrote:
+>>> The third and last issue will be explained in a followup email=2E
+>>
+>> Hi DSA hackers
+>>
+>> So there is the third issue=2E It affects just DSA, but it possible
+>> affects all DSA drivers=2E
+>>
+>> This patchset broken broadcast with the Marvell drivers=2E It could
+>> break broadcast on others drivers as well=2E
+>>
+>> What i found is that the Marvell chips don't flood broadcast frames
+>> between bridged ports=2E What appears to happen is there is a fdb miss,
+>> so it gets forwarded to the CPU port for the host to deal with=2E The
+>> software bridge when floods it out all ports of the bridge=2E
+>>
+>> But the set offload_fwd_mark patch changes this=2E The software bridge
+>> now assumes the hardware has already flooded broadcast out all ports
+>> of the switch as needed=2E So it does not do any flooding itself=2E As =
+a
+>> result, on Marvell devices, broadcast packets don't get flooded at
+>> all=2E
+>>
+>> The issue can be fixed=2E I just need to add an mdb entry for the
+>> broadcast address to each port of the bridge in the switch, and the
+>> CPU port=2E  But i don't know at what level to do this=2E
+>>
+>> Should this be done at the DSA level, or at the driver level?  Do any
+>> chips do broadcast flooding in hardware already? Hence they currently
+>> see broadcast duplication? If i add a broadcast mdb at the DSA level,
+>> and the chip is already hard wired to flooding broadcast, is it going
+>> to double flood?
+>>
+>
+>On the switch asics we work with, the driver has information if the
+>packet was
+>forwarded in hardware=2E This is per packet reason code telling why the
+>CPU is seeing the packet=2E
+>The driver can use this information to reset skb->offload_fwd_mark to
+>allow software forward=2E
 
-> On Wed, Sep 6, 2017 at 11:26 AM, Jesper Dangaard Brouer
-> <brouer@redhat.com> wrote:
-> > Using bpf_redirect_map is allowed for generic XDP programs, but the
-> > appropriate map lookup was never performed in xdp_do_generic_redirect().
-> >
-> > Instead the map-index is directly used as the ifindex.  For the
-> > xdp_redirect_map sample in SKB-mode '-S', this resulted in trying
-> > sending on ifindex 0 which isn't valid, resulting in getting SKB
-> > packets dropped.  Thus, the reported performance numbers are wrong in
-> > commit 24251c264798 ("samples/bpf: add option for native and skb mode
-> > for redirect apps") for the 'xdp_redirect_map -S' case.
-> >
-> > It might seem innocent this was lacking, but it can actually crash the
-> > kernel.  The potential crash is caused by not consuming redirect_info->map.
-> > The bpf_redirect_map helper will set this_cpu_ptr(&redirect_info)->map
-> > pointer, which will survive even after unloading the xdp bpf_prog and
-> > deallocating the devmap data-structure.  This leaves a dead map
-> > pointer around.  The kernel will crash when loading the xdp_redirect
-> > sample (in native XDP mode) as it doesn't reset map (via bpf_redirect)
-> > and returns XDP_REDIRECT, which will cause it to dereference the map
-> > pointer.  
-> 
-> Nice catch!
-> 
-> Since 'net-next' is closed and this is a bugfix it seems like this is
-> a good candidate for 'net' right?
-
-Yes, I know 'net-next' is closed, but 'net' doesn't contain the
-XDP_REDIRECT code yet... thus I had to base it on net-next ;-)
+I am not positive this is universally available across different switch ve=
+ndors=2E In Broadcom tag (net/dsa/tag_brcm=2Ec) the reason code definitely =
+tells you that but it also largely depends on whether you have configured S=
+W managed forwarding or not and that translates in having either the HW do =
+all the address learning itself or having SW do it which is less desirable =
+since you end-up with a possibility huge FDB of 4k entries to manage in SW=
+=2E
 
 
-> >
-> > Fixes: 6103aa96ec07 ("net: implement XDP_REDIRECT for xdp generic")
-> > Fixes: 24251c264798 ("samples/bpf: add option for native and skb mode for redirect apps")
-> > Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>  
-> 
-> Acked-by: Andy Gospodarek <andy@greyhouse.net>
-
-Thanks
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
+--=20
+Florian
