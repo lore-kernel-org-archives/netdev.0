@@ -1,66 +1,69 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net] net: sched: fix memleak for chain zero
-Date: Wed, 6 Sep 2017 22:33:23 +0200
-Message-ID: <20170906203323.GA16570@nanopsycho>
-References: <20170906111419.5115-1-jiri@resnulli.us>
- <CAM_iQpWZJ9VVD66h6RMNofobKyoFyztx2jYqBEHuE6_iAu7PNQ@mail.gmail.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH] netfilter: xt_hashlimit: avoid 64-bit division
+Date: Wed, 6 Sep 2017 22:48:22 +0200
+Message-ID: <CAK8P3a1GxBjWqnK+fdKmzOhXyFK1XbCFWau8md3OjnLjUZOeDg@mail.gmail.com>
+References: <20170906195825.3715290-1-arnd@arndb.de> <7791dee1-64a9-dcaa-c5d9-0b04a44bc526@akamai.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Jakub Kicinski <kubakici@wp.pl>, mlxsw@mellanox.com
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f196.google.com ([209.85.128.196]:35409 "EHLO
-        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752313AbdIFUd0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2017 16:33:26 -0400
-Received: by mail-wr0-f196.google.com with SMTP id n64so114536wrb.2
-        for <netdev@vger.kernel.org>; Wed, 06 Sep 2017 13:33:26 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAM_iQpWZJ9VVD66h6RMNofobKyoFyztx2jYqBEHuE6_iAu7PNQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        Florian Westphal <fw@strlen.de>,
+        "David S. Miller" <davem@davemloft.net>,
+        Josh Hunt <johunt@akamai.com>, netfilter-devel@vger.kernel.org,
+        coreteam@netfilter.org, Networking <netdev@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Vishwanath Pai <vpai@akamai.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <7791dee1-64a9-dcaa-c5d9-0b04a44bc526@akamai.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Wed, Sep 06, 2017 at 07:40:02PM CEST, xiyou.wangcong@gmail.com wrote:
->On Wed, Sep 6, 2017 at 4:14 AM, Jiri Pirko <jiri@resnulli.us> wrote:
->> From: Jiri Pirko <jiri@mellanox.com>
+On Wed, Sep 6, 2017 at 10:22 PM, Vishwanath Pai <vpai@akamai.com> wrote:
+> On 09/06/2017 03:57 PM, Arnd Bergmann wrote:
+>> 64-bit division is expensive on 32-bit architectures, and
+>> requires a special function call to avoid a link error like:
 >>
->> There's a memleak happening for chain 0. The thing is, chain 0 needs to
->> be always present, not created on demand. Therefore tcf_block_get upon
->> creation of block calls the tcf_chain_create function directly. The
->> chain is created with refcnt == 1, which is not correct in this case and
->> causes the memleak. So move the refcnt increment into tcf_chain_get
->> function even for the case when chain needs to be created.
+>> net/netfilter/xt_hashlimit.o: In function `hashlimit_mt_common':
+>> xt_hashlimit.c:(.text+0x1328): undefined reference to `__aeabi_uldivmod'
+>>
+>> In the case of hashlimit_mt_common, we don't actually need a
+>> 64-bit operation, we can simply rewrite the function slightly
+>> to make that clear to the compiler.
+>>
+>> Fixes: bea74641e378 ("netfilter: xt_hashlimit: add rate match mode")
+>> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+>> ---
+>>  net/netfilter/xt_hashlimit.c | 5 ++++-
+>>  1 file changed, 4 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/net/netfilter/xt_hashlimit.c b/net/netfilter/xt_hashlimit.c
+>> index 10d48234f5f4..50b53d86eef5 100644
+>> --- a/net/netfilter/xt_hashlimit.c
+>> +++ b/net/netfilter/xt_hashlimit.c
+>> @@ -531,7 +531,10 @@ static u64 user2rate_bytes(u64 user)
+>>  {
+>>       u64 r;
+>>
+>> -     r = user ? 0xFFFFFFFFULL / user : 0xFFFFFFFFULL;
+>> +     if (user > 0xFFFFFFFFULL)
+>> +             return 0;
+>> +
+>> +     r = user ? 0xFFFFFFFFULL / (u32)user : 0xFFFFFFFFULL;
+>>       r = (r - 1) << 4;
+>>       return r;
+>>  }
 >>
 >
->Your approach could work but you just make the code even
->uglier than it is now:
+> I have submitted another patch to fix this:
+> https://patchwork.ozlabs.org/patch/809881/
 >
->1. The current code is already ugly for special-casing chain 0:
+> We have seen this problem before, I was careful not to introduce this
+> again in the new patch but clearly I overlooked this particular line :(
 >
->        if (--chain->refcnt == 0 && !chain->filter_chain && chain->index != 0)
->                tcf_chain_destroy(chain);
->
->2. With your patch, chain 0 has a different _initial_ refcnt with others.
+> In the other cases we fixed it by replacing division with div64_u64().
 
-No. Initial refcnt is the same. ! for every action that holds the chain.
-So actually, it returns it back where it should be.
+div64_u64() seems needlessly expensive here since the dividend
+is known to be a 32-bit number. I guess the function is not called
+frequently though, so it doesn't matter much.
 
-
->
->3. Allowing an object (chain 0) exists with refcnt==0
-
-So? That is for every chain that does not have goto_chain action
-pointing at. Please read the code.
-
-
->
->Compare it with my patch:
->
->1. No special-case for chain 0, the above ugly part is removed
->
->2. Every chain is equal and created with refcnt==1
->
->3. Any chain with refcnt==0 is destroyed
+      Arnd
