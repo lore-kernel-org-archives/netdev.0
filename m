@@ -1,66 +1,60 @@
-From: =?UTF-8?q?H=C3=A5kon=20Bugge?= <Haakon.Bugge@oracle.com>
-Subject: [PATCH net v2] rds: Fix incorrect statistics counting
-Date: Wed,  6 Sep 2017 18:35:51 +0200
-Message-ID: <20170906163551.20387-1-Haakon.Bugge@oracle.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH v2 rfc 0/8] IGMP snooping for local traffic
+Date: Wed, 6 Sep 2017 18:42:17 +0200
+Message-ID: <20170906164217.GE15315@lunn.ch>
+References: <1504654510-31004-1-git-send-email-andrew@lunn.ch>
+ <20170906004703.GB27385@lunn.ch>
+ <CAJieiUj-ObfKAZa18JxnWSswLGK-mRLjqE7qyCrZ5tsVftf46w@mail.gmail.com>
+ <9ECEF4E4-A39B-4578-8BDC-7842D20F3C81@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
-        rds-devel@oss.oracle.com, linux-kernel@vger.kernel.org,
-        knut.omang@oracle.com
-To: Santosh Shilimkar <santosh.shilimkar@oracle.com>,
-        "David S . Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Roopa Prabhu <roopa@cumulusnetworks.com>,
+        netdev <netdev@vger.kernel.org>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Woojung.Huh@microchip.com, jbe@pengutronix.de,
+        sean.wang@mediatek.com, john@phrozen.org
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:34630 "EHLO
-        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753775AbdIFQgm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2017 12:36:42 -0400
+Received: from vps0.lunn.ch ([178.209.37.122]:58870 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754272AbdIFQmW (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 6 Sep 2017 12:42:22 -0400
+Content-Disposition: inline
+In-Reply-To: <9ECEF4E4-A39B-4578-8BDC-7842D20F3C81@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In rds_send_xmit() there is logic to batch the sends. However, if
-another thread has acquired the lock and has incremented the send_gen,
-it is considered a race and we yield. The code incrementing the
-s_send_lock_queue_raced statistics counter did not count this event
-correctly.
+> >On the switch asics we work with, the driver has information if the
+> >packet was
+> >forwarded in hardware. This is per packet reason code telling why the
+> >CPU is seeing the packet.
+> >The driver can use this information to reset skb->offload_fwd_mark to
+> >allow software forward.
 
-This commit counts the race condition correctly.
+> I am not positive this is universally available across different
+> switch vendors.
 
-Changes from v1:
-- Removed check for *someone_on_xmit()*
-- Fixed incorrect indentation
+It is not universally available. We cannot rely on it being available
+with switches supported by DSA.
 
-Signed-off-by: Håkon Bugge <haakon.bugge@oracle.com>
-Reviewed-by: Knut Omang <knut.omang@oracle.com>
----
- net/rds/send.c | 10 +++++++---
- 1 file changed, 7 insertions(+), 3 deletions(-)
+We have a few choices:
 
-diff --git a/net/rds/send.c b/net/rds/send.c
-index 058a407..b52cdc8 100644
---- a/net/rds/send.c
-+++ b/net/rds/send.c
-@@ -428,14 +428,18 @@ int rds_send_xmit(struct rds_conn_path *cp)
- 	 * some work and we will skip our goto
- 	 */
- 	if (ret == 0) {
-+		bool raced;
-+
- 		smp_mb();
-+		raced = send_gen != READ_ONCE(cp->cp_send_gen);
-+
- 		if ((test_bit(0, &conn->c_map_queued) ||
--		     !list_empty(&cp->cp_send_queue)) &&
--			send_gen == READ_ONCE(cp->cp_send_gen)) {
--			rds_stats_inc(s_send_lock_queue_raced);
-+		    !list_empty(&cp->cp_send_queue)) && !raced) {
- 			if (batch_count < send_batch_count)
- 				goto restart;
- 			queue_delayed_work(rds_wq, &cp->cp_send_w, 1);
-+		} else if (raced) {
-+			rds_stats_inc(s_send_lock_queue_raced);
- 		}
- 	}
- out:
--- 
-2.9.3
+1) We assume anything the switch forwards to the CPU has also been
+   sent out whatever ports of the switch it needs to. Set
+   offload_fwd_mark.
+
+2) We assume anything the switch forwards to the CPU has not gone
+   anywhere else, and the bridge needs to send it out whatever ports
+   it thinks. Don't set offload_fwd_mark.
+
+3) We define some rules about what packets the switch should handle,
+   and then do some deep packet inspection to decide if
+   offload_fwd_mark should be set or not.
+
+I don't see 3) being possible. We are dealing with a fixed silicon
+data path, not something which is fully programmable.
+
+So it is down to 1) or 2). I've been assuming 1), but maybe we need to
+discuss that as well.
+
+	Andrew
