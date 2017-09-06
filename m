@@ -1,60 +1,70 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v2 rfc 0/8] IGMP snooping for local traffic
-Date: Wed, 6 Sep 2017 18:42:17 +0200
-Message-ID: <20170906164217.GE15315@lunn.ch>
-References: <1504654510-31004-1-git-send-email-andrew@lunn.ch>
- <20170906004703.GB27385@lunn.ch>
- <CAJieiUj-ObfKAZa18JxnWSswLGK-mRLjqE7qyCrZ5tsVftf46w@mail.gmail.com>
- <9ECEF4E4-A39B-4578-8BDC-7842D20F3C81@gmail.com>
+From: <Tristram.Ha@microchip.com>
+Subject: RE: [PATCH] DSA support for Micrel KSZ8895
+Date: Wed, 6 Sep 2017 16:47:35 +0000
+Message-ID: <93AF473E2DA327428DE3D46B72B1E9FD41120E4D@CHN-SV-EXMX02.mchp-main.com>
+References: <20170816075524.GA18532@amd> <20170816140451.GA13006@lunn.ch>
+ <9235D6609DB808459E95D78E17F2E43D40AFF8C1@CHN-SV-EXMX02.mchp-main.com>
+ <20170827123658.GA727@amd> <20170827163122.GG13622@lunn.ch>
+ <20170828070232.GA18135@amd> <20170828140927.GD10418@lunn.ch>
+ <20170829074547.GB31303@amd>
+ <93AF473E2DA327428DE3D46B72B1E9FD4111FA48@CHN-SV-EXMX02.mchp-main.com>
+ <CAJGZr0+WueUjZJTLmcJRXtLtgUTUGnPCgiHQir=v5cRf3ido_g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Roopa Prabhu <roopa@cumulusnetworks.com>,
-        netdev <netdev@vger.kernel.org>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Woojung.Huh@microchip.com, jbe@pengutronix.de,
-        sean.wang@mediatek.com, john@phrozen.org
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:58870 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754272AbdIFQmW (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 6 Sep 2017 12:42:22 -0400
-Content-Disposition: inline
-In-Reply-To: <9ECEF4E4-A39B-4578-8BDC-7842D20F3C81@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: <pavel@ucw.cz>, <Woojung.Huh@microchip.com>,
+        <nathan.leigh.conrad@gmail.com>,
+        <vivien.didelot@savoirfairelinux.com>, <f.fainelli@gmail.com>,
+        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        <andrew@lunn.ch>
+To: <muvarov@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAJGZr0+WueUjZJTLmcJRXtLtgUTUGnPCgiHQir=v5cRf3ido_g@mail.gmail.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> >On the switch asics we work with, the driver has information if the
-> >packet was
-> >forwarded in hardware. This is per packet reason code telling why the
-> >CPU is seeing the packet.
-> >The driver can use this information to reset skb->offload_fwd_mark to
-> >allow software forward.
-
-> I am not positive this is universally available across different
-> switch vendors.
-
-It is not universally available. We cannot rely on it being available
-with switches supported by DSA.
-
-We have a few choices:
-
-1) We assume anything the switch forwards to the CPU has also been
-   sent out whatever ports of the switch it needs to. Set
-   offload_fwd_mark.
-
-2) We assume anything the switch forwards to the CPU has not gone
-   anywhere else, and the bridge needs to send it out whatever ports
-   it thinks. Don't set offload_fwd_mark.
-
-3) We define some rules about what packets the switch should handle,
-   and then do some deep packet inspection to decide if
-   offload_fwd_mark should be set or not.
-
-I don't see 3) being possible. We are dealing with a fixed silicon
-data path, not something which is fully programmable.
-
-So it is down to 1) or 2). I've been assuming 1), but maybe we need to
-discuss that as well.
-
-	Andrew
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBNYXhpbSBVdmFyb3YgW21haWx0
+bzptdXZhcm92QGdtYWlsLmNvbV0NCj4gU2VudDogV2VkbmVzZGF5LCBTZXB0ZW1iZXIgMDYsIDIw
+MTcgMjoxNSBBTQ0KPiBUbzogVHJpc3RyYW0gSGEgLSBDMjQyNjgNCj4gQ2M6IFBhdmVsIE1hY2hl
+azsgV29vanVuZyBIdWggLSBDMjE2OTk7IE5hdGhhbiBDb25yYWQ7IFZpdmllbiBEaWRlbG90Ow0K
+PiBGbG9yaWFuIEZhaW5lbGxpOyBuZXRkZXY7IGxpbnV4LWtlcm5lbEB2Z2VyLmtlcm5lbC5vcmc7
+IEFuZHJldyBMdW5uDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0hdIERTQSBzdXBwb3J0IGZvciBNaWNy
+ZWwgS1NaODg5NQ0KPiANCj4gMjAxNy0wOC0zMSAwOjMyIEdNVCswMzowMCAgPFRyaXN0cmFtLkhh
+QG1pY3JvY2hpcC5jb20+Og0KPiA+PiBPbiBNb24gMjAxNy0wOC0yOCAxNjowOToyNywgQW5kcmV3
+IEx1bm4gd3JvdGU6DQo+ID4+ID4gPiBJIG1heSBiZSBjb25mdXNlZCBoZXJlLCBidXQgQUZBSUNU
+Og0KPiA+PiA+ID4NCj4gPj4gPiA+IDEpIFllcywgaXQgaGFzIHN0YW5kYXJkIGxheW91dCB3aGVu
+IGFjY2Vzc2VkIG92ZXIgTURJTy4NCj4gPj4gPg0KPiA+PiA+DQo+ID4+ID4gU2VjdGlvbiA0Ljgg
+b2YgdGhlIGRhdGFzaGVldCBzYXlzOg0KPiA+PiA+DQo+ID4+ID4gICAgIEFsbCB0aGUgcmVnaXN0
+ZXJzIGRlZmluZWQgaW4gdGhpcyBzZWN0aW9uIGNhbiBiZSBhbHNvIGFjY2Vzc2VkDQo+ID4+ID4g
+ICAgIHZpYSB0aGUgU1BJIGludGVyZmFjZS4NCj4gPj4gPg0KPiA+PiA+IE1lYW5pbmcgYWxsIFBI
+WSByZWdpc3RlcnMgY2FuIGJlIGFjY2VzcyB2aWEgdGhlIFNQSSBpbnRlcmZhY2UuIFNvDQo+ID4+
+ID4geW91IHNob3VsZCBiZSBhYmxlIHRvIG1ha2UgYSBzdGFuZGFyZCBMaW51eCBNRElPIGJ1cyBk
+cml2ZXIgd2hpY2gNCj4gPj4gPiBwZXJmb3JtcyBTUEkgcmVhZHMuDQo+ID4+DQo+ID4+IEFzIGZh
+ciBhcyBJIGNhbiB0ZWxsIChhbmQgdGhlaXIgZHJpdmVyIGNvbmZpcm1zKSAtLSB5ZXMsIGFsbCB0
+aG9zZQ0KPiA+PiByZWdpc3RlcnMgY2FuIGJlIGFjY2Vzc2VkIG92ZXIgdGhlIFNQSSwgdGhleSBh
+cmUganVzdCBzaHVmZmxlZA0KPiA+PiBhcm91bmQuLi4gaGVuY2UgTURJTyBlbXVsYXRpb24gY29k
+ZS4gSSBjb3BpZWQgaXQgZnJvbSB0aGVpciBjb2RlIChzZWUNCj4gPj4gdGhlIGNvcHlyaWdodHMp
+IHNvIG5vLCBJIGRvbid0IGJlbGlldmUgdGhlcmUncyBuaWNlciBzb2x1dGlvbi4NCj4gPj4NCj4g
+Pj4gQmVzdCByZWdhcmRzLA0KPiA+Pg0KPiA+Pg0KPiA+PiBQYXZlbA0KPiA+DQo+ID4gQ2FuIHlv
+dSBob2xkIG9uIHlvdXIgZGV2ZWxvcGluZyB3b3JrIG9uIEtTWjg4OTUgZHJpdmVyPyAgSSBhbSBh
+ZnJhaWQgeW91cg0KPiBlZmZvcnQgbWF5IGJlIGluIHZhaW4uICBXZSBhdCBNaWNyb2NoaXAgYXJl
+IHBsYW5uaW5nIHRvIHJlbGVhc2UgRFNBIGRyaXZlcnMNCj4gZm9yIGFsbCBLU1ogc3dpdGNoZXMs
+IHN0YXJ0aW5nIGF0IEtTWjg3OTUsIHRoZW4gS1NaODg5NSwgYW5kIEtTWjg4NjMuDQo+ID4NCj4g
+PiBUaGUgZHJpdmVyIGZpbGVzIGFsbCBmb2xsb3cgdGhlIHN0cnVjdHVyZXMgb2YgdGhlIGN1cnJl
+bnQgS1NaOTQ3NyBEU0EgZHJpdmVyLA0KPiBhbmQgdGhlIGZpbGUgdGFnX2tzei5jIHdpbGwgYmUg
+dXBkYXRlZCB0byBoYW5kbGUgdGhlIHRhaWwgdGFnIG9mIGRpZmZlcmVudCBjaGlwcywNCj4gd2hp
+Y2ggcmVxdWlyZXMgaW5jbHVkaW5nIHRoZSBrc3pfcHJpdi5oIGhlYWRlci4gIFRoYXQgaXMgcmVx
+dWlyZWQNCj4gbmV2ZXJ0aGVsZXNzIHRvIHN1cHBvcnQgdXNpbmcgdGhlIG9mZmxvYWRfZndkX21h
+cmsgaW5kaWNhdGlvbi4NCj4gPg0KPiA+IFRoZSBLU1o4Nzk1IGRyaXZlciB3aWxsIGJlIHN1Ym1p
+dHRlZCBhZnRlciBMYWJvciBEYXkgKDkvNCkgaWYgdGVzdGluZyByZXZlYWxzDQo+IG5vIHByb2Js
+ZW0uICBUaGUgS1NaODg5NSBkcml2ZXIgd2lsbCBiZSBzdWJtaXR0ZWQgcmlnaHQgYWZ0ZXIgdGhh
+dC4gIFlvdQ0KPiBzaG91bGQgaGF2ZSBubyBwcm9ibGVtIHVzaW5nIHRoZSBkcml2ZXIgcmlnaHQg
+YXdheS4NCj4gPg0KPiANCj4gSGVsbG8gVHJpc3RyYW0sIGlzIHRoZXJlIGFueSB1cGRhdGUgZm9y
+IHRoYXQgZHJpdmVyPw0KPiANCj4gTWF4aW0uDQo+IA0KDQpUaGUgcGF0Y2hlcyBhcmUgdW5kZXIg
+cmV2aWV3IGludGVybmFsbHkgYW5kIHdpbGwgbmVlZCB0byBiZSB1cGRhdGVkIGFuZCBhcHByb3Zl
+ZCBieSBXb29qdW5nIGJlZm9yZSBmb3JtYWwgc3VibWlzc2lvbi4gIFByb2JsZW0gaXMgYWx0aG91
+Z2ggS1NaODc5NSBhbmQgS1NaODg5NSBkcml2ZXJzIGFyZSBuZXcgY29kZSBhbmQgd2lsbCBiZSBz
+dWJtaXR0ZWQgYXMgUkZDLCB0aGV5IGRlcGVuZCBvbiB0aGUgY2hhbmdlIG9mIEtTWjk0NzcgZHJp
+dmVyIGN1cnJlbnRseSBpbiB0aGUga2VybmVsLCB3aGljaCByZXF1aXJlIG1vcmUgcmlnb3JvdXMg
+cmV2aWV3Lg0KDQo=
