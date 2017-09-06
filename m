@@ -1,39 +1,44 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: hung task in mac80211
-Date: Wed, 06 Sep 2017 15:30:10 +0200
-Message-ID: <1504704610.23905.1.camel@sipsolutions.net>
-References: <CAGnkfhwi9MmtLneeU23iWEGLj9cb1ODb3KzzOqTDvA6nNVsugg@mail.gmail.com>
-         <20170906144019.1c98a636@elisabeth>
-         <1504702115.13457.16.camel@sipsolutions.net>
-         <20170906151922.4a320b1d@elisabeth>
-         <1504704060.13457.20.camel@sipsolutions.net>
-         <20170906152709.673f230d@elisabeth>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Matteo Croce <mcroce@redhat.com>, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Stefano Brivio <sbrivio@redhat.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] isdn: isdnloop: fix logic error in isdnloop_sendbuf
+Date: Wed,  6 Sep 2017 15:38:58 +0200
+Message-ID: <20170906133928.3152020-1-arnd@arndb.de>
+Cc: Arnd Bergmann <arnd@arndb.de>, Joe Perches <joe@perches.com>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Karsten Keil <isdn@linux-pingi.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170906152709.673f230d@elisabeth>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2017-09-06 at 15:27 +0200, Stefano Brivio wrote:
-> 
-> Yes, that was based on the assumption that the initial part of
-> __ieee80211_start_rx_ba_session() can't really affect the AMPDU
-> state-machine in any way.
+gcc-7 found an ancient bug in the loop driver, leading to a condition that
+is always false, meaning we ignore the contents of 'card->flags' here:
 
-That's not really the point, if that changes that function would have
-to move the locking around, and nothing else.
+drivers/isdn/isdnloop/isdnloop.c:412:37: error: ?: using integer constants in boolean context, the expression will always evaluate to 'true' [-Werror=int-in-bool-context]
 
-The point is more that code in ieee80211_ba_session_work() could assume
-the lock is held across the entire loop, since that's the way it's
-written and looks like even with your patch.
+This changes the braces in the expression to ensure we actually
+compare the flag bits, rather than comparing a constant. As Joe Perches
+pointed out, an earlier patch of mine incorrectly assumed this was a
+false-positive warning.
 
-So for example replacing the loop of tid = 0..NUM_TIDS-1 with a
-list_for_each_entry() would already be unsafe with the dropping if the
-list were to require the mutex for locking.
+Cc: Joe Perches <joe@perches.com>
+Link: https://patchwork.kernel.org/patch/9840289/
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+---
+ drivers/isdn/isdnloop/isdnloop.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-johannes
+diff --git a/drivers/isdn/isdnloop/isdnloop.c b/drivers/isdn/isdnloop/isdnloop.c
+index 6ffd13466b8c..e97232646ba1 100644
+--- a/drivers/isdn/isdnloop/isdnloop.c
++++ b/drivers/isdn/isdnloop/isdnloop.c
+@@ -409,7 +409,7 @@ isdnloop_sendbuf(int channel, struct sk_buff *skb, isdnloop_card *card)
+ 		return -EINVAL;
+ 	}
+ 	if (len) {
+-		if (!(card->flags & (channel) ? ISDNLOOP_FLAGS_B2ACTIVE : ISDNLOOP_FLAGS_B1ACTIVE))
++		if (!(card->flags & (channel ? ISDNLOOP_FLAGS_B2ACTIVE : ISDNLOOP_FLAGS_B1ACTIVE)))
+ 			return 0;
+ 		if (card->sndcount[channel] > ISDNLOOP_MAX_SQUEUE)
+ 			return 0;
+-- 
+2.9.0
