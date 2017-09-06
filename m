@@ -1,42 +1,52 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH v2 rfc 8/8] net: dsa: Fix SWITCHDEV_ATTR_ID_PORT_PARENT_ID
-Date: Wed, 06 Sep 2017 09:09:03 -0700
-Message-ID: <0D9EF30F-ED95-486E-91B0-E18D5E8689FE@gmail.com>
-References: <1504654510-31004-1-git-send-email-andrew@lunn.ch> <1504654510-31004-9-git-send-email-andrew@lunn.ch> <87d17351gn.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me> <20170906150825.GB15315@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev <netdev@vger.kernel.org>, jiri@resnulli.us,
-        nikolay@cumulusnetworks.com
-To: Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f46.google.com ([209.85.218.46]:34914 "EHLO
-        mail-oi0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754249AbdIFQJJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2017 12:09:09 -0400
-Received: by mail-oi0-f46.google.com with SMTP id n18so44223882oig.2
-        for <netdev@vger.kernel.org>; Wed, 06 Sep 2017 09:09:09 -0700 (PDT)
-In-Reply-To: <20170906150825.GB15315@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: =?utf-8?Q?H=C3=A5kon_Bugge?= <haakon.bugge@oracle.com>
+Subject: Re: [PATCH net] rds: Fix incorrect statistics counting
+Date: Wed, 6 Sep 2017 18:12:58 +0200
+Message-ID: <715EA84D-6ACA-45DE-9EA2-6122E11545E8@oracle.com>
+References: <20170906152950.17766-1-Haakon.Bugge@oracle.com>
+ <b620a15a-e60e-5c35-ffef-ee485d338774@oracle.com>
+Mime-Version: 1.0 (Mac OS X Mail 10.3 \(3273\))
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+Cc: "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        OFED mailing list <linux-rdma@vger.kernel.org>,
+        rds-devel@oss.oracle.com, linux-kernel@vger.kernel.org,
+        Knut Omang <knut.omang@oracle.com>
+To: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <b620a15a-e60e-5c35-ffef-ee485d338774@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On September 6, 2017 8:08:25 AM PDT, Andrew Lunn <andrew@lunn=2Ech> wrote:
->> > Use the MAC address of the master interface as the parent ID=2E This
->is
->> > the same for all switches in a cluster, and should be unique if
->there
->> > are multiple clusters=2E
->>=20
->> That is not correct=2E Support for multiple CPU ports is coming and in
->> this case, you can have two CPU host interfaces wired to two switch
->> ports of the same tree=2E So two different master MAC addresses=2E
->
->Yes, you are correct=2E I will change this=2E
 
-A switch cluster should be tied to the same dsa_switch_tree though, can we=
- use dst->tree as an unique identifier?
+> On 6 Sep 2017, at 17:58, Santosh Shilimkar <santosh.shilimkar@oracle.com> wrote:
+> 
+> On 9/6/2017 8:29 AM, Håkon Bugge wrote:
+>> In rds_send_xmit() there is logic to batch the sends. However, if
+>> another thread has acquired the lock, it is considered a race and we
+>> yield. The code incrementing the s_send_lock_queue_raced statistics
+>> counter did not count this event correctly.
+>> This commit removes a small race in determining the race and
+>> increments the statistics counter correctly.
+>> Signed-off-by: Håkon Bugge <haakon.bugge@oracle.com>
+>> Reviewed-by: Knut Omang <knut.omang@oracle.com>
+>> ---
+>>  net/rds/send.c | 16 +++++++++++++---
+>>  1 file changed, 13 insertions(+), 3 deletions(-)
+> Those counters are not really to give that accurate so
+> am not very keen to add additional cycles in send paths
+> and add additional code. Have you seen any real issue
+> or this is just a observation. s_send_lock_queue_raced
+> counter is never used to check for smaller increments
+> and hence the question.
 
---=20
-Florian
+Hi Santosh,
+
+
+Yes, I agree with accuracy of s_send_lock_queue_raced. But the main point is that the existing code counts some partial share of when it is _not_ raced.
+
+So, in the critical path, my patch adds one test_bit(), which hits the local CPU cache, if not raced. If raced, some other thread is in control, so I would not think the added cycles would make any big difference.
+
+I can send a v2 where the race tightening is removed if you like.
+
+
+Thxs, Håkon
