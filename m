@@ -1,70 +1,38 @@
-From: <Tristram.Ha@microchip.com>
-Subject: RE: [PATCH] DSA support for Micrel KSZ8895
-Date: Wed, 6 Sep 2017 16:47:35 +0000
-Message-ID: <93AF473E2DA327428DE3D46B72B1E9FD41120E4D@CHN-SV-EXMX02.mchp-main.com>
-References: <20170816075524.GA18532@amd> <20170816140451.GA13006@lunn.ch>
- <9235D6609DB808459E95D78E17F2E43D40AFF8C1@CHN-SV-EXMX02.mchp-main.com>
- <20170827123658.GA727@amd> <20170827163122.GG13622@lunn.ch>
- <20170828070232.GA18135@amd> <20170828140927.GD10418@lunn.ch>
- <20170829074547.GB31303@amd>
- <93AF473E2DA327428DE3D46B72B1E9FD4111FA48@CHN-SV-EXMX02.mchp-main.com>
- <CAJGZr0+WueUjZJTLmcJRXtLtgUTUGnPCgiHQir=v5cRf3ido_g@mail.gmail.com>
+From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+Subject: Re: [PATCH net v2] rds: Fix incorrect statistics counting
+Date: Wed, 6 Sep 2017 09:48:46 -0700
+Message-ID: <8260b33b-504b-8b7e-44d0-b8699f33ab74@oracle.com>
+References: <20170906163551.20387-1-Haakon.Bugge@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: <pavel@ucw.cz>, <Woojung.Huh@microchip.com>,
-        <nathan.leigh.conrad@gmail.com>,
-        <vivien.didelot@savoirfairelinux.com>, <f.fainelli@gmail.com>,
-        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-        <andrew@lunn.ch>
-To: <muvarov@gmail.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
+        rds-devel@oss.oracle.com, linux-kernel@vger.kernel.org,
+        knut.omang@oracle.com
+To: =?UTF-8?Q?H=c3=a5kon_Bugge?= <Haakon.Bugge@oracle.com>,
+        "David S . Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAJGZr0+WueUjZJTLmcJRXtLtgUTUGnPCgiHQir=v5cRf3ido_g@mail.gmail.com>
+In-Reply-To: <20170906163551.20387-1-Haakon.Bugge@oracle.com>
 Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBNYXhpbSBVdmFyb3YgW21haWx0
-bzptdXZhcm92QGdtYWlsLmNvbV0NCj4gU2VudDogV2VkbmVzZGF5LCBTZXB0ZW1iZXIgMDYsIDIw
-MTcgMjoxNSBBTQ0KPiBUbzogVHJpc3RyYW0gSGEgLSBDMjQyNjgNCj4gQ2M6IFBhdmVsIE1hY2hl
-azsgV29vanVuZyBIdWggLSBDMjE2OTk7IE5hdGhhbiBDb25yYWQ7IFZpdmllbiBEaWRlbG90Ow0K
-PiBGbG9yaWFuIEZhaW5lbGxpOyBuZXRkZXY7IGxpbnV4LWtlcm5lbEB2Z2VyLmtlcm5lbC5vcmc7
-IEFuZHJldyBMdW5uDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0hdIERTQSBzdXBwb3J0IGZvciBNaWNy
-ZWwgS1NaODg5NQ0KPiANCj4gMjAxNy0wOC0zMSAwOjMyIEdNVCswMzowMCAgPFRyaXN0cmFtLkhh
-QG1pY3JvY2hpcC5jb20+Og0KPiA+PiBPbiBNb24gMjAxNy0wOC0yOCAxNjowOToyNywgQW5kcmV3
-IEx1bm4gd3JvdGU6DQo+ID4+ID4gPiBJIG1heSBiZSBjb25mdXNlZCBoZXJlLCBidXQgQUZBSUNU
-Og0KPiA+PiA+ID4NCj4gPj4gPiA+IDEpIFllcywgaXQgaGFzIHN0YW5kYXJkIGxheW91dCB3aGVu
-IGFjY2Vzc2VkIG92ZXIgTURJTy4NCj4gPj4gPg0KPiA+PiA+DQo+ID4+ID4gU2VjdGlvbiA0Ljgg
-b2YgdGhlIGRhdGFzaGVldCBzYXlzOg0KPiA+PiA+DQo+ID4+ID4gICAgIEFsbCB0aGUgcmVnaXN0
-ZXJzIGRlZmluZWQgaW4gdGhpcyBzZWN0aW9uIGNhbiBiZSBhbHNvIGFjY2Vzc2VkDQo+ID4+ID4g
-ICAgIHZpYSB0aGUgU1BJIGludGVyZmFjZS4NCj4gPj4gPg0KPiA+PiA+IE1lYW5pbmcgYWxsIFBI
-WSByZWdpc3RlcnMgY2FuIGJlIGFjY2VzcyB2aWEgdGhlIFNQSSBpbnRlcmZhY2UuIFNvDQo+ID4+
-ID4geW91IHNob3VsZCBiZSBhYmxlIHRvIG1ha2UgYSBzdGFuZGFyZCBMaW51eCBNRElPIGJ1cyBk
-cml2ZXIgd2hpY2gNCj4gPj4gPiBwZXJmb3JtcyBTUEkgcmVhZHMuDQo+ID4+DQo+ID4+IEFzIGZh
-ciBhcyBJIGNhbiB0ZWxsIChhbmQgdGhlaXIgZHJpdmVyIGNvbmZpcm1zKSAtLSB5ZXMsIGFsbCB0
-aG9zZQ0KPiA+PiByZWdpc3RlcnMgY2FuIGJlIGFjY2Vzc2VkIG92ZXIgdGhlIFNQSSwgdGhleSBh
-cmUganVzdCBzaHVmZmxlZA0KPiA+PiBhcm91bmQuLi4gaGVuY2UgTURJTyBlbXVsYXRpb24gY29k
-ZS4gSSBjb3BpZWQgaXQgZnJvbSB0aGVpciBjb2RlIChzZWUNCj4gPj4gdGhlIGNvcHlyaWdodHMp
-IHNvIG5vLCBJIGRvbid0IGJlbGlldmUgdGhlcmUncyBuaWNlciBzb2x1dGlvbi4NCj4gPj4NCj4g
-Pj4gQmVzdCByZWdhcmRzLA0KPiA+Pg0KPiA+Pg0KPiA+PiBQYXZlbA0KPiA+DQo+ID4gQ2FuIHlv
-dSBob2xkIG9uIHlvdXIgZGV2ZWxvcGluZyB3b3JrIG9uIEtTWjg4OTUgZHJpdmVyPyAgSSBhbSBh
-ZnJhaWQgeW91cg0KPiBlZmZvcnQgbWF5IGJlIGluIHZhaW4uICBXZSBhdCBNaWNyb2NoaXAgYXJl
-IHBsYW5uaW5nIHRvIHJlbGVhc2UgRFNBIGRyaXZlcnMNCj4gZm9yIGFsbCBLU1ogc3dpdGNoZXMs
-IHN0YXJ0aW5nIGF0IEtTWjg3OTUsIHRoZW4gS1NaODg5NSwgYW5kIEtTWjg4NjMuDQo+ID4NCj4g
-PiBUaGUgZHJpdmVyIGZpbGVzIGFsbCBmb2xsb3cgdGhlIHN0cnVjdHVyZXMgb2YgdGhlIGN1cnJl
-bnQgS1NaOTQ3NyBEU0EgZHJpdmVyLA0KPiBhbmQgdGhlIGZpbGUgdGFnX2tzei5jIHdpbGwgYmUg
-dXBkYXRlZCB0byBoYW5kbGUgdGhlIHRhaWwgdGFnIG9mIGRpZmZlcmVudCBjaGlwcywNCj4gd2hp
-Y2ggcmVxdWlyZXMgaW5jbHVkaW5nIHRoZSBrc3pfcHJpdi5oIGhlYWRlci4gIFRoYXQgaXMgcmVx
-dWlyZWQNCj4gbmV2ZXJ0aGVsZXNzIHRvIHN1cHBvcnQgdXNpbmcgdGhlIG9mZmxvYWRfZndkX21h
-cmsgaW5kaWNhdGlvbi4NCj4gPg0KPiA+IFRoZSBLU1o4Nzk1IGRyaXZlciB3aWxsIGJlIHN1Ym1p
-dHRlZCBhZnRlciBMYWJvciBEYXkgKDkvNCkgaWYgdGVzdGluZyByZXZlYWxzDQo+IG5vIHByb2Js
-ZW0uICBUaGUgS1NaODg5NSBkcml2ZXIgd2lsbCBiZSBzdWJtaXR0ZWQgcmlnaHQgYWZ0ZXIgdGhh
-dC4gIFlvdQ0KPiBzaG91bGQgaGF2ZSBubyBwcm9ibGVtIHVzaW5nIHRoZSBkcml2ZXIgcmlnaHQg
-YXdheS4NCj4gPg0KPiANCj4gSGVsbG8gVHJpc3RyYW0sIGlzIHRoZXJlIGFueSB1cGRhdGUgZm9y
-IHRoYXQgZHJpdmVyPw0KPiANCj4gTWF4aW0uDQo+IA0KDQpUaGUgcGF0Y2hlcyBhcmUgdW5kZXIg
-cmV2aWV3IGludGVybmFsbHkgYW5kIHdpbGwgbmVlZCB0byBiZSB1cGRhdGVkIGFuZCBhcHByb3Zl
-ZCBieSBXb29qdW5nIGJlZm9yZSBmb3JtYWwgc3VibWlzc2lvbi4gIFByb2JsZW0gaXMgYWx0aG91
-Z2ggS1NaODc5NSBhbmQgS1NaODg5NSBkcml2ZXJzIGFyZSBuZXcgY29kZSBhbmQgd2lsbCBiZSBz
-dWJtaXR0ZWQgYXMgUkZDLCB0aGV5IGRlcGVuZCBvbiB0aGUgY2hhbmdlIG9mIEtTWjk0NzcgZHJp
-dmVyIGN1cnJlbnRseSBpbiB0aGUga2VybmVsLCB3aGljaCByZXF1aXJlIG1vcmUgcmlnb3JvdXMg
-cmV2aWV3Lg0KDQo=
+On 9/6/2017 9:35 AM, Håkon Bugge wrote:
+> In rds_send_xmit() there is logic to batch the sends. However, if
+> another thread has acquired the lock and has incremented the send_gen,
+> it is considered a race and we yield. The code incrementing the
+> s_send_lock_queue_raced statistics counter did not count this event
+> correctly.
+> 
+> This commit counts the race condition correctly.
+> 
+> Changes from v1:
+> - Removed check for *someone_on_xmit()*
+> - Fixed incorrect indentation
+> 
+> Signed-off-by: Håkon Bugge <haakon.bugge@oracle.com>
+> Reviewed-by: Knut Omang <knut.omang@oracle.com>
+> ---
+
+Thanks for the update.
+Acked-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
