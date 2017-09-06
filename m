@@ -1,274 +1,93 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net 1/2] i40e: avoid NVM acquire deadlock during NVM update
-Date: Tue,  5 Sep 2017 18:04:17 -0700
-Message-ID: <20170906010418.39007-2-jeffrey.t.kirsher@intel.com>
-References: <20170906010418.39007-1-jeffrey.t.kirsher@intel.com>
-Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
-        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-        jogreene@redhat.com, Jacob Keller <jacob.e.keller@intel.com>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:63879 "EHLO mga01.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753635AbdIFBEZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 5 Sep 2017 21:04:25 -0400
-In-Reply-To: <20170906010418.39007-1-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Yang, Yi" <yi.y.yang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net-next v6 3/3] openvswitch: enable NSH
+	support
+Date: Wed, 6 Sep 2017 08:53:59 +0800
+Message-ID: <20170906005359.GA103260@cran64.bj.intel.com>
+References: <1503670805-31051-1-git-send-email-yi.y.yang@intel.com>
+	<1503670805-31051-4-git-send-email-yi.y.yang@intel.com>
+	<87wp5l7560.fsf@stressinduktion.org>
+	<20170904023831.GA68062@cran64.bj.intel.com>
+	<87mv6abte5.fsf@stressinduktion.org>
+	<20170905021112.GA86057@cran64.bj.intel.com>
+	<87vakxsaj2.fsf@stressinduktion.org>
+	<20170905113848.GC92895@cran64.bj.intel.com>
+	<878thtmgra.fsf@stressinduktion.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, "e@erig.me" <e@erig.me>
+To: Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>
+Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <878thtmgra.fsf-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>
+List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
+	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
+List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
+	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Anjali Singhai Jain <anjali.singhai@intel.com>
+On Tue, Sep 05, 2017 at 09:12:09PM +0800, Hannes Frederic Sowa wrote:
+> "Yang, Yi" <yi.y.yang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org> writes:
+> 
+> > We can change this later if we really find a better way to handle this
+> > because it isn't defined in include/uapi/linux/openvswitch.h, so I still
+> > have backdoor to do this if needed :-)
+> 
+> Sorry, I can't follow you.
+> 
+> It doesn't matter if something is defined in uapi headers, the
+> observable behavior matters. If you allow users to configure flows with
+> specific fields, it should not stop working at a future point in time.
 
-X722 devices use the AdminQ to access the NVM, and this requires taking
-the AdminQ lock. Because of this, we lock the AdminQ during
-i40e_read_nvm(), which is also called in places where the lock is
-already held, such as the firmware update path which wants to lock once
-and then unlock when finished after performing several tasks.
+Anyway this can be changed if it is really needed, so far current way is
+the best one we can come up with, we would like to use it if you can
+have better proposal. We have explained repeatedly context headers must
+be matched and set, this is bottom line.
 
-Although this should have only affected X722 devices, commit
-96a39aed25e6 ("i40e: Acquire NVM lock before reads on all devices",
-2016-12-02) added locking for all NVM reads, regardless of device
-family.
+> 
+> > For our sfc use case in Opendaylight, we use context[0] for tunnel ID,
+> > context[1] for destination IP for reverse RSP, they are used to match
+> > and set in OpenFlow table, you can't limit users to use them in such
+> > ways.
+> 
+> So in your specific case you expect the masks to be completely stable
+> because you defined a protocol on top of NSH, understood. And that is
+> stable accross all possible paths. Understood as well.
+> 
+> > If you check GENEVE implementation, tun_metadata* can be set or matched
+> > as any other match field.
+> 
+> Yes, I wrote that in my previous mail. I wonder why NSH context metadata
+> is not in tun_metadata as well?
 
-This resulted in us accidentally causing NVM acquire timeouts on all
-devices, causing failed firmware updates which left the eeprom in
-a corrupt state.
+tun_metadata is tunnel metadata, GENEVE needs tunnel port, but NSH is
+not so, NSH can't directly use tun_metadata, for MD type 2, we need to a
+lot of rework on tun_metadata to make it shared between GENEVE and NSH,
+I don't think this can happen in near term. So tun_metadata isn't option
+for this now.
 
-Create unsafe non-locked variants of i40e_read_nvm_word and
-i40e_read_nvm_buffer, __i40e_read_nvm_word and __i40e_read_nvm_buffer
-respectively. These variants will not take the NVM lock and are expected
-to only be called in places where the NVM lock is already held if
-needed.
-
-Since the only caller of i40e_read_nvm_buffer() was in such a path,
-remove it entirely in favor of the unsafe version. If necessary we can
-always add it back in the future.
-
-Additionally, we now need to hold the NVM lock in i40e_validate_checksum
-because the call to i40e_calc_nvm_checksum now assumes that the NVM lock
-is held. We can further move the call to read I40E_SR_SW_CHECKSUM_WORD
-up a bit so that we do not need to acquire the NVM lock twice.
-
-This should resolve firmware updates and also fix potential raise that
-could have caused the driver to report an invalid NVM checksum upon
-driver load.
-
-Reported-by: Stefan Assmann <sassmann@kpanic.de>
-Fixes: 96a39aed25e6 ("i40e: Acquire NVM lock before reads on all devices", 2016-12-02)
-Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e_nvm.c       | 98 +++++++++++++++---------
- drivers/net/ethernet/intel/i40e/i40e_prototype.h |  2 -
- 2 files changed, 60 insertions(+), 40 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_nvm.c b/drivers/net/ethernet/intel/i40e/i40e_nvm.c
-index 800bd55d0159..154ba49c2c6f 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_nvm.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_nvm.c
-@@ -266,7 +266,7 @@ static i40e_status i40e_read_nvm_aq(struct i40e_hw *hw, u8 module_pointer,
-  * @offset: offset of the Shadow RAM word to read (0x000000 - 0x001FFF)
-  * @data: word read from the Shadow RAM
-  *
-- * Reads one 16 bit word from the Shadow RAM using the GLNVM_SRCTL register.
-+ * Reads one 16 bit word from the Shadow RAM using the AdminQ
-  **/
- static i40e_status i40e_read_nvm_word_aq(struct i40e_hw *hw, u16 offset,
- 					 u16 *data)
-@@ -280,27 +280,49 @@ static i40e_status i40e_read_nvm_word_aq(struct i40e_hw *hw, u16 offset,
- }
- 
- /**
-- * i40e_read_nvm_word - Reads Shadow RAM
-+ * __i40e_read_nvm_word - Reads nvm word, assumes called does the locking
-  * @hw: pointer to the HW structure
-  * @offset: offset of the Shadow RAM word to read (0x000000 - 0x001FFF)
-  * @data: word read from the Shadow RAM
-  *
-- * Reads one 16 bit word from the Shadow RAM using the GLNVM_SRCTL register.
-+ * Reads one 16 bit word from the Shadow RAM.
-+ *
-+ * Do not use this function except in cases where the nvm lock is already
-+ * taken via i40e_acquire_nvm().
-+ **/
-+static i40e_status __i40e_read_nvm_word(struct i40e_hw *hw,
-+					u16 offset, u16 *data)
-+{
-+	i40e_status ret_code = 0;
-+
-+	if (hw->flags & I40E_HW_FLAG_AQ_SRCTL_ACCESS_ENABLE)
-+		ret_code = i40e_read_nvm_word_aq(hw, offset, data);
-+	else
-+		ret_code = i40e_read_nvm_word_srctl(hw, offset, data);
-+	return ret_code;
-+}
-+
-+/**
-+ * i40e_read_nvm_word - Reads nvm word and acquire lock if necessary
-+ * @hw: pointer to the HW structure
-+ * @offset: offset of the Shadow RAM word to read (0x000000 - 0x001FFF)
-+ * @data: word read from the Shadow RAM
-+ *
-+ * Reads one 16 bit word from the Shadow RAM.
-  **/
- i40e_status i40e_read_nvm_word(struct i40e_hw *hw, u16 offset,
- 			       u16 *data)
- {
--	enum i40e_status_code ret_code = 0;
-+	i40e_status ret_code = 0;
- 
- 	ret_code = i40e_acquire_nvm(hw, I40E_RESOURCE_READ);
--	if (!ret_code) {
--		if (hw->flags & I40E_HW_FLAG_AQ_SRCTL_ACCESS_ENABLE) {
--			ret_code = i40e_read_nvm_word_aq(hw, offset, data);
--		} else {
--			ret_code = i40e_read_nvm_word_srctl(hw, offset, data);
--		}
--		i40e_release_nvm(hw);
--	}
-+	if (ret_code)
-+		return ret_code;
-+
-+	ret_code = __i40e_read_nvm_word(hw, offset, data);
-+
-+	i40e_release_nvm(hw);
-+
- 	return ret_code;
- }
- 
-@@ -393,31 +415,25 @@ static i40e_status i40e_read_nvm_buffer_aq(struct i40e_hw *hw, u16 offset,
- }
- 
- /**
-- * i40e_read_nvm_buffer - Reads Shadow RAM buffer
-+ * __i40e_read_nvm_buffer - Reads nvm buffer, caller must acquire lock
-  * @hw: pointer to the HW structure
-  * @offset: offset of the Shadow RAM word to read (0x000000 - 0x001FFF).
-  * @words: (in) number of words to read; (out) number of words actually read
-  * @data: words read from the Shadow RAM
-  *
-  * Reads 16 bit words (data buffer) from the SR using the i40e_read_nvm_srrd()
-- * method. The buffer read is preceded by the NVM ownership take
-- * and followed by the release.
-+ * method.
-  **/
--i40e_status i40e_read_nvm_buffer(struct i40e_hw *hw, u16 offset,
--				 u16 *words, u16 *data)
-+static i40e_status __i40e_read_nvm_buffer(struct i40e_hw *hw,
-+					  u16 offset, u16 *words,
-+					  u16 *data)
- {
--	enum i40e_status_code ret_code = 0;
-+	i40e_status ret_code = 0;
- 
--	if (hw->flags & I40E_HW_FLAG_AQ_SRCTL_ACCESS_ENABLE) {
--		ret_code = i40e_acquire_nvm(hw, I40E_RESOURCE_READ);
--		if (!ret_code) {
--			ret_code = i40e_read_nvm_buffer_aq(hw, offset, words,
--							   data);
--			i40e_release_nvm(hw);
--		}
--	} else {
-+	if (hw->flags & I40E_HW_FLAG_AQ_SRCTL_ACCESS_ENABLE)
-+		ret_code = i40e_read_nvm_buffer_aq(hw, offset, words, data);
-+	else
- 		ret_code = i40e_read_nvm_buffer_srctl(hw, offset, words, data);
--	}
- 	return ret_code;
- }
- 
-@@ -499,15 +515,15 @@ static i40e_status i40e_calc_nvm_checksum(struct i40e_hw *hw,
- 	data = (u16 *)vmem.va;
- 
- 	/* read pointer to VPD area */
--	ret_code = i40e_read_nvm_word(hw, I40E_SR_VPD_PTR, &vpd_module);
-+	ret_code = __i40e_read_nvm_word(hw, I40E_SR_VPD_PTR, &vpd_module);
- 	if (ret_code) {
- 		ret_code = I40E_ERR_NVM_CHECKSUM;
- 		goto i40e_calc_nvm_checksum_exit;
- 	}
- 
- 	/* read pointer to PCIe Alt Auto-load module */
--	ret_code = i40e_read_nvm_word(hw, I40E_SR_PCIE_ALT_AUTO_LOAD_PTR,
--				      &pcie_alt_module);
-+	ret_code = __i40e_read_nvm_word(hw, I40E_SR_PCIE_ALT_AUTO_LOAD_PTR,
-+					&pcie_alt_module);
- 	if (ret_code) {
- 		ret_code = I40E_ERR_NVM_CHECKSUM;
- 		goto i40e_calc_nvm_checksum_exit;
-@@ -521,7 +537,7 @@ static i40e_status i40e_calc_nvm_checksum(struct i40e_hw *hw,
- 		if ((i % I40E_SR_SECTOR_SIZE_IN_WORDS) == 0) {
- 			u16 words = I40E_SR_SECTOR_SIZE_IN_WORDS;
- 
--			ret_code = i40e_read_nvm_buffer(hw, i, &words, data);
-+			ret_code = __i40e_read_nvm_buffer(hw, i, &words, data);
- 			if (ret_code) {
- 				ret_code = I40E_ERR_NVM_CHECKSUM;
- 				goto i40e_calc_nvm_checksum_exit;
-@@ -593,14 +609,19 @@ i40e_status i40e_validate_nvm_checksum(struct i40e_hw *hw,
- 	u16 checksum_sr = 0;
- 	u16 checksum_local = 0;
- 
-+	/* We must acquire the NVM lock in order to correctly synchronize the
-+	 * NVM accesses across multiple PFs. Without doing so it is possible
-+	 * for one of the PFs to read invalid data potentially indicating that
-+	 * the checksum is invalid.
-+	 */
-+	ret_code = i40e_acquire_nvm(hw, I40E_RESOURCE_READ);
-+	if (ret_code)
-+		return ret_code;
- 	ret_code = i40e_calc_nvm_checksum(hw, &checksum_local);
-+	__i40e_read_nvm_word(hw, I40E_SR_SW_CHECKSUM_WORD, &checksum_sr);
-+	i40e_release_nvm(hw);
- 	if (ret_code)
--		goto i40e_validate_nvm_checksum_exit;
--
--	/* Do not use i40e_read_nvm_word() because we do not want to take
--	 * the synchronization semaphores twice here.
--	 */
--	i40e_read_nvm_word(hw, I40E_SR_SW_CHECKSUM_WORD, &checksum_sr);
-+		return ret_code;
- 
- 	/* Verify read checksum from EEPROM is the same as
- 	 * calculated checksum
-@@ -612,7 +633,6 @@ i40e_status i40e_validate_nvm_checksum(struct i40e_hw *hw,
- 	if (checksum)
- 		*checksum = checksum_local;
- 
--i40e_validate_nvm_checksum_exit:
- 	return ret_code;
- }
- 
-@@ -997,6 +1017,7 @@ static i40e_status i40e_nvmupd_state_writing(struct i40e_hw *hw,
- 		break;
- 
- 	case I40E_NVMUPD_CSUM_CON:
-+		/* Assumes the caller has acquired the nvm */
- 		status = i40e_update_nvm_checksum(hw);
- 		if (status) {
- 			*perrno = hw->aq.asq_last_status ?
-@@ -1011,6 +1032,7 @@ static i40e_status i40e_nvmupd_state_writing(struct i40e_hw *hw,
- 		break;
- 
- 	case I40E_NVMUPD_CSUM_LCB:
-+		/* Assumes the caller has acquired the nvm */
- 		status = i40e_update_nvm_checksum(hw);
- 		if (status) {
- 			*perrno = hw->aq.asq_last_status ?
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_prototype.h b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
-index df613ea40313..a39b13197891 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_prototype.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
-@@ -311,8 +311,6 @@ i40e_status i40e_acquire_nvm(struct i40e_hw *hw,
- void i40e_release_nvm(struct i40e_hw *hw);
- i40e_status i40e_read_nvm_word(struct i40e_hw *hw, u16 offset,
- 					 u16 *data);
--i40e_status i40e_read_nvm_buffer(struct i40e_hw *hw, u16 offset,
--					   u16 *words, u16 *data);
- i40e_status i40e_update_nvm_checksum(struct i40e_hw *hw);
- i40e_status i40e_validate_nvm_checksum(struct i40e_hw *hw,
- 						 u16 *checksum);
--- 
-2.14.1
+> 
+> > Actually the most important information in NSH are just these context
+> > headers, you can't limit imagination of users by removing them from flow
+> > keys.
+> >
+> > My point is to bring miniflow into kernel data path to fix your concern,
+> > this will benefit your employer directly :-)
+> 
+> Okay, interesting. It will probably not help if you still have a hash of
+> a packet inside the flow table and use that for load balancing.
+> 
+> [...]
+> 
+> BTW I don't want to stop this patch, I am merely interested in how the
+> bigger picture will look like in the end.
+> 
+> Bye,
+> Hannes
