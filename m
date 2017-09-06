@@ -1,7 +1,7 @@
 From: Romain Perier <romain.perier@collabora.com>
-Subject: [PATCH v13 5/5] PCI: Remove PCI pool macro functions
-Date: Wed,  6 Sep 2017 11:08:57 +0200
-Message-ID: <20170906090857.14846-6-romain.perier@collabora.com>
+Subject: [PATCH v13 3/5] net: e100: Replace PCI pool old API
+Date: Wed,  6 Sep 2017 11:08:55 +0200
+Message-ID: <20170906090857.14846-4-romain.perier@collabora.com>
 References: <20170906090857.14846-1-romain.perier@collabora.com>
 Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org,
@@ -14,39 +14,76 @@ To: Dan Williams <dan.j.williams@intel.com>,
         jeffrey.t.kirsher@intel.com,
         "David S. Miller" <davem@davemloft.net>, stas.yakovlev@gmail.com,
         Aviad Krawczyk <aviad.krawczyk@huawei.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bhuna.collabora.co.uk ([46.235.227.227]:50682 "EHLO
+        bhuna.collabora.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752393AbdIFJJc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2017 05:09:32 -0400
 In-Reply-To: <20170906090857.14846-1-romain.perier@collabora.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Now that all the drivers use dma pool API, we can remove the macro
-functions for PCI pool.
+The PCI pool API is deprecated. This commit replaces the PCI pool old
+API by the appropriate function with the DMA pool API.
 
 Signed-off-by: Romain Perier <romain.perier@collabora.com>
-Reviewed-by: Peter Senna Tschudin <peter.senna@collabora.com>
+Acked-by: Peter Senna Tschudin <peter.senna@collabora.com>
+Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Tested-by: Peter Senna Tschudin <peter.senna@collabora.com>
 ---
- include/linux/pci.h | 9 ---------
- 1 file changed, 9 deletions(-)
+ drivers/net/ethernet/intel/e100.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/include/linux/pci.h b/include/linux/pci.h
-index f68c58a93dd0..89dfc277a6c6 100644
---- a/include/linux/pci.h
-+++ b/include/linux/pci.h
-@@ -1322,15 +1322,6 @@ int pci_set_vga_state(struct pci_dev *pdev, bool decode,
- #include <linux/pci-dma.h>
- #include <linux/dmapool.h>
+diff --git a/drivers/net/ethernet/intel/e100.c b/drivers/net/ethernet/intel/e100.c
+index 4d10270ddf8f..d1470d30351c 100644
+--- a/drivers/net/ethernet/intel/e100.c
++++ b/drivers/net/ethernet/intel/e100.c
+@@ -607,7 +607,7 @@ struct nic {
+ 	struct mem *mem;
+ 	dma_addr_t dma_addr;
  
--#define	pci_pool dma_pool
--#define pci_pool_create(name, pdev, size, align, allocation) \
--		dma_pool_create(name, &pdev->dev, size, align, allocation)
--#define	pci_pool_destroy(pool) dma_pool_destroy(pool)
--#define	pci_pool_alloc(pool, flags, handle) dma_pool_alloc(pool, flags, handle)
--#define	pci_pool_zalloc(pool, flags, handle) \
--		dma_pool_zalloc(pool, flags, handle)
--#define	pci_pool_free(pool, vaddr, addr) dma_pool_free(pool, vaddr, addr)
--
- struct msix_entry {
- 	u32	vector;	/* kernel uses to write allocated vector */
- 	u16	entry;	/* driver uses to specify entry, OS writes */
+-	struct pci_pool *cbs_pool;
++	struct dma_pool *cbs_pool;
+ 	dma_addr_t cbs_dma_addr;
+ 	u8 adaptive_ifs;
+ 	u8 tx_threshold;
+@@ -1892,7 +1892,7 @@ static void e100_clean_cbs(struct nic *nic)
+ 			nic->cb_to_clean = nic->cb_to_clean->next;
+ 			nic->cbs_avail++;
+ 		}
+-		pci_pool_free(nic->cbs_pool, nic->cbs, nic->cbs_dma_addr);
++		dma_pool_free(nic->cbs_pool, nic->cbs, nic->cbs_dma_addr);
+ 		nic->cbs = NULL;
+ 		nic->cbs_avail = 0;
+ 	}
+@@ -1910,7 +1910,7 @@ static int e100_alloc_cbs(struct nic *nic)
+ 	nic->cb_to_use = nic->cb_to_send = nic->cb_to_clean = NULL;
+ 	nic->cbs_avail = 0;
+ 
+-	nic->cbs = pci_pool_alloc(nic->cbs_pool, GFP_KERNEL,
++	nic->cbs = dma_pool_alloc(nic->cbs_pool, GFP_KERNEL,
+ 				  &nic->cbs_dma_addr);
+ 	if (!nic->cbs)
+ 		return -ENOMEM;
+@@ -2961,8 +2961,8 @@ static int e100_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		netif_err(nic, probe, nic->netdev, "Cannot register net device, aborting\n");
+ 		goto err_out_free;
+ 	}
+-	nic->cbs_pool = pci_pool_create(netdev->name,
+-			   nic->pdev,
++	nic->cbs_pool = dma_pool_create(netdev->name,
++			   &nic->pdev->dev,
+ 			   nic->params.cbs.max * sizeof(struct cb),
+ 			   sizeof(u32),
+ 			   0);
+@@ -3002,7 +3002,7 @@ static void e100_remove(struct pci_dev *pdev)
+ 		unregister_netdev(netdev);
+ 		e100_free(nic);
+ 		pci_iounmap(pdev, nic->csr);
+-		pci_pool_destroy(nic->cbs_pool);
++		dma_pool_destroy(nic->cbs_pool);
+ 		free_netdev(netdev);
+ 		pci_release_regions(pdev);
+ 		pci_disable_device(pdev);
 -- 
 2.11.0
