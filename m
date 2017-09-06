@@ -1,120 +1,109 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH v2 rfc 4/8] net: dsa: slave: Handle switchdev host mdb add/del
-Date: Wed, 06 Sep 2017 11:37:42 -0400
-Message-ID: <87zia7rg6x.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-References: <1504654510-31004-1-git-send-email-andrew@lunn.ch> <1504654510-31004-5-git-send-email-andrew@lunn.ch>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: [PATCH net-next] xdp: implement xdp_redirect_map for generic XDP
+Date: Wed, 6 Sep 2017 11:44:18 -0400
+Message-ID: <CAHashqBPDDETq2qdj3n8uL3hE61f=a5cv_eF6a9apoRzNVqaxA@mail.gmail.com>
+References: <150471158528.3727.12324542627400287360.stgit@firesoul>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: jiri@resnulli.us, nikolay@cumulusnetworks.com,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>
-To: Andrew Lunn <andrew@lunn.ch>, netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        John Fastabend <john.fastabend@gmail.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:35592 "EHLO
-        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753390AbdIFPlH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2017 11:41:07 -0400
-In-Reply-To: <1504654510-31004-5-git-send-email-andrew@lunn.ch>
+Received: from mail-qt0-f193.google.com ([209.85.216.193]:33373 "EHLO
+        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754902AbdIFPok (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2017 11:44:40 -0400
+Received: by mail-qt0-f193.google.com with SMTP id h15so4127033qta.0
+        for <netdev@vger.kernel.org>; Wed, 06 Sep 2017 08:44:39 -0700 (PDT)
+In-Reply-To: <150471158528.3727.12324542627400287360.stgit@firesoul>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew,
-
-Andrew Lunn <andrew@lunn.ch> writes:
-
-> Add code to handle switchdev host mdb add/del. As with normal mdb
-> add/del, send a notification to the switch layer.
+On Wed, Sep 6, 2017 at 11:26 AM, Jesper Dangaard Brouer
+<brouer@redhat.com> wrote:
+> Using bpf_redirect_map is allowed for generic XDP programs, but the
+> appropriate map lookup was never performed in xdp_do_generic_redirect().
 >
-> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+> Instead the map-index is directly used as the ifindex.  For the
+> xdp_redirect_map sample in SKB-mode '-S', this resulted in trying
+> sending on ifindex 0 which isn't valid, resulting in getting SKB
+> packets dropped.  Thus, the reported performance numbers are wrong in
+> commit 24251c264798 ("samples/bpf: add option for native and skb mode
+> for redirect apps") for the 'xdp_redirect_map -S' case.
+>
+> It might seem innocent this was lacking, but it can actually crash the
+> kernel.  The potential crash is caused by not consuming redirect_info->map.
+> The bpf_redirect_map helper will set this_cpu_ptr(&redirect_info)->map
+> pointer, which will survive even after unloading the xdp bpf_prog and
+> deallocating the devmap data-structure.  This leaves a dead map
+> pointer around.  The kernel will crash when loading the xdp_redirect
+> sample (in native XDP mode) as it doesn't reset map (via bpf_redirect)
+> and returns XDP_REDIRECT, which will cause it to dereference the map
+> pointer.
+
+Nice catch!
+
+Since 'net-next' is closed and this is a bugfix it seems like this is
+a good candidate for 'net' right?
+
+>
+> Fixes: 6103aa96ec07 ("net: implement XDP_REDIRECT for xdp generic")
+> Fixes: 24251c264798 ("samples/bpf: add option for native and skb mode for redirect apps")
+> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+
+Acked-by: Andy Gospodarek <andy@greyhouse.net>
+
+
 > ---
->  net/dsa/dsa_priv.h |  7 +++++++
->  net/dsa/port.c     | 26 ++++++++++++++++++++++++++
->  net/dsa/slave.c    |  6 ++++++
->  3 files changed, 39 insertions(+)
+>  net/core/filter.c |   29 +++++++++++++++++++++++++++++
+>  1 file changed, 29 insertions(+)
 >
-> diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
-> index 9c3eeb72462d..0ffe49f78d14 100644
-> --- a/net/dsa/dsa_priv.h
-> +++ b/net/dsa/dsa_priv.h
-> @@ -24,6 +24,8 @@ enum {
->  	DSA_NOTIFIER_FDB_DEL,
->  	DSA_NOTIFIER_MDB_ADD,
->  	DSA_NOTIFIER_MDB_DEL,
-> +	DSA_NOTIFIER_HOST_MDB_ADD,
-> +	DSA_NOTIFIER_HOST_MDB_DEL,
->  	DSA_NOTIFIER_VLAN_ADD,
->  	DSA_NOTIFIER_VLAN_DEL,
->  };
-> @@ -131,6 +133,11 @@ int dsa_port_mdb_add(struct dsa_port *dp,
->  		     struct switchdev_trans *trans);
->  int dsa_port_mdb_del(struct dsa_port *dp,
->  		     const struct switchdev_obj_port_mdb *mdb);
-> +int dsa_host_mdb_add(struct dsa_port *dp,
-> +		     const struct switchdev_obj_port_mdb *mdb,
-> +		     struct switchdev_trans *trans);
-> +int dsa_host_mdb_del(struct dsa_port *dp,
-> +		     const struct switchdev_obj_port_mdb *mdb);
->  int dsa_port_vlan_add(struct dsa_port *dp,
->  		      const struct switchdev_obj_port_vlan *vlan,
->  		      struct switchdev_trans *trans);
-> diff --git a/net/dsa/port.c b/net/dsa/port.c
-> index 659676ba3f8b..5b18b9fe2219 100644
-> --- a/net/dsa/port.c
-> +++ b/net/dsa/port.c
-> @@ -199,6 +199,32 @@ int dsa_port_mdb_del(struct dsa_port *dp,
->  	return dsa_port_notify(dp, DSA_NOTIFIER_MDB_DEL, &info);
+> diff --git a/net/core/filter.c b/net/core/filter.c
+> index 5912c738a7b2..6a4745bf2c9f 100644
+> --- a/net/core/filter.c
+> +++ b/net/core/filter.c
+> @@ -2562,6 +2562,32 @@ int xdp_do_redirect(struct net_device *dev, struct xdp_buff *xdp,
 >  }
->  
-> +int dsa_host_mdb_add(struct dsa_port *dp,
-> +		     const struct switchdev_obj_port_mdb *mdb,
-> +		     struct switchdev_trans *trans)
+>  EXPORT_SYMBOL_GPL(xdp_do_redirect);
+>
+> +static int xdp_do_generic_redirect_map(struct net_device *dev,
+> +                                      struct sk_buff *skb,
+> +                                      struct bpf_prog *xdp_prog)
 > +{
-> +	struct dsa_notifier_mdb_info info = {
-> +		.sw_index = dp->ds->index,
-> +		.port = dp->index,
-> +		.trans = trans,
-> +		.mdb = mdb,
-> +	};
+> +       struct redirect_info *ri = this_cpu_ptr(&redirect_info);
+> +       struct bpf_map *map = ri->map;
+> +       u32 index = ri->ifindex;
+> +       struct net_device *fwd;
+> +       int err;
 > +
-> +	return dsa_port_notify(dp, DSA_NOTIFIER_HOST_MDB_ADD, &info);
+> +       ri->ifindex = 0;
+> +       ri->map = NULL;
+> +
+> +       fwd = __dev_map_lookup_elem(map, index);
+> +       if (!fwd) {
+> +               err = -EINVAL;
+> +               goto err;
+> +       }
+> +       skb->dev = fwd;
+> +       _trace_xdp_redirect_map(dev, xdp_prog, fwd, map, index);
+> +       return 0;
+> +err:
+> +       _trace_xdp_redirect_map_err(dev, xdp_prog, fwd, map, index, err);
+> +       return err;
 > +}
 > +
-> +int dsa_host_mdb_del(struct dsa_port *dp,
-> +		     const struct switchdev_obj_port_mdb *mdb)
-> +{
-> +	struct dsa_notifier_mdb_info info = {
-> +		.sw_index = dp->ds->index,
-> +		.port = dp->index,
-> +		.mdb = mdb,
-> +	};
+>  int xdp_do_generic_redirect(struct net_device *dev, struct sk_buff *skb,
+>                             struct bpf_prog *xdp_prog)
+>  {
+> @@ -2571,6 +2597,9 @@ int xdp_do_generic_redirect(struct net_device *dev, struct sk_buff *skb,
+>         unsigned int len;
+>         int err = 0;
+>
+> +       if (ri->map)
+> +               return xdp_do_generic_redirect_map(dev, skb, xdp_prog);
 > +
-> +	return dsa_port_notify(dp, DSA_NOTIFIER_HOST_MDB_DEL, &info);
-> +}
-> +
->  int dsa_port_vlan_add(struct dsa_port *dp,
->  		      const struct switchdev_obj_port_vlan *vlan,
->  		      struct switchdev_trans *trans)
-> diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-> index 78e78a6e6833..2e07be149415 100644
-> --- a/net/dsa/slave.c
-> +++ b/net/dsa/slave.c
-> @@ -330,6 +330,9 @@ static int dsa_slave_port_obj_add(struct net_device *dev,
->  	case SWITCHDEV_OBJ_ID_PORT_MDB:
->  		err = dsa_port_mdb_add(dp, SWITCHDEV_OBJ_PORT_MDB(obj), trans);
->  		break;
-> +	case SWITCHDEV_OBJ_ID_HOST_MDB:
-> +		err = dsa_host_mdb_add(dp, SWITCHDEV_OBJ_PORT_MDB(obj), trans);
-> +		break;
-
-If SWITCHDEV_OBJ_ID_HOST_MDB is really necessary, 
-
-    case SWITCHDEV_OBJ_ID_HOST_MDB:
-        err = dsa_port_mdb_add(dp->cpu_dp, SWITCHDEV_OBJ_PORT_MDB(obj), trans);
-        break;
-
-should be enough. DSA_NOTIFIER_HOST_MDB_* are not necessary.
-
-
-Thanks,
-
-        Vivien
+>         fwd = dev_get_by_index_rcu(dev_net(dev), index);
+>         ri->ifindex = 0;
+>         if (unlikely(!fwd)) {
+>
