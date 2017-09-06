@@ -1,80 +1,87 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [Patch net] net_sched: fix a memory leak of filter chain
-Date: Wed, 6 Sep 2017 09:38:39 +0200
-Message-ID: <20170906073839.GD2523@nanopsycho>
-References: <20170906050310.26474-1-xiyou.wangcong@gmail.com>
+From: Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>
+Subject: Re: [PATCH net-next v6 3/3] openvswitch: enable NSH
+	support
+Date: Wed, 06 Sep 2017 10:03:29 +0200
+Message-ID: <87o9qo9ru6.fsf@stressinduktion.org>
+References: <1503670805-31051-1-git-send-email-yi.y.yang@intel.com>
+	<1503670805-31051-4-git-send-email-yi.y.yang@intel.com>
+	<87wp5l7560.fsf@stressinduktion.org>
+	<20170904023831.GA68062@cran64.bj.intel.com>
+	<87mv6abte5.fsf@stressinduktion.org>
+	<20170905021112.GA86057@cran64.bj.intel.com>
+	<87vakxsaj2.fsf@stressinduktion.org>
+	<20170905113848.GC92895@cran64.bj.intel.com>
+	<878thtmgra.fsf@stressinduktion.org>
+	<20170906005359.GA103260@cran64.bj.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jakub.kicinski@netronome.com,
-        Jiri Pirko <jiri@mellanox.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:34752 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751737AbdIFHim (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2017 03:38:42 -0400
-Received: by mail-wm0-f66.google.com with SMTP id l19so1691793wmi.1
-        for <netdev@vger.kernel.org>; Wed, 06 Sep 2017 00:38:41 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20170906050310.26474-1-xiyou.wangcong@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, "e@erig.me" <e@erig.me>
+To: "Yang\, Yi" <yi.y.yang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20170906005359.GA103260-re2EX8HDrk21gSHoDXDV2kEOCMrvLtNR@public.gmane.org> (Yi Yang's message
+	of "Wed, 6 Sep 2017 08:53:59 +0800")
+List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
+	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
+List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
+	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Wed, Sep 06, 2017 at 07:03:10AM CEST, xiyou.wangcong@gmail.com wrote:
->tcf_chain_destroy() is called by tcf_block_put() and tcf_chain_put().
->tcf_chain_put() is refcn'ed and paired with tcf_chain_get(),
->but tcf_block_put() is not, it should be paired with tcf_block_get()
->and we still need to decrease the refcnt. However, tcf_block_put()
->is special, it stores the chains too, we have to detach them if
->it is not the last user.
+"Yang, Yi" <yi.y.yang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org> writes:
 
-You don't describe the original issue, or I am missing that from your
-description.
-
-
+> On Tue, Sep 05, 2017 at 09:12:09PM +0800, Hannes Frederic Sowa wrote:
+>> "Yang, Yi" <yi.y.yang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org> writes:
+>> 
+>> > We can change this later if we really find a better way to handle this
+>> > because it isn't defined in include/uapi/linux/openvswitch.h, so I still
+>> > have backdoor to do this if needed :-)
+>> 
+>> Sorry, I can't follow you.
+>> 
+>> It doesn't matter if something is defined in uapi headers, the
+>> observable behavior matters. If you allow users to configure flows with
+>> specific fields, it should not stop working at a future point in time.
 >
->What's more, index 0 is not special at all, it should be treated
->like other chains. This also makes the code more readable.
+> Anyway this can be changed if it is really needed, so far current way is
+> the best one we can come up with, we would like to use it if you can
+> have better proposal. We have explained repeatedly context headers must
+> be matched and set, this is bottom line.
+
+I understand that in the way you use those context fields you will have
+to match on those. I understand that there is no way around that.
+
+>> > For our sfc use case in Opendaylight, we use context[0] for tunnel ID,
+>> > context[1] for destination IP for reverse RSP, they are used to match
+>> > and set in OpenFlow table, you can't limit users to use them in such
+>> > ways.
+>> 
+>> So in your specific case you expect the masks to be completely stable
+>> because you defined a protocol on top of NSH, understood. And that is
+>> stable accross all possible paths. Understood as well.
+>> 
+>> > If you check GENEVE implementation, tun_metadata* can be set or matched
+>> > as any other match field.
+>> 
+>> Yes, I wrote that in my previous mail. I wonder why NSH context metadata
+>> is not in tun_metadata as well?
+>
+> tun_metadata is tunnel metadata, GENEVE needs tunnel port, but NSH is
+> not so, NSH can't directly use tun_metadata, for MD type 2, we need to a
+> lot of rework on tun_metadata to make it shared between GENEVE and NSH,
+> I don't think this can happen in near term. So tun_metadata isn't option
+> for this now.
+
+Sorry, I couldn't follow you. Why can't you store the context headers in
+tun_metadata exactly?
 
 [...]
 
-
->@@ -246,10 +246,7 @@ EXPORT_SYMBOL(tcf_chain_get);
-> 
-> void tcf_chain_put(struct tcf_chain *chain)
-> {
->-	/* Destroy unused chain, with exception of chain 0, which is the
->-	 * default one and has to be always present.
->-	 */
->-	if (--chain->refcnt == 0 && !chain->filter_chain && chain->index != 0)
->+	if (--chain->refcnt == 0)
-
-The refcounting is only done for actions holding reference to the chain.
-You still need to check is the filter chain is not empty.
-See tc_ctl_tfilter.
-
-Also, chain 0 is created by default on a block creation. It has to be
-present always for a reason. Please see tcf_block_get. The pointer to
-chain 0 is assigned to the qdisc filter list pointer.
-
-
-
-> 		tcf_chain_destroy(chain);
-> }
-> EXPORT_SYMBOL(tcf_chain_put);
->@@ -296,8 +293,11 @@ void tcf_block_put(struct tcf_block *block)
-> 
-> 	list_for_each_entry_safe(chain, tmp, &block->chain_list, list) {
-> 		tcf_chain_flush(chain);
->-		tcf_chain_destroy(chain);
->+		tcf_chain_put(chain);
-> 	}
->+	/* If tc actions still hold the chain, just detach it. */
->+	list_for_each_entry_safe(chain, tmp, &block->chain_list, list)
->+		tcf_chain_detach(chain);
-> 	kfree(block);
-> }
-> EXPORT_SYMBOL(tcf_block_put);
->-- 
->2.13.0
->
+Bye,
+Hannes
