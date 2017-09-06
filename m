@@ -1,34 +1,85 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v2 rfc 8/8] net: dsa: Fix SWITCHDEV_ATTR_ID_PORT_PARENT_ID
-Date: Wed, 6 Sep 2017 18:29:33 +0200
-Message-ID: <20170906162933.GD15315@lunn.ch>
-References: <1504654510-31004-1-git-send-email-andrew@lunn.ch>
- <1504654510-31004-9-git-send-email-andrew@lunn.ch>
- <87d17351gn.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
- <20170906150825.GB15315@lunn.ch>
- <0D9EF30F-ED95-486E-91B0-E18D5E8689FE@gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net-next 1/1] hv_netvsc: fix deadlock on hotplug
+Date: Wed, 6 Sep 2017 09:36:38 -0700
+Message-ID: <20170906093638.2074f455@xeon-e3>
+References: <20170906151925.15221-1-sthemmin@microsoft.com>
+ <20170906151925.15221-2-sthemmin@microsoft.com>
+ <DM5PR21MB0475451095CC657BB54C4E50CA970@DM5PR21MB0475.namprd21.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        netdev <netdev@vger.kernel.org>, jiri@resnulli.us,
-        nikolay@cumulusnetworks.com
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:58850 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753775AbdIFQ3g (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 6 Sep 2017 12:29:36 -0400
-Content-Disposition: inline
-In-Reply-To: <0D9EF30F-ED95-486E-91B0-E18D5E8689FE@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
+ Stephen Hemminger <sthemmin@microsoft.com>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Haiyang Zhang <haiyangz@microsoft.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <DM5PR21MB0475451095CC657BB54C4E50CA970@DM5PR21MB0475.namprd21.prod.outlook.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-> >Yes, you are correct. I will change this.
+On Wed, 6 Sep 2017 16:23:45 +0000
+Haiyang Zhang <haiyangz@microsoft.com> wrote:
+
+> > -----Original Message-----
+> > From: Stephen Hemminger [mailto:stephen@networkplumber.org]
+> > Sent: Wednesday, September 6, 2017 11:19 AM
+> > To: KY Srinivasan <kys@microsoft.com>; Haiyang Zhang
+> > <haiyangz@microsoft.com>; Stephen Hemminger <sthemmin@microsoft.com>
+> > Cc: devel@linuxdriverproject.org; netdev@vger.kernel.org
+> > Subject: [PATCH net-next 1/1] hv_netvsc: fix deadlock on hotplug
+> > 
+> > When a virtual device is added dynamically (via host console), then
+> > the vmbus sends an offer message for the primary channel. The processing
+> > of this message for networking causes the network device to then
+> > initialize the sub channels.
+> > 
+> > The problem is that setting up the sub channels needs to wait until
+> > the subsequent subchannel offers have been processed. These offers
+> > come in on the same ring buffer and work queue as where the primary
+> > offer is being processed; leading to a deadlock.
+> > 
+> > This did not happen in older kernels, because the sub channel waiting
+> > logic was broken (it wasn't really waiting).
+> > 
+> > The solution is to do the sub channel setup in its own work queue
+> > context that is scheduled by the primary channel setup; and then
+> > happens later.
+> > 
+> > Fixes: 732e49850c5e ("netvsc: fix race on sub channel creation")
+> > Reported-by: Dexuan Cui <decui@microsoft.com>
+> > Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+> > ---
+> > Should also go to stable, but this version does not apply cleanly
+> > to 4.13. Have another patch for that.
+> > 
+> >  drivers/net/hyperv/hyperv_net.h   |   1 +
+> >  drivers/net/hyperv/netvsc_drv.c   |   8 +--
+> >  drivers/net/hyperv/rndis_filter.c | 106 ++++++++++++++++++++++++++-----
+> > -------
+> >  3 files changed, 74 insertions(+), 41 deletions(-)  
 > 
+> The patch looks overall. I just have a question:
+> 
+> With this patch, after module load and probe is done, there may still be
+> subchannels being processed. If rmmod immediately, the subchannel offers 
+> may hit half-way removed device structures... Do we also need to add 
+> cancel_work_sync(&dev->subchan_work) to the top of netvsc_remove()?
+> 
+> unregister_netdevice() includes device close, but it's only called later
+> in the netvsc_remove() when rndis is already removed.
+> 
+> Thanks,
+> - Haiyang
 
-> A switch cluster should be tied to the same dsa_switch_tree though,
-> can we use dst->tree as an unique identifier?
-
-Yes, that is what Vivien was suggesting.
-
-     Andrew
+Good catch.
+If the driver called unregister_netdevice first before doing rndis_filter_device_remove
+that would solve the problem. That wouldn't cause additional problems and it makes
+sense to close the network layer first.
