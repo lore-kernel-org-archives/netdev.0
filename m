@@ -1,8 +1,8 @@
 From: David Daney <ddaney@caviumnetworks.com>
 Subject: Re: [PATCH net] Revert "net: phy: Correctly process PHY_HALTED in
  phy_stop_machine()"
-Date: Wed, 6 Sep 2017 10:53:40 -0700
-Message-ID: <17ff342a-2123-275a-eac8-4aec27ae48d1@caviumnetworks.com>
+Date: Wed, 6 Sep 2017 11:00:53 -0700
+Message-ID: <ff070239-28b7-d41b-8abe-c9f810561372@caviumnetworks.com>
 References: <1504140569-2063-1-git-send-email-f.fainelli@gmail.com>
  <f4bb5ac8-dae8-c0af-7aa6-e546fc0783fa@sigmadesigns.com>
  <e24693e8-d8ae-188a-2a38-c9a83fdc94e3@gmail.com>
@@ -11,7 +11,6 @@ References: <1504140569-2063-1-git-send-email-f.fainelli@gmail.com>
  <f74f1aad-3990-ae54-316f-751c3b15de41@gmail.com>
  <ebee6e5d-5bc1-1c5b-b31d-6d50618d6074@free.fr>
  <4ea8b432-4968-1616-eff9-48a2689dd3ce@gmail.com>
- <6721135d-8c3f-57a0-f423-9d18cd6e0947@free.fr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -19,127 +18,98 @@ Cc: Marc Gonzalez <marc_gonzalez@sigmadesigns.com>,
         netdev <netdev@vger.kernel.org>,
         Geert Uytterhoeven <geert+renesas@glider.be>,
         David Miller <davem@davemloft.net>,
-        Andrew Lunn <andrew@lunn.ch>, Mans Rullgard <mans@mansr.com>,
-        Thibaud Cornic <thibaud_cornic@sigmadesigns.com>
-To: Mason <slash.tmp@free.fr>, Florian Fainelli <f.fainelli@gmail.com>
+        Andrew Lunn <andrew@lunn.ch>, Mans Rullgard <mans@mansr.com>
+To: Florian Fainelli <f.fainelli@gmail.com>, Mason <slash.tmp@free.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn3nam01on0087.outbound.protection.outlook.com ([104.47.33.87]:60230
-        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
+Received: from mail-by2nam01on0080.outbound.protection.outlook.com ([104.47.34.80]:39901
+        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
         rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751907AbdIFRxr (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 6 Sep 2017 13:53:47 -0400
-In-Reply-To: <6721135d-8c3f-57a0-f423-9d18cd6e0947@free.fr>
+        id S1750836AbdIFSA7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 6 Sep 2017 14:00:59 -0400
+In-Reply-To: <4ea8b432-4968-1616-eff9-48a2689dd3ce@gmail.com>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/06/2017 07:33 AM, Mason wrote:
-> On 31/08/2017 20:29, Florian Fainelli wrote:
->> On 08/31/2017 11:12 AM, Mason wrote:
->>> On 31/08/2017 19:53, Florian Fainelli wrote:
->>>> On 08/31/2017 10:49 AM, Mason wrote:
->>>>> On 31/08/2017 18:57, Florian Fainelli wrote:
->>>>>> And the race is between phy_detach() setting phydev->attached_dev 
->>>>>> = NULL
->>>>>> and phy_state_machine() running in PHY_HALTED state and calling
->>>>>> netif_carrier_off().
->>>>>
->>>>> I must be missing something.
->>>>> (Since a thread cannot race against itself.)
->>>>>
->>>>> phy_disconnect calls phy_stop_machine which
->>>>> 1) stops the work queue from running in a separate thread
->>>>> 2) calls phy_state_machine *synchronously*
->>>>>       which runs the PHY_HALTED case with everything well-defined
->>>>> end of phy_stop_machine
->>>>>
->>>>> phy_disconnect only then calls phy_detach()
->>>>> which makes future calls of phy_state_machine perilous.
->>>>>
->>>>> This all happens in the same thread, so I'm not yet
->>>>> seeing where the race happens?
+On 08/31/2017 11:29 AM, Florian Fainelli wrote:
+> On 08/31/2017 11:12 AM, Mason wrote:
+>> On 31/08/2017 19:53, Florian Fainelli wrote:
+>>> On 08/31/2017 10:49 AM, Mason wrote:
+>>>> On 31/08/2017 18:57, Florian Fainelli wrote:
+>>>>> And the race is between phy_detach() setting phydev->attached_dev = NULL
+>>>>> and phy_state_machine() running in PHY_HALTED state and calling
+>>>>> netif_carrier_off().
 >>>>
->>>> The race is as described in David's earlier email, so let's recap:
+>>>> I must be missing something.
+>>>> (Since a thread cannot race against itself.)
 >>>>
->>>> Thread 1            Thread 2
->>>> phy_disconnect()
->>>> phy_stop_interrupts()
->>>> phy_stop_machine()
->>>> phy_state_machine()
->>>>   -> queue_delayed_work()
->>>> phy_detach()
->>>>                 phy_state_machine()
->>>>                 -> netif_carrier_off()
+>>>> phy_disconnect calls phy_stop_machine which
+>>>> 1) stops the work queue from running in a separate thread
+>>>> 2) calls phy_state_machine *synchronously*
+>>>>       which runs the PHY_HALTED case with everything well-defined
+>>>> end of phy_stop_machine
 >>>>
->>>> If phy_detach() finishes earlier than the workqueue had a chance to be
->>>> scheduled and process PHY_HALTED again, then we trigger the NULL 
->>>> pointer
->>>> de-reference.
+>>>> phy_disconnect only then calls phy_detach()
+>>>> which makes future calls of phy_state_machine perilous.
 >>>>
->>>> workqueues are not tasklets, the CPU scheduling them gets no guarantee
->>>> they will run on the same CPU.
+>>>> This all happens in the same thread, so I'm not yet
+>>>> seeing where the race happens?
 >>>
->>> Something does not add up.
+>>> The race is as described in David's earlier email, so let's recap:
 >>>
->>> The synchronous call to phy_state_machine() does:
+>>> Thread 1			Thread 2
+>>> phy_disconnect()
+>>> phy_stop_interrupts()
+>>> phy_stop_machine()
+>>> phy_state_machine()
+>>>   -> queue_delayed_work()
+>>> phy_detach()
+>>> 				phy_state_machine()
+>>> 				-> netif_carrier_off()
 >>>
->>>     case PHY_HALTED:
->>>         if (phydev->link) {
->>>             phydev->link = 0;
->>>             netif_carrier_off(phydev->attached_dev);
->>>             phy_adjust_link(phydev);
->>>             do_suspend = true;
->>>         }
+>>> If phy_detach() finishes earlier than the workqueue had a chance to be
+>>> scheduled and process PHY_HALTED again, then we trigger the NULL pointer
+>>> de-reference.
 >>>
->>> then sets phydev->link = 0; therefore subsequent calls to
->>> phy_state_machin() will be no-op.
+>>> workqueues are not tasklets, the CPU scheduling them gets no guarantee
+>>> they will run on the same CPU.
 >>
->> Actually you are right, once phydev->link is set to 0 these would become
->> no-ops. Still scratching my head as to what happens for David then...
+>> Something does not add up.
 >>
->>>
->>> Also, queue_delayed_work() is only called in polling mode.
->>> David stated that he's using interrupt mode.
+>> The synchronous call to phy_state_machine() does:
 >>
->> Right that's confusing too now. David can you check if you tree has:
+>> 	case PHY_HALTED:
+>> 		if (phydev->link) {
+>> 			phydev->link = 0;
+>> 			netif_carrier_off(phydev->attached_dev);
+>> 			phy_adjust_link(phydev);
+>> 			do_suspend = true;
+>> 		}
 >>
->> 49d52e8108a21749dc2114b924c907db43358984 ("net: phy: handle state
->> correctly in phy_stop_machine")
+>> then sets phydev->link = 0; therefore subsequent calls to
+>> phy_state_machin() will be no-op.
 > 
-> Hello David,
+> Actually you are right, once phydev->link is set to 0 these would become
+> no-ops. Still scratching my head as to what happens for David then...
 > 
-> A week ago, you wrote about my patch:
-> "This is broken.  Please revert."
-> 
-> I assume you tested the revert locally, and that reverting did make
-> the crash disappear. Is that correct?
-> 
+>>
+>> Also, queue_delayed_work() is only called in polling mode.
+>> David stated that he's using interrupt mode.
 
-Yes, I always test things before making this type of assertion.
+Did you see what I wrote?
+
+phy_disconnect() calls phy_stop_interrupts() which puts it into polling 
+mode.  So the polling work gets queued unconditionally.
 
 
-> The reason I ask is because the analysis you provided contains some
-> flaws, as noted above. But, if reverting my patch did fix your issue,
-> then perhaps understanding *why* is unimportant.
-
-I didn't want to take the time to generate calling sequence traces to 
-verify each step of my analysis, but I believe the overall concept is 
-essentially correct.
-
-Once the polling work is canceled and we set a bunch of essential 
-pointers to NULL, you cannot go blindly restarting the polling.
 
 > 
-> I'm a bit baffled that it took less than 90 minutes for your request
-> to be approved, and the patch reverted in all branches, before I even
-> had a chance to comment.
+> Right that's confusing too now. David can you check if you tree has:
+> 
+> 49d52e8108a21749dc2114b924c907db43358984 ("net: phy: handle state
+> correctly in phy_stop_machine")
 > 
 
-o The last chance for patches to v4.13 was fast approaching.
+Yes, I am using the 4.9 stable branch, and that commit was also present.
 
-o There were multiple reports of failures caused by the patch.
-
-o The patch was clearly stand-alone.
-
-The kernel maintainers are a model of efficiency, there was no reason to 
-delay.
+David.
