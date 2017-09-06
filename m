@@ -1,85 +1,66 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net-next 1/1] hv_netvsc: fix deadlock on hotplug
-Date: Wed, 6 Sep 2017 09:36:38 -0700
-Message-ID: <20170906093638.2074f455@xeon-e3>
-References: <20170906151925.15221-1-sthemmin@microsoft.com>
- <20170906151925.15221-2-sthemmin@microsoft.com>
- <DM5PR21MB0475451095CC657BB54C4E50CA970@DM5PR21MB0475.namprd21.prod.outlook.com>
+From: =?UTF-8?q?H=C3=A5kon=20Bugge?= <Haakon.Bugge@oracle.com>
+Subject: [PATCH net v2] rds: Fix incorrect statistics counting
+Date: Wed,  6 Sep 2017 18:35:51 +0200
+Message-ID: <20170906163551.20387-1-Haakon.Bugge@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
- Stephen Hemminger <sthemmin@microsoft.com>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Haiyang Zhang <haiyangz@microsoft.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <DM5PR21MB0475451095CC657BB54C4E50CA970@DM5PR21MB0475.namprd21.prod.outlook.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
+        rds-devel@oss.oracle.com, linux-kernel@vger.kernel.org,
+        knut.omang@oracle.com
+To: Santosh Shilimkar <santosh.shilimkar@oracle.com>,
+        "David S . Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:34630 "EHLO
+        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753775AbdIFQgm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2017 12:36:42 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 6 Sep 2017 16:23:45 +0000
-Haiyang Zhang <haiyangz@microsoft.com> wrote:
+In rds_send_xmit() there is logic to batch the sends. However, if
+another thread has acquired the lock and has incremented the send_gen,
+it is considered a race and we yield. The code incrementing the
+s_send_lock_queue_raced statistics counter did not count this event
+correctly.
 
-> > -----Original Message-----
-> > From: Stephen Hemminger [mailto:stephen@networkplumber.org]
-> > Sent: Wednesday, September 6, 2017 11:19 AM
-> > To: KY Srinivasan <kys@microsoft.com>; Haiyang Zhang
-> > <haiyangz@microsoft.com>; Stephen Hemminger <sthemmin@microsoft.com>
-> > Cc: devel@linuxdriverproject.org; netdev@vger.kernel.org
-> > Subject: [PATCH net-next 1/1] hv_netvsc: fix deadlock on hotplug
-> > 
-> > When a virtual device is added dynamically (via host console), then
-> > the vmbus sends an offer message for the primary channel. The processing
-> > of this message for networking causes the network device to then
-> > initialize the sub channels.
-> > 
-> > The problem is that setting up the sub channels needs to wait until
-> > the subsequent subchannel offers have been processed. These offers
-> > come in on the same ring buffer and work queue as where the primary
-> > offer is being processed; leading to a deadlock.
-> > 
-> > This did not happen in older kernels, because the sub channel waiting
-> > logic was broken (it wasn't really waiting).
-> > 
-> > The solution is to do the sub channel setup in its own work queue
-> > context that is scheduled by the primary channel setup; and then
-> > happens later.
-> > 
-> > Fixes: 732e49850c5e ("netvsc: fix race on sub channel creation")
-> > Reported-by: Dexuan Cui <decui@microsoft.com>
-> > Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
-> > ---
-> > Should also go to stable, but this version does not apply cleanly
-> > to 4.13. Have another patch for that.
-> > 
-> >  drivers/net/hyperv/hyperv_net.h   |   1 +
-> >  drivers/net/hyperv/netvsc_drv.c   |   8 +--
-> >  drivers/net/hyperv/rndis_filter.c | 106 ++++++++++++++++++++++++++-----
-> > -------
-> >  3 files changed, 74 insertions(+), 41 deletions(-)  
-> 
-> The patch looks overall. I just have a question:
-> 
-> With this patch, after module load and probe is done, there may still be
-> subchannels being processed. If rmmod immediately, the subchannel offers 
-> may hit half-way removed device structures... Do we also need to add 
-> cancel_work_sync(&dev->subchan_work) to the top of netvsc_remove()?
-> 
-> unregister_netdevice() includes device close, but it's only called later
-> in the netvsc_remove() when rndis is already removed.
-> 
-> Thanks,
-> - Haiyang
+This commit counts the race condition correctly.
 
-Good catch.
-If the driver called unregister_netdevice first before doing rndis_filter_device_remove
-that would solve the problem. That wouldn't cause additional problems and it makes
-sense to close the network layer first.
+Changes from v1:
+- Removed check for *someone_on_xmit()*
+- Fixed incorrect indentation
+
+Signed-off-by: Håkon Bugge <haakon.bugge@oracle.com>
+Reviewed-by: Knut Omang <knut.omang@oracle.com>
+---
+ net/rds/send.c | 10 +++++++---
+ 1 file changed, 7 insertions(+), 3 deletions(-)
+
+diff --git a/net/rds/send.c b/net/rds/send.c
+index 058a407..b52cdc8 100644
+--- a/net/rds/send.c
++++ b/net/rds/send.c
+@@ -428,14 +428,18 @@ int rds_send_xmit(struct rds_conn_path *cp)
+ 	 * some work and we will skip our goto
+ 	 */
+ 	if (ret == 0) {
++		bool raced;
++
+ 		smp_mb();
++		raced = send_gen != READ_ONCE(cp->cp_send_gen);
++
+ 		if ((test_bit(0, &conn->c_map_queued) ||
+-		     !list_empty(&cp->cp_send_queue)) &&
+-			send_gen == READ_ONCE(cp->cp_send_gen)) {
+-			rds_stats_inc(s_send_lock_queue_raced);
++		    !list_empty(&cp->cp_send_queue)) && !raced) {
+ 			if (batch_count < send_batch_count)
+ 				goto restart;
+ 			queue_delayed_work(rds_wq, &cp->cp_send_w, 1);
++		} else if (raced) {
++			rds_stats_inc(s_send_lock_queue_raced);
+ 		}
+ 	}
+ out:
+-- 
+2.9.3
