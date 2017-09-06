@@ -1,109 +1,102 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH v2 rfc 0/8] IGMP snooping for local traffic
-Date: Tue, 5 Sep 2017 17:11:41 -0700
-Message-ID: <20170905171141.7040519b@xeon-e3>
-References: <1504654510-31004-1-git-send-email-andrew@lunn.ch>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH 2/3] security: bpf: Add eBPF LSM hooks and security field
+ to eBPF map
+Date: Tue, 5 Sep 2017 17:39:14 -0700
+Message-ID: <20170906003913.h6khoama7db4rw6e@ast-mbp>
+References: <20170831205635.80256-1-chenbofeng.kernel@gmail.com>
+ <20170831205635.80256-3-chenbofeng.kernel@gmail.com>
+ <20170901020520.uifv6b7tvelgxumf@ast-mbp>
+ <CAMOXUJnF=UoWM7xm-Uk-zyhA1N9exjtDf8Xt+_EF2Kj6YUV0OQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, jiri@resnulli.us,
-        nikolay@cumulusnetworks.com,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f45.google.com ([74.125.83.45]:38889 "EHLO
-        mail-pg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753614AbdIFALt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 5 Sep 2017 20:11:49 -0400
-Received: by mail-pg0-f45.google.com with SMTP id v66so12144882pgb.5
-        for <netdev@vger.kernel.org>; Tue, 05 Sep 2017 17:11:48 -0700 (PDT)
-In-Reply-To: <1504654510-31004-1-git-send-email-andrew@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Chenbo Feng <chenbofeng.kernel@gmail.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        linux-security-module@vger.kernel.org,
+        Jeffrey Vander Stoep <jeffv@google.com>,
+        netdev@vger.kernel.org, SELinux <Selinux@tycho.nsa.gov>,
+        Lorenzo Colitti <lorenzo@google.com>
+To: Chenbo Feng <fengc@google.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAMOXUJnF=UoWM7xm-Uk-zyhA1N9exjtDf8Xt+_EF2Kj6YUV0OQ@mail.gmail.com>
+Sender: owner-linux-security-module@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed,  6 Sep 2017 01:35:02 +0200
-Andrew Lunn <andrew@lunn.ch> wrote:
+On Tue, Sep 05, 2017 at 02:59:38PM -0700, Chenbo Feng wrote:
+> On Thu, Aug 31, 2017 at 7:05 PM, Alexei Starovoitov
+> <alexei.starovoitov@gmail.com> wrote:
+> > On Thu, Aug 31, 2017 at 01:56:34PM -0700, Chenbo Feng wrote:
+> >> From: Chenbo Feng <fengc@google.com>
+> >>
+> >> Introduce a pointer into struct bpf_map to hold the security information
+> >> about the map. The actual security struct varies based on the security
+> >> models implemented. Place the LSM hooks before each of the unrestricted
+> >> eBPF operations, the map_update_elem and map_delete_elem operations are
+> >> checked by security_map_modify. The map_lookup_elem and map_get_next_key
+> >> operations are checked by securtiy_map_read.
+> >>
+> >> Signed-off-by: Chenbo Feng <fengc@google.com>
+> >
+> > ...
+> >
+> >> @@ -410,6 +418,10 @@ static int map_lookup_elem(union bpf_attr *attr)
+> >>       if (IS_ERR(map))
+> >>               return PTR_ERR(map);
+> >>
+> >> +     err = security_map_read(map);
+> >> +     if (err)
+> >> +             return -EACCES;
+> >> +
+> >>       key = memdup_user(ukey, map->key_size);
+> >>       if (IS_ERR(key)) {
+> >>               err = PTR_ERR(key);
+> >> @@ -490,6 +502,10 @@ static int map_update_elem(union bpf_attr *attr)
+> >>       if (IS_ERR(map))
+> >>               return PTR_ERR(map);
+> >>
+> >> +     err = security_map_modify(map);
+> >
+> > I don't feel these extra hooks are really thought through.
+> > With such hook you'll disallow map_update for given map. That's it.
+> > The key/values etc won't be used in such security decision.
+> > In such case you don't need such hooks in update/lookup at all.
+> > Only in map_creation and object_get calls where FD can be received.
+> > In other words I suggest to follow standard unix practices:
+> > Do permissions checks in open() and allow read/write() if FD is valid.
+> > Same here. Do permission checks in prog_load/map_create/obj_pin/get
+> > and that will be enough to jail bpf subsystem.
+> > bpf cmds that need to be fast (like lookup and update) should not
+> > have security hooks.
+> >
+> Thanks for pointing out this. I agree we should only do checks on
+> creating and passing
+> the object from one processes to another. And if we can still
+> distinguish the read/write operation
+> when obtaining the file fd, that would be great. But that may require
+> us to add a new mode
+> field into bpf_map struct and change the attribute struct when doing
+> the bpf syscall. How do you
+> think about this approach? Or we can do simple checks for
+> bpf_obj_create and bpf_obj_use when
+> creating the object and passing the object respectively but this
+> solution cannot distinguish map modify and
+> read.
 
-> After the very useful feedback from Nikolay, i threw away what i had,
-> and started again. To recap:
-> 
-> The linux bridge supports IGMP snooping. It will listen to IGMP
-> reports on bridge ports and keep track of which groups have been
-> joined on an interface. It will then forward multicast based on this
-> group membership.
-> 
-> When the bridge adds or removed groups from an interface, it uses
-> switchdev to request the hardware add an mdb to a port, so the
-> hardware can perform the selective forwarding between ports.
-> 
-> What is not covered by the current bridge code, is IGMP joins/leaves
-> from the host on the brX interface. These are not reported via
-> switchdev so that hardware knows the local host is interested in the
-> multicast frames.
-> 
-> Luckily, the bridge does track joins/leaves on the brX interface. The
-> code is obfusticated, which is why i missed it with my first attempt.
-> So the first patch tries to remove this obfustication. Currently,
-> there is no notifications sent when the bridge interface joins a
-> group. The second patch adds them. bridge monitor then shows
-> joins/leaves in the same way as for other ports of the bridge.
-> 
-> Then starts the work passing down to the hardware that the host has
-> joined/left a group. The existing switchdev mdb object cannot be used,
-> since the semantics are different. The existing
-> SWITCHDEV_OBJ_ID_PORT_MDB is used to indicate a specific multicast
-> group should be forwarded out that port of the switch. However here we
-> require the exact opposite. We want multicast frames for the group
-> received on the port to the forwarded to the host. Hence add a new
-> object SWITCHDEV_OBJ_ID_HOST_MDB, a multicast database entry to
-> forward to the host. This new object is then propagated through the
-> DSA layers. No DSA driver changes should be needed, this should just
-> work...
-> 
-> Getting the frames to the bridge as requested turned up an issue or
-> three. The offload_fwd_mark is not being set by DSA, so the bridge
-> floods the received frames back to the switch ports, resulting in
-> duplication since the hardware has already flooded the packet. Fixing
-> that turned up an issue with the meaning of
-> SWITCHDEV_ATTR_ID_PORT_PARENT_ID in DSA. A DSA fabric of three
-> switches needs to look to the software bridge as a single
-> switch. Otherwise the offload_fwd_mark does not work, and we get
-> duplication on the non-ingress switch. But each switch returned a
-> different value. And they were not unique.
-> 
-> The third and last issue will be explained in a followup email.
-> 
-> Open questions:
-> 
-> Is sending notifications going to break userspace?
-> Is this new switchdev object O.K. for the few non-DSA switches that exist?
-> Is the SWITCHDEV_ATTR_ID_PORT_PARENT_ID change acceptable?
-> 
->    Andrew
-> 
-> Andrew Lunn (8):
->   net: bridge: Rename mglist to host_joined
->   net: bridge: Send notification when host join/leaves a group
->   net: bridge: Add/del switchdev object on host join/leave
->   net: dsa: slave: Handle switchdev host mdb add/del
->   net: dsa: switch: handle host mdb add/remove
->   net: dsa: switch: Don't add CPU port to an mdb by default
->   net: dsa: set offload_fwd_mark on received packets
->   net: dsa: Fix SWITCHDEV_ATTR_ID_PORT_PARENT_ID
-> 
->  include/net/switchdev.h   |  1 +
->  net/bridge/br_input.c     |  2 +-
->  net/bridge/br_mdb.c       | 50 +++++++++++++++++++++++++++++---
->  net/bridge/br_multicast.c | 18 +++++++-----
->  net/bridge/br_private.h   |  2 +-
->  net/dsa/dsa.c             |  1 +
->  net/dsa/dsa_priv.h        |  7 +++++
->  net/dsa/port.c            | 26 +++++++++++++++++
->  net/dsa/slave.c           | 16 ++++++++---
->  net/dsa/switch.c          | 72 +++++++++++++++++++++++++++++++++++++++--------
->  net/switchdev/switchdev.c |  2 ++
->  11 files changed, 168 insertions(+), 29 deletions(-)
-> 
+iirc the idea to have read only maps was brought up in the past
+(unfortunately no one took a stab at implementing it), but imo
+that's better then relying on lsm to provide such restriction
+and more secure, since even if you disable map_update via lsm,
+the user can craft a program just to udpate the map from it.
+For bpffs we already test for inode_permission(inode, MAY_WRITE);
+during BPF_OBJ_GET command and we can extend this facility further.
+Also we can allow dropping 'write' permissions from the map
+(internally implemented via flag in struct bpf_map), so
+update/delete operations won't be allowed.
+This flag will be checked by syscall during map_update/delete
+and by the verifier if such read-only map is used by the program
+being loaded, so map_update/helpers won't be allowed in
+such program.
+Would also be good to support read-only programs as well
+(progs that are read-only from kernel state point of view)
+They won't be able to modify packets, maps, etc.
 
-This looks much cleaner. I don't have DSA hardware or infrastructure to look deeper.
