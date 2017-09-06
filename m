@@ -1,102 +1,54 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH 2/3] security: bpf: Add eBPF LSM hooks and security field
- to eBPF map
-Date: Tue, 5 Sep 2017 17:39:14 -0700
-Message-ID: <20170906003913.h6khoama7db4rw6e@ast-mbp>
-References: <20170831205635.80256-1-chenbofeng.kernel@gmail.com>
- <20170831205635.80256-3-chenbofeng.kernel@gmail.com>
- <20170901020520.uifv6b7tvelgxumf@ast-mbp>
- <CAMOXUJnF=UoWM7xm-Uk-zyhA1N9exjtDf8Xt+_EF2Kj6YUV0OQ@mail.gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH v2 rfc 0/8] IGMP snooping for local traffic
+Date: Wed, 6 Sep 2017 02:47:03 +0200
+Message-ID: <20170906004703.GB27385@lunn.ch>
+References: <1504654510-31004-1-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Chenbo Feng <chenbofeng.kernel@gmail.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        linux-security-module@vger.kernel.org,
-        Jeffrey Vander Stoep <jeffv@google.com>,
-        netdev@vger.kernel.org, SELinux <Selinux@tycho.nsa.gov>,
-        Lorenzo Colitti <lorenzo@google.com>
-To: Chenbo Feng <fengc@google.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
+To: netdev <netdev@vger.kernel.org>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Woojung.Huh@microchip.com, jbe@pengutronix.de,
+        sean.wang@mediatek.com, john@phrozen.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:58290 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753087AbdIFArO (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 5 Sep 2017 20:47:14 -0400
 Content-Disposition: inline
-In-Reply-To: <CAMOXUJnF=UoWM7xm-Uk-zyhA1N9exjtDf8Xt+_EF2Kj6YUV0OQ@mail.gmail.com>
-Sender: owner-linux-security-module@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1504654510-31004-1-git-send-email-andrew@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 05, 2017 at 02:59:38PM -0700, Chenbo Feng wrote:
-> On Thu, Aug 31, 2017 at 7:05 PM, Alexei Starovoitov
-> <alexei.starovoitov@gmail.com> wrote:
-> > On Thu, Aug 31, 2017 at 01:56:34PM -0700, Chenbo Feng wrote:
-> >> From: Chenbo Feng <fengc@google.com>
-> >>
-> >> Introduce a pointer into struct bpf_map to hold the security information
-> >> about the map. The actual security struct varies based on the security
-> >> models implemented. Place the LSM hooks before each of the unrestricted
-> >> eBPF operations, the map_update_elem and map_delete_elem operations are
-> >> checked by security_map_modify. The map_lookup_elem and map_get_next_key
-> >> operations are checked by securtiy_map_read.
-> >>
-> >> Signed-off-by: Chenbo Feng <fengc@google.com>
-> >
-> > ...
-> >
-> >> @@ -410,6 +418,10 @@ static int map_lookup_elem(union bpf_attr *attr)
-> >>       if (IS_ERR(map))
-> >>               return PTR_ERR(map);
-> >>
-> >> +     err = security_map_read(map);
-> >> +     if (err)
-> >> +             return -EACCES;
-> >> +
-> >>       key = memdup_user(ukey, map->key_size);
-> >>       if (IS_ERR(key)) {
-> >>               err = PTR_ERR(key);
-> >> @@ -490,6 +502,10 @@ static int map_update_elem(union bpf_attr *attr)
-> >>       if (IS_ERR(map))
-> >>               return PTR_ERR(map);
-> >>
-> >> +     err = security_map_modify(map);
-> >
-> > I don't feel these extra hooks are really thought through.
-> > With such hook you'll disallow map_update for given map. That's it.
-> > The key/values etc won't be used in such security decision.
-> > In such case you don't need such hooks in update/lookup at all.
-> > Only in map_creation and object_get calls where FD can be received.
-> > In other words I suggest to follow standard unix practices:
-> > Do permissions checks in open() and allow read/write() if FD is valid.
-> > Same here. Do permission checks in prog_load/map_create/obj_pin/get
-> > and that will be enough to jail bpf subsystem.
-> > bpf cmds that need to be fast (like lookup and update) should not
-> > have security hooks.
-> >
-> Thanks for pointing out this. I agree we should only do checks on
-> creating and passing
-> the object from one processes to another. And if we can still
-> distinguish the read/write operation
-> when obtaining the file fd, that would be great. But that may require
-> us to add a new mode
-> field into bpf_map struct and change the attribute struct when doing
-> the bpf syscall. How do you
-> think about this approach? Or we can do simple checks for
-> bpf_obj_create and bpf_obj_use when
-> creating the object and passing the object respectively but this
-> solution cannot distinguish map modify and
-> read.
+> The third and last issue will be explained in a followup email.
 
-iirc the idea to have read only maps was brought up in the past
-(unfortunately no one took a stab at implementing it), but imo
-that's better then relying on lsm to provide such restriction
-and more secure, since even if you disable map_update via lsm,
-the user can craft a program just to udpate the map from it.
-For bpffs we already test for inode_permission(inode, MAY_WRITE);
-during BPF_OBJ_GET command and we can extend this facility further.
-Also we can allow dropping 'write' permissions from the map
-(internally implemented via flag in struct bpf_map), so
-update/delete operations won't be allowed.
-This flag will be checked by syscall during map_update/delete
-and by the verifier if such read-only map is used by the program
-being loaded, so map_update/helpers won't be allowed in
-such program.
-Would also be good to support read-only programs as well
-(progs that are read-only from kernel state point of view)
-They won't be able to modify packets, maps, etc.
+Hi DSA hackers
 
+So there is the third issue. It affects just DSA, but it possible
+affects all DSA drivers.
+
+This patchset broken broadcast with the Marvell drivers. It could
+break broadcast on others drivers as well.
+
+What i found is that the Marvell chips don't flood broadcast frames
+between bridged ports. What appears to happen is there is a fdb miss,
+so it gets forwarded to the CPU port for the host to deal with. The
+software bridge when floods it out all ports of the bridge.
+
+But the set offload_fwd_mark patch changes this. The software bridge
+now assumes the hardware has already flooded broadcast out all ports
+of the switch as needed. So it does not do any flooding itself. As a
+result, on Marvell devices, broadcast packets don't get flooded at
+all.
+
+The issue can be fixed. I just need to add an mdb entry for the
+broadcast address to each port of the bridge in the switch, and the
+CPU port.  But i don't know at what level to do this.
+
+Should this be done at the DSA level, or at the driver level?  Do any
+chips do broadcast flooding in hardware already? Hence they currently
+see broadcast duplication? If i add a broadcast mdb at the DSA level,
+and the chip is already hard wired to flooding broadcast, is it going
+to double flood?
+
+	Andrew
