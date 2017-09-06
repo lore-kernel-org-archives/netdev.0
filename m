@@ -1,133 +1,112 @@
-From: Mason <slash.tmp@free.fr>
+From: Florian Fainelli <f.fainelli@gmail.com>
 Subject: Re: [PATCH net] Revert "net: phy: Correctly process PHY_HALTED in
  phy_stop_machine()"
-Date: Wed, 6 Sep 2017 21:14:27 +0200
-Message-ID: <89164218-82a8-ae12-4b1a-c2d0d8a04624@free.fr>
+Date: Wed, 6 Sep 2017 12:28:19 -0700
+Message-ID: <2d12dbb5-17c9-a0a5-1345-6aba81eca7b5@gmail.com>
 References: <1504140569-2063-1-git-send-email-f.fainelli@gmail.com>
  <f4bb5ac8-dae8-c0af-7aa6-e546fc0783fa@sigmadesigns.com>
- <e24693e8-d8ae-188a-2a38-c9a83fdc94e3@gmail.com>
- <931bf454-81ff-94dc-82e6-bc2b889bd43a@gmail.com>
- <d6a6b552-95a7-8353-54c8-fa804f9366a1@free.fr>
- <f74f1aad-3990-ae54-316f-751c3b15de41@gmail.com>
- <ebee6e5d-5bc1-1c5b-b31d-6d50618d6074@free.fr>
- <4ea8b432-4968-1616-eff9-48a2689dd3ce@gmail.com>
- <ff070239-28b7-d41b-8abe-c9f810561372@caviumnetworks.com>
+ <a75691d9-c22a-9b89-2cce-604315062739@gmail.com>
+ <d54d0555-c448-741c-eb63-5a773bed5a30@free.fr>
+ <7b1c1dc9-b6e3-a1bd-2e36-474946741a79@gmail.com>
+ <927413e9-4f1f-963c-2d3a-5a88de2eac9e@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
 Cc: Marc Gonzalez <marc_gonzalez@sigmadesigns.com>,
+        David Daney <ddaney.cavm@gmail.com>,
         netdev <netdev@vger.kernel.org>,
         Geert Uytterhoeven <geert+renesas@glider.be>,
         David Miller <davem@davemloft.net>,
-        Andrew Lunn <andrew@lunn.ch>, Mans Rullgard <mans@mansr.com>
-To: David Daney <ddaney@caviumnetworks.com>,
-        Florian Fainelli <f.fainelli@gmail.com>
+        Andrew Lunn <andrew@lunn.ch>, Mans Rullgard <mans@mansr.com>,
+        Thibaud Cornic <thibaud_cornic@sigmadesigns.com>
+To: Mason <slash.tmp@free.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2-g21.free.fr ([212.27.42.2]:19994 "EHLO smtp2-g21.free.fr"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751941AbdIFTOd (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 6 Sep 2017 15:14:33 -0400
-In-Reply-To: <ff070239-28b7-d41b-8abe-c9f810561372@caviumnetworks.com>
+Received: from mail-wm0-f47.google.com ([74.125.82.47]:35392 "EHLO
+        mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751985AbdIFT20 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2017 15:28:26 -0400
+Received: by mail-wm0-f47.google.com with SMTP id f199so12798892wme.0
+        for <netdev@vger.kernel.org>; Wed, 06 Sep 2017 12:28:25 -0700 (PDT)
+In-Reply-To: <927413e9-4f1f-963c-2d3a-5a88de2eac9e@free.fr>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/09/2017 20:00, David Daney wrote:
-> On 08/31/2017 11:29 AM, Florian Fainelli wrote:
->> On 08/31/2017 11:12 AM, Mason wrote:
->>> On 31/08/2017 19:53, Florian Fainelli wrote:
->>>> On 08/31/2017 10:49 AM, Mason wrote:
->>>>> On 31/08/2017 18:57, Florian Fainelli wrote:
->>>>>> And the race is between phy_detach() setting phydev->attached_dev = NULL
->>>>>> and phy_state_machine() running in PHY_HALTED state and calling
->>>>>> netif_carrier_off().
->>>>>
->>>>> I must be missing something.
->>>>> (Since a thread cannot race against itself.)
->>>>>
->>>>> phy_disconnect calls phy_stop_machine which
->>>>> 1) stops the work queue from running in a separate thread
->>>>> 2) calls phy_state_machine *synchronously*
->>>>>       which runs the PHY_HALTED case with everything well-defined
->>>>> end of phy_stop_machine
->>>>>
->>>>> phy_disconnect only then calls phy_detach()
->>>>> which makes future calls of phy_state_machine perilous.
->>>>>
->>>>> This all happens in the same thread, so I'm not yet
->>>>> seeing where the race happens?
->>>>
->>>> The race is as described in David's earlier email, so let's recap:
->>>>
->>>> Thread 1			Thread 2
->>>> phy_disconnect()
->>>> phy_stop_interrupts()
->>>> phy_stop_machine()
->>>> phy_state_machine()
->>>>   -> queue_delayed_work()
->>>> phy_detach()
->>>> 				phy_state_machine()
->>>> 				-> netif_carrier_off()
->>>>
->>>> If phy_detach() finishes earlier than the workqueue had a chance to be
->>>> scheduled and process PHY_HALTED again, then we trigger the NULL pointer
->>>> de-reference.
->>>>
->>>> workqueues are not tasklets, the CPU scheduling them gets no guarantee
->>>> they will run on the same CPU.
->>>
->>> Something does not add up.
->>>
->>> The synchronous call to phy_state_machine() does:
->>>
->>> 	case PHY_HALTED:
->>> 		if (phydev->link) {
->>> 			phydev->link = 0;
->>> 			netif_carrier_off(phydev->attached_dev);
->>> 			phy_adjust_link(phydev);
->>> 			do_suspend = true;
->>> 		}
->>>
->>> then sets phydev->link = 0; therefore subsequent calls to
->>> phy_state_machin() will be no-op.
->>
->> Actually you are right, once phydev->link is set to 0 these would become
->> no-ops. Still scratching my head as to what happens for David then...
->>
->>>
->>> Also, queue_delayed_work() is only called in polling mode.
->>> David stated that he's using interrupt mode.
+On 09/06/2017 07:55 AM, Mason wrote:
+> On 31/08/2017 21:18, Florian Fainelli wrote:
 > 
-> Did you see what I wrote?
+>> On 08/31/2017 12:09 PM, Mason wrote:
+>>
+>>> 1) nb8800_link_reconfigure() calls phy_print_status()
+>>> which prints the "Link down" and "Link up" messages
+>>> to the console. With the patch reverted, nothing is
+>>> printed when the link goes down, and the result is
+>>> random when the link comes up. Sometimes, we get
+>>> down + up, sometimes just up.
+>>
+>> Nothing printed when you bring down the network interface as a result of
+>> not signaling the link down, there is a small nuance here.
 > 
-> phy_disconnect() calls phy_stop_interrupts() which puts it into polling 
-> mode.  So the polling work gets queued unconditionally.
+> Let me first focus on the "Link down" message.
+> 
+> Do you agree that such a message should be printed when the
+> link goes down, not when the link comes up?
 
-I did address that remark in
-https://www.mail-archive.com/netdev@vger.kernel.org/msg186336.html
+The question is not so much about printing the message rather than a)
+having the adjust_link callback be called and b) having this particular
+callback correctly determine if a "change" has occurred, but let's focus
+on the notification too. Printing the message is a consequence of these
+two conditions and that's what matters.
 
-int phy_stop_interrupts(struct phy_device *phydev)
-{
-	int err = phy_disable_interrupts(phydev);
+There is not unfortunately a hard and fast answer it's clearly a
+philosophical problem here.
 
-	if (err)
-		phy_error(phydev);
+The link is not physically down, the cable is still plugged so
+generating a link down even is not necessarily correct. It would be
+convenient for network manager programs, just like it is for network
+drivers to treat it as such because that allows them to act like if the
+cable was unplugged, which may be a good way to perform a number of
+actions including but not limited to: entering a low power state,
+re-initialization parts of the Ethernet MAC that need it (DMA, etc.,
+etc.). That does not appear to be an absolute requirement for most, if
+not all drivers since it changed after 3.4 and no one did bat an eye
+about it.
 
-	free_irq(phydev->irq, phydev);
+Upon bringing the interface back up again, same thing, if the cable was
+not disconnected should we just generate a link UP event, and if we do
+that, are we going to confuse any network manager application?
+Generating a link transition DOWN -> UP is certainly helpful for any
+network application in that they do not need to keep any state just like
+it clearly indicates a change was detected.
 
-	/* If work indeed has been cancelled, disable_irq() will have
-	 * been left unbalanced from phy_interrupt() and enable_irq()
-	 * has to be called so that other devices on the line work.
-	 */
-	while (atomic_dec_return(&phydev->irq_disable) >= 0)
-		enable_irq(phydev->irq);
+> 
+> Perhaps the issue is that the 2 following cases need to be
+> handled differently:
+> A) operator sets link down on the command-line
 
-	return err;
-}
+This is already handled differently since when you administratively
+bring down an interface you call ndo_stop() which will be doing a
+phy_stop() + phy_disconnect() which result in stopping the PHY state
+machine and disconnecting from the PHY.
 
-Which part of this function changes phydev->irq to PHY_POLL?
+> B) asynchronous event makes link go down (peer is dead, cable is cut, etc)
+> 
+> In B) the PHY state machine keeps on running, and eventually
+> calls adjust_link()
 
-Perhaps phydev->drv->config_intr?
+Correct.
 
-What PHY are you using?
+> 
+> In A) the driver calls phy_stop() and phy_disconnect() and
+> therefore adjust_link() will not be called?
 
-Regards.
+That is the current behavior (after the revert) and we can always change
+it if deemed necessary, problem is, this broke for two people (one still
+being discussed as of right now), so at this point I am very wary of
+making any changes without more testing. I really need to get one of
+these PHY interrupts wired to one of my boards or create a software
+model of such a configuration before accepting new changes in that area.
+
+Thank you
+-- 
+Florian
