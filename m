@@ -1,97 +1,72 @@
-From: Jonas Gorski <jonas.gorski-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 4/8] tty/bcm63xx_uart: allow naming clock in device tree
-Date: Wed, 6 Sep 2017 13:01:32 +0200
-Message-ID: <CAOiHx=mC=GfX0VvuRWR-AmXYfVOEkuruwGHooS08WrL_z-60UA@mail.gmail.com>
-References: <20170802093429.12572-1-jonas.gorski@gmail.com> <20170802093429.12572-5-jonas.gorski@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        Ralf Baechle <ralf-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org>,
-        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        bcm-kernel-feedback-list <bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Kevin Cernekee <cernekee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Jiri Slaby <jslaby-IBi9RG/b67k@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Russell King <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>
-To: MIPS Mailing List <linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org>,
-        "linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
-        <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-        "linux-serial-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-serial-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170802093429.12572-5-jonas.gorski-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net] net: sched: fix memleak for chain zero
+Date: Wed,  6 Sep 2017 13:14:19 +0200
+Message-ID: <20170906111419.5115-1-jiri@resnulli.us>
+Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
+        kubakici@wp.pl, mlxsw@mellanox.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:33884 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752485AbdIFLOW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2017 07:14:22 -0400
+Received: by mail-wm0-f65.google.com with SMTP id l19so2084632wmi.1
+        for <netdev@vger.kernel.org>; Wed, 06 Sep 2017 04:14:22 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Greg,
+From: Jiri Pirko <jiri@mellanox.com>
 
-On 2 August 2017 at 11:34, Jonas Gorski <jonas.gorski-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> Codify using a named clock for the refclk of the uart. This makes it
-> easier if we might need to add a gating clock (like present on the
-> BCM6345).
->
-> Signed-off-by: Jonas Gorski <jonas.gorski-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+There's a memleak happening for chain 0. The thing is, chain 0 needs to
+be always present, not created on demand. Therefore tcf_block_get upon
+creation of block calls the tcf_chain_create function directly. The
+chain is created with refcnt == 1, which is not correct in this case and
+causes the memleak. So move the refcnt increment into tcf_chain_get
+function even for the case when chain needs to be created.
 
-Could I please get a (N)Ack so Ralf can add this patch to his tree?
+Reported-by: Jakub Kicinski <kubakici@wp.pl>
+Fixes: 5bc1701881e3 ("net: sched: introduce multichain support for filters")
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ net/sched/cls_api.c | 18 +++++++++---------
+ 1 file changed, 9 insertions(+), 9 deletions(-)
 
-
-Regards
-Jonas
-
-
-> ---
->  Documentation/devicetree/bindings/serial/brcm,bcm6345-uart.txt | 6 ++++++
->  drivers/tty/serial/bcm63xx_uart.c                              | 6 ++++--
->  2 files changed, 10 insertions(+), 2 deletions(-)
->
-> diff --git a/Documentation/devicetree/bindings/serial/brcm,bcm6345-uart.txt b/Documentation/devicetree/bindings/serial/brcm,bcm6345-uart.txt
-> index 5c52e5eef16d..8b2b0460259a 100644
-> --- a/Documentation/devicetree/bindings/serial/brcm,bcm6345-uart.txt
-> +++ b/Documentation/devicetree/bindings/serial/brcm,bcm6345-uart.txt
-> @@ -11,6 +11,11 @@ Required properties:
->  - clocks: Clock driving the hardware; used to figure out the baud rate
->    divisor.
->
-> +
-> +Optional properties:
-> +
-> +- clock-names: Should be "refclk".
-> +
->  Example:
->
->         uart0: serial@14e00520 {
-> @@ -19,6 +24,7 @@ Example:
->                 interrupt-parent = <&periph_intc>;
->                 interrupts = <2>;
->                 clocks = <&periph_clk>;
-> +               clock-names = "refclk";
->         };
->
->         clocks {
-> diff --git a/drivers/tty/serial/bcm63xx_uart.c b/drivers/tty/serial/bcm63xx_uart.c
-> index a2b9376ec861..f227eff28d3a 100644
-> --- a/drivers/tty/serial/bcm63xx_uart.c
-> +++ b/drivers/tty/serial/bcm63xx_uart.c
-> @@ -841,8 +841,10 @@ static int bcm_uart_probe(struct platform_device *pdev)
->         if (!res_irq)
->                 return -ENODEV;
->
-> -       clk = pdev->dev.of_node ? of_clk_get(pdev->dev.of_node, 0) :
-> -                                 clk_get(&pdev->dev, "refclk");
-> +       clk = clk_get(&pdev->dev, "refclk");
-> +       if (IS_ERR(clk) && pdev->dev.of_node)
-> +               clk = of_clk_get(pdev->dev.of_node, 0);
-> +
->         if (IS_ERR(clk))
->                 return -ENODEV;
->
-> --
-> 2.13.2
->
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
+index 6c5ea84..30ef466 100644
+--- a/net/sched/cls_api.c
++++ b/net/sched/cls_api.c
+@@ -197,7 +197,7 @@ static struct tcf_chain *tcf_chain_create(struct tcf_block *block,
+ 	list_add_tail(&chain->list, &block->chain_list);
+ 	chain->block = block;
+ 	chain->index = chain_index;
+-	chain->refcnt = 1;
++	chain->refcnt = 0;
+ 	return chain;
+ }
+ 
+@@ -232,15 +232,15 @@ struct tcf_chain *tcf_chain_get(struct tcf_block *block, u32 chain_index,
+ 	struct tcf_chain *chain;
+ 
+ 	list_for_each_entry(chain, &block->chain_list, list) {
+-		if (chain->index == chain_index) {
+-			chain->refcnt++;
+-			return chain;
+-		}
++		if (chain->index == chain_index)
++			goto incref;
+ 	}
+-	if (create)
+-		return tcf_chain_create(block, chain_index);
+-	else
+-		return NULL;
++	chain = create ? tcf_chain_create(block, chain_index) : NULL;
++
++incref:
++	if (chain)
++		chain->refcnt++;
++	return chain;
+ }
+ EXPORT_SYMBOL(tcf_chain_get);
+ 
+-- 
+2.9.3
