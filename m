@@ -1,139 +1,97 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net] Revert "net: phy: Correctly process PHY_HALTED in
- phy_stop_machine()"
-Date: Wed, 6 Sep 2017 11:59:19 -0700
-Message-ID: <572f49fd-f623-f064-a551-e243c57cef7f@gmail.com>
-References: <1504140569-2063-1-git-send-email-f.fainelli@gmail.com>
- <f4bb5ac8-dae8-c0af-7aa6-e546fc0783fa@sigmadesigns.com>
- <e24693e8-d8ae-188a-2a38-c9a83fdc94e3@gmail.com>
- <931bf454-81ff-94dc-82e6-bc2b889bd43a@gmail.com>
- <d6a6b552-95a7-8353-54c8-fa804f9366a1@free.fr>
- <f74f1aad-3990-ae54-316f-751c3b15de41@gmail.com>
- <ebee6e5d-5bc1-1c5b-b31d-6d50618d6074@free.fr>
- <4ea8b432-4968-1616-eff9-48a2689dd3ce@gmail.com>
- <ff070239-28b7-d41b-8abe-c9f810561372@caviumnetworks.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [pull request][net-next 0/3] Mellanox, mlx5 GRE tunnel offloads
+Date: Wed, 6 Sep 2017 12:01:16 -0700
+Message-ID: <CALx6S344SowwX6=k+AGVBhwE5+-SC7E_oTXK_Oda6=Dx_wV-cg@mail.gmail.com>
+References: <20170830230409.15176-1-saeedm@mellanox.com> <87fuc7ong0.fsf@stressinduktion.org>
+ <CALzJLG-u3k11LYFXtZQKT5cvn-iJ4FehBUgkhCHT5Z7XMsMkpA@mail.gmail.com>
+ <1504402349.3299394.1093467800.72B91372@webmail.messagingengine.com>
+ <CALx6S34kfb5GEH9AAecsaKJ9AtjK=fP_3L=2i98kUwv_sE2s7A@mail.gmail.com>
+ <CALzJLG--t8VLs1GiRRVfejenB=XgpLiJHnHC+eokQ4=kwj9hGw@mail.gmail.com>
+ <CALx6S356vRYfcsN6FaRmpn2oC0GN9-JwLsF7ybC+w4sEGGsa7w@mail.gmail.com>
+ <87pob6bmjv.fsf@stressinduktion.org> <CALx6S37wcp1om0Dwr1=-6jF=HkAuZj313pLJ7sVhgsyJ4yZDjg@mail.gmail.com>
+ <8760cytnif.fsf@stressinduktion.org> <CALx6S34cOL4Gy9DMWnLV0iCVUYo+siMEeNNn9v5tBHr2P6yjYw@mail.gmail.com>
+ <87k21ez6r9.fsf@stressinduktion.org> <CALx6S34aDER1Gzpcw+p7+yr91mjiixCh6gnawKSxy7zhVQz+6Q@mail.gmail.com>
+ <87r2vls8hp.fsf@stressinduktion.org> <CALx6S345jR6UtAGju9TaPxAOMgkBG2RZ+eMWz80ix1joSmQCog@mail.gmail.com>
+ <87fuc1q7en.fsf@stressinduktion.org> <CALx6S3698iBwLX3wXw8_rhHbhztLh-BAkkhn68=z=2FgbfTkZg@mail.gmail.com>
+ <CAKgT0UeHbs3cM=yvSAdQMN92mWZjaqsq5Pyk1SkC8V_DK8pf3A@mail.gmail.com>
+ <CALx6S37eY4eWEtBhfGqqRxtr3B4T5qpuBThUa0yH0CKCj6j4_w@mail.gmail.com> <CAKgT0UeK0njpy1unJUV+=-JGOHTEZCJu0mNd-UuX8aO2G2zKmQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Marc Gonzalez <marc_gonzalez@sigmadesigns.com>,
-        netdev <netdev@vger.kernel.org>,
-        Geert Uytterhoeven <geert+renesas@glider.be>,
-        David Miller <davem@davemloft.net>,
-        Andrew Lunn <andrew@lunn.ch>, Mans Rullgard <mans@mansr.com>
-To: David Daney <ddaney@caviumnetworks.com>, Mason <slash.tmp@free.fr>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Saeed Mahameed <saeedm@dev.mellanox.co.il>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Linux Netdev List <netdev@vger.kernel.org>
+To: Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:38889 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752058AbdIFS7d (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2017 14:59:33 -0400
-Received: by mail-wm0-f67.google.com with SMTP id u26so5934562wma.5
-        for <netdev@vger.kernel.org>; Wed, 06 Sep 2017 11:59:32 -0700 (PDT)
-In-Reply-To: <ff070239-28b7-d41b-8abe-c9f810561372@caviumnetworks.com>
-Content-Language: en-US
+Received: from mail-qt0-f194.google.com ([209.85.216.194]:34251 "EHLO
+        mail-qt0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751969AbdIFTBS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2017 15:01:18 -0400
+Received: by mail-qt0-f194.google.com with SMTP id q8so3678173qtb.1
+        for <netdev@vger.kernel.org>; Wed, 06 Sep 2017 12:01:17 -0700 (PDT)
+In-Reply-To: <CAKgT0UeK0njpy1unJUV+=-JGOHTEZCJu0mNd-UuX8aO2G2zKmQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/06/2017 11:00 AM, David Daney wrote:
-> On 08/31/2017 11:29 AM, Florian Fainelli wrote:
->> On 08/31/2017 11:12 AM, Mason wrote:
->>> On 31/08/2017 19:53, Florian Fainelli wrote:
->>>> On 08/31/2017 10:49 AM, Mason wrote:
->>>>> On 31/08/2017 18:57, Florian Fainelli wrote:
->>>>>> And the race is between phy_detach() setting phydev->attached_dev
->>>>>> = NULL
->>>>>> and phy_state_machine() running in PHY_HALTED state and calling
->>>>>> netif_carrier_off().
+On Wed, Sep 6, 2017 at 10:43 AM, Alexander Duyck
+<alexander.duyck@gmail.com> wrote:
+> On Wed, Sep 6, 2017 at 9:17 AM, Tom Herbert <tom@herbertland.com> wrote:
+>> On Tue, Sep 5, 2017 at 8:06 PM, Alexander Duyck
+>> <alexander.duyck@gmail.com> wrote:
+>>> On Tue, Sep 5, 2017 at 2:13 PM, Tom Herbert <tom@herbertland.com> wrote:
+>>>>> The situation with encapsulation is even more complicated:
 >>>>>
->>>>> I must be missing something.
->>>>> (Since a thread cannot race against itself.)
+>>>>> We are basically only interested in the UDP/vxlan/Ethernet/IP/UDP
+>>>>> constellation. If we do the fragmentation inside the vxlan tunnel and
+>>>>> carry over the skb hash to all resulting UDP/vxlan packets source ports,
+>>>>> we are fine and reordering on the receiver NIC won't happen in this
+>>>>> case. If the fragmentation happens on the outer UDP header, this will
+>>>>> result in reordering of the inner L2 flow. Unfortunately this depends on
+>>>>> how the vxlan tunnel was set up, how other devices do that and (I
+>>>>> believe so) on the kernel version.
 >>>>>
->>>>> phy_disconnect calls phy_stop_machine which
->>>>> 1) stops the work queue from running in a separate thread
->>>>> 2) calls phy_state_machine *synchronously*
->>>>>       which runs the PHY_HALTED case with everything well-defined
->>>>> end of phy_stop_machine
->>>>>
->>>>> phy_disconnect only then calls phy_detach()
->>>>> which makes future calls of phy_state_machine perilous.
->>>>>
->>>>> This all happens in the same thread, so I'm not yet
->>>>> seeing where the race happens?
+>>>> This really isn't that complicated. The assumption that an IP network
+>>>> always delivers packets in order is simply wrong. The inventors of
+>>>> VXLAN must have know full well that when you use IP, packets can and
+>>>> eventually will be delivered out of order. This isn't just because of
+>>>> fragmentation, there are many other reasons that packets can be
+>>>> delivered OOO. This also must have been known when IP/GRE and any
+>>>> other protocol that carries L2 over IP was invented. If OOO is an
+>>>> issue for these protocols then they need to be fixed-- this is not a
+>>>> concern with IP protocol nor the stack.
 >>>>
->>>> The race is as described in David's earlier email, so let's recap:
->>>>
->>>> Thread 1            Thread 2
->>>> phy_disconnect()
->>>> phy_stop_interrupts()
->>>> phy_stop_machine()
->>>> phy_state_machine()
->>>>   -> queue_delayed_work()
->>>> phy_detach()
->>>>                 phy_state_machine()
->>>>                 -> netif_carrier_off()
->>>>
->>>> If phy_detach() finishes earlier than the workqueue had a chance to be
->>>> scheduled and process PHY_HALTED again, then we trigger the NULL
->>>> pointer
->>>> de-reference.
->>>>
->>>> workqueues are not tasklets, the CPU scheduling them gets no guarantee
->>>> they will run on the same CPU.
+>>>> Tom
 >>>
->>> Something does not add up.
+>>> As far as a little background on the original patch I believe the
+>>> issue that was fixed by the patch was a video streaming application
+>>> that was sending/receiving a mix of fragmented and non-fragmented
+>>> packets. Receiving them out of order due to the fragmentation was
+>>> causing issues with stutters in the video and so we ended up disabling
+>>> UDP by default in the NICs listed. We decided to go that way as UDP
+>>> RSS was viewed as a performance optimization, while the out-of-order
+>>> problems were viewed as a functionality issue.
 >>>
->>> The synchronous call to phy_state_machine() does:
->>>
->>>     case PHY_HALTED:
->>>         if (phydev->link) {
->>>             phydev->link = 0;
->>>             netif_carrier_off(phydev->attached_dev);
->>>             phy_adjust_link(phydev);
->>>             do_suspend = true;
->>>         }
->>>
->>> then sets phydev->link = 0; therefore subsequent calls to
->>> phy_state_machin() will be no-op.
+>> Hi Alex,
 >>
->> Actually you are right, once phydev->link is set to 0 these would become
->> no-ops. Still scratching my head as to what happens for David then...
+>> Thanks for the details! Were you able to find the root cause for this?
+>> In particular, it would be interesting to know if it is the kernel or
+>> device that introduced the jitter, or if it's the application that
+>> doesn't handle OOO well...
 >>
->>>
->>> Also, queue_delayed_work() is only called in polling mode.
->>> David stated that he's using interrupt mode.
-> 
-> Did you see what I wrote?
+>> Tom
+>
+> It is hard to say since my memory of the events from 7 years ago is
+> pretty vague at this point, but I'm pretty sure it was the
+> application. Basically getting the frames out of order was causing
+> them to have to drop video data if I recall correctly.
+>
+Oh, I didn't notice that patch was from 2010. Maybe the application
+has been fixed by now! :-)
 
-Still not following, see below.
+Perhaps, it's time to try to turn UDP hashing on again by default?
+Even if NICs aren't doing this, there are network devices that are
+looking at UDP for ECMP and that doesn't seem to be causing widespread
+problems currently...
 
-> 
-> phy_disconnect() calls phy_stop_interrupts() which puts it into polling
-> mode.  So the polling work gets queued unconditionally.
-
-What part of phy_stop_interrupts() is responsible for changing
-phydev->irq to PHY_POLL? free_irq() cannot touch phydev->irq otherwise
-subsequent request_irq() calls won't work anymore.
-phy_disable_interrupts() only calls back into the PHY driver to
-acknowledge and clear interrupts.
-
-If we were using a PHY with PHY_POLL, as Marc said, the first
-synchronous call to phy_state_machine() would have acted on PHY_HALTED
-and even if we incorrectly keep re-scheduling the state machine from
-PHY_HALTED to PHY_HALTED the second time around nothing can happen.
-
-What are we missing here?
-
-> 
-> 
-> 
->>
->> Right that's confusing too now. David can you check if you tree has:
->>
->> 49d52e8108a21749dc2114b924c907db43358984 ("net: phy: handle state
->> correctly in phy_stop_machine")
->>
-> 
-> Yes, I am using the 4.9 stable branch, and that commit was also present.
-
-Thanks for checking that.
--- 
-Florian
+Tom
