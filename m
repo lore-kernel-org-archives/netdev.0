@@ -1,135 +1,126 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH net-next] xdp: implement xdp_redirect_map for generic
- XDP
-Date: Wed, 6 Sep 2017 20:18:35 +0200
-Message-ID: <20170906201835.7bc26f4f@redhat.com>
-References: <150471158528.3727.12324542627400287360.stgit@firesoul>
-        <59B02127.5020904@iogearbox.net>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH v2 rfc 0/8] IGMP snooping for local traffic
+Date: Wed, 06 Sep 2017 14:29:26 -0400
+Message-ID: <87o9qnel4p.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+References: <1504654510-31004-1-git-send-email-andrew@lunn.ch> <874lsfg87t.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me> <20170906170120.GF15315@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-        John Fastabend <john.fastabend@gmail.com>,
-        Andy Gospodarek <andy@greyhouse.net>, brouer@redhat.com
-To: Daniel Borkmann <daniel@iogearbox.net>
+Content-Type: text/plain
+Cc: netdev <netdev@vger.kernel.org>, jiri@resnulli.us,
+        nikolay@cumulusnetworks.com,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47180 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750836AbdIFSSm (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 6 Sep 2017 14:18:42 -0400
-In-Reply-To: <59B02127.5020904@iogearbox.net>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:46932 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752220AbdIFScv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2017 14:32:51 -0400
+In-Reply-To: <20170906170120.GF15315@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 06 Sep 2017 18:24:07 +0200
-Daniel Borkmann <daniel@iogearbox.net> wrote:
+Hi Andrew,
 
-> On 09/06/2017 05:26 PM, Jesper Dangaard Brouer wrote:
-> > Using bpf_redirect_map is allowed for generic XDP programs, but the
-> > appropriate map lookup was never performed in xdp_do_generic_redirect().
-> >
-> > Instead the map-index is directly used as the ifindex.  For the  
-> 
-> Good point, but ...
-> 
-> [...]
-> >   net/core/filter.c |   29 +++++++++++++++++++++++++++++
-> >   1 file changed, 29 insertions(+)
-> >
-> > diff --git a/net/core/filter.c b/net/core/filter.c
-> > index 5912c738a7b2..6a4745bf2c9f 100644
-> > --- a/net/core/filter.c
-> > +++ b/net/core/filter.c
-> > @@ -2562,6 +2562,32 @@ int xdp_do_redirect(struct net_device *dev, struct xdp_buff *xdp,
-> >   }
-> >   EXPORT_SYMBOL_GPL(xdp_do_redirect);
-> >
-> > +static int xdp_do_generic_redirect_map(struct net_device *dev,
-> > +				       struct sk_buff *skb,
-> > +				       struct bpf_prog *xdp_prog)
-> > +{
-> > +	struct redirect_info *ri = this_cpu_ptr(&redirect_info);
-> > +	struct bpf_map *map = ri->map;
-> > +	u32 index = ri->ifindex;
-> > +	struct net_device *fwd;
-> > +	int err;
-> > +
-> > +	ri->ifindex = 0;
-> > +	ri->map = NULL;
-> > +
-> > +	fwd = __dev_map_lookup_elem(map, index);
-> > +	if (!fwd) {
-> > +		err = -EINVAL;
-> > +		goto err;
-> > +	}
-> > +	skb->dev = fwd;
-> > +	_trace_xdp_redirect_map(dev, xdp_prog, fwd, map, index);
-> > +	return 0;
-> > +err:
-> > +	_trace_xdp_redirect_map_err(dev, xdp_prog, fwd, map, index, err);
-> > +	return err;
-> > +}
-> > +
-> >   int xdp_do_generic_redirect(struct net_device *dev, struct sk_buff *skb,
-> >   			    struct bpf_prog *xdp_prog)
-> >   {
-> > @@ -2571,6 +2597,9 @@ int xdp_do_generic_redirect(struct net_device *dev, struct sk_buff *skb,
-> >   	unsigned int len;
-> >   	int err = 0;
-> >
-> > +	if (ri->map)
-> > +		return xdp_do_generic_redirect_map(dev, skb, xdp_prog);  
-> 
-> This is not quite correct. Really, the only thing you want
-> to do here is more or less ...
-> 
-> int xdp_do_generic_redirect(struct net_device *dev, struct sk_buff *skb,
-> 			    struct bpf_prog *xdp_prog)
-> {
-> 	struct redirect_info *ri = this_cpu_ptr(&redirect_info);
-> 	struct bpf_map *map = ri->map;
-> 	u32 index = ri->ifindex;
-> 	struct net_device *fwd;
-> 	unsigned int len;
-> 	int err = 0;
-> 
-> 	ri->ifindex = 0;
-> 	ri->map = NULL;
-> 
-> 	if (map)
-> 		fwd = __dev_map_lookup_elem(map, index);
-> 	else
-> 		fwd = dev_get_by_index_rcu(dev_net(dev), index);
-> 	if (unlikely(!fwd)) {
-> 		err = -EINVAL;
-> 		goto err;
-> 	}
-> [...]
-> 
-> ... such that you have a common path to also do the IFF_UP
-> and MTU checks that are done here, but otherwise omitted in
-> your patch.
+Andrew Lunn <andrew@lunn.ch> writes:
 
-Ah, yes. My patch miss the IFF_UP and MTU check. (I was too inspired by
-xdp_do_redirect_map).
+>> I don't understand why SWITCHDEV_OBJ_ID_PORT_MDB cannot be used. Isn't
+>> setting the obj->orig_dev to the bridge device itself enough to
+>> distinguish br0 from a switch port?
+>
+> I did consider this. But conceptually, it seems wrong.
+> SWITCHDEV_OBJ_ID_PORT_MDB has always been about egress. I don't like
+> adding a special case for ingress. Adding a new switchdev object
+> avoids this special case.
+
+SWITCHDEV_OBJ_ID_PORT_MDB means manipulating an MDB entry on a port.
+When one want to add an MDB entry to br0, SWITCHDEV_OBJ_ID_PORT_MDB is
+used. If the device is br->dev, the lower devices (bridged ports) get
+recursively notified and switchdev users can program themselves
+accordingly. In the case of DSA, a slave port will program its
+associated CPU port (port->cpu_dp) if orig_dev is a bridge.
+
+This seems totally correct to me. I don't see any reason for adding and
+maintaining a new switchdev object. What do switchdev guys think?
+
+>> The main problem is that we will soon want support for multiple CPU
+>> ports.
+>
+> We keep saying that, but it never actually happens. We should solve
+> multiple CPU problems when we actually add support for multiple CPUs.
+> Probably at that point, we need to push SWITCHDEV_OBJ_ID_PORT_HOST_MDB
+> right down to a port, so that port can setup what needs setting up so
+> its frames goes to its CPU port.
+
+This is not correct. I am currently making this easier, i.e. the
+dsa_master patchset I sent before net-next closed.
+
+I do understand your point however and even if this multi-CPU feature
+takes time to arrive, we can always find a proper design which makes it
+easy. Assuming that each port has its dedicated CPU port is the correct
+concept to follow.
+
+>> So adding the MDB entry to all CPU ports as you did in a patch 5/8 in
+>> dsa_switch_host_mdb_*() is not correct because you can have CPU port
+>> sw0p0 being a member of br0 and CPU port sw0p10 being a member of br1.
+>
+> Be careful, you are making assumptions about mapping cpu ports to
+> bridges. That is not been defined yet.
+
+I am not making any assumptions, but you did because you assume that all
+CPU ports will be part of the same bridge.
+
+We need to handle things at the DSA core level the following way:
+
+If one programs the bridge device itself, a switchdev object is
+notified, and each DSA slave devices member of the bridge will call the
+correct dsa_port_* function (agnostic to the port type) with its cpu_dp.
+
+This covers cleanly all cases. You also don't need any new DSA notifier.
+You only need your 6/8 patch. To acheive that, there is two ways:
+
+1) either we keep SWITCHDEV_OBJ_ID_PORT_MDB for the bridge device itself
+and the slave devices are notified accordingly with a correct orig_dev:
+
+    static int dsa_slave_port_obj_add(struct net_device *dev,
+                                      const struct switchdev_obj *obj,
+                                      struct switchdev_trans *trans)
+    {
+            struct dsa_slave_priv *p = netdev_priv(dev);
+            struct dsa_port *port = p->dp;
+    
+            /* Program the CPU port if the target is the bridge itself */
+            if (obj->orig_dev == port->br)
+                    port = port->cpu_dp;
+    
+            switch (obj->id) {
+            case SWITCHDEV_OBJ_ID_PORT_MDB:
+                return dsa_port_mdb_add(port, obj, trans);
+            ...
+            }
+    }
+
+2) or you introduce a switchdev object which, by definition, targets the
+CPU ports of our bridge members:
+
+    static int dsa_slave_port_obj_add(struct net_device *dev,
+                                      const struct switchdev_obj *obj,
+                                      struct switchdev_trans *trans)
+    {
+            struct dsa_slave_priv *p = netdev_priv(dev);
+            struct dsa_port *port = p->dp;
+
+            switch (obj->id) {
+            case SWITCHDEV_OBJ_ID_PORT_HOST_MDB:
+                port = port->cpu_dp;
+                /* fall through... */
+            case SWITCHDEV_OBJ_ID_PORT_MDB:
+                return dsa_port_mdb_add(port, obj, trans);
+            ...
+            }
+    }
+
+You basically just need that and your 6/8 patch for the DSA part.
 
 
-> Otherwise it looks good, but note that it also doesn't really
-> resolve the issue you mention wrt stale map pointers by the
-> way.  [...]
+Thanks,
 
-I actually discovered more cases where we can crash the kernel :-(
-
-E.g. driver not supporting XDP_REDIRECT, are still allowed to load an
-XDP bpf_prog that call bpf_redirect_map() and set the ->map pointer,
-but it will never call xdp_do_redirect() (which is responsible for
-clearing/consuming ->map pointer).
-
-Another case: You can also call bpf_redirect_map() and then NOT return
-XDP_REDIRECT (it is obviously strange, but the bpf-helper API allows it).
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
+        Vivien
