@@ -1,8 +1,9 @@
 From: Kosuke Tatsukawa <tatsu@ab.jp.nec.com>
-Subject: [PATCH] net: bonding: Fix transmit load balancing in balance-alb
- mode if specified by sysfs
-Date: Wed, 6 Sep 2017 22:47:59 +0000
-Message-ID: <17EC94B0A072C34B8DCF0D30AD16044A02985CB5@BPXM09GP.gisp.nec.co.jp>
+Subject: Re: [PATCH] net: bonding: Fix transmit load balancing in
+ balance-alb mode
+Date: Wed, 6 Sep 2017 22:45:36 +0000
+Message-ID: <17EC94B0A072C34B8DCF0D30AD16044A02985C94@BPXM09GP.gisp.nec.co.jp>
+References: <17EC94B0A072C34B8DCF0D30AD16044A0296FEF5@BPXM09GP.gisp.nec.co.jp>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="iso-2022-jp"
 Content-Transfer-Encoding: 8BIT
@@ -13,61 +14,63 @@ To: Jay Vosburgh <j.vosburgh@gmail.com>,
         Veaceslav Falico <vfalico@gmail.com>,
         Andy Gospodarek <andy@greyhouse.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <17EC94B0A072C34B8DCF0D30AD16044A0296FEF5@BPXM09GP.gisp.nec.co.jp>
 Content-Language: ja-JP
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Commit cbf5ecb30560 ("net: bonding: Fix transmit load balancing in
-balance-alb mode") tried to fix transmit dynamic load balancing in
-balance-alb mode, which wasn't working after commit 8b426dc54cf4
-("bonding: remove hardcoded value").
+Reinis Rozitis reported that tlb_dynamic_lb was still 0 in balance-alb
+mode even when using linux-4.12.10 kernels, which includes this patch.
 
 It turned out that my previous patch only fixed the case when
-balance-alb was specified as bonding module parameter, and not when
+balance-alb mode was specified as bonding module parameter, and not when
 balance-alb mode was set using /sys/class/net/*/bonding/mode (the most
 common usage).  In the latter case, tlb_dynamic_lb was set up according
 to the default mode of the bonding interface, which happens to be
 balance-rr.
 
-This additional patch addresses this issue by setting up tlb_dynamic_lb
-to 1 if "mode" is set to balance-alb through the sysfs interface.
+I'll send another patch to address this case.
 
-I didn't add code to change tlb_balance_lb back to the default value for
-other modes, because "mode" is usually set up only once during
-initialization, and it's not worthwhile to change the static variable
-bonding_defaults in bond_main.c to a global variable just for this
-purpose.
+In the meantime, a workaround for this issue is to specify balance-tlb
+mode as a module parameter for bonding.  This will change the value of
+tlb_balance_lb to 1, and make balance-alb work like pre-4.12 kernels.
 
-Commit 8b426dc54cf4 also changes the value of tlb_dynamic_lb for
-balance-tlb mode if it is set up using the sysfs interface.  I didn't
-change that behavior, because the value of tlb_balance_lb can be changed
-using the sysfs interface for balance-tlb, and I didn't like changing
-the default value back and forth for balance-tlb.
+Best regards.
 
-As for balance-alb, /sys/class/net/*/bonding/tlb_balance_lb cannot be
-written to.  However, I think balance-alb with tlb_dynamic_lb set to 0
-is not an intended usage, so there is little use making it writable at
-this moment.
 
-Fixes: 8b426dc54cf4 ("bonding: remove hardcoded value")
-Reported-by: Reinis Rozitis <r@roze.lv>
-Signed-off-by: Kosuke Tatsukawa <tatsu@ab.jp.nec.com>
-Cc: stable@vger.kernel.org  # v4.12+
+> balance-alb mode used to have transmit dynamic load balancing feature
+> enabled by default.  However, transmit dynamic load balancing no longer
+> works in balance-alb after commit 8b426dc54cf4 ("bonding: remove
+> hardcoded value").
+> 
+> Both balance-tlb and balance-alb use the function bond_do_alb_xmit() to
+> send packets.  This function uses the parameter tlb_dynamic_lb.
+> tlb_dynamic_lb used to have the default value of 1 for balance-alb, but
+> now the value is set to 0 except in balance-tlb.
+> 
+> Re-enable transmit dyanmic load balancing by initializing tlb_dynamic_lb
+> for balance-alb similar to balance-tlb.
+> 
+> Signed-off-by: Kosuke Tatsukawa <tatsu@ab.jp.nec.com>
+> Cc: stable@vger.kernel.org
+> ---
+>  drivers/net/bonding/bond_main.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> index 14ff622..181839d 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -4596,7 +4596,7 @@ static int bond_check_params(struct bond_params *params)
+>  	}
+>  	ad_user_port_key = valptr->value;
+>  
+> -	if (bond_mode == BOND_MODE_TLB) {
+> +	if ((bond_mode == BOND_MODE_TLB) || (bond_mode == BOND_MODE_ALB)) {
+>  		bond_opt_initstr(&newval, "default");
+>  		valptr = bond_opt_parse(bond_opt_get(BOND_OPT_TLB_DYNAMIC_LB),
+>  					&newval);
 ---
- drivers/net/bonding/bond_options.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
-index a12d603..5931aa2 100644
---- a/drivers/net/bonding/bond_options.c
-+++ b/drivers/net/bonding/bond_options.c
-@@ -754,6 +754,9 @@ static int bond_option_mode_set(struct bonding *bond,
- 			   bond->params.miimon);
- 	}
- 
-+	if (newval->value == BOND_MODE_ALB)
-+		bond->params.tlb_dynamic_lb = 1;
-+
- 	/* don't cache arp_validate between modes */
- 	bond->params.arp_validate = BOND_ARP_VALIDATE_NONE;
- 	bond->params.mode = newval->value;
+Kosuke TATSUKAWA  | 1st Platform Software Division
+                  | NEC Solution Innovators
+                  | tatsu@ab.jp.nec.com
