@@ -1,79 +1,121 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: RE: [PATCH net-next 1/1] hv_netvsc: fix deadlock on hotplug
-Date: Wed, 6 Sep 2017 16:23:45 +0000
-Message-ID: <DM5PR21MB0475451095CC657BB54C4E50CA970@DM5PR21MB0475.namprd21.prod.outlook.com>
-References: <20170906151925.15221-1-sthemmin@microsoft.com>
- <20170906151925.15221-2-sthemmin@microsoft.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next] xdp: implement xdp_redirect_map for generic
+ XDP
+Date: Wed, 06 Sep 2017 18:24:07 +0200
+Message-ID: <59B02127.5020904@iogearbox.net>
+References: <150471158528.3727.12324542627400287360.stgit@firesoul>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Stephen Hemminger <stephen@networkplumber.org>, KY Srinivasan
- <kys@microsoft.com>, Stephen Hemminger <sthemmin@microsoft.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <20170906151925.15221-2-sthemmin@microsoft.com>
-Content-Language: en-US
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: John Fastabend <john.fastabend@gmail.com>,
+        Andy Gospodarek <andy@greyhouse.net>
+To: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org,
+        "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:59644 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754774AbdIFQYJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2017 12:24:09 -0400
+In-Reply-To: <150471158528.3727.12324542627400287360.stgit@firesoul>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On 09/06/2017 05:26 PM, Jesper Dangaard Brouer wrote:
+> Using bpf_redirect_map is allowed for generic XDP programs, but the
+> appropriate map lookup was never performed in xdp_do_generic_redirect().
+>
+> Instead the map-index is directly used as the ifindex.  For the
 
+Good point, but ...
 
-> -----Original Message-----
-> From: Stephen Hemminger [mailto:stephen@networkplumber.org]
-> Sent: Wednesday, September 6, 2017 11:19 AM
-> To: KY Srinivasan <kys@microsoft.com>; Haiyang Zhang
-> <haiyangz@microsoft.com>; Stephen Hemminger <sthemmin@microsoft.com>
-> Cc: devel@linuxdriverproject.org; netdev@vger.kernel.org
-> Subject: [PATCH net-next 1/1] hv_netvsc: fix deadlock on hotplug
-> 
-> When a virtual device is added dynamically (via host console), then
-> the vmbus sends an offer message for the primary channel. The processing
-> of this message for networking causes the network device to then
-> initialize the sub channels.
-> 
-> The problem is that setting up the sub channels needs to wait until
-> the subsequent subchannel offers have been processed. These offers
-> come in on the same ring buffer and work queue as where the primary
-> offer is being processed; leading to a deadlock.
-> 
-> This did not happen in older kernels, because the sub channel waiting
-> logic was broken (it wasn't really waiting).
-> 
-> The solution is to do the sub channel setup in its own work queue
-> context that is scheduled by the primary channel setup; and then
-> happens later.
-> 
-> Fixes: 732e49850c5e ("netvsc: fix race on sub channel creation")
-> Reported-by: Dexuan Cui <decui@microsoft.com>
-> Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
-> ---
-> Should also go to stable, but this version does not apply cleanly
-> to 4.13. Have another patch for that.
-> 
->  drivers/net/hyperv/hyperv_net.h   |   1 +
->  drivers/net/hyperv/netvsc_drv.c   |   8 +--
->  drivers/net/hyperv/rndis_filter.c | 106 ++++++++++++++++++++++++++-----
-> -------
->  3 files changed, 74 insertions(+), 41 deletions(-)
+[...]
+>   net/core/filter.c |   29 +++++++++++++++++++++++++++++
+>   1 file changed, 29 insertions(+)
+>
+> diff --git a/net/core/filter.c b/net/core/filter.c
+> index 5912c738a7b2..6a4745bf2c9f 100644
+> --- a/net/core/filter.c
+> +++ b/net/core/filter.c
+> @@ -2562,6 +2562,32 @@ int xdp_do_redirect(struct net_device *dev, struct xdp_buff *xdp,
+>   }
+>   EXPORT_SYMBOL_GPL(xdp_do_redirect);
+>
+> +static int xdp_do_generic_redirect_map(struct net_device *dev,
+> +				       struct sk_buff *skb,
+> +				       struct bpf_prog *xdp_prog)
+> +{
+> +	struct redirect_info *ri = this_cpu_ptr(&redirect_info);
+> +	struct bpf_map *map = ri->map;
+> +	u32 index = ri->ifindex;
+> +	struct net_device *fwd;
+> +	int err;
+> +
+> +	ri->ifindex = 0;
+> +	ri->map = NULL;
+> +
+> +	fwd = __dev_map_lookup_elem(map, index);
+> +	if (!fwd) {
+> +		err = -EINVAL;
+> +		goto err;
+> +	}
+> +	skb->dev = fwd;
+> +	_trace_xdp_redirect_map(dev, xdp_prog, fwd, map, index);
+> +	return 0;
+> +err:
+> +	_trace_xdp_redirect_map_err(dev, xdp_prog, fwd, map, index, err);
+> +	return err;
+> +}
+> +
+>   int xdp_do_generic_redirect(struct net_device *dev, struct sk_buff *skb,
+>   			    struct bpf_prog *xdp_prog)
+>   {
+> @@ -2571,6 +2597,9 @@ int xdp_do_generic_redirect(struct net_device *dev, struct sk_buff *skb,
+>   	unsigned int len;
+>   	int err = 0;
+>
+> +	if (ri->map)
+> +		return xdp_do_generic_redirect_map(dev, skb, xdp_prog);
 
-The patch looks overall. I just have a question:
+This is not quite correct. Really, the only thing you want
+to do here is more or less ...
 
-With this patch, after module load and probe is done, there may still be
-subchannels being processed. If rmmod immediately, the subchannel offers 
-may hit half-way removed device structures... Do we also need to add 
-cancel_work_sync(&dev->subchan_work) to the top of netvsc_remove()?
+int xdp_do_generic_redirect(struct net_device *dev, struct sk_buff *skb,
+			    struct bpf_prog *xdp_prog)
+{
+	struct redirect_info *ri = this_cpu_ptr(&redirect_info);
+	struct bpf_map *map = ri->map;
+	u32 index = ri->ifindex;
+	struct net_device *fwd;
+	unsigned int len;
+	int err = 0;
 
-unregister_netdevice() includes device close, but it's only called later
-in the netvsc_remove() when rndis is already removed.
+	ri->ifindex = 0;
+	ri->map = NULL;
 
-Thanks,
-- Haiyang
+	if (map)
+		fwd = __dev_map_lookup_elem(map, index);
+	else
+		fwd = dev_get_by_index_rcu(dev_net(dev), index);
+	if (unlikely(!fwd)) {
+		err = -EINVAL;
+		goto err;
+	}
+[...]
+
+... such that you have a common path to also do the IFF_UP
+and MTU checks that are done here, but otherwise omitted in
+your patch.
+
+Otherwise it looks good, but note that it also doesn't really
+resolve the issue you mention wrt stale map pointers by the
+way. This would need a different way to clear out the pointers
+from redirect_info, I'm thinking when we have devmap dismantle
+time after RCU grace period we should check whether there are
+still stale pointers from this map around and clear them under
+disabled preemption, but need to brainstorm a bit more on that
+first.
+
+>   	fwd = dev_get_by_index_rcu(dev_net(dev), index);
+>   	ri->ifindex = 0;
+>   	if (unlikely(!fwd)) {
+>
