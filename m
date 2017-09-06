@@ -1,74 +1,106 @@
-From: Thomas Meyer <thomas@m3y3r.de>
-Subject: Re: [PATCH 6/10] ixgbe: Use ARRAY_SIZE macro
-Date: Wed, 6 Sep 2017 11:08:17 +0200
-Message-ID: <20170906090817.f7qir5okeeajfcsc@olymp>
-References: <20170905.115044.551456011251065741.davem@davemloft.net>
- <20170905194419.pdwrkqdad6tbq7hs@olymp>
- <1504641678.28899.12.camel@perches.com>
- <20170905.142205.14687531780483930.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: joe@perches.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170905.142205.14687531780483930.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Romain Perier <romain.perier-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
+Subject: [PATCH v13 0/5] Replace PCI pool by DMA pool API
+Date: Wed,  6 Sep 2017 11:08:52 +0200
+Message-ID: <20170906090857.14846-1-romain.perier@collabora.com>
+Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+        Romain Perier <romain.perier-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>
+To: Dan Williams <dan.j.williams-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, stas.yakovlev-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+        Aviad Krawczyk <aviad.krawczyk-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 05, 2017 at 02:22:05PM -0700, David Miller wrote:
-> From: Joe Perches <joe@perches.com>
-> Date: Tue, 05 Sep 2017 13:01:18 -0700
-> 
-> > On Tue, 2017-09-05 at 21:45 +0200, Thomas Meyer wrote:
-> >> On Tue, Sep 05, 2017 at 11:50:44AM -0700, David Miller wrote:
-> >> > From: Thomas Meyer <thomas@m3y3r.de>
-> >> > Date: Sun, 03 Sep 2017 14:19:31 +0200
-> >> > 
-> >> > > Use ARRAY_SIZE macro, rather than explicitly coding some variant of it
-> >> > > yourself.
-> >> > > Found with: find -type f -name "*.c" -o -name "*.h" | xargs perl -p -i -e
-> >> > > 's/\bsizeof\s*\(\s*(\w+)\s*\)\s*\ /\s*sizeof\s*\(\s*\1\s*\[\s*0\s*\]\s*\)
-> >> > > /ARRAY_SIZE(\1)/g' and manual check/verification.
-> >> > > 
-> >> > > Signed-off-by: Thomas Meyer <thomas@m3y3r.de>
-> >> > 
-> >> > This should be submitted to the Intel ethernet driver maintainers.
-> >> 
-> >> Hi,
-> >> 
-> >> my script checks the output of get_maintainer scripts and only sends to "open
-> >> list" entries.
-> >> 
-> >> The intel-wired-lan@lists.osuosl.org is moderated, so that's why the patch
-> >> wasn't send there.
-> >> 
-> >> Strangely the lists for nouveau@lists.freedesktop.org and
-> >> intel-gvt-dev@lists.freedesktop.org appears as open lists in the MAINTAINERS
-> >> file but seems to be also moderated lists... At least I got some reply that my
-> >> message awaits approval. Maybe an update to the MAINTAINERS file is missing
-> >> here?
-> >> 
-> >> I may drop above check in my script and send to all mailing lists that
-> >> get_maintainer.pl will return.
-> > 
-> > There's a difference between moderated and subscriber-only
-> > entries in MAINTAINERS.
-> > 
-> > get_maintainers will by default list moderated lists and
-> > not show subscriber-only lists unless using the -s switch.
-> 
-> Furthermore, nothing prevented you from CC:'ing the maintainer,
-> Jeff Kirscher.
+The current PCI pool API are simple macro functions direct expanded to
+the appropriate dma pool functions. The prototypes are almost the same
+and semantically, they are very similar. I propose to use the DMA pool
+API directly and get rid of the old API.
 
-Hi,
+This set of patches, replaces the old API by the dma pool API
+and remove the defines.
 
-That's the other condition in my script. I only send to the role
-"maintainer" from the output of get_maintainer.pl. But Mr Jeff
-Kirscher is only listed as supporter...
+Changes in v13:
+- Rebased series onto next-20170906
+- Added a new commit for the hinic ethernet driver
+- Remove previously merged patches
 
-Anyway I did bounce the email to him.
+Changes in v12:
+- Rebased series onto next-20170822
 
-with kind regards
-thomas
+Changes in v11:
+- Rebased series onto next-20170809
+- Removed patches 08-14, these have been merged.
+
+Changes in v10:
+- Rebased series onto next-20170706
+- I have fixed and improved patch "scsi: megaraid: Replace PCI pool old API"
+
+Changes in v9:
+- Rebased series onto next-20170522
+- I have fixed and improved the patch for lpfc driver
+
+Changes in v8:
+- Rebased series onto next-20170428
+
+Changes in v7:
+- Rebased series onto next-20170416
+- Added Acked-by, Tested-by and Reviwed-by tags
+
+Changes in v6:
+- Fixed an issue reported by kbuild test robot about changes in DAC960
+- Removed patches 15/19,16/19,17/19,18/19. They have been merged by Greg
+- Added Acked-by Tags
+
+Changes in v5:
+- Re-worded the cover letter (remove sentence about checkpatch.pl)
+- Rebased series onto next-20170308
+- Fix typos in commit message
+- Added Acked-by Tags
+
+Changes in v4:
+- Rebased series onto next-20170301
+- Removed patch 20/20: checks done by checkpath.pl, no longer required.
+  Thanks to Peter and Joe for their feedbacks.
+- Added Reviewed-by tags
+
+Changes in v3:
+- Rebased series onto next-20170224
+- Fix checkpath.pl reports for patch 11/20 and patch 12/20
+- Remove prefix RFC
+Changes in v2:
+- Introduced patch 18/20
+- Fixed cosmetic changes: spaces before brace, live over 80 characters
+- Removed some of the check for NULL pointers before calling dma_pool_destroy
+- Improved the regexp in checkpatch for pci_pool, thanks to Joe Perches
+- Added Tested-by and Acked-by tags
+
+
+Romain Perier (5):
+  block: DAC960: Replace PCI pool old API
+  dmaengine: pch_dma: Replace PCI pool old API
+  net: e100: Replace PCI pool old API
+  hinic: Replace PCI pool old API
+  PCI: Remove PCI pool macro functions
+
+ drivers/block/DAC960.c                            | 38 +++++++++++------------
+ drivers/block/DAC960.h                            |  4 +--
+ drivers/dma/pch_dma.c                             | 12 +++----
+ drivers/net/ethernet/huawei/hinic/hinic_hw_cmdq.c | 10 +++---
+ drivers/net/ethernet/huawei/hinic/hinic_hw_cmdq.h |  2 +-
+ drivers/net/ethernet/intel/e100.c                 | 12 +++----
+ include/linux/pci.h                               |  9 ------
+ 7 files changed, 38 insertions(+), 49 deletions(-)
+
+-- 
+2.11.0
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
