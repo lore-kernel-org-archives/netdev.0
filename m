@@ -1,76 +1,120 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Fw: [Bug 196839] New: use_time of IPsec policy is updated even when
- receiving error packets.
-Date: Wed, 6 Sep 2017 08:38:33 -0700
-Message-ID: <20170906083833.0dcab8a6@xeon-e3>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH v2 rfc 4/8] net: dsa: slave: Handle switchdev host mdb add/del
+Date: Wed, 06 Sep 2017 11:37:42 -0400
+Message-ID: <87zia7rg6x.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+References: <1504654510-31004-1-git-send-email-andrew@lunn.ch> <1504654510-31004-5-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain
+Cc: jiri@resnulli.us, nikolay@cumulusnetworks.com,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>
+To: Andrew Lunn <andrew@lunn.ch>, netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f52.google.com ([74.125.83.52]:38286 "EHLO
-        mail-pg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932823AbdIFPil (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2017 11:38:41 -0400
-Received: by mail-pg0-f52.google.com with SMTP id v66so15757022pgb.5
-        for <netdev@vger.kernel.org>; Wed, 06 Sep 2017 08:38:41 -0700 (PDT)
-Received: from xeon-e3 (76-14-207-240.or.wavecable.com. [76.14.207.240])
-        by smtp.gmail.com with ESMTPSA id j9sm171325pgc.11.2017.09.06.08.38.40
-        for <netdev@vger.kernel.org>
-        (version=TLS1_2 cipher=ECDHE-RSA-CHACHA20-POLY1305 bits=256/256);
-        Wed, 06 Sep 2017 08:38:40 -0700 (PDT)
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:35592 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753390AbdIFPlH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2017 11:41:07 -0400
+In-Reply-To: <1504654510-31004-5-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi Andrew,
+
+Andrew Lunn <andrew@lunn.ch> writes:
+
+> Add code to handle switchdev host mdb add/del. As with normal mdb
+> add/del, send a notification to the switch layer.
+>
+> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+> ---
+>  net/dsa/dsa_priv.h |  7 +++++++
+>  net/dsa/port.c     | 26 ++++++++++++++++++++++++++
+>  net/dsa/slave.c    |  6 ++++++
+>  3 files changed, 39 insertions(+)
+>
+> diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
+> index 9c3eeb72462d..0ffe49f78d14 100644
+> --- a/net/dsa/dsa_priv.h
+> +++ b/net/dsa/dsa_priv.h
+> @@ -24,6 +24,8 @@ enum {
+>  	DSA_NOTIFIER_FDB_DEL,
+>  	DSA_NOTIFIER_MDB_ADD,
+>  	DSA_NOTIFIER_MDB_DEL,
+> +	DSA_NOTIFIER_HOST_MDB_ADD,
+> +	DSA_NOTIFIER_HOST_MDB_DEL,
+>  	DSA_NOTIFIER_VLAN_ADD,
+>  	DSA_NOTIFIER_VLAN_DEL,
+>  };
+> @@ -131,6 +133,11 @@ int dsa_port_mdb_add(struct dsa_port *dp,
+>  		     struct switchdev_trans *trans);
+>  int dsa_port_mdb_del(struct dsa_port *dp,
+>  		     const struct switchdev_obj_port_mdb *mdb);
+> +int dsa_host_mdb_add(struct dsa_port *dp,
+> +		     const struct switchdev_obj_port_mdb *mdb,
+> +		     struct switchdev_trans *trans);
+> +int dsa_host_mdb_del(struct dsa_port *dp,
+> +		     const struct switchdev_obj_port_mdb *mdb);
+>  int dsa_port_vlan_add(struct dsa_port *dp,
+>  		      const struct switchdev_obj_port_vlan *vlan,
+>  		      struct switchdev_trans *trans);
+> diff --git a/net/dsa/port.c b/net/dsa/port.c
+> index 659676ba3f8b..5b18b9fe2219 100644
+> --- a/net/dsa/port.c
+> +++ b/net/dsa/port.c
+> @@ -199,6 +199,32 @@ int dsa_port_mdb_del(struct dsa_port *dp,
+>  	return dsa_port_notify(dp, DSA_NOTIFIER_MDB_DEL, &info);
+>  }
+>  
+> +int dsa_host_mdb_add(struct dsa_port *dp,
+> +		     const struct switchdev_obj_port_mdb *mdb,
+> +		     struct switchdev_trans *trans)
+> +{
+> +	struct dsa_notifier_mdb_info info = {
+> +		.sw_index = dp->ds->index,
+> +		.port = dp->index,
+> +		.trans = trans,
+> +		.mdb = mdb,
+> +	};
+> +
+> +	return dsa_port_notify(dp, DSA_NOTIFIER_HOST_MDB_ADD, &info);
+> +}
+> +
+> +int dsa_host_mdb_del(struct dsa_port *dp,
+> +		     const struct switchdev_obj_port_mdb *mdb)
+> +{
+> +	struct dsa_notifier_mdb_info info = {
+> +		.sw_index = dp->ds->index,
+> +		.port = dp->index,
+> +		.mdb = mdb,
+> +	};
+> +
+> +	return dsa_port_notify(dp, DSA_NOTIFIER_HOST_MDB_DEL, &info);
+> +}
+> +
+>  int dsa_port_vlan_add(struct dsa_port *dp,
+>  		      const struct switchdev_obj_port_vlan *vlan,
+>  		      struct switchdev_trans *trans)
+> diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+> index 78e78a6e6833..2e07be149415 100644
+> --- a/net/dsa/slave.c
+> +++ b/net/dsa/slave.c
+> @@ -330,6 +330,9 @@ static int dsa_slave_port_obj_add(struct net_device *dev,
+>  	case SWITCHDEV_OBJ_ID_PORT_MDB:
+>  		err = dsa_port_mdb_add(dp, SWITCHDEV_OBJ_PORT_MDB(obj), trans);
+>  		break;
+> +	case SWITCHDEV_OBJ_ID_HOST_MDB:
+> +		err = dsa_host_mdb_add(dp, SWITCHDEV_OBJ_PORT_MDB(obj), trans);
+> +		break;
+
+If SWITCHDEV_OBJ_ID_HOST_MDB is really necessary, 
+
+    case SWITCHDEV_OBJ_ID_HOST_MDB:
+        err = dsa_port_mdb_add(dp->cpu_dp, SWITCHDEV_OBJ_PORT_MDB(obj), trans);
+        break;
+
+should be enough. DSA_NOTIFIER_HOST_MDB_* are not necessary.
 
 
-Begin forwarded message:
+Thanks,
 
-Date: Wed, 06 Sep 2017 10:18:33 +0000
-From: bugzilla-daemon@bugzilla.kernel.org
-To: stephen@networkplumber.org
-Subject: [Bug 196839] New: use_time of IPsec policy is updated even when receiving error packets.
-
-
-https://bugzilla.kernel.org/show_bug.cgi?id=196839
-
-            Bug ID: 196839
-           Summary: use_time of IPsec policy is updated even when
-                    receiving error packets.
-           Product: Networking
-           Version: 2.5
-    Kernel Version: 4.8.0
-          Hardware: Intel
-                OS: Linux
-              Tree: Mainline
-            Status: NEW
-          Severity: normal
-          Priority: P1
-         Component: Other
-          Assignee: stephen@networkplumber.org
-          Reporter: cchenme@gmail.com
-        Regression: No
-
-Normally the use_time of policy in SPD is updated if the policy is matched by
-incoming or outgoing IP packets. For protect policy, it is updated if ESP/AH
-packets are sent or received.
-
-The use_time of SPD_IN policy used by IKE implementation like strongSwan to
-check whether there is inbound traffic, thus determine whether it is necessary
-to send DPD(dead peer detection, rfc3706) request to check liveness of IPsec
-peer.
-
-In case an unprotected packet is received but matches the IPsec SPD IN protect
-policy, the packet will be discarded and the error counter XfrmInTmplMismatch
-in /proc/net/xfrm_stat is incremented.
-
-But in such error/malicious case, the use_time of SPD IN policy is also
-updated. This cause strongSwan to mistakenly regard that the policy is in use
-and not to trigger DPD request even when it should.
-
-In short, this is a security hole in kernel and could lead to DoS attack on
-IPsec gateway running on Linux.
-
--- 
-You are receiving this mail because:
-You are the assignee for the bug.
+        Vivien
