@@ -1,48 +1,87 @@
-From: Stefano Brivio <sbrivio@redhat.com>
-Subject: Re: [net 0/2][pull request] Intel Wired LAN Driver Updates
- 2017-09-05
-Date: Wed, 6 Sep 2017 12:55:51 +0200
-Message-ID: <20170906125551.057e71e0@elisabeth>
-References: <20170906010418.39007-1-jeffrey.t.kirsher@intel.com>
+From: <Nisar.Sayed@microchip.com>
+Subject: [PATCH net 3/4] lan78xx: Fix for eeprom read/write when device
+ autosuspend
+Date: Wed, 6 Sep 2017 10:51:53 +0000
+Message-ID: <CE371C1263339941885964188A0225FA333391@CHN-SV-EXMX03.mchp-main.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
-To: davem@davemloft.net
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>
+To: <davem@davemloft.net>, <UNGLinuxDriver@microchip.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56894 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753893AbdIFKz7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 6 Sep 2017 06:55:59 -0400
-In-Reply-To: <20170906010418.39007-1-jeffrey.t.kirsher@intel.com>
+Received: from esa3.microchip.iphmx.com ([68.232.153.233]:3082 "EHLO
+        esa3.microchip.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753378AbdIFKw4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2017 06:52:56 -0400
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue,  5 Sep 2017 18:04:16 -0700
-Jeff Kirsher <jeffrey.t.kirsher@intel.com> wrote:
+From: Nisar Sayed <Nisar.Sayed@microchip.com>
 
-> This series contains fixes for i40e only.
-> 
-> These two patches fix an issue where our nvmupdate tool does not work on RHEL 7.4
-> and newer kernels, in fact, the use of the nvmupdate tool on newer kernels can
-> cause the cards to be non-functional unless these patches are applied.
-> 
-> Anjali reworks the locking around accessing the NVM so that NVM acquire timeouts
-> do not occur which was causing the failed firmware updates.
-> 
-> Jake correctly updates the wb_desc when reading the NVM through the AdminQ.
-> 
-> The following are changes since commit 6d9c153a0b84392406bc77600aa7d3ea365de041:
->   net: dsa: loop: Do not unregister invalid fixed PHY
-> and are available in the git repository at:
->   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-queue 40GbE
-> 
-> Anjali Singhai Jain (1):
->   i40e: avoid NVM acquire deadlock during NVM update
-> 
-> Jacob Keller (1):
->   i40e: point wb_desc at the nvm_wb_desc during i40e_read_nvm_aq
+Fix for eeprom read/write when device autosuspend
 
-I think this should go to -stable too (4.12+), as cards completely
-stop working after a firmware upgrade.
+Signed-off-by: Nisar Sayed <Nisar.Sayed@microchip.com>
+---
+ drivers/net/usb/lan78xx.c | 26 ++++++++++++++++++++++----
+ 1 file changed, 22 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/usb/lan78xx.c b/drivers/net/usb/lan78xx.c
+index 6242cb7..e04ec23 100644
+--- a/drivers/net/usb/lan78xx.c
++++ b/drivers/net/usb/lan78xx.c
+@@ -1278,30 +1278,48 @@ static int lan78xx_ethtool_get_eeprom(struct net_device *netdev,
+ 				      struct ethtool_eeprom *ee, u8 *data)
+ {
+ 	struct lan78xx_net *dev = netdev_priv(netdev);
++	int ret = -EINVAL;
++
++	if (usb_autopm_get_interface(dev->intf) < 0)
++		return ret;
+ 
+ 	ee->magic = LAN78XX_EEPROM_MAGIC;
+ 
+-	return lan78xx_read_raw_eeprom(dev, ee->offset, ee->len, data);
++	ret = lan78xx_read_raw_eeprom(dev, ee->offset, ee->len, data);
++
++	usb_autopm_put_interface(dev->intf);
++
++	return ret;
+ }
+ 
+ static int lan78xx_ethtool_set_eeprom(struct net_device *netdev,
+ 				      struct ethtool_eeprom *ee, u8 *data)
+ {
+ 	struct lan78xx_net *dev = netdev_priv(netdev);
++	int ret = -EINVAL;
++
++	if (usb_autopm_get_interface(dev->intf) < 0)
++		return ret;
+ 
+ 	/* Allow entire eeprom update only */
+ 	if ((ee->magic == LAN78XX_EEPROM_MAGIC) &&
+ 	    (ee->offset == 0) &&
+ 	    (ee->len == 512) &&
+ 	    (data[0] == EEPROM_INDICATOR))
+-		return lan78xx_write_raw_eeprom(dev, ee->offset, ee->len, data);
++		ret = lan78xx_write_raw_eeprom(dev, ee->offset, ee->len, data);
+ 	else if ((ee->magic == LAN78XX_OTP_MAGIC) &&
+ 		 (ee->offset == 0) &&
+ 		 (ee->len == 512) &&
+ 		 (data[0] == OTP_INDICATOR_1))
+-		return lan78xx_write_raw_otp(dev, ee->offset, ee->len, data);
++		ret = lan78xx_write_raw_otp(dev, ee->offset, ee->len, data);
++	else if ((ee->magic == LAN78XX_EEPROM_MAGIC) &&
++		 (ee->offset >= 0 && ee->offset < MAX_EEPROM_SIZE) &&
++		 (ee->len > 0 && (ee->offset + ee->len) <= MAX_EEPROM_SIZE))
++		ret = lan78xx_write_raw_eeprom(dev, ee->offset, ee->len, data);
+ 
+-	return -EINVAL;
++	usb_autopm_put_interface(dev->intf);
++
++	return ret;
+ }
+ 
+ static void lan78xx_get_strings(struct net_device *netdev, u32 stringset,
+-- 
+1.9.1
