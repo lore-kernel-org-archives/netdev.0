@@ -1,45 +1,53 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: hung task in mac80211
-Date: Wed, 06 Sep 2017 16:30:00 +0200
-Message-ID: <1504708200.23905.3.camel@sipsolutions.net>
-References: <CAGnkfhwi9MmtLneeU23iWEGLj9cb1ODb3KzzOqTDvA6nNVsugg@mail.gmail.com>
-         <1504702728.13457.17.camel@sipsolutions.net>
-         <20170906162748.071b040e@elisabeth>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH v2 rfc 0/8] IGMP snooping for local traffic
+Date: Wed, 06 Sep 2017 10:29:48 -0400
+Message-ID: <87vakvlx2b.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+References: <1504654510-31004-1-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Matteo Croce <mcroce@redhat.com>, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Stefano Brivio <sbrivio@redhat.com>
+Content-Type: text/plain
+Cc: jiri@resnulli.us, nikolay@cumulusnetworks.com,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>
+To: Andrew Lunn <andrew@lunn.ch>, netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:54018 "EHLO sipsolutions.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932260AbdIFOaD (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 6 Sep 2017 10:30:03 -0400
-In-Reply-To: <20170906162748.071b040e@elisabeth>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:57000 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754821AbdIFOdM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2017 10:33:12 -0400
+In-Reply-To: <1504654510-31004-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2017-09-06 at 16:27 +0200, Stefano Brivio wrote:
-> 
-> Sorry for the extended bothering :) but here, you're extending quite
-> a bit the scope of the lock also
-> when__ieee80211_start_rx_ba_session() is called by
-> ieee80211_process_addba_request().
+Hi Andrew,
 
-I know, but it doesn't matter.
+Andrew Lunn <andrew@lunn.ch> writes:
 
-> No idea what the hit can be, but we can't safely assume it's
+> Getting the frames to the bridge as requested turned up an issue or
+> three. The offload_fwd_mark is not being set by DSA, so the bridge
+> floods the received frames back to the switch ports, resulting in
+> duplication since the hardware has already flooded the packet. Fixing
+> that turned up an issue with the meaning of
+> SWITCHDEV_ATTR_ID_PORT_PARENT_ID in DSA. A DSA fabric of three
+> switches needs to look to the software bridge as a single
+> switch. Otherwise the offload_fwd_mark does not work, and we get
+> duplication on the non-ingress switch. But each switch returned a
+> different value. And they were not unique.
 
-> nothing either.   
+[...]
 
-We don't really have to assume anything, we can read the code :-)
+> Is the SWITCHDEV_ATTR_ID_PORT_PARENT_ID change acceptable?
 
-Trust me, I probably wrote most of it. It's fine, just sanity checks.
+So here we need to return the switch fabric (tree) ID instead of a
+single switch chip ID. I think we are not supposed to change it, but
+there's definitly something wrong with them and we must fix it.
 
-> What about simply introducing a 'ampdu_mlme_lock_held' argument
-> instead?
+The same issue happens with the physical port IDs, where the net devices
+of two disjoint trees on a system will have the same phys_*_id
+attributes, because we do not include the tree ID in them.
 
-Eww, no.
+(not sure if this affects your patchset though.)
 
-johannes
+
+Thanks,
+
+        Vivien
