@@ -1,52 +1,73 @@
 From: Roopa Prabhu <roopa@cumulusnetworks.com>
 Subject: Re: [RFC net-next] net: sch_clsact: add support for global per-netns
  classifier mode
-Date: Tue, 5 Sep 2017 21:04:17 -0700
-Message-ID: <CAJieiUjPvte25P0VOdzYgB34TaLN_veTq3PhRc9yse7REmJaCw@mail.gmail.com>
+Date: Tue, 5 Sep 2017 21:09:27 -0700
+Message-ID: <CAJieiUiUwq2gXmtY4pBKjPqtj_07R-6Caai-zvsyYwh653wzig@mail.gmail.com>
 References: <1504615701-20912-1-git-send-email-nikolay@cumulusnetworks.com>
  <CAM_iQpUYGH4BQ-ZUShbRAy6aJD2fYuM+oc_kWYyQ51n+===CQw@mail.gmail.com>
- <CAJieiUj_-o-Cg2AzN5b0vrdnBD69ryMmpu4fcC64-MHEmQ-u4g@mail.gmail.com> <59AF291E.90508@iogearbox.net>
+ <CAJieiUj_-o-Cg2AzN5b0vrdnBD69ryMmpu4fcC64-MHEmQ-u4g@mail.gmail.com> <87ec7558-5714-845f-82d8-7fe45f4c68ec@mojatatu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Cc: Cong Wang <xiyou.wangcong@gmail.com>,
         Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
         Linux Kernel Network Developers <netdev@vger.kernel.org>,
         David Ahern <dsa@cumulusnetworks.com>,
-        Jiri Pirko <jiri@resnulli.us>,
-        Jamal Hadi Salim <jhs@mojatatu.com>
-To: Daniel Borkmann <daniel@iogearbox.net>
+        Jiri Pirko <jiri@resnulli.us>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f52.google.com ([209.85.213.52]:37809 "EHLO
-        mail-vk0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750716AbdIFEET (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2017 00:04:19 -0400
-Received: by mail-vk0-f52.google.com with SMTP id c82so2911737vkd.4
-        for <netdev@vger.kernel.org>; Tue, 05 Sep 2017 21:04:18 -0700 (PDT)
-In-Reply-To: <59AF291E.90508@iogearbox.net>
+Received: from mail-ua0-f173.google.com ([209.85.217.173]:33027 "EHLO
+        mail-ua0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750716AbdIFEJ2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2017 00:09:28 -0400
+Received: by mail-ua0-f173.google.com with SMTP id g47so11909597uad.0
+        for <netdev@vger.kernel.org>; Tue, 05 Sep 2017 21:09:28 -0700 (PDT)
+In-Reply-To: <87ec7558-5714-845f-82d8-7fe45f4c68ec@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 5, 2017 at 3:45 PM, Daniel Borkmann <daniel@iogearbox.net> wrote:
-> On 09/06/2017 12:01 AM, Roopa Prabhu wrote:
+On Tue, Sep 5, 2017 at 3:25 PM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+> On 17-09-05 06:01 PM, Roopa Prabhu wrote:
+>
 >>
->> On Tue, Sep 5, 2017 at 11:18 AM, Cong Wang <xiyou.wangcong@gmail.com>
->> wrote:
->>>
->>> On Tue, Sep 5, 2017 at 5:48 AM, Nikolay Aleksandrov
->>> <nikolay@cumulusnetworks.com> wrote:
->>>>
->>>> Hi all,
->>>> This RFC adds a new mode for clsact which designates a device's egress
->>>> classifier as global per netns. The packets that are not classified for
->>>> a particular device will be classified using the global classifier.
->>>> We have needed a global classifier for some time now for various
->>>> purposes and setting the single bridge or loopback/vrf device as the
+>> yes, like Nikolay says we have been discussing this as well. Nikolay's
+>> patch is a cleaver and most importantly non-invasive
+>> way today given the anchor point for tc rules is a netdev. we have
+>> also considered a separate implicit tc anchor device.
+>>   lo seemed like a good fit for all global rules given it is already
+>> available. And it is not uncommon to hang off global
+>> network config on the loopback interface.
+>>
 >
+> IMO, Jiri has done all the necessary work already with the concept of
+> blocks. We dont really need the netdev to be the attachment point.
 >
-> Can you elaborate a bit more on the ... "we have needed a global
-> classifier for some time now for various purposes".
+> You can add to a block in many locations in the kernel by
+> constructing the proper "coordinates" in the tcmsg.
+> i.e this:
+>   tcmsg {
+>         unsigned char   tcm_family;
+>         unsigned char   tcm__pad1;
+>         unsigned short  tcm__pad2;
+>         int             tcm_ifindex;
+>         __u32           tcm_handle;
+>         __u32           tcm_parent;
+> }
+>
+> If you were to set tcm_ifindex to -1 (since that is not a legit
+> ifindex) then all we need to do is define a parent for a
+> different location. Current locations tied to netdevs are:
+> -----
+> #define TC_H_ROOT       (0xFFFFFFFFU)
+> #define TC_H_INGRESS    (0xFFFFFFF1U)
+> #define TC_H_CLSACT     TC_H_INGRESS
+>
+> #define TC_H_MIN_INGRESS        0xFFF2U
+> #define TC_H_MIN_EGRESS         0xFFF3U
+> -----
+>
+> You should be able to say add a location which maps to a pre-routing
+> or post-routing etc; and this would work as well...
+>
 
-Most of our acl's are global or use a wildcard. eg iptables supports
-global rules without an dev. We do end up having hundreds of netdevs.
-Another use case for the future is use of tc for policy based routing
-which requires global rules.
+ok, interesting. Jiri's examples still showed netdev as attachment point.
+we will explore some more. thanks.
