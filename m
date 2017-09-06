@@ -1,47 +1,70 @@
-From: Santosh Shilimkar <santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH net] rds: Fix incorrect statistics counting
-Date: Wed, 6 Sep 2017 08:58:16 -0700
-Message-ID: <b620a15a-e60e-5c35-ffef-ee485d338774@oracle.com>
-References: <20170906152950.17766-1-Haakon.Bugge@oracle.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH net-next] xdp: implement xdp_redirect_map for generic
+ XDP
+Date: Wed, 6 Sep 2017 18:01:39 +0200
+Message-ID: <20170906180139.1764ca77@redhat.com>
+References: <150471158528.3727.12324542627400287360.stgit@firesoul>
+        <CAHashqBPDDETq2qdj3n8uL3hE61f=a5cv_eF6a9apoRzNVqaxA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        knut.omang-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org
-To: =?UTF-8?Q?H=c3=a5kon_Bugge?= <Haakon.Bugge-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
-        "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170906152950.17766-1-Haakon.Bugge-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Content-Language: en-US
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        John Fastabend <john.fastabend@gmail.com>, brouer@redhat.com
+To: Andy Gospodarek <andy@greyhouse.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:34762 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753586AbdIFQBp (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 6 Sep 2017 12:01:45 -0400
+In-Reply-To: <CAHashqBPDDETq2qdj3n8uL3hE61f=a5cv_eF6a9apoRzNVqaxA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 9/6/2017 8:29 AM, Håkon Bugge wrote:
-> In rds_send_xmit() there is logic to batch the sends. However, if
-> another thread has acquired the lock, it is considered a race and we
-> yield. The code incrementing the s_send_lock_queue_raced statistics
-> counter did not count this event correctly.
-> 
-> This commit removes a small race in determining the race and
-> increments the statistics counter correctly.
-> 
-> Signed-off-by: Håkon Bugge <haakon.bugge-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-> Reviewed-by: Knut Omang <knut.omang-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-> ---
->   net/rds/send.c | 16 +++++++++++++---
->   1 file changed, 13 insertions(+), 3 deletions(-)
-> 
-Those counters are not really to give that accurate so
-am not very keen to add additional cycles in send paths
-and add additional code. Have you seen any real issue
-or this is just a observation. s_send_lock_queue_raced
-counter is never used to check for smaller increments
-and hence the question.
+On Wed, 6 Sep 2017 11:44:18 -0400
+Andy Gospodarek <andy@greyhouse.net> wrote:
 
-Regards,
-Santosh
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> On Wed, Sep 6, 2017 at 11:26 AM, Jesper Dangaard Brouer
+> <brouer@redhat.com> wrote:
+> > Using bpf_redirect_map is allowed for generic XDP programs, but the
+> > appropriate map lookup was never performed in xdp_do_generic_redirect().
+> >
+> > Instead the map-index is directly used as the ifindex.  For the
+> > xdp_redirect_map sample in SKB-mode '-S', this resulted in trying
+> > sending on ifindex 0 which isn't valid, resulting in getting SKB
+> > packets dropped.  Thus, the reported performance numbers are wrong in
+> > commit 24251c264798 ("samples/bpf: add option for native and skb mode
+> > for redirect apps") for the 'xdp_redirect_map -S' case.
+> >
+> > It might seem innocent this was lacking, but it can actually crash the
+> > kernel.  The potential crash is caused by not consuming redirect_info->map.
+> > The bpf_redirect_map helper will set this_cpu_ptr(&redirect_info)->map
+> > pointer, which will survive even after unloading the xdp bpf_prog and
+> > deallocating the devmap data-structure.  This leaves a dead map
+> > pointer around.  The kernel will crash when loading the xdp_redirect
+> > sample (in native XDP mode) as it doesn't reset map (via bpf_redirect)
+> > and returns XDP_REDIRECT, which will cause it to dereference the map
+> > pointer.  
+> 
+> Nice catch!
+> 
+> Since 'net-next' is closed and this is a bugfix it seems like this is
+> a good candidate for 'net' right?
+
+Yes, I know 'net-next' is closed, but 'net' doesn't contain the
+XDP_REDIRECT code yet... thus I had to base it on net-next ;-)
+
+
+> >
+> > Fixes: 6103aa96ec07 ("net: implement XDP_REDIRECT for xdp generic")
+> > Fixes: 24251c264798 ("samples/bpf: add option for native and skb mode for redirect apps")
+> > Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>  
+> 
+> Acked-by: Andy Gospodarek <andy@greyhouse.net>
+
+Thanks
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
