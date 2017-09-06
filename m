@@ -1,48 +1,47 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: hung task in mac80211
-Date: Wed, 06 Sep 2017 14:48:35 +0200
-Message-ID: <1504702115.13457.16.camel@sipsolutions.net>
-References: <CAGnkfhwi9MmtLneeU23iWEGLj9cb1ODb3KzzOqTDvA6nNVsugg@mail.gmail.com>
-         <20170906144019.1c98a636@elisabeth> (sfid-20170906_144115_600908_441D9559)
+From: Ying Xue <ying.xue@windriver.com>
+Subject: Re: [PATCH] tipc: remove unnecessary call to dev_net()
+Date: Wed, 6 Sep 2017 20:50:19 +0800
+Message-ID: <d91eb01e-adee-8bce-d419-698020e0af28@windriver.com>
+References: <20170906090806.20931-1-kleber.souza@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Stefano Brivio <sbrivio@redhat.com>,
-        Matteo Croce <mcroce@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170906144019.1c98a636@elisabeth> (sfid-20170906_144115_600908_441D9559)
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jon Maloy <jon.maloy@ericsson.com>
+To: Kleber Sacilotto de Souza <kleber.souza@canonical.com>,
+        <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail1.windriver.com ([147.11.146.13]:59691 "EHLO
+        mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754000AbdIFMwG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2017 08:52:06 -0400
+In-Reply-To: <20170906090806.20931-1-kleber.souza@canonical.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-I'll look in a bit - but
-
-> +			mutex_unlock(&sta->ampdu_mlme.mtx);
->  			___ieee80211_stop_rx_ba_session(
->  				sta, tid, WLAN_BACK_RECIPIENT,
->  				WLAN_REASON_QSTA_TIMEOUT, true);
-
-This already has three underscores so shouldn't drop.
-
+On 09/06/2017 05:08 PM, Kleber Sacilotto de Souza wrote:
+> The net device is already stored in the 'net' variable, so no need to call
+> dev_net() again.
 > 
-> +			mutex_unlock(&sta->ampdu_mlme.mtx);
->  			___ieee80211_stop_rx_ba_session(
+> Signed-off-by: Kleber Sacilotto de Souza <kleber.souza@canonical.com>
 
-ditto
+Acked-by: Ying Xue <ying.xue@windriver.com>
 
-> +			mutex_unlock(&sta->ampdu_mlme.mtx);
->  			__ieee80211_start_rx_ba_session(sta, 0, 0,
-> 0, 1, tid,
-
-maybe this one needs a ___ version then?
-
-> +			mutex_unlock(&sta->ampdu_mlme.mtx);
->  			___ieee80211_stop_rx_ba_session(
+> ---
+>  net/tipc/bearer.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 > 
-already ___
-
-I'm surprised nobody saw this before - though perhaps Sebastian's
-useless report is the same.
-
-johannes
+> diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
+> index 89cd061c4468..6d6395e0904e 100644
+> --- a/net/tipc/bearer.c
+> +++ b/net/tipc/bearer.c
+> @@ -661,7 +661,7 @@ static int tipc_l2_device_event(struct notifier_block *nb, unsigned long evt,
+>  		break;
+>  	case NETDEV_UNREGISTER:
+>  	case NETDEV_CHANGENAME:
+> -		bearer_disable(dev_net(dev), b);
+> +		bearer_disable(net, b);
+>  		break;
+>  	}
+>  	return NOTIFY_OK;
+> 
