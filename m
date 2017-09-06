@@ -1,73 +1,62 @@
-From: Mason <slash.tmp@free.fr>
-Subject: Re: [PATCH net] Revert "net: phy: Correctly process PHY_HALTED in
- phy_stop_machine()"
-Date: Wed, 6 Sep 2017 17:51:29 +0200
-Message-ID: <730292be-affa-c19d-75ab-edba367788e8@free.fr>
-References: <1504140569-2063-1-git-send-email-f.fainelli@gmail.com>
- <f4bb5ac8-dae8-c0af-7aa6-e546fc0783fa@sigmadesigns.com>
- <a75691d9-c22a-9b89-2cce-604315062739@gmail.com>
- <d54d0555-c448-741c-eb63-5a773bed5a30@free.fr>
- <7b1c1dc9-b6e3-a1bd-2e36-474946741a79@gmail.com>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH v2 rfc 0/8] IGMP snooping for local traffic
+Date: Wed, 6 Sep 2017 08:54:33 -0700
+Message-ID: <CAJieiUj-ObfKAZa18JxnWSswLGK-mRLjqE7qyCrZ5tsVftf46w@mail.gmail.com>
+References: <1504654510-31004-1-git-send-email-andrew@lunn.ch> <20170906004703.GB27385@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Marc Gonzalez <marc_gonzalez@sigmadesigns.com>,
-        David Daney <ddaney.cavm@gmail.com>,
-        netdev <netdev@vger.kernel.org>,
-        Geert Uytterhoeven <geert+renesas@glider.be>,
-        David Miller <davem@davemloft.net>,
-        Mans Rullgard <mans@mansr.com>,
-        Thibaud Cornic <thibaud_cornic@sigmadesigns.com>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset="UTF-8"
+Cc: netdev <netdev@vger.kernel.org>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Woojung.Huh@microchip.com, jbe@pengutronix.de,
+        sean.wang@mediatek.com, john@phrozen.org
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp5-g21.free.fr ([212.27.42.5]:17140 "EHLO smtp5-g21.free.fr"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753845AbdIFPvw (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 6 Sep 2017 11:51:52 -0400
-In-Reply-To: <7b1c1dc9-b6e3-a1bd-2e36-474946741a79@gmail.com>
+Received: from mail-ua0-f174.google.com ([209.85.217.174]:34577 "EHLO
+        mail-ua0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753682AbdIFPyf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2017 11:54:35 -0400
+Received: by mail-ua0-f174.google.com with SMTP id s15so14513502uag.1
+        for <netdev@vger.kernel.org>; Wed, 06 Sep 2017 08:54:34 -0700 (PDT)
+In-Reply-To: <20170906004703.GB27385@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 31/08/2017 21:18, Florian Fainelli wrote:
-
-> On 08/31/2017 12:09 PM, Mason wrote:
+On Tue, Sep 5, 2017 at 5:47 PM, Andrew Lunn <andrew@lunn.ch> wrote:
+>> The third and last issue will be explained in a followup email.
 >
->> On 31/08/2017 19:03, Florian Fainelli wrote:
->>
->>> On 08/31/2017 05:29 AM, Marc Gonzalez wrote:
->>>
->>>> On 31/08/2017 02:49, Florian Fainelli wrote:
->>>>
->>>>> The original motivation for this change originated from Marc Gonzalez
->>>>> indicating that his network driver did not have its adjust_link callback
->>>>> executing with phydev->link = 0 while he was expecting it.
->>>>
->>>> I expect the core to call phy_adjust_link() for link changes.
->>>> This used to work back in 3.4 and was broken somewhere along
->>>> the way.
->>>
->>> If that was working correctly in 3.4 surely we can look at the diff and
->>> figure out what changed, even maybe find the offending commit, can you
->>> do that?
->>
->> Bisecting would a be a huge pain because my platform was
->> not upstream until v4.4
-> 
-> Then just diff the file and try to pinpoint which commit may have
-> changed that?
+> Hi DSA hackers
+>
+> So there is the third issue. It affects just DSA, but it possible
+> affects all DSA drivers.
+>
+> This patchset broken broadcast with the Marvell drivers. It could
+> break broadcast on others drivers as well.
+>
+> What i found is that the Marvell chips don't flood broadcast frames
+> between bridged ports. What appears to happen is there is a fdb miss,
+> so it gets forwarded to the CPU port for the host to deal with. The
+> software bridge when floods it out all ports of the bridge.
+>
+> But the set offload_fwd_mark patch changes this. The software bridge
+> now assumes the hardware has already flooded broadcast out all ports
+> of the switch as needed. So it does not do any flooding itself. As a
+> result, on Marvell devices, broadcast packets don't get flooded at
+> all.
+>
+> The issue can be fixed. I just need to add an mdb entry for the
+> broadcast address to each port of the bridge in the switch, and the
+> CPU port.  But i don't know at what level to do this.
+>
+> Should this be done at the DSA level, or at the driver level?  Do any
+> chips do broadcast flooding in hardware already? Hence they currently
+> see broadcast duplication? If i add a broadcast mdb at the DSA level,
+> and the chip is already hard wired to flooding broadcast, is it going
+> to double flood?
+>
 
-Running 'ip link set eth0 down' on the command-line.
-
-In v3.4 => adjust_link() callback is called
-In v4.5 => adjust_link() callback is NOT called
-
-$ git log --oneline --no-merges v3.4..v4.5 drivers/net/phy/phy.c | wc -l
-59
-
-I'm not sure what "just diff the file" entails.
-I can't move 3.4 up, nor move 4.5 down.
-I'm not even sure the problem comes from drivers/net/phy/phy.c
-to be honest.
-
-Regards.
+On the switch asics we work with, the driver has information if the packet was
+forwarded in hardware. This is per packet reason code telling why the
+CPU is seeing the packet.
+The driver can use this information to reset skb->offload_fwd_mark to
+allow software forward.
