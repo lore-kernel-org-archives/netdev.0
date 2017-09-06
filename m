@@ -1,49 +1,66 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v2 rfc 0/8] IGMP snooping for local traffic
-Date: Wed, 6 Sep 2017 16:16:24 +0200
-Message-ID: <20170906141624.GE11864@lunn.ch>
-References: <1504654510-31004-1-git-send-email-andrew@lunn.ch>
- <20170906004703.GB27385@lunn.ch>
- <87y3pskk1p.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [RFC net-next] net: sch_clsact: add support for global per-netns
+ classifier mode
+Date: Wed, 6 Sep 2017 07:19:58 -0700
+Message-ID: <CAJieiUgSGukygXBYRKpE4ROYXnd9UZ=cFr4YvVhrerkOn15iDQ@mail.gmail.com>
+References: <1504615701-20912-1-git-send-email-nikolay@cumulusnetworks.com>
+ <CAM_iQpUYGH4BQ-ZUShbRAy6aJD2fYuM+oc_kWYyQ51n+===CQw@mail.gmail.com>
+ <CAJieiUj_-o-Cg2AzN5b0vrdnBD69ryMmpu4fcC64-MHEmQ-u4g@mail.gmail.com>
+ <59AF291E.90508@iogearbox.net> <CAJieiUjPvte25P0VOdzYgB34TaLN_veTq3PhRc9yse7REmJaCw@mail.gmail.com>
+ <20170906072413.GC2523@nanopsycho>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Woojung.Huh@microchip.com, jbe@pengutronix.de,
-        sean.wang@mediatek.com, john@phrozen.org
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        David Ahern <dsa@cumulusnetworks.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:58708 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932284AbdIFOQ1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 6 Sep 2017 10:16:27 -0400
-Content-Disposition: inline
-In-Reply-To: <87y3pskk1p.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+Received: from mail-vk0-f47.google.com ([209.85.213.47]:34675 "EHLO
+        mail-vk0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932286AbdIFOT7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2017 10:19:59 -0400
+Received: by mail-vk0-f47.google.com with SMTP id o22so12087757vke.1
+        for <netdev@vger.kernel.org>; Wed, 06 Sep 2017 07:19:59 -0700 (PDT)
+In-Reply-To: <20170906072413.GC2523@nanopsycho>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> > What i found is that the Marvell chips don't flood broadcast frames
-> > between bridged ports. What appears to happen is there is a fdb miss,
-> > so it gets forwarded to the CPU port for the host to deal with. The
-> > software bridge when floods it out all ports of the bridge.
-> 
-> Do you have this issue on a single switch?
+On Wed, Sep 6, 2017 at 12:24 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+> Wed, Sep 06, 2017 at 06:04:17AM CEST, roopa@cumulusnetworks.com wrote:
+>>On Tue, Sep 5, 2017 at 3:45 PM, Daniel Borkmann <daniel@iogearbox.net> wrote:
+>>> On 09/06/2017 12:01 AM, Roopa Prabhu wrote:
+>>>>
+>>>> On Tue, Sep 5, 2017 at 11:18 AM, Cong Wang <xiyou.wangcong@gmail.com>
+>>>> wrote:
+>>>>>
+>>>>> On Tue, Sep 5, 2017 at 5:48 AM, Nikolay Aleksandrov
+>>>>> <nikolay@cumulusnetworks.com> wrote:
+>>>>>>
+>>>>>> Hi all,
+>>>>>> This RFC adds a new mode for clsact which designates a device's egress
+>>>>>> classifier as global per netns. The packets that are not classified for
+>>>>>> a particular device will be classified using the global classifier.
+>>>>>> We have needed a global classifier for some time now for various
+>>>>>> purposes and setting the single bridge or loopback/vrf device as the
+>>>
+>>>
+>>> Can you elaborate a bit more on the ... "we have needed a global
+>>> classifier for some time now for various purposes".
+>>
+>>Most of our acl's are global or use a wildcard. eg iptables supports
+>>global rules without an dev. We do end up having hundreds of netdevs.
+>>Another use case for the future is use of tc for policy based routing
+>>which requires global rules.
+>
+> That is not how TC works. There are devices, qdiscs, blocks, chains. The
+> global approach does not fit. The block sharing gets you what you need,
+> without need for any ugly hack.
 
-Yes. I have two boards with a single switch in my test setup. They
-fail the broadcast tests in the same way as boards with multiple
-switches.
-
-> It should be done at the DSA level. DSA core must be the single entry
-> point to handle all the switch logic, calling into (dumb) DSA drivers.
-> If it is buried into a specific driver, we'll likely lose track of the
-> problem and make it harder to maintain.
-
-I think we need to wait and see what driver writers report their chips
-are doing. If this is just a Marvell issue, we probably should fix it
-in the Marvell driver only.
-
-If i remember correctly, Woojung said he was seeing duplication of
-broadcasts. So it could be the Microchip hardware is forwarding
-broadcast in the hardware.
-
-	  Andrew
+We know how TC works. And we are only trying to see if the classifiers
+and actions can be used
+in other use-cases. Note that the patch was an RFC to start the
+discussion and refine
+it. We will explore your block sharing patches when they are in.
