@@ -1,7 +1,7 @@
 From: Tuomas Tynkkynen <tuomas@tuxera.com>
-Subject: [PATCH 1/2] fs/9p: Compare qid.path in v9fs_test_inode
-Date: Wed, 6 Sep 2017 17:59:07 +0300
-Message-ID: <20170906145908.8082-2-tuomas@tuxera.com>
+Subject: [PATCH 2/2] net/9p: Switch to wait_event_killable()
+Date: Wed, 6 Sep 2017 17:59:08 +0300
+Message-ID: <20170906145908.8082-3-tuomas@tuxera.com>
 References: <20170906145908.8082-1-tuomas@tuxera.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -14,58 +14,101 @@ Cc: <v9fs-developer@lists.sourceforge.net>,
         <linux-fsdevel@vger.kernel.org>,
         Tuomas Tynkkynen <tuomas@tuxera.com>, <stable@vger.kernel.org>
 To: Al Viro <viro@zeniv.linux.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.mpynet.fi ([82.197.21.84]:25008 "EHLO mx1.mpynet.fi"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932714AbdIFPKe (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 6 Sep 2017 11:10:34 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20170906145908.8082-1-tuomas@tuxera.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Commit fd2421f54423 ("fs/9p: When doing inode lookup compare qid details
-and inode mode bits.") transformed v9fs_qid_iget() to use iget5_locked()
-instead of iget_locked(). However, the test() callback is not checking
-fid.path at all, which means that a lookup in the inode cache can now
-accidentally locate a completely wrong inode from the same inode hash
-bucket if the other fields (qid.type and qid.version) match.
+Because userspace gets Very Unhappy when calls like stat() and execve()
+return -EINTR on 9p filesystem mounts. For instance, when bash is
+looking in PATH for things to execute and some SIGCHLD interrupts
+stat(), bash can throw a spurious 'command not found' since it doesn't
+retry the stat().
 
-Fixes: fd2421f54423 ("fs/9p: When doing inode lookup compare qid details and inode mode bits.")
+In practice, hitting the problem is rare and needs a really
+slow/bogged down 9p server.
+
 Cc: stable@vger.kernel.org
-Reviewed-by: Latchesar Ionkov <lucho@ionkov.net>
 Signed-off-by: Tuomas Tynkkynen <tuomas@tuxera.com>
 ---
- fs/9p/vfs_inode.c      | 3 +++
- fs/9p/vfs_inode_dotl.c | 3 +++
- 2 files changed, 6 insertions(+)
+ net/9p/client.c       |  3 +--
+ net/9p/trans_virtio.c | 13 ++++++-------
+ net/9p/trans_xen.c    |  4 ++--
+ 3 files changed, 9 insertions(+), 11 deletions(-)
 
-diff --git a/fs/9p/vfs_inode.c b/fs/9p/vfs_inode.c
-index 2a5de610dd8f..bdabb2765d1b 100644
---- a/fs/9p/vfs_inode.c
-+++ b/fs/9p/vfs_inode.c
-@@ -483,6 +483,9 @@ static int v9fs_test_inode(struct inode *inode, void *data)
+diff --git a/net/9p/client.c b/net/9p/client.c
+index 4674235b0d9b..1beb131dd3e1 100644
+--- a/net/9p/client.c
++++ b/net/9p/client.c
+@@ -773,8 +773,7 @@ p9_client_rpc(struct p9_client *c, int8_t type, const char *fmt, ...)
+ 	}
+ again:
+ 	/* Wait for the response */
+-	err = wait_event_interruptible(*req->wq,
+-				       req->status >= REQ_STATUS_RCVD);
++	err = wait_event_killable(*req->wq, req->status >= REQ_STATUS_RCVD);
  
- 	if (v9inode->qid.type != st->qid.type)
- 		return 0;
-+
-+	if (v9inode->qid.path != st->qid.path)
-+		return 0;
- 	return 1;
- }
+ 	/*
+ 	 * Make sure our req is coherent with regard to updates in other
+diff --git a/net/9p/trans_virtio.c b/net/9p/trans_virtio.c
+index f24b25c25106..f3a4efcf1456 100644
+--- a/net/9p/trans_virtio.c
++++ b/net/9p/trans_virtio.c
+@@ -286,8 +286,8 @@ p9_virtio_request(struct p9_client *client, struct p9_req_t *req)
+ 		if (err == -ENOSPC) {
+ 			chan->ring_bufs_avail = 0;
+ 			spin_unlock_irqrestore(&chan->lock, flags);
+-			err = wait_event_interruptible(*chan->vc_wq,
+-							chan->ring_bufs_avail);
++			err = wait_event_killable(*chan->vc_wq,
++						  chan->ring_bufs_avail);
+ 			if (err  == -ERESTARTSYS)
+ 				return err;
  
-diff --git a/fs/9p/vfs_inode_dotl.c b/fs/9p/vfs_inode_dotl.c
-index 70f9887c59a9..7f6ae21a27b3 100644
---- a/fs/9p/vfs_inode_dotl.c
-+++ b/fs/9p/vfs_inode_dotl.c
-@@ -87,6 +87,9 @@ static int v9fs_test_inode_dotl(struct inode *inode, void *data)
+@@ -327,7 +327,7 @@ static int p9_get_mapped_pages(struct virtio_chan *chan,
+ 		 * Other zc request to finish here
+ 		 */
+ 		if (atomic_read(&vp_pinned) >= chan->p9_max_pages) {
+-			err = wait_event_interruptible(vp_wq,
++			err = wait_event_killable(vp_wq,
+ 			      (atomic_read(&vp_pinned) < chan->p9_max_pages));
+ 			if (err == -ERESTARTSYS)
+ 				return err;
+@@ -471,8 +471,8 @@ p9_virtio_zc_request(struct p9_client *client, struct p9_req_t *req,
+ 		if (err == -ENOSPC) {
+ 			chan->ring_bufs_avail = 0;
+ 			spin_unlock_irqrestore(&chan->lock, flags);
+-			err = wait_event_interruptible(*chan->vc_wq,
+-						       chan->ring_bufs_avail);
++			err = wait_event_killable(*chan->vc_wq,
++						  chan->ring_bufs_avail);
+ 			if (err  == -ERESTARTSYS)
+ 				goto err_out;
  
- 	if (v9inode->qid.type != st->qid.type)
- 		return 0;
-+
-+	if (v9inode->qid.path != st->qid.path)
-+		return 0;
- 	return 1;
- }
+@@ -489,8 +489,7 @@ p9_virtio_zc_request(struct p9_client *client, struct p9_req_t *req,
+ 	virtqueue_kick(chan->vq);
+ 	spin_unlock_irqrestore(&chan->lock, flags);
+ 	p9_debug(P9_DEBUG_TRANS, "virtio request kicked\n");
+-	err = wait_event_interruptible(*req->wq,
+-				       req->status >= REQ_STATUS_RCVD);
++	err = wait_event_killable(*req->wq, req->status >= REQ_STATUS_RCVD);
+ 	/*
+ 	 * Non kernel buffers are pinned, unpin them
+ 	 */
+diff --git a/net/9p/trans_xen.c b/net/9p/trans_xen.c
+index 6ad3e043c617..325c56043007 100644
+--- a/net/9p/trans_xen.c
++++ b/net/9p/trans_xen.c
+@@ -156,8 +156,8 @@ static int p9_xen_request(struct p9_client *client, struct p9_req_t *p9_req)
+ 	ring = &priv->rings[num];
  
+ again:
+-	while (wait_event_interruptible(ring->wq,
+-					p9_xen_write_todo(ring, size)) != 0)
++	while (wait_event_killable(ring->wq,
++				   p9_xen_write_todo(ring, size)) != 0)
+ 		;
+ 
+ 	spin_lock_irqsave(&ring->lock, flags);
 -- 
 2.13.0
