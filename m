@@ -1,195 +1,80 @@
-From: Sebastian Gottschall <s.gottschall@dd-wrt.com>
-Subject: Re: hung task in mac80211
-Date: Wed, 6 Sep 2017 17:45:00 +0200
-Message-ID: <20241e64-322a-03d3-b259-d9817c80ef53@dd-wrt.com>
-References: <CAGnkfhwi9MmtLneeU23iWEGLj9cb1ODb3KzzOqTDvA6nNVsugg@mail.gmail.com>
- <1504702728.13457.17.camel@sipsolutions.net>
- <CAGnkfhyBMKT-Tf10NxjN40Znuj7OK2pSM3qLUidPSkQqh8gjwQ@mail.gmail.com>
+From: Sergey Matyukevich <sergey.matyukevich.os-P/7pdk10T0iB+jHODAdFcQ@public.gmane.org>
+Subject: Re: VLAN/bridge "compression" in wifi (was: Re: [PATCH 3/8] qtnfmac:
+ implement AP_VLAN iftype support)
+Date: Wed, 6 Sep 2017 18:45:23 +0300
+Message-ID: <20170906154522.twtesbo2rxbrhekf@bars>
+References: <20170620195517.18373-1-sergey.matyukevich.os@quantenna.com>
+ <20170620195517.18373-4-sergey.matyukevich.os@quantenna.com>
+ <1504619151.12380.16.camel@sipsolutions.net>
+ <1504621233.12380.21.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Matteo Croce <mcroce@redhat.com>,
-        Johannes Berg <johannes@sipsolutions.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtps.newmedia-net.de ([185.84.6.167]:52723 "EHLO
-        webmail.newmedia-net.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1754917AbdIFPpD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2017 11:45:03 -0400
-In-Reply-To: <CAGnkfhyBMKT-Tf10NxjN40Znuj7OK2pSM3qLUidPSkQqh8gjwQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-i confirm this patch fixes the issue for me as well
-
-Am 06.09.2017 um 17:04 schrieb Matteo Croce:
-> On Wed, Sep 6, 2017 at 2:58 PM, Johannes Berg <johannes@sipsolutions.net> wrote:
->> On Wed, 2017-09-06 at 13:57 +0200, Matteo Croce wrote:
->>
->>> I have an hung task on vanilla 4.13 kernel which I haven't on 4.12.
->>> The problem is present both on my AP and on my notebook,
->>> so it seems it affects AP and STA mode as well.
->>> The generated messages are:
->>>
->>> INFO: task kworker/u16:6:120 blocked for more than 120 seconds.
->>>        Not tainted 4.13.0 #57
->>> "echo 0 > /proc/sys/kernel/hung_task_timeout_secs" disables this
->>> message.
->>> kworker/u16:6   D    0   120      2 0x00000000
->>> Workqueue: phy0 ieee80211_ba_session_work [mac80211]
->>> Call Trace:
->>>   ? __schedule+0x174/0x5b0
->>>   ? schedule+0x31/0x80
->>>   ? schedule_preempt_disabled+0x9/0x10
->>>   ? __mutex_lock.isra.2+0x163/0x480
->>>   ? select_task_rq_fair+0xb9f/0xc60
->>>   ? __ieee80211_start_rx_ba_session+0x135/0x4d0 [mac80211]
->>>   ? __ieee80211_start_rx_ba_session+0x135/0x4d0 [mac80211]
->> Yeah - obviously as Stefano found, both take &sta->ampdu_mlme.mtx.
->>
->> Can you try this?
->>
->> diff --git a/net/mac80211/agg-rx.c b/net/mac80211/agg-rx.c
->> index 2b36eff5d97e..d8d32776031e 100644
->> --- a/net/mac80211/agg-rx.c
->> +++ b/net/mac80211/agg-rx.c
->> @@ -245,10 +245,10 @@ static void ieee80211_send_addba_resp(struct ieee80211_sub_if_data *sdata, u8 *d
->>          ieee80211_tx_skb(sdata, skb);
->>   }
->>
->> -void __ieee80211_start_rx_ba_session(struct sta_info *sta,
->> -                                    u8 dialog_token, u16 timeout,
->> -                                    u16 start_seq_num, u16 ba_policy, u16 tid,
->> -                                    u16 buf_size, bool tx, bool auto_seq)
->> +void ___ieee80211_start_rx_ba_session(struct sta_info *sta,
->> +                                     u8 dialog_token, u16 timeout,
->> +                                     u16 start_seq_num, u16 ba_policy, u16 tid,
->> +                                     u16 buf_size, bool tx, bool auto_seq)
->>   {
->>          struct ieee80211_local *local = sta->sdata->local;
->>          struct tid_ampdu_rx *tid_agg_rx;
->> @@ -267,7 +267,7 @@ void __ieee80211_start_rx_ba_session(struct sta_info *sta,
->>                  ht_dbg(sta->sdata,
->>                         "STA %pM requests BA session on unsupported tid %d\n",
->>                         sta->sta.addr, tid);
->> -               goto end_no_lock;
->> +               goto end;
->>          }
->>
->>          if (!sta->sta.ht_cap.ht_supported) {
->> @@ -275,14 +275,14 @@ void __ieee80211_start_rx_ba_session(struct sta_info *sta,
->>                         "STA %pM erroneously requests BA session on tid %d w/o QoS\n",
->>                         sta->sta.addr, tid);
->>                  /* send a response anyway, it's an error case if we get here */
->> -               goto end_no_lock;
->> +               goto end;
->>          }
->>
->>          if (test_sta_flag(sta, WLAN_STA_BLOCK_BA)) {
->>                  ht_dbg(sta->sdata,
->>                         "Suspend in progress - Denying ADDBA request (%pM tid %d)\n",
->>                         sta->sta.addr, tid);
->> -               goto end_no_lock;
->> +               goto end;
->>          }
->>
->>          /* sanity check for incoming parameters:
->> @@ -296,7 +296,7 @@ void __ieee80211_start_rx_ba_session(struct sta_info *sta,
->>                  ht_dbg_ratelimited(sta->sdata,
->>                                     "AddBA Req with bad params from %pM on tid %u. policy %d, buffer size %d\n",
->>                                     sta->sta.addr, tid, ba_policy, buf_size);
->> -               goto end_no_lock;
->> +               goto end;
->>          }
->>          /* determine default buffer size */
->>          if (buf_size == 0)
->> @@ -311,7 +311,6 @@ void __ieee80211_start_rx_ba_session(struct sta_info *sta,
->>                 buf_size, sta->sta.addr);
->>
->>          /* examine state machine */
->> -       mutex_lock(&sta->ampdu_mlme.mtx);
->>
->>          if (test_bit(tid, sta->ampdu_mlme.agg_session_valid)) {
->>                  if (sta->ampdu_mlme.tid_rx_token[tid] == dialog_token) {
->> @@ -415,15 +414,25 @@ void __ieee80211_start_rx_ba_session(struct sta_info *sta,
->>                  __clear_bit(tid, sta->ampdu_mlme.unexpected_agg);
->>                  sta->ampdu_mlme.tid_rx_token[tid] = dialog_token;
->>          }
->> -       mutex_unlock(&sta->ampdu_mlme.mtx);
->>
->> -end_no_lock:
->>          if (tx)
->>                  ieee80211_send_addba_resp(sta->sdata, sta->sta.addr, tid,
->>                                            dialog_token, status, 1, buf_size,
->>                                            timeout);
->>   }
->>
->> +void __ieee80211_start_rx_ba_session(struct sta_info *sta,
->> +                                    u8 dialog_token, u16 timeout,
->> +                                    u16 start_seq_num, u16 ba_policy, u16 tid,
->> +                                    u16 buf_size, bool tx, bool auto_seq)
->> +{
->> +       mutex_lock(&sta->ampdu_mlme.mtx);
->> +       ___ieee80211_start_rx_ba_session(sta, dialog_token, timeout,
->> +                                        start_seq_num, ba_policy, tid,
->> +                                        buf_size, tx, auto_seq);
->> +       mutex_unlock(&sta->ampdu_mlme.mtx);
->> +}
->> +
->>   void ieee80211_process_addba_request(struct ieee80211_local *local,
->>                                       struct sta_info *sta,
->>                                       struct ieee80211_mgmt *mgmt,
->> diff --git a/net/mac80211/ht.c b/net/mac80211/ht.c
->> index c92df492e898..198b2d3e56fd 100644
->> --- a/net/mac80211/ht.c
->> +++ b/net/mac80211/ht.c
->> @@ -333,9 +333,9 @@ void ieee80211_ba_session_work(struct work_struct *work)
->>
->>                  if (test_and_clear_bit(tid,
->>                                         sta->ampdu_mlme.tid_rx_manage_offl))
->> -                       __ieee80211_start_rx_ba_session(sta, 0, 0, 0, 1, tid,
->> -                                                       IEEE80211_MAX_AMPDU_BUF,
->> -                                                       false, true);
->> +                       ___ieee80211_start_rx_ba_session(sta, 0, 0, 0, 1, tid,
->> +                                                        IEEE80211_MAX_AMPDU_BUF,
->> +                                                        false, true);
->>
->>                  if (test_and_clear_bit(tid + IEEE80211_NUM_TIDS,
->>                                         sta->ampdu_mlme.tid_rx_manage_offl))
->> diff --git a/net/mac80211/ieee80211_i.h b/net/mac80211/ieee80211_i.h
->> index 2197c62a0a6e..9675814f64db 100644
->> --- a/net/mac80211/ieee80211_i.h
->> +++ b/net/mac80211/ieee80211_i.h
->> @@ -1760,6 +1760,10 @@ void __ieee80211_start_rx_ba_session(struct sta_info *sta,
->>                                       u8 dialog_token, u16 timeout,
->>                                       u16 start_seq_num, u16 ba_policy, u16 tid,
->>                                       u16 buf_size, bool tx, bool auto_seq);
->> +void ___ieee80211_start_rx_ba_session(struct sta_info *sta,
->> +                                     u8 dialog_token, u16 timeout,
->> +                                     u16 start_seq_num, u16 ba_policy, u16 tid,
->> +                                     u16 buf_size, bool tx, bool auto_seq);
->>   void ieee80211_sta_tear_down_BA_sessions(struct sta_info *sta,
->>                                           enum ieee80211_agg_stop_reason reason);
->>   void ieee80211_process_delba(struct ieee80211_sub_if_data *sdata,
->>
->> johannes
-> I confirm that this patch fixes the hang too.
-> I'm curious to see if there are noticeable performance differences
-> between the two solutions.
->
-> Cheers,
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Igor Mitsyanko <igor.mitsyanko.os-P/7pdk10T0iB+jHODAdFcQ@public.gmane.org>,
+        Avinash Patil <avinashp-P/7pdk10T0iB+jHODAdFcQ@public.gmane.org>
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1504621233.12380.21.camel-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 
--- 
-Mit freundlichen Grüssen / Regards
+Hi Johannes and all,
 
-Sebastian Gottschall / CTO
+> > In a way this feature seems mis-designed - you never have 802.1Q tags
+> > over the air, but you're inserting them on RX and stripping them on
+> > TX, probably in order to make bridging to ethernet easier and not
+> > have to have 802.1Q acceleration on the ethernet port, or - well - in
+> > order to have an ability to do this with an ethernet card that only
+> > has a single CPU port.
+> 
+> Ok this isn't really right either - it's only for saving the 802.1Q
+> acceleration on the Ethernet port, really - and saving the extra
+> bridges.
+> 
+> To clarify, I think what you - conceptually - want is the following
+> topology:
+> 
+>         +--- eth0.1  ---  br.1  ---  wlan0.1
+>         |
+> eth0 ---+--- eth0.2  ---  br.2  ---  wlan0.2
+>         |
+>         +--- eth0.3  ---  br.3  ---  wlan0.3
+> 
+> where eth0.N is just "ip link add link eth0 name eth0.N type vlan id N"
+> and br.N is obviously a bridge for each, and the wlan0.N are AP_VLAN
+> type interfaces that isolate the clients against each other as far as
+> wifi is concerned.
+> 
+> Is this correct? As far as I understand, that's the baseline topology
+> that you're trying to achieve, expressed in terms of Linux networking.
 
-NewMedia-NET GmbH - DD-WRT
-Firmensitz:  Berliner Ring 101, 64625 Bensheim
-Registergericht: Amtsgericht Darmstadt, HRB 25473
-Geschäftsführer: Peter Steinhäuser, Christian Scheele
-http://www.dd-wrt.com
-email: s.gottschall@dd-wrt.com
-Tel.: +496251-582650 / Fax: +496251-5826565
+That's right. In fact, hostapd is able to create this kind of network
+bridge infrastructure automatically when it is built
+with CONFIG_FULL_DYNAMIC_VLAN option enabled.
+
+> Now, you seem to want to compress this to
+> 
+>                   +---  wlan0.1
+>                   |
+> eth0  ---  br  ---+---  wlan0.2
+>                   |
+>                   +---  wlan0.3
+> 
+> and have the 802.1Q tag insertion/removal that's normally configured to
+> happen in eth0.N already be handled in wlan0.N.
+> 
+> Also correct?
+
+Exactly. And yes, the only purpose of this 'non-conventional' mode was
+to have 802.1Q acceleration on the ethernet port.
+
+> 
+> 
+> We clearly don't have APIs for this, and I don't think it makes sense
+> in the Linux space - the bridge and wlan0.N suddenly have tagged
+> traffic rather than untagged, and the VLAN tagging is completely hidden
+> from the management view.
+> 
+> johannes
