@@ -1,94 +1,96 @@
-From: Stefano Brivio <sbrivio@redhat.com>
-Subject: Re: hung task in mac80211
-Date: Wed, 6 Sep 2017 14:40:19 +0200
-Message-ID: <20170906144019.1c98a636@elisabeth>
-References: <CAGnkfhwi9MmtLneeU23iWEGLj9cb1ODb3KzzOqTDvA6nNVsugg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        Johannes Berg <johannes.berg@intel.com>
-To: Matteo Croce <mcroce@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAGnkfhwi9MmtLneeU23iWEGLj9cb1ODb3KzzOqTDvA6nNVsugg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: [PATCH net] udp: drop head states only when all skb references are gone
+Date: Wed,  6 Sep 2017 14:44:36 +0200
+Message-ID: <1d0596e2a1926e7c0e8c7f691ef42c713daa3396.1504701206.git.pabeni@redhat.com>
+References: <1504631927.15310.47.camel@edumazet-glaptop3.roam.corp.google.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:54227 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753828AbdIFMpA (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 6 Sep 2017 08:45:00 -0400
+In-Reply-To: <1504631927.15310.47.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 6 Sep 2017 13:57:47 +0200
-Matteo Croce <mcroce@redhat.com> wrote:
+After commit 0ddf3fb2c43d ("udp: preserve skb->dst if required
+for IP options processing") we clear the skb head state as soon
+as the skb carrying them is first processed.
 
-> Hi,
-> 
-> I have an hung task on vanilla 4.13 kernel which I haven't on 4.12.
-> The problem is present both on my AP and on my notebook,
-> so it seems it affects AP and STA mode as well.
-> The generated messages are:
-> 
-> INFO: task kworker/u16:6:120 blocked for more than 120 seconds.
->       Not tainted 4.13.0 #57
-> "echo 0 > /proc/sys/kernel/hung_task_timeout_secs" disables this message.
-> kworker/u16:6   D    0   120      2 0x00000000
-> Workqueue: phy0 ieee80211_ba_session_work [mac80211]
-> Call Trace:
->  ? __schedule+0x174/0x5b0
->  ? schedule+0x31/0x80
->  ? schedule_preempt_disabled+0x9/0x10
->  ? __mutex_lock.isra.2+0x163/0x480
->  ? select_task_rq_fair+0xb9f/0xc60
->  ? __ieee80211_start_rx_ba_session+0x135/0x4d0 [mac80211]
->  ? __ieee80211_start_rx_ba_session+0x135/0x4d0 [mac80211]
+Since the same skb can be processed several times when MSG_PEEK
+is used, we can end up lacking the required head states, and
+eventually oopsing.
 
-This is ugly and maybe wrong, but you could check perhaps...:
+Fix this clearing the skb head state only when processing the
+last skb reference.
 
-diff --git a/net/mac80211/ht.c b/net/mac80211/ht.c
-index c92df492e898..bd7512a656f2 100644
---- a/net/mac80211/ht.c
-+++ b/net/mac80211/ht.c
-@@ -320,28 +320,40 @@ void ieee80211_ba_session_work(struct work_struct *work)
+Reported-by: Eric Dumazet <edumazet@google.com>
+Fixes: 0ddf3fb2c43d ("udp: preserve skb->dst if required for IP options processing")
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+---
+ include/linux/skbuff.h | 2 +-
+ net/core/skbuff.c      | 9 +++------
+ net/ipv4/udp.c         | 5 ++++-
+ 3 files changed, 8 insertions(+), 8 deletions(-)
+
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index d67a8182e5eb..63df75ae70ee 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -885,7 +885,7 @@ void kfree_skb(struct sk_buff *skb);
+ void kfree_skb_list(struct sk_buff *segs);
+ void skb_tx_error(struct sk_buff *skb);
+ void consume_skb(struct sk_buff *skb);
+-void consume_stateless_skb(struct sk_buff *skb);
++void __consume_stateless_skb(struct sk_buff *skb);
+ void  __kfree_skb(struct sk_buff *skb);
+ extern struct kmem_cache *skbuff_head_cache;
  
- 	mutex_lock(&sta->ampdu_mlme.mtx);
- 	for (tid = 0; tid < IEEE80211_NUM_TIDS; tid++) {
--		if (test_and_clear_bit(tid, sta->ampdu_mlme.tid_rx_timer_expired))
-+		if (test_and_clear_bit(tid, sta->ampdu_mlme.tid_rx_timer_expired)) {
-+			mutex_unlock(&sta->ampdu_mlme.mtx);
- 			___ieee80211_stop_rx_ba_session(
- 				sta, tid, WLAN_BACK_RECIPIENT,
- 				WLAN_REASON_QSTA_TIMEOUT, true);
-+			mutex_lock(&sta->ampdu_mlme.mtx);
-+		}
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index e07556606284..72eb23d2426f 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -753,14 +753,11 @@ EXPORT_SYMBOL(consume_skb);
+  *	consume_stateless_skb - free an skbuff, assuming it is stateless
+  *	@skb: buffer to free
+  *
+- *	Works like consume_skb(), but this variant assumes that all the head
+- *	states have been already dropped.
++ *	Alike consume_skb(), but this variant assumes that this is the last
++ *	skb reference and all the head states have been already dropped
+  */
+-void consume_stateless_skb(struct sk_buff *skb)
++void __consume_stateless_skb(struct sk_buff *skb)
+ {
+-	if (!skb_unref(skb))
+-		return;
+-
+ 	trace_consume_skb(skb);
+ 	if (likely(skb->head))
+ 		skb_release_data(skb);
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 62344804baae..979e4d8526ba 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1386,12 +1386,15 @@ void skb_consume_udp(struct sock *sk, struct sk_buff *skb, int len)
+ 		unlock_sock_fast(sk, slow);
+ 	}
  
- 		if (test_and_clear_bit(tid,
--				       sta->ampdu_mlme.tid_rx_stop_requested))
-+				       sta->ampdu_mlme.tid_rx_stop_requested)) {
-+			mutex_unlock(&sta->ampdu_mlme.mtx);
- 			___ieee80211_stop_rx_ba_session(
- 				sta, tid, WLAN_BACK_RECIPIENT,
- 				WLAN_REASON_UNSPECIFIED, true);
-+			mutex_lock(&sta->ampdu_mlme.mtx);
-+		}
- 
- 		if (test_and_clear_bit(tid,
--				       sta->ampdu_mlme.tid_rx_manage_offl))
-+				       sta->ampdu_mlme.tid_rx_manage_offl)) {
-+			mutex_unlock(&sta->ampdu_mlme.mtx);
- 			__ieee80211_start_rx_ba_session(sta, 0, 0, 0, 1, tid,
- 							IEEE80211_MAX_AMPDU_BUF,
- 							false, true);
-+			mutex_lock(&sta->ampdu_mlme.mtx);
-+		}
- 
- 		if (test_and_clear_bit(tid + IEEE80211_NUM_TIDS,
--				       sta->ampdu_mlme.tid_rx_manage_offl))
-+				       sta->ampdu_mlme.tid_rx_manage_offl)) {
-+			mutex_unlock(&sta->ampdu_mlme.mtx);
- 			___ieee80211_stop_rx_ba_session(
- 				sta, tid, WLAN_BACK_RECIPIENT,
- 				0, false);
-+			mutex_lock(&sta->ampdu_mlme.mtx);
-+		}
- 
- 		spin_lock_bh(&sta->lock);
++	if (!skb_unref(skb))
++		return;
++
+ 	/* In the more common cases we cleared the head states previously,
+ 	 * see __udp_queue_rcv_skb().
+ 	 */
+ 	if (unlikely(udp_skb_has_head_state(skb)))
+ 		skb_release_head_state(skb);
+-	consume_stateless_skb(skb);
++	__consume_stateless_skb(skb);
+ }
+ EXPORT_SYMBOL_GPL(skb_consume_udp);
  
 -- 
-Stefano
+2.13.5
