@@ -1,52 +1,78 @@
-From: =?utf-8?Q?H=C3=A5kon_Bugge?= <haakon.bugge@oracle.com>
-Subject: Re: [PATCH net] rds: Fix incorrect statistics counting
-Date: Wed, 6 Sep 2017 18:12:58 +0200
-Message-ID: <715EA84D-6ACA-45DE-9EA2-6122E11545E8@oracle.com>
-References: <20170906152950.17766-1-Haakon.Bugge@oracle.com>
- <b620a15a-e60e-5c35-ffef-ee485d338774@oracle.com>
-Mime-Version: 1.0 (Mac OS X Mail 10.3 \(3273\))
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8BIT
-Cc: "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        OFED mailing list <linux-rdma@vger.kernel.org>,
-        rds-devel@oss.oracle.com, linux-kernel@vger.kernel.org,
-        Knut Omang <knut.omang@oracle.com>
-To: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <b620a15a-e60e-5c35-ffef-ee485d338774@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [pull request][net-next 0/3] Mellanox, mlx5 GRE tunnel offloads
+Date: Wed, 6 Sep 2017 09:17:50 -0700
+Message-ID: <CALx6S37eY4eWEtBhfGqqRxtr3B4T5qpuBThUa0yH0CKCj6j4_w@mail.gmail.com>
+References: <20170830230409.15176-1-saeedm@mellanox.com> <87fuc7ong0.fsf@stressinduktion.org>
+ <CALzJLG-u3k11LYFXtZQKT5cvn-iJ4FehBUgkhCHT5Z7XMsMkpA@mail.gmail.com>
+ <1504402349.3299394.1093467800.72B91372@webmail.messagingengine.com>
+ <CALx6S34kfb5GEH9AAecsaKJ9AtjK=fP_3L=2i98kUwv_sE2s7A@mail.gmail.com>
+ <CALzJLG--t8VLs1GiRRVfejenB=XgpLiJHnHC+eokQ4=kwj9hGw@mail.gmail.com>
+ <CALx6S356vRYfcsN6FaRmpn2oC0GN9-JwLsF7ybC+w4sEGGsa7w@mail.gmail.com>
+ <87pob6bmjv.fsf@stressinduktion.org> <CALx6S37wcp1om0Dwr1=-6jF=HkAuZj313pLJ7sVhgsyJ4yZDjg@mail.gmail.com>
+ <8760cytnif.fsf@stressinduktion.org> <CALx6S34cOL4Gy9DMWnLV0iCVUYo+siMEeNNn9v5tBHr2P6yjYw@mail.gmail.com>
+ <87k21ez6r9.fsf@stressinduktion.org> <CALx6S34aDER1Gzpcw+p7+yr91mjiixCh6gnawKSxy7zhVQz+6Q@mail.gmail.com>
+ <87r2vls8hp.fsf@stressinduktion.org> <CALx6S345jR6UtAGju9TaPxAOMgkBG2RZ+eMWz80ix1joSmQCog@mail.gmail.com>
+ <87fuc1q7en.fsf@stressinduktion.org> <CALx6S3698iBwLX3wXw8_rhHbhztLh-BAkkhn68=z=2FgbfTkZg@mail.gmail.com>
+ <CAKgT0UeHbs3cM=yvSAdQMN92mWZjaqsq5Pyk1SkC8V_DK8pf3A@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Saeed Mahameed <saeedm@dev.mellanox.co.il>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Linux Netdev List <netdev@vger.kernel.org>
+To: Alexander Duyck <alexander.duyck@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f175.google.com ([209.85.220.175]:35224 "EHLO
+        mail-qk0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752462AbdIFQRw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2017 12:17:52 -0400
+Received: by mail-qk0-f175.google.com with SMTP id r141so20663402qke.2
+        for <netdev@vger.kernel.org>; Wed, 06 Sep 2017 09:17:52 -0700 (PDT)
+In-Reply-To: <CAKgT0UeHbs3cM=yvSAdQMN92mWZjaqsq5Pyk1SkC8V_DK8pf3A@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Tue, Sep 5, 2017 at 8:06 PM, Alexander Duyck
+<alexander.duyck@gmail.com> wrote:
+> On Tue, Sep 5, 2017 at 2:13 PM, Tom Herbert <tom@herbertland.com> wrote:
+>>> The situation with encapsulation is even more complicated:
+>>>
+>>> We are basically only interested in the UDP/vxlan/Ethernet/IP/UDP
+>>> constellation. If we do the fragmentation inside the vxlan tunnel and
+>>> carry over the skb hash to all resulting UDP/vxlan packets source ports,
+>>> we are fine and reordering on the receiver NIC won't happen in this
+>>> case. If the fragmentation happens on the outer UDP header, this will
+>>> result in reordering of the inner L2 flow. Unfortunately this depends on
+>>> how the vxlan tunnel was set up, how other devices do that and (I
+>>> believe so) on the kernel version.
+>>>
+>> This really isn't that complicated. The assumption that an IP network
+>> always delivers packets in order is simply wrong. The inventors of
+>> VXLAN must have know full well that when you use IP, packets can and
+>> eventually will be delivered out of order. This isn't just because of
+>> fragmentation, there are many other reasons that packets can be
+>> delivered OOO. This also must have been known when IP/GRE and any
+>> other protocol that carries L2 over IP was invented. If OOO is an
+>> issue for these protocols then they need to be fixed-- this is not a
+>> concern with IP protocol nor the stack.
+>>
+>> Tom
+>
+> As far as a little background on the original patch I believe the
+> issue that was fixed by the patch was a video streaming application
+> that was sending/receiving a mix of fragmented and non-fragmented
+> packets. Receiving them out of order due to the fragmentation was
+> causing issues with stutters in the video and so we ended up disabling
+> UDP by default in the NICs listed. We decided to go that way as UDP
+> RSS was viewed as a performance optimization, while the out-of-order
+> problems were viewed as a functionality issue.
+>
+Hi Alex,
 
-> On 6 Sep 2017, at 17:58, Santosh Shilimkar <santosh.shilimkar@oracle.com> wrote:
-> 
-> On 9/6/2017 8:29 AM, Håkon Bugge wrote:
->> In rds_send_xmit() there is logic to batch the sends. However, if
->> another thread has acquired the lock, it is considered a race and we
->> yield. The code incrementing the s_send_lock_queue_raced statistics
->> counter did not count this event correctly.
->> This commit removes a small race in determining the race and
->> increments the statistics counter correctly.
->> Signed-off-by: Håkon Bugge <haakon.bugge@oracle.com>
->> Reviewed-by: Knut Omang <knut.omang@oracle.com>
->> ---
->>  net/rds/send.c | 16 +++++++++++++---
->>  1 file changed, 13 insertions(+), 3 deletions(-)
-> Those counters are not really to give that accurate so
-> am not very keen to add additional cycles in send paths
-> and add additional code. Have you seen any real issue
-> or this is just a observation. s_send_lock_queue_raced
-> counter is never used to check for smaller increments
-> and hence the question.
+Thanks for the details! Were you able to find the root cause for this?
+In particular, it would be interesting to know if it is the kernel or
+device that introduced the jitter, or if it's the application that
+doesn't handle OOO well...
 
-Hi Santosh,
-
-
-Yes, I agree with accuracy of s_send_lock_queue_raced. But the main point is that the existing code counts some partial share of when it is _not_ raced.
-
-So, in the critical path, my patch adds one test_bit(), which hits the local CPU cache, if not raced. If raced, some other thread is in control, so I would not think the added cycles would make any big difference.
-
-I can send a v2 where the race tightening is removed if you like.
-
-
-Thxs, Håkon
+Tom
