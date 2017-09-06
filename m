@@ -1,54 +1,42 @@
-From: Jiri Kosina <jikos@kernel.org>
-Subject: Re: [PATCH 3/6] hid: make device_attribute const
-Date: Wed, 6 Sep 2017 10:57:29 +0200 (CEST)
-Message-ID: <nycvar.YFH.7.76.1709061057200.4077@jbgna.fhfr.qr>
-References: <1503315792-14837-1-git-send-email-bhumirks@gmail.com> <1503315792-14837-4-git-send-email-bhumirks@gmail.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH net-next] net: cpsw: Don't handle SIOC[GS]HWTSTAMP when
+ CPTS is disabled
+Date: Wed, 6 Sep 2017 10:59:01 +0200
+Message-ID: <20170906085901.qauya3ogfewjcyv3@localhost>
+References: <20170830065055.419-1-stefan.sorensen@spectralink.com>
+ <20170830.144745.947488279115809130.davem@davemloft.net>
+ <20170831074807.3dbbt6qhqxdquipa@localhost>
+ <c470bbf2-fadf-88ba-f944-f0b373d211ad@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: julia.lawall@lip6.fr, rjw@rjwysocki.net, lenb@kernel.org,
-        jbacik@fb.com, benjamin.tissoires@redhat.com,
-        manish.chopra@cavium.com, rahul.verma@cavium.com,
-        Dept-GELinuxNICDev@cavium.com, harish.patil@cavium.com,
-        cascardo@holoscopio.com, don@syst.com.br, dvhart@infradead.org,
-        andy@infradead.org, sre@kernel.org, linux-acpi@vger.kernel.org,
-        linux-kernel@vger.kernel.org, linux-block@vger.kernel.org,
-        nbd-general@lists.sourceforge.net, linux-input@vger.kernel.org,
-        netdev@vger.kernel.org, platform-driver-x86@vger.kernel.org,
-        linux-pm@vger.kernel.org
-To: Bhumika Goyal <bhumirks@gmail.com>
-Return-path: <linux-input-owner@vger.kernel.org>
-In-Reply-To: <1503315792-14837-4-git-send-email-bhumirks@gmail.com>
-Sender: linux-input-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+        stefan.sorensen@spectralink.com, netdev@vger.kernel.org,
+        linux-omap@vger.kernel.org
+To: Grygorii Strashko <grygorii.strashko@ti.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f194.google.com ([209.85.128.194]:35530 "EHLO
+        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752066AbdIFI7G (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2017 04:59:06 -0400
+Content-Disposition: inline
+In-Reply-To: <c470bbf2-fadf-88ba-f944-f0b373d211ad@ti.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 21 Aug 2017, Bhumika Goyal wrote:
+On Tue, Sep 05, 2017 at 04:25:22PM -0500, Grygorii Strashko wrote:
+> I'd like to clarify one thing here - what is the preferable time-stamping
+> device: PHY over MAC, or MAC over PHY? 
+> my understanding it's PHY and ethtool_get_ts_info() seems already implemented this way.
 
-> Make this const as it is only passed as an argument to the
-> function device_create_file and device_remove_file and the corresponding
-> arguments are of type const.
-> Done using Coccinelle
-> 
-> Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
-> ---
->  drivers/hid/hid-core.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/hid/hid-core.c b/drivers/hid/hid-core.c
-> index 9bc9116..24e929c 100644
-> --- a/drivers/hid/hid-core.c
-> +++ b/drivers/hid/hid-core.c
-> @@ -1662,7 +1662,7 @@ static bool hid_hiddev(struct hid_device *hdev)
->  	.size = HID_MAX_DESCRIPTOR_SIZE,
->  };
->  
-> -static struct device_attribute dev_attr_country = {
-> +static const struct device_attribute dev_attr_country = {
->  	.attr = { .name = "country", .mode = 0444 },
->  	.show = show_country,
+We simply do not have a way to support MAC and PHY time stamping and
+PTP Hardware Clocks at the same time.  Sure, it must be somehow
+possible, but that would involve extending SO_TIMESTAMPING yet again,
+and this is not worth the effort, IMHO.
 
-Applied, thanks.
+There is exactly one PHY on the market that supports time stamping,
+and yes, people who design their boards with it generally want to use
+it.  They have to enable CONFIG_NETWORK_PHY_TIMESTAMPING and disable
+MAC time stamping.
 
--- 
-Jiri Kosina
-SUSE Labs
-
+Thanks,
+Richard
