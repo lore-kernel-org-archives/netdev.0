@@ -1,109 +1,195 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: [PATCH net-next] xdp: implement xdp_redirect_map for generic XDP
-Date: Wed, 6 Sep 2017 11:44:18 -0400
-Message-ID: <CAHashqBPDDETq2qdj3n8uL3hE61f=a5cv_eF6a9apoRzNVqaxA@mail.gmail.com>
-References: <150471158528.3727.12324542627400287360.stgit@firesoul>
+From: Sebastian Gottschall <s.gottschall@dd-wrt.com>
+Subject: Re: hung task in mac80211
+Date: Wed, 6 Sep 2017 17:45:00 +0200
+Message-ID: <20241e64-322a-03d3-b259-d9817c80ef53@dd-wrt.com>
+References: <CAGnkfhwi9MmtLneeU23iWEGLj9cb1ODb3KzzOqTDvA6nNVsugg@mail.gmail.com>
+ <1504702728.13457.17.camel@sipsolutions.net>
+ <CAGnkfhyBMKT-Tf10NxjN40Znuj7OK2pSM3qLUidPSkQqh8gjwQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        John Fastabend <john.fastabend@gmail.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Matteo Croce <mcroce@redhat.com>,
+        Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f193.google.com ([209.85.216.193]:33373 "EHLO
-        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754902AbdIFPok (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2017 11:44:40 -0400
-Received: by mail-qt0-f193.google.com with SMTP id h15so4127033qta.0
-        for <netdev@vger.kernel.org>; Wed, 06 Sep 2017 08:44:39 -0700 (PDT)
-In-Reply-To: <150471158528.3727.12324542627400287360.stgit@firesoul>
+Received: from smtps.newmedia-net.de ([185.84.6.167]:52723 "EHLO
+        webmail.newmedia-net.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1754917AbdIFPpD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2017 11:45:03 -0400
+In-Reply-To: <CAGnkfhyBMKT-Tf10NxjN40Znuj7OK2pSM3qLUidPSkQqh8gjwQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 6, 2017 at 11:26 AM, Jesper Dangaard Brouer
-<brouer@redhat.com> wrote:
-> Using bpf_redirect_map is allowed for generic XDP programs, but the
-> appropriate map lookup was never performed in xdp_do_generic_redirect().
->
-> Instead the map-index is directly used as the ifindex.  For the
-> xdp_redirect_map sample in SKB-mode '-S', this resulted in trying
-> sending on ifindex 0 which isn't valid, resulting in getting SKB
-> packets dropped.  Thus, the reported performance numbers are wrong in
-> commit 24251c264798 ("samples/bpf: add option for native and skb mode
-> for redirect apps") for the 'xdp_redirect_map -S' case.
->
-> It might seem innocent this was lacking, but it can actually crash the
-> kernel.  The potential crash is caused by not consuming redirect_info->map.
-> The bpf_redirect_map helper will set this_cpu_ptr(&redirect_info)->map
-> pointer, which will survive even after unloading the xdp bpf_prog and
-> deallocating the devmap data-structure.  This leaves a dead map
-> pointer around.  The kernel will crash when loading the xdp_redirect
-> sample (in native XDP mode) as it doesn't reset map (via bpf_redirect)
-> and returns XDP_REDIRECT, which will cause it to dereference the map
-> pointer.
+i confirm this patch fixes the issue for me as well
 
-Nice catch!
-
-Since 'net-next' is closed and this is a bugfix it seems like this is
-a good candidate for 'net' right?
-
+Am 06.09.2017 um 17:04 schrieb Matteo Croce:
+> On Wed, Sep 6, 2017 at 2:58 PM, Johannes Berg <johannes@sipsolutions.net> wrote:
+>> On Wed, 2017-09-06 at 13:57 +0200, Matteo Croce wrote:
+>>
+>>> I have an hung task on vanilla 4.13 kernel which I haven't on 4.12.
+>>> The problem is present both on my AP and on my notebook,
+>>> so it seems it affects AP and STA mode as well.
+>>> The generated messages are:
+>>>
+>>> INFO: task kworker/u16:6:120 blocked for more than 120 seconds.
+>>>        Not tainted 4.13.0 #57
+>>> "echo 0 > /proc/sys/kernel/hung_task_timeout_secs" disables this
+>>> message.
+>>> kworker/u16:6   D    0   120      2 0x00000000
+>>> Workqueue: phy0 ieee80211_ba_session_work [mac80211]
+>>> Call Trace:
+>>>   ? __schedule+0x174/0x5b0
+>>>   ? schedule+0x31/0x80
+>>>   ? schedule_preempt_disabled+0x9/0x10
+>>>   ? __mutex_lock.isra.2+0x163/0x480
+>>>   ? select_task_rq_fair+0xb9f/0xc60
+>>>   ? __ieee80211_start_rx_ba_session+0x135/0x4d0 [mac80211]
+>>>   ? __ieee80211_start_rx_ba_session+0x135/0x4d0 [mac80211]
+>> Yeah - obviously as Stefano found, both take &sta->ampdu_mlme.mtx.
+>>
+>> Can you try this?
+>>
+>> diff --git a/net/mac80211/agg-rx.c b/net/mac80211/agg-rx.c
+>> index 2b36eff5d97e..d8d32776031e 100644
+>> --- a/net/mac80211/agg-rx.c
+>> +++ b/net/mac80211/agg-rx.c
+>> @@ -245,10 +245,10 @@ static void ieee80211_send_addba_resp(struct ieee80211_sub_if_data *sdata, u8 *d
+>>          ieee80211_tx_skb(sdata, skb);
+>>   }
+>>
+>> -void __ieee80211_start_rx_ba_session(struct sta_info *sta,
+>> -                                    u8 dialog_token, u16 timeout,
+>> -                                    u16 start_seq_num, u16 ba_policy, u16 tid,
+>> -                                    u16 buf_size, bool tx, bool auto_seq)
+>> +void ___ieee80211_start_rx_ba_session(struct sta_info *sta,
+>> +                                     u8 dialog_token, u16 timeout,
+>> +                                     u16 start_seq_num, u16 ba_policy, u16 tid,
+>> +                                     u16 buf_size, bool tx, bool auto_seq)
+>>   {
+>>          struct ieee80211_local *local = sta->sdata->local;
+>>          struct tid_ampdu_rx *tid_agg_rx;
+>> @@ -267,7 +267,7 @@ void __ieee80211_start_rx_ba_session(struct sta_info *sta,
+>>                  ht_dbg(sta->sdata,
+>>                         "STA %pM requests BA session on unsupported tid %d\n",
+>>                         sta->sta.addr, tid);
+>> -               goto end_no_lock;
+>> +               goto end;
+>>          }
+>>
+>>          if (!sta->sta.ht_cap.ht_supported) {
+>> @@ -275,14 +275,14 @@ void __ieee80211_start_rx_ba_session(struct sta_info *sta,
+>>                         "STA %pM erroneously requests BA session on tid %d w/o QoS\n",
+>>                         sta->sta.addr, tid);
+>>                  /* send a response anyway, it's an error case if we get here */
+>> -               goto end_no_lock;
+>> +               goto end;
+>>          }
+>>
+>>          if (test_sta_flag(sta, WLAN_STA_BLOCK_BA)) {
+>>                  ht_dbg(sta->sdata,
+>>                         "Suspend in progress - Denying ADDBA request (%pM tid %d)\n",
+>>                         sta->sta.addr, tid);
+>> -               goto end_no_lock;
+>> +               goto end;
+>>          }
+>>
+>>          /* sanity check for incoming parameters:
+>> @@ -296,7 +296,7 @@ void __ieee80211_start_rx_ba_session(struct sta_info *sta,
+>>                  ht_dbg_ratelimited(sta->sdata,
+>>                                     "AddBA Req with bad params from %pM on tid %u. policy %d, buffer size %d\n",
+>>                                     sta->sta.addr, tid, ba_policy, buf_size);
+>> -               goto end_no_lock;
+>> +               goto end;
+>>          }
+>>          /* determine default buffer size */
+>>          if (buf_size == 0)
+>> @@ -311,7 +311,6 @@ void __ieee80211_start_rx_ba_session(struct sta_info *sta,
+>>                 buf_size, sta->sta.addr);
+>>
+>>          /* examine state machine */
+>> -       mutex_lock(&sta->ampdu_mlme.mtx);
+>>
+>>          if (test_bit(tid, sta->ampdu_mlme.agg_session_valid)) {
+>>                  if (sta->ampdu_mlme.tid_rx_token[tid] == dialog_token) {
+>> @@ -415,15 +414,25 @@ void __ieee80211_start_rx_ba_session(struct sta_info *sta,
+>>                  __clear_bit(tid, sta->ampdu_mlme.unexpected_agg);
+>>                  sta->ampdu_mlme.tid_rx_token[tid] = dialog_token;
+>>          }
+>> -       mutex_unlock(&sta->ampdu_mlme.mtx);
+>>
+>> -end_no_lock:
+>>          if (tx)
+>>                  ieee80211_send_addba_resp(sta->sdata, sta->sta.addr, tid,
+>>                                            dialog_token, status, 1, buf_size,
+>>                                            timeout);
+>>   }
+>>
+>> +void __ieee80211_start_rx_ba_session(struct sta_info *sta,
+>> +                                    u8 dialog_token, u16 timeout,
+>> +                                    u16 start_seq_num, u16 ba_policy, u16 tid,
+>> +                                    u16 buf_size, bool tx, bool auto_seq)
+>> +{
+>> +       mutex_lock(&sta->ampdu_mlme.mtx);
+>> +       ___ieee80211_start_rx_ba_session(sta, dialog_token, timeout,
+>> +                                        start_seq_num, ba_policy, tid,
+>> +                                        buf_size, tx, auto_seq);
+>> +       mutex_unlock(&sta->ampdu_mlme.mtx);
+>> +}
+>> +
+>>   void ieee80211_process_addba_request(struct ieee80211_local *local,
+>>                                       struct sta_info *sta,
+>>                                       struct ieee80211_mgmt *mgmt,
+>> diff --git a/net/mac80211/ht.c b/net/mac80211/ht.c
+>> index c92df492e898..198b2d3e56fd 100644
+>> --- a/net/mac80211/ht.c
+>> +++ b/net/mac80211/ht.c
+>> @@ -333,9 +333,9 @@ void ieee80211_ba_session_work(struct work_struct *work)
+>>
+>>                  if (test_and_clear_bit(tid,
+>>                                         sta->ampdu_mlme.tid_rx_manage_offl))
+>> -                       __ieee80211_start_rx_ba_session(sta, 0, 0, 0, 1, tid,
+>> -                                                       IEEE80211_MAX_AMPDU_BUF,
+>> -                                                       false, true);
+>> +                       ___ieee80211_start_rx_ba_session(sta, 0, 0, 0, 1, tid,
+>> +                                                        IEEE80211_MAX_AMPDU_BUF,
+>> +                                                        false, true);
+>>
+>>                  if (test_and_clear_bit(tid + IEEE80211_NUM_TIDS,
+>>                                         sta->ampdu_mlme.tid_rx_manage_offl))
+>> diff --git a/net/mac80211/ieee80211_i.h b/net/mac80211/ieee80211_i.h
+>> index 2197c62a0a6e..9675814f64db 100644
+>> --- a/net/mac80211/ieee80211_i.h
+>> +++ b/net/mac80211/ieee80211_i.h
+>> @@ -1760,6 +1760,10 @@ void __ieee80211_start_rx_ba_session(struct sta_info *sta,
+>>                                       u8 dialog_token, u16 timeout,
+>>                                       u16 start_seq_num, u16 ba_policy, u16 tid,
+>>                                       u16 buf_size, bool tx, bool auto_seq);
+>> +void ___ieee80211_start_rx_ba_session(struct sta_info *sta,
+>> +                                     u8 dialog_token, u16 timeout,
+>> +                                     u16 start_seq_num, u16 ba_policy, u16 tid,
+>> +                                     u16 buf_size, bool tx, bool auto_seq);
+>>   void ieee80211_sta_tear_down_BA_sessions(struct sta_info *sta,
+>>                                           enum ieee80211_agg_stop_reason reason);
+>>   void ieee80211_process_delba(struct ieee80211_sub_if_data *sdata,
+>>
+>> johannes
+> I confirm that this patch fixes the hang too.
+> I'm curious to see if there are noticeable performance differences
+> between the two solutions.
 >
-> Fixes: 6103aa96ec07 ("net: implement XDP_REDIRECT for xdp generic")
-> Fixes: 24251c264798 ("samples/bpf: add option for native and skb mode for redirect apps")
-> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
-
-Acked-by: Andy Gospodarek <andy@greyhouse.net>
+> Cheers,
 
 
-> ---
->  net/core/filter.c |   29 +++++++++++++++++++++++++++++
->  1 file changed, 29 insertions(+)
->
-> diff --git a/net/core/filter.c b/net/core/filter.c
-> index 5912c738a7b2..6a4745bf2c9f 100644
-> --- a/net/core/filter.c
-> +++ b/net/core/filter.c
-> @@ -2562,6 +2562,32 @@ int xdp_do_redirect(struct net_device *dev, struct xdp_buff *xdp,
->  }
->  EXPORT_SYMBOL_GPL(xdp_do_redirect);
->
-> +static int xdp_do_generic_redirect_map(struct net_device *dev,
-> +                                      struct sk_buff *skb,
-> +                                      struct bpf_prog *xdp_prog)
-> +{
-> +       struct redirect_info *ri = this_cpu_ptr(&redirect_info);
-> +       struct bpf_map *map = ri->map;
-> +       u32 index = ri->ifindex;
-> +       struct net_device *fwd;
-> +       int err;
-> +
-> +       ri->ifindex = 0;
-> +       ri->map = NULL;
-> +
-> +       fwd = __dev_map_lookup_elem(map, index);
-> +       if (!fwd) {
-> +               err = -EINVAL;
-> +               goto err;
-> +       }
-> +       skb->dev = fwd;
-> +       _trace_xdp_redirect_map(dev, xdp_prog, fwd, map, index);
-> +       return 0;
-> +err:
-> +       _trace_xdp_redirect_map_err(dev, xdp_prog, fwd, map, index, err);
-> +       return err;
-> +}
-> +
->  int xdp_do_generic_redirect(struct net_device *dev, struct sk_buff *skb,
->                             struct bpf_prog *xdp_prog)
->  {
-> @@ -2571,6 +2597,9 @@ int xdp_do_generic_redirect(struct net_device *dev, struct sk_buff *skb,
->         unsigned int len;
->         int err = 0;
->
-> +       if (ri->map)
-> +               return xdp_do_generic_redirect_map(dev, skb, xdp_prog);
-> +
->         fwd = dev_get_by_index_rcu(dev_net(dev), index);
->         ri->ifindex = 0;
->         if (unlikely(!fwd)) {
->
+-- 
+Mit freundlichen Grüssen / Regards
+
+Sebastian Gottschall / CTO
+
+NewMedia-NET GmbH - DD-WRT
+Firmensitz:  Berliner Ring 101, 64625 Bensheim
+Registergericht: Amtsgericht Darmstadt, HRB 25473
+Geschäftsführer: Peter Steinhäuser, Christian Scheele
+http://www.dd-wrt.com
+email: s.gottschall@dd-wrt.com
+Tel.: +496251-582650 / Fax: +496251-5826565
