@@ -1,56 +1,77 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH v2 rfc 8/8] net: dsa: Fix SWITCHDEV_ATTR_ID_PORT_PARENT_ID
-Date: Wed, 06 Sep 2017 10:46:48 -0400
-Message-ID: <87d17351gn.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-References: <1504654510-31004-1-git-send-email-andrew@lunn.ch> <1504654510-31004-9-git-send-email-andrew@lunn.ch>
+From: Matthias May <matthias.may@neratec.com>
+Subject: Re: [PATCH v2 rfc 0/8] IGMP snooping for local traffic
+Date: Wed, 6 Sep 2017 16:46:51 +0200
+Message-ID: <edf02eb7-e6bf-e88c-f655-40f6f71a3446@neratec.com>
+References: <1504654510-31004-1-git-send-email-andrew@lunn.ch>
+ <20170906004703.GB27385@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: jiri@resnulli.us, nikolay@cumulusnetworks.com,
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+To: Andrew Lunn <andrew@lunn.ch>, netdev <netdev@vger.kernel.org>,
         Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>
-To: Andrew Lunn <andrew@lunn.ch>, netdev <netdev@vger.kernel.org>
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Woojung.Huh@microchip.com, jbe@pengutronix.de,
+        sean.wang@mediatek.com, john@phrozen.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:58758 "EHLO
-        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932562AbdIFOuN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2017 10:50:13 -0400
-In-Reply-To: <1504654510-31004-9-git-send-email-andrew@lunn.ch>
+Received: from mail.neratec.com ([46.140.151.2]:2720 "EHLO mail.neratec.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932586AbdIFOxO (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 6 Sep 2017 10:53:14 -0400
+In-Reply-To: <20170906004703.GB27385@lunn.ch>
+Content-Language: en-GB
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew,
+On 06/09/17 02:47, Andrew Lunn wrote:
+>> The third and last issue will be explained in a followup email.
+> 
+> Hi DSA hackers
+> 
+> So there is the third issue. It affects just DSA, but it possible
+> affects all DSA drivers.
+> 
+> This patchset broken broadcast with the Marvell drivers. It could
+> break broadcast on others drivers as well.
+> 
+> What i found is that the Marvell chips don't flood broadcast frames
+> between bridged ports. What appears to happen is there is a fdb miss,
+> so it gets forwarded to the CPU port for the host to deal with. The
+> software bridge when floods it out all ports of the bridge.
+> 
+> But the set offload_fwd_mark patch changes this. The software bridge
+> now assumes the hardware has already flooded broadcast out all ports
+> of the switch as needed. So it does not do any flooding itself. As a
+> result, on Marvell devices, broadcast packets don't get flooded at
+> all.
+> 
+> The issue can be fixed. I just need to add an mdb entry for the
+> broadcast address to each port of the bridge in the switch, and the
+> CPU port.  But i don't know at what level to do this.
+> 
+> Should this be done at the DSA level, or at the driver level?  Do any
+> chips do broadcast flooding in hardware already? Hence they currently
+> see broadcast duplication? If i add a broadcast mdb at the DSA level,
+> and the chip is already hard wired to flooding broadcast, is it going
+> to double flood?
+> 
+> 	Andrew
+> 
 
-Andrew Lunn <andrew@lunn.ch> writes:
+Hi Andrew
+We are using the 88E6321.
+In our setup we are using openvswitch and not a bridge, however the problem you describe seems to be the same.
 
-> SWITCHDEV_ATTR_ID_PORT_PARENT_ID is used by the software bridge when
-> determining which ports to flood a packet out. If the packet
-> originated from a switch, it assumes the switch has already flooded
-> the packet out the switches ports, so the bridge should not flood the
-> packet itself out switch ports. Ports on the same switch are expected
-> to return the same parent ID when SWITCHDEV_ATTR_ID_PORT_PARENT_ID is
-> called.
->
-> DSA gets this wrong with clusters of switches. As far as the software
-> bridge is concerned, the cluster is all one switch. A packet from any
-> switch in the cluster can be assumed to of been flooded as needed out
-> all ports of the cluster, not just the switch it originated
-> from. Hence all ports of a cluster should return the same parent. The
-> old implementation did not, each switch in the cluster had its own ID.
->
-> Also wrong was that the ID was not unique if multiple DSA instances
-> are in operation.
->
-> Use the MAC address of the master interface as the parent ID. This is
-> the same for all switches in a cluster, and should be unique if there
-> are multiple clusters.
+We had to configure the switch to flood unknown multicast (Egress Floods = 0x3, bits 3:2, offset 0x4 in port control)
+and
+unset FloodBC (FloodBC = 0x0, bit 12, offset 0x5 in global 2) which defines if a broadcast should be considered as
+multicast for the above config.
 
-That is not correct. Support for multiple CPU ports is coming and in
-this case, you can have two CPU host interfaces wired to two switch
-ports of the same tree. So two different master MAC addresses.
+Regarding the looping problem:
+Since OVS isn't aware of the fdb of the switch, we configure the ports representing the switch ports (in ovs) as
+"protected" which prevents looping them back between (even when flooding) see [1].
+I'm not sure if the bridge has a similar feature.
 
-Only the tree ID assigned by DSA core is unique to a given tree.
+BR
+Matthias
 
-
-Thanks,
-
-        Vivien
+[1]http://openvswitch.org/support/dist-docs/ovs-vswitchd.conf.db.5.txt ctrl-f: "protected: boolean"
