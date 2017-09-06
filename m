@@ -1,223 +1,127 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net] Revert "net: phy: Correctly process PHY_HALTED in
- phy_stop_machine()"
-Date: Wed, 6 Sep 2017 16:14:22 -0700
-Message-ID: <a4b70bf9-ec48-314d-b63d-e44f7cbb4bab@gmail.com>
-References: <1504140569-2063-1-git-send-email-f.fainelli@gmail.com>
- <f4bb5ac8-dae8-c0af-7aa6-e546fc0783fa@sigmadesigns.com>
- <e24693e8-d8ae-188a-2a38-c9a83fdc94e3@gmail.com>
- <931bf454-81ff-94dc-82e6-bc2b889bd43a@gmail.com>
- <d6a6b552-95a7-8353-54c8-fa804f9366a1@free.fr>
- <f74f1aad-3990-ae54-316f-751c3b15de41@gmail.com>
- <ebee6e5d-5bc1-1c5b-b31d-6d50618d6074@free.fr>
- <4ea8b432-4968-1616-eff9-48a2689dd3ce@gmail.com>
- <ff070239-28b7-d41b-8abe-c9f810561372@caviumnetworks.com>
- <572f49fd-f623-f064-a551-e243c57cef7f@gmail.com>
- <6890a27f-e87e-62c1-a676-e5ddf968adb6@caviumnetworks.com>
- <4a65e53c-f13b-9cc3-bffa-f2f2aae423b9@gmail.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [GIT] Networking
+Date: Wed, 6 Sep 2017 16:27:15 -0700
+Message-ID: <CA+55aFw0KNTKFrRHk5hthDGTGgL9BGt9G=x_m9Tz7m_-pN+NoA@mail.gmail.com>
+References: <20170905.214143.826912481689443792.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Marc Gonzalez <marc_gonzalez@sigmadesigns.com>,
-        netdev <netdev@vger.kernel.org>,
-        Geert Uytterhoeven <geert+renesas@glider.be>,
-        David Miller <davem@davemloft.net>,
-        Andrew Lunn <andrew@lunn.ch>, Mans Rullgard <mans@mansr.com>
-To: David Daney <ddaney.cavm@gmail.com>,
-        David Daney <ddaney@caviumnetworks.com>,
-        Mason <slash.tmp@free.fr>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+        Network Development <netdev@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        Intel Linux Wireless <linuxwifi@intel.com>,
+        Linux Wireless List <linux-wireless@vger.kernel.org>
+To: David Miller <davem@davemloft.net>,
+        Johannes Berg <johannes.berg@intel.com>,
+        Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
+        Luca Coelho <luciano.coelho@intel.com>,
+        Kalle Valo <kvalo@codeaurora.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f194.google.com ([209.85.128.194]:38001 "EHLO
-        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752666AbdIFXOd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2017 19:14:33 -0400
-Received: by mail-wr0-f194.google.com with SMTP id p37so1545418wrb.5
-        for <netdev@vger.kernel.org>; Wed, 06 Sep 2017 16:14:32 -0700 (PDT)
-In-Reply-To: <4a65e53c-f13b-9cc3-bffa-f2f2aae423b9@gmail.com>
-Content-Language: en-US
+Received: from mail-io0-f194.google.com ([209.85.223.194]:33769 "EHLO
+        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750786AbdIFX1Q (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2017 19:27:16 -0400
+In-Reply-To: <20170905.214143.826912481689443792.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/06/2017 03:51 PM, David Daney wrote:
-> On 09/06/2017 01:49 PM, David Daney wrote:
->> On 09/06/2017 11:59 AM, Florian Fainelli wrote:
->>> On 09/06/2017 11:00 AM, David Daney wrote:
->>>> On 08/31/2017 11:29 AM, Florian Fainelli wrote:
->>>>> On 08/31/2017 11:12 AM, Mason wrote:
->>>>>> On 31/08/2017 19:53, Florian Fainelli wrote:
->>>>>>> On 08/31/2017 10:49 AM, Mason wrote:
->>>>>>>> On 31/08/2017 18:57, Florian Fainelli wrote:
->>>>>>>>> And the race is between phy_detach() setting phydev->attached_dev
->>>>>>>>> = NULL
->>>>>>>>> and phy_state_machine() running in PHY_HALTED state and calling
->>>>>>>>> netif_carrier_off().
->>>>>>>>
->>>>>>>> I must be missing something.
->>>>>>>> (Since a thread cannot race against itself.)
->>>>>>>>
->>>>>>>> phy_disconnect calls phy_stop_machine which
->>>>>>>> 1) stops the work queue from running in a separate thread
->>>>>>>> 2) calls phy_state_machine *synchronously*
->>>>>>>>        which runs the PHY_HALTED case with everything well-defined
->>>>>>>> end of phy_stop_machine
->>>>>>>>
->>>>>>>> phy_disconnect only then calls phy_detach()
->>>>>>>> which makes future calls of phy_state_machine perilous.
->>>>>>>>
->>>>>>>> This all happens in the same thread, so I'm not yet
->>>>>>>> seeing where the race happens?
->>>>>>>
->>>>>>> The race is as described in David's earlier email, so let's recap:
->>>>>>>
->>>>>>> Thread 1            Thread 2
->>>>>>> phy_disconnect()
->>>>>>> phy_stop_interrupts()
->>>>>>> phy_stop_machine()
->>>>>>> phy_state_machine()
->>>>>>>    -> queue_delayed_work()
->>>>>>> phy_detach()
->>>>>>>                  phy_state_machine()
->>>>>>>                  -> netif_carrier_off()
->>>>>>>
->>>>>>> If phy_detach() finishes earlier than the workqueue had a chance
->>>>>>> to be
->>>>>>> scheduled and process PHY_HALTED again, then we trigger the NULL
->>>>>>> pointer
->>>>>>> de-reference.
->>>>>>>
->>>>>>> workqueues are not tasklets, the CPU scheduling them gets no
->>>>>>> guarantee
->>>>>>> they will run on the same CPU.
->>>>>>
->>>>>> Something does not add up.
->>>>>>
->>>>>> The synchronous call to phy_state_machine() does:
->>>>>>
->>>>>>      case PHY_HALTED:
->>>>>>          if (phydev->link) {
->>>>>>              phydev->link = 0;
->>>>>>              netif_carrier_off(phydev->attached_dev);
->>>>>>              phy_adjust_link(phydev);
->>>>>>              do_suspend = true;
->>>>>>          }
->>>>>>
->>>>>> then sets phydev->link = 0; therefore subsequent calls to
->>>>>> phy_state_machin() will be no-op.
->>>>>
->>>>> Actually you are right, once phydev->link is set to 0 these would
->>>>> become
->>>>> no-ops. Still scratching my head as to what happens for David then...
->>>>>
->>>>>>
->>>>>> Also, queue_delayed_work() is only called in polling mode.
->>>>>> David stated that he's using interrupt mode.
->>>>
->>>> Did you see what I wrote?
->>>
->>> Still not following, see below.
->>>
->>>>
->>>> phy_disconnect() calls phy_stop_interrupts() which puts it into polling
->>>> mode.  So the polling work gets queued unconditionally.
->>>
->>> What part of phy_stop_interrupts() is responsible for changing
->>> phydev->irq to PHY_POLL? free_irq() cannot touch phydev->irq otherwise
->>> subsequent request_irq() calls won't work anymore.
->>> phy_disable_interrupts() only calls back into the PHY driver to
->>> acknowledge and clear interrupts.
->>>
->>> If we were using a PHY with PHY_POLL, as Marc said, the first
->>> synchronous call to phy_state_machine() would have acted on PHY_HALTED
->>> and even if we incorrectly keep re-scheduling the state machine from
->>> PHY_HALTED to PHY_HALTED the second time around nothing can happen.
->>>
->>> What are we missing here?
->>>
->>
->> OK, I am now as confused as you guys are.  I will go back and get an
->> ftrace log out of the failure.
->>
-> OK, let's forget about the PHY_HALTED discussion.
-> 
-> 
-> Consider instead the case of a Marvell phy with no interrupts connected
-> on a v4.9.43 kernel, single CPU:
-> 
-> 
->   0)               |                 phy_disconnect() {
->   0)               |                   phy_stop_machine() {
->   0)               |                     cancel_delayed_work_sync() {
->   0) + 23.986 us   |                     } /* cancel_delayed_work_sync */
->   0)               |                     phy_state_machine() {
->   0)               |                       phy_start_aneg_priv() {
+This pull request completely breaks Intel wireless for me.
 
-Thanks for providing the trace, I think I have an idea of what's going
-on, see below.
+This is my trusty old XPS 13 (9350), using Intel Wireless 8260 (rev 3a).
 
->   0)               |                         marvell_config_aneg() {
->   0) ! 240.538 us  |                         } /* marvell_config_aneg */
->   0) ! 244.971 us  |                       } /* phy_start_aneg_priv */
->   0)               |                       queue_delayed_work_on() {
->   0) + 18.016 us   |                       } /* queue_delayed_work_on */
->   0) ! 268.184 us  |                     } /* phy_state_machine */
->   0) ! 297.394 us  |                   } /* phy_stop_machine */
->   0)               |                   phy_detach() {
->   0)               |                     phy_suspend() {
->   0)               |                       phy_ethtool_get_wol() {
->   0)   0.677 us    |                       } /* phy_ethtool_get_wol */
->   0)               |                       genphy_suspend() {
->   0) + 71.250 us   |                       } /* genphy_suspend */
->   0) + 74.197 us   |                     } /* phy_suspend */
->   0) + 80.302 us   |                   } /* phy_detach */
->   0) ! 380.072 us  |                 } /* phy_disconnect */
-> .
-> .
-> .
->   0)               |  process_one_work() {
->   0)               |    find_worker_executing_work() {
->   0)   0.688 us    |    } /* find_worker_executing_work */
->   0)               |    set_work_pool_and_clear_pending() {
->   0)   0.734 us    |    } /* set_work_pool_and_clear_pending */
->   0)               |    phy_state_machine() {
->   0)               |      genphy_read_status() {
->   0) ! 205.721 us  |      } /* genphy_read_status */
->   0)               |      netif_carrier_off() {
->   0)               |        do_page_fault() {
-> 
-> 
-> The do_page_fault() at the end indicates the NULL pointer dereference.
-> 
-> That added call to phy_state_machine() turns the polling back on
-> unconditionally for a phy that should be disconnected.  How is that
-> correct?
+That remains a very standard Intel machine with absolutely zero odd
+things going on.
 
-It is not fundamentally correct and I don't think there was any
-objection to that to begin with. In fact there is a bug/inefficiency
-here in that if we have entered the PHY state machine with PHY_HALTED we
-should not re-schedule it period, only applicable to PHY_POLL cases
-*and* properly calling phy_stop() followed by phy_disconnect().
+The firmware is iwlwifi-8000C-28.ucode from
+iwl7260-firmware-25.30.13.0-75.fc26.noarch, and the kernel reports
 
-What I now think is happening in your case is the following:
+  iwlwifi 0000:3a:00.0: loaded firmware version 27.455470.0 op_mode iwlmvm
 
-phy_stop() was not called, so nothing does set phydev->state to
-PHY_HALTED in the first place so we have:
+the thing starts acting badly with this:
 
-phy_disconnect()
--> phy_stop_machine()
-	-> cancel_delayed_work_sync() OK
-		phydev->state is probably RUNNING so we have:
-		-> phydev->state = PHY_UP
-	phy_state_machine() is called synchronously
-	-> PHY_UP -> needs_aneg = true
-	-> phy_restart_aneg()
-	-> queue_delayed_work_sync()
--> phydev->adjust_link = NULL
--> phy_deatch() -> boom
+  iwlwifi 0000:3a:00.0: FW Error notification: type 0x00000000 cmd_id 0x04
+  iwlwifi 0000:3a:00.0: FW Error notification: seq 0x0000 service 0x00000004
+  iwlwifi 0000:3a:00.0: FW Error notification: timestamp 0x            5D84
+  iwlwifi 0000:3a:00.0: Microcode SW error detected.  Restarting 0x2000000.
+  iwlwifi 0000:3a:00.0: Start IWL Error Log Dump:
+  iwlwifi 0000:3a:00.0: Status: 0x00000100, count: 6
+  iwlwifi 0000:3a:00.0: Loaded firmware version: 27.455470.0
+  iwlwifi 0000:3a:00.0: 0x00000038 | BAD_COMMAND
+  iwlwifi 0000:3a:00.0: 0x00A002F0 | trm_hw_status0
+  ...
+  iwlwifi 0000:3a:00.0: 0x00000000 | isr status reg
+  ieee80211 phy0: Hardware restart was requested
+  iwlwifi 0000:3a:00.0: FW error in SYNC CMD MAC_CONTEXT_CMD
+  CPU: 2 PID: 993 Comm: NetworkManager Not tainted 4.13.0-06466-g80cee03bf1d6 #4
+  Hardware name: Dell Inc. XPS 13 9350/09JHRY, BIOS 1.4.17 05/10/2017
+  Call Trace:
+   dump_stack+0x4d/0x70
+   iwl_trans_pcie_send_hcmd+0x4e7/0x530 [iwlwifi]
+   ? wait_woken+0x80/0x80
+   iwl_trans_send_cmd+0x5c/0xc0 [iwlwifi]
+   iwl_mvm_send_cmd+0x32/0x90 [iwlmvm]
+   iwl_mvm_send_cmd_pdu+0x58/0x80 [iwlmvm]
+   iwl_mvm_mac_ctxt_send_cmd+0x2a/0x60 [iwlmvm]
+   ? iwl_mvm_mac_ctxt_send_cmd+0x2a/0x60 [iwlmvm]
+   iwl_mvm_mac_ctxt_cmd_sta+0x140/0x1e0 [iwlmvm]
+   iwl_mvm_mac_ctx_send+0x2d/0x60 [iwlmvm]
+   iwl_mvm_mac_ctxt_add+0x43/0xc0 [iwlmvm]
+   iwl_mvm_mac_add_interface+0x139/0x2b0 [iwlmvm]
+   ? iwl_led_brightness_set+0x1f/0x30 [iwlmvm]
+   drv_add_interface+0x4a/0x120 [mac80211]
+   ieee80211_do_open+0x33d/0x820 [mac80211]
+   ieee80211_open+0x52/0x60 [mac80211]
+   __dev_open+0xae/0x120
+   __dev_change_flags+0x17b/0x1c0
+   dev_change_flags+0x29/0x60
+   do_setlink+0x2f7/0xe60
+   ? __nla_put+0x20/0x30
+   ? _raw_read_unlock_bh+0x20/0x30
+   ? inet6_fill_ifla6_attrs+0x4be/0x4e0
+   ? __kmalloc_node_track_caller+0x35/0x2b0
+   ? nla_parse+0x35/0x100
+   rtnl_newlink+0x5d2/0x8f0
+   ? __netlink_sendskb+0x3b/0x60
+   ? security_capset+0x40/0x80
+   ? ns_capable_common+0x68/0x80
+   ? ns_capable+0x13/0x20
+   rtnetlink_rcv_msg+0x1f9/0x280
+   ? rtnl_calcit.isra.26+0x110/0x110
+   netlink_rcv_skb+0x8e/0x130
+   rtnetlink_rcv+0x15/0x20
+   netlink_unicast+0x18b/0x220
+   netlink_sendmsg+0x2ad/0x3a0
+   sock_sendmsg+0x38/0x50
+   ___sys_sendmsg+0x269/0x2c0
+   ? addrconf_sysctl_forward+0x114/0x280
+   ? dev_forward_change+0x140/0x140
+   ? sysctl_head_finish.part.22+0x32/0x40
+   ? lockref_put_or_lock+0x5e/0x80
+   ? dput.part.22+0x13e/0x1c0
+   ? mntput+0x24/0x40
+   __sys_sendmsg+0x54/0x90
+   ? __sys_sendmsg+0x54/0x90
+   SyS_sendmsg+0x12/0x20
+   entry_SYSCALL_64_fastpath+0x13/0x94
+  RIP: 0033:0x7ff1f9933134
+  RSP: 002b:00007ffe7419b460 EFLAGS: 00000293 ORIG_RAX: 000000000000002e
+  RAX: ffffffffffffffda RBX: 000055604b6d82b9 RCX: 00007ff1f9933134
+  RDX: 0000000000000000 RSI: 00007ffe7419b4b0 RDI: 0000000000000007
+  RBP: 00007ffe7419b940 R08: 0000000000000000 R09: 000055604d16b400
+  R10: 00007ff1f7cf8b38 R11: 0000000000000293 R12: 0000000000000001
+  R13: 0000000000000001 R14: 00007ffe7419b670 R15: 000055604b9515a0
+  iwlwifi 0000:3a:00.0: Failed to send MAC context (action:1): -5
 
-Can you confirm whether the driver you are using does call phy_stop()
-prior to phy_disconnect()? If that is the case then this whole theory
-falls apart, if not, then this needs fixing in both the driver and PHYLIB.
+and it doesn't get any better from there. The next error seems to be
 
-Thanks
--- 
-Florian
+  Timeout waiting for hardware access (CSR_GP_CNTRL 0x08000008)
+  ------------[ cut here ]------------
+  WARNING: CPU: 3 PID: 1075 at
+drivers/net/wireless/intel/iwlwifi/pcie/trans.c:1874
+iwl_trans_pcie_grab_nic_access+0xdf/0xf0 [iwlwifi]
+
+and it will continue with those microcode failure errors and various
+other warnigns about how nothing is working.
+
+And no, nothing works.  A lot of log output, no actual network access..
+
+              Linus
