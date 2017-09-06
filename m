@@ -1,54 +1,43 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v2 rfc 0/8] IGMP snooping for local traffic
-Date: Wed, 6 Sep 2017 02:47:03 +0200
-Message-ID: <20170906004703.GB27385@lunn.ch>
-References: <1504654510-31004-1-git-send-email-andrew@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev <netdev@vger.kernel.org>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Woojung.Huh@microchip.com, jbe@pengutronix.de,
-        sean.wang@mediatek.com, john@phrozen.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net 0/2][pull request] Intel Wired LAN Driver Updates 2017-09-05
+Date: Tue,  5 Sep 2017 18:04:16 -0700
+Message-ID: <20170906010418.39007-1-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:58290 "EHLO vps0.lunn.ch"
+Received: from mga01.intel.com ([192.55.52.88]:63879 "EHLO mga01.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753087AbdIFArO (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 5 Sep 2017 20:47:14 -0400
-Content-Disposition: inline
-In-Reply-To: <1504654510-31004-1-git-send-email-andrew@lunn.ch>
+        id S1753787AbdIFBEY (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 5 Sep 2017 21:04:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> The third and last issue will be explained in a followup email.
+This series contains fixes for i40e only.
 
-Hi DSA hackers
+These two patches fix an issue where our nvmupdate tool does not work on RHEL 7.4
+and newer kernels, in fact, the use of the nvmupdate tool on newer kernels can
+cause the cards to be non-functional unless these patches are applied.
 
-So there is the third issue. It affects just DSA, but it possible
-affects all DSA drivers.
+Anjali reworks the locking around accessing the NVM so that NVM acquire timeouts
+do not occur which was causing the failed firmware updates.
 
-This patchset broken broadcast with the Marvell drivers. It could
-break broadcast on others drivers as well.
+Jake correctly updates the wb_desc when reading the NVM through the AdminQ.
 
-What i found is that the Marvell chips don't flood broadcast frames
-between bridged ports. What appears to happen is there is a fdb miss,
-so it gets forwarded to the CPU port for the host to deal with. The
-software bridge when floods it out all ports of the bridge.
+The following are changes since commit 6d9c153a0b84392406bc77600aa7d3ea365de041:
+  net: dsa: loop: Do not unregister invalid fixed PHY
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-queue 40GbE
 
-But the set offload_fwd_mark patch changes this. The software bridge
-now assumes the hardware has already flooded broadcast out all ports
-of the switch as needed. So it does not do any flooding itself. As a
-result, on Marvell devices, broadcast packets don't get flooded at
-all.
+Anjali Singhai Jain (1):
+  i40e: avoid NVM acquire deadlock during NVM update
 
-The issue can be fixed. I just need to add an mdb entry for the
-broadcast address to each port of the bridge in the switch, and the
-CPU port.  But i don't know at what level to do this.
+Jacob Keller (1):
+  i40e: point wb_desc at the nvm_wb_desc during i40e_read_nvm_aq
 
-Should this be done at the DSA level, or at the driver level?  Do any
-chips do broadcast flooding in hardware already? Hence they currently
-see broadcast duplication? If i add a broadcast mdb at the DSA level,
-and the chip is already hard wired to flooding broadcast, is it going
-to double flood?
+ drivers/net/ethernet/intel/i40e/i40e_nvm.c       | 99 +++++++++++++++---------
+ drivers/net/ethernet/intel/i40e/i40e_prototype.h |  2 -
+ 2 files changed, 61 insertions(+), 40 deletions(-)
 
-	Andrew
+-- 
+2.14.1
