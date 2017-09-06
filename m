@@ -1,35 +1,50 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [net-next:master 491/511] xt_hashlimit.c:undefined reference to `__aeabi_uldivmod'
-Date: Wed, 6 Sep 2017 21:57:07 +0200
-Message-ID: <CAK8P3a3PvU7F=kO=2cTmZaF_19nu9LzYtKnu-_+4+-WPBf=0ew@mail.gmail.com>
-References: <201709062318.dBly2cas%fengguang.wu@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: kbuild-all@01.org, Networking <netdev@vger.kernel.org>
-To: kbuild test robot <fengguang.wu@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f67.google.com ([209.85.218.67]:37990 "EHLO
-        mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752455AbdIFT5I (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 6 Sep 2017 15:57:08 -0400
-Received: by mail-oi0-f67.google.com with SMTP id d10so3705721oih.5
-        for <netdev@vger.kernel.org>; Wed, 06 Sep 2017 12:57:07 -0700 (PDT)
-In-Reply-To: <201709062318.dBly2cas%fengguang.wu@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Subject: [PATCH] netfilter: xt_hashlimit: avoid 64-bit division
+Date: Wed,  6 Sep 2017 21:57:30 +0200
+Message-ID: <20170906195825.3715290-1-arnd@arndb.de>
+Cc: Arnd Bergmann <arnd@arndb.de>, Vishwanath Pai <vpai@akamai.com>,
+        Josh Hunt <johunt@akamai.com>, netfilter-devel@vger.kernel.org,
+        coreteam@netfilter.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        Florian Westphal <fw@strlen.de>,
+        "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 6, 2017 at 5:27 PM, kbuild test robot
-<fengguang.wu@intel.com> wrote:
-> Hi Arnd,
->
-> It's probably a bug fix that unveils the link errors.
+64-bit division is expensive on 32-bit architectures, and
+requires a special function call to avoid a link error like:
 
-Correct.
+net/netfilter/xt_hashlimit.o: In function `hashlimit_mt_common':
+xt_hashlimit.c:(.text+0x1328): undefined reference to `__aeabi_uldivmod'
 
->    net/netfilter/xt_hashlimit.o: In function `hashlimit_mt_common':
->>> xt_hashlimit.c:(.text+0x1f68): undefined reference to `__aeabi_uldivmod'
+In the case of hashlimit_mt_common, we don't actually need a
+64-bit operation, we can simply rewrite the function slightly
+to make that clear to the compiler.
 
-I actually wrote a patch for that yesterday, but it seems I forgot to submit it.
-I've sent it now.
+Fixes: bea74641e378 ("netfilter: xt_hashlimit: add rate match mode")
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+---
+ net/netfilter/xt_hashlimit.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-       Arnd
+diff --git a/net/netfilter/xt_hashlimit.c b/net/netfilter/xt_hashlimit.c
+index 10d48234f5f4..50b53d86eef5 100644
+--- a/net/netfilter/xt_hashlimit.c
++++ b/net/netfilter/xt_hashlimit.c
+@@ -531,7 +531,10 @@ static u64 user2rate_bytes(u64 user)
+ {
+ 	u64 r;
+ 
+-	r = user ? 0xFFFFFFFFULL / user : 0xFFFFFFFFULL;
++	if (user > 0xFFFFFFFFULL)
++		return 0;
++
++	r = user ? 0xFFFFFFFFULL / (u32)user : 0xFFFFFFFFULL;
+ 	r = (r - 1) << 4;
+ 	return r;
+ }
+-- 
+2.9.0
