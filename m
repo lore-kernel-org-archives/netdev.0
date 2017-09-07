@@ -1,8 +1,7 @@
 From: Amritha Nambiar <amritha.nambiar@intel.com>
-Subject: [RFC PATCH v3 1/6] mqprio: Introduce new hardware offload mode and
- shaper in mqprio
-Date: Thu, 07 Sep 2017 04:00:06 -0700
-Message-ID: <150478200636.24662.17572491925361676670.stgit@anamdev.jf.intel.com>
+Subject: [RFC PATCH v3 5/6] i40e: Refactor VF BW rate limiting
+Date: Thu, 07 Sep 2017 04:00:27 -0700
+Message-ID: <150478202784.24662.17062791162973773248.stgit@anamdev.jf.intel.com>
 References: <150478158684.24662.17975701233699487888.stgit@anamdev.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,397 +10,192 @@ Cc: alexander.h.duyck@intel.com, netdev@vger.kernel.org,
         amritha.nambiar@intel.com
 To: intel-wired-lan@lists.osuosl.org, jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga04.intel.com ([192.55.52.120]:63396 "EHLO mga04.intel.com"
+Received: from mga05.intel.com ([192.55.52.43]:21306 "EHLO mga05.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754745AbdIGLBL (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 7 Sep 2017 07:01:11 -0400
+        id S1755141AbdIGLBd (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 7 Sep 2017 07:01:33 -0400
 In-Reply-To: <150478158684.24662.17975701233699487888.stgit@anamdev.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The offload types currently supported in mqprio are 0 (no offload) and
-1 (offload only TCs) by setting these values for the 'hw' option. If
-offloads are supported by setting the 'hw' option to 1, the default
-offload mode is 'dcb' where only the TC values are offloaded to the
-device. This patch introduces a new hardware offload mode called
-'channel' with 'hw' set to 1 in mqprio which makes full use of the
-mqprio options, the TCs, the queue configurations and the QoS parameters
-for the TCs. This is achieved through a new netlink attribute for the
-'mode' option which takes values such as 'dcb' (default) and 'channel'.
-The 'channel' mode also supports QoS attributes for traffic class such as
-minimum and maximum values for bandwidth rate limits.
+This patch refactors the BW rate limiting for Tx traffic
+on the VF to be reused in the next patch for rate limiting Tx
+traffic for the VSIs on the PF as well.
 
-This patch enables configuring additional HW shaper attributes associated
-with a traffic class. Currently the shaper for bandwidth rate limiting is
-supported which takes options such as minimum and maximum bandwidth rates
-and are offloaded to the hardware in the 'channel' mode. The min and max
-limits for bandwidth rates are provided by the user along with the the TCs
-and the queue configurations when creating the mqprio qdisc. The interface
-can be extended to support new HW shapers in future through the 'shaper'
-attribute.
-
-Introduces a new datastructure 'tc_mqprio_qopt_offload' for offloading
-mqprio queue options and use this to be shared between the kernel and
-device driver. This contains a copy of the exisiting datastructure
-for mqprio queue options. This new datastructure can be extended when
-adding new attributes for traffic class such as mode, shaper, shaper
-parameters (bandwidth rate limits). The existing datastructure for mqprio
-queue options will be shared between the kernel and userspace.
-
-Example:
-# tc qdisc add dev eth0 root mqprio num_tc 2 map 0 0 0 0 1 1 1 1\
-  queues 4@0 4@4 hw 1 mode channel shaper bw_rlimit\
-  min_rate 1Gbit 2Gbit max_rate 4Gbit 5Gbit
-
-To dump the bandwidth rates:
-
-# tc qdisc show dev eth0
-
-qdisc mqprio 804a: root  tc 2 map 0 0 0 0 1 1 1 1 0 0 0 0 0 0 0 0
-             queues:(0:3) (4:7)
-             mode:channel
-             shaper:bw_rlimit   min_rate:1Gbit 2Gbit   max_rate:4Gbit 5Gbit
-
-v3 : Removed supporting new offloads through value 2 for 'hw' option,
-introduced new netlink based options for offload mode and HW shaper.
-v2 : Jiri's changes accepted upstream removes the struct
-tc_to_netdev. Clean up the full offload related changes added to
-mqprio_init() and mqprio_destroy() to rebase on these changes.
+v3: Minor fixes, clean up log messages based on Shannon's comments.
 
 Signed-off-by: Amritha Nambiar <amritha.nambiar@intel.com>
 ---
- include/net/pkt_cls.h          |    9 ++
- include/uapi/linux/pkt_sched.h |   32 +++++++
- net/sched/sch_mqprio.c         |  183 ++++++++++++++++++++++++++++++++++++++--
- 3 files changed, 215 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e.h             |    5 ++
+ drivers/net/ethernet/intel/i40e/i40e_main.c        |   64 ++++++++++++++++++++
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |   45 +-------------
+ 3 files changed, 71 insertions(+), 43 deletions(-)
 
-diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
-index e80edd8..456017a 100644
---- a/include/net/pkt_cls.h
-+++ b/include/net/pkt_cls.h
-@@ -546,6 +546,15 @@ struct tc_cls_bpf_offload {
- 	u32 gen_flags;
- };
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index ddb7292..2ee0197 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -128,6 +128,10 @@
+ /* default to trying for four seconds */
+ #define I40E_TRY_LINK_TIMEOUT	(4 * HZ)
  
-+struct tc_mqprio_qopt_offload {
-+	/* struct tc_mqprio_qopt must always be the first element */
-+	struct tc_mqprio_qopt qopt;
-+	u16 mode;
-+	u16 shaper;
-+	u32 flags;
-+	u64 min_rate[TC_QOPT_MAX_QUEUE];
-+	u64 max_rate[TC_QOPT_MAX_QUEUE];
-+};
- 
- /* This structure holds cookie structure that is passed from user
-  * to the kernel for actions and classifiers
-diff --git a/include/uapi/linux/pkt_sched.h b/include/uapi/linux/pkt_sched.h
-index 099bf55..e95b5c9 100644
---- a/include/uapi/linux/pkt_sched.h
-+++ b/include/uapi/linux/pkt_sched.h
-@@ -625,6 +625,22 @@ enum {
- 
- #define TC_MQPRIO_HW_OFFLOAD_MAX (__TC_MQPRIO_HW_OFFLOAD_MAX - 1)
- 
-+enum {
-+	TC_MQPRIO_MODE_DCB,
-+	TC_MQPRIO_MODE_CHANNEL,
-+	__TC_MQPRIO_MODE_MAX
-+};
++/* BW rate limiting */
++#define I40E_BW_CREDIT_DIVISOR		50 /* 50Mbps per BW credit */
++#define I40E_MAX_BW_INACTIVE_ACCUM	4  /* accumulate 4 credits max */
 +
-+#define __TC_MQPRIO_MODE_MAX (__TC_MQPRIO_MODE_MAX - 1)
-+
-+enum {
-+	TC_MQPRIO_SHAPER_DCB,
-+	TC_MQPRIO_SHAPER_BW_RATE,	/* Add new shapers below */
-+	__TC_MQPRIO_SHAPER_MAX
-+};
-+
-+#define __TC_MQPRIO_SHAPER_MAX (__TC_MQPRIO_SHAPER_MAX - 1)
-+
- struct tc_mqprio_qopt {
- 	__u8	num_tc;
- 	__u8	prio_tc_map[TC_QOPT_BITMASK + 1];
-@@ -633,6 +649,22 @@ struct tc_mqprio_qopt {
- 	__u16	offset[TC_QOPT_MAX_QUEUE];
- };
- 
-+#define TC_MQPRIO_F_MODE		0x1
-+#define TC_MQPRIO_F_SHAPER		0x2
-+#define TC_MQPRIO_F_MIN_RATE		0x4
-+#define TC_MQPRIO_F_MAX_RATE		0x8
-+
-+enum {
-+	TCA_MQPRIO_UNSPEC,
-+	TCA_MQPRIO_MODE,
-+	TCA_MQPRIO_SHAPER,
-+	TCA_MQPRIO_MIN_RATE64,
-+	TCA_MQPRIO_MAX_RATE64,
-+	__TCA_MQPRIO_MAX,
-+};
-+
-+#define TCA_MQPRIO_MAX (__TCA_MQPRIO_MAX - 1)
-+
- /* SFB */
- 
- enum {
-diff --git a/net/sched/sch_mqprio.c b/net/sched/sch_mqprio.c
-index 6bcdfe6..e5e7724 100644
---- a/net/sched/sch_mqprio.c
-+++ b/net/sched/sch_mqprio.c
-@@ -18,10 +18,16 @@
- #include <net/netlink.h>
- #include <net/pkt_sched.h>
- #include <net/sch_generic.h>
-+#include <net/pkt_cls.h>
- 
- struct mqprio_sched {
- 	struct Qdisc		**qdiscs;
-+	u16 mode;
-+	u16 shaper;
- 	int hw_offload;
-+	u32 flags;
-+	u64 min_rate[TC_QOPT_MAX_QUEUE];
-+	u64 max_rate[TC_QOPT_MAX_QUEUE];
- };
- 
- static void mqprio_destroy(struct Qdisc *sch)
-@@ -39,9 +45,17 @@ static void mqprio_destroy(struct Qdisc *sch)
- 	}
- 
- 	if (priv->hw_offload && dev->netdev_ops->ndo_setup_tc) {
--		struct tc_mqprio_qopt mqprio = {};
-+		struct tc_mqprio_qopt_offload mqprio = { { 0 } };
- 
--		dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_MQPRIO, &mqprio);
-+		switch (priv->mode) {
-+		case TC_MQPRIO_MODE_DCB:
-+		case TC_MQPRIO_MODE_CHANNEL:
-+			dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_MQPRIO,
-+						      &mqprio);
-+			break;
-+		default:
-+			return;
-+		}
- 	} else {
- 		netdev_set_num_tc(dev, 0);
- 	}
-@@ -97,6 +111,26 @@ static int mqprio_parse_opt(struct net_device *dev, struct tc_mqprio_qopt *qopt)
- 	return 0;
+ /* driver state flags */
+ enum i40e_state_t {
+ 	__I40E_TESTING,
+@@ -1042,4 +1046,5 @@ static inline bool i40e_enabled_xdp_vsi(struct i40e_vsi *vsi)
  }
  
-+static const struct nla_policy mqprio_policy[TCA_MQPRIO_MAX + 1] = {
-+	[TCA_MQPRIO_MODE]	= { .len = sizeof(u16) },
-+	[TCA_MQPRIO_SHAPER]	= { .len = sizeof(u16) },
-+	[TCA_MQPRIO_MIN_RATE64] = { .type = NLA_NESTED },
-+	[TCA_MQPRIO_MAX_RATE64] = { .type = NLA_NESTED },
-+};
-+
-+static int parse_attr(struct nlattr *tb[], int maxtype, struct nlattr *nla,
-+		      const struct nla_policy *policy, int len)
+ int i40e_create_queue_channel(struct i40e_vsi *vsi, struct i40e_channel *ch);
++int i40e_set_bw_limit(struct i40e_vsi *vsi, u16 seid, u64 max_tx_rate);
+ #endif /* _I40E_H_ */
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index a953c2e..7f13bc7 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -5406,6 +5406,70 @@ static int i40e_vsi_config_tc(struct i40e_vsi *vsi, u8 enabled_tc)
+ }
+ 
+ /**
++ * i40e_get_link_speed - Returns link speed for the interface
++ * @vsi: VSI to be configured
++ *
++ **/
++int i40e_get_link_speed(struct i40e_vsi *vsi)
 +{
-+	int nested_len = nla_len(nla) - NLA_ALIGN(len);
++	struct i40e_pf *pf = vsi->back;
 +
-+	if (nested_len >= nla_attr_size(0))
-+		return nla_parse(tb, maxtype, nla_data(nla) + NLA_ALIGN(len),
-+				 nested_len, policy, NULL);
-+
-+	memset(tb, 0, sizeof(struct nlattr *) * (maxtype + 1));
-+	return 0;
++	switch (pf->hw.phy.link_info.link_speed) {
++	case I40E_LINK_SPEED_40GB:
++		return 40000;
++	case I40E_LINK_SPEED_25GB:
++		return 25000;
++	case I40E_LINK_SPEED_20GB:
++		return 20000;
++	case I40E_LINK_SPEED_10GB:
++		return 10000;
++	case I40E_LINK_SPEED_1GB:
++		return 1000;
++	default:
++		return -EINVAL;
++	}
 +}
 +
- static int mqprio_init(struct Qdisc *sch, struct nlattr *opt)
- {
- 	struct net_device *dev = qdisc_dev(sch);
-@@ -105,6 +139,10 @@ static int mqprio_init(struct Qdisc *sch, struct nlattr *opt)
- 	struct Qdisc *qdisc;
- 	int i, err = -EOPNOTSUPP;
- 	struct tc_mqprio_qopt *qopt = NULL;
-+	struct nlattr *tb[TCA_MQPRIO_MAX + 1];
-+	struct nlattr *attr;
-+	int rem;
-+	int len = nla_len(opt) - NLA_ALIGN(sizeof(*qopt));
- 
- 	BUILD_BUG_ON(TC_MAX_QUEUE != TC_QOPT_MAX_QUEUE);
- 	BUILD_BUG_ON(TC_BITMASK != TC_QOPT_BITMASK);
-@@ -122,6 +160,58 @@ static int mqprio_init(struct Qdisc *sch, struct nlattr *opt)
- 	if (mqprio_parse_opt(dev, qopt))
- 		return -EINVAL;
- 
-+	if (len > 0) {
-+		err = parse_attr(tb, TCA_MQPRIO_MAX, opt, mqprio_policy,
-+				 sizeof(*qopt));
-+		if (err < 0)
-+			return err;
-+
-+		if (!qopt->hw)
-+			return -EINVAL;
-+
-+		if (tb[TCA_MQPRIO_MODE]) {
-+			priv->flags |= TC_MQPRIO_F_MODE;
-+			priv->mode = *(u16 *)nla_data(tb[TCA_MQPRIO_MODE]);
-+		}
-+
-+		if (tb[TCA_MQPRIO_SHAPER]) {
-+			priv->flags |= TC_MQPRIO_F_SHAPER;
-+			priv->shaper = *(u16 *)nla_data(tb[TCA_MQPRIO_SHAPER]);
-+		}
-+
-+		if (tb[TCA_MQPRIO_MIN_RATE64]) {
-+			if (priv->shaper != TC_MQPRIO_SHAPER_BW_RATE)
-+				return -EINVAL;
-+			i = 0;
-+			nla_for_each_nested(attr, tb[TCA_MQPRIO_MIN_RATE64],
-+					    rem) {
-+				if (nla_type(attr) != TCA_MQPRIO_MIN_RATE64)
-+					return -EINVAL;
-+				if (i >= qopt->num_tc)
-+					break;
-+				priv->min_rate[i] = *(u64 *)nla_data(attr);
-+				i++;
-+			}
-+			priv->flags |= TC_MQPRIO_F_MIN_RATE;
-+		}
-+
-+		if (tb[TCA_MQPRIO_MAX_RATE64]) {
-+			if (priv->shaper != TC_MQPRIO_SHAPER_BW_RATE)
-+				return -EINVAL;
-+			i = 0;
-+			nla_for_each_nested(attr, tb[TCA_MQPRIO_MAX_RATE64],
-+					    rem) {
-+				if (nla_type(attr) != TCA_MQPRIO_MAX_RATE64)
-+					return -EINVAL;
-+				if (i >= qopt->num_tc)
-+					break;
-+				priv->max_rate[i] = *(u64 *)nla_data(attr);
-+				i++;
-+			}
-+			priv->flags |= TC_MQPRIO_F_MAX_RATE;
-+		}
-+	}
-+
- 	/* pre-allocate qdisc, attachment can't fail */
- 	priv->qdiscs = kcalloc(dev->num_tx_queues, sizeof(priv->qdiscs[0]),
- 			       GFP_KERNEL);
-@@ -146,14 +236,36 @@ static int mqprio_init(struct Qdisc *sch, struct nlattr *opt)
- 	 * supplied and verified mapping
- 	 */
- 	if (qopt->hw) {
--		struct tc_mqprio_qopt mqprio = *qopt;
-+		struct tc_mqprio_qopt_offload mqprio = {.qopt = *qopt};
- 
--		err = dev->netdev_ops->ndo_setup_tc(dev, TC_SETUP_MQPRIO,
-+		switch (priv->mode) {
-+		case TC_MQPRIO_MODE_DCB:
-+			if (priv->shaper != TC_MQPRIO_SHAPER_DCB)
-+				return -EINVAL;
-+			break;
-+		case TC_MQPRIO_MODE_CHANNEL:
-+			mqprio.flags = priv->flags;
-+			if (priv->flags & TC_MQPRIO_F_MODE)
-+				mqprio.mode = priv->mode;
-+			if (priv->flags & TC_MQPRIO_F_SHAPER)
-+				mqprio.shaper = priv->shaper;
-+			if (priv->flags & TC_MQPRIO_F_MIN_RATE)
-+				for (i = 0; i < mqprio.qopt.num_tc; i++)
-+					mqprio.min_rate[i] = priv->min_rate[i];
-+			if (priv->flags & TC_MQPRIO_F_MAX_RATE)
-+				for (i = 0; i < mqprio.qopt.num_tc; i++)
-+					mqprio.max_rate[i] = priv->max_rate[i];
-+			break;
-+		default:
-+			return -EINVAL;
-+		}
-+		err = dev->netdev_ops->ndo_setup_tc(dev,
-+						    TC_SETUP_MQPRIO,
- 						    &mqprio);
- 		if (err)
- 			return err;
- 
--		priv->hw_offload = mqprio.hw;
-+		priv->hw_offload = mqprio.qopt.hw;
- 	} else {
- 		netdev_set_num_tc(dev, qopt->num_tc);
- 		for (i = 0; i < qopt->num_tc; i++)
-@@ -223,11 +335,51 @@ static int mqprio_graft(struct Qdisc *sch, unsigned long cl, struct Qdisc *new,
- 	return 0;
- }
- 
-+static int dump_rates(struct mqprio_sched *priv,
-+		      struct tc_mqprio_qopt *opt, struct sk_buff *skb)
++/**
++ * i40e_set_bw_limit - setup BW limit for Tx traffic based on max_tx_rate
++ * @vsi: VSI to be configured
++ * @seid: seid of the channel/VSI
++ * @max_tx_rate: max TX rate to be configured as BW limit
++ *
++ * Helper function to set BW limit for a given VSI
++ **/
++int i40e_set_bw_limit(struct i40e_vsi *vsi, u16 seid, u64 max_tx_rate)
 +{
-+	struct nlattr *nest;
-+	int i;
++	struct i40e_pf *pf = vsi->back;
++	int speed = 0;
++	int ret = 0;
 +
-+	if (priv->flags & TC_MQPRIO_F_MIN_RATE) {
-+		nest = nla_nest_start(skb, TCA_MQPRIO_MIN_RATE64);
-+		if (!nest)
-+			goto nla_put_failure;
-+
-+		for (i = 0; i < opt->num_tc; i++) {
-+			if (nla_put(skb, TCA_MQPRIO_MIN_RATE64,
-+				    sizeof(priv->min_rate[i]),
-+				    &priv->min_rate[i]))
-+				goto nla_put_failure;
-+		}
-+		nla_nest_end(skb, nest);
++	speed = i40e_get_link_speed(vsi);
++	if (max_tx_rate > speed) {
++		dev_err(&pf->pdev->dev,
++			"Invalid max tx rate %llu specified for VSI seid %d.",
++			max_tx_rate, seid);
++		return -EINVAL;
++	}
++	if (max_tx_rate && max_tx_rate < 50) {
++		dev_warn(&pf->pdev->dev,
++			 "Setting max tx rate to minimum usable value of 50Mbps.\n");
++		max_tx_rate = 50;
 +	}
 +
-+	if (priv->flags & TC_MQPRIO_F_MAX_RATE) {
-+		nest = nla_nest_start(skb, TCA_MQPRIO_MAX_RATE64);
-+		if (!nest)
-+			goto nla_put_failure;
-+
-+		for (i = 0; i < opt->num_tc; i++) {
-+			if (nla_put(skb, TCA_MQPRIO_MAX_RATE64,
-+				    sizeof(priv->max_rate[i]),
-+				    &priv->max_rate[i]))
-+				goto nla_put_failure;
-+		}
-+		nla_nest_end(skb, nest);
-+	}
-+	return 0;
-+
-+nla_put_failure:
-+	nla_nest_cancel(skb, nest);
-+	return -1;
++	/* Tx rate credits are in values of 50Mbps, 0 is disabled */
++	ret = i40e_aq_config_vsi_bw_limit(&pf->hw, seid,
++					  max_tx_rate / I40E_BW_CREDIT_DIVISOR,
++					  I40E_MAX_BW_INACTIVE_ACCUM, NULL);
++	if (ret)
++		dev_err(&pf->pdev->dev,
++			"Failed set tx rate (%llu Mbps) for vsi->seid %u, err %s aq_err %s\n",
++			max_tx_rate, seid, i40e_stat_str(&pf->hw, ret),
++			i40e_aq_str(&pf->hw, pf->hw.aq.asq_last_status));
++	return ret;
 +}
 +
- static int mqprio_dump(struct Qdisc *sch, struct sk_buff *skb)
- {
- 	struct net_device *dev = qdisc_dev(sch);
- 	struct mqprio_sched *priv = qdisc_priv(sch);
--	unsigned char *b = skb_tail_pointer(skb);
-+	struct nlattr *nla = (struct nlattr *)skb_tail_pointer(skb);
- 	struct tc_mqprio_qopt opt = { 0 };
- 	struct Qdisc *qdisc;
- 	unsigned int i;
-@@ -258,12 +410,25 @@ static int mqprio_dump(struct Qdisc *sch, struct sk_buff *skb)
- 		opt.offset[i] = dev->tc_to_txq[i].offset;
- 	}
- 
--	if (nla_put(skb, TCA_OPTIONS, sizeof(opt), &opt))
-+	if (nla_put(skb, TCA_OPTIONS, NLA_ALIGN(sizeof(opt)), &opt))
-+		goto nla_put_failure;
-+
-+	if ((priv->flags & TC_MQPRIO_F_MODE) &&
-+	    nla_put_u16(skb, TCA_MQPRIO_MODE, priv->mode))
-+		goto nla_put_failure;
-+
-+	if ((priv->flags & TC_MQPRIO_F_SHAPER) &&
-+	    nla_put_u16(skb, TCA_MQPRIO_SHAPER, priv->shaper))
-+		goto nla_put_failure;
-+
-+	if ((priv->flags & TC_MQPRIO_F_MIN_RATE ||
-+	     priv->flags & TC_MQPRIO_F_MAX_RATE) &&
-+	    (dump_rates(priv, &opt, skb) != 0))
- 		goto nla_put_failure;
- 
--	return skb->len;
-+	return nla_nest_end(skb, nla);
- nla_put_failure:
--	nlmsg_trim(skb, b);
-+	nlmsg_trim(skb, nla);
- 	return -1;
++/**
+  * i40e_remove_queue_channels - Remove queue channels for the TCs
+  * @vsi: VSI to be configured
+  *
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index ac88d96..06b2548 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -3115,8 +3115,6 @@ int i40e_ndo_set_vf_port_vlan(struct net_device *netdev, int vf_id,
+ 	return ret;
  }
  
+-#define I40E_BW_CREDIT_DIVISOR 50     /* 50Mbps per BW credit */
+-#define I40E_MAX_BW_INACTIVE_ACCUM 4  /* device can accumulate 4 credits max */
+ /**
+  * i40e_ndo_set_vf_bw
+  * @netdev: network interface device structure
+@@ -3132,7 +3130,6 @@ int i40e_ndo_set_vf_bw(struct net_device *netdev, int vf_id, int min_tx_rate,
+ 	struct i40e_pf *pf = np->vsi->back;
+ 	struct i40e_vsi *vsi;
+ 	struct i40e_vf *vf;
+-	int speed = 0;
+ 	int ret = 0;
+ 
+ 	/* validate the request */
+@@ -3157,48 +3154,10 @@ int i40e_ndo_set_vf_bw(struct net_device *netdev, int vf_id, int min_tx_rate,
+ 		goto error;
+ 	}
+ 
+-	switch (pf->hw.phy.link_info.link_speed) {
+-	case I40E_LINK_SPEED_40GB:
+-		speed = 40000;
+-		break;
+-	case I40E_LINK_SPEED_25GB:
+-		speed = 25000;
+-		break;
+-	case I40E_LINK_SPEED_20GB:
+-		speed = 20000;
+-		break;
+-	case I40E_LINK_SPEED_10GB:
+-		speed = 10000;
+-		break;
+-	case I40E_LINK_SPEED_1GB:
+-		speed = 1000;
+-		break;
+-	default:
+-		break;
+-	}
+-
+-	if (max_tx_rate > speed) {
+-		dev_err(&pf->pdev->dev, "Invalid max tx rate %d specified for VF %d.\n",
+-			max_tx_rate, vf->vf_id);
+-		ret = -EINVAL;
++	ret = i40e_set_bw_limit(vsi, vsi->seid, max_tx_rate);
++	if (ret)
+ 		goto error;
+-	}
+ 
+-	if ((max_tx_rate < 50) && (max_tx_rate > 0)) {
+-		dev_warn(&pf->pdev->dev, "Setting max Tx rate to minimum usable value of 50Mbps.\n");
+-		max_tx_rate = 50;
+-	}
+-
+-	/* Tx rate credits are in values of 50Mbps, 0 is disabled*/
+-	ret = i40e_aq_config_vsi_bw_limit(&pf->hw, vsi->seid,
+-					  max_tx_rate / I40E_BW_CREDIT_DIVISOR,
+-					  I40E_MAX_BW_INACTIVE_ACCUM, NULL);
+-	if (ret) {
+-		dev_err(&pf->pdev->dev, "Unable to set max tx rate, error code %d.\n",
+-			ret);
+-		ret = -EIO;
+-		goto error;
+-	}
+ 	vf->tx_rate = max_tx_rate;
+ error:
+ 	return ret;
