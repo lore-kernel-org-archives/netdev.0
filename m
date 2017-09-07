@@ -1,44 +1,147 @@
-From: <Woojung.Huh@microchip.com>
-Subject: RE: [PATCH net-next] mdio_bus: Remove unneeded gpiod NULL check
-Date: Thu, 7 Sep 2017 21:30:26 +0000
-Message-ID: <9235D6609DB808459E95D78E17F2E43D40B1B424@CHN-SV-EXMX02.mchp-main.com>
-References: <1500325749-8382-1-git-send-email-festevam@gmail.com>
- <6f984a9c-e6d3-fd0a-6719-fa9032d43d1d@cogentembedded.com>
- <CAOMZO5ABD9iasv67ehcpTzcjU-iD9=8vQ2vM7Gwc4-v9pnUt-Q@mail.gmail.com>
- <f4cdcb4b-feac-5106-8068-e694dbd3b4e6@cogentembedded.com>
- <CAOMZO5BycGHNocULcScDczRoEvbQqjnRZTDrNAw7=+zpadSOSA@mail.gmail.com>
- <20170718133209.GB32757@lunn.ch>
- <CACRpkdYw5GWv3HRCqnWjDfctLEfzcoFdJ7ib_NVKRgw0+Y9dEg@mail.gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH RFC 2/6] Create new file ksz9477.c from KSZ9477 code in
+ ksz_common.c
+Date: Thu, 7 Sep 2017 23:32:42 +0200
+Message-ID: <20170907213242.GR11248@lunn.ch>
+References: <93AF473E2DA327428DE3D46B72B1E9FD411218CF@CHN-SV-EXMX02.mchp-main.com>
+ <93AF473E2DA327428DE3D46B72B1E9FD41121A06@CHN-SV-EXMX02.mchp-main.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: <festevam@gmail.com>, <sergei.shtylyov@cogentembedded.com>,
-        <davem@davemloft.net>, <f.fainelli@gmail.com>,
-        <netdev@vger.kernel.org>, <fabio.estevam@nxp.com>
-To: <linus.walleij@linaro.org>, <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from esa3.microchip.iphmx.com ([68.232.153.233]:33237 "EHLO
-        esa3.microchip.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752708AbdIGVar (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 7 Sep 2017 17:30:47 -0400
-In-Reply-To: <CACRpkdYw5GWv3HRCqnWjDfctLEfzcoFdJ7ib_NVKRgw0+Y9dEg@mail.gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: muvarov@gmail.com, pavel@ucw.cz, nathan.leigh.conrad@gmail.com,
+        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Woojung.Huh@microchip.com
+To: Tristram.Ha@microchip.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <93AF473E2DA327428DE3D46B72B1E9FD41121A06@CHN-SV-EXMX02.mchp-main.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-PiBJZiBzb21lb25lIGlzIHVzaW5nIEdQSU8gZGVzY3JpcHRvcnMgd2l0aCBHUElPIGRpc2FibGVk
-LCBpLmUuIGNhbGxpbmcNCj4gZ3Bpb2RfZ2V0KCkgYW5kIGZyaWVuZHMsIHRoaXMgaXMgdmVyeSBs
-aWtlbHkgdG8gYmUgYSBidWcsIGFuZCB3aGF0DQo+IHRoZSBkcml2ZXIgd2FudHMgdG8gZG8gaXM6
-DQo+IA0KPiAgZGVwZW5kcyBvbiBHUElPTElCDQo+IA0KPiBvcg0KPiANCj4gIHNlbGVjdCBHUElP
-TElCDQo+IA0KPiBpbiBLY29uZmlnLiBUaGUgd2hvbGUgb3B0aW9uYWwgdGhpbmcgaXMgbWFpbmx5
-IGEgbGVmdG92ZXIgZnJvbSB3aGVuIGl0DQo+IHdhcyBwb3NzaWJsZSB0byBoYXZlIGEgbG9jYWwg
-aW1wbGVtZW50YXRpb24gb2YgdGhlIEdQSU9MSUIgQVBJIGluDQo+IHNvbWUgY3VzdG9tIGhlYWRl
-ciBmaWxlLCBub29uZSBzYW5lIHNob3VsZCBiZSBkb2luZyB0aGF0IGFueW1vcmUsDQo+IGFuZCBp
-ZiB0aGV5IGRvLCB0aGV5IGNhbiB2ZXJ5IHdlbGwgZmFjZSB0aGUgd2FybmluZ3MuDQo+IA0KPiBJ
-ZiBzb21lb25lIGlzIGZhY2luZyBhIGxvdCBvZiBXQVJOX09OKCkgbWVzc2FnZXMgdG8gdGhpcywg
-aXQgaXMgYSBjbGVhcg0KPiBpbmRpY2F0aW9uIHRoYXQgdGhleSBuZWVkIHRvIGZpeCB0aGVpciBL
-Y29uZmlnIGFuZCBpbiB0aGF0IGNhc2UgaXQgaXMgcHJvcGVyLg0KTGludXMgJiBBbmRyZXcsDQoN
-Ckkga25ldyB0aGF0IGl0IGlzIGFscmVhZHkgaW4gRGF2aWQncyBwdWxsaW5nIHJlcXVlc3QuDQpD
-b25maWd1cmluZyBHUElPTElCIGlzIHRoZSByaWdodCBzb2x1dGlvbiAgZXZlbiBpZiBwbGF0Zm9y
-bSBkb2Vzbid0IHVzZSBpdD8NCg0KRGlkIEkgbWlzcyBhbnkgbmV3IHBhdGNoPw0KDQpUaGFua3Mu
-DQpXb29qdW5nDQo=
+On Thu, Sep 07, 2017 at 09:09:04PM +0000, Tristram.Ha@microchip.com wrote:
+> From: Tristram Ha <Tristram.Ha@microchip.com>
+> 
+> Create new ksz9477.c file from original ksz_common.c.
+> 
+> Signed-off-by: Tristram Ha <Tristram.Ha@microchip.com>
+> ---
+> diff --git a/drivers/net/dsa/microchip/ksz9477.c b/drivers/net/dsa/microchip/ksz9477.c
+> new file mode 100644
+> index 0000000..bc722b4
+> --- /dev/null
+> +++ b/drivers/net/dsa/microchip/ksz9477.c
+> @@ -0,0 +1,1317 @@
+> +/*
+> + * Microchip switch driver main logic
+> + *
+> + * Copyright (C) 2017
+> + *
+> + * Permission to use, copy, modify, and/or distribute this software for 
+> +any
+> + * purpose with or without fee is hereby granted, provided that the 
+> +above
+
+Tristram
+
+It looks like something hand mangled this comment. "any" and "above"
+appear to be on a line on there own.
+
+> + * copyright notice and this permission notice appear in all copies.
+> + *
+> + * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL 
+> +WARRANTIES
+> + * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+> + * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE 
+> +FOR
+> + * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY 
+> +DAMAGES
+> + * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN 
+> +AN
+> + * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT 
+> +OF
+> + * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+> + */
+> +
+> +#include <linux/delay.h>
+> +#include <linux/export.h>
+> +#include <linux/gpio.h>
+> +#include <linux/kernel.h>
+> +#include <linux/module.h>
+> +#include <linux/platform_data/microchip-ksz.h>
+> +#include <linux/phy.h>
+> +#include <linux/etherdevice.h>
+> +#include <linux/if_bridge.h>
+> +#include <net/dsa.h>
+> +#include <net/switchdev.h>
+> +
+> +#include "ksz_priv.h"
+> +#include "ksz_9477_reg.h"
+> +
+> +static const struct {
+> +	int index;
+> +	char string[ETH_GSTRING_LEN];
+> +} mib_names[TOTAL_SWITCH_COUNTER_NUM] = {
+> +	{ 0x00, "rx_hi" },
+> +	{ 0x01, "rx_undersize" },
+> +	{ 0x02, "rx_fragments" },
+> +	{ 0x03, "rx_oversize" },
+> +	{ 0x04, "rx_jabbers" },
+> +	{ 0x05, "rx_symbol_err" },
+> +	{ 0x06, "rx_crc_err" },
+> +	{ 0x07, "rx_align_err" },
+> +	{ 0x08, "rx_mac_ctrl" },
+> +	{ 0x09, "rx_pause" },
+> +	{ 0x0A, "rx_bcast" },
+> +	{ 0x0B, "rx_mcast" },
+> +	{ 0x0C, "rx_ucast" },
+> +	{ 0x0D, "rx_64_or_less" },
+> +	{ 0x0E, "rx_65_127" },
+> +	{ 0x0F, "rx_128_255" },
+> +	{ 0x10, "rx_256_511" },
+> +	{ 0x11, "rx_512_1023" },
+> +	{ 0x12, "rx_1024_1522" },
+> +	{ 0x13, "rx_1523_2000" },
+> +	{ 0x14, "rx_2001" },
+> +	{ 0x15, "tx_hi" },
+> +	{ 0x16, "tx_late_col" },
+> +	{ 0x17, "tx_pause" },
+> +	{ 0x18, "tx_bcast" },
+> +	{ 0x19, "tx_mcast" },
+> +	{ 0x1A, "tx_ucast" },
+> +	{ 0x1B, "tx_deferred" },
+> +	{ 0x1C, "tx_total_col" },
+> +	{ 0x1D, "tx_exc_col" },
+> +	{ 0x1E, "tx_single_col" },
+> +	{ 0x1F, "tx_mult_col" },
+> +	{ 0x80, "rx_total" },
+> +	{ 0x81, "tx_total" },
+> +	{ 0x82, "rx_discards" },
+> +	{ 0x83, "tx_discards" },
+> +};
+> +
+> +static void ksz_cfg(struct ksz_device *dev, u32 addr, u8 bits, bool 
+> +set) {
+
+More mangling? Should set be on the end of the previous line?
+
+> +static void read_table(struct dsa_switch *ds, u32 *table) {
+> +	struct ksz_device *dev = ds->priv;
+> +
+> +	ksz_read32(dev, REG_SW_ALU_VAL_A, &table[0]);
+> +	ksz_read32(dev, REG_SW_ALU_VAL_B, &table[1]);
+> +	ksz_read32(dev, REG_SW_ALU_VAL_C, &table[2]);
+> +	ksz_read32(dev, REG_SW_ALU_VAL_D, &table[3]); }
+> +
+> +static void write_table(struct dsa_switch *ds, u32 *table) {
+> +	struct ksz_device *dev = ds->priv;
+> +
+> +	ksz_write32(dev, REG_SW_ALU_VAL_A, table[0]);
+> +	ksz_write32(dev, REG_SW_ALU_VAL_B, table[1]);
+> +	ksz_write32(dev, REG_SW_ALU_VAL_C, table[2]);
+> +	ksz_write32(dev, REG_SW_ALU_VAL_D, table[3]); }
+
+More mangling? } at the end of a line?
+
+I will stop reading now and wait for a v2 this is not corrupt.
+
+  Andrew
