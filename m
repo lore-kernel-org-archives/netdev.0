@@ -1,55 +1,271 @@
-From: Kalle Valo <kvalo@qca.qualcomm.com>
-Subject: Re: [PATCH] ath10: mark PM functions as __maybe_unused
-Date: Thu, 7 Sep 2017 11:36:05 +0000
-Message-ID: <87o9qmn3kr.fsf@kamboji.qca.qualcomm.com>
-References: <20170906125904.2588620-1-arnd@arndb.de>
+From: Stephen Smalley <sds@tycho.nsa.gov>
+Subject: Re: [PATCH 1/3] security: bpf: Add eBPF LSM hooks to security module
+Date: Thu, 07 Sep 2017 08:32:19 -0400
+Message-ID: <1504787539.22845.1.camel@tycho.nsa.gov>
+References: <20170831205635.80256-1-chenbofeng.kernel@gmail.com>
+         <20170831205635.80256-2-chenbofeng.kernel@gmail.com>
+         <1504270223.8240.2.camel@tycho.nsa.gov>
+         <CAMOXUJ=r1AEO_6Pg7-tio9UPn2YCJKOrLS=xbn7U4SE_mBYyJQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: Colin Ian King <colin.king@canonical.com>,
-        "bartosz.markowski@tieto.com" <bartosz.markowski@tieto.com>,
-        Govind Singh <govinds@qti.qualcomm.com>,
-        "Ryan Hsu" <ryanhsu@qti.qualcomm.com>,
-        Srinivas Kandagatla <srinivas.kandagatla@linaro.org>,
-        Rajkumar Manoharan <rmanohar@qti.qualcomm.com>,
-        Ashok Raj Nagarajan <arnagara@qti.qualcomm.com>,
-        Ben Greear <greearb@candelatech.com>,
-        "ath10k@lists.infradead.org" <ath10k@lists.infradead.org>,
-        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from alexa-out.qualcomm.com ([129.46.98.28]:25249 "EHLO
-        alexa-out-lv-02.qualcomm.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1755092AbdIGLgJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 7 Sep 2017 07:36:09 -0400
-In-Reply-To: <20170906125904.2588620-1-arnd@arndb.de> (Arnd Bergmann's message
-        of "Wed, 6 Sep 2017 14:58:53 +0200")
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, Chenbo Feng <chenbofeng.kernel@gmail.com>,
+        linux-security-module@vger.kernel.org,
+        SELinux <Selinux@tycho.nsa.gov>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Lorenzo Colitti <lorenzo@google.com>
+To: Chenbo Feng <fengc@google.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <CAMOXUJ=r1AEO_6Pg7-tio9UPn2YCJKOrLS=xbn7U4SE_mBYyJQ@mail.gmail.com>
+Sender: owner-linux-security-module@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Arnd Bergmann <arnd@arndb.de> writes:
+On Tue, 2017-09-05 at 15:24 -0700, Chenbo Feng via Selinux wrote:
+> On Fri, Sep 1, 2017 at 5:50 AM, Stephen Smalley <sds@tycho.nsa.gov>
+> wrote:
+> > On Thu, 2017-08-31 at 13:56 -0700, Chenbo Feng wrote:
+> > > From: Chenbo Feng <fengc@google.com>
+> > > 
+> > > Introduce 5 LSM hooks to provide finer granularity controls on
+> > > eBPF
+> > > related operations including create eBPF maps, modify and read
+> > > eBPF
+> > > maps
+> > > content and load eBPF programs to the kernel. Hooks use the new
+> > > security
+> > > pointer inside the eBPF map struct to store the owner's security
+> > > information and the different security modules can perform
+> > > different
+> > > checks based on the information stored inside the security field.
+> > > 
+> > > Signed-off-by: Chenbo Feng <fengc@google.com>
+> > > ---
+> > >  include/linux/lsm_hooks.h | 41
+> > > +++++++++++++++++++++++++++++++++++++++++
+> > >  include/linux/security.h  | 36
+> > > ++++++++++++++++++++++++++++++++++++
+> > >  security/security.c       | 28 ++++++++++++++++++++++++++++
+> > >  3 files changed, 105 insertions(+)
+> > > 
+> > > diff --git a/include/linux/lsm_hooks.h
+> > > b/include/linux/lsm_hooks.h
+> > > index ce02f76a6188..3aaf9a08a983 100644
+> > > --- a/include/linux/lsm_hooks.h
+> > > +++ b/include/linux/lsm_hooks.h
+> > > @@ -1353,6 +1353,32 @@
+> > >   *   @inode we wish to get the security context of.
+> > >   *   @ctx is a pointer in which to place the allocated security
+> > > context.
+> > >   *   @ctxlen points to the place to put the length of @ctx.
+> > > + *
+> > > + * Security hooks for using the eBPF maps and programs
+> > > functionalities through
+> > > + * eBPF syscalls.
+> > > + *
+> > > + * @bpf_map_create:
+> > > + *   Check permissions prior to creating a new bpf map.
+> > > + *   Return 0 if the permission is granted.
+> > > + *
+> > > + * @bpf_map_modify:
+> > > + *   Check permission prior to insert, update and delete map
+> > > content.
+> > > + *   @map pointer to the struct bpf_map that contains map
+> > > information.
+> > > + *   Return 0 if the permission is granted.
+> > > + *
+> > > + * @bpf_map_read:
+> > > + *   Check permission prior to read a bpf map content.
+> > > + *   @map pointer to the struct bpf_map that contains map
+> > > information.
+> > > + *   Return 0 if the permission is granted.
+> > > + *
+> > > + * @bpf_prog_load:
+> > > + *   Check permission prior to load eBPF program.
+> > > + *   Return 0 if the permission is granted.
+> > > + *
+> > > + * @bpf_post_create:
+> > > + *   Initialize the bpf object security field inside struct
+> > > bpf_maps and
+> > > + *   it is used for future security checks.
+> > > + *
+> > >   */
+> > >  union security_list_options {
+> > >       int (*binder_set_context_mgr)(struct task_struct *mgr);
+> > > @@ -1685,6 +1711,14 @@ union security_list_options {
+> > >                               struct audit_context *actx);
+> > >       void (*audit_rule_free)(void *lsmrule);
+> > >  #endif /* CONFIG_AUDIT */
+> > > +
+> > > +#ifdef CONFIG_BPF_SYSCALL
+> > > +     int (*bpf_map_create)(void);
+> > > +     int (*bpf_map_read)(struct bpf_map *map);
+> > > +     int (*bpf_map_modify)(struct bpf_map *map);
+> > > +     int (*bpf_prog_load)(void);
+> > > +     int (*bpf_post_create)(struct bpf_map *map);
+> > > +#endif /* CONFIG_BPF_SYSCALL */
+> > >  };
+> > > 
+> > >  struct security_hook_heads {
+> > > @@ -1905,6 +1939,13 @@ struct security_hook_heads {
+> > >       struct list_head audit_rule_match;
+> > >       struct list_head audit_rule_free;
+> > >  #endif /* CONFIG_AUDIT */
+> > > +#ifdef CONFIG_BPF_SYSCALL
+> > > +     struct list_head bpf_map_create;
+> > > +     struct list_head bpf_map_read;
+> > > +     struct list_head bpf_map_modify;
+> > > +     struct list_head bpf_prog_load;
+> > > +     struct list_head bpf_post_create;
+> > > +#endif /* CONFIG_BPF_SYSCALL */
+> > >  } __randomize_layout;
+> > > 
+> > >  /*
+> > > diff --git a/include/linux/security.h b/include/linux/security.h
+> > > index 458e24bea2d4..0656a4f74d14 100644
+> > > --- a/include/linux/security.h
+> > > +++ b/include/linux/security.h
+> > > @@ -31,6 +31,7 @@
+> > >  #include <linux/string.h>
+> > >  #include <linux/mm.h>
+> > >  #include <linux/fs.h>
+> > > +#include <linux/bpf.h>
+> > > 
+> > >  struct linux_binprm;
+> > >  struct cred;
+> > > @@ -1735,6 +1736,41 @@ static inline void
+> > > securityfs_remove(struct
+> > > dentry *dentry)
+> > > 
+> > >  #endif
+> > > 
+> > > +#ifdef CONFIG_BPF_SYSCALL
+> > > +#ifdef CONFIG_SECURITY
+> > > +int security_map_create(void);
+> > > +int security_map_modify(struct bpf_map *map);
+> > > +int security_map_read(struct bpf_map *map);
+> > > +int security_prog_load(void);
+> > > +int security_post_create(struct bpf_map *map);
+> > > +#else
+> > > +static inline int security_map_create(void)
+> > > +{
+> > > +     return 0;
+> > > +}
+> > > +
+> > > +static inline int security_map_read(struct bpf_map *map)
+> > > +{
+> > > +     return 0;
+> > > +}
+> > > +
+> > > +static inline int security_map_modify(struct bpf_map *map)
+> > > +{
+> > > +     return 0;
+> > > +}
+> > > +
+> > > +static inline int security_prog_load(void)
+> > > +{
+> > > +     return 0;
+> > > +}
+> > > +
+> > > +static inline int security_post_create(struct bpf_map *map)
+> > > +{
+> > > +     return 0;
+> > > +}
+> > > +#endif /* CONFIG_SECURITY */
+> > > +#endif /* CONFIG_BPF_SYSCALL */
+> > 
+> > These should be named consistently with the ones in lsm_hooks.h and
+> > should unambiguously indicate that these are hooks for bpf
+> > objects/operations, i.e. security_bpf_map_create(),
+> > security_bpf_map_read(), etc.
+> > 
+> 
+> Thanks for pointing out, will fix this.
+> > Do you need this level of granularity?
+> > 
+> 
+> The cover letter of this patch series described a possible use cases
+> of
+> these lsm hooks and this level of granularity would be ideal to reach
+> that
+> goal. We can also implement two hooks such as bpf_obj_create and
+> bpf_obj_use to restrict the creation and using when get the bpf fd
+> from
+> kernel. But that will be less powerful and flexible.
+> > Could you coalesce the map_create() and post_map_create() hooks
+> > into
+> > one hook and just unwind the create in that case?
+> > 
+> 
+> Okay, I will take a look on how to fix this.
 
-> When CONFIG_PM_SLEEP is disabled, we get a compile-time
-> warning:
->
-> drivers/net/wireless/ath/ath10k/pci.c:3417:12: error: 'ath10k_pci_pm_resu=
-me' defined but not used [-Werror=3Dunused-function]
->  static int ath10k_pci_pm_resume(struct device *dev)
->             ^~~~~~~~~~~~~~~~~~~~
-> drivers/net/wireless/ath/ath10k/pci.c:3401:12: error: 'ath10k_pci_pm_susp=
-end' defined but not used [-Werror=3Dunused-function]
->  static int ath10k_pci_pm_suspend(struct device *dev)
->
-> Rather than fixing the #ifdef, this just marks both functions
-> as __maybe_unused, which is a more robust way to do this.
->
-> Fixes: 32faa3f0ee50 ("ath10k: add the PCI PM core suspend/resume ops")
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Also, what you called security_post_create() would normally be called
+something like security_bpf_alloc_security(), and would have a
+corresponding security_bpf_free_security() hook too.  However, whether
+or not you still need this security field and hook at all is unclear to
+me, given the direction the discussion has gone.
 
-Thanks. But the title should have "ath10k:", I'll fix that.
-
---=20
-Kalle Valo=
+> > Why do you label bpf maps but not bpf progs?  Should we be
+> > controlling
+> > the ability to attach/detach a bpf prog (partly controlled by
+> > CAP_NET_ADMIN, but also somewhat broad in scope and doesn't allow
+> > control based on who created the prog)?
+> > 
+> > Should there be a top-level security_bpf_use() hook and permission
+> > check that limits ability to use bpf() at all?
+> > 
+> 
+> This could be useful but having additional lsm hooks check when
+> reading
+> and write to eBPF maps may cause performance issue. Instead maybe we
+> could have a hook for creating eBPF object and retrieve object fd to
+> restrict
+> the access.
+> > > +
+> > >  #ifdef CONFIG_SECURITY
+> > > 
+> > >  static inline char *alloc_secdata(void)
+> > > diff --git a/security/security.c b/security/security.c
+> > > index 55b5997e4b72..02272f93a89e 100644
+> > > --- a/security/security.c
+> > > +++ b/security/security.c
+> > > @@ -12,6 +12,7 @@
+> > >   *   (at your option) any later version.
+> > >   */
+> > > 
+> > > +#include <linux/bpf.h>
+> > >  #include <linux/capability.h>
+> > >  #include <linux/dcache.h>
+> > >  #include <linux/module.h>
+> > > @@ -1708,3 +1709,30 @@ int security_audit_rule_match(u32 secid,
+> > > u32
+> > > field, u32 op, void *lsmrule,
+> > >                               actx);
+> > >  }
+> > >  #endif /* CONFIG_AUDIT */
+> > > +
+> > > +#ifdef CONFIG_BPF_SYSCALL
+> > > +int security_map_create(void)
+> > > +{
+> > > +     return call_int_hook(bpf_map_create, 0);
+> > > +}
+> > > +
+> > > +int security_map_modify(struct bpf_map *map)
+> > > +{
+> > > +     return call_int_hook(bpf_map_modify, 0, map);
+> > > +}
+> > > +
+> > > +int security_map_read(struct bpf_map *map)
+> > > +{
+> > > +     return call_int_hook(bpf_map_read, 0, map);
+> > > +}
+> > > +
+> > > +int security_prog_load(void)
+> > > +{
+> > > +     return call_int_hook(bpf_prog_load, 0);
+> > > +}
+> > > +
+> > > +int security_post_create(struct bpf_map *map)
+> > > +{
+> > > +     return call_int_hook(bpf_post_create, 0, map);
+> > > +}
+> > > +#endif /* CONFIG_BPF_SYSCALL */
