@@ -1,43 +1,36 @@
-From: Stefano Brivio <sbrivio@redhat.com>
-Subject: Re: WARN_ON() in __nf_hook_entries_try_shrink()
-Date: Fri, 8 Sep 2017 02:11:24 +0200
-Message-ID: <20170908021124.1f4f409e@elisabeth>
-References: <CA+55aFw64ihu1bai0Em8pXD4dZ-wFVtV7BRjWbDLLb2MPWWXkw@mail.gmail.com>
+From: administrador <fcja@fcja.pb.gov.br>
+Subject: =?utf-8?q?ATENCI=C3=93N=3B?=
+Date: Thu, 07 Sep 2017 16:41:49 +0530
+Message-ID: <20170907111216.157D2381AA6@gerencia.webmail.pb.gov.br>
+Reply-To: Sistemass_Adminss@mail2world.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Aaron Conole <aconole@bytheb.org>, Florian Westphal <fw@strlen.de>,
-        Pablo Neira Ayuso <pablo@netfilter.org>,
-        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        David Miller <davem@davemloft.net>,
-        NetFilter <netfilter-devel@vger.kernel.org>,
-        coreteam@netfilter.org,
-        Network Development <netdev@vger.kernel.org>
-To: Linus Torvalds <torvalds@linux-foundation.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 8BIT
+To: Recipients <fcja@fcja.pb.gov.br>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40194 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750914AbdIHALc (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 7 Sep 2017 20:11:32 -0400
-In-Reply-To: <CA+55aFw64ihu1bai0Em8pXD4dZ-wFVtV7BRjWbDLLb2MPWWXkw@mail.gmail.com>
+Received: from mx3.pb.gov.br ([200.164.109.73]:40949 "HELO mx3.pb.gov.br"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+        id S1750807AbdIHAdl (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 7 Sep 2017 20:33:41 -0400
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 7 Sep 2017 17:01:12 -0700
-Linus Torvalds <torvalds@linux-foundation.org> wrote:
+ATENCIÓN;
 
-> On shutdown I get this (edited down a bit to be more legible):
-> 
->   Stopping firewalld - dynamic firewall daemon...
->   NETFILTER_CFG table=nat family=2 entries=55
->   NETFILTER_CFG table=mangle family=2 entries=40
->   NETFILTER_CFG table=raw family=2 entries=28
->   NETFILTER_CFG table=security family=2 entries=13
->   NETFILTER_CFG table=filter family=2 entries=93
->   ------------[ cut here ]------------
->   WARNING: CPU: 1 PID: 21512 at net/netfilter/core.c:218
-> __nf_hook_entries_try_shrink+0x106/0x130
+Su buzón ha superado el límite de almacenamiento, que es de 5 GB definidos por el administrador, quien actualmente está ejecutando en 10.9GB, no puede ser capaz de enviar o recibir correo nuevo hasta que vuelva a validar su buzón de correo electrónico. Para revalidar su buzón de correo, envíe la siguiente información a continuación:
 
-Should be fixed by:
+nombre: 
+Nombre de usuario: 
+contraseña:
+Confirmar contraseña:
+E-mail: 
+teléfono:
+Si usted no puede revalidar su buzón, el buzón se deshabilitará!
 
-	http://patchwork.ozlabs.org/patch/810570/
+Disculpa las molestias.
+Código de verificación: es: 006524
+Correo Soporte Técnico © 2016
+
+¡gracias
+Sistemas administrador
