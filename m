@@ -1,44 +1,44 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH RFC 1/6] The file ksz_common.c will be used by other KSZ
- switch drivers.
-Date: Thu, 7 Sep 2017 23:24:49 +0200
-Message-ID: <20170907212449.GQ11248@lunn.ch>
-References: <93AF473E2DA327428DE3D46B72B1E9FD411218C4@CHN-SV-EXMX02.mchp-main.com>
- <93AF473E2DA327428DE3D46B72B1E9FD411219FF@CHN-SV-EXMX02.mchp-main.com>
+From: <Woojung.Huh@microchip.com>
+Subject: RE: [PATCH net-next] mdio_bus: Remove unneeded gpiod NULL check
+Date: Thu, 7 Sep 2017 21:30:26 +0000
+Message-ID: <9235D6609DB808459E95D78E17F2E43D40B1B424@CHN-SV-EXMX02.mchp-main.com>
+References: <1500325749-8382-1-git-send-email-festevam@gmail.com>
+ <6f984a9c-e6d3-fd0a-6719-fa9032d43d1d@cogentembedded.com>
+ <CAOMZO5ABD9iasv67ehcpTzcjU-iD9=8vQ2vM7Gwc4-v9pnUt-Q@mail.gmail.com>
+ <f4cdcb4b-feac-5106-8068-e694dbd3b4e6@cogentembedded.com>
+ <CAOMZO5BycGHNocULcScDczRoEvbQqjnRZTDrNAw7=+zpadSOSA@mail.gmail.com>
+ <20170718133209.GB32757@lunn.ch>
+ <CACRpkdYw5GWv3HRCqnWjDfctLEfzcoFdJ7ib_NVKRgw0+Y9dEg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: muvarov@gmail.com, pavel@ucw.cz, nathan.leigh.conrad@gmail.com,
-        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Woojung.Huh@microchip.com
-To: Tristram.Ha@microchip.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <93AF473E2DA327428DE3D46B72B1E9FD411219FF@CHN-SV-EXMX02.mchp-main.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: <festevam@gmail.com>, <sergei.shtylyov@cogentembedded.com>,
+        <davem@davemloft.net>, <f.fainelli@gmail.com>,
+        <netdev@vger.kernel.org>, <fabio.estevam@nxp.com>
+To: <linus.walleij@linaro.org>, <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from esa3.microchip.iphmx.com ([68.232.153.233]:33237 "EHLO
+        esa3.microchip.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752708AbdIGVar (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 7 Sep 2017 17:30:47 -0400
+In-Reply-To: <CACRpkdYw5GWv3HRCqnWjDfctLEfzcoFdJ7ib_NVKRgw0+Y9dEg@mail.gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 07, 2017 at 09:08:58PM +0000, Tristram.Ha@microchip.com wrote:
-> From: Tristram Ha <Tristram.Ha@microchip.com>
-> 
-> Break ksz_common.c into 2 files so that the common code can be used by other KSZ switch drivers.
-> 
-> Signed-off-by: Tristram Ha <Tristram.Ha@microchip.com>
-> ---
-> diff --git a/drivers/net/dsa/microchip/Makefile b/drivers/net/dsa/microchip/Makefile
-> index ed335e2..0961c30 100644
-> --- a/drivers/net/dsa/microchip/Makefile
-> +++ b/drivers/net/dsa/microchip/Makefile
-> @@ -1,2 +1,2 @@
-> -obj-$(CONFIG_MICROCHIP_KSZ)	        += ksz_common.o
-> +obj-$(CONFIG_MICROCHIP_KSZ)	        += ksz9477.o ksz_common.o
->  obj-$(CONFIG_MICROCHIP_KSZ_SPI_DRIVER)	+= ksz_spi.o
-
-Hi Tristram
-
-I would of thought this would break the build. You don't add ksz9477.c
-until the next patch.
-
-Each patch needs to compile, otherwise you break git bisect.
-
-     Andrew
+PiBJZiBzb21lb25lIGlzIHVzaW5nIEdQSU8gZGVzY3JpcHRvcnMgd2l0aCBHUElPIGRpc2FibGVk
+LCBpLmUuIGNhbGxpbmcNCj4gZ3Bpb2RfZ2V0KCkgYW5kIGZyaWVuZHMsIHRoaXMgaXMgdmVyeSBs
+aWtlbHkgdG8gYmUgYSBidWcsIGFuZCB3aGF0DQo+IHRoZSBkcml2ZXIgd2FudHMgdG8gZG8gaXM6
+DQo+IA0KPiAgZGVwZW5kcyBvbiBHUElPTElCDQo+IA0KPiBvcg0KPiANCj4gIHNlbGVjdCBHUElP
+TElCDQo+IA0KPiBpbiBLY29uZmlnLiBUaGUgd2hvbGUgb3B0aW9uYWwgdGhpbmcgaXMgbWFpbmx5
+IGEgbGVmdG92ZXIgZnJvbSB3aGVuIGl0DQo+IHdhcyBwb3NzaWJsZSB0byBoYXZlIGEgbG9jYWwg
+aW1wbGVtZW50YXRpb24gb2YgdGhlIEdQSU9MSUIgQVBJIGluDQo+IHNvbWUgY3VzdG9tIGhlYWRl
+ciBmaWxlLCBub29uZSBzYW5lIHNob3VsZCBiZSBkb2luZyB0aGF0IGFueW1vcmUsDQo+IGFuZCBp
+ZiB0aGV5IGRvLCB0aGV5IGNhbiB2ZXJ5IHdlbGwgZmFjZSB0aGUgd2FybmluZ3MuDQo+IA0KPiBJ
+ZiBzb21lb25lIGlzIGZhY2luZyBhIGxvdCBvZiBXQVJOX09OKCkgbWVzc2FnZXMgdG8gdGhpcywg
+aXQgaXMgYSBjbGVhcg0KPiBpbmRpY2F0aW9uIHRoYXQgdGhleSBuZWVkIHRvIGZpeCB0aGVpciBL
+Y29uZmlnIGFuZCBpbiB0aGF0IGNhc2UgaXQgaXMgcHJvcGVyLg0KTGludXMgJiBBbmRyZXcsDQoN
+Ckkga25ldyB0aGF0IGl0IGlzIGFscmVhZHkgaW4gRGF2aWQncyBwdWxsaW5nIHJlcXVlc3QuDQpD
+b25maWd1cmluZyBHUElPTElCIGlzIHRoZSByaWdodCBzb2x1dGlvbiAgZXZlbiBpZiBwbGF0Zm9y
+bSBkb2Vzbid0IHVzZSBpdD8NCg0KRGlkIEkgbWlzcyBhbnkgbmV3IHBhdGNoPw0KDQpUaGFua3Mu
+DQpXb29qdW5nDQo=
