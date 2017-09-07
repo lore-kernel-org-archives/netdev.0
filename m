@@ -1,377 +1,153 @@
 From: sainath.grandhi@intel.com
-Subject: [PATCH RFC v1 3/3] vethtap: veth based tap driver
-Date: Wed,  6 Sep 2017 17:34:27 -0700
-Message-ID: <1504744467-79590-4-git-send-email-sainath.grandhi@intel.com>
+Subject: [PATCH RFC v1 2/3] net: Abstracting out common routines from veth for use by vethtap
+Date: Wed,  6 Sep 2017 17:34:26 -0700
+Message-ID: <1504744467-79590-3-git-send-email-sainath.grandhi@intel.com>
 References: <1504744467-79590-1-git-send-email-sainath.grandhi@intel.com>
 Cc: davem@davemloft.net, Sainath Grandhi <sainath.grandhi@intel.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:16007 "EHLO mga03.intel.com"
+Received: from mga05.intel.com ([192.55.52.43]:52065 "EHLO mga05.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752063AbdIGAiF (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 6 Sep 2017 20:38:05 -0400
+        id S1751978AbdIGAh7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 6 Sep 2017 20:37:59 -0400
 In-Reply-To: <1504744467-79590-1-git-send-email-sainath.grandhi@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Sainath Grandhi <sainath.grandhi@intel.com>
 
-This patch adds a tap character device driver that is based on the
-veth network interface, called vethtap. This patchset allows vethtap device
-to be created ONLY as a peer interface to a veth network interface. It can
-be created in the following way,
-ip link add veth1 type veth peer name veth2 type vethtap
-With this packets on veth2 can be accessed using tap user space interface.
+Abstracting out common routines for link operations in veth implementation
+for use by vethtap interfaces
 
 Signed-off-by: Sainath Grandhi <sainath.grandhi@intel.com>
 ---
- drivers/net/Kconfig                 |   1 +
- drivers/net/Makefile                |   2 +
- drivers/net/{veth.c => veth_main.c} |  33 +++++-
- drivers/net/vethtap.c               | 216 ++++++++++++++++++++++++++++++++++++
- include/linux/if_veth.h             |   4 +
- 5 files changed, 255 insertions(+), 1 deletion(-)
- rename drivers/net/{veth.c => veth_main.c} (94%)
- create mode 100644 drivers/net/vethtap.c
+ drivers/net/veth.c      | 47 +++++++++++++++++++++++++++++++++--------------
+ include/linux/if_veth.h |  9 +++++++++
+ 2 files changed, 42 insertions(+), 14 deletions(-)
+ create mode 100644 include/linux/if_veth.h
 
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index aba0d65..265853e 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -323,6 +323,7 @@ config TUN_VNET_CROSS_LE
- 
- config VETH
- 	tristate "Virtual ethernet pair device"
-+	select TAP
- 	---help---
- 	  This device is a local ethernet tunnel. Devices are created in pairs.
- 	  When one end receives the packet it appears on its pair and vice
-diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index 8dff900..7c63e69 100644
---- a/drivers/net/Makefile
-+++ b/drivers/net/Makefile
-@@ -32,6 +32,8 @@ obj-$(CONFIG_NLMON) += nlmon.o
- obj-$(CONFIG_NET_VRF) += vrf.o
- obj-$(CONFIG_VSOCKMON) += vsockmon.o
- 
-+veth-objs := veth_main.o vethtap.o
-+
- #
- # Networking Drivers
- #
-diff --git a/drivers/net/veth.c b/drivers/net/veth_main.c
-similarity index 94%
-rename from drivers/net/veth.c
-rename to drivers/net/veth_main.c
-index a1b370d..fc91dd7 100644
+diff --git a/drivers/net/veth.c b/drivers/net/veth.c
+index f5438d0..a1b370d 100644
 --- a/drivers/net/veth.c
-+++ b/drivers/net/veth_main.c
-@@ -359,6 +359,9 @@ static int veth_newlink(struct net *src_net, struct net_device *dev,
- 	unsigned char name_assign_type;
- 	struct ifinfomsg *ifmp;
- 	struct net *net;
-+	struct nlattr *linkinfo[IFLA_INFO_MAX + 1];
-+	char peer_type[8];
-+	struct rtnl_link_ops *link_ops;
++++ b/drivers/net/veth.c
+@@ -18,6 +18,7 @@
+ #include <net/dst.h>
+ #include <net/xfrm.h>
+ #include <linux/veth.h>
++#include <linux/if_veth.h>
+ #include <linux/module.h>
  
- 	/*
- 	 * create and register peer first
-@@ -393,17 +396,38 @@ static int veth_newlink(struct net *src_net, struct net_device *dev,
- 		name_assign_type = NET_NAME_ENUM;
- 	}
+ #define DRV_NAME	"veth"
+@@ -29,12 +30,6 @@ struct pcpu_vstats {
+ 	struct u64_stats_sync	syncp;
+ };
  
-+	link_ops = &veth_link_ops;
-+	if (tbp[IFLA_LINKINFO]) {
-+		err = rtnl_nla_parse_ifla_info(linkinfo,
-+					       nla_data(tbp[IFLA_LINKINFO]),
-+					       nla_len(tbp[IFLA_LINKINFO]),
-+					       NULL);
+-struct veth_priv {
+-	struct net_device __rcu	*peer;
+-	atomic64_t		dropped;
+-	unsigned		requested_headroom;
+-};
+-
+ /*
+  * ethtool interface
+  */
+@@ -298,13 +293,12 @@ static const struct net_device_ops veth_netdev_ops = {
+ 		       NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_CTAG_RX | \
+ 		       NETIF_F_HW_VLAN_STAG_TX | NETIF_F_HW_VLAN_STAG_RX )
+ 
+-static void veth_setup(struct net_device *dev)
++void veth_common_setup(struct net_device *dev)
+ {
+ 	ether_setup(dev);
+ 
+ 	dev->priv_flags &= ~IFF_TX_SKB_SHARING;
+ 	dev->priv_flags |= IFF_LIVE_ADDR_CHANGE;
+-	dev->priv_flags |= IFF_NO_QUEUE;
+ 	dev->priv_flags |= IFF_PHONY_HEADROOM;
+ 
+ 	dev->netdev_ops = &veth_netdev_ops;
+@@ -325,6 +319,12 @@ static void veth_setup(struct net_device *dev)
+ 	dev->mpls_features = NETIF_F_HW_CSUM | NETIF_F_GSO_SOFTWARE;
+ }
+ 
++static void veth_setup(struct net_device *dev)
++{
++	veth_common_setup(dev);
++	dev->priv_flags |= IFF_NO_QUEUE;
++}
 +
-+		if (err < 0)
-+			return err;
-+
-+		if (linkinfo[IFLA_INFO_KIND]) {
-+			nla_strlcpy(peer_type, linkinfo[IFLA_INFO_KIND],
-+				    sizeof(peer_type));
-+			if (!strncmp(peer_type, "vethtap", sizeof(peer_type)))
-+				link_ops = &vethtap_link_ops;
-+		}
-+	}
-+
- 	net = rtnl_link_get_net(src_net, tbp);
- 	if (IS_ERR(net))
- 		return PTR_ERR(net);
- 
- 	peer = rtnl_create_link(net, ifname, name_assign_type,
--				&veth_link_ops, tbp);
-+				link_ops, tbp);
- 	if (IS_ERR(peer)) {
- 		put_net(net);
- 		return PTR_ERR(peer);
- 	}
- 
-+	if (!strncmp(peer_type, "vethtap", sizeof(peer_type)))
-+		link_ops->newlink(net, peer, tbp, NULL, NULL);
-+
- 	if (!ifmp || !tbp[IFLA_ADDRESS])
- 		eth_hw_addr_random(peer);
- 
-@@ -536,12 +560,19 @@ static __init int veth_init(void)
- 
- 	err = veth_link_register(&veth_link_ops);
- 
-+	if (err)
-+		goto out1;
-+
-+	err = vethtap_init();
-+
-+out1:
+ /*
+  * netlink interface
+  */
+@@ -465,7 +465,7 @@ static int veth_newlink(struct net *src_net, struct net_device *dev,
  	return err;
  }
  
- static __exit void veth_exit(void)
+-static void veth_dellink(struct net_device *dev, struct list_head *head)
++void veth_dellink(struct net_device *dev, struct list_head *head)
  {
- 	rtnl_link_unregister(&veth_link_ops);
-+	vethtap_exit();
- }
- 
- module_init(veth_init);
-diff --git a/drivers/net/vethtap.c b/drivers/net/vethtap.c
-new file mode 100644
-index 0000000..922b3ea
---- /dev/null
-+++ b/drivers/net/vethtap.c
-@@ -0,0 +1,216 @@
-+#include <linux/etherdevice.h>
-+#include <linux/if_tap.h>
-+#include <linux/if_vlan.h>
-+#include <linux/if_veth.h>
-+#include <linux/interrupt.h>
-+#include <linux/nsproxy.h>
-+#include <linux/compat.h>
-+#include <linux/if_tun.h>
-+#include <linux/module.h>
-+#include <linux/skbuff.h>
-+#include <linux/cache.h>
-+#include <linux/sched/signal.h>
-+#include <linux/types.h>
-+#include <linux/slab.h>
-+#include <linux/wait.h>
-+#include <linux/cdev.h>
-+#include <linux/idr.h>
-+#include <linux/fs.h>
-+#include <linux/uio.h>
-+
-+#include <net/net_namespace.h>
-+#include <net/rtnetlink.h>
-+#include <net/sock.h>
-+#include <linux/virtio_net.h>
-+#include <linux/skb_array.h>
-+
-+struct vethtap_dev {
-+	struct veth_priv  veth;
-+	struct tap_dev    tap;
-+};
-+
-+/* Variables for dealing with vethtaps device numbers.
-+ */
-+static dev_t vethtap_major;
-+
-+static const void *vethtap_net_namespace(struct device *d)
-+{
-+	struct net_device *dev = to_net_dev(d->parent);
-+
-+	return dev_net(dev);
-+}
-+
-+static struct class vethtap_class = {
-+	.name = "vethtap",
-+	.owner = THIS_MODULE,
-+	.ns_type = &net_ns_type_operations,
-+	.namespace = vethtap_net_namespace,
-+};
-+
-+static struct cdev vethtap_cdev;
-+
-+#define TUN_OFFLOADS (NETIF_F_HW_CSUM | NETIF_F_TSO_ECN | NETIF_F_TSO | \
-+		      NETIF_F_TSO6)
-+
-+static void vethtap_count_tx_dropped(struct tap_dev *tap)
-+{
-+	struct vethtap_dev *vethtap = container_of(tap, struct vethtap_dev,
-+						   tap);
-+	struct veth_priv *veth = &vethtap->veth;
-+
-+	atomic64_inc(&veth->dropped);
-+}
-+
-+static int vethtap_newlink(struct net *src_net, struct net_device *dev,
-+			   struct nlattr *tb[], struct nlattr *data[],
-+			   struct netlink_ext_ack *extack)
-+{
-+	struct vethtap_dev *vethtap = netdev_priv(dev);
-+	int err;
-+
-+	INIT_LIST_HEAD(&vethtap->tap.queue_list);
-+
-+	/* Since macvlan supports all offloads by default, make
-+	 * tap support all offloads also.
-+	 */
-+	vethtap->tap.tap_features = TUN_OFFLOADS;
-+
-+	/* Register callbacks for rx/tx drops accounting and updating
-+	 * net_device features
-+	 */
-+	vethtap->tap.count_tx_dropped = vethtap_count_tx_dropped;
-+	vethtap->tap.count_rx_dropped = NULL;
-+	vethtap->tap.update_features  = NULL;
-+
-+	err = netdev_rx_handler_register(dev, tap_handle_frame, &vethtap->tap);
-+	if (err)
-+		return err;
-+
-+	vethtap->tap.dev = dev;
-+
-+	return 0;
-+}
-+
-+static void vethtap_dellink(struct net_device *dev,
-+			    struct list_head *head)
-+{
-+	struct vethtap_dev *vethtap = netdev_priv(dev);
-+
-+	netdev_rx_handler_unregister(dev);
-+	tap_del_queues(&vethtap->tap);
-+	veth_dellink(dev, head);
-+}
-+
-+static void vethtap_setup(struct net_device *dev)
-+{
-+	veth_common_setup(dev);
-+	dev->tx_queue_len = TUN_READQ_SIZE;
-+}
-+
-+struct rtnl_link_ops vethtap_link_ops __read_mostly = {
-+	.kind           = "vethtap",
-+	.setup		= vethtap_setup,
-+	.newlink	= vethtap_newlink,
-+	.dellink	= vethtap_dellink,
-+	.priv_size      = sizeof(struct vethtap_dev),
-+};
-+
-+static int vethtap_device_event(struct notifier_block *unused,
-+				unsigned long event, void *ptr)
-+{
-+	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
-+	struct vethtap_dev *vethtap;
-+	struct device *classdev;
-+	dev_t devt;
-+	int err;
-+	char tap_name[IFNAMSIZ];
-+
-+	if (dev->rtnl_link_ops != &vethtap_link_ops)
-+		return NOTIFY_DONE;
-+
-+	snprintf(tap_name, IFNAMSIZ, "tap%d", dev->ifindex);
-+	vethtap = netdev_priv(dev);
-+
-+	switch (event) {
-+	case NETDEV_REGISTER:
-+		/* Create the device node here after the network device has
-+		 * been registered but before register_netdevice has
-+		 * finished running.
-+		 */
-+		err = tap_get_minor(vethtap_major, &vethtap->tap);
-+		if (err)
-+			return notifier_from_errno(err);
-+
-+		devt = MKDEV(MAJOR(vethtap_major), vethtap->tap.minor);
-+		classdev = device_create(&vethtap_class, &dev->dev, devt,
-+					 dev, tap_name);
-+		if (IS_ERR(classdev)) {
-+			tap_free_minor(vethtap_major, &vethtap->tap);
-+			return notifier_from_errno(PTR_ERR(classdev));
-+		}
-+		err = sysfs_create_link(&dev->dev.kobj, &classdev->kobj,
-+					tap_name);
-+		if (err)
-+			return notifier_from_errno(err);
-+		break;
-+	case NETDEV_UNREGISTER:
-+		/* vlan->minor == 0 if NETDEV_REGISTER above failed */
-+		if (vethtap->tap.minor == 0)
-+			break;
-+		sysfs_remove_link(&dev->dev.kobj, tap_name);
-+		devt = MKDEV(MAJOR(vethtap_major), vethtap->tap.minor);
-+		device_destroy(&vethtap_class, devt);
-+		tap_free_minor(vethtap_major, &vethtap->tap);
-+		break;
-+	case NETDEV_CHANGE_TX_QUEUE_LEN:
-+		if (tap_queue_resize(&vethtap->tap))
-+			return NOTIFY_BAD;
-+		break;
-+	}
-+
-+	return NOTIFY_DONE;
-+}
-+
-+static struct notifier_block vethtap_notifier_block __read_mostly = {
-+	.notifier_call	= vethtap_device_event,
-+};
-+
-+int vethtap_init(void)
-+{
-+	int err;
-+
-+	err = tap_create_cdev(&vethtap_cdev, &vethtap_major, "vethtap");
-+
-+	if (err)
-+		goto out1;
-+
-+	err = class_register(&vethtap_class);
-+	if (err)
-+		goto out2;
-+
-+	err = register_netdevice_notifier(&vethtap_notifier_block);
-+	if (err)
-+		goto out3;
-+
-+	veth_link_ops_init(&vethtap_link_ops);
-+	if (err)
-+		goto out4;
-+
-+	return 0;
-+
-+out4:
-+	unregister_netdevice_notifier(&vethtap_notifier_block);
-+out3:
-+	class_unregister(&vethtap_class);
-+out2:
-+	tap_destroy_cdev(vethtap_major, &vethtap_cdev);
-+out1:
-+	return err;
-+}
-+
-+void vethtap_exit(void)
-+{
-+	unregister_netdevice_notifier(&vethtap_notifier_block);
-+	class_unregister(&vethtap_class);
-+	tap_destroy_cdev(vethtap_major, &vethtap_cdev);
-+}
-diff --git a/include/linux/if_veth.h b/include/linux/if_veth.h
-index b007891..dbc06c4 100644
---- a/include/linux/if_veth.h
-+++ b/include/linux/if_veth.h
-@@ -4,6 +4,10 @@ struct veth_priv {
- 	unsigned int            requested_headroom;
+ 	struct veth_priv *priv;
+ 	struct net_device *peer;
+@@ -503,21 +503,40 @@ static struct rtnl_link_ops veth_link_ops = {
+ 	.kind		= DRV_NAME,
+ 	.priv_size	= sizeof(struct veth_priv),
+ 	.setup		= veth_setup,
+-	.validate	= veth_validate,
+ 	.newlink	= veth_newlink,
+ 	.dellink	= veth_dellink,
+-	.policy		= veth_policy,
+-	.maxtype	= VETH_INFO_MAX,
+-	.get_link_net	= veth_get_link_net,
  };
  
-+extern struct rtnl_link_ops vethtap_link_ops;
++int veth_link_register(struct rtnl_link_ops *ops)
++{
++	/* common fields */
++	ops->validate     = veth_validate;
++	ops->policy       = veth_policy;
++	ops->maxtype      = VETH_INFO_MAX;
++	ops->get_link_net = veth_get_link_net;
 +
- void veth_common_setup(struct net_device *dev);
- void veth_dellink(struct net_device *dev, struct list_head *head);
- void veth_link_ops_init(struct rtnl_link_ops *ops);
-+int vethtap_init(void);
-+void vethtap_exit(void);
++	return rtnl_link_register(ops);
++}
++
++void veth_link_ops_init(struct rtnl_link_ops *ops)
++{
++	/*common fields*/
++	ops->validate       = veth_validate;
++	ops->policy         = veth_policy;
++	ops->maxtype        = VETH_INFO_MAX;
++	ops->get_link_net   = veth_get_link_net;
++}
+ /*
+  * init/fini
+  */
+ 
+ static __init int veth_init(void)
+ {
+-	return rtnl_link_register(&veth_link_ops);
++	int err;
++
++	err = veth_link_register(&veth_link_ops);
++
++	return err;
+ }
+ 
+ static __exit void veth_exit(void)
+diff --git a/include/linux/if_veth.h b/include/linux/if_veth.h
+new file mode 100644
+index 0000000..b007891
+--- /dev/null
++++ b/include/linux/if_veth.h
+@@ -0,0 +1,9 @@
++struct veth_priv {
++	struct net_device __rcu *peer;
++	atomic64_t              dropped;
++	unsigned int            requested_headroom;
++};
++
++void veth_common_setup(struct net_device *dev);
++void veth_dellink(struct net_device *dev, struct list_head *head);
++void veth_link_ops_init(struct rtnl_link_ops *ops);
 -- 
 2.7.4
