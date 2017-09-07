@@ -1,42 +1,32 @@
-From: <Nisar.Sayed@microchip.com>
-Subject: [PATCH 3/3] lan78xx: Use default value loaded from EEPROM/OTP when
- resetting
-Date: Thu, 7 Sep 2017 07:11:50 +0000
-Message-ID: <CE371C1263339941885964188A0225FA333A8D@CHN-SV-EXMX03.mchp-main.com>
+From: Madalin-cristian Bucur <madalin.bucur@nxp.com>
+Subject: RE: [PATCH] fsl/fman: make arrays port_ids static, reduces object
+ code size
+Date: Thu, 7 Sep 2017 07:14:12 +0000
+Message-ID: <AM5PR0402MB269115B69D04CEF3EC125855EC940@AM5PR0402MB2691.eurprd04.prod.outlook.com>
+References: <20170831132449.27600-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <UNGLinuxDriver@microchip.com>, <netdev@vger.kernel.org>
-To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from esa3.microchip.iphmx.com ([68.232.153.233]:4700 "EHLO
-        esa3.microchip.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752021AbdIGHMh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 7 Sep 2017 03:12:37 -0400
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Colin King <colin.king@canonical.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170831132449.27600-1-colin.king@canonical.com>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Nisar Sayed <Nisar.Sayed@microchip.com>
-
-Use default value loaded from EEPROM/OTP when resetting
-
-Signed-off-by: Nisar Sayed <Nisar.Sayed@microchip.com>
----
- drivers/net/usb/lan78xx.c | 1 -
- 1 file changed, 1 deletion(-)
-
-diff --git a/drivers/net/usb/lan78xx.c b/drivers/net/usb/lan78xx.c
-index 94ef943..8fd7c2f 100644
---- a/drivers/net/usb/lan78xx.c
-+++ b/drivers/net/usb/lan78xx.c
-@@ -2452,7 +2452,6 @@ static int lan78xx_reset(struct lan78xx_net *dev)
- 	/* LAN7801 only has RGMII mode */
- 	if (dev->chipid == ID_REV_CHIP_ID_7801_)
- 		buf &= ~MAC_CR_GMII_EN_;
--	buf |= MAC_CR_AUTO_DUPLEX_ | MAC_CR_AUTO_SPEED_;
- 	ret = lan78xx_write_reg(dev, MAC_CR, buf);
- 
- 	ret = lan78xx_read_reg(dev, MAC_TX, &buf);
--- 
-1.9.1
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBDb2xpbiBLaW5nIFttYWlsdG86
+Y29saW4ua2luZ0BjYW5vbmljYWwuY29tXQ0KPiBTZW50OiBUaHVyc2RheSwgQXVndXN0IDMxLCAy
+MDE3IDQ6MjUgUE0NCj4gU3ViamVjdDogW1BBVENIXSBmc2wvZm1hbjogbWFrZSBhcnJheXMgcG9y
+dF9pZHMgc3RhdGljLCByZWR1Y2VzIG9iamVjdA0KPiBjb2RlIHNpemUNCj4gDQo+IEZyb206IENv
+bGluIElhbiBLaW5nIDxjb2xpbi5raW5nQGNhbm9uaWNhbC5jb20+DQo+IA0KPiBEb24ndCBwb3B1
+bGF0ZSB0aGUgYXJyYXlzIHBvcnRfaWRzIG9uIHRoZSBzdGFjaywgaW5zdGVhZCBtYWtlIHRoZW0g
+c3RhdGljLg0KPiBNYWtlcyB0aGUgb2JqZWN0IGNvZGUgc21hbGxlciBieSBvdmVyIDcwMCBieXRl
+czoNCj4gDQo+IEJlZm9yZToNCj4gICAgdGV4dAkgICBkYXRhCSAgICBic3MJICAgIGRlYwkgICAg
+aGV4CWZpbGVuYW1lDQo+ICAgMjg3ODUJICAgNTgzMgkgICAgMTkyCSAgMzQ4MDkJICAgODdmOQlm
+bWFuLm8NCj4gDQo+IEFmdGVyOg0KPiAgICB0ZXh0CSAgIGRhdGEJICAgIGJzcwkgICAgZGVjCSAg
+ICBoZXgJZmlsZW5hbWUNCj4gICAyNzkyMQkgICA1OTkyCSAgICAxOTIJICAzNDEwNQkgICA4NTM5
+CWZtYW4ubw0KPiANCj4gU2lnbmVkLW9mZi1ieTogQ29saW4gSWFuIEtpbmcgPGNvbGluLmtpbmdA
+Y2Fub25pY2FsLmNvbT4NCg0KVGhhbmtzLA0KTWFkYWxpbg0K
