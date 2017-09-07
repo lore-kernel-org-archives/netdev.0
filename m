@@ -1,47 +1,64 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [PATCH] iwlwifi: mvm: only send LEDS_CMD when the FW supports it
-Date: Thu, 07 Sep 2017 15:39:05 +0300
-Message-ID: <877exan0nq.fsf@kamboji.qca.qualcomm.com>
-References: <CA+55aFxjHSW7v4Ttu7mGPkxdGpR-WtVoxDT5qtwxUC-Dge5a5A@mail.gmail.com>
-        <20170907075152.4522-1-luca@coelho.fi>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [RFC net-next 0/5] TSN: Add qdisc-based config interfaces for
+ traffic shapers
+Date: Thu, 7 Sep 2017 14:40:18 +0200
+Message-ID: <20170907124018.deinzo3c4ice3q7n@localhost>
+References: <20170901012625.14838-1-vinicius.gomes@intel.com>
+ <20170907053411.GA6580@sisyphus.home.austad.us>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: linux-wireless@vger.kernel.org, johannes@sipsolutions.net,
-        linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
-        netdev@vger.kernel.org, davem@davemloft.net,
-        emmanuel.grumbach@intel.com, Luca Coelho <luciano.coelho@intel.com>
-To: torvalds@linux-foundation.org, Luca Coelho <luca@coelho.fi>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170907075152.4522-1-luca@coelho.fi> (Luca Coelho's message of
-        "Thu, 7 Sep 2017 10:51:52 +0300")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Vinicius Costa Gomes <vinicius.gomes@intel.com>,
+        netdev@vger.kernel.org, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
+        jiri@resnulli.us, intel-wired-lan@lists.osuosl.org,
+        andre.guedes@intel.com, ivan.briano@intel.com,
+        jesus.sanchez-palencia@intel.com, boon.leong.ong@intel.com
+To: Henrik Austad <henrik@austad.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f193.google.com ([209.85.128.193]:34624 "EHLO
+        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755353AbdIGMkX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 7 Sep 2017 08:40:23 -0400
+Received: by mail-wr0-f193.google.com with SMTP id k20so2698470wre.1
+        for <netdev@vger.kernel.org>; Thu, 07 Sep 2017 05:40:23 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20170907053411.GA6580@sisyphus.home.austad.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Luca Coelho <luca@coelho.fi> writes:
+On Thu, Sep 07, 2017 at 07:34:11AM +0200, Henrik Austad wrote:
+> Also, does this mean that when you create the qdisc, you have locked the 
+> bandwidth for the scheduler? Meaning, if I later want to add another 
+> stream that requires more bandwidth, I have to close all active streams, 
+> reconfigure the qdisc and then restart?
 
-> From: Luca Coelho <luciano.coelho@intel.com>
->
-> The LEDS_CMD command is only supported in some newer FW versions
-> (e.g. iwlwifi-8000C-31.ucode), so we can't send it to older versions
-> (such as iwlwifi-8000C-27.ucode).
->
-> To fix this, check for a new bit in the FW capabilities TLV that tells
-> when the command is supported.
->
-> Note that the current version of -31.ucode in linux-firmware.git
-> (31.532993.0) does not have this capability bit set, so the LED won't
-> work, even though this version should support it.  But we will update
-> this firmware soon, so it won't be a problem anymore.
->
-> Fixes: 7089ae634c50 ("iwlwifi: mvm: use firmware LED command where applicable")
-> Reported-by: Linus Torvalds <torvalds@linux-foundation.org>
-> Signed-off-by: Luca Coelho <luciano.coelho@intel.com>
+No, just allocate enough bandwidth to accomodate all of the expected
+streams.  The streams can start and stop at will.
 
-Linus, do you want to apply this directly or should we take it via the
-normal route (wireless-drivers -> net)? If your prefer the latter when
-I'm planning to submit this to Dave in a day or two and expecting it to
-get to your tree in about a week, depending of course what is Dave's
-schedule.
+> So my understanding of all of this is that you configure the *total* 
+> bandwith for each class when you load the qdisc and then let userspace 
+> handle the rest. Is this correct?
 
--- 
-Kalle Valo
+Nothing wrong with that.
+ 
+> In my view, it would be nice if the qdisc had some notion about streams so 
+> that you could create a stream, feed frames to it and let the driver pace 
+> them out. (The fewer you queue, the shorter the delay). This will also 
+> allow you to enforce per-stream bandwidth restrictions. I don't see how you 
+> can do this here unless you want to do this in userspace.
+> 
+> Do you have any plans for adding support for multiplexing streams? If you 
+> have multiple streams, how do you enforce that one stream does not eat into 
+> the bandwidth of another stream? AFAIK, this is something the network must 
+> enforce, but I see no option of doing som here.
+
+Please, lets keep this simple.  Today we have exactly zero user space
+applications using this kind of bandwidth reservation.  The case of
+wanting the kernel to police individual stream usage does not exist,
+and probably never will.
+
+For serious TSN use cases, the bandwidth needed by each system and
+indeed the entire network will be engineered, and we can reasonably
+expect applications to cooperate in this regard.
+
+Thanks,
+Richard
