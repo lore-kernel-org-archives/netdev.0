@@ -1,209 +1,177 @@
-From: "Guedes, Andre" <andre.guedes@intel.com>
-Subject: Re: [RFC net-next 0/5] TSN: Add qdisc-based config interfaces for
- traffic shapers
-Date: Thu, 7 Sep 2017 19:58:53 +0000
-Message-ID: <1504814332.2117.3.camel@intel.com>
-References: <20170901012625.14838-1-vinicius.gomes@intel.com>
-         <20170907053411.GA6580@sisyphus.home.austad.us>
+From: "Nambiar, Amritha" <amritha.nambiar@intel.com>
+Subject: Re: [RFC PATCH v3 0/6] Configuring traffic classes via new hardware
+ offload mechanism in tc/mqprio
+Date: Thu, 7 Sep 2017 13:09:27 -0700
+Message-ID: <14376038-c365-9637-3517-aae8e99a4883@intel.com>
+References: <150478158684.24662.17975701233699487888.stgit@anamdev.jf.intel.com>
+ <3ecacf3d-1f02-fbc6-0e90-8e84dcd15a4e@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=sha-1;
-        protocol="application/x-pkcs7-signature"; boundary="=-1rnfjAUYd1UlqsS39X5Z"
-Cc: "jiri@resnulli.us" <jiri@resnulli.us>,
-        "jhs@mojatatu.com" <jhs@mojatatu.com>,
-        "Ong, Boon Leong" <boon.leong.ong@intel.com>,
-        "xiyou.wangcong@gmail.com" <xiyou.wangcong@gmail.com>,
-        "Sanchez-Palencia, Jesus" <jesus.sanchez-palencia@intel.com>,
-        "richardcochran@gmail.com" <richardcochran@gmail.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "Briano, Ivan" <ivan.briano@intel.com>,
-        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
-To: "Gomes, Vinicius" <vinicius.gomes@intel.com>,
-        "henrik@austad.us" <henrik@austad.us>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: alexander.h.duyck@intel.com, netdev@vger.kernel.org
+To: Florian Fainelli <f.fainelli@gmail.com>,
+        intel-wired-lan@lists.osuosl.org, jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga05.intel.com ([192.55.52.43]:13372 "EHLO mga05.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:51808 "EHLO mga14.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755885AbdIGT64 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 7 Sep 2017 15:58:56 -0400
-In-Reply-To: <20170907053411.GA6580@sisyphus.home.austad.us>
-Content-Language: en-US
+        id S932378AbdIGUJo (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 7 Sep 2017 16:09:44 -0400
+In-Reply-To: <3ecacf3d-1f02-fbc6-0e90-8e84dcd15a4e@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---=-1rnfjAUYd1UlqsS39X5Z
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+On 9/7/2017 11:34 AM, Florian Fainelli wrote:
+> On 09/07/2017 04:00 AM, Amritha Nambiar wrote:
+>> The following series introduces a new hardware offload mode in 
+>> tc/mqprio where the TCs, the queue configurations and bandwidth 
+>> rate limits are offloaded to the hardware. The existing mqprio 
+>> framework is extended to configure the queue counts and layout and
+>>  also added support for rate limiting. This is achieved through new
+>>  netlink attributes for the 'mode' option which takes values such
+>> as 'dcb' (default) and 'channel' and a 'shaper' option for QoS 
+>> attributes such as bandwidth rate limits in hw mode 1.
+> 
+> So "dcb" defines a default priorities to queue mapping?
 
-Hi Henrik,
+In the default offload implementation, only the basic hw offload was
+supported factoring only the 'number of TCs' values. The rest of the
+queue configuration was being ignored. This is the legacy behavior with
+hw mode set to 1.
+Example:
+# tc qdisc add dev eth0 root mqprio num_tc 4  map 0 0 0 0 1 1 1 1 queues
+4@0 4@4 hw 1
+I just named this default behavior to 'dcb' while introducing a new
+offload mechanism.
 
-Thanks for your feedback! I'll address some of your comments below.
+> 
+>> Legacy devices can fall back to the existing setup supporting hw 
+>> mode 1 without these additional options where only the TCs are 
+>> offloaded and then the 'mode' and 'shaper' options defaults to DCB
+>>  support.
+> 
+> That's the last part that confuses me, see below.
 
-On Thu, 2017-09-07 at 07:34 +0200, Henrik Austad wrote:
-> > As for the shapers config interface:
-> >=20
-> > =C2=A0* CBS (802.1Qav)
-> >=20
-> > =C2=A0=C2=A0=C2=A0This patchset is proposing a new qdisc called 'cbs'. =
-Its 'tc' cmd line
-> > is:
-> > =C2=A0=C2=A0=C2=A0$ tc qdisc add dev IFACE parent ID cbs locredit N hic=
-redit M sendslope S
-> > \
-> > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0idleslope I
->=20
-> So this confuses me a bit, why specify sendSlope?
->=20
-> =C2=A0=C2=A0=C2=A0=C2=A0sendSlope =3D portTransmitRate - idleSlope
->=20
-> and portTransmitRate is the speed of the MAC (which you get from the=C2=
-=A0
-> driver). Adding sendSlope here is just redundant I think.
+As I introduced new options for 'mode' and 'shaper', I set the defaults
+for these options to 'dcb' so existing offloaders can continue to work
+without supporting these new options. Patch 1 has a detailed description
+on how this is done.
 
-Yes, this was something we've spent quite a few time discussing before this=
- RFC
-series. After reading the Annex L from 802.1Q-2014 (operation of CBS algori=
-thm)
-so many times, we've came up with the rationale explained below.
+> 
+>> The i40e driver enables the new mqprio hardware offload mechanism 
+>> factoring the TCs, queue configuration and bandwidth rates by 
+>> creating HW channel VSIs.
+> 
+> I am really confused by what you call hw_mode 1, as I understand it 
+> there are really 3 different modes:
 
-The rationale here is that sendSlope is just another parameter from CBS
-algorithm like idleSlope, hiCredit and loCredit. As such,=C2=A0its calculat=
-ion
-should be done at the same "layer" as the others parameters (in this case, =
-user
-space) in order to keep consistency. Moreover, in this design, the driver l=
-ayer
-is dead simple: all the device driver=C2=A0has to do is applying CBS parame=
-ters to
-hardware. Having any CBS parameter calculation in the driver layer means al=
-l
-device drivers must implement that calculation.
+There are actually 2 modes now with 'hw' option set to 1, legacy/dcb and
+channel.
+> 
+> - legacy: you don't define any traffic class mapping, but you can 
+> still chain this scheduler with a match + action (like what 
+> Documentation/networking/multiqueue.txt) you can optionally also add 
+> "shaper" arguments, but there should not be any default DCB queue 
+> mapping either?
+> 
+> - dcb: a default mapping for traffic classes to queues is defined, 
+> optional "shaper" arguments
 
-> Also, does this mean that when you create the qdisc, you have locked the=
-=C2=A0
-> bandwidth for the scheduler? Meaning, if I later want to add another=C2=
-=A0
-> stream that requires more bandwidth, I have to close all active streams,=
-=C2=A0
-> reconfigure the qdisc and then restart?
+The legacy mode now becomes the dcb mode. In this mode, although the TC
+values, the queue configurations, prio-tc-mapping are all offloaded to
+the device, the existing implementation in current drivers support only
+a basic hw offload factoring only the TC values.
 
-If we want to reserve more bandwidth to "accommodate" a new stream, we don'=
-t
-need to close all active streams. All we have to do is changing the CBS qdi=
-sc
-and pass the new CBS parameters. Here is what the command-line would look l=
-ike:
+Examples:
+# ... num_tc 2  map 0 0 0 0 1 1 1 1 queues 4@0 4@4 hw 1
+# ... num_tc 2  map 0 0 0 0 1 1 1 1 queues 4@0 4@4 hw 1 mode dcb
+# ... num_tc 2  map 0 0 0 0 1 1 1 1 queues 4@0 4@4 hw 1 mode dcb\
+  shaper dcb
 
-$ tc qdisc change dev enp0s4 parent 8001:5 cbs locredit -1470 hicredit 30
-sendslope -980000 idleslope 20000
+> 
+> - channel: (maybe calling that "custom_tc_map" would be clearer?) 
+> where you express the exact traffic classes to queue mapping and 
+> optional "shaper" arguments
 
-No application/stream is interrupted while new CBS parameters are applied.
+In the channel mode, a full hw offload is supported, the TC values, the
+queue configurations and additionally QoS attributes (optional) are all
+used in the new implementation.
 
-> > =C2=A0=C2=A0=C2=A0Note that the parameters for this qdisc are the ones =
-defined by the
-> > =C2=A0=C2=A0=C2=A0802.1Q-2014 spec, so no hardware specific functionali=
-ty is exposed here.
->=20
-> You do need to know if the link is brought up as 100 or 1000 though - whi=
-ch=C2=A0
-> the driver already knows.
+Examples:
+# ... num_tc 2  map 0 0 0 0 1 1 1 1 queues 4@0 4@4 hw 1 mode channel
+# ... num_tc 2  map 0 0 0 0 1 1 1 1 queues 4@0 4@4 hw 1 mode channel\
+shaper bw_rlimit max_rate 4Gbit 5Gbit
 
-User space knows that information via ethtool or /sys.
+> 
+> I think that's what you are doing, but I just got confused by the 
+> cover letter.
+> 
+>> 
+>> In this new mode, the priority to traffic class mapping and the 
+>> user specified queue ranges are used to configure the traffic class
+>> when the 'mode' option is set to 'channel'. This is achieved by
+>> creating HW channels(VSI). A new channel is created for each of the
+>> traffic class configuration offloaded via mqprio framework except
+>> for the first TC (TC0) which is for the main VSI. TC0 for the main
+>> VSI is also reconfigured as per user provided queue parameters.
+>> Finally, bandwidth rate limits are set on these traffic classes
+>> through the shaper attribute by sending these rates in addition to
+>> the number of TCs and the queue configurations.
+>> 
+>> Example: # tc qdisc add dev eth0 root mqprio num_tc 2 map 0 0 0 0 1
+>> 1 1 1\ queues 4@0 4@4 hw 1 mode channel shaper bw_rlimit\
+> 
+> Do you see a case where you can declare a different number of
+> traffic classes say 4 and map them onto just 2 hardware queues? If
+> not, it seems a tiny bit redundant to have to specify both the map
+> and the queue mapping should be sufficient, right?
 
-> > Testing this RFC
-> > =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-> >=20
-> > For testing the patches of this RFC only, you can refer to the samples =
-and
-> > helper script being added to samples/tsn/ and the use the 'mqprio' qdis=
-c to
-> > setup the priorities to Tx queues mapping, together with the 'cbs' qdis=
-c to
-> > configure the HW shaper of the i210 controller:
->=20
-> I will test it, feedback will be provided soon! :)
+This will be subjected to validation of the user input and will be
+treated as invalid configuration. The 'map' specifies the mapping
+between user priorities and traffic classes while the queue mapping is
+the queue layout specifying the queue count and offsets.
 
-That's great! Please let us know if you find any issue and thanks for you
-support.
+> 
+>> min_rate 1Gbit 2Gbit max_rate 4Gbit 5Gbit
+>> 
+>> To dump the bandwidth rates:
+>> 
+>> # tc qdisc show dev eth0
+>> 
+>> qdisc mqprio 804a: root  tc 2 map 0 0 0 0 1 1 1 1 0 0 0 0 0 0 0 0 
+>> queues:(0:3) (4:7) mode:channel shaper:bw_rlimit   min_rate:1Gbit 
+>> 2Gbit   max_rate:4Gbit 5Gbit
+> 
+> I am not well versed into tc, but being able to specify "shaper" 
+> arguments has actually value outside of just the multiq scheduler and
+> it could probably be an action on its own?
 
-> > 8) You can also run a Talker for class B (prio 2 here)
-> > $ ./talker -i enp3s0 -p 2
-> >=20
-> > =C2=A0* The bandwidth displayed on the listener output now should incre=
-ase to
-> > very
-> > =C2=A0=C2=A0=C2=A0close to the one configured for class A + class B.
->=20
-> Because you grab both class A *and* B, or because B will eat what A does=
-=C2=A0
-> not use?
+The mqprio scheduler already supports configuring the traffic classes
+and enabling support for HW shapers was just a matter to extending it
+with new netlink based attributes.
 
-Because the listener application grabs both class A and B traffic.
-
-Regards,
-
-Andre
---=-1rnfjAUYd1UlqsS39X5Z
-Content-Type: application/x-pkcs7-signature; name="smime.p7s"
-Content-Disposition: attachment; filename="smime.p7s"
-Content-Transfer-Encoding: base64
-
-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
-UizwODL0ejWFvIsCUeYSP2hojKPWo+Rd3xqVimkMF4BtboMY1QcGgHrUz+39T0ykiwIDAQABo4IC
-LzCCAiswHQYDVR0OBBYEFGx9NuU31zGSN+jD/sIvs5oY7S+3MB8GA1UdIwQYMBaAFB5pKrTcKP5H
-GE4hCz+8rBEv8Jj1MGUGA1UdHwReMFwwWqBYoFaGVGh0dHA6Ly93d3cuaW50ZWwuY29tL3JlcG9z
-aXRvcnkvQ1JML0ludGVsJTIwRXh0ZXJuYWwlMjBCYXNpYyUyMElzc3VpbmclMjBDQSUyMDRBLmNy
-bDCBnwYIKwYBBQUHAQEEgZIwgY8waQYIKwYBBQUHMAKGXWh0dHA6Ly93d3cuaW50ZWwuY29tL3Jl
-cG9zaXRvcnkvY2VydGlmaWNhdGVzL0ludGVsJTIwRXh0ZXJuYWwlMjBCYXNpYyUyMElzc3Vpbmcl
-MjBDQSUyMDRBLmNydDAiBggrBgEFBQcwAYYWaHR0cDovL29jc3AuaW50ZWwuY29tLzALBgNVHQ8E
-BAMCB4AwPAYJKwYBBAGCNxUHBC8wLQYlKwYBBAGCNxUIhsOMdYSZ5VGD/YEohY6fU4KRwAlngd69
-OZXwQwIBZAIBCTAfBgNVHSUEGDAWBggrBgEFBQcDBAYKKwYBBAGCNwoDDDApBgkrBgEEAYI3FQoE
-HDAaMAoGCCsGAQUFBwMEMAwGCisGAQQBgjcKAwwwSQYDVR0RBEIwQKAmBgorBgEEAYI3FAIDoBgM
-FmFuZHJlLmd1ZWRlc0BpbnRlbC5jb22BFmFuZHJlLmd1ZWRlc0BpbnRlbC5jb20wDQYJKoZIhvcN
-AQEFBQADggEBAE+EXag/N5PkW1uXsayWx3r4MzYFcznK3N1UG/6qR+UUB/PD4tbgU5M+IoP9gOp+
-hzTOxM1PWxhyD24upEzuinkJ3BknENUeFZEaWnYQi306SMzJP3CzEiWogQ2/+JJXYb2vvQjeKEaq
-mFdqshHJ7uFxdjmCYHlxmZte2oBC6DbaKeHcHyFxe0xxuaTwOQE3OoJNVcxpN2xK9rbnoe2a/oeg
-LLn91PvxSNgjH0QC/TeY5kf5Pif4RAKi9ZsI6OwPhEpFhZbTJISCwmgdGcK/mVGyVtBaXciOboVJ
-EwrCLsa+eAhbGn4F4MwTumo6oyzZa2SkenXS5M7chmcL0FvJ6F4xggIXMIICEwIBATCBkDB5MQsw
-CQYDVQQGEwJVUzELMAkGA1UECBMCQ0ExFDASBgNVBAcTC1NhbnRhIENsYXJhMRowGAYDVQQKExFJ
-bnRlbCBDb3Jwb3JhdGlvbjErMCkGA1UEAxMiSW50ZWwgRXh0ZXJuYWwgQmFzaWMgSXNzdWluZyBD
-QSA0QQITMwAAi3Vjd570fy3HwgAAAACLdTAJBgUrDgMCGgUAoF0wGAYJKoZIhvcNAQkDMQsGCSqG
-SIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMTcwOTA3MTk1ODUyWjAjBgkqhkiG9w0BCQQxFgQUa3uH
-EMFz06cYF25wPni6vaqaKgQwDQYJKoZIhvcNAQEBBQAEggEABAHPPPWfDRbYk9J7rLeHOQyRUXJe
-t36VrkNKMrNaTomt3uX2eTs3TbQKdxGOhOhoO/KaCiAoJpkw4KBCZTYi6QcLMSz/n8Qv6N03xtHj
-/RhcyB5dCtUTPjYlaESbzkXxUccrQ3nTyufJ7WJPLveYs28adlLMkgiCTqGOZEF4QsGmWpH0YbCG
-kpYFweMkFEC8tOju23O+6/nyzMTjAxtTjW4x99qi5kkDf6D4qFLROzVSCFbZELUYp7ebqmT5umFs
-v9ua8r0mJ0t5DdGWcg5dz2Oy2Yr6QHKEP9RPfXRvwcRs816PHYM/e+1FWNzScYB22z7hTSnTl34S
-nNPtTmLn0gAAAAAAAA==
-
-
---=-1rnfjAUYd1UlqsS39X5Z--
+> 
+>> 
+>> ---
+>> 
+>> Amritha Nambiar (6): mqprio: Introduce new hardware offload mode 
+>> and shaper in mqprio i40e: Add macro for PF reset bit i40e: Add 
+>> infrastructure for queue channel support i40e: Enable 'channel' 
+>> mode in mqprio for TC configs i40e: Refactor VF BW rate limiting 
+>> i40e: Add support setting TC max bandwidth rates
+>> 
+>> 
+>> drivers/net/ethernet/intel/i40e/i40e.h             |   44 + 
+>> drivers/net/ethernet/intel/i40e/i40e_debugfs.c     |    3 
+>> drivers/net/ethernet/intel/i40e/i40e_ethtool.c     |    8 
+>> drivers/net/ethernet/intel/i40e/i40e_main.c        | 1463 
+>> +++++++++++++++++--- drivers/net/ethernet/intel/i40e/i40e_txrx.h | 
+>> 2 drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |   50 - 
+>> include/net/pkt_cls.h                              |    9 
+>> include/uapi/linux/pkt_sched.h                     |   32 
+>> net/sched/sch_mqprio.c                             |  183 ++- 9 
+>> files changed, 1551 insertions(+), 243 deletions(-)
+>> 
+>> --
+>> 
+> 
+> 
