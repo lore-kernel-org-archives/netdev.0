@@ -1,35 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] netlink: access nlk groups safely in netlink bind
- and getname
-Date: Wed, 06 Sep 2017 21:24:25 -0700 (PDT)
-Message-ID: <20170906.212425.1399303829278739542.davem@davemloft.net>
-References: <cfb5c05d158b278beb2f1441c67a068a8bb27d44.1504670009.git.lucien.xin@gmail.com>
+Subject: Re: [PATCH] tipc: remove unnecessary call to dev_net()
+Date: Wed, 06 Sep 2017 21:26:13 -0700 (PDT)
+Message-ID: <20170906.212613.52886948289511744.davem@davemloft.net>
+References: <20170906090806.20931-1-kleber.souza@canonical.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fw@strlen.de
-To: lucien.xin@gmail.com
+Cc: netdev@vger.kernel.org, jon.maloy@ericsson.com,
+        ying.xue@windriver.com
+To: kleber.souza@canonical.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:46654 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:46680 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752525AbdIGEY0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 7 Sep 2017 00:24:26 -0400
-In-Reply-To: <cfb5c05d158b278beb2f1441c67a068a8bb27d44.1504670009.git.lucien.xin@gmail.com>
+        with ESMTP id S1750742AbdIGE0P (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 7 Sep 2017 00:26:15 -0400
+In-Reply-To: <20170906090806.20931-1-kleber.souza@canonical.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Xin Long <lucien.xin@gmail.com>
-Date: Wed,  6 Sep 2017 11:53:29 +0800
+From: Kleber Sacilotto de Souza <kleber.souza@canonical.com>
+Date: Wed,  6 Sep 2017 11:08:06 +0200
 
-> Now there is no lock protecting nlk ngroups/groups' accessing in
-> netlink bind and getname. It's safe from nlk groups' setting in
-> netlink_release, but not from netlink_realloc_groups called by
-> netlink_setsockopt.
+> The net device is already stored in the 'net' variable, so no need to call
+> dev_net() again.
 > 
-> netlink_lock_table is needed in both netlink bind and getname when
-> accessing nlk groups.
-> 
-> Acked-by: Florian Westphal <fw@strlen.de>
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> Signed-off-by: Kleber Sacilotto de Souza <kleber.souza@canonical.com>
 
-Applied.
+Applied, thanks.
