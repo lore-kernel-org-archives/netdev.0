@@ -1,8 +1,7 @@
 From: <Tristram.Ha@microchip.com>
-Subject: [PATCH RFC] Update documentation for KSZ DSA drivers so that new
- drivers can be added
-Date: Thu, 7 Sep 2017 21:11:45 +0000
-Message-ID: <93AF473E2DA327428DE3D46B72B1E9FD41121A5B@CHN-SV-EXMX02.mchp-main.com>
+Subject: [PATCH RFC 0/5] Add DSA driver support for KSZ8795 switch
+Date: Thu, 7 Sep 2017 21:16:56 +0000
+Message-ID: <93AF473E2DA327428DE3D46B72B1E9FD41121A72@CHN-SV-EXMX02.mchp-main.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
@@ -18,145 +17,18 @@ List-Id: netdev.vger.kernel.org
 
 From: Tristram Ha <Tristram.Ha@microchip.com>
 
-Add other KSZ switches support so that patch check does not complain.
+This series of patches is to add DSA driver support for KSZ8795 switch.
 
-Signed-off-by: Tristram Ha <Tristram.Ha@microchip.com>
----
- Documentation/devicetree/bindings/net/dsa/ksz.txt | 117 ++++++++++++----------
- 1 file changed, 62 insertions(+), 55 deletions(-)
+Previous patches for KSZ9477 have to be applied first before these.
 
-diff --git a/Documentation/devicetree/bindings/net/dsa/ksz.txt b/Documentation/devicetree/bindings/net/dsa/ksz.txt
-index 0ab8b39..34af0e0 100644
---- a/Documentation/devicetree/bindings/net/dsa/ksz.txt
-+++ b/Documentation/devicetree/bindings/net/dsa/ksz.txt
-@@ -3,8 +3,15 @@ Microchip KSZ Series Ethernet switches
- 
- Required properties:
- 
--- compatible: For external switch chips, compatible string must be exactly one
--  of: "microchip,ksz9477"
-+- compatible: Should be "microchip,ksz9477" for KSZ9477 chip,
-+	      "microchip,ksz8795" for KSZ8795 chip,
-+	      "microchip,ksz8794" for KSZ8794 chip,
-+	      "microchip,ksz8765" for KSZ8765 chip,
-+	      "microchip,ksz8895" for KSZ8895 chip,
-+	      "microchip,ksz8864" for KSZ8864 chip,
-+	      "microchip,ksz8873" for KSZ8873 chip,
-+	      "microchip,ksz8863" for KSZ8863 chip,
-+	      "microchip,ksz8463" for KSZ8463 chip
- 
- See Documentation/devicetree/bindings/dsa/dsa.txt for a list of additional  required and optional properties.
-@@ -13,60 +20,60 @@ Examples:
- 
- Ethernet switch connected via SPI to the host, CPU port wired to eth0:
- 
--                             eth0: ethernet@10001000 {
--                                             fixed-link {
--                                                             speed = <1000>;
--                                                             full-duplex;
--                                             };
--                             };
-+	eth0: ethernet@10001000 {
-+		fixed-link {
-+			speed = <1000>;
-+			full-duplex;
-+		};
-+	};
- 
--                             spi1: spi@f8008000 {
--                                             pinctrl-0 = <&pinctrl_spi_ksz>;
--                                             cs-gpios = <&pioC 25 0>;
--                                             id = <1>;
--                                             status = "okay";
-+	spi1: spi@f8008000 {
-+		cs-gpios = <&pioC 25 0>;
-+		id = <1>;
-+		status = "okay";
- 
--                                             ksz9477: ksz9477@0 {
--                                                             compatible = "microchip,ksz9477";
--                                                             reg = <0>;
-+		ksz9477: ksz9477@0 {
-+			compatible = "microchip,ksz9477";
-+			reg = <0>;
- 
--                                                             spi-max-frequency = <44000000>;
--                                                             spi-cpha;
--                                                             spi-cpol;
-+			spi-max-frequency = <44000000>;
-+			spi-cpha;
-+			spi-cpol;
-+
-+			status = "okay";
-+			ports {
-+				#address-cells = <1>;
-+				#size-cells = <0>;
-+				port@0 {
-+					reg = <0>;
-+					label = "lan1";
-+				};
-+				port@1 {
-+					reg = <1>;
-+					label = "lan2";
-+				};
-+				port@2 {
-+					reg = <2>;
-+					label = "lan3";
-+				};
-+				port@3 {
-+					reg = <3>;
-+					label = "lan4";
-+				};
-+				port@4 {
-+					reg = <4>;
-+					label = "lan5";
-+				};
-+				port@5 {
-+					reg = <5>;
-+					label = "cpu";
-+					ethernet = <&eth0>;
-+					fixed-link {
-+						speed = <1000>;
-+						full-duplex;
-+					};
-+				};
-+			};
-+		};
-+	};
- 
--                                                             status = "okay";
--                                                             ports {
--                                                                             #address-cells = <1>;
--                                                                             #size-cells = <0>;
--                                                                             port@0 {
--                                                                                             reg = <0>;
--                                                                                             label = "lan1";
--                                                                             };
--                                                                             port@1 {
--                                                                                             reg = <1>;
--                                                                                             label = "lan2";
--                                                                             };
--                                                                             port@2 {
--                                                                                             reg = <2>;
--                                                                                             label = "lan3";
--                                                                             };
--                                                                             port@3 {
--                                                                                             reg = <3>;
--                                                                                             label = "lan4";
--                                                                             };
--                                                                             port@4 {
--                                                                                             reg = <4>;
--                                                                                             label = "lan5";
--                                                                             };
--                                                                             port@5 {
--                                                                                             reg = <5>;
--                                                                                             label = "cpu";
--                                                                                             ethernet = <&eth0>;
--                                                                                             fixed-link {
--                                                                                                             speed = <1000>;
--                                                                                                             full-duplex;
--                                                                                             };
--                                                                             };
--                                                             };
--                                             };
--                             };
+This patch set is against net-next.
+
+ drivers/net/dsa/microchip/Kconfig       |   18 +
+ drivers/net/dsa/microchip/Makefile      |    2 +
+ drivers/net/dsa/microchip/ksz8795.c     | 2066 +++++++++++++++++++++++++++++++
+ drivers/net/dsa/microchip/ksz8795.h     | 1015 +++++++++++++++
+ drivers/net/dsa/microchip/ksz8795_spi.c |  229 ++++
+ 5 files changed, 3330 insertions(+)
+ create mode 100644 drivers/net/dsa/microchip/ksz8795.c
+ create mode 100644 drivers/net/dsa/microchip/ksz8795.h
+ create mode 100644 drivers/net/dsa/microchip/ksz8795_spi.c
