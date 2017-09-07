@@ -1,12 +1,10 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH RFC 2/6] Create new file ksz9477.c from KSZ9477 code in
- ksz_common.c
-Date: Fri, 8 Sep 2017 00:41:42 +0200
-Message-ID: <20170907224142.GY11248@lunn.ch>
-References: <93AF473E2DA327428DE3D46B72B1E9FD411218CF@CHN-SV-EXMX02.mchp-main.com>
- <93AF473E2DA327428DE3D46B72B1E9FD41121A06@CHN-SV-EXMX02.mchp-main.com>
- <20170907213242.GR11248@lunn.ch>
- <93AF473E2DA327428DE3D46B72B1E9FD41121AEB@CHN-SV-EXMX02.mchp-main.com>
+Subject: Re: [PATCH RFC 2/5] Add KSZ8795 switch driver support in Makefile
+Date: Fri, 8 Sep 2017 00:43:09 +0200
+Message-ID: <20170907224309.GZ11248@lunn.ch>
+References: <93AF473E2DA327428DE3D46B72B1E9FD41121A80@CHN-SV-EXMX02.mchp-main.com>
+ <20170907215551.GV11248@lunn.ch>
+ <93AF473E2DA327428DE3D46B72B1E9FD41121B0A@CHN-SV-EXMX02.mchp-main.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: muvarov@gmail.com, pavel@ucw.cz, nathan.leigh.conrad@gmail.com,
@@ -16,12 +14,44 @@ Cc: muvarov@gmail.com, pavel@ucw.cz, nathan.leigh.conrad@gmail.com,
 To: Tristram.Ha@microchip.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <93AF473E2DA327428DE3D46B72B1E9FD41121AEB@CHN-SV-EXMX02.mchp-main.com>
+In-Reply-To: <93AF473E2DA327428DE3D46B72B1E9FD41121B0A@CHN-SV-EXMX02.mchp-main.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> Sorry about that.  It seems my e-mail system wraps the line too soon.
+On Thu, Sep 07, 2017 at 10:29:34PM +0000, Tristram.Ha@microchip.com wrote:
+> > -----Original Message-----
+> > From: Andrew Lunn [mailto:andrew@lunn.ch]
+> > Sent: Thursday, September 07, 2017 2:56 PM
+> > To: Tristram Ha - C24268
+> > Cc: muvarov@gmail.com; pavel@ucw.cz; nathan.leigh.conrad@gmail.com;
+> > vivien.didelot@savoirfairelinux.com; f.fainelli@gmail.com;
+> > netdev@vger.kernel.org; linux-kernel@vger.kernel.org; Woojung Huh - C21699
+> > Subject: Re: [PATCH RFC 2/5] Add KSZ8795 switch driver support in Makefile
+> > 
+> > On Thu, Sep 07, 2017 at 09:17:10PM +0000, Tristram.Ha@microchip.com wrote:
+> > > From: Tristram Ha <Tristram.Ha@microchip.com>
+> > >
+> > > Add KSZ8795 switch support with SPI access.
+> > >
+> > > Signed-off-by: Tristram Ha <Tristram.Ha@microchip.com>
+> > > ---
+> > > diff --git a/drivers/net/dsa/microchip/Makefile
+> > b/drivers/net/dsa/microchip/Makefile
+> > > index 0961c30..0d8ba48 100644
+> > > --- a/drivers/net/dsa/microchip/Makefile
+> > > +++ b/drivers/net/dsa/microchip/Makefile
+> > > @@ -1,2 +1,4 @@
+> > >  obj-$(CONFIG_MICROCHIP_KSZ)	        += ksz9477.o ksz_common.o
+> > >  obj-$(CONFIG_MICROCHIP_KSZ_SPI_DRIVER)	+= ksz_spi.o
+> > > +obj-$(CONFIG_MICROCHIP_KSZ8795)	        += ksz8795.o ksz_common.o
+> > > +obj-$(CONFIG_MICROCHIP_KSZ8795_SPI_DRIVER)	+= ksz8795_spi.o
+> > 
+> > I've not tried it, but i think this breaks the build
+> > 
+> >      Andrew
+> 
+> So you would like to have all 5 patches in 1 patch file?
 
-git send-email should solve your problems.
+Or maybe this one last? Would that stop the build from breaking?
 
-    Andrew
+   Andrew
