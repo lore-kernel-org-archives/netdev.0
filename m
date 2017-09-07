@@ -1,56 +1,44 @@
-From: "Gustavo A. R. Silva" <gustavo@embeddedor.com>
-Subject: Re: [PATCH] rtlwifi: btcoex: 23b 1ant: fix duplicated code for
- different branches
-Date: Thu, 7 Sep 2017 09:35:49 -0500
-Message-ID: <02176aa2-9af5-c933-74e1-b2333c07c36b@embeddedor.com>
-References: <20170830134223.GA13596@embeddedgus>
- <ae09e952-112e-9616-735a-b86ba01ad398@lwfinger.net>
+From: Latchesar Ionkov <lucho@ionkov.net>
+Subject: Re: [PATCH 0/2] 9p: Fixes for hard-to-hit bugs
+Date: Thu, 7 Sep 2017 08:49:54 -0600
+Message-ID: <CAOha14xxn4btO3Gd=qYj-JGFHvsFqQWJGGjX8HLDRiWAL7fKTA@mail.gmail.com>
+References: <20170906145908.8082-1-tuomas@tuxera.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Larry Finger <Larry.Finger@lwfinger.net>,
-        Chaoming Li <chaoming_li@realsil.com.cn>,
-        Kalle Valo <kvalo@codeaurora.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Al Viro <viro@zeniv.linux.org.uk>,
+        V9FS Developers <v9fs-developer@lists.sourceforge.net>,
+        Eric Van Hensbergen <ericvh@gmail.com>,
+        Ron Minnich <rminnich@sandia.gov>,
+        "David S. Miller" <davem@davemloft.net>,
+        Linux Kernel <linux-kernel@vger.kernel.org>,
+        netdev@vger.kernel.org, linux-fsdevel@vger.kernel.org
+To: Tuomas Tynkkynen <tuomas@tuxera.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <ae09e952-112e-9616-735a-b86ba01ad398@lwfinger.net>
+In-Reply-To: <20170906145908.8082-1-tuomas@tuxera.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Larry,
+Acked-by: Latchesar Ionkov <lucho@ionkov.net>
 
-On 08/30/2017 11:48 PM, Larry Finger wrote:
-> On 08/30/2017 08:42 AM, Gustavo A. R. Silva wrote:
->> Refactor code in order to avoid identical code for different branches.
->>
->> This issue was detected with the help of Coccinelle.
->>
->> Addresses-Coverity-ID: 1226788
->> Signed-off-by: Gustavo A. R. Silva <gustavo@embeddedor.com>
->> ---
->> This issue was reported by Coverity and it was tested by compilation
->> only.
->> I'm suspicious this may be a copy/paste error. Please, verify.
->>
->>   .../net/wireless/realtek/rtlwifi/btcoexist/halbtc8723b1ant.c   | 10
->> ++--------
->>   1 file changed, 2 insertions(+), 8 deletions(-)
+On Wed, Sep 6, 2017 at 8:59 AM, Tuomas Tynkkynen <tuomas@tuxera.com> wrote:
+> These two patches fix two hard-to-hit (but really annoying) bugs in 9p.
+> The first one was posted earlier in February (with one R-b), the second
+> is a new one.
 >
-> This change is not correct. When bt_link_info->sco_exist is true, the
-> call should be
+> Both of these have had soaking in NixOS distribution kernels for
+> a couple of months with no ill effects.
 >
->                 halbtc8723b1ant_limited_rx(btcoexist,
->                                NORMAL_EXEC, true,
->                                false, 0x5);
+> Tuomas Tynkkynen (2):
+>   fs/9p: Compare qid.path in v9fs_test_inode
+>   net/9p: Switch to wait_event_killable()
 >
-> NACK
+>  fs/9p/vfs_inode.c      |  3 +++
+>  fs/9p/vfs_inode_dotl.c |  3 +++
+>  net/9p/client.c        |  3 +--
+>  net/9p/trans_virtio.c  | 13 ++++++-------
+>  net/9p/trans_xen.c     |  4 ++--
+>  5 files changed, 15 insertions(+), 11 deletions(-)
 >
-> I will push the correct patch.
+> --
+> 2.13.0
 >
-
-Great. Good to know.
-
-Thanks
--- 
-Gustavo A. R. Silva
