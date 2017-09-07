@@ -1,57 +1,83 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH RFC 2/5] Add KSZ8795 switch driver support in Makefile
-Date: Fri, 8 Sep 2017 00:43:09 +0200
-Message-ID: <20170907224309.GZ11248@lunn.ch>
-References: <93AF473E2DA327428DE3D46B72B1E9FD41121A80@CHN-SV-EXMX02.mchp-main.com>
- <20170907215551.GV11248@lunn.ch>
- <93AF473E2DA327428DE3D46B72B1E9FD41121B0A@CHN-SV-EXMX02.mchp-main.com>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH] net: bonding: Fix transmit load balancing in balance-alb
+ mode if specified by sysfs
+Date: Fri, 8 Sep 2017 02:09:26 +0300
+Message-ID: <c9b6ae59-741b-3ecd-47ff-1d5b41710607@cumulusnetworks.com>
+References: <17EC94B0A072C34B8DCF0D30AD16044A02985CB5@BPXM09GP.gisp.nec.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: muvarov@gmail.com, pavel@ucw.cz, nathan.leigh.conrad@gmail.com,
-        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Woojung.Huh@microchip.com
-To: Tristram.Ha@microchip.com
+Content-Type: text/plain; charset=iso-2022-jp
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        Reinis Rozitis <r@roze.lv>
+To: Kosuke Tatsukawa <tatsu@ab.jp.nec.com>,
+        Jay Vosburgh <j.vosburgh@gmail.com>,
+        Veaceslav Falico <vfalico@gmail.com>,
+        Andy Gospodarek <andy@greyhouse.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <93AF473E2DA327428DE3D46B72B1E9FD41121B0A@CHN-SV-EXMX02.mchp-main.com>
+In-Reply-To: <17EC94B0A072C34B8DCF0D30AD16044A02985CB5@BPXM09GP.gisp.nec.co.jp>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 07, 2017 at 10:29:34PM +0000, Tristram.Ha@microchip.com wrote:
-> > -----Original Message-----
-> > From: Andrew Lunn [mailto:andrew@lunn.ch]
-> > Sent: Thursday, September 07, 2017 2:56 PM
-> > To: Tristram Ha - C24268
-> > Cc: muvarov@gmail.com; pavel@ucw.cz; nathan.leigh.conrad@gmail.com;
-> > vivien.didelot@savoirfairelinux.com; f.fainelli@gmail.com;
-> > netdev@vger.kernel.org; linux-kernel@vger.kernel.org; Woojung Huh - C21699
-> > Subject: Re: [PATCH RFC 2/5] Add KSZ8795 switch driver support in Makefile
-> > 
-> > On Thu, Sep 07, 2017 at 09:17:10PM +0000, Tristram.Ha@microchip.com wrote:
-> > > From: Tristram Ha <Tristram.Ha@microchip.com>
-> > >
-> > > Add KSZ8795 switch support with SPI access.
-> > >
-> > > Signed-off-by: Tristram Ha <Tristram.Ha@microchip.com>
-> > > ---
-> > > diff --git a/drivers/net/dsa/microchip/Makefile
-> > b/drivers/net/dsa/microchip/Makefile
-> > > index 0961c30..0d8ba48 100644
-> > > --- a/drivers/net/dsa/microchip/Makefile
-> > > +++ b/drivers/net/dsa/microchip/Makefile
-> > > @@ -1,2 +1,4 @@
-> > >  obj-$(CONFIG_MICROCHIP_KSZ)	        += ksz9477.o ksz_common.o
-> > >  obj-$(CONFIG_MICROCHIP_KSZ_SPI_DRIVER)	+= ksz_spi.o
-> > > +obj-$(CONFIG_MICROCHIP_KSZ8795)	        += ksz8795.o ksz_common.o
-> > > +obj-$(CONFIG_MICROCHIP_KSZ8795_SPI_DRIVER)	+= ksz8795_spi.o
-> > 
-> > I've not tried it, but i think this breaks the build
-> > 
-> >      Andrew
+On  7.09.2017 01:47, Kosuke Tatsukawa wrote:
+> Commit cbf5ecb30560 ("net: bonding: Fix transmit load balancing in
+> balance-alb mode") tried to fix transmit dynamic load balancing in
+> balance-alb mode, which wasn't working after commit 8b426dc54cf4
+> ("bonding: remove hardcoded value").
 > 
-> So you would like to have all 5 patches in 1 patch file?
+> It turned out that my previous patch only fixed the case when
+> balance-alb was specified as bonding module parameter, and not when
+> balance-alb mode was set using /sys/class/net/*/bonding/mode (the most
+> common usage).  In the latter case, tlb_dynamic_lb was set up according
+> to the default mode of the bonding interface, which happens to be
+> balance-rr.
+> 
+> This additional patch addresses this issue by setting up tlb_dynamic_lb
+> to 1 if "mode" is set to balance-alb through the sysfs interface.
+> 
+> I didn't add code to change tlb_balance_lb back to the default value for
+> other modes, because "mode" is usually set up only once during
+> initialization, and it's not worthwhile to change the static variable
+> bonding_defaults in bond_main.c to a global variable just for this
+> purpose.
+> 
+> Commit 8b426dc54cf4 also changes the value of tlb_dynamic_lb for
+> balance-tlb mode if it is set up using the sysfs interface.  I didn't
+> change that behavior, because the value of tlb_balance_lb can be changed
+> using the sysfs interface for balance-tlb, and I didn't like changing
+> the default value back and forth for balance-tlb.
+> 
+> As for balance-alb, /sys/class/net/*/bonding/tlb_balance_lb cannot be
+> written to.  However, I think balance-alb with tlb_dynamic_lb set to 0
+> is not an intended usage, so there is little use making it writable at
+> this moment.
+> 
+> Fixes: 8b426dc54cf4 ("bonding: remove hardcoded value")
+> Reported-by: Reinis Rozitis <r@roze.lv>
+> Signed-off-by: Kosuke Tatsukawa <tatsu@ab.jp.nec.com>
+> Cc: stable@vger.kernel.org  # v4.12+
+> ---
+>  drivers/net/bonding/bond_options.c |    3 +++
+>  1 files changed, 3 insertions(+), 0 deletions(-)
+> 
 
-Or maybe this one last? Would that stop the build from breaking?
+I don't believe this to be the right solution, hardcoding it like this
+changes user-visible behaviour. The issue is that if someone configured
+it to be 0 in tlb mode, suddenly it will become 1 and will silently
+override their config if they switch the mode to alb. Also it robs users
+from their choice.
 
-   Andrew
+If you think this should be settable in ALB mode, then IMO you should
+edit tlb_dynamic_lb option's unsuppmodes and allow it to be set in ALB.
+That would also be consistent with how it's handled in TLB mode.
+
+Going back and looking at your previous fix I'd argue that it is also
+wrong, you should've removed the mode check altogether to return the
+original behaviour where the dynamic_lb is set to 1 (enabled) by
+default and then ALB mode would've had it, of course that would've left
+the case of setting it to 0 in TLB mode and switching to ALB, but that
+is a different issue.
+
+Cheers,
+ Nik
