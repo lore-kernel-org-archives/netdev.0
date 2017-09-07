@@ -1,129 +1,58 @@
-From: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
-Subject: [PATCH] ipv4: Namespaceify tcp_max_orphans knob
-Date: Thu,  7 Sep 2017 11:10:08 +0800
-Message-ID: <1504753808-13266-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
-To: "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Eric Dumazet <edumazet@google.com>
+From: "Coelho, Luciano" <luciano.coelho@intel.com>
+Subject: Re: [GIT] Networking
+Date: Thu, 7 Sep 2017 04:11:36 +0000
+Message-ID: <1504757495.5400.89.camel@intel.com>
+References: <20170905.214143.826912481689443792.davem@davemloft.net>
+         <CA+55aFw0KNTKFrRHk5hthDGTGgL9BGt9G=x_m9Tz7m_-pN+NoA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: linuxwifi <linuxwifi@intel.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+        "akpm@linux-foundation.org" <akpm@linux-foundation.org>
+To: "torvalds@linux-foundation.org" <torvalds@linux-foundation.org>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "kvalo@codeaurora.org" <kvalo@codeaurora.org>,
+        "Berg, Johannes" <johannes.berg@intel.com>,
+        "Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CA+55aFw0KNTKFrRHk5hthDGTGgL9BGt9G=x_m9Tz7m_-pN+NoA@mail.gmail.com>
+Content-Language: en-US
+Content-ID: <D107796AD8A08B4B9F4D134EDA1582D0@intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Different namespace application might require different maximal number
-of TCP sockets independently of the host.
-
-Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
----
- include/net/netns/ipv4.h   |  1 +
- include/net/tcp.h          |  5 +++--
- net/ipv4/sysctl_net_ipv4.c | 14 +++++++-------
- net/ipv4/tcp.c             |  3 ---
- net/ipv4/tcp_input.c       |  1 -
- net/ipv4/tcp_ipv4.c        |  1 +
- 6 files changed, 12 insertions(+), 13 deletions(-)
-
-diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
-index 20d061c..305e031 100644
---- a/include/net/netns/ipv4.h
-+++ b/include/net/netns/ipv4.h
-@@ -127,6 +127,7 @@ struct netns_ipv4 {
- 	int sysctl_tcp_timestamps;
- 	struct inet_timewait_death_row tcp_death_row;
- 	int sysctl_max_syn_backlog;
-+	int sysctl_tcp_max_orphans;
- 
- #ifdef CONFIG_NET_L3_MASTER_DEV
- 	int sysctl_udp_l3mdev_accept;
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index b510f28..ac2d998 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -320,10 +320,11 @@ static inline bool tcp_too_many_orphans(struct sock *sk, int shift)
- {
- 	struct percpu_counter *ocp = sk->sk_prot->orphan_count;
- 	int orphans = percpu_counter_read_positive(ocp);
-+	int tcp_max_orphans = sock_net(sk)->ipv4.sysctl_tcp_max_orphans;
- 
--	if (orphans << shift > sysctl_tcp_max_orphans) {
-+	if (orphans << shift > tcp_max_orphans) {
- 		orphans = percpu_counter_sum_positive(ocp);
--		if (orphans << shift > sysctl_tcp_max_orphans)
-+		if (orphans << shift > tcp_max_orphans)
- 			return true;
- 	}
- 	return false;
-diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index 0d3c038..4f26c8d3 100644
---- a/net/ipv4/sysctl_net_ipv4.c
-+++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -394,13 +394,6 @@ static int proc_tcp_available_ulp(struct ctl_table *ctl,
- 		.proc_handler	= proc_dointvec
- 	},
- 	{
--		.procname	= "tcp_max_orphans",
--		.data		= &sysctl_tcp_max_orphans,
--		.maxlen		= sizeof(int),
--		.mode		= 0644,
--		.proc_handler	= proc_dointvec
--	},
--	{
- 		.procname	= "tcp_fastopen",
- 		.data		= &sysctl_tcp_fastopen,
- 		.maxlen		= sizeof(int),
-@@ -1085,6 +1078,13 @@ static int proc_tcp_available_ulp(struct ctl_table *ctl,
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec
- 	},
-+	{
-+		.procname	= "tcp_max_orphans",
-+		.data		= &init_net.ipv4.sysctl_tcp_max_orphans,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec
-+	},
- #ifdef CONFIG_IP_ROUTE_MULTIPATH
- 	{
- 		.procname	= "fib_multipath_use_neigh",
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 5091402..39187ac 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -3522,9 +3522,6 @@ void __init tcp_init(void)
- 	}
- 
- 
--	cnt = tcp_hashinfo.ehash_mask + 1;
--	sysctl_tcp_max_orphans = cnt / 2;
--
- 	tcp_init_mem();
- 	/* Set per-socket limits to no more than 1/128 the pressure threshold */
- 	limit = nr_free_buffer_pages() << (PAGE_SHIFT - 7);
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index c5d7656..0230509 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -88,7 +88,6 @@
- 
- int sysctl_tcp_stdurg __read_mostly;
- int sysctl_tcp_rfc1337 __read_mostly;
--int sysctl_tcp_max_orphans __read_mostly = NR_FILE;
- int sysctl_tcp_frto __read_mostly = 2;
- int sysctl_tcp_min_rtt_wlen __read_mostly = 300;
- int sysctl_tcp_moderate_rcvbuf __read_mostly = 1;
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index a63486a..4b17a91 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -2468,6 +2468,7 @@ static int __net_init tcp_sk_init(struct net *net)
- 	net->ipv4.tcp_death_row.hashinfo = &tcp_hashinfo;
- 
- 	net->ipv4.sysctl_max_syn_backlog = max(128, cnt / 256);
-+	net->ipv4.sysctl_tcp_max_orphans = cnt / 2;
- 	net->ipv4.sysctl_tcp_sack = 1;
- 	net->ipv4.sysctl_tcp_window_scaling = 1;
- 	net->ipv4.sysctl_tcp_timestamps = 1;
--- 
-1.8.3.1
+T24gV2VkLCAyMDE3LTA5LTA2IGF0IDE2OjI3IC0wNzAwLCBMaW51cyBUb3J2YWxkcyB3cm90ZToN
+Cj4gVGhpcyBwdWxsIHJlcXVlc3QgY29tcGxldGVseSBicmVha3MgSW50ZWwgd2lyZWxlc3MgZm9y
+IG1lLg0KPiANCj4gVGhpcyBpcyBteSB0cnVzdHkgb2xkIFhQUyAxMyAoOTM1MCksIHVzaW5nIElu
+dGVsIFdpcmVsZXNzIDgyNjAgKHJldiAzYSkuDQo+IA0KPiBUaGF0IHJlbWFpbnMgYSB2ZXJ5IHN0
+YW5kYXJkIEludGVsIG1hY2hpbmUgd2l0aCBhYnNvbHV0ZWx5IHplcm8gb2RkDQo+IHRoaW5ncyBn
+b2luZyBvbi4NCj4gDQo+IFRoZSBmaXJtd2FyZSBpcyBpd2x3aWZpLTgwMDBDLTI4LnVjb2RlIGZy
+b20NCj4gaXdsNzI2MC1maXJtd2FyZS0yNS4zMC4xMy4wLTc1LmZjMjYubm9hcmNoLCBhbmQgdGhl
+IGtlcm5lbCByZXBvcnRzDQo+IA0KPiAgIGl3bHdpZmkgMDAwMDozYTowMC4wOiBsb2FkZWQgZmly
+bXdhcmUgdmVyc2lvbiAyNy40NTU0NzAuMCBvcF9tb2RlIGl3bG12bQ0KPiANCj4gdGhlIHRoaW5n
+IHN0YXJ0cyBhY3RpbmcgYmFkbHkgd2l0aCB0aGlzOg0KPiANCj4gICBpd2x3aWZpIDAwMDA6M2E6
+MDAuMDogRlcgRXJyb3Igbm90aWZpY2F0aW9uOiB0eXBlIDB4MDAwMDAwMDAgY21kX2lkIDB4MDQN
+Cj4gICBpd2x3aWZpIDAwMDA6M2E6MDAuMDogRlcgRXJyb3Igbm90aWZpY2F0aW9uOiBzZXEgMHgw
+MDAwIHNlcnZpY2UgMHgwMDAwMDAwNA0KPiAgIGl3bHdpZmkgMDAwMDozYTowMC4wOiBGVyBFcnJv
+ciBub3RpZmljYXRpb246IHRpbWVzdGFtcCAweCAgICAgICAgICAgIDVEODQNCj4gICBpd2x3aWZp
+IDAwMDA6M2E6MDAuMDogTWljcm9jb2RlIFNXIGVycm9yIGRldGVjdGVkLiAgUmVzdGFydGluZyAw
+eDIwMDAwMDAuDQo+ICAgaXdsd2lmaSAwMDAwOjNhOjAwLjA6IFN0YXJ0IElXTCBFcnJvciBMb2cg
+RHVtcDoNCj4gICBpd2x3aWZpIDAwMDA6M2E6MDAuMDogU3RhdHVzOiAweDAwMDAwMTAwLCBjb3Vu
+dDogNg0KPiAgIGl3bHdpZmkgMDAwMDozYTowMC4wOiBMb2FkZWQgZmlybXdhcmUgdmVyc2lvbjog
+MjcuNDU1NDcwLjANCj4gICBpd2x3aWZpIDAwMDA6M2E6MDAuMDogMHgwMDAwMDAzOCB8IEJBRF9D
+T01NQU5EDQo+ICAgaXdsd2lmaSAwMDAwOjNhOjAwLjA6IDB4MDBBMDAyRjAgfCB0cm1faHdfc3Rh
+dHVzMA0KPiAgIC4uLg0KPiAgIGl3bHdpZmkgMDAwMDozYTowMC4wOiAweDAwMDAwMDAwIHwgaXNy
+IHN0YXR1cyByZWcNCj4gICBpZWVlODAyMTEgcGh5MDogSGFyZHdhcmUgcmVzdGFydCB3YXMgcmVx
+dWVzdGVkDQo+ICAgaXdsd2lmaSAwMDAwOjNhOjAwLjA6IEZXIGVycm9yIGluIFNZTkMgQ01EIE1B
+Q19DT05URVhUX0NNRA0KDQpUaGlzIHNlZW1zIHRvIGJlIGEgcHJvYmxlbSB3aXRoIGJhY2t3YXJk
+cy1jb21wYXRpYmlsaXR5IHdpdGggRlcgdmVyc2lvbg0KMjcuICBXZSBhcmUgbm93IGluIHZlcnNp
+b24gMzFbMV0gYW5kIHVwZ3JhZGluZyB3aWxsIHByb2JhYmx5IGZpeCB0aGF0Lg0KDQpCdXQgb2J2
+aW91c2x5IHRoZSBkcml2ZXIgc2hvdWxkIG5vdCBmYWlsIG1pc2VyYWJseSBsaWtlIHRoaXMgd2l0
+aA0KdmVyc2lvbiAyNywgYmVjYXVzZSBpdCBjbGFpbXMgdG8gc3VwcG9ydCBpdCBzdGlsbC4NCg0K
+SSdtIGxvb2tpbmcgaW50byB0aGlzIG5vdyBhbmQgd2lsbCBwcm92aWRlIGEgZml4IGFzYXAuDQoN
+ClsxXSBodHRwczovL2dpdC5rZXJuZWwub3JnL3B1Yi9zY20vbGludXgva2VybmVsL2dpdC9maXJt
+d2FyZS9saW51eC1maXJtd2FyZS5naXQvdHJlZS9pd2x3aWZpLTgwMDBDLTMxLnVjb2RlDQoNCg0K
+LS0NCkNoZWVycywNCkx1Y2Eu
