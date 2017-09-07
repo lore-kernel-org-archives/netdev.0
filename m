@@ -1,96 +1,149 @@
 From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net v2 1/2] net_sched: get rid of tcfa_rcu
-Date: Wed,  6 Sep 2017 21:26:06 -0700
-Message-ID: <20170907042607.24413-1-xiyou.wangcong@gmail.com>
+Subject: [Patch net v2 2/2] net_sched: fix all the madness of tc filter chain
+Date: Wed,  6 Sep 2017 21:26:07 -0700
+Message-ID: <20170907042607.24413-2-xiyou.wangcong@gmail.com>
+References: <20170907042607.24413-1-xiyou.wangcong@gmail.com>
 Cc: jakub.kicinski@netronome.com, Cong Wang <xiyou.wangcong@gmail.com>,
-        Jiri Pirko <jiri@mellanox.com>,
-        Eric Dumazet <edumazet@google.com>
+        Jiri Pirko <jiri@mellanox.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:33807 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750742AbdIGE0R (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 7 Sep 2017 00:26:17 -0400
-Received: by mail-pf0-f195.google.com with SMTP id y68so3991095pfd.1
-        for <netdev@vger.kernel.org>; Wed, 06 Sep 2017 21:26:17 -0700 (PDT)
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:38719 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753374AbdIGE0S (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 7 Sep 2017 00:26:18 -0400
+Received: by mail-pf0-f194.google.com with SMTP id q76so3986514pfq.5
+        for <netdev@vger.kernel.org>; Wed, 06 Sep 2017 21:26:18 -0700 (PDT)
+In-Reply-To: <20170907042607.24413-1-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-gen estimator has been rewritten in commit 1c0d32fde5bd
-("net_sched: gen_estimator: complete rewrite of rate estimators"),
-the caller is no longer needed to wait for a grace period.
-So this patch gets rid of it.
+This patch fixes the following madness of tc filter chain:
 
-This also completely closes a race condition between action free
-path and filter chain add/remove path for the following patch.
-Because otherwise the nested RCU callback can't be caught by
-rcu_barrier().
+1) tcf_chain_destroy() is called by both tcf_block_put() and
+   tcf_chain_put().  tcf_chain_put() is correctly refcnt'ed and paired
+   with tcf_chain_get(), but tcf_block_put() is not, it should be paired
+   with tcf_block_get() which means we still need to decrease the refcnt.
+   Think it in another way: if we call tcf_bock_put() immediately after
+   tcf_block_get(), could we get effectively a nop? This causes a memory
+   leak as reported by Jakub.
 
+2) tp proto should hold a refcnt to the chain too. This significantly
+   simplifies the logic:
+
+2a) Chain 0 is no longer special, it is created and refcnted by tp
+    like any other chains. All the ugliness in tcf_chain_put() can be
+    gone!
+
+2b) No need to handle the flushing oddly, because block still holds
+    chain 0, it can not be released, this guarantees block is the last
+    user.
+
+2c) The race condition with RCU callbacks is easier to handle with just
+    a rcu_barrier()! Much easier to understand, nothing to hide! Thanks
+    to the previous patch. Please see also the comments in code.
+
+2d) Make the code understandable by humans, much less error-prone.
+
+Fixes: 744a4cf63e52 ("net: sched: fix use after free when tcf_chain_destroy is called multiple times")
+Fixes: 5bc1701881e3 ("net: sched: introduce multichain support for filters")
+Reported-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 Cc: Jiri Pirko <jiri@mellanox.com>
-Cc: Eric Dumazet <edumazet@google.com>
 Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 ---
- include/net/act_api.h |  2 --
- net/sched/act_api.c   | 12 +++---------
- 2 files changed, 3 insertions(+), 11 deletions(-)
+ net/sched/cls_api.c | 38 ++++++++++++++++++++++----------------
+ 1 file changed, 22 insertions(+), 16 deletions(-)
 
-diff --git a/include/net/act_api.h b/include/net/act_api.h
-index 26ffd8333f50..68218a5f8e72 100644
---- a/include/net/act_api.h
-+++ b/include/net/act_api.h
-@@ -38,7 +38,6 @@ struct tc_action {
- 	struct gnet_stats_queue		tcfa_qstats;
- 	struct net_rate_estimator __rcu *tcfa_rate_est;
- 	spinlock_t			tcfa_lock;
--	struct rcu_head			tcfa_rcu;
- 	struct gnet_stats_basic_cpu __percpu *cpu_bstats;
- 	struct gnet_stats_queue __percpu *cpu_qstats;
- 	struct tc_cookie	*act_cookie;
-@@ -55,7 +54,6 @@ struct tc_action {
- #define tcf_qstats	common.tcfa_qstats
- #define tcf_rate_est	common.tcfa_rate_est
- #define tcf_lock	common.tcfa_lock
--#define tcf_rcu		common.tcfa_rcu
- 
- static inline unsigned int tcf_hash(u32 index, unsigned int hmask)
- {
-diff --git a/net/sched/act_api.c b/net/sched/act_api.c
-index f2e9ed34a963..fc17d286a6a2 100644
---- a/net/sched/act_api.c
-+++ b/net/sched/act_api.c
-@@ -53,10 +53,8 @@ static void tcf_action_goto_chain_exec(const struct tc_action *a,
- 	res->goto_tp = rcu_dereference_bh(chain->filter_chain);
+diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
+index 6c5ea84d2682..e9060dc36519 100644
+--- a/net/sched/cls_api.c
++++ b/net/sched/cls_api.c
+@@ -209,21 +209,20 @@ static void tcf_chain_flush(struct tcf_chain *chain)
+ 		RCU_INIT_POINTER(*chain->p_filter_chain, NULL);
+ 	while ((tp = rtnl_dereference(chain->filter_chain)) != NULL) {
+ 		RCU_INIT_POINTER(chain->filter_chain, tp->next);
++		tcf_chain_put(chain);
+ 		tcf_proto_destroy(tp);
+ 	}
  }
  
--static void free_tcf(struct rcu_head *head)
-+static void free_tcf(struct tc_action *p)
+ static void tcf_chain_destroy(struct tcf_chain *chain)
  {
--	struct tc_action *p = container_of(head, struct tc_action, tcfa_rcu);
--
- 	free_percpu(p->cpu_bstats);
- 	free_percpu(p->cpu_qstats);
+-	/* May be already removed from the list by the previous call. */
+-	if (!list_empty(&chain->list))
+-		list_del_init(&chain->list);
++	list_del(&chain->list);
++	kfree(chain);
++}
  
-@@ -76,11 +74,7 @@ static void tcf_hash_destroy(struct tcf_hashinfo *hinfo, struct tc_action *p)
- 	hlist_del(&p->tcfa_head);
- 	spin_unlock_bh(&hinfo->lock);
- 	gen_kill_estimator(&p->tcfa_rate_est);
--	/*
--	 * gen_estimator est_timer() might access p->tcfa_lock
--	 * or bstats, wait a RCU grace period before freeing p
+-	/* There might still be a reference held when we got here from
+-	 * tcf_block_put. Wait for the user to drop reference before free.
 -	 */
--	call_rcu(&p->tcfa_rcu, free_tcf);
-+	free_tcf(p);
+-	if (!chain->refcnt)
+-		kfree(chain);
++static void tcf_chain_hold(struct tcf_chain *chain)
++{
++	++chain->refcnt;
  }
  
- int __tcf_hash_release(struct tc_action *p, bool bind, bool strict)
-@@ -271,7 +265,7 @@ void tcf_hash_cleanup(struct tc_action *a, struct nlattr *est)
+ struct tcf_chain *tcf_chain_get(struct tcf_block *block, u32 chain_index,
+@@ -233,7 +232,7 @@ struct tcf_chain *tcf_chain_get(struct tcf_block *block, u32 chain_index,
+ 
+ 	list_for_each_entry(chain, &block->chain_list, list) {
+ 		if (chain->index == chain_index) {
+-			chain->refcnt++;
++			tcf_chain_hold(chain);
+ 			return chain;
+ 		}
+ 	}
+@@ -246,10 +245,7 @@ EXPORT_SYMBOL(tcf_chain_get);
+ 
+ void tcf_chain_put(struct tcf_chain *chain)
  {
- 	if (est)
- 		gen_kill_estimator(&a->tcfa_rate_est);
--	call_rcu(&a->tcfa_rcu, free_tcf);
-+	free_tcf(a);
+-	/* Destroy unused chain, with exception of chain 0, which is the
+-	 * default one and has to be always present.
+-	 */
+-	if (--chain->refcnt == 0 && !chain->filter_chain && chain->index != 0)
++	if (--chain->refcnt == 0)
+ 		tcf_chain_destroy(chain);
  }
- EXPORT_SYMBOL(tcf_hash_cleanup);
+ EXPORT_SYMBOL(tcf_chain_put);
+@@ -294,10 +290,18 @@ void tcf_block_put(struct tcf_block *block)
+ 	if (!block)
+ 		return;
  
+-	list_for_each_entry_safe(chain, tmp, &block->chain_list, list) {
++	/* Standalone actions are not allowed to jump to any chain, and
++	 * bound actions should be all removed after flushing. However,
++	 * filters are destroyed in RCU callbacks, we have to flush and wait
++	 * for them before releasing this refcnt, otherwise we race with RCU
++	 * callbacks!!!
++	 */
++	list_for_each_entry(chain, &block->chain_list, list)
+ 		tcf_chain_flush(chain);
+-		tcf_chain_destroy(chain);
+-	}
++	rcu_barrier();
++
++	list_for_each_entry_safe(chain, tmp, &block->chain_list, list)
++		tcf_chain_put(chain);
+ 	kfree(block);
+ }
+ EXPORT_SYMBOL(tcf_block_put);
+@@ -375,6 +379,7 @@ static void tcf_chain_tp_insert(struct tcf_chain *chain,
+ 		rcu_assign_pointer(*chain->p_filter_chain, tp);
+ 	RCU_INIT_POINTER(tp->next, tcf_chain_tp_prev(chain_info));
+ 	rcu_assign_pointer(*chain_info->pprev, tp);
++	tcf_chain_hold(chain);
+ }
+ 
+ static void tcf_chain_tp_remove(struct tcf_chain *chain,
+@@ -386,6 +391,7 @@ static void tcf_chain_tp_remove(struct tcf_chain *chain,
+ 	if (chain->p_filter_chain && tp == chain->filter_chain)
+ 		RCU_INIT_POINTER(*chain->p_filter_chain, next);
+ 	RCU_INIT_POINTER(*chain_info->pprev, next);
++	tcf_chain_put(chain);
+ }
+ 
+ static struct tcf_proto *tcf_chain_tp_find(struct tcf_chain *chain,
 -- 
 2.13.0
