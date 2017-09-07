@@ -1,38 +1,75 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH RFC 2/5] Add KSZ8795 switch driver support in Makefile
-Date: Thu, 7 Sep 2017 23:55:51 +0200
-Message-ID: <20170907215551.GV11248@lunn.ch>
-References: <93AF473E2DA327428DE3D46B72B1E9FD41121A80@CHN-SV-EXMX02.mchp-main.com>
+From: =?UTF-8?Q?Pawe=c5=82_Staszewski?= <pstaszewski@itcare.pl>
+Subject: Re: latest netdev net-next kernel panic
+Date: Fri, 8 Sep 2017 00:08:06 +0200
+Message-ID: <91ae50fc-300a-2b92-7de0-ae512f364280@itcare.pl>
+References: <9f4c89c9-1a1b-39ec-6d8c-2c9e4c15911a@itcare.pl>
+ <1504820388.15310.71.camel@edumazet-glaptop3.roam.corp.google.com>
+ <2e7d813e-0ee9-ede6-7e0e-db2814b3cf94@itcare.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: muvarov@gmail.com, pavel@ucw.cz, nathan.leigh.conrad@gmail.com,
-        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Woojung.Huh@microchip.com
-To: Tristram.Ha@microchip.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <93AF473E2DA327428DE3D46B72B1E9FD41121A80@CHN-SV-EXMX02.mchp-main.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp16.iq.pl ([86.111.242.222]:46332 "EHLO smtp16.iq.pl"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1756112AbdIGWKM (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 7 Sep 2017 18:10:12 -0400
+In-Reply-To: <2e7d813e-0ee9-ede6-7e0e-db2814b3cf94@itcare.pl>
+Content-Language: pl
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 07, 2017 at 09:17:10PM +0000, Tristram.Ha@microchip.com wrote:
-> From: Tristram Ha <Tristram.Ha@microchip.com>
-> 
-> Add KSZ8795 switch support with SPI access.
-> 
-> Signed-off-by: Tristram Ha <Tristram.Ha@microchip.com>
-> ---
-> diff --git a/drivers/net/dsa/microchip/Makefile b/drivers/net/dsa/microchip/Makefile
-> index 0961c30..0d8ba48 100644
-> --- a/drivers/net/dsa/microchip/Makefile
-> +++ b/drivers/net/dsa/microchip/Makefile
-> @@ -1,2 +1,4 @@
->  obj-$(CONFIG_MICROCHIP_KSZ)	        += ksz9477.o ksz_common.o
->  obj-$(CONFIG_MICROCHIP_KSZ_SPI_DRIVER)	+= ksz_spi.o
-> +obj-$(CONFIG_MICROCHIP_KSZ8795)	        += ksz8795.o ksz_common.o
-> +obj-$(CONFIG_MICROCHIP_KSZ8795_SPI_DRIVER)	+= ksz8795_spi.o
+Also this panic occured about 3 minutes after traffic rise to 40G
 
-I've not tried it, but i think this breaks the build
+before host was working without trafic for about 30minutes - after 
+traffic start to flow this bug start.
 
-     Andrew
+Now i have this host without traffic and it is working for almost 1 hour :)
+
+
+
+W dniu 2017-09-07 o 23:47, Paweł Staszewski pisze:
+> Hi Eric
+>
+>
+> today upgraded some host from 4.13.0-rc7+ to latest net-next from git
+>
+> and run some tests simulate clients traffic 40Gbit / 5Mpps mixed tcp + 
+> udp
+>
+> There is also bgpd running that feeds FIB with full bgp feed - about 
+> 700k prefixes (so routing tables is about 700k routes with about 300 
+> nexthops)
+>
+>
+> There is also simulated about 1000 ip neigh hosts (arp) with about 300 
+> ip interfaces assigned on vlans
+>
+>
+>
+> With kernel 4.13.0-rc7+ (git from 05.09.2017) all tests are good 
+> (besides that there is panic after about 10 hours - every time same 
+> like in this link:
+>
+> https://bugzilla.kernel.org/attachment.cgi?id=258257
+>
+> But looks like acpi related or c/p states with new intel cpus... dono 
+> now.
+>
+>
+>
+>
+> W dniu 2017-09-07 o 23:39, Eric Dumazet pisze:
+>> On Thu, 2017-09-07 at 23:30 +0200, Paweł Staszewski wrote:
+>>> I want to mention also here cause last trace for RIP was dst_dev_put
+>>>
+>>> https://bugzilla.kernel.org/attachment.cgi?id=258259
+>> Can you provide a bit more context ?
+>>
+>> Thanks !
+>>
+>>
+>>
+>
+>
