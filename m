@@ -1,69 +1,45 @@
-From: Luca Coelho <luca@coelho.fi>
-Subject: [PATCH] iwlwifi: mvm: only send LEDS_CMD when the FW supports it
-Date: Thu,  7 Sep 2017 10:51:52 +0300
-Message-ID: <20170907075152.4522-1-luca@coelho.fi>
-References: <CA+55aFxjHSW7v4Ttu7mGPkxdGpR-WtVoxDT5qtwxUC-Dge5a5A@mail.gmail.com>
-Cc: linux-wireless@vger.kernel.org, johannes@sipsolutions.net,
-        linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
-        kvalo@codeaurora.org, netdev@vger.kernel.org, davem@davemloft.net,
-        emmanuel.grumbach@intel.com, Luca Coelho <luciano.coelho@intel.com>
-To: torvalds@linux-foundation.org
+From: Baruch Siach <baruch@tkos.co.il>
+Subject: [PATCH] dt-bindings: net: don't confuse with generic PHY property
+Date: Thu,  7 Sep 2017 11:09:59 +0300
+Message-ID: <2e201cc1cff4fad372f589c83c4c438b3dccbadf.1504771799.git.baruch@tkos.co.il>
+Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
+        Baruch Siach <baruch@tkos.co.il>
+To: "David S. Miller" <davem@davemloft.net>,
+        Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from paleale.coelho.fi ([176.9.41.70]:48608 "EHLO
-        farmhouse.coelho.fi" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1754344AbdIGHwN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 7 Sep 2017 03:52:13 -0400
-In-Reply-To: <CA+55aFxjHSW7v4Ttu7mGPkxdGpR-WtVoxDT5qtwxUC-Dge5a5A@mail.gmail.com>
+Received: from guitar.tcltek.co.il ([192.115.133.116]:47751 "EHLO
+        mx.tkos.co.il" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754124AbdIGIKc (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 7 Sep 2017 04:10:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Luca Coelho <luciano.coelho@intel.com>
+This complements commit 9a94b3a4bd (dt-binding: phy: don't confuse with
+Ethernet phy properties).
 
-The LEDS_CMD command is only supported in some newer FW versions
-(e.g. iwlwifi-8000C-31.ucode), so we can't send it to older versions
-(such as iwlwifi-8000C-27.ucode).
+The generic PHY 'phys' property sometime appears in the same node with
+the Ethernet PHY 'phy' or 'phy-handle' properties. Add a warning in
+ethernet.txt to reduce confusion.
 
-To fix this, check for a new bit in the FW capabilities TLV that tells
-when the command is supported.
-
-Note that the current version of -31.ucode in linux-firmware.git
-(31.532993.0) does not have this capability bit set, so the LED won't
-work, even though this version should support it.  But we will update
-this firmware soon, so it won't be a problem anymore.
-
-Fixes: 7089ae634c50 ("iwlwifi: mvm: use firmware LED command where applicable")
-Reported-by: Linus Torvalds <torvalds@linux-foundation.org>
-Signed-off-by: Luca Coelho <luciano.coelho@intel.com>
+Signed-off-by: Baruch Siach <baruch@tkos.co.il>
 ---
- drivers/net/wireless/intel/iwlwifi/fw/file.h | 1 +
- drivers/net/wireless/intel/iwlwifi/mvm/led.c | 3 ++-
- 2 files changed, 3 insertions(+), 1 deletion(-)
+ Documentation/devicetree/bindings/net/ethernet.txt | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-diff --git a/drivers/net/wireless/intel/iwlwifi/fw/file.h b/drivers/net/wireless/intel/iwlwifi/fw/file.h
-index 887f6d8fc8a7..279248cd9cfb 100644
---- a/drivers/net/wireless/intel/iwlwifi/fw/file.h
-+++ b/drivers/net/wireless/intel/iwlwifi/fw/file.h
-@@ -378,6 +378,7 @@ enum iwl_ucode_tlv_capa {
- 	IWL_UCODE_TLV_CAPA_EXTEND_SHARED_MEM_CFG	= (__force iwl_ucode_tlv_capa_t)80,
- 	IWL_UCODE_TLV_CAPA_LQM_SUPPORT			= (__force iwl_ucode_tlv_capa_t)81,
- 	IWL_UCODE_TLV_CAPA_TX_POWER_ACK			= (__force iwl_ucode_tlv_capa_t)84,
-+	IWL_UCODE_TLV_CAPA_LED_CMD_SUPPORT		= (__force iwl_ucode_tlv_capa_t)86,
- 	IWL_UCODE_TLV_CAPA_MLME_OFFLOAD			= (__force iwl_ucode_tlv_capa_t)96,
+diff --git a/Documentation/devicetree/bindings/net/ethernet.txt b/Documentation/devicetree/bindings/net/ethernet.txt
+index 7da86f22a13b..2974e63ba311 100644
+--- a/Documentation/devicetree/bindings/net/ethernet.txt
++++ b/Documentation/devicetree/bindings/net/ethernet.txt
+@@ -1,5 +1,9 @@
+ The following properties are common to the Ethernet controllers:
  
- 	NUM_IWL_UCODE_TLV_CAPA
-diff --git a/drivers/net/wireless/intel/iwlwifi/mvm/led.c b/drivers/net/wireless/intel/iwlwifi/mvm/led.c
-index 005e2e7278a5..b27269504a62 100644
---- a/drivers/net/wireless/intel/iwlwifi/mvm/led.c
-+++ b/drivers/net/wireless/intel/iwlwifi/mvm/led.c
-@@ -92,7 +92,8 @@ static void iwl_mvm_send_led_fw_cmd(struct iwl_mvm *mvm, bool on)
- 
- static void iwl_mvm_led_set(struct iwl_mvm *mvm, bool on)
- {
--	if (mvm->cfg->device_family >= IWL_DEVICE_FAMILY_8000) {
-+	if (fw_has_capa(&mvm->fw->ucode_capa,
-+			IWL_UCODE_TLV_CAPA_LED_CMD_SUPPORT)) {
- 		iwl_mvm_send_led_fw_cmd(mvm, on);
- 		return;
- 	}
++NOTE: All 'phy*' properties documented below are Ethernet specific. For the
++generic PHY 'phys' property, see
++Documentation/devicetree/bindings/phy/phy-bindings.txt.
++
+ - local-mac-address: array of 6 bytes, specifies the MAC address that was
+   assigned to the network device;
+ - mac-address: array of 6 bytes, specifies the MAC address that was last used by
 -- 
 2.14.1
