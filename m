@@ -1,34 +1,44 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: Can you help to analyze this panic issue when using VPN?
-Date: Thu, 7 Sep 2017 14:20:03 -0700
-Message-ID: <CAM_iQpXx6+oo8tLR3t125XF6kKCF8mpiLQdM=H_Dj9cUts9RLQ@mail.gmail.com>
-References: <3B91CCFCFC433E4596591DB9A191998574452FE9@nkgeml514-mbx.china.huawei.com>
- <CANn89iLWa7bL+WdWzdQXLhFGpORf3ZmyRoi3Pp2XLKS3O4skNw@mail.gmail.com> <3B91CCFCFC433E4596591DB9A191998574453125@nkgeml514-mbx.china.huawei.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH RFC 1/6] The file ksz_common.c will be used by other KSZ
+ switch drivers.
+Date: Thu, 7 Sep 2017 23:24:49 +0200
+Message-ID: <20170907212449.GQ11248@lunn.ch>
+References: <93AF473E2DA327428DE3D46B72B1E9FD411218C4@CHN-SV-EXMX02.mchp-main.com>
+ <93AF473E2DA327428DE3D46B72B1E9FD411219FF@CHN-SV-EXMX02.mchp-main.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "weiwan@google.com" <weiwan@google.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "Wanghao (R)" <zidane.wanghao@huawei.com>,
-        sunjilong <sunjilong1@huawei.com>,
-        "Liwei (Sirius)" <sirius.liwei@huawei.com>,
-        sangguanlin <sangguanlin@huawei.com>,
-        "Xuhui (hunter, Device company )" <hunter.xuhui@huawei.com>,
-        Eric Dumazet <edumazet@google.com>
-To: Songchuan <songchuan@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f54.google.com ([74.125.83.54]:35980 "EHLO
-        mail-pg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752708AbdIGVUZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 7 Sep 2017 17:20:25 -0400
-Received: by mail-pg0-f54.google.com with SMTP id m9so1540616pgd.3
-        for <netdev@vger.kernel.org>; Thu, 07 Sep 2017 14:20:24 -0700 (PDT)
-In-Reply-To: <3B91CCFCFC433E4596591DB9A191998574453125@nkgeml514-mbx.china.huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: muvarov@gmail.com, pavel@ucw.cz, nathan.leigh.conrad@gmail.com,
+        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Woojung.Huh@microchip.com
+To: Tristram.Ha@microchip.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <93AF473E2DA327428DE3D46B72B1E9FD411219FF@CHN-SV-EXMX02.mchp-main.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 7, 2017 at 3:18 AM, Songchuan <songchuan@huawei.com> wrote:
-> <4>[ 1730.085113s][pid:1928,cpu3,HeapTaskDaemon]CPU: 3 PID: 1928 Comm: HeapTaskDaemon Tainted: G    B   W       4.1.18-kasan-g6e99722-dirty #1
+On Thu, Sep 07, 2017 at 09:08:58PM +0000, Tristram.Ha@microchip.com wrote:
+> From: Tristram Ha <Tristram.Ha@microchip.com>
+> 
+> Break ksz_common.c into 2 files so that the common code can be used by other KSZ switch drivers.
+> 
+> Signed-off-by: Tristram Ha <Tristram.Ha@microchip.com>
+> ---
+> diff --git a/drivers/net/dsa/microchip/Makefile b/drivers/net/dsa/microchip/Makefile
+> index ed335e2..0961c30 100644
+> --- a/drivers/net/dsa/microchip/Makefile
+> +++ b/drivers/net/dsa/microchip/Makefile
+> @@ -1,2 +1,2 @@
+> -obj-$(CONFIG_MICROCHIP_KSZ)	        += ksz_common.o
+> +obj-$(CONFIG_MICROCHIP_KSZ)	        += ksz9477.o ksz_common.o
+>  obj-$(CONFIG_MICROCHIP_KSZ_SPI_DRIVER)	+= ksz_spi.o
 
-Sorry, 4.1 is too old for upstream. As you know 4.13 is just out.
-Please try to reproduce it on the latest or reasonably recent kernel.
+Hi Tristram
+
+I would of thought this would break the build. You don't add ksz9477.c
+until the next patch.
+
+Each patch needs to compile, otherwise you break git bisect.
+
+     Andrew
