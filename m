@@ -1,130 +1,81 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [RFC PATCH v3 0/6] Configuring traffic classes via new hardware
- offload mechanism in tc/mqprio
-Date: Thu, 7 Sep 2017 11:34:45 -0700
-Message-ID: <3ecacf3d-1f02-fbc6-0e90-8e84dcd15a4e@gmail.com>
-References: <150478158684.24662.17975701233699487888.stgit@anamdev.jf.intel.com>
+From: Kees Cook <keescook@chromium.org>
+Subject: [PATCH] net: tulip: Constify tulip_tbl
+Date: Thu, 7 Sep 2017 12:35:14 -0700
+Message-ID: <20170907193514.GA114400@beast>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: alexander.h.duyck@intel.com, netdev@vger.kernel.org
-To: Amritha Nambiar <amritha.nambiar@intel.com>,
-        intel-wired-lan@lists.osuosl.org, jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f182.google.com ([209.85.128.182]:33098 "EHLO
-        mail-wr0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751424AbdIGSex (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 7 Sep 2017 14:34:53 -0400
-Received: by mail-wr0-f182.google.com with SMTP id a43so973728wrc.0
-        for <netdev@vger.kernel.org>; Thu, 07 Sep 2017 11:34:52 -0700 (PDT)
-In-Reply-To: <150478158684.24662.17975701233699487888.stgit@anamdev.jf.intel.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Jarod Wilson <jarod@redhat.com>,
+        "Gustavo A. R. Silva" <gustavo@embeddedor.com>,
+        linux-parisc@vger.kernel.org, linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-parisc-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-parisc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 09/07/2017 04:00 AM, Amritha Nambiar wrote:
-> The following series introduces a new hardware offload mode in
-> tc/mqprio where the TCs, the queue configurations and
-> bandwidth rate limits are offloaded to the hardware. The existing
-> mqprio framework is extended to configure the queue counts and
-> layout and also added support for rate limiting. This is achieved
-> through new netlink attributes for the 'mode' option which takes
-> values such as 'dcb' (default) and 'channel' and a 'shaper' option
-> for QoS attributes such as bandwidth rate limits in hw mode 1.
+It looks like all users of tulip_tbl are reads, so mark this table
+as read-only.
 
-So "dcb" defines a default priorities to queue mapping?
+$ git grep tulip_tbl  # edited to avoid line-wraps...
+interrupt.c: iowrite32(tulip_tbl[tp->chip_id].valid_intrs, ...
+interrupt.c: iowrite32(tulip_tbl[tp->chip_id].valid_intrs&~RxPollInt, ...
+interrupt.c: iowrite32(tulip_tbl[tp->chip_id].valid_intrs, ...
+interrupt.c: iowrite32(tulip_tbl[tp->chip_id].valid_intrs | TimerInt,
+pnic.c:      iowrite32(tulip_tbl[tp->chip_id].valid_intrs, ioaddr + CSR7);
+tulip.h:     extern struct tulip_chip_table tulip_tbl[];
+tulip_core.c:struct tulip_chip_table tulip_tbl[] = {
+tulip_core.c:iowrite32(tulip_tbl[tp->chip_id].valid_intrs, ioaddr + CSR5);
+tulip_core.c:iowrite32(tulip_tbl[tp->chip_id].valid_intrs, ioaddr + CSR7);
+tulip_core.c:setup_timer(&tp->timer, tulip_tbl[tp->chip_id].media_timer,
+tulip_core.c:const char *chip_name = tulip_tbl[chip_idx].chip_name;
+tulip_core.c:if (pci_resource_len (pdev, 0) < tulip_tbl[chip_idx].io_size)
+tulip_core.c:ioaddr =  pci_iomap(..., tulip_tbl[chip_idx].io_size);
+tulip_core.c:tp->flags = tulip_tbl[chip_idx].flags;
+tulip_core.c:setup_timer(&tp->timer, tulip_tbl[tp->chip_id].media_timer,
+tulip_core.c:INIT_WORK(&tp->media_work, tulip_tbl[tp->chip_id].media_task);
 
-> Legacy devices can fall back to the existing setup supporting hw mode
-> 1 without these additional options where only the TCs are offloaded
-> and then the 'mode' and 'shaper' options defaults to DCB support.
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Jarod Wilson <jarod@redhat.com>
+Cc: "Gustavo A. R. Silva" <gustavo@embeddedor.com>
+Cc: netdev@vger.kernel.org
+Cc: linux-parisc@vger.kernel.org
+Signed-off-by: Kees Cook <keescook@chromium.org>
+---
+ drivers/net/ethernet/dec/tulip/tulip.h      | 2 +-
+ drivers/net/ethernet/dec/tulip/tulip_core.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-That's the last part that confuses me, see below.
-
-> The i40e driver enables the new mqprio hardware offload mechanism
-> factoring the TCs, queue configuration and bandwidth rates by
-> creating HW channel VSIs.
-
-I am really confused by what you call hw_mode 1, as I understand it
-there are really 3 different modes:
-
-- legacy: you don't define any traffic class mapping, but you can still
-chain this scheduler with a match + action (like what
-Documentation/networking/multiqueue.txt) you can optionally also add
-"shaper" arguments, but there should not be any default DCB queue
-mapping either?
-
-- dcb: a default mapping for traffic classes to queues is defined,
-optional "shaper" arguments
-
-- channel: (maybe calling that "custom_tc_map" would be clearer?) where
-you express the exact traffic classes to queue mapping and optional
-"shaper" arguments
-
-I think that's what you are doing, but I just got confused by the cover
-letter.
-
-> 
-> In this new mode, the priority to traffic class mapping and the
-> user specified queue ranges are used to configure the traffic
-> class when the 'mode' option is set to 'channel'. This is achieved by
-> creating HW channels(VSI). A new channel is created for each of the
-> traffic class configuration offloaded via mqprio framework except for
-> the first TC (TC0) which is for the main VSI. TC0 for the main VSI is
-> also reconfigured as per user provided queue parameters. Finally,
-> bandwidth rate limits are set on these traffic classes through the
-> shaper attribute by sending these rates in addition to the number of
-> TCs and the queue configurations.
-> 
-> Example:
->     # tc qdisc add dev eth0 root mqprio num_tc 2 map 0 0 0 0 1 1 1 1\
->       queues 4@0 4@4 hw 1 mode channel shaper bw_rlimit\
-
-Do you see a case where you can declare a different number of traffic
-classes say 4 and map them onto just 2 hardware queues? If not, it seems
-a tiny bit redundant to have to specify both the map and the queue
-mapping should be sufficient, right?
-
->       min_rate 1Gbit 2Gbit max_rate 4Gbit 5Gbit
-> 
->     To dump the bandwidth rates:
-> 
->     # tc qdisc show dev eth0
-> 
->     qdisc mqprio 804a: root  tc 2 map 0 0 0 0 1 1 1 1 0 0 0 0 0 0 0 0
->                  queues:(0:3) (4:7)
->                  mode:channel
->                  shaper:bw_rlimit   min_rate:1Gbit 2Gbit   max_rate:4Gbit 5Gbit
-
-I am not well versed into tc, but being able to specify "shaper"
-arguments has actually value outside of just the multiq scheduler and it
-could probably be an action on its own?
-
-> 
-> ---
-> 
-> Amritha Nambiar (6):
->       mqprio: Introduce new hardware offload mode and shaper in mqprio
->       i40e: Add macro for PF reset bit
->       i40e: Add infrastructure for queue channel support
->       i40e: Enable 'channel' mode in mqprio for TC configs
->       i40e: Refactor VF BW rate limiting
->       i40e: Add support setting TC max bandwidth rates
-> 
-> 
->  drivers/net/ethernet/intel/i40e/i40e.h             |   44 +
->  drivers/net/ethernet/intel/i40e/i40e_debugfs.c     |    3 
->  drivers/net/ethernet/intel/i40e/i40e_ethtool.c     |    8 
->  drivers/net/ethernet/intel/i40e/i40e_main.c        | 1463 +++++++++++++++++---
->  drivers/net/ethernet/intel/i40e/i40e_txrx.h        |    2 
->  drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |   50 -
->  include/net/pkt_cls.h                              |    9 
->  include/uapi/linux/pkt_sched.h                     |   32 
->  net/sched/sch_mqprio.c                             |  183 ++-
->  9 files changed, 1551 insertions(+), 243 deletions(-)
-> 
-> --
-> 
+diff --git a/drivers/net/ethernet/dec/tulip/tulip.h b/drivers/net/ethernet/dec/tulip/tulip.h
+index 38431a155f09..06660dbc44b7 100644
+--- a/drivers/net/ethernet/dec/tulip/tulip.h
++++ b/drivers/net/ethernet/dec/tulip/tulip.h
+@@ -515,7 +515,7 @@ void comet_timer(unsigned long data);
+ extern int tulip_debug;
+ extern const char * const medianame[];
+ extern const char tulip_media_cap[];
+-extern struct tulip_chip_table tulip_tbl[];
++extern const struct tulip_chip_table tulip_tbl[];
+ void oom_timer(unsigned long data);
+ extern u8 t21040_csr13[];
+ 
+diff --git a/drivers/net/ethernet/dec/tulip/tulip_core.c b/drivers/net/ethernet/dec/tulip/tulip_core.c
+index 84394b43c0a1..851b6d1f5a42 100644
+--- a/drivers/net/ethernet/dec/tulip/tulip_core.c
++++ b/drivers/net/ethernet/dec/tulip/tulip_core.c
+@@ -138,7 +138,7 @@ static void tulip_timer(unsigned long data)
+  * It is indexed via the values in 'enum chips'
+  */
+ 
+-struct tulip_chip_table tulip_tbl[] = {
++const struct tulip_chip_table tulip_tbl[] = {
+   { }, /* placeholder for array, slot unused currently */
+   { }, /* placeholder for array, slot unused currently */
+ 
+-- 
+2.7.4
 
 
 -- 
-Florian
+Kees Cook
+Pixel Security
