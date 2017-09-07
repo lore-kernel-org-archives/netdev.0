@@ -1,40 +1,187 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [GIT] Networking
-Date: Wed, 6 Sep 2017 22:46:39 -0700
-Message-ID: <CA+55aFxjHSW7v4Ttu7mGPkxdGpR-WtVoxDT5qtwxUC-Dge5a5A@mail.gmail.com>
-References: <20170905.214143.826912481689443792.davem@davemloft.net>
- <CA+55aFw0KNTKFrRHk5hthDGTGgL9BGt9G=x_m9Tz7m_-pN+NoA@mail.gmail.com>
- <1504757495.5400.89.camel@intel.com> <CA+55aFzECjnpFWo_ZfbV+vE-5zRst7JfDC0hxnoitCGN0rmE3Q@mail.gmail.com>
- <1504760688.5400.91.camel@intel.com> <1504762851.5400.93.camel@coelho.fi>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        linuxwifi <linuxwifi@intel.com>,
-        "Berg, Johannes" <johannes.berg@intel.com>,
-        "akpm@linux-foundation.org" <akpm@linux-foundation.org>,
-        "kvalo@codeaurora.org" <kvalo@codeaurora.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-        "Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>
-To: Luca Coelho <luca@coelho.fi>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1504762851.5400.93.camel@coelho.fi>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Bjorn Andersson <bjorn.andersson@linaro.org>
+Subject: [PATCH 5/7] net: qrtr: Clean up control packet handling
+Date: Wed,  6 Sep 2017 23:03:27 -0700
+Message-ID: <20170907060329.32402-6-bjorn.andersson@linaro.org>
+References: <20170907060329.32402-1-bjorn.andersson@linaro.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-arm-msm@vger.kernel.org, Chris Lew <clew@codeaurora.org>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-arm-msm-owner@vger.kernel.org>
+In-Reply-To: <20170907060329.32402-1-bjorn.andersson@linaro.org>
+Sender: linux-arm-msm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 6, 2017 at 10:40 PM, Luca Coelho <luca@coelho.fi> wrote:
->
-> This patch is not very important (unless you really like blinking lights
-> -- maybe I'll change my mind when the holidays approach :P). so it is
-> fine if you just want to revert it for now.
->
-> In any case, I'll send a patch fixing this problem soon.
+As the message header generation is deferred the internal functions for
+generating control packets can be simplified.
 
-No need to revert if we can get this fixed quickly enough.
+This patch modifies qrtr_alloc_ctrl_packet() to, in addition to the
+sk_buff, return a reference to a struct qrtr_ctrl_pkt, which clarifies
+and simplifies the helpers to the point that these functions can be
+folded back into the callers.
 
-I'll leave the fw-31 on my laptop, so that I can continue to use it for now.
+Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
+---
+ net/qrtr/qrtr.c | 93 ++++++++++++++++++---------------------------------------
+ 1 file changed, 29 insertions(+), 64 deletions(-)
 
-Thanks,
-
-               Linus
+diff --git a/net/qrtr/qrtr.c b/net/qrtr/qrtr.c
+index bcec2432b833..f28ecd7d735b 100644
+--- a/net/qrtr/qrtr.c
++++ b/net/qrtr/qrtr.c
+@@ -255,9 +255,18 @@ int qrtr_endpoint_post(struct qrtr_endpoint *ep, const void *data, size_t len)
+ }
+ EXPORT_SYMBOL_GPL(qrtr_endpoint_post);
+ 
+-static struct sk_buff *qrtr_alloc_ctrl_packet(u32 type, size_t pkt_len,
+-					      u32 src_node, u32 dst_node)
++/**
++ * qrtr_alloc_ctrl_packet() - allocate control packet skb
++ * @pkt: reference to qrtr_ctrl_pkt pointer
++ *
++ * Returns newly allocated sk_buff, or NULL on failure
++ *
++ * This function allocates a sk_buff large enough to carry a qrtr_ctrl_pkt and
++ * on success returns a reference to the control packet in @pkt.
++ */
++static struct sk_buff *qrtr_alloc_ctrl_packet(struct qrtr_ctrl_pkt **pkt)
+ {
++	const int pkt_len = sizeof(struct qrtr_ctrl_pkt);
+ 	struct sk_buff *skb;
+ 
+ 	skb = alloc_skb(QRTR_HDR_SIZE + pkt_len, GFP_KERNEL);
+@@ -265,64 +274,7 @@ static struct sk_buff *qrtr_alloc_ctrl_packet(u32 type, size_t pkt_len,
+ 		return NULL;
+ 
+ 	skb_reserve(skb, QRTR_HDR_SIZE);
+-
+-	return skb;
+-}
+-
+-/* Allocate and construct a resume-tx packet. */
+-static struct sk_buff *qrtr_alloc_resume_tx(u32 src_node,
+-					    u32 dst_node, u32 port)
+-{
+-	const int pkt_len = 20;
+-	struct sk_buff *skb;
+-	__le32 *buf;
+-
+-	skb = qrtr_alloc_ctrl_packet(QRTR_TYPE_RESUME_TX, pkt_len,
+-				     src_node, dst_node);
+-	if (!skb)
+-		return NULL;
+-
+-	buf = skb_put_zero(skb, pkt_len);
+-	buf[0] = cpu_to_le32(QRTR_TYPE_RESUME_TX);
+-	buf[1] = cpu_to_le32(src_node);
+-	buf[2] = cpu_to_le32(port);
+-
+-	return skb;
+-}
+-
+-/* Allocate and construct a BYE message to signal remote termination */
+-static struct sk_buff *qrtr_alloc_local_bye(u32 src_node)
+-{
+-	const int pkt_len = 20;
+-	struct sk_buff *skb;
+-	__le32 *buf;
+-
+-	skb = qrtr_alloc_ctrl_packet(QRTR_TYPE_BYE, pkt_len,
+-				     src_node, qrtr_local_nid);
+-	if (!skb)
+-		return NULL;
+-
+-	buf = skb_put_zero(skb, pkt_len);
+-	buf[0] = cpu_to_le32(QRTR_TYPE_BYE);
+-
+-	return skb;
+-}
+-
+-static struct sk_buff *qrtr_alloc_del_client(struct sockaddr_qrtr *sq)
+-{
+-	const int pkt_len = 20;
+-	struct sk_buff *skb;
+-	__le32 *buf;
+-
+-	skb = qrtr_alloc_ctrl_packet(QRTR_TYPE_DEL_CLIENT, pkt_len,
+-				     sq->sq_node, QRTR_NODE_BCAST);
+-	if (!skb)
+-		return NULL;
+-
+-	buf = skb_put_zero(skb, pkt_len);
+-	buf[0] = cpu_to_le32(QRTR_TYPE_DEL_CLIENT);
+-	buf[1] = cpu_to_le32(sq->sq_node);
+-	buf[2] = cpu_to_le32(sq->sq_port);
++	*pkt = skb_put_zero(skb, pkt_len);
+ 
+ 	return skb;
+ }
+@@ -337,6 +289,7 @@ static void qrtr_port_put(struct qrtr_sock *ipc);
+ static void qrtr_node_rx_work(struct work_struct *work)
+ {
+ 	struct qrtr_node *node = container_of(work, struct qrtr_node, work);
++	struct qrtr_ctrl_pkt *pkt;
+ 	struct sockaddr_qrtr dst;
+ 	struct sockaddr_qrtr src;
+ 	struct sk_buff *skb;
+@@ -372,10 +325,14 @@ static void qrtr_node_rx_work(struct work_struct *work)
+ 		}
+ 
+ 		if (confirm) {
+-			skb = qrtr_alloc_resume_tx(dst_node, node->nid, dst_port);
++			skb = qrtr_alloc_ctrl_packet(&pkt);
+ 			if (!skb)
+ 				break;
+ 
++			pkt->cmd = cpu_to_le32(QRTR_TYPE_RESUME_TX);
++			pkt->client.node = cpu_to_le32(dst.sq_node);
++			pkt->client.port = cpu_to_le32(dst.sq_port);
++
+ 			if (qrtr_node_enqueue(node, skb, QRTR_TYPE_RESUME_TX,
+ 					      &dst, &src))
+ 				break;
+@@ -429,6 +386,7 @@ void qrtr_endpoint_unregister(struct qrtr_endpoint *ep)
+ 	struct qrtr_node *node = ep->node;
+ 	struct sockaddr_qrtr src = {AF_QIPCRTR, node->nid, QRTR_PORT_CTRL};
+ 	struct sockaddr_qrtr dst = {AF_QIPCRTR, qrtr_local_nid, QRTR_PORT_CTRL};
++	struct qrtr_ctrl_pkt *pkt;
+ 	struct sk_buff *skb;
+ 
+ 	mutex_lock(&node->ep_lock);
+@@ -436,9 +394,11 @@ void qrtr_endpoint_unregister(struct qrtr_endpoint *ep)
+ 	mutex_unlock(&node->ep_lock);
+ 
+ 	/* Notify the local controller about the event */
+-	skb = qrtr_alloc_local_bye(node->nid);
+-	if (skb)
++	skb = qrtr_alloc_ctrl_packet(&pkt);
++	if (skb) {
++		pkt->cmd = cpu_to_le32(QRTR_TYPE_BYE);
+ 		qrtr_local_enqueue(NULL, skb, QRTR_TYPE_BYE, &src, &dst);
++	}
+ 
+ 	qrtr_node_release(node);
+ 	ep->node = NULL;
+@@ -474,6 +434,7 @@ static void qrtr_port_put(struct qrtr_sock *ipc)
+ /* Remove port assignment. */
+ static void qrtr_port_remove(struct qrtr_sock *ipc)
+ {
++	struct qrtr_ctrl_pkt *pkt;
+ 	struct sk_buff *skb;
+ 	int port = ipc->us.sq_port;
+ 	struct sockaddr_qrtr to;
+@@ -482,8 +443,12 @@ static void qrtr_port_remove(struct qrtr_sock *ipc)
+ 	to.sq_node = QRTR_NODE_BCAST;
+ 	to.sq_port = QRTR_PORT_CTRL;
+ 
+-	skb = qrtr_alloc_del_client(&ipc->us);
++	skb = qrtr_alloc_ctrl_packet(&pkt);
+ 	if (skb) {
++		pkt->cmd = cpu_to_le32(QRTR_TYPE_DEL_CLIENT);
++		pkt->client.node = cpu_to_le32(ipc->us.sq_node);
++		pkt->client.port = cpu_to_le32(ipc->us.sq_port);
++
+ 		skb_set_owner_w(skb, &ipc->sk);
+ 		qrtr_bcast_enqueue(NULL, skb, QRTR_TYPE_DEL_CLIENT, &ipc->us,
+ 				   &to);
+-- 
+2.12.0
