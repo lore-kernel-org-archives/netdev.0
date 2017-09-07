@@ -1,9 +1,8 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH RFC] Update documentation for KSZ DSA drivers so that new
- drivers can be added
-Date: Thu, 7 Sep 2017 23:54:17 +0200
-Message-ID: <20170907215417.GU11248@lunn.ch>
-References: <93AF473E2DA327428DE3D46B72B1E9FD41121A5B@CHN-SV-EXMX02.mchp-main.com>
+Subject: Re: [PATCH RFC 2/5] Add KSZ8795 switch driver support in Makefile
+Date: Thu, 7 Sep 2017 23:55:51 +0200
+Message-ID: <20170907215551.GV11248@lunn.ch>
+References: <93AF473E2DA327428DE3D46B72B1E9FD41121A80@CHN-SV-EXMX02.mchp-main.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: muvarov@gmail.com, pavel@ucw.cz, nathan.leigh.conrad@gmail.com,
@@ -13,143 +12,27 @@ Cc: muvarov@gmail.com, pavel@ucw.cz, nathan.leigh.conrad@gmail.com,
 To: Tristram.Ha@microchip.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <93AF473E2DA327428DE3D46B72B1E9FD41121A5B@CHN-SV-EXMX02.mchp-main.com>
+In-Reply-To: <93AF473E2DA327428DE3D46B72B1E9FD41121A80@CHN-SV-EXMX02.mchp-main.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> -- compatible: For external switch chips, compatible string must be exactly one
-> -  of: "microchip,ksz9477"
-> +- compatible: Should be "microchip,ksz9477" for KSZ9477 chip,
-> +	      "microchip,ksz8795" for KSZ8795 chip,
-> +	      "microchip,ksz8794" for KSZ8794 chip,
-> +	      "microchip,ksz8765" for KSZ8765 chip,
-> +	      "microchip,ksz8895" for KSZ8895 chip,
-> +	      "microchip,ksz8864" for KSZ8864 chip,
-> +	      "microchip,ksz8873" for KSZ8873 chip,
-> +	      "microchip,ksz8863" for KSZ8863 chip,
-> +	      "microchip,ksz8463" for KSZ8463 chip
+On Thu, Sep 07, 2017 at 09:17:10PM +0000, Tristram.Ha@microchip.com wrote:
+> From: Tristram Ha <Tristram.Ha@microchip.com>
+> 
+> Add KSZ8795 switch support with SPI access.
+> 
+> Signed-off-by: Tristram Ha <Tristram.Ha@microchip.com>
+> ---
+> diff --git a/drivers/net/dsa/microchip/Makefile b/drivers/net/dsa/microchip/Makefile
+> index 0961c30..0d8ba48 100644
+> --- a/drivers/net/dsa/microchip/Makefile
+> +++ b/drivers/net/dsa/microchip/Makefile
+> @@ -1,2 +1,4 @@
+>  obj-$(CONFIG_MICROCHIP_KSZ)	        += ksz9477.o ksz_common.o
+>  obj-$(CONFIG_MICROCHIP_KSZ_SPI_DRIVER)	+= ksz_spi.o
+> +obj-$(CONFIG_MICROCHIP_KSZ8795)	        += ksz8795.o ksz_common.o
+> +obj-$(CONFIG_MICROCHIP_KSZ8795_SPI_DRIVER)	+= ksz8795_spi.o
 
-This part of this patch should be in a patch of the series that
-actually adds support for these chips. Don't document chips until you
-actually support them.
+I've not tried it, but i think this breaks the build
 
->  See Documentation/devicetree/bindings/dsa/dsa.txt for a list of additional  required and optional properties.
-> @@ -13,60 +20,60 @@ Examples:
->  
->  Ethernet switch connected via SPI to the host, CPU port wired to eth0:
->  
-> -                             eth0: ethernet@10001000 {
-> -                                             fixed-link {
-> -                                                             speed = <1000>;
-> -                                                             full-duplex;
-> -                                             };
-> -                             };
-> +	eth0: ethernet@10001000 {
-> +		fixed-link {
-> +			speed = <1000>;
-> +			full-duplex;
-> +		};
-> +	};
->  
-> -                             spi1: spi@f8008000 {
-> -                                             pinctrl-0 = <&pinctrl_spi_ksz>;
-> -                                             cs-gpios = <&pioC 25 0>;
-> -                                             id = <1>;
-> -                                             status = "okay";
-> +	spi1: spi@f8008000 {
-> +		cs-gpios = <&pioC 25 0>;
-> +		id = <1>;
-> +		status = "okay";
->  
-> -                                             ksz9477: ksz9477@0 {
-> -                                                             compatible = "microchip,ksz9477";
-> -                                                             reg = <0>;
-> +		ksz9477: ksz9477@0 {
-> +			compatible = "microchip,ksz9477";
-> +			reg = <0>;
->  
-> -                                                             spi-max-frequency = <44000000>;
-> -                                                             spi-cpha;
-> -                                                             spi-cpol;
-> +			spi-max-frequency = <44000000>;
-> +			spi-cpha;
-> +			spi-cpol;
-> +
-> +			status = "okay";
-> +			ports {
-> +				#address-cells = <1>;
-> +				#size-cells = <0>;
-> +				port@0 {
-> +					reg = <0>;
-> +					label = "lan1";
-> +				};
-> +				port@1 {
-> +					reg = <1>;
-> +					label = "lan2";
-> +				};
-> +				port@2 {
-> +					reg = <2>;
-> +					label = "lan3";
-> +				};
-> +				port@3 {
-> +					reg = <3>;
-> +					label = "lan4";
-> +				};
-> +				port@4 {
-> +					reg = <4>;
-> +					label = "lan5";
-> +				};
-> +				port@5 {
-> +					reg = <5>;
-> +					label = "cpu";
-> +					ethernet = <&eth0>;
-> +					fixed-link {
-> +						speed = <1000>;
-> +						full-duplex;
-> +					};
-> +				};
-> +			};
-> +		};
-> +	};
->  
-> -                                                             status = "okay";
-> -                                                             ports {
-> -                                                                             #address-cells = <1>;
-> -                                                                             #size-cells = <0>;
-> -                                                                             port@0 {
-> -                                                                                             reg = <0>;
-> -                                                                                             label = "lan1";
-> -                                                                             };
-> -                                                                             port@1 {
-> -                                                                                             reg = <1>;
-> -                                                                                             label = "lan2";
-> -                                                                             };
-> -                                                                             port@2 {
-> -                                                                                             reg = <2>;
-> -                                                                                             label = "lan3";
-> -                                                                             };
-> -                                                                             port@3 {
-> -                                                                                             reg = <3>;
-> -                                                                                             label = "lan4";
-> -                                                                             };
-> -                                                                             port@4 {
-> -                                                                                             reg = <4>;
-> -                                                                                             label = "lan5";
-> -                                                                             };
-> -                                                                             port@5 {
-> -                                                                                             reg = <5>;
-> -                                                                                             label = "cpu";
-> -                                                                                             ethernet = <&eth0>;
-> -                                                                                             fixed-link {
-> -                                                                                                             speed = <1000>;
-> -                                                                                                             full-duplex;
-> -                                                                                             };
-> -                                                                             };
-> -                                                             };
-> -                                             };
-> -                             };
-
-This part however is a nice cleanup. You can submit this patch as a
-separate patch, once netdev has opened again in about 10 days time.
-
-	 Andrew
+     Andrew
