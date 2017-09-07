@@ -1,7 +1,7 @@
 From: Arkadi Sharshevsky <arkadis@mellanox.com>
-Subject: [PATCH iproute2 2/4] devlink: Add support for special format protocol headers
-Date: Thu,  7 Sep 2017 17:26:41 +0300
-Message-ID: <1504794403-45690-3-git-send-email-arkadis@mellanox.com>
+Subject: [PATCH iproute2 1/4] devlink: Make match/action parsing more flexible
+Date: Thu,  7 Sep 2017 17:26:40 +0300
+Message-ID: <1504794403-45690-2-git-send-email-arkadis@mellanox.com>
 References: <1504794403-45690-1-git-send-email-arkadis@mellanox.com>
 Cc: davem@davemloft.net, stephen@networkplumber.org, jiri@resnulli.us,
         mlxsw@mellanox.com, andrew@lunn.ch,
@@ -9,187 +9,272 @@ Cc: davem@davemloft.net, stephen@networkplumber.org, jiri@resnulli.us,
         Jiri Pirko <jiri@mellanox.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:40330 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:40332 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1754273AbdIGOYH (ORCPT
+        with ESMTP id S1755300AbdIGOYH (ORCPT
         <rfc822;netdev@vger.kernel.org>); Thu, 7 Sep 2017 10:24:07 -0400
 In-Reply-To: <1504794403-45690-1-git-send-email-arkadis@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In case of global header (protocol header), the header:field ids are used
-to perform lookup for special format printer. In case no printer existence
-fallback to plain value printing.
+This patch decouples the match/action parsing from printing. This is
+done as a preparation for adding the ability to print global header
+values, for example print IPv4 address, which require special formatting.
 
 Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- devlink/devlink.c | 119 ++++++++++++++++++++++++++++++++++++++++++------------
- 1 file changed, 94 insertions(+), 25 deletions(-)
+ devlink/devlink.c | 127 ++++++++++++++++++++++++++++++++++--------------------
+ 1 file changed, 80 insertions(+), 47 deletions(-)
 
 diff --git a/devlink/devlink.c b/devlink/devlink.c
-index 36a2b36..b87de38 100644
+index 8f11f86..36a2b36 100644
 --- a/devlink/devlink.c
 +++ b/devlink/devlink.c
-@@ -3372,9 +3372,89 @@ static int cmd_dpipe_table_set(struct dl *dl)
- 	return _mnlg_socket_sndrcv(dl->nlg, nlh, NULL, NULL);
+@@ -3077,27 +3077,42 @@ static const char
+ 	}
  }
  
--static int dpipe_entry_value_show(struct dpipe_ctx *ctx,
--				  struct nlattr **nla_match_value)
-+enum dpipe_value_type {
-+	DPIPE_VALUE_TYPE_VALUE,
-+	DPIPE_VALUE_TYPE_MASK,
+-static void pr_out_dpipe_action(struct dpipe_ctx *ctx,
+-				uint32_t header_id, uint32_t field_id,
+-				uint32_t action_type, bool global)
++struct dpipe_op_info {
++	uint32_t header_id;
++	uint32_t field_id;
++	bool header_global;
 +};
 +
-+static const char *
-+dpipe_value_type_e2s(enum dpipe_value_type type)
-+{
-+	switch (type) {
-+	case DPIPE_VALUE_TYPE_VALUE:
-+		return "value";
-+	case DPIPE_VALUE_TYPE_MASK:
-+		return "value_mask";
-+	default:
-+		return "<unknown>";
-+	}
-+}
-+
-+struct dpipe_field_printer {
-+	unsigned int field_id;
-+	void (*printer)(struct dpipe_ctx *, enum dpipe_value_type, void *);
++struct dpipe_action {
++	struct dpipe_op_info info;
++	uint32_t type;
 +};
 +
-+struct dpipe_header_printer {
-+	struct dpipe_field_printer *printers;
-+	unsigned int printers_count;
-+	unsigned int header_id;
-+};
-+
-+static struct dpipe_header_printer *dpipe_header_printers[] = {};
-+
-+static int dpipe_print_prot_header(struct dpipe_ctx *ctx,
-+				   struct dpipe_op_info *info,
-+				   enum dpipe_value_type type,
-+				   void *value)
++static void pr_out_dpipe_action(struct dpipe_action *action,
++				struct dpipe_ctx *ctx)
  {
-+	unsigned int header_printers_count = ARRAY_SIZE(dpipe_header_printers);
-+	struct dpipe_header_printer *header_printer;
-+	struct dpipe_field_printer *field_printer;
-+	unsigned int field_printers_count;
-+	int j;
-+	int i;
-+
-+	for (i = 0; i < header_printers_count; i++) {
-+		header_printer = dpipe_header_printers[i];
-+		if (header_printer->header_id != info->header_id)
-+			continue;
-+		field_printers_count = header_printer->printers_count;
-+		for (j = 0; j < field_printers_count; j++) {
-+			field_printer = &header_printer->printers[j];
-+			if (field_printer->field_id != info->field_id)
-+				continue;
-+			field_printer->printer(ctx, type, value);
-+			return 0;
-+		}
-+	}
-+
-+	return -EINVAL;
-+}
-+
-+static void __pr_out_entry_value(struct dpipe_ctx *ctx,
-+				 void *value,
-+				 unsigned int value_len,
-+				 struct dpipe_op_info *info,
-+				 enum dpipe_value_type type)
-+{
-+	if (info->header_global &&
-+	    !dpipe_print_prot_header(ctx, info, type, value))
-+		return;
-+
-+	if (value_len == sizeof(uint32_t)) {
-+		uint32_t *value_32 = value;
-+
-+		pr_out_uint(ctx->dl, dpipe_value_type_e2s(type), *value_32);
-+	}
-+}
-+
-+static void pr_out_dpipe_entry_value(struct dpipe_ctx *ctx,
-+				     struct nlattr **nla_match_value,
-+				     struct dpipe_op_info *info)
-+{
-+	void *value, *value_mask;
-+	uint32_t value_mapping;
- 	uint16_t value_len;
- 	bool mask, mapping;
++	struct dpipe_op_info *op_info = &action->info;
+ 	const char *mapping;
  
-@@ -3382,27 +3462,20 @@ static int dpipe_entry_value_show(struct dpipe_ctx *ctx,
- 	mapping = !!nla_match_value[DEVLINK_ATTR_DPIPE_VALUE_MAPPING];
+-	pr_out_str(ctx->dl, "type", dpipe_action_type_e2s(action_type));
+-	pr_out_str(ctx->dl, "header", dpipe_header_id2s(ctx, header_id,
+-							global));
+-	pr_out_str(ctx->dl, "field", dpipe_field_id2s(ctx, header_id, field_id,
+-						      global));
+-	mapping = dpipe_mapping_get(ctx, header_id, field_id, global);
++	pr_out_str(ctx->dl, "type",
++		   dpipe_action_type_e2s(action->type));
++	pr_out_str(ctx->dl, "header",
++		   dpipe_header_id2s(ctx, op_info->header_id,
++				     op_info->header_global));
++	pr_out_str(ctx->dl, "field",
++		   dpipe_field_id2s(ctx, op_info->header_id,
++				    op_info->field_id,
++				    op_info->header_global));
++	mapping = dpipe_mapping_get(ctx, op_info->header_id,
++				    op_info->field_id,
++				    op_info->header_global);
+ 	if (mapping)
+ 		pr_out_str(ctx->dl, "mapping", mapping);
+ }
  
- 	value_len = mnl_attr_get_payload_len(nla_match_value[DEVLINK_ATTR_DPIPE_VALUE]);
--	if (value_len == sizeof(uint32_t)) {
--		uint32_t value, value_mask, value_mapping;
--
--		if (mapping) {
--			value_mapping = mnl_attr_get_u32(nla_match_value[DEVLINK_ATTR_DPIPE_VALUE_MAPPING]);
--			pr_out_uint(ctx->dl, "mapping_value", value_mapping);
--		}
--
--		if (mask) {
--			value_mask = mnl_attr_get_u32(nla_match_value[DEVLINK_ATTR_DPIPE_VALUE_MASK]);
--			pr_out_uint(ctx->dl, "mask_value", value_mask);
--		}
-+	value = mnl_attr_get_payload(nla_match_value[DEVLINK_ATTR_DPIPE_VALUE]);
+-static int dpipe_action_show(struct dpipe_ctx *ctx, struct nlattr *nl)
++static int dpipe_action_parse(struct dpipe_action *action, struct nlattr *nl)
+ {
+ 	struct nlattr *nla_action[DEVLINK_ATTR_MAX + 1] = {};
+-	uint32_t header_id, field_id, action_type;
+-	bool global;
+ 	int err;
  
--		value = mnl_attr_get_u32(nla_match_value[DEVLINK_ATTR_DPIPE_VALUE]);
--		pr_out_uint(ctx->dl, "value", value);
-+	if (mapping) {
-+		value_mapping = mnl_attr_get_u32(nla_match_value[DEVLINK_ATTR_DPIPE_VALUE_MAPPING]);
-+		pr_out_uint(ctx->dl, "mapping_value", value_mapping);
-+	}
- 
--	} else {
--		return -EINVAL;
-+	if (mask) {
-+		value_mask = mnl_attr_get_payload(nla_match_value[DEVLINK_ATTR_DPIPE_VALUE]);
-+		__pr_out_entry_value(ctx, value_mask, value_len, info,
-+				     DPIPE_VALUE_TYPE_MASK);
+ 	err = mnl_attr_parse_nested(nl, attr_cb, nla_action);
+@@ -3111,12 +3126,11 @@ static int dpipe_action_show(struct dpipe_ctx *ctx, struct nlattr *nl)
+ 		return -EINVAL;
  	}
  
--	return 0;
-+	__pr_out_entry_value(ctx, value, value_len, info, DPIPE_VALUE_TYPE_VALUE);
+-	header_id = mnl_attr_get_u32(nla_action[DEVLINK_ATTR_DPIPE_HEADER_ID]);
+-	field_id = mnl_attr_get_u32(nla_action[DEVLINK_ATTR_DPIPE_FIELD_ID]);
+-	action_type = mnl_attr_get_u32(nla_action[DEVLINK_ATTR_DPIPE_ACTION_TYPE]);
+-	global = !!mnl_attr_get_u8(nla_action[DEVLINK_ATTR_DPIPE_HEADER_GLOBAL]);
++	action->type = mnl_attr_get_u32(nla_action[DEVLINK_ATTR_DPIPE_ACTION_TYPE]);
++	action->info.header_id = mnl_attr_get_u32(nla_action[DEVLINK_ATTR_DPIPE_HEADER_ID]);
++	action->info.field_id = mnl_attr_get_u32(nla_action[DEVLINK_ATTR_DPIPE_FIELD_ID]);
++	action->info.header_global = !!mnl_attr_get_u8(nla_action[DEVLINK_ATTR_DPIPE_HEADER_GLOBAL]);
+ 
+-	pr_out_dpipe_action(ctx, header_id, field_id, action_type, global);
+ 	return 0;
  }
  
- static int dpipe_entry_match_value_show(struct dpipe_ctx *ctx,
-@@ -3426,13 +3499,11 @@ static int dpipe_entry_match_value_show(struct dpipe_ctx *ctx,
- 			      nla_match_value[DEVLINK_ATTR_DPIPE_MATCH]))
- 		goto err_match_parse;
- 	pr_out_dpipe_match(&match, ctx);
--	if (dpipe_entry_value_show(ctx, nla_match_value))
--		goto err_value_show;
-+	pr_out_dpipe_entry_value(ctx, nla_match_value, &match.info);
+@@ -3124,16 +3138,18 @@ static int dpipe_table_actions_show(struct dpipe_ctx *ctx,
+ 				    struct nlattr *nla_actions)
+ {
+ 	struct nlattr *nla_action;
++	struct dpipe_action action;
+ 
+ 	mnl_attr_for_each_nested(nla_action, nla_actions) {
+ 		pr_out_entry_start(ctx->dl);
+-		if (dpipe_action_show(ctx, nla_action))
+-			goto err_action_show;
++		if (dpipe_action_parse(&action, nla_action))
++			goto err_action_parse;
++		pr_out_dpipe_action(&action, ctx);
+ 		pr_out_entry_end(ctx->dl);
+ 	}
+ 	return 0;
+ 
+-err_action_show:
++err_action_parse:
+ 	pr_out_entry_end(ctx->dl);
+ 	return -EINVAL;
+ }
+@@ -3149,28 +3165,38 @@ dpipe_match_type_e2s(enum devlink_dpipe_match_type match_type)
+ 	}
+ }
+ 
+-static void pr_out_dpipe_match(struct dpipe_ctx *ctx,
+-			       uint32_t header_id, uint32_t field_id,
+-			       uint32_t match_type, bool global)
++struct dpipe_match {
++	struct dpipe_op_info info;
++	uint32_t type;
++};
++
++static void pr_out_dpipe_match(struct dpipe_match *match,
++			       struct dpipe_ctx *ctx)
+ {
++	struct dpipe_op_info *op_info = &match->info;
+ 	const char *mapping;
+ 
+-	pr_out_str(ctx->dl, "type", dpipe_match_type_e2s(match_type));
+-	pr_out_str(ctx->dl, "header", dpipe_header_id2s(ctx, header_id,
+-							global));
+-	pr_out_str(ctx->dl, "field", dpipe_field_id2s(ctx, header_id, field_id,
+-						      global));
+-	mapping = dpipe_mapping_get(ctx, header_id, field_id, global);
++	pr_out_str(ctx->dl, "type",
++		   dpipe_match_type_e2s(match->type));
++	pr_out_str(ctx->dl, "header",
++		   dpipe_header_id2s(ctx, op_info->header_id,
++				     op_info->header_global));
++	pr_out_str(ctx->dl, "field",
++		   dpipe_field_id2s(ctx, op_info->header_id,
++				    op_info->field_id,
++				    op_info->header_global));
++	mapping = dpipe_mapping_get(ctx, op_info->header_id,
++				    op_info->field_id,
++				    op_info->header_global);
+ 	if (mapping)
+ 		pr_out_str(ctx->dl, "mapping", mapping);
+-
+ }
+ 
+-static int dpipe_match_show(struct dpipe_ctx *ctx, struct nlattr *nl)
++static int dpipe_match_parse(struct dpipe_match *match,
++			     struct nlattr *nl)
++
+ {
+ 	struct nlattr *nla_match[DEVLINK_ATTR_MAX + 1] = {};
+-	uint32_t header_id, field_id, match_type;
+-	bool global;
+ 	int err;
+ 
+ 	err = mnl_attr_parse_nested(nl, attr_cb, nla_match);
+@@ -3184,12 +3210,11 @@ static int dpipe_match_show(struct dpipe_ctx *ctx, struct nlattr *nl)
+ 		return -EINVAL;
+ 	}
+ 
+-	match_type = mnl_attr_get_u32(nla_match[DEVLINK_ATTR_DPIPE_MATCH_TYPE]);
+-	header_id = mnl_attr_get_u32(nla_match[DEVLINK_ATTR_DPIPE_HEADER_ID]);
+-	field_id = mnl_attr_get_u32(nla_match[DEVLINK_ATTR_DPIPE_FIELD_ID]);
+-	global = !!mnl_attr_get_u8(nla_match[DEVLINK_ATTR_DPIPE_HEADER_GLOBAL]);
++	match->type = mnl_attr_get_u32(nla_match[DEVLINK_ATTR_DPIPE_MATCH_TYPE]);
++	match->info.header_id = mnl_attr_get_u32(nla_match[DEVLINK_ATTR_DPIPE_HEADER_ID]);
++	match->info.field_id = mnl_attr_get_u32(nla_match[DEVLINK_ATTR_DPIPE_FIELD_ID]);
++	match->info.header_global = !!mnl_attr_get_u8(nla_match[DEVLINK_ATTR_DPIPE_HEADER_GLOBAL]);
+ 
+-	pr_out_dpipe_match(ctx, header_id, field_id, match_type, global);
+ 	return 0;
+ }
+ 
+@@ -3197,16 +3222,18 @@ static int dpipe_table_matches_show(struct dpipe_ctx *ctx,
+ 				    struct nlattr *nla_matches)
+ {
+ 	struct nlattr *nla_match;
++	struct dpipe_match match;
+ 
+ 	mnl_attr_for_each_nested(nla_match, nla_matches) {
+ 		pr_out_entry_start(ctx->dl);
+-		if (dpipe_match_show(ctx, nla_match))
+-			goto err_match_show;
++		if (dpipe_match_parse(&match, nla_match))
++			goto err_match_parse;
++		pr_out_dpipe_match(&match, ctx);
+ 		pr_out_entry_end(ctx->dl);
+ 	}
+ 	return 0;
+ 
+-err_match_show:
++err_match_parse:
+ 	pr_out_entry_end(ctx->dl);
+ 	return -EINVAL;
+ }
+@@ -3382,6 +3409,7 @@ static int dpipe_entry_match_value_show(struct dpipe_ctx *ctx,
+ 					struct nlattr *nl)
+ {
+ 	struct nlattr *nla_match_value[DEVLINK_ATTR_MAX + 1] = {};
++	struct dpipe_match match;
+ 	int err;
+ 
+ 	err = mnl_attr_parse_nested(nl, attr_cb, nla_match_value);
+@@ -3394,16 +3422,18 @@ static int dpipe_entry_match_value_show(struct dpipe_ctx *ctx,
+ 	}
+ 
+ 	pr_out_entry_start(ctx->dl);
+-	if (dpipe_match_show(ctx, nla_match_value[DEVLINK_ATTR_DPIPE_MATCH]))
+-		goto err_match_show;
++	if (dpipe_match_parse(&match,
++			      nla_match_value[DEVLINK_ATTR_DPIPE_MATCH]))
++		goto err_match_parse;
++	pr_out_dpipe_match(&match, ctx);
+ 	if (dpipe_entry_value_show(ctx, nla_match_value))
+ 		goto err_value_show;
  	pr_out_entry_end(ctx->dl);
  
  	return 0;
  
--err_value_show:
- err_match_parse:
+-err_match_show:
+ err_value_show:
++err_match_parse:
  	pr_out_entry_end(ctx->dl);
  	return -EINVAL;
-@@ -3459,13 +3530,11 @@ static int dpipe_entry_action_value_show(struct dpipe_ctx *ctx,
- 			       nla_action_value[DEVLINK_ATTR_DPIPE_ACTION]))
- 		goto err_action_parse;
- 	pr_out_dpipe_action(&action, ctx);
--	if (dpipe_entry_value_show(ctx, nla_action_value))
--		goto err_value_show;
-+	pr_out_dpipe_entry_value(ctx, nla_action_value, &action.info);
+ }
+@@ -3412,6 +3442,7 @@ static int dpipe_entry_action_value_show(struct dpipe_ctx *ctx,
+ 					 struct nlattr *nl)
+ {
+ 	struct nlattr *nla_action_value[DEVLINK_ATTR_MAX + 1] = {};
++	struct dpipe_action action;
+ 	int err;
+ 
+ 	err = mnl_attr_parse_nested(nl, attr_cb, nla_action_value);
+@@ -3424,16 +3455,18 @@ static int dpipe_entry_action_value_show(struct dpipe_ctx *ctx,
+ 	}
+ 
+ 	pr_out_entry_start(ctx->dl);
+-	if (dpipe_action_show(ctx, nla_action_value[DEVLINK_ATTR_DPIPE_ACTION]))
+-		goto err_action_show;
++	if (dpipe_action_parse(&action,
++			       nla_action_value[DEVLINK_ATTR_DPIPE_ACTION]))
++		goto err_action_parse;
++	pr_out_dpipe_action(&action, ctx);
+ 	if (dpipe_entry_value_show(ctx, nla_action_value))
+ 		goto err_value_show;
  	pr_out_entry_end(ctx->dl);
  
  	return 0;
  
--err_value_show:
- err_action_parse:
+-err_action_show:
+ err_value_show:
++err_action_parse:
  	pr_out_entry_end(ctx->dl);
  	return -EINVAL;
+ }
 -- 
 2.4.11
