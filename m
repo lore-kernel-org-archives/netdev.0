@@ -1,49 +1,53 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH] netfilter: xt_hashlimit: avoid 64-bit division
-Date: Thu, 7 Sep 2017 16:16:46 +0200
-Message-ID: <CAMuHMdX-yEz5QUb_ZgDki72Csiz05f6s+AmNei=_eZh7qf9-RQ@mail.gmail.com>
-References: <20170906195825.3715290-1-arnd@arndb.de>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net 0/3] lan78xx: Fixes to lan78xx driver
+Date: Thu, 7 Sep 2017 16:19:57 +0200
+Message-ID: <20170907141957.GL11248@lunn.ch>
+References: <CE371C1263339941885964188A0225FA333A58@CHN-SV-EXMX03.mchp-main.com>
+ <20170907135909.GH11248@lunn.ch>
+ <9235D6609DB808459E95D78E17F2E43D40B1ADB7@CHN-SV-EXMX02.mchp-main.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-        Florian Westphal <fw@strlen.de>,
-        "David S. Miller" <davem@davemloft.net>,
-        Vishwanath Pai <vpai@akamai.com>,
-        Josh Hunt <johunt@akamai.com>, netfilter-devel@vger.kernel.org,
-        coreteam@netfilter.org,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Arnd Bergmann <arnd@arndb.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: Nisar.Sayed@microchip.com, davem@davemloft.net,
+        UNGLinuxDriver@microchip.com, netdev@vger.kernel.org
+To: Woojung.Huh@microchip.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:38572 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754005AbdIGOQr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 7 Sep 2017 10:16:47 -0400
-In-Reply-To: <20170906195825.3715290-1-arnd@arndb.de>
+Received: from vps0.lunn.ch ([178.209.37.122]:59608 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754005AbdIGOUC (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 7 Sep 2017 10:20:02 -0400
+Content-Disposition: inline
+In-Reply-To: <9235D6609DB808459E95D78E17F2E43D40B1ADB7@CHN-SV-EXMX02.mchp-main.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Arnd,
+On Thu, Sep 07, 2017 at 02:03:38PM +0000, Woojung.Huh@microchip.com wrote:
+> > On Thu, Sep 07, 2017 at 07:10:51AM +0000, Nisar.Sayed@microchip.com
+> > wrote:
+> > > From: Nisar Sayed <Nisar.Sayed@microchip.com>
+> > >
+> > > This series of patches are for lan78xx driver.
+> > >
+> > > These patches fixes potential issues associated with lan78xx driver
+> > 
+> > Hi Nisar
+> > 
+> > So this is version 2? Please include v2 in the subject line.
+> > 
+> > Also, briefly list what is different from the previous version.
+> Hi Andrew,
+> 
+> Because Nisar dropped of non-mdio patch in the series,
+> I suggested to treat as new patch than version 2.
+> In this case, it is still considered as version 2 than new series?
 
-On Wed, Sep 6, 2017 at 9:57 PM, Arnd Bergmann <arnd@arndb.de> wrote:
-> 64-bit division is expensive on 32-bit architectures, and
-> requires a special function call to avoid a link error like:
->
-> net/netfilter/xt_hashlimit.o: In function `hashlimit_mt_common':
-> xt_hashlimit.c:(.text+0x1328): undefined reference to `__aeabi_uldivmod'
->
-> In the case of hashlimit_mt_common, we don't actually need a
-> 64-bit operation, we can simply rewrite the function slightly
-> to make that clear to the compiler.
->
-> Fixes: bea74641e378 ("netfilter: xt_hashlimit: add rate match mode")
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Hi Woojung
 
-Thanks, this fixes a similar issue (__udivdi3 undefined) on m68k.
+So it is not a clear hard rule here. But we have seen these patches
+before, and they have been modified based on my comments. So i would
+say these are version 2. But a new series would also be O.K. What
+really matters is that the cover note explains what is going on. That
+some of the patches in the previous version have been dropped and will
+be posted later, and what changes have been made to the remaining
+patches.
 
-Acked-by: Geert Uytterhoeven <geert@linux-m68k.org>
-
-Gr{oetje,eeting}s,
-
-                        Geert
+   Andrew
