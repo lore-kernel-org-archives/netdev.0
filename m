@@ -1,100 +1,92 @@
-From: Shannon Nelson <shannon.nelson@oracle.com>
-Subject: Re: [Intel-wired-lan] [RFC PATCH v3 0/6] Configuring traffic classes
- via new hardware offload mechanism in tc/mqprio
-Date: Thu, 7 Sep 2017 09:45:33 -0700
-Message-ID: <a37ba2ca-145a-0228-961d-c805434e7d40@oracle.com>
-References: <150478158684.24662.17975701233699487888.stgit@anamdev.jf.intel.com>
+From: Jakub Kicinski <kubakici@wp.pl>
+Subject: Re: nfp bpf offload add/replace
+Date: Thu, 7 Sep 2017 17:52:24 +0100
+Message-ID: <20170907175224.176b41e6@cakuba.netronome.com>
+References: <20170907091033.GD1967@nanopsycho>
+        <20170907144412.7a4a7cf7@cakuba.netronome.com>
+        <20170907140503.GE1967@nanopsycho>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Amritha Nambiar <amritha.nambiar@intel.com>,
-        intel-wired-lan@lists.osuosl.org, jeffrey.t.kirsher@intel.com
+Cc: netdev@vger.kernel.org, mlxsw@mellanox.com,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Simon Horman <simon.horman@netronome.com>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:29443 "EHLO
-        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751417AbdIGQo6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 7 Sep 2017 12:44:58 -0400
-In-Reply-To: <150478158684.24662.17975701233699487888.stgit@anamdev.jf.intel.com>
-Content-Language: en-US
+Received: from mx4.wp.pl ([212.77.101.11]:37083 "EHLO mx4.wp.pl"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752689AbdIGQw3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 7 Sep 2017 12:52:29 -0400
+In-Reply-To: <20170907140503.GE1967@nanopsycho>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 9/7/2017 4:00 AM, Amritha Nambiar wrote:
-> The following series introduces a new hardware offload mode in
-> tc/mqprio where the TCs, the queue configurations and
-> bandwidth rate limits are offloaded to the hardware. The existing
-> mqprio framework is extended to configure the queue counts and
-> layout and also added support for rate limiting. This is achieved
-> through new netlink attributes for the 'mode' option which takes
-> values such as 'dcb' (default) and 'channel' and a 'shaper' option
-> for QoS attributes such as bandwidth rate limits in hw mode 1.
-> Legacy devices can fall back to the existing setup supporting hw mode
-> 1 without these additional options where only the TCs are offloaded
-> and then the 'mode' and 'shaper' options defaults to DCB support.
-> The i40e driver enables the new mqprio hardware offload mechanism
-> factoring the TCs, queue configuration and bandwidth rates by
-> creating HW channel VSIs.
+On Thu, 7 Sep 2017 16:05:03 +0200, Jiri Pirko wrote:
+> Thu, Sep 07, 2017 at 03:44:12PM CEST, kubakici@wp.pl wrote:
+> >On Thu, 7 Sep 2017 11:10:33 +0200, Jiri Pirko wrote:  
+> >> Hi Kuba.
+> >> 
+> >> I'm looking into cls_bpf code and nfp_net_bpf_offload function in your
+> >> driver. Why do you need TC_CLSBPF_ADD? Seems like TC_CLSBPF_REPLACE
+> >> should be enough. It would make the cls_bpf code easier.
+> >>
+> >> Note that other cls just have replace/destroy (u32 too, as drivers
+> >> handle NEW/REPLACE in one switch-case - will patch this).  
+> >
+> >Could we clarify what the REPLACE is actually supposed to do?  :)
+> >
+> >In the flower code and the REPLACE looks a lot like ADD on the
+> >surface...  If change is called it will invoke REPLACE with the new
+> >filter and then if there was an old filter, it will do DELETE.  Is my
+> >understanding correct?  
 > 
-> In this new mode, the priority to traffic class mapping and the
-> user specified queue ranges are used to configure the traffic
-> class when the 'mode' option is set to 'channel'. This is achieved by
-> creating HW channels(VSI). A new channel is created for each of the
-> traffic class configuration offloaded via mqprio framework except for
-> the first TC (TC0) which is for the main VSI. TC0 for the main VSI is
-> also reconfigured as per user provided queue parameters. Finally,
-> bandwidth rate limits are set on these traffic classes through the
-> shaper attribute by sending these rates in addition to the number of
-> TCs and the queue configurations.
+> Yes, correct.
 > 
-> Example:
->      # tc qdisc add dev eth0 root mqprio num_tc 2 map 0 0 0 0 1 1 1 1\
->        queues 4@0 4@4 hw 1 mode channel shaper bw_rlimit\
->        min_rate 1Gbit 2Gbit max_rate 4Gbit 5Gbit
+> >
+> >If so I found this model of operation somehow confusing.  Plus the
+> >management of flows may get slightly tricky if there is a possibility of
+> >"replacing" a flow with an identical one.  Flower may make calls like
+> >these:
+> >
+> >add flower vlan_id 100 action ...
+> ># REPLACE vid 100 ...
+> >change ... flower vlan_id 100 action ...
+> ># REPLACE vid 100 ...
+> ># DELETE  vid 100 ...  
 > 
->      To dump the bandwidth rates:
+> Yes, that is the flow.
 > 
->      # tc qdisc show dev eth0
+> >
+> >Doesn't this force driver/HW to implement refcounting on the rules?  
 > 
->      qdisc mqprio 804a: root  tc 2 map 0 0 0 0 1 1 1 1 0 0 0 0 0 0 0 0
->                   queues:(0:3) (4:7)
->                   mode:channel
->                   shaper:bw_rlimit   min_rate:1Gbit 2Gbit   max_rate:4Gbit 5Gbit
-> 
-> ---
-> 
-> Amritha Nambiar (6):
->        mqprio: Introduce new hardware offload mode and shaper in mqprio
->        i40e: Add macro for PF reset bit
->        i40e: Add infrastructure for queue channel support
->        i40e: Enable 'channel' mode in mqprio for TC configs
->        i40e: Refactor VF BW rate limiting
->        i40e: Add support setting TC max bandwidth rates
-> 
+> Why do you think so? There is a cookie that is passed from flower down
+> and driver uses it to remove the entry.
 
-It would be nice to know what has changed since the last review, either 
-summarized here or in the individual patch files.  This helps in knowing 
-how much attention should be given to this new set of patches, and 
-encourages further review.  I don't remember seeing any responses to my 
-previous comments, and it looks like not all of them were acted upon.
+Right, the key/mask combination doesn't have to be unique anyway...
 
-sln
+> >On why I need the replace - BPF unlike other classifiers usually
+> >installs a single program, I think offloading multiple TC filters is
+> >questionable (people will use tailcalls instead most likely).  I want to
+> >be able to implement atomic replace of that single program (i.e. not ADD
+> >followed by DELETE) because that simplifies the driver quite a bit.  
+> 
+> Understood. So, looks like the REPLACE/DESTROY would be sufficient for
+> bpf. ADD is not needed as it can be done by REPLACE-NULL, right?
 
+Yes, or you could take it to the extreme ;)
+ DESTROY == offload(old, NULL)
+ ADD     == offload(NULL, new)
+ REPLACE == offload(obj, new)
+
+> On the other hand, the rest of the cls, namely flower, u32 and matchall
+> need ADD/DESTROY as they don't really do no replacing.
 > 
->   drivers/net/ethernet/intel/i40e/i40e.h             |   44 +
->   drivers/net/ethernet/intel/i40e/i40e_debugfs.c     |    3
->   drivers/net/ethernet/intel/i40e/i40e_ethtool.c     |    8
->   drivers/net/ethernet/intel/i40e/i40e_main.c        | 1463 +++++++++++++++++---
->   drivers/net/ethernet/intel/i40e/i40e_txrx.h        |    2
->   drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |   50 -
->   include/net/pkt_cls.h                              |    9
->   include/uapi/linux/pkt_sched.h                     |   32
->   net/sched/sch_mqprio.c                             |  183 ++-
->   9 files changed, 1551 insertions(+), 243 deletions(-)
-> 
-> --
-> _______________________________________________
-> Intel-wired-lan mailing list
-> Intel-wired-lan@osuosl.org
-> https://lists.osuosl.org/mailman/listinfo/intel-wired-lan
-> 
+> Makes sense?
+
+Ack, if you're unifying things, I don't mind how things are muxed as
+long as atomic replace is possible.
+
+FWIW cls_bpf doesn't pass old prog in REPLACE right now, but I have
+patch to add it anyway since it simplifies the driver when maps are
+involved.  I should probably stop looking at the .command completely,
+just rely on new/old programs being populated.
