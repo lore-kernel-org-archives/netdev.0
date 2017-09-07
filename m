@@ -1,102 +1,41 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net] net: sched: fix memleak for chain zero
-Date: Thu, 7 Sep 2017 08:07:10 +0200
-Message-ID: <20170907060710.GA1967@nanopsycho>
-References: <20170906111419.5115-1-jiri@resnulli.us>
- <CAM_iQpWZJ9VVD66h6RMNofobKyoFyztx2jYqBEHuE6_iAu7PNQ@mail.gmail.com>
- <20170906203323.GA16570@nanopsycho>
- <CAM_iQpX8q8A-J+7w0rzxuZBrTYLmmgLgU1K=cH9-9f0ikkSaPw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Jakub Kicinski <kubakici@wp.pl>, mlxsw@mellanox.com
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f194.google.com ([209.85.128.194]:35344 "EHLO
-        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753942AbdIGGHN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 7 Sep 2017 02:07:13 -0400
-Received: by mail-wr0-f194.google.com with SMTP id n64so522185wrb.2
-        for <netdev@vger.kernel.org>; Wed, 06 Sep 2017 23:07:12 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAM_iQpX8q8A-J+7w0rzxuZBrTYLmmgLgU1K=cH9-9f0ikkSaPw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+Subject: [PATCH 1/2] ip_tunnel: fix setting ttl and tos value in collect_md mode
+Date: Thu,  7 Sep 2017 14:08:34 +0800
+Message-ID: <1504764515-13536-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Haishuang Yan <yanhaishuang@cmss.chinamobile.com>,
+        Alexei Starovoitov <ast@fb.com>
+To: "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Thu, Sep 07, 2017 at 01:37:59AM CEST, xiyou.wangcong@gmail.com wrote:
->On Wed, Sep 6, 2017 at 1:33 PM, Jiri Pirko <jiri@resnulli.us> wrote:
->> Wed, Sep 06, 2017 at 07:40:02PM CEST, xiyou.wangcong@gmail.com wrote:
->>>On Wed, Sep 6, 2017 at 4:14 AM, Jiri Pirko <jiri@resnulli.us> wrote:
->>>> From: Jiri Pirko <jiri@mellanox.com>
->>>>
->>>> There's a memleak happening for chain 0. The thing is, chain 0 needs to
->>>> be always present, not created on demand. Therefore tcf_block_get upon
->>>> creation of block calls the tcf_chain_create function directly. The
->>>> chain is created with refcnt == 1, which is not correct in this case and
->>>> causes the memleak. So move the refcnt increment into tcf_chain_get
->>>> function even for the case when chain needs to be created.
->>>>
->>>
->>>Your approach could work but you just make the code even
->>>uglier than it is now:
->>>
->>>1. The current code is already ugly for special-casing chain 0:
->>>
->>>        if (--chain->refcnt == 0 && !chain->filter_chain && chain->index != 0)
->>>                tcf_chain_destroy(chain);
->>>
->>>2. With your patch, chain 0 has a different _initial_ refcnt with others.
->>
->> No. Initial refcnt is the same. ! for every action that holds the chain.
->> So actually, it returns it back where it should be.
->
->Not all all.
->
->tcf_block_get() calls tcf_chain_create(, 0), after your patch
->chain 0 has refcnt==0 initially.
->
->Non-0 chain? They are created via tcf_chain_get(), aka,
->refcnt==0 initially.
+ttl and tos variables are declared and assigned, but are not used in
+iptunnel_xmit() function.
 
-And if they are created on insertion of the filter, put is caller right
-away which returns the ref back to 0. As I said, Non-0 refcnt means
-either rule is being inserted/removed of there is an action that holds
-reference to this chain. So my patch actually fixes the behaviour making
-chain 0 and other chains to behave the same.
+Fixes: cfc7381b3002 ("ip_tunnel: add collect_md mode to IPIP tunnel")
+Cc: Alexei Starovoitov <ast@fb.com>
+Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+---
+ net/ipv4/ip_tunnel.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-
->
->
->>
->>
->>>
->>>3. Allowing an object (chain 0) exists with refcnt==0
->>
->> So? That is for every chain that does not have goto_chain action
->> pointing at. Please read the code.
->
->So you are pretending to be GC but you are apparently not.
->
->You create all the troubles by setting yourself to believe chain 0
->is special and refcnt==0 is okay. Both are wrong.
->
->Actually the !list_empty() check is totally unnecessary too,
->it is yet another place you get it wrong, you hide the race
->condition in commit 744a4cf63e52 which makes it harder
->to expose.
->
->I understand you don't trust me. Look at DaveM's reaction
->to your refcnt==0 madness.
->
->Remember, refcnt can be very simple, you just want to
->make it harder by abusing it or attempting to invent a GC.
->
->I am going to update my patch (to remove all your madness)
->since this is horribly wrong to me. Sorry.
-
-It is not so easy to use the refcnt also for filters, I had good reason
-to relend on filter_chain list to find out if there is a rule. If you
-figure out how to do it better, be my guest. I suggest you do that for
-net-next and let's fix the net in the easiest way possible.
+diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
+index 129d1a3..e1856bf 100644
+--- a/net/ipv4/ip_tunnel.c
++++ b/net/ipv4/ip_tunnel.c
+@@ -618,8 +618,8 @@ void ip_md_tunnel_xmit(struct sk_buff *skb, struct net_device *dev, u8 proto)
+ 		ip_rt_put(rt);
+ 		goto tx_dropped;
+ 	}
+-	iptunnel_xmit(NULL, rt, skb, fl4.saddr, fl4.daddr, proto, key->tos,
+-		      key->ttl, df, !net_eq(tunnel->net, dev_net(dev)));
++	iptunnel_xmit(NULL, rt, skb, fl4.saddr, fl4.daddr, proto, tos, ttl,
++		      df, !net_eq(tunnel->net, dev_net(dev)));
+ 	return;
+ tx_error:
+ 	dev->stats.tx_errors++;
+-- 
+1.8.3.1
