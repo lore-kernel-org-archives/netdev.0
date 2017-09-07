@@ -1,29 +1,63 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: latest netdev net-next kernel panic
-Date: Thu, 07 Sep 2017 14:39:48 -0700
-Message-ID: <1504820388.15310.71.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <9f4c89c9-1a1b-39ec-6d8c-2c9e4c15911a@itcare.pl>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH RFC 5/6] Switch SPI driver calls its own driver switch
+ register function
+Date: Thu, 7 Sep 2017 23:40:36 +0200
+Message-ID: <20170907214036.GS11248@lunn.ch>
+References: <93AF473E2DA327428DE3D46B72B1E9FD411218F4@CHN-SV-EXMX02.mchp-main.com>
+ <93AF473E2DA327428DE3D46B72B1E9FD41121A1B@CHN-SV-EXMX02.mchp-main.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: =?UTF-8?Q?Pawe=C5=82?= Staszewski <pstaszewski@itcare.pl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f54.google.com ([74.125.83.54]:35663 "EHLO
-        mail-pg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755840AbdIGVju (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 7 Sep 2017 17:39:50 -0400
-Received: by mail-pg0-f54.google.com with SMTP id 188so1612848pgb.2
-        for <netdev@vger.kernel.org>; Thu, 07 Sep 2017 14:39:50 -0700 (PDT)
-In-Reply-To: <9f4c89c9-1a1b-39ec-6d8c-2c9e4c15911a@itcare.pl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: muvarov@gmail.com, pavel@ucw.cz, nathan.leigh.conrad@gmail.com,
+        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Woojung.Huh@microchip.com
+To: Tristram.Ha@microchip.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <93AF473E2DA327428DE3D46B72B1E9FD41121A1B@CHN-SV-EXMX02.mchp-main.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2017-09-07 at 23:30 +0200, Paweł Staszewski wrote:
-> I want to mention also here cause last trace for RIP was dst_dev_put
+On Thu, Sep 07, 2017 at 09:09:22PM +0000, Tristram.Ha@microchip.com wrote:
+> From: Tristram Ha <Tristram.Ha@microchip.com>
 > 
-> https://bugzilla.kernel.org/attachment.cgi?id=258259
+> SPI driver calls own specific switch register function.
+> Shutdown callback function is added to reset switch to default state.
+> 
+> Signed-off-by: Tristram Ha <Tristram.Ha@microchip.com>
+> ---
+> diff --git a/drivers/net/dsa/microchip/ksz_spi.c b/drivers/net/dsa/microchip/ksz_spi.c
+> index c519469..d03eb83 100644
+> --- a/drivers/net/dsa/microchip/ksz_spi.c
+> +++ b/drivers/net/dsa/microchip/ksz_spi.c
+> @@ -25,6 +25,8 @@
+>  
+>  #include "ksz_priv.h"
+>  
+> +int ksz9477_switch_register(struct ksz_device *dev);
 
-Can you provide a bit more context ?
+Hi Tristram
 
-Thanks !
+This should be placed in a header file somewhere, not here.
+
+> +static void ksz_spi_shutdown(struct spi_device *spi) {
+> +	struct ksz_device *dev = spi_get_drvdata(spi);
+> +
+> +	if (dev)
+> +		dev->dev_ops->reset(dev);
+
+shutdown seems like a better name for this op, not reset.
+
+> +}
+> +
+>  static const struct of_device_id ksz_dt_ids[] = {
+>  	{ .compatible = "microchip,ksz9477" },
+>  	{},
+> @@ -207,6 +217,7 @@ static int ksz_spi_remove(struct spi_device *spi)
+>  	},
+>  	.probe	= ksz_spi_probe,
+>  	.remove	= ksz_spi_remove,
+> +	.shutdown = ksz_spi_shutdown,
+>  };
+>  
+>  module_spi_driver(ksz_spi_driver);
