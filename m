@@ -1,59 +1,69 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: WARNING: at net/netfilter/core.c:218
- __nf_hook_entries_try_shrink+0xf7/0x110
-Date: Thu, 7 Sep 2017 09:13:28 +0200
-Message-ID: <20170907071328.GG11551@breakpoint.cc>
-References: <1504761109.6518.10.camel@gmx.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>
-To: Mike Galbraith <efault@gmx.de>
+From: Luca Coelho <luca@coelho.fi>
+Subject: [PATCH] iwlwifi: mvm: only send LEDS_CMD when the FW supports it
+Date: Thu,  7 Sep 2017 10:51:52 +0300
+Message-ID: <20170907075152.4522-1-luca@coelho.fi>
+References: <CA+55aFxjHSW7v4Ttu7mGPkxdGpR-WtVoxDT5qtwxUC-Dge5a5A@mail.gmail.com>
+Cc: linux-wireless@vger.kernel.org, johannes@sipsolutions.net,
+        linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
+        kvalo@codeaurora.org, netdev@vger.kernel.org, davem@davemloft.net,
+        emmanuel.grumbach@intel.com, Luca Coelho <luciano.coelho@intel.com>
+To: torvalds@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:38018 "EHLO
-        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1754141AbdIGHQ0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 7 Sep 2017 03:16:26 -0400
-Content-Disposition: inline
-In-Reply-To: <1504761109.6518.10.camel@gmx.de>
+Received: from paleale.coelho.fi ([176.9.41.70]:48608 "EHLO
+        farmhouse.coelho.fi" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1754344AbdIGHwN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 7 Sep 2017 03:52:13 -0400
+In-Reply-To: <CA+55aFxjHSW7v4Ttu7mGPkxdGpR-WtVoxDT5qtwxUC-Dge5a5A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mike Galbraith <efault@gmx.de> wrote:
-> [   21.219604] ip6_tables: (C) 2000-2006 Netfilter Core Team
-> [   21.433091] nf_conntrack version 0.5.0 (65536 buckets, 262144 max)
-> [   21.495849] ip_tables: (C) 2000-2006 Netfilter Core Team
-> [   22.404040] ------------[ cut here ]------------
-> [   22.404267] WARNING: CPU: 2 PID: 1379 at net/netfilter/core.c:218 __nf_hook_entries_try_shrink+0xf7/0x110
+From: Luca Coelho <luciano.coelho@intel.com>
 
-The WARN_ON is bogus, I sent a patch to remove it.
+The LEDS_CMD command is only supported in some newer FW versions
+(e.g. iwlwifi-8000C-31.ucode), so we can't send it to older versions
+(such as iwlwifi-8000C-27.ucode).
 
-> Met 10 of those during this boot.  The first time I booted, the
-> warnings were followed by the explosion below, but that kernel was not
-> entirely virgin, so add a pinch of salt.
-> 
-> [   48.592298] Ebtables v2.0 registered
-> [   48.730755] BUG: unable to handle kernel NULL pointer dereference at 000000000000003c
-> [   48.732723] IP: _raw_read_lock_bh+0x15/0x30
-> [   48.734526] PGD 0 P4D 0 
-> [   48.736482] Oops: 0002 [#1] SMP
-> [   48.738317] Dumping ftrace buffer:
-> [   48.740260]    (ftrace buffer empty)
-> [   48.775370] RIP: 0010:_raw_read_lock_bh+0x15/0x30
-> [   48.776496] RSP: 0018:ffff88041ec83bd0 EFLAGS: 00010286
-> [   48.777414] RAX: 0000000000000100 RBX: 0000000000000001 RCX: 0000000000000000
-> [   48.778302] RDX: 0000000000000000 RSI: ffff88041ec83ca8 RDI: 000000000000003c
-> [   48.779189] RBP: 0000000000000000 R08: 0000000000000001 R09: 00000000088a0c8d
-> [   48.780072] R10: 0000000000000000 R11: 0000000000007b00 R12: ffff8803cdcc1300
-> [   48.780950] R13: ffff8803cdcc1300 R14: 0000000000000000 R15: ffff8803f1b8b000
-> [   48.781845] FS:  0000000000000000(0000) GS:ffff88041ec80000(0000) knlGS:0000000000000000
-> [   48.782727] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-> [   48.783533] CR2: 000000000000003c CR3: 00000003f19fa001 CR4: 00000000001606e0
-> [   48.784348] Call Trace:
-> [   48.785160]  <IRQ>
-> [   48.786004]  ebt_do_table+0x3b/0x6ca [ebtables]
-> [   48.786900]  ? dequeue_rt_stack+0x4c/0x290
-> [   48.787792]  ? enqueue_task_rt+0x1da/0x300
-> [   48.789001]  nf_hook_slow+0x37/0xb0
-> [   48.790662]  br_pass_frame_up+0xbe/0xd0 [bridge]
+To fix this, check for a new bit in the FW capabilities TLV that tells
+when the command is supported.
 
-Haven't seen that before, I will investigate.
+Note that the current version of -31.ucode in linux-firmware.git
+(31.532993.0) does not have this capability bit set, so the LED won't
+work, even though this version should support it.  But we will update
+this firmware soon, so it won't be a problem anymore.
+
+Fixes: 7089ae634c50 ("iwlwifi: mvm: use firmware LED command where applicable")
+Reported-by: Linus Torvalds <torvalds@linux-foundation.org>
+Signed-off-by: Luca Coelho <luciano.coelho@intel.com>
+---
+ drivers/net/wireless/intel/iwlwifi/fw/file.h | 1 +
+ drivers/net/wireless/intel/iwlwifi/mvm/led.c | 3 ++-
+ 2 files changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/wireless/intel/iwlwifi/fw/file.h b/drivers/net/wireless/intel/iwlwifi/fw/file.h
+index 887f6d8fc8a7..279248cd9cfb 100644
+--- a/drivers/net/wireless/intel/iwlwifi/fw/file.h
++++ b/drivers/net/wireless/intel/iwlwifi/fw/file.h
+@@ -378,6 +378,7 @@ enum iwl_ucode_tlv_capa {
+ 	IWL_UCODE_TLV_CAPA_EXTEND_SHARED_MEM_CFG	= (__force iwl_ucode_tlv_capa_t)80,
+ 	IWL_UCODE_TLV_CAPA_LQM_SUPPORT			= (__force iwl_ucode_tlv_capa_t)81,
+ 	IWL_UCODE_TLV_CAPA_TX_POWER_ACK			= (__force iwl_ucode_tlv_capa_t)84,
++	IWL_UCODE_TLV_CAPA_LED_CMD_SUPPORT		= (__force iwl_ucode_tlv_capa_t)86,
+ 	IWL_UCODE_TLV_CAPA_MLME_OFFLOAD			= (__force iwl_ucode_tlv_capa_t)96,
+ 
+ 	NUM_IWL_UCODE_TLV_CAPA
+diff --git a/drivers/net/wireless/intel/iwlwifi/mvm/led.c b/drivers/net/wireless/intel/iwlwifi/mvm/led.c
+index 005e2e7278a5..b27269504a62 100644
+--- a/drivers/net/wireless/intel/iwlwifi/mvm/led.c
++++ b/drivers/net/wireless/intel/iwlwifi/mvm/led.c
+@@ -92,7 +92,8 @@ static void iwl_mvm_send_led_fw_cmd(struct iwl_mvm *mvm, bool on)
+ 
+ static void iwl_mvm_led_set(struct iwl_mvm *mvm, bool on)
+ {
+-	if (mvm->cfg->device_family >= IWL_DEVICE_FAMILY_8000) {
++	if (fw_has_capa(&mvm->fw->ucode_capa,
++			IWL_UCODE_TLV_CAPA_LED_CMD_SUPPORT)) {
+ 		iwl_mvm_send_led_fw_cmd(mvm, on);
+ 		return;
+ 	}
+-- 
+2.14.1
