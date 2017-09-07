@@ -1,80 +1,60 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH RFC 6/6] Modify tag_ksz.c to support other KSZ switch
- drivers
-Date: Thu, 7 Sep 2017 23:48:34 +0200
-Message-ID: <20170907214834.GT11248@lunn.ch>
-References: <93AF473E2DA327428DE3D46B72B1E9FD41121901@CHN-SV-EXMX02.mchp-main.com>
- <93AF473E2DA327428DE3D46B72B1E9FD41121A22@CHN-SV-EXMX02.mchp-main.com>
+From: =?UTF-8?Q?Pawe=c5=82_Staszewski?= <pstaszewski@itcare.pl>
+Subject: Re: latest netdev net-next kernel panic
+Date: Thu, 7 Sep 2017 23:47:08 +0200
+Message-ID: <2e7d813e-0ee9-ede6-7e0e-db2814b3cf94@itcare.pl>
+References: <9f4c89c9-1a1b-39ec-6d8c-2c9e4c15911a@itcare.pl>
+ <1504820388.15310.71.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: muvarov@gmail.com, pavel@ucw.cz, nathan.leigh.conrad@gmail.com,
-        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Woojung.Huh@microchip.com
-To: Tristram.Ha@microchip.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <93AF473E2DA327428DE3D46B72B1E9FD41121A22@CHN-SV-EXMX02.mchp-main.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp16.iq.pl ([86.111.242.222]:56484 "EHLO smtp16.iq.pl"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932383AbdIGVtP (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 7 Sep 2017 17:49:15 -0400
+In-Reply-To: <1504820388.15310.71.camel@edumazet-glaptop3.roam.corp.google.com>
+Content-Language: pl
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 07, 2017 at 09:09:30PM +0000, Tristram.Ha@microchip.com wrote:
-> From: Tristram Ha <Tristram.Ha@microchip.com>
-> 
-> The KSZ tail tag code can be used by different KSZ switch drivers.
-> 
-> Signed-off-by: Tristram Ha <Tristram.Ha@microchip.com>
-> ---
-> diff --git a/net/dsa/tag_ksz.c b/net/dsa/tag_ksz.c index 010ca0a..d5faf14 100644
-> --- a/net/dsa/tag_ksz.c
-> +++ b/net/dsa/tag_ksz.c
-> @@ -13,35 +13,21 @@
->  #include <linux/slab.h>
->  #include <net/dsa.h>
->  #include "dsa_priv.h"
-> -
-> -/* For Ingress (Host -> KSZ), 2 bytes are added before FCS.
-> - * ---------------------------------------------------------------------------
-> - * DA(6bytes)|SA(6bytes)|....|Data(nbytes)|tag0(1byte)|tag1(1byte)|FCS(4bytes)
-> - * ---------------------------------------------------------------------------
-> - * tag0 : Prioritization (not used now)
-> - * tag1 : each bit represents port (eg, 0x01=port1, 0x02=port2, 0x10=port5)
-> - *
-> - * For Egress (KSZ -> Host), 1 byte is added before FCS.
-> - * ---------------------------------------------------------------------------
-> - * DA(6bytes)|SA(6bytes)|....|Data(nbytes)|tag0(1byte)|FCS(4bytes)
-> - * ---------------------------------------------------------------------------
-> - * tag0 : zero-based value represents port
-> - *	  (eg, 0x00=port1, 0x02=port3, 0x06=port7)
-> - */
-> -
-> -#define	KSZ_INGRESS_TAG_LEN	2
-> -#define	KSZ_EGRESS_TAG_LEN	1
-> +#include "../../drivers/net/dsa/microchip/ksz_priv.h"
+Hi Eric
 
-No.
 
-Move the header file to somewhere under include/linux. You can split
-it into private and public parts if you want, and just put the public
-bits in include/linux.
+today upgraded some host from 4.13.0-rc7+ to latest net-next from git
 
->  static struct sk_buff *ksz_xmit(struct sk_buff *skb, struct net_device *dev)  {
->  	struct dsa_slave_priv *p = netdev_priv(dev);
-> +	struct dsa_switch *ds = p->dp->ds;
-> +	struct ksz_device *swdev = ds->priv;
->  	struct sk_buff *nskb;
-> +	int len;
->  	int padlen;
-> -	u8 *tag;
->  
->  	padlen = (skb->len >= ETH_ZLEN) ? 0 : ETH_ZLEN - skb->len;
->  
-> -	if (skb_tailroom(skb) >= padlen + KSZ_INGRESS_TAG_LEN) {
-> +	len = swdev->dev_ops->get_tx_len(swdev);
+and run some tests simulate clients traffic 40Gbit / 5Mpps mixed tcp + udp
 
-This is ugly. We have a clean separation between a switch driver and a
-tag driver. Here you are mixing them together. Don't. Look at the
-mailing lists for what Florian and I suggested to Pavel. It will also
-solve your include file issue above.
+There is also bgpd running that feeds FIB with full bgp feed - about 
+700k prefixes (so routing tables is about 700k routes with about 300 
+nexthops)
 
-	 Andrew
+
+There is also simulated about 1000 ip neigh hosts (arp) with about 300 
+ip interfaces assigned on vlans
+
+
+
+With kernel 4.13.0-rc7+ (git from 05.09.2017) all tests are good 
+(besides that there is panic after about 10 hours - every time same like 
+in this link:
+
+https://bugzilla.kernel.org/attachment.cgi?id=258257
+
+But looks like acpi related or c/p states with new intel cpus... dono now.
+
+
+
+
+W dniu 2017-09-07 o 23:39, Eric Dumazet pisze:
+> On Thu, 2017-09-07 at 23:30 +0200, Paweł Staszewski wrote:
+>> I want to mention also here cause last trace for RIP was dst_dev_put
+>>
+>> https://bugzilla.kernel.org/attachment.cgi?id=258259
+> Can you provide a bit more context ?
+>
+> Thanks !
+>
+>
+>
