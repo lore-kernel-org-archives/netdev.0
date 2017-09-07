@@ -1,62 +1,78 @@
-From: Baruch Siach <baruch-NswTu9S1W3P6gbPvEgmw2w@public.gmane.org>
-Subject: [PATCH net v4 3/3] net: phy: sfp: rename dt properties to match the binding
-Date: Thu,  7 Sep 2017 12:25:50 +0300
-Message-ID: <720bdc3383214231cd6e25d2e1980262c68863ac.1504776350.git.baruch@tkos.co.il>
-References: <b98ac3e8cde5c99489e8dcee9a1d5b8a19face8d.1504776350.git.baruch@tkos.co.il>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>,
-        Antoine Tenart <antoine.tenart-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-        Baruch Siach <baruch-NswTu9S1W3P6gbPvEgmw2w@public.gmane.org>
-To: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
-        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Russell King <rmk+kernel-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <b98ac3e8cde5c99489e8dcee9a1d5b8a19face8d.1504776350.git.baruch-NswTu9S1W3P6gbPvEgmw2w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH] netfilter: xt_hashlimit: avoid 64-bit division
+Date: Thu, 7 Sep 2017 12:19:31 +0200
+Message-ID: <20170907101931.GB2049@salvia>
+References: <20170906195825.3715290-1-arnd@arndb.de>
+ <7791dee1-64a9-dcaa-c5d9-0b04a44bc526@akamai.com>
+ <CAK8P3a1GxBjWqnK+fdKmzOhXyFK1XbCFWau8md3OjnLjUZOeDg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Vishwanath Pai <vpai@akamai.com>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        Florian Westphal <fw@strlen.de>,
+        "David S. Miller" <davem@davemloft.net>,
+        Josh Hunt <johunt@akamai.com>, netfilter-devel@vger.kernel.org,
+        coreteam@netfilter.org, Networking <netdev@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAK8P3a1GxBjWqnK+fdKmzOhXyFK1XbCFWau8md3OjnLjUZOeDg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Make the Rx rate select control gpio property name match the documented
-binding. This would make the addition of 'rate-select1-gpios' for SFP+
-support more natural.
+On Wed, Sep 06, 2017 at 10:48:22PM +0200, Arnd Bergmann wrote:
+> On Wed, Sep 6, 2017 at 10:22 PM, Vishwanath Pai <vpai@akamai.com> wrote:
+> > On 09/06/2017 03:57 PM, Arnd Bergmann wrote:
+> >> 64-bit division is expensive on 32-bit architectures, and
+> >> requires a special function call to avoid a link error like:
+> >>
+> >> net/netfilter/xt_hashlimit.o: In function `hashlimit_mt_common':
+> >> xt_hashlimit.c:(.text+0x1328): undefined reference to `__aeabi_uldivmod'
+> >>
+> >> In the case of hashlimit_mt_common, we don't actually need a
+> >> 64-bit operation, we can simply rewrite the function slightly
+> >> to make that clear to the compiler.
+> >>
+> >> Fixes: bea74641e378 ("netfilter: xt_hashlimit: add rate match mode")
+> >> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> >> ---
+> >>  net/netfilter/xt_hashlimit.c | 5 ++++-
+> >>  1 file changed, 4 insertions(+), 1 deletion(-)
+> >>
+> >> diff --git a/net/netfilter/xt_hashlimit.c b/net/netfilter/xt_hashlimit.c
+> >> index 10d48234f5f4..50b53d86eef5 100644
+> >> --- a/net/netfilter/xt_hashlimit.c
+> >> +++ b/net/netfilter/xt_hashlimit.c
+> >> @@ -531,7 +531,10 @@ static u64 user2rate_bytes(u64 user)
+> >>  {
+> >>       u64 r;
+> >>
+> >> -     r = user ? 0xFFFFFFFFULL / user : 0xFFFFFFFFULL;
+> >> +     if (user > 0xFFFFFFFFULL)
+> >> +             return 0;
+> >> +
+> >> +     r = user ? 0xFFFFFFFFULL / (u32)user : 0xFFFFFFFFULL;
+> >>       r = (r - 1) << 4;
+> >>       return r;
+> >>  }
+> >>
+> >
+> > I have submitted another patch to fix this:
+> > https://patchwork.ozlabs.org/patch/809881/
+> >
+> > We have seen this problem before, I was careful not to introduce this
+> > again in the new patch but clearly I overlooked this particular line :(
+> >
+> > In the other cases we fixed it by replacing division with div64_u64().
+> 
+> div64_u64() seems needlessly expensive here since the dividend
+> is known to be a 32-bit number. I guess the function is not called
+> frequently though, so it doesn't matter much.
 
-Also, make the MOD-DEF0 gpio property name match the documentation.
+This is called from the packet path, only for the first packet for
+each new destination IP entry in the hashtable, still from the
+datapath. So if we can take something faster (for 32 bit arches) that
+is correct, I think it's sensible to take.
 
-Signed-off-by: Baruch Siach <baruch-NswTu9S1W3P6gbPvEgmw2w@public.gmane.org>
----
-v4: Rename also MOD-DEF0
-
-v3: No change
-
-v2: New patch in this series
----
- drivers/net/phy/sfp.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/phy/sfp.c b/drivers/net/phy/sfp.c
-index fb2cf4342f48..baee371bf767 100644
---- a/drivers/net/phy/sfp.c
-+++ b/drivers/net/phy/sfp.c
-@@ -58,11 +58,11 @@ enum {
- };
- 
- static const char *gpio_of_names[] = {
--	"moddef0",
-+	"mod-def0",
- 	"los",
- 	"tx-fault",
- 	"tx-disable",
--	"rate-select",
-+	"rate-select0",
- };
- 
- static const enum gpiod_flags gpio_flags[] = {
--- 
-2.14.1
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Let me know in any case.
