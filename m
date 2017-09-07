@@ -1,69 +1,69 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: VLAN/bridge "compression" in wifi (was: Re: [PATCH 3/8]
- qtnfmac: implement AP_VLAN iftype support)
-Date: Thu, 07 Sep 2017 08:45:20 +0200
-Message-ID: <1504766720.23905.25.camel@sipsolutions.net>
-References: <20170620195517.18373-1-sergey.matyukevich.os@quantenna.com>
-         <20170620195517.18373-4-sergey.matyukevich.os@quantenna.com>
-         <1504619151.12380.16.camel@sipsolutions.net>
-         <1504621233.12380.21.camel@sipsolutions.net>
-         <20170906154522.twtesbo2rxbrhekf@bars>
+From: <Nisar.Sayed@microchip.com>
+Subject: [PATCH net] smsc95xx: Configure pause time to 0xffff when tx flow
+ control enabled
+Date: Thu, 7 Sep 2017 06:51:37 +0000
+Message-ID: <CE371C1263339941885964188A0225FA3339DB@CHN-SV-EXMX03.mchp-main.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: linux-wireless@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-        Igor Mitsyanko <igor.mitsyanko.os@quantenna.com>,
-        Avinash Patil <avinashp@quantenna.com>
-To: Sergey Matyukevich <sergey.matyukevich.os@quantenna.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <UNGLinuxDriver@microchip.com>, <netdev@vger.kernel.org>,
+        <steve.glendinning@shawell.net>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:40314 "EHLO sipsolutions.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753062AbdIGGpW (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 7 Sep 2017 02:45:22 -0400
-In-Reply-To: <20170906154522.twtesbo2rxbrhekf@bars>
+Received: from esa2.microchip.iphmx.com ([68.232.149.84]:50402 "EHLO
+        esa2.microchip.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751328AbdIGGwX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 7 Sep 2017 02:52:23 -0400
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Nisar Sayed <Nisar.Sayed@microchip.com>
 
-> > To clarify, I think what you - conceptually - want is the following
-> > topology:
-> > 
-> >         +--- eth0.1  ---  br.1  ---  wlan0.1
-> >         |
-> > eth0 ---+--- eth0.2  ---  br.2  ---  wlan0.2
-> >         |
-> >         +--- eth0.3  ---  br.3  ---  wlan0.3
-[...]
-> That's right. In fact, hostapd is able to create this kind of network
-> bridge infrastructure automatically when it is built
-> with CONFIG_FULL_DYNAMIC_VLAN option enabled.
+Configure pause time to 0xffff when tx flow control enabled
 
-Cool, I was unaware of the exact functionality of this build-time
-option. :)
+Signed-off-by: Nisar Sayed <Nisar.Sayed@microchip.com>
+---
+ drivers/net/usb/smsc95xx.c | 11 +++++------
+ 1 file changed, 5 insertions(+), 6 deletions(-)
 
-> > Now, you seem to want to compress this to
-> > 
-> >                   +---  wlan0.1
-> >                   |
-> > eth0  ---  br  ---+---  wlan0.2
-> >                   |
-> >                   +---  wlan0.3
-
-[...]
-
-> Exactly. And yes, the only purpose of this 'non-conventional' mode
-> was to have 802.1Q acceleration on the ethernet port.
-
-Right. You can still have acceleration in the top picture by placing
-the feature into the Ethernet hardware, so that tagging/untagging
-doesn't have to touch the packet data but just touches (skb) metadata.
-But obviously that's something that happens on the other side and you
-don't have control over it.
-
-Anyway, I'm happy we cleared up what was going on and also that you
-decided to leave it for now and work with the regular Linux topology
-model.
-
-Thanks,
-johannes
+diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
+index 340c134..309b88a 100644
+--- a/drivers/net/usb/smsc95xx.c
++++ b/drivers/net/usb/smsc95xx.c
+@@ -526,7 +526,7 @@ static void smsc95xx_set_multicast(struct net_device *netdev)
+ static int smsc95xx_phy_update_flowcontrol(struct usbnet *dev, u8 duplex,
+ 					   u16 lcladv, u16 rmtadv)
+ {
+-	u32 flow, afc_cfg = 0;
++	u32 flow = 0, afc_cfg;
+ 
+ 	int ret = smsc95xx_read_reg(dev, AFC_CFG, &afc_cfg);
+ 	if (ret < 0)
+@@ -537,20 +537,19 @@ static int smsc95xx_phy_update_flowcontrol(struct usbnet *dev, u8 duplex,
+ 
+ 		if (cap & FLOW_CTRL_RX)
+ 			flow = 0xFFFF0002;
+-		else
+-			flow = 0;
+ 
+-		if (cap & FLOW_CTRL_TX)
++		if (cap & FLOW_CTRL_TX) {
+ 			afc_cfg |= 0xF;
+-		else
++			flow |= 0xFFFF0000;
++		} else {
+ 			afc_cfg &= ~0xF;
++		}
+ 
+ 		netif_dbg(dev, link, dev->net, "rx pause %s, tx pause %s\n",
+ 				   cap & FLOW_CTRL_RX ? "enabled" : "disabled",
+ 				   cap & FLOW_CTRL_TX ? "enabled" : "disabled");
+ 	} else {
+ 		netif_dbg(dev, link, dev->net, "half duplex\n");
+-		flow = 0;
+ 		afc_cfg |= 0xF;
+ 	}
+ 
+-- 
+1.9.1
