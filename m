@@ -1,126 +1,66 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [V2 PATCH net-next 1/2] xdp: implement xdp_redirect_map for generic
- XDP
-Date: Thu, 07 Sep 2017 16:09:56 +0200
-Message-ID: <59B15334.4070103@iogearbox.net>
-References: <150478756604.28665.6915020425359475729.stgit@firesoul> <150478759310.28665.17184783248584070473.stgit@firesoul>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net 2/3] lan78xx: Allow EEPROM write for less than
+ MAX_EEPROM_SIZE
+Date: Thu, 7 Sep 2017 16:10:48 +0200
+Message-ID: <20170907141048.GJ11248@lunn.ch>
+References: <CE371C1263339941885964188A0225FA333A7C@CHN-SV-EXMX03.mchp-main.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Daniel Borkmann <borkmann@iogearbox.net>,
-        John Fastabend <john.fastabend@gmail.com>,
-        Andy Gospodarek <andy@greyhouse.net>,
-        alexei.starovoitov@gmail.com
-To: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org,
-        "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, UNGLinuxDriver@microchip.com,
+        netdev@vger.kernel.org
+To: Nisar.Sayed@microchip.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:34239 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754005AbdIGOJ7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 7 Sep 2017 10:09:59 -0400
-In-Reply-To: <150478759310.28665.17184783248584070473.stgit@firesoul>
+Received: from vps0.lunn.ch ([178.209.37.122]:59594 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754005AbdIGOKv (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 7 Sep 2017 10:10:51 -0400
+Content-Disposition: inline
+In-Reply-To: <CE371C1263339941885964188A0225FA333A7C@CHN-SV-EXMX03.mchp-main.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/07/2017 02:33 PM, Jesper Dangaard Brouer wrote:
-> Using bpf_redirect_map is allowed for generic XDP programs, but the
-> appropriate map lookup was never performed in xdp_do_generic_redirect().
->
-> Instead the map-index is directly used as the ifindex.  For the
-> xdp_redirect_map sample in SKB-mode '-S', this resulted in trying
-> sending on ifindex 0 which isn't valid, resulting in getting SKB
-> packets dropped.  Thus, the reported performance numbers are wrong in
-> commit 24251c264798 ("samples/bpf: add option for native and skb mode
-> for redirect apps") for the 'xdp_redirect_map -S' case.
->
-> It might seem innocent this was lacking, but it can actually crash the
-> kernel.  The potential crash is caused by not consuming redirect_info->map.
-> The bpf_redirect_map helper will set this_cpu_ptr(&redirect_info)->map
-> pointer, which will survive even after unloading the xdp bpf_prog and
-> deallocating the devmap data-structure.  This leaves a dead map
-> pointer around.  The kernel will crash when loading the xdp_redirect
-> sample (in native XDP mode) as it doesn't reset map (via bpf_redirect)
-> and returns XDP_REDIRECT, which will cause it to dereference the map
-> pointer.
->
-> Fixes: 6103aa96ec07 ("net: implement XDP_REDIRECT for xdp generic")
-> Fixes: 24251c264798 ("samples/bpf: add option for native and skb mode for redirect apps")
-> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+On Thu, Sep 07, 2017 at 07:11:26AM +0000, Nisar.Sayed@microchip.com wrote:
+> From: Nisar Sayed <Nisar.Sayed@microchip.com>
+> 
+> Allow EEPROM write for less than MAX_EEPROM_SIZE
+> 
+> Signed-off-by: Nisar Sayed <Nisar.Sayed@microchip.com>
 > ---
->   include/trace/events/xdp.h |    4 ++--
->   net/core/filter.c          |   14 +++++++++++---
->   2 files changed, 13 insertions(+), 5 deletions(-)
->
-> diff --git a/include/trace/events/xdp.h b/include/trace/events/xdp.h
-> index 862575ac8da9..4e16c43fba10 100644
-> --- a/include/trace/events/xdp.h
-> +++ b/include/trace/events/xdp.h
-> @@ -138,11 +138,11 @@ DEFINE_EVENT_PRINT(xdp_redirect_template, xdp_redirect_map_err,
->
->   #define _trace_xdp_redirect_map(dev, xdp, fwd, map, idx)		\
->   	 trace_xdp_redirect_map(dev, xdp, fwd ? fwd->ifindex : 0,	\
-> -				0, map, idx);
-> +				0, map, idx)
->
->   #define _trace_xdp_redirect_map_err(dev, xdp, fwd, map, idx, err)	\
->   	 trace_xdp_redirect_map_err(dev, xdp, fwd ? fwd->ifindex : 0,	\
-> -				    err, map, idx);
-> +				    err, map, idx)
->
->   #endif /* _TRACE_XDP_H */
->
-> diff --git a/net/core/filter.c b/net/core/filter.c
-> index 5912c738a7b2..3767470cab6c 100644
-> --- a/net/core/filter.c
-> +++ b/net/core/filter.c
-> @@ -2566,13 +2566,19 @@ int xdp_do_generic_redirect(struct net_device *dev, struct sk_buff *skb,
->   			    struct bpf_prog *xdp_prog)
->   {
->   	struct redirect_info *ri = this_cpu_ptr(&redirect_info);
-> +	struct bpf_map *map = ri->map;
->   	u32 index = ri->ifindex;
->   	struct net_device *fwd;
->   	unsigned int len;
->   	int err = 0;
->
-> -	fwd = dev_get_by_index_rcu(dev_net(dev), index);
->   	ri->ifindex = 0;
-> +	ri->map = NULL;
-> +
-> +	if (map)
-> +		fwd = __dev_map_lookup_elem(map, index);
-> +	else
-> +		fwd = dev_get_by_index_rcu(dev_net(dev), index);
->   	if (unlikely(!fwd)) {
->   		err = -EINVAL;
->   		goto err;
-> @@ -2590,10 +2596,12 @@ int xdp_do_generic_redirect(struct net_device *dev, struct sk_buff *skb,
->   	}
->
->   	skb->dev = fwd;
+>  drivers/net/usb/lan78xx.c | 4 ++++
+>  1 file changed, 4 insertions(+)
+> 
+> diff --git a/drivers/net/usb/lan78xx.c b/drivers/net/usb/lan78xx.c
+> index baf91c7..94ef943 100644
+> --- a/drivers/net/usb/lan78xx.c
+> +++ b/drivers/net/usb/lan78xx.c
+> @@ -1299,6 +1299,10 @@ static int lan78xx_ethtool_set_eeprom(struct net_device *netdev,
 
-Looks much better above, thanks!
+static int lan78xx_ethtool_set_eeprom(struct net_device *netdev,
+                                      struct ethtool_eeprom *ee, u8 *data)
+{
+        struct lan78xx_net *dev = netdev_priv(netdev);
 
-> -	_trace_xdp_redirect(dev, xdp_prog, index);
-> +	map ? _trace_xdp_redirect_map(dev, xdp_prog, fwd, map, index)
-> +		: _trace_xdp_redirect(dev, xdp_prog, index);
 
-Could we rather make this in a way such that when the two
-tracepoints are disabled and thus patched out, that we can
-also omit the extra conditional which has no purpose then?
-Perhaps just a consolidated _trace_xdp_generic_redirect_map()
-would be better to avoid this altogether given we have twice
-the same anyway, here and in err path.
+        /* Allow entire eeprom update only */
+        if ((ee->magic == LAN78XX_EEPROM_MAGIC) &&
+            (ee->offset == 0) &&
+            (ee->len == 512) &&
+            (data[0] == EEPROM_INDICATOR))
+                return lan78xx_write_raw_eeprom(dev, ee->offset, ee->len, data);
+       else if ((ee->magic == LAN78XX_OTP_MAGIC) &&
+>  		 (ee->len == 512) &&
+>  		 (data[0] == OTP_INDICATOR_1))
+>  		ret = lan78xx_write_raw_otp(dev, ee->offset, ee->len, data);
+> +	else if ((ee->magic == LAN78XX_EEPROM_MAGIC) &&
+> +		 (ee->offset >= 0 && ee->offset < MAX_EEPROM_SIZE) &&
+> +		 (ee->len > 0 && (ee->offset + ee->len) <= MAX_EEPROM_SIZE))
+> +		ret = lan78xx_write_raw_eeprom(dev, ee->offset, ee->len, data);
+>  
+>  	usb_autopm_put_interface(dev->intf);
 
-Thanks,
-Daniel
+Hi Nisar
 
->   	return 0;
->   err:
-> -	_trace_xdp_redirect_err(dev, xdp_prog, index, err);
-> +	map ? _trace_xdp_redirect_map_err(dev, xdp_prog, fwd, map, index, err)
-> +		: _trace_xdp_redirect_err(dev, xdp_prog, index, err);
->   	return err;
->   }
->   EXPORT_SYMBOL_GPL(xdp_do_generic_redirect);
->
+You should explain why this change cannot be folded into the first if
+statement.
+
+	Andrew
