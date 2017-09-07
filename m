@@ -1,41 +1,47 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [V2 PATCH net-next 0/2] Fixes for XDP_REDIRECT map
-Date: Thu, 07 Sep 2017 14:33:08 +0200
-Message-ID: <150478756604.28665.6915020425359475729.stgit@firesoul>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [PATCH] iwlwifi: mvm: only send LEDS_CMD when the FW supports it
+Date: Thu, 07 Sep 2017 15:39:05 +0300
+Message-ID: <877exan0nq.fsf@kamboji.qca.qualcomm.com>
+References: <CA+55aFxjHSW7v4Ttu7mGPkxdGpR-WtVoxDT5qtwxUC-Dge5a5A@mail.gmail.com>
+        <20170907075152.4522-1-luca@coelho.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Daniel Borkmann <borkmann@iogearbox.net>,
-        John Fastabend <john.fastabend@gmail.com>,
-        Andy Gospodarek <andy@greyhouse.net>,
-        Jesper Dangaard Brouer <brouer@redhat.com>
-To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56074 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754964AbdIGMdL (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 7 Sep 2017 08:33:11 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: linux-wireless@vger.kernel.org, johannes@sipsolutions.net,
+        linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
+        netdev@vger.kernel.org, davem@davemloft.net,
+        emmanuel.grumbach@intel.com, Luca Coelho <luciano.coelho@intel.com>
+To: torvalds@linux-foundation.org, Luca Coelho <luca@coelho.fi>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170907075152.4522-1-luca@coelho.fi> (Luca Coelho's message of
+        "Thu, 7 Sep 2017 10:51:52 +0300")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This my V2 of catching XDP_REDIRECT and bpf_redirect_map() API usage
-that can potentially crash the kernel.  Addressed Daniels feedback in
-patch01, and added patch02 which catch and cleanup dangling map
-pointers.
+Luca Coelho <luca@coelho.fi> writes:
 
-I know John and Daniel are working on a more long-term solution, of
-recording the bpf_prog pointer together with the map pointer.  I just
-wanted to propose these fixes as a stop-gap to the potential crashes.
+> From: Luca Coelho <luciano.coelho@intel.com>
+>
+> The LEDS_CMD command is only supported in some newer FW versions
+> (e.g. iwlwifi-8000C-31.ucode), so we can't send it to older versions
+> (such as iwlwifi-8000C-27.ucode).
+>
+> To fix this, check for a new bit in the FW capabilities TLV that tells
+> when the command is supported.
+>
+> Note that the current version of -31.ucode in linux-firmware.git
+> (31.532993.0) does not have this capability bit set, so the LED won't
+> work, even though this version should support it.  But we will update
+> this firmware soon, so it won't be a problem anymore.
+>
+> Fixes: 7089ae634c50 ("iwlwifi: mvm: use firmware LED command where applicable")
+> Reported-by: Linus Torvalds <torvalds@linux-foundation.org>
+> Signed-off-by: Luca Coelho <luciano.coelho@intel.com>
 
----
+Linus, do you want to apply this directly or should we take it via the
+normal route (wireless-drivers -> net)? If your prefer the latter when
+I'm planning to submit this to Dave in a day or two and expecting it to
+get to your tree in about a week, depending of course what is Dave's
+schedule.
 
-Jesper Dangaard Brouer (2):
-      xdp: implement xdp_redirect_map for generic XDP
-      xdp: catch invalid XDP_REDIRECT API usage
-
-
- include/linux/filter.h     |    1 +
- include/trace/events/xdp.h |    4 ++--
- net/core/dev.c             |    3 +++
- net/core/filter.c          |   39 ++++++++++++++++++++++++++++++++++++---
- 4 files changed, 42 insertions(+), 5 deletions(-)
+-- 
+Kalle Valo
