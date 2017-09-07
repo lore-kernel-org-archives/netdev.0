@@ -1,63 +1,36 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [RFC net-next 0/5] TSN: Add qdisc-based config interfaces for
- traffic shapers
-Date: Thu, 7 Sep 2017 17:53:15 +0200
-Message-ID: <20170907155315.5gqy5e4susl25wa2@localhost>
-References: <20170901012625.14838-1-vinicius.gomes@intel.com>
- <20170907053411.GA6580@sisyphus.home.austad.us>
- <20170907124018.deinzo3c4ice3q7n@localhost>
- <20170907152751.GA9064@sisyphus.home.austad.us>
+From: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Subject: Re: [PATCH] iwlwifi: mvm: only send LEDS_CMD when the FW supports it
+Date: Thu, 7 Sep 2017 09:13:00 -0700
+Message-ID: <CA+55aFyeEwg7vd8FPHqG+4d7KbJ6ke4NDwhd+8y=_auRApyvmw@mail.gmail.com>
+References: <CA+55aFxjHSW7v4Ttu7mGPkxdGpR-WtVoxDT5qtwxUC-Dge5a5A@mail.gmail.com>
+ <20170907075152.4522-1-luca@coelho.fi> <877exan0nq.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vinicius Costa Gomes <vinicius.gomes@intel.com>,
-        netdev@vger.kernel.org, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
-        jiri@resnulli.us, intel-wired-lan@lists.osuosl.org,
-        andre.guedes@intel.com, ivan.briano@intel.com,
-        jesus.sanchez-palencia@intel.com, boon.leong.ong@intel.com
-To: Henrik Austad <henrik@austad.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f181.google.com ([209.85.128.181]:35774 "EHLO
-        mail-wr0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752200AbdIGPxV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 7 Sep 2017 11:53:21 -0400
-Received: by mail-wr0-f181.google.com with SMTP id m18so261274wrm.2
-        for <netdev@vger.kernel.org>; Thu, 07 Sep 2017 08:53:21 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20170907152751.GA9064@sisyphus.home.austad.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Luca Coelho <luca-XPOmlcxoEMv1KXRcyAk9cg@public.gmane.org>,
+        Linux Wireless List <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+        Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+        Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Emmanuel Grumbach <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        Luca Coelho <luciano.coelho-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+To: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <877exan0nq.fsf-HodKDYzPHsUD5k0oWYwrnHL1okKdlPRT@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 07, 2017 at 05:27:51PM +0200, Henrik Austad wrote:
-> On Thu, Sep 07, 2017 at 02:40:18PM +0200, Richard Cochran wrote:
-> And if you want to this driver to act as a bridge, how do you accomodate 
-> change in network requirements? (i.e. how does this work with switchdev?)
+On Thu, Sep 7, 2017 at 5:39 AM, Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org> wrote:
+>
+> Linus, do you want to apply this directly or should we take it via the
+> normal route (wireless-drivers -> net)? If your prefer the latter when
+> I'm planning to submit this to Dave in a day or two and expecting it to
+> get to your tree in about a week, depending of course what is Dave's
+> schedule.
 
-To my understanding, this Qdisc idea provides QoS for the host's
-transmitted traffic, and nothing more.
+Since we have a workaround for the problem, let's just go through the
+regular channels. As long as I get the fix through David before the
+merge window closes, I'm happy.
 
-> - Or am I overthinking this?
-
-Being able to configure the external ports of a switchdev is probably
-a nice feature, but that is another story.  (But maybe I misunderstood
-the authors' intent!)
-
-> If you have more than 1 application in userspace that wants to send data 
-> using this scheduler, how do you ensure fair transmission of frames? (both 
-> how much bandwidth they use,
-
-There are many ways to handle this, and we shouldn't put any of that
-policy into the kernel.  For example, there might be a monolithic
-application with configurable threads, or an allocation server that
-grants bandwidth to applications via IPC, or a multiplexing stream
-server like jack, pulse, etc, and so on...
-
-> but also ordering of frames from each application)
-
-Not sure what you mean by this.
-
-> Do you expect all of this to be handled in userspace?
-
-Yes, I do.
-
-Thanks,
-Richard
+              Linus
