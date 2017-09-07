@@ -1,42 +1,197 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 0/4] Add support for dpipe's global header
- formatting
-Date: Thu, 7 Sep 2017 15:13:23 -0700
-Message-ID: <20170907151323.74aecbdd@xeon-e3>
-References: <1504794403-45690-1-git-send-email-arkadis@mellanox.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, jiri@resnulli.us,
-        mlxsw@mellanox.com, andrew@lunn.ch
-To: Arkadi Sharshevsky <arkadis@mellanox.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net] bpf: don't select potentially stale ri->map from buggy xdp progs
+Date: Fri,  8 Sep 2017 00:14:51 +0200
+Message-ID: <01d69254802986ad3a8b18a8650c45df3df95def.1504821825.git.daniel@iogearbox.net>
+Cc: ast@fb.com, john.fastabend@gmail.com, brouer@redhat.com,
+        andy@greyhouse.net, netdev@vger.kernel.org,
+        Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f42.google.com ([74.125.83.42]:33861 "EHLO
-        mail-pg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932238AbdIGWNZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 7 Sep 2017 18:13:25 -0400
-Received: by mail-pg0-f42.google.com with SMTP id q68so1732553pgq.1
-        for <netdev@vger.kernel.org>; Thu, 07 Sep 2017 15:13:25 -0700 (PDT)
-In-Reply-To: <1504794403-45690-1-git-send-email-arkadis@mellanox.com>
+Received: from www62.your-server.de ([213.133.104.62]:49119 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932238AbdIGWO5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 7 Sep 2017 18:14:57 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu,  7 Sep 2017 17:26:39 +0300
-Arkadi Sharshevsky <arkadis@mellanox.com> wrote:
+We can potentially run into a couple of issues with the XDP
+bpf_redirect_map() helper. The ri->map in the per CPU storage
+can become stale in several ways, mostly due to misuse, where
+we can then trigger a use after free on the map:
 
-> Some dpipe's global header values need special formatting, for example
-> Ethernet and IP addresses. This patchset adds support for IPv4/6 and
-> Ethernet's special format.
-> 
-> Arkadi Sharshevsky (4):
->   devlink: Make match/action parsing more flexible
->   devlink: Add support for special format protocol headers
->   devlink: Update devlink UAPI file
->   devlink: Add support for protocol IPv4/IPv6/Ethernet special formats
-> 
->  devlink/devlink.c       | 319 +++++++++++++++++++++++++++++++++++++-----------
->  include/linux/devlink.h |  18 +++
->  2 files changed, 265 insertions(+), 72 deletions(-)
-> 
+i) prog A is calling bpf_redirect_map(), returning XDP_REDIRECT
+and running on a driver not supporting XDP_REDIRECT yet. The
+ri->map on that CPU becomes stale when the XDP program is unloaded
+on the driver, and a prog B loaded on a different driver which
+supports XDP_REDIRECT return code. prog B would have to omit
+calling to bpf_redirect_map() and just return XDP_REDIRECT, which
+would then access the freed map in xdp_do_redirect() since not
+cleared for that CPU.
 
-Applied 1,2 and 4.  #3 was not needed.
+ii) prog A is calling bpf_redirect_map(), returning a code other
+than XDP_REDIRECT. prog A is then detached, which triggers release
+of the map. prog B is attached which, similarly as in i), would
+just return XDP_REDIRECT without having called bpf_redirect_map()
+and thus be accessing the freed map in xdp_do_redirect() since
+not cleared for that CPU.
+
+iii) prog A is attached to generic XDP, calling the bpf_redirect_map()
+helper and returning XDP_REDIRECT. xdp_do_generic_redirect() is
+currently not handling ri->map (will be fixed by Jesper), so it's
+not being reset. Later loading a e.g. native prog B which would,
+say, call bpf_xdp_redirect() and then returns XDP_REDIRECT would
+find in xdp_do_redirect() that a map was set and uses that causing
+use after free on map access.
+
+Fix thus needs to avoid accessing stale ri->map pointers, naive
+way would be to call a BPF function from drivers that just resets
+it to NULL for all XDP return codes but XDP_REDIRECT and including
+XDP_REDIRECT for drivers not supporting it yet (and let ri->map
+being handled in xdp_do_generic_redirect()). There is a less
+intrusive way w/o letting drivers call a reset for each BPF run.
+
+The verifier knows we're calling into bpf_xdp_redirect_map()
+helper, so it can do a small insn rewrite transparent to the prog
+itself in the sense that it fills R4 with a pointer to the own
+bpf_prog. We have that pointer at verification time anyway and
+R4 is allowed to be used as per calling convention we scratch
+R0 to R5 anyway, so they become inaccessible and program cannot
+read them prior to a write. Then, the helper would store the prog
+pointer in the current CPUs struct redirect_info. Later in
+xdp_do_*_redirect() we check whether the redirect_info's prog
+pointer is the same as passed xdp_prog pointer, and if that's
+the case then all good, since the prog holds a ref on the map
+anyway, so it is always valid at that point in time and must
+have a reference count of at least 1. If in the unlikely case
+they are not equal, it means we got a stale pointer, so we clear
+and bail out right there. Also do reset map and the owning prog
+in bpf_xdp_redirect(), so that bpf_xdp_redirect_map() and
+bpf_xdp_redirect() won't get mixed up, only the last call should
+take precedence. A tc bpf_redirect() doesn't use map anywhere
+yet, so no need to clear it there since never accessed in that
+layer.
+
+Note that in case the prog is released, and thus the map as
+well we're still under RCU read critical section at that time
+and have preemption disabled as well. Once we commit with the
+__dev_map_insert_ctx() from xdp_do_redirect_map() and set the
+map to ri->map_to_flush, we still wait for a xdp_do_flush_map()
+to finish in devmap dismantle time once flush_needed bit is set,
+so that is fine.
+
+Fixes: 97f91a7cf04f ("bpf: add bpf_redirect_map helper routine")
+Reported-by: Jesper Dangaard Brouer <brouer@redhat.com>
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Signed-off-by: John Fastabend <john.fastabend@gmail.com>
+---
+ kernel/bpf/verifier.c | 16 ++++++++++++++++
+ net/core/filter.c     | 21 +++++++++++++++++++--
+ 2 files changed, 35 insertions(+), 2 deletions(-)
+
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index d690c7d..477b693 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -4203,6 +4203,22 @@ static int fixup_bpf_calls(struct bpf_verifier_env *env)
+ 			continue;
+ 		}
+ 
++		if (insn->imm == BPF_FUNC_redirect_map) {
++			u64 addr = (unsigned long)prog;
++			struct bpf_insn r4_ld[] = {
++				BPF_LD_IMM64(BPF_REG_4, addr),
++				*insn,
++			};
++			cnt = ARRAY_SIZE(r4_ld);
++
++			new_prog = bpf_patch_insn_data(env, i + delta, r4_ld, cnt);
++			if (!new_prog)
++				return -ENOMEM;
++
++			delta    += cnt - 1;
++			env->prog = prog = new_prog;
++			insn      = new_prog->insnsi + i + delta;
++		}
+ patch_call_imm:
+ 		fn = prog->aux->ops->get_func_proto(insn->imm);
+ 		/* all functions that have prototype and verifier allowed
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 5912c73..0848df2 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -1794,6 +1794,7 @@ struct redirect_info {
+ 	u32 flags;
+ 	struct bpf_map *map;
+ 	struct bpf_map *map_to_flush;
++	const struct bpf_prog *map_owner;
+ };
+ 
+ static DEFINE_PER_CPU(struct redirect_info, redirect_info);
+@@ -1807,7 +1808,6 @@ struct redirect_info {
+ 
+ 	ri->ifindex = ifindex;
+ 	ri->flags = flags;
+-	ri->map = NULL;
+ 
+ 	return TC_ACT_REDIRECT;
+ }
+@@ -2504,6 +2504,7 @@ static int xdp_do_redirect_map(struct net_device *dev, struct xdp_buff *xdp,
+ 			       struct bpf_prog *xdp_prog)
+ {
+ 	struct redirect_info *ri = this_cpu_ptr(&redirect_info);
++	const struct bpf_prog *map_owner = ri->map_owner;
+ 	struct bpf_map *map = ri->map;
+ 	u32 index = ri->ifindex;
+ 	struct net_device *fwd;
+@@ -2511,6 +2512,15 @@ static int xdp_do_redirect_map(struct net_device *dev, struct xdp_buff *xdp,
+ 
+ 	ri->ifindex = 0;
+ 	ri->map = NULL;
++	ri->map_owner = NULL;
++
++	/* This is really only caused by a deliberately crappy
++	 * BPF program, normally we would never hit that case,
++	 * so no need to inform someone via tracepoints either,
++	 * just bail out.
++	 */
++	if (unlikely(map_owner != xdp_prog))
++		return -EINVAL;
+ 
+ 	fwd = __dev_map_lookup_elem(map, index);
+ 	if (!fwd) {
+@@ -2607,6 +2617,8 @@ int xdp_do_generic_redirect(struct net_device *dev, struct sk_buff *skb,
+ 
+ 	ri->ifindex = ifindex;
+ 	ri->flags = flags;
++	ri->map = NULL;
++	ri->map_owner = NULL;
+ 
+ 	return XDP_REDIRECT;
+ }
+@@ -2619,7 +2631,8 @@ int xdp_do_generic_redirect(struct net_device *dev, struct sk_buff *skb,
+ 	.arg2_type      = ARG_ANYTHING,
+ };
+ 
+-BPF_CALL_3(bpf_xdp_redirect_map, struct bpf_map *, map, u32, ifindex, u64, flags)
++BPF_CALL_4(bpf_xdp_redirect_map, struct bpf_map *, map, u32, ifindex, u64, flags,
++	   const struct bpf_prog *, map_owner)
+ {
+ 	struct redirect_info *ri = this_cpu_ptr(&redirect_info);
+ 
+@@ -2629,10 +2642,14 @@ int xdp_do_generic_redirect(struct net_device *dev, struct sk_buff *skb,
+ 	ri->ifindex = ifindex;
+ 	ri->flags = flags;
+ 	ri->map = map;
++	ri->map_owner = map_owner;
+ 
+ 	return XDP_REDIRECT;
+ }
+ 
++/* Note, arg4 is hidden from users and populated by the verifier
++ * with the right pointer.
++ */
+ static const struct bpf_func_proto bpf_xdp_redirect_map_proto = {
+ 	.func           = bpf_xdp_redirect_map,
+ 	.gpl_only       = false,
+-- 
+1.9.3
