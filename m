@@ -1,35 +1,63 @@
-From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-Subject: [PATCH] net: ethernet: ti: netcp_core: no need in netif_napi_del
-Date: Thu,  7 Sep 2017 18:32:30 +0300
-Message-ID: <1504798350-790-1-git-send-email-ivan.khoronzhuk@linaro.org>
-Cc: linux-kernel@vger.kernel.org, grygorii.strashko@ti.com,
-        Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-To: w-kwok2@ti.com, m-karicheri2@ti.com, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [RFC net-next 0/5] TSN: Add qdisc-based config interfaces for
+ traffic shapers
+Date: Thu, 7 Sep 2017 17:53:15 +0200
+Message-ID: <20170907155315.5gqy5e4susl25wa2@localhost>
+References: <20170901012625.14838-1-vinicius.gomes@intel.com>
+ <20170907053411.GA6580@sisyphus.home.austad.us>
+ <20170907124018.deinzo3c4ice3q7n@localhost>
+ <20170907152751.GA9064@sisyphus.home.austad.us>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Vinicius Costa Gomes <vinicius.gomes@intel.com>,
+        netdev@vger.kernel.org, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
+        jiri@resnulli.us, intel-wired-lan@lists.osuosl.org,
+        andre.guedes@intel.com, ivan.briano@intel.com,
+        jesus.sanchez-palencia@intel.com, boon.leong.ong@intel.com
+To: Henrik Austad <henrik@austad.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f181.google.com ([209.85.128.181]:35774 "EHLO
+        mail-wr0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752200AbdIGPxV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 7 Sep 2017 11:53:21 -0400
+Received: by mail-wr0-f181.google.com with SMTP id m18so261274wrm.2
+        for <netdev@vger.kernel.org>; Thu, 07 Sep 2017 08:53:21 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20170907152751.GA9064@sisyphus.home.austad.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Don't remove rx_napi specifically just before free_netdev(),
-it's supposed to be done in it and is confusing w/o tx_napi deletion.
+On Thu, Sep 07, 2017 at 05:27:51PM +0200, Henrik Austad wrote:
+> On Thu, Sep 07, 2017 at 02:40:18PM +0200, Richard Cochran wrote:
+> And if you want to this driver to act as a bridge, how do you accomodate 
+> change in network requirements? (i.e. how does this work with switchdev?)
 
-Signed-off-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
----
-Based on net-next/master
+To my understanding, this Qdisc idea provides QoS for the host's
+transmitted traffic, and nothing more.
 
- drivers/net/ethernet/ti/netcp_core.c | 1 -
- 1 file changed, 1 deletion(-)
+> - Or am I overthinking this?
 
-diff --git a/drivers/net/ethernet/ti/netcp_core.c b/drivers/net/ethernet/ti/netcp_core.c
-index eb96a69..437d362 100644
---- a/drivers/net/ethernet/ti/netcp_core.c
-+++ b/drivers/net/ethernet/ti/netcp_core.c
-@@ -2145,7 +2145,6 @@ static void netcp_delete_interface(struct netcp_device *netcp_device,
- 
- 	of_node_put(netcp->node_interface);
- 	unregister_netdev(ndev);
--	netif_napi_del(&netcp->rx_napi);
- 	free_netdev(ndev);
- }
- 
--- 
-2.7.4
+Being able to configure the external ports of a switchdev is probably
+a nice feature, but that is another story.  (But maybe I misunderstood
+the authors' intent!)
+
+> If you have more than 1 application in userspace that wants to send data 
+> using this scheduler, how do you ensure fair transmission of frames? (both 
+> how much bandwidth they use,
+
+There are many ways to handle this, and we shouldn't put any of that
+policy into the kernel.  For example, there might be a monolithic
+application with configurable threads, or an allocation server that
+grants bandwidth to applications via IPC, or a multiplexing stream
+server like jack, pulse, etc, and so on...
+
+> but also ordering of frames from each application)
+
+Not sure what you mean by this.
+
+> Do you expect all of this to be handled in userspace?
+
+Yes, I do.
+
+Thanks,
+Richard
