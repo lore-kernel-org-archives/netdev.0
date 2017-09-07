@@ -1,45 +1,77 @@
-From: Baruch Siach <baruch@tkos.co.il>
-Subject: [PATCH] dt-bindings: net: don't confuse with generic PHY property
-Date: Thu,  7 Sep 2017 11:09:59 +0300
-Message-ID: <2e201cc1cff4fad372f589c83c4c438b3dccbadf.1504771799.git.baruch@tkos.co.il>
-Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
-        Baruch Siach <baruch@tkos.co.il>
-To: "David S. Miller" <davem@davemloft.net>,
-        Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>
+From: Sekhar Nori <nsekhar@ti.com>
+Subject: Re: Fwd: DA850-evm MAC Address is random
+Date: Thu, 7 Sep 2017 14:06:37 +0530
+Message-ID: <37fd2aaa-0802-9fde-61ee-43bdc287ff36@ti.com>
+References: <CAHCN7xKwFd7dHF0ySEd1hOSr0sZEgh9fuwy=RkUTHvEh59hojQ@mail.gmail.com>
+ <b7aab9fc-17ba-077b-3ff3-28087e0b25bc@ti.com>
+ <CAHCN7xLHEjda9DcVw5iHA9RaJ7UnyMVxf7e4e8NTEj9Op1JaBw@mail.gmail.com>
+ <20170828211217.GO6008@atomide.com>
+ <94c4cbb0-1df3-2f2f-69f3-f9a788e610fa@ti.com>
+ <CAHCN7x+-wymsqw96mt7Du=Huxh5rq=Rj9GidWPLXptJSW7taEA@mail.gmail.com>
+ <f0f5e11f-cd7a-cb86-58b5-8ce44cdbc032@ti.com>
+ <CAHCN7xK2=PN5MOr48HOkZnwKwkM4ypcvQct+Ko+ChNFG3Pv62w@mail.gmail.com>
+ <955b0b1b-9bb7-ad25-4d6c-676be1efb943@ti.com>
+ <CAHCN7x+paAdW7cXrALhtLZZiJbkE6v_8_qRXBec7hxLJPvSMbw@mail.gmail.com>
+ <CAHCN7xKfZeyTHZShWGYYen50NSzTErh8X8np3WJfrYTBrO_RPw@mail.gmail.com>
+ <ffec81da-78b6-7f1a-e477-ab0a9d2e4f37@ti.com>
+ <1865772b-482e-042e-7c66-d33290f0d8fb@ti.com>
+ <CAHCN7xLTfELMtcMLx=mKAsJrkuvH4Ubd-8rTGswUWC5nofU7mg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Tony Lindgren <tony@atomide.com>,
+        Grygorii Strashko <grygorii.strashko@ti.com>,
+        <linux-omap@vger.kernel.org>, <netdev@vger.kernel.org>
+To: Adam Ford <aford173@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from guitar.tcltek.co.il ([192.115.133.116]:47751 "EHLO
-        mx.tkos.co.il" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754124AbdIGIKc (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 7 Sep 2017 04:10:32 -0400
+Received: from fllnx210.ext.ti.com ([198.47.19.17]:27488 "EHLO
+        fllnx210.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753973AbdIGIgm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 7 Sep 2017 04:36:42 -0400
+In-Reply-To: <CAHCN7xLTfELMtcMLx=mKAsJrkuvH4Ubd-8rTGswUWC5nofU7mg@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This complements commit 9a94b3a4bd (dt-binding: phy: don't confuse with
-Ethernet phy properties).
+On Thursday 07 September 2017 03:11 AM, Adam Ford wrote:
+> On Mon, Sep 4, 2017 at 11:42 PM, Sekhar Nori <nsekhar@ti.com> wrote:
+>> Hi Adam,
+>>
+>> On Wednesday 30 August 2017 11:08 AM, Sekhar Nori wrote:
+>>>> I wonder if U-Boot isn't pushing something to Linux because it doesn't
+>>>> appear to be running some of the da850 specific code even when I run
+>>>> linux-next.  Can you tell me what verision of U-Boot you're using?
+>>>> Other than using davinci_all_defconfig, did you change the
+>>>> configuration at all?
+>>
+>>> I am using U-Boot 2017.01. Yes, the kernel was built using
+>>> davinci_all_defconfig and no other config change. Before booting kernel,
+>>> can you confirm that ethaddr is set in U-Boot environment? This is what
+>>> fdt_fixup_ethernet() reads to fixup the FDT before boot.
+>>>
+>>> Here is my complete boot log with environment variable dump.
+>>>
+>>> http://pastebin.ubuntu.com/25430265/
+>>
+>> Were you able to get rid of the random mac address problem?
+> 
+> Not yet.  I haven't been able to rebuild Arago using TI's instructions
+> on the Wiki.  I am not sure if it's a dependency issue or something
+> else.  When I run Linux 4.13 using Buildroot as the rootfs, it does
+> not appear to run da850_evm_m25p80_notify_add().  I am going to
+> investigate whether or not da850_evm_init() is getting called.  I was
+> wondering if you had some insight as to what calls that function?  It
+> looks like it's defined as part of MACHINE_START(DAVINCI_DA850_EVM,
+> "DaVinci DA850/OMAP-L138/AM18x EVM"), but I don't know how it gets
+> called.
 
-The generic PHY 'phys' property sometime appears in the same node with
-the Ethernet PHY 'phy' or 'phy-handle' properties. Add a warning in
-ethernet.txt to reduce confusion.
+These functions are called only when booting using the legacy board file
+method. From your logs before, you are booting using device tree. So
+these functions are irrelevant.
 
-Signed-off-by: Baruch Siach <baruch@tkos.co.il>
----
- Documentation/devicetree/bindings/net/ethernet.txt | 4 ++++
- 1 file changed, 4 insertions(+)
+Can you check if the mac address has been populated in the device-tree
+by dumping it from /proc/device-tree/.../local-mac-address? That will
+tell us if U-Boot is updating the mac address or not.
 
-diff --git a/Documentation/devicetree/bindings/net/ethernet.txt b/Documentation/devicetree/bindings/net/ethernet.txt
-index 7da86f22a13b..2974e63ba311 100644
---- a/Documentation/devicetree/bindings/net/ethernet.txt
-+++ b/Documentation/devicetree/bindings/net/ethernet.txt
-@@ -1,5 +1,9 @@
- The following properties are common to the Ethernet controllers:
- 
-+NOTE: All 'phy*' properties documented below are Ethernet specific. For the
-+generic PHY 'phys' property, see
-+Documentation/devicetree/bindings/phy/phy-bindings.txt.
-+
- - local-mac-address: array of 6 bytes, specifies the MAC address that was
-   assigned to the network device;
- - mac-address: array of 6 bytes, specifies the MAC address that was last used by
--- 
-2.14.1
+Thanks,
+Sekhar
