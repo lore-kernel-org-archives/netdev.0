@@ -1,332 +1,86 @@
-From: Amritha Nambiar <amritha.nambiar@intel.com>
-Subject: [RFC,
- iproute2 PATCH v2] tc/mqprio: Offload mode and shaper options in
- mqprio
-Date: Thu, 07 Sep 2017 04:03:47 -0700
-Message-ID: <150478222784.24794.2140314459685193340.stgit@anamdev.jf.intel.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH] netfilter: xt_hashlimit: avoid 64-bit division
+Date: Thu, 7 Sep 2017 13:16:15 +0200
+Message-ID: <CAK8P3a0tTApdk_mbxd_Xm4j0X6-=u6Zxg9wGyp_bPp5aov_mtw@mail.gmail.com>
+References: <20170906195825.3715290-1-arnd@arndb.de> <7791dee1-64a9-dcaa-c5d9-0b04a44bc526@akamai.com>
+ <CAK8P3a1GxBjWqnK+fdKmzOhXyFK1XbCFWau8md3OjnLjUZOeDg@mail.gmail.com> <20170907101931.GB2049@salvia>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: alexander.h.duyck@intel.com, amritha.nambiar@intel.com
-To: stephen@networkplumber.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Vishwanath Pai <vpai@akamai.com>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        Florian Westphal <fw@strlen.de>,
+        "David S. Miller" <davem@davemloft.net>,
+        Josh Hunt <johunt@akamai.com>, netfilter-devel@vger.kernel.org,
+        coreteam@netfilter.org, Networking <netdev@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:61588 "EHLO mga11.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753927AbdIGLEx (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 7 Sep 2017 07:04:53 -0400
+Received: from mail-oi0-f65.google.com ([209.85.218.65]:35049 "EHLO
+        mail-oi0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754188AbdIGLQR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 7 Sep 2017 07:16:17 -0400
+In-Reply-To: <20170907101931.GB2049@salvia>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adds new mqprio options for 'mode' and 'shaper'. The mode
-option can take values for offload modes such as 'dcb' (default),
-'channel' with the 'hw' option set to 1. The 'shaper' option is
-to support HW shapers ('dcb' default) and takes the value
-'bw_rlimit' for bandwidth rate limiting. The parameters to the
-bw_rlimit shaper are minimum and maximum bandwidth rates.
-New HW shapers in future can be supported through the shaper
-attribute.
+On Thu, Sep 7, 2017 at 12:19 PM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
+> On Wed, Sep 06, 2017 at 10:48:22PM +0200, Arnd Bergmann wrote:
+>> On Wed, Sep 6, 2017 at 10:22 PM, Vishwanath Pai <vpai@akamai.com> wrote:
+>> > On 09/06/2017 03:57 PM, Arnd Bergmann wrote:
+>> >> 64-bit division is expensive on 32-bit architectures, and
+>> >> requires a special function call to avoid a link error like:
+>> >>
+>> >> net/netfilter/xt_hashlimit.o: In function `hashlimit_mt_common':
+>> >> xt_hashlimit.c:(.text+0x1328): undefined reference to `__aeabi_uldivmod'
+>> >>
+>> >> In the case of hashlimit_mt_common, we don't actually need a
+>> >> 64-bit operation, we can simply rewrite the function slightly
+>> >> to make that clear to the compiler.
+>> >>
+>> >> Fixes: bea74641e378 ("netfilter: xt_hashlimit: add rate match mode")
+>> >> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+>> >> ---
+>> >>  net/netfilter/xt_hashlimit.c | 5 ++++-
+>> >>  1 file changed, 4 insertions(+), 1 deletion(-)
+>> >>
+>> >> diff --git a/net/netfilter/xt_hashlimit.c b/net/netfilter/xt_hashlimit.c
+>> >> index 10d48234f5f4..50b53d86eef5 100644
+>> >> --- a/net/netfilter/xt_hashlimit.c
+>> >> +++ b/net/netfilter/xt_hashlimit.c
+>> >> @@ -531,7 +531,10 @@ static u64 user2rate_bytes(u64 user)
+>> >>  {
+>> >>       u64 r;
+>> >>
+>> >> -     r = user ? 0xFFFFFFFFULL / user : 0xFFFFFFFFULL;
+>> >> +     if (user > 0xFFFFFFFFULL)
+>> >> +             return 0;
+>> >> +
+>> >> +     r = user ? 0xFFFFFFFFULL / (u32)user : 0xFFFFFFFFULL;
+>> >>       r = (r - 1) << 4;
+>> >>       return r;
+>> >>  }
+>> >>
+>> >
+>> > I have submitted another patch to fix this:
+>> > https://patchwork.ozlabs.org/patch/809881/
+>> >
+>> > We have seen this problem before, I was careful not to introduce this
+>> > again in the new patch but clearly I overlooked this particular line :(
+>> >
+>> > In the other cases we fixed it by replacing division with div64_u64().
+>>
+>> div64_u64() seems needlessly expensive here since the dividend
+>> is known to be a 32-bit number. I guess the function is not called
+>> frequently though, so it doesn't matter much.
+>
+> This is called from the packet path, only for the first packet for
+> each new destination IP entry in the hashtable, still from the
+> datapath. So if we can take something faster (for 32 bit arches) that
+> is correct, I think it's sensible to take.
+>
+> Let me know in any case.
 
-# tc qdisc add dev eth0 root mqprio num_tc 2  map 0 0 0 0 1 1 1 1\
-  queues 4@0 4@4 hw 1 mode channel shaper bw_rlimit\
-  min_rate 1Gbit 2Gbit max_rate 4Gbit 5Gbit
+I think my version should be slightly better then, unless someone
+finds something wrong with it.
 
-# tc qdisc show dev eth0
-
-qdisc mqprio 804a: root  tc 2 map 0 0 0 0 1 1 1 1 0 0 0 0 0 0 0 0
-             queues:(0:3) (4:7)
-             mode:channel
-             shaper:bw_rlimit   min_rate:1Gbit 2Gbit   max_rate:4Gbit 5Gbit
-
-Signed-off-by: Amritha Nambiar <amritha.nambiar@intel.com>
----
- include/linux/pkt_sched.h |   32 ++++++++
- tc/q_mqprio.c             |  191 +++++++++++++++++++++++++++++++++++++++++++--
- 2 files changed, 216 insertions(+), 7 deletions(-)
-
-diff --git a/include/linux/pkt_sched.h b/include/linux/pkt_sched.h
-index 099bf55..e95b5c9 100644
---- a/include/linux/pkt_sched.h
-+++ b/include/linux/pkt_sched.h
-@@ -625,6 +625,22 @@ enum {
- 
- #define TC_MQPRIO_HW_OFFLOAD_MAX (__TC_MQPRIO_HW_OFFLOAD_MAX - 1)
- 
-+enum {
-+	TC_MQPRIO_MODE_DCB,
-+	TC_MQPRIO_MODE_CHANNEL,
-+	__TC_MQPRIO_MODE_MAX
-+};
-+
-+#define __TC_MQPRIO_MODE_MAX (__TC_MQPRIO_MODE_MAX - 1)
-+
-+enum {
-+	TC_MQPRIO_SHAPER_DCB,
-+	TC_MQPRIO_SHAPER_BW_RATE,	/* Add new shapers below */
-+	__TC_MQPRIO_SHAPER_MAX
-+};
-+
-+#define __TC_MQPRIO_SHAPER_MAX (__TC_MQPRIO_SHAPER_MAX - 1)
-+
- struct tc_mqprio_qopt {
- 	__u8	num_tc;
- 	__u8	prio_tc_map[TC_QOPT_BITMASK + 1];
-@@ -633,6 +649,22 @@ struct tc_mqprio_qopt {
- 	__u16	offset[TC_QOPT_MAX_QUEUE];
- };
- 
-+#define TC_MQPRIO_F_MODE		0x1
-+#define TC_MQPRIO_F_SHAPER		0x2
-+#define TC_MQPRIO_F_MIN_RATE		0x4
-+#define TC_MQPRIO_F_MAX_RATE		0x8
-+
-+enum {
-+	TCA_MQPRIO_UNSPEC,
-+	TCA_MQPRIO_MODE,
-+	TCA_MQPRIO_SHAPER,
-+	TCA_MQPRIO_MIN_RATE64,
-+	TCA_MQPRIO_MAX_RATE64,
-+	__TCA_MQPRIO_MAX,
-+};
-+
-+#define TCA_MQPRIO_MAX (__TCA_MQPRIO_MAX - 1)
-+
- /* SFB */
- 
- enum {
-diff --git a/tc/q_mqprio.c b/tc/q_mqprio.c
-index d6718fb..5fec63d 100644
---- a/tc/q_mqprio.c
-+++ b/tc/q_mqprio.c
-@@ -27,6 +27,10 @@ static void explain(void)
- 	fprintf(stderr, "Usage: ... mqprio [num_tc NUMBER] [map P0 P1 ...]\n");
- 	fprintf(stderr, "                  [queues count1@offset1 count2@offset2 ...] ");
- 	fprintf(stderr, "[hw 1|0]\n");
-+	fprintf(stderr, "                  [mode dcb|channel]\n");
-+	fprintf(stderr, "                  [shaper bw_rlimit SHAPER_PARAMS]\n"
-+		"Where: SHAPER_PARAMS := { min_rate MIN_RATE1 MIN_RATE2 ...|\n"
-+		"                          max_rate MAX_RATE1 MAX_RATE2 ... }\n");
- }
- 
- static int mqprio_parse_opt(struct qdisc_util *qu, int argc,
-@@ -40,6 +44,12 @@ static int mqprio_parse_opt(struct qdisc_util *qu, int argc,
- 		.count = { },
- 		.offset = { },
- 	};
-+	__u64 min_rate64[TC_QOPT_MAX_QUEUE] = {0};
-+	__u64 max_rate64[TC_QOPT_MAX_QUEUE] = {0};
-+	__u16 shaper = TC_MQPRIO_SHAPER_DCB;
-+	__u16 mode = TC_MQPRIO_MODE_DCB;
-+	struct rtattr *tail;
-+	__u32 flags = 0;
- 
- 	while (argc > 0) {
- 		idx = 0;
-@@ -92,6 +102,68 @@ static int mqprio_parse_opt(struct qdisc_util *qu, int argc,
- 				return -1;
- 			}
- 			idx++;
-+		} else if (opt.hw && strcmp(*argv, "mode") == 0) {
-+			NEXT_ARG();
-+			if (matches(*argv, "dcb") == 0) {
-+				mode = TC_MQPRIO_MODE_DCB;
-+			} else if (matches(*argv, "channel") == 0) {
-+				mode = TC_MQPRIO_MODE_CHANNEL;
-+			}  else {
-+				fprintf(stderr, "Illegal mode (%s)\n",
-+					*argv);
-+				return -1;
-+			}
-+			if (mode != TC_MQPRIO_MODE_DCB)
-+				flags |= TC_MQPRIO_F_MODE;
-+			idx++;
-+		} else if (opt.hw && strcmp(*argv, "shaper") == 0) {
-+			NEXT_ARG();
-+			if (matches(*argv, "dcb") == 0) {
-+				shaper = TC_MQPRIO_SHAPER_DCB;
-+			} else if (matches(*argv, "bw_rlimit") == 0) {
-+				shaper = TC_MQPRIO_SHAPER_BW_RATE;
-+				if (!NEXT_ARG_OK()) {
-+					fprintf(stderr, "Incomplete shaper arguments\n");
-+					return -1;
-+				}
-+			}  else {
-+				fprintf(stderr, "Illegal shaper (%s)\n",
-+					*argv);
-+				return -1;
-+			}
-+			if (shaper != TC_MQPRIO_SHAPER_DCB)
-+				flags |= TC_MQPRIO_F_SHAPER;
-+			idx++;
-+		} else if ((shaper == TC_MQPRIO_SHAPER_BW_RATE) &&
-+			   strcmp(*argv, "min_rate") == 0) {
-+			while (idx < TC_QOPT_MAX_QUEUE && NEXT_ARG_OK()) {
-+				NEXT_ARG();
-+				if (get_rate64(&min_rate64[idx], *argv)) {
-+					PREV_ARG();
-+					break;
-+				}
-+				idx++;
-+			}
-+			if ((idx < opt.num_tc) && !NEXT_ARG_OK()) {
-+				fprintf(stderr, "Incomplete arguments, min_rate values expected\n");
-+				return -1;
-+			}
-+			flags |= TC_MQPRIO_F_MIN_RATE;
-+		} else if ((shaper == TC_MQPRIO_SHAPER_BW_RATE) &&
-+			   strcmp(*argv, "max_rate") == 0) {
-+			while (idx < TC_QOPT_MAX_QUEUE && NEXT_ARG_OK()) {
-+				NEXT_ARG();
-+				if (get_rate64(&max_rate64[idx], *argv)) {
-+					PREV_ARG();
-+					break;
-+				}
-+				idx++;
-+			}
-+			if ((idx < opt.num_tc) && !NEXT_ARG_OK()) {
-+				fprintf(stderr, "Incomplete arguments, max_rate values expected\n");
-+				return -1;
-+			}
-+			flags |= TC_MQPRIO_F_MAX_RATE;
- 		} else if (strcmp(*argv, "help") == 0) {
- 			explain();
- 			return -1;
-@@ -102,27 +174,132 @@ static int mqprio_parse_opt(struct qdisc_util *qu, int argc,
- 		argc--; argv++;
- 	}
- 
-+	tail = NLMSG_TAIL(n);
- 	addattr_l(n, 1024, TCA_OPTIONS, &opt, sizeof(opt));
-+
-+	if (flags & TC_MQPRIO_F_MODE)
-+		addattr_l(n, 1024, TCA_MQPRIO_MODE,
-+			  &mode, sizeof(mode));
-+	if (flags & TC_MQPRIO_F_SHAPER)
-+		addattr_l(n, 1024, TCA_MQPRIO_SHAPER,
-+			  &shaper, sizeof(shaper));
-+
-+	if (flags & TC_MQPRIO_F_MIN_RATE) {
-+		struct rtattr *start;
-+
-+		start = addattr_nest(n, 1024,
-+				     TCA_MQPRIO_MIN_RATE64 | NLA_F_NESTED);
-+
-+		for (idx = 0; idx < TC_QOPT_MAX_QUEUE; idx++)
-+			addattr_l(n, 1024, TCA_MQPRIO_MIN_RATE64,
-+				  &min_rate64[idx], sizeof(min_rate64[idx]));
-+
-+		addattr_nest_end(n, start);
-+	}
-+
-+	if (flags & TC_MQPRIO_F_MAX_RATE) {
-+		struct rtattr *start;
-+
-+		start = addattr_nest(n, 1024,
-+				     TCA_MQPRIO_MAX_RATE64 | NLA_F_NESTED);
-+
-+		for (idx = 0; idx < TC_QOPT_MAX_QUEUE; idx++)
-+			addattr_l(n, 1024, TCA_MQPRIO_MAX_RATE64,
-+				  &max_rate64[idx], sizeof(max_rate64[idx]));
-+
-+		addattr_nest_end(n, start);
-+	}
-+
-+	tail->rta_len = (void *)NLMSG_TAIL(n) - (void *)tail;
-+
- 	return 0;
- }
- 
- static int mqprio_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
- {
- 	int i;
--	struct tc_mqprio_qopt *qopt;
-+	struct tc_mqprio_qopt qopt;
-+	__u64 min_rate64[TC_QOPT_MAX_QUEUE] = {0};
-+	__u64 max_rate64[TC_QOPT_MAX_QUEUE] = {0};
-+	int len = RTA_PAYLOAD(opt) - RTA_ALIGN(sizeof(qopt));
-+
-+	SPRINT_BUF(b1);
- 
- 	if (opt == NULL)
- 		return 0;
- 
--	qopt = RTA_DATA(opt);
-+	if (len < 0) {
-+		fprintf(stderr, "options size error\n");
-+		return -1;
-+	}
-+
-+	memcpy(&qopt, RTA_DATA(opt), RTA_ALIGN(sizeof(qopt)));
- 
--	fprintf(f, " tc %u map ", qopt->num_tc);
-+	fprintf(f, " tc %u map ", qopt.num_tc);
- 	for (i = 0; i <= TC_PRIO_MAX; i++)
--		fprintf(f, "%u ", qopt->prio_tc_map[i]);
-+		fprintf(f, "%u ", qopt.prio_tc_map[i]);
- 	fprintf(f, "\n             queues:");
--	for (i = 0; i < qopt->num_tc; i++)
--		fprintf(f, "(%u:%u) ", qopt->offset[i],
--			qopt->offset[i] + qopt->count[i] - 1);
-+	for (i = 0; i < qopt.num_tc; i++)
-+		fprintf(f, "(%u:%u) ", qopt.offset[i],
-+			qopt.offset[i] + qopt.count[i] - 1);
-+
-+	if (len > 0) {
-+		struct rtattr *tb[TCA_MQPRIO_MAX + 1];
-+
-+		parse_rtattr(tb, TCA_MQPRIO_MAX,
-+			     RTA_DATA(opt) + RTA_ALIGN(sizeof(qopt)),
-+			     len);
-+
-+		if (tb[TCA_MQPRIO_MODE]) {
-+			__u16 *mode = RTA_DATA(tb[TCA_MQPRIO_MODE]);
-+
-+			if (*mode == TC_MQPRIO_MODE_CHANNEL)
-+				fprintf(f, "\n             mode:channel");
-+		} else {
-+			fprintf(f, "\n             mode:dcb");
-+		}
-+
-+		if (tb[TCA_MQPRIO_SHAPER]) {
-+			__u16 *shaper = RTA_DATA(tb[TCA_MQPRIO_SHAPER]);
-+
-+			if (*shaper == TC_MQPRIO_SHAPER_BW_RATE)
-+				fprintf(f, "\n             shaper:bw_rlimit");
-+		} else {
-+			fprintf(f, "\n             shaper:dcb");
-+		}
-+
-+		if (tb[TCA_MQPRIO_MIN_RATE64]) {
-+			struct rtattr *r;
-+			int rem = RTA_PAYLOAD(tb[TCA_MQPRIO_MIN_RATE64]);
-+			__u64 *min = min_rate64;
-+
-+			for (r = RTA_DATA(tb[TCA_MQPRIO_MIN_RATE64]);
-+			     RTA_OK(r, rem); r = RTA_NEXT(r, rem)) {
-+				if (r->rta_type != TCA_MQPRIO_MIN_RATE64)
-+					return -1;
-+				*(min++) = rta_getattr_u64(r);
-+			}
-+			fprintf(f, "	min_rate:");
-+			for (i = 0; i < qopt.num_tc; i++)
-+				fprintf(f, "%s ", sprint_rate(min_rate64[i], b1));
-+		}
-+
-+		if (tb[TCA_MQPRIO_MAX_RATE64]) {
-+			struct rtattr *r;
-+			int rem = RTA_PAYLOAD(tb[TCA_MQPRIO_MAX_RATE64]);
-+			__u64 *max = max_rate64;
-+
-+			for (r = RTA_DATA(tb[TCA_MQPRIO_MAX_RATE64]);
-+			     RTA_OK(r, rem); r = RTA_NEXT(r, rem)) {
-+				if (r->rta_type != TCA_MQPRIO_MAX_RATE64)
-+					return -1;
-+				*(max++) = rta_getattr_u64(r);
-+			}
-+			fprintf(f, "	max_rate:");
-+			for (i = 0; i < qopt.num_tc; i++)
-+				fprintf(f, "%s ", sprint_rate(max_rate64[i], b1));
-+		}
-+	}
- 	return 0;
- }
- 
+       Arnd
