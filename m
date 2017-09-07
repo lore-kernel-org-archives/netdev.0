@@ -1,75 +1,63 @@
-From: =?UTF-8?Q?Pawe=c5=82_Staszewski?= <pstaszewski@itcare.pl>
-Subject: Re: latest netdev net-next kernel panic
-Date: Fri, 8 Sep 2017 00:08:06 +0200
-Message-ID: <91ae50fc-300a-2b92-7de0-ae512f364280@itcare.pl>
-References: <9f4c89c9-1a1b-39ec-6d8c-2c9e4c15911a@itcare.pl>
- <1504820388.15310.71.camel@edumazet-glaptop3.roam.corp.google.com>
- <2e7d813e-0ee9-ede6-7e0e-db2814b3cf94@itcare.pl>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2 3/4] devlink: Update devlink UAPI file
+Date: Thu, 7 Sep 2017 15:12:58 -0700
+Message-ID: <20170907151258.55a64309@xeon-e3>
+References: <1504794403-45690-1-git-send-email-arkadis@mellanox.com>
+        <1504794403-45690-4-git-send-email-arkadis@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, jiri@resnulli.us,
+        mlxsw@mellanox.com, andrew@lunn.ch, Jiri Pirko <jiri@mellanox.com>
+To: Arkadi Sharshevsky <arkadis@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp16.iq.pl ([86.111.242.222]:46332 "EHLO smtp16.iq.pl"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1756112AbdIGWKM (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 7 Sep 2017 18:10:12 -0400
-In-Reply-To: <2e7d813e-0ee9-ede6-7e0e-db2814b3cf94@itcare.pl>
-Content-Language: pl
+Received: from mail-pg0-f45.google.com ([74.125.83.45]:38067 "EHLO
+        mail-pg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932238AbdIGWNG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 7 Sep 2017 18:13:06 -0400
+Received: by mail-pg0-f45.google.com with SMTP id v66so1695930pgb.5
+        for <netdev@vger.kernel.org>; Thu, 07 Sep 2017 15:13:06 -0700 (PDT)
+In-Reply-To: <1504794403-45690-4-git-send-email-arkadis@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Also this panic occured about 3 minutes after traffic rise to 40G
+On Thu,  7 Sep 2017 17:26:42 +0300
+Arkadi Sharshevsky <arkadis@mellanox.com> wrote:
 
-before host was working without trafic for about 30minutes - after 
-traffic start to flow this bug start.
+> Update devlink UAPI file.
+> 
+> Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+> ---
+>  include/linux/devlink.h | 18 ++++++++++++++++++
+>  1 file changed, 18 insertions(+)
+> 
+> diff --git a/include/linux/devlink.h b/include/linux/devlink.h
+> index 7644005..a62695e 100644
+> --- a/include/linux/devlink.h
+> +++ b/include/linux/devlink.h
+> @@ -226,4 +226,22 @@ enum devlink_dpipe_action_type {
+>  	DEVLINK_DPIPE_ACTION_TYPE_FIELD_MODIFY,
+>  };
+>  
+> +enum devlink_dpipe_field_ethernet_id {
+> +	DEVLINK_DPIPE_FIELD_ETHERNET_DST_MAC,
+> +};
+> +
+> +enum devlink_dpipe_field_ipv4_id {
+> +	DEVLINK_DPIPE_FIELD_IPV4_DST_IP,
+> +};
+> +
+> +enum devlink_dpipe_field_ipv6_id {
+> +	DEVLINK_DPIPE_FIELD_IPV6_DST_IP,
+> +};
+> +
+> +enum devlink_dpipe_header_id {
+> +	DEVLINK_DPIPE_HEADER_ETHERNET,
+> +	DEVLINK_DPIPE_HEADER_IPV4,
+> +	DEVLINK_DPIPE_HEADER_IPV6,
+> +};
+> +
+>  #endif /* _LINUX_DEVLINK_H_ */
 
-Now i have this host without traffic and it is working for almost 1 hour :)
-
-
-
-W dniu 2017-09-07 o 23:47, Paweł Staszewski pisze:
-> Hi Eric
->
->
-> today upgraded some host from 4.13.0-rc7+ to latest net-next from git
->
-> and run some tests simulate clients traffic 40Gbit / 5Mpps mixed tcp + 
-> udp
->
-> There is also bgpd running that feeds FIB with full bgp feed - about 
-> 700k prefixes (so routing tables is about 700k routes with about 300 
-> nexthops)
->
->
-> There is also simulated about 1000 ip neigh hosts (arp) with about 300 
-> ip interfaces assigned on vlans
->
->
->
-> With kernel 4.13.0-rc7+ (git from 05.09.2017) all tests are good 
-> (besides that there is panic after about 10 hours - every time same 
-> like in this link:
->
-> https://bugzilla.kernel.org/attachment.cgi?id=258257
->
-> But looks like acpi related or c/p states with new intel cpus... dono 
-> now.
->
->
->
->
-> W dniu 2017-09-07 o 23:39, Eric Dumazet pisze:
->> On Thu, 2017-09-07 at 23:30 +0200, Paweł Staszewski wrote:
->>> I want to mention also here cause last trace for RIP was dst_dev_put
->>>
->>> https://bugzilla.kernel.org/attachment.cgi?id=258259
->> Can you provide a bit more context ?
->>
->> Thanks !
->>
->>
->>
->
->
+This patch was unnecessary. Already had updated file present.
