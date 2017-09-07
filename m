@@ -1,69 +1,106 @@
-From: <Nisar.Sayed@microchip.com>
-Subject: [PATCH net] smsc95xx: Configure pause time to 0xffff when tx flow
- control enabled
-Date: Thu, 7 Sep 2017 06:51:37 +0000
-Message-ID: <CE371C1263339941885964188A0225FA3339DB@CHN-SV-EXMX03.mchp-main.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <UNGLinuxDriver@microchip.com>, <netdev@vger.kernel.org>,
-        <steve.glendinning@shawell.net>
-To: <davem@davemloft.net>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: pull-request: mac80211 2017-09-07
+Date: Thu,  7 Sep 2017 09:09:38 +0200
+Message-ID: <20170907070939.3658-1-johannes@sipsolutions.net>
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from esa2.microchip.iphmx.com ([68.232.149.84]:50402 "EHLO
-        esa2.microchip.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751328AbdIGGwX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 7 Sep 2017 02:52:23 -0400
-Content-Language: en-US
+Received: from s3.sipsolutions.net ([5.9.151.49]:40654 "EHLO sipsolutions.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750742AbdIGHJn (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 7 Sep 2017 03:09:43 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nisar Sayed <Nisar.Sayed@microchip.com>
+Hi Dave,
 
-Configure pause time to 0xffff when tx flow control enabled
+During my long absence some things have accumulated, but there wasn't
+actually all that much that could've gone into the last cycle, and a
+fix or two was taken care of by others.
 
-Signed-off-by: Nisar Sayed <Nisar.Sayed@microchip.com>
----
- drivers/net/usb/smsc95xx.c | 11 +++++------
- 1 file changed, 5 insertions(+), 6 deletions(-)
+The most important thing here is probably the deadlock fix that a few
+people have run into on 4.13, but that was only identified now, and
+perhaps the 40 MHz fix from Emmanuel that helps avoid iwlwifi firmware
+crashes.
 
-diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
-index 340c134..309b88a 100644
---- a/drivers/net/usb/smsc95xx.c
-+++ b/drivers/net/usb/smsc95xx.c
-@@ -526,7 +526,7 @@ static void smsc95xx_set_multicast(struct net_device *netdev)
- static int smsc95xx_phy_update_flowcontrol(struct usbnet *dev, u8 duplex,
- 					   u16 lcladv, u16 rmtadv)
- {
--	u32 flow, afc_cfg = 0;
-+	u32 flow = 0, afc_cfg;
- 
- 	int ret = smsc95xx_read_reg(dev, AFC_CFG, &afc_cfg);
- 	if (ret < 0)
-@@ -537,20 +537,19 @@ static int smsc95xx_phy_update_flowcontrol(struct usbnet *dev, u8 duplex,
- 
- 		if (cap & FLOW_CTRL_RX)
- 			flow = 0xFFFF0002;
--		else
--			flow = 0;
- 
--		if (cap & FLOW_CTRL_TX)
-+		if (cap & FLOW_CTRL_TX) {
- 			afc_cfg |= 0xF;
--		else
-+			flow |= 0xFFFF0000;
-+		} else {
- 			afc_cfg &= ~0xF;
-+		}
- 
- 		netif_dbg(dev, link, dev->net, "rx pause %s, tx pause %s\n",
- 				   cap & FLOW_CTRL_RX ? "enabled" : "disabled",
- 				   cap & FLOW_CTRL_TX ? "enabled" : "disabled");
- 	} else {
- 		netif_dbg(dev, link, dev->net, "half duplex\n");
--		flow = 0;
- 		afc_cfg |= 0xF;
- 	}
- 
--- 
-1.9.1
+Please pull and let me know if there's any problem.
+
+Thanks,
+johannes
+
+
+
+The following changes since commit 6d9c153a0b84392406bc77600aa7d3ea365de041:
+
+  net: dsa: loop: Do not unregister invalid fixed PHY (2017-09-03 20:18:25 -0700)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211.git tags/mac80211-for-davem-2017-09-07
+
+for you to fetch changes up to bde59c475e0883e4c4294bcd9b9c7e08ae18c828:
+
+  mac80211: fix deadlock in driver-managed RX BA session start (2017-09-06 15:22:02 +0200)
+
+----------------------------------------------------------------
+Back from a long absence, so we have a number of things:
+ * a remain-on-channel fix from Avi
+ * hwsim TX power fix from Beni
+ * null-PTR dereference with iTXQ in some rare configurations (Chunho)
+ * 40 MHz custom regdomain fixes (Emmanuel)
+ * look at right place in HT/VHT capability parsing (Igor)
+ * complete A-MPDU teardown properly (Ilan)
+ * Mesh ID Element ordering fix (Liad)
+ * avoid tracing warning in ht_dbg() (Sharon)
+ * fix print of assoc/reassoc (Simon)
+ * fix encrypted VLAN with iTXQ (myself)
+ * fix calling context of TX queue wake (myself)
+ * fix a deadlock with ath10k aggregation (myself)
+
+----------------------------------------------------------------
+Avraham Stern (1):
+      mac80211: flush hw_roc_start work before cancelling the ROC
+
+Beni Lev (1):
+      mac80211_hwsim: Use proper TX power
+
+Chunho Lee (1):
+      mac80211: Fix null pointer dereference with iTXQ support
+
+Emmanuel Grumbach (1):
+      cfg80211: honor NL80211_RRF_NO_HT40{MINUS,PLUS}
+
+Igor Mitsyanko (1):
+      nl80211: look for HT/VHT capabilities in beacon's tail
+
+Ilan peer (1):
+      mac80211: Complete ampdu work schedule during session tear down
+
+Johannes Berg (3):
+      mac80211: fix VLAN handling with TXQs
+      mac80211: agg-tx: call drv_wake_tx_queue in proper context
+      mac80211: fix deadlock in driver-managed RX BA session start
+
+Liad Kaufman (1):
+      mac80211: add MESH IE in the correct order
+
+Sharon Dvir (1):
+      mac80211: shorten debug prints using ht_dbg() to avoid warning
+
+Simon Dinkin (1):
+      mac80211: fix incorrect assignment of reassoc value
+
+ drivers/net/wireless/mac80211_hwsim.c |  2 --
+ include/net/mac80211.h                | 15 ++-------------
+ net/mac80211/agg-rx.c                 | 32 ++++++++++++++++++++-----------
+ net/mac80211/agg-tx.c                 |  8 ++++++--
+ net/mac80211/ht.c                     | 24 ++++++++++++++++++++---
+ net/mac80211/ieee80211_i.h            |  4 ++++
+ net/mac80211/iface.c                  | 20 ++++++++++++++++---
+ net/mac80211/mlme.c                   |  2 +-
+ net/mac80211/offchannel.c             |  2 ++
+ net/mac80211/tx.c                     | 36 ++++++++++++++++++++++++++++-------
+ net/mac80211/util.c                   |  2 +-
+ net/wireless/nl80211.c                |  4 ++--
+ net/wireless/reg.c                    | 20 +++++++++++++++++--
+ 13 files changed, 124 insertions(+), 47 deletions(-)
