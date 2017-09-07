@@ -1,38 +1,55 @@
-From: Mathieu Malaterre <malat@debian.org>
-Subject: [PATCH] drivers: net: Display proper debug level up to 6
-Date: Thu,  7 Sep 2017 13:24:20 +0200
-Message-ID: <20170907112422.26570-1-malat@debian.org>
-Cc: Mathieu Malaterre <malat@debian.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Philippe Reynes <tremyfr@gmail.com>,
-        Johannes Berg <johannes.berg@intel.com>,
-        Jarod Wilson <jarod@redhat.com>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Kalle Valo <kvalo@qca.qualcomm.com>
+Subject: Re: [PATCH] ath10: mark PM functions as __maybe_unused
+Date: Thu, 7 Sep 2017 11:36:05 +0000
+Message-ID: <87o9qmn3kr.fsf@kamboji.qca.qualcomm.com>
+References: <20170906125904.2588620-1-arnd@arndb.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: Colin Ian King <colin.king@canonical.com>,
+        "bartosz.markowski@tieto.com" <bartosz.markowski@tieto.com>,
+        Govind Singh <govinds@qti.qualcomm.com>,
+        "Ryan Hsu" <ryanhsu@qti.qualcomm.com>,
+        Srinivas Kandagatla <srinivas.kandagatla@linaro.org>,
+        Rajkumar Manoharan <rmanohar@qti.qualcomm.com>,
+        Ashok Raj Nagarajan <arnagara@qti.qualcomm.com>,
+        Ben Greear <greearb@candelatech.com>,
+        "ath10k@lists.infradead.org" <ath10k@lists.infradead.org>,
+        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from alexa-out.qualcomm.com ([129.46.98.28]:25249 "EHLO
+        alexa-out-lv-02.qualcomm.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1755092AbdIGLgJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 7 Sep 2017 07:36:09 -0400
+In-Reply-To: <20170906125904.2588620-1-arnd@arndb.de> (Arnd Bergmann's message
+        of "Wed, 6 Sep 2017 14:58:53 +0200")
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This will make it explicit some messages are of the form:
-dm9000_dbg(db, 5, ...
+Arnd Bergmann <arnd@arndb.de> writes:
 
-Signed-off-by: Mathieu Malaterre <malat@debian.org>
----
- drivers/net/ethernet/davicom/dm9000.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> When CONFIG_PM_SLEEP is disabled, we get a compile-time
+> warning:
+>
+> drivers/net/wireless/ath/ath10k/pci.c:3417:12: error: 'ath10k_pci_pm_resu=
+me' defined but not used [-Werror=3Dunused-function]
+>  static int ath10k_pci_pm_resume(struct device *dev)
+>             ^~~~~~~~~~~~~~~~~~~~
+> drivers/net/wireless/ath/ath10k/pci.c:3401:12: error: 'ath10k_pci_pm_susp=
+end' defined but not used [-Werror=3Dunused-function]
+>  static int ath10k_pci_pm_suspend(struct device *dev)
+>
+> Rather than fixing the #ifdef, this just marks both functions
+> as __maybe_unused, which is a more robust way to do this.
+>
+> Fixes: 32faa3f0ee50 ("ath10k: add the PCI PM core suspend/resume ops")
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-diff --git a/drivers/net/ethernet/davicom/dm9000.c b/drivers/net/ethernet/davicom/dm9000.c
-index 16fe776ddbe5..50222b7b81f3 100644
---- a/drivers/net/ethernet/davicom/dm9000.c
-+++ b/drivers/net/ethernet/davicom/dm9000.c
-@@ -65,7 +65,7 @@ MODULE_PARM_DESC(watchdog, "transmit timeout in milliseconds");
-  */
- static int debug;
- module_param(debug, int, 0644);
--MODULE_PARM_DESC(debug, "dm9000 debug level (0-4)");
-+MODULE_PARM_DESC(debug, "dm9000 debug level (0-6)");
- 
- /* DM9000 register address locking.
-  *
--- 
-2.11.0
+Thanks. But the title should have "ath10k:", I'll fix that.
+
+--=20
+Kalle Valo=
