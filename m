@@ -1,59 +1,73 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net] Revert "mdio_bus: Remove unneeded gpiod NULL check"
-Date: Fri,  8 Sep 2017 15:38:07 -0700
-Message-ID: <20170908223807.6015-1-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, linus.walleij@linaro.org, andrew@lunn.ch,
-        festevam@gmail.com, sergei.shtylyov@cogentembedded.com,
-        fabio.estevam@nxp.com, Bryan.Whitehead@microchip.com,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+From: Alexei Starovoitov <ast@fb.com>
+Subject: Re: [net PATCH 1/3] net: rcu lock and preempt disable missing around
+ generic xdp
+Date: Fri, 8 Sep 2017 15:38:14 -0700
+Message-ID: <94e9e0f9-403a-72c7-62d2-797f6fd1bc99@fb.com>
+References: <150490397545.11590.1409723973253492363.stgit@john-XPS-13-9360>
+ <150490443011.11590.2847947557652786219.stgit@john-XPS-13-9360>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <daniel@iogearbox.net>
+To: John Fastabend <john.fastabend@gmail.com>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f195.google.com ([209.85.220.195]:33253 "EHLO
-        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752952AbdIHWiP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 8 Sep 2017 18:38:15 -0400
-Received: by mail-qk0-f195.google.com with SMTP id g128so2318635qke.0
-        for <netdev@vger.kernel.org>; Fri, 08 Sep 2017 15:38:14 -0700 (PDT)
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:39674 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1757003AbdIHWim (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 8 Sep 2017 18:38:42 -0400
+In-Reply-To: <150490443011.11590.2847947557652786219.stgit@john-XPS-13-9360>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This reverts commit 95b80bf3db03c2bf572a357cf74b9a6aefef0a4a ("mdio_bus:
-Remove unneeded gpiod NULL check"), this commit assumed that GPIOLIB
-checks for NULL descriptors, so it's safe to drop them, but it is not
-when CONFIG_GPIOLIB is disabled in the kernel. If we do call
-gpiod_set_value_cansleep() on a GPIO descriptor we will issue warnings
-coming from the inline stubs declared in include/linux/gpio/consumer.h.
+On 9/8/17 2:00 PM, John Fastabend wrote:
+> do_xdp_generic must be called inside rcu critical section with preempt
+> disabled to ensure BPF programs are valid and per-cpu variables used
+> for redirect operations are consistent. This patch ensures this is true
+> and fixes the splat below.
+>
+> The netif_receive_skb_internal() code path is now broken into two rcu
+> critical sections. I decided it was better to limit the preempt_enable/disable
+> block to just the xdp static key portion and the fallout is more
+> rcu_read_lock/unlock calls. Seems like the best option to me.
+>
+> [  607.596901] =============================
+> [  607.596906] WARNING: suspicious RCU usage
+> [  607.596912] 4.13.0-rc4+ #570 Not tainted
+> [  607.596917] -----------------------------
+> [  607.596923] net/core/dev.c:3948 suspicious rcu_dereference_check() usage!
+> [  607.596927]
+> [  607.596927] other info that might help us debug this:
+> [  607.596927]
+> [  607.596933]
+> [  607.596933] rcu_scheduler_active = 2, debug_locks = 1
+> [  607.596938] 2 locks held by pool/14624:
+> [  607.596943]  #0:  (rcu_read_lock_bh){......}, at: [<ffffffff95445ffd>] ip_finish_output2+0x14d/0x890
+> [  607.596973]  #1:  (rcu_read_lock_bh){......}, at: [<ffffffff953c8e3a>] __dev_queue_xmit+0x14a/0xfd0
+> [  607.597000]
+> [  607.597000] stack backtrace:
+> [  607.597006] CPU: 5 PID: 14624 Comm: pool Not tainted 4.13.0-rc4+ #570
+> [  607.597011] Hardware name: Dell Inc. Precision Tower 5810/0HHV7N, BIOS A17 03/01/2017
+> [  607.597016] Call Trace:
+> [  607.597027]  dump_stack+0x67/0x92
+> [  607.597040]  lockdep_rcu_suspicious+0xdd/0x110
+> [  607.597054]  do_xdp_generic+0x313/0xa50
+> [  607.597068]  ? time_hardirqs_on+0x5b/0x150
+> [  607.597076]  ? mark_held_locks+0x6b/0xc0
+> [  607.597088]  ? netdev_pick_tx+0x150/0x150
+> [  607.597117]  netif_rx_internal+0x205/0x3f0
+> [  607.597127]  ? do_xdp_generic+0xa50/0xa50
+> [  607.597144]  ? lock_downgrade+0x2b0/0x2b0
+> [  607.597158]  ? __lock_is_held+0x93/0x100
+> [  607.597187]  netif_rx+0x119/0x190
+> [  607.597202]  loopback_xmit+0xfd/0x1b0
+> [  607.597214]  dev_hard_start_xmit+0x127/0x4e0
+>
+> Fixes: d445516966dc ("net: xdp: support xdp generic on virtual devices")
+> Fixes: b5cdae3291f7 ("net: Generic XDP")
+> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+> Signed-off-by: John Fastabend <john.fastabend@gmail.com>
 
-Fixes: 95b80bf3db03 ("mdio_bus: Remove unneeded gpiod NULL check")
-Reported-by: Woojung Huh <Woojung.Huh@microchip.com>
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/phy/mdio_bus.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+argh, so it's due to virtual devices and loopback.
+Not pretty, but have to agree I don't see another way of fixing it.
 
-diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
-index b6f9fa670168..2df7b62c1a36 100644
---- a/drivers/net/phy/mdio_bus.c
-+++ b/drivers/net/phy/mdio_bus.c
-@@ -399,7 +399,8 @@ int __mdiobus_register(struct mii_bus *bus, struct module *owner)
- 	}
- 
- 	/* Put PHYs in RESET to save power */
--	gpiod_set_value_cansleep(bus->reset_gpiod, 1);
-+	if (bus->reset_gpiod)
-+		gpiod_set_value_cansleep(bus->reset_gpiod, 1);
- 
- 	device_del(&bus->dev);
- 	return err;
-@@ -424,7 +425,8 @@ void mdiobus_unregister(struct mii_bus *bus)
- 	}
- 
- 	/* Put PHYs in RESET to save power */
--	gpiod_set_value_cansleep(bus->reset_gpiod, 1);
-+	if (bus->reset_gpiod)
-+		gpiod_set_value_cansleep(bus->reset_gpiod, 1);
- 
- 	device_del(&bus->dev);
- }
--- 
-2.9.3
+Acked-by: Alexei Starovoitov <ast@kernel.org>
