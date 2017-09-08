@@ -1,47 +1,41 @@
-From: Jim Hanko <hanko@drivescale.com>
-Subject: [patch net-next] team: fall back to hash if table entry is empty
-Date: Thu,  7 Sep 2017 19:25:12 -0700
-Message-ID: <1504837512-16395-1-git-send-email-hanko@drivescale.com>
-Cc: Jim Hanko <hanko@drivescale.com>
-To: jiri@resnulli.us, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] ip6_gre: update mtu properly in ip6gre_err
+Date: Thu, 07 Sep 2017 20:00:23 -0700 (PDT)
+Message-ID: <20170907.200023.2239628642365916828.davem@davemloft.net>
+References: <bcd5956b4342a889e686a475e2ec4fcb36db3e57.1504603593.git.lucien.xin@gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: lucien.xin@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f100.google.com ([209.85.218.100]:37982 "EHLO
-        mail-oi0-f100.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752093AbdIHC0c (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 7 Sep 2017 22:26:32 -0400
-Received: by mail-oi0-f100.google.com with SMTP id a197so389299oib.5
-        for <netdev@vger.kernel.org>; Thu, 07 Sep 2017 19:26:32 -0700 (PDT)
+Received: from shards.monkeyblade.net ([184.105.139.130]:41586 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753132AbdIHDA0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 7 Sep 2017 23:00:26 -0400
+In-Reply-To: <bcd5956b4342a889e686a475e2ec4fcb36db3e57.1504603593.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If the hash to port mapping table does not have a valid port (i.e. when
-a port goes down), fall back to the simple hashing mechanism to avoid
-dropping packets.
+From: Xin Long <lucien.xin@gmail.com>
+Date: Tue,  5 Sep 2017 17:26:33 +0800
 
-Signed-off-by: Jim Hanko <hanko@drivescale.com>
----
- drivers/net/team/team_mode_loadbalance.c | 8 +++++++-
- 1 file changed, 7 insertions(+), 1 deletion(-)
+> Now when probessing ICMPV6_PKT_TOOBIG, ip6gre_err only subtracts the
+> offset of gre header from mtu info. The expected mtu of gre device
+> should also subtract gre header. Otherwise, the next packets still
+> can't be sent out.
+> 
+> Jianlin found this issue when using the topo:
+>   client(ip6gre)<---->(nic1)route(nic2)<----->(ip6gre)server
+> 
+> and reducing nic2's mtu, then both tcp and sctp's performance with
+> big size data became 0.
+> 
+> This patch is to fix it by also subtracting grehdr (tun->tun_hlen)
+> from mtu info when updating gre device's mtu in ip6gre_err(). It
+> also needs to subtract ETH_HLEN if gre dev'type is ARPHRD_ETHER.
+> 
+> Reported-by: Jianlin Shi <jishi@redhat.com>
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
 
-diff --git a/drivers/net/team/team_mode_loadbalance.c b/drivers/net/team/team_mode_loadbalance.c
-index 1468ddf..a5ef970 100644
---- a/drivers/net/team/team_mode_loadbalance.c
-+++ b/drivers/net/team/team_mode_loadbalance.c
-@@ -137,7 +137,13 @@ static struct team_port *lb_htpm_select_tx_port(struct team *team,
- 						struct sk_buff *skb,
- 						unsigned char hash)
- {
--	return rcu_dereference_bh(LB_HTPM_PORT_BY_HASH(lb_priv, hash));
-+	struct team_port *port;
-+
-+	port = rcu_dereference_bh(LB_HTPM_PORT_BY_HASH(lb_priv, hash));
-+	if (likely(port))
-+		return port;
-+	/* If no valid port in the table, fall back to simple hash */
-+	return lb_hash_select_tx_port(team, lb_priv, skb, hash);
- }
- 
- struct lb_select_tx_port {
--- 
-2.7.4
+Applied and queued up for -stable, thanks.
