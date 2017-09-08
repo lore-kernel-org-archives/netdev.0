@@ -1,73 +1,300 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net] bpf: make error reporting in bpf_warn_invalid_xdp_action more clear
-Date: Sat,  9 Sep 2017 01:40:35 +0200
-Message-ID: <a89dbb43f7196f6ba8c5fd1f07c7e4bcc97726c3.1504913751.git.daniel@iogearbox.net>
-Cc: ast@fb.com, john.fastabend@gmail.com, netdev@vger.kernel.org,
-        Daniel Borkmann <daniel@iogearbox.net>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:36659 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753011AbdIHXkp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 8 Sep 2017 19:40:45 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: =?UTF-8?B?TWFoZXNoIEJhbmRld2FyICjgpK7gpLngpYfgpLYg4KSs4KSC4KSh4KWH4KS14KS+4KSwKQ==?=
+        <maheshb@google.com>
+Subject: Re: [PATCH] net: bonding: Fix transmit load balancing in balance-alb
+ mode if specified by sysfs
+Date: Fri, 8 Sep 2017 16:54:48 -0700
+Message-ID: <CAF2d9jgHLJ28hpiSafL7823-Ga4y8aYZ2t_Sqh7D51VL_DgDww@mail.gmail.com>
+References: <17EC94B0A072C34B8DCF0D30AD16044A0298684C@BPXM09GP.gisp.nec.co.jp> <03b61877-053b-2f0e-dc35-8fe31cc90c08@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: Kosuke Tatsukawa <tatsu@ab.jp.nec.com>,
+        Jay Vosburgh <j.vosburgh@gmail.com>,
+        Veaceslav Falico <vfalico@gmail.com>,
+        Andy Gospodarek <andy@greyhouse.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        Reinis Rozitis <r@roze.lv>
+To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <03b61877-053b-2f0e-dc35-8fe31cc90c08@cumulusnetworks.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Differ between illegal XDP action code and just driver
-unsupported one to provide better feedback when we throw
-a one-time warning here. Reason is that with 814abfabef3c
-("xdp: add bpf_redirect helper function") not all drivers
-support the new XDP return code yet and thus they will
-fall into their 'default' case when checking for return
-codes after program return, which then triggers a
-bpf_warn_invalid_xdp_action() stating that the return
-code is illegal, but from XDP perspective it's not.
+On Fri, Sep 8, 2017 at 7:30 AM, Nikolay Aleksandrov
+<nikolay@cumulusnetworks.com> wrote:
+> On 08/09/17 17:17, Kosuke Tatsukawa wrote:
+>> Hi,
+>>
+>>> On 08/09/17 13:10, Nikolay Aleksandrov wrote:
+>>>> On 08/09/17 05:06, Kosuke Tatsukawa wrote:
+>>>>> Hi,
+>>>>>
+>>>>>> On  7.09.2017 01:47, Kosuke Tatsukawa wrote:
+>>>>>>> Commit cbf5ecb30560 ("net: bonding: Fix transmit load balancing in
+>>>>>>> balance-alb mode") tried to fix transmit dynamic load balancing in
+>>>>>>> balance-alb mode, which wasn't working after commit 8b426dc54cf4
+>>>>>>> ("bonding: remove hardcoded value").
+>>>>>>>
+>>>>>>> It turned out that my previous patch only fixed the case when
+>>>>>>> balance-alb was specified as bonding module parameter, and not when
+>>>>>>> balance-alb mode was set using /sys/class/net/*/bonding/mode (the most
+>>>>>>> common usage).  In the latter case, tlb_dynamic_lb was set up according
+>>>>>>> to the default mode of the bonding interface, which happens to be
+>>>>>>> balance-rr.
+>>>>>>>
+>>>>>>> This additional patch addresses this issue by setting up tlb_dynamic_lb
+>>>>>>> to 1 if "mode" is set to balance-alb through the sysfs interface.
+>>>>>>>
+>>>>>>> I didn't add code to change tlb_balance_lb back to the default value for
+>>>>>>> other modes, because "mode" is usually set up only once during
+>>>>>>> initialization, and it's not worthwhile to change the static variable
+>>>>>>> bonding_defaults in bond_main.c to a global variable just for this
+>>>>>>> purpose.
+>>>>>>>
+>>>>>>> Commit 8b426dc54cf4 also changes the value of tlb_dynamic_lb for
+>>>>>>> balance-tlb mode if it is set up using the sysfs interface.  I didn't
+>>>>>>> change that behavior, because the value of tlb_balance_lb can be changed
+>>>>>>> using the sysfs interface for balance-tlb, and I didn't like changing
+>>>>>>> the default value back and forth for balance-tlb.
+>>>>>>>
+>>>>>>> As for balance-alb, /sys/class/net/*/bonding/tlb_balance_lb cannot be
+>>>>>>> written to.  However, I think balance-alb with tlb_dynamic_lb set to 0
+>>>>>>> is not an intended usage, so there is little use making it writable at
+>>>>>>> this moment.
+>>>>>>>
+>>>>>>> Fixes: 8b426dc54cf4 ("bonding: remove hardcoded value")
+>>>>>>> Reported-by: Reinis Rozitis <r@roze.lv>
+>>>>>>> Signed-off-by: Kosuke Tatsukawa <tatsu@ab.jp.nec.com>
+>>>>>>> Cc: stable@vger.kernel.org  # v4.12+
+>>>>>>> ---
+>>>>>>>  drivers/net/bonding/bond_options.c |    3 +++
+>>>>>>>  1 files changed, 3 insertions(+), 0 deletions(-)
+>>>>>>>
+>>>>>>
+>>>>>> I don't believe this to be the right solution, hardcoding it like this
+>>>>>> changes user-visible behaviour. The issue is that if someone configured
+>>>>>> it to be 0 in tlb mode, suddenly it will become 1 and will silently
+>>>>>> override their config if they switch the mode to alb. Also it robs users
+>>>>>> from their choice.
+>>>>>>
+>>>>>> If you think this should be settable in ALB mode, then IMO you should
+>>>>>> edit tlb_dynamic_lb option's unsuppmodes and allow it to be set in ALB.
+>>>>>> That would also be consistent with how it's handled in TLB mode.
+>>>>>
+>>>>> No, I don't think tlb_dynamic_lb should be settable in balance-alb at
+>>>>> this point.  All the current commits regarding tlb_dynamic_lb are for
+>>>>> balance-tlb mode, so I don't think balance-alb with tlb_dynamic_lb set
+>>>>> to 0 is an intended usage.
+>>>>>
+>>>>>
+>>>>>> Going back and looking at your previous fix I'd argue that it is also
+>>>>>> wrong, you should've removed the mode check altogether to return the
+>>>>>> original behaviour where the dynamic_lb is set to 1 (enabled) by
+>>>>>> default and then ALB mode would've had it, of course that would've left
+>>>>>> the case of setting it to 0 in TLB mode and switching to ALB, but that
+>>>>>> is a different issue.
+>>>>>
+>>>>> Maybe balance-alb shouldn't be dependent on tlb_dynamic_lb.
+>>>>> tlb_dynamic_lb is referenced in the following functions.
+>>>>>
+>>>>>  + bond_do_alb_xmit()  -- Used by both balance-tlb and balance-alb
+>>>>>  + bond_tlb_xmit()  -- Only used by balance-tlb
+>>>>>  + bond_open()  -- Used by both balance-tlb and balance-alb
+>>>>>  + bond_check_params()  -- Used during module initialization
+>>>>>  + bond_fill_info()  -- Used to get/set value
+>>>>>  + bond_option_tlb_dynamic_lb_set()  -- Used to get/set value
+>>>>>  + bonding_show_tlb_dynamic_lb()  -- Used to get/set value
+>>>>>  + bond_is_nondyn_tlb()  -- Only referenced if balance-tlb mode
+>>>>>
+>>>>> The following untested patch adds code to make balance-alb work as if
+>>>>> tlb_dynamic_lb==1 for the functions which affect balance-alb mode.  It
+>>>>> also reverts my previous patch.
+>>>>>
+>>>>> What do you think about this approach?
+>>>>> ---
+>>>>> Kosuke TATSUKAWA  | 1st Platform Software Division
+>>>>>                   | NEC Solution Innovators
+>>>>>                   | tatsu@ab.jp.nec.com
+>>>>>
+>>>>
+>>>> Logically the approach looks good, that being said it adds unnecessary tests in
+>>>> the fast path, why not just something like the patch below ? That only leaves the
+>>>> problem if it is zeroed in TLB and switched to ALB mode, and that is a one line
+>>>> fix to unsuppmodes just allow it to be set for that specific case. The below
+>>>> returns the default behaviour before the commit in your Fixes tag.
+>>>>
+>>>>
+>>>
+>>> Actually I'm fine with your approach, too. It will fix this regardless of the
+>>> value of tlb_dynamic_lb which sounds good to me for the price of a test in
+>>> the fast path.
+>>
+>> If you're concerned about the additional test in the fast path, how
+>> about the patch below.  I've added an arguemnt to bond_do_alb_xmit()
+>> to handle both balance-tlb and balance-alb similary.
+>>
+>
+> Even better, looks great! 1 question below though.
+>
+>> I'm not sure if this causes any problem if tlb_dynamic_lb is changed
+>> while calling bond_do_alb_xmit() in balance-tlb mode.
+>
+> The option has the ifdown flag, you shouldn't be able to change it while
+> the bond dev is up, but even if you could I don't think it will be an issue
+> for the xmit.
+>
+>> ---
+>> Kosuke TATSUKAWA  | 1st Platform Software Division
+>>                   | NEC Solution Innovators
+>>                   | tatsu@ab.jp.nec.com
+>>
+>> ------------------------------------------------------------------------
+>>  drivers/net/bonding/bond_alb.c  |   11 ++++++-----
+>>  drivers/net/bonding/bond_main.c |    5 +++--
+>>  2 files changed, 9 insertions(+), 7 deletions(-)
+>>
+>> diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+>> index c02cc81..7710f20 100644
+>> --- a/drivers/net/bonding/bond_alb.c
+>> +++ b/drivers/net/bonding/bond_alb.c
+>> @@ -1317,7 +1317,7 @@ void bond_alb_deinitialize(struct bonding *bond)
+>>  }
+>>
+>>  static int bond_do_alb_xmit(struct sk_buff *skb, struct bonding *bond,
+>> -                         struct slave *tx_slave)
+>> +                         struct slave *tx_slave, int tlb_dynamic_lb)
+>>  {
+>>       struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
+>>       struct ethhdr *eth_data = eth_hdr(skb);
+>> @@ -1325,7 +1325,7 @@ static int bond_do_alb_xmit(struct sk_buff *skb, struct bonding *bond,
+>>       if (!tx_slave) {
+>>               /* unbalanced or unassigned, send through primary */
+>>               tx_slave = rcu_dereference(bond->curr_active_slave);
+>> -             if (bond->params.tlb_dynamic_lb)
+>> +             if (tlb_dynamic_lb)
+>>                       bond_info->unbalanced_load += skb->len;
+>>       }
+>>
+>> @@ -1339,7 +1339,7 @@ static int bond_do_alb_xmit(struct sk_buff *skb, struct bonding *bond,
+>>               goto out;
+>>       }
+>>
+>> -     if (tx_slave && bond->params.tlb_dynamic_lb) {
+>> +     if (tx_slave && tlb_dynamic_lb) {
+>>               spin_lock(&bond->mode_lock);
+>>               __tlb_clear_slave(bond, tx_slave, 0);
+>>               spin_unlock(&bond->mode_lock);
+>> @@ -1386,7 +1386,8 @@ int bond_tlb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
+>>                       break;
+>>               }
+>>       }
+>> -     return bond_do_alb_xmit(skb, bond, tx_slave);
+>> +     return bond_do_alb_xmit(skb, bond, tx_slave,
+>> +                             bond->params.tlb_dynamic_lb);
+>>  }
+>>
+>>  int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
+>> @@ -1483,7 +1484,7 @@ int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev)
+>>               tx_slave = tlb_choose_channel(bond, hash_index, skb->len);
+>>       }
+>>
+>> -     return bond_do_alb_xmit(skb, bond, tx_slave);
+>> +     return bond_do_alb_xmit(skb, bond, tx_slave, 1);
+>>  }
+>>
+>>  void bond_alb_monitor(struct work_struct *work)
+>> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+>> index fc63992..bcb71e7 100644
+>> --- a/drivers/net/bonding/bond_main.c
+>> +++ b/drivers/net/bonding/bond_main.c
+>> @@ -3305,7 +3305,8 @@ static int bond_open(struct net_device *bond_dev)
+>>                */
+>>               if (bond_alb_initialize(bond, (BOND_MODE(bond) == BOND_MODE_ALB)))
+>>                       return -ENOMEM;
+>> -             if (bond->params.tlb_dynamic_lb)
+>> +             if (bond->params.tlb_dynamic_lb ||
+>> +                 (BOND_MODE(bond) == BOND_MODE_TLB))
+>
+> mode == tlb ? shouldn't this check be for alb ?
+>
+Actually this is not needed since this is already inside if
+(bond_is_lb()) condition.
 
-I decided not to place something like a XDP_ACT_MAX define
-into uapi i) given we don't have this either for all other
-program types, ii) future action codes could have further
-encoding there, which would render such define unsuitable
-and we wouldn't be able to rip it out again, and iii) we
-rarely add new action codes.
+>>                       queue_delayed_work(bond->wq, &bond->alb_work, 0);
+>>       }
+>>
+>> @@ -4601,7 +4602,7 @@ static int bond_check_params(struct bond_params *params)
+>>       }
+>>       ad_user_port_key = valptr->value;
+>>
+>> -     if ((bond_mode == BOND_MODE_TLB) || (bond_mode == BOND_MODE_ALB)) {
+>> +     if (bond_mode == BOND_MODE_TLB) {
+>>               bond_opt_initstr(&newval, "default");
+>>               valptr = bond_opt_parse(bond_opt_get(BOND_OPT_TLB_DYNAMIC_LB),
+>>                                       &newval);
+>>
+>
+I think the underlying issue is that tlb_dynamic_lb should be set to 1
+for all modes which was not the case when it was getting initialized
+only forTLB mode. So from that perspective I prefer Nik's patch with a
+small variation that guards the case when mode transitions from TLB to
+ALB. The reason why I like that patch is because it's simple and
+avoids complications.
 
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-Acked-by: Alexei Starovoitov <ast@kernel.org>
----
- include/uapi/linux/bpf.h | 4 ++--
- net/core/filter.c        | 6 +++++-
- 2 files changed, 7 insertions(+), 3 deletions(-)
+Here is what I meant -
 
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index ba848b7..43ab5c4 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -766,8 +766,8 @@ struct bpf_sock {
- 
- /* User return codes for XDP prog type.
-  * A valid XDP program must return one of these defined values. All other
-- * return codes are reserved for future use. Unknown return codes will result
-- * in packet drop.
-+ * return codes are reserved for future use. Unknown return codes will
-+ * result in packet drops and a warning via bpf_warn_invalid_xdp_action().
-  */
- enum xdp_action {
- 	XDP_ABORTED = 0,
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 0848df2..adac4eb 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -3609,7 +3609,11 @@ static bool xdp_is_valid_access(int off, int size,
- 
- void bpf_warn_invalid_xdp_action(u32 act)
- {
--	WARN_ONCE(1, "Illegal XDP return value %u, expect packet loss\n", act);
-+	const u32 act_max = XDP_REDIRECT;
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index fc63992ab0e0..c99dc59d729b 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -4289,7 +4289,7 @@ static int bond_check_params(struct bond_params *params)
+        int bond_mode   = BOND_MODE_ROUNDROBIN;
+        int xmit_hashtype = BOND_XMIT_POLICY_LAYER2;
+        int lacp_fast = 0;
+-       int tlb_dynamic_lb = 0;
++       int tlb_dynamic_lb;
+
+        /* Convert string parameters. */
+        if (mode) {
+@@ -4601,16 +4601,13 @@ static int bond_check_params(struct bond_params *params)
+        }
+        ad_user_port_key = valptr->value;
+
+-       if ((bond_mode == BOND_MODE_TLB) || (bond_mode == BOND_MODE_ALB)) {
+-               bond_opt_initstr(&newval, "default");
+-               valptr = bond_opt_parse(bond_opt_get(BOND_OPT_TLB_DYNAMIC_LB),
+-                                       &newval);
+-               if (!valptr) {
+-                       pr_err("Error: No tlb_dynamic_lb default value");
+-                       return -EINVAL;
+-               }
+-               tlb_dynamic_lb = valptr->value;
++       bond_opt_initstr(&newval, "default");
++       valptr = bond_opt_parse(bond_opt_get(BOND_OPT_TLB_DYNAMIC_LB), &newval);
++       if (!valptr) {
++               pr_err("Error: No tlb_dynamic_lb default value");
++               return -EINVAL;
+        }
++       tlb_dynamic_lb = valptr->value;
+
+        if (lp_interval == 0) {
+                pr_warn("Warning: ip_interval must be between 1 and
+%d, so it was reset to %d\n",
+diff --git a/drivers/net/bonding/bond_options.c
+b/drivers/net/bonding/bond_options.c
+index a12d603d41c6..7feacd262182 100644
+--- a/drivers/net/bonding/bond_options.c
++++ b/drivers/net/bonding/bond_options.c
+@@ -754,6 +754,12 @@ static int bond_option_mode_set(struct bonding *bond,
+                           bond->params.miimon);
+        }
+
++       /* Guard against transition TLB/tlb_dynamic_lb=0 -> ALB mode.
++        * In ALB mode, tlb_dynamic_lb must be set to 1.
++        */
++       if (newval->value == BOND_MODE_ALB && bond->params.tlb_dynamic_lb != 1)
++               bond->params.tlb_dynamic_lb = 1;
 +
-+	WARN_ONCE(1, "%s XDP return value %u, expect packet loss!\n",
-+		  act > act_max ? "Illegal" : "Driver unsupported",
-+		  act);
- }
- EXPORT_SYMBOL_GPL(bpf_warn_invalid_xdp_action);
- 
--- 
-1.9.3
+        /* don't cache arp_validate between modes */
+        bond->params.arp_validate = BOND_ARP_VALIDATE_NONE;
+        bond->params.mode = newval->value;
