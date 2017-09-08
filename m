@@ -1,101 +1,206 @@
-From: Masahiro Yamada <yamada.masahiro@socionext.com>
-Subject: Re: [PATCH net-next 2/3] net: ethernet: socionext: add AVE ethernet driver
-Date: Fri, 8 Sep 2017 23:44:13 +0900
-Message-ID: <CAK7LNASqfRbG08gvLxx4WxY2Vs2YYPkZ6NUpjj3_OOvOdEBKMA@mail.gmail.com>
-References: <1504875731-3680-1-git-send-email-hayashi.kunihiko@socionext.com> <1504875731-3680-3-git-send-email-hayashi.kunihiko@socionext.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next v2 02/10] net: dsa: debugfs: add tree
+Date: Fri, 08 Sep 2017 10:57:29 -0400
+Message-ID: <87k21944rq.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+References: <20170828191748.19492-1-vivien.didelot@savoirfairelinux.com> <20170828191748.19492-3-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-        Andrew Lunn <andrew@lunn.ch>,
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
         Florian Fainelli <f.fainelli@gmail.com>,
-        Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        linux-arm-kernel <linux-arm-kernel@lists.infradead.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        devicetree@vger.kernel.org,
-        Masami Hiramatsu <masami.hiramatsu@linaro.org>,
-        Jassi Brar <jaswinder.singh@linaro.org>
-To: Kunihiko Hayashi <hayashi.kunihiko@socionext.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1504875731-3680-3-git-send-email-hayashi.kunihiko@socionext.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+        Andrew Lunn <andrew@lunn.ch>,
+        Egil Hjelmeland <privat@egil-hjelmeland.no>,
+        John Crispin <john@phrozen.org>,
+        Woojung Huh <Woojung.Huh@microchip.com>,
+        Sean Wang <sean.wang@mediatek.com>,
+        Nikita Yushchenko <nikita.yoush@cogentembedded.com>,
+        Chris Healy <cphealy@gmail.com>
+To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:48156 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751166AbdIHPA4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 8 Sep 2017 11:00:56 -0400
+In-Reply-To: <20170828191748.19492-3-vivien.didelot@savoirfairelinux.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2017-09-08 22:02 GMT+09:00 Kunihiko Hayashi <hayashi.kunihiko@socionext.com>:
+Hi Greg,
 
-> diff --git a/drivers/net/ethernet/socionext/Kconfig b/drivers/net/ethernet/socionext/Kconfig
-> new file mode 100644
-> index 0000000..788f26f
-> --- /dev/null
-> +++ b/drivers/net/ethernet/socionext/Kconfig
-> @@ -0,0 +1,22 @@
-> +config NET_VENDOR_SOCIONEXT
-> +       bool "Socionext ethernet drivers"
-> +       default y
-> +       ---help---
-> +         Option to select ethernet drivers for Socionext platforms.
-> +
-> +         Note that the answer to this question doesn't directly affect the
-> +         kernel: saying N will just cause the configurator to skip all
-> +         the questions about Agere devices. If you say Y, you will be asked
-> +         for your specific card in the following questions.
+You wrote:
 
+> > Can I ask for a quick review of this patch as well? It's the one adding
+> > the boilerplate for a single debugfs file, and I'm pretty sure it can be
+> > reduced somehow.
+> 
+> I don't see a patch here :(
 
-Agere?
+Oops, you weren't originally in Cc. Please find the patch below.
 
+> > Also more important, you will notice what seems to be a bug to me:
+> > I can read or write a file even if I didn't mask the corresponding mode
+> > hence the double check in dsa_debugfs_show and dsa_debugfs_write.
+> 
+> The mode can be changed by userspace, you shouldn't ever need to check
+> it in any debugfs calls, right?
 
-
-> +
-> +       dev_info(dev, "Socionext %c%c%c%c Ethernet IP %s (irq=%d, phy=%s)\n",
-> +                (ave_id >> 24) & 0xff, (ave_id >> 16) & 0xff,
-> +                (ave_id >> 8) & 0xff, (ave_id >> 0) & 0xff,
-> +                buf, ndev->irq, phy_modes(phy_mode));
-> +
-> +       return 0;
-> +err_netdev_register:
-
-Maybe, a bad label name.
-for ex. out_del_napi or whatever.
-
-Documentation/process/coding-style.rst says
-"Choose label names which say what the goto does ..."
+Correct. But this happens even if the file mode isn't changed by
+userspace in the meantime, which seemed weird to me. e.g. echo
+redirected to a -r--r--r-- debugfs entry will call dsa_debugfs_write.
 
 
-> +       netif_napi_del(&priv->napi_rx);
-> +       netif_napi_del(&priv->napi_tx);
-> +       mdiobus_unregister(priv->mdio);
-> +err_mdiobus_register:
-> +err_mdiobus_alloc:
-> +err_req_irq:
+Thanks,
 
-These three should be merged, for ex.
-out_free_device.
+        Vivien
 
 
+------ Beginning of the patch ------
 
-I ran sparse for you.
+This commit adds the boiler plate to create a DSA related debug
+filesystem entry as well as a "tree" file, containing the tree index.
 
-Please take a look if it is worthwhile.
-Seems endianess around mac_addr.
+    # cat switch1/tree
+    0
 
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+---
+ net/dsa/debugfs.c | 107 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 107 insertions(+)
 
-drivers/net/ethernet/socionext/sni_ave.c:423:15: warning: cast to
-restricted __le32
-drivers/net/ethernet/socionext/sni_ave.c:425:20: warning: cast to
-restricted __le16
-drivers/net/ethernet/socionext/sni_ave.c:1194:15: warning: cast to
-restricted __le32
-drivers/net/ethernet/socionext/sni_ave.c:1196:20: warning: cast to
-restricted __le16
-drivers/net/ethernet/socionext/sni_ave.c:1398:15: warning: cast to
-restricted __le32
-drivers/net/ethernet/socionext/sni_ave.c:1400:20: warning: cast to
-restricted __le16
-
-
-
-
-
+diff --git a/net/dsa/debugfs.c b/net/dsa/debugfs.c
+index b6b5e5c97389..54e97e05a9d7 100644
+--- a/net/dsa/debugfs.c
++++ b/net/dsa/debugfs.c
+@@ -10,6 +10,7 @@
+  */
+ 
+ #include <linux/debugfs.h>
++#include <linux/seq_file.h>
+ 
+ #include "dsa_priv.h"
+ 
+@@ -19,6 +20,107 @@
+ /* DSA module debugfs directory */
+ static struct dentry *dsa_debugfs_dir;
+ 
++struct dsa_debugfs_ops {
++	int (*read)(struct dsa_switch *ds, int id, struct seq_file *seq);
++	int (*write)(struct dsa_switch *ds, int id, char *buf);
++};
++
++struct dsa_debugfs_priv {
++	const struct dsa_debugfs_ops *ops;
++	struct dsa_switch *ds;
++	int id;
++};
++
++static int dsa_debugfs_show(struct seq_file *seq, void *p)
++{
++	struct dsa_debugfs_priv *priv = seq->private;
++	struct dsa_switch *ds = priv->ds;
++
++	/* Somehow file mode is bypassed... Double check here */
++	if (!priv->ops->read)
++		return -EOPNOTSUPP;
++
++	return priv->ops->read(ds, priv->id, seq);
++}
++
++static ssize_t dsa_debugfs_write(struct file *file, const char __user *user_buf,
++				 size_t count, loff_t *ppos)
++{
++	struct seq_file *seq = file->private_data;
++	struct dsa_debugfs_priv *priv = seq->private;
++	struct dsa_switch *ds = priv->ds;
++	char buf[count + 1];
++	int err;
++
++	/* Somehow file mode is bypassed... Double check here */
++	if (!priv->ops->write)
++		return -EOPNOTSUPP;
++
++	if (copy_from_user(buf, user_buf, count))
++		return -EFAULT;
++
++	buf[count] = '\0';
++
++	err = priv->ops->write(ds, priv->id, buf);
++
++	return err ? err : count;
++}
++
++static int dsa_debugfs_open(struct inode *inode, struct file *file)
++{
++	return single_open(file, dsa_debugfs_show, inode->i_private);
++}
++
++static const struct file_operations dsa_debugfs_fops = {
++	.open = dsa_debugfs_open,
++	.read = seq_read,
++	.write = dsa_debugfs_write,
++	.llseek = no_llseek,
++	.release = single_release,
++	.owner = THIS_MODULE,
++};
++
++static int dsa_debugfs_create_file(struct dsa_switch *ds, struct dentry *dir,
++				   char *name, int id,
++				   const struct dsa_debugfs_ops *ops)
++{
++	struct dsa_debugfs_priv *priv;
++	struct dentry *entry;
++	umode_t mode;
++
++	priv = devm_kzalloc(ds->dev, sizeof(*priv), GFP_KERNEL);
++	if (!priv)
++		return -ENOMEM;
++
++	priv->ops = ops;
++	priv->ds = ds;
++	priv->id = id;
++
++	mode = 0;
++	if (ops->read)
++		mode |= 0444;
++	if (ops->write)
++		mode |= 0200;
++
++	entry = debugfs_create_file(name, mode, dir, priv, &dsa_debugfs_fops);
++	if (IS_ERR_OR_NULL(entry))
++		return -EFAULT;
++
++	return 0;
++}
++
++static int dsa_debugfs_tree_read(struct dsa_switch *ds, int id,
++				 struct seq_file *seq)
++{
++	seq_printf(seq, "%d\n", ds->dst->tree);
++
++	return 0;
++}
++
++static const struct dsa_debugfs_ops dsa_debugfs_tree_ops = {
++	.read = dsa_debugfs_tree_read,
++};
++
+ static int dsa_debugfs_create_port(struct dsa_switch *ds, int port)
+ {
+ 	struct dentry *dir;
+@@ -48,6 +150,11 @@ static int dsa_debugfs_create_switch(struct dsa_switch *ds)
+ 	if (IS_ERR_OR_NULL(ds->debugfs_dir))
+ 		return -EFAULT;
+ 
++	err = dsa_debugfs_create_file(ds, ds->debugfs_dir, "tree", -1,
++				      &dsa_debugfs_tree_ops);
++	if (err)
++		return err;
++
+ 	for (i = 0; i < ds->num_ports; i++) {
+ 		if (ds->enabled_port_mask & BIT(i)) {
+ 			err = dsa_debugfs_create_port(ds, i);
 -- 
-Best Regards
-Masahiro Yamada
+2.14.1
