@@ -1,99 +1,130 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net] ipv6: fix memory leak with multiple tables during
- netns destruction
-Date: Fri, 8 Sep 2017 11:24:35 -0700
-Message-ID: <CAM_iQpVhPZBzxWoRQzk07bGQ3RMTjeoys+pG=nWPjE2q5cviUA@mail.gmail.com>
-References: <204659713af1979c26b8defb2b52e1668b4e5aad.1504859062.git.sd@queasysnail.net>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH RFC 3/5] Add KSZ8795 switch driver
+Date: Fri, 8 Sep 2017 20:32:27 +0200
+Message-ID: <20170908183227.GJ25219@lunn.ch>
+References: <93AF473E2DA327428DE3D46B72B1E9FD41121A87@CHN-SV-EXMX02.mchp-main.com>
+ <20170908091856.GB17738@amd>
+ <93AF473E2DA327428DE3D46B72B1E9FD41121E3D@CHN-SV-EXMX02.mchp-main.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Sabrina Dubroca <sd@queasysnail.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: pavel@ucw.cz, muvarov@gmail.com, nathan.leigh.conrad@gmail.com,
+        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Woojung.Huh@microchip.com
+To: Tristram.Ha@microchip.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:33868 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756294AbdIHSY4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 8 Sep 2017 14:24:56 -0400
-Received: by mail-pf0-f196.google.com with SMTP id g65so1545155pfe.1
-        for <netdev@vger.kernel.org>; Fri, 08 Sep 2017 11:24:56 -0700 (PDT)
-In-Reply-To: <204659713af1979c26b8defb2b52e1668b4e5aad.1504859062.git.sd@queasysnail.net>
+Received: from vps0.lunn.ch ([178.209.37.122]:33511 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1756210AbdIHScc (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 8 Sep 2017 14:32:32 -0400
+Content-Disposition: inline
+In-Reply-To: <93AF473E2DA327428DE3D46B72B1E9FD41121E3D@CHN-SV-EXMX02.mchp-main.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 8, 2017 at 1:26 AM, Sabrina Dubroca <sd@queasysnail.net> wrote:
-> fib6_net_exit only frees the main and local tables. If another table was
-> created with fib6_alloc_table, we leak it when the netns is destroyed.
->
-> Fix this in the same way ip_fib_net_exit cleans up tables, by walking
-> through the whole hashtable of fib6_table's. We can get rid of the
-> special cases for local and main, since they're also part of the
-> hashtable.
->
-> Reproducer:
->     ip netns add x
->     ip -net x -6 rule add from 6003:1::/64 table 100
->     ip netns del x
->
-> Reported-by: Jianlin Shi <jishi@redhat.com>
-> Fixes: 58f09b78b730 ("[NETNS][IPV6] ip6_fib - make it per network namespace")
-> Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
-> ---
->  net/ipv6/ip6_fib.c | 25 +++++++++++++++++++------
->  1 file changed, 19 insertions(+), 6 deletions(-)
->
-> diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
-> index a3b5c163325f..8280172c806c 100644
-> --- a/net/ipv6/ip6_fib.c
-> +++ b/net/ipv6/ip6_fib.c
-> @@ -191,6 +191,12 @@ void rt6_free_pcpu(struct rt6_info *non_pcpu_rt)
->  }
->  EXPORT_SYMBOL_GPL(rt6_free_pcpu);
->
-> +static void fib6_free_table(struct fib6_table *table)
-> +{
-> +       inetpeer_invalidate_tree(&table->tb6_peers);
-> +       kfree(table);
-> +}
-> +
->  static void fib6_link_table(struct net *net, struct fib6_table *tb)
->  {
->         unsigned int h;
-> @@ -2022,15 +2028,22 @@ static int __net_init fib6_net_init(struct net *net)
->
->  static void fib6_net_exit(struct net *net)
->  {
-> +       unsigned int i;
-> +
->         rt6_ifdown(net, NULL);
->         del_timer_sync(&net->ipv6.ip6_fib_timer);
->
-> -#ifdef CONFIG_IPV6_MULTIPLE_TABLES
-> -       inetpeer_invalidate_tree(&net->ipv6.fib6_local_tbl->tb6_peers);
-> -       kfree(net->ipv6.fib6_local_tbl);
-> -#endif
-> -       inetpeer_invalidate_tree(&net->ipv6.fib6_main_tbl->tb6_peers);
-> -       kfree(net->ipv6.fib6_main_tbl);
-> +       for (i = 0; i < FIB_TABLE_HASHSZ; i++) {
-> +               struct hlist_head *head = &net->ipv6.fib_table_hash[i];
-> +               struct hlist_node *tmp;
-> +               struct fib6_table *tb;
-> +
-> +               hlist_for_each_entry_safe(tb, tmp, head, tb6_hlist) {
-> +                       hlist_del(&tb->tb6_hlist);
+> > > @@ -0,0 +1,2066 @@
+> > > +/*
+> > > + * Microchip KSZ8795 switch driver
+> > > + *
+> > > + * Copyright (C) 2017 Microchip Technology Inc.
+> > > + *	Tristram Ha <Tristram.Ha@microchip.com>
+> > > + *
+> > > + * Permission to use, copy, modify, and/or distribute this software for any
+> > > + * purpose with or without fee is hereby granted, provided that the above
+> > > + * copyright notice and this permission notice appear in all copies.
+> > > + *
+> > > + * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL
+> > WARRANTIES
+> > > + * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES
+> > OF
+> > > + * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE
+> > LIABLE FOR
+> > > + * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
+> > DAMAGES
+> > > + * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER
+> > IN AN
+> > > + * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION,
+> > ARISING OUT OF
+> > > + * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+> > > + */
+> > 
+> > This is not exactly GPL, right? But tagging below says it is
+> > GPL. Please fix one.
+> > 
+> 
+> This boilerplate paragraph was copied from the KSZ9477 driver, although I did
+> wonder why this was used.
 
-hlist_del_rcu() ?
+Hi Tristram
 
+Please can you talk to your legal people and see if this can be
+replaced with the standard GPL text?
 
-> +                       fib6_free_table(tb);
+> > > +	for (timeout = 1; timeout > 0; timeout--) {
+> > > +		ksz_read8(dev, REG_IND_MIB_CHECK, &check);
+> > > +
+> > > +		if (check & MIB_COUNTER_VALID) {
+> > > +			ksz_read32(dev, REG_IND_DATA_LO, &data);
+> > > +			if (addr < 2) {
+> > > +				u64 total;
+> > > +
+> > > +				total = check & MIB_TOTAL_BYTES_H;
+> > > +				total <<= 32;
+> > > +				*cnt += total;
+> > > +				*cnt += data;
+> > > +				if (check & MIB_COUNTER_OVERFLOW) {
+> > > +					total = MIB_TOTAL_BYTES_H + 1;
+> > > +					total <<= 32;
+> > > +					*cnt += total;
+> > > +				}
+> > > +			} else {
+> > > +				if (check & MIB_COUNTER_OVERFLOW)
+> > > +					*cnt += MIB_PACKET_DROPPED + 1;
+> > > +				*cnt += data & MIB_PACKET_DROPPED;
+> > > +			}
+> > > +			break;
+> > > +		}
+> > > +	}
+> > 
+> > Why do you need a loop here? This is quite strange code. (And you have
+> > similar strangeness elsewhere. Please fix.)
+> > 
+> 
+> The MIB_COUNTER_VALID bit may be invalid on first read, although in slow
+> SPI speed it never happens.  The timeout value should be increased to 2.
 
-kfree_rcu() in fib6_free_table()?
+Maybe timeout is the wrong name? There is nothing to do with time
+here.
+ 
+> > > +static int valid_dyn_entry(struct ksz_device *dev, u8 *data)
+> > > +{
+> > > +	int timeout = 100;
+> > > +
+> > > +	do {
+> > > +		ksz_read8(dev, REG_IND_DATA_CHECK, data);
+> > > +		timeout--;
+> > > +	} while ((*data & DYNAMIC_MAC_TABLE_NOT_READY) && timeout);
+> > > +
+> > > +	/* Entry is not ready for accessing. */
+> > > +	if (*data & DYNAMIC_MAC_TABLE_NOT_READY) {
+> > > +		return 1;
+> > > +	/* Entry is ready for accessing. */
+> > > +	} else {
+> > > +		ksz_read8(dev, REG_IND_DATA_8, data);
+> > > +
+> > > +		/* There is no valid entry in the table. */
+> > > +		if (*data & DYNAMIC_MAC_TABLE_MAC_EMPTY)
+> > > +			return 2;
+> > > +	}
+> > > +	return 0;
+> > > +}
+> > 
+> > Normal calling convention is 0 / -ERROR, not 0,1,2.
+> >
+> 
+> This is an internal function that is not returning any error.  It just reports
+> different conditions so the calling function decides what to do.
 
-
-> +               }
-> +       }
-> +
->         kfree(net->ipv6.fib_table_hash);
->         kfree(net->ipv6.rt6_stats);
->         fib6_notifier_exit(net);
-> --
-> 2.14.1
->
+Still, best practice is to use standard error codes.
+  
+    Andrew
