@@ -1,130 +1,130 @@
-From: Kyeongdon Kim <kyeongdon.kim@lge.com>
-Subject: Re: Re: [PATCH] mm/vmstats: add counters for the page frag cache
-Date: Fri, 8 Sep 2017 16:11:15 +0900
-Message-ID: <a0bf4c5f-3fe6-08c4-a5c4-3be026213f58@lge.com>
-References: <1504222631-2635-1-git-send-email-kyeongdon.kim@lge.com>
- <d6120888-344a-4449-4ca6-ac98508bb3cf@yandex-team.ru>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: ying.huang@intel.com, vbabka@suse.cz, hannes@cmpxchg.org,
-        xieyisheng1@huawei.com, luto@kernel.org, shli@fb.com,
-        mhocko@suse.com, mgorman@techsingularity.net,
-        hillf.zj@alibaba-inc.com, kemi.wang@intel.com, rientjes@google.com,
-        bigeasy@linutronix.de, iamjoonsoo.kim@lge.com, bongkyu.kim@lge.com,
-        linux-kernel@vger.kernel.org, linux-mm@kvack.org,
-        netdev <netdev@vger.kernel.org>
-To: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>,
-        akpm@linux-foundation.org, sfr@canb.auug.org.au
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <d6120888-344a-4449-4ca6-ac98508bb3cf@yandex-team.ru>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH v5 00/10] net: stmmac: dwmac-sun8i: Handle integrated PHY
+Date: Fri,  8 Sep 2017 09:11:46 +0200
+Message-ID: <20170908071156.5115-1-clabbe.montjoie@gmail.com>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+        maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org,
+        linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org,
+        will.deacon-5wv7dgnIgG8@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
+        alexandre.torgue-qxv4g6HH51o@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 2017-09-04 오후 5:30, Konstantin Khlebnikov wrote:
-> On 04.09.2017 04:35, Kyeongdon Kim wrote:
-> > Thanks for your reply,
-> > But I couldn't find "NR_FRAGMENT_PAGES" in linux-next.git .. is that 
-> vmstat counter? or others?
-> >
->
-> I mean rather than adding bunch vmstat counters for operations it 
-> might be
-> worth to add page counter which will show current amount of these pages.
-> But this seems too low-level for tracking, common counters for all 
-> network
-> buffers would be more useful but much harder to implement.
->
-Ok, thanks for the comment.
-> As I can see page owner is able to save stacktrace where allocation 
-> happened,
-> this makes debugging mostly trivial without any counters. If it adds 
-> too much
-> overhead - just track random 1% of pages, should be enough for finding 
-> leak.
->
-As I said, we already used page owner tools to resolve the leak issue.
-But that's extremely difficult to figure it out,
-too much callstack and too much allocation orders(0 or more).
-We couldn't easily get a clue event if we track 1% of pages..
+Hello
 
-In fact, I was writing another email to send a new patch with debug config.
-We added a hash function to pick out address with callstack by using 
-debugfs,
-It could be showing the only page_frag_cache leak with owner.
+The current way to find if the PHY is internal is to compare DT phy-mode
+and emac_variant/internal_phy.
+But it will negate a possible future SoC where an external PHY use the
+same phy mode than the integrated one.
 
-for exmaple code :
-+++ /mm/page_alloc.c
-@@ -4371,7 +4371,9 @@ void *page_frag_alloc(struct page_frag_cache *nc,
+This patchs series adds a new way to find if the PHY is integrated, via
+the phy-is-integrated DT property.
 
-         nc->pagecnt_bias--;
-         nc->offset = offset;
-+#ifdef CONFIG_PGFRAG_DEBUG
-+       page_frag_debug_alloc(nc->va + offset);
-+#endif
-         return nc->va + offset;
-  }
-  EXPORT_SYMBOL(page_frag_alloc);
-@@ -4382,7 +4384,9 @@ EXPORT_SYMBOL(page_frag_alloc);
-  void page_frag_free(void *addr)
-  {
-         struct page *page = virt_to_head_page(addr);
-+#ifdef CONFIG_PGFRAG_DEBUG
-+       page_frag_debug_free(addr);
-+#endif
-         if (unlikely(put_page_testzero(page)))
+Since it exists both integrated and external ethernet-phy@1, they are merged in
+the final DTB and so share all properties.
+For avoiding this, and better represent the reality, we use a MDIO mux.
 
-Those counters that I added may be too much for the linux server or 
-something.
-However, I think the other systems may need to simple debugging method.
-(like Android OS)
+The first try was to create a new MDIO mux "mdio-mux-syscon".
+mdio-mux-syscon working the same way than mdio-mux-mmioreg with the exception
+that the register is used via syscon/regmap.
+But this solution does not work for two reason:
+- changing the MDIO selection need the reset of MAC which cannot be done by the
+        mdio-mux-syscon driver
+- There were driver loading order problem:
+        - mdio-mux-syscon needing that stmmac register the parent MDIO
+        - stmmac needing that child MDIO was registered just after registering parent MDIO
 
-So if you can accept the patch with debug feature,
-I will send it including counters.
-but still thinking those counters don't need. I won't.
+So we cannot use any external MDIO-mux.
 
-Anyway, I'm grateful for your feedback, means a lot to me.
+The final solution was to represent a mdio-mux and let the MAC handle all things.
+Note that phy-is-integrated is still needed (even if we use a MDIO mux) since
+some properties apply only on integrated PHY and we need to know the final MDIO
+bus in mdio_mux_syscon_switch_fn().
 
-Thanks,
-Kyeongdon Kim
-> > As you know, page_frag_alloc() directly calls 
-> __alloc_pages_nodemask() function,
-> > so that makes too difficult to see memory usage in real time even 
-> though we have "/meminfo or /slabinfo.." information.
-> > If there was a way already to figure out the memory leakage from 
-> page_frag_cache in mainline, I agree your opinion
-> > but I think we don't have it now.
-> >
-> > If those counters too much in my patch,
-> > I can say two values (pgfrag_alloc and pgfrag_free) are enough to 
-> guess what will happen
-> > and would remove pgfrag_alloc_calls and pgfrag_free_calls.
-> >
-> > Thanks,
-> > Kyeongdon Kim
-> >
->
-> >> IMHO that's too much counters.
-> >> Per-node NR_FRAGMENT_PAGES should be enough for guessing what's 
-> going on.
-> >> Perf probes provides enough features for furhter debugging.
-> >>
-> >> On 01.09.2017 02:37, Kyeongdon Kim wrote:
-> >> > There was a memory leak problem when we did stressful test
-> >> > on Android device.
-> >> > The root cause of this was from page_frag_cache alloc
-> >> > and it was very hard to find out.
-> >> >
-> >> > We add to count the page frag allocation and free with function 
-> call.
-> >> > The gap between pgfrag_alloc and pgfrag_free is good to to calculate
-> >> > for the amount of page.
-> >> > The gap between pgfrag_alloc_calls and pgfrag_free_calls is for
-> >> > sub-indicator.
-> >> > They can see trends of memory usage during the test.
-> >> > Without it, it's difficult to check page frag usage so I believe we
-> >> > should add it.
-> >> >
-> >> > Signed-off-by: Kyeongdon Kim <kyeongdon.kim@lge.com>
-> >> > ---
+Since DT bits was reverted in 4.13, this patch series include the revert of the revert.
+So
+- the first four patchs bring back DT/stmmac stuff that was in 4.13 (and reverted)
+- fifth patch document how DT MDIO mux is implemented
+- patch 6 and 7 modify DT
+- patch 8, 9, 10 Modify stmmac according to the new bindings
+
+I have let patch splited for easy review. (for seeing what's new)
+But the final serie could have some patch squashed if someone want.
+Like squashing patch and 2 and 5 (documentation)
+
+Since DT worked well in 4.13, could it be targeted for 4.14 ?
+If necessary I could split this serie in two:
+- bring back A64/A83T (patchs 1, 2, 4, 7, 9)
+- add MXIO-mux and H3 (patchs 3, 4, 5, 6, 8, 10)
+
+Regards
+
+Changes since v4:
+- Update documentation for new bindings
+- Added 4 patchs for bring back reverted stuff of 4.13
+- dwmac-sun8i now handle mdio-mux
+- MDIO use now compatible = "snps,dwmac-mdio";
+
+Changes since v3:
+- Added a patch for handling fixed-link
+- Updated documentation
+
+Changes since v2:
+- Add a MDIO mux for creating distinction between integrated and external MDIO.
+- phy-is-integrated is not set in dtsi.
+
+Changes since v1:
+- Dropped phy-is-integrated documentation patch since another same patch was already merged
+- Moved phy-is-integrated from SoC dtsi to final board DT.
+
+
+Corentin Labbe (10):
+  arm64: dts: allwinner: Restore EMAC changes
+  dt-bindings: net: Restore sun8i dwmac binding
+  arm: dts: sunxi: Restore EMAC changes
+  net: stmmac: sun8i: Restore the compatibles
+  dt-bindings: net: dwmac-sun8i: update documentation about integrated
+    PHY
+  ARM: dts: sunxi: h3/h5: represent the mdio switch used by
+    sun8i-h3-emac
+  arm64: dts: allwinner: add snps,dwmac-mdio compatible to emac/mdio
+  net: stmmac: dwmac-sun8i: choose internal PHY via phy-is-integrated
+  net: stmmac: snps,dwmac-mdio MDIOs are automatically registered
+  net: stmmac: dwmac-sun8i: Handle integrated/external MDIOs
+
+ .../devicetree/bindings/net/dwmac-sun8i.txt        | 197 +++++++++++++++++++++
+ arch/arm/boot/dts/sun8i-h2-plus-orangepi-zero.dts  |   9 +
+ arch/arm/boot/dts/sun8i-h3-bananapi-m2-plus.dts    |  19 ++
+ arch/arm/boot/dts/sun8i-h3-nanopi-neo.dts          |   7 +
+ arch/arm/boot/dts/sun8i-h3-orangepi-2.dts          |   8 +
+ arch/arm/boot/dts/sun8i-h3-orangepi-one.dts        |   8 +
+ arch/arm/boot/dts/sun8i-h3-orangepi-pc-plus.dts    |   5 +
+ arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts         |   8 +
+ arch/arm/boot/dts/sun8i-h3-orangepi-plus.dts       |  22 +++
+ arch/arm/boot/dts/sun8i-h3-orangepi-plus2e.dts     |  16 ++
+ arch/arm/boot/dts/sunxi-h3-h5.dtsi                 |  46 +++++
+ .../boot/dts/allwinner/sun50i-a64-bananapi-m64.dts |  16 ++
+ .../boot/dts/allwinner/sun50i-a64-pine64-plus.dts  |  15 ++
+ .../arm64/boot/dts/allwinner/sun50i-a64-pine64.dts |  17 ++
+ .../dts/allwinner/sun50i-a64-sopine-baseboard.dts  |  16 ++
+ arch/arm64/boot/dts/allwinner/sun50i-a64.dtsi      |  21 +++
+ .../boot/dts/allwinner/sun50i-h5-nanopi-neo2.dts   |  17 ++
+ .../boot/dts/allwinner/sun50i-h5-orangepi-pc2.dts  |  17 ++
+ .../dts/allwinner/sun50i-h5-orangepi-prime.dts     |  17 ++
+ drivers/net/ethernet/stmicro/stmmac/Kconfig        |   1 +
+ drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c  | 140 ++++++++++++---
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |   4 -
+ 22 files changed, 601 insertions(+), 25 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/net/dwmac-sun8i.txt
+
+-- 
+2.13.5
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
