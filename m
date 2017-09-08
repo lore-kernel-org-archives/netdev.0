@@ -1,46 +1,41 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net v2 2/2] net_sched: fix all the madness of tc filter chain
-Date: Fri, 8 Sep 2017 09:37:55 -0700
-Message-ID: <CAM_iQpUJLfkq0ys3XNchPVXBpF4yoNaBG_L7UjiSMW7_9NyYaQ@mail.gmail.com>
-References: <20170907042607.24413-1-xiyou.wangcong@gmail.com>
- <20170907042607.24413-2-xiyou.wangcong@gmail.com> <20170907063216.GB1967@nanopsycho>
- <CAM_iQpXsYc1cfZmuFKGH1O-FPJr9+NJqZTTB5z1oJVGYgvkV+Q@mail.gmail.com> <20170907205239.GF1967@nanopsycho>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] ipv6: fix memory leak with multiple tables during
+ netns destruction
+Date: Fri, 08 Sep 2017 09:49:18 -0700 (PDT)
+Message-ID: <20170908.094918.377842401594545205.davem@davemloft.net>
+References: <204659713af1979c26b8defb2b52e1668b4e5aad.1504859062.git.sd@queasysnail.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Jakub Kicinski <jakub.kicinski@netronome.com>,
-        Jiri Pirko <jiri@mellanox.com>
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: sd@queasysnail.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f42.google.com ([74.125.83.42]:35409 "EHLO
-        mail-pg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756435AbdIHQiR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 8 Sep 2017 12:38:17 -0400
-Received: by mail-pg0-f42.google.com with SMTP id 188so5681074pgb.2
-        for <netdev@vger.kernel.org>; Fri, 08 Sep 2017 09:38:16 -0700 (PDT)
-In-Reply-To: <20170907205239.GF1967@nanopsycho>
+Received: from shards.monkeyblade.net ([184.105.139.130]:57834 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754508AbdIHQtT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 8 Sep 2017 12:49:19 -0400
+In-Reply-To: <204659713af1979c26b8defb2b52e1668b4e5aad.1504859062.git.sd@queasysnail.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 7, 2017 at 1:52 PM, Jiri Pirko <jiri@resnulli.us> wrote:
-> Thu, Sep 07, 2017 at 07:45:49PM CEST, xiyou.wangcong@gmail.com wrote:
->>Yes it is for chain 0, because block holds a reference to chain 0 during
->>creation. Non-0 chains are created with refcnt==1 too but paired with
->>tcf_chain_put() rather than tcf_block_put(). This is what makes chain 0
->>not special w.r.t. refcnt.
->
-> So you need to tcf_chain_put only chain 0 here, right? The rest of the
-> chains get destroyed by the previous list_for_each_entry iteration when
-> flush happens and actions destroy happens what decrements recnt to 0
-> there.
+From: Sabrina Dubroca <sd@queasysnail.net>
+Date: Fri,  8 Sep 2017 10:26:19 +0200
 
+> fib6_net_exit only frees the main and local tables. If another table was
+> created with fib6_alloc_table, we leak it when the netns is destroyed.
+> 
+> Fix this in the same way ip_fib_net_exit cleans up tables, by walking
+> through the whole hashtable of fib6_table's. We can get rid of the
+> special cases for local and main, since they're also part of the
+> hashtable.
+> 
+> Reproducer:
+>     ip netns add x
+>     ip -net x -6 rule add from 6003:1::/64 table 100
+>     ip netns del x
+> 
+> Reported-by: Jianlin Shi <jishi@redhat.com>
+> Fixes: 58f09b78b730 ("[NETNS][IPV6] ip6_fib - make it per network namespace")
+> Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
 
-This is correct. And it should be only chain 0 after flush.
-
->
-> What do I miss, who would still hold reference for non-0 chains when all
-> tps and all goto_chain actions are gone?
-
-No one. This is totally correct and is exactly what this patch intends to do.
-
-Look, this is why we never need an object with refcnt==0 to exist. ;)
+Applied and queued up for -stable, thanks.
