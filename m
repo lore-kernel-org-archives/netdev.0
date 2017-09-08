@@ -1,129 +1,174 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [V2 PATCH net-next 1/2] xdp: implement xdp_redirect_map for generic
- XDP
-Date: Fri, 08 Sep 2017 12:41:05 +0200
-Message-ID: <59B273C1.9060806@iogearbox.net>
-References: <150478756604.28665.6915020425359475729.stgit@firesoul>     <150478759310.28665.17184783248584070473.stgit@firesoul>        <59B15334.4070103@iogearbox.net> <20170908103601.21cdecb2@redhat.com>
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: [PATCH iproute2 1/2] lib/libnetlink: re malloc buff if size is
+ not enough
+Date: Fri, 8 Sep 2017 13:02:47 +0200
+Message-ID: <20170908110247.GS2399@orbyte.nwl.cc>
+References: <1504865697-27274-1-git-send-email-liuhangbin@gmail.com>
+ <1504865697-27274-2-git-send-email-liuhangbin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-        Daniel Borkmann <borkmann@iogearbox.net>,
-        John Fastabend <john.fastabend@gmail.com>,
-        Andy Gospodarek <andy@greyhouse.net>,
-        alexei.starovoitov@gmail.com
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        Michal Kubecek <mkubecek@suse.cz>
+To: Hangbin Liu <liuhangbin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:52071 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753132AbdIHKlI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 8 Sep 2017 06:41:08 -0400
-In-Reply-To: <20170908103601.21cdecb2@redhat.com>
+Received: from orbyte.nwl.cc ([151.80.46.58]:36892 "EHLO orbyte.nwl.cc"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752463AbdIHLCu (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 8 Sep 2017 07:02:50 -0400
+Content-Disposition: inline
+In-Reply-To: <1504865697-27274-2-git-send-email-liuhangbin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/08/2017 10:36 AM, Jesper Dangaard Brouer wrote:
-> On Thu, 07 Sep 2017 16:09:56 +0200
-> Daniel Borkmann <daniel@iogearbox.net> wrote:
->> On 09/07/2017 02:33 PM, Jesper Dangaard Brouer wrote:
->>> Using bpf_redirect_map is allowed for generic XDP programs, but the
->>> appropriate map lookup was never performed in xdp_do_generic_redirect().
->>>
->>> Instead the map-index is directly used as the ifindex.  For the
->>> xdp_redirect_map sample in SKB-mode '-S', this resulted in trying
->>> sending on ifindex 0 which isn't valid, resulting in getting SKB
->>> packets dropped.  Thus, the reported performance numbers are wrong in
->>> commit 24251c264798 ("samples/bpf: add option for native and skb mode
->>> for redirect apps") for the 'xdp_redirect_map -S' case.
->>>
->>> It might seem innocent this was lacking, but it can actually crash the
->>> kernel.  The potential crash is caused by not consuming redirect_info->map.
->>> The bpf_redirect_map helper will set this_cpu_ptr(&redirect_info)->map
->>> pointer, which will survive even after unloading the xdp bpf_prog and
->>> deallocating the devmap data-structure.  This leaves a dead map
->>> pointer around.  The kernel will crash when loading the xdp_redirect
->>> sample (in native XDP mode) as it doesn't reset map (via bpf_redirect)
->>> and returns XDP_REDIRECT, which will cause it to dereference the map
->>> pointer.
->>>
->>> Fixes: 6103aa96ec07 ("net: implement XDP_REDIRECT for xdp generic")
->>> Fixes: 24251c264798 ("samples/bpf: add option for native and skb mode for redirect apps")
->>> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
->>> ---
->>>    include/trace/events/xdp.h |    4 ++--
->>>    net/core/filter.c          |   14 +++++++++++---
->>>    2 files changed, 13 insertions(+), 5 deletions(-)
->>>
->>> diff --git a/include/trace/events/xdp.h b/include/trace/events/xdp.h
->>> index 862575ac8da9..4e16c43fba10 100644
->>> --- a/include/trace/events/xdp.h
->>> +++ b/include/trace/events/xdp.h
->>> @@ -138,11 +138,11 @@ DEFINE_EVENT_PRINT(xdp_redirect_template, xdp_redirect_map_err,
->>>
->>>    #define _trace_xdp_redirect_map(dev, xdp, fwd, map, idx)		\
->>>    	 trace_xdp_redirect_map(dev, xdp, fwd ? fwd->ifindex : 0,	\
->>> -				0, map, idx);
->>> +				0, map, idx)
->>>
->>>    #define _trace_xdp_redirect_map_err(dev, xdp, fwd, map, idx, err)	\
->>>    	 trace_xdp_redirect_map_err(dev, xdp, fwd ? fwd->ifindex : 0,	\
->>> -				    err, map, idx);
->>> +				    err, map, idx)
->>>
->>>    #endif /* _TRACE_XDP_H */
->>>
->>> diff --git a/net/core/filter.c b/net/core/filter.c
->>> index 5912c738a7b2..3767470cab6c 100644
->>> --- a/net/core/filter.c
->>> +++ b/net/core/filter.c
->>> @@ -2566,13 +2566,19 @@ int xdp_do_generic_redirect(struct net_device *dev, struct sk_buff *skb,
->>>    			    struct bpf_prog *xdp_prog)
->>>    {
->>>    	struct redirect_info *ri = this_cpu_ptr(&redirect_info);
->>> +	struct bpf_map *map = ri->map;
->>>    	u32 index = ri->ifindex;
->>>    	struct net_device *fwd;
->>>    	unsigned int len;
->>>    	int err = 0;
->>>
->>> -	fwd = dev_get_by_index_rcu(dev_net(dev), index);
->>>    	ri->ifindex = 0;
->>> +	ri->map = NULL;
->>> +
->>> +	if (map)
->>> +		fwd = __dev_map_lookup_elem(map, index);
->>> +	else
->>> +		fwd = dev_get_by_index_rcu(dev_net(dev), index);
->>>    	if (unlikely(!fwd)) {
->>>    		err = -EINVAL;
->>>    		goto err;
->>> @@ -2590,10 +2596,12 @@ int xdp_do_generic_redirect(struct net_device *dev, struct sk_buff *skb,
->>>    	}
->>>
->>>    	skb->dev = fwd;
->>
->> Looks much better above, thanks!
->>
->>> -	_trace_xdp_redirect(dev, xdp_prog, index);
->>> +	map ? _trace_xdp_redirect_map(dev, xdp_prog, fwd, map, index)
->>> +		: _trace_xdp_redirect(dev, xdp_prog, index);
->>
->> Could we rather make this in a way such that when the two
->> tracepoints are disabled and thus patched out, that we can
->> also omit the extra conditional which has no purpose then?
->
-> First of all I don't think it make much of a difference, I measured the
-> impact of the full patch to "cost" 1.62 nanosec (which is arguably
-> below the accuracy level of the system under test)
->
-> Secondly, I plan to optimize the map case for generic XDP later, where
-> I would naturally split this into two functions (as V1, and as
-> native-XDP), thus this extra conditional would go away.  As I've shown
-> offlist (to you, John and Andy) I demonstrated a 24% speedup via a
-> xmit_more hack for generic XDP.
+Hi Hangbin,
 
-Okay, that would be nice indeed to have xmit_more support for
-generic XDP as well. If this is going to be split off anyway
-later on as in xdp_do_redirect() case, then:
+On Fri, Sep 08, 2017 at 06:14:56PM +0800, Hangbin Liu wrote:
+[...]
+> diff --git a/lib/libnetlink.c b/lib/libnetlink.c
+> index be7ac86..37cfb5a 100644
+> --- a/lib/libnetlink.c
+> +++ b/lib/libnetlink.c
+> @@ -402,6 +402,59 @@ static void rtnl_dump_error(const struct rtnl_handle *rth,
+>  	}
+>  }
+>  
+> +static int rtnl_recvmsg(int fd, struct msghdr *msg, char **buf)
+> +{
+> +	struct iovec *iov;
+> +	int len = -1, buf_len = 32768;
+> +	char *buffer = *buf;
 
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+Isn't it possible to make 'buffer' static instead of the two 'buf'
+variables in rtnl_dump_filter_l() and __rtnl_talk()? Then we would have
+only a single buffer which is shared between both functions instead of
+two which are independently allocated.
+
+> +
+> +	int flag = MSG_PEEK | MSG_TRUNC;
+> +
+> +	if (buffer == NULL)
+> +re_malloc:
+> +		buffer = malloc(buf_len);
+
+I think using realloc() here is more appropriate since there is no need
+to free the buffer in beforehand and calling realloc(NULL, len) is
+equivalent to calling malloc(len). I think 'realloc' is also a better
+name for the goto label.
+
+> +	if (buffer == NULL) {
+> +		fprintf(stderr, "malloc error: no enough buffer\n");
+
+Minor typo here: s/no/not/
+
+> +		return -1;
+
+Return -ENOMEM?
+
+> +	}
+> +
+> +	iov = msg->msg_iov;
+> +	iov->iov_base = buffer;
+> +	iov->iov_len = buf_len;
+> +
+> +re_recv:
+
+Just call this 'recv'? (Not really important though.)
+
+> +	len = recvmsg(fd, msg, flag);
+> +
+> +	if (len < 0) {
+> +		if (errno == EINTR || errno == EAGAIN)
+> +			return 0;
+
+Instead of returning 0 (which makes callers retry), goto re_recv?
+
+> +		fprintf(stderr, "netlink receive error %s (%d)\n",
+> +			strerror(errno), errno);
+> +		return len;
+> +	}
+> +
+> +	if (len == 0) {
+> +		fprintf(stderr, "EOF on netlink\n");
+> +		return -1;
+
+Return -ENODATA here? (Initially I though about -EOF, but EOF is -1 so
+that would be incorrect).
+
+> +	}
+> +
+> +	if (len > buf_len) {
+> +		free(buffer);
+
+If you use realloc() above, this can be dropped.
+
+> +		buf_len = len;
+
+For this to work you have to make buf_len static too, otherwise you will
+unnecessarily reallocate the buffer. Oh, and that also requires the
+single buffer (as pointed out above) because you will otherwise use a
+common buf_len for both static buffers passed to this function.
+
+> +		flag = 0;
+> +		goto re_malloc;
+> +	}
+> +
+> +	if (flag != 0) {
+> +		flag = 0;
+> +		goto re_recv;
+> +	}
+> +
+> +	*buf = buffer;
+> +	return len;
+> +}
+> +
+>  int rtnl_dump_filter_l(struct rtnl_handle *rth,
+>  		       const struct rtnl_dump_filter_arg *arg)
+>  {
+> @@ -413,31 +466,20 @@ int rtnl_dump_filter_l(struct rtnl_handle *rth,
+>  		.msg_iov = &iov,
+>  		.msg_iovlen = 1,
+>  	};
+> -	char buf[32768];
+> +	static char *buf = NULL;
+
+If you keep the static buffer in rtnl_recvmsg(), there is no need to
+assign NULL here.
+
+>  	int dump_intr = 0;
+>  
+> -	iov.iov_base = buf;
+>  	while (1) {
+>  		int status;
+>  		const struct rtnl_dump_filter_arg *a;
+>  		int found_done = 0;
+>  		int msglen = 0;
+>  
+> -		iov.iov_len = sizeof(buf);
+> -		status = recvmsg(rth->fd, &msg, 0);
+> -
+> -		if (status < 0) {
+> -			if (errno == EINTR || errno == EAGAIN)
+> -				continue;
+> -			fprintf(stderr, "netlink receive error %s (%d)\n",
+> -				strerror(errno), errno);
+> -			return -1;
+> -		}
+> -
+> -		if (status == 0) {
+> -			fprintf(stderr, "EOF on netlink\n");
+> -			return -1;
+> -		}
+> +		status = rtnl_recvmsg(rth->fd, &msg, &buf);
+> +		if (status < 0)
+> +			return status;
+> +		else if (status == 0)
+> +			continue;
+
+When retrying inside rtnl_recvmsg(), it won't return 0 anymore. I
+believe the whole 'while (1)' loop could go away then.
+
+Everything noted for rtnl_dump_filter_l() applies to __rtnl_talk() as
+well.
+
+Thanks, Phil
