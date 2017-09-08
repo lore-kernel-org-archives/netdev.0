@@ -1,71 +1,30 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 1/9] netfilter: ipvs: fix the issue that sctp_conn_schedule drops non-INIT packet
-Date: Fri,  8 Sep 2017 19:45:40 +0200
-Message-ID: <1504892748-1605-2-git-send-email-pablo@netfilter.org>
-References: <1504892748-1605-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:54464 "EHLO mail.us.es"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1756679AbdIHRp7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 8 Sep 2017 13:45:59 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id 9DB7C8D050B
-        for <netdev@vger.kernel.org>; Fri,  8 Sep 2017 19:45:28 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 8CEE8B502D
-        for <netdev@vger.kernel.org>; Fri,  8 Sep 2017 19:45:28 +0200 (CEST)
-In-Reply-To: <1504892748-1605-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Subject: Re: [netfilter-core] [PATCH] netfilter: nat: constify
+ rhashtable_params
+Date: Fri, 8 Sep 2017 19:47:18 +0200
+Message-ID: <20170908174718.GA1727@salvia>
+References: <d978194ca83e9aa41a330a42442eecd8be9e9a60.1504093452.git.arvind.yadav.cs@gmail.com>
+ <20170908114630.GA13575@salvia>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        coreteam@netfilter.org, netfilter-devel@vger.kernel.org,
+        kadlec@blackhole.kfki.hu, davem@davemloft.net
+To: Arvind Yadav <arvind.yadav.cs@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170908114630.GA13575@salvia>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Xin Long <lucien.xin@gmail.com>
+On Fri, Sep 08, 2017 at 01:46:30PM +0200, Pablo Neira Ayuso wrote:
+> On Wed, Aug 30, 2017 at 05:18:04PM +0530, Arvind Yadav wrote:
+> > rhashtable_params are not supposed to change at runtime. All
+> > Functions rhashtable_* working with const rhashtable_params
+> > provided by <linux/rhashtable.h>. So mark the non-const structs
+> > as const.
+> 
+> Applied to nf, thanks.
 
-Commit 5e26b1b3abce ("ipvs: support scheduling inverse and icmp SCTP
-packets") changed to check packet type early. It introduced a side
-effect: if it's not a INIT packet, ports will be set as  NULL, and
-the packet will be dropped later.
-
-It caused that sctp couldn't create connection when ipvs module is
-loaded and any scheduler is registered on server.
-
-Li Shuang reproduced it by running the cmds on sctp server:
-  # ipvsadm -A -t 1.1.1.1:80 -s rr
-  # ipvsadm -D -t 1.1.1.1:80
-then the server could't work any more.
-
-This patch is to return 1 when it's not an INIT packet. It means ipvs
-will accept it without creating a conn for it, just like what it does
-for tcp.
-
-Fixes: 5e26b1b3abce ("ipvs: support scheduling inverse and icmp SCTP packets")
-Reported-by: Li Shuang <shuali@redhat.com>
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
-Signed-off-by: Simon Horman <horms@verge.net.au>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/netfilter/ipvs/ip_vs_proto_sctp.c | 7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
-
-diff --git a/net/netfilter/ipvs/ip_vs_proto_sctp.c b/net/netfilter/ipvs/ip_vs_proto_sctp.c
-index e1efa446b305..81f08198b125 100644
---- a/net/netfilter/ipvs/ip_vs_proto_sctp.c
-+++ b/net/netfilter/ipvs/ip_vs_proto_sctp.c
-@@ -24,9 +24,12 @@ sctp_conn_schedule(struct netns_ipvs *ipvs, int af, struct sk_buff *skb,
- 		if (sh) {
- 			sch = skb_header_pointer(skb, iph->len + sizeof(_sctph),
- 						 sizeof(_schunkh), &_schunkh);
--			if (sch && (sch->type == SCTP_CID_INIT ||
--				    sysctl_sloppy_sctp(ipvs)))
-+			if (sch) {
-+				if (!(sysctl_sloppy_sctp(ipvs) ||
-+				      sch->type == SCTP_CID_INIT))
-+					return 1;
- 				ports = &sh->source;
-+			}
- 		}
- 	} else {
- 		ports = skb_header_pointer(
--- 
-2.1.4
+Actually, I tossed this. NAT rhashtable has been reverted, so no need
+for this constification anymore.
