@@ -1,53 +1,79 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Use after free in __dst_destroy_metrics_generic
-Date: Fri, 08 Sep 2017 10:28:57 -0700
-Message-ID: <1504891737.15310.78.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1234e09b75197d43ed84bdb1b154b4b6@codeaurora.org>
-         <CAM_iQpXKfUkbyuuZEZXyPrVVCoPaxnCmCARz=Jf0VtU1m9NsZg@mail.gmail.com>
-         <1504891013.15310.76.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20170908.101936.1889796764038070767.davem@davemloft.net>
+From: <Tristram.Ha@microchip.com>
+Subject: RE: [PATCH RFC 5/5] Add KSZ8795 SPI driver
+Date: Fri, 8 Sep 2017 17:35:40 +0000
+Message-ID: <93AF473E2DA327428DE3D46B72B1E9FD41121E1C@CHN-SV-EXMX02.mchp-main.com>
+References: <93AF473E2DA327428DE3D46B72B1E9FD41121A95@CHN-SV-EXMX02.mchp-main.com>
+ <20170908092614.GB18365@amd>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: xiyou.wangcong@gmail.com, subashab@codeaurora.org,
-        netdev@vger.kernel.org, lorenzo@google.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:37672 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754260AbdIHR27 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 8 Sep 2017 13:28:59 -0400
-Received: by mail-pf0-f194.google.com with SMTP id a2so1709534pfj.4
-        for <netdev@vger.kernel.org>; Fri, 08 Sep 2017 10:28:59 -0700 (PDT)
-In-Reply-To: <20170908.101936.1889796764038070767.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <andrew@lunn.ch>, <muvarov@gmail.com>,
+        <nathan.leigh.conrad@gmail.com>,
+        <vivien.didelot@savoirfairelinux.com>, <f.fainelli@gmail.com>,
+        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        <Woojung.Huh@microchip.com>
+To: <pavel@ucw.cz>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170908092614.GB18365@amd>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2017-09-08 at 10:19 -0700, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Fri, 08 Sep 2017 10:16:53 -0700
+> -----Original Message-----
+> From: Pavel Machek [mailto:pavel@ucw.cz]
+> Sent: Friday, September 08, 2017 2:26 AM
+> To: Tristram Ha - C24268
+> Cc: andrew@lunn.ch; muvarov@gmail.com; nathan.leigh.conrad@gmail.com;
+> vivien.didelot@savoirfairelinux.com; f.fainelli@gmail.com;
+> netdev@vger.kernel.org; linux-kernel@vger.kernel.org; Woojung Huh - C21699
+> Subject: Re: [PATCH RFC 5/5] Add KSZ8795 SPI driver
 > 
-> > On Fri, 2017-09-08 at 09:10 -0700, Cong Wang wrote:
-> >> On Thu, Sep 7, 2017 at 5:52 PM, Subash Abhinov Kasiviswanathan
-> >> <subashab@codeaurora.org> wrote:
-> >> > We are seeing a possible use after free in ip6_dst_destroy.
-> >> >
-> >> > It appears as if memory of the __DST_METRICS_PTR(old) was freed in some path
-> >> > and allocated
-> >> > to ion driver. ion driver has also freed it. Finally the memory is freed by
-> >> > the
-> >> > fib gc and crashes since it is already deallocated.
-> >> 
-> >> Does the attach (compile-only) patch help anything?
-> >> 
-> >> From my _quick_ glance, it seems we miss the refcnt'ing
-> >> right in __dst_destroy_metrics_generic().
-> >> 
-> >> Thanks!
-> > 
-> > But 4.9 kernels do not have yet the DST_METRICS_REFCOUNTED thing,
-> > since this was added in 4.12
+> Hi!
 > 
-> It was backported via -stable.
+> 
+> > +static int ksz_spi_read(struct ksz_device *dev, u32 reg, u8 *data,
+> > +			unsigned int len)
+> > +{
+> > +	struct spi_device *spi = dev->priv;
+> > +
+> > +	return ksz_spi_read_reg(spi, reg, data, len); }
+> > +
+> > +static int ksz_spi_read8(struct ksz_device *dev, u32 reg, u8 *val) {
+> > +	return ksz_spi_read(dev, reg, val, 1); }
+> > +
+> > +static int ksz_spi_read16(struct ksz_device *dev, u32 reg, u16 *val) {
+> > +	int ret = ksz_spi_read(dev, reg, (u8 *)val, 2);
+> > +
+> > +	if (!ret)
+> > +		*val = be16_to_cpu(*val);
+> > +
+> > +	return ret;
+> > +}
+> 
+> > +static int ksz_spi_read32(struct ksz_device *dev, u32 reg, u32 *val) {
+> > +	int ret = ksz_spi_read(dev, reg, (u8 *)val, 4);
+> > +
+> > +	if (!ret)
+> > +		*val = be32_to_cpu(*val);
+> > +
+> > +	return ret;
+> > +}
+> 
+> Please format according to CodingStyle. (Not only this.)
+> 
+> And this will be common for more drivers. Can it go to a header file
+> and be included...?
+> 
 
-I hate working on lazy bug reports.
+Sorry about the formatting.  It seems my e-mail system needs to be checked
+to make sure it does not auto-format the contents again.
+
+About the SPI access functions they are the same for each driver except the
+low level ksz_spi_read_reg and ksz_spi_write_reg.  The dev_io_ops structure
+should contain only those 2 and ksz_spi_get and ksz_spi_set.
+
+But that requires changing ksz_spi.c.  The idea was to keep the code of
+KSZ9477 driver with little change as possible while introducing another driver.
+
+The KSZ9477 driver will need to be updated with some of the code in KSZ8795
+driver regarding port membership and MIB counter reading.
