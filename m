@@ -1,91 +1,184 @@
-From: Zhu Yanjun <yanjun.zhu@oracle.com>
-Subject: [PATCH 1/1] forcedeth: remove tx_stop variable
-Date: Fri,  8 Sep 2017 08:28:45 -0400
-Message-ID: <1504873725-30180-1-git-send-email-yanjun.zhu@oracle.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: Re: [PATCH iproute2 1/2] lib/libnetlink: re malloc buff if size is
+ not enough
+Date: Fri, 8 Sep 2017 14:32:38 +0200
+Message-ID: <20170908123237.xzbvypljnsgitngr@unicorn.suse.cz>
+References: <1504865697-27274-1-git-send-email-liuhangbin@gmail.com>
+ <1504865697-27274-2-git-send-email-liuhangbin@gmail.com>
+ <20170908110247.GS2399@orbyte.nwl.cc>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+To: Phil Sutter <phil@nwl.cc>, Hangbin Liu <liuhangbin@gmail.com>,
+        netdev@vger.kernel.org,
+        Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:50440 "EHLO
-        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754986AbdIHM0V (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 8 Sep 2017 08:26:21 -0400
+Received: from mx2.suse.de ([195.135.220.15]:41788 "EHLO mx1.suse.de"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1753645AbdIHMck (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 8 Sep 2017 08:32:40 -0400
+Content-Disposition: inline
+In-Reply-To: <20170908110247.GS2399@orbyte.nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The variable tx_stop is used to indicate the tx queue state: started
-or stopped. In fact, the inline function netif_queue_stopped can do
-the same work. So replace the variable tx_stop with the
-function netif_queue_stopped.
+On Fri, Sep 08, 2017 at 01:02:47PM +0200, Phil Sutter wrote:
+> Hi Hangbin,
+> 
+> On Fri, Sep 08, 2017 at 06:14:56PM +0800, Hangbin Liu wrote:
+> [...]
+> > diff --git a/lib/libnetlink.c b/lib/libnetlink.c
+> > index be7ac86..37cfb5a 100644
+> > --- a/lib/libnetlink.c
+> > +++ b/lib/libnetlink.c
+> > @@ -402,6 +402,59 @@ static void rtnl_dump_error(const struct rtnl_handle *rth,
+> >  	}
+> >  }
+> >  
+> > +static int rtnl_recvmsg(int fd, struct msghdr *msg, char **buf)
+> > +{
+> > +	struct iovec *iov;
+> > +	int len = -1, buf_len = 32768;
+> > +	char *buffer = *buf;
+> 
+> Isn't it possible to make 'buffer' static instead of the two 'buf'
+> variables in rtnl_dump_filter_l() and __rtnl_talk()? Then we would have
+> only a single buffer which is shared between both functions instead of
+> two which are independently allocated.
 
-Signed-off-by: Zhu Yanjun <yanjun.zhu@oracle.com>
----
- drivers/net/ethernet/nvidia/forcedeth.c | 13 ++++---------
- 1 file changed, 4 insertions(+), 9 deletions(-)
+Do we have to worry about reentrancy? Only arpd is multithreaded in
+iproute2 but there might be also other users of libnetlink.
 
-diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
-index 994a83a..e6e0de4 100644
---- a/drivers/net/ethernet/nvidia/forcedeth.c
-+++ b/drivers/net/ethernet/nvidia/forcedeth.c
-@@ -834,7 +834,6 @@ struct fe_priv {
- 	u32 tx_pkts_in_progress;
- 	struct nv_skb_map *tx_change_owner;
- 	struct nv_skb_map *tx_end_flip;
--	int tx_stop;
- 
- 	/* TX software stats */
- 	struct u64_stats_sync swstats_tx_syncp;
-@@ -1939,7 +1938,6 @@ static void nv_init_tx(struct net_device *dev)
- 	np->tx_pkts_in_progress = 0;
- 	np->tx_change_owner = NULL;
- 	np->tx_end_flip = NULL;
--	np->tx_stop = 0;
- 
- 	for (i = 0; i < np->tx_ring_size; i++) {
- 		if (!nv_optimized(np)) {
-@@ -2211,7 +2209,6 @@ static netdev_tx_t nv_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	empty_slots = nv_get_empty_tx_slots(np);
- 	if (unlikely(empty_slots <= entries)) {
- 		netif_stop_queue(dev);
--		np->tx_stop = 1;
- 		spin_unlock_irqrestore(&np->lock, flags);
- 		return NETDEV_TX_BUSY;
- 	}
-@@ -2359,7 +2356,6 @@ static netdev_tx_t nv_start_xmit_optimized(struct sk_buff *skb,
- 	empty_slots = nv_get_empty_tx_slots(np);
- 	if (unlikely(empty_slots <= entries)) {
- 		netif_stop_queue(dev);
--		np->tx_stop = 1;
- 		spin_unlock_irqrestore(&np->lock, flags);
- 		return NETDEV_TX_BUSY;
- 	}
-@@ -2583,8 +2579,8 @@ static int nv_tx_done(struct net_device *dev, int limit)
- 
- 	netdev_completed_queue(np->dev, tx_work, bytes_compl);
- 
--	if (unlikely((np->tx_stop == 1) && (np->get_tx.orig != orig_get_tx))) {
--		np->tx_stop = 0;
-+	if (unlikely(netif_queue_stopped(dev) &&
-+		     (np->get_tx.orig != orig_get_tx))) {
- 		netif_wake_queue(dev);
- 	}
- 	return tx_work;
-@@ -2637,8 +2633,8 @@ static int nv_tx_done_optimized(struct net_device *dev, int limit)
- 
- 	netdev_completed_queue(np->dev, tx_work, bytes_cleaned);
- 
--	if (unlikely((np->tx_stop == 1) && (np->get_tx.ex != orig_get_tx))) {
--		np->tx_stop = 0;
-+	if (unlikely(netif_queue_stopped(dev) &&
-+		     (np->get_tx.ex != orig_get_tx))) {
- 		netif_wake_queue(dev);
- 	}
- 	return tx_work;
-@@ -2724,7 +2720,6 @@ static void nv_tx_timeout(struct net_device *dev)
- 	/* 2) complete any outstanding tx and do not give HW any limited tx pkts */
- 	saved_tx_limit = np->tx_limit;
- 	np->tx_limit = 0; /* prevent giving HW any limited pkts */
--	np->tx_stop = 0;  /* prevent waking tx queue */
- 	if (!nv_optimized(np))
- 		nv_tx_done(dev, np->tx_ring_size);
- 	else
--- 
-2.7.4
+> > +
+> > +	int flag = MSG_PEEK | MSG_TRUNC;
+> > +
+> > +	if (buffer == NULL)
+> > +re_malloc:
+> > +		buffer = malloc(buf_len);
+> 
+> I think using realloc() here is more appropriate since there is no need
+> to free the buffer in beforehand and calling realloc(NULL, len) is
+> equivalent to calling malloc(len). I think 'realloc' is also a better
+> name for the goto label.
+> 
+> > +	if (buffer == NULL) {
+> > +		fprintf(stderr, "malloc error: no enough buffer\n");
+> 
+> Minor typo here: s/no/not/
+> 
+> > +		return -1;
+> 
+> Return -ENOMEM?
+
+Hm... the only caller of rtnl_dump_filter_l only checks if the return
+value is negative. Even worse, at least some of the functions calling
+__rtnl_talk() check errno (or use perror()) instead, even if it's not
+always preserved. That's something for a wider cleanup, I would say.
+
+> 
+> > +	}
+> > +
+> > +	iov = msg->msg_iov;
+> > +	iov->iov_base = buffer;
+> > +	iov->iov_len = buf_len;
+> > +
+> > +re_recv:
+> 
+> Just call this 'recv'? (Not really important though.)
+> 
+> > +	len = recvmsg(fd, msg, flag);
+> > +
+> > +	if (len < 0) {
+> > +		if (errno == EINTR || errno == EAGAIN)
+> > +			return 0;
+> 
+> Instead of returning 0 (which makes callers retry), goto re_recv?
+> 
+> > +		fprintf(stderr, "netlink receive error %s (%d)\n",
+> > +			strerror(errno), errno);
+> > +		return len;
+> > +	}
+> > +
+> > +	if (len == 0) {
+> > +		fprintf(stderr, "EOF on netlink\n");
+> > +		return -1;
+> 
+> Return -ENODATA here? (Initially I though about -EOF, but EOF is -1 so
+> that would be incorrect).
+> 
+> > +	}
+> > +
+> > +	if (len > buf_len) {
+> > +		free(buffer);
+> 
+> If you use realloc() above, this can be dropped.
+> 
+> > +		buf_len = len;
+> 
+> For this to work you have to make buf_len static too, otherwise you will
+> unnecessarily reallocate the buffer. Oh, and that also requires the
+> single buffer (as pointed out above) because you will otherwise use a
+> common buf_len for both static buffers passed to this function.
+> 
+> > +		flag = 0;
+> > +		goto re_malloc;
+> > +	}
+> > +
+> > +	if (flag != 0) {
+> > +		flag = 0;
+> > +		goto re_recv;
+> > +	}
+> > +
+> > +	*buf = buffer;
+> > +	return len;
+> > +}
+> > +
+> >  int rtnl_dump_filter_l(struct rtnl_handle *rth,
+> >  		       const struct rtnl_dump_filter_arg *arg)
+> >  {
+> > @@ -413,31 +466,20 @@ int rtnl_dump_filter_l(struct rtnl_handle *rth,
+> >  		.msg_iov = &iov,
+> >  		.msg_iovlen = 1,
+> >  	};
+> > -	char buf[32768];
+> > +	static char *buf = NULL;
+> 
+> If you keep the static buffer in rtnl_recvmsg(), there is no need to
+> assign NULL here.
+> 
+> >  	int dump_intr = 0;
+> >  
+> > -	iov.iov_base = buf;
+> >  	while (1) {
+> >  		int status;
+> >  		const struct rtnl_dump_filter_arg *a;
+> >  		int found_done = 0;
+> >  		int msglen = 0;
+> >  
+> > -		iov.iov_len = sizeof(buf);
+> > -		status = recvmsg(rth->fd, &msg, 0);
+> > -
+> > -		if (status < 0) {
+> > -			if (errno == EINTR || errno == EAGAIN)
+> > -				continue;
+> > -			fprintf(stderr, "netlink receive error %s (%d)\n",
+> > -				strerror(errno), errno);
+> > -			return -1;
+> > -		}
+> > -
+> > -		if (status == 0) {
+> > -			fprintf(stderr, "EOF on netlink\n");
+> > -			return -1;
+> > -		}
+> > +		status = rtnl_recvmsg(rth->fd, &msg, &buf);
+> > +		if (status < 0)
+> > +			return status;
+> > +		else if (status == 0)
+> > +			continue;
+> 
+> When retrying inside rtnl_recvmsg(), it won't return 0 anymore. I
+> believe the whole 'while (1)' loop could go away then.
+
+Doesn't this loop also handle the response divided into multiple
+packets?
+
+Michal Kubecek
