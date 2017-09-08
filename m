@@ -1,321 +1,93 @@
-From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Subject: [PATCH v5 03/10] arm: dts: sunxi: Restore EMAC changes
-Date: Fri,  8 Sep 2017 09:11:49 +0200
-Message-ID: <20170908071156.5115-4-clabbe.montjoie@gmail.com>
+From: Maxime Ripard <maxime.ripard@free-electrons.com>
+Subject: Re: [PATCH v5 01/10] arm64: dts: allwinner: Restore EMAC changes
+Date: Fri, 8 Sep 2017 09:19:54 +0200
+Message-ID: <20170908071954.j2bhtw4wqa27fald@flea.lan>
 References: <20170908071156.5115-1-clabbe.montjoie@gmail.com>
-Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
-        Corentin Labbe <clabbe.montjoie@gmail.com>
-To: robh+dt@kernel.org, mark.rutland@arm.com,
-        maxime.ripard@free-electrons.com, wens@csie.org,
+ <20170908071156.5115-2-clabbe.montjoie@gmail.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="tsk3vhysft3ppq3p"
+Cc: robh+dt@kernel.org, mark.rutland@arm.com, wens@csie.org,
         linux@armlinux.org.uk, catalin.marinas@arm.com,
         will.deacon@arm.com, peppe.cavallaro@st.com,
-        alexandre.torgue@st.com, andrew@lunn.ch, f.fainelli@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f195.google.com ([209.85.128.195]:34172 "EHLO
-        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754997AbdIHHOM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 8 Sep 2017 03:14:12 -0400
-In-Reply-To: <20170908071156.5115-1-clabbe.montjoie@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+        alexandre.torgue@st.com, andrew@lunn.ch, f.fainelli@gmail.com,
+        netdev@vger.kernel.org, devicetree@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
+To: Corentin Labbe <clabbe.montjoie@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170908071156.5115-2-clabbe.montjoie@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch restore arm DT about dwmac-sun8i
-This reverts commit fe45174b72ae ("arm: dts: sunxi: Revert EMAC changes")
 
-Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
----
- arch/arm/boot/dts/sun8i-h2-plus-orangepi-zero.dts |  9 ++++++++
- arch/arm/boot/dts/sun8i-h3-bananapi-m2-plus.dts   | 19 +++++++++++++++++
- arch/arm/boot/dts/sun8i-h3-nanopi-neo.dts         |  7 ++++++
- arch/arm/boot/dts/sun8i-h3-orangepi-2.dts         |  8 +++++++
- arch/arm/boot/dts/sun8i-h3-orangepi-one.dts       |  8 +++++++
- arch/arm/boot/dts/sun8i-h3-orangepi-pc-plus.dts   |  5 +++++
- arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts        |  8 +++++++
- arch/arm/boot/dts/sun8i-h3-orangepi-plus.dts      | 22 +++++++++++++++++++
- arch/arm/boot/dts/sun8i-h3-orangepi-plus2e.dts    | 16 ++++++++++++++
- arch/arm/boot/dts/sunxi-h3-h5.dtsi                | 26 +++++++++++++++++++++++
- 10 files changed, 128 insertions(+)
+--tsk3vhysft3ppq3p
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-diff --git a/arch/arm/boot/dts/sun8i-h2-plus-orangepi-zero.dts b/arch/arm/boot/dts/sun8i-h2-plus-orangepi-zero.dts
-index b1502df7b509..6713d0f2b3f4 100644
---- a/arch/arm/boot/dts/sun8i-h2-plus-orangepi-zero.dts
-+++ b/arch/arm/boot/dts/sun8i-h2-plus-orangepi-zero.dts
-@@ -56,6 +56,8 @@
- 
- 	aliases {
- 		serial0 = &uart0;
-+		/* ethernet0 is the H3 emac, defined in sun8i-h3.dtsi */
-+		ethernet0 = &emac;
- 		ethernet1 = &xr819;
- 	};
- 
-@@ -102,6 +104,13 @@
- 	status = "okay";
- };
- 
-+&emac {
-+	phy-handle = <&int_mii_phy>;
-+	phy-mode = "mii";
-+	allwinner,leds-active-low;
-+	status = "okay";
-+};
-+
- &mmc0 {
- 	pinctrl-names = "default";
- 	pinctrl-0 = <&mmc0_pins_a>;
-diff --git a/arch/arm/boot/dts/sun8i-h3-bananapi-m2-plus.dts b/arch/arm/boot/dts/sun8i-h3-bananapi-m2-plus.dts
-index a337af1de322..d756ff825116 100644
---- a/arch/arm/boot/dts/sun8i-h3-bananapi-m2-plus.dts
-+++ b/arch/arm/boot/dts/sun8i-h3-bananapi-m2-plus.dts
-@@ -52,6 +52,7 @@
- 	compatible = "sinovoip,bpi-m2-plus", "allwinner,sun8i-h3";
- 
- 	aliases {
-+		ethernet0 = &emac;
- 		serial0 = &uart0;
- 		serial1 = &uart1;
- 	};
-@@ -114,12 +115,30 @@
- 	status = "okay";
- };
- 
-+&emac {
-+	pinctrl-names = "default";
-+	pinctrl-0 = <&emac_rgmii_pins>;
-+	phy-supply = <&reg_gmac_3v3>;
-+	phy-handle = <&ext_rgmii_phy>;
-+	phy-mode = "rgmii";
-+
-+	allwinner,leds-active-low;
-+	status = "okay";
-+};
-+
- &ir {
- 	pinctrl-names = "default";
- 	pinctrl-0 = <&ir_pins_a>;
- 	status = "okay";
- };
- 
-+&mdio {
-+	ext_rgmii_phy: ethernet-phy@1 {
-+		compatible = "ethernet-phy-ieee802.3-c22";
-+		reg = <0>;
-+	};
-+};
-+
- &mmc0 {
- 	pinctrl-names = "default";
- 	pinctrl-0 = <&mmc0_pins_a>, <&mmc0_cd_pin>;
-diff --git a/arch/arm/boot/dts/sun8i-h3-nanopi-neo.dts b/arch/arm/boot/dts/sun8i-h3-nanopi-neo.dts
-index 8d2cc6e9a03f..78f6c24952dd 100644
---- a/arch/arm/boot/dts/sun8i-h3-nanopi-neo.dts
-+++ b/arch/arm/boot/dts/sun8i-h3-nanopi-neo.dts
-@@ -46,3 +46,10 @@
- 	model = "FriendlyARM NanoPi NEO";
- 	compatible = "friendlyarm,nanopi-neo", "allwinner,sun8i-h3";
- };
-+
-+&emac {
-+	phy-handle = <&int_mii_phy>;
-+	phy-mode = "mii";
-+	allwinner,leds-active-low;
-+	status = "okay";
-+};
-diff --git a/arch/arm/boot/dts/sun8i-h3-orangepi-2.dts b/arch/arm/boot/dts/sun8i-h3-orangepi-2.dts
-index 8ff71b1bb45b..17cdeae19c6f 100644
---- a/arch/arm/boot/dts/sun8i-h3-orangepi-2.dts
-+++ b/arch/arm/boot/dts/sun8i-h3-orangepi-2.dts
-@@ -54,6 +54,7 @@
- 	aliases {
- 		serial0 = &uart0;
- 		/* ethernet0 is the H3 emac, defined in sun8i-h3.dtsi */
-+		ethernet0 = &emac;
- 		ethernet1 = &rtl8189;
- 	};
- 
-@@ -117,6 +118,13 @@
- 	status = "okay";
- };
- 
-+&emac {
-+	phy-handle = <&int_mii_phy>;
-+	phy-mode = "mii";
-+	allwinner,leds-active-low;
-+	status = "okay";
-+};
-+
- &ir {
- 	pinctrl-names = "default";
- 	pinctrl-0 = <&ir_pins_a>;
-diff --git a/arch/arm/boot/dts/sun8i-h3-orangepi-one.dts b/arch/arm/boot/dts/sun8i-h3-orangepi-one.dts
-index 5fea430e0eb1..6880268e8b87 100644
---- a/arch/arm/boot/dts/sun8i-h3-orangepi-one.dts
-+++ b/arch/arm/boot/dts/sun8i-h3-orangepi-one.dts
-@@ -52,6 +52,7 @@
- 	compatible = "xunlong,orangepi-one", "allwinner,sun8i-h3";
- 
- 	aliases {
-+		ethernet0 = &emac;
- 		serial0 = &uart0;
- 	};
- 
-@@ -97,6 +98,13 @@
- 	status = "okay";
- };
- 
-+&emac {
-+	phy-handle = <&int_mii_phy>;
-+	phy-mode = "mii";
-+	allwinner,leds-active-low;
-+	status = "okay";
-+};
-+
- &mmc0 {
- 	pinctrl-names = "default";
- 	pinctrl-0 = <&mmc0_pins_a>, <&mmc0_cd_pin>;
-diff --git a/arch/arm/boot/dts/sun8i-h3-orangepi-pc-plus.dts b/arch/arm/boot/dts/sun8i-h3-orangepi-pc-plus.dts
-index 8b93f5c781a7..a10281b455f5 100644
---- a/arch/arm/boot/dts/sun8i-h3-orangepi-pc-plus.dts
-+++ b/arch/arm/boot/dts/sun8i-h3-orangepi-pc-plus.dts
-@@ -53,6 +53,11 @@
- 	};
- };
- 
-+&emac {
-+	/* LEDs changed to active high on the plus */
-+	/delete-property/ allwinner,leds-active-low;
-+};
-+
- &mmc1 {
- 	pinctrl-names = "default";
- 	pinctrl-0 = <&mmc1_pins_a>;
-diff --git a/arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts b/arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts
-index c88518b3f538..f5f0f15a2088 100644
---- a/arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts
-+++ b/arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts
-@@ -52,6 +52,7 @@
- 	compatible = "xunlong,orangepi-pc", "allwinner,sun8i-h3";
- 
- 	aliases {
-+		ethernet0 = &emac;
- 		serial0 = &uart0;
- 	};
- 
-@@ -117,6 +118,13 @@
- 	status = "okay";
- };
- 
-+&emac {
-+	phy-handle = <&int_mii_phy>;
-+	phy-mode = "mii";
-+	allwinner,leds-active-low;
-+	status = "okay";
-+};
-+
- &ir {
- 	pinctrl-names = "default";
- 	pinctrl-0 = <&ir_pins_a>;
-diff --git a/arch/arm/boot/dts/sun8i-h3-orangepi-plus.dts b/arch/arm/boot/dts/sun8i-h3-orangepi-plus.dts
-index 828ae7a526d9..331ed683ac62 100644
---- a/arch/arm/boot/dts/sun8i-h3-orangepi-plus.dts
-+++ b/arch/arm/boot/dts/sun8i-h3-orangepi-plus.dts
-@@ -47,6 +47,10 @@
- 	model = "Xunlong Orange Pi Plus / Plus 2";
- 	compatible = "xunlong,orangepi-plus", "allwinner,sun8i-h3";
- 
-+	aliases {
-+		ethernet0 = &emac;
-+	};
-+
- 	reg_gmac_3v3: gmac-3v3 {
- 		compatible = "regulator-fixed";
- 		regulator-name = "gmac-3v3";
-@@ -74,6 +78,24 @@
- 	status = "okay";
- };
- 
-+&emac {
-+	pinctrl-names = "default";
-+	pinctrl-0 = <&emac_rgmii_pins>;
-+	phy-supply = <&reg_gmac_3v3>;
-+	phy-handle = <&ext_rgmii_phy>;
-+	phy-mode = "rgmii";
-+
-+	allwinner,leds-active-low;
-+	status = "okay";
-+};
-+
-+&mdio {
-+	ext_rgmii_phy: ethernet-phy@1 {
-+		compatible = "ethernet-phy-ieee802.3-c22";
-+		reg = <0>;
-+	};
-+};
-+
- &mmc2 {
- 	pinctrl-names = "default";
- 	pinctrl-0 = <&mmc2_8bit_pins>;
-diff --git a/arch/arm/boot/dts/sun8i-h3-orangepi-plus2e.dts b/arch/arm/boot/dts/sun8i-h3-orangepi-plus2e.dts
-index 97920b12a944..80026f3caafc 100644
---- a/arch/arm/boot/dts/sun8i-h3-orangepi-plus2e.dts
-+++ b/arch/arm/boot/dts/sun8i-h3-orangepi-plus2e.dts
-@@ -61,3 +61,19 @@
- 		gpio = <&pio 3 6 GPIO_ACTIVE_HIGH>; /* PD6 */
- 	};
- };
-+
-+&emac {
-+	pinctrl-names = "default";
-+	pinctrl-0 = <&emac_rgmii_pins>;
-+	phy-supply = <&reg_gmac_3v3>;
-+	phy-handle = <&ext_rgmii_phy>;
-+	phy-mode = "rgmii";
-+	status = "okay";
-+};
-+
-+&mdio {
-+	ext_rgmii_phy: ethernet-phy@1 {
-+		compatible = "ethernet-phy-ieee802.3-c22";
-+		reg = <1>;
-+	};
-+};
-diff --git a/arch/arm/boot/dts/sunxi-h3-h5.dtsi b/arch/arm/boot/dts/sunxi-h3-h5.dtsi
-index 34fe2b8b3f33..4b599b5d26f6 100644
---- a/arch/arm/boot/dts/sunxi-h3-h5.dtsi
-+++ b/arch/arm/boot/dts/sunxi-h3-h5.dtsi
-@@ -403,6 +403,32 @@
- 			clocks = <&osc24M>;
- 		};
- 
-+		emac: ethernet@1c30000 {
-+			compatible = "allwinner,sun8i-h3-emac";
-+			syscon = <&syscon>;
-+			reg = <0x01c30000 0x10000>;
-+			interrupts = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>;
-+			interrupt-names = "macirq";
-+			resets = <&ccu RST_BUS_EMAC>;
-+			reset-names = "stmmaceth";
-+			clocks = <&ccu CLK_BUS_EMAC>;
-+			clock-names = "stmmaceth";
-+			#address-cells = <1>;
-+			#size-cells = <0>;
-+			status = "disabled";
-+
-+			mdio: mdio {
-+				#address-cells = <1>;
-+				#size-cells = <0>;
-+				int_mii_phy: ethernet-phy@1 {
-+					compatible = "ethernet-phy-ieee802.3-c22";
-+					reg = <1>;
-+					clocks = <&ccu CLK_BUS_EPHY>;
-+					resets = <&ccu RST_BUS_EPHY>;
-+				};
-+			};
-+		};
-+
- 		spi0: spi@01c68000 {
- 			compatible = "allwinner,sun8i-h3-spi";
- 			reg = <0x01c68000 0x1000>;
--- 
-2.13.5
+On Fri, Sep 08, 2017 at 09:11:47AM +0200, Corentin Labbe wrote:
+> diff --git a/arch/arm64/boot/dts/allwinner/sun50i-h5-nanopi-neo2.dts b/ar=
+ch/arm64/boot/dts/allwinner/sun50i-h5-nanopi-neo2.dts
+> index 1c2387bd5df6..968908761194 100644
+> --- a/arch/arm64/boot/dts/allwinner/sun50i-h5-nanopi-neo2.dts
+> +++ b/arch/arm64/boot/dts/allwinner/sun50i-h5-nanopi-neo2.dts
+> @@ -50,6 +50,7 @@
+>  	compatible =3D "friendlyarm,nanopi-neo2", "allwinner,sun50i-h5";
+> =20
+>  	aliases {
+> +		ethernet0 =3D &emac;
+>  		serial0 =3D &uart0;
+>  	};
+> =20
+> @@ -108,6 +109,22 @@
+>  	status =3D "okay";
+>  };
+> =20
+> +&emac {
+> +	pinctrl-names =3D "default";
+> +	pinctrl-0 =3D <&emac_rgmii_pins>;
+> +	phy-supply =3D <&reg_gmac_3v3>;
+> +	phy-handle =3D <&ext_rgmii_phy>;
+> +	phy-mode =3D "rgmii";
+> +	status =3D "okay";
+> +};
+> +
+> +&mdio {
+> +	ext_rgmii_phy: ethernet-phy@7 {
+> +		compatible =3D "ethernet-phy-ieee802.3-c22";
+> +		reg =3D <7>;
+> +	};
+> +};
+> +
+
+This won't compile, you don't have that node in the H5 DTSI.
+
+Maxime
+
+--=20
+Maxime Ripard, Free Electrons
+Embedded Linux and Kernel engineering
+http://free-electrons.com
+
+--tsk3vhysft3ppq3p
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIcBAEBAgAGBQJZskSaAAoJEBx+YmzsjxAgxo0QAKk+jdym7tDAG/oM5Z2j+8c8
+LETOPI44nXa/mrMKVzGhwyY1U6Zv6Tid2TE+2ItvUesz4P6ItkzLukB7XO8Y6O3p
+aXjlCgPIEfR5GT1xz/aud2Y+RVq88dWaTc5BFbnLFq/v64nvwmMj/vG3dgsvDz/C
+niVk/c8jXcygUxHYMB45B89aEUqcE6/u8NqJ5daxzrnCps24co7aQP3JuQYprK7D
+tQN8q2QCUSaVWfcn+x6aK6jtRXf2UJnNPyieHJ2Vk8rCiYBnvi7OkPalPHssTnNM
+mvBssbmOLYsUp+a79qi9XcjmAB/dVeZi3xeIdOoxpltUcMXlBeEudn9ANsxV9IT4
+xCYMZPkaddnllpsZYAeoYooMAkOAxeAg9r9ChXfnMHpptRmES0C19wVDjc/1iAw/
+pYIlvzur0CTU4k6IAdf4jEAKf5jNPwXWzVERmmHVXtaS+gd51yPZBUvVPSxwbCcC
+V0xX439blrtXiy8MseX2YWA9KAFKqdA2ZbsQiFl6obmQ1JbNhux1OYkCrgt5gcJt
+E48y1t4SMzUDTqjJAdJWT+gWKxxJ+TOa4Ytj5IAfxL44l7S3WUlZagHtH5oR0AsH
+zRNtT52TxC5Mlx3UVhJ0qLCxU31cKE6e+VHIMR7Y8ZIWmX0H1ma/xOkieAp7zJJd
+lhFAvzAWDodj4hIsw9KG
+=EK9t
+-----END PGP SIGNATURE-----
+
+--tsk3vhysft3ppq3p--
