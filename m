@@ -1,71 +1,28 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH net] bpf: don't select potentially stale ri->map from
- buggy xdp progs
-Date: Fri, 8 Sep 2017 13:52:42 +0200
-Message-ID: <20170908135242.55f99177@redhat.com>
-References: <01d69254802986ad3a8b18a8650c45df3df95def.1504821825.git.daniel@iogearbox.net>
-        <20170908070610.4b8e1df1@redhat.com>
-        <59B27234.4050703@iogearbox.net>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH] net:netfilter alloc xt_byteslimit_htable with wrong size
+Date: Fri, 8 Sep 2017 13:58:39 +0200
+Message-ID: <20170908115839.GA14561@salvia>
+References: <1504839616-14519-1-git-send-email-zhizhou.tian@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, ast@fb.com, john.fastabend@gmail.com,
-        netdev@vger.kernel.org, brouer@redhat.com
-To: Daniel Borkmann <daniel@iogearbox.net>, andy@greyhouse.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33476 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751577AbdIHLwt (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 8 Sep 2017 07:52:49 -0400
-In-Reply-To: <59B27234.4050703@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: kadlec@blackhole.kfki.hu, fw@strlen.de, davem@davemloft.net,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: zhizhou.tian@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1504839616-14519-1-git-send-email-zhizhou.tian@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 08 Sep 2017 12:34:28 +0200 Daniel Borkmann <daniel@iogearbox.net> wrote:
-
-> On 09/08/2017 07:06 AM, Jesper Dangaard Brouer wrote:
-> > On Fri,  8 Sep 2017 00:14:51 +0200
-> > Daniel Borkmann <daniel@iogearbox.net> wrote:
-> >  
-> >> +	/* This is really only caused by a deliberately crappy
-> >> +	 * BPF program, normally we would never hit that case,
-> >> +	 * so no need to inform someone via tracepoints either,
-> >> +	 * just bail out.
-> >> +	 */
-> >> +	if (unlikely(map_owner != xdp_prog))
-> >> +		return -EINVAL;  
-> >
-> > IMHO we do need to call the tracepoint here.  It is not just crappy
-> > BPF-progs that cause this situation, it is also drivers not implementing
-> > XDP_REDIRECT yet (which is all but ixgbe).  Due to the level XDP
-> > operates at, tracepoints are the only way users can runtime troubleshoot
-> > their XDP programs.  
+On Fri, Sep 08, 2017 at 11:00:16AM +0800, zhizhou.tian@gmail.com wrote:
+> From: Zhizhou Tian <zhizhou.tian@gmail.com>
 > 
-> Drivers not implementing XDP_REDIRECT don't even get there in
-> the first place. What they will do is to hit the 'default' case
-> when they check for the action code from the BPF program. Then
-> call into bpf_warn_invalid_xdp_action(act), and fall-through
-> to hit the tracepoint at trace_xdp_exception() which is also
-> triggered by XDP_ABORTED usually. So when that happens we do
-> complain loudly and call a tracepoint already. We should probably
-> tweak the bpf_warn_invalid_xdp_action() message a little to make
-> it clear that the action could also just be unsupported by the
-> driver instead of being illegal.
+> struct xt_byteslimit_htable used hlist_head,
+> but alloc memory with sizeof(struct list_head)
 
-Yes. drivers not implementing XDP_REDIRECT will cause a tracepoint
-trace_xdp_exception() to be called for its _own_ packets.
+Applied, thanks.
 
-But it will still setup and leave map and map_owner pointer dangling.
-Another NIC can load an xdp_prog that return XDP_REDIRECT, which will hit
-above if-statement, and its packets will disappear, without getting
-recorded by a tracepoint (thus hard to debug!).
+For the record, I have mangled the patch titled to:
 
-The fundamental point is that tracepoints is the way we choose to
-handle debugging XDP programs.  Thus, we must trigger a tracepoint when
-a packet gets dropped.  Even in this unlikely case.
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
+        netfilter: xt_hashlimit: alloc hashtable with right size
