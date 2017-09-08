@@ -1,139 +1,104 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 3/3] net: phy: realtek: add RTL8201F phy-id and
- functions
-Date: Fri, 8 Sep 2017 11:51:34 -0700
-Message-ID: <4173a876-3cff-205a-ce87-ce049f419aa0@gmail.com>
+Subject: Re: [PATCH net-next 1/3] dt-bindings: net: add DT bindings for
+ Socionext UniPhier AVE
+Date: Fri, 8 Sep 2017 11:54:31 -0700
+Message-ID: <0d9fb986-ca31-0f86-122f-b2679faeb2f4@gmail.com>
 References: <1504875731-3680-1-git-send-email-hayashi.kunihiko@socionext.com>
- <1504875731-3680-4-git-send-email-hayashi.kunihiko@socionext.com>
+ <1504875731-3680-2-git-send-email-hayashi.kunihiko@socionext.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
+Content-Transfer-Encoding: 8bit
 Cc: Rob Herring <robh+dt@kernel.org>,
         Mark Rutland <mark.rutland@arm.com>,
         linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
         devicetree@vger.kernel.org,
         Masahiro Yamada <yamada.masahiro@socionext.com>,
         Masami Hiramatsu <masami.hiramatsu@linaro.org>,
-        Jassi Brar <jaswinder.singh@linaro.org>,
-        Jongsung Kim <neidhard.kim@lge.com>
+        Jassi Brar <jaswinder.singh@linaro.org>
 To: Kunihiko Hayashi <hayashi.kunihiko@socionext.com>,
         netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
         Andrew Lunn <andrew@lunn.ch>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1504875731-3680-4-git-send-email-hayashi.kunihiko@socionext.com>
+In-Reply-To: <1504875731-3680-2-git-send-email-hayashi.kunihiko@socionext.com>
 Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 On 09/08/2017 06:02 AM, Kunihiko Hayashi wrote:
-> From: Jassi Brar <jaswinder.singh@linaro.org>
+> DT bindings for the AVE ethernet controller found on Socionext's
+> UniPhier platforms.
 > 
-> Add RTL8201F phy-id and the related functions to the driver.
-> 
-> The original patch is as follows:
-> https://patchwork.kernel.org/patch/2538341/
-> 
-> Signed-off-by: Jongsung Kim <neidhard.kim@lge.com>
-> Signed-off-by: Jassi Brar <jaswinder.singh@linaro.org>
 > Signed-off-by: Kunihiko Hayashi <hayashi.kunihiko@socionext.com>
+> Signed-off-by: Jassi Brar <jaswinder.singh@linaro.org>
 > ---
->  drivers/net/phy/realtek.c | 45 +++++++++++++++++++++++++++++++++++++++++++++
->  1 file changed, 45 insertions(+)
+>  .../bindings/net/socionext,uniphier-ave4.txt       | 44 ++++++++++++++++++++++
+>  1 file changed, 44 insertions(+)
+>  create mode 100644 Documentation/devicetree/bindings/net/socionext,uniphier-ave4.txt
 > 
-> diff --git a/drivers/net/phy/realtek.c b/drivers/net/phy/realtek.c
-> index 9cbe645..d9974ce 100644
-> --- a/drivers/net/phy/realtek.c
-> +++ b/drivers/net/phy/realtek.c
-> @@ -29,10 +29,23 @@
->  #define RTL8211F_PAGE_SELECT	0x1f
->  #define RTL8211F_TX_DELAY	0x100
->  
-> +#define RTL8201F_ISR		0x1e
-> +#define RTL8201F_PAGE_SELECT	0x1f
+> diff --git a/Documentation/devicetree/bindings/net/socionext,uniphier-ave4.txt b/Documentation/devicetree/bindings/net/socionext,uniphier-ave4.txt
+> new file mode 100644
+> index 0000000..57ae96d
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/net/socionext,uniphier-ave4.txt
+> @@ -0,0 +1,44 @@
+> +* Socionext AVE ethernet controller
+> +
+> +This describes the devicetree bindings for AVE ethernet controller
+> +implemented on Socionext UniPhier SoCs.
+> +
+> +Required properties:
+> + - compatible:  Should be "socionext,uniphier-ave4"
+> + - reg: Address where registers are mapped and size of region.
+> + - interrupts: IRQ common for mac and phy interrupts.
+> + - phy-mode: See ethernet.txt in the same directory.
+> + - #address-cells: Must be <1>.
+> + - #size-cells: Must be <0>.
+> + - Node, with 'reg' property, for each PHY on the MDIO bus.
+> +
+> +Optional properties:
+> + - socionext,desc-bits: 32/64 descriptor size. Default 32.
 
-We have a page select register define for the RTL8211F right above, so
-surely we can make that a common definition?
+32 bits, this has an unit. Why is this configurable through Device Tree
+and if this is describing the HW, as it should, why is not that inferred
+from the compatible string?
 
-> +#define RTL8201F_IER		0x13
-> +
->  MODULE_DESCRIPTION("Realtek PHY driver");
->  MODULE_AUTHOR("Johnson Leung");
->  MODULE_LICENSE("GPL");
->  
-> +static int rtl8201_ack_interrupt(struct phy_device *phydev)
-> +{
-> +	int err;
-> +
-> +	err = phy_read(phydev, RTL8201F_ISR);
-> +
-> +	return (err < 0) ? err : 0;
-> +}
-> +
->  static int rtl821x_ack_interrupt(struct phy_device *phydev)
->  {
->  	int err;
-> @@ -54,6 +67,25 @@ static int rtl8211f_ack_interrupt(struct phy_device *phydev)
->  	return (err < 0) ? err : 0;
->  }
->  
-> +static int rtl8201_config_intr(struct phy_device *phydev)
-> +{
-> +	int err;
-> +
-> +	/* switch to page 7 */
-> +	phy_write(phydev, RTL8201F_PAGE_SELECT, 0x7);
-> +
-> +	if (phydev->interrupts == PHY_INTERRUPT_ENABLED)
-> +		err = phy_write(phydev, RTL8201F_IER,
-> +				BIT(13) | BIT(12) | BIT(11));
+> + - local-mac-address: See ethernet.txt in the same directory.
+> + - pinctrl-names: List of assigned state names, see pinctrl
+> +	binding documentation.
+> + - pinctrl-0: List of phandles to configure the GPIO pin used
+> +	as interrupt line, see also generic and your platform
+> +	specific pinctrl binding documentation.
+> + - socionext,internal-phy-interrupt: Boolean to denote if the
+> +	PHY interrupt is internally handled by the MAC.
 
-Can you detail what bits 11, 12 and 13 do? Do they correspond to link,
-duplex and pause changes by any chance?
+Interesting, why do you need to declare this as opposed to also
+determining this entirely from the compatible string of the Ethernet MAC?
 
-> +	else
-> +		err = phy_write(phydev, RTL8201F_IER, 0);
 > +
-> +	/* restore to default page 0 */
-> +	phy_write(phydev, RTL8201F_PAGE_SELECT, 0x0);
 > +
-> +	return err;
-> +}
+> +Example:
 > +
+> +	eth: ethernet@65000000 {
+> +		compatible = "socionext,uniphier-ave4";
+> +		reg = <0x65000000 0x8500>;
+> +		interrupts = <0 66 4>;
+> +		pinctrl-names = "default";
+> +		pinctrl-0 = <&pinctrl_ether_rgmii>;
+> +		phy-mode = "rgmii";
+> +		socionext,desc-bits = <64>;
+> +		local-mac-address = [00 00 00 00 00 00];
+> +
+> +		#address-cells = <1>;
+> +		#size-cells = <0>;
 
-Other than that, LGTM:
+There is no phy-handle property, yet there clearly seems to be one
+attached, and I think Andrew now also responded to that in the driver
+patch, this needs fixing.
 
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
-
->  static int rtl8211b_config_intr(struct phy_device *phydev)
->  {
->  	int err;
-> @@ -129,6 +161,18 @@ static struct phy_driver realtek_drvs[] = {
->  		.config_aneg    = &genphy_config_aneg,
->  		.read_status    = &genphy_read_status,
->  	}, {
-> +		.phy_id		= 0x001cc816,
-> +		.name		= "RTL8201F 10/100Mbps Ethernet",
-> +		.phy_id_mask	= 0x001fffff,
-> +		.features	= PHY_BASIC_FEATURES,
-> +		.flags		= PHY_HAS_INTERRUPT,
-> +		.config_aneg	= &genphy_config_aneg,
-> +		.read_status	= &genphy_read_status,
-> +		.ack_interrupt	= &rtl8201_ack_interrupt,
-> +		.config_intr	= &rtl8201_config_intr,
-> +		.suspend	= genphy_suspend,
-> +		.resume		= genphy_resume,
-> +	}, {
->  		.phy_id		= 0x001cc912,
->  		.name		= "RTL8211B Gigabit Ethernet",
->  		.phy_id_mask	= 0x001fffff,
-> @@ -181,6 +225,7 @@ static struct phy_driver realtek_drvs[] = {
->  module_phy_driver(realtek_drvs);
->  
->  static struct mdio_device_id __maybe_unused realtek_tbl[] = {
-> +	{ 0x001cc816, 0x001fffff },
->  	{ 0x001cc912, 0x001fffff },
->  	{ 0x001cc914, 0x001fffff },
->  	{ 0x001cc915, 0x001fffff },
+> +		ethphy: ethphy@1 {
+> +			reg = <1>;
+> +		};
+> +	};
 > 
 
 
