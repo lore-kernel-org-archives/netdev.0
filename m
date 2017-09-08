@@ -1,64 +1,61 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 3/3] net: skb_queue_purge(): lock/unlock the list only
- once
-Date: Fri, 08 Sep 2017 09:01:19 -0700
-Message-ID: <1504886479.15310.74.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <45aab5effc0c424a992646a97cf2ec14-mfwitten@gmail.com>
-         <60c8906b751d4915be456009c220516e-mfwitten@gmail.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: Use after free in __dst_destroy_metrics_generic
+Date: Fri, 8 Sep 2017 09:10:20 -0700
+Message-ID: <CAM_iQpXKfUkbyuuZEZXyPrVVCoPaxnCmCARz=Jf0VtU1m9NsZg@mail.gmail.com>
+References: <1234e09b75197d43ed84bdb1b154b4b6@codeaurora.org>
 Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary="089e082249e08bf07f0558afd127"
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        Lorenzo Colitti <lorenzo@google.com>
+To: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f170.google.com ([209.85.192.170]:36477 "EHLO
+        mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753132AbdIHQKm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 8 Sep 2017 12:10:42 -0400
+Received: by mail-pf0-f170.google.com with SMTP id e199so5199630pfh.3
+        for <netdev@vger.kernel.org>; Fri, 08 Sep 2017 09:10:42 -0700 (PDT)
+In-Reply-To: <1234e09b75197d43ed84bdb1b154b4b6@codeaurora.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+--089e082249e08bf07f0558afd127
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Michael Witten <mfwitten@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <60c8906b751d4915be456009c220516e-mfwitten@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
 
-On Fri, 2017-09-08 at 05:06 +0000, Michael Witten wrote:
-> Date: Thu, 7 Sep 2017 20:07:40 +0000
-> With this commit, the list's lock is locked/unlocked only once
-> for the duration of `skb_queue_purge()'.
-> 
-> Hitherto, the list's lock has been locked/unlocked every time
-> an item is dequeued; this seems not only inefficient, but also
-> incorrect, as the whole point of `skb_queue_purge()' is to clear
-> the list, presumably without giving anything else a chance to
-> manipulate the list in the interim.
-> 
-> Signed-off-by: Michael Witten <mfwitten@gmail.com>
-> ---
->  net/core/skbuff.c | 6 +++++-
->  1 file changed, 5 insertions(+), 1 deletion(-)
-> 
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index 68065d7d383f..66c0731a2a5f 100644
-> --- a/net/core/skbuff.c
-> +++ b/net/core/skbuff.c
-> @@ -2834,9 +2834,13 @@ EXPORT_SYMBOL(skb_dequeue_tail);
->   */
->  void skb_queue_purge(struct sk_buff_head *list)
->  {
-> +	unsigned long flags;
->  	struct sk_buff *skb;
-> -	while ((skb = skb_dequeue(list)) != NULL)
-> +
-> +	spin_lock_irqsave(&list->lock, flags);
-> +	while ((skb = __skb_dequeue(list)) != NULL)
->  		kfree_skb(skb);
-> +	spin_unlock_irqrestore(&list->lock, flags);
->  }
->  EXPORT_SYMBOL(skb_queue_purge);
->  
+On Thu, Sep 7, 2017 at 5:52 PM, Subash Abhinov Kasiviswanathan
+<subashab@codeaurora.org> wrote:
+> We are seeing a possible use after free in ip6_dst_destroy.
+>
+> It appears as if memory of the __DST_METRICS_PTR(old) was freed in some path
+> and allocated
+> to ion driver. ion driver has also freed it. Finally the memory is freed by
+> the
+> fib gc and crashes since it is already deallocated.
 
+Does the attach (compile-only) patch help anything?
 
-No, this is very wrong :
+>From my _quick_ glance, it seems we miss the refcnt'ing
+right in __dst_destroy_metrics_generic().
 
-Holding hard IRQ for a potential very long time is going to break
-horribly. Some lists can have 10,000+ skbs in them.
+Thanks!
 
-Note that net-next tree is currently closed, please read 
-Documentation/networking/netdev-FAQ.txt
+--089e082249e08bf07f0558afd127
+Content-Type: text/plain; charset="US-ASCII"; name="dst-metrics-ref.diff"
+Content-Disposition: attachment; filename="dst-metrics-ref.diff"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_j7c2urgm0
+
+ZGlmZiAtLWdpdCBhL25ldC9jb3JlL2RzdC5jIGIvbmV0L2NvcmUvZHN0LmMKaW5kZXggMDBhYTk3
+MmFkMWExLi5iMjkzYWVhZTMwMTggMTAwNjQ0Ci0tLSBhL25ldC9jb3JlL2RzdC5jCisrKyBiL25l
+dC9jb3JlL2RzdC5jCkBAIC0yNDEsOCArMjQxLDE0IEBAIHZvaWQgX19kc3RfZGVzdHJveV9tZXRy
+aWNzX2dlbmVyaWMoc3RydWN0IGRzdF9lbnRyeSAqZHN0LCB1bnNpZ25lZCBsb25nIG9sZCkKIAog
+CW5ldyA9ICgodW5zaWduZWQgbG9uZykgJmRzdF9kZWZhdWx0X21ldHJpY3MpIHwgRFNUX01FVFJJ
+Q1NfUkVBRF9PTkxZOwogCXByZXYgPSBjbXB4Y2hnKCZkc3QtPl9tZXRyaWNzLCBvbGQsIG5ldyk7
+Ci0JaWYgKHByZXYgPT0gb2xkKQotCQlrZnJlZShfX0RTVF9NRVRSSUNTX1BUUihvbGQpKTsKKwlp
+ZiAocHJldiA9PSBvbGQpIHsKKwkJc3RydWN0IGRzdF9tZXRyaWNzICpvbGRfcCA9IChzdHJ1Y3Qg
+ZHN0X21ldHJpY3MgKilfX0RTVF9NRVRSSUNTX1BUUihvbGQpOworCisJCWlmIChwcmV2ICYgRFNU
+X01FVFJJQ1NfUkVGQ09VTlRFRCkgeworCQkJaWYgKGF0b21pY19kZWNfYW5kX3Rlc3QoJm9sZF9w
+LT5yZWZjbnQpKQorCQkJCWtmcmVlKG9sZF9wKTsKKwkJfQorCX0KIH0KIEVYUE9SVF9TWU1CT0wo
+X19kc3RfZGVzdHJveV9tZXRyaWNzX2dlbmVyaWMpOwogCg==
+--089e082249e08bf07f0558afd127--
