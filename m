@@ -1,137 +1,82 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [oss-drivers] Re: [PATCH/RFC net-next 2/2] net/sched: allow
- flower to match tunnel options
-Date: Wed, 13 Sep 2017 15:29:28 +0200
-Message-ID: <20170913132927.GH27555@vergenet.net>
-References: <1505226037-2758-1-git-send-email-simon.horman@netronome.com>
- <1505226037-2758-3-git-send-email-simon.horman@netronome.com>
- <CAJ3xEMgfkpJCfZX-7jaeYtoWTSQQZ6gu8_jSFgcXpzTBpdijQw@mail.gmail.com>
- <20170913092511.GA27555@vergenet.net>
- <CAJ3xEMj1prPRij-Dib96oZMik_k0DzEuXcxi7TbVeSwt9WnDsQ@mail.gmail.com>
- <20170913115931.GG27555@vergenet.net>
- <CAJ3xEMj9HYj+2-ruxLk=PVt=Gxu3FwpyrJPRUgCqdsNamZ=Txw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Pirko <jiri@mellanox.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        oss-drivers@netronome.com
-To: Or Gerlitz <gerlitz.or@gmail.com>
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: [PATCH net] ipv6: fix memory leak with multiple tables during netns destruction
+Date: Fri,  8 Sep 2017 10:26:19 +0200
+Message-ID: <204659713af1979c26b8defb2b52e1668b4e5aad.1504859062.git.sd@queasysnail.net>
+Cc: Sabrina Dubroca <sd@queasysnail.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f54.google.com ([74.125.82.54]:47041 "EHLO
-        mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751019AbdIMN3c (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 13 Sep 2017 09:29:32 -0400
-Received: by mail-wm0-f54.google.com with SMTP id i189so6853578wmf.1
-        for <netdev@vger.kernel.org>; Wed, 13 Sep 2017 06:29:31 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAJ3xEMj9HYj+2-ruxLk=PVt=Gxu3FwpyrJPRUgCqdsNamZ=Txw@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:51284 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754657AbdIHI01 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 8 Sep 2017 04:26:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 13, 2017 at 03:38:01PM +0300, Or Gerlitz wrote:
-> On Wed, Sep 13, 2017 at 2:59 PM, Simon Horman
-> <simon.horman@netronome.com> wrote:
-> > On Wed, Sep 13, 2017 at 01:03:43PM +0300, Or Gerlitz wrote:
-> >> On Wed, Sep 13, 2017 at 12:25 PM, Simon Horman
-> >> <simon.horman@netronome.com> wrote:
-> >> > On Tue, Sep 12, 2017 at 11:23:55PM +0300, Or Gerlitz wrote:
-> >> >> On Tue, Sep 12, 2017 at 5:20 PM, Simon Horman
-> >> >> <simon.horman@netronome.com> wrote:
-> >> >> > Allow matching on options in tunnel headers.
-> >> >> > This makes use of existing tunnel metadata support.
-> >> >>
-> >> >> Simon,
-> >> >>
-> >> >> This patch is about matching on tunnel options, right? but
-> >> >>
-> >> >> > Options are a bytestring of up to 256 bytes.
-> >> >> > Tunnel implementations may support less or more options,
-> >> >> > or no options at all.
-> >> >> >
-> >> >> >  # ip link add name geneve0 type geneve dstport 0 external
-> >> >> >  # tc qdisc add dev eth0 ingress
-> >> >> >  # tc qdisc del dev eth0 ingress; tc qdisc add dev eth0 ingress
-> >> >> >  # tc filter add dev eth0 protocol ip parent ffff: \
-> >> >> >      flower indev eth0 \
-> >> >> >         ip_proto udp \
-> >> >> >         action tunnel_key \
-> >> >> >             set src_ip 10.0.99.192 \
-> >> >> >             dst_ip 10.0.99.193 \
-> >> >> >             dst_port 4789 \
-> >> >> >             id 11 \
-> >> >> >             opts 0102800100800022 \
-> >> >> >     action mirred egress redirect dev geneve0
-> >> >>
-> >> >> the example here is on how to use tunnel options in the tunnel set key actions..
-> >> >>
-> >> >> And the other way around in the other patch... the patch is about the
-> >> >> tunnel key set action and the example shows how to match that in
-> >> >> flower... I guess you want to swap the relevant of the change log.
-> >> >
-> >> > Yes, it seems so. Sorry about that.
-> >>
-> >> no worries, you can do the swap, but before that
-> >>
-> >> >> Anyway, is there any human readable/understandable representation of
-> >> >> these options? e.g what does 0102800100800022 means for geneve?
-> >>
-> >> > Thanks, I had not thought of that. My feeling is that could
-> >> > be added to the tc tool as follow-up work.
-> >>
-> >> could you spend few words on the nature of these options now when we review
-> >> the kernel patches? I guess this is somehow related to protocols such
-> >> as geneve and vxlan-gpe  -- it would be good if you elaborate on that
-> >> a bit, does
-> >> the kernel does any usage with these options beyond matching on them or stiching
-> >> them to packet headers?
-> >
-> > This feature is to be used in conjunction with tunnels in collect metadata
-> > (external) mode. As I understand it there are three tunnel netdevs that use
-> > options metadata in the kernel at this time.
-> >
-> > * Geneve
-> >
-> >   In the case of Geneve options are TLVs[1]. My reading is that in collect
-> >   metadata mode the kernel does not appear to do anything other than pass
-> >   them around as a bytestring.
-> >
-> >   [1] https://tools.ietf.org/html/draft-ietf-nvo3-geneve-05#section-3.5
-> >
-> > * VXLAN-GBP
-> >
-> >   In the case of VXLAN-GBP on RX in collect metadata mode options are used
-> >   to carry information parsed in vxlan_parse_gbp_hdr() from the VXLAN Group
-> >   Based Policy Extension[2]. On RX the options data is used to create an
-> >   extension (header) by vxlan_build_gbp_hdr().
-> >
-> >   [2] https://tools.ietf.org/html/draft-smith-vxlan-group-policy-03#section-2.1
-> >
-> > * ERSPAN (GRE)
-> >
-> >   In the case of ERSPAN, which is a variant of GRE, on RX in collect
-> >   metadata mode options are used to carry the index parsed from the ERSPAN
-> >   Type II feature header[3] in erspan_rcv().  The converse is true on TX
-> >   and is handled by erspan_fb_xmit().
-> >
-> >   [3] https://tools.ietf.org/html/draft-foschiano-erspan-03#section-4.2
-> >
-> > Users of options:
-> >
-> > * There are eBPF hooks to allow getting on and setting tunnel metadata:
-> >   bpf_skb_set_tunnel_opt, bpf_skb_get_tunnel_opt.
-> >
-> > * Open vSwitch is able to match and set Geneve and VXLAN-GBP options.
-> >
-> > Neither of the above appear to assume any structure for the data.
-> >
-> > I hope the above is the kind of information you are after.
-> 
-> yeah, this helps, do we expect HW offloads to be able to work with
-> these options? e.g place/match on packets
-> or even do something beyond that?
+fib6_net_exit only frees the main and local tables. If another table was
+created with fib6_alloc_table, we leak it when the netns is destroyed.
 
-Perhaps unsurprisingly given my posting I would like to offload
-"place/match" of options. I do not currently have any plans beyond that
-and my crystal ball broke some time ago.
+Fix this in the same way ip_fib_net_exit cleans up tables, by walking
+through the whole hashtable of fib6_table's. We can get rid of the
+special cases for local and main, since they're also part of the
+hashtable.
+
+Reproducer:
+    ip netns add x
+    ip -net x -6 rule add from 6003:1::/64 table 100
+    ip netns del x
+
+Reported-by: Jianlin Shi <jishi@redhat.com>
+Fixes: 58f09b78b730 ("[NETNS][IPV6] ip6_fib - make it per network namespace")
+Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+---
+ net/ipv6/ip6_fib.c | 25 +++++++++++++++++++------
+ 1 file changed, 19 insertions(+), 6 deletions(-)
+
+diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
+index a3b5c163325f..8280172c806c 100644
+--- a/net/ipv6/ip6_fib.c
++++ b/net/ipv6/ip6_fib.c
+@@ -191,6 +191,12 @@ void rt6_free_pcpu(struct rt6_info *non_pcpu_rt)
+ }
+ EXPORT_SYMBOL_GPL(rt6_free_pcpu);
+ 
++static void fib6_free_table(struct fib6_table *table)
++{
++	inetpeer_invalidate_tree(&table->tb6_peers);
++	kfree(table);
++}
++
+ static void fib6_link_table(struct net *net, struct fib6_table *tb)
+ {
+ 	unsigned int h;
+@@ -2022,15 +2028,22 @@ static int __net_init fib6_net_init(struct net *net)
+ 
+ static void fib6_net_exit(struct net *net)
+ {
++	unsigned int i;
++
+ 	rt6_ifdown(net, NULL);
+ 	del_timer_sync(&net->ipv6.ip6_fib_timer);
+ 
+-#ifdef CONFIG_IPV6_MULTIPLE_TABLES
+-	inetpeer_invalidate_tree(&net->ipv6.fib6_local_tbl->tb6_peers);
+-	kfree(net->ipv6.fib6_local_tbl);
+-#endif
+-	inetpeer_invalidate_tree(&net->ipv6.fib6_main_tbl->tb6_peers);
+-	kfree(net->ipv6.fib6_main_tbl);
++	for (i = 0; i < FIB_TABLE_HASHSZ; i++) {
++		struct hlist_head *head = &net->ipv6.fib_table_hash[i];
++		struct hlist_node *tmp;
++		struct fib6_table *tb;
++
++		hlist_for_each_entry_safe(tb, tmp, head, tb6_hlist) {
++			hlist_del(&tb->tb6_hlist);
++			fib6_free_table(tb);
++		}
++	}
++
+ 	kfree(net->ipv6.fib_table_hash);
+ 	kfree(net->ipv6.rt6_stats);
+ 	fib6_notifier_exit(net);
+-- 
+2.14.1
