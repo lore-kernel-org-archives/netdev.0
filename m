@@ -1,44 +1,63 @@
-From: Adam Borowski <kilobyte@angband.pl>
-Subject: [PATCH] rtl8xxxu: Don't printk raw binary if serial number is not burned in.
-Date: Fri,  8 Sep 2017 01:51:03 +0200
-Message-ID: <20170907235103.5359-1-kilobyte@angband.pl>
-Cc: Adam Borowski <kilobyte@angband.pl>
-To: Jes Sorensen <Jes.Sorensen@gmail.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from tartarus.angband.pl ([89.206.35.136]:50888 "EHLO
-        tartarus.angband.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750966AbdIGXvQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 7 Sep 2017 19:51:16 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: WARN_ON() in __nf_hook_entries_try_shrink()
+Date: Thu, 7 Sep 2017 17:01:12 -0700
+Message-ID: <CA+55aFw64ihu1bai0Em8pXD4dZ-wFVtV7BRjWbDLLb2MPWWXkw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        David Miller <davem@davemloft.net>,
+        NetFilter <netfilter-devel@vger.kernel.org>,
+        coreteam@netfilter.org,
+        Network Development <netdev@vger.kernel.org>
+To: Aaron Conole <aconole@bytheb.org>, Florian Westphal <fw@strlen.de>,
+        Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I assume that a blank efuse comes with all ones, thus I did not bother
-recognizing other possible junk values.  This matches 100% of dongles
-I've seen (a single Gembird 8192eu).
+On shutdown I get this (edited down a bit to be more legible):
 
-Signed-off-by: Adam Borowski <kilobyte@angband.pl>
----
- drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_8192e.c | 6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
+  Stopping firewalld - dynamic firewall daemon...
+  NETFILTER_CFG table=nat family=2 entries=55
+  NETFILTER_CFG table=mangle family=2 entries=40
+  NETFILTER_CFG table=raw family=2 entries=28
+  NETFILTER_CFG table=security family=2 entries=13
+  NETFILTER_CFG table=filter family=2 entries=93
+  ------------[ cut here ]------------
+  WARNING: CPU: 1 PID: 21512 at net/netfilter/core.c:218
+__nf_hook_entries_try_shrink+0x106/0x130
+  CPU: 1 PID: 21512 Comm: iptables-restor Not tainted
+4.13.0-08555-gc0da4fa0d1a5 #7
+  Hardware name: Dell Inc. XPS 13 9350/09JHRY, BIOS 1.4.17 05/10/2017
+  RIP: 0010:__nf_hook_entries_try_shrink+0x106/0x130
+  Call Trace:
+     nf_unregister_net_hooks+0x117/0x240
+     ipv4_hooks_unregister+0x60/0x70 [nf_conntrack_ipv4]
+     nf_ct_netns_put+0x48/0x80 [nf_conntrack]
+     conntrack_mt_destroy+0x15/0x20 [xt_conntrack]
+     cleanup_match+0x43/0x70
+     cleanup_entry+0x42/0xc0
+     __do_replace+0x17a/0x1f0
+     do_ipt_set_ctl+0x146/0x1b0
+     nf_setsockopt+0x46/0x80
+     ip_setsockopt+0x82/0xb0
+     raw_setsockopt+0x34/0x40
+     sock_common_setsockopt+0x14/0x20
+     SyS_setsockopt+0x80/0xe0
+     entry_SYSCALL_64_fastpath+0x13/0x94
+[ .. warning repeats a few times .. ]
+  ---[ end trace 56a6f5b20d97161d ]---
+  NETFILTER_CFG table=broute family=7 entries=0
+  NETFILTER_CFG table=nat family=7 entries=0
+  NETFILTER_CFG table=filter family=7 entries=0
+  NETFILTER_CFG table=mangle family=2 entries=6
 
-diff --git a/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_8192e.c b/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_8192e.c
-index 80fee699f58a..bdc37e7272ca 100644
---- a/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_8192e.c
-+++ b/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_8192e.c
-@@ -614,7 +614,11 @@ static int rtl8192eu_parse_efuse(struct rtl8xxxu_priv *priv)
- 
- 	dev_info(&priv->udev->dev, "Vendor: %.7s\n", efuse->vendor_name);
- 	dev_info(&priv->udev->dev, "Product: %.11s\n", efuse->device_name);
--	dev_info(&priv->udev->dev, "Serial: %.11s\n", efuse->serial);
-+	if (strncmp(efuse->serial,
-+		    "\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff", 11))
-+		dev_info(&priv->udev->dev, "Serial: %.11s\n", efuse->serial);
-+	else
-+		dev_info(&priv->udev->dev, "Serial not available.\n");
- 
- 	if (rtl8xxxu_debug & RTL8XXXU_DEBUG_EFUSE) {
- 		unsigned char *raw = priv->efuse_wifi.raw;
--- 
-2.14.1
+and some searching notes that the kernel test robot already reported
+this a few days ago but nobody reacted.
+
+The kernel test robot seems to blame commit d3ad2c17b404 ("netfilter:
+core: batch nf_unregister_net_hooks synchronize_net calls").
+
+Hmm?
+
+               Linus
