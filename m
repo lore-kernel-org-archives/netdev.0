@@ -1,41 +1,49 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [PATCH net] phy: mvebu-cp110: checking for NULL instead of IS_ERR()
-Date: Fri, 8 Sep 2017 13:31:37 +0300
-Message-ID: <20170908103137.zck6bw66sge4fhua@mwanda>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net] bpf: don't select potentially stale ri->map from
+ buggy xdp progs
+Date: Fri, 08 Sep 2017 12:34:28 +0200
+Message-ID: <59B27234.4050703@iogearbox.net>
+References: <01d69254802986ad3a8b18a8650c45df3df95def.1504821825.git.daniel@iogearbox.net> <20170908070610.4b8e1df1@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        "David S. Miller" <davem@davemloft.net>
-To: Kishon Vijay Abraham I <kishon@ti.com>,
-        Antoine Tenart <antoine.tenart@free-electrons.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, ast@fb.com, john.fastabend@gmail.com,
+        andy@greyhouse.net, netdev@vger.kernel.org
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:51024 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751675AbdIHKeh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 8 Sep 2017 06:34:37 -0400
+In-Reply-To: <20170908070610.4b8e1df1@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-devm_ioremap_resource() never returns NULL, it only returns error
-pointers so this test needs to be changed.
+On 09/08/2017 07:06 AM, Jesper Dangaard Brouer wrote:
+> On Fri,  8 Sep 2017 00:14:51 +0200
+> Daniel Borkmann <daniel@iogearbox.net> wrote:
+>
+>> +	/* This is really only caused by a deliberately crappy
+>> +	 * BPF program, normally we would never hit that case,
+>> +	 * so no need to inform someone via tracepoints either,
+>> +	 * just bail out.
+>> +	 */
+>> +	if (unlikely(map_owner != xdp_prog))
+>> +		return -EINVAL;
+>
+> IMHO we do need to call the tracepoint here.  It is not just crappy
+> BPF-progs that cause this situation, it is also drivers not implementing
+> XDP_REDIRECT yet (which is all but ixgbe).  Due to the level XDP
+> operates at, tracepoints are the only way users can runtime troubleshoot
+> their XDP programs.
 
-Fixes: d0438bd6aa09 ("phy: add the mvebu cp110 comphy driver")
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
----
-This driver apparently is going through the net tree, but netdev isn't
-listed as handling it in MAINTAINERS.  Kishon, do you know what's up
-with that?
-
-diff --git a/drivers/phy/marvell/phy-mvebu-cp110-comphy.c b/drivers/phy/marvell/phy-mvebu-cp110-comphy.c
-index 73ebad6634a7..24578bd68ddc 100644
---- a/drivers/phy/marvell/phy-mvebu-cp110-comphy.c
-+++ b/drivers/phy/marvell/phy-mvebu-cp110-comphy.c
-@@ -576,8 +576,8 @@ static int mvebu_comphy_probe(struct platform_device *pdev)
- 		return PTR_ERR(priv->regmap);
- 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
- 	priv->base = devm_ioremap_resource(&pdev->dev, res);
--	if (!priv->base)
--		return -ENOMEM;
-+	if (IS_ERR(priv->base))
-+		return PTR_ERR(priv->base);
- 
- 	for_each_available_child_of_node(pdev->dev.of_node, child) {
- 		struct mvebu_comphy_lane *lane;
+Drivers not implementing XDP_REDIRECT don't even get there in
+the first place. What they will do is to hit the 'default' case
+when they check for the action code from the BPF program. Then
+call into bpf_warn_invalid_xdp_action(act), and fall-through
+to hit the tracepoint at trace_xdp_exception() which is also
+triggered by XDP_ABORTED usually. So when that happens we do
+complain loudly and call a tracepoint already. We should probably
+tweak the bpf_warn_invalid_xdp_action() message a little to make
+it clear that the action could also just be unsupported by the
+driver instead of being illegal.
