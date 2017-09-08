@@ -1,241 +1,140 @@
-From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v5 05/10] dt-bindings: net: dwmac-sun8i: update
- documentation about integrated PHY
-Date: Fri, 8 Sep 2017 09:43:25 +0200
-Message-ID: <20170908074325.GB29999@Red>
-References: <20170908071156.5115-1-clabbe.montjoie@gmail.com>
- <20170908071156.5115-6-clabbe.montjoie@gmail.com>
- <20170908072538.rqsp6dobwsqmzrsr@flea.lan>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [V2 PATCH net-next 1/2] xdp: implement xdp_redirect_map for
+ generic XDP
+Date: Fri, 8 Sep 2017 10:36:01 +0200
+Message-ID: <20170908103601.21cdecb2@redhat.com>
+References: <150478756604.28665.6915020425359475729.stgit@firesoul>
+        <150478759310.28665.17184783248584070473.stgit@firesoul>
+        <59B15334.4070103@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org,
-        linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org,
-        will.deacon-5wv7dgnIgG8@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
-        alexandre.torgue-qxv4g6HH51o@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20170908072538.rqsp6dobwsqmzrsr-ZC1Zs529Oq4@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+        Daniel Borkmann <borkmann@iogearbox.net>,
+        John Fastabend <john.fastabend@gmail.com>,
+        Andy Gospodarek <andy@greyhouse.net>,
+        alexei.starovoitov@gmail.com, brouer@redhat.com
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:47448 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751718AbdIHIgI (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 8 Sep 2017 04:36:08 -0400
+In-Reply-To: <59B15334.4070103@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 08, 2017 at 09:25:38AM +0200, Maxime Ripard wrote:
-> On Fri, Sep 08, 2017 at 09:11:51AM +0200, Corentin Labbe wrote:
-> > This patch add documentation about the MDIO switch used on sun8i-h3-emac
-> > for integrated PHY.
-> > 
-> > Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+On Thu, 07 Sep 2017 16:09:56 +0200
+Daniel Borkmann <daniel@iogearbox.net> wrote:
+
+> On 09/07/2017 02:33 PM, Jesper Dangaard Brouer wrote:
+> > Using bpf_redirect_map is allowed for generic XDP programs, but the
+> > appropriate map lookup was never performed in xdp_do_generic_redirect().
+> >
+> > Instead the map-index is directly used as the ifindex.  For the
+> > xdp_redirect_map sample in SKB-mode '-S', this resulted in trying
+> > sending on ifindex 0 which isn't valid, resulting in getting SKB
+> > packets dropped.  Thus, the reported performance numbers are wrong in
+> > commit 24251c264798 ("samples/bpf: add option for native and skb mode
+> > for redirect apps") for the 'xdp_redirect_map -S' case.
+> >
+> > It might seem innocent this was lacking, but it can actually crash the
+> > kernel.  The potential crash is caused by not consuming redirect_info->map.
+> > The bpf_redirect_map helper will set this_cpu_ptr(&redirect_info)->map
+> > pointer, which will survive even after unloading the xdp bpf_prog and
+> > deallocating the devmap data-structure.  This leaves a dead map
+> > pointer around.  The kernel will crash when loading the xdp_redirect
+> > sample (in native XDP mode) as it doesn't reset map (via bpf_redirect)
+> > and returns XDP_REDIRECT, which will cause it to dereference the map
+> > pointer.
+> >
+> > Fixes: 6103aa96ec07 ("net: implement XDP_REDIRECT for xdp generic")
+> > Fixes: 24251c264798 ("samples/bpf: add option for native and skb mode for redirect apps")
+> > Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
 > > ---
-> >  .../devicetree/bindings/net/dwmac-sun8i.txt        | 127 +++++++++++++++++++--
-> >  1 file changed, 120 insertions(+), 7 deletions(-)
-> > 
-> > diff --git a/Documentation/devicetree/bindings/net/dwmac-sun8i.txt b/Documentation/devicetree/bindings/net/dwmac-sun8i.txt
-> > index 725f3b187886..3fa0e54825ea 100644
-> > --- a/Documentation/devicetree/bindings/net/dwmac-sun8i.txt
-> > +++ b/Documentation/devicetree/bindings/net/dwmac-sun8i.txt
-> > @@ -39,7 +39,7 @@ Optional properties for the following compatibles:
-> >  - allwinner,leds-active-low: EPHY LEDs are active low
-> >  
-> >  Required child node of emac:
-> > -- mdio bus node: should be named mdio
-> > +- mdio bus node: should be labelled mdio
+> >   include/trace/events/xdp.h |    4 ++--
+> >   net/core/filter.c          |   14 +++++++++++---
+> >   2 files changed, 13 insertions(+), 5 deletions(-)
+> >
+> > diff --git a/include/trace/events/xdp.h b/include/trace/events/xdp.h
+> > index 862575ac8da9..4e16c43fba10 100644
+> > --- a/include/trace/events/xdp.h
+> > +++ b/include/trace/events/xdp.h
+> > @@ -138,11 +138,11 @@ DEFINE_EVENT_PRINT(xdp_redirect_template, xdp_redirect_map_err,
+> >
+> >   #define _trace_xdp_redirect_map(dev, xdp, fwd, map, idx)		\
+> >   	 trace_xdp_redirect_map(dev, xdp, fwd ? fwd->ifindex : 0,	\
+> > -				0, map, idx);
+> > +				0, map, idx)
+> >
+> >   #define _trace_xdp_redirect_map_err(dev, xdp, fwd, map, idx, err)	\
+> >   	 trace_xdp_redirect_map_err(dev, xdp, fwd ? fwd->ifindex : 0,	\
+> > -				    err, map, idx);
+> > +				    err, map, idx)
+> >
+> >   #endif /* _TRACE_XDP_H */
+> >
+> > diff --git a/net/core/filter.c b/net/core/filter.c
+> > index 5912c738a7b2..3767470cab6c 100644
+> > --- a/net/core/filter.c
+> > +++ b/net/core/filter.c
+> > @@ -2566,13 +2566,19 @@ int xdp_do_generic_redirect(struct net_device *dev, struct sk_buff *skb,
+> >   			    struct bpf_prog *xdp_prog)
+> >   {
+> >   	struct redirect_info *ri = this_cpu_ptr(&redirect_info);
+> > +	struct bpf_map *map = ri->map;
+> >   	u32 index = ri->ifindex;
+> >   	struct net_device *fwd;
+> >   	unsigned int len;
+> >   	int err = 0;
+> >
+> > -	fwd = dev_get_by_index_rcu(dev_net(dev), index);
+> >   	ri->ifindex = 0;
+> > +	ri->map = NULL;
+> > +
+> > +	if (map)
+> > +		fwd = __dev_map_lookup_elem(map, index);
+> > +	else
+> > +		fwd = dev_get_by_index_rcu(dev_net(dev), index);
+> >   	if (unlikely(!fwd)) {
+> >   		err = -EINVAL;
+> >   		goto err;
+> > @@ -2590,10 +2596,12 @@ int xdp_do_generic_redirect(struct net_device *dev, struct sk_buff *skb,
+> >   	}
+> >
+> >   	skb->dev = fwd;  
 > 
-> labels do not end up in the final DT (while the names do) so why are
-> you making this change?
+> Looks much better above, thanks!
 > 
+> > -	_trace_xdp_redirect(dev, xdp_prog, index);
+> > +	map ? _trace_xdp_redirect_map(dev, xdp_prog, fwd, map, index)
+> > +		: _trace_xdp_redirect(dev, xdp_prog, index);  
+> 
+> Could we rather make this in a way such that when the two
+> tracepoints are disabled and thus patched out, that we can
+> also omit the extra conditional which has no purpose then?
 
-I misunderstood label/name.
-Anyway, this contrainst should leave due to "snps,dwmac-mdio MDIOs are automatically registered"
+First of all I don't think it make much of a difference, I measured the
+impact of the full patch to "cost" 1.62 nanosec (which is arguably
+below the accuracy level of the system under test)
 
-> >  
-> >  Required properties of the mdio node:
-> >  - #address-cells: shall be 1
-> > @@ -48,14 +48,28 @@ Required properties of the mdio node:
-> >  The device node referenced by "phy" or "phy-handle" should be a child node
-> >  of the mdio node. See phy.txt for the generic PHY bindings.
-> >  
-> > -Required properties of the phy node with the following compatibles:
-> > +The following compatibles require an mdio-mux node called "mdio-mux":
-> > +  - "allwinner,sun8i-h3-emac"
-> > +  - "allwinner,sun8i-v3s-emac":
-> > +Required properties for the mdio-mux node:
-> > +  - compatible = "mdio-mux"
-> > +  - one child mdio for the integrated mdio
-> > +  - one child mdio for the external mdio if present (V3s have none)
-> > +Required properties for the mdio-mux children node:
-> > +  - reg: 0 for internal MDIO bus, 1 for external MDIO bus
-> > +
-> > +The following compatibles require a PHY node representing the integrated
-> > +PHY, under the integrated MDIO bus node if an mdio-mux node is used:
-> >    - "allwinner,sun8i-h3-emac",
-> >    - "allwinner,sun8i-v3s-emac":
-> > +
-> > +Required properties of the integrated phy node:
-> >  - clocks: a phandle to the reference clock for the EPHY
-> >  - resets: a phandle to the reset control for the EPHY
-> > +- phy-is-integrated
-> > +- Should be a child of the integrated mdio
-> 
-> I'm not sure what you mean by that, you ask that it should (so not
-> required?) be a child of the integrated mdio...
-> 
+Secondly, I plan to optimize the map case for generic XDP later, where
+I would naturally split this into two functions (as V1, and as
+native-XDP), thus this extra conditional would go away.  As I've shown
+offlist (to you, John and Andy) I demonstrated a 24% speedup via a
+xmit_more hack for generic XDP.
 
-I will change words to "must"
 
-> >  
-> > -Example:
-> > -
-> > +Example with integrated PHY:
-> >  emac: ethernet@1c0b000 {
-> >  	compatible = "allwinner,sun8i-h3-emac";
-> >  	syscon = <&syscon>;
-> > @@ -72,13 +86,112 @@ emac: ethernet@1c0b000 {
-> >  	phy-handle = <&int_mii_phy>;
-> >  	phy-mode = "mii";
-> >  	allwinner,leds-active-low;
-> > +
-> > +	mdio0: mdio {
-> 
-> (You don't label it mdio here, unlike what was asked before)
-> 
-> > +		#address-cells = <1>;
-> > +		#size-cells = <0>;
-> > +		compatible = "snps,dwmac-mdio";
-> > +	};
-> 
-> I think Rob wanted that node gone?
-> 
+> Perhaps just a consolidated _trace_xdp_generic_redirect_map()
+> would be better to avoid this altogether given we have twice
+> the same anyway, here and in err path.
 
-MDIO mux does not work without a parent MDIO, either gived by "parent-bus" or directly via mdio_mux_init() (like it is the case in dwmac-sun8i)
+I do want separate tracepoints for xdp_redirect and xdp_redirect_map,
+as it makes it more clear for users of the tracepoint (and attached
+bpf_prog's can be faster, knowing the context).
 
-> > +	mdio-mux {
-> > +		compatible = "mdio-mux";
-> > +		#address-cells = <1>;
-> > +		#size-cells = <0>;
-> > +
-> > +		int_mdio: mdio@1 {
-> > +			reg = <0>;
-> > +			#address-cells = <1>;
-> > +			#size-cells = <0>;
-> > +			int_mii_phy: ethernet-phy@1 {
-> > +				reg = <1>;
-> > +				clocks = <&ccu CLK_BUS_EPHY>;
-> > +				resets = <&ccu RST_BUS_EPHY>;
-> > +				phy-is-integrated
-> > +			};
-> > +		};
-> 
-> ... And in your example it's a child of the mdio mux?
-> 
-
-So I confirm, integrated PHY must be a child of integrated MDIO (that must be a child of mdio-mux).
-The example is good.
-
-> > +		ext_mdio: mdio@0 {
-> > +			reg = <1>;
-> > +			#address-cells = <1>;
-> > +			#size-cells = <0>;
-> > +		};
-> > +	};
-> > +};
-> > +
-> > +Example with external PHY:
-> > +emac: ethernet@1c0b000 {
-> > +	compatible = "allwinner,sun8i-h3-emac";
-> > +	syscon = <&syscon>;
-> > +	reg = <0x01c0b000 0x104>;
-> > +	interrupts = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>;
-> > +	interrupt-names = "macirq";
-> > +	resets = <&ccu RST_BUS_EMAC>;
-> > +	reset-names = "stmmaceth";
-> > +	clocks = <&ccu CLK_BUS_EMAC>;
-> > +	clock-names = "stmmaceth";
-> > +	#address-cells = <1>;
-> > +	#size-cells = <0>;
-> > +
-> > +	phy-handle = <&ext_rgmii_phy>;
-> > +	phy-mode = "rgmii";
-> > +	allwinner,leds-active-low;
-> > +
-> > +	mdio0: mdio {
-> > +		#address-cells = <1>;
-> > +		#size-cells = <0>;
-> > +		compatible = "snps,dwmac-mdio";
-> > +	};
-> > +
-> > +	mdio-mux {
-> > +		compatible = "mdio-mux";
-> > +		#address-cells = <1>;
-> > +		#size-cells = <0>;
-> > +
-> > +		int_mdio: mdio@1 {
-> > +			reg = <0>;
-> > +			#address-cells = <1>;
-> > +			#size-cells = <0>;
-> > +			int_mii_phy: ethernet-phy@1 {
-> > +				reg = <1>;
-> > +				clocks = <&ccu CLK_BUS_EPHY>;
-> > +				resets = <&ccu RST_BUS_EPHY>;
-> > +				phy-is-integrated
-> > +			};
-> > +		};
-> > +		ext_mdio: mdio@0 {
-> > +			reg = <1>;
-> > +			#address-cells = <1>;
-> > +			#size-cells = <0>;
-> > +			ext_rgmii_phy: ethernet-phy@1 {
-> > +				reg = <1>;
-> > +			};
-> > +		};
-> > +	};
-> > +};
-> > +
-> > +Example with SoC without integrated PHY
-> > +
-> > +emac: ethernet@1c0b000 {
-> > +	compatible = "allwinner,sun8i-a83t-emac";
-> > +	syscon = <&syscon>;
-> > +	reg = <0x01c0b000 0x104>;
-> > +	interrupts = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>;
-> > +	interrupt-names = "macirq";
-> > +	resets = <&ccu RST_BUS_EMAC>;
-> > +	reset-names = "stmmaceth";
-> > +	clocks = <&ccu CLK_BUS_EMAC>;
-> > +	clock-names = "stmmaceth";
-> > +	#address-cells = <1>;
-> > +	#size-cells = <0>;
-> > +
-> > +	phy-handle = <&ext_rgmii_phy>;
-> > +	phy-mode = "rgmii";
-> > +
-> >  	mdio: mdio {
-> > +		compatible = "snps,dwmac-mdio";
-> >  		#address-cells = <1>;
-> >  		#size-cells = <0>;
-> > -		int_mii_phy: ethernet-phy@1 {
-> > +		ext_rgmii_phy: ethernet-phy@1 {
-> >  			reg = <1>;
-> > -			clocks = <&ccu CLK_BUS_EPHY>;
-> > -			resets = <&ccu RST_BUS_EPHY>;
-> >  		};
-> >  	};
-> >  };
-> > -- 
-> > 2.13.5
-> > 
-> 
-> -- 
-> Maxime Ripard, Free Electrons
-> Embedded Linux and Kernel engineering
-> http://free-electrons.com
-
-Thanks for the review, I will fix all reported problem in next version.
-
-Regards
-Corentin Labbe
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
