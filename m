@@ -1,49 +1,41 @@
-From: zhizhou.tian@gmail.com
-Subject: [PATCH] net:netfilter alloc xt_byteslimit_htable with wrong size
-Date: Fri,  8 Sep 2017 11:00:16 +0800
-Message-ID: <1504839616-14519-1-git-send-email-zhizhou.tian@gmail.com>
-Cc: Zhizhou Tian <zhizhou.tian@gmail.com>
-To: pablo@netfilter.org, kadlec@blackhole.kfki.hu, fw@strlen.de,
-        davem@davemloft.net, netfilter-devel@vger.kernel.org,
-        coreteam@netfilter.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] udp: drop head states only when all skb references
+ are gone
+Date: Thu, 07 Sep 2017 20:03:05 -0700 (PDT)
+Message-ID: <20170907.200305.1453658712948209622.davem@davemloft.net>
+References: <1504631927.15310.47.camel@edumazet-glaptop3.roam.corp.google.com>
+        <1d0596e2a1926e7c0e8c7f691ef42c713daa3396.1504701206.git.pabeni@redhat.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, edumazet@google.com,
+        hannes@stressinduktion.org
+To: pabeni@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:41612 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753132AbdIHDDH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 7 Sep 2017 23:03:07 -0400
+In-Reply-To: <1d0596e2a1926e7c0e8c7f691ef42c713daa3396.1504701206.git.pabeni@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Zhizhou Tian <zhizhou.tian@gmail.com>
+From: Paolo Abeni <pabeni@redhat.com>
+Date: Wed,  6 Sep 2017 14:44:36 +0200
 
-struct xt_byteslimit_htable used hlist_head,
-but alloc memory with sizeof(struct list_head)
+> After commit 0ddf3fb2c43d ("udp: preserve skb->dst if required
+> for IP options processing") we clear the skb head state as soon
+> as the skb carrying them is first processed.
+> 
+> Since the same skb can be processed several times when MSG_PEEK
+> is used, we can end up lacking the required head states, and
+> eventually oopsing.
+> 
+> Fix this clearing the skb head state only when processing the
+> last skb reference.
+> 
+> Reported-by: Eric Dumazet <edumazet@google.com>
+> Fixes: 0ddf3fb2c43d ("udp: preserve skb->dst if required for IP options processing")
+> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
 
-Change-Id: I75bc60e47e0823700d4303c9d763b7995e3b7bb3
-Signed-off-by: Zhizhou Tian <zhizhou.tian@gmail.com>
----
- net/netfilter/xt_hashlimit.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/netfilter/xt_hashlimit.c b/net/netfilter/xt_hashlimit.c
-index 10d4823..962ea4a 100644
---- a/net/netfilter/xt_hashlimit.c
-+++ b/net/netfilter/xt_hashlimit.c
-@@ -279,7 +279,7 @@ static int htable_create(struct net *net, struct hashlimit_cfg3 *cfg,
- 		size = cfg->size;
- 	} else {
- 		size = (totalram_pages << PAGE_SHIFT) / 16384 /
--		       sizeof(struct list_head);
-+		       sizeof(struct hlist_head);
- 		if (totalram_pages > 1024 * 1024 * 1024 / PAGE_SIZE)
- 			size = 8192;
- 		if (size < 16)
-@@ -287,7 +287,7 @@ static int htable_create(struct net *net, struct hashlimit_cfg3 *cfg,
- 	}
- 	/* FIXME: don't use vmalloc() here or anywhere else -HW */
- 	hinfo = vmalloc(sizeof(struct xt_hashlimit_htable) +
--	                sizeof(struct list_head) * size);
-+	                sizeof(struct hlist_head) * size);
- 	if (hinfo == NULL)
- 		return -ENOMEM;
- 	*out_hinfo = hinfo;
--- 
-2.7.4
-
+Applied and queued up for -stable, thanks.
