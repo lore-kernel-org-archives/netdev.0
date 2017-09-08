@@ -1,8 +1,7 @@
 From: John Fastabend <john.fastabend@gmail.com>
-Subject: [net PATCH 1/3] net: rcu lock and preempt disable missing around
- generic xdp
-Date: Fri, 08 Sep 2017 14:00:30 -0700
-Message-ID: <150490443011.11590.2847947557652786219.stgit@john-XPS-13-9360>
+Subject: [net PATCH 2/3] bpf: add support for sockmap detach programs
+Date: Fri, 08 Sep 2017 14:00:49 -0700
+Message-ID: <150490444956.11590.4733752227675213913.stgit@john-XPS-13-9360>
 References: <150490397545.11590.1409723973253492363.stgit@john-XPS-13-9360>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,111 +10,220 @@ Cc: netdev@vger.kernel.org, john.fastabend@gmail.com,
         daniel@iogearbox.net, ast@fb.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:38300 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932400AbdIHVAo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 8 Sep 2017 17:00:44 -0400
-Received: by mail-pg0-f66.google.com with SMTP id t3so1778507pgt.5
-        for <netdev@vger.kernel.org>; Fri, 08 Sep 2017 14:00:43 -0700 (PDT)
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:37878 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932400AbdIHVBE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 8 Sep 2017 17:01:04 -0400
+Received: by mail-pg0-f67.google.com with SMTP id v5so1785561pgn.4
+        for <netdev@vger.kernel.org>; Fri, 08 Sep 2017 14:01:04 -0700 (PDT)
 In-Reply-To: <150490397545.11590.1409723973253492363.stgit@john-XPS-13-9360>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-do_xdp_generic must be called inside rcu critical section with preempt
-disabled to ensure BPF programs are valid and per-cpu variables used
-for redirect operations are consistent. This patch ensures this is true
-and fixes the splat below.
+The bpf map sockmap supports adding programs via attach commands. This
+patch adds the detach command to keep the API symmetric and allow
+users to remove previously added programs. Otherwise the user would
+have to delete the map and re-add it to get in this state.
 
-The netif_receive_skb_internal() code path is now broken into two rcu
-critical sections. I decided it was better to limit the preempt_enable/disable
-block to just the xdp static key portion and the fallout is more
-rcu_read_lock/unlock calls. Seems like the best option to me.
+This also adds a series of additional tests to capture detach operation
+and also attaching/detaching invalid prog types.
 
-[  607.596901] =============================
-[  607.596906] WARNING: suspicious RCU usage
-[  607.596912] 4.13.0-rc4+ #570 Not tainted
-[  607.596917] -----------------------------
-[  607.596923] net/core/dev.c:3948 suspicious rcu_dereference_check() usage!
-[  607.596927]
-[  607.596927] other info that might help us debug this:
-[  607.596927]
-[  607.596933]
-[  607.596933] rcu_scheduler_active = 2, debug_locks = 1
-[  607.596938] 2 locks held by pool/14624:
-[  607.596943]  #0:  (rcu_read_lock_bh){......}, at: [<ffffffff95445ffd>] ip_finish_output2+0x14d/0x890
-[  607.596973]  #1:  (rcu_read_lock_bh){......}, at: [<ffffffff953c8e3a>] __dev_queue_xmit+0x14a/0xfd0
-[  607.597000]
-[  607.597000] stack backtrace:
-[  607.597006] CPU: 5 PID: 14624 Comm: pool Not tainted 4.13.0-rc4+ #570
-[  607.597011] Hardware name: Dell Inc. Precision Tower 5810/0HHV7N, BIOS A17 03/01/2017
-[  607.597016] Call Trace:
-[  607.597027]  dump_stack+0x67/0x92
-[  607.597040]  lockdep_rcu_suspicious+0xdd/0x110
-[  607.597054]  do_xdp_generic+0x313/0xa50
-[  607.597068]  ? time_hardirqs_on+0x5b/0x150
-[  607.597076]  ? mark_held_locks+0x6b/0xc0
-[  607.597088]  ? netdev_pick_tx+0x150/0x150
-[  607.597117]  netif_rx_internal+0x205/0x3f0
-[  607.597127]  ? do_xdp_generic+0xa50/0xa50
-[  607.597144]  ? lock_downgrade+0x2b0/0x2b0
-[  607.597158]  ? __lock_is_held+0x93/0x100
-[  607.597187]  netif_rx+0x119/0x190
-[  607.597202]  loopback_xmit+0xfd/0x1b0
-[  607.597214]  dev_hard_start_xmit+0x127/0x4e0
+API note: socks will run (or not run) programs depending on the state
+of the map at the time the sock is added. We do not for example walk
+the map and remove programs from previously attached socks.
 
-Fixes: d445516966dc ("net: xdp: support xdp generic on virtual devices")
-Fixes: b5cdae3291f7 ("net: Generic XDP")
 Acked-by: Daniel Borkmann <daniel@iogearbox.net>
 Signed-off-by: John Fastabend <john.fastabend@gmail.com>
 ---
- net/core/dev.c |   25 ++++++++++++++++---------
- 1 file changed, 16 insertions(+), 9 deletions(-)
+ include/linux/bpf.h                     |    8 ++---
+ kernel/bpf/sockmap.c                    |    2 +
+ kernel/bpf/syscall.c                    |   27 ++++++++++------
+ tools/testing/selftests/bpf/test_maps.c |   51 ++++++++++++++++++++++++++++++-
+ 4 files changed, 72 insertions(+), 16 deletions(-)
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 6f845e4..fb766d9 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3981,8 +3981,13 @@ static int netif_rx_internal(struct sk_buff *skb)
- 	trace_netif_rx(skb);
+diff --git a/include/linux/bpf.h b/include/linux/bpf.h
+index c2cb1b5..8390859 100644
+--- a/include/linux/bpf.h
++++ b/include/linux/bpf.h
+@@ -385,16 +385,16 @@ static inline void __dev_map_flush(struct bpf_map *map)
  
- 	if (static_key_false(&generic_xdp_needed)) {
--		int ret = do_xdp_generic(rcu_dereference(skb->dev->xdp_prog),
--					 skb);
-+		int ret;
-+
-+		preempt_disable();
-+		rcu_read_lock();
-+		ret = do_xdp_generic(rcu_dereference(skb->dev->xdp_prog), skb);
-+		rcu_read_unlock();
-+		preempt_enable();
+ #if defined(CONFIG_STREAM_PARSER) && defined(CONFIG_BPF_SYSCALL)
+ struct sock  *__sock_map_lookup_elem(struct bpf_map *map, u32 key);
+-int sock_map_attach_prog(struct bpf_map *map, struct bpf_prog *prog, u32 type);
++int sock_map_prog(struct bpf_map *map, struct bpf_prog *prog, u32 type);
+ #else
+ static inline struct sock  *__sock_map_lookup_elem(struct bpf_map *map, u32 key)
+ {
+ 	return NULL;
+ }
  
- 		/* Consider XDP consuming the packet a success from
- 		 * the netdev point of view we do not want to count
-@@ -4500,18 +4505,20 @@ static int netif_receive_skb_internal(struct sk_buff *skb)
- 	if (skb_defer_rx_timestamp(skb))
- 		return NET_RX_SUCCESS;
+-static inline int sock_map_attach_prog(struct bpf_map *map,
+-				       struct bpf_prog *prog,
+-				       u32 type)
++static inline int sock_map_prog(struct bpf_map *map,
++				struct bpf_prog *prog,
++				u32 type)
+ {
+ 	return -EOPNOTSUPP;
+ }
+diff --git a/kernel/bpf/sockmap.c b/kernel/bpf/sockmap.c
+index f6ffde9..6424ce0 100644
+--- a/kernel/bpf/sockmap.c
++++ b/kernel/bpf/sockmap.c
+@@ -792,7 +792,7 @@ static int sock_map_ctx_update_elem(struct bpf_sock_ops_kern *skops,
+ 	return err;
+ }
  
--	rcu_read_lock();
--
- 	if (static_key_false(&generic_xdp_needed)) {
--		int ret = do_xdp_generic(rcu_dereference(skb->dev->xdp_prog),
--					 skb);
-+		int ret;
+-int sock_map_attach_prog(struct bpf_map *map, struct bpf_prog *prog, u32 type)
++int sock_map_prog(struct bpf_map *map, struct bpf_prog *prog, u32 type)
+ {
+ 	struct bpf_stab *stab = container_of(map, struct bpf_stab, map);
+ 	struct bpf_prog *orig;
+diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
+index 70ad8e2..cb17e1c 100644
+--- a/kernel/bpf/syscall.c
++++ b/kernel/bpf/syscall.c
+@@ -1096,10 +1096,10 @@ static int bpf_obj_get(const union bpf_attr *attr)
  
--		if (ret != XDP_PASS) {
--			rcu_read_unlock();
-+		preempt_disable();
-+		rcu_read_lock();
-+		ret = do_xdp_generic(rcu_dereference(skb->dev->xdp_prog), skb);
-+		rcu_read_unlock();
-+		preempt_enable();
-+
-+		if (ret != XDP_PASS)
- 			return NET_RX_DROP;
--		}
+ #define BPF_PROG_ATTACH_LAST_FIELD attach_flags
+ 
+-static int sockmap_get_from_fd(const union bpf_attr *attr)
++static int sockmap_get_from_fd(const union bpf_attr *attr, bool attach)
+ {
++	struct bpf_prog *prog = NULL;
+ 	int ufd = attr->target_fd;
+-	struct bpf_prog *prog;
+ 	struct bpf_map *map;
+ 	struct fd f;
+ 	int err;
+@@ -1109,16 +1109,20 @@ static int sockmap_get_from_fd(const union bpf_attr *attr)
+ 	if (IS_ERR(map))
+ 		return PTR_ERR(map);
+ 
+-	prog = bpf_prog_get_type(attr->attach_bpf_fd, BPF_PROG_TYPE_SK_SKB);
+-	if (IS_ERR(prog)) {
+-		fdput(f);
+-		return PTR_ERR(prog);
++	if (attach) {
++		prog = bpf_prog_get_type(attr->attach_bpf_fd,
++					 BPF_PROG_TYPE_SK_SKB);
++		if (IS_ERR(prog)) {
++			fdput(f);
++			return PTR_ERR(prog);
++		}
  	}
  
-+	rcu_read_lock();
- #ifdef CONFIG_RPS
- 	if (static_key_false(&rps_needed)) {
- 		struct rps_dev_flow voidflow, *rflow = &voidflow;
+-	err = sock_map_attach_prog(map, prog, attr->attach_type);
++	err = sock_map_prog(map, prog, attr->attach_type);
+ 	if (err) {
+ 		fdput(f);
+-		bpf_prog_put(prog);
++		if (prog)
++			bpf_prog_put(prog);
+ 		return err;
+ 	}
+ 
+@@ -1155,7 +1159,7 @@ static int bpf_prog_attach(const union bpf_attr *attr)
+ 		break;
+ 	case BPF_SK_SKB_STREAM_PARSER:
+ 	case BPF_SK_SKB_STREAM_VERDICT:
+-		return sockmap_get_from_fd(attr);
++		return sockmap_get_from_fd(attr, true);
+ 	default:
+ 		return -EINVAL;
+ 	}
+@@ -1204,7 +1208,10 @@ static int bpf_prog_detach(const union bpf_attr *attr)
+ 		ret = cgroup_bpf_update(cgrp, NULL, attr->attach_type, false);
+ 		cgroup_put(cgrp);
+ 		break;
+-
++	case BPF_SK_SKB_STREAM_PARSER:
++	case BPF_SK_SKB_STREAM_VERDICT:
++		ret = sockmap_get_from_fd(attr, false);
++		break;
+ 	default:
+ 		return -EINVAL;
+ 	}
+diff --git a/tools/testing/selftests/bpf/test_maps.c b/tools/testing/selftests/bpf/test_maps.c
+index 4acc772..fe3a443 100644
+--- a/tools/testing/selftests/bpf/test_maps.c
++++ b/tools/testing/selftests/bpf/test_maps.c
+@@ -558,7 +558,7 @@ static void test_sockmap(int tasks, void *data)
+ 		}
+ 	}
+ 
+-	/* Test attaching bad fds */
++	/* Test attaching/detaching bad fds */
+ 	err = bpf_prog_attach(-1, fd, BPF_SK_SKB_STREAM_PARSER, 0);
+ 	if (!err) {
+ 		printf("Failed invalid parser prog attach\n");
+@@ -571,6 +571,30 @@ static void test_sockmap(int tasks, void *data)
+ 		goto out_sockmap;
+ 	}
+ 
++	err = bpf_prog_attach(-1, fd, __MAX_BPF_ATTACH_TYPE, 0);
++	if (!err) {
++		printf("Failed unknown prog attach\n");
++		goto out_sockmap;
++	}
++
++	err = bpf_prog_detach(fd, BPF_SK_SKB_STREAM_PARSER);
++	if (err) {
++		printf("Failed empty parser prog detach\n");
++		goto out_sockmap;
++	}
++
++	err = bpf_prog_detach(fd, BPF_SK_SKB_STREAM_VERDICT);
++	if (err) {
++		printf("Failed empty verdict prog detach\n");
++		goto out_sockmap;
++	}
++
++	err = bpf_prog_detach(fd, __MAX_BPF_ATTACH_TYPE);
++	if (!err) {
++		printf("Detach invalid prog successful\n");
++		goto out_sockmap;
++	}
++
+ 	/* Load SK_SKB program and Attach */
+ 	err = bpf_prog_load(SOCKMAP_PARSE_PROG,
+ 			    BPF_PROG_TYPE_SK_SKB, &obj, &parse_prog);
+@@ -643,6 +667,13 @@ static void test_sockmap(int tasks, void *data)
+ 		goto out_sockmap;
+ 	}
+ 
++	err = bpf_prog_attach(verdict_prog, map_fd_rx,
++			      __MAX_BPF_ATTACH_TYPE, 0);
++	if (!err) {
++		printf("Attached unknown bpf prog\n");
++		goto out_sockmap;
++	}
++
+ 	/* Test map update elem afterwards fd lives in fd and map_fd */
+ 	for (i = 0; i < 6; i++) {
+ 		err = bpf_map_update_elem(map_fd_rx, &i, &sfd[i], BPF_ANY);
+@@ -809,6 +840,24 @@ static void test_sockmap(int tasks, void *data)
+ 		assert(status == 0);
+ 	}
+ 
++	err = bpf_prog_detach(map_fd_rx, __MAX_BPF_ATTACH_TYPE);
++	if (!err) {
++		printf("Detached an invalid prog type.\n");
++		goto out_sockmap;
++	}
++
++	err = bpf_prog_detach(map_fd_rx, BPF_SK_SKB_STREAM_PARSER);
++	if (err) {
++		printf("Failed parser prog detach\n");
++		goto out_sockmap;
++	}
++
++	err = bpf_prog_detach(map_fd_rx, BPF_SK_SKB_STREAM_VERDICT);
++	if (err) {
++		printf("Failed parser prog detach\n");
++		goto out_sockmap;
++	}
++
+ 	/* Test map close sockets */
+ 	for (i = 0; i < 6; i++)
+ 		close(sfd[i]);
