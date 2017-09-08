@@ -1,140 +1,53 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [V2 PATCH net-next 1/2] xdp: implement xdp_redirect_map for
- generic XDP
-Date: Fri, 8 Sep 2017 10:36:01 +0200
-Message-ID: <20170908103601.21cdecb2@redhat.com>
-References: <150478756604.28665.6915020425359475729.stgit@firesoul>
-        <150478759310.28665.17184783248584070473.stgit@firesoul>
-        <59B15334.4070103@iogearbox.net>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: [PATCH RFC 0/6] Modify KSZ9477 DSA driver in preparation to add
+ other KSZ switch drivers.
+Date: Fri, 8 Sep 2017 10:54:05 +0200
+Message-ID: <20170908085405.GB16834@amd>
+References: <93AF473E2DA327428DE3D46B72B1E9FD411218B7@CHN-SV-EXMX02.mchp-main.com>
+ <93AF473E2DA327428DE3D46B72B1E9FD411219F8@CHN-SV-EXMX02.mchp-main.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-        Daniel Borkmann <borkmann@iogearbox.net>,
-        John Fastabend <john.fastabend@gmail.com>,
-        Andy Gospodarek <andy@greyhouse.net>,
-        alexei.starovoitov@gmail.com, brouer@redhat.com
-To: Daniel Borkmann <daniel@iogearbox.net>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="bCsyhTFzCvuiizWE"
+Cc: andrew@lunn.ch, muvarov@gmail.com, nathan.leigh.conrad@gmail.com,
+        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Woojung.Huh@microchip.com
+To: Tristram.Ha@microchip.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47448 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751718AbdIHIgI (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 8 Sep 2017 04:36:08 -0400
-In-Reply-To: <59B15334.4070103@iogearbox.net>
+Received: from atrey.karlin.mff.cuni.cz ([195.113.26.193]:33373 "EHLO
+        atrey.karlin.mff.cuni.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754751AbdIHIyG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 8 Sep 2017 04:54:06 -0400
+Content-Disposition: inline
+In-Reply-To: <93AF473E2DA327428DE3D46B72B1E9FD411219F8@CHN-SV-EXMX02.mchp-main.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 07 Sep 2017 16:09:56 +0200
-Daniel Borkmann <daniel@iogearbox.net> wrote:
 
-> On 09/07/2017 02:33 PM, Jesper Dangaard Brouer wrote:
-> > Using bpf_redirect_map is allowed for generic XDP programs, but the
-> > appropriate map lookup was never performed in xdp_do_generic_redirect().
-> >
-> > Instead the map-index is directly used as the ifindex.  For the
-> > xdp_redirect_map sample in SKB-mode '-S', this resulted in trying
-> > sending on ifindex 0 which isn't valid, resulting in getting SKB
-> > packets dropped.  Thus, the reported performance numbers are wrong in
-> > commit 24251c264798 ("samples/bpf: add option for native and skb mode
-> > for redirect apps") for the 'xdp_redirect_map -S' case.
-> >
-> > It might seem innocent this was lacking, but it can actually crash the
-> > kernel.  The potential crash is caused by not consuming redirect_info->map.
-> > The bpf_redirect_map helper will set this_cpu_ptr(&redirect_info)->map
-> > pointer, which will survive even after unloading the xdp bpf_prog and
-> > deallocating the devmap data-structure.  This leaves a dead map
-> > pointer around.  The kernel will crash when loading the xdp_redirect
-> > sample (in native XDP mode) as it doesn't reset map (via bpf_redirect)
-> > and returns XDP_REDIRECT, which will cause it to dereference the map
-> > pointer.
-> >
-> > Fixes: 6103aa96ec07 ("net: implement XDP_REDIRECT for xdp generic")
-> > Fixes: 24251c264798 ("samples/bpf: add option for native and skb mode for redirect apps")
-> > Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
-> > ---
-> >   include/trace/events/xdp.h |    4 ++--
-> >   net/core/filter.c          |   14 +++++++++++---
-> >   2 files changed, 13 insertions(+), 5 deletions(-)
-> >
-> > diff --git a/include/trace/events/xdp.h b/include/trace/events/xdp.h
-> > index 862575ac8da9..4e16c43fba10 100644
-> > --- a/include/trace/events/xdp.h
-> > +++ b/include/trace/events/xdp.h
-> > @@ -138,11 +138,11 @@ DEFINE_EVENT_PRINT(xdp_redirect_template, xdp_redirect_map_err,
-> >
-> >   #define _trace_xdp_redirect_map(dev, xdp, fwd, map, idx)		\
-> >   	 trace_xdp_redirect_map(dev, xdp, fwd ? fwd->ifindex : 0,	\
-> > -				0, map, idx);
-> > +				0, map, idx)
-> >
-> >   #define _trace_xdp_redirect_map_err(dev, xdp, fwd, map, idx, err)	\
-> >   	 trace_xdp_redirect_map_err(dev, xdp, fwd ? fwd->ifindex : 0,	\
-> > -				    err, map, idx);
-> > +				    err, map, idx)
-> >
-> >   #endif /* _TRACE_XDP_H */
-> >
-> > diff --git a/net/core/filter.c b/net/core/filter.c
-> > index 5912c738a7b2..3767470cab6c 100644
-> > --- a/net/core/filter.c
-> > +++ b/net/core/filter.c
-> > @@ -2566,13 +2566,19 @@ int xdp_do_generic_redirect(struct net_device *dev, struct sk_buff *skb,
-> >   			    struct bpf_prog *xdp_prog)
-> >   {
-> >   	struct redirect_info *ri = this_cpu_ptr(&redirect_info);
-> > +	struct bpf_map *map = ri->map;
-> >   	u32 index = ri->ifindex;
-> >   	struct net_device *fwd;
-> >   	unsigned int len;
-> >   	int err = 0;
-> >
-> > -	fwd = dev_get_by_index_rcu(dev_net(dev), index);
-> >   	ri->ifindex = 0;
-> > +	ri->map = NULL;
-> > +
-> > +	if (map)
-> > +		fwd = __dev_map_lookup_elem(map, index);
-> > +	else
-> > +		fwd = dev_get_by_index_rcu(dev_net(dev), index);
-> >   	if (unlikely(!fwd)) {
-> >   		err = -EINVAL;
-> >   		goto err;
-> > @@ -2590,10 +2596,12 @@ int xdp_do_generic_redirect(struct net_device *dev, struct sk_buff *skb,
-> >   	}
-> >
-> >   	skb->dev = fwd;  
-> 
-> Looks much better above, thanks!
-> 
-> > -	_trace_xdp_redirect(dev, xdp_prog, index);
-> > +	map ? _trace_xdp_redirect_map(dev, xdp_prog, fwd, map, index)
-> > +		: _trace_xdp_redirect(dev, xdp_prog, index);  
-> 
-> Could we rather make this in a way such that when the two
-> tracepoints are disabled and thus patched out, that we can
-> also omit the extra conditional which has no purpose then?
+--bCsyhTFzCvuiizWE
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-First of all I don't think it make much of a difference, I measured the
-impact of the full patch to "cost" 1.62 nanosec (which is arguably
-below the accuracy level of the system under test)
+Hi!
 
-Secondly, I plan to optimize the map case for generic XDP later, where
-I would naturally split this into two functions (as V1, and as
-native-XDP), thus this extra conditional would go away.  As I've shown
-offlist (to you, John and Andy) I demonstrated a 24% speedup via a
-xmit_more hack for generic XDP.
+> From: Tristram Ha <Tristram.Ha@microchip.com>
+>=20
+> This series of patches is to modify the original KSZ9477 DSA driver so th=
+at other KSZ switch drivers can be added and use the common code.
+>=20
+
+Please wrap the lines from time to time...
 
 
-> Perhaps just a consolidated _trace_xdp_generic_redirect_map()
-> would be better to avoid this altogether given we have twice
-> the same anyway, here and in err path.
+> This patch set is against net-next.
+>=20
+>  drivers/net/dsa/microchip/Makefile     |    2 +-
+>  drivers/net/dsa/microchip/ksz9477.c    | 1317 ++++++++++++++++++++++++++=
+++++++
 
-I do want separate tracepoints for xdp_redirect and xdp_redirect_map,
-as it makes it more clear for users of the tracepoint (and attached
-bpf_prog's can be faster, knowing the context).
+We already have ksz_9477_reg.h. So should this be ksz_9477.c for consistenc=
+y?
 
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
+>  drivers/net/dsa/microchip/ksz_common.c | 1156 +-------------------------=
+--bCsyhTFzCvuiizWE--
