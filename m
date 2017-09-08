@@ -1,52 +1,52 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] can: check for null sk before deferencing it via the call to sock_net
-Date: Fri,  8 Sep 2017 16:02:35 +0100
-Message-ID: <20170908150235.2931-1-colin.king@canonical.com>
-Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Oliver Hartkopp <socketcan@hartkopp.net>,
-        Marc Kleine-Budde <mkl@pengutronix.de>,
-        "David S . Miller" <davem@davemloft.net>,
-        linux-can@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next v2 02/10] net: dsa: debugfs: add tree
+Date: Fri, 8 Sep 2017 15:03:16 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD00716ED@AcuExch.aculab.com>
+References: <20170828191748.19492-1-vivien.didelot@savoirfairelinux.com>
+ <20170828191748.19492-3-vivien.didelot@savoirfairelinux.com>
+ <87k21944rq.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "kernel@savoirfairelinux.com" <kernel@savoirfairelinux.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Egil Hjelmeland <privat@egil-hjelmeland.no>,
+        John Crispin <john@phrozen.org>,
+        Woojung Huh <Woojung.Huh@microchip.com>,
+        Sean Wang <sean.wang@mediatek.com>,
+        Nikita Yushchenko <nikita.yoush@cogentembedded.com>,
+        Chris Healy <cphealy@gmail.com>
+To: 'Vivien Didelot' <vivien.didelot@savoirfairelinux.com>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out6.electric.net ([192.162.217.182]:57532 "EHLO
+        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750842AbdIHPDZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 8 Sep 2017 11:03:25 -0400
+In-Reply-To: <87k21944rq.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin Ian King <colin.king@canonical.com>
+From: Vivien Didelot
+> Sent: 08 September 2017 15:57
+...
+> > > Also more important, you will notice what seems to be a bug to me:
+> > > I can read or write a file even if I didn't mask the corresponding mode
+> > > hence the double check in dsa_debugfs_show and dsa_debugfs_write.
+> >
+> > The mode can be changed by userspace, you shouldn't ever need to check
+> > it in any debugfs calls, right?
+> 
+> Correct. But this happens even if the file mode isn't changed by
+> userspace in the meantime, which seemed weird to me. e.g. echo
+> redirected to a -r--r--r-- debugfs entry will call dsa_debugfs_write.
 
-The assignment of net via call sock_net will dereference sk. This
-is performed before a sanity null check on sk, so there could be
-a potential null dereference on the sock_net call if sk is null.
-Fix this by assigning net after the sk null check. Also replace
-the sk == NULL with the more usual !sk idiom.
+root will be able to write using 'root' permissions, regardless of
+the directory entry.
 
-Detected by CoverityScan CID#1431862 ("Dereference before null check")
-
-Fixes: 384317ef4187 ("can: network namespace support for CAN_BCM protocol")
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- net/can/bcm.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
-
-diff --git a/net/can/bcm.c b/net/can/bcm.c
-index 47a8748d953a..a3791674b8ce 100644
---- a/net/can/bcm.c
-+++ b/net/can/bcm.c
-@@ -1493,13 +1493,14 @@ static int bcm_init(struct sock *sk)
- static int bcm_release(struct socket *sock)
- {
- 	struct sock *sk = sock->sk;
--	struct net *net = sock_net(sk);
-+	struct net *net;
- 	struct bcm_sock *bo;
- 	struct bcm_op *op, *next;
- 
--	if (sk == NULL)
-+	if (!sk)
- 		return 0;
- 
-+	net = sock_net(sk);
- 	bo = bcm_sk(sk);
- 
- 	/* remove bcm_ops, timer, rx_unregister(), etc. */
--- 
-2.14.1
+	David
