@@ -1,51 +1,106 @@
-From: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
-Subject: Re: Use after free in __dst_destroy_metrics_generic
-Date: Fri, 08 Sep 2017 13:50:02 -0600
-Message-ID: <57ba5e0dcd50ba74e575051d7f577400@codeaurora.org>
-References: <1234e09b75197d43ed84bdb1b154b4b6@codeaurora.org>
- <CAM_iQpXKfUkbyuuZEZXyPrVVCoPaxnCmCARz=Jf0VtU1m9NsZg@mail.gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH RFC] Update documentation for KSZ DSA drivers so that new
+ drivers can be added
+Date: Fri, 8 Sep 2017 12:54:01 -0700
+Message-ID: <508d7ef0-e351-5369-b477-b027bae3dda4@gmail.com>
+References: <93AF473E2DA327428DE3D46B72B1E9FD41121A5B@CHN-SV-EXMX02.mchp-main.com>
+ <8e4aa981-7f41-047d-2101-370118b4f2c0@gmail.com>
+ <CAJGZr0Kp5ZKmFJT+KX9jxMVyZT9=VO0_dpZqE+y1TNaYvURcoQ@mail.gmail.com>
+ <93AF473E2DA327428DE3D46B72B1E9FD41121EF7@CHN-SV-EXMX02.mchp-main.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
- format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        Lorenzo Colitti <lorenzo@google.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Cc: andrew@lunn.ch, pavel@ucw.cz, nathan.leigh.conrad@gmail.com,
+        vivien.didelot@savoirfairelinux.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, Woojung.Huh@microchip.com
+To: Tristram.Ha@microchip.com, muvarov@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:52890 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756964AbdIHTuD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 8 Sep 2017 15:50:03 -0400
-In-Reply-To: <CAM_iQpXKfUkbyuuZEZXyPrVVCoPaxnCmCARz=Jf0VtU1m9NsZg@mail.gmail.com>
+Received: from mail-qt0-f196.google.com ([209.85.216.196]:37573 "EHLO
+        mail-qt0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756751AbdIHTyG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 8 Sep 2017 15:54:06 -0400
+In-Reply-To: <93AF473E2DA327428DE3D46B72B1E9FD41121EF7@CHN-SV-EXMX02.mchp-main.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2017-09-08 10:10, Cong Wang wrote:
-> On Thu, Sep 7, 2017 at 5:52 PM, Subash Abhinov Kasiviswanathan
-> <subashab@codeaurora.org> wrote:
->> We are seeing a possible use after free in ip6_dst_destroy.
->> 
->> It appears as if memory of the __DST_METRICS_PTR(old) was freed in 
->> some path
->> and allocated
->> to ion driver. ion driver has also freed it. Finally the memory is 
->> freed by
->> the
->> fib gc and crashes since it is already deallocated.
+On 09/08/2017 12:48 PM, Tristram.Ha@microchip.com wrote:
+>> -----Original Message-----
+>> From: Maxim Uvarov [mailto:muvarov@gmail.com]
+>> Sent: Friday, September 08, 2017 12:00 PM
+>> To: Florian Fainelli
+>> Cc: Tristram Ha - C24268; Andrew Lunn; Pavel Machek; Nathan Conrad; Vivien
+>> Didelot; netdev; linux-kernel@vger.kernel.org; Woojung Huh - C21699
+>> Subject: Re: [PATCH RFC] Update documentation for KSZ DSA drivers so that new
+>> drivers can be added
+>>
+>> 2017-09-08 21:48 GMT+03:00 Florian Fainelli <f.fainelli@gmail.com>:
+>>> On 09/07/2017 02:11 PM, Tristram.Ha@microchip.com wrote:
+>>>> From: Tristram Ha <Tristram.Ha@microchip.com>
+>>>>
+>>>> Add other KSZ switches support so that patch check does not complain.
+>>>>
+>>>> Signed-off-by: Tristram Ha <Tristram.Ha@microchip.com>
+>>>> ---
+>>>>  Documentation/devicetree/bindings/net/dsa/ksz.txt | 117
+>>>> ++++++++++++----------
+>>>>  1 file changed, 62 insertions(+), 55 deletions(-)
+>>>>
+>>>> diff --git a/Documentation/devicetree/bindings/net/dsa/ksz.txt
+>>>> b/Documentation/devicetree/bindings/net/dsa/ksz.txt
+>>>> index 0ab8b39..34af0e0 100644
+>>>> --- a/Documentation/devicetree/bindings/net/dsa/ksz.txt
+>>>> +++ b/Documentation/devicetree/bindings/net/dsa/ksz.txt
+>>>> @@ -3,8 +3,15 @@ Microchip KSZ Series Ethernet switches
+>>>>
+>>>>  Required properties:
+>>>>
+>>>> -- compatible: For external switch chips, compatible string must be
+>>>> exactly one
+>>>> -  of: "microchip,ksz9477"
+>>>> +- compatible: Should be "microchip,ksz9477" for KSZ9477 chip,
+>>>> +           "microchip,ksz8795" for KSZ8795 chip,
+>>>> +           "microchip,ksz8794" for KSZ8794 chip,
+>>>> +           "microchip,ksz8765" for KSZ8765 chip,
+>>>> +           "microchip,ksz8895" for KSZ8895 chip,
+>>>> +           "microchip,ksz8864" for KSZ8864 chip,
+>>>> +           "microchip,ksz8873" for KSZ8873 chip,
+>>>> +           "microchip,ksz8863" for KSZ8863 chip,
+>>>> +           "microchip,ksz8463" for KSZ8463 chip
+>>>
+>>
+>>
+>> Tristram, does any of this devices support chaining?
+>>
+>> Maxim.
 > 
-> Does the attach (compile-only) patch help anything?
+> They do not if you mean daisy-chaining the switches together.
+
+Marvell tags allow you to specify both a port and switch index
+destination after setting up an appropriate routing table, I am assuming
+this is not supported.
+
+What happens though if I connect two KSZ switches ones to another say:
+
+eth0
+	-> KSZ8463
+		-> KSZ8463
+
+Will the first switch terminates KSZ tag if it sees two tags
+encapsulated in another, something like this:
+
+| MAC DA | MAC SA | .... payload | Inner KSZ tag | Inner KSZ tag | FCS |
+
 > 
-> From my _quick_ glance, it seems we miss the refcnt'ing
-> right in __dst_destroy_metrics_generic().
-> 
-> Thanks!
+> There is always a problem that once tail tagging mode is enabled
+> sending a frame through the MAC without going through the DSA
+> layer will cause the frame to be dropped.
 
-Hi Cong
+Yes, once the master network device is used for DSA, it is still usable
+directly by e.g: applications, but it won't do anything if the switch is
+configured such that it drops ingressing frames not having the proper
+tag. We documented that here:
 
-Thanks for patch. I'll try this out.
-
+https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/networking/dsa/dsa.txt#n275
 -- 
-Qualcomm Innovation Center, Inc.
-The Qualcomm Innovation Center, Inc. is a member of Code Aurora Forum, a 
-Linux Foundation Collaborative Project
+Florian
