@@ -1,7 +1,7 @@
 From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Subject: [PATCH v5 09/10] net: stmmac: snps,dwmac-mdio MDIOs are automatically registered
-Date: Fri,  8 Sep 2017 09:11:55 +0200
-Message-ID: <20170908071156.5115-10-clabbe.montjoie@gmail.com>
+Subject: [PATCH v5 08/10] net: stmmac: dwmac-sun8i: choose internal PHY via phy-is-integrated
+Date: Fri,  8 Sep 2017 09:11:54 +0200
+Message-ID: <20170908071156.5115-9-clabbe.montjoie@gmail.com>
 References: <20170908071156.5115-1-clabbe.montjoie@gmail.com>
 Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
         linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
@@ -11,42 +11,101 @@ To: robh+dt@kernel.org, mark.rutland@arm.com,
         linux@armlinux.org.uk, catalin.marinas@arm.com,
         will.deacon@arm.com, peppe.cavallaro@st.com,
         alexandre.torgue@st.com, andrew@lunn.ch, f.fainelli@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f196.google.com ([209.85.128.196]:32924 "EHLO
-        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755119AbdIHHOT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 8 Sep 2017 03:14:19 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20170908071156.5115-1-clabbe.montjoie@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-stmmac bindings docs said that its mdio node must have
-compatible = "snps,dwmac-mdio";
-Since dwmac-sun8i does not have any good reasons to not doing it, all
-their MDIO node must have it.
+The current way to find if the phy is internal is to compare DT phy-mode
+and emac_variant/internal_phy.
+But it will negate a possible future SoC where an external PHY use the
+same phy mode than the internal one.
 
-Since these compatible is automatically registered, dwmac-sun8i compatible
-does not need to be in need_mdio_ids.
+This patch adds a new way to find if the PHY is internal, via
+the phy-is-integrated property.
+
+Since the internal_phy variable does not need anymore to contain the xMII mode
+used by the internal PHY, it is still used for knowing the presence of an
+internal PHY, so it is modified to a boolean soc_has_internal_phy.
 
 Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
+Acked-by: Chen-Yu Tsai <wens@csie.org>
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c | 4 ----
- 1 file changed, 4 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c | 16 ++++++++--------
+ 1 file changed, 8 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-index a366b3747eeb..3de5501e34fe 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-@@ -311,10 +311,6 @@ static int stmmac_dt_phy(struct plat_stmmacenet_data *plat,
- 	bool mdio = true;
- 	static const struct of_device_id need_mdio_ids[] = {
- 		{ .compatible = "snps,dwc-qos-ethernet-4.10" },
--		{ .compatible = "allwinner,sun8i-a83t-emac" },
--		{ .compatible = "allwinner,sun8i-h3-emac" },
--		{ .compatible = "allwinner,sun8i-v3s-emac" },
--		{ .compatible = "allwinner,sun50i-a64-emac" },
- 	};
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
+index fffd6d5fc907..672553b652bd 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
+@@ -41,14 +41,14 @@
+  *				This value is used for disabling properly EMAC
+  *				and used as a good starting value in case of the
+  *				boot process(uboot) leave some stuff.
+- * @internal_phy:		Does the MAC embed an internal PHY
++ * @soc_has_internal_phy:	Does the MAC embed an internal PHY
+  * @support_mii:		Does the MAC handle MII
+  * @support_rmii:		Does the MAC handle RMII
+  * @support_rgmii:		Does the MAC handle RGMII
+  */
+ struct emac_variant {
+ 	u32 default_syscon_value;
+-	int internal_phy;
++	bool soc_has_internal_phy;
+ 	bool support_mii;
+ 	bool support_rmii;
+ 	bool support_rgmii;
+@@ -75,7 +75,7 @@ struct sunxi_priv_data {
  
- 	/* If phy-handle property is passed from DT, use it as the PHY */
+ static const struct emac_variant emac_variant_h3 = {
+ 	.default_syscon_value = 0x58000,
+-	.internal_phy = PHY_INTERFACE_MODE_MII,
++	.soc_has_internal_phy = true,
+ 	.support_mii = true,
+ 	.support_rmii = true,
+ 	.support_rgmii = true
+@@ -83,20 +83,20 @@ static const struct emac_variant emac_variant_h3 = {
+ 
+ static const struct emac_variant emac_variant_v3s = {
+ 	.default_syscon_value = 0x38000,
+-	.internal_phy = PHY_INTERFACE_MODE_MII,
++	.soc_has_internal_phy = true,
+ 	.support_mii = true
+ };
+ 
+ static const struct emac_variant emac_variant_a83t = {
+ 	.default_syscon_value = 0,
+-	.internal_phy = 0,
++	.soc_has_internal_phy = false,
+ 	.support_mii = true,
+ 	.support_rgmii = true
+ };
+ 
+ static const struct emac_variant emac_variant_a64 = {
+ 	.default_syscon_value = 0,
+-	.internal_phy = 0,
++	.soc_has_internal_phy = false,
+ 	.support_mii = true,
+ 	.support_rmii = true,
+ 	.support_rgmii = true
+@@ -648,7 +648,7 @@ static int sun8i_dwmac_set_syscon(struct stmmac_priv *priv)
+ 			 "Current syscon value is not the default %x (expect %x)\n",
+ 			 val, reg);
+ 
+-	if (gmac->variant->internal_phy) {
++	if (gmac->variant->soc_has_internal_phy) {
+ 		if (!gmac->use_internal_phy) {
+ 			/* switch to external PHY interface */
+ 			reg &= ~H3_EPHY_SELECT;
+@@ -932,7 +932,7 @@ static int sun8i_dwmac_probe(struct platform_device *pdev)
+ 	}
+ 
+ 	plat_dat->interface = of_get_phy_mode(dev->of_node);
+-	if (plat_dat->interface == gmac->variant->internal_phy) {
++	if (of_property_read_bool(plat_dat->phy_node, "phy-is-integrated")) {
+ 		dev_info(&pdev->dev, "Will use internal PHY\n");
+ 		gmac->use_internal_phy = true;
+ 		gmac->ephy_clk = of_clk_get(plat_dat->phy_node, 0);
 -- 
 2.13.5
