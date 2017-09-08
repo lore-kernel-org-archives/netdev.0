@@ -1,26 +1,59 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH] ipv4: Namespaceify tcp_max_orphans knob
-Date: Fri, 8 Sep 2017 15:13:50 -0700
-Message-ID: <CAM_iQpV4gRwhT4VXPtJft38ixG6xE3PF9z4gB7HHJEUsqbCtOw@mail.gmail.com>
-References: <1504753808-13266-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Eric Dumazet <edumazet@google.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>
-To: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1504753808-13266-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net] Revert "mdio_bus: Remove unneeded gpiod NULL check"
+Date: Fri,  8 Sep 2017 15:38:07 -0700
+Message-ID: <20170908223807.6015-1-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, linus.walleij@linaro.org, andrew@lunn.ch,
+        festevam@gmail.com, sergei.shtylyov@cogentembedded.com,
+        fabio.estevam@nxp.com, Bryan.Whitehead@microchip.com,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f195.google.com ([209.85.220.195]:33253 "EHLO
+        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752952AbdIHWiP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 8 Sep 2017 18:38:15 -0400
+Received: by mail-qk0-f195.google.com with SMTP id g128so2318635qke.0
+        for <netdev@vger.kernel.org>; Fri, 08 Sep 2017 15:38:14 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 6, 2017 at 8:10 PM, Haishuang Yan
-<yanhaishuang@cmss.chinamobile.com> wrote:
-> Different namespace application might require different maximal number
-> of TCP sockets independently of the host.
+This reverts commit 95b80bf3db03c2bf572a357cf74b9a6aefef0a4a ("mdio_bus:
+Remove unneeded gpiod NULL check"), this commit assumed that GPIOLIB
+checks for NULL descriptors, so it's safe to drop them, but it is not
+when CONFIG_GPIOLIB is disabled in the kernel. If we do call
+gpiod_set_value_cansleep() on a GPIO descriptor we will issue warnings
+coming from the inline stubs declared in include/linux/gpio/consumer.h.
 
-So after your patch we could have N * net->ipv4.sysctl_tcp_max_orphans
-in a whole system, right? This just makes OOM easier to trigger.
+Fixes: 95b80bf3db03 ("mdio_bus: Remove unneeded gpiod NULL check")
+Reported-by: Woojung Huh <Woojung.Huh@microchip.com>
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/phy/mdio_bus.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
+index b6f9fa670168..2df7b62c1a36 100644
+--- a/drivers/net/phy/mdio_bus.c
++++ b/drivers/net/phy/mdio_bus.c
+@@ -399,7 +399,8 @@ int __mdiobus_register(struct mii_bus *bus, struct module *owner)
+ 	}
+ 
+ 	/* Put PHYs in RESET to save power */
+-	gpiod_set_value_cansleep(bus->reset_gpiod, 1);
++	if (bus->reset_gpiod)
++		gpiod_set_value_cansleep(bus->reset_gpiod, 1);
+ 
+ 	device_del(&bus->dev);
+ 	return err;
+@@ -424,7 +425,8 @@ void mdiobus_unregister(struct mii_bus *bus)
+ 	}
+ 
+ 	/* Put PHYs in RESET to save power */
+-	gpiod_set_value_cansleep(bus->reset_gpiod, 1);
++	if (bus->reset_gpiod)
++		gpiod_set_value_cansleep(bus->reset_gpiod, 1);
+ 
+ 	device_del(&bus->dev);
+ }
+-- 
+2.9.3
