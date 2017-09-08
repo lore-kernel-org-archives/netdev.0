@@ -1,62 +1,51 @@
-From: <Tristram.Ha@microchip.com>
-Subject: RE: [PATCH RFC] Update documentation for KSZ DSA drivers so that
- new drivers can be added
-Date: Fri, 8 Sep 2017 19:48:46 +0000
-Message-ID: <93AF473E2DA327428DE3D46B72B1E9FD41121EF7@CHN-SV-EXMX02.mchp-main.com>
-References: <93AF473E2DA327428DE3D46B72B1E9FD41121A5B@CHN-SV-EXMX02.mchp-main.com>
- <8e4aa981-7f41-047d-2101-370118b4f2c0@gmail.com>
- <CAJGZr0Kp5ZKmFJT+KX9jxMVyZT9=VO0_dpZqE+y1TNaYvURcoQ@mail.gmail.com>
+From: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+Subject: Re: Use after free in __dst_destroy_metrics_generic
+Date: Fri, 08 Sep 2017 13:50:02 -0600
+Message-ID: <57ba5e0dcd50ba74e575051d7f577400@codeaurora.org>
+References: <1234e09b75197d43ed84bdb1b154b4b6@codeaurora.org>
+ <CAM_iQpXKfUkbyuuZEZXyPrVVCoPaxnCmCARz=Jf0VtU1m9NsZg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: <andrew@lunn.ch>, <pavel@ucw.cz>, <nathan.leigh.conrad@gmail.com>,
-        <vivien.didelot@savoirfairelinux.com>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>, <Woojung.Huh@microchip.com>,
-        <f.fainelli@gmail.com>
-To: <muvarov@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAJGZr0Kp5ZKmFJT+KX9jxMVyZT9=VO0_dpZqE+y1TNaYvURcoQ@mail.gmail.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        Lorenzo Colitti <lorenzo@google.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.codeaurora.org ([198.145.29.96]:52890 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756964AbdIHTuD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 8 Sep 2017 15:50:03 -0400
+In-Reply-To: <CAM_iQpXKfUkbyuuZEZXyPrVVCoPaxnCmCARz=Jf0VtU1m9NsZg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBNYXhpbSBVdmFyb3YgW21haWx0
-bzptdXZhcm92QGdtYWlsLmNvbV0NCj4gU2VudDogRnJpZGF5LCBTZXB0ZW1iZXIgMDgsIDIwMTcg
-MTI6MDAgUE0NCj4gVG86IEZsb3JpYW4gRmFpbmVsbGkNCj4gQ2M6IFRyaXN0cmFtIEhhIC0gQzI0
-MjY4OyBBbmRyZXcgTHVubjsgUGF2ZWwgTWFjaGVrOyBOYXRoYW4gQ29ucmFkOyBWaXZpZW4NCj4g
-RGlkZWxvdDsgbmV0ZGV2OyBsaW51eC1rZXJuZWxAdmdlci5rZXJuZWwub3JnOyBXb29qdW5nIEh1
-aCAtIEMyMTY5OQ0KPiBTdWJqZWN0OiBSZTogW1BBVENIIFJGQ10gVXBkYXRlIGRvY3VtZW50YXRp
-b24gZm9yIEtTWiBEU0EgZHJpdmVycyBzbyB0aGF0IG5ldw0KPiBkcml2ZXJzIGNhbiBiZSBhZGRl
-ZA0KPiANCj4gMjAxNy0wOS0wOCAyMTo0OCBHTVQrMDM6MDAgRmxvcmlhbiBGYWluZWxsaSA8Zi5m
-YWluZWxsaUBnbWFpbC5jb20+Og0KPiA+IE9uIDA5LzA3LzIwMTcgMDI6MTEgUE0sIFRyaXN0cmFt
-LkhhQG1pY3JvY2hpcC5jb20gd3JvdGU6DQo+ID4+IEZyb206IFRyaXN0cmFtIEhhIDxUcmlzdHJh
-bS5IYUBtaWNyb2NoaXAuY29tPg0KPiA+Pg0KPiA+PiBBZGQgb3RoZXIgS1NaIHN3aXRjaGVzIHN1
-cHBvcnQgc28gdGhhdCBwYXRjaCBjaGVjayBkb2VzIG5vdCBjb21wbGFpbi4NCj4gPj4NCj4gPj4g
-U2lnbmVkLW9mZi1ieTogVHJpc3RyYW0gSGEgPFRyaXN0cmFtLkhhQG1pY3JvY2hpcC5jb20+DQo+
-ID4+IC0tLQ0KPiA+PiAgRG9jdW1lbnRhdGlvbi9kZXZpY2V0cmVlL2JpbmRpbmdzL25ldC9kc2Ev
-a3N6LnR4dCB8IDExNw0KPiA+PiArKysrKysrKysrKystLS0tLS0tLS0tDQo+ID4+ICAxIGZpbGUg
-Y2hhbmdlZCwgNjIgaW5zZXJ0aW9ucygrKSwgNTUgZGVsZXRpb25zKC0pDQo+ID4+DQo+ID4+IGRp
-ZmYgLS1naXQgYS9Eb2N1bWVudGF0aW9uL2RldmljZXRyZWUvYmluZGluZ3MvbmV0L2RzYS9rc3ou
-dHh0DQo+ID4+IGIvRG9jdW1lbnRhdGlvbi9kZXZpY2V0cmVlL2JpbmRpbmdzL25ldC9kc2Eva3N6
-LnR4dA0KPiA+PiBpbmRleCAwYWI4YjM5Li4zNGFmMGUwIDEwMDY0NA0KPiA+PiAtLS0gYS9Eb2N1
-bWVudGF0aW9uL2RldmljZXRyZWUvYmluZGluZ3MvbmV0L2RzYS9rc3oudHh0DQo+ID4+ICsrKyBi
-L0RvY3VtZW50YXRpb24vZGV2aWNldHJlZS9iaW5kaW5ncy9uZXQvZHNhL2tzei50eHQNCj4gPj4g
-QEAgLTMsOCArMywxNSBAQCBNaWNyb2NoaXAgS1NaIFNlcmllcyBFdGhlcm5ldCBzd2l0Y2hlcw0K
-PiA+Pg0KPiA+PiAgUmVxdWlyZWQgcHJvcGVydGllczoNCj4gPj4NCj4gPj4gLS0gY29tcGF0aWJs
-ZTogRm9yIGV4dGVybmFsIHN3aXRjaCBjaGlwcywgY29tcGF0aWJsZSBzdHJpbmcgbXVzdCBiZQ0K
-PiA+PiBleGFjdGx5IG9uZQ0KPiA+PiAtICBvZjogIm1pY3JvY2hpcCxrc3o5NDc3Ig0KPiA+PiAr
-LSBjb21wYXRpYmxlOiBTaG91bGQgYmUgIm1pY3JvY2hpcCxrc3o5NDc3IiBmb3IgS1NaOTQ3NyBj
-aGlwLA0KPiA+PiArICAgICAgICAgICAibWljcm9jaGlwLGtzejg3OTUiIGZvciBLU1o4Nzk1IGNo
-aXAsDQo+ID4+ICsgICAgICAgICAgICJtaWNyb2NoaXAsa3N6ODc5NCIgZm9yIEtTWjg3OTQgY2hp
-cCwNCj4gPj4gKyAgICAgICAgICAgIm1pY3JvY2hpcCxrc3o4NzY1IiBmb3IgS1NaODc2NSBjaGlw
-LA0KPiA+PiArICAgICAgICAgICAibWljcm9jaGlwLGtzejg4OTUiIGZvciBLU1o4ODk1IGNoaXAs
-DQo+ID4+ICsgICAgICAgICAgICJtaWNyb2NoaXAsa3N6ODg2NCIgZm9yIEtTWjg4NjQgY2hpcCwN
-Cj4gPj4gKyAgICAgICAgICAgIm1pY3JvY2hpcCxrc3o4ODczIiBmb3IgS1NaODg3MyBjaGlwLA0K
-PiA+PiArICAgICAgICAgICAibWljcm9jaGlwLGtzejg4NjMiIGZvciBLU1o4ODYzIGNoaXAsDQo+
-ID4+ICsgICAgICAgICAgICJtaWNyb2NoaXAsa3N6ODQ2MyIgZm9yIEtTWjg0NjMgY2hpcA0KPiA+
-DQo+IA0KPiANCj4gVHJpc3RyYW0sIGRvZXMgYW55IG9mIHRoaXMgZGV2aWNlcyBzdXBwb3J0IGNo
-YWluaW5nPw0KPiANCj4gTWF4aW0uDQoNClRoZXkgZG8gbm90IGlmIHlvdSBtZWFuIGRhaXN5LWNo
-YWluaW5nIHRoZSBzd2l0Y2hlcyB0b2dldGhlci4NCg0KVGhlcmUgaXMgYWx3YXlzIGEgcHJvYmxl
-bSB0aGF0IG9uY2UgdGFpbCB0YWdnaW5nIG1vZGUgaXMgZW5hYmxlZA0Kc2VuZGluZyBhIGZyYW1l
-IHRocm91Z2ggdGhlIE1BQyB3aXRob3V0IGdvaW5nIHRocm91Z2ggdGhlIERTQQ0KbGF5ZXIgd2ls
-bCBjYXVzZSB0aGUgZnJhbWUgdG8gYmUgZHJvcHBlZC4NCg0K
+On 2017-09-08 10:10, Cong Wang wrote:
+> On Thu, Sep 7, 2017 at 5:52 PM, Subash Abhinov Kasiviswanathan
+> <subashab@codeaurora.org> wrote:
+>> We are seeing a possible use after free in ip6_dst_destroy.
+>> 
+>> It appears as if memory of the __DST_METRICS_PTR(old) was freed in 
+>> some path
+>> and allocated
+>> to ion driver. ion driver has also freed it. Finally the memory is 
+>> freed by
+>> the
+>> fib gc and crashes since it is already deallocated.
+> 
+> Does the attach (compile-only) patch help anything?
+> 
+> From my _quick_ glance, it seems we miss the refcnt'ing
+> right in __dst_destroy_metrics_generic().
+> 
+> Thanks!
+
+Hi Cong
+
+Thanks for patch. I'll try this out.
+
+-- 
+Qualcomm Innovation Center, Inc.
+The Qualcomm Innovation Center, Inc. is a member of Code Aurora Forum, a 
+Linux Foundation Collaborative Project
