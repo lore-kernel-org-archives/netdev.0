@@ -1,7 +1,7 @@
 From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Subject: [PATCH v5 10/10] net: stmmac: dwmac-sun8i: Handle integrated/external MDIOs
-Date: Fri,  8 Sep 2017 09:11:56 +0200
-Message-ID: <20170908071156.5115-11-clabbe.montjoie@gmail.com>
+Subject: [PATCH v5 02/10] dt-bindings: net: Restore sun8i dwmac binding
+Date: Fri,  8 Sep 2017 09:11:48 +0200
+Message-ID: <20170908071156.5115-3-clabbe.montjoie@gmail.com>
 References: <20170908071156.5115-1-clabbe.montjoie@gmail.com>
 Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
         linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
@@ -16,215 +16,104 @@ In-Reply-To: <20170908071156.5115-1-clabbe.montjoie@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The Allwinner H3 SoC have two distinct MDIO bus, only one could be
-active at the same time.
-The selection of the active MDIO bus are done via some bits in the EMAC
-register of the system controller.
-
-This patch implement this MDIO switch via a custom MDIO-mux.
+This patch restore dt-bindings documentation about dwmac-sun8i
+This reverts commit 8aa33ec2f481 ("dt-bindings: net: Revert sun8i dwmac binding")
 
 Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
 ---
- drivers/net/ethernet/stmicro/stmmac/Kconfig       |   1 +
- drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c | 116 +++++++++++++++++++---
- 2 files changed, 104 insertions(+), 13 deletions(-)
+ .../devicetree/bindings/net/dwmac-sun8i.txt        | 84 ++++++++++++++++++++++
+ 1 file changed, 84 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/dwmac-sun8i.txt
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/Kconfig b/drivers/net/ethernet/stmicro/stmmac/Kconfig
-index 97035766c291..e28c0d2c58e9 100644
---- a/drivers/net/ethernet/stmicro/stmmac/Kconfig
-+++ b/drivers/net/ethernet/stmicro/stmmac/Kconfig
-@@ -159,6 +159,7 @@ config DWMAC_SUN8I
- 	tristate "Allwinner sun8i GMAC support"
- 	default ARCH_SUNXI
- 	depends on OF && (ARCH_SUNXI || COMPILE_TEST)
-+	select MDIO_BUS_MUX
- 	---help---
- 	  Support for Allwinner H3 A83T A64 EMAC ethernet controllers.
- 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
-index 672553b652bd..ddd5695886ac 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
-@@ -17,6 +17,7 @@
- #include <linux/clk.h>
- #include <linux/io.h>
- #include <linux/iopoll.h>
-+#include <linux/mdio-mux.h>
- #include <linux/mfd/syscon.h>
- #include <linux/module.h>
- #include <linux/of_device.h>
-@@ -71,6 +72,7 @@ struct sunxi_priv_data {
- 	const struct emac_variant *variant;
- 	struct regmap *regmap;
- 	bool use_internal_phy;
-+	void *mux_handle;
- };
- 
- static const struct emac_variant emac_variant_h3 = {
-@@ -195,6 +197,9 @@ static const struct emac_variant emac_variant_a64 = {
- #define H3_EPHY_LED_POL		BIT(17) /* 1: active low, 0: active high */
- #define H3_EPHY_SHUTDOWN	BIT(16) /* 1: shutdown, 0: power up */
- #define H3_EPHY_SELECT		BIT(15) /* 1: internal PHY, 0: external PHY */
-+#define H3_EPHY_MUX_MASK	(H3_EPHY_SHUTDOWN | H3_EPHY_SELECT)
-+#define DWMAC_sUN8I_MDIO_MUX_INTERNAL_ID	0
-+#define DWMAC_sUN8I_MDIO_MUX_EXTERNAL_ID	1
- 
- /* H3/A64 specific bits */
- #define SYSCON_RMII_EN		BIT(13) /* 1: enable RMII (overrides EPIT) */
-@@ -634,6 +639,76 @@ static int sun8i_dwmac_reset(struct stmmac_priv *priv)
- 	return 0;
- }
- 
-+/* MDIO multiplexing switch function
-+ * This function is called by the mdio-mux layer when it thinks the mdio bus
-+ * multiplexer needs to switch.
-+ * 'current_child' is the current value of the mux register
-+ * 'desired_child' is the value of the 'reg' property of the target child MDIO
-+ * node.
-+ * The first time this function is called, current_child == -1.
-+ * If current_child == desired_child, then the mux is already set to the
-+ * correct bus.
-+ *
-+ * Note that we do not use reg/mask like mdio-mux-mmioreg because we need to
-+ * know easily which bus is used (reset must be done only for desired bus).
-+ */
-+static int mdio_mux_syscon_switch_fn(int current_child, int desired_child,
-+				     void *data)
-+{
-+	struct stmmac_priv *priv = data;
-+	struct sunxi_priv_data *gmac = priv->plat->bsp_priv;
-+	u32 reg, val;
-+	int ret = 0;
-+	bool need_reset = false;
+diff --git a/Documentation/devicetree/bindings/net/dwmac-sun8i.txt b/Documentation/devicetree/bindings/net/dwmac-sun8i.txt
+new file mode 100644
+index 000000000000..725f3b187886
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/dwmac-sun8i.txt
+@@ -0,0 +1,84 @@
++* Allwinner sun8i GMAC ethernet controller
 +
-+	if (current_child ^ desired_child) {
-+		regmap_read(gmac->regmap, SYSCON_EMAC_REG, &reg);
-+		switch (desired_child) {
-+		case DWMAC_sUN8I_MDIO_MUX_INTERNAL_ID:
-+			dev_info(priv->device, "Switch mux to internal PHY");
-+			val = (reg & ~H3_EPHY_MUX_MASK) | H3_EPHY_SELECT;
-+			if (gmac->use_internal_phy)
-+				need_reset = true;
-+			break;
-+		case DWMAC_sUN8I_MDIO_MUX_EXTERNAL_ID:
-+			dev_info(priv->device, "Switch mux to external PHY");
-+			val = (reg & ~H3_EPHY_MUX_MASK) | H3_EPHY_SHUTDOWN;
-+			if (!gmac->use_internal_phy)
-+				need_reset = true;
-+			break;
-+		default:
-+			dev_err(priv->device, "Invalid child id %x\n", desired_child);
-+			return -EINVAL;
-+		}
-+		regmap_write(gmac->regmap, SYSCON_EMAC_REG, val);
-+		/* After changing syscon value, the MAC need reset or it will use
-+		 * the last value (and so the last PHY set).
-+		 * Reset is necessary only when we reach the needed MDIO,
-+		 * it timeout in other case.
-+		 */
-+		if (need_reset)
-+			ret = sun8i_dwmac_reset(priv);
-+		else
-+			dev_dbg(priv->device, "skipped reset\n");
-+	}
-+	return ret;
-+}
++This device is a platform glue layer for stmmac.
++Please see stmmac.txt for the other unchanged properties.
 +
-+static int sun8i_dwmac_register_mdio_mux(struct stmmac_priv *priv)
-+{
-+	int ret;
-+	struct device_node *mdio_mux;
-+	struct sunxi_priv_data *gmac = priv->plat->bsp_priv;
++Required properties:
++- compatible: should be one of the following string:
++		"allwinner,sun8i-a83t-emac"
++		"allwinner,sun8i-h3-emac"
++		"allwinner,sun8i-v3s-emac"
++		"allwinner,sun50i-a64-emac"
++- reg: address and length of the register for the device.
++- interrupts: interrupt for the device
++- interrupt-names: should be "macirq"
++- clocks: A phandle to the reference clock for this device
++- clock-names: should be "stmmaceth"
++- resets: A phandle to the reset control for this device
++- reset-names: should be "stmmaceth"
++- phy-mode: See ethernet.txt
++- phy-handle: See ethernet.txt
++- #address-cells: shall be 1
++- #size-cells: shall be 0
++- syscon: A phandle to the syscon of the SoC with one of the following
++ compatible string:
++  - allwinner,sun8i-h3-system-controller
++  - allwinner,sun8i-v3s-system-controller
++  - allwinner,sun50i-a64-system-controller
++  - allwinner,sun8i-a83t-system-controller
 +
-+	mdio_mux = of_get_child_by_name(priv->device->of_node, "mdio-mux");
-+	if (!mdio_mux)
-+		return -ENODEV;
++Optional properties:
++- allwinner,tx-delay-ps: TX clock delay chain value in ps. Range value is 0-700. Default is 0)
++- allwinner,rx-delay-ps: RX clock delay chain value in ps. Range value is 0-3100. Default is 0)
++Both delay properties need to be a multiple of 100. They control the delay for
++external PHY.
 +
-+	ret = mdio_mux_init(priv->device, mdio_mux, mdio_mux_syscon_switch_fn,
-+			    &gmac->mux_handle, priv, priv->mii);
-+	return ret;
-+}
++Optional properties for the following compatibles:
++  - "allwinner,sun8i-h3-emac",
++  - "allwinner,sun8i-v3s-emac":
++- allwinner,leds-active-low: EPHY LEDs are active low
 +
- static int sun8i_dwmac_set_syscon(struct stmmac_priv *priv)
- {
- 	struct sunxi_priv_data *gmac = priv->plat->bsp_priv;
-@@ -649,12 +724,7 @@ static int sun8i_dwmac_set_syscon(struct stmmac_priv *priv)
- 			 val, reg);
- 
- 	if (gmac->variant->soc_has_internal_phy) {
--		if (!gmac->use_internal_phy) {
--			/* switch to external PHY interface */
--			reg &= ~H3_EPHY_SELECT;
--		} else {
--			reg |= H3_EPHY_SELECT;
--			reg &= ~H3_EPHY_SHUTDOWN;
-+		if (gmac->use_internal_phy) {
- 			dev_dbg(priv->device, "Select internal_phy %x\n", reg);
- 
- 			if (of_property_read_bool(priv->plat->phy_node,
-@@ -743,6 +813,8 @@ static void sun8i_dwmac_unset_syscon(struct sunxi_priv_data *gmac)
- {
- 	u32 reg = gmac->variant->default_syscon_value;
- 
-+	if (gmac->variant->soc_has_internal_phy)
-+		mdio_mux_uninit(gmac->mux_handle);
- 	regmap_write(gmac->regmap, SYSCON_EMAC_REG, reg);
- }
- 
-@@ -801,12 +873,6 @@ static int sun8i_power_phy(struct stmmac_priv *priv)
- 	if (ret)
- 		return ret;
- 
--	/* After changing syscon value, the MAC need reset or it will use
--	 * the last value (and so the last PHY set.
--	 */
--	ret = sun8i_dwmac_reset(priv);
--	if (ret)
--		return ret;
- 	return 0;
- }
- 
-@@ -889,6 +955,8 @@ static int sun8i_dwmac_probe(struct platform_device *pdev)
- 	struct sunxi_priv_data *gmac;
- 	struct device *dev = &pdev->dev;
- 	int ret;
-+	struct stmmac_priv *priv;
-+	struct net_device *ndev;
- 
- 	ret = stmmac_get_platform_resources(pdev, &stmmac_res);
- 	if (ret)
-@@ -973,9 +1041,31 @@ static int sun8i_dwmac_probe(struct platform_device *pdev)
- 
- 	ret = stmmac_dvr_probe(&pdev->dev, plat_dat, &stmmac_res);
- 	if (ret)
--		sun8i_dwmac_exit(pdev, plat_dat->bsp_priv);
-+		goto dwmac_exit;
++Required child node of emac:
++- mdio bus node: should be named mdio
 +
-+	ndev = dev_get_drvdata(&pdev->dev);
-+	priv = netdev_priv(ndev);
-+	/* The mux must be registered after parent MDIO
-+	 * so after stmmac_dvr_probe()
-+	 */
-+	if (gmac->variant->soc_has_internal_phy) {
-+		ret = sun8i_dwmac_register_mdio_mux(priv);
-+		if (ret) {
-+			dev_err(&pdev->dev, "Failed to register mux\n");
-+			goto dwmac_mux;
-+		}
-+	} else {
-+		ret = sun8i_dwmac_reset(priv);
-+		if (ret)
-+			goto dwmac_exit;
-+	}
- 
- 	return ret;
-+dwmac_mux:
-+	sun8i_dwmac_unset_syscon(gmac);
-+dwmac_exit:
-+	sun8i_dwmac_exit(pdev, plat_dat->bsp_priv);
-+return ret;
- }
- 
- static const struct of_device_id sun8i_dwmac_match[] = {
++Required properties of the mdio node:
++- #address-cells: shall be 1
++- #size-cells: shall be 0
++
++The device node referenced by "phy" or "phy-handle" should be a child node
++of the mdio node. See phy.txt for the generic PHY bindings.
++
++Required properties of the phy node with the following compatibles:
++  - "allwinner,sun8i-h3-emac",
++  - "allwinner,sun8i-v3s-emac":
++- clocks: a phandle to the reference clock for the EPHY
++- resets: a phandle to the reset control for the EPHY
++
++Example:
++
++emac: ethernet@1c0b000 {
++	compatible = "allwinner,sun8i-h3-emac";
++	syscon = <&syscon>;
++	reg = <0x01c0b000 0x104>;
++	interrupts = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>;
++	interrupt-names = "macirq";
++	resets = <&ccu RST_BUS_EMAC>;
++	reset-names = "stmmaceth";
++	clocks = <&ccu CLK_BUS_EMAC>;
++	clock-names = "stmmaceth";
++	#address-cells = <1>;
++	#size-cells = <0>;
++
++	phy-handle = <&int_mii_phy>;
++	phy-mode = "mii";
++	allwinner,leds-active-low;
++	mdio: mdio {
++		#address-cells = <1>;
++		#size-cells = <0>;
++		int_mii_phy: ethernet-phy@1 {
++			reg = <1>;
++			clocks = <&ccu CLK_BUS_EPHY>;
++			resets = <&ccu RST_BUS_EPHY>;
++		};
++	};
++};
 -- 
 2.13.5
