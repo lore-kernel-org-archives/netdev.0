@@ -1,10 +1,10 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: Re: [PATCH iproute2 1/2] lib/libnetlink: re malloc buff if size is
- not enough
-Date: Fri, 8 Sep 2017 13:02:47 +0200
-Message-ID: <20170908110247.GS2399@orbyte.nwl.cc>
+Subject: Re: [PATCH iproute2 2/2] lib/libnetlink: update rtnl_talk to support
+ malloc buff at run time
+Date: Fri, 8 Sep 2017 13:06:52 +0200
+Message-ID: <20170908110652.GU2399@orbyte.nwl.cc>
 References: <1504865697-27274-1-git-send-email-liuhangbin@gmail.com>
- <1504865697-27274-2-git-send-email-liuhangbin@gmail.com>
+ <1504865697-27274-3-git-send-email-liuhangbin@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org,
@@ -12,163 +12,46 @@ Cc: netdev@vger.kernel.org,
         Michal Kubecek <mkubecek@suse.cz>
 To: Hangbin Liu <liuhangbin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:36892 "EHLO orbyte.nwl.cc"
+Received: from orbyte.nwl.cc ([151.80.46.58]:36908 "EHLO orbyte.nwl.cc"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752463AbdIHLCu (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 8 Sep 2017 07:02:50 -0400
+        id S1751577AbdIHLGx (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 8 Sep 2017 07:06:53 -0400
 Content-Disposition: inline
-In-Reply-To: <1504865697-27274-2-git-send-email-liuhangbin@gmail.com>
+In-Reply-To: <1504865697-27274-3-git-send-email-liuhangbin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Hi Hangbin,
 
-On Fri, Sep 08, 2017 at 06:14:56PM +0800, Hangbin Liu wrote:
+On Fri, Sep 08, 2017 at 06:14:57PM +0800, Hangbin Liu wrote:
 [...]
-> diff --git a/lib/libnetlink.c b/lib/libnetlink.c
-> index be7ac86..37cfb5a 100644
-> --- a/lib/libnetlink.c
-> +++ b/lib/libnetlink.c
-> @@ -402,6 +402,59 @@ static void rtnl_dump_error(const struct rtnl_handle *rth,
->  	}
->  }
->  
-> +static int rtnl_recvmsg(int fd, struct msghdr *msg, char **buf)
-> +{
-> +	struct iovec *iov;
-> +	int len = -1, buf_len = 32768;
-> +	char *buffer = *buf;
-
-Isn't it possible to make 'buffer' static instead of the two 'buf'
-variables in rtnl_dump_filter_l() and __rtnl_talk()? Then we would have
-only a single buffer which is shared between both functions instead of
-two which are independently allocated.
-
-> +
-> +	int flag = MSG_PEEK | MSG_TRUNC;
-> +
-> +	if (buffer == NULL)
-> +re_malloc:
-> +		buffer = malloc(buf_len);
-
-I think using realloc() here is more appropriate since there is no need
-to free the buffer in beforehand and calling realloc(NULL, len) is
-equivalent to calling malloc(len). I think 'realloc' is also a better
-name for the goto label.
-
-> +	if (buffer == NULL) {
-> +		fprintf(stderr, "malloc error: no enough buffer\n");
-
-Minor typo here: s/no/not/
-
-> +		return -1;
-
-Return -ENOMEM?
-
-> +	}
-> +
-> +	iov = msg->msg_iov;
-> +	iov->iov_base = buffer;
-> +	iov->iov_len = buf_len;
-> +
-> +re_recv:
-
-Just call this 'recv'? (Not really important though.)
-
-> +	len = recvmsg(fd, msg, flag);
-> +
-> +	if (len < 0) {
-> +		if (errno == EINTR || errno == EAGAIN)
-> +			return 0;
-
-Instead of returning 0 (which makes callers retry), goto re_recv?
-
-> +		fprintf(stderr, "netlink receive error %s (%d)\n",
-> +			strerror(errno), errno);
-> +		return len;
-> +	}
-> +
-> +	if (len == 0) {
-> +		fprintf(stderr, "EOF on netlink\n");
-> +		return -1;
-
-Return -ENODATA here? (Initially I though about -EOF, but EOF is -1 so
-that would be incorrect).
-
-> +	}
-> +
-> +	if (len > buf_len) {
-> +		free(buffer);
-
-If you use realloc() above, this can be dropped.
-
-> +		buf_len = len;
-
-For this to work you have to make buf_len static too, otherwise you will
-unnecessarily reallocate the buffer. Oh, and that also requires the
-single buffer (as pointed out above) because you will otherwise use a
-common buf_len for both static buffers passed to this function.
-
-> +		flag = 0;
-> +		goto re_malloc;
-> +	}
-> +
-> +	if (flag != 0) {
-> +		flag = 0;
-> +		goto re_recv;
-> +	}
-> +
-> +	*buf = buffer;
-> +	return len;
-> +}
-> +
->  int rtnl_dump_filter_l(struct rtnl_handle *rth,
->  		       const struct rtnl_dump_filter_arg *arg)
->  {
-> @@ -413,31 +466,20 @@ int rtnl_dump_filter_l(struct rtnl_handle *rth,
->  		.msg_iov = &iov,
->  		.msg_iovlen = 1,
+> diff --git a/genl/ctrl.c b/genl/ctrl.c
+> index 448988e..699657b 100644
+> --- a/genl/ctrl.c
+> +++ b/genl/ctrl.c
+> @@ -55,6 +55,7 @@ int genl_ctrl_resolve_family(const char *family)
 >  	};
-> -	char buf[32768];
-> +	static char *buf = NULL;
+>  	struct nlmsghdr *nlh = &req.n;
+>  	struct genlmsghdr *ghdr = &req.g;
+> +	struct nlmsghdr *answer = NULL;
 
-If you keep the static buffer in rtnl_recvmsg(), there is no need to
-assign NULL here.
+I don't think it's necessary to assign NULL here or in any of the other
+cases.
 
->  	int dump_intr = 0;
+>  	if (rtnl_open_byproto(&rth, 0, NETLINK_GENERIC) < 0) {
+>  		fprintf(stderr, "Cannot open generic netlink socket\n");
+> @@ -63,19 +64,19 @@ int genl_ctrl_resolve_family(const char *family)
 >  
-> -	iov.iov_base = buf;
->  	while (1) {
->  		int status;
->  		const struct rtnl_dump_filter_arg *a;
->  		int found_done = 0;
->  		int msglen = 0;
+>  	addattr_l(nlh, 128, CTRL_ATTR_FAMILY_NAME, family, strlen(family) + 1);
 >  
-> -		iov.iov_len = sizeof(buf);
-> -		status = recvmsg(rth->fd, &msg, 0);
-> -
-> -		if (status < 0) {
-> -			if (errno == EINTR || errno == EAGAIN)
-> -				continue;
-> -			fprintf(stderr, "netlink receive error %s (%d)\n",
-> -				strerror(errno), errno);
-> -			return -1;
-> -		}
-> -
-> -		if (status == 0) {
-> -			fprintf(stderr, "EOF on netlink\n");
-> -			return -1;
-> -		}
-> +		status = rtnl_recvmsg(rth->fd, &msg, &buf);
-> +		if (status < 0)
-> +			return status;
-> +		else if (status == 0)
-> +			continue;
+> -	if (rtnl_talk(&rth, nlh, nlh, sizeof(req)) < 0) {
+> +	if (rtnl_talk(&rth, nlh, &answer) < 0) {
 
-When retrying inside rtnl_recvmsg(), it won't return 0 anymore. I
-believe the whole 'while (1)' loop could go away then.
+I didn't check, but it's likely that at least in some cases 'nlh'
+contains some buffer space to hold the answer (if it will be larger than
+the input). If so, this could be dropped since the buffer is no longer
+reused.
 
-Everything noted for rtnl_dump_filter_l() applies to __rtnl_talk() as
-well.
+Apart from that, looks good to me!
 
 Thanks, Phil
