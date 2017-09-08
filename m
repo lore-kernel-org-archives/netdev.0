@@ -1,34 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] isdn: isdnloop: fix logic error in isdnloop_sendbuf
-Date: Thu, 07 Sep 2017 20:04:30 -0700 (PDT)
-Message-ID: <20170907.200430.192546025684691135.davem@davemloft.net>
-References: <20170906133928.3152020-1-arnd@arndb.de>
+Subject: Re: [PATCH net v2] rds: Fix incorrect statistics counting
+Date: Thu, 07 Sep 2017 20:07:33 -0700 (PDT)
+Message-ID: <20170907.200733.1562967291105061977.davem@davemloft.net>
+References: <20170906163551.20387-1-Haakon.Bugge@oracle.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: isdn@linux-pingi.de, joe@perches.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: arnd@arndb.de
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
+Cc: santosh.shilimkar@oracle.com, netdev@vger.kernel.org,
+        linux-rdma@vger.kernel.org, rds-devel@oss.oracle.com,
+        linux-kernel@vger.kernel.org, knut.omang@oracle.com
+To: Haakon.Bugge@oracle.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170906133928.3152020-1-arnd@arndb.de>
+In-Reply-To: <20170906163551.20387-1-Haakon.Bugge@oracle.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Wed,  6 Sep 2017 15:38:58 +0200
+From: Håkon Bugge <Haakon.Bugge@oracle.com>
+Date: Wed,  6 Sep 2017 18:35:51 +0200
 
-> gcc-7 found an ancient bug in the loop driver, leading to a condition that
-> is always false, meaning we ignore the contents of 'card->flags' here:
+> In rds_send_xmit() there is logic to batch the sends. However, if
+> another thread has acquired the lock and has incremented the send_gen,
+> it is considered a race and we yield. The code incrementing the
+> s_send_lock_queue_raced statistics counter did not count this event
+> correctly.
 > 
-> drivers/isdn/isdnloop/isdnloop.c:412:37: error: ?: using integer constants in boolean context, the expression will always evaluate to 'true' [-Werror=int-in-bool-context]
+> This commit counts the race condition correctly.
 > 
-> This changes the braces in the expression to ensure we actually
-> compare the flag bits, rather than comparing a constant. As Joe Perches
-> pointed out, an earlier patch of mine incorrectly assumed this was a
-> false-positive warning.
+> Changes from v1:
+> - Removed check for *someone_on_xmit()*
+> - Fixed incorrect indentation
 > 
-> Cc: Joe Perches <joe@perches.com>
-> Link: https://patchwork.kernel.org/patch/9840289/
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Signed-off-by: Håkon Bugge <haakon.bugge@oracle.com>
+> Reviewed-by: Knut Omang <knut.omang@oracle.com>
 
-Applied, thank you.
+Applied.
