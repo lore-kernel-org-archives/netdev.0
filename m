@@ -1,90 +1,85 @@
 From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: [PATCH RFC 4/5] Add KSZ8795 register definitions
-Date: Fri, 8 Sep 2017 11:21:12 +0200
-Message-ID: <20170908092112.GA18365@amd>
-References: <93AF473E2DA327428DE3D46B72B1E9FD41121A8E@CHN-SV-EXMX02.mchp-main.com>
+Subject: Re: [PATCH RFC 5/5] Add KSZ8795 SPI driver
+Date: Fri, 8 Sep 2017 11:26:14 +0200
+Message-ID: <20170908092614.GB18365@amd>
+References: <93AF473E2DA327428DE3D46B72B1E9FD41121A95@CHN-SV-EXMX02.mchp-main.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="FCuugMFkClbJLl1L"
+        protocol="application/pgp-signature"; boundary="7iMSBzlTiPOCCT2k"
 Cc: andrew@lunn.ch, muvarov@gmail.com, nathan.leigh.conrad@gmail.com,
         vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
         netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
         Woojung.Huh@microchip.com
 To: Tristram.Ha@microchip.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atrey.karlin.mff.cuni.cz ([195.113.26.193]:34287 "EHLO
+Received: from atrey.karlin.mff.cuni.cz ([195.113.26.193]:34437 "EHLO
         atrey.karlin.mff.cuni.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752047AbdIHJVO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 8 Sep 2017 05:21:14 -0400
+        with ESMTP id S1752074AbdIHJ0X (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 8 Sep 2017 05:26:23 -0400
 Content-Disposition: inline
-In-Reply-To: <93AF473E2DA327428DE3D46B72B1E9FD41121A8E@CHN-SV-EXMX02.mchp-main.com>
+In-Reply-To: <93AF473E2DA327428DE3D46B72B1E9FD41121A95@CHN-SV-EXMX02.mchp-main.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---FCuugMFkClbJLl1L
+--7iMSBzlTiPOCCT2k
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
 
-On Thu 2017-09-07 21:17:27, Tristram.Ha@microchip.com wrote:
-> From: Tristram Ha <Tristram.Ha@microchip.com>
->=20
-> Add KSZ8795 switch support with register definitions.
->=20
-> Signed-off-by: Tristram Ha <Tristram.Ha@microchip.com>
-> ---
-> diff --git a/drivers/net/dsa/microchip/ksz8795.h b/drivers/net/dsa/microc=
-hip/ksz8795.h
-> new file mode 100644
-> index 0000000..005eda5
-> --- /dev/null
-> +++ b/drivers/net/dsa/microchip/ksz8795.h
+Hi!
 
-We already have ksz_9477_reg.h. Please make it consistent.
 
-> @@ -0,0 +1,1015 @@
-> +/**
-> + * Microchip KSZ8795 definition file
-> + *
-> + * Copyright (c) 2017 Microchip Technology Inc.
-> + *	Tristram Ha <Tristram.Ha@microchip.com>
-> + *
-> + * Permission to use, copy, modify, and/or distribute this software for =
-any
-> + * purpose with or without fee is hereby granted, provided that the above
-> + * copyright notice and this permission notice appear in all copies.
-> + *
-> + * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANT=
-IES
-> + * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-> + * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE F=
-OR
-> + * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
-> + * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
-> + * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT =
-OF
-> + * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
-> + */
+> +static int ksz_spi_read(struct ksz_device *dev, u32 reg, u8 *data,
+> +			unsigned int len)
+> +{
+> +	struct spi_device *spi =3D dev->priv;
+> +
+> +	return ksz_spi_read_reg(spi, reg, data, len); }
+> +
+> +static int ksz_spi_read8(struct ksz_device *dev, u32 reg, u8 *val) {
+> +	return ksz_spi_read(dev, reg, val, 1); }
+> +
+> +static int ksz_spi_read16(struct ksz_device *dev, u32 reg, u16 *val) {
+> +	int ret =3D ksz_spi_read(dev, reg, (u8 *)val, 2);
+> +
+> +	if (!ret)
+> +		*val =3D be16_to_cpu(*val);
+> +
+> +	return ret;
+> +}
 
--ENOTGPL.
+> +static int ksz_spi_read32(struct ksz_device *dev, u32 reg, u32 *val) {
+> +	int ret =3D ksz_spi_read(dev, reg, (u8 *)val, 4);
+> +
+> +	if (!ret)
+> +		*val =3D be32_to_cpu(*val);
+> +
+> +	return ret;
+> +}
+
+Please format according to CodingStyle. (Not only this.)
+
+And this will be common for more drivers. Can it go to a header file
+and be included...?
+
+
 									Pavel
-
 --=20
 (english) http://www.livejournal.com/~pavelmachek
 (cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
 g.html
 
---FCuugMFkClbJLl1L
+--7iMSBzlTiPOCCT2k
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: Digital signature
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1
 
-iEYEARECAAYFAlmyYQgACgkQMOfwapXb+vJ6hACgjwtgOFTVoLI5qtXb6b+4rj24
-vrQAnA97/M58w5/WtZ/1k94btJJttwHA
-=nKpt
+iEYEARECAAYFAlmyYjYACgkQMOfwapXb+vLQHACggMi5qp8GC4fvQl7MLsrtXfyO
+kwUAn33zfxGvHasm7e0cSJoPzNwmfE5t
+=O0sP
 -----END PGP SIGNATURE-----
 
---FCuugMFkClbJLl1L--
+--7iMSBzlTiPOCCT2k--
