@@ -1,200 +1,78 @@
-From: Maxim Uvarov <muvarov@gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
 Subject: Re: [PATCH RFC] Update documentation for KSZ DSA drivers so that new
  drivers can be added
-Date: Fri, 8 Sep 2017 22:00:14 +0300
-Message-ID: <CAJGZr0Kp5ZKmFJT+KX9jxMVyZT9=VO0_dpZqE+y1TNaYvURcoQ@mail.gmail.com>
+Date: Fri, 8 Sep 2017 21:01:22 +0200
+Message-ID: <20170908190122.GM25219@lunn.ch>
 References: <93AF473E2DA327428DE3D46B72B1E9FD41121A5B@CHN-SV-EXMX02.mchp-main.com>
- <8e4aa981-7f41-047d-2101-370118b4f2c0@gmail.com>
+ <20170907215417.GU11248@lunn.ch>
+ <CAJGZr0+r3UhhRJcGXvBKZGamrSH_XEQY5oo7MTBjTTrDFOiKtg@mail.gmail.com>
+ <20170908141225.GE25219@lunn.ch>
+ <93AF473E2DA327428DE3D46B72B1E9FD41121E68@CHN-SV-EXMX02.mchp-main.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Tristram.Ha@microchip.com, Andrew Lunn <andrew@lunn.ch>,
-        Pavel Machek <pavel@ucw.cz>,
-        Nathan Conrad <nathan.leigh.conrad@gmail.com>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        netdev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org,
+Content-Type: text/plain; charset=us-ascii
+Cc: muvarov@gmail.com, pavel@ucw.cz, nathan.leigh.conrad@gmail.com,
+        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
         Woojung.Huh@microchip.com
-To: Florian Fainelli <f.fainelli@gmail.com>
+To: Tristram.Ha@microchip.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <8e4aa981-7f41-047d-2101-370118b4f2c0@gmail.com>
+Content-Disposition: inline
+In-Reply-To: <93AF473E2DA327428DE3D46B72B1E9FD41121E68@CHN-SV-EXMX02.mchp-main.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-2017-09-08 21:48 GMT+03:00 Florian Fainelli <f.fainelli@gmail.com>:
-> On 09/07/2017 02:11 PM, Tristram.Ha@microchip.com wrote:
->> From: Tristram Ha <Tristram.Ha@microchip.com>
->>
->> Add other KSZ switches support so that patch check does not complain.
->>
->> Signed-off-by: Tristram Ha <Tristram.Ha@microchip.com>
->> ---
->>  Documentation/devicetree/bindings/net/dsa/ksz.txt | 117 ++++++++++++----------
->>  1 file changed, 62 insertions(+), 55 deletions(-)
->>
->> diff --git a/Documentation/devicetree/bindings/net/dsa/ksz.txt b/Documentation/devicetree/bindings/net/dsa/ksz.txt
->> index 0ab8b39..34af0e0 100644
->> --- a/Documentation/devicetree/bindings/net/dsa/ksz.txt
->> +++ b/Documentation/devicetree/bindings/net/dsa/ksz.txt
->> @@ -3,8 +3,15 @@ Microchip KSZ Series Ethernet switches
->>
->>  Required properties:
->>
->> -- compatible: For external switch chips, compatible string must be exactly one
->> -  of: "microchip,ksz9477"
->> +- compatible: Should be "microchip,ksz9477" for KSZ9477 chip,
->> +           "microchip,ksz8795" for KSZ8795 chip,
->> +           "microchip,ksz8794" for KSZ8794 chip,
->> +           "microchip,ksz8765" for KSZ8765 chip,
->> +           "microchip,ksz8895" for KSZ8895 chip,
->> +           "microchip,ksz8864" for KSZ8864 chip,
->> +           "microchip,ksz8873" for KSZ8873 chip,
->> +           "microchip,ksz8863" for KSZ8863 chip,
->> +           "microchip,ksz8463" for KSZ8463 chip
->
+> > So i would suggest one driver supporting all the different devices.
+> 
+> There will be 5 drivers to support these devices:
+> 
+> ksz9477.c - KSZ9893/KSZ9897/KSZ9567/KSZ9566/KSZ9477
+> ksz8795.c - KSZ8795/KSZ8795/KSZ8765
+> ksz8895.c - KSZ8895/KSZ8864
+> ksz8863.c - KSZ8863/KSZ8873
+> ksz8463.c - KSZ8463
+> 
+> These chips have different SPI access mechanisms, MIB counter reading,
+> and register set.  These can be combined into one single driver using
+> function pointers, at least for ksz8795/ksz8895/ksz8863/ksz8463.  My
+> only concern is the memory footprint.  The customer may not want a
+> big driver to cover all the switches while only one is used.
 
+If memory footprint is your problem, make it a compile time choice
+which devices are supported within the one driver. In practice, you
+will find most distributions just enable them all.
+ 
+> Out of topic I have a question to ask the community regarding the DSA
+> port creation:
+> 
+> Port 1 can be specified using the reg parameter specifying 0; port 2, 1;
+> and so on.  The KSZ8794 is a variant of KSZ8795 with port 4 disabled.
+> So
+> lan1 = 0, lan2 = 1, lan3 = 2, cpu = 4.
+> But our company Marketing does not want to promote that fact but treat
+> KSZ8794 as a distinct product.
+> So
+> lan1 = 0, lan2 = 1, lan3 = 2, cpu = 3.
+> Is this okay to hide this information inside the driver?  This is manageable
+> for KSZ8794 but for KSZ8864 the first port is disabled:
+> lan1 = 1, lan2 = 2, lan3 = 3, cpu = 4.
+> 
+> I am not sure whether DSA has or will have a way to display the port
+> mapping to regular users.
 
-Tristram, does any of this devices support chaining?
+So the port number to name is determined in the device tree. It
+depends on the board how the ports are named. I always suggest going
+by the label on the box. clearfog is a good example of this, 0 - lan5,
+1 - lan4, etc.
 
-Maxim.
+So for the KSZ8864, ensure reg = 0 causes an error.
 
-> It becomes pretty obvious there is a 1 to 1 mapping between the
-> compatible name and what you should be using it for so specifying
-> ksz8795 for KSZ8795 chip is really redundant.
->
-> You could just list all compatible strings that you support and change
-> the verbiage to be:
->
-> compatible: Should be one of:
->                 "microchip,ksz9477"
->                 ...
->                 "microchip,ksz8463"
->>
->>  See Documentation/devicetree/bindings/dsa/dsa.txt for a list of additional  required and optional properties.
->> @@ -13,60 +20,60 @@ Examples:
->>
->>  Ethernet switch connected via SPI to the host, CPU port wired to eth0:
->>
->> -                             eth0: ethernet@10001000 {
->> -                                             fixed-link {
->> -                                                             speed = <1000>;
->> -                                                             full-duplex;
->> -                                             };
->> -                             };
->> +     eth0: ethernet@10001000 {
->> +             fixed-link {
->> +                     speed = <1000>;
->> +                     full-duplex;
->> +             };
->> +     };
->
-> This is a good clean up, but it would probably belong in a separate
-> patch that you would do before adding compatible strings for instance.
->
->>
->> -                             spi1: spi@f8008000 {
->> -                                             pinctrl-0 = <&pinctrl_spi_ksz>;
->> -                                             cs-gpios = <&pioC 25 0>;
->> -                                             id = <1>;
->> -                                             status = "okay";
->> +     spi1: spi@f8008000 {
->> +             cs-gpios = <&pioC 25 0>;
->> +             id = <1>;
->> +             status = "okay";
->>
->> -                                             ksz9477: ksz9477@0 {
->> -                                                             compatible = "microchip,ksz9477";
->> -                                                             reg = <0>;
->> +             ksz9477: ksz9477@0 {
->> +                     compatible = "microchip,ksz9477";
->> +                     reg = <0>;
->>
->> -                                                             spi-max-frequency = <44000000>;
->> -                                                             spi-cpha;
->> -                                                             spi-cpol;
->> +                     spi-max-frequency = <44000000>;
->> +                     spi-cpha;
->> +                     spi-cpol;
->> +
->> +                     status = "okay";
->> +                     ports {
->> +                             #address-cells = <1>;
->> +                             #size-cells = <0>;
->> +                             port@0 {
->> +                                     reg = <0>;
->> +                                     label = "lan1";
->> +                             };
->> +                             port@1 {
->> +                                     reg = <1>;
->> +                                     label = "lan2";
->> +                             };
->> +                             port@2 {
->> +                                     reg = <2>;
->> +                                     label = "lan3";
->> +                             };
->> +                             port@3 {
->> +                                     reg = <3>;
->> +                                     label = "lan4";
->> +                             };
->> +                             port@4 {
->> +                                     reg = <4>;
->> +                                     label = "lan5";
->> +                             };
->> +                             port@5 {
->> +                                     reg = <5>;
->> +                                     label = "cpu";
->> +                                     ethernet = <&eth0>;
->> +                                     fixed-link {
->> +                                             speed = <1000>;
->> +                                             full-duplex;
->> +                                     };
->> +                             };
->> +                     };
->> +             };
->> +     };
->>
->> -                                                             status = "okay";
->> -                                                             ports {
->> -                                                                             #address-cells = <1>;
->> -                                                                             #size-cells = <0>;
->> -                                                                             port@0 {
->> -                                                                                             reg = <0>;
->> -                                                                                             label = "lan1";
->> -                                                                             };
->> -                                                                             port@1 {
->> -                                                                                             reg = <1>;
->> -                                                                                             label = "lan2";
->> -                                                                             };
->> -                                                                             port@2 {
->> -                                                                                             reg = <2>;
->> -                                                                                             label = "lan3";
->> -                                                                             };
->> -                                                                             port@3 {
->> -                                                                                             reg = <3>;
->> -                                                                                             label = "lan4";
->> -                                                                             };
->> -                                                                             port@4 {
->> -                                                                                             reg = <4>;
->> -                                                                                             label = "lan5";
->> -                                                                             };
->> -                                                                             port@5 {
->> -                                                                                             reg = <5>;
->> -                                                                                             label = "cpu";
->> -                                                                                             ethernet = <&eth0>;
->> -                                                                                             fixed-link {
->> -                                                                                                             speed = <1000>;
->> -                                                                                                             full-duplex;
->> -                                                                                             };
->> -                                                                             };
->> -                                                             };
->> -                                             };
->> -                             };
->>
->
->
-> --
-> Florian
+Does the hardware force which port is used for the CPU? I've boards
+with Marvell devices where the CPU is port 0, or port 6, or port
+7. The hardware does not care. So we don't force anything.
 
+As for KSZ8794 vs KSZ8795, is there different IDs in the silicon?  It
+is these IDs you are using, not the compatible string, to determine
+how the drive the silicon. You can trust the ID in the
+silicon. Anything else can be wrong.
 
-
--- 
-Best regards,
-Maxim Uvarov
+	 Andrew
