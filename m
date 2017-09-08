@@ -1,44 +1,38 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Use after free in __dst_destroy_metrics_generic
-Date: Fri, 08 Sep 2017 10:16:53 -0700
-Message-ID: <1504891013.15310.76.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1234e09b75197d43ed84bdb1b154b4b6@codeaurora.org>
-         <CAM_iQpXKfUkbyuuZEZXyPrVVCoPaxnCmCARz=Jf0VtU1m9NsZg@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 0/2] enable hires timer to timeout datagram socket
+Date: Fri, 08 Sep 2017 10:16:57 -0700 (PDT)
+Message-ID: <20170908.101657.2131282706895004921.davem@davemloft.net>
+References: <1503447027-44399-1-git-send-email-vallish@amazon.com>
+        <20170822.213030.1848111782253505433.davem@davemloft.net>
+        <20170908170409.GA10020@u40b0340c692b58f6553c.ant.amazon.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Lorenzo Colitti <lorenzo@google.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f52.google.com ([74.125.83.52]:38882 "EHLO
-        mail-pg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753338AbdIHRQ4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 8 Sep 2017 13:16:56 -0400
-Received: by mail-pg0-f52.google.com with SMTP id v66so5807355pgb.5
-        for <netdev@vger.kernel.org>; Fri, 08 Sep 2017 10:16:56 -0700 (PDT)
-In-Reply-To: <CAM_iQpXKfUkbyuuZEZXyPrVVCoPaxnCmCARz=Jf0VtU1m9NsZg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: vallish@amazon.com, shuah@kernel.org, richardcochran@gmail.com,
+        xiyou.wangcong@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, anchalag@amazon.com, dwmw@amazon.com
+To: eduval@amazon.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170908170409.GA10020@u40b0340c692b58f6553c.ant.amazon.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2017-09-08 at 09:10 -0700, Cong Wang wrote:
-> On Thu, Sep 7, 2017 at 5:52 PM, Subash Abhinov Kasiviswanathan
-> <subashab@codeaurora.org> wrote:
-> > We are seeing a possible use after free in ip6_dst_destroy.
-> >
-> > It appears as if memory of the __DST_METRICS_PTR(old) was freed in some path
-> > and allocated
-> > to ion driver. ion driver has also freed it. Finally the memory is freed by
-> > the
-> > fib gc and crashes since it is already deallocated.
-> 
-> Does the attach (compile-only) patch help anything?
-> 
-> From my _quick_ glance, it seems we miss the refcnt'ing
-> right in __dst_destroy_metrics_generic().
-> 
-> Thanks!
+From: Eduardo Valentin <eduval@amazon.com>
+Date: Fri, 8 Sep 2017 10:04:09 -0700
 
-But 4.9 kernels do not have yet the DST_METRICS_REFCOUNTED thing,
-since this was added in 4.12
+> However, this is a clear, the system call, from the net subsystem,
+> has changed in behavior across kernel versions. From application /
+> userspace perspective, changing the system call without clear
+> documentation or deprecation path, to me, looks like breaking
+> userspace, isn't it?
+
+Where is the chapter and verse of the system call documentation that
+guaranteed this level of timer granularity for you?
+
+Or were you simply relying upon implementation dependent behavior?
+I can't see anything which ever guarateed the granularity of timers
+to the extent upon which you were relying.
+
+And most importantly, letting the kernel have flexibility in this area
+is absolutely essential for various forms of optimizations and power
+savings.
