@@ -1,73 +1,52 @@
-From: <Woojung.Huh@microchip.com>
-Subject: RE: [PATCH RFC 3/5] Add KSZ8795 switch driver
-Date: Fri, 8 Sep 2017 18:35:30 +0000
-Message-ID: <9235D6609DB808459E95D78E17F2E43D40B1C835@CHN-SV-EXMX02.mchp-main.com>
-References: <93AF473E2DA327428DE3D46B72B1E9FD41121A87@CHN-SV-EXMX02.mchp-main.com>
- <20170908091856.GB17738@amd>
- <93AF473E2DA327428DE3D46B72B1E9FD41121E3D@CHN-SV-EXMX02.mchp-main.com>
- <20170908183227.GJ25219@lunn.ch>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/9] Netfilter/IPVS fixes for net
+Date: Fri, 08 Sep 2017 11:36:13 -0700 (PDT)
+Message-ID: <20170908.113613.678386423137863254.davem@davemloft.net>
+References: <1504892748-1605-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <pavel@ucw.cz>, <muvarov@gmail.com>,
-        <nathan.leigh.conrad@gmail.com>,
-        <vivien.didelot@savoirfairelinux.com>, <f.fainelli@gmail.com>,
-        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-        <UNGLinuxDriver@microchip.com>
-To: <andrew@lunn.ch>, <Tristram.Ha@microchip.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170908183227.GJ25219@lunn.ch>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: pablo@netfilter.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:60462 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756619AbdIHSgO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 8 Sep 2017 14:36:14 -0400
+In-Reply-To: <1504892748-1605-1-git-send-email-pablo@netfilter.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> > > > @@ -0,0 +1,2066 @@
-> > > > +/*
-> > > > + * Microchip KSZ8795 switch driver
-> > > > + *
-> > > > + * Copyright (C) 2017 Microchip Technology Inc.
-> > > > + *	Tristram Ha <Tristram.Ha@microchip.com>
-> > > > + *
-> > > > + * Permission to use, copy, modify, and/or distribute this software for
-> any
-> > > > + * purpose with or without fee is hereby granted, provided that the
-> above
-> > > > + * copyright notice and this permission notice appear in all copies.
-> > > > + *
-> > > > + * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS
-> ALL
-> > > WARRANTIES
-> > > > + * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED
-> WARRANTIES
-> > > OF
-> > > > + * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR
-> BE
-> > > LIABLE FOR
-> > > > + * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR
-> ANY
-> > > DAMAGES
-> > > > + * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-> WHETHER
-> > > IN AN
-> > > > + * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION,
-> > > ARISING OUT OF
-> > > > + * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
-> SOFTWARE.
-> > > > + */
-> > >
-> > > This is not exactly GPL, right? But tagging below says it is
-> > > GPL. Please fix one.
-> > >
-> >
-> > This boilerplate paragraph was copied from the KSZ9477 driver, although I
-> did
-> > wonder why this was used.
-> 
-> Hi Tristram
-> 
-> Please can you talk to your legal people and see if this can be
-> replaced with the standard GPL text?
-This should be replaced to GPL. These text copied from drivers/net/dsa/b53/*.
-Will submit patches of drivers/net/dsa/microchip/*
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Fri,  8 Sep 2017 19:45:39 +0200
 
-- Woojung
+> The following patchset contains Netfilter/IPVS fixes for your net tree,
+> they are:
+> 
+> 1) Fix SCTP connection setup when IPVS module is loaded and any scheduler
+>    is registered, from Xin Long.
+> 
+> 2) Don't create a SCTP connection from SCTP ABORT packets, also from
+>    Xin Long.
+> 
+> 3) WARN_ON() and drop packet, instead of BUG_ON() races when calling
+>    nf_nat_setup_info(). This is specifically a longstanding problem
+>    when br_netfilter with conntrack support is in place, patch from
+>    Florian Westphal.
+> 
+> 4) Avoid softlock splats via iptables-restore, also from Florian.
+> 
+> 5) Revert NAT hashtable conversion to rhashtable, semantics of rhlist
+>    are different from our simple NAT hashtable, this has been causing
+>    problems in the recent Linux kernel releases. From Florian.
+> 
+> 6) Add per-bucket spinlock for NAT hashtable, so at least we restore
+>    one of the benefits we got from the previous rhashtable conversion.
+> 
+> 7) Fix incorrect hashtable size in memory allocation in xt_hashlimit,
+>    from Zhizhou Tian.
+> 
+> 8) Fix build/link problems with hashlimit and 32-bit arches, to address
+>    recent fallout from a new hashlimit mode, from Vishwanath Pai.
+
+Pulled, thanks Pablo.
