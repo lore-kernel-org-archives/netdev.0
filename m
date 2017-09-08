@@ -1,61 +1,57 @@
 From: Cong Wang <xiyou.wangcong@gmail.com>
 Subject: Re: Use after free in __dst_destroy_metrics_generic
-Date: Fri, 8 Sep 2017 09:10:20 -0700
-Message-ID: <CAM_iQpXKfUkbyuuZEZXyPrVVCoPaxnCmCARz=Jf0VtU1m9NsZg@mail.gmail.com>
-References: <1234e09b75197d43ed84bdb1b154b4b6@codeaurora.org>
+Date: Fri, 8 Sep 2017 09:12:09 -0700
+Message-ID: <CAM_iQpV--V9ROSd61CWVbcpCHonMUubLeyEKVSvEUTTW3gh5hA@mail.gmail.com>
+References: <1234e09b75197d43ed84bdb1b154b4b6@codeaurora.org> <20170908025620.47d0ad2e@elisabeth>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="089e082249e08bf07f0558afd127"
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+Content-Type: text/plain; charset="UTF-8"
+Cc: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
         Eric Dumazet <eric.dumazet@gmail.com>,
         Lorenzo Colitti <lorenzo@google.com>
-To: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+To: Stefano Brivio <sbrivio@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f170.google.com ([209.85.192.170]:36477 "EHLO
-        mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753132AbdIHQKm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 8 Sep 2017 12:10:42 -0400
-Received: by mail-pf0-f170.google.com with SMTP id e199so5199630pfh.3
-        for <netdev@vger.kernel.org>; Fri, 08 Sep 2017 09:10:42 -0700 (PDT)
-In-Reply-To: <1234e09b75197d43ed84bdb1b154b4b6@codeaurora.org>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:35356 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751548AbdIHQMa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 8 Sep 2017 12:12:30 -0400
+Received: by mail-pg0-f65.google.com with SMTP id q68so1499042pgq.2
+        for <netdev@vger.kernel.org>; Fri, 08 Sep 2017 09:12:30 -0700 (PDT)
+In-Reply-To: <20170908025620.47d0ad2e@elisabeth>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---089e082249e08bf07f0558afd127
-Content-Type: text/plain; charset="UTF-8"
-
-On Thu, Sep 7, 2017 at 5:52 PM, Subash Abhinov Kasiviswanathan
-<subashab@codeaurora.org> wrote:
-> We are seeing a possible use after free in ip6_dst_destroy.
+On Thu, Sep 7, 2017 at 5:56 PM, Stefano Brivio <sbrivio@redhat.com> wrote:
+> On Thu, 07 Sep 2017 18:52:02 -0600
+> Subash Abhinov Kasiviswanathan <subashab@codeaurora.org> wrote:
 >
-> It appears as if memory of the __DST_METRICS_PTR(old) was freed in some path
-> and allocated
-> to ion driver. ion driver has also freed it. Finally the memory is freed by
-> the
-> fib gc and crashes since it is already deallocated.
+>> We are seeing a possible use after free in ip6_dst_destroy.
+>>
+>> It appears as if memory of the __DST_METRICS_PTR(old) was freed in some
+>> path and allocated
+>> to ion driver. ion driver has also freed it. Finally the memory is freed
+>> by the
+>> fib gc and crashes since it is already deallocated.
+>>
+>> Target is running an ARM64 Android based 4.9 kernel.
+>> Issue was seen once on a regression rack (sorry, no reproducer).
+>> Any pointers to debug this is highly appreciated.
+>>
+>> [ 3489.470581] [<ffffff83c0a289c0>] object_err+0x4c/0x5c
+>> [ 3489.470586] [<ffffff83c0a2b284>] free_debug_processing+0x2e0/0x398
+>> [ 3489.470589] [<ffffff83c0a2b63c>] __slab_free+0x300/0x3e0
+>> [ 3489.470593] [<ffffff83c0a2bfc8>] kfree+0x28c/0x290
+>> [ 3489.470601] [<ffffff83c16b9580>]
+>> __dst_destroy_metrics_generic+0x6c/0x78
+>> [ 3489.470609] [<ffffff83c17d3408>] ip6_dst_destroy+0xb0/0xb4
+>
+> Should be fixed by:
+>
+> commit ad65a2f05695aced349e308193c6e2a6b1d87112
+> Author: Wei Wang <weiwan@google.com>
+> Date:   Sat Jun 17 10:42:35 2017 -0700
+>
+>     ipv6: call dst_hold_safe() properly
 
-Does the attach (compile-only) patch help anything?
 
->From my _quick_ glance, it seems we miss the refcnt'ing
-right in __dst_destroy_metrics_generic().
-
-Thanks!
-
---089e082249e08bf07f0558afd127
-Content-Type: text/plain; charset="US-ASCII"; name="dst-metrics-ref.diff"
-Content-Disposition: attachment; filename="dst-metrics-ref.diff"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_j7c2urgm0
-
-ZGlmZiAtLWdpdCBhL25ldC9jb3JlL2RzdC5jIGIvbmV0L2NvcmUvZHN0LmMKaW5kZXggMDBhYTk3
-MmFkMWExLi5iMjkzYWVhZTMwMTggMTAwNjQ0Ci0tLSBhL25ldC9jb3JlL2RzdC5jCisrKyBiL25l
-dC9jb3JlL2RzdC5jCkBAIC0yNDEsOCArMjQxLDE0IEBAIHZvaWQgX19kc3RfZGVzdHJveV9tZXRy
-aWNzX2dlbmVyaWMoc3RydWN0IGRzdF9lbnRyeSAqZHN0LCB1bnNpZ25lZCBsb25nIG9sZCkKIAog
-CW5ldyA9ICgodW5zaWduZWQgbG9uZykgJmRzdF9kZWZhdWx0X21ldHJpY3MpIHwgRFNUX01FVFJJ
-Q1NfUkVBRF9PTkxZOwogCXByZXYgPSBjbXB4Y2hnKCZkc3QtPl9tZXRyaWNzLCBvbGQsIG5ldyk7
-Ci0JaWYgKHByZXYgPT0gb2xkKQotCQlrZnJlZShfX0RTVF9NRVRSSUNTX1BUUihvbGQpKTsKKwlp
-ZiAocHJldiA9PSBvbGQpIHsKKwkJc3RydWN0IGRzdF9tZXRyaWNzICpvbGRfcCA9IChzdHJ1Y3Qg
-ZHN0X21ldHJpY3MgKilfX0RTVF9NRVRSSUNTX1BUUihvbGQpOworCisJCWlmIChwcmV2ICYgRFNU
-X01FVFJJQ1NfUkVGQ09VTlRFRCkgeworCQkJaWYgKGF0b21pY19kZWNfYW5kX3Rlc3QoJm9sZF9w
-LT5yZWZjbnQpKQorCQkJCWtmcmVlKG9sZF9wKTsKKwkJfQorCX0KIH0KIEVYUE9SVF9TWU1CT0wo
-X19kc3RfZGVzdHJveV9tZXRyaWNzX2dlbmVyaWMpOwogCg==
---089e082249e08bf07f0558afd127--
+Obviously it should not. One is dst metric, the other is dst.
