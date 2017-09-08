@@ -1,106 +1,108 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH RFC] Update documentation for KSZ DSA drivers so that new
- drivers can be added
-Date: Fri, 8 Sep 2017 12:54:01 -0700
-Message-ID: <508d7ef0-e351-5369-b477-b027bae3dda4@gmail.com>
-References: <93AF473E2DA327428DE3D46B72B1E9FD41121A5B@CHN-SV-EXMX02.mchp-main.com>
- <8e4aa981-7f41-047d-2101-370118b4f2c0@gmail.com>
- <CAJGZr0Kp5ZKmFJT+KX9jxMVyZT9=VO0_dpZqE+y1TNaYvURcoQ@mail.gmail.com>
- <93AF473E2DA327428DE3D46B72B1E9FD41121EF7@CHN-SV-EXMX02.mchp-main.com>
+Subject: Re: [PATCH net-next] mdio_bus: Remove unneeded gpiod NULL check
+Date: Fri, 8 Sep 2017 12:56:50 -0700
+Message-ID: <c960202c-02e3-3f54-7d0b-b5ece46c6a9e@gmail.com>
+References: <1500325749-8382-1-git-send-email-festevam@gmail.com>
+ <6f984a9c-e6d3-fd0a-6719-fa9032d43d1d@cogentembedded.com>
+ <CAOMZO5ABD9iasv67ehcpTzcjU-iD9=8vQ2vM7Gwc4-v9pnUt-Q@mail.gmail.com>
+ <f4cdcb4b-feac-5106-8068-e694dbd3b4e6@cogentembedded.com>
+ <CAOMZO5BycGHNocULcScDczRoEvbQqjnRZTDrNAw7=+zpadSOSA@mail.gmail.com>
+ <20170718133209.GB32757@lunn.ch>
+ <CACRpkdYw5GWv3HRCqnWjDfctLEfzcoFdJ7ib_NVKRgw0+Y9dEg@mail.gmail.com>
+ <9235D6609DB808459E95D78E17F2E43D40B1B424@CHN-SV-EXMX02.mchp-main.com>
+ <CACRpkdbK03cwzmGs=0nVeCp6NnX0-41dhEotxfDT46O4xDzagQ@mail.gmail.com>
+ <81338659-4f46-0f2f-13c3-135b3ac876d7@gmail.com>
+ <9235D6609DB808459E95D78E17F2E43D40B1B47F@CHN-SV-EXMX02.mchp-main.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: andrew@lunn.ch, pavel@ucw.cz, nathan.leigh.conrad@gmail.com,
-        vivien.didelot@savoirfairelinux.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Woojung.Huh@microchip.com
-To: Tristram.Ha@microchip.com, muvarov@gmail.com
+Content-Transfer-Encoding: 8bit
+Cc: andrew@lunn.ch, festevam@gmail.com,
+        sergei.shtylyov@cogentembedded.com, davem@davemloft.net,
+        netdev@vger.kernel.org, fabio.estevam@nxp.com
+To: Woojung.Huh@microchip.com, linus.walleij@linaro.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f196.google.com ([209.85.216.196]:37573 "EHLO
-        mail-qt0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756751AbdIHTyG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 8 Sep 2017 15:54:06 -0400
-In-Reply-To: <93AF473E2DA327428DE3D46B72B1E9FD41121EF7@CHN-SV-EXMX02.mchp-main.com>
+Received: from mail-qt0-f173.google.com ([209.85.216.173]:38692 "EHLO
+        mail-qt0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756846AbdIHT44 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 8 Sep 2017 15:56:56 -0400
+Received: by mail-qt0-f173.google.com with SMTP id q8so8924788qtb.5
+        for <netdev@vger.kernel.org>; Fri, 08 Sep 2017 12:56:55 -0700 (PDT)
+In-Reply-To: <9235D6609DB808459E95D78E17F2E43D40B1B47F@CHN-SV-EXMX02.mchp-main.com>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/08/2017 12:48 PM, Tristram.Ha@microchip.com wrote:
->> -----Original Message-----
->> From: Maxim Uvarov [mailto:muvarov@gmail.com]
->> Sent: Friday, September 08, 2017 12:00 PM
->> To: Florian Fainelli
->> Cc: Tristram Ha - C24268; Andrew Lunn; Pavel Machek; Nathan Conrad; Vivien
->> Didelot; netdev; linux-kernel@vger.kernel.org; Woojung Huh - C21699
->> Subject: Re: [PATCH RFC] Update documentation for KSZ DSA drivers so that new
->> drivers can be added
->>
->> 2017-09-08 21:48 GMT+03:00 Florian Fainelli <f.fainelli@gmail.com>:
->>> On 09/07/2017 02:11 PM, Tristram.Ha@microchip.com wrote:
->>>> From: Tristram Ha <Tristram.Ha@microchip.com>
+On 09/07/2017 02:51 PM, Woojung.Huh@microchip.com wrote:
+>>>>> If someone is using GPIO descriptors with GPIO disabled, i.e. calling
+>>>>> gpiod_get() and friends, this is very likely to be a bug, and what
+>>>>> the driver wants to do is:
+>>>>>
+>>>>>  depends on GPIOLIB
+>>>>>
+>>>>> or
+>>>>>
+>>>>>  select GPIOLIB
+>>>>>
+>>>>> in Kconfig. The whole optional thing is mainly a leftover from when it
+>>>>> was possible to have a local implementation of the GPIOLIB API in
+>>>>> some custom header file, noone sane should be doing that anymore,
+>>>>> and if they do, they can very well face the warnings.
+>>>>>
+>>>>> If someone is facing a lot of WARN_ON() messages to this, it is a clear
+>>>>> indication that they need to fix their Kconfig and in that case it is proper.
+>>>> Linus & Andrew,
 >>>>
->>>> Add other KSZ switches support so that patch check does not complain.
->>>>
->>>> Signed-off-by: Tristram Ha <Tristram.Ha@microchip.com>
->>>> ---
->>>>  Documentation/devicetree/bindings/net/dsa/ksz.txt | 117
->>>> ++++++++++++----------
->>>>  1 file changed, 62 insertions(+), 55 deletions(-)
->>>>
->>>> diff --git a/Documentation/devicetree/bindings/net/dsa/ksz.txt
->>>> b/Documentation/devicetree/bindings/net/dsa/ksz.txt
->>>> index 0ab8b39..34af0e0 100644
->>>> --- a/Documentation/devicetree/bindings/net/dsa/ksz.txt
->>>> +++ b/Documentation/devicetree/bindings/net/dsa/ksz.txt
->>>> @@ -3,8 +3,15 @@ Microchip KSZ Series Ethernet switches
->>>>
->>>>  Required properties:
->>>>
->>>> -- compatible: For external switch chips, compatible string must be
->>>> exactly one
->>>> -  of: "microchip,ksz9477"
->>>> +- compatible: Should be "microchip,ksz9477" for KSZ9477 chip,
->>>> +           "microchip,ksz8795" for KSZ8795 chip,
->>>> +           "microchip,ksz8794" for KSZ8794 chip,
->>>> +           "microchip,ksz8765" for KSZ8765 chip,
->>>> +           "microchip,ksz8895" for KSZ8895 chip,
->>>> +           "microchip,ksz8864" for KSZ8864 chip,
->>>> +           "microchip,ksz8873" for KSZ8873 chip,
->>>> +           "microchip,ksz8863" for KSZ8863 chip,
->>>> +           "microchip,ksz8463" for KSZ8463 chip
+>>>> I knew that it is already in David's pulling request.
+>>>> Configuring GPIOLIB is the right solution  even if platform doesn't use it?
 >>>
+>>> I guess?
+>>>
+>>> "Platform doesn't use it" what does that mean?
+>>>
+>>> Does it mean it does not call the
+>>> APIs of the GPIOLIB, does it mean it doesn't have a GPIO driver
+>>> at probe (but may have one by having it probed from a module)
+>>> or does it mean the platform can never have it?
 >>
->>
->> Tristram, does any of this devices support chaining?
->>
->> Maxim.
+>> I think it means CONFIG_GPIOLIB=n in the kernel because it's not needed,
+>> yet you run code (like drivers/net/phy/mdio_bus.c) that unconditionally
+>> calls into GPIOLIB and attempts to configure a given GPIO if available.
+> Yes. I'm facing issue on PC which won't need GPIOLIB as default.
+> Warning message goes away when GPIOLIB is enabled, and fortunately,
+> Ubuntu default config has it.
+> So, it may not be seen by many users when with full/default configuration.
+
+Woojung, I suppose you are also getting a warning from
+gpiod_set_value_cansleep() done in mdiobus_unregister() right? With
+CONFIG_GPIOLIB=n devm_gpiod_get_optional() returns NULL, which we don't
+check as an error, on purpose however we still call
+gpiod_set_value_cansleep() on a NULL GPIO descriptor, so the following
+should do:
+
+diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
+index b6f9fa670168..67dbb7c26840 100644
+--- a/drivers/net/phy/mdio_bus.c
++++ b/drivers/net/phy/mdio_bus.c
+@@ -424,7 +424,8 @@ void mdiobus_unregister(struct mii_bus *bus)
+        }
+
+        /* Put PHYs in RESET to save power */
+-       gpiod_set_value_cansleep(bus->reset_gpiod, 1);
++       if (!IS_ERR_OR_NULL(bus->reset_gpiod))
++               gpiod_set_value_cansleep(bus->reset_gpiod, 1);
+
+        device_del(&bus->dev);
+ }
+
+
 > 
-> They do not if you mean daisy-chaining the switches together.
-
-Marvell tags allow you to specify both a port and switch index
-destination after setting up an appropriate routing table, I am assuming
-this is not supported.
-
-What happens though if I connect two KSZ switches ones to another say:
-
-eth0
-	-> KSZ8463
-		-> KSZ8463
-
-Will the first switch terminates KSZ tag if it sees two tags
-encapsulated in another, something like this:
-
-| MAC DA | MAC SA | .... payload | Inner KSZ tag | Inner KSZ tag | FCS |
-
+>> This thread is actually what prompted me to write this email:
+>>
+>> https://lkml.org/lkml/2017/9/2/3
+> Thanks for the link.
 > 
-> There is always a problem that once tail tagging mode is enabled
-> sending a frame through the MAC without going through the DSA
-> layer will cause the frame to be dropped.
+> 
 
-Yes, once the master network device is used for DSA, it is still usable
-directly by e.g: applications, but it won't do anything if the switch is
-configured such that it drops ingressing frames not having the proper
-tag. We documented that here:
 
-https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/networking/dsa/dsa.txt#n275
 -- 
 Florian
