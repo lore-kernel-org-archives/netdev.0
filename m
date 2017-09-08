@@ -1,125 +1,176 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH] net: bonding: Fix transmit load balancing in balance-alb
- mode if specified by sysfs
-Date: Fri, 8 Sep 2017 13:13:20 +0300
-Message-ID: <99818f9e-7ee0-4e53-b2be-b61b958f87e7@cumulusnetworks.com>
-References: <17EC94B0A072C34B8DCF0D30AD16044A029864AC@BPXM09GP.gisp.nec.co.jp>
- <52a22af7-cc99-e441-79fa-e48da283b001@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-2022-jp
-Content-Transfer-Encoding: 7bit
-Cc: Jay Vosburgh <j.vosburgh@gmail.com>,
-        Veaceslav Falico <vfalico@gmail.com>,
-        Andy Gospodarek <andy@greyhouse.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Reinis Rozitis <r@roze.lv>
-To: Kosuke Tatsukawa <tatsu@ab.jp.nec.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <52a22af7-cc99-e441-79fa-e48da283b001@cumulusnetworks.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Hangbin Liu <liuhangbin@gmail.com>
+Subject: [PATCH iproute2 1/2] lib/libnetlink: re malloc buff if size is not enough
+Date: Fri,  8 Sep 2017 18:14:56 +0800
+Message-ID: <1504865697-27274-2-git-send-email-liuhangbin@gmail.com>
+References: <1504865697-27274-1-git-send-email-liuhangbin@gmail.com>
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+        Michal Kubecek <mkubecek@suse.cz>, Phil Sutter <phil@nwl.cc>,
+        Hangbin Liu <liuhangbin@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:36824 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752372AbdIHKPf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 8 Sep 2017 06:15:35 -0400
+Received: by mail-pg0-f68.google.com with SMTP id d8so1126807pgt.3
+        for <netdev@vger.kernel.org>; Fri, 08 Sep 2017 03:15:35 -0700 (PDT)
+In-Reply-To: <1504865697-27274-1-git-send-email-liuhangbin@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/09/17 13:10, Nikolay Aleksandrov wrote:
-> On 08/09/17 05:06, Kosuke Tatsukawa wrote:
->> Hi,
->>
->>> On  7.09.2017 01:47, Kosuke Tatsukawa wrote:
->>>> Commit cbf5ecb30560 ("net: bonding: Fix transmit load balancing in
->>>> balance-alb mode") tried to fix transmit dynamic load balancing in
->>>> balance-alb mode, which wasn't working after commit 8b426dc54cf4
->>>> ("bonding: remove hardcoded value").
->>>>
->>>> It turned out that my previous patch only fixed the case when
->>>> balance-alb was specified as bonding module parameter, and not when
->>>> balance-alb mode was set using /sys/class/net/*/bonding/mode (the most
->>>> common usage).  In the latter case, tlb_dynamic_lb was set up according
->>>> to the default mode of the bonding interface, which happens to be
->>>> balance-rr.
->>>>
->>>> This additional patch addresses this issue by setting up tlb_dynamic_lb
->>>> to 1 if "mode" is set to balance-alb through the sysfs interface.
->>>>
->>>> I didn't add code to change tlb_balance_lb back to the default value for
->>>> other modes, because "mode" is usually set up only once during
->>>> initialization, and it's not worthwhile to change the static variable
->>>> bonding_defaults in bond_main.c to a global variable just for this
->>>> purpose.
->>>>
->>>> Commit 8b426dc54cf4 also changes the value of tlb_dynamic_lb for
->>>> balance-tlb mode if it is set up using the sysfs interface.  I didn't
->>>> change that behavior, because the value of tlb_balance_lb can be changed
->>>> using the sysfs interface for balance-tlb, and I didn't like changing
->>>> the default value back and forth for balance-tlb.
->>>>
->>>> As for balance-alb, /sys/class/net/*/bonding/tlb_balance_lb cannot be
->>>> written to.  However, I think balance-alb with tlb_dynamic_lb set to 0
->>>> is not an intended usage, so there is little use making it writable at
->>>> this moment.
->>>>
->>>> Fixes: 8b426dc54cf4 ("bonding: remove hardcoded value")
->>>> Reported-by: Reinis Rozitis <r@roze.lv>
->>>> Signed-off-by: Kosuke Tatsukawa <tatsu@ab.jp.nec.com>
->>>> Cc: stable@vger.kernel.org  # v4.12+
->>>> ---
->>>>  drivers/net/bonding/bond_options.c |    3 +++
->>>>  1 files changed, 3 insertions(+), 0 deletions(-)
->>>>
->>>
->>> I don't believe this to be the right solution, hardcoding it like this
->>> changes user-visible behaviour. The issue is that if someone configured
->>> it to be 0 in tlb mode, suddenly it will become 1 and will silently
->>> override their config if they switch the mode to alb. Also it robs users
->>> from their choice.
->>>
->>> If you think this should be settable in ALB mode, then IMO you should
->>> edit tlb_dynamic_lb option's unsuppmodes and allow it to be set in ALB.
->>> That would also be consistent with how it's handled in TLB mode.
->>
->> No, I don't think tlb_dynamic_lb should be settable in balance-alb at
->> this point.  All the current commits regarding tlb_dynamic_lb are for
->> balance-tlb mode, so I don't think balance-alb with tlb_dynamic_lb set
->> to 0 is an intended usage.
->>
->>
->>> Going back and looking at your previous fix I'd argue that it is also
->>> wrong, you should've removed the mode check altogether to return the
->>> original behaviour where the dynamic_lb is set to 1 (enabled) by
->>> default and then ALB mode would've had it, of course that would've left
->>> the case of setting it to 0 in TLB mode and switching to ALB, but that
->>> is a different issue.
->>
->> Maybe balance-alb shouldn't be dependent on tlb_dynamic_lb.
->> tlb_dynamic_lb is referenced in the following functions.
->>
->>  + bond_do_alb_xmit()  -- Used by both balance-tlb and balance-alb
->>  + bond_tlb_xmit()  -- Only used by balance-tlb
->>  + bond_open()  -- Used by both balance-tlb and balance-alb
->>  + bond_check_params()  -- Used during module initialization
->>  + bond_fill_info()  -- Used to get/set value
->>  + bond_option_tlb_dynamic_lb_set()  -- Used to get/set value
->>  + bonding_show_tlb_dynamic_lb()  -- Used to get/set value
->>  + bond_is_nondyn_tlb()  -- Only referenced if balance-tlb mode
->>
->> The following untested patch adds code to make balance-alb work as if
->> tlb_dynamic_lb==1 for the functions which affect balance-alb mode.  It
->> also reverts my previous patch.
->>
->> What do you think about this approach?
->> ---
->> Kosuke TATSUKAWA  | 1st Platform Software Division
->>                   | NEC Solution Innovators
->>                   | tatsu@ab.jp.nec.com
->>
-> 
-> Logically the approach looks good, that being said it adds unnecessary tests in
-> the fast path, why not just something like the patch below ? That only leaves the
-> problem if it is zeroed in TLB and switched to ALB mode, and that is a one line
-> fix to unsuppmodes just allow it to be set for that specific case. The below
-> returns the default behaviour before the commit in your Fixes tag.
-> 
-> 
+With commit 72b365e8e0fd ("libnetlink: Double the dump buffer size")
+we doubled the buffer size to support more VFs. But the VFs number is
+increasing all the time. Some customers even use more than 200 VFs now.
 
-Actually I'm fine with your approach, too. It will fix this regardless of the
-value of tlb_dynamic_lb which sounds good to me for the price of a test in
-the fast path.
+We could not double it everytime when the buffer is not enough. Let's just
+not hard code the buffer size and malloc the correct number when running.
+
+Introduce a new function rtnl_recvmsg() to get correct buffer.
+
+Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
+---
+ lib/libnetlink.c | 98 ++++++++++++++++++++++++++++++++++++++------------------
+ 1 file changed, 66 insertions(+), 32 deletions(-)
+
+diff --git a/lib/libnetlink.c b/lib/libnetlink.c
+index be7ac86..37cfb5a 100644
+--- a/lib/libnetlink.c
++++ b/lib/libnetlink.c
+@@ -402,6 +402,59 @@ static void rtnl_dump_error(const struct rtnl_handle *rth,
+ 	}
+ }
+ 
++static int rtnl_recvmsg(int fd, struct msghdr *msg, char **buf)
++{
++	struct iovec *iov;
++	int len = -1, buf_len = 32768;
++	char *buffer = *buf;
++
++	int flag = MSG_PEEK | MSG_TRUNC;
++
++	if (buffer == NULL)
++re_malloc:
++		buffer = malloc(buf_len);
++
++	if (buffer == NULL) {
++		fprintf(stderr, "malloc error: no enough buffer\n");
++		return -1;
++	}
++
++	iov = msg->msg_iov;
++	iov->iov_base = buffer;
++	iov->iov_len = buf_len;
++
++re_recv:
++	len = recvmsg(fd, msg, flag);
++
++	if (len < 0) {
++		if (errno == EINTR || errno == EAGAIN)
++			return 0;
++		fprintf(stderr, "netlink receive error %s (%d)\n",
++			strerror(errno), errno);
++		return len;
++	}
++
++	if (len == 0) {
++		fprintf(stderr, "EOF on netlink\n");
++		return -1;
++	}
++
++	if (len > buf_len) {
++		free(buffer);
++		buf_len = len;
++		flag = 0;
++		goto re_malloc;
++	}
++
++	if (flag != 0) {
++		flag = 0;
++		goto re_recv;
++	}
++
++	*buf = buffer;
++	return len;
++}
++
+ int rtnl_dump_filter_l(struct rtnl_handle *rth,
+ 		       const struct rtnl_dump_filter_arg *arg)
+ {
+@@ -413,31 +466,20 @@ int rtnl_dump_filter_l(struct rtnl_handle *rth,
+ 		.msg_iov = &iov,
+ 		.msg_iovlen = 1,
+ 	};
+-	char buf[32768];
++	static char *buf = NULL;
+ 	int dump_intr = 0;
+ 
+-	iov.iov_base = buf;
+ 	while (1) {
+ 		int status;
+ 		const struct rtnl_dump_filter_arg *a;
+ 		int found_done = 0;
+ 		int msglen = 0;
+ 
+-		iov.iov_len = sizeof(buf);
+-		status = recvmsg(rth->fd, &msg, 0);
+-
+-		if (status < 0) {
+-			if (errno == EINTR || errno == EAGAIN)
+-				continue;
+-			fprintf(stderr, "netlink receive error %s (%d)\n",
+-				strerror(errno), errno);
+-			return -1;
+-		}
+-
+-		if (status == 0) {
+-			fprintf(stderr, "EOF on netlink\n");
+-			return -1;
+-		}
++		status = rtnl_recvmsg(rth->fd, &msg, &buf);
++		if (status < 0)
++			return status;
++		else if (status == 0)
++			continue;
+ 
+ 		if (rth->dump_fp)
+ 			fwrite(buf, 1, NLMSG_ALIGN(status), rth->dump_fp);
+@@ -543,7 +585,7 @@ static int __rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n,
+ 		.msg_iov = &iov,
+ 		.msg_iovlen = 1,
+ 	};
+-	char   buf[32768] = {};
++	static char *buf = NULL;
+ 
+ 	n->nlmsg_seq = seq = ++rtnl->seq;
+ 
+@@ -556,22 +598,14 @@ static int __rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n,
+ 		return -1;
+ 	}
+ 
+-	iov.iov_base = buf;
+ 	while (1) {
+-		iov.iov_len = sizeof(buf);
+-		status = recvmsg(rtnl->fd, &msg, 0);
++		status = rtnl_recvmsg(rtnl->fd, &msg, &buf);
++
++		if (status < 0)
++			return status;
++		else if (status == 0)
++			continue;
+ 
+-		if (status < 0) {
+-			if (errno == EINTR || errno == EAGAIN)
+-				continue;
+-			fprintf(stderr, "netlink receive error %s (%d)\n",
+-				strerror(errno), errno);
+-			return -1;
+-		}
+-		if (status == 0) {
+-			fprintf(stderr, "EOF on netlink\n");
+-			return -1;
+-		}
+ 		if (msg.msg_namelen != sizeof(nladdr)) {
+ 			fprintf(stderr,
+ 				"sender address length == %d\n",
+-- 
+2.5.5
