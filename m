@@ -1,85 +1,89 @@
 From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: [PATCH RFC 5/5] Add KSZ8795 SPI driver
-Date: Fri, 8 Sep 2017 11:26:14 +0200
-Message-ID: <20170908092614.GB18365@amd>
-References: <93AF473E2DA327428DE3D46B72B1E9FD41121A95@CHN-SV-EXMX02.mchp-main.com>
+Subject: Re: [Intel-wired-lan] [PATCH] e1000e: changed some expensive calls
+ of udelay to usleep_range
+Date: Fri, 8 Sep 2017 11:28:27 +0200
+Message-ID: <20170908092827.GC18365@amd>
+References: <1503503985-3869-1-git-send-email-matthew.tan_1@nxp.com>
+ <20170904162555.GB21849@amd>
+ <309B89C4C689E141A5FF6A0C5FB2118B8C69E5E5@ORSMSX101.amr.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="7iMSBzlTiPOCCT2k"
-Cc: andrew@lunn.ch, muvarov@gmail.com, nathan.leigh.conrad@gmail.com,
-        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Woojung.Huh@microchip.com
-To: Tristram.Ha@microchip.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from atrey.karlin.mff.cuni.cz ([195.113.26.193]:34437 "EHLO
-        atrey.karlin.mff.cuni.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752074AbdIHJ0X (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 8 Sep 2017 05:26:23 -0400
+        protocol="application/pgp-signature"; boundary="TiqCXmo5T1hvSQQg"
+Cc: Matthew Tan <matthew.tan_1@nxp.com>,
+        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+        "michael.kardonik@nxp.com" <michael.kardonik@nxp.com>,
+        "Williams, Mitch A" <mitch.a.williams@intel.com>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Brown, Aaron F" <aaron.f.brown@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <93AF473E2DA327428DE3D46B72B1E9FD41121A95@CHN-SV-EXMX02.mchp-main.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <309B89C4C689E141A5FF6A0C5FB2118B8C69E5E5@ORSMSX101.amr.corp.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
---7iMSBzlTiPOCCT2k
+--TiqCXmo5T1hvSQQg
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
 
-Hi!
+On Thu 2017-09-07 22:19:47, Brown, Aaron F wrote:
+> > From: Intel-wired-lan [mailto:intel-wired-lan-bounces@osuosl.org] On
+> > Behalf Of Pavel Machek
+> > Sent: Monday, September 4, 2017 9:26 AM
+> > To: Matthew Tan <matthew.tan_1@nxp.com>
+> > Cc: michael.kardonik@nxp.com; Williams, Mitch A
+> > <mitch.a.williams@intel.com>; linux-kernel@vger.kernel.org;
+> > john.ronciak@intel.com; intel-wired-lan@lists.osuosl.org;
+> > netdev@vger.kernel.org
+> > Subject: Re: [Intel-wired-lan] [PATCH] e1000e: changed some expensive c=
+alls
+> > of udelay to usleep_range
+> >=20
+> > Hi!
+> >=20
+> > > @@ -183,7 +183,7 @@ s32 e1000e_read_phy_reg_mdic(struct e1000_hw
+> > *hw, u32 offset, u16 *data)
+> > >  	 * reading duplicate data in the next MDIC transaction.
+> > >  	 */
+> > >  	if (hw->mac.type =3D=3D e1000_pch2lan)
+> > > -		udelay(100);
+> > > +		usleep_range(90, 100);
+> > >
+> > >  	return 0;
+> > >  }
+> >=20
+> > Can you explain why shortening the delay is acceptable here?
+>=20
+> Maybe it's not.
+>=20
+> This patch is causing speed / duplex tests to fail on several of my test =
+systems.  Specifically a Lenova laptop with an 82577 and a NUC with an i218=
+ (though that does not mean it is limited to those or that it's not related=
+ to the individual link partner.)
+>
 
+Ok, this should be quite easy to verify -- just adjust all the ranges
+to be >=3D original ones.
 
-> +static int ksz_spi_read(struct ksz_device *dev, u32 reg, u8 *data,
-> +			unsigned int len)
-> +{
-> +	struct spi_device *spi =3D dev->priv;
-> +
-> +	return ksz_spi_read_reg(spi, reg, data, len); }
-> +
-> +static int ksz_spi_read8(struct ksz_device *dev, u32 reg, u8 *val) {
-> +	return ksz_spi_read(dev, reg, val, 1); }
-> +
-> +static int ksz_spi_read16(struct ksz_device *dev, u32 reg, u16 *val) {
-> +	int ret =3D ksz_spi_read(dev, reg, (u8 *)val, 2);
-> +
-> +	if (!ret)
-> +		*val =3D be16_to_cpu(*val);
-> +
-> +	return ret;
-> +}
-
-> +static int ksz_spi_read32(struct ksz_device *dev, u32 reg, u32 *val) {
-> +	int ret =3D ksz_spi_read(dev, reg, (u8 *)val, 4);
-> +
-> +	if (!ret)
-> +		*val =3D be32_to_cpu(*val);
-> +
-> +	return ret;
-> +}
-
-Please format according to CodingStyle. (Not only this.)
-
-And this will be common for more drivers. Can it go to a header file
-and be included...?
-
-
+Thanks,
 									Pavel
 --=20
 (english) http://www.livejournal.com/~pavelmachek
 (cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
 g.html
 
---7iMSBzlTiPOCCT2k
+--TiqCXmo5T1hvSQQg
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: Digital signature
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1
 
-iEYEARECAAYFAlmyYjYACgkQMOfwapXb+vLQHACggMi5qp8GC4fvQl7MLsrtXfyO
-kwUAn33zfxGvHasm7e0cSJoPzNwmfE5t
-=O0sP
+iEYEARECAAYFAlmyYrsACgkQMOfwapXb+vJtVwCglW6IjPs++1mpDQHFpMW1ka7z
+pnYAoLy0d7m1QYYLnfpwMhHgqs+8QP1w
+=uwnL
 -----END PGP SIGNATURE-----
 
---7iMSBzlTiPOCCT2k--
+--TiqCXmo5T1hvSQQg--
