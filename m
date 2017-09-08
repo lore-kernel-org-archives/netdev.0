@@ -1,64 +1,53 @@
-From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v5 10/10] net: stmmac: dwmac-sun8i: Handle
- integrated/external MDIOs
-Date: Fri, 8 Sep 2017 16:08:32 +0200
-Message-ID: <20170908140832.GB3037@Red>
-References: <20170908071156.5115-1-clabbe.montjoie@gmail.com>
- <20170908071156.5115-11-clabbe.montjoie@gmail.com>
- <20170908130520.GA11248@lunn.ch>
- <20170908132632.GA3037@Red>
- <20170908140020.GC25219@lunn.ch>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH RFC] Update documentation for KSZ DSA drivers so that new
+ drivers can be added
+Date: Fri, 8 Sep 2017 16:12:25 +0200
+Message-ID: <20170908141225.GE25219@lunn.ch>
+References: <93AF473E2DA327428DE3D46B72B1E9FD41121A5B@CHN-SV-EXMX02.mchp-main.com>
+ <20170907215417.GU11248@lunn.ch>
+ <CAJGZr0+r3UhhRJcGXvBKZGamrSH_XEQY5oo7MTBjTTrDFOiKtg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
-        maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org,
-        linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org,
-        will.deacon-5wv7dgnIgG8@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
-        alexandre.torgue-qxv4g6HH51o@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: Tristram.Ha@microchip.com, Pavel Machek <pavel@ucw.cz>,
+        Nathan Conrad <nathan.leigh.conrad@gmail.com>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        netdev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org,
+        Woojung.Huh@microchip.com
+To: Maxim Uvarov <muvarov@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20170908140020.GC25219-g2DYL2Zd6BY@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <CAJGZr0+r3UhhRJcGXvBKZGamrSH_XEQY5oo7MTBjTTrDFOiKtg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 08, 2017 at 04:00:20PM +0200, Andrew Lunn wrote:
-> > > > +static int mdio_mux_syscon_switch_fn(int current_child, int desired_child,
-> > > > +				     void *data)
-> > > > +{
-> > > > +	struct stmmac_priv *priv = data;
-> > > > +	struct sunxi_priv_data *gmac = priv->plat->bsp_priv;
-> > > > +	u32 reg, val;
-> > > > +	int ret = 0;
-> > > > +	bool need_reset = false;
-> > > > +
-> > > > +	if (current_child ^ desired_child) {
-> > > > +		regmap_read(gmac->regmap, SYSCON_EMAC_REG, &reg);
-> > > > +		switch (desired_child) {
-> > > > +		case DWMAC_sUN8I_MDIO_MUX_INTERNAL_ID:
-> > > > +			dev_info(priv->device, "Switch mux to internal PHY");
-> > > > +			val = (reg & ~H3_EPHY_MUX_MASK) | H3_EPHY_SELECT;
-> > > > +			if (gmac->use_internal_phy)
-> > > > +				need_reset = true;
-> > > > +			break;
-> > > 
-> > > This i don't get. Why do you need use_internal_phy? Isn't that
-> > > implicit from DWMAC_sUN8I_MDIO_MUX_INTERNAL_ID? Is it even possible to
-> > > use an external PHY on the internal MDIO bus?
-> > > 
-> > 
-> > On my H3 box with external PHY, the MDIO mux library first select (for scan ?) the internal MDIO.
-> > Without use_internal_phy usage, this board will launch a reset to use the internal MDIO... and this reset timeout/fail.
+On Fri, Sep 08, 2017 at 04:32:35PM +0300, Maxim Uvarov wrote:
+> 2017-09-08 0:54 GMT+03:00 Andrew Lunn <andrew@lunn.ch>:
+> >> -- compatible: For external switch chips, compatible string must be exactly one
+> >> -  of: "microchip,ksz9477"
+> >> +- compatible: Should be "microchip,ksz9477" for KSZ9477 chip,
+> >> +           "microchip,ksz8795" for KSZ8795 chip,
+> >> +           "microchip,ksz8794" for KSZ8794 chip,
+> >> +           "microchip,ksz8765" for KSZ8765 chip,
+> >> +           "microchip,ksz8895" for KSZ8895 chip,
+> >> +           "microchip,ksz8864" for KSZ8864 chip,
+> >> +           "microchip,ksz8873" for KSZ8873 chip,
+> >> +           "microchip,ksz8863" for KSZ8863 chip,
+> >> +           "microchip,ksz8463" for KSZ8463 chip
+> >
 > 
-> Do you know why the reset times out/fails?
-> 
+> all that chips have the same spi access to get chip id on probe(). I
+> prefer common microship,ksz-spi rather than somebody will always
+> maintain that list.
 
-Because there are nothing connected to it.
-I got also reset timeout on integrated MDIO when the integrated PHY is not powered.
+The Marvell DSA driver is similar. The compatibility string tells you
+enough to go find the switch ID in the switch itself.
 
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I suppose this comes down to, is there going to be one SPI driver for
+all the devices, or lots of drivers? In general, DSA has one driver
+for lots of devices. The mv88e6xxx supports around 25 devices. The b53
+has around 17, etc.
+
+So i would suggest one driver supporting all the different devices.
+
+   Andrew
