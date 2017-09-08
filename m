@@ -1,52 +1,321 @@
-From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH v5 04/10] net: stmmac: sun8i: Restore the compatibles
-Date: Fri,  8 Sep 2017 09:11:50 +0200
-Message-ID: <20170908071156.5115-5-clabbe.montjoie@gmail.com>
+From: Corentin Labbe <clabbe.montjoie@gmail.com>
+Subject: [PATCH v5 03/10] arm: dts: sunxi: Restore EMAC changes
+Date: Fri,  8 Sep 2017 09:11:49 +0200
+Message-ID: <20170908071156.5115-4-clabbe.montjoie@gmail.com>
 References: <20170908071156.5115-1-clabbe.montjoie@gmail.com>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
-        maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org,
-        linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, catalin.marinas-5wv7dgnIgG8@public.gmane.org,
-        will.deacon-5wv7dgnIgG8@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
-        alexandre.torgue-qxv4g6HH51o@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170908071156.5115-1-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
+        Corentin Labbe <clabbe.montjoie@gmail.com>
+To: robh+dt@kernel.org, mark.rutland@arm.com,
+        maxime.ripard@free-electrons.com, wens@csie.org,
+        linux@armlinux.org.uk, catalin.marinas@arm.com,
+        will.deacon@arm.com, peppe.cavallaro@st.com,
+        alexandre.torgue@st.com, andrew@lunn.ch, f.fainelli@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f195.google.com ([209.85.128.195]:34172 "EHLO
+        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754997AbdIHHOM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 8 Sep 2017 03:14:12 -0400
+In-Reply-To: <20170908071156.5115-1-clabbe.montjoie@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch restore compatibles about dwmac-sun8i
-This reverts commit ad4540cc5aa3 ("net: stmmac: sun8i: Remove the compatibles")
+This patch restore arm DT about dwmac-sun8i
+This reverts commit fe45174b72ae ("arm: dts: sunxi: Revert EMAC changes")
 
-Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
 ---
- drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c | 8 ++++++++
- 1 file changed, 8 insertions(+)
+ arch/arm/boot/dts/sun8i-h2-plus-orangepi-zero.dts |  9 ++++++++
+ arch/arm/boot/dts/sun8i-h3-bananapi-m2-plus.dts   | 19 +++++++++++++++++
+ arch/arm/boot/dts/sun8i-h3-nanopi-neo.dts         |  7 ++++++
+ arch/arm/boot/dts/sun8i-h3-orangepi-2.dts         |  8 +++++++
+ arch/arm/boot/dts/sun8i-h3-orangepi-one.dts       |  8 +++++++
+ arch/arm/boot/dts/sun8i-h3-orangepi-pc-plus.dts   |  5 +++++
+ arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts        |  8 +++++++
+ arch/arm/boot/dts/sun8i-h3-orangepi-plus.dts      | 22 +++++++++++++++++++
+ arch/arm/boot/dts/sun8i-h3-orangepi-plus2e.dts    | 16 ++++++++++++++
+ arch/arm/boot/dts/sunxi-h3-h5.dtsi                | 26 +++++++++++++++++++++++
+ 10 files changed, 128 insertions(+)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
-index 39c2122a4f26..fffd6d5fc907 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
-@@ -979,6 +979,14 @@ static int sun8i_dwmac_probe(struct platform_device *pdev)
- }
+diff --git a/arch/arm/boot/dts/sun8i-h2-plus-orangepi-zero.dts b/arch/arm/boot/dts/sun8i-h2-plus-orangepi-zero.dts
+index b1502df7b509..6713d0f2b3f4 100644
+--- a/arch/arm/boot/dts/sun8i-h2-plus-orangepi-zero.dts
++++ b/arch/arm/boot/dts/sun8i-h2-plus-orangepi-zero.dts
+@@ -56,6 +56,8 @@
  
- static const struct of_device_id sun8i_dwmac_match[] = {
-+	{ .compatible = "allwinner,sun8i-h3-emac",
-+		.data = &emac_variant_h3 },
-+	{ .compatible = "allwinner,sun8i-v3s-emac",
-+		.data = &emac_variant_v3s },
-+	{ .compatible = "allwinner,sun8i-a83t-emac",
-+		.data = &emac_variant_a83t },
-+	{ .compatible = "allwinner,sun50i-a64-emac",
-+		.data = &emac_variant_a64 },
- 	{ }
+ 	aliases {
+ 		serial0 = &uart0;
++		/* ethernet0 is the H3 emac, defined in sun8i-h3.dtsi */
++		ethernet0 = &emac;
+ 		ethernet1 = &xr819;
+ 	};
+ 
+@@ -102,6 +104,13 @@
+ 	status = "okay";
  };
- MODULE_DEVICE_TABLE(of, sun8i_dwmac_match);
+ 
++&emac {
++	phy-handle = <&int_mii_phy>;
++	phy-mode = "mii";
++	allwinner,leds-active-low;
++	status = "okay";
++};
++
+ &mmc0 {
+ 	pinctrl-names = "default";
+ 	pinctrl-0 = <&mmc0_pins_a>;
+diff --git a/arch/arm/boot/dts/sun8i-h3-bananapi-m2-plus.dts b/arch/arm/boot/dts/sun8i-h3-bananapi-m2-plus.dts
+index a337af1de322..d756ff825116 100644
+--- a/arch/arm/boot/dts/sun8i-h3-bananapi-m2-plus.dts
++++ b/arch/arm/boot/dts/sun8i-h3-bananapi-m2-plus.dts
+@@ -52,6 +52,7 @@
+ 	compatible = "sinovoip,bpi-m2-plus", "allwinner,sun8i-h3";
+ 
+ 	aliases {
++		ethernet0 = &emac;
+ 		serial0 = &uart0;
+ 		serial1 = &uart1;
+ 	};
+@@ -114,12 +115,30 @@
+ 	status = "okay";
+ };
+ 
++&emac {
++	pinctrl-names = "default";
++	pinctrl-0 = <&emac_rgmii_pins>;
++	phy-supply = <&reg_gmac_3v3>;
++	phy-handle = <&ext_rgmii_phy>;
++	phy-mode = "rgmii";
++
++	allwinner,leds-active-low;
++	status = "okay";
++};
++
+ &ir {
+ 	pinctrl-names = "default";
+ 	pinctrl-0 = <&ir_pins_a>;
+ 	status = "okay";
+ };
+ 
++&mdio {
++	ext_rgmii_phy: ethernet-phy@1 {
++		compatible = "ethernet-phy-ieee802.3-c22";
++		reg = <0>;
++	};
++};
++
+ &mmc0 {
+ 	pinctrl-names = "default";
+ 	pinctrl-0 = <&mmc0_pins_a>, <&mmc0_cd_pin>;
+diff --git a/arch/arm/boot/dts/sun8i-h3-nanopi-neo.dts b/arch/arm/boot/dts/sun8i-h3-nanopi-neo.dts
+index 8d2cc6e9a03f..78f6c24952dd 100644
+--- a/arch/arm/boot/dts/sun8i-h3-nanopi-neo.dts
++++ b/arch/arm/boot/dts/sun8i-h3-nanopi-neo.dts
+@@ -46,3 +46,10 @@
+ 	model = "FriendlyARM NanoPi NEO";
+ 	compatible = "friendlyarm,nanopi-neo", "allwinner,sun8i-h3";
+ };
++
++&emac {
++	phy-handle = <&int_mii_phy>;
++	phy-mode = "mii";
++	allwinner,leds-active-low;
++	status = "okay";
++};
+diff --git a/arch/arm/boot/dts/sun8i-h3-orangepi-2.dts b/arch/arm/boot/dts/sun8i-h3-orangepi-2.dts
+index 8ff71b1bb45b..17cdeae19c6f 100644
+--- a/arch/arm/boot/dts/sun8i-h3-orangepi-2.dts
++++ b/arch/arm/boot/dts/sun8i-h3-orangepi-2.dts
+@@ -54,6 +54,7 @@
+ 	aliases {
+ 		serial0 = &uart0;
+ 		/* ethernet0 is the H3 emac, defined in sun8i-h3.dtsi */
++		ethernet0 = &emac;
+ 		ethernet1 = &rtl8189;
+ 	};
+ 
+@@ -117,6 +118,13 @@
+ 	status = "okay";
+ };
+ 
++&emac {
++	phy-handle = <&int_mii_phy>;
++	phy-mode = "mii";
++	allwinner,leds-active-low;
++	status = "okay";
++};
++
+ &ir {
+ 	pinctrl-names = "default";
+ 	pinctrl-0 = <&ir_pins_a>;
+diff --git a/arch/arm/boot/dts/sun8i-h3-orangepi-one.dts b/arch/arm/boot/dts/sun8i-h3-orangepi-one.dts
+index 5fea430e0eb1..6880268e8b87 100644
+--- a/arch/arm/boot/dts/sun8i-h3-orangepi-one.dts
++++ b/arch/arm/boot/dts/sun8i-h3-orangepi-one.dts
+@@ -52,6 +52,7 @@
+ 	compatible = "xunlong,orangepi-one", "allwinner,sun8i-h3";
+ 
+ 	aliases {
++		ethernet0 = &emac;
+ 		serial0 = &uart0;
+ 	};
+ 
+@@ -97,6 +98,13 @@
+ 	status = "okay";
+ };
+ 
++&emac {
++	phy-handle = <&int_mii_phy>;
++	phy-mode = "mii";
++	allwinner,leds-active-low;
++	status = "okay";
++};
++
+ &mmc0 {
+ 	pinctrl-names = "default";
+ 	pinctrl-0 = <&mmc0_pins_a>, <&mmc0_cd_pin>;
+diff --git a/arch/arm/boot/dts/sun8i-h3-orangepi-pc-plus.dts b/arch/arm/boot/dts/sun8i-h3-orangepi-pc-plus.dts
+index 8b93f5c781a7..a10281b455f5 100644
+--- a/arch/arm/boot/dts/sun8i-h3-orangepi-pc-plus.dts
++++ b/arch/arm/boot/dts/sun8i-h3-orangepi-pc-plus.dts
+@@ -53,6 +53,11 @@
+ 	};
+ };
+ 
++&emac {
++	/* LEDs changed to active high on the plus */
++	/delete-property/ allwinner,leds-active-low;
++};
++
+ &mmc1 {
+ 	pinctrl-names = "default";
+ 	pinctrl-0 = <&mmc1_pins_a>;
+diff --git a/arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts b/arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts
+index c88518b3f538..f5f0f15a2088 100644
+--- a/arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts
++++ b/arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts
+@@ -52,6 +52,7 @@
+ 	compatible = "xunlong,orangepi-pc", "allwinner,sun8i-h3";
+ 
+ 	aliases {
++		ethernet0 = &emac;
+ 		serial0 = &uart0;
+ 	};
+ 
+@@ -117,6 +118,13 @@
+ 	status = "okay";
+ };
+ 
++&emac {
++	phy-handle = <&int_mii_phy>;
++	phy-mode = "mii";
++	allwinner,leds-active-low;
++	status = "okay";
++};
++
+ &ir {
+ 	pinctrl-names = "default";
+ 	pinctrl-0 = <&ir_pins_a>;
+diff --git a/arch/arm/boot/dts/sun8i-h3-orangepi-plus.dts b/arch/arm/boot/dts/sun8i-h3-orangepi-plus.dts
+index 828ae7a526d9..331ed683ac62 100644
+--- a/arch/arm/boot/dts/sun8i-h3-orangepi-plus.dts
++++ b/arch/arm/boot/dts/sun8i-h3-orangepi-plus.dts
+@@ -47,6 +47,10 @@
+ 	model = "Xunlong Orange Pi Plus / Plus 2";
+ 	compatible = "xunlong,orangepi-plus", "allwinner,sun8i-h3";
+ 
++	aliases {
++		ethernet0 = &emac;
++	};
++
+ 	reg_gmac_3v3: gmac-3v3 {
+ 		compatible = "regulator-fixed";
+ 		regulator-name = "gmac-3v3";
+@@ -74,6 +78,24 @@
+ 	status = "okay";
+ };
+ 
++&emac {
++	pinctrl-names = "default";
++	pinctrl-0 = <&emac_rgmii_pins>;
++	phy-supply = <&reg_gmac_3v3>;
++	phy-handle = <&ext_rgmii_phy>;
++	phy-mode = "rgmii";
++
++	allwinner,leds-active-low;
++	status = "okay";
++};
++
++&mdio {
++	ext_rgmii_phy: ethernet-phy@1 {
++		compatible = "ethernet-phy-ieee802.3-c22";
++		reg = <0>;
++	};
++};
++
+ &mmc2 {
+ 	pinctrl-names = "default";
+ 	pinctrl-0 = <&mmc2_8bit_pins>;
+diff --git a/arch/arm/boot/dts/sun8i-h3-orangepi-plus2e.dts b/arch/arm/boot/dts/sun8i-h3-orangepi-plus2e.dts
+index 97920b12a944..80026f3caafc 100644
+--- a/arch/arm/boot/dts/sun8i-h3-orangepi-plus2e.dts
++++ b/arch/arm/boot/dts/sun8i-h3-orangepi-plus2e.dts
+@@ -61,3 +61,19 @@
+ 		gpio = <&pio 3 6 GPIO_ACTIVE_HIGH>; /* PD6 */
+ 	};
+ };
++
++&emac {
++	pinctrl-names = "default";
++	pinctrl-0 = <&emac_rgmii_pins>;
++	phy-supply = <&reg_gmac_3v3>;
++	phy-handle = <&ext_rgmii_phy>;
++	phy-mode = "rgmii";
++	status = "okay";
++};
++
++&mdio {
++	ext_rgmii_phy: ethernet-phy@1 {
++		compatible = "ethernet-phy-ieee802.3-c22";
++		reg = <1>;
++	};
++};
+diff --git a/arch/arm/boot/dts/sunxi-h3-h5.dtsi b/arch/arm/boot/dts/sunxi-h3-h5.dtsi
+index 34fe2b8b3f33..4b599b5d26f6 100644
+--- a/arch/arm/boot/dts/sunxi-h3-h5.dtsi
++++ b/arch/arm/boot/dts/sunxi-h3-h5.dtsi
+@@ -403,6 +403,32 @@
+ 			clocks = <&osc24M>;
+ 		};
+ 
++		emac: ethernet@1c30000 {
++			compatible = "allwinner,sun8i-h3-emac";
++			syscon = <&syscon>;
++			reg = <0x01c30000 0x10000>;
++			interrupts = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>;
++			interrupt-names = "macirq";
++			resets = <&ccu RST_BUS_EMAC>;
++			reset-names = "stmmaceth";
++			clocks = <&ccu CLK_BUS_EMAC>;
++			clock-names = "stmmaceth";
++			#address-cells = <1>;
++			#size-cells = <0>;
++			status = "disabled";
++
++			mdio: mdio {
++				#address-cells = <1>;
++				#size-cells = <0>;
++				int_mii_phy: ethernet-phy@1 {
++					compatible = "ethernet-phy-ieee802.3-c22";
++					reg = <1>;
++					clocks = <&ccu CLK_BUS_EPHY>;
++					resets = <&ccu RST_BUS_EPHY>;
++				};
++			};
++		};
++
+ 		spi0: spi@01c68000 {
+ 			compatible = "allwinner,sun8i-h3-spi";
+ 			reg = <0x01c68000 0x1000>;
 -- 
 2.13.5
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
