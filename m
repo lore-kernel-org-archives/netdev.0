@@ -1,59 +1,53 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next v2 01/10] net: dsa: add debugfs interface
-Date: Fri, 08 Sep 2017 09:58:56 -0400
-Message-ID: <87h8wdb8bj.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-References: <20170828191748.19492-1-vivien.didelot@savoirfairelinux.com> <20170828191748.19492-2-vivien.didelot@savoirfairelinux.com> <20170907193434.GA11006@kroah.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 1/3] dt-bindings: net: add DT bindings for
+ Socionext UniPhier AVE
+Date: Fri, 8 Sep 2017 16:03:22 +0200
+Message-ID: <20170908140322.GD25219@lunn.ch>
+References: <1504875731-3680-1-git-send-email-hayashi.kunihiko@socionext.com>
+ <1504875731-3680-2-git-send-email-hayashi.kunihiko@socionext.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
         Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Egil Hjelmeland <privat@egil-hjelmeland.no>,
-        John Crispin <john@phrozen.org>,
-        Woojung Huh <Woojung.Huh@microchip.com>,
-        Sean Wang <sean.wang@mediatek.com>,
-        Nikita Yushchenko <nikita.yoush@cogentembedded.com>,
-        Chris Healy <cphealy@gmail.com>
-To: Greg KH <gregkh@linuxfoundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:43900 "EHLO
-        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752017AbdIHOCV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 8 Sep 2017 10:02:21 -0400
-In-Reply-To: <20170907193434.GA11006@kroah.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+        Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
+        devicetree@vger.kernel.org,
+        Masahiro Yamada <yamada.masahiro@socionext.com>,
+        Masami Hiramatsu <masami.hiramatsu@linaro.org>,
+        Jassi Brar <jaswinder.singh@linaro.org>
+To: Kunihiko Hayashi <hayashi.kunihiko@socionext.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1504875731-3680-2-git-send-email-hayashi.kunihiko@socionext.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Greg,
+> +	eth: ethernet@65000000 {
+> +		compatible = "socionext,uniphier-ave4";
+> +		reg = <0x65000000 0x8500>;
+> +		interrupts = <0 66 4>;
+> +		pinctrl-names = "default";
+> +		pinctrl-0 = <&pinctrl_ether_rgmii>;
+> +		phy-mode = "rgmii";
+> +		socionext,desc-bits = <64>;
+> +		local-mac-address = [00 00 00 00 00 00];
+> +
+> +		#address-cells = <1>;
+> +		#size-cells = <0>;
 
-Greg KH <gregkh@linuxfoundation.org> writes:
-
-> I agree you shouldn't be using debugfs for this, but in the future, if
-> you do write debugfs code, please take the following review into
-> account:
-
-Humm sorry I may not have given enough details. This was really meant
-for debug and dev only, because DSA makes it hard to query directly the
-hardware (some switch ports are not exposed to userspace as well.)
-
-This is not meant to be used for anything real at all, or even be
-compiled-in in a production kernel. That's why I found it appropriate.
-
-So I am still wondering why it doesn't fit here, can you tell me why?
-
-> You should _never_ care about the return value of a debugfs call, and
-> you should not need to ever propagate the error upward.  The api was
-> written to not need this.
->
-> Just call the function, and return, that's it.  If you need to save the
-> return value (i.e. it's a dentry), you also don't care, just save it and
-> pass it to some other debugfs call, and all will still be fine.  Your
-> code should never do anything different if a debugfs call succeeds or
-> fails.
-
-Thank for your interesting review! I'll cleanup my out-of-tree patches.
+> +		ethphy: ethphy@1 {
+> +			reg = <1>;
+> +		};
 
 
-      Vivien
+So you normally have an mdio node, and the phy as a children of that
+node.
+
+       mdio {
+                ethphy: ethernet-phy@6 {
+                        reg = <6>;
+                };
+        };
+
+	Andrew
