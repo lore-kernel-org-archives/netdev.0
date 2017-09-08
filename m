@@ -1,50 +1,71 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 3/9] netfilter: nf_nat: don't bug when mapping already exists
-Date: Fri,  8 Sep 2017 19:45:42 +0200
-Message-ID: <1504892748-1605-4-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 1/9] netfilter: ipvs: fix the issue that sctp_conn_schedule drops non-INIT packet
+Date: Fri,  8 Sep 2017 19:45:40 +0200
+Message-ID: <1504892748-1605-2-git-send-email-pablo@netfilter.org>
 References: <1504892748-1605-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:54484 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:54464 "EHLO mail.us.es"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1756614AbdIHRqB (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 8 Sep 2017 13:46:01 -0400
+        id S1756679AbdIHRp7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 8 Sep 2017 13:45:59 -0400
 Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id 4204D8D0507
-        for <netdev@vger.kernel.org>; Fri,  8 Sep 2017 19:45:30 +0200 (CEST)
+        by mail.us.es (Postfix) with ESMTP id 9DB7C8D050B
+        for <netdev@vger.kernel.org>; Fri,  8 Sep 2017 19:45:28 +0200 (CEST)
 Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 2C442B5027
-        for <netdev@vger.kernel.org>; Fri,  8 Sep 2017 19:45:30 +0200 (CEST)
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 8CEE8B502D
+        for <netdev@vger.kernel.org>; Fri,  8 Sep 2017 19:45:28 +0200 (CEST)
 In-Reply-To: <1504892748-1605-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
+From: Xin Long <lucien.xin@gmail.com>
 
-It seems preferrable to limp along if we have a conflicting mapping,
-its certainly better than a BUG().
+Commit 5e26b1b3abce ("ipvs: support scheduling inverse and icmp SCTP
+packets") changed to check packet type early. It introduced a side
+effect: if it's not a INIT packet, ports will be set as  NULL, and
+the packet will be dropped later.
 
-Signed-off-by: Florian Westphal <fw@strlen.de>
+It caused that sctp couldn't create connection when ipvs module is
+loaded and any scheduler is registered on server.
+
+Li Shuang reproduced it by running the cmds on sctp server:
+  # ipvsadm -A -t 1.1.1.1:80 -s rr
+  # ipvsadm -D -t 1.1.1.1:80
+then the server could't work any more.
+
+This patch is to return 1 when it's not an INIT packet. It means ipvs
+will accept it without creating a conn for it, just like what it does
+for tcp.
+
+Fixes: 5e26b1b3abce ("ipvs: support scheduling inverse and icmp SCTP packets")
+Reported-by: Li Shuang <shuali@redhat.com>
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
+Signed-off-by: Simon Horman <horms@verge.net.au>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nf_nat_core.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ net/netfilter/ipvs/ip_vs_proto_sctp.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
 
-diff --git a/net/netfilter/nf_nat_core.c b/net/netfilter/nf_nat_core.c
-index 40573aa6c133..dc3519cc7209 100644
---- a/net/netfilter/nf_nat_core.c
-+++ b/net/netfilter/nf_nat_core.c
-@@ -416,7 +416,9 @@ nf_nat_setup_info(struct nf_conn *ct,
- 
- 	WARN_ON(maniptype != NF_NAT_MANIP_SRC &&
- 		maniptype != NF_NAT_MANIP_DST);
--	BUG_ON(nf_nat_initialized(ct, maniptype));
-+
-+	if (WARN_ON(nf_nat_initialized(ct, maniptype)))
-+		return NF_DROP;
- 
- 	/* What we've got will look like inverse of reply. Normally
- 	 * this is what is in the conntrack, except for prior
+diff --git a/net/netfilter/ipvs/ip_vs_proto_sctp.c b/net/netfilter/ipvs/ip_vs_proto_sctp.c
+index e1efa446b305..81f08198b125 100644
+--- a/net/netfilter/ipvs/ip_vs_proto_sctp.c
++++ b/net/netfilter/ipvs/ip_vs_proto_sctp.c
+@@ -24,9 +24,12 @@ sctp_conn_schedule(struct netns_ipvs *ipvs, int af, struct sk_buff *skb,
+ 		if (sh) {
+ 			sch = skb_header_pointer(skb, iph->len + sizeof(_sctph),
+ 						 sizeof(_schunkh), &_schunkh);
+-			if (sch && (sch->type == SCTP_CID_INIT ||
+-				    sysctl_sloppy_sctp(ipvs)))
++			if (sch) {
++				if (!(sysctl_sloppy_sctp(ipvs) ||
++				      sch->type == SCTP_CID_INIT))
++					return 1;
+ 				ports = &sh->source;
++			}
+ 		}
+ 	} else {
+ 		ports = skb_header_pointer(
 -- 
 2.1.4
