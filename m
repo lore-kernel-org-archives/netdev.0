@@ -1,68 +1,62 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] tcp: fix a request socket leak
-Date: Fri, 08 Sep 2017 12:44:47 -0700
-Message-ID: <1504899887.15310.95.camel@edumazet-glaptop3.roam.corp.google.com>
+From: <Tristram.Ha@microchip.com>
+Subject: RE: [PATCH RFC] Update documentation for KSZ DSA drivers so that
+ new drivers can be added
+Date: Fri, 8 Sep 2017 19:48:46 +0000
+Message-ID: <93AF473E2DA327428DE3D46B72B1E9FD41121EF7@CHN-SV-EXMX02.mchp-main.com>
+References: <93AF473E2DA327428DE3D46B72B1E9FD41121A5B@CHN-SV-EXMX02.mchp-main.com>
+ <8e4aa981-7f41-047d-2101-370118b4f2c0@gmail.com>
+ <CAJGZr0Kp5ZKmFJT+KX9jxMVyZT9=VO0_dpZqE+y1TNaYvURcoQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:37186 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757087AbdIHTou (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 8 Sep 2017 15:44:50 -0400
-Received: by mail-pg0-f67.google.com with SMTP id v5so1715027pgn.4
-        for <netdev@vger.kernel.org>; Fri, 08 Sep 2017 12:44:50 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: <andrew@lunn.ch>, <pavel@ucw.cz>, <nathan.leigh.conrad@gmail.com>,
+        <vivien.didelot@savoirfairelinux.com>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>, <Woojung.Huh@microchip.com>,
+        <f.fainelli@gmail.com>
+To: <muvarov@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAJGZr0Kp5ZKmFJT+KX9jxMVyZT9=VO0_dpZqE+y1TNaYvURcoQ@mail.gmail.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
-
-While the cited commit fixed a possible deadlock, it added a leak
-of the request socket, since reqsk_put() must be called if the BPF
-filter decided the ACK packet must be dropped.
-
-Fixes: d624d276d1dd ("tcp: fix possible deadlock in TCP stack vs BPF filter")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
-David, this is a stable candidate (linux-4.13 has this bug)
-
- net/ipv4/tcp_ipv4.c |    6 +++---
- net/ipv6/tcp_ipv6.c |    6 +++---
- 2 files changed, 6 insertions(+), 6 deletions(-)
-
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index a63486afa7a7e7b4dce88b65bc27cfa872a3ba2f..d9416b5162bc1bdd1acd34fcb4da21cb6b62d0ae 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -1669,9 +1669,9 @@ int tcp_v4_rcv(struct sk_buff *skb)
- 		 */
- 		sock_hold(sk);
- 		refcounted = true;
--		if (tcp_filter(sk, skb))
--			goto discard_and_relse;
--		nsk = tcp_check_req(sk, skb, req, false);
-+		nsk = NULL;
-+		if (!tcp_filter(sk, skb))
-+			nsk = tcp_check_req(sk, skb, req, false);
- 		if (!nsk) {
- 			reqsk_put(req);
- 			goto discard_and_relse;
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 38f76d8b231e3e5923ad72d05b8d320b6aeb850f..64d94afa427f81fd7a505b1cfd1c0be66c273810 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1460,9 +1460,9 @@ static int tcp_v6_rcv(struct sk_buff *skb)
- 		}
- 		sock_hold(sk);
- 		refcounted = true;
--		if (tcp_filter(sk, skb))
--			goto discard_and_relse;
--		nsk = tcp_check_req(sk, skb, req, false);
-+		nsk = NULL;
-+		if (!tcp_filter(sk, skb))
-+			nsk = tcp_check_req(sk, skb, req, false);
- 		if (!nsk) {
- 			reqsk_put(req);
- 			goto discard_and_relse;
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBNYXhpbSBVdmFyb3YgW21haWx0
+bzptdXZhcm92QGdtYWlsLmNvbV0NCj4gU2VudDogRnJpZGF5LCBTZXB0ZW1iZXIgMDgsIDIwMTcg
+MTI6MDAgUE0NCj4gVG86IEZsb3JpYW4gRmFpbmVsbGkNCj4gQ2M6IFRyaXN0cmFtIEhhIC0gQzI0
+MjY4OyBBbmRyZXcgTHVubjsgUGF2ZWwgTWFjaGVrOyBOYXRoYW4gQ29ucmFkOyBWaXZpZW4NCj4g
+RGlkZWxvdDsgbmV0ZGV2OyBsaW51eC1rZXJuZWxAdmdlci5rZXJuZWwub3JnOyBXb29qdW5nIEh1
+aCAtIEMyMTY5OQ0KPiBTdWJqZWN0OiBSZTogW1BBVENIIFJGQ10gVXBkYXRlIGRvY3VtZW50YXRp
+b24gZm9yIEtTWiBEU0EgZHJpdmVycyBzbyB0aGF0IG5ldw0KPiBkcml2ZXJzIGNhbiBiZSBhZGRl
+ZA0KPiANCj4gMjAxNy0wOS0wOCAyMTo0OCBHTVQrMDM6MDAgRmxvcmlhbiBGYWluZWxsaSA8Zi5m
+YWluZWxsaUBnbWFpbC5jb20+Og0KPiA+IE9uIDA5LzA3LzIwMTcgMDI6MTEgUE0sIFRyaXN0cmFt
+LkhhQG1pY3JvY2hpcC5jb20gd3JvdGU6DQo+ID4+IEZyb206IFRyaXN0cmFtIEhhIDxUcmlzdHJh
+bS5IYUBtaWNyb2NoaXAuY29tPg0KPiA+Pg0KPiA+PiBBZGQgb3RoZXIgS1NaIHN3aXRjaGVzIHN1
+cHBvcnQgc28gdGhhdCBwYXRjaCBjaGVjayBkb2VzIG5vdCBjb21wbGFpbi4NCj4gPj4NCj4gPj4g
+U2lnbmVkLW9mZi1ieTogVHJpc3RyYW0gSGEgPFRyaXN0cmFtLkhhQG1pY3JvY2hpcC5jb20+DQo+
+ID4+IC0tLQ0KPiA+PiAgRG9jdW1lbnRhdGlvbi9kZXZpY2V0cmVlL2JpbmRpbmdzL25ldC9kc2Ev
+a3N6LnR4dCB8IDExNw0KPiA+PiArKysrKysrKysrKystLS0tLS0tLS0tDQo+ID4+ICAxIGZpbGUg
+Y2hhbmdlZCwgNjIgaW5zZXJ0aW9ucygrKSwgNTUgZGVsZXRpb25zKC0pDQo+ID4+DQo+ID4+IGRp
+ZmYgLS1naXQgYS9Eb2N1bWVudGF0aW9uL2RldmljZXRyZWUvYmluZGluZ3MvbmV0L2RzYS9rc3ou
+dHh0DQo+ID4+IGIvRG9jdW1lbnRhdGlvbi9kZXZpY2V0cmVlL2JpbmRpbmdzL25ldC9kc2Eva3N6
+LnR4dA0KPiA+PiBpbmRleCAwYWI4YjM5Li4zNGFmMGUwIDEwMDY0NA0KPiA+PiAtLS0gYS9Eb2N1
+bWVudGF0aW9uL2RldmljZXRyZWUvYmluZGluZ3MvbmV0L2RzYS9rc3oudHh0DQo+ID4+ICsrKyBi
+L0RvY3VtZW50YXRpb24vZGV2aWNldHJlZS9iaW5kaW5ncy9uZXQvZHNhL2tzei50eHQNCj4gPj4g
+QEAgLTMsOCArMywxNSBAQCBNaWNyb2NoaXAgS1NaIFNlcmllcyBFdGhlcm5ldCBzd2l0Y2hlcw0K
+PiA+Pg0KPiA+PiAgUmVxdWlyZWQgcHJvcGVydGllczoNCj4gPj4NCj4gPj4gLS0gY29tcGF0aWJs
+ZTogRm9yIGV4dGVybmFsIHN3aXRjaCBjaGlwcywgY29tcGF0aWJsZSBzdHJpbmcgbXVzdCBiZQ0K
+PiA+PiBleGFjdGx5IG9uZQ0KPiA+PiAtICBvZjogIm1pY3JvY2hpcCxrc3o5NDc3Ig0KPiA+PiAr
+LSBjb21wYXRpYmxlOiBTaG91bGQgYmUgIm1pY3JvY2hpcCxrc3o5NDc3IiBmb3IgS1NaOTQ3NyBj
+aGlwLA0KPiA+PiArICAgICAgICAgICAibWljcm9jaGlwLGtzejg3OTUiIGZvciBLU1o4Nzk1IGNo
+aXAsDQo+ID4+ICsgICAgICAgICAgICJtaWNyb2NoaXAsa3N6ODc5NCIgZm9yIEtTWjg3OTQgY2hp
+cCwNCj4gPj4gKyAgICAgICAgICAgIm1pY3JvY2hpcCxrc3o4NzY1IiBmb3IgS1NaODc2NSBjaGlw
+LA0KPiA+PiArICAgICAgICAgICAibWljcm9jaGlwLGtzejg4OTUiIGZvciBLU1o4ODk1IGNoaXAs
+DQo+ID4+ICsgICAgICAgICAgICJtaWNyb2NoaXAsa3N6ODg2NCIgZm9yIEtTWjg4NjQgY2hpcCwN
+Cj4gPj4gKyAgICAgICAgICAgIm1pY3JvY2hpcCxrc3o4ODczIiBmb3IgS1NaODg3MyBjaGlwLA0K
+PiA+PiArICAgICAgICAgICAibWljcm9jaGlwLGtzejg4NjMiIGZvciBLU1o4ODYzIGNoaXAsDQo+
+ID4+ICsgICAgICAgICAgICJtaWNyb2NoaXAsa3N6ODQ2MyIgZm9yIEtTWjg0NjMgY2hpcA0KPiA+
+DQo+IA0KPiANCj4gVHJpc3RyYW0sIGRvZXMgYW55IG9mIHRoaXMgZGV2aWNlcyBzdXBwb3J0IGNo
+YWluaW5nPw0KPiANCj4gTWF4aW0uDQoNClRoZXkgZG8gbm90IGlmIHlvdSBtZWFuIGRhaXN5LWNo
+YWluaW5nIHRoZSBzd2l0Y2hlcyB0b2dldGhlci4NCg0KVGhlcmUgaXMgYWx3YXlzIGEgcHJvYmxl
+bSB0aGF0IG9uY2UgdGFpbCB0YWdnaW5nIG1vZGUgaXMgZW5hYmxlZA0Kc2VuZGluZyBhIGZyYW1l
+IHRocm91Z2ggdGhlIE1BQyB3aXRob3V0IGdvaW5nIHRocm91Z2ggdGhlIERTQQ0KbGF5ZXIgd2ls
+bCBjYXVzZSB0aGUgZnJhbWUgdG8gYmUgZHJvcHBlZC4NCg0K
