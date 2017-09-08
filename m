@@ -1,89 +1,155 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: [Intel-wired-lan] [PATCH] e1000e: changed some expensive calls
- of udelay to usleep_range
-Date: Fri, 8 Sep 2017 11:28:27 +0200
-Message-ID: <20170908092827.GC18365@amd>
-References: <1503503985-3869-1-git-send-email-matthew.tan_1@nxp.com>
- <20170904162555.GB21849@amd>
- <309B89C4C689E141A5FF6A0C5FB2118B8C69E5E5@ORSMSX101.amr.corp.intel.com>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH] net: bonding: Fix transmit load balancing in balance-alb
+ mode if specified by sysfs
+Date: Fri, 8 Sep 2017 13:10:12 +0300
+Message-ID: <52a22af7-cc99-e441-79fa-e48da283b001@cumulusnetworks.com>
+References: <17EC94B0A072C34B8DCF0D30AD16044A029864AC@BPXM09GP.gisp.nec.co.jp>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="TiqCXmo5T1hvSQQg"
-Cc: Matthew Tan <matthew.tan_1@nxp.com>,
-        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-        "michael.kardonik@nxp.com" <michael.kardonik@nxp.com>,
-        "Williams, Mitch A" <mitch.a.williams@intel.com>,
+Content-Type: text/plain; charset=iso-2022-jp
+Content-Transfer-Encoding: 7bit
+Cc: Jay Vosburgh <j.vosburgh@gmail.com>,
+        Veaceslav Falico <vfalico@gmail.com>,
+        Andy Gospodarek <andy@greyhouse.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
         "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Brown, Aaron F" <aaron.f.brown@intel.com>
+        Reinis Rozitis <r@roze.lv>
+To: Kosuke Tatsukawa <tatsu@ab.jp.nec.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <309B89C4C689E141A5FF6A0C5FB2118B8C69E5E5@ORSMSX101.amr.corp.intel.com>
+In-Reply-To: <17EC94B0A072C34B8DCF0D30AD16044A029864AC@BPXM09GP.gisp.nec.co.jp>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On 08/09/17 05:06, Kosuke Tatsukawa wrote:
+> Hi,
+> 
+>> On  7.09.2017 01:47, Kosuke Tatsukawa wrote:
+>>> Commit cbf5ecb30560 ("net: bonding: Fix transmit load balancing in
+>>> balance-alb mode") tried to fix transmit dynamic load balancing in
+>>> balance-alb mode, which wasn't working after commit 8b426dc54cf4
+>>> ("bonding: remove hardcoded value").
+>>>
+>>> It turned out that my previous patch only fixed the case when
+>>> balance-alb was specified as bonding module parameter, and not when
+>>> balance-alb mode was set using /sys/class/net/*/bonding/mode (the most
+>>> common usage).  In the latter case, tlb_dynamic_lb was set up according
+>>> to the default mode of the bonding interface, which happens to be
+>>> balance-rr.
+>>>
+>>> This additional patch addresses this issue by setting up tlb_dynamic_lb
+>>> to 1 if "mode" is set to balance-alb through the sysfs interface.
+>>>
+>>> I didn't add code to change tlb_balance_lb back to the default value for
+>>> other modes, because "mode" is usually set up only once during
+>>> initialization, and it's not worthwhile to change the static variable
+>>> bonding_defaults in bond_main.c to a global variable just for this
+>>> purpose.
+>>>
+>>> Commit 8b426dc54cf4 also changes the value of tlb_dynamic_lb for
+>>> balance-tlb mode if it is set up using the sysfs interface.  I didn't
+>>> change that behavior, because the value of tlb_balance_lb can be changed
+>>> using the sysfs interface for balance-tlb, and I didn't like changing
+>>> the default value back and forth for balance-tlb.
+>>>
+>>> As for balance-alb, /sys/class/net/*/bonding/tlb_balance_lb cannot be
+>>> written to.  However, I think balance-alb with tlb_dynamic_lb set to 0
+>>> is not an intended usage, so there is little use making it writable at
+>>> this moment.
+>>>
+>>> Fixes: 8b426dc54cf4 ("bonding: remove hardcoded value")
+>>> Reported-by: Reinis Rozitis <r@roze.lv>
+>>> Signed-off-by: Kosuke Tatsukawa <tatsu@ab.jp.nec.com>
+>>> Cc: stable@vger.kernel.org  # v4.12+
+>>> ---
+>>>  drivers/net/bonding/bond_options.c |    3 +++
+>>>  1 files changed, 3 insertions(+), 0 deletions(-)
+>>>
+>>
+>> I don't believe this to be the right solution, hardcoding it like this
+>> changes user-visible behaviour. The issue is that if someone configured
+>> it to be 0 in tlb mode, suddenly it will become 1 and will silently
+>> override their config if they switch the mode to alb. Also it robs users
+>> from their choice.
+>>
+>> If you think this should be settable in ALB mode, then IMO you should
+>> edit tlb_dynamic_lb option's unsuppmodes and allow it to be set in ALB.
+>> That would also be consistent with how it's handled in TLB mode.
+> 
+> No, I don't think tlb_dynamic_lb should be settable in balance-alb at
+> this point.  All the current commits regarding tlb_dynamic_lb are for
+> balance-tlb mode, so I don't think balance-alb with tlb_dynamic_lb set
+> to 0 is an intended usage.
+> 
+> 
+>> Going back and looking at your previous fix I'd argue that it is also
+>> wrong, you should've removed the mode check altogether to return the
+>> original behaviour where the dynamic_lb is set to 1 (enabled) by
+>> default and then ALB mode would've had it, of course that would've left
+>> the case of setting it to 0 in TLB mode and switching to ALB, but that
+>> is a different issue.
+> 
+> Maybe balance-alb shouldn't be dependent on tlb_dynamic_lb.
+> tlb_dynamic_lb is referenced in the following functions.
+> 
+>  + bond_do_alb_xmit()  -- Used by both balance-tlb and balance-alb
+>  + bond_tlb_xmit()  -- Only used by balance-tlb
+>  + bond_open()  -- Used by both balance-tlb and balance-alb
+>  + bond_check_params()  -- Used during module initialization
+>  + bond_fill_info()  -- Used to get/set value
+>  + bond_option_tlb_dynamic_lb_set()  -- Used to get/set value
+>  + bonding_show_tlb_dynamic_lb()  -- Used to get/set value
+>  + bond_is_nondyn_tlb()  -- Only referenced if balance-tlb mode
+> 
+> The following untested patch adds code to make balance-alb work as if
+> tlb_dynamic_lb==1 for the functions which affect balance-alb mode.  It
+> also reverts my previous patch.
+> 
+> What do you think about this approach?
+> ---
+> Kosuke TATSUKAWA  | 1st Platform Software Division
+>                   | NEC Solution Innovators
+>                   | tatsu@ab.jp.nec.com
+> 
 
---TiqCXmo5T1hvSQQg
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Logically the approach looks good, that being said it adds unnecessary tests in
+the fast path, why not just something like the patch below ? That only leaves the
+problem if it is zeroed in TLB and switched to ALB mode, and that is a one line
+fix to unsuppmodes just allow it to be set for that specific case. The below
+returns the default behaviour before the commit in your Fixes tag.
 
-On Thu 2017-09-07 22:19:47, Brown, Aaron F wrote:
-> > From: Intel-wired-lan [mailto:intel-wired-lan-bounces@osuosl.org] On
-> > Behalf Of Pavel Machek
-> > Sent: Monday, September 4, 2017 9:26 AM
-> > To: Matthew Tan <matthew.tan_1@nxp.com>
-> > Cc: michael.kardonik@nxp.com; Williams, Mitch A
-> > <mitch.a.williams@intel.com>; linux-kernel@vger.kernel.org;
-> > john.ronciak@intel.com; intel-wired-lan@lists.osuosl.org;
-> > netdev@vger.kernel.org
-> > Subject: Re: [Intel-wired-lan] [PATCH] e1000e: changed some expensive c=
-alls
-> > of udelay to usleep_range
-> >=20
-> > Hi!
-> >=20
-> > > @@ -183,7 +183,7 @@ s32 e1000e_read_phy_reg_mdic(struct e1000_hw
-> > *hw, u32 offset, u16 *data)
-> > >  	 * reading duplicate data in the next MDIC transaction.
-> > >  	 */
-> > >  	if (hw->mac.type =3D=3D e1000_pch2lan)
-> > > -		udelay(100);
-> > > +		usleep_range(90, 100);
-> > >
-> > >  	return 0;
-> > >  }
-> >=20
-> > Can you explain why shortening the delay is acceptable here?
->=20
-> Maybe it's not.
->=20
-> This patch is causing speed / duplex tests to fail on several of my test =
-systems.  Specifically a Lenova laptop with an 82577 and a NUC with an i218=
- (though that does not mean it is limited to those or that it's not related=
- to the individual link partner.)
->
 
-Ok, this should be quite easy to verify -- just adjust all the ranges
-to be >=3D original ones.
-
-Thanks,
-									Pavel
---=20
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
-g.html
-
---TiqCXmo5T1hvSQQg
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iEYEARECAAYFAlmyYrsACgkQMOfwapXb+vJtVwCglW6IjPs++1mpDQHFpMW1ka7z
-pnYAoLy0d7m1QYYLnfpwMhHgqs+8QP1w
-=uwnL
------END PGP SIGNATURE-----
-
---TiqCXmo5T1hvSQQg--
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index fc63992ab0e0..c99dc59d729b 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -4289,7 +4289,7 @@ static int bond_check_params(struct bond_params *params)
+ 	int bond_mode	= BOND_MODE_ROUNDROBIN;
+ 	int xmit_hashtype = BOND_XMIT_POLICY_LAYER2;
+ 	int lacp_fast = 0;
+-	int tlb_dynamic_lb = 0;
++	int tlb_dynamic_lb;
+ 
+ 	/* Convert string parameters. */
+ 	if (mode) {
+@@ -4601,16 +4601,13 @@ static int bond_check_params(struct bond_params *params)
+ 	}
+ 	ad_user_port_key = valptr->value;
+ 
+-	if ((bond_mode == BOND_MODE_TLB) || (bond_mode == BOND_MODE_ALB)) {
+-		bond_opt_initstr(&newval, "default");
+-		valptr = bond_opt_parse(bond_opt_get(BOND_OPT_TLB_DYNAMIC_LB),
+-					&newval);
+-		if (!valptr) {
+-			pr_err("Error: No tlb_dynamic_lb default value");
+-			return -EINVAL;
+-		}
+-		tlb_dynamic_lb = valptr->value;
++	bond_opt_initstr(&newval, "default");
++	valptr = bond_opt_parse(bond_opt_get(BOND_OPT_TLB_DYNAMIC_LB), &newval);
++	if (!valptr) {
++		pr_err("Error: No tlb_dynamic_lb default value");
++		return -EINVAL;
+ 	}
++	tlb_dynamic_lb = valptr->value;
+ 
+ 	if (lp_interval == 0) {
+ 		pr_warn("Warning: ip_interval must be between 1 and %d, so it was reset to %d\n",
