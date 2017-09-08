@@ -1,64 +1,73 @@
-From: Linus Walleij <linus.walleij@linaro.org>
-Subject: Re: [PATCH net] Revert "mdio_bus: Remove unneeded gpiod NULL check"
-Date: Sat, 9 Sep 2017 01:24:17 +0200
-Message-ID: <CACRpkdbFUaO=kwLVf8kmCR7ULFPs9MVQJVOrjM6mJ_6JWGet9A@mail.gmail.com>
-References: <20170908223807.6015-1-f.fainelli@gmail.com> <CACRpkdZD-nRXXusX36Gaypf5A601CMEO3vVgaOV5tKufvy1M3Q@mail.gmail.com>
- <fe6846be-afc3-1025-d78a-96674e1b2a35@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Fabio Estevam <festevam@gmail.com>,
-        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-        Fabio Estevam <fabio.estevam@nxp.com>,
-        Bryan.Whitehead@microchip.com
-To: Florian Fainelli <f.fainelli@gmail.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net] bpf: make error reporting in bpf_warn_invalid_xdp_action more clear
+Date: Sat,  9 Sep 2017 01:40:35 +0200
+Message-ID: <a89dbb43f7196f6ba8c5fd1f07c7e4bcc97726c3.1504913751.git.daniel@iogearbox.net>
+Cc: ast@fb.com, john.fastabend@gmail.com, netdev@vger.kernel.org,
+        Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f43.google.com ([209.85.218.43]:35905 "EHLO
-        mail-oi0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757286AbdIHXYS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 8 Sep 2017 19:24:18 -0400
-Received: by mail-oi0-f43.google.com with SMTP id x190so22460773oix.3
-        for <netdev@vger.kernel.org>; Fri, 08 Sep 2017 16:24:18 -0700 (PDT)
-In-Reply-To: <fe6846be-afc3-1025-d78a-96674e1b2a35@gmail.com>
+Received: from www62.your-server.de ([213.133.104.62]:36659 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753011AbdIHXkp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 8 Sep 2017 19:40:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Sep 9, 2017 at 1:18 AM, Florian Fainelli <f.fainelli@gmail.com> wrote:
-> On 09/08/2017 04:13 PM, Linus Walleij wrote:
->> On Sat, Sep 9, 2017 at 12:38 AM, Florian Fainelli <f.fainelli@gmail.com> wrote:
->>
->>> This reverts commit 95b80bf3db03c2bf572a357cf74b9a6aefef0a4a ("mdio_bus:
->>> Remove unneeded gpiod NULL check"), this commit assumed that GPIOLIB
->>> checks for NULL descriptors, so it's safe to drop them, but it is not
->>> when CONFIG_GPIOLIB is disabled in the kernel. If we do call
->>> gpiod_set_value_cansleep() on a GPIO descriptor we will issue warnings
->>> coming from the inline stubs declared in include/linux/gpio/consumer.h.
->>>
->>> Fixes: 95b80bf3db03 ("mdio_bus: Remove unneeded gpiod NULL check")
->>> Reported-by: Woojung Huh <Woojung.Huh@microchip.com>
->>> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
->>
->> Yeah I guess you don't wanna have these messages spewing
->> in the console. :/
->>
->> But what about simply doing this:
->
-> That would create another dependency which really does not need to be
-> there as it really prevents you from testing more configurations,
-> including but not limited to having CONFIG_GPIOLIB=n w/
-> CONFIG_MDIO_DEVICE=[ym].
->
-> The GPIOLIB=n inline stubs have a "contract" with the code calling them
-> that is fairly clear, which is what this revert is leveraging.
+Differ between illegal XDP action code and just driver
+unsupported one to provide better feedback when we throw
+a one-time warning here. Reason is that with 814abfabef3c
+("xdp: add bpf_redirect helper function") not all drivers
+support the new XDP return code yet and thus they will
+fall into their 'default' case when checking for return
+codes after program return, which then triggers a
+bpf_warn_invalid_xdp_action() stating that the return
+code is illegal, but from XDP perspective it's not.
 
-Ayeah the contract is something like "you can call us if compiled out,
-but then you get warnings".
+I decided not to place something like a XDP_ACT_MAX define
+into uapi i) given we don't have this either for all other
+program types, ii) future action codes could have further
+encoding there, which would render such define unsuitable
+and we wouldn't be able to rip it out again, and iii) we
+rarely add new action codes.
 
-Yeah NULL checks does the trick as well as #ifdef:in in that sense.
-It's no big deal so if you prefer this:
-Acked-by: Linus Walleij <linus.walleij@linaro.org>
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Acked-by: Alexei Starovoitov <ast@kernel.org>
+---
+ include/uapi/linux/bpf.h | 4 ++--
+ net/core/filter.c        | 6 +++++-
+ 2 files changed, 7 insertions(+), 3 deletions(-)
 
-Yours,
-Linus Walleij
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index ba848b7..43ab5c4 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -766,8 +766,8 @@ struct bpf_sock {
+ 
+ /* User return codes for XDP prog type.
+  * A valid XDP program must return one of these defined values. All other
+- * return codes are reserved for future use. Unknown return codes will result
+- * in packet drop.
++ * return codes are reserved for future use. Unknown return codes will
++ * result in packet drops and a warning via bpf_warn_invalid_xdp_action().
+  */
+ enum xdp_action {
+ 	XDP_ABORTED = 0,
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 0848df2..adac4eb 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -3609,7 +3609,11 @@ static bool xdp_is_valid_access(int off, int size,
+ 
+ void bpf_warn_invalid_xdp_action(u32 act)
+ {
+-	WARN_ONCE(1, "Illegal XDP return value %u, expect packet loss\n", act);
++	const u32 act_max = XDP_REDIRECT;
++
++	WARN_ONCE(1, "%s XDP return value %u, expect packet loss!\n",
++		  act > act_max ? "Illegal" : "Driver unsupported",
++		  act);
+ }
+ EXPORT_SYMBOL_GPL(bpf_warn_invalid_xdp_action);
+ 
+-- 
+1.9.3
