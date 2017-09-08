@@ -1,106 +1,50 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 1/3] dt-bindings: net: add DT bindings for
- Socionext UniPhier AVE
-Date: Fri, 8 Sep 2017 11:54:31 -0700
-Message-ID: <0d9fb986-ca31-0f86-122f-b2679faeb2f4@gmail.com>
-References: <1504875731-3680-1-git-send-email-hayashi.kunihiko@socionext.com>
- <1504875731-3680-2-git-send-email-hayashi.kunihiko@socionext.com>
+From: Eduardo Valentin <eduval@amazon.com>
+Subject: Re: [PATCH v2 0/2] enable hires timer to timeout datagram socket
+Date: Fri, 8 Sep 2017 11:55:21 -0700
+Message-ID: <20170908185521.GA12340@u40b0340c692b58f6553c.ant.amazon.com>
+References: <20170908170409.GA10020@u40b0340c692b58f6553c.ant.amazon.com>
+ <20170908.101657.2131282706895004921.davem@davemloft.net>
+ <1504891402.32080.5.camel@infradead.org>
+ <20170908.102645.1086537961399780085.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
-        devicetree@vger.kernel.org,
-        Masahiro Yamada <yamada.masahiro@socionext.com>,
-        Masami Hiramatsu <masami.hiramatsu@linaro.org>,
-        Jassi Brar <jaswinder.singh@linaro.org>
-To: Kunihiko Hayashi <hayashi.kunihiko@socionext.com>,
-        netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-        Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <dwmw2@infradead.org>, <eduval@amazon.com>, <vallish@amazon.com>,
+        <shuah@kernel.org>, <richardcochran@gmail.com>,
+        <xiyou.wangcong@gmail.com>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>, <anchalag@amazon.com>,
+        <dwmw@amazon.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1504875731-3680-2-git-send-email-hayashi.kunihiko@socionext.com>
-Content-Language: en-US
+Content-Disposition: inline
+In-Reply-To: <20170908.102645.1086537961399780085.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 09/08/2017 06:02 AM, Kunihiko Hayashi wrote:
-> DT bindings for the AVE ethernet controller found on Socionext's
-> UniPhier platforms.
+Hello,
+
+On Fri, Sep 08, 2017 at 10:26:45AM -0700, David Miller wrote:
+> From: David Woodhouse <dwmw2@infradead.org>
+> Date: Fri, 08 Sep 2017 18:23:22 +0100
 > 
-> Signed-off-by: Kunihiko Hayashi <hayashi.kunihiko@socionext.com>
-> Signed-off-by: Jassi Brar <jaswinder.singh@linaro.org>
-> ---
->  .../bindings/net/socionext,uniphier-ave4.txt       | 44 ++++++++++++++++++++++
->  1 file changed, 44 insertions(+)
->  create mode 100644 Documentation/devicetree/bindings/net/socionext,uniphier-ave4.txt
+> > I don't know that anyone's ever tried saying "show me the chapter and
+> > verse of the documentation"
 > 
-> diff --git a/Documentation/devicetree/bindings/net/socionext,uniphier-ave4.txt b/Documentation/devicetree/bindings/net/socionext,uniphier-ave4.txt
-> new file mode 100644
-> index 0000000..57ae96d
-> --- /dev/null
-> +++ b/Documentation/devicetree/bindings/net/socionext,uniphier-ave4.txt
-> @@ -0,0 +1,44 @@
-> +* Socionext AVE ethernet controller
-> +
-> +This describes the devicetree bindings for AVE ethernet controller
-> +implemented on Socionext UniPhier SoCs.
-> +
-> +Required properties:
-> + - compatible:  Should be "socionext,uniphier-ave4"
-> + - reg: Address where registers are mapped and size of region.
-> + - interrupts: IRQ common for mac and phy interrupts.
-> + - phy-mode: See ethernet.txt in the same directory.
-> + - #address-cells: Must be <1>.
-> + - #size-cells: Must be <0>.
-> + - Node, with 'reg' property, for each PHY on the MDIO bus.
-> +
-> +Optional properties:
-> + - socionext,desc-bits: 32/64 descriptor size. Default 32.
-
-32 bits, this has an unit. Why is this configurable through Device Tree
-and if this is describing the HW, as it should, why is not that inferred
-from the compatible string?
-
-> + - local-mac-address: See ethernet.txt in the same directory.
-> + - pinctrl-names: List of assigned state names, see pinctrl
-> +	binding documentation.
-> + - pinctrl-0: List of phandles to configure the GPIO pin used
-> +	as interrupt line, see also generic and your platform
-> +	specific pinctrl binding documentation.
-> + - socionext,internal-phy-interrupt: Boolean to denote if the
-> +	PHY interrupt is internally handled by the MAC.
-
-Interesting, why do you need to declare this as opposed to also
-determining this entirely from the compatible string of the Ethernet MAC?
-
-> +
-> +
-> +Example:
-> +
-> +	eth: ethernet@65000000 {
-> +		compatible = "socionext,uniphier-ave4";
-> +		reg = <0x65000000 0x8500>;
-> +		interrupts = <0 66 4>;
-> +		pinctrl-names = "default";
-> +		pinctrl-0 = <&pinctrl_ether_rgmii>;
-> +		phy-mode = "rgmii";
-> +		socionext,desc-bits = <64>;
-> +		local-mac-address = [00 00 00 00 00 00];
-> +
-> +		#address-cells = <1>;
-> +		#size-cells = <0>;
-
-There is no phy-handle property, yet there clearly seems to be one
-attached, and I think Andrew now also responded to that in the driver
-patch, this needs fixing.
-
-> +		ethphy: ethphy@1 {
-> +			reg = <1>;
-> +		};
-> +	};
+> Do you know why I brought this up?  Because the person I am replying
+> to told me that the syscall documentation should have suggested this
+> or that.
 > 
+> That's why.
+
+:-) My intention was for sure not to upset anybody.
+
+Just to reiterate, the point of patch is simple, there was a change in behavior in the system call from one kernel version to the other. As I mentioned, I agree that the userspace could use other means to achieve the same, but still the system call behavior has changed.
+
+> 
+> So let's concentrate on the other aspects of my reply, ok?
+
+I agree. I would prefer to understand here what is the technical reason not to accept these patches other than "use other system calls".
 
 
 -- 
-Florian
+All the best,
+Eduardo Valentin
