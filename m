@@ -1,7 +1,7 @@
 From: Kunihiko Hayashi <hayashi.kunihiko@socionext.com>
-Subject: [PATCH net-next 3/3] net: phy: realtek: add RTL8201F phy-id and functions
-Date: Fri,  8 Sep 2017 22:02:11 +0900
-Message-ID: <1504875731-3680-4-git-send-email-hayashi.kunihiko@socionext.com>
+Subject: [PATCH net-next 1/3] dt-bindings: net: add DT bindings for Socionext UniPhier AVE
+Date: Fri,  8 Sep 2017 22:02:09 +0900
+Message-ID: <1504875731-3680-2-git-send-email-hayashi.kunihiko@socionext.com>
 References: <1504875731-3680-1-git-send-email-hayashi.kunihiko@socionext.com>
 Cc: Rob Herring <robh+dt@kernel.org>,
         Mark Rutland <mark.rutland@arm.com>,
@@ -10,7 +10,6 @@ Cc: Rob Herring <robh+dt@kernel.org>,
         Masahiro Yamada <yamada.masahiro@socionext.com>,
         Masami Hiramatsu <masami.hiramatsu@linaro.org>,
         Jassi Brar <jaswinder.singh@linaro.org>,
-        Jongsung Kim <neidhard.kim@lge.com>,
         Kunihiko Hayashi <hayashi.kunihiko@socionext.com>
 To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
         Andrew Lunn <andrew@lunn.ch>,
@@ -20,100 +19,65 @@ In-Reply-To: <1504875731-3680-1-git-send-email-hayashi.kunihiko@socionext.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jassi Brar <jaswinder.singh@linaro.org>
+DT bindings for the AVE ethernet controller found on Socionext's
+UniPhier platforms.
 
-Add RTL8201F phy-id and the related functions to the driver.
-
-The original patch is as follows:
-https://patchwork.kernel.org/patch/2538341/
-
-Signed-off-by: Jongsung Kim <neidhard.kim@lge.com>
-Signed-off-by: Jassi Brar <jaswinder.singh@linaro.org>
 Signed-off-by: Kunihiko Hayashi <hayashi.kunihiko@socionext.com>
+Signed-off-by: Jassi Brar <jaswinder.singh@linaro.org>
 ---
- drivers/net/phy/realtek.c | 45 +++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 45 insertions(+)
+ .../bindings/net/socionext,uniphier-ave4.txt       | 44 ++++++++++++++++++++++
+ 1 file changed, 44 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/socionext,uniphier-ave4.txt
 
-diff --git a/drivers/net/phy/realtek.c b/drivers/net/phy/realtek.c
-index 9cbe645..d9974ce 100644
---- a/drivers/net/phy/realtek.c
-+++ b/drivers/net/phy/realtek.c
-@@ -29,10 +29,23 @@
- #define RTL8211F_PAGE_SELECT	0x1f
- #define RTL8211F_TX_DELAY	0x100
- 
-+#define RTL8201F_ISR		0x1e
-+#define RTL8201F_PAGE_SELECT	0x1f
-+#define RTL8201F_IER		0x13
+diff --git a/Documentation/devicetree/bindings/net/socionext,uniphier-ave4.txt b/Documentation/devicetree/bindings/net/socionext,uniphier-ave4.txt
+new file mode 100644
+index 0000000..57ae96d
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/socionext,uniphier-ave4.txt
+@@ -0,0 +1,44 @@
++* Socionext AVE ethernet controller
 +
- MODULE_DESCRIPTION("Realtek PHY driver");
- MODULE_AUTHOR("Johnson Leung");
- MODULE_LICENSE("GPL");
- 
-+static int rtl8201_ack_interrupt(struct phy_device *phydev)
-+{
-+	int err;
++This describes the devicetree bindings for AVE ethernet controller
++implemented on Socionext UniPhier SoCs.
 +
-+	err = phy_read(phydev, RTL8201F_ISR);
++Required properties:
++ - compatible:  Should be "socionext,uniphier-ave4"
++ - reg: Address where registers are mapped and size of region.
++ - interrupts: IRQ common for mac and phy interrupts.
++ - phy-mode: See ethernet.txt in the same directory.
++ - #address-cells: Must be <1>.
++ - #size-cells: Must be <0>.
++ - Node, with 'reg' property, for each PHY on the MDIO bus.
 +
-+	return (err < 0) ? err : 0;
-+}
++Optional properties:
++ - socionext,desc-bits: 32/64 descriptor size. Default 32.
++ - local-mac-address: See ethernet.txt in the same directory.
++ - pinctrl-names: List of assigned state names, see pinctrl
++	binding documentation.
++ - pinctrl-0: List of phandles to configure the GPIO pin used
++	as interrupt line, see also generic and your platform
++	specific pinctrl binding documentation.
++ - socionext,internal-phy-interrupt: Boolean to denote if the
++	PHY interrupt is internally handled by the MAC.
 +
- static int rtl821x_ack_interrupt(struct phy_device *phydev)
- {
- 	int err;
-@@ -54,6 +67,25 @@ static int rtl8211f_ack_interrupt(struct phy_device *phydev)
- 	return (err < 0) ? err : 0;
- }
- 
-+static int rtl8201_config_intr(struct phy_device *phydev)
-+{
-+	int err;
 +
-+	/* switch to page 7 */
-+	phy_write(phydev, RTL8201F_PAGE_SELECT, 0x7);
++Example:
 +
-+	if (phydev->interrupts == PHY_INTERRUPT_ENABLED)
-+		err = phy_write(phydev, RTL8201F_IER,
-+				BIT(13) | BIT(12) | BIT(11));
-+	else
-+		err = phy_write(phydev, RTL8201F_IER, 0);
++	eth: ethernet@65000000 {
++		compatible = "socionext,uniphier-ave4";
++		reg = <0x65000000 0x8500>;
++		interrupts = <0 66 4>;
++		pinctrl-names = "default";
++		pinctrl-0 = <&pinctrl_ether_rgmii>;
++		phy-mode = "rgmii";
++		socionext,desc-bits = <64>;
++		local-mac-address = [00 00 00 00 00 00];
 +
-+	/* restore to default page 0 */
-+	phy_write(phydev, RTL8201F_PAGE_SELECT, 0x0);
-+
-+	return err;
-+}
-+
- static int rtl8211b_config_intr(struct phy_device *phydev)
- {
- 	int err;
-@@ -129,6 +161,18 @@ static struct phy_driver realtek_drvs[] = {
- 		.config_aneg    = &genphy_config_aneg,
- 		.read_status    = &genphy_read_status,
- 	}, {
-+		.phy_id		= 0x001cc816,
-+		.name		= "RTL8201F 10/100Mbps Ethernet",
-+		.phy_id_mask	= 0x001fffff,
-+		.features	= PHY_BASIC_FEATURES,
-+		.flags		= PHY_HAS_INTERRUPT,
-+		.config_aneg	= &genphy_config_aneg,
-+		.read_status	= &genphy_read_status,
-+		.ack_interrupt	= &rtl8201_ack_interrupt,
-+		.config_intr	= &rtl8201_config_intr,
-+		.suspend	= genphy_suspend,
-+		.resume		= genphy_resume,
-+	}, {
- 		.phy_id		= 0x001cc912,
- 		.name		= "RTL8211B Gigabit Ethernet",
- 		.phy_id_mask	= 0x001fffff,
-@@ -181,6 +225,7 @@ static struct phy_driver realtek_drvs[] = {
- module_phy_driver(realtek_drvs);
- 
- static struct mdio_device_id __maybe_unused realtek_tbl[] = {
-+	{ 0x001cc816, 0x001fffff },
- 	{ 0x001cc912, 0x001fffff },
- 	{ 0x001cc914, 0x001fffff },
- 	{ 0x001cc915, 0x001fffff },
++		#address-cells = <1>;
++		#size-cells = <0>;
++		ethphy: ethphy@1 {
++			reg = <1>;
++		};
++	};
 -- 
 2.7.4
