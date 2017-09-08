@@ -1,120 +1,155 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: WARNING: CPU: 2 PID: 4277 at lib/refcount.c:186
-Date: Fri, 8 Sep 2017 10:21:19 -0700
-Message-ID: <CAM_iQpWOgBNmH456cOZcz-JgOYD1-YwwE4yRuLzzd4+ZzH4ALg@mail.gmail.com>
-References: <CAASgV=s63Mj5Ki-ep0pUrOpGonaaOZm3TEeENk+rjxA=koxPfg@mail.gmail.com>
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: Re: [PATCH v2 0/2] enable hires timer to timeout datagram socket
+Date: Fri, 08 Sep 2017 18:23:22 +0100
+Message-ID: <1504891402.32080.5.camel@infradead.org>
+References: <1503447027-44399-1-git-send-email-vallish@amazon.com>
+         <20170822.213030.1848111782253505433.davem@davemloft.net>
+         <20170908170409.GA10020@u40b0340c692b58f6553c.ant.amazon.com>
+         <20170908.101657.2131282706895004921.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: LKML <linux-kernel@vger.kernel.org>,
-        syzkaller <syzkaller@googlegroups.com>,
-        David Miller <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Shankara Pailoor <sp3485@columbia.edu>
+Content-Type: multipart/signed; micalg="sha-256"; protocol="application/x-pkcs7-signature"; boundary="=-yIlj8/oXgStC9J5aELTQ"
+Cc: vallish@amazon.com, shuah@kernel.org, richardcochran@gmail.com,
+        xiyou.wangcong@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, anchalag@amazon.com, dwmw@amazon.com
+To: David Miller <davem@davemloft.net>, eduval@amazon.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAASgV=s63Mj5Ki-ep0pUrOpGonaaOZm3TEeENk+rjxA=koxPfg@mail.gmail.com>
+In-Reply-To: <20170908.101657.2131282706895004921.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-(Cc'ing netdev)
 
-On Fri, Sep 8, 2017 at 5:59 AM, Shankara Pailoor <sp3485@columbia.edu> wrote:
-> Hi,
+--=-yIlj8/oXgStC9J5aELTQ
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Fri, 2017-09-08 at 10:16 -0700, David Miller wrote:
+> From: Eduardo Valentin <eduval@amazon.com>
+> Date: Fri, 8 Sep 2017 10:04:09 -0700
+>=20
+> >=20
+> > However, this is a clear, the system call, from the net subsystem,
+> > has changed in behavior across kernel versions. From application /
+> > userspace perspective, changing the system call without clear
+> > documentation or deprecation path, to me, looks like breaking
+> > userspace, isn't it?
 >
-> I found a warning while fuzzing with Syzkaller on linux 4.13-rc7 on
-> x86_64. The full stack trace is below:
->
-> WARNING: CPU: 2 PID: 4277 at lib/refcount.c:186
-> refcount_sub_and_test+0x167/0x1b0 lib/refcount.c:186
-> Kernel panic - not syncing: panic_on_warn set ...
->
-> CPU: 2 PID: 4277 Comm: syz-executor0 Not tainted 4.13.0-rc7 #3
-> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS
-> Ubuntu-1.8.2-1ubuntu1 04/01/2014
-> Call Trace:
->  <IRQ>
->  __dump_stack lib/dump_stack.c:16 [inline]
->  dump_stack+0xf7/0x1aa lib/dump_stack.c:52
->  panic+0x1ae/0x3a7 kernel/panic.c:180
->  __warn+0x1c4/0x1d9 kernel/panic.c:541
->  report_bug+0x211/0x2d0 lib/bug.c:183
->  fixup_bug+0x40/0x90 arch/x86/kernel/traps.c:190
->  do_trap_no_signal arch/x86/kernel/traps.c:224 [inline]
->  do_trap+0x260/0x390 arch/x86/kernel/traps.c:273
->  do_error_trap+0x118/0x340 arch/x86/kernel/traps.c:310
->  do_invalid_op+0x1b/0x20 arch/x86/kernel/traps.c:323
->  invalid_op+0x18/0x20 arch/x86/entry/entry_64.S:846
-> RIP: 0010:refcount_sub_and_test+0x167/0x1b0 lib/refcount.c:186
-> RSP: 0018:ffff88006e006b60 EFLAGS: 00010286
-> RAX: 0000000000000026 RBX: 0000000000000000 RCX: 0000000000000000
-> RDX: 0000000000000026 RSI: 1ffff1000dc00d2c RDI: ffffed000dc00d60
-> RBP: ffff88006e006bf0 R08: 0000000000000001 R09: 0000000000000000
-> R10: 0000000000000000 R11: 0000000000000000 R12: 1ffff1000dc00d6d
-> R13: 00000000ffffffff R14: 0000000000000001 R15: ffff88006ce9d340
->  refcount_dec_and_test+0x1a/0x20 lib/refcount.c:211
->  reqsk_put+0x71/0x2b0 include/net/request_sock.h:123
->  tcp_v4_rcv+0x259e/0x2e20 net/ipv4/tcp_ipv4.c:1729
->  ip_local_deliver_finish+0x2e2/0xba0 net/ipv4/ip_input.c:216
->  NF_HOOK include/linux/netfilter.h:248 [inline]
->  ip_local_deliver+0x1ce/0x6d0 net/ipv4/ip_input.c:257
->  dst_input include/net/dst.h:477 [inline]
->  ip_rcv_finish+0x8db/0x19c0 net/ipv4/ip_input.c:397
->  NF_HOOK include/linux/netfilter.h:248 [inline]
->  ip_rcv+0xc3f/0x17d0 net/ipv4/ip_input.c:488
->  __netif_receive_skb_core+0x1fb7/0x31f0 net/core/dev.c:4298
->  __netif_receive_skb+0x2c/0x1b0 net/core/dev.c:4336
->  process_backlog+0x1c5/0x6d0 net/core/dev.c:5102
->  napi_poll net/core/dev.c:5499 [inline]
->  net_rx_action+0x6d3/0x14a0 net/core/dev.c:5565
->  __do_softirq+0x2cb/0xb2d kernel/softirq.c:284
->  do_softirq_own_stack+0x1c/0x30 arch/x86/entry/entry_64.S:898
->  </IRQ>
->  do_softirq.part.16+0x63/0x80 kernel/softirq.c:328
->  do_softirq kernel/softirq.c:176 [inline]
->  __local_bh_enable_ip+0x84/0x90 kernel/softirq.c:181
->  local_bh_enable include/linux/bottom_half.h:31 [inline]
->  rcu_read_unlock_bh include/linux/rcupdate.h:705 [inline]
->  ip_finish_output2+0x8ad/0x1360 net/ipv4/ip_output.c:231
->  ip_finish_output+0x74e/0xb80 net/ipv4/ip_output.c:317
->  NF_HOOK_COND include/linux/netfilter.h:237 [inline]
->  ip_output+0x1cc/0x850 net/ipv4/ip_output.c:405
->  dst_output include/net/dst.h:471 [inline]
->  ip_local_out+0x95/0x160 net/ipv4/ip_output.c:124
->  ip_queue_xmit+0x8c6/0x1810 net/ipv4/ip_output.c:504
->  tcp_transmit_skb+0x1963/0x3320 net/ipv4/tcp_output.c:1123
->  tcp_send_ack.part.35+0x38c/0x620 net/ipv4/tcp_output.c:3575
->  tcp_send_ack+0x49/0x60 net/ipv4/tcp_output.c:3545
->  tcp_rcv_synsent_state_process net/ipv4/tcp_input.c:5795 [inline]
->  tcp_rcv_state_process+0x4876/0x4b60 net/ipv4/tcp_input.c:5930
->  tcp_v4_do_rcv+0x58a/0x820 net/ipv4/tcp_ipv4.c:1483
->  sk_backlog_rcv include/net/sock.h:907 [inline]
->  __release_sock+0x124/0x360 net/core/sock.c:2223
->  release_sock+0xa4/0x2a0 net/core/sock.c:2715
->  inet_wait_for_connect net/ipv4/af_inet.c:557 [inline]
->  __inet_stream_connect+0x671/0xf00 net/ipv4/af_inet.c:643
->  inet_stream_connect+0x58/0xa0 net/ipv4/af_inet.c:682
->  SYSC_connect+0x204/0x470 net/socket.c:1628
->  SyS_connect+0x24/0x30 net/socket.c:1609
->  entry_SYSCALL_64_fastpath+0x18/0xad
-> RIP: 0033:0x451e59
-> RSP: 002b:00007f474843fc08 EFLAGS: 00000216 ORIG_RAX: 000000000000002a
-> RAX: ffffffffffffffda RBX: 0000000000718000 RCX: 0000000000451e59
-> RDX: 0000000000000010 RSI: 0000000020002000 RDI: 0000000000000007
-> RBP: 0000000000000046 R08: 0000000000000000 R09: 0000000000000000
-> R10: 0000000000000000 R11: 0000000000000216 R12: 0000000000000000
-> R13: 00007ffc040a0f8f R14: 00007f47484409c0 R15: 0000000000000000
->
->
->
->
-> I found that the following program is able to reproduce the warning:
->
->
-> Pastebin: https://pastebin.com/B75BdYKz
->
-> Here are my configs: https://pastebin.com/zRYCXbak
->
-> Regards,
-> Shankara
->
+> Where is the chapter and verse of the system call documentation that
+> guaranteed this level of timer granularity for you?
+>=20
+> Or were you simply relying upon implementation dependent behavior?
+> I can't see anything which ever guarateed the granularity of timers
+> to the extent upon which you were relying.
+>=20
+> And most importantly, letting the kernel have flexibility in this area
+> is absolutely essential for various forms of optimizations and power
+> savings.
+
+The rule we normally use, typically enforced very shoutily by Linus, is
+that *however* stupid userspace was to rely on something, if they *do*
+rely on it then we shouldn't change it.
+
+I don't know that anyone's ever tried saying "show me the chapter and
+verse of the documentation" to Linus when he's in full rant mode, as he
+tends to get in such discussions. You could try it, I suppose.
+
+I don't think 'HZ=3D=3D100' was documented per se either, was it? Perhaps
+we *could* change that, after all? :)
+
+(Not that I've actually looked at the patch or the userspace in
+question yet, mind you. Just commenting on the absurdity of the
+response.)
+--=-yIlj8/oXgStC9J5aELTQ
+Content-Type: application/x-pkcs7-signature; name="smime.p7s"
+Content-Disposition: attachment; filename="smime.p7s"
+Content-Transfer-Encoding: base64
+
+MIAGCSqGSIb3DQEHAqCAMIACAQExDzANBglghkgBZQMEAgEFADCABgkqhkiG9w0BBwEAAKCCDzUw
+ggSvMIIDl6ADAgECAhEA4CPLFRKDU4mtYW56VGdrITANBgkqhkiG9w0BAQsFADBvMQswCQYDVQQG
+EwJTRTEUMBIGA1UEChMLQWRkVHJ1c3QgQUIxJjAkBgNVBAsTHUFkZFRydXN0IEV4dGVybmFsIFRU
+UCBOZXR3b3JrMSIwIAYDVQQDExlBZGRUcnVzdCBFeHRlcm5hbCBDQSBSb290MB4XDTE0MTIyMjAw
+MDAwMFoXDTIwMDUzMDEwNDgzOFowgZsxCzAJBgNVBAYTAkdCMRswGQYDVQQIExJHcmVhdGVyIE1h
+bmNoZXN0ZXIxEDAOBgNVBAcTB1NhbGZvcmQxGjAYBgNVBAoTEUNPTU9ETyBDQSBMaW1pdGVkMUEw
+PwYDVQQDEzhDT01PRE8gU0hBLTI1NiBDbGllbnQgQXV0aGVudGljYXRpb24gYW5kIFNlY3VyZSBF
+bWFpbCBDQTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAImxDdp6UxlOcFIdvFamBia3
+uEngludRq/HwWhNJFaO0jBtgvHpRQqd5jKQi3xdhTpHVdiMKFNNKAn+2HQmAbqUEPdm6uxb+oYep
+LkNSQxZ8rzJQyKZPWukI2M+TJZx7iOgwZOak+FaA/SokFDMXmaxE5WmLo0YGS8Iz1OlAnwawsayT
+QLm1CJM6nCpToxDbPSBhPFUDjtlOdiUCISn6o3xxdk/u4V+B6ftUgNvDezVSt4TeIj0sMC0xf1m9
+UjewM2ktQ+v61qXxl3dnUYzZ7ifrvKUHOHaMpKk4/9+M9QOsSb7K93OZOg8yq5yVOhM9DkY6V3Rh
+UL7GQD/L5OKfoiECAwEAAaOCARcwggETMB8GA1UdIwQYMBaAFK29mHo0tCb3+sQmVO8DveAky1Qa
+MB0GA1UdDgQWBBSSYWuC4aKgqk/sZ/HCo/e0gADB7DAOBgNVHQ8BAf8EBAMCAYYwEgYDVR0TAQH/
+BAgwBgEB/wIBADAdBgNVHSUEFjAUBggrBgEFBQcDAgYIKwYBBQUHAwQwEQYDVR0gBAowCDAGBgRV
+HSAAMEQGA1UdHwQ9MDswOaA3oDWGM2h0dHA6Ly9jcmwudXNlcnRydXN0LmNvbS9BZGRUcnVzdEV4
+dGVybmFsQ0FSb290LmNybDA1BggrBgEFBQcBAQQpMCcwJQYIKwYBBQUHMAGGGWh0dHA6Ly9vY3Nw
+LnVzZXJ0cnVzdC5jb20wDQYJKoZIhvcNAQELBQADggEBABsqbqxVwTqriMXY7c1V86prYSvACRAj
+mQ/FZmpvsfW0tXdeDwJhAN99Bf4Ss6SAgAD8+x1banICCkG8BbrBWNUmwurVTYT7/oKYz1gb4yJj
+nFL4uwU2q31Ypd6rO2Pl2tVz7+zg+3vio//wQiOcyraNTT7kSxgDsqgt1Ni7QkuQaYUQ26Y3NOh7
+4AEQpZzKOsefT4g0bopl0BqKu6ncyso20fT8wmQpNa/WsadxEdIDQ7GPPprsnjJT9HaSyoY0B7ks
+yuYcStiZDcGG4pCS+1pCaiMhEOllx/XVu37qjIUgAmLq0ToHLFnFmTPyOInltukWeh95FPZKEBom
++nyK+5swggU9MIIEJaADAgECAhBqC1BYlVMtBFBN4igR/howMA0GCSqGSIb3DQEBCwUAMIGbMQsw
+CQYDVQQGEwJHQjEbMBkGA1UECBMSR3JlYXRlciBNYW5jaGVzdGVyMRAwDgYDVQQHEwdTYWxmb3Jk
+MRowGAYDVQQKExFDT01PRE8gQ0EgTGltaXRlZDFBMD8GA1UEAxM4Q09NT0RPIFNIQS0yNTYgQ2xp
+ZW50IEF1dGhlbnRpY2F0aW9uIGFuZCBTZWN1cmUgRW1haWwgQ0EwHhcNMTYxMjIwMDAwMDAwWhcN
+MTcxMjIwMjM1OTU5WjAkMSIwIAYJKoZIhvcNAQkBFhNkd213MkBpbmZyYWRlYWQub3JnMIIBIjAN
+BgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwbTrFaiGdvN2pThnR9q+4eaXB2wQZQNqhter5ZrJ
+pPO47e87bZ+f1tmYoh6+rB90G/XN24NErPRfvU4zVzNT9pCtCzSSVnBlZQBpaEYMKhcXo5PGKNsm
+An8BoGwNXjlxwbBNRaNO+ky0wNCaMNd1JLxEuvqg9J7rrcpHhWmnpXD5IKa8gv9GyVAJgOpiBOts
+p91sShc2kHvWJ5waPEWPCHDH9J+twGGKqKIIU7fdbURLUgUL1wlDSAHf/lgIAVCSj2H2HpoGqHpy
+HgOAClX9iRSLNa0Znj8HTaqfOwxXevsz1KkLFY+Ahm426GIEqdfkK2iT6Hhgc7tjNO3f8i5ALQID
+AQABo4IB8TCCAe0wHwYDVR0jBBgwFoAUkmFrguGioKpP7GfxwqP3tIAAwewwHQYDVR0OBBYEFILE
+dmHLtK6oxmFJZvBhTQhvqrS0MA4GA1UdDwEB/wQEAwIFoDAMBgNVHRMBAf8EAjAAMCAGA1UdJQQZ
+MBcGCCsGAQUFBwMEBgsrBgEEAbIxAQMFAjARBglghkgBhvhCAQEEBAMCBSAwRgYDVR0gBD8wPTA7
+BgwrBgEEAbIxAQIBAQEwKzApBggrBgEFBQcCARYdaHR0cHM6Ly9zZWN1cmUuY29tb2RvLm5ldC9D
+UFMwXQYDVR0fBFYwVDBSoFCgToZMaHR0cDovL2NybC5jb21vZG9jYS5jb20vQ09NT0RPU0hBMjU2
+Q2xpZW50QXV0aGVudGljYXRpb25hbmRTZWN1cmVFbWFpbENBLmNybDCBkAYIKwYBBQUHAQEEgYMw
+gYAwWAYIKwYBBQUHMAKGTGh0dHA6Ly9jcnQuY29tb2RvY2EuY29tL0NPTU9ET1NIQTI1NkNsaWVu
+dEF1dGhlbnRpY2F0aW9uYW5kU2VjdXJlRW1haWxDQS5jcnQwJAYIKwYBBQUHMAGGGGh0dHA6Ly9v
+Y3NwLmNvbW9kb2NhLmNvbTAeBgNVHREEFzAVgRNkd213MkBpbmZyYWRlYWQub3JnMA0GCSqGSIb3
+DQEBCwUAA4IBAQA+AfvNhFwtapF5Lzjapgul3zYuEnMfR538Ya1vhP8wuOkcoJeT2gEFXzVO2WUu
+eWM0g0/DumnRB53htV/Qq/+vsL0i6a2+iOO7kHi5O7bZkgbdNv0t2lzonDUHi6LTa7NUj+tv+j6y
+hW+iNquC3ACP1dIZH8gJmicHblW63qRgp6wxhn315MLBeavi3uiSag2eeKFePiTIwJjN2UYq6kWg
+PL5G/Ycf9x/xN1XBTfJiURc0FsXhrA98VMWnt52C5Lo4txhGjzTI+IZg40b3YDs6E7mTYb5KKmbc
+QZA9priOFDdj1z5W9BdWhU6I/D0P9y8Z4Tr6+ZscMUVD0RqWy2LeMIIFPTCCBCWgAwIBAgIQagtQ
+WJVTLQRQTeIoEf4aMDANBgkqhkiG9w0BAQsFADCBmzELMAkGA1UEBhMCR0IxGzAZBgNVBAgTEkdy
+ZWF0ZXIgTWFuY2hlc3RlcjEQMA4GA1UEBxMHU2FsZm9yZDEaMBgGA1UEChMRQ09NT0RPIENBIExp
+bWl0ZWQxQTA/BgNVBAMTOENPTU9ETyBTSEEtMjU2IENsaWVudCBBdXRoZW50aWNhdGlvbiBhbmQg
+U2VjdXJlIEVtYWlsIENBMB4XDTE2MTIyMDAwMDAwMFoXDTE3MTIyMDIzNTk1OVowJDEiMCAGCSqG
+SIb3DQEJARYTZHdtdzJAaW5mcmFkZWFkLm9yZzCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoC
+ggEBAMG06xWohnbzdqU4Z0favuHmlwdsEGUDaobXq+WayaTzuO3vO22fn9bZmKIevqwfdBv1zduD
+RKz0X71OM1czU/aQrQs0klZwZWUAaWhGDCoXF6OTxijbJgJ/AaBsDV45ccGwTUWjTvpMtMDQmjDX
+dSS8RLr6oPSe663KR4Vpp6Vw+SCmvIL/RslQCYDqYgTrbKfdbEoXNpB71iecGjxFjwhwx/SfrcBh
+iqiiCFO33W1ES1IFC9cJQ0gB3/5YCAFQko9h9h6aBqh6ch4DgApV/YkUizWtGZ4/B02qnzsMV3r7
+M9SpCxWPgIZuNuhiBKnX5Ctok+h4YHO7YzTt3/IuQC0CAwEAAaOCAfEwggHtMB8GA1UdIwQYMBaA
+FJJha4LhoqCqT+xn8cKj97SAAMHsMB0GA1UdDgQWBBSCxHZhy7SuqMZhSWbwYU0Ib6q0tDAOBgNV
+HQ8BAf8EBAMCBaAwDAYDVR0TAQH/BAIwADAgBgNVHSUEGTAXBggrBgEFBQcDBAYLKwYBBAGyMQED
+BQIwEQYJYIZIAYb4QgEBBAQDAgUgMEYGA1UdIAQ/MD0wOwYMKwYBBAGyMQECAQEBMCswKQYIKwYB
+BQUHAgEWHWh0dHBzOi8vc2VjdXJlLmNvbW9kby5uZXQvQ1BTMF0GA1UdHwRWMFQwUqBQoE6GTGh0
+dHA6Ly9jcmwuY29tb2RvY2EuY29tL0NPTU9ET1NIQTI1NkNsaWVudEF1dGhlbnRpY2F0aW9uYW5k
+U2VjdXJlRW1haWxDQS5jcmwwgZAGCCsGAQUFBwEBBIGDMIGAMFgGCCsGAQUFBzAChkxodHRwOi8v
+Y3J0LmNvbW9kb2NhLmNvbS9DT01PRE9TSEEyNTZDbGllbnRBdXRoZW50aWNhdGlvbmFuZFNlY3Vy
+ZUVtYWlsQ0EuY3J0MCQGCCsGAQUFBzABhhhodHRwOi8vb2NzcC5jb21vZG9jYS5jb20wHgYDVR0R
+BBcwFYETZHdtdzJAaW5mcmFkZWFkLm9yZzANBgkqhkiG9w0BAQsFAAOCAQEAPgH7zYRcLWqReS84
+2qYLpd82LhJzH0ed/GGtb4T/MLjpHKCXk9oBBV81TtllLnljNINPw7pp0Qed4bVf0Kv/r7C9Iumt
+vojju5B4uTu22ZIG3Tb9Ldpc6Jw1B4ui02uzVI/rb/o+soVvojargtwAj9XSGR/ICZonB25Vut6k
+YKesMYZ99eTCwXmr4t7okmoNnnihXj4kyMCYzdlGKupFoDy+Rv2HH/cf8TdVwU3yYlEXNBbF4awP
+fFTFp7edguS6OLcYRo80yPiGYONG92A7OhO5k2G+Sipm3EGQPaa4jhQ3Y9c+VvQXVoVOiPw9D/cv
+GeE6+vmbHDFFQ9Ealsti3jGCA9MwggPPAgEBMIGwMIGbMQswCQYDVQQGEwJHQjEbMBkGA1UECBMS
+R3JlYXRlciBNYW5jaGVzdGVyMRAwDgYDVQQHEwdTYWxmb3JkMRowGAYDVQQKExFDT01PRE8gQ0Eg
+TGltaXRlZDFBMD8GA1UEAxM4Q09NT0RPIFNIQS0yNTYgQ2xpZW50IEF1dGhlbnRpY2F0aW9uIGFu
+ZCBTZWN1cmUgRW1haWwgQ0ECEGoLUFiVUy0EUE3iKBH+GjAwDQYJYIZIAWUDBAIBBQCgggHzMBgG
+CSqGSIb3DQEJAzELBgkqhkiG9w0BBwEwHAYJKoZIhvcNAQkFMQ8XDTE3MDkwODE3MjMyMlowLwYJ
+KoZIhvcNAQkEMSIEIJ2L4qTzTuaP2PfG9z2vNkLANXpwtbr+DJnHa3pbN7AzMIHBBgkrBgEEAYI3
+EAQxgbMwgbAwgZsxCzAJBgNVBAYTAkdCMRswGQYDVQQIExJHcmVhdGVyIE1hbmNoZXN0ZXIxEDAO
+BgNVBAcTB1NhbGZvcmQxGjAYBgNVBAoTEUNPTU9ETyBDQSBMaW1pdGVkMUEwPwYDVQQDEzhDT01P
+RE8gU0hBLTI1NiBDbGllbnQgQXV0aGVudGljYXRpb24gYW5kIFNlY3VyZSBFbWFpbCBDQQIQagtQ
+WJVTLQRQTeIoEf4aMDCBwwYLKoZIhvcNAQkQAgsxgbOggbAwgZsxCzAJBgNVBAYTAkdCMRswGQYD
+VQQIExJHcmVhdGVyIE1hbmNoZXN0ZXIxEDAOBgNVBAcTB1NhbGZvcmQxGjAYBgNVBAoTEUNPTU9E
+TyBDQSBMaW1pdGVkMUEwPwYDVQQDEzhDT01PRE8gU0hBLTI1NiBDbGllbnQgQXV0aGVudGljYXRp
+b24gYW5kIFNlY3VyZSBFbWFpbCBDQQIQagtQWJVTLQRQTeIoEf4aMDANBgkqhkiG9w0BAQEFAASC
+AQBdYv1gjA0bOmgehtw+vZ24q64N+bvVqHzMWkeWuuEz2YrZhGoryQBzUqpBWHIpcKOLRYnC9g9S
+/T3wCzOdGd+VO1mcZBxVxnSIoWo7HceXvjU0d+FbxEwfCGiIc7iBwhU8ERDGiEAQpqwmsGMqgof6
+DD05jpBugssjbw2W1qc8vF/Pytv6M6rhdrxmk8/gBCOaRlb+ljU4Upbr8agsSfh9w1LOOeCrb8qO
+p9zOJs4OvNojXmZBfK8QQAFMG1W6Vb6JZsKSJ8oBZbYXmoJju5H5oWvtfrSwiLRCKZWDNmpMcHGM
+ePMkm8v0dtf2Ag7Q3cWaFnVH0mkvHf0TOs41Fgi6AAAAAAAA
+
+
+--=-yIlj8/oXgStC9J5aELTQ--
