@@ -1,39 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: ipv6: fix regression of no RTM_DELADDR sent after
- DAD failure
-Date: Thu, 07 Sep 2017 19:18:43 -0700 (PDT)
-Message-ID: <20170907.191843.836588795188250550.davem@davemloft.net>
-References: <1504536775-23533-1-git-send-email-mmanning@brocade.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, maheshb@google.com
-To: mmanning@brocade.com
+From: Jim Hanko <hanko@drivescale.com>
+Subject: [patch net-next] team: fall back to hash if table entry is empty
+Date: Thu,  7 Sep 2017 19:25:12 -0700
+Message-ID: <1504837512-16395-1-git-send-email-hanko@drivescale.com>
+Cc: Jim Hanko <hanko@drivescale.com>
+To: jiri@resnulli.us, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:40782 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752093AbdIHCSo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 7 Sep 2017 22:18:44 -0400
-In-Reply-To: <1504536775-23533-1-git-send-email-mmanning@brocade.com>
+Received: from mail-oi0-f100.google.com ([209.85.218.100]:37982 "EHLO
+        mail-oi0-f100.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752093AbdIHC0c (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 7 Sep 2017 22:26:32 -0400
+Received: by mail-oi0-f100.google.com with SMTP id a197so389299oib.5
+        for <netdev@vger.kernel.org>; Thu, 07 Sep 2017 19:26:32 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mike Manning <mmanning@brocade.com>
-Date: Mon,  4 Sep 2017 15:52:55 +0100
+If the hash to port mapping table does not have a valid port (i.e. when
+a port goes down), fall back to the simple hashing mechanism to avoid
+dropping packets.
 
-> Commit f784ad3d79e5 ("ipv6: do not send RTM_DELADDR for tentative
-> addresses") incorrectly assumes that no RTM_NEWADDR are sent for
-> addresses in tentative state, as this does happen for the standard
-> IPv6 use-case of DAD failure, see the call to ipv6_ifa_notify() in
-> addconf_dad_stop(). So as a result of this change, no RTM_DELADDR is
-> sent after DAD failure for a link-local when strict DAD (accept_dad=2)
-> is configured, or on the next admin down in other cases. The absence
-> of this notification breaks backwards compatibility and causes problems
-> after DAD failure if this notification was being relied on. The
-> solution is to allow RTM_DELADDR to still be sent after DAD failure.
-> 
-> Fixes: f784ad3d79e5("ipv6: do not send RTM_DELADDR for tentative addresses")
-> Signed-off-by: Mike Manning <mmanning@brocade.com>
-> Cc: Mahesh Bandewar <maheshb@google.com>
+Signed-off-by: Jim Hanko <hanko@drivescale.com>
+---
+ drivers/net/team/team_mode_loadbalance.c | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
 
-Mahesh, please review this patch.
+diff --git a/drivers/net/team/team_mode_loadbalance.c b/drivers/net/team/team_mode_loadbalance.c
+index 1468ddf..a5ef970 100644
+--- a/drivers/net/team/team_mode_loadbalance.c
++++ b/drivers/net/team/team_mode_loadbalance.c
+@@ -137,7 +137,13 @@ static struct team_port *lb_htpm_select_tx_port(struct team *team,
+ 						struct sk_buff *skb,
+ 						unsigned char hash)
+ {
+-	return rcu_dereference_bh(LB_HTPM_PORT_BY_HASH(lb_priv, hash));
++	struct team_port *port;
++
++	port = rcu_dereference_bh(LB_HTPM_PORT_BY_HASH(lb_priv, hash));
++	if (likely(port))
++		return port;
++	/* If no valid port in the table, fall back to simple hash */
++	return lb_hash_select_tx_port(team, lb_priv, skb, hash);
+ }
+ 
+ struct lb_select_tx_port {
+-- 
+2.7.4
