@@ -1,36 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2] rds: Fix incorrect statistics counting
-Date: Thu, 07 Sep 2017 20:07:33 -0700 (PDT)
-Message-ID: <20170907.200733.1562967291105061977.davem@davemloft.net>
-References: <20170906163551.20387-1-Haakon.Bugge@oracle.com>
+From: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+Subject: Re: Use after free in __dst_destroy_metrics_generic
+Date: Thu, 07 Sep 2017 21:27:19 -0600
+Message-ID: <375ef875d9c8744f344891bf06b8dd61@codeaurora.org>
+References: <1234e09b75197d43ed84bdb1b154b4b6@codeaurora.org>
+ <20170907.191324.852949594923852324.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
-Cc: santosh.shilimkar@oracle.com, netdev@vger.kernel.org,
-        linux-rdma@vger.kernel.org, rds-devel@oss.oracle.com,
-        linux-kernel@vger.kernel.org, knut.omang@oracle.com
-To: Haakon.Bugge@oracle.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170906163551.20387-1-Haakon.Bugge@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, lorenzo@google.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.codeaurora.org ([198.145.29.96]:55210 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751985AbdIHD1U (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 7 Sep 2017 23:27:20 -0400
+In-Reply-To: <20170907.191324.852949594923852324.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Håkon Bugge <Haakon.Bugge@oracle.com>
-Date: Wed,  6 Sep 2017 18:35:51 +0200
+>> [ 3489.194392]  __ion_alloc+0x180/0x988
+> 
+> I do not see the __ion_alloc function in my tree.
 
-> In rds_send_xmit() there is logic to batch the sends. However, if
-> another thread has acquired the lock and has incremented the send_gen,
-> it is considered a race and we yield. The code incrementing the
-> s_send_lock_queue_raced statistics counter did not count this event
-> correctly.
-> 
-> This commit counts the race condition correctly.
-> 
-> Changes from v1:
-> - Removed check for *someone_on_xmit()*
-> - Fixed incorrect indentation
-> 
-> Signed-off-by: Håkon Bugge <haakon.bugge@oracle.com>
-> Reviewed-by: Knut Omang <knut.omang@oracle.com>
+Hi David
 
-Applied.
+This function seems to be defined in an Android specific change.
+
+https://android.googlesource.com/kernel/msm/+/20a5411d0115b16826f3d327b6abb0192c8a2001
+
+-- 
+Qualcomm Innovation Center, Inc.
+The Qualcomm Innovation Center, Inc. is a member of Code Aurora Forum, a 
+Linux Foundation Collaborative Project
