@@ -1,56 +1,41 @@
-From: Adam Borowski <kilobyte-b9QjgO8OEXPVItvQsEIGlw@public.gmane.org>
-Subject: [PATCH v2] rtl8xxxu: Don't printk raw binary if serial number is not burned in.
-Date: Fri,  8 Sep 2017 12:30:00 +0200
-Message-ID: <20170908103000.6795-1-kilobyte@angband.pl>
-References: <20170908032706.1fa59da9@elisabeth>
-Cc: Adam Borowski <kilobyte-b9QjgO8OEXPVItvQsEIGlw@public.gmane.org>
-To: Jes Sorensen <Jes.Sorensen-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Stefano Brivio <sbrivio-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170908032706.1fa59da9@elisabeth>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [PATCH net] phy: mvebu-cp110: checking for NULL instead of IS_ERR()
+Date: Fri, 8 Sep 2017 13:31:37 +0300
+Message-ID: <20170908103137.zck6bw66sge4fhua@mwanda>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        "David S. Miller" <davem@davemloft.net>
+To: Kishon Vijay Abraham I <kishon@ti.com>,
+        Antoine Tenart <antoine.tenart@free-electrons.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I assume that a blank efuse comes with all ones, thus I did not bother
-recognizing other possible junk values.  This matches 100% of dongles
-I've seen (a single Gembird 8192eu).
+devm_ioremap_resource() never returns NULL, it only returns error
+pointers so this test needs to be changed.
 
-Signed-off-by: Adam Borowski <kilobyte-b9QjgO8OEXPVItvQsEIGlw@public.gmane.org>
+Fixes: d0438bd6aa09 ("phy: add the mvebu cp110 comphy driver")
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 ---
-v2: strncmp("goofy string") -> memchr_inv()
+This driver apparently is going through the net tree, but netdev isn't
+listed as handling it in MAINTAINERS.  Kishon, do you know what's up
+with that?
 
-Stefano Brivio wrote:
-> You might want to use memchr_inv():
->
->        if (memchr_inv(efuse->serial, 0xff, 11))
->                dev_info(&priv->udev->dev, "Serial: %.11s\n", efuse->serial);
->        ...
->
-> Mostly cosmetic though.
-
-This looks much better, thanks!
-
-
- drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_8192e.c | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_8192e.c b/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_8192e.c
-index 80fee699f58a..38b2ba1ac6f8 100644
---- a/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_8192e.c
-+++ b/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_8192e.c
-@@ -614,7 +614,10 @@ static int rtl8192eu_parse_efuse(struct rtl8xxxu_priv *priv)
+diff --git a/drivers/phy/marvell/phy-mvebu-cp110-comphy.c b/drivers/phy/marvell/phy-mvebu-cp110-comphy.c
+index 73ebad6634a7..24578bd68ddc 100644
+--- a/drivers/phy/marvell/phy-mvebu-cp110-comphy.c
++++ b/drivers/phy/marvell/phy-mvebu-cp110-comphy.c
+@@ -576,8 +576,8 @@ static int mvebu_comphy_probe(struct platform_device *pdev)
+ 		return PTR_ERR(priv->regmap);
+ 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+ 	priv->base = devm_ioremap_resource(&pdev->dev, res);
+-	if (!priv->base)
+-		return -ENOMEM;
++	if (IS_ERR(priv->base))
++		return PTR_ERR(priv->base);
  
- 	dev_info(&priv->udev->dev, "Vendor: %.7s\n", efuse->vendor_name);
- 	dev_info(&priv->udev->dev, "Product: %.11s\n", efuse->device_name);
--	dev_info(&priv->udev->dev, "Serial: %.11s\n", efuse->serial);
-+	if (memchr_inv(efuse->serial, 0xff, 11))
-+		dev_info(&priv->udev->dev, "Serial: %.11s\n", efuse->serial);
-+	else
-+		dev_info(&priv->udev->dev, "Serial not available.\n");
- 
- 	if (rtl8xxxu_debug & RTL8XXXU_DEBUG_EFUSE) {
- 		unsigned char *raw = priv->efuse_wifi.raw;
--- 
-2.14.1
+ 	for_each_available_child_of_node(pdev->dev.of_node, child) {
+ 		struct mvebu_comphy_lane *lane;
