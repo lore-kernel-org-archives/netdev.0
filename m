@@ -1,49 +1,49 @@
-From: Eduardo Valentin <eduval@amazon.com>
-Subject: Re: [PATCH v2 0/2] enable hires timer to timeout datagram socket
-Date: Fri, 8 Sep 2017 10:04:09 -0700
-Message-ID: <20170908170409.GA10020@u40b0340c692b58f6553c.ant.amazon.com>
-References: <1503447027-44399-1-git-send-email-vallish@amazon.com>
- <20170822.213030.1848111782253505433.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] sctp: fix missing wake ups in some situations
+Date: Fri, 08 Sep 2017 10:07:07 -0700 (PDT)
+Message-ID: <20170908.100707.1766699944700264489.davem@davemloft.net>
+References: <202d7b2e172746c0bed742255bc1583beca45fce.1504880548.git.marcelo.leitner@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <vallish@amazon.com>, <shuah@kernel.org>,
-        <richardcochran@gmail.com>, <xiyou.wangcong@gmail.com>,
-        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-        <eduval@amazon.com>, <anchalag@amazon.com>,
-        David Woodhouse <dwmw@amazon.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170822.213030.1848111782253505433.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+        nhorman@tuxdriver.com, vyasevich@gmail.com, laforge@gnumonks.org
+To: marcelo.leitner@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:58416 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752132AbdIHRHJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 8 Sep 2017 13:07:09 -0400
+In-Reply-To: <202d7b2e172746c0bed742255bc1583beca45fce.1504880548.git.marcelo.leitner@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David,
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Date: Fri,  8 Sep 2017 11:35:21 -0300
 
-On Tue, Aug 22, 2017 at 09:30:30PM -0700, David Miller wrote:
-> From: Vallish Vaidyeshwara <vallish@amazon.com>
-> Date: Wed, 23 Aug 2017 00:10:25 +0000
+> Commit fb586f25300f ("sctp: delay calls to sk_data_ready() as much as
+> possible") minimized the number of wake ups that are triggered in case
+> the association receives a packet with multiple data chunks on it and/or
+> when io_events are enabled and then commit 0970f5b36659 ("sctp: signal
+> sk_data_ready earlier on data chunks reception") moved the wake up to as
+> soon as possible. It thus relies on the state machine running later to
+> clean the flag that the event was already generated.
 > 
-> > I am submitting 2 patch series to enable hires timer to timeout
-> > datagram sockets (AF_UNIX & AF_INET domain) and test code to test
-> > timeout accuracy on these sockets.
+> The issue is that there are 2 call paths that calls
+> sctp_ulpq_tail_event() outside of the state machine, causing the flag to
+> linger and possibly omitting a needed wake up in the sequence.
 > 
-> This is not reasonable.
+> One of the call paths is when enabling SCTP_SENDER_DRY_EVENTS via
+> setsockopt(SCTP_EVENTS), as noticed by Harald Welte. The other is when
+> partial reliability triggers removal of chunks from the send queue when
+> the application calls sendmsg().
 > 
-> If you want high resolution events with real guarantees, please use
-> the kernel interfaces which provide this as explained to you as
-> feedback by other reviewers.
-
-I understand the kernel provides other interfaces.
-
+> This commit fixes it by not setting the flag in case the socket is not
+> owned by the user, as it won't be cleaned later. This works for
+> user-initiated calls and also for rx path processing.
 > 
-> I'm not applying this, sorry.
+> Fixes: fb586f25300f ("sctp: delay calls to sk_data_ready() as much as possible")
+> Reported-by: Harald Welte <laforge@gnumonks.org>
+> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 
-However, this is a clear, the system call, from the net subsystem,  has changed in behavior across kernel versions. From application / userspace perspective, changing the system call without clear documentation or deprecation path, to me, looks like breaking userspace, isn't it?
-
-If the correct recommendation is to use different system calls this should have been mentioned in system call documentation before changing its behavior, not expect the user to figure out after kernel release/upgrade, right?
-
-
--- 
-All the best,
-Eduardo Valentin
+Applied and queued up for -stable, th anks.
