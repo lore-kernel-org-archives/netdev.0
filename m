@@ -1,75 +1,130 @@
-From: "Yang, Yi" <yi.y.yang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net-next v7] openvswitch: enable NSH support
-Date: Fri, 8 Sep 2017 14:13:23 +0800
-Message-ID: <20170908061322.GA15698@cran64.bj.intel.com>
-References: <1504096752-102003-1-git-send-email-yi.y.yang@intel.com>
-	<20170831124516.0c5db686@griffin>
+From: Kyeongdon Kim <kyeongdon.kim@lge.com>
+Subject: Re: Re: [PATCH] mm/vmstats: add counters for the page frag cache
+Date: Fri, 8 Sep 2017 16:11:15 +0900
+Message-ID: <a0bf4c5f-3fe6-08c4-a5c4-3be026213f58@lge.com>
+References: <1504222631-2635-1-git-send-email-kyeongdon.kim@lge.com>
+ <d6120888-344a-4449-4ca6-ac98508bb3cf@yandex-team.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "e@erig.me" <e@erig.me>,
-	"davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20170831124516.0c5db686@griffin>
-List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
-List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: ying.huang@intel.com, vbabka@suse.cz, hannes@cmpxchg.org,
+        xieyisheng1@huawei.com, luto@kernel.org, shli@fb.com,
+        mhocko@suse.com, mgorman@techsingularity.net,
+        hillf.zj@alibaba-inc.com, kemi.wang@intel.com, rientjes@google.com,
+        bigeasy@linutronix.de, iamjoonsoo.kim@lge.com, bongkyu.kim@lge.com,
+        linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+        netdev <netdev@vger.kernel.org>
+To: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>,
+        akpm@linux-foundation.org, sfr@canb.auug.org.au
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <d6120888-344a-4449-4ca6-ac98508bb3cf@yandex-team.ru>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 31, 2017 at 06:45:16PM +0800, Jiri Benc wrote:
-> On Wed, 30 Aug 2017 20:39:12 +0800, Yi Yang wrote:
-> > +			nsh->md1.context[i] =
-> > +			    OVS_MASKED(nsh->md1.context[i], key->context[i],
-> > +				       mask->context[i]);
-> > +		}
-> > +		memcpy(flow_key->nsh.context, nsh->md1.context,
-> > +		       sizeof(nsh->md1.context));
-> 
-> Do you follow the discussion that Hannes Sowa started on the ovs list
-> regarding matching on the context fields? It would be better to hold on this
-> until there's a conclusion reached.
+On 2017-09-04 오후 5:30, Konstantin Khlebnikov wrote:
+> On 04.09.2017 04:35, Kyeongdon Kim wrote:
+> > Thanks for your reply,
+> > But I couldn't find "NR_FRAGMENT_PAGES" in linux-next.git .. is that 
+> vmstat counter? or others?
+> >
+>
+> I mean rather than adding bunch vmstat counters for operations it 
+> might be
+> worth to add page counter which will show current amount of these pages.
+> But this seems too low-level for tracking, common counters for all 
+> network
+> buffers would be more useful but much harder to implement.
+>
+Ok, thanks for the comment.
+> As I can see page owner is able to save stacktrace where allocation 
+> happened,
+> this makes debugging mostly trivial without any counters. If it adds 
+> too much
+> overhead - just track random 1% of pages, should be enough for finding 
+> leak.
+>
+As I said, we already used page owner tools to resolve the leak issue.
+But that's extremely difficult to figure it out,
+too much callstack and too much allocation orders(0 or more).
+We couldn't easily get a clue event if we track 1% of pages..
 
-We had several back-and-forth discussions, Jan was also involved, the
-conslusion is current way is still the best way we can have, we need
-set and match for context fields.
+In fact, I was writing another email to send a new patch with debug config.
+We added a hash function to pick out address with callstack by using 
+debugfs,
+It could be showing the only page_frag_cache leak with owner.
 
-> > +			    type,
-> > +			    nla_len(a),
-> > +			    ovs_nsh_key_attr_lens[type].len
-> > +			);
-> > +			return -EINVAL;
-> > +		}
-> 
-> These checks should be done only once when the action is configured, not for
-> each packet.
+for exmaple code :
++++ /mm/page_alloc.c
+@@ -4371,7 +4371,9 @@ void *page_frag_alloc(struct page_frag_cache *nc,
 
-in v8, nsh_key_put_from_nlattr is only one check point, validate_nsh calls it
-for set and push_nsh, nsh_hdr_from_nlattr and nsh_key_from_nlattr
-haven't these checked anymore because validate_nsh has done them.
+         nc->pagecnt_bias--;
+         nc->offset = offset;
++#ifdef CONFIG_PGFRAG_DEBUG
++       page_frag_debug_alloc(nc->va + offset);
++#endif
+         return nc->va + offset;
+  }
+  EXPORT_SYMBOL(page_frag_alloc);
+@@ -4382,7 +4384,9 @@ EXPORT_SYMBOL(page_frag_alloc);
+  void page_frag_free(void *addr)
+  {
+         struct page *page = virt_to_head_page(addr);
++#ifdef CONFIG_PGFRAG_DEBUG
++       page_frag_debug_free(addr);
++#endif
+         if (unlikely(put_page_testzero(page)))
 
-> > +	if (unlikely(!has_md1 && !has_md2)) {
-> > +		OVS_NLERR(1, "neither nsh md1 nor md2 attribute is there");
-> > +		return -EINVAL;
-> > +	}
-> 
-> Ditto. Plus I don't see a check that the OVS_NSH_KEY_ATTR_BASE attribute is
-> present. Seems that the compiler warned you about possibly unitialized flags
-> and ttl variables and you just silenced the warning without considering
-> whether it's not actually justified.
+Those counters that I added may be too much for the linux server or 
+something.
+However, I think the other systems may need to simple debugging method.
+(like Android OS)
 
-nsh_key_put_from_nlattr is used for both set and push_nsh, so
-OVS_NSH_KEY_ATTR_BASE check is valid only for push_nsh, it is possible
-for set not to have OVS_NSH_KEY_ATTR_BASE. v8 has been successfully built
-without any warnings, it is also verified in sfc test environment.
+So if you can accept the patch with debug feature,
+I will send it including counters.
+but still thinking those counters don't need. I won't.
 
-I think v8 has fixed all the comments for v7, I have sent out v8 to
-mailing list, please help review it, thanks a lot.
+Anyway, I'm grateful for your feedback, means a lot to me.
+
+Thanks,
+Kyeongdon Kim
+> > As you know, page_frag_alloc() directly calls 
+> __alloc_pages_nodemask() function,
+> > so that makes too difficult to see memory usage in real time even 
+> though we have "/meminfo or /slabinfo.." information.
+> > If there was a way already to figure out the memory leakage from 
+> page_frag_cache in mainline, I agree your opinion
+> > but I think we don't have it now.
+> >
+> > If those counters too much in my patch,
+> > I can say two values (pgfrag_alloc and pgfrag_free) are enough to 
+> guess what will happen
+> > and would remove pgfrag_alloc_calls and pgfrag_free_calls.
+> >
+> > Thanks,
+> > Kyeongdon Kim
+> >
+>
+> >> IMHO that's too much counters.
+> >> Per-node NR_FRAGMENT_PAGES should be enough for guessing what's 
+> going on.
+> >> Perf probes provides enough features for furhter debugging.
+> >>
+> >> On 01.09.2017 02:37, Kyeongdon Kim wrote:
+> >> > There was a memory leak problem when we did stressful test
+> >> > on Android device.
+> >> > The root cause of this was from page_frag_cache alloc
+> >> > and it was very hard to find out.
+> >> >
+> >> > We add to count the page frag allocation and free with function 
+> call.
+> >> > The gap between pgfrag_alloc and pgfrag_free is good to to calculate
+> >> > for the amount of page.
+> >> > The gap between pgfrag_alloc_calls and pgfrag_free_calls is for
+> >> > sub-indicator.
+> >> > They can see trends of memory usage during the test.
+> >> > Without it, it's difficult to check page frag usage so I believe we
+> >> > should add it.
+> >> >
+> >> > Signed-off-by: Kyeongdon Kim <kyeongdon.kim@lge.com>
+> >> > ---
