@@ -1,34 +1,24 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH net 0/2] netfilter: ipvs: some fixes in sctp_conn_schedule
-Date: Fri, 8 Sep 2017 13:40:43 +0200
-Message-ID: <20170908114043.GA12554@salvia>
-References: <cover.1503207076.git.lucien.xin@gmail.com>
- <20170828161732.GA13738@salvia>
- <20170831115904.GA16979@verge.net.au>
+Subject: Re: [PATCH] netfilter: nat: constify rhashtable_params
+Date: Fri, 8 Sep 2017 13:46:30 +0200
+Message-ID: <20170908114630.GA13575@salvia>
+References: <d978194ca83e9aa41a330a42442eecd8be9e9a60.1504093452.git.arvind.yadav.cs@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Xin Long <lucien.xin@gmail.com>, netfilter-devel@vger.kernel.org,
-        Alex Gartrell <agartrell@fb.com>, lvs-devel@vger.kernel.org,
-        netdev@vger.kernel.org, ja@ssi.bg, wensong@linux-vs.org
-To: Simon Horman <horms@verge.net.au>
-Return-path: <lvs-devel-owner@vger.kernel.org>
+Cc: davem@davemloft.net, fw@strlen.de, kadlec@blackhole.kfki.hu,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        coreteam@netfilter.org, netfilter-devel@vger.kernel.org
+To: Arvind Yadav <arvind.yadav.cs@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20170831115904.GA16979@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
+In-Reply-To: <d978194ca83e9aa41a330a42442eecd8be9e9a60.1504093452.git.arvind.yadav.cs@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 31, 2017 at 01:59:08PM +0200, Simon Horman wrote:
-> On Mon, Aug 28, 2017 at 06:17:32PM +0200, Pablo Neira Ayuso wrote:
-> > On Sun, Aug 20, 2017 at 01:38:06PM +0800, Xin Long wrote:
-> > > Patch 1/2 fixes the regression introduced by commit 5e26b1b3abce.
-> > > Patch 2/2 makes ipvs not create conn for sctp ABORT packet.
-> > 
-> > Will wait for Julian and Simon to tell me what I should do with this.
-> 
-> Hi Pablo,
-> 
-> could you take these directly with Julian's Ack and the following?
-> 
-> Signed-off-by: Simon Horman <horms@verge.net.au>
+On Wed, Aug 30, 2017 at 05:18:04PM +0530, Arvind Yadav wrote:
+> rhashtable_params are not supposed to change at runtime. All
+> Functions rhashtable_* working with const rhashtable_params
+> provided by <linux/rhashtable.h>. So mark the non-const structs
+> as const.
 
-Series applied, thanks!
+Applied to nf, thanks.
