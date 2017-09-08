@@ -1,41 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ip6_gre: update mtu properly in ip6gre_err
-Date: Thu, 07 Sep 2017 20:00:23 -0700 (PDT)
-Message-ID: <20170907.200023.2239628642365916828.davem@davemloft.net>
-References: <bcd5956b4342a889e686a475e2ec4fcb36db3e57.1504603593.git.lucien.xin@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: lucien.xin@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:41586 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753132AbdIHDA0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 7 Sep 2017 23:00:26 -0400
-In-Reply-To: <bcd5956b4342a889e686a475e2ec4fcb36db3e57.1504603593.git.lucien.xin@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: zhizhou.tian@gmail.com
+Subject: [PATCH] net:netfilter alloc xt_byteslimit_htable with wrong size
+Date: Fri,  8 Sep 2017 11:00:16 +0800
+Message-ID: <1504839616-14519-1-git-send-email-zhizhou.tian@gmail.com>
+Cc: Zhizhou Tian <zhizhou.tian@gmail.com>
+To: pablo@netfilter.org, kadlec@blackhole.kfki.hu, fw@strlen.de,
+        davem@davemloft.net, netfilter-devel@vger.kernel.org,
+        coreteam@netfilter.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Xin Long <lucien.xin@gmail.com>
-Date: Tue,  5 Sep 2017 17:26:33 +0800
+From: Zhizhou Tian <zhizhou.tian@gmail.com>
 
-> Now when probessing ICMPV6_PKT_TOOBIG, ip6gre_err only subtracts the
-> offset of gre header from mtu info. The expected mtu of gre device
-> should also subtract gre header. Otherwise, the next packets still
-> can't be sent out.
-> 
-> Jianlin found this issue when using the topo:
->   client(ip6gre)<---->(nic1)route(nic2)<----->(ip6gre)server
-> 
-> and reducing nic2's mtu, then both tcp and sctp's performance with
-> big size data became 0.
-> 
-> This patch is to fix it by also subtracting grehdr (tun->tun_hlen)
-> from mtu info when updating gre device's mtu in ip6gre_err(). It
-> also needs to subtract ETH_HLEN if gre dev'type is ARPHRD_ETHER.
-> 
-> Reported-by: Jianlin Shi <jishi@redhat.com>
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+struct xt_byteslimit_htable used hlist_head,
+but alloc memory with sizeof(struct list_head)
 
-Applied and queued up for -stable, thanks.
+Change-Id: I75bc60e47e0823700d4303c9d763b7995e3b7bb3
+Signed-off-by: Zhizhou Tian <zhizhou.tian@gmail.com>
+---
+ net/netfilter/xt_hashlimit.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/netfilter/xt_hashlimit.c b/net/netfilter/xt_hashlimit.c
+index 10d4823..962ea4a 100644
+--- a/net/netfilter/xt_hashlimit.c
++++ b/net/netfilter/xt_hashlimit.c
+@@ -279,7 +279,7 @@ static int htable_create(struct net *net, struct hashlimit_cfg3 *cfg,
+ 		size = cfg->size;
+ 	} else {
+ 		size = (totalram_pages << PAGE_SHIFT) / 16384 /
+-		       sizeof(struct list_head);
++		       sizeof(struct hlist_head);
+ 		if (totalram_pages > 1024 * 1024 * 1024 / PAGE_SIZE)
+ 			size = 8192;
+ 		if (size < 16)
+@@ -287,7 +287,7 @@ static int htable_create(struct net *net, struct hashlimit_cfg3 *cfg,
+ 	}
+ 	/* FIXME: don't use vmalloc() here or anywhere else -HW */
+ 	hinfo = vmalloc(sizeof(struct xt_hashlimit_htable) +
+-	                sizeof(struct list_head) * size);
++	                sizeof(struct hlist_head) * size);
+ 	if (hinfo == NULL)
+ 		return -ENOMEM;
+ 	*out_hinfo = hinfo;
+-- 
+2.7.4
+
