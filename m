@@ -1,184 +1,72 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: Re: [PATCH iproute2 1/2] lib/libnetlink: re malloc buff if size is
- not enough
-Date: Fri, 8 Sep 2017 14:32:38 +0200
-Message-ID: <20170908123237.xzbvypljnsgitngr@unicorn.suse.cz>
-References: <1504865697-27274-1-git-send-email-liuhangbin@gmail.com>
- <1504865697-27274-2-git-send-email-liuhangbin@gmail.com>
- <20170908110247.GS2399@orbyte.nwl.cc>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net] bpf: don't select potentially stale ri->map from
+ buggy xdp progs
+Date: Fri, 08 Sep 2017 14:34:13 +0200
+Message-ID: <59B28E45.40700@iogearbox.net>
+References: <01d69254802986ad3a8b18a8650c45df3df95def.1504821825.git.daniel@iogearbox.net>      <20170908070610.4b8e1df1@redhat.com>    <59B27234.4050703@iogearbox.net> <20170908135242.55f99177@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Phil Sutter <phil@nwl.cc>, Hangbin Liu <liuhangbin@gmail.com>,
-        netdev@vger.kernel.org,
-        Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, ast@fb.com, john.fastabend@gmail.com,
+        netdev@vger.kernel.org
+To: Jesper Dangaard Brouer <brouer@redhat.com>, andy@greyhouse.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:41788 "EHLO mx1.suse.de"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1753645AbdIHMck (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 8 Sep 2017 08:32:40 -0400
-Content-Disposition: inline
-In-Reply-To: <20170908110247.GS2399@orbyte.nwl.cc>
+Received: from www62.your-server.de ([213.133.104.62]:44357 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754951AbdIHMeX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 8 Sep 2017 08:34:23 -0400
+In-Reply-To: <20170908135242.55f99177@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 08, 2017 at 01:02:47PM +0200, Phil Sutter wrote:
-> Hi Hangbin,
-> 
-> On Fri, Sep 08, 2017 at 06:14:56PM +0800, Hangbin Liu wrote:
-> [...]
-> > diff --git a/lib/libnetlink.c b/lib/libnetlink.c
-> > index be7ac86..37cfb5a 100644
-> > --- a/lib/libnetlink.c
-> > +++ b/lib/libnetlink.c
-> > @@ -402,6 +402,59 @@ static void rtnl_dump_error(const struct rtnl_handle *rth,
-> >  	}
-> >  }
-> >  
-> > +static int rtnl_recvmsg(int fd, struct msghdr *msg, char **buf)
-> > +{
-> > +	struct iovec *iov;
-> > +	int len = -1, buf_len = 32768;
-> > +	char *buffer = *buf;
-> 
-> Isn't it possible to make 'buffer' static instead of the two 'buf'
-> variables in rtnl_dump_filter_l() and __rtnl_talk()? Then we would have
-> only a single buffer which is shared between both functions instead of
-> two which are independently allocated.
+On 09/08/2017 01:52 PM, Jesper Dangaard Brouer wrote:
+> On Fri, 08 Sep 2017 12:34:28 +0200 Daniel Borkmann <daniel@iogearbox.net> wrote:
+>> On 09/08/2017 07:06 AM, Jesper Dangaard Brouer wrote:
+>>> On Fri,  8 Sep 2017 00:14:51 +0200
+>>> Daniel Borkmann <daniel@iogearbox.net> wrote:
+>>>
+>>>> +	/* This is really only caused by a deliberately crappy
+>>>> +	 * BPF program, normally we would never hit that case,
+>>>> +	 * so no need to inform someone via tracepoints either,
+>>>> +	 * just bail out.
+>>>> +	 */
+>>>> +	if (unlikely(map_owner != xdp_prog))
+>>>> +		return -EINVAL;
+>>>
+>>> IMHO we do need to call the tracepoint here.  It is not just crappy
+>>> BPF-progs that cause this situation, it is also drivers not implementing
+>>> XDP_REDIRECT yet (which is all but ixgbe).  Due to the level XDP
+>>> operates at, tracepoints are the only way users can runtime troubleshoot
+>>> their XDP programs.
+>>
+>> Drivers not implementing XDP_REDIRECT don't even get there in
+>> the first place. What they will do is to hit the 'default' case
+>> when they check for the action code from the BPF program. Then
+>> call into bpf_warn_invalid_xdp_action(act), and fall-through
+>> to hit the tracepoint at trace_xdp_exception() which is also
+>> triggered by XDP_ABORTED usually. So when that happens we do
+>> complain loudly and call a tracepoint already. We should probably
+>> tweak the bpf_warn_invalid_xdp_action() message a little to make
+>> it clear that the action could also just be unsupported by the
+>> driver instead of being illegal.
+>
+> Yes. drivers not implementing XDP_REDIRECT will cause a tracepoint
+> trace_xdp_exception() to be called for its _own_ packets.
 
-Do we have to worry about reentrancy? Only arpd is multithreaded in
-iproute2 but there might be also other users of libnetlink.
+Yep, plus a big one time warning for the case a user doesn't
+look at tracepoints initially.
 
-> > +
-> > +	int flag = MSG_PEEK | MSG_TRUNC;
-> > +
-> > +	if (buffer == NULL)
-> > +re_malloc:
-> > +		buffer = malloc(buf_len);
-> 
-> I think using realloc() here is more appropriate since there is no need
-> to free the buffer in beforehand and calling realloc(NULL, len) is
-> equivalent to calling malloc(len). I think 'realloc' is also a better
-> name for the goto label.
-> 
-> > +	if (buffer == NULL) {
-> > +		fprintf(stderr, "malloc error: no enough buffer\n");
-> 
-> Minor typo here: s/no/not/
-> 
-> > +		return -1;
-> 
-> Return -ENOMEM?
+> But it will still setup and leave map and map_owner pointer dangling.
+> Another NIC can load an xdp_prog that return XDP_REDIRECT, which will hit
+> above if-statement, and its packets will disappear, without getting
+> recorded by a tracepoint (thus hard to debug!).
 
-Hm... the only caller of rtnl_dump_filter_l only checks if the return
-value is negative. Even worse, at least some of the functions calling
-__rtnl_talk() check errno (or use perror()) instead, even if it's not
-always preserved. That's something for a wider cleanup, I would say.
-
-> 
-> > +	}
-> > +
-> > +	iov = msg->msg_iov;
-> > +	iov->iov_base = buffer;
-> > +	iov->iov_len = buf_len;
-> > +
-> > +re_recv:
-> 
-> Just call this 'recv'? (Not really important though.)
-> 
-> > +	len = recvmsg(fd, msg, flag);
-> > +
-> > +	if (len < 0) {
-> > +		if (errno == EINTR || errno == EAGAIN)
-> > +			return 0;
-> 
-> Instead of returning 0 (which makes callers retry), goto re_recv?
-> 
-> > +		fprintf(stderr, "netlink receive error %s (%d)\n",
-> > +			strerror(errno), errno);
-> > +		return len;
-> > +	}
-> > +
-> > +	if (len == 0) {
-> > +		fprintf(stderr, "EOF on netlink\n");
-> > +		return -1;
-> 
-> Return -ENODATA here? (Initially I though about -EOF, but EOF is -1 so
-> that would be incorrect).
-> 
-> > +	}
-> > +
-> > +	if (len > buf_len) {
-> > +		free(buffer);
-> 
-> If you use realloc() above, this can be dropped.
-> 
-> > +		buf_len = len;
-> 
-> For this to work you have to make buf_len static too, otherwise you will
-> unnecessarily reallocate the buffer. Oh, and that also requires the
-> single buffer (as pointed out above) because you will otherwise use a
-> common buf_len for both static buffers passed to this function.
-> 
-> > +		flag = 0;
-> > +		goto re_malloc;
-> > +	}
-> > +
-> > +	if (flag != 0) {
-> > +		flag = 0;
-> > +		goto re_recv;
-> > +	}
-> > +
-> > +	*buf = buffer;
-> > +	return len;
-> > +}
-> > +
-> >  int rtnl_dump_filter_l(struct rtnl_handle *rth,
-> >  		       const struct rtnl_dump_filter_arg *arg)
-> >  {
-> > @@ -413,31 +466,20 @@ int rtnl_dump_filter_l(struct rtnl_handle *rth,
-> >  		.msg_iov = &iov,
-> >  		.msg_iovlen = 1,
-> >  	};
-> > -	char buf[32768];
-> > +	static char *buf = NULL;
-> 
-> If you keep the static buffer in rtnl_recvmsg(), there is no need to
-> assign NULL here.
-> 
-> >  	int dump_intr = 0;
-> >  
-> > -	iov.iov_base = buf;
-> >  	while (1) {
-> >  		int status;
-> >  		const struct rtnl_dump_filter_arg *a;
-> >  		int found_done = 0;
-> >  		int msglen = 0;
-> >  
-> > -		iov.iov_len = sizeof(buf);
-> > -		status = recvmsg(rth->fd, &msg, 0);
-> > -
-> > -		if (status < 0) {
-> > -			if (errno == EINTR || errno == EAGAIN)
-> > -				continue;
-> > -			fprintf(stderr, "netlink receive error %s (%d)\n",
-> > -				strerror(errno), errno);
-> > -			return -1;
-> > -		}
-> > -
-> > -		if (status == 0) {
-> > -			fprintf(stderr, "EOF on netlink\n");
-> > -			return -1;
-> > -		}
-> > +		status = rtnl_recvmsg(rth->fd, &msg, &buf);
-> > +		if (status < 0)
-> > +			return status;
-> > +		else if (status == 0)
-> > +			continue;
-> 
-> When retrying inside rtnl_recvmsg(), it won't return 0 anymore. I
-> believe the whole 'while (1)' loop could go away then.
-
-Doesn't this loop also handle the response divided into multiple
-packets?
-
-Michal Kubecek
+If a user wants to reproduce this exact error, he would need
+to go and reload the program on the driver not supporting the
+XDP_REDIRECT in the first place, and then reload his buggy program
+on the other driver supporting XDP_REDIRECT but w/o having called
+bpf_xdp_redirect_map(), so exactly once on the switch from one
+driver to another with this misuse, any subsequent packets will
+trigger _trace_xdp_redirect_err(), same way as if the buggy
+program was loaded to the 2nd driver from the beginning since
+the map and ifindex etc will be zero, hence my comment on this.
