@@ -1,37 +1,46 @@
-From: soohoon.lee@f5.com
-Subject: IFA_F_OPTIMISTIC is not supported?
-Date: Fri, 08 Sep 2017 10:29:03 -0400
-Message-ID: <59b2a92f.G2i6Z3JSoznmqvuW%soohoon.lee@f5.com>
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH net-next v2 02/10] net: dsa: debugfs: add tree
+Date: Fri, 8 Sep 2017 16:40:28 +0200
+Message-ID: <20170908144028.GA13685@kroah.com>
+References: <20170828191748.19492-1-vivien.didelot@savoirfairelinux.com>
+ <20170828191748.19492-3-vivien.didelot@savoirfairelinux.com>
+ <87shfxxoi4.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail13.f5.com ([104.219.104.14]:59145 "EHLO mail13.f5.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932091AbdIHOjQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 8 Sep 2017 10:39:16 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Egil Hjelmeland <privat@egil-hjelmeland.no>,
+        John Crispin <john@phrozen.org>,
+        Woojung Huh <Woojung.Huh@microchip.com>,
+        Sean Wang <sean.wang@mediatek.com>,
+        Nikita Yushchenko <nikita.yoush@cogentembedded.com>,
+        Chris Healy <cphealy@gmail.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <87shfxxoi4.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-rtm_newaddr masks off OPTIMISTIC.
+On Fri, Sep 08, 2017 at 10:18:27AM -0400, Vivien Didelot wrote:
+> Hi Greg,
+> 
+> Can I ask for a quick review of this patch as well? It's the one adding
+> the boilerplate for a single debugfs file, and I'm pretty sure it can be
+> reduced somehow.
 
-inet6_rtm_newaddr(struct sk_buff *skb, struct nlmsghdr *nlh)
-...
-        /* We ignore other flags so far. */
-        ifa_flags &= IFA_F_NODAD | IFA_F_HOMEADDRESS | IFA_F_MANAGETEMPADDR |
-                     IFA_F_NOPREFIXROUTE;
+I don't see a patch here :(
 
-Is there any problem or not allowed?
+> Also more important, you will notice what seems to be a bug to me:
+> I can read or write a file even if I didn't mask the corresponding mode,
+> hence the double check in dsa_debugfs_show and dsa_debugfs_write.
 
-I need to do something like adding a route for the address after adding the address but fails because the address is not useable yet.
-I tried NODAD but there's still little delay until IFA_F_TENTATIVE is cleared.
-	- rtm_newaddr sets IFA_F_TENTATIVE
-	- set a timer for dad start with delay=0
-	- some delay
-	- dad starts but ends immediately because of NODAD flag, and clears TENTATIVE.
+The mode can be changed by userspace, you shouldn't ever need to check
+it in any debugfs calls, right?
 
-And it looks like OPTIMISTIC does what I need but kind of disabled like the code above.
+thanks,
 
-Thanks,
-Soohoon.
+greg k-h
