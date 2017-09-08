@@ -1,36 +1,77 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net] netlink: access nlk groups safely in netlink bind and getname
-Date: Fri, 8 Sep 2017 12:35:51 -0700
-Message-ID: <CAM_iQpXA7q9_WADayWiHgqsz=VfhNqZr42TL0F+N2XK+toEEOQ@mail.gmail.com>
-References: <cfb5c05d158b278beb2f1441c67a068a8bb27d44.1504670009.git.lucien.xin@gmail.com>
+From: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+Subject: Re: [PATCH net] net: qualcomm: rmnet: Fix a double free
+Date: Fri, 08 Sep 2017 13:44:52 -0600
+Message-ID: <2ddbb6da514108b4e70ccd8362292134@codeaurora.org>
+References: <20170908102356.tzysh6qaiesd2umz@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: network dev <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Florian Westphal <fw@strlen.de>
-To: Xin Long <lucien.xin@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f44.google.com ([74.125.83.44]:34638 "EHLO
-        mail-pg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756671AbdIHTgM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 8 Sep 2017 15:36:12 -0400
-Received: by mail-pg0-f44.google.com with SMTP id q68so6354772pgq.1
-        for <netdev@vger.kernel.org>; Fri, 08 Sep 2017 12:36:12 -0700 (PDT)
-In-Reply-To: <cfb5c05d158b278beb2f1441c67a068a8bb27d44.1504670009.git.lucien.xin@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        kernel-janitors@vger.kernel.org
+To: Dan Carpenter <dan.carpenter@oracle.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <20170908102356.tzysh6qaiesd2umz@mwanda>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 5, 2017 at 8:53 PM, Xin Long <lucien.xin@gmail.com> wrote:
-> Now there is no lock protecting nlk ngroups/groups' accessing in
-> netlink bind and getname. It's safe from nlk groups' setting in
-> netlink_release, but not from netlink_realloc_groups called by
-> netlink_setsockopt.
->
-> netlink_lock_table is needed in both netlink bind and getname when
-> accessing nlk groups.
+> diff --git a/drivers/net/ethernet/qualcomm/rmnet/rmnet_map_data.c
+> b/drivers/net/ethernet/qualcomm/rmnet/rmnet_map_data.c
+> index 557c9bf1a469..0335fce54201 100644
+> --- a/drivers/net/ethernet/qualcomm/rmnet/rmnet_map_data.c
+> +++ b/drivers/net/ethernet/qualcomm/rmnet/rmnet_map_data.c
+> @@ -95,10 +95,8 @@ struct sk_buff *rmnet_map_deaggregate(struct sk_buff 
+> *skb)
+>  	skb_pull(skb, packet_len);
+> 
+>  	/* Some hardware can send us empty frames. Catch them */
+> -	if (ntohs(maph->pkt_len) == 0) {
+> -		kfree_skb(skb);
+> +	if (ntohs(maph->pkt_len) == 0)
+>  		return NULL;
+> -	}
+> 
+>  	return skbn;
+>  }
 
-This looks very odd.
+Thanks for the patch. This is fixing the double free, but is leaking the 
+new skb skbn
+created. Perhaps we should add the check earlier -
 
-netlink_lock_table() should be protecting nl_table, why
-it also protects nlk->groups?? For me it looks like you
-need lock_sock() instead.
+diff --git a/drivers/net/ethernet/qualcomm/rmnet/rmnet_map_data.c 
+b/drivers/net/ethernet/qualcomm/rmnet/rmnet_map_data.c
+index 557c9bf..86b8c75 100644
+--- a/drivers/net/ethernet/qualcomm/rmnet/rmnet_map_data.c
++++ b/drivers/net/ethernet/qualcomm/rmnet/rmnet_map_data.c
+@@ -84,6 +84,10 @@ struct sk_buff *rmnet_map_deaggregate(struct sk_buff 
+*skb)
+         if (((int)skb->len - (int)packet_len) < 0)
+                 return NULL;
+
++       /* Some hardware can send us empty frames. Catch them */
++       if (ntohs(maph->pkt_len) == 0)
++               return NULL;
++
+         skbn = alloc_skb(packet_len + RMNET_MAP_DEAGGR_SPACING, 
+GFP_ATOMIC);
+         if (!skbn)
+                 return NULL;
+@@ -94,11 +98,5 @@ struct sk_buff *rmnet_map_deaggregate(struct sk_buff 
+*skb)
+         memcpy(skbn->data, skb->data, packet_len);
+         skb_pull(skb, packet_len);
+
+-       /* Some hardware can send us empty frames. Catch them */
+-       if (ntohs(maph->pkt_len) == 0) {
+-               kfree_skb(skb);
+-               return NULL;
+-       }
+-
+         return skbn;
+  }
+
+
+-- 
+Qualcomm Innovation Center, Inc.
+The Qualcomm Innovation Center, Inc. is a member of Code Aurora Forum, a 
+Linux Foundation Collaborative Project
