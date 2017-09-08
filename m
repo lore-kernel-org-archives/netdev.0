@@ -1,33 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 0/2] enable hires timer to timeout datagram socket
-Date: Fri, 08 Sep 2017 10:26:45 -0700 (PDT)
-Message-ID: <20170908.102645.1086537961399780085.davem@davemloft.net>
-References: <20170908170409.GA10020@u40b0340c692b58f6553c.ant.amazon.com>
-        <20170908.101657.2131282706895004921.davem@davemloft.net>
-        <1504891402.32080.5.camel@infradead.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Use after free in __dst_destroy_metrics_generic
+Date: Fri, 08 Sep 2017 10:28:57 -0700
+Message-ID: <1504891737.15310.78.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1234e09b75197d43ed84bdb1b154b4b6@codeaurora.org>
+         <CAM_iQpXKfUkbyuuZEZXyPrVVCoPaxnCmCARz=Jf0VtU1m9NsZg@mail.gmail.com>
+         <1504891013.15310.76.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20170908.101936.1889796764038070767.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: eduval@amazon.com, vallish@amazon.com, shuah@kernel.org,
-        richardcochran@gmail.com, xiyou.wangcong@gmail.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        anchalag@amazon.com, dwmw@amazon.com
-To: dwmw2@infradead.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1504891402.32080.5.camel@infradead.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: xiyou.wangcong@gmail.com, subashab@codeaurora.org,
+        netdev@vger.kernel.org, lorenzo@google.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:37672 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754260AbdIHR27 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 8 Sep 2017 13:28:59 -0400
+Received: by mail-pf0-f194.google.com with SMTP id a2so1709534pfj.4
+        for <netdev@vger.kernel.org>; Fri, 08 Sep 2017 10:28:59 -0700 (PDT)
+In-Reply-To: <20170908.101936.1889796764038070767.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Woodhouse <dwmw2@infradead.org>
-Date: Fri, 08 Sep 2017 18:23:22 +0100
+On Fri, 2017-09-08 at 10:19 -0700, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Fri, 08 Sep 2017 10:16:53 -0700
+> 
+> > On Fri, 2017-09-08 at 09:10 -0700, Cong Wang wrote:
+> >> On Thu, Sep 7, 2017 at 5:52 PM, Subash Abhinov Kasiviswanathan
+> >> <subashab@codeaurora.org> wrote:
+> >> > We are seeing a possible use after free in ip6_dst_destroy.
+> >> >
+> >> > It appears as if memory of the __DST_METRICS_PTR(old) was freed in some path
+> >> > and allocated
+> >> > to ion driver. ion driver has also freed it. Finally the memory is freed by
+> >> > the
+> >> > fib gc and crashes since it is already deallocated.
+> >> 
+> >> Does the attach (compile-only) patch help anything?
+> >> 
+> >> From my _quick_ glance, it seems we miss the refcnt'ing
+> >> right in __dst_destroy_metrics_generic().
+> >> 
+> >> Thanks!
+> > 
+> > But 4.9 kernels do not have yet the DST_METRICS_REFCOUNTED thing,
+> > since this was added in 4.12
+> 
+> It was backported via -stable.
 
-> I don't know that anyone's ever tried saying "show me the chapter and
-> verse of the documentation"
-
-Do you know why I brought this up?  Because the person I am replying
-to told me that the syscall documentation should have suggested this
-or that.
-
-That's why.
-
-So let's concentrate on the other aspects of my reply, ok?
+I hate working on lazy bug reports.
