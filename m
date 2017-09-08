@@ -1,82 +1,94 @@
-From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: [PATCH net] ipv6: fix memory leak with multiple tables during netns destruction
-Date: Fri,  8 Sep 2017 10:26:19 +0200
-Message-ID: <204659713af1979c26b8defb2b52e1668b4e5aad.1504859062.git.sd@queasysnail.net>
-Cc: Sabrina Dubroca <sd@queasysnail.net>
-To: netdev@vger.kernel.org
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: [PATCH iproute2 1/2] lib/libnetlink: re malloc buff if size is
+ not enough
+Date: Fri, 8 Sep 2017 16:51:13 +0200
+Message-ID: <20170908145113.GA30028@orbyte.nwl.cc>
+References: <1504865697-27274-1-git-send-email-liuhangbin@gmail.com>
+ <1504865697-27274-2-git-send-email-liuhangbin@gmail.com>
+ <20170908110247.GS2399@orbyte.nwl.cc>
+ <20170908140131.GU5465@leo.usersys.redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        Michal Kubecek <mkubecek@suse.cz>
+To: Hangbin Liu <liuhangbin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51284 "EHLO mx1.redhat.com"
+Received: from orbyte.nwl.cc ([151.80.46.58]:37334 "EHLO orbyte.nwl.cc"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754657AbdIHI01 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 8 Sep 2017 04:26:27 -0400
+        id S1755906AbdIHOvQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 8 Sep 2017 10:51:16 -0400
+Content-Disposition: inline
+In-Reply-To: <20170908140131.GU5465@leo.usersys.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-fib6_net_exit only frees the main and local tables. If another table was
-created with fib6_alloc_table, we leak it when the netns is destroyed.
+Hi,
 
-Fix this in the same way ip_fib_net_exit cleans up tables, by walking
-through the whole hashtable of fib6_table's. We can get rid of the
-special cases for local and main, since they're also part of the
-hashtable.
+On Fri, Sep 08, 2017 at 10:01:31PM +0800, Hangbin Liu wrote:
+[...]
+> > > diff --git a/lib/libnetlink.c b/lib/libnetlink.c
+> > > index be7ac86..37cfb5a 100644
+> > > --- a/lib/libnetlink.c
+> > > +++ b/lib/libnetlink.c
+> > > @@ -402,6 +402,59 @@ static void rtnl_dump_error(const struct rtnl_handle *rth,
+> > >  	}
+> > >  }
+> > >  
+> > > +static int rtnl_recvmsg(int fd, struct msghdr *msg, char **buf)
+> > > +{
+> > > +	struct iovec *iov;
+> > > +	int len = -1, buf_len = 32768;
+> > > +	char *buffer = *buf;
+> > 
+> > Isn't it possible to make 'buffer' static instead of the two 'buf'
+> > variables in rtnl_dump_filter_l() and __rtnl_talk()? Then we would have
+> > only a single buffer which is shared between both functions instead of
+> > two which are independently allocated.
+> 
+> I was also thinking of this before. But in function ipaddrlabel_flush()
+> 
+> 	if (rtnl_dump_filter(&rth, flush_addrlabel, NULL) < 0)
+> 
+> It will cal rtnl_dump_filter_l() first via
+> rtnl_dump_filter() -> rtnl_dump_filter_nc() -> rtnl_dump_filter_l().
+> 
+> Then call rtnl_talk() later via call back
+> a->filter(&nladdr, h, a->arg1) -> flush_addrlabel() -> rtnl_talk()
+> 
+> So if we only use one static buffer in rtnl_recvmsg(). Then it will be written
+> at lease twice.
 
-Reproducer:
-    ip netns add x
-    ip -net x -6 rule add from 6003:1::/64 table 100
-    ip netns del x
+Oh yes, in that case we really can't have a single buffer.
 
-Reported-by: Jianlin Shi <jishi@redhat.com>
-Fixes: 58f09b78b730 ("[NETNS][IPV6] ip6_fib - make it per network namespace")
-Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
----
- net/ipv6/ip6_fib.c | 25 +++++++++++++++++++------
- 1 file changed, 19 insertions(+), 6 deletions(-)
+[...]
+> > > +		buf_len = len;
+> > 
+> > For this to work you have to make buf_len static too, otherwise you will
+> > unnecessarily reallocate the buffer. Oh, and that also requires the
+> > single buffer (as pointed out above) because you will otherwise use a
+> > common buf_len for both static buffers passed to this function.
+> 
+> Since we have to use two static bufffers. So how about check like
+> 
+> 	if (len > strlen(buffer))
 
-diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
-index a3b5c163325f..8280172c806c 100644
---- a/net/ipv6/ip6_fib.c
-+++ b/net/ipv6/ip6_fib.c
-@@ -191,6 +191,12 @@ void rt6_free_pcpu(struct rt6_info *non_pcpu_rt)
- }
- EXPORT_SYMBOL_GPL(rt6_free_pcpu);
- 
-+static void fib6_free_table(struct fib6_table *table)
-+{
-+	inetpeer_invalidate_tree(&table->tb6_peers);
-+	kfree(table);
-+}
-+
- static void fib6_link_table(struct net *net, struct fib6_table *tb)
- {
- 	unsigned int h;
-@@ -2022,15 +2028,22 @@ static int __net_init fib6_net_init(struct net *net)
- 
- static void fib6_net_exit(struct net *net)
- {
-+	unsigned int i;
-+
- 	rt6_ifdown(net, NULL);
- 	del_timer_sync(&net->ipv6.ip6_fib_timer);
- 
--#ifdef CONFIG_IPV6_MULTIPLE_TABLES
--	inetpeer_invalidate_tree(&net->ipv6.fib6_local_tbl->tb6_peers);
--	kfree(net->ipv6.fib6_local_tbl);
--#endif
--	inetpeer_invalidate_tree(&net->ipv6.fib6_main_tbl->tb6_peers);
--	kfree(net->ipv6.fib6_main_tbl);
-+	for (i = 0; i < FIB_TABLE_HASHSZ; i++) {
-+		struct hlist_head *head = &net->ipv6.fib_table_hash[i];
-+		struct hlist_node *tmp;
-+		struct fib6_table *tb;
-+
-+		hlist_for_each_entry_safe(tb, tmp, head, tb6_hlist) {
-+			hlist_del(&tb->tb6_hlist);
-+			fib6_free_table(tb);
-+		}
-+	}
-+
- 	kfree(net->ipv6.fib_table_hash);
- 	kfree(net->ipv6.rt6_stats);
- 	fib6_notifier_exit(net);
--- 
-2.14.1
+I don't think that will work. We are reusing the buffer and it contains
+binary data, so a NUL byte may appear anywhere. I fear you will have to
+change rtnl_recvmsg() to accept a buflen parameter which callers have to
+define statically together with the buffer pointer.
+
+Regarding Michal's concern about reentrancy, maybe we should go into a
+different direction and make rtnl_recvmsg() return a newly allocated
+buffer which the caller has to free.
+
+[...]
+> > When retrying inside rtnl_recvmsg(), it won't return 0 anymore. I
+> > believe the whole 'while (1)' loop could go away then.
+> > 
+> 
+> Like Michal said, there may have multi netlink packets?
+
+Ah yes, I missed that.
+
+Thanks, Phil
