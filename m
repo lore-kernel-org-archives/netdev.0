@@ -1,28 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] ip_tunnel: fix setting ttl and tos value in
- collect_md mode
-Date: Fri, 08 Sep 2017 20:47:53 -0700 (PDT)
-Message-ID: <20170908.204753.178379645402959649.davem@davemloft.net>
+Subject: Re: [PATCH 2/2] ip6_tunnel: fix setting hop_limit value for ipv6
+ tunnel
+Date: Fri, 08 Sep 2017 20:48:06 -0700 (PDT)
+Message-ID: <20170908.204806.1057459442535263482.davem@davemloft.net>
 References: <1504764515-13536-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
+        <1504764515-13536-2-git-send-email-yanhaishuang@cmss.chinamobile.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: kuznet@ms2.inr.ac.ru, yoshfuji@linux-ipv6.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org, ast@fb.com
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: yanhaishuang@cmss.chinamobile.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1504764515-13536-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:42774 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753201AbdIIDsH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 8 Sep 2017 23:48:07 -0400
+In-Reply-To: <1504764515-13536-2-git-send-email-yanhaishuang@cmss.chinamobile.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
-Date: Thu,  7 Sep 2017 14:08:34 +0800
+Date: Thu,  7 Sep 2017 14:08:35 +0800
 
-> ttl and tos variables are declared and assigned, but are not used in
-> iptunnel_xmit() function.
+> Similar to vxlan/geneve tunnel, if hop_limit is zero, it should fall
+> back to ip6_dst_hoplimt().
 > 
-> Fixes: cfc7381b3002 ("ip_tunnel: add collect_md mode to IPIP tunnel")
-> Cc: Alexei Starovoitov <ast@fb.com>
 > Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
 
 Applied.
