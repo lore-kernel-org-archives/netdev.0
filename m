@@ -1,68 +1,60 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH] net: bonding: Fix transmit load balancing in balance-alb
- mode if specified by sysfs
-Date: Sat, 9 Sep 2017 14:28:11 +0300
-Message-ID: <adab6b74-574b-74cb-09ea-3b5090113ca6@cumulusnetworks.com>
-References: <17EC94B0A072C34B8DCF0D30AD16044A02985CB5@BPXM09GP.gisp.nec.co.jp>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH RFC 3/5] Add KSZ8795 switch driver
+Date: Sat, 9 Sep 2017 17:45:34 +0200
+Message-ID: <20170909154534.GA19117@lunn.ch>
+References: <93AF473E2DA327428DE3D46B72B1E9FD41121A87@CHN-SV-EXMX02.mchp-main.com>
+ <20170908091856.GB17738@amd>
+ <93AF473E2DA327428DE3D46B72B1E9FD41121E3D@CHN-SV-EXMX02.mchp-main.com>
+ <20170908215735.GF27428@amd>
+ <93AF473E2DA327428DE3D46B72B1E9FD41123010@CHN-SV-EXMX02.mchp-main.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-2022-jp
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Reinis Rozitis <r@roze.lv>
-To: Kosuke Tatsukawa <tatsu@ab.jp.nec.com>,
-        Jay Vosburgh <j.vosburgh@gmail.com>,
-        Veaceslav Falico <vfalico@gmail.com>,
-        Andy Gospodarek <andy@greyhouse.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: pavel@ucw.cz, muvarov@gmail.com, nathan.leigh.conrad@gmail.com,
+        vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Woojung.Huh@microchip.com
+To: Tristram.Ha@microchip.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <17EC94B0A072C34B8DCF0D30AD16044A02985CB5@BPXM09GP.gisp.nec.co.jp>
+Content-Disposition: inline
+In-Reply-To: <93AF473E2DA327428DE3D46B72B1E9FD41123010@CHN-SV-EXMX02.mchp-main.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 07/09/17 01:47, Kosuke Tatsukawa wrote:
-> Commit cbf5ecb30560 ("net: bonding: Fix transmit load balancing in
-> balance-alb mode") tried to fix transmit dynamic load balancing in
-> balance-alb mode, which wasn't working after commit 8b426dc54cf4
-> ("bonding: remove hardcoded value").
+On Sat, Sep 09, 2017 at 01:44:37AM +0000, Tristram.Ha@microchip.com wrote:
+> > -----Original Message-----
+> > From: Pavel Machek [mailto:pavel@ucw.cz]
+> > Sent: Friday, September 08, 2017 2:58 PM
+> > To: Tristram Ha - C24268
+> > Cc: andrew@lunn.ch; muvarov@gmail.com; nathan.leigh.conrad@gmail.com;
+> > vivien.didelot@savoirfairelinux.com; f.fainelli@gmail.com;
+> > netdev@vger.kernel.org; linux-kernel@vger.kernel.org; Woojung Huh -
+> > C21699
+> > Subject: Re: [PATCH RFC 3/5] Add KSZ8795 switch driver
+> > 
+> > Hi!
+> > 
+> > > > > +	default:
+> > > > > +		processed = false;
+> > > > > +		break;
+> > > > > +	}
+> > > > > +	if (processed)
+> > > > > +		*val = data;
+> > > > > +}
+> > > >
+> > > > Similar code will be needed by other drivers, right?
+> > >
+> > > Although KSZ8795 and KSZ8895 may use the same code, the other
+> > > chips will have different code.
+> > 
+> > Ok, please make sure code is shared between these two.
 > 
-> It turned out that my previous patch only fixed the case when
-> balance-alb was specified as bonding module parameter, and not when
-> balance-alb mode was set using /sys/class/net/*/bonding/mode (the most
-> common usage).  In the latter case, tlb_dynamic_lb was set up according
-> to the default mode of the bonding interface, which happens to be
-> balance-rr.
-> 
-> This additional patch addresses this issue by setting up tlb_dynamic_lb
-> to 1 if "mode" is set to balance-alb through the sysfs interface.
-> 
-> I didn't add code to change tlb_balance_lb back to the default value for
-> other modes, because "mode" is usually set up only once during
-> initialization, and it's not worthwhile to change the static variable
-> bonding_defaults in bond_main.c to a global variable just for this
-> purpose.
-> 
-> Commit 8b426dc54cf4 also changes the value of tlb_dynamic_lb for
-> balance-tlb mode if it is set up using the sysfs interface.  I didn't
-> change that behavior, because the value of tlb_balance_lb can be changed
-> using the sysfs interface for balance-tlb, and I didn't like changing
-> the default value back and forth for balance-tlb.
-> 
-> As for balance-alb, /sys/class/net/*/bonding/tlb_balance_lb cannot be
-> written to.  However, I think balance-alb with tlb_dynamic_lb set to 0
-> is not an intended usage, so there is little use making it writable at
-> this moment.
-> 
-> Fixes: 8b426dc54cf4 ("bonding: remove hardcoded value")
-> Reported-by: Reinis Rozitis <r@roze.lv>
-> Signed-off-by: Kosuke Tatsukawa <tatsu@ab.jp.nec.com>
-> Cc: stable@vger.kernel.org  # v4.12+
-> ---
->  drivers/net/bonding/bond_options.c |    3 +++
->  1 files changed, 3 insertions(+), 0 deletions(-)
-> 
+> The exact function probably cannot be shared between KSZ8795
+> and KSZ8895 drivers because although the register constants look
+> the same but their exact locations are different in the 2 chips.
 
-This fix is simpler and more suitable for -net, it fixes the case where
-we switch to ALB mode with tlb_dynamic_lb = 0. After it is in I'll fix the
-default tlb_dynamic_lb issue and restore the original behaviour.
+You need to be careful with such functions. If they look identical,
+somebody will try to consolidate them into one. So either you need to
+do the consolidation yourself in order to get it right, or you need to
+add a comment about how it differs.
 
-Acked-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+    Andrew
