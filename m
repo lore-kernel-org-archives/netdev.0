@@ -1,34 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [V2 PATCH net-next 0/2] Fixes for XDP_REDIRECT map
-Date: Fri, 08 Sep 2017 20:54:26 -0700 (PDT)
-Message-ID: <20170908.205426.624386613610674398.davem@davemloft.net>
-References: <150478756604.28665.6915020425359475729.stgit@firesoul>
+Subject: Re: [PATCH net] phy: mvebu-cp110: checking for NULL instead of
+ IS_ERR()
+Date: Fri, 08 Sep 2017 21:09:05 -0700 (PDT)
+Message-ID: <20170908.210905.626281012369795940.davem@davemloft.net>
+References: <20170908103137.zck6bw66sge4fhua@mwanda>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, borkmann@iogearbox.net,
-        john.fastabend@gmail.com, andy@greyhouse.net
-To: brouer@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:43006 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753213AbdIIDy0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 8 Sep 2017 23:54:26 -0400
-In-Reply-To: <150478756604.28665.6915020425359475729.stgit@firesoul>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kishon@ti.com, antoine.tenart@free-electrons.com,
+        netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: dan.carpenter@oracle.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170908103137.zck6bw66sge4fhua@mwanda>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Date: Thu, 07 Sep 2017 14:33:08 +0200
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Fri, 8 Sep 2017 13:31:37 +0300
 
-> This my V2 of catching XDP_REDIRECT and bpf_redirect_map() API usage
-> that can potentially crash the kernel.  Addressed Daniels feedback in
-> patch01, and added patch02 which catch and cleanup dangling map
-> pointers.
+> devm_ioremap_resource() never returns NULL, it only returns error
+> pointers so this test needs to be changed.
 > 
-> I know John and Daniel are working on a more long-term solution, of
-> recording the bpf_prog pointer together with the map pointer.  I just
-> wanted to propose these fixes as a stop-gap to the potential crashes.
+> Fixes: d0438bd6aa09 ("phy: add the mvebu cp110 comphy driver")
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> ---
+> This driver apparently is going through the net tree, but netdev isn't
+> listed as handling it in MAINTAINERS.  Kishon, do you know what's up
+> with that?
 
-Jesper if these are still relevant, please resubmit against the 'net'
-tree, thanks!
+Yeah let's sort this out before I apply this fix to my tree.
