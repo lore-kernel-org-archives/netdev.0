@@ -1,37 +1,53 @@
-From: =?gb2312?B?0c+6o8ur?= <yanhaishuang@cmss.chinamobile.com>
-Subject: Re: [PATCH] ipv4: Namespaceify tcp_max_orphans knob
-Date: Sat, 9 Sep 2017 09:25:40 +0800
-Message-ID: <798CA25A-CA09-4D06-A9B6-7C5791A6EEC1@cmss.chinamobile.com>
-References: <1504753808-13266-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
- <CAM_iQpV4gRwhT4VXPtJft38ixG6xE3PF9z4gB7HHJEUsqbCtOw@mail.gmail.com>
-Mime-Version: 1.0 (Mac OS X Mail 10.3 \(3273\))
-Content-Type: text/plain; charset=gb2312
+From: <Tristram.Ha@microchip.com>
+Subject: RE: [PATCH RFC 3/5] Add KSZ8795 switch driver
+Date: Sat, 9 Sep 2017 01:44:37 +0000
+Message-ID: <93AF473E2DA327428DE3D46B72B1E9FD41123010@CHN-SV-EXMX02.mchp-main.com>
+References: <93AF473E2DA327428DE3D46B72B1E9FD41121A87@CHN-SV-EXMX02.mchp-main.com>
+ <20170908091856.GB17738@amd>
+ <93AF473E2DA327428DE3D46B72B1E9FD41121E3D@CHN-SV-EXMX02.mchp-main.com>
+ <20170908215735.GF27428@amd>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Eric Dumazet <edumazet@google.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Cc: <andrew@lunn.ch>, <muvarov@gmail.com>,
+        <nathan.leigh.conrad@gmail.com>,
+        <vivien.didelot@savoirfairelinux.com>, <f.fainelli@gmail.com>,
+        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        <Woojung.Huh@microchip.com>
+To: <pavel@ucw.cz>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAM_iQpV4gRwhT4VXPtJft38ixG6xE3PF9z4gB7HHJEUsqbCtOw@mail.gmail.com>
+In-Reply-To: <20170908215735.GF27428@amd>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-
-> On 2017年9月9日, at 上午6:13, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+> -----Original Message-----
+> From: Pavel Machek [mailto:pavel@ucw.cz]
+> Sent: Friday, September 08, 2017 2:58 PM
+> To: Tristram Ha - C24268
+> Cc: andrew@lunn.ch; muvarov@gmail.com; nathan.leigh.conrad@gmail.com;
+> vivien.didelot@savoirfairelinux.com; f.fainelli@gmail.com;
+> netdev@vger.kernel.org; linux-kernel@vger.kernel.org; Woojung Huh -
+> C21699
+> Subject: Re: [PATCH RFC 3/5] Add KSZ8795 switch driver
 > 
-> On Wed, Sep 6, 2017 at 8:10 PM, Haishuang Yan
-> <yanhaishuang@cmss.chinamobile.com> wrote:
->> Different namespace application might require different maximal number
->> of TCP sockets independently of the host.
+> Hi!
 > 
-> So after your patch we could have N * net->ipv4.sysctl_tcp_max_orphans
-> in a whole system, right? This just makes OOM easier to trigger.
+> > > > +	default:
+> > > > +		processed = false;
+> > > > +		break;
+> > > > +	}
+> > > > +	if (processed)
+> > > > +		*val = data;
+> > > > +}
+> > >
+> > > Similar code will be needed by other drivers, right?
+> >
+> > Although KSZ8795 and KSZ8895 may use the same code, the other
+> > chips will have different code.
 > 
+> Ok, please make sure code is shared between these two.
 
->From my understanding, before the patch, we had N * net->ipv4.sysctl_tcp_max_orphans,
-and after the patch, we could have ns1.sysctl_tcp_max_orphans + ns2.sysctl_tcp_max_orphans
-+ ns3.sysctl_tcp_max_orphans, is that right? Thanks for your reviewing.
+The exact function probably cannot be shared between KSZ8795
+and KSZ8895 drivers because although the register constants look
+the same but their exact locations are different in the 2 chips.
