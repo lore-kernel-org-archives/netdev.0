@@ -1,62 +1,152 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH iproute2 3/3] bridge: request vlans along with link information
-Date: Sat, 9 Sep 2017 09:24:31 -0700
-Message-ID: <CAJieiUhT75fM3LuhNW32QkbJA9TO5dHwb_G-aRD2H70jF-FG2A@mail.gmail.com>
-References: <1504907543-14394-1-git-send-email-mrv@mojatatu.com> <1504907543-14394-4-git-send-email-mrv@mojatatu.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next 2/3] net: ethernet: socionext: add AVE ethernet
+ driver
+Date: Sat, 9 Sep 2017 09:30:58 -0700
+Message-ID: <46b1bd9e-35ff-dc7f-fa32-f8d22b37a403@gmail.com>
+References: <1504875731-3680-1-git-send-email-hayashi.kunihiko@socionext.com>
+ <1504875731-3680-3-git-send-email-hayashi.kunihiko@socionext.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: "stephen@networkplumber.org" <stephen@networkplumber.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Jamal Hadi Salim <jhs@mojatatu.com>
-To: Roman Mashak <mrv@mojatatu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f49.google.com ([209.85.218.49]:34070 "EHLO
-        mail-oi0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757555AbdIIQYc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 9 Sep 2017 12:24:32 -0400
-Received: by mail-oi0-f49.google.com with SMTP id l74so24187348oih.1
-        for <netdev@vger.kernel.org>; Sat, 09 Sep 2017 09:24:32 -0700 (PDT)
-In-Reply-To: <1504907543-14394-4-git-send-email-mrv@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 8bit
+Cc: Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
+        devicetree@vger.kernel.org,
+        Masahiro Yamada <yamada.masahiro@socionext.com>,
+        Masami Hiramatsu <masami.hiramatsu@linaro.org>,
+        Jassi Brar <jaswinder.singh@linaro.org>
+To: Kunihiko Hayashi <hayashi.kunihiko@socionext.com>,
+        netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+        Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1504875731-3680-3-git-send-email-hayashi.kunihiko@socionext.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 8, 2017 at 2:52 PM, Roman Mashak <mrv@mojatatu.com> wrote:
-> Signed-off-by: Roman Mashak <mrv@mojatatu.com>
+
+
+On 09/08/2017 06:02 AM, Kunihiko Hayashi wrote:
+> The UniPhier platform from Socionext provides the AVE ethernet
+> controller that includes MAC and MDIO bus supporting RGMII/RMII
+> modes. The controller is named AVE.
+> 
+> Signed-off-by: Kunihiko Hayashi <hayashi.kunihiko@socionext.com>
+> Signed-off-by: Jassi Brar <jaswinder.singh@linaro.org>
 > ---
->  bridge/link.c | 16 +++++++++++++---
->  1 file changed, 13 insertions(+), 3 deletions(-)
->
-> diff --git a/bridge/link.c b/bridge/link.c
-> index 60200f1..9e4206f 100644
-> --- a/bridge/link.c
-> +++ b/bridge/link.c
-> @@ -461,9 +461,19 @@ static int brlink_show(int argc, char **argv)
->                 }
->         }
->
-> -       if (rtnl_wilddump_request(&rth, PF_BRIDGE, RTM_GETLINK) < 0) {
-> -               perror("Cannon send dump request");
-> -               exit(1);
-> +       if (show_details) {
-> +               if (rtnl_wilddump_req_filter(&rth, PF_BRIDGE, RTM_GETLINK,
-> +                                            (compress_vlans ?
-> +                                             RTEXT_FILTER_BRVLAN_COMPRESSED :
-> +                                             RTEXT_FILTER_BRVLAN)) < 0) {
-> +                       perror("Cannon send dump request");
-> +                       exit(1);
-> +               }
 
-vlan information is already available with `bridge vlan show`. any
-specific reason why you want it in
-the link dump output ?
+[snip]
 
-The problem is this might just make the link dump larger and also add
-too much clutter into the regular link dump output. iproute2 detailed
-dump is already a bit hard to interpret. And without compression by
-default, vlan info can just take over the link dump output. It will be
-hard to look for other link attributes after that :). We deploy with
-thousands of vlans and without compression even bridge vlan default
-output is already hard to interpret.
+> +static int ave_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+> +{
+> +	struct ave_private *priv = netdev_priv(ndev);
+> +	u32 proc_idx, done_idx, ndesc, cmdsts;
+> +	int freepkt;
+> +	unsigned char *buffptr = NULL; /* buffptr for descriptor */
+> +	unsigned int len;
+> +	dma_addr_t paddr;
+> +
+> +	proc_idx = priv->tx.proc_idx;
+> +	done_idx = priv->tx.done_idx;
+> +	ndesc = priv->tx.ndesc;
+> +	freepkt = ((done_idx + ndesc - 1) - proc_idx) % ndesc;
+> +
+> +	/* not enough entry, then we stop queue */
+> +	if (unlikely(freepkt < 2)) {
+> +		netif_stop_queue(ndev);
+> +		if (unlikely(freepkt < 1))
+> +			return NETDEV_TX_BUSY;
 
-Can you please paste a sample default detailed output with your patch
-with a few hundred vlans ?
+This looks wrong, why are you checking first for less than 2
+descriptors, and if there is none, NETDEV_TX_BUSY? If you need 2 slots
+to complete a transmision, stop the transmit queue and return
+NETDEV_TX_BUSY.
+
+> +	}
+> +
+> +	priv->tx.desc[proc_idx].skbs = skb;
+> +
+> +	/* add padding for short packet */
+> +	if (skb_padto(skb, ETH_ZLEN)) {
+> +		dev_kfree_skb_any(skb);
+> +		return NETDEV_TX_OK;
+> +	}
+
+skb_padto() frees the SKB in case of error, that would lead to a double
+free here.
+
+> +
+> +	buffptr = skb->data - NET_IP_ALIGN;
+> +	len = max_t(unsigned int, ETH_ZLEN, skb->len);
+
+If you use skb_put_padto() if padding was necessary skb->len will be at
+least ETH_ZLEN, so you can remove this.
+
+> +
+> +	paddr = ave_dma_map(ndev, &priv->tx.desc[proc_idx], buffptr,
+> +			    len + NET_IP_ALIGN, DMA_TO_DEVICE);
+
+As mentioned before you can't assume this will never fail.
+
+> +	paddr += NET_IP_ALIGN;
+> +
+> +	/* set buffer address to descriptor */
+> +	ave_wdesc_addr(ndev, AVE_DESCID_TX, proc_idx, 4, paddr);
+
+Also mentioned in the other email, make this 4 a constant so we know
+it's an offset and not a length.
+
+> +
+> +	/* set flag and length to send */
+> +	cmdsts = AVE_STS_OWN | AVE_STS_1ST | AVE_STS_LAST
+> +		| (len & AVE_STS_PKTLEN_TX);
+
+AVE_STS_PKTLEN_TX would be better named with a _MASK suffix.
+
+> +
+> +	/* set interrupt per AVE_FORCE_TXINTCNT or when queue is stopped */
+> +	if (!(proc_idx % AVE_FORCE_TXINTCNT) || netif_queue_stopped(ndev))
+> +		cmdsts |= AVE_STS_INTR;
+> +
+> +	/* disable checksum calculation when skb doesn't calurate checksum */
+> +	if (skb->ip_summed == CHECKSUM_NONE ||
+> +	    skb->ip_summed == CHECKSUM_UNNECESSARY)
+> +		cmdsts |= AVE_STS_NOCSUM;
+> +
+> +	/* set cmdsts */
+> +	ave_wdesc(ndev, AVE_DESCID_TX, proc_idx, 0, cmdsts);
+> +
+> +	priv->tx.proc_idx = (proc_idx + 1) % ndesc;
+
+You should also check the ring space after transmission and assert flow
+control on the transmit queue if needed.
+
+> +
+> +	return NETDEV_TX_OK;
+> +}
+
+[snip]
+
+> +static struct net_device_stats *ave_stats(struct net_device *ndev)
+> +{
+> +	struct ave_private *priv = netdev_priv(ndev);
+> +	u32 drop_num = 0;
+> +
+> +	priv->stats.rx_errors = ave_r32(ndev, AVE_BFCR);
+> +
+> +	drop_num += ave_r32(ndev, AVE_RX0OVFFC);
+> +	drop_num += ave_r32(ndev, AVE_SN5FC);
+> +	drop_num += ave_r32(ndev, AVE_SN6FC);
+> +	drop_num += ave_r32(ndev, AVE_SN7FC);
+> +	priv->stats.rx_dropped = drop_num;
+> +
+
+You should consider switching to 64-bit statistics, this requires a
+little bit more work for 32-bit hosts (see
+include/linux/u64_stats_sync.h) but this allows you to keep statistics
+around above 4GB.
+
+> +	return &priv->stats;
+> +}
+> +-- 
+Florian
