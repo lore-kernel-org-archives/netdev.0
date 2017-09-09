@@ -1,51 +1,81 @@
-From: Himanshu Jha <himanshujha199640@gmail.com>
-Subject: [PATCH] mwifiex: remove unnecessary call to memset
-Date: Mon, 11 Sep 2017 18:16:04 +0530
-Message-ID: <1505133964-376-1-git-send-email-himanshujha199640@gmail.com>
-Cc: nishants@marvell.com, gbhat@marvell.com, huxm@marvell.com,
-        kvalo@codeaurora.org, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org, Himanshu Jha <himanshujha199640@gmail.com>
-To: amitkarwar@gmail.com
+From: Thomas Meyer <thomas@m3y3r.de>
+Subject: [PATCH] tipc: Use bsearch library function
+Date: Sat,  9 Sep 2017 05:18:19 +0200
+Message-ID: <20170909031819.13622-1-thomas@m3y3r.de>
+Cc: Thomas Meyer <thomas@m3y3r.de>
+To: jon.maloy@ericsson.com, ying.xue@windriver.com,
+        davem@davemloft.net, netdev@vger.kernel.org,
+        tipc-discussion@lists.sourceforge.net, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:36177 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751542AbdIKMqV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 11 Sep 2017 08:46:21 -0400
+Received: from www17.your-server.de ([213.133.104.17]:41878 "EHLO
+        www17.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751460AbdIKNJL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 11 Sep 2017 09:09:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-call to memset to assign 0 value immediately after allocating
-memory with kzalloc is unnecesaary as kzalloc allocates the memory
-filled with 0 value.
+Use common library function rather than explicitly coding
+some variant of it yourself.
 
-Semantic patch used to resolve this issue:
-
-@@
-expression e,e2; constant c;
-statement S;
-@@
-
-  e = kzalloc(e2, c);
-  if(e == NULL) S
-- memset(e, 0, e2);
-
-Signed-off-by: Himanshu Jha <himanshujha199640@gmail.com>
+Signed-off-by: Thomas Meyer <thomas@m3y3r.de>
 ---
- drivers/net/wireless/marvell/mwifiex/scan.c | 2 --
- 1 file changed, 2 deletions(-)
+ net/tipc/name_table.c | 30 +++++++++++++++---------------
+ 1 file changed, 15 insertions(+), 15 deletions(-)
 
-diff --git a/drivers/net/wireless/marvell/mwifiex/scan.c b/drivers/net/wireless/marvell/mwifiex/scan.c
-index c9d41ed..8838b88 100644
---- a/drivers/net/wireless/marvell/mwifiex/scan.c
-+++ b/drivers/net/wireless/marvell/mwifiex/scan.c
-@@ -1936,8 +1936,6 @@ mwifiex_active_scan_req_for_passive_chan(struct mwifiex_private *priv)
- 	if (!user_scan_cfg)
- 		return -ENOMEM;
+diff --git a/net/tipc/name_table.c b/net/tipc/name_table.c
+index bd0aac87b41a..345454106390 100644
+--- a/net/tipc/name_table.c
++++ b/net/tipc/name_table.c
+@@ -44,6 +44,7 @@
+ #include "addr.h"
+ #include "node.h"
+ #include <net/genetlink.h>
++#include <linux/bsearch.h>
  
--	memset(user_scan_cfg, 0, sizeof(*user_scan_cfg));
+ #define TIPC_NAMETBL_SIZE 1024		/* must be a power of 2 */
+ 
+@@ -168,6 +169,18 @@ static struct name_seq *tipc_nameseq_create(u32 type, struct hlist_head *seq_hea
+ 	return nseq;
+ }
+ 
++static int nameseq_find_subseq_cmp(const void *key, const void *elt)
++{
++	u32 instance = *(u32 *)key;
++	struct sub_seq *sseq = (struct sub_seq *)elt;
++
++	if (instance < sseq->lower)
++		return -1;
++	else if (instance > sseq->upper)
++		return 1;
++	return 0;
++}
++
+ /**
+  * nameseq_find_subseq - find sub-sequence (if any) matching a name instance
+  *
+@@ -176,21 +189,8 @@ static struct name_seq *tipc_nameseq_create(u32 type, struct hlist_head *seq_hea
+ static struct sub_seq *nameseq_find_subseq(struct name_seq *nseq,
+ 					   u32 instance)
+ {
+-	struct sub_seq *sseqs = nseq->sseqs;
+-	int low = 0;
+-	int high = nseq->first_free - 1;
+-	int mid;
 -
- 	for (id = 0; id < MWIFIEX_USER_SCAN_CHAN_MAX; id++) {
- 		if (!priv->hidden_chan[id].chan_number)
- 			break;
+-	while (low <= high) {
+-		mid = (low + high) / 2;
+-		if (instance < sseqs[mid].lower)
+-			high = mid - 1;
+-		else if (instance > sseqs[mid].upper)
+-			low = mid + 1;
+-		else
+-			return &sseqs[mid];
+-	}
+-	return NULL;
++	return bsearch(&instance, nseq->sseqs, nseq->first_free,
++		       sizeof(struct sub_seq), nameseq_find_subseq_cmp);
+ }
+ 
+ /**
 -- 
-2.7.4
+2.11.0
