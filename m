@@ -1,53 +1,43 @@
-From: <Tristram.Ha@microchip.com>
-Subject: RE: [PATCH RFC 3/5] Add KSZ8795 switch driver
-Date: Sat, 9 Sep 2017 01:44:37 +0000
-Message-ID: <93AF473E2DA327428DE3D46B72B1E9FD41123010@CHN-SV-EXMX02.mchp-main.com>
-References: <93AF473E2DA327428DE3D46B72B1E9FD41121A87@CHN-SV-EXMX02.mchp-main.com>
- <20170908091856.GB17738@amd>
- <93AF473E2DA327428DE3D46B72B1E9FD41121E3D@CHN-SV-EXMX02.mchp-main.com>
- <20170908215735.GF27428@amd>
+From: Alexei Starovoitov <ast@fb.com>
+Subject: Re: [PATCH 1/2] ip_tunnel: fix setting ttl and tos value in
+ collect_md mode
+Date: Fri, 8 Sep 2017 18:54:33 -0700
+Message-ID: <f564f706-19c1-38cf-a59e-d40a946dab28@fb.com>
+References: <1504764515-13536-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <andrew@lunn.ch>, <muvarov@gmail.com>,
-        <nathan.leigh.conrad@gmail.com>,
-        <vivien.didelot@savoirfairelinux.com>, <f.fainelli@gmail.com>,
-        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-        <Woojung.Huh@microchip.com>
-To: <pavel@ucw.cz>
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>,
+        "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170908215735.GF27428@amd>
-Content-Language: en-US
+In-Reply-To: <1504764515-13536-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: Pavel Machek [mailto:pavel@ucw.cz]
-> Sent: Friday, September 08, 2017 2:58 PM
-> To: Tristram Ha - C24268
-> Cc: andrew@lunn.ch; muvarov@gmail.com; nathan.leigh.conrad@gmail.com;
-> vivien.didelot@savoirfairelinux.com; f.fainelli@gmail.com;
-> netdev@vger.kernel.org; linux-kernel@vger.kernel.org; Woojung Huh -
-> C21699
-> Subject: Re: [PATCH RFC 3/5] Add KSZ8795 switch driver
-> 
-> Hi!
-> 
-> > > > +	default:
-> > > > +		processed = false;
-> > > > +		break;
-> > > > +	}
-> > > > +	if (processed)
-> > > > +		*val = data;
-> > > > +}
-> > >
-> > > Similar code will be needed by other drivers, right?
-> >
-> > Although KSZ8795 and KSZ8895 may use the same code, the other
-> > chips will have different code.
-> 
-> Ok, please make sure code is shared between these two.
+On 9/6/17 11:08 PM, Haishuang Yan wrote:
+> ttl and tos variables are declared and assigned, but are not used in
+> iptunnel_xmit() function.
+>
+> Fixes: cfc7381b3002 ("ip_tunnel: add collect_md mode to IPIP tunnel")
+> Cc: Alexei Starovoitov <ast@fb.com>
+> Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+> ---
+>  net/ipv4/ip_tunnel.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+>
+> diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
+> index 129d1a3..e1856bf 100644
+> --- a/net/ipv4/ip_tunnel.c
+> +++ b/net/ipv4/ip_tunnel.c
+> @@ -618,8 +618,8 @@ void ip_md_tunnel_xmit(struct sk_buff *skb, struct net_device *dev, u8 proto)
+>  		ip_rt_put(rt);
+>  		goto tx_dropped;
+>  	}
+> -	iptunnel_xmit(NULL, rt, skb, fl4.saddr, fl4.daddr, proto, key->tos,
+> -		      key->ttl, df, !net_eq(tunnel->net, dev_net(dev)));
+> +	iptunnel_xmit(NULL, rt, skb, fl4.saddr, fl4.daddr, proto, tos, ttl,
+> +		      df, !net_eq(tunnel->net, dev_net(dev)));
 
-The exact function probably cannot be shared between KSZ8795
-and KSZ8895 drivers because although the register constants look
-the same but their exact locations are different in the 2 chips.
+indeed. good catch. thanks
+Acked-by: Alexei Starovoitov <ast@kernel.org>
