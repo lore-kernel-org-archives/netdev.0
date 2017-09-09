@@ -1,34 +1,67 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [patch net] net: sched: fix memleak for chain zero
-Date: Sat, 9 Sep 2017 11:46:42 -0700
-Message-ID: <CAM_iQpXSjXWPw9QY7VHGnKssLHCBSJq4XnS2KPTheLB7_rBF7g@mail.gmail.com>
-References: <20170906111419.5115-1-jiri@resnulli.us> <20170907.191800.218886770521884093.davem@davemloft.net>
+From: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+Subject: Re: [PATCH v2 net] net: qualcomm: rmnet: Fix a double free
+Date: Sat, 09 Sep 2017 12:59:04 -0600
+Message-ID: <2c40c295a607d3d6b9029e48cc130e69@codeaurora.org>
+References: <20170909085803.zgfqhp23yt4ol3ka@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Jiri Pirko <jiri@resnulli.us>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Jakub Kicinski <kubakici@wp.pl>, mlxsw@mellanox.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:33365 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750763AbdIISrD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 9 Sep 2017 14:47:03 -0400
-Received: by mail-pg0-f65.google.com with SMTP id i130so775802pgc.0
-        for <netdev@vger.kernel.org>; Sat, 09 Sep 2017 11:47:02 -0700 (PDT)
-In-Reply-To: <20170907.191800.218886770521884093.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        kernel-janitors@vger.kernel.org
+To: Dan Carpenter <dan.carpenter@oracle.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <20170909085803.zgfqhp23yt4ol3ka@mwanda>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 7, 2017 at 7:18 PM, David Miller <davem@davemloft.net> wrote:
->
-> This doesn't apply cleanly any more, please respin.
->
+On 2017-09-09 02:58, Dan Carpenter wrote:
+> There is a typo here so we accidentally free "skb" instead of "skbn".
+> It leads to a double free and a leak.  After discussing with Subash,
+> it's better to just move the check before the allocation and avoid the
+> need to free.
+> 
+> Fixes: ceed73a2cf4a ("drivers: net: ethernet: qualcomm: rmnet: Initial
+> implementation")
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> ---
+> v2: Fix the leak as well.  Thanks Subash!
+> 
+> diff --git a/drivers/net/ethernet/qualcomm/rmnet/rmnet_map_data.c
+> b/drivers/net/ethernet/qualcomm/rmnet/rmnet_map_data.c
+> index 557c9bf1a469..86b8c758f94e 100644
+> --- a/drivers/net/ethernet/qualcomm/rmnet/rmnet_map_data.c
+> +++ b/drivers/net/ethernet/qualcomm/rmnet/rmnet_map_data.c
+> @@ -84,6 +84,10 @@ struct sk_buff *rmnet_map_deaggregate(struct sk_buff 
+> *skb)
+>  	if (((int)skb->len - (int)packet_len) < 0)
+>  		return NULL;
+> 
+> +	/* Some hardware can send us empty frames. Catch them */
+> +	if (ntohs(maph->pkt_len) == 0)
+> +		return NULL;
+> +
+>  	skbn = alloc_skb(packet_len + RMNET_MAP_DEAGGR_SPACING, GFP_ATOMIC);
+>  	if (!skbn)
+>  		return NULL;
+> @@ -94,11 +98,5 @@ struct sk_buff *rmnet_map_deaggregate(struct sk_buff 
+> *skb)
+>  	memcpy(skbn->data, skb->data, packet_len);
+>  	skb_pull(skb, packet_len);
+> 
+> -	/* Some hardware can send us empty frames. Catch them */
+> -	if (ntohs(maph->pkt_len) == 0) {
+> -		kfree_skb(skb);
+> -		return NULL;
+> -	}
+> -
+>  	return skbn;
+>  }
 
-Sigh, you applied this patch despite of strong objections from me.
+Acked-by: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
 
-I seriously doubt your tastes now, David. Fine, this code does not
-deserve a good taste at all, let bugs stay there.
 
-Good luck!
+-- 
+Qualcomm Innovation Center, Inc.
+The Qualcomm Innovation Center, Inc. is a member of Code Aurora Forum, a 
+Linux Foundation Collaborative Project
