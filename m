@@ -1,34 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/1] sched: Use __qdisc_drop instead of
- kfree_skb in sch_prio and sch_qfq
-Date: Wed, 06 Sep 2017 21:20:38 -0700 (PDT)
-Message-ID: <20170906.212038.1803486177079315112.davem@davemloft.net>
-References: <1504506072-46207-1-git-send-email-gfree.wind@vip.163.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jhs@mojatatu.com, xiyou.wangcong@gmail.com, jiri@resnulli.us,
-        edumazet@google.com, netdev@vger.kernel.org
-To: gfree.wind@vip.163.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44320 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751048AbdIIFHP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 9 Sep 2017 01:07:15 -0400
-In-Reply-To: <1504506072-46207-1-git-send-email-gfree.wind@vip.163.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: =?gb2312?B?0c+6o8ur?= <yanhaishuang@cmss.chinamobile.com>
+Subject: Re: [PATCH] ipv4: Namespaceify tcp_max_orphans knob
+Date: Sat, 9 Sep 2017 13:09:57 +0800
+Message-ID: <E15E5C56-D712-4FEF-9AC5-AE28857D8D27@cmss.chinamobile.com>
+References: <1504753808-13266-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
+ <CAM_iQpV4gRwhT4VXPtJft38ixG6xE3PF9z4gB7HHJEUsqbCtOw@mail.gmail.com>
+ <798CA25A-CA09-4D06-A9B6-7C5791A6EEC1@cmss.chinamobile.com>
+ <CAM_iQpVDM0HwZd6c+Loych=nQE__eGteeJQ=XTOfHKgVxMRfrA@mail.gmail.com>
+Mime-Version: 1.0 (Mac OS X Mail 10.3 \(3273\))
+Content-Type: text/plain; charset=gb2312
+Content-Transfer-Encoding: 8BIT
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Eric Dumazet <edumazet@google.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAM_iQpVDM0HwZd6c+Loych=nQE__eGteeJQ=XTOfHKgVxMRfrA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: gfree.wind@vip.163.com
-Date: Mon,  4 Sep 2017 14:21:12 +0800
 
-> From: Gao Feng <gfree.wind@vip.163.com>
+
+> On 2017年9月9日, at 下午12:35, Cong Wang <xiyou.wangcong@gmail.com> wrote:
 > 
-> The commit 520ac30f4551 ("net_sched: drop packets after root qdisc lock
-> is released) made a big change of tc for performance. There are two points
-> left in sch_prio and sch_qfq which are not changed with that commit. Now
-> enhance them now with __qdisc_drop.
+> On Fri, Sep 8, 2017 at 6:25 PM, 严海双 <yanhaishuang@cmss.chinamobile.com> wrote:
+>> 
+>> 
+>>> On 2017年9月9日, at 上午6:13, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+>>> 
+>>> On Wed, Sep 6, 2017 at 8:10 PM, Haishuang Yan
+>>> <yanhaishuang@cmss.chinamobile.com> wrote:
+>>>> Different namespace application might require different maximal number
+>>>> of TCP sockets independently of the host.
+>>> 
+>>> So after your patch we could have N * net->ipv4.sysctl_tcp_max_orphans
+>>> in a whole system, right? This just makes OOM easier to trigger.
+>>> 
+>> 
+>> From my understanding, before the patch, we had N * net->ipv4.sysctl_tcp_max_orphans,
+>> and after the patch, we could have ns1.sysctl_tcp_max_orphans + ns2.sysctl_tcp_max_orphans
+>> + ns3.sysctl_tcp_max_orphans, is that right? Thanks for your reviewing.
 > 
-> Signed-off-by: Gao Feng <gfree.wind@vip.163.com>
+> Nope, by N I mean the number of containers. Before your patch, the limit
+> is global, after your patch it is per container.
+> 
 
-Thanks for catching these missed cases, applied.
+Yeah, for example, if there is N containers, before the patch, I mean the limit is:
+
+	N * net->ipv4.sysctl_tcp_max_orphans
+
+After the patch, the limit is:
+
+	ns1. net->ipv4.sysctl_tcp_max_orphans + ns2. net->ipv4.sysctl_tcp_max_orphans + …
