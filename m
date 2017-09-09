@@ -1,48 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: tulip: Constify tulip_tbl
-Date: Fri, 08 Sep 2017 20:54:12 -0700 (PDT)
-Message-ID: <20170908.205412.2183497152163393093.davem@davemloft.net>
-References: <20170907193514.GA114400@beast>
+Subject: Re: [V2 PATCH net-next 0/2] Fixes for XDP_REDIRECT map
+Date: Fri, 08 Sep 2017 20:54:26 -0700 (PDT)
+Message-ID: <20170908.205426.624386613610674398.davem@davemloft.net>
+References: <150478756604.28665.6915020425359475729.stgit@firesoul>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jarod@redhat.com, gustavo@embeddedor.com,
-        linux-parisc@vger.kernel.org, linux-kernel@vger.kernel.org
-To: keescook@chromium.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170907193514.GA114400@beast>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, borkmann@iogearbox.net,
+        john.fastabend@gmail.com, andy@greyhouse.net
+To: brouer@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:43006 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753213AbdIIDy0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 8 Sep 2017 23:54:26 -0400
+In-Reply-To: <150478756604.28665.6915020425359475729.stgit@firesoul>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Kees Cook <keescook@chromium.org>
-Date: Thu, 7 Sep 2017 12:35:14 -0700
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Date: Thu, 07 Sep 2017 14:33:08 +0200
 
-> It looks like all users of tulip_tbl are reads, so mark this table
-> as read-only.
+> This my V2 of catching XDP_REDIRECT and bpf_redirect_map() API usage
+> that can potentially crash the kernel.  Addressed Daniels feedback in
+> patch01, and added patch02 which catch and cleanup dangling map
+> pointers.
 > 
-> $ git grep tulip_tbl  # edited to avoid line-wraps...
-> interrupt.c: iowrite32(tulip_tbl[tp->chip_id].valid_intrs, ...
-> interrupt.c: iowrite32(tulip_tbl[tp->chip_id].valid_intrs&~RxPollInt, ...
-> interrupt.c: iowrite32(tulip_tbl[tp->chip_id].valid_intrs, ...
-> interrupt.c: iowrite32(tulip_tbl[tp->chip_id].valid_intrs | TimerInt,
-> pnic.c:      iowrite32(tulip_tbl[tp->chip_id].valid_intrs, ioaddr + CSR7);
-> tulip.h:     extern struct tulip_chip_table tulip_tbl[];
-> tulip_core.c:struct tulip_chip_table tulip_tbl[] = {
-> tulip_core.c:iowrite32(tulip_tbl[tp->chip_id].valid_intrs, ioaddr + CSR5);
-> tulip_core.c:iowrite32(tulip_tbl[tp->chip_id].valid_intrs, ioaddr + CSR7);
-> tulip_core.c:setup_timer(&tp->timer, tulip_tbl[tp->chip_id].media_timer,
-> tulip_core.c:const char *chip_name = tulip_tbl[chip_idx].chip_name;
-> tulip_core.c:if (pci_resource_len (pdev, 0) < tulip_tbl[chip_idx].io_size)
-> tulip_core.c:ioaddr =  pci_iomap(..., tulip_tbl[chip_idx].io_size);
-> tulip_core.c:tp->flags = tulip_tbl[chip_idx].flags;
-> tulip_core.c:setup_timer(&tp->timer, tulip_tbl[tp->chip_id].media_timer,
-> tulip_core.c:INIT_WORK(&tp->media_work, tulip_tbl[tp->chip_id].media_task);
-> 
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: Jarod Wilson <jarod@redhat.com>
-> Cc: "Gustavo A. R. Silva" <gustavo@embeddedor.com>
-> Cc: netdev@vger.kernel.org
-> Cc: linux-parisc@vger.kernel.org
-> Signed-off-by: Kees Cook <keescook@chromium.org>
+> I know John and Daniel are working on a more long-term solution, of
+> recording the bpf_prog pointer together with the map pointer.  I just
+> wanted to propose these fixes as a stop-gap to the potential crashes.
 
-Applied.
+Jesper if these are still relevant, please resubmit against the 'net'
+tree, thanks!
