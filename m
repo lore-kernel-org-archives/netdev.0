@@ -1,59 +1,37 @@
-From: <Tristram.Ha@microchip.com>
-Subject: RE: [PATCH RFC 0/6] Modify KSZ9477 DSA driver in preparation to add
- other KSZ switch drivers.
-Date: Sat, 9 Sep 2017 01:10:31 +0000
-Message-ID: <93AF473E2DA327428DE3D46B72B1E9FD41122FFB@CHN-SV-EXMX02.mchp-main.com>
-References: <93AF473E2DA327428DE3D46B72B1E9FD411218B7@CHN-SV-EXMX02.mchp-main.com>
- <93AF473E2DA327428DE3D46B72B1E9FD411219F8@CHN-SV-EXMX02.mchp-main.com>
- <20170908085405.GB16834@amd>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+From: =?gb2312?B?0c+6o8ur?= <yanhaishuang@cmss.chinamobile.com>
+Subject: Re: [PATCH] ipv4: Namespaceify tcp_max_orphans knob
+Date: Sat, 9 Sep 2017 09:25:40 +0800
+Message-ID: <798CA25A-CA09-4D06-A9B6-7C5791A6EEC1@cmss.chinamobile.com>
+References: <1504753808-13266-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
+ <CAM_iQpV4gRwhT4VXPtJft38ixG6xE3PF9z4gB7HHJEUsqbCtOw@mail.gmail.com>
+Mime-Version: 1.0 (Mac OS X Mail 10.3 \(3273\))
+Content-Type: text/plain; charset=gb2312
 Content-Transfer-Encoding: 8BIT
-Cc: <andrew@lunn.ch>, <muvarov@gmail.com>,
-        <nathan.leigh.conrad@gmail.com>,
-        <vivien.didelot@savoirfairelinux.com>, <f.fainelli@gmail.com>,
-        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-        <Woojung.Huh@microchip.com>
-To: <pavel@ucw.cz>
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Eric Dumazet <edumazet@google.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170908085405.GB16834@amd>
-Content-Language: en-US
+In-Reply-To: <CAM_iQpV4gRwhT4VXPtJft38ixG6xE3PF9z4gB7HHJEUsqbCtOw@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: Pavel Machek [mailto:pavel@ucw.cz]
-> Sent: Friday, September 08, 2017 1:54 AM
-> To: Tristram Ha - C24268
-> Cc: andrew@lunn.ch; muvarov@gmail.com; nathan.leigh.conrad@gmail.com;
-> vivien.didelot@savoirfairelinux.com; f.fainelli@gmail.com;
-> netdev@vger.kernel.org; linux-kernel@vger.kernel.org; Woojung Huh -
-> C21699
-> Subject: Re: [PATCH RFC 0/6] Modify KSZ9477 DSA driver in preparation to
-> add other KSZ switch drivers.
-> 
-> Hi!
-> 
-> > From: Tristram Ha <Tristram.Ha@microchip.com>
-> >
-> > This series of patches is to modify the original KSZ9477 DSA driver so that
-> other KSZ switch drivers can be added and use the common code.
-> >
-> 
-> Please wrap the lines from time to time...
-> 
-> 
-> > This patch set is against net-next.
-> >
-> >  drivers/net/dsa/microchip/Makefile     |    2 +-
-> >  drivers/net/dsa/microchip/ksz9477.c    | 1317
-> ++++++++++++++++++++++++++++++++
-> 
-> We already have ksz_9477_reg.h. So should this be ksz_9477.c for
-> consistency?
 
-The product name is KSZ9477 and other switches are also like KSZ####,
-so I would prefer to have no separation between KSZ and the product
-number.  I think the file ksz_9477_reg.h was named that way because
-the other files were named ksz_common.c and ksz_spi.c.  If need to
-we can change the file name.
+
+> On 2017年9月9日, at 上午6:13, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+> 
+> On Wed, Sep 6, 2017 at 8:10 PM, Haishuang Yan
+> <yanhaishuang@cmss.chinamobile.com> wrote:
+>> Different namespace application might require different maximal number
+>> of TCP sockets independently of the host.
+> 
+> So after your patch we could have N * net->ipv4.sysctl_tcp_max_orphans
+> in a whole system, right? This just makes OOM easier to trigger.
+> 
+
+>From my understanding, before the patch, we had N * net->ipv4.sysctl_tcp_max_orphans,
+and after the patch, we could have ns1.sysctl_tcp_max_orphans + ns2.sysctl_tcp_max_orphans
++ ns3.sysctl_tcp_max_orphans, is that right? Thanks for your reviewing.
