@@ -1,79 +1,62 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 3/3] net: phy: realtek: add RTL8201F phy-id and
- functions
-Date: Sat, 9 Sep 2017 17:55:17 +0200
-Message-ID: <20170909155517.GB19117@lunn.ch>
-References: <1504875731-3680-1-git-send-email-hayashi.kunihiko@socionext.com>
- <1504875731-3680-4-git-send-email-hayashi.kunihiko@socionext.com>
- <4173a876-3cff-205a-ce87-ce049f419aa0@gmail.com>
- <CAJe_ZhciWBhw5npxEjTUGw2duS7DSfhzP5nzAOy_ig4-1XcPWw@mail.gmail.com>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [PATCH iproute2 3/3] bridge: request vlans along with link information
+Date: Sat, 9 Sep 2017 09:24:31 -0700
+Message-ID: <CAJieiUhT75fM3LuhNW32QkbJA9TO5dHwb_G-aRD2H70jF-FG2A@mail.gmail.com>
+References: <1504907543-14394-1-git-send-email-mrv@mojatatu.com> <1504907543-14394-4-git-send-email-mrv@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        Kunihiko Hayashi <hayashi.kunihiko@socionext.com>,
-        netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-        Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        "linux-arm-kernel@lists.infradead.org"
-        <linux-arm-kernel@lists.infradead.org>,
-        lkml <linux-kernel@vger.kernel.org>,
-        Devicetree List <devicetree@vger.kernel.org>,
-        Masahiro Yamada <yamada.masahiro@socionext.com>,
-        Masami Hiramatsu <masami.hiramatsu@linaro.org>,
-        Jongsung Kim <neidhard.kim@lge.com>
-To: Jassi Brar <jaswinder.singh@linaro.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAJe_ZhciWBhw5npxEjTUGw2duS7DSfhzP5nzAOy_ig4-1XcPWw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: "stephen@networkplumber.org" <stephen@networkplumber.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Jamal Hadi Salim <jhs@mojatatu.com>
+To: Roman Mashak <mrv@mojatatu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f49.google.com ([209.85.218.49]:34070 "EHLO
+        mail-oi0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757555AbdIIQYc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 9 Sep 2017 12:24:32 -0400
+Received: by mail-oi0-f49.google.com with SMTP id l74so24187348oih.1
+        for <netdev@vger.kernel.org>; Sat, 09 Sep 2017 09:24:32 -0700 (PDT)
+In-Reply-To: <1504907543-14394-4-git-send-email-mrv@mojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Sep 09, 2017 at 09:03:05AM +0530, Jassi Brar wrote:
-> On 9 September 2017 at 00:21, Florian Fainelli <f.fainelli@gmail.com> wrote:
-> > On 09/08/2017 06:02 AM, Kunihiko Hayashi wrote:
-> >> From: Jassi Brar <jaswinder.singh@linaro.org>
-> >>
-> >> Add RTL8201F phy-id and the related functions to the driver.
-> >>
-> >> The original patch is as follows:
-> >> https://patchwork.kernel.org/patch/2538341/
-> >>
-> >> Signed-off-by: Jongsung Kim <neidhard.kim@lge.com>
-> >> Signed-off-by: Jassi Brar <jaswinder.singh@linaro.org>
-> >> Signed-off-by: Kunihiko Hayashi <hayashi.kunihiko@socionext.com>
-> >> ---
-> >>  drivers/net/phy/realtek.c | 45 +++++++++++++++++++++++++++++++++++++++++++++
-> >>  1 file changed, 45 insertions(+)
-> >>
-> >> diff --git a/drivers/net/phy/realtek.c b/drivers/net/phy/realtek.c
-> >> index 9cbe645..d9974ce 100644
-> >> --- a/drivers/net/phy/realtek.c
-> >> +++ b/drivers/net/phy/realtek.c
-> >> @@ -29,10 +29,23 @@
-> >>  #define RTL8211F_PAGE_SELECT 0x1f
-> >>  #define RTL8211F_TX_DELAY    0x100
-> >>
-> >> +#define RTL8201F_ISR         0x1e
-> >> +#define RTL8201F_PAGE_SELECT 0x1f
-> >
-> > We have a page select register define for the RTL8211F right above, so
-> > surely we can make that a common definition?
-> >
-> That is just for the sake of consistency.
-> I mean RTL8211 wouldn't look neat among everything else RTL8201.
-> 
-> Also the page-select offsets just _happen_ to be same value...
+On Fri, Sep 8, 2017 at 2:52 PM, Roman Mashak <mrv@mojatatu.com> wrote:
+> Signed-off-by: Roman Mashak <mrv@mojatatu.com>
+> ---
+>  bridge/link.c | 16 +++++++++++++---
+>  1 file changed, 13 insertions(+), 3 deletions(-)
+>
+> diff --git a/bridge/link.c b/bridge/link.c
+> index 60200f1..9e4206f 100644
+> --- a/bridge/link.c
+> +++ b/bridge/link.c
+> @@ -461,9 +461,19 @@ static int brlink_show(int argc, char **argv)
+>                 }
+>         }
+>
+> -       if (rtnl_wilddump_request(&rth, PF_BRIDGE, RTM_GETLINK) < 0) {
+> -               perror("Cannon send dump request");
+> -               exit(1);
+> +       if (show_details) {
+> +               if (rtnl_wilddump_req_filter(&rth, PF_BRIDGE, RTM_GETLINK,
+> +                                            (compress_vlans ?
+> +                                             RTEXT_FILTER_BRVLAN_COMPRESSED :
+> +                                             RTEXT_FILTER_BRVLAN)) < 0) {
+> +                       perror("Cannon send dump request");
+> +                       exit(1);
+> +               }
 
-If you look at all the other supported PHYs, they all consistently use
-the same page register across models. Marvell is always 22, mscc is
-always 31, vitesse is always 31.
+vlan information is already available with `bridge vlan show`. any
+specific reason why you want it in
+the link dump output ?
 
-I would say it is a safe bet that all realtek PHYs will use 0x1f for
-page select. So please add a patch which renames RTL8211F_PAGE_SELECT
-to RTL821x_PAGE_SELECT.
+The problem is this might just make the link dump larger and also add
+too much clutter into the regular link dump output. iproute2 detailed
+dump is already a bit hard to interpret. And without compression by
+default, vlan info can just take over the link dump output. It will be
+hard to look for other link attributes after that :). We deploy with
+thousands of vlans and without compression even bridge vlan default
+output is already hard to interpret.
 
-It is best to do this now. I spent a while cleaning up the mess the
-Marvell driver had got into with its page select code. Lots of
-duplicate code and defines doing the same thing.
-
-	  Andrew
+Can you please paste a sample default detailed output with your patch
+with a few hundred vlans ?
