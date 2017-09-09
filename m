@@ -1,32 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] phy: mvebu-cp110: checking for NULL instead of
- IS_ERR()
-Date: Fri, 08 Sep 2017 21:09:05 -0700 (PDT)
-Message-ID: <20170908.210905.626281012369795940.davem@davemloft.net>
-References: <20170908103137.zck6bw66sge4fhua@mwanda>
+Subject: Re: [net PATCH 0/3] Fixes for XDP/BPF
+Date: Fri, 08 Sep 2017 21:11:17 -0700 (PDT)
+Message-ID: <20170908.211117.1564455188514198482.davem@davemloft.net>
+References: <150490397545.11590.1409723973253492363.stgit@john-XPS-13-9360>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kishon@ti.com, antoine.tenart@free-electrons.com,
-        netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: dan.carpenter@oracle.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170908103137.zck6bw66sge4fhua@mwanda>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, daniel@iogearbox.net, ast@fb.com
+To: john.fastabend@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:43238 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751087AbdIIELS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 9 Sep 2017 00:11:18 -0400
+In-Reply-To: <150490397545.11590.1409723973253492363.stgit@john-XPS-13-9360>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Fri, 8 Sep 2017 13:31:37 +0300
+From: John Fastabend <john.fastabend@gmail.com>
+Date: Fri, 08 Sep 2017 14:00:05 -0700
 
-> devm_ioremap_resource() never returns NULL, it only returns error
-> pointers so this test needs to be changed.
+> The following fixes, UAPI updates, and small improvement,
 > 
-> Fixes: d0438bd6aa09 ("phy: add the mvebu cp110 comphy driver")
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-> ---
-> This driver apparently is going through the net tree, but netdev isn't
-> listed as handling it in MAINTAINERS.  Kishon, do you know what's up
-> with that?
+> i. XDP needs to be called inside RCU with preempt disabled.
+> 
+> ii. Not strictly a bug fix but we have an attach command in the
+> sockmap UAPI already to avoid having a single kernel released with
+> only the attach and not the detach I'm pushing this into net branch.
+> Its early in the RC cycle so I think this is OK (not ideal but better
+> than supporting a UAPI with a missing detach forever).
+> 
+> iii. Final patch replace cpu_relax with cond_resched in devmap.
 
-Yeah let's sort this out before I apply this fix to my tree.
+Series applied, thanks John.
