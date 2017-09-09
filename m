@@ -1,36 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] Revert "mdio_bus: Remove unneeded gpiod NULL check"
-Date: Fri, 08 Sep 2017 21:13:22 -0700 (PDT)
-Message-ID: <20170908.211322.1109020379464228312.davem@davemloft.net>
-References: <20170908223807.6015-1-f.fainelli@gmail.com>
+Subject: Re: [PATCH net] bpf: make error reporting in
+ bpf_warn_invalid_xdp_action more clear
+Date: Fri, 08 Sep 2017 21:13:35 -0700 (PDT)
+Message-ID: <20170908.211335.1475899596165757096.davem@davemloft.net>
+References: <a89dbb43f7196f6ba8c5fd1f07c7e4bcc97726c3.1504913751.git.daniel@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linus.walleij@linaro.org, andrew@lunn.ch,
-        festevam@gmail.com, sergei.shtylyov@cogentembedded.com,
-        fabio.estevam@nxp.com, Bryan.Whitehead@microchip.com
-To: f.fainelli@gmail.com
+Cc: ast@fb.com, john.fastabend@gmail.com, netdev@vger.kernel.org
+To: daniel@iogearbox.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:43276 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:43284 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751079AbdIIENX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 9 Sep 2017 00:13:23 -0400
-In-Reply-To: <20170908223807.6015-1-f.fainelli@gmail.com>
+        with ESMTP id S1750899AbdIIENf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 9 Sep 2017 00:13:35 -0400
+In-Reply-To: <a89dbb43f7196f6ba8c5fd1f07c7e4bcc97726c3.1504913751.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Fri,  8 Sep 2017 15:38:07 -0700
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Sat,  9 Sep 2017 01:40:35 +0200
 
-> This reverts commit 95b80bf3db03c2bf572a357cf74b9a6aefef0a4a ("mdio_bus:
-> Remove unneeded gpiod NULL check"), this commit assumed that GPIOLIB
-> checks for NULL descriptors, so it's safe to drop them, but it is not
-> when CONFIG_GPIOLIB is disabled in the kernel. If we do call
-> gpiod_set_value_cansleep() on a GPIO descriptor we will issue warnings
-> coming from the inline stubs declared in include/linux/gpio/consumer.h.
+> Differ between illegal XDP action code and just driver
+> unsupported one to provide better feedback when we throw
+> a one-time warning here. Reason is that with 814abfabef3c
+> ("xdp: add bpf_redirect helper function") not all drivers
+> support the new XDP return code yet and thus they will
+> fall into their 'default' case when checking for return
+> codes after program return, which then triggers a
+> bpf_warn_invalid_xdp_action() stating that the return
+> code is illegal, but from XDP perspective it's not.
 > 
-> Fixes: 95b80bf3db03 ("mdio_bus: Remove unneeded gpiod NULL check")
-> Reported-by: Woojung Huh <Woojung.Huh@microchip.com>
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> I decided not to place something like a XDP_ACT_MAX define
+> into uapi i) given we don't have this either for all other
+> program types, ii) future action codes could have further
+> encoding there, which would render such define unsuitable
+> and we wouldn't be able to rip it out again, and iii) we
+> rarely add new action codes.
+> 
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> Acked-by: Alexei Starovoitov <ast@kernel.org>
 
 Applied.
