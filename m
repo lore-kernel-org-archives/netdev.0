@@ -1,43 +1,74 @@
-From: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
-Subject: Re: HTB going crazy over ~5Gbit/s (4.12.9, but problem present in
- older kernels as well)
-Date: Wed, 13 Sep 2017 19:27:22 +0300
-Message-ID: <9b8cdc2b39fdd2d0be7b5f559b2034e7@nuclearcat.com>
-References: <4cd23914d8cc2cf5caf78cb5654fb245@nuclearcat.com>
- <d2aee52fda21d8f668ca012333ef3677@nuclearcat.com>
- <1505319370.15310.169.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Fw: [Bug 196889] New: kernel panic net_rx_action+0x21e/0x22d
+Date: Sun, 10 Sep 2017 10:32:05 -0700
+Message-ID: <20170910103205.2f8c8819@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
- format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nuclearcat.com ([144.76.183.226]:51052 "EHLO nuclearcat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751457AbdIMQ1Z (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 13 Sep 2017 12:27:25 -0400
-In-Reply-To: <1505319370.15310.169.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-pg0-f54.google.com ([74.125.83.54]:35761 "EHLO
+        mail-pg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751483AbdIJRcN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 10 Sep 2017 13:32:13 -0400
+Received: by mail-pg0-f54.google.com with SMTP id 188so11738328pgb.2
+        for <netdev@vger.kernel.org>; Sun, 10 Sep 2017 10:32:13 -0700 (PDT)
+Received: from xeon-e3 (76-14-207-240.or.wavecable.com. [76.14.207.240])
+        by smtp.gmail.com with ESMTPSA id u73sm3073422pfi.58.2017.09.10.10.32.12
+        for <netdev@vger.kernel.org>
+        (version=TLS1_2 cipher=ECDHE-RSA-CHACHA20-POLY1305 bits=256/256);
+        Sun, 10 Sep 2017 10:32:12 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2017-09-13 19:16, Eric Dumazet wrote:
-> On Wed, 2017-09-13 at 18:34 +0300, Denys Fedoryshchenko wrote:
->> Well, probably i am answering my own question, removing estimator from
->> classes seems drastically improve situation.
->> It seems estimator has some issues that cause shaper to behave
->> incorrectly (throttling traffic while it should not).
->> But i guess thats a bug?
->> As i was not able to predict such bottleneck by CPU load measurements.
-> 
-> Well, there was a reason we disabled HTB class estimators by default ;)
-> 
-> 
-> https://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git/commit/?id=64153ce0a7b61b2a5cacb01805cbf670142339e9
 
-As soon as disabling it solve my problem - i'm fine, hehe, but i guess 
-other people who might hit this problem, should be aware how to find 
-reason.
-They should not be disappointed in Linux :)
-Because i can't measure this bottleneck before it happens, i'm seeing on 
-mpstat all cpu's are idle, and same time traffic is throttled.
+
+Begin forwarded message:
+
+Date: Sun, 10 Sep 2017 12:21:13 +0000
+From: bugzilla-daemon@bugzilla.kernel.org
+To: stephen@networkplumber.org
+Subject: [Bug 196889] New: kernel panic net_rx_action+0x21e/0x22d
+
+
+https://bugzilla.kernel.org/show_bug.cgi?id=196889
+
+            Bug ID: 196889
+           Summary: kernel panic net_rx_action+0x21e/0x22d
+           Product: Networking
+           Version: 2.5
+    Kernel Version: 4.13.0+
+          Hardware: Intel
+                OS: Linux
+              Tree: Mainline
+            Status: NEW
+          Severity: normal
+          Priority: P1
+         Component: Other
+          Assignee: stephen@networkplumber.org
+          Reporter: pstaszewski@itcare.pl
+        Regression: No
+
+Created attachment 258289
+  --> https://bugzilla.kernel.org/attachment.cgi?id=258289&action=edit  
+kernel panic screenshoot
+
+Hardware:
+Intel E5-2670
+Network controllers
+2x 10G Intel 82599
+1x 100G Mellanox Connectx-5
+
+Test scenario:
+Packet generator -> (RX traffix on Mellanox 100G / 12Mpps UDP random
+destination ip / random port )Tested HOST (TX traffix from Intel 82599 on 20
+vlans attached to ethernet) -> Sink
+
+
+
+Kernal panic occured after 5 minutes from start to send traffic by packet
+generator.
+
+-- 
+You are receiving this mail because:
+You are the assignee for the bug.
