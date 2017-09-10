@@ -1,56 +1,98 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH iproute2 3/3] bridge: request vlans along with link
- information
-Date: Sun, 10 Sep 2017 13:24:53 +0300
-Message-ID: <f167dbc9-baf2-89a6-33a3-982fac2fabd4@cumulusnetworks.com>
-References: <1504907543-14394-1-git-send-email-mrv@mojatatu.com>
- <1504907543-14394-4-git-send-email-mrv@mojatatu.com>
- <CAJieiUhT75fM3LuhNW32QkbJA9TO5dHwb_G-aRD2H70jF-FG2A@mail.gmail.com>
- <5706e1ba-6b85-4f32-a858-b5d87b17eb51@mojatatu.com>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Division by zero on UP (was: Re: netfilter: nat: use keyed locks)
+Date: Sun, 10 Sep 2017 13:08:43 +0200
+Message-ID: <CAMuHMdVwp1njkMYo-y8FZHWNWW6wtN2LYVC=9-mbcF-omDaztw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "stephen@networkplumber.org" <stephen@networkplumber.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jamal Hadi Salim <jhs@mojatatu.com>,
-        Roopa Prabhu <roopa@cumulusnetworks.com>,
-        Roman Mashak <mrv@mojatatu.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Arnd Bergmann <arnd@arndb.de>
+To: Florian Westphal <fw@strlen.de>,
+        Pablo Neira Ayuso <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f41.google.com ([74.125.82.41]:46121 "EHLO
-        mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750709AbdIJKY5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 10 Sep 2017 06:24:57 -0400
-Received: by mail-wm0-f41.google.com with SMTP id i189so23287168wmf.1
-        for <netdev@vger.kernel.org>; Sun, 10 Sep 2017 03:24:56 -0700 (PDT)
-In-Reply-To: <5706e1ba-6b85-4f32-a858-b5d87b17eb51@mojatatu.com>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:36441 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750810AbdIJLIo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 10 Sep 2017 07:08:44 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/09/17 20:23, Jamal Hadi Salim wrote:
-> On 17-09-09 12:24 PM, Roopa Prabhu wrote:
->> On Fri, Sep 8, 2017 at 2:52 PM, Roman Mashak <mrv@mojatatu.com> wrote:
-[snip]
-> 
-> Agree we should be turning on this stuff by default. i.e default stays
-> compressed; otherwise it a huge dump.
-> 
-> Having said that there is a lot of mess with this stuff.
-> The bridge link events _already send this IFLA_AF_SPCE info_
-> so not much choice  there but to print it.
-> At minimal we need that part because unfortunately there is no
-> vlanfilter event in existence which will send us summaries of just
-> vlans added to a port i.e both use XXXLINK.
-> In general, the XXXLINK interface with these master devices (bridge,
-> bond etc) continues to get messy. Recently started seeing events with
-> devices claiming to be of KIND_slave etc on the bridge and bond devices;
-> yet at the same time my wireless card events are also showing up on the
-> bridge link even though it is not enslaved there..
+Hi Florian, Pablo,
 
-Out of curiousity about this one, do you see the wifi card when doing bridge monitor ?
-Or are you specifically watching AF_BRIDGE events, because bridge monitor link also can
-include AF_UNSPEC ?
+On Sat, Sep 9, 2017 at 9:21 PM, Linux Kernel Mailing List
+<linux-kernel@vger.kernel.org> wrote:
+> Web:        https://git.kernel.org/torvalds/c/8073e960a03bf7b5d5ebfc5ff18=
+ac475e1688f46
+> Commit:     8073e960a03bf7b5d5ebfc5ff18ac475e1688f46
+> Parent:     e1bf1687740ce1a3598a1c5e452b852ff2190682
+> Refname:    refs/heads/master
+> Author:     Florian Westphal <fw@strlen.de>
+> AuthorDate: Wed Sep 6 14:39:52 2017 +0200
+> Committer:  Pablo Neira Ayuso <pablo@netfilter.org>
+> CommitDate: Fri Sep 8 18:55:52 2017 +0200
+>
+>     netfilter: nat: use keyed locks
+>
+>     no need to serialize on a single lock, we can partition the table and
+>     add/delete in parallel to different slots.
+>     This restores one of the advantages that got lost with the rhlist
+>     revert.
+>
+>     Cc: Ivan Babrou <ibobrik@gmail.com>
+>     Signed-off-by: Florian Westphal <fw@strlen.de>
+>     Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+> ---
+>  net/netfilter/nf_nat_core.c | 36 ++++++++++++++++++++++++------------
+>  1 file changed, 24 insertions(+), 12 deletions(-)
+>
+> diff --git a/net/netfilter/nf_nat_core.c b/net/netfilter/nf_nat_core.c
+> index f090419f5f97..f393a7086025 100644
+> --- a/net/netfilter/nf_nat_core.c
+> +++ b/net/netfilter/nf_nat_core.c
+> @@ -30,7 +30,7 @@
+>  #include <net/netfilter/nf_conntrack_zones.h>
+>  #include <linux/netfilter/nf_nat.h>
+>
+> -static DEFINE_SPINLOCK(nf_nat_lock);
+> +static spinlock_t nf_nat_locks[CONNTRACK_LOCKS];
+>
+>  static DEFINE_MUTEX(nf_nat_proto_mutex);
+>  static const struct nf_nat_l3proto __rcu *nf_nat_l3protos[NFPROTO_NUMPRO=
+TO]
+> @@ -425,13 +425,15 @@ nf_nat_setup_info(struct nf_conn *ct,
+>
+>         if (maniptype =3D=3D NF_NAT_MANIP_SRC) {
+>                 unsigned int srchash;
+> +               spinlock_t *lock;
+>
+>                 srchash =3D hash_by_src(net,
+>                                       &ct->tuplehash[IP_CT_DIR_ORIGINAL].=
+tuple);
+> -               spin_lock_bh(&nf_nat_lock);
+> +               lock =3D &nf_nat_locks[srchash % ARRAY_SIZE(nf_nat_locks)=
+];
+> +               spin_lock_bh(lock);
 
-> 
-> cheers,
-> jamal
-> 
+If no spinlock debugging options (CONFIG_GENERIC_LOCKBREAK,
+CONFIG_DEBUG_SPINLOCK, CONFIG_DEBUG_LOCK_ALLOC) are enabled on a UP platfor=
+m
+(e.g. m68k defconfig), arch_spinlock_t is an empty struct, and thus
+ARRAY_SIZE(nf_nat_locks)] is zero, leading to:
+
+    net/netfilter/nf_nat_core.c: In function =E2=80=98nf_nat_setup_info=E2=
+=80=99:
+    net/netfilter/nf_nat_core.c:432: warning: division by zero
+    net/netfilter/nf_nat_core.c: In function =E2=80=98__nf_nat_cleanup_conn=
+track=E2=80=99:
+    net/netfilter/nf_nat_core.c:535: warning: division by zero
+    net/netfilter/nf_nat_core.c:537: warning: division by zero
+    net/netfilter/nf_nat_core.c: In function =E2=80=98nf_nat_init=E2=80=99:
+    net/netfilter/nf_nat_core.c:810: warning: division by zero
+    net/netfilter/nf_nat_core.c:811: warning: division by zero
+    net/netfilter/nf_nat_core.c:824: warning: division by zero
+
+Gr{oetje,eeting}s,
+
+                        Geert
