@@ -1,28 +1,42 @@
-From: mackenzie <antoine.touze@univ-tours.fr>
-Subject: [SUSPECTED SPAM] I am a Buyer
-Date: Sun, 10 Sep 2017 13:19:09 +0200 (CEST)
-Message-ID: <407965311.45474009.1505042349493.JavaMail.zimbra__17987.6743969091$1505042396$gmane$org@univ-tours.fr>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: Division by zero on UP (was: Re: netfilter: nat: use keyed locks)
+Date: Sun, 10 Sep 2017 13:21:26 +0200
+Message-ID: <20170910112126.GB25977@breakpoint.cc>
+References: <CAMuHMdVwp1njkMYo-y8FZHWNWW6wtN2LYVC=9-mbcF-omDaztw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from angelia.univ-tours.fr ([193.52.209.20]:9659 "EHLO
-        angelia.univ-tours.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750748AbdIJLTT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 10 Sep 2017 07:19:19 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 8bit
+Cc: Florian Westphal <fw@strlen.de>,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Arnd Bergmann <arnd@arndb.de>
+To: Geert Uytterhoeven <geert@linux-m68k.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAMuHMdVwp1njkMYo-y8FZHWNWW6wtN2LYVC=9-mbcF-omDaztw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Geert Uytterhoeven <geert@linux-m68k.org> wrote:
+> >                 srchash = hash_by_src(net,
+> >                                       &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple);
+> > -               spin_lock_bh(&nf_nat_lock);
+> > +               lock = &nf_nat_locks[srchash % ARRAY_SIZE(nf_nat_locks)];
+> > +               spin_lock_bh(lock);
+> 
+> If no spinlock debugging options (CONFIG_GENERIC_LOCKBREAK,
+> CONFIG_DEBUG_SPINLOCK, CONFIG_DEBUG_LOCK_ALLOC) are enabled on a UP platform
+> (e.g. m68k defconfig), arch_spinlock_t is an empty struct, and thus
+> ARRAY_SIZE(nf_nat_locks)] is zero, leading to:
+> 
+>     net/netfilter/nf_nat_core.c: In function ‘nf_nat_setup_info’:
+>     net/netfilter/nf_nat_core.c:432: warning: division by zero
 
+Gah. Sorry.  This is the 2nd time I add such a bug :(
 
-Dear Sir/Madam,
+Can you send a patch?  It should be enough to use CONNTRACK_LOCKS
+instead of ARRAY_SIZE(nf_nat_locks) to avoid this problem.
 
-I am Becca MacKenzie, We are interested in your products and want to make you and your company our major suppliers but first we would like your to send us your best price list and Catalog if possible.
-
-We will be ordering in large quantity so we are looking forward in making a good relationship with you and your company.
-
-For my quick response write only to my contact email: becca.mackenzie100@outlook.com
-
-Regards
-Becca MacKenzie
+Otherwise I will take care of this next thing monday morning.
