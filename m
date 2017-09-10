@@ -1,59 +1,62 @@
-From: Benoit Panizzon <benoit.panizzon@imp.ch>
-Subject: broken vlan support on Realtek RTL8111/8168/8411 rev 9
-Date: Sun, 10 Sep 2017 19:16:45 +0200
-Message-ID: <20170910191645.549d2a3a@krup.woody.ch>
+From: Roman Mashak <mrv@mojatatu.com>
+Subject: Re: [PATCH iproute2 3/3] bridge: request vlans along with link information
+Date: Sun, 10 Sep 2017 14:18:47 -0400
+Message-ID: <85poayquwo.fsf@mojatatu.com>
+References: <1504907543-14394-1-git-send-email-mrv@mojatatu.com>
+        <1504907543-14394-4-git-send-email-mrv@mojatatu.com>
+        <CAJieiUhT75fM3LuhNW32QkbJA9TO5dHwb_G-aRD2H70jF-FG2A@mail.gmail.com>
+        <85y3pmr7wn.fsf@mojatatu.com>
+        <93aaf641-5063-e5d2-799c-718c85ca60a5@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain
+Cc: Roopa Prabhu <roopa@cumulusnetworks.com>,
+        "stephen\@networkplumber.org" <stephen@networkplumber.org>,
+        "netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
+        Jamal Hadi Salim <jhs@mojatatu.com>
+To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from thor.imp.ch ([157.161.4.18]:52609 "EHLO thor.imp.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750869AbdIJRg0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 10 Sep 2017 13:36:26 -0400
-Received: from krup.woody.ch (wotan0.imp.ch [157.161.4.49])
-        by thor.imp.ch (8.15.2/8.13.3) with ESMTPS id v8AHGlk0026677
-        (version=TLSv1.2 cipher=ECDHE-RSA-AES256-GCM-SHA384 bits=256 verify=NO)
-        for <netdev@vger.kernel.org>; Sun, 10 Sep 2017 19:16:48 +0200 (CEST)
-        (envelope-from benoit.panizzon@imp.ch)
+Received: from mail-it0-f45.google.com ([209.85.214.45]:45678 "EHLO
+        mail-it0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750789AbdIJSS7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 10 Sep 2017 14:18:59 -0400
+Received: by mail-it0-f45.google.com with SMTP id v19so9821992ite.0
+        for <netdev@vger.kernel.org>; Sun, 10 Sep 2017 11:18:59 -0700 (PDT)
+In-Reply-To: <93aaf641-5063-e5d2-799c-718c85ca60a5@cumulusnetworks.com>
+        (Nikolay Aleksandrov's message of "Sun, 10 Sep 2017 17:21:48 +0300")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello
+Nikolay Aleksandrov <nikolay@cumulusnetworks.com> writes:
 
-I make a strange observation. I have two machines.
+> On 10/09/17 16:38, Roman Mashak wrote:
 
-One with a:
+[...]
 
-Realtek Semiconductor Co., Ltd. RTL8111/8168/8411 PCI Express Gigabit
-Ethernet Controller (rev 02)
+>> Since VLAN info is already in link messages, there is no other option but
+>> dump it in monitor or "bridge link show". Yes, the output may be lengthy
+>
+> To make sure there's no misunderstanding - on GETLINK the vlan info is _not_
+> dumped by default (not compressed or otherwise).
 
-The other one with the same card, but (rev 09).
+Yes, I understand it, I was referring to link events in the previous
+comment. However, why not to report compressed vlans for GETLINK by
+default if show_details is true, this would be consistent with events monitor.
 
-The rev 02 one works flawlessly.
+It seems to be more clear and intuitive from the user's perspective, the
+same set of command line options for \monitor' or 'show' commands.
 
-The rev 09 one does set all vlan tags to zero on rx!
-
-It's not a config error on the switch, I swapped interfaces with the
-one the other card is working.
-
-I did try the r8169 kernel module from Realtek stead of the r8168 one,
-the problem persists.
-
-I did try to disable vlan offloading:
-
-rx-vlan-offload: on
-tx-vlan-offload: on
-
-It's not marked as fixed but:
-
-when I try to turn offloading off I get:
-
-# /sbin/ethtool -K eth0 rx-vlan-offload off
-ethtool: bad command line argument(s)
-For more information run ethtool -h
-
-Could anyone give me a hint how to further debug the problem or disable
-vlan offloading completely?
-
--Benoit-
+> It is only dumped compressed on port notifications, that is why I suggested to
+> use the already present flag (-compressvlans, -c) in order to include that info
+> when monitoring or dumping link info, so people watching for the port flags
+> (show_details) would not suddenly start getting a lot more and it makes sense
+> to dump it only on specific request.
+>
+>> and hard to digest for a human, that is why I put it under "show_details"
+>> kludge - if one is requesting details, he/she should be prepared for
+>> large volumes of data to be shown :)
+>> 
+>> As Nikolay suggested, it'll make sense to request compressed
+>> output by default, this will be addresses in v2 patch.
+>> 
+>> [...]
+>> 
