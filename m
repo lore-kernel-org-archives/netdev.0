@@ -1,31 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next 2/2] hv_netvsc: avoid unnecessary wakeups
- on subchannel creation
-Date: Mon, 11 Sep 2017 14:21:57 -0700 (PDT)
-Message-ID: <20170911.142157.2261457732253627669.davem@davemloft.net>
-References: <20170906205306.10541-1-sthemmin@microsoft.com>
-        <20170906205306.10541-3-sthemmin@microsoft.com>
+Subject: Re: [PATCH] net/sched: fix pointer check in gen_handle
+Date: Mon, 11 Sep 2017 14:35:02 -0700 (PDT)
+Message-ID: <20170911.143502.998165379504365686.davem@davemloft.net>
+References: <1505072930-13049-1-git-send-email-johunt@akamai.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kys@microsoft.com, haiyangz@microsoft.com, sthemmin@microsoft.com,
-        devel@linuxdriverproject.org, netdev@vger.kernel.org
-To: stephen@networkplumber.org
+Cc: jhs@mojatatu.com, xiyou.wangcong@gmail.com, jiri@resnulli.us,
+        netdev@vger.kernel.org
+To: johunt@akamai.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:56096 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:56434 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751151AbdIKVV5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 11 Sep 2017 17:21:57 -0400
-In-Reply-To: <20170906205306.10541-3-sthemmin@microsoft.com>
+        with ESMTP id S1750967AbdIKVfD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 11 Sep 2017 17:35:03 -0400
+In-Reply-To: <1505072930-13049-1-git-send-email-johunt@akamai.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Wed,  6 Sep 2017 13:53:06 -0700
+From: Josh Hunt <johunt@akamai.com>
+Date: Sun, 10 Sep 2017 15:48:50 -0400
 
-> Only need to wakeup the initiator after all sub-channels
-> are opened.
+> Fixes sparse warning about pointer in gen_handle:
+> net/sched/cls_rsvp.h:392:40: warning: Using plain integer as NULL pointer
 > 
-> Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+> Fixes: 8113c095672f6 ("net_sched: use void pointer for filter handle")
+> Signed-off-by: Josh Hunt <johunt@akamai.com>
 
 Applied.
