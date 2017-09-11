@@ -1,502 +1,147 @@
-From: Matthew Wilcox <willy@infradead.org>
-Subject: Extended IDR API
-Date: Mon, 11 Sep 2017 14:14:08 -0700
-Message-ID: <20170911211408.GA26747@bombadil.infradead.org>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [Patch net v2 2/2] net_sched: fix all the madness of tc filter chain
+Date: Mon, 11 Sep 2017 14:14:54 -0700
+Message-ID: <CAM_iQpV2p25iZg7sd7jpcN0nuAPmwVUa3-J8F_oGC26aTTPtWw@mail.gmail.com>
+References: <20170907042607.24413-1-xiyou.wangcong@gmail.com>
+ <20170907042607.24413-2-xiyou.wangcong@gmail.com> <20170907063216.GB1967@nanopsycho>
+ <CAM_iQpXsYc1cfZmuFKGH1O-FPJr9+NJqZTTB5z1oJVGYgvkV+Q@mail.gmail.com>
+ <20170907205239.GF1967@nanopsycho> <CAM_iQpUJLfkq0ys3XNchPVXBpF4yoNaBG_L7UjiSMW7_9NyYaQ@mail.gmail.com>
+ <20170910143300.GB1860@nanopsycho>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Pirko <jiri@mellanox.com>,
-        "David S. Miller" <davem@davemloft.net>, Tejun Heo <tj@kernel.org>,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        Rehas Sachdeva <aquannie@gmail.com>
-To: Chris Mi <chrism@mellanox.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Jakub Kicinski <jakub.kicinski@netronome.com>,
+        Jiri Pirko <jiri@mellanox.com>
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f181.google.com ([209.85.192.181]:36746 "EHLO
+        mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751483AbdIKVPP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 11 Sep 2017 17:15:15 -0400
+Received: by mail-pf0-f181.google.com with SMTP id e199so15707330pfh.3
+        for <netdev@vger.kernel.org>; Mon, 11 Sep 2017 14:15:15 -0700 (PDT)
+In-Reply-To: <20170910143300.GB1860@nanopsycho>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+On Sun, Sep 10, 2017 at 7:33 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+> Fri, Sep 08, 2017 at 06:37:55PM CEST, xiyou.wangcong@gmail.com wrote:
+>>On Thu, Sep 7, 2017 at 1:52 PM, Jiri Pirko <jiri@resnulli.us> wrote:
+>>> Thu, Sep 07, 2017 at 07:45:49PM CEST, xiyou.wangcong@gmail.com wrote:
+>>>>Yes it is for chain 0, because block holds a reference to chain 0 during
+>>>>creation. Non-0 chains are created with refcnt==1 too but paired with
+>>>>tcf_chain_put() rather than tcf_block_put(). This is what makes chain 0
+>>>>not special w.r.t. refcnt.
+>>>
+>>> So you need to tcf_chain_put only chain 0 here, right? The rest of the
+>>> chains get destroyed by the previous list_for_each_entry iteration when
+>>> flush happens and actions destroy happens what decrements recnt to 0
+>>> there.
+>>
+>>
+>>This is correct. And it should be only chain 0 after flush.
+>>
+>>>
+>>> What do I miss, who would still hold reference for non-0 chains when all
+>>> tps and all goto_chain actions are gone?
+>>
+>>No one. This is totally correct and is exactly what this patch intends to do.
+>>
+>>Look, this is why we never need an object with refcnt==0 to exist. ;)
+>
+> So, I understand that correctly, good. But this is a problem.
+>
+> When you do:
+>        list_for_each_entry(chain, &block->chain_list, list)
+>                 tcf_chain_flush(chain);
+>
+> The reference may get dropped for chains to 0 (for those that does not
+> have a goto_chain action holding a ref), and therefore they get freed
+> within the loop. That is problematic when you do the traversing of the
+> list. You may use list_for_each_entry_safe, but there is another issue:
+>
+> As a part of tcf_chain_flush destruction, act goto_chain destruction may
+> get scheduled by call_rcu. That may be the last reference held for the
+> chain. So you race between this loop and rcu callback.
+>
+> Consider following example:
+>
+> chain0  - has only one rule with goto_chain 22 action
+> chain22 - no rule (refcnt 1 because of the action mentioned above)
+>
+>          CPU0                            CPU1
+>
+>     tcf_chain_flush(0)
+>                -> call_rcu(free_tcf)
+>                                           free_tcf
+>                                              ->tcf_chain_put(22)
+>                                                  ->tcf_chain_destroy(22)
+>                                                      ->kfree(22)
 
 
-I really don't like your new API.  I wish you'd discussed it before
-merging it.  Here's my redesign.  Does anybody have a suggestion for
-improvement?
+Looks like all due to the lack of locking on block->chain_list.
+I thought the rcu_barrier() could properly handle this,
+but seems still not, probably I need to move it in the loop,
+I am still not 100% sure if it is totally safe with
+list_for_each_safe():
 
-We have a lovely new test-suite for the IDR (in tools/testing/radix-tree)
-... when adding a new API, it's polite to update the test-suite too.
-Do you have any plans to add test cases?
 
-(Compile tested only; I'm at a conference.  Also, I didn't check the
-kerneldoc because I don't have Sphinx installed on my laptop.)
+-       list_for_each_entry(chain, &block->chain_list, list)
++       list_for_each_entry_safe(chain, tmp, &block->chain_list, list) {
+                tcf_chain_flush(chain);
+-       rcu_barrier();
++               rcu_barrier(); // are we safe now???
++       }
 
->From ff45b2a6806cd0e4177c5a10f26c97999164c10c Mon Sep 17 00:00:00 2001
-From: Matthew Wilcox <mawilcox@microsoft.com>
-Date: Mon, 11 Sep 2017 16:16:29 -0400
-Subject: [PATCH] idr: Rewrite extended IDR API
 
- - Rename the API to be 'ul' for unsigned long instead of 'ext'.  This
-   fits better with other usage in the Linux kernel.
- - idr_alloc() moves back to being a function instead of inline
- - idr_alloc_ul() takes 'nextid' as an in-out parameter like idr_get_next(),
-   instead of having 'index' as an out-only parameter.
- - idr_alloc_ul() needs a __must_check to ensure that users don't look at
-   the result without checking whether the function succeeded.
- - idr_alloc_ul() takes 'max' rather than 'end', or it is impossible to
-   allocate the ULONG_MAX id.
- - idr_replace() can simply take an unsigned long parameter instead of
-   an int.
- - idr_remove() and idr_find() are the same as idr_replace().
- - We don't need separate idr_get_free() and idr_get_free_ext().
- - Add kerneldoc for idr_alloc_ul().
+>     tcf_chain_flush(22)...use-after-free
+>
 
-Signed-off-by: Matthew Wilcox <mawilcox@microsoft.com>
----
- include/linux/idr.h        | 75 +++++----------------------------------
- include/linux/radix-tree.h | 17 +--------
- lib/idr.c                  | 88 +++++++++++++++++++++++++++++++++-------------
- lib/radix-tree.c           |  2 +-
- net/sched/act_api.c        | 22 ++++++------
- net/sched/cls_flower.c     | 16 +++++----
- 6 files changed, 95 insertions(+), 125 deletions(-)
+Same race could happen with your code too, right?
+chain 22 still has refcnt==1 so chain_put() will destroy
+it in flush() too. So this is not a regression.
 
-diff --git a/include/linux/idr.h b/include/linux/idr.h
-index 7c3a365f7e12..90faf8279559 100644
---- a/include/linux/idr.h
-+++ b/include/linux/idr.h
-@@ -81,74 +81,22 @@ static inline void idr_set_cursor(struct idr *idr, unsigned int val)
- 
- void idr_preload(gfp_t gfp_mask);
- 
--int idr_alloc_cmn(struct idr *idr, void *ptr, unsigned long *index,
--		  unsigned long start, unsigned long end, gfp_t gfp,
--		  bool ext);
--
--/**
-- * idr_alloc - allocate an id
-- * @idr: idr handle
-- * @ptr: pointer to be associated with the new id
-- * @start: the minimum id (inclusive)
-- * @end: the maximum id (exclusive)
-- * @gfp: memory allocation flags
-- *
-- * Allocates an unused ID in the range [start, end).  Returns -ENOSPC
-- * if there are no unused IDs in that range.
-- *
-- * Note that @end is treated as max when <= 0.  This is to always allow
-- * using @start + N as @end as long as N is inside integer range.
-- *
-- * Simultaneous modifications to the @idr are not allowed and should be
-- * prevented by the user, usually with a lock.  idr_alloc() may be called
-- * concurrently with read-only accesses to the @idr, such as idr_find() and
-- * idr_for_each_entry().
-- */
--static inline int idr_alloc(struct idr *idr, void *ptr,
--			    int start, int end, gfp_t gfp)
--{
--	unsigned long id;
--	int ret;
--
--	if (WARN_ON_ONCE(start < 0))
--		return -EINVAL;
--
--	ret = idr_alloc_cmn(idr, ptr, &id, start, end, gfp, false);
--
--	if (ret)
--		return ret;
--
--	return id;
--}
--
--static inline int idr_alloc_ext(struct idr *idr, void *ptr,
--				unsigned long *index,
--				unsigned long start,
--				unsigned long end,
--				gfp_t gfp)
--{
--	return idr_alloc_cmn(idr, ptr, index, start, end, gfp, true);
--}
--
-+int idr_alloc(struct idr *, void *, int start, int end, gfp_t);
-+int __must_check idr_alloc_ul(struct idr *, void *, unsigned long *nextid,
-+			unsigned long max, gfp_t);
- int idr_alloc_cyclic(struct idr *, void *entry, int start, int end, gfp_t);
- int idr_for_each(const struct idr *,
- 		 int (*fn)(int id, void *p, void *data), void *data);
- void *idr_get_next(struct idr *, int *nextid);
--void *idr_get_next_ext(struct idr *idr, unsigned long *nextid);
--void *idr_replace(struct idr *, void *, int id);
--void *idr_replace_ext(struct idr *idr, void *ptr, unsigned long id);
-+void *idr_get_next_ul(struct idr *, unsigned long *nextid);
-+void *idr_replace(struct idr *, void *, unsigned long id);
- void idr_destroy(struct idr *);
- 
--static inline void *idr_remove_ext(struct idr *idr, unsigned long id)
-+static inline void *idr_remove(struct idr *idr, unsigned long id)
- {
- 	return radix_tree_delete_item(&idr->idr_rt, id, NULL);
- }
- 
--static inline void *idr_remove(struct idr *idr, int id)
--{
--	return idr_remove_ext(idr, id);
--}
--
- static inline void idr_init(struct idr *idr)
- {
- 	INIT_RADIX_TREE(&idr->idr_rt, IDR_RT_MARKER);
-@@ -184,16 +132,11 @@ static inline void idr_preload_end(void)
-  * This function can be called under rcu_read_lock(), given that the leaf
-  * pointers lifetimes are correctly managed.
-  */
--static inline void *idr_find_ext(const struct idr *idr, unsigned long id)
-+static inline void *idr_find(const struct idr *idr, unsigned long id)
- {
- 	return radix_tree_lookup(&idr->idr_rt, id);
- }
- 
--static inline void *idr_find(const struct idr *idr, int id)
--{
--	return idr_find_ext(idr, id);
--}
--
- /**
-  * idr_for_each_entry - iterate over an idr's elements of a given type
-  * @idr:     idr handle
-@@ -206,8 +149,8 @@ static inline void *idr_find(const struct idr *idr, int id)
-  */
- #define idr_for_each_entry(idr, entry, id)			\
- 	for (id = 0; ((entry) = idr_get_next(idr, &(id))) != NULL; ++id)
--#define idr_for_each_entry_ext(idr, entry, id)			\
--	for (id = 0; ((entry) = idr_get_next_ext(idr, &(id))) != NULL; ++id)
-+#define idr_for_each_entry_ul(idr, entry, id)			\
-+	for (id = 0; ((entry) = idr_get_next_ul(idr, &(id))) != NULL; ++id)
- 
- /**
-  * idr_for_each_entry_continue - continue iteration over an idr's elements of a given type
-diff --git a/include/linux/radix-tree.h b/include/linux/radix-tree.h
-index 567ebb5eaab0..8275fc2ed0f4 100644
---- a/include/linux/radix-tree.h
-+++ b/include/linux/radix-tree.h
-@@ -358,24 +358,9 @@ int radix_tree_split(struct radix_tree_root *, unsigned long index,
- int radix_tree_join(struct radix_tree_root *, unsigned long index,
- 			unsigned new_order, void *);
- 
--void __rcu **idr_get_free_cmn(struct radix_tree_root *root,
-+void __rcu **idr_get_free(struct radix_tree_root *root,
- 			      struct radix_tree_iter *iter, gfp_t gfp,
- 			      unsigned long max);
--static inline void __rcu **idr_get_free(struct radix_tree_root *root,
--					struct radix_tree_iter *iter,
--					gfp_t gfp,
--					int end)
--{
--	return idr_get_free_cmn(root, iter, gfp, end > 0 ? end - 1 : INT_MAX);
--}
--
--static inline void __rcu **idr_get_free_ext(struct radix_tree_root *root,
--					    struct radix_tree_iter *iter,
--					    gfp_t gfp,
--					    unsigned long end)
--{
--	return idr_get_free_cmn(root, iter, gfp, end - 1);
--}
- 
- enum {
- 	RADIX_TREE_ITER_TAG_MASK = 0x0f,	/* tag index in lower nybble */
-diff --git a/lib/idr.c b/lib/idr.c
-index 082778cf883e..230879a65d99 100644
---- a/lib/idr.c
-+++ b/lib/idr.c
-@@ -7,9 +7,26 @@
- DEFINE_PER_CPU(struct ida_bitmap *, ida_bitmap);
- static DEFINE_SPINLOCK(simple_ida_lock);
- 
--int idr_alloc_cmn(struct idr *idr, void *ptr, unsigned long *index,
--		  unsigned long start, unsigned long end, gfp_t gfp,
--		  bool ext)
-+/**
-+ * idr_alloc_ul - allocate a large ID
-+ * @idr: idr handle
-+ * @ptr: pointer to be associated with the new ID
-+ * @nextid: Pointer to minimum ID to allocate
-+ * @max: the maximum ID (inclusive)
-+ * @gfp: memory allocation flags
-+ *
-+ * Allocates an unused ID in the range [*nextid, end] and stores it in
-+ * @nextid.  Note that @max differs from the @end parameter to idr_alloc().
-+ *
-+ * Simultaneous modifications to the @idr are not allowed and should be
-+ * prevented by the user, usually with a lock.  idr_alloc_ul() may be called
-+ * concurrently with read-only accesses to the @idr, such as idr_find() and
-+ * idr_for_each_entry().
-+ *
-+ * Return: 0 on success or a negative errno on failure (ENOMEM or ENOSPC)
-+ */
-+int idr_alloc_ul(struct idr *idr, void *ptr, unsigned long *nextid,
-+			unsigned long max, gfp_t gfp)
- {
- 	struct radix_tree_iter iter;
- 	void __rcu **slot;
-@@ -17,22 +34,54 @@ int idr_alloc_cmn(struct idr *idr, void *ptr, unsigned long *index,
- 	if (WARN_ON_ONCE(radix_tree_is_internal_node(ptr)))
- 		return -EINVAL;
- 
--	radix_tree_iter_init(&iter, start);
--	if (ext)
--		slot = idr_get_free_ext(&idr->idr_rt, &iter, gfp, end);
--	else
--		slot = idr_get_free(&idr->idr_rt, &iter, gfp, end);
-+	radix_tree_iter_init(&iter, *nextid);
-+	slot = idr_get_free(&idr->idr_rt, &iter, gfp, max);
- 	if (IS_ERR(slot))
- 		return PTR_ERR(slot);
- 
- 	radix_tree_iter_replace(&idr->idr_rt, &iter, slot, ptr);
- 	radix_tree_iter_tag_clear(&idr->idr_rt, &iter, IDR_FREE);
- 
--	if (index)
--		*index = iter.index;
-+	*nextid = iter.index;
- 	return 0;
- }
--EXPORT_SYMBOL_GPL(idr_alloc_cmn);
-+EXPORT_SYMBOL_GPL(idr_alloc_ul);
-+
-+/**
-+ * idr_alloc - allocate an id
-+ * @idr: idr handle
-+ * @ptr: pointer to be associated with the new id
-+ * @start: the minimum id (inclusive)
-+ * @end: the maximum id (exclusive)
-+ * @gfp: memory allocation flags
-+ *
-+ * Allocates an unused ID in the range [start, end).  Returns -ENOSPC
-+ * if there are no unused IDs in that range.
-+ *
-+ * Note that @end is treated as max when <= 0.  This is to always allow
-+ * using @start + N as @end as long as N is inside integer range.
-+ *
-+ * Simultaneous modifications to the @idr are not allowed and should be
-+ * prevented by the user, usually with a lock.  idr_alloc() may be called
-+ * concurrently with read-only accesses to the @idr, such as idr_find() and
-+ * idr_for_each_entry().
-+ */
-+int idr_alloc(struct idr *idr, void *ptr, int start, int end, gfp_t gfp)
-+{
-+	unsigned long id = start;
-+	int ret;
-+
-+	if (WARN_ON_ONCE(start < 0))
-+		return -EINVAL;
-+
-+	ret = idr_alloc_ul(idr, ptr, &id, end > 0 ? end - 1 : INT_MAX, gfp);
-+
-+	if (ret)
-+		return ret;
-+
-+	return id;
-+}
-+EXPORT_SYMBOL_GPL(idr_alloc);
- 
- /**
-  * idr_alloc_cyclic - allocate new idr entry in a cyclical fashion
-@@ -121,7 +170,7 @@ void *idr_get_next(struct idr *idr, int *nextid)
- }
- EXPORT_SYMBOL(idr_get_next);
- 
--void *idr_get_next_ext(struct idr *idr, unsigned long *nextid)
-+void *idr_get_next_ul(struct idr *idr, unsigned long *nextid)
- {
- 	struct radix_tree_iter iter;
- 	void __rcu **slot;
-@@ -133,7 +182,7 @@ void *idr_get_next_ext(struct idr *idr, unsigned long *nextid)
- 	*nextid = iter.index;
- 	return rcu_dereference_raw(*slot);
- }
--EXPORT_SYMBOL(idr_get_next_ext);
-+EXPORT_SYMBOL(idr_get_next_ul);
- 
- /**
-  * idr_replace - replace pointer for given id
-@@ -149,16 +198,7 @@ EXPORT_SYMBOL(idr_get_next_ext);
-  * Returns: 0 on success.  %-ENOENT indicates that @id was not found.
-  * %-EINVAL indicates that @id or @ptr were not valid.
-  */
--void *idr_replace(struct idr *idr, void *ptr, int id)
--{
--	if (WARN_ON_ONCE(id < 0))
--		return ERR_PTR(-EINVAL);
--
--	return idr_replace_ext(idr, ptr, id);
--}
--EXPORT_SYMBOL(idr_replace);
--
--void *idr_replace_ext(struct idr *idr, void *ptr, unsigned long id)
-+void *idr_replace(struct idr *idr, void *ptr, unsigned long id)
- {
- 	struct radix_tree_node *node;
- 	void __rcu **slot = NULL;
-@@ -175,7 +215,7 @@ void *idr_replace_ext(struct idr *idr, void *ptr, unsigned long id)
- 
- 	return entry;
- }
--EXPORT_SYMBOL(idr_replace_ext);
-+EXPORT_SYMBOL(idr_replace);
- 
- /**
-  * DOC: IDA description
-diff --git a/lib/radix-tree.c b/lib/radix-tree.c
-index 8b1feca1230a..9fcd4e5c5237 100644
---- a/lib/radix-tree.c
-+++ b/lib/radix-tree.c
-@@ -2139,7 +2139,7 @@ int ida_pre_get(struct ida *ida, gfp_t gfp)
- }
- EXPORT_SYMBOL(ida_pre_get);
- 
--void __rcu **idr_get_free_cmn(struct radix_tree_root *root,
-+void __rcu **idr_get_free(struct radix_tree_root *root,
- 			      struct radix_tree_iter *iter, gfp_t gfp,
- 			      unsigned long max)
- {
-diff --git a/net/sched/act_api.c b/net/sched/act_api.c
-index a306974e2fb4..131817ab3ad3 100644
---- a/net/sched/act_api.c
-+++ b/net/sched/act_api.c
-@@ -73,7 +73,7 @@ static void free_tcf(struct rcu_head *head)
- static void tcf_idr_remove(struct tcf_idrinfo *idrinfo, struct tc_action *p)
- {
- 	spin_lock_bh(&idrinfo->lock);
--	idr_remove_ext(&idrinfo->action_idr, p->tcfa_index);
-+	idr_remove(&idrinfo->action_idr, p->tcfa_index);
- 	spin_unlock_bh(&idrinfo->lock);
- 	gen_kill_estimator(&p->tcfa_rate_est);
- 	/*
-@@ -121,7 +121,7 @@ static int tcf_dump_walker(struct tcf_idrinfo *idrinfo, struct sk_buff *skb,
- 
- 	s_i = cb->args[0];
- 
--	idr_for_each_entry_ext(idr, p, id) {
-+	idr_for_each_entry_ul(idr, p, id) {
- 		index++;
- 		if (index < s_i)
- 			continue;
-@@ -178,7 +178,7 @@ static int tcf_del_walker(struct tcf_idrinfo *idrinfo, struct sk_buff *skb,
- 	if (nla_put_string(skb, TCA_KIND, ops->kind))
- 		goto nla_put_failure;
- 
--	idr_for_each_entry_ext(idr, p, id) {
-+	idr_for_each_entry_ul(idr, p, id) {
- 		ret = __tcf_idr_release(p, false, true);
- 		if (ret == ACT_P_DELETED) {
- 			module_put(p->ops->owner);
-@@ -216,10 +216,10 @@ EXPORT_SYMBOL(tcf_generic_walker);
- 
- static struct tc_action *tcf_idr_lookup(u32 index, struct tcf_idrinfo *idrinfo)
- {
--	struct tc_action *p = NULL;
-+	struct tc_action *p;
- 
- 	spin_lock_bh(&idrinfo->lock);
--	p = idr_find_ext(&idrinfo->action_idr, index);
-+	p = idr_find(&idrinfo->action_idr, index);
- 	spin_unlock_bh(&idrinfo->lock);
- 
- 	return p;
-@@ -296,10 +296,10 @@ int tcf_idr_create(struct tc_action_net *tn, u32 index, struct nlattr *est,
- 	spin_lock_init(&p->tcfa_lock);
- 	/* user doesn't specify an index */
- 	if (!index) {
-+		idr_index = 1;
- 		idr_preload(GFP_KERNEL);
- 		spin_lock_bh(&idrinfo->lock);
--		err = idr_alloc_ext(idr, NULL, &idr_index, 1, 0,
--				    GFP_ATOMIC);
-+		err = idr_alloc_ul(idr, NULL, &idr_index, UINT_MAX, GFP_ATOMIC);
- 		spin_unlock_bh(&idrinfo->lock);
- 		idr_preload_end();
- 		if (err) {
-@@ -309,10 +309,10 @@ int tcf_idr_create(struct tc_action_net *tn, u32 index, struct nlattr *est,
- 		}
- 		p->tcfa_index = idr_index;
- 	} else {
-+		idr_index = index;
- 		idr_preload(GFP_KERNEL);
- 		spin_lock_bh(&idrinfo->lock);
--		err = idr_alloc_ext(idr, NULL, NULL, index, index + 1,
--				    GFP_ATOMIC);
-+		err = idr_alloc_ul(idr, NULL, &idr_index, index, GFP_ATOMIC);
- 		spin_unlock_bh(&idrinfo->lock);
- 		idr_preload_end();
- 		if (err)
-@@ -345,7 +345,7 @@ void tcf_idr_insert(struct tc_action_net *tn, struct tc_action *a)
- 	struct tcf_idrinfo *idrinfo = tn->idrinfo;
- 
- 	spin_lock_bh(&idrinfo->lock);
--	idr_replace_ext(&idrinfo->action_idr, a, a->tcfa_index);
-+	idr_replace(&idrinfo->action_idr, a, a->tcfa_index);
- 	spin_unlock_bh(&idrinfo->lock);
- }
- EXPORT_SYMBOL(tcf_idr_insert);
-@@ -358,7 +358,7 @@ void tcf_idrinfo_destroy(const struct tc_action_ops *ops,
- 	int ret;
- 	unsigned long id = 1;
- 
--	idr_for_each_entry_ext(idr, p, id) {
-+	idr_for_each_entry_ul(idr, p, id) {
- 		ret = __tcf_idr_release(p, false, true);
- 		if (ret == ACT_P_DELETED)
- 			module_put(ops->owner);
-diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
-index 1a267e77c6de..ad30968f587d 100644
---- a/net/sched/cls_flower.c
-+++ b/net/sched/cls_flower.c
-@@ -298,7 +298,7 @@ static void __fl_delete(struct tcf_proto *tp, struct cls_fl_filter *f)
- {
- 	struct cls_fl_head *head = rtnl_dereference(tp->root);
- 
--	idr_remove_ext(&head->handle_idr, f->handle);
-+	idr_remove(&head->handle_idr, f->handle);
- 	list_del_rcu(&f->list);
- 	if (!tc_skip_hw(f->flags))
- 		fl_hw_destroy_filter(tp, f);
-@@ -341,7 +341,7 @@ static void *fl_get(struct tcf_proto *tp, u32 handle)
- {
- 	struct cls_fl_head *head = rtnl_dereference(tp->root);
- 
--	return idr_find_ext(&head->handle_idr, handle);
-+	return idr_find(&head->handle_idr, handle);
- }
- 
- static const struct nla_policy fl_policy[TCA_FLOWER_MAX + 1] = {
-@@ -901,8 +901,9 @@ static int fl_change(struct net *net, struct sk_buff *in_skb,
- 		goto errout;
- 
- 	if (!handle) {
--		err = idr_alloc_ext(&head->handle_idr, fnew, &idr_index,
--				    1, 0x80000000, GFP_KERNEL);
-+		idr_index = 1;
-+		err = idr_alloc_ul(&head->handle_idr, fnew, &idr_index,
-+				    INT_MAX, GFP_KERNEL);
- 		if (err)
- 			goto errout;
- 		fnew->handle = idr_index;
-@@ -910,8 +911,9 @@ static int fl_change(struct net *net, struct sk_buff *in_skb,
- 
- 	/* user specifies a handle and it doesn't exist */
- 	if (handle && !fold) {
--		err = idr_alloc_ext(&head->handle_idr, fnew, &idr_index,
--				    handle, handle + 1, GFP_KERNEL);
-+		idr_index = handle;
-+		err = idr_alloc_ul(&head->handle_idr, fnew, &idr_index,
-+				    handle, GFP_KERNEL);
- 		if (err)
- 			goto errout;
- 		fnew->handle = idr_index;
-@@ -970,7 +972,7 @@ static int fl_change(struct net *net, struct sk_buff *in_skb,
- 
- 	if (fold) {
- 		fnew->handle = handle;
--		idr_replace_ext(&head->handle_idr, fnew, fnew->handle);
-+		idr_replace(&head->handle_idr, fnew, fnew->handle);
- 		list_replace_rcu(&fold->list, &fnew->list);
- 		tcf_unbind_filter(tp, &fold->res);
- 		call_rcu(&fold->rcu, fl_destroy_filter);
--- 
-2.14.1
+I know you have list_for_each_safe() but you lack of
+rcu_barrier(). This is why I said the lack of locking is
+the cause, not your code or my code.
+
+
+>
+> So what I suggest in order to prevent this is to change your code to
+> something like:
+>
+>         /* To avoid race between getting reference in the next loop and
+>          * rcu callbacks from deleleted actions freeing the chain.
+>          */
+>         rcu_barrier();
+>
+>         list_for_each_entry(chain, &block->chain_list, list)
+>                 if (chain->index) /* we already hold ref to chain 0 */
+>                         tcf_chain_hold(chain);
+>
+>         list_for_each_entry(chain, &block->chain_list, list)
+>                 tcf_chain_flush(chain);
+>
+>         /* Wait for rcu callbacks from deleleted actions that were
+>          * sheduled as a result of tcf_chain_flush in the previous loop.
+>          * This is not absolutelly necessary, as the chain may live after
+>          * the tcf_chain_put is called in the next iteration and would
+>          * get freed on tcf_chain_put call from rcu callback later on.
+>          */
+>         rcu_barrier();
+>
+>         /* Now we are sure that we are the only one holding a reference
+>          * to all chains, drop it and let them go.
+>          */
+>         list_for_each_entry_safe(chain, tmp, &block->chain_list, list)
+>                 tcf_chain_put(chain);
+>         kfree(block);
+>
+> Does this make sense?
+
+Yeah, but again this is all due to lack of locking. Do we really
+have to to be such complex or just use either a) proper sync
+with rcu_barrier() or b) proper locking on chain_list (with RCU
+of course)?
+
+Thanks.
