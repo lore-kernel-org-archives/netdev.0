@@ -1,33 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] MAINTAINERS: Remove Yuval Mintz from maintainers
- list
-Date: Mon, 11 Sep 2017 10:38:51 -0700 (PDT)
-Message-ID: <20170911.103851.1568234398454962537.davem@davemloft.net>
-References: <20170911140513.24387-1-aelior@cavium.com>
+Subject: Re: [patch net] mlxsw: spectrum: Fix EEPROM access in case of
+ SFP/SFP+
+Date: Mon, 11 Sep 2017 10:41:41 -0700 (PDT)
+Message-ID: <20170911.104141.1428817513537310351.davem@davemloft.net>
+References: <20170911074226.2020-1-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, everest-linux-l2@cavium.com
-To: aelior@cavium.com
+Cc: netdev@vger.kernel.org, arkadis@mellanox.com, idosch@mellanox.com,
+        flokli@flokli.de, mlxsw@mellanox.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:50696 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:50776 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751020AbdIKRiw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 11 Sep 2017 13:38:52 -0400
-In-Reply-To: <20170911140513.24387-1-aelior@cavium.com>
+        with ESMTP id S1750877AbdIKRlm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 11 Sep 2017 13:41:42 -0400
+In-Reply-To: <20170911074226.2020-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: <aelior@cavium.com>
-Date: Mon, 11 Sep 2017 17:05:13 +0300
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Mon, 11 Sep 2017 09:42:26 +0200
 
-> From: Ariel Elior <aelior@cavium.com>
+> From: Arkadi Sharshevsky <arkadis@mellanox.com>
 > 
-> Remove Yuval from maintaining the bnx2x & qed* modules as he is no longer
-> working for the company. Thanks Yuval for your huge contributions and
-> tireless efforts over the many years and various companies.
+> The current code does not handle correctly the access to the upper page
+> in case of SFP/SFP+ EEPROM. In that case the offset should be local
+> and the I2C address should be changed.
 > 
-> Ariel
+> Fixes: 2ea109039cd3 ("mlxsw: spectrum: Add support for access cable info via ethtool")
+> Reported-by: Florian Klink <flokli@flokli.de>
+> Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
+> Reviewed-by: Ido Schimmel <idosch@mellanox.com>
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 
-All patches must have a proper signoff, therefore please resubmit this
-with one.
+Applied and queued up for -stable, thanks.
