@@ -1,275 +1,268 @@
-From: "Samudrala, Sridhar" <sridhar.samudrala@intel.com>
-Subject: Re: [RFC PATCH] net: Introduce a socket option to enable picking tx
- queue based on rx queue.
-Date: Mon, 11 Sep 2017 09:49:29 -0700
-Message-ID: <f98198c4-16f2-5271-3e12-7984a03bd6db@intel.com>
-References: <1504222032-6337-1-git-send-email-sridhar.samudrala@intel.com>
- <CALx6S371o0Oz9M7jmQWLuG2n3J0NGYGxZ_+okOkFL3x_+GB+2w@mail.gmail.com>
+From: =?UTF-8?Q?Pawe=c5=82_Staszewski?= <pstaszewski@itcare.pl>
+Subject: Re: Kernel 4.13.0-rc4-next-20170811 - IP Routing / Forwarding
+ performance vs Core/RSS number / HT on
+Date: Mon, 11 Sep 2017 18:57:55 +0200
+Message-ID: <0123de5c-a7ad-7e62-b7d0-cd19bd34c573@itcare.pl>
+References: <3ac1a817-5c62-2490-64e7-2512f0ee3b3e@itcare.pl>
+ <20170812142358.08291888@redhat.com>
+ <af5b3482-8f26-52b5-4a00-3a5a42b7449f@itcare.pl>
+ <ce33b7b3-ae00-b6f0-e82a-6df3d5a5e995@itcare.pl>
+ <20170814181957.5be27906@redhat.com> <1502729870.8411.63.camel@redhat.com>
+ <80b3bf71-dc6b-7b96-43d6-dbb3c53c5a8b@itcare.pl>
+ <1502759225.4936.44.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1502759849.4936.46.camel@edumazet-glaptop3.roam.corp.google.com>
+ <709ff9f4-39f9-b5e5-206d-b16edd8c7320@itcare.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Tom Herbert <tom@herbertland.com>
+Content-Transfer-Encoding: 8bit
+Cc: Paolo Abeni <pabeni@redhat.com>,
+        Jesper Dangaard Brouer <brouer@redhat.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Alexander Duyck <alexander.duyck@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:51222 "EHLO mga02.intel.com"
+Received: from smtp16.iq.pl ([86.111.242.222]:51821 "EHLO smtp16.iq.pl"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751916AbdIKQtv (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 11 Sep 2017 12:49:51 -0400
-In-Reply-To: <CALx6S371o0Oz9M7jmQWLuG2n3J0NGYGxZ_+okOkFL3x_+GB+2w@mail.gmail.com>
-Content-Language: en-US
+        id S1751894AbdIKRAB (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 11 Sep 2017 13:00:01 -0400
+In-Reply-To: <709ff9f4-39f9-b5e5-206d-b16edd8c7320@itcare.pl>
+Content-Language: pl
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 9/10/2017 8:19 AM, Tom Herbert wrote:
-> On Thu, Aug 31, 2017 at 4:27 PM, Sridhar Samudrala
-> <sridhar.samudrala@intel.com> wrote:
->> This patch introduces a new socket option SO_SYMMETRIC_QUEUES that can be used
->> to enable symmetric tx and rx queues on a socket.
->>
->> This option is specifically useful for epoll based multi threaded workloads
->> where each thread handles packets received on a single RX queue . In this model,
->> we have noticed that it helps to send the packets on the same TX queue
->> corresponding to the queue-pair associated with the RX queue specifically when
->> busy poll is enabled with epoll().
->>
->> Two new fields are added to struct sock_common to cache the last rx ifindex and
->> the rx queue in the receive path of an SKB. __netdev_pick_tx() returns the cached
->> rx queue when this option is enabled and the TX is happening on the same device.
->>
->> Signed-off-by: Sridhar Samudrala <sridhar.samudrala@intel.com>
->> ---
->>   include/net/request_sock.h        |  1 +
->>   include/net/sock.h                | 17 +++++++++++++++++
->>   include/uapi/asm-generic/socket.h |  2 ++
->>   net/core/dev.c                    |  8 +++++++-
->>   net/core/sock.c                   | 10 ++++++++++
->>   net/ipv4/tcp_input.c              |  1 +
->>   net/ipv4/tcp_ipv4.c               |  1 +
->>   net/ipv4/tcp_minisocks.c          |  1 +
->>   8 files changed, 40 insertions(+), 1 deletion(-)
->>
->> diff --git a/include/net/request_sock.h b/include/net/request_sock.h
->> index 23e2205..c3bc12e 100644
->> --- a/include/net/request_sock.h
->> +++ b/include/net/request_sock.h
->> @@ -100,6 +100,7 @@ static inline struct sock *req_to_sk(struct request_sock *req)
->>          req_to_sk(req)->sk_prot = sk_listener->sk_prot;
->>          sk_node_init(&req_to_sk(req)->sk_node);
->>          sk_tx_queue_clear(req_to_sk(req));
->> +       req_to_sk(req)->sk_symmetric_queues = sk_listener->sk_symmetric_queues;
->>          req->saved_syn = NULL;
->>          refcount_set(&req->rsk_refcnt, 0);
->>
->> diff --git a/include/net/sock.h b/include/net/sock.h
->> index 03a3625..3421809 100644
->> --- a/include/net/sock.h
->> +++ b/include/net/sock.h
->> @@ -138,11 +138,14 @@ void SOCK_DEBUG(const struct sock *sk, const char *msg, ...)
->>    *     @skc_node: main hash linkage for various protocol lookup tables
->>    *     @skc_nulls_node: main hash linkage for TCP/UDP/UDP-Lite protocol
->>    *     @skc_tx_queue_mapping: tx queue number for this connection
->> + *     @skc_rx_queue_mapping: rx queue number for this connection
->> + *     @skc_rx_ifindex: rx ifindex for this connection
->>    *     @skc_flags: place holder for sk_flags
->>    *             %SO_LINGER (l_onoff), %SO_BROADCAST, %SO_KEEPALIVE,
->>    *             %SO_OOBINLINE settings, %SO_TIMESTAMPING settings
->>    *     @skc_incoming_cpu: record/match cpu processing incoming packets
->>    *     @skc_refcnt: reference count
->> + *     @skc_symmetric_queues: symmetric tx/rx queues
->>    *
->>    *     This is the minimal network layer representation of sockets, the header
->>    *     for struct sock and struct inet_timewait_sock.
->> @@ -177,6 +180,7 @@ struct sock_common {
->>          unsigned char           skc_reuseport:1;
->>          unsigned char           skc_ipv6only:1;
->>          unsigned char           skc_net_refcnt:1;
->> +       unsigned char           skc_symmetric_queues:1;
->>          int                     skc_bound_dev_if;
->>          union {
->>                  struct hlist_node       skc_bind_node;
->> @@ -214,6 +218,8 @@ struct sock_common {
->>                  struct hlist_nulls_node skc_nulls_node;
->>          };
->>          int                     skc_tx_queue_mapping;
->> +       int                     skc_rx_queue_mapping;
->> +       int                     skc_rx_ifindex;
->>          union {
->>                  int             skc_incoming_cpu;
->>                  u32             skc_rcv_wnd;
->> @@ -324,6 +330,8 @@ struct sock {
->>   #define sk_nulls_node          __sk_common.skc_nulls_node
->>   #define sk_refcnt              __sk_common.skc_refcnt
->>   #define sk_tx_queue_mapping    __sk_common.skc_tx_queue_mapping
->> +#define sk_rx_queue_mapping    __sk_common.skc_rx_queue_mapping
->> +#define sk_rx_ifindex          __sk_common.skc_rx_ifindex
->>
->>   #define sk_dontcopy_begin      __sk_common.skc_dontcopy_begin
->>   #define sk_dontcopy_end                __sk_common.skc_dontcopy_end
->> @@ -340,6 +348,7 @@ struct sock {
->>   #define sk_reuseport           __sk_common.skc_reuseport
->>   #define sk_ipv6only            __sk_common.skc_ipv6only
->>   #define sk_net_refcnt          __sk_common.skc_net_refcnt
->> +#define sk_symmetric_queues    __sk_common.skc_symmetric_queues
->>   #define sk_bound_dev_if                __sk_common.skc_bound_dev_if
->>   #define sk_bind_node           __sk_common.skc_bind_node
->>   #define sk_prot                        __sk_common.skc_prot
->> @@ -1676,6 +1685,14 @@ static inline int sk_tx_queue_get(const struct sock *sk)
->>          return sk ? sk->sk_tx_queue_mapping : -1;
->>   }
->>
->> +static inline void sk_mark_rx_queue(struct sock *sk, struct sk_buff *skb)
->> +{
->> +       if (sk->sk_symmetric_queues) {
->> +               sk->sk_rx_ifindex = skb->skb_iif;
->> +               sk->sk_rx_queue_mapping = skb_get_rx_queue(skb);
->> +       }
->> +}
->> +
->>   static inline void sk_set_socket(struct sock *sk, struct socket *sock)
->>   {
->>          sk_tx_queue_clear(sk);
->> diff --git a/include/uapi/asm-generic/socket.h b/include/uapi/asm-generic/socket.h
->> index e47c9e4..f6b416e 100644
->> --- a/include/uapi/asm-generic/socket.h
->> +++ b/include/uapi/asm-generic/socket.h
->> @@ -106,4 +106,6 @@
->>
->>   #define SO_ZEROCOPY            60
->>
->> +#define SO_SYMMETRIC_QUEUES    61
->> +
->>   #endif /* __ASM_GENERIC_SOCKET_H */
->> diff --git a/net/core/dev.c b/net/core/dev.c
->> index 270b547..d96cda8 100644
->> --- a/net/core/dev.c
->> +++ b/net/core/dev.c
->> @@ -3322,7 +3322,13 @@ static u16 __netdev_pick_tx(struct net_device *dev, struct sk_buff *skb)
->>
->>          if (queue_index < 0 || skb->ooo_okay ||
->>              queue_index >= dev->real_num_tx_queues) {
->> -               int new_index = get_xps_queue(dev, skb);
->> +               int new_index = -1;
->> +
->> +               if (sk && sk->sk_symmetric_queues && dev->ifindex == sk->sk_rx_ifindex)
->> +                       new_index = sk->sk_rx_queue_mapping;
->> +
->> +               if (new_index < 0 || new_index >= dev->real_num_tx_queues)
->> +                       new_index = get_xps_queue(dev, skb);
-> This enforces that notion of queue pairs which is not universal
-> concept to NICs. There are many devices and instances where we
-> purposely avoid having a 1-1 relationship between rx and tx queues.
+Tested with connectx-5
 
-Yes. This patch assumes that TX and RX queues come in pairs.
+Without patch
 
-> An alternative might be to create a rx queue to tx queue map, add the
-> rx queue argument to get_xps_queue, and then that function can
-> consider the mapping. The administrator can configure the mapping as
-> appropriate and can select which rx queues are subject to the mapping.
-This alternative looks much cleaner and doesn't require the apps to 
-configure the
-queues. Do we need to support 1 to many rx to tx queue mappings?
-For our symmetric queues usecase, where a single application thread is 
-associated with
-1 queue-pair,  1-1 mapping is sufficient.
-Do you see any usecase where it is useful to support 1-many mappings?
-I guess i can add a sysfs entry per rx-queue to setup a tx-queue OR  
-tx-queue-map.
+10Mpps - > 16 cores used
+
+    PerfTop:   66258 irqs/sec  kernel:99.3%  exact:  0.0% [4000Hz 
+cycles],  (all, 32 CPUs)
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- 
 
 
+     10.12%  [kernel]       [k] do_raw_spin_lock
+      6.31%  [kernel]       [k] fib_table_lookup
+      6.12%  [kernel]       [k] mlx5e_handle_rx_cqe_mpwrq
+      4.90%  [kernel]       [k] rt_cache_valid
+      3.99%  [kernel]       [k] mlx5e_xmit
+      3.03%  [kernel]       [k] ip_rcv
+      2.68%  [kernel]       [k] __netif_receive_skb_core
+      2.54%  [kernel]       [k] skb_dst_force
+      2.41%  [kernel]       [k] ip_finish_output2
+      2.21%  [kernel]       [k] __build_skb
+      2.03%  [kernel]       [k] __dev_queue_xmit
+      1.96%  [kernel]       [k] mlx5e_txwqe_complete
+      1.79%  [kernel]       [k] ipt_do_table
+      1.78%  [kernel]       [k] inet_gro_receive
+      1.69%  [kernel]       [k] ip_forward
+      1.66%  [kernel]       [k] udp_v4_early_demux
+      1.65%  [kernel]       [k] dst_release
+      1.56%  [kernel]       [k] ip_rcv_finish
+      1.45%  [kernel]       [k] dev_gro_receive
+      1.45%  [kernel]       [k] netif_skb_features
+      1.39%  [kernel]       [k] mlx5e_poll_tx_cq
+      1.35%  [kernel]       [k] mlx5e_txwqe_build_dsegs
+      1.35%  [kernel]       [k] ip_route_input_rcu
+      1.15%  [kernel]       [k] dev_hard_start_xmit
+      1.12%  [kernel]       [k] napi_gro_receive
+      1.07%  [kernel]       [k] netif_receive_skb_internal
+      0.98%  [kernel]       [k] sch_direct_xmit
+      0.95%  [kernel]       [k] kmem_cache_alloc
+      0.89%  [kernel]       [k] read_tsc
+      0.88%  [kernel]       [k] mlx5e_build_rx_skb
+      0.86%  [kernel]       [k] mlx5_cqwq_get_cqe
+      0.82%  [kernel]       [k] page_frag_free
+      0.78%  [kernel]       [k] __local_bh_enable_ip
+      0.69%  [kernel]       [k] skb_network_protocol
+      0.68%  [kernel]       [k] __netif_receive_skb
+      0.67%  [kernel]       [k] vlan_dev_hard_start_xmit
+      0.65%  [kernel]       [k] mlx5e_poll_rx_cq
+      0.65%  [kernel]       [k] validate_xmit_skb
+      0.60%  [kernel]       [k] eth_type_trans
+      0.60%  [kernel]       [k] deliver_ptype_list_skb
+      0.60%  [kernel]       [k] fib_validate_source
+      0.55%  [kernel]       [k] eth_header
+      0.53%  [kernel]       [k] netdev_pick_tx
+      0.53%  [kernel]       [k] __napi_alloc_skb
+      0.51%  [kernel]       [k] __udp4_lib_lookup
+      0.50%  [kernel]       [k] eth_type_vlan
+      0.49%  [kernel]       [k] ip_output
+      0.49%  [kernel]       [k] page_frag_alloc
+      0.49%  [kernel]       [k] ip_finish_output
+      0.48%  [kernel]       [k] neigh_connected_output
+      0.45%  [kernel]       [k] nf_hook_slow
+      0.44%  [kernel]       [k] udp4_gro_receive
+      0.39%  [kernel]       [k] mlx5e_features_check
+      0.39%  [kernel]       [k] mlx5e_napi_poll
+      0.37%  [kernel]       [k] __jhash_nwords
+      0.37%  [kernel]       [k] udp_gro_receive
+      0.36%  [kernel]       [k] swiotlb_map_page
+      0.33%  [kernel]       [k] mlx5_cqwq_get_wqe
+      0.33%  [kernel]       [k] __netdev_pick_tx
+      0.29%  [kernel]       [k] ktime_get_with_offset
+      0.29%  [kernel]       [k] get_dma_ops
+      0.29%  [kernel]       [k] validate_xmit_skb_list
+      0.26%  [kernel]       [k] vlan_passthru_hard_header
+      0.26%  [kernel]       [k] __udp4_lib_lookup_skb
+      0.24%  [kernel]       [k] get_dma_ops
+      0.24%  [kernel]       [k] skb_release_data
+      0.23%  [kernel]       [k] ip_forward_finish
+      0.23%  [kernel]       [k] kmem_cache_free_bulk
+      0.23%  [kernel]       [k] timekeeping_get_ns
+      0.22%  [kernel]       [k] ip_skb_dst_mtu
+      0.21%  [kernel]       [k] compound_head
+      0.20%  [kernel]       [k] skb_gro_reset_offset
+      0.20%  [kernel]       [k] is_swiotlb_buffer
+      0.19%  [kernel]       [k] __net_timestamp.isra.90
+      0.19%  [kernel]       [k] dst_metric.constprop.61
+      0.18%  [kernel]       [k] skb_orphan_frags.constprop.126
+      0.18%  [kernel]       [k] _kfree_skb_defer
+      0.18%  [kernel]       [k] irq_entries_start
+      0.17%  [kernel]       [k] dev_hard_header.constprop.54
+      0.17%  [kernel]       [k] dma_mapping_error
+      0.17%  [kernel]       [k] neigh_resolve_output
+
+
+
+
+With patch
+
+12Mpps -> 16 cores
+
+    PerfTop:   66209 irqs/sec  kernel:99.3%  exact:  0.0% [4000Hz 
+cycles],  (all, 32 CPUs)
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+     10.67%  [kernel]       [k] do_raw_spin_lock
+      6.96%  [kernel]       [k] fib_table_lookup
+      6.53%  [kernel]       [k] mlx5e_handle_rx_cqe_mpwrq
+      4.17%  [kernel]       [k] mlx5e_xmit
+      3.22%  [kernel]       [k] ip_rcv
+      3.07%  [kernel]       [k] __netif_receive_skb_core
+      2.86%  [kernel]       [k] __dev_queue_xmit
+      2.36%  [kernel]       [k] __build_skb
+      2.33%  [kernel]       [k] ip_forward
+      2.05%  [kernel]       [k] mlx5e_txwqe_complete
+      2.02%  [kernel]       [k] ip_finish_output2
+      2.00%  [kernel]       [k] ipt_do_table
+      1.84%  [kernel]       [k] ip_rcv_finish
+      1.83%  [kernel]       [k] inet_gro_receive
+      1.80%  [kernel]       [k] udp_v4_early_demux
+      1.61%  [kernel]       [k] dev_gro_receive
+      1.55%  [kernel]       [k] netif_skb_features
+      1.52%  [kernel]       [k] mlx5e_txwqe_build_dsegs
+      1.47%  [kernel]       [k] mlx5e_poll_tx_cq
+      1.39%  [kernel]       [k] ip_route_input_rcu
+      1.38%  [kernel]       [k] dev_hard_start_xmit
+      1.17%  [kernel]       [k] netif_receive_skb_internal
+      1.16%  [kernel]       [k] napi_gro_receive
+      1.03%  [kernel]       [k] kmem_cache_alloc
+      1.02%  [kernel]       [k] sch_direct_xmit
+      0.97%  [kernel]       [k] read_tsc
+      0.94%  [kernel]       [k] page_frag_free
+      0.91%  [kernel]       [k] mlx5_cqwq_get_cqe
+      0.90%  [kernel]       [k] mlx5e_build_rx_skb
+      0.89%  [kernel]       [k] skb_network_protocol
+      0.83%  [kernel]       [k] __local_bh_enable_ip
+      0.79%  [kernel]       [k] validate_xmit_skb
+      0.77%  [kernel]       [k] vlan_dev_hard_start_xmit
+      0.74%  [kernel]       [k] __netif_receive_skb
+      0.72%  [kernel]       [k] mlx5e_poll_rx_cq
+      0.70%  [kernel]       [k] netdev_pick_tx
+      0.69%  [kernel]       [k] eth_type_vlan
+      0.68%  [kernel]       [k] __netdev_pick_tx
+      0.66%  [kernel]       [k] nf_hook_slow
+      0.65%  [kernel]       [k] deliver_ptype_list_skb
+      0.62%  [kernel]       [k] fib_validate_source
+      0.61%  [kernel]       [k] eth_header
+      0.60%  [kernel]       [k] eth_type_trans
+      0.59%  [kernel]       [k] __udp4_lib_lookup
+      0.58%  [kernel]       [k] __napi_alloc_skb
+      0.53%  [kernel]       [k] ip_finish_output
+      0.51%  [kernel]       [k] neigh_connected_output
+      0.50%  [kernel]       [k] ip_output
+      0.50%  [kernel]       [k] rt_cache_valid
+      0.44%  [kernel]       [k] udp4_gro_receive
+      0.43%  [kernel]       [k] mlx5e_napi_poll
+      0.40%  [kernel]       [k] udp_gro_receive
+      0.40%  [kernel]       [k] page_frag_alloc
+      0.40%  [kernel]       [k] __jhash_nwords
+      0.39%  [kernel]       [k] swiotlb_map_page
+      0.38%  [kernel]       [k] mlx5_cqwq_get_wqe
+      0.36%  [kernel]       [k] mlx5e_features_check
+      0.32%  [kernel]       [k] get_dma_ops
+      0.31%  [kernel]       [k] ktime_get_with_offset
+      0.31%  [kernel]       [k] validate_xmit_skb_list
+      0.28%  [kernel]       [k] vlan_passthru_hard_header
+      0.28%  [kernel]       [k] get_dma_ops
+      0.27%  [kernel]       [k] __udp4_lib_lookup_skb
+      0.26%  [kernel]       [k] skb_gro_reset_offset
+      0.25%  [kernel]       [k] skb_release_data
+      0.25%  [kernel]       [k] timekeeping_get_ns
+      0.24%  [kernel]       [k] kmem_cache_free_bulk
+      0.24%  [kernel]       [k] ip_forward_finish
+      0.23%  [kernel]       [k] compound_head
+      0.23%  [kernel]       [k] ip_skb_dst_mtu
+      0.22%  [kernel]       [k] __net_timestamp.isra.90
+      0.22%  [kernel]       [k] is_swiotlb_buffer
+      0.21%  [kernel]       [k] neigh_resolve_output
+      0.21%  [kernel]       [k] dst_metric.constprop.61
+      0.20%  [kernel]       [k] skb_orphan_frags.constprop.126
+      0.20%  [kernel]       [k] irq_entries_start
+      0.19%  [kernel]       [k] mlx5e_calc_min_inline
+      0.19%  [kernel]       [k] dev_hard_header.constprop.54
+      0.19%  [kernel]       [k] _kfree_skb_defer
+      0.18%  [kernel]       [k] _raw_spin_lock
+      0.18%  [kernel]       [k] ip_route_input_noref
+
+
+
+
+
+W dniu 2017-09-09 o 11:03, Paweł Staszewski pisze:
+> Hi
 >
->>                  if (new_index < 0)
->>                          new_index = skb_tx_hash(dev, skb);
->> diff --git a/net/core/sock.c b/net/core/sock.c
->> index 9b7b6bb..3876cce 100644
->> --- a/net/core/sock.c
->> +++ b/net/core/sock.c
->> @@ -1059,6 +1059,10 @@ int sock_setsockopt(struct socket *sock, int level, int optname,
->>                          sock_valbool_flag(sk, SOCK_ZEROCOPY, valbool);
->>                  break;
->>
->> +       case SO_SYMMETRIC_QUEUES:
->> +               sk->sk_symmetric_queues = valbool;
->> +               break;
->> +
-> Allowing users control over this seems problematic to me. The intent
-> of packet steering is to provide good loading across the whole
-> systems, not just for individual applications. Exposing this control
-> makes that mission harder.
-
-Sure. If we can do this on a per rxqueue basis that can be configured by 
-the administrator,
-it would be a better option.
-
 >
->>          default:
->>                  ret = -ENOPROTOOPT;
->>                  break;
->> @@ -1391,6 +1395,10 @@ int sock_getsockopt(struct socket *sock, int level, int optname,
->>                  v.val = sock_flag(sk, SOCK_ZEROCOPY);
->>                  break;
->>
->> +       case SO_SYMMETRIC_QUEUES:
->> +               v.val = sk->sk_symmetric_queues;
->> +               break;
->> +
->>          default:
->>                  /* We implement the SO_SNDLOWAT etc to not be settable
->>                   * (1003.1g 7).
->> @@ -2738,6 +2746,8 @@ void sock_init_data(struct socket *sock, struct sock *sk)
->>          sk->sk_max_pacing_rate = ~0U;
->>          sk->sk_pacing_rate = ~0U;
->>          sk->sk_incoming_cpu = -1;
->> +       sk->sk_rx_ifindex = -1;
->> +       sk->sk_rx_queue_mapping = -1;
->>          /*
->>           * Before updating sk_refcnt, we must commit prior changes to memory
->>           * (Documentation/RCU/rculist_nulls.txt for details)
->> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
->> index c5d7656..12381e0 100644
->> --- a/net/ipv4/tcp_input.c
->> +++ b/net/ipv4/tcp_input.c
->> @@ -6356,6 +6356,7 @@ int tcp_conn_request(struct request_sock_ops *rsk_ops,
->>          tcp_rsk(req)->snt_isn = isn;
->>          tcp_rsk(req)->txhash = net_tx_rndhash();
->>          tcp_openreq_init_rwin(req, sk, dst);
->> +       sk_mark_rx_queue(req_to_sk(req), skb);
->>          if (!want_cookie) {
->>                  tcp_reqsk_record_syn(sk, req, skb);
->>                  fastopen_sk = tcp_try_fastopen(sk, skb, req, &foc);
->> diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
->> index a63486a..82f9af4 100644
->> --- a/net/ipv4/tcp_ipv4.c
->> +++ b/net/ipv4/tcp_ipv4.c
->> @@ -1450,6 +1450,7 @@ int tcp_v4_do_rcv(struct sock *sk, struct sk_buff *skb)
->>
->>                  sock_rps_save_rxhash(sk, skb);
->>                  sk_mark_napi_id(sk, skb);
->> +               sk_mark_rx_queue(sk, skb);
-> This could be part of sock_rps_save_rxhash instead of new functions in
-> core receive path. That could be renamed sock_save_rx_info or
-> something like that. UDP support is also lacking with this patch so
-> that gets solved by a common function also.
-
-Sure. Will look into re factoring sock_rps_save_rxhash() to save the rx 
-queue info.
-
+> Are there any plans to have this fix normally in kernel ?
 >
->>                  if (dst) {
->>                          if (inet_sk(sk)->rx_dst_ifindex != skb->skb_iif ||
->>                              !dst->ops->check(dst, 0)) {
->> diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
->> index 188a6f3..2b5efd5 100644
->> --- a/net/ipv4/tcp_minisocks.c
->> +++ b/net/ipv4/tcp_minisocks.c
->> @@ -809,6 +809,7 @@ int tcp_child_process(struct sock *parent, struct sock *child,
+> Or it is mostly only hack - not longterm fix and need to be different ?
+>
+>
+> All tests that was done shows that without this patch there is about 
+> 20-30% network forwarding performance degradation when using vlan 
+> interfaces
+>
+>
+> Thanks
+> Paweł
+>
+>
+>
+> W dniu 2017-08-15 o 03:17, Eric Dumazet pisze:
+>> On Mon, 2017-08-14 at 18:07 -0700, Eric Dumazet wrote:
 >>
->>          /* record NAPI ID of child */
->>          sk_mark_napi_id(child, skb);
->> +       sk_mark_rx_queue(child, skb);
+>>> Or try to hack the IFF_XMIT_DST_RELEASE flag on the vlan netdev.
+>> Something like :
 >>
->>          tcp_segs_in(tcp_sk(child), skb);
->>          if (!sock_owned_by_user(child)) {
->> --
->> 1.8.3.1
+>> diff --git a/net/8021q/vlan_netlink.c b/net/8021q/vlan_netlink.c
+>> index 
+>> 5e831de3103e2f7092c7fa15534def403bc62fb4..9472de846d5c0960996261cb2843032847fa4bf7 
+>> 100644
+>> --- a/net/8021q/vlan_netlink.c
+>> +++ b/net/8021q/vlan_netlink.c
+>> @@ -143,6 +143,7 @@ static int vlan_newlink(struct net *src_net, 
+>> struct net_device *dev,
+>>       vlan->vlan_proto = proto;
+>>       vlan->vlan_id     = nla_get_u16(data[IFLA_VLAN_ID]);
+>>       vlan->real_dev     = real_dev;
+>> +    dev->priv_flags |= (real_dev->priv_flags & IFF_XMIT_DST_RELEASE);
+>>       vlan->flags     = VLAN_FLAG_REORDER_HDR;
+>>         err = vlan_check_real_dev(real_dev, vlan->vlan_proto, 
+>> vlan->vlan_id);
 >>
+>>
+>>
+>>
+>
+>
