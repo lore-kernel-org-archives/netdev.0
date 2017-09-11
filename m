@@ -1,38 +1,50 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v1 net] smsc95xx: Configure pause time to 0xffff when tx
- flow control enabled
-Date: Mon, 11 Sep 2017 16:02:20 +0200
-Message-ID: <20170911140220.GC27599@lunn.ch>
-References: <CE371C1263339941885964188A0225FA335A6F@CHN-SV-EXMX03.mchp-main.com>
+From: <aelior@cavium.com>
+Subject: [PATCH net] MAINTAINERS: Remove Yuval Mintz from maintainers list
+Date: Mon, 11 Sep 2017 17:05:13 +0300
+Message-ID: <20170911140513.24387-1-aelior@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, UNGLinuxDriver@microchip.com,
-        netdev@vger.kernel.org, steve.glendinning@shawell.net
-To: Nisar.Sayed@microchip.com
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <everest-linux-l2@cavium.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:37186 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750969AbdIKOCZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 11 Sep 2017 10:02:25 -0400
-Content-Disposition: inline
-In-Reply-To: <CE371C1263339941885964188A0225FA335A6F@CHN-SV-EXMX03.mchp-main.com>
+Received: from mail-by2nam03on0087.outbound.protection.outlook.com ([104.47.42.87]:27808
+        "EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751820AbdIKOFU (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 11 Sep 2017 10:05:20 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 11, 2017 at 12:32:10PM +0000, Nisar.Sayed@microchip.com wrote:
-> From: Nisar Sayed <Nisar.Sayed@microchip.com>
-> 
-> Configure pause time to 0xffff when tx flow control enabled
-> 
-> Set pause time to 0xffff in the pause frame to indicate the
-> partner to stop sending the packets. When RX buffer frees up,
-> the device sends pause frame with pause time zero for partner to
-> resume transmission.
+From: Ariel Elior <aelior@cavium.com>
 
-Hi Nisar
+Remove Yuval from maintaining the bnx2x & qed* modules as he is no longer
+working for the company. Thanks Yuval for your huge contributions and
+tireless efforts over the many years and various companies.
 
-Thanks for the updated description. Since you are posting this for
-net, not net-next, could you add a fixes: tag?
+Ariel
+---
+ MAINTAINERS | 2 --
+ 1 file changed, 2 deletions(-)
 
-Thanks
-	Andrew
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 567343b..5d24dbf 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -2801,7 +2801,6 @@ S:	Supported
+ F:	drivers/scsi/bnx2i/
+ 
+ BROADCOM BNX2X 10 GIGABIT ETHERNET DRIVER
+-M:	Yuval Mintz <Yuval.Mintz@cavium.com>
+ M:	Ariel Elior <ariel.elior@cavium.com>
+ M:	everest-linux-l2@cavium.com
+ L:	netdev@vger.kernel.org
+@@ -10827,7 +10826,6 @@ S:	Supported
+ F:	drivers/scsi/qedi/
+ 
+ QLOGIC QL4xxx ETHERNET DRIVER
+-M:	Yuval Mintz <Yuval.Mintz@cavium.com>
+ M:	Ariel Elior <Ariel.Elior@cavium.com>
+ M:	everest-linux-l2@cavium.com
+ L:	netdev@vger.kernel.org
+-- 
+2.9.4
