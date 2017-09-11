@@ -1,78 +1,67 @@
-From: =?UTF-8?B?TWFoZXNoIEJhbmRld2FyICjgpK7gpLngpYfgpLYg4KSs4KSC4KSh4KWH4KS14KS+4KSwKQ==?=
-        <maheshb@google.com>
-Subject: Re: [PATCH] net: bonding: Fix transmit load balancing in balance-alb
- mode if specified by sysfs
-Date: Mon, 11 Sep 2017 09:07:33 -0700
-Message-ID: <CAF2d9jhEQCGuP3jX=cca-1VSmXbZtfCBN7xHnBfiw+_Ch=ihzw@mail.gmail.com>
-References: <17EC94B0A072C34B8DCF0D30AD16044A02985CB5@BPXM09GP.gisp.nec.co.jp> <adab6b74-574b-74cb-09ea-3b5090113ca6@cumulusnetworks.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH v5 10/10] net: stmmac: dwmac-sun8i: Handle
+ integrated/external MDIOs
+Date: Mon, 11 Sep 2017 18:11:24 +0200
+Message-ID: <20170911161124.GD27599@lunn.ch>
+References: <20170908071156.5115-1-clabbe.montjoie@gmail.com>
+ <20170908071156.5115-11-clabbe.montjoie@gmail.com>
+ <20170908130520.GA11248@lunn.ch>
+ <20170908132632.GA3037@Red>
+ <20170908140020.GC25219@lunn.ch>
+ <20170908140832.GB3037@Red>
+ <20170908141736.GF25219@lunn.ch>
+ <20170908142825.GC3037@Red>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Kosuke Tatsukawa <tatsu@ab.jp.nec.com>,
-        Jay Vosburgh <j.vosburgh@gmail.com>,
-        Veaceslav Falico <vfalico@gmail.com>,
-        Andy Gospodarek <andy@greyhouse.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Reinis Rozitis <r@roze.lv>
-To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <adab6b74-574b-74cb-09ea-3b5090113ca6@cumulusnetworks.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: robh+dt@kernel.org, mark.rutland@arm.com,
+        maxime.ripard@free-electrons.com, wens@csie.org,
+        linux@armlinux.org.uk, catalin.marinas@arm.com,
+        will.deacon@arm.com, peppe.cavallaro@st.com,
+        alexandre.torgue@st.com, f.fainelli@gmail.com,
+        netdev@vger.kernel.org, devicetree@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
+To: Corentin Labbe <clabbe.montjoie@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:37299 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750957AbdIKQLg (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 11 Sep 2017 12:11:36 -0400
+Content-Disposition: inline
+In-Reply-To: <20170908142825.GC3037@Red>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Sep 9, 2017 at 4:28 AM, Nikolay Aleksandrov
-<nikolay@cumulusnetworks.com> wrote:
-> On 07/09/17 01:47, Kosuke Tatsukawa wrote:
->> Commit cbf5ecb30560 ("net: bonding: Fix transmit load balancing in
->> balance-alb mode") tried to fix transmit dynamic load balancing in
->> balance-alb mode, which wasn't working after commit 8b426dc54cf4
->> ("bonding: remove hardcoded value").
->>
->> It turned out that my previous patch only fixed the case when
->> balance-alb was specified as bonding module parameter, and not when
->> balance-alb mode was set using /sys/class/net/*/bonding/mode (the most
->> common usage).  In the latter case, tlb_dynamic_lb was set up according
->> to the default mode of the bonding interface, which happens to be
->> balance-rr.
->>
->> This additional patch addresses this issue by setting up tlb_dynamic_lb
->> to 1 if "mode" is set to balance-alb through the sysfs interface.
->>
->> I didn't add code to change tlb_balance_lb back to the default value for
->> other modes, because "mode" is usually set up only once during
->> initialization, and it's not worthwhile to change the static variable
->> bonding_defaults in bond_main.c to a global variable just for this
->> purpose.
->>
->> Commit 8b426dc54cf4 also changes the value of tlb_dynamic_lb for
->> balance-tlb mode if it is set up using the sysfs interface.  I didn't
->> change that behavior, because the value of tlb_balance_lb can be changed
->> using the sysfs interface for balance-tlb, and I didn't like changing
->> the default value back and forth for balance-tlb.
->>
->> As for balance-alb, /sys/class/net/*/bonding/tlb_balance_lb cannot be
->> written to.  However, I think balance-alb with tlb_dynamic_lb set to 0
->> is not an intended usage, so there is little use making it writable at
->> this moment.
->>
->> Fixes: 8b426dc54cf4 ("bonding: remove hardcoded value")
->> Reported-by: Reinis Rozitis <r@roze.lv>
->> Signed-off-by: Kosuke Tatsukawa <tatsu@ab.jp.nec.com>
->> Cc: stable@vger.kernel.org  # v4.12+
->> ---
->>  drivers/net/bonding/bond_options.c |    3 +++
->>  1 files changed, 3 insertions(+), 0 deletions(-)
->>
->
-> This fix is simpler and more suitable for -net, it fixes the case where
-> we switch to ALB mode with tlb_dynamic_lb = 0. After it is in I'll fix the
-> default tlb_dynamic_lb issue and restore the original behaviour.
->
-Changing tlb_dyanamic_lb to initialize always is also safe for -net
-and can go in before or after this change (no dependency on this
-change as such)
+On Fri, Sep 08, 2017 at 04:28:25PM +0200, Corentin Labbe wrote:
+> On Fri, Sep 08, 2017 at 04:17:36PM +0200, Andrew Lunn wrote:
+> > > > Do you know why the reset times out/fails?
+> > > > 
+> > > 
+> > > Because there are nothing connected to it.
+> > 
+> > That should not be an issue. A read should just return 0xffff.  And it
+> > should return 0xffff fast. The timing of the MDIO protocol is fixed. A
+> > read or a write takes a fixed number of cycles, independent of if
+> > there is a device there or not. The bus data line has a pullup, so if
+> > you try to access a missing device, you automatically read 0xffff.
+> > 
+> 
+> Perhaps, but the reality is that with nothing connected to it, the reset of the MAC timeout.
+> Certainly, the MAC does not support finding no PHY.
 
-> Acked-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Acked-by: Mahesh Bandewar <maheshb@google.com>
->
->
+Are you sure this is not because of the clock and reset?
+
++                               #address-cells = <1>;
++                               #size-cells = <0>;
++                               int_mii_phy: ethernet-phy@1 {
++                                       compatible = "ethernet-phy-ieee802.3-c22";
++                                       reg = <1>;
++                                       clocks = <&ccu CLK_BUS_EPHY>;
++                                       resets = <&ccu RST_BUS_EPHY>;
+
+The way you describe it here, the clock and reset are for the PHY. But
+maybe it is actually for the bus? I can understand a bus timing out if
+it has no clock, or it is held in reset. Try enabling the clock and
+reset when the internal bus is selected, not when the PHY on the bus
+is selected.
+
+	Andrew
