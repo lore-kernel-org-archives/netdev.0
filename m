@@ -1,29 +1,27 @@
 From: "Samudrala, Sridhar" <sridhar.samudrala@intel.com>
 Subject: Re: [RFC PATCH] net: Introduce a socket option to enable picking tx
  queue based on rx queue.
-Date: Mon, 11 Sep 2017 09:48:35 -0700
-Message-ID: <91a48bc5-57d9-db09-78c0-98a49b414a28@intel.com>
+Date: Mon, 11 Sep 2017 09:49:29 -0700
+Message-ID: <f98198c4-16f2-5271-3e12-7984a03bd6db@intel.com>
 References: <1504222032-6337-1-git-send-email-sridhar.samudrala@intel.com>
- <CAKgT0UfZed3_3KBmKbMbcmdsA+ctFRUCu8jp_rCnatC9AMv__g@mail.gmail.com>
+ <CALx6S371o0Oz9M7jmQWLuG2n3J0NGYGxZ_+okOkFL3x_+GB+2w@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Duyck, Alexander H" <alexander.h.duyck@intel.com>,
-        Netdev <netdev@vger.kernel.org>
-To: Alexander Duyck <alexander.duyck@gmail.com>
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:45964 "EHLO mga01.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:51222 "EHLO mga02.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752025AbdIKQs7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 11 Sep 2017 12:48:59 -0400
-In-Reply-To: <CAKgT0UfZed3_3KBmKbMbcmdsA+ctFRUCu8jp_rCnatC9AMv__g@mail.gmail.com>
+        id S1751916AbdIKQtv (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 11 Sep 2017 12:49:51 -0400
+In-Reply-To: <CALx6S371o0Oz9M7jmQWLuG2n3J0NGYGxZ_+okOkFL3x_+GB+2w@mail.gmail.com>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-On 9/9/2017 6:28 PM, Alexander Duyck wrote:
+On 9/10/2017 8:19 AM, Tom Herbert wrote:
 > On Thu, Aug 31, 2017 at 4:27 PM, Sridhar Samudrala
 > <sridhar.samudrala@intel.com> wrote:
 >> This patch introduces a new socket option SO_SYMMETRIC_QUEUES that can be used
@@ -158,30 +156,30 @@ On 9/9/2017 6:28 PM, Alexander Duyck wrote:
 >> +
 >> +               if (new_index < 0 || new_index >= dev->real_num_tx_queues)
 >> +                       new_index = get_xps_queue(dev, skb);
->>
+> This enforces that notion of queue pairs which is not universal
+> concept to NICs. There are many devices and instances where we
+> purposely avoid having a 1-1 relationship between rx and tx queues.
+
+Yes. This patch assumes that TX and RX queues come in pairs.
+
+> An alternative might be to create a rx queue to tx queue map, add the
+> rx queue argument to get_xps_queue, and then that function can
+> consider the mapping. The administrator can configure the mapping as
+> appropriate and can select which rx queues are subject to the mapping.
+This alternative looks much cleaner and doesn't require the apps to 
+configure the
+queues. Do we need to support 1 to many rx to tx queue mappings?
+For our symmetric queues usecase, where a single application thread is 
+associated with
+1 queue-pair,  1-1 mapping is sufficient.
+Do you see any usecase where it is useful to support 1-many mappings?
+I guess i can add a sysfs entry per rx-queue to setup a tx-queue OR  
+tx-queue-map.
+
+
+>
 >>                  if (new_index < 0)
 >>                          new_index = skb_tx_hash(dev, skb);
-> So one thing I am not sure about is if we should be overriding XPS. It
-> might make sense to instead place this after XPS so that if the root
-> user configures it then it applies, otherwise if the socket is
-> requesting symmetric queues you could fall back to that, and then
-> finally just use hashing as the final solution for distributing the
-> workload.
-Isn't XPS on by default and all the devices that support XPS setup XPS 
-maps as part of
-the initialization?
-Are you suggesting that the root user needs to disable XPS on the 
-specific queues before an
-application can use this option to enable symmetric queues?
-
-
->
-> That way if somebody decides to reserve queues for some sort of
-> specific traffic like AF_PACKET then they can configure the Tx via
-> XPS, configure the Rx via RSS redirection table reprogramming, and
-> then setup a filters on the hardware to direct the traffic they want
-> to the queues that are running AF_PACKET.
->
 >> diff --git a/net/core/sock.c b/net/core/sock.c
 >> index 9b7b6bb..3876cce 100644
 >> --- a/net/core/sock.c
@@ -194,6 +192,16 @@ application can use this option to enable symmetric queues?
 >> +               sk->sk_symmetric_queues = valbool;
 >> +               break;
 >> +
+> Allowing users control over this seems problematic to me. The intent
+> of packet steering is to provide good loading across the whole
+> systems, not just for individual applications. Exposing this control
+> makes that mission harder.
+
+Sure. If we can do this on a per rxqueue basis that can be configured by 
+the administrator,
+it would be a better option.
+
+>
 >>          default:
 >>                  ret = -ENOPROTOOPT;
 >>                  break;
@@ -238,6 +246,15 @@ application can use this option to enable symmetric queues?
 >>                  sock_rps_save_rxhash(sk, skb);
 >>                  sk_mark_napi_id(sk, skb);
 >> +               sk_mark_rx_queue(sk, skb);
+> This could be part of sock_rps_save_rxhash instead of new functions in
+> core receive path. That could be renamed sock_save_rx_info or
+> something like that. UDP support is also lacking with this patch so
+> that gets solved by a common function also.
+
+Sure. Will look into re factoring sock_rps_save_rxhash() to save the rx 
+queue info.
+
+>
 >>                  if (dst) {
 >>                          if (inet_sk(sk)->rx_dst_ifindex != skb->skb_iif ||
 >>                              !dst->ops->check(dst, 0)) {
