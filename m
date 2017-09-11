@@ -1,38 +1,48 @@
-From: Cole Robinson <crobinso@redhat.com>
-Subject: Re: 319554f284dd ("inet: don't use sk_v6_rcv_saddr directly") causes
- bind port regression
-Date: Wed, 13 Sep 2017 15:13:42 -0400
-Message-ID: <a4807126-1f17-20bd-dace-d9c6b6c4787b@redhat.com>
-References: <1a8ef376-387e-e0fc-7362-e1fd2c2c45d3@redhat.com>
- <AF16C126-99CA-401A-B803-AA05CDFBFF93@fb.com>
- <588f3795-931e-7779-4ec7-5fe7d4437927@redhat.com>
- <EF55EF02-AD40-4F06-8C07-4F9F4221BFE6@fb.com>
- <370b38d5-346c-91df-4ad4-79886ae3a9ba@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next 1/2] hv_netvsc: fix deadlock on hotplug
+Date: Mon, 11 Sep 2017 14:21:49 -0700 (PDT)
+Message-ID: <20170911.142149.387728437634566641.davem@davemloft.net>
+References: <20170906205306.10541-1-sthemmin@microsoft.com>
+        <20170906205306.10541-2-sthemmin@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Josef Bacik <jbacik@fb.com>, Laura Abbott <labbott@redhat.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <370b38d5-346c-91df-4ad4-79886ae3a9ba@redhat.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kys@microsoft.com, haiyangz@microsoft.com, sthemmin@microsoft.com,
+        devel@linuxdriverproject.org, netdev@vger.kernel.org
+To: stephen@networkplumber.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:56086 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750993AbdIKVVw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 11 Sep 2017 17:21:52 -0400
+In-Reply-To: <20170906205306.10541-2-sthemmin@microsoft.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/13/2017 01:40 PM, Cole Robinson wrote:
-> On 09/13/2017 01:28 PM, Josef Bacik wrote:
->> Sorry I thought I had made this other fix, can you apply this on top of the other one and try that?  I have more things to try if this doesn’t work, sorry you are playing go between, but I want to make sure I know _which_ fix actually fixes the problem, and then clean up in followup patches.  Thanks,
->>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Wed,  6 Sep 2017 13:53:05 -0700
+
+> When a virtual device is added dynamically (via host console), then
+> the vmbus sends an offer message for the primary channel. The processing
+> of this message for networking causes the network device to then
+> initialize the sub channels.
 > 
-> I'm the bug reporter. I'll combine the two patches and report back
+> The problem is that setting up the sub channels needs to wait until
+> the subsequent subchannel offers have been processed. These offers
+> come in on the same ring buffer and work queue as where the primary
+> offer is being processed; leading to a deadlock.
 > 
+> This did not happen in older kernels, because the sub channel waiting
+> logic was broken (it wasn't really waiting).
+> 
+> The solution is to do the sub channel setup in its own work queue
+> context that is scheduled by the primary channel setup; and then
+> happens later.
+> 
+> Fixes: 732e49850c5e ("netvsc: fix race on sub channel creation")
+> Reported-by: Dexuan Cui <decui@microsoft.com>
+> Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+> ---
+> v2 - fix module removal race with new work queue
 
-Nope, issue is still present with both patches applied. Tried my own build and
-a package Laura provided
-
-Thanks,
-Cole
+Applied.
