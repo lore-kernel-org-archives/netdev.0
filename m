@@ -1,35 +1,44 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net] mlxsw: spectrum: Fix EEPROM access in case of
- SFP/SFP+
-Date: Mon, 11 Sep 2017 19:27:53 +0200
-Message-ID: <20170911172753.GB1935@nanopsycho>
-References: <20170911074226.2020-1-jiri@resnulli.us>
- <20170911135826.GB27599@lunn.ch>
+From: <Nisar.Sayed@microchip.com>
+Subject: RE: [PATCH v1 net] smsc95xx: Configure pause time to 0xffff when tx
+ flow control enabled
+Date: Mon, 11 Sep 2017 17:38:07 +0000
+Message-ID: <CE371C1263339941885964188A0225FA335B5C@CHN-SV-EXMX03.mchp-main.com>
+References: <CE371C1263339941885964188A0225FA335A6F@CHN-SV-EXMX03.mchp-main.com>
+ <20170911140220.GC27599@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, arkadis@mellanox.com,
-        idosch@mellanox.com, flokli@flokli.de, mlxsw@mellanox.com
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <davem@davemloft.net>, <UNGLinuxDriver@microchip.com>,
+        <netdev@vger.kernel.org>, <steve.glendinning@shawell.net>
+To: <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f193.google.com ([209.85.128.193]:33377 "EHLO
-        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752086AbdIKR15 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 11 Sep 2017 13:27:57 -0400
-Received: by mail-wr0-f193.google.com with SMTP id b9so4745509wra.0
-        for <netdev@vger.kernel.org>; Mon, 11 Sep 2017 10:27:56 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20170911135826.GB27599@lunn.ch>
+Received: from esa6.microchip.iphmx.com ([216.71.154.253]:27977 "EHLO
+        esa6.microchip.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750983AbdIKRiZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 11 Sep 2017 13:38:25 -0400
+In-Reply-To: <20170911140220.GC27599@lunn.ch>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mon, Sep 11, 2017 at 03:58:26PM CEST, andrew@lunn.ch wrote:
->On Mon, Sep 11, 2017 at 09:42:26AM +0200, Jiri Pirko wrote:
->> From: Arkadi Sharshevsky <arkadis@mellanox.com>
->> 
->> The current code does not handle correctly the access to the upper page
->> in case of SFP/SFP+ EEPROM. In that case the offset should be local
->> and the I2C address should be changed.
->
->Shame you cannot/didn't expose the i2c bus as a linux i2c bus. The AT24 code
+> On Mon, Sep 11, 2017 at 12:32:10PM +0000, Nisar.Sayed@microchip.com
+> wrote:
+> > From: Nisar Sayed <Nisar.Sayed@microchip.com>
+> >
+> > Configure pause time to 0xffff when tx flow control enabled
+> >
+> > Set pause time to 0xffff in the pause frame to indicate the partner to
+> > stop sending the packets. When RX buffer frees up, the device sends
+> > pause frame with pause time zero for partner to resume transmission.
+> 
+> Hi Nisar
+> 
+> Thanks for the updated description. Since you are posting this for net, not
+> net-next, could you add a fixes: tag?
+> 
+> Thanks
+> 	Andrew
 
-We cannot.
+Thanks Andrew, yes I will add and will submit next revision
+
+- Nisar
