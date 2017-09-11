@@ -1,31 +1,44 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH] net/sched: fix pointer check in gen_handle
-Date: Mon, 11 Sep 2017 11:05:55 -0700
-Message-ID: <CAM_iQpW9z8A+zSSfTv7M2_ifk15ePLAc4z4CWzTAj3bNOaU9eQ@mail.gmail.com>
-References: <1505072930-13049-1-git-send-email-johunt@akamai.com>
+From: <Nisar.Sayed@microchip.com>
+Subject: [PATCH v2 net 0/3] lan78xx: Fixes to lan78xx driver
+Date: Mon, 11 Sep 2017 18:51:30 +0000
+Message-ID: <CE371C1263339941885964188A0225FA335C73@CHN-SV-EXMX03.mchp-main.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: David Miller <davem@davemloft.net>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Jiri Pirko <jiri@resnulli.us>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Josh Hunt <johunt@akamai.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <UNGLinuxDriver@microchip.com>, <netdev@vger.kernel.org>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f172.google.com ([209.85.192.172]:36277 "EHLO
-        mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750927AbdIKSGQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 11 Sep 2017 14:06:16 -0400
-Received: by mail-pf0-f172.google.com with SMTP id e199so15039045pfh.3
-        for <netdev@vger.kernel.org>; Mon, 11 Sep 2017 11:06:16 -0700 (PDT)
-In-Reply-To: <1505072930-13049-1-git-send-email-johunt@akamai.com>
+Received: from esa3.microchip.iphmx.com ([68.232.153.233]:56482 "EHLO
+        esa3.microchip.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751076AbdIKSwR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 11 Sep 2017 14:52:17 -0400
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Sep 10, 2017 at 12:48 PM, Josh Hunt <johunt@akamai.com> wrote:
-> Fixes sparse warning about pointer in gen_handle:
-> net/sched/cls_rsvp.h:392:40: warning: Using plain integer as NULL pointer
->
-> Fixes: 8113c095672f6 ("net_sched: use void pointer for filter handle")
-> Signed-off-by: Josh Hunt <johunt@akamai.com>
+From: Nisar Sayed <Nisar.Sayed@microchip.com>
 
-Acked-by: Cong Wang <xiyou.wangcong@gmail.com>
+This series of patches are for lan78xx driver.
+
+These patches fixes potential issues associated with lan78xx driver
+
+v2
+- Added patch version information
+- Added fixes tag
+- Updated patch description
+- Updated changes as per comments
+
+v1
+- Spitted patches as per comments
+- Dropped "fixed_phy device support" and "Fix for system suspend" changes
+
+Nisar Sayed (3):
+  Fix for eeprom read/write when device auto suspend
+  Allow EEPROM write for less than MAX_EEPROM_SIZE
+  Use default value loaded from EEPROM/OTP when resetting
+
+ drivers/net/usb/lan78xx.c | 27 ++++++++++++++++++++-------
+ 1 file changed, 20 insertions(+), 7 deletions(-)
+
+-- 
+1.9.1
