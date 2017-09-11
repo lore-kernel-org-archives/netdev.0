@@ -1,78 +1,94 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net] mlxsw: spectrum: Fix EEPROM access in case of SFP/SFP+
-Date: Mon, 11 Sep 2017 09:42:26 +0200
-Message-ID: <20170911074226.2020-1-jiri@resnulli.us>
-Cc: davem@davemloft.net, arkadis@mellanox.com, idosch@mellanox.com,
-        flokli@flokli.de, mlxsw@mellanox.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:34557 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750937AbdIKHma (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 11 Sep 2017 03:42:30 -0400
-Received: by mail-wm0-f67.google.com with SMTP id l19so6168299wmi.1
-        for <netdev@vger.kernel.org>; Mon, 11 Sep 2017 00:42:29 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Kunihiko Hayashi <hayashi.kunihiko-uWyLwvC0a2jby3iVrkZq2A@public.gmane.org>
+Subject: Re: [PATCH net-next 3/3] net: phy: realtek: add RTL8201F phy-id and functions
+Date: Mon, 11 Sep 2017 16:48:03 +0900
+Message-ID: <20170911164803.6720.4A936039@socionext.com>
+References: <CAJe_ZhciWBhw5npxEjTUGw2duS7DSfhzP5nzAOy_ig4-1XcPWw@mail.gmail.com> <20170909155517.GB19117@lunn.ch>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+Cc: Jassi Brar <jaswinder.singh-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        "linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
+        <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+        lkml <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Devicetree List <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Masahiro Yamada <yamada.masahiro-uWyLwvC0a2jby3iVrkZq2A@public.gmane.org>,
+        Masami Hiramatsu <masami.hiramatsu-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+        Jongsung Kim <neidhard.kim-Hm3cg6mZ9cc@public.gmane.org>
+To: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170909155517.GB19117-g2DYL2Zd6BY@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Arkadi Sharshevsky <arkadis@mellanox.com>
+Hi Andrew,
+Thank your for reviewing.
 
-The current code does not handle correctly the access to the upper page
-in case of SFP/SFP+ EEPROM. In that case the offset should be local
-and the I2C address should be changed.
+On Sat, 9 Sep 2017 17:55:17 +0200 <andrew-g2DYL2Zd6BY@public.gmane.org> wrote:
 
-Fixes: 2ea109039cd3 ("mlxsw: spectrum: Add support for access cable info via ethtool")
-Reported-by: Florian Klink <flokli@flokli.de>
-Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
-Reviewed-by: Ido Schimmel <idosch@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+> On Sat, Sep 09, 2017 at 09:03:05AM +0530, Jassi Brar wrote:
+> > On 9 September 2017 at 00:21, Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> > > On 09/08/2017 06:02 AM, Kunihiko Hayashi wrote:
+> > >> From: Jassi Brar <jaswinder.singh-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+> > >>
+> > >> Add RTL8201F phy-id and the related functions to the driver.
+> > >>
+> > >> The original patch is as follows:
+> > >> https://patchwork.kernel.org/patch/2538341/
+> > >>
+> > >> Signed-off-by: Jongsung Kim <neidhard.kim-Hm3cg6mZ9cc@public.gmane.org>
+> > >> Signed-off-by: Jassi Brar <jaswinder.singh-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+> > >> Signed-off-by: Kunihiko Hayashi <hayashi.kunihiko-uWyLwvC0a2jby3iVrkZq2A@public.gmane.org>
+> > >> ---
+> > >>  drivers/net/phy/realtek.c | 45 +++++++++++++++++++++++++++++++++++++++++++++
+> > >>  1 file changed, 45 insertions(+)
+> > >>
+> > >> diff --git a/drivers/net/phy/realtek.c b/drivers/net/phy/realtek.c
+> > >> index 9cbe645..d9974ce 100644
+> > >> --- a/drivers/net/phy/realtek.c
+> > >> +++ b/drivers/net/phy/realtek.c
+> > >> @@ -29,10 +29,23 @@
+> > >>  #define RTL8211F_PAGE_SELECT 0x1f
+> > >>  #define RTL8211F_TX_DELAY    0x100
+> > >>
+> > >> +#define RTL8201F_ISR         0x1e
+> > >> +#define RTL8201F_PAGE_SELECT 0x1f
+> > >
+> > > We have a page select register define for the RTL8211F right above, so
+> > > surely we can make that a common definition?
+> > >
+> > That is just for the sake of consistency.
+> > I mean RTL8211 wouldn't look neat among everything else RTL8201.
+> > 
+> > Also the page-select offsets just _happen_ to be same value...
+> 
+> If you look at all the other supported PHYs, they all consistently use
+> the same page register across models. Marvell is always 22, mscc is
+> always 31, vitesse is always 31.
+> 
+> I would say it is a safe bet that all realtek PHYs will use 0x1f for
+> page select. So please add a patch which renames RTL8211F_PAGE_SELECT
+> to RTL821x_PAGE_SELECT.
+> 
+> It is best to do this now. I spent a while cleaning up the mess the
+> Marvell driver had got into with its page select code. Lots of
+> duplicate code and defines doing the same thing.
+> 
+> 	  Andrew
+
+I see. In case of renaming to RTL821x_PAGE_SELECT, 
+I think that I'll make a patch series as realtek PHY series including this
+patch independent from the series of MAC driver.
+
 ---
-Dave, could you please queue this up to STABLE as well? Thanks!
----
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 19 +++++++++++++++++--
- 1 file changed, 17 insertions(+), 2 deletions(-)
+Best Regards,
+Kunihiko Hayashi
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index ed7cd6c..e080459 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -2545,7 +2545,9 @@ static int mlxsw_sp_flash_device(struct net_device *dev,
- 	return err;
- }
- 
--#define MLXSW_SP_QSFP_I2C_ADDR 0x50
-+#define MLXSW_SP_I2C_ADDR_LOW 0x50
-+#define MLXSW_SP_I2C_ADDR_HIGH 0x51
-+#define MLXSW_SP_EEPROM_PAGE_LENGTH 256
- 
- static int mlxsw_sp_query_module_eeprom(struct mlxsw_sp_port *mlxsw_sp_port,
- 					u16 offset, u16 size, void *data,
-@@ -2554,12 +2556,25 @@ static int mlxsw_sp_query_module_eeprom(struct mlxsw_sp_port *mlxsw_sp_port,
- 	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
- 	char eeprom_tmp[MLXSW_SP_REG_MCIA_EEPROM_SIZE];
- 	char mcia_pl[MLXSW_REG_MCIA_LEN];
-+	u16 i2c_addr;
- 	int status;
- 	int err;
- 
- 	size = min_t(u16, size, MLXSW_SP_REG_MCIA_EEPROM_SIZE);
-+
-+	if (offset < MLXSW_SP_EEPROM_PAGE_LENGTH &&
-+	    offset + size > MLXSW_SP_EEPROM_PAGE_LENGTH)
-+		/* Cross pages read, read until offset 256 in low page */
-+		size = MLXSW_SP_EEPROM_PAGE_LENGTH - offset;
-+
-+	i2c_addr = MLXSW_SP_I2C_ADDR_LOW;
-+	if (offset >= MLXSW_SP_EEPROM_PAGE_LENGTH) {
-+		i2c_addr = MLXSW_SP_I2C_ADDR_HIGH;
-+		offset -= MLXSW_SP_EEPROM_PAGE_LENGTH;
-+	}
-+
- 	mlxsw_reg_mcia_pack(mcia_pl, mlxsw_sp_port->mapping.module,
--			    0, 0, offset, size, MLXSW_SP_QSFP_I2C_ADDR);
-+			    0, 0, offset, size, i2c_addr);
- 
- 	err = mlxsw_reg_query(mlxsw_sp->core, MLXSW_REG(mcia), mcia_pl);
- 	if (err)
--- 
-2.9.3
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
