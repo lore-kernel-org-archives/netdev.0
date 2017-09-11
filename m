@@ -1,81 +1,50 @@
-From: Thomas Meyer <thomas@m3y3r.de>
-Subject: [PATCH] tipc: Use bsearch library function
-Date: Sat,  9 Sep 2017 05:18:19 +0200
-Message-ID: <20170909031819.13622-1-thomas@m3y3r.de>
-Cc: Thomas Meyer <thomas@m3y3r.de>
-To: jon.maloy@ericsson.com, ying.xue@windriver.com,
-        davem@davemloft.net, netdev@vger.kernel.org,
-        tipc-discussion@lists.sourceforge.net, linux-kernel@vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next 09/11] bnxt_en: bnxt: add TC flower filter
+ offload support
+Date: Mon, 11 Sep 2017 15:36:07 +0200
+Message-ID: <20170911133607.GD1869@nanopsycho>
+References: <1503942035-24924-1-git-send-email-michael.chan@broadcom.com>
+ <1503942035-24924-10-git-send-email-michael.chan@broadcom.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+        Sathya Perla <sathya.perla@broadcom.com>
+To: Michael Chan <michael.chan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www17.your-server.de ([213.133.104.17]:41878 "EHLO
-        www17.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751460AbdIKNJL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 11 Sep 2017 09:09:11 -0400
+Received: from mail-wr0-f178.google.com ([209.85.128.178]:34265 "EHLO
+        mail-wr0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751612AbdIKNgK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 11 Sep 2017 09:36:10 -0400
+Received: by mail-wr0-f178.google.com with SMTP id v109so14705450wrc.1
+        for <netdev@vger.kernel.org>; Mon, 11 Sep 2017 06:36:10 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1503942035-24924-10-git-send-email-michael.chan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use common library function rather than explicitly coding
-some variant of it yourself.
+Mon, Aug 28, 2017 at 07:40:33PM CEST, michael.chan@broadcom.com wrote:
+>From: Sathya Perla <sathya.perla@broadcom.com>
+>
+>This patch adds support for offloading TC based flow
+>rules and actions for the 'flower' classifier in the bnxt_en driver.
+>It includes logic to parse flow rules and actions received from the
+>TC subsystem, store them and issue the corresponding
+>hwrm_cfa_flow_alloc/free FW cmds. L2/IPv4/IPv6 flows and drop,
+>redir, vlan push/pop actions are supported in this patch.
+>
+>In this patch the hwrm_cfa_flow_xxx routines are just stubs.
+>The code for these routines is introduced in the next patch for easier
+>review. Also, the code to query the TC/flower action stats will
+>be introduced in a subsequent patch.
 
-Signed-off-by: Thomas Meyer <thomas@m3y3r.de>
----
- net/tipc/name_table.c | 30 +++++++++++++++---------------
- 1 file changed, 15 insertions(+), 15 deletions(-)
+Hi.
 
-diff --git a/net/tipc/name_table.c b/net/tipc/name_table.c
-index bd0aac87b41a..345454106390 100644
---- a/net/tipc/name_table.c
-+++ b/net/tipc/name_table.c
-@@ -44,6 +44,7 @@
- #include "addr.h"
- #include "node.h"
- #include <net/genetlink.h>
-+#include <linux/bsearch.h>
- 
- #define TIPC_NAMETBL_SIZE 1024		/* must be a power of 2 */
- 
-@@ -168,6 +169,18 @@ static struct name_seq *tipc_nameseq_create(u32 type, struct hlist_head *seq_hea
- 	return nseq;
- }
- 
-+static int nameseq_find_subseq_cmp(const void *key, const void *elt)
-+{
-+	u32 instance = *(u32 *)key;
-+	struct sub_seq *sseq = (struct sub_seq *)elt;
-+
-+	if (instance < sseq->lower)
-+		return -1;
-+	else if (instance > sseq->upper)
-+		return 1;
-+	return 0;
-+}
-+
- /**
-  * nameseq_find_subseq - find sub-sequence (if any) matching a name instance
-  *
-@@ -176,21 +189,8 @@ static struct name_seq *tipc_nameseq_create(u32 type, struct hlist_head *seq_hea
- static struct sub_seq *nameseq_find_subseq(struct name_seq *nseq,
- 					   u32 instance)
- {
--	struct sub_seq *sseqs = nseq->sseqs;
--	int low = 0;
--	int high = nseq->first_free - 1;
--	int mid;
--
--	while (low <= high) {
--		mid = (low + high) / 2;
--		if (instance < sseqs[mid].lower)
--			high = mid - 1;
--		else if (instance > sseqs[mid].upper)
--			low = mid + 1;
--		else
--			return &sseqs[mid];
--	}
--	return NULL;
-+	return bsearch(&instance, nseq->sseqs, nseq->first_free,
-+		       sizeof(struct sub_seq), nameseq_find_subseq_cmp);
- }
- 
- /**
--- 
-2.11.0
+You are missing checks for the offload. Please see nfp as an example:
+Function nfp_flower_setup_tc:
+
+            !is_classid_clsact_ingress(cls_flower->common.classid) ||
+            cls_flower->common.chain_index)
+
+Do you support both ingress and egress or ingress only?
+
+You certainly don't support multichain.
