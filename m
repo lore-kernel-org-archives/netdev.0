@@ -1,44 +1,84 @@
 From: <Nisar.Sayed@microchip.com>
-Subject: [PATCH v2 net 0/3] lan78xx: Fixes to lan78xx driver
-Date: Mon, 11 Sep 2017 18:51:30 +0000
-Message-ID: <CE371C1263339941885964188A0225FA335C73@CHN-SV-EXMX03.mchp-main.com>
+Subject: [PATCH v2 net 1/3] lan78xx: Fix for eeprom read/write when device
+ auto suspend
+Date: Mon, 11 Sep 2017 18:51:49 +0000
+Message-ID: <CE371C1263339941885964188A0225FA335C84@CHN-SV-EXMX03.mchp-main.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
 Cc: <UNGLinuxDriver@microchip.com>, <netdev@vger.kernel.org>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from esa3.microchip.iphmx.com ([68.232.153.233]:56482 "EHLO
-        esa3.microchip.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751076AbdIKSwR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 11 Sep 2017 14:52:17 -0400
+Received: from esa6.microchip.iphmx.com ([216.71.154.253]:38826 "EHLO
+        esa6.microchip.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751076AbdIKSwe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 11 Sep 2017 14:52:34 -0400
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Nisar Sayed <Nisar.Sayed@microchip.com>
 
-This series of patches are for lan78xx driver.
+Fix for eeprom read/write when device auto suspend
 
-These patches fixes potential issues associated with lan78xx driver
+Fixes: 55d7de9de6c3 ("Microchip's LAN7800 family USB 2/3 to 10/100/1000 Ethernet device driver")
+Signed-off-by: Nisar Sayed <Nisar.Sayed@microchip.com>
+---
+ drivers/net/usb/lan78xx.c | 22 ++++++++++++++++++----
+ 1 file changed, 18 insertions(+), 4 deletions(-)
 
-v2
-- Added patch version information
-- Added fixes tag
-- Updated patch description
-- Updated changes as per comments
-
-v1
-- Spitted patches as per comments
-- Dropped "fixed_phy device support" and "Fix for system suspend" changes
-
-Nisar Sayed (3):
-  Fix for eeprom read/write when device auto suspend
-  Allow EEPROM write for less than MAX_EEPROM_SIZE
-  Use default value loaded from EEPROM/OTP when resetting
-
- drivers/net/usb/lan78xx.c | 27 ++++++++++++++++++++-------
- 1 file changed, 20 insertions(+), 7 deletions(-)
-
+diff --git a/drivers/net/usb/lan78xx.c b/drivers/net/usb/lan78xx.c
+index b99a7fb..baf91c7 100644
+--- a/drivers/net/usb/lan78xx.c
++++ b/drivers/net/usb/lan78xx.c
+@@ -1265,30 +1265,44 @@ static int lan78xx_ethtool_get_eeprom(struct net_device *netdev,
+ 				      struct ethtool_eeprom *ee, u8 *data)
+ {
+ 	struct lan78xx_net *dev = netdev_priv(netdev);
++	int ret = -EINVAL;
++
++	if (usb_autopm_get_interface(dev->intf) < 0)
++		return ret;
+ 
+ 	ee->magic = LAN78XX_EEPROM_MAGIC;
+ 
+-	return lan78xx_read_raw_eeprom(dev, ee->offset, ee->len, data);
++	ret = lan78xx_read_raw_eeprom(dev, ee->offset, ee->len, data);
++
++	usb_autopm_put_interface(dev->intf);
++
++	return ret;
+ }
+ 
+ static int lan78xx_ethtool_set_eeprom(struct net_device *netdev,
+ 				      struct ethtool_eeprom *ee, u8 *data)
+ {
+ 	struct lan78xx_net *dev = netdev_priv(netdev);
++	int ret = -EINVAL;
++
++	if (usb_autopm_get_interface(dev->intf) < 0)
++		return ret;
+ 
+ 	/* Allow entire eeprom update only */
+ 	if ((ee->magic == LAN78XX_EEPROM_MAGIC) &&
+ 	    (ee->offset == 0) &&
+ 	    (ee->len == 512) &&
+ 	    (data[0] == EEPROM_INDICATOR))
+-		return lan78xx_write_raw_eeprom(dev, ee->offset, ee->len, data);
++		ret = lan78xx_write_raw_eeprom(dev, ee->offset, ee->len, data);
+ 	else if ((ee->magic == LAN78XX_OTP_MAGIC) &&
+ 		 (ee->offset == 0) &&
+ 		 (ee->len == 512) &&
+ 		 (data[0] == OTP_INDICATOR_1))
+-		return lan78xx_write_raw_otp(dev, ee->offset, ee->len, data);
++		ret = lan78xx_write_raw_otp(dev, ee->offset, ee->len, data);
+ 
+-	return -EINVAL;
++	usb_autopm_put_interface(dev->intf);
++
++	return ret;
+ }
+ 
+ static void lan78xx_get_strings(struct net_device *netdev, u32 stringset,
 -- 
 1.9.1
