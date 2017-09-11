@@ -1,32 +1,38 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [patch net] mlxsw: spectrum: Fix EEPROM access in case of
- SFP/SFP+
-Date: Mon, 11 Sep 2017 15:58:26 +0200
-Message-ID: <20170911135826.GB27599@lunn.ch>
-References: <20170911074226.2020-1-jiri@resnulli.us>
+Subject: Re: [PATCH v1 net] smsc95xx: Configure pause time to 0xffff when tx
+ flow control enabled
+Date: Mon, 11 Sep 2017 16:02:20 +0200
+Message-ID: <20170911140220.GC27599@lunn.ch>
+References: <CE371C1263339941885964188A0225FA335A6F@CHN-SV-EXMX03.mchp-main.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, arkadis@mellanox.com,
-        idosch@mellanox.com, flokli@flokli.de, mlxsw@mellanox.com
-To: Jiri Pirko <jiri@resnulli.us>
+Cc: davem@davemloft.net, UNGLinuxDriver@microchip.com,
+        netdev@vger.kernel.org, steve.glendinning@shawell.net
+To: Nisar.Sayed@microchip.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:37177 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:37186 "EHLO vps0.lunn.ch"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750903AbdIKN6a (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 11 Sep 2017 09:58:30 -0400
+        id S1750969AbdIKOCZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 11 Sep 2017 10:02:25 -0400
 Content-Disposition: inline
-In-Reply-To: <20170911074226.2020-1-jiri@resnulli.us>
+In-Reply-To: <CE371C1263339941885964188A0225FA335A6F@CHN-SV-EXMX03.mchp-main.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 11, 2017 at 09:42:26AM +0200, Jiri Pirko wrote:
-> From: Arkadi Sharshevsky <arkadis@mellanox.com>
+On Mon, Sep 11, 2017 at 12:32:10PM +0000, Nisar.Sayed@microchip.com wrote:
+> From: Nisar Sayed <Nisar.Sayed@microchip.com>
 > 
-> The current code does not handle correctly the access to the upper page
-> in case of SFP/SFP+ EEPROM. In that case the offset should be local
-> and the I2C address should be changed.
+> Configure pause time to 0xffff when tx flow control enabled
+> 
+> Set pause time to 0xffff in the pause frame to indicate the
+> partner to stop sending the packets. When RX buffer frees up,
+> the device sends pause frame with pause time zero for partner to
+> resume transmission.
 
-Shame you cannot/didn't expose the i2c bus as a linux i2c bus. The AT24 code
-does not have this bug!
+Hi Nisar
 
-     Andrew
+Thanks for the updated description. Since you are posting this for
+net, not net-next, could you add a fixes: tag?
+
+Thanks
+	Andrew
