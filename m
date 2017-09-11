@@ -1,99 +1,54 @@
-From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Subject: Re: [PATCH] netfilter: ipset: ipset list may return wrong member
- count for set with timeout
-Date: Mon, 11 Sep 2017 21:36:38 +0200 (CEST)
-Message-ID: <alpine.DEB.2.11.1709112134060.12411@blackhole.kfki.hu>
-References: <1502947435-18549-1-git-send-email-vpai@akamai.com>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>, johunt@akamai.com,
-        pai.vishwain@gmail.com, netfilter-devel@vger.kernel.org,
-        coreteam@netfilter.org, netdev@vger.kernel.org
-To: Vishwanath Pai <vpai@akamai.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1502947435-18549-1-git-send-email-vpai@akamai.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+From: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+Subject: [PATCH v2] openvswitch: Fix an error handling path in 'ovs_nla_init_match_and_action()'
+Date: Mon, 11 Sep 2017 21:56:20 +0200
+Message-ID: <20170911195620.17931-1-christophe.jaillet@wanadoo.fr>
+Cc: netdev@vger.kernel.org, dev@openvswitch.org,
+        linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
+        Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+To: pshelar@nicira.com, davem@davemloft.net, xiangxia.m.yue@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+All other error handling paths in this function go through the 'error'
+label. This one should do the same.
 
-Your patch is applied in the ipset git tree and I'm going to push it for 
-kernel inclusion.
+Fixes: 9cc9a5cb176c ("datapath: Avoid using stack larger than 1024.")
+Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+---
+I think that the comment above the function could be improved. It looks
+like the commit log which has introduced this function.
 
-I modified the comment part: the elements counter can still be incorrect 
-in the case of a huge set, because elements might time out during the 
-listing.
+I'm also not sure that commit 9cc9a5cb176c is of any help. It is
+supposed to remove a warning, and I guess it does. But 'ovs_nla_init_match_and_action()'
+is called unconditionnaly from 'ovs_flow_cmd_set()'. So even if the stack
+used by each function is reduced, the overall stack should be the same, if
+not larger.
 
-Thanks for your patience!
+So this commit sounds like adding a bug where the code was fine and states
+to fix an issue but, at the best, only hides it.
 
-Best regards,
-Jozsef
+Instead of fixing the code with the proposed patch, reverting the initial
+commit could also be considered.
 
-On Thu, 17 Aug 2017, Vishwanath Pai wrote:
+V2: update Subject line
+---
+ net/openvswitch/datapath.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-> Simple testcase:
-> 
-> $ ipset create test hash:ip timeout 5
-> $ ipset add test 1.2.3.4
-> $ ipset add test 1.2.2.2
-> $ sleep 5
-> 
-> $ ipset l
-> Name: test
-> Type: hash:ip
-> Revision: 5
-> Header: family inet hashsize 1024 maxelem 65536 timeout 5
-> Size in memory: 296
-> References: 0
-> Number of entries: 2
-> Members:
-> 
-> We return "Number of entries: 2" but no members are listed. That is
-> because mtype_list runs "ip_set_timeout_expired" and does not list the
-> expired entries, but set->elements is never upated (until mtype_gc
-> cleans it up later).
-> 
-> Reviewed-by: Joshua Hunt <johunt@akamai.com>
-> Signed-off-by: Vishwanath Pai <vpai@akamai.com>
-> ---
->  net/netfilter/ipset/ip_set_hash_gen.h | 12 +++++++++++-
->  1 file changed, 11 insertions(+), 1 deletion(-)
-> 
-> diff --git a/net/netfilter/ipset/ip_set_hash_gen.h b/net/netfilter/ipset/ip_set_hash_gen.h
-> index f236c0b..ff3d31c 100644
-> --- a/net/netfilter/ipset/ip_set_hash_gen.h
-> +++ b/net/netfilter/ipset/ip_set_hash_gen.h
-> @@ -1041,12 +1041,22 @@ struct htype {
->  static int
->  mtype_head(struct ip_set *set, struct sk_buff *skb)
->  {
-> -	const struct htype *h = set->data;
-> +	struct htype *h = set->data;
->  	const struct htable *t;
->  	struct nlattr *nested;
->  	size_t memsize;
->  	u8 htable_bits;
->  
-> +	/* If any members have expired, set->elements will be wrong
-> +	 * mytype_expire function will update it with the right count.
-> +	 * we do not hold set->lock here, so grab it first.
-> +	 */
-> +	if (SET_WITH_TIMEOUT(set)) {
-> +		spin_lock_bh(&set->lock);
-> +		mtype_expire(set, h);
-> +		spin_unlock_bh(&set->lock);
-> +	}
-> +
->  	rcu_read_lock_bh();
->  	t = rcu_dereference_bh_nfnl(h->table);
->  	memsize = mtype_ahash_memsize(h, t) + set->ext_size;
-> -- 
-> 1.9.1
-> 
-> 
-
--
-E-mail  : kadlec@blackhole.kfki.hu, kadlecsik.jozsef@wigner.mta.hu
-PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
-Address : Wigner Research Centre for Physics, Hungarian Academy of Sciences
-          H-1525 Budapest 114, POB. 49, Hungary
+diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+index 76cf273a56c7..c3aec6227c91 100644
+--- a/net/openvswitch/datapath.c
++++ b/net/openvswitch/datapath.c
+@@ -1112,7 +1112,8 @@ static int ovs_nla_init_match_and_action(struct net *net,
+ 		if (!a[OVS_FLOW_ATTR_KEY]) {
+ 			OVS_NLERR(log,
+ 				  "Flow key attribute not present in set flow.");
+-			return -EINVAL;
++			error = -EINVAL;
++			goto error;
+ 		}
+ 
+ 		*acts = get_flow_actions(net, a[OVS_FLOW_ATTR_ACTIONS], key,
+-- 
+2.11.0
