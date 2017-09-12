@@ -1,85 +1,48 @@
-From: Alexey Kodanev <alexey.kodanev@oracle.com>
-Subject: [PATCH] vti: fix NULL dereference in xfrm_input()
-Date: Tue, 12 Sep 2017 14:53:46 +0300
-Message-ID: <1505217226-31817-1-git-send-email-alexey.kodanev@oracle.com>
-Cc: Steffen Klassert <steffen.klassert@secunet.com>,
-        Herbert Xu <herbert@gondor.apana.org.au>,
-        David Miller <davem@davemloft.net>,
-        Alexey Kodanev <alexey.kodanev@oracle.com>
-To: netdev@vger.kernel.org
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: Subject: [PATCH] vxlan: only reduce known arp boardcast request
+ to support, virtual IP
+Date: Tue, 12 Sep 2017 13:51:44 +0200
+Message-ID: <20170912135144.2c83bef5@griffin>
+References: <2c1bfd7d-5fe7-d492-2396-71deaeb14244@yunify.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: oc <oc@yunify.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:19158 "EHLO
-        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751289AbdILLqZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 12 Sep 2017 07:46:25 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:37104 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751289AbdILLvr (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 12 Sep 2017 07:51:47 -0400
+In-Reply-To: <2c1bfd7d-5fe7-d492-2396-71deaeb14244@yunify.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Can be reproduced with LTP tests:
-  # icmp-uni-vti.sh -p ah -a sha256 -m tunnel -S fffffffe -k 1 -s 10
+On Tue, 12 Sep 2017 11:26:49 +0800, oc wrote:
+> The purpose of vxlan arp reduce feature is to reply the boardcast
+> arp request in vtep instead of sending it out to save traffic.
+> The current implemention drops arp packet, if the ip cannot be
+> found in neigh table. In the case of virtual IP address, user
+> defines IP address without management from SDN controller. The IP
+> address does not exist in neigh table, so the arp boardcast request
+> from a client can not be sent to the server who owns the virtual IP
+> address.
+> 
+> This patch allow the arp request to be sent out if:
+> 1. not arp boardcast request
+> 2. cannot be found in neigh table
+> 3. arp record status is not NUD_CONNECTED
+> 
+> The user defined of virtual IP address works while arp reduce still
+> suppress the arp boardcast for IP address managed by SDN controller
+> with this patch.
 
-IPv4:
-  RIP: 0010:xfrm_input+0x7f9/0x870
-  ...
-  Call Trace:
-  <IRQ>
-  vti_input+0xaa/0x110 [ip_vti]
-  ? skb_free_head+0x21/0x40
-  vti_rcv+0x33/0x40 [ip_vti]
-  xfrm4_ah_rcv+0x33/0x60
-  ip_local_deliver_finish+0x94/0x1e0
-  ip_local_deliver+0x6f/0xe0
-  ? ip_route_input_noref+0x28/0x50
-  ...
+Your patch is whitespace damaged, does not conform to the kernel coding
+style and the email does not have your full name in the From header.
 
-  # icmp-uni-vti.sh -6 -p ah -a sha256 -m tunnel -S fffffffe -k 1 -s 10
-IPv6:
-  RIP: 0010:xfrm_input+0x7f9/0x870
-  ...
-  Call Trace:
-  <IRQ>
-  xfrm6_rcv_tnl+0x3c/0x40
-  vti6_rcv+0xd5/0xe0 [ip6_vti]
-  xfrm6_ah_rcv+0x33/0x60
-  ip6_input_finish+0xee/0x460
-  ip6_input+0x3f/0xb0
-  ip6_rcv_finish+0x45/0xa0
-  ipv6_rcv+0x34b/0x540
+As for the patch itself, you're changing existing functionality that
+people may depend on and thus a new config option is needed to enable
+the behavior.
 
-xfrm_input() invokes xfrm_rcv_cb() -> vti_rcv_cb(), the last callback
-might call skb_scrub_packet(), which in turn can reset secpath.
-
-Fix it by adding a check that skb->sp is not NULL.
-
-Fixes: 7e9e9202bccc ("xfrm: Clear RX SKB secpath xfrm_offload")
-Signed-off-by: Alexey Kodanev <alexey.kodanev@oracle.com>
----
- net/xfrm/xfrm_input.c |    6 ++++--
- 1 files changed, 4 insertions(+), 2 deletions(-)
-
-diff --git a/net/xfrm/xfrm_input.c b/net/xfrm/xfrm_input.c
-index 2515cd2..8ac9d32 100644
---- a/net/xfrm/xfrm_input.c
-+++ b/net/xfrm/xfrm_input.c
-@@ -429,7 +429,8 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
- 	nf_reset(skb);
- 
- 	if (decaps) {
--		skb->sp->olen = 0;
-+		if (skb->sp)
-+			skb->sp->olen = 0;
- 		skb_dst_drop(skb);
- 		gro_cells_receive(&gro_cells, skb);
- 		return 0;
-@@ -440,7 +441,8 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
- 
- 		err = x->inner_mode->afinfo->transport_finish(skb, xfrm_gro || async);
- 		if (xfrm_gro) {
--			skb->sp->olen = 0;
-+			if (skb->sp)
-+				skb->sp->olen = 0;
- 			skb_dst_drop(skb);
- 			gro_cells_receive(&gro_cells, skb);
- 			return err;
--- 
-1.7.1
+ Jiri
