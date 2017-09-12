@@ -1,41 +1,37 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [patch net] net: sched: fix memleak for chain zero
-Date: Mon, 11 Sep 2017 16:43:20 -0700
-Message-ID: <CAM_iQpX3dpZHrcxt8irEHYeAEyGxw+S1GhVAX31gNTs89f0XPA@mail.gmail.com>
-References: <20170906111419.5115-1-jiri@resnulli.us> <20170907.191800.218886770521884093.davem@davemloft.net>
- <CAM_iQpXSjXWPw9QY7VHGnKssLHCBSJq4XnS2KPTheLB7_rBF7g@mail.gmail.com> <20170910140338.GA1860@nanopsycho>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: David Miller <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Jakub Kicinski <kubakici@wp.pl>, mlxsw@mellanox.com
-To: Jiri Pirko <jiri@resnulli.us>
+From: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+Subject: [net-next] dummy: declare dummy devices as enumerated devices
+Date: Tue, 12 Sep 2017 09:32:45 +0800
+Message-ID: <1505179965-12117-1-git-send-email-zhangshengju@cmss.chinamobile.com>
+To: davem@davemloft.net, netdev@vger.kernel.org, ezegomez@amazon.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:36705 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751153AbdIKXnl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 11 Sep 2017 19:43:41 -0400
-Received: by mail-pf0-f193.google.com with SMTP id f84so5528684pfj.3
-        for <netdev@vger.kernel.org>; Mon, 11 Sep 2017 16:43:41 -0700 (PDT)
-In-Reply-To: <20170910140338.GA1860@nanopsycho>
+Received: from cmccmta3.chinamobile.com ([221.176.66.81]:2852 "EHLO
+        cmccmta3.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750911AbdILBcw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 11 Sep 2017 21:32:52 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Sep 10, 2017 at 7:03 AM, Jiri Pirko <jiri@resnulli.us> wrote:
-> Sat, Sep 09, 2017 at 08:46:42PM CEST, xiyou.wangcong@gmail.com wrote:
->>On Thu, Sep 7, 2017 at 7:18 PM, David Miller <davem@davemloft.net> wrote:
->>>
->>> This doesn't apply cleanly any more, please respin.
->>>
->>
->>Sigh, you applied this patch despite of strong objections from me.
->>
->>I seriously doubt your tastes now, David. Fine, this code does not
->>deserve a good taste at all, let bugs stay there.
->
-> Actually, the reported bug is resolved by this patch. I like your
-> approach Cong, we can make it work and follow-up on this patch.
-> Please stay calm and be patient...
+Dummy device name is enumerated by the kernel, let user space be aware
+of the naming scheme used by dummy devices:
+(visible in /sys/class/net/<iface>/name_assign_type).
 
-OK. I already rebased my patches and sent v3.
+Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+---
+ drivers/net/dummy.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/dummy.c b/drivers/net/dummy.c
+index d0a1f9c..e31ab3b 100644
+--- a/drivers/net/dummy.c
++++ b/drivers/net/dummy.c
+@@ -388,7 +388,7 @@ static int __init dummy_init_one(void)
+ 	int err;
+ 
+ 	dev_dummy = alloc_netdev(sizeof(struct dummy_priv),
+-				 "dummy%d", NET_NAME_UNKNOWN, dummy_setup);
++				 "dummy%d", NET_NAME_ENUM, dummy_setup);
+ 	if (!dev_dummy)
+ 		return -ENOMEM;
+ 
+-- 
+1.8.3.1
