@@ -1,120 +1,56 @@
-From: Kunihiko Hayashi <hayashi.kunihiko@socionext.com>
-Subject: [PATCH net-next v2 2/2] net: phy: realtek: add RTL8201F phy-id and functions
-Date: Tue, 12 Sep 2017 18:54:36 +0900
-Message-ID: <1505210076-32311-2-git-send-email-hayashi.kunihiko@socionext.com>
-References: <1505210076-32311-1-git-send-email-hayashi.kunihiko@socionext.com>
-Cc: Jassi Brar <jaswinder.singh@linaro.org>,
-        Jongsung Kim <neidhard.kim@lge.com>,
-        Kunihiko Hayashi <hayashi.kunihiko@socionext.com>
-To: Andrew Lunn <andrew@lunn.ch>,
-        Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] ieee802154: fix gcc-4.9 warnings
+Date: Tue, 12 Sep 2017 12:16:24 +0200
+Message-ID: <20170912101636.3811626-1-arnd@arndb.de>
+Cc: Arnd Bergmann <arnd@arndb.de>,
+        Marcel Holtmann <marcel@holtmann.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Markus Elfring <elfring@users.sourceforge.net>,
+        "Gustavo A. R. Silva" <garsilva@embeddedor.com>,
+        Florian Westphal <fw@strlen.de>,
+        Johannes Berg <johannes.berg@intel.com>,
+        Christophe JAILLET <christophe.jaillet@wanadoo.fr>,
+        Colin Ian King <colin.king@canonical.com>,
+        linux-wpan@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Harry Morris <h.morris@cascoda.com>, linuxdev@cascoda.com,
+        Alexander Aring <alex.aring@gmail.com>,
+        Stefan Schmidt <stefan@osg.samsung.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.socionext.com ([202.248.49.38]:35968 "EHLO mx.socionext.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751286AbdILJyu (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 12 Sep 2017 05:54:50 -0400
-In-Reply-To: <1505210076-32311-1-git-send-email-hayashi.kunihiko@socionext.com>
+Received: from mout.kundenserver.de ([212.227.17.24]:61145 "EHLO
+        mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751311AbdILKRe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 12 Sep 2017 06:17:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jassi Brar <jaswinder.singh@linaro.org>
+All older compiler versions up to gcc-4.9 produce these
+harmless warnings:
 
-Add RTL8201F phy-id and the related functions to the driver.
+drivers/net/ieee802154/ca8210.c: In function 'ca8210_skb_tx':
+drivers/net/ieee802154/ca8210.c:1947:9: warning: missing braces around initializer [-Wmissing-braces]
 
-The original patch is as follows:
-https://patchwork.kernel.org/patch/2538341/
+This changes the syntax to something that works on all versions
+without warnings.
 
-Signed-off-by: Jongsung Kim <neidhard.kim@lge.com>
-Signed-off-by: Jassi Brar <jaswinder.singh@linaro.org>
-Signed-off-by: Kunihiko Hayashi <hayashi.kunihiko@socionext.com>
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+Fixes: ded845a781a5 ("ieee802154: Add CA8210 IEEE 802.15.4 device driver")
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 ---
-Changes since v1:
- - use RTL821x_PAGE_SELECT instead of defining RTL8201F_PAGE_SELECT
----
- drivers/net/phy/realtek.c | 44 ++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 44 insertions(+)
+ drivers/net/ieee802154/ca8210.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/phy/realtek.c b/drivers/net/phy/realtek.c
-index 99c3297..d4670ec 100644
---- a/drivers/net/phy/realtek.c
-+++ b/drivers/net/phy/realtek.c
-@@ -29,10 +29,22 @@
- #define RTL8211F_INSR		0x1d
- #define RTL8211F_TX_DELAY	0x100
- 
-+#define RTL8201F_ISR		0x1e
-+#define RTL8201F_IER		0x13
-+
- MODULE_DESCRIPTION("Realtek PHY driver");
- MODULE_AUTHOR("Johnson Leung");
- MODULE_LICENSE("GPL");
- 
-+static int rtl8201_ack_interrupt(struct phy_device *phydev)
-+{
-+	int err;
-+
-+	err = phy_read(phydev, RTL8201F_ISR);
-+
-+	return (err < 0) ? err : 0;
-+}
-+
- static int rtl821x_ack_interrupt(struct phy_device *phydev)
+diff --git a/drivers/net/ieee802154/ca8210.c b/drivers/net/ieee802154/ca8210.c
+index 24a1eabbbc9d..e6b8ce81a6c3 100644
+--- a/drivers/net/ieee802154/ca8210.c
++++ b/drivers/net/ieee802154/ca8210.c
+@@ -1944,7 +1944,7 @@ static int ca8210_skb_tx(
+ )
  {
- 	int err;
-@@ -54,6 +66,25 @@ static int rtl8211f_ack_interrupt(struct phy_device *phydev)
- 	return (err < 0) ? err : 0;
- }
+ 	int status;
+-	struct ieee802154_hdr header = { 0 };
++	struct ieee802154_hdr header = { };
+ 	struct secspec secspec;
+ 	unsigned int mac_len;
  
-+static int rtl8201_config_intr(struct phy_device *phydev)
-+{
-+	int err;
-+
-+	/* switch to page 7 */
-+	phy_write(phydev, RTL821x_PAGE_SELECT, 0x7);
-+
-+	if (phydev->interrupts == PHY_INTERRUPT_ENABLED)
-+		err = phy_write(phydev, RTL8201F_IER,
-+				BIT(13) | BIT(12) | BIT(11));
-+	else
-+		err = phy_write(phydev, RTL8201F_IER, 0);
-+
-+	/* restore to default page 0 */
-+	phy_write(phydev, RTL821x_PAGE_SELECT, 0x0);
-+
-+	return err;
-+}
-+
- static int rtl8211b_config_intr(struct phy_device *phydev)
- {
- 	int err;
-@@ -129,6 +160,18 @@ static struct phy_driver realtek_drvs[] = {
- 		.config_aneg    = &genphy_config_aneg,
- 		.read_status    = &genphy_read_status,
- 	}, {
-+		.phy_id		= 0x001cc816,
-+		.name		= "RTL8201F 10/100Mbps Ethernet",
-+		.phy_id_mask	= 0x001fffff,
-+		.features	= PHY_BASIC_FEATURES,
-+		.flags		= PHY_HAS_INTERRUPT,
-+		.config_aneg	= &genphy_config_aneg,
-+		.read_status	= &genphy_read_status,
-+		.ack_interrupt	= &rtl8201_ack_interrupt,
-+		.config_intr	= &rtl8201_config_intr,
-+		.suspend	= genphy_suspend,
-+		.resume		= genphy_resume,
-+	}, {
- 		.phy_id		= 0x001cc912,
- 		.name		= "RTL8211B Gigabit Ethernet",
- 		.phy_id_mask	= 0x001fffff,
-@@ -181,6 +224,7 @@ static struct phy_driver realtek_drvs[] = {
- module_phy_driver(realtek_drvs);
- 
- static struct mdio_device_id __maybe_unused realtek_tbl[] = {
-+	{ 0x001cc816, 0x001fffff },
- 	{ 0x001cc912, 0x001fffff },
- 	{ 0x001cc914, 0x001fffff },
- 	{ 0x001cc915, 0x001fffff },
 -- 
-2.7.4
+2.9.0
