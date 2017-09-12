@@ -1,134 +1,109 @@
-From: liujian <liujian56@huawei.com>
-Subject: Re: [PATCH] tcp: TCP_USER_TIMEOUT can not work in tcp_probe_timer()
-Date: Tue, 12 Sep 2017 14:08:48 +0800
-Message-ID: <e7e09201-40c2-933a-1e8e-a31eddcc75ab@huawei.com>
-References: <1505111262-12620-1-git-send-email-liujian56@huawei.com>
- <1505141357.15310.115.camel@edumazet-glaptop3.roam.corp.google.com>
- <1505142785.15310.117.camel@edumazet-glaptop3.roam.corp.google.com>
- <1505143348.15310.118.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: <davem@davemloft.net>, <kuznet@ms2.inr.ac.ru>,
-        <yoshfuji@linux-ipv6.org>, <edumazet@google.com>,
-        <ycheng@google.com>, <hkchu@google.com>, <netdev@vger.kernel.org>,
-        <weiyongjun1@huawei.com>,
-        wangkefeng 00227729 <wangkefeng.wang@huawei.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net] mlxsw: spectrum: Prevent mirred-related crash on removal
+Date: Tue, 12 Sep 2017 08:50:53 +0200
+Message-ID: <20170912065053.1392-1-jiri@resnulli.us>
+Cc: davem@davemloft.net, yuvalm@mellanox.com, idosch@mellanox.com,
+        flokli@flokli.de, mlxsw@mellanox.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga04-in.huawei.com ([45.249.212.190]:6451 "EHLO
-        szxga04-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750911AbdILGJQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 12 Sep 2017 02:09:16 -0400
-In-Reply-To: <1505143348.15310.118.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-wr0-f196.google.com ([209.85.128.196]:37061 "EHLO
+        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751089AbdILGu5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 12 Sep 2017 02:50:57 -0400
+Received: by mail-wr0-f196.google.com with SMTP id u48so5406079wrf.4
+        for <netdev@vger.kernel.org>; Mon, 11 Sep 2017 23:50:57 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Yuval Mintz <yuvalm@mellanox.com>
 
-In the scenario, tcp server side IP changed, and at that memont,
-userspace application still send data continuously;
-tcp_send_head(sk)'s timestamp always be refreshed.
+When removing the offloading of mirred actions under
+matchall classifiers, mlxsw would find the destination port
+associated with the offloaded action and utilize it for undoing
+the configuration.
 
-Here is the packetdrill script:
+Depending on the order by which ports are removed, it's possible that
+the destination port would get removed before the source port.
+In such a scenario, when actions would be flushed for the source port
+mlxsw would perform an illegal dereference as the destination port is
+no longer listed.
 
-   0 socket(..., SOCK_STREAM, IPPROTO_TCP) = 3
-   +0 setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
-   +0 bind(3, ..., ...) = 0
-   +0 listen(3, 1) = 0
+Since the only item necessary for undoing the configuration on the
+destination side is the port-id and that in turn is already maintained
+by mlxsw on the source-port, simply stop trying to access the
+destination port and use the port-id directly instead.
 
-   +0 < S 0:0(0) win 0 <mss 1460,sackOK,nop,nop,nop,wscale 7>
-   +0 > S. 0:0(0) ack 1 <mss 1460,nop,nop,sackOK,nop,wscale 7>
+Fixes: 763b4b70af ("mlxsw: spectrum: Add support in matchall mirror TC offloading")
+Signed-off-by: Yuval Mintz <yuvalm@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 19 +++++++++----------
+ 1 file changed, 9 insertions(+), 10 deletions(-)
 
-  +.1 < . 1:1(0) ack 1 win 65530
-   +0 accept(3, ..., ...) = 4
-
-   +0 setsockopt(4, SOL_TCP, TCP_USER_TIMEOUT, [3000], 4) = 0
-   +0 write(4, ..., 24) = 24
-   +0 > P. 1:25(24) ack 1 win 229
-   +.1 < . 1:1(0) ack 25 win 65530
-
-//change the ipaddress
-   +1 `ifconfig tun0 192.168.0.10/16`
-
-   +1 write(4, ..., 24) = 24
-   +1 write(4, ..., 24) = 24
-   +1 write(4, ..., 24) = 24
-   +1 write(4, ..., 24) = 24
-   +3 write(4, ..., 24) = 24
-   +3 write(4, ..., 24) = 24
-   +3 write(4, ..., 24) = 24
-   +3 write(4, ..., 24) = 24
-   +3 write(4, ..., 24) = 24
-   +3 write(4, ..., 24) = 24
-   +3 write(4, ..., 24) = 24
-   +3 write(4, ..., 24) = 24
-   +3 write(4, ..., 24) = 24
-   +3 write(4, ..., 24) = 24
-   +3 write(4, ..., 24) = 24
-   +3 write(4, ..., 24) = 24
-   +3 write(4, ..., 24) = 24
-   +3 write(4, ..., 24) = 24
-   +3 write(4, ..., 24) = 24
-   +3 write(4, ..., 24) = 24
-   +3 write(4, ..., 24) = 24
-   +3 write(4, ..., 24) = 24
-   +3 write(4, ..., 24) = 24
-   +3 write(4, ..., 24) = 24
-   +3 write(4, ..., 24) = 24
-   +3 write(4, ..., 24) = 24
-
-   +0 `ifconfig tun0 192.168.0.1/16`
-   +0 < . 1:1(0) ack 1 win 1000
-   +0 write(4, ..., 24) = -1
-
-
-[root@localhost ~]# time ./gtests/net/packetdrill/packetdrill test.pkt
-test.pkt:50: runtime error in write call: Expected result -1 but got 24 with errno 2 (No such file or directory)
-
-real	1m11.364s
-user	0m0.028s
-sys	0m0.106s
-
-[root@localhost ~]# netstat -toen
-Active Internet connections (w/o servers)
-Proto Recv-Q Send-Q Local Address           Foreign Address         State       User       Inode      Timer
-tcp        0    504 192.168.0.1:8080        192.0.2.1:33993         ESTABLISHED 0          45453      probe (22.38/0/7)
-
-since the script didn't wait for enough time, here only got 7 probes.
-
-在 2017/9/11 23:22, Eric Dumazet 写道:
-> On Mon, 2017-09-11 at 08:13 -0700, Eric Dumazet wrote:
-> 
->> You can see we got only 3 probes, not 4.
-> 
-> Here is complete packetdrill test showing that code behaves as expected.
-> 
->     0 socket(..., SOCK_STREAM, IPPROTO_TCP) = 3
->    +0 setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
->    +0 bind(3, ..., ...) = 0
->    +0 listen(3, 1) = 0
-> 
->    +0 < S 0:0(0) win 0 <mss 1460,sackOK,nop,nop,nop,wscale 7>
->    +0 > S. 0:0(0) ack 1 <mss 1460,nop,nop,sackOK,nop,wscale 8>
-> 
-> // Client advertises a zero receive window, so we can't send.
->   +.1 < . 1:1(0) ack 1 win 0
->    +0 accept(3, ..., ...) = 4
-> 
->    +0 setsockopt(4, SOL_TCP, TCP_USER_TIMEOUT, [3000], 4) = 0
->    +0 write(4, ..., 2920) = 2920
-> 
-> // Window probes are scheduled just like RTOs.
->   +.3~+.31 > . 0:0(0) ack 1
->   +.6~+.62 > . 0:0(0) ack 1
->  +1.2~+1.24 > . 0:0(0) ack 1
-> 
-> // Peer opens its window too late !
->    +3 < . 1:1(0) ack 1 win 1000
->    +0 > R 1:1(0)
-> 
-> 
-> 
-> .
-> 
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index e080459..696b99e 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -575,15 +575,14 @@ static void mlxsw_sp_span_entry_destroy(struct mlxsw_sp *mlxsw_sp,
+ }
+ 
+ static struct mlxsw_sp_span_entry *
+-mlxsw_sp_span_entry_find(struct mlxsw_sp_port *port)
++mlxsw_sp_span_entry_find(struct mlxsw_sp *mlxsw_sp, u8 local_port)
+ {
+-	struct mlxsw_sp *mlxsw_sp = port->mlxsw_sp;
+ 	int i;
+ 
+ 	for (i = 0; i < mlxsw_sp->span.entries_count; i++) {
+ 		struct mlxsw_sp_span_entry *curr = &mlxsw_sp->span.entries[i];
+ 
+-		if (curr->used && curr->local_port == port->local_port)
++		if (curr->used && curr->local_port == local_port)
+ 			return curr;
+ 	}
+ 	return NULL;
+@@ -594,7 +593,8 @@ static struct mlxsw_sp_span_entry
+ {
+ 	struct mlxsw_sp_span_entry *span_entry;
+ 
+-	span_entry = mlxsw_sp_span_entry_find(port);
++	span_entry = mlxsw_sp_span_entry_find(port->mlxsw_sp,
++					      port->local_port);
+ 	if (span_entry) {
+ 		/* Already exists, just take a reference */
+ 		span_entry->ref_count++;
+@@ -783,12 +783,13 @@ static int mlxsw_sp_span_mirror_add(struct mlxsw_sp_port *from,
+ }
+ 
+ static void mlxsw_sp_span_mirror_remove(struct mlxsw_sp_port *from,
+-					struct mlxsw_sp_port *to,
++					u8 destination_port,
+ 					enum mlxsw_sp_span_type type)
+ {
+ 	struct mlxsw_sp_span_entry *span_entry;
+ 
+-	span_entry = mlxsw_sp_span_entry_find(to);
++	span_entry = mlxsw_sp_span_entry_find(from->mlxsw_sp,
++					      destination_port);
+ 	if (!span_entry) {
+ 		netdev_err(from->dev, "no span entry found\n");
+ 		return;
+@@ -1563,14 +1564,12 @@ static void
+ mlxsw_sp_port_del_cls_matchall_mirror(struct mlxsw_sp_port *mlxsw_sp_port,
+ 				      struct mlxsw_sp_port_mall_mirror_tc_entry *mirror)
+ {
+-	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
+ 	enum mlxsw_sp_span_type span_type;
+-	struct mlxsw_sp_port *to_port;
+ 
+-	to_port = mlxsw_sp->ports[mirror->to_local_port];
+ 	span_type = mirror->ingress ?
+ 			MLXSW_SP_SPAN_INGRESS : MLXSW_SP_SPAN_EGRESS;
+-	mlxsw_sp_span_mirror_remove(mlxsw_sp_port, to_port, span_type);
++	mlxsw_sp_span_mirror_remove(mlxsw_sp_port, mirror->to_local_port,
++				    span_type);
+ }
+ 
+ static int
+-- 
+2.9.3
