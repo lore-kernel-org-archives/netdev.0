@@ -1,97 +1,32 @@
-From: Josef Bacik <jbacik@fb.com>
-Subject: Re: 319554f284dd ("inet: don't use sk_v6_rcv_saddr directly") causes
- bind port regression
-Date: Tue, 12 Sep 2017 23:12:32 +0000
-Message-ID: <AF16C126-99CA-401A-B803-AA05CDFBFF93@fb.com>
-References: <1a8ef376-387e-e0fc-7362-e1fd2c2c45d3@redhat.com>
+From: Pravin Shelar <pshelar@ovn.org>
+Subject: Re: [PATCH v4 1/2] ip_tunnel: fix ip tunnel lookup in collect_md mode
+Date: Tue, 12 Sep 2017 16:41:50 -0700
+Message-ID: <CAOrHB_CqcxxLxojk3Gy9JU=fQq5MFUOsSgy3+U941A0VONQzMA@mail.gmail.com>
+References: <1505209677-12728-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-        boundary="_002_AF16C12699CA401AB803AA05CDFBFF93fbcom_"
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Cole Robinson <ccrobinso@redhat.com>
-To: Laura Abbott <labbott@redhat.com>,
-        "David S. Miller" <davem@davemloft.net>,
+Content-Type: text/plain; charset="UTF-8"
+Cc: "David S. Miller" <davem@davemloft.net>,
         Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        "Hideaki YOSHIFUJI" <yoshfuji@linux-ipv6.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:48985 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751475AbdILXNj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 12 Sep 2017 19:13:39 -0400
-In-Reply-To: <1a8ef376-387e-e0fc-7362-e1fd2c2c45d3@redhat.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        linux-kernel@vger.kernel.org, Pravin B Shelar <pshelar@nicira.com>
+To: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1505209677-12728-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
---_002_AF16C12699CA401AB803AA05CDFBFF93fbcom_
-Content-Type: text/plain; charset="utf-8"
-Content-ID: <73F515C95B1CCE4D810CD65D8ADC5FE2@namprd15.prod.outlook.com>
-Content-Transfer-Encoding: base64
-
-Rmlyc3QgSeKAmW0gc3VwZXIgc29ycnkgZm9yIHRoZSB0b3AgcG9zdCwgSeKAmW0gYXQgcGx1bWJl
-cnMgYW5kIEkgZm9yZ290IHRvIHVwbG9hZCBteSBtdXR0cmMgdG8gbXkgbmV3IGNsb3VkIGluc3Rh
-bmNlLCBzbyBJ4oCZbSBzY3Jld2VkIHVzaW5nIG91dGxvb2suDQoNCkkgaGF2ZSBhIGNvbXBsZXRl
-bHkgdW50ZXN0ZWQsIHVuY29tcGlsZWQgcGF0Y2ggdGhhdCBJIHRoaW5rIHdpbGwgZml4IHRoZSBw
-cm9ibGVtLCB3b3VsZCB5b3UgbWluZCBnaXZpbmcgaXQgYSBnbz8gIFRoYW5rcywNCg0KSm9zZWYN
-Cg0KT24gOS8xMi8xNywgMzozNiBQTSwgIkxhdXJhIEFiYm90dCIgPGxhYmJvdHRAcmVkaGF0LmNv
-bT4gd3JvdGU6DQoNCkhpLA0KDQpGZWRvcmEgZ290IGEgYnVnIHJlcG9ydCANCmh0dHBzOi8vYnVn
-emlsbGEucmVkaGF0LmNvbS9zaG93X2J1Zy5jZ2k/aWQ9MTQzMjY4NCBvZiBhIHJlZ3Jlc3Npb24g
-d2l0aCANCmF1dG9tYXRpYyBzcGljZSBwb3J0DQphc3NpZ25tZW50LiBUaGUgbGlidmlydCB0ZWFt
-IHJlZHVjZWQgdGhpcyB0byB0aGUgYXR0YWNoZWQgdGVzdA0KY2FzZSBydW4gYXMgZm9sbG93czoN
-Cg0KSW4gYSBzZXBhcmF0ZSB0ZXJtaW5hbCwgcWVtdS1rdm0gLXZuYyAxMjcuMC4wLjE6MCB0byBn
-cmFiIHBvcnQgNTkwMC4gDQpUaGVuIGRvIHRoaXM6DQoNCiQgZ2NjIGJpbmQtY29sbGlzaW9uLmMg
-JiYgLi9hLm91dA0KYmluZDogQWRkcmVzcyBhbHJlYWR5IGluIHVzZQ0KQUZfSU5FVCBjaGVjayBm
-YWlsZWQuDQokIGdjYyAtRCBDSEVDS19JUFY2IGJpbmQtY29sbGlzaW9uLmMgJiYgLi9hLm91dA0K
-QUZfSU5FVDYgc3VjY2Vzcw0KQUZfSU5FVCBzdWNjZXNzDQokIGdjYyBiaW5kLWNvbGxpc2lvbi5j
-ICYmIC4vYS5vdXQNCkFGX0lORVQgc3VjY2Vzcw0KDQpCaXNlY3Rpb24gc2hvd2VkIHRoaXMgYmVo
-YXZpb3IgdG8gYmUgY2F1c2VkIGJ5DQoNCmNvbW1pdCAzMTk1NTRmMjg0ZGRhOWYyNzM3ZDA5ZGY4
-MmJhMzYxMGJkOGRkZWEzDQpBdXRob3I6IEpvc2VmIEJhY2lrIDxqYmFjaWtAZmIuY29tPg0KRGF0
-ZTogICBUaHUgSmFuIDE5IDE3OjQ3OjQ2IDIwMTcgLTA1MDANCg0KICAgICBpbmV0OiBkb24ndCB1
-c2Ugc2tfdjZfcmN2X3NhZGRyIGRpcmVjdGx5DQoNCiAgICAgV2hlbiBjb21wYXJpbmcgdHdvIHNv
-Y2tldHMgd2UgbmVlZCB0byB1c2UgaW5ldDZfcmN2X3NhZGRyIHNvIHdlIGdldCANCmEgTlVMTA0K
-ICAgICBza192Nl9yY3Zfc2FkZHIgaWYgdGhlIHNvY2tldCBpc24ndCBBRl9JTkVUNiwgb3RoZXJ3
-aXNlIG91ciANCmNvbXBhcmlzb24gZnVuY3Rpb24NCiAgICAgY2FuIGJlIHdyb25nLg0KDQogICAg
-IEZpeGVzOiA2MzdiYzhiICgiaW5ldDogcmVzZXQgdGItPmZhc3RyZXVzZXBvcnQgd2hlbiBhZGRp
-bmcgYSANCnJldXNlcG9ydCBzayIpDQogICAgIFNpZ25lZC1vZmYtYnk6IEpvc2VmIEJhY2lrIDxq
-YmFjaWtAZmIuY29tPg0KICAgICBTaWduZWQtb2ZmLWJ5OiBEYXZpZCBTLiBNaWxsZXIgPGRhdmVt
-QGRhdmVtbG9mdC5uZXQ+DQoNCg0KQW5kIHJldmVydGluZyBmaXhlZCBib3RoIHRoZSBzdGFuZGFs
-b25lIHRlc3QgY2FzZSBhbmQgdGhlIHNwaWNlIGlzc3VlLg0KDQpBbnkgaWRlYXM/DQoNClRoYW5r
-cywNCkxhdXJhDQoNCg0K
-
---_002_AF16C12699CA401AB803AA05CDFBFF93fbcom_
-Content-Type: application/octet-stream;
-	name="0001-net-set-tb-fast_sk_family.patch"
-Content-Description: 0001-net-set-tb-fast_sk_family.patch
-Content-Disposition: attachment;
-	filename="0001-net-set-tb-fast_sk_family.patch"; size=1307;
-	creation-date="Tue, 12 Sep 2017 23:12:32 GMT";
-	modification-date="Tue, 12 Sep 2017 23:12:32 GMT"
-Content-ID: <07130D8A00FEAD41A83766D1791D371E@namprd15.prod.outlook.com>
-Content-Transfer-Encoding: base64
-
-RnJvbSBiM2MwNDU4NDM1ZDg3OTExZjFmOTlkMzE0MDEzYjI2OGU2Yzg1MGE5IE1vbiBTZXAgMTcg
-MDA6MDA6MDAgMjAwMQpGcm9tOiBKb3NlZiBCYWNpayA8am9zZWZAdG94aWNwYW5kYS5jb20+CkRh
-dGU6IFR1ZSwgMTIgU2VwIDIwMTcgMTY6MDc6MDAgLTA3MDAKU3ViamVjdDogW1BBVENIXSBuZXQ6
-IHNldCB0Yi0+ZmFzdF9za19mYW1pbHkKCldlIG5lZWQgdG8gc2V0IHRoZSB0Yi0+ZmFzdF9za19m
-YW1pbHkgcHJvcGVybHkgc28gd2UgY2FuIHVzZSB0aGUgcHJvcGVyCmNvbXBhcmlzb24gZnVuY3Rp
-b24gZm9yIGFsbCBzdWJzZXF1ZW50IHJldXNlcG9ydCBiaW5kIHJlcXVlc3RzLgoKU2lnbmVkLW9m
-Zi1ieTogSm9zZWYgQmFjaWsgPGpvc2VmQHRveGljcGFuZGEuY29tPgotLS0KIG5ldC9pcHY0L2lu
-ZXRfY29ubmVjdGlvbl9zb2NrLmMgfCAyICsrCiAxIGZpbGUgY2hhbmdlZCwgMiBpbnNlcnRpb25z
-KCspCgpkaWZmIC0tZ2l0IGEvbmV0L2lwdjQvaW5ldF9jb25uZWN0aW9uX3NvY2suYyBiL25ldC9p
-cHY0L2luZXRfY29ubmVjdGlvbl9zb2NrLmMKaW5kZXggNDA4OWMwMTNjYjAzLi4zY2ZmOTVmMTA5
-OTUgMTAwNjQ0Ci0tLSBhL25ldC9pcHY0L2luZXRfY29ubmVjdGlvbl9zb2NrLmMKKysrIGIvbmV0
-L2lwdjQvaW5ldF9jb25uZWN0aW9uX3NvY2suYwpAQCAtMzI4LDYgKzMyOCw3IEBAIGludCBpbmV0
-X2Nza19nZXRfcG9ydChzdHJ1Y3Qgc29jayAqc2ssIHVuc2lnbmVkIHNob3J0IHNudW0pCiAJCQl0
-Yi0+ZmFzdHVpZCA9IHVpZDsKIAkJCXRiLT5mYXN0X3Jjdl9zYWRkciA9IHNrLT5za19yY3Zfc2Fk
-ZHI7CiAJCQl0Yi0+ZmFzdF9pcHY2X29ubHkgPSBpcHY2X29ubHlfc29jayhzayk7CisJCQl0Yi0+
-ZmFzdF9za19mYW1pbHkgPSBzay0+c2tfZmFtaWx5OwogI2lmIElTX0VOQUJMRUQoQ09ORklHX0lQ
-VjYpCiAJCQl0Yi0+ZmFzdF92Nl9yY3Zfc2FkZHIgPSBzay0+c2tfdjZfcmN2X3NhZGRyOwogI2Vu
-ZGlmCkBAIC0zNTQsNiArMzU1LDcgQEAgaW50IGluZXRfY3NrX2dldF9wb3J0KHN0cnVjdCBzb2Nr
-ICpzaywgdW5zaWduZWQgc2hvcnQgc251bSkKIAkJCQl0Yi0+ZmFzdHVpZCA9IHVpZDsKIAkJCQl0
-Yi0+ZmFzdF9yY3Zfc2FkZHIgPSBzay0+c2tfcmN2X3NhZGRyOwogCQkJCXRiLT5mYXN0X2lwdjZf
-b25seSA9IGlwdjZfb25seV9zb2NrKHNrKTsKKwkJCQl0Yi0+ZmFzdF9za19mYW1pbHkgPSBzay0+
-c2tfZmFtaWx5OwogI2lmIElTX0VOQUJMRUQoQ09ORklHX0lQVjYpCiAJCQkJdGItPmZhc3RfdjZf
-cmN2X3NhZGRyID0gc2stPnNrX3Y2X3Jjdl9zYWRkcjsKICNlbmRpZgotLSAKMi4xMy41Cgo=
-
---_002_AF16C12699CA401AB803AA05CDFBFF93fbcom_--
+On Tue, Sep 12, 2017 at 2:47 AM, Haishuang Yan
+<yanhaishuang@cmss.chinamobile.com> wrote:
+> In collect_md mode, if the tun dev is down, it still can call
+> ip_tunnel_rcv to receive on packets, and the rx statistics increase
+> improperly.
+>
+> When the md tunnel is down, it's not neccessary to increase RX drops
+> for the tunnel device, packets would be recieved on fallback tunnel,
+> and the RX drops on fallback device will be increased as expected.
+>
+> Fixes: 2e15ea390e6f ("ip_gre: Add support to collect tunnel metadata.")
+> Cc: Pravin B Shelar <pshelar@nicira.com>
+> Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+Acked-by: Pravin B Shelar <pshelar@ovn.org>
