@@ -1,86 +1,53 @@
-From: Kunihiko Hayashi <hayashi.kunihiko@socionext.com>
-Subject: Re: [PATCH net-next 2/3] net: ethernet: socionext: add AVE ethernet driver
-Date: Tue, 12 Sep 2017 18:24:01 +0900
-Message-ID: <20170912182400.180E.4A936039@socionext.com>
-References: <20170911155047.6717.4A936039@socionext.com> <20170911120009.GA24174@lunn.ch>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] tipc: Use bsearch library function
+Date: Tue, 12 Sep 2017 09:24:17 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD00735D7@AcuExch.aculab.com>
+References: <20170909031819.13622-1-thomas@m3y3r.de>
+ <20170911.143025.555018840006192902.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        <linux-arm-kernel@lists.infradead.org>,
-        <linux-kernel@vger.kernel.org>, <devicetree@vger.kernel.org>,
-        Masahiro Yamada <yamada.masahiro@socionext.com>,
-        Masami Hiramatsu <masami.hiramatsu@linaro.org>,
-        Jassi Brar <jaswinder.singh@linaro.org>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170911120009.GA24174@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "jon.maloy@ericsson.com" <jon.maloy@ericsson.com>,
+        "ying.xue@windriver.com" <ying.xue@windriver.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "tipc-discussion@lists.sourceforge.net"
+        <tipc-discussion@lists.sourceforge.net>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: 'David Miller' <davem@davemloft.net>,
+        "thomas@m3y3r.de" <thomas@m3y3r.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out4.electric.net ([192.162.216.182]:63879 "EHLO
+        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751410AbdILJY2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 12 Sep 2017 05:24:28 -0400
+In-Reply-To: <20170911.143025.555018840006192902.davem@davemloft.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew,
-
-On Mon, 11 Sep 2017 14:00:09 +0200 Andrew Lunn <andrew@lunn.ch> wrote:
-
-> > > > +static irqreturn_t ave_interrupt(int irq, void *netdev)
-> > > > +{
-> > > > +	struct net_device *ndev = (struct net_device *)netdev;
-> > > > +	struct ave_private *priv = netdev_priv(ndev);
-> > > > +	u32 gimr_val, gisr_val;
-> > > > +
-> > > > +	gimr_val = ave_irq_disable_all(ndev);
-> > > > +
-> > > > +	/* get interrupt status */
-> > > > +	gisr_val = ave_r32(ndev, AVE_GISR);
-> > > > +
-> > > > +	/* PHY */
-> > > > +	if (gisr_val & AVE_GI_PHY) {
-> > > > +		ave_w32(ndev, AVE_GISR, AVE_GI_PHY);
-> > > > +		if (priv->internal_phy_interrupt)
-> > > > +			phy_mac_interrupt(ndev->phydev, ndev->phydev->link);
-> > > 
-> > > Humm. I don't think this is correct. You are supposed to give it the
-> > > new link state, not the old.
-> > > 
-> > > What does a PHY interrupt mean here? 
-> > 
-> > In the general case, I think PHY events like changing link state are transmitted
-> > to CPU as interrupt via interrupt controller, then PHY driver itself can handle
-> > the interrupt.
-> > 
-> > And in this case, PHY events are transmitted to MAC as one of its interrupt factor,
-> > then I thought that MAC driver had to tell the events to PHY.
+From: David Miller
+> Sent: 11 September 2017 22:30
+> From: Thomas Meyer <thomas@m3y3r.de>
+> Date: Sat,  9 Sep 2017 05:18:19 +0200
 > 
-> Could this be in-band SGMI signalling from the PHY to the MAC? Does
-> the documentation give examples of when this interrupt will happen?
+> > @@ -168,6 +169,18 @@ static struct name_seq *tipc_nameseq_create(u32 type, struct hlist_head
+> *seq_hea
+> >  	return nseq;
+> >  }
+> >
+> > +static int nameseq_find_subseq_cmp(const void *key, const void *elt)
+> > +{
+> > +	u32 instance = *(u32 *)key;
+> > +	struct sub_seq *sseq = (struct sub_seq *)elt;
 > 
->     Andrew
+> Please order local variables from longest to shortest (ie. reverse
+> christmas tree).
 
-Unfortunately this MAC doesn't support SGMII.
-And there aren't any examples of when this interrupt will happen.
-This interrupt happens after ave_open() is called and link is established.
+You probably just need to remove the unnecessary cast of 'void *'.
+Although adding the 'const' qualifier will make it wrong again.
 
-However, I found that auto negotiation didn't start when this interrupt wasn't handled.
+You probably ought to make the 'key' a structure - even if it only
+contains a single u32.
+Casting pointers to numeric types is often wrong.
 
-Although ave_init() calls phy_start_aneg(), it doesn't make sense
-because phy driver doesn't start yet.
-
-And according to Florian's comment in ave_init(),
-
-> +	phy_start_interrupts(phydev);
-> +
-> +	phy_start_aneg(phydev);
->
-> No, no, phy_start() would take care of all of that correctly for you,
-> you don't have have to do it just there because ave_open() eventually
-> calls phy_start() for you, so just drop these two calls.
-
-When moving phy_start_aneg() to ave_open(), the handler doesn't need to call
-phy_mac_interrupt() and I can remove it from the handler.
-
----
-Best Regards,
-Kunihiko Hayashi
+	David
