@@ -1,70 +1,134 @@
-From: Pravin Shelar <pshelar@ovn.org>
-Subject: Re: [PATCH v2] openvswitch: Fix an error handling path in 'ovs_nla_init_match_and_action()'
-Date: Mon, 11 Sep 2017 21:57:44 -0700
-Message-ID: <CAOrHB_DfbU5PmH0Aos8T-j90PQEbaNkvR3TDJVv1kcJnVHVXrQ@mail.gmail.com>
-References: <20170911195620.17931-1-christophe.jaillet@wanadoo.fr>
+From: liujian <liujian56@huawei.com>
+Subject: Re: [PATCH] tcp: TCP_USER_TIMEOUT can not work in tcp_probe_timer()
+Date: Tue, 12 Sep 2017 14:08:48 +0800
+Message-ID: <e7e09201-40c2-933a-1e8e-a31eddcc75ab@huawei.com>
+References: <1505111262-12620-1-git-send-email-liujian56@huawei.com>
+ <1505141357.15310.115.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1505142785.15310.117.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1505143348.15310.118.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Pravin Shelar <pshelar@nicira.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Tonghao Zhang <xiangxia.m.yue@gmail.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        ovs dev <dev@openvswitch.org>, linux-kernel@vger.kernel.org,
-        kernel-janitors@vger.kernel.org
-To: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: <davem@davemloft.net>, <kuznet@ms2.inr.ac.ru>,
+        <yoshfuji@linux-ipv6.org>, <edumazet@google.com>,
+        <ycheng@google.com>, <hkchu@google.com>, <netdev@vger.kernel.org>,
+        <weiyongjun1@huawei.com>,
+        wangkefeng 00227729 <wangkefeng.wang@huawei.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay3-d.mail.gandi.net ([217.70.183.195]:51417 "EHLO
-        relay3-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751045AbdILE5s (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 12 Sep 2017 00:57:48 -0400
-In-Reply-To: <20170911195620.17931-1-christophe.jaillet@wanadoo.fr>
+Received: from szxga04-in.huawei.com ([45.249.212.190]:6451 "EHLO
+        szxga04-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750911AbdILGJQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 12 Sep 2017 02:09:16 -0400
+In-Reply-To: <1505143348.15310.118.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 11, 2017 at 12:56 PM, Christophe JAILLET
-<christophe.jaillet@wanadoo.fr> wrote:
-> All other error handling paths in this function go through the 'error'
-> label. This one should do the same.
->
-> Fixes: 9cc9a5cb176c ("datapath: Avoid using stack larger than 1024.")
-> Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
-> ---
-> I think that the comment above the function could be improved. It looks
-> like the commit log which has introduced this function.
->
-> I'm also not sure that commit 9cc9a5cb176c is of any help. It is
-> supposed to remove a warning, and I guess it does. But 'ovs_nla_init_match_and_action()'
-> is called unconditionnaly from 'ovs_flow_cmd_set()'. So even if the stack
-> used by each function is reduced, the overall stack should be the same, if
-> not larger.
->
-It depends on which function stack depth are are looking at. for some
-function it remains same. For nested function it goes down.
+Hi,
 
-> So this commit sounds like adding a bug where the code was fine and states
-> to fix an issue but, at the best, only hides it.
->
-> Instead of fixing the code with the proposed patch, reverting the initial
-> commit could also be considered.
->
-> V2: update Subject line
-> ---
->  net/openvswitch/datapath.c | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
->
-> diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-> index 76cf273a56c7..c3aec6227c91 100644
-> --- a/net/openvswitch/datapath.c
-> +++ b/net/openvswitch/datapath.c
-> @@ -1112,7 +1112,8 @@ static int ovs_nla_init_match_and_action(struct net *net,
->                 if (!a[OVS_FLOW_ATTR_KEY]) {
->                         OVS_NLERR(log,
->                                   "Flow key attribute not present in set flow.");
-> -                       return -EINVAL;
-> +                       error = -EINVAL;
-> +                       goto error;
->                 }
->
-Patch looks good to me.
+In the scenario, tcp server side IP changed, and at that memont,
+userspace application still send data continuously;
+tcp_send_head(sk)'s timestamp always be refreshed.
 
-Acked-by: Pravin B Shelar <pshelar@ovn.org>
+Here is the packetdrill script:
+
+   0 socket(..., SOCK_STREAM, IPPROTO_TCP) = 3
+   +0 setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
+   +0 bind(3, ..., ...) = 0
+   +0 listen(3, 1) = 0
+
+   +0 < S 0:0(0) win 0 <mss 1460,sackOK,nop,nop,nop,wscale 7>
+   +0 > S. 0:0(0) ack 1 <mss 1460,nop,nop,sackOK,nop,wscale 7>
+
+  +.1 < . 1:1(0) ack 1 win 65530
+   +0 accept(3, ..., ...) = 4
+
+   +0 setsockopt(4, SOL_TCP, TCP_USER_TIMEOUT, [3000], 4) = 0
+   +0 write(4, ..., 24) = 24
+   +0 > P. 1:25(24) ack 1 win 229
+   +.1 < . 1:1(0) ack 25 win 65530
+
+//change the ipaddress
+   +1 `ifconfig tun0 192.168.0.10/16`
+
+   +1 write(4, ..., 24) = 24
+   +1 write(4, ..., 24) = 24
+   +1 write(4, ..., 24) = 24
+   +1 write(4, ..., 24) = 24
+   +3 write(4, ..., 24) = 24
+   +3 write(4, ..., 24) = 24
+   +3 write(4, ..., 24) = 24
+   +3 write(4, ..., 24) = 24
+   +3 write(4, ..., 24) = 24
+   +3 write(4, ..., 24) = 24
+   +3 write(4, ..., 24) = 24
+   +3 write(4, ..., 24) = 24
+   +3 write(4, ..., 24) = 24
+   +3 write(4, ..., 24) = 24
+   +3 write(4, ..., 24) = 24
+   +3 write(4, ..., 24) = 24
+   +3 write(4, ..., 24) = 24
+   +3 write(4, ..., 24) = 24
+   +3 write(4, ..., 24) = 24
+   +3 write(4, ..., 24) = 24
+   +3 write(4, ..., 24) = 24
+   +3 write(4, ..., 24) = 24
+   +3 write(4, ..., 24) = 24
+   +3 write(4, ..., 24) = 24
+   +3 write(4, ..., 24) = 24
+   +3 write(4, ..., 24) = 24
+
+   +0 `ifconfig tun0 192.168.0.1/16`
+   +0 < . 1:1(0) ack 1 win 1000
+   +0 write(4, ..., 24) = -1
+
+
+[root@localhost ~]# time ./gtests/net/packetdrill/packetdrill test.pkt
+test.pkt:50: runtime error in write call: Expected result -1 but got 24 with errno 2 (No such file or directory)
+
+real	1m11.364s
+user	0m0.028s
+sys	0m0.106s
+
+[root@localhost ~]# netstat -toen
+Active Internet connections (w/o servers)
+Proto Recv-Q Send-Q Local Address           Foreign Address         State       User       Inode      Timer
+tcp        0    504 192.168.0.1:8080        192.0.2.1:33993         ESTABLISHED 0          45453      probe (22.38/0/7)
+
+since the script didn't wait for enough time, here only got 7 probes.
+
+在 2017/9/11 23:22, Eric Dumazet 写道:
+> On Mon, 2017-09-11 at 08:13 -0700, Eric Dumazet wrote:
+> 
+>> You can see we got only 3 probes, not 4.
+> 
+> Here is complete packetdrill test showing that code behaves as expected.
+> 
+>     0 socket(..., SOCK_STREAM, IPPROTO_TCP) = 3
+>    +0 setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
+>    +0 bind(3, ..., ...) = 0
+>    +0 listen(3, 1) = 0
+> 
+>    +0 < S 0:0(0) win 0 <mss 1460,sackOK,nop,nop,nop,wscale 7>
+>    +0 > S. 0:0(0) ack 1 <mss 1460,nop,nop,sackOK,nop,wscale 8>
+> 
+> // Client advertises a zero receive window, so we can't send.
+>   +.1 < . 1:1(0) ack 1 win 0
+>    +0 accept(3, ..., ...) = 4
+> 
+>    +0 setsockopt(4, SOL_TCP, TCP_USER_TIMEOUT, [3000], 4) = 0
+>    +0 write(4, ..., 2920) = 2920
+> 
+> // Window probes are scheduled just like RTOs.
+>   +.3~+.31 > . 0:0(0) ack 1
+>   +.6~+.62 > . 0:0(0) ack 1
+>  +1.2~+1.24 > . 0:0(0) ack 1
+> 
+> // Peer opens its window too late !
+>    +3 < . 1:1(0) ack 1 win 1000
+>    +0 > R 1:1(0)
+> 
+> 
+> 
+> .
+> 
