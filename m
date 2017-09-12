@@ -1,66 +1,50 @@
-From: Chuck Ebbert <cebbert.lkml@gmail.com>
-Subject: Re: 319554f284dd ("inet: don't use sk_v6_rcv_saddr directly")
- causes bind port regression
-Date: Wed, 13 Sep 2017 15:47:50 -0400
-Message-ID: <20170913154750.100881c0@gmail.com>
-References: <1a8ef376-387e-e0fc-7362-e1fd2c2c45d3@redhat.com>
-        <AF16C126-99CA-401A-B803-AA05CDFBFF93@fb.com>
-        <588f3795-931e-7779-4ec7-5fe7d4437927@redhat.com>
-        <EF55EF02-AD40-4F06-8C07-4F9F4221BFE6@fb.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [RFC net-next 0/5] TSN: Add qdisc-based config interfaces for
+ traffic shapers
+Date: Tue, 12 Sep 2017 06:56:44 +0200
+Message-ID: <20170912045644.aqujy7pyc2ugsaa4@localhost>
+References: <20170901012625.14838-1-vinicius.gomes@intel.com>
+ <20170907053411.GA6580@sisyphus.home.austad.us>
+ <87k21am10j.fsf@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Laura Abbott <labbott@redhat.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        "Hideaki YOSHIFUJI" <yoshfuji@linux-ipv6.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Cole Robinson <crobinso@redhat.com>
-To: Josef Bacik <jbacik@fb.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <EF55EF02-AD40-4F06-8C07-4F9F4221BFE6@fb.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Henrik Austad <henrik@austad.us>, netdev@vger.kernel.org,
+        jhs@mojatatu.com, xiyou.wangcong@gmail.com, jiri@resnulli.us,
+        intel-wired-lan@lists.osuosl.org, andre.guedes@intel.com,
+        ivan.briano@intel.com, jesus.sanchez-palencia@intel.com,
+        boon.leong.ong@intel.com
+To: Vinicius Costa Gomes <vinicius.gomes@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f44.google.com ([74.125.82.44]:46043 "EHLO
+        mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751045AbdILE4u (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 12 Sep 2017 00:56:50 -0400
+Received: by mail-wm0-f44.google.com with SMTP id f199so52732721wme.0
+        for <netdev@vger.kernel.org>; Mon, 11 Sep 2017 21:56:49 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <87k21am10j.fsf@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 13 Sep 2017 17:28:25 +0000
-Josef Bacik <jbacik@fb.com> wrote:
+On Thu, Sep 07, 2017 at 06:29:00PM -0700, Vinicius Costa Gomes wrote:
+> >>  * Time-aware shaper (802.1Qbv):
+> >>
+> >>    The idea we are currently exploring is to add a "time-aware", priority based
+> >>    qdisc, that also exposes the Tx queues available and provides a mechanism for
+> >>    mapping priority <-> traffic class <-> Tx queues in a similar fashion as
+> >>    mqprio. We are calling this qdisc 'taprio', and its 'tc' cmd line would be:
+> >
+> > As far as I know, this is not supported by i210, and if time-aware shaping
+> > is enabled in the network - you'll be queued on a bridge until the window
+> > opens as time-aware shaping is enforced on the tx-port and not on rx. Is
+> > this required in this driver?
+> 
+> Yeah, i210 doesn't support the time-aware shaper. I think the second
+> part of your question doesn't really apply, then.
 
-> Sorry I thought I had made this other fix, can you apply this on top
-> of the other one and try that?  I have more things to try if this
-> doesn=E2=80=99t work, sorry you are playing go between, but I want to make
-> sure I know _which_ fix actually fixes the problem, and then clean up
-> in followup patches.  Thanks,
->=20
-> Josef
->=20
-> On 9/13/17, 8:45 AM, "Laura Abbott" <labbott@redhat.com> wrote:
->=20
-> On 09/12/2017 04:12 PM, Josef Bacik wrote:
-> > First I=E2=80=99m super sorry for the top post, I=E2=80=99m at plumbers=
- and I
-> > forgot to upload my muttrc to my new cloud instance, so I=E2=80=99m scr=
-ewed
-> > using outlook.
-> >=20
-> > I have a completely untested, uncompiled patch that I think will
-> > fix the problem, would you mind giving it a go?  Thanks,
-> >=20
-> > Josef =20
->=20
-> Thanks for the quick turnaround. Unfortunately, the problem is still
-> reproducible according to the reporter.
->=20
-> Thanks,
-> Laura
+Actually, you can implement 802.1Qbv (as an end station) quite easily
+using the i210.  I'll show how by posting a series after net-next
+opens up again.
 
-I am confused by the patch that originally caused this:
-
-        if (sk->sk_family =3D=3D AF_INET6)
-                return ipv6_rcv_saddr_equal(&sk->sk_v6_rcv_saddr,
--                                           &sk2->sk_v6_rcv_saddr,
-+                                           inet6_rcv_saddr(sk2),
-                                            sk->sk_rcv_saddr,
-                                            sk2->sk_rcv_saddr,
-
-Shouldn't the first argument also be changed to use inet6_rcv_saddr()?
+Thanks,
+Richard
