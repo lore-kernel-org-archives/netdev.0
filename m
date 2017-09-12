@@ -1,48 +1,29 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: Subject: [PATCH] vxlan: only reduce known arp boardcast request
- to support, virtual IP
-Date: Tue, 12 Sep 2017 13:51:44 +0200
-Message-ID: <20170912135144.2c83bef5@griffin>
-References: <2c1bfd7d-5fe7-d492-2396-71deaeb14244@yunify.com>
+From: Akshat Kakkar <akshat.1984@gmail.com>
+Subject: Re: ipset losing entries on its own
+Date: Tue, 12 Sep 2017 17:24:55 +0530
+Message-ID: <CAA5aLPgPU5u6k+rB+5zNCsqp3UBnx3oZoSv_0drNCRK0tcSSBQ@mail.gmail.com>
+References: <CAA5aLPhEseXhOqSK=6K=5J2q-zn+8FpxhqOBV5NqCPNMAJqhow@mail.gmail.com>
+ <c7abf292ac5e6202993a10a66537141e@nuclearcat.com> <CAA5aLPgUcrUpqJJ8stu1543LBy0qekgQDuJyokqLPP0TirySgg@mail.gmail.com>
+ <CAA5aLPiENU+k0=tH1jPvSdmdEcMDFfgk0FQcHxWvz8tYCaNZzg@mail.gmail.com> <CAA5aLPgM9=VU4Cysy-LtN-uXPqvG00X2v8MP9EM5RtPVB6tGvw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: oc <oc@yunify.com>
+Content-Type: text/plain; charset="UTF-8"
+Cc: netdev <netdev@vger.kernel.org>, netdev-owner@vger.kernel.org
+To: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37104 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751289AbdILLvr (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 12 Sep 2017 07:51:47 -0400
-In-Reply-To: <2c1bfd7d-5fe7-d492-2396-71deaeb14244@yunify.com>
+Received: from mail-pg0-f48.google.com ([74.125.83.48]:34960 "EHLO
+        mail-pg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751289AbdILLy4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 12 Sep 2017 07:54:56 -0400
+In-Reply-To: <CAA5aLPgM9=VU4Cysy-LtN-uXPqvG00X2v8MP9EM5RtPVB6tGvw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 12 Sep 2017 11:26:49 +0800, oc wrote:
-> The purpose of vxlan arp reduce feature is to reply the boardcast
-> arp request in vtep instead of sending it out to save traffic.
-> The current implemention drops arp packet, if the ip cannot be
-> found in neigh table. In the case of virtual IP address, user
-> defines IP address without management from SDN controller. The IP
-> address does not exist in neigh table, so the arp boardcast request
-> from a client can not be sent to the server who owns the virtual IP
-> address.
-> 
-> This patch allow the arp request to be sent out if:
-> 1. not arp boardcast request
-> 2. cannot be found in neigh table
-> 3. arp record status is not NUD_CONNECTED
-> 
-> The user defined of virtual IP address works while arp reduce still
-> suppress the arp boardcast for IP address managed by SDN controller
-> with this patch.
+can somebody throw more light on this? How it is possible (without a
+bug) that for exactly same set of IPs, at time IPSET HASHSIZE remains
+at 1024 and at times it increases to 2048?
 
-Your patch is whitespace damaged, does not conform to the kernel coding
-style and the email does not have your full name in the From header.
+As a workaround I am running the show setting HASHSIZE as 16384 at
+times of IPSET creation itself, and till now (its more than 4 days)
+the issue has not repeated.
 
-As for the patch itself, you're changing existing functionality that
-people may depend on and thus a new config option is needed to enable
-the behavior.
-
- Jiri
+But this need to be addressed, right?
