@@ -1,59 +1,59 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] net: vrf: avoid gcc-4.6 warning
-Date: Tue, 12 Sep 2017 22:10:53 +0200
-Message-ID: <20170912201100.3680915-1-arnd@arndb.de>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [PATCH/RFC net-next 2/2] net/sched: allow flower to match tunnel options
+Date: Tue, 12 Sep 2017 23:23:55 +0300
+Message-ID: <CAJ3xEMgfkpJCfZX-7jaeYtoWTSQQZ6gu8_jSFgcXpzTBpdijQw@mail.gmail.com>
+References: <1505226037-2758-1-git-send-email-simon.horman@netronome.com> <1505226037-2758-3-git-send-email-simon.horman@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: Arnd Bergmann <arnd@arndb.de>,
-        "David S. Miller" <davem@davemloft.net>,
-        Julian Anastasov <ja@ssi.bg>,
-        Matthias Schiffer <mschiffer@universe-factory.net>,
-        Wei Wang <weiwan@google.com>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: David Ahern <dsa@cumulusnetworks.com>,
-        Shrijeet Mukherjee <shm@cumulusnetworks.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Jiri Pirko <jiri@mellanox.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        oss-drivers@netronome.com
+To: Simon Horman <simon.horman@netronome.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f169.google.com ([209.85.223.169]:35409 "EHLO
+        mail-io0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750993AbdILUX4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 12 Sep 2017 16:23:56 -0400
+Received: by mail-io0-f169.google.com with SMTP id g32so37185368ioj.2
+        for <netdev@vger.kernel.org>; Tue, 12 Sep 2017 13:23:56 -0700 (PDT)
+In-Reply-To: <1505226037-2758-3-git-send-email-simon.horman@netronome.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When building an allmodconfig kernel with gcc-4.6, we get a rather
-odd warning:
+On Tue, Sep 12, 2017 at 5:20 PM, Simon Horman
+<simon.horman@netronome.com> wrote:
+> Allow matching on options in tunnel headers.
+> This makes use of existing tunnel metadata support.
 
-drivers/net/vrf.c: In function ‘vrf_ip6_input_dst’:
-drivers/net/vrf.c:964:3: error: initialized field with side-effects overwritten [-Werror]
-drivers/net/vrf.c:964:3: error: (near initialization for ‘fl6’) [-Werror]
+Simon,
 
-I have no idea what this warning is even trying to say, but it does
-seem like a false positive. Reordering the initialization in to match
-the structure definition gets rid of the warning, and might also avoid
-whatever gcc thinks is wrong here.
+This patch is about matching on tunnel options, right? but
 
-Fixes: 9ff74384600a ("net: vrf: Handle ipv6 multicast and link-local addresses")
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
----
- drivers/net/vrf.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+> Options are a bytestring of up to 256 bytes.
+> Tunnel implementations may support less or more options,
+> or no options at all.
+>
+>  # ip link add name geneve0 type geneve dstport 0 external
+>  # tc qdisc add dev eth0 ingress
+>  # tc qdisc del dev eth0 ingress; tc qdisc add dev eth0 ingress
+>  # tc filter add dev eth0 protocol ip parent ffff: \
+>      flower indev eth0 \
+>         ip_proto udp \
+>         action tunnel_key \
+>             set src_ip 10.0.99.192 \
+>             dst_ip 10.0.99.193 \
+>             dst_port 4789 \
+>             id 11 \
+>             opts 0102800100800022 \
+>     action mirred egress redirect dev geneve0
 
-diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
-index 7e19051f3230..9b243e6f3008 100644
---- a/drivers/net/vrf.c
-+++ b/drivers/net/vrf.c
-@@ -957,12 +957,12 @@ static void vrf_ip6_input_dst(struct sk_buff *skb, struct net_device *vrf_dev,
- {
- 	const struct ipv6hdr *iph = ipv6_hdr(skb);
- 	struct flowi6 fl6 = {
-+		.flowi6_iif     = ifindex,
-+		.flowi6_mark    = skb->mark,
-+		.flowi6_proto   = iph->nexthdr,
- 		.daddr          = iph->daddr,
- 		.saddr          = iph->saddr,
- 		.flowlabel      = ip6_flowinfo(iph),
--		.flowi6_mark    = skb->mark,
--		.flowi6_proto   = iph->nexthdr,
--		.flowi6_iif     = ifindex,
- 	};
- 	struct net *net = dev_net(vrf_dev);
- 	struct rt6_info *rt6;
--- 
-2.9.0
+the example here is on how to use tunnel options in the tunnel set key actions..
+
+And the other way around in the other patch... the patch is about the
+tunnel key set action and the example shows how to match that in
+flower... I guess you want to swap the relevant of the change log.
+
+Anyway, is there any human readable/understandable representation of
+these options? e.g what does 0102800100800022 means for geneve?
