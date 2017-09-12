@@ -1,46 +1,55 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [Patch net v3 3/3] net_sched: carefully handle tcf_block_put()
-Date: Tue, 12 Sep 2017 12:43:58 +0200
-Message-ID: <20170912104358.GG2036@nanopsycho>
-References: <20170911233332.7594-1-xiyou.wangcong@gmail.com>
- <20170911233332.7594-4-xiyou.wangcong@gmail.com>
+From: Benoit Panizzon <benoit.panizzon@imp.ch>
+Subject: Re: broken vlan support on Realtek RTL8111/8168/8411 rev 9
+Date: Tue, 12 Sep 2017 13:07:24 +0200
+Message-ID: <20170912130724.11c34f13@go.imp.ch>
+References: <20170910191645.549d2a3a@krup.woody.ch>
+        <20170911222325.GA23162@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jiri@mellanox.com,
-        jakub.kicinski@netronome.com, jhs@mojatatu.com
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8BIT
+Cc: netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f195.google.com ([209.85.128.195]:34926 "EHLO
-        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751370AbdILKoB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 12 Sep 2017 06:44:01 -0400
-Received: by mail-wr0-f195.google.com with SMTP id n64so5815161wrb.2
-        for <netdev@vger.kernel.org>; Tue, 12 Sep 2017 03:44:00 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20170911233332.7594-4-xiyou.wangcong@gmail.com>
+Received: from thor.imp.ch ([157.161.4.18]:50243 "EHLO thor.imp.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751373AbdILLH0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 12 Sep 2017 07:07:26 -0400
+In-Reply-To: <20170911222325.GA23162@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tue, Sep 12, 2017 at 01:33:32AM CEST, xiyou.wangcong@gmail.com wrote:
->As pointed out by Jiri, there is still a race condition between
->tcf_block_put() and tcf_chain_destroy() in a RCU callback. There
->is no way to make it correct without proper locking or synchronization,
->because both operate on a shared list.
->
->Locking is hard, because the only lock we can pick here is a spinlock,
->however, in tc_dump_tfilter() we iterate this list with a sleeping
->function called (tcf_chain_dump()), which makes using a lock to protect
->chain_list almost impossible.
->
->Jiri suggested the idea of holding a refcnt before flushing, this works
->because it guarantees us there would be no parallel tcf_chain_destroy()
->during the loop, therefore the race condition is gone. But we have to
->be very careful with proper synchronization with RCU callbacks.
->
->Suggested-by: Jiri Pirko <jiri@mellanox.com>
->Cc: Jamal Hadi Salim <jhs@mojatatu.com>
->Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+Hi Francois
 
-Acked-by: Jiri Pirko <jiri@mellanox.com>
+> ethtool -K eth0 rxvlan off
 
-Thanks!
+Thank you, that did the trick, vlan tags are not correctly passed on
+and not set to vlan 0 with rxvlan turned off.
+ 
+> For my reward, please send a complete dmesg where the messages from
+> the vanilla r8169 module appear for the rev 09 card (r81..f ?). I
+> won't dig it right now.
+
+Yes, the 'f' variant:
+
+[    1.035203] r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
+[    1.035262] r8169 0000:03:00.0: setting latency timer to 64
+[    1.035348] r8169 0000:03:00.0: irq 41 for MSI/MSI-X
+[    1.035634] r8169 0000:03:00.0: eth0: RTL8168f/8111f at 0xffffc90000c28000, c8:60:00:dd:f8:6c, XID 08000800 IRQ 41
+[    1.035637] r8169 0000:03:00.0: eth0: jumbo features [frames: 9200 bytes, tx checksumming: ko]
+[   10.403921] r8169 0000:03:00.0: firmware: agent loaded rtl_nic/rtl8168f-1.fw into memory
+
+Linux pulsar 4.9.0-3-amd64 #1 SMP Debian 4.9.30-2+deb9u2 (2017-06-26) x86_64 GNU/Linux
+
+624831688e25aa47fa84c30c045fcae3  /lib/firmware/rtl_nic/rtl8168f-1.fw
+
+Firmware Bug or Hardware Problem?
+
+-Benoît Panizzon-
+-- 
+I m p r o W a r e   A G    -    Leiter Commerce Kunden
+______________________________________________________
+
+Zurlindenstrasse 29             Tel  +41 61 826 93 00
+CH-4133 Pratteln                Fax  +41 61 826 93 01
+Schweiz                         Web  http://www.imp.ch
+______________________________________________________
