@@ -1,126 +1,73 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH] net: Convert int functions to bool
-Date: Wed, 13 Sep 2017 13:58:15 -0700
-Message-ID: <f9e044957a949f10d472a48437f62649ea57f858.1505336212.git.joe@perches.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Stefan Hajnoczi <stefanha@redhat.com>
+Subject: [PATCH] VSOCK: fix uapi/linux/vm_sockets.h incomplete types
+Date: Tue, 12 Sep 2017 17:34:35 +0100
+Message-ID: <20170912163435.4049-1-stefanha@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: "David S . Miller" <davem@davemloft.net>,
+        Jorgen Hansen <jhansen@vmware.com>,
+        Stefan Hajnoczi <stefanha@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:44474 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751054AbdILQei (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 12 Sep 2017 12:34:38 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Global function ipv6_rcv_saddr_equal and static functions
-ipv6_rcv_saddr_equal and ipv4_rcv_saddr_equal currently return int.
+This patch fixes the following compiler errors when userspace
+applications use the vm_sockets.h header:
 
-bool is slightly more descriptive for these functions so change
-their return type from int to bool.
+  include/uapi/linux/vm_sockets.h:148:32: error: invalid application of ‘sizeof’ to incomplete type ‘struct sockaddr’
+    unsigned char svm_zero[sizeof(struct sockaddr) -
+                                  ^~~~~~
+  include/uapi/linux/vm_sockets.h:149:18: error: ‘sa_family_t’ undeclared here (not in a function)
+             sizeof(sa_family_t) -
+                    ^~~~~~~~~~~
 
-Signed-off-by: Joe Perches <joe@perches.com>
+Two issues:
+1. In the kernel struct sockaddr comes in via <linux/socket.h> but in
+   userspace <sys/socket.h> is required.
+2. struct sockaddr_vm has a __kernel_sa_family_t field so let's be
+   consistent and use the same type for the sizeof(sa_family_t)
+   calculation.
+
+Currently userspace applications work around this broken header by first
+including <sys/socket.h>.  In the kernel there is no compiler error
+because <linux/socket.h> provides everything.  It's worth fixing the
+header file though.
+
+Cc: Jorgen Hansen <jhansen@vmware.com>
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
 ---
- include/net/addrconf.h          |  4 ++--
- net/ipv4/inet_connection_sock.c | 36 ++++++++++++++++++------------------
- 2 files changed, 20 insertions(+), 20 deletions(-)
+ include/uapi/linux/vm_sockets.h | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
 
-diff --git a/include/net/addrconf.h b/include/net/addrconf.h
-index f44ff2476758..87981cd63180 100644
---- a/include/net/addrconf.h
-+++ b/include/net/addrconf.h
-@@ -94,8 +94,8 @@ int __ipv6_get_lladdr(struct inet6_dev *idev, struct in6_addr *addr,
- 		      u32 banned_flags);
- int ipv6_get_lladdr(struct net_device *dev, struct in6_addr *addr,
- 		    u32 banned_flags);
--int inet_rcv_saddr_equal(const struct sock *sk, const struct sock *sk2,
--			 bool match_wildcard);
-+bool inet_rcv_saddr_equal(const struct sock *sk, const struct sock *sk2,
-+			  bool match_wildcard);
- void addrconf_join_solict(struct net_device *dev, const struct in6_addr *addr);
- void addrconf_leave_solict(struct inet6_dev *idev, const struct in6_addr *addr);
+diff --git a/include/uapi/linux/vm_sockets.h b/include/uapi/linux/vm_sockets.h
+index b4ed5d895699..4ae5c625ac56 100644
+--- a/include/uapi/linux/vm_sockets.h
++++ b/include/uapi/linux/vm_sockets.h
+@@ -18,6 +18,10 @@
  
-diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
-index 4089c013cb03..054b26295638 100644
---- a/net/ipv4/inet_connection_sock.c
-+++ b/net/ipv4/inet_connection_sock.c
-@@ -39,11 +39,11 @@ EXPORT_SYMBOL(inet_csk_timer_bug_msg);
-  *                          IPV6_ADDR_ANY only equals to IPV6_ADDR_ANY,
-  *                          and 0.0.0.0 equals to 0.0.0.0 only
-  */
--static int ipv6_rcv_saddr_equal(const struct in6_addr *sk1_rcv_saddr6,
--				const struct in6_addr *sk2_rcv_saddr6,
--				__be32 sk1_rcv_saddr, __be32 sk2_rcv_saddr,
--				bool sk1_ipv6only, bool sk2_ipv6only,
--				bool match_wildcard)
-+static bool ipv6_rcv_saddr_equal(const struct in6_addr *sk1_rcv_saddr6,
-+				 const struct in6_addr *sk2_rcv_saddr6,
-+				 __be32 sk1_rcv_saddr, __be32 sk2_rcv_saddr,
-+				 bool sk1_ipv6only, bool sk2_ipv6only,
-+				 bool match_wildcard)
- {
- 	int addr_type = ipv6_addr_type(sk1_rcv_saddr6);
- 	int addr_type2 = sk2_rcv_saddr6 ? ipv6_addr_type(sk2_rcv_saddr6) : IPV6_ADDR_MAPPED;
-@@ -52,29 +52,29 @@ static int ipv6_rcv_saddr_equal(const struct in6_addr *sk1_rcv_saddr6,
- 	if (addr_type == IPV6_ADDR_MAPPED && addr_type2 == IPV6_ADDR_MAPPED) {
- 		if (!sk2_ipv6only) {
- 			if (sk1_rcv_saddr == sk2_rcv_saddr)
--				return 1;
-+				return true;
- 			if (!sk1_rcv_saddr || !sk2_rcv_saddr)
- 				return match_wildcard;
- 		}
--		return 0;
-+		return false;
- 	}
+ #include <linux/socket.h>
  
- 	if (addr_type == IPV6_ADDR_ANY && addr_type2 == IPV6_ADDR_ANY)
--		return 1;
-+		return true;
- 
- 	if (addr_type2 == IPV6_ADDR_ANY && match_wildcard &&
- 	    !(sk2_ipv6only && addr_type == IPV6_ADDR_MAPPED))
--		return 1;
-+		return true;
- 
- 	if (addr_type == IPV6_ADDR_ANY && match_wildcard &&
- 	    !(sk1_ipv6only && addr_type2 == IPV6_ADDR_MAPPED))
--		return 1;
-+		return true;
- 
- 	if (sk2_rcv_saddr6 &&
- 	    ipv6_addr_equal(sk1_rcv_saddr6, sk2_rcv_saddr6))
--		return 1;
-+		return true;
- 
--	return 0;
-+	return false;
- }
- #endif
- 
-@@ -82,20 +82,20 @@ static int ipv6_rcv_saddr_equal(const struct in6_addr *sk1_rcv_saddr6,
-  * match_wildcard == false: addresses must be exactly the same, i.e.
-  *                          0.0.0.0 only equals to 0.0.0.0
-  */
--static int ipv4_rcv_saddr_equal(__be32 sk1_rcv_saddr, __be32 sk2_rcv_saddr,
--				bool sk2_ipv6only, bool match_wildcard)
-+static bool ipv4_rcv_saddr_equal(__be32 sk1_rcv_saddr, __be32 sk2_rcv_saddr,
-+				 bool sk2_ipv6only, bool match_wildcard)
- {
- 	if (!sk2_ipv6only) {
- 		if (sk1_rcv_saddr == sk2_rcv_saddr)
--			return 1;
-+			return true;
- 		if (!sk1_rcv_saddr || !sk2_rcv_saddr)
- 			return match_wildcard;
- 	}
--	return 0;
-+	return false;
- }
- 
--int inet_rcv_saddr_equal(const struct sock *sk, const struct sock *sk2,
--			 bool match_wildcard)
-+bool inet_rcv_saddr_equal(const struct sock *sk, const struct sock *sk2,
-+			  bool match_wildcard)
- {
- #if IS_ENABLED(CONFIG_IPV6)
- 	if (sk->sk_family == AF_INET6)
++#ifndef __KERNEL__
++#include <sys/socket.h> /* struct sockaddr */
++#endif
++
+ /* Option name for STREAM socket buffer size.  Use as the option name in
+  * setsockopt(3) or getsockopt(3) to set or get an unsigned long long that
+  * specifies the size of the buffer underlying a vSockets STREAM socket.
+@@ -146,7 +150,7 @@ struct sockaddr_vm {
+ 	unsigned int svm_port;
+ 	unsigned int svm_cid;
+ 	unsigned char svm_zero[sizeof(struct sockaddr) -
+-			       sizeof(sa_family_t) -
++			       sizeof(__kernel_sa_family_t) -
+ 			       sizeof(unsigned short) -
+ 			       sizeof(unsigned int) - sizeof(unsigned int)];
+ };
 -- 
-2.10.0.rc2.1.g053435c
+2.13.5
