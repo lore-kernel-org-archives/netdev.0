@@ -1,54 +1,59 @@
-From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-Subject: [PATCH] ravb: document R8A77970 bindings
-Date: Tue, 12 Sep 2017 23:02:08 +0300
-Message-ID: <20170912200228.015376134@cogentembedded.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] net: vrf: avoid gcc-4.6 warning
+Date: Tue, 12 Sep 2017 22:10:53 +0200
+Message-ID: <20170912201100.3680915-1-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Cc: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        linux-renesas-soc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-To: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline; filename=ravb-document-R8A77970-bindings.patch
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: Arnd Bergmann <arnd@arndb.de>,
+        "David S. Miller" <davem@davemloft.net>,
+        Julian Anastasov <ja@ssi.bg>,
+        Matthias Schiffer <mschiffer@universe-factory.net>,
+        Wei Wang <weiwan@google.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: David Ahern <dsa@cumulusnetworks.com>,
+        Shrijeet Mukherjee <shm@cumulusnetworks.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-R-Car V3M (R8A77970) SoC also has the R-Car gen3 compatible EtherAVB
-device, so document  the SoC specific bindings.
+When building an allmodconfig kernel with gcc-4.6, we get a rather
+odd warning:
 
-Signed-off-by: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+drivers/net/vrf.c: In function ‘vrf_ip6_input_dst’:
+drivers/net/vrf.c:964:3: error: initialized field with side-effects overwritten [-Werror]
+drivers/net/vrf.c:964:3: error: (near initialization for ‘fl6’) [-Werror]
 
+I have no idea what this warning is even trying to say, but it does
+seem like a false positive. Reordering the initialization in to match
+the structure definition gets rid of the warning, and might also avoid
+whatever gcc thinks is wrong here.
+
+Fixes: 9ff74384600a ("net: vrf: Handle ipv6 multicast and link-local addresses")
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 ---
-The patch is against DaveM's 'net-next.git' repo but I wouldn't mind if it's
-applied to 'net.git' instead. :-)
+ drivers/net/vrf.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
- Documentation/devicetree/bindings/net/renesas,ravb.txt |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-Index: net-next/Documentation/devicetree/bindings/net/renesas,ravb.txt
-===================================================================
---- net-next.orig/Documentation/devicetree/bindings/net/renesas,ravb.txt
-+++ net-next/Documentation/devicetree/bindings/net/renesas,ravb.txt
-@@ -17,6 +17,7 @@ Required properties:
- 
-       - "renesas,etheravb-r8a7795" for the R8A7795 SoC.
-       - "renesas,etheravb-r8a7796" for the R8A7796 SoC.
-+      - "renesas,etheravb-r8a77970" for the R8A77970 SoC.
-       - "renesas,etheravb-rcar-gen3" as a fallback for the above
- 		R-Car Gen3 devices.
- 
-@@ -40,7 +41,7 @@ Optional properties:
- - interrupt-parent: the phandle for the interrupt controller that services
- 		    interrupts for this device.
- - interrupt-names: A list of interrupt names.
--		   For the R8A779[56] SoCs this property is mandatory;
-+		   For the R-Car Gen 3 SoCs this property is mandatory;
- 		   it should include one entry per channel, named "ch%u",
- 		   where %u is the channel number ranging from 0 to 24.
- 		   For other SoCs this property is optional; if present
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
+index 7e19051f3230..9b243e6f3008 100644
+--- a/drivers/net/vrf.c
++++ b/drivers/net/vrf.c
+@@ -957,12 +957,12 @@ static void vrf_ip6_input_dst(struct sk_buff *skb, struct net_device *vrf_dev,
+ {
+ 	const struct ipv6hdr *iph = ipv6_hdr(skb);
+ 	struct flowi6 fl6 = {
++		.flowi6_iif     = ifindex,
++		.flowi6_mark    = skb->mark,
++		.flowi6_proto   = iph->nexthdr,
+ 		.daddr          = iph->daddr,
+ 		.saddr          = iph->saddr,
+ 		.flowlabel      = ip6_flowinfo(iph),
+-		.flowi6_mark    = skb->mark,
+-		.flowi6_proto   = iph->nexthdr,
+-		.flowi6_iif     = ifindex,
+ 	};
+ 	struct net *net = dev_net(vrf_dev);
+ 	struct rt6_info *rt6;
+-- 
+2.9.0
