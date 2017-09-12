@@ -1,104 +1,139 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [RFC PATCH] net: Introduce a socket option to enable picking tx
- queue based on rx queue.
-Date: Mon, 11 Sep 2017 20:12:19 -0700
-Message-ID: <CALx6S35sM1CDrFuNE+L59Op_wKTRpATLAdRJafihr0mB9+vQ8g@mail.gmail.com>
-References: <1504222032-6337-1-git-send-email-sridhar.samudrala@intel.com>
+From: oc <oc@yunify.com>
+Subject: Subject: [PATCH] vxlan: only reduce known arp boardcast request to
+ support, virtual IP
+Date: Tue, 12 Sep 2017 11:26:49 +0800
+Message-ID: <2c1bfd7d-5fe7-d492-2396-71deaeb14244@yunify.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Sridhar Samudrala <sridhar.samudrala@intel.com>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: davem@davemloft.net, jbenc@redhat.com,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        oc@yunify.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f194.google.com ([209.85.220.194]:38877 "EHLO
-        mail-qk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751022AbdILDMU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 11 Sep 2017 23:12:20 -0400
-Received: by mail-qk0-f194.google.com with SMTP id c69so6517697qke.5
-        for <netdev@vger.kernel.org>; Mon, 11 Sep 2017 20:12:20 -0700 (PDT)
-In-Reply-To: <1504222032-6337-1-git-send-email-sridhar.samudrala@intel.com>
+Received: from [139.198.2.84] ([139.198.2.84]:48776 "EHLO yunify.com"
+        rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751004AbdILDcM (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 11 Sep 2017 23:32:12 -0400
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 31, 2017 at 4:27 PM, Sridhar Samudrala
-<sridhar.samudrala@intel.com> wrote:
-> This patch introduces a new socket option SO_SYMMETRIC_QUEUES that can be used
-> to enable symmetric tx and rx queues on a socket.
->
-> This option is specifically useful for epoll based multi threaded workloads
-> where each thread handles packets received on a single RX queue . In this model,
-> we have noticed that it helps to send the packets on the same TX queue
-> corresponding to the queue-pair associated with the RX queue specifically when
-> busy poll is enabled with epoll().
->
-> Two new fields are added to struct sock_common to cache the last rx ifindex and
-> the rx queue in the receive path of an SKB. __netdev_pick_tx() returns the cached
-> rx queue when this option is enabled and the TX is happening on the same device.
->
-> Signed-off-by: Sridhar Samudrala <sridhar.samudrala@intel.com>
-> ---
->  include/net/request_sock.h        |  1 +
->  include/net/sock.h                | 17 +++++++++++++++++
->  include/uapi/asm-generic/socket.h |  2 ++
->  net/core/dev.c                    |  8 +++++++-
->  net/core/sock.c                   | 10 ++++++++++
->  net/ipv4/tcp_input.c              |  1 +
->  net/ipv4/tcp_ipv4.c               |  1 +
->  net/ipv4/tcp_minisocks.c          |  1 +
->  8 files changed, 40 insertions(+), 1 deletion(-)
->
-> diff --git a/include/net/request_sock.h b/include/net/request_sock.h
-> index 23e2205..c3bc12e 100644
-> --- a/include/net/request_sock.h
-> +++ b/include/net/request_sock.h
-> @@ -100,6 +100,7 @@ static inline struct sock *req_to_sk(struct request_sock *req)
->         req_to_sk(req)->sk_prot = sk_listener->sk_prot;
->         sk_node_init(&req_to_sk(req)->sk_node);
->         sk_tx_queue_clear(req_to_sk(req));
-> +       req_to_sk(req)->sk_symmetric_queues = sk_listener->sk_symmetric_queues;
->         req->saved_syn = NULL;
->         refcount_set(&req->rsk_refcnt, 0);
->
-> diff --git a/include/net/sock.h b/include/net/sock.h
-> index 03a3625..3421809 100644
-> --- a/include/net/sock.h
-> +++ b/include/net/sock.h
-> @@ -138,11 +138,14 @@ void SOCK_DEBUG(const struct sock *sk, const char *msg, ...)
->   *     @skc_node: main hash linkage for various protocol lookup tables
->   *     @skc_nulls_node: main hash linkage for TCP/UDP/UDP-Lite protocol
->   *     @skc_tx_queue_mapping: tx queue number for this connection
-> + *     @skc_rx_queue_mapping: rx queue number for this connection
-> + *     @skc_rx_ifindex: rx ifindex for this connection
->   *     @skc_flags: place holder for sk_flags
->   *             %SO_LINGER (l_onoff), %SO_BROADCAST, %SO_KEEPALIVE,
->   *             %SO_OOBINLINE settings, %SO_TIMESTAMPING settings
->   *     @skc_incoming_cpu: record/match cpu processing incoming packets
->   *     @skc_refcnt: reference count
-> + *     @skc_symmetric_queues: symmetric tx/rx queues
->   *
->   *     This is the minimal network layer representation of sockets, the header
->   *     for struct sock and struct inet_timewait_sock.
-> @@ -177,6 +180,7 @@ struct sock_common {
->         unsigned char           skc_reuseport:1;
->         unsigned char           skc_ipv6only:1;
->         unsigned char           skc_net_refcnt:1;
-> +       unsigned char           skc_symmetric_queues:1;
->         int                     skc_bound_dev_if;
->         union {
->                 struct hlist_node       skc_bind_node;
-> @@ -214,6 +218,8 @@ struct sock_common {
->                 struct hlist_nulls_node skc_nulls_node;
->         };
->         int                     skc_tx_queue_mapping;
-> +       int                     skc_rx_queue_mapping;
-> +       int                     skc_rx_ifindex;
+The purpose of vxlan arp reduce feature is to reply the boardcast
+arp request in vtep instead of sending it out to save traffic.
+The current implemention drops arp packet, if the ip cannot be
+found in neigh table. In the case of virtual IP address, user
+defines IP address without management from SDN controller. The IP
+address does not exist in neigh table, so the arp boardcast request
+from a client can not be sent to the server who owns the virtual IP
+address.
 
-Two ints in sock_common for this purpose is quite expensive and the
-use case for this is limited-- even if a RX->TX queue mapping were
-introduced to eliminate the queue pair assumption this still won't
-help if the receive and transmit interfaces are different for the
-connection. I think we really need to see some very compelling results
-to be able to justify this.
+This patch allow the arp request to be sent out if:
+1. not arp boardcast request
+2. cannot be found in neigh table
+3. arp record status is not NUD_CONNECTED
 
-Thanks,
-Tom
+The user defined of virtual IP address works while arp reduce still
+suppress the arp boardcast for IP address managed by SDN controller
+with this patch.
+
+Signed-off-by: Chen Haiquan <oc@yunify.com>
+---
+  drivers/net/vxlan.c | 26 +++++++++++++++++++-------
+  1 file changed, 19 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index d7c49cf1d5e9..913b838b260b 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -1473,7 +1473,7 @@ static int arp_reduce(struct net_device *dev, 
+struct sk_buff *skb, __be32 vni)
+          parp->ar_op != htons(ARPOP_REQUEST) ||
+          parp->ar_hln != dev->addr_len ||
+          parp->ar_pln != 4)
+-        goto out;
++        return 1;
+      arpptr = (u8 *)parp + sizeof(struct arphdr);
+      sha = arpptr;
+      arpptr += dev->addr_len;    /* sha */
+@@ -1494,7 +1494,7 @@ static int arp_reduce(struct net_device *dev, 
+struct sk_buff *skb, __be32 vni)
+
+          if (!(n->nud_state & NUD_CONNECTED)) {
+              neigh_release(n);
+-            goto out;
++            return 1;
+          }
+
+          f = vxlan_find_mac(vxlan, n->ha, vni);
+@@ -1526,6 +1526,10 @@ static int arp_reduce(struct net_device *dev, 
+struct sk_buff *skb, __be32 vni)
+          };
+
+          vxlan_ip_miss(dev, &ipa);
++        return 1;
++    } else {
++        /* broadcast unknown arp */
++        return 1;
+      }
+  out:
+      consume_skb(skb);
+@@ -1642,7 +1646,7 @@ static int neigh_reduce(struct net_device *dev, 
+struct sk_buff *skb, __be32 vni)
+      msg = (struct nd_msg *)(iphdr + 1);
+      if (msg->icmph.icmp6_code != 0 ||
+          msg->icmph.icmp6_type != NDISC_NEIGHBOUR_SOLICITATION)
+-        goto out;
++        return 1;
+
+      if (ipv6_addr_loopback(daddr) ||
+          ipv6_addr_is_multicast(&msg->target))
+@@ -1656,7 +1660,7 @@ static int neigh_reduce(struct net_device *dev, 
+struct sk_buff *skb, __be32 vni)
+
+          if (!(n->nud_state & NUD_CONNECTED)) {
+              neigh_release(n);
+-            goto out;
++            return 1;
+          }
+
+          f = vxlan_find_mac(vxlan, n->ha, vni);
+@@ -1684,6 +1688,10 @@ static int neigh_reduce(struct net_device *dev, 
+struct sk_buff *skb, __be32 vni)
+          };
+
+          vxlan_ip_miss(dev, &ipa);
++        return 1;
++    } else {
++        /* broadcast unknown neigh */
++        return 1;
+      }
+
+  out:
+@@ -2266,8 +2274,10 @@ static netdev_tx_t vxlan_xmit(struct sk_buff 
+*skb, struct net_device *dev)
+
+      if (vxlan->cfg.flags & VXLAN_F_PROXY) {
+          eth = eth_hdr(skb);
+-        if (ntohs(eth->h_proto) == ETH_P_ARP)
+-            return arp_reduce(dev, skb, vni);
++        if (ntohs(eth->h_proto) == ETH_P_ARP){
++            if (NETDEV_TX_OK == arp_reduce(dev, skb, vni))
++                return NETDEV_TX_OK;
++        }
+  #if IS_ENABLED(CONFIG_IPV6)
+          else if (ntohs(eth->h_proto) == ETH_P_IPV6) {
+              struct ipv6hdr *hdr, _hdr;
+@@ -2275,7 +2285,9 @@ static netdev_tx_t vxlan_xmit(struct sk_buff *skb, 
+struct net_device *dev)
+                                skb_network_offset(skb),
+                                sizeof(_hdr), &_hdr)) &&
+                  hdr->nexthdr == IPPROTO_ICMPV6)
+-                return neigh_reduce(dev, skb, vni);
++                if (NETDEV_TX_OK == neigh_reduce(dev,
++                                 skb, vni))
++                    return NETDEV_TX_OK;
+          }
+  #endif
+      }
+-- 
+2.7.4
