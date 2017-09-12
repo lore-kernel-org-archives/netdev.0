@@ -1,49 +1,77 @@
-From: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
-Subject: [PATCH v4 1/2] ip_tunnel: fix ip tunnel lookup in collect_md mode
-Date: Tue, 12 Sep 2017 17:47:56 +0800
-Message-ID: <1505209677-12728-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Haishuang Yan <yanhaishuang@cmss.chinamobile.com>,
-        Pravin B Shelar <pshelar@nicira.com>
-To: "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Kunihiko Hayashi <hayashi.kunihiko@socionext.com>
+Subject: [PATCH net-next v2 1/2] net: phy: realtek: rename RTL8211F_PAGE_SELECT to RTL821x_PAGE_SELECT
+Date: Tue, 12 Sep 2017 18:54:35 +0900
+Message-ID: <1505210076-32311-1-git-send-email-hayashi.kunihiko@socionext.com>
+Cc: Jassi Brar <jaswinder.singh@linaro.org>,
+        Kunihiko Hayashi <hayashi.kunihiko@socionext.com>
+To: Andrew Lunn <andrew@lunn.ch>,
+        Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx.socionext.com ([202.248.49.38]:35968 "EHLO mx.socionext.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751286AbdILJyq (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 12 Sep 2017 05:54:46 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In collect_md mode, if the tun dev is down, it still can call
-ip_tunnel_rcv to receive on packets, and the rx statistics increase
-improperly.
+This renames the definition of page select register from
+RTL8211F_PAGE_SELECT to RTL821x_PAGE_SELECT to use it across models.
 
-When the md tunnel is down, it's not neccessary to increase RX drops
-for the tunnel device, packets would be recieved on fallback tunnel,
-and the RX drops on fallback device will be increased as expected.
-
-Fixes: 2e15ea390e6f ("ip_gre: Add support to collect tunnel metadata.")
-Cc: Pravin B Shelar <pshelar@nicira.com>
-Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
-
+Signed-off-by: Kunihiko Hayashi <hayashi.kunihiko@socionext.com>
 ---
-Change since v4:
-  * Make the commit message more clearer.
-  * Fix wrong recipient addresss
+Changes since v1:
+ - new patch in this series
 ---
- net/ipv4/ip_tunnel.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/phy/realtek.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
-index e1856bf..e9805ad 100644
---- a/net/ipv4/ip_tunnel.c
-+++ b/net/ipv4/ip_tunnel.c
-@@ -176,7 +176,7 @@ struct ip_tunnel *ip_tunnel_lookup(struct ip_tunnel_net *itn,
- 		return cand;
+diff --git a/drivers/net/phy/realtek.c b/drivers/net/phy/realtek.c
+index 9cbe645..99c3297 100644
+--- a/drivers/net/phy/realtek.c
++++ b/drivers/net/phy/realtek.c
+@@ -22,11 +22,11 @@
+ #define RTL821x_INER		0x12
+ #define RTL821x_INER_INIT	0x6400
+ #define RTL821x_INSR		0x13
++#define RTL821x_PAGE_SELECT	0x1f
+ #define RTL8211E_INER_LINK_STATUS 0x400
  
- 	t = rcu_dereference(itn->collect_md_tun);
--	if (t)
-+	if (t && t->dev->flags & IFF_UP)
- 		return t;
+ #define RTL8211F_INER_LINK_STATUS 0x0010
+ #define RTL8211F_INSR		0x1d
+-#define RTL8211F_PAGE_SELECT	0x1f
+ #define RTL8211F_TX_DELAY	0x100
  
- 	if (itn->fb_tunnel_dev && itn->fb_tunnel_dev->flags & IFF_UP)
+ MODULE_DESCRIPTION("Realtek PHY driver");
+@@ -46,10 +46,10 @@ static int rtl8211f_ack_interrupt(struct phy_device *phydev)
+ {
+ 	int err;
+ 
+-	phy_write(phydev, RTL8211F_PAGE_SELECT, 0xa43);
++	phy_write(phydev, RTL821x_PAGE_SELECT, 0xa43);
+ 	err = phy_read(phydev, RTL8211F_INSR);
+ 	/* restore to default page 0 */
+-	phy_write(phydev, RTL8211F_PAGE_SELECT, 0x0);
++	phy_write(phydev, RTL821x_PAGE_SELECT, 0x0);
+ 
+ 	return (err < 0) ? err : 0;
+ }
+@@ -102,7 +102,7 @@ static int rtl8211f_config_init(struct phy_device *phydev)
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	phy_write(phydev, RTL8211F_PAGE_SELECT, 0xd08);
++	phy_write(phydev, RTL821x_PAGE_SELECT, 0xd08);
+ 	reg = phy_read(phydev, 0x11);
+ 
+ 	/* enable TX-delay for rgmii-id and rgmii-txid, otherwise disable it */
+@@ -114,7 +114,7 @@ static int rtl8211f_config_init(struct phy_device *phydev)
+ 
+ 	phy_write(phydev, 0x11, reg);
+ 	/* restore to default page 0 */
+-	phy_write(phydev, RTL8211F_PAGE_SELECT, 0x0);
++	phy_write(phydev, RTL821x_PAGE_SELECT, 0x0);
+ 
+ 	return 0;
+ }
 -- 
-1.8.3.1
+2.7.4
