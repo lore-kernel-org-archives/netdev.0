@@ -1,82 +1,66 @@
-From: =?UTF-8?B?TWFoZXNoIEJhbmRld2FyICjgpK7gpLngpYfgpLYg4KSs4KSC4KSh4KWH4KS14KS+4KSwKQ==?=
-        <maheshb@google.com>
-Subject: Re: [PATCH net] net: bonding: fix tlb_dynamic_lb default value
-Date: Tue, 12 Sep 2017 10:40:44 -0700
-Message-ID: <CAF2d9jgwYYBYGGEyGnUmhR8rf4x0K6iJiUY5SkCC-hrgTbQgsA@mail.gmail.com>
-References: <1505218205-2637-1-git-send-email-nikolay@cumulusnetworks.com>
+From: Matthew Rosato <mjrosato@linux.vnet.ibm.com>
+Subject: Regression in throughput between kvm guests over virtual bridge
+Date: Tue, 12 Sep 2017 13:56:15 -0400
+Message-ID: <4c7e2924-b10f-0e97-c388-c8809ecfdeeb@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: linux-netdev <netdev@vger.kernel.org>, j.vosburgh@gmail.com,
-        vfalico@gmail.com, andy@greyhouse.net
-To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: davem@davemloft.net, mst@redhat.com
+To: netdev@vger.kernel.org, jasowang@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f178.google.com ([209.85.161.178]:33006 "EHLO
-        mail-yw0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751435AbdILRlF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 12 Sep 2017 13:41:05 -0400
-Received: by mail-yw0-f178.google.com with SMTP id s62so29835646ywg.0
-        for <netdev@vger.kernel.org>; Tue, 12 Sep 2017 10:41:05 -0700 (PDT)
-In-Reply-To: <1505218205-2637-1-git-send-email-nikolay@cumulusnetworks.com>
+Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:46548 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751493AbdILR4U (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 12 Sep 2017 13:56:20 -0400
+Received: from pps.filterd (m0098416.ppops.net [127.0.0.1])
+        by mx0b-001b2d01.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v8CHs0YS050472
+        for <netdev@vger.kernel.org>; Tue, 12 Sep 2017 13:56:19 -0400
+Received: from e32.co.us.ibm.com (e32.co.us.ibm.com [32.97.110.150])
+        by mx0b-001b2d01.pphosted.com with ESMTP id 2cxgydbqsb-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Tue, 12 Sep 2017 13:56:19 -0400
+Received: from localhost
+        by e32.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <mjrosato@linux.vnet.ibm.com>;
+        Tue, 12 Sep 2017 11:56:18 -0600
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 12, 2017 at 5:10 AM, Nikolay Aleksandrov
-<nikolay@cumulusnetworks.com> wrote:
-> Commit 8b426dc54cf4 ("bonding: remove hardcoded value") changed the
-> default value for tlb_dynamic_lb which lead to either broken ALB mode
-> (since tlb_dynamic_lb can be changed only in TLB) or setting TLB mode
-> with tlb_dynamic_lb equal to 0.
-> The first issue was recently fixed by setting tlb_dynamic_lb to 1 always
-> when switching to ALB mode, but the default value is still wrong and
-> we'll enter TLB mode with tlb_dynamic_lb equal to 0 if the mode is
-> changed via netlink or sysfs. In order to restore the previous behaviour
-> and default value simply remove the mode check around the default param
-> initialization for tlb_dynamic_lb which will always set it to 1 as
-> before.
->
-> Fixes: 8b426dc54cf4 ("bonding: remove hardcoded value")
-> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Acked-by: Mahesh Bandewar <maheshb@google.com>
-> ---
->  drivers/net/bonding/bond_main.c | 17 +++++++----------
->  1 file changed, 7 insertions(+), 10 deletions(-)
->
-> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-> index fc63992ab0e0..c99dc59d729b 100644
-> --- a/drivers/net/bonding/bond_main.c
-> +++ b/drivers/net/bonding/bond_main.c
-> @@ -4289,7 +4289,7 @@ static int bond_check_params(struct bond_params *params)
->         int bond_mode   = BOND_MODE_ROUNDROBIN;
->         int xmit_hashtype = BOND_XMIT_POLICY_LAYER2;
->         int lacp_fast = 0;
-> -       int tlb_dynamic_lb = 0;
-> +       int tlb_dynamic_lb;
->
->         /* Convert string parameters. */
->         if (mode) {
-> @@ -4601,16 +4601,13 @@ static int bond_check_params(struct bond_params *params)
->         }
->         ad_user_port_key = valptr->value;
->
-> -       if ((bond_mode == BOND_MODE_TLB) || (bond_mode == BOND_MODE_ALB)) {
-> -               bond_opt_initstr(&newval, "default");
-> -               valptr = bond_opt_parse(bond_opt_get(BOND_OPT_TLB_DYNAMIC_LB),
-> -                                       &newval);
-> -               if (!valptr) {
-> -                       pr_err("Error: No tlb_dynamic_lb default value");
-> -                       return -EINVAL;
-> -               }
-> -               tlb_dynamic_lb = valptr->value;
-> +       bond_opt_initstr(&newval, "default");
-> +       valptr = bond_opt_parse(bond_opt_get(BOND_OPT_TLB_DYNAMIC_LB), &newval);
-> +       if (!valptr) {
-> +               pr_err("Error: No tlb_dynamic_lb default value");
-> +               return -EINVAL;
->         }
-> +       tlb_dynamic_lb = valptr->value;
->
->         if (lp_interval == 0) {
->                 pr_warn("Warning: ip_interval must be between 1 and %d, so it was reset to %d\n",
-> --
-> 2.1.4
->
+We are seeing a regression for a subset of workloads across KVM guests
+over a virtual bridge between host kernel 4.12 and 4.13.  Bisecting
+points to c67df11f "vhost_net: try batch dequing from skb array"
+
+In the regressed environment, we are running 4 kvm guests, 2 running as
+uperf servers and 2 running as uperf clients, all on a single host.
+They are connected via a virtual bridge.  The uperf client profile looks
+like:
+
+<?xml version="1.0"?>
+<profile name="TCP_STREAM">
+  <group nprocs="1">
+    <transaction iterations="1">
+      <flowop type="connect" options="remotehost=192.168.122.103
+protocol=tcp"/>
+    </transaction>
+    <transaction duration="300">
+      <flowop type="write" options="count=16 size=30000"/>
+    </transaction>
+    <transaction iterations="1">
+      <flowop type="disconnect"/>
+    </transaction>
+  </group>
+</profile>
+
+So, 1 tcp streaming instance per client.  When upgrading the host kernel
+from 4.12->4.13, we see about a 30% drop in throughput for this
+scenario.  After the bisect, I further verified that reverting c67df11f
+on 4.13 "fixes" the throughput for this scenario.
+
+On the other hand, if we increase the load by upping the number of
+streaming instances to 50 (nprocs="50") or even 10, we see instead a
+~10% increase in throughput when upgrading host from 4.12->4.13.
+
+So it may be the issue is specific to "light load" scenarios.  I would
+expect some overhead for the batching, but 30% seems significant...  Any
+thoughts on what might be happening here?
