@@ -1,77 +1,120 @@
 From: Kunihiko Hayashi <hayashi.kunihiko@socionext.com>
-Subject: [PATCH net-next v2 1/2] net: phy: realtek: rename RTL8211F_PAGE_SELECT to RTL821x_PAGE_SELECT
-Date: Tue, 12 Sep 2017 18:54:35 +0900
-Message-ID: <1505210076-32311-1-git-send-email-hayashi.kunihiko@socionext.com>
+Subject: [PATCH net-next v2 2/2] net: phy: realtek: add RTL8201F phy-id and functions
+Date: Tue, 12 Sep 2017 18:54:36 +0900
+Message-ID: <1505210076-32311-2-git-send-email-hayashi.kunihiko@socionext.com>
+References: <1505210076-32311-1-git-send-email-hayashi.kunihiko@socionext.com>
 Cc: Jassi Brar <jaswinder.singh@linaro.org>,
+        Jongsung Kim <neidhard.kim@lge.com>,
         Kunihiko Hayashi <hayashi.kunihiko@socionext.com>
 To: Andrew Lunn <andrew@lunn.ch>,
         Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mx.socionext.com ([202.248.49.38]:35968 "EHLO mx.socionext.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751286AbdILJyq (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 12 Sep 2017 05:54:46 -0400
+        id S1751286AbdILJyu (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 12 Sep 2017 05:54:50 -0400
+In-Reply-To: <1505210076-32311-1-git-send-email-hayashi.kunihiko@socionext.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This renames the definition of page select register from
-RTL8211F_PAGE_SELECT to RTL821x_PAGE_SELECT to use it across models.
+From: Jassi Brar <jaswinder.singh@linaro.org>
 
+Add RTL8201F phy-id and the related functions to the driver.
+
+The original patch is as follows:
+https://patchwork.kernel.org/patch/2538341/
+
+Signed-off-by: Jongsung Kim <neidhard.kim@lge.com>
+Signed-off-by: Jassi Brar <jaswinder.singh@linaro.org>
 Signed-off-by: Kunihiko Hayashi <hayashi.kunihiko@socionext.com>
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
 Changes since v1:
- - new patch in this series
+ - use RTL821x_PAGE_SELECT instead of defining RTL8201F_PAGE_SELECT
 ---
- drivers/net/phy/realtek.c | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
+ drivers/net/phy/realtek.c | 44 ++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 44 insertions(+)
 
 diff --git a/drivers/net/phy/realtek.c b/drivers/net/phy/realtek.c
-index 9cbe645..99c3297 100644
+index 99c3297..d4670ec 100644
 --- a/drivers/net/phy/realtek.c
 +++ b/drivers/net/phy/realtek.c
-@@ -22,11 +22,11 @@
- #define RTL821x_INER		0x12
- #define RTL821x_INER_INIT	0x6400
- #define RTL821x_INSR		0x13
-+#define RTL821x_PAGE_SELECT	0x1f
- #define RTL8211E_INER_LINK_STATUS 0x400
- 
- #define RTL8211F_INER_LINK_STATUS 0x0010
+@@ -29,10 +29,22 @@
  #define RTL8211F_INSR		0x1d
--#define RTL8211F_PAGE_SELECT	0x1f
  #define RTL8211F_TX_DELAY	0x100
  
++#define RTL8201F_ISR		0x1e
++#define RTL8201F_IER		0x13
++
  MODULE_DESCRIPTION("Realtek PHY driver");
-@@ -46,10 +46,10 @@ static int rtl8211f_ack_interrupt(struct phy_device *phydev)
+ MODULE_AUTHOR("Johnson Leung");
+ MODULE_LICENSE("GPL");
+ 
++static int rtl8201_ack_interrupt(struct phy_device *phydev)
++{
++	int err;
++
++	err = phy_read(phydev, RTL8201F_ISR);
++
++	return (err < 0) ? err : 0;
++}
++
+ static int rtl821x_ack_interrupt(struct phy_device *phydev)
  {
  	int err;
- 
--	phy_write(phydev, RTL8211F_PAGE_SELECT, 0xa43);
-+	phy_write(phydev, RTL821x_PAGE_SELECT, 0xa43);
- 	err = phy_read(phydev, RTL8211F_INSR);
- 	/* restore to default page 0 */
--	phy_write(phydev, RTL8211F_PAGE_SELECT, 0x0);
-+	phy_write(phydev, RTL821x_PAGE_SELECT, 0x0);
- 
+@@ -54,6 +66,25 @@ static int rtl8211f_ack_interrupt(struct phy_device *phydev)
  	return (err < 0) ? err : 0;
  }
-@@ -102,7 +102,7 @@ static int rtl8211f_config_init(struct phy_device *phydev)
- 	if (ret < 0)
- 		return ret;
  
--	phy_write(phydev, RTL8211F_PAGE_SELECT, 0xd08);
-+	phy_write(phydev, RTL821x_PAGE_SELECT, 0xd08);
- 	reg = phy_read(phydev, 0x11);
- 
- 	/* enable TX-delay for rgmii-id and rgmii-txid, otherwise disable it */
-@@ -114,7 +114,7 @@ static int rtl8211f_config_init(struct phy_device *phydev)
- 
- 	phy_write(phydev, 0x11, reg);
- 	/* restore to default page 0 */
--	phy_write(phydev, RTL8211F_PAGE_SELECT, 0x0);
++static int rtl8201_config_intr(struct phy_device *phydev)
++{
++	int err;
++
++	/* switch to page 7 */
++	phy_write(phydev, RTL821x_PAGE_SELECT, 0x7);
++
++	if (phydev->interrupts == PHY_INTERRUPT_ENABLED)
++		err = phy_write(phydev, RTL8201F_IER,
++				BIT(13) | BIT(12) | BIT(11));
++	else
++		err = phy_write(phydev, RTL8201F_IER, 0);
++
++	/* restore to default page 0 */
 +	phy_write(phydev, RTL821x_PAGE_SELECT, 0x0);
++
++	return err;
++}
++
+ static int rtl8211b_config_intr(struct phy_device *phydev)
+ {
+ 	int err;
+@@ -129,6 +160,18 @@ static struct phy_driver realtek_drvs[] = {
+ 		.config_aneg    = &genphy_config_aneg,
+ 		.read_status    = &genphy_read_status,
+ 	}, {
++		.phy_id		= 0x001cc816,
++		.name		= "RTL8201F 10/100Mbps Ethernet",
++		.phy_id_mask	= 0x001fffff,
++		.features	= PHY_BASIC_FEATURES,
++		.flags		= PHY_HAS_INTERRUPT,
++		.config_aneg	= &genphy_config_aneg,
++		.read_status	= &genphy_read_status,
++		.ack_interrupt	= &rtl8201_ack_interrupt,
++		.config_intr	= &rtl8201_config_intr,
++		.suspend	= genphy_suspend,
++		.resume		= genphy_resume,
++	}, {
+ 		.phy_id		= 0x001cc912,
+ 		.name		= "RTL8211B Gigabit Ethernet",
+ 		.phy_id_mask	= 0x001fffff,
+@@ -181,6 +224,7 @@ static struct phy_driver realtek_drvs[] = {
+ module_phy_driver(realtek_drvs);
  
- 	return 0;
- }
+ static struct mdio_device_id __maybe_unused realtek_tbl[] = {
++	{ 0x001cc816, 0x001fffff },
+ 	{ 0x001cc912, 0x001fffff },
+ 	{ 0x001cc914, 0x001fffff },
+ 	{ 0x001cc915, 0x001fffff },
 -- 
 2.7.4
