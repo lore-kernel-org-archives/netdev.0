@@ -1,88 +1,86 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: Re: [PATCH iproute2 1/2] lib/libnetlink: re malloc buff if size is
- not enough
-Date: Tue, 12 Sep 2017 11:09:26 +0200
-Message-ID: <20170912090926.j7vwhq6a57c5d6wx@unicorn.suse.cz>
-References: <1504865697-27274-1-git-send-email-liuhangbin@gmail.com>
- <1504865697-27274-2-git-send-email-liuhangbin@gmail.com>
- <20170908110247.GS2399@orbyte.nwl.cc>
- <20170908140131.GU5465@leo.usersys.redhat.com>
- <20170908145113.GA30028@orbyte.nwl.cc>
- <20170911071955.GZ5465@leo.usersys.redhat.com>
- <20170912084748.m4wz6kxfclc2mkxd@unicorn.suse.cz>
+From: Kunihiko Hayashi <hayashi.kunihiko@socionext.com>
+Subject: Re: [PATCH net-next 2/3] net: ethernet: socionext: add AVE ethernet driver
+Date: Tue, 12 Sep 2017 18:24:01 +0900
+Message-ID: <20170912182400.180E.4A936039@socionext.com>
+References: <20170911155047.6717.4A936039@socionext.com> <20170911120009.GA24174@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Phil Sutter <phil@nwl.cc>, netdev@vger.kernel.org,
-        Stephen Hemminger <stephen@networkplumber.org>
-To: Hangbin Liu <liuhangbin@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:33454 "EHLO mx1.suse.de"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751472AbdILJJ2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 12 Sep 2017 05:09:28 -0400
-Content-Disposition: inline
-In-Reply-To: <20170912084748.m4wz6kxfclc2mkxd@unicorn.suse.cz>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        <linux-arm-kernel@lists.infradead.org>,
+        <linux-kernel@vger.kernel.org>, <devicetree@vger.kernel.org>,
+        Masahiro Yamada <yamada.masahiro@socionext.com>,
+        Masami Hiramatsu <masami.hiramatsu@linaro.org>,
+        Jassi Brar <jaswinder.singh@linaro.org>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170911120009.GA24174@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 12, 2017 at 10:47:48AM +0200, Michal Kubecek wrote:
-> On Mon, Sep 11, 2017 at 03:19:55PM +0800, Hangbin Liu wrote:
-> > On Fri, Sep 08, 2017 at 04:51:13PM +0200, Phil Sutter wrote:
-> > > Regarding Michal's concern about reentrancy, maybe we should go into a
-> > > different direction and make rtnl_recvmsg() return a newly allocated
-> > > buffer which the caller has to free.
-> > 
-> > Hmm... But we could not free the buf in __rtnl_talk(). Because in
-> > __rtnl_talk() we assign the answer with the buf address and return to caller.
-> > 
-> > 	for (h = (struct nlmsghdr *)buf; status >= sizeof(*h); ) {
-> > 		[...]
-> > 		if (answer) {
-> > 			*answer= h;
-> > 			return 0;
-> > 		}
-> > 	}
-> > 
-> > And the caller will keep use it in later code. Since there are plenty of
-> > functions called rtnl_talk. I think it would be much more complex to free
-> > the buffer every time.
-> > 
-> > 
-> > Hi Michal,
-> > 
-> > Would you like to tell me more about your concern with reentrancy? It's looks
-> > arpd doesn't call rtnl_talk() or rtnl_dump_filter_l().
-> 
-> I checked again and arpd indeed isn't a problem. It doesn't seem to call
-> any of the two functions (directly or indirectly) and while it's linked
-> with "-lpthread", it's not really multithreaded.
-> 
-> But my concern was rather about other potential users of libnetlink
-> (i.e. those which are not part of iproute2). I must admit, though, that
-> I'm not sure if libnetlink code is reentrant as of now. (And people are
-> discouraged from using it in its own manual page.)
-> 
-> That being said, I still like Phil's idea for a different reason. While
-> investigating the issue with "ip link show dev eth ..." which led me to
-> commit 6599162b958e ("iplink: check for message truncation in
-> iplink_get()"), I quickly peeked at some other callers of rtnl_talk()
-> and I'm afraid there may be others which wouldn't handle truncated
-> message correctly. I assume the maxlen argument was always chosen to be
-> sufficient for any expected messages but as the example of iplink_get()
-> shows, messages returned by kernel my grow over time.
-> 
-> That's why I like the idea of __rtnl_talk() returning a pointer to newly
-> allocated buffer (of sufficient size) rather than copying the response
-> into a buffer provided by caller and potentially truncating it.
+Hi Andrew,
 
-I'm sorry, I managed to forget that your patch 2 does already address
-this problem. But the fact that any caller must keep in mind that he
-must not call the same function again until the previous response is no
-longer needed still feels like a trap. It's something you need to keep
-in mind (where "you" in fact means any future contributor) and it's
-easy to forget. That's why I prefer the reentrant functions like
-strerror_r() or localtime_r() even in code which is not intended to be
-multithreaded. Getting an object which is "mine" to do with whatever
-I want until I no longer need it feels like a cleaner interface to me.
+On Mon, 11 Sep 2017 14:00:09 +0200 Andrew Lunn <andrew@lunn.ch> wrote:
 
-Michal Kubecek
+> > > > +static irqreturn_t ave_interrupt(int irq, void *netdev)
+> > > > +{
+> > > > +	struct net_device *ndev = (struct net_device *)netdev;
+> > > > +	struct ave_private *priv = netdev_priv(ndev);
+> > > > +	u32 gimr_val, gisr_val;
+> > > > +
+> > > > +	gimr_val = ave_irq_disable_all(ndev);
+> > > > +
+> > > > +	/* get interrupt status */
+> > > > +	gisr_val = ave_r32(ndev, AVE_GISR);
+> > > > +
+> > > > +	/* PHY */
+> > > > +	if (gisr_val & AVE_GI_PHY) {
+> > > > +		ave_w32(ndev, AVE_GISR, AVE_GI_PHY);
+> > > > +		if (priv->internal_phy_interrupt)
+> > > > +			phy_mac_interrupt(ndev->phydev, ndev->phydev->link);
+> > > 
+> > > Humm. I don't think this is correct. You are supposed to give it the
+> > > new link state, not the old.
+> > > 
+> > > What does a PHY interrupt mean here? 
+> > 
+> > In the general case, I think PHY events like changing link state are transmitted
+> > to CPU as interrupt via interrupt controller, then PHY driver itself can handle
+> > the interrupt.
+> > 
+> > And in this case, PHY events are transmitted to MAC as one of its interrupt factor,
+> > then I thought that MAC driver had to tell the events to PHY.
+> 
+> Could this be in-band SGMI signalling from the PHY to the MAC? Does
+> the documentation give examples of when this interrupt will happen?
+> 
+>     Andrew
+
+Unfortunately this MAC doesn't support SGMII.
+And there aren't any examples of when this interrupt will happen.
+This interrupt happens after ave_open() is called and link is established.
+
+However, I found that auto negotiation didn't start when this interrupt wasn't handled.
+
+Although ave_init() calls phy_start_aneg(), it doesn't make sense
+because phy driver doesn't start yet.
+
+And according to Florian's comment in ave_init(),
+
+> +	phy_start_interrupts(phydev);
+> +
+> +	phy_start_aneg(phydev);
+>
+> No, no, phy_start() would take care of all of that correctly for you,
+> you don't have have to do it just there because ave_open() eventually
+> calls phy_start() for you, so just drop these two calls.
+
+When moving phy_start_aneg() to ave_open(), the handler doesn't need to call
+phy_mac_interrupt() and I can remove it from the handler.
+
+---
+Best Regards,
+Kunihiko Hayashi
