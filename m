@@ -1,54 +1,100 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net] net: sched: fix use-after-free in
- tcf_action_destroy and tcf_del_walker
-Date: Wed, 13 Sep 2017 13:59:48 -0700 (PDT)
-Message-ID: <20170913.135948.629502810637692498.davem@davemloft.net>
-References: <20170913153237.26408-1-jiri@resnulli.us>
-        <20170913.093428.806129519464331602.davem@davemloft.net>
-        <20170913205006.GD1981@nanopsycho>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
-        kubakici@wp.pl, mlxsw@mellanox.com
-To: jiri@resnulli.us
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net] net: systemport: Fix 64-bit stats deadlock
+Date: Tue, 12 Sep 2017 13:14:26 -0700
+Message-ID: <1505247266-42195-1-git-send-email-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, edumazet@google.com, jqiaoulk@gmail.com,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:57376 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751117AbdIMU7t (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 13 Sep 2017 16:59:49 -0400
-In-Reply-To: <20170913205006.GD1981@nanopsycho>
+Received: from mail-qt0-f196.google.com ([209.85.216.196]:38596 "EHLO
+        mail-qt0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750742AbdILUPA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 12 Sep 2017 16:15:00 -0400
+Received: by mail-qt0-f196.google.com with SMTP id f24so1112175qte.5
+        for <netdev@vger.kernel.org>; Tue, 12 Sep 2017 13:15:00 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Wed, 13 Sep 2017 22:50:06 +0200
+We can enter a deadlock situation because there is no sufficient protection
+when ndo_get_stats64() runs in process context to guard against RX or TX NAPI
+contexts running in softirq, this can lead to the following lockdep splat and
+actual deadlock was experienced as well with an iperf session in the background
+and a while loop doing ifconfig + ethtool.
 
-> Wed, Sep 13, 2017 at 06:34:28PM CEST, davem@davemloft.net wrote:
->>From: Jiri Pirko <jiri@resnulli.us>
->>Date: Wed, 13 Sep 2017 17:32:37 +0200
->>
->>> From: Jiri Pirko <jiri@mellanox.com>
->>> 
->>> Recent commit d7fb60b9cafb ("net_sched: get rid of tcfa_rcu") removed
->>> freeing in call_rcu, which changed already existing hard-to-hit
->>> race condition into 100% hit:
->>> 
->>> [  598.599825] BUG: unable to handle kernel NULL pointer dereference at 0000000000000030
->>> [  598.607782] IP: tcf_action_destroy+0xc0/0x140
->>> 
->>> Or:
->>> 
->>> [   40.858924] BUG: unable to handle kernel NULL pointer dereference at 0000000000000030
->>> [   40.862840] IP: tcf_generic_walker+0x534/0x820
->>> 
->>> Fix this by storing the ops and use them directly for module_put call.
->>> 
->>> Fixes: a85a970af265 ("net_sched: move tc_action into tcf_common")
->>> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
->>
->>Applied, thanks Jiri.
-> 
-> Oh, I forgot to mention, this would be nice to push to stable.
+[    5.780350] ================================
+[    5.784679] WARNING: inconsistent lock state
+[    5.789011] 4.13.0-rc7-02179-g32fae27c725d #70 Not tainted
+[    5.794561] --------------------------------
+[    5.798890] inconsistent {SOFTIRQ-ON-W} -> {IN-SOFTIRQ-W} usage.
+[    5.804971] swapper/0/0 [HC0[0]:SC1[1]:HE0:SE0] takes:
+[    5.810175]  (&syncp->seq#2){+.?...}, at: [<c0768a28>] bcm_sysport_tx_reclaim+0x30/0x54
+[    5.818327] {SOFTIRQ-ON-W} state was registered at:
+[    5.823278]   bcm_sysport_get_stats64+0x17c/0x258
+[    5.828053]   dev_get_stats+0x38/0xac
+[    5.831776]   rtnl_fill_stats+0x30/0x118
+[    5.835761]   rtnl_fill_ifinfo+0x538/0xe24
+[    5.839921]   rtmsg_ifinfo_build_skb+0x6c/0xd8
+[    5.844430]   rtmsg_ifinfo_event.part.5+0x14/0x44
+[    5.849201]   rtmsg_ifinfo+0x20/0x28
+[    5.852837]   register_netdevice+0x628/0x6b8
+[    5.857171]   register_netdev+0x14/0x24
+[    5.861051]   bcm_sysport_probe+0x30c/0x438
+[    5.865280]   platform_drv_probe+0x50/0xb0
+[    5.869418]   driver_probe_device+0x2e8/0x450
+[    5.873817]   __driver_attach+0x104/0x120
+[    5.877871]   bus_for_each_dev+0x7c/0xc0
+[    5.881834]   bus_add_driver+0x1b0/0x270
+[    5.885797]   driver_register+0x78/0xf4
+[    5.889675]   do_one_initcall+0x54/0x190
+[    5.893646]   kernel_init_freeable+0x144/0x1d0
+[    5.898135]   kernel_init+0x8/0x110
+[    5.901665]   ret_from_fork+0x14/0x2c
+[    5.905363] irq event stamp: 24263
+[    5.908804] hardirqs last  enabled at (24262): [<c08eecf0>] net_rx_action+0xc4/0x4e4
+[    5.916624] hardirqs last disabled at (24263): [<c0a7da00>] _raw_spin_lock_irqsave+0x1c/0x98
+[    5.925143] softirqs last  enabled at (24258): [<c022a7fc>] irq_enter+0x84/0x98
+[    5.932524] softirqs last disabled at (24259): [<c022a918>] irq_exit+0x108/0x16c
+[    5.939985]
+[    5.939985] other info that might help us debug this:
+[    5.946576]  Possible unsafe locking scenario:
+[    5.946576]
+[    5.952556]        CPU0
+[    5.955031]        ----
+[    5.957506]   lock(&syncp->seq#2);
+[    5.960955]   <Interrupt>
+[    5.963604]     lock(&syncp->seq#2);
+[    5.967227]
+[    5.967227]  *** DEADLOCK ***
+[    5.967227]
+[    5.973222] 1 lock held by swapper/0/0:
+[    5.977092]  #0:  (&(&ring->lock)->rlock){..-...}, at: [<c0768a18>] bcm_sysport_tx_reclaim+0x20/0x54
 
-Ok, queued up.
+So just remove the u64_stats_update_begin()/end() pair in ndo_get_stats64()
+since it does not appear to be useful for anything. No inconsistency was
+observed with either ifconfig or ethtool, global TX counts equal the sum of
+per-queue TX counts on a 32-bit architecture.
+
+Fixes: 10377ba7673d ("net: systemport: Support 64bit statistics")
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/ethernet/broadcom/bcmsysport.c | 3 ---
+ 1 file changed, 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/broadcom/bcmsysport.c b/drivers/net/ethernet/broadcom/bcmsysport.c
+index a6572b51435a..c3c53f6cd9e6 100644
+--- a/drivers/net/ethernet/broadcom/bcmsysport.c
++++ b/drivers/net/ethernet/broadcom/bcmsysport.c
+@@ -1735,11 +1735,8 @@ static void bcm_sysport_get_stats64(struct net_device *dev,
+ 		stats->tx_packets += tx_packets;
+ 	}
+ 
+-	/* lockless update tx_bytes and tx_packets */
+-	u64_stats_update_begin(&priv->syncp);
+ 	stats64->tx_bytes = stats->tx_bytes;
+ 	stats64->tx_packets = stats->tx_packets;
+-	u64_stats_update_end(&priv->syncp);
+ 
+ 	do {
+ 		start = u64_stats_fetch_begin_irq(&priv->syncp);
+-- 
+1.9.1
