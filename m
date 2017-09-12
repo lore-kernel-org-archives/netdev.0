@@ -1,49 +1,30 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] w90p910_ether: include linux/interrupt.h
-Date: Tue, 12 Sep 2017 14:31:48 +0200
-Message-ID: <20170912123227.3418786-1-arnd@arndb.de>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next v2 1/2] net: phy: realtek: rename
+ RTL8211F_PAGE_SELECT to RTL821x_PAGE_SELECT
+Date: Tue, 12 Sep 2017 14:57:27 +0200
+Message-ID: <20170912125727.GA32598@lunn.ch>
+References: <1505210076-32311-1-git-send-email-hayashi.kunihiko@socionext.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
- "David S. Miller" <davem@davemloft.net>, Arnd Bergmann <arnd@arndb.de>,
- linux-kernel@vger.kernel.org
-To: Wan ZongShun <mcuos.com@gmail.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
+        Jassi Brar <jaswinder.singh@linaro.org>
+To: Kunihiko Hayashi <hayashi.kunihiko@socionext.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:38216 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751332AbdILM5a (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 12 Sep 2017 08:57:30 -0400
+Content-Disposition: inline
+In-Reply-To: <1505210076-32311-1-git-send-email-hayashi.kunihiko@socionext.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-A randconfig build caused a compile failure:
+On Tue, Sep 12, 2017 at 06:54:35PM +0900, Kunihiko Hayashi wrote:
+> This renames the definition of page select register from
+> RTL8211F_PAGE_SELECT to RTL821x_PAGE_SELECT to use it across models.
+> 
+> Signed-off-by: Kunihiko Hayashi <hayashi.kunihiko@socionext.com>
 
-drivers/net/ethernet/nuvoton/w90p910_ether.c: In function 'w90p910_ether_close':
-drivers/net/ethernet/nuvoton/w90p910_ether.c:580:2: error: implicit declaration of function 'free_irq'; did you mean 'free_uid'? [-Werror=implicit-function-declaration]
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 
-Adding the correct include fixes the problem.
-
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
----
- drivers/net/ethernet/nuvoton/w90p910_ether.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/drivers/net/ethernet/nuvoton/w90p910_ether.c b/drivers/net/ethernet/nuvoton/w90p910_ether.c
-index 89ab786da25f..4a67c55aa9f1 100644
---- a/drivers/net/ethernet/nuvoton/w90p910_ether.c
-+++ b/drivers/net/ethernet/nuvoton/w90p910_ether.c
-@@ -11,6 +11,7 @@
- 
- #include <linux/module.h>
- #include <linux/init.h>
-+#include <linux/interrupt.h>
- #include <linux/mii.h>
- #include <linux/netdevice.h>
- #include <linux/etherdevice.h>
--- 
-2.9.0
+    Andrew
