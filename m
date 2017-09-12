@@ -1,83 +1,81 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [Patch net v3 1/3] net_sched: get rid of tcfa_rcu
-Date: Tue, 12 Sep 2017 23:36:34 +0200
-Message-ID: <20170912213634.GS2036@nanopsycho>
-References: <20170911233332.7594-1-xiyou.wangcong@gmail.com>
- <20170911233332.7594-2-xiyou.wangcong@gmail.com>
- <20170912094215.GB2036@nanopsycho>
- <20170912104004.GE2036@nanopsycho>
- <CAM_iQpWN+OFdWZgKsm8qk58jFKqssOMMW8JM7N6FConHumQXxg@mail.gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net] net: systemport: Fix 64-bit stats deadlock
+Date: Tue, 12 Sep 2017 14:48:25 -0700
+Message-ID: <23e3924f-7efc-efe5-4866-f552b1b0c97e@gmail.com>
+References: <1505247266-42195-1-git-send-email-f.fainelli@gmail.com>
+ <1505252293.15310.151.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Jiri Pirko <jiri@mellanox.com>,
-        Jakub Kicinski <jakub.kicinski@netronome.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Eric Dumazet <edumazet@google.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com,
+        jqiaoulk@gmail.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f193.google.com ([209.85.128.193]:34933 "EHLO
-        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750962AbdILVgg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 12 Sep 2017 17:36:36 -0400
-Received: by mail-wr0-f193.google.com with SMTP id n64so6839076wrb.2
-        for <netdev@vger.kernel.org>; Tue, 12 Sep 2017 14:36:36 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAM_iQpWN+OFdWZgKsm8qk58jFKqssOMMW8JM7N6FConHumQXxg@mail.gmail.com>
+Received: from mail-qk0-f196.google.com ([209.85.220.196]:36350 "EHLO
+        mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751477AbdILVsb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 12 Sep 2017 17:48:31 -0400
+Received: by mail-qk0-f196.google.com with SMTP id i14so7951641qke.3
+        for <netdev@vger.kernel.org>; Tue, 12 Sep 2017 14:48:30 -0700 (PDT)
+In-Reply-To: <1505252293.15310.151.camel@edumazet-glaptop3.roam.corp.google.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tue, Sep 12, 2017 at 11:10:22PM CEST, xiyou.wangcong@gmail.com wrote:
->On Tue, Sep 12, 2017 at 3:40 AM, Jiri Pirko <jiri@resnulli.us> wrote:
->> Tue, Sep 12, 2017 at 11:42:15AM CEST, jiri@resnulli.us wrote:
->>>Tue, Sep 12, 2017 at 01:33:30AM CEST, xiyou.wangcong@gmail.com wrote:
->>>>gen estimator has been rewritten in commit 1c0d32fde5bd
->>>>("net_sched: gen_estimator: complete rewrite of rate estimators"),
->>>>the caller is no longer needed to wait for a grace period.
->>>>So this patch gets rid of it.
->>>>
->>>>This also completely closes a race condition between action free
->>>>path and filter chain add/remove path for the following patch.
->>>>Because otherwise the nested RCU callback can't be caught by
->>>>rcu_barrier().
->>>>
->>>>Please see also the comments in code.
->>>
->>>Looks like this is causing a null pointer dereference bug for me, 100%
->>>of the time. Just add and remove any rule with action and you get:
->>>
+On 09/12/2017 02:38 PM, Eric Dumazet wrote:
+> On Tue, 2017-09-12 at 13:14 -0700, Florian Fainelli wrote:
+>> We can enter a deadlock situation because there is no sufficient protection
+>> when ndo_get_stats64() runs in process context to guard against RX or TX NAPI
+>> contexts running in softirq, this can lead to the following lockdep splat and
+>> actual deadlock was experienced as well with an iperf session in the background
+>> and a while loop doing ifconfig + ethtool.
+> 
+>> So just remove the u64_stats_update_begin()/end() pair in ndo_get_stats64()
+>> since it does not appear to be useful for anything. No inconsistency was
+>> observed with either ifconfig or ethtool, global TX counts equal the sum of
+>> per-queue TX counts on a 32-bit architecture.
 >>
->> [...]
+>> Fixes: 10377ba7673d ("net: systemport: Support 64bit statistics")
+>> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+>> ---
+>>  drivers/net/ethernet/broadcom/bcmsysport.c | 3 ---
+>>  1 file changed, 3 deletions(-)
 >>
->>>
->>>Looks like you need to save owner of the module before you call
->>>__tcf_idr_release so you can later on use it for module_put
->
->Why do you believe it is this patch introduces the bug?
->
->That code has been there since the beginning of git history:
->
->+       for (a = act; a; a = act) {
->+               if (a->ops && a->ops->cleanup) {
->+                       DPRINTK("tcf_action_destroy destroying %p next %p\n",
->+                               a, a->next);
->+                       if (a->ops->cleanup(a, bind) == ACT_P_DELETED)
->+                               module_put(a->ops->owner);
->+                       act = act->next;
->
->Seems to be a very old one. The reason why it exposes, I guess,
->is call_rcu() somehow delays the free after module_put().
+>> diff --git a/drivers/net/ethernet/broadcom/bcmsysport.c b/drivers/net/ethernet/broadcom/bcmsysport.c
+>> index a6572b51435a..c3c53f6cd9e6 100644
+>> --- a/drivers/net/ethernet/broadcom/bcmsysport.c
+>> +++ b/drivers/net/ethernet/broadcom/bcmsysport.c
+>> @@ -1735,11 +1735,8 @@ static void bcm_sysport_get_stats64(struct net_device *dev,
+>>  		stats->tx_packets += tx_packets;
+>>  	}
+>>  
+>> -	/* lockless update tx_bytes and tx_packets */
+>> -	u64_stats_update_begin(&priv->syncp);
+> 
+> Yes, this u64_stats_update_begin()/u64_stats_update_end() is bogus
+> 
+> But why do we even write on tx_bytes/tx_packets here ??? 
 
-Yeah, looks like the race was just hard to hit. However with your patch,
-it is very easy to hit.
+That's for the ethtool -S netdev stats copy (that's on me, I added that
+in the driver initial version), so yes, not very robust...
+
+> 
+> Seems very wrong anyway.
+> 
+> (ethtool -S does not call bcm_sysport_get_stats64() to refresh them )
+
+Yes that might actually be the simplest way to get this fixed.
+
+> 
+>>  	stats64->tx_bytes = stats->tx_bytes;
+>>  	stats64->tx_packets = stats->tx_packets;
+>> -	u64_stats_update_end(&priv->syncp);
+>>  
+>>  	do {
+>>  		start = u64_stats_fetch_begin_irq(&priv->syncp);
+> 
+> 
 
 
->
->
->>
->> This patch helps:
->
->Looks good to me. Please feel free to submit a formal patch.
-
-Okay, I will send the patch to you formally so you can add it as a first
-patch of your patchset.
+-- 
+Florian
