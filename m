@@ -1,172 +1,79 @@
-From: Matteo Croce <mcroce@redhat.com>
-Subject: [PATCH net] ipv6: fix net.ipv6.conf.all interface DAD handlers
-Date: Tue, 12 Sep 2017 17:46:37 +0200
-Message-ID: <20170912154637.12996-1-mcroce@redhat.com>
-Cc: Erik Kline <ek@google.com>,
-        "David S . Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org, linux-doc@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC PATCH] net: Introduce a socket option to enable picking tx
+ queue based on rx queue.
+Date: Tue, 12 Sep 2017 08:47:42 -0700
+Message-ID: <1505231262.15310.149.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1504222032-6337-1-git-send-email-sridhar.samudrala@intel.com>
+         <CALx6S35sM1CDrFuNE+L59Op_wKTRpATLAdRJafihr0mB9+vQ8g@mail.gmail.com>
+         <1505188437.15310.137.camel@edumazet-glaptop3.roam.corp.google.com>
+         <b2ea01b3-b984-d59f-cbaf-b2fe6b5d9eea@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Tom Herbert <tom@herbertland.com>,
+        Alexander Duyck <alexander.h.duyck@intel.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: "Samudrala, Sridhar" <sridhar.samudrala@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f43.google.com ([74.125.82.43]:44925 "EHLO
-        mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751509AbdILPql (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 12 Sep 2017 11:46:41 -0400
-Received: by mail-wm0-f43.google.com with SMTP id 189so682951wmh.1
-        for <netdev@vger.kernel.org>; Tue, 12 Sep 2017 08:46:40 -0700 (PDT)
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:34973 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751054AbdILPrn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 12 Sep 2017 11:47:43 -0400
+Received: by mail-pf0-f193.google.com with SMTP id i23so1591618pfi.2
+        for <netdev@vger.kernel.org>; Tue, 12 Sep 2017 08:47:43 -0700 (PDT)
+In-Reply-To: <b2ea01b3-b984-d59f-cbaf-b2fe6b5d9eea@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, writing into
-net.ipv6.conf.all.{accept_dad,use_optimistic,optimistic_dad} has no effect.
-Fix handling of these flags by:
+On Mon, 2017-09-11 at 23:27 -0700, Samudrala, Sridhar wrote:
+> 
+> On 9/11/2017 8:53 PM, Eric Dumazet wrote:
+> > On Mon, 2017-09-11 at 20:12 -0700, Tom Herbert wrote:
+> >
+> >> Two ints in sock_common for this purpose is quite expensive and the
+> >> use case for this is limited-- even if a RX->TX queue mapping were
+> >> introduced to eliminate the queue pair assumption this still won't
+> >> help if the receive and transmit interfaces are different for the
+> >> connection. I think we really need to see some very compelling results
+> >> to be able to justify this.
+> Will try to collect and post some perf data with symmetric queue 
+> configuration.
+> 
+> > Yes, this is unreasonable cost.
+> >
+> > XPS should really cover the case already.
+> >   
+> Eric,
+> 
+> Can you clarify how XPS covers the RX-> TX queue mapping case?
+> Is it possible to configure XPS to select TX queue based on the RX queue 
+> of a flow?
+> IIUC, it is based on the CPU of the thread doing the transmit OR based 
+> on skb->priority to TC mapping?
+> It may be possible to get this effect if the the threads are pinned to a 
+> core, but if the app threads are
+> freely moving, i am not sure how XPS can be configured to select the TX 
+> queue based on the RX queue of a flow.
 
-- using the maximum of global and per-interface values for the
-  accept_dad flag. That is, if at least one of the two values is
-  non-zero, enable DAD on the interface. If at least one value is
-  set to 2, enable DAD and disable IPv6 operation on the interface if
-  MAC-based link-local address was found
+If application is freely moving, how NIC can properly select the RX
+queue so that packets are coming to the appropriate queue ?
 
-- using the logical OR of global and per-interface values for the
-  optimistic_dad flag. If at least one of them is set to one, optimistic
-  duplicate address detection (RFC 4429) is enabled on the interface
+This is called aRFS, and it does not scale to millions of flows.
+We tried in the past, and this went nowhere really, since the setup cost
+is prohibitive and DDOS vulnerable.
 
-- using the logical OR of global and per-interface values for the
-  use_optimistic flag. If at least one of them is set to one,
-  optimistic addresses won't be marked as deprecated during source address
-  selection on the interface.
+XPS will follow the thread, since selection is done on current cpu.
 
-While at it, as we're modifying the prototype for ipv6_use_optimistic_addr(),
-drop inline, and let the compiler decide.
+The problem is RX side. If application is free to migrate, then special
+support (aRFS) is needed from the hardware.
 
-Fixes: 7fd2561e4ebd ("net: ipv6: Add a sysctl to make optimistic addresses useful candidates")
-Signed-off-by: Matteo Croce <mcroce@redhat.com>
----
- Documentation/networking/ip-sysctl.txt | 18 ++++++++++++++----
- net/ipv6/addrconf.c                    | 27 ++++++++++++++++++++-------
- 2 files changed, 34 insertions(+), 11 deletions(-)
+At least for passive connections, we already have all the support in the
+kernel so that you can have one thread per NIC queue, dealing with
+sockets that have incoming packets all received on one NIC RX queue.
+(And of course all TX packets will use the symmetric TX queue)
 
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index b3345d0fe0a6..77f4de59dc9c 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -1680,6 +1680,9 @@ accept_dad - INTEGER
- 	2: Enable DAD, and disable IPv6 operation if MAC-based duplicate
- 	   link-local address has been found.
- 
-+	DAD operation and mode on a given interface will be selected according
-+	to the maximum value of conf/{all,interface}/accept_dad.
-+
- force_tllao - BOOLEAN
- 	Enable sending the target link-layer address option even when
- 	responding to a unicast neighbor solicitation.
-@@ -1727,16 +1730,23 @@ suppress_frag_ndisc - INTEGER
- 
- optimistic_dad - BOOLEAN
- 	Whether to perform Optimistic Duplicate Address Detection (RFC 4429).
--		0: disabled (default)
--		1: enabled
-+	0: disabled (default)
-+	1: enabled
-+
-+	Optimistic Duplicate Address Detection for the interface will be enabled
-+	if at least one of conf/{all,interface}/optimistic_dad is set to 1,
-+	it will be disabled otherwise.
- 
- use_optimistic - BOOLEAN
- 	If enabled, do not classify optimistic addresses as deprecated during
- 	source address selection.  Preferred addresses will still be chosen
- 	before optimistic addresses, subject to other ranking in the source
- 	address selection algorithm.
--		0: disabled (default)
--		1: enabled
-+	0: disabled (default)
-+	1: enabled
-+
-+	This will be enabled if at least one of
-+	conf/{all,interface}/use_optimistic is set to 1, disabled otherwise.
- 
- stable_secret - IPv6 address
- 	This IPv6 address will be used as a secret to generate IPv6
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index c2e2a78787ec..774d8794248a 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -1399,10 +1399,18 @@ static inline int ipv6_saddr_preferred(int type)
- 	return 0;
- }
- 
--static inline bool ipv6_use_optimistic_addr(struct inet6_dev *idev)
-+static bool ipv6_use_optimistic_addr(struct net *net,
-+				     struct inet6_dev *idev)
- {
- #ifdef CONFIG_IPV6_OPTIMISTIC_DAD
--	return idev && idev->cnf.optimistic_dad && idev->cnf.use_optimistic;
-+	if (!idev)
-+		return false;
-+	if (!net->ipv6.devconf_all->optimistic_dad && !idev->cnf.optimistic_dad)
-+		return false;
-+	if (!net->ipv6.devconf_all->use_optimistic && !idev->cnf.use_optimistic)
-+		return false;
-+
-+	return true;
- #else
- 	return false;
- #endif
-@@ -1472,7 +1480,7 @@ static int ipv6_get_saddr_eval(struct net *net,
- 		/* Rule 3: Avoid deprecated and optimistic addresses */
- 		u8 avoid = IFA_F_DEPRECATED;
- 
--		if (!ipv6_use_optimistic_addr(score->ifa->idev))
-+		if (!ipv6_use_optimistic_addr(net, score->ifa->idev))
- 			avoid |= IFA_F_OPTIMISTIC;
- 		ret = ipv6_saddr_preferred(score->addr_type) ||
- 		      !(score->ifa->flags & avoid);
-@@ -2460,7 +2468,8 @@ int addrconf_prefix_rcv_add_addr(struct net *net, struct net_device *dev,
- 		int max_addresses = in6_dev->cnf.max_addresses;
- 
- #ifdef CONFIG_IPV6_OPTIMISTIC_DAD
--		if (in6_dev->cnf.optimistic_dad &&
-+		if ((net->ipv6.devconf_all->optimistic_dad ||
-+		     in6_dev->cnf.optimistic_dad) &&
- 		    !net->ipv6.devconf_all->forwarding && sllao)
- 			addr_flags |= IFA_F_OPTIMISTIC;
- #endif
-@@ -3051,7 +3060,8 @@ void addrconf_add_linklocal(struct inet6_dev *idev,
- 	u32 addr_flags = flags | IFA_F_PERMANENT;
- 
- #ifdef CONFIG_IPV6_OPTIMISTIC_DAD
--	if (idev->cnf.optimistic_dad &&
-+	if ((dev_net(idev->dev)->ipv6.devconf_all->optimistic_dad ||
-+	     idev->cnf.optimistic_dad) &&
- 	    !dev_net(idev->dev)->ipv6.devconf_all->forwarding)
- 		addr_flags |= IFA_F_OPTIMISTIC;
- #endif
-@@ -3810,6 +3820,7 @@ static void addrconf_dad_begin(struct inet6_ifaddr *ifp)
- 		goto out;
- 
- 	if (dev->flags&(IFF_NOARP|IFF_LOOPBACK) ||
-+	    dev_net(dev)->ipv6.devconf_all->accept_dad < 1 ||
- 	    idev->cnf.accept_dad < 1 ||
- 	    !(ifp->flags&IFA_F_TENTATIVE) ||
- 	    ifp->flags & IFA_F_NODAD) {
-@@ -3841,7 +3852,7 @@ static void addrconf_dad_begin(struct inet6_ifaddr *ifp)
- 	 */
- 	if (ifp->flags & IFA_F_OPTIMISTIC) {
- 		ip6_ins_rt(ifp->rt);
--		if (ipv6_use_optimistic_addr(idev)) {
-+		if (ipv6_use_optimistic_addr(dev_net(dev), idev)) {
- 			/* Because optimistic nodes can use this address,
- 			 * notify listeners. If DAD fails, RTM_DELADDR is sent.
- 			 */
-@@ -3897,7 +3908,9 @@ static void addrconf_dad_work(struct work_struct *w)
- 		action = DAD_ABORT;
- 		ifp->state = INET6_IFADDR_STATE_POSTDAD;
- 
--		if (idev->cnf.accept_dad > 1 && !idev->cnf.disable_ipv6 &&
-+		if ((dev_net(idev->dev)->ipv6.devconf_all->accept_dad > 1 ||
-+		     idev->cnf.accept_dad > 1) &&
-+		    !idev->cnf.disable_ipv6 &&
- 		    !(ifp->flags & IFA_F_STABLE_PRIVACY)) {
- 			struct in6_addr addr;
- 
--- 
-2.13.5
+SO_REUSEPORT plus appropriate BPF filter can achieve that.
+
+Say you have 32 queues, 32 cpus.
+
+Simply use 32 listeners, 32 threads (or 32 pools of threads)
