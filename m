@@ -1,37 +1,53 @@
-From: Cole Robinson <crobinso@redhat.com>
-Subject: Re: 319554f284dd ("inet: don't use sk_v6_rcv_saddr directly") causes
- bind port regression
-Date: Wed, 13 Sep 2017 18:49:35 -0400
-Message-ID: <813386f2-81ba-db8c-e86d-f36cd1b89537@redhat.com>
-References: <1a8ef376-387e-e0fc-7362-e1fd2c2c45d3@redhat.com>
- <AF16C126-99CA-401A-B803-AA05CDFBFF93@fb.com>
- <588f3795-931e-7779-4ec7-5fe7d4437927@redhat.com>
- <EF55EF02-AD40-4F06-8C07-4F9F4221BFE6@fb.com>
- <370b38d5-346c-91df-4ad4-79886ae3a9ba@redhat.com>
- <a4807126-1f17-20bd-dace-d9c6b6c4787b@redhat.com>
- <E068C58A-DC80-4D98-ADE6-8F05304EC7ED@fb.com>
+From: Michele Lucini <mlucini@safearea.com.au>
+Subject: RE: [PATCH v3] iproute2: add support for GRE ignore-df knob
+Date: Wed, 13 Sep 2017 03:56:56 +0000
+Message-ID: <SYXPR01MB1055A4CEC12281A625331C64F06E0@SYXPR01MB1055.ausprd01.prod.outlook.com>
+References: <20170720190610.6886-1-philipp@redfish-solutions.com>
+ <20170720172628.06d358b5@xeon-e3>
+ <C28C1CD8-95FD-43C6-86DA-0C89D3776668@redfish-solutions.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Josef Bacik <jbacik@fb.com>, Laura Abbott <labbott@redhat.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <E068C58A-DC80-4D98-ADE6-8F05304EC7ED@fb.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Philip Prindeville <philipp@redfish-solutions.com>,
+        Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-sy3aus01on0042.outbound.protection.outlook.com ([104.47.117.42]:18881
+        "EHLO AUS01-SY3-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751364AbdIMD5A (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 12 Sep 2017 23:57:00 -0400
+In-Reply-To: <C28C1CD8-95FD-43C6-86DA-0C89D3776668@redfish-solutions.com>
 Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/13/2017 03:44 PM, Josef Bacik wrote:
-> Alright thanks, this should fix it.
-> 
-
-Still no luck with all three patches applied to fedora 4.12.8-300 RPM. Pretty
-sure I didn't mess up the testing but since I rarely do kernel builds it's not
-impossible...
-
-Thanks,
-Cole
+R3V5cywgdGhhbmtzIGhlYXBzIGZvciB0aGlzLCBtdWNoIGFwcHJlY2lhdGVkIQ0KDQpDaGVlcnMu
+DQoNCk1pa2UNCi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQpGcm9tOiBQaGlsaXAgUHJpbmRl
+dmlsbGUgW21haWx0bzpwaGlsaXBwQHJlZGZpc2gtc29sdXRpb25zLmNvbV0gDQpTZW50OiBGcmlk
+YXksIDIxIEp1bHkgMjAxNyAxMDozNSBBTQ0KVG86IFN0ZXBoZW4gSGVtbWluZ2VyIDxzdGVwaGVu
+QG5ldHdvcmtwbHVtYmVyLm9yZz4NCkNjOiBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBNaWNoZWxl
+IEx1Y2luaSA8bWx1Y2luaUBzYWZlYXJlYS5jb20uYXU+DQpTdWJqZWN0OiBSZTogW1BBVENIIHYz
+XSBpcHJvdXRlMjogYWRkIHN1cHBvcnQgZm9yIEdSRSBpZ25vcmUtZGYga25vYg0KDQoNCj4gT24g
+SnVsIDIwLCAyMDE3LCBhdCA2OjI2IFBNLCBTdGVwaGVuIEhlbW1pbmdlciA8c3RlcGhlbkBuZXR3
+b3JrcGx1bWJlci5vcmc+IHdyb3RlOg0KPiANCj4gT24gVGh1LCAyMCBKdWwgMjAxNyAxMzowNjox
+MCAtMDYwMA0KPiAiUGhpbGlwIFByaW5kZXZpbGxlIiA8cGhpbGlwcEByZWRmaXNoLXNvbHV0aW9u
+cy5jb20+IHdyb3RlOg0KPiANCj4+IEZyb206IFBoaWxpcCBQcmluZGV2aWxsZSA8cGhpbGlwcEBy
+ZWRmaXNoLXNvbHV0aW9ucy5jb20+DQo+PiANCj4+IEluIHRoZSBwcmVzZW5jZSBvZiBmaXJld2Fs
+bHMgd2hpY2ggaW1wcm9wZXJseSBibG9jayBJQ01QIFVucmVhY2hhYmxlIA0KPj4gKGluY2x1ZGlu
+ZyBGcmFnbWVudGF0aW9uIFJlcXVpcmVkKSBtZXNzYWdlcywgUGF0aCBNVFUgRGlzY292ZXJ5IGlz
+IA0KPj4gcHJldmVudGVkIGZyb20gd29ya2luZy4NCj4+IA0KPj4gVGhlIHdvcmthcm91bmQgaXMg
+dG8gaGFuZGxlIElQdjQgcGF5bG9hZHMgb3BhcXVlbHksIGlnbm9yaW5nIHRoZSBERiANCj4+IGJp
+dC4NCj4+IA0KPj4gS2VybmVsIGNvbW1pdCAyMmE1OWJlOGI3NjkzZWIyZDA4OTdhOTYzOGY1OTkx
+ZjJmOGU0ZGRkICgibmV0OiBpcHY0Og0KPj4gQWRkIGFiaWxpdHkgdG8gaGF2ZSBHUkUgaWdub3Jl
+IERGIGJpdCBpbiBJUHY0IHBheWxvYWRzIikgaXMgDQo+PiBjb21wbGVtZW50ZWQgYnkgdGhpcyB1
+c2VyLXNwYWNlIGNoYW5nZXNldCB3aGljaCBleHBvc2VzIGNvbnRyb2wgb2YgDQo+PiB0aGlzIHNl
+dHRpbmcuDQo+PiANCj4+IFJldmlld2VkLWJ5OiBTdGVwaGVuIEhlbW1pbmdlciA8c3RlcGhlbkBu
+ZXR3b3JrcGx1bWJlci5vcmc+DQo+PiBTaWduZWQtb2ZmLWJ5OiBQaGlsaXAgUHJpbmRldmlsbGUg
+PHBoaWxpcHBAcmVkZmlzaC1zb2x1dGlvbnMuY29tPg0KPiANCj4gQXBwbGllZCwgdGhhbmtzIFBo
+aWxpcA0KDQoNClRoYW5rcyEgIFNvcnJ5IEkgZGlkbuKAmXQgcmVhbGl6ZSB0aGF0IHRoZSBmaXJz
+dCBzdWJtaXNzaW9uIGEgeWVhciBhZ28gaGFkbuKAmXQgYmVlbiBhcHBsaWVkIGFuZCBpdCB0b29r
+IG1lIHRoaXMgbG9uZyB0byByZWR1eCBhbmQgcmVzdWJtaXQgaXQuDQoNCk1pY2hlbGU6IGhvcGVm
+dWxseSB0aGlzIGNvbWVzIG91dCBpbiB5b3VyIGRpc3Ryby1vZi1jaG9pY2UgZmFpcmx5IHNvb24u
+ICBMaWtlIEkgc2FpZCwgSSB0aG91Z2h0IHRoaXMgaGFkIGFscmVhZHkgYmVlbiByb2xsZWQgaW4u
+DQoNCi1QaGlsaXANCg0K
