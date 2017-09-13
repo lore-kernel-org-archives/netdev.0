@@ -1,113 +1,61 @@
-From: Vishwanath Pai <vpai@akamai.com>
-Subject: Re: [PATCH] netfilter: ipset: ipset list may return wrong member
- count for set with timeout
-Date: Mon, 11 Sep 2017 15:57:35 -0400
-Message-ID: <6cf7958a-02a9-a7f9-005d-fd25e910aceb@akamai.com>
-References: <1502947435-18549-1-git-send-email-vpai@akamai.com>
- <alpine.DEB.2.11.1709112134060.12411@blackhole.kfki.hu>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>, johunt@akamai.com,
-        pai.vishwain@gmail.com, netfilter-devel@vger.kernel.org,
-        coreteam@netfilter.org, netdev@vger.kernel.org
-To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.11.1709112134060.12411@blackhole.kfki.hu>
-Content-Language: en-US
-Sender: netfilter-devel-owner@vger.kernel.org
+From: Bhumika Goyal <bhumirks@gmail.com>
+Subject: [PATCH] ath10k: make ath10k_hw_ce_regs const
+Date: Thu, 14 Sep 2017 00:31:52 +0530
+Message-ID: <1505329312-26432-1-git-send-email-bhumirks@gmail.com>
+Cc: Bhumika Goyal <bhumirks@gmail.com>
+To: julia.lawall@lip6.fr, kvalo@qca.qualcomm.com,
+        ath10k@lists.infradead.org, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Jozsef,
+Make them const as they are not modified in the file referencing
+them. They are only stored in the const field 'hw_ce_reg' of an ath10k
+structure. Also, make the declarations in the header const.
 
-Thank you. Yes, that is true, the count can still be incorrect in the
-case of a huge set.
+Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
+---
+ drivers/net/wireless/ath/ath10k/hw.c | 4 ++--
+ drivers/net/wireless/ath/ath10k/hw.h | 4 ++--
+ 2 files changed, 4 insertions(+), 4 deletions(-)
 
-Thanks,
-Vishwanath
-
-On 09/11/2017 03:36 PM, Jozsef Kadlecsik wrote:
-> Hi,
-> 
-> Your patch is applied in the ipset git tree and I'm going to push it for 
-> kernel inclusion.
-> 
-> I modified the comment part: the elements counter can still be incorrect 
-> in the case of a huge set, because elements might time out during the 
-> listing.
-> 
-> Thanks for your patience!
-> 
-> Best regards,
-> Jozsef
-> 
-> On Thu, 17 Aug 2017, Vishwanath Pai wrote:
-> 
->> Simple testcase:
->>
->> $ ipset create test hash:ip timeout 5
->> $ ipset add test 1.2.3.4
->> $ ipset add test 1.2.2.2
->> $ sleep 5
->>
->> $ ipset l
->> Name: test
->> Type: hash:ip
->> Revision: 5
->> Header: family inet hashsize 1024 maxelem 65536 timeout 5
->> Size in memory: 296
->> References: 0
->> Number of entries: 2
->> Members:
->>
->> We return "Number of entries: 2" but no members are listed. That is
->> because mtype_list runs "ip_set_timeout_expired" and does not list the
->> expired entries, but set->elements is never upated (until mtype_gc
->> cleans it up later).
->>
->> Reviewed-by: Joshua Hunt <johunt@akamai.com>
->> Signed-off-by: Vishwanath Pai <vpai@akamai.com>
->> ---
->>  net/netfilter/ipset/ip_set_hash_gen.h | 12 +++++++++++-
->>  1 file changed, 11 insertions(+), 1 deletion(-)
->>
->> diff --git a/net/netfilter/ipset/ip_set_hash_gen.h b/net/netfilter/ipset/ip_set_hash_gen.h
->> index f236c0b..ff3d31c 100644
->> --- a/net/netfilter/ipset/ip_set_hash_gen.h
->> +++ b/net/netfilter/ipset/ip_set_hash_gen.h
->> @@ -1041,12 +1041,22 @@ struct htype {
->>  static int
->>  mtype_head(struct ip_set *set, struct sk_buff *skb)
->>  {
->> -	const struct htype *h = set->data;
->> +	struct htype *h = set->data;
->>  	const struct htable *t;
->>  	struct nlattr *nested;
->>  	size_t memsize;
->>  	u8 htable_bits;
->>  
->> +	/* If any members have expired, set->elements will be wrong
->> +	 * mytype_expire function will update it with the right count.
->> +	 * we do not hold set->lock here, so grab it first.
->> +	 */
->> +	if (SET_WITH_TIMEOUT(set)) {
->> +		spin_lock_bh(&set->lock);
->> +		mtype_expire(set, h);
->> +		spin_unlock_bh(&set->lock);
->> +	}
->> +
->>  	rcu_read_lock_bh();
->>  	t = rcu_dereference_bh_nfnl(h->table);
->>  	memsize = mtype_ahash_memsize(h, t) + set->ext_size;
->> -- 
->> 1.9.1
->>
->>
-> 
-> -
-> E-mail  : kadlec@blackhole.kfki.hu, kadlecsik.jozsef@wigner.mta.hu
-> PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
-> Address : Wigner Research Centre for Physics, Hungarian Academy of Sciences
->           H-1525 Budapest 114, POB. 49, Hungary
-> 
-
+diff --git a/drivers/net/wireless/ath/ath10k/hw.c b/drivers/net/wireless/ath/ath10k/hw.c
+index a860691..07df7c6 100644
+--- a/drivers/net/wireless/ath/ath10k/hw.c
++++ b/drivers/net/wireless/ath/ath10k/hw.c
+@@ -310,7 +310,7 @@
+ 	.wm_high	= &wcn3990_dst_wm_high,
+ };
+ 
+-struct ath10k_hw_ce_regs wcn3990_ce_regs = {
++const struct ath10k_hw_ce_regs wcn3990_ce_regs = {
+ 	.sr_base_addr		= 0x00000000,
+ 	.sr_size_addr		= 0x00000008,
+ 	.dr_base_addr		= 0x0000000c,
+@@ -457,7 +457,7 @@ struct ath10k_hw_ce_regs wcn3990_ce_regs = {
+ 	.wm_high	= &qcax_dst_wm_high,
+ };
+ 
+-struct ath10k_hw_ce_regs qcax_ce_regs = {
++const struct ath10k_hw_ce_regs qcax_ce_regs = {
+ 	.sr_base_addr		= 0x00000000,
+ 	.sr_size_addr		= 0x00000004,
+ 	.dr_base_addr		= 0x00000008,
+diff --git a/drivers/net/wireless/ath/ath10k/hw.h b/drivers/net/wireless/ath/ath10k/hw.h
+index 0c089f6..f80840f 100644
+--- a/drivers/net/wireless/ath/ath10k/hw.h
++++ b/drivers/net/wireless/ath/ath10k/hw.h
+@@ -369,8 +369,8 @@ struct ath10k_hw_values {
+ extern const struct ath10k_hw_values qca9888_values;
+ extern const struct ath10k_hw_values qca4019_values;
+ extern const struct ath10k_hw_values wcn3990_values;
+-extern struct ath10k_hw_ce_regs wcn3990_ce_regs;
+-extern struct ath10k_hw_ce_regs qcax_ce_regs;
++extern const struct ath10k_hw_ce_regs wcn3990_ce_regs;
++extern const struct ath10k_hw_ce_regs qcax_ce_regs;
+ 
+ void ath10k_hw_fill_survey_time(struct ath10k *ar, struct survey_info *survey,
+ 				u32 cc, u32 rcc, u32 cc_prev, u32 rcc_prev);
+-- 
+1.9.1
