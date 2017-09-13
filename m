@@ -1,85 +1,50 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: Regression in throughput between kvm guests over virtual bridge
-Date: Wed, 13 Sep 2017 16:13:45 +0800
-Message-ID: <e022cfa7-ef65-550f-06e8-f6e29f1d68a0@redhat.com>
-References: <4c7e2924-b10f-0e97-c388-c8809ecfdeeb@linux.vnet.ibm.com>
- <bdd417dc-9e2f-4a2e-534b-c6aa38f002f2@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: davem@davemloft.net, mst@redhat.com
-To: Matthew Rosato <mjrosato@linux.vnet.ibm.com>,
-        netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44052 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750776AbdIMINw (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 13 Sep 2017 04:13:52 -0400
-In-Reply-To: <bdd417dc-9e2f-4a2e-534b-c6aa38f002f2@redhat.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: =?gb2312?B?0c+6o8ur?= <yanhaishuang@cmss.chinamobile.com>
+Subject: Re: [PATCH] ipv4: Namespaceify tcp_fastopen knob
+Date: Wed, 13 Sep 2017 16:49:54 +0800
+Message-ID: <ECEF4A52-57A3-497E-9A9D-081F137F3BD8@cmss.chinamobile.com>
+References: <1505212257-13386-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
+ <20170912.205709.130426973112637232.davem@davemloft.net>
+Mime-Version: 1.0 (Mac OS X Mail 10.3 \(3273\))
+Content-Type: text/plain; charset=gb2312
+Content-Transfer-Encoding: 8BIT
+Cc: kuznet@ms2.inr.ac.ru, edumazet@google.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170912.205709.130426973112637232.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
 
-On 2017å¹´09æœˆ13æ—¥ 09:16, Jason Wang wrote:
->
->
-> On 2017å¹´09æœˆ13æ—¥ 01:56, Matthew Rosato wrote:
->> We are seeing a regression for a subset of workloads across KVM guests
->> over a virtual bridge between host kernel 4.12 and 4.13. Bisecting
->> points to c67df11f "vhost_net: try batch dequing from skb array"
->>
->> In the regressed environment, we are running 4 kvm guests, 2 running as
->> uperf servers and 2 running as uperf clients, all on a single host.
->> They are connected via a virtual bridge.  The uperf client profile looks
->> like:
->>
->> <?xml version="1.0"?>
->> <profile name="TCP_STREAM">
->>    <group nprocs="1">
->>      <transaction iterations="1">
->>        <flowop type="connect" options="remotehost=192.168.122.103
->> protocol=tcp"/>
->>      </transaction>
->>      <transaction duration="300">
->>        <flowop type="write" options="count=16 size=30000"/>
->>      </transaction>
->>      <transaction iterations="1">
->>        <flowop type="disconnect"/>
->>      </transaction>
->>    </group>
->> </profile>
->>
->> So, 1 tcp streaming instance per client.  When upgrading the host kernel
->> from 4.12->4.13, we see about a 30% drop in throughput for this
->> scenario.  After the bisect, I further verified that reverting c67df11f
->> on 4.13 "fixes" the throughput for this scenario.
->>
->> On the other hand, if we increase the load by upping the number of
->> streaming instances to 50 (nprocs="50") or even 10, we see instead a
->> ~10% increase in throughput when upgrading host from 4.12->4.13.
->>
->> So it may be the issue is specific to "light load" scenarios.  I would
->> expect some overhead for the batching, but 30% seems significant...  Any
->> thoughts on what might be happening here?
->>
->
-> Hi, thanks for the bisecting. Will try to see if I can reproduce. 
-> Various factors could have impact on stream performance. If possible, 
-> could you collect the #pkts and average packet size during the test? 
-> And if you guest version is above 4.12, could you please retry with 
-> napi_tx=true?
->
-> Thanks
+> On 2017Äê9ÔÂ13ÈÕ, at ÉÏÎç11:57, David Miller <davem@davemloft.net> wrote:
+> 
+> From: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+> Date: Tue, 12 Sep 2017 18:30:57 +0800
+> 
+>> Different namespace application might require enable TCP Fast Open
+>> feature independently of the host.
+>> 
+>> Reported-by: Luca BRUNO <lucab@debian.org>
+>> Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+> ...
+>> diff --git a/samples/bpf/test_ipip.sh b/samples/bpf/test_ipip.sh
+>> index 1969254..7bbc521 100755
+>> --- a/samples/bpf/test_ipip.sh
+>> +++ b/samples/bpf/test_ipip.sh
+>> @@ -173,6 +173,8 @@ function cleanup {
+>> cleanup
+>> echo "Testing IP tunnels..."
+>> test_ipip
+>> +sleep 1
+>> test_ipip6
+>> +sleep 1
+>> test_ip6ip6
+>> echo "*** PASS ***"
+> 
+> This seems like a completely unrelated change.
+> 
 
-Unfortunately, I could not reproduce it locally. I'm using net-next.git 
-as guest. I can get ~42Gb/s on Intel(R) Xeon(R) CPU E5-2650 0 @ 2.00GHz 
-for both before and after the commit. I use 1 vcpu and 1 queue, and pin 
-vcpu and vhost threads into separate cpu on host manually (in same numa 
-node).
+Sorry, I make a mistake for including my local test changes in this patch.
 
-Can you hit this regression constantly and what's you qemu command line 
-and #cpus on host? Is zerocopy enabled?
-
-Thanks
+I will remove this change in v2 commit. Thanks David for reviewing.
