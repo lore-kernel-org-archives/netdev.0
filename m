@@ -1,107 +1,134 @@
-From: Richard Guy Briggs <rgb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: RFC: Audit Kernel Container IDs
-Date: Wed, 13 Sep 2017 13:13:28 -0400
-Message-ID: <20170913171328.GP3405@madcap2.tricolour.ca>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Aristeu Rozanski <arozansk-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        David Howells <dhowells-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
-        Eric Paris <eparis-FjpueFixGhCM4zKIHC2jIg@public.gmane.org>, jlayton-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-        Andy Lutomirski <luto-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, mszeredi-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-        Paul Moore <pmoore-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        "Serge E. Hallyn" <serge-A9i7LUbDfNHQT0dZR+AlfA@public.gmane.org>,
-        Steve Grubb <sgrubb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, trondmy-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org,
-        Al Viro <viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org>
-To: cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Linux Containers <containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
-        Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Linux Audit <linux-audit-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        Linux FS Devel <linux-fsdevel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Linux Kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Linux Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: [PATCH net v2 2/3] nfp: wait for board state before talking to the NSP
+Date: Wed, 13 Sep 2017 10:15:59 -0700
+Message-ID: <20170913171600.31049-3-jakub.kicinski@netronome.com>
+References: <20170913171600.31049-1-jakub.kicinski@netronome.com>
+Cc: oss-drivers@netronome.com,
+        Jakub Kicinski <jakub.kicinski@netronome.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f53.google.com ([74.125.83.53]:44402 "EHLO
+        mail-pg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751365AbdIMRQx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 13 Sep 2017 13:16:53 -0400
+Received: by mail-pg0-f53.google.com with SMTP id j16so1568119pga.1
+        for <netdev@vger.kernel.org>; Wed, 13 Sep 2017 10:16:53 -0700 (PDT)
+In-Reply-To: <20170913171600.31049-1-jakub.kicinski@netronome.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Containers are a userspace concept.  The kernel knows nothing of them.
+Board state informs us which low-level initialization stages the card
+has completed.  We should wait for the card to be fully initialized
+before trying to communicate with it, not only before we configure
+passing traffic.
 
-The Linux audit system needs a way to be able to track the container
-provenance of events and actions.  Audit needs the kernel's help to do
-this.
+Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+---
+ drivers/net/ethernet/netronome/nfp/nfp_main.c     | 43 +++++++++++++++++++++++
+ drivers/net/ethernet/netronome/nfp/nfp_net_main.c | 23 ------------
+ 2 files changed, 43 insertions(+), 23 deletions(-)
 
-Since the concept of a container is entirely a userspace concept, a
-trigger signal from the userspace container orchestration system
-initiates this.  This will define a point in time and a set of resources
-associated with a particular container with an audit container ID.
-
-The trigger is a pseudo filesystem (proc, since PID tree already exists)
-write of a u64 representing the container ID to a file representing a
-process that will become the first process in a new container.
-This might place restrictions on mount namespaces required to define a
-container, or at least careful checking of namespaces in the kernel to
-verify permissions of the orchestrator so it can't change its own
-container ID.
-A bind mount of nsfs may be necessary in the container orchestrator's
-mntNS.
-
-Require a new CAP_CONTAINER_ADMIN to be able to write to the pseudo
-filesystem to have this action permitted.  At that time, record the
-child container's user-supplied 64-bit container identifier along with
-the child container's first process (which may become the container's
-"init" process) process ID (referenced from the initial PID namespace),
-all namespace IDs (in the form of a nsfs device number and inode number
-tuple) in a new auxilliary record AUDIT_CONTAINER with a qualifying
-op=$action field.
-
-Issue a new auxilliary record AUDIT_CONTAINER_INFO for each valid
-container ID present on an auditable action or event.
-
-Forked and cloned processes inherit their parent's container ID,
-referenced in the process' audit_context struct.
-
-Log the creation of every namespace, inheriting/adding its spawning
-process' containerID(s), if applicable.  Include the spawning and
-spawned namespace IDs (device and inode number tuples).
-[AUDIT_NS_CREATE, AUDIT_NS_DESTROY] [clone(2), unshare(2), setns(2)]
-Note: At this point it appears only network namespaces may need to track
-container IDs apart from processes since incoming packets may cause an
-auditable event before being associated with a process.
-
-Log the destruction of every namespace when it is no longer used by any
-process, include the namespace IDs (device and inode number tuples).
-[AUDIT_NS_DESTROY] [process exit, unshare(2), setns(2)]
-
-Issue a new auxilliary record AUDIT_NS_CHANGE listing (opt: op=$action)
-the parent and child namespace IDs for any changes to a process'
-namespaces. [setns(2)]
-Note: It may be possible to combine AUDIT_NS_* record formats and
-distinguish them with an op=$action field depending on the fields
-required for each message type.
-
-A process can be moved from one container to another by using the
-container assignment method outlined above a second time.
-
-When a container ceases to exist because the last process in that
-container has exited and hence the last namespace has been destroyed and
-its refcount dropping to zero, log the fact.
-(This latter is likely needed for certification accountability.)  A
-container object may need a list of processes and/or namespaces.
-
-A namespace cannot directly migrate from one container to another but
-could be assigned to a newly spawned container.  A namespace can be
-moved from one container to another indirectly by having that namespace
-used in a second process in another container and then ending all the
-processes in the first container.
-
-Feedback please.
-
-- RGB
-
---
-Richard Guy Briggs <rgb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sr. S/W Engineer, Kernel Security, Base Operating Systems
-Remote, Ottawa, Red Hat Canada
-IRC: rgb, SunRaycer
-Voice: +1.647.777.2635, Internal: (81) 32635
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_main.c b/drivers/net/ethernet/netronome/nfp/nfp_main.c
+index f055b1774d65..424707d41fbd 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_main.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_main.c
+@@ -74,6 +74,45 @@ static const struct pci_device_id nfp_pci_device_ids[] = {
+ };
+ MODULE_DEVICE_TABLE(pci, nfp_pci_device_ids);
+ 
++static bool nfp_board_ready(struct nfp_pf *pf)
++{
++	const char *cp;
++	long state;
++	int err;
++
++	cp = nfp_hwinfo_lookup(pf->hwinfo, "board.state");
++	if (!cp)
++		return false;
++
++	err = kstrtol(cp, 0, &state);
++	if (err < 0)
++		return false;
++
++	return state == 15;
++}
++
++static int nfp_pf_board_state_wait(struct nfp_pf *pf)
++{
++	const unsigned long wait_until = jiffies + 10 * HZ;
++
++	while (!nfp_board_ready(pf)) {
++		if (time_is_before_eq_jiffies(wait_until)) {
++			nfp_err(pf->cpp, "NFP board initialization timeout\n");
++			return -EINVAL;
++		}
++
++		nfp_info(pf->cpp, "waiting for board initialization\n");
++		if (msleep_interruptible(500))
++			return -ERESTARTSYS;
++
++		/* Refresh cached information */
++		kfree(pf->hwinfo);
++		pf->hwinfo = nfp_hwinfo_read(pf->cpp);
++	}
++
++	return 0;
++}
++
+ static int nfp_pcie_sriov_read_nfd_limit(struct nfp_pf *pf)
+ {
+ 	int err;
+@@ -425,6 +464,10 @@ static int nfp_pci_probe(struct pci_dev *pdev,
+ 		 nfp_hwinfo_lookup(pf->hwinfo, "assembly.revision"),
+ 		 nfp_hwinfo_lookup(pf->hwinfo, "cpld.version"));
+ 
++	err = nfp_pf_board_state_wait(pf);
++	if (err)
++		goto err_hwinfo_free;
++
+ 	err = devlink_register(devlink, &pdev->dev);
+ 	if (err)
+ 		goto err_hwinfo_free;
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
+index 5abb9ba31e7d..ff373acd28f3 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net_main.c
+@@ -64,23 +64,6 @@
+ 
+ #define NFP_PF_CSR_SLICE_SIZE	(32 * 1024)
+ 
+-static int nfp_is_ready(struct nfp_pf *pf)
+-{
+-	const char *cp;
+-	long state;
+-	int err;
+-
+-	cp = nfp_hwinfo_lookup(pf->hwinfo, "board.state");
+-	if (!cp)
+-		return 0;
+-
+-	err = kstrtol(cp, 0, &state);
+-	if (err < 0)
+-		return 0;
+-
+-	return state == 15;
+-}
+-
+ /**
+  * nfp_net_get_mac_addr() - Get the MAC address.
+  * @pf:       NFP PF handle
+@@ -725,12 +708,6 @@ int nfp_net_pci_probe(struct nfp_pf *pf)
+ 
+ 	INIT_WORK(&pf->port_refresh_work, nfp_net_refresh_vnics);
+ 
+-	/* Verify that the board has completed initialization */
+-	if (!nfp_is_ready(pf)) {
+-		nfp_err(pf->cpp, "NFP is not ready for NIC operation.\n");
+-		return -EINVAL;
+-	}
+-
+ 	if (!pf->rtbl) {
+ 		nfp_err(pf->cpp, "No %s, giving up.\n",
+ 			pf->fw_loaded ? "symbol table" : "firmware found");
+-- 
+2.14.1
