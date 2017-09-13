@@ -1,100 +1,110 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net] net: systemport: Fix 64-bit stats deadlock
-Date: Tue, 12 Sep 2017 13:14:26 -0700
-Message-ID: <1505247266-42195-1-git-send-email-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, edumazet@google.com, jqiaoulk@gmail.com,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f196.google.com ([209.85.216.196]:38596 "EHLO
-        mail-qt0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750742AbdILUPA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 12 Sep 2017 16:15:00 -0400
-Received: by mail-qt0-f196.google.com with SMTP id f24so1112175qte.5
-        for <netdev@vger.kernel.org>; Tue, 12 Sep 2017 13:15:00 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Franklin S Cooper Jr <fcooper@ti.com>
+Subject: Re: [RFC PATCH] can: m_can: Support higher speed CAN-FD bitrates
+Date: Wed, 13 Sep 2017 16:58:12 -0500
+Message-ID: <4f8f6b64-b2a2-b9dc-665c-f1c155daf994@ti.com>
+References: <20170818193947.27862-1-fcooper@ti.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: <wg@grandegger.com>, <mkl@pengutronix.de>, <mario.huettel@gmx.net>,
+        <socketcan@hartkopp.net>, <quentin.schulz@free-electrons.com>,
+        <edumazet@google.com>, <linux-can@vger.kernel.org>,
+        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        "Nori, Sekhar" <nsekhar@ti.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170818193947.27862-1-fcooper@ti.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-We can enter a deadlock situation because there is no sufficient protection
-when ndo_get_stats64() runs in process context to guard against RX or TX NAPI
-contexts running in softirq, this can lead to the following lockdep splat and
-actual deadlock was experienced as well with an iperf session in the background
-and a while loop doing ifconfig + ethtool.
 
-[    5.780350] ================================
-[    5.784679] WARNING: inconsistent lock state
-[    5.789011] 4.13.0-rc7-02179-g32fae27c725d #70 Not tainted
-[    5.794561] --------------------------------
-[    5.798890] inconsistent {SOFTIRQ-ON-W} -> {IN-SOFTIRQ-W} usage.
-[    5.804971] swapper/0/0 [HC0[0]:SC1[1]:HE0:SE0] takes:
-[    5.810175]  (&syncp->seq#2){+.?...}, at: [<c0768a28>] bcm_sysport_tx_reclaim+0x30/0x54
-[    5.818327] {SOFTIRQ-ON-W} state was registered at:
-[    5.823278]   bcm_sysport_get_stats64+0x17c/0x258
-[    5.828053]   dev_get_stats+0x38/0xac
-[    5.831776]   rtnl_fill_stats+0x30/0x118
-[    5.835761]   rtnl_fill_ifinfo+0x538/0xe24
-[    5.839921]   rtmsg_ifinfo_build_skb+0x6c/0xd8
-[    5.844430]   rtmsg_ifinfo_event.part.5+0x14/0x44
-[    5.849201]   rtmsg_ifinfo+0x20/0x28
-[    5.852837]   register_netdevice+0x628/0x6b8
-[    5.857171]   register_netdev+0x14/0x24
-[    5.861051]   bcm_sysport_probe+0x30c/0x438
-[    5.865280]   platform_drv_probe+0x50/0xb0
-[    5.869418]   driver_probe_device+0x2e8/0x450
-[    5.873817]   __driver_attach+0x104/0x120
-[    5.877871]   bus_for_each_dev+0x7c/0xc0
-[    5.881834]   bus_add_driver+0x1b0/0x270
-[    5.885797]   driver_register+0x78/0xf4
-[    5.889675]   do_one_initcall+0x54/0x190
-[    5.893646]   kernel_init_freeable+0x144/0x1d0
-[    5.898135]   kernel_init+0x8/0x110
-[    5.901665]   ret_from_fork+0x14/0x2c
-[    5.905363] irq event stamp: 24263
-[    5.908804] hardirqs last  enabled at (24262): [<c08eecf0>] net_rx_action+0xc4/0x4e4
-[    5.916624] hardirqs last disabled at (24263): [<c0a7da00>] _raw_spin_lock_irqsave+0x1c/0x98
-[    5.925143] softirqs last  enabled at (24258): [<c022a7fc>] irq_enter+0x84/0x98
-[    5.932524] softirqs last disabled at (24259): [<c022a918>] irq_exit+0x108/0x16c
-[    5.939985]
-[    5.939985] other info that might help us debug this:
-[    5.946576]  Possible unsafe locking scenario:
-[    5.946576]
-[    5.952556]        CPU0
-[    5.955031]        ----
-[    5.957506]   lock(&syncp->seq#2);
-[    5.960955]   <Interrupt>
-[    5.963604]     lock(&syncp->seq#2);
-[    5.967227]
-[    5.967227]  *** DEADLOCK ***
-[    5.967227]
-[    5.973222] 1 lock held by swapper/0/0:
-[    5.977092]  #0:  (&(&ring->lock)->rlock){..-...}, at: [<c0768a18>] bcm_sysport_tx_reclaim+0x20/0x54
 
-So just remove the u64_stats_update_begin()/end() pair in ndo_get_stats64()
-since it does not appear to be useful for anything. No inconsistency was
-observed with either ifconfig or ethtool, global TX counts equal the sum of
-per-queue TX counts on a 32-bit architecture.
+On 08/18/2017 02:39 PM, Franklin S Cooper Jr wrote:
+> During test transmitting using CAN-FD at high bitrates (4 Mbps) only
+> resulted in errors. Scoping the signals I noticed that only a single bit
+> was being transmitted and with a bit more investigation realized the actual
+> MCAN IP would go back to initialization mode automatically.
+> 
+> It appears this issue is due to the MCAN needing to use the Transmitter
+> Delay Compensation Mode as defined in the MCAN User's Guide. When this
+> mode is used the User's Guide indicates that the Transmitter Delay
+> Compensation Offset register should be set. The document mentions that this
+> register should be set to (1/dbitrate)/2*(Func Clk Freq).
+> 
+> Additional CAN-CIA's "Bit Time Requirements for CAN FD" document indicates
+> that this TDC mode is only needed for data bit rates above 2.5 Mbps.
+> Therefore, only enable this mode and only set TDCO when the data bit rate
+> is above 2.5 Mbps.
+> 
+> Signed-off-by: Franklin S Cooper Jr <fcooper@ti.com>
+> ---
+> I'm pretty surprised that this hasn't been implemented already since
+> the primary purpose of CAN-FD is to go beyond 1 Mbps and the MCAN IP
+> supports up to 10 Mbps.
+> 
+> So it will be nice to get comments from users of this driver to understand
+> if they have been able to use CAN-FD beyond 2.5 Mbps without this patch.
+> If they haven't what did they do to get around it if they needed higher
+> speeds.
+> 
+> Meanwhile I plan on testing this using a more "realistic" CAN bus to insure
+> everything still works at 5 Mbps which is the max speed of my CAN
+> transceiver.
 
-Fixes: 10377ba7673d ("net: systemport: Support 64bit statistics")
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/ethernet/broadcom/bcmsysport.c | 3 ---
- 1 file changed, 3 deletions(-)
-
-diff --git a/drivers/net/ethernet/broadcom/bcmsysport.c b/drivers/net/ethernet/broadcom/bcmsysport.c
-index a6572b51435a..c3c53f6cd9e6 100644
---- a/drivers/net/ethernet/broadcom/bcmsysport.c
-+++ b/drivers/net/ethernet/broadcom/bcmsysport.c
-@@ -1735,11 +1735,8 @@ static void bcm_sysport_get_stats64(struct net_device *dev,
- 		stats->tx_packets += tx_packets;
- 	}
- 
--	/* lockless update tx_bytes and tx_packets */
--	u64_stats_update_begin(&priv->syncp);
- 	stats64->tx_bytes = stats->tx_bytes;
- 	stats64->tx_packets = stats->tx_packets;
--	u64_stats_update_end(&priv->syncp);
- 
- 	do {
- 		start = u64_stats_fetch_begin_irq(&priv->syncp);
--- 
-1.9.1
+ping. Anyone has any thoughts on this?
+> 
+>  drivers/net/can/m_can/m_can.c | 24 +++++++++++++++++++++++-
+>  1 file changed, 23 insertions(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/can/m_can/m_can.c b/drivers/net/can/m_can/m_can.c
+> index f4947a7..720e073 100644
+> --- a/drivers/net/can/m_can/m_can.c
+> +++ b/drivers/net/can/m_can/m_can.c
+> @@ -126,6 +126,12 @@ enum m_can_mram_cfg {
+>  #define DBTP_DSJW_SHIFT		0
+>  #define DBTP_DSJW_MASK		(0xf << DBTP_DSJW_SHIFT)
+>  
+> +/* Transmitter Delay Compensation Register (TDCR) */
+> +#define TDCR_TDCO_SHIFT		8
+> +#define TDCR_TDCO_MASK		(0x7F << TDCR_TDCO_SHIFT)
+> +#define TDCR_TDCF_SHIFT		0
+> +#define TDCR_TDCF_MASK		(0x7F << TDCR_TDCO_SHIFT)
+> +
+>  /* Test Register (TEST) */
+>  #define TEST_LBCK		BIT(4)
+>  
+> @@ -977,6 +983,8 @@ static int m_can_set_bittiming(struct net_device *dev)
+>  	const struct can_bittiming *dbt = &priv->can.data_bittiming;
+>  	u16 brp, sjw, tseg1, tseg2;
+>  	u32 reg_btp;
+> +	u32 enable_tdc = 0;
+> +	u32 tdco;
+>  
+>  	brp = bt->brp - 1;
+>  	sjw = bt->sjw - 1;
+> @@ -991,9 +999,23 @@ static int m_can_set_bittiming(struct net_device *dev)
+>  		sjw = dbt->sjw - 1;
+>  		tseg1 = dbt->prop_seg + dbt->phase_seg1 - 1;
+>  		tseg2 = dbt->phase_seg2 - 1;
+> +
+> +		/* TDC is only needed for bitrates beyond 2.5 MBit/s
+> +		 * Specified in the "Bit Time Requirements for CAN FD" document
+> +		 */
+> +		if (dbt->bitrate > 2500000) {
+> +			enable_tdc = DBTP_TDC;
+> +			/* Equation based on Bosch's M_CAN User Manual's
+> +			 * Transmitter Delay Compensation Section
+> +			 */
+> +			tdco = priv->can.clock.freq / (dbt->bitrate * 2);
+> +			m_can_write(priv, M_CAN_TDCR, tdco << TDCR_TDCO_SHIFT);
+> +		}
+> +
+>  		reg_btp = (brp << DBTP_DBRP_SHIFT) | (sjw << DBTP_DSJW_SHIFT) |
+>  			(tseg1 << DBTP_DTSEG1_SHIFT) |
+> -			(tseg2 << DBTP_DTSEG2_SHIFT);
+> +			(tseg2 << DBTP_DTSEG2_SHIFT) | enable_tdc;
+> +
+>  		m_can_write(priv, M_CAN_DBTP, reg_btp);
+>  	}
+>  
+> 
