@@ -1,59 +1,65 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH] ravb: document R8A77970 bindings
-Date: Wed, 13 Sep 2017 09:39:02 +0200
-Message-ID: <20170913073901.GE6756@verge.net.au>
-References: <20170912200228.015376134@cogentembedded.com>
+From: "Jorgen S. Hansen" <jhansen@vmware.com>
+Subject: Re: [PATCH] VSOCK: fix uapi/linux/vm_sockets.h incomplete types
+Date: Wed, 13 Sep 2017 07:55:20 +0000
+Message-ID: <FDD1A319-6FF0-4CB2-B362-7B033C89F238@vmware.com>
+References: <20170912163435.4049-1-stefanha@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Rob Herring <robh+dt@kernel.org>, netdev@vger.kernel.org,
-        devicetree@vger.kernel.org, Mark Rutland <mark.rutland@arm.com>,
-        linux-renesas-soc@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170912200228.015376134@cogentembedded.com>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "David S . Miller" <davem@davemloft.net>
+To: Stefan Hajnoczi <stefanha@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-by2nam01on0070.outbound.protection.outlook.com ([104.47.34.70]:42542
+        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751106AbdIMHzW (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 13 Sep 2017 03:55:22 -0400
+In-Reply-To: <20170912163435.4049-1-stefanha@redhat.com>
+Content-Language: en-US
+Content-ID: <90F8DB7319F06849A7E85F2B835F8B79@namprd05.prod.outlook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 12, 2017 at 11:02:08PM +0300, Sergei Shtylyov wrote:
-> R-Car V3M (R8A77970) SoC also has the R-Car gen3 compatible EtherAVB
-> device, so document  the SoC specific bindings.
-> 
-> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-
-Acked-by: Simon Horman <horms+renesas@verge.net.au>
-
-> ---
-> The patch is against DaveM's 'net-next.git' repo but I wouldn't mind if it's
-> applied to 'net.git' instead. :-)
-
-Personally I would prefer net-next, but I don't feel strongly about this.
-If you want it considered for net then I think it is likely that you will
-need to repost it with the appropriate patch prefix.
-
-> 
->  Documentation/devicetree/bindings/net/renesas,ravb.txt |    3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
-> 
-> Index: net-next/Documentation/devicetree/bindings/net/renesas,ravb.txt
-> ===================================================================
-> --- net-next.orig/Documentation/devicetree/bindings/net/renesas,ravb.txt
-> +++ net-next/Documentation/devicetree/bindings/net/renesas,ravb.txt
-> @@ -17,6 +17,7 @@ Required properties:
->  
->        - "renesas,etheravb-r8a7795" for the R8A7795 SoC.
->        - "renesas,etheravb-r8a7796" for the R8A7796 SoC.
-> +      - "renesas,etheravb-r8a77970" for the R8A77970 SoC.
->        - "renesas,etheravb-rcar-gen3" as a fallback for the above
->  		R-Car Gen3 devices.
->  
-> @@ -40,7 +41,7 @@ Optional properties:
->  - interrupt-parent: the phandle for the interrupt controller that services
->  		    interrupts for this device.
->  - interrupt-names: A list of interrupt names.
-> -		   For the R8A779[56] SoCs this property is mandatory;
-> +		   For the R-Car Gen 3 SoCs this property is mandatory;
->  		   it should include one entry per channel, named "ch%u",
->  		   where %u is the channel number ranging from 0 to 24.
->  		   For other SoCs this property is optional; if present
-> 
+DQo+IE9uIFNlcCAxMiwgMjAxNywgYXQgNjozNCBQTSwgU3RlZmFuIEhham5vY3ppIDxzdGVmYW5o
+YUByZWRoYXQuY29tPiB3cm90ZToNCj4gDQo+IFRoaXMgcGF0Y2ggZml4ZXMgdGhlIGZvbGxvd2lu
+ZyBjb21waWxlciBlcnJvcnMgd2hlbiB1c2Vyc3BhY2UNCj4gYXBwbGljYXRpb25zIHVzZSB0aGUg
+dm1fc29ja2V0cy5oIGhlYWRlcjoNCj4gDQo+ICBpbmNsdWRlL3VhcGkvbGludXgvdm1fc29ja2V0
+cy5oOjE0ODozMjogZXJyb3I6IGludmFsaWQgYXBwbGljYXRpb24gb2Yg4oCYc2l6ZW9m4oCZIHRv
+IGluY29tcGxldGUgdHlwZSDigJhzdHJ1Y3Qgc29ja2FkZHLigJkNCj4gICAgdW5zaWduZWQgY2hh
+ciBzdm1femVyb1tzaXplb2Yoc3RydWN0IHNvY2thZGRyKSAtDQo+ICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgIF5+fn5+fg0KPiAgaW5jbHVkZS91YXBpL2xpbnV4L3ZtX3NvY2tldHMu
+aDoxNDk6MTg6IGVycm9yOiDigJhzYV9mYW1pbHlfdOKAmSB1bmRlY2xhcmVkIGhlcmUgKG5vdCBp
+biBhIGZ1bmN0aW9uKQ0KPiAgICAgICAgICAgICBzaXplb2Yoc2FfZmFtaWx5X3QpIC0NCj4gICAg
+ICAgICAgICAgICAgICAgIF5+fn5+fn5+fn5+DQo+IA0KPiBUd28gaXNzdWVzOg0KPiAxLiBJbiB0
+aGUga2VybmVsIHN0cnVjdCBzb2NrYWRkciBjb21lcyBpbiB2aWEgPGxpbnV4L3NvY2tldC5oPiBi
+dXQgaW4NCj4gICB1c2Vyc3BhY2UgPHN5cy9zb2NrZXQuaD4gaXMgcmVxdWlyZWQuDQo+IDIuIHN0
+cnVjdCBzb2NrYWRkcl92bSBoYXMgYSBfX2tlcm5lbF9zYV9mYW1pbHlfdCBmaWVsZCBzbyBsZXQn
+cyBiZQ0KPiAgIGNvbnNpc3RlbnQgYW5kIHVzZSB0aGUgc2FtZSB0eXBlIGZvciB0aGUgc2l6ZW9m
+KHNhX2ZhbWlseV90KQ0KPiAgIGNhbGN1bGF0aW9uLg0KPiANCj4gQ3VycmVudGx5IHVzZXJzcGFj
+ZSBhcHBsaWNhdGlvbnMgd29yayBhcm91bmQgdGhpcyBicm9rZW4gaGVhZGVyIGJ5IGZpcnN0DQo+
+IGluY2x1ZGluZyA8c3lzL3NvY2tldC5oPi4gIEluIHRoZSBrZXJuZWwgdGhlcmUgaXMgbm8gY29t
+cGlsZXIgZXJyb3INCj4gYmVjYXVzZSA8bGludXgvc29ja2V0Lmg+IHByb3ZpZGVzIGV2ZXJ5dGhp
+bmcuICBJdCdzIHdvcnRoIGZpeGluZyB0aGUNCj4gaGVhZGVyIGZpbGUgdGhvdWdoLg0KPiANCj4g
+Q2M6IEpvcmdlbiBIYW5zZW4gPGpoYW5zZW5Adm13YXJlLmNvbT4NCj4gU2lnbmVkLW9mZi1ieTog
+U3RlZmFuIEhham5vY3ppIDxzdGVmYW5oYUByZWRoYXQuY29tPg0KPiAtLS0NCj4gaW5jbHVkZS91
+YXBpL2xpbnV4L3ZtX3NvY2tldHMuaCB8IDYgKysrKystDQo+IDEgZmlsZSBjaGFuZ2VkLCA1IGlu
+c2VydGlvbnMoKyksIDEgZGVsZXRpb24oLSkNCj4gDQo+IGRpZmYgLS1naXQgYS9pbmNsdWRlL3Vh
+cGkvbGludXgvdm1fc29ja2V0cy5oIGIvaW5jbHVkZS91YXBpL2xpbnV4L3ZtX3NvY2tldHMuaA0K
+PiBpbmRleCBiNGVkNWQ4OTU2OTkuLjRhZTVjNjI1YWM1NiAxMDA2NDQNCj4gLS0tIGEvaW5jbHVk
+ZS91YXBpL2xpbnV4L3ZtX3NvY2tldHMuaA0KPiArKysgYi9pbmNsdWRlL3VhcGkvbGludXgvdm1f
+c29ja2V0cy5oDQo+IEBAIC0xOCw2ICsxOCwxMCBAQA0KPiANCj4gI2luY2x1ZGUgPGxpbnV4L3Nv
+Y2tldC5oPg0KPiANCj4gKyNpZm5kZWYgX19LRVJORUxfXw0KPiArI2luY2x1ZGUgPHN5cy9zb2Nr
+ZXQuaD4gLyogc3RydWN0IHNvY2thZGRyICovDQo+ICsjZW5kaWYNCj4gKw0KPiAvKiBPcHRpb24g
+bmFtZSBmb3IgU1RSRUFNIHNvY2tldCBidWZmZXIgc2l6ZS4gIFVzZSBhcyB0aGUgb3B0aW9uIG5h
+bWUgaW4NCj4gICogc2V0c29ja29wdCgzKSBvciBnZXRzb2Nrb3B0KDMpIHRvIHNldCBvciBnZXQg
+YW4gdW5zaWduZWQgbG9uZyBsb25nIHRoYXQNCj4gICogc3BlY2lmaWVzIHRoZSBzaXplIG9mIHRo
+ZSBidWZmZXIgdW5kZXJseWluZyBhIHZTb2NrZXRzIFNUUkVBTSBzb2NrZXQuDQo+IEBAIC0xNDYs
+NyArMTUwLDcgQEAgc3RydWN0IHNvY2thZGRyX3ZtIHsNCj4gCXVuc2lnbmVkIGludCBzdm1fcG9y
+dDsNCj4gCXVuc2lnbmVkIGludCBzdm1fY2lkOw0KPiAJdW5zaWduZWQgY2hhciBzdm1femVyb1tz
+aXplb2Yoc3RydWN0IHNvY2thZGRyKSAtDQo+IC0JCQkgICAgICAgc2l6ZW9mKHNhX2ZhbWlseV90
+KSAtDQo+ICsJCQkgICAgICAgc2l6ZW9mKF9fa2VybmVsX3NhX2ZhbWlseV90KSAtDQo+IAkJCSAg
+ICAgICBzaXplb2YodW5zaWduZWQgc2hvcnQpIC0NCj4gCQkJICAgICAgIHNpemVvZih1bnNpZ25l
+ZCBpbnQpIC0gc2l6ZW9mKHVuc2lnbmVkIGludCldOw0KPiB9Ow0KPiAtLSANCj4gMi4xMy41DQo+
+IA0KDQpUaGFua3MgZm9yIGZpeGluZyB0aGlzLg0KDQpSZXZpZXdlZC1ieTogSm9yZ2VuIEhhbnNl
+biA8amhhbnNlbkB2bXdhcmUuY29tPg==
