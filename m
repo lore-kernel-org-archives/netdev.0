@@ -1,35 +1,34 @@
-From: Laura Abbott <labbott@redhat.com>
-Subject: Re: 319554f284dd ("inet: don't use sk_v6_rcv_saddr directly") causes
- bind port regression
-Date: Wed, 13 Sep 2017 08:44:48 -0700
-Message-ID: <588f3795-931e-7779-4ec7-5fe7d4437927@redhat.com>
-References: <1a8ef376-387e-e0fc-7362-e1fd2c2c45d3@redhat.com>
- <AF16C126-99CA-401A-B803-AA05CDFBFF93@fb.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: HTB going crazy over ~5Gbit/s (4.12.9, but problem present in
+ older kernels as well)
+Date: Wed, 13 Sep 2017 08:51:43 -0700
+Message-ID: <1505317903.15310.167.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <4cd23914d8cc2cf5caf78cb5654fb245@nuclearcat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Cole Robinson <crobinso@redhat.com>
-To: Josef Bacik <jbacik@fb.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AF16C126-99CA-401A-B803-AA05CDFBFF93@fb.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f47.google.com ([74.125.83.47]:48252 "EHLO
+        mail-pg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751599AbdIMPvq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 13 Sep 2017 11:51:46 -0400
+Received: by mail-pg0-f47.google.com with SMTP id v66so1114217pgb.5
+        for <netdev@vger.kernel.org>; Wed, 13 Sep 2017 08:51:45 -0700 (PDT)
+In-Reply-To: <4cd23914d8cc2cf5caf78cb5654fb245@nuclearcat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/12/2017 04:12 PM, Josef Bacik wrote:
-> First I’m super sorry for the top post, I’m at plumbers and I forgot to upload my muttrc to my new cloud instance, so I’m screwed using outlook.
+On Wed, 2017-09-13 at 18:20 +0300, Denys Fedoryshchenko wrote:
+> Hi,
 > 
-> I have a completely untested, uncompiled patch that I think will fix the problem, would you mind giving it a go?  Thanks,
+> I noticed after increasing bandwidth over some amount HTB started to 
+> throttle classes it should not throttle.
+> Also estimated rate in htb totally wrong, while byte counters is 
+> correct.
 > 
-> Josef
+> Is there any overflow or something?
 
-Thanks for the quick turnaround. Unfortunately, the problem is still
-reproducible according to the reporter.
-
-Thanks,
-Laura
+Thanks Denys for the report, I will take a look at this, since I
+probably introduced some regression.
