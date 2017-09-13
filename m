@@ -1,7 +1,7 @@
 From: Allen Pais <allen.lkml@gmail.com>
-Subject: [PATCH 10/10] fs:btrfs: return -ENOMEM on allocation failure.
-Date: Wed, 13 Sep 2017 13:02:19 +0530
-Message-ID: <1505287939-14106-10-git-send-email-allen.lkml@gmail.com>
+Subject: [PATCH 08/10] driver:cxgbit: return -NOMEM on allocation failure.
+Date: Wed, 13 Sep 2017 13:02:17 +0530
+Message-ID: <1505287939-14106-8-git-send-email-allen.lkml@gmail.com>
 References: <1505287939-14106-1-git-send-email-allen.lkml@gmail.com>
 Cc: nouveau@lists.freedesktop.org, linux-crypto@vger.kernel.org,
         dri-devel@lists.freedesktop.org, MPT-FusionLinux.pdl@broadcom.com,
@@ -10,28 +10,28 @@ Cc: nouveau@lists.freedesktop.org, linux-crypto@vger.kernel.org,
         linux-fbdev@vger.kernel.org, linux-btrfs@vger.kernel.org,
         Allen Pais <allen.lkml@gmail.com>
 To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <target-devel-owner@vger.kernel.org>
 In-Reply-To: <1505287939-14106-1-git-send-email-allen.lkml@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: target-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Allen Pais <allen.lkml@gmail.com>
 ---
- fs/btrfs/check-integrity.c | 2 +-
+ drivers/target/iscsi/cxgbit/cxgbit_target.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/fs/btrfs/check-integrity.c b/fs/btrfs/check-integrity.c
-index 7d5a9b5..efa4c23 100644
---- a/fs/btrfs/check-integrity.c
-+++ b/fs/btrfs/check-integrity.c
-@@ -2913,7 +2913,7 @@ int btrfsic_mount(struct btrfs_fs_info *fs_info,
- 	state = kvzalloc(sizeof(*state), GFP_KERNEL);
- 	if (!state) {
- 		pr_info("btrfs check-integrity: allocation failed!\n");
--		return -1;
-+		return -ENOMEM;
- 	}
- 
- 	if (!btrfsic_is_initialized) {
+diff --git a/drivers/target/iscsi/cxgbit/cxgbit_target.c b/drivers/target/iscsi/cxgbit/cxgbit_target.c
+index 514986b..47127d6 100644
+--- a/drivers/target/iscsi/cxgbit/cxgbit_target.c
++++ b/drivers/target/iscsi/cxgbit/cxgbit_target.c
+@@ -399,7 +399,7 @@ cxgbit_map_skb(struct iscsi_cmd *cmd, struct sk_buff *skb, u32 data_offset,
+ 	if (padding) {
+ 		page = alloc_page(GFP_KERNEL | __GFP_ZERO);
+ 		if (!page)
+-			return -1;
++			return -ENOMEM;
+ 		skb_fill_page_desc(skb, i, page, 0, padding);
+ 		skb->data_len += padding;
+ 		skb->len += padding;
 -- 
 2.7.4
