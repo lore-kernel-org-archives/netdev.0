@@ -1,64 +1,41 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: Division by zero on UP (was: Re: netfilter: nat: use keyed locks)
-Date: Sun, 10 Sep 2017 13:34:49 +0200
-Message-ID: <CAMuHMdWnzu9v_arbovZV46kjrTTpVa-GQFKx+QzxU2Kpnt5itA@mail.gmail.com>
-References: <CAMuHMdVwp1njkMYo-y8FZHWNWW6wtN2LYVC=9-mbcF-omDaztw@mail.gmail.com>
- <20170910112126.GB25977@breakpoint.cc>
+From: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
+Subject: Re: HTB going crazy over ~5Gbit/s (4.12.9, but problem present in
+ older kernels as well)
+Date: Wed, 13 Sep 2017 18:56:52 +0300
+Message-ID: <33c45cf6c5a52498f45132d29d86bc3d@nuclearcat.com>
+References: <4cd23914d8cc2cf5caf78cb5654fb245@nuclearcat.com>
+ <1505317903.15310.167.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Arnd Bergmann <arnd@arndb.de>
-To: Florian Westphal <fw@strlen.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170910112126.GB25977@breakpoint.cc>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        netdev-owner@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nuclearcat.com ([144.76.183.226]:48602 "EHLO nuclearcat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751258AbdIMP4z (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 13 Sep 2017 11:56:55 -0400
+In-Reply-To: <1505317903.15310.167.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Florian,
-
-On Sun, Sep 10, 2017 at 1:21 PM, Florian Westphal <fw@strlen.de> wrote:
-> Geert Uytterhoeven <geert@linux-m68k.org> wrote:
->> >                 srchash =3D hash_by_src(net,
->> >                                       &ct->tuplehash[IP_CT_DIR_ORIGINA=
-L].tuple);
->> > -               spin_lock_bh(&nf_nat_lock);
->> > +               lock =3D &nf_nat_locks[srchash % ARRAY_SIZE(nf_nat_loc=
-ks)];
->> > +               spin_lock_bh(lock);
->>
->> If no spinlock debugging options (CONFIG_GENERIC_LOCKBREAK,
->> CONFIG_DEBUG_SPINLOCK, CONFIG_DEBUG_LOCK_ALLOC) are enabled on a UP plat=
-form
->> (e.g. m68k defconfig), arch_spinlock_t is an empty struct, and thus
->> ARRAY_SIZE(nf_nat_locks)] is zero, leading to:
->>
->>     net/netfilter/nf_nat_core.c: In function =E2=80=98nf_nat_setup_info=
-=E2=80=99:
->>     net/netfilter/nf_nat_core.c:432: warning: division by zero
->
-> Gah. Sorry.  This is the 2nd time I add such a bug :(
->
-> Can you send a patch?  It should be enough to use CONNTRACK_LOCKS
-> instead of ARRAY_SIZE(nf_nat_locks) to avoid this problem.
->
-> Otherwise I will take care of this next thing monday morning.
-
-Thanks for the suggestion, will send a patch RSN.
-
-Gr{oetje,eeting}s,
-
-                        Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k=
-.org
-
-In personal conversations with technical people, I call myself a hacker. Bu=
-t
-when I'm talking to journalists I just say "programmer" or something like t=
-hat.
-                                -- Linus Torvalds
+On 2017-09-13 18:51, Eric Dumazet wrote:
+> On Wed, 2017-09-13 at 18:20 +0300, Denys Fedoryshchenko wrote:
+>> Hi,
+>> 
+>> I noticed after increasing bandwidth over some amount HTB started to
+>> throttle classes it should not throttle.
+>> Also estimated rate in htb totally wrong, while byte counters is
+>> correct.
+>> 
+>> Is there any overflow or something?
+> 
+> Thanks Denys for the report, I will take a look at this, since I
+> probably introduced some regression.
+It's definitely not something recent, this system was on older kernel 
+with uptime over 200 days, and this bottleneck was present, i noticed it 
+long time before.
+But never tried to remove estimators (increasing burst/cburst to insane 
+values saved me for a while).
