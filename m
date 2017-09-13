@@ -1,77 +1,38 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v2 net 1/3] lan78xx: Fix for eeprom read/write when
- device auto suspend
-Date: Mon, 11 Sep 2017 22:24:28 +0200
-Message-ID: <20170911202428.GB5983@lunn.ch>
-References: <CE371C1263339941885964188A0225FA335C84@CHN-SV-EXMX03.mchp-main.com>
+From: Cole Robinson <crobinso@redhat.com>
+Subject: Re: 319554f284dd ("inet: don't use sk_v6_rcv_saddr directly") causes
+ bind port regression
+Date: Wed, 13 Sep 2017 15:13:42 -0400
+Message-ID: <a4807126-1f17-20bd-dace-d9c6b6c4787b@redhat.com>
+References: <1a8ef376-387e-e0fc-7362-e1fd2c2c45d3@redhat.com>
+ <AF16C126-99CA-401A-B803-AA05CDFBFF93@fb.com>
+ <588f3795-931e-7779-4ec7-5fe7d4437927@redhat.com>
+ <EF55EF02-AD40-4F06-8C07-4F9F4221BFE6@fb.com>
+ <370b38d5-346c-91df-4ad4-79886ae3a9ba@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, UNGLinuxDriver@microchip.com,
-        netdev@vger.kernel.org
-To: Nisar.Sayed@microchip.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:37521 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751214AbdIKUYe (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 11 Sep 2017 16:24:34 -0400
-Content-Disposition: inline
-In-Reply-To: <CE371C1263339941885964188A0225FA335C84@CHN-SV-EXMX03.mchp-main.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Josef Bacik <jbacik@fb.com>, Laura Abbott <labbott@redhat.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <370b38d5-346c-91df-4ad4-79886ae3a9ba@redhat.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 11, 2017 at 06:51:49PM +0000, Nisar.Sayed@microchip.com wrote:
-> From: Nisar Sayed <Nisar.Sayed@microchip.com>
+On 09/13/2017 01:40 PM, Cole Robinson wrote:
+> On 09/13/2017 01:28 PM, Josef Bacik wrote:
+>> Sorry I thought I had made this other fix, can you apply this on top of the other one and try that?  I have more things to try if this doesn’t work, sorry you are playing go between, but I want to make sure I know _which_ fix actually fixes the problem, and then clean up in followup patches.  Thanks,
+>>
 > 
-> Fix for eeprom read/write when device auto suspend
+> I'm the bug reporter. I'll combine the two patches and report back
 > 
-> Fixes: 55d7de9de6c3 ("Microchip's LAN7800 family USB 2/3 to 10/100/1000 Ethernet device driver")
-> Signed-off-by: Nisar Sayed <Nisar.Sayed@microchip.com>
-> ---
->  drivers/net/usb/lan78xx.c | 22 ++++++++++++++++++----
->  1 file changed, 18 insertions(+), 4 deletions(-)
-> 
-> diff --git a/drivers/net/usb/lan78xx.c b/drivers/net/usb/lan78xx.c
-> index b99a7fb..baf91c7 100644
-> --- a/drivers/net/usb/lan78xx.c
-> +++ b/drivers/net/usb/lan78xx.c
-> @@ -1265,30 +1265,44 @@ static int lan78xx_ethtool_get_eeprom(struct net_device *netdev,
->  				      struct ethtool_eeprom *ee, u8 *data)
->  {
->  	struct lan78xx_net *dev = netdev_priv(netdev);
-> +	int ret = -EINVAL;
-> +
-> +	if (usb_autopm_get_interface(dev->intf) < 0)
-> +		return ret;
 
-Hi Nisar
+Nope, issue is still present with both patches applied. Tried my own build and
+a package Laura provided
 
-It is better to do
-
-   ret = usb_autopm_get_interface(dev->intf;
-   if (ret)
-        return ret;
-
-i.e. use the error code usb_autopm_get_interface() gives you.
-
->  	ee->magic = LAN78XX_EEPROM_MAGIC;
->  
-> -	return lan78xx_read_raw_eeprom(dev, ee->offset, ee->len, data);
-> +	ret = lan78xx_read_raw_eeprom(dev, ee->offset, ee->len, data);
-> +
-> +	usb_autopm_put_interface(dev->intf);
-> +
-> +	return ret;
->  }
->  
->  static int lan78xx_ethtool_set_eeprom(struct net_device *netdev,
->  				      struct ethtool_eeprom *ee, u8 *data)
->  {
->  	struct lan78xx_net *dev = netdev_priv(netdev);
-> +	int ret = -EINVAL;
-> +
-> +	if (usb_autopm_get_interface(dev->intf) < 0)
-> +		return ret;
-
-Same here.
-
-     Andrew
+Thanks,
+Cole
