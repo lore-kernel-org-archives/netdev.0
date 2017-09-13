@@ -1,77 +1,109 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: HTB going crazy over ~5Gbit/s (4.12.9, but problem present in
- older kernels as well)
-Date: Wed, 13 Sep 2017 09:42:29 -0700
-Message-ID: <1505320949.15310.173.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <4cd23914d8cc2cf5caf78cb5654fb245@nuclearcat.com>
-         <d2aee52fda21d8f668ca012333ef3677@nuclearcat.com>
-         <1505319370.15310.169.camel@edumazet-glaptop3.roam.corp.google.com>
-         <9b8cdc2b39fdd2d0be7b5f559b2034e7@nuclearcat.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: Memory leaks in conntrack
+Date: Wed, 13 Sep 2017 09:45:42 -0700
+Message-ID: <CAM_iQpVk1X+ZV2Nzi28G0HJu+RZWJ-_=0AO+EF4HVZnqSjVQ8w@mail.gmail.com>
+References: <CAM_iQpWvO3L1JOrCMvAvqduWH5pt_9-=GEx+eOFQyOt5Z5prrA@mail.gmail.com>
+ <20170913080516.GD25977@breakpoint.cc>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:37616 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750992AbdIMQma (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 13 Sep 2017 12:42:30 -0400
-Received: by mail-pg0-f65.google.com with SMTP id v5so349498pgn.4
-        for <netdev@vger.kernel.org>; Wed, 13 Sep 2017 09:42:30 -0700 (PDT)
-In-Reply-To: <9b8cdc2b39fdd2d0be7b5f559b2034e7@nuclearcat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netfilter-devel@vger.kernel.org,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20170913080516.GD25977@breakpoint.cc>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2017-09-13 at 19:27 +0300, Denys Fedoryshchenko wrote:
-> On 2017-09-13 19:16, Eric Dumazet wrote:
-> > On Wed, 2017-09-13 at 18:34 +0300, Denys Fedoryshchenko wrote:
-> >> Well, probably i am answering my own question, removing estimator from
-> >> classes seems drastically improve situation.
-> >> It seems estimator has some issues that cause shaper to behave
-> >> incorrectly (throttling traffic while it should not).
-> >> But i guess thats a bug?
-> >> As i was not able to predict such bottleneck by CPU load measurements.
-> > 
-> > Well, there was a reason we disabled HTB class estimators by default ;)
-> > 
-> > 
-> > https://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git/commit/?id=64153ce0a7b61b2a5cacb01805cbf670142339e9
-> 
-> As soon as disabling it solve my problem - i'm fine, hehe, but i guess 
-> other people who might hit this problem, should be aware how to find 
-> reason.
-> They should not be disappointed in Linux :)
+On Wed, Sep 13, 2017 at 1:05 AM, Florian Westphal <fw@strlen.de> wrote:
+> Cong Wang <xiyou.wangcong@gmail.com> wrote:
+>> While testing my TC filter patches (so not related to conntrack), the
+>> following memory leaks are shown up:
+>>
+>> unreferenced object 0xffff9b19ba551228 (size 128):
+>>   comm "chronyd", pid 338, jiffies 4294910829 (age 53.188s)
+>>   hex dump (first 32 bytes):
+>>     6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b  kkkkkkkkkkkkkkkk
+>>     00 00 00 00 18 00 00 30 00 00 00 00 00 00 00 00  .......0........
+>>   backtrace:
+>>     [<ffffffff9f1e1175>] create_object+0x169/0x2aa
+>>     [<ffffffff9fb77fb2>] kmemleak_alloc+0x25/0x41
+>>     [<ffffffff9f1c47ed>] slab_post_alloc_hook+0x44/0x65
+>>     [<ffffffff9f1ca2db>] __kmalloc_track_caller+0x113/0x146
+>>     [<ffffffff9f193c3b>] __krealloc+0x4a/0x69
+>>     [<ffffffff9f948dbd>] nf_ct_ext_add+0xe1/0x145
+>>     [<ffffffff9f942395>] init_conntrack+0x1f7/0x36e
+>>     [<ffffffff9f942762>] nf_conntrack_in+0x1d3/0x326
+>>     [<ffffffff9fa1ea69>] ipv4_conntrack_local+0x4d/0x50
+>>     [<ffffffff9f93ad70>] nf_hook_slow+0x3c/0x9b
+>>     [<ffffffff9f9c7999>] nf_hook.constprop.40+0xbe/0xd8
+>>     [<ffffffff9f9c7ba2>] __ip_local_out+0xb3/0xbf
+>>     [<ffffffff9f9c7bca>] ip_local_out+0x1c/0x36
+>>     [<ffffffff9f9c9216>] ip_send_skb+0x19/0x3d
+>>     [<ffffffff9f9ee3de>] udp_send_skb+0x17e/0x1df
+>>     [<ffffffff9f9eea37>] udp_sendmsg+0x5a2/0x77c
+>> unreferenced object 0xffff9b19a69b3340 (size 336):
+>>   comm "chronyd", pid 338, jiffies 4294910868 (age 53.032s)
+>>   hex dump (first 32 bytes):
+>>     01 00 00 00 5a 5a 5a 5a 00 00 00 00 ad 4e ad de  ....ZZZZ.....N..
+>>     ff ff ff ff 5a 5a 5a 5a ff ff ff ff ff ff ff ff  ....ZZZZ........
+>>   backtrace:
+>>     [<ffffffff9f1e1175>] create_object+0x169/0x2aa
+>>     [<ffffffff9fb77fb2>] kmemleak_alloc+0x25/0x41
+>>     [<ffffffff9f1c47ed>] slab_post_alloc_hook+0x44/0x65
+>>     [<ffffffff9f1c7a7d>] kmem_cache_alloc+0xd7/0x1f1
+>>     [<ffffffff9f941b78>] __nf_conntrack_alloc+0xa2/0x146
+>>     [<ffffffff9f942250>] init_conntrack+0xb2/0x36e
+>>     [<ffffffff9f942762>] nf_conntrack_in+0x1d3/0x326
+>>     [<ffffffff9fa1ea69>] ipv4_conntrack_local+0x4d/0x50
+>>     [<ffffffff9f93ad70>] nf_hook_slow+0x3c/0x9b
+>>     [<ffffffff9f9c7999>] nf_hook.constprop.40+0xbe/0xd8
+>>     [<ffffffff9f9c7ba2>] __ip_local_out+0xb3/0xbf
+>>     [<ffffffff9f9c7bca>] ip_local_out+0x1c/0x36
+>>     [<ffffffff9f9c9216>] ip_send_skb+0x19/0x3d
+>>     [<ffffffff9f9ee3de>] udp_send_skb+0x17e/0x1df
+>>     [<ffffffff9f9eea37>] udp_sendmsg+0x5a2/0x77c
+>>     [<ffffffff9f9f8cb8>] inet_sendmsg+0x37/0x5e
+>>
+>> I don't touch chronyd in my VM, so I have no idea why it sends out UDP
+>> packets, my guess is it is some periodical packet.
+>>
+>> I don't think I use conntrack either, since /proc/net/ip_conntrack
+>> does not exist.
+>
+> You probably do, can you try "cat /proc/net/nf_conntrack" instead?
+>
+> (otherwise there should be no ipv4_conntrack_local() invocation
+>  since we would not register this hook at all).
 
-Well, if they enable rate estimators while kernel does not set them by
-default, they get what they want, at a cost.
+Yeah it is very weird but it is true:
 
-> Because i can't measure this bottleneck before it happens, i'm seeing on 
-> mpstat all cpu's are idle, and same time traffic is throttled.
+[root@localhost ~]# echo scan > /sys/kernel/debug/kmemleak
+[  133.450823] kmemleak: 18 new suspected memory leaks (see
+/sys/kernel/debug/kmemleak)
+[root@localhost ~]# cat /proc/net/ip_conntrack
+cat: /proc/net/ip_conntrack: No such file or directory
+[root@localhost ~]# cat /sys/kernel/debug/kmemleak
+unreferenced object 0xffff95c1e0b24040 (size 336):
+...
 
-Normally things were supposed to get much better in linux-4.10
 
-( https://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git/commit/?id=1c0d32fde5bdf1184bc274f864c09799278a1114 )
+>
+> I tried to reproduce this but so far I had no success.
+> If you can identify something that could give a hint when this
+> is happening (only once after boot, periodically, only with udp, etc)
+> please let us know.
+>
+> (A reproducer would be even better of course ;-) )
 
-But I apparently added a scaling bug.
+Actually, it is even simpler to reproduce, nothing is needed
+but wait. I thought it is somewhat triggered by my tests, but
+actually no. For me, just boot the VM and wait for several
+seconds, memleak will show up.
 
-I will try :
+(chronyd is started by systemd during boot, not me.)
 
-diff --git a/net/core/gen_estimator.c b/net/core/gen_estimator.c
-index 0385dece1f6fe5e26df1ce5f40956a79a2eebbf4..7c1ffd6f950172c1915d8e5fa2b5e3f77e4f4c78 100644
---- a/net/core/gen_estimator.c
-+++ b/net/core/gen_estimator.c
-@@ -83,10 +83,10 @@ static void est_timer(unsigned long arg)
-        u64 rate, brate;
- 
-        est_fetch_counters(est, &b);
--       brate = (b.bytes - est->last_bytes) << (8 - est->ewma_log);
-+       brate = (b.bytes - est->last_bytes) << (10 - est->ewma_log - est->intvl_log);
-        brate -= (est->avbps >> est->ewma_log);
- 
--       rate = (u64)(b.packets - est->last_packets) << (8 - est->ewma_log);
-+       rate = (u64)(b.packets - est->last_packets) << (10 - est->ewma_log - est->intvl_log);
-        rate -= (est->avpps >> est->ewma_log);
- 
-        write_seqcount_begin(&est->seq);
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+>
+> Is this with current net tree?
+
+Yes, I just pulled DaveM's net tree and recompiled the kernel,
+still 100% reproducible here.
