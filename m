@@ -1,90 +1,85 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: Memory leaks in conntrack
-Date: Wed, 13 Sep 2017 10:05:16 +0200
-Message-ID: <20170913080516.GD25977@breakpoint.cc>
-References: <CAM_iQpWvO3L1JOrCMvAvqduWH5pt_9-=GEx+eOFQyOt5Z5prrA@mail.gmail.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: Regression in throughput between kvm guests over virtual bridge
+Date: Wed, 13 Sep 2017 16:13:45 +0800
+Message-ID: <e022cfa7-ef65-550f-06e8-f6e29f1d68a0@redhat.com>
+References: <4c7e2924-b10f-0e97-c388-c8809ecfdeeb@linux.vnet.ibm.com>
+ <bdd417dc-9e2f-4a2e-534b-c6aa38f002f2@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel@vger.kernel.org,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: davem@davemloft.net, mst@redhat.com
+To: Matthew Rosato <mjrosato@linux.vnet.ibm.com>,
+        netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:58910 "EHLO
-        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750737AbdIMIIY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 13 Sep 2017 04:08:24 -0400
-Content-Disposition: inline
-In-Reply-To: <CAM_iQpWvO3L1JOrCMvAvqduWH5pt_9-=GEx+eOFQyOt5Z5prrA@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:44052 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750776AbdIMINw (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 13 Sep 2017 04:13:52 -0400
+In-Reply-To: <bdd417dc-9e2f-4a2e-534b-c6aa38f002f2@redhat.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> While testing my TC filter patches (so not related to conntrack), the
-> following memory leaks are shown up:
-> 
-> unreferenced object 0xffff9b19ba551228 (size 128):
->   comm "chronyd", pid 338, jiffies 4294910829 (age 53.188s)
->   hex dump (first 32 bytes):
->     6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b  kkkkkkkkkkkkkkkk
->     00 00 00 00 18 00 00 30 00 00 00 00 00 00 00 00  .......0........
->   backtrace:
->     [<ffffffff9f1e1175>] create_object+0x169/0x2aa
->     [<ffffffff9fb77fb2>] kmemleak_alloc+0x25/0x41
->     [<ffffffff9f1c47ed>] slab_post_alloc_hook+0x44/0x65
->     [<ffffffff9f1ca2db>] __kmalloc_track_caller+0x113/0x146
->     [<ffffffff9f193c3b>] __krealloc+0x4a/0x69
->     [<ffffffff9f948dbd>] nf_ct_ext_add+0xe1/0x145
->     [<ffffffff9f942395>] init_conntrack+0x1f7/0x36e
->     [<ffffffff9f942762>] nf_conntrack_in+0x1d3/0x326
->     [<ffffffff9fa1ea69>] ipv4_conntrack_local+0x4d/0x50
->     [<ffffffff9f93ad70>] nf_hook_slow+0x3c/0x9b
->     [<ffffffff9f9c7999>] nf_hook.constprop.40+0xbe/0xd8
->     [<ffffffff9f9c7ba2>] __ip_local_out+0xb3/0xbf
->     [<ffffffff9f9c7bca>] ip_local_out+0x1c/0x36
->     [<ffffffff9f9c9216>] ip_send_skb+0x19/0x3d
->     [<ffffffff9f9ee3de>] udp_send_skb+0x17e/0x1df
->     [<ffffffff9f9eea37>] udp_sendmsg+0x5a2/0x77c
-> unreferenced object 0xffff9b19a69b3340 (size 336):
->   comm "chronyd", pid 338, jiffies 4294910868 (age 53.032s)
->   hex dump (first 32 bytes):
->     01 00 00 00 5a 5a 5a 5a 00 00 00 00 ad 4e ad de  ....ZZZZ.....N..
->     ff ff ff ff 5a 5a 5a 5a ff ff ff ff ff ff ff ff  ....ZZZZ........
->   backtrace:
->     [<ffffffff9f1e1175>] create_object+0x169/0x2aa
->     [<ffffffff9fb77fb2>] kmemleak_alloc+0x25/0x41
->     [<ffffffff9f1c47ed>] slab_post_alloc_hook+0x44/0x65
->     [<ffffffff9f1c7a7d>] kmem_cache_alloc+0xd7/0x1f1
->     [<ffffffff9f941b78>] __nf_conntrack_alloc+0xa2/0x146
->     [<ffffffff9f942250>] init_conntrack+0xb2/0x36e
->     [<ffffffff9f942762>] nf_conntrack_in+0x1d3/0x326
->     [<ffffffff9fa1ea69>] ipv4_conntrack_local+0x4d/0x50
->     [<ffffffff9f93ad70>] nf_hook_slow+0x3c/0x9b
->     [<ffffffff9f9c7999>] nf_hook.constprop.40+0xbe/0xd8
->     [<ffffffff9f9c7ba2>] __ip_local_out+0xb3/0xbf
->     [<ffffffff9f9c7bca>] ip_local_out+0x1c/0x36
->     [<ffffffff9f9c9216>] ip_send_skb+0x19/0x3d
->     [<ffffffff9f9ee3de>] udp_send_skb+0x17e/0x1df
->     [<ffffffff9f9eea37>] udp_sendmsg+0x5a2/0x77c
->     [<ffffffff9f9f8cb8>] inet_sendmsg+0x37/0x5e
+
+
+On 2017年09月13日 09:16, Jason Wang wrote:
 >
-> I don't touch chronyd in my VM, so I have no idea why it sends out UDP
-> packets, my guess is it is some periodical packet.
-> 
-> I don't think I use conntrack either, since /proc/net/ip_conntrack
-> does not exist.
+>
+> On 2017年09月13日 01:56, Matthew Rosato wrote:
+>> We are seeing a regression for a subset of workloads across KVM guests
+>> over a virtual bridge between host kernel 4.12 and 4.13. Bisecting
+>> points to c67df11f "vhost_net: try batch dequing from skb array"
+>>
+>> In the regressed environment, we are running 4 kvm guests, 2 running as
+>> uperf servers and 2 running as uperf clients, all on a single host.
+>> They are connected via a virtual bridge.  The uperf client profile looks
+>> like:
+>>
+>> <?xml version="1.0"?>
+>> <profile name="TCP_STREAM">
+>>    <group nprocs="1">
+>>      <transaction iterations="1">
+>>        <flowop type="connect" options="remotehost=192.168.122.103
+>> protocol=tcp"/>
+>>      </transaction>
+>>      <transaction duration="300">
+>>        <flowop type="write" options="count=16 size=30000"/>
+>>      </transaction>
+>>      <transaction iterations="1">
+>>        <flowop type="disconnect"/>
+>>      </transaction>
+>>    </group>
+>> </profile>
+>>
+>> So, 1 tcp streaming instance per client.  When upgrading the host kernel
+>> from 4.12->4.13, we see about a 30% drop in throughput for this
+>> scenario.  After the bisect, I further verified that reverting c67df11f
+>> on 4.13 "fixes" the throughput for this scenario.
+>>
+>> On the other hand, if we increase the load by upping the number of
+>> streaming instances to 50 (nprocs="50") or even 10, we see instead a
+>> ~10% increase in throughput when upgrading host from 4.12->4.13.
+>>
+>> So it may be the issue is specific to "light load" scenarios.  I would
+>> expect some overhead for the batching, but 30% seems significant...  Any
+>> thoughts on what might be happening here?
+>>
+>
+> Hi, thanks for the bisecting. Will try to see if I can reproduce. 
+> Various factors could have impact on stream performance. If possible, 
+> could you collect the #pkts and average packet size during the test? 
+> And if you guest version is above 4.12, could you please retry with 
+> napi_tx=true?
+>
+> Thanks
 
-You probably do, can you try "cat /proc/net/nf_conntrack" instead?
+Unfortunately, I could not reproduce it locally. I'm using net-next.git 
+as guest. I can get ~42Gb/s on Intel(R) Xeon(R) CPU E5-2650 0 @ 2.00GHz 
+for both before and after the commit. I use 1 vcpu and 1 queue, and pin 
+vcpu and vhost threads into separate cpu on host manually (in same numa 
+node).
 
-(otherwise there should be no ipv4_conntrack_local() invocation
- since we would not register this hook at all).
+Can you hit this regression constantly and what's you qemu command line 
+and #cpus on host? Is zerocopy enabled?
 
-I tried to reproduce this but so far I had no success.
-If you can identify something that could give a hint when this
-is happening (only once after boot, periodically, only with udp, etc)
-please let us know.
-
-(A reproducer would be even better of course ;-) )
-
-Is this with current net tree?
-
-Thanks!
+Thanks
