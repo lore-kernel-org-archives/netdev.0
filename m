@@ -1,106 +1,253 @@
 From: Hangbin Liu <liuhangbin@gmail.com>
-Subject: [PATCHv2 iproute2 0/2] libnetlink: malloc correct buff at run time
-Date: Wed, 13 Sep 2017 17:59:38 +0800
-Message-ID: <1505296780-8444-1-git-send-email-liuhangbin@gmail.com>
+Subject: [PATCHv2 iproute2 1/2] lib/libnetlink: re malloc buff if size is not enough
+Date: Wed, 13 Sep 2017 17:59:39 +0800
+Message-ID: <1505296780-8444-2-git-send-email-liuhangbin@gmail.com>
+References: <1505296780-8444-1-git-send-email-liuhangbin@gmail.com>
 Cc: Stephen Hemminger <stephen@networkplumber.org>,
         Michal Kubecek <mkubecek@suse.cz>, Phil Sutter <phil@nwl.cc>,
         Hangbin Liu <liuhangbin@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:33265 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751054AbdIMKAQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 13 Sep 2017 06:00:16 -0400
-Received: by mail-pf0-f194.google.com with SMTP id h4so7334319pfk.0
-        for <netdev@vger.kernel.org>; Wed, 13 Sep 2017 03:00:16 -0700 (PDT)
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:37050 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751714AbdIMKAT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 13 Sep 2017 06:00:19 -0400
+Received: by mail-pg0-f66.google.com with SMTP id v5so7419496pgn.4
+        for <netdev@vger.kernel.org>; Wed, 13 Sep 2017 03:00:19 -0700 (PDT)
+In-Reply-To: <1505296780-8444-1-git-send-email-liuhangbin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-With commit 72b365e8e0fd ("libnetlink: Double the dump buffer size") and
-460c03f3f3cc ("iplink: double the buffer size also in iplink_get()"), we
-extend the buffer size to avoid truncated message with large numbers of
-VFs. But just as Michal said, this is not future-proof since the NIC
-number is increasing. We have customer even has 220+ VFs now.
+With commit 72b365e8e0fd ("libnetlink: Double the dump buffer size")
+we doubled the buffer size to support more VFs. But the VFs number is
+increasing all the time. Some customers even use more than 200 VFs now.
 
-This is not make sense to hard code the buffer and increase it all the time.
-So let's just malloc the correct buff size at run time.
+We could not double it everytime when the buffer is not enough. Let's just
+not hard code the buffer size and malloc the correct number when running.
 
-Tested with most ip cmds and all look good.
+Introduce function rtnl_recvmsg() to always return a newly allocated buffer.
+The caller need to free it after using.
 
+Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
+Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
-Changes since v1 by Phil:
-* rtnl_recvmsg():
-  * Rename output buffer pointer arg to 'answer'.
-  * Use realloc() and make sure old buffer is freed on error.
-  * Always return a newly allocated buffer for caller to free.
-  * Retry on EINTR or EAGAIN so caller doesn't have to.
-  * Return well-known negative error codes instead of just -1 on error.
-  * Simplify goto label names.
-  * If no answer pointer was passed, just free the buffer.
-* rtnl_dump_filter_l():
-  * Don't retry if rtnl_recvmsg() returns 0 as this can't happen
-    anymore.
-  * Free buffer returned by rtnl_recvmsg().
-* __rtnl_talk():
-  * Don't retry if rtnl_recvmsg() returns 0 as this can't happen
-    anymore.
-  * Free buffer returned by rtnl_recvmsg().
-  * Return a newly allocated buffer for callers to free.
-* genl_ctrl_resolve_family()
-  * Replace 'ghdr + GENL_HDRLEN' to 'answer + NLMSG_LENGTH(GENL_HDRLEN)'
-* tc_action_gd()
-  * Call print_action() only if cmd == RTM_GETACTION
-* Change callers of rtnl_talk*() to always free the answer buffer if
-  they passed one.
-* Drop extra request buffer space in callers if only used for holding
-  output data.
-* Drop initialization of answer pointer if not necessary.
-* Change callers to pass NULL instead of answer pointer if they don't
-  use it afterwards.
+ lib/libnetlink.c | 112 ++++++++++++++++++++++++++++++++++++++-----------------
+ 1 file changed, 78 insertions(+), 34 deletions(-)
 
-
-Hangbin Liu (2):
-  lib/libnetlink: re malloc buff if size is not enough
-  lib/libnetlink: update rtnl_talk to support malloc buff at run time
-
- bridge/fdb.c         |   2 +-
- bridge/link.c        |   2 +-
- bridge/mdb.c         |   2 +-
- bridge/vlan.c        |   2 +-
- genl/ctrl.c          |  19 +++++---
- include/libnetlink.h |   6 +--
- ip/ipaddress.c       |   4 +-
- ip/ipaddrlabel.c     |   4 +-
- ip/ipfou.c           |   4 +-
- ip/ipila.c           |   4 +-
- ip/ipl2tp.c          |   8 ++--
- ip/iplink.c          |  38 +++++++--------
- ip/iplink_vrf.c      |  44 ++++++++---------
- ip/ipmacsec.c        |   2 +-
- ip/ipneigh.c         |   2 +-
- ip/ipnetns.c         |  23 +++++----
- ip/ipntable.c        |   2 +-
- ip/iproute.c         |  26 ++++++----
- ip/iprule.c          |   6 +--
- ip/ipseg6.c          |   8 ++--
- ip/iptoken.c         |   2 +-
- ip/link_gre.c        |  11 +++--
- ip/link_gre6.c       |  11 +++--
- ip/link_ip6tnl.c     |  11 +++--
- ip/link_iptnl.c      |  10 ++--
- ip/link_vti.c        |  11 +++--
- ip/link_vti6.c       |  11 +++--
- ip/tcp_metrics.c     |   8 ++--
- ip/xfrm_policy.c     |  25 +++++-----
- ip/xfrm_state.c      |  30 ++++++------
- lib/libgenl.c        |   9 +++-
- lib/libnetlink.c     | 132 +++++++++++++++++++++++++++++++++------------------
- misc/ss.c            |   2 +-
- tc/m_action.c        |  12 ++---
- tc/tc_class.c        |   2 +-
- tc/tc_filter.c       |   8 ++--
- tc/tc_qdisc.c        |   2 +-
- 37 files changed, 296 insertions(+), 209 deletions(-)
-
+diff --git a/lib/libnetlink.c b/lib/libnetlink.c
+index be7ac86..e3fa7cf 100644
+--- a/lib/libnetlink.c
++++ b/lib/libnetlink.c
+@@ -402,6 +402,62 @@ static void rtnl_dump_error(const struct rtnl_handle *rth,
+ 	}
+ }
+ 
++static int rtnl_recvmsg(int fd, struct msghdr *msg, char **answer)
++{
++	struct iovec *iov;
++	int len = -1, buf_len = 32768;
++	char *bufp, *buf = NULL;
++
++	int flag = MSG_PEEK | MSG_TRUNC;
++
++realloc:
++	bufp = realloc(buf, buf_len);
++
++	if (bufp == NULL) {
++		fprintf(stderr, "malloc error: not enough buffer\n");
++		free(buf);
++		return -ENOMEM;
++	}
++	buf = bufp;
++	iov = msg->msg_iov;
++	iov->iov_base = buf;
++	iov->iov_len = buf_len;
++
++recv:
++	len = recvmsg(fd, msg, flag);
++
++	if (len < 0) {
++		if (errno == EINTR || errno == EAGAIN)
++			goto recv;
++		fprintf(stderr, "netlink receive error %s (%d)\n",
++			strerror(errno), errno);
++		return len;
++	}
++
++	if (len == 0) {
++		fprintf(stderr, "EOF on netlink\n");
++		return -ENODATA;
++	}
++
++	if (len > buf_len) {
++		buf_len = len;
++		flag = 0;
++		goto realloc;
++	}
++
++	if (flag != 0) {
++		flag = 0;
++		goto recv;
++	}
++
++	if (answer)
++		*answer = buf;
++	else
++		free(buf);
++
++	return len;
++}
++
+ int rtnl_dump_filter_l(struct rtnl_handle *rth,
+ 		       const struct rtnl_dump_filter_arg *arg)
+ {
+@@ -413,31 +469,18 @@ int rtnl_dump_filter_l(struct rtnl_handle *rth,
+ 		.msg_iov = &iov,
+ 		.msg_iovlen = 1,
+ 	};
+-	char buf[32768];
++	char *buf;
+ 	int dump_intr = 0;
+ 
+-	iov.iov_base = buf;
+ 	while (1) {
+ 		int status;
+ 		const struct rtnl_dump_filter_arg *a;
+ 		int found_done = 0;
+ 		int msglen = 0;
+ 
+-		iov.iov_len = sizeof(buf);
+-		status = recvmsg(rth->fd, &msg, 0);
+-
+-		if (status < 0) {
+-			if (errno == EINTR || errno == EAGAIN)
+-				continue;
+-			fprintf(stderr, "netlink receive error %s (%d)\n",
+-				strerror(errno), errno);
+-			return -1;
+-		}
+-
+-		if (status == 0) {
+-			fprintf(stderr, "EOF on netlink\n");
+-			return -1;
+-		}
++		status = rtnl_recvmsg(rth->fd, &msg, &buf);
++		if (status < 0)
++			return status;
+ 
+ 		if (rth->dump_fp)
+ 			fwrite(buf, 1, NLMSG_ALIGN(status), rth->dump_fp);
+@@ -462,8 +505,10 @@ int rtnl_dump_filter_l(struct rtnl_handle *rth,
+ 
+ 				if (h->nlmsg_type == NLMSG_DONE) {
+ 					err = rtnl_dump_done(h);
+-					if (err < 0)
++					if (err < 0) {
++						free(buf);
+ 						return -1;
++					}
+ 
+ 					found_done = 1;
+ 					break; /* process next filter */
+@@ -471,19 +516,23 @@ int rtnl_dump_filter_l(struct rtnl_handle *rth,
+ 
+ 				if (h->nlmsg_type == NLMSG_ERROR) {
+ 					rtnl_dump_error(rth, h);
++					free(buf);
+ 					return -1;
+ 				}
+ 
+ 				if (!rth->dump_fp) {
+ 					err = a->filter(&nladdr, h, a->arg1);
+-					if (err < 0)
++					if (err < 0) {
++						free(buf);
+ 						return err;
++					}
+ 				}
+ 
+ skip_it:
+ 				h = NLMSG_NEXT(h, msglen);
+ 			}
+ 		}
++		free(buf);
+ 
+ 		if (found_done) {
+ 			if (dump_intr)
+@@ -543,7 +592,7 @@ static int __rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n,
+ 		.msg_iov = &iov,
+ 		.msg_iovlen = 1,
+ 	};
+-	char   buf[32768] = {};
++	char *buf;
+ 
+ 	n->nlmsg_seq = seq = ++rtnl->seq;
+ 
+@@ -556,22 +605,12 @@ static int __rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n,
+ 		return -1;
+ 	}
+ 
+-	iov.iov_base = buf;
+ 	while (1) {
+-		iov.iov_len = sizeof(buf);
+-		status = recvmsg(rtnl->fd, &msg, 0);
++		status = rtnl_recvmsg(rtnl->fd, &msg, &buf);
++
++		if (status < 0)
++			return status;
+ 
+-		if (status < 0) {
+-			if (errno == EINTR || errno == EAGAIN)
+-				continue;
+-			fprintf(stderr, "netlink receive error %s (%d)\n",
+-				strerror(errno), errno);
+-			return -1;
+-		}
+-		if (status == 0) {
+-			fprintf(stderr, "EOF on netlink\n");
+-			return -1;
+-		}
+ 		if (msg.msg_namelen != sizeof(nladdr)) {
+ 			fprintf(stderr,
+ 				"sender address length == %d\n",
+@@ -585,6 +624,7 @@ static int __rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n,
+ 			if (l < 0 || len > status) {
+ 				if (msg.msg_flags & MSG_TRUNC) {
+ 					fprintf(stderr, "Truncated message\n");
++					free(buf);
+ 					return -1;
+ 				}
+ 				fprintf(stderr,
+@@ -611,6 +651,7 @@ static int __rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n,
+ 					if (answer)
+ 						memcpy(answer, h,
+ 						       MIN(maxlen, h->nlmsg_len));
++					free(buf);
+ 					return 0;
+ 				}
+ 
+@@ -619,12 +660,14 @@ static int __rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n,
+ 					rtnl_talk_error(h, err, errfn);
+ 
+ 				errno = -err->error;
++				free(buf);
+ 				return -1;
+ 			}
+ 
+ 			if (answer) {
+ 				memcpy(answer, h,
+ 				       MIN(maxlen, h->nlmsg_len));
++				free(buf);
+ 				return 0;
+ 			}
+ 
+@@ -633,6 +676,7 @@ static int __rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n,
+ 			status -= NLMSG_ALIGN(len);
+ 			h = (struct nlmsghdr *)((char *)h + NLMSG_ALIGN(len));
+ 		}
++		free(buf);
+ 
+ 		if (msg.msg_flags & MSG_TRUNC) {
+ 			fprintf(stderr, "Message truncated\n");
 -- 
 2.5.5
