@@ -1,79 +1,128 @@
-From: Josef Bacik <jbacik@fb.com>
-Subject: Re: 319554f284dd ("inet: don't use sk_v6_rcv_saddr directly") causes
- bind port regression
-Date: Wed, 13 Sep 2017 17:28:25 +0000
-Message-ID: <EF55EF02-AD40-4F06-8C07-4F9F4221BFE6@fb.com>
-References: <1a8ef376-387e-e0fc-7362-e1fd2c2c45d3@redhat.com>
- <AF16C126-99CA-401A-B803-AA05CDFBFF93@fb.com>
- <588f3795-931e-7779-4ec7-5fe7d4437927@redhat.com>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [PATCH 0/2] net: Fix crashes due to activity during suspend
+Date: Wed, 13 Sep 2017 19:33:07 +0200
+Message-ID: <CAMuHMdU4B3-isRbJmuxE2y0kKcM6hLoRPuzz9aNUgr7uz3VLYg@mail.gmail.com>
+References: <1503427046-17618-1-git-send-email-geert+renesas@glider.be>
+ <757f672b-d3cf-9189-0533-cb45e325c6b8@gmail.com> <CAMuHMdVMuW+5UQc3Tg5bWkix_PLEaxsoGA6sgSdVz0fV6UsO6Q@mail.gmail.com>
+ <5a1b6f23-6fce-1a68-f9c3-ca0d709979e7@gmail.com> <af7d0675-0cf2-1345-f137-59346e6f962c@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-        boundary="_002_EF55EF02AD404F068C074F9F4221BFE6fbcom_"
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Cole Robinson <crobinso@redhat.com>
-To: Laura Abbott <labbott@redhat.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        "Hideaki YOSHIFUJI" <yoshfuji@linux-ipv6.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <588f3795-931e-7779-4ec7-5fe7d4437927@redhat.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Andrew Lunn <andrew@lunn.ch>, marc_gonzalez@sigmadesigns.com,
+        Mason <slash.tmp@free.fr>,
+        Geert Uytterhoeven <geert+renesas@glider.be>,
+        "David S . Miller" <davem@davemloft.net>,
+        Steve Glendinning <steve.glendinning@shawell.net>,
+        Lukas Wunner <lukas@wunner.de>,
+        "Rafael J . Wysocki" <rafael.j.wysocki@intel.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Linux PM list <linux-pm@vger.kernel.org>,
+        Linux-Renesas <linux-renesas-soc@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-pm-owner@vger.kernel.org>
+In-Reply-To: <af7d0675-0cf2-1345-f137-59346e6f962c@gmail.com>
+Sender: linux-pm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---_002_EF55EF02AD404F068C074F9F4221BFE6fbcom_
-Content-Type: text/plain; charset="utf-8"
-Content-ID: <9B3EF808575C9A4AA7EF19EF7D355366@namprd15.prod.outlook.com>
-Content-Transfer-Encoding: base64
+Hi Florian,
 
-U29ycnkgSSB0aG91Z2h0IEkgaGFkIG1hZGUgdGhpcyBvdGhlciBmaXgsIGNhbiB5b3UgYXBwbHkg
-dGhpcyBvbiB0b3Agb2YgdGhlIG90aGVyIG9uZSBhbmQgdHJ5IHRoYXQ/ICBJIGhhdmUgbW9yZSB0
-aGluZ3MgdG8gdHJ5IGlmIHRoaXMgZG9lc27igJl0IHdvcmssIHNvcnJ5IHlvdSBhcmUgcGxheWlu
-ZyBnbyBiZXR3ZWVuLCBidXQgSSB3YW50IHRvIG1ha2Ugc3VyZSBJIGtub3cgX3doaWNoXyBmaXgg
-YWN0dWFsbHkgZml4ZXMgdGhlIHByb2JsZW0sIGFuZCB0aGVuIGNsZWFuIHVwIGluIGZvbGxvd3Vw
-IHBhdGNoZXMuICBUaGFua3MsDQoNCkpvc2VmDQoNCk9uIDkvMTMvMTcsIDg6NDUgQU0sICJMYXVy
-YSBBYmJvdHQiIDxsYWJib3R0QHJlZGhhdC5jb20+IHdyb3RlOg0KDQpPbiAwOS8xMi8yMDE3IDA0
-OjEyIFBNLCBKb3NlZiBCYWNpayB3cm90ZToNCj4gRmlyc3QgSeKAmW0gc3VwZXIgc29ycnkgZm9y
-IHRoZSB0b3AgcG9zdCwgSeKAmW0gYXQgcGx1bWJlcnMgYW5kIEkgZm9yZ290IHRvIHVwbG9hZCBt
-eSBtdXR0cmMgdG8gbXkgbmV3IGNsb3VkIGluc3RhbmNlLCBzbyBJ4oCZbSBzY3Jld2VkIHVzaW5n
-IG91dGxvb2suDQo+IA0KPiBJIGhhdmUgYSBjb21wbGV0ZWx5IHVudGVzdGVkLCB1bmNvbXBpbGVk
-IHBhdGNoIHRoYXQgSSB0aGluayB3aWxsIGZpeCB0aGUgcHJvYmxlbSwgd291bGQgeW91IG1pbmQg
-Z2l2aW5nIGl0IGEgZ28/ICBUaGFua3MsDQo+IA0KPiBKb3NlZg0KDQpUaGFua3MgZm9yIHRoZSBx
-dWljayB0dXJuYXJvdW5kLiBVbmZvcnR1bmF0ZWx5LCB0aGUgcHJvYmxlbSBpcyBzdGlsbA0KcmVw
-cm9kdWNpYmxlIGFjY29yZGluZyB0byB0aGUgcmVwb3J0ZXIuDQoNClRoYW5rcywNCkxhdXJhDQoN
-Cg0K
+On Thu, Sep 7, 2017 at 3:09 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+> On 08/23/2017 10:13 AM, Florian Fainelli wrote:
+>> On 08/23/2017 04:45 AM, Geert Uytterhoeven wrote:
+>>> On Tue, Aug 22, 2017 at 8:49 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+>>>> On 08/22/2017 11:37 AM, Geert Uytterhoeven wrote:
+>>>>> If an Ethernet device is used while the device is suspended, the system may
+>>>>> crash.
+>>>>>
+>>>>> E.g. on sh73a0/kzm9g and r8a73a4/ape6evm, the external Ethernet chip is
+>>>>> driven by a PM controlled clock.  If the Ethernet registers are accessed
+>>>>> while the clock is not running, the system will crash with an imprecise
+>>>>> external abort.
+>>>>>
+>>>>> This patch series fixes two of such crashes:
+>>>>>   1. The first patch prevents the PHY polling state machine from accessing
+>>>>>      PHY registers while a device is suspended,
+>>>>>   2. The second patch prevents the net core from trying to transmit packets
+>>>>>      when an smsc911x device is suspended.
+>>>>>
+>>>>> Both crashes can be reproduced on sh73a0/kzm9g and r8a73a4/ape6evm during
+>>>>> s2ram (rarely), or by using pm_test (more likely to trigger):
+>>>>>
+>>>>>     # echo 0 > /sys/module/printk/parameters/console_suspend
+>>>>>     # echo platform > /sys/power/pm_test
+>>>>>     # echo mem > /sys/power/state
+>>>>>
+>>>>> With this series applied, my test systems survive a loop of 100 test
+>>>>> suspends.
+>>>>
+>>>> It seems to me like part, if not the entire problem is that smsc91xx's
+>>>> suspend and resume functions are way too simplistic and absolutely do
+>>>> not manage the PHY during suspend/resume, the PHY state machine is not
+>>>> even stopped, so of course, this will cause bus errors if you access
+>>>> those registers.
+>>>>
+>>>> You are addressing this as part of patch 2, but this seems to me like
+>>>> this is still a bit incomplete and you'd need at least phy_stop() and/or
+>>>> phy_suspend() (does a power down of the PHY) and phy_start() and/or
+>>>> phy_resume() calls to complete the PHY state machine shutdown during
+>>>> suspend.
+>>>>
+>>>> Have you tried that?
+>>>
+>>> Unfortunately that doesn't help.
+>>> In state PHY_HALTED, the PHY state machine still calls the .adjust_link()
+>>> callback while the device is suspended.
+>>
+>> Humm that is correct yes.
+>>
+>>> Do you have a clue? This is too far beyond my phy-foo...
+>>
+>> I was initially contemplating a revert of
+>> 7ad813f208533cebfcc32d3d7474dc1677d1b09a ("net: phy: Correctly process
+>> PHY_HALTED in phy_stop_machine()") but this is not the root of the
+>> problem. The problem really is that phy_stop() does not wait for the PHY
+>> state machine to be stopped so you cannot rely on that and past the
+>> function return be offered any guarantees that adjust_link is not called.
+>>
+>> We seem to be getting away with that in most drivers because when we see
+>> phydev->link = 0, we either do nothing or actually turn of the HW block.
+>>
+>> How about we export phy_stop_machine() to drivers which would provide a
+>> synchronization point that would ensure that no HW accesses are done
+>> past this point?
+>>
+>> I am absolutely not clear on the implications of using a freezable
+>> workqueue with respect to the PHY state machine and how devices are
+>> going to wind-up being powered down or not...
+>
+> Geert, as you may have notice a revert of the change was sent so 4.13
+> should be fine, but ultimately I would like to put the non-reverted code
+> back in after we add a few safeguards:
 
---_002_EF55EF02AD404F068C074F9F4221BFE6fbcom_
-Content-Type: application/octet-stream;
-	name="0001-net-use-inet6_rcv_saddr-to-compare-sockets.patch"
-Content-Description: 0001-net-use-inet6_rcv_saddr-to-compare-sockets.patch
-Content-Disposition: attachment;
-	filename="0001-net-use-inet6_rcv_saddr-to-compare-sockets.patch"; size=1085;
-	creation-date="Wed, 13 Sep 2017 17:28:25 GMT";
-	modification-date="Wed, 13 Sep 2017 17:28:25 GMT"
-Content-ID: <BE9F535FC32834439F7D8EA9C687071F@namprd15.prod.outlook.com>
-Content-Transfer-Encoding: base64
+With the revert, I no longer need "[PATCH 1/2] net: phy: Freeze PHY polling
+before suspending devices".
+I just did more than 50 successful suspend/resume cycles to verify that.
 
-RnJvbSAzODA5NjhmNThkNTQzYWM5ZWMwY2IxYWExMWRiMzk3OWYzYWVlNjlkIE1vbiBTZXAgMTcg
-MDA6MDA6MDAgMjAwMQpGcm9tOiBKb3NlZiBCYWNpayA8am9zZWZAdG94aWNwYW5kYS5jb20+CkRh
-dGU6IFdlZCwgMTMgU2VwIDIwMTcgMTA6MjQ6MjIgLTA3MDAKU3ViamVjdDogW1BBVENIXSBuZXQ6
-IHVzZSBpbmV0Nl9yY3Zfc2FkZHIgdG8gY29tcGFyZSBzb2NrZXRzCgpJbiBpcHY2X3Jjdl9zYWRk
-cl9lcXVhbCgpIHdlIG5lZWQgdG8gdXNlIGluZXQ2X3Jjdl9zYWRkcihzaykgZm9yIHRoZQppcHY2
-IGNvbXBhcmUgd2l0aCB0aGUgZmFzdCBzb2NrZXQgaW5mb3JtYXRpb24gdG8gbWFrZSBzdXJlIHdl
-J3JlIGRvaW5nCnRoZSBwcm9wZXIgY29tcGFyaXNvbnMuCgpTaWduZWQtb2ZmLWJ5OiBKb3NlZiBC
-YWNpayA8am9zZWZAdG94aWNwYW5kYS5jb20+Ci0tLQogbmV0L2lwdjQvaW5ldF9jb25uZWN0aW9u
-X3NvY2suYyB8IDIgKy0KIDEgZmlsZSBjaGFuZ2VkLCAxIGluc2VydGlvbigrKSwgMSBkZWxldGlv
-bigtKQoKZGlmZiAtLWdpdCBhL25ldC9pcHY0L2luZXRfY29ubmVjdGlvbl9zb2NrLmMgYi9uZXQv
-aXB2NC9pbmV0X2Nvbm5lY3Rpb25fc29jay5jCmluZGV4IDNjZmY5NWYxMDk5NS4uZmY4YjE1YTk5
-ZTQyIDEwMDY0NAotLS0gYS9uZXQvaXB2NC9pbmV0X2Nvbm5lY3Rpb25fc29jay5jCisrKyBiL25l
-dC9pcHY0L2luZXRfY29ubmVjdGlvbl9zb2NrLmMKQEAgLTI2Niw3ICsyNjYsNyBAQCBzdGF0aWMg
-aW5saW5lIGludCBza19yZXVzZXBvcnRfbWF0Y2goc3RydWN0IGluZXRfYmluZF9idWNrZXQgKnRi
-LAogI2lmIElTX0VOQUJMRUQoQ09ORklHX0lQVjYpCiAJaWYgKHRiLT5mYXN0X3NrX2ZhbWlseSA9
-PSBBRl9JTkVUNikKIAkJcmV0dXJuIGlwdjZfcmN2X3NhZGRyX2VxdWFsKCZ0Yi0+ZmFzdF92Nl9y
-Y3Zfc2FkZHIsCi0JCQkJCSAgICAmc2stPnNrX3Y2X3Jjdl9zYWRkciwKKwkJCQkJICAgIGluZXQ2
-X3Jjdl9zYWRkcihzayksCiAJCQkJCSAgICB0Yi0+ZmFzdF9yY3Zfc2FkZHIsCiAJCQkJCSAgICBz
-ay0+c2tfcmN2X3NhZGRyLAogCQkJCQkgICAgdGItPmZhc3RfaXB2Nl9vbmx5LAotLSAKMi4xMy41
-Cgo=
+I still need "[PATCH 2/2] net: smsc911x: Quiten netif during suspend", so
+I'll submit a v2 for that.
 
---_002_EF55EF02AD404F068C074F9F4221BFE6fbcom_--
+> - and you reported the bus errors on smsc911x when we call adjust_link
+> during suspend, and due to a lack of hard synchronization so phy_stop()
+> here does not give you enough guarantees to let you turn off power to
+> the smsc911x block
+>
+> If that seems accurate then we can work on something that should be
+> working again (famous last words).
+
+Sounds accurate to me.
+
+Gr{oetje,eeting}s,
+
+                        Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
