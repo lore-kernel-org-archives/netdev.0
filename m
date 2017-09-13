@@ -1,71 +1,99 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: netfilter: xt_bpf: ABI issue in xt_bpf_info_v1?
-Date: Wed, 13 Sep 2017 11:35:38 -0400
-Message-ID: <CAF=yD-Ldmk9mTC5rCxc8LSomNgvT5kPWFjDBvnSyX0EM-E6eFg@mail.gmail.com>
-References: <20170913162442.368691c9@pixies> <nycvar.YFH.7.76.1709131613520.8761@n3.vanv.qr>
- <CAF=yD-LUCCLSXuPNKPgEY695ej+T-2s=zhmw6CJwK6tFyY+_dg@mail.gmail.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: Memory leaks in conntrack
+Date: Wed, 13 Sep 2017 17:37:34 +0200
+Message-ID: <20170913153734.GC2453@breakpoint.cc>
+References: <CAM_iQpWvO3L1JOrCMvAvqduWH5pt_9-=GEx+eOFQyOt5Z5prrA@mail.gmail.com>
+ <20170913080516.GD25977@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Shmulik Ladkani <shmulik@nsof.io>,
-        netfilter-devel <netfilter-devel@vger.kernel.org>,
-        Pablo Neira Ayuso <pablo@netfilter.org>,
-        Network Development <netdev@vger.kernel.org>,
-        Willem de Bruijn <willemb@google.com>,
-        Rafael Buchbinder <rbk@nsof.io>,
-        Shmulik Ladkani <shmulik.ladkani@gmail.com>, eyal@nsof.io
-To: Jan Engelhardt <jengelh@inai.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+        netfilter-devel@vger.kernel.org,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f68.google.com ([209.85.218.68]:33237 "EHLO
-        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751075AbdIMPgT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 13 Sep 2017 11:36:19 -0400
-In-Reply-To: <CAF=yD-LUCCLSXuPNKPgEY695ej+T-2s=zhmw6CJwK6tFyY+_dg@mail.gmail.com>
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:60524 "EHLO
+        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751062AbdIMPkl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 13 Sep 2017 11:40:41 -0400
+Content-Disposition: inline
+In-Reply-To: <20170913080516.GD25977@breakpoint.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 13, 2017 at 11:05 AM, Willem de Bruijn
-<willemdebruijn.kernel@gmail.com> wrote:
-> On Wed, Sep 13, 2017 at 10:22 AM, Jan Engelhardt <jengelh@inai.de> wrote:
->>
->> On Wednesday 2017-09-13 15:24, Shmulik Ladkani wrote:
->>>
->>>One way to fix is to have iptables open the object (using the stored
->>>xt_bpf_info_v1->path), gaining a new process local fd for the object,
->>>just after getting the rules from IPT_SO_GET_ENTRIES.
->>>However we didn't see any other extensions doing something like that in
->>>iptables.
->
-> The binary should call bpf_obj_get on the filepath each time. These are
-> not regular files, but references to a pinned object in the bpf filesystem.
->
-> Blindly passing back the fd received from the kernel is clearly wrong. I'm
-> really surprised that I did not run into this problem when I wrote the
-> feature.
->
->>>
->>>Another way to solve is to fix the ABI (or have a v2 one), that does NOT
->>>pass the fd from userspace, only the path of the pinned object.
->>>Then, 'bpf_mt_check_v1' will open the file from the given path in order
->>>to get the bpf_prog.
->>
->> But a path has a similar problem like a file descriptor - it is local to a
->> certain mount namespace.
->
-> Because these are pinned objects in the bpf filesystem, and there is
-> only one of those, it may be possible to lookup the object in the kernel
-> without relying on a process-local view of mount points.
+Florian Westphal <fw@strlen.de> wrote:
+> Cong Wang <xiyou.wangcong@gmail.com> wrote:
+> > While testing my TC filter patches (so not related to conntrack), the
+> > following memory leaks are shown up:
+> > 
+> > unreferenced object 0xffff9b19ba551228 (size 128):
+> >   comm "chronyd", pid 338, jiffies 4294910829 (age 53.188s)
+> >   hex dump (first 32 bytes):
+> >     6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b  kkkkkkkkkkkkkkkk
+> >     00 00 00 00 18 00 00 30 00 00 00 00 00 00 00 00  .......0........
+> >   backtrace:
+> >     [<ffffffff9f1e1175>] create_object+0x169/0x2aa
+> >     [<ffffffff9fb77fb2>] kmemleak_alloc+0x25/0x41
+> >     [<ffffffff9f1c47ed>] slab_post_alloc_hook+0x44/0x65
+> >     [<ffffffff9f1ca2db>] __kmalloc_track_caller+0x113/0x146
+> >     [<ffffffff9f193c3b>] __krealloc+0x4a/0x69
+> >     [<ffffffff9f948dbd>] nf_ct_ext_add+0xe1/0x145
+> >     [<ffffffff9f942395>] init_conntrack+0x1f7/0x36e
+> >     [<ffffffff9f942762>] nf_conntrack_in+0x1d3/0x326
+> >     [<ffffffff9fa1ea69>] ipv4_conntrack_local+0x4d/0x50
+> >     [<ffffffff9f93ad70>] nf_hook_slow+0x3c/0x9b
+> >     [<ffffffff9f9c7999>] nf_hook.constprop.40+0xbe/0xd8
+> >     [<ffffffff9f9c7ba2>] __ip_local_out+0xb3/0xbf
+> >     [<ffffffff9f9c7bca>] ip_local_out+0x1c/0x36
+> >     [<ffffffff9f9c9216>] ip_send_skb+0x19/0x3d
+> >     [<ffffffff9f9ee3de>] udp_send_skb+0x17e/0x1df
+> >     [<ffffffff9f9eea37>] udp_sendmsg+0x5a2/0x77c
+> > unreferenced object 0xffff9b19a69b3340 (size 336):
+> >   comm "chronyd", pid 338, jiffies 4294910868 (age 53.032s)
+> >   hex dump (first 32 bytes):
+> >     01 00 00 00 5a 5a 5a 5a 00 00 00 00 ad 4e ad de  ....ZZZZ.....N..
+> >     ff ff ff ff 5a 5a 5a 5a ff ff ff ff ff ff ff ff  ....ZZZZ........
+> >   backtrace:
+> >     [<ffffffff9f1e1175>] create_object+0x169/0x2aa
+> >     [<ffffffff9fb77fb2>] kmemleak_alloc+0x25/0x41
+> >     [<ffffffff9f1c47ed>] slab_post_alloc_hook+0x44/0x65
+> >     [<ffffffff9f1c7a7d>] kmem_cache_alloc+0xd7/0x1f1
+> >     [<ffffffff9f941b78>] __nf_conntrack_alloc+0xa2/0x146
+> >     [<ffffffff9f942250>] init_conntrack+0xb2/0x36e
+> >     [<ffffffff9f942762>] nf_conntrack_in+0x1d3/0x326
+> >     [<ffffffff9fa1ea69>] ipv4_conntrack_local+0x4d/0x50
+> >     [<ffffffff9f93ad70>] nf_hook_slow+0x3c/0x9b
+> >     [<ffffffff9f9c7999>] nf_hook.constprop.40+0xbe/0xd8
+> >     [<ffffffff9f9c7ba2>] __ip_local_out+0xb3/0xbf
+> >     [<ffffffff9f9c7bca>] ip_local_out+0x1c/0x36
+> >     [<ffffffff9f9c9216>] ip_send_skb+0x19/0x3d
+> >     [<ffffffff9f9ee3de>] udp_send_skb+0x17e/0x1df
+> >     [<ffffffff9f9eea37>] udp_sendmsg+0x5a2/0x77c
+> >     [<ffffffff9f9f8cb8>] inet_sendmsg+0x37/0x5e
+> >
+> > I don't touch chronyd in my VM, so I have no idea why it sends out UDP
+> > packets, my guess is it is some periodical packet.
+> > 
+> > I don't think I use conntrack either, since /proc/net/ip_conntrack
+> > does not exist.
+> 
+> You probably do, can you try "cat /proc/net/nf_conntrack" instead?
+> 
+> (otherwise there should be no ipv4_conntrack_local() invocation
+>  since we would not register this hook at all).
+> 
+> I tried to reproduce this but so far I had no success.
+> If you can identify something that could give a hint when this
+> is happening (only once after boot, periodically, only with udp, etc)
+> please let us know.
 
-It would be preferable to fix this for the existing v1 users as well.
+FWIW i managed to obtain a similar backtrace, but in that case it was a
+false positive (peeking at the address content showed it was my ssh connection
+to the vm and timeout and tcp conntrackk struct fields were changing;
+i.e. the nf_conn reported was still in the conntrack hash.
 
-That said, the new bpf identifier feature allows passing a globally
-unique id instead of a filepath.
+Why this address was reported i do not know, afaik kmemleak
+does scan for addresses anywhere in the object (we use
+container_of() to get back nf_conn from the hlist_node), so it
+should have found the address linked via the main conntrack hash table.
 
->
->>
->> To load "large" blobs into the kernel, a pointer to user memory is a possible
->> option. The downside is that such extra data is not retrievable from the kernel
->> via the iptables setsockopts anymore - one could work around it with procfs, or
->> just let it be.
->>
->> https://sourceforge.net/p/xtables-addons/xtables-addons/ci/master/tree/extensions/xt_geoip.c
->> line 64+.
+Right now I don't have enough info to dig any further, sorry :-/
