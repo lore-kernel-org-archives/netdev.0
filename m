@@ -1,73 +1,54 @@
-From: Stefan Hajnoczi <stefanha@redhat.com>
-Subject: [PATCH] VSOCK: fix uapi/linux/vm_sockets.h incomplete types
-Date: Tue, 12 Sep 2017 17:34:35 +0100
-Message-ID: <20170912163435.4049-1-stefanha@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch net] net: sched: fix use-after-free in
+ tcf_action_destroy and tcf_del_walker
+Date: Wed, 13 Sep 2017 13:59:48 -0700 (PDT)
+Message-ID: <20170913.135948.629502810637692498.davem@davemloft.net>
+References: <20170913153237.26408-1-jiri@resnulli.us>
+        <20170913.093428.806129519464331602.davem@davemloft.net>
+        <20170913205006.GD1981@nanopsycho>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: "David S . Miller" <davem@davemloft.net>,
-        Jorgen Hansen <jhansen@vmware.com>,
-        Stefan Hajnoczi <stefanha@redhat.com>
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
+        kubakici@wp.pl, mlxsw@mellanox.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44474 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751054AbdILQei (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 12 Sep 2017 12:34:38 -0400
+Received: from shards.monkeyblade.net ([184.105.139.130]:57376 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751117AbdIMU7t (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 13 Sep 2017 16:59:49 -0400
+In-Reply-To: <20170913205006.GD1981@nanopsycho>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch fixes the following compiler errors when userspace
-applications use the vm_sockets.h header:
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Wed, 13 Sep 2017 22:50:06 +0200
 
-  include/uapi/linux/vm_sockets.h:148:32: error: invalid application of ‘sizeof’ to incomplete type ‘struct sockaddr’
-    unsigned char svm_zero[sizeof(struct sockaddr) -
-                                  ^~~~~~
-  include/uapi/linux/vm_sockets.h:149:18: error: ‘sa_family_t’ undeclared here (not in a function)
-             sizeof(sa_family_t) -
-                    ^~~~~~~~~~~
+> Wed, Sep 13, 2017 at 06:34:28PM CEST, davem@davemloft.net wrote:
+>>From: Jiri Pirko <jiri@resnulli.us>
+>>Date: Wed, 13 Sep 2017 17:32:37 +0200
+>>
+>>> From: Jiri Pirko <jiri@mellanox.com>
+>>> 
+>>> Recent commit d7fb60b9cafb ("net_sched: get rid of tcfa_rcu") removed
+>>> freeing in call_rcu, which changed already existing hard-to-hit
+>>> race condition into 100% hit:
+>>> 
+>>> [  598.599825] BUG: unable to handle kernel NULL pointer dereference at 0000000000000030
+>>> [  598.607782] IP: tcf_action_destroy+0xc0/0x140
+>>> 
+>>> Or:
+>>> 
+>>> [   40.858924] BUG: unable to handle kernel NULL pointer dereference at 0000000000000030
+>>> [   40.862840] IP: tcf_generic_walker+0x534/0x820
+>>> 
+>>> Fix this by storing the ops and use them directly for module_put call.
+>>> 
+>>> Fixes: a85a970af265 ("net_sched: move tc_action into tcf_common")
+>>> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+>>
+>>Applied, thanks Jiri.
+> 
+> Oh, I forgot to mention, this would be nice to push to stable.
 
-Two issues:
-1. In the kernel struct sockaddr comes in via <linux/socket.h> but in
-   userspace <sys/socket.h> is required.
-2. struct sockaddr_vm has a __kernel_sa_family_t field so let's be
-   consistent and use the same type for the sizeof(sa_family_t)
-   calculation.
-
-Currently userspace applications work around this broken header by first
-including <sys/socket.h>.  In the kernel there is no compiler error
-because <linux/socket.h> provides everything.  It's worth fixing the
-header file though.
-
-Cc: Jorgen Hansen <jhansen@vmware.com>
-Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
----
- include/uapi/linux/vm_sockets.h | 6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
-
-diff --git a/include/uapi/linux/vm_sockets.h b/include/uapi/linux/vm_sockets.h
-index b4ed5d895699..4ae5c625ac56 100644
---- a/include/uapi/linux/vm_sockets.h
-+++ b/include/uapi/linux/vm_sockets.h
-@@ -18,6 +18,10 @@
- 
- #include <linux/socket.h>
- 
-+#ifndef __KERNEL__
-+#include <sys/socket.h> /* struct sockaddr */
-+#endif
-+
- /* Option name for STREAM socket buffer size.  Use as the option name in
-  * setsockopt(3) or getsockopt(3) to set or get an unsigned long long that
-  * specifies the size of the buffer underlying a vSockets STREAM socket.
-@@ -146,7 +150,7 @@ struct sockaddr_vm {
- 	unsigned int svm_port;
- 	unsigned int svm_cid;
- 	unsigned char svm_zero[sizeof(struct sockaddr) -
--			       sizeof(sa_family_t) -
-+			       sizeof(__kernel_sa_family_t) -
- 			       sizeof(unsigned short) -
- 			       sizeof(unsigned int) - sizeof(unsigned int)];
- };
--- 
-2.13.5
+Ok, queued up.
