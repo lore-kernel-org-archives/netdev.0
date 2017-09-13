@@ -1,94 +1,252 @@
-From: =?utf-8?B?5Lil5rW35Y+M?= <yanhaishuang@cmss.chinamobile.com>
-Subject: Re: [PATCH v2] geneve: Fix setting ttl value in collect metadata mode
-Date: Wed, 13 Sep 2017 19:15:31 +0800
-Message-ID: <95A24784-0575-47CE-A485-B2A59911262A@cmss.chinamobile.com>
-References: <1505199911-21153-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
- <CAOrHB_AWuWXw1fLvY2arKf0XO6GM0g379KDadwf=ymz47cTOMw@mail.gmail.com>
-Mime-Version: 1.0 (Mac OS X Mail 10.3 \(3273\))
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8BIT
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Girish Moodalbail <girish.moodalbail@oracle.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        linux-kernel@vger.kernel.org
-To: Pravin Shelar <pshelar@ovn.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAOrHB_AWuWXw1fLvY2arKf0XO6GM0g379KDadwf=ymz47cTOMw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+Subject: [PATCH v2] ipv4: Namespaceify tcp_fastopen knob
+Date: Wed, 13 Sep 2017 19:19:58 +0800
+Message-ID: <1505301598-12681-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
+Cc: Luca BRUNO <lucab@debian.org>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+To: "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        Eric Dumazet <edumazet@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cmccmta3.chinamobile.com ([221.176.66.81]:25810 "EHLO
+        cmccmta3.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751571AbdIMLUJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 13 Sep 2017 07:20:09 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Different namespace application might require enable TCP Fast Open
+feature independently of the host.
 
+Reported-by: Luca BRUNO <lucab@debian.org>
+Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
 
-> On 2017年9月13日, at 上午7:43, Pravin Shelar <pshelar@ovn.org> wrote:
-> 
-> On Tue, Sep 12, 2017 at 12:05 AM, Haishuang Yan
-> <yanhaishuang@cmss.chinamobile.com> wrote:
->> Similar to vxlan/ipip tunnel, if key->tos is zero in collect metadata
->> mode, tos should also fallback to ip{4,6}_dst_hoplimit.
->> 
->> Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
->> 
->> ---
->> Changes since v2:
->>  * Make the commit message more clearer.
->> ---
->> drivers/net/geneve.c | 6 ++----
->> 1 file changed, 2 insertions(+), 4 deletions(-)
->> 
->> diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
->> index f640407..d52a65f 100644
->> --- a/drivers/net/geneve.c
->> +++ b/drivers/net/geneve.c
->> @@ -834,11 +834,10 @@ static int geneve_xmit_skb(struct sk_buff *skb, struct net_device *dev,
->>        sport = udp_flow_src_port(geneve->net, skb, 1, USHRT_MAX, true);
->>        if (geneve->collect_md) {
->>                tos = ip_tunnel_ecn_encap(key->tos, ip_hdr(skb), skb);
->> -               ttl = key->ttl;
->>        } else {
->>                tos = ip_tunnel_ecn_encap(fl4.flowi4_tos, ip_hdr(skb), skb);
->> -               ttl = key->ttl ? : ip4_dst_hoplimit(&rt->dst);
->>        }
->> +       ttl = key->ttl ? : ip4_dst_hoplimit(&rt->dst);
->>        df = key->tun_flags & TUNNEL_DONT_FRAGMENT ? htons(IP_DF) : 0;
->> 
-> This changes user API of Geneve collect-metadata mode. I do not see
-> good reason for this. Why user can not set right TTL for the flow?
-> 
+---
+Change since v2:
+  * Remove unrelated change by mistake
+---
+ include/net/netns/ipv4.h   |  2 ++
+ include/net/tcp.h          |  1 -
+ net/ipv4/af_inet.c         |  7 ++++---
+ net/ipv4/sysctl_net_ipv4.c | 42 +++++++++++++++++++++---------------------
+ net/ipv4/tcp.c             |  4 ++--
+ net/ipv4/tcp_fastopen.c    | 13 ++++++-------
+ net/ipv4/tcp_ipv4.c        |  2 ++
+ 7 files changed, 37 insertions(+), 34 deletions(-)
 
-For example, I test this case with script samples/bpf/test_tunnel_bpf.sh, 
-and modify samples/bpf/tcbpf2_kern.c with following patch:
-
-diff --git a/samples/bpf/tcbpf2_kern.c b/samples/bpf/tcbpf2_kern.c
-index 370b749..16b09ed 100644
---- a/samples/bpf/tcbpf2_kern.c
-+++ b/samples/bpf/tcbpf2_kern.c
-@@ -204,7 +204,6 @@ int _geneve_set_tunnel(struct __sk_buff *skb)
-        key.remote_ipv4 = 0xac100164; /* 172.16.1.100 */
-        key.tunnel_id = 2;
-        key.tunnel_tos = 0;
--       key.tunnel_ttl = 64;
-
-        __builtin_memset(&gopt, 0x0, sizeof(gopt));
-        gopt.opt_class = 0x102; /* Open Virtual Networking (OVN) */
-
-The user didn’t set key.tunnel_ttl and then key.tunnel_ttl is 0, so tcpdump 
-output on veth1 would have ttl value of 0 in ip header:
-
-PING 10.1.1.100 (10.1.1.100) 56(84) bytes of data.
-18:59:27.347373 82:81:85:8a:72:62 > 7e:99:fb:3b:15:73, ethertype IPv4 (0x0800), length 104: (tos 0x0, id 7386, offset 0, flags [none], proto UDP
-(17), length 90)
-64 bytes from 10.1.1.100: icmp_seq=1 ttl=64 time=0.083 ms
-    172.16.1.200.57776 > 172.16.1.100.6081: [no cksum] UDP, length 62
-
---- 10.1.1.100 ping statistics —
-
-After my patch, tcpdump output on veth1 would have ttl value of 64 in 
-ip header:
-
-PING 10.1.1.100 (10.1.1.100) 56(84) bytes of data.
-19:12:10.870410 f2:56:13:68:e9:a9 > 8a:1e:93:dc:59:27, ethertype IPv4 (0x0800), length 104: (tos 0x0, ttl 64, id 48595, offset 0, flags [none], p
-roto UDP (17), length 90)
-64 bytes from 10.1.1.100: icmp_seq=1 ttl=64 time=0.091 ms
-    172.16.1.200.57776 > 172.16.1.100.6081: [no cksum] UDP, length 62
-
---- 10.1.1.100 ping statistics ---
+diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
+index 305e031..ea0953b 100644
+--- a/include/net/netns/ipv4.h
++++ b/include/net/netns/ipv4.h
+@@ -128,6 +128,8 @@ struct netns_ipv4 {
+ 	struct inet_timewait_death_row tcp_death_row;
+ 	int sysctl_max_syn_backlog;
+ 	int sysctl_tcp_max_orphans;
++	int sysctl_tcp_fastopen;
++	unsigned int sysctl_tcp_fastopen_blackhole_timeout;
+ 
+ #ifdef CONFIG_NET_L3_MASTER_DEV
+ 	int sysctl_udp_l3mdev_accept;
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index ac2d998..e4cc0dd 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -240,7 +240,6 @@
+ 
+ 
+ /* sysctl variables for tcp */
+-extern int sysctl_tcp_fastopen;
+ extern int sysctl_tcp_retrans_collapse;
+ extern int sysctl_tcp_stdurg;
+ extern int sysctl_tcp_rfc1337;
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index e31108e..309b849 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -195,7 +195,7 @@ int inet_listen(struct socket *sock, int backlog)
+ {
+ 	struct sock *sk = sock->sk;
+ 	unsigned char old_state;
+-	int err;
++	int err, tcp_fastopen;
+ 
+ 	lock_sock(sk);
+ 
+@@ -217,8 +217,9 @@ int inet_listen(struct socket *sock, int backlog)
+ 		 * because the socket was in TCP_LISTEN state previously but
+ 		 * was shutdown() rather than close().
+ 		 */
+-		if ((sysctl_tcp_fastopen & TFO_SERVER_WO_SOCKOPT1) &&
+-		    (sysctl_tcp_fastopen & TFO_SERVER_ENABLE) &&
++		tcp_fastopen =  sock_net(sk)->ipv4.sysctl_tcp_fastopen;
++		if ((tcp_fastopen & TFO_SERVER_WO_SOCKOPT1) &&
++		    (tcp_fastopen & TFO_SERVER_ENABLE) &&
+ 		    !inet_csk(sk)->icsk_accept_queue.fastopenq.max_qlen) {
+ 			fastopen_queue_tune(sk, backlog);
+ 			tcp_fastopen_init_key_once(true);
+diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+index 4f26c8d3..30ebeb9 100644
+--- a/net/ipv4/sysctl_net_ipv4.c
++++ b/net/ipv4/sysctl_net_ipv4.c
+@@ -394,27 +394,6 @@ static int proc_tcp_available_ulp(struct ctl_table *ctl,
+ 		.proc_handler	= proc_dointvec
+ 	},
+ 	{
+-		.procname	= "tcp_fastopen",
+-		.data		= &sysctl_tcp_fastopen,
+-		.maxlen		= sizeof(int),
+-		.mode		= 0644,
+-		.proc_handler	= proc_dointvec,
+-	},
+-	{
+-		.procname	= "tcp_fastopen_key",
+-		.mode		= 0600,
+-		.maxlen		= ((TCP_FASTOPEN_KEY_LENGTH * 2) + 10),
+-		.proc_handler	= proc_tcp_fastopen_key,
+-	},
+-	{
+-		.procname	= "tcp_fastopen_blackhole_timeout_sec",
+-		.data		= &sysctl_tcp_fastopen_blackhole_timeout,
+-		.maxlen		= sizeof(int),
+-		.mode		= 0644,
+-		.proc_handler	= proc_tfo_blackhole_detect_timeout,
+-		.extra1		= &zero,
+-	},
+-	{
+ 		.procname	= "tcp_abort_on_overflow",
+ 		.data		= &sysctl_tcp_abort_on_overflow,
+ 		.maxlen		= sizeof(int),
+@@ -1085,6 +1064,27 @@ static int proc_tcp_available_ulp(struct ctl_table *ctl,
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec
+ 	},
++	{
++		.procname	= "tcp_fastopen",
++		.data		= &init_net.ipv4.sysctl_tcp_fastopen,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= proc_dointvec,
++	},
++	{
++		.procname	= "tcp_fastopen_key",
++		.mode		= 0600,
++		.maxlen		= ((TCP_FASTOPEN_KEY_LENGTH * 2) + 10),
++		.proc_handler	= proc_tcp_fastopen_key,
++	},
++	{
++		.procname	= "tcp_fastopen_blackhole_timeout_sec",
++		.data		= &init_net.ipv4.sysctl_tcp_fastopen_blackhole_timeout,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= proc_tfo_blackhole_detect_timeout,
++		.extra1		= &zero,
++	},
+ #ifdef CONFIG_IP_ROUTE_MULTIPATH
+ 	{
+ 		.procname	= "fib_multipath_use_neigh",
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 39187ac..b3a2ffc 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -1126,7 +1126,7 @@ static int tcp_sendmsg_fastopen(struct sock *sk, struct msghdr *msg,
+ 	struct sockaddr *uaddr = msg->msg_name;
+ 	int err, flags;
+ 
+-	if (!(sysctl_tcp_fastopen & TFO_CLIENT_ENABLE) ||
++	if (!(sock_net(sk)->ipv4.sysctl_tcp_fastopen & TFO_CLIENT_ENABLE) ||
+ 	    (uaddr && msg->msg_namelen >= sizeof(uaddr->sa_family) &&
+ 	     uaddr->sa_family == AF_UNSPEC))
+ 		return -EOPNOTSUPP;
+@@ -2759,7 +2759,7 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
+ 	case TCP_FASTOPEN_CONNECT:
+ 		if (val > 1 || val < 0) {
+ 			err = -EINVAL;
+-		} else if (sysctl_tcp_fastopen & TFO_CLIENT_ENABLE) {
++		} else if (net->ipv4.sysctl_tcp_fastopen & TFO_CLIENT_ENABLE) {
+ 			if (sk->sk_state == TCP_CLOSE)
+ 				tp->fastopen_connect = val;
+ 			else
+diff --git a/net/ipv4/tcp_fastopen.c b/net/ipv4/tcp_fastopen.c
+index e3c3322..1bf57e8 100644
+--- a/net/ipv4/tcp_fastopen.c
++++ b/net/ipv4/tcp_fastopen.c
+@@ -9,8 +9,6 @@
+ #include <net/inetpeer.h>
+ #include <net/tcp.h>
+ 
+-int sysctl_tcp_fastopen __read_mostly = TFO_CLIENT_ENABLE;
+-
+ struct tcp_fastopen_context __rcu *tcp_fastopen_ctx;
+ 
+ static DEFINE_SPINLOCK(tcp_fastopen_ctx_lock);
+@@ -282,18 +280,19 @@ struct sock *tcp_try_fastopen(struct sock *sk, struct sk_buff *skb,
+ 	struct tcp_fastopen_cookie valid_foc = { .len = -1 };
+ 	bool syn_data = TCP_SKB_CB(skb)->end_seq != TCP_SKB_CB(skb)->seq + 1;
+ 	struct sock *child;
++	int tcp_fastopen = sock_net(sk)->ipv4.sysctl_tcp_fastopen;
+ 
+ 	if (foc->len == 0) /* Client requests a cookie */
+ 		NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPFASTOPENCOOKIEREQD);
+ 
+-	if (!((sysctl_tcp_fastopen & TFO_SERVER_ENABLE) &&
++	if (!((tcp_fastopen & TFO_SERVER_ENABLE) &&
+ 	      (syn_data || foc->len >= 0) &&
+ 	      tcp_fastopen_queue_check(sk))) {
+ 		foc->len = -1;
+ 		return NULL;
+ 	}
+ 
+-	if (syn_data && (sysctl_tcp_fastopen & TFO_SERVER_COOKIE_NOT_REQD))
++	if (syn_data && (tcp_fastopen & TFO_SERVER_COOKIE_NOT_REQD))
+ 		goto fastopen;
+ 
+ 	if (foc->len >= 0 &&  /* Client presents or requests a cookie */
+@@ -347,7 +346,7 @@ bool tcp_fastopen_cookie_check(struct sock *sk, u16 *mss,
+ 		return false;
+ 	}
+ 
+-	if (sysctl_tcp_fastopen & TFO_CLIENT_NO_COOKIE) {
++	if (sock_net(sk)->ipv4.sysctl_tcp_fastopen & TFO_CLIENT_NO_COOKIE) {
+ 		cookie->len = -1;
+ 		return true;
+ 	}
+@@ -402,7 +401,6 @@ bool tcp_fastopen_defer_connect(struct sock *sk, int *err)
+  */
+ 
+ /* Default to 1hr */
+-unsigned int sysctl_tcp_fastopen_blackhole_timeout __read_mostly = 60 * 60;
+ static atomic_t tfo_active_disable_times __read_mostly = ATOMIC_INIT(0);
+ static unsigned long tfo_active_disable_stamp __read_mostly;
+ 
+@@ -431,13 +429,14 @@ bool tcp_fastopen_active_should_disable(struct sock *sk)
+ 	int tfo_da_times = atomic_read(&tfo_active_disable_times);
+ 	int multiplier;
+ 	unsigned long timeout;
++	unsigned int tfo_bh_timeout = sock_net(sk)->ipv4.sysctl_tcp_fastopen_blackhole_timeout;
+ 
+ 	if (!tfo_da_times)
+ 		return false;
+ 
+ 	/* Limit timout to max: 2^6 * initial timeout */
+ 	multiplier = 1 << min(tfo_da_times - 1, 6);
+-	timeout = multiplier * sysctl_tcp_fastopen_blackhole_timeout * HZ;
++	timeout = multiplier * tfo_bh_timeout * HZ;
+ 	if (time_before(jiffies, tfo_active_disable_stamp + timeout))
+ 		return true;
+ 
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 4b17a91..38d30ea 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -2473,6 +2473,8 @@ static int __net_init tcp_sk_init(struct net *net)
+ 	net->ipv4.sysctl_tcp_window_scaling = 1;
+ 	net->ipv4.sysctl_tcp_timestamps = 1;
+ 
++	net->ipv4.sysctl_tcp_fastopen = TFO_CLIENT_ENABLE;
++	net->ipv4.sysctl_tcp_fastopen_blackhole_timeout = 60 * 60;
+ 	return 0;
+ fail:
+ 	tcp_sk_exit(net);
+-- 
+1.8.3.1
