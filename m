@@ -1,85 +1,161 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] net_sched: gen_estimator: fix scaling error in
- bytes/packets samples
-Date: Wed, 13 Sep 2017 11:16:45 -0700
-Message-ID: <1505326605.15310.193.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <4cd23914d8cc2cf5caf78cb5654fb245@nuclearcat.com>
-         <d2aee52fda21d8f668ca012333ef3677@nuclearcat.com>
-         <1505319370.15310.169.camel@edumazet-glaptop3.roam.corp.google.com>
-         <9b8cdc2b39fdd2d0be7b5f559b2034e7@nuclearcat.com>
-         <1505320949.15310.173.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH v5 05/10] dt-bindings: net: dwmac-sun8i: update
+ documentation about integrated PHY
+Date: Wed, 13 Sep 2017 13:20:04 -0500
+Message-ID: <20170913182004.uniyo5opeilcfk7r@rob-hp-laptop>
+References: <20170908071156.5115-1-clabbe.montjoie@gmail.com>
+ <20170908071156.5115-6-clabbe.montjoie@gmail.com>
+ <20170908072538.rqsp6dobwsqmzrsr@flea.lan>
+ <20170908074325.GB29999@Red>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Jiri Pirko <jiri@resnulli.us>
-To: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:37693 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751312AbdIMSQr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 13 Sep 2017 14:16:47 -0400
-Received: by mail-pg0-f68.google.com with SMTP id v5so460772pgn.4
-        for <netdev@vger.kernel.org>; Wed, 13 Sep 2017 11:16:47 -0700 (PDT)
-In-Reply-To: <1505320949.15310.173.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+        mark.rutland-5wv7dgnIgG8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org, linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org,
+        catalin.marinas-5wv7dgnIgG8@public.gmane.org, will.deacon-5wv7dgnIgG8@public.gmane.org,
+        peppe.cavallaro-qxv4g6HH51o@public.gmane.org, alexandre.torgue-qxv4g6HH51o@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org,
+        f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20170908074325.GB29999@Red>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+On Fri, Sep 08, 2017 at 09:43:25AM +0200, Corentin Labbe wrote:
+> On Fri, Sep 08, 2017 at 09:25:38AM +0200, Maxime Ripard wrote:
+> > On Fri, Sep 08, 2017 at 09:11:51AM +0200, Corentin Labbe wrote:
+> > > This patch add documentation about the MDIO switch used on sun8i-h3-emac
+> > > for integrated PHY.
+> > > 
+> > > Signed-off-by: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> > > ---
+> > >  .../devicetree/bindings/net/dwmac-sun8i.txt        | 127 +++++++++++++++++++--
+> > >  1 file changed, 120 insertions(+), 7 deletions(-)
+> > > 
+> > > diff --git a/Documentation/devicetree/bindings/net/dwmac-sun8i.txt b/Documentation/devicetree/bindings/net/dwmac-sun8i.txt
+> > > index 725f3b187886..3fa0e54825ea 100644
+> > > --- a/Documentation/devicetree/bindings/net/dwmac-sun8i.txt
+> > > +++ b/Documentation/devicetree/bindings/net/dwmac-sun8i.txt
+> > > @@ -39,7 +39,7 @@ Optional properties for the following compatibles:
+> > >  - allwinner,leds-active-low: EPHY LEDs are active low
+> > >  
+> > >  Required child node of emac:
+> > > -- mdio bus node: should be named mdio
+> > > +- mdio bus node: should be labelled mdio
+> > 
+> > labels do not end up in the final DT (while the names do) so why are
+> > you making this change?
+> > 
+> 
+> I misunderstood label/name.
+> Anyway, this contrainst should leave due to "snps,dwmac-mdio MDIOs are automatically registered"
+> 
+> > >  
+> > >  Required properties of the mdio node:
+> > >  - #address-cells: shall be 1
+> > > @@ -48,14 +48,28 @@ Required properties of the mdio node:
+> > >  The device node referenced by "phy" or "phy-handle" should be a child node
+> > >  of the mdio node. See phy.txt for the generic PHY bindings.
+> > >  
+> > > -Required properties of the phy node with the following compatibles:
+> > > +The following compatibles require an mdio-mux node called "mdio-mux":
+> > > +  - "allwinner,sun8i-h3-emac"
+> > > +  - "allwinner,sun8i-v3s-emac":
+> > > +Required properties for the mdio-mux node:
+> > > +  - compatible = "mdio-mux"
+> > > +  - one child mdio for the integrated mdio
+> > > +  - one child mdio for the external mdio if present (V3s have none)
+> > > +Required properties for the mdio-mux children node:
+> > > +  - reg: 0 for internal MDIO bus, 1 for external MDIO bus
+> > > +
+> > > +The following compatibles require a PHY node representing the integrated
+> > > +PHY, under the integrated MDIO bus node if an mdio-mux node is used:
+> > >    - "allwinner,sun8i-h3-emac",
+> > >    - "allwinner,sun8i-v3s-emac":
+> > > +
+> > > +Required properties of the integrated phy node:
+> > >  - clocks: a phandle to the reference clock for the EPHY
+> > >  - resets: a phandle to the reset control for the EPHY
+> > > +- phy-is-integrated
+> > > +- Should be a child of the integrated mdio
+> > 
+> > I'm not sure what you mean by that, you ask that it should (so not
+> > required?) be a child of the integrated mdio...
+> > 
+> 
+> I will change words to "must"
+> 
+> > >  
+> > > -Example:
+> > > -
+> > > +Example with integrated PHY:
+> > >  emac: ethernet@1c0b000 {
+> > >  	compatible = "allwinner,sun8i-h3-emac";
+> > >  	syscon = <&syscon>;
+> > > @@ -72,13 +86,112 @@ emac: ethernet@1c0b000 {
+> > >  	phy-handle = <&int_mii_phy>;
+> > >  	phy-mode = "mii";
+> > >  	allwinner,leds-active-low;
+> > > +
+> > > +	mdio0: mdio {
+> > 
+> > (You don't label it mdio here, unlike what was asked before)
+> > 
+> > > +		#address-cells = <1>;
+> > > +		#size-cells = <0>;
+> > > +		compatible = "snps,dwmac-mdio";
+> > > +	};
+> > 
+> > I think Rob wanted that node gone?
+> > 
+> 
+> MDIO mux does not work without a parent MDIO, either gived by "parent-bus" or directly via mdio_mux_init() (like it is the case in dwmac-sun8i)
 
-Denys reported wrong rate estimations with HTB classes.
+Is the MDIO controller "allwinner,sun8i-h3-emac" or "snps,dwmac-mdio"? 
+If the latter, then I think the node is fine, but then the mux should be 
+a child node of it. IOW, the child of an MDIO controller should either 
+be a mux node or slave devices.
 
-It appears the bug was added in linux-4.10, since my tests
-where using intervals of one second only.
+> 
+> > > +	mdio-mux {
+> > > +		compatible = "mdio-mux";
+> > > +		#address-cells = <1>;
+> > > +		#size-cells = <0>;
+> > > +
+> > > +		int_mdio: mdio@1 {
+> > > +			reg = <0>;
 
-HTB using 4 sec default rate estimators, reported rates
-were 4x higher.
+unit address of 1 and reg prop of 0 don't match. Build your dtb with 
+W=2.
 
-We need to properly scale the bytes/packets samples before
-integrating them in EWMA.
+> > > +			#address-cells = <1>;
+> > > +			#size-cells = <0>;
+> > > +			int_mii_phy: ethernet-phy@1 {
+> > > +				reg = <1>;
+> > > +				clocks = <&ccu CLK_BUS_EPHY>;
+> > > +				resets = <&ccu RST_BUS_EPHY>;
+> > > +				phy-is-integrated
 
-Tested:
- echo 1 >/sys/module/sch_htb/parameters/htb_rate_est
+Missing ;
 
- Setup HTB with one class with a rate/cail of 5Gbit
+> > > +			};
+> > > +		};
+> > 
+> > ... And in your example it's a child of the mdio mux?
+> > 
+> 
+> So I confirm, integrated PHY must be a child of integrated MDIO (that must be a child of mdio-mux).
+> The example is good.
+> 
+> > > +		ext_mdio: mdio@0 {
+> > > +			reg = <1>;
 
- Generate traffic on this class
+Another unit address mismatch.
 
- tc -s -d cl sh dev eth0 classid 7002:11 
-class htb 7002:11 parent 7002:1 prio 5 quantum 200000 rate 5Gbit ceil
-5Gbit linklayer ethernet burst 80000b/1 mpu 0b cburst 80000b/1 mpu 0b
-level 0 rate_handle 1 
- Sent 1488215421648 bytes 982969243 pkt (dropped 0, overlimits 0
-requeues 0) 
- rate 5Gbit 412814pps backlog 136260b 2p requeues 0 
- TCP pkts/rtx 982969327/45 bytes 1488215557414/68130
- lended: 22732826 borrowed: 0 giants: 0
- tokens: -1684 ctokens: -1684
- 
-Fixes: 1c0d32fde5bd ("net_sched: gen_estimator: complete rewrite of rate estimators")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Reported-by: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
----
- net/core/gen_estimator.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/core/gen_estimator.c b/net/core/gen_estimator.c
-index 0385dece1f6fe5e26df1ce5f40956a79a2eebbf4..7c1ffd6f950172c1915d8e5fa2b5e3f77e4f4c78 100644
---- a/net/core/gen_estimator.c
-+++ b/net/core/gen_estimator.c
-@@ -83,10 +83,10 @@ static void est_timer(unsigned long arg)
- 	u64 rate, brate;
- 
- 	est_fetch_counters(est, &b);
--	brate = (b.bytes - est->last_bytes) << (8 - est->ewma_log);
-+	brate = (b.bytes - est->last_bytes) << (10 - est->ewma_log - est->intvl_log);
- 	brate -= (est->avbps >> est->ewma_log);
- 
--	rate = (u64)(b.packets - est->last_packets) << (8 - est->ewma_log);
-+	rate = (u64)(b.packets - est->last_packets) << (10 - est->ewma_log - est->intvl_log);
- 	rate -= (est->avpps >> est->ewma_log);
- 
- 	write_seqcount_begin(&est->seq);
+Rob
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
