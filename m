@@ -1,29 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] w90p910_ether: include linux/interrupt.h
-Date: Tue, 12 Sep 2017 20:59:47 -0700 (PDT)
-Message-ID: <20170912.205947.2162006850051360659.davem@davemloft.net>
-References: <20170912123227.3418786-1-arnd@arndb.de>
+From: Kim Sharma <info@talentscout.com>
+Subject: Dear Talented
+Date: Wed, 13 Sep 2017 08:03:53 +0530
+Message-ID: <20170913023143.A445E1A9018@mx3.conexion.com.py>
+Reply-To: blueskyfilmstudio@gmail.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: mcuos.com@gmail.com, linux-arm-kernel@lists.infradead.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: arnd@arndb.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170912123227.3418786-1-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 8BIT
+To: Recipients <info@talentscout.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx3.conexion.com.py ([181.40.123.228]:35062 "EHLO
+        mx3.conexion.com.py" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751517AbdIMEGp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 13 Sep 2017 00:06:45 -0400
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Tue, 12 Sep 2017 14:31:48 +0200
+Dear Talented,
 
-> A randconfig build caused a compile failure:
-> 
-> drivers/net/ethernet/nuvoton/w90p910_ether.c: In function 'w90p910_ether_close':
-> drivers/net/ethernet/nuvoton/w90p910_ether.c:580:2: error: implicit declaration of function 'free_irq'; did you mean 'free_uid'? [-Werror=implicit-function-declaration]
-> 
-> Adding the correct include fixes the problem.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+I am Talent Scout For BLUE SKY FILM STUDIO, Present Blue sky Studio a
+Film Corporation Located in the United State, is Soliciting for the
+Right to use Your Photo/Face and Personality as One of the Semi -Major
+Role/ Character in our Upcoming ANIMATED Stereoscope 3D Movie-The Story
+of Anubis (Anubis 2018) The Movie is Currently Filming (In
+Production) Please Note That There Will Be No Auditions, Traveling or
+Any Special / Professional Acting Skills, Since the Production of This
+Movie Will Be Done with our State of Art Computer -Generating Imagery
+Equipment. We Are Prepared to Pay the Total Sum of $620,000.00 USD. For
+More Information/Understanding, Please Write us on the E-Mail Below.
+CONTACT EMAIL: Blueskyanimatedstudio@usa.com
+All Reply to: Blueskyanimatedstudio@usa.com
+Note: Only the Response send to this mail will be Given a Prior
+Consideration.
 
-Applied.
+
+Talent Scout
+Kim Sharma
