@@ -1,100 +1,36 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Memory leaks in conntrack
-Date: Tue, 12 Sep 2017 16:20:50 -0700
-Message-ID: <CAM_iQpWvO3L1JOrCMvAvqduWH5pt_9-=GEx+eOFQyOt5Z5prrA@mail.gmail.com>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: Re: [PATCH] net: Convert int functions to bool
+Date: Thu, 14 Sep 2017 01:31:58 +0300
+Message-ID: <20170913223158.GA7860@avx2>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Joe Perches <joe@perches.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f193.google.com ([209.85.128.193]:35107 "EHLO
+        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751148AbdIMWcC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 13 Sep 2017 18:32:02 -0400
+Received: by mail-wr0-f193.google.com with SMTP id n64so751236wrb.2
+        for <netdev@vger.kernel.org>; Wed, 13 Sep 2017 15:32:01 -0700 (PDT)
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
+> Global function ipv6_rcv_saddr_equal and static functions
+> ipv6_rcv_saddr_equal and ipv4_rcv_saddr_equal currently return int.
+>
+> bool is slightly more descriptive for these functions so change
+> their return type from int to bool.
 
-While testing my TC filter patches (so not related to conntrack), the
-following memory leaks are shown up:
+>From code generation POV "int" is better for non-inlined functions
+especially on non-x86.
 
+Patch bloats even x86_64:
 
-unreferenced object 0xffff9b19ba551228 (size 128):
-  comm "chronyd", pid 338, jiffies 4294910829 (age 53.188s)
-  hex dump (first 32 bytes):
-    6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b  kkkkkkkkkkkkkkkk
-    00 00 00 00 18 00 00 30 00 00 00 00 00 00 00 00  .......0........
-  backtrace:
-    [<ffffffff9f1e1175>] create_object+0x169/0x2aa
-    [<ffffffff9fb77fb2>] kmemleak_alloc+0x25/0x41
-    [<ffffffff9f1c47ed>] slab_post_alloc_hook+0x44/0x65
-    [<ffffffff9f1ca2db>] __kmalloc_track_caller+0x113/0x146
-    [<ffffffff9f193c3b>] __krealloc+0x4a/0x69
-    [<ffffffff9f948dbd>] nf_ct_ext_add+0xe1/0x145
-    [<ffffffff9f942395>] init_conntrack+0x1f7/0x36e
-    [<ffffffff9f942762>] nf_conntrack_in+0x1d3/0x326
-    [<ffffffff9fa1ea69>] ipv4_conntrack_local+0x4d/0x50
-    [<ffffffff9f93ad70>] nf_hook_slow+0x3c/0x9b
-    [<ffffffff9f9c7999>] nf_hook.constprop.40+0xbe/0xd8
-    [<ffffffff9f9c7ba2>] __ip_local_out+0xb3/0xbf
-    [<ffffffff9f9c7bca>] ip_local_out+0x1c/0x36
-    [<ffffffff9f9c9216>] ip_send_skb+0x19/0x3d
-    [<ffffffff9f9ee3de>] udp_send_skb+0x17e/0x1df
-    [<ffffffff9f9eea37>] udp_sendmsg+0x5a2/0x77c
-unreferenced object 0xffff9b19a69b3340 (size 336):
-  comm "chronyd", pid 338, jiffies 4294910868 (age 53.032s)
-  hex dump (first 32 bytes):
-    01 00 00 00 5a 5a 5a 5a 00 00 00 00 ad 4e ad de  ....ZZZZ.....N..
-    ff ff ff ff 5a 5a 5a 5a ff ff ff ff ff ff ff ff  ....ZZZZ........
-  backtrace:
-    [<ffffffff9f1e1175>] create_object+0x169/0x2aa
-    [<ffffffff9fb77fb2>] kmemleak_alloc+0x25/0x41
-    [<ffffffff9f1c47ed>] slab_post_alloc_hook+0x44/0x65
-    [<ffffffff9f1c7a7d>] kmem_cache_alloc+0xd7/0x1f1
-    [<ffffffff9f941b78>] __nf_conntrack_alloc+0xa2/0x146
-    [<ffffffff9f942250>] init_conntrack+0xb2/0x36e
-    [<ffffffff9f942762>] nf_conntrack_in+0x1d3/0x326
-    [<ffffffff9fa1ea69>] ipv4_conntrack_local+0x4d/0x50
-    [<ffffffff9f93ad70>] nf_hook_slow+0x3c/0x9b
-    [<ffffffff9f9c7999>] nf_hook.constprop.40+0xbe/0xd8
-    [<ffffffff9f9c7ba2>] __ip_local_out+0xb3/0xbf
-    [<ffffffff9f9c7bca>] ip_local_out+0x1c/0x36
-    [<ffffffff9f9c9216>] ip_send_skb+0x19/0x3d
-    [<ffffffff9f9ee3de>] udp_send_skb+0x17e/0x1df
-    [<ffffffff9f9eea37>] udp_sendmsg+0x5a2/0x77c
-    [<ffffffff9f9f8cb8>] inet_sendmsg+0x37/0x5e
-
-This seems new because I never see this before.
-
-I don't touch chronyd in my VM, so I have no idea why it sends out UDP
-packets, my guess is it is some periodical packet.
-
-I don't think I use conntrack either, since /proc/net/ip_conntrack
-does not exist.
-
-Here are some related config of my kernel:
-
-$ grep CONNTRACK .config
-CONFIG_NF_CONNTRACK=y
-CONFIG_NF_CONNTRACK_MARK=y
-CONFIG_NF_CONNTRACK_SECMARK=y
-CONFIG_NF_CONNTRACK_ZONES=y
-CONFIG_NF_CONNTRACK_PROCFS=y
-CONFIG_NF_CONNTRACK_EVENTS=y
-# CONFIG_NF_CONNTRACK_TIMEOUT is not set
-CONFIG_NF_CONNTRACK_TIMESTAMP=y
-CONFIG_NF_CONNTRACK_AMANDA=y
-CONFIG_NF_CONNTRACK_FTP=y
-CONFIG_NF_CONNTRACK_H323=y
-CONFIG_NF_CONNTRACK_IRC=y
-CONFIG_NF_CONNTRACK_BROADCAST=y
-CONFIG_NF_CONNTRACK_NETBIOS_NS=y
-CONFIG_NF_CONNTRACK_SNMP=y
-CONFIG_NF_CONNTRACK_PPTP=y
-CONFIG_NF_CONNTRACK_SANE=y
-CONFIG_NF_CONNTRACK_SIP=y
-CONFIG_NF_CONNTRACK_TFTP=y
-CONFIG_NETFILTER_XT_MATCH_CONNTRACK=y
-CONFIG_NF_CONNTRACK_IPV4=y
-CONFIG_NF_CONNTRACK_IPV6=y
-
-Please let me know if you need any other information.
-
-Thanks.
+	$ ./scripts/bloat-o-meter ../vmlinux-002-do-while ../obj/vmlinux
+	add/remove: 0/0 grow/shrink: 2/0 up/down: 3/0 (3)
+	function                                     old     new   delta
+	inet_rcv_saddr_equal                          38      40      +2
+	inet_csk_get_port                           1300    1301      +1
+	Total: Before=6084708, After=6084711, chg +0.00%
