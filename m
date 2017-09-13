@@ -1,52 +1,71 @@
-From: Michal Hocko <mhocko@kernel.org>
-Subject: [PATCH stable-3.16 2/3] VSOCK: Fix lockdep issue.
-Date: Wed, 13 Sep 2017 17:23:06 +0200
-Message-ID: <20170913152307.20317-2-mhocko@kernel.org>
-References: <20170913151939.gf7n6rvvjtz47tz7@dhcp22.suse.cz>
- <20170913152307.20317-1-mhocko@kernel.org>
-Cc: Aditya Sarwade <asarwade@vmware.com>,
-        Thomas Hellstrom <thellstrom@vmware.com>,
-        Petr Masik <Petr.Masik@nudz.cz>,
-        Ben Hutchings <ben@decadent.org.uk>,
-        Sasha Levin <alexander.levin@verizon.com>,
-        netdev@vger.kernel.org, Stable tree <stable@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>
-To: "Jorgen S. Hansen" <jhansen@vmware.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170913152307.20317-1-mhocko@kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net] net: sched: fix use-after-free in tcf_action_destroy and tcf_del_walker
+Date: Wed, 13 Sep 2017 17:32:37 +0200
+Message-ID: <20170913153237.26408-1-jiri@resnulli.us>
+Cc: davem@davemloft.net, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
+        kubakici@wp.pl, mlxsw@mellanox.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f194.google.com ([209.85.128.194]:35253 "EHLO
+        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751010AbdIMPck (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 13 Sep 2017 11:32:40 -0400
+Received: by mail-wr0-f194.google.com with SMTP id n64so293724wrb.2
+        for <netdev@vger.kernel.org>; Wed, 13 Sep 2017 08:32:40 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jorgen Hansen <jhansen@vmware.com>
+From: Jiri Pirko <jiri@mellanox.com>
 
-commit 8566b86ab9f0f45bc6f7dd422b21de9d0cf5415a upstream.
+Recent commit d7fb60b9cafb ("net_sched: get rid of tcfa_rcu") removed
+freeing in call_rcu, which changed already existing hard-to-hit
+race condition into 100% hit:
 
-The recent fix for the vsock sock_put issue used the wrong
-initializer for the transport spin_lock causing an issue when
-running with lockdep checking.
+[  598.599825] BUG: unable to handle kernel NULL pointer dereference at 0000000000000030
+[  598.607782] IP: tcf_action_destroy+0xc0/0x140
 
-Testing: Verified fix on kernel with lockdep enabled.
+Or:
 
-Reviewed-by: Thomas Hellstrom <thellstrom@vmware.com>
-Signed-off-by: Jorgen Hansen <jhansen@vmware.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
-Signed-off-by: Michal Hocko <mhocko@suse.com>
+[   40.858924] BUG: unable to handle kernel NULL pointer dereference at 0000000000000030
+[   40.862840] IP: tcf_generic_walker+0x534/0x820
+
+Fix this by storing the ops and use them directly for module_put call.
+
+Fixes: a85a970af265 ("net_sched: move tc_action into tcf_common")
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- net/vmw_vsock/vmci_transport.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/sched/act_api.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/net/vmw_vsock/vmci_transport.c b/net/vmw_vsock/vmci_transport.c
-index aed136d27b01..314312272e08 100644
---- a/net/vmw_vsock/vmci_transport.c
-+++ b/net/vmw_vsock/vmci_transport.c
-@@ -1570,7 +1570,7 @@ static int vmci_transport_socket_init(struct vsock_sock *vsk,
- 	vmci_trans(vsk)->notify_ops = NULL;
- 	INIT_LIST_HEAD(&vmci_trans(vsk)->elem);
- 	vmci_trans(vsk)->sk = &vsk->sk;
--	vmci_trans(vsk)->lock = __SPIN_LOCK_UNLOCKED(vmci_trans(vsk)->lock);
-+	spin_lock_init(&vmci_trans(vsk)->lock);
- 	if (psk) {
- 		vmci_trans(vsk)->queue_pair_size =
- 			vmci_trans(psk)->queue_pair_size;
+diff --git a/net/sched/act_api.c b/net/sched/act_api.c
+index fcd7dc7..da6fa82 100644
+--- a/net/sched/act_api.c
++++ b/net/sched/act_api.c
+@@ -180,7 +180,7 @@ static int tcf_del_walker(struct tcf_idrinfo *idrinfo, struct sk_buff *skb,
+ 	idr_for_each_entry_ext(idr, p, id) {
+ 		ret = __tcf_idr_release(p, false, true);
+ 		if (ret == ACT_P_DELETED) {
+-			module_put(p->ops->owner);
++			module_put(ops->owner);
+ 			n_i++;
+ 		} else if (ret < 0) {
+ 			goto nla_put_failure;
+@@ -514,13 +514,15 @@ EXPORT_SYMBOL(tcf_action_exec);
+ 
+ int tcf_action_destroy(struct list_head *actions, int bind)
+ {
++	const struct tc_action_ops *ops;
+ 	struct tc_action *a, *tmp;
+ 	int ret = 0;
+ 
+ 	list_for_each_entry_safe(a, tmp, actions, list) {
++		ops = a->ops;
+ 		ret = __tcf_idr_release(a, bind, true);
+ 		if (ret == ACT_P_DELETED)
+-			module_put(a->ops->owner);
++			module_put(ops->owner);
+ 		else if (ret < 0)
+ 			return ret;
+ 	}
 -- 
-2.14.1
+2.9.3
