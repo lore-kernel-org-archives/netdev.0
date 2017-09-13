@@ -1,35 +1,56 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v2] openvswitch: Fix an error handling path in
- 'ovs_nla_init_match_and_action()'
-Date: Tue, 12 Sep 2017 20:38:54 -0700 (PDT)
-Message-ID: <20170912.203854.934620252544016023.davem@davemloft.net>
-References: <20170911195620.17931-1-christophe.jaillet@wanadoo.fr>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] tcp/dccp: remove reqsk_put() from
+ inet_child_forget()
+Date: Tue, 12 Sep 2017 20:39:14 -0700 (PDT)
+Message-ID: <20170912.203914.1695474417183964442.davem@davemloft.net>
+References: <1505100843.15310.113.camel@edumazet-glaptop3.roam.corp.google.com>
+        <CAASgV=txONWMR2_au12ASV40mP0mf6O=4DLoq3+FfGubqG4NQQ@mail.gmail.com>
+        <1505170718.15310.134.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: christophe.jaillet-39ZsbGIQGT5GWvitb5QawA@public.gmane.org
-Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <20170911195620.17931-1-christophe.jaillet-39ZsbGIQGT5GWvitb5QawA@public.gmane.org>
-List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
-List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: sp3485@columbia.edu, netdev@vger.kernel.org,
+        xiyou.wangcong@gmail.com, andrew.aday@columbia.edu
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:37134 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751858AbdIMDjO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 12 Sep 2017 23:39:14 -0400
+In-Reply-To: <1505170718.15310.134.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Christophe JAILLET <christophe.jaillet-39ZsbGIQGT5GWvitb5QawA@public.gmane.org>
-Date: Mon, 11 Sep 2017 21:56:20 +0200
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 11 Sep 2017 15:58:38 -0700
 
-> All other error handling paths in this function go through the 'error'
-> label. This one should do the same.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Fixes: 9cc9a5cb176c ("datapath: Avoid using stack larger than 1024.")
-> Signed-off-by: Christophe JAILLET <christophe.jaillet-39ZsbGIQGT5GWvitb5QawA@public.gmane.org>
+> Back in linux-4.4, I inadvertently put a call to reqsk_put() in
+> inet_child_forget(), forgetting it could be called from two different
+> points.
+> 
+> In the case it is called from inet_csk_reqsk_queue_add(), we want to
+> keep the reference on the request socket, since it is released later by
+> the caller (tcp_v{4|6}_rcv())
+> 
+> This bug never showed up because atomic_dec_and_test() was not signaling
+> the underflow, and SLAB_DESTROY_BY RCU semantic for request sockets
+> prevented the request to be put in quarantine.
+> 
+> Recent conversion of socket refcount from atomic_t to refcount_t finally
+> exposed the bug.
+> 
+> So move the reqsk_put() to inet_csk_listen_stop() to fix this.
+> 
+> Thanks to Shankara Pailoor for using syzkaller and providing
+> a nice set of .config and C repro.
+ ...
+> Fixes: ebb516af60e1 ("tcp/dccp: fix race at listener dismantle phase")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: Shankara Pailoor <sp3485@columbia.edu>
+> Tested-by: Shankara Pailoor <sp3485@columbia.edu>
 
-Applied.
+Applied and queued up for -stable.
+
+Thanks.
