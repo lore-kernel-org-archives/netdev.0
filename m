@@ -1,108 +1,47 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH/RFC net-next] ravb: RX checksum offload
-Date: Wed, 13 Sep 2017 20:54:00 +0300
-Message-ID: <9dcbc418-128b-2eff-970f-b586b9a3cee6@cogentembedded.com>
-References: <1505221489-12870-1-git-send-email-horms+renesas@verge.net.au>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: HTB going crazy over ~5Gbit/s (4.12.9, but problem present in
+ older kernels as well)
+Date: Wed, 13 Sep 2017 10:58:54 -0700
+Message-ID: <1505325534.15310.182.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <4cd23914d8cc2cf5caf78cb5654fb245@nuclearcat.com>
+         <d2aee52fda21d8f668ca012333ef3677@nuclearcat.com>
+         <1505319370.15310.169.camel@edumazet-glaptop3.roam.corp.google.com>
+         <9b8cdc2b39fdd2d0be7b5f559b2034e7@nuclearcat.com>
+         <1505320949.15310.173.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1505321747.15310.175.camel@edumazet-glaptop3.roam.corp.google.com>
+         <57baf3c3ea2544ed4d53967b7a2d0e36@nuclearcat.com>
+         <1505323222.15310.177.camel@edumazet-glaptop3.roam.corp.google.com>
+         <5a95e6550a304545fbde95360985c018@nuclearcat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Magnus Damm <magnus.damm@gmail.com>, netdev@vger.kernel.org,
-        linux-renesas-soc@vger.kernel.org
-To: Simon Horman <horms+renesas@verge.net.au>,
-        David Miller <davem@davemloft.net>
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        netdev-owner@vger.kernel.org
+To: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f47.google.com ([209.85.215.47]:47331 "EHLO
-        mail-lf0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751173AbdIMRyE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 13 Sep 2017 13:54:04 -0400
-Received: by mail-lf0-f47.google.com with SMTP id 80so2582846lfy.4
-        for <netdev@vger.kernel.org>; Wed, 13 Sep 2017 10:54:03 -0700 (PDT)
-In-Reply-To: <1505221489-12870-1-git-send-email-horms+renesas@verge.net.au>
-Content-Language: en-MW
+Received: from mail-pg0-f42.google.com ([74.125.83.42]:43282 "EHLO
+        mail-pg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751112AbdIMR64 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 13 Sep 2017 13:58:56 -0400
+In-Reply-To: <5a95e6550a304545fbde95360985c018@nuclearcat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello!
+On Wed, 2017-09-13 at 20:35 +0300, Denys Fedoryshchenko wrote:
 
-On 09/12/2017 04:04 PM, Simon Horman wrote:
-
-> Add support for RX checksum offload. This is enabled by default and
-> may be disabled and re-enabled using ethtool:
+> Overlimits never appear in HTB as i know, here is simulation on this 
+> class that have constant "at least" 1G traffic, i throttled it to 1Kbit 
+> to simulate forced drops:
 > 
->   # ethtool -K eth0 rx off
->   # ethtool -K eth0 rx on
+> shapernew ~ # sh /etc/shaper.cfg;sleep 1;tc -s -d class show dev 
+> eth3.777 classid 1:111;tc qdisc del dev eth3.777 root
+> class htb 1:111 parent 1:1 leaf 111: prio 0 quantum 50000 rate 1Kbit 
+> ceil 1Kbit linklayer ethernet burst 31280b/1 mpu 0b cburst 31280b/1 mpu 
+> 0b level 0
+>   Sent 134350019 bytes 117520 pkt (dropped 7819, overlimits 0 requeues 0)
+>   backlog 7902126b 4976p requeues 0
+>   lended: 86694 borrowed: 0 giants: 0
+>   tokens: -937500000 ctokens: -937500000
 > 
-> The RAVB provides a simple checksumming scheme which appears to be
-> completely compatible with CHECKSUM_COMPLETE: a 1's complement sum of
 
-    Hm, the gen2/3 manuals say calculation doesn't involve bit inversion...
-
-> all packet data after the L2 header is appended to packet data; this may
-> be trivially read by the driver and used to update the skb accordingly.
- >
-> In terms of performance throughput is close to gigabit line-rate both with
-> and without RX checksum offload enabled. Perf output, however, appears to
-> indicate that significantly less time is spent in do_csum(). This is as
-> expected.
-
-[...]
-
-> By inspection this also appears to be compatible with the ravb found
-> on R-Car Gen 2 SoCs, however, this patch is currently untested on such
-> hardware.
-
-    I probably won't be able to test it on gen2 too...
-
-> Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
-
-    I'm generally OK with the patch but have some questions/comments below...
-
-> ---
->   drivers/net/ethernet/renesas/ravb_main.c | 58 +++++++++++++++++++++++++++++++-
->   1 file changed, 57 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
-> index fdf30bfa403b..7c6438cd7de7 100644
-> --- a/drivers/net/ethernet/renesas/ravb_main.c
-> +++ b/drivers/net/ethernet/renesas/ravb_main.c
-[...]
-> @@ -1842,6 +1859,41 @@ static int ravb_do_ioctl(struct net_device *ndev, struct ifreq *req, int cmd)
->   	return phy_mii_ioctl(phydev, req, cmd);
->   }
->   
-> +static void ravb_set_rx_csum(struct net_device *ndev, bool enable)
-> +{
-> +	struct ravb_private *priv = netdev_priv(ndev);
-> +	unsigned long flags;
-> +
-> +	spin_lock_irqsave(&priv->lock, flags);
-> +
-> +	/* Disable TX and RX */
-> +	ravb_rcv_snd_disable(ndev);
-> +
-> +	/* Modify RX Checksum setting */
-> +	if (enable)
-> +		ravb_modify(ndev, ECMR, 0, ECMR_RCSC);
-
-    Please use ECMR_RCSC as the 3rd argument too to conform the common driver 
-style.
-
-> +	else
-> +		ravb_modify(ndev, ECMR, ECMR_RCSC, 0);
-
-    This *if* can easily be folded into a single ravb_modify() call...
-
-[...]
-> @@ -2004,6 +2057,9 @@ static int ravb_probe(struct platform_device *pdev)
->   	if (!ndev)
->   		return -ENOMEM;
->   
-> +	ndev->features |= NETIF_F_RXCSUM;
-> +	ndev->hw_features |= ndev->features;
-
-    Hum, both fields are 0 before this? Then why not use '=' instead of '|='?
-Even if not, why not just use the same value as both the rvalues?
-
-[...]
-
-MBR, Sergei
+Oh right, I am using a local patch for this. Time to upstream :/
