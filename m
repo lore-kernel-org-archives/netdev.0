@@ -1,87 +1,108 @@
-From: Geert Uytterhoeven <geert+renesas@glider.be>
-Subject: [PATCH v2] net: smsc911x: Quieten netif during suspend
-Date: Wed, 13 Sep 2017 19:42:05 +0200
-Message-ID: <1505324525-9998-1-git-send-email-geert+renesas@glider.be>
-Cc: Andrew Lunn <andrew@lunn.ch>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        netdev@vger.kernel.org, linux-pm@vger.kernel.org,
-        linux-renesas-soc@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Geert Uytterhoeven <geert+renesas@glider.be>
-To: "David S . Miller" <davem@davemloft.net>,
-        Steve Glendinning <steve.glendinning@shawell.net>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH/RFC net-next] ravb: RX checksum offload
+Date: Wed, 13 Sep 2017 20:54:00 +0300
+Message-ID: <9dcbc418-128b-2eff-970f-b586b9a3cee6@cogentembedded.com>
+References: <1505221489-12870-1-git-send-email-horms+renesas@verge.net.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Magnus Damm <magnus.damm@gmail.com>, netdev@vger.kernel.org,
+        linux-renesas-soc@vger.kernel.org
+To: Simon Horman <horms+renesas@verge.net.au>,
+        David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f47.google.com ([209.85.215.47]:47331 "EHLO
+        mail-lf0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751173AbdIMRyE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 13 Sep 2017 13:54:04 -0400
+Received: by mail-lf0-f47.google.com with SMTP id 80so2582846lfy.4
+        for <netdev@vger.kernel.org>; Wed, 13 Sep 2017 10:54:03 -0700 (PDT)
+In-Reply-To: <1505221489-12870-1-git-send-email-horms+renesas@verge.net.au>
+Content-Language: en-MW
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-If the network interface is kept running during suspend, the net core
-may call net_device_ops.ndo_start_xmit() while the Ethernet device is
-still suspended, which may lead to a system crash.
+Hello!
 
-E.g. on sh73a0/kzm9g and r8a73a4/ape6evm, the external Ethernet chip is
-driven by a PM controlled clock.  If the Ethernet registers are accessed
-while the clock is not running, the system will crash with an imprecise
-external abort.
+On 09/12/2017 04:04 PM, Simon Horman wrote:
 
-As this is a race condition with a small time window, it is not so easy
-to trigger at will.  Using pm_test may increase your chances:
+> Add support for RX checksum offload. This is enabled by default and
+> may be disabled and re-enabled using ethtool:
+> 
+>   # ethtool -K eth0 rx off
+>   # ethtool -K eth0 rx on
+> 
+> The RAVB provides a simple checksumming scheme which appears to be
+> completely compatible with CHECKSUM_COMPLETE: a 1's complement sum of
 
-    # echo 0 > /sys/module/printk/parameters/console_suspend
-    # echo platform > /sys/power/pm_test
-    # echo mem > /sys/power/state
+    Hm, the gen2/3 manuals say calculation doesn't involve bit inversion...
 
-To fix this, make sure the network interface is quietened during
-suspend.
+> all packet data after the L2 header is appended to packet data; this may
+> be trivially read by the driver and used to update the skb accordingly.
+ >
+> In terms of performance throughput is close to gigabit line-rate both with
+> and without RX checksum offload enabled. Perf output, however, appears to
+> indicate that significantly less time is spent in do_csum(). This is as
+> expected.
 
-Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
----
-This is v2 of the series "[PATCH 0/2] net: Fix crashes due to activity
-during suspend", which degenerated into a single patch after commit
-ebc8254aeae34226 ("Revert "net: phy: Correctly process PHY_HALTED in
-phy_stop_machine()"") made "[PATCH 1/2] net: phy: Freeze PHY polling before
-suspending devices" no longer needed.
+[...]
 
-v2:
-  - Spelling s/quit/quiet/g.
+> By inspection this also appears to be compatible with the ravb found
+> on R-Car Gen 2 SoCs, however, this patch is currently untested on such
+> hardware.
 
-No stacktrace is provided, as the imprecise external abort is usually
-reported from an innocent looking and unrelated function like
-__loop_delay(), cpu_idle_poll(), or arch_timer_read_counter_long().
----
- drivers/net/ethernet/smsc/smsc911x.c | 15 ++++++++++++++-
- 1 file changed, 14 insertions(+), 1 deletion(-)
+    I probably won't be able to test it on gen2 too...
 
-diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
-index 0b6a39b003a4e188..012fb66eed8dd618 100644
---- a/drivers/net/ethernet/smsc/smsc911x.c
-+++ b/drivers/net/ethernet/smsc/smsc911x.c
-@@ -2595,6 +2595,11 @@ static int smsc911x_suspend(struct device *dev)
- 	struct net_device *ndev = dev_get_drvdata(dev);
- 	struct smsc911x_data *pdata = netdev_priv(ndev);
- 
-+	if (netif_running(ndev)) {
-+		netif_stop_queue(ndev);
-+		netif_device_detach(ndev);
-+	}
-+
- 	/* enable wake on LAN, energy detection and the external PME
- 	 * signal. */
- 	smsc911x_reg_write(pdata, PMT_CTRL,
-@@ -2628,7 +2633,15 @@ static int smsc911x_resume(struct device *dev)
- 	while (!(smsc911x_reg_read(pdata, PMT_CTRL) & PMT_CTRL_READY_) && --to)
- 		udelay(1000);
- 
--	return (to == 0) ? -EIO : 0;
-+	if (to == 0)
-+		return -EIO;
-+
-+	if (netif_running(ndev)) {
-+		netif_device_attach(ndev);
-+		netif_start_queue(ndev);
-+	}
-+
-+	return 0;
- }
- 
- static const struct dev_pm_ops smsc911x_pm_ops = {
--- 
-2.7.4
+> Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
+
+    I'm generally OK with the patch but have some questions/comments below...
+
+> ---
+>   drivers/net/ethernet/renesas/ravb_main.c | 58 +++++++++++++++++++++++++++++++-
+>   1 file changed, 57 insertions(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
+> index fdf30bfa403b..7c6438cd7de7 100644
+> --- a/drivers/net/ethernet/renesas/ravb_main.c
+> +++ b/drivers/net/ethernet/renesas/ravb_main.c
+[...]
+> @@ -1842,6 +1859,41 @@ static int ravb_do_ioctl(struct net_device *ndev, struct ifreq *req, int cmd)
+>   	return phy_mii_ioctl(phydev, req, cmd);
+>   }
+>   
+> +static void ravb_set_rx_csum(struct net_device *ndev, bool enable)
+> +{
+> +	struct ravb_private *priv = netdev_priv(ndev);
+> +	unsigned long flags;
+> +
+> +	spin_lock_irqsave(&priv->lock, flags);
+> +
+> +	/* Disable TX and RX */
+> +	ravb_rcv_snd_disable(ndev);
+> +
+> +	/* Modify RX Checksum setting */
+> +	if (enable)
+> +		ravb_modify(ndev, ECMR, 0, ECMR_RCSC);
+
+    Please use ECMR_RCSC as the 3rd argument too to conform the common driver 
+style.
+
+> +	else
+> +		ravb_modify(ndev, ECMR, ECMR_RCSC, 0);
+
+    This *if* can easily be folded into a single ravb_modify() call...
+
+[...]
+> @@ -2004,6 +2057,9 @@ static int ravb_probe(struct platform_device *pdev)
+>   	if (!ndev)
+>   		return -ENOMEM;
+>   
+> +	ndev->features |= NETIF_F_RXCSUM;
+> +	ndev->hw_features |= ndev->features;
+
+    Hum, both fields are 0 before this? Then why not use '=' instead of '|='?
+Even if not, why not just use the same value as both the rvalues?
+
+[...]
+
+MBR, Sergei
