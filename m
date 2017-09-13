@@ -1,70 +1,37 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: Regression in throughput between kvm guests over virtual bridge
-Date: Wed, 13 Sep 2017 09:16:45 +0800
-Message-ID: <bdd417dc-9e2f-4a2e-534b-c6aa38f002f2@redhat.com>
-References: <4c7e2924-b10f-0e97-c388-c8809ecfdeeb@linux.vnet.ibm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net] smsc95xx: Configure pause time to 0xffff when
+ tx flow control enabled
+Date: Tue, 12 Sep 2017 20:36:49 -0700 (PDT)
+Message-ID: <20170912.203649.1370203318245275222.davem@davemloft.net>
+References: <CE371C1263339941885964188A0225FA335B8D@CHN-SV-EXMX03.mchp-main.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: davem@davemloft.net, mst@redhat.com
-To: Matthew Rosato <mjrosato@linux.vnet.ibm.com>,
-        netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: UNGLinuxDriver@microchip.com, netdev@vger.kernel.org,
+        steve.glendinning@shawell.net
+To: Nisar.Sayed@microchip.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:57868 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751031AbdIMBQz (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 12 Sep 2017 21:16:55 -0400
-In-Reply-To: <4c7e2924-b10f-0e97-c388-c8809ecfdeeb@linux.vnet.ibm.com>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([184.105.139.130]:37074 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751479AbdIMDgw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 12 Sep 2017 23:36:52 -0400
+In-Reply-To: <CE371C1263339941885964188A0225FA335B8D@CHN-SV-EXMX03.mchp-main.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: <Nisar.Sayed@microchip.com>
+Date: Mon, 11 Sep 2017 17:43:11 +0000
 
+> From: Nisar Sayed <Nisar.Sayed@microchip.com>
+> 
+> Configure pause time to 0xffff when tx flow control enabled
+> 
+> Set pause time to 0xffff in the pause frame to indicate the
+> partner to stop sending the packets. When RX buffer frees up,
+> the device sends pause frame with pause time zero for partner to
+> resume transmission.
+> 
+> Fixes: 2f7ca802bdae ("Add SMSC LAN9500 USB2.0 10/100 ethernet adapter driver")
+> Signed-off-by: Nisar Sayed <Nisar.Sayed@microchip.com>
 
-On 2017年09月13日 01:56, Matthew Rosato wrote:
-> We are seeing a regression for a subset of workloads across KVM guests
-> over a virtual bridge between host kernel 4.12 and 4.13.  Bisecting
-> points to c67df11f "vhost_net: try batch dequing from skb array"
->
-> In the regressed environment, we are running 4 kvm guests, 2 running as
-> uperf servers and 2 running as uperf clients, all on a single host.
-> They are connected via a virtual bridge.  The uperf client profile looks
-> like:
->
-> <?xml version="1.0"?>
-> <profile name="TCP_STREAM">
->    <group nprocs="1">
->      <transaction iterations="1">
->        <flowop type="connect" options="remotehost=192.168.122.103
-> protocol=tcp"/>
->      </transaction>
->      <transaction duration="300">
->        <flowop type="write" options="count=16 size=30000"/>
->      </transaction>
->      <transaction iterations="1">
->        <flowop type="disconnect"/>
->      </transaction>
->    </group>
-> </profile>
->
-> So, 1 tcp streaming instance per client.  When upgrading the host kernel
-> from 4.12->4.13, we see about a 30% drop in throughput for this
-> scenario.  After the bisect, I further verified that reverting c67df11f
-> on 4.13 "fixes" the throughput for this scenario.
->
-> On the other hand, if we increase the load by upping the number of
-> streaming instances to 50 (nprocs="50") or even 10, we see instead a
-> ~10% increase in throughput when upgrading host from 4.12->4.13.
->
-> So it may be the issue is specific to "light load" scenarios.  I would
-> expect some overhead for the batching, but 30% seems significant...  Any
-> thoughts on what might be happening here?
->
-
-Hi, thanks for the bisecting. Will try to see if I can reproduce. 
-Various factors could have impact on stream performance. If possible, 
-could you collect the #pkts and average packet size during the test? And 
-if you guest version is above 4.12, could you please retry with 
-napi_tx=true?
-
-Thanks
+Applied.
