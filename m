@@ -1,35 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] sctp: potential read out of bounds in
- sctp_ulpevent_type_enabled()
-Date: Wed, 13 Sep 2017 09:25:22 -0700 (PDT)
-Message-ID: <20170913.092522.934509429497822082.davem@davemloft.net>
-References: <20170913092028.idzvduj7ran4li6b@mwanda>
+From: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
+Subject: Re: HTB going crazy over ~5Gbit/s (4.12.9, but problem present in
+ older kernels as well)
+Date: Wed, 13 Sep 2017 19:27:22 +0300
+Message-ID: <9b8cdc2b39fdd2d0be7b5f559b2034e7@nuclearcat.com>
+References: <4cd23914d8cc2cf5caf78cb5654fb245@nuclearcat.com>
+ <d2aee52fda21d8f668ca012333ef3677@nuclearcat.com>
+ <1505319370.15310.169.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII;
+ format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: vyasevich@gmail.com, nhorman@tuxdriver.com,
-        linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-        kernel-janitors@vger.kernel.org
-To: dan.carpenter@oracle.com
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:51510 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751457AbdIMQZX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 13 Sep 2017 12:25:23 -0400
-In-Reply-To: <20170913092028.idzvduj7ran4li6b@mwanda>
+Received: from nuclearcat.com ([144.76.183.226]:51052 "EHLO nuclearcat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751457AbdIMQ1Z (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 13 Sep 2017 12:27:25 -0400
+In-Reply-To: <1505319370.15310.169.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Wed, 13 Sep 2017 12:20:28 +0300
+On 2017-09-13 19:16, Eric Dumazet wrote:
+> On Wed, 2017-09-13 at 18:34 +0300, Denys Fedoryshchenko wrote:
+>> Well, probably i am answering my own question, removing estimator from
+>> classes seems drastically improve situation.
+>> It seems estimator has some issues that cause shaper to behave
+>> incorrectly (throttling traffic while it should not).
+>> But i guess thats a bug?
+>> As i was not able to predict such bottleneck by CPU load measurements.
+> 
+> Well, there was a reason we disabled HTB class estimators by default ;)
+> 
+> 
+> https://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git/commit/?id=64153ce0a7b61b2a5cacb01805cbf670142339e9
 
-> @@ -154,7 +154,11 @@ static inline int sctp_ulpevent_type_enabled(__u16 sn_type,
->  					     struct sctp_event_subscribe *mask)
->  {
->  	char *amask = (char *) mask;
-> -	return amask[sn_type - SCTP_SN_TYPE_BASE];
-> +	int offset = sn_type - SCTP_SN_TYPE_BASE;
-
-Please use reverse-christmas-tree local variable ordering.
-
-Thank you.
+As soon as disabling it solve my problem - i'm fine, hehe, but i guess 
+other people who might hit this problem, should be aware how to find 
+reason.
+They should not be disappointed in Linux :)
+Because i can't measure this bottleneck before it happens, i'm seeing on 
+mpstat all cpu's are idle, and same time traffic is throttled.
