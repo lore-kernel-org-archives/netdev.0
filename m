@@ -1,58 +1,482 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: netfilter: xt_bpf: ABI issue in xt_bpf_info_v1?
-Date: Wed, 13 Sep 2017 11:05:08 -0400
-Message-ID: <CAF=yD-LUCCLSXuPNKPgEY695ej+T-2s=zhmw6CJwK6tFyY+_dg@mail.gmail.com>
-References: <20170913162442.368691c9@pixies> <nycvar.YFH.7.76.1709131613520.8761@n3.vanv.qr>
+From: "Jorgen S. Hansen" <jhansen@vmware.com>
+Subject: Re: scheduling while atomic from vmci_transport_recv_stream_cb in
+ 3.16 kernels
+Date: Wed, 13 Sep 2017 15:07:26 +0000
+Message-ID: <B8A42FAB-9E16-4943-98F3-86FC8F195069@vmware.com>
+References: <20170912090852.qshtrioffwexkslw@dhcp22.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Shmulik Ladkani <shmulik@nsof.io>,
-        netfilter-devel <netfilter-devel@vger.kernel.org>,
-        Pablo Neira Ayuso <pablo@netfilter.org>,
-        Network Development <netdev@vger.kernel.org>,
-        Willem de Bruijn <willemb@google.com>,
-        Rafael Buchbinder <rbk@nsof.io>,
-        Shmulik Ladkani <shmulik.ladkani@gmail.com>, eyal@nsof.io
-To: Jan Engelhardt <jengelh@inai.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <nycvar.YFH.7.76.1709131613520.8761@n3.vanv.qr>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: Aditya Sarwade <asarwade@vmware.com>,
+        Thomas Hellstrom <thellstrom@vmware.com>,
+        LKML <linux-kernel@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Masik Petr <Petr.Masik@nudz.cz>,
+        Ben Hutchings <ben@decadent.org.uk>,
+        Sasha Levin <alexander.levin@verizon.com>,
+        Stable tree <stable@vger.kernel.org>
+To: Michal Hocko <mhocko@kernel.org>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <20170912090852.qshtrioffwexkslw@dhcp22.suse.cz>
+Content-Language: en-US
+Content-ID: <4893451060E2E443943504B61700B54D@namprd05.prod.outlook.com>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 13, 2017 at 10:22 AM, Jan Engelhardt <jengelh@inai.de> wrote:
->
-> On Wednesday 2017-09-13 15:24, Shmulik Ladkani wrote:
->>
->>One way to fix is to have iptables open the object (using the stored
->>xt_bpf_info_v1->path), gaining a new process local fd for the object,
->>just after getting the rules from IPT_SO_GET_ENTRIES.
->>However we didn't see any other extensions doing something like that in
->>iptables.
 
-The binary should call bpf_obj_get on the filepath each time. These are
-not regular files, but references to a pinned object in the bpf filesystem.
+> On Sep 12, 2017, at 11:08 AM, Michal Hocko <mhocko@kernel.org> wrote:
+>=20
+> Hi,
+> we are seeing the following splat with Debian 3.16 stable kernel
+>=20
+> BUG: scheduling while atomic: MATLAB/26771/0x00000100
+> Modules linked in: veeamsnap(O) hmac cbc cts nfsv4 dns_resolver rpcsec_gs=
+s_krb5 nfsd auth_rpcgss oid_registry nfs_acl nfs lockd fscache sunrpc vmw_v=
+so$
+> CPU: 0 PID: 26771 Comm: MATLAB Tainted: G           O  3.16.0-4-amd64 #1 =
+Debian 3.16.7-ckt20-1+deb8u3
+> Hardware name: VMware, Inc. VMware Virtual Platform/440BX Desktop Referen=
+ce Platform, BIOS 6.00 09/21/2015
+> ffff88315c1e4c20 ffffffff8150db3f ffff88193f803dc8 ffffffff8150acdf
+> ffffffff815103a2 0000000000012f00 ffff8819423dbfd8 0000000000012f00
+> ffff88315c1e4c20 ffff88193f803dc8 ffff88193f803d50 ffff88193f803dc0
+> Call Trace:
+> <IRQ>  [<ffffffff8150db3f>] ? dump_stack+0x41/0x51
+> [<ffffffff8150acdf>] ? __schedule_bug+0x48/0x55
+> [<ffffffff815103a2>] ? __schedule+0x5d2/0x700
+> [<ffffffff8150f9b9>] ? schedule_timeout+0x229/0x2a0
+> [<ffffffff8109ba70>] ? select_task_rq_fair+0x390/0x700
+> [<ffffffff8109f780>] ? check_preempt_wakeup+0x120/0x1d0
+> [<ffffffff81510eb8>] ? wait_for_completion+0xa8/0x120
+> [<ffffffff81096de0>] ? wake_up_state+0x10/0x10
+> [<ffffffff810c3da0>] ? call_rcu_bh+0x20/0x20
+> [<ffffffff810c180b>] ? wait_rcu_gp+0x4b/0x60
+> [<ffffffff810c17b0>] ? ftrace_raw_output_rcu_utilization+0x40/0x40
+> [<ffffffffa02ca6f5>] ? vmci_event_unsubscribe+0x75/0xb0 [vmw_vmci]
+> [<ffffffffa031f5cd>] ? vmci_transport_destruct+0x1d/0xe0 [vmw_vsock_vmci_=
+transport]
+> [<ffffffffa03167e3>] ? vsock_sk_destruct+0x13/0x60 [vsock]
+> [<ffffffff81409f7a>] ? __sk_free+0x1a/0x130
+> [<ffffffffa0320218>] ? vmci_transport_recv_stream_cb+0x1e8/0x2d0 [vmw_vso=
+ck_vmci_transport]
+> [<ffffffffa02c9cba>] ? vmci_datagram_invoke_guest_handler+0xaa/0xd0 [vmw_=
+vmci]
+> [<ffffffffa02cab51>] ? vmci_dispatch_dgs+0xc1/0x200 [vmw_vmci]
+> [<ffffffff8106c294>] ? tasklet_action+0xf4/0x100
+> [<ffffffff8106c681>] ? __do_softirq+0xf1/0x290
+> [<ffffffff8106ca55>] ? irq_exit+0x95/0xa0
+> [<ffffffff81516b22>] ? do_IRQ+0x52/0xe0
+> [<ffffffff8151496d>] ? common_interrupt+0x6d/0x6d
+>=20
+> AFAICS this has been fixed by 4ef7ea9195ea ("VSOCK: sock_put wasn't safe
+> to call in interrupt context") but this patch hasn't been backported to
+> stable trees. It applies cleanly on top of 3.16 stable tree but I am not
+> familiar with the code to send the backport to the stable maintainer
+> directly.
+>=20
+> Could you double check that the patch below (just a blind cherry-pick)
+> is correct and it doesn't need additional patches on top?
 
-Blindly passing back the fd received from the kernel is clearly wrong. I'm
-really surprised that I did not run into this problem when I wrote the
-feature.
+Hi,
 
->>
->>Another way to solve is to fix the ABI (or have a v2 one), that does NOT
->>pass the fd from userspace, only the path of the pinned object.
->>Then, 'bpf_mt_check_v1' will open the file from the given path in order
->>to get the bpf_prog.
->
-> But a path has a similar problem like a file descriptor - it is local to a
-> certain mount namespace.
+The patch below has been used to fix the above issue by other distros - amo=
+ng them Redhat for the 3.10 kernel, so it should work for 3.16 as well. In =
+addition to the patch above, there are two other patches that need to be ap=
+plied on top for the fix to be correct:
 
-Because these are pinned objects in the bpf filesystem, and there is
-only one of those, it may be possible to lookup the object in the kernel
-without relying on a process-local view of mount points.
+8566b86ab9f0f45bc6f7dd422b21de9d0cf5415a "VSOCK: Fix lockdep issue."
 
->
-> To load "large" blobs into the kernel, a pointer to user memory is a possible
-> option. The downside is that such extra data is not retrievable from the kernel
-> via the iptables setsockopts anymore - one could work around it with procfs, or
-> just let it be.
->
-> https://sourceforge.net/p/xtables-addons/xtables-addons/ci/master/tree/extensions/xt_geoip.c
-> line 64+.
+and
+
+8ab18d71de8b07d2c4d6f984b718418c09ea45c5 "VSOCK: Detach QP check should fil=
+ter out non matching QPs."
+
+Thanks,
+Jorgen
+
+>=20
+> Ben could you take this to your stable 3.16 branch if the patch is correc=
+t?
+>=20
+> I am CCing Sasha for 4.1 stable tree as well. I haven't checked whether
+> pre 3.16 kernels are affected as well.
+> ---
+> commit fac774c40b5c512113b6373cad498f35bee7a409
+> Author: Jorgen Hansen <jhansen@vmware.com>
+> Date:   Wed Oct 21 04:53:56 2015 -0700
+>=20
+>    VSOCK: sock_put wasn't safe to call in interrupt context
+>=20
+>    commit 4ef7ea9195ea73262cd9730fb54e1eb726da157b upstream.
+>=20
+>    In the vsock vmci_transport driver, sock_put wasn't safe to call
+>    in interrupt context, since that may call the vsock destructor
+>    which in turn calls several functions that should only be called
+>    from process context. This change defers the callling of these
+>    functions  to a worker thread. All these functions were
+>    deallocation of resources related to the transport itself.
+>=20
+>    Furthermore, an unused callback was removed to simplify the
+>    cleanup.
+>=20
+>    Multiple customers have been hitting this issue when using
+>    VMware tools on vSphere 2015.
+>=20
+>    Also added a version to the vmci transport module (starting from
+>    1.0.2.0-k since up until now it appears that this module was
+>    sharing version with vsock that is currently at 1.0.1.0-k).
+>=20
+>    Reviewed-by: Aditya Asarwade <asarwade@vmware.com>
+>    Reviewed-by: Thomas Hellstrom <thellstrom@vmware.com>
+>    Signed-off-by: Jorgen Hansen <jhansen@vmware.com>
+>    Signed-off-by: David S. Miller <davem@davemloft.net>
+>=20
+> diff --git a/net/vmw_vsock/vmci_transport.c b/net/vmw_vsock/vmci_transpor=
+t.c
+> index 9bb63ffec4f2..aed136d27b01 100644
+> --- a/net/vmw_vsock/vmci_transport.c
+> +++ b/net/vmw_vsock/vmci_transport.c
+> @@ -40,13 +40,11 @@
+>=20
+> static int vmci_transport_recv_dgram_cb(void *data, struct vmci_datagram =
+*dg);
+> static int vmci_transport_recv_stream_cb(void *data, struct vmci_datagram=
+ *dg);
+> -static void vmci_transport_peer_attach_cb(u32 sub_id,
+> -					  const struct vmci_event_data *ed,
+> -					  void *client_data);
+> static void vmci_transport_peer_detach_cb(u32 sub_id,
+> 					  const struct vmci_event_data *ed,
+> 					  void *client_data);
+> static void vmci_transport_recv_pkt_work(struct work_struct *work);
+> +static void vmci_transport_cleanup(struct work_struct *work);
+> static int vmci_transport_recv_listen(struct sock *sk,
+> 				      struct vmci_transport_packet *pkt);
+> static int vmci_transport_recv_connecting_server(
+> @@ -75,6 +73,10 @@ struct vmci_transport_recv_pkt_info {
+> 	struct vmci_transport_packet pkt;
+> };
+>=20
+> +static LIST_HEAD(vmci_transport_cleanup_list);
+> +static DEFINE_SPINLOCK(vmci_transport_cleanup_lock);
+> +static DECLARE_WORK(vmci_transport_cleanup_work, vmci_transport_cleanup)=
+;
+> +
+> static struct vmci_handle vmci_transport_stream_handle =3D { VMCI_INVALID=
+_ID,
+> 							   VMCI_INVALID_ID };
+> static u32 vmci_transport_qp_resumed_sub_id =3D VMCI_INVALID_ID;
+> @@ -791,44 +793,6 @@ static int vmci_transport_recv_stream_cb(void *data,=
+ struct vmci_datagram *dg)
+> 	return err;
+> }
+>=20
+> -static void vmci_transport_peer_attach_cb(u32 sub_id,
+> -					  const struct vmci_event_data *e_data,
+> -					  void *client_data)
+> -{
+> -	struct sock *sk =3D client_data;
+> -	const struct vmci_event_payload_qp *e_payload;
+> -	struct vsock_sock *vsk;
+> -
+> -	e_payload =3D vmci_event_data_const_payload(e_data);
+> -
+> -	vsk =3D vsock_sk(sk);
+> -
+> -	/* We don't ask for delayed CBs when we subscribe to this event (we
+> -	 * pass 0 as flags to vmci_event_subscribe()).  VMCI makes no
+> -	 * guarantees in that case about what context we might be running in,
+> -	 * so it could be BH or process, blockable or non-blockable.  So we
+> -	 * need to account for all possible contexts here.
+> -	 */
+> -	local_bh_disable();
+> -	bh_lock_sock(sk);
+> -
+> -	/* XXX This is lame, we should provide a way to lookup sockets by
+> -	 * qp_handle.
+> -	 */
+> -	if (vmci_handle_is_equal(vmci_trans(vsk)->qp_handle,
+> -				 e_payload->handle)) {
+> -		/* XXX This doesn't do anything, but in the future we may want
+> -		 * to set a flag here to verify the attach really did occur and
+> -		 * we weren't just sent a datagram claiming it was.
+> -		 */
+> -		goto out;
+> -	}
+> -
+> -out:
+> -	bh_unlock_sock(sk);
+> -	local_bh_enable();
+> -}
+> -
+> static void vmci_transport_handle_detach(struct sock *sk)
+> {
+> 	struct vsock_sock *vsk;
+> @@ -871,28 +835,38 @@ static void vmci_transport_peer_detach_cb(u32 sub_i=
+d,
+> 					  const struct vmci_event_data *e_data,
+> 					  void *client_data)
+> {
+> -	struct sock *sk =3D client_data;
+> +	struct vmci_transport *trans =3D client_data;
+> 	const struct vmci_event_payload_qp *e_payload;
+> -	struct vsock_sock *vsk;
+>=20
+> 	e_payload =3D vmci_event_data_const_payload(e_data);
+> -	vsk =3D vsock_sk(sk);
+> -	if (vmci_handle_is_invalid(e_payload->handle))
+> -		return;
+> -
+> -	/* Same rules for locking as for peer_attach_cb(). */
+> -	local_bh_disable();
+> -	bh_lock_sock(sk);
+>=20
+> 	/* XXX This is lame, we should provide a way to lookup sockets by
+> 	 * qp_handle.
+> 	 */
+> -	if (vmci_handle_is_equal(vmci_trans(vsk)->qp_handle,
+> -				 e_payload->handle))
+> -		vmci_transport_handle_detach(sk);
+> +	if (vmci_handle_is_invalid(e_payload->handle) ||
+> +	    vmci_handle_is_equal(trans->qp_handle, e_payload->handle))
+> +		return;
+>=20
+> -	bh_unlock_sock(sk);
+> -	local_bh_enable();
+> +	/* We don't ask for delayed CBs when we subscribe to this event (we
+> +	 * pass 0 as flags to vmci_event_subscribe()).  VMCI makes no
+> +	 * guarantees in that case about what context we might be running in,
+> +	 * so it could be BH or process, blockable or non-blockable.  So we
+> +	 * need to account for all possible contexts here.
+> +	 */
+> +	spin_lock_bh(&trans->lock);
+> +	if (!trans->sk)
+> +		goto out;
+> +
+> +	/* Apart from here, trans->lock is only grabbed as part of sk destruct,
+> +	 * where trans->sk isn't locked.
+> +	 */
+> +	bh_lock_sock(trans->sk);
+> +
+> +	vmci_transport_handle_detach(trans->sk);
+> +
+> +	bh_unlock_sock(trans->sk);
+> + out:
+> +	spin_unlock_bh(&trans->lock);
+> }
+>=20
+> static void vmci_transport_qp_resumed_cb(u32 sub_id,
+> @@ -1181,7 +1155,7 @@ vmci_transport_recv_connecting_server(struct sock *=
+listener,
+> 	 */
+> 	err =3D vmci_event_subscribe(VMCI_EVENT_QP_PEER_DETACH,
+> 				   vmci_transport_peer_detach_cb,
+> -				   pending, &detach_sub_id);
+> +				   vmci_trans(vpending), &detach_sub_id);
+> 	if (err < VMCI_SUCCESS) {
+> 		vmci_transport_send_reset(pending, pkt);
+> 		err =3D vmci_transport_error_to_vsock_error(err);
+> @@ -1321,7 +1295,6 @@ vmci_transport_recv_connecting_client(struct sock *=
+sk,
+> 		    || vmci_trans(vsk)->qpair
+> 		    || vmci_trans(vsk)->produce_size !=3D 0
+> 		    || vmci_trans(vsk)->consume_size !=3D 0
+> -		    || vmci_trans(vsk)->attach_sub_id !=3D VMCI_INVALID_ID
+> 		    || vmci_trans(vsk)->detach_sub_id !=3D VMCI_INVALID_ID) {
+> 			skerr =3D EPROTO;
+> 			err =3D -EINVAL;
+> @@ -1389,7 +1362,6 @@ static int vmci_transport_recv_connecting_client_ne=
+gotiate(
+> 	struct vsock_sock *vsk;
+> 	struct vmci_handle handle;
+> 	struct vmci_qp *qpair;
+> -	u32 attach_sub_id;
+> 	u32 detach_sub_id;
+> 	bool is_local;
+> 	u32 flags;
+> @@ -1399,7 +1371,6 @@ static int vmci_transport_recv_connecting_client_ne=
+gotiate(
+>=20
+> 	vsk =3D vsock_sk(sk);
+> 	handle =3D VMCI_INVALID_HANDLE;
+> -	attach_sub_id =3D VMCI_INVALID_ID;
+> 	detach_sub_id =3D VMCI_INVALID_ID;
+>=20
+> 	/* If we have gotten here then we should be past the point where old
+> @@ -1444,23 +1415,15 @@ static int vmci_transport_recv_connecting_client_=
+negotiate(
+> 		goto destroy;
+> 	}
+>=20
+> -	/* Subscribe to attach and detach events first.
+> +	/* Subscribe to detach events first.
+> 	 *
+> 	 * XXX We attach once for each queue pair created for now so it is easy
+> 	 * to find the socket (it's provided), but later we should only
+> 	 * subscribe once and add a way to lookup sockets by queue pair handle.
+> 	 */
+> -	err =3D vmci_event_subscribe(VMCI_EVENT_QP_PEER_ATTACH,
+> -				   vmci_transport_peer_attach_cb,
+> -				   sk, &attach_sub_id);
+> -	if (err < VMCI_SUCCESS) {
+> -		err =3D vmci_transport_error_to_vsock_error(err);
+> -		goto destroy;
+> -	}
+> -
+> 	err =3D vmci_event_subscribe(VMCI_EVENT_QP_PEER_DETACH,
+> 				   vmci_transport_peer_detach_cb,
+> -				   sk, &detach_sub_id);
+> +				   vmci_trans(vsk), &detach_sub_id);
+> 	if (err < VMCI_SUCCESS) {
+> 		err =3D vmci_transport_error_to_vsock_error(err);
+> 		goto destroy;
+> @@ -1496,7 +1459,6 @@ static int vmci_transport_recv_connecting_client_ne=
+gotiate(
+> 	vmci_trans(vsk)->produce_size =3D vmci_trans(vsk)->consume_size =3D
+> 		pkt->u.size;
+>=20
+> -	vmci_trans(vsk)->attach_sub_id =3D attach_sub_id;
+> 	vmci_trans(vsk)->detach_sub_id =3D detach_sub_id;
+>=20
+> 	vmci_trans(vsk)->notify_ops->process_negotiate(sk);
+> @@ -1504,9 +1466,6 @@ static int vmci_transport_recv_connecting_client_ne=
+gotiate(
+> 	return 0;
+>=20
+> destroy:
+> -	if (attach_sub_id !=3D VMCI_INVALID_ID)
+> -		vmci_event_unsubscribe(attach_sub_id);
+> -
+> 	if (detach_sub_id !=3D VMCI_INVALID_ID)
+> 		vmci_event_unsubscribe(detach_sub_id);
+>=20
+> @@ -1607,9 +1566,11 @@ static int vmci_transport_socket_init(struct vsock=
+_sock *vsk,
+> 	vmci_trans(vsk)->qp_handle =3D VMCI_INVALID_HANDLE;
+> 	vmci_trans(vsk)->qpair =3D NULL;
+> 	vmci_trans(vsk)->produce_size =3D vmci_trans(vsk)->consume_size =3D 0;
+> -	vmci_trans(vsk)->attach_sub_id =3D vmci_trans(vsk)->detach_sub_id =3D
+> -		VMCI_INVALID_ID;
+> +	vmci_trans(vsk)->detach_sub_id =3D VMCI_INVALID_ID;
+> 	vmci_trans(vsk)->notify_ops =3D NULL;
+> +	INIT_LIST_HEAD(&vmci_trans(vsk)->elem);
+> +	vmci_trans(vsk)->sk =3D &vsk->sk;
+> +	vmci_trans(vsk)->lock =3D __SPIN_LOCK_UNLOCKED(vmci_trans(vsk)->lock);
+> 	if (psk) {
+> 		vmci_trans(vsk)->queue_pair_size =3D
+> 			vmci_trans(psk)->queue_pair_size;
+> @@ -1629,29 +1590,57 @@ static int vmci_transport_socket_init(struct vsoc=
+k_sock *vsk,
+> 	return 0;
+> }
+>=20
+> -static void vmci_transport_destruct(struct vsock_sock *vsk)
+> +static void vmci_transport_free_resources(struct list_head *transport_li=
+st)
+> {
+> -	if (vmci_trans(vsk)->attach_sub_id !=3D VMCI_INVALID_ID) {
+> -		vmci_event_unsubscribe(vmci_trans(vsk)->attach_sub_id);
+> -		vmci_trans(vsk)->attach_sub_id =3D VMCI_INVALID_ID;
+> -	}
+> +	while (!list_empty(transport_list)) {
+> +		struct vmci_transport *transport =3D
+> +		    list_first_entry(transport_list, struct vmci_transport,
+> +				     elem);
+> +		list_del(&transport->elem);
+>=20
+> -	if (vmci_trans(vsk)->detach_sub_id !=3D VMCI_INVALID_ID) {
+> -		vmci_event_unsubscribe(vmci_trans(vsk)->detach_sub_id);
+> -		vmci_trans(vsk)->detach_sub_id =3D VMCI_INVALID_ID;
+> -	}
+> +		if (transport->detach_sub_id !=3D VMCI_INVALID_ID) {
+> +			vmci_event_unsubscribe(transport->detach_sub_id);
+> +			transport->detach_sub_id =3D VMCI_INVALID_ID;
+> +		}
+>=20
+> -	if (!vmci_handle_is_invalid(vmci_trans(vsk)->qp_handle)) {
+> -		vmci_qpair_detach(&vmci_trans(vsk)->qpair);
+> -		vmci_trans(vsk)->qp_handle =3D VMCI_INVALID_HANDLE;
+> -		vmci_trans(vsk)->produce_size =3D 0;
+> -		vmci_trans(vsk)->consume_size =3D 0;
+> +		if (!vmci_handle_is_invalid(transport->qp_handle)) {
+> +			vmci_qpair_detach(&transport->qpair);
+> +			transport->qp_handle =3D VMCI_INVALID_HANDLE;
+> +			transport->produce_size =3D 0;
+> +			transport->consume_size =3D 0;
+> +		}
+> +
+> +		kfree(transport);
+> 	}
+> +}
+> +
+> +static void vmci_transport_cleanup(struct work_struct *work)
+> +{
+> +	LIST_HEAD(pending);
+> +
+> +	spin_lock_bh(&vmci_transport_cleanup_lock);
+> +	list_replace_init(&vmci_transport_cleanup_list, &pending);
+> +	spin_unlock_bh(&vmci_transport_cleanup_lock);
+> +	vmci_transport_free_resources(&pending);
+> +}
+> +
+> +static void vmci_transport_destruct(struct vsock_sock *vsk)
+> +{
+> +	/* Ensure that the detach callback doesn't use the sk/vsk
+> +	 * we are about to destruct.
+> +	 */
+> +	spin_lock_bh(&vmci_trans(vsk)->lock);
+> +	vmci_trans(vsk)->sk =3D NULL;
+> +	spin_unlock_bh(&vmci_trans(vsk)->lock);
+>=20
+> 	if (vmci_trans(vsk)->notify_ops)
+> 		vmci_trans(vsk)->notify_ops->socket_destruct(vsk);
+>=20
+> -	kfree(vsk->trans);
+> +	spin_lock_bh(&vmci_transport_cleanup_lock);
+> +	list_add(&vmci_trans(vsk)->elem, &vmci_transport_cleanup_list);
+> +	spin_unlock_bh(&vmci_transport_cleanup_lock);
+> +	schedule_work(&vmci_transport_cleanup_work);
+> +
+> 	vsk->trans =3D NULL;
+> }
+>=20
+> @@ -2148,6 +2137,9 @@ module_init(vmci_transport_init);
+>=20
+> static void __exit vmci_transport_exit(void)
+> {
+> +	cancel_work_sync(&vmci_transport_cleanup_work);
+> +	vmci_transport_free_resources(&vmci_transport_cleanup_list);
+> +
+> 	if (!vmci_handle_is_invalid(vmci_transport_stream_handle)) {
+> 		if (vmci_datagram_destroy_handle(
+> 			vmci_transport_stream_handle) !=3D VMCI_SUCCESS)
+> @@ -2166,6 +2158,7 @@ module_exit(vmci_transport_exit);
+>=20
+> MODULE_AUTHOR("VMware, Inc.");
+> MODULE_DESCRIPTION("VMCI transport for Virtual Sockets");
+> +MODULE_VERSION("1.0.2.0-k");
+> MODULE_LICENSE("GPL v2");
+> MODULE_ALIAS("vmware_vsock");
+> MODULE_ALIAS_NETPROTO(PF_VSOCK);
+> diff --git a/net/vmw_vsock/vmci_transport.h b/net/vmw_vsock/vmci_transpor=
+t.h
+> index ce6c9623d5f0..2ad46f39649f 100644
+> --- a/net/vmw_vsock/vmci_transport.h
+> +++ b/net/vmw_vsock/vmci_transport.h
+> @@ -119,10 +119,12 @@ struct vmci_transport {
+> 	u64 queue_pair_size;
+> 	u64 queue_pair_min_size;
+> 	u64 queue_pair_max_size;
+> -	u32 attach_sub_id;
+> 	u32 detach_sub_id;
+> 	union vmci_transport_notify notify;
+> 	struct vmci_transport_notify_ops *notify_ops;
+> +	struct list_head elem;
+> +	struct sock *sk;
+> +	spinlock_t lock; /* protects sk. */
+> };
+>=20
+> int vmci_transport_register(void);
+> --=20
+> Michal Hocko
+> SUSE Labs
