@@ -1,69 +1,73 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [oss-drivers] Re: [PATCH/RFC net-next 2/2] net/sched: allow
- flower to match tunnel options
-Date: Wed, 13 Sep 2017 11:25:12 +0200
-Message-ID: <20170913092511.GA27555@vergenet.net>
-References: <1505226037-2758-1-git-send-email-simon.horman@netronome.com>
- <1505226037-2758-3-git-send-email-simon.horman@netronome.com>
- <CAJ3xEMgfkpJCfZX-7jaeYtoWTSQQZ6gu8_jSFgcXpzTBpdijQw@mail.gmail.com>
+From: Hangbin Liu <liuhangbin@gmail.com>
+Subject: Re: [PATCH iproute2 1/2] lib/libnetlink: re malloc buff if size is
+ not enough
+Date: Wed, 13 Sep 2017 17:26:58 +0800
+Message-ID: <20170913092657.GK5465@leo.usersys.redhat.com>
+References: <1504865697-27274-1-git-send-email-liuhangbin@gmail.com>
+ <1504865697-27274-2-git-send-email-liuhangbin@gmail.com>
+ <20170908110247.GS2399@orbyte.nwl.cc>
+ <20170908140131.GU5465@leo.usersys.redhat.com>
+ <20170908145113.GA30028@orbyte.nwl.cc>
+ <20170911071955.GZ5465@leo.usersys.redhat.com>
+ <20170912084748.m4wz6kxfclc2mkxd@unicorn.suse.cz>
+ <20170912090926.j7vwhq6a57c5d6wx@unicorn.suse.cz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Pirko <jiri@mellanox.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        oss-drivers@netronome.com
-To: Or Gerlitz <gerlitz.or@gmail.com>
+Cc: Phil Sutter <phil@nwl.cc>, netdev@vger.kernel.org,
+        Stephen Hemminger <stephen@networkplumber.org>
+To: Michal Kubecek <mkubecek@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f43.google.com ([74.125.82.43]:45071 "EHLO
-        mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751380AbdIMJZO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 13 Sep 2017 05:25:14 -0400
-Received: by mail-wm0-f43.google.com with SMTP id g206so1783138wme.0
-        for <netdev@vger.kernel.org>; Wed, 13 Sep 2017 02:25:14 -0700 (PDT)
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:38233 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751545AbdIMJ1J (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 13 Sep 2017 05:27:09 -0400
+Received: by mail-pf0-f194.google.com with SMTP id q76so7289718pfq.5
+        for <netdev@vger.kernel.org>; Wed, 13 Sep 2017 02:27:09 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <CAJ3xEMgfkpJCfZX-7jaeYtoWTSQQZ6gu8_jSFgcXpzTBpdijQw@mail.gmail.com>
+In-Reply-To: <20170912090926.j7vwhq6a57c5d6wx@unicorn.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 12, 2017 at 11:23:55PM +0300, Or Gerlitz wrote:
-> On Tue, Sep 12, 2017 at 5:20 PM, Simon Horman
-> <simon.horman@netronome.com> wrote:
-> > Allow matching on options in tunnel headers.
-> > This makes use of existing tunnel metadata support.
-> 
-> Simon,
-> 
-> This patch is about matching on tunnel options, right? but
-> 
-> > Options are a bytestring of up to 256 bytes.
-> > Tunnel implementations may support less or more options,
-> > or no options at all.
-> >
-> >  # ip link add name geneve0 type geneve dstport 0 external
-> >  # tc qdisc add dev eth0 ingress
-> >  # tc qdisc del dev eth0 ingress; tc qdisc add dev eth0 ingress
-> >  # tc filter add dev eth0 protocol ip parent ffff: \
-> >      flower indev eth0 \
-> >         ip_proto udp \
-> >         action tunnel_key \
-> >             set src_ip 10.0.99.192 \
-> >             dst_ip 10.0.99.193 \
-> >             dst_port 4789 \
-> >             id 11 \
-> >             opts 0102800100800022 \
-> >     action mirred egress redirect dev geneve0
-> 
-> the example here is on how to use tunnel options in the tunnel set key actions..
-> 
-> And the other way around in the other patch... the patch is about the
-> tunnel key set action and the example shows how to match that in
-> flower... I guess you want to swap the relevant of the change log.
+Hi Michal,
 
-Yes, it seems so. Sorry about that.
+Thanks a lot for all your explains. Phil has helped update the patch to support
+return a newly allocated buffer. I will post it soon.
 
-> Anyway, is there any human readable/understandable representation of
-> these options? e.g what does 0102800100800022 means for geneve?
-
-Thanks, I had not thought of that. My feeling is that could
-be added to the tc tool as follow-up work.
+Thanks
+Hangbin
+On Tue, Sep 12, 2017 at 11:09:26AM +0200, Michal Kubecek wrote:
+> > 
+> > I checked again and arpd indeed isn't a problem. It doesn't seem to call
+> > any of the two functions (directly or indirectly) and while it's linked
+> > with "-lpthread", it's not really multithreaded.
+> > 
+> > But my concern was rather about other potential users of libnetlink
+> > (i.e. those which are not part of iproute2). I must admit, though, that
+> > I'm not sure if libnetlink code is reentrant as of now. (And people are
+> > discouraged from using it in its own manual page.)
+> > 
+> > That being said, I still like Phil's idea for a different reason. While
+> > investigating the issue with "ip link show dev eth ..." which led me to
+> > commit 6599162b958e ("iplink: check for message truncation in
+> > iplink_get()"), I quickly peeked at some other callers of rtnl_talk()
+> > and I'm afraid there may be others which wouldn't handle truncated
+> > message correctly. I assume the maxlen argument was always chosen to be
+> > sufficient for any expected messages but as the example of iplink_get()
+> > shows, messages returned by kernel my grow over time.
+> > 
+> > That's why I like the idea of __rtnl_talk() returning a pointer to newly
+> > allocated buffer (of sufficient size) rather than copying the response
+> > into a buffer provided by caller and potentially truncating it.
+> 
+> I'm sorry, I managed to forget that your patch 2 does already address
+> this problem. But the fact that any caller must keep in mind that he
+> must not call the same function again until the previous response is no
+> longer needed still feels like a trap. It's something you need to keep
+> in mind (where "you" in fact means any future contributor) and it's
+> easy to forget. That's why I prefer the reentrant functions like
+> strerror_r() or localtime_r() even in code which is not intended to be
+> multithreaded. Getting an object which is "mine" to do with whatever
+> I want until I no longer need it feels like a cleaner interface to me.
+> 
+> Michal Kubecek
+> 
