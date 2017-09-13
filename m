@@ -1,53 +1,39 @@
-From: Michele Lucini <mlucini@safearea.com.au>
-Subject: RE: [PATCH v3] iproute2: add support for GRE ignore-df knob
-Date: Wed, 13 Sep 2017 03:56:56 +0000
-Message-ID: <SYXPR01MB1055A4CEC12281A625331C64F06E0@SYXPR01MB1055.ausprd01.prod.outlook.com>
-References: <20170720190610.6886-1-philipp@redfish-solutions.com>
- <20170720172628.06d358b5@xeon-e3>
- <C28C1CD8-95FD-43C6-86DA-0C89D3776668@redfish-solutions.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] net: bonding: fix tlb_dynamic_lb default value
+Date: Tue, 12 Sep 2017 20:59:00 -0700 (PDT)
+Message-ID: <20170912.205900.438222724554183210.davem@davemloft.net>
+References: <1505218205-2637-1-git-send-email-nikolay@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Philip Prindeville <philipp@redfish-solutions.com>,
-        Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, j.vosburgh@gmail.com, vfalico@gmail.com,
+        andy@greyhouse.net, maheshb@google.com
+To: nikolay@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sy3aus01on0042.outbound.protection.outlook.com ([104.47.117.42]:18881
-        "EHLO AUS01-SY3-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751364AbdIMD5A (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 12 Sep 2017 23:57:00 -0400
-In-Reply-To: <C28C1CD8-95FD-43C6-86DA-0C89D3776668@redfish-solutions.com>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([184.105.139.130]:37512 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751458AbdIMD7B (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 12 Sep 2017 23:59:01 -0400
+In-Reply-To: <1505218205-2637-1-git-send-email-nikolay@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-R3V5cywgdGhhbmtzIGhlYXBzIGZvciB0aGlzLCBtdWNoIGFwcHJlY2lhdGVkIQ0KDQpDaGVlcnMu
-DQoNCk1pa2UNCi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQpGcm9tOiBQaGlsaXAgUHJpbmRl
-dmlsbGUgW21haWx0bzpwaGlsaXBwQHJlZGZpc2gtc29sdXRpb25zLmNvbV0gDQpTZW50OiBGcmlk
-YXksIDIxIEp1bHkgMjAxNyAxMDozNSBBTQ0KVG86IFN0ZXBoZW4gSGVtbWluZ2VyIDxzdGVwaGVu
-QG5ldHdvcmtwbHVtYmVyLm9yZz4NCkNjOiBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBNaWNoZWxl
-IEx1Y2luaSA8bWx1Y2luaUBzYWZlYXJlYS5jb20uYXU+DQpTdWJqZWN0OiBSZTogW1BBVENIIHYz
-XSBpcHJvdXRlMjogYWRkIHN1cHBvcnQgZm9yIEdSRSBpZ25vcmUtZGYga25vYg0KDQoNCj4gT24g
-SnVsIDIwLCAyMDE3LCBhdCA2OjI2IFBNLCBTdGVwaGVuIEhlbW1pbmdlciA8c3RlcGhlbkBuZXR3
-b3JrcGx1bWJlci5vcmc+IHdyb3RlOg0KPiANCj4gT24gVGh1LCAyMCBKdWwgMjAxNyAxMzowNjox
-MCAtMDYwMA0KPiAiUGhpbGlwIFByaW5kZXZpbGxlIiA8cGhpbGlwcEByZWRmaXNoLXNvbHV0aW9u
-cy5jb20+IHdyb3RlOg0KPiANCj4+IEZyb206IFBoaWxpcCBQcmluZGV2aWxsZSA8cGhpbGlwcEBy
-ZWRmaXNoLXNvbHV0aW9ucy5jb20+DQo+PiANCj4+IEluIHRoZSBwcmVzZW5jZSBvZiBmaXJld2Fs
-bHMgd2hpY2ggaW1wcm9wZXJseSBibG9jayBJQ01QIFVucmVhY2hhYmxlIA0KPj4gKGluY2x1ZGlu
-ZyBGcmFnbWVudGF0aW9uIFJlcXVpcmVkKSBtZXNzYWdlcywgUGF0aCBNVFUgRGlzY292ZXJ5IGlz
-IA0KPj4gcHJldmVudGVkIGZyb20gd29ya2luZy4NCj4+IA0KPj4gVGhlIHdvcmthcm91bmQgaXMg
-dG8gaGFuZGxlIElQdjQgcGF5bG9hZHMgb3BhcXVlbHksIGlnbm9yaW5nIHRoZSBERiANCj4+IGJp
-dC4NCj4+IA0KPj4gS2VybmVsIGNvbW1pdCAyMmE1OWJlOGI3NjkzZWIyZDA4OTdhOTYzOGY1OTkx
-ZjJmOGU0ZGRkICgibmV0OiBpcHY0Og0KPj4gQWRkIGFiaWxpdHkgdG8gaGF2ZSBHUkUgaWdub3Jl
-IERGIGJpdCBpbiBJUHY0IHBheWxvYWRzIikgaXMgDQo+PiBjb21wbGVtZW50ZWQgYnkgdGhpcyB1
-c2VyLXNwYWNlIGNoYW5nZXNldCB3aGljaCBleHBvc2VzIGNvbnRyb2wgb2YgDQo+PiB0aGlzIHNl
-dHRpbmcuDQo+PiANCj4+IFJldmlld2VkLWJ5OiBTdGVwaGVuIEhlbW1pbmdlciA8c3RlcGhlbkBu
-ZXR3b3JrcGx1bWJlci5vcmc+DQo+PiBTaWduZWQtb2ZmLWJ5OiBQaGlsaXAgUHJpbmRldmlsbGUg
-PHBoaWxpcHBAcmVkZmlzaC1zb2x1dGlvbnMuY29tPg0KPiANCj4gQXBwbGllZCwgdGhhbmtzIFBo
-aWxpcA0KDQoNClRoYW5rcyEgIFNvcnJ5IEkgZGlkbuKAmXQgcmVhbGl6ZSB0aGF0IHRoZSBmaXJz
-dCBzdWJtaXNzaW9uIGEgeWVhciBhZ28gaGFkbuKAmXQgYmVlbiBhcHBsaWVkIGFuZCBpdCB0b29r
-IG1lIHRoaXMgbG9uZyB0byByZWR1eCBhbmQgcmVzdWJtaXQgaXQuDQoNCk1pY2hlbGU6IGhvcGVm
-dWxseSB0aGlzIGNvbWVzIG91dCBpbiB5b3VyIGRpc3Ryby1vZi1jaG9pY2UgZmFpcmx5IHNvb24u
-ICBMaWtlIEkgc2FpZCwgSSB0aG91Z2h0IHRoaXMgaGFkIGFscmVhZHkgYmVlbiByb2xsZWQgaW4u
-DQoNCi1QaGlsaXANCg0K
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Date: Tue, 12 Sep 2017 15:10:05 +0300
+
+> Commit 8b426dc54cf4 ("bonding: remove hardcoded value") changed the
+> default value for tlb_dynamic_lb which lead to either broken ALB mode
+> (since tlb_dynamic_lb can be changed only in TLB) or setting TLB mode
+> with tlb_dynamic_lb equal to 0.
+> The first issue was recently fixed by setting tlb_dynamic_lb to 1 always
+> when switching to ALB mode, but the default value is still wrong and
+> we'll enter TLB mode with tlb_dynamic_lb equal to 0 if the mode is
+> changed via netlink or sysfs. In order to restore the previous behaviour
+> and default value simply remove the mode check around the default param
+> initialization for tlb_dynamic_lb which will always set it to 1 as
+> before.
+> 
+> Fixes: 8b426dc54cf4 ("bonding: remove hardcoded value")
+> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+
+Applied and queued up for -stable, thanks.
