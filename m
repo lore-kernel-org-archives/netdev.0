@@ -1,118 +1,82 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: Memory leaks in conntrack
-Date: Wed, 13 Sep 2017 10:58:37 -0700
-Message-ID: <CAM_iQpUOiKR85Sw94VnuUSW6d8SdnKCsJsyJbU1K13Zf+21wxg@mail.gmail.com>
-References: <CAM_iQpWvO3L1JOrCMvAvqduWH5pt_9-=GEx+eOFQyOt5Z5prrA@mail.gmail.com>
- <20170913080516.GD25977@breakpoint.cc> <CAM_iQpVk1X+ZV2Nzi28G0HJu+RZWJ-_=0AO+EF4HVZnqSjVQ8w@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: HTB going crazy over ~5Gbit/s (4.12.9, but problem present in
+ older kernels as well)
+Date: Wed, 13 Sep 2017 11:03:23 -0700
+Message-ID: <1505325803.15310.184.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <4cd23914d8cc2cf5caf78cb5654fb245@nuclearcat.com>
+         <d2aee52fda21d8f668ca012333ef3677@nuclearcat.com>
+         <1505319370.15310.169.camel@edumazet-glaptop3.roam.corp.google.com>
+         <9b8cdc2b39fdd2d0be7b5f559b2034e7@nuclearcat.com>
+         <1505320949.15310.173.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1505321747.15310.175.camel@edumazet-glaptop3.roam.corp.google.com>
+         <57baf3c3ea2544ed4d53967b7a2d0e36@nuclearcat.com>
+         <1505323222.15310.177.camel@edumazet-glaptop3.roam.corp.google.com>
+         <5a95e6550a304545fbde95360985c018@nuclearcat.com>
+         <1505325534.15310.182.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: netfilter-devel@vger.kernel.org,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <CAM_iQpVk1X+ZV2Nzi28G0HJu+RZWJ-_=0AO+EF4HVZnqSjVQ8w@mail.gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        netdev-owner@vger.kernel.org
+To: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:33413 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751106AbdIMSD0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 13 Sep 2017 14:03:26 -0400
+In-Reply-To: <1505325534.15310.182.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 13, 2017 at 9:45 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> On Wed, Sep 13, 2017 at 1:05 AM, Florian Westphal <fw@strlen.de> wrote:
->> Cong Wang <xiyou.wangcong@gmail.com> wrote:
->>> While testing my TC filter patches (so not related to conntrack), the
->>> following memory leaks are shown up:
->>>
->>> unreferenced object 0xffff9b19ba551228 (size 128):
->>>   comm "chronyd", pid 338, jiffies 4294910829 (age 53.188s)
->>>   hex dump (first 32 bytes):
->>>     6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b  kkkkkkkkkkkkkkkk
->>>     00 00 00 00 18 00 00 30 00 00 00 00 00 00 00 00  .......0........
->>>   backtrace:
->>>     [<ffffffff9f1e1175>] create_object+0x169/0x2aa
->>>     [<ffffffff9fb77fb2>] kmemleak_alloc+0x25/0x41
->>>     [<ffffffff9f1c47ed>] slab_post_alloc_hook+0x44/0x65
->>>     [<ffffffff9f1ca2db>] __kmalloc_track_caller+0x113/0x146
->>>     [<ffffffff9f193c3b>] __krealloc+0x4a/0x69
->>>     [<ffffffff9f948dbd>] nf_ct_ext_add+0xe1/0x145
->>>     [<ffffffff9f942395>] init_conntrack+0x1f7/0x36e
->>>     [<ffffffff9f942762>] nf_conntrack_in+0x1d3/0x326
->>>     [<ffffffff9fa1ea69>] ipv4_conntrack_local+0x4d/0x50
->>>     [<ffffffff9f93ad70>] nf_hook_slow+0x3c/0x9b
->>>     [<ffffffff9f9c7999>] nf_hook.constprop.40+0xbe/0xd8
->>>     [<ffffffff9f9c7ba2>] __ip_local_out+0xb3/0xbf
->>>     [<ffffffff9f9c7bca>] ip_local_out+0x1c/0x36
->>>     [<ffffffff9f9c9216>] ip_send_skb+0x19/0x3d
->>>     [<ffffffff9f9ee3de>] udp_send_skb+0x17e/0x1df
->>>     [<ffffffff9f9eea37>] udp_sendmsg+0x5a2/0x77c
->>> unreferenced object 0xffff9b19a69b3340 (size 336):
->>>   comm "chronyd", pid 338, jiffies 4294910868 (age 53.032s)
->>>   hex dump (first 32 bytes):
->>>     01 00 00 00 5a 5a 5a 5a 00 00 00 00 ad 4e ad de  ....ZZZZ.....N..
->>>     ff ff ff ff 5a 5a 5a 5a ff ff ff ff ff ff ff ff  ....ZZZZ........
->>>   backtrace:
->>>     [<ffffffff9f1e1175>] create_object+0x169/0x2aa
->>>     [<ffffffff9fb77fb2>] kmemleak_alloc+0x25/0x41
->>>     [<ffffffff9f1c47ed>] slab_post_alloc_hook+0x44/0x65
->>>     [<ffffffff9f1c7a7d>] kmem_cache_alloc+0xd7/0x1f1
->>>     [<ffffffff9f941b78>] __nf_conntrack_alloc+0xa2/0x146
->>>     [<ffffffff9f942250>] init_conntrack+0xb2/0x36e
->>>     [<ffffffff9f942762>] nf_conntrack_in+0x1d3/0x326
->>>     [<ffffffff9fa1ea69>] ipv4_conntrack_local+0x4d/0x50
->>>     [<ffffffff9f93ad70>] nf_hook_slow+0x3c/0x9b
->>>     [<ffffffff9f9c7999>] nf_hook.constprop.40+0xbe/0xd8
->>>     [<ffffffff9f9c7ba2>] __ip_local_out+0xb3/0xbf
->>>     [<ffffffff9f9c7bca>] ip_local_out+0x1c/0x36
->>>     [<ffffffff9f9c9216>] ip_send_skb+0x19/0x3d
->>>     [<ffffffff9f9ee3de>] udp_send_skb+0x17e/0x1df
->>>     [<ffffffff9f9eea37>] udp_sendmsg+0x5a2/0x77c
->>>     [<ffffffff9f9f8cb8>] inet_sendmsg+0x37/0x5e
->>>
->>> I don't touch chronyd in my VM, so I have no idea why it sends out UDP
->>> packets, my guess is it is some periodical packet.
->>>
->>> I don't think I use conntrack either, since /proc/net/ip_conntrack
->>> does not exist.
->>
->> You probably do, can you try "cat /proc/net/nf_conntrack" instead?
->>
->> (otherwise there should be no ipv4_conntrack_local() invocation
->>  since we would not register this hook at all).
->
-> Yeah it is very weird but it is true:
->
-> [root@localhost ~]# echo scan > /sys/kernel/debug/kmemleak
-> [  133.450823] kmemleak: 18 new suspected memory leaks (see
-> /sys/kernel/debug/kmemleak)
-> [root@localhost ~]# cat /proc/net/ip_conntrack
-> cat: /proc/net/ip_conntrack: No such file or directory
-> [root@localhost ~]# cat /sys/kernel/debug/kmemleak
-> unreferenced object 0xffff95c1e0b24040 (size 336):
-> ...
+On Wed, 2017-09-13 at 10:58 -0700, Eric Dumazet wrote:
+> On Wed, 2017-09-13 at 20:35 +0300, Denys Fedoryshchenko wrote:
+> 
+> > Overlimits never appear in HTB as i know, here is simulation on this 
+> > class that have constant "at least" 1G traffic, i throttled it to 1Kbit 
+> > to simulate forced drops:
+> > 
+> > shapernew ~ # sh /etc/shaper.cfg;sleep 1;tc -s -d class show dev 
+> > eth3.777 classid 1:111;tc qdisc del dev eth3.777 root
+> > class htb 1:111 parent 1:1 leaf 111: prio 0 quantum 50000 rate 1Kbit 
+> > ceil 1Kbit linklayer ethernet burst 31280b/1 mpu 0b cburst 31280b/1 mpu 
+> > 0b level 0
+> >   Sent 134350019 bytes 117520 pkt (dropped 7819, overlimits 0 requeues 0)
+> >   backlog 7902126b 4976p requeues 0
+> >   lended: 86694 borrowed: 0 giants: 0
+> >   tokens: -937500000 ctokens: -937500000
+> > 
+> 
+> Oh right, I am using a local patch for this. Time to upstream :/
 
-Oops, you mean nf_conntrack... Here we go:
+Please try :
 
-[root@localhost ~]# cat /proc/net/nf_conntrack
-ipv4     2 udp      17 116 src=192.168.124.6 dst=204.2.134.162
-sport=123 dport=123 src=204.2.134.162 dst=192.168.124.6 sport=123
-dport=123 [ASSURED] mark=0 zone=0 use=2
-ipv4     2 udp      17 117 src=192.168.124.6 dst=45.79.187.10
-sport=123 dport=123 src=45.79.187.10 dst=192.168.124.6 sport=123
-dport=123 [ASSURED] mark=0 zone=0 use=2
-ipv4     2 udp      17 110 src=192.168.124.6 dst=192.168.124.1
-sport=35486 dport=53 src=192.168.124.1 dst=192.168.124.6 sport=53
-dport=35486 [ASSURED] mark=0 zone=0 use=2
-ipv4     2 udp      17 110 src=192.168.124.6 dst=192.168.124.1
-sport=52373 dport=53 src=192.168.124.1 dst=192.168.124.6 sport=53
-dport=52373 [ASSURED] mark=0 zone=0 use=2
-ipv4     2 unknown  2 518 src=192.168.124.6 dst=224.0.0.22 [UNREPLIED]
-src=224.0.0.22 dst=192.168.124.6 mark=0 zone=0 use=2
-ipv4     2 udp      17 110 src=192.168.124.6 dst=192.168.124.1
-sport=43242 dport=53 src=192.168.124.1 dst=192.168.124.6 sport=53
-dport=43242 [ASSURED] mark=0 zone=0 use=2
-ipv4     2 udp      17 116 src=192.168.124.6 dst=96.226.123.196
-sport=123 dport=123 src=96.226.123.196 dst=192.168.124.6 sport=123
-dport=123 [ASSURED] mark=0 zone=0 use=2
-ipv4     2 udp      17 110 src=192.168.124.6 dst=192.168.124.1
-sport=42838 dport=53 src=192.168.124.1 dst=192.168.124.6 sport=53
-dport=42838 [ASSURED] mark=0 zone=0 use=2
-ipv4     2 udp      17 117 src=192.168.124.6 dst=97.127.104.4
-sport=123 dport=123 src=97.127.104.4 dst=192.168.124.6 sport=123
-dport=123 [ASSURED] mark=0 zone=0 use=2
+diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
+index 7e148376ba528efabe5a53a09653f9161c264be7..c6d7ae81b41f4e277afb93a3003fefcd3f27de35 100644
+--- a/net/sched/sch_htb.c
++++ b/net/sched/sch_htb.c
+@@ -142,6 +142,7 @@ struct htb_class {
+        struct rb_node          node[TC_HTB_NUMPRIO];   /* node for self or feed tree */
+ 
+        unsigned int drops ____cacheline_aligned_in_smp;
++       unsigned int            overlimits;
+ };
+ 
+ struct htb_level {
+@@ -533,6 +534,9 @@ htb_change_class_mode(struct htb_sched *q, struct htb_class *cl, s64 *diff)
+        if (new_mode == cl->cmode)
+                return;
+ 
++       if (new_mode == HTB_CANT_SEND)
++               cl->overlimits++;
++
+        if (cl->prio_activity) {        /* not necessary: speed optimization */
+                if (cl->cmode != HTB_CANT_SEND)
+                        htb_deactivate_prios(q, cl);
+@@ -1143,6 +1147,7 @@ htb_dump_class_stats(struct Qdisc *sch, unsigned long arg, struct gnet_dump *d)
+        struct htb_class *cl = (struct htb_class *)arg;
+        struct gnet_stats_queue qs = {
+                .drops = cl->drops,
++               .overlimits = cl->overlimits,
+        };
+        __u32 qlen = 0;
+ 
