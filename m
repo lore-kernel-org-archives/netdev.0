@@ -1,39 +1,51 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2] ipv4: Namespaceify tcp_fastopen knob
-Date: Wed, 13 Sep 2017 06:02:59 -0700
-Message-ID: <1505307779.15310.157.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1505301598-12681-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
-         <1505306674.15310.155.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Allen <allen.lkml@gmail.com>
+Subject: Re: [PATCH 06/10] drivers:ethernet: return -ENOMEM on allocation failure.
+Date: Wed, 13 Sep 2017 18:34:17 +0530
+Message-ID: <CAOMdWS+mOcm=6722SD=-SvfD59AeXpwAARLhT31UycQSqWTxdg@mail.gmail.com>
+References: <1505287939-14106-1-git-send-email-allen.lkml@gmail.com>
+ <1505287939-14106-6-git-send-email-allen.lkml@gmail.com> <20170913121628.GB11820@lunn.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        Eric Dumazet <edumazet@google.com>,
-        Luca BRUNO <lucab@debian.org>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1505306674.15310.155.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, nouveau@lists.freedesktop.org,
+        linux-crypto@vger.kernel.org, dri-devel@lists.freedesktop.org,
+        MPT-FusionLinux.pdl@broadcom.com, linux-scsi@vger.kernel.org,
+        netdev@vger.kernel.org, megaraidlinux.pdl@broadcom.com,
+        target-devel@vger.kernel.org, linux-fbdev@vger.kernel.org,
+        linux-btrfs@vger.kernel.org
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <20170913121628.GB11820@lunn.ch>
+Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2017-09-13 at 05:44 -0700, Eric Dumazet wrote:
-> On Wed, 2017-09-13 at 19:19 +0800, Haishuang Yan wrote:
-> > Different namespace application might require enable TCP Fast Open
-> > feature independently of the host.
-> > 
-> 
-> Poor changelog, no actual description / list of sysctls that are moved
-> to per netns.
-> 
-> And looking at the patch, it seems your conversion is not complete.
-> 
-> So I will ask you to provide more evidence that you tested your patch
-> next time you submit it.
+>
+> static int cas_alloc_rxds(struct cas *cp)
+> {
+>         int i;
+>
+>         for (i = 0; i < N_RX_DESC_RINGS; i++) {
+>                 if (cas_alloc_rx_desc(cp, i) < 0) {
+>                         cas_free_rxds(cp);
+>                         return -1;
+>                 }
+>         }
+>         return 0;
+> }
+>
+> Again, your change is correct, but in the end the value is not used.
+> And if you fix it at the cas_alloc_rxds level, you also need a fix at
+> the next level up:
+>
+>         err = -ENOMEM;
+>         if (cas_tx_tiny_alloc(cp) < 0)
+>                 goto err_unlock;
+>
+>         /* alloc rx descriptors */
+>         if (cas_alloc_rxds(cp) < 0)
+>                 goto err_tx_tiny;
+>
+> again, the return value is discarded.
 
-I suggest you move one sysctl at a time, in a patch series.
+ I agree. I could send out v2 with fixes at both level.
 
-It will be easier to document and test for you, and review for us.
-
-Thanks.
+- Allen
