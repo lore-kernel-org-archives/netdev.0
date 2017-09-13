@@ -1,28 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net v3 0/3] net_sched: fix filter chain reference
- counting
-Date: Tue, 12 Sep 2017 20:41:18 -0700 (PDT)
-Message-ID: <20170912.204118.1990439437521288402.davem@davemloft.net>
-References: <20170911233332.7594-1-xiyou.wangcong@gmail.com>
+Subject: Re: [patch net] mlxsw: spectrum: Prevent mirred-related crash on
+ removal
+Date: Tue, 12 Sep 2017 20:43:52 -0700 (PDT)
+Message-ID: <20170912.204352.635555901606355156.davem@davemloft.net>
+References: <20170912065053.1392-1-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jiri@mellanox.com,
-        jakub.kicinski@netronome.com, jhs@mojatatu.com
-To: xiyou.wangcong@gmail.com
+Cc: netdev@vger.kernel.org, yuvalm@mellanox.com, idosch@mellanox.com,
+        flokli@flokli.de, mlxsw@mellanox.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:37192 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:37248 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751381AbdIMDlT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 12 Sep 2017 23:41:19 -0400
-In-Reply-To: <20170911233332.7594-1-xiyou.wangcong@gmail.com>
+        with ESMTP id S1751418AbdIMDnx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 12 Sep 2017 23:43:53 -0400
+In-Reply-To: <20170912065053.1392-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Mon, 11 Sep 2017 16:33:29 -0700
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Tue, 12 Sep 2017 08:50:53 +0200
 
-> This patchset fixes tc filter chain reference counting and nasty race
-> conditions with RCU callbacks. Please see each patch for details.
+> From: Yuval Mintz <yuvalm@mellanox.com>
+> 
+> When removing the offloading of mirred actions under
+> matchall classifiers, mlxsw would find the destination port
+> associated with the offloaded action and utilize it for undoing
+> the configuration.
+> 
+> Depending on the order by which ports are removed, it's possible that
+> the destination port would get removed before the source port.
+> In such a scenario, when actions would be flushed for the source port
+> mlxsw would perform an illegal dereference as the destination port is
+> no longer listed.
+> 
+> Since the only item necessary for undoing the configuration on the
+> destination side is the port-id and that in turn is already maintained
+> by mlxsw on the source-port, simply stop trying to access the
+> destination port and use the port-id directly instead.
+> 
+> Fixes: 763b4b70af ("mlxsw: spectrum: Add support in matchall mirror TC offloading")
+> Signed-off-by: Yuval Mintz <yuvalm@mellanox.com>
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 
-Series applied, thanks Cong.
+Applied and queued up for -stable, thanks.
