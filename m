@@ -1,58 +1,105 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [PATCH v2 net] sctp: potential read out of bounds in
- sctp_ulpevent_type_enabled()
-Date: Thu, 14 Sep 2017 02:00:54 +0300
-Message-ID: <20170913230054.fmtidvfi2swvy2mm@mwanda>
-References: <20170913.092522.934509429497822082.davem@davemloft.net>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH v2] net: smsc911x: Quieten netif during suspend
+Date: Wed, 13 Sep 2017 16:28:40 -0700
+Message-ID: <16f16af0-383b-9089-93c7-75494ec5031e@gmail.com>
+References: <1505324525-9998-1-git-send-email-geert+renesas@glider.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-        kernel-janitors@vger.kernel.org
-To: Vlad Yasevich <vyasevich@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:41018 "EHLO
-        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751125AbdIMXCZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 13 Sep 2017 19:02:25 -0400
-Content-Disposition: inline
-In-Reply-To: <20170913.092522.934509429497822082.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org,
+        linux-pm@vger.kernel.org, linux-renesas-soc@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Geert Uytterhoeven <geert+renesas@glider.be>,
+        "David S . Miller" <davem@davemloft.net>,
+        Steve Glendinning <steve.glendinning@shawell.net>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <1505324525-9998-1-git-send-email-geert+renesas@glider.be>
+Content-Language: en-US
+Sender: linux-renesas-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This code causes a static checker warning because Smatch doesn't trust
-anything that comes from skb->data.  I've reviewed this code and I do
-think skb->data can be controlled by the user here.
 
-The sctp_event_subscribe struct has 13 __u8 fields and we want to see
-if ours is non-zero.  sn_type can be any value in the 0-USHRT_MAX range.
-We're subtracting SCTP_SN_TYPE_BASE which is 1 << 15 so we could read
-either before the start of the struct or after the end.
 
-This is a very old bug and it's surprising that it would go undetected
-for so long but my theory is that it just doesn't have a big impact so
-it would be hard to notice.
+On 09/13/2017 10:42 AM, Geert Uytterhoeven wrote:
+> If the network interface is kept running during suspend, the net core
+> may call net_device_ops.ndo_start_xmit() while the Ethernet device is
+> still suspended, which may lead to a system crash.
+> 
+> E.g. on sh73a0/kzm9g and r8a73a4/ape6evm, the external Ethernet chip is
+> driven by a PM controlled clock.  If the Ethernet registers are accessed
+> while the clock is not running, the system will crash with an imprecise
+> external abort.
+> 
+> As this is a race condition with a small time window, it is not so easy
+> to trigger at will.  Using pm_test may increase your chances:
+> 
+>     # echo 0 > /sys/module/printk/parameters/console_suspend
+>     # echo platform > /sys/power/pm_test
+>     # echo mem > /sys/power/state
+> 
+> To fix this, make sure the network interface is quietened during
+> suspend.
+> 
+> Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
----
-v2:  Use reverse-christmas-tree local variable ordering.
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 
-diff --git a/include/net/sctp/ulpevent.h b/include/net/sctp/ulpevent.h
-index 1060494ac230..b8c86ec1a8f5 100644
---- a/include/net/sctp/ulpevent.h
-+++ b/include/net/sctp/ulpevent.h
-@@ -153,8 +153,12 @@ __u16 sctp_ulpevent_get_notification_type(const struct sctp_ulpevent *event);
- static inline int sctp_ulpevent_type_enabled(__u16 sn_type,
- 					     struct sctp_event_subscribe *mask)
- {
-+	int offset = sn_type - SCTP_SN_TYPE_BASE;
- 	char *amask = (char *) mask;
--	return amask[sn_type - SCTP_SN_TYPE_BASE];
-+
-+	if (offset >= sizeof(struct sctp_event_subscribe))
-+		return 0;
-+	return amask[offset];
- }
- 
- /* Given an event subscription, is this event enabled? */
+You may want to take the opportunity to suspend the PHY device
+(conversely resume it) if WoL is not enabled on this device.
+
+Thanks!
+
+> ---
+> This is v2 of the series "[PATCH 0/2] net: Fix crashes due to activity
+> during suspend", which degenerated into a single patch after commit
+> ebc8254aeae34226 ("Revert "net: phy: Correctly process PHY_HALTED in
+> phy_stop_machine()"") made "[PATCH 1/2] net: phy: Freeze PHY polling before
+> suspending devices" no longer needed.
+> 
+> v2:
+>   - Spelling s/quit/quiet/g.
+> 
+> No stacktrace is provided, as the imprecise external abort is usually
+> reported from an innocent looking and unrelated function like
+> __loop_delay(), cpu_idle_poll(), or arch_timer_read_counter_long().
+> ---
+>  drivers/net/ethernet/smsc/smsc911x.c | 15 ++++++++++++++-
+>  1 file changed, 14 insertions(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
+> index 0b6a39b003a4e188..012fb66eed8dd618 100644
+> --- a/drivers/net/ethernet/smsc/smsc911x.c
+> +++ b/drivers/net/ethernet/smsc/smsc911x.c
+> @@ -2595,6 +2595,11 @@ static int smsc911x_suspend(struct device *dev)
+>  	struct net_device *ndev = dev_get_drvdata(dev);
+>  	struct smsc911x_data *pdata = netdev_priv(ndev);
+>  
+> +	if (netif_running(ndev)) {
+> +		netif_stop_queue(ndev);
+> +		netif_device_detach(ndev);
+> +	}
+> +
+>  	/* enable wake on LAN, energy detection and the external PME
+>  	 * signal. */
+>  	smsc911x_reg_write(pdata, PMT_CTRL,
+> @@ -2628,7 +2633,15 @@ static int smsc911x_resume(struct device *dev)
+>  	while (!(smsc911x_reg_read(pdata, PMT_CTRL) & PMT_CTRL_READY_) && --to)
+>  		udelay(1000);
+>  
+> -	return (to == 0) ? -EIO : 0;
+> +	if (to == 0)
+> +		return -EIO;
+> +
+> +	if (netif_running(ndev)) {
+> +		netif_device_attach(ndev);
+> +		netif_start_queue(ndev);
+> +	}
+> +
+> +	return 0;
+>  }
+>  
+>  static const struct dev_pm_ops smsc911x_pm_ops = {
+> 
+
+-- 
+Florian
