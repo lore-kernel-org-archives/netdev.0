@@ -1,169 +1,44 @@
-From: liujian <liujian56@huawei.com>
-Subject: Re: [PATCH] tcp: TCP_USER_TIMEOUT can not work in tcp_probe_timer()
-Date: Wed, 13 Sep 2017 15:15:24 +0800
-Message-ID: <3c750ac3-8739-89ed-ce41-d4cde755171e@huawei.com>
-References: <1505111262-12620-1-git-send-email-liujian56@huawei.com>
- <1505141357.15310.115.camel@edumazet-glaptop3.roam.corp.google.com>
- <1505142785.15310.117.camel@edumazet-glaptop3.roam.corp.google.com>
- <1505143348.15310.118.camel@edumazet-glaptop3.roam.corp.google.com>
- <e7e09201-40c2-933a-1e8e-a31eddcc75ab@huawei.com>
- <1505228700.15310.138.camel@edumazet-glaptop3.roam.corp.google.com>
- <1505230686.15310.141.camel@edumazet-glaptop3.roam.corp.google.com>
- <b72fefba-e701-2ec8-0e7b-3bba6ed25205@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: <davem@davemloft.net>, <kuznet@ms2.inr.ac.ru>,
-        <yoshfuji@linux-ipv6.org>, <edumazet@google.com>,
-        <ycheng@google.com>, <hkchu@google.com>, <netdev@vger.kernel.org>,
-        <weiyongjun1@huawei.com>,
-        wangkefeng 00227729 <wangkefeng.wang@huawei.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga04-in.huawei.com ([45.249.212.190]:6462 "EHLO
-        szxga04-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751392AbdIMHQK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 13 Sep 2017 03:16:10 -0400
-In-Reply-To: <b72fefba-e701-2ec8-0e7b-3bba6ed25205@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Allen Pais <allen.lkml@gmail.com>
+Subject: [PATCH 01/10] arch:powerpc: return -ENOMEM on failed allocation
+Date: Wed, 13 Sep 2017 13:02:10 +0530
+Message-ID: <1505287939-14106-1-git-send-email-allen.lkml@gmail.com>
+Cc: nouveau@lists.freedesktop.org, linux-crypto@vger.kernel.org,
+        dri-devel@lists.freedesktop.org, MPT-FusionLinux.pdl@broadcom.com,
+        linux-scsi@vger.kernel.org, netdev@vger.kernel.org,
+        megaraidlinux.pdl@broadcom.com, target-devel@vger.kernel.org,
+        linux-fbdev@vger.kernel.org, linux-btrfs@vger.kernel.org,
+        Allen Pais <allen.lkml@gmail.com>
+To: linux-kernel@vger.kernel.org
+Return-path: <target-devel-owner@vger.kernel.org>
+Sender: target-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Signed-off-by: Allen Pais <allen.lkml@gmail.com>
+---
+ arch/powerpc/platforms/cell/spider-pci.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-
-在 2017/9/13 14:56, liujian 写道:
-> 
-> 
-> 在 2017/9/12 23:38, Eric Dumazet 写道:
->> On Tue, 2017-09-12 at 08:05 -0700, Eric Dumazet wrote:
->>> On Tue, 2017-09-12 at 14:08 +0800, liujian wrote:
->>>> Hi,
->>>>
->>>> In the scenario, tcp server side IP changed, and at that memont,
->>>> userspace application still send data continuously;
->>>> tcp_send_head(sk)'s timestamp always be refreshed.
->>>>
->>>> Here is the packetdrill script:
->>>>
->>>>    0 socket(..., SOCK_STREAM, IPPROTO_TCP) = 3
->>>>    +0 setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
->>>>    +0 bind(3, ..., ...) = 0
->>>>    +0 listen(3, 1) = 0
->>>>
->>>>    +0 < S 0:0(0) win 0 <mss 1460,sackOK,nop,nop,nop,wscale 7>
->>>>    +0 > S. 0:0(0) ack 1 <mss 1460,nop,nop,sackOK,nop,wscale 7>
->>>>
->>>>   +.1 < . 1:1(0) ack 1 win 65530
->>>>    +0 accept(3, ..., ...) = 4
->>>>
->>>>    +0 setsockopt(4, SOL_TCP, TCP_USER_TIMEOUT, [3000], 4) = 0
->>>>    +0 write(4, ..., 24) = 24
->>>>    +0 > P. 1:25(24) ack 1 win 229
->>>>    +.1 < . 1:1(0) ack 25 win 65530
->>>>
->>>> //change the ipaddress
->>>>    +1 `ifconfig tun0 192.168.0.10/16`
->>>>
->>>>    +1 write(4, ..., 24) = 24
->>>>    +1 write(4, ..., 24) = 24
->>>>    +1 write(4, ..., 24) = 24
->>>>    +1 write(4, ..., 24) = 24
->>>>    +3 write(4, ..., 24) = 24
->>>>    +3 write(4, ..., 24) = 24
->>>>    +3 write(4, ..., 24) = 24
->>>>    +3 write(4, ..., 24) = 24
->>>>    +3 write(4, ..., 24) = 24
->>>>    +3 write(4, ..., 24) = 24
->>>>    +3 write(4, ..., 24) = 24
->>>>    +3 write(4, ..., 24) = 24
->>>>    +3 write(4, ..., 24) = 24
->>>>    +3 write(4, ..., 24) = 24
->>>>    +3 write(4, ..., 24) = 24
->>>>    +3 write(4, ..., 24) = 24
->>>>    +3 write(4, ..., 24) = 24
->>>>    +3 write(4, ..., 24) = 24
->>>>    +3 write(4, ..., 24) = 24
->>>>    +3 write(4, ..., 24) = 24
->>>>    +3 write(4, ..., 24) = 24
->>>>    +3 write(4, ..., 24) = 24
->>>>    +3 write(4, ..., 24) = 24
->>>>    +3 write(4, ..., 24) = 24
->>>>    +3 write(4, ..., 24) = 24
->>>>    +3 write(4, ..., 24) = 24
->>>>
->>>>    +0 `ifconfig tun0 192.168.0.1/16`
->>>>    +0 < . 1:1(0) ack 1 win 1000
->>>>    +0 write(4, ..., 24) = -1
->>>>
->>>>
->>>
->>> This has nothing to do with the code patch you have changed.
->>>
->>> How have you tested your patch exactly ?
->>>
-> I tested the patch, it can work.
-> 
-> [root@localhost ~]# time ./gtests/net/packetdrill/packetdrill test.pkt
-> test.pkt:24: runtime error in write call: Expected result 24 but got -1 with errno 110 (Connection timed out)
-> 
-> real	0m5.356s
-> user	0m0.026s
-> sys	0m0.104s
-> 
-> [root@localhost ~]# ss -toenmi src :8080
-> State       Recv-Q Send-Q               Local Address:Port                              Peer Address:Port
-> ESTAB       0      48                     192.168.0.1:8080                                 192.0.2.1:39559               timer:(persist,186ms,2) ino:37178 sk:6 <->
-> 	 skmem:(r0,rb369280,t0,tb87040,f1792,w2304,o0,bl0) sack cubic wscale:7,7 rto:301 backoff:2 rtt:100.253/37.643 mss:1460 cwnd:10 bytes_acked:24 segs_out:5 segs_in:3 send 1.2Mbps lastsnd:976 lastrcv:4082 lastack:3982 pacing_rate 2.3Mbps rcv_space:29200
-> 
-> 
-> if change the TCP_USER_TIMEOUT to 30s, test result as below:
-> 
-> [root@localhost ~]#   time ./gtests/net/packetdrill/packetdrill test.pkt
-> test.pkt:37: runtime error in write call: Expected result 24 but got -1 with errno 110 (Connection timed out)
-> 
-> real	0m44.362s
-> user	0m0.018s
-> sys	0m0.110s
-> 
-> ESTAB       0      360                         192.168.0.1:8080                                      192.0.2.1:47577     timer:(persist,516ms,6) ino:18806 sk:5 <->
-> 	 skmem:(r0,rb369280,t0,tb87040,f1792,w2304,o0,bl0) sack cubic wscale:7,7 rto:301 backoff:6 rtt:100.228/37.623 mss:10 bytes_acked:24 segs_out:22 segs_in:3 send 1.2Mbps lastsnd:2343 lastrcv:40450 lastack:40350 pacing_rate 2.3Mbps rcv_sp
-> 
->>
->> lpaa23:~# ss -toenmi src :8080
->> State      Recv-Q Send-Q Local Address:Port               Peer
->> Address:Port              
->> ESTAB      0      144    192.168.134.161:8080
->> 192.0.2.1:51165               timer:(persist,8.262ms,5) ino:1
->> 82083 sk:3 <->
->> 	 skmem:(r0,rb359040,t0,tb46080,f1792,w2304,o0,bl0,d0) sack cubic
->> wscale:7,8 rto:301 backoff:5 rtt:100.127/37.576 
->> mss:1460 rcvmss:536 advmss:1460 cwnd:10 bytes_acked:24 segs_out:12
->> segs_in:3 data_segs_out:12 send 1.2Mbps lastsnd:1370 l
->> astrcv:13348 lastack:13248 pacing_rate 2.3Mbps delivery_rate 116.7Kbps
->> app_limited busy:11346ms rcv_space:29200 notsent:1
->> 44 minrtt:100.043userspace application still send data continuously
->>
->> This is the typical RTO timer, not zero window probe.
->>
-> with the script, it is not zero window; but the code enter tcp_probe_timer.
-> ->tcp_sendmsg
-> -->tcp_push
-> ---->__tcp_push_pending_frames
-> ------>tcp_write_xmit
-> -------->tcp_transmit_skb (at this function, tcp_send_head(sk)'s timestamp was be refreshed)
-> ---------->ip_queue_xmit (can not find route, return -EHOSTUNREACH)
-> -------->tcp_transmit_skb (send fail, do not advance send head)
-> ------->tcp_check_probe_timer (reset ICSK_TIME_PROBE0 timer)
-sorry, change to
-->tcp_sendmsg
--->tcp_push
----->__tcp_push_pending_frames
------->tcp_write_xmit
--------->tcp_transmit_skb (at this function, tcp_send_head(sk)'s timestamp was be refreshed)
----------->ip_queue_xmit (can not find route, return -EHOSTUNREACH)
------->tcp_write_xmit (send fail, do not advance send head)
------->tcp_check_probe_timer (reset ICSK_TIME_PROBE0 timer)
-
-> Here userspace application still send data continuously,
-> it triggered ICSK_TIME_PROBE0 timer and tcp_send_head(sk)'s timestamp refresh.
-> 
-> 
+diff --git a/arch/powerpc/platforms/cell/spider-pci.c b/arch/powerpc/platforms/cell/spider-pci.c
+index d1e61e2..82aa3f7 100644
+--- a/arch/powerpc/platforms/cell/spider-pci.c
++++ b/arch/powerpc/platforms/cell/spider-pci.c
+@@ -106,7 +106,7 @@ static int __init spiderpci_pci_setup_chip(struct pci_controller *phb,
+ 	dummy_page_va = kmalloc(PAGE_SIZE, GFP_KERNEL);
+ 	if (!dummy_page_va) {
+ 		pr_err("SPIDERPCI-IOWA:Alloc dummy_page_va failed.\n");
+-		return -1;
++		return -ENOMEM;
+ 	}
+ 
+ 	dummy_page_da = dma_map_single(phb->parent, dummy_page_va,
+@@ -137,7 +137,7 @@ int __init spiderpci_iowa_init(struct iowa_bus *bus, void *data)
+ 	if (!priv) {
+ 		pr_err("SPIDERPCI-IOWA:"
+ 		       "Can't allocate struct spiderpci_iowa_private");
+-		return -1;
++		return -ENOMEM;
+ 	}
+ 
+ 	if (of_address_to_resource(np, 0, &r)) {
+-- 
+2.7.4
