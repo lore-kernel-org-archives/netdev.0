@@ -1,7 +1,7 @@
 From: Allen Pais <allen.lkml@gmail.com>
-Subject: [PATCH 09/10] driver:video: return -ENOMEM on allocation failure.
-Date: Wed, 13 Sep 2017 13:02:18 +0530
-Message-ID: <1505287939-14106-9-git-send-email-allen.lkml@gmail.com>
+Subject: [PATCH 10/10] fs:btrfs: return -ENOMEM on allocation failure.
+Date: Wed, 13 Sep 2017 13:02:19 +0530
+Message-ID: <1505287939-14106-10-git-send-email-allen.lkml@gmail.com>
 References: <1505287939-14106-1-git-send-email-allen.lkml@gmail.com>
 Cc: nouveau@lists.freedesktop.org, linux-crypto@vger.kernel.org,
         dri-devel@lists.freedesktop.org, MPT-FusionLinux.pdl@broadcom.com,
@@ -17,21 +17,21 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Allen Pais <allen.lkml@gmail.com>
 ---
- drivers/video/fbdev/matrox/matroxfb_base.c | 2 +-
+ fs/btrfs/check-integrity.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/video/fbdev/matrox/matroxfb_base.c b/drivers/video/fbdev/matrox/matroxfb_base.c
-index f6a0b9a..5cd238d 100644
---- a/drivers/video/fbdev/matrox/matroxfb_base.c
-+++ b/drivers/video/fbdev/matrox/matroxfb_base.c
-@@ -2058,7 +2058,7 @@ static int matroxfb_probe(struct pci_dev* pdev, const struct pci_device_id* dumm
- 
- 	minfo = kzalloc(sizeof(*minfo), GFP_KERNEL);
- 	if (!minfo)
+diff --git a/fs/btrfs/check-integrity.c b/fs/btrfs/check-integrity.c
+index 7d5a9b5..efa4c23 100644
+--- a/fs/btrfs/check-integrity.c
++++ b/fs/btrfs/check-integrity.c
+@@ -2913,7 +2913,7 @@ int btrfsic_mount(struct btrfs_fs_info *fs_info,
+ 	state = kvzalloc(sizeof(*state), GFP_KERNEL);
+ 	if (!state) {
+ 		pr_info("btrfs check-integrity: allocation failed!\n");
 -		return -1;
 +		return -ENOMEM;
+ 	}
  
- 	minfo->pcidev = pdev;
- 	minfo->dead = 0;
+ 	if (!btrfsic_is_initialized) {
 -- 
 2.7.4
