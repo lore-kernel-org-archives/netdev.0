@@ -1,37 +1,61 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH] dt-bindings: net: renesas-ravb: Add support for R8A77995 RAVB
-Date: Wed, 13 Sep 2017 16:47:55 +0200
-Message-ID: <CAMuHMdXjzkA_zhFfjtGYXo-kXyLkiz-C9DxvpYnYDe-+jAR9uw@mail.gmail.com>
-References: <1505305060-4192-1-git-send-email-yoshihiro.shimoda.uh@renesas.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 01/10] arch:powerpc: return -ENOMEM on failed allocation
+Date: Wed, 13 Sep 2017 07:53:21 -0700
+Message-ID: <1505314401.8969.11.camel@perches.com>
+References: <1505287939-14106-1-git-send-email-allen.lkml@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Linux-Renesas <linux-renesas-soc@vger.kernel.org>,
-        "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
-To: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <1505305060-4192-1-git-send-email-yoshihiro.shimoda.uh@renesas.com>
-Sender: linux-renesas-soc-owner@vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: nouveau@lists.freedesktop.org, linux-crypto@vger.kernel.org,
+        dri-devel@lists.freedesktop.org, MPT-FusionLinux.pdl@broadcom.com,
+        linux-scsi@vger.kernel.org, netdev@vger.kernel.org,
+        megaraidlinux.pdl@broadcom.com, target-devel@vger.kernel.org,
+        linux-fbdev@vger.kernel.org, linux-btrfs@vger.kernel.org
+To: Allen Pais <allen.lkml@gmail.com>, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1505287939-14106-1-git-send-email-allen.lkml@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 13, 2017 at 2:17 PM, Yoshihiro Shimoda
-<yoshihiro.shimoda.uh@renesas.com> wrote:
-> Add a new compatible string for the R8A77995 (R-Car D3) RAVB.
->
-> Signed-off-by: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
+On Wed, 2017-09-13 at 13:02 +0530, Allen Pais wrote:
+> Signed-off-by: Allen Pais <allen.lkml@gmail.com>
 
-Acked-by: Geert Uytterhoeven <geert+renesas@glider.be>
+I think the changelog for this series of conversions
+should show that you've validated the change by
+inspecting the return call chain at each modified line.
 
-Gr{oetje,eeting}s,
+Also, it seems you've cc'd the same mailing lists for
+all of the patches modified by this series.
 
-                        Geert
+It would be better to individually address each patch
+in the series only cc'ing the appropriate maintainers
+and mailing lists.
 
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+A cover letter would be good too.
 
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+> ---
+>  arch/powerpc/platforms/cell/spider-pci.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/arch/powerpc/platforms/cell/spider-pci.c b/arch/powerpc/platforms/cell/spider-pci.c
+> index d1e61e2..82aa3f7 100644
+> --- a/arch/powerpc/platforms/cell/spider-pci.c
+> +++ b/arch/powerpc/platforms/cell/spider-pci.c
+> @@ -106,7 +106,7 @@ static int __init spiderpci_pci_setup_chip(struct pci_controller *phb,
+>  	dummy_page_va = kmalloc(PAGE_SIZE, GFP_KERNEL);
+>  	if (!dummy_page_va) {
+>  		pr_err("SPIDERPCI-IOWA:Alloc dummy_page_va failed.\n");
+> -		return -1;
+> +		return -ENOMEM;
+>  	}
+>  
+>  	dummy_page_da = dma_map_single(phb->parent, dummy_page_va,
+> @@ -137,7 +137,7 @@ int __init spiderpci_iowa_init(struct iowa_bus *bus, void *data)
+>  	if (!priv) {
+>  		pr_err("SPIDERPCI-IOWA:"
+>  		       "Can't allocate struct spiderpci_iowa_private");
+> -		return -1;
+> +		return -ENOMEM;
+>  	}
+>  
+>  	if (of_address_to_resource(np, 0, &r)) {
