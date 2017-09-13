@@ -1,74 +1,52 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH v2] ipaddress: Fix segfault in 'addr showdump'
-Date: Wed, 13 Sep 2017 11:20:34 +0200
-Message-ID: <20170913092034.7002-1-phil@nwl.cc>
-Cc: Hangbin Liu <liuhangbin@gmail.com>, netdev@vger.kernel.org,
-        Julien Fortin <julien@cumulusnetworks.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:50188 "EHLO orbyte.nwl.cc"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751507AbdIMJUq (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 13 Sep 2017 05:20:46 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [PATCH net] sctp: potential read out of bounds in
+ sctp_ulpevent_type_enabled()
+Date: Wed, 13 Sep 2017 12:20:28 +0300
+Message-ID: <20170913092028.idzvduj7ran4li6b@mwanda>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+        kernel-janitors@vger.kernel.org
+To: Vlad Yasevich <vyasevich@gmail.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Obviously, 'addr showdump' feature wasn't adjusted to json output
-support. As a consequence, calls to print_string() in print_addrinfo()
-tried to dereference a NULL FILE pointer.
+This code causes a static checker warning because Smatch doesn't trust
+anything that comes from skb->data.  I've reviewed this code and I do
+think skb->data can be controlled by the user here.
 
-Cc: Julien Fortin <julien@cumulusnetworks.com>
-Fixes: d0e720111aad2 ("ip: ipaddress.c: add support for json output")
-Signed-off-by: Phil Sutter <phil@nwl.cc>
---
-Changes since v1:
-Align json output with that of 'ip -j addr show':
-- Interface index label is 'ifindex', not 'index' and it doesn't belong
-  to 'addr_info' array.
-- Create one 'addr_info' array per dumped address, not one for all.
+The sctp_event_subscribe struct has 13 __u8 fields and we want to see
+if ours is non-zero.  sn_type can be any value in the 0-USHRT_MAX range.
+We're subtracting SCTP_SN_TYPE_BASE which is 1 << 15 so we could read
+either before the start of the struct or after the end.
+
+This is a very old bug and it's surprising that it would go undetected
+for so long but my theory is that it just doesn't have a big impact so
+it would be hard to notice.
+
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 ---
- ip/ipaddress.c | 20 ++++++++++++++++++--
- 1 file changed, 18 insertions(+), 2 deletions(-)
+I'm not terribly familiar with sctp and this is a static checker fix.
+Please review it carefully.
 
-diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-index 9797145023966..4c47809570410 100644
---- a/ip/ipaddress.c
-+++ b/ip/ipaddress.c
-@@ -1801,17 +1801,33 @@ static int show_handler(const struct sockaddr_nl *nl,
+diff --git a/include/net/sctp/ulpevent.h b/include/net/sctp/ulpevent.h
+index 1060494ac230..e6873176bea7 100644
+--- a/include/net/sctp/ulpevent.h
++++ b/include/net/sctp/ulpevent.h
+@@ -154,7 +154,11 @@ static inline int sctp_ulpevent_type_enabled(__u16 sn_type,
+ 					     struct sctp_event_subscribe *mask)
  {
- 	struct ifaddrmsg *ifa = NLMSG_DATA(n);
- 
--	printf("if%d:\n", ifa->ifa_index);
-+	open_json_object(NULL);
-+	print_int(PRINT_ANY, "ifindex", "if%d:\n", ifa->ifa_index);
+ 	char *amask = (char *) mask;
+-	return amask[sn_type - SCTP_SN_TYPE_BASE];
++	int offset = sn_type - SCTP_SN_TYPE_BASE;
 +
-+	open_json_array(PRINT_JSON, "addr_info");
-+	open_json_object(NULL);
-+
- 	print_addrinfo(NULL, n, stdout);
-+
-+	close_json_object();
-+	close_json_array(PRINT_JSON, NULL);
-+
-+	close_json_object();
- 	return 0;
++	if (offset >= sizeof(struct sctp_event_subscribe))
++		return 0;
++	return amask[offset];
  }
  
- static int ipaddr_showdump(void)
- {
-+	int err;
-+
- 	if (ipadd_dump_check_magic())
- 		exit(-1);
- 
--	exit(rtnl_from_file(stdin, &show_handler, NULL));
-+	new_json_obj(json, stdout);
-+	err = rtnl_from_file(stdin, &show_handler, NULL);
-+	delete_json_obj();
-+
-+	exit(err);
- }
- 
- static int restore_handler(const struct sockaddr_nl *nl,
--- 
-2.13.1
+ /* Given an event subscription, is this event enabled? */
