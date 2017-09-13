@@ -1,61 +1,58 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 01/10] arch:powerpc: return -ENOMEM on failed allocation
-Date: Wed, 13 Sep 2017 07:53:21 -0700
-Message-ID: <1505314401.8969.11.camel@perches.com>
-References: <1505287939-14106-1-git-send-email-allen.lkml@gmail.com>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: netfilter: xt_bpf: ABI issue in xt_bpf_info_v1?
+Date: Wed, 13 Sep 2017 11:05:08 -0400
+Message-ID: <CAF=yD-LUCCLSXuPNKPgEY695ej+T-2s=zhmw6CJwK6tFyY+_dg@mail.gmail.com>
+References: <20170913162442.368691c9@pixies> <nycvar.YFH.7.76.1709131613520.8761@n3.vanv.qr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: nouveau@lists.freedesktop.org, linux-crypto@vger.kernel.org,
-        dri-devel@lists.freedesktop.org, MPT-FusionLinux.pdl@broadcom.com,
-        linux-scsi@vger.kernel.org, netdev@vger.kernel.org,
-        megaraidlinux.pdl@broadcom.com, target-devel@vger.kernel.org,
-        linux-fbdev@vger.kernel.org, linux-btrfs@vger.kernel.org
-To: Allen Pais <allen.lkml@gmail.com>, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1505287939-14106-1-git-send-email-allen.lkml@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Shmulik Ladkani <shmulik@nsof.io>,
+        netfilter-devel <netfilter-devel@vger.kernel.org>,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
+        Network Development <netdev@vger.kernel.org>,
+        Willem de Bruijn <willemb@google.com>,
+        Rafael Buchbinder <rbk@nsof.io>,
+        Shmulik Ladkani <shmulik.ladkani@gmail.com>, eyal@nsof.io
+To: Jan Engelhardt <jengelh@inai.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <nycvar.YFH.7.76.1709131613520.8761@n3.vanv.qr>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2017-09-13 at 13:02 +0530, Allen Pais wrote:
-> Signed-off-by: Allen Pais <allen.lkml@gmail.com>
+On Wed, Sep 13, 2017 at 10:22 AM, Jan Engelhardt <jengelh@inai.de> wrote:
+>
+> On Wednesday 2017-09-13 15:24, Shmulik Ladkani wrote:
+>>
+>>One way to fix is to have iptables open the object (using the stored
+>>xt_bpf_info_v1->path), gaining a new process local fd for the object,
+>>just after getting the rules from IPT_SO_GET_ENTRIES.
+>>However we didn't see any other extensions doing something like that in
+>>iptables.
 
-I think the changelog for this series of conversions
-should show that you've validated the change by
-inspecting the return call chain at each modified line.
+The binary should call bpf_obj_get on the filepath each time. These are
+not regular files, but references to a pinned object in the bpf filesystem.
 
-Also, it seems you've cc'd the same mailing lists for
-all of the patches modified by this series.
+Blindly passing back the fd received from the kernel is clearly wrong. I'm
+really surprised that I did not run into this problem when I wrote the
+feature.
 
-It would be better to individually address each patch
-in the series only cc'ing the appropriate maintainers
-and mailing lists.
+>>
+>>Another way to solve is to fix the ABI (or have a v2 one), that does NOT
+>>pass the fd from userspace, only the path of the pinned object.
+>>Then, 'bpf_mt_check_v1' will open the file from the given path in order
+>>to get the bpf_prog.
+>
+> But a path has a similar problem like a file descriptor - it is local to a
+> certain mount namespace.
 
-A cover letter would be good too.
+Because these are pinned objects in the bpf filesystem, and there is
+only one of those, it may be possible to lookup the object in the kernel
+without relying on a process-local view of mount points.
 
-> ---
->  arch/powerpc/platforms/cell/spider-pci.c | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/arch/powerpc/platforms/cell/spider-pci.c b/arch/powerpc/platforms/cell/spider-pci.c
-> index d1e61e2..82aa3f7 100644
-> --- a/arch/powerpc/platforms/cell/spider-pci.c
-> +++ b/arch/powerpc/platforms/cell/spider-pci.c
-> @@ -106,7 +106,7 @@ static int __init spiderpci_pci_setup_chip(struct pci_controller *phb,
->  	dummy_page_va = kmalloc(PAGE_SIZE, GFP_KERNEL);
->  	if (!dummy_page_va) {
->  		pr_err("SPIDERPCI-IOWA:Alloc dummy_page_va failed.\n");
-> -		return -1;
-> +		return -ENOMEM;
->  	}
->  
->  	dummy_page_da = dma_map_single(phb->parent, dummy_page_va,
-> @@ -137,7 +137,7 @@ int __init spiderpci_iowa_init(struct iowa_bus *bus, void *data)
->  	if (!priv) {
->  		pr_err("SPIDERPCI-IOWA:"
->  		       "Can't allocate struct spiderpci_iowa_private");
-> -		return -1;
-> +		return -ENOMEM;
->  	}
->  
->  	if (of_address_to_resource(np, 0, &r)) {
+>
+> To load "large" blobs into the kernel, a pointer to user memory is a possible
+> option. The downside is that such extra data is not retrievable from the kernel
+> via the iptables setsockopts anymore - one could work around it with procfs, or
+> just let it be.
+>
+> https://sourceforge.net/p/xtables-addons/xtables-addons/ci/master/tree/extensions/xt_geoip.c
+> line 64+.
