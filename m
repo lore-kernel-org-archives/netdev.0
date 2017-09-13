@@ -1,64 +1,50 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH] ipaddress: Fix segfault in 'addr showdump'
-Date: Tue, 12 Sep 2017 16:58:12 +0200
-Message-ID: <20170912145812.15380-1-phil@nwl.cc>
-Cc: netdev@vger.kernel.org, Hangbin Liu <liuhangbin@gmail.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net] net: sched: fix use-after-free in tcf_action_destroy
+ and tcf_del_walker
+Date: Wed, 13 Sep 2017 22:50:06 +0200
+Message-ID: <20170913205006.GD1981@nanopsycho>
+References: <20170913153237.26408-1-jiri@resnulli.us>
+ <20170913.093428.806129519464331602.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
+        kubakici@wp.pl, mlxsw@mellanox.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:47966 "EHLO orbyte.nwl.cc"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751404AbdILO6X (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 12 Sep 2017 10:58:23 -0400
+Received: from mail-wr0-f193.google.com ([209.85.128.193]:38039 "EHLO
+        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751400AbdIMUuJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 13 Sep 2017 16:50:09 -0400
+Received: by mail-wr0-f193.google.com with SMTP id p37so648980wrb.5
+        for <netdev@vger.kernel.org>; Wed, 13 Sep 2017 13:50:08 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20170913.093428.806129519464331602.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Obviously, 'addr showdump' feature wasn't adjusted to json output
-support. As a consequence, calls to print_string() in print_addrinfo()
-tried to dereference a NULL FILE pointer.
+Wed, Sep 13, 2017 at 06:34:28PM CEST, davem@davemloft.net wrote:
+>From: Jiri Pirko <jiri@resnulli.us>
+>Date: Wed, 13 Sep 2017 17:32:37 +0200
+>
+>> From: Jiri Pirko <jiri@mellanox.com>
+>> 
+>> Recent commit d7fb60b9cafb ("net_sched: get rid of tcfa_rcu") removed
+>> freeing in call_rcu, which changed already existing hard-to-hit
+>> race condition into 100% hit:
+>> 
+>> [  598.599825] BUG: unable to handle kernel NULL pointer dereference at 0000000000000030
+>> [  598.607782] IP: tcf_action_destroy+0xc0/0x140
+>> 
+>> Or:
+>> 
+>> [   40.858924] BUG: unable to handle kernel NULL pointer dereference at 0000000000000030
+>> [   40.862840] IP: tcf_generic_walker+0x534/0x820
+>> 
+>> Fix this by storing the ops and use them directly for module_put call.
+>> 
+>> Fixes: a85a970af265 ("net_sched: move tc_action into tcf_common")
+>> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+>
+>Applied, thanks Jiri.
 
-Fixes: d0e720111aad2 ("ip: ipaddress.c: add support for json output")
-Signed-off-by: Phil Sutter <phil@nwl.cc>
----
- ip/ipaddress.c | 18 ++++++++++++++++--
- 1 file changed, 16 insertions(+), 2 deletions(-)
-
-diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-index 9797145023966..ee6c9f588e7ba 100644
---- a/ip/ipaddress.c
-+++ b/ip/ipaddress.c
-@@ -1801,17 +1801,31 @@ static int show_handler(const struct sockaddr_nl *nl,
- {
- 	struct ifaddrmsg *ifa = NLMSG_DATA(n);
- 
--	printf("if%d:\n", ifa->ifa_index);
-+	open_json_object(NULL);
-+	print_int(PRINT_ANY, "index", "if%d:\n", ifa->ifa_index);
- 	print_addrinfo(NULL, n, stdout);
-+	close_json_object();
- 	return 0;
- }
- 
- static int ipaddr_showdump(void)
- {
-+	int err;
-+
- 	if (ipadd_dump_check_magic())
- 		exit(-1);
- 
--	exit(rtnl_from_file(stdin, &show_handler, NULL));
-+	new_json_obj(json, stdout);
-+	open_json_object(NULL);
-+	open_json_array(PRINT_JSON, "addr_info");
-+
-+	err = rtnl_from_file(stdin, &show_handler, NULL);
-+
-+	close_json_array(PRINT_JSON, NULL);
-+	close_json_object();
-+	delete_json_obj();
-+
-+	exit(err);
- }
- 
- static int restore_handler(const struct sockaddr_nl *nl,
--- 
-2.13.1
+Oh, I forgot to mention, this would be nice to push to stable.
