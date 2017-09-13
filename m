@@ -1,158 +1,167 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net v3 2/3] net_sched: fix reference counting of tc filter chain
-Date: Mon, 11 Sep 2017 16:33:31 -0700
-Message-ID: <20170911233332.7594-3-xiyou.wangcong@gmail.com>
-References: <20170911233332.7594-1-xiyou.wangcong@gmail.com>
-Cc: jiri@mellanox.com, jakub.kicinski@netronome.com, jhs@mojatatu.com,
-        Cong Wang <xiyou.wangcong@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:33255 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751105AbdIKXdx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 11 Sep 2017 19:33:53 -0400
-Received: by mail-pg0-f67.google.com with SMTP id i130so3326429pgc.0
-        for <netdev@vger.kernel.org>; Mon, 11 Sep 2017 16:33:53 -0700 (PDT)
-In-Reply-To: <20170911233332.7594-1-xiyou.wangcong@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Carlos O'Donell <carlos@redhat.com>
+Subject: Re: RFC: Audit Kernel Container IDs
+Date: Wed, 13 Sep 2017 14:33:52 -0500
+Message-ID: <9043cc5a-e624-10c9-1906-f29010c5f57c@redhat.com>
+References: <20170913171328.GP3405@madcap2.tricolour.ca>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Aristeu Rozanski <arozansk@redhat.com>,
+        David Howells <dhowells@redhat.com>,
+        "Eric W. Biederman" <ebiederm@xmission.com>,
+        Eric Paris <eparis@parisplace.org>, jlayton@redhat.com,
+        Andy Lutomirski <luto@kernel.org>, mszeredi@redhat.com,
+        Paul Moore <pmoore@redhat.com>,
+        "Serge E. Hallyn" <serge@hallyn.com>,
+        Steve Grubb <sgrubb@redhat.com>, trondmy@primarydata.com,
+        Al Viro <viro@zeniv.linux.org.uk>
+To: Richard Guy Briggs <rgb@redhat.com>, cgroups@vger.kernel.org,
+        Linux Containers <containers@lists.linux-foundation.org>,
+        Linux API <linux-api@vger.kernel.org>,
+        Linux Audit <linux-audit@redhat.com>,
+        Linux FS Devel <linux-fsdevel@vger.kernel.org>,
+        Linux Kernel <linux-kernel@vger.kernel.org>,
+        Linux Network Development <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170913171328.GP3405@madcap2.tricolour.ca>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch fixes the following ugliness of tc filter chain refcnt:
+On 09/13/2017 12:13 PM, Richard Guy Briggs wrote:
+> Containers are a userspace concept.  The kernel knows nothing of them.
 
-a) tp proto should hold a refcnt to the chain too. This significantly
-   simplifies the logic.
+I am looking at this RFC from a userspace perspective, particularly from
+the loader's point of view and the unshare syscall and the semantics that
+arise from the use of it.
 
-b) Chain 0 is no longer special, it is created with refcnt=1 like any
-   other chains. All the ugliness in tcf_chain_put() can be gone!
+At a high level what you are doing is providing a way to group, without
+hierarchy, processes and namespaces. The processes can move between
+container's if they have CAP_CONTAINER_ADMIN and can open and write to
+a special proc file.
 
-c) No need to handle the flushing oddly, because block still holds
-   chain 0, it can not be released, this guarantees block is the last
-   user.
+* With unshare a thread may dissociate part of its execution context and
+  therefore see a distinct mount namespace. When you say "process" in this
+  particular RFC do you exclude the fact that a thread might be in a
+  distinct container from the rest of the threads in the process?
 
-d) The race condition with RCU callbacks is easier to handle with just
-   a rcu_barrier(). Much easier to understand, nothing to hide. Thanks
-   to the previous patch. Please see also the comments in code.
+> The Linux audit system needs a way to be able to track the container
+> provenance of events and actions.  Audit needs the kernel's help to do
+> this.
 
-e) Make the code understandable by humans, much less error-prone.
+* Why does the Linux audit system need to tracker container provenance?
 
-Fixes: 744a4cf63e52 ("net: sched: fix use after free when tcf_chain_destroy is called multiple times")
-Fixes: 5bc1701881e3 ("net: sched: introduce multichain support for filters")
-Cc: Jiri Pirko <jiri@mellanox.com>
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
----
- net/sched/cls_api.c | 47 ++++++++++++++++++++++++++---------------------
- 1 file changed, 26 insertions(+), 21 deletions(-)
+  - How does it help to provide better audit messages?
 
-diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
-index c743f03cfebd..d29e79d98a69 100644
---- a/net/sched/cls_api.c
-+++ b/net/sched/cls_api.c
-@@ -182,7 +182,7 @@ static struct tcf_chain *tcf_chain_create(struct tcf_block *block,
- 	list_add_tail(&chain->list, &block->chain_list);
- 	chain->block = block;
- 	chain->index = chain_index;
--	chain->refcnt = 0;
-+	chain->refcnt = 1;
- 	return chain;
- }
- 
-@@ -194,21 +194,20 @@ static void tcf_chain_flush(struct tcf_chain *chain)
- 		RCU_INIT_POINTER(*chain->p_filter_chain, NULL);
- 	while ((tp = rtnl_dereference(chain->filter_chain)) != NULL) {
- 		RCU_INIT_POINTER(chain->filter_chain, tp->next);
-+		tcf_chain_put(chain);
- 		tcf_proto_destroy(tp);
- 	}
- }
- 
- static void tcf_chain_destroy(struct tcf_chain *chain)
- {
--	/* May be already removed from the list by the previous call. */
--	if (!list_empty(&chain->list))
--		list_del_init(&chain->list);
-+	list_del(&chain->list);
-+	kfree(chain);
-+}
- 
--	/* There might still be a reference held when we got here from
--	 * tcf_block_put. Wait for the user to drop reference before free.
--	 */
--	if (!chain->refcnt)
--		kfree(chain);
-+static void tcf_chain_hold(struct tcf_chain *chain)
-+{
-+	++chain->refcnt;
- }
- 
- struct tcf_chain *tcf_chain_get(struct tcf_block *block, u32 chain_index,
-@@ -217,24 +216,19 @@ struct tcf_chain *tcf_chain_get(struct tcf_block *block, u32 chain_index,
- 	struct tcf_chain *chain;
- 
- 	list_for_each_entry(chain, &block->chain_list, list) {
--		if (chain->index == chain_index)
--			goto incref;
-+		if (chain->index == chain_index) {
-+			tcf_chain_hold(chain);
-+			return chain;
-+		}
- 	}
--	chain = create ? tcf_chain_create(block, chain_index) : NULL;
- 
--incref:
--	if (chain)
--		chain->refcnt++;
--	return chain;
-+	return create ? tcf_chain_create(block, chain_index) : NULL;
- }
- EXPORT_SYMBOL(tcf_chain_get);
- 
- void tcf_chain_put(struct tcf_chain *chain)
- {
--	/* Destroy unused chain, with exception of chain 0, which is the
--	 * default one and has to be always present.
--	 */
--	if (--chain->refcnt == 0 && !chain->filter_chain && chain->index != 0)
-+	if (--chain->refcnt == 0)
- 		tcf_chain_destroy(chain);
- }
- EXPORT_SYMBOL(tcf_chain_put);
-@@ -279,10 +273,19 @@ void tcf_block_put(struct tcf_block *block)
- 	if (!block)
- 		return;
- 
-+	/* XXX: Standalone actions are not allowed to jump to any chain, and
-+	 * bound actions should be all removed after flushing. However,
-+	 * filters are destroyed in RCU callbacks, we have to flush and wait
-+	 * for them inside the loop, otherwise we race with RCU callbacks on
-+	 * this list.
-+	 */
- 	list_for_each_entry_safe(chain, tmp, &block->chain_list, list) {
- 		tcf_chain_flush(chain);
--		tcf_chain_destroy(chain);
-+		rcu_barrier();
- 	}
-+
-+	list_for_each_entry_safe(chain, tmp, &block->chain_list, list)
-+		tcf_chain_put(chain);
- 	kfree(block);
- }
- EXPORT_SYMBOL(tcf_block_put);
-@@ -360,6 +363,7 @@ static void tcf_chain_tp_insert(struct tcf_chain *chain,
- 		rcu_assign_pointer(*chain->p_filter_chain, tp);
- 	RCU_INIT_POINTER(tp->next, tcf_chain_tp_prev(chain_info));
- 	rcu_assign_pointer(*chain_info->pprev, tp);
-+	tcf_chain_hold(chain);
- }
- 
- static void tcf_chain_tp_remove(struct tcf_chain *chain,
-@@ -371,6 +375,7 @@ static void tcf_chain_tp_remove(struct tcf_chain *chain,
- 	if (chain->p_filter_chain && tp == chain->filter_chain)
- 		RCU_INIT_POINTER(*chain->p_filter_chain, next);
- 	RCU_INIT_POINTER(*chain_info->pprev, next);
-+	tcf_chain_put(chain);
- }
- 
- static struct tcf_proto *tcf_chain_tp_find(struct tcf_chain *chain,
+  - Is it be enough to list the namespace that a process occupies?
+
+* Why does it need the kernel's help?
+
+  - Is there a race condition that is only fixable with kernel support?
+
+  - Or is it easier with kernel help but not required?
+
+Providing background on these questions would help clarify the
+design requirements.
+
+> Since the concept of a container is entirely a userspace concept, a
+> trigger signal from the userspace container orchestration system
+> initiates this.  This will define a point in time and a set of resources
+> associated with a particular container with an audit container ID.
+
+Please don't use the word 'signal', I suggest 'register' since you are
+writing to a filesystem.
+
+> The trigger is a pseudo filesystem (proc, since PID tree already exists)
+> write of a u64 representing the container ID to a file representing a
+> process that will become the first process in a new container.
+> This might place restrictions on mount namespaces required to define a
+> container, or at least careful checking of namespaces in the kernel to
+> verify permissions of the orchestrator so it can't change its own
+> container ID.
+> A bind mount of nsfs may be necessary in the container orchestrator's
+> mntNS.
+> 
+> Require a new CAP_CONTAINER_ADMIN to be able to write to the pseudo
+> filesystem to have this action permitted.  At that time, record the
+> child container's user-supplied 64-bit container identifier along with
+
+What is a "child container?" Containers don't have any hierarchy.
+
+I assume that if you don't have CAP_CONTAINER_ADMIN, that nothing prevents
+your continued operation as we have today?
+
+> the child container's first process (which may become the container's
+> "init" process) process ID (referenced from the initial PID namespace),
+> all namespace IDs (in the form of a nsfs device number and inode number
+> tuple) in a new auxilliary record AUDIT_CONTAINER with a qualifying
+> op=$action field.
+
+What kind of requirement is there on the first tid/pid registering
+the container ID? What if the 8th tid/pid does the registration?
+Would that mean that the first process of the container did not
+register? It seems like you are suggesting that the registration
+by the 8th tid/pid causes a cascading registration progress,
+registering all tid/pids in the same grouping? Is that true?
+
+> Issue a new auxilliary record AUDIT_CONTAINER_INFO for each valid
+> container ID present on an auditable action or event.
+> 
+> Forked and cloned processes inherit their parent's container ID,
+> referenced in the process' audit_context struct.
+
+So a cloned process with CLONE_NEWNS has the came container ID
+as the parent process that called clone, at least until the clone
+has time to change to a new container ID?
+
+Do you forsee any case where someone might need a semantic that is
+slightly different? For example wanting to set the container ID on
+clone?
+
+> Log the creation of every namespace, inheriting/adding its spawning
+> process' containerID(s), if applicable.  Include the spawning and
+> spawned namespace IDs (device and inode number tuples).
+> [AUDIT_NS_CREATE, AUDIT_NS_DESTROY] [clone(2), unshare(2), setns(2)]
+> Note: At this point it appears only network namespaces may need to track
+> container IDs apart from processes since incoming packets may cause an
+> auditable event before being associated with a process.
+
+OK.
+
+> Log the destruction of every namespace when it is no longer used by any
+> process, include the namespace IDs (device and inode number tuples).
+> [AUDIT_NS_DESTROY] [process exit, unshare(2), setns(2)]
+> 
+> Issue a new auxilliary record AUDIT_NS_CHANGE listing (opt: op=$action)
+> the parent and child namespace IDs for any changes to a process'
+> namespaces. [setns(2)]
+> Note: It may be possible to combine AUDIT_NS_* record formats and
+> distinguish them with an op=$action field depending on the fields
+> required for each message type.
+> 
+> A process can be moved from one container to another by using the
+> container assignment method outlined above a second time.
+
+OK.
+
+> When a container ceases to exist because the last process in that
+> container has exited and hence the last namespace has been destroyed and
+> its refcount dropping to zero, log the fact.
+> (This latter is likely needed for certification accountability.)  A
+> container object may need a list of processes and/or namespaces.
+
+OK.
+
+> A namespace cannot directly migrate from one container to another but
+> could be assigned to a newly spawned container.  A namespace can be
+> moved from one container to another indirectly by having that namespace
+> used in a second process in another container and then ending all the
+> processes in the first container.
+
+OK.
+
+> Feedback please.
+
 -- 
-2.13.0
+Cheers,
+Carlos.
