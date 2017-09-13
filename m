@@ -1,7 +1,7 @@
 From: Michal Hocko <mhocko@kernel.org>
-Subject: [PATCH stable-3.16 3/3] VSOCK: Detach QP check should filter out non matching QPs.
-Date: Wed, 13 Sep 2017 17:23:07 +0200
-Message-ID: <20170913152307.20317-3-mhocko@kernel.org>
+Subject: [PATCH stable-3.16 2/3] VSOCK: Fix lockdep issue.
+Date: Wed, 13 Sep 2017 17:23:06 +0200
+Message-ID: <20170913152307.20317-2-mhocko@kernel.org>
 References: <20170913151939.gf7n6rvvjtz47tz7@dhcp22.suse.cz>
  <20170913152307.20317-1-mhocko@kernel.org>
 Cc: Aditya Sarwade <asarwade@vmware.com>,
@@ -19,44 +19,34 @@ List-Id: netdev.vger.kernel.org
 
 From: Jorgen Hansen <jhansen@vmware.com>
 
-commit 8ab18d71de8b07d2c4d6f984b718418c09ea45c5 upstream.
+commit 8566b86ab9f0f45bc6f7dd422b21de9d0cf5415a upstream.
 
-The check in vmci_transport_peer_detach_cb should only allow a
-detach when the qp handle of the transport matches the one in
-the detach message.
+The recent fix for the vsock sock_put issue used the wrong
+initializer for the transport spin_lock causing an issue when
+running with lockdep checking.
 
-Testing: Before this change, a detach from a peer on a different
-socket would cause an active stream socket to register a detach.
+Testing: Verified fix on kernel with lockdep enabled.
 
-Reviewed-by: George Zhang <georgezhang@vmware.com>
+Reviewed-by: Thomas Hellstrom <thellstrom@vmware.com>
 Signed-off-by: Jorgen Hansen <jhansen@vmware.com>
 Signed-off-by: David S. Miller <davem@davemloft.net>
 Signed-off-by: Michal Hocko <mhocko@suse.com>
 ---
- net/vmw_vsock/vmci_transport.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ net/vmw_vsock/vmci_transport.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/net/vmw_vsock/vmci_transport.c b/net/vmw_vsock/vmci_transport.c
-index 314312272e08..c69c990ec4a2 100644
+index aed136d27b01..314312272e08 100644
 --- a/net/vmw_vsock/vmci_transport.c
 +++ b/net/vmw_vsock/vmci_transport.c
-@@ -844,7 +844,7 @@ static void vmci_transport_peer_detach_cb(u32 sub_id,
- 	 * qp_handle.
- 	 */
- 	if (vmci_handle_is_invalid(e_payload->handle) ||
--	    vmci_handle_is_equal(trans->qp_handle, e_payload->handle))
-+	    !vmci_handle_is_equal(trans->qp_handle, e_payload->handle))
- 		return;
- 
- 	/* We don't ask for delayed CBs when we subscribe to this event (we
-@@ -2158,7 +2158,7 @@ module_exit(vmci_transport_exit);
- 
- MODULE_AUTHOR("VMware, Inc.");
- MODULE_DESCRIPTION("VMCI transport for Virtual Sockets");
--MODULE_VERSION("1.0.2.0-k");
-+MODULE_VERSION("1.0.3.0-k");
- MODULE_LICENSE("GPL v2");
- MODULE_ALIAS("vmware_vsock");
- MODULE_ALIAS_NETPROTO(PF_VSOCK);
+@@ -1570,7 +1570,7 @@ static int vmci_transport_socket_init(struct vsock_sock *vsk,
+ 	vmci_trans(vsk)->notify_ops = NULL;
+ 	INIT_LIST_HEAD(&vmci_trans(vsk)->elem);
+ 	vmci_trans(vsk)->sk = &vsk->sk;
+-	vmci_trans(vsk)->lock = __SPIN_LOCK_UNLOCKED(vmci_trans(vsk)->lock);
++	spin_lock_init(&vmci_trans(vsk)->lock);
+ 	if (psk) {
+ 		vmci_trans(vsk)->queue_pair_size =
+ 			vmci_trans(psk)->queue_pair_size;
 -- 
 2.14.1
