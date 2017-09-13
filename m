@@ -1,39 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: bonding: fix tlb_dynamic_lb default value
-Date: Tue, 12 Sep 2017 20:59:00 -0700 (PDT)
-Message-ID: <20170912.205900.438222724554183210.davem@davemloft.net>
-References: <1505218205-2637-1-git-send-email-nikolay@cumulusnetworks.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] net: Convert int functions to bool
+Date: Wed, 13 Sep 2017 15:55:50 -0700
+Message-ID: <1505343350.8969.22.camel@perches.com>
+References: <20170913223158.GA7860@avx2>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, j.vosburgh@gmail.com, vfalico@gmail.com,
-        andy@greyhouse.net, maheshb@google.com
-To: nikolay@cumulusnetworks.com
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org
+To: Alexey Dobriyan <adobriyan@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:37512 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751458AbdIMD7B (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 12 Sep 2017 23:59:01 -0400
-In-Reply-To: <1505218205-2637-1-git-send-email-nikolay@cumulusnetworks.com>
+Received: from smtprelay0175.hostedemail.com ([216.40.44.175]:56041 "EHLO
+        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751125AbdIMWzx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 13 Sep 2017 18:55:53 -0400
+In-Reply-To: <20170913223158.GA7860@avx2>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Date: Tue, 12 Sep 2017 15:10:05 +0300
-
-> Commit 8b426dc54cf4 ("bonding: remove hardcoded value") changed the
-> default value for tlb_dynamic_lb which lead to either broken ALB mode
-> (since tlb_dynamic_lb can be changed only in TLB) or setting TLB mode
-> with tlb_dynamic_lb equal to 0.
-> The first issue was recently fixed by setting tlb_dynamic_lb to 1 always
-> when switching to ALB mode, but the default value is still wrong and
-> we'll enter TLB mode with tlb_dynamic_lb equal to 0 if the mode is
-> changed via netlink or sysfs. In order to restore the previous behaviour
-> and default value simply remove the mode check around the default param
-> initialization for tlb_dynamic_lb which will always set it to 1 as
-> before.
+On Thu, 2017-09-14 at 01:31 +0300, Alexey Dobriyan wrote:
+> > Global function ipv6_rcv_saddr_equal and static functions
+> > ipv6_rcv_saddr_equal and ipv4_rcv_saddr_equal currently return int.
+> > 
+> > bool is slightly more descriptive for these functions so change
+> > their return type from int to bool.
 > 
-> Fixes: 8b426dc54cf4 ("bonding: remove hardcoded value")
-> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+> From code generation POV "int" is better for non-inlined functions
+> especially on non-x86.
 
-Applied and queued up for -stable, thanks.
+I don't agree with you here.  For instance:
+
+$ size net/ipv4/*.o*
+   text	   data	    bss	    dec	    hex	filename
+   9832	     26	      0	   9858	   2682	net/ipv4/inet_connection_sock.o.arm.defconfig.new
+   9860	     26	      0	   9886	   269e	net/ipv4/inet_connection_sock.o.arm.defconfig.old
