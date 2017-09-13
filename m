@@ -1,73 +1,106 @@
 From: Hangbin Liu <liuhangbin@gmail.com>
-Subject: Re: [PATCH iproute2 1/2] lib/libnetlink: re malloc buff if size is
- not enough
-Date: Wed, 13 Sep 2017 17:26:58 +0800
-Message-ID: <20170913092657.GK5465@leo.usersys.redhat.com>
-References: <1504865697-27274-1-git-send-email-liuhangbin@gmail.com>
- <1504865697-27274-2-git-send-email-liuhangbin@gmail.com>
- <20170908110247.GS2399@orbyte.nwl.cc>
- <20170908140131.GU5465@leo.usersys.redhat.com>
- <20170908145113.GA30028@orbyte.nwl.cc>
- <20170911071955.GZ5465@leo.usersys.redhat.com>
- <20170912084748.m4wz6kxfclc2mkxd@unicorn.suse.cz>
- <20170912090926.j7vwhq6a57c5d6wx@unicorn.suse.cz>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Phil Sutter <phil@nwl.cc>, netdev@vger.kernel.org,
-        Stephen Hemminger <stephen@networkplumber.org>
-To: Michal Kubecek <mkubecek@suse.cz>
+Subject: [PATCHv2 iproute2 0/2] libnetlink: malloc correct buff at run time
+Date: Wed, 13 Sep 2017 17:59:38 +0800
+Message-ID: <1505296780-8444-1-git-send-email-liuhangbin@gmail.com>
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+        Michal Kubecek <mkubecek@suse.cz>, Phil Sutter <phil@nwl.cc>,
+        Hangbin Liu <liuhangbin@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:38233 "EHLO
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:33265 "EHLO
         mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751545AbdIMJ1J (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 13 Sep 2017 05:27:09 -0400
-Received: by mail-pf0-f194.google.com with SMTP id q76so7289718pfq.5
-        for <netdev@vger.kernel.org>; Wed, 13 Sep 2017 02:27:09 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20170912090926.j7vwhq6a57c5d6wx@unicorn.suse.cz>
+        with ESMTP id S1751054AbdIMKAQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 13 Sep 2017 06:00:16 -0400
+Received: by mail-pf0-f194.google.com with SMTP id h4so7334319pfk.0
+        for <netdev@vger.kernel.org>; Wed, 13 Sep 2017 03:00:16 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Michal,
+With commit 72b365e8e0fd ("libnetlink: Double the dump buffer size") and
+460c03f3f3cc ("iplink: double the buffer size also in iplink_get()"), we
+extend the buffer size to avoid truncated message with large numbers of
+VFs. But just as Michal said, this is not future-proof since the NIC
+number is increasing. We have customer even has 220+ VFs now.
 
-Thanks a lot for all your explains. Phil has helped update the patch to support
-return a newly allocated buffer. I will post it soon.
+This is not make sense to hard code the buffer and increase it all the time.
+So let's just malloc the correct buff size at run time.
 
-Thanks
-Hangbin
-On Tue, Sep 12, 2017 at 11:09:26AM +0200, Michal Kubecek wrote:
-> > 
-> > I checked again and arpd indeed isn't a problem. It doesn't seem to call
-> > any of the two functions (directly or indirectly) and while it's linked
-> > with "-lpthread", it's not really multithreaded.
-> > 
-> > But my concern was rather about other potential users of libnetlink
-> > (i.e. those which are not part of iproute2). I must admit, though, that
-> > I'm not sure if libnetlink code is reentrant as of now. (And people are
-> > discouraged from using it in its own manual page.)
-> > 
-> > That being said, I still like Phil's idea for a different reason. While
-> > investigating the issue with "ip link show dev eth ..." which led me to
-> > commit 6599162b958e ("iplink: check for message truncation in
-> > iplink_get()"), I quickly peeked at some other callers of rtnl_talk()
-> > and I'm afraid there may be others which wouldn't handle truncated
-> > message correctly. I assume the maxlen argument was always chosen to be
-> > sufficient for any expected messages but as the example of iplink_get()
-> > shows, messages returned by kernel my grow over time.
-> > 
-> > That's why I like the idea of __rtnl_talk() returning a pointer to newly
-> > allocated buffer (of sufficient size) rather than copying the response
-> > into a buffer provided by caller and potentially truncating it.
-> 
-> I'm sorry, I managed to forget that your patch 2 does already address
-> this problem. But the fact that any caller must keep in mind that he
-> must not call the same function again until the previous response is no
-> longer needed still feels like a trap. It's something you need to keep
-> in mind (where "you" in fact means any future contributor) and it's
-> easy to forget. That's why I prefer the reentrant functions like
-> strerror_r() or localtime_r() even in code which is not intended to be
-> multithreaded. Getting an object which is "mine" to do with whatever
-> I want until I no longer need it feels like a cleaner interface to me.
-> 
-> Michal Kubecek
-> 
+Tested with most ip cmds and all look good.
+
+---
+Changes since v1 by Phil:
+* rtnl_recvmsg():
+  * Rename output buffer pointer arg to 'answer'.
+  * Use realloc() and make sure old buffer is freed on error.
+  * Always return a newly allocated buffer for caller to free.
+  * Retry on EINTR or EAGAIN so caller doesn't have to.
+  * Return well-known negative error codes instead of just -1 on error.
+  * Simplify goto label names.
+  * If no answer pointer was passed, just free the buffer.
+* rtnl_dump_filter_l():
+  * Don't retry if rtnl_recvmsg() returns 0 as this can't happen
+    anymore.
+  * Free buffer returned by rtnl_recvmsg().
+* __rtnl_talk():
+  * Don't retry if rtnl_recvmsg() returns 0 as this can't happen
+    anymore.
+  * Free buffer returned by rtnl_recvmsg().
+  * Return a newly allocated buffer for callers to free.
+* genl_ctrl_resolve_family()
+  * Replace 'ghdr + GENL_HDRLEN' to 'answer + NLMSG_LENGTH(GENL_HDRLEN)'
+* tc_action_gd()
+  * Call print_action() only if cmd == RTM_GETACTION
+* Change callers of rtnl_talk*() to always free the answer buffer if
+  they passed one.
+* Drop extra request buffer space in callers if only used for holding
+  output data.
+* Drop initialization of answer pointer if not necessary.
+* Change callers to pass NULL instead of answer pointer if they don't
+  use it afterwards.
+
+
+Hangbin Liu (2):
+  lib/libnetlink: re malloc buff if size is not enough
+  lib/libnetlink: update rtnl_talk to support malloc buff at run time
+
+ bridge/fdb.c         |   2 +-
+ bridge/link.c        |   2 +-
+ bridge/mdb.c         |   2 +-
+ bridge/vlan.c        |   2 +-
+ genl/ctrl.c          |  19 +++++---
+ include/libnetlink.h |   6 +--
+ ip/ipaddress.c       |   4 +-
+ ip/ipaddrlabel.c     |   4 +-
+ ip/ipfou.c           |   4 +-
+ ip/ipila.c           |   4 +-
+ ip/ipl2tp.c          |   8 ++--
+ ip/iplink.c          |  38 +++++++--------
+ ip/iplink_vrf.c      |  44 ++++++++---------
+ ip/ipmacsec.c        |   2 +-
+ ip/ipneigh.c         |   2 +-
+ ip/ipnetns.c         |  23 +++++----
+ ip/ipntable.c        |   2 +-
+ ip/iproute.c         |  26 ++++++----
+ ip/iprule.c          |   6 +--
+ ip/ipseg6.c          |   8 ++--
+ ip/iptoken.c         |   2 +-
+ ip/link_gre.c        |  11 +++--
+ ip/link_gre6.c       |  11 +++--
+ ip/link_ip6tnl.c     |  11 +++--
+ ip/link_iptnl.c      |  10 ++--
+ ip/link_vti.c        |  11 +++--
+ ip/link_vti6.c       |  11 +++--
+ ip/tcp_metrics.c     |   8 ++--
+ ip/xfrm_policy.c     |  25 +++++-----
+ ip/xfrm_state.c      |  30 ++++++------
+ lib/libgenl.c        |   9 +++-
+ lib/libnetlink.c     | 132 +++++++++++++++++++++++++++++++++------------------
+ misc/ss.c            |   2 +-
+ tc/m_action.c        |  12 ++---
+ tc/tc_class.c        |   2 +-
+ tc/tc_filter.c       |   8 ++--
+ tc/tc_qdisc.c        |   2 +-
+ 37 files changed, 296 insertions(+), 209 deletions(-)
+
+-- 
+2.5.5
