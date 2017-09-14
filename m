@@ -1,100 +1,126 @@
-From: Haneen Mohammed <hamohammed.sa@gmail.com>
-Subject: [PATCH] staging: irda: Remove typedef struct
-Date: Wed, 13 Sep 2017 22:55:38 -0600
-Message-ID: <20170914045538.GA24121@Haneen>
+From: Sekhar Nori <nsekhar@ti.com>
+Subject: Re: [RFC PATCH] can: m_can: Support higher speed CAN-FD bitrates
+Date: Thu, 14 Sep 2017 10:36:18 +0530
+Message-ID: <a7e301a7-bc54-c348-bdb1-b6a0af41665f@ti.com>
+References: <20170818193947.27862-1-fcooper@ti.com>
+ <4f8f6b64-b2a2-b9dc-665c-f1c155daf994@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Samuel Ortiz <samuel@sortiz.org>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        netdev@vger.kernel.org, devel@driverdev.osuosl.org,
-        linux-kernel@vger.kernel.org
-To: outreachy-kernel <outreachy-kernel@googlegroups.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Wenyou Yang <wenyou.yang@atmel.com>,
+        Dong Aisheng <b29396@freescale.com>
+To: Franklin S Cooper Jr <fcooper@ti.com>, <wg@grandegger.com>,
+        <mkl@pengutronix.de>, <mario.huettel@gmx.net>,
+        <socketcan@hartkopp.net>, <quentin.schulz@free-electrons.com>,
+        <edumazet@google.com>, <linux-can@vger.kernel.org>,
+        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from lelnx194.ext.ti.com ([198.47.27.80]:52766 "EHLO
+        lelnx194.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750760AbdINFGs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 14 Sep 2017 01:06:48 -0400
+In-Reply-To: <4f8f6b64-b2a2-b9dc-665c-f1c155daf994@ti.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch remove typedef from a structure with all its ocurrences
-since using typedefs for structures is discouraged.
-Issue found using Coccinelle:
 
-@r1@
-type T;
-@@
+On Thursday 14 September 2017 03:28 AM, Franklin S Cooper Jr wrote:
+> 
+> 
+> On 08/18/2017 02:39 PM, Franklin S Cooper Jr wrote:
+>> During test transmitting using CAN-FD at high bitrates (4 Mbps) only
+>> resulted in errors. Scoping the signals I noticed that only a single bit
+>> was being transmitted and with a bit more investigation realized the actual
+>> MCAN IP would go back to initialization mode automatically.
+>>
+>> It appears this issue is due to the MCAN needing to use the Transmitter
+>> Delay Compensation Mode as defined in the MCAN User's Guide. When this
+>> mode is used the User's Guide indicates that the Transmitter Delay
+>> Compensation Offset register should be set. The document mentions that this
+>> register should be set to (1/dbitrate)/2*(Func Clk Freq).
+>>
+>> Additional CAN-CIA's "Bit Time Requirements for CAN FD" document indicates
+>> that this TDC mode is only needed for data bit rates above 2.5 Mbps.
+>> Therefore, only enable this mode and only set TDCO when the data bit rate
+>> is above 2.5 Mbps.
+>>
+>> Signed-off-by: Franklin S Cooper Jr <fcooper@ti.com>
+>> ---
+>> I'm pretty surprised that this hasn't been implemented already since
+>> the primary purpose of CAN-FD is to go beyond 1 Mbps and the MCAN IP
+>> supports up to 10 Mbps.
+>>
+>> So it will be nice to get comments from users of this driver to understand
+>> if they have been able to use CAN-FD beyond 2.5 Mbps without this patch.
+>> If they haven't what did they do to get around it if they needed higher
+>> speeds.
+>>
+>> Meanwhile I plan on testing this using a more "realistic" CAN bus to insure
+>> everything still works at 5 Mbps which is the max speed of my CAN
+>> transceiver.
+> 
+> ping. Anyone has any thoughts on this?
 
-typedef struct { ... } T;
+I added Dong who authored the m_can driver and Wenyou who added the only
+in-kernel user of the driver for any help.
 
-@script:python c1@
-T2;
-T << r1.T;
-@@
-if T[-2:] =="_t" or T[-2:] == "_T":
-	coccinelle.T2 = T[:-2];
-else:
-	coccinelle.T2 = T;
+Thanks,
+Sekhar
 
-print T, coccinelle.T2
-
-@r2@
-type r1.T;
-identifier c1.T2;
-@@
--typedef
-struct
-+ T2
-{ ... }
--T
-;
-
-@r3@
-type r1.T;
-identifier c1.T2;
-@@
--T
-+struct T2
-
-Signed-off-by: Haneen Mohammed <hamohammed.sa@gmail.com>
----
- drivers/staging/irda/include/net/irda/qos.h | 20 ++++++++++----------
- 1 file changed, 10 insertions(+), 10 deletions(-)
-
-diff --git a/drivers/staging/irda/include/net/irda/qos.h b/drivers/staging/irda/include/net/irda/qos.h
-index 05a5a24..a0315b5 100644
---- a/drivers/staging/irda/include/net/irda/qos.h
-+++ b/drivers/staging/irda/include/net/irda/qos.h
-@@ -58,23 +58,23 @@
- #define IR_16000000 0x02
- 
- /* Quality of Service information */
--typedef struct {
-+struct qos_value {
- 	__u32 value;
- 	__u16 bits; /* LSB is first byte, MSB is second byte */
--} qos_value_t;
-+};
- 
- struct qos_info {
- 	magic_t magic;
- 
--	qos_value_t baud_rate;       /* IR_11520O | ... */
--	qos_value_t max_turn_time;
--	qos_value_t data_size;
--	qos_value_t window_size;
--	qos_value_t additional_bofs;
--	qos_value_t min_turn_time;
--	qos_value_t link_disc_time;
-+	struct qos_value baud_rate;       /* IR_11520O | ... */
-+	struct qos_value max_turn_time;
-+	struct qos_value data_size;
-+	struct qos_value window_size;
-+	struct qos_value additional_bofs;
-+	struct qos_value min_turn_time;
-+	struct qos_value link_disc_time;
- 	
--	qos_value_t power;
-+	struct qos_value power;
- };
- 
- extern int sysctl_max_baud_rate;
--- 
-2.7.4
+>>
+>>  drivers/net/can/m_can/m_can.c | 24 +++++++++++++++++++++++-
+>>  1 file changed, 23 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/drivers/net/can/m_can/m_can.c b/drivers/net/can/m_can/m_can.c
+>> index f4947a7..720e073 100644
+>> --- a/drivers/net/can/m_can/m_can.c
+>> +++ b/drivers/net/can/m_can/m_can.c
+>> @@ -126,6 +126,12 @@ enum m_can_mram_cfg {
+>>  #define DBTP_DSJW_SHIFT		0
+>>  #define DBTP_DSJW_MASK		(0xf << DBTP_DSJW_SHIFT)
+>>  
+>> +/* Transmitter Delay Compensation Register (TDCR) */
+>> +#define TDCR_TDCO_SHIFT		8
+>> +#define TDCR_TDCO_MASK		(0x7F << TDCR_TDCO_SHIFT)
+>> +#define TDCR_TDCF_SHIFT		0
+>> +#define TDCR_TDCF_MASK		(0x7F << TDCR_TDCO_SHIFT)
+>> +
+>>  /* Test Register (TEST) */
+>>  #define TEST_LBCK		BIT(4)
+>>  
+>> @@ -977,6 +983,8 @@ static int m_can_set_bittiming(struct net_device *dev)
+>>  	const struct can_bittiming *dbt = &priv->can.data_bittiming;
+>>  	u16 brp, sjw, tseg1, tseg2;
+>>  	u32 reg_btp;
+>> +	u32 enable_tdc = 0;
+>> +	u32 tdco;
+>>  
+>>  	brp = bt->brp - 1;
+>>  	sjw = bt->sjw - 1;
+>> @@ -991,9 +999,23 @@ static int m_can_set_bittiming(struct net_device *dev)
+>>  		sjw = dbt->sjw - 1;
+>>  		tseg1 = dbt->prop_seg + dbt->phase_seg1 - 1;
+>>  		tseg2 = dbt->phase_seg2 - 1;
+>> +
+>> +		/* TDC is only needed for bitrates beyond 2.5 MBit/s
+>> +		 * Specified in the "Bit Time Requirements for CAN FD" document
+>> +		 */
+>> +		if (dbt->bitrate > 2500000) {
+>> +			enable_tdc = DBTP_TDC;
+>> +			/* Equation based on Bosch's M_CAN User Manual's
+>> +			 * Transmitter Delay Compensation Section
+>> +			 */
+>> +			tdco = priv->can.clock.freq / (dbt->bitrate * 2);
+>> +			m_can_write(priv, M_CAN_TDCR, tdco << TDCR_TDCO_SHIFT);
+>> +		}
+>> +
+>>  		reg_btp = (brp << DBTP_DBRP_SHIFT) | (sjw << DBTP_DSJW_SHIFT) |
+>>  			(tseg1 << DBTP_DTSEG1_SHIFT) |
+>> -			(tseg2 << DBTP_DTSEG2_SHIFT);
+>> +			(tseg2 << DBTP_DTSEG2_SHIFT) | enable_tdc;
+>> +
+>>  		m_can_write(priv, M_CAN_DBTP, reg_btp);
+>>  	}
+>>  
+>>
