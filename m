@@ -1,50 +1,68 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] dt-bindings: net: renesas-ravb: Add support for R8A77995
- RAVB
-Date: Thu, 14 Sep 2017 12:44:58 +0300
-Message-ID: <de2287b5-f208-1ffd-e8a4-3779a11695f7@cogentembedded.com>
-References: <1505347598-4156-1-git-send-email-yoshihiro.shimoda.uh@renesas.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org,
-        devicetree@vger.kernel.org
-To: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>,
-        davem@davemloft.net, robh+dt@kernel.org, mark.rutland@arm.com
+From: Ilya Lesokhin <ilyal@mellanox.com>
+Subject: [PATCH net-next 3/5] net: Add TLS offload netdev ops
+Date: Thu, 14 Sep 2017 13:46:26 +0300
+Message-ID: <1505385988-94522-4-git-send-email-ilyal@mellanox.com>
+References: <1505385988-94522-1-git-send-email-ilyal@mellanox.com>
+Cc: davejwatson@fb.com, tom@herbertland.com,
+        hannes@stressinduktion.org, borisp@mellanox.com,
+        ilyal@mellanox.com, aviadye@mellanox.com, liranl@mellanox.com
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f52.google.com ([209.85.215.52]:45793 "EHLO
-        mail-lf0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751193AbdINJo7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 14 Sep 2017 05:44:59 -0400
-Received: by mail-lf0-f52.google.com with SMTP id d17so6896093lfe.2
-        for <netdev@vger.kernel.org>; Thu, 14 Sep 2017 02:44:58 -0700 (PDT)
-In-Reply-To: <1505347598-4156-1-git-send-email-yoshihiro.shimoda.uh@renesas.com>
-Content-Language: en-US
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:37202 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1751796AbdINKqf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 14 Sep 2017 06:46:35 -0400
+In-Reply-To: <1505385988-94522-1-git-send-email-ilyal@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello!
+Add new netdev ops to add and delete tls context
 
-On 9/14/2017 3:06 AM, Yoshihiro Shimoda wrote:
+Signed-off-by: Boris Pismenny <borisp@mellanox.com>
+Signed-off-by: Ilya Lesokhin <ilyal@mellanox.com>
+Signed-off-by: Aviad Yehezkel <aviadye@mellanox.com>
+---
+ include/linux/netdevice.h | 21 +++++++++++++++++++++
+ 1 file changed, 21 insertions(+)
 
-> Add a new compatible string for the R8A77995 (R-Car D3) RAVB.
-> 
-> Acked-by: Geert Uytterhoeven <geert+renesas@glider.be>
-
-    Usually those are added after sign-off.
-
-> Signed-off-by: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
-
-Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-
-> ---
->   Changes from v1:
->    - Based on r8a77970 patch.
->     https://marc.info/?l=linux-renesas-soc&m=150524655515476
-
-    So this is against net-next, right? The net.git repo now has a patch 
-making me a reviewer for the Renesas bindings too.
-
-[...]
-
-MBR, Sergei
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index cdfd9ad..4ea81bab 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -826,6 +826,23 @@ struct xfrmdev_ops {
+ };
+ #endif
+ 
++#if IS_ENABLED(CONFIG_TLS_DEVICE)
++enum tls_offload_ctx_dir {
++	TLS_OFFLOAD_CTX_DIR_RX,
++	TLS_OFFLOAD_CTX_DIR_TX,
++};
++
++struct tls_crypto_info;
++
++struct tlsdev_ops {
++	int (*tls_dev_add)(struct net_device *netdev, struct sock *sk,
++			   enum tls_offload_ctx_dir direction,
++			   struct tls_crypto_info *crypto_info);
++	void (*tls_dev_del)(struct net_device *netdev, struct sock *sk,
++			    enum tls_offload_ctx_dir direction);
++};
++#endif
++
+ /*
+  * This structure defines the management hooks for network devices.
+  * The following hooks can be defined; unless noted otherwise, they are
+@@ -1713,6 +1730,10 @@ struct net_device {
+ 	const struct xfrmdev_ops *xfrmdev_ops;
+ #endif
+ 
++#if IS_ENABLED(CONFIG_TLS_DEVICE)
++	const struct tlsdev_ops *tlsdev_ops;
++#endif
++
+ 	const struct header_ops *header_ops;
+ 
+ 	unsigned int		flags;
+-- 
+1.8.3.1
