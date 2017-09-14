@@ -1,66 +1,69 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH net] tcp: update skb->skb_mstamp more carefully
-Date: Thu, 14 Sep 2017 09:57:47 -0400
-Message-ID: <CADVnQy=OeD1C4xg6pdYY98djsGCdnKLv6PD5vC7j6-GSkfr8Yw@mail.gmail.com>
-References: <1505111262-12620-1-git-send-email-liujian56@huawei.com>
- <1505141357.15310.115.camel@edumazet-glaptop3.roam.corp.google.com>
- <1505142785.15310.117.camel@edumazet-glaptop3.roam.corp.google.com>
- <1505143348.15310.118.camel@edumazet-glaptop3.roam.corp.google.com>
- <e7e09201-40c2-933a-1e8e-a31eddcc75ab@huawei.com> <1505228700.15310.138.camel@edumazet-glaptop3.roam.corp.google.com>
- <1505230686.15310.141.camel@edumazet-glaptop3.roam.corp.google.com>
- <b72fefba-e701-2ec8-0e7b-3bba6ed25205@huawei.com> <3c750ac3-8739-89ed-ce41-d4cde755171e@huawei.com>
- <1505313647.15310.165.camel@edumazet-glaptop3.roam.corp.google.com> <1505359839.15310.209.camel@edumazet-glaptop3.roam.corp.google.com>
+From: "Longchamp, Valentin" <Valentin.Longchamp@keymile.com>
+Subject: Re: [PATCH] net/ethernet/freescale: fix warning for ucc_geth
+Date: Thu, 14 Sep 2017 14:17:42 +0000
+Message-ID: <1505398677.19702.6.camel@keymile.com>
+References: <20170914120514.31845-1-valentin.longchamp@keymile.com>
+         <f5c5c526-99d4-ff3d-1e2a-23d71bcafa4b@c-s.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: liujian <liujian56@huawei.com>, David Miller <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>,
-        Yuchung Cheng <ycheng@google.com>,
-        Jerry Chu <hkchu@google.com>, Netdev <netdev@vger.kernel.org>,
-        "weiyongjun (A)" <weiyongjun1@huawei.com>,
-        wangkefeng 00227729 <wangkefeng.wang@huawei.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>
+To: "christophe.leroy@c-s.fr" <christophe.leroy@c-s.fr>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "leoli@freescale.com" <leoli@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f181.google.com ([209.85.220.181]:44191 "EHLO
-        mail-qk0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751277AbdINN6T (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 14 Sep 2017 09:58:19 -0400
-Received: by mail-qk0-f181.google.com with SMTP id b23so6810492qkg.1
-        for <netdev@vger.kernel.org>; Thu, 14 Sep 2017 06:58:18 -0700 (PDT)
-In-Reply-To: <1505359839.15310.209.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-de.keymile.com ([195.8.104.250]:39492 "EHLO
+        mail-de.keymile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751131AbdINORu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 14 Sep 2017 10:17:50 -0400
+In-Reply-To: <f5c5c526-99d4-ff3d-1e2a-23d71bcafa4b@c-s.fr>
+Content-Language: en-US
+Content-ID: <2F02268E6B5163418B486C321D09F495@eurprd01.prod.exchangelabs.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 13, 2017 at 11:30 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->
-> From: Eric Dumazet <edumazet@googl.com>
->
-> liujian reported a problem in TCP_USER_TIMEOUT processing with a patch
-> in tcp_probe_timer() :
->       https://www.spinics.net/lists/netdev/msg454496.html
->
-> After investigations, the root cause of the problem is that we update
-> skb->skb_mstamp of skbs in write queue, even if the attempt to send a
-> clone or copy of it failed. One reason being a routing problem.
->
-> This patch prevents this, solving liujian issue.
->
-> It also removes a potential RTT miscalculation, since
-> __tcp_retransmit_skb() is not OR-ing TCP_SKB_CB(skb)->sacked with
-> TCPCB_EVER_RETRANS if a failure happens, but skb->skb_mstamp has
-> been changed.
->
-> A future ACK would then lead to a very small RTT sample and min_rtt
-> would then be lowered to this too small value.
-...
->
-> Signed-off-by: Eric Dumazet <edumazet@googl.com>
-> Reported-by: liujian <liujian56@huawei.com>
-> ---
->  net/ipv4/tcp_output.c |   19 ++++++++++++-------
->  1 file changed, 12 insertions(+), 7 deletions(-)
-
-Acked-by: Neal Cardwell <ncardwell@google.com>
-
-Thanks, Eric!
-
-neal
+SGkgQ2hyaXN0b3BoZSwNCg0KT24gVGh1LCAyMDE3LTA5LTE0IGF0IDE1OjI0ICswMjAwLCBDaHJp
+c3RvcGhlIExFUk9ZIHdyb3RlOg0KPiBIaSwNCj4gDQo+IExlIDE0LzA5LzIwMTcgw6AgMTQ6MDUs
+IFZhbGVudGluIExvbmdjaGFtcCBhIMOpY3JpdCA6DQo+ID4gU2ltcGxlIHByaW50ayBmb3JtYXQg
+d2FybmluZyBmb3IgdGhlIHRoZSB1Y2MgcmVnaXN0ZXJzIGFkZHJlc3MuDQo+IA0KPiBEaWQgeW91
+IHRlc3QgeW91ciBwYXRjaCB3aXRoIG1wYzgzeHhfZGVmY29uZmlnID8NCg0KTm8gSSBvbmx5IHRl
+c3RlZCBvbiBhIDg1eHggd2hlcmUgSSBoYWQgYW5vdGhlciAoc2ltaWxhciwgYmVjYXVzZSB0aGUN
+CnBoeXNpY2FsIGFkZHJlc3NlcyBhcmUgdTY0IGFuZCBub3QgdTMyKSB3YXJuaW5nLg0KDQpNeSBx
+dWljayBmaXggaW5kZWVkIGRpZCBub3QgdGFrZSB0aGUgZGlmZmVyZW50IHR5cGVkZWZzIGZvcg0K
+cGh5c19hZGRyX3QuDQoNCkkgdHJ5IHRvIGNvbWUgd2l0aCBhIHYyIHRoYXQgY292ZXJzIHRoaXMu
+DQoNClRoYW5rcyBmb3IgdGhlIGZlZWRiYWNrLg0KDQpWYWxlbnRpbg0KPiANCj4gSSBnZXQgYSBu
+ZXcgd2FybmluZyB3aXRoIHlvdXIgcGF0Y2g6DQo+IA0KPiAgICBDQyAgICAgIGRyaXZlcnMvbmV0
+L2V0aGVybmV0L2ZyZWVzY2FsZS91Y2NfZ2V0aC5vDQo+IEluIGZpbGUgaW5jbHVkZWQgZnJvbSAu
+L2luY2x1ZGUvbGludXgvcHJpbnRrLmg6NjowLA0KPiAgICAgICAgICAgICAgICAgICBmcm9tIC4v
+aW5jbHVkZS9saW51eC9rZXJuZWwuaDoxMywNCj4gICAgICAgICAgICAgICAgICAgZnJvbSBkcml2
+ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvdWNjX2dldGguYzoxODoNCj4gZHJpdmVycy9uZXQv
+ZXRoZXJuZXQvZnJlZXNjYWxlL3VjY19nZXRoLmM6IEluIGZ1bmN0aW9uDQo+IOKAmHVjY19nZXRo
+X3Byb2Jl4oCZOg0KPiAuL2luY2x1ZGUvbGludXgva2Vybl9sZXZlbHMuaDo0OjE4OiB3YXJuaW5n
+OiBmb3JtYXQg4oCYJWxseOKAmSBleHBlY3RzIA0KPiBhcmd1bWVudCBvZiB0eXBlIOKAmGxvbmcg
+bG9uZyB1bnNpZ25lZCBpbnTigJksIGJ1dCBhcmd1bWVudCAzIGhhcyB0eXBlIA0KPiDigJhyZXNv
+dXJjZV9zaXplX3Qge2FrYSB1bnNpZ25lZCBpbnR94oCZIFstV2Zvcm1hdD1dDQo+ICAgI2RlZmlu
+ZSBLRVJOX1NPSCAiXDAwMSIgIC8qIEFTQ0lJIFN0YXJ0IE9mIEhlYWRlciAqLw0KPiAgICAgICAg
+ICAgICAgICAgICAgXg0KPiAuL2luY2x1ZGUvbGludXgva2Vybl9sZXZlbHMuaDoxMzoxOTogbm90
+ZTogaW4gZXhwYW5zaW9uIG9mIG1hY3JvDQo+IOKAmEtFUk5fU09I4oCZDQo+ICAgI2RlZmluZSBL
+RVJOX0lORk8gS0VSTl9TT0ggIjYiIC8qIGluZm9ybWF0aW9uYWwgKi8NCj4gICAgICAgICAgICAg
+ICAgICAgICBeDQo+IC4vaW5jbHVkZS9saW51eC9wcmludGsuaDozMDg6OTogbm90ZTogaW4gZXhw
+YW5zaW9uIG9mIG1hY3JvDQo+IOKAmEtFUk5fSU5GT+KAmQ0KPiAgICBwcmludGsoS0VSTl9JTkZP
+IHByX2ZtdChmbXQpLCAjI19fVkFfQVJHU19fKQ0KPiAgICAgICAgICAgXg0KPiBkcml2ZXJzL25l
+dC9ldGhlcm5ldC9mcmVlc2NhbGUvdWNjX2dldGguYzozODYwOjM6IG5vdGU6IGluIGV4cGFuc2lv
+bg0KPiBvZiANCj4gbWFjcm8g4oCYcHJfaW5mb+KAmQ0KPiAgICAgcHJfaW5mbygiVUNDJTFkIGF0
+IDB4JThsbHggKGlycSA9ICVkKVxuIiwNCj4gICAgIF4NCj4gDQo+IENocmlzdG9waGUNCj4gDQo+
+ID4gDQo+ID4gU2lnbmVkLW9mZi1ieTogVmFsZW50aW4gTG9uZ2NoYW1wIDx2YWxlbnRpbi5sb25n
+Y2hhbXBAa2V5bWlsZS5jb20+DQo+ID4gLS0tDQo+ID4gICBkcml2ZXJzL25ldC9ldGhlcm5ldC9m
+cmVlc2NhbGUvdWNjX2dldGguYyB8IDIgKy0NCj4gPiAgIDEgZmlsZSBjaGFuZ2VkLCAxIGluc2Vy
+dGlvbigrKSwgMSBkZWxldGlvbigtKQ0KPiA+IA0KPiA+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25l
+dC9ldGhlcm5ldC9mcmVlc2NhbGUvdWNjX2dldGguYw0KPiA+IGIvZHJpdmVycy9uZXQvZXRoZXJu
+ZXQvZnJlZXNjYWxlL3VjY19nZXRoLmMNCj4gPiBpbmRleCBmNzdiYTlmYTI1N2IuLjU2YjhmZGIz
+NWMzYiAxMDA2NDQNCj4gPiAtLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvdWNj
+X2dldGguYw0KPiA+ICsrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS91Y2NfZ2V0
+aC5jDQo+ID4gQEAgLTM4NTcsNyArMzg1Nyw3IEBAIHN0YXRpYyBpbnQgdWNjX2dldGhfcHJvYmUo
+c3RydWN0DQo+ID4gcGxhdGZvcm1fZGV2aWNlKiBvZmRldikNCj4gPiAgIAl9DQo+ID4gICANCj4g
+PiAgIAlpZiAobmV0aWZfbXNnX3Byb2JlKCZkZWJ1ZykpDQo+ID4gLQkJcHJfaW5mbygiVUNDJTFk
+IGF0IDB4JTh4IChpcnEgPSAlZClcbiIsDQo+ID4gKwkJcHJfaW5mbygiVUNDJTFkIGF0IDB4JThs
+bHggKGlycSA9ICVkKVxuIiwNCj4gPiAgIAkJCXVnX2luZm8tPnVmX2luZm8udWNjX251bSArIDEs
+IHVnX2luZm8tDQo+ID4gPnVmX2luZm8ucmVncywNCj4gPiAgIAkJCXVnX2luZm8tPnVmX2luZm8u
+aXJxKTsNCj4gPiAgIA0KPiA+IA==
