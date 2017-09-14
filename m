@@ -1,53 +1,52 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: Bug with BPF_ALU64 | BPF_END?
-Date: Thu, 14 Sep 2017 18:53:17 +0100
-Message-ID: <52c7df55-84d9-f6d2-ed84-51ac90eb6bcc@solarflare.com>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: RTL8192EE PCIe Wireless Network Adapter crashed with linux-4.13
+Date: Thu, 14 Sep 2017 13:05:03 -0500
+Message-ID: <e8e75755-f8b4-e122-ea4a-99a691405d38@lwfinger.net>
+References: <2WhCEttl4IJtrTB2AkJYmhbsu-kiR_5fU0A_Z7eWW05rbVE5tB86A_ZS8ek_FQFdgaZw1bfx0wFbxOa0Ydjv1T6BzBkIHtaWTbSptcpB_kg=@protonmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Daniel Borkmann <daniel@iogearbox.net>,
-        Alexei Starovoitov <ast@fb.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dispatch1-us1.ppe-hosted.com ([67.231.154.164]:41494 "EHLO
-        dispatch1-us1.ppe-hosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751352AbdINRxb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 14 Sep 2017 13:53:31 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "chaoming_li@realsil.com.cn" <chaoming_li@realsil.com.cn>,
+        "kvalo@codeaurora.org" <kvalo@codeaurora.org>,
+        "pkshih@realtek.com" <pkshih@realtek.com>,
+        "johannes.berg@intel.com" <johannes.berg@intel.com>,
+        "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Zwindl <zwindl@protonmail.com>,
+        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <2WhCEttl4IJtrTB2AkJYmhbsu-kiR_5fU0A_Z7eWW05rbVE5tB86A_ZS8ek_FQFdgaZw1bfx0wFbxOa0Ydjv1T6BzBkIHtaWTbSptcpB_kg=@protonmail.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Is BPF_END supposed to only be used with BPF_ALU, never with BPF_ALU64?
-In kernel/bpf/core.c:___bpf_prog_run(), there are only jump table targets
- for the BPF_ALU case, not for the BPF_ALU64 case (opcodes 0xd7 and 0xdf).
-But the verifier doesn't enforce this; by crafting a program that uses
- these opcodes I can get a WARN when they're run (without JIT; it looks
- like the x86 JIT, at least, won't like it either).
-Proposed patch below the cut; build-tested only.
+On 09/14/2017 08:30 AM, Zwindl wrote:
+> Dear developers:
+> I'm using Arch Linux with testing enabled, the current kernel version and 
+> details are
+> `Linux zwindl 4.13.2-1-ARCH #1 SMP PREEMPT Thu Sep 14 02:57:34 UTC 2017 x86_64 
+> GNU/Linux`.
+> The wireless card can't work properly from the kernel 4.13. Here's the log(in 
+> attachment) when NetworkManager trying to connect my wifi which is named as 
+> 'TP', my mac addr hided as xx:xx:xx:xx:xx.
+> What should I provide to help to debug?
+> ZWindL.
 
--Ed
----
+The BUG-ON arises in __intel_map_single() due to dir (for direction of DMA) 
+equal to DMA_NONE (3). When rtl8192ee calls pci_map_single(), it uses 
+PCI_DMA_TODEVICE (1). I followed the calling sequence through the entire chain, 
+and none of the routines made any changes to 'dir', other that changing the type 
+from int to enum dma_data_direction. That would not have changed a 1 to a 3.
 
-[PATCH net] bpf/verifier: reject BPF_ALU64|BPF_END
+I built a 4.13.2 system. The problem does not happen here. At this point, the 
+system has been up for about two hours. I did discover a small memory leak 
+associated with firmware loading, but that should not have caused the problem. 
+Nonetheless, I will be sending a patch to fix that problem.
 
-Neither ___bpf_prog_run nor the JITs accept it.
+I will continue testing, although I doubt that the problem will happen here.
 
-Fixes: 17a5267067f3 ("bpf: verifier (add verifier core)")
-Signed-off-by: Edward Cree <ecree@solarflare.com>
----
- kernel/bpf/verifier.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+How long had your system been up when the problem occurred? Your dmesg fragment 
+did not show any times. What kernels have you tried besides 4.13.2?
 
-diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index 477b693..799b245 100644
---- a/kernel/bpf/verifier.c
-+++ b/kernel/bpf/verifier.c
-@@ -2292,7 +2292,8 @@ static int check_alu_op(struct bpf_verifier_env *env, struct bpf_insn *insn)
- 			}
- 		} else {
- 			if (insn->src_reg != BPF_REG_0 || insn->off != 0 ||
--			    (insn->imm != 16 && insn->imm != 32 && insn->imm != 64)) {
-+			    (insn->imm != 16 && insn->imm != 32 && insn->imm != 64) ||
-+			    BPF_CLASS(insn->code) == BPF_ALU64) {
- 				verbose("BPF_END uses reserved fields\n");
- 				return -EINVAL;
- 			}
+Larry
