@@ -1,7 +1,7 @@
 From: nixiaoming <nixiaoming@huawei.com>
 Subject: [PATCH] net/packet: fix race condition between fanout_add and __unregister_prot_hook
-Date: Thu, 14 Sep 2017 10:40:46 +0800
-Message-ID: <20170914024046.92505-1-nixiaoming@huawei.com>
+Date: Thu, 14 Sep 2017 10:44:41 +0800
+Message-ID: <20170914024441.93056-1-nixiaoming@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
@@ -21,7 +21,7 @@ it will cause BUG_ON when __unregister_prot_hook call __fanout_unlink
 so, we need add mutex_lock(&fanout_mutex) to __unregister_prot_hook
 or add spin_lock(&po->bind_lock) before po-> fanout = match
 
-test on linux 4.1.42:
+test on linux 4.1.12:
 ./trinity -c setsockopt -C 2 -X &
 
 BUG: failure at net/packet/af_packet.c:1414/__fanout_unlink()!
