@@ -1,53 +1,61 @@
-From: Y Song <ys114321@gmail.com>
-Subject: Re: Bug with BPF_ALU64 | BPF_END?
-Date: Thu, 14 Sep 2017 14:22:55 -0700
-Message-ID: <CAH3MdRVNKCM-WLvm_1REOnqwNJ+iPnTiu-f=n7hZifzXPtsZZg@mail.gmail.com>
-References: <52c7df55-84d9-f6d2-ed84-51ac90eb6bcc@solarflare.com> <20170914.111424.934672262035736390.davem@davemloft.net>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: feature request for kernel module 8021q
+Date: Thu, 14 Sep 2017 15:16:32 -0700
+Message-ID: <A4D84B7F-5D4A-44C8-875C-C113D7C5C688@gmail.com>
+References: <c010d65d-3050-8d88-22aa-cac092dd3904@abeille.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Edward Cree <ecree@solarflare.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Alexei Starovoitov <ast@fb.com>,
-        netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain;
+ charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+To: Pierre Colombier <pierre@abeille.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f66.google.com ([209.85.213.66]:32917 "EHLO
-        mail-vk0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751330AbdINVXg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 14 Sep 2017 17:23:36 -0400
-Received: by mail-vk0-f66.google.com with SMTP id j189so156824vka.0
-        for <netdev@vger.kernel.org>; Thu, 14 Sep 2017 14:23:36 -0700 (PDT)
-In-Reply-To: <20170914.111424.934672262035736390.davem@davemloft.net>
+Received: from mail-pf0-f182.google.com ([209.85.192.182]:56430 "EHLO
+        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751672AbdINWQi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 14 Sep 2017 18:16:38 -0400
+Received: by mail-pf0-f182.google.com with SMTP id g65so385901pfe.13
+        for <netdev@vger.kernel.org>; Thu, 14 Sep 2017 15:16:38 -0700 (PDT)
+In-Reply-To: <c010d65d-3050-8d88-22aa-cac092dd3904@abeille.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 14, 2017 at 11:14 AM, David Miller <davem@davemloft.net> wrote:
-> From: Edward Cree <ecree@solarflare.com>
-> Date: Thu, 14 Sep 2017 18:53:17 +0100
+On September 14, 2017 12:14:04 PM PDT, Pierre Colombier <pierre@abeille=2Ec=
+om> wrote:
+>Hello
 >
->> Is BPF_END supposed to only be used with BPF_ALU, never with BPF_ALU64?
+>
+>One big problem with vlans on linux is that the native interface always
+>
+>get all vlans=2E
+>
+>This can cause problem with bridges=2E
 
-Yes, only BPF_ALU. The below is LLVM bpf swap insn encoding:
+What specific problem are you thinking about?
 
-...
-// bswap16, bswap32, bswap64
-class BSWAP ...
-...
-  let op = 0xd;     // BPF_END
-  let BPFSrc = 1;   // BPF_TO_BE (TODO: use BPF_TO_LE for big-endian target)
-  let BPFClass = 4; // BPF_ALU
-...
+>
+>
+>One interesting feature would be to have a special vlan number
+>
+>(let's say 0 or -1 or 4097 ) designed so that it gets all the untagged=20
+>trafic and only the untagged trafic=2E
 
->> In kernel/bpf/core.c:___bpf_prog_run(), there are only jump table targets
->>  for the BPF_ALU case, not for the BPF_ALU64 case (opcodes 0xd7 and 0xdf).
->> But the verifier doesn't enforce this; by crafting a program that uses
->>  these opcodes I can get a WARN when they're run (without JIT; it looks
->>  like the x86 JIT, at least, won't like it either).
->> Proposed patch below the cut; build-tested only.
+4097 is not a valid number nor is -1 since that closely follows what the V=
+LAN ID extracted from the tag would be=2E VLAN 0 is more or less the untagg=
+ed VLAN=2E
+
 >
-> Good catch.
->
-> A really neat test would be a program that uploads random BPF programs
-> into the kernel, in a syzkaller'ish way.  It might have triggered this
-> (eventually).
->
+>what do you think about this ?
+
+Provided the HW supports it, with two netdevice operations: ndo_rx_vlan_ad=
+d_vid and ndo_rx_vlan_kill_vid you can have your HW filter out the VLAN tag=
+s it wishes to receive, respectively not receive anymore=2E If your device =
+does not support that, then yes if you send frames with a VLAN tag for whic=
+h you are not interested in processing, you are still receiving it unless t=
+here is a switch or any kind of VLAN filtering device in between=2E
+
+Bridge has also gained a VLAN filtering that can also be used to only the =
+reception/transmission of desired VLAN tags=2E And it also allows you to de=
+fine the default VLAN tag (VID1)=20
+
+--=20
+Florian
