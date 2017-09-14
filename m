@@ -1,39 +1,37 @@
-From: Tobias Klauser <tklauser@distanz.ch>
-Subject: [PATCH] tls: make tls_sw_free_resources static
-Date: Thu, 14 Sep 2017 13:22:25 +0200
-Message-ID: <20170914112225.4296-1-tklauser@distanz.ch>
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Ilya Lesokhin <ilyal@mellanox.com>,
-        Aviad Yehezkel <aviadye@mellanox.com>,
-        Dave Watson <davejwatson@fb.com>
+From: Valentin Longchamp <valentin.longchamp@keymile.com>
+Subject: [PATCH] net/ethernet/freescale: fix warning for ucc_geth
+Date: Thu, 14 Sep 2017 14:05:14 +0200
+Message-ID: <20170914120514.31845-1-valentin.longchamp@keymile.com>
+Cc: linuxppc-dev@lists.ozlabs.org,
+        Valentin Longchamp <valentin.longchamp@keymile.com>
+To: leoli@freescale.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.zhinst.com ([212.126.164.98]:35514 "EHLO mail.zhinst.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751413AbdINL1g (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 14 Sep 2017 07:27:36 -0400
+Received: from mail-de.keymile.com ([195.8.104.250]:50751 "EHLO
+        mail-de.keymile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751542AbdINMLB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 14 Sep 2017 08:11:01 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Make the needlessly global function tls_sw_free_resources static to fix
-a gcc/sparse warning.
+Simple printk format warning for the the ucc registers address.
 
-Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+Signed-off-by: Valentin Longchamp <valentin.longchamp@keymile.com>
 ---
- net/tls/tls_sw.c | 2 +-
+ drivers/net/ethernet/freescale/ucc_geth.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/tls/tls_sw.c b/net/tls/tls_sw.c
-index fa596fa71ba7..7d80040a37b6 100644
---- a/net/tls/tls_sw.c
-+++ b/net/tls/tls_sw.c
-@@ -639,7 +639,7 @@ int tls_sw_sendpage(struct sock *sk, struct page *page,
- 	return ret;
- }
+diff --git a/drivers/net/ethernet/freescale/ucc_geth.c b/drivers/net/ethernet/freescale/ucc_geth.c
+index f77ba9fa257b..56b8fdb35c3b 100644
+--- a/drivers/net/ethernet/freescale/ucc_geth.c
++++ b/drivers/net/ethernet/freescale/ucc_geth.c
+@@ -3857,7 +3857,7 @@ static int ucc_geth_probe(struct platform_device* ofdev)
+ 	}
  
--void tls_sw_free_resources(struct sock *sk)
-+static void tls_sw_free_resources(struct sock *sk)
- {
- 	struct tls_context *tls_ctx = tls_get_ctx(sk);
- 	struct tls_sw_context *ctx = tls_sw_ctx(tls_ctx);
+ 	if (netif_msg_probe(&debug))
+-		pr_info("UCC%1d at 0x%8x (irq = %d)\n",
++		pr_info("UCC%1d at 0x%8llx (irq = %d)\n",
+ 			ug_info->uf_info.ucc_num + 1, ug_info->uf_info.regs,
+ 			ug_info->uf_info.irq);
+ 
 -- 
-2.13.0
+2.13.5
