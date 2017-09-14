@@ -1,50 +1,73 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net] netvsc: increase default receive buffer size
-Date: Thu, 14 Sep 2017 09:31:07 -0700
-Message-ID: <20170914163107.8404-1-sthemmin@microsoft.com>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: [PATCH net] tcp: update skb->skb_mstamp more carefully
+Date: Thu, 14 Sep 2017 09:32:29 -0700
+Message-ID: <CAK6E8=dzYTaXnrXGeANX+wOtE+jfzX7M1ZokToe=ukm+tRK+Jw@mail.gmail.com>
+References: <1505111262-12620-1-git-send-email-liujian56@huawei.com>
+ <1505141357.15310.115.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1505142785.15310.117.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1505143348.15310.118.camel@edumazet-glaptop3.roam.corp.google.com>
+ <e7e09201-40c2-933a-1e8e-a31eddcc75ab@huawei.com> <1505228700.15310.138.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1505230686.15310.141.camel@edumazet-glaptop3.roam.corp.google.com>
+ <b72fefba-e701-2ec8-0e7b-3bba6ed25205@huawei.com> <3c750ac3-8739-89ed-ce41-d4cde755171e@huawei.com>
+ <1505313647.15310.165.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1505359839.15310.209.camel@edumazet-glaptop3.roam.corp.google.com> <CADVnQy=OeD1C4xg6pdYY98djsGCdnKLv6PD5vC7j6-GSkfr8Yw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Stephen Hemminger <sthemmin@microsoft.com>,
- devel@linuxdriverproject.org
-To: kys@microsoft.com,
-	haiyangz@microsoft.com,
-	davem@davemloft.net
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+        liujian <liujian56@huawei.com>,
+        David Miller <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Jerry Chu <hkchu@google.com>, Netdev <netdev@vger.kernel.org>,
+        "weiyongjun (A)" <weiyongjun1@huawei.com>,
+        wangkefeng 00227729 <wangkefeng.wang@huawei.com>
+To: Neal Cardwell <ncardwell@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f172.google.com ([209.85.128.172]:45392 "EHLO
+        mail-wr0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751277AbdINQdL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 14 Sep 2017 12:33:11 -0400
+Received: by mail-wr0-f172.google.com with SMTP id m18so6404129wrm.2
+        for <netdev@vger.kernel.org>; Thu, 14 Sep 2017 09:33:11 -0700 (PDT)
+In-Reply-To: <CADVnQy=OeD1C4xg6pdYY98djsGCdnKLv6PD5vC7j6-GSkfr8Yw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The default receive buffer size was reduced by recent change
-to a value which was appropriate for 10G and Windows Server 2016.
-But the value is too small for full performance with 40G on Azure.
-Increase the default back to maximum supported by host.
+On Thu, Sep 14, 2017 at 6:57 AM, Neal Cardwell <ncardwell@google.com> wrote:
+> On Wed, Sep 13, 2017 at 11:30 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>>
+>> From: Eric Dumazet <edumazet@googl.com>
+>>
+>> liujian reported a problem in TCP_USER_TIMEOUT processing with a patch
+>> in tcp_probe_timer() :
+>>       https://www.spinics.net/lists/netdev/msg454496.html
+>>
+>> After investigations, the root cause of the problem is that we update
+>> skb->skb_mstamp of skbs in write queue, even if the attempt to send a
+>> clone or copy of it failed. One reason being a routing problem.
+>>
+>> This patch prevents this, solving liujian issue.
+>>
+>> It also removes a potential RTT miscalculation, since
+>> __tcp_retransmit_skb() is not OR-ing TCP_SKB_CB(skb)->sacked with
+>> TCPCB_EVER_RETRANS if a failure happens, but skb->skb_mstamp has
+>> been changed.
+>>
+>> A future ACK would then lead to a very small RTT sample and min_rtt
+>> would then be lowered to this too small value.
+> ...
+>>
+>> Signed-off-by: Eric Dumazet <edumazet@googl.com>
+>> Reported-by: liujian <liujian56@huawei.com>
+>> ---
+>>  net/ipv4/tcp_output.c |   19 ++++++++++++-------
+>>  1 file changed, 12 insertions(+), 7 deletions(-)
+>
+> Acked-by: Neal Cardwell <ncardwell@google.com>
+Acked-by: Yuchung Cheng <ycheng@google.com>
 
-Fixes: 8b5327975ae1 ("netvsc: allow controlling send/recv buffer size")
-Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
----
- drivers/net/hyperv/netvsc_drv.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+nicely done!
 
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index c538a4f15f3b..d4902ee5f260 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -49,7 +49,7 @@
- #define NETVSC_MIN_TX_SECTIONS	10
- #define NETVSC_DEFAULT_TX	192	/* ~1M */
- #define NETVSC_MIN_RX_SECTIONS	10	/* ~64K */
--#define NETVSC_DEFAULT_RX	2048	/* ~4M */
-+#define NETVSC_DEFAULT_RX	10485   /* Max ~16M */
- 
- #define LINKCHANGE_INT (2 * HZ)
- #define VF_TAKEOVER_INT (HZ / 10)
--- 
-2.11.0
+>
+> Thanks, Eric!
+>
+> neal
