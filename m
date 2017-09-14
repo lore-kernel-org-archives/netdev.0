@@ -1,62 +1,41 @@
-From: Ilya Lesokhin <ilyal@mellanox.com>
-Subject: [PATCH net-next 4/5] net: Add TLS TX offload features
-Date: Thu, 14 Sep 2017 13:46:27 +0300
-Message-ID: <1505385988-94522-5-git-send-email-ilyal@mellanox.com>
-References: <1505385988-94522-1-git-send-email-ilyal@mellanox.com>
-Cc: davejwatson@fb.com, tom@herbertland.com,
-        hannes@stressinduktion.org, borisp@mellanox.com,
-        ilyal@mellanox.com, aviadye@mellanox.com, liranl@mellanox.com
-To: netdev@vger.kernel.org, davem@davemloft.net
+From: Itaru Kitayama <itaru.kitayama@riken.jp>
+Subject: System NIC does not get activated at boot time
+Date: Thu, 14 Sep 2017 19:41:23 +0900
+Message-ID: <d21bdfd4-f660-1958-7ddf-058ab5150ce7@riken.jp>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:37262 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751841AbdINKqf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 14 Sep 2017 06:46:35 -0400
-In-Reply-To: <1505385988-94522-1-git-send-email-ilyal@mellanox.com>
+Received: from postmanrt1.riken.jp ([134.160.33.66]:57898 "EHLO
+        postmanrt1.riken.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751500AbdINKu6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 14 Sep 2017 06:50:58 -0400
+Received: from postman-ex2.riken.jp (postman-ex2.riken.go.jp [134.160.33.92])
+        by postmanrt1.riken.jp (Postfix) with ESMTP id 8FA281E088E
+        for <netdev@vger.kernel.org>; Thu, 14 Sep 2017 19:41:25 +0900 (JST)
+Received: from postman-ex2.riken.jp (localhost [127.0.0.1])
+        by localhost (Postfix) with SMTP id A49426602A8
+        for <netdev@vger.kernel.org>; Thu, 14 Sep 2017 19:41:24 +0900 (JST)
+Received: from postman.riken.jp (unknown [192.168.60.185])
+        by postman-ex2.riken.jp (Postfix) with ESMTP id 932BE66022B
+        for <netdev@vger.kernel.org>; Thu, 14 Sep 2017 19:41:24 +0900 (JST)
+Received: from postman.riken.jp (localhost.localdomain [127.0.0.1])
+        by postman.riken.jp (Postfix) with SMTP id 857DF9413E
+        for <netdev@vger.kernel.org>; Thu, 14 Sep 2017 19:41:24 +0900 (JST)
+Received: from MacBook-Pro-4.local (anet34.aics.riken.jp [134.160.184.34])
+        by postman.riken.jp (Postfix) with ESMTPA id 562899412D
+        for <netdev@vger.kernel.org>; Thu, 14 Sep 2017 19:41:24 +0900 (JST)
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds a netdev feature to configure TLS TX offloads.
+Hi,
 
-Signed-off-by: Boris Pismenny <borisp@mellanox.com>
-Signed-off-by: Ilya Lesokhin <ilyal@mellanox.com>
-Signed-off-by: Aviad Yehezkel <aviadye@mellanox.com>
----
- include/linux/netdev_features.h | 2 ++
- net/core/ethtool.c              | 1 +
- 2 files changed, 3 insertions(+)
+Our Cavium ThunderX system's system NIC can not get activated upon boot 
+for some reason. To make it active, we need to re-plug the network 
+cable. The system is GIGABYTE R150-T62-00 (T45 BIOS), and is powered by 
+CentOS 7 (kernel is 4.5.0-25.el7). Has anyone seen this kind of issue on
+a ThunderX system?
 
-diff --git a/include/linux/netdev_features.h b/include/linux/netdev_features.h
-index dc8b489..ed0648a 100644
---- a/include/linux/netdev_features.h
-+++ b/include/linux/netdev_features.h
-@@ -76,6 +76,7 @@ enum {
- 	NETIF_F_HW_ESP_BIT,		/* Hardware ESP transformation offload */
- 	NETIF_F_HW_ESP_TX_CSUM_BIT,	/* ESP with TX checksum offload */
- 	NETIF_F_RX_UDP_TUNNEL_PORT_BIT, /* Offload of RX port for UDP tunnels */
-+	NETIF_F_HW_TLS_TX_BIT,		/* Hardware TLS TX offload */
- 
- 	/*
- 	 * Add your fresh new feature above and remember to update
-@@ -140,6 +141,7 @@ enum {
- #define NETIF_F_HW_ESP		__NETIF_F(HW_ESP)
- #define NETIF_F_HW_ESP_TX_CSUM	__NETIF_F(HW_ESP_TX_CSUM)
- #define	NETIF_F_RX_UDP_TUNNEL_PORT  __NETIF_F(RX_UDP_TUNNEL_PORT)
-+#define NETIF_F_HW_TLS_TX	__NETIF_F(HW_TLS_TX)
- 
- #define for_each_netdev_feature(mask_addr, bit)	\
- 	for_each_set_bit(bit, (unsigned long *)mask_addr, NETDEV_FEATURE_COUNT)
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index 6a582ae..2ae1fc4 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -106,6 +106,7 @@ int ethtool_op_get_ts_info(struct net_device *dev, struct ethtool_ts_info *info)
- 	[NETIF_F_HW_ESP_BIT] =		 "esp-hw-offload",
- 	[NETIF_F_HW_ESP_TX_CSUM_BIT] =	 "esp-tx-csum-hw-offload",
- 	[NETIF_F_RX_UDP_TUNNEL_PORT_BIT] =	 "rx-udp_tunnel-port-offload",
-+	[NETIF_F_HW_TLS_TX_BIT] =	 "tls-hw-tx-offload",
- };
- 
- static const char
--- 
-1.8.3.1
+Itaru
