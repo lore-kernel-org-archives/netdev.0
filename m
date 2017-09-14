@@ -1,65 +1,164 @@
-From: nixiaoming <nixiaoming@huawei.com>
-Subject: [PATCH] net/packet: fix race condition between fanout_add and __unregister_prot_hook
-Date: Thu, 14 Sep 2017 10:44:41 +0800
-Message-ID: <20170914024441.93056-1-nixiaoming@huawei.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] tcp: update skb->skb_mstamp more carefully
+Date: Wed, 13 Sep 2017 20:30:39 -0700
+Message-ID: <1505359839.15310.209.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1505111262-12620-1-git-send-email-liujian56@huawei.com>
+         <1505141357.15310.115.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1505142785.15310.117.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1505143348.15310.118.camel@edumazet-glaptop3.roam.corp.google.com>
+         <e7e09201-40c2-933a-1e8e-a31eddcc75ab@huawei.com>
+         <1505228700.15310.138.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1505230686.15310.141.camel@edumazet-glaptop3.roam.corp.google.com>
+         <b72fefba-e701-2ec8-0e7b-3bba6ed25205@huawei.com>
+         <3c750ac3-8739-89ed-ce41-d4cde755171e@huawei.com>
+         <1505313647.15310.165.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-        <nixiaoming@huawei.com>, <dede.wu@huawei.com>
-To: <davem@davemloft.net>, <edumazet@google.com>,
-        <waltje@uWalt.NL.Mugnet.ORG>, <gw4pts@gw4pts.ampr.org>,
-        <andreyknvl@google.com>, <tklauser@distanz.ch>,
-        <philip.pettersson@gmail.com>, <glider@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: edumazet@google.com, ycheng@google.com, hkchu@google.com,
+        netdev@vger.kernel.org, weiyongjun1@huawei.com,
+        wangkefeng 00227729 <wangkefeng.wang@huawei.com>
+To: liujian <liujian56@huawei.com>, David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:36046 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751311AbdINDam (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 13 Sep 2017 23:30:42 -0400
+Received: by mail-pg0-f65.google.com with SMTP id d8so1044165pgt.3
+        for <netdev@vger.kernel.org>; Wed, 13 Sep 2017 20:30:41 -0700 (PDT)
+In-Reply-To: <1505313647.15310.165.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-If fanout_add is preempted after running po-> fanout = match
-and before running __fanout_link,
-it will cause BUG_ON when __unregister_prot_hook call __fanout_unlink
+From: Eric Dumazet <edumazet@googl.com>
 
-so, we need add mutex_lock(&fanout_mutex) to __unregister_prot_hook
-or add spin_lock(&po->bind_lock) before po-> fanout = match
+liujian reported a problem in TCP_USER_TIMEOUT processing with a patch
+in tcp_probe_timer() :
+      https://www.spinics.net/lists/netdev/msg454496.html
 
-test on linux 4.1.12:
-./trinity -c setsockopt -C 2 -X &
+After investigations, the root cause of the problem is that we update
+skb->skb_mstamp of skbs in write queue, even if the attempt to send a
+clone or copy of it failed. One reason being a routing problem.
 
-BUG: failure at net/packet/af_packet.c:1414/__fanout_unlink()!
-Kernel panic - not syncing: BUG!
-CPU: 2 PID: 2271 Comm: trinity-c0 Tainted: G        W  O    4.1.12 #1
-Hardware name: Hisilicon PhosphorHi1382 FPGA (DT)
-Call trace:
-[<ffffffc000209414>] dump_backtrace+0x0/0xf8
-[<ffffffc00020952c>] show_stack+0x20/0x28
-[<ffffffc000635574>] dump_stack+0xac/0xe4
-[<ffffffc000633fb8>] panic+0xf8/0x268
-[<ffffffc0005fa778>] __unregister_prot_hook+0xa0/0x144
-[<ffffffc0005fba48>] packet_set_ring+0x280/0x5b4
-[<ffffffc0005fc33c>] packet_setsockopt+0x320/0x950
-[<ffffffc000554a04>] SyS_setsockopt+0xa4/0xd4
+This patch prevents this, solving liujian issue.
 
-Signed-off-by: nixiaoming <nixiaoming@huawei.com>
-Tested-by: wudesheng <dede.wu@huawei.com>
+It also removes a potential RTT miscalculation, since
+__tcp_retransmit_skb() is not OR-ing TCP_SKB_CB(skb)->sacked with
+TCPCB_EVER_RETRANS if a failure happens, but skb->skb_mstamp has
+been changed.
+
+A future ACK would then lead to a very small RTT sample and min_rtt
+would then be lowered to this too small value.
+
+Tested:
+
+# cat user_timeout.pkt
+--local_ip=192.168.102.64
+
+    0 socket(..., SOCK_STREAM, IPPROTO_TCP) = 3
+   +0 setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
+   +0 bind(3, ..., ...) = 0
+   +0 listen(3, 1) = 0
+
+   +0 `ifconfig tun0 192.168.102.64/16; ip ro add 192.0.2.1 dev tun0`
+
+   +0 < S 0:0(0) win 0 <mss 1460>
+   +0 > S. 0:0(0) ack 1 <mss 1460>
+
+  +.1 < . 1:1(0) ack 1 win 65530
+   +0 accept(3, ..., ...) = 4
+
+   +0 setsockopt(4, SOL_TCP, TCP_USER_TIMEOUT, [3000], 4) = 0
+   +0 write(4, ..., 24) = 24
+   +0 > P. 1:25(24) ack 1 win 29200
+   +.1 < . 1:1(0) ack 25 win 65530
+
+//change the ipaddress
+   +1 `ifconfig tun0 192.168.0.10/16`
+
+   +1 write(4, ..., 24) = 24
+   +1 write(4, ..., 24) = 24
+   +1 write(4, ..., 24) = 24
+   +1 write(4, ..., 24) = 24
+
+   +0 `ifconfig tun0 192.168.102.64/16`
+   +0 < . 1:2(1) ack 25 win 65530
+   +0 `ifconfig tun0 192.168.0.10/16`
+
+   +3 write(4, ..., 24) = -1
+
+# ./packetdrill user_timeout.pkt
+
+Signed-off-by: Eric Dumazet <edumazet@googl.com>
+Reported-by: liujian <liujian56@huawei.com>
 ---
- net/packet/af_packet.c | 2 ++
- 1 file changed, 2 insertions(+)
+ net/ipv4/tcp_output.c |   19 ++++++++++++-------
+ 1 file changed, 12 insertions(+), 7 deletions(-)
 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 008a45c..0300146 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -365,10 +365,12 @@ static void __unregister_prot_hook(struct sock *sk, bool sync)
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 5b6690d05abb98884adfa1693f97d896dd202893..a85a8c2948e54b931f8cd956aa7938f7efd355bd 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -991,6 +991,7 @@ static int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
+ 	struct tcp_skb_cb *tcb;
+ 	struct tcp_out_options opts;
+ 	unsigned int tcp_options_size, tcp_header_size;
++	struct sk_buff *oskb = NULL;
+ 	struct tcp_md5sig_key *md5;
+ 	struct tcphdr *th;
+ 	int err;
+@@ -998,12 +999,12 @@ static int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
+ 	BUG_ON(!skb || !tcp_skb_pcount(skb));
+ 	tp = tcp_sk(sk);
  
- 	po->running = 0;
+-	skb->skb_mstamp = tp->tcp_mstamp;
+ 	if (clone_it) {
+ 		TCP_SKB_CB(skb)->tx.in_flight = TCP_SKB_CB(skb)->end_seq
+ 			- tp->snd_una;
+ 		tcp_rate_skb_sent(sk, skb);
  
-+	mutex_lock(&fanout_mutex);
- 	if (po->fanout)
- 		__fanout_unlink(sk, po);
- 	else
- 		__dev_remove_pack(&po->prot_hook);
-+	mutex_unlock(&fanout_mutex);
++		oskb = skb;
+ 		if (unlikely(skb_cloned(skb)))
+ 			skb = pskb_copy(skb, gfp_mask);
+ 		else
+@@ -1011,6 +1012,7 @@ static int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
+ 		if (unlikely(!skb))
+ 			return -ENOBUFS;
+ 	}
++	skb->skb_mstamp = tp->tcp_mstamp;
  
- 	__sock_put(sk);
+ 	inet = inet_sk(sk);
+ 	tcb = TCP_SKB_CB(skb);
+@@ -1122,12 +1124,14 @@ static int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
  
--- 
-2.11.0.1
+ 	err = icsk->icsk_af_ops->queue_xmit(sk, skb, &inet->cork.fl);
+ 
+-	if (likely(err <= 0))
+-		return err;
+-
+-	tcp_enter_cwr(sk);
++	if (unlikely(err > 0)) {
++		tcp_enter_cwr(sk);
++		err = net_xmit_eval(err);
++	}
++	if (!err && oskb)
++		oskb->skb_mstamp = tp->tcp_mstamp;
+ 
+-	return net_xmit_eval(err);
++	return err;
+ }
+ 
+ /* This routine just queues the buffer for sending.
+@@ -2869,10 +2873,11 @@ int __tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb, int segs)
+ 		     skb_headroom(skb) >= 0xFFFF)) {
+ 		struct sk_buff *nskb;
+ 
+-		skb->skb_mstamp = tp->tcp_mstamp;
+ 		nskb = __pskb_copy(skb, MAX_TCP_HEADER, GFP_ATOMIC);
+ 		err = nskb ? tcp_transmit_skb(sk, nskb, 0, GFP_ATOMIC) :
+ 			     -ENOBUFS;
++		if (!err)
++			skb->skb_mstamp = tp->tcp_mstamp;
+ 	} else {
+ 		err = tcp_transmit_skb(sk, skb, 1, GFP_ATOMIC);
+ 	}
