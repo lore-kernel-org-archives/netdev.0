@@ -1,33 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tg3: clean up redundant initialization of tnapi
-Date: Thu, 14 Sep 2017 10:00:41 -0700 (PDT)
-Message-ID: <20170914.100041.1507992015904111255.davem@davemloft.net>
-References: <20170914160125.11007-1-colin.king@canonical.com>
+Subject: Re: [PATCH net] netvsc: increase default receive buffer size
+Date: Thu, 14 Sep 2017 10:02:03 -0700 (PDT)
+Message-ID: <20170914.100203.1656028222884493229.davem@davemloft.net>
+References: <20170914163107.8404-1-sthemmin@microsoft.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: siva.kallam@broadcom.com, prashant@broadcom.com,
-        mchan@broadcom.com, netdev@vger.kernel.org,
-        kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: colin.king@canonical.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170914160125.11007-1-colin.king@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: kys@microsoft.com, haiyangz@microsoft.com, netdev@vger.kernel.org,
+        devel@linuxdriverproject.org, sthemmin@microsoft.com
+To: stephen@networkplumber.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:52250 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751419AbdINRCE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 14 Sep 2017 13:02:04 -0400
+In-Reply-To: <20170914163107.8404-1-sthemmin@microsoft.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin King <colin.king@canonical.com>
-Date: Thu, 14 Sep 2017 17:01:25 +0100
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Thu, 14 Sep 2017 09:31:07 -0700
 
-> From: Colin Ian King <colin.king@canonical.com>
+> The default receive buffer size was reduced by recent change
+> to a value which was appropriate for 10G and Windows Server 2016.
+> But the value is too small for full performance with 40G on Azure.
+> Increase the default back to maximum supported by host.
 > 
-> tnapi is being initialized and then immediately updated and
-> hence the initialiation is redundant.  Clean up the warning
-> by moving the declaration and initialization to the inside
-> of the for-loop.
-> 
-> Cleans up clang scan-build warning:
-> warning: Value stored to 'tnapi' during its initialization is never read
-> 
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> Fixes: 8b5327975ae1 ("netvsc: allow controlling send/recv buffer size")
+> Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
 
-Applied.
+What other side effects are there to making this buffer so large?
+
+Just curious...
