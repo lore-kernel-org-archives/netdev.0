@@ -1,43 +1,61 @@
-From: Andi Kleen <ak@linux.intel.com>
-Subject: Re: Page allocator bottleneck
-Date: Thu, 14 Sep 2017 13:19:17 -0700
-Message-ID: <87vaklyqwq.fsf@linux.intel.com>
-References: <cef85936-10b2-5d76-9f97-cb03b418fd94@mellanox.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next v2 01/10] net: dsa: add debugfs interface
+Date: Thu, 14 Sep 2017 23:01:32 +0200
+Message-ID: <20170914210132.GC3084@lunn.ch>
+References: <20170828191748.19492-1-vivien.didelot@savoirfairelinux.com>
+ <20170828191748.19492-2-vivien.didelot@savoirfairelinux.com>
+ <20170907193434.GA11006@kroah.com>
+ <87h8wdb8bj.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+ <CAJGZr0KdOPW5_V3kvWutwTY=BJhfd-=yRDPnvbDBOCuMYWj9OQ@mail.gmail.com>
+ <CAKgT0Uf8--Yh9tfkTrh9_dfEYMX5jR6j4unxwxM+WD6E4jk9pA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: David Miller <davem@davemloft.net>,
-        Jesper Dangaard Brouer <brouer@redhat.com>,
-        Mel Gorman <mgorman@techsingularity.net>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        Alexei Starovoitov <ast@fb.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Eran Ben Elisha <eranbe@mellanox.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Andrew Morton <akpm@linux-foundation.org>,
-        Michal Hocko <mhocko@suse.com>, linux-mm <linux-mm@kvack.org>
-To: Tariq Toukan <tariqt@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga06.intel.com ([134.134.136.31]:45246 "EHLO mga06.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751342AbdINUTS (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 14 Sep 2017 16:19:18 -0400
-In-Reply-To: <cef85936-10b2-5d76-9f97-cb03b418fd94@mellanox.com> (Tariq
-        Toukan's message of "Thu, 14 Sep 2017 19:49:31 +0300")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Maxim Uvarov <muvarov@gmail.com>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Greg KH <gregkh@linuxfoundation.org>,
+        netdev <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Egil Hjelmeland <privat@egil-hjelmeland.no>,
+        John Crispin <john@phrozen.org>,
+        Woojung Huh <Woojung.Huh@microchip.com>,
+        Sean Wang <sean.wang@mediatek.com>,
+        Nikita Yushchenko <nikita.yoush@cogentembedded.com>,
+        Chris Healy <cphealy@gmail.com>
+To: Alexander Duyck <alexander.duyck@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAKgT0Uf8--Yh9tfkTrh9_dfEYMX5jR6j4unxwxM+WD6E4jk9pA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Tariq Toukan <tariqt@mellanox.com> writes:
->
-> Congestion in this case is very clear.
-> When monitored in perf top:
-> 85.58% [kernel] [k] queued_spin_lock_slowpath
+> Can you clarify what type of registers it is you are wanting to read?
+> We already have ethtool which is meant to allow reading the device
+> registers for a given netdev. As long as the port has a netdev
+> associated it then there is no need to be getting into debugfs since
+> we should probably just be using ethtool.
 
-Please look at the callers. Spinlock profiles without callers
-are usually useless because it's just blaming the messenger.
+Not all ports of a DSA switch have a netdev. This is by design. The
+presentation we gave to Netdev 2.1 gives some of the background.
 
-Most likely the PCP lists are too small for your extreme allocation
-rate, so it goes back too often to the shared pool.
+Plus a switch has a lot of registers not associated to port. Often a
+switch has more global registers than port registers.
+ 
+> Also as Jiri pointed out there is already devlink which would probably
+> be a better way to get the associated information for those pieces
+> that don't have a netdev associated with them.
 
-You can play with the vm.percpu_pagelist_fraction setting.
+We have looked at the devlink a few times. The current dpipe code is
+not generic enough. It makes assumptions about the architecture of the
+switch, that it is all match/action based. The niche of top of rack
+switches might be like that, but average switches are not.
 
--Andi
+If dpipe was to support simple generic two dimensional tables, we
+probably would use it.
+
+David suggested making a class device for DSA. It is not ideal, but we
+are probably going to go that way.
+
+    Andrew
