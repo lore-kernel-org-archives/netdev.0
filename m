@@ -1,93 +1,64 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] packet: hold bind lock when rebinding to fanout hook
-Date: Thu, 14 Sep 2017 15:53:49 -0700
-Message-ID: <1505429629.16139.5.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20170914211441.67326-1-willemb@google.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: Bug with BPF_ALU64 | BPF_END?
+Date: Fri, 15 Sep 2017 01:04:49 +0200
+Message-ID: <59BB0B11.9090304@iogearbox.net>
+References: <52c7df55-84d9-f6d2-ed84-51ac90eb6bcc@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, nixiaoming@huawei.com
-To: Willem de Bruijn <willemb@google.com>
+Cc: netdev <netdev@vger.kernel.org>
+To: Edward Cree <ecree@solarflare.com>, Alexei Starovoitov <ast@fb.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:32840 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751502AbdINWxv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 14 Sep 2017 18:53:51 -0400
-Received: by mail-pg0-f65.google.com with SMTP id i130so369048pgc.0
-        for <netdev@vger.kernel.org>; Thu, 14 Sep 2017 15:53:50 -0700 (PDT)
-In-Reply-To: <20170914211441.67326-1-willemb@google.com>
+Received: from www62.your-server.de ([213.133.104.62]:37829 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751380AbdINXFC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 14 Sep 2017 19:05:02 -0400
+In-Reply-To: <52c7df55-84d9-f6d2-ed84-51ac90eb6bcc@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2017-09-14 at 17:14 -0400, Willem de Bruijn wrote:
-> Packet socket bind operations must hold the po->bind_lock. This keeps
-> po->running consistent with whether the socket is actually on a ptype
-> list to receive packets.
-> 
-> fanout_add unbinds a socket and its packet_rcv/tpacket_rcv call, then
-> binds the fanout object to receive through packet_rcv_fanout.
-> 
-> Make it hold the po->bind_lock when testing po->running and rebinding.
-> Else, it can race with other rebind operations, such as that in
-> packet_set_ring from packet_rcv to tpacket_rcv. Concurrent updates
-> can result in a socket being added to a fanout group twice, causing
-> use-after-free KASAN bug reports, among others.
-> 
-> Reported independently by both trinity and syzkaller.
-> Verified that the syzkaller reproducer passes after this patch.
-> 
-> Reported-by: nixioaming <nixiaoming@huawei.com>
-> Signed-off-by: Willem de Bruijn <willemb@google.com>
+On 09/14/2017 07:53 PM, Edward Cree wrote:
+> Is BPF_END supposed to only be used with BPF_ALU, never with BPF_ALU64?
+> In kernel/bpf/core.c:___bpf_prog_run(), there are only jump table targets
+>   for the BPF_ALU case, not for the BPF_ALU64 case (opcodes 0xd7 and 0xdf).
+> But the verifier doesn't enforce this; by crafting a program that uses
+>   these opcodes I can get a WARN when they're run (without JIT; it looks
+>   like the x86 JIT, at least, won't like it either).
+> Proposed patch below the cut; build-tested only.
+>
+> -Ed
 > ---
->  net/packet/af_packet.c | 16 +++++++++++-----
->  1 file changed, 11 insertions(+), 5 deletions(-)
-> 
-> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-> index c26172995511..d288f52c53f7 100644
-> --- a/net/packet/af_packet.c
-> +++ b/net/packet/af_packet.c
-> @@ -1684,10 +1684,6 @@ static int fanout_add(struct sock *sk, u16 id, u16 type_flags)
->  
->  	mutex_lock(&fanout_mutex);
->  
-> -	err = -EINVAL;
-> -	if (!po->running)
-> -		goto out;
-> -
->  	err = -EALREADY;
->  	if (po->fanout)
->  		goto out;
-> @@ -1749,7 +1745,10 @@ static int fanout_add(struct sock *sk, u16 id, u16 type_flags)
->  		list_add(&match->list, &fanout_list);
->  	}
->  	err = -EINVAL;
-> -	if (match->type == type &&
-> +
-> +	spin_lock(&po->bind_lock);
-> +	if (po->running &&
-> +	    match->type == type &&
->  	    match->prot_hook.type == po->prot_hook.type &&
->  	    match->prot_hook.dev == po->prot_hook.dev) {
->  		err = -ENOSPC;
-> @@ -1761,6 +1760,13 @@ static int fanout_add(struct sock *sk, u16 id, u16 type_flags)
->  			err = 0;
->  		}
->  	}
-> +	spin_unlock(&po->bind_lock);
-> +
-> +	if (err && !refcount_read(&match->sk_ref)) {
+>
+> [PATCH net] bpf/verifier: reject BPF_ALU64|BPF_END
+>
+> Neither ___bpf_prog_run nor the JITs accept it.
+>
+> Fixes: 17a5267067f3 ("bpf: verifier (add verifier core)")
+> Signed-off-by: Edward Cree <ecree@solarflare.com>
 
-It seems sk_ref is always read/changed under 
-mutex_lock(&fanout_mutex) protection.
+Good catch! Can you submit this as an official patch for -net together
+with a test case for tools/testing/selftests/bpf/test_verifier.c?
 
-Not sure why we use a refcount_t (or an atomic_t in older kernels)
+Thanks!
 
-All these atomic/spinlock/mutexes are a maze. 
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
 
-> +		list_del(&match->list);
-> +		kfree(match);
-> +	}
-> +
->  out:
->  	if (err && rollover) {
->  		kfree(rollover);
+> ---
+>   kernel/bpf/verifier.c | 3 ++-
+>   1 file changed, 2 insertions(+), 1 deletion(-)
+>
+> diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+> index 477b693..799b245 100644
+> --- a/kernel/bpf/verifier.c
+> +++ b/kernel/bpf/verifier.c
+> @@ -2292,7 +2292,8 @@ static int check_alu_op(struct bpf_verifier_env *env, struct bpf_insn *insn)
+>   			}
+>   		} else {
+>   			if (insn->src_reg != BPF_REG_0 || insn->off != 0 ||
+> -			    (insn->imm != 16 && insn->imm != 32 && insn->imm != 64)) {
+> +			    (insn->imm != 16 && insn->imm != 32 && insn->imm != 64) ||
+> +			    BPF_CLASS(insn->code) == BPF_ALU64) {
+>   				verbose("BPF_END uses reserved fields\n");
+>   				return -EINVAL;
+>   			}
+>
