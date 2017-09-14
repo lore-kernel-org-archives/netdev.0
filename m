@@ -1,42 +1,53 @@
-From: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
-Subject: [PATCH net] udpv6: Fix the checksum computation when HW checksum does not apply
-Date: Wed, 13 Sep 2017 19:30:51 -0600
-Message-ID: <1505352651-14828-1-git-send-email-subashab@codeaurora.org>
-Cc: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
-To: netdev@vger.kernel.org, vyasevic@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:55230 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751279AbdINBbE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 13 Sep 2017 21:31:04 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Brown, Aaron F" <aaron.f.brown@intel.com>
+Subject: RE: [Intel-wired-lan] [PATCH] igb: check memory allocation failure
+Date: Thu, 14 Sep 2017 02:24:37 +0000
+Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B8C6A028B@ORSMSX101.amr.corp.intel.com>
+References: <20170827063951.5975-1-christophe.jaillet@wanadoo.fr>
+ <E0D909EE5BB15A4699798539EA149D7F0779685B@ORSMSX103.amr.corp.intel.com>
+ <95a0bc80-8b41-d74f-8059-ae7181493120@wanadoo.fr>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>,
+        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Christophe JAILLET <christophe.jaillet@wanadoo.fr>,
+        "Waskiewicz Jr, Peter" <peter.waskiewicz.jr@intel.com>,
+        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <95a0bc80-8b41-d74f-8059-ae7181493120@wanadoo.fr>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-While trying an ESP transport mode encryption for UDPv6 packets of
-datagram size 1436 with MTU 1500, checksum error was observed in
-the secondary fragment.
-
-This error occurs due to the UDP payload checksum being missed out
-when computing the full checksum for these packets in
-udp6_hwcsum_outgoing().
-
-Fixes: d39d938c8228 ("ipv6: Introduce udpv6_send_skb()")
-Signed-off-by: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
----
- net/ipv6/udp.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index e2ecfb1..40d7234 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -1015,6 +1015,7 @@ static void udp6_hwcsum_outgoing(struct sock *sk, struct sk_buff *skb,
- 		 */
- 		offset = skb_transport_offset(skb);
- 		skb->csum = skb_checksum(skb, offset, skb->len - offset, 0);
-+		csum = skb->csum;
- 
- 		skb->ip_summed = CHECKSUM_NONE;
- 
--- 
-1.9.1
+PiBGcm9tOiBJbnRlbC13aXJlZC1sYW4gW21haWx0bzppbnRlbC13aXJlZC1sYW4tYm91bmNlc0Bv
+c3Vvc2wub3JnXSBPbiBCZWhhbGYNCj4gT2YgQ2hyaXN0b3BoZSBKQUlMTEVUDQo+IFNlbnQ6IE1v
+bmRheSwgQXVndXN0IDI4LCAyMDE3IDEwOjEzIEFNDQo+IFRvOiBXYXNraWV3aWN6IEpyLCBQZXRl
+ciA8cGV0ZXIud2Fza2lld2ljei5qckBpbnRlbC5jb20+OyBLaXJzaGVyLCBKZWZmcmV5IFQNCj4g
+PGplZmZyZXkudC5raXJzaGVyQGludGVsLmNvbT4NCj4gQ2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5v
+cmc7IGtlcm5lbC1qYW5pdG9yc0B2Z2VyLmtlcm5lbC5vcmc7IGludGVsLXdpcmVkLQ0KPiBsYW5A
+bGlzdHMub3N1b3NsLm9yZzsgbGludXgta2VybmVsQHZnZXIua2VybmVsLm9yZw0KPiBTdWJqZWN0
+OiBSZTogW0ludGVsLXdpcmVkLWxhbl0gW1BBVENIXSBpZ2I6IGNoZWNrIG1lbW9yeSBhbGxvY2F0
+aW9uIGZhaWx1cmUNCj4gDQo+IExlIDI4LzA4LzIwMTcgw6AgMDE6MDksIFdhc2tpZXdpY3ogSnIs
+IFBldGVyIGEgw6ljcml0wqA6DQo+ID4gT24gOC8yNy8xNyAyOjQyIEFNLCBDaHJpc3RvcGhlIEpB
+SUxMRVQgd3JvdGU6DQo+ID4+IENoZWNrIG1lbW9yeSBhbGxvY2F0aW9uIGZhaWx1cmVzIGFuZCBy
+ZXR1cm4gLUVOT01FTSBpbiBzdWNoIGNhc2VzLCBhcw0KPiA+PiBhbHJlYWR5IGRvbmUgZm9yIG90
+aGVyIG1lbW9yeSBhbGxvY2F0aW9ucyBpbiB0aGlzIGZ1bmN0aW9uLg0KPiA+Pg0KPiA+PiBUaGlz
+IGF2b2lkcyBOVUxMIHBvaW50ZXJzIGRlcmVmZXJlbmNlLg0KPiA+Pg0KPiA+PiBTaWduZWQtb2Zm
+LWJ5OiBDaHJpc3RvcGhlIEpBSUxMRVQgPGNocmlzdG9waGUuamFpbGxldEB3YW5hZG9vLmZyPg0K
+PiA+PiAtLS0NCj4gPj4gICAgZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaWdiL2lnYl9tYWlu
+LmMgfCAyICsrDQo+ID4+ICAgIDEgZmlsZSBjaGFuZ2VkLCAyIGluc2VydGlvbnMoKykNCj4gPj4N
+Cg0KVGhpcyBzZWVtcyB0byBiZSBmaW5lIGZyb20gYSAiaXQgZG9lcyBub3QgYnJlYWsgaW4gdGVz
+dGluZyIgcGVyc3BlY3RpdmUsIHNvLi4uDQoNClRlc3RlZC1ieTogQWFyb24gQnJvd24gPGFhcm9u
+LmYuYnJvd25AaW50ZWwuY29tDQoNCj4gPiAtUEoNCj4gPg0KPiBIaSwNCj4gDQo+IGluIGZhY3Qs
+IHRoZXJlIGlzIG5vIGxlYWsgYmVjYXVzZSB0aGUgb25seSBjYWxsZXIgb2YgJ2lnYl9zd19pbml0
+KCknDQo+IChpLmUuICdpZ2JfcHJvYmUoKScpLCBhbHJlYWR5IGZyZWVzIHRoZXNlIHJlc291cmNl
+cyBpbiBjYXNlIG9mIGVycm9yLA0KPiBzZWUgWzFdDQo+IA0KPiBUaGVzZSByZXNvdXJjZXMgYXJl
+IGFsc28gZnJlZWTCoCBpbiAnaWdiX3JlbW92ZSgpJy4NCj4gDQo+IEJlc3QgcmVhZ3JkcywNCj4g
+Q0oNCj4gDQo+IFsxXToNCj4gaHR0cHM6Ly9naXQua2VybmVsLm9yZy9wdWIvc2NtL2xpbnV4L2tl
+cm5lbC9naXQvbmV4dC9saW51eC0NCj4gbmV4dC5naXQvdHJlZS9kcml2ZXJzL25ldC9ldGhlcm5l
+dC9pbnRlbC9pZ2IvaWdiX21haW4uYyNuMjc3NQ0KDQpCdXQgaXMgUEoncyBjb21tZW50IHNheWlu
+ZyB0aGF0IGl0IGlzIG5vdCByZWFsbHkgbmVjZXNzYXJ5PyAgSWYgc28gSSB0ZW5kIHRvIGxlYW4g
+dG93YXJkcyB0aGUgZG9uJ3QgdG91Y2ggaXQgaWYgaXQncyBub3QgYnJva2VuIHBlcnNwZWN0aXZl
+Lg0KIA0KDQo=
