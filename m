@@ -1,155 +1,116 @@
-From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [LPC] 2nd RDMA Mini-Summit Schedule
-Date: Thu, 14 Sep 2017 19:48:35 +0300
-Message-ID: <20170914164835.GB3405@mtr-leonro.local>
-References: <20170907051805.GA19175@mtr-leonro.local>
- <20170913130216.GT3405@mtr-leonro.local>
+From: Tariq Toukan <tariqt@mellanox.com>
+Subject: Page allocator bottleneck
+Date: Thu, 14 Sep 2017 19:49:31 +0300
+Message-ID: <cef85936-10b2-5d76-9f97-cb03b418fd94@mellanox.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="i/CQJCAqWP/GQJtX"
-Cc: linux-netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        NVME mailing list <linux-nvme-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-        Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>,
-        Bart Van Assche <bart.vanassche-XdAiOPVOjttBDgjK7y7TUQ@public.gmane.org>,
-        Knut Omang <knut.omang-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
-        Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>,
-        Don Dutile <ddutile-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Tzahi Oved <tzahio-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Dennis Dalessandro <dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Yuval Shaia <yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
-        Marcel Apfelbaum <marcel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, lwn-T1hC0tSOHrs@public.gmane.org
-To: RDMA mailing list <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20170913130216.GT3405-U/DQcQFIOTAAJjI8aNfphQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: David Miller <davem@davemloft.net>,
+        Jesper Dangaard Brouer <brouer@redhat.com>,
+        Mel Gorman <mgorman@techsingularity.net>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        Alexei Starovoitov <ast@fb.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Eran Ben Elisha <eranbe@mellanox.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Andrew Morton <akpm@linux-foundation.org>,
+        Michal Hocko <mhocko@suse.com>, linux-mm <linux-mm@kvack.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-db5eur01on0070.outbound.protection.outlook.com ([104.47.2.70]:60800
+        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751434AbdINQtn (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 14 Sep 2017 12:49:43 -0400
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+Hi all,
+
+As part of the efforts to support increasing next-generation NIC speeds,
+I am investigating SW bottlenecks in network stack receive flow.
+
+Here I share some numbers I got for a simple experiment, in which I 
+simulate the page allocation rate needed in 200Gpbs NICs.
+
+I ran the test below over 3 different (modified) mlx5 driver versions,
+loaded on server side (RX):
+1) RX page cache disabled, 2 packets per page.
+2) RX page cache disabled, one packet per page.
+3) Huge RX page cache, one packet per page.
+
+All page allocations are of order 0.
+
+NIC: Connectx-5 100 Gbps.
+CPU: Intel(R) Xeon(R) CPU E5-2680 v3 @ 2.50GHz
+
+Test:
+128 TCP streams (using super_netperf).
+Changing num of RX queues.
+HW LRO OFF, GRO ON, MTU 1500.
+Observe: BW as a function of num RX queues.
+
+Results:
+
+Driver #1:
+#rings	BW (Mbps)
+1	23,813
+2	44,086
+3	62,128
+4	78,058
+6	94,210 (linerate)
+8	94,205 (linerate)
+12	94,202 (linerate)
+16	94,191 (linerate)
+
+Driver #2:
+#rings	BW (Mbps)
+1	18,835
+2	36,716
+3	50,521
+4	61,746
+6	63,637
+8	60,299
+12	51,048
+16	43,337
+
+Driver #3:
+#rings	BW (Mbps)
+1	19,316
+2	44,850
+3	69,549
+4	87,434
+6	94,342 (linerate)
+8	94,350 (linerate)
+12	94,327 (linerate)
+16	94,327 (linerate)
 
 
---i/CQJCAqWP/GQJtX
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Insights:
+Major degradation between #1 and #2, not getting any close to linerate!
+Degradation is fixed between #2 and #3.
+This is because page allocator cannot stand the higher allocation rate.
+In #2, we also see that the addition of rings (cores) reduces BW (!!), 
+as result of increasing congestion over shared resources.
 
-On Wed, Sep 13, 2017 at 04:02:16PM +0300, Leon Romanovsky wrote:
-> On Thu, Sep 07, 2017 at 08:18:05AM +0300, Leon Romanovsky wrote:
-> > Hi,
-> >
-> > We're happy to announce schedule of the 2nd RDMA mini-summit, which wil=
-l be
-> > held as part of coming Linux Plumbers Conference 2017.
-> >
-> > During the conference, we will have two sessions: main track session and
-> > round table session.
-> >
-> > First session will be held on Thursday, September 14, 2017 from 9:30am =
-=E2=80=93 12:30pm
-> > with the topics relevant for the wider audience.
-> >
-> > In the second session, we  will focus on more face to face discussions =
-in round
-> > table format and it will be scheduled a little bit later once we will g=
-et meeting
-> > room.
->
-> UPDATE:
-> The round table will take place at 2:00pm on Thursday, September 14,
-> 2017 in one of the speakers's suites (3rd floor, near Georgia I/II).
->
-> Thanks
+Congestion in this case is very clear.
+When monitored in perf top:
+85.58% [kernel] [k] queued_spin_lock_slowpath
 
-UPDATE:
-RDMA round table will be held at Platinum Ballroom J. from 2:00pm till 6:30=
-pm.
+I think that page allocator issues should be discussed separately:
+1) Rate: Increase the allocation rate on a single core.
+2) Scalability: Reduce congestion and sync overhead between cores.
 
-Thanks
+This is clearly the current bottleneck in the network stack receive flow.
 
->
-> >
-> > -----------------------------------------------------------------------=
-----------------
-> > FIRST SESSION:
-> > -----------------------------------------------------------------------=
-----------------
-> >  * Backporting issues with multi-subsystem device (RDMA + netdev + more=
-) by Don Dutile
-> >    - More and more devices in RDMA are dependent on netdev as well as o=
-ther
-> >      subsystems -- target, NFS, scsi, block, cgroups, SELinux.... Can w=
-e make
-> >      backporting task for distro people easier?
-> >  * kABI Update by Matan Barak
-> >    - Going forward with a flexible and secure RDMA kABI
-> >  * System Boot and RDMA by Jason Gunthrope
-> >    - Discuss boot-time issues with the RDMA subsystem
-> >  * Paravirtual RDMA device by Marcel Apfelbaum and Yuval Shaia
-> >    - QEMU's limited RDMA support leaves it behind other modern hypervis=
-ors.
-> >      Marcel and Yuval will present the implementation of an emulated RD=
-MA device,
-> >      analyze its performance and usability, and finally talk about futu=
-re plans
-> >      for a possible virtio-rdma device.
-> >   * TX Flow Steering for IPsec by Liran Liss (pending time slot)
-> >    - The IPsec protocol provides both encryption and authentication for=
- IP
-> >      protocol packets. Users of the raw ethernet QP that send/receive I=
-Psec packets
-> >      could benefit from the IPsec crypto offloads capabilities that are
-> >      available in recent NICs.
-> >   * OpenFabrics Alliance - Status and New Directions by Jason Gunthrope
-> >   * BOF - Open Discussion
-> >    - Open discussion with the community lead by Leon Romanovsky, Jason =
-Gunthorpe,
-> >      Christoph Lameter and Dennis Dalessandro
-> >
-> > -----------------------------------------------------------------------=
-----------------
-> > ROUND TABLE SESSION:
-> > -----------------------------------------------------------------------=
-----------------
-> > Possible list, bring your own topics:
-> >  * RDMA and ULPs
-> >  * Verbs testing suite
-> >  * RDMA netlink and RDMAtool future plans
-> >  * RDMA and the Linux IP stack
-> >  * Infrastructure issues with Travis CI
-> >  * Infrastructure gaps with rdma-core
-> >  * Packaging as part of CI for rdma-core.
-> >  * ....
-> >
-> > See you next week at Linux Plumber Conference 2017.
-> >
-> > Thanks
->
->
+I know about some efforts that were made in the past two years.
+For example the ones from Jesper et al.:
+- Page-pool (not accepted AFAIK).
+- Page-allocation bulking.
+- Optimize order-0 allocations in Per-Cpu-Pages.
 
+I am not an mm expert, but wanted to raise the issue again, to combine 
+the efforts and hear from you guys about status and possible directions.
 
-
---i/CQJCAqWP/GQJtX
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAlm6suMACgkQ5GN7iDZy
-WKcBgA/9EzLxzIn9a2SJDwIC2ZlQGhxLXSP+Susi7eR4zJJHIi++o+PycrvvU0LJ
-XT4fMzdkfkjCoBndRWAVRjoXlLSZv72S80d6vKS+mMGr5XTiNfMqeIAYVhnkiDBj
-fadl4VG6I+TgS6XVR80H4cSIckqFKdhL5KbCRKqg11iEral6og6cb/+qVFwiwvdr
-atcms4ZhO++1WCBqpNNBdvrGYBgARkgFInPUSWfvkd/+U3YOm2evOokmf2QM7yKv
-SGT9oQwgCYKTtvidH83qVylES/SxRDMDWw/zt6jih+3rg/i6iNjnBTRBhIvZqb22
-L2XFtqT11qIeALlBmuxDjTgVQs7UF8qi1B1xf0DQqK5/uY5gYmCABNJfHYftpsS5
-j+HAEtY1a867FUxbN5RoygEdyPQgMu58aGM/04ZEc5kWu02F8tKU1sUkYIcmd8WI
-CWrZsoE7V/f2XgYOUDveUoaA0tmXsaXTlWxLeH7ceMnZ1BlLvg1usuAyzGCFmw+Q
-Ms1xbGxX7aYRYgjpsxBmcrlwkQPuCKSVTDQty1HgCjmYqZc0ELrd0TO6VvokJ+jV
-XWqmrAN1xFSyB8v3Qy5dBe/T79Ywpp/xCexT9DHWNzaMau9xY+qrMw+hNt1APeJK
-e5X12A9doEez6X2da7uB+aOta66VZnpCIujZFWuYFyuJgVYnjTk=
-=DdUW
------END PGP SIGNATURE-----
-
---i/CQJCAqWP/GQJtX--
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Best regards,
+Tariq Toukan
