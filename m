@@ -1,72 +1,155 @@
-From: Soheil Hassas Yeganeh <soheil.kdev@gmail.com>
-Subject: Re: [PATCH net] tcp: update skb->skb_mstamp more carefully
-Date: Thu, 14 Sep 2017 12:41:46 -0400
-Message-ID: <CADAM+B1aZ3jZa4UJtzm2hvawGQ_GR0JGSUHwfR=SY=fARfM2mA@mail.gmail.com>
-References: <1505111262-12620-1-git-send-email-liujian56@huawei.com>
- <1505141357.15310.115.camel@edumazet-glaptop3.roam.corp.google.com>
- <1505142785.15310.117.camel@edumazet-glaptop3.roam.corp.google.com>
- <1505143348.15310.118.camel@edumazet-glaptop3.roam.corp.google.com>
- <e7e09201-40c2-933a-1e8e-a31eddcc75ab@huawei.com> <1505228700.15310.138.camel@edumazet-glaptop3.roam.corp.google.com>
- <1505230686.15310.141.camel@edumazet-glaptop3.roam.corp.google.com>
- <b72fefba-e701-2ec8-0e7b-3bba6ed25205@huawei.com> <3c750ac3-8739-89ed-ce41-d4cde755171e@huawei.com>
- <1505313647.15310.165.camel@edumazet-glaptop3.roam.corp.google.com>
- <1505359839.15310.209.camel@edumazet-glaptop3.roam.corp.google.com>
- <CADVnQy=OeD1C4xg6pdYY98djsGCdnKLv6PD5vC7j6-GSkfr8Yw@mail.gmail.com> <CAK6E8=dzYTaXnrXGeANX+wOtE+jfzX7M1ZokToe=ukm+tRK+Jw@mail.gmail.com>
+From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [LPC] 2nd RDMA Mini-Summit Schedule
+Date: Thu, 14 Sep 2017 19:48:35 +0300
+Message-ID: <20170914164835.GB3405@mtr-leonro.local>
+References: <20170907051805.GA19175@mtr-leonro.local>
+ <20170913130216.GT3405@mtr-leonro.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Neal Cardwell <ncardwell@google.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        liujian <liujian56@huawei.com>,
-        David Miller <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>,
-        Jerry Chu <hkchu@google.com>, Netdev <netdev@vger.kernel.org>,
-        "weiyongjun (A)" <weiyongjun1@huawei.com>,
-        wangkefeng 00227729 <wangkefeng.wang@huawei.com>
-To: Yuchung Cheng <ycheng@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f67.google.com ([209.85.213.67]:33490 "EHLO
-        mail-vk0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751407AbdINQm1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 14 Sep 2017 12:42:27 -0400
-Received: by mail-vk0-f67.google.com with SMTP id j189so920721vka.0
-        for <netdev@vger.kernel.org>; Thu, 14 Sep 2017 09:42:27 -0700 (PDT)
-In-Reply-To: <CAK6E8=dzYTaXnrXGeANX+wOtE+jfzX7M1ZokToe=ukm+tRK+Jw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+        protocol="application/pgp-signature"; boundary="i/CQJCAqWP/GQJtX"
+Cc: linux-netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        NVME mailing list <linux-nvme-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+        Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>,
+        Bart Van Assche <bart.vanassche-XdAiOPVOjttBDgjK7y7TUQ@public.gmane.org>,
+        Knut Omang <knut.omang-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
+        Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>,
+        Don Dutile <ddutile-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        Liran Liss <liranl-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Tzahi Oved <tzahio-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Dennis Dalessandro <dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        Yuval Shaia <yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
+        Marcel Apfelbaum <marcel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, lwn-T1hC0tSOHrs@public.gmane.org
+To: RDMA mailing list <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20170913130216.GT3405-U/DQcQFIOTAAJjI8aNfphQ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 14, 2017 at 12:32 PM, Yuchung Cheng <ycheng@google.com> wrote:
-> On Thu, Sep 14, 2017 at 6:57 AM, Neal Cardwell <ncardwell@google.com> wrote:
->> On Wed, Sep 13, 2017 at 11:30 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->>>
->>> From: Eric Dumazet <edumazet@googl.com>
->>>
->>> liujian reported a problem in TCP_USER_TIMEOUT processing with a patch
->>> in tcp_probe_timer() :
->>>       https://www.spinics.net/lists/netdev/msg454496.html
->>>
->>> After investigations, the root cause of the problem is that we update
->>> skb->skb_mstamp of skbs in write queue, even if the attempt to send a
->>> clone or copy of it failed. One reason being a routing problem.
->>>
->>> This patch prevents this, solving liujian issue.
->>>
->>> It also removes a potential RTT miscalculation, since
->>> __tcp_retransmit_skb() is not OR-ing TCP_SKB_CB(skb)->sacked with
->>> TCPCB_EVER_RETRANS if a failure happens, but skb->skb_mstamp has
->>> been changed.
->>>
->>> A future ACK would then lead to a very small RTT sample and min_rtt
->>> would then be lowered to this too small value.
->> ...
->>>
->>> Signed-off-by: Eric Dumazet <edumazet@googl.com>
->>> Reported-by: liujian <liujian56@huawei.com>
->>> ---
->>>  net/ipv4/tcp_output.c |   19 ++++++++++++-------
->>>  1 file changed, 12 insertions(+), 7 deletions(-)
->>
->> Acked-by: Neal Cardwell <ncardwell@google.com>
-> Acked-by: Yuchung Cheng <ycheng@google.com>
 
-Acked-by: Soheil Hassas Yeganeh <soheil@google.com>
-Very nice! Thank you, Eric!
+--i/CQJCAqWP/GQJtX
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+On Wed, Sep 13, 2017 at 04:02:16PM +0300, Leon Romanovsky wrote:
+> On Thu, Sep 07, 2017 at 08:18:05AM +0300, Leon Romanovsky wrote:
+> > Hi,
+> >
+> > We're happy to announce schedule of the 2nd RDMA mini-summit, which wil=
+l be
+> > held as part of coming Linux Plumbers Conference 2017.
+> >
+> > During the conference, we will have two sessions: main track session and
+> > round table session.
+> >
+> > First session will be held on Thursday, September 14, 2017 from 9:30am =
+=E2=80=93 12:30pm
+> > with the topics relevant for the wider audience.
+> >
+> > In the second session, we  will focus on more face to face discussions =
+in round
+> > table format and it will be scheduled a little bit later once we will g=
+et meeting
+> > room.
+>
+> UPDATE:
+> The round table will take place at 2:00pm on Thursday, September 14,
+> 2017 in one of the speakers's suites (3rd floor, near Georgia I/II).
+>
+> Thanks
+
+UPDATE:
+RDMA round table will be held at Platinum Ballroom J. from 2:00pm till 6:30=
+pm.
+
+Thanks
+
+>
+> >
+> > -----------------------------------------------------------------------=
+----------------
+> > FIRST SESSION:
+> > -----------------------------------------------------------------------=
+----------------
+> >  * Backporting issues with multi-subsystem device (RDMA + netdev + more=
+) by Don Dutile
+> >    - More and more devices in RDMA are dependent on netdev as well as o=
+ther
+> >      subsystems -- target, NFS, scsi, block, cgroups, SELinux.... Can w=
+e make
+> >      backporting task for distro people easier?
+> >  * kABI Update by Matan Barak
+> >    - Going forward with a flexible and secure RDMA kABI
+> >  * System Boot and RDMA by Jason Gunthrope
+> >    - Discuss boot-time issues with the RDMA subsystem
+> >  * Paravirtual RDMA device by Marcel Apfelbaum and Yuval Shaia
+> >    - QEMU's limited RDMA support leaves it behind other modern hypervis=
+ors.
+> >      Marcel and Yuval will present the implementation of an emulated RD=
+MA device,
+> >      analyze its performance and usability, and finally talk about futu=
+re plans
+> >      for a possible virtio-rdma device.
+> >   * TX Flow Steering for IPsec by Liran Liss (pending time slot)
+> >    - The IPsec protocol provides both encryption and authentication for=
+ IP
+> >      protocol packets. Users of the raw ethernet QP that send/receive I=
+Psec packets
+> >      could benefit from the IPsec crypto offloads capabilities that are
+> >      available in recent NICs.
+> >   * OpenFabrics Alliance - Status and New Directions by Jason Gunthrope
+> >   * BOF - Open Discussion
+> >    - Open discussion with the community lead by Leon Romanovsky, Jason =
+Gunthorpe,
+> >      Christoph Lameter and Dennis Dalessandro
+> >
+> > -----------------------------------------------------------------------=
+----------------
+> > ROUND TABLE SESSION:
+> > -----------------------------------------------------------------------=
+----------------
+> > Possible list, bring your own topics:
+> >  * RDMA and ULPs
+> >  * Verbs testing suite
+> >  * RDMA netlink and RDMAtool future plans
+> >  * RDMA and the Linux IP stack
+> >  * Infrastructure issues with Travis CI
+> >  * Infrastructure gaps with rdma-core
+> >  * Packaging as part of CI for rdma-core.
+> >  * ....
+> >
+> > See you next week at Linux Plumber Conference 2017.
+> >
+> > Thanks
+>
+>
+
+
+
+--i/CQJCAqWP/GQJtX
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAlm6suMACgkQ5GN7iDZy
+WKcBgA/9EzLxzIn9a2SJDwIC2ZlQGhxLXSP+Susi7eR4zJJHIi++o+PycrvvU0LJ
+XT4fMzdkfkjCoBndRWAVRjoXlLSZv72S80d6vKS+mMGr5XTiNfMqeIAYVhnkiDBj
+fadl4VG6I+TgS6XVR80H4cSIckqFKdhL5KbCRKqg11iEral6og6cb/+qVFwiwvdr
+atcms4ZhO++1WCBqpNNBdvrGYBgARkgFInPUSWfvkd/+U3YOm2evOokmf2QM7yKv
+SGT9oQwgCYKTtvidH83qVylES/SxRDMDWw/zt6jih+3rg/i6iNjnBTRBhIvZqb22
+L2XFtqT11qIeALlBmuxDjTgVQs7UF8qi1B1xf0DQqK5/uY5gYmCABNJfHYftpsS5
+j+HAEtY1a867FUxbN5RoygEdyPQgMu58aGM/04ZEc5kWu02F8tKU1sUkYIcmd8WI
+CWrZsoE7V/f2XgYOUDveUoaA0tmXsaXTlWxLeH7ceMnZ1BlLvg1usuAyzGCFmw+Q
+Ms1xbGxX7aYRYgjpsxBmcrlwkQPuCKSVTDQty1HgCjmYqZc0ELrd0TO6VvokJ+jV
+XWqmrAN1xFSyB8v3Qy5dBe/T79Ywpp/xCexT9DHWNzaMau9xY+qrMw+hNt1APeJK
+e5X12A9doEez6X2da7uB+aOta66VZnpCIujZFWuYFyuJgVYnjTk=
+=DdUW
+-----END PGP SIGNATURE-----
+
+--i/CQJCAqWP/GQJtX--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
