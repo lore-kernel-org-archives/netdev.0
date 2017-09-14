@@ -1,35 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Bug with BPF_ALU64 | BPF_END?
-Date: Thu, 14 Sep 2017 11:14:24 -0700 (PDT)
-Message-ID: <20170914.111424.934672262035736390.davem@davemloft.net>
-References: <52c7df55-84d9-f6d2-ed84-51ac90eb6bcc@solarflare.com>
+From: Corentin Labbe <clabbe.montjoie@gmail.com>
+Subject: Re: [PATCH v5 02/10] dt-bindings: net: Restore sun8i dwmac binding
+Date: Thu, 14 Sep 2017 20:31:36 +0200
+Message-ID: <20170914183136.GA4021@Red>
+References: <20170908071156.5115-1-clabbe.montjoie@gmail.com>
+ <20170908071156.5115-3-clabbe.montjoie@gmail.com>
+ <20170913180734.xvazvf7thpqtssgz@rob-hp-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: daniel@iogearbox.net, ast@fb.com, netdev@vger.kernel.org
-To: ecree@solarflare.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:53714 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751447AbdINSOZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 14 Sep 2017 14:14:25 -0400
-In-Reply-To: <52c7df55-84d9-f6d2-ed84-51ac90eb6bcc@solarflare.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: mark.rutland@arm.com, maxime.ripard@free-electrons.com,
+        wens@csie.org, linux@armlinux.org.uk, catalin.marinas@arm.com,
+        will.deacon@arm.com, peppe.cavallaro@st.com,
+        alexandre.torgue@st.com, andrew@lunn.ch, f.fainelli@gmail.com,
+        netdev@vger.kernel.org, devicetree@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
+To: Rob Herring <robh@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170913180734.xvazvf7thpqtssgz@rob-hp-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Edward Cree <ecree@solarflare.com>
-Date: Thu, 14 Sep 2017 18:53:17 +0100
+On Wed, Sep 13, 2017 at 01:07:34PM -0500, Rob Herring wrote:
+> On Fri, Sep 08, 2017 at 09:11:48AM +0200, Corentin Labbe wrote:
+> > This patch restore dt-bindings documentation about dwmac-sun8i
+> > This reverts commit 8aa33ec2f481 ("dt-bindings: net: Revert sun8i dwmac binding")
+> 
+> Why?
+> 
 
-> Is BPF_END supposed to only be used with BPF_ALU, never with BPF_ALU64?
-> In kernel/bpf/core.c:___bpf_prog_run(), there are only jump table targets
->  for the BPF_ALU case, not for the BPF_ALU64 case (opcodes 0xd7 and 0xdf).
-> But the verifier doesn't enforce this; by crafting a program that uses
->  these opcodes I can get a WARN when they're run (without JIT; it looks
->  like the x86 JIT, at least, won't like it either).
-> Proposed patch below the cut; build-tested only.
+I have put the reason in cover-letter and forget to put it in here also.
+I fix that in next series.
 
-Good catch.
-
-A really neat test would be a program that uploads random BPF programs
-into the kernel, in a syzkaller'ish way.  It might have triggered this
-(eventually).
+Thanks
