@@ -1,69 +1,85 @@
-From: "Longchamp, Valentin" <Valentin.Longchamp@keymile.com>
-Subject: Re: [PATCH] net/ethernet/freescale: fix warning for ucc_geth
-Date: Thu, 14 Sep 2017 14:17:42 +0000
-Message-ID: <1505398677.19702.6.camel@keymile.com>
-References: <20170914120514.31845-1-valentin.longchamp@keymile.com>
-         <f5c5c526-99d4-ff3d-1e2a-23d71bcafa4b@c-s.fr>
+From: nixiaoming <nixiaoming@huawei.com>
+Subject: [PATCH] net/packet: fix race condition between fanout_add and __unregister_prot_hook
+Date: Thu, 14 Sep 2017 22:07:22 +0800
+Message-ID: <20170914140722.44292-1-nixiaoming@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>
-To: "christophe.leroy@c-s.fr" <christophe.leroy@c-s.fr>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "leoli@freescale.com" <leoli@freescale.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-de.keymile.com ([195.8.104.250]:39492 "EHLO
-        mail-de.keymile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751131AbdINORu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 14 Sep 2017 10:17:50 -0400
-In-Reply-To: <f5c5c526-99d4-ff3d-1e2a-23d71bcafa4b@c-s.fr>
-Content-Language: en-US
-Content-ID: <2F02268E6B5163418B486C321D09F495@eurprd01.prod.exchangelabs.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        <nixiaoming@huawei.com>, <dede.wu@huawei.com>
+To: <davem@davemloft.net>, <edumazet@google.com>,
+        <waltje@uWalt.NL.Mugnet.ORG>, <gw4pts@gw4pts.ampr.org>,
+        <andreyknvl@google.com>, <tklauser@distanz.ch>,
+        <philip.pettersson@gmail.com>, <glider@google.com>,
+        <willemdebruijn.kernel@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-SGkgQ2hyaXN0b3BoZSwNCg0KT24gVGh1LCAyMDE3LTA5LTE0IGF0IDE1OjI0ICswMjAwLCBDaHJp
-c3RvcGhlIExFUk9ZIHdyb3RlOg0KPiBIaSwNCj4gDQo+IExlIDE0LzA5LzIwMTcgw6AgMTQ6MDUs
-IFZhbGVudGluIExvbmdjaGFtcCBhIMOpY3JpdCA6DQo+ID4gU2ltcGxlIHByaW50ayBmb3JtYXQg
-d2FybmluZyBmb3IgdGhlIHRoZSB1Y2MgcmVnaXN0ZXJzIGFkZHJlc3MuDQo+IA0KPiBEaWQgeW91
-IHRlc3QgeW91ciBwYXRjaCB3aXRoIG1wYzgzeHhfZGVmY29uZmlnID8NCg0KTm8gSSBvbmx5IHRl
-c3RlZCBvbiBhIDg1eHggd2hlcmUgSSBoYWQgYW5vdGhlciAoc2ltaWxhciwgYmVjYXVzZSB0aGUN
-CnBoeXNpY2FsIGFkZHJlc3NlcyBhcmUgdTY0IGFuZCBub3QgdTMyKSB3YXJuaW5nLg0KDQpNeSBx
-dWljayBmaXggaW5kZWVkIGRpZCBub3QgdGFrZSB0aGUgZGlmZmVyZW50IHR5cGVkZWZzIGZvcg0K
-cGh5c19hZGRyX3QuDQoNCkkgdHJ5IHRvIGNvbWUgd2l0aCBhIHYyIHRoYXQgY292ZXJzIHRoaXMu
-DQoNClRoYW5rcyBmb3IgdGhlIGZlZWRiYWNrLg0KDQpWYWxlbnRpbg0KPiANCj4gSSBnZXQgYSBu
-ZXcgd2FybmluZyB3aXRoIHlvdXIgcGF0Y2g6DQo+IA0KPiAgICBDQyAgICAgIGRyaXZlcnMvbmV0
-L2V0aGVybmV0L2ZyZWVzY2FsZS91Y2NfZ2V0aC5vDQo+IEluIGZpbGUgaW5jbHVkZWQgZnJvbSAu
-L2luY2x1ZGUvbGludXgvcHJpbnRrLmg6NjowLA0KPiAgICAgICAgICAgICAgICAgICBmcm9tIC4v
-aW5jbHVkZS9saW51eC9rZXJuZWwuaDoxMywNCj4gICAgICAgICAgICAgICAgICAgZnJvbSBkcml2
-ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvdWNjX2dldGguYzoxODoNCj4gZHJpdmVycy9uZXQv
-ZXRoZXJuZXQvZnJlZXNjYWxlL3VjY19nZXRoLmM6IEluIGZ1bmN0aW9uDQo+IOKAmHVjY19nZXRo
-X3Byb2Jl4oCZOg0KPiAuL2luY2x1ZGUvbGludXgva2Vybl9sZXZlbHMuaDo0OjE4OiB3YXJuaW5n
-OiBmb3JtYXQg4oCYJWxseOKAmSBleHBlY3RzIA0KPiBhcmd1bWVudCBvZiB0eXBlIOKAmGxvbmcg
-bG9uZyB1bnNpZ25lZCBpbnTigJksIGJ1dCBhcmd1bWVudCAzIGhhcyB0eXBlIA0KPiDigJhyZXNv
-dXJjZV9zaXplX3Qge2FrYSB1bnNpZ25lZCBpbnR94oCZIFstV2Zvcm1hdD1dDQo+ICAgI2RlZmlu
-ZSBLRVJOX1NPSCAiXDAwMSIgIC8qIEFTQ0lJIFN0YXJ0IE9mIEhlYWRlciAqLw0KPiAgICAgICAg
-ICAgICAgICAgICAgXg0KPiAuL2luY2x1ZGUvbGludXgva2Vybl9sZXZlbHMuaDoxMzoxOTogbm90
-ZTogaW4gZXhwYW5zaW9uIG9mIG1hY3JvDQo+IOKAmEtFUk5fU09I4oCZDQo+ICAgI2RlZmluZSBL
-RVJOX0lORk8gS0VSTl9TT0ggIjYiIC8qIGluZm9ybWF0aW9uYWwgKi8NCj4gICAgICAgICAgICAg
-ICAgICAgICBeDQo+IC4vaW5jbHVkZS9saW51eC9wcmludGsuaDozMDg6OTogbm90ZTogaW4gZXhw
-YW5zaW9uIG9mIG1hY3JvDQo+IOKAmEtFUk5fSU5GT+KAmQ0KPiAgICBwcmludGsoS0VSTl9JTkZP
-IHByX2ZtdChmbXQpLCAjI19fVkFfQVJHU19fKQ0KPiAgICAgICAgICAgXg0KPiBkcml2ZXJzL25l
-dC9ldGhlcm5ldC9mcmVlc2NhbGUvdWNjX2dldGguYzozODYwOjM6IG5vdGU6IGluIGV4cGFuc2lv
-bg0KPiBvZiANCj4gbWFjcm8g4oCYcHJfaW5mb+KAmQ0KPiAgICAgcHJfaW5mbygiVUNDJTFkIGF0
-IDB4JThsbHggKGlycSA9ICVkKVxuIiwNCj4gICAgIF4NCj4gDQo+IENocmlzdG9waGUNCj4gDQo+
-ID4gDQo+ID4gU2lnbmVkLW9mZi1ieTogVmFsZW50aW4gTG9uZ2NoYW1wIDx2YWxlbnRpbi5sb25n
-Y2hhbXBAa2V5bWlsZS5jb20+DQo+ID4gLS0tDQo+ID4gICBkcml2ZXJzL25ldC9ldGhlcm5ldC9m
-cmVlc2NhbGUvdWNjX2dldGguYyB8IDIgKy0NCj4gPiAgIDEgZmlsZSBjaGFuZ2VkLCAxIGluc2Vy
-dGlvbigrKSwgMSBkZWxldGlvbigtKQ0KPiA+IA0KPiA+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25l
-dC9ldGhlcm5ldC9mcmVlc2NhbGUvdWNjX2dldGguYw0KPiA+IGIvZHJpdmVycy9uZXQvZXRoZXJu
-ZXQvZnJlZXNjYWxlL3VjY19nZXRoLmMNCj4gPiBpbmRleCBmNzdiYTlmYTI1N2IuLjU2YjhmZGIz
-NWMzYiAxMDA2NDQNCj4gPiAtLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvdWNj
-X2dldGguYw0KPiA+ICsrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS91Y2NfZ2V0
-aC5jDQo+ID4gQEAgLTM4NTcsNyArMzg1Nyw3IEBAIHN0YXRpYyBpbnQgdWNjX2dldGhfcHJvYmUo
-c3RydWN0DQo+ID4gcGxhdGZvcm1fZGV2aWNlKiBvZmRldikNCj4gPiAgIAl9DQo+ID4gICANCj4g
-PiAgIAlpZiAobmV0aWZfbXNnX3Byb2JlKCZkZWJ1ZykpDQo+ID4gLQkJcHJfaW5mbygiVUNDJTFk
-IGF0IDB4JTh4IChpcnEgPSAlZClcbiIsDQo+ID4gKwkJcHJfaW5mbygiVUNDJTFkIGF0IDB4JThs
-bHggKGlycSA9ICVkKVxuIiwNCj4gPiAgIAkJCXVnX2luZm8tPnVmX2luZm8udWNjX251bSArIDEs
-IHVnX2luZm8tDQo+ID4gPnVmX2luZm8ucmVncywNCj4gPiAgIAkJCXVnX2luZm8tPnVmX2luZm8u
-aXJxKTsNCj4gPiAgIA0KPiA+IA==
+From: l00219569 <lisimin@huawei.com>
+
+If fanout_add is preempted after running po-> fanout = match
+and before running __fanout_link,
+it will cause BUG_ON when __unregister_prot_hook call __fanout_unlink
+
+so, we need add mutex_lock(&fanout_mutex) to __unregister_prot_hook
+or add spin_lock(&po->bind_lock) before po-> fanout = match
+
+this is a patch for add po->bind_lock in fanout_add
+
+test on linux 4.1.12:
+./trinity -c setsockopt -C 2 -X &
+
+BUG: failure at net/packet/af_packet.c:1414/__fanout_unlink()!
+Kernel panic - not syncing: BUG!
+CPU: 2 PID: 2271 Comm: trinity-c0 Tainted: G        W  O    4.1.12 #1
+Hardware name: Hisilicon PhosphorHi1382 FPGA (DT)
+Call trace:
+[<ffffffc000209414>] dump_backtrace+0x0/0xf8
+[<ffffffc00020952c>] show_stack+0x20/0x28
+[<ffffffc000635574>] dump_stack+0xac/0xe4
+[<ffffffc000633fb8>] panic+0xf8/0x268
+[<ffffffc0005fa778>] __unregister_prot_hook+0xa0/0x144
+[<ffffffc0005fba48>] packet_set_ring+0x280/0x5b4
+[<ffffffc0005fc33c>] packet_setsockopt+0x320/0x950
+[<ffffffc000554a04>] SyS_setsockopt+0xa4/0xd4
+
+Signed-off-by: nixiaoming <nixiaoming@huawei.com>
+Tested-by: wudesheng <dede.wu@huawei.com>
+---
+ net/packet/af_packet.c | 11 ++++++++---
+ 1 file changed, 8 insertions(+), 3 deletions(-)
+
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 54a18a8..7a52a3b 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -1446,12 +1446,16 @@ static int fanout_add(struct sock *sk, u16 id, u16 type_flags)
+ 	default:
+ 		return -EINVAL;
+ 	}
+-
+-	if (!po->running)
++	spin_lock(&po->bind_lock);
++	if (!po->running) {
++		spin_unlock(&po->bind_lock);
+ 		return -EINVAL;
++	}
+ 
+-	if (po->fanout)
++	if (po->fanout) {
++		spin_unlock(&po->bind_lock);
+ 		return -EALREADY;
++	}
+ 
+ 	mutex_lock(&fanout_mutex);
+ 	match = NULL;
+@@ -1501,6 +1505,7 @@ static int fanout_add(struct sock *sk, u16 id, u16 type_flags)
+ 	}
+ out:
+ 	mutex_unlock(&fanout_mutex);
++	spin_unlock(&po->bind_lock);
+ 	return err;
+ }
+ 
+-- 
+2.10.1
