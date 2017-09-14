@@ -1,71 +1,50 @@
-From: Shuah Khan <shuah@kernel.org>
-Subject: selftests/bpf doesn't compile
-Date: Thu, 14 Sep 2017 09:33:48 -0600
-Message-ID: <295553a4-aadc-e5d1-229e-22d1966bc9f5@kernel.org>
-References: <20170908111923.27434-1-thomas@m3y3r.de>
- <20170908230155.esge2mctk5d5g7gb@ast-mbp> <59B32231.9090406@iogearbox.net>
- <ed20875b-7a01-fbc8-e8d1-3929ba35c8ac@kernel.org>
-Reply-To: shuah@kernel.org
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH] tg3: clean up redundant initialization of tnapi
+Date: Thu, 14 Sep 2017 17:01:25 +0100
+Message-ID: <20170914160125.11007-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org, linux-kselftest@vger.kernel.org,
-        Shuah Khan <shuahkh@osg.samsung.com>,
-        Networking <netdev@vger.kernel.org>
-To: Daniel Borkmann <daniel@iogearbox.net>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Thomas Meyer <thomas@m3y3r.de>
+Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Siva Reddy Kallam <siva.kallam@broadcom.com>,
+        Prashant Sreedharan <prashant@broadcom.com>,
+        Michael Chan <mchan@broadcom.com>, netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <ed20875b-7a01-fbc8-e8d1-3929ba35c8ac@kernel.org>
-Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Alexei and Daniel,
+From: Colin Ian King <colin.king@canonical.com>
 
-bpf test depends on clang and fails to compile when
+tnapi is being initialized and then immediately updated and
+hence the initialiation is redundant.  Clean up the warning
+by moving the declaration and initialization to the inside
+of the for-loop.
 
-------------------------------------------------------
-make -C tools/testing/selftests/bpf run_tests
+Cleans up clang scan-build warning:
+warning: Value stored to 'tnapi' during its initialization is never read
 
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ drivers/net/ethernet/broadcom/tg3.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-make: clang: Command not found
-Makefile:39: recipe for target '.linux-kselftest/tools/testing/selftests/bpf/test_pkt_access.o' failed
-make: *** [./linux-kselftest/tools/testing/selftests/bpf/test_pkt_access.o] Error 127
-make: Leaving directory '.linux-kselftest/tools/testing/selftests/bpf'
-
-With "make TARGETS=bpf kselftest" it fails earlier:
-
-
-make[3]: Entering directory './linux-kselftest/tools/lib/bpf'
-Makefile:40: tools/scripts/Makefile.arch: No such file or directory
-Makefile:84: tools/build/Makefile.feature: No such file or directory
-Makefile:143: tools/build/Makefile.include: No such file or directory
-make[3]: *** No rule to make target 'tools/build/Makefile.include'.  Stop.
-make[3]: Leaving directory '.linux-kselftest/tools/lib/bpf'
-Makefile:34: recipe for target './linux-kselftest/tools/testing/selftests/bpf/libbpf.a' failed
-make[2]: *** [./linux-kselftest/tools/testing/selftests/bpf/libbpf.a] Error 2
-make[2]: Leaving directory './linux-kselftest/tools/testing/selftests/bpf'
-Makefile:69: recipe for target 'all' failed
-make[1]: *** [all] Error 2
-Makefile:1190: recipe for target 'kselftest' failed
-make: *** [kselftest] Error 2
-
---------------------------------------------------------------
-
-Is bpf test intended to be run in kselftest run? The clang dependency might
-not be met on majority of the systems. Is this a hard dependency??
-
-Would it make sense to create a special target for bpf test? We do have a few
-tests that do that now. 
-
-TARGETS_HOTPLUG = cpu-hotplug
-TARGETS_HOTPLUG += memory-hotplug
-
-I could add a special target for bpf TARGET_BPF perhaps and exclude it from
-the run_tests.
-
-Please let me know your thoughts on this.
-
-thanks,
--- Shuah
+diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+index af33dc15c55f..54588809b867 100644
+--- a/drivers/net/ethernet/broadcom/tg3.c
++++ b/drivers/net/ethernet/broadcom/tg3.c
+@@ -11536,11 +11536,11 @@ static int tg3_start(struct tg3 *tp, bool reset_phy, bool test_irq,
+ 	tg3_napi_enable(tp);
+ 
+ 	for (i = 0; i < tp->irq_cnt; i++) {
+-		struct tg3_napi *tnapi = &tp->napi[i];
+ 		err = tg3_request_irq(tp, i);
+ 		if (err) {
+ 			for (i--; i >= 0; i--) {
+-				tnapi = &tp->napi[i];
++				struct tg3_napi *tnapi = &tp->napi[i];
++
+ 				free_irq(tnapi->irq_vec, tnapi);
+ 			}
+ 			goto out_napi_fini;
+-- 
+2.14.1
