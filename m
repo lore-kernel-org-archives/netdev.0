@@ -1,54 +1,58 @@
-From: Yoshihiro Shimoda <yoshihiro.shimoda.uh-zM6kxYcvzFBBDgjK7y7TUQ@public.gmane.org>
-Subject: RE: [PATCH] dt-bindings: net: renesas-ravb: Add support for R8A77995
- RAVB
-Date: Thu, 14 Sep 2017 00:11:12 +0000
-Message-ID: <TY1PR06MB09928CA5EC51D95B135AE662D86F0@TY1PR06MB0992.apcprd06.prod.outlook.com>
-References: <1505305060-4192-1-git-send-email-yoshihiro.shimoda.uh@renesas.com>
- <1f4763ea-9f8a-03a6-1215-69b96c404590@cogentembedded.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-renesas-soc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org"
-        <linux-renesas-soc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>,
-        "davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        "robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org" <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        "mark.rutland-5wv7dgnIgG8@public.gmane.org" <mark.rutland-5wv7dgnIgG8@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1f4763ea-9f8a-03a6-1215-69b96c404590-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-Content-Language: ja-JP
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: David Ahern <dsahern@gmail.com>
+Subject: [PATCH] net: ipv4: fix l3slave check for index returned in IP_PKTINFO
+Date: Wed, 13 Sep 2017 17:11:37 -0700
+Message-ID: <1505347897-27422-1-git-send-email-dsahern@gmail.com>
+Cc: David Ahern <dsahern@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:37010 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751173AbdINALq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 13 Sep 2017 20:11:46 -0400
+Received: by mail-pg0-f66.google.com with SMTP id v5so807230pgn.4
+        for <netdev@vger.kernel.org>; Wed, 13 Sep 2017 17:11:45 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-SGVsbG8hDQoNCj4gRnJvbTogU2VyZ2VpIFNodHlseW92DQo+IFNlbnQ6IFRodXJzZGF5LCBTZXB0
-ZW1iZXIgMTQsIDIwMTcgMTowMiBBTQ0KPiANCj4gSGVsbG8hDQo+IA0KPiBPbiAwOS8xMy8yMDE3
-IDAzOjE3IFBNLCBZb3NoaWhpcm8gU2hpbW9kYSB3cm90ZToNCj4gDQo+ID4gQWRkIGEgbmV3IGNv
-bXBhdGlibGUgc3RyaW5nIGZvciB0aGUgUjhBNzc5OTUgKFItQ2FyIEQzKSBSQVZCLg0KPiA+DQo+
-ID4gU2lnbmVkLW9mZi1ieTogWW9zaGloaXJvIFNoaW1vZGEgPHlvc2hpaGlyby5zaGltb2RhLnVo
-QHJlbmVzYXMuY29tPg0KPiA+IC0tLQ0KPiA+ICAgRG9jdW1lbnRhdGlvbi9kZXZpY2V0cmVlL2Jp
-bmRpbmdzL25ldC9yZW5lc2FzLHJhdmIudHh0IHwgMSArDQo+ID4gICAxIGZpbGUgY2hhbmdlZCwg
-MSBpbnNlcnRpb24oKykNCj4gPg0KPiA+IGRpZmYgLS1naXQgYS9Eb2N1bWVudGF0aW9uL2Rldmlj
-ZXRyZWUvYmluZGluZ3MvbmV0L3JlbmVzYXMscmF2Yi50eHQNCj4gYi9Eb2N1bWVudGF0aW9uL2Rl
-dmljZXRyZWUvYmluZGluZ3MvbmV0L3JlbmVzYXMscmF2Yi50eHQNCj4gPiBpbmRleCAxNjcyMzUz
-Li5hZTIyMTNmIDEwMDY0NA0KPiA+IC0tLSBhL0RvY3VtZW50YXRpb24vZGV2aWNldHJlZS9iaW5k
-aW5ncy9uZXQvcmVuZXNhcyxyYXZiLnR4dA0KPiA+ICsrKyBiL0RvY3VtZW50YXRpb24vZGV2aWNl
-dHJlZS9iaW5kaW5ncy9uZXQvcmVuZXNhcyxyYXZiLnR4dA0KPiA+IEBAIC0xNyw2ICsxNyw3IEBA
-IFJlcXVpcmVkIHByb3BlcnRpZXM6DQo+ID4NCj4gPiAgICAgICAgIC0gInJlbmVzYXMsZXRoZXJh
-dmItcjhhNzc5NSIgZm9yIHRoZSBSOEE3Nzk1IFNvQy4NCj4gPiAgICAgICAgIC0gInJlbmVzYXMs
-ZXRoZXJhdmItcjhhNzc5NiIgZm9yIHRoZSBSOEE3Nzk2IFNvQy4NCj4gPiArICAgICAgLSAicmVu
-ZXNhcyxldGhlcmF2Yi1yOGE3Nzk5NSIgZm9yIHRoZSBSOEE3Nzk5NSBTb0MuDQo+IA0KPiAgICAg
-VGhhdCB3b3VsZCBjb25mbGljdCB3aXRoIHRoZSBSOEE3Nzk3MCBiaW5kaW5ncyBwYXRjaCBwb3N0
-ZWQgYnkgbWUNCj4geWVzdGVyZGF5LiBQbGVhc2UgcmVzcGluIGF0b3Agb2YgaXQuDQoNClllcywg
-SSBzdWJtaXR0ZWQgdjIgcGF0Y2ggbm93Lg0KDQo+ID4gICAgICAgICAtICJyZW5lc2FzLGV0aGVy
-YXZiLXJjYXItZ2VuMyIgYXMgYSBmYWxsYmFjayBmb3IgdGhlIGFib3ZlDQo+ID4gICAJCVItQ2Fy
-IEdlbjMgZGV2aWNlcy4NCj4gPg0KPiANCj4gICAgIE9uZSBtb3JlIGZyYWdtZW50IGlzIG5lZWRl
-ZCBoZXJlLCBhYm91dCB0aGUgbWFuZGF0b3J5ICdpbnRlcnJ1cHQtbmFtZXMiDQo+IHByb3AuIE15
-IHBhdGNoIG1ha2VzIHRoaXMgY2hhbmdlIHVubmVjZXNzYXJ5LCBob3dldmVyLi4uDQoNCkkgdW5k
-ZXJzdG9vZCBpdC4NCg0KQmVzdCByZWdhcmRzLA0KWW9zaGloaXJvIFNoaW1vZGENCg0KPiBNQlIs
-IFNlcmdlaQ0K
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+rt_iif is only set to the actual egress device for the output path. The
+recent change to consider the l3slave flag when returning IP_PKTINFO
+works for local traffic (the correct device index is returned), but it
+broke the more typical use case of packets received from a remote host
+always returning the VRF index rather than the original ingress device.
+Update the fixup to consider l3slave and rt_iif actually getting set.
+
+Fixes: 1dfa76390bf05 ("net: ipv4: add check for l3slave for index returned in IP_PKTINFO")
+Signed-off-by: David Ahern <dsahern@gmail.com>
+---
+ net/ipv4/ip_sockglue.c | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
+index e558e4f9597b..a599aa83fdad 100644
+--- a/net/ipv4/ip_sockglue.c
++++ b/net/ipv4/ip_sockglue.c
+@@ -1207,7 +1207,6 @@ static int do_ip_setsockopt(struct sock *sk, int level,
+ void ipv4_pktinfo_prepare(const struct sock *sk, struct sk_buff *skb)
+ {
+ 	struct in_pktinfo *pktinfo = PKTINFO_SKB_CB(skb);
+-	bool l3slave = ipv4_l3mdev_skb(IPCB(skb)->flags);
+ 	bool prepare = (inet_sk(sk)->cmsg_flags & IP_CMSG_PKTINFO) ||
+ 		       ipv6_sk_rxinfo(sk);
+ 
+@@ -1221,8 +1220,13 @@ void ipv4_pktinfo_prepare(const struct sock *sk, struct sk_buff *skb)
+ 		 * (e.g., process binds socket to eth0 for Tx which is
+ 		 * redirected to loopback in the rtable/dst).
+ 		 */
+-		if (pktinfo->ipi_ifindex == LOOPBACK_IFINDEX || l3slave)
++		struct rtable *rt = skb_rtable(skb);
++		bool l3slave = ipv4_l3mdev_skb(IPCB(skb)->flags);
++
++		if (pktinfo->ipi_ifindex == LOOPBACK_IFINDEX)
+ 			pktinfo->ipi_ifindex = inet_iif(skb);
++		else if (l3slave && rt && rt->rt_iif)
++			pktinfo->ipi_ifindex = rt->rt_iif;
+ 
+ 		pktinfo->ipi_spec_dst.s_addr = fib_compute_spec_dst(skb);
+ 	} else {
+-- 
+2.1.4
