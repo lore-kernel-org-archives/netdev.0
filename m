@@ -1,44 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net] sctp: potential read out of bounds in
- sctp_ulpevent_type_enabled()
-Date: Wed, 13 Sep 2017 17:00:19 -0700 (PDT)
-Message-ID: <20170913.170019.543516362575770735.davem@davemloft.net>
-References: <20170913.092522.934509429497822082.davem@davemloft.net>
-        <20170913230054.fmtidvfi2swvy2mm@mwanda>
+From: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
+Subject: [PATCH] dt-bindings: net: renesas-ravb: Add support for R8A77995 RAVB
+Date: Thu, 14 Sep 2017 09:06:38 +0900
+Message-ID: <1505347598-4156-1-git-send-email-yoshihiro.shimoda.uh@renesas.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: vyasevich@gmail.com, nhorman@tuxdriver.com,
-        linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-        kernel-janitors@vger.kernel.org
-To: dan.carpenter@oracle.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:60506 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751173AbdINAA0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 13 Sep 2017 20:00:26 -0400
-In-Reply-To: <20170913230054.fmtidvfi2swvy2mm@mwanda>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org,
+        devicetree@vger.kernel.org,
+        Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
+To: davem@davemloft.net, robh+dt@kernel.org, mark.rutland@arm.com
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+Sender: linux-renesas-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Thu, 14 Sep 2017 02:00:54 +0300
+Add a new compatible string for the R8A77995 (R-Car D3) RAVB.
 
-> This code causes a static checker warning because Smatch doesn't trust
-> anything that comes from skb->data.  I've reviewed this code and I do
-> think skb->data can be controlled by the user here.
-> 
-> The sctp_event_subscribe struct has 13 __u8 fields and we want to see
-> if ours is non-zero.  sn_type can be any value in the 0-USHRT_MAX range.
-> We're subtracting SCTP_SN_TYPE_BASE which is 1 << 15 so we could read
-> either before the start of the struct or after the end.
-> 
-> This is a very old bug and it's surprising that it would go undetected
-> for so long but my theory is that it just doesn't have a big impact so
-> it would be hard to notice.
-> 
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-> ---
-> v2:  Use reverse-christmas-tree local variable ordering.
+Acked-by: Geert Uytterhoeven <geert+renesas@glider.be>
+Signed-off-by: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
+---
+ Changes from v1:
+  - Based on r8a77970 patch.
+   https://marc.info/?l=linux-renesas-soc&m=150524655515476
+  - Add Acked-by (Thanks Geert-san!).
 
-Applied and queued up for -stable, thanks.
+ Documentation/devicetree/bindings/net/renesas,ravb.txt | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/Documentation/devicetree/bindings/net/renesas,ravb.txt b/Documentation/devicetree/bindings/net/renesas,ravb.txt
+index 2689211..c902261 100644
+--- a/Documentation/devicetree/bindings/net/renesas,ravb.txt
++++ b/Documentation/devicetree/bindings/net/renesas,ravb.txt
+@@ -18,6 +18,7 @@ Required properties:
+       - "renesas,etheravb-r8a7795" for the R8A7795 SoC.
+       - "renesas,etheravb-r8a7796" for the R8A7796 SoC.
+       - "renesas,etheravb-r8a77970" for the R8A77970 SoC.
++      - "renesas,etheravb-r8a77995" for the R8A77995 SoC.
+       - "renesas,etheravb-rcar-gen3" as a fallback for the above
+ 		R-Car Gen3 devices.
+ 
+-- 
+1.9.1
