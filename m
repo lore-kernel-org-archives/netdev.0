@@ -1,53 +1,65 @@
-From: "Brown, Aaron F" <aaron.f.brown@intel.com>
-Subject: RE: [Intel-wired-lan] [PATCH] igb: check memory allocation failure
-Date: Thu, 14 Sep 2017 02:24:37 +0000
-Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B8C6A028B@ORSMSX101.amr.corp.intel.com>
-References: <20170827063951.5975-1-christophe.jaillet@wanadoo.fr>
- <E0D909EE5BB15A4699798539EA149D7F0779685B@ORSMSX103.amr.corp.intel.com>
- <95a0bc80-8b41-d74f-8059-ae7181493120@wanadoo.fr>
+From: nixiaoming <nixiaoming@huawei.com>
+Subject: [PATCH] net/packet: fix race condition between fanout_add and __unregister_prot_hook
+Date: Thu, 14 Sep 2017 10:40:46 +0800
+Message-ID: <20170914024046.92505-1-nixiaoming@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>,
-        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Christophe JAILLET <christophe.jaillet@wanadoo.fr>,
-        "Waskiewicz Jr, Peter" <peter.waskiewicz.jr@intel.com>,
-        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        <nixiaoming@huawei.com>, <dede.wu@huawei.com>
+To: <davem@davemloft.net>, <edumazet@google.com>,
+        <waltje@uWalt.NL.Mugnet.ORG>, <gw4pts@gw4pts.ampr.org>,
+        <andreyknvl@google.com>, <tklauser@distanz.ch>,
+        <philip.pettersson@gmail.com>, <glider@google.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <95a0bc80-8b41-d74f-8059-ae7181493120@wanadoo.fr>
-Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-PiBGcm9tOiBJbnRlbC13aXJlZC1sYW4gW21haWx0bzppbnRlbC13aXJlZC1sYW4tYm91bmNlc0Bv
-c3Vvc2wub3JnXSBPbiBCZWhhbGYNCj4gT2YgQ2hyaXN0b3BoZSBKQUlMTEVUDQo+IFNlbnQ6IE1v
-bmRheSwgQXVndXN0IDI4LCAyMDE3IDEwOjEzIEFNDQo+IFRvOiBXYXNraWV3aWN6IEpyLCBQZXRl
-ciA8cGV0ZXIud2Fza2lld2ljei5qckBpbnRlbC5jb20+OyBLaXJzaGVyLCBKZWZmcmV5IFQNCj4g
-PGplZmZyZXkudC5raXJzaGVyQGludGVsLmNvbT4NCj4gQ2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5v
-cmc7IGtlcm5lbC1qYW5pdG9yc0B2Z2VyLmtlcm5lbC5vcmc7IGludGVsLXdpcmVkLQ0KPiBsYW5A
-bGlzdHMub3N1b3NsLm9yZzsgbGludXgta2VybmVsQHZnZXIua2VybmVsLm9yZw0KPiBTdWJqZWN0
-OiBSZTogW0ludGVsLXdpcmVkLWxhbl0gW1BBVENIXSBpZ2I6IGNoZWNrIG1lbW9yeSBhbGxvY2F0
-aW9uIGZhaWx1cmUNCj4gDQo+IExlIDI4LzA4LzIwMTcgw6AgMDE6MDksIFdhc2tpZXdpY3ogSnIs
-IFBldGVyIGEgw6ljcml0wqA6DQo+ID4gT24gOC8yNy8xNyAyOjQyIEFNLCBDaHJpc3RvcGhlIEpB
-SUxMRVQgd3JvdGU6DQo+ID4+IENoZWNrIG1lbW9yeSBhbGxvY2F0aW9uIGZhaWx1cmVzIGFuZCBy
-ZXR1cm4gLUVOT01FTSBpbiBzdWNoIGNhc2VzLCBhcw0KPiA+PiBhbHJlYWR5IGRvbmUgZm9yIG90
-aGVyIG1lbW9yeSBhbGxvY2F0aW9ucyBpbiB0aGlzIGZ1bmN0aW9uLg0KPiA+Pg0KPiA+PiBUaGlz
-IGF2b2lkcyBOVUxMIHBvaW50ZXJzIGRlcmVmZXJlbmNlLg0KPiA+Pg0KPiA+PiBTaWduZWQtb2Zm
-LWJ5OiBDaHJpc3RvcGhlIEpBSUxMRVQgPGNocmlzdG9waGUuamFpbGxldEB3YW5hZG9vLmZyPg0K
-PiA+PiAtLS0NCj4gPj4gICAgZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaWdiL2lnYl9tYWlu
-LmMgfCAyICsrDQo+ID4+ICAgIDEgZmlsZSBjaGFuZ2VkLCAyIGluc2VydGlvbnMoKykNCj4gPj4N
-Cg0KVGhpcyBzZWVtcyB0byBiZSBmaW5lIGZyb20gYSAiaXQgZG9lcyBub3QgYnJlYWsgaW4gdGVz
-dGluZyIgcGVyc3BlY3RpdmUsIHNvLi4uDQoNClRlc3RlZC1ieTogQWFyb24gQnJvd24gPGFhcm9u
-LmYuYnJvd25AaW50ZWwuY29tDQoNCj4gPiAtUEoNCj4gPg0KPiBIaSwNCj4gDQo+IGluIGZhY3Qs
-IHRoZXJlIGlzIG5vIGxlYWsgYmVjYXVzZSB0aGUgb25seSBjYWxsZXIgb2YgJ2lnYl9zd19pbml0
-KCknDQo+IChpLmUuICdpZ2JfcHJvYmUoKScpLCBhbHJlYWR5IGZyZWVzIHRoZXNlIHJlc291cmNl
-cyBpbiBjYXNlIG9mIGVycm9yLA0KPiBzZWUgWzFdDQo+IA0KPiBUaGVzZSByZXNvdXJjZXMgYXJl
-IGFsc28gZnJlZWTCoCBpbiAnaWdiX3JlbW92ZSgpJy4NCj4gDQo+IEJlc3QgcmVhZ3JkcywNCj4g
-Q0oNCj4gDQo+IFsxXToNCj4gaHR0cHM6Ly9naXQua2VybmVsLm9yZy9wdWIvc2NtL2xpbnV4L2tl
-cm5lbC9naXQvbmV4dC9saW51eC0NCj4gbmV4dC5naXQvdHJlZS9kcml2ZXJzL25ldC9ldGhlcm5l
-dC9pbnRlbC9pZ2IvaWdiX21haW4uYyNuMjc3NQ0KDQpCdXQgaXMgUEoncyBjb21tZW50IHNheWlu
-ZyB0aGF0IGl0IGlzIG5vdCByZWFsbHkgbmVjZXNzYXJ5PyAgSWYgc28gSSB0ZW5kIHRvIGxlYW4g
-dG93YXJkcyB0aGUgZG9uJ3QgdG91Y2ggaXQgaWYgaXQncyBub3QgYnJva2VuIHBlcnNwZWN0aXZl
-Lg0KIA0KDQo=
+If fanout_add is preempted after running po-> fanout = match
+and before running __fanout_link,
+it will cause BUG_ON when __unregister_prot_hook call __fanout_unlink
+
+so, we need add mutex_lock(&fanout_mutex) to __unregister_prot_hook
+or add spin_lock(&po->bind_lock) before po-> fanout = match
+
+test on linux 4.1.42:
+./trinity -c setsockopt -C 2 -X &
+
+BUG: failure at net/packet/af_packet.c:1414/__fanout_unlink()!
+Kernel panic - not syncing: BUG!
+CPU: 2 PID: 2271 Comm: trinity-c0 Tainted: G        W  O    4.1.12 #1
+Hardware name: Hisilicon PhosphorHi1382 FPGA (DT)
+Call trace:
+[<ffffffc000209414>] dump_backtrace+0x0/0xf8
+[<ffffffc00020952c>] show_stack+0x20/0x28
+[<ffffffc000635574>] dump_stack+0xac/0xe4
+[<ffffffc000633fb8>] panic+0xf8/0x268
+[<ffffffc0005fa778>] __unregister_prot_hook+0xa0/0x144
+[<ffffffc0005fba48>] packet_set_ring+0x280/0x5b4
+[<ffffffc0005fc33c>] packet_setsockopt+0x320/0x950
+[<ffffffc000554a04>] SyS_setsockopt+0xa4/0xd4
+
+Signed-off-by: nixiaoming <nixiaoming@huawei.com>
+Tested-by: wudesheng <dede.wu@huawei.com>
+---
+ net/packet/af_packet.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 008a45c..0300146 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -365,10 +365,12 @@ static void __unregister_prot_hook(struct sock *sk, bool sync)
+ 
+ 	po->running = 0;
+ 
++	mutex_lock(&fanout_mutex);
+ 	if (po->fanout)
+ 		__fanout_unlink(sk, po);
+ 	else
+ 		__dev_remove_pack(&po->prot_hook);
++	mutex_unlock(&fanout_mutex);
+ 
+ 	__sock_put(sk);
+ 
+-- 
+2.11.0.1
