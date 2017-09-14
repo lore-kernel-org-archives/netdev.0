@@ -1,48 +1,76 @@
-From: Pierre Colombier <pierre@abeille.com>
-Subject: feature request for kernel module 8021q
-Date: Thu, 14 Sep 2017 21:14:04 +0200
-Message-ID: <c010d65d-3050-8d88-22aa-cac092dd3904@abeille.com>
+From: Maxim Uvarov <muvarov@gmail.com>
+Subject: Re: [PATCH net-next v2 01/10] net: dsa: add debugfs interface
+Date: Thu, 14 Sep 2017 22:59:24 +0300
+Message-ID: <CAJGZr0KdOPW5_V3kvWutwTY=BJhfd-=yRDPnvbDBOCuMYWj9OQ@mail.gmail.com>
+References: <20170828191748.19492-1-vivien.didelot@savoirfairelinux.com>
+ <20170828191748.19492-2-vivien.didelot@savoirfairelinux.com>
+ <20170907193434.GA11006@kroah.com> <87h8wdb8bj.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail3.abeille.com ([212.129.23.178]:38749 "EHLO
-        mail3.abeille.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751654AbdINTVQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 14 Sep 2017 15:21:16 -0400
-Received: from localhost (localhost [127.0.0.1])
-        by mail3.abeille.com (Postfix) with ESMTP id 676E28EC11E2
-        for <netdev@vger.kernel.org>; Thu, 14 Sep 2017 21:14:05 +0200 (CEST)
-Received: from mail3.abeille.com ([127.0.0.1])
-        by localhost (mail3.abeille.com [127.0.0.1]) (amavisd-new, port 10032)
-        with ESMTP id Sn8Po0IrWfji for <netdev@vger.kernel.org>;
-        Thu, 14 Sep 2017 21:14:05 +0200 (CEST)
-Received: from localhost (localhost [127.0.0.1])
-        by mail3.abeille.com (Postfix) with ESMTP id EB1F08EC11E0
-        for <netdev@vger.kernel.org>; Thu, 14 Sep 2017 21:14:04 +0200 (CEST)
-Received: from mail3.abeille.com ([127.0.0.1])
-        by localhost (mail3.abeille.com [127.0.0.1]) (amavisd-new, port 10026)
-        with ESMTP id SpsJQUlt6Q6J for <netdev@vger.kernel.org>;
-        Thu, 14 Sep 2017 21:14:04 +0200 (CEST)
-Received: from [192.168.68.20] (pcdwarf.as203500.net [185.178.185.11])
-        by mail3.abeille.com (Postfix) with ESMTPSA id C62F48EC11DD
-        for <netdev@vger.kernel.org>; Thu, 14 Sep 2017 21:14:04 +0200 (CEST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Greg KH <gregkh@linuxfoundation.org>,
+        netdev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Egil Hjelmeland <privat@egil-hjelmeland.no>,
+        John Crispin <john@phrozen.org>,
+        Woojung Huh <Woojung.Huh@microchip.com>,
+        Sean Wang <sean.wang@mediatek.com>,
+        Nikita Yushchenko <nikita.yoush@cogentembedded.com>,
+        Chris Healy <cphealy@gmail.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87h8wdb8bj.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello
+debugfs here is very very useful to read registers directly and
+compare what use space tools see. Cool feature to get regs by port and
+use standard tools to diff and print them. Even might be better to
+allow drivers to decode register names and bits values. Once that is
+done driver mainaince will be much easy. I.e. you need only match regs
+with spec from one side and regs with user space tools from other
+side. Of course it's needed only for debuging, not for production. But
+even for production regs dump on something wrong might tell a lot.
+
+Maxim.
+
+2017-09-08 16:58 GMT+03:00 Vivien Didelot <vivien.didelot@savoirfairelinux.com>:
+> Hi Greg,
+>
+> Greg KH <gregkh@linuxfoundation.org> writes:
+>
+>> I agree you shouldn't be using debugfs for this, but in the future, if
+>> you do write debugfs code, please take the following review into
+>> account:
+>
+> Humm sorry I may not have given enough details. This was really meant
+> for debug and dev only, because DSA makes it hard to query directly the
+> hardware (some switch ports are not exposed to userspace as well.)
+>
+> This is not meant to be used for anything real at all, or even be
+> compiled-in in a production kernel. That's why I found it appropriate.
+>
+> So I am still wondering why it doesn't fit here, can you tell me why?
+>
+>> You should _never_ care about the return value of a debugfs call, and
+>> you should not need to ever propagate the error upward.  The api was
+>> written to not need this.
+>>
+>> Just call the function, and return, that's it.  If you need to save the
+>> return value (i.e. it's a dentry), you also don't care, just save it and
+>> pass it to some other debugfs call, and all will still be fine.  Your
+>> code should never do anything different if a debugfs call succeeds or
+>> fails.
+>
+> Thank for your interesting review! I'll cleanup my out-of-tree patches.
+>
+>
+>       Vivien
 
 
-One big problem with vlans on linux is that the native interface always 
-get all vlans.
 
-This can cause problem with bridges.
-
-
-One interesting feature would be to have a special vlan number
-
-(let's say 0 or -1 or 4097 ) designed so that it gets all the untagged 
-trafic and only the untagged trafic.
-
-what do you think about this ?
+-- 
+Best regards,
+Maxim Uvarov
