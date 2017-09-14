@@ -1,41 +1,68 @@
-From: Itaru Kitayama <itaru.kitayama@riken.jp>
-Subject: System NIC does not get activated at boot time
-Date: Thu, 14 Sep 2017 19:41:23 +0900
-Message-ID: <d21bdfd4-f660-1958-7ddf-058ab5150ce7@riken.jp>
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Subject: [PATCH] net/mlx5: fpga: avoid uninitialized return codes
+Date: Thu, 14 Sep 2017 13:06:18 +0200
+Message-ID: <20170914110628.3590833-1-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from postmanrt1.riken.jp ([134.160.33.66]:57898 "EHLO
-        postmanrt1.riken.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751500AbdINKu6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 14 Sep 2017 06:50:58 -0400
-Received: from postman-ex2.riken.jp (postman-ex2.riken.go.jp [134.160.33.92])
-        by postmanrt1.riken.jp (Postfix) with ESMTP id 8FA281E088E
-        for <netdev@vger.kernel.org>; Thu, 14 Sep 2017 19:41:25 +0900 (JST)
-Received: from postman-ex2.riken.jp (localhost [127.0.0.1])
-        by localhost (Postfix) with SMTP id A49426602A8
-        for <netdev@vger.kernel.org>; Thu, 14 Sep 2017 19:41:24 +0900 (JST)
-Received: from postman.riken.jp (unknown [192.168.60.185])
-        by postman-ex2.riken.jp (Postfix) with ESMTP id 932BE66022B
-        for <netdev@vger.kernel.org>; Thu, 14 Sep 2017 19:41:24 +0900 (JST)
-Received: from postman.riken.jp (localhost.localdomain [127.0.0.1])
-        by postman.riken.jp (Postfix) with SMTP id 857DF9413E
-        for <netdev@vger.kernel.org>; Thu, 14 Sep 2017 19:41:24 +0900 (JST)
-Received: from MacBook-Pro-4.local (anet34.aics.riken.jp [134.160.184.34])
-        by postman.riken.jp (Postfix) with ESMTPA id 562899412D
-        for <netdev@vger.kernel.org>; Thu, 14 Sep 2017 19:41:24 +0900 (JST)
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+        Boris Pismenny <borisp-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Ilan Tayari <ilant-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+calling mlx5_fpga_mem_{read,write}_i2c() with a zero length on
+older compiler version such as gcc-4.6 results in a warning that
+the return code is not initialized:
 
-Our Cavium ThunderX system's system NIC can not get activated upon boot 
-for some reason. To make it active, we need to re-plug the network 
-cable. The system is GIGABYTE R150-T62-00 (T45 BIOS), and is powered by 
-CentOS 7 (kernel is 4.5.0-25.el7). Has anyone seen this kind of issue on
-a ThunderX system?
+drivers/net/ethernet/mellanox/mlx5/core/fpga/sdk.c:147:6: error: ‘err’ may be used uninitialized in this function [-Werror=uninitialized]
+drivers/net/ethernet/mellanox/mlx5/core/fpga/sdk.c:126:6: error: ‘err’ may be used uninitialized in this function [-Werror=uninitialized]
 
-Itaru
+On newer compilers, the 'err' variable is optimized away in this
+code path and assumed to be zero when the loop completes, so we
+don't get this warning.
+
+I'm changing the function here to instead return -EINVAL for the
+case, under the assumption that it was never meant to be called
+with a zero length argument.
+
+Link: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=82203
+Signed-off-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/fpga/sdk.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fpga/sdk.c b/drivers/net/ethernet/mellanox/mlx5/core/fpga/sdk.c
+index 3c11d6e2160a..914fb9d77a1a 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fpga/sdk.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fpga/sdk.c
+@@ -64,7 +64,7 @@ static int mlx5_fpga_mem_read_i2c(struct mlx5_fpga_device *fdev, size_t size,
+ 	size_t max_size = MLX5_FPGA_ACCESS_REG_SIZE_MAX;
+ 	size_t bytes_done = 0;
+ 	u8 actual_size;
+-	int err;
++	int err = -EINVAL;
+ 
+ 	if (!fdev->mdev)
+ 		return -ENOTCONN;
+@@ -93,7 +93,7 @@ static int mlx5_fpga_mem_write_i2c(struct mlx5_fpga_device *fdev, size_t size,
+ 	size_t max_size = MLX5_FPGA_ACCESS_REG_SIZE_MAX;
+ 	size_t bytes_done = 0;
+ 	u8 actual_size;
+-	int err;
++	int err = -EINVAL;
+ 
+ 	if (!fdev->mdev)
+ 		return -ENOTCONN;
+-- 
+2.9.0
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
