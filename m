@@ -1,61 +1,82 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next v2 01/10] net: dsa: add debugfs interface
-Date: Thu, 14 Sep 2017 23:01:32 +0200
-Message-ID: <20170914210132.GC3084@lunn.ch>
-References: <20170828191748.19492-1-vivien.didelot@savoirfairelinux.com>
- <20170828191748.19492-2-vivien.didelot@savoirfairelinux.com>
- <20170907193434.GA11006@kroah.com>
- <87h8wdb8bj.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
- <CAJGZr0KdOPW5_V3kvWutwTY=BJhfd-=yRDPnvbDBOCuMYWj9OQ@mail.gmail.com>
- <CAKgT0Uf8--Yh9tfkTrh9_dfEYMX5jR6j4unxwxM+WD6E4jk9pA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Maxim Uvarov <muvarov@gmail.com>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Greg KH <gregkh@linuxfoundation.org>,
-        netdev <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Egil Hjelmeland <privat@egil-hjelmeland.no>,
-        John Crispin <john@phrozen.org>,
-        Woojung Huh <Woojung.Huh@microchip.com>,
-        Sean Wang <sean.wang@mediatek.com>,
-        Nikita Yushchenko <nikita.yoush@cogentembedded.com>,
-        Chris Healy <cphealy@gmail.com>
-To: Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAKgT0Uf8--Yh9tfkTrh9_dfEYMX5jR6j4unxwxM+WD6E4jk9pA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Willem de Bruijn <willemb@google.com>
+Subject: [PATCH net] packet: hold bind lock when rebinding to fanout hook
+Date: Thu, 14 Sep 2017 17:14:41 -0400
+Message-ID: <20170914211441.67326-1-willemb@google.com>
+Cc: davem@davemloft.net, nixiaoming@huawei.com,
+        Willem de Bruijn <willemb@google.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f178.google.com ([209.85.220.178]:53962 "EHLO
+        mail-qk0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751594AbdINVPG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 14 Sep 2017 17:15:06 -0400
+Received: by mail-qk0-f178.google.com with SMTP id t184so567306qke.10
+        for <netdev@vger.kernel.org>; Thu, 14 Sep 2017 14:15:06 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> Can you clarify what type of registers it is you are wanting to read?
-> We already have ethtool which is meant to allow reading the device
-> registers for a given netdev. As long as the port has a netdev
-> associated it then there is no need to be getting into debugfs since
-> we should probably just be using ethtool.
+Packet socket bind operations must hold the po->bind_lock. This keeps
+po->running consistent with whether the socket is actually on a ptype
+list to receive packets.
 
-Not all ports of a DSA switch have a netdev. This is by design. The
-presentation we gave to Netdev 2.1 gives some of the background.
+fanout_add unbinds a socket and its packet_rcv/tpacket_rcv call, then
+binds the fanout object to receive through packet_rcv_fanout.
 
-Plus a switch has a lot of registers not associated to port. Often a
-switch has more global registers than port registers.
+Make it hold the po->bind_lock when testing po->running and rebinding.
+Else, it can race with other rebind operations, such as that in
+packet_set_ring from packet_rcv to tpacket_rcv. Concurrent updates
+can result in a socket being added to a fanout group twice, causing
+use-after-free KASAN bug reports, among others.
+
+Reported independently by both trinity and syzkaller.
+Verified that the syzkaller reproducer passes after this patch.
+
+Reported-by: nixioaming <nixiaoming@huawei.com>
+Signed-off-by: Willem de Bruijn <willemb@google.com>
+---
+ net/packet/af_packet.c | 16 +++++++++++-----
+ 1 file changed, 11 insertions(+), 5 deletions(-)
+
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index c26172995511..d288f52c53f7 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -1684,10 +1684,6 @@ static int fanout_add(struct sock *sk, u16 id, u16 type_flags)
  
-> Also as Jiri pointed out there is already devlink which would probably
-> be a better way to get the associated information for those pieces
-> that don't have a netdev associated with them.
-
-We have looked at the devlink a few times. The current dpipe code is
-not generic enough. It makes assumptions about the architecture of the
-switch, that it is all match/action based. The niche of top of rack
-switches might be like that, but average switches are not.
-
-If dpipe was to support simple generic two dimensional tables, we
-probably would use it.
-
-David suggested making a class device for DSA. It is not ideal, but we
-are probably going to go that way.
-
-    Andrew
+ 	mutex_lock(&fanout_mutex);
+ 
+-	err = -EINVAL;
+-	if (!po->running)
+-		goto out;
+-
+ 	err = -EALREADY;
+ 	if (po->fanout)
+ 		goto out;
+@@ -1749,7 +1745,10 @@ static int fanout_add(struct sock *sk, u16 id, u16 type_flags)
+ 		list_add(&match->list, &fanout_list);
+ 	}
+ 	err = -EINVAL;
+-	if (match->type == type &&
++
++	spin_lock(&po->bind_lock);
++	if (po->running &&
++	    match->type == type &&
+ 	    match->prot_hook.type == po->prot_hook.type &&
+ 	    match->prot_hook.dev == po->prot_hook.dev) {
+ 		err = -ENOSPC;
+@@ -1761,6 +1760,13 @@ static int fanout_add(struct sock *sk, u16 id, u16 type_flags)
+ 			err = 0;
+ 		}
+ 	}
++	spin_unlock(&po->bind_lock);
++
++	if (err && !refcount_read(&match->sk_ref)) {
++		list_del(&match->list);
++		kfree(match);
++	}
++
+ out:
+ 	if (err && rollover) {
+ 		kfree(rollover);
+-- 
+2.14.1.690.gbb1197296e-goog
