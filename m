@@ -1,29 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tls: make tls_sw_free_resources static
-Date: Thu, 14 Sep 2017 09:56:14 -0700 (PDT)
-Message-ID: <20170914.095614.2295942497121793957.davem@davemloft.net>
-References: <20170914112225.4296-1-tklauser@distanz.ch>
+Subject: Re: [PATCH] tg3: clean up redundant initialization of tnapi
+Date: Thu, 14 Sep 2017 10:00:41 -0700 (PDT)
+Message-ID: <20170914.100041.1507992015904111255.davem@davemloft.net>
+References: <20170914160125.11007-1-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ilyal@mellanox.com, aviadye@mellanox.com, davejwatson@fb.com,
-        netdev@vger.kernel.org
-To: tklauser@distanz.ch
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:52078 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751255AbdINQ4R (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 14 Sep 2017 12:56:17 -0400
-In-Reply-To: <20170914112225.4296-1-tklauser@distanz.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: siva.kallam@broadcom.com, prashant@broadcom.com,
+        mchan@broadcom.com, netdev@vger.kernel.org,
+        kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: colin.king@canonical.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170914160125.11007-1-colin.king@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Tobias Klauser <tklauser@distanz.ch>
-Date: Thu, 14 Sep 2017 13:22:25 +0200
+From: Colin King <colin.king@canonical.com>
+Date: Thu, 14 Sep 2017 17:01:25 +0100
 
-> Make the needlessly global function tls_sw_free_resources static to fix
-> a gcc/sparse warning.
+> From: Colin Ian King <colin.king@canonical.com>
 > 
-> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+> tnapi is being initialized and then immediately updated and
+> hence the initialiation is redundant.  Clean up the warning
+> by moving the declaration and initialization to the inside
+> of the for-loop.
+> 
+> Cleans up clang scan-build warning:
+> warning: Value stored to 'tnapi' during its initialization is never read
+> 
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
 Applied.
