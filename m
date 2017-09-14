@@ -1,164 +1,55 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] tcp: update skb->skb_mstamp more carefully
-Date: Wed, 13 Sep 2017 20:30:39 -0700
-Message-ID: <1505359839.15310.209.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1505111262-12620-1-git-send-email-liujian56@huawei.com>
-         <1505141357.15310.115.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1505142785.15310.117.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1505143348.15310.118.camel@edumazet-glaptop3.roam.corp.google.com>
-         <e7e09201-40c2-933a-1e8e-a31eddcc75ab@huawei.com>
-         <1505228700.15310.138.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1505230686.15310.141.camel@edumazet-glaptop3.roam.corp.google.com>
-         <b72fefba-e701-2ec8-0e7b-3bba6ed25205@huawei.com>
-         <3c750ac3-8739-89ed-ce41-d4cde755171e@huawei.com>
-         <1505313647.15310.165.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH RFC v1 0/3] Support for tap user-space access with veth
+ interfaces
+Date: Thu, 14 Sep 2017 12:12:50 +0800
+Message-ID: <64127ea9-7021-6af9-ff00-0f1e57d8c39b@redhat.com>
+References: <1504744467-79590-1-git-send-email-sainath.grandhi@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: edumazet@google.com, ycheng@google.com, hkchu@google.com,
-        netdev@vger.kernel.org, weiyongjun1@huawei.com,
-        wangkefeng 00227729 <wangkefeng.wang@huawei.com>
-To: liujian <liujian56@huawei.com>, David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: davem@davemloft.net
+To: sainath.grandhi@intel.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:36046 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751311AbdINDam (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 13 Sep 2017 23:30:42 -0400
-Received: by mail-pg0-f65.google.com with SMTP id d8so1044165pgt.3
-        for <netdev@vger.kernel.org>; Wed, 13 Sep 2017 20:30:41 -0700 (PDT)
-In-Reply-To: <1505313647.15310.165.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mx1.redhat.com ([209.132.183.28]:43884 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750750AbdINEMz (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 14 Sep 2017 00:12:55 -0400
+In-Reply-To: <1504744467-79590-1-git-send-email-sainath.grandhi@intel.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@googl.com>
 
-liujian reported a problem in TCP_USER_TIMEOUT processing with a patch
-in tcp_probe_timer() :
-      https://www.spinics.net/lists/netdev/msg454496.html
 
-After investigations, the root cause of the problem is that we update
-skb->skb_mstamp of skbs in write queue, even if the attempt to send a
-clone or copy of it failed. One reason being a routing problem.
+On 2017年09月07日 08:34, sainath.grandhi@intel.com wrote:
+> From: Sainath Grandhi <sainath.grandhi@intel.com>
+>
+> This patchset adds a tap device driver for veth virtual network interface.
+> With this implementation, tap character interface can be added only to the
+> peer veth interface. Adding tap interface to veth is for usecases that forwards
+> packets between host and VMs. This eliminates the need for an additional
+> software bridge. This can be extended to create both the peer interfaces as
+> tap interfaces. These patches are a step in that direction.
+>
+> Sainath Grandhi (3):
+>    net: Adding API to parse IFLA_LINKINFO attribute
+>    net: Abstracting out common routines from veth for use by vethtap
+>    vethtap: veth based tap driver
+>
+>   drivers/net/Kconfig                 |   1 +
+>   drivers/net/Makefile                |   2 +
+>   drivers/net/{veth.c => veth_main.c} |  80 ++++++++++---
+>   drivers/net/vethtap.c               | 216 ++++++++++++++++++++++++++++++++++++
+>   include/linux/if_veth.h             |  13 +++
+>   include/net/rtnetlink.h             |   3 +
+>   net/core/rtnetlink.c                |   8 ++
+>   7 files changed, 308 insertions(+), 15 deletions(-)
+>   rename drivers/net/{veth.c => veth_main.c} (89%)
+>   create mode 100644 drivers/net/vethtap.c
+>   create mode 100644 include/linux/if_veth.h
+>
 
-This patch prevents this, solving liujian issue.
+Interesting, plan to add vhost support for this? And we can enable 
+zerocopy without any worries I think.
 
-It also removes a potential RTT miscalculation, since
-__tcp_retransmit_skb() is not OR-ing TCP_SKB_CB(skb)->sacked with
-TCPCB_EVER_RETRANS if a failure happens, but skb->skb_mstamp has
-been changed.
-
-A future ACK would then lead to a very small RTT sample and min_rtt
-would then be lowered to this too small value.
-
-Tested:
-
-# cat user_timeout.pkt
---local_ip=192.168.102.64
-
-    0 socket(..., SOCK_STREAM, IPPROTO_TCP) = 3
-   +0 setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
-   +0 bind(3, ..., ...) = 0
-   +0 listen(3, 1) = 0
-
-   +0 `ifconfig tun0 192.168.102.64/16; ip ro add 192.0.2.1 dev tun0`
-
-   +0 < S 0:0(0) win 0 <mss 1460>
-   +0 > S. 0:0(0) ack 1 <mss 1460>
-
-  +.1 < . 1:1(0) ack 1 win 65530
-   +0 accept(3, ..., ...) = 4
-
-   +0 setsockopt(4, SOL_TCP, TCP_USER_TIMEOUT, [3000], 4) = 0
-   +0 write(4, ..., 24) = 24
-   +0 > P. 1:25(24) ack 1 win 29200
-   +.1 < . 1:1(0) ack 25 win 65530
-
-//change the ipaddress
-   +1 `ifconfig tun0 192.168.0.10/16`
-
-   +1 write(4, ..., 24) = 24
-   +1 write(4, ..., 24) = 24
-   +1 write(4, ..., 24) = 24
-   +1 write(4, ..., 24) = 24
-
-   +0 `ifconfig tun0 192.168.102.64/16`
-   +0 < . 1:2(1) ack 25 win 65530
-   +0 `ifconfig tun0 192.168.0.10/16`
-
-   +3 write(4, ..., 24) = -1
-
-# ./packetdrill user_timeout.pkt
-
-Signed-off-by: Eric Dumazet <edumazet@googl.com>
-Reported-by: liujian <liujian56@huawei.com>
----
- net/ipv4/tcp_output.c |   19 ++++++++++++-------
- 1 file changed, 12 insertions(+), 7 deletions(-)
-
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 5b6690d05abb98884adfa1693f97d896dd202893..a85a8c2948e54b931f8cd956aa7938f7efd355bd 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -991,6 +991,7 @@ static int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
- 	struct tcp_skb_cb *tcb;
- 	struct tcp_out_options opts;
- 	unsigned int tcp_options_size, tcp_header_size;
-+	struct sk_buff *oskb = NULL;
- 	struct tcp_md5sig_key *md5;
- 	struct tcphdr *th;
- 	int err;
-@@ -998,12 +999,12 @@ static int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
- 	BUG_ON(!skb || !tcp_skb_pcount(skb));
- 	tp = tcp_sk(sk);
- 
--	skb->skb_mstamp = tp->tcp_mstamp;
- 	if (clone_it) {
- 		TCP_SKB_CB(skb)->tx.in_flight = TCP_SKB_CB(skb)->end_seq
- 			- tp->snd_una;
- 		tcp_rate_skb_sent(sk, skb);
- 
-+		oskb = skb;
- 		if (unlikely(skb_cloned(skb)))
- 			skb = pskb_copy(skb, gfp_mask);
- 		else
-@@ -1011,6 +1012,7 @@ static int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
- 		if (unlikely(!skb))
- 			return -ENOBUFS;
- 	}
-+	skb->skb_mstamp = tp->tcp_mstamp;
- 
- 	inet = inet_sk(sk);
- 	tcb = TCP_SKB_CB(skb);
-@@ -1122,12 +1124,14 @@ static int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
- 
- 	err = icsk->icsk_af_ops->queue_xmit(sk, skb, &inet->cork.fl);
- 
--	if (likely(err <= 0))
--		return err;
--
--	tcp_enter_cwr(sk);
-+	if (unlikely(err > 0)) {
-+		tcp_enter_cwr(sk);
-+		err = net_xmit_eval(err);
-+	}
-+	if (!err && oskb)
-+		oskb->skb_mstamp = tp->tcp_mstamp;
- 
--	return net_xmit_eval(err);
-+	return err;
- }
- 
- /* This routine just queues the buffer for sending.
-@@ -2869,10 +2873,11 @@ int __tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb, int segs)
- 		     skb_headroom(skb) >= 0xFFFF)) {
- 		struct sk_buff *nskb;
- 
--		skb->skb_mstamp = tp->tcp_mstamp;
- 		nskb = __pskb_copy(skb, MAX_TCP_HEADER, GFP_ATOMIC);
- 		err = nskb ? tcp_transmit_skb(sk, nskb, 0, GFP_ATOMIC) :
- 			     -ENOBUFS;
-+		if (!err)
-+			skb->skb_mstamp = tp->tcp_mstamp;
- 	} else {
- 		err = tcp_transmit_skb(sk, skb, 1, GFP_ATOMIC);
- 	}
+Thanks
