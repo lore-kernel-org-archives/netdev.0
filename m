@@ -1,52 +1,86 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: RTL8192EE PCIe Wireless Network Adapter crashed with linux-4.13
-Date: Thu, 14 Sep 2017 13:05:03 -0500
-Message-ID: <e8e75755-f8b4-e122-ea4a-99a691405d38@lwfinger.net>
-References: <2WhCEttl4IJtrTB2AkJYmhbsu-kiR_5fU0A_Z7eWW05rbVE5tB86A_ZS8ek_FQFdgaZw1bfx0wFbxOa0Ydjv1T6BzBkIHtaWTbSptcpB_kg=@protonmail.com>
+From: Richard Guy Briggs <rgb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: RFC: Audit Kernel Container IDs
+Date: Thu, 14 Sep 2017 14:07:04 -0400
+Message-ID: <20170914180704.GU3405@madcap2.tricolour.ca>
+References: <20170913171328.GP3405@madcap2.tricolour.ca>
+ <87d16tb2y5.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "chaoming_li@realsil.com.cn" <chaoming_li@realsil.com.cn>,
-        "kvalo@codeaurora.org" <kvalo@codeaurora.org>,
-        "pkshih@realtek.com" <pkshih@realtek.com>,
-        "johannes.berg@intel.com" <johannes.berg@intel.com>,
-        "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Zwindl <zwindl@protonmail.com>,
-        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <2WhCEttl4IJtrTB2AkJYmhbsu-kiR_5fU0A_Z7eWW05rbVE5tB86A_ZS8ek_FQFdgaZw1bfx0wFbxOa0Ydjv1T6BzBkIHtaWTbSptcpB_kg=@protonmail.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Linux Containers <containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+        Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Linux Audit <linux-audit-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        Linux FS Devel <linux-fsdevel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Linux Kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Linux Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Aristeu Rozanski <arozansk-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        David Howells <dhowells-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        Eric Paris <eparis-FjpueFixGhCM4zKIHC2jIg@public.gmane.org>, jlayton-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+        Andy Lutomirski <luto-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, mszeredi-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+        Paul Moore <pmoore-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        "Serge E. Hallyn" <serge-A9i7LUbDfNHQT0dZR+AlfA@public.gmane.org>,
+        Steve Grubb <sgrubb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, trondmy-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org,
+        Al Viro <viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org>
+To: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <87d16tb2y5.fsf-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 09/14/2017 08:30 AM, Zwindl wrote:
-> Dear developers:
-> I'm using Arch Linux with testing enabled, the current kernel version and 
-> details are
-> `Linux zwindl 4.13.2-1-ARCH #1 SMP PREEMPT Thu Sep 14 02:57:34 UTC 2017 x86_64 
-> GNU/Linux`.
-> The wireless card can't work properly from the kernel 4.13. Here's the log(in 
-> attachment) when NetworkManager trying to connect my wifi which is named as 
-> 'TP', my mac addr hided as xx:xx:xx:xx:xx.
-> What should I provide to help to debug?
-> ZWindL.
+On 2017-09-14 12:33, Eric W. Biederman wrote:
+> Richard Guy Briggs <rgb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> writes:
+> 
+> > The trigger is a pseudo filesystem (proc, since PID tree already exists)
+> > write of a u64 representing the container ID to a file representing a
+> > process that will become the first process in a new container.
+> > This might place restrictions on mount namespaces required to define a
+> > container, or at least careful checking of namespaces in the kernel to
+> > verify permissions of the orchestrator so it can't change its own
+> > container ID.
+> 
+> Why a u64?
 
-The BUG-ON arises in __intel_map_single() due to dir (for direction of DMA) 
-equal to DMA_NONE (3). When rtl8192ee calls pci_map_single(), it uses 
-PCI_DMA_TODEVICE (1). I followed the calling sequence through the entire chain, 
-and none of the routines made any changes to 'dir', other that changing the type 
-from int to enum dma_data_direction. That would not have changed a 1 to a 3.
+u32 will roll too quickly.  UUID is large enough that it adds
+significantly to audit record bandwidth.  I'd prefer u64, but can look
+at the difference of accommodating a UUID...
 
-I built a 4.13.2 system. The problem does not happen here. At this point, the 
-system has been up for about two hours. I did discover a small memory leak 
-associated with firmware loading, but that should not have caused the problem. 
-Nonetheless, I will be sending a patch to fix that problem.
+> Why a proc filesystem write and not a magic audit message?
 
-I will continue testing, although I doubt that the problem will happen here.
+A magic audit message requires CAP_AUDIT_WRITE, which we'd like to use
+sparingly.  Given that orchestrators will already require it to send
+the mandatory AUDIT_VIRT_*, this doesn't seem like an unreasonable burden.
 
-How long had your system been up when the problem occurred? Your dmesg fragment 
-did not show any times. What kernels have you tried besides 4.13.2?
+I was originally leaning towards an audit message trigger or a syscall.
 
-Larry
+> I don't like the fact that the proc filesystem entry is likely going to
+> be readable and abusable by non-audit contexts?
+
+This proposal wasn't going to start with that link being readable, but
+its filesystem structure and link names would be, perhaps giving away
+too much already.
+
+I think we will need to find a way for the orchestrator or one of its
+authorized agents to read this information while blocking reads from
+unauthorized agents, otherwise this would be of very limited use.
+
+> Why the ability to change the containerid?  What is the use case you are
+> thinking of there?
+
+This was covered in the end of the conversation with Paul Moore (that
+maybe you got tired reading?)  I'd originally proposed having it write
+once, but Paul figured there was no good reason to restrict it and leave
+that decision up to the orchestrator.  The use case would be adding
+other processes to a container, but it could be argued all additional
+processes should be spawned by the first process in a container.
+
+> Eric
+
+- RGB
+
+--
+Richard Guy Briggs <rgb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Sr. S/W Engineer, Kernel Security, Base Operating Systems
+Remote, Ottawa, Red Hat Canada
+IRC: rgb, SunRaycer
+Voice: +1.647.777.2635, Internal: (81) 32635
