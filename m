@@ -1,34 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] netvsc: increase default receive buffer size
-Date: Thu, 14 Sep 2017 10:02:03 -0700 (PDT)
-Message-ID: <20170914.100203.1656028222884493229.davem@davemloft.net>
-References: <20170914163107.8404-1-sthemmin@microsoft.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: RFC: Audit Kernel Container IDs
+Date: Thu, 14 Sep 2017 12:33:06 -0500
+Message-ID: <87d16tb2y5.fsf@xmission.com>
+References: <20170913171328.GP3405@madcap2.tricolour.ca>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kys@microsoft.com, haiyangz@microsoft.com, netdev@vger.kernel.org,
-        devel@linuxdriverproject.org, sthemmin@microsoft.com
-To: stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:52250 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751419AbdINRCE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 14 Sep 2017 13:02:04 -0400
-In-Reply-To: <20170914163107.8404-1-sthemmin@microsoft.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: cgroups@vger.kernel.org,
+        Linux Containers <containers@lists.linux-foundation.org>,
+        Linux API <linux-api@vger.kernel.org>,
+        Linux Audit <linux-audit@redhat.com>,
+        Linux FS Devel <linux-fsdevel@vger.kernel.org>,
+        Linux Kernel <linux-kernel@vger.kernel.org>,
+        Linux Network Development <netdev@vger.kernel.org>,
+        Aristeu Rozanski <arozansk@redhat.com>,
+        David Howells <dhowells@redhat.com>,
+        Eric Paris <eparis@parisplace.org>, jlayton@redhat.com,
+        Andy Lutomirski <luto@kernel.org>, mszeredi@redhat.com,
+        Paul Moore <pmoore@redhat.com>,
+        "Serge E. Hallyn" <serge@hallyn.com>,
+        Steve Grubb <sgrubb@redhat.com>, trondmy@primarydata.com,
+        Al Viro <viro@zeniv.linux.org.uk>
+To: Richard Guy Briggs <rgb@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170913171328.GP3405@madcap2.tricolour.ca> (Richard Guy
+        Briggs's message of "Wed, 13 Sep 2017 13:13:28 -0400")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Thu, 14 Sep 2017 09:31:07 -0700
+Richard Guy Briggs <rgb@redhat.com> writes:
 
-> The default receive buffer size was reduced by recent change
-> to a value which was appropriate for 10G and Windows Server 2016.
-> But the value is too small for full performance with 40G on Azure.
-> Increase the default back to maximum supported by host.
-> 
-> Fixes: 8b5327975ae1 ("netvsc: allow controlling send/recv buffer size")
-> Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+> The trigger is a pseudo filesystem (proc, since PID tree already exists)
+> write of a u64 representing the container ID to a file representing a
+> process that will become the first process in a new container.
+> This might place restrictions on mount namespaces required to define a
+> container, or at least careful checking of namespaces in the kernel to
+> verify permissions of the orchestrator so it can't change its own
+> container ID.
 
-What other side effects are there to making this buffer so large?
+Why a u64?
 
-Just curious...
+Why a proc filesystem write and not a magic audit message?
+I don't like the fact that the proc filesystem entry is likely going to
+be readable and abusable by non-audit contexts?
+
+Why the ability to change the containerid?  What is the use case you are
+thinking of there?
+
+Eric
