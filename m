@@ -1,53 +1,53 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net] netvsc: increase default receive buffer size
-Date: Thu, 14 Sep 2017 10:49:05 -0700
-Message-ID: <20170914104905.0145e489@plumbers-lap.home.lan>
-References: <20170914163107.8404-1-sthemmin@microsoft.com>
- <20170914.100203.1656028222884493229.davem@davemloft.net>
+From: Edward Cree <ecree@solarflare.com>
+Subject: Bug with BPF_ALU64 | BPF_END?
+Date: Thu, 14 Sep 2017 18:53:17 +0100
+Message-ID: <52c7df55-84d9-f6d2-ed84-51ac90eb6bcc@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, haiyangz@microsoft.com, sthemmin@microsoft.com,
- devel@linuxdriverproject.org
-To: David Miller <davem@davemloft.net>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <20170914.100203.1656028222884493229.davem@davemloft.net>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
+To: Daniel Borkmann <daniel@iogearbox.net>,
+        Alexei Starovoitov <ast@fb.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dispatch1-us1.ppe-hosted.com ([67.231.154.164]:41494 "EHLO
+        dispatch1-us1.ppe-hosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751352AbdINRxb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 14 Sep 2017 13:53:31 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 14 Sep 2017 10:02:03 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
+Is BPF_END supposed to only be used with BPF_ALU, never with BPF_ALU64?
+In kernel/bpf/core.c:___bpf_prog_run(), there are only jump table targets
+ for the BPF_ALU case, not for the BPF_ALU64 case (opcodes 0xd7 and 0xdf).
+But the verifier doesn't enforce this; by crafting a program that uses
+ these opcodes I can get a WARN when they're run (without JIT; it looks
+ like the x86 JIT, at least, won't like it either).
+Proposed patch below the cut; build-tested only.
 
-> From: Stephen Hemminger <stephen@networkplumber.org>
-> Date: Thu, 14 Sep 2017 09:31:07 -0700
-> 
-> > The default receive buffer size was reduced by recent change
-> > to a value which was appropriate for 10G and Windows Server 2016.
-> > But the value is too small for full performance with 40G on Azure.
-> > Increase the default back to maximum supported by host.
-> > 
-> > Fixes: 8b5327975ae1 ("netvsc: allow controlling send/recv buffer size")
-> > Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>  
-> 
-> What other side effects are there to making this buffer so large?
-> 
-> Just curious...
+-Ed
+---
 
-It increase latency and exercises bufferbloat avoidance on TCP.
-The problem was the smaller buffer caused regressions in UDP
-benchmarks on 40G Azure. One could argue that this is not a reasonable
-benchmark but people run it. Apparently, Windows already went
-the same thing and uses an even bigger buffer.
+[PATCH net] bpf/verifier: reject BPF_ALU64|BPF_END
 
-Longer term there will be more internal discussion with different
-teams about what the receive latency and buffering needs to be.
-Also, the issue goes away when doing accelerated networking (SR-IOV)
-is more widely used.
+Neither ___bpf_prog_run nor the JITs accept it.
+
+Fixes: 17a5267067f3 ("bpf: verifier (add verifier core)")
+Signed-off-by: Edward Cree <ecree@solarflare.com>
+---
+ kernel/bpf/verifier.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index 477b693..799b245 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -2292,7 +2292,8 @@ static int check_alu_op(struct bpf_verifier_env *env, struct bpf_insn *insn)
+ 			}
+ 		} else {
+ 			if (insn->src_reg != BPF_REG_0 || insn->off != 0 ||
+-			    (insn->imm != 16 && insn->imm != 32 && insn->imm != 64)) {
++			    (insn->imm != 16 && insn->imm != 32 && insn->imm != 64) ||
++			    BPF_CLASS(insn->code) == BPF_ALU64) {
+ 				verbose("BPF_END uses reserved fields\n");
+ 				return -EINVAL;
+ 			}
