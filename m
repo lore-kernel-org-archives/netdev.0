@@ -1,31 +1,52 @@
-From: Pierre Colombier <pierre@abeille.com>
-Subject: Re: feature request for kernel module 8021q
-Date: Fri, 15 Sep 2017 15:02:04 +0200
-Message-ID: <80283eea-3f4a-1548-9d62-1387c5f08712@abeille.com>
-References: <c010d65d-3050-8d88-22aa-cac092dd3904@abeille.com>
- <A4D84B7F-5D4A-44C8-875C-C113D7C5C688@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net] mlxsw: spectrum_router: Only handle IPv4 and IPv6 events
+Date: Fri, 15 Sep 2017 15:31:07 +0200
+Message-ID: <20170915133107.1258-1-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, flokli@flokli.de,
+        andreas@rammhold.de, mlxsw@mellanox.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail3.abeille.com ([212.129.23.178]:35801 "EHLO
-        mail3.abeille.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751184AbdIONCG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 15 Sep 2017 09:02:06 -0400
-In-Reply-To: <A4D84B7F-5D4A-44C8-875C-C113D7C5C688@gmail.com>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:37142 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751352AbdIONbL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 15 Sep 2017 09:31:11 -0400
+Received: by mail-wm0-f65.google.com with SMTP id f4so2797079wmh.4
+        for <netdev@vger.kernel.org>; Fri, 15 Sep 2017 06:31:10 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Ido Schimmel <idosch@mellanox.com>
 
->> One interesting feature would be to have a special vlan number
->>
->> (let's say 0 or -1 or 4097 ) designed so that it gets all the untagged
->> trafic and only the untagged trafic.
-> 4097 is not a valid number nor is -1 since that closely follows what the VLAN ID extracted from the tag would be. VLAN 0 is more or less the untagged VLAN.
-I know -1 or 4097 are invalid numbers
-This is precicely why i suggested them as "special"
-I wasn't aware of the existing Vlan 0 feature
-I just tried again and it seems to be exactly what I was requesting.
+The driver doesn't support events from address families other than IPv4
+and IPv6, so ignore them. Otherwise, we risk queueing a work item before
+it's initialized.
 
-What do you mean by "more or less" ?
+This can happen in case a VRF is configured when MROUTE_MULTIPLE_TABLES
+is enabled, as the VRF driver will try to add an l3mdev rule for the
+IPMR family.
+
+Fixes: 65e65ec137f4 ("mlxsw: spectrum_router: Don't ignore IPv6 notifications")
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Reported-by: Andreas Rammhold <andreas@rammhold.de>
+Reported-by: Florian Klink <flokli@flokli.de>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+index f0fb898..2cfb3f5 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+@@ -4868,7 +4868,8 @@ static int mlxsw_sp_router_fib_event(struct notifier_block *nb,
+ 	struct fib_notifier_info *info = ptr;
+ 	struct mlxsw_sp_router *router;
+ 
+-	if (!net_eq(info->net, &init_net))
++	if (!net_eq(info->net, &init_net) ||
++	    (info->family != AF_INET && info->family != AF_INET6))
+ 		return NOTIFY_DONE;
+ 
+ 	fib_work = kzalloc(sizeof(*fib_work), GFP_ATOMIC);
+-- 
+2.9.3
