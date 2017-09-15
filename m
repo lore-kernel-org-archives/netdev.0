@@ -1,98 +1,90 @@
 From: Srishti Sharma <srishtishar@gmail.com>
-Subject: [PATCH 1/2] Staging: irda: Don't use assignment inside if statement
-Date: Sat, 16 Sep 2017 02:35:47 +0530
-Message-ID: <8e370fcae8a6b2dd476f089ddfe2945ffb1f7490.1505508423.git.srishtishar@gmail.com>
+Subject: [PATCH 2/2] Staging: irda: Remove parentheses on the right of
+ assignment
+Date: Sat, 16 Sep 2017 02:36:16 +0530
+Message-ID: <9380189edb2722544981c868699ade29ab5c297d.1505508423.git.srishtishar@gmail.com>
 References: <cover.1505508423.git.srishtishar@gmail.com>
-Cc: gregkh@linuxfoundation.org, netdev@vger.kernel.org,
-        devel@driverdev.osuosl.org, linux-kernel@vger.kernel.org,
-        outreachy-kernel@googlegroups.com,
-        Srishti Sharma <srishtishar@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devel@driverdev.osuosl.org, gregkh@linuxfoundation.org,
+ linux-kernel@vger.kernel.org, outreachy-kernel@googlegroups.com,
+ Srishti Sharma <srishtishar@gmail.com>, netdev@vger.kernel.org
 To: samuel@sortiz.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
 In-Reply-To: <cover.1505508423.git.srishtishar@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-Write assignment statement outside of the if statement. Done
-using the following semantic patch by coccinelle.
+Parentheses are not needed on the right hand side of assignment
+statement in most cases. Done using the following semantic
+patch by coccinelle.
 
 @@
-identifier E;
-expression F;
-statement S;
+identifier E,F,G,f;
+expression e,r;
 @@
 
--if((E = F))
-+E = F;
-+if(E)
-    S
+(
+E = (G == F);
+|
+E = (e == r);
+|
+E =
+-(
+...
+-)
+;
+)
 
 Signed-off-by: Srishti Sharma <srishtishar@gmail.com>
 ---
- drivers/staging/irda/drivers/irda-usb.c | 4 ++--
- drivers/staging/irda/drivers/mcs7780.c  | 9 ++++++---
- drivers/staging/irda/net/irqueue.c      | 3 ++-
- 3 files changed, 10 insertions(+), 6 deletions(-)
+ drivers/staging/irda/drivers/mcs7780.c | 4 ++--
+ drivers/staging/irda/net/irqueue.c     | 2 +-
+ 2 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/staging/irda/drivers/irda-usb.c b/drivers/staging/irda/drivers/irda-usb.c
-index 723e49b..82bfc05 100644
---- a/drivers/staging/irda/drivers/irda-usb.c
-+++ b/drivers/staging/irda/drivers/irda-usb.c
-@@ -334,9 +334,9 @@ static void irda_usb_change_speed_xbofs(struct irda_usb_cb *self)
- 	urb->transfer_flags = 0;
- 
- 	/* Irq disabled -> GFP_ATOMIC */
--	if ((ret = usb_submit_urb(urb, GFP_ATOMIC))) {
-+	ret = usb_submit_urb(urb, GFP_ATOMIC);
-+	if (ret)
- 		net_warn_ratelimited("%s(), failed Speed URB\n", __func__);
--	}
- }
- 
- /*------------------------------------------------------------------*/
 diff --git a/drivers/staging/irda/drivers/mcs7780.c b/drivers/staging/irda/drivers/mcs7780.c
-index c3f0b25..2b674d5 100644
+index 2b674d5..d52e9f4 100644
 --- a/drivers/staging/irda/drivers/mcs7780.c
 +++ b/drivers/staging/irda/drivers/mcs7780.c
-@@ -605,19 +605,22 @@ static int mcs_speed_change(struct mcs_cb *mcs)
+@@ -605,7 +605,7 @@ static int mcs_speed_change(struct mcs_cb *mcs)
  	if (mcs->new_speed <= 115200) {
  		rval &= ~MCS_FIR;
  
--		if ((rst = (mcs->speed > 115200)))
-+		rst = (mcs->speed > 115200);
-+		if (rst)
+-		rst = (mcs->speed > 115200);
++		rst = mcs->speed > 115200;
+ 		if (rst)
  			mcs_set_reg(mcs, MCS_MINRXPW_REG, 0);
  
- 	} else if (mcs->new_speed <= 1152000) {
- 		rval &= ~MCS_FIR;
- 
--		if ((rst = !(mcs->speed == 576000 || mcs->speed == 1152000)))
-+		rst = !(mcs->speed == 576000 || mcs->speed == 1152000);
-+		if (rst)
- 			mcs_set_reg(mcs, MCS_MINRXPW_REG, 5);
- 
+@@ -619,7 +619,7 @@ static int mcs_speed_change(struct mcs_cb *mcs)
  	} else {
  		rval |= MCS_FIR;
  
--		if ((rst = (mcs->speed != 4000000)))
-+		rst = (mcs->speed != 4000000);
-+		if (rst)
+-		rst = (mcs->speed != 4000000);
++		rst = mcs->speed != 4000000;
+ 		if (rst)
  			mcs_set_reg(mcs, MCS_MINRXPW_REG, 5);
  
- 	}
 diff --git a/drivers/staging/irda/net/irqueue.c b/drivers/staging/irda/net/irqueue.c
-index 160dc89..5aab072 100644
+index 5aab072..14291cb 100644
 --- a/drivers/staging/irda/net/irqueue.c
 +++ b/drivers/staging/irda/net/irqueue.c
-@@ -217,7 +217,8 @@ static __u32 hash( const char* name)
+@@ -217,7 +217,7 @@ static __u32 hash( const char* name)
  
  	while(*name) {
  		h = (h<<4) + *name++;
--		if ((g = (h & 0xf0000000)))
-+		g = (h & 0xf0000000);
-+		if (g)
+-		g = (h & 0xf0000000);
++		g = h & 0xf0000000;
+ 		if (g)
  			h ^=g>>24;
  		h &=~g;
- 	}
 -- 
 2.7.4
