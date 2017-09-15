@@ -1,174 +1,212 @@
-From: Zhu Yanjun <yanjun.zhu@oracle.com>
-Subject: [PATCH 1/1] forcedeth: replace pci_map_single with dma_map_single functions
-Date: Thu, 14 Sep 2017 23:01:51 -0400
-Message-ID: <1505444511-27231-1-git-send-email-yanjun.zhu@oracle.com>
-To: jarod@redhat.com, netdev@vger.kernel.org
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCH net] sctp: fix an use-after-free issue in sctp_sock_dump
+Date: Fri, 15 Sep 2017 11:02:21 +0800
+Message-ID: <9de7bef8f4f8c0f369361118f6d2daee5d188467.1505444541.git.lucien.xin@gmail.com>
+Cc: davem@davemloft.net,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>, pabeni@redhat.com
+To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:41194 "EHLO
-        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751733AbdIOC7V (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 14 Sep 2017 22:59:21 -0400
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:36180 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751810AbdIODCa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 14 Sep 2017 23:02:30 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-pci_map_single functions are obsolete. So replace them with
-dma_map_single functions.
+Commit 86fdb3448cc1 ("sctp: ensure ep is not destroyed before doing the
+dump") tried to fix an use-after-free issue by checking !sctp_sk(sk)->ep
+with holding sock and sock lock.
 
-Signed-off-by: Zhu Yanjun <yanjun.zhu@oracle.com>
+But Paolo noticed that endpoint could be destroyed in sctp_rcv without
+sock lock protection. It means the use-after-free issue still could be
+triggered when sctp_rcv put and destroy ep after sctp_sock_dump checks
+!ep, although it's pretty hard to reproduce.
+
+I could reproduce it by mdelay in sctp_rcv while msleep in sctp_close
+and sctp_sock_dump long time.
+
+This patch is to add another param cb_done to sctp_for_each_transport
+and dump ep->assocs with holding tsp after jumping out of transport's
+traversal in it to avoid this issue.
+
+It can also improve sctp diag dump to make it run faster, as no need
+to save sk into cb->args[5] and keep calling sctp_for_each_transport
+any more.
+
+This patch is also to use int * instead of int for the pos argument
+in sctp_for_each_transport, which could make postion increment only
+in sctp_for_each_transport and no need to keep changing cb->args[2]
+in sctp_sock_filter and sctp_sock_dump any more.
+
+Fixes: 86fdb3448cc1 ("sctp: ensure ep is not destroyed before doing the dump")
+Reported-by: Paolo Abeni <pabeni@redhat.com>
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
 ---
- drivers/net/ethernet/nvidia/forcedeth.c | 70 +++++++++++++++++----------------
- 1 file changed, 36 insertions(+), 34 deletions(-)
+ include/net/sctp/sctp.h |  3 ++-
+ net/sctp/sctp_diag.c    | 32 +++++++++-----------------------
+ net/sctp/socket.c       | 40 +++++++++++++++++++++++++---------------
+ 3 files changed, 36 insertions(+), 39 deletions(-)
 
-diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
-index e6e0de4..0a7ba3a 100644
---- a/drivers/net/ethernet/nvidia/forcedeth.c
-+++ b/drivers/net/ethernet/nvidia/forcedeth.c
-@@ -1812,12 +1812,12 @@ static int nv_alloc_rx(struct net_device *dev)
- 		struct sk_buff *skb = netdev_alloc_skb(dev, np->rx_buf_sz + NV_RX_ALLOC_PAD);
- 		if (skb) {
- 			np->put_rx_ctx->skb = skb;
--			np->put_rx_ctx->dma = pci_map_single(np->pci_dev,
-+			np->put_rx_ctx->dma = dma_map_single(&np->pci_dev->dev,
- 							     skb->data,
- 							     skb_tailroom(skb),
--							     PCI_DMA_FROMDEVICE);
--			if (pci_dma_mapping_error(np->pci_dev,
--						  np->put_rx_ctx->dma)) {
-+							     DMA_FROM_DEVICE);
-+			if (dma_mapping_error(&np->pci_dev->dev,
-+					      np->put_rx_ctx->dma)) {
- 				kfree_skb(skb);
- 				goto packet_dropped;
- 			}
-@@ -1853,12 +1853,12 @@ static int nv_alloc_rx_optimized(struct net_device *dev)
- 		struct sk_buff *skb = netdev_alloc_skb(dev, np->rx_buf_sz + NV_RX_ALLOC_PAD);
- 		if (skb) {
- 			np->put_rx_ctx->skb = skb;
--			np->put_rx_ctx->dma = pci_map_single(np->pci_dev,
-+			np->put_rx_ctx->dma = dma_map_single(&np->pci_dev->dev,
- 							     skb->data,
- 							     skb_tailroom(skb),
--							     PCI_DMA_FROMDEVICE);
--			if (pci_dma_mapping_error(np->pci_dev,
--						  np->put_rx_ctx->dma)) {
-+							     DMA_FROM_DEVICE);
-+			if (dma_mapping_error(&np->pci_dev->dev,
-+					      np->put_rx_ctx->dma)) {
- 				kfree_skb(skb);
- 				goto packet_dropped;
- 			}
-@@ -1975,9 +1975,9 @@ static void nv_unmap_txskb(struct fe_priv *np, struct nv_skb_map *tx_skb)
+diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
+index 06b4f51..d7d8cba 100644
+--- a/include/net/sctp/sctp.h
++++ b/include/net/sctp/sctp.h
+@@ -127,7 +127,8 @@ int sctp_transport_lookup_process(int (*cb)(struct sctp_transport *, void *),
+ 				  const union sctp_addr *laddr,
+ 				  const union sctp_addr *paddr, void *p);
+ int sctp_for_each_transport(int (*cb)(struct sctp_transport *, void *),
+-			    struct net *net, int pos, void *p);
++			    int (*cb_done)(struct sctp_transport *, void *),
++			    struct net *net, int *pos, void *p);
+ int sctp_for_each_endpoint(int (*cb)(struct sctp_endpoint *, void *), void *p);
+ int sctp_get_sctp_info(struct sock *sk, struct sctp_association *asoc,
+ 		       struct sctp_info *info);
+diff --git a/net/sctp/sctp_diag.c b/net/sctp/sctp_diag.c
+index e99518e..7008a99 100644
+--- a/net/sctp/sctp_diag.c
++++ b/net/sctp/sctp_diag.c
+@@ -279,9 +279,11 @@ static int sctp_tsp_dump_one(struct sctp_transport *tsp, void *p)
+ 	return err;
+ }
+ 
+-static int sctp_sock_dump(struct sock *sk, void *p)
++static int sctp_sock_dump(struct sctp_transport *tsp, void *p)
  {
- 	if (tx_skb->dma) {
- 		if (tx_skb->dma_single)
--			pci_unmap_single(np->pci_dev, tx_skb->dma,
-+			dma_unmap_single(&np->pci_dev->dev, tx_skb->dma,
- 					 tx_skb->dma_len,
--					 PCI_DMA_TODEVICE);
-+					 DMA_TO_DEVICE);
- 		else
- 			pci_unmap_page(np->pci_dev, tx_skb->dma,
- 				       tx_skb->dma_len,
-@@ -2045,10 +2045,10 @@ static void nv_drain_rx(struct net_device *dev)
- 		}
- 		wmb();
- 		if (np->rx_skb[i].skb) {
--			pci_unmap_single(np->pci_dev, np->rx_skb[i].dma,
-+			dma_unmap_single(&np->pci_dev->dev, np->rx_skb[i].dma,
- 					 (skb_end_pointer(np->rx_skb[i].skb) -
--					  np->rx_skb[i].skb->data),
--					 PCI_DMA_FROMDEVICE);
-+					 np->rx_skb[i].skb->data),
-+					 DMA_FROM_DEVICE);
- 			dev_kfree_skb(np->rx_skb[i].skb);
- 			np->rx_skb[i].skb = NULL;
- 		}
-@@ -2221,10 +2221,11 @@ static netdev_tx_t nv_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 		prev_tx = put_tx;
- 		prev_tx_ctx = np->put_tx_ctx;
- 		bcnt = (size > NV_TX2_TSO_MAX_SIZE) ? NV_TX2_TSO_MAX_SIZE : size;
--		np->put_tx_ctx->dma = pci_map_single(np->pci_dev, skb->data + offset, bcnt,
--						PCI_DMA_TODEVICE);
--		if (pci_dma_mapping_error(np->pci_dev,
--					  np->put_tx_ctx->dma)) {
-+		np->put_tx_ctx->dma = dma_map_single(&np->pci_dev->dev,
-+						     skb->data + offset, bcnt,
-+						     DMA_TO_DEVICE);
-+		if (dma_mapping_error(&np->pci_dev->dev,
-+				      np->put_tx_ctx->dma)) {
- 			/* on DMA mapping error - drop the packet */
- 			dev_kfree_skb_any(skb);
- 			u64_stats_update_begin(&np->swstats_tx_syncp);
-@@ -2369,10 +2370,11 @@ static netdev_tx_t nv_start_xmit_optimized(struct sk_buff *skb,
- 		prev_tx = put_tx;
- 		prev_tx_ctx = np->put_tx_ctx;
- 		bcnt = (size > NV_TX2_TSO_MAX_SIZE) ? NV_TX2_TSO_MAX_SIZE : size;
--		np->put_tx_ctx->dma = pci_map_single(np->pci_dev, skb->data + offset, bcnt,
--						PCI_DMA_TODEVICE);
--		if (pci_dma_mapping_error(np->pci_dev,
--					  np->put_tx_ctx->dma)) {
-+		np->put_tx_ctx->dma = dma_map_single(&np->pci_dev->dev,
-+						     skb->data + offset, bcnt,
-+						     DMA_TO_DEVICE);
-+		if (dma_mapping_error(&np->pci_dev->dev,
-+				      np->put_tx_ctx->dma)) {
- 			/* on DMA mapping error - drop the packet */
- 			dev_kfree_skb_any(skb);
- 			u64_stats_update_begin(&np->swstats_tx_syncp);
-@@ -2805,9 +2807,9 @@ static int nv_rx_process(struct net_device *dev, int limit)
- 		 * TODO: check if a prefetch of the first cacheline improves
- 		 * the performance.
- 		 */
--		pci_unmap_single(np->pci_dev, np->get_rx_ctx->dma,
--				np->get_rx_ctx->dma_len,
--				PCI_DMA_FROMDEVICE);
-+		dma_unmap_single(&np->pci_dev->dev, np->get_rx_ctx->dma,
-+				 np->get_rx_ctx->dma_len,
-+				 DMA_FROM_DEVICE);
- 		skb = np->get_rx_ctx->skb;
- 		np->get_rx_ctx->skb = NULL;
++	struct sctp_endpoint *ep = tsp->asoc->ep;
+ 	struct sctp_comm_param *commp = p;
++	struct sock *sk = ep->base.sk;
+ 	struct sk_buff *skb = commp->skb;
+ 	struct netlink_callback *cb = commp->cb;
+ 	const struct inet_diag_req_v2 *r = commp->r;
+@@ -289,9 +291,7 @@ static int sctp_sock_dump(struct sock *sk, void *p)
+ 	int err = 0;
  
-@@ -2911,9 +2913,9 @@ static int nv_rx_process_optimized(struct net_device *dev, int limit)
- 		 * TODO: check if a prefetch of the first cacheline improves
- 		 * the performance.
- 		 */
--		pci_unmap_single(np->pci_dev, np->get_rx_ctx->dma,
--				np->get_rx_ctx->dma_len,
--				PCI_DMA_FROMDEVICE);
-+		dma_unmap_single(&np->pci_dev->dev, np->get_rx_ctx->dma,
-+				 np->get_rx_ctx->dma_len,
-+				 DMA_FROM_DEVICE);
- 		skb = np->get_rx_ctx->skb;
- 		np->get_rx_ctx->skb = NULL;
+ 	lock_sock(sk);
+-	if (!sctp_sk(sk)->ep)
+-		goto release;
+-	list_for_each_entry(assoc, &sctp_sk(sk)->ep->asocs, asocs) {
++	list_for_each_entry(assoc, &ep->asocs, asocs) {
+ 		if (cb->args[4] < cb->args[1])
+ 			goto next;
  
-@@ -5065,11 +5067,11 @@ static int nv_loopback_test(struct net_device *dev)
- 		ret = 0;
- 		goto out;
+@@ -327,40 +327,30 @@ static int sctp_sock_dump(struct sock *sk, void *p)
+ 		cb->args[4]++;
  	}
--	test_dma_addr = pci_map_single(np->pci_dev, tx_skb->data,
-+	test_dma_addr = dma_map_single(&np->pci_dev->dev, tx_skb->data,
- 				       skb_tailroom(tx_skb),
--				       PCI_DMA_FROMDEVICE);
--	if (pci_dma_mapping_error(np->pci_dev,
--				  test_dma_addr)) {
-+				       DMA_FROM_DEVICE);
-+	if (dma_mapping_error(&np->pci_dev->dev,
-+			      test_dma_addr)) {
- 		dev_kfree_skb_any(tx_skb);
- 		goto out;
- 	}
-@@ -5124,9 +5126,9 @@ static int nv_loopback_test(struct net_device *dev)
- 		}
- 	}
+ 	cb->args[1] = 0;
+-	cb->args[2]++;
+ 	cb->args[3] = 0;
+ 	cb->args[4] = 0;
+ release:
+ 	release_sock(sk);
+-	sock_put(sk);
+ 	return err;
+ }
  
--	pci_unmap_single(np->pci_dev, test_dma_addr,
--		       (skb_end_pointer(tx_skb) - tx_skb->data),
--		       PCI_DMA_TODEVICE);
-+	dma_unmap_single(&np->pci_dev->dev, test_dma_addr,
-+			 (skb_end_pointer(tx_skb) - tx_skb->data),
-+			 DMA_TO_DEVICE);
- 	dev_kfree_skb_any(tx_skb);
-  out:
- 	/* stop engines */
+-static int sctp_get_sock(struct sctp_transport *tsp, void *p)
++static int sctp_sock_filter(struct sctp_transport *tsp, void *p)
+ {
+ 	struct sctp_endpoint *ep = tsp->asoc->ep;
+ 	struct sctp_comm_param *commp = p;
+ 	struct sock *sk = ep->base.sk;
+-	struct netlink_callback *cb = commp->cb;
+ 	const struct inet_diag_req_v2 *r = commp->r;
+ 	struct sctp_association *assoc =
+ 		list_entry(ep->asocs.next, struct sctp_association, asocs);
+ 
+ 	/* find the ep only once through the transports by this condition */
+ 	if (tsp->asoc != assoc)
+-		goto out;
++		return 0;
+ 
+ 	if (r->sdiag_family != AF_UNSPEC && sk->sk_family != r->sdiag_family)
+-		goto out;
+-
+-	sock_hold(sk);
+-	cb->args[5] = (long)sk;
++		return 0;
+ 
+ 	return 1;
+-
+-out:
+-	cb->args[2]++;
+-	return 0;
+ }
+ 
+ static int sctp_ep_dump(struct sctp_endpoint *ep, void *p)
+@@ -503,12 +493,8 @@ static void sctp_diag_dump(struct sk_buff *skb, struct netlink_callback *cb,
+ 	if (!(idiag_states & ~(TCPF_LISTEN | TCPF_CLOSE)))
+ 		goto done;
+ 
+-next:
+-	cb->args[5] = 0;
+-	sctp_for_each_transport(sctp_get_sock, net, cb->args[2], &commp);
+-
+-	if (cb->args[5] && !sctp_sock_dump((struct sock *)cb->args[5], &commp))
+-		goto next;
++	sctp_for_each_transport(sctp_sock_filter, sctp_sock_dump,
++				net, (int *)&cb->args[2], &commp);
+ 
+ done:
+ 	cb->args[1] = cb->args[4];
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index 1b00a1e..d4730ad 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -4658,29 +4658,39 @@ int sctp_transport_lookup_process(int (*cb)(struct sctp_transport *, void *),
+ EXPORT_SYMBOL_GPL(sctp_transport_lookup_process);
+ 
+ int sctp_for_each_transport(int (*cb)(struct sctp_transport *, void *),
+-			    struct net *net, int pos, void *p) {
++			    int (*cb_done)(struct sctp_transport *, void *),
++			    struct net *net, int *pos, void *p) {
+ 	struct rhashtable_iter hti;
+-	void *obj;
+-	int err;
+-
+-	err = sctp_transport_walk_start(&hti);
+-	if (err)
+-		return err;
++	struct sctp_transport *tsp;
++	int ret;
+ 
+-	obj = sctp_transport_get_idx(net, &hti, pos + 1);
+-	for (; !IS_ERR_OR_NULL(obj); obj = sctp_transport_get_next(net, &hti)) {
+-		struct sctp_transport *transport = obj;
++again:
++	ret = sctp_transport_walk_start(&hti);
++	if (ret)
++		return ret;
+ 
+-		if (!sctp_transport_hold(transport))
++	tsp = sctp_transport_get_idx(net, &hti, *pos + 1);
++	for (; !IS_ERR_OR_NULL(tsp); tsp = sctp_transport_get_next(net, &hti)) {
++		if (!sctp_transport_hold(tsp))
+ 			continue;
+-		err = cb(transport, p);
+-		sctp_transport_put(transport);
+-		if (err)
++		ret = cb(tsp, p);
++		if (ret)
+ 			break;
++		(*pos)++;
++		sctp_transport_put(tsp);
+ 	}
+ 	sctp_transport_walk_stop(&hti);
+ 
+-	return err;
++	if (ret) {
++		if (cb_done && !cb_done(tsp, p)) {
++			(*pos)++;
++			sctp_transport_put(tsp);
++			goto again;
++		}
++		sctp_transport_put(tsp);
++	}
++
++	return ret;
+ }
+ EXPORT_SYMBOL_GPL(sctp_for_each_transport);
+ 
 -- 
-2.7.4
+2.1.0
