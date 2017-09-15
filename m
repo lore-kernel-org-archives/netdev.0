@@ -1,53 +1,89 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] sctp: fix an use-after-free issue in sctp_sock_dump
-Date: Fri, 15 Sep 2017 14:48:44 -0700 (PDT)
-Message-ID: <20170915.144844.2163359752292953670.davem@davemloft.net>
-References: <9de7bef8f4f8c0f369361118f6d2daee5d188467.1505444541.git.lucien.xin@gmail.com>
+From: Julia Lawall <julia.lawall@lip6.fr>
+Subject: Re: [Outreachy kernel] Re: [PATCH 2/2] Staging: irda: Remove
+ parentheses on the right of assignment
+Date: Fri, 15 Sep 2017 23:50:29 +0200 (CEST)
+Message-ID: <alpine.DEB.2.20.1709152348360.2533@hadrien>
+References: <cover.1505508423.git.srishtishar@gmail.com>  <9380189edb2722544981c868699ade29ab5c297d.1505508423.git.srishtishar@gmail.com> <1505511108.27581.16.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-        marcelo.leitner@gmail.com, nhorman@tuxdriver.com, pabeni@redhat.com
-To: lucien.xin@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:57800 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751413AbdIOVsp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 15 Sep 2017 17:48:45 -0400
-In-Reply-To: <9de7bef8f4f8c0f369361118f6d2daee5d188467.1505444541.git.lucien.xin@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Cc: Srishti Sharma <srishtishar@gmail.com>, samuel@sortiz.org,
+        gregkh@linuxfoundation.org, netdev@vger.kernel.org,
+        devel@driverdev.osuosl.org, linux-kernel@vger.kernel.org,
+        outreachy-kernel@googlegroups.com
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1505511108.27581.16.camel@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Xin Long <lucien.xin@gmail.com>
-Date: Fri, 15 Sep 2017 11:02:21 +0800
 
-> Commit 86fdb3448cc1 ("sctp: ensure ep is not destroyed before doing the
-> dump") tried to fix an use-after-free issue by checking !sctp_sk(sk)->ep
-> with holding sock and sock lock.
-> 
-> But Paolo noticed that endpoint could be destroyed in sctp_rcv without
-> sock lock protection. It means the use-after-free issue still could be
-> triggered when sctp_rcv put and destroy ep after sctp_sock_dump checks
-> !ep, although it's pretty hard to reproduce.
-> 
-> I could reproduce it by mdelay in sctp_rcv while msleep in sctp_close
-> and sctp_sock_dump long time.
-> 
-> This patch is to add another param cb_done to sctp_for_each_transport
-> and dump ep->assocs with holding tsp after jumping out of transport's
-> traversal in it to avoid this issue.
-> 
-> It can also improve sctp diag dump to make it run faster, as no need
-> to save sk into cb->args[5] and keep calling sctp_for_each_transport
-> any more.
-> 
-> This patch is also to use int * instead of int for the pos argument
-> in sctp_for_each_transport, which could make postion increment only
-> in sctp_for_each_transport and no need to keep changing cb->args[2]
-> in sctp_sock_filter and sctp_sock_dump any more.
-> 
-> Fixes: 86fdb3448cc1 ("sctp: ensure ep is not destroyed before doing the dump")
-> Reported-by: Paolo Abeni <pabeni@redhat.com>
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
 
-Applied.
+On Fri, 15 Sep 2017, Joe Perches wrote:
+
+> On Sat, 2017-09-16 at 02:36 +0530, Srishti Sharma wrote:
+> > Parentheses are not needed on the right hand side of assignment
+> > statement in most cases. Done using the following semantic
+> > patch by coccinelle.
+> []
+> > @@
+> > identifier E,F,G,f;
+> > expression e,r;
+> > @@
+> >
+> > (
+> > E = (G == F);
+> > >
+> >
+> > E = (e == r);
+> > >
+> >
+> > E =
+> > -(
+> > ...
+> > -)
+> > ;
+> > )
+> []
+> > diff --git a/drivers/staging/irda/drivers/mcs7780.c b/drivers/staging/irda/drivers/mcs7780.c
+> []
+> > @@ -605,7 +605,7 @@ static int mcs_speed_change(struct mcs_cb *mcs)
+> >  	if (mcs->new_speed <= 115200) {
+> >  		rval &= ~MCS_FIR;
+> >
+> > -		rst = (mcs->speed > 115200);
+> > +		rst = mcs->speed > 115200;
+> >  		if (rst)
+> >  			mcs_set_reg(mcs, MCS_MINRXPW_REG, 0);
+>
+> Coccinelle is a good tool, but its output is limited to
+> the correctness
+> and completeness of its input script.
+>
+> Please look at the suggested modifications of the script
+> and examine the code for other similar uses.
+>
+> The else if block immediately below this is:
+>
+> 	} else if (mcs->new_speed <= 1152000) {
+> 		rval &= ~MCS_FIR;
+>
+> 		if ((rst = !(mcs->speed == 576000 || mcs->speed == 11520
+> 00)))
+> 			mcs_set_reg(mcs, MCS_MINRXPW_REG, 5);
+>
+> which should also be corrected by this patch.
+
+You're concerned about the assignment in the if header?  Because that was
+in 1/2.  One could also push the ! under the ||, but I'm not sure that
+would be much of an improvement.
+
+julia
+
+>
+> --
+> You received this message because you are subscribed to the Google Groups "outreachy-kernel" group.
+> To unsubscribe from this group and stop receiving emails from it, send an email to outreachy-kernel+unsubscribe@googlegroups.com.
+> To post to this group, send email to outreachy-kernel@googlegroups.com.
+> To view this discussion on the web visit https://groups.google.com/d/msgid/outreachy-kernel/1505511108.27581.16.camel%40perches.com.
+> For more options, visit https://groups.google.com/d/optout.
+>
