@@ -1,95 +1,85 @@
-From: Matthew Rosato <mjrosato@linux.vnet.ibm.com>
-Subject: Re: Regression in throughput between kvm guests over virtual bridge
-Date: Fri, 15 Sep 2017 15:19:56 -0400
-Message-ID: <7345a69d-5e47-7058-c72b-bdd0f3c69210@linux.vnet.ibm.com>
-References: <4c7e2924-b10f-0e97-c388-c8809ecfdeeb@linux.vnet.ibm.com>
- <bdd417dc-9e2f-4a2e-534b-c6aa38f002f2@redhat.com>
- <e022cfa7-ef65-550f-06e8-f6e29f1d68a0@redhat.com>
- <627d0c7a-dce5-3094-d5d4-c1507fcb8080@linux.vnet.ibm.com>
- <50891c14-3fc6-f519-8c03-07bdef3090f4@redhat.com>
- <e42083d9-ae7b-7207-e5e6-06483bf6293e@linux.vnet.ibm.com>
- <15abafa1-6d58-cd85-668a-bf361a296f52@redhat.com>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: RTL8192EE PCIe Wireless Network Adapter crashed with linux-4.13
+Date: Fri, 15 Sep 2017 14:21:21 -0500
+Message-ID: <35856452-c05c-d116-f91b-0964947ec8ae@lwfinger.net>
+References: <2WhCEttl4IJtrTB2AkJYmhbsu-kiR_5fU0A_Z7eWW05rbVE5tB86A_ZS8ek_FQFdgaZw1bfx0wFbxOa0Ydjv1T6BzBkIHtaWTbSptcpB_kg=@protonmail.com>
+ <e8e75755-f8b4-e122-ea4a-99a691405d38@lwfinger.net>
+ <jB0WJNG17mSfKo9m7T26r-b2Gr7mDL4lJ-1cWxeCJ6UCsA4TsxXz4znCLhYY5EASPQciwp1rf_xtwvDR-xzwD-OTApTUFoaVmIvahleDcJk=@protonmail.com>
+ <1eb67d2e-dfbc-a2d0-8949-d4336191c07b@lwfinger.net>
+ <x1duse6v9TTP8Ta7rsTLlZ8DK0Ej7qq9iapef18K0eYSodmCBmfI_mX3c-3ocbPiGzEgV9weOh25dKWSbU5nIetYkfmmUxaxRpUdYFffRZA=@protonmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: davem@davemloft.net, mst@redhat.com
-To: Jason Wang <jasowang@redhat.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:50394 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751782AbdIOTUI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 15 Sep 2017 15:20:08 -0400
-Received: from pps.filterd (m0098417.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v8FJK51D024368
-        for <netdev@vger.kernel.org>; Fri, 15 Sep 2017 15:20:07 -0400
-Received: from e14.ny.us.ibm.com (e14.ny.us.ibm.com [129.33.205.204])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 2d0hyjrcg1-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Fri, 15 Sep 2017 15:20:02 -0400
-Received: from localhost
-        by e14.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <mjrosato@linux.vnet.ibm.com>;
-        Fri, 15 Sep 2017 15:20:00 -0400
-In-Reply-To: <15abafa1-6d58-cd85-668a-bf361a296f52@redhat.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+        "chaoming_li@realsil.com.cn" <chaoming_li@realsil.com.cn>,
+        "kvalo@codeaurora.org" <kvalo@codeaurora.org>,
+        "pkshih@realtek.com" <pkshih@realtek.com>,
+        "johannes.berg@intel.com" <johannes.berg@intel.com>,
+        "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Zwindl <zwindl@protonmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <x1duse6v9TTP8Ta7rsTLlZ8DK0Ej7qq9iapef18K0eYSodmCBmfI_mX3c-3ocbPiGzEgV9weOh25dKWSbU5nIetYkfmmUxaxRpUdYFffRZA=@protonmail.com>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> It looks like vhost is slowed down for some reason which leads to more
-> idle time on 4.13+VHOST_RX_BATCH=1. Appreciated if you can collect the
-> perf.diff on host, one for rx and one for tx.
-> 
+On 09/15/2017 12:12 PM, Zwindl wrote:
+> Thanks for your patient and advice, I'll keep that in mind.
+> I do want help, and I got 1 day to build the system, but I can't recall how to 
+> compile it, The last time I compile kernel is 2013, so, maybe I'll ask you so 
+> many stupid questions during the build time.
+> ZWindL
 
-perf data below for the associated vhost threads, baseline=4.12,
-delta1=4.13, delta2=4.13+VHOST_RX_BATCH=1
+Building a new kernel is not difficult. In an average week, I make at least 10 
+new kernels. Many of them are done on slow machines that take many hours. At 
+least, your i5 CPU should do it in less that one hour.
 
-Client vhost:
+Step 1: Download the kernel sources using
 
-60.12%  -11.11%  -12.34%  [kernel.vmlinux]   [k] raw_copy_from_user
-13.76%   -1.28%   -0.74%  [kernel.vmlinux]   [k] get_page_from_freelist
- 2.00%   +3.69%   +3.54%  [kernel.vmlinux]   [k] __wake_up_sync_key
- 1.19%   +0.60%   +0.66%  [kernel.vmlinux]   [k] __alloc_pages_nodemask
- 1.12%   +0.76%   +0.86%  [kernel.vmlinux]   [k] copy_page_from_iter
- 1.09%   +0.28%   +0.35%  [vhost]            [k] vhost_get_vq_desc
- 1.07%   +0.31%   +0.26%  [kernel.vmlinux]   [k] alloc_skb_with_frags
- 0.94%   +0.42%   +0.65%  [kernel.vmlinux]   [k] alloc_pages_current
- 0.91%   -0.19%   -0.18%  [kernel.vmlinux]   [k] memcpy
- 0.88%   +0.26%   +0.30%  [kernel.vmlinux]   [k] __next_zones_zonelist
- 0.85%   +0.05%   +0.12%  [kernel.vmlinux]   [k] iov_iter_advance
- 0.79%   +0.09%   +0.19%  [vhost]            [k] __vhost_add_used_n
- 0.74%                    [kernel.vmlinux]   [k] get_task_policy.part.7
- 0.74%   -0.01%   -0.05%  [kernel.vmlinux]   [k] tun_net_xmit
- 0.60%   +0.17%   +0.33%  [kernel.vmlinux]   [k] policy_nodemask
- 0.58%   -0.15%   -0.12%  [ebtables]         [k] ebt_do_table
- 0.52%   -0.25%   -0.22%  [kernel.vmlinux]   [k] __alloc_skb
-   ...
- 0.42%   +0.58%   +0.59%  [kernel.vmlinux]   [k] eventfd_signal
-   ...
- 0.32%   +0.96%   +0.93%  [kernel.vmlinux]   [k] finish_task_switch
-   ...
-         +1.50%   +1.16%  [kernel.vmlinux]   [k] get_task_policy.part.9
-         +0.40%   +0.42%  [kernel.vmlinux]   [k] __skb_get_hash_symmetr
-         +0.39%   +0.40%  [kernel.vmlinux]   [k] _copy_from_iter_full
-         +0.24%   +0.23%  [vhost_net]        [k] vhost_net_buf_peek
+git clone git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git
 
-Server vhost:
+If your system complains that the git command is unknown, then you will need to 
+install it with your package manager (pacman?).
 
-61.93%  -10.72%  -10.91%  [kernel.vmlinux]   [k] raw_copy_to_user
- 9.25%   +0.47%   +0.86%  [kernel.vmlinux]   [k] free_hot_cold_page
- 5.16%   +1.41%   +1.57%  [vhost]            [k] vhost_get_vq_desc
- 5.12%   -3.81%   -3.78%  [kernel.vmlinux]   [k] skb_release_data
- 3.30%   +0.42%   +0.55%  [kernel.vmlinux]   [k] raw_copy_from_user
- 1.29%   +2.20%   +2.28%  [kernel.vmlinux]   [k] copy_page_to_iter
- 1.24%   +1.65%   +0.45%  [vhost_net]        [k] handle_rx
- 1.08%   +3.03%   +2.85%  [kernel.vmlinux]   [k] __wake_up_sync_key
- 0.96%   +0.70%   +1.10%  [vhost]            [k] translate_desc
- 0.69%   -0.20%   -0.22%  [kernel.vmlinux]   [k] tun_do_read.part.10
- 0.69%                    [kernel.vmlinux]   [k] tun_peek_len
- 0.67%   +0.75%   +0.78%  [kernel.vmlinux]   [k] eventfd_signal
- 0.52%   +0.96%   +0.98%  [kernel.vmlinux]   [k] finish_task_switch
- 0.50%   +0.05%   +0.09%  [vhost]            [k] vhost_add_used_n
-   ...
-         +0.63%   +0.58%  [vhost_net]        [k] vhost_net_buf_peek
-         +0.32%   +0.32%  [kernel.vmlinux]   [k] _copy_to_iter
-         +0.19%   +0.19%  [kernel.vmlinux]   [k] __skb_get_hash_symmetr
-         +0.11%   +0.21%  [vhost]            [k] vhost_umem_interval_tr
+Step 2: "cd  linux" and copy the latest /boot/config-..... to the linux source 
+directory as ".config". Edit .config, find the line that says
+"# CONFIG_LOCALVERSION_AUTO is not set", and change the line to read 
+"CONFIG_LOCALVERSION_AUTO=y".
+
+Step 3: Build and install the latest version using
+
+make -j9
+sudo make modules_install install
+
+You will need to answer some configuration questions at the start of the first 
+make line. Answer with the default value, i.e. just use an ENTER. When the build 
+is complete, reboot. Grub should show an entry for something like 
+v4.13-12084-ged43e4d190d0. The numbers after the 4.13 will likely be different, 
+but the form will match. Check that the new kernel still has the fault. If not, 
+it has been fixed and we do not need to find it.
+
+It the problem is still in the latest version of the kernel, then we start the 
+bisection with the following:
+
+git bisect start
+git bisect bad v4.13
+git bisect good v4.12
+
+At this point, git will report the number of revisions to test, the likely 
+number of tries, and the SHA hash for the new kernel. Record the first 7 digits 
+of the hash, and repeat the make commands above. After the build is complete, 
+reboot into the kernel with the hash in the version name and test. Then enter 
+the command "git bisect xxx", where xxx is good or bad depending on the test. A 
+new trial will be generated by bisecting the appropriate half of the commits. 
+Record its hash and redo the build. Repeat until git tells you the bad commit.
+
+This process will generate a number of kernels that will take quite a bit of 
+disk space. If you run short, you can delete kernels that have already been 
+tested from /boot. You should also delete the corresponding modules from 
+/lib/modules.
+
+Good luck,
+
+Larry
