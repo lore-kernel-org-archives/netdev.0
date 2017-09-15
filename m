@@ -1,38 +1,29 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] qed: remove unnecessary call to memset
-Date: Fri, 15 Sep 2017 14:02:19 -0700 (PDT)
-Message-ID: <20170915.140219.188567213297726189.davem@davemloft.net>
-References: <1505215162-3917-1-git-send-email-himanshujha199640@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Yuval.Mintz@cavium.com, Ariel.Elior@cavium.com,
-        everest-linux-l2@cavium.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: himanshujha199640@gmail.com
+From: Srishti Sharma <srishtishar@gmail.com>
+Subject: [PATCH 0/2] Assign outside if
+Date: Sat, 16 Sep 2017 02:35:24 +0530
+Message-ID: <cover.1505508423.git.srishtishar@gmail.com>
+Cc: gregkh@linuxfoundation.org, netdev@vger.kernel.org,
+        devel@driverdev.osuosl.org, linux-kernel@vger.kernel.org,
+        outreachy-kernel@googlegroups.com,
+        Srishti Sharma <srishtishar@gmail.com>
+To: samuel@sortiz.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1505215162-3917-1-git-send-email-himanshujha199640@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Himanshu Jha <himanshujha199640@gmail.com>
-Date: Tue, 12 Sep 2017 16:49:22 +0530
+This patch series intends to remove the assignment statements 
+inside the if statement, and eliminates the cases of parentheses
+around the right hand side of assignment generated as a result of 
+the same.
 
-> call to memset to assign 0 value immediately after allocating
-> memory with kzalloc is unnecesaary as kzalloc allocates the memory
-> filled with 0 value.
-> 
-> Semantic patch used to resolve this issue:
-> 
-> @@
-> expression e,e2; constant c;
-> statement S;
-> @@
-> 
->   e = kzalloc(e2, c);
->   if(e == NULL) S
-> - memset(e, 0, e2);
-> 
-> Signed-off-by: Himanshu Jha <himanshujha199640@gmail.com>
+Srishti Sharma (2):
+  Staging: irda: Don't use assignment inside if statement
+  Staging: irda: Remove parentheses on the right of assignment
 
-Applied.
+ drivers/staging/irda/drivers/irda-usb.c | 4 ++--
+ drivers/staging/irda/drivers/mcs7780.c  | 9 ++++++---
+ drivers/staging/irda/net/irqueue.c      | 3 ++-
+ 3 files changed, 10 insertions(+), 6 deletions(-)
+
+-- 
+2.7.4
