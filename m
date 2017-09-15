@@ -1,80 +1,91 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: selftests/bpf doesn't compile
-Date: Fri, 15 Sep 2017 20:23:40 +0200
-Message-ID: <59BC1AAC.3040401@iogearbox.net>
-References: <20170908111923.27434-1-thomas@m3y3r.de> <20170908230155.esge2mctk5d5g7gb@ast-mbp> <59B32231.9090406@iogearbox.net> <ed20875b-7a01-fbc8-e8d1-3929ba35c8ac@kernel.org> <295553a4-aadc-e5d1-229e-22d1966bc9f5@kernel.org> <20170915160253.q3x5j7hfkxxh2g6w@ast-mbp> <701006c0-f80a-6bd7-fb5e-5bca1dc33a31@solarflare.com> <20170915180751.rnmvttf4lnz26qit@ast-mbp>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net] packet: hold bind lock when rebinding to fanout hook
+Date: Fri, 15 Sep 2017 11:33:07 -0700
+Message-ID: <CAM_iQpXOS3cB8GtuVZaQq7AnFkHQXxcBqkg0azMU-JpMtv4NRw@mail.gmail.com>
+References: <20170914211441.67326-1-willemb@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Shuah Khan <shuah@kernel.org>, Thomas Meyer <thomas@m3y3r.de>,
-        linux-kernel@vger.kernel.org, linux-kselftest@vger.kernel.org,
-        Shuah Khan <shuahkh@osg.samsung.com>,
-        Networking <netdev@vger.kernel.org>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Edward Cree <ecree@solarflare.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170915180751.rnmvttf4lnz26qit@ast-mbp>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        nixiaoming <nixiaoming@huawei.com>
+To: Willem de Bruijn <willemb@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:34804 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751201AbdIOSd2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 15 Sep 2017 14:33:28 -0400
+Received: by mail-pf0-f196.google.com with SMTP id g65so1589505pfe.1
+        for <netdev@vger.kernel.org>; Fri, 15 Sep 2017 11:33:28 -0700 (PDT)
+In-Reply-To: <20170914211441.67326-1-willemb@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/15/2017 08:07 PM, Alexei Starovoitov wrote:
-> On Fri, Sep 15, 2017 at 05:58:40PM +0100, Edward Cree wrote:
->> On 15/09/17 17:02, Alexei Starovoitov wrote:
->>> On Thu, Sep 14, 2017 at 09:33:48AM -0600, Shuah Khan wrote:
->>>> Is bpf test intended to be run in kselftest run? The clang dependency might
->>>> not be met on majority of the systems. Is this a hard dependency??
->>> It is a hard dependency and clang should be present on majority of the systems.
->> I think this is the wrong approach.  Making kselftest hard-require clang doesn't
->>   mean that the bpf tests will be run more often, it means that the rest of the
->>   kselftests will be run less often.  clang is quite big (when I tried to install
->>   it on one of my test servers, I didn't have enough disk space & had to go on a
->>   clear-out of unused packages), and most people aren't interested in the bpf
->>   subsystem specifically; they would rather be able to skip those tests.
->> I feel that as long as they know they are skipping some tests (so e.g. they
->>   won't consider it a sufficient test of a kselftest refactor), that's fine.
->> It's not even as though all of the bpf tests require clang; the (smaller) tests
->>   written directly in raw eBPF instructions could still be run on such a system.
->>   So I think we should attempt to run as much as possible but accept that clang
->>   may not be available and have an option to skip some tests in that case.
+On Thu, Sep 14, 2017 at 2:14 PM, Willem de Bruijn <willemb@google.com> wrote:
+> Packet socket bind operations must hold the po->bind_lock. This keeps
+> po->running consistent with whether the socket is actually on a ptype
+> list to receive packets.
 >
-> imo the value of selftests/bpf is twofold:
-> 1. it helps bpf developers avoid regressions
-> 2. as part of continuous integration it helps to catch bpf regressions
-> that were somehow caused by changes in other parts of the kernel
+> fanout_add unbinds a socket and its packet_rcv/tpacket_rcv call, then
+> binds the fanout object to receive through packet_rcv_fanout.
 >
-> If a developer didn't bother to satisfy all bpf tests dependencies
-> (which includes clang) and ran all tests before sending a patch,
-> I don't want to see such patches. It just wastes maintainers time
-> to review code and spot bugs that could have been caught by tests.
-> Collectively we invested years of work into these tests and
-> developers better take advantage of it by running all.
+> Make it hold the po->bind_lock when testing po->running and rebinding.
+> Else, it can race with other rebind operations, such as that in
+> packet_set_ring from packet_rcv to tpacket_rcv. Concurrent updates
+> can result in a socket being added to a fanout group twice, causing
+> use-after-free KASAN bug reports, among others.
+>
+> Reported independently by both trinity and syzkaller.
+> Verified that the syzkaller reproducer passes after this patch.
+>
+> Reported-by: nixioaming <nixiaoming@huawei.com>
+> Signed-off-by: Willem de Bruijn <willemb@google.com>
+> ---
+>  net/packet/af_packet.c | 16 +++++++++++-----
+>  1 file changed, 11 insertions(+), 5 deletions(-)
+>
+> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+> index c26172995511..d288f52c53f7 100644
+> --- a/net/packet/af_packet.c
+> +++ b/net/packet/af_packet.c
+> @@ -1684,10 +1684,6 @@ static int fanout_add(struct sock *sk, u16 id, u16 type_flags)
+>
+>         mutex_lock(&fanout_mutex);
+>
+> -       err = -EINVAL;
+> -       if (!po->running)
+> -               goto out;
+> -
+>         err = -EALREADY;
+>         if (po->fanout)
+>                 goto out;
+> @@ -1749,7 +1745,10 @@ static int fanout_add(struct sock *sk, u16 id, u16 type_flags)
+>                 list_add(&match->list, &fanout_list);
+>         }
+>         err = -EINVAL;
+> -       if (match->type == type &&
+> +
+> +       spin_lock(&po->bind_lock);
+> +       if (po->running &&
 
-+1
 
-> If a CI server didn't satisfy all bpf test dependencies,
-> I don't want such CI setup to be running and reporting results,
-> since it will give false sense of test coverage.
-> Test failures due to missing dependencies are hard failures.
-> We cannot skip them.
+As you move the po->running check later after setting po->rollover, I wonder
+if po->rollover possibly depends on po>running on other path?
 
-+1
 
-> I'd like generic XDP tests to be added to selftests/bpf which
-> would mean that the latest iproute2 will become a hard dependency
-> and bpf developers and CI host owners would need to upgrade
-> their iproute2.
-> The tests either pass or fail. Skipping them due to missing
-> dependencies is the same as fail and in that sense I don't want
-> to change selftests/bpf/Makefile to make it skip clang.
+> +           match->type == type &&
+>             match->prot_hook.type == po->prot_hook.type &&
+>             match->prot_hook.dev == po->prot_hook.dev) {
+>                 err = -ENOSPC;
+> @@ -1761,6 +1760,13 @@ static int fanout_add(struct sock *sk, u16 id, u16 type_flags)
+>                         err = 0;
+>                 }
+>         }
+> +       spin_unlock(&po->bind_lock);
+> +
+> +       if (err && !refcount_read(&match->sk_ref)) {
+> +               list_del(&match->list);
+> +               kfree(match);
+> +       }
 
-I fully agree that for the BPF selftests it is very desirable
-to not only test the verifier with couple of BPF insn snippets,
-but to actually load and run programs that more closely resemble
-real world programs. For more complex interactions these snippets
-are just limited, think of tail calls, testing perf event output
-helper, etc, which would all require to write these tests with
-restricted C when we add them (unless we want to make writing
-these tests a real pain ;) in which case no-one will bother to
-write tests at all for them). Mid to long term I would definitely
-like to see more programs in BPF selftests (e.g. moved over from
-samples/bpf/) to increase the test coverage.
+This looks correct but still seems odd, it smells you don't use refcnt in an
+expected way.
