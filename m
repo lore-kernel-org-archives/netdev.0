@@ -1,69 +1,45 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next v2 01/10] net: dsa: add debugfs interface
-Date: Fri, 15 Sep 2017 07:51:07 +0200
-Message-ID: <20170915055107.GA1927@nanopsycho.orion>
-References: <20170828191748.19492-1-vivien.didelot@savoirfairelinux.com>
- <20170828191748.19492-2-vivien.didelot@savoirfairelinux.com>
- <20170907193434.GA11006@kroah.com>
- <87h8wdb8bj.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
- <CAJGZr0KdOPW5_V3kvWutwTY=BJhfd-=yRDPnvbDBOCuMYWj9OQ@mail.gmail.com>
- <CAKgT0Uf8--Yh9tfkTrh9_dfEYMX5jR6j4unxwxM+WD6E4jk9pA@mail.gmail.com>
- <20170914210132.GC3084@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alexander Duyck <alexander.duyck@gmail.com>,
-        Maxim Uvarov <muvarov@gmail.com>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Greg KH <gregkh@linuxfoundation.org>,
-        netdev <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Egil Hjelmeland <privat@egil-hjelmeland.no>,
-        John Crispin <john@phrozen.org>,
-        Woojung Huh <Woojung.Huh@microchip.com>,
-        Sean Wang <sean.wang@mediatek.com>,
-        Nikita Yushchenko <nikita.yoush@cogentembedded.com>,
-        Chris Healy <cphealy@gmail.com>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170914210132.GC3084@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Valentin Longchamp <valentin.longchamp@keymile.com>
+Subject: [PATCH v2] net/ethernet/freescale: fix warning for ucc_geth
+Date: Fri, 15 Sep 2017 07:58:47 +0200
+Message-ID: <20170915055847.29716-1-valentin.longchamp@keymile.com>
+Cc: linuxppc-dev@lists.ozlabs.org,
+        Valentin Longchamp <valentin.longchamp@keymile.com>
+To: leoli@freescale.com, netdev@vger.kernel.org,
+        christophe.leroy@c-s.fr
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-de.keymile.com ([195.8.104.250]:38331 "EHLO
+        mail-de.keymile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750735AbdIOF6s (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 15 Sep 2017 01:58:48 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Thu, Sep 14, 2017 at 11:01:32PM CEST, andrew@lunn.ch wrote:
->> Can you clarify what type of registers it is you are wanting to read?
->> We already have ethtool which is meant to allow reading the device
->> registers for a given netdev. As long as the port has a netdev
->> associated it then there is no need to be getting into debugfs since
->> we should probably just be using ethtool.
->
->Not all ports of a DSA switch have a netdev. This is by design. The
->presentation we gave to Netdev 2.1 gives some of the background.
->
->Plus a switch has a lot of registers not associated to port. Often a
->switch has more global registers than port registers.
-> 
->> Also as Jiri pointed out there is already devlink which would probably
->> be a better way to get the associated information for those pieces
->> that don't have a netdev associated with them.
->
->We have looked at the devlink a few times. The current dpipe code is
->not generic enough. It makes assumptions about the architecture of the
->switch, that it is all match/action based. The niche of top of rack
->switches might be like that, but average switches are not.
->
->If dpipe was to support simple generic two dimensional tables, we
->probably would use it.
->
->David suggested making a class device for DSA. It is not ideal, but we
->are probably going to go that way.
+uf_info.regs is resource_size_t i.e. phys_addr_t that can be either u32
+or u64 according to CONFIG_PHYS_ADDR_T_64BIT.
 
-I believe that is also big mistake.
+The printk format is thus adaptet to u64 and the regs value cast to u64
+to take both u32 and u64 into account.
 
-Could you put together your requirements so we can work it out to extend
-devlink to support them?
+Signed-off-by: Valentin Longchamp <valentin.longchamp@keymile.com>
+---
+ drivers/net/ethernet/freescale/ucc_geth.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-Thanks.
+diff --git a/drivers/net/ethernet/freescale/ucc_geth.c b/drivers/net/ethernet/freescale/ucc_geth.c
+index f77ba9fa257b..a96b838cffce 100644
+--- a/drivers/net/ethernet/freescale/ucc_geth.c
++++ b/drivers/net/ethernet/freescale/ucc_geth.c
+@@ -3857,8 +3857,9 @@ static int ucc_geth_probe(struct platform_device* ofdev)
+ 	}
+ 
+ 	if (netif_msg_probe(&debug))
+-		pr_info("UCC%1d at 0x%8x (irq = %d)\n",
+-			ug_info->uf_info.ucc_num + 1, ug_info->uf_info.regs,
++		pr_info("UCC%1d at 0x%8llx (irq = %d)\n",
++			ug_info->uf_info.ucc_num + 1,
++			(u64)ug_info->uf_info.regs,
+ 			ug_info->uf_info.irq);
+ 
+ 	/* Create an ethernet device instance */
+-- 
+2.13.5
