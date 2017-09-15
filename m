@@ -1,96 +1,174 @@
-From: "Brown, Aaron F" <aaron.f.brown@intel.com>
-Subject: RE: [Intel-wired-lan] [PATCH 5/5] e1000e: Avoid receiver overrun
-        interrupt bursts
-Date: Fri, 15 Sep 2017 00:38:22 +0000
-Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B8C6A05EC@ORSMSX101.amr.corp.intel.com>
-References: <20170721160937.GA22632@csclub.uwaterloo.ca>
- <20170721183627.13373-1-bpoirier@suse.com>
- <20170721183627.13373-5-bpoirier@suse.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "Lennart Sorensen" <lsorense@csclub.uwaterloo.ca>
-To: Benjamin Poirier <bpoirier@suse.com>,
-        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170721183627.13373-5-bpoirier@suse.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Zhu Yanjun <yanjun.zhu@oracle.com>
+Subject: [PATCH 1/1] forcedeth: replace pci_map_single with dma_map_single functions
+Date: Thu, 14 Sep 2017 23:01:51 -0400
+Message-ID: <1505444511-27231-1-git-send-email-yanjun.zhu@oracle.com>
+To: jarod@redhat.com, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:41194 "EHLO
+        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751733AbdIOC7V (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 14 Sep 2017 22:59:21 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> From: Intel-wired-lan [mailto:intel-wired-lan-bounces@osuosl.org] On Behalf
-> Of Benjamin Poirier
-> Sent: Friday, July 21, 2017 11:36 AM
-> To: Kirsher, Jeffrey T <jeffrey.t.kirsher@intel.com>
-> Cc: netdev@vger.kernel.org; intel-wired-lan@lists.osuosl.org; linux-
-> kernel@vger.kernel.org; Lennart Sorensen <lsorense@csclub.uwaterloo.ca>
-> Subject: [Intel-wired-lan] [PATCH 5/5] e1000e: Avoid receiver overrun
-> interrupt bursts
-> 
-> When e1000e_poll() is not fast enough to keep up with incoming traffic, the
-> adapter (when operating in msix mode) raises the Other interrupt to signal
-> Receiver Overrun.
-> 
-> This is a double problem because 1) at the moment e1000_msix_other()
-> assumes that it is only called in case of Link Status Change and 2) if the
-> condition persists, the interrupt is repeatedly raised again in quick
-> succession.
-> 
-> Ideally we would configure the Other interrupt to not be raised in case of
-> receiver overrun but this doesn't seem possible on this adapter. Instead,
-> we handle the first part of the problem by reverting to the practice of
-> reading ICR in the other interrupt handler, like before commit 16ecba59bc33
-> ("e1000e: Do not read ICR in Other interrupt"). Thanks to commit
-> 0a8047ac68e5 ("e1000e: Fix msi-x interrupt automask") which cleared IAME
-> from CTRL_EXT, reading ICR doesn't interfere with RxQ0, TxQ0 interrupts
-> anymore. We handle the second part of the problem by not re-enabling the
-> Other interrupt right away when there is overrun. Instead, we wait until
-> traffic subsides, napi polling mode is exited and interrupts are
-> re-enabled.
-> 
-> Reported-by: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>
-> Fixes: 16ecba59bc33 ("e1000e: Do not read ICR in Other interrupt")
-> Signed-off-by: Benjamin Poirier <bpoirier@suse.com>
-> ---
->  drivers/net/ethernet/intel/e1000e/defines.h |  1 +
->  drivers/net/ethernet/intel/e1000e/netdev.c  | 33
-> +++++++++++++++++++++++------
->  2 files changed, 27 insertions(+), 7 deletions(-)
-> 
+pci_map_single functions are obsolete. So replace them with
+dma_map_single functions.
 
-I get an error and a few warnings out of checkpatch from this, but I think the error is false (thinking the reference to a commit in the description is this commit, a fixes commit or something like that) and I'm more concerned with the fix than the warnings, so...
+Signed-off-by: Zhu Yanjun <yanjun.zhu@oracle.com>
+---
+ drivers/net/ethernet/nvidia/forcedeth.c | 70 +++++++++++++++++----------------
+ 1 file changed, 36 insertions(+), 34 deletions(-)
 
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-
-Here is the checkpatch output in case anyone has a different opinion on the severity:
--------------
-u1484:[0]/usr/src/kernels/next-queue> git format-patch d81d1e6 -1 --stdout|./scripts/checkpatch.pl -
-ERROR: Please use git commit description style 'commit <12+ chars of sha1> ("<title line>")' - ie: 'commit 0a8047ac68e5 ("e1000e: Fix msi-x interrupt automask")'
-#20:
-0a8047ac68e5 ("e1000e: Fix msi-x interrupt automask") which cleared IAME
-
-WARNING: braces {} are not necessary for single statement blocks
-#73: FILE: drivers/net/ethernet/intel/e1000e/netdev.c:1931:
-+               if (!test_bit(__E1000_DOWN, &adapter->state)) {
-+                       mod_timer(&adapter->watchdog_timer, jiffies + 1);
-+               }
-
-WARNING: braces {} are not necessary for single statement blocks
-#83: FILE: drivers/net/ethernet/intel/e1000e/netdev.c:1936:
-+       if (enable && !test_bit(__E1000_DOWN, &adapter->state)) {
-                ew32(IMS, E1000_IMS_OTHER);
-        }
-
-total: 1 errors, 2 warnings, 0 checks, 59 lines checked
-
-NOTE: For some of the reported defects, checkpatch may be able to
-      mechanically convert to the typical style using --fix or --fix-inplace.
-
-Your patch has style problems, please review.
-
-NOTE: If any of the errors are false positives, please report
-      them to the maintainer, see CHECKPATCH in MAINTAINERS.
-u1484:[0]/usr/src/kernels/next-queue>
+diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
+index e6e0de4..0a7ba3a 100644
+--- a/drivers/net/ethernet/nvidia/forcedeth.c
++++ b/drivers/net/ethernet/nvidia/forcedeth.c
+@@ -1812,12 +1812,12 @@ static int nv_alloc_rx(struct net_device *dev)
+ 		struct sk_buff *skb = netdev_alloc_skb(dev, np->rx_buf_sz + NV_RX_ALLOC_PAD);
+ 		if (skb) {
+ 			np->put_rx_ctx->skb = skb;
+-			np->put_rx_ctx->dma = pci_map_single(np->pci_dev,
++			np->put_rx_ctx->dma = dma_map_single(&np->pci_dev->dev,
+ 							     skb->data,
+ 							     skb_tailroom(skb),
+-							     PCI_DMA_FROMDEVICE);
+-			if (pci_dma_mapping_error(np->pci_dev,
+-						  np->put_rx_ctx->dma)) {
++							     DMA_FROM_DEVICE);
++			if (dma_mapping_error(&np->pci_dev->dev,
++					      np->put_rx_ctx->dma)) {
+ 				kfree_skb(skb);
+ 				goto packet_dropped;
+ 			}
+@@ -1853,12 +1853,12 @@ static int nv_alloc_rx_optimized(struct net_device *dev)
+ 		struct sk_buff *skb = netdev_alloc_skb(dev, np->rx_buf_sz + NV_RX_ALLOC_PAD);
+ 		if (skb) {
+ 			np->put_rx_ctx->skb = skb;
+-			np->put_rx_ctx->dma = pci_map_single(np->pci_dev,
++			np->put_rx_ctx->dma = dma_map_single(&np->pci_dev->dev,
+ 							     skb->data,
+ 							     skb_tailroom(skb),
+-							     PCI_DMA_FROMDEVICE);
+-			if (pci_dma_mapping_error(np->pci_dev,
+-						  np->put_rx_ctx->dma)) {
++							     DMA_FROM_DEVICE);
++			if (dma_mapping_error(&np->pci_dev->dev,
++					      np->put_rx_ctx->dma)) {
+ 				kfree_skb(skb);
+ 				goto packet_dropped;
+ 			}
+@@ -1975,9 +1975,9 @@ static void nv_unmap_txskb(struct fe_priv *np, struct nv_skb_map *tx_skb)
+ {
+ 	if (tx_skb->dma) {
+ 		if (tx_skb->dma_single)
+-			pci_unmap_single(np->pci_dev, tx_skb->dma,
++			dma_unmap_single(&np->pci_dev->dev, tx_skb->dma,
+ 					 tx_skb->dma_len,
+-					 PCI_DMA_TODEVICE);
++					 DMA_TO_DEVICE);
+ 		else
+ 			pci_unmap_page(np->pci_dev, tx_skb->dma,
+ 				       tx_skb->dma_len,
+@@ -2045,10 +2045,10 @@ static void nv_drain_rx(struct net_device *dev)
+ 		}
+ 		wmb();
+ 		if (np->rx_skb[i].skb) {
+-			pci_unmap_single(np->pci_dev, np->rx_skb[i].dma,
++			dma_unmap_single(&np->pci_dev->dev, np->rx_skb[i].dma,
+ 					 (skb_end_pointer(np->rx_skb[i].skb) -
+-					  np->rx_skb[i].skb->data),
+-					 PCI_DMA_FROMDEVICE);
++					 np->rx_skb[i].skb->data),
++					 DMA_FROM_DEVICE);
+ 			dev_kfree_skb(np->rx_skb[i].skb);
+ 			np->rx_skb[i].skb = NULL;
+ 		}
+@@ -2221,10 +2221,11 @@ static netdev_tx_t nv_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		prev_tx = put_tx;
+ 		prev_tx_ctx = np->put_tx_ctx;
+ 		bcnt = (size > NV_TX2_TSO_MAX_SIZE) ? NV_TX2_TSO_MAX_SIZE : size;
+-		np->put_tx_ctx->dma = pci_map_single(np->pci_dev, skb->data + offset, bcnt,
+-						PCI_DMA_TODEVICE);
+-		if (pci_dma_mapping_error(np->pci_dev,
+-					  np->put_tx_ctx->dma)) {
++		np->put_tx_ctx->dma = dma_map_single(&np->pci_dev->dev,
++						     skb->data + offset, bcnt,
++						     DMA_TO_DEVICE);
++		if (dma_mapping_error(&np->pci_dev->dev,
++				      np->put_tx_ctx->dma)) {
+ 			/* on DMA mapping error - drop the packet */
+ 			dev_kfree_skb_any(skb);
+ 			u64_stats_update_begin(&np->swstats_tx_syncp);
+@@ -2369,10 +2370,11 @@ static netdev_tx_t nv_start_xmit_optimized(struct sk_buff *skb,
+ 		prev_tx = put_tx;
+ 		prev_tx_ctx = np->put_tx_ctx;
+ 		bcnt = (size > NV_TX2_TSO_MAX_SIZE) ? NV_TX2_TSO_MAX_SIZE : size;
+-		np->put_tx_ctx->dma = pci_map_single(np->pci_dev, skb->data + offset, bcnt,
+-						PCI_DMA_TODEVICE);
+-		if (pci_dma_mapping_error(np->pci_dev,
+-					  np->put_tx_ctx->dma)) {
++		np->put_tx_ctx->dma = dma_map_single(&np->pci_dev->dev,
++						     skb->data + offset, bcnt,
++						     DMA_TO_DEVICE);
++		if (dma_mapping_error(&np->pci_dev->dev,
++				      np->put_tx_ctx->dma)) {
+ 			/* on DMA mapping error - drop the packet */
+ 			dev_kfree_skb_any(skb);
+ 			u64_stats_update_begin(&np->swstats_tx_syncp);
+@@ -2805,9 +2807,9 @@ static int nv_rx_process(struct net_device *dev, int limit)
+ 		 * TODO: check if a prefetch of the first cacheline improves
+ 		 * the performance.
+ 		 */
+-		pci_unmap_single(np->pci_dev, np->get_rx_ctx->dma,
+-				np->get_rx_ctx->dma_len,
+-				PCI_DMA_FROMDEVICE);
++		dma_unmap_single(&np->pci_dev->dev, np->get_rx_ctx->dma,
++				 np->get_rx_ctx->dma_len,
++				 DMA_FROM_DEVICE);
+ 		skb = np->get_rx_ctx->skb;
+ 		np->get_rx_ctx->skb = NULL;
+ 
+@@ -2911,9 +2913,9 @@ static int nv_rx_process_optimized(struct net_device *dev, int limit)
+ 		 * TODO: check if a prefetch of the first cacheline improves
+ 		 * the performance.
+ 		 */
+-		pci_unmap_single(np->pci_dev, np->get_rx_ctx->dma,
+-				np->get_rx_ctx->dma_len,
+-				PCI_DMA_FROMDEVICE);
++		dma_unmap_single(&np->pci_dev->dev, np->get_rx_ctx->dma,
++				 np->get_rx_ctx->dma_len,
++				 DMA_FROM_DEVICE);
+ 		skb = np->get_rx_ctx->skb;
+ 		np->get_rx_ctx->skb = NULL;
+ 
+@@ -5065,11 +5067,11 @@ static int nv_loopback_test(struct net_device *dev)
+ 		ret = 0;
+ 		goto out;
+ 	}
+-	test_dma_addr = pci_map_single(np->pci_dev, tx_skb->data,
++	test_dma_addr = dma_map_single(&np->pci_dev->dev, tx_skb->data,
+ 				       skb_tailroom(tx_skb),
+-				       PCI_DMA_FROMDEVICE);
+-	if (pci_dma_mapping_error(np->pci_dev,
+-				  test_dma_addr)) {
++				       DMA_FROM_DEVICE);
++	if (dma_mapping_error(&np->pci_dev->dev,
++			      test_dma_addr)) {
+ 		dev_kfree_skb_any(tx_skb);
+ 		goto out;
+ 	}
+@@ -5124,9 +5126,9 @@ static int nv_loopback_test(struct net_device *dev)
+ 		}
+ 	}
+ 
+-	pci_unmap_single(np->pci_dev, test_dma_addr,
+-		       (skb_end_pointer(tx_skb) - tx_skb->data),
+-		       PCI_DMA_TODEVICE);
++	dma_unmap_single(&np->pci_dev->dev, test_dma_addr,
++			 (skb_end_pointer(tx_skb) - tx_skb->data),
++			 DMA_TO_DEVICE);
+ 	dev_kfree_skb_any(tx_skb);
+  out:
+ 	/* stop engines */
+-- 
+2.7.4
