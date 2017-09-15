@@ -1,37 +1,33 @@
-From: Vincent Bernat <vincent@bernat.im>
-Subject: Re: [PATCH net-next v1] bridge: also trigger RTM_NEWLINK when interface is released from bridge
-Date: Fri, 15 Sep 2017 23:08:42 +0200
-Message-ID: <m3zi9vbrfp.fsf@luffy.cx>
-References: <20170915193808.22338-1-vincent@bernat.im>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: vrf: avoid gcc-4.6 warning
+Date: Fri, 15 Sep 2017 14:22:44 -0700 (PDT)
+Message-ID: <20170915.142244.2005612745314498019.davem@davemloft.net>
+References: <20170912201100.3680915-1-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Cc: "David S. Miller" <davem@davemloft.net>,
-        bridge@lists.linux-foundation.org, netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bart.luffy.cx ([78.47.78.131]:53140 "EHLO bart.luffy.cx"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751628AbdIOVRJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 15 Sep 2017 17:17:09 -0400
-In-Reply-To: <20170915193808.22338-1-vincent@bernat.im> (Vincent Bernat's
-        message of "Fri, 15 Sep 2017 21:38:08 +0200")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: dsa@cumulusnetworks.com, shm@cumulusnetworks.com, ja@ssi.bg,
+        mschiffer@universe-factory.net, weiwan@google.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: arnd@arndb.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170912201100.3680915-1-arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
- =E2=9D=A6 15 septembre 2017 21:38 +0200, Vincent Bernat <vincent@bernat.im=
->=C2=A0:
-
-> Currently, when an interface is released from a bridge, we get a
-> RTM_DELLINK event through netlink:
->
-> Deleted 2: dummy0: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 =
-state UNKNOWN
->     link/ether 6e:23:c2:54:3a:b3
-
-It should be noted this only happens when using the ioctl API. When
-using the netlink API, rtnetlink.c will send a RTM_NEWLINK because of
-the modification.
---=20
-When in doubt, tell the truth.
-		-- Mark Twain
+RnJvbTogQXJuZCBCZXJnbWFubiA8YXJuZEBhcm5kYi5kZT4NCkRhdGU6IFR1ZSwgMTIgU2VwIDIw
+MTcgMjI6MTA6NTMgKzAyMDANCg0KPiBXaGVuIGJ1aWxkaW5nIGFuIGFsbG1vZGNvbmZpZyBrZXJu
+ZWwgd2l0aCBnY2MtNC42LCB3ZSBnZXQgYSByYXRoZXINCj4gb2RkIHdhcm5pbmc6DQo+IA0KPiBk
+cml2ZXJzL25ldC92cmYuYzogSW4gZnVuY3Rpb24goXZyZl9pcDZfaW5wdXRfZHN0ojoNCj4gZHJp
+dmVycy9uZXQvdnJmLmM6OTY0OjM6IGVycm9yOiBpbml0aWFsaXplZCBmaWVsZCB3aXRoIHNpZGUt
+ZWZmZWN0cyBvdmVyd3JpdHRlbiBbLVdlcnJvcl0NCj4gZHJpdmVycy9uZXQvdnJmLmM6OTY0OjM6
+IGVycm9yOiAobmVhciBpbml0aWFsaXphdGlvbiBmb3IgoWZsNqIpIFstV2Vycm9yXQ0KPiANCj4g
+SSBoYXZlIG5vIGlkZWEgd2hhdCB0aGlzIHdhcm5pbmcgaXMgZXZlbiB0cnlpbmcgdG8gc2F5LCBi
+dXQgaXQgZG9lcw0KPiBzZWVtIGxpa2UgYSBmYWxzZSBwb3NpdGl2ZS4gUmVvcmRlcmluZyB0aGUg
+aW5pdGlhbGl6YXRpb24gaW4gdG8gbWF0Y2gNCj4gdGhlIHN0cnVjdHVyZSBkZWZpbml0aW9uIGdl
+dHMgcmlkIG9mIHRoZSB3YXJuaW5nLCBhbmQgbWlnaHQgYWxzbyBhdm9pZA0KPiB3aGF0ZXZlciBn
+Y2MgdGhpbmtzIGlzIHdyb25nIGhlcmUuDQo+IA0KPiBGaXhlczogOWZmNzQzODQ2MDBhICgibmV0
+OiB2cmY6IEhhbmRsZSBpcHY2IG11bHRpY2FzdCBhbmQgbGluay1sb2NhbCBhZGRyZXNzZXMiKQ0K
+PiBTaWduZWQtb2ZmLWJ5OiBBcm5kIEJlcmdtYW5uIDxhcm5kQGFybmRiLmRlPg0KDQpUaGF0J3Mg
+ZXh0cmVtZWx5IHdlaXJkLCBJIGNhbid0IGV4cGxhaW4gaXQgZWl0aGVyLg0KDQpPaCB3ZWxsLCBh
+cHBsaWVkLCB0aGFua3MuDQo=
