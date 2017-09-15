@@ -1,40 +1,44 @@
-From: Baolin Wang <baolin.wang@linaro.org>
-Subject: Re: [PATCH 0/3] Fix y2038 issues for security/keys subsystem
-Date: Fri, 15 Sep 2017 16:38:35 +0800
-Message-ID: <CAMz4kuLKrwR3M=RX+SOX0k=MxxD9YMJF9YpGDpwZuC=M4zR_kw@mail.gmail.com>
-References: <cover.1502246501.git.baolin.wang@linaro.org> <4455.1502267323@warthog.procyon.org.uk>
- <CAMz4kuL-mriUk3YV6Mz9xgC7geNe5a05vhjfXaxt58x=7BUo0w@mail.gmail.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH] dt-bindings: net: renesas-ravb: Add support for R8A77995
+ RAVB
+Date: Fri, 15 Sep 2017 10:40:13 +0200
+Message-ID: <20170915084012.GK3924@verge.net.au>
+References: <1505347598-4156-1-git-send-email-yoshihiro.shimoda.uh@renesas.com>
+ <de2287b5-f208-1ffd-e8a4-3779a11695f7@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: David Miller <davem@davemloft.net>,
-        James Morris <james.l.morris@oracle.com>,
-        "Serge E. Hallyn" <serge@hallyn.com>, marc.dionne@auristor.com,
-        Dan Carpenter <dan.carpenter@oracle.com>,
-        "Jason A. Donenfeld" <Jason@zx2c4.com>,
-        Arnd Bergmann <arnd@arndb.de>, Mark Brown <broonie@kernel.org>,
-        keyrings@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-        linux-security-module <linux-security-module@vger.kernel.org>,
-        Networking <netdev@vger.kernel.org>
-To: David Howells <dhowells@redhat.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <CAMz4kuL-mriUk3YV6Mz9xgC7geNe5a05vhjfXaxt58x=7BUo0w@mail.gmail.com>
-Sender: owner-linux-security-module@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>,
+        davem@davemloft.net, robh+dt@kernel.org, mark.rutland@arm.com,
+        netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org,
+        devicetree@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <de2287b5-f208-1ffd-e8a4-3779a11695f7@cogentembedded.com>
+Sender: linux-renesas-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi James,
+On Thu, Sep 14, 2017 at 12:44:58PM +0300, Sergei Shtylyov wrote:
+> Hello!
+> 
+> On 9/14/2017 3:06 AM, Yoshihiro Shimoda wrote:
+> 
+> >Add a new compatible string for the R8A77995 (R-Car D3) RAVB.
+> >
+> >Acked-by: Geert Uytterhoeven <geert+renesas@glider.be>
+> 
+>    Usually those are added after sign-off.
+> 
+> >Signed-off-by: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
+> 
+> Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> 
+> >---
+> >  Changes from v1:
+> >   - Based on r8a77970 patch.
+> >    https://marc.info/?l=linux-renesas-soc&m=150524655515476
+> 
+>    So this is against net-next, right? The net.git repo now has a patch
+> making me a reviewer for the Renesas bindings too.
 
-On 21 August 2017 at 20:12, Baolin Wang <baolin.wang@linaro.org> wrote:
-> Hi David and James,
->
-> On 9 August 2017 at 16:28, David Howells <dhowells@redhat.com> wrote:
->> The rxrpc patch isn't part of the security/keys subsystem.  I'll push it
->> to the network tree.  The other two I'll push to James.
->
-> Could you apply this patch serials if there are no other comments? Thanks.
-
-Could you apply patch1 and patch2? I have seen patch3 was merged into
-4.14 by David. Thanks.
-
--- 
-Baolin.wang
-Best Regards
+Acked-by: Simon Horman <horms+renesas@verge.net.au>
