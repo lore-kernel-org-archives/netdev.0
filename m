@@ -1,33 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: vrf: avoid gcc-4.6 warning
-Date: Fri, 15 Sep 2017 14:22:44 -0700 (PDT)
-Message-ID: <20170915.142244.2005612745314498019.davem@davemloft.net>
-References: <20170912201100.3680915-1-arnd@arndb.de>
+Subject: Re: [PATCH net] net: systemport: Fix 64-bit stats deadlock
+Date: Fri, 15 Sep 2017 14:25:11 -0700 (PDT)
+Message-ID: <20170915.142511.221689318302073484.davem@davemloft.net>
+References: <1505247266-42195-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: dsa@cumulusnetworks.com, shm@cumulusnetworks.com, ja@ssi.bg,
-        mschiffer@universe-factory.net, weiwan@google.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: arnd@arndb.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170912201100.3680915-1-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, edumazet@google.com, jqiaoulk@gmail.com
+To: f.fainelli@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:57226 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751704AbdIOVZM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 15 Sep 2017 17:25:12 -0400
+In-Reply-To: <1505247266-42195-1-git-send-email-f.fainelli@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogQXJuZCBCZXJnbWFubiA8YXJuZEBhcm5kYi5kZT4NCkRhdGU6IFR1ZSwgMTIgU2VwIDIw
-MTcgMjI6MTA6NTMgKzAyMDANCg0KPiBXaGVuIGJ1aWxkaW5nIGFuIGFsbG1vZGNvbmZpZyBrZXJu
-ZWwgd2l0aCBnY2MtNC42LCB3ZSBnZXQgYSByYXRoZXINCj4gb2RkIHdhcm5pbmc6DQo+IA0KPiBk
-cml2ZXJzL25ldC92cmYuYzogSW4gZnVuY3Rpb24goXZyZl9pcDZfaW5wdXRfZHN0ojoNCj4gZHJp
-dmVycy9uZXQvdnJmLmM6OTY0OjM6IGVycm9yOiBpbml0aWFsaXplZCBmaWVsZCB3aXRoIHNpZGUt
-ZWZmZWN0cyBvdmVyd3JpdHRlbiBbLVdlcnJvcl0NCj4gZHJpdmVycy9uZXQvdnJmLmM6OTY0OjM6
-IGVycm9yOiAobmVhciBpbml0aWFsaXphdGlvbiBmb3IgoWZsNqIpIFstV2Vycm9yXQ0KPiANCj4g
-SSBoYXZlIG5vIGlkZWEgd2hhdCB0aGlzIHdhcm5pbmcgaXMgZXZlbiB0cnlpbmcgdG8gc2F5LCBi
-dXQgaXQgZG9lcw0KPiBzZWVtIGxpa2UgYSBmYWxzZSBwb3NpdGl2ZS4gUmVvcmRlcmluZyB0aGUg
-aW5pdGlhbGl6YXRpb24gaW4gdG8gbWF0Y2gNCj4gdGhlIHN0cnVjdHVyZSBkZWZpbml0aW9uIGdl
-dHMgcmlkIG9mIHRoZSB3YXJuaW5nLCBhbmQgbWlnaHQgYWxzbyBhdm9pZA0KPiB3aGF0ZXZlciBn
-Y2MgdGhpbmtzIGlzIHdyb25nIGhlcmUuDQo+IA0KPiBGaXhlczogOWZmNzQzODQ2MDBhICgibmV0
-OiB2cmY6IEhhbmRsZSBpcHY2IG11bHRpY2FzdCBhbmQgbGluay1sb2NhbCBhZGRyZXNzZXMiKQ0K
-PiBTaWduZWQtb2ZmLWJ5OiBBcm5kIEJlcmdtYW5uIDxhcm5kQGFybmRiLmRlPg0KDQpUaGF0J3Mg
-ZXh0cmVtZWx5IHdlaXJkLCBJIGNhbid0IGV4cGxhaW4gaXQgZWl0aGVyLg0KDQpPaCB3ZWxsLCBh
-cHBsaWVkLCB0aGFua3MuDQo=
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Tue, 12 Sep 2017 13:14:26 -0700
+
+> We can enter a deadlock situation because there is no sufficient protection
+> when ndo_get_stats64() runs in process context to guard against RX or TX NAPI
+> contexts running in softirq, this can lead to the following lockdep splat and
+> actual deadlock was experienced as well with an iperf session in the background
+> and a while loop doing ifconfig + ethtool.
+ ...
+> So just remove the u64_stats_update_begin()/end() pair in ndo_get_stats64()
+> since it does not appear to be useful for anything. No inconsistency was
+> observed with either ifconfig or ethtool, global TX counts equal the sum of
+> per-queue TX counts on a 32-bit architecture.
+> 
+> Fixes: 10377ba7673d ("net: systemport: Support 64bit statistics")
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+
+Applied.
