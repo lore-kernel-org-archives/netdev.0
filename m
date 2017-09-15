@@ -1,69 +1,82 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net] ip6_tunnel: do not allow loading ip6_tunnel if ipv6 is disabled in cmdline
-Date: Fri, 15 Sep 2017 15:58:33 +0800
-Message-ID: <107ac334855fea1e6492b2e523b788209e54ec2f.1505462312.git.lucien.xin@gmail.com>
-Cc: davem@davemloft.net, Dmitry Kozlov <xeb@mail.ru>, jbenc@redhat.com
-To: network dev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:37114 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751177AbdIOH6l (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 15 Sep 2017 03:58:41 -0400
-Received: by mail-pf0-f194.google.com with SMTP id e69so892184pfg.4
-        for <netdev@vger.kernel.org>; Fri, 15 Sep 2017 00:58:41 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Egil Hjelmeland <privat@egil-hjelmeland.no>
+Subject: Re: [PATCH net-next v2 01/10] net: dsa: add debugfs interface
+Date: Fri, 15 Sep 2017 09:35:38 +0200
+Message-ID: <fb6991eb-573e-a085-9267-928c47dbdb05@egil-hjelmeland.no>
+References: <20170828191748.19492-1-vivien.didelot@savoirfairelinux.com>
+ <20170828191748.19492-2-vivien.didelot@savoirfairelinux.com>
+ <20170907193434.GA11006@kroah.com>
+ <87h8wdb8bj.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+ <CAJGZr0KdOPW5_V3kvWutwTY=BJhfd-=yRDPnvbDBOCuMYWj9OQ@mail.gmail.com>
+ <CAKgT0Uf8--Yh9tfkTrh9_dfEYMX5jR6j4unxwxM+WD6E4jk9pA@mail.gmail.com>
+ <20170914210132.GC3084@lunn.ch> <20170915055107.GA1927@nanopsycho.orion>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Alexander Duyck <alexander.duyck@gmail.com>,
+        Maxim Uvarov <muvarov@gmail.com>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Greg KH <gregkh@linuxfoundation.org>,
+        netdev <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        John Crispin <john@phrozen.org>,
+        Woojung Huh <Woojung.Huh@microchip.com>,
+        Sean Wang <sean.wang@mediatek.com>,
+        Nikita Yushchenko <nikita.yoush@cogentembedded.com>,
+        Chris Healy <cphealy@gmail.com>
+To: Jiri Pirko <jiri@resnulli.us>, Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170915055107.GA1927@nanopsycho.orion>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-If ipv6 has been disabled from cmdline since kernel started, it makes
-no sense to allow users to create any ip6 tunnel. Otherwise, it could
-some potential problem.
+On 15. sep. 2017 07:51, Jiri Pirko wrote:
+> Thu, Sep 14, 2017 at 11:01:32PM CEST, andrew@lunn.ch wrote:
+>>> Can you clarify what type of registers it is you are wanting to read?
+>>> We already have ethtool which is meant to allow reading the device
+>>> registers for a given netdev. As long as the port has a netdev
+>>> associated it then there is no need to be getting into debugfs since
+>>> we should probably just be using ethtool.
+>>
+>> Not all ports of a DSA switch have a netdev. This is by design. The
+>> presentation we gave to Netdev 2.1 gives some of the background.
+>>
+>> Plus a switch has a lot of registers not associated to port. Often a
+>> switch has more global registers than port registers.
+>>
+>>> Also as Jiri pointed out there is already devlink which would probably
+>>> be a better way to get the associated information for those pieces
+>>> that don't have a netdev associated with them.
+>>
+>> We have looked at the devlink a few times. The current dpipe code is
+>> not generic enough. It makes assumptions about the architecture of the
+>> switch, that it is all match/action based. The niche of top of rack
+>> switches might be like that, but average switches are not.
+>>
+>> If dpipe was to support simple generic two dimensional tables, we
+>> probably would use it.
+>>
+>> David suggested making a class device for DSA. It is not ideal, but we
+>> are probably going to go that way.
+> 
+> I believe that is also big mistake.
+> 
+> Could you put together your requirements so we can work it out to extend
+> devlink to support them?
+> 
+> Thanks.
+> 
 
-Jianlin found a kernel crash caused by this in ip6_gre when he set
-ipv6.disable=1 in grub:
+$ ack -i devlink Documentation/
+$ ack -i dpipe Documentation/
+$
 
-[  209.588865] Unable to handle kernel paging request for data at address 0x00000080
-[  209.588872] Faulting instruction address: 0xc000000000a3aa6c
-[  209.588879] Oops: Kernel access of bad area, sig: 11 [#1]
-[  209.589062] NIP [c000000000a3aa6c] fib_rules_lookup+0x4c/0x260
-[  209.589071] LR [c000000000b9ad90] fib6_rule_lookup+0x50/0xb0
-[  209.589076] Call Trace:
-[  209.589097] fib6_rule_lookup+0x50/0xb0
-[  209.589106] rt6_lookup+0xc4/0x110
-[  209.589116] ip6gre_tnl_link_config+0x214/0x2f0 [ip6_gre]
-[  209.589125] ip6gre_newlink+0x138/0x3a0 [ip6_gre]
-[  209.589134] rtnl_newlink+0x798/0xb80
-[  209.589142] rtnetlink_rcv_msg+0xec/0x390
-[  209.589151] netlink_rcv_skb+0x138/0x150
-[  209.589159] rtnetlink_rcv+0x48/0x70
-[  209.589169] netlink_unicast+0x538/0x640
-[  209.589175] netlink_sendmsg+0x40c/0x480
-[  209.589184] ___sys_sendmsg+0x384/0x4e0
-[  209.589194] SyS_sendmsg+0xd4/0x140
-[  209.589201] SyS_socketcall+0x3e0/0x4f0
-[  209.589209] system_call+0x38/0xe0
+How you expect new mechanisms to be taken into use with zero documentation?
 
-This patch is to return -EOPNOTSUPP in ip6_tunnel_init if ipv6 has been
-disabled from cmdline.
+To all: Why does reviewers nitpick about undocumented formatting rules, 
+but not ask about documentation?
 
-Reported-by: Jianlin Shi <jishi@redhat.com>
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
----
- net/ipv6/ip6_tunnel.c | 3 +++
- 1 file changed, 3 insertions(+)
-
-diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
-index ae73164..f2f21c2 100644
---- a/net/ipv6/ip6_tunnel.c
-+++ b/net/ipv6/ip6_tunnel.c
-@@ -2259,6 +2259,9 @@ static int __init ip6_tunnel_init(void)
- {
- 	int  err;
- 
-+	if (!ipv6_mod_enabled())
-+		return -EOPNOTSUPP;
-+
- 	err = register_pernet_device(&ip6_tnl_net_ops);
- 	if (err < 0)
- 		goto out_pernet;
--- 
-2.1.0
+Egil
