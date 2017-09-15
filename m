@@ -1,37 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: systemport: Fix 64-bit stats deadlock
-Date: Fri, 15 Sep 2017 14:25:11 -0700 (PDT)
-Message-ID: <20170915.142511.221689318302073484.davem@davemloft.net>
-References: <1505247266-42195-1-git-send-email-f.fainelli@gmail.com>
+Subject: Re: [PATCH v2] net: smsc911x: Quieten netif during suspend
+Date: Fri, 15 Sep 2017 14:26:22 -0700 (PDT)
+Message-ID: <20170915.142622.1357636170906048191.davem@davemloft.net>
+References: <1505324525-9998-1-git-send-email-geert+renesas@glider.be>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com, jqiaoulk@gmail.com
-To: f.fainelli@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:57226 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751704AbdIOVZM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 15 Sep 2017 17:25:12 -0400
-In-Reply-To: <1505247266-42195-1-git-send-email-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: steve.glendinning@shawell.net, andrew@lunn.ch,
+        f.fainelli@gmail.com, netdev@vger.kernel.org,
+        linux-pm@vger.kernel.org, linux-renesas-soc@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: geert+renesas@glider.be
+Return-path: <linux-pm-owner@vger.kernel.org>
+In-Reply-To: <1505324525-9998-1-git-send-email-geert+renesas@glider.be>
+Sender: linux-pm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Tue, 12 Sep 2017 13:14:26 -0700
+From: Geert Uytterhoeven <geert+renesas@glider.be>
+Date: Wed, 13 Sep 2017 19:42:05 +0200
 
-> We can enter a deadlock situation because there is no sufficient protection
-> when ndo_get_stats64() runs in process context to guard against RX or TX NAPI
-> contexts running in softirq, this can lead to the following lockdep splat and
-> actual deadlock was experienced as well with an iperf session in the background
-> and a while loop doing ifconfig + ethtool.
- ...
-> So just remove the u64_stats_update_begin()/end() pair in ndo_get_stats64()
-> since it does not appear to be useful for anything. No inconsistency was
-> observed with either ifconfig or ethtool, global TX counts equal the sum of
-> per-queue TX counts on a 32-bit architecture.
+> If the network interface is kept running during suspend, the net core
+> may call net_device_ops.ndo_start_xmit() while the Ethernet device is
+> still suspended, which may lead to a system crash.
 > 
-> Fixes: 10377ba7673d ("net: systemport: Support 64bit statistics")
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> E.g. on sh73a0/kzm9g and r8a73a4/ape6evm, the external Ethernet chip is
+> driven by a PM controlled clock.  If the Ethernet registers are accessed
+> while the clock is not running, the system will crash with an imprecise
+> external abort.
+> 
+> As this is a race condition with a small time window, it is not so easy
+> to trigger at will.  Using pm_test may increase your chances:
+> 
+>     # echo 0 > /sys/module/printk/parameters/console_suspend
+>     # echo platform > /sys/power/pm_test
+>     # echo mem > /sys/power/state
+> 
+> To fix this, make sure the network interface is quietened during
+> suspend.
+> 
+> Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
 
 Applied.
