@@ -1,73 +1,104 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: scheduling while atomic from vmci_transport_recv_stream_cb in
- 3.16 kernels
-Date: Fri, 15 Sep 2017 18:12:15 +0100
-Message-ID: <1505495535.2825.41.camel@decadent.org.uk>
-References: <20170912090852.qshtrioffwexkslw@dhcp22.suse.cz>
-         <B8A42FAB-9E16-4943-98F3-86FC8F195069@vmware.com>
-         <20170913151939.gf7n6rvvjtz47tz7@dhcp22.suse.cz>
-         <AA27A6E6-2376-437A-9508-FD9C2427A465@vmware.com>
-         <20170914085959.nkiefbzupwmknncy@dhcp22.suse.cz>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH] net/packet: fix race condition between fanout_add and __unregister_prot_hook
+Date: Fri, 15 Sep 2017 10:41:04 -0700
+Message-ID: <CAM_iQpWAeB+8bm9u+eHS3k_h5PSbnztXBvzTC=f0-tohdiSgzQ@mail.gmail.com>
+References: <20170914140722.44292-1-nixiaoming@huawei.com> <CAF=yD-Jt5boxgQne4s1Fzy0y=Lq7RO4fjF6BfOCoh1bgaSECHQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-        protocol="application/pgp-signature"; boundary="=-G3V4guhry9E2rkRu0G0V"
-Cc: Aditya Sarwade <asarwade@vmware.com>,
-        Thomas Hellstrom <thellstrom@vmware.com>,
-        LKML <linux-kernel@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Masik Petr <Petr.Masik@nudz.cz>,
-        Sasha Levin <alexander.levin@verizon.com>,
-        Stable tree <stable@vger.kernel.org>
-To: Michal Hocko <mhocko@kernel.org>,
-        "Jorgen S. Hansen" <jhansen@vmware.com>
+Content-Type: text/plain; charset="UTF-8"
+Cc: nixiaoming <nixiaoming@huawei.com>,
+        David Miller <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>, waltje@uwalt.nl.mugnet.org,
+        gw4pts@gw4pts.ampr.org, Andrey Konovalov <andreyknvl@google.com>,
+        Tobias Klauser <tklauser@distanz.ch>,
+        Philip Pettersson <philip.pettersson@gmail.com>,
+        Alexander Potapenko <glider@google.com>,
+        Network Development <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>, dede.wu@huawei.com
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170914085959.nkiefbzupwmknncy@dhcp22.suse.cz>
+In-Reply-To: <CAF=yD-Jt5boxgQne4s1Fzy0y=Lq7RO4fjF6BfOCoh1bgaSECHQ@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Thu, Sep 14, 2017 at 7:35 AM, Willem de Bruijn
+<willemdebruijn.kernel@gmail.com> wrote:
+> On Thu, Sep 14, 2017 at 10:07 AM, nixiaoming <nixiaoming@huawei.com> wrote:
+>> From: l00219569 <lisimin@huawei.com>
+>>
+>> If fanout_add is preempted after running po-> fanout = match
+>> and before running __fanout_link,
+>> it will cause BUG_ON when __unregister_prot_hook call __fanout_unlink
+>>
+>> so, we need add mutex_lock(&fanout_mutex) to __unregister_prot_hook
+>
+> The packet socket code has no shortage of locks, so there are many
+> ways to avoid the race condition between fanout_add and packet_set_ring.
+>
+> Another option would be to lock the socket when calling fanout_add:
+>
+>     -               return fanout_add(sk, val & 0xffff, val >> 16);
+>     +               lock_sock(sk);
+>     +               ret = fanout_add(sk, val & 0xffff, val >> 16);
+>     +               release_sock(sk);
+>     +               return ret;
+>
 
---=-G3V4guhry9E2rkRu0G0V
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Thu, 2017-09-14 at 10:59 +0200, Michal Hocko wrote:
-> On Wed 13-09-17 18:58:13, Jorgen S. Hansen wrote:
-> [...]
-> > The patch series look good to me.
->=20
-> Thanks for double checking. Ben, could you merge this to 3.16 stable
-> branch, please?
-
-I have a long list of requests to work through, but I will get to this
-eventually.
-
-Ben.
-
---=20
-Ben Hutchings
-Kids!  Bringing about Armageddon can be dangerous.  Do not attempt it in
-your own home. - Terry Pratchett and Neil Gaiman, `Good Omens'
+I don't think this is an option, because __unregister_prot_hook()
+can be called without lock_sock(), for example in packet_notifier().
 
 
---=-G3V4guhry9E2rkRu0G0V
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+> But, for consistency, and to be able to continue to make sense of the
+> locking policy, we should use the most appropriate lock. This
+> is po->bind_lock, as it ensures atomicity between testing whether
+> a protocol hook is active through po->running and the actual existence
+> of that hook on the protocol hook list.
 
------BEGIN PGP SIGNATURE-----
+Yeah, register_prot_hook() and unregister_prot_hook() already assume
+bind_lock.
 
-iQIzBAABCgAdFiEErCspvTSmr92z9o8157/I7JWGEQkFAlm8Ce8ACgkQ57/I7JWG
-EQl8Lg//VyOMEZQiuebFNXrIvH8Wud3XKrqcErCd1SrvRI3kozg7P0S/1Ng2xE4b
-EKhcAlsW5efj8YKDpaUAcWcVYXL32LVdoiTJnmi2j0oHEBxa+HIZCd24x/fMqU9F
-p5CVT9jDTyovFl4hZFT9zA/Und415jvOaNpEH4EN8TfarHXEG626ge4v/GdewJ1A
-1l9Vi/mRGkfs14xnj+KvIadC8C72iGEFYPA6teAeZ1DcMt0krqEduHMme0MM00Yr
-sj/o1ALvSwzgma/uctn6Z86tye/6b1nuDqCALSLRLceanMeRDCLos9gkNebs5qn5
-9xIWoqlXkIOGiajRligiIhA/veb/IFVY7x7mdGgbrdlOu/xqJi8sJMEro8qi9p7v
-Bwj3WK1wwnMnA2ZywvJ7Iei8M/y+G0+ulXvGpWNXlPgsV9BH7klMZas0x7dyqrL/
-PMx7HohKL+CHHqgJUGVcN1IwF+nHizAjYH4a0oMsRauSfG8v28oTV/iY2vx66qVf
-UCzfrl6xrpPPncEqL3UpmByYhl6y9mxp6hJzq2i6zwPEfHAIE+isAtVwaVIdRfb2
-bUScDtxnwtni4OQ5i82o7y9g/Ce8bhXenmuOtVhdHNobb/bgn6r3vG5yJIIT1cjD
-CaR4G8NbLp1vyx72U5MhzcuzwX5cRVn3jh9wDRlpUIHZYp09E20=
-=DfCy
------END PGP SIGNATURE-----
+[...]
 
---=-G3V4guhry9E2rkRu0G0V--
+>>  out:
+>>         mutex_unlock(&fanout_mutex);
+>> +       spin_unlock(&po->bind_lock);
+>
+> This function can call kzalloc with GFP_KERNEL, which may sleep. It is
+> not correct to sleep while holding a spinlock. Which is why I take the lock
+> later and test po->running again.
+
+
+Right, no need to mention the mutex_unlock() before the spin_unlock()
+is clearly wrong.
+
+
+>
+> I will clean up that patch and send it for review.
+
+How about the following patch?
+
+
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index c26172995511..f5c696a548ed 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -1754,10 +1754,14 @@ static int fanout_add(struct sock *sk, u16 id,
+u16 type_flags)
+            match->prot_hook.dev == po->prot_hook.dev) {
+                err = -ENOSPC;
+                if (refcount_read(&match->sk_ref) < PACKET_FANOUT_MAX) {
++                       spin_lock(&po->bind_lock);
+                        __dev_remove_pack(&po->prot_hook);
+-                       po->fanout = match;
+-                       refcount_set(&match->sk_ref,
+refcount_read(&match->sk_ref) + 1);
+-                       __fanout_link(sk, po);
++                       if (po->running) {
++                               refcount_set(&match->sk_ref,
+refcount_read(&match->sk_ref) + 1);
++                               po->fanout = match;
++                               __fanout_link(sk, po);
++                       }
++                       spin_unlock(&po->bind_lock);
+                        err = 0;
+                }
+        }
