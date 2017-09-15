@@ -1,88 +1,79 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: selftests/bpf doesn't compile
-Date: Fri, 15 Sep 2017 20:48:09 +0200
-Message-ID: <59BC2069.8050100@iogearbox.net>
-References: <20170908111923.27434-1-thomas@m3y3r.de> <20170908230155.esge2mctk5d5g7gb@ast-mbp> <59B32231.9090406@iogearbox.net> <ed20875b-7a01-fbc8-e8d1-3929ba35c8ac@kernel.org> <295553a4-aadc-e5d1-229e-22d1966bc9f5@kernel.org> <20170915160253.q3x5j7hfkxxh2g6w@ast-mbp> <701006c0-f80a-6bd7-fb5e-5bca1dc33a31@solarflare.com> <20170915180751.rnmvttf4lnz26qit@ast-mbp> <59BC1AAC.3040401@iogearbox.net>
+From: Oleksandr Natalenko <oleksandr@natalenko.name>
+Subject: Re: [REGRESSION] Warning in tcp_fastretrans_alert() of net/ipv4/tcp_input.c
+Date: Fri, 15 Sep 2017 21:04:36 +0200
+Message-ID: <12759907.teKvueDKTR@natalenko.name>
+References: <10035198.1vE6NFrMDO@natalenko.name> <1760119.uO98D2ft6f@natalenko.name> <CADVnQymkqE+mt4OwtkL1ddpRbqJYPH8CJ0JhNn6ML9YPJdCJxA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Shuah Khan <shuah@kernel.org>, Thomas Meyer <thomas@m3y3r.de>,
-        linux-kernel@vger.kernel.org, linux-kselftest@vger.kernel.org,
-        Shuah Khan <shuahkh@osg.samsung.com>,
-        Networking <netdev@vger.kernel.org>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Edward Cree <ecree@solarflare.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <59BC1AAC.3040401@iogearbox.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Netdev <netdev@vger.kernel.org>,
+        Yuchung Cheng <ycheng@google.com>
+To: Neal Cardwell <ncardwell@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vulcan.natalenko.name ([104.207.131.136]:44670 "EHLO
+        vulcan.natalenko.name" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751454AbdIOTEi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 15 Sep 2017 15:04:38 -0400
+In-Reply-To: <CADVnQymkqE+mt4OwtkL1ddpRbqJYPH8CJ0JhNn6ML9YPJdCJxA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/15/2017 08:23 PM, Daniel Borkmann wrote:
-> On 09/15/2017 08:07 PM, Alexei Starovoitov wrote:
->> On Fri, Sep 15, 2017 at 05:58:40PM +0100, Edward Cree wrote:
->>> On 15/09/17 17:02, Alexei Starovoitov wrote:
->>>> On Thu, Sep 14, 2017 at 09:33:48AM -0600, Shuah Khan wrote:
->>>>> Is bpf test intended to be run in kselftest run? The clang dependency might
->>>>> not be met on majority of the systems. Is this a hard dependency??
->>>> It is a hard dependency and clang should be present on majority of the systems.
->>> I think this is the wrong approach.  Making kselftest hard-require clang doesn't
->>>   mean that the bpf tests will be run more often, it means that the rest of the
->>>   kselftests will be run less often.  clang is quite big (when I tried to install
->>>   it on one of my test servers, I didn't have enough disk space & had to go on a
->>>   clear-out of unused packages), and most people aren't interested in the bpf
->>>   subsystem specifically; they would rather be able to skip those tests.
->>> I feel that as long as they know they are skipping some tests (so e.g. they
->>>   won't consider it a sufficient test of a kselftest refactor), that's fine.
->>> It's not even as though all of the bpf tests require clang; the (smaller) tests
->>>   written directly in raw eBPF instructions could still be run on such a system.
->>>   So I think we should attempt to run as much as possible but accept that clang
->>>   may not be available and have an option to skip some tests in that case.
->>
->> imo the value of selftests/bpf is twofold:
->> 1. it helps bpf developers avoid regressions
->> 2. as part of continuous integration it helps to catch bpf regressions
->> that were somehow caused by changes in other parts of the kernel
->>
->> If a developer didn't bother to satisfy all bpf tests dependencies
->> (which includes clang) and ran all tests before sending a patch,
->> I don't want to see such patches. It just wastes maintainers time
->> to review code and spot bugs that could have been caught by tests.
->> Collectively we invested years of work into these tests and
->> developers better take advantage of it by running all.
->
-> +1
->
->> If a CI server didn't satisfy all bpf test dependencies,
->> I don't want such CI setup to be running and reporting results,
->> since it will give false sense of test coverage.
->> Test failures due to missing dependencies are hard failures.
->> We cannot skip them.
->
-> +1
+Hello.
 
-Btw, on that note, the folks from zero-day bot run the BPF kselftests
-for a while now just fine and they do run them together with clang,
-so they have the full, proper coverage how it should be. It's not
-how it used to be in the early days, you can just go and install
-llvm/clang package on all the major distros today and you get the
-bpf target by default enabled already.
+With net.ipv4.tcp_fack set to 0 the warning still appears:
 
->> I'd like generic XDP tests to be added to selftests/bpf which
->> would mean that the latest iproute2 will become a hard dependency
->> and bpf developers and CI host owners would need to upgrade
->> their iproute2.
->> The tests either pass or fail. Skipping them due to missing
->> dependencies is the same as fail and in that sense I don't want
->> to change selftests/bpf/Makefile to make it skip clang.
->
-> I fully agree that for the BPF selftests it is very desirable
-> to not only test the verifier with couple of BPF insn snippets,
-> but to actually load and run programs that more closely resemble
-> real world programs. For more complex interactions these snippets
-> are just limited, think of tail calls, testing perf event output
-> helper, etc, which would all require to write these tests with
-> restricted C when we add them (unless we want to make writing
-> these tests a real pain ;) in which case no-one will bother to
-> write tests at all for them). Mid to long term I would definitely
-> like to see more programs in BPF selftests (e.g. moved over from
-> samples/bpf/) to increase the test coverage.
+=3D=3D=3D
+=C2=BB sysctl net.ipv4.tcp_fack    =20
+net.ipv4.tcp_fack =3D 0
+
+=C2=BB LC_TIME=3DC dmesg -T | grep WARNING
+[Fri Sep 15 20:40:30 2017] WARNING: CPU: 1 PID: 711 at net/ipv4/tcp_input.c:
+2826 tcp_fastretrans_alert+0x7c8/0x990
+[Fri Sep 15 20:40:30 2017] WARNING: CPU: 0 PID: 711 at net/ipv4/tcp_input.c:
+2826 tcp_fastretrans_alert+0x7c8/0x990
+[Fri Sep 15 20:48:37 2017] WARNING: CPU: 1 PID: 711 at net/ipv4/tcp_input.c:
+2826 tcp_fastretrans_alert+0x7c8/0x990
+[Fri Sep 15 20:48:55 2017] WARNING: CPU: 0 PID: 711 at net/ipv4/tcp_input.c:
+2826 tcp_fastretrans_alert+0x7c8/0x990
+
+=C2=BB ps -up 711
+USER       PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+root       711  4.3  0.0      0     0 ?        S    18:12   7:23 [irq/123-
+enp3s0]
+=3D=3D=3D
+
+Any suggestions?
+
+On p=C3=A1tek 15. z=C3=A1=C5=99=C3=AD 2017 16:03:00 CEST Neal Cardwell wrot=
+e:
+> Thanks for testing that. That is a very useful data point.
+>=20
+> I was able to cook up a packetdrill test that could put the connection
+> in CA_Disorder with retransmitted packets out, but not in CA_Open. So
+> we do not yet have a test case to reproduce this.
+>=20
+> We do not see this warning on our fleet at Google. One significant
+> difference I see between our environment and yours is that it seems
+> you run with FACK enabled:
+>=20
+>   net.ipv4.tcp_fack =3D 1
+>=20
+> Note that FACK was disabled by default (since it was replaced by RACK)
+> between kernel v4.10 and v4.11. And this is exactly the time when this
+> bug started manifesting itself for you and some others, but not our
+> fleet. So my new working hypothesis would be that this warning is due
+> to a behavior that only shows up in kernels >=3D4.11 when FACK is
+> enabled.
+>=20
+> Would you be able to disable FACK ("sysctl net.ipv4.tcp_fack=3D0" at
+> boot, or net.ipv4.tcp_fack=3D0 in /etc/sysctl.conf, or equivalent),
+> reboot, and test the kernel for a few days to see if the warning still
+> pops up?
+>=20
+> thanks,
+> neal
+>=20
+> [ps: apologies for the previous, mis-formatted post...]
