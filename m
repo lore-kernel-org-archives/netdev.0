@@ -1,40 +1,31 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net] sctp: do not mark sk dumped when inet_sctp_diag_fill
- returns err
-Date: Fri, 15 Sep 2017 08:59:52 -0400
-Message-ID: <20170915125952.GB6031@hmswarspite.think-freely.org>
-References: <c5398945d4e80ed8b8497675dd0449763fec4eec.1505444568.git.lucien.xin@gmail.com>
+From: Pierre Colombier <pierre@abeille.com>
+Subject: Re: feature request for kernel module 8021q
+Date: Fri, 15 Sep 2017 15:02:04 +0200
+Message-ID: <80283eea-3f4a-1548-9d62-1387c5f08712@abeille.com>
+References: <c010d65d-3050-8d88-22aa-cac092dd3904@abeille.com>
+ <A4D84B7F-5D4A-44C8-875C-C113D7C5C688@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-        davem@davemloft.net,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-To: Xin Long <lucien.xin@gmail.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:52631 "EHLO
-        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751184AbdIOM75 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 15 Sep 2017 08:59:57 -0400
-Content-Disposition: inline
-In-Reply-To: <c5398945d4e80ed8b8497675dd0449763fec4eec.1505444568.git.lucien.xin@gmail.com>
+Received: from mail3.abeille.com ([212.129.23.178]:35801 "EHLO
+        mail3.abeille.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751184AbdIONCG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 15 Sep 2017 09:02:06 -0400
+In-Reply-To: <A4D84B7F-5D4A-44C8-875C-C113D7C5C688@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 15, 2017 at 11:02:48AM +0800, Xin Long wrote:
-> sctp_diag would not actually dump out sk/asoc if inet_sctp_diag_fill
-> returns err, in which case it shouldn't mark sk dumped by setting
-> cb->args[3] as 1 in sctp_sock_dump().
-> 
-> Otherwise, it could cause some asocs to have no parent's sk dumped
-> in 'ss --sctp'.
-> 
-> So this patch is to not set cb->args[3] when inet_sctp_diag_fill()
-> returns err in sctp_sock_dump().
-> 
-> Fixes: 8f840e47f190 ("sctp: add the sctp_diag.c file")
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
-> ---
->  net/sctp/sctp_diag.c | 1 -
->  1 file changed, 1 deletion(-)
-> 
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+
+>> One interesting feature would be to have a special vlan number
+>>
+>> (let's say 0 or -1 or 4097 ) designed so that it gets all the untagged
+>> trafic and only the untagged trafic.
+> 4097 is not a valid number nor is -1 since that closely follows what the VLAN ID extracted from the tag would be. VLAN 0 is more or less the untagged VLAN.
+I know -1 or 4097 are invalid numbers
+This is precicely why i suggested them as "special"
+I wasn't aware of the existing Vlan 0 feature
+I just tried again and it seems to be exactly what I was requesting.
+
+What do you mean by "more or less" ?
