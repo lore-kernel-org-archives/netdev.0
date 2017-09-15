@@ -1,82 +1,26 @@
-From: Egil Hjelmeland <privat@egil-hjelmeland.no>
-Subject: Re: [PATCH net-next v2 01/10] net: dsa: add debugfs interface
-Date: Fri, 15 Sep 2017 09:35:38 +0200
-Message-ID: <fb6991eb-573e-a085-9267-928c47dbdb05@egil-hjelmeland.no>
-References: <20170828191748.19492-1-vivien.didelot@savoirfairelinux.com>
- <20170828191748.19492-2-vivien.didelot@savoirfairelinux.com>
- <20170907193434.GA11006@kroah.com>
- <87h8wdb8bj.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
- <CAJGZr0KdOPW5_V3kvWutwTY=BJhfd-=yRDPnvbDBOCuMYWj9OQ@mail.gmail.com>
- <CAKgT0Uf8--Yh9tfkTrh9_dfEYMX5jR6j4unxwxM+WD6E4jk9pA@mail.gmail.com>
- <20170914210132.GC3084@lunn.ch> <20170915055107.GA1927@nanopsycho.orion>
+From: "Valero Energy Recruitment" <jobs@onpaperstore.com>
+Subject: Job Offer In USA
+Date: Fri, 15 Sep 2017 13:42:42 +0530
+Message-ID: <E1dslk2-0003of-Ge@mx1.tmdhosting.com>
+Reply-To: jobs.valerousa@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Alexander Duyck <alexander.duyck@gmail.com>,
-        Maxim Uvarov <muvarov@gmail.com>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Greg KH <gregkh@linuxfoundation.org>,
-        netdev <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        John Crispin <john@phrozen.org>,
-        Woojung Huh <Woojung.Huh@microchip.com>,
-        Sean Wang <sean.wang@mediatek.com>,
-        Nikita Yushchenko <nikita.yoush@cogentembedded.com>,
-        Chris Healy <cphealy@gmail.com>
-To: Jiri Pirko <jiri@resnulli.us>, Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170915055107.GA1927@nanopsycho.orion>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: Recipients <jobs@onpaperstore.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.tmdhosting.com ([108.178.0.170]:57626 "EHLO
+        mx1.tmdhosting.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750866AbdIOIMy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 15 Sep 2017 04:12:54 -0400
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 15. sep. 2017 07:51, Jiri Pirko wrote:
-> Thu, Sep 14, 2017 at 11:01:32PM CEST, andrew@lunn.ch wrote:
->>> Can you clarify what type of registers it is you are wanting to read?
->>> We already have ethtool which is meant to allow reading the device
->>> registers for a given netdev. As long as the port has a netdev
->>> associated it then there is no need to be getting into debugfs since
->>> we should probably just be using ethtool.
->>
->> Not all ports of a DSA switch have a netdev. This is by design. The
->> presentation we gave to Netdev 2.1 gives some of the background.
->>
->> Plus a switch has a lot of registers not associated to port. Often a
->> switch has more global registers than port registers.
->>
->>> Also as Jiri pointed out there is already devlink which would probably
->>> be a better way to get the associated information for those pieces
->>> that don't have a netdev associated with them.
->>
->> We have looked at the devlink a few times. The current dpipe code is
->> not generic enough. It makes assumptions about the architecture of the
->> switch, that it is all match/action based. The niche of top of rack
->> switches might be like that, but average switches are not.
->>
->> If dpipe was to support simple generic two dimensional tables, we
->> probably would use it.
->>
->> David suggested making a class device for DSA. It is not ideal, but we
->> are probably going to go that way.
-> 
-> I believe that is also big mistake.
-> 
-> Could you put together your requirements so we can work it out to extend
-> devlink to support them?
-> 
-> Thanks.
-> 
+Valero Energy Oil & Gas Company USA
+Employment Opportunity in Texas, USA.
+Oil & Gas Sector ( NEW PLANT RIG )
+Salary Range $7,000 USD - $11,700 Per Month
+Kindly send your CV/RESUME for more details regarding our Job Program, Empl=
+oyment offers for all Offices.
 
-$ ack -i devlink Documentation/
-$ ack -i dpipe Documentation/
-$
-
-How you expect new mechanisms to be taken into use with zero documentation?
-
-To all: Why does reviewers nitpick about undocumented formatting rules, 
-but not ask about documentation?
-
-Egil
+CC: Forward All Documents/Certificates & Resume to: jobs.valerousa@gmail.com
