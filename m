@@ -1,54 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] VSOCK: fix uapi/linux/vm_sockets.h incomplete types
-Date: Fri, 15 Sep 2017 14:14:32 -0700 (PDT)
-Message-ID: <20170915.141432.1514866054657107786.davem@davemloft.net>
-References: <20170912163435.4049-1-stefanha@redhat.com>
+From: Vincent Bernat <vincent@bernat.im>
+Subject: Re: [PATCH net-next v1] bridge: also trigger RTM_NEWLINK when interface is released from bridge
+Date: Fri, 15 Sep 2017 23:08:42 +0200
+Message-ID: <m3zi9vbrfp.fsf@luffy.cx>
+References: <20170915193808.22338-1-vincent@bernat.im>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, jhansen@vmware.com
-To: stefanha@redhat.com
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Cc: "David S. Miller" <davem@davemloft.net>,
+        bridge@lists.linux-foundation.org, netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:56946 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751779AbdIOVOe (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 15 Sep 2017 17:14:34 -0400
-In-Reply-To: <20170912163435.4049-1-stefanha@redhat.com>
+Received: from bart.luffy.cx ([78.47.78.131]:53140 "EHLO bart.luffy.cx"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751628AbdIOVRJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 15 Sep 2017 17:17:09 -0400
+In-Reply-To: <20170915193808.22338-1-vincent@bernat.im> (Vincent Bernat's
+        message of "Fri, 15 Sep 2017 21:38:08 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogU3RlZmFuIEhham5vY3ppIDxzdGVmYW5oYUByZWRoYXQuY29tPg0KRGF0ZTogVHVlLCAx
-MiBTZXAgMjAxNyAxNzozNDozNSArMDEwMA0KDQo+IFRoaXMgcGF0Y2ggZml4ZXMgdGhlIGZvbGxv
-d2luZyBjb21waWxlciBlcnJvcnMgd2hlbiB1c2Vyc3BhY2UNCj4gYXBwbGljYXRpb25zIHVzZSB0
-aGUgdm1fc29ja2V0cy5oIGhlYWRlcjoNCj4gDQo+ICAgaW5jbHVkZS91YXBpL2xpbnV4L3ZtX3Nv
-Y2tldHMuaDoxNDg6MzI6IGVycm9yOiBpbnZhbGlkIGFwcGxpY2F0aW9uIG9mIKFzaXplb2aiIHRv
-IGluY29tcGxldGUgdHlwZSChc3RydWN0IHNvY2thZGRyog0KPiAgICAgdW5zaWduZWQgY2hhciBz
-dm1femVyb1tzaXplb2Yoc3RydWN0IHNvY2thZGRyKSAtDQo+ICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICBefn5+fn4NCj4gICBpbmNsdWRlL3VhcGkvbGludXgvdm1fc29ja2V0cy5o
-OjE0OToxODogZXJyb3I6IKFzYV9mYW1pbHlfdKIgdW5kZWNsYXJlZCBoZXJlIChub3QgaW4gYSBm
-dW5jdGlvbikNCj4gICAgICAgICAgICAgIHNpemVvZihzYV9mYW1pbHlfdCkgLQ0KPiAgICAgICAg
-ICAgICAgICAgICAgIF5+fn5+fn5+fn5+DQo+IA0KPiBUd28gaXNzdWVzOg0KPiAxLiBJbiB0aGUg
-a2VybmVsIHN0cnVjdCBzb2NrYWRkciBjb21lcyBpbiB2aWEgPGxpbnV4L3NvY2tldC5oPiBidXQg
-aW4NCj4gICAgdXNlcnNwYWNlIDxzeXMvc29ja2V0Lmg+IGlzIHJlcXVpcmVkLg0KPiAyLiBzdHJ1
-Y3Qgc29ja2FkZHJfdm0gaGFzIGEgX19rZXJuZWxfc2FfZmFtaWx5X3QgZmllbGQgc28gbGV0J3Mg
-YmUNCj4gICAgY29uc2lzdGVudCBhbmQgdXNlIHRoZSBzYW1lIHR5cGUgZm9yIHRoZSBzaXplb2Yo
-c2FfZmFtaWx5X3QpDQo+ICAgIGNhbGN1bGF0aW9uLg0KPiANCj4gQ3VycmVudGx5IHVzZXJzcGFj
-ZSBhcHBsaWNhdGlvbnMgd29yayBhcm91bmQgdGhpcyBicm9rZW4gaGVhZGVyIGJ5IGZpcnN0DQo+
-IGluY2x1ZGluZyA8c3lzL3NvY2tldC5oPi4gIEluIHRoZSBrZXJuZWwgdGhlcmUgaXMgbm8gY29t
-cGlsZXIgZXJyb3INCj4gYmVjYXVzZSA8bGludXgvc29ja2V0Lmg+IHByb3ZpZGVzIGV2ZXJ5dGhp
-bmcuICBJdCdzIHdvcnRoIGZpeGluZyB0aGUNCj4gaGVhZGVyIGZpbGUgdGhvdWdoLg0KPiANCj4g
-Q2M6IEpvcmdlbiBIYW5zZW4gPGpoYW5zZW5Adm13YXJlLmNvbT4NCj4gU2lnbmVkLW9mZi1ieTog
-U3RlZmFuIEhham5vY3ppIDxzdGVmYW5oYUByZWRoYXQuY29tPg0KPiAtLS0NCj4gIGluY2x1ZGUv
-dWFwaS9saW51eC92bV9zb2NrZXRzLmggfCA2ICsrKysrLQ0KPiAgMSBmaWxlIGNoYW5nZWQsIDUg
-aW5zZXJ0aW9ucygrKSwgMSBkZWxldGlvbigtKQ0KPiANCj4gZGlmZiAtLWdpdCBhL2luY2x1ZGUv
-dWFwaS9saW51eC92bV9zb2NrZXRzLmggYi9pbmNsdWRlL3VhcGkvbGludXgvdm1fc29ja2V0cy5o
-DQo+IGluZGV4IGI0ZWQ1ZDg5NTY5OS4uNGFlNWM2MjVhYzU2IDEwMDY0NA0KPiAtLS0gYS9pbmNs
-dWRlL3VhcGkvbGludXgvdm1fc29ja2V0cy5oDQo+ICsrKyBiL2luY2x1ZGUvdWFwaS9saW51eC92
-bV9zb2NrZXRzLmgNCj4gQEAgLTE4LDYgKzE4LDEwIEBADQo+ICANCj4gICNpbmNsdWRlIDxsaW51
-eC9zb2NrZXQuaD4NCj4gIA0KPiArI2lmbmRlZiBfX0tFUk5FTF9fDQo+ICsjaW5jbHVkZSA8c3lz
-L3NvY2tldC5oPiAvKiBzdHJ1Y3Qgc29ja2FkZHIgKi8NCj4gKyNlbmRpZg0KPiArDQoNClRoZXJl
-IGlzIG5vIHByZWNlZGVuY2Ugd2hhdHNvZXZlciB0byBpbmNsdWRlIHN5cy9zb2NrZXQuaCBpbiBf
-YW55XyBVQVBJDQpoZWFkZXIgZmlsZSBwcm92aWRlZCBieSB0aGUga2VybmVsLg0KDQpfX2tlcm5l
-bF9zYV9mYW1pbHlfdCBpcyB3aGF0IHNob3VsZCBiZSB1c2VkIGluIFVBUEkgaGVhZGVycywgb25s
-eQ0Kbm9uLVVBUEkgaGVhZGVycyBjYW4gdXNlIHBsYWluIHNhX2ZhbWlseV90Lg0KDQpTbyB0aGF0
-IGlzIHRoZSBjb3JyZWN0IGZpeCBmb3IgdGhpcyBwcm9ibGVtLg0KDQpUaGFuayB5b3UuDQo=
+ =E2=9D=A6 15 septembre 2017 21:38 +0200, Vincent Bernat <vincent@bernat.im=
+>=C2=A0:
+
+> Currently, when an interface is released from a bridge, we get a
+> RTM_DELLINK event through netlink:
+>
+> Deleted 2: dummy0: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 =
+state UNKNOWN
+>     link/ether 6e:23:c2:54:3a:b3
+
+It should be noted this only happens when using the ioctl API. When
+using the netlink API, rtnetlink.c will send a RTM_NEWLINK because of
+the modification.
+--=20
+When in doubt, tell the truth.
+		-- Mark Twain
