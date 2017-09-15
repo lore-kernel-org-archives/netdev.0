@@ -1,43 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: smsc911x: Quieten netif during suspend
-Date: Fri, 15 Sep 2017 14:26:22 -0700 (PDT)
-Message-ID: <20170915.142622.1357636170906048191.davem@davemloft.net>
-References: <1505324525-9998-1-git-send-email-geert+renesas@glider.be>
+Subject: Re: [PATCH] net: ipv4: fix l3slave check for index returned in
+ IP_PKTINFO
+Date: Fri, 15 Sep 2017 14:28:28 -0700 (PDT)
+Message-ID: <20170915.142828.1798273959011613150.davem@davemloft.net>
+References: <1505347897-27422-1-git-send-email-dsahern@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: steve.glendinning@shawell.net, andrew@lunn.ch,
-        f.fainelli@gmail.com, netdev@vger.kernel.org,
-        linux-pm@vger.kernel.org, linux-renesas-soc@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: geert+renesas@glider.be
-Return-path: <linux-pm-owner@vger.kernel.org>
-In-Reply-To: <1505324525-9998-1-git-send-email-geert+renesas@glider.be>
-Sender: linux-pm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: dsahern@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:57318 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751184AbdIOV23 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 15 Sep 2017 17:28:29 -0400
+In-Reply-To: <1505347897-27422-1-git-send-email-dsahern@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Geert Uytterhoeven <geert+renesas@glider.be>
-Date: Wed, 13 Sep 2017 19:42:05 +0200
+From: David Ahern <dsahern@gmail.com>
+Date: Wed, 13 Sep 2017 17:11:37 -0700
 
-> If the network interface is kept running during suspend, the net core
-> may call net_device_ops.ndo_start_xmit() while the Ethernet device is
-> still suspended, which may lead to a system crash.
+> rt_iif is only set to the actual egress device for the output path. The
+> recent change to consider the l3slave flag when returning IP_PKTINFO
+> works for local traffic (the correct device index is returned), but it
+> broke the more typical use case of packets received from a remote host
+> always returning the VRF index rather than the original ingress device.
+> Update the fixup to consider l3slave and rt_iif actually getting set.
 > 
-> E.g. on sh73a0/kzm9g and r8a73a4/ape6evm, the external Ethernet chip is
-> driven by a PM controlled clock.  If the Ethernet registers are accessed
-> while the clock is not running, the system will crash with an imprecise
-> external abort.
-> 
-> As this is a race condition with a small time window, it is not so easy
-> to trigger at will.  Using pm_test may increase your chances:
-> 
->     # echo 0 > /sys/module/printk/parameters/console_suspend
->     # echo platform > /sys/power/pm_test
->     # echo mem > /sys/power/state
-> 
-> To fix this, make sure the network interface is quietened during
-> suspend.
-> 
-> Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
+> Fixes: 1dfa76390bf05 ("net: ipv4: add check for l3slave for index returned in IP_PKTINFO")
+> Signed-off-by: David Ahern <dsahern@gmail.com>
 
-Applied.
+Applied, thanks David.
