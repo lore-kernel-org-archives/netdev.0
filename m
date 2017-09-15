@@ -1,67 +1,72 @@
-From: Rosen Penev <rosenp@gmail.com>
-Subject: [PATCH] bgmac: Remove all offloading features, including GRO.
-Date: Fri, 15 Sep 2017 15:22:18 -0700
-Message-ID: <20170915222218.6613-1-rosenp@gmail.com>
-Cc: Rosen Penev <rosenp@gmail.com>
-To: netdev@vger.kernel.org, zajec5@gmail.com, nbd@nbd.name
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:32849 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751184AbdIOWWx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 15 Sep 2017 18:22:53 -0400
-Received: by mail-pf0-f194.google.com with SMTP id h4so1808240pfk.0
-        for <netdev@vger.kernel.org>; Fri, 15 Sep 2017 15:22:52 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Shuah Khan <shuahkh@osg.samsung.com>
+Subject: Re: selftests/bpf doesn't compile
+Date: Fri, 15 Sep 2017 16:32:45 -0600
+Message-ID: <498a6b85-01ea-5c69-acf5-7cbaf5b5396e@osg.samsung.com>
+References: <20170908111923.27434-1-thomas@m3y3r.de>
+ <20170908230155.esge2mctk5d5g7gb@ast-mbp> <59B32231.9090406@iogearbox.net>
+ <ed20875b-7a01-fbc8-e8d1-3929ba35c8ac@kernel.org>
+ <295553a4-aadc-e5d1-229e-22d1966bc9f5@kernel.org>
+ <20170915160253.q3x5j7hfkxxh2g6w@ast-mbp>
+ <e07dabee-6c9c-7842-65b0-990a2ed1a2e9@osg.samsung.com>
+ <20170915181440.adkgyqbt4yxrnbw7@ast-mbp>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Shuah Khan <shuah@kernel.org>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Thomas Meyer <thomas@m3y3r.de>, linux-kernel@vger.kernel.org,
+        linux-kselftest@vger.kernel.org,
+        Networking <netdev@vger.kernel.org>,
+        Shuah Khan <shuahkh@osg.samsung.com>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170915181440.adkgyqbt4yxrnbw7@ast-mbp>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On a linksys E1200v1 (actually a crossflashed E1000v2), the offloading features give no measurable benefit to speed or latency. Furthermore, disabling GRO actually improves iperf performance by a whoppimg 3mbps. Results:
+On 09/15/2017 12:14 PM, Alexei Starovoitov wrote:
+> On Fri, Sep 15, 2017 at 11:00:31AM -0600, Shuah Khan wrote:
+>>>> I could add a special target for bpf TARGET_BPF perhaps and exclude it from
+>>>> the run_test> 
+>>> I'm not sure what was the motivation to exclude hotplug from default testing,
+>>
+>> These are considered a bit more disruptive and were excluded a while
+>> back. These take cpus and memory on and off-line. Also require
+>> root access. So even if they are included in the regular run, these
+>> won't run.
+> 
+> most of bpf tests require root access as well.
+> 
+>> The first failure due to clang dependency is not a problem. The second one
+>> in the case of "make kselftest" is the one that requires some work when bpf
+>> make is run from the main Makefile. A lots of users run tests using the
+>> kselftest target from the mail Makefile. hence I would like to get this
+>> working, so it would be easier to run this test on test servers.
+> 
+> 'make kselftest' doesn't work for me at all, since I suspect it
+> assumes in-source build. I always use KBUILD_OUTPUT,
+> since I build multiple archs with different configs out of the same
+> source tree, so there is a bigger problem here.
 
-Currently:
+Right. I think you probably use
 
-[  4] local 192.168.1.1 port 5001 connected with 192.168.1.100 port 52410
-[ ID] Interval        Transfer    Bandwidth       Reads   Dist(bin=16.0K)
-[  4] 0.00-10.02 sec  52.4 MBytes  43.8 Mbits/sec  641    75:181:12:1:1:0:0:371
-[  5] local 192.168.1.1 port 5001 connected with 192.168.1.100 port 52412
-[  5] 0.00-10.02 sec  52.4 MBytes  43.8 Mbits/sec  629    51:194:13:1:0:1:0:369
-[  4] local 192.168.1.1 port 5001 connected with 192.168.1.100 port 52414
-[  4] 0.00-10.02 sec  51.9 MBytes  43.4 Mbits/sec  695    126:203:1:0:0:0:2:363
-[  5] local 192.168.1.1 port 5001 connected with 192.168.1.100 port 52416
-[  5] 0.00-10.01 sec  52.4 MBytes  43.9 Mbits/sec  626    57:186:10:0:0:0:0:373
-[  4] local 192.168.1.1 port 5001 connected with 192.168.1.100 port 52420
-[  4] 0.00-10.02 sec  52.4 MBytes  43.8 Mbits/sec  605    36:179:16:1:0:1:0:372
-[  5] local 192.168.1.1 port 5001 connected with 192.168.1.100 port 52422
+make KBUILD_OUTPUT=dir -C tools/testing/selftests/bpf
 
-After disabling everything - including GRO:
+> 
+> $ make kselftest
+> make[1]: Entering directory `/data/users/ast/net-next/bld_x64'
+> make: Entering an unknown directory
+> make: *** tools/testing/selftests: No such file or directory.  Stop.
+> make: Leaving an unknown directory
+> make[1]: *** [kselftest] Error 2
+> make[1]: Leaving directory `/data/users/ast/net-next/bld_x64'
+> make: *** [sub-make] Error 2
+> 
 
-[  4] local 192.168.1.1 port 5001 connected with 192.168.1.100 port 52440
-[ ID] Interval        Transfer    Bandwidth       Reads   Dist(bin=16.0K)
-[  4] 0.00-10.01 sec  55.1 MBytes  46.2 Mbits/sec  672    180:82:0:0:1:0:0:409
-[  5] local 192.168.1.1 port 5001 connected with 192.168.1.100 port 52442
-[  5] 0.00-10.01 sec  56.0 MBytes  46.9 Mbits/sec  636    117:96:0:0:1:0:0:422
-[  4] local 192.168.1.1 port 5001 connected with 192.168.1.100 port 52444
-[  4] 0.00-10.01 sec  55.4 MBytes  46.4 Mbits/sec  675    172:92:0:0:1:0:0:410
-[  5] local 192.168.1.1 port 5001 connected with 192.168.1.100 port 52446
-[  5] 0.00-10.01 sec  56.0 MBytes  46.9 Mbits/sec  633    119:90:0:1:1:0:0:422
-[  4] local 192.168.1.1 port 5001 connected with 192.168.1.100 port 52448
-[  4] 0.00-10.01 sec  55.2 MBytes  46.3 Mbits/sec  688    157:123:0:0:2:0:0:406
+Right. There is patch set out to fix this problem which I sent out couple
+of days ago. It is probably the case that bpf Makefile might need changes
+to build when it is built from the sleftests/Makefile or the main Makefile.
 
-Signed-off-by: Rosen Penev <rosenp@gmail.com>
----
- drivers/net/ethernet/broadcom/bgmac.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
-index 48d672b204a4..c2db5673b073 100644
---- a/drivers/net/ethernet/broadcom/bgmac.c
-+++ b/drivers/net/ethernet/broadcom/bgmac.c
-@@ -1534,7 +1534,7 @@ int bgmac_enet_probe(struct bgmac *bgmac)
- 		goto err_dma_free;
- 	}
- 
--	net_dev->features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
-+	net_dev->features &= NETIF_F_GRO;
- 	net_dev->hw_features = net_dev->features;
- 	net_dev->vlan_features = net_dev->features;
- 
--- 
-2.13.5
+thanks,
+-- Shuah
