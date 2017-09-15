@@ -1,108 +1,89 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next v2 01/10] net: dsa: add debugfs interface
-Date: Fri, 15 Sep 2017 17:19:10 +0200
-Message-ID: <20170915151910.GG3084@lunn.ch>
-References: <20170828191748.19492-1-vivien.didelot@savoirfairelinux.com>
- <20170828191748.19492-2-vivien.didelot@savoirfairelinux.com>
- <20170907193434.GA11006@kroah.com>
- <87h8wdb8bj.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
- <CAJGZr0KdOPW5_V3kvWutwTY=BJhfd-=yRDPnvbDBOCuMYWj9OQ@mail.gmail.com>
- <CAKgT0Uf8--Yh9tfkTrh9_dfEYMX5jR6j4unxwxM+WD6E4jk9pA@mail.gmail.com>
- <20170914210132.GC3084@lunn.ch>
- <20170915055107.GA1927@nanopsycho.orion>
- <20170915140839.GD3084@lunn.ch>
- <20170915142617.GA2060@nanopsycho.orion>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: RTL8192EE PCIe Wireless Network Adapter crashed with linux-4.13
+Date: Fri, 15 Sep 2017 10:19:57 -0500
+Message-ID: <1eb67d2e-dfbc-a2d0-8949-d4336191c07b@lwfinger.net>
+References: <2WhCEttl4IJtrTB2AkJYmhbsu-kiR_5fU0A_Z7eWW05rbVE5tB86A_ZS8ek_FQFdgaZw1bfx0wFbxOa0Ydjv1T6BzBkIHtaWTbSptcpB_kg=@protonmail.com>
+ <e8e75755-f8b4-e122-ea4a-99a691405d38@lwfinger.net>
+ <jB0WJNG17mSfKo9m7T26r-b2Gr7mDL4lJ-1cWxeCJ6UCsA4TsxXz4znCLhYY5EASPQciwp1rf_xtwvDR-xzwD-OTApTUFoaVmIvahleDcJk=@protonmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alexander Duyck <alexander.duyck@gmail.com>,
-        Maxim Uvarov <muvarov@gmail.com>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        netdev <netdev@vger.kernel.org>, kernel@savoirfairelinux.com,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Egil Hjelmeland <privat@egil-hjelmeland.no>,
-        John Crispin <john@phrozen.org>,
-        Woojung Huh <Woojung.Huh@microchip.com>,
-        Sean Wang <sean.wang@mediatek.com>,
-        Nikita Yushchenko <nikita.yoush@cogentembedded.com>,
-        Chris Healy <cphealy@gmail.com>
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([185.16.172.187]:44425 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751152AbdIOPTQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 15 Sep 2017 11:19:16 -0400
-Content-Disposition: inline
-In-Reply-To: <20170915142617.GA2060@nanopsycho.orion>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+        "chaoming_li@realsil.com.cn" <chaoming_li@realsil.com.cn>,
+        "kvalo@codeaurora.org" <kvalo@codeaurora.org>,
+        "pkshih@realtek.com" <pkshih@realtek.com>,
+        "johannes.berg@intel.com" <johannes.berg@intel.com>,
+        "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Zwindl <zwindl@protonmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <jB0WJNG17mSfKo9m7T26r-b2Gr7mDL4lJ-1cWxeCJ6UCsA4TsxXz4znCLhYY5EASPQciwp1rf_xtwvDR-xzwD-OTApTUFoaVmIvahleDcJk=@protonmail.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> >   Reg  cpu     lan0    lan1    lan2    lan3    lan4    lan5  global0 global1
-> >-----------------------------------------------------------------------------
-> >    00: 4e07	4d04	4d04	4d04	4d04	4d04	4d04     0000   00000
-> >    01: 403e	003d	003d	003d	003d	003d	003d     0000   00000
-> >    02: 0000	0000	0000	0000	0000	0000	0000     0000   00000
-> >    03: 3521	3521	3521	3521	3521	3521	3521     0000   00000
-> >    04: 0533	373f	373f	373f	373f	373f	373f     0000   00000
-> >    05: 8000	0000	0000	0000	0000	0000	0000     0000   00000
-> >    06: 005f	003f	003f	003f	003f	003f	003f     0000   00000
-> >    07: 002a	002a	002a	002a	002a	002a	002a     0000   00000
-> >    08: 2080	2080	2080	2080	2080	2080	2080     0000   00000
-> >    09: 0001	0001	0001	0001	0001	0001	0001     0000   00000
-> >    0a: 0000	0000	0000	0000	0000	0000	0000     0000   00000
-> >    0b: 0020	0000	0000	0000	0000	0000	0000     0000   00000
-> >    0c: 0000	0000	0000	0000	0000	0000	0000     0000   00000
-> >    0d: 0000	0000	0000	0000	0000	0000	0000     0000   00000
-> >    0e: 0000	0000	0000	0000	0000	0000	0000     0000   00000
-> >    0f: 9100	dada	dada	dada	dada	dada	dada     0000   00000
-> >    10: 0000	0000	0000	0000	0000	0000	0000     0000   00000
-> >    11: 0000	0000	0000	0000	0000	0000	0000     0000   00000
-> >    12: 0000	0000	0000	0000	0000	0000	0000     0000   00000
-> >    13: 0000	00d8	00d8	00d8	00d8	00d8	00d8     0000   00000
-> >    14: 0000	0000	0000	0000	0000	0000	0000     0000   00000
-> >    15: 0000	0000	0000	0000	0000	0000	0000     0000   00000
-> >    16: 0022	0000	0000	0000	0000	0000	0000     0000   00000
-> >    17: 0000	0000	0000	0000	0000	0000	0000     0000   00000
-> >    18: 3210	2210	2210	2210	2210	2210	2210     0000   00000
-> >    19: 7654	7654	7654	7654	7654	7654	7654     0000   00000
-> >    1a: 0000	0000	0000	0000	0000	0000	0000     0000   00000
-> >    1b: 8000	8000	8000	8000	8000	8000	8000     0000   00000
-> >    1c: 0000    0000    0000    0000    0000    0000    0000     0000   00000
-> >    1d: 0000    0000    0000    0000    0000    0000    0000     0000   00000
-> >    1e: 0000    0000    0000    0000    0000    0000    0000     0000   00000
-> >    1f: 0000    0000    0000    0000    0000    0000    0000     0000   00000
-> >
+On 09/15/2017 05:10 AM, Zwindl wrote:
 > 
-> Is this a reg dump per-port?
+>> -------- Original Message --------
+>> Subject: Re: RTL8192EE PCIe Wireless Network Adapter crashed with linux-4.13
+>> Local Time: 14 September 2017 6:05 PM
+>> UTC Time: 14 September 2017 18:05
+>> From: Larry.Finger@lwfinger.net
+>> To: Zwindl <zwindl@protonmail.com>, linux-wireless@vger.kernel.org 
+>> <linux-wireless@vger.kernel.org>
+>> chaoming_li@realsil.com.cn <chaoming_li@realsil.com.cn>, kvalo@codeaurora.org 
+>> <kvalo@codeaurora.org>, pkshih@realtek.com <pkshih@realtek.com>, 
+>> johannes.berg@intel.com <johannes.berg@intel.com>, gregkh@linuxfoundation.org 
+>> <gregkh@linuxfoundation.org>, netdev@vger.kernel.org <netdev@vger.kernel.org>, 
+>> linux-kernel@vger.kernel.org <linux-kernel@vger.kernel.org>
+>>
+>> On 09/14/2017 08:30 AM, Zwindl wrote:
+>> > Dear developers:
+>> > I"m using Arch Linux with testing enabled, the current kernel version and
+>> > details are
+>> > `Linux zwindl 4.13.2-1-ARCH #1 SMP PREEMPT Thu Sep 14 02:57:34 UTC 2017 x86_64
+>> > GNU/Linux`.
+>> > The wireless card can"t work properly from the kernel 4.13. Here"s the log(in
+>> > attachment) when NetworkManager trying to connect my wifi which is named as
+>> > "TP", my mac addr hided as xx:xx:xx:xx:xx.
+>> > What should I provide to help to debug?
+>> > ZWindL.
+>>
+>> The BUG-ON arises in __intel_map_single() due to dir (for direction of DMA)
+>> equal to DMA_NONE (3). When rtl8192ee calls pci_map_single(), it uses
+>> PCI_DMA_TODEVICE (1). I followed the calling sequence through the entire chain,
+>> and none of the routines made any changes to "dir", other that changing the type
+>> from int to enum dma_data_direction. That would not have changed a 1 to a 3.
+>>
+>> I built a 4.13.2 system. The problem does not happen here. At this point, the
+>> system has been up for about two hours. I did discover a small memory leak
+>> associated with firmware loading, but that should not have caused the problem.
+>> Nonetheless, I will be sending a patch to fix that problem.
+>>
+>> I will continue testing, although I doubt that the problem will happen here.
+>>
+>> How long had your system been up when the problem occurred? Your dmesg fragment
+>> did not show any times. What kernels have you tried besides 4.13.2?
+>>
+>> Larry
+> Oh, sorry, the original log is from `journalctl`.
+> Here's the `dmesg` prints(error.txt). I can't determine which part is related, 
+> so I paste all of it. I've tried 4.12.X(no issue), 4.13.1(issue), 4.13.2(issue).
+> ZWindL
 
-No. Look at the global0 and global1 columns. These are not port
-registers, but switch global registers. The other columns are per
-port. We could have a two column table per port for these
-registers. However for debugging, it is useful to see the port
-registers side-by-side. The difference between ports often gives you
-clues as to what is wrong.
+The output of dmesg is a lot more instructive than that of journalctl. I now 
+know exactly the location that triggered the WARNING. I still do not understand 
+it. In fact, it is likely a regression in kernel 4.13 that does not affect my 
+Toshiba laptop, nor a Lenovo machine I have, but does affect your Lenovo laptop.
 
-The global registers however are scoped to a switch, not a port.
+Is it possible for you to install the mainline source from vger.kernel.org using 
+git and bisect the issue? It will take quite a bit of time, but it is likely the 
+only way to find the offending change. If you are willing to try this, I will 
+send you reasonably complete instructions.
 
-> you can have reg array for each. How the values can change? Is this
-> change result of driver<->hw communication? If yes, you might consider
-> using devlink hwmsg trace to expose the communication to userspace.
+By the way, it is usually better to load the dmesg output into a pastebin site 
+and post the link. Sending the entire file to a list makes a lot of people 
+receive a lot of data for which they have no interest.
 
-The reason a value changes varies per bit. Some are status, set by the
-switch. Some are configuration, set by the driver. They are all mixed
-up together. And some registers are actually just multiplexors onto
-other tables of registers. You set an opcode in the lower nibble,
-address in the middle, set the top bit and busy loop waiting for it to
-clear. You can then read a result out of the register, or a near by
-register.  So the register dump gives you an idea what the last access
-to such a table was.
-
-> I would rather focus on what exactly you need to expose to userspace,
-> then we can figure out how to do it. Generic multipurpose arrays should
-> be considered as last-resort solution in my opinion.
-
-So go look at Vivien's patches. That is what we want to expose. For a
-start. Viviens patches are at the DSA level. Once we get something
-accepted at that level, i can imaging drivers want to augment it with
-driver specific tables. But we can handle that later.
-
-       Andrew
+Larry
