@@ -1,52 +1,69 @@
-From: Xiang Gao <qasdfgtyuiop@gmail.com>
-Subject: [PATCH 1/1] ipv6_skip_exthdr: use ipv6_authlen for AH header length computation
-Date: Fri, 15 Sep 2017 01:04:27 -0400
-Message-ID: <CAMtaSwRk0ne+kG3ejH6685N=ByEAVOkvtyCbmPu9jTng3h2YNQ@mail.gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next v2 01/10] net: dsa: add debugfs interface
+Date: Fri, 15 Sep 2017 07:51:07 +0200
+Message-ID: <20170915055107.GA1927@nanopsycho.orion>
+References: <20170828191748.19492-1-vivien.didelot@savoirfairelinux.com>
+ <20170828191748.19492-2-vivien.didelot@savoirfairelinux.com>
+ <20170907193434.GA11006@kroah.com>
+ <87h8wdb8bj.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+ <CAJGZr0KdOPW5_V3kvWutwTY=BJhfd-=yRDPnvbDBOCuMYWj9OQ@mail.gmail.com>
+ <CAKgT0Uf8--Yh9tfkTrh9_dfEYMX5jR6j4unxwxM+WD6E4jk9pA@mail.gmail.com>
+ <20170914210132.GC3084@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-To: trivial@kernel.org, netdev@vger.kernel.org,
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexander Duyck <alexander.duyck@gmail.com>,
+        Maxim Uvarov <muvarov@gmail.com>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Greg KH <gregkh@linuxfoundation.org>,
+        netdev <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f194.google.com ([209.85.216.194]:37763 "EHLO
-        mail-qt0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750767AbdIOFEs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 15 Sep 2017 01:04:48 -0400
-Received: by mail-qt0-f194.google.com with SMTP id u48so855416qtc.4
-        for <netdev@vger.kernel.org>; Thu, 14 Sep 2017 22:04:48 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Egil Hjelmeland <privat@egil-hjelmeland.no>,
+        John Crispin <john@phrozen.org>,
+        Woojung Huh <Woojung.Huh@microchip.com>,
+        Sean Wang <sean.wang@mediatek.com>,
+        Nikita Yushchenko <nikita.yoush@cogentembedded.com>,
+        Chris Healy <cphealy@gmail.com>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170914210132.GC3084@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->From 09cf2e3cf09cf591283785aaa8159baf39ac2e08 Mon Sep 17 00:00:00 2001
-From: Xiang Gao <qasdfgtyuiop@gmail.com>
-Date: Fri, 15 Sep 2017 00:44:12 -0400
-Subject: [PATCH] ipv6_skip_exthdr: use ipv6_authlen for AH hdrlen
+Thu, Sep 14, 2017 at 11:01:32PM CEST, andrew@lunn.ch wrote:
+>> Can you clarify what type of registers it is you are wanting to read?
+>> We already have ethtool which is meant to allow reading the device
+>> registers for a given netdev. As long as the port has a netdev
+>> associated it then there is no need to be getting into debugfs since
+>> we should probably just be using ethtool.
+>
+>Not all ports of a DSA switch have a netdev. This is by design. The
+>presentation we gave to Netdev 2.1 gives some of the background.
+>
+>Plus a switch has a lot of registers not associated to port. Often a
+>switch has more global registers than port registers.
+> 
+>> Also as Jiri pointed out there is already devlink which would probably
+>> be a better way to get the associated information for those pieces
+>> that don't have a netdev associated with them.
+>
+>We have looked at the devlink a few times. The current dpipe code is
+>not generic enough. It makes assumptions about the architecture of the
+>switch, that it is all match/action based. The niche of top of rack
+>switches might be like that, but average switches are not.
+>
+>If dpipe was to support simple generic two dimensional tables, we
+>probably would use it.
+>
+>David suggested making a class device for DSA. It is not ideal, but we
+>are probably going to go that way.
 
-In ipv6_skip_exthdr, the lengh of AH header is computed manually
-as (hp->hdrlen+2)<<2. However, in include/linux/ipv6.h, a macro
-named ipv6_authlen is already defined for exactly the same job. This
-commit replaces the manual computation code with the macro.
----
- net/ipv6/exthdrs_core.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+I believe that is also big mistake.
 
-diff --git a/net/ipv6/exthdrs_core.c b/net/ipv6/exthdrs_core.c
-index 305e2ed730bf..115d60919f72 100644
---- a/net/ipv6/exthdrs_core.c
-+++ b/net/ipv6/exthdrs_core.c
-@@ -99,7 +99,7 @@ int ipv6_skip_exthdr(const struct sk_buff *skb, int
-start, u8 *nexthdrp,
-  break;
-  hdrlen = 8;
-  } else if (nexthdr == NEXTHDR_AUTH)
-- hdrlen = (hp->hdrlen+2)<<2;
-+ hdrlen = ipv6_authlen(hp);
-  else
-  hdrlen = ipv6_optlen(hp);
+Could you put together your requirements so we can work it out to extend
+devlink to support them?
 
--- 
-2.14.1
-
-
-Signed-off-by: Xiang Gao <qasdfgtyuiop@gmail.com>
+Thanks.
