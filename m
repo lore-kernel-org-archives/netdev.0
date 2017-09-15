@@ -1,69 +1,52 @@
-From: Oleksandr Natalenko <oleksandr@natalenko.name>
-Subject: Re: [REGRESSION] Warning in tcp_fastretrans_alert() of net/ipv4/tcp_input.c
-Date: Fri, 15 Sep 2017 07:03:26 +0200
-Message-ID: <1760119.uO98D2ft6f@natalenko.name>
-References: <10035198.1vE6NFrMDO@natalenko.name> <CADVnQy=dzjROPgrOw3vAZvtb9ETRJgTPVGtau8Q3ChteDKnYow@mail.gmail.com>
+From: Xiang Gao <qasdfgtyuiop@gmail.com>
+Subject: [PATCH 1/1] ipv6_skip_exthdr: use ipv6_authlen for AH header length computation
+Date: Fri, 15 Sep 2017 01:04:27 -0400
+Message-ID: <CAMtaSwRk0ne+kG3ejH6685N=ByEAVOkvtyCbmPu9jTng3h2YNQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-Cc: "David S. Miller" <davem@davemloft.net>,
+To: trivial@kernel.org, netdev@vger.kernel.org,
+        "David S. Miller" <davem@davemloft.net>,
         Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Netdev <netdev@vger.kernel.org>,
-        Yuchung Cheng <ycheng@google.com>
-To: Neal Cardwell <ncardwell@google.com>
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vulcan.natalenko.name ([104.207.131.136]:58530 "EHLO
-        vulcan.natalenko.name" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750767AbdIOFD3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 15 Sep 2017 01:03:29 -0400
-In-Reply-To: <CADVnQy=dzjROPgrOw3vAZvtb9ETRJgTPVGtau8Q3ChteDKnYow@mail.gmail.com>
+Received: from mail-qt0-f194.google.com ([209.85.216.194]:37763 "EHLO
+        mail-qt0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750767AbdIOFEs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 15 Sep 2017 01:04:48 -0400
+Received: by mail-qt0-f194.google.com with SMTP id u48so855416qtc.4
+        for <netdev@vger.kernel.org>; Thu, 14 Sep 2017 22:04:48 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi.
+>From 09cf2e3cf09cf591283785aaa8159baf39ac2e08 Mon Sep 17 00:00:00 2001
+From: Xiang Gao <qasdfgtyuiop@gmail.com>
+Date: Fri, 15 Sep 2017 00:44:12 -0400
+Subject: [PATCH] ipv6_skip_exthdr: use ipv6_authlen for AH hdrlen
 
-I've applied your test patch but it doesn't fix the issue for me since the=
-=20
-warning is still there.
+In ipv6_skip_exthdr, the lengh of AH header is computed manually
+as (hp->hdrlen+2)<<2. However, in include/linux/ipv6.h, a macro
+named ipv6_authlen is already defined for exactly the same job. This
+commit replaces the manual computation code with the macro.
+---
+ net/ipv6/exthdrs_core.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Were you able to reproduce it?
+diff --git a/net/ipv6/exthdrs_core.c b/net/ipv6/exthdrs_core.c
+index 305e2ed730bf..115d60919f72 100644
+--- a/net/ipv6/exthdrs_core.c
++++ b/net/ipv6/exthdrs_core.c
+@@ -99,7 +99,7 @@ int ipv6_skip_exthdr(const struct sk_buff *skb, int
+start, u8 *nexthdrp,
+  break;
+  hdrlen = 8;
+  } else if (nexthdr == NEXTHDR_AUTH)
+- hdrlen = (hp->hdrlen+2)<<2;
++ hdrlen = ipv6_authlen(hp);
+  else
+  hdrlen = ipv6_optlen(hp);
 
-On pond=C4=9Bl=C3=AD 11. z=C3=A1=C5=99=C3=AD 2017 1:59:02 CEST Neal Cardwel=
-l wrote:
-> Thanks for the detailed report!
->=20
-> I suspect this is due to the following commit, which happened between
-> 4.10 and 4.11:
->=20
->   89fe18e44f7e tcp: extend F-RTO to catch more spurious timeouts
-> =20
-> https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit=
-/?
-> id=3D89fe18e44f7e
->=20
-> This commit expanded the set of scenarios where we would undo a
-> CA_Loss cwnd reduction and return to TCP_CA_Open, but did not include
-> a check to see if there were any in-flight retransmissions. I think we
-> need a fix like the following:
->=20
-> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-> index 659d1baefb2b..730a2de9d2b0 100644
-> --- a/net/ipv4/tcp_input.c
-> +++ b/net/ipv4/tcp_input.c
-> @@ -2439,7 +2439,7 @@ static bool tcp_try_undo_loss(struct sock *sk,
-> bool frto_undo)
->  {
->         struct tcp_sock *tp =3D tcp_sk(sk);
->=20
-> -       if (frto_undo || tcp_may_undo(tp)) {
-> +       if ((frto_undo || tcp_may_undo(tp)) && !tp->retrans_out) {
->                 tcp_undo_cwnd_reduction(sk, true);
->=20
->                 DBGUNDO(sk, "partial loss");
->=20
-> I will try a packetdrill test to see if I can reproduce this issue and
-> verify the fix.
->=20
-> thanks,
-> neal
+-- 
+2.14.1
+
+
+Signed-off-by: Xiang Gao <qasdfgtyuiop@gmail.com>
