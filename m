@@ -1,75 +1,52 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 2/2] Staging: irda: Remove parentheses on the right of
- assignment
-Date: Fri, 15 Sep 2017 14:31:48 -0700
-Message-ID: <1505511108.27581.16.camel@perches.com>
-References: <cover.1505508423.git.srishtishar@gmail.com>
-         <9380189edb2722544981c868699ade29ab5c297d.1505508423.git.srishtishar@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] tcp: update skb->skb_mstamp more carefully
+Date: Fri, 15 Sep 2017 14:37:06 -0700 (PDT)
+Message-ID: <20170915.143706.992734259378949259.davem@davemloft.net>
+References: <3c750ac3-8739-89ed-ce41-d4cde755171e@huawei.com>
+        <1505313647.15310.165.camel@edumazet-glaptop3.roam.corp.google.com>
+        <1505359839.15310.209.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: gregkh@linuxfoundation.org, netdev@vger.kernel.org,
-        devel@driverdev.osuosl.org, linux-kernel@vger.kernel.org,
-        outreachy-kernel@googlegroups.com
-To: Srishti Sharma <srishtishar@gmail.com>, samuel@sortiz.org
+Cc: liujian56@huawei.com, edumazet@google.com, ycheng@google.com,
+        hkchu@google.com, netdev@vger.kernel.org, weiyongjun1@huawei.com,
+        wangkefeng.wang@huawei.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0175.hostedemail.com ([216.40.44.175]:53951 "EHLO
-        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1750873AbdIOVbw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 15 Sep 2017 17:31:52 -0400
-In-Reply-To: <9380189edb2722544981c868699ade29ab5c297d.1505508423.git.srishtishar@gmail.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:57528 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750841AbdIOVhH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 15 Sep 2017 17:37:07 -0400
+In-Reply-To: <1505359839.15310.209.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2017-09-16 at 02:36 +0530, Srishti Sharma wrote:
-> Parentheses are not needed on the right hand side of assignment
-> statement in most cases. Done using the following semantic
-> patch by coccinelle.
-[]
-> @@
-> identifier E,F,G,f;
-> expression e,r;
-> @@
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 13 Sep 2017 20:30:39 -0700
+
+> From: Eric Dumazet <edumazet@googl.com>
 > 
-> (
-> E = (G == F);
-> > 
+> liujian reported a problem in TCP_USER_TIMEOUT processing with a patch
+> in tcp_probe_timer() :
+>       https://www.spinics.net/lists/netdev/msg454496.html
 > 
-> E = (e == r);
-> > 
+> After investigations, the root cause of the problem is that we update
+> skb->skb_mstamp of skbs in write queue, even if the attempt to send a
+> clone or copy of it failed. One reason being a routing problem.
 > 
-> E =
-> -(
-> ...
-> -)
-> ;
-> )
-[]
-> diff --git a/drivers/staging/irda/drivers/mcs7780.c b/drivers/staging/irda/drivers/mcs7780.c
-[]
-> @@ -605,7 +605,7 @@ static int mcs_speed_change(struct mcs_cb *mcs)
->  	if (mcs->new_speed <= 115200) {
->  		rval &= ~MCS_FIR;
->  
-> -		rst = (mcs->speed > 115200);
-> +		rst = mcs->speed > 115200;
->  		if (rst)
->  			mcs_set_reg(mcs, MCS_MINRXPW_REG, 0);
+> This patch prevents this, solving liujian issue.
+> 
+> It also removes a potential RTT miscalculation, since
+> __tcp_retransmit_skb() is not OR-ing TCP_SKB_CB(skb)->sacked with
+> TCPCB_EVER_RETRANS if a failure happens, but skb->skb_mstamp has
+> been changed.
+> 
+> A future ACK would then lead to a very small RTT sample and min_rtt
+> would then be lowered to this too small value.
+> 
+> Tested:
+...
+> Signed-off-by: Eric Dumazet <edumazet@googl.com>
+> Reported-by: liujian <liujian56@huawei.com>
 
-Coccinelle is a good tool, but its output is limited to
-the correctness
-and completeness of its input script.
-
-Please look at the suggested modifications of the script
-and examine the code for other similar uses.
-
-The else if block immediately below this is:
-
-	} else if (mcs->new_speed <= 1152000) {
-		rval &= ~MCS_FIR;
-
-		if ((rst = !(mcs->speed == 576000 || mcs->speed == 11520
-00)))
-			mcs_set_reg(mcs, MCS_MINRXPW_REG, 5);
-
-which should also be corrected by this patch.
+Applied and queued up for -stable, thanks.
