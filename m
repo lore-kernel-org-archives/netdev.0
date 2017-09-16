@@ -1,118 +1,69 @@
-From: Randy Dunlap <rdunlap@infradead.org>
-Subject: [PATCH] Documentation: networking: fix ASCII art in switchdev.txt
-Date: Sat, 16 Sep 2017 13:10:06 -0700
-Message-ID: <984d9d24-b558-6308-3252-1c8ddd5eb7c8@infradead.org>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: [PATCH] Documentation: networking: fix ASCII art in switchdev.txt
+Date: Sat, 16 Sep 2017 23:00:49 +0200
+Message-ID: <20170916210049.GA1818@amd>
+References: <984d9d24-b558-6308-3252-1c8ddd5eb7c8@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Andrew Lunn <andrew@lunn.ch>,
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="TB36FDmn/VVEgNH/"
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        Andrew Lunn <andrew@lunn.ch>,
         Andreas Schwab <schwab@linux-m68k.org>,
         Jiri Pirko <jiri@resnulli.us>,
         Scott Feldman <sfeldma@gmail.com>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>, Pavel Machek <pavel@ucw.cz>
+To: Randy Dunlap <rdunlap@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([65.50.211.133]:57452 "EHLO
-        bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751274AbdIPUKO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 16 Sep 2017 16:10:14 -0400
-Content-Language: en-US
+Received: from atrey.karlin.mff.cuni.cz ([195.113.26.193]:43099 "EHLO
+        atrey.karlin.mff.cuni.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750945AbdIPVAv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 16 Sep 2017 17:00:51 -0400
+Content-Disposition: inline
+In-Reply-To: <984d9d24-b558-6308-3252-1c8ddd5eb7c8@infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Randy Dunlap <rdunlap@infradead.org>
 
-Fix ASCII art in Documentation/networking/switchdev.txt:
+--TB36FDmn/VVEgNH/
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Change non-ASCII "spaces" to ASCII spaces.
+On Sat 2017-09-16 13:10:06, Randy Dunlap wrote:
+> From: Randy Dunlap <rdunlap@infradead.org>
+>=20
+> Fix ASCII art in Documentation/networking/switchdev.txt:
+>=20
+> Change non-ASCII "spaces" to ASCII spaces.
+>=20
+> Change 2 erroneous '+' characters in ASCII art to '-' (at the '*'
+> characters below):
+>=20
+> line 32:
+>                      +--+----+----+----+-*--+----+---+  +-----+-----+
+> line 41:
+>                      +--------------+---*------------+
+>=20
+> Signed-off-by: Randy Dunlap <rdunlap@infradead.org>
 
-Change 2 erroneous '+' characters in ASCII art to '-' (at the '*'
-characters below):
+Acked-by: Pavel Machek <pavel@ucw.cz>
 
-line 32:
-                     +--+----+----+----+-*--+----+---+  +-----+-----+
-line 41:
-                     +--------------+---*------------+
 
-Signed-off-by: Randy Dunlap <rdunlap@infradead.org>
----
- Documentation/networking/switchdev.txt |   64 +++++++++++------------
- 1 file changed, 32 insertions(+), 32 deletions(-)
+--=20
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
+g.html
 
---- lnx-413.orig/Documentation/networking/switchdev.txt
-+++ lnx-413/Documentation/networking/switchdev.txt
-@@ -13,42 +13,42 @@ an example setup using a data-center-cla
- with SR-IOV or soft switches, such as OVS, are possible.
- 
- 
--                             User-space tools
-+                             User-space tools
- 
--       user space                   |
--      +-------------------------------------------------------------------+
--       kernel                       | Netlink
--                                    |
--                     +--------------+-------------------------------+
--                     |         Network stack                        |
--                     |           (Linux)                            |
--                     |                                              |
--                     +----------------------------------------------+
-+       user space                   |
-+      +-------------------------------------------------------------------+
-+       kernel                       | Netlink
-+                                    |
-+                     +--------------+-------------------------------+
-+                     |         Network stack                        |
-+                     |           (Linux)                            |
-+                     |                                              |
-+                     +----------------------------------------------+
- 
-                            sw1p2     sw1p4     sw1p6
--                      sw1p1  +  sw1p3  +  sw1p5  +          eth1
--                        +    |    +    |    +    |            +
--                        |    |    |    |    |    |            |
--                     +--+----+----+----+-+--+----+---+  +-----+-----+
--                     |         Switch driver         |  |    mgmt   |
--                     |        (this document)        |  |   driver  |
--                     |                               |  |           |
--                     +--------------+----------------+  +-----------+
--                                    |
--       kernel                       | HW bus (eg PCI)
--      +-------------------------------------------------------------------+
--       hardware                     |
--                     +--------------+---+------------+
--                     |         Switch device (sw1)   |
--                     |  +----+                       +--------+
--                     |  |    v offloaded data path   | mgmt port
--                     |  |    |                       |
--                     +--|----|----+----+----+----+---+
--                        |    |    |    |    |    |
--                        +    +    +    +    +    +
--                       p1   p2   p3   p4   p5   p6
-+                      sw1p1  +  sw1p3  +  sw1p5  +          eth1
-+                        +    |    +    |    +    |            +
-+                        |    |    |    |    |    |            |
-+                     +--+----+----+----+----+----+---+  +-----+-----+
-+                     |         Switch driver         |  |    mgmt   |
-+                     |        (this document)        |  |   driver  |
-+                     |                               |  |           |
-+                     +--------------+----------------+  +-----------+
-+                                    |
-+       kernel                       | HW bus (eg PCI)
-+      +-------------------------------------------------------------------+
-+       hardware                     |
-+                     +--------------+----------------+
-+                     |         Switch device (sw1)   |
-+                     |  +----+                       +--------+
-+                     |  |    v offloaded data path   | mgmt port
-+                     |  |    |                       |
-+                     +--|----|----+----+----+----+---+
-+                        |    |    |    |    |    |
-+                        +    +    +    +    +    +
-+                       p1   p2   p3   p4   p5   p6
- 
--                             front-panel ports
-+                             front-panel ports
- 
- 
-                                     Fig 1.
+--TB36FDmn/VVEgNH/
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iEYEARECAAYFAlm9kQEACgkQMOfwapXb+vL4+gCeOJcgcdmoPxB/Ug29TfTc8dCh
+/LMAoILgEv8OdrVsZPjurs3RXwJOTUS/
+=O2iV
+-----END PGP SIGNATURE-----
+
+--TB36FDmn/VVEgNH/--
