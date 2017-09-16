@@ -1,61 +1,112 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: Use after free in __dst_destroy_metrics_generic
-Date: Sat, 16 Sep 2017 11:21:59 -0700
-Message-ID: <CAM_iQpVjJo4gKHGdaJh8mcV5gX+ssmv46UT+25+8-hKk1UUnDg@mail.gmail.com>
-References: <1234e09b75197d43ed84bdb1b154b4b6@codeaurora.org>
- <CAM_iQpXKfUkbyuuZEZXyPrVVCoPaxnCmCARz=Jf0VtU1m9NsZg@mail.gmail.com>
- <1505509219.16139.6.camel@edumazet-glaptop3.roam.corp.google.com>
- <alpine.LFD.2.20.1709160103190.1770@ja.home.ssi.bg> <0b4e9dbc852c4df7401dc770f357ae6a@codeaurora.org>
- <alpine.LFD.2.20.1709161422010.2651@ja.home.ssi.bg>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: [PATCH] Documentation: fix ascii art in networking docs
+Date: Sat, 16 Sep 2017 21:25:19 +0200
+Message-ID: <20170916192519.GA17916@amd>
+References: <20170916162217.GA11237@amd>
+ <87efr65wyg.fsf@linux-m68k.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Lorenzo Colitti <lorenzo@google.com>
-To: Julian Anastasov <ja@ssi.bg>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="/9DWx/yDrRhgMJTb"
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Netdev list <netdev@vger.kernel.org>
+To: Andreas Schwab <schwab@linux-m68k.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f170.google.com ([209.85.192.170]:49923 "EHLO
-        mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751253AbdIPSWU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 16 Sep 2017 14:22:20 -0400
-Received: by mail-pf0-f170.google.com with SMTP id l188so2956035pfc.6
-        for <netdev@vger.kernel.org>; Sat, 16 Sep 2017 11:22:20 -0700 (PDT)
-In-Reply-To: <alpine.LFD.2.20.1709161422010.2651@ja.home.ssi.bg>
+Received: from atrey.karlin.mff.cuni.cz ([195.113.26.193]:40722 "EHLO
+        atrey.karlin.mff.cuni.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751272AbdIPTZV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 16 Sep 2017 15:25:21 -0400
+Content-Disposition: inline
+In-Reply-To: <87efr65wyg.fsf@linux-m68k.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Sep 16, 2017 at 5:40 AM, Julian Anastasov <ja@ssi.bg> wrote:
->
->         Hello,
->
-> On Fri, 15 Sep 2017, Subash Abhinov Kasiviswanathan wrote:
->
->> >     May be I'm missing some posting but I don't see if
->> > the patch was tested successfully.
->> >
->> Hi Julian
->>
->> I've had this patch being tested for the last 3-4 days in our regression rack
->> and I haven't seen the same issue being reproduced or even a related crash
->> or leak in dst.
->
->         For now I see only its bug-hiding side effects, i.e.
-> it does not call kfree. Now if there is no double-free
-> there should be a leak, not for dst but for metrics.
 
+--/9DWx/yDrRhgMJTb
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-You make very good points. I need to take a deeper look.
+On Sat 2017-09-16 20:18:15, Andreas Schwab wrote:
+> On Sep 16 2017, Pavel Machek <pavel@ucw.cz> wrote:
+>=20
+> > diff --git a/Documentation/networking/switchdev.txt b/Documentation/net=
+working/switchdev.txt
+> > index 5e40e1f..6309e90 100644
+> > --- a/Documentation/networking/switchdev.txt
+> > +++ b/Documentation/networking/switchdev.txt
+> > @@ -29,7 +29,7 @@ with SR-IOV or soft switches, such as OVS, are possib=
+le.
+> >  =E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=
+=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=
+=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89sw1p1=E2=80=89 +  sw1=
+p3  + =E2=80=89sw1p5  +  =E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=
+=80=89=E2=80=89=E2=80=89eth1
+> >  =E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=
+=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=
+=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89+=
+=E2=80=89=E2=80=89=E2=80=89=E2=80=89|=E2=80=89=E2=80=89=E2=80=89=E2=80=89+=
+=E2=80=89=E2=80=89=E2=80=89=E2=80=89|=E2=80=89=E2=80=89=E2=80=89=E2=80=89+=
+=E2=80=89=E2=80=89=E2=80=89=E2=80=89|=E2=80=89=E2=80=89=E2=80=89=E2=80=89=
+=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89+
+> >  =E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=
+=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=
+=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89|=
+=E2=80=89=E2=80=89=E2=80=89=E2=80=89|=E2=80=89=E2=80=89=E2=80=89=E2=80=89|=
+=E2=80=89=E2=80=89=E2=80=89=E2=80=89|=E2=80=89=E2=80=89=E2=80=89=E2=80=89|=
+=E2=80=89=E2=80=89=E2=80=89=E2=80=89|=E2=80=89=E2=80=89=E2=80=89=E2=80=89=
+=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89|
+> > -=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=
+=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=
+=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89+--+----+----+----+-+--+----+-=
+--+=E2=80=89=E2=80=89+-----+-----+
+> > +=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=
+=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=
+=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89+--+----+----+----+----+----+-=
+--+=E2=80=89=E2=80=89+-----+-----+
+> >  =E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=
+=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=
+=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89|=E2=80=89=E2=80=89=E2=80=89=
+=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89Switch=E2=80=89driver=
+=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=
+=80=89|=E2=80=89=E2=80=89|=E2=80=89=E2=80=89=E2=80=89=E2=80=89mgmt=E2=80=89=
+=E2=80=89=E2=80=89|
+> >  =E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=
+=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=
+=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89|=E2=80=89=E2=80=89=E2=80=89=
+=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89(this=E2=80=89document)=E2=80=
+=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89|=E2=80=
+=89=E2=80=89|=E2=80=89=E2=80=89=E2=80=89driver=E2=80=89=E2=80=89|
+> >  =E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=
+=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=
+=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89|=E2=80=89=E2=80=89=E2=80=89=
+=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=
+=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=
+=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=
+=E2=80=89=E2=80=89=E2=80=89|=E2=80=89=E2=80=89|=E2=80=89=E2=80=89=E2=80=89=
+=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89=E2=80=89|
+> >
+>=20
+> This is all mis-aligned.  How about replacing all the thin space
+> characters by normal spaces?
 
+It looked perfectly ok to me, in emacs. If you see a problem, please
+submit followup patch.
+									Pavel
+--=20
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
+g.html
 
->
->> The original issue was reported only once to us from the regression rack only
->> so the exact steps to reproduce is unknown.
->
->         OK, lets see, may be others can explain what happens.
->
+--/9DWx/yDrRhgMJTb
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
 
-This makes me thinking if it is possible that we no longer have
-the guarantee of metrics address aligned to at least 4?
-This seems unlikely since kmalloc() should return at least
-word-size-aligned address.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iEYEARECAAYFAlm9ep8ACgkQMOfwapXb+vIOQwCfZsON34ffep4p/RjQtcrgo5+D
+hwIAoKL/vFTz+ynJVArmozDZJTQYJIRY
+=dRwK
+-----END PGP SIGNATURE-----
+
+--/9DWx/yDrRhgMJTb--
