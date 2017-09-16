@@ -1,108 +1,73 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: Re: [PATCH V2] tipc: Use bsearch library function
-Date: Sat, 16 Sep 2017 17:36:33 +0800
-Message-ID: <64ee51ce-eb7e-ac1c-56a9-9481f6f80b35@windriver.com>
-References: <20170911.143025.555018840006192902.davem@davemloft.net>
- <20170916075036.28676-1-thomas@m3y3r.de>
- <16128f5e-66ff-b6ec-c0e1-74ea08c212b0@windriver.com>
- <1505553970.16316.1.camel@perches.com>
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: Re: [PATCH v2 0/2] enable hires timer to timeout datagram socket
+Date: Sat, 16 Sep 2017 11:47:56 +0200 (CEST)
+Message-ID: <alpine.DEB.2.20.1709161131200.2105@nanos>
+References: <20170908170409.GA10020@u40b0340c692b58f6553c.ant.amazon.com>  <20170908.101657.2131282706895004921.davem@davemloft.net>  <1504891402.32080.5.camel@infradead.org>  <20170908.102645.1086537961399780085.davem@davemloft.net>
+ <20170908185521.GA12340@u40b0340c692b58f6553c.ant.amazon.com> <1504897909.15310.89.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: Joe Perches <joe@perches.com>, Thomas Meyer <thomas@m3y3r.de>,
-        <jon.maloy@ericsson.com>, <netdev@vger.kernel.org>,
-        <tipc-discussion@lists.sourceforge.net>,
-        <linux-kernel@vger.kernel.org>, <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Cc: Eduardo Valentin <eduval@amazon.com>,
+        David Miller <davem@davemloft.net>, dwmw2@infradead.org,
+        vallish@amazon.com, shuah@kernel.org, richardcochran@gmail.com,
+        xiyou.wangcong@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, anchalag@amazon.com, dwmw@amazon.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1505553970.16316.1.camel@perches.com>
-Content-Language: en-US
+In-Reply-To: <1504897909.15310.89.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 09/16/2017 05:26 PM, Joe Perches wrote:
-> On Sat, 2017-09-16 at 17:02 +0800, Ying Xue wrote:
->> On 09/16/2017 03:50 PM, Thomas Meyer wrote:
->>> Use common library function rather than explicitly coding
->>> some variant of it yourself.
->>>
->>> Signed-off-by: Thomas Meyer <thomas@m3y3r.de>
->>
->> Acked-by: Ying Xue <ying.xue@windriver.com>
+On Fri, 8 Sep 2017, Eric Dumazet wrote:
+> On Fri, 2017-09-08 at 11:55 -0700, Eduardo Valentin wrote:
+> > Hello,
+> > 
+> > On Fri, Sep 08, 2017 at 10:26:45AM -0700, David Miller wrote:
+> > > From: David Woodhouse <dwmw2@infradead.org>
+> > > Date: Fri, 08 Sep 2017 18:23:22 +0100
+> > > 
+> > > > I don't know that anyone's ever tried saying "show me the chapter
+> > and
+> > > > verse of the documentation"
+> > > 
+> > > Do you know why I brought this up?  Because the person I am replying
+> > > to told me that the syscall documentation should have suggested this
+> > > or that.
+> > > 
+> > > That's why.
+> > 
+> > :-) My intention was for sure not to upset anybody.
+> > 
+> > Just to reiterate, the point of patch is simple, there was a change in
+> > behavior in the system call from one kernel version to the other. As I
+> > mentioned, I agree that the userspace could use other means to achieve
+> > the same, but still the system call behavior has changed.
+> > 
+> > > 
+> > > So let's concentrate on the other aspects of my reply, ok?
+> > 
+> > I agree. I would prefer to understand here what is the technical
+> > reason not to accept these patches other than "use other system
+> > calls".
 > 
-> Are you sure you want to do this?
-> 
-> Note the comment above nameseq_find_subseq
-> 
->  * Very time-critical, so binary searches through sub-sequence array.
-> 
-> What impact does this change have on performance?
+> So if we need to replace all 'legacy' timers to high resolution timer,
+> because some application was _relying_ on jiffies being kind of precise,
+> maybe it is better to revert the change done on legacy timers.
 
-Sorry, I couldn't see any essential difference between this new
-implementation and the original one except that the former tries to use
-the library function - bsearch() to replace the original binary search
-algorithm implemented in TIPC itself. Therefore, I don't think the
-change will have a big impact on performance.
+Which would be a major step back in terms of timer performance and system
+disturbance caused by massive recascading operations.
 
-If I miss something, please let me know.
+> Or continue the migration and make them use high res internally.
+> 
+> select() and poll() are the standard way to have precise timeouts,
+> it is silly we have to maintain a timeout handling in the datagram fast
+> path.
+
+A few years ago we switched select/poll over to use hrtimers because the
+wheel timers were too inaccurate for some operations, so it feels
+consequent to switch the timeout in the datagram rcv path over as well. I
+agree that the whole timeout magic there feels silly, but unfortunately
+it's a documented property of sockets.
 
 Thanks,
-Ying
 
-> 
->>> diff --git a/net/tipc/name_table.c b/net/tipc/name_table.c
->>> index bd0aac87b41a..eeb4d7a13de2 100644
->>> --- a/net/tipc/name_table.c
->>> +++ b/net/tipc/name_table.c
->>> @@ -44,6 +44,7 @@
->>>  #include "addr.h"
->>>  #include "node.h"
->>>  #include <net/genetlink.h>
->>> +#include <linux/bsearch.h>
->>>  
->>>  #define TIPC_NAMETBL_SIZE 1024		/* must be a power of 2 */
->>>  
->>> @@ -168,6 +169,18 @@ static struct name_seq *tipc_nameseq_create(u32 type, struct hlist_head *seq_hea
->>>  	return nseq;
->>>  }
->>>  
->>> +static int nameseq_find_subseq_cmp(const void *key, const void *elt)
->>> +{
->>> +	struct sub_seq *sseq = (struct sub_seq *)elt;
->>> +	u32 instance = *(u32 *)key;
->>> +
->>> +	if (instance < sseq->lower)
->>> +		return -1;
->>> +	else if (instance > sseq->upper)
->>> +		return 1;
->>> +	return 0;
->>> +}
->>> +
->>>  /**
->>>   * nameseq_find_subseq - find sub-sequence (if any) matching a name instance
->>>   *
->>> @@ -176,21 +189,8 @@ static struct name_seq *tipc_nameseq_create(u32 type, struct hlist_head *seq_hea
->>>  static struct sub_seq *nameseq_find_subseq(struct name_seq *nseq,
->>>  					   u32 instance)
->>>  {
->>> -	struct sub_seq *sseqs = nseq->sseqs;
->>> -	int low = 0;
->>> -	int high = nseq->first_free - 1;
->>> -	int mid;
->>> -
->>> -	while (low <= high) {
->>> -		mid = (low + high) / 2;
->>> -		if (instance < sseqs[mid].lower)
->>> -			high = mid - 1;
->>> -		else if (instance > sseqs[mid].upper)
->>> -			low = mid + 1;
->>> -		else
->>> -			return &sseqs[mid];
->>> -	}
->>> -	return NULL;
->>> +	return bsearch(&instance, nseq->sseqs, nseq->first_free,
->>> +		       sizeof(struct sub_seq), nameseq_find_subseq_cmp);
->>>  }
->>>  
->>>  /**
->>>
-> 
+	tglx
