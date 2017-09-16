@@ -1,60 +1,46 @@
-From: Davide Caratti <dcaratti@redhat.com>
-Subject: [PATCH net] net/sched: cls_matchall: fix crash when used with classful qdisc
-Date: Sat, 16 Sep 2017 14:02:21 +0200
-Message-ID: <b930159de5531a4d216a1cd2c2ef03aa41f421f9.1505562794.git.dcaratti@redhat.com>
-Cc: netdev@vger.kernel.org
-To: Jiri Pirko <jiri@resnulli.us>, Jamal Hadi Salim <jhs@mojatatu.com>,
-        Jiri Benc <jbenc@redhat.com>,
-        "David S . Miller" <davem@davemloft.net>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: Use after free in __dst_destroy_metrics_generic
+Date: Sat, 16 Sep 2017 15:40:08 +0300 (EEST)
+Message-ID: <alpine.LFD.2.20.1709161422010.2651@ja.home.ssi.bg>
+References: <1234e09b75197d43ed84bdb1b154b4b6@codeaurora.org> <CAM_iQpXKfUkbyuuZEZXyPrVVCoPaxnCmCARz=Jf0VtU1m9NsZg@mail.gmail.com> <1505509219.16139.6.camel@edumazet-glaptop3.roam.corp.google.com> <alpine.LFD.2.20.1709160103190.1770@ja.home.ssi.bg>
+ <0b4e9dbc852c4df7401dc770f357ae6a@codeaurora.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Lorenzo Colitti <lorenzo@google.com>
+To: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50470 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751185AbdIPMCf (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 16 Sep 2017 08:02:35 -0400
+Received: from ja.ssi.bg ([178.16.129.10]:45556 "EHLO ja.ssi.bg"
+        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751322AbdIPMkV (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 16 Sep 2017 08:40:21 -0400
+In-Reply-To: <0b4e9dbc852c4df7401dc770f357ae6a@codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-this script, edited from Linux Advanced Routing and Traffic Control guide
 
-tc q a dev en0 root handle 1: htb default a
-tc c a dev en0 parent 1:  classid 1:1 htb rate 6mbit burst 15k
-tc c a dev en0 parent 1:1 classid 1:a htb rate 5mbit ceil 6mbit burst 15k
-tc c a dev en0 parent 1:1 classid 1:b htb rate 1mbit ceil 6mbit burst 15k
-tc f a dev en0 parent 1:0 prio 1 $clsname $clsargs classid 1:b
-ping $address -c1
-tc -s c s dev en0
+	Hello,
 
-classifies traffic to 1:b or 1:a, depending on whether the packet matches
-or not the pattern $clsargs of filter $clsname. However, when $clsname is
-'matchall', a systematic crash can be observed in htb_classify(). HTB and
-classful qdiscs don't assign initial value to struct tcf_result, but then
-they expect it to contain valid values after filters have been run. Thus,
-current 'matchall' ignores the TCA_MATCHALL_CLASSID attribute, configured
-by user, and makes HTB (and classful qdiscs) dereference random pointers.
+On Fri, 15 Sep 2017, Subash Abhinov Kasiviswanathan wrote:
 
-By assigning head->res to *res in mall_classify(), before the actions are
-invoked, we fix this crash and enable TCA_MATCHALL_CLASSID functionality,
-that had no effect on 'matchall' classifier since its first introduction.
+> > 	May be I'm missing some posting but I don't see if
+> > the patch was tested successfully.
+> > 
+> Hi Julian
+> 
+> I've had this patch being tested for the last 3-4 days in our regression rack
+> and I haven't seen the same issue being reproduced or even a related crash
+> or leak in dst.
 
-BugLink: https://bugzilla.redhat.com/show_bug.cgi?id=1460213
-Reported-by: Jiri Benc <jbenc@redhat.com>
-Fixes: b87f7936a932 ("net/sched: introduce Match-all classifier")
-Signed-off-by: Davide Caratti <dcaratti@redhat.com>
----
- net/sched/cls_matchall.c | 1 +
- 1 file changed, 1 insertion(+)
+	For now I see only its bug-hiding side effects, i.e.
+it does not call kfree. Now if there is no double-free
+there should be a leak, not for dst but for metrics.
 
-diff --git a/net/sched/cls_matchall.c b/net/sched/cls_matchall.c
-index 21cc45caf842..eeac606c95ab 100644
---- a/net/sched/cls_matchall.c
-+++ b/net/sched/cls_matchall.c
-@@ -32,6 +32,7 @@ static int mall_classify(struct sk_buff *skb, const struct tcf_proto *tp,
- 	if (tc_skip_sw(head->flags))
- 		return -1;
- 
-+	*res = head->res;
- 	return tcf_exts_exec(skb, &head->exts, res);
- }
- 
--- 
-2.13.5
+> The original issue was reported only once to us from the regression rack only
+> so the exact steps to reproduce is unknown.
+
+	OK, lets see, may be others can explain what happens.
+
+Regards
