@@ -1,66 +1,35 @@
-From: Vincenzo Maffione <v.maffione@gmail.com>
-Subject: [PATCH net] driver: e1000: fix race condition between e1000_down() and e1000_watchdog
-Date: Sat, 16 Sep 2017 18:00:00 +0200
-Message-ID: <20170916160000.3560-1-v.maffione@gmail.com>
-Cc: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        Vincenzo Maffione <v.maffione@gmail.com>
-To: jeffrey.t.kirsher@intel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] tcp: fix data delivery rate
+Date: Sat, 16 Sep 2017 09:07:29 -0700 (PDT)
+Message-ID: <20170916.090729.108058689813174554.davem@davemloft.net>
+References: <20170915.143706.992734259378949259.davem@davemloft.net>
+        <1505517411.29839.1.camel@edumazet-glaptop3.roam.corp.google.com>
+        <1505519262.29839.5.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: liujian56@huawei.com, edumazet@google.com, ycheng@google.com,
+        hkchu@google.com, netdev@vger.kernel.org, weiyongjun1@huawei.com,
+        wangkefeng.wang@huawei.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:51388 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751231AbdIPQHa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 16 Sep 2017 12:07:30 -0400
+In-Reply-To: <1505519262.29839.5.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch fixes a race condition that can result into the interface being
-up and carrier on, but with transmits disabled in the hardware.
-The bug may show up by repeatedly IFF_DOWN+IFF_UP the interface, which
-allows e1000_watchdog() interleave with e1000_down().
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 15 Sep 2017 16:47:42 -0700
 
-    CPU x                           CPU y
-    --------------------------------------------------------------------
-    e1000_down():
-        netif_carrier_off()
-                                    e1000_watchdog():
-                                        if (carrier == off) {
-                                            netif_carrier_on();
-                                            enable_hw_transmit();
-                                        }
-        disable_hw_transmit();
-                                    e1000_watchdog():
-                                        /* carrier on, do nothing */
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> Now skb->mstamp_skb is updated later, we also need to call
+> tcp_rate_skb_sent() after the update is done.
+> 
+> Fixes: 8c72c65b426b ("tcp: update skb->skb_mstamp more carefully")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Signed-off-by: Vincenzo Maffione <v.maffione@gmail.com>
----
- drivers/net/ethernet/intel/e1000/e1000_main.c | 11 +++++++++--
- 1 file changed, 9 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
-index 98375e1e1185..1982f7917a8d 100644
---- a/drivers/net/ethernet/intel/e1000/e1000_main.c
-+++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
-@@ -520,8 +520,6 @@ void e1000_down(struct e1000_adapter *adapter)
- 	struct net_device *netdev = adapter->netdev;
- 	u32 rctl, tctl;
- 
--	netif_carrier_off(netdev);
--
- 	/* disable receives in the hardware */
- 	rctl = er32(RCTL);
- 	ew32(RCTL, rctl & ~E1000_RCTL_EN);
-@@ -537,6 +535,15 @@ void e1000_down(struct e1000_adapter *adapter)
- 	E1000_WRITE_FLUSH();
- 	msleep(10);
- 
-+	/* Set the carrier off after transmits have been disabled in the
-+	 * hardware, to avoid race conditions with e1000_watchdog() (which
-+	 * may be running concurrently to us, checking for the carrier
-+	 * bit to decide whether it should enable transmits again). Such
-+	 * a race condition would result into transmission being disabled
-+	 * in the hardware until the next IFF_DOWN+IFF_UP cycle.
-+	 */
-+	netif_carrier_off(netdev);
-+
- 	napi_disable(&adapter->napi);
- 
- 	e1000_irq_disable(adapter);
--- 
-2.14.1
+Applied, thanks Eric.
