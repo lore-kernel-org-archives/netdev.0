@@ -1,91 +1,88 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: RE: [PATCH V2] tipc: Use bsearch library function
-Date: Sat, 16 Sep 2017 13:20:28 +0000
-Message-ID: <DB5PR0701MB1958558286B3B455C601754A9A6D0@DB5PR0701MB1958.eurprd07.prod.outlook.com>
-References: <20170911.143025.555018840006192902.davem@davemloft.net>
-         <20170916075036.28676-1-thomas@m3y3r.de>
-         <16128f5e-66ff-b6ec-c0e1-74ea08c212b0@windriver.com>
-         <1505553970.16316.1.camel@perches.com>
-         <64ee51ce-eb7e-ac1c-56a9-9481f6f80b35@windriver.com>
-         <1505555908.16316.5.camel@perches.com>
-         <35f41984-22e9-5adc-0e4d-a4ef4204f6d7@windriver.com>
- <1505557061.16316.7.camel@perches.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-To: Joe Perches <joe@perches.com>, Ying Xue <ying.xue@windriver.com>,
-        "Thomas Meyer" <thomas@m3y3r.de>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "tipc-discussion@lists.sourceforge.net"
-        <tipc-discussion@lists.sourceforge.net>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "davem@davemloft.net" <davem@davemloft.net>
+From: Vincent Bernat <vincent@bernat.im>
+Subject: [PATCH net-next v2] bridge: also trigger RTM_NEWLINK when interface is released from bridge
+Date: Sat, 16 Sep 2017 16:18:33 +0200
+Message-ID: <20170916141833.28344-1-vincent@bernat.im>
+References: <m3zi9vbrfp.fsf@luffy.cx>
+Cc: Vincent Bernat <vincent@bernat.im>
+To: Stephen Hemminger <stephen@networkplumber.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        bridge@lists.linux-foundation.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sesbmg23.ericsson.net ([193.180.251.37]:64316 "EHLO
-        sesbmg23.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751211AbdIPNUd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 16 Sep 2017 09:20:33 -0400
-In-Reply-To: <1505557061.16316.7.camel@perches.com>
-Content-Language: en-US
+Received: from bart.luffy.cx ([78.47.78.131]:57388 "EHLO bart.luffy.cx"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751256AbdIPOSs (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 16 Sep 2017 10:18:48 -0400
+In-Reply-To: <m3zi9vbrfp.fsf@luffy.cx>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Currently, when an interface is released from a bridge via
+ioctl(), we get a RTM_DELLINK event through netlink:
 
+Deleted 2: dummy0: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state UNKNOWN
+    link/ether 6e:23:c2:54:3a:b3
 
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-
-> owner@vger.kernel.org] On Behalf Of Joe Perches
-> Sent: Saturday, September 16, 2017 06:18
-> To: Ying Xue <ying.xue@windriver.com>; Thomas Meyer
-> <thomas@m3y3r.de>; Jon Maloy <jon.maloy@ericsson.com>;
-> netdev@vger.kernel.org; tipc-discussion@lists.sourceforge.net; linux-
-> kernel@vger.kernel.org; davem@davemloft.net
-> Subject: Re: [PATCH V2] tipc: Use bsearch library function
->=20
-> On Sat, 2017-09-16 at 18:10 +0800, Ying Xue wrote:
-> > On 09/16/2017 05:58 PM, Joe Perches wrote:
-> > > On Sat, 2017-09-16 at 17:36 +0800, Ying Xue wrote:
-> > > > On 09/16/2017 05:26 PM, Joe Perches wrote:
-> > > > > On Sat, 2017-09-16 at 17:02 +0800, Ying Xue wrote:
-> > > > > > On 09/16/2017 03:50 PM, Thomas Meyer wrote:
-> > > > > > > Use common library function rather than explicitly coding
-> > > > > > > some variant of it yourself.
-> > > > > > >
-> > > > > > > Signed-off-by: Thomas Meyer <thomas@m3y3r.de>
-> > > > > >
-> > > > > > Acked-by: Ying Xue <ying.xue@windriver.com>
-> > > > >
-> > > > > Are you sure you want to do this?
-> > > > >
-> > > > > Note the comment above nameseq_find_subseq
-> > > > >
-> > > > >  * Very time-critical, so binary searches through sub-sequence ar=
-ray.
-> > > > >
-> > > > > What impact does this change have on performance?
-> > > >
-> > > > Sorry, I couldn't see any essential difference between this new
-> > > > implementation and the original one except that the former tries
-> > > > to use the library function - bsearch() to replace the original
-> > > > binary search algorithm implemented in TIPC itself. Therefore, I
-> > > > don't think the change will have a big impact on performance.
-> > > >
-> > > > If I miss something, please let me know.
-> > >
-> > > Comparison via a function pointer in bsearch is slower than direct
-> > > code without the function call overhead.
-> > >
-> >
-> > Right, but probably we can tolerate the slight sacrifice here.
->=20
-> What part of "very time critical" have you verified and benchmarked as
-> inconsequential?
->=20
-> Please post your results.
+Userspace has to interpret that as a removal from the bridge, not as a
+complete removal of the interface. When an bridged interface is
+completely removed, we get two events:
 
-I agree with Joe here. This change does not simplify anything, it does not =
-reduce the amount of code, plus that it introduce an unnecessary outline ca=
-ll in a place where we have every reason to let the compiler do its optimiz=
-ation job properly.
+Deleted 2: dummy0: <BROADCAST,NOARP> mtu 1500 master bridge0 state DOWN
+    link/ether 6e:23:c2:54:3a:b3
+Deleted 2: dummy0: <BROADCAST,NOARP> mtu 1500 qdisc noop state DOWN group default
+    link/ether 6e:23:c2:54:3a:b3 brd ff:ff:ff:ff:ff:ff
 
-///jon
+In constrast, when an interface is released from a bond, we get a
+RTM_NEWLINK with only the new characteristics (no master):
+
+3: dummy1: <BROADCAST,NOARP,SLAVE,UP,LOWER_UP> mtu 1500 qdisc noqueue master bond0 state UNKNOWN group default
+    link/ether ae:dc:7a:8c:9a:3c brd ff:ff:ff:ff:ff:ff
+3: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue state UNKNOWN group default
+    link/ether ae:dc:7a:8c:9a:3c brd ff:ff:ff:ff:ff:ff
+4: bond0: <BROADCAST,MULTICAST,MASTER,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default
+    link/ether ae:dc:7a:8c:9a:3c brd ff:ff:ff:ff:ff:ff
+3: dummy1: <BROADCAST,NOARP> mtu 1500 qdisc noqueue state DOWN group default
+    link/ether ae:dc:7a:8c:9a:3c brd ff:ff:ff:ff:ff:ff
+3: dummy1: <BROADCAST,NOARP> mtu 1500 qdisc noqueue state DOWN group default
+    link/ether ca:c8:7b:66:f8:25 brd ff:ff:ff:ff:ff:ff
+4: bond0: <BROADCAST,MULTICAST,MASTER,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default
+    link/ether ae:dc:7a:8c:9a:3c brd ff:ff:ff:ff:ff:ff
+
+Userland may be confused by the fact we say a link is deleted while
+its characteristics are only modified. A first solution would have
+been to turn the RTM_DELLINK event in del_nbp() into a RTM_NEWLINK
+event. However, maybe some piece of userland is relying on this
+RTM_DELLINK to detect when a bridged interface is released. Instead,
+we also emit a RTM_NEWLINK event once the interface is
+released (without master info).
+
+Deleted 2: dummy0: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state UNKNOWN
+    link/ether 8a:bb:e7:94:b1:f8
+2: dummy0: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue state UNKNOWN group default
+    link/ether 8a:bb:e7:94:b1:f8 brd ff:ff:ff:ff:ff:ff
+
+This is done only when using ioctl(). When using Netlink, such an
+event is already automatically emitted in do_setlink().
+
+Signed-off-by: Vincent Bernat <vincent@bernat.im>
+---
+ net/bridge/br_ioctl.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/net/bridge/br_ioctl.c b/net/bridge/br_ioctl.c
+index 7970f8540cbb..3148cb3a8e82 100644
+--- a/net/bridge/br_ioctl.c
++++ b/net/bridge/br_ioctl.c
+@@ -99,8 +99,10 @@ static int add_del_if(struct net_bridge *br, int ifindex, int isadd)
+ 
+ 	if (isadd)
+ 		ret = br_add_if(br, dev);
+-	else
++	else {
+ 		ret = br_del_if(br, dev);
++		rtmsg_ifinfo(RTM_NEWLINK, dev, IFF_MASTER, GFP_KERNEL);
++	}
+ 
+ 	return ret;
+ }
+-- 
+2.14.1
