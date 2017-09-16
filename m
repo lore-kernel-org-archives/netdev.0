@@ -1,40 +1,52 @@
-From: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [PATCH] bgmac: Remove all offloading features, including GRO.
-Date: Sat, 16 Sep 2017 03:25:59 +0300
-Message-ID: <74955cf749601c3a7a938a6945a976f8@nuclearcat.com>
-References: <20170915222218.6613-1-rosenp@gmail.com>
- <252FFED5-906E-4D1B-9E87-679D0CE801D4@gmail.com>
- <1505520210.29839.7.camel@edumazet-glaptop3.roam.corp.google.com>
- <1505520638.8507.2.camel@gmail.com>
- <1505521095.29839.11.camel@edumazet-glaptop3.roam.corp.google.com>
+Date: Fri, 15 Sep 2017 17:34:56 -0700
+Message-ID: <1505522096.29839.13.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20170916002305.2794-1-rosenp@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
- format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: rosenp@gmail.com, Florian Fainelli <f.fainelli@gmail.com>,
-        netdev@vger.kernel.org, zajec5@gmail.com, nbd@nbd.name,
-        netdev-owner@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: netdev@vger.kernel.org
+To: Rosen Penev <rosenp@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nuclearcat.com ([144.76.183.226]:39844 "EHLO nuclearcat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751201AbdIPA0D (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 15 Sep 2017 20:26:03 -0400
-In-Reply-To: <1505521095.29839.11.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:35885 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751143AbdIPAe6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 15 Sep 2017 20:34:58 -0400
+Received: by mail-pg0-f68.google.com with SMTP id d8so2069471pgt.3
+        for <netdev@vger.kernel.org>; Fri, 15 Sep 2017 17:34:58 -0700 (PDT)
+In-Reply-To: <20170916002305.2794-1-rosenp@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2017-09-16 03:18, Eric Dumazet wrote:
-> On Fri, 2017-09-15 at 17:10 -0700, rosenp@gmail.com wrote:
->> Ok fair enough. Will only disable GRO in the driver.
+On Fri, 2017-09-15 at 17:23 -0700, Rosen Penev wrote:
+> On a linksys E1200v1 (actually a crossflashed E1000v2), the offloading features give no measurable benefit to speed or latency. Furthermore, disabling GRO actually improves iperf performance by a whoppimg 3mbps. Results:
 > 
-> Well, do not even try.
+> Currently:
+
 > 
-> NETIF_F_SOFT_FEATURES is set by core networking stack in
-> register_netdevice(), ( commit 212b573f5552c60265da721ff9ce32e3462a2cdd
-> )
+> v2: Changed napi_gro_receive to netif_receive_skb. Seems to have an identical result.
 > 
-> Absolutely no driver disables GRO (excepts the ones playing with LRO)
-I believe also iperf is definitely inconclusive test.
-Except iperf there is lot of different workloads and configurations, 
-that might have different results.
+> Signed-off-by: Rosen Penev <rosenp@gmail.com>
+> ---
+>  drivers/net/ethernet/broadcom/bgmac.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
+> index 48d672b204a4..1fb0053aeee7 100644
+> --- a/drivers/net/ethernet/broadcom/bgmac.c
+> +++ b/drivers/net/ethernet/broadcom/bgmac.c
+> @@ -483,7 +483,7 @@ static int bgmac_dma_rx_read(struct bgmac *bgmac, struct bgmac_dma_ring *ring,
+>  			skb->protocol = eth_type_trans(skb, bgmac->net_dev);
+>  			bgmac->net_dev->stats.rx_bytes += len;
+>  			bgmac->net_dev->stats.rx_packets++;
+> -			napi_gro_receive(&bgmac->napi, skb);
+> +			netif_receive_skb(skb);
+>  			handled++;
+>  		} while (0);
+>  
+
+And have you tested 1Gbit link speed ?
+( Or 2.5 Gbit link speed )
+
+If you want to disable GRO on your host, fine : you can use ethtool -K
