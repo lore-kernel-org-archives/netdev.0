@@ -1,82 +1,81 @@
-From: Julia Lawall <julia.lawall@lip6.fr>
-Subject: Re: [Outreachy kernel] [PATCH] Staging: irda: Use !x instead of NULL
- comparison
-Date: Sat, 16 Sep 2017 09:14:21 +0200 (CEST)
-Message-ID: <alpine.DEB.2.20.1709160912540.2943@hadrien>
-References: <1505543667-4670-1-git-send-email-srishtishar@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: samuel@sortiz.org, gregkh@linuxfoundation.org,
-        netdev@vger.kernel.org, devel@driverdev.osuosl.org,
-        linux-kernel@vger.kernel.org, outreachy-kernel@googlegroups.com
-To: Srishti Sharma <srishtishar@gmail.com>
+From: Thomas Meyer <thomas@m3y3r.de>
+Subject: [PATCH V2] tipc: Use bsearch library function
+Date: Sat, 16 Sep 2017 09:50:36 +0200
+Message-ID: <20170916075036.28676-1-thomas@m3y3r.de>
+References: <20170911.143025.555018840006192902.davem@davemloft.net>
+Cc: Thomas Meyer <thomas@m3y3r.de>
+To: jon.maloy@ericsson.com, ying.xue@windriver.com,
+        netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net,
+        linux-kernel@vger.kernel.org, davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1505543667-4670-1-git-send-email-srishtishar@gmail.com>
+In-Reply-To: <20170911.143025.555018840006192902.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Use common library function rather than explicitly coding
+some variant of it yourself.
 
+Signed-off-by: Thomas Meyer <thomas@m3y3r.de>
+---
+ net/tipc/name_table.c | 30 +++++++++++++++---------------
+ 1 file changed, 15 insertions(+), 15 deletions(-)
 
-On Sat, 16 Sep 2017, Srishti Sharma wrote:
+V2: Coding style
 
-> Test for NULL as !x where functions that return NULL on failure
-> are used. Done using the following semantic patch by coccinelle.
->
-> @ is_null @
-> expression E;
-> statement S;
-> @@
->
-> E = (\(kmalloc\|devm_kzalloc\|kmalloc_array\|devm_ioremap\|
-> usb_alloc_urb\|alloc_netdev\|dev_alloc_skb\)(...));
->
-> (
-> if(!E)
->    S
-> |
-> -if(E==NULL)
-> +if(!E)
->     S
-> )
->
-> Signed-off-by: Srishti Sharma <srishtishar@gmail.com>
-
-Acked-by: Julia Lawall <julia.lawall@lip6.fr>
-
-
-> ---
->  drivers/staging/irda/net/discovery.c | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
->
-> diff --git a/drivers/staging/irda/net/discovery.c b/drivers/staging/irda/net/discovery.c
-> index 364d70a..1e54954 100644
-> --- a/drivers/staging/irda/net/discovery.c
-> +++ b/drivers/staging/irda/net/discovery.c
-> @@ -179,7 +179,7 @@ void irlmp_expire_discoveries(hashbin_t *log, __u32 saddr, int force)
->  				/* Create the client specific buffer */
->  				n = HASHBIN_GET_SIZE(log);
->  				buffer = kmalloc(n * sizeof(struct irda_device_info), GFP_ATOMIC);
-> -				if (buffer == NULL) {
-> +				if (!buffer) {
->  					spin_unlock_irqrestore(&log->hb_spinlock, flags);
->  					return;
->  				}
-> @@ -291,7 +291,7 @@ struct irda_device_info *irlmp_copy_discoveries(hashbin_t *log, int *pn,
->  				/* Create the client specific buffer */
->  				n = HASHBIN_GET_SIZE(log);
->  				buffer = kmalloc(n * sizeof(struct irda_device_info), GFP_ATOMIC);
-> -				if (buffer == NULL) {
-> +				if (!buffer) {
->  					spin_unlock_irqrestore(&log->hb_spinlock, flags);
->  					return NULL;
->  				}
-> --
-> 2.7.4
->
-> --
-> You received this message because you are subscribed to the Google Groups "outreachy-kernel" group.
-> To unsubscribe from this group and stop receiving emails from it, send an email to outreachy-kernel+unsubscribe@googlegroups.com.
-> To post to this group, send email to outreachy-kernel@googlegroups.com.
-> To view this discussion on the web visit https://groups.google.com/d/msgid/outreachy-kernel/1505543667-4670-1-git-send-email-srishtishar%40gmail.com.
-> For more options, visit https://groups.google.com/d/optout.
->
+diff --git a/net/tipc/name_table.c b/net/tipc/name_table.c
+index bd0aac87b41a..eeb4d7a13de2 100644
+--- a/net/tipc/name_table.c
++++ b/net/tipc/name_table.c
+@@ -44,6 +44,7 @@
+ #include "addr.h"
+ #include "node.h"
+ #include <net/genetlink.h>
++#include <linux/bsearch.h>
+ 
+ #define TIPC_NAMETBL_SIZE 1024		/* must be a power of 2 */
+ 
+@@ -168,6 +169,18 @@ static struct name_seq *tipc_nameseq_create(u32 type, struct hlist_head *seq_hea
+ 	return nseq;
+ }
+ 
++static int nameseq_find_subseq_cmp(const void *key, const void *elt)
++{
++	struct sub_seq *sseq = (struct sub_seq *)elt;
++	u32 instance = *(u32 *)key;
++
++	if (instance < sseq->lower)
++		return -1;
++	else if (instance > sseq->upper)
++		return 1;
++	return 0;
++}
++
+ /**
+  * nameseq_find_subseq - find sub-sequence (if any) matching a name instance
+  *
+@@ -176,21 +189,8 @@ static struct name_seq *tipc_nameseq_create(u32 type, struct hlist_head *seq_hea
+ static struct sub_seq *nameseq_find_subseq(struct name_seq *nseq,
+ 					   u32 instance)
+ {
+-	struct sub_seq *sseqs = nseq->sseqs;
+-	int low = 0;
+-	int high = nseq->first_free - 1;
+-	int mid;
+-
+-	while (low <= high) {
+-		mid = (low + high) / 2;
+-		if (instance < sseqs[mid].lower)
+-			high = mid - 1;
+-		else if (instance > sseqs[mid].upper)
+-			low = mid + 1;
+-		else
+-			return &sseqs[mid];
+-	}
+-	return NULL;
++	return bsearch(&instance, nseq->sseqs, nseq->first_free,
++		       sizeof(struct sub_seq), nameseq_find_subseq_cmp);
+ }
+ 
+ /**
+-- 
+2.11.0
