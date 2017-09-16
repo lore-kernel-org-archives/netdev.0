@@ -1,62 +1,60 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH V2] tipc: Use bsearch library function
-Date: Sat, 16 Sep 2017 03:17:41 -0700
-Message-ID: <1505557061.16316.7.camel@perches.com>
-References: <20170911.143025.555018840006192902.davem@davemloft.net>
-         <20170916075036.28676-1-thomas@m3y3r.de>
-         <16128f5e-66ff-b6ec-c0e1-74ea08c212b0@windriver.com>
-         <1505553970.16316.1.camel@perches.com>
-         <64ee51ce-eb7e-ac1c-56a9-9481f6f80b35@windriver.com>
-         <1505555908.16316.5.camel@perches.com>
-         <35f41984-22e9-5adc-0e4d-a4ef4204f6d7@windriver.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-To: Ying Xue <ying.xue@windriver.com>, Thomas Meyer <thomas@m3y3r.de>,
-        jon.maloy@ericsson.com, netdev@vger.kernel.org,
-        tipc-discussion@lists.sourceforge.net,
-        linux-kernel@vger.kernel.org, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <35f41984-22e9-5adc-0e4d-a4ef4204f6d7@windriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Davide Caratti <dcaratti@redhat.com>
+Subject: [PATCH net] net/sched: cls_matchall: fix crash when used with classful qdisc
+Date: Sat, 16 Sep 2017 14:02:21 +0200
+Message-ID: <b930159de5531a4d216a1cd2c2ef03aa41f421f9.1505562794.git.dcaratti@redhat.com>
+Cc: netdev@vger.kernel.org
+To: Jiri Pirko <jiri@resnulli.us>, Jamal Hadi Salim <jhs@mojatatu.com>,
+        Jiri Benc <jbenc@redhat.com>,
+        "David S . Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:50470 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751185AbdIPMCf (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 16 Sep 2017 08:02:35 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2017-09-16 at 18:10 +0800, Ying Xue wrote:
-> On 09/16/2017 05:58 PM, Joe Perches wrote:
-> > On Sat, 2017-09-16 at 17:36 +0800, Ying Xue wrote:
-> > > On 09/16/2017 05:26 PM, Joe Perches wrote:
-> > > > On Sat, 2017-09-16 at 17:02 +0800, Ying Xue wrote:
-> > > > > On 09/16/2017 03:50 PM, Thomas Meyer wrote:
-> > > > > > Use common library function rather than explicitly coding
-> > > > > > some variant of it yourself.
-> > > > > > 
-> > > > > > Signed-off-by: Thomas Meyer <thomas@m3y3r.de>
-> > > > > 
-> > > > > Acked-by: Ying Xue <ying.xue@windriver.com>
-> > > > 
-> > > > Are you sure you want to do this?
-> > > > 
-> > > > Note the comment above nameseq_find_subseq
-> > > > 
-> > > >  * Very time-critical, so binary searches through sub-sequence array.
-> > > > 
-> > > > What impact does this change have on performance?
-> > > 
-> > > Sorry, I couldn't see any essential difference between this new
-> > > implementation and the original one except that the former tries to use
-> > > the library function - bsearch() to replace the original binary search
-> > > algorithm implemented in TIPC itself. Therefore, I don't think the
-> > > change will have a big impact on performance.
-> > > 
-> > > If I miss something, please let me know.
-> > 
-> > Comparison via a function pointer in bsearch is slower
-> > than direct code without the function call overhead.
-> > 
-> 
-> Right, but probably we can tolerate the slight sacrifice here.
+this script, edited from Linux Advanced Routing and Traffic Control guide
 
-What part of "very time critical" have you verified
-and benchmarked as inconsequential?
+tc q a dev en0 root handle 1: htb default a
+tc c a dev en0 parent 1:  classid 1:1 htb rate 6mbit burst 15k
+tc c a dev en0 parent 1:1 classid 1:a htb rate 5mbit ceil 6mbit burst 15k
+tc c a dev en0 parent 1:1 classid 1:b htb rate 1mbit ceil 6mbit burst 15k
+tc f a dev en0 parent 1:0 prio 1 $clsname $clsargs classid 1:b
+ping $address -c1
+tc -s c s dev en0
 
-Please post your results.
+classifies traffic to 1:b or 1:a, depending on whether the packet matches
+or not the pattern $clsargs of filter $clsname. However, when $clsname is
+'matchall', a systematic crash can be observed in htb_classify(). HTB and
+classful qdiscs don't assign initial value to struct tcf_result, but then
+they expect it to contain valid values after filters have been run. Thus,
+current 'matchall' ignores the TCA_MATCHALL_CLASSID attribute, configured
+by user, and makes HTB (and classful qdiscs) dereference random pointers.
+
+By assigning head->res to *res in mall_classify(), before the actions are
+invoked, we fix this crash and enable TCA_MATCHALL_CLASSID functionality,
+that had no effect on 'matchall' classifier since its first introduction.
+
+BugLink: https://bugzilla.redhat.com/show_bug.cgi?id=1460213
+Reported-by: Jiri Benc <jbenc@redhat.com>
+Fixes: b87f7936a932 ("net/sched: introduce Match-all classifier")
+Signed-off-by: Davide Caratti <dcaratti@redhat.com>
+---
+ net/sched/cls_matchall.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/net/sched/cls_matchall.c b/net/sched/cls_matchall.c
+index 21cc45caf842..eeac606c95ab 100644
+--- a/net/sched/cls_matchall.c
++++ b/net/sched/cls_matchall.c
+@@ -32,6 +32,7 @@ static int mall_classify(struct sk_buff *skb, const struct tcf_proto *tp,
+ 	if (tc_skip_sw(head->flags))
+ 		return -1;
+ 
++	*res = head->res;
+ 	return tcf_exts_exec(skb, &head->exts, res);
+ }
+ 
+-- 
+2.13.5
