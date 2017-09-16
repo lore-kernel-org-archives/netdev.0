@@ -1,73 +1,50 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: Re: [PATCH v2 0/2] enable hires timer to timeout datagram socket
-Date: Sat, 16 Sep 2017 11:47:56 +0200 (CEST)
-Message-ID: <alpine.DEB.2.20.1709161131200.2105@nanos>
-References: <20170908170409.GA10020@u40b0340c692b58f6553c.ant.amazon.com>  <20170908.101657.2131282706895004921.davem@davemloft.net>  <1504891402.32080.5.camel@infradead.org>  <20170908.102645.1086537961399780085.davem@davemloft.net>
- <20170908185521.GA12340@u40b0340c692b58f6553c.ant.amazon.com> <1504897909.15310.89.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH V2] tipc: Use bsearch library function
+Date: Sat, 16 Sep 2017 02:58:28 -0700
+Message-ID: <1505555908.16316.5.camel@perches.com>
+References: <20170911.143025.555018840006192902.davem@davemloft.net>
+         <20170916075036.28676-1-thomas@m3y3r.de>
+         <16128f5e-66ff-b6ec-c0e1-74ea08c212b0@windriver.com>
+         <1505553970.16316.1.camel@perches.com>
+         <64ee51ce-eb7e-ac1c-56a9-9481f6f80b35@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: Eduardo Valentin <eduval@amazon.com>,
-        David Miller <davem@davemloft.net>, dwmw2@infradead.org,
-        vallish@amazon.com, shuah@kernel.org, richardcochran@gmail.com,
-        xiyou.wangcong@gmail.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, anchalag@amazon.com, dwmw@amazon.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+To: Ying Xue <ying.xue@windriver.com>, Thomas Meyer <thomas@m3y3r.de>,
+        jon.maloy@ericsson.com, netdev@vger.kernel.org,
+        tipc-discussion@lists.sourceforge.net,
+        linux-kernel@vger.kernel.org, davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1504897909.15310.89.camel@edumazet-glaptop3.roam.corp.google.com>
+In-Reply-To: <64ee51ce-eb7e-ac1c-56a9-9481f6f80b35@windriver.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 8 Sep 2017, Eric Dumazet wrote:
-> On Fri, 2017-09-08 at 11:55 -0700, Eduardo Valentin wrote:
-> > Hello,
-> > 
-> > On Fri, Sep 08, 2017 at 10:26:45AM -0700, David Miller wrote:
-> > > From: David Woodhouse <dwmw2@infradead.org>
-> > > Date: Fri, 08 Sep 2017 18:23:22 +0100
+On Sat, 2017-09-16 at 17:36 +0800, Ying Xue wrote:
+> On 09/16/2017 05:26 PM, Joe Perches wrote:
+> > On Sat, 2017-09-16 at 17:02 +0800, Ying Xue wrote:
+> > > On 09/16/2017 03:50 PM, Thomas Meyer wrote:
+> > > > Use common library function rather than explicitly coding
+> > > > some variant of it yourself.
+> > > > 
+> > > > Signed-off-by: Thomas Meyer <thomas@m3y3r.de>
 > > > 
-> > > > I don't know that anyone's ever tried saying "show me the chapter
-> > and
-> > > > verse of the documentation"
-> > > 
-> > > Do you know why I brought this up?  Because the person I am replying
-> > > to told me that the syscall documentation should have suggested this
-> > > or that.
-> > > 
-> > > That's why.
+> > > Acked-by: Ying Xue <ying.xue@windriver.com>
 > > 
-> > :-) My intention was for sure not to upset anybody.
+> > Are you sure you want to do this?
 > > 
-> > Just to reiterate, the point of patch is simple, there was a change in
-> > behavior in the system call from one kernel version to the other. As I
-> > mentioned, I agree that the userspace could use other means to achieve
-> > the same, but still the system call behavior has changed.
+> > Note the comment above nameseq_find_subseq
 > > 
-> > > 
-> > > So let's concentrate on the other aspects of my reply, ok?
+> >  * Very time-critical, so binary searches through sub-sequence array.
 > > 
-> > I agree. I would prefer to understand here what is the technical
-> > reason not to accept these patches other than "use other system
-> > calls".
+> > What impact does this change have on performance?
 > 
-> So if we need to replace all 'legacy' timers to high resolution timer,
-> because some application was _relying_ on jiffies being kind of precise,
-> maybe it is better to revert the change done on legacy timers.
-
-Which would be a major step back in terms of timer performance and system
-disturbance caused by massive recascading operations.
-
-> Or continue the migration and make them use high res internally.
+> Sorry, I couldn't see any essential difference between this new
+> implementation and the original one except that the former tries to use
+> the library function - bsearch() to replace the original binary search
+> algorithm implemented in TIPC itself. Therefore, I don't think the
+> change will have a big impact on performance.
 > 
-> select() and poll() are the standard way to have precise timeouts,
-> it is silly we have to maintain a timeout handling in the datagram fast
-> path.
+> If I miss something, please let me know.
 
-A few years ago we switched select/poll over to use hrtimers because the
-wheel timers were too inaccurate for some operations, so it feels
-consequent to switch the timeout in the datagram rcv path over as well. I
-agree that the whole timeout magic there feels silly, but unfortunately
-it's a documented property of sockets.
-
-Thanks,
-
-	tglx
+Comparison via a function pointer in bsearch is slower
+than direct code without the function call overhead.
