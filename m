@@ -1,63 +1,43 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next v2 0/7] korina: performance fixes and cleanup
-Date: Sun, 17 Sep 2017 13:09:21 -0700
-Message-ID: <649cd233-d9b8-478b-e742-5da469df8f26@gmail.com>
-References: <20170917172353.32225-1-roman@advem.lv>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH V2] tipc: Use bsearch library function
+Date: Sun, 17 Sep 2017 14:15:26 -0700
+Message-ID: <1505682926.16316.15.camel@perches.com>
+References: <20170911.143025.555018840006192902.davem@davemloft.net>
+         <20170916075036.28676-1-thomas@m3y3r.de>
+         <16128f5e-66ff-b6ec-c0e1-74ea08c212b0@windriver.com>
+         <1505553970.16316.1.camel@perches.com>
+         <64ee51ce-eb7e-ac1c-56a9-9481f6f80b35@windriver.com>
+         <1505555908.16316.5.camel@perches.com>
+         <35f41984-22e9-5adc-0e4d-a4ef4204f6d7@windriver.com>
+         <1505557061.16316.7.camel@perches.com>
+         <DB5PR0701MB1958558286B3B455C601754A9A6D0@DB5PR0701MB1958.eurprd07.prod.outlook.com>
+         <760F46A5-2C04-4F3F-83C5-5EA331CFA1D6@m3y3r.de>
+         <DB5PR0701MB195892D3D60DAB5D7C1109AE9A620@DB5PR0701MB1958.eurprd07.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 8bit
-To: Roman Yeryomin <leroi.lists@gmail.com>,
-        netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f196.google.com ([209.85.223.196]:33310 "EHLO
-        mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750850AbdIQUJZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 17 Sep 2017 16:09:25 -0400
-Received: by mail-io0-f196.google.com with SMTP id j26so7253153iod.0
-        for <netdev@vger.kernel.org>; Sun, 17 Sep 2017 13:09:25 -0700 (PDT)
-In-Reply-To: <20170917172353.32225-1-roman@advem.lv>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Ying Xue <ying.xue@windriver.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "tipc-discussion@lists.sourceforge.net"
+        <tipc-discussion@lists.sourceforge.net>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "davem@davemloft.net" <davem@davemloft.net>
+To: Jon Maloy <jon.maloy@ericsson.com>, Thomas Meyer <thomas@m3y3r.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <DB5PR0701MB195892D3D60DAB5D7C1109AE9A620@DB5PR0701MB1958.eurprd07.prod.outlook.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
-
-On 09/17/2017 10:23 AM, Roman Yeryomin wrote:
-> Changes from v1:
-> - use GRO instead of increasing ring size
-> - use NAPI_POLL_WEIGHT instead of defining own NAPI_WEIGHT
-> - optimize rx descriptor flags processing
-
-net-next is closed at the moment, but these look like reasonable
-changes, I would just replace patch 7 with a patch that entirely drops
-the driver specific version since that does not serve any purpose in the
-context of an in-kernel driver.
-
-Some nice clean-ups that you should also consider for future changes:
-
-- reduce the duplication of tests/conditions in korina_send_packet(), a
-lot of them are testing for the same things and setting the same
-descriptor bits
-
-- move korina_tx() to a NAPI context instead of working from hard
-interrupt context
-
-- get rid of the MIPS dma_cache_* calls and instead properly use the
-DMA-API to allocate descriptors and invalidate/write-back skb->data
-
+On Sun, 2017-09-17 at 16:27 +0000, Jon Maloy wrote:
+> > -----Original Message-----
+> > From: Thomas Meyer [mailto:thomas@m3y3r.de]
+[]
+> > What about the other binary search implementation in the same file? Should
+> > I try to convert it it will it get NAKed for performance reasons too?
 > 
-> Roman Yeryomin (7):
->   net: korina: don't use overflow and underflow interrupts
->   net: korina: optimize rx descriptor flags processing
->   net: korina: use NAPI_POLL_WEIGHT
->   net: korina: use GRO
->   net: korina: whitespace cleanup
->   net: korina: update authors
->   net: korina: bump version
-> 
->  drivers/net/ethernet/korina.c | 230 ++++++++++++++----------------------------
->  1 file changed, 78 insertions(+), 152 deletions(-)
-> 
+> The searches for inserting and removing publications is less time critical,
+> so that would be ok with me.
+> If you have any more general interest in improving the code in this file
+> (which is needed) it would also be appreciated.
 
--- 
-Florian
+Perhaps using an rbtree would be an improvement.
