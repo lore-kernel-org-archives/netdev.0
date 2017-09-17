@@ -1,38 +1,39 @@
-From: Kim Sharma <info@talentscout.com>
-Subject: Dear Talented
-Date: Sun, 17 Sep 2017 18:43:32 +0530
-Message-ID: <20170917131217.562809BFE82D@pegasus.comuna.com.co>
-Reply-To: blueskyfilmstudio@gmail.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: 8BIT
-To: Recipients <info@talentscout.com>
+From: Roman Yeryomin <leroi.lists@gmail.com>
+Subject: [PATCH net-next v2 0/7] korina: performance fixes and cleanup
+Date: Sun, 17 Sep 2017 20:23:53 +0300
+Message-ID: <20170917172353.32225-1-roman@advem.lv>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.comuna.com.co ([181.143.7.77]:57252 "EHLO
-        pegasus.comuna.com.co" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751780AbdIQQtU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 17 Sep 2017 12:49:20 -0400
-Content-Description: Mail message body
+Received: from mail-lf0-f53.google.com ([209.85.215.53]:48551 "EHLO
+        mail-lf0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751391AbdIQRYA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 17 Sep 2017 13:24:00 -0400
+Received: by mail-lf0-f53.google.com with SMTP id q132so6022760lfe.5
+        for <netdev@vger.kernel.org>; Sun, 17 Sep 2017 10:23:59 -0700 (PDT)
+Received: from ubrain.corp.ubnt.com ([2a02:16d8:105:4000:76d4:35ff:fe88:7631])
+        by smtp.googlemail.com with ESMTPSA id l14sm1116913lfb.71.2017.09.17.10.23.56
+        for <netdev@vger.kernel.org>
+        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Sun, 17 Sep 2017 10:23:57 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear Talented,
+Changes from v1:
+- use GRO instead of increasing ring size
+- use NAPI_POLL_WEIGHT instead of defining own NAPI_WEIGHT
+- optimize rx descriptor flags processing
 
-I am Talent Scout For BLUE SKY FILM STUDIO, Present Blue sky Studio a
-Film Corporation Located in the United State, is Soliciting for the
-Right to use Your Photo/Face and Personality as One of the Semi -Major
-Role/ Character in our Upcoming ANIMATED Stereoscope 3D Movie-The Story
-of Anubis (Anubis 2018) The Movie is Currently Filming (In
-Production) Please Note That There Will Be No Auditions, Traveling or
-Any Special / Professional Acting Skills, Since the Production of This
-Movie Will Be Done with our State of Art Computer -Generating Imagery
-Equipment. We Are Prepared to Pay the Total Sum of $620,000.00 USD. For
-More Information/Understanding, Please Write us on the E-Mail Below.
-CONTACT EMAIL: Blueskyanimatedstudio@usa.com
-All Reply to: Blueskyanimatedstudio@usa.com
-Note: Only the Response send to this mail will be Given a Prior
-Consideration.
+Roman Yeryomin (7):
+  net: korina: don't use overflow and underflow interrupts
+  net: korina: optimize rx descriptor flags processing
+  net: korina: use NAPI_POLL_WEIGHT
+  net: korina: use GRO
+  net: korina: whitespace cleanup
+  net: korina: update authors
+  net: korina: bump version
 
+ drivers/net/ethernet/korina.c | 230 ++++++++++++++----------------------------
+ 1 file changed, 78 insertions(+), 152 deletions(-)
 
-Talent Scout
-Kim Sharma
+-- 
+2.11.0
