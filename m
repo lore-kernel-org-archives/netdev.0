@@ -1,82 +1,59 @@
 From: Robert Hoo <robert.hu@linux.intel.com>
-Subject: [pktgen script v2 1/2] Add some helper functions
-Date: Sun, 17 Sep 2017 20:36:37 +0800
-Message-ID: <1505651798-106642-2-git-send-email-robert.hu@linux.intel.com>
-References: <1505651798-106642-1-git-send-email-robert.hu@linux.intel.com>
+Subject: [pktgen script v2 0/2] Add a pktgen sample script of NUMA awareness
+Date: Sun, 17 Sep 2017 20:36:36 +0800
+Message-ID: <1505651798-106642-1-git-send-email-robert.hu@linux.intel.com>
 Cc: netdev@vger.kernel.org, robert.hu@intel.com
 To: brouer@redhat.com, davem@davemloft.net, tariqt@mellanox.com,
         kyle.leet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga04.intel.com ([192.55.52.120]:56558 "EHLO mga04.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750885AbdIQMgs (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 17 Sep 2017 08:36:48 -0400
-In-Reply-To: <1505651798-106642-1-git-send-email-robert.hu@linux.intel.com>
+        id S1750885AbdIQMgq (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 17 Sep 2017 08:36:46 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Robert Hoo <robert.hu@intel.com>
 
-1. given a device, get its NUMA belongings
-2. given a device, get its queues' irq numbers.
-3. given a NUMA node, get its cpu id list.
+It's hard to benchmark 40G+ network bandwidth using ordinary
+tools like iperf, netperf (see reference 1). 
+Pktgen, packet generator from Kernel sapce, shall be a candidate.
+I derived this NUMA awared irq affinity sample script from
+multi-queue sample02, successfully benchmarked 40G link. I think this can
+also be useful for 100G reference, though I haven't got device to test yet.
 
-Signed-off-by: Robert Hoo <robert.hu@intel.com>
----
- pktgen/functions.sh | 44 ++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 44 insertions(+)
+This script simply does:
+Detect $DEV's NUMA node belonging.
+Bind each thread (processor of NUMA locality) with each $DEV queue's
+irq affinity, 1:1 mapping.
+How many '-t' threads input determines how many queues will be
+utilized.
+If '-f' designates first cpu id, then offset in the NUMA node's cpu
+list.
 
-diff --git a/pktgen/functions.sh b/pktgen/functions.sh
-index 205e4cd..09dfe7a 100644
---- a/pktgen/functions.sh
-+++ b/pktgen/functions.sh
-@@ -119,3 +119,47 @@ function root_check_run_with_sudo() {
- 	err 4 "cannot perform sudo run of $0"
-     fi
- }
-+
-+# Exact input device's NUMA node info
-+function get_iface_node()
-+{
-+    local node=$(</sys/class/net/$1/device/numa_node)
-+    if [[ $node == -1 ]]; then
-+        echo 0
-+    else
-+        echo $node
-+    fi
-+}
-+
-+# Given an Dev/iface, get its queues' irq numbers
-+function get_iface_irqs()
-+{
-+	local IFACE=$1
-+	local queues="${IFACE}-.*TxRx"
-+
-+	irqs=$(grep "$queues" /proc/interrupts | cut -f1 -d:)
-+	[ -z "$irqs" ] && irqs=$(grep $IFACE /proc/interrupts | cut -f1 -d:)
-+	[ -z "$irqs" ] && irqs=$(for i in `ls -Ux /sys/class/net/$IFACE/device/msi_irqs` ;\
-+	    do grep "$i:.*TxRx" /proc/interrupts | grep -v fdir | cut -f 1 -d : ;\
-+	    done)
-+	[ -z "$irqs" ] && err 3 "Could not find interrupts for $IFACE"
-+
-+	echo $irqs
-+}
-+
-+# Given a NUMA node, return cpu ids belonging to it.
-+function get_node_cpus()
-+{
-+	local node=$1
-+	local node_cpu_list
-+	local node_cpu_range_list=`cut -f1- -d, --output-delimiter=" " \
-+	                  /sys/devices/system/node/node$node/cpulist`
-+
-+	for cpu_range in $node_cpu_range_list
-+	do
-+	    node_cpu_list="$node_cpu_list "`seq -s " " ${cpu_range//-/ }`
-+	done
-+
-+	echo $node_cpu_list
-+}
-+
+Tested with Intel XL710 NIC with Cisco 3172 switch.
+
+Referrences:
+https://people.netfilter.org/hawk/presentations/LCA2015/net_stack_challenges_100G_LCA2015.pdf
+http://www.intel.cn/content/dam/www/public/us/en/documents/reference-guides/xl710-x710-performance-tuning-linux-guide.pdf
+
+Change log
+v2:
+	Rebased to https://github.com/netoptimizer/network-testing/tree/master/pktgen
+	Move helper functions to functions.sh
+	More concise shell grammar usage
+	Take '-f' parameter into consideration. If the first CPU is designaed,
+offset in the NUMA-aware CPU list.
+	Use err(), info() helper functions for such outputs.
+
+Robert Hoo (2):
+  Add some helper functions
+  Add pktgen script: pktgen_sample06_numa_awared_queue_irq_affinity.sh
+
+ pktgen/functions.sh                                | 44 ++++++++++
+ ...tgen_sample06_numa_awared_queue_irq_affinity.sh | 97 ++++++++++++++++++++++
+ 2 files changed, 141 insertions(+)
+ create mode 100755 pktgen/pktgen_sample06_numa_awared_queue_irq_affinity.sh
+
 -- 
 1.8.3.1
