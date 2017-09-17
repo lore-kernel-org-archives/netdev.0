@@ -1,190 +1,135 @@
 From: Roman Yeryomin <leroi.lists@gmail.com>
-Subject: [PATCH net-next v2 1/7] net: korina: don't use overflow and underflow interrupts
-Date: Sun, 17 Sep 2017 20:24:15 +0300
-Message-ID: <20170917172415.32291-1-roman@advem.lv>
+Subject: [PATCH net-next v2 2/7] net: korina: optimize rx descriptor flags processing
+Date: Sun, 17 Sep 2017 20:24:26 +0300
+Message-ID: <20170917172426.32345-1-roman@advem.lv>
 To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f67.google.com ([209.85.215.67]:37686 "EHLO
-        mail-lf0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751391AbdIQRYR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 17 Sep 2017 13:24:17 -0400
-Received: by mail-lf0-f67.google.com with SMTP id q132so3432736lfe.4
-        for <netdev@vger.kernel.org>; Sun, 17 Sep 2017 10:24:16 -0700 (PDT)
+Received: from mail-lf0-f66.google.com ([209.85.215.66]:37719 "EHLO
+        mail-lf0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751554AbdIQRY2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 17 Sep 2017 13:24:28 -0400
+Received: by mail-lf0-f66.google.com with SMTP id q132so3432956lfe.4
+        for <netdev@vger.kernel.org>; Sun, 17 Sep 2017 10:24:27 -0700 (PDT)
 Received: from ubrain.corp.ubnt.com ([2a02:16d8:105:4000:76d4:35ff:fe88:7631])
-        by smtp.googlemail.com with ESMTPSA id l14sm1117048lfb.71.2017.09.17.10.24.14
+        by smtp.googlemail.com with ESMTPSA id 34sm1136538lfy.54.2017.09.17.10.24.26
         for <netdev@vger.kernel.org>
         (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Sun, 17 Sep 2017 10:24:15 -0700 (PDT)
+        Sun, 17 Sep 2017 10:24:26 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When such interrupts occur there is not much we can do.
-Dropping the whole ring doesn't help and only produces high packet loss.
-If we just ignore the interrupt the mac will drop one or few packets instead of the whole ring.
-Also this will lower the irq handling load and increase performance.
-
 Signed-off-by: Roman Yeryomin <roman@advem.lv>
 ---
- drivers/net/ethernet/korina.c | 83 +------------------------------------------
- 1 file changed, 1 insertion(+), 82 deletions(-)
+ drivers/net/ethernet/korina.c | 87 ++++++++++++++++++++++---------------------
+ 1 file changed, 44 insertions(+), 43 deletions(-)
 
 diff --git a/drivers/net/ethernet/korina.c b/drivers/net/ethernet/korina.c
-index 3c0a6451273d..98d686ed69a9 100644
+index 98d686ed69a9..e5466e19994a 100644
 --- a/drivers/net/ethernet/korina.c
 +++ b/drivers/net/ethernet/korina.c
-@@ -122,8 +122,6 @@ struct korina_private {
+@@ -363,59 +363,60 @@ static int korina_rx(struct net_device *dev, int limit)
+ 		if ((KORINA_RBSIZE - (u32)DMA_COUNT(rd->control)) == 0)
+ 			break;
  
- 	int rx_irq;
- 	int tx_irq;
--	int ovr_irq;
--	int und_irq;
- 
- 	spinlock_t lock;        /* NIC xmit lock */
- 
-@@ -891,8 +889,6 @@ static void korina_restart_task(struct work_struct *work)
- 	 */
- 	disable_irq(lp->rx_irq);
- 	disable_irq(lp->tx_irq);
--	disable_irq(lp->ovr_irq);
--	disable_irq(lp->und_irq);
- 
- 	writel(readl(&lp->tx_dma_regs->dmasm) |
- 				DMA_STAT_FINI | DMA_STAT_ERR,
-@@ -911,40 +907,10 @@ static void korina_restart_task(struct work_struct *work)
- 	}
- 	korina_multicast_list(dev);
- 
--	enable_irq(lp->und_irq);
--	enable_irq(lp->ovr_irq);
- 	enable_irq(lp->tx_irq);
- 	enable_irq(lp->rx_irq);
- }
- 
--static void korina_clear_and_restart(struct net_device *dev, u32 value)
--{
--	struct korina_private *lp = netdev_priv(dev);
+-		/* Update statistics counters */
+-		if (devcs & ETH_RX_CRC)
+-			dev->stats.rx_crc_errors++;
+-		if (devcs & ETH_RX_LOR)
+-			dev->stats.rx_length_errors++;
+-		if (devcs & ETH_RX_LE)
+-			dev->stats.rx_length_errors++;
+-		if (devcs & ETH_RX_OVR)
+-			dev->stats.rx_fifo_errors++;
+-		if (devcs & ETH_RX_CV)
+-			dev->stats.rx_frame_errors++;
+-		if (devcs & ETH_RX_CES)
+-			dev->stats.rx_length_errors++;
+-		if (devcs & ETH_RX_MP)
+-			dev->stats.multicast++;
 -
--	netif_stop_queue(dev);
--	writel(value, &lp->eth_regs->ethintfc);
--	schedule_work(&lp->restart_task);
--}
--
--/* Ethernet Tx Underflow interrupt */
--static irqreturn_t korina_und_interrupt(int irq, void *dev_id)
--{
--	struct net_device *dev = dev_id;
--	struct korina_private *lp = netdev_priv(dev);
--	unsigned int und;
--
--	spin_lock(&lp->lock);
--
--	und = readl(&lp->eth_regs->ethintfc);
--
--	if (und & ETH_INT_FC_UND)
--		korina_clear_and_restart(dev, und & ~ETH_INT_FC_UND);
--
--	spin_unlock(&lp->lock);
--
--	return IRQ_HANDLED;
--}
--
- static void korina_tx_timeout(struct net_device *dev)
- {
- 	struct korina_private *lp = netdev_priv(dev);
-@@ -952,25 +918,6 @@ static void korina_tx_timeout(struct net_device *dev)
- 	schedule_work(&lp->restart_task);
- }
+-		if ((devcs & ETH_RX_LD) != ETH_RX_LD) {
+-			/* check that this is a whole packet
+-			 * WARNING: DMA_FD bit incorrectly set
+-			 * in Rc32434 (errata ref #077) */
++		/* check that this is a whole packet
++		 * WARNING: DMA_FD bit incorrectly set
++		 * in Rc32434 (errata ref #077) */
++		if (!(devcs & ETH_RX_LD))
++			goto next;
++
++		if (!(devcs & ETH_RX_ROK)) {
++			/* Update statistics counters */
+ 			dev->stats.rx_errors++;
+ 			dev->stats.rx_dropped++;
+-		} else if ((devcs & ETH_RX_ROK)) {
+-			pkt_len = RCVPKT_LENGTH(devcs);
++			if (devcs & ETH_RX_CRC)
++				dev->stats.rx_crc_errors++;
++			if (devcs & ETH_RX_LE)
++				dev->stats.rx_length_errors++;
++			if (devcs & ETH_RX_OVR)
++				dev->stats.rx_fifo_errors++;
++			if (devcs & ETH_RX_CV)
++				dev->stats.rx_frame_errors++;
++			if (devcs & ETH_RX_CES)
++				dev->stats.rx_frame_errors++;
++
++			goto next;
++		}
  
--/* Ethernet Rx Overflow interrupt */
--static irqreturn_t
--korina_ovr_interrupt(int irq, void *dev_id)
--{
--	struct net_device *dev = dev_id;
--	struct korina_private *lp = netdev_priv(dev);
--	unsigned int ovr;
--
--	spin_lock(&lp->lock);
--	ovr = readl(&lp->eth_regs->ethintfc);
--
--	if (ovr & ETH_INT_FC_OVR)
--		korina_clear_and_restart(dev, ovr & ~ETH_INT_FC_OVR);
--
--	spin_unlock(&lp->lock);
--
--	return IRQ_HANDLED;
--}
--
- #ifdef CONFIG_NET_POLL_CONTROLLER
- static void korina_poll_controller(struct net_device *dev)
- {
-@@ -993,8 +940,7 @@ static int korina_open(struct net_device *dev)
- 	}
+-			/* must be the (first and) last
+-			 * descriptor then */
+-			pkt_buf = (u8 *)lp->rx_skb[lp->rx_next_done]->data;
++		pkt_len = RCVPKT_LENGTH(devcs);
  
- 	/* Install the interrupt handler
--	 * that handles the Done Finished
--	 * Ovr and Und Events */
-+	 * that handles the Done Finished */
- 	ret = request_irq(lp->rx_irq, korina_rx_dma_interrupt,
- 			0, "Korina ethernet Rx", dev);
- 	if (ret < 0) {
-@@ -1010,31 +956,10 @@ static int korina_open(struct net_device *dev)
- 		goto err_free_rx_irq;
- 	}
+-			/* invalidate the cache */
+-			dma_cache_inv((unsigned long)pkt_buf, pkt_len - 4);
++		/* must be the (first and) last
++		 * descriptor then */
++		pkt_buf = (u8 *)lp->rx_skb[lp->rx_next_done]->data;
  
--	/* Install handler for overrun error. */
--	ret = request_irq(lp->ovr_irq, korina_ovr_interrupt,
--			0, "Ethernet Overflow", dev);
--	if (ret < 0) {
--		printk(KERN_ERR "%s: unable to get OVR IRQ %d\n",
--		    dev->name, lp->ovr_irq);
--		goto err_free_tx_irq;
--	}
--
--	/* Install handler for underflow error. */
--	ret = request_irq(lp->und_irq, korina_und_interrupt,
--			0, "Ethernet Underflow", dev);
--	if (ret < 0) {
--		printk(KERN_ERR "%s: unable to get UND IRQ %d\n",
--		    dev->name, lp->und_irq);
--		goto err_free_ovr_irq;
--	}
- 	mod_timer(&lp->media_check_timer, jiffies + 1);
- out:
- 	return ret;
+-			/* Malloc up new buffer. */
+-			skb_new = netdev_alloc_skb_ip_align(dev, KORINA_RBSIZE);
++		/* invalidate the cache */
++		dma_cache_inv((unsigned long)pkt_buf, pkt_len - 4);
  
--err_free_ovr_irq:
--	free_irq(lp->ovr_irq, dev);
--err_free_tx_irq:
--	free_irq(lp->tx_irq, dev);
- err_free_rx_irq:
- 	free_irq(lp->rx_irq, dev);
- err_release:
-@@ -1052,8 +977,6 @@ static int korina_close(struct net_device *dev)
- 	/* Disable interrupts */
- 	disable_irq(lp->rx_irq);
- 	disable_irq(lp->tx_irq);
--	disable_irq(lp->ovr_irq);
--	disable_irq(lp->und_irq);
+-			if (!skb_new)
+-				break;
+-			/* Do not count the CRC */
+-			skb_put(skb, pkt_len - 4);
+-			skb->protocol = eth_type_trans(skb, dev);
++		/* Malloc up new buffer. */
++		skb_new = netdev_alloc_skb_ip_align(dev, KORINA_RBSIZE);
  
- 	korina_abort_tx(dev);
- 	tmp = readl(&lp->tx_dma_regs->dmasm);
-@@ -1073,8 +996,6 @@ static int korina_close(struct net_device *dev)
+-			/* Pass the packet to upper layers */
+-			netif_receive_skb(skb);
+-			dev->stats.rx_packets++;
+-			dev->stats.rx_bytes += pkt_len;
++		if (!skb_new)
++			break;
++		/* Do not count the CRC */
++		skb_put(skb, pkt_len - 4);
++		skb->protocol = eth_type_trans(skb, dev);
  
- 	free_irq(lp->rx_irq, dev);
- 	free_irq(lp->tx_irq, dev);
--	free_irq(lp->ovr_irq, dev);
--	free_irq(lp->und_irq, dev);
+-			/* Update the mcast stats */
+-			if (devcs & ETH_RX_MP)
+-				dev->stats.multicast++;
++		/* Pass the packet to upper layers */
++		netif_receive_skb(skb);
++		dev->stats.rx_packets++;
++		dev->stats.rx_bytes += pkt_len;
  
- 	return 0;
- }
-@@ -1113,8 +1034,6 @@ static int korina_probe(struct platform_device *pdev)
+-			lp->rx_skb[lp->rx_next_done] = skb_new;
+-		}
++		/* Update the mcast stats */
++		if (devcs & ETH_RX_MP)
++			dev->stats.multicast++;
++
++		lp->rx_skb[lp->rx_next_done] = skb_new;
  
- 	lp->rx_irq = platform_get_irq_byname(pdev, "korina_rx");
- 	lp->tx_irq = platform_get_irq_byname(pdev, "korina_tx");
--	lp->ovr_irq = platform_get_irq_byname(pdev, "korina_ovr");
--	lp->und_irq = platform_get_irq_byname(pdev, "korina_und");
++next:
+ 		rd->devcs = 0;
  
- 	r = platform_get_resource_byname(pdev, IORESOURCE_MEM, "korina_regs");
- 	dev->base_addr = r->start;
+ 		/* Restore descriptor's curr_addr */
 -- 
 2.11.0
