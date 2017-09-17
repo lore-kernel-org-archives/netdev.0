@@ -1,42 +1,133 @@
-From: Roman Yeryomin <leroi.lists@gmail.com>
-Subject: [PATCH net-next v2 7/7] net: korina: bump version
-Date: Sun, 17 Sep 2017 20:25:21 +0300
-Message-ID: <20170917172521.32639-1-roman@advem.lv>
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f65.google.com ([209.85.215.65]:33385 "EHLO
-        mail-lf0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751686AbdIQRZW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 17 Sep 2017 13:25:22 -0400
-Received: by mail-lf0-f65.google.com with SMTP id y15so3448600lfd.0
-        for <netdev@vger.kernel.org>; Sun, 17 Sep 2017 10:25:21 -0700 (PDT)
-Received: from ubrain.corp.ubnt.com ([2a02:16d8:105:4000:76d4:35ff:fe88:7631])
-        by smtp.googlemail.com with ESMTPSA id p16sm1408181lja.74.2017.09.17.10.25.19
-        for <netdev@vger.kernel.org>
-        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Sun, 17 Sep 2017 10:25:20 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Thomas Sailer <t.sailer@alumni.ethz.ch>
+Subject: Re: [PATCH] hamradio: baycom: use new parport device model
+Date: Sun, 17 Sep 2017 20:20:35 +0200
+Message-ID: <413aa4e4-8b23-80e9-055d-576c9128f069@alumni.ethz.ch>
+References: <1505648780-4385-1-git-send-email-sudipm.mukherjee@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, linux-hams@vger.kernel.org,
+        netdev@vger.kernel.org
+To: Sudip Mukherjee <sudipm.mukherjee@gmail.com>,
+        "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1505648780-4385-1-git-send-email-sudipm.mukherjee@gmail.com>
+Content-Language: en-MW
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Roman Yeryomin <roman@advem.lv>
----
- drivers/net/ethernet/korina.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+Acked-By: Thomas Sailer <t.sailer@alumni.ethz.ch>
 
-diff --git a/drivers/net/ethernet/korina.c b/drivers/net/ethernet/korina.c
-index d58aa4bfcb58..7cecd9dbc111 100644
---- a/drivers/net/ethernet/korina.c
-+++ b/drivers/net/ethernet/korina.c
-@@ -66,8 +66,8 @@
- #include <asm/mach-rc32434/dma_v.h>
- 
- #define DRV_NAME	"korina"
--#define DRV_VERSION	"0.10"
--#define DRV_RELDATE	"04Mar2008"
-+#define DRV_VERSION	"0.20"
-+#define DRV_RELDATE	"15Sep2017"
- 
- #define STATION_ADDRESS_HIGH(dev) (((dev)->dev_addr[0] << 8) | \
- 				   ((dev)->dev_addr[1]))
--- 
-2.11.0
+Am 17.09.2017 um 13:46 schrieb Sudip Mukherjee:
+> Modify baycom driver to use the new parallel port device model.
+> 
+> Signed-off-by: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
+> ---
+> 
+> Not tested on real hardware, only tested on qemu and verified that the
+> device is binding to the driver properly in epp_open but then unbinding
+> as the device was not found.
+> 
+>   drivers/net/hamradio/baycom_epp.c | 50 +++++++++++++++++++++++++++++++++++----
+>   1 file changed, 46 insertions(+), 4 deletions(-)
+> 
+> diff --git a/drivers/net/hamradio/baycom_epp.c b/drivers/net/hamradio/baycom_epp.c
+> index 1503f10..1e62d00 100644
+> --- a/drivers/net/hamradio/baycom_epp.c
+> +++ b/drivers/net/hamradio/baycom_epp.c
+> @@ -840,6 +840,7 @@ static int epp_open(struct net_device *dev)
+>   	unsigned char tmp[128];
+>   	unsigned char stat;
+>   	unsigned long tstart;
+> +	struct pardev_cb par_cb;
+>   	
+>           if (!pp) {
+>                   printk(KERN_ERR "%s: parport at 0x%lx unknown\n", bc_drvname, dev->base_addr);
+> @@ -859,8 +860,21 @@ static int epp_open(struct net_device *dev)
+>                   return -EIO;
+>   	}
+>   	memset(&bc->modem, 0, sizeof(bc->modem));
+> -        bc->pdev = parport_register_device(pp, dev->name, NULL, epp_wakeup,
+> -					   NULL, PARPORT_DEV_EXCL, dev);
+> +	memset(&par_cb, 0, sizeof(par_cb));
+> +	par_cb.wakeup = epp_wakeup;
+> +	par_cb.private = (void *)dev;
+> +	par_cb.flags = PARPORT_DEV_EXCL;
+> +	for (i = 0; i < NR_PORTS; i++)
+> +		if (baycom_device[i] == dev)
+> +			break;
+> +
+> +	if (i == NR_PORTS) {
+> +		pr_err("%s: no device found\n", bc_drvname);
+> +		parport_put_port(pp);
+> +		return -ENODEV;
+> +	}
+> +
+> +	bc->pdev = parport_register_dev_model(pp, dev->name, &par_cb, i);
+>   	parport_put_port(pp);
+>           if (!bc->pdev) {
+>                   printk(KERN_ERR "%s: cannot register parport at 0x%lx\n", bc_drvname, pp->base);
+> @@ -1185,6 +1199,23 @@ MODULE_LICENSE("GPL");
+>   
+>   /* --------------------------------------------------------------------- */
+>   
+> +static int baycom_epp_par_probe(struct pardevice *par_dev)
+> +{
+> +	struct device_driver *drv = par_dev->dev.driver;
+> +	int len = strlen(drv->name);
+> +
+> +	if (strncmp(par_dev->name, drv->name, len))
+> +		return -ENODEV;
+> +
+> +	return 0;
+> +}
+> +
+> +static struct parport_driver baycom_epp_par_driver = {
+> +	.name = "bce",
+> +	.probe = baycom_epp_par_probe,
+> +	.devmodel = true,
+> +};
+> +
+>   static void __init baycom_epp_dev_setup(struct net_device *dev)
+>   {
+>   	struct baycom_state *bc = netdev_priv(dev);
+> @@ -1204,10 +1235,15 @@ static void __init baycom_epp_dev_setup(struct net_device *dev)
+>   
+>   static int __init init_baycomepp(void)
+>   {
+> -	int i, found = 0;
+> +	int i, found = 0, ret;
+>   	char set_hw = 1;
+>   
+>   	printk(bc_drvinfo);
+> +
+> +	ret = parport_register_driver(&baycom_epp_par_driver);
+> +	if (ret)
+> +		return ret;
+> +
+>   	/*
+>   	 * register net devices
+>   	 */
+> @@ -1241,7 +1277,12 @@ static int __init init_baycomepp(void)
+>   		found++;
+>   	}
+>   
+> -	return found ? 0 : -ENXIO;
+> +	if (found == 0) {
+> +		parport_unregister_driver(&baycom_epp_par_driver);
+> +		return -ENXIO;
+> +	}
+> +
+> +	return 0;
+>   }
+>   
+>   static void __exit cleanup_baycomepp(void)
+> @@ -1260,6 +1301,7 @@ static void __exit cleanup_baycomepp(void)
+>   				printk(paranoia_str, "cleanup_module");
+>   		}
+>   	}
+> +	parport_unregister_driver(&baycom_epp_par_driver);
+>   }
+>   
+>   module_init(init_baycomepp);
+> 
