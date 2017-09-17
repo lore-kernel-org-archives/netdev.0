@@ -1,127 +1,82 @@
-From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
-Subject: [PATCH] hamradio: baycom: use new parport device model
-Date: Sun, 17 Sep 2017 12:46:20 +0100
-Message-ID: <1505648780-4385-1-git-send-email-sudipm.mukherjee@gmail.com>
-Cc: linux-kernel@vger.kernel.org, linux-hams@vger.kernel.org,
-        netdev@vger.kernel.org,
-        Sudip Mukherjee <sudipm.mukherjee@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>,
-        Thomas Sailer <t.sailer@alumni.ethz.ch>
-Return-path: <linux-hams-owner@vger.kernel.org>
-Sender: linux-hams-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Robert Hoo <robert.hu@linux.intel.com>
+Subject: [pktgen script v2 1/2] Add some helper functions
+Date: Sun, 17 Sep 2017 20:36:37 +0800
+Message-ID: <1505651798-106642-2-git-send-email-robert.hu@linux.intel.com>
+References: <1505651798-106642-1-git-send-email-robert.hu@linux.intel.com>
+Cc: netdev@vger.kernel.org, robert.hu@intel.com
+To: brouer@redhat.com, davem@davemloft.net, tariqt@mellanox.com,
+        kyle.leet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga04.intel.com ([192.55.52.120]:56558 "EHLO mga04.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750885AbdIQMgs (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 17 Sep 2017 08:36:48 -0400
+In-Reply-To: <1505651798-106642-1-git-send-email-robert.hu@linux.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Modify baycom driver to use the new parallel port device model.
+From: Robert Hoo <robert.hu@intel.com>
 
-Signed-off-by: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
+1. given a device, get its NUMA belongings
+2. given a device, get its queues' irq numbers.
+3. given a NUMA node, get its cpu id list.
+
+Signed-off-by: Robert Hoo <robert.hu@intel.com>
 ---
+ pktgen/functions.sh | 44 ++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 44 insertions(+)
 
-Not tested on real hardware, only tested on qemu and verified that the
-device is binding to the driver properly in epp_open but then unbinding
-as the device was not found.
-
- drivers/net/hamradio/baycom_epp.c | 50 +++++++++++++++++++++++++++++++++++----
- 1 file changed, 46 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/hamradio/baycom_epp.c b/drivers/net/hamradio/baycom_epp.c
-index 1503f10..1e62d00 100644
---- a/drivers/net/hamradio/baycom_epp.c
-+++ b/drivers/net/hamradio/baycom_epp.c
-@@ -840,6 +840,7 @@ static int epp_open(struct net_device *dev)
- 	unsigned char tmp[128];
- 	unsigned char stat;
- 	unsigned long tstart;
-+	struct pardev_cb par_cb;
- 	
-         if (!pp) {
-                 printk(KERN_ERR "%s: parport at 0x%lx unknown\n", bc_drvname, dev->base_addr);
-@@ -859,8 +860,21 @@ static int epp_open(struct net_device *dev)
-                 return -EIO;
- 	}
- 	memset(&bc->modem, 0, sizeof(bc->modem));
--        bc->pdev = parport_register_device(pp, dev->name, NULL, epp_wakeup, 
--					   NULL, PARPORT_DEV_EXCL, dev);
-+	memset(&par_cb, 0, sizeof(par_cb));
-+	par_cb.wakeup = epp_wakeup;
-+	par_cb.private = (void *)dev;
-+	par_cb.flags = PARPORT_DEV_EXCL;
-+	for (i = 0; i < NR_PORTS; i++)
-+		if (baycom_device[i] == dev)
-+			break;
+diff --git a/pktgen/functions.sh b/pktgen/functions.sh
+index 205e4cd..09dfe7a 100644
+--- a/pktgen/functions.sh
++++ b/pktgen/functions.sh
+@@ -119,3 +119,47 @@ function root_check_run_with_sudo() {
+ 	err 4 "cannot perform sudo run of $0"
+     fi
+ }
 +
-+	if (i == NR_PORTS) {
-+		pr_err("%s: no device found\n", bc_drvname);
-+		parport_put_port(pp);
-+		return -ENODEV;
-+	}
-+
-+	bc->pdev = parport_register_dev_model(pp, dev->name, &par_cb, i);
- 	parport_put_port(pp);
-         if (!bc->pdev) {
-                 printk(KERN_ERR "%s: cannot register parport at 0x%lx\n", bc_drvname, pp->base);
-@@ -1185,6 +1199,23 @@ MODULE_LICENSE("GPL");
- 
- /* --------------------------------------------------------------------- */
- 
-+static int baycom_epp_par_probe(struct pardevice *par_dev)
++# Exact input device's NUMA node info
++function get_iface_node()
 +{
-+	struct device_driver *drv = par_dev->dev.driver;
-+	int len = strlen(drv->name);
-+
-+	if (strncmp(par_dev->name, drv->name, len))
-+		return -ENODEV;
-+
-+	return 0;
++    local node=$(</sys/class/net/$1/device/numa_node)
++    if [[ $node == -1 ]]; then
++        echo 0
++    else
++        echo $node
++    fi
 +}
 +
-+static struct parport_driver baycom_epp_par_driver = {
-+	.name = "bce",
-+	.probe = baycom_epp_par_probe,
-+	.devmodel = true,
-+};
++# Given an Dev/iface, get its queues' irq numbers
++function get_iface_irqs()
++{
++	local IFACE=$1
++	local queues="${IFACE}-.*TxRx"
 +
- static void __init baycom_epp_dev_setup(struct net_device *dev)
- {
- 	struct baycom_state *bc = netdev_priv(dev);
-@@ -1204,10 +1235,15 @@ static void __init baycom_epp_dev_setup(struct net_device *dev)
- 
- static int __init init_baycomepp(void)
- {
--	int i, found = 0;
-+	int i, found = 0, ret;
- 	char set_hw = 1;
- 
- 	printk(bc_drvinfo);
++	irqs=$(grep "$queues" /proc/interrupts | cut -f1 -d:)
++	[ -z "$irqs" ] && irqs=$(grep $IFACE /proc/interrupts | cut -f1 -d:)
++	[ -z "$irqs" ] && irqs=$(for i in `ls -Ux /sys/class/net/$IFACE/device/msi_irqs` ;\
++	    do grep "$i:.*TxRx" /proc/interrupts | grep -v fdir | cut -f 1 -d : ;\
++	    done)
++	[ -z "$irqs" ] && err 3 "Could not find interrupts for $IFACE"
 +
-+	ret = parport_register_driver(&baycom_epp_par_driver);
-+	if (ret)
-+		return ret;
++	echo $irqs
++}
 +
- 	/*
- 	 * register net devices
- 	 */
-@@ -1241,7 +1277,12 @@ static int __init init_baycomepp(void)
- 		found++;
- 	}
- 
--	return found ? 0 : -ENXIO;
-+	if (found == 0) {
-+		parport_unregister_driver(&baycom_epp_par_driver);
-+		return -ENXIO;
-+	}
++# Given a NUMA node, return cpu ids belonging to it.
++function get_node_cpus()
++{
++	local node=$1
++	local node_cpu_list
++	local node_cpu_range_list=`cut -f1- -d, --output-delimiter=" " \
++	                  /sys/devices/system/node/node$node/cpulist`
 +
-+	return 0;
- }
- 
- static void __exit cleanup_baycomepp(void)
-@@ -1260,6 +1301,7 @@ static void __exit cleanup_baycomepp(void)
- 				printk(paranoia_str, "cleanup_module");
- 		}
- 	}
-+	parport_unregister_driver(&baycom_epp_par_driver);
- }
- 
- module_init(init_baycomepp);
++	for cpu_range in $node_cpu_range_list
++	do
++	    node_cpu_list="$node_cpu_list "`seq -s " " ${cpu_range//-/ }`
++	done
++
++	echo $node_cpu_list
++}
++
 -- 
-2.7.4
-
+1.8.3.1
