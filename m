@@ -1,81 +1,167 @@
-From: Ville =?iso-8859-1?Q?Syrj=E4l=E4?= <ville.syrjala@linux.intel.com>
-Subject: Re: [regression v4.11] 617f01211baf ("8139too: use
- napi_complete_done()")
-Date: Mon, 18 Sep 2017 22:46:30 +0300
-Message-ID: <20170918194630.GH4914@intel.com>
-References: <20170407181754.GL30290@intel.com>
- <1491590329.10124.86.camel@edumazet-glaptop3.roam.corp.google.com>
- <20170410121102.GM30290@intel.com>
+From: Shuah Khan <shuahkh@osg.samsung.com>
+Subject: Re: [PATCH 3/3] selftests: silence test output by default
+Date: Mon, 18 Sep 2017 13:48:31 -0600
+Message-ID: <1f756821-2737-8982-90d6-b4933e97a3ef@osg.samsung.com>
+References: <1505755982-7855-1-git-send-email-jbacik@fb.com>
+ <1505756224-8187-1-git-send-email-jbacik@fb.com>
+ <e8b067d2-9cef-2f3c-78a5-d6630aa765c1@kernel.org>
+ <20170918175254.lsdzqvjm4uvix4rj@destiny>
+ <ed8261a2-557a-cf1c-7298-d530bb7861d0@osg.samsung.com>
+ <20170918182426.cs4wxy3igfx7zyvb@destiny>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: Eric Dumazet <edumazet@google.com>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Shuah Khan <shuah@kernel.org>, Josef Bacik <jbacik@fb.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        linux-kernel@vger.kernel.org, linux-kselftest@vger.kernel.org,
+        netdev@vger.kernel.org, Shuah Khan <shuahkh@osg.samsung.com>
+To: Josef Bacik <josef@toxicpanda.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170410121102.GM30290@intel.com>
+In-Reply-To: <20170918182426.cs4wxy3igfx7zyvb@destiny>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 10, 2017 at 03:11:02PM +0300, Ville Syrjälä wrote:
-> On Fri, Apr 07, 2017 at 11:38:49AM -0700, Eric Dumazet wrote:
-> > On Fri, 2017-04-07 at 21:17 +0300, Ville Syrjälä wrote:
-> > > Hi,
-> > > 
-> > > My old P3 laptop started to die on me in the middle of larger compile
-> > > jobs (using distcc) after v4.11-rc<something>. I bisected the problem
-> > > to 617f01211baf ("8139too: use napi_complete_done()").
-> > > 
-> > > Unfortunately I wasn't able to capture a full oops as the machine doesn't
-> > > have serial and ramoops failed me. I did get one partial oops on vgacon
-> > > which showed rtl8139_poll() being involved (EIP was around
-> > > _raw_spin_unlock_irqrestore() supposedly), so seems to agree with my
-> > > bisect result.
-> > > 
-> > > So maybe some kind of nasty thing going between the hard irq and
-> > > softirq? Perhaps UP related? I tried to stare at the locking around
-> > > rtl8139_poll() for a while but it looked mostly sane to me.
-> > > 
-> > 
-> > Thanks a lot for the detective work, I am so sorry for this !
-> > 
-> > Could you try the following patch ?
-> > 
-> > I do not really see what could be wrong, the code should run just fine
-> > on UP.
-> > 
-> > Thanks.
-> > 
-> > diff --git a/drivers/net/ethernet/realtek/8139too.c b/drivers/net/ethernet/realtek/8139too.c
-> > index 89631753e79962d91456d93b71929af768917da1..cd2dbec331dd796f5296cd378561b3443f231673 100644
-> > --- a/drivers/net/ethernet/realtek/8139too.c
-> > +++ b/drivers/net/ethernet/realtek/8139too.c
-> > @@ -2135,11 +2135,12 @@ static int rtl8139_poll(struct napi_struct *napi, int budget)
-> >  	if (likely(RTL_R16(IntrStatus) & RxAckBits))
-> >  		work_done += rtl8139_rx(dev, tp, budget);
-> >  
-> > -	if (work_done < budget && napi_complete_done(napi, work_done)) {
-> > +	if (work_done < budget) {
-> >  		unsigned long flags;
-> >  
-> >  		spin_lock_irqsave(&tp->lock, flags);
-> > -		RTL_W16_F(IntrMask, rtl8139_intr_mask);
-> > +		if (napi_complete_done(napi, work_done))
-> > +			RTL_W16_F(IntrMask, rtl8139_intr_mask);
-> >  		spin_unlock_irqrestore(&tp->lock, flags);
-> >  	}
-> >  	spin_unlock(&tp->rx_lock);
-> > 
-> > 
+On 09/18/2017 12:24 PM, Josef Bacik wrote:
+> On Mon, Sep 18, 2017 at 12:13:40PM -0600, Shuah Khan wrote:
+>> On 09/18/2017 11:52 AM, Josef Bacik wrote:
+>>> On Mon, Sep 18, 2017 at 11:46:18AM -0600, Shuah Khan wrote:
+>>>> On 09/18/2017 11:37 AM, josef@toxicpanda.com wrote:
+>>>>> From: Josef Bacik <jbacik@fb.com>
+>>>>>
+>>>>> Some of the networking tests are very noisy and make it impossible to
+>>>>> see if we actually passed the tests as they run.  Default to suppressing
+>>>>> the output from any tests run in order to make it easier to track what
+>>>>> failed.
+>>>>>
+>>>>> Signed-off-by: Josef Bacik <jbacik@fb.com>
+>>>>> --
+>>>>
+>>>> This change suppresses pass/fail wrapper output for all tests, not just the
+>>>> networking tests.
+>>>>
+>>>> Could you please send me before and after results for what you are trying
+>>>> to fix.
+>>>>
+>>>
+>>> Yeah I wanted to suppress extraneous output from everybody, I just happened to
+>>> notice it because I was testing net.  The default thing already spits out what
+>>> it's running and pass/fail, there's no need to include all of the random output
+>>> unless the user wants to go and run the test manually.  As it is now it's
+>>> _impossible_ to tell what ran and what passed/failed because of all the random
+>>> output.
+>>
+>> Unfortunately kselftests have lots of users that want different things. A recent
+>> request is to use TAP13 format for output for external parsers to be able to parse.
+>> That is what this change to add TAP13 header does.
+>>
+>> The output you are seeing is the TAP 13 format to indicate the test has passed.
+>>
+>> The right fix would be to suppress the Pass/Fail from the individual shell script
+>> and have the shell script exit with error code. kselftest lib.mk will handle the
+>> error code and print out pass/fail like it is doing now.
+>>
+>> Using the common logic will help avoid duplicate code in tests/test scripts and
+>> also makes the pass/fail messages consistent.
+>>
+>> In the following output the individual test output can be eliminated since lib.mk
+>> run_tests does that for you. In addition, you will also get a count of tests at
+>> the end of the run of all tests in a test directory.
+>>
+>> TAP version 13
+>> selftests: run_netsocktests
+>> ========================================
+>> --------------------
+>> running socket test
+>> --------------------
+>> [PASS]
+>> ok 1..1 selftests: run_netsocktests [PASS]
+>> selftests: run_afpackettests
+>> ========================================
+>> must be run as root
+>> ok 1..2 selftests: run_afpackettests [PASS]
+>> selftests: test_bpf.sh
+>> ========================================
+>> test_bpf: [FAIL]
+>> not ok 1..3 selftests:  test_bpf.sh [FAIL]
+>> selftests: netdevice.sh
+>> ========================================
+>> SKIP: Need root privileges
+>> ok 1..4 selftests: netdevice.sh [PASS]
+>>
+>> If you eliminate that you will just see the common lib.mk results.
+>>
+>> TAP version 13
+>> selftests: run_netsocktests
+>> ========================================
+>> ok 1..1 selftests: run_netsocktests [PASS]
+>> selftests: run_afpackettests
+>> ========================================
+>> must be run as root
+>> ok 1..2 selftests: run_afpackettests [PASS]
+>> ========================================
+>> selftests: test_bpf.sh
+>> ========================================
+>> not ok 1..3 selftests:  test_bpf.sh [FAIL]
+>> selftests: netdevice.sh
+>> ========================================
+>> SKIP: Need root privileges
+>> ok 1..4 selftests: netdevice.sh [PASS]
+>>
+>>
+>> If you would like to fix the duplicate output, please send me patches
+>> to remove pass/fail output strings from tests instead. It is on my
+>> todo to do that this release.
+>>
 > 
-> Yep, that patch does appear to make it stable again.
+> I'm confused, this is exactly what my patch does, it strips all of the
+> extraneous output and leaves only the TAP13 output.  Here is the output without
+> my suppression patch
 > 
-> Tested-by: Ville Syrjälä <ville.syrjala@linux.intel.com>
+> https://da.gd/pup0
+> 
+> and here is the output with my suppression patch
+> 
+> https://da.gd/3olKj
+> 
+> Unless I'm missing something subtle it appears to be exactly the output you
+> want, without the random crap from the other tests.  The only thing I'm
+> redirecting is the output of the _test_ itself, $$BASENAME_TEST from what I can
+> tell is the actual test we're running, not the wrapper, so everything is as it
+> should be.  Thanks,
+> 
+> Josef
+> 
 
-And five months later I'm still waiting for this patch to land...
+Yes you are right. Yes I see that you are redirecting all
+output from the test with (./$$BASENAME_TEST > /dev/null 2>&1)
+My bad.
 
--- 
-Ville Syrjälä
-Intel OTC
+cd `dirname $$TEST` > /dev/null; (./$$BASENAME_TEST > /dev/null 2>&1 && echo "ok 1..$$test_num selftests: $$BASENAME_TEST [PASS]") || echo "not ok 1..$$test_num selftests:  $$BASENAME_TEST [FAIL]"; cd - > /dev/null;\
+
+However, it also suppresses important error messages from individual tests
+like in the case of rtnetlink.sh from your before and after output.
+
+User knows the test failed, but doesn't know why. One way to solve
+the problem is creating a temp file with the output for reference.
+Something like:
+
+(./$$BASENAME_TEST > /tmp/kselftest.out 2>&1
+
+
+Without the change:
+
+ok 1..10 selftests: netdevice.sh [PASS]
+selftests: rtnetlink.sh
+========================================
+RTNETLINK answers: Operation not supported
+Cannot find device "test-dummy0"
+FAIL: cannot add dummy interface
+not ok 1..11 selftests:  rtnetlink.sh [FAIL]
+
+selftests: rtnetlink.sh
+========================================
+not ok 1..11 selftests:  rtnetlink.sh [FAIL]
+
+thanks,
+-- Shuah
