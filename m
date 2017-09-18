@@ -1,67 +1,54 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 02/12] net: dsa: b53: Make b53_enable_cpu_port() take a port argument
-Date: Mon, 18 Sep 2017 14:41:18 -0700
-Message-ID: <20170918214128.27896-3-f.fainelli@gmail.com>
+Subject: [PATCH net-next 03/12] net: dsa: b53: Defer port enabling to calling port_enable
+Date: Mon, 18 Sep 2017 14:41:19 -0700
+Message-ID: <20170918214128.27896-4-f.fainelli@gmail.com>
 References: <20170918214128.27896-1-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, andrew@lunn.ch,
         vivien.didelot@savoirfairelinux.com,
         Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:37576 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751462AbdIRVlm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 17:41:42 -0400
-Received: by mail-wm0-f68.google.com with SMTP id f4so2120286wmh.4
-        for <netdev@vger.kernel.org>; Mon, 18 Sep 2017 14:41:41 -0700 (PDT)
+Received: from mail-wr0-f196.google.com ([209.85.128.196]:35726 "EHLO
+        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751057AbdIRVlq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 17:41:46 -0400
+Received: by mail-wr0-f196.google.com with SMTP id n64so1141650wrb.2
+        for <netdev@vger.kernel.org>; Mon, 18 Sep 2017 14:41:45 -0700 (PDT)
 In-Reply-To: <20170918214128.27896-1-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In preparation for future changes allowing the configuring of multiple
-CPU ports, make b53_enable_cpu_port() take a port argument.
+There is no need to configure the enabled ports once in b53_setup() and then a
+second time around when dsa_switch_ops::port_enable is called, just do it when
+port_enable is called which is better in terms of power consumption and
+correctness.
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/dsa/b53/b53_common.c | 11 +++++------
- 1 file changed, 5 insertions(+), 6 deletions(-)
+ drivers/net/dsa/b53/b53_common.c | 9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/dsa/b53/b53_common.c b/drivers/net/dsa/b53/b53_common.c
-index 274f3679f33d..d8bc54cfcfbe 100644
+index d8bc54cfcfbe..3297af6aab8a 100644
 --- a/drivers/net/dsa/b53/b53_common.c
 +++ b/drivers/net/dsa/b53/b53_common.c
-@@ -538,19 +538,18 @@ static void b53_disable_port(struct dsa_switch *ds, int port,
- 	b53_write8(dev, B53_CTRL_PAGE, B53_PORT_CTRL(port), reg);
- }
+@@ -815,12 +815,13 @@ static int b53_setup(struct dsa_switch *ds)
+ 	if (ret)
+ 		dev_err(ds->dev, "failed to apply configuration\n");
  
--static void b53_enable_cpu_port(struct b53_device *dev)
-+static void b53_enable_cpu_port(struct b53_device *dev, int port)
- {
--	unsigned int cpu_port = dev->cpu_port;
- 	u8 port_ctrl;
- 
- 	/* BCM5325 CPU port is at 8 */
--	if ((is5325(dev) || is5365(dev)) && cpu_port == B53_CPU_PORT_25)
--		cpu_port = B53_CPU_PORT;
-+	if ((is5325(dev) || is5365(dev)) && port == B53_CPU_PORT_25)
-+		port = B53_CPU_PORT;
- 
- 	port_ctrl = PORT_CTRL_RX_BCST_EN |
- 		    PORT_CTRL_RX_MCST_EN |
- 		    PORT_CTRL_RX_UCST_EN;
--	b53_write8(dev, B53_CTRL_PAGE, B53_PORT_CTRL(cpu_port), port_ctrl);
-+	b53_write8(dev, B53_CTRL_PAGE, B53_PORT_CTRL(port), port_ctrl);
- }
- 
- static void b53_enable_mib(struct b53_device *dev)
-@@ -820,7 +819,7 @@ static int b53_setup(struct dsa_switch *ds)
- 		if (BIT(port) & ds->enabled_port_mask)
- 			b53_enable_port(ds, port, NULL);
- 		else if (dsa_is_cpu_port(ds, port))
--			b53_enable_cpu_port(dev);
-+			b53_enable_cpu_port(dev, port);
- 		else
++	/* Configure IMP/CPU port, disable unused ports. Enabled
++	 * ports will be configured with .port_enable
++	 */
+ 	for (port = 0; port < dev->num_ports; port++) {
+-		if (BIT(port) & ds->enabled_port_mask)
+-			b53_enable_port(ds, port, NULL);
+-		else if (dsa_is_cpu_port(ds, port))
++		if (dsa_is_cpu_port(ds, port))
+ 			b53_enable_cpu_port(dev, port);
+-		else
++		else if (!(BIT(port) & ds->enabled_port_mask))
  			b53_disable_port(ds, port, NULL);
  	}
+ 
 -- 
 2.9.3
