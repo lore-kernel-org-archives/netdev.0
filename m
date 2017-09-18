@@ -1,82 +1,52 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [RFC net-next 0/5] TSN: Add qdisc-based config interfaces for
- traffic shapers
-Date: Mon, 18 Sep 2017 10:12:48 +0200
-Message-ID: <20170918081248.txhars53icbqsvld@localhost>
-References: <20170901012625.14838-1-vinicius.gomes@intel.com>
+From: Marc Haber <mh+linux-kernel@zugschlus.de>
+Subject: Re: 319554f284dd ("inet: don't use sk_v6_rcv_saddr directly") causes
+ bind port regression
+Date: Mon, 18 Sep 2017 10:02:32 +0200
+Message-ID: <20170918080232.q2jykg3thzyikv3w@torres.zugschlus.de>
+References: <1a8ef376-387e-e0fc-7362-e1fd2c2c45d3@redhat.com>
+ <AF16C126-99CA-401A-B803-AA05CDFBFF93@fb.com>
+ <588f3795-931e-7779-4ec7-5fe7d4437927@redhat.com>
+ <EF55EF02-AD40-4F06-8C07-4F9F4221BFE6@fb.com>
+ <370b38d5-346c-91df-4ad4-79886ae3a9ba@redhat.com>
+ <a4807126-1f17-20bd-dace-d9c6b6c4787b@redhat.com>
+ <E068C58A-DC80-4D98-ADE6-8F05304EC7ED@fb.com>
+ <813386f2-81ba-db8c-e86d-f36cd1b89537@redhat.com>
+ <BD049B00-DD0A-449F-A017-9E73178685DE@fb.com>
+ <10124256-647f-99a5-aa29-8073438a21df@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
-        jiri@resnulli.us, intel-wired-lan@lists.osuosl.org,
-        andre.guedes@intel.com, ivan.briano@intel.com,
-        jesus.sanchez-palencia@intel.com, boon.leong.ong@intel.com,
-        henrik@austad.us, tglx@linutronix.de
-To: Vinicius Costa Gomes <vinicius.gomes@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f196.google.com ([209.85.128.196]:34250 "EHLO
-        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752893AbdIRIM4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 04:12:56 -0400
-Received: by mail-wr0-f196.google.com with SMTP id k20so4583748wre.1
-        for <netdev@vger.kernel.org>; Mon, 18 Sep 2017 01:12:55 -0700 (PDT)
+Content-Type: text/plain; charset=utf-8
+Cc: Josef Bacik <jbacik@fb.com>, Laura Abbott <labbott@redhat.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Cole Robinson <crobinso@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20170901012625.14838-1-vinicius.gomes@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <10124256-647f-99a5-aa29-8073438a21df@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 31, 2017 at 06:26:20PM -0700, Vinicius Costa Gomes wrote:
-> This patchset is an RFC on a proposal of how the Traffic Control subsystem can
-> be used to offload the configuration of traffic shapers into network devices
-> that provide support for them in HW. Our goal here is to start upstreaming
-> support for features related to the Time-Sensitive Networking (TSN) set of
-> standards into the kernel.
+On Sun, Sep 17, 2017 at 09:17:13AM -0400, Cole Robinson wrote:
+> On 09/15/2017 01:51 PM, Josef Bacik wrote:
+> > Finally got access to a box to run this down myself.  This patch on top of the other patches fixes the problem for me, could you verify it works for you?  Thanks,
+> > 
+> 
+> Yup I can confirm that patch fixes things when applied on top of the
+> previous 3 patches. Thanks! Please tag those patches for stable releases
+> if appropriate, this is affecting a decent amount of libvirt users
 
-Just for the record, here is my score card showing the current status
-of TSN support in Linux.  Comments and corrections are more welcome.
+I can also confirm that these four patches fix things for me (on
+Debian) as well. Thanks!
 
-Thanks,
-Richard
+I would love to have this in one of Greg's next 4.13 releases.
 
+Greetings
+Marc
 
- | FEATURE                                        | STANDARD            | STATUS                       |
- |------------------------------------------------+---------------------+------------------------------|
- | Synchronization                                | 802.1AS-2011        | Implemented in               |
- |                                                |                     | - Linux kernel PHC subsystem |
- |                                                |                     | - linuxptp (userspace)       |
- |------------------------------------------------+---------------------+------------------------------|
- | Forwarding and Queuing Enhancements            | 802.1Q-2014 sec. 34 | RFC posted (this thread)     |
- | for Time-Sensitive Streams (FQTSS)             |                     |                              |
- |------------------------------------------------+---------------------+------------------------------|
- | Stream Reservation Protocol (SRP)              | 802.1Q-2014 sec. 35 | in Open-AVB [1]              |
- |------------------------------------------------+---------------------+------------------------------|
- | Audio Video Transport Protocol (AVTP)          | IEEE 1722-2011      | DNE                          |
- |------------------------------------------------+---------------------+------------------------------|
- | Audio/Video Device Discovery, Enumeration,     | IEEE 1722.1-2013    | jdksavdecc-c [2]             |
- | Connection Management and Control (AVDECC)     |                     |                              |
- | AVDECC Connection Management Protocol (ACMP)   |                     |                              |
- | AVDECC Enumeration and Control Protocol (AECP) |                     |                              |
- | MAC Address Acquisition Protocol (MAAP)        |                     | in Open-AVB                  |
- |------------------------------------------------+---------------------+------------------------------|
- | Frame Preemption                               | P802.1Qbu           | DNE                          |
- | Scheduled Traffic                              | P802.1Qbv           | RFC posted (SO_TXTIME)       |
- | SRP Enhancements and Performance Improvements  | P802.1Qcc           | DNE                          |
-
- DNE = Does Not Exist (to my knowledge)
-
-1. https://github.com/Avnu/OpenAvnu
-
-   (DISCLAIMER from the website:)
-
-   It is planned to eventually include the various packet encapsulation types,
-   protocol discovery daemons, libraries to convert media clocks to AVB clocks
-   and vice versa, and drivers.
-
-   This repository does not include all components required to build a full
-   production AVB/TSN system (e.g. a turnkey solution to stream stored or live audio
-   or video content). Some simple example applications are provided which
-   illustrate the flow - but a professional Audio/Video system requires a full media stack
-   - including audio and video inputs and outputs, media processing elements, and
-   various graphical user interfaces. Various companies provide such integrated
-   solutions.
-
-2. https://github.com/jdkoftinoff/jdksavdecc-c
+-- 
+-----------------------------------------------------------------------------
+Marc Haber         | "I don't trust Computers. They | Mailadresse im Header
+Leimen, Germany    |  lose things."    Winona Ryder | Fon: *49 6224 1600402
+Nordisch by Nature |  How to make an American Quilt | Fax: *49 6224 1600421
