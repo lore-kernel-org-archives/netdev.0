@@ -1,125 +1,282 @@
 From: Craig Gallek <kraigatgoog@gmail.com>
-Subject: [PATCH net-next 1/3] bpf: Implement map_delete_elem for BPF_MAP_TYPE_LPM_TRIE
-Date: Mon, 18 Sep 2017 15:30:55 -0400
-Message-ID: <20170918193057.37644-2-kraigatgoog@gmail.com>
+Subject: [PATCH net-next 3/3] bpf: Test deletion in BPF_MAP_TYPE_LPM_TRIE
+Date: Mon, 18 Sep 2017 15:30:57 -0400
+Message-ID: <20170918193057.37644-4-kraigatgoog@gmail.com>
 References: <20170918193057.37644-1-kraigatgoog@gmail.com>
 Cc: netdev@vger.kernel.org
 To: Daniel Mack <daniel@zonque.org>, Alexei Starovoitov <ast@fb.com>,
         Daniel Borkmann <daniel@iogearbox.net>,
         "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f181.google.com ([209.85.216.181]:50936 "EHLO
-        mail-qt0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750938AbdIRTbA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 15:31:00 -0400
-Received: by mail-qt0-f181.google.com with SMTP id f15so1660886qtf.7
-        for <netdev@vger.kernel.org>; Mon, 18 Sep 2017 12:31:00 -0700 (PDT)
+Received: from mail-qt0-f180.google.com ([209.85.216.180]:45523 "EHLO
+        mail-qt0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751024AbdIRTbD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 15:31:03 -0400
+Received: by mail-qt0-f180.google.com with SMTP id t46so1666452qtj.2
+        for <netdev@vger.kernel.org>; Mon, 18 Sep 2017 12:31:02 -0700 (PDT)
 In-Reply-To: <20170918193057.37644-1-kraigatgoog@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Craig Gallek <kraig@google.com>
 
-This is a simple non-recursive delete operation.  It prunes paths
-of empty nodes in the tree, but it does not try to further compress
-the tree as nodes are removed.
+Extend the 'random' operation tests to include a delete operation
+(delete half of the nodes from both lpm implementions and ensure
+that lookups are still equivalent).
+
+Also, add a simple IPv4 test which verifies lookup behavior as nodes
+are deleted from the tree.
 
 Signed-off-by: Craig Gallek <kraig@google.com>
 ---
- kernel/bpf/lpm_trie.c | 80 +++++++++++++++++++++++++++++++++++++++++++++++++--
- 1 file changed, 77 insertions(+), 3 deletions(-)
+ tools/testing/selftests/bpf/test_lpm_map.c | 187 ++++++++++++++++++++++++++++-
+ 1 file changed, 183 insertions(+), 4 deletions(-)
 
-diff --git a/kernel/bpf/lpm_trie.c b/kernel/bpf/lpm_trie.c
-index 1b767844a76f..9d58a576b2ae 100644
---- a/kernel/bpf/lpm_trie.c
-+++ b/kernel/bpf/lpm_trie.c
-@@ -389,10 +389,84 @@ static int trie_update_elem(struct bpf_map *map,
- 	return ret;
+diff --git a/tools/testing/selftests/bpf/test_lpm_map.c b/tools/testing/selftests/bpf/test_lpm_map.c
+index a5ed7c4f1819..6fedb9fec36b 100644
+--- a/tools/testing/selftests/bpf/test_lpm_map.c
++++ b/tools/testing/selftests/bpf/test_lpm_map.c
+@@ -104,6 +104,34 @@ static struct tlpm_node *tlpm_match(struct tlpm_node *list,
+ 	return best;
  }
  
--static int trie_delete_elem(struct bpf_map *map, void *key)
-+/* Called from syscall or from eBPF program */
-+static int trie_delete_elem(struct bpf_map *map, void *_key)
++static struct tlpm_node *tlpm_delete(struct tlpm_node *list,
++				     const uint8_t *key,
++				     size_t n_bits)
++{
++	struct tlpm_node *best = tlpm_match(list, key, n_bits);
++	struct tlpm_node *node;
++
++	if (!best || best->n_bits != n_bits)
++		return list;
++
++	if (best == list) {
++		node = best->next;
++		free(best);
++		return node;
++	}
++
++	for (node = list; node; node = node->next) {
++		if (node->next == best) {
++			node->next = best->next;
++			free(best);
++			return list;
++		}
++	}
++	/* should never get here */
++	assert(0);
++	return list;
++}
++
+ static void test_lpm_basic(void)
  {
--	/* TODO */
--	return -ENOSYS;
-+	struct lpm_trie *trie = container_of(map, struct lpm_trie, map);
-+	struct bpf_lpm_trie_key *key = _key;
-+	struct lpm_trie_node __rcu **trim;
-+	struct lpm_trie_node *node;
-+	unsigned long irq_flags;
-+	unsigned int next_bit;
-+	size_t matchlen = 0;
-+	int ret = 0;
+ 	struct tlpm_node *list = NULL, *t1, *t2;
+@@ -126,6 +154,13 @@ static void test_lpm_basic(void)
+ 	assert(t1 == tlpm_match(list, (uint8_t[]){ 0xff, 0xff }, 15));
+ 	assert(!tlpm_match(list, (uint8_t[]){ 0x7f, 0xff }, 16));
+ 
++	list = tlpm_delete(list, (uint8_t[]){ 0xff, 0xff }, 16);
++	assert(t1 == tlpm_match(list, (uint8_t[]){ 0xff }, 8));
++	assert(t1 == tlpm_match(list, (uint8_t[]){ 0xff, 0xff }, 16));
 +
-+	if (key->prefixlen > trie->max_prefixlen)
-+		return -EINVAL;
++	list = tlpm_delete(list, (uint8_t[]){ 0xff }, 8);
++	assert(!tlpm_match(list, (uint8_t[]){ 0xff }, 8));
 +
-+	raw_spin_lock_irqsave(&trie->lock, irq_flags);
-+
-+	/* Walk the tree looking for an exact key/length match and keeping
-+	 * track of where we could begin trimming the tree.  The trim-point
-+	 * is the sub-tree along the walk consisting of only single-child
-+	 * intermediate nodes and ending at a leaf node that we want to
-+	 * remove.
-+	 */
-+	trim = &trie->root;
-+	node = rcu_dereference_protected(
-+		trie->root, lockdep_is_held(&trie->lock));
-+	while (node) {
-+		matchlen = longest_prefix_match(trie, node, key);
-+
-+		if (node->prefixlen != matchlen ||
-+		    node->prefixlen == key->prefixlen)
-+			break;
-+
-+		next_bit = extract_bit(key->data, node->prefixlen);
-+		/* If we hit a node that has more than one child or is a valid
-+		 * prefix itself, do not remove it. Reset the root of the trim
-+		 * path to its descendant on our path.
-+		 */
-+		if (!(node->flags & LPM_TREE_NODE_FLAG_IM) ||
-+		    (node->child[0] && node->child[1]))
-+			trim = &node->child[next_bit];
-+		node = rcu_dereference_protected(
-+			node->child[next_bit], lockdep_is_held(&trie->lock));
-+	}
-+
-+	if (!node || node->prefixlen != key->prefixlen ||
-+	    (node->flags & LPM_TREE_NODE_FLAG_IM)) {
-+		ret = -ENOENT;
-+		goto out;
-+	}
-+
-+	trie->n_entries--;
-+
-+	/* If the node we are removing is not a leaf node, simply mark it
-+	 * as intermediate and we are done.
-+	 */
-+	if (rcu_access_pointer(node->child[0]) ||
-+	    rcu_access_pointer(node->child[1])) {
-+		node->flags |= LPM_TREE_NODE_FLAG_IM;
-+		goto out;
-+	}
-+
-+	/* trim should now point to the slot holding the start of a path from
-+	 * zero or more intermediate nodes to our leaf node for deletion.
-+	 */
-+	while ((node = rcu_dereference_protected(
-+			*trim, lockdep_is_held(&trie->lock)))) {
-+		RCU_INIT_POINTER(*trim, NULL);
-+		trim = rcu_access_pointer(node->child[0]) ?
-+			&node->child[0] :
-+			&node->child[1];
-+		kfree_rcu(node, rcu);
-+	}
-+
-+out:
-+	raw_spin_unlock_irqrestore(&trie->lock, irq_flags);
-+
-+	return ret;
+ 	tlpm_clear(list);
  }
  
- #define LPM_DATA_SIZE_MAX	256
+@@ -170,7 +205,7 @@ static void test_lpm_order(void)
+ 
+ static void test_lpm_map(int keysize)
+ {
+-	size_t i, j, n_matches, n_nodes, n_lookups;
++	size_t i, j, n_matches, n_matches_after_delete, n_nodes, n_lookups;
+ 	struct tlpm_node *t, *list = NULL;
+ 	struct bpf_lpm_trie_key *key;
+ 	uint8_t *data, *value;
+@@ -182,6 +217,7 @@ static void test_lpm_map(int keysize)
+ 	 */
+ 
+ 	n_matches = 0;
++	n_matches_after_delete = 0;
+ 	n_nodes = 1 << 8;
+ 	n_lookups = 1 << 16;
+ 
+@@ -235,15 +271,54 @@ static void test_lpm_map(int keysize)
+ 		}
+ 	}
+ 
++	/* Remove the first half of the elements in the tlpm and the
++	 * corresponding nodes from the bpf-lpm.  Then run the same
++	 * large number of random lookups in both and make sure they match.
++	 * Note: we need to count the number of nodes actually inserted
++	 * since there may have been duplicates.
++	 */
++	for (i = 0, t = list; t; i++, t = t->next)
++		;
++	for (j = 0; j < i / 2; ++j) {
++		key->prefixlen = list->n_bits;
++		memcpy(key->data, list->key, keysize);
++		r = bpf_map_delete_elem(map, key);
++		assert(!r);
++		list = tlpm_delete(list, list->key, list->n_bits);
++		assert(list);
++	}
++	for (i = 0; i < n_lookups; ++i) {
++		for (j = 0; j < keysize; ++j)
++			data[j] = rand() & 0xff;
++
++		t = tlpm_match(list, data, 8 * keysize);
++
++		key->prefixlen = 8 * keysize;
++		memcpy(key->data, data, keysize);
++		r = bpf_map_lookup_elem(map, key, value);
++		assert(!r || errno == ENOENT);
++		assert(!t == !!r);
++
++		if (t) {
++			++n_matches_after_delete;
++			assert(t->n_bits == value[keysize]);
++			for (j = 0; j < t->n_bits; ++j)
++				assert((t->key[j / 8] & (1 << (7 - j % 8))) ==
++				       (value[j / 8] & (1 << (7 - j % 8))));
++		}
++	}
++
+ 	close(map);
+ 	tlpm_clear(list);
+ 
+ 	/* With 255 random nodes in the map, we are pretty likely to match
+ 	 * something on every lookup. For statistics, use this:
+ 	 *
+-	 *     printf("  nodes: %zu\n"
+-	 *            "lookups: %zu\n"
+-	 *            "matches: %zu\n", n_nodes, n_lookups, n_matches);
++	 *     printf("          nodes: %zu\n"
++	 *            "        lookups: %zu\n"
++	 *            "        matches: %zu\n"
++	 *            "matches(delete): %zu\n",
++	 *            n_nodes, n_lookups, n_matches, n_matches_after_delete);
+ 	 */
+ }
+ 
+@@ -343,6 +418,108 @@ static void test_lpm_ipaddr(void)
+ 	close(map_fd_ipv6);
+ }
+ 
++static void test_lpm_delete(void)
++{
++	struct bpf_lpm_trie_key *key;
++	size_t key_size;
++	int map_fd;
++	__u64 value;
++
++	key_size = sizeof(*key) + sizeof(__u32);
++	key = alloca(key_size);
++
++	map_fd = bpf_create_map(BPF_MAP_TYPE_LPM_TRIE,
++				key_size, sizeof(value),
++				100, BPF_F_NO_PREALLOC);
++	assert(map_fd >= 0);
++
++	/* Add nodes:
++	 * 192.168.0.0/16   (1)
++	 * 192.168.0.0/24   (2)
++	 * 192.168.128.0/24 (3)
++	 * 192.168.1.0/24   (4)
++	 *
++	 *         (1)
++	 *        /   \
++         *     (IM)    (3)
++	 *    /   \
++         *   (2)  (4)
++	 */
++	value = 1;
++	key->prefixlen = 16;
++	inet_pton(AF_INET, "192.168.0.0", key->data);
++	assert(bpf_map_update_elem(map_fd, key, &value, 0) == 0);
++
++	value = 2;
++	key->prefixlen = 24;
++	inet_pton(AF_INET, "192.168.0.0", key->data);
++	assert(bpf_map_update_elem(map_fd, key, &value, 0) == 0);
++
++	value = 3;
++	key->prefixlen = 24;
++	inet_pton(AF_INET, "192.168.128.0", key->data);
++	assert(bpf_map_update_elem(map_fd, key, &value, 0) == 0);
++
++	value = 4;
++	key->prefixlen = 24;
++	inet_pton(AF_INET, "192.168.1.0", key->data);
++	assert(bpf_map_update_elem(map_fd, key, &value, 0) == 0);
++
++	/* remove non-existent node */
++	key->prefixlen = 32;
++	inet_pton(AF_INET, "10.0.0.1", key->data);
++	assert(bpf_map_lookup_elem(map_fd, key, &value) == -1 &&
++		errno == ENOENT);
++
++	/* assert initial lookup */
++	key->prefixlen = 32;
++	inet_pton(AF_INET, "192.168.0.1", key->data);
++	assert(bpf_map_lookup_elem(map_fd, key, &value) == 0);
++	assert(value == 2);
++
++	/* remove leaf node */
++	key->prefixlen = 24;
++	inet_pton(AF_INET, "192.168.0.0", key->data);
++	assert(bpf_map_delete_elem(map_fd, key) == 0);
++
++	key->prefixlen = 32;
++	inet_pton(AF_INET, "192.168.0.1", key->data);
++	assert(bpf_map_lookup_elem(map_fd, key, &value) == 0);
++	assert(value == 1);
++
++	/* remove leaf (and intermediary) node */
++	key->prefixlen = 24;
++	inet_pton(AF_INET, "192.168.1.0", key->data);
++	assert(bpf_map_delete_elem(map_fd, key) == 0);
++
++	key->prefixlen = 32;
++	inet_pton(AF_INET, "192.168.1.1", key->data);
++	assert(bpf_map_lookup_elem(map_fd, key, &value) == 0);
++	assert(value == 1);
++
++	/* remove root node */
++	key->prefixlen = 16;
++	inet_pton(AF_INET, "192.168.0.0", key->data);
++	assert(bpf_map_delete_elem(map_fd, key) == 0);
++
++	key->prefixlen = 32;
++	inet_pton(AF_INET, "192.168.128.1", key->data);
++	assert(bpf_map_lookup_elem(map_fd, key, &value) == 0);
++	assert(value == 3);
++
++	/* remove last node */
++	key->prefixlen = 24;
++	inet_pton(AF_INET, "192.168.128.0", key->data);
++	assert(bpf_map_delete_elem(map_fd, key) == 0);
++
++	key->prefixlen = 32;
++	inet_pton(AF_INET, "192.168.128.1", key->data);
++	assert(bpf_map_lookup_elem(map_fd, key, &value) == -1 &&
++		errno == ENOENT);
++
++	close(map_fd);
++}
++
+ int main(void)
+ {
+ 	struct rlimit limit  = { RLIM_INFINITY, RLIM_INFINITY };
+@@ -365,6 +542,8 @@ int main(void)
+ 
+ 	test_lpm_ipaddr();
+ 
++	test_lpm_delete();
++
+ 	printf("test_lpm: OK\n");
+ 	return 0;
+ }
 -- 
 2.14.1.690.gbb1197296e-goog
