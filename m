@@ -1,10 +1,10 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH RFC V1 net-next 2/6] net: skbuff: Add a field to support
- time based transmission.
-Date: Mon, 18 Sep 2017 08:14:45 -0700
-Message-ID: <1505747685.29839.19.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [PATCH RFC V1 net-next 1/6] net: Add a new socket option for a
+ future transmit time.
+Date: Mon, 18 Sep 2017 08:18:54 -0700
+Message-ID: <1505747934.29839.21.camel@edumazet-glaptop3.roam.corp.google.com>
 References: <cover.1505719061.git.rcochran@linutronix.de>
-         <555939002f1ca9d89b14f30b3579445e4fa628d9.1505719061.git.rcochran@linutronix.de>
+         <ad6e265b97b66bcdb19b815e6d9092ffbcb461ba.1505719061.git.rcochran@linutronix.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -20,16 +20,25 @@ Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
         Vinicius Costa Gomes <vinicius.gomes@intel.com>
 To: Richard Cochran <rcochran@linutronix.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <555939002f1ca9d89b14f30b3579445e4fa628d9.1505719061.git.rcochran@linutronix.de>
+In-Reply-To: <ad6e265b97b66bcdb19b815e6d9092ffbcb461ba.1505719061.git.rcochran@linutronix.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 On Mon, 2017-09-18 at 09:41 +0200, Richard Cochran wrote:
-> Signed-off-by: Richard Cochran <rcochran@linutronix.de>
-> ---
->  include/linux/skbuff.h | 2 ++
->  1 file changed, 2 insertions(+)
 
-Why skb->tstamp can not be used ?
+> +	case SO_TXTIME:
+> +		if (!sock_flag(sk, SOCK_TXTIME))
+> +			return -EINVAL;
+> +		sockc->transmit_time = *(u64 *)CMSG_DATA(cmsg);
 
-AFAIK, fact that it might be overwritten by packet captures should not hurt.
+1) No guarantee the CMSG is properly aligned on arches that might trap
+on unaligned access.
+
+2) No guarantee user provided 8 bytes here.
+
+Also, what would be the time base here ?
+
+> +		break;
+>  	/* SCM_RIGHTS and SCM_CREDENTIALS are semantically in SOL_UNIX. */
+>  	case SCM_RIGHTS:
+>  	case SCM_CREDENTIALS:
