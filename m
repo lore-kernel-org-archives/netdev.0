@@ -1,49 +1,37 @@
-From: josef@toxicpanda.com
-Subject: [PATCH 1/3] net: set tb->fast_sk_family
-Date: Mon, 18 Sep 2017 12:28:55 -0400
-Message-ID: <1505752137-15522-2-git-send-email-jbacik@fb.com>
-References: <1505752137-15522-1-git-send-email-jbacik@fb.com>
-Cc: Josef Bacik <jbacik@fb.com>, stable@vger.kernel.org
-To: davem@davemloft.net, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, crobinso@redhat.com,
-        labbott@redhat.com, kernel-team@fb.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH RFC V1 net-next 0/6] Time based packet transmission
+Date: Mon, 18 Sep 2017 09:34:36 -0700 (PDT)
+Message-ID: <20170918.093436.1069699729581966538.davem@davemloft.net>
+References: <cover.1505719061.git.rcochran@linutronix.de>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        intel-wired-lan@lists.osuosl.org, andre.guedes@intel.com,
+        anna-maria@linutronix.de, henrik@austad.us,
+        jesus.sanchez-palencia@intel.com, john.stultz@linaro.org,
+        tglx@linutronix.de, vinicius.gomes@intel.com
+To: rcochran@linutronix.de
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1505752137-15522-1-git-send-email-jbacik@fb.com>
+In-Reply-To: <cover.1505719061.git.rcochran@linutronix.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Josef Bacik <jbacik@fb.com>
+From: Richard Cochran <rcochran@linutronix.de>
+Date: Mon, 18 Sep 2017 09:41:15 +0200
 
-We need to set the tb->fast_sk_family properly so we can use the proper
-comparison function for all subsequent reuseport bind requests.
+>   - The driver does not handle out of order packets.  If user space
+>     sends a packet with an earlier Tx time, then the code should stop
+>     the queue, reshuffle the descriptors accordingly, and then
+>     restart the queue.
 
-Cc: stable@vger.kernel.org
-Fixes: 637bc8bbe6c0 ("inet: reset tb->fastreuseport when adding a reuseport sk")
-Reported-and-tested-by: Cole Robinson <crobinso@redhat.com>
-Signed-off-by: Josef Bacik <jbacik@fb.com>
----
- net/ipv4/inet_connection_sock.c | 2 ++
- 1 file changed, 2 insertions(+)
+The user should simply be not allowed to do this.
 
-diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
-index b9c64b40a83a..f87f4805e244 100644
---- a/net/ipv4/inet_connection_sock.c
-+++ b/net/ipv4/inet_connection_sock.c
-@@ -328,6 +328,7 @@ int inet_csk_get_port(struct sock *sk, unsigned short snum)
- 			tb->fastuid = uid;
- 			tb->fast_rcv_saddr = sk->sk_rcv_saddr;
- 			tb->fast_ipv6_only = ipv6_only_sock(sk);
-+			tb->fast_sk_family = sk->sk_family;
- #if IS_ENABLED(CONFIG_IPV6)
- 			tb->fast_v6_rcv_saddr = sk->sk_v6_rcv_saddr;
- #endif
-@@ -354,6 +355,7 @@ int inet_csk_get_port(struct sock *sk, unsigned short snum)
- 				tb->fastuid = uid;
- 				tb->fast_rcv_saddr = sk->sk_rcv_saddr;
- 				tb->fast_ipv6_only = ipv6_only_sock(sk);
-+				tb->fast_sk_family = sk->sk_family;
- #if IS_ENABLED(CONFIG_IPV6)
- 				tb->fast_v6_rcv_saddr = sk->sk_v6_rcv_saddr;
- #endif
--- 
-2.7.4
+Once the packet is in the device queue, that's it.  You cannot insert
+a new packet to be transmitted before an already hw queued packet,
+period.
+
+Any out of order request should be rejected with an error.
+
+I'd say the same is true for requests to send packets timed
+in the past.
