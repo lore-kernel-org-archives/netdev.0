@@ -1,44 +1,45 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH RFC V1 net-next 1/6] net: Add a new socket option for a
- future transmit time.
-Date: Mon, 18 Sep 2017 16:50:59 +0200
-Message-ID: <20170918145059.lxaxbsfqen43exam@localhost>
-References: <cover.1505719061.git.rcochran@linutronix.de>
- <ad6e265b97b66bcdb19b815e6d9092ffbcb461ba.1505719061.git.rcochran@linutronix.de>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next 5/5] tls: Add generic NIC offload infrastructure.
+Date: Mon, 18 Sep 2017 16:52:21 +0200
+Message-ID: <87poaocb4q.fsf@stressinduktion.org>
+References: <1505385988-94522-1-git-send-email-ilyal@mellanox.com>
+        <1505385988-94522-6-git-send-email-ilyal@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        intel-wired-lan@lists.osuosl.org,
-        Andre Guedes <andre.guedes@intel.com>,
-        Anna-Maria Gleixner <anna-maria@linutronix.de>,
-        David Miller <davem@davemloft.net>,
-        Henrik Austad <henrik@austad.us>,
-        Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>,
-        John Stultz <john.stultz@linaro.org>,
-        Thomas Gleixner <tglx@linutronix.de>,
-        Vinicius Costa Gomes <vinicius.gomes@intel.com>
-To: Richard Cochran <rcochran@linutronix.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <ad6e265b97b66bcdb19b815e6d9092ffbcb461ba.1505719061.git.rcochran@linutronix.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, davem@davemloft.net, davejwatson@fb.com,
+        tom@herbertland.com, borisp@mellanox.com, aviadye@mellanox.com,
+        liranl@mellanox.com
+To: Ilya Lesokhin <ilyal@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:55395 "EHLO
+        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752823AbdIROwZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 10:52:25 -0400
+In-Reply-To: <1505385988-94522-6-git-send-email-ilyal@mellanox.com> (Ilya
+        Lesokhin's message of "Thu, 14 Sep 2017 13:46:28 +0300")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 18, 2017 at 09:41:16AM +0200, Richard Cochran wrote:
-> diff --git a/arch/powerpc/include/uapi/asm/socket.h b/arch/powerpc/include/uapi/asm/socket.h
-> index 3c590c7c42c0..55718129ab06 100644
-> --- a/arch/powerpc/include/uapi/asm/socket.h
-> +++ b/arch/powerpc/include/uapi/asm/socket.h
-> @@ -17,4 +17,7 @@
->  
->  #include <asm-generic/socket.h>
->  
-> +#define SO_TXTIME		54
-> +#define SCM_TXTIME		SO_TXTIME
+Ilya Lesokhin <ilyal@mellanox.com> writes:
+
+> +/* We assume that the socket is already connected */
+> +static struct net_device *get_netdev_for_sock(struct sock *sk)
+> +{
+> +	struct inet_sock *inet = inet_sk(sk);
+> +	struct net_device *netdev = NULL;
 > +
->  #endif	/* _ASM_POWERPC_SOCKET_H */
+> +	netdev = dev_get_by_index(sock_net(sk), inet->cork.fl.flowi_oif);
+> +
+> +	return netdev;
+> +}
 
-This hunk breaks powerpc builds.  Will fix in the next round...
+The user should be aware of that they can't migrate the socket to
+another interface if they got hw offloaded. This is not the case for
+software offload. Thus I think the user has to opt in and it shouldn't
+be a heuristic until we can switch back to sw offload path.
+
+Maybe change flowi_oif to sk_bound_dev_if and somwhow lock it against
+further changes if hw tls is in use?
 
 Thanks,
-Richard
+Hannes
