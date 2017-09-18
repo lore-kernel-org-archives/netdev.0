@@ -1,40 +1,173 @@
-From: "Singh, Krishneil K" <krishneil.k.singh@intel.com>
-Subject: RE: [Intel-wired-lan] [PATCH] fm10k: Fix misuse of net_ratelimit()
-Date: Mon, 18 Sep 2017 17:22:47 +0000
-Message-ID: <EF50CC0C76A53A44BAD798C58E0A157E64AF67F9@ORSMSX103.amr.corp.intel.com>
-References: <83d6fcab6a180d7006c8eb396c9aa3169dc6a84d.1502468221.git.joe@perches.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Joe Perches <joe@perches.com>,
-        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+From: josef@toxicpanda.com
+Subject: [PATCH 1/3] selftest: add a reuseaddr test
+Date: Mon, 18 Sep 2017 13:32:58 -0400
+Message-ID: <1505755982-7855-1-git-send-email-jbacik@fb.com>
+Cc: Josef Bacik <jbacik@fb.com>, Shuah Khan <shuah@kernel.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        linux-kernel@vger.kernel.org, linux-kselftest@vger.kernel.org,
+        netdev@vger.kernel.org
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <83d6fcab6a180d7006c8eb396c9aa3169dc6a84d.1502468221.git.joe@perches.com>
-Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Josef Bacik <jbacik@fb.com>
 
+This is to test for a regression introduced by
 
-> -----Original Message-----
-> From: Intel-wired-lan [mailto:intel-wired-lan-bounces@osuosl.org] On Behalf
-> Of Joe Perches
-> Sent: Friday, August 11, 2017 9:17 AM
-> To: Kirsher, Jeffrey T <jeffrey.t.kirsher@intel.com>
-> Cc: netdev@vger.kernel.org; intel-wired-lan@lists.osuosl.org; linux-
-> kernel@vger.kernel.org
-> Subject: [Intel-wired-lan] [PATCH] fm10k: Fix misuse of net_ratelimit()
-> 
-> Correct the backward logic using !net_ratelimit()
-> 
-> Miscellanea:
-> 
-> o Add a blank line before the error return label
-> 
-> Signed-off-by: Joe Perches <joe@perches.com>
-> ---
+b9470c27607b ("inet: kill smallest_size and smallest_port")
 
-Tested-by: Krishneil Singh  <krishneil.k.singh@intel.com>
+which introduced a problem with reuseaddr and bind conflicts.
+
+Signed-off-by: Josef Bacik <jbacik@fb.com>
+---
+ tools/testing/selftests/net/.gitignore           |   1 +
+ tools/testing/selftests/net/Makefile             |   2 +-
+ tools/testing/selftests/net/reuseaddr_conflict.c | 114 +++++++++++++++++++++++
+ 3 files changed, 116 insertions(+), 1 deletion(-)
+ create mode 100644 tools/testing/selftests/net/reuseaddr_conflict.c
+
+diff --git a/tools/testing/selftests/net/.gitignore b/tools/testing/selftests/net/.gitignore
+index 9801253e4802..c612d6e38c62 100644
+--- a/tools/testing/selftests/net/.gitignore
++++ b/tools/testing/selftests/net/.gitignore
+@@ -6,3 +6,4 @@ reuseport_bpf
+ reuseport_bpf_cpu
+ reuseport_bpf_numa
+ reuseport_dualstack
++reuseaddr_conflict
+diff --git a/tools/testing/selftests/net/Makefile b/tools/testing/selftests/net/Makefile
+index de1f5772b878..3df542c84610 100644
+--- a/tools/testing/selftests/net/Makefile
++++ b/tools/testing/selftests/net/Makefile
+@@ -7,7 +7,7 @@ TEST_PROGS := run_netsocktests run_afpackettests test_bpf.sh netdevice.sh rtnetl
+ TEST_GEN_FILES =  socket
+ TEST_GEN_FILES += psock_fanout psock_tpacket
+ TEST_GEN_FILES += reuseport_bpf reuseport_bpf_cpu reuseport_bpf_numa
+-TEST_GEN_FILES += reuseport_dualstack msg_zerocopy
++TEST_GEN_FILES += reuseport_dualstack msg_zerocopy reuseaddr_conflict
+ 
+ include ../lib.mk
+ 
+diff --git a/tools/testing/selftests/net/reuseaddr_conflict.c b/tools/testing/selftests/net/reuseaddr_conflict.c
+new file mode 100644
+index 000000000000..7c5b12664b03
+--- /dev/null
++++ b/tools/testing/selftests/net/reuseaddr_conflict.c
+@@ -0,0 +1,114 @@
++/*
++ * Test for the regression introduced by
++ *
++ * b9470c27607b ("inet: kill smallest_size and smallest_port")
++ *
++ * If we open an ipv4 socket on a port with reuseaddr we shouldn't reset the tb
++ * when we open the ipv6 conterpart, which is what was happening previously.
++ */
++#include <errno.h>
++#include <error.h>
++#include <arpa/inet.h>
++#include <netinet/in.h>
++#include <stdbool.h>
++#include <stdio.h>
++#include <sys/socket.h>
++#include <sys/types.h>
++#include <unistd.h>
++
++#define PORT 9999
++
++int open_port(int ipv6, int any)
++{
++	int fd = -1;
++	int reuseaddr = 1;
++	int v6only = 1;
++	int addrlen;
++	int ret = -1;
++	struct sockaddr *addr;
++	int family = ipv6 ? AF_INET6 : AF_INET;
++
++	struct sockaddr_in6 addr6 = {
++		.sin6_family = AF_INET6,
++		.sin6_port = htons(PORT),
++		.sin6_addr = in6addr_any
++	};
++	struct sockaddr_in addr4 = {
++		.sin_family = AF_INET,
++		.sin_port = htons(PORT),
++		.sin_addr.s_addr = any ? htonl(INADDR_ANY) : inet_addr("127.0.0.1"),
++	};
++
++
++	if (ipv6) {
++		addr = (struct sockaddr*)&addr6;
++		addrlen = sizeof(addr6);
++	} else {
++		addr = (struct sockaddr*)&addr4;
++		addrlen = sizeof(addr4);
++	}
++
++	if ((fd = socket(family, SOCK_STREAM, IPPROTO_TCP)) < 0) {
++		perror("socket");
++		goto out;
++	}
++
++	if (ipv6 && setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, (void*)&v6only,
++			       sizeof(v6only)) < 0) {
++		perror("setsockopt IPV6_V6ONLY");
++		goto out;
++	}
++
++	if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &reuseaddr,
++		       sizeof(reuseaddr)) < 0) {
++		perror("setsockopt SO_REUSEADDR");
++		goto out;
++	}
++
++	if (bind(fd, addr, addrlen) < 0) {
++		perror("bind");
++		goto out;
++	}
++
++	if (any)
++		return fd;
++
++	if (listen(fd, 1) < 0) {
++		perror("listen");
++		goto out;
++	}
++	return fd;
++out:
++	close(fd);
++	return ret;
++}
++
++int main(void)
++{
++	int listenfd;
++	int fd1, fd2;
++
++	fprintf(stderr, "Opening 127.0.0.1:%d\n", PORT);
++	listenfd = open_port(0, 0);
++	if (listenfd < 0)
++		error(1, errno, "Couldn't open listen socket");
++	fprintf(stderr, "Opening INADDR_ANY:%d\n", PORT);
++	fd1 = open_port(0, 1);
++	if (fd1 >= 0)
++		error(1, 0, "Was allowed to create an ipv4 reuseport on a already bound non-reuseport socket");
++	fprintf(stderr, "Opening in6addr_any:%d\n", PORT);
++	fd1 = open_port(1, 1);
++	if (fd1 < 0)
++		error(1, errno, "Couldn't open ipv6 reuseport");
++	fprintf(stderr, "Opening INADDR_ANY:%d\n", PORT);
++	fd2 = open_port(0, 1);
++	if (fd2 >= 0)
++		error(1, 0, "Was allowed to create an ipv4 reuseport on a already bound non-reuseport socket");
++	close(fd1);
++	fprintf(stderr, "Opening INADDR_ANY:%d after closing ipv6 socket\n", PORT);
++	fd1 = open_port(0, 1);
++	if (fd1 >= 0)
++		error(1, 0, "Was allowed to create an ipv4 reuseport on an already bound non-reuseport socket with no ipv6");
++	fprintf(stderr, "Success");
++	return 0;
++}
+-- 
+2.7.4
