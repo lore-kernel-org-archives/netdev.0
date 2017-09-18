@@ -1,27 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: tcp_input: Neaten DBGUNDO
-Date: Mon, 18 Sep 2017 11:29:14 -0700 (PDT)
-Message-ID: <20170918.112914.2210456285725452035.davem@davemloft.net>
-References: <fcac7d078947b59e47ad4474d2c60d4fd3395bcd.1505095255.git.joe@perches.com>
+Subject: Re: [PATCH net-next v2 1/2] net: phy: realtek: rename
+ RTL8211F_PAGE_SELECT to RTL821x_PAGE_SELECT
+Date: Mon, 18 Sep 2017 11:29:30 -0700 (PDT)
+Message-ID: <20170918.112930.1476687868522709436.davem@davemloft.net>
+References: <1505210076-32311-1-git-send-email-hayashi.kunihiko@socionext.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, yoshfuji@linux-ipv6.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: joe@perches.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <fcac7d078947b59e47ad4474d2c60d4fd3395bcd.1505095255.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: andrew@lunn.ch, f.fainelli@gmail.com, netdev@vger.kernel.org,
+        jaswinder.singh@linaro.org
+To: hayashi.kunihiko@socionext.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:47926 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753482AbdIRS3b (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 14:29:31 -0400
+In-Reply-To: <1505210076-32311-1-git-send-email-hayashi.kunihiko@socionext.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Sun, 10 Sep 2017 19:02:25 -0700
+From: Kunihiko Hayashi <hayashi.kunihiko@socionext.com>
+Date: Tue, 12 Sep 2017 18:54:35 +0900
 
-> Move the #ifdef into the static void function so that the use
-> of DBGUNDO is validated when FASTRETRANS_DEBUG <= 1.
+> This renames the definition of page select register from
+> RTL8211F_PAGE_SELECT to RTL821x_PAGE_SELECT to use it across models.
 > 
-> Remove the now unnecessary #else and #define DBGUNDO.
-> 
-> Signed-off-by: Joe Perches <joe@perches.com>
+> Signed-off-by: Kunihiko Hayashi <hayashi.kunihiko@socionext.com>
 
 Applied.
