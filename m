@@ -1,51 +1,53 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: Re: RACK not getting disabled
-Date: Mon, 18 Sep 2017 15:05:22 -0700
-Message-ID: <CAK6E8=e96F+fh+RNL33H9+0VTUH-HCe8fhV5Zh7Jdws9jXFxNg@mail.gmail.com>
-References: <20170918201428.GB28186@strugglingcoder.info> <1505769494.29839.34.camel@edumazet-glaptop3.roam.corp.google.com>
- <20170918212952.GC28186@strugglingcoder.info> <CAK6E8=eu+1ywBfpAM34seZDKVc-ep5HBuz9fQRuzoaX9BWqeJA@mail.gmail.com>
- <20170918215522.GE28186@strugglingcoder.info>
+From: Shuah Khan <shuah@kernel.org>
+Subject: Re: [PATCH 2/3] selftests: actually run the various net selftests
+Date: Mon, 18 Sep 2017 16:14:41 -0600
+Message-ID: <09f17145-5f0a-ec61-3dfb-69216eac7133@kernel.org>
+References: <1505755982-7855-1-git-send-email-jbacik@fb.com>
+ <1505755982-7855-2-git-send-email-jbacik@fb.com>
+Reply-To: shuah@kernel.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        netdev <netdev@vger.kernel.org>
-To: hiren panchasara <hiren@strugglingcoder.info>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f177.google.com ([209.85.217.177]:51276 "EHLO
-        mail-ua0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750813AbdIRWGE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 18:06:04 -0400
-Received: by mail-ua0-f177.google.com with SMTP id 72so1159074uas.8
-        for <netdev@vger.kernel.org>; Mon, 18 Sep 2017 15:06:04 -0700 (PDT)
-In-Reply-To: <20170918215522.GE28186@strugglingcoder.info>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Josef Bacik <jbacik@fb.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        linux-kernel@vger.kernel.org, linux-kselftest@vger.kernel.org,
+        netdev@vger.kernel.org, Shuah Khan <shuahkh@osg.samsung.com>,
+        Shuah Khan <shuah@kernel.org>
+To: josef@toxicpanda.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1505755982-7855-2-git-send-email-jbacik@fb.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 18, 2017 at 2:55 PM, hiren panchasara
-<hiren@strugglingcoder.info> wrote:
-> On 09/18/17 at 02:46P, Yuchung Cheng wrote:
->> On Mon, Sep 18, 2017 at 2:29 PM, hiren panchasara
->> <hiren@strugglingcoder.info> wrote:
->> > On 09/18/17 at 02:18P, Eric Dumazet wrote:
->> >> On Mon, 2017-09-18 at 13:14 -0700, hiren panchasara wrote:
->> >> > Hi all, I am trying to disable rack to see 3dupacks in action during
->> >> > loss-detection but based on the pcap, I see that it's still trigger
->> >> > loss-recovery on the first SACK (as if RACK is still enabled/active).
->> just to be clear: 3-dupack (aka RFC3517) is still enabled with RACK
->> enabled. I am experimenting a patch set to disable 3-dupack approach
->> completely.
->
-> So any incoming packet undergoes both checks right now to decide whether
-> to mark it lost based on 3-dupacks (and eventually rfc6675) and also
-> rack? Any insights into how they are working together would be great.
->
-> Also whichever scheme detects loss first can kick connection into
-> loss-recovery, right?
-Yes. essentially we run both algorithms. the recovery starts when any
-packet is deemed lost
+On 09/18/2017 11:32 AM, josef@toxicpanda.com wrote:
+> From: Josef Bacik <jbacik@fb.com>
+> 
+> These self tests are just self contained binaries, they are not run by
+> any of the scripts in the directory.  This means they need to be marked
+> with TEST_GEN_PROGS to actually be run, not TEST_GEN_FILES.
+> 
+> Signed-off-by: Josef Bacik <jbacik@fb.com>
+> ---
+>  tools/testing/selftests/net/Makefile | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/tools/testing/selftests/net/Makefile b/tools/testing/selftests/net/Makefile
+> index 3df542c84610..45a4e77a47c4 100644
+> --- a/tools/testing/selftests/net/Makefile
+> +++ b/tools/testing/selftests/net/Makefile
+> @@ -6,8 +6,8 @@ CFLAGS += -I../../../../usr/include/
+>  TEST_PROGS := run_netsocktests run_afpackettests test_bpf.sh netdevice.sh rtnetlink.sh
+>  TEST_GEN_FILES =  socket
+>  TEST_GEN_FILES += psock_fanout psock_tpacket
+> -TEST_GEN_FILES += reuseport_bpf reuseport_bpf_cpu reuseport_bpf_numa
+> -TEST_GEN_FILES += reuseport_dualstack msg_zerocopy reuseaddr_conflict
+> +TEST_GEN_PROGS += reuseport_bpf reuseport_bpf_cpu reuseport_bpf_numa
+> +TEST_GEN_PROGS += reuseport_dualstack msg_zerocopy reuseaddr_conflict
 
->
-> Thanks for the clarification, Yuchung.
->
-> Cheers,
-> Hiren
+Hmm. I see msg_zerocopy.sh for running msg_zerocopy. msg_zerocopy should
+still stay in TEST_GEN_FILES and msg_zerocopy.sh needs to be added to
+TEST_PROGS so it runs.
+
+thanks,
+-- Shuah
