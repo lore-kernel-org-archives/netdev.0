@@ -1,53 +1,30 @@
-From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Subject: [PATCH v2] net: stmmac: dwmac-sun8i: Use reset exclusive
-Date: Mon, 18 Sep 2017 20:30:43 +0200
-Message-ID: <20170918183043.8028-1-clabbe.montjoie@gmail.com>
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-        linux-kernel@vger.kernel.org,
-        Corentin Labbe <clabbe.montjoie@gmail.com>
-To: peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        maxime.ripard@free-electrons.com, wens@csie.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] ravb: document R8A77970 bindings
+Date: Mon, 18 Sep 2017 11:38:28 -0700 (PDT)
+Message-ID: <20170918.113828.1780561294605005940.davem@davemloft.net>
+References: <20170912200228.015376134@cogentembedded.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+        linux-renesas-soc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170912200228.015376134-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-The current dwmac_sun8i module cannot be rmmod/modprobe due to that
-the reset controller was not released when removed.
+From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+Date: Tue, 12 Sep 2017 23:02:08 +0300
 
-This patch remove ambiguity, by using of_reset_control_get_exclusive and
-add the missing reset_control_put().
+> R-Car V3M (R8A77970) SoC also has the R-Car gen3 compatible EtherAVB
+> device, so document  the SoC specific bindings.
+> 
+> Signed-off-by: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
 
-Note that we cannot use devm_reset_control_get, since the reset is not
-in the device node.
-
-Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
----
-Changes since v1:
-- added a note about devm_reset_control_get in commit message
-
- drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
-index 57bb6dd7b401..1736d7cb0d96 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
-@@ -854,6 +854,7 @@ static int sun8i_dwmac_unpower_internal_phy(struct sunxi_priv_data *gmac)
- 
- 	clk_disable_unprepare(gmac->ephy_clk);
- 	reset_control_assert(gmac->rst_ephy);
-+	reset_control_put(gmac->rst_ephy);
- 	return 0;
- }
- 
-@@ -1010,7 +1011,7 @@ static int sun8i_dwmac_probe(struct platform_device *pdev)
- 			return -EINVAL;
- 		}
- 
--		gmac->rst_ephy = of_reset_control_get(plat_dat->phy_node, NULL);
-+		gmac->rst_ephy = of_reset_control_get_exclusive(plat_dat->phy_node, NULL);
- 		if (IS_ERR(gmac->rst_ephy)) {
- 			ret = PTR_ERR(gmac->rst_ephy);
- 			if (ret == -EPROBE_DEFER)
--- 
-2.13.5
+Applied to net-next.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
