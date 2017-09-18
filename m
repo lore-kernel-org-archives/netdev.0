@@ -1,53 +1,40 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] net_sched: use explicit size of struct tcmsg, remove need to declare tcm
-Date: Mon, 18 Sep 2017 12:40:38 +0100
-Message-ID: <20170918114038.29741-1-colin.king@canonical.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Jamal Hadi Salim <jhs@mojatatu.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Jiri Pirko <jiri@resnulli.us>,
-        "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Sathya Perla <sathya.perla@broadcom.com>
+Subject: [net PATCH] bnxt_en: check for ingress qdisc in flower offload
+Date: Mon, 18 Sep 2017 17:05:37 +0530
+Message-ID: <1505734537-6695-1-git-send-email-sathya.perla@broadcom.com>
+Cc: michael.chan@broadcom.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from lpdvsmtp01.broadcom.com ([192.19.211.62]:39097 "EHLO
+        relay.smtp.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754035AbdIRLkw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 07:40:52 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin Ian King <colin.king@canonical.com>
+Check for ingress-only qdisc for flower offload, as other qdiscs
+are not supported for flower offload.
 
-Pointer tcm is being initialized and is never read, it is only being used
-to determine the size of struct tcmsg.  Clean this up by removing
-variable tcm and explicitly using the sizeof struct tcmsg rather than *tcm.
-Cleans up clang warning:
-
-warning: Value stored to 'tcm' during its initialization is never read
-
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
+Suggested-by: Jiri Pirko <jiri@resnulli.us>
+Signed-off-by: Sathya Perla <sathya.perla@broadcom.com>
 ---
- net/sched/sch_api.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-index c6deb74e3d2f..aa82116ed10c 100644
---- a/net/sched/sch_api.c
-+++ b/net/sched/sch_api.c
-@@ -1500,7 +1500,6 @@ static int tc_dump_qdisc(struct sk_buff *skb, struct netlink_callback *cb)
- 	int s_idx, s_q_idx;
- 	struct net_device *dev;
- 	const struct nlmsghdr *nlh = cb->nlh;
--	struct tcmsg *tcm = nlmsg_data(nlh);
- 	struct nlattr *tca[TCA_MAX + 1];
- 	int err;
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c
+index ccd699f..7dd3d13 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c
+@@ -750,6 +750,10 @@ int bnxt_tc_setup_flower(struct bnxt *bp, u16 src_fid,
+ {
+ 	int rc = 0;
  
-@@ -1510,7 +1509,7 @@ static int tc_dump_qdisc(struct sk_buff *skb, struct netlink_callback *cb)
- 	idx = 0;
- 	ASSERT_RTNL();
- 
--	err = nlmsg_parse(nlh, sizeof(*tcm), tca, TCA_MAX, NULL, NULL);
-+	err = nlmsg_parse(nlh, sizeof(struct tcmsg), tca, TCA_MAX, NULL, NULL);
- 	if (err < 0)
- 		return err;
- 
++	if (!is_classid_clsact_ingress(cls_flower->common.classid) ||
++	    cls_flower->common.chain_index)
++		return -EOPNOTSUPP;
++
+ 	switch (cls_flower->command) {
+ 	case TC_CLSFLOWER_REPLACE:
+ 		rc = bnxt_tc_add_flow(bp, src_fid, cls_flower);
 -- 
-2.14.1
+2.7.4
