@@ -1,7 +1,8 @@
 From: Mika Westerberg <mika.westerberg@linux.intel.com>
-Subject: [PATCH 00/16] Thunderbolt networking
-Date: Mon, 18 Sep 2017 18:30:33 +0300
-Message-ID: <20170918153049.44185-1-mika.westerberg@linux.intel.com>
+Subject: [PATCH 12/16] thunderbolt: Use spinlock in NHI serialization
+Date: Mon, 18 Sep 2017 18:30:45 +0300
+Message-ID: <20170918153049.44185-13-mika.westerberg@linux.intel.com>
+References: <20170918153049.44185-1-mika.westerberg@linux.intel.com>
 Cc: Andreas Noever <andreas.noever@gmail.com>,
         Michael Jamet <michael.jamet@intel.com>,
         Yehezkel Bernat <yehezkel.bernat@intel.com>,
@@ -13,107 +14,211 @@ Cc: Andreas Noever <andreas.noever@gmail.com>,
 To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
         "David S . Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170918153049.44185-1-mika.westerberg@linux.intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+This is needed because ring polling functionality can be called from
+atomic contexts when networking and other high-speed traffic is
+transferred over a Thunderbolt cable.
 
-In addition of tunneling PCIe, Display Port and USB traffic, Thunderbolt
-allows connecting two hosts (domains) over a Thunderbolt cable. It is
-possible to tunnel arbitrary data packets over such connection using
-high-speed DMA rings available in the Thunderbolt host controller.
+Signed-off-by: Mika Westerberg <mika.westerberg@linux.intel.com>
+Reviewed-by: Michael Jamet <michael.jamet@intel.com>
+Reviewed-by: Yehezkel Bernat <yehezkel.bernat@intel.com>
+---
+ drivers/thunderbolt/nhi.c   | 75 +++++++++++++++++++++++++--------------------
+ include/linux/thunderbolt.h |  2 +-
+ 2 files changed, 42 insertions(+), 35 deletions(-)
 
-In order to discover Thunderbolt services the other host supports, there is
-a software protocol running on top of the automatically configured control
-channel (ring 0). This protocol is called XDomain discovery protocol and it
-uses XDomain properties to describe the host (domain) and the services it
-supports.
-
-Once both sides have agreed what services are supported they can enable
-high-speed DMA rings to transfer data over the cable.
-
-This series adds support for the XDomain protocol so that we expose each
-remote connection as Thunderbolt XDomain device and each service as
-Thunderbolt service device. On top of that we create an API that allows
-writing drivers for these services and finally we provide an example
-Thunderbolt service driver that creates virtual ethernet inferface that
-allows tunneling networking packets over Thunderbolt cable. The API could
-be used for creating other Thunderbolt services, such as tunneling SCSI for
-example.
-
-The XDomain protocol and networking support is also available in macOS and
-Windows so this makes it possible to connect Linux to macOS and Windows as
-well.
-
-The patches are based on previous Thunderbolt networking patch series by
-Amir Levy and Michael Jamet, that can be found here:
-
-  https://lwn.net/Articles/705998/
-
-The main difference to that patch series is that we have the XDomain
-protocol running in the kernel now so there is no need for a separate
-userspace daemon.
-
-Note this does not affect the existing functionality, so security levels
-and NVM firmware upgrade continue to work as before (with the small
-exception that now sysfs also shows the XDomain connections and services in
-addition to normal Thunderbolt devices).
-
-In case someone wants to try this out, patch [16/16] adds documentation
-how the networking driver can be used. In short, if you connect Linux to
-a macOS or Windows, everything is done automatically (as those systems
-have the networking service enabled by default). For Linux to Linux
-connection one host needs to load the networking driver first (so that
-the other side can locate the networking service and load the
-corresponding driver).
-
-Amir Levy (1):
-  thunderbolt: Add support for networking over Thunderbolt cable
-
-Mika Westerberg (15):
-  byteorder: Move {cpu_to_be32,be32_to_cpu}_array() from Thunderbolt to core
-  thunderbolt: Add support for XDomain properties
-  thunderbolt: Move enum tb_cfg_pkg_type to thunderbolt.h
-  thunderbolt: Move thunderbolt domain structure to thunderbolt.h
-  thunderbolt: Move tb_switch_phy_port_from_link() to thunderbolt.h
-  thunderbolt: Add support for XDomain discovery protocol
-  thunderbolt: Configure interrupt throttling for all interrupts
-  thunderbolt: Add support for frame mode
-  thunderbolt: Export ring handling functions to modules
-  thunderbolt: Move ring descriptor flags to thunderbolt.h
-  thunderbolt: Use spinlock in ring serialization
-  thunderbolt: Use spinlock in NHI serialization
-  thunderbolt: Add polling mode for rings
-  thunderbolt: Add function to retrieve DMA device for the ring
-  thunderbolt: Allocate ring HopID automatically if requested
-
- Documentation/ABI/testing/sysfs-bus-thunderbolt |   48 +
- Documentation/admin-guide/thunderbolt.rst       |   24 +
- drivers/thunderbolt/Kconfig                     |   12 +
- drivers/thunderbolt/Makefile                    |    5 +-
- drivers/thunderbolt/ctl.c                       |   46 +-
- drivers/thunderbolt/ctl.h                       |    3 +-
- drivers/thunderbolt/domain.c                    |  197 ++-
- drivers/thunderbolt/icm.c                       |  218 +++-
- drivers/thunderbolt/net.c                       | 1392 ++++++++++++++++++++
- drivers/thunderbolt/nhi.c                       |  409 ++++--
- drivers/thunderbolt/nhi.h                       |  141 +-
- drivers/thunderbolt/nhi_regs.h                  |   11 +-
- drivers/thunderbolt/property.c                  |  670 ++++++++++
- drivers/thunderbolt/switch.c                    |    7 +-
- drivers/thunderbolt/tb.h                        |   88 +-
- drivers/thunderbolt/tb_msgs.h                   |  140 +-
- drivers/thunderbolt/xdomain.c                   | 1576 +++++++++++++++++++++++
- include/linux/byteorder/generic.h               |   16 +
- include/linux/mod_devicetable.h                 |   26 +
- include/linux/thunderbolt.h                     |  598 +++++++++
- scripts/mod/devicetable-offsets.c               |    7 +
- scripts/mod/file2alias.c                        |   25 +
- 22 files changed, 5310 insertions(+), 349 deletions(-)
- create mode 100644 drivers/thunderbolt/net.c
- create mode 100644 drivers/thunderbolt/property.c
- create mode 100644 drivers/thunderbolt/xdomain.c
- create mode 100644 include/linux/thunderbolt.h
-
+diff --git a/drivers/thunderbolt/nhi.c b/drivers/thunderbolt/nhi.c
+index d1ad37c6eccf..cf1397afa72f 100644
+--- a/drivers/thunderbolt/nhi.c
++++ b/drivers/thunderbolt/nhi.c
+@@ -327,21 +327,9 @@ static struct tb_ring *tb_ring_alloc(struct tb_nhi *nhi, u32 hop, int size,
+ 	if (transmit && hop == RING_E2E_UNUSED_HOPID)
+ 		return NULL;
+ 
+-	mutex_lock(&nhi->lock);
+-	if (hop >= nhi->hop_count) {
+-		dev_WARN(&nhi->pdev->dev, "invalid hop: %d\n", hop);
+-		goto err;
+-	}
+-	if (transmit && nhi->tx_rings[hop]) {
+-		dev_WARN(&nhi->pdev->dev, "TX hop %d already allocated\n", hop);
+-		goto err;
+-	} else if (!transmit && nhi->rx_rings[hop]) {
+-		dev_WARN(&nhi->pdev->dev, "RX hop %d already allocated\n", hop);
+-		goto err;
+-	}
+ 	ring = kzalloc(sizeof(*ring), GFP_KERNEL);
+ 	if (!ring)
+-		goto err;
++		return NULL;
+ 
+ 	spin_lock_init(&ring->lock);
+ 	INIT_LIST_HEAD(&ring->queue);
+@@ -359,25 +347,45 @@ static struct tb_ring *tb_ring_alloc(struct tb_nhi *nhi, u32 hop, int size,
+ 	ring->tail = 0;
+ 	ring->running = false;
+ 
+-	if (ring_request_msix(ring, flags & RING_FLAG_NO_SUSPEND))
+-		goto err;
+-
+ 	ring->descriptors = dma_alloc_coherent(&ring->nhi->pdev->dev,
+ 			size * sizeof(*ring->descriptors),
+ 			&ring->descriptors_dma, GFP_KERNEL | __GFP_ZERO);
+ 	if (!ring->descriptors)
+-		goto err;
++		goto err_free_ring;
+ 
++	if (ring_request_msix(ring, flags & RING_FLAG_NO_SUSPEND))
++		goto err_free_descs;
++
++	spin_lock_irq(&nhi->lock);
++	if (hop >= nhi->hop_count) {
++		dev_WARN(&nhi->pdev->dev, "invalid hop: %d\n", hop);
++		goto err_release_msix;
++	}
++	if (transmit && nhi->tx_rings[hop]) {
++		dev_WARN(&nhi->pdev->dev, "TX hop %d already allocated\n", hop);
++		goto err_release_msix;
++	} else if (!transmit && nhi->rx_rings[hop]) {
++		dev_WARN(&nhi->pdev->dev, "RX hop %d already allocated\n", hop);
++		goto err_release_msix;
++	}
+ 	if (transmit)
+ 		nhi->tx_rings[hop] = ring;
+ 	else
+ 		nhi->rx_rings[hop] = ring;
+-	mutex_unlock(&nhi->lock);
++	spin_unlock_irq(&nhi->lock);
++
+ 	return ring;
+ 
+-err:
++err_release_msix:
++	spin_unlock_irq(&nhi->lock);
++	ring_release_msix(ring);
++err_free_descs:
++	dma_free_coherent(&ring->nhi->pdev->dev,
++			  ring->size * sizeof(*ring->descriptors),
++			  ring->descriptors, ring->descriptors_dma);
++err_free_ring:
+ 	kfree(ring);
+-	mutex_unlock(&nhi->lock);
++
+ 	return NULL;
+ }
+ 
+@@ -421,8 +429,8 @@ void tb_ring_start(struct tb_ring *ring)
+ 	u16 frame_size;
+ 	u32 flags;
+ 
+-	mutex_lock(&ring->nhi->lock);
+-	spin_lock_irq(&ring->lock);
++	spin_lock_irq(&ring->nhi->lock);
++	spin_lock(&ring->lock);
+ 	if (ring->nhi->going_away)
+ 		goto err;
+ 	if (ring->running) {
+@@ -469,8 +477,8 @@ void tb_ring_start(struct tb_ring *ring)
+ 	ring_interrupt_active(ring, true);
+ 	ring->running = true;
+ err:
+-	spin_unlock_irq(&ring->lock);
+-	mutex_unlock(&ring->nhi->lock);
++	spin_unlock(&ring->lock);
++	spin_unlock_irq(&ring->nhi->lock);
+ }
+ EXPORT_SYMBOL_GPL(tb_ring_start);
+ 
+@@ -489,8 +497,8 @@ EXPORT_SYMBOL_GPL(tb_ring_start);
+  */
+ void tb_ring_stop(struct tb_ring *ring)
+ {
+-	mutex_lock(&ring->nhi->lock);
+-	spin_lock_irq(&ring->lock);
++	spin_lock_irq(&ring->nhi->lock);
++	spin_lock(&ring->lock);
+ 	dev_info(&ring->nhi->pdev->dev, "stopping %s %d\n",
+ 		 RING_TYPE(ring), ring->hop);
+ 	if (ring->nhi->going_away)
+@@ -511,8 +519,8 @@ void tb_ring_stop(struct tb_ring *ring)
+ 	ring->running = false;
+ 
+ err:
+-	spin_unlock_irq(&ring->lock);
+-	mutex_unlock(&ring->nhi->lock);
++	spin_unlock(&ring->lock);
++	spin_unlock_irq(&ring->nhi->lock);
+ 
+ 	/*
+ 	 * schedule ring->work to invoke callbacks on all remaining frames.
+@@ -534,7 +542,7 @@ EXPORT_SYMBOL_GPL(tb_ring_stop);
+  */
+ void tb_ring_free(struct tb_ring *ring)
+ {
+-	mutex_lock(&ring->nhi->lock);
++	spin_lock_irq(&ring->nhi->lock);
+ 	/*
+ 	 * Dissociate the ring from the NHI. This also ensures that
+ 	 * nhi_interrupt_work cannot reschedule ring->work.
+@@ -564,7 +572,7 @@ void tb_ring_free(struct tb_ring *ring)
+ 		 RING_TYPE(ring),
+ 		 ring->hop);
+ 
+-	mutex_unlock(&ring->nhi->lock);
++	spin_unlock_irq(&ring->nhi->lock);
+ 	/**
+ 	 * ring->work can no longer be scheduled (it is scheduled only
+ 	 * by nhi_interrupt_work, ring_stop and ring_msix). Wait for it
+@@ -639,7 +647,7 @@ static void nhi_interrupt_work(struct work_struct *work)
+ 	int type = 0; /* current interrupt type 0: TX, 1: RX, 2: RX overflow */
+ 	struct tb_ring *ring;
+ 
+-	mutex_lock(&nhi->lock);
++	spin_lock_irq(&nhi->lock);
+ 
+ 	/*
+ 	 * Starting at REG_RING_NOTIFY_BASE there are three status bitfields
+@@ -677,7 +685,7 @@ static void nhi_interrupt_work(struct work_struct *work)
+ 		/* we do not check ring->running, this is done in ring->work */
+ 		schedule_work(&ring->work);
+ 	}
+-	mutex_unlock(&nhi->lock);
++	spin_unlock_irq(&nhi->lock);
+ }
+ 
+ static irqreturn_t nhi_msi(int irq, void *data)
+@@ -766,7 +774,6 @@ static void nhi_shutdown(struct tb_nhi *nhi)
+ 		devm_free_irq(&nhi->pdev->dev, nhi->pdev->irq, nhi);
+ 		flush_work(&nhi->interrupt_work);
+ 	}
+-	mutex_destroy(&nhi->lock);
+ 	ida_destroy(&nhi->msix_ida);
+ }
+ 
+@@ -855,7 +862,7 @@ static int nhi_probe(struct pci_dev *pdev, const struct pci_device_id *id)
+ 		return res;
+ 	}
+ 
+-	mutex_init(&nhi->lock);
++	spin_lock_init(&nhi->lock);
+ 
+ 	pci_set_master(pdev);
+ 
+diff --git a/include/linux/thunderbolt.h b/include/linux/thunderbolt.h
+index 51af0a5fa52f..62adb97d77f1 100644
+--- a/include/linux/thunderbolt.h
++++ b/include/linux/thunderbolt.h
+@@ -415,7 +415,7 @@ static inline struct tb_xdomain *tb_service_parent(struct tb_service *svc)
+  * @hop_count: Number of rings (end point hops) supported by NHI.
+  */
+ struct tb_nhi {
+-	struct mutex lock;
++	spinlock_t lock;
+ 	struct pci_dev *pdev;
+ 	void __iomem *iobase;
+ 	struct tb_ring **tx_rings;
 -- 
 2.13.5
