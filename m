@@ -1,41 +1,24 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Documentation: networking: fix ASCII art in
- switchdev.txt
-Date: Mon, 18 Sep 2017 16:39:18 -0700 (PDT)
-Message-ID: <20170918.163918.1413944718199683496.davem@davemloft.net>
-References: <984d9d24-b558-6308-3252-1c8ddd5eb7c8@infradead.org>
+Subject: Re: [PATCH] hamradio: baycom: use new parport device model
+Date: Mon, 18 Sep 2017 16:40:53 -0700 (PDT)
+Message-ID: <20170918.164053.2201776156499323454.davem@davemloft.net>
+References: <1505648780-4385-1-git-send-email-sudipm.mukherjee@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, pavel@ucw.cz, andrew@lunn.ch,
-        schwab@linux-m68k.org, jiri@resnulli.us, sfeldma@gmail.com
-To: rdunlap@infradead.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:58642 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750711AbdIRXjT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 19:39:19 -0400
-In-Reply-To: <984d9d24-b558-6308-3252-1c8ddd5eb7c8@infradead.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: t.sailer@alumni.ethz.ch, linux-kernel@vger.kernel.org,
+        linux-hams@vger.kernel.org, netdev@vger.kernel.org
+To: sudipm.mukherjee@gmail.com
+Return-path: <linux-hams-owner@vger.kernel.org>
+In-Reply-To: <1505648780-4385-1-git-send-email-sudipm.mukherjee@gmail.com>
+Sender: linux-hams-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Randy Dunlap <rdunlap@infradead.org>
-Date: Sat, 16 Sep 2017 13:10:06 -0700
+From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
+Date: Sun, 17 Sep 2017 12:46:20 +0100
 
-> From: Randy Dunlap <rdunlap@infradead.org>
+> Modify baycom driver to use the new parallel port device model.
 > 
-> Fix ASCII art in Documentation/networking/switchdev.txt:
-> 
-> Change non-ASCII "spaces" to ASCII spaces.
-> 
-> Change 2 erroneous '+' characters in ASCII art to '-' (at the '*'
-> characters below):
-> 
-> line 32:
->                      +--+----+----+----+-*--+----+---+  +-----+-----+
-> line 41:
->                      +--------------+---*------------+
-> 
-> Signed-off-by: Randy Dunlap <rdunlap@infradead.org>
+> Signed-off-by: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
 
-Applied, thanks Randy.
+Applied to net-next, thanks.
