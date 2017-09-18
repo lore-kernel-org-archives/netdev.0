@@ -1,41 +1,44 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] bnx2x: drop packets where gso_size is too big for
- hardware
-Date: Mon, 18 Sep 2017 07:42:55 -0700
-Message-ID: <1505745775.29839.16.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20170831054642.13721-1-dja@axtens.net>
-         <1504159341.15310.6.camel@edumazet-glaptop3.roam.corp.google.com>
-         <87fubkehyo.fsf@linkitivity.dja.id.au>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH RFC V1 net-next 1/6] net: Add a new socket option for a
+ future transmit time.
+Date: Mon, 18 Sep 2017 16:50:59 +0200
+Message-ID: <20170918145059.lxaxbsfqen43exam@localhost>
+References: <cover.1505719061.git.rcochran@linutronix.de>
+ <ad6e265b97b66bcdb19b815e6d9092ffbcb461ba.1505719061.git.rcochran@linutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tlfalcon@linux.vnet.ibm.com,
-        Yuval.Mintz@cavium.com, ariel.elior@cavium.com,
-        everest-linux-l2@cavium.com, jay.vosburgh@canonical.com
-To: Daniel Axtens <dja@axtens.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f170.google.com ([209.85.192.170]:46325 "EHLO
-        mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754600AbdIROnA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 10:43:00 -0400
-Received: by mail-pf0-f170.google.com with SMTP id e199so341787pfh.3
-        for <netdev@vger.kernel.org>; Mon, 18 Sep 2017 07:43:00 -0700 (PDT)
-In-Reply-To: <87fubkehyo.fsf@linkitivity.dja.id.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        intel-wired-lan@lists.osuosl.org,
+        Andre Guedes <andre.guedes@intel.com>,
+        Anna-Maria Gleixner <anna-maria@linutronix.de>,
+        David Miller <davem@davemloft.net>,
+        Henrik Austad <henrik@austad.us>,
+        Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>,
+        John Stultz <john.stultz@linaro.org>,
+        Thomas Gleixner <tglx@linutronix.de>,
+        Vinicius Costa Gomes <vinicius.gomes@intel.com>
+To: Richard Cochran <rcochran@linutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <ad6e265b97b66bcdb19b815e6d9092ffbcb461ba.1505719061.git.rcochran@linutronix.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2017-09-18 at 14:41 +1000, Daniel Axtens wrote:
-> Hi Eric,
-...
-> So I've been experimenting with this and reading through the core
-> networking code. If my understanding is correct, disabling GSO will
-> cause the packet to be segmented, but it will be segemented into
-> gso_size+header length packets. So in this case (~10kB gso_size) the
-> resultant packets will still be too big - although at least they don't
-> cause a crash in that case.
+On Mon, Sep 18, 2017 at 09:41:16AM +0200, Richard Cochran wrote:
+> diff --git a/arch/powerpc/include/uapi/asm/socket.h b/arch/powerpc/include/uapi/asm/socket.h
+> index 3c590c7c42c0..55718129ab06 100644
+> --- a/arch/powerpc/include/uapi/asm/socket.h
+> +++ b/arch/powerpc/include/uapi/asm/socket.h
+> @@ -17,4 +17,7 @@
+>  
+>  #include <asm-generic/socket.h>
+>  
+> +#define SO_TXTIME		54
+> +#define SCM_TXTIME		SO_TXTIME
+> +
+>  #endif	/* _ASM_POWERPC_SOCKET_H */
 
-You describe a bug in core networking stack then.
+This hunk breaks powerpc builds.  Will fix in the next round...
 
-When we perform software segmentation, we must do the check against
-route mtu, and drop the offending frame, and send an ICMP back
-eventually.
+Thanks,
+Richard
