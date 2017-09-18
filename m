@@ -1,45 +1,44 @@
-From: Nisar Sayed <Nisar.Sayed@microchip.com>
-Subject: [PATCH v4 net 3/3] lan78xx: Use default values loaded from EEPROM/OTP after reset
-Date: Tue, 19 Sep 2017 03:32:25 +0530
-Message-ID: <20170918220225.3767-4-Nisar.Sayed@microchip.com>
-References: <20170918220225.3767-1-Nisar.Sayed@microchip.com>
+From: "Singh, Krishneil K" <krishneil.k.singh@intel.com>
+Subject: RE: [Intel-wired-lan] [PATCH] fm10k: Use seq_putc() in
+        fm10k_dbg_desc_break()
+Date: Mon, 18 Sep 2017 16:59:52 +0000
+Message-ID: <EF50CC0C76A53A44BAD798C58E0A157E64AF65B8@ORSMSX103.amr.corp.intel.com>
+References: <4f8686c6-76cb-3d12-934e-6af67b6f084b@users.sourceforge.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <UNGLinuxDriver@microchip.com>, <netdev@vger.kernel.org>
-To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from esa5.microchip.iphmx.com ([216.71.150.166]:10711 "EHLO
-        esa5.microchip.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932746AbdIRQkA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 12:40:00 -0400
-In-Reply-To: <20170918220225.3767-1-Nisar.Sayed@microchip.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>
+To: SF Markus Elfring <elfring@users.sourceforge.net>,
+        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4f8686c6-76cb-3d12-934e-6af67b6f084b@users.sourceforge.net>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Use default value of auto duplex and auto speed values loaded
-from EEPROM/OTP after reset. The LAN78xx allows platform
-configurations to be loaded from EEPROM/OTP.
-Ex: When external phy is connected, the MAC can be configured to
-have correct auto speed, auto duplex, auto polarity configured
-from the EEPROM/OTP.
 
-Fixes: 55d7de9de6c3 ("Microchip's LAN7800 family USB 2/3 to 10/100/1000 Ethernet device driver")
-Signed-off-by: Nisar Sayed <Nisar.Sayed@microchip.com>
----
- drivers/net/usb/lan78xx.c | 1 -
- 1 file changed, 1 deletion(-)
+> -----Original Message-----
+> From: Intel-wired-lan [mailto:intel-wired-lan-bounces@osuosl.org] On Behalf
+> Of SF Markus Elfring
+> Sent: Monday, May 8, 2017 9:18 AM
+> To: intel-wired-lan@lists.osuosl.org; netdev@vger.kernel.org; Kirsher, Jeffrey T
+> <jeffrey.t.kirsher@intel.com>
+> Cc: kernel-janitors@vger.kernel.org; LKML <linux-kernel@vger.kernel.org>
+> Subject: [Intel-wired-lan] [PATCH] fm10k: Use seq_putc() in
+> fm10k_dbg_desc_break()
+> 
+> From: Markus Elfring <elfring@users.sourceforge.net>
+> Date: Mon, 8 May 2017 18:10:39 +0200
+> 
+> Two single characters should be put into a sequence.
+> Thus use the corresponding function "seq_putc".
+> 
+> This issue was detected by using the Coccinelle software.
+> 
+> Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+> ---
 
-diff --git a/drivers/net/usb/lan78xx.c b/drivers/net/usb/lan78xx.c
-index 3292f56ffe02..0fc3c19d5aef 100644
---- a/drivers/net/usb/lan78xx.c
-+++ b/drivers/net/usb/lan78xx.c
-@@ -2449,7 +2449,6 @@ static int lan78xx_reset(struct lan78xx_net *dev)
- 	/* LAN7801 only has RGMII mode */
- 	if (dev->chipid == ID_REV_CHIP_ID_7801_)
- 		buf &= ~MAC_CR_GMII_EN_;
--	buf |= MAC_CR_AUTO_DUPLEX_ | MAC_CR_AUTO_SPEED_;
- 	ret = lan78xx_write_reg(dev, MAC_CR, buf);
- 
- 	ret = lan78xx_read_reg(dev, MAC_TX, &buf);
--- 
-2.14.1
+Tested-by: Krishneil Singh  <krishneil.k.singh@intel.com>
