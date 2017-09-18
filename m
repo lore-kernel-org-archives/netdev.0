@@ -1,72 +1,62 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 09/12] net: dsa: b53: Wire-up EEE
-Date: Mon, 18 Sep 2017 14:41:25 -0700
-Message-ID: <20170918214128.27896-10-f.fainelli@gmail.com>
+Subject: [PATCH net-next 11/12] net: dsa: bcm_sf2: Use SF2_NUM_EGRESS_QUEUES for CFP
+Date: Mon, 18 Sep 2017 14:41:27 -0700
+Message-ID: <20170918214128.27896-12-f.fainelli@gmail.com>
 References: <20170918214128.27896-1-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, andrew@lunn.ch,
         vivien.didelot@savoirfairelinux.com,
         Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:33249 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751575AbdIRVmF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 17:42:05 -0400
-Received: by mail-wm0-f68.google.com with SMTP id m127so2144898wmm.0
-        for <netdev@vger.kernel.org>; Mon, 18 Sep 2017 14:42:05 -0700 (PDT)
+Received: from mail-wr0-f193.google.com ([209.85.128.193]:38633 "EHLO
+        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751575AbdIRVmM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 17:42:12 -0400
+Received: by mail-wr0-f193.google.com with SMTP id p37so1129996wrb.5
+        for <netdev@vger.kernel.org>; Mon, 18 Sep 2017 14:42:11 -0700 (PDT)
 In-Reply-To: <20170918214128.27896-1-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support for enabling and disabling EEE, as well as re-negotiating it in
-.adjust_link() and in .port_enable().
+The magic number 8 in 3 locations in bcm_sf2_cfp.c actually designates the
+number of switch port egress queues, so use that define instead of open-coding
+it.
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/dsa/b53/b53_common.c | 10 ++++++++++
- 1 file changed, 10 insertions(+)
+ drivers/net/dsa/bcm_sf2_cfp.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/dsa/b53/b53_common.c b/drivers/net/dsa/b53/b53_common.c
-index 172f66f0d83e..3f0e6cf5422f 100644
---- a/drivers/net/dsa/b53/b53_common.c
-+++ b/drivers/net/dsa/b53/b53_common.c
-@@ -523,6 +523,10 @@ static int b53_enable_port(struct dsa_switch *ds, int port,
+diff --git a/drivers/net/dsa/bcm_sf2_cfp.c b/drivers/net/dsa/bcm_sf2_cfp.c
+index 8a1da7e67707..94649e1481ec 100644
+--- a/drivers/net/dsa/bcm_sf2_cfp.c
++++ b/drivers/net/dsa/bcm_sf2_cfp.c
+@@ -144,7 +144,7 @@ static int bcm_sf2_cfp_rule_set(struct dsa_switch *ds, int port,
+ 	 * destination port is enabled and that we are within the
+ 	 * number of ports supported by the switch
+ 	 */
+-	port_num = fs->ring_cookie / 8;
++	port_num = fs->ring_cookie / SF2_NUM_EGRESS_QUEUES;
  
- 	b53_imp_vlan_setup(ds, cpu_port);
+ 	if (fs->ring_cookie == RX_CLS_FLOW_DISC ||
+ 	    !(BIT(port_num) & ds->enabled_port_mask) ||
+@@ -280,7 +280,7 @@ static int bcm_sf2_cfp_rule_set(struct dsa_switch *ds, int port,
+ 	 * We have a small oddity where Port 6 just does not have a
+ 	 * valid bit here (so we subtract by one).
+ 	 */
+-	queue_num = fs->ring_cookie % 8;
++	queue_num = fs->ring_cookie % SF2_NUM_EGRESS_QUEUES;
+ 	if (port_num >= 7)
+ 		port_num -= 1;
  
-+	/* If EEE was enabled, restore it */
-+	if (dev->ports[port].eee.eee_enabled)
-+		b53_eee_enable_set(ds, port, true);
-+
- 	return 0;
- }
+@@ -401,7 +401,7 @@ static int bcm_sf2_cfp_rule_get(struct bcm_sf2_priv *priv, int port,
+ 	/* There is no Port 6, so we compensate for that here */
+ 	if (nfc->fs.ring_cookie >= 6)
+ 		nfc->fs.ring_cookie++;
+-	nfc->fs.ring_cookie *= 8;
++	nfc->fs.ring_cookie *= SF2_NUM_EGRESS_QUEUES;
  
-@@ -879,6 +883,7 @@ static void b53_adjust_link(struct dsa_switch *ds, int port,
- 			    struct phy_device *phydev)
- {
- 	struct b53_device *dev = ds->priv;
-+	struct ethtool_eee *p = &dev->ports[port].eee;
- 	u8 rgmii_ctrl = 0, reg = 0, off;
- 
- 	if (!phy_is_pseudo_fixed_link(phydev))
-@@ -1000,6 +1005,9 @@ static void b53_adjust_link(struct dsa_switch *ds, int port,
- 			b53_write8(dev, B53_CTRL_PAGE, po_reg, gmii_po);
- 		}
- 	}
-+
-+	/* Re-negotiate EEE if it was enabled already */
-+	p->eee_enabled = b53_eee_init(ds, port, phydev);
- }
- 
- int b53_vlan_filtering(struct dsa_switch *ds, int port, bool vlan_filtering)
-@@ -1604,6 +1612,8 @@ static const struct dsa_switch_ops b53_switch_ops = {
- 	.adjust_link		= b53_adjust_link,
- 	.port_enable		= b53_enable_port,
- 	.port_disable		= b53_disable_port,
-+	.get_mac_eee		= b53_get_mac_eee,
-+	.set_mac_eee		= b53_set_mac_eee,
- 	.port_bridge_join	= b53_br_join,
- 	.port_bridge_leave	= b53_br_leave,
- 	.port_stp_state_set	= b53_br_set_stp_state,
+ 	/* Extract the destination queue */
+ 	queue_num = (reg >> NEW_TC_SHIFT) & NEW_TC_MASK;
 -- 
 2.9.3
