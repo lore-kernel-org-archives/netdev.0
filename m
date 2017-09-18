@@ -1,86 +1,68 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH net-next 2/7] kobject: copy env blob in one go
-Date: Mon, 18 Sep 2017 12:07:28 -0700
-Message-ID: <20170918190733.26272-3-edumazet@google.com>
-References: <20170918190733.26272-1-edumazet@google.com>
-Cc: netdev <netdev@vger.kernel.org>,
-        "Eric W . Biederman" <ebiederm@xmission.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>
-To: "David S . Miller" <davem@davemloft.net>
+From: Julian Wiedmann <jwi@linux.vnet.ibm.com>
+Subject: [PATCH net-next 0/9] s390/qeth: updates 2017-09-18
+Date: Mon, 18 Sep 2017 21:18:13 +0200
+Message-ID: <20170918191822.65142-1-jwi@linux.vnet.ibm.com>
+Cc: <netdev@vger.kernel.org>, <linux-s390@vger.kernel.org>,
+        Martin Schwidefsky <schwidefsky@de.ibm.com>,
+        Heiko Carstens <heiko.carstens@de.ibm.com>,
+        Stefan Raspl <raspl@linux.vnet.ibm.com>,
+        Ursula Braun <ubraun@linux.vnet.ibm.com>,
+        Julian Wiedmann <jwi@linux.vnet.ibm.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f180.google.com ([209.85.192.180]:44002 "EHLO
-        mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750990AbdIRTHn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 15:07:43 -0400
-Received: by mail-pf0-f180.google.com with SMTP id y29so716688pff.0
-        for <netdev@vger.kernel.org>; Mon, 18 Sep 2017 12:07:43 -0700 (PDT)
-In-Reply-To: <20170918190733.26272-1-edumazet@google.com>
+Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:37394 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1750964AbdIRTT1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 15:19:27 -0400
+Received: from pps.filterd (m0098416.ppops.net [127.0.0.1])
+        by mx0b-001b2d01.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v8IJJNE3046170
+        for <netdev@vger.kernel.org>; Mon, 18 Sep 2017 15:19:27 -0400
+Received: from e06smtp10.uk.ibm.com (e06smtp10.uk.ibm.com [195.75.94.106])
+        by mx0b-001b2d01.pphosted.com with ESMTP id 2d2kdkawx4-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Mon, 18 Sep 2017 15:19:26 -0400
+Received: from localhost
+        by e06smtp10.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <jwi@linux.vnet.ibm.com>;
+        Mon, 18 Sep 2017 20:19:20 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-No need to iterate over strings, just copy in one efficient memcpy() call.
+Hi Dave,
 
-Tested:
-time perf record "(for f in `seq 1 3000` ; do ip netns add tast$f; done)"
-[ perf record: Woken up 10 times to write data ]
-[ perf record: Captured and wrote 8.224 MB perf.data (~359301 samples) ]
+first batch of patches for 4.15. One larger item in there is Hans'
+addition of new configuration options for flexible packet processing
+('VNIC characteristics'). The patch descriptions have all the details.
+Please apply.
 
-real    0m52.554s  # instead of 1m7.492s
-user    0m0.309s
-sys 0m51.375s # instead of 1m6.875s
+Thanks,
+Julian
 
-     9.88%       ip  [kernel.kallsyms]  [k] netlink_broadcast_filtered
-     8.86%       ip  [kernel.kallsyms]  [k] string
-     7.37%       ip  [kernel.kallsyms]  [k] __ip6addrlbl_add
-     5.68%       ip  [kernel.kallsyms]  [k] netlink_has_listeners
-     5.52%       ip  [kernel.kallsyms]  [k] memcpy_erms
-     4.76%       ip  [kernel.kallsyms]  [k] __alloc_skb
-     4.54%       ip  [kernel.kallsyms]  [k] vsnprintf
-     3.94%       ip  [kernel.kallsyms]  [k] format_decode
-     3.80%       ip  [kernel.kallsyms]  [k] kmem_cache_alloc_node_trace
-     3.71%       ip  [kernel.kallsyms]  [k] kmem_cache_alloc_node
-     3.66%       ip  [kernel.kallsyms]  [k] kobject_uevent_env
-     3.38%       ip  [kernel.kallsyms]  [k] strlen
-     2.65%       ip  [kernel.kallsyms]  [k] _raw_spin_lock_irqsave
-     2.20%       ip  [kernel.kallsyms]  [k] kfree
-     2.09%       ip  [kernel.kallsyms]  [k] memset_erms
-     2.07%       ip  [kernel.kallsyms]  [k] ___cache_free
-     1.95%       ip  [kernel.kallsyms]  [k] kmem_cache_free
-     1.91%       ip  [kernel.kallsyms]  [k] _raw_read_lock
-     1.45%       ip  [kernel.kallsyms]  [k] ksize
-     1.25%       ip  [kernel.kallsyms]  [k] _raw_spin_unlock_irqrestore
-     1.00%       ip  [kernel.kallsyms]  [k] widen_string
+Hans Wippel (3):
+  s390/qeth: add basic VNICC support
+  s390/qeth: add VNICC enable/disable support
+  s390/qeth: add VNICC get/set timeout support
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- lib/kobject_uevent.c | 9 ++-------
- 1 file changed, 2 insertions(+), 7 deletions(-)
+Jens Remus (1):
+  s390/qeth: tidy up parameter naming for qeth_do_send_packet()
 
-diff --git a/lib/kobject_uevent.c b/lib/kobject_uevent.c
-index 4f48cc3b11d566e44c4115cc7716bc3b1cdf96df..cb5102d638452ea6c03d12e61ea8c55c9dd72675 100644
---- a/lib/kobject_uevent.c
-+++ b/lib/kobject_uevent.c
-@@ -317,18 +317,13 @@ static int kobject_uevent_net_broadcast(struct kobject *kobj,
- 		skb = alloc_skb(len + env->buflen, GFP_KERNEL);
- 		if (skb) {
- 			char *scratch;
--			int i;
- 
- 			/* add header */
- 			scratch = skb_put(skb, len);
- 			sprintf(scratch, "%s@%s", action_string, devpath);
- 
--			/* copy keys to our continuous event payload buffer */
--			for (i = 0; i < env->envp_idx; i++) {
--				len = strlen(env->envp[i]) + 1;
--				scratch = skb_put(skb, len);
--				strcpy(scratch, env->envp[i]);
--			}
-+			scratch = skb_put(skb, env->buflen);
-+			memcpy(scratch, env->buf, env->buflen);
- 
- 			NETLINK_CB(skb).dst_group = 1;
- 			retval = netlink_broadcast_filtered(uevent_sock, skb,
+Julian Wiedmann (5):
+  s390/qeth: remove unused code in qdio_establish_cq()
+  s390/qeth: don't take queue lock in send_packet_fast()
+  s390/qeth: simplify L3 sysfs group management
+  s390/qeth: translate SETVLAN/DELVLAN errors
+  s390/qeth: fold VLAN handling into l3_rebuild_skb()
+
+ drivers/s390/net/qeth_core.h      |  22 +-
+ drivers/s390/net/qeth_core_main.c |  23 +-
+ drivers/s390/net/qeth_core_mpc.c  |   4 +-
+ drivers/s390/net/qeth_core_mpc.h  |  72 ++++++
+ drivers/s390/net/qeth_l2.h        |   6 +
+ drivers/s390/net/qeth_l2_main.c   | 517 ++++++++++++++++++++++++++++++++++++--
+ drivers/s390/net/qeth_l2_sys.c    | 202 +++++++++++++--
+ drivers/s390/net/qeth_l3_main.c   |  31 +--
+ drivers/s390/net/qeth_l3_sys.c    |  45 +---
+ 9 files changed, 819 insertions(+), 103 deletions(-)
+
 -- 
-2.14.1.690.gbb1197296e-goog
+2.13.5
