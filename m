@@ -1,8 +1,8 @@
 From: Andrew Lunn <andrew@lunn.ch>
 Subject: Re: [PATCH RFC 6/6] Modify tag_ksz.c to support other KSZ switch
  drivers
-Date: Tue, 19 Sep 2017 00:42:36 +0200
-Message-ID: <20170918224236.GB29615@lunn.ch>
+Date: Tue, 19 Sep 2017 00:51:42 +0200
+Message-ID: <20170918225142.GC29615@lunn.ch>
 References: <93AF473E2DA327428DE3D46B72B1E9FD41121901@CHN-SV-EXMX02.mchp-main.com>
  <93AF473E2DA327428DE3D46B72B1E9FD41121A22@CHN-SV-EXMX02.mchp-main.com>
  <20170907214834.GT11248@lunn.ch>
@@ -22,68 +22,37 @@ In-Reply-To: <93AF473E2DA327428DE3D46B72B1E9FD41124D7C@CHN-SV-EXMX02.mchp-main.c
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 18, 2017 at 08:55:17PM +0000, Tristram.Ha@microchip.com wrote:
-> > > > This is ugly. We have a clean separation between a switch driver and a
-> > > > tag driver. Here you are mixing them together. Don't. Look at the
-> > > > mailing lists for what Florian and I suggested to Pavel. It will also
-> > > > solve your include file issue above.
-> > >
-> > > It seems to me all tag_*.c are hard-coded.  They do not have access to
-> > > the switch device and just use the bit definitions defined in the top to
-> > > do the job.
-> > >
-> > > This creates a problem for all KSZ switch devices as they have different
-> > > tail tag formats and lengths.  There will be potentially 4 additional
-> > > DSA_TAG_PROT_KSZ* just to handle them.  Extra files will be added
-> > > with about the same code.
-> > 
-> > Hi Tristram
-> > 
-> > Think about factoring out the common code into a shared functions.
-> >
-> 
-> I am a little unsure what you have in mind.  Can you elaborate?
+> In the old DSA implementation all the ports are partitioned into its own device
+> and the bridge joining them will do all the forwarding.  This is useful for quick
+> testing with some protocols like RSTP but it is probably useless for real
+> operation.
 
-You say you need 4 DSA_TAG_PROT_KSZ. I guess the code is nearly
-identical in them all? If i remember correctly, the two tag bytes are
-the other way around?
+It is a good minimal driver, to get something into the kernel. You can
+then add features to it.
 
-static int ksz8k_xmit( *skb, struct net_device *dev)
-{
-	uint8* tag;
+> The new switchdev model tries to use the switch hardware as much as
+> possible.  This offload_fwd_mark bit means the frame is forwarded by the
+> hardware switch, so the software bridge does not need to do it again.  Without
+> this bit there will be duplicated multicast frames coming out the ports if internal
+> forwarding is enabled.
 
-	tag = ksz_xmit(skb, dev)
-	if (!tag)
-	     return NULL;
+Correct. Once you switch driver is clever enough, you can enable
+offload_fwd_mark.
+ 
+> When RSTP is used the port can be put in blocked state and so the forwarding
+> will stop for that port.   Currently the switch driver will check that membership
+> to decide whether to set that bit.
 
-	tag[0] = 1 << p->dp->index;
-	tag[1] = 0;
+This i don't get. RSTP or STP just break loops. How does RSTP vs STP
+mean you need to set offload_fwd_mark differently?
 
-	return skb;
-}
+> The KSZ switches never have a built-in MAC controller, so it is always a support
+> issue for us.
 
-static int ksz9k_xmit( *skb, struct net_device *dev)
-{
-	uint8* tag;
+Not quite right. Once your drivers are in mainline, it becomes a
+support issue for the community, with you being part of the community.
+I've helped others fix this issue, one of the less well used Marvell
+Ethernet drivers had this problem, and i gave somebody pointers how to
+fix it.
 
-	tag = ksz_xmit(skb, dev)
-	if (!tag)
-	     return NULL;
-
-	tag[0] = 0;
-	tag[1] = 1 << p->dp->index;
-
-	return skb;
-}
-
-const struct dsa_device_ops ksz8k_netdev_ops = {
-       .xmit   = ksz8k_xmit,
-       .rcv    = ksz8k_rcv,
-};
-
-const struct dsa_device_ops ksz9k_netdev_ops = {
-       .xmit   = ksz9k_xmit,
-       .rcv    = ksz9k_rcv,
-};
-
-	Andrew
+    Andrew
