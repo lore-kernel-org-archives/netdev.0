@@ -1,73 +1,81 @@
-From: <Tristram.Ha@microchip.com>
-Subject: RE: [PATCH RFC 6/6] Modify tag_ksz.c to support other KSZ switch
- drivers
-Date: Mon, 18 Sep 2017 19:38:03 +0000
-Message-ID: <93AF473E2DA327428DE3D46B72B1E9FD41124D2E@CHN-SV-EXMX02.mchp-main.com>
-References: <93AF473E2DA327428DE3D46B72B1E9FD41121901@CHN-SV-EXMX02.mchp-main.com>
- <93AF473E2DA327428DE3D46B72B1E9FD41121A22@CHN-SV-EXMX02.mchp-main.com>
- <20170907214834.GT11248@lunn.ch>
+From: Ville =?iso-8859-1?Q?Syrj=E4l=E4?= <ville.syrjala@linux.intel.com>
+Subject: Re: [regression v4.11] 617f01211baf ("8139too: use
+ napi_complete_done()")
+Date: Mon, 18 Sep 2017 22:46:30 +0300
+Message-ID: <20170918194630.GH4914@intel.com>
+References: <20170407181754.GL30290@intel.com>
+ <1491590329.10124.86.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20170410121102.GM30290@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <muvarov@gmail.com>, <pavel@ucw.cz>,
-        <nathan.leigh.conrad@gmail.com>,
-        <vivien.didelot@savoirfairelinux.com>, <f.fainelli@gmail.com>,
-        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-        <Woojung.Huh@microchip.com>
-To: <andrew@lunn.ch>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: Eric Dumazet <edumazet@google.com>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170907214834.GT11248@lunn.ch>
-Content-Language: en-US
+Content-Disposition: inline
+In-Reply-To: <20170410121102.GM30290@intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Sorry for the late response.
-
-> > diff --git a/net/dsa/tag_ksz.c b/net/dsa/tag_ksz.c index 010ca0a..d5faf14
-> 100644
-> > --- a/net/dsa/tag_ksz.c
-> > +++ b/net/dsa/tag_ksz.c
-> >  static struct sk_buff *ksz_xmit(struct sk_buff *skb, struct net_device
-> *dev)  {
-> >  	struct dsa_slave_priv *p = netdev_priv(dev);
-> > +	struct dsa_switch *ds = p->dp->ds;
-> > +	struct ksz_device *swdev = ds->priv;
-> >  	struct sk_buff *nskb;
-> > +	int len;
-> >  	int padlen;
-> > -	u8 *tag;
-> >
-> >  	padlen = (skb->len >= ETH_ZLEN) ? 0 : ETH_ZLEN - skb->len;
-> >
-> > -	if (skb_tailroom(skb) >= padlen + KSZ_INGRESS_TAG_LEN) {
-> > +	len = swdev->dev_ops->get_tx_len(swdev);
+On Mon, Apr 10, 2017 at 03:11:02PM +0300, Ville Syrjälä wrote:
+> On Fri, Apr 07, 2017 at 11:38:49AM -0700, Eric Dumazet wrote:
+> > On Fri, 2017-04-07 at 21:17 +0300, Ville Syrjälä wrote:
+> > > Hi,
+> > > 
+> > > My old P3 laptop started to die on me in the middle of larger compile
+> > > jobs (using distcc) after v4.11-rc<something>. I bisected the problem
+> > > to 617f01211baf ("8139too: use napi_complete_done()").
+> > > 
+> > > Unfortunately I wasn't able to capture a full oops as the machine doesn't
+> > > have serial and ramoops failed me. I did get one partial oops on vgacon
+> > > which showed rtl8139_poll() being involved (EIP was around
+> > > _raw_spin_unlock_irqrestore() supposedly), so seems to agree with my
+> > > bisect result.
+> > > 
+> > > So maybe some kind of nasty thing going between the hard irq and
+> > > softirq? Perhaps UP related? I tried to stare at the locking around
+> > > rtl8139_poll() for a while but it looked mostly sane to me.
+> > > 
+> > 
+> > Thanks a lot for the detective work, I am so sorry for this !
+> > 
+> > Could you try the following patch ?
+> > 
+> > I do not really see what could be wrong, the code should run just fine
+> > on UP.
+> > 
+> > Thanks.
+> > 
+> > diff --git a/drivers/net/ethernet/realtek/8139too.c b/drivers/net/ethernet/realtek/8139too.c
+> > index 89631753e79962d91456d93b71929af768917da1..cd2dbec331dd796f5296cd378561b3443f231673 100644
+> > --- a/drivers/net/ethernet/realtek/8139too.c
+> > +++ b/drivers/net/ethernet/realtek/8139too.c
+> > @@ -2135,11 +2135,12 @@ static int rtl8139_poll(struct napi_struct *napi, int budget)
+> >  	if (likely(RTL_R16(IntrStatus) & RxAckBits))
+> >  		work_done += rtl8139_rx(dev, tp, budget);
+> >  
+> > -	if (work_done < budget && napi_complete_done(napi, work_done)) {
+> > +	if (work_done < budget) {
+> >  		unsigned long flags;
+> >  
+> >  		spin_lock_irqsave(&tp->lock, flags);
+> > -		RTL_W16_F(IntrMask, rtl8139_intr_mask);
+> > +		if (napi_complete_done(napi, work_done))
+> > +			RTL_W16_F(IntrMask, rtl8139_intr_mask);
+> >  		spin_unlock_irqrestore(&tp->lock, flags);
+> >  	}
+> >  	spin_unlock(&tp->rx_lock);
+> > 
+> > 
 > 
-> This is ugly. We have a clean separation between a switch driver and a
-> tag driver. Here you are mixing them together. Don't. Look at the
-> mailing lists for what Florian and I suggested to Pavel. It will also
-> solve your include file issue above.
+> Yep, that patch does appear to make it stable again.
+> 
+> Tested-by: Ville Syrjälä <ville.syrjala@linux.intel.com>
 
-It seems to me all tag_*.c are hard-coded.  They do not have access to
-the switch device and just use the bit definitions defined in the top to
-do the job.
+And five months later I'm still waiting for this patch to land...
 
-This creates a problem for all KSZ switch devices as they have different
-tail tag formats and lengths.  There will be potentially 4 additional
-DSA_TAG_PROT_KSZ* just to handle them.  Extra files will be added
-with about the same code.
-
-The KSZ9477 driver has its own problem as the tail tag length is dynamic
-and not fixed.  Right now the function feature that affects this behavior is
-not turned on and so the problem does not happen.
-
-But the most important thing is how do we support the offload_fwd_mark
-bit in skb when the only place that has access to skb does not have access to
-the switch hardware?  I thought this bit is important for the new switchdev model.
-
-A little out-of-topic is the MAC driver may have problem receiving the frame if
-the tail tag length is too big.  Most of the MAC drivers have big enough receive
-buffer or require 64-bytes multiple so there are extra room to accommodate
-the big tail tag at the end of the frame.  Still some MAC drivers use exactly 1500
-MTU and some additional length and may run into this problem.  Currently the
-Atmel Cadence MAC driver has this potential problem when certain conditions
-are met.
+-- 
+Ville Syrjälä
+Intel OTC
