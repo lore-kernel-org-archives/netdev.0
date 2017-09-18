@@ -1,57 +1,44 @@
-From: Duan Jiong <djduanjiong@gmail.com>
-Subject: [PATCH net-next] net: remove useless comments in dst.c
-Date: Mon, 18 Sep 2017 14:00:23 +0800
-Message-ID: <CALttK1QuA3tSdfSUPoYtoQV5reJdsVOicLX_9iN1TkwY6De6HQ@mail.gmail.com>
+From: Michal Hocko <mhocko@kernel.org>
+Subject: Re: scheduling while atomic from vmci_transport_recv_stream_cb in
+ 3.16 kernels
+Date: Mon, 18 Sep 2017 08:11:37 +0200
+Message-ID: <20170918061137.7o3ogbce6ap3jn3o@dhcp22.suse.cz>
+References: <20170912090852.qshtrioffwexkslw@dhcp22.suse.cz>
+ <B8A42FAB-9E16-4943-98F3-86FC8F195069@vmware.com>
+ <20170913151939.gf7n6rvvjtz47tz7@dhcp22.suse.cz>
+ <AA27A6E6-2376-437A-9508-FD9C2427A465@vmware.com>
+ <20170914085959.nkiefbzupwmknncy@dhcp22.suse.cz>
+ <1505495535.2825.41.camel@decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: weiwan@google.com
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f66.google.com ([209.85.215.66]:32978 "EHLO
-        mail-lf0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750710AbdIRGAZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 02:00:25 -0400
-Received: by mail-lf0-f66.google.com with SMTP id y15so3948730lfd.0
-        for <netdev@vger.kernel.org>; Sun, 17 Sep 2017 23:00:25 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Jorgen S. Hansen" <jhansen@vmware.com>,
+        Aditya Sarwade <asarwade@vmware.com>,
+        Thomas Hellstrom <thellstrom@vmware.com>,
+        LKML <linux-kernel@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Masik Petr <Petr.Masik@nudz.cz>,
+        Sasha Levin <alexander.levin@verizon.com>,
+        Stable tree <stable@vger.kernel.org>
+To: Ben Hutchings <ben@decadent.org.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1505495535.2825.41.camel@decadent.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-dst gc related code has been removed in commit
-5b7c9a8ff828, so those comments are no longer
-useful.
+On Fri 15-09-17 18:12:15, Ben Hutchings wrote:
+> On Thu, 2017-09-14 at 10:59 +0200, Michal Hocko wrote:
+> > On Wed 13-09-17 18:58:13, Jorgen S. Hansen wrote:
+> > [...]
+> > > The patch series look good to me.
+> > 
+> > Thanks for double checking. Ben, could you merge this to 3.16 stable
+> > branch, please?
+> 
+> I have a long list of requests to work through, but I will get to this
+> eventually.
 
-Signed-off-by: Duan Jiong <jduan@fiberhome.com>
----
- net/core/dst.c | 17 -----------------
- 1 file changed, 17 deletions(-)
-
-diff --git a/net/core/dst.c b/net/core/dst.c
-index a6c47da..a710d39 100644
---- a/net/core/dst.c
-+++ b/net/core/dst.c
-@@ -25,23 +25,6 @@
- #include <net/dst.h>
- #include <net/dst_metadata.h>
-
--/*
-- * Theory of operations:
-- * 1) We use a list, protected by a spinlock, to add
-- *    new entries from both BH and non-BH context.
-- * 2) In order to keep spinlock held for a small delay,
-- *    we use a second list where are stored long lived
-- *    entries, that are handled by the garbage collect thread
-- *    fired by a workqueue.
-- * 3) This list is guarded by a mutex,
-- *    so that the gc_task and dst_dev_event() can be synchronized.
-- */
--
--/*
-- * We want to keep lock & list close together
-- * to dirty as few cache lines as possible in __dst_free().
-- * As this is not a very strong hint, we dont force an alignment on SMP.
-- */
- int dst_discard_out(struct net *net, struct sock *sk, struct sk_buff *skb)
- {
-  kfree_skb(skb);
+Thanks!
 -- 
-2.9.3
+Michal Hocko
+SUSE Labs
