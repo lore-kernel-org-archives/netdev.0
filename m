@@ -1,58 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ip6_tunnel: do not allow loading ip6_tunnel if
- ipv6 is disabled in cmdline
-Date: Mon, 18 Sep 2017 16:35:14 -0700 (PDT)
-Message-ID: <20170918.163514.1255529758008159884.davem@davemloft.net>
-References: <107ac334855fea1e6492b2e523b788209e54ec2f.1505462312.git.lucien.xin@gmail.com>
+Subject: Re: [PATCH net] net/sched: cls_matchall: fix crash when used with
+ classful qdisc
+Date: Mon, 18 Sep 2017 16:38:07 -0700 (PDT)
+Message-ID: <20170918.163807.719055481647996620.davem@davemloft.net>
+References: <b930159de5531a4d216a1cd2c2ef03aa41f421f9.1505562794.git.dcaratti@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xeb@mail.ru, jbenc@redhat.com
-To: lucien.xin@gmail.com
+Cc: jiri@resnulli.us, jhs@mojatatu.com, jbenc@redhat.com,
+        netdev@vger.kernel.org
+To: dcaratti@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:58500 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:58622 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750791AbdIRXfP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 19:35:15 -0400
-In-Reply-To: <107ac334855fea1e6492b2e523b788209e54ec2f.1505462312.git.lucien.xin@gmail.com>
+        with ESMTP id S1750791AbdIRXiI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 19:38:08 -0400
+In-Reply-To: <b930159de5531a4d216a1cd2c2ef03aa41f421f9.1505562794.git.dcaratti@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Xin Long <lucien.xin@gmail.com>
-Date: Fri, 15 Sep 2017 15:58:33 +0800
+From: Davide Caratti <dcaratti@redhat.com>
+Date: Sat, 16 Sep 2017 14:02:21 +0200
 
-> If ipv6 has been disabled from cmdline since kernel started, it makes
-> no sense to allow users to create any ip6 tunnel. Otherwise, it could
-> some potential problem.
+> this script, edited from Linux Advanced Routing and Traffic Control guide
 > 
-> Jianlin found a kernel crash caused by this in ip6_gre when he set
-> ipv6.disable=1 in grub:
+> tc q a dev en0 root handle 1: htb default a
+> tc c a dev en0 parent 1:  classid 1:1 htb rate 6mbit burst 15k
+> tc c a dev en0 parent 1:1 classid 1:a htb rate 5mbit ceil 6mbit burst 15k
+> tc c a dev en0 parent 1:1 classid 1:b htb rate 1mbit ceil 6mbit burst 15k
+> tc f a dev en0 parent 1:0 prio 1 $clsname $clsargs classid 1:b
+> ping $address -c1
+> tc -s c s dev en0
 > 
-> [  209.588865] Unable to handle kernel paging request for data at address 0x00000080
-> [  209.588872] Faulting instruction address: 0xc000000000a3aa6c
-> [  209.588879] Oops: Kernel access of bad area, sig: 11 [#1]
-> [  209.589062] NIP [c000000000a3aa6c] fib_rules_lookup+0x4c/0x260
-> [  209.589071] LR [c000000000b9ad90] fib6_rule_lookup+0x50/0xb0
-> [  209.589076] Call Trace:
-> [  209.589097] fib6_rule_lookup+0x50/0xb0
-> [  209.589106] rt6_lookup+0xc4/0x110
-> [  209.589116] ip6gre_tnl_link_config+0x214/0x2f0 [ip6_gre]
-> [  209.589125] ip6gre_newlink+0x138/0x3a0 [ip6_gre]
-> [  209.589134] rtnl_newlink+0x798/0xb80
-> [  209.589142] rtnetlink_rcv_msg+0xec/0x390
-> [  209.589151] netlink_rcv_skb+0x138/0x150
-> [  209.589159] rtnetlink_rcv+0x48/0x70
-> [  209.589169] netlink_unicast+0x538/0x640
-> [  209.589175] netlink_sendmsg+0x40c/0x480
-> [  209.589184] ___sys_sendmsg+0x384/0x4e0
-> [  209.589194] SyS_sendmsg+0xd4/0x140
-> [  209.589201] SyS_socketcall+0x3e0/0x4f0
-> [  209.589209] system_call+0x38/0xe0
+> classifies traffic to 1:b or 1:a, depending on whether the packet matches
+> or not the pattern $clsargs of filter $clsname. However, when $clsname is
+> 'matchall', a systematic crash can be observed in htb_classify(). HTB and
+> classful qdiscs don't assign initial value to struct tcf_result, but then
+> they expect it to contain valid values after filters have been run. Thus,
+> current 'matchall' ignores the TCA_MATCHALL_CLASSID attribute, configured
+> by user, and makes HTB (and classful qdiscs) dereference random pointers.
 > 
-> This patch is to return -EOPNOTSUPP in ip6_tunnel_init if ipv6 has been
-> disabled from cmdline.
+> By assigning head->res to *res in mall_classify(), before the actions are
+> invoked, we fix this crash and enable TCA_MATCHALL_CLASSID functionality,
+> that had no effect on 'matchall' classifier since its first introduction.
 > 
-> Reported-by: Jianlin Shi <jishi@redhat.com>
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> BugLink: https://bugzilla.redhat.com/show_bug.cgi?id=1460213
+> Reported-by: Jiri Benc <jbenc@redhat.com>
+> Fixes: b87f7936a932 ("net/sched: introduce Match-all classifier")
+> Signed-off-by: Davide Caratti <dcaratti@redhat.com>
 
 Applied and queued up for -stable, thanks.
