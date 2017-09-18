@@ -1,7 +1,7 @@
 From: Yonghong Song <yhs@fb.com>
-Subject: [PATCH net-next v3 4/4] bpf: add a test case for helper bpf_perf_prog_read_value
-Date: Mon, 18 Sep 2017 16:05:53 -0700
-Message-ID: <20170918230553.1624357-5-yhs@fb.com>
+Subject: [PATCH net-next v3 3/4] bpf: add helper bpf_perf_prog_read_value
+Date: Mon, 18 Sep 2017 16:05:52 -0700
+Message-ID: <20170918230553.1624357-4-yhs@fb.com>
 References: <20170918230553.1624357-1-yhs@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,156 +9,136 @@ Cc: <kernel-team@fb.com>
 To: <peterz@infradead.org>, <rostedt@goodmis.org>, <ast@fb.com>,
         <daniel@iogearbox.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:37435 "EHLO
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:37433 "EHLO
         mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751301AbdIRXFz (ORCPT
+        by vger.kernel.org with ESMTP id S1751300AbdIRXFz (ORCPT
         <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 19:05:55 -0400
 Received: from pps.filterd (m0109332.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v8IN3fXc031772
+        by mx0a-00082601.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v8IN3fXb031772
         for <netdev@vger.kernel.org>; Mon, 18 Sep 2017 16:05:55 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 2d2jfw1m8g-4
+        by mx0a-00082601.pphosted.com with ESMTP id 2d2jfw1m8g-3
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
         for <netdev@vger.kernel.org>; Mon, 18 Sep 2017 16:05:55 -0700
 In-Reply-To: <20170918230553.1624357-1-yhs@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The bpf sample program trace_event is enhanced to use the new
-helper to print out enabled/running time.
+This patch adds helper bpf_perf_prog_read_cvalue for perf event based bpf
+programs, to read event counter and enabled/running time.
+The enabled/running time is accumulated since the perf event open.
+
+The typical use case for perf event based bpf program is to attach itself
+to a single event. In such cases, if it is desirable to get scaling factor
+between two bpf invocations, users can can save the time values in a map,
+and use the value from the map and the current value to calculate
+the scaling factor.
 
 Signed-off-by: Yonghong Song <yhs@fb.com>
 ---
- samples/bpf/trace_event_kern.c            | 10 ++++++++++
- samples/bpf/trace_event_user.c            | 13 ++++++++-----
- tools/include/uapi/linux/bpf.h            |  3 ++-
- tools/testing/selftests/bpf/bpf_helpers.h |  3 +++
- 4 files changed, 23 insertions(+), 6 deletions(-)
+ include/linux/perf_event.h |  1 +
+ include/uapi/linux/bpf.h   |  8 ++++++++
+ kernel/events/core.c       |  1 +
+ kernel/trace/bpf_trace.c   | 23 +++++++++++++++++++++++
+ 4 files changed, 33 insertions(+)
 
-diff --git a/samples/bpf/trace_event_kern.c b/samples/bpf/trace_event_kern.c
-index 41b6115..a77a583d 100644
---- a/samples/bpf/trace_event_kern.c
-+++ b/samples/bpf/trace_event_kern.c
-@@ -37,10 +37,14 @@ struct bpf_map_def SEC("maps") stackmap = {
- SEC("perf_event")
- int bpf_prog1(struct bpf_perf_event_data *ctx)
- {
-+	char time_fmt1[] = "Time Enabled: %llu, Time Running: %llu";
-+	char time_fmt2[] = "Get Time Failed, ErrCode: %d";
- 	char fmt[] = "CPU-%d period %lld ip %llx";
- 	u32 cpu = bpf_get_smp_processor_id();
-+	struct bpf_perf_event_value value_buf;
- 	struct key_t key;
- 	u64 *val, one = 1;
-+	int ret;
+diff --git a/include/linux/perf_event.h b/include/linux/perf_event.h
+index 13f08ee..5ff3055 100644
+--- a/include/linux/perf_event.h
++++ b/include/linux/perf_event.h
+@@ -806,6 +806,7 @@ struct perf_output_handle {
+ struct bpf_perf_event_data_kern {
+ 	struct pt_regs *regs;
+ 	struct perf_sample_data *data;
++	struct perf_event *event;
+ };
  
- 	if (ctx->sample_period < 10000)
- 		/* ignore warmup */
-@@ -54,6 +58,12 @@ int bpf_prog1(struct bpf_perf_event_data *ctx)
- 		return 0;
- 	}
- 
-+	ret = bpf_perf_prog_read_value(ctx, (void *)&value_buf, sizeof(struct bpf_perf_event_value));
-+	if (!ret)
-+	  bpf_trace_printk(time_fmt1, sizeof(time_fmt1), value_buf.enabled, value_buf.running);
-+	else
-+	  bpf_trace_printk(time_fmt2, sizeof(time_fmt2), ret);
-+
- 	val = bpf_map_lookup_elem(&counts, &key);
- 	if (val)
- 		(*val)++;
-diff --git a/samples/bpf/trace_event_user.c b/samples/bpf/trace_event_user.c
-index 7bd827b..bf4f1b6 100644
---- a/samples/bpf/trace_event_user.c
-+++ b/samples/bpf/trace_event_user.c
-@@ -127,6 +127,9 @@ static void test_perf_event_all_cpu(struct perf_event_attr *attr)
- 	int *pmu_fd = malloc(nr_cpus * sizeof(int));
- 	int i, error = 0;
- 
-+	/* system wide perf event, no need to inherit */
-+	attr->inherit = 0;
-+
- 	/* open perf_event on all cpus */
- 	for (i = 0; i < nr_cpus; i++) {
- 		pmu_fd[i] = sys_perf_event_open(attr, -1, i, -1, 0);
-@@ -154,6 +157,11 @@ static void test_perf_event_task(struct perf_event_attr *attr)
- {
- 	int pmu_fd;
- 
-+	/* per task perf event, enable inherit so the "dd ..." command can be traced properly.
-+	 * Enabling inherit will cause bpf_perf_prog_read_time helper failure.
-+	 */
-+	attr->inherit = 1;
-+
- 	/* open task bound event */
- 	pmu_fd = sys_perf_event_open(attr, 0, -1, -1, 0);
- 	if (pmu_fd < 0) {
-@@ -175,14 +183,12 @@ static void test_bpf_perf_event(void)
- 		.freq = 1,
- 		.type = PERF_TYPE_HARDWARE,
- 		.config = PERF_COUNT_HW_CPU_CYCLES,
--		.inherit = 1,
- 	};
- 	struct perf_event_attr attr_type_sw = {
- 		.sample_freq = SAMPLE_FREQ,
- 		.freq = 1,
- 		.type = PERF_TYPE_SOFTWARE,
- 		.config = PERF_COUNT_SW_CPU_CLOCK,
--		.inherit = 1,
- 	};
- 	struct perf_event_attr attr_hw_cache_l1d = {
- 		.sample_freq = SAMPLE_FREQ,
-@@ -192,7 +198,6 @@ static void test_bpf_perf_event(void)
- 			PERF_COUNT_HW_CACHE_L1D |
- 			(PERF_COUNT_HW_CACHE_OP_READ << 8) |
- 			(PERF_COUNT_HW_CACHE_RESULT_ACCESS << 16),
--		.inherit = 1,
- 	};
- 	struct perf_event_attr attr_hw_cache_branch_miss = {
- 		.sample_freq = SAMPLE_FREQ,
-@@ -202,7 +207,6 @@ static void test_bpf_perf_event(void)
- 			PERF_COUNT_HW_CACHE_BPU |
- 			(PERF_COUNT_HW_CACHE_OP_READ << 8) |
- 			(PERF_COUNT_HW_CACHE_RESULT_MISS << 16),
--		.inherit = 1,
- 	};
- 	struct perf_event_attr attr_type_raw = {
- 		.sample_freq = SAMPLE_FREQ,
-@@ -210,7 +214,6 @@ static void test_bpf_perf_event(void)
- 		.type = PERF_TYPE_RAW,
- 		/* Intel Instruction Retired */
- 		.config = 0xc0,
--		.inherit = 1,
- 	};
- 
- 	printf("Test HW_CPU_CYCLES\n");
-diff --git a/tools/include/uapi/linux/bpf.h b/tools/include/uapi/linux/bpf.h
-index 79eb529..fa1be2c 100644
---- a/tools/include/uapi/linux/bpf.h
-+++ b/tools/include/uapi/linux/bpf.h
-@@ -633,7 +633,8 @@ union bpf_attr {
- 	FN(redirect_map),		\
+ #ifdef CONFIG_CGROUP_PERF
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index 2c68b9e..ba77022 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -590,6 +590,13 @@ union bpf_attr {
+  *     @buf: buf to fill
+  *     @buf_size: size of the buf
+  *     Return: 0 on success or negative error code
++ *
++ * int bpf_perf_prog_read_value(ctx, buf, buf_size)
++ *     read perf prog attached perf event counter and enabled/running time
++ *     @ctx: pointer to ctx
++ *     @buf: buf to fill
++ *     @buf_size: size of the buf
++ *     Return : 0 on success or negative error code
+  */
+ #define __BPF_FUNC_MAPPER(FN)		\
+ 	FN(unspec),			\
+@@ -647,6 +654,7 @@ union bpf_attr {
  	FN(sk_redirect_map),		\
  	FN(sock_map_update),		\
--	FN(perf_event_read_value),
-+	FN(perf_event_read_value),		\
-+	FN(perf_prog_read_value),
+ 	FN(perf_event_read_value),		\
++	FN(perf_prog_read_value),		\
  
  /* integer value in 'imm' field of BPF_CALL instruction selects which helper
   * function eBPF program intends to call
-diff --git a/tools/testing/selftests/bpf/bpf_helpers.h b/tools/testing/selftests/bpf/bpf_helpers.h
-index c866682..892d785 100644
---- a/tools/testing/selftests/bpf/bpf_helpers.h
-+++ b/tools/testing/selftests/bpf/bpf_helpers.h
-@@ -73,6 +73,9 @@ static int (*bpf_sock_map_update)(void *map, void *key, void *value,
- static int (*bpf_perf_event_read_value)(void *map, unsigned long long flags,
- 				       void *buf, unsigned int buf_size) =
- 	(void *) BPF_FUNC_perf_event_read_value;
-+static int (*bpf_perf_prog_read_value)(void *ctx, void *buf,
-+				      unsigned int buf_size) =
-+	(void *) BPF_FUNC_perf_prog_read_value;
+diff --git a/kernel/events/core.c b/kernel/events/core.c
+index 2d5bbe5..d039086 100644
+--- a/kernel/events/core.c
++++ b/kernel/events/core.c
+@@ -8081,6 +8081,7 @@ static void bpf_overflow_handler(struct perf_event *event,
+ 	struct bpf_perf_event_data_kern ctx = {
+ 		.data = data,
+ 		.regs = regs,
++		.event = event,
+ 	};
+ 	int ret = 0;
  
+diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
+index 39ce5d9..596b5c9 100644
+--- a/kernel/trace/bpf_trace.c
++++ b/kernel/trace/bpf_trace.c
+@@ -603,6 +603,18 @@ BPF_CALL_3(bpf_get_stackid_tp, void *, tp_buff, struct bpf_map *, map,
+ 			       flags, 0, 0);
+ }
  
- /* llvm builtin functions that eBPF C program may use to
++BPF_CALL_3(bpf_perf_prog_read_value_tp, void *, ctx, struct bpf_perf_event_value *,
++	buf, u32, size)
++{
++	struct bpf_perf_event_data_kern *kctx = (struct bpf_perf_event_data_kern *)ctx;
++
++	if (size != sizeof(struct bpf_perf_event_value))
++		return -EINVAL;
++
++	return perf_event_read_local(kctx->event, &buf->counter, &buf->enabled,
++				     &buf->running);
++}
++
+ static const struct bpf_func_proto bpf_get_stackid_proto_tp = {
+ 	.func		= bpf_get_stackid_tp,
+ 	.gpl_only	= true,
+@@ -612,6 +624,15 @@ static const struct bpf_func_proto bpf_get_stackid_proto_tp = {
+ 	.arg3_type	= ARG_ANYTHING,
+ };
+ 
++static const struct bpf_func_proto bpf_perf_prog_read_value_proto_tp = {
++         .func           = bpf_perf_prog_read_value_tp,
++         .gpl_only       = true,
++         .ret_type       = RET_INTEGER,
++         .arg1_type      = ARG_PTR_TO_CTX,
++         .arg2_type      = ARG_PTR_TO_UNINIT_MEM,
++         .arg3_type      = ARG_CONST_SIZE,
++};
++
+ static const struct bpf_func_proto *tp_prog_func_proto(enum bpf_func_id func_id)
+ {
+ 	switch (func_id) {
+@@ -619,6 +640,8 @@ static const struct bpf_func_proto *tp_prog_func_proto(enum bpf_func_id func_id)
+ 		return &bpf_perf_event_output_proto_tp;
+ 	case BPF_FUNC_get_stackid:
+ 		return &bpf_get_stackid_proto_tp;
++	case BPF_FUNC_perf_prog_read_value:
++		return &bpf_perf_prog_read_value_proto_tp;
+ 	default:
+ 		return tracing_func_proto(func_id);
+ 	}
 -- 
 2.9.5
