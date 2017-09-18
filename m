@@ -1,68 +1,38 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH 16/16] thunderbolt: Add support for networking over
- Thunderbolt cable
-Date: Tue, 19 Sep 2017 01:21:44 +0200
-Message-ID: <20170918232144.GD29615@lunn.ch>
-References: <20170918153049.44185-1-mika.westerberg@linux.intel.com>
- <20170918153049.44185-17-mika.westerberg@linux.intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 00/12] net: dsa: b53/bcm_sf2 cleanups
+Date: Mon, 18 Sep 2017 16:24:21 -0700 (PDT)
+Message-ID: <20170918.162421.393653763418019686.davem@davemloft.net>
+References: <20170918214128.27896-1-f.fainelli@gmail.com>
+        <24876029-5ebb-075e-3f02-50cf0856474f@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        "David S . Miller" <davem@davemloft.net>,
-        Andreas Noever <andreas.noever@gmail.com>,
-        Michael Jamet <michael.jamet@intel.com>,
-        Yehezkel Bernat <yehezkel.bernat@intel.com>,
-        Amir Levy <amir.jer.levy@intel.com>,
-        Mario.Limonciello@dell.com, Lukas Wunner <lukas@wunner.de>,
-        Andy Shevchenko <andriy.shevchenko@linux.intel.com>,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Mika Westerberg <mika.westerberg@linux.intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170918153049.44185-17-mika.westerberg@linux.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, andrew@lunn.ch,
+        vivien.didelot@savoirfairelinux.com
+To: f.fainelli@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:58216 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750982AbdIRXYZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 19:24:25 -0400
+In-Reply-To: <24876029-5ebb-075e-3f02-50cf0856474f@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 18, 2017 at 06:30:49PM +0300, Mika Westerberg wrote:
-> From: Amir Levy <amir.jer.levy@intel.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Mon, 18 Sep 2017 14:46:48 -0700
+
+> On 09/18/2017 02:41 PM, Florian Fainelli wrote:
+>> Hi all,
+>> 
+>> This patch series is a first pass set of clean-ups to reduce the number of LOCs
+>> between b53 and bcm_sf2 and sharing as many functions as possible.
+>> 
+>> There is a number of additional cleanups queued up locally that require more
+>> thorough testing.
 > 
-> ThunderboltIP is a protocol created by Apple to tunnel IP/ethernet
-> traffic over a Thunderbolt cable. The protocol consists of configuration
-> phase where each side sends ThunderboltIP login packets (the protocol is
-> determined by UUID in the XDomain packet header) over the configuration
-> channel. Once both sides get positive acknowledgment to their login
-> packet, they configure high-speed DMA path accordingly. This DMA path is
-> then used to transmit and receive networking traffic.
-> 
-> This patch creates a virtual ethernet interface the host software can
-> use in the same way as any other networking interface. Once the
-> interface is brought up successfully network packets get tunneled over
-> the Thunderbolt cable to the remote host and back.
-> 
-> The connection is terminated by sending a ThunderboltIP logout packet
-> over the configuration channel. We do this when the network interface is
-> brought down by user or the driver is unloaded.
-> 
-> Signed-off-by: Amir Levy <amir.jer.levy@intel.com>
-> Signed-off-by: Michael Jamet <michael.jamet@intel.com>
-> Signed-off-by: Mika Westerberg <mika.westerberg@linux.intel.com>
-> Reviewed-by: Yehezkel Bernat <yehezkel.bernat@intel.com>
-> ---
->  Documentation/admin-guide/thunderbolt.rst |   24 +
->  drivers/thunderbolt/Kconfig               |   12 +
->  drivers/thunderbolt/Makefile              |    3 +
->  drivers/thunderbolt/net.c                 | 1392 +++++++++++++++++++++++++++++
->  4 files changed, 1431 insertions(+)
->  create mode 100644 drivers/thunderbolt/net.c
+> David, I just spotted a missing EXPORT_SYMBOL() in patch 8 that was not
+> flagged since I had temporarily disabled modular build, I will resubmit
+> this shortly after checking the other patches too. Thanks!
 
-Hi Mika
-
-Could this be renamed to driver/net/thunderbolt.c?
-
-At minimum, it needs a MAINTAINER entry pointing to netdev, so patches
-get reviewed by netdev people. However, since the driver seems to be a
-lot more netdev than thunderbolt, placing it in driver/net could be
-better.
-
-	Thanks
-		Andrew
+Ok.
