@@ -1,187 +1,205 @@
-From: Shuah Khan <shuahkh@osg.samsung.com>
-Subject: Re: [PATCH 3/3] selftests: silence test output by default
-Date: Mon, 18 Sep 2017 15:36:40 -0600
-Message-ID: <e0286045-62fd-50aa-0f39-f9c816eebea2@osg.samsung.com>
-References: <1505755982-7855-1-git-send-email-jbacik@fb.com>
- <1505756224-8187-1-git-send-email-jbacik@fb.com>
- <e8b067d2-9cef-2f3c-78a5-d6630aa765c1@kernel.org>
- <20170918175254.lsdzqvjm4uvix4rj@destiny>
- <ed8261a2-557a-cf1c-7298-d530bb7861d0@osg.samsung.com>
- <20170918182426.cs4wxy3igfx7zyvb@destiny>
- <1f756821-2737-8982-90d6-b4933e97a3ef@osg.samsung.com>
- <20170918201905.qtax6kn6iscrebwa@destiny>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: [REGRESSION] Warning in tcp_fastretrans_alert() of net/ipv4/tcp_input.c
+Date: Mon, 18 Sep 2017 14:40:08 -0700
+Message-ID: <CAK6E8=e7SE-M4r2nJ8K_FoDMVcN2xYdtw=MetvD5MvXMm9iA1Q@mail.gmail.com>
+References: <10035198.1vE6NFrMDO@natalenko.name> <40697505.YK5nrFG7Le@natalenko.name>
+ <CAK6E8=djbT-35JuHq+hhOKOG+BEO3RCwgsVPoKcDhNBph5OezA@mail.gmail.com> <2149381.XGPd7soC9e@natalenko.name>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Shuah Khan <shuah@kernel.org>, Josef Bacik <jbacik@fb.com>,
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+Cc: Neal Cardwell <ncardwell@google.com>,
         "David S. Miller" <davem@davemloft.net>,
-        linux-kernel@vger.kernel.org, linux-kselftest@vger.kernel.org,
-        netdev@vger.kernel.org, Shuah Khan <shuahkh@osg.samsung.com>
-To: Josef Bacik <josef@toxicpanda.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170918201905.qtax6kn6iscrebwa@destiny>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Netdev <netdev@vger.kernel.org>
+To: Oleksandr Natalenko <oleksandr@natalenko.name>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f49.google.com ([74.125.82.49]:47035 "EHLO
+        mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750781AbdIRVkv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 17:40:51 -0400
+Received: by mail-wm0-f49.google.com with SMTP id i189so428041wmf.1
+        for <netdev@vger.kernel.org>; Mon, 18 Sep 2017 14:40:50 -0700 (PDT)
+In-Reply-To: <2149381.XGPd7soC9e@natalenko.name>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/18/2017 02:19 PM, Josef Bacik wrote:
-> On Mon, Sep 18, 2017 at 01:48:31PM -0600, Shuah Khan wrote:
->> On 09/18/2017 12:24 PM, Josef Bacik wrote:
->>> On Mon, Sep 18, 2017 at 12:13:40PM -0600, Shuah Khan wrote:
->>>> On 09/18/2017 11:52 AM, Josef Bacik wrote:
->>>>> On Mon, Sep 18, 2017 at 11:46:18AM -0600, Shuah Khan wrote:
->>>>>> On 09/18/2017 11:37 AM, josef@toxicpanda.com wrote:
->>>>>>> From: Josef Bacik <jbacik@fb.com>
->>>>>>>
->>>>>>> Some of the networking tests are very noisy and make it impossible to
->>>>>>> see if we actually passed the tests as they run.  Default to suppressing
->>>>>>> the output from any tests run in order to make it easier to track what
->>>>>>> failed.
->>>>>>>
->>>>>>> Signed-off-by: Josef Bacik <jbacik@fb.com>
->>>>>>> --
->>>>>>
->>>>>> This change suppresses pass/fail wrapper output for all tests, not just the
->>>>>> networking tests.
->>>>>>
->>>>>> Could you please send me before and after results for what you are trying
->>>>>> to fix.
->>>>>>
->>>>>
->>>>> Yeah I wanted to suppress extraneous output from everybody, I just happened to
->>>>> notice it because I was testing net.  The default thing already spits out what
->>>>> it's running and pass/fail, there's no need to include all of the random output
->>>>> unless the user wants to go and run the test manually.  As it is now it's
->>>>> _impossible_ to tell what ran and what passed/failed because of all the random
->>>>> output.
->>>>
->>>> Unfortunately kselftests have lots of users that want different things. A recent
->>>> request is to use TAP13 format for output for external parsers to be able to parse.
->>>> That is what this change to add TAP13 header does.
->>>>
->>>> The output you are seeing is the TAP 13 format to indicate the test has passed.
->>>>
->>>> The right fix would be to suppress the Pass/Fail from the individual shell script
->>>> and have the shell script exit with error code. kselftest lib.mk will handle the
->>>> error code and print out pass/fail like it is doing now.
->>>>
->>>> Using the common logic will help avoid duplicate code in tests/test scripts and
->>>> also makes the pass/fail messages consistent.
->>>>
->>>> In the following output the individual test output can be eliminated since lib.mk
->>>> run_tests does that for you. In addition, you will also get a count of tests at
->>>> the end of the run of all tests in a test directory.
->>>>
->>>> TAP version 13
->>>> selftests: run_netsocktests
->>>> ========================================
->>>> --------------------
->>>> running socket test
->>>> --------------------
->>>> [PASS]
->>>> ok 1..1 selftests: run_netsocktests [PASS]
->>>> selftests: run_afpackettests
->>>> ========================================
->>>> must be run as root
->>>> ok 1..2 selftests: run_afpackettests [PASS]
->>>> selftests: test_bpf.sh
->>>> ========================================
->>>> test_bpf: [FAIL]
->>>> not ok 1..3 selftests:  test_bpf.sh [FAIL]
->>>> selftests: netdevice.sh
->>>> ========================================
->>>> SKIP: Need root privileges
->>>> ok 1..4 selftests: netdevice.sh [PASS]
->>>>
->>>> If you eliminate that you will just see the common lib.mk results.
->>>>
->>>> TAP version 13
->>>> selftests: run_netsocktests
->>>> ========================================
->>>> ok 1..1 selftests: run_netsocktests [PASS]
->>>> selftests: run_afpackettests
->>>> ========================================
->>>> must be run as root
->>>> ok 1..2 selftests: run_afpackettests [PASS]
->>>> ========================================
->>>> selftests: test_bpf.sh
->>>> ========================================
->>>> not ok 1..3 selftests:  test_bpf.sh [FAIL]
->>>> selftests: netdevice.sh
->>>> ========================================
->>>> SKIP: Need root privileges
->>>> ok 1..4 selftests: netdevice.sh [PASS]
->>>>
->>>>
->>>> If you would like to fix the duplicate output, please send me patches
->>>> to remove pass/fail output strings from tests instead. It is on my
->>>> todo to do that this release.
->>>>
->>>
->>> I'm confused, this is exactly what my patch does, it strips all of the
->>> extraneous output and leaves only the TAP13 output.  Here is the output without
->>> my suppression patch
->>>
->>> https://da.gd/pup0
->>>
->>> and here is the output with my suppression patch
->>>
->>> https://da.gd/3olKj
->>>
->>> Unless I'm missing something subtle it appears to be exactly the output you
->>> want, without the random crap from the other tests.  The only thing I'm
->>> redirecting is the output of the _test_ itself, $$BASENAME_TEST from what I can
->>> tell is the actual test we're running, not the wrapper, so everything is as it
->>> should be.  Thanks,
->>>
->>> Josef
->>>
->>
->> Yes you are right. Yes I see that you are redirecting all
->> output from the test with (./$$BASENAME_TEST > /dev/null 2>&1)
->> My bad.
->>
->> cd `dirname $$TEST` > /dev/null; (./$$BASENAME_TEST > /dev/null 2>&1 && echo "ok 1..$$test_num selftests: $$BASENAME_TEST [PASS]") || echo "not ok 1..$$test_num selftests:  $$BASENAME_TEST [FAIL]"; cd - > /dev/null;\
->>
->> However, it also suppresses important error messages from individual tests
->> like in the case of rtnetlink.sh from your before and after output.
->>
->> User knows the test failed, but doesn't know why. One way to solve
->> the problem is creating a temp file with the output for reference.
->> Something like:
->>
->> (./$$BASENAME_TEST > /tmp/kselftest.out 2>&1
->>
->>
-> 
-> So I didn't do a global file because we'd have to append to it to make sure we
-> didn't lose any history.  If this doesn't bother you I can do that instead, and
-> then just remove the file whenever we start running things.  Let me know if
-> that's what you would prefer.  Thanks,
-> 
-> Josef
-> 
+On Mon, Sep 18, 2017 at 1:46 PM, Oleksandr Natalenko
+<oleksandr@natalenko.name> wrote:
+> Actually, same warning was just triggered with RACK enabled. But main war=
+ning
+> was not triggered in this case.
+Thanks.
 
-Right. Let's not worry about global file. Let's just use /tmp/$$BASENAME_TEST
-for now. Something like the below diff:
+I assume this kernel does not have the patch that Neal proposed in his
+first reply?
 
+The main warning needs to be triggered by another peculiar SACK that
+kicks the sender into recovery again (after undo). Please let it run
+longer if possible to see if we can get both. But the new data does
+indicate the we can (validly) be in CA_Open with retrans_out > 0.
 
-diff --git a/tools/testing/selftests/lib.mk b/tools/testing/selftests/lib.mk
-index 223234cd98e9..317393e430c9 100644
---- a/tools/testing/selftests/lib.mk
-+++ b/tools/testing/selftests/lib.mk
-@@ -24,7 +24,8 @@ define RUN_TESTS
-                        echo "selftests: Warning: file $$BASENAME_TEST is not executable, correct this.";\
-                        echo "not ok 1..$$test_num selftests: $$BASENAME_TEST [FAIL]"; \
-                else                                    \
--                       cd `dirname $$TEST` > /dev/null; (./$$BASENAME_TEST > /dev/null 2>&1 && echo "ok 1..$$test_num selftests: $$BASENAME_TEST [PASS]") || echo "not ok 1..$$test_num selftests:  $$BASENAME_TEST [FAIL]"; cd - > /dev/null;\
-+                       echo "Please check /tmp/$$BASENAME_TEST for full test output";                                                  \
-+                       cd `dirname $$TEST` > /dev/null; (./$$BASENAME_TEST > /tmp/$$BASENAME_TEST && echo "ok 1..$$test_num selftests: $$BASENAME_TEST [PASS]") || echo "not ok 1..$$test_num selftests:  $$BASENAME_TEST [FAIL]"; cd - > /dev/null;\
-                fi;                                     \
-        done;
- endef
-
-
-
-thanks,
--- Shuah
+>
+> =3D=3D=3D
+> Sep 18 22:44:32 defiant kernel: ------------[ cut here ]------------
+> Sep 18 22:44:32 defiant kernel: WARNING: CPU: 1 PID: 702 at net/ipv4/
+> tcp_input.c:2392 tcp_undo_cwnd_reduction+0xbd/0xd0
+> Sep 18 22:44:32 defiant kernel: Modules linked in: netconsole ctr ccm cls=
+_bpf
+> sch_htb act_mirred cls_u32 sch_ingress sit tunnel4 ip_tunnel 8021q mrp
+> nf_conntrack_ipv6 nf_defrag_ipv6 nft_ct nft_set_bitmap nft_set_hash
+> nft_set_rbtree nf_tables_inet nf_tables_ipv6 nft_masq_ipv4
+> nf_nat_masquerade_ipv4 nft_masq nft_nat nft_counter nft_meta
+> nft_chain_nat_ipv4 nf_conntrack_ipv4 nf_defrag_ipv4 nf_nat_ipv4 nf_nat
+> nf_conntrack libcrc32c crc32c_generic nf_tables_ipv4 nf_tables tun nct677=
+5
+> nfnetlink hwmon_vid nls_iso8859_1 nls_cp437 vfat fat ext4 snd_hda_codec_h=
+dmi
+> mbcache jbd2 snd_hda_codec_realtek snd_hda_codec_generic f2fs arc4 fscryp=
+to
+> intel_rapl iTCO_wdt ath9k iTCO_vendor_support intel_powerclamp ath9k_comm=
+on
+> ath9k_hw coretemp kvm_intel ath mac80211 kvm irqbypass intel_cstate cfg80=
+211
+> pcspkr snd_hda_intel snd_hda_codec r8169
+> Sep 18 22:44:32 defiant kernel:  joydev evdev mii snd_hda_core mousedev
+> mei_txe input_leds i2c_i801 mac_hid i915 lpc_ich mei shpchp snd_hwdep
+> snd_intel_sst_acpi snd_intel_sst_core snd_soc_rt5670
+> snd_soc_sst_atom_hifi2_platform battery snd_soc_sst_match snd_soc_rl6231
+> drm_kms_helper hci_uart ov5693(C) ov2722(C) lm3554(C) btbcm btqca v4l2_co=
+mmon
+> snd_soc_core btintel snd_compress videodev snd_pcm_dmaengine snd_pcm vide=
+o
+> bluetooth snd_timer drm media tpm_tis snd i2c_hid soundcore tpm_tis_core
+> rfkill_gpio ac97_bus soc_button_array ecdh_generic rfkill crc16 tpm 8250_=
+dw
+> intel_gtt syscopyarea sysfillrect acpi_pad sysimgblt intel_int0002_vgpio
+> fb_sys_fops pinctrl_cherryview i2c_algo_bit button sch_fq_codel tcp_bbr i=
+fb
+> ip_tables x_tables btrfs xor raid6_pq algif_skcipher af_alg hid_logitech_=
+hidpp
+> hid_logitech_dj usbhid hid uas
+> Sep 18 22:44:32 defiant kernel:  usb_storage dm_crypt dm_mod dax raid10 m=
+d_mod
+> sd_mod crct10dif_pclmul crc32_pclmul crc32c_intel ghash_clmulni_intel pcb=
+c
+> ahci aesni_intel xhci_pci libahci aes_x86_64 crypto_simd glue_helper xhci=
+_hcd
+> cryptd libata usbcore scsi_mod usb_common serio sdhci_acpi sdhci led_clas=
+s
+> mmc_core
+> Sep 18 22:44:32 defiant kernel: CPU: 1 PID: 702 Comm: irq/123-enp3s0 Tain=
+ted:
+> G        WC      4.13.0-pf4 #1
+> Sep 18 22:44:32 defiant kernel: Hardware name: To Be Filled By O.E.M. To =
+Be
+> Filled By O.E.M./J3710-ITX, BIOS P1.30 03/30/2016
+> Sep 18 22:44:32 defiant kernel: task: ffff88923a738000 task.stack:
+> ffff958001500000
+> Sep 18 22:44:32 defiant kernel: RIP: 0010:tcp_undo_cwnd_reduction+0xbd/0x=
+d0
+> Sep 18 22:44:32 defiant kernel: RSP: 0018:ffff88927fc83a48 EFLAGS: 000102=
+02
+> Sep 18 22:44:32 defiant kernel: RAX: 0000000000000001 RBX: ffff8892412d98=
+00
+> RCX: ffff88927fc83b0c
+> Sep 18 22:44:32 defiant kernel: RDX: 000000007fffffff RSI: 00000000000000=
+01
+> RDI: ffff8892412d9800
+> Sep 18 22:44:32 defiant kernel: RBP: ffff88927fc83a50 R08: 00000000000000=
+00
+> R09: 0000000018dfb063
+> Sep 18 22:44:32 defiant kernel: R10: 0000000018dfd223 R11: 0000000018dfb0=
+63
+> R12: 0000000000005320
+> Sep 18 22:44:32 defiant kernel: R13: ffff88927fc83b10 R14: 00000000000000=
+01
+> R15: ffff88927fc83b0c
+> Sep 18 22:44:32 defiant kernel: FS:  0000000000000000(0000)
+> GS:ffff88927fc80000(0000) knlGS:0000000000000000
+> Sep 18 22:44:32 defiant kernel: CS:  0010 DS: 0000 ES: 0000 CR0:
+> 0000000080050033
+> Sep 18 22:44:32 defiant kernel: CR2: 00007f1cd1a43620 CR3: 0000000114a090=
+00
+> CR4: 00000000001006e0
+> Sep 18 22:44:32 defiant kernel: Call Trace:
+> Sep 18 22:44:32 defiant kernel:  <IRQ>
+> Sep 18 22:44:32 defiant kernel:  tcp_try_undo_loss+0xb3/0xf0
+> Sep 18 22:44:32 defiant kernel:  tcp_fastretrans_alert+0x746/0x990
+> Sep 18 22:44:32 defiant kernel:  tcp_ack+0x741/0x1110
+> Sep 18 22:44:32 defiant kernel:  tcp_rcv_established+0x325/0x770
+> Sep 18 22:44:32 defiant kernel:  ? sk_filter_trim_cap+0xd4/0x1a0
+> Sep 18 22:44:32 defiant kernel:  tcp_v4_do_rcv+0x90/0x1e0
+> Sep 18 22:44:32 defiant kernel:  tcp_v4_rcv+0x950/0xa10
+> Sep 18 22:44:32 defiant kernel:  ? nf_ct_deliver_cached_events+0xb8/0x110
+> [nf_conntrack]
+> Sep 18 22:44:32 defiant kernel:  ip_local_deliver_finish+0x68/0x210
+> Sep 18 22:44:32 defiant kernel:  ip_local_deliver+0xfa/0x110
+> Sep 18 22:44:32 defiant kernel:  ? ip_rcv_finish+0x410/0x410
+> Sep 18 22:44:32 defiant kernel:  ip_rcv_finish+0x120/0x410
+> Sep 18 22:44:32 defiant kernel:  ip_rcv+0x28e/0x3b0
+> Sep 18 22:44:32 defiant kernel:  ? inet_del_offload+0x40/0x40
+> Sep 18 22:44:32 defiant kernel:  __netif_receive_skb_core+0x39b/0xb00
+> Sep 18 22:44:32 defiant kernel:  ? netif_receive_skb_internal+0xa0/0x480
+> Sep 18 22:44:32 defiant kernel:  ? dev_gro_receive+0x2eb/0x4a0
+> Sep 18 22:44:32 defiant kernel:  __netif_receive_skb+0x18/0x60
+> Sep 18 22:44:32 defiant kernel:  netif_receive_skb_internal+0x98/0x480
+> Sep 18 22:44:32 defiant kernel:  netif_receive_skb+0x1c/0x80
+> Sep 18 22:44:32 defiant kernel:  ifb_ri_tasklet+0x109/0x26a [ifb]
+> Sep 18 22:44:32 defiant kernel:  tasklet_action+0x63/0x120
+> Sep 18 22:44:32 defiant kernel:  __do_softirq+0xdf/0x2e5
+> Sep 18 22:44:32 defiant kernel:  ? irq_finalize_oneshot.part.39+0xe0/0xe0
+> Sep 18 22:44:32 defiant kernel:  do_softirq_own_stack+0x1c/0x30
+> Sep 18 22:44:32 defiant kernel:  </IRQ>
+> Sep 18 22:44:32 defiant kernel:  do_softirq.part.17+0x4e/0x60
+> Sep 18 22:44:32 defiant kernel:  __local_bh_enable_ip+0x77/0x80
+> Sep 18 22:44:32 defiant kernel:  irq_forced_thread_fn+0x5c/0x70
+> Sep 18 22:44:32 defiant kernel:  irq_thread+0x131/0x1a0
+> Sep 18 22:44:32 defiant kernel:  ? wake_threads_waitq+0x30/0x30
+> Sep 18 22:44:32 defiant kernel:  kthread+0x126/0x140
+> Sep 18 22:44:32 defiant kernel:  ? irq_thread_check_affinity+0x90/0x90
+> Sep 18 22:44:32 defiant kernel:  ? kthread_create_on_node+0x70/0x70
+> Sep 18 22:44:32 defiant kernel:  ret_from_fork+0x25/0x30
+> Sep 18 22:44:32 defiant kernel: Code: 5d c3 80 60 35 fb 48 8b 00 48 39 c2=
+ 74
+> 85 48 3b 83 50 01 00 00 75 eb e9 77 ff ff ff 89 83 48 06 00 00 80 a3 1e 0=
+6 00
+> 00 fb eb b3 <0f> ff 5b 5d c3 0f 1f 40 00 66 2e 0f 1f 84 00 00 00 00 00 0f=
+ 1f
+> Sep 18 22:44:32 defiant kernel: ---[ end trace 1aea180efeedb474 ]---
+> =3D=3D=3D
+>
+> On pond=C4=9Bl=C3=AD 18. z=C3=A1=C5=99=C3=AD 2017 20:01:42 CEST Yuchung C=
+heng wrote:
+>> On Mon, Sep 18, 2017 at 10:59 AM, Oleksandr Natalenko
+>>
+>> <oleksandr@natalenko.name> wrote:
+>> > OK. Should I keep FACK disabled?
+>>
+>> Yes since it is disabled in the upstream by default. Although you can
+>> experiment FACK enabled additionally.
+>>
+>> Do we know the crash you first experienced is tied to this issue?
+>>
+>> > On pond=C4=9Bl=C3=AD 18. z=C3=A1=C5=99=C3=AD 2017 19:51:21 CEST Yuchun=
+g Cheng wrote:
+>> >> Can you try this patch to verify my theory with tcp_recovery=3D0 and =
+1?
+>> >> thanks
+>> >>
+>> >> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+>> >> index 5af2f04f8859..9253d9ee7d0e 100644
+>> >> --- a/net/ipv4/tcp_input.c
+>> >> +++ b/net/ipv4/tcp_input.c
+>> >> @@ -2381,6 +2381,7 @@ static void tcp_undo_cwnd_reduction(struct sock
+>> >> *sk, bool unmark_loss)
+>> >>
+>> >>         }
+>> >>         tp->snd_cwnd_stamp =3D tcp_time_stamp;
+>> >>         tp->undo_marker =3D 0;
+>> >>
+>> >> +       WARN_ON(tp->retrans_out);
+>> >>
+>> >>  }
+>
+>
