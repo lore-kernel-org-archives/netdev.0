@@ -1,7 +1,7 @@
 From: Mika Westerberg <mika.westerberg@linux.intel.com>
-Subject: [PATCH 04/16] thunderbolt: Move thunderbolt domain structure to thunderbolt.h
-Date: Mon, 18 Sep 2017 18:30:37 +0300
-Message-ID: <20170918153049.44185-5-mika.westerberg@linux.intel.com>
+Subject: [PATCH 14/16] thunderbolt: Add function to retrieve DMA device for the ring
+Date: Mon, 18 Sep 2017 18:30:47 +0300
+Message-ID: <20170918153049.44185-15-mika.westerberg@linux.intel.com>
 References: <20170918153049.44185-1-mika.westerberg@linux.intel.com>
 Cc: Andreas Noever <andreas.noever@gmail.com>,
         Michael Jamet <michael.jamet@intel.com>,
@@ -18,147 +18,44 @@ In-Reply-To: <20170918153049.44185-1-mika.westerberg@linux.intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-These are needed by Thunderbolt services so move them to thunderbolt.h
-to make sure they are available outside of drivers/thunderbolt.
+This is needed when Thunderbolt service drivers need to DMA map memory
+before it is passed down to the ring.
 
 Signed-off-by: Mika Westerberg <mika.westerberg@linux.intel.com>
 Reviewed-by: Michael Jamet <michael.jamet@intel.com>
 Reviewed-by: Yehezkel Bernat <yehezkel.bernat@intel.com>
 ---
- drivers/thunderbolt/tb.h    | 42 ------------------------------------------
- include/linux/thunderbolt.h | 45 +++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 45 insertions(+), 42 deletions(-)
+ include/linux/thunderbolt.h | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
 
-diff --git a/drivers/thunderbolt/tb.h b/drivers/thunderbolt/tb.h
-index e0deee4f1eb0..2fefe76621ca 100644
---- a/drivers/thunderbolt/tb.h
-+++ b/drivers/thunderbolt/tb.h
-@@ -39,20 +39,6 @@ struct tb_switch_nvm {
- 	bool authenticating;
- };
- 
--/**
-- * enum tb_security_level - Thunderbolt security level
-- * @TB_SECURITY_NONE: No security, legacy mode
-- * @TB_SECURITY_USER: User approval required at minimum
-- * @TB_SECURITY_SECURE: One time saved key required at minimum
-- * @TB_SECURITY_DPONLY: Only tunnel Display port (and USB)
-- */
--enum tb_security_level {
--	TB_SECURITY_NONE,
--	TB_SECURITY_USER,
--	TB_SECURITY_SECURE,
--	TB_SECURITY_DPONLY,
--};
--
- #define TB_SWITCH_KEY_SIZE		32
- /* Each physical port contains 2 links on modern controllers */
- #define TB_SWITCH_LINKS_PER_PHY_PORT	2
-@@ -223,33 +209,6 @@ struct tb_cm_ops {
- 	int (*disconnect_pcie_paths)(struct tb *tb);
- };
- 
--/**
-- * struct tb - main thunderbolt bus structure
-- * @dev: Domain device
-- * @lock: Big lock. Must be held when accessing any struct
-- *	  tb_switch / struct tb_port.
-- * @nhi: Pointer to the NHI structure
-- * @ctl: Control channel for this domain
-- * @wq: Ordered workqueue for all domain specific work
-- * @root_switch: Root switch of this domain
-- * @cm_ops: Connection manager specific operations vector
-- * @index: Linux assigned domain number
-- * @security_level: Current security level
-- * @privdata: Private connection manager specific data
-- */
--struct tb {
--	struct device dev;
--	struct mutex lock;
--	struct tb_nhi *nhi;
--	struct tb_ctl *ctl;
--	struct workqueue_struct *wq;
--	struct tb_switch *root_switch;
--	const struct tb_cm_ops *cm_ops;
--	int index;
--	enum tb_security_level security_level;
--	unsigned long privdata[0];
--};
--
- static inline void *tb_priv(struct tb *tb)
- {
- 	return (void *)tb->privdata;
-@@ -368,7 +327,6 @@ static inline int tb_port_write(struct tb_port *port, const void *buffer,
- struct tb *icm_probe(struct tb_nhi *nhi);
- struct tb *tb_probe(struct tb_nhi *nhi);
- 
--extern struct bus_type tb_bus_type;
- extern struct device_type tb_domain_type;
- extern struct device_type tb_switch_type;
- 
 diff --git a/include/linux/thunderbolt.h b/include/linux/thunderbolt.h
-index 0b22b64dacba..89dbb0c20f07 100644
+index 9a63210d5084..d479a9e508cd 100644
 --- a/include/linux/thunderbolt.h
 +++ b/include/linux/thunderbolt.h
-@@ -14,7 +14,9 @@
- #ifndef THUNDERBOLT_H_
- #define THUNDERBOLT_H_
- 
-+#include <linux/device.h>
+@@ -19,6 +19,7 @@
  #include <linux/list.h>
-+#include <linux/mutex.h>
+ #include <linux/mutex.h>
+ #include <linux/mod_devicetable.h>
++#include <linux/pci.h>
  #include <linux/uuid.h>
+ #include <linux/workqueue.h>
  
- enum tb_cfg_pkg_type {
-@@ -34,6 +36,49 @@ enum tb_cfg_pkg_type {
- };
+@@ -582,4 +583,16 @@ static inline int tb_ring_tx(struct tb_ring *ring, struct ring_frame *frame)
+ struct ring_frame *tb_ring_poll(struct tb_ring *ring);
+ void tb_ring_poll_complete(struct tb_ring *ring);
  
- /**
-+ * enum tb_security_level - Thunderbolt security level
-+ * @TB_SECURITY_NONE: No security, legacy mode
-+ * @TB_SECURITY_USER: User approval required at minimum
-+ * @TB_SECURITY_SECURE: One time saved key required at minimum
-+ * @TB_SECURITY_DPONLY: Only tunnel Display port (and USB)
-+ */
-+enum tb_security_level {
-+	TB_SECURITY_NONE,
-+	TB_SECURITY_USER,
-+	TB_SECURITY_SECURE,
-+	TB_SECURITY_DPONLY,
-+};
-+
 +/**
-+ * struct tb - main thunderbolt bus structure
-+ * @dev: Domain device
-+ * @lock: Big lock. Must be held when accessing any struct
-+ *	  tb_switch / struct tb_port.
-+ * @nhi: Pointer to the NHI structure
-+ * @ctl: Control channel for this domain
-+ * @wq: Ordered workqueue for all domain specific work
-+ * @root_switch: Root switch of this domain
-+ * @cm_ops: Connection manager specific operations vector
-+ * @index: Linux assigned domain number
-+ * @security_level: Current security level
-+ * @privdata: Private connection manager specific data
++ * tb_ring_dma_device() - Return device used for DMA mapping
++ * @ring: Ring whose DMA device is retrieved
++ *
++ * Use this function when you are mapping DMA for buffers that are
++ * passed to the ring for sending/receiving.
 + */
-+struct tb {
-+	struct device dev;
-+	struct mutex lock;
-+	struct tb_nhi *nhi;
-+	struct tb_ctl *ctl;
-+	struct workqueue_struct *wq;
-+	struct tb_switch *root_switch;
-+	const struct tb_cm_ops *cm_ops;
-+	int index;
-+	enum tb_security_level security_level;
-+	unsigned long privdata[0];
-+};
++static inline struct device *tb_ring_dma_device(struct tb_ring *ring)
++{
++	return &ring->nhi->pdev->dev;
++}
 +
-+extern struct bus_type tb_bus_type;
-+
-+/**
-  * struct tb_property_dir - XDomain property directory
-  * @uuid: Directory UUID or %NULL if root directory
-  * @properties: List of properties in this directory
+ #endif /* THUNDERBOLT_H_ */
 -- 
 2.13.5
