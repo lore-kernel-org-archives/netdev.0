@@ -1,84 +1,187 @@
-From: hiren panchasara <hiren@strugglingcoder.info>
-Subject: Re: RACK not getting disabled
-Date: Mon, 18 Sep 2017 14:29:52 -0700
-Message-ID: <20170918212952.GC28186@strugglingcoder.info>
-References: <20170918201428.GB28186@strugglingcoder.info>
- <1505769494.29839.34.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Shuah Khan <shuahkh@osg.samsung.com>
+Subject: Re: [PATCH 3/3] selftests: silence test output by default
+Date: Mon, 18 Sep 2017 15:36:40 -0600
+Message-ID: <e0286045-62fd-50aa-0f39-f9c816eebea2@osg.samsung.com>
+References: <1505755982-7855-1-git-send-email-jbacik@fb.com>
+ <1505756224-8187-1-git-send-email-jbacik@fb.com>
+ <e8b067d2-9cef-2f3c-78a5-d6630aa765c1@kernel.org>
+ <20170918175254.lsdzqvjm4uvix4rj@destiny>
+ <ed8261a2-557a-cf1c-7298-d530bb7861d0@osg.samsung.com>
+ <20170918182426.cs4wxy3igfx7zyvb@destiny>
+ <1f756821-2737-8982-90d6-b4933e97a3ef@osg.samsung.com>
+ <20170918201905.qtax6kn6iscrebwa@destiny>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
-        protocol="application/pgp-signature"; boundary="hYooF8G/hrfVAmum"
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from strugglingcoder.info ([104.236.146.68]:63542 "EHLO
-        mail.strugglingcoder.info" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750781AbdIRV3t (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 17:29:49 -0400
-Content-Disposition: inline
-In-Reply-To: <1505769494.29839.34.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Shuah Khan <shuah@kernel.org>, Josef Bacik <jbacik@fb.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        linux-kernel@vger.kernel.org, linux-kselftest@vger.kernel.org,
+        netdev@vger.kernel.org, Shuah Khan <shuahkh@osg.samsung.com>
+To: Josef Bacik <josef@toxicpanda.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170918201905.qtax6kn6iscrebwa@destiny>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+On 09/18/2017 02:19 PM, Josef Bacik wrote:
+> On Mon, Sep 18, 2017 at 01:48:31PM -0600, Shuah Khan wrote:
+>> On 09/18/2017 12:24 PM, Josef Bacik wrote:
+>>> On Mon, Sep 18, 2017 at 12:13:40PM -0600, Shuah Khan wrote:
+>>>> On 09/18/2017 11:52 AM, Josef Bacik wrote:
+>>>>> On Mon, Sep 18, 2017 at 11:46:18AM -0600, Shuah Khan wrote:
+>>>>>> On 09/18/2017 11:37 AM, josef@toxicpanda.com wrote:
+>>>>>>> From: Josef Bacik <jbacik@fb.com>
+>>>>>>>
+>>>>>>> Some of the networking tests are very noisy and make it impossible to
+>>>>>>> see if we actually passed the tests as they run.  Default to suppressing
+>>>>>>> the output from any tests run in order to make it easier to track what
+>>>>>>> failed.
+>>>>>>>
+>>>>>>> Signed-off-by: Josef Bacik <jbacik@fb.com>
+>>>>>>> --
+>>>>>>
+>>>>>> This change suppresses pass/fail wrapper output for all tests, not just the
+>>>>>> networking tests.
+>>>>>>
+>>>>>> Could you please send me before and after results for what you are trying
+>>>>>> to fix.
+>>>>>>
+>>>>>
+>>>>> Yeah I wanted to suppress extraneous output from everybody, I just happened to
+>>>>> notice it because I was testing net.  The default thing already spits out what
+>>>>> it's running and pass/fail, there's no need to include all of the random output
+>>>>> unless the user wants to go and run the test manually.  As it is now it's
+>>>>> _impossible_ to tell what ran and what passed/failed because of all the random
+>>>>> output.
+>>>>
+>>>> Unfortunately kselftests have lots of users that want different things. A recent
+>>>> request is to use TAP13 format for output for external parsers to be able to parse.
+>>>> That is what this change to add TAP13 header does.
+>>>>
+>>>> The output you are seeing is the TAP 13 format to indicate the test has passed.
+>>>>
+>>>> The right fix would be to suppress the Pass/Fail from the individual shell script
+>>>> and have the shell script exit with error code. kselftest lib.mk will handle the
+>>>> error code and print out pass/fail like it is doing now.
+>>>>
+>>>> Using the common logic will help avoid duplicate code in tests/test scripts and
+>>>> also makes the pass/fail messages consistent.
+>>>>
+>>>> In the following output the individual test output can be eliminated since lib.mk
+>>>> run_tests does that for you. In addition, you will also get a count of tests at
+>>>> the end of the run of all tests in a test directory.
+>>>>
+>>>> TAP version 13
+>>>> selftests: run_netsocktests
+>>>> ========================================
+>>>> --------------------
+>>>> running socket test
+>>>> --------------------
+>>>> [PASS]
+>>>> ok 1..1 selftests: run_netsocktests [PASS]
+>>>> selftests: run_afpackettests
+>>>> ========================================
+>>>> must be run as root
+>>>> ok 1..2 selftests: run_afpackettests [PASS]
+>>>> selftests: test_bpf.sh
+>>>> ========================================
+>>>> test_bpf: [FAIL]
+>>>> not ok 1..3 selftests:  test_bpf.sh [FAIL]
+>>>> selftests: netdevice.sh
+>>>> ========================================
+>>>> SKIP: Need root privileges
+>>>> ok 1..4 selftests: netdevice.sh [PASS]
+>>>>
+>>>> If you eliminate that you will just see the common lib.mk results.
+>>>>
+>>>> TAP version 13
+>>>> selftests: run_netsocktests
+>>>> ========================================
+>>>> ok 1..1 selftests: run_netsocktests [PASS]
+>>>> selftests: run_afpackettests
+>>>> ========================================
+>>>> must be run as root
+>>>> ok 1..2 selftests: run_afpackettests [PASS]
+>>>> ========================================
+>>>> selftests: test_bpf.sh
+>>>> ========================================
+>>>> not ok 1..3 selftests:  test_bpf.sh [FAIL]
+>>>> selftests: netdevice.sh
+>>>> ========================================
+>>>> SKIP: Need root privileges
+>>>> ok 1..4 selftests: netdevice.sh [PASS]
+>>>>
+>>>>
+>>>> If you would like to fix the duplicate output, please send me patches
+>>>> to remove pass/fail output strings from tests instead. It is on my
+>>>> todo to do that this release.
+>>>>
+>>>
+>>> I'm confused, this is exactly what my patch does, it strips all of the
+>>> extraneous output and leaves only the TAP13 output.  Here is the output without
+>>> my suppression patch
+>>>
+>>> https://da.gd/pup0
+>>>
+>>> and here is the output with my suppression patch
+>>>
+>>> https://da.gd/3olKj
+>>>
+>>> Unless I'm missing something subtle it appears to be exactly the output you
+>>> want, without the random crap from the other tests.  The only thing I'm
+>>> redirecting is the output of the _test_ itself, $$BASENAME_TEST from what I can
+>>> tell is the actual test we're running, not the wrapper, so everything is as it
+>>> should be.  Thanks,
+>>>
+>>> Josef
+>>>
+>>
+>> Yes you are right. Yes I see that you are redirecting all
+>> output from the test with (./$$BASENAME_TEST > /dev/null 2>&1)
+>> My bad.
+>>
+>> cd `dirname $$TEST` > /dev/null; (./$$BASENAME_TEST > /dev/null 2>&1 && echo "ok 1..$$test_num selftests: $$BASENAME_TEST [PASS]") || echo "not ok 1..$$test_num selftests:  $$BASENAME_TEST [FAIL]"; cd - > /dev/null;\
+>>
+>> However, it also suppresses important error messages from individual tests
+>> like in the case of rtnetlink.sh from your before and after output.
+>>
+>> User knows the test failed, but doesn't know why. One way to solve
+>> the problem is creating a temp file with the output for reference.
+>> Something like:
+>>
+>> (./$$BASENAME_TEST > /tmp/kselftest.out 2>&1
+>>
+>>
+> 
+> So I didn't do a global file because we'd have to append to it to make sure we
+> didn't lose any history.  If this doesn't bother you I can do that instead, and
+> then just remove the file whenever we start running things.  Let me know if
+> that's what you would prefer.  Thanks,
+> 
+> Josef
+> 
+
+Right. Let's not worry about global file. Let's just use /tmp/$$BASENAME_TEST
+for now. Something like the below diff:
 
 
---hYooF8G/hrfVAmum
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+diff --git a/tools/testing/selftests/lib.mk b/tools/testing/selftests/lib.mk
+index 223234cd98e9..317393e430c9 100644
+--- a/tools/testing/selftests/lib.mk
++++ b/tools/testing/selftests/lib.mk
+@@ -24,7 +24,8 @@ define RUN_TESTS
+                        echo "selftests: Warning: file $$BASENAME_TEST is not executable, correct this.";\
+                        echo "not ok 1..$$test_num selftests: $$BASENAME_TEST [FAIL]"; \
+                else                                    \
+-                       cd `dirname $$TEST` > /dev/null; (./$$BASENAME_TEST > /dev/null 2>&1 && echo "ok 1..$$test_num selftests: $$BASENAME_TEST [PASS]") || echo "not ok 1..$$test_num selftests:  $$BASENAME_TEST [FAIL]"; cd - > /dev/null;\
++                       echo "Please check /tmp/$$BASENAME_TEST for full test output";                                                  \
++                       cd `dirname $$TEST` > /dev/null; (./$$BASENAME_TEST > /tmp/$$BASENAME_TEST && echo "ok 1..$$test_num selftests: $$BASENAME_TEST [PASS]") || echo "not ok 1..$$test_num selftests:  $$BASENAME_TEST [FAIL]"; cd - > /dev/null;\
+                fi;                                     \
+        done;
+ endef
 
-On 09/18/17 at 02:18P, Eric Dumazet wrote:
-> On Mon, 2017-09-18 at 13:14 -0700, hiren panchasara wrote:
-> > Hi all, I am trying to disable rack to see 3dupacks in action during
-> > loss-detection but based on the pcap, I see that it's still trigger
-> > loss-recovery on the first SACK (as if RACK is still enabled/active).
-> >=20
-> > Here is what I did to disable rack:
-> > net.ipv4.tcp_recovery =3D 0
-> >=20
-> > I've also disabled metrics:
-> > net.ipv4.tcp_no_metrics_save =3D 1=20
-> > And also flushed existing entries with 'ip tcp_metrics flush' just to be
-> > on a safer side.
-> >=20
-> > Not really relevant here but I've also switched to reno.
-> >=20
-> > I am on: 4.10.0-33-generic
-> > pcap: https://transfer.sh/mfoiN/reno_no_rack.pcap
-> >=20
-> > What am I missing? I can provide any additional info.
-> >=20
-> > Cheers,
-> > Hiren
->=20
->=20
-> A single SACK can contains enough information to trigger a retransmit.
 
-Bah, right. FACK!
->=20
-> If you absolutely want to see the old 3 dupack in action, you also want
-> to disable SACK.
 
-I believe net.ipv4.tcp_fack =3D 0 would achieve that without disabling
-sack.
-
-Thanks for your help!
-Cheers,
-Hiren
-
---hYooF8G/hrfVAmum
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQF8BAABCgBmBQJZwDrOXxSAAAAAAC4AKGlzc3Vlci1mcHJAbm90YXRpb25zLm9w
-ZW5wZ3AuZmlmdGhob3JzZW1hbi5uZXRBNEUyMEZBMUQ4Nzg4RjNGMTdFNjZGMDI4
-QjkyNTBFMTU2M0VERkU1AAoJEIuSUOFWPt/lJAkH/iRac/5vhh6qmipiBUQ5WQl8
-pAttZHu3XtNcKyHGgF/1r++hvu0z4KGmf4Mphtp0w/jxwLEtHsbLq+LdMCYovCzP
-YtGz4WPQ6XLANoQdO6CEUTjdNM6DipbsUfhNIXxtBKYasRjJSoIJoOdLM531P6Vl
-Hdurm0KkklzmHQdTyoUWSknXDPIk9UgvP1Ajsj5/HxM9YejldaZR0XXfsJ9uEqyv
-EjnoDaLokKrTTvX6rZDggkBzQrnPtWO7XgdOxHjZVMhWt8AX3Pp/n5y2tPYnNK2p
-HnUCvbs8QO0wegLquFKGRr2HXSGPQmwDSiVWX6h0Dy0RQaVLnuCfEQKRUEQC2Y0=
-=9rPQ
------END PGP SIGNATURE-----
-
---hYooF8G/hrfVAmum--
+thanks,
+-- Shuah
