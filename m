@@ -1,37 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RFC V1 net-next 0/6] Time based packet transmission
-Date: Mon, 18 Sep 2017 09:34:36 -0700 (PDT)
-Message-ID: <20170918.093436.1069699729581966538.davem@davemloft.net>
-References: <cover.1505719061.git.rcochran@linutronix.de>
+From: Nisar Sayed <Nisar.Sayed@microchip.com>
+Subject: [PATCH v4 net 0/3] lan78xx: This series of patches are for lan78xx driver.
+Date: Tue, 19 Sep 2017 03:32:22 +0530
+Message-ID: <20170918220225.3767-1-Nisar.Sayed@microchip.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        intel-wired-lan@lists.osuosl.org, andre.guedes@intel.com,
-        anna-maria@linutronix.de, henrik@austad.us,
-        jesus.sanchez-palencia@intel.com, john.stultz@linaro.org,
-        tglx@linutronix.de, vinicius.gomes@intel.com
-To: rcochran@linutronix.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1505719061.git.rcochran@linutronix.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <UNGLinuxDriver@microchip.com>, <netdev@vger.kernel.org>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from esa5.microchip.iphmx.com ([216.71.150.166]:36006 "EHLO
+        esa5.microchip.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755339AbdIRQjg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 12:39:36 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Richard Cochran <rcochran@linutronix.de>
-Date: Mon, 18 Sep 2017 09:41:15 +0200
+This series of patches are for lan78xx driver.
 
->   - The driver does not handle out of order packets.  If user space
->     sends a packet with an earlier Tx time, then the code should stop
->     the queue, reshuffle the descriptors accordingly, and then
->     restart the queue.
+These patches fixes potential issues associated with lan78xx driver.
 
-The user should simply be not allowed to do this.
+v4
+- Updated changes to handle return values as per comments
+- Updated EEPROM write handling as per comments
 
-Once the packet is in the device queue, that's it.  You cannot insert
-a new packet to be transmitted before an already hw queued packet,
-period.
+v3
+- Updated chagnes as per comments
 
-Any out of order request should be rejected with an error.
+v2
+- Added patch version information
+- Added fixes tag
+- Updated patch description
+- Updated chagnes as per comments
 
-I'd say the same is true for requests to send packets timed
-in the past.
+v1
+- Splitted patches as per comments
+- Dropped "fixed_phy device support" and "Fix for system suspend" changes
+
+Nisar Sayed (3):
+  Fix for eeprom read/write when device auto suspend
+  Allow EEPROM write for less than MAX_EEPROM_SIZE
+  Use default values loaded from EEPROM/OTP after reset
+
+ drivers/net/usb/lan78xx.c | 34 ++++++++++++++++++++++++----------
+ 1 file changed, 24 insertions(+), 10 deletions(-)
+
+-- 
+2.14.1
