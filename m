@@ -1,73 +1,71 @@
-From: Craig Gallek <kraigatgoog@gmail.com>
-Subject: [PATCH net-next 2/3] bpf: Add uniqueness invariant to trivial lpm test implementation
-Date: Mon, 18 Sep 2017 15:30:56 -0400
-Message-ID: <20170918193057.37644-3-kraigatgoog@gmail.com>
-References: <20170918193057.37644-1-kraigatgoog@gmail.com>
-Cc: netdev@vger.kernel.org
-To: Daniel Mack <daniel@zonque.org>, Alexei Starovoitov <ast@fb.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        "David S . Miller" <davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] net_sched: sch_htb: add per class overlimits
+ counter
+Date: Mon, 18 Sep 2017 12:36:22 -0700
+Message-ID: <1505763382.29839.27.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+        Denys Fedoryshchenko <nuclearcat@nuclearcat.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>,
+        Jiri Pirko <jiri@resnulli.us>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f178.google.com ([209.85.216.178]:45520 "EHLO
-        mail-qt0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751057AbdIRTbB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 15:31:01 -0400
-Received: by mail-qt0-f178.google.com with SMTP id t46so1666376qtj.2
-        for <netdev@vger.kernel.org>; Mon, 18 Sep 2017 12:31:01 -0700 (PDT)
-In-Reply-To: <20170918193057.37644-1-kraigatgoog@gmail.com>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:35460 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750886AbdIRTgZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 15:36:25 -0400
+Received: by mail-pf0-f196.google.com with SMTP id i23so577485pfi.2
+        for <netdev@vger.kernel.org>; Mon, 18 Sep 2017 12:36:24 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Craig Gallek <kraig@google.com>
+From: Eric Dumazet <edumazet@google.com>
 
-The 'trivial' lpm implementation in this test allows equivalent nodes
-to be added (that is, nodes consisting of the same prefix and prefix
-length).  For lookup operations, this is fine because insertion happens
-at the head of the (singly linked) list and the first, best match is
-returned.  In order to support deletion, the tlpm data structue must
-first enforce uniqueness.  This change modifies the insertion algorithm
-to search for equivalent nodes and remove them.  Note: the
-BPF_MAP_TYPE_LPM_TRIE already has a uniqueness invariant that is
-implemented as node replacement.
+HTB qdisc overlimits counter is properly increased, but we have no per
+class counter, meaning it is difficult to diagnose HTB problems.
 
-Signed-off-by: Craig Gallek <kraig@google.com>
+This patch adds this counter, visible in "tc -s class show dev eth0",
+with current iproute2.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Reported-by: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
 ---
- tools/testing/selftests/bpf/test_lpm_map.c | 14 +++++++++++++-
- 1 file changed, 13 insertions(+), 1 deletion(-)
 
-diff --git a/tools/testing/selftests/bpf/test_lpm_map.c b/tools/testing/selftests/bpf/test_lpm_map.c
-index e97565243d59..a5ed7c4f1819 100644
---- a/tools/testing/selftests/bpf/test_lpm_map.c
-+++ b/tools/testing/selftests/bpf/test_lpm_map.c
-@@ -31,6 +31,10 @@ struct tlpm_node {
- 	uint8_t key[];
+We have used this at Google for few years already, time to ship it !
+
+ net/sched/sch_htb.c |    5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
+index 7e148376ba528efabe5a53a09653f9161c264be7..c6d7ae81b41f4e277afb93a3003fefcd3f27de35 100644
+--- a/net/sched/sch_htb.c
++++ b/net/sched/sch_htb.c
+@@ -142,6 +142,7 @@ struct htb_class {
+ 	struct rb_node		node[TC_HTB_NUMPRIO];	/* node for self or feed tree */
+ 
+ 	unsigned int drops ____cacheline_aligned_in_smp;
++	unsigned int		overlimits;
  };
  
-+static struct tlpm_node *tlpm_match(struct tlpm_node *list,
-+				    const uint8_t *key,
-+				    size_t n_bits);
-+
- static struct tlpm_node *tlpm_add(struct tlpm_node *list,
- 				  const uint8_t *key,
- 				  size_t n_bits)
-@@ -38,9 +42,17 @@ static struct tlpm_node *tlpm_add(struct tlpm_node *list,
- 	struct tlpm_node *node;
- 	size_t n;
+ struct htb_level {
+@@ -533,6 +534,9 @@ htb_change_class_mode(struct htb_sched *q, struct htb_class *cl, s64 *diff)
+ 	if (new_mode == cl->cmode)
+ 		return;
  
-+	n = (n_bits + 7) / 8;
++	if (new_mode == HTB_CANT_SEND)
++		cl->overlimits++;
 +
-+	/* 'overwrite' an equivalent entry if one already exists */
-+	node = tlpm_match(list, key, n_bits);
-+	if (node && node->n_bits == n_bits) {
-+		memcpy(node->key, key, n);
-+		return list;
-+	}
-+
- 	/* add new entry with @key/@n_bits to @list and return new head */
+ 	if (cl->prio_activity) {	/* not necessary: speed optimization */
+ 		if (cl->cmode != HTB_CANT_SEND)
+ 			htb_deactivate_prios(q, cl);
+@@ -1143,6 +1147,7 @@ htb_dump_class_stats(struct Qdisc *sch, unsigned long arg, struct gnet_dump *d)
+ 	struct htb_class *cl = (struct htb_class *)arg;
+ 	struct gnet_stats_queue qs = {
+ 		.drops = cl->drops,
++		.overlimits = cl->overlimits,
+ 	};
+ 	__u32 qlen = 0;
  
--	n = (n_bits + 7) / 8;
- 	node = malloc(sizeof(*node) + n);
- 	assert(node);
- 
--- 
-2.14.1.690.gbb1197296e-goog
