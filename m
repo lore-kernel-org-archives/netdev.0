@@ -1,91 +1,55 @@
-From: Maxime Ripard <maxime.ripard@free-electrons.com>
-Subject: Re: [PATCH v2] net: stmmac: dwmac-sun8i: Use reset exclusive
-Date: Tue, 19 Sep 2017 10:45:25 +0200
-Message-ID: <20170919084525.vdbjrqx5qvhhxmor@flea.lan>
-References: <20170918183043.8028-1-clabbe.montjoie@gmail.com>
+From: Stefan Hajnoczi <stefanha@redhat.com>
+Subject: Re: [PATCH] VSOCK: fix uapi/linux/vm_sockets.h incomplete types
+Date: Mon, 18 Sep 2017 16:21:00 +0100
+Message-ID: <20170918152100.GF4141@stefanha-x1.localdomain>
+References: <20170912163435.4049-1-stefanha@redhat.com>
+ <20170915.141432.1514866054657107786.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="7mqomjgivpyllpcv"
-Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com, wens@csie.org,
-        netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-        linux-kernel@vger.kernel.org
-To: Corentin Labbe <clabbe.montjoie@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170918183043.8028-1-clabbe.montjoie@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-
---7mqomjgivpyllpcv
 Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, jhansen@vmware.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:55830 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750925AbdISJNG (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 19 Sep 2017 05:13:06 -0400
 Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+In-Reply-To: <20170915.141432.1514866054657107786.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 18, 2017 at 08:30:43PM +0200, Corentin Labbe wrote:
-> The current dwmac_sun8i module cannot be rmmod/modprobe due to that
-> the reset controller was not released when removed.
->=20
-> This patch remove ambiguity, by using of_reset_control_get_exclusive and
-> add the missing reset_control_put().
->=20
-> Note that we cannot use devm_reset_control_get, since the reset is not
-> in the device node.
->=20
-> Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
-> ---
-> Changes since v1:
-> - added a note about devm_reset_control_get in commit message
+On Fri, Sep 15, 2017 at 02:14:32PM -0700, David Miller wrote:
+> > diff --git a/include/uapi/linux/vm_sockets.h b/include/uapi/linux/vm_sockets.h
+> > index b4ed5d895699..4ae5c625ac56 100644
+> > --- a/include/uapi/linux/vm_sockets.h
+> > +++ b/include/uapi/linux/vm_sockets.h
+> > @@ -18,6 +18,10 @@
+> >  
+> >  #include <linux/socket.h>
+> >  
+> > +#ifndef __KERNEL__
+> > +#include <sys/socket.h> /* struct sockaddr */
+> > +#endif
+> > +
+> 
+> There is no precedence whatsoever to include sys/socket.h in _any_ UAPI
+> header file provided by the kernel.
 
-That comment would be better if it was in the code.
+<linux/if.h> does it for the same reason:
 
->=20
->  drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
->=20
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c b/drivers/=
-net/ethernet/stmicro/stmmac/dwmac-sun8i.c
-> index 57bb6dd7b401..1736d7cb0d96 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
-> @@ -854,6 +854,7 @@ static int sun8i_dwmac_unpower_internal_phy(struct su=
-nxi_priv_data *gmac)
-> =20
->  	clk_disable_unprepare(gmac->ephy_clk);
->  	reset_control_assert(gmac->rst_ephy);
-> +	reset_control_put(gmac->rst_ephy);
+include/uapi/linux/if.h:#include <sys/socket.h>                 /* for struct sockaddr.         */
 
-Putting it here is weird.
+If that is not acceptable for <linux/vm_sockets.h> then we could do the
+same thing as <linux/in.h>:
 
-What would happen if power_phy / unpower_phy is called several times?
+#define __SOCK_SIZE__   16              /* sizeof(struct sockaddr)      */
 
-Can't we just make it symetric and undo in remove what we do in probe?
+Is that okay or do you have another suggestion for getting sizeof(struct
+sockaddr)?  It's needed to pad struct sockaddr_vm.
 
-Maxime
+> __kernel_sa_family_t is what should be used in UAPI headers, only
+> non-UAPI headers can use plain sa_family_t.
+> 
+> So that is the correct fix for this problem.
 
---=20
-Maxime Ripard, Free Electrons
-Embedded Linux and Kernel engineering
-http://free-electrons.com
-
---7mqomjgivpyllpcv
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQIcBAEBAgAGBQJZwNklAAoJEBx+YmzsjxAgc1sQALqO1I3/P84NAW9+qGwxSTxI
-ba/GiF/zhUPXY7yHr525XqpS0Jw4W7UeUdFeUvLIO2egKbsWF1gkDw6s1+vr2Mmz
-5Ontv4Dcsl3gtGufu02QGmLfscfdwsru7xAC6zZaKi95pNxnrtlxFxcBRkibgRYa
-qqquX92ejLAwuhnm7W2YdP/GafdoDVvbXlEQ3e3wmNEXJ+6u/a6KkEwUmrzlWf8N
-SF7SpXXcORLK8MFwAoqnQeI+HASyEQMWk8kxwM73YKiRl9eHx8Xa8dVSJ70G3tK4
-FZN/Cm191I1WH+E9tJlvE4lrfoJBdWYIQBWPnNcmq5WrsLBmexn30NVp/72Jlibf
-9G+6rY0vbvI4SQKjxWrEKtb2XU577vfg2tC9OFhGULA6hHp2qshw2G2eHDIklVra
-b8919uhgLLtHUC5HRh23x1XsKBtuQ972RyAEiz1lfSiThPawbwYbRf9JrDeV9l02
-SnuAmEGNvK72NHET+JRmmb4TqhGhMISasTF7XLUcrCYqfGjel54LApvSXirDeQ1H
-BnLyyC+IZ5iCtSI9RFbAdbw6eEnzWW1SLcHK+yIc4+U2Bw+GxYvICmFMg7ad85Fz
-NAZxSmRgrd9m5GZltoZZH9H1pGv/qhIdQ3X5kW6LeScmvdz5crjy1STQCXAlY1St
-U9Cavy0g78jKumyev0PA
-=Xp24
------END PGP SIGNATURE-----
-
---7mqomjgivpyllpcv--
+Thanks, will fix in v2.
