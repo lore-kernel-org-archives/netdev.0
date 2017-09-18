@@ -1,29 +1,50 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next 02/12] net: dsa: b53: Make b53_enable_cpu_port() take a port argument
-Date: Mon, 18 Sep 2017 17:46:08 -0400
-Message-ID: <8760cf3ckf.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-References: <20170918214128.27896-1-f.fainelli@gmail.com> <20170918214128.27896-3-f.fainelli@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] ip6_gre: skb_push ipv6hdr before packing the
+ header in ip6gre_header
+Date: Mon, 18 Sep 2017 14:52:04 -0700 (PDT)
+Message-ID: <20170918.145204.2146093595696060495.davem@davemloft.net>
+References: <4337e23831098961437503efa2c9d7adfce96b81.1505448007.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: davem@davemloft.net, andrew@lunn.ch,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, xeb@mail.ru
+To: lucien.xin@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:34262 "EHLO
-        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751411AbdIRVtj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 17:49:39 -0400
-In-Reply-To: <20170918214128.27896-3-f.fainelli@gmail.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:55462 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750998AbdIRVwF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 17:52:05 -0400
+In-Reply-To: <4337e23831098961437503efa2c9d7adfce96b81.1505448007.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Florian Fainelli <f.fainelli@gmail.com> writes:
+From: Xin Long <lucien.xin@gmail.com>
+Date: Fri, 15 Sep 2017 12:00:07 +0800
 
-> In preparation for future changes allowing the configuring of multiple
-> CPU ports, make b53_enable_cpu_port() take a port argument.
->
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> Now in ip6gre_header before packing the ipv6 header, it skb_push t->hlen
+> which only includes encap_hlen + tun_hlen. It means greh and inner header
+> would be over written by ipv6 stuff and ipv6h might have no chance to set
+> up.
+> 
+> Jianlin found this issue when using remote any on ip6_gre, the packets he
+> captured on gre dev are truncated:
+> 
+> 22:50:26.210866 Out ethertype IPv6 (0x86dd), length 120: truncated-ip6 -\
+> 8128 bytes missing!(flowlabel 0x92f40, hlim 0, next-header Options (0)  \
+> payload length: 8192) ::1:2000:0 > ::1:0:86dd: HBH [trunc] ip-proto-128 \
+> 8184
+> 
+> It should also skb_push ipv6hdr so that ipv6h points to the right position
+> to set ipv6 stuff up.
+> 
+> This patch is to skb_push hlen + sizeof(*ipv6h) and also fix some indents
+> in ip6gre_header.
+> 
+> Fixes: c12b395a4664 ("gre: Support GRE over IPv6")
+> Reported-by: Jianlin Shi <jishi@redhat.com>
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
 
-Thanks,
+Yes, this is consistent with how t->hlen is used in the rest of this
+tunnel driver.
 
-Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Applied and queued up for -stable, thanks!
