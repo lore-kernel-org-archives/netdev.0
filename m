@@ -1,142 +1,111 @@
-From: Yonghong Song <yhs@fb.com>
-Subject: [PATCH net-next v3 2/4] bpf: add a test case for helper bpf_perf_event_read_value
-Date: Mon, 18 Sep 2017 16:05:51 -0700
-Message-ID: <20170918230553.1624357-3-yhs@fb.com>
-References: <20170918230553.1624357-1-yhs@fb.com>
+From: Vinicius Costa Gomes <vinicius.gomes@intel.com>
+Subject: Re: [RFC net-next 0/5] TSN: Add qdisc-based config interfaces for traffic shapers
+Date: Mon, 18 Sep 2017 16:06:28 -0700
+Message-ID: <87k20vip3f.fsf@intel.com>
+References: <20170901012625.14838-1-vinicius.gomes@intel.com> <20170918080214.yrejz67wwnp2pjzf@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <kernel-team@fb.com>
-To: <peterz@infradead.org>, <rostedt@goodmis.org>, <ast@fb.com>,
-        <daniel@iogearbox.net>, <netdev@vger.kernel.org>
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
+        jiri@resnulli.us, intel-wired-lan@lists.osuosl.org,
+        andre.guedes@intel.com, ivan.briano@intel.com,
+        jesus.sanchez-palencia@intel.com, boon.leong.ong@intel.com
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:37430 "EHLO
-        mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751283AbdIRXFz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 19:05:55 -0400
-Received: from pps.filterd (m0109332.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v8IN3fXa031772
-        for <netdev@vger.kernel.org>; Mon, 18 Sep 2017 16:05:54 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 2d2jfw1m8g-2
-        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Mon, 18 Sep 2017 16:05:54 -0700
-In-Reply-To: <20170918230553.1624357-1-yhs@fb.com>
+Received: from mga07.intel.com ([134.134.136.100]:36718 "EHLO mga07.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751301AbdIRXG3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 18 Sep 2017 19:06:29 -0400
+In-Reply-To: <20170918080214.yrejz67wwnp2pjzf@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The bpf sample program tracex6 is enhanced to use the new
-helper to read enabled/running time as well.
+Hi Richard,
 
-Signed-off-by: Yonghong Song <yhs@fb.com>
----
- samples/bpf/tracex6_kern.c                | 26 ++++++++++++++++++++++++++
- samples/bpf/tracex6_user.c                | 13 ++++++++++++-
- tools/include/uapi/linux/bpf.h            |  3 ++-
- tools/testing/selftests/bpf/bpf_helpers.h |  3 +++
- 4 files changed, 43 insertions(+), 2 deletions(-)
+Richard Cochran <richardcochran@gmail.com> writes:
 
-diff --git a/samples/bpf/tracex6_kern.c b/samples/bpf/tracex6_kern.c
-index e7d1803..46c557a 100644
---- a/samples/bpf/tracex6_kern.c
-+++ b/samples/bpf/tracex6_kern.c
-@@ -15,6 +15,12 @@ struct bpf_map_def SEC("maps") values = {
- 	.value_size = sizeof(u64),
- 	.max_entries = 64,
- };
-+struct bpf_map_def SEC("maps") values2 = {
-+	.type = BPF_MAP_TYPE_HASH,
-+	.key_size = sizeof(int),
-+	.value_size = sizeof(struct bpf_perf_event_value),
-+	.max_entries = 64,
-+};
- 
- SEC("kprobe/htab_map_get_next_key")
- int bpf_prog1(struct pt_regs *ctx)
-@@ -37,5 +43,25 @@ int bpf_prog1(struct pt_regs *ctx)
- 	return 0;
- }
- 
-+SEC("kprobe/htab_map_lookup_elem")
-+int bpf_prog2(struct pt_regs *ctx)
-+{
-+	u32 key = bpf_get_smp_processor_id();
-+	struct bpf_perf_event_value *val, buf;
-+	int error;
-+
-+	error = bpf_perf_event_read_value(&counters, key, &buf, sizeof(buf));
-+	if (error)
-+		return 0;
-+
-+	val = bpf_map_lookup_elem(&values2, &key);
-+	if (val)
-+		*val = buf;
-+	else
-+		bpf_map_update_elem(&values2, &key, &buf, BPF_NOEXIST);
-+
-+	return 0;
-+}
-+
- char _license[] SEC("license") = "GPL";
- u32 _version SEC("version") = LINUX_VERSION_CODE;
-diff --git a/samples/bpf/tracex6_user.c b/samples/bpf/tracex6_user.c
-index a05a99a..3341a96 100644
---- a/samples/bpf/tracex6_user.c
-+++ b/samples/bpf/tracex6_user.c
-@@ -22,6 +22,7 @@
- 
- static void check_on_cpu(int cpu, struct perf_event_attr *attr)
- {
-+	struct bpf_perf_event_value value2;
- 	int pmu_fd, error = 0;
- 	cpu_set_t set;
- 	__u64 value;
-@@ -46,8 +47,18 @@ static void check_on_cpu(int cpu, struct perf_event_attr *attr)
- 		fprintf(stderr, "Value missing for CPU %d\n", cpu);
- 		error = 1;
- 		goto on_exit;
-+	} else {
-+		fprintf(stderr, "CPU %d: %llu\n", cpu, value);
-+	}
-+	/* The above bpf_map_lookup_elem should trigger the second kprobe */
-+	if (bpf_map_lookup_elem(map_fd[2], &cpu, &value2)) {
-+		fprintf(stderr, "Value2 missing for CPU %d\n", cpu);
-+		error = 1;
-+		goto on_exit;
-+	} else {
-+		fprintf(stderr, "CPU %d: counter: %llu, enabled: %llu, running: %llu\n", cpu,
-+			value2.counter, value2.enabled, value2.running);
- 	}
--	fprintf(stderr, "CPU %d: %llu\n", cpu, value);
- 
- on_exit:
- 	assert(bpf_map_delete_elem(map_fd[0], &cpu) == 0 || error);
-diff --git a/tools/include/uapi/linux/bpf.h b/tools/include/uapi/linux/bpf.h
-index 461811e..79eb529 100644
---- a/tools/include/uapi/linux/bpf.h
-+++ b/tools/include/uapi/linux/bpf.h
-@@ -632,7 +632,8 @@ union bpf_attr {
- 	FN(skb_adjust_room),		\
- 	FN(redirect_map),		\
- 	FN(sk_redirect_map),		\
--	FN(sock_map_update),
-+	FN(sock_map_update),		\
-+	FN(perf_event_read_value),
- 
- /* integer value in 'imm' field of BPF_CALL instruction selects which helper
-  * function eBPF program intends to call
-diff --git a/tools/testing/selftests/bpf/bpf_helpers.h b/tools/testing/selftests/bpf/bpf_helpers.h
-index 36fb916..c866682 100644
---- a/tools/testing/selftests/bpf/bpf_helpers.h
-+++ b/tools/testing/selftests/bpf/bpf_helpers.h
-@@ -70,6 +70,9 @@ static int (*bpf_sk_redirect_map)(void *map, int key, int flags) =
- static int (*bpf_sock_map_update)(void *map, void *key, void *value,
- 				  unsigned long long flags) =
- 	(void *) BPF_FUNC_sock_map_update;
-+static int (*bpf_perf_event_read_value)(void *map, unsigned long long flags,
-+				       void *buf, unsigned int buf_size) =
-+	(void *) BPF_FUNC_perf_event_read_value;
- 
- 
- /* llvm builtin functions that eBPF C program may use to
--- 
-2.9.5
+> On Thu, Aug 31, 2017 at 06:26:20PM -0700, Vinicius Costa Gomes wrote:
+>>  * Time-aware shaper (802.1Qbv):
+>
+> I just posted a working alternative showing how to handle 802.1Qbv and
+> many other Ethernet field buses.
+>
+>>    The idea we are currently exploring is to add a "time-aware", priority based
+>>    qdisc, that also exposes the Tx queues available and provides a mechanism for
+>>    mapping priority <-> traffic class <-> Tx queues in a similar fashion as
+>>    mqprio. We are calling this qdisc 'taprio', and its 'tc' cmd line would be:
+>>
+>>    $ $ tc qdisc add dev ens4 parent root handle 100 taprio num_tc 4    \
+>>      	   map 2 2 1 0 3 3 3 3 3 3 3 3 3 3 3 3                         \
+>> 	   queues 0 1 2 3                                              \
+>>      	   sched-file gates.sched [base-time <interval>]               \
+>>            [cycle-time <interval>] [extension-time <interval>]
+>>
+>>    <file> is multi-line, with each line being of the following format:
+>>    <cmd> <gate mask> <interval in nanoseconds>
+>>
+>>    Qbv only defines one <cmd>: "S" for 'SetGates'
+>>
+>>    For example:
+>>
+>>    S 0x01 300
+>>    S 0x03 500
+>>
+>>    This means that there are two intervals, the first will have the gate
+>>    for traffic class 0 open for 300 nanoseconds, the second will have
+>>    both traffic classes open for 500 nanoseconds.
+>
+> The idea of the schedule file will not work in practice.  Consider the
+> fact that the application wants to deliver time critical data in a
+> particular slot.  How can it find out a) what the time slots are and
+> b) when the next slot is scheduled?  With this Qdisc, it cannot do
+> this, AFAICT.  The admin might delete the file after configuring the
+> Qdisc!
+
+That's the point, the application does not need to know that, and asking
+that would be stupid. From the point of view of the Qbv specification,
+applications only need to care about its basic bandwidth requirements:
+its interval, frame size, frames per interval (using the terms of the
+SRP section of 802.1Q). The traffic schedule is provided (off band) by a
+"god box" which knows all the requirements of all applications in all
+the nodes and how they are connected.
+
+(And that's another nice point of how 802.1Qbv works, applications do
+not need to be changed to use it, and I think we should work to achieve
+this on the Linux side)
+
+That being said, that only works for kinds of traffic that maps well to
+this configuration in advance model, which is the model that the IEEE
+(see 802.1Qcc) and the AVNU Alliance[1] are pushing for.
+
+In the real world, I can see multiple types of applications, some using
+something like TXTIME, and some configured in advance.
+
+>
+> Using the SO_TXTIME option, the application has total control over the
+> scheduling.  The great advantages of this approach is that we can
+> support any possible combination of periodic or aperiodic scheduling
+> and we can support any priority scheme user space dreams up.
+
+It has the disavantage of that the scheduling information has to be
+in-band with the data. I *really* think that for scheduled traffic,
+there should be a clear separation, we should not mix the dataflow with
+scheduling. In short, an application in the network don't need to have
+all the information necessary to schedule its own traffic well.
+
+I have two points here: 1. I see both "solutions" (taprio and SO_TXTIME)
+as being ortoghonal and useful, both; 2. trying to make one do the job
+of the other, however, looks like "If all I have is a hammer, everything
+looks like a nail".
+
+In short, I see a per-packet transmission time and a per-queue schedule
+as solutions to different problems.
+
+>
+> For example, one can imaging running two or more loops that only
+> occasionally collide.  When they do collide, which packet should be
+> sent first?  Just let user space decide.
+>
+> Thanks,
+> Richard
+
+Cheers,
