@@ -1,33 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net_sched: use explicit size of struct tcmsg, remove
- need to declare tcm
-Date: Mon, 18 Sep 2017 16:52:46 -0700 (PDT)
-Message-ID: <20170918.165246.1776895667963317474.davem@davemloft.net>
-References: <20170918114038.29741-1-colin.king@canonical.com>
+Subject: Re: [PATCH] bpf: devmap: pass on return value of
+ bpf_map_precharge_memlock
+Date: Mon, 18 Sep 2017 16:53:57 -0700 (PDT)
+Message-ID: <20170918.165357.480851390980422798.davem@davemloft.net>
+References: <20170918130346.10833-1-tklauser@distanz.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jhs@mojatatu.com, xiyou.wangcong@gmail.com, jiri@resnulli.us,
-        netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: colin.king@canonical.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170918114038.29741-1-colin.king@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: ast@kernel.org, daniel@iogearbox.net, john.fastabend@gmail.com,
+        netdev@vger.kernel.org
+To: tklauser@distanz.ch
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:59128 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750828AbdIRXyA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 19:54:00 -0400
+In-Reply-To: <20170918130346.10833-1-tklauser@distanz.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin King <colin.king@canonical.com>
-Date: Mon, 18 Sep 2017 12:40:38 +0100
+From: Tobias Klauser <tklauser@distanz.ch>
+Date: Mon, 18 Sep 2017 15:03:46 +0200
 
-> From: Colin Ian King <colin.king@canonical.com>
+> If bpf_map_precharge_memlock in dev_map_alloc, -ENOMEM is returned
+> regardless of the actual error produced by bpf_map_precharge_memlock.
+> Fix it by passing on the error returned by bpf_map_precharge_memlock.
 > 
-> Pointer tcm is being initialized and is never read, it is only being used
-> to determine the size of struct tcmsg.  Clean this up by removing
-> variable tcm and explicitly using the sizeof struct tcmsg rather than *tcm.
-> Cleans up clang warning:
+> Also return -EINVAL instead of -ENOMEM if the page count overflow check
+> fails.
 > 
-> warning: Value stored to 'tcm' during its initialization is never read
+> This makes dev_map_alloc match the behavior of other bpf maps' alloc
+> functions wrt. return values.
 > 
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
 
-Applied to net-next.
+Applied, thank you.
