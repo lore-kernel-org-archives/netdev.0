@@ -1,35 +1,58 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: phy: Fix mask value write on gmii2rgmii
- converter speed register
-Date: Mon, 18 Sep 2017 16:34:08 -0700 (PDT)
-Message-ID: <20170918.163408.207952584990169576.davem@davemloft.net>
-References: <1505457118-3933-1-git-send-email-fahad.kunnathadi@dexceldesigns.com>
+Subject: Re: [PATCH net] ip6_tunnel: do not allow loading ip6_tunnel if
+ ipv6 is disabled in cmdline
+Date: Mon, 18 Sep 2017 16:35:14 -0700 (PDT)
+Message-ID: <20170918.163514.1255529758008159884.davem@davemloft.net>
+References: <107ac334855fea1e6492b2e523b788209e54ec2f.1505462312.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, michal.simek@xilinx.com, andrew@lunn.ch,
-        appanad@xilinx.com, soren.brinkmann@xilinx.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: fahad.kunnathadi@dexceldesigns.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1505457118-3933-1-git-send-email-fahad.kunnathadi@dexceldesigns.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, xeb@mail.ru, jbenc@redhat.com
+To: lucien.xin@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:58500 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750791AbdIRXfP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 19:35:15 -0400
+In-Reply-To: <107ac334855fea1e6492b2e523b788209e54ec2f.1505462312.git.lucien.xin@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Fahad Kunnathadi <fahad.kunnathadi@dexceldesigns.com>
-Date: Fri, 15 Sep 2017 12:01:58 +0530
+From: Xin Long <lucien.xin@gmail.com>
+Date: Fri, 15 Sep 2017 15:58:33 +0800
 
-> To clear Speed Selection in MDIO control register(0x10),
-> ie, clear bits 6 and 13 to zero while keeping other bits same.
-> Before AND operation,The Mask value has to be perform with bitwise NOT
-> operation (ie, ~ operator)
+> If ipv6 has been disabled from cmdline since kernel started, it makes
+> no sense to allow users to create any ip6 tunnel. Otherwise, it could
+> some potential problem.
 > 
-> This patch clears current speed selection before writing the
-> new speed settings to gmii2rgmii converter
+> Jianlin found a kernel crash caused by this in ip6_gre when he set
+> ipv6.disable=1 in grub:
 > 
-> Fixes: f411a6160bd4 ("net: phy: Add gmiitorgmii converter support")
+> [  209.588865] Unable to handle kernel paging request for data at address 0x00000080
+> [  209.588872] Faulting instruction address: 0xc000000000a3aa6c
+> [  209.588879] Oops: Kernel access of bad area, sig: 11 [#1]
+> [  209.589062] NIP [c000000000a3aa6c] fib_rules_lookup+0x4c/0x260
+> [  209.589071] LR [c000000000b9ad90] fib6_rule_lookup+0x50/0xb0
+> [  209.589076] Call Trace:
+> [  209.589097] fib6_rule_lookup+0x50/0xb0
+> [  209.589106] rt6_lookup+0xc4/0x110
+> [  209.589116] ip6gre_tnl_link_config+0x214/0x2f0 [ip6_gre]
+> [  209.589125] ip6gre_newlink+0x138/0x3a0 [ip6_gre]
+> [  209.589134] rtnl_newlink+0x798/0xb80
+> [  209.589142] rtnetlink_rcv_msg+0xec/0x390
+> [  209.589151] netlink_rcv_skb+0x138/0x150
+> [  209.589159] rtnetlink_rcv+0x48/0x70
+> [  209.589169] netlink_unicast+0x538/0x640
+> [  209.589175] netlink_sendmsg+0x40c/0x480
+> [  209.589184] ___sys_sendmsg+0x384/0x4e0
+> [  209.589194] SyS_sendmsg+0xd4/0x140
+> [  209.589201] SyS_socketcall+0x3e0/0x4f0
+> [  209.589209] system_call+0x38/0xe0
 > 
-> Signed-off-by: Fahad Kunnathadi <fahad.kunnathadi@dexceldesigns.com>
-> Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+> This patch is to return -EOPNOTSUPP in ip6_tunnel_init if ipv6 has been
+> disabled from cmdline.
+> 
+> Reported-by: Jianlin Shi <jishi@redhat.com>
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
 
 Applied and queued up for -stable, thanks.
