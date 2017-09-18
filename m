@@ -1,114 +1,60 @@
-From: Tariq Toukan <tariqt@mellanox.com>
-Subject: Re: Page allocator bottleneck
-Date: Mon, 18 Sep 2017 12:16:09 +0300
-Message-ID: <d8cfaf8b-7601-2712-f9f2-8327c720db5a@mellanox.com>
-References: <cef85936-10b2-5d76-9f97-cb03b418fd94@mellanox.com>
- <20170915102320.zqceocmvvkyybekj@techsingularity.net>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next 09/11] bnxt_en: bnxt: add TC flower filter
+ offload support
+Date: Mon, 18 Sep 2017 11:52:05 +0200
+Message-ID: <20170918095205.GB1951@nanopsycho.orion>
+References: <1503942035-24924-1-git-send-email-michael.chan@broadcom.com>
+ <1503942035-24924-10-git-send-email-michael.chan@broadcom.com>
+ <20170911133607.GD1869@nanopsycho>
+ <CAKvpyk1iV4z_f7cUA8DL1nU772hPtiZC4MtjA9t=S5J=8EcD-A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
- Jesper Dangaard Brouer <brouer@redhat.com>,
- Eric Dumazet <eric.dumazet@gmail.com>, Alexei Starovoitov <ast@fb.com>,
- Saeed Mahameed <saeedm@mellanox.com>, Eran Ben Elisha <eranbe@mellanox.com>,
- Linux Kernel Network Developers <netdev@vger.kernel.org>,
- Andrew Morton <akpm@linux-foundation.org>, Michal Hocko <mhocko@suse.com>,
- linux-mm <linux-mm@kvack.org>
-To: Mel Gorman <mgorman@techsingularity.net>,
- Tariq Toukan <tariqt@mellanox.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20170915102320.zqceocmvvkyybekj@techsingularity.net>
-Content-Language: en-US
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Michael Chan <michael.chan@broadcom.com>,
+        David Miller <davem@davemloft.net>,
+        Netdev <netdev@vger.kernel.org>
+To: Sathya Perla <sathya.perla@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wr0-f193.google.com ([209.85.128.193]:37571 "EHLO
+        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753882AbdIRJwH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 05:52:07 -0400
+Received: by mail-wr0-f193.google.com with SMTP id u48so4753243wrf.4
+        for <netdev@vger.kernel.org>; Mon, 18 Sep 2017 02:52:06 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAKvpyk1iV4z_f7cUA8DL1nU772hPtiZC4MtjA9t=S5J=8EcD-A@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Mon, Sep 18, 2017 at 11:43:22AM CEST, sathya.perla@broadcom.com wrote:
+>On Mon, Sep 11, 2017 at 7:06 PM, Jiri Pirko <jiri@resnulli.us> wrote:
+>> Mon, Aug 28, 2017 at 07:40:33PM CEST, michael.chan@broadcom.com wrote:
+>>>From: Sathya Perla <sathya.perla@broadcom.com>
+>>>
+>>>This patch adds support for offloading TC based flow
+>>>rules and actions for the 'flower' classifier in the bnxt_en driver.
+>>>It includes logic to parse flow rules and actions received from the
+>>>TC subsystem, store them and issue the corresponding
+>>>hwrm_cfa_flow_alloc/free FW cmds. L2/IPv4/IPv6 flows and drop,
+>>>redir, vlan push/pop actions are supported in this patch.
+>>>
+>>>In this patch the hwrm_cfa_flow_xxx routines are just stubs.
+>>>The code for these routines is introduced in the next patch for easier
+>>>review. Also, the code to query the TC/flower action stats will
+>>>be introduced in a subsequent patch.
+>>
+>> Hi.
+>>
+>> You are missing checks for the offload. Please see nfp as an example:
+>> Function nfp_flower_setup_tc:
+>>
+>>             !is_classid_clsact_ingress(cls_flower->common.classid) ||
+>>             cls_flower->common.chain_index)
+>
+>Thanks for catching this...will send a patch.
+>
+>>
+>> Do you support both ingress and egress or ingress only?
+>
+>Ingress only for flower offload.
 
-
-On 15/09/2017 1:23 PM, Mel Gorman wrote:
-> On Thu, Sep 14, 2017 at 07:49:31PM +0300, Tariq Toukan wrote:
->> Insights: Major degradation between #1 and #2, not getting any
->> close to linerate! Degradation is fixed between #2 and #3. This is
->> because page allocator cannot stand the higher allocation rate. In
->> #2, we also see that the addition of rings (cores) reduces BW (!!),
->> as result of increasing congestion over shared resources.
->> 
-> 
-> Unfortunately, no surprises there.
-> 
->> Congestion in this case is very clear. When monitored in perf top: 
->> 85.58% [kernel] [k] queued_spin_lock_slowpath
->> 
-> 
-> While it's not proven, the most likely candidate is the zone lock
-> and that should be confirmed using a call-graph profile. If so, then
-> the suggestion to tune to the size of the per-cpu allocator would
-> mitigate the problem.
-> 
-Indeed, I tuned the per-cpu allocator and bottleneck is released.
-
->> I think that page allocator issues should be discussed separately: 
->> 1) Rate: Increase the allocation rate on a single core. 2)
->> Scalability: Reduce congestion and sync overhead between cores.
->> 
->> This is clearly the current bottleneck in the network stack receive
->> flow.
->> 
->> I know about some efforts that were made in the past two years. For
->> example the ones from Jesper et al.: - Page-pool (not accepted
->> AFAIK).
-> 
-> Indeed not and it would also need driver conversion.
-> 
->> - Page-allocation bulking.
-> 
-> Prototypes exist but it's pointless without the pool or driver 
-> conversion so it's in the back burner for the moment.
-> 
-
-As I already mentioned in another reply (to Jesper), this would
-perfectly fit with our Striding RQ feature, as we have large descriptors
-that serve several packets, requiring the allocation of several pages at
-once. I'd gladly move to using the bulking API.
-
->> - Optimize order-0 allocations in Per-Cpu-Pages.
->> 
-> 
-> This had a prototype that was reverted as it must be able to cope
-> with both irq and noirq contexts.
-Yeah, I remember that I tested and reported the issue.
-
-Unfortunately I never found the time to
-> revisit it but a split there to handle both would mitigate the
-> problem. Probably not enough to actually reach line speed though so
-> tuning of the per-cpu allocator sizes would still be needed. I don't
-> know when I'll get the chance to revisit it. I'm travelling all next
-> week and am mostly occupied with other work at the moment that is
-> consuming all my concentration.
-> 
->> I am not an mm expert, but wanted to raise the issue again, to
->> combine the efforts and hear from you guys about status and
->> possible directions.
-> 
-> The recent effort to reduce overhead from stats will help mitigate
-> the problem.
-I should get more familiar with these stats, check how costly they are, 
-and whether they can be turned off in Kconfig.
-
-> Finishing the page pool, the bulk allocator and converting drivers 
-> would be the most likely successful path forward but it's currently
-> stalled as everyone that was previously involved is too busy.
-> 
-I think we should consider changing the default allocation of PCP 
-fraction as well, or implement some smart dynamic heuristic.
-This turned on to have significant effect over networking performance.
-
-Many thanks Mel!
-
-Regards,
-Tariq
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Cool, the check would resolve it. Thanks!
