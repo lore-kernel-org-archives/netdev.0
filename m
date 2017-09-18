@@ -1,282 +1,74 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: Re: [PATCHv2 iproute2 1/2] lib/libnetlink: re malloc buff if size is
- not enough
-Date: Mon, 18 Sep 2017 09:55:05 +0200
-Message-ID: <20170918075504.gdx4q7je5uneefgg@unicorn.suse.cz>
-References: <1505296780-8444-1-git-send-email-liuhangbin@gmail.com>
- <1505296780-8444-2-git-send-email-liuhangbin@gmail.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [RFC net-next 0/5] TSN: Add qdisc-based config interfaces for
+ traffic shapers
+Date: Mon, 18 Sep 2017 10:02:14 +0200
+Message-ID: <20170918080214.yrejz67wwnp2pjzf@localhost>
+References: <20170901012625.14838-1-vinicius.gomes@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        Phil Sutter <phil@nwl.cc>
-To: Hangbin Liu <liuhangbin@gmail.com>
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
+        jiri@resnulli.us, intel-wired-lan@lists.osuosl.org,
+        andre.guedes@intel.com, ivan.briano@intel.com,
+        jesus.sanchez-palencia@intel.com, boon.leong.ong@intel.com
+To: Vinicius Costa Gomes <vinicius.gomes@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:51259 "EHLO mx1.suse.de"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752106AbdIRHzI (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 18 Sep 2017 03:55:08 -0400
+Received: from mail-wr0-f173.google.com ([209.85.128.173]:56122 "EHLO
+        mail-wr0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752413AbdIRICU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 04:02:20 -0400
+Received: by mail-wr0-f173.google.com with SMTP id l39so5465550wrl.12
+        for <netdev@vger.kernel.org>; Mon, 18 Sep 2017 01:02:19 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <1505296780-8444-2-git-send-email-liuhangbin@gmail.com>
+In-Reply-To: <20170901012625.14838-1-vinicius.gomes@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 13, 2017 at 05:59:39PM +0800, Hangbin Liu wrote:
-> With commit 72b365e8e0fd ("libnetlink: Double the dump buffer size")
-> we doubled the buffer size to support more VFs. But the VFs number is
-> increasing all the time. Some customers even use more than 200 VFs now.
+On Thu, Aug 31, 2017 at 06:26:20PM -0700, Vinicius Costa Gomes wrote:
+>  * Time-aware shaper (802.1Qbv):
+
+I just posted a working alternative showing how to handle 802.1Qbv and
+many other Ethernet field buses.
+ 
+>    The idea we are currently exploring is to add a "time-aware", priority based
+>    qdisc, that also exposes the Tx queues available and provides a mechanism for
+>    mapping priority <-> traffic class <-> Tx queues in a similar fashion as
+>    mqprio. We are calling this qdisc 'taprio', and its 'tc' cmd line would be:
 > 
-> We could not double it everytime when the buffer is not enough. Let's just
-> not hard code the buffer size and malloc the correct number when running.
+>    $ $ tc qdisc add dev ens4 parent root handle 100 taprio num_tc 4    \
+>      	   map 2 2 1 0 3 3 3 3 3 3 3 3 3 3 3 3                         \
+> 	   queues 0 1 2 3                                              \
+>      	   sched-file gates.sched [base-time <interval>]               \
+>            [cycle-time <interval>] [extension-time <interval>]
 > 
-> Introduce function rtnl_recvmsg() to always return a newly allocated buffer.
-> The caller need to free it after using.
+>    <file> is multi-line, with each line being of the following format:
+>    <cmd> <gate mask> <interval in nanoseconds>
 > 
-> Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
-> Signed-off-by: Phil Sutter <phil@nwl.cc>
-> ---
->  lib/libnetlink.c | 112 ++++++++++++++++++++++++++++++++++++++-----------------
->  1 file changed, 78 insertions(+), 34 deletions(-)
+>    Qbv only defines one <cmd>: "S" for 'SetGates'
 > 
-> diff --git a/lib/libnetlink.c b/lib/libnetlink.c
-> index be7ac86..e3fa7cf 100644
-> --- a/lib/libnetlink.c
-> +++ b/lib/libnetlink.c
-> @@ -402,6 +402,62 @@ static void rtnl_dump_error(const struct rtnl_handle *rth,
->  	}
->  }
->  
-> +static int rtnl_recvmsg(int fd, struct msghdr *msg, char **answer)
-> +{
-> +	struct iovec *iov;
-> +	int len = -1, buf_len = 32768;
-> +	char *bufp, *buf = NULL;
-> +
-> +	int flag = MSG_PEEK | MSG_TRUNC;
-> +
-> +realloc:
-> +	bufp = realloc(buf, buf_len);
-> +
-> +	if (bufp == NULL) {
-> +		fprintf(stderr, "malloc error: not enough buffer\n");
-> +		free(buf);
-> +		return -ENOMEM;
-> +	}
-> +	buf = bufp;
-> +	iov = msg->msg_iov;
-> +	iov->iov_base = buf;
-> +	iov->iov_len = buf_len;
-> +
-> +recv:
-> +	len = recvmsg(fd, msg, flag);
-> +
-> +	if (len < 0) {
-> +		if (errno == EINTR || errno == EAGAIN)
-> +			goto recv;
-> +		fprintf(stderr, "netlink receive error %s (%d)\n",
-> +			strerror(errno), errno);
-
-free(buf);
-
-> +		return len;
-
-Maybe we should return -errno (saved before calling fprintf()) to be
-consistent.
-
-> +	}
-> +
-> +	if (len == 0) {
-> +		fprintf(stderr, "EOF on netlink\n");
-
-free(buf);
-
-> +		return -ENODATA;
-> +	}
-> +
-> +	if (len > buf_len) {
-> +		buf_len = len;
-> +		flag = 0;
-> +		goto realloc;
-> +	}
-> +
-> +	if (flag != 0) {
-> +		flag = 0;
-> +		goto recv;
-> +	}
-
-This means that even if the default buffer size is sufficient (which
-should be most of the time) we make the kernel copy the message to
-userspace again. Perhaps we could just call recvmsg() with zero length
-to discard the message from the queue in this case. But it's not really
-a big problem, I guess.
-
-> +
-> +	if (answer)
-> +		*answer = buf;
-> +	else
-> +		free(buf);
-> +
-> +	return len;
-> +}
-> +
->  int rtnl_dump_filter_l(struct rtnl_handle *rth,
->  		       const struct rtnl_dump_filter_arg *arg)
->  {
-> @@ -413,31 +469,18 @@ int rtnl_dump_filter_l(struct rtnl_handle *rth,
->  		.msg_iov = &iov,
->  		.msg_iovlen = 1,
->  	};
-> -	char buf[32768];
-> +	char *buf;
->  	int dump_intr = 0;
->  
-> -	iov.iov_base = buf;
->  	while (1) {
->  		int status;
->  		const struct rtnl_dump_filter_arg *a;
->  		int found_done = 0;
->  		int msglen = 0;
->  
-> -		iov.iov_len = sizeof(buf);
-> -		status = recvmsg(rth->fd, &msg, 0);
-> -
-> -		if (status < 0) {
-> -			if (errno == EINTR || errno == EAGAIN)
-> -				continue;
-> -			fprintf(stderr, "netlink receive error %s (%d)\n",
-> -				strerror(errno), errno);
-> -			return -1;
-> -		}
-> -
-> -		if (status == 0) {
-> -			fprintf(stderr, "EOF on netlink\n");
-> -			return -1;
-> -		}
-> +		status = rtnl_recvmsg(rth->fd, &msg, &buf);
-> +		if (status < 0)
-> +			return status;
->  
->  		if (rth->dump_fp)
->  			fwrite(buf, 1, NLMSG_ALIGN(status), rth->dump_fp);
-> @@ -462,8 +505,10 @@ int rtnl_dump_filter_l(struct rtnl_handle *rth,
->  
->  				if (h->nlmsg_type == NLMSG_DONE) {
->  					err = rtnl_dump_done(h);
-> -					if (err < 0)
-> +					if (err < 0) {
-> +						free(buf);
->  						return -1;
-> +					}
->  
->  					found_done = 1;
->  					break; /* process next filter */
-> @@ -471,19 +516,23 @@ int rtnl_dump_filter_l(struct rtnl_handle *rth,
->  
->  				if (h->nlmsg_type == NLMSG_ERROR) {
->  					rtnl_dump_error(rth, h);
-> +					free(buf);
->  					return -1;
->  				}
->  
->  				if (!rth->dump_fp) {
->  					err = a->filter(&nladdr, h, a->arg1);
-> -					if (err < 0)
-> +					if (err < 0) {
-> +						free(buf);
->  						return err;
-> +					}
->  				}
->  
->  skip_it:
->  				h = NLMSG_NEXT(h, msglen);
->  			}
->  		}
-> +		free(buf);
-
-We only free the last buffer returned by rtnl_recvmsg() this way. IMHO
-this free(buf) should be moved inside the loop.
-
->  
->  		if (found_done) {
->  			if (dump_intr)
-> @@ -543,7 +592,7 @@ static int __rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n,
->  		.msg_iov = &iov,
->  		.msg_iovlen = 1,
->  	};
-> -	char   buf[32768] = {};
-> +	char *buf;
->  
->  	n->nlmsg_seq = seq = ++rtnl->seq;
->  
-> @@ -556,22 +605,12 @@ static int __rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n,
->  		return -1;
->  	}
->  
-> -	iov.iov_base = buf;
->  	while (1) {
-> -		iov.iov_len = sizeof(buf);
-> -		status = recvmsg(rtnl->fd, &msg, 0);
-> +		status = rtnl_recvmsg(rtnl->fd, &msg, &buf);
-> +
-> +		if (status < 0)
-> +			return status;
->  
-> -		if (status < 0) {
-> -			if (errno == EINTR || errno == EAGAIN)
-> -				continue;
-> -			fprintf(stderr, "netlink receive error %s (%d)\n",
-> -				strerror(errno), errno);
-> -			return -1;
-> -		}
-> -		if (status == 0) {
-> -			fprintf(stderr, "EOF on netlink\n");
-> -			return -1;
-> -		}
->  		if (msg.msg_namelen != sizeof(nladdr)) {
->  			fprintf(stderr,
->  				"sender address length == %d\n",
-> @@ -585,6 +624,7 @@ static int __rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n,
->  			if (l < 0 || len > status) {
->  				if (msg.msg_flags & MSG_TRUNC) {
->  					fprintf(stderr, "Truncated message\n");
-> +					free(buf);
->  					return -1;
->  				}
->  				fprintf(stderr,
-> @@ -611,6 +651,7 @@ static int __rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n,
->  					if (answer)
->  						memcpy(answer, h,
->  						       MIN(maxlen, h->nlmsg_len));
-> +					free(buf);
->  					return 0;
->  				}
->  
-> @@ -619,12 +660,14 @@ static int __rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n,
->  					rtnl_talk_error(h, err, errfn);
->  
->  				errno = -err->error;
-> +				free(buf);
->  				return -1;
->  			}
->  
->  			if (answer) {
->  				memcpy(answer, h,
->  				       MIN(maxlen, h->nlmsg_len));
-> +				free(buf);
->  				return 0;
->  			}
->  
-> @@ -633,6 +676,7 @@ static int __rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n,
->  			status -= NLMSG_ALIGN(len);
->  			h = (struct nlmsghdr *)((char *)h + NLMSG_ALIGN(len));
->  		}
-> +		free(buf);
-
-Same as above.
-
->  
->  		if (msg.msg_flags & MSG_TRUNC) {
->  			fprintf(stderr, "Message truncated\n");
-> -- 
-> 2.5.5
+>    For example:
 > 
+>    S 0x01 300
+>    S 0x03 500
+> 
+>    This means that there are two intervals, the first will have the gate
+>    for traffic class 0 open for 300 nanoseconds, the second will have
+>    both traffic classes open for 500 nanoseconds.
+
+The idea of the schedule file will not work in practice.  Consider the
+fact that the application wants to deliver time critical data in a
+particular slot.  How can it find out a) what the time slots are and
+b) when the next slot is scheduled?  With this Qdisc, it cannot do
+this, AFAICT.  The admin might delete the file after configuring the
+Qdisc!
+
+Using the SO_TXTIME option, the application has total control over the
+scheduling.  The great advantages of this approach is that we can
+support any possible combination of periodic or aperiodic scheduling
+and we can support any priority scheme user space dreams up.
+
+For example, one can imaging running two or more loops that only
+occasionally collide.  When they do collide, which packet should be
+sent first?  Just let user space decide.
+
+Thanks,
+Richard
