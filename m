@@ -1,244 +1,402 @@
 From: Ville Syrjala <ville.syrjala@linux.intel.com>
-Subject: [PATCH 1/2] mac80211: Add rcu read side critical sections
-Date: Mon, 18 Sep 2017 22:59:18 +0300
-Message-ID: <20170918195919.15860-1-ville.syrjala@linux.intel.com>
+Subject: [PATCH 2/2] ath9k: Avoid a potential deadlock
+Date: Mon, 18 Sep 2017 22:59:19 +0300
+Message-ID: <20170918195919.15860-2-ville.syrjala@linux.intel.com>
+References: <20170918195919.15860-1-ville.syrjala@linux.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+Cc: QCA ath9k Development <ath9k-devel@qca.qualcomm.com>,
+        Kalle Valo <kvalo@codeaurora.org>, netdev@vger.kernel.org,
         =?UTF-8?q?Ville=20Syrj=C3=A4l=C3=A4?=
         <ville.syrjala@linux.intel.com>
 To: linux-wireless@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga05.intel.com ([192.55.52.43]:7741 "EHLO mga05.intel.com"
+Received: from mga06.intel.com ([134.134.136.31]:15235 "EHLO mga06.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750864AbdIRT7X (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 18 Sep 2017 15:59:23 -0400
+        id S1750972AbdIRT71 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 18 Sep 2017 15:59:27 -0400
+In-Reply-To: <20170918195919.15860-1-ville.syrjala@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ville Syrjälä <ville.syrjala@linux.intel.com>
 
-I got the following lockdep warning about the rcu_dereference()s in
-ieee80211_tx_h_select_key(). After tracing all callers of
-ieee80211_tx_h_select_key() I discovered that ieee80211_get_buffered_bc()
-and ieee80211_build_data_template() had the rcu_read_lock/unlock() but
-three other places did not. So I just blindly added them and made the
-read side critical section extend as far as the lifetime of 'tx' which
-is where we seem to be stuffing the rcu protected pointers. No real clue
-whether this is correct or not.
+Lockdep warns us that sc_pm_lock and cc_lock can cause a deadlock when
+cc_lock is acquired by itself with interrupts enabled. Disable irqs
+whenever taking cc_lock to avoid this.
 
-[  854.573700] ../net/mac80211/tx.c:594 suspicious rcu_dereference_check() usage!
-[  854.573704]
+[   19.094524] kworker/u2:0/5 just changed the state of lock:
+[   19.094578]  (&(&sc->sc_pm_lock)->rlock){-.-...}, at: [<f836c00e>] ath_isr+0x15e/0x200 [ath9k]
+[   19.094674] but this lock took another, HARDIRQ-unsafe lock in the past:
+[   19.094731]  (&(&common->cc_lock)->rlock){+.-...}
+[   19.094741]
+
+               and interrupts could create inverse lock ordering between them.
+
+[   19.094866]
                other info that might help us debug this:
+[   19.094926]  Possible interrupt unsafe locking scenario:
 
-[  854.573707]
-               rcu_scheduler_active = 2, debug_locks = 1
-[  854.573712] 6 locks held by kworker/u2:0/2877:
-[  854.573715]  #0:  ("%s"wiphy_name(local->hw.wiphy)){++++.+}, at: [<c1067f37>] process_one_work+0x127/0x580
-[  854.573742]  #1:  ((&sdata->work)){+.+.+.}, at: [<c1067f37>] process_one_work+0x127/0x580
-[  854.573758]  #2:  (&wdev->mtx){+.+.+.}, at: [<f83271c3>] ieee80211_sta_work+0x23/0x1c70 [mac80211]
-[  854.573902]  #3:  (&local->sta_mtx){+.+.+.}, at: [<f82c9b10>] __sta_info_flush+0x60/0x160 [mac80211]
-[  854.573947]  #4:  (&(&txq->axq_lock)->rlock){+.-...}, at: [<f825729c>] ath_tx_node_cleanup+0x5c/0x180 [ath9k]
-[  854.573973]  #5:  (&(&fq->lock)->rlock){+.-...}, at: [<f82fb064>] ieee80211_tx_dequeue+0x24/0xa80 [mac80211]
-[  854.574023]
+[   19.094985]        CPU0                    CPU1
+[   19.095036]        ----                    ----
+[   19.095086]   lock(&(&common->cc_lock)->rlock);
+[   19.095197]                                local_irq_disable();
+[   19.095305]                                lock(&(&sc->sc_pm_lock)->rlock);
+[   19.095423]                                lock(&(&common->cc_lock)->rlock);
+[   19.095539]   <Interrupt>
+[   19.095636]     lock(&(&sc->sc_pm_lock)->rlock);
+[   19.095745]
+                *** DEADLOCK ***
+
+[   19.095965] 3 locks held by kworker/u2:0/5:
+[   19.096067]  #0:  ("%s"wiphy_name(local->hw.wiphy)){.+.+.+}, at: [<c1067f37>] process_one_work+0x127/0x580
+[   19.096260]  #1:  ((&local->dynamic_ps_enable_work)){+.+...}, at: [<c1067f37>] process_one_work+0x127/0x580
+[   19.096447]  #2:  (&sc->mutex){+.+...}, at: [<f836b8b0>] ath9k_config+0x30/0x1d0 [ath9k]
+[   19.096639]
+               the shortest dependencies between 2nd lock and 1st lock:
+[   19.096813]  -> (&(&common->cc_lock)->rlock){+.-...} ops: 38 {
+[   19.096816]     HARDIRQ-ON-W at:
+[   19.096816]                       __lock_acquire+0x57e/0x1260
+[   19.096816]                       lock_acquire+0xb1/0x1c0
+[   19.096816]                       _raw_spin_lock_bh+0x3f/0x50
+[   19.096816]                       ath_chanctx_set_channel+0xb6/0x2c0 [ath9k]
+[   19.096816]                       ath9k_config+0xa8/0x1d0 [ath9k]
+[   19.096816]                       ieee80211_hw_config+0xa8/0x5f0 [mac80211]
+[   19.096816]                       ieee80211_do_open+0x67a/0x920 [mac80211]
+[   19.096816]                       ieee80211_open+0x41/0x50 [mac80211]
+[   19.096816]                       __dev_open+0xab/0x140
+[   19.096816]                       __dev_change_flags+0x89/0x150
+[   19.096816]                       dev_change_flags+0x28/0x60
+[   19.096816]                       do_setlink+0x290/0x890
+[   19.096816]                       rtnl_newlink+0x7cf/0x8e0
+[   19.096816]                       rtnetlink_rcv_msg+0xbf/0x1f0
+[   19.096816]                       netlink_rcv_skb+0xb9/0xe0
+[   19.096816]                       rtnetlink_rcv+0x1e/0x30
+[   19.096816]                       netlink_unicast+0x13a/0x2c0
+[   19.096816]                       netlink_sendmsg+0x290/0x380
+[   19.096816]                       ___sys_sendmsg+0x1e2/0x280
+[   19.096816]                       __sys_sendmsg+0x3f/0x80
+[   19.096816]                       SyS_socketcall+0x58c/0x6b0
+[   19.096816]                       do_fast_syscall_32+0x96/0x1d0
+[   19.096816]                       entry_SYSENTER_32+0x4c/0x7b
+[   19.096816]     IN-SOFTIRQ-W at:
+[   19.096816]                       __lock_acquire+0x55a/0x1260
+[   19.096816]                       lock_acquire+0xb1/0x1c0
+[   19.096816]                       _raw_spin_lock+0x3c/0x50
+[   19.096816]                       ath_ps_full_sleep+0x24/0x70 [ath9k]
+[   19.096816]                       call_timer_fn+0xa4/0x300
+[   19.096816]                       run_timer_softirq+0x1b1/0x560
+[   19.096816]                       __do_softirq+0xb0/0x430
+[   19.096816]                       do_softirq_own_stack+0x33/0x40
+[   19.096816]                       irq_exit+0xad/0xc0
+[   19.096816]                       smp_apic_timer_interrupt+0x31/0x40
+[   19.096816]                       apic_timer_interrupt+0x37/0x3c
+[   19.096816]                       wp_page_copy+0xb8/0x580
+[   19.096816]                       do_wp_page+0x64/0x420
+[   19.096816]                       handle_mm_fault+0x430/0x990
+[   19.096816]                       __do_page_fault+0x18b/0x430
+[   19.096816]                       do_page_fault+0xb/0x10
+[   19.096816]                       common_exception+0x62/0x6a
+[   19.096816]     INITIAL USE at:
+[   19.096816]                      __lock_acquire+0x204/0x1260
+[   19.096816]                      lock_acquire+0xb1/0x1c0
+[   19.096816]                      _raw_spin_lock_bh+0x3f/0x50
+[   19.096816]                      ath_chanctx_set_channel+0xb6/0x2c0 [ath9k]
+[   19.096816]                      ath9k_config+0xa8/0x1d0 [ath9k]
+[   19.096816]                      ieee80211_hw_config+0xa8/0x5f0 [mac80211]
+[   19.096816]                      ieee80211_do_open+0x67a/0x920 [mac80211]
+[   19.096816]                      ieee80211_open+0x41/0x50 [mac80211]
+[   19.096816]                      __dev_open+0xab/0x140
+[   19.096816]                      __dev_change_flags+0x89/0x150
+[   19.096816]                      dev_change_flags+0x28/0x60
+[   19.096816]                      do_setlink+0x290/0x890
+[   19.096816]                      rtnl_newlink+0x7cf/0x8e0
+[   19.096816]                      rtnetlink_rcv_msg+0xbf/0x1f0
+[   19.096816]                      netlink_rcv_skb+0xb9/0xe0
+[   19.096816]                      rtnetlink_rcv+0x1e/0x30
+[   19.096816]                      netlink_unicast+0x13a/0x2c0
+[   19.096816]                      netlink_sendmsg+0x290/0x380
+[   19.096816]                      ___sys_sendmsg+0x1e2/0x280
+[   19.096816]                      __sys_sendmsg+0x3f/0x80
+[   19.096816]                      SyS_socketcall+0x58c/0x6b0
+[   19.096816]                      do_fast_syscall_32+0x96/0x1d0
+[   19.096816]                      entry_SYSENTER_32+0x4c/0x7b
+[   19.096816]   }
+[   19.096816]   ... key      at: [<f837b694>] __key.61991+0x0/0xffffc96c [ath9k]
+[   19.096816]   ... acquired at:
+[   19.096816]    lock_acquire+0xb1/0x1c0
+[   19.096816]    _raw_spin_lock+0x3c/0x50
+[   19.096816]    ath9k_ps_wakeup+0x85/0xe0 [ath9k]
+[   19.096816]    ath9k_bss_info_changed+0x2a/0x1b0 [ath9k]
+[   19.096816]    ieee80211_bss_info_change_notify+0xf3/0x360 [mac80211]
+[   19.096816]    ieee80211_recalc_txpower+0x33/0x40 [mac80211]
+[   19.096816]    ieee80211_set_tx_power+0x45/0x1d0 [mac80211]
+[   19.096816]    cfg80211_wext_siwtxpower+0xd3/0x350 [cfg80211]
+[   19.096816]    ioctl_standard_call+0x4e/0x400
+[   19.096816]    wext_handle_ioctl+0xf4/0x190
+[   19.096816]    dev_ioctl+0xb7/0x630
+[   19.096816]    sock_ioctl+0x13e/0x2d0
+[   19.096816]    do_vfs_ioctl+0x84/0x750
+[   19.096816]    SyS_ioctl+0x34/0x60
+[   19.096816]    do_fast_syscall_32+0x96/0x1d0
+[   19.096816]    entry_SYSENTER_32+0x4c/0x7b
+
+[   19.096816] -> (&(&sc->sc_pm_lock)->rlock){-.-...} ops: 597 {
+[   19.096816]    IN-HARDIRQ-W at:
+[   19.096816]                     __lock_acquire+0x6ae/0x1260
+[   19.096816]                     lock_acquire+0xb1/0x1c0
+[   19.096816]                     _raw_spin_lock_irqsave+0x45/0x60
+[   19.096816]                     ath_isr+0x15e/0x200 [ath9k]
+[   19.096816]                     __handle_irq_event_percpu+0x44/0x340
+[   19.096816]                     handle_irq_event_percpu+0x1d/0x50
+[   19.096816]                     handle_irq_event+0x32/0x60
+[   19.096816]                     handle_level_irq+0x81/0x100
+[   19.096816]                     handle_irq+0x9c/0xd0
+[   19.096816]                     do_IRQ+0x5c/0x120
+[   19.096816]                     common_interrupt+0x36/0x3c
+[   19.096816]                     _raw_spin_unlock_irqrestore+0x57/0x70
+[   19.096816]                     ath9k_config+0x16a/0x1d0 [ath9k]
+[   19.096816]                     ieee80211_hw_config+0xa8/0x5f0 [mac80211]
+[   19.096816]                     ieee80211_dynamic_ps_enable_work+0x1c3/0x680 [mac80211]
+[   19.096816]                     process_one_work+0x1d1/0x580
+[   19.096816]                     worker_thread+0x31/0x380
+[   19.096816]                     kthread+0xd9/0x110
+[   19.096816]                     ret_from_fork+0x19/0x24
+[   19.096816]    IN-SOFTIRQ-W at:
+[   19.096816]                     __lock_acquire+0x55a/0x1260
+[   19.096816]                     lock_acquire+0xb1/0x1c0
+[   19.096816]                     _raw_spin_lock_irqsave+0x45/0x60
+[   19.096816]                     ath9k_ps_wakeup+0x24/0xe0 [ath9k]
+[   19.096816]                     ath9k_tasklet+0x42/0x260 [ath9k]
+[   19.096816]                     tasklet_action+0x196/0x1e0
+[   19.096816]                     __do_softirq+0xb0/0x430
+[   19.096816]                     do_softirq_own_stack+0x33/0x40
+[   19.096816]                     irq_exit+0xad/0xc0
+[   19.096816]                     do_IRQ+0x65/0x120
+[   19.096816]                     common_interrupt+0x36/0x3c
+[   19.096816]                     get_page_from_freelist+0x20a/0x970
+[   19.096816]                     __alloc_pages_nodemask+0xca/0xed0
+[   19.096816]                     __get_free_pages+0x14/0x30
+[   19.096816]                     pgd_alloc+0x1d/0x160
+[   19.096816]                     mm_init.isra.47+0x13a/0x1b0
+[   19.096816]                     copy_process.part.54+0xb55/0x1700
+[   19.096816]                     _do_fork+0xd4/0x6a0
+[   19.096816]                     SyS_clone+0x27/0x30
+[   19.096816]                     do_fast_syscall_32+0x96/0x1d0
+[   19.096816]                     entry_SYSENTER_32+0x4c/0x7b
+[   19.096816]    INITIAL USE at:
+[   19.096816]                    __lock_acquire+0x204/0x1260
+[   19.096816]                    lock_acquire+0xb1/0x1c0
+[   19.096816]                    _raw_spin_lock_irqsave+0x45/0x60
+[   19.096816]                    ath9k_ps_wakeup+0x24/0xe0 [ath9k]
+[   19.096816]                    ath9k_start+0x29/0x1f0 [ath9k]
+[   19.096816]                    drv_start+0x71/0x270 [mac80211]
+[   19.096816]                    ieee80211_do_open+0x31f/0x920 [mac80211]
+[   19.096816]                    ieee80211_open+0x41/0x50 [mac80211]
+[   19.096816]                    __dev_open+0xab/0x140
+[   19.096816]                    __dev_change_flags+0x89/0x150
+[   19.096816]                    dev_change_flags+0x28/0x60
+[   19.096816]                    do_setlink+0x290/0x890
+[   19.096816]                    rtnl_newlink+0x7cf/0x8e0
+[   19.096816]                    rtnetlink_rcv_msg+0xbf/0x1f0
+[   19.096816]                    netlink_rcv_skb+0xb9/0xe0
+[   19.096816]                    rtnetlink_rcv+0x1e/0x30
+[   19.096816]                    netlink_unicast+0x13a/0x2c0
+[   19.096816]                    netlink_sendmsg+0x290/0x380
+[   19.096816]                    ___sys_sendmsg+0x1e2/0x280
+[   19.096816]                    __sys_sendmsg+0x3f/0x80
+[   19.096816]                    SyS_socketcall+0x58c/0x6b0
+[   19.096816]                    do_fast_syscall_32+0x96/0x1d0
+[   19.096816]                    entry_SYSENTER_32+0x4c/0x7b
+[   19.096816]  }
+[   19.096816]  ... key      at: [<f837b67c>] __key.61994+0x0/0xffffc984 [ath9k]
+[   19.096816]  ... acquired at:
+[   19.096816]    check_usage_forwards+0x118/0x120
+[   19.096816]    mark_lock+0x2e4/0x590
+[   19.096816]    __lock_acquire+0x6ae/0x1260
+[   19.096816]    lock_acquire+0xb1/0x1c0
+[   19.096816]    _raw_spin_lock_irqsave+0x45/0x60
+[   19.096816]    ath_isr+0x15e/0x200 [ath9k]
+[   19.096816]    __handle_irq_event_percpu+0x44/0x340
+[   19.096816]    handle_irq_event_percpu+0x1d/0x50
+[   19.096816]    handle_irq_event+0x32/0x60
+[   19.096816]    handle_level_irq+0x81/0x100
+[   19.096816]    handle_irq+0x9c/0xd0
+[   19.096816]    do_IRQ+0x5c/0x120
+[   19.096816]    common_interrupt+0x36/0x3c
+[   19.096816]    _raw_spin_unlock_irqrestore+0x57/0x70
+[   19.096816]    ath9k_config+0x16a/0x1d0 [ath9k]
+[   19.096816]    ieee80211_hw_config+0xa8/0x5f0 [mac80211]
+[   19.096816]    ieee80211_dynamic_ps_enable_work+0x1c3/0x680 [mac80211]
+[   19.096816]    process_one_work+0x1d1/0x580
+[   19.096816]    worker_thread+0x31/0x380
+[   19.096816]    kthread+0xd9/0x110
+[   19.096816]    ret_from_fork+0x19/0x24
+
+[   19.096816]
                stack backtrace:
-[  854.574028] CPU: 0 PID: 2877 Comm: kworker/u2:0 Not tainted 4.13.0-mgm-ovl+ #52
-[  854.574032] Hardware name: FUJITSU SIEMENS LIFEBOOK S6120/FJNB16C, BIOS Version 1.26  05/10/2004
-[  854.574070] Workqueue: phy0 ieee80211_iface_work [mac80211]
-[  854.574076] Call Trace:
-[  854.574086]  dump_stack+0x16/0x19
-[  854.574092]  lockdep_rcu_suspicious+0xcb/0xf0
-[  854.574131]  ieee80211_tx_h_select_key+0x1b5/0x500 [mac80211]
-[  854.574171]  ieee80211_tx_dequeue+0x283/0xa80 [mac80211]
-[  854.574181]  ath_tid_dequeue+0x84/0xf0 [ath9k]
-[  854.574189]  ath_tx_node_cleanup+0xb8/0x180 [ath9k]
-[  854.574199]  ath9k_sta_state+0x48/0xf0 [ath9k]
-[  854.574207]  ? ath9k_del_ps_key.isra.19+0x60/0x60 [ath9k]
-[  854.574240]  drv_sta_state+0xaf/0x8c0 [mac80211]
-[  854.574275]  __sta_info_destroy_part2+0x10b/0x140 [mac80211]
-[  854.574309]  __sta_info_flush+0xd5/0x160 [mac80211]
-[  854.574349]  ieee80211_set_disassoc+0xd3/0x570 [mac80211]
-[  854.574390]  ieee80211_sta_connection_lost+0x30/0x60 [mac80211]
-[  854.574431]  ieee80211_sta_work+0x1ff/0x1c70 [mac80211]
-[  854.574436]  ? mark_held_locks+0x62/0x90
-[  854.574443]  ? _raw_spin_unlock_irqrestore+0x55/0x70
-[  854.574447]  ? trace_hardirqs_on_caller+0x11c/0x1a0
-[  854.574452]  ? trace_hardirqs_on+0xb/0x10
-[  854.574459]  ? dev_mc_net_exit+0xe/0x20
-[  854.574467]  ? skb_dequeue+0x48/0x70
-[  854.574504]  ieee80211_iface_work+0x2d8/0x320 [mac80211]
-[  854.574509]  process_one_work+0x1d1/0x580
-[  854.574513]  ? process_one_work+0x127/0x580
-[  854.574519]  worker_thread+0x31/0x380
-[  854.574525]  kthread+0xd9/0x110
-[  854.574529]  ? process_one_work+0x580/0x580
-[  854.574534]  ? kthread_create_on_node+0x30/0x30
-[  854.574540]  ret_from_fork+0x19/0x24
+[   19.096816] CPU: 0 PID: 5 Comm: kworker/u2:0 Not tainted 4.13.0-mgm-ovl+ #51
+[   19.096816] Hardware name: FUJITSU SIEMENS LIFEBOOK S6120/FJNB16C, BIOS Version 1.26  05/10/2004
+[   19.096816] Workqueue: phy0 ieee80211_dynamic_ps_enable_work [mac80211]
+[   19.096816] Call Trace:
+[   19.096816]  <IRQ>
+[   19.096816]  dump_stack+0x16/0x19
+[   19.096816]  print_irq_inversion_bug.part.37+0x16c/0x179
+[   19.096816]  check_usage_forwards+0x118/0x120
+[   19.096816]  ? ret_from_fork+0x19/0x24
+[   19.096816]  ? print_shortest_lock_dependencies+0x1a0/0x1a0
+[   19.096816]  mark_lock+0x2e4/0x590
+[   19.096816]  ? print_shortest_lock_dependencies+0x1a0/0x1a0
+[   19.096816]  __lock_acquire+0x6ae/0x1260
+[   19.096816]  lock_acquire+0xb1/0x1c0
+[   19.096816]  ? ath_isr+0x15e/0x200 [ath9k]
+[   19.096816]  _raw_spin_lock_irqsave+0x45/0x60
+[   19.096816]  ? ath_isr+0x15e/0x200 [ath9k]
+[   19.096816]  ath_isr+0x15e/0x200 [ath9k]
+[   19.096816]  __handle_irq_event_percpu+0x44/0x340
+[   19.096816]  handle_irq_event_percpu+0x1d/0x50
+[   19.096816]  handle_irq_event+0x32/0x60
+[   19.096816]  ? handle_nested_irq+0x100/0x100
+[   19.096816]  handle_level_irq+0x81/0x100
+[   19.096816]  handle_irq+0x9c/0xd0
+[   19.096816]  </IRQ>
+[   19.096816]  do_IRQ+0x5c/0x120
+[   19.096816]  common_interrupt+0x36/0x3c
+[   19.096816] EIP: _raw_spin_unlock_irqrestore+0x57/0x70
+[   19.096816] EFLAGS: 00000286 CPU: 0
+[   19.096816] EAX: f60a3600 EBX: 00000286 ECX: 00000006 EDX: 00000001
+[   19.096816] ESI: f46c9e68 EDI: f46c8620 EBP: f60b5e8c ESP: f60b5e84
+[   19.096816]  DS: 007b ES: 007b FS: 0000 GS: 0000 SS: 0068
+[   19.096816]  ath9k_config+0x16a/0x1d0 [ath9k]
+[   19.096816]  ieee80211_hw_config+0xa8/0x5f0 [mac80211]
+[   19.096816]  ? ieee80211_hw_config+0x1db/0x5f0 [mac80211]
+[   19.096816]  ieee80211_dynamic_ps_enable_work+0x1c3/0x680 [mac80211]
+[   19.096816]  ? process_one_work+0x127/0x580
+[   19.096816]  ? process_one_work+0x127/0x580
+[   19.096816]  process_one_work+0x1d1/0x580
+[   19.096816]  ? process_one_work+0x127/0x580
+[   19.096816]  worker_thread+0x31/0x380
+[   19.096816]  kthread+0xd9/0x110
+[   19.096816]  ? process_one_work+0x580/0x580
+[   19.096816]  ? kthread_create_on_node+0x30/0x30
+[   19.096816]  ret_from_fork+0x19/0x24
 
-[  854.574548] =============================
-[  854.574551] WARNING: suspicious RCU usage
-[  854.574555] 4.13.0-mgm-ovl+ #52 Not tainted
-[  854.574558] -----------------------------
-[  854.574561] ../net/mac80211/tx.c:608 suspicious rcu_dereference_check() usage!
-[  854.574564]
-               other info that might help us debug this:
-
-[  854.574568]
-               rcu_scheduler_active = 2, debug_locks = 1
-[  854.574572] 6 locks held by kworker/u2:0/2877:
-[  854.574574]  #0:  ("%s"wiphy_name(local->hw.wiphy)){++++.+}, at: [<c1067f37>] process_one_work+0x127/0x580
-[  854.574590]  #1:  ((&sdata->work)){+.+.+.}, at: [<c1067f37>] process_one_work+0x127/0x580
-[  854.574606]  #2:  (&wdev->mtx){+.+.+.}, at: [<f83271c3>] ieee80211_sta_work+0x23/0x1c70 [mac80211]
-[  854.574657]  #3:  (&local->sta_mtx){+.+.+.}, at: [<f82c9b10>] __sta_info_flush+0x60/0x160 [mac80211]
-[  854.574702]  #4:  (&(&txq->axq_lock)->rlock){+.-...}, at: [<f825729c>] ath_tx_node_cleanup+0x5c/0x180 [ath9k]
-[  854.574721]  #5:  (&(&fq->lock)->rlock){+.-...}, at: [<f82fb064>] ieee80211_tx_dequeue+0x24/0xa80 [mac80211]
-[  854.574771]
-               stack backtrace:
-[  854.574775] CPU: 0 PID: 2877 Comm: kworker/u2:0 Not tainted 4.13.0-mgm-ovl+ #52
-[  854.574779] Hardware name: FUJITSU SIEMENS LIFEBOOK S6120/FJNB16C, BIOS Version 1.26  05/10/2004
-[  854.574814] Workqueue: phy0 ieee80211_iface_work [mac80211]
-[  854.574821] Call Trace:
-[  854.574825]  dump_stack+0x16/0x19
-[  854.574830]  lockdep_rcu_suspicious+0xcb/0xf0
-[  854.574869]  ieee80211_tx_h_select_key+0x44e/0x500 [mac80211]
-[  854.574908]  ieee80211_tx_dequeue+0x283/0xa80 [mac80211]
-[  854.574919]  ath_tid_dequeue+0x84/0xf0 [ath9k]
-[  854.574927]  ath_tx_node_cleanup+0xb8/0x180 [ath9k]
-[  854.574936]  ath9k_sta_state+0x48/0xf0 [ath9k]
-[  854.574945]  ? ath9k_del_ps_key.isra.19+0x60/0x60 [ath9k]
-[  854.574978]  drv_sta_state+0xaf/0x8c0 [mac80211]
-[  854.575012]  __sta_info_destroy_part2+0x10b/0x140 [mac80211]
-[  854.575046]  __sta_info_flush+0xd5/0x160 [mac80211]
-[  854.575087]  ieee80211_set_disassoc+0xd3/0x570 [mac80211]
-[  854.575127]  ieee80211_sta_connection_lost+0x30/0x60 [mac80211]
-[  854.575168]  ieee80211_sta_work+0x1ff/0x1c70 [mac80211]
-[  854.575173]  ? mark_held_locks+0x62/0x90
-[  854.575178]  ? _raw_spin_unlock_irqrestore+0x55/0x70
-[  854.575182]  ? trace_hardirqs_on_caller+0x11c/0x1a0
-[  854.575187]  ? trace_hardirqs_on+0xb/0x10
-[  854.575192]  ? dev_mc_net_exit+0xe/0x20
-[  854.575197]  ? skb_dequeue+0x48/0x70
-[  854.575233]  ieee80211_iface_work+0x2d8/0x320 [mac80211]
-[  854.575238]  process_one_work+0x1d1/0x580
-[  854.575243]  ? process_one_work+0x127/0x580
-[  854.575248]  worker_thread+0x31/0x380
-[  854.575253]  kthread+0xd9/0x110
-[  854.575257]  ? process_one_work+0x580/0x580
-[  854.575262]  ? kthread_create_on_node+0x30/0x30
-[  854.575267]  ret_from_fork+0x19/0x24
-
-Cc: Johannes Berg <johannes@sipsolutions.net>
-Cc: "David S. Miller" <davem@davemloft.net>
+Cc: QCA ath9k Development <ath9k-devel@qca.qualcomm.com>
+Cc: Kalle Valo <kvalo@codeaurora.org>
 Cc: netdev@vger.kernel.org
 Signed-off-by: Ville Syrjälä <ville.syrjala@linux.intel.com>
 ---
- net/mac80211/tx.c | 31 +++++++++++++++++++++++++++----
- 1 file changed, 27 insertions(+), 4 deletions(-)
+ drivers/net/wireless/ath/ath9k/channel.c |  5 +++--
+ drivers/net/wireless/ath/ath9k/link.c    |  4 ++--
+ drivers/net/wireless/ath/ath9k/main.c    | 16 +++++++++-------
+ 3 files changed, 14 insertions(+), 11 deletions(-)
 
-diff --git a/net/mac80211/tx.c b/net/mac80211/tx.c
-index 94826680cf2b..073022ee2462 100644
---- a/net/mac80211/tx.c
-+++ b/net/mac80211/tx.c
-@@ -1770,15 +1770,21 @@ bool ieee80211_tx_prepare_skb(struct ieee80211_hw *hw,
- 	struct ieee80211_tx_data tx;
- 	struct sk_buff *skb2;
+diff --git a/drivers/net/wireless/ath/ath9k/channel.c b/drivers/net/wireless/ath/ath9k/channel.c
+index f0439f2d566b..fad020aa222e 100644
+--- a/drivers/net/wireless/ath/ath9k/channel.c
++++ b/drivers/net/wireless/ath/ath9k/channel.c
+@@ -29,6 +29,7 @@ static int ath_set_channel(struct ath_softc *sc)
+ 	struct cfg80211_chan_def *chandef = &sc->cur_chan->chandef;
+ 	struct ieee80211_channel *chan = chandef->chan;
+ 	int pos = chan->hw_value;
++	unsigned long flags;
+ 	int old_pos = -1;
+ 	int r;
  
--	if (ieee80211_tx_prepare(sdata, &tx, NULL, skb) == TX_DROP)
-+	rcu_read_lock();
-+
-+	if (ieee80211_tx_prepare(sdata, &tx, NULL, skb) == TX_DROP) {
-+		rcu_read_unlock();
- 		return false;
-+	}
+@@ -42,9 +43,9 @@ static int ath_set_channel(struct ath_softc *sc)
+ 		chan->center_freq, chandef->width);
  
- 	info->band = band;
- 	info->control.vif = vif;
- 	info->hw_queue = vif->hw_queue[skb_get_queue_mapping(skb)];
+ 	/* update survey stats for the old channel before switching */
+-	spin_lock_bh(&common->cc_lock);
++	spin_lock_irqsave(&common->cc_lock, flags);
+ 	ath_update_survey_stats(sc);
+-	spin_unlock_bh(&common->cc_lock);
++	spin_unlock_irqrestore(&common->cc_lock, flags);
  
--	if (invoke_tx_handlers(&tx))
-+	if (invoke_tx_handlers(&tx)) {
-+		rcu_read_unlock();
- 		return false;
-+	}
+ 	ath9k_cmn_get_channel(hw, ah, chandef);
  
- 	if (sta) {
- 		if (tx.sta)
-@@ -1792,9 +1798,12 @@ bool ieee80211_tx_prepare_skb(struct ieee80211_hw *hw,
- 	if (WARN_ON(skb2 != skb || !skb_queue_empty(&tx.skbs))) {
- 		ieee80211_free_txskb(hw, skb2);
- 		ieee80211_purge_tx_queue(hw, &tx.skbs);
-+		rcu_read_unlock();
- 		return false;
+diff --git a/drivers/net/wireless/ath/ath9k/link.c b/drivers/net/wireless/ath/ath9k/link.c
+index 27c50562dc47..3f4f01c829f0 100644
+--- a/drivers/net/wireless/ath/ath9k/link.c
++++ b/drivers/net/wireless/ath/ath9k/link.c
+@@ -367,10 +367,10 @@ void ath_ani_calibrate(unsigned long data)
+ 
+ 	/* Call ANI routine if necessary */
+ 	if (aniflag) {
+-		spin_lock(&common->cc_lock);
++		spin_lock_irqsave(&common->cc_lock, flags);
+ 		ath9k_hw_ani_monitor(ah, ah->curchan);
+ 		ath_update_survey_stats(sc);
+-		spin_unlock(&common->cc_lock);
++		spin_unlock_irqrestore(&common->cc_lock, flags);
  	}
  
-+	rcu_read_unlock();
-+
- 	return true;
- }
- EXPORT_SYMBOL(ieee80211_tx_prepare_skb);
-@@ -1818,14 +1827,18 @@ static bool ieee80211_tx(struct ieee80211_sub_if_data *sdata,
- 		return true;
+ 	/* Perform calibration if necessary */
+diff --git a/drivers/net/wireless/ath/ath9k/main.c b/drivers/net/wireless/ath/ath9k/main.c
+index 8b4ac7f0a09b..ebb7e0f63279 100644
+--- a/drivers/net/wireless/ath/ath9k/main.c
++++ b/drivers/net/wireless/ath/ath9k/main.c
+@@ -97,11 +97,12 @@ void ath_ps_full_sleep(unsigned long data)
+ {
+ 	struct ath_softc *sc = (struct ath_softc *) data;
+ 	struct ath_common *common = ath9k_hw_common(sc->sc_ah);
++	unsigned long flags;
+ 	bool reset;
+ 
+-	spin_lock(&common->cc_lock);
++	spin_lock_irqsave(&common->cc_lock, flags);
+ 	ath_hw_cycle_counters_update(common);
+-	spin_unlock(&common->cc_lock);
++	spin_unlock_irqrestore(&common->cc_lock, flags);
+ 
+ 	ath9k_hw_setrxabort(sc->sc_ah, 1);
+ 	ath9k_hw_stopdmarecv(sc->sc_ah, &reset);
+@@ -394,10 +395,10 @@ void ath9k_tasklet(unsigned long data)
+ 
+ 	if ((ah->config.hw_hang_checks & HW_BB_WATCHDOG) &&
+ 	    (status & ATH9K_INT_BB_WATCHDOG)) {
+-		spin_lock(&common->cc_lock);
++		spin_lock_irqsave(&common->cc_lock, flags);
+ 		ath_hw_cycle_counters_update(common);
+ 		ar9003_hw_bb_watchdog_dbg_info(ah);
+-		spin_unlock(&common->cc_lock);
++		spin_unlock_irqrestore(&common->cc_lock, flags);
+ 
+ 		if (ar9003_hw_bb_watchdog_check(ah)) {
+ 			type = RESET_TYPE_BB_WATCHDOG;
+@@ -1955,12 +1956,13 @@ static int ath9k_get_survey(struct ieee80211_hw *hw, int idx,
+ 	struct ath_common *common = ath9k_hw_common(sc->sc_ah);
+ 	struct ieee80211_supported_band *sband;
+ 	struct ieee80211_channel *chan;
++	unsigned long flags;
+ 	int pos;
+ 
+ 	if (IS_ENABLED(CONFIG_ATH9K_TX99))
+ 		return -EOPNOTSUPP;
+ 
+-	spin_lock_bh(&common->cc_lock);
++	spin_lock_irqsave(&common->cc_lock, flags);
+ 	if (idx == 0)
+ 		ath_update_survey_stats(sc);
+ 
+@@ -1974,7 +1976,7 @@ static int ath9k_get_survey(struct ieee80211_hw *hw, int idx,
+ 		sband = hw->wiphy->bands[NL80211_BAND_5GHZ];
+ 
+ 	if (!sband || idx >= sband->n_channels) {
+-		spin_unlock_bh(&common->cc_lock);
++		spin_unlock_irqrestore(&common->cc_lock, flags);
+ 		return -ENOENT;
  	}
  
-+	rcu_read_lock();
-+
- 	/* initialises tx */
- 	led_len = skb->len;
- 	res_prepare = ieee80211_tx_prepare(sdata, &tx, sta, skb);
+@@ -1982,7 +1984,7 @@ static int ath9k_get_survey(struct ieee80211_hw *hw, int idx,
+ 	pos = chan->hw_value;
+ 	memcpy(survey, &sc->survey[pos], sizeof(*survey));
+ 	survey->channel = chan;
+-	spin_unlock_bh(&common->cc_lock);
++	spin_unlock_irqrestore(&common->cc_lock, flags);
  
- 	if (unlikely(res_prepare == TX_DROP)) {
- 		ieee80211_free_txskb(&local->hw, skb);
-+		rcu_read_unlock();
- 		return true;
- 	} else if (unlikely(res_prepare == TX_QUEUED)) {
-+		rcu_read_unlock();
- 		return true;
- 	}
- 
-@@ -1835,16 +1848,22 @@ static bool ieee80211_tx(struct ieee80211_sub_if_data *sdata,
- 		info->hw_queue =
- 			sdata->vif.hw_queue[skb_get_queue_mapping(skb)];
- 
--	if (invoke_tx_handlers_early(&tx))
-+	if (invoke_tx_handlers_early(&tx)) {
-+		rcu_read_unlock();
- 		return false;
-+	}
- 
--	if (ieee80211_queue_skb(local, sdata, tx.sta, tx.skb))
-+	if (ieee80211_queue_skb(local, sdata, tx.sta, tx.skb)) {
-+		rcu_read_unlock();
- 		return true;
-+	}
- 
- 	if (!invoke_tx_handlers_late(&tx))
- 		result = __ieee80211_tx(local, &tx.skbs, led_len,
- 					tx.sta, txpending);
- 
-+	rcu_read_unlock();
-+
- 	return result;
+ 	return 0;
  }
- 
-@@ -3411,6 +3430,8 @@ struct sk_buff *ieee80211_tx_dequeue(struct ieee80211_hw *hw,
- 	ieee80211_tx_result r;
- 	struct ieee80211_vif *vif;
- 
-+	rcu_read_lock();
-+
- 	spin_lock_bh(&fq->lock);
- 
- 	if (test_bit(IEEE80211_TXQ_STOP, &txqi->flags))
-@@ -3513,6 +3534,8 @@ struct sk_buff *ieee80211_tx_dequeue(struct ieee80211_hw *hw,
- out:
- 	spin_unlock_bh(&fq->lock);
- 
-+	rcu_read_unlock();
-+
- 	return skb;
- }
- EXPORT_SYMBOL(ieee80211_tx_dequeue);
 -- 
 2.13.5
