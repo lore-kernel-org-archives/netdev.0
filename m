@@ -1,91 +1,65 @@
-From: hiren panchasara <hiren@strugglingcoder.info>
-Subject: Re: RACK not getting disabled
-Date: Mon, 18 Sep 2017 14:45:09 -0700
-Message-ID: <20170918214509.GD28186@strugglingcoder.info>
-References: <20170918201428.GB28186@strugglingcoder.info>
- <1505769494.29839.34.camel@edumazet-glaptop3.roam.corp.google.com>
- <20170918212952.GC28186@strugglingcoder.info>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next 00/12] net: dsa: b53/bcm_sf2 cleanups
+Date: Mon, 18 Sep 2017 14:46:48 -0700
+Message-ID: <24876029-5ebb-075e-3f02-50cf0856474f@gmail.com>
+References: <20170918214128.27896-1-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
-        protocol="application/pgp-signature"; boundary="g7w8+K/95kPelPD2"
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from strugglingcoder.info ([104.236.146.68]:60975 "EHLO
-        mail.strugglingcoder.info" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750925AbdIRVpG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 17:45:06 -0400
-Content-Disposition: inline
-In-Reply-To: <20170918212952.GC28186@strugglingcoder.info>
+Received: from mail-wr0-f196.google.com ([209.85.128.196]:36086 "EHLO
+        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750990AbdIRVqz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 17:46:55 -0400
+Received: by mail-wr0-f196.google.com with SMTP id g50so1141636wra.3
+        for <netdev@vger.kernel.org>; Mon, 18 Sep 2017 14:46:54 -0700 (PDT)
+In-Reply-To: <20170918214128.27896-1-f.fainelli@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 09/18/2017 02:41 PM, Florian Fainelli wrote:
+> Hi all,
+> 
+> This patch series is a first pass set of clean-ups to reduce the number of LOCs
+> between b53 and bcm_sf2 and sharing as many functions as possible.
+> 
+> There is a number of additional cleanups queued up locally that require more
+> thorough testing.
 
---g7w8+K/95kPelPD2
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+David, I just spotted a missing EXPORT_SYMBOL() in patch 8 that was not
+flagged since I had temporarily disabled modular build, I will resubmit
+this shortly after checking the other patches too. Thanks!
 
-On 09/18/17 at 02:29P, hiren panchasara wrote:
-> On 09/18/17 at 02:18P, Eric Dumazet wrote:
-> > On Mon, 2017-09-18 at 13:14 -0700, hiren panchasara wrote:
-> > > Hi all, I am trying to disable rack to see 3dupacks in action during
-> > > loss-detection but based on the pcap, I see that it's still trigger
-> > > loss-recovery on the first SACK (as if RACK is still enabled/active).
-> > >=20
-> > > Here is what I did to disable rack:
-> > > net.ipv4.tcp_recovery =3D 0
-> > >=20
-> > > I've also disabled metrics:
-> > > net.ipv4.tcp_no_metrics_save =3D 1=20
-> > > And also flushed existing entries with 'ip tcp_metrics flush' just to=
- be
-> > > on a safer side.
-> > >=20
-> > > Not really relevant here but I've also switched to reno.
-> > >=20
-> > > I am on: 4.10.0-33-generic
-> > > pcap: https://transfer.sh/mfoiN/reno_no_rack.pcap
-> > >=20
-> > > What am I missing? I can provide any additional info.
-> > >=20
-> > > Cheers,
-> > > Hiren
-> >=20
-> >=20
-> > A single SACK can contains enough information to trigger a retransmit.
->=20
-> Bah, right. FACK!
-> >=20
-> > If you absolutely want to see the old 3 dupack in action, you also want
-> > to disable SACK.
->=20
-> I believe net.ipv4.tcp_fack =3D 0 would achieve that without disabling
-> sack.
+> 
+> Thanks!
+> 
+> Florian Fainelli (12):
+>   net: dsa: b53: Remove is_cpu_port()
+>   net: dsa: b53: Make b53_enable_cpu_port() take a port argument
+>   net: dsa: b53: Defer port enabling to calling port_enable
+>   net: dsa: bcm_sf2: Defer port enabling to calling port_enable
+>   net: dsa: b53: Use a macro to define I/O operations
+>   net: dsa: b53: Move Broadcom header setup to b53
+>   net: dsa: b53: Define EEE register page
+>   net: dsa: b53: Move EEE functions to b53
+>   net: dsa: b53: Wire-up EEE
+>   net: dsa: b53: Export b53_imp_vlan_setup()
+>   net: dsa: bcm_sf2: Use SF2_NUM_EGRESS_QUEUES for CFP
+>   net: dsa: bcm_sf2: Utilize b53_{enable,disable}_port
+> 
+>  drivers/net/dsa/b53/b53_common.c | 150 ++++++++++++++++++++++++++++++++----
+>  drivers/net/dsa/b53/b53_priv.h   | 145 ++++++++---------------------------
+>  drivers/net/dsa/b53/b53_regs.h   |  48 ++++++++++++
+>  drivers/net/dsa/bcm_sf2.c        | 161 +++------------------------------------
+>  drivers/net/dsa/bcm_sf2.h        |   2 -
+>  drivers/net/dsa/bcm_sf2_cfp.c    |   6 +-
+>  drivers/net/dsa/bcm_sf2_regs.h   |  11 ---
+>  7 files changed, 227 insertions(+), 296 deletions(-)
+> 
 
-Ah, what you probably meant was that this could still be < 3 dupacks
-triggering loss-recovery based on reordering.
 
-I believe I got what I was looking for.
-
-Thanks a ton,
-Hiren
-
---g7w8+K/95kPelPD2
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQF8BAABCgBmBQJZwD5iXxSAAAAAAC4AKGlzc3Vlci1mcHJAbm90YXRpb25zLm9w
-ZW5wZ3AuZmlmdGhob3JzZW1hbi5uZXRBNEUyMEZBMUQ4Nzg4RjNGMTdFNjZGMDI4
-QjkyNTBFMTU2M0VERkU1AAoJEIuSUOFWPt/lMYkH/3Ym7SZbh3Wlp/fbM+kdZogH
-W5ICJ+2IUU2hgrFEiuGL34uQJAxrNIR6A5K9dUt/fb3gUla+OGdSjVQCvBI5sXw9
-thVtBYSJU7CYM7h2arTF4svnyr6v8pfxsIF7mwY98kATzr+aRvCV0LlVMlq2HdI6
-CEfQ+20K3j8Iyq4vteP+RQGTtPtgR1lkbj7PcTRxtJm2Jq139UoO+ioJsM4UENwK
-QGhB9FxpXEJRdYa7FqLwIEKXRRFDUWRulmECdCd8+l0eE5NTNmnQ+br6jicwDr6y
-S9DaB8idtmPKGhdo5EDUYJ07QpzInDnHhuT0gixl0FHGzfqVXL9bTHDnEUiIDoM=
-=ZyPY
------END PGP SIGNATURE-----
-
---g7w8+K/95kPelPD2--
+-- 
+Florian
