@@ -1,71 +1,73 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] net_sched: sch_htb: add per class overlimits
- counter
-Date: Mon, 18 Sep 2017 12:36:22 -0700
-Message-ID: <1505763382.29839.27.camel@edumazet-glaptop3.roam.corp.google.com>
+From: <Tristram.Ha@microchip.com>
+Subject: RE: [PATCH RFC 6/6] Modify tag_ksz.c to support other KSZ switch
+ drivers
+Date: Mon, 18 Sep 2017 19:38:03 +0000
+Message-ID: <93AF473E2DA327428DE3D46B72B1E9FD41124D2E@CHN-SV-EXMX02.mchp-main.com>
+References: <93AF473E2DA327428DE3D46B72B1E9FD41121901@CHN-SV-EXMX02.mchp-main.com>
+ <93AF473E2DA327428DE3D46B72B1E9FD41121A22@CHN-SV-EXMX02.mchp-main.com>
+ <20170907214834.GT11248@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-        Denys Fedoryshchenko <nuclearcat@nuclearcat.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Jiri Pirko <jiri@resnulli.us>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:35460 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750886AbdIRTgZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 15:36:25 -0400
-Received: by mail-pf0-f196.google.com with SMTP id i23so577485pfi.2
-        for <netdev@vger.kernel.org>; Mon, 18 Sep 2017 12:36:24 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <muvarov@gmail.com>, <pavel@ucw.cz>,
+        <nathan.leigh.conrad@gmail.com>,
+        <vivien.didelot@savoirfairelinux.com>, <f.fainelli@gmail.com>,
+        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        <Woojung.Huh@microchip.com>
+To: <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170907214834.GT11248@lunn.ch>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+Sorry for the late response.
 
-HTB qdisc overlimits counter is properly increased, but we have no per
-class counter, meaning it is difficult to diagnose HTB problems.
+> > diff --git a/net/dsa/tag_ksz.c b/net/dsa/tag_ksz.c index 010ca0a..d5faf14
+> 100644
+> > --- a/net/dsa/tag_ksz.c
+> > +++ b/net/dsa/tag_ksz.c
+> >  static struct sk_buff *ksz_xmit(struct sk_buff *skb, struct net_device
+> *dev)  {
+> >  	struct dsa_slave_priv *p = netdev_priv(dev);
+> > +	struct dsa_switch *ds = p->dp->ds;
+> > +	struct ksz_device *swdev = ds->priv;
+> >  	struct sk_buff *nskb;
+> > +	int len;
+> >  	int padlen;
+> > -	u8 *tag;
+> >
+> >  	padlen = (skb->len >= ETH_ZLEN) ? 0 : ETH_ZLEN - skb->len;
+> >
+> > -	if (skb_tailroom(skb) >= padlen + KSZ_INGRESS_TAG_LEN) {
+> > +	len = swdev->dev_ops->get_tx_len(swdev);
+> 
+> This is ugly. We have a clean separation between a switch driver and a
+> tag driver. Here you are mixing them together. Don't. Look at the
+> mailing lists for what Florian and I suggested to Pavel. It will also
+> solve your include file issue above.
 
-This patch adds this counter, visible in "tc -s class show dev eth0",
-with current iproute2.
+It seems to me all tag_*.c are hard-coded.  They do not have access to
+the switch device and just use the bit definitions defined in the top to
+do the job.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Reported-by: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
----
+This creates a problem for all KSZ switch devices as they have different
+tail tag formats and lengths.  There will be potentially 4 additional
+DSA_TAG_PROT_KSZ* just to handle them.  Extra files will be added
+with about the same code.
 
-We have used this at Google for few years already, time to ship it !
+The KSZ9477 driver has its own problem as the tail tag length is dynamic
+and not fixed.  Right now the function feature that affects this behavior is
+not turned on and so the problem does not happen.
 
- net/sched/sch_htb.c |    5 +++++
- 1 file changed, 5 insertions(+)
+But the most important thing is how do we support the offload_fwd_mark
+bit in skb when the only place that has access to skb does not have access to
+the switch hardware?  I thought this bit is important for the new switchdev model.
 
-diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
-index 7e148376ba528efabe5a53a09653f9161c264be7..c6d7ae81b41f4e277afb93a3003fefcd3f27de35 100644
---- a/net/sched/sch_htb.c
-+++ b/net/sched/sch_htb.c
-@@ -142,6 +142,7 @@ struct htb_class {
- 	struct rb_node		node[TC_HTB_NUMPRIO];	/* node for self or feed tree */
- 
- 	unsigned int drops ____cacheline_aligned_in_smp;
-+	unsigned int		overlimits;
- };
- 
- struct htb_level {
-@@ -533,6 +534,9 @@ htb_change_class_mode(struct htb_sched *q, struct htb_class *cl, s64 *diff)
- 	if (new_mode == cl->cmode)
- 		return;
- 
-+	if (new_mode == HTB_CANT_SEND)
-+		cl->overlimits++;
-+
- 	if (cl->prio_activity) {	/* not necessary: speed optimization */
- 		if (cl->cmode != HTB_CANT_SEND)
- 			htb_deactivate_prios(q, cl);
-@@ -1143,6 +1147,7 @@ htb_dump_class_stats(struct Qdisc *sch, unsigned long arg, struct gnet_dump *d)
- 	struct htb_class *cl = (struct htb_class *)arg;
- 	struct gnet_stats_queue qs = {
- 		.drops = cl->drops,
-+		.overlimits = cl->overlimits,
- 	};
- 	__u32 qlen = 0;
- 
+A little out-of-topic is the MAC driver may have problem receiving the frame if
+the tail tag length is too big.  Most of the MAC drivers have big enough receive
+buffer or require 64-bytes multiple so there are extra room to accommodate
+the big tail tag at the end of the frame.  Still some MAC drivers use exactly 1500
+MTU and some additional length and may run into this problem.  Currently the
+Atmel Cadence MAC driver has this potential problem when certain conditions
+are met.
