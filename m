@@ -1,153 +1,309 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: Regression in throughput between kvm guests over virtual bridge
-Date: Mon, 18 Sep 2017 15:36:28 +0800
-Message-ID: <c9d43af9-f095-043a-7d46-acd84a18f75a@redhat.com>
-References: <4c7e2924-b10f-0e97-c388-c8809ecfdeeb@linux.vnet.ibm.com>
- <bdd417dc-9e2f-4a2e-534b-c6aa38f002f2@redhat.com>
- <e022cfa7-ef65-550f-06e8-f6e29f1d68a0@redhat.com>
- <627d0c7a-dce5-3094-d5d4-c1507fcb8080@linux.vnet.ibm.com>
- <50891c14-3fc6-f519-8c03-07bdef3090f4@redhat.com>
- <e42083d9-ae7b-7207-e5e6-06483bf6293e@linux.vnet.ibm.com>
- <15abafa1-6d58-cd85-668a-bf361a296f52@redhat.com>
- <7345a69d-5e47-7058-c72b-bdd0f3c69210@linux.vnet.ibm.com>
- <55f9173b-a419-98f0-2516-cbd57299ba5d@redhat.com>
-Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------231ACD4554E1EAD4478E696F"
-Cc: davem@davemloft.net, mst@redhat.com
-To: Matthew Rosato <mjrosato@linux.vnet.ibm.com>,
-        netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49290 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752062AbdIRHgh (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 18 Sep 2017 03:36:37 -0400
-In-Reply-To: <55f9173b-a419-98f0-2516-cbd57299ba5d@redhat.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Richard Cochran <rcochran@linutronix.de>
+Subject: [PATCH RFC V1 net-next 6/6] net: igb: Implement time based transmission.
+Date: Mon, 18 Sep 2017 09:41:21 +0200
+Message-ID: <9ecfd21da8e8ad93a5f757b009cf123b6929255f.1505719061.git.rcochran@linutronix.de>
+References: <cover.1505719061.git.rcochran@linutronix.de>
+Cc: <linux-kernel@vger.kernel.org>, intel-wired-lan@lists.osuosl.org,
+        Andre Guedes <andre.guedes@intel.com>,
+        Anna-Maria Gleixner <anna-maria@linutronix.de>,
+        David Miller <davem@davemloft.net>,
+        Henrik Austad <henrik@austad.us>,
+        Jesus Sanchez-Palencia <jesus.sanchez-palencia@intel.com>,
+        John Stultz <john.stultz@linaro.org>,
+        Thomas Gleixner <tglx@linutronix.de>,
+        Vinicius Costa Gomes <vinicius.gomes@intel.com>
+To: <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1505719061.git.rcochran@linutronix.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------231ACD4554E1EAD4478E696F
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
+This patch configures the i210 transmit queues to reserve the first queue
+for time based transmit arbitration, placing all other traffic into the
+second queue.  This configuration is hard coded and does not make use of
+the two spare queues.
 
-
-
-On 2017年09月18日 11:13, Jason Wang wrote:
->
->
-> On 2017年09月16日 03:19, Matthew Rosato wrote:
->>> It looks like vhost is slowed down for some reason which leads to more
->>> idle time on 4.13+VHOST_RX_BATCH=1. Appreciated if you can collect the
->>> perf.diff on host, one for rx and one for tx.
->>>
->> perf data below for the associated vhost threads, baseline=4.12,
->> delta1=4.13, delta2=4.13+VHOST_RX_BATCH=1
->>
->> Client vhost:
->>
->> 60.12%  -11.11%  -12.34%  [kernel.vmlinux]   [k] raw_copy_from_user
->> 13.76%   -1.28%   -0.74%  [kernel.vmlinux]   [k] get_page_from_freelist
->>   2.00%   +3.69%   +3.54%  [kernel.vmlinux]   [k] __wake_up_sync_key
->>   1.19%   +0.60%   +0.66%  [kernel.vmlinux]   [k] __alloc_pages_nodemask
->>   1.12%   +0.76%   +0.86%  [kernel.vmlinux]   [k] copy_page_from_iter
->>   1.09%   +0.28%   +0.35%  [vhost]            [k] vhost_get_vq_desc
->>   1.07%   +0.31%   +0.26%  [kernel.vmlinux]   [k] alloc_skb_with_frags
->>   0.94%   +0.42%   +0.65%  [kernel.vmlinux]   [k] alloc_pages_current
->>   0.91%   -0.19%   -0.18%  [kernel.vmlinux]   [k] memcpy
->>   0.88%   +0.26%   +0.30%  [kernel.vmlinux]   [k] __next_zones_zonelist
->>   0.85%   +0.05%   +0.12%  [kernel.vmlinux]   [k] iov_iter_advance
->>   0.79%   +0.09%   +0.19%  [vhost]            [k] __vhost_add_used_n
->>   0.74%                    [kernel.vmlinux]   [k] get_task_policy.part.7
->>   0.74%   -0.01%   -0.05%  [kernel.vmlinux]   [k] tun_net_xmit
->>   0.60%   +0.17%   +0.33%  [kernel.vmlinux]   [k] policy_nodemask
->>   0.58%   -0.15%   -0.12%  [ebtables]         [k] ebt_do_table
->>   0.52%   -0.25%   -0.22%  [kernel.vmlinux]   [k] __alloc_skb
->>     ...
->>   0.42%   +0.58%   +0.59%  [kernel.vmlinux]   [k] eventfd_signal
->>     ...
->>   0.32%   +0.96%   +0.93%  [kernel.vmlinux]   [k] finish_task_switch
->>     ...
->>           +1.50%   +1.16%  [kernel.vmlinux]   [k] get_task_policy.part.9
->>           +0.40%   +0.42%  [kernel.vmlinux]   [k] __skb_get_hash_symmetr
->>           +0.39%   +0.40%  [kernel.vmlinux]   [k] _copy_from_iter_full
->>           +0.24%   +0.23%  [vhost_net]        [k] vhost_net_buf_peek
->>
->> Server vhost:
->>
->> 61.93%  -10.72%  -10.91%  [kernel.vmlinux]   [k] raw_copy_to_user
->>   9.25%   +0.47%   +0.86%  [kernel.vmlinux]   [k] free_hot_cold_page
->>   5.16%   +1.41%   +1.57%  [vhost]            [k] vhost_get_vq_desc
->>   5.12%   -3.81%   -3.78%  [kernel.vmlinux]   [k] skb_release_data
->>   3.30%   +0.42%   +0.55%  [kernel.vmlinux]   [k] raw_copy_from_user
->>   1.29%   +2.20%   +2.28%  [kernel.vmlinux]   [k] copy_page_to_iter
->>   1.24%   +1.65%   +0.45%  [vhost_net]        [k] handle_rx
->>   1.08%   +3.03%   +2.85%  [kernel.vmlinux]   [k] __wake_up_sync_key
->>   0.96%   +0.70%   +1.10%  [vhost]            [k] translate_desc
->>   0.69%   -0.20%   -0.22%  [kernel.vmlinux]   [k] tun_do_read.part.10
->>   0.69%                    [kernel.vmlinux]   [k] tun_peek_len
->>   0.67%   +0.75%   +0.78%  [kernel.vmlinux]   [k] eventfd_signal
->>   0.52%   +0.96%   +0.98%  [kernel.vmlinux]   [k] finish_task_switch
->>   0.50%   +0.05%   +0.09%  [vhost]            [k] vhost_add_used_n
->>     ...
->>           +0.63%   +0.58%  [vhost_net]        [k] vhost_net_buf_peek
->>           +0.32%   +0.32%  [kernel.vmlinux]   [k] _copy_to_iter
->>           +0.19%   +0.19%  [kernel.vmlinux]   [k] __skb_get_hash_symmetr
->>           +0.11%   +0.21%  [vhost]            [k] vhost_umem_interval_tr
->>
->
-> Looks like for some unknown reason which leads more wakeups.
->
-> Could you please try to attached patch to see if it solves or mitigate 
-> the issue?
->
-> Thanks 
-
-My bad, please try this.
-
-Thanks
-
---------------231ACD4554E1EAD4478E696F
-Content-Type: text/x-patch;
- name="0001-vhost_net-conditionally-enable-tx-polling.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
- filename="0001-vhost_net-conditionally-enable-tx-polling.patch"
-
->From 8be3edfcd415ba6157ab34d250127c6f2b21ff5d Mon Sep 17 00:00:00 2001
-From: Jason Wang <jasowang@redhat.com>
-Date: Mon, 18 Sep 2017 10:56:30 +0800
-Subject: [PATCH] vhost_net: conditionally enable tx polling
-
-Signed-off-by: Jason Wang <jasowang@redhat.com>
+Signed-off-by: Richard Cochran <rcochran@linutronix.de>
 ---
- drivers/vhost/net.c | 3 +++
- 1 file changed, 3 insertions(+)
+ drivers/net/ethernet/intel/igb/e1000_82575.h   |  1 +
+ drivers/net/ethernet/intel/igb/e1000_defines.h | 68 +++++++++++++++++++++++++-
+ drivers/net/ethernet/intel/igb/e1000_regs.h    |  5 ++
+ drivers/net/ethernet/intel/igb/igb.h           |  3 +-
+ drivers/net/ethernet/intel/igb/igb_main.c      | 68 +++++++++++++++++++++++---
+ 5 files changed, 136 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-index 58585ec..2b308e0 100644
---- a/drivers/vhost/net.c
-+++ b/drivers/vhost/net.c
-@@ -471,6 +471,7 @@ static void handle_tx(struct vhost_net *net)
- 		goto out;
+diff --git a/drivers/net/ethernet/intel/igb/e1000_82575.h b/drivers/net/ethernet/intel/igb/e1000_82575.h
+index acf06051e111..4c107377540d 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_82575.h
++++ b/drivers/net/ethernet/intel/igb/e1000_82575.h
+@@ -159,6 +159,7 @@ struct e1000_adv_tx_context_desc {
+ /* Additional Transmit Descriptor Control definitions */
+ #define E1000_TXDCTL_QUEUE_ENABLE  0x02000000 /* Enable specific Tx Queue */
+ /* Tx Queue Arbitration Priority 0=low, 1=high */
++#define E1000_TXDCTL_HIGH_PRIORITY 0x08000000
  
- 	vhost_disable_notify(&net->dev, vq);
-+	vhost_net_disable_vq(net, vq);
+ /* Additional Receive Descriptor Control definitions */
+ #define E1000_RXDCTL_QUEUE_ENABLE  0x02000000 /* Enable specific Rx Queue */
+diff --git a/drivers/net/ethernet/intel/igb/e1000_defines.h b/drivers/net/ethernet/intel/igb/e1000_defines.h
+index 1de82f247312..51ab8d0b3dd6 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_defines.h
++++ b/drivers/net/ethernet/intel/igb/e1000_defines.h
+@@ -352,8 +352,35 @@
+ /* Timestamp in Rx buffer */
+ #define E1000_RXPBS_CFG_TS_EN           0x80000000
  
- 	hdr_size = nvq->vhost_hlen;
- 	zcopy = nvq->ubufs;
-@@ -562,6 +563,8 @@ static void handle_tx(struct vhost_net *net)
- 					% UIO_MAXIOV;
- 			}
- 			vhost_discard_vq_desc(vq, 1);
-+			if (err == -EAGAIN)
-+				vhost_net_enable_vq(net, vq);
- 			break;
- 		}
- 		if (err != len)
+-#define I210_RXPBSIZE_DEFAULT		0x000000A2 /* RXPBSIZE default */
+-#define I210_TXPBSIZE_DEFAULT		0x04000014 /* TXPBSIZE default */
++/*
++ * Internal Packet Buffer Size Registers
++ * For transmit, Section 7.2.7.7 on page 312 recommends 8, 8, 4, and 4 KB.
++ * TXPB[0-3]SIZE are in KB for TxQ[0-3].
++ */
++#define RXPBSIZE	0x22
++#define BMC2OSPBSIZE	0x02
++#define TXPB0SIZE	8
++#define TXPB1SIZE	12
++#define TXPB2SIZE	0
++#define TXPB3SIZE	0
++#define OS2BMCPBSIZE	4
++
++#define TOTAL_RXTX_PBSIZE \
++	(RXPBSIZE + BMC2OSPBSIZE + \
++	 TXPB0SIZE + TXPB1SIZE + TXPB2SIZE + TXPB3SIZE + OS2BMCPBSIZE)
++
++#if TOTAL_RXTX_PBSIZE > 60
++#error RX TX PBSIZE exceeds 60 KB.
++#elif TOTAL_RXTX_PBSIZE < 60
++#error RX TX PBSIZE too small.
++#endif
++
++#define I210_TXPBSIZE_DEFAULT \
++	(TXPB0SIZE | (TXPB1SIZE << 6) | (TXPB2SIZE << 12) | \
++	 (TXPB3SIZE << 18) | (OS2BMCPBSIZE << 24))
++
++#define I210_RXPBSIZE_DEFAULT \
++	(RXPBSIZE | (BMC2OSPBSIZE << 6))
+ 
+ /* SerDes Control */
+ #define E1000_SCTL_DISABLE_SERDES_LOOPBACK 0x0400
+@@ -1051,4 +1078,41 @@
+ #define E1000_VLAPQF_P_VALID(_n)	(0x1 << (3 + (_n) * 4))
+ #define E1000_VLAPQF_QUEUE_MASK	0x03
+ 
++/* DMA TX Maximum Packet Size */
++#define E1000_DMA_TX_MAXIMUM_PACKET_SIZE (1536 >> 6) /* Units of 64 bytes. */
++
++/* TX Qav Credit Control fields */
++#define E1000_TQAVCC_QUEUEMODE_STREAM_RESERVATION BIT(31)
++
++/* Tx Qav Control */
++#define E1000_TQAVCTRL_TRANSMITMODE_QAV			BIT(0)
++#define E1000_TQAVCTRL_1588_STAT_EN			BIT(2)
++#define E1000_TQAVCTRL_DATA_FETCH_ARB_MOSTEMPTY		BIT(4)
++#define E1000_TQAVCTRL_DATA_TRAN_ARB_CREDITSHAPER	BIT(8)
++#define E1000_TQAVCTRL_DATA_TRAN_TIM			BIT(9)
++#define E1000_TQAVCTRL_SP_WAIT_SR			BIT(10)
++#define E1000_TQAVCTRL_FETCH_TIM_DELTA_SHIFT		16
++/*
++ * Fetch Time Delta - bits 31:16
++ *
++ * This field holds the value to be reduced from the launch time for
++ * fetch time decision. The FetchTimeDelta value is defined in 32 ns
++ * granularity.
++ *
++ * This field is 16 bits wide, and so the maximum value is:
++ *
++ * 65535 * 32 = 2097120 ~= 2 msec
++ *
++ * Is there any reason not to dial max here?
++ */
++#define E1000_FETCH_TIME_DELTA 0xffff
++
++#define	E1000_DEFAULT_TQAVCTRL (			\
++	E1000_TQAVCTRL_TRANSMITMODE_QAV |		\
++	E1000_TQAVCTRL_DATA_FETCH_ARB_MOSTEMPTY |	\
++	E1000_TQAVCTRL_DATA_TRAN_TIM |			\
++	E1000_TQAVCTRL_SP_WAIT_SR |			\
++	(E1000_FETCH_TIME_DELTA << E1000_TQAVCTRL_FETCH_TIM_DELTA_SHIFT) \
++)
++
+ #endif
+diff --git a/drivers/net/ethernet/intel/igb/e1000_regs.h b/drivers/net/ethernet/intel/igb/e1000_regs.h
+index 58adbf234e07..a2ac3331877c 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_regs.h
++++ b/drivers/net/ethernet/intel/igb/e1000_regs.h
+@@ -421,6 +421,11 @@ do { \
+ 
+ #define E1000_I210_FLA		0x1201C
+ 
++#define E1000_I210_TQAVCC0	0x3004
++#define E1000_I210_TQAVCC1	0x3044
++#define E1000_I210_DTXMXPKTSZ	0x355C /* DMA TX Maximum Packet Size */
++#define E1000_I210_TQAVCTRL	0x3570 /* Tx Qav Control */
++
+ #define E1000_INVM_DATA_REG(_n)	(0x12120 + 4*(_n))
+ #define E1000_INVM_SIZE		64 /* Number of INVM Data Registers */
+ 
+diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
+index 06ffb2bc713e..95f20eee8194 100644
+--- a/drivers/net/ethernet/intel/igb/igb.h
++++ b/drivers/net/ethernet/intel/igb/igb.h
+@@ -328,7 +328,8 @@ enum e1000_ring_flags_t {
+ 	IGB_RING_FLAG_RX_SCTP_CSUM,
+ 	IGB_RING_FLAG_RX_LB_VLAN_BSWAP,
+ 	IGB_RING_FLAG_TX_CTX_IDX,
+-	IGB_RING_FLAG_TX_DETECT_HANG
++	IGB_RING_FLAG_TX_DETECT_HANG,
++	IGB_RING_FLAG_HIGH_PRIORITY
+ };
+ 
+ #define ring_uses_large_buffer(ring) \
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index fd4a46b03cc8..69c877290d52 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -1598,6 +1598,40 @@ static void igb_get_hw_control(struct igb_adapter *adapter)
+ 			ctrl_ext | E1000_CTRL_EXT_DRV_LOAD);
+ }
+ 
++static void igb_qav_config(struct igb_adapter *adapter)
++{
++	struct e1000_hw *hw = &adapter->hw;
++
++	/*
++	 * Global Qav configuration  (see 7.2.7.7 on page 312)
++	 */
++	wr32(E1000_I210_DTXMXPKTSZ, 1536 >> 6);
++	wr32(E1000_I210_TQAVCTRL, (u32) E1000_DEFAULT_TQAVCTRL);
++
++	/*
++	 * Per Queue (0/1) Qav configuration
++	 *
++	 * Note: Queue0 QueueMode must be set to 1
++	 *       when TransmitMode is set to Qav.
++	 */
++	wr32(E1000_I210_TQAVCC0, E1000_TQAVCC_QUEUEMODE_STREAM_RESERVATION);
++}
++
++static u16 igb_select_queue(struct net_device *netdev, struct sk_buff *skb,
++				 void *accel, select_queue_fallback_t fallback)
++{
++	struct igb_adapter *adapter = netdev_priv(netdev);
++	struct e1000_hw *hw = &adapter->hw;
++
++	if (hw->mac.type != e1000_i210)
++		return fallback(netdev, skb);
++
++	if (skb->transmit_time)
++		return 0;
++	else
++		return 1;
++}
++
+ /**
+  *  igb_configure - configure the hardware for RX and TX
+  *  @adapter: private board structure
+@@ -1616,6 +1650,8 @@ static void igb_configure(struct igb_adapter *adapter)
+ 	igb_setup_mrqc(adapter);
+ 	igb_setup_rctl(adapter);
+ 
++	igb_qav_config(adapter);
++
+ 	igb_nfc_filter_restore(adapter);
+ 	igb_configure_tx(adapter);
+ 	igb_configure_rx(adapter);
+@@ -2175,6 +2211,7 @@ static const struct net_device_ops igb_netdev_ops = {
+ 	.ndo_set_features	= igb_set_features,
+ 	.ndo_fdb_add		= igb_ndo_fdb_add,
+ 	.ndo_features_check	= igb_features_check,
++	.ndo_select_queue	= igb_select_queue,
+ };
+ 
+ /**
+@@ -3062,7 +3099,11 @@ static void igb_init_queue_configuration(struct igb_adapter *adapter)
+ 		break;
+ 	}
+ 
+-	adapter->rss_queues = min_t(u32, max_rss_queues, num_online_cpus());
++	/*
++	 * For time based Tx, we must configure four Tx queues.
++	 */
++	adapter->rss_queues = hw->mac.type == e1000_i210 ?
++		max_rss_queues : min_t(u32, max_rss_queues, num_online_cpus());
+ 
+ 	igb_set_flag_queue_pairs(adapter, max_rss_queues);
+ }
+@@ -3462,6 +3503,9 @@ void igb_configure_tx_ring(struct igb_adapter *adapter,
+ 	memset(ring->tx_buffer_info, 0,
+ 	       sizeof(struct igb_tx_buffer) * ring->count);
+ 
++	if (ring->flags & IGB_RING_FLAG_HIGH_PRIORITY)
++		txdctl |= E1000_TXDCTL_HIGH_PRIORITY;
++
+ 	txdctl |= E1000_TXDCTL_QUEUE_ENABLE;
+ 	wr32(E1000_TXDCTL(reg_idx), txdctl);
+ }
+@@ -3476,6 +3520,11 @@ static void igb_configure_tx(struct igb_adapter *adapter)
+ {
+ 	int i;
+ 
++	/*
++	 * Reserve the first queue for time based Tx.
++	 */
++	adapter->tx_ring[0]->flags |= IGB_RING_FLAG_HIGH_PRIORITY;
++
+ 	for (i = 0; i < adapter->num_tx_queues; i++)
+ 		igb_configure_tx_ring(adapter, adapter->tx_ring[i]);
+ }
+@@ -4948,11 +4997,12 @@ static void igb_set_itr(struct igb_q_vector *q_vector)
+ 	}
+ }
+ 
+-static void igb_tx_ctxtdesc(struct igb_ring *tx_ring, u32 vlan_macip_lens,
+-			    u32 type_tucmd, u32 mss_l4len_idx)
++static void igb_tx_ctxtdesc(struct igb_ring *tx_ring, struct igb_tx_buffer *first,
++			    u32 vlan_macip_lens, u32 type_tucmd, u32 mss_l4len_idx)
+ {
+ 	struct e1000_adv_tx_context_desc *context_desc;
+ 	u16 i = tx_ring->next_to_use;
++	struct timespec64 ts;
+ 
+ 	context_desc = IGB_TX_CTXTDESC(tx_ring, i);
+ 
+@@ -4967,9 +5017,15 @@ static void igb_tx_ctxtdesc(struct igb_ring *tx_ring, u32 vlan_macip_lens,
+ 		mss_l4len_idx |= tx_ring->reg_idx << 4;
+ 
+ 	context_desc->vlan_macip_lens	= cpu_to_le32(vlan_macip_lens);
+-	context_desc->seqnum_seed	= 0;
+ 	context_desc->type_tucmd_mlhl	= cpu_to_le32(type_tucmd);
+ 	context_desc->mss_l4len_idx	= cpu_to_le32(mss_l4len_idx);
++
++	if (tx_ring->flags & IGB_RING_FLAG_HIGH_PRIORITY && tx_ring->reg_idx == 0) {
++		ts = ns_to_timespec64(first->skb->transmit_time);
++		context_desc->seqnum_seed = cpu_to_le32(ts.tv_nsec / 32);
++	} else {
++		context_desc->seqnum_seed = 0;
++	}
+ }
+ 
+ static int igb_tso(struct igb_ring *tx_ring,
+@@ -5052,7 +5108,7 @@ static int igb_tso(struct igb_ring *tx_ring,
+ 	vlan_macip_lens |= (ip.hdr - skb->data) << E1000_ADVTXD_MACLEN_SHIFT;
+ 	vlan_macip_lens |= first->tx_flags & IGB_TX_FLAGS_VLAN_MASK;
+ 
+-	igb_tx_ctxtdesc(tx_ring, vlan_macip_lens, type_tucmd, mss_l4len_idx);
++	igb_tx_ctxtdesc(tx_ring, first, vlan_macip_lens, type_tucmd, mss_l4len_idx);
+ 
+ 	return 1;
+ }
+@@ -5107,7 +5163,7 @@ static void igb_tx_csum(struct igb_ring *tx_ring, struct igb_tx_buffer *first)
+ 	vlan_macip_lens |= skb_network_offset(skb) << E1000_ADVTXD_MACLEN_SHIFT;
+ 	vlan_macip_lens |= first->tx_flags & IGB_TX_FLAGS_VLAN_MASK;
+ 
+-	igb_tx_ctxtdesc(tx_ring, vlan_macip_lens, type_tucmd, 0);
++	igb_tx_ctxtdesc(tx_ring, first, vlan_macip_lens, type_tucmd, 0);
+ }
+ 
+ #define IGB_SET_FLAG(_input, _flag, _result) \
 -- 
-2.7.4
-
-
---------------231ACD4554E1EAD4478E696F--
+2.11.0
