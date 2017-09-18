@@ -1,7 +1,7 @@
 From: Richard Cochran <rcochran@linutronix.de>
-Subject: [PATCH RFC V1 net-next 6/6] net: igb: Implement time based transmission.
-Date: Mon, 18 Sep 2017 09:41:21 +0200
-Message-ID: <9ecfd21da8e8ad93a5f757b009cf123b6929255f.1505719061.git.rcochran@linutronix.de>
+Subject: [PATCH RFC V1 net-next 1/6] net: Add a new socket option for a future transmit time.
+Date: Mon, 18 Sep 2017 09:41:16 +0200
+Message-ID: <ad6e265b97b66bcdb19b815e6d9092ffbcb461ba.1505719061.git.rcochran@linutronix.de>
 References: <cover.1505719061.git.rcochran@linutronix.de>
 Cc: <linux-kernel@vger.kernel.org>, intel-wired-lan@lists.osuosl.org,
         Andre Guedes <andre.guedes@intel.com>,
@@ -13,297 +13,233 @@ Cc: <linux-kernel@vger.kernel.org>, intel-wired-lan@lists.osuosl.org,
         Thomas Gleixner <tglx@linutronix.de>,
         Vinicius Costa Gomes <vinicius.gomes@intel.com>
 To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Galois.linutronix.de ([146.0.238.70]:49781 "EHLO
+        Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752480AbdIRHnW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 03:43:22 -0400
 In-Reply-To: <cover.1505719061.git.rcochran@linutronix.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch configures the i210 transmit queues to reserve the first queue
-for time based transmit arbitration, placing all other traffic into the
-second queue.  This configuration is hard coded and does not make use of
-the two spare queues.
+This patch introduces SO_TXTIME.  User space enables this option in
+order to pass a desired future transmit time in a CMSG when calling
+sendmsg(2).
 
 Signed-off-by: Richard Cochran <rcochran@linutronix.de>
 ---
- drivers/net/ethernet/intel/igb/e1000_82575.h   |  1 +
- drivers/net/ethernet/intel/igb/e1000_defines.h | 68 +++++++++++++++++++++++++-
- drivers/net/ethernet/intel/igb/e1000_regs.h    |  5 ++
- drivers/net/ethernet/intel/igb/igb.h           |  3 +-
- drivers/net/ethernet/intel/igb/igb_main.c      | 68 +++++++++++++++++++++++---
- 5 files changed, 136 insertions(+), 9 deletions(-)
+ arch/alpha/include/uapi/asm/socket.h   |  3 +++
+ arch/frv/include/uapi/asm/socket.h     |  3 +++
+ arch/ia64/include/uapi/asm/socket.h    |  3 +++
+ arch/m32r/include/uapi/asm/socket.h    |  3 +++
+ arch/mips/include/uapi/asm/socket.h    |  3 +++
+ arch/mn10300/include/uapi/asm/socket.h |  3 +++
+ arch/parisc/include/uapi/asm/socket.h  |  3 +++
+ arch/powerpc/include/uapi/asm/socket.h |  3 +++
+ arch/s390/include/uapi/asm/socket.h    |  3 +++
+ arch/sparc/include/uapi/asm/socket.h   |  3 +++
+ arch/xtensa/include/uapi/asm/socket.h  |  3 +++
+ include/net/sock.h                     |  2 ++
+ include/uapi/asm-generic/socket.h      |  3 +++
+ net/core/sock.c                        | 12 ++++++++++++
+ 14 files changed, 50 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/igb/e1000_82575.h b/drivers/net/ethernet/intel/igb/e1000_82575.h
-index acf06051e111..4c107377540d 100644
---- a/drivers/net/ethernet/intel/igb/e1000_82575.h
-+++ b/drivers/net/ethernet/intel/igb/e1000_82575.h
-@@ -159,6 +159,7 @@ struct e1000_adv_tx_context_desc {
- /* Additional Transmit Descriptor Control definitions */
- #define E1000_TXDCTL_QUEUE_ENABLE  0x02000000 /* Enable specific Tx Queue */
- /* Tx Queue Arbitration Priority 0=low, 1=high */
-+#define E1000_TXDCTL_HIGH_PRIORITY 0x08000000
+diff --git a/arch/alpha/include/uapi/asm/socket.h b/arch/alpha/include/uapi/asm/socket.h
+index c6133a045352..4dfacba7820e 100644
+--- a/arch/alpha/include/uapi/asm/socket.h
++++ b/arch/alpha/include/uapi/asm/socket.h
+@@ -111,4 +111,7 @@
  
- /* Additional Receive Descriptor Control definitions */
- #define E1000_RXDCTL_QUEUE_ENABLE  0x02000000 /* Enable specific Rx Queue */
-diff --git a/drivers/net/ethernet/intel/igb/e1000_defines.h b/drivers/net/ethernet/intel/igb/e1000_defines.h
-index 1de82f247312..51ab8d0b3dd6 100644
---- a/drivers/net/ethernet/intel/igb/e1000_defines.h
-+++ b/drivers/net/ethernet/intel/igb/e1000_defines.h
-@@ -352,8 +352,35 @@
- /* Timestamp in Rx buffer */
- #define E1000_RXPBS_CFG_TS_EN           0x80000000
+ #define SO_ZEROCOPY		60
  
--#define I210_RXPBSIZE_DEFAULT		0x000000A2 /* RXPBSIZE default */
--#define I210_TXPBSIZE_DEFAULT		0x04000014 /* TXPBSIZE default */
-+/*
-+ * Internal Packet Buffer Size Registers
-+ * For transmit, Section 7.2.7.7 on page 312 recommends 8, 8, 4, and 4 KB.
-+ * TXPB[0-3]SIZE are in KB for TxQ[0-3].
-+ */
-+#define RXPBSIZE	0x22
-+#define BMC2OSPBSIZE	0x02
-+#define TXPB0SIZE	8
-+#define TXPB1SIZE	12
-+#define TXPB2SIZE	0
-+#define TXPB3SIZE	0
-+#define OS2BMCPBSIZE	4
++#define SO_TXTIME		61
++#define SCM_TXTIME		SO_TXTIME
 +
-+#define TOTAL_RXTX_PBSIZE \
-+	(RXPBSIZE + BMC2OSPBSIZE + \
-+	 TXPB0SIZE + TXPB1SIZE + TXPB2SIZE + TXPB3SIZE + OS2BMCPBSIZE)
-+
-+#if TOTAL_RXTX_PBSIZE > 60
-+#error RX TX PBSIZE exceeds 60 KB.
-+#elif TOTAL_RXTX_PBSIZE < 60
-+#error RX TX PBSIZE too small.
-+#endif
-+
-+#define I210_TXPBSIZE_DEFAULT \
-+	(TXPB0SIZE | (TXPB1SIZE << 6) | (TXPB2SIZE << 12) | \
-+	 (TXPB3SIZE << 18) | (OS2BMCPBSIZE << 24))
-+
-+#define I210_RXPBSIZE_DEFAULT \
-+	(RXPBSIZE | (BMC2OSPBSIZE << 6))
+ #endif /* _UAPI_ASM_SOCKET_H */
+diff --git a/arch/frv/include/uapi/asm/socket.h b/arch/frv/include/uapi/asm/socket.h
+index 9abf02d6855a..ccf79fe9f35a 100644
+--- a/arch/frv/include/uapi/asm/socket.h
++++ b/arch/frv/include/uapi/asm/socket.h
+@@ -104,5 +104,8 @@
  
- /* SerDes Control */
- #define E1000_SCTL_DISABLE_SERDES_LOOPBACK 0x0400
-@@ -1051,4 +1078,41 @@
- #define E1000_VLAPQF_P_VALID(_n)	(0x1 << (3 + (_n) * 4))
- #define E1000_VLAPQF_QUEUE_MASK	0x03
+ #define SO_ZEROCOPY		60
  
-+/* DMA TX Maximum Packet Size */
-+#define E1000_DMA_TX_MAXIMUM_PACKET_SIZE (1536 >> 6) /* Units of 64 bytes. */
++#define SO_TXTIME		61
++#define SCM_TXTIME		SO_TXTIME
 +
-+/* TX Qav Credit Control fields */
-+#define E1000_TQAVCC_QUEUEMODE_STREAM_RESERVATION BIT(31)
-+
-+/* Tx Qav Control */
-+#define E1000_TQAVCTRL_TRANSMITMODE_QAV			BIT(0)
-+#define E1000_TQAVCTRL_1588_STAT_EN			BIT(2)
-+#define E1000_TQAVCTRL_DATA_FETCH_ARB_MOSTEMPTY		BIT(4)
-+#define E1000_TQAVCTRL_DATA_TRAN_ARB_CREDITSHAPER	BIT(8)
-+#define E1000_TQAVCTRL_DATA_TRAN_TIM			BIT(9)
-+#define E1000_TQAVCTRL_SP_WAIT_SR			BIT(10)
-+#define E1000_TQAVCTRL_FETCH_TIM_DELTA_SHIFT		16
-+/*
-+ * Fetch Time Delta - bits 31:16
-+ *
-+ * This field holds the value to be reduced from the launch time for
-+ * fetch time decision. The FetchTimeDelta value is defined in 32 ns
-+ * granularity.
-+ *
-+ * This field is 16 bits wide, and so the maximum value is:
-+ *
-+ * 65535 * 32 = 2097120 ~= 2 msec
-+ *
-+ * Is there any reason not to dial max here?
-+ */
-+#define E1000_FETCH_TIME_DELTA 0xffff
-+
-+#define	E1000_DEFAULT_TQAVCTRL (			\
-+	E1000_TQAVCTRL_TRANSMITMODE_QAV |		\
-+	E1000_TQAVCTRL_DATA_FETCH_ARB_MOSTEMPTY |	\
-+	E1000_TQAVCTRL_DATA_TRAN_TIM |			\
-+	E1000_TQAVCTRL_SP_WAIT_SR |			\
-+	(E1000_FETCH_TIME_DELTA << E1000_TQAVCTRL_FETCH_TIM_DELTA_SHIFT) \
-+)
-+
- #endif
-diff --git a/drivers/net/ethernet/intel/igb/e1000_regs.h b/drivers/net/ethernet/intel/igb/e1000_regs.h
-index 58adbf234e07..a2ac3331877c 100644
---- a/drivers/net/ethernet/intel/igb/e1000_regs.h
-+++ b/drivers/net/ethernet/intel/igb/e1000_regs.h
-@@ -421,6 +421,11 @@ do { \
+ #endif /* _ASM_SOCKET_H */
  
- #define E1000_I210_FLA		0x1201C
+diff --git a/arch/ia64/include/uapi/asm/socket.h b/arch/ia64/include/uapi/asm/socket.h
+index 002eb85a6941..2da305fa85ee 100644
+--- a/arch/ia64/include/uapi/asm/socket.h
++++ b/arch/ia64/include/uapi/asm/socket.h
+@@ -113,4 +113,7 @@
  
-+#define E1000_I210_TQAVCC0	0x3004
-+#define E1000_I210_TQAVCC1	0x3044
-+#define E1000_I210_DTXMXPKTSZ	0x355C /* DMA TX Maximum Packet Size */
-+#define E1000_I210_TQAVCTRL	0x3570 /* Tx Qav Control */
+ #define SO_ZEROCOPY		60
+ 
++#define SO_TXTIME		61
++#define SCM_TXTIME		SO_TXTIME
 +
- #define E1000_INVM_DATA_REG(_n)	(0x12120 + 4*(_n))
- #define E1000_INVM_SIZE		64 /* Number of INVM Data Registers */
+ #endif /* _ASM_IA64_SOCKET_H */
+diff --git a/arch/m32r/include/uapi/asm/socket.h b/arch/m32r/include/uapi/asm/socket.h
+index e268e51a38d1..4d4cde60c520 100644
+--- a/arch/m32r/include/uapi/asm/socket.h
++++ b/arch/m32r/include/uapi/asm/socket.h
+@@ -104,4 +104,7 @@
  
-diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
-index 06ffb2bc713e..95f20eee8194 100644
---- a/drivers/net/ethernet/intel/igb/igb.h
-+++ b/drivers/net/ethernet/intel/igb/igb.h
-@@ -328,7 +328,8 @@ enum e1000_ring_flags_t {
- 	IGB_RING_FLAG_RX_SCTP_CSUM,
- 	IGB_RING_FLAG_RX_LB_VLAN_BSWAP,
- 	IGB_RING_FLAG_TX_CTX_IDX,
--	IGB_RING_FLAG_TX_DETECT_HANG
-+	IGB_RING_FLAG_TX_DETECT_HANG,
-+	IGB_RING_FLAG_HIGH_PRIORITY
+ #define SO_ZEROCOPY		60
+ 
++#define SO_TXTIME		61
++#define SCM_TXTIME		SO_TXTIME
++
+ #endif /* _ASM_M32R_SOCKET_H */
+diff --git a/arch/mips/include/uapi/asm/socket.h b/arch/mips/include/uapi/asm/socket.h
+index 6c755bc07975..b6e13bbf970c 100644
+--- a/arch/mips/include/uapi/asm/socket.h
++++ b/arch/mips/include/uapi/asm/socket.h
+@@ -122,4 +122,7 @@
+ 
+ #define SO_ZEROCOPY		60
+ 
++#define SO_TXTIME		61
++#define SCM_TXTIME		SO_TXTIME
++
+ #endif /* _UAPI_ASM_SOCKET_H */
+diff --git a/arch/mn10300/include/uapi/asm/socket.h b/arch/mn10300/include/uapi/asm/socket.h
+index ac82a3f26dbf..0234496dc969 100644
+--- a/arch/mn10300/include/uapi/asm/socket.h
++++ b/arch/mn10300/include/uapi/asm/socket.h
+@@ -104,4 +104,7 @@
+ 
+ #define SO_ZEROCOPY		60
+ 
++#define SO_TXTIME		61
++#define SCM_TXTIME		SO_TXTIME
++
+ #endif /* _ASM_SOCKET_H */
+diff --git a/arch/parisc/include/uapi/asm/socket.h b/arch/parisc/include/uapi/asm/socket.h
+index 3b2bf7ae703b..e2a282fefcd6 100644
+--- a/arch/parisc/include/uapi/asm/socket.h
++++ b/arch/parisc/include/uapi/asm/socket.h
+@@ -103,4 +103,7 @@
+ 
+ #define SO_ZEROCOPY		0x4035
+ 
++#define SO_TXTIME		0x4036
++#define SCM_TXTIME		SO_TXTIME
++
+ #endif /* _UAPI_ASM_SOCKET_H */
+diff --git a/arch/powerpc/include/uapi/asm/socket.h b/arch/powerpc/include/uapi/asm/socket.h
+index 3c590c7c42c0..55718129ab06 100644
+--- a/arch/powerpc/include/uapi/asm/socket.h
++++ b/arch/powerpc/include/uapi/asm/socket.h
+@@ -17,4 +17,7 @@
+ 
+ #include <asm-generic/socket.h>
+ 
++#define SO_TXTIME		54
++#define SCM_TXTIME		SO_TXTIME
++
+ #endif	/* _ASM_POWERPC_SOCKET_H */
+diff --git a/arch/s390/include/uapi/asm/socket.h b/arch/s390/include/uapi/asm/socket.h
+index a56916c83565..bfcb29ccf33a 100644
+--- a/arch/s390/include/uapi/asm/socket.h
++++ b/arch/s390/include/uapi/asm/socket.h
+@@ -110,4 +110,7 @@
+ 
+ #define SO_ZEROCOPY		60
+ 
++#define SO_TXTIME		61
++#define SCM_TXTIME		SO_TXTIME
++
+ #endif /* _ASM_SOCKET_H */
+diff --git a/arch/sparc/include/uapi/asm/socket.h b/arch/sparc/include/uapi/asm/socket.h
+index b2f5c50d0947..2217187f80f2 100644
+--- a/arch/sparc/include/uapi/asm/socket.h
++++ b/arch/sparc/include/uapi/asm/socket.h
+@@ -100,6 +100,9 @@
+ 
+ #define SO_ZEROCOPY		0x003e
+ 
++#define SO_TXTIME		0x003f
++#define SCM_TXTIME		SO_TXTIME
++
+ /* Security levels - as per NRL IPv6 - don't actually do anything */
+ #define SO_SECURITY_AUTHENTICATION		0x5001
+ #define SO_SECURITY_ENCRYPTION_TRANSPORT	0x5002
+diff --git a/arch/xtensa/include/uapi/asm/socket.h b/arch/xtensa/include/uapi/asm/socket.h
+index 220059999e74..36bdbd8bd6ca 100644
+--- a/arch/xtensa/include/uapi/asm/socket.h
++++ b/arch/xtensa/include/uapi/asm/socket.h
+@@ -115,4 +115,7 @@
+ 
+ #define SO_ZEROCOPY		60
+ 
++#define SO_TXTIME		61
++#define SCM_TXTIME		SO_TXTIME
++
+ #endif	/* _XTENSA_SOCKET_H */
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 03a362568357..1c378db1060f 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -778,6 +778,7 @@ enum sock_flags {
+ 	SOCK_FILTER_LOCKED, /* Filter cannot be changed anymore */
+ 	SOCK_SELECT_ERR_QUEUE, /* Wake select on error queue */
+ 	SOCK_RCU_FREE, /* wait rcu grace period in sk_destruct() */
++	SOCK_TXTIME,
  };
  
- #define ring_uses_large_buffer(ring) \
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index fd4a46b03cc8..69c877290d52 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -1598,6 +1598,40 @@ static void igb_get_hw_control(struct igb_adapter *adapter)
- 			ctrl_ext | E1000_CTRL_EXT_DRV_LOAD);
- }
+ #define SK_FLAGS_TIMESTAMP ((1UL << SOCK_TIMESTAMP) | (1UL << SOCK_TIMESTAMPING_RX_SOFTWARE))
+@@ -1558,6 +1559,7 @@ void sock_kzfree_s(struct sock *sk, void *mem, int size);
+ void sk_send_sigurg(struct sock *sk);
  
-+static void igb_qav_config(struct igb_adapter *adapter)
-+{
-+	struct e1000_hw *hw = &adapter->hw;
-+
-+	/*
-+	 * Global Qav configuration  (see 7.2.7.7 on page 312)
-+	 */
-+	wr32(E1000_I210_DTXMXPKTSZ, 1536 >> 6);
-+	wr32(E1000_I210_TQAVCTRL, (u32) E1000_DEFAULT_TQAVCTRL);
-+
-+	/*
-+	 * Per Queue (0/1) Qav configuration
-+	 *
-+	 * Note: Queue0 QueueMode must be set to 1
-+	 *       when TransmitMode is set to Qav.
-+	 */
-+	wr32(E1000_I210_TQAVCC0, E1000_TQAVCC_QUEUEMODE_STREAM_RESERVATION);
-+}
-+
-+static u16 igb_select_queue(struct net_device *netdev, struct sk_buff *skb,
-+				 void *accel, select_queue_fallback_t fallback)
-+{
-+	struct igb_adapter *adapter = netdev_priv(netdev);
-+	struct e1000_hw *hw = &adapter->hw;
-+
-+	if (hw->mac.type != e1000_i210)
-+		return fallback(netdev, skb);
-+
-+	if (skb->transmit_time)
-+		return 0;
-+	else
-+		return 1;
-+}
-+
- /**
-  *  igb_configure - configure the hardware for RX and TX
-  *  @adapter: private board structure
-@@ -1616,6 +1650,8 @@ static void igb_configure(struct igb_adapter *adapter)
- 	igb_setup_mrqc(adapter);
- 	igb_setup_rctl(adapter);
- 
-+	igb_qav_config(adapter);
-+
- 	igb_nfc_filter_restore(adapter);
- 	igb_configure_tx(adapter);
- 	igb_configure_rx(adapter);
-@@ -2175,6 +2211,7 @@ static const struct net_device_ops igb_netdev_ops = {
- 	.ndo_set_features	= igb_set_features,
- 	.ndo_fdb_add		= igb_ndo_fdb_add,
- 	.ndo_features_check	= igb_features_check,
-+	.ndo_select_queue	= igb_select_queue,
+ struct sockcm_cookie {
++	u64 transmit_time;
+ 	u32 mark;
+ 	u16 tsflags;
  };
+diff --git a/include/uapi/asm-generic/socket.h b/include/uapi/asm-generic/socket.h
+index e47c9e436221..d32e3e1bf4b6 100644
+--- a/include/uapi/asm-generic/socket.h
++++ b/include/uapi/asm-generic/socket.h
+@@ -106,4 +106,7 @@
  
- /**
-@@ -3062,7 +3099,11 @@ static void igb_init_queue_configuration(struct igb_adapter *adapter)
+ #define SO_ZEROCOPY		60
+ 
++#define SO_TXTIME		61
++#define SCM_TXTIME		SO_TXTIME
++
+ #endif /* __ASM_GENERIC_SOCKET_H */
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 9b7b6bbb2a23..d916a4c238dd 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1059,6 +1059,13 @@ int sock_setsockopt(struct socket *sock, int level, int optname,
+ 			sock_valbool_flag(sk, SOCK_ZEROCOPY, valbool);
  		break;
- 	}
  
--	adapter->rss_queues = min_t(u32, max_rss_queues, num_online_cpus());
-+	/*
-+	 * For time based Tx, we must configure four Tx queues.
-+	 */
-+	adapter->rss_queues = hw->mac.type == e1000_i210 ?
-+		max_rss_queues : min_t(u32, max_rss_queues, num_online_cpus());
- 
- 	igb_set_flag_queue_pairs(adapter, max_rss_queues);
- }
-@@ -3462,6 +3503,9 @@ void igb_configure_tx_ring(struct igb_adapter *adapter,
- 	memset(ring->tx_buffer_info, 0,
- 	       sizeof(struct igb_tx_buffer) * ring->count);
- 
-+	if (ring->flags & IGB_RING_FLAG_HIGH_PRIORITY)
-+		txdctl |= E1000_TXDCTL_HIGH_PRIORITY;
++	case SO_TXTIME:
++		if (ns_capable(sock_net(sk)->user_ns, CAP_NET_ADMIN))
++			sock_valbool_flag(sk, SOCK_TXTIME, valbool);
++		else
++			ret = -EPERM;
++		break;
 +
- 	txdctl |= E1000_TXDCTL_QUEUE_ENABLE;
- 	wr32(E1000_TXDCTL(reg_idx), txdctl);
- }
-@@ -3476,6 +3520,11 @@ static void igb_configure_tx(struct igb_adapter *adapter)
- {
- 	int i;
- 
-+	/*
-+	 * Reserve the first queue for time based Tx.
-+	 */
-+	adapter->tx_ring[0]->flags |= IGB_RING_FLAG_HIGH_PRIORITY;
-+
- 	for (i = 0; i < adapter->num_tx_queues; i++)
- 		igb_configure_tx_ring(adapter, adapter->tx_ring[i]);
- }
-@@ -4948,11 +4997,12 @@ static void igb_set_itr(struct igb_q_vector *q_vector)
- 	}
- }
- 
--static void igb_tx_ctxtdesc(struct igb_ring *tx_ring, u32 vlan_macip_lens,
--			    u32 type_tucmd, u32 mss_l4len_idx)
-+static void igb_tx_ctxtdesc(struct igb_ring *tx_ring, struct igb_tx_buffer *first,
-+			    u32 vlan_macip_lens, u32 type_tucmd, u32 mss_l4len_idx)
- {
- 	struct e1000_adv_tx_context_desc *context_desc;
- 	u16 i = tx_ring->next_to_use;
-+	struct timespec64 ts;
- 
- 	context_desc = IGB_TX_CTXTDESC(tx_ring, i);
- 
-@@ -4967,9 +5017,15 @@ static void igb_tx_ctxtdesc(struct igb_ring *tx_ring, u32 vlan_macip_lens,
- 		mss_l4len_idx |= tx_ring->reg_idx << 4;
- 
- 	context_desc->vlan_macip_lens	= cpu_to_le32(vlan_macip_lens);
--	context_desc->seqnum_seed	= 0;
- 	context_desc->type_tucmd_mlhl	= cpu_to_le32(type_tucmd);
- 	context_desc->mss_l4len_idx	= cpu_to_le32(mss_l4len_idx);
-+
-+	if (tx_ring->flags & IGB_RING_FLAG_HIGH_PRIORITY && tx_ring->reg_idx == 0) {
-+		ts = ns_to_timespec64(first->skb->transmit_time);
-+		context_desc->seqnum_seed = cpu_to_le32(ts.tv_nsec / 32);
-+	} else {
-+		context_desc->seqnum_seed = 0;
-+	}
- }
- 
- static int igb_tso(struct igb_ring *tx_ring,
-@@ -5052,7 +5108,7 @@ static int igb_tso(struct igb_ring *tx_ring,
- 	vlan_macip_lens |= (ip.hdr - skb->data) << E1000_ADVTXD_MACLEN_SHIFT;
- 	vlan_macip_lens |= first->tx_flags & IGB_TX_FLAGS_VLAN_MASK;
- 
--	igb_tx_ctxtdesc(tx_ring, vlan_macip_lens, type_tucmd, mss_l4len_idx);
-+	igb_tx_ctxtdesc(tx_ring, first, vlan_macip_lens, type_tucmd, mss_l4len_idx);
- 
- 	return 1;
- }
-@@ -5107,7 +5163,7 @@ static void igb_tx_csum(struct igb_ring *tx_ring, struct igb_tx_buffer *first)
- 	vlan_macip_lens |= skb_network_offset(skb) << E1000_ADVTXD_MACLEN_SHIFT;
- 	vlan_macip_lens |= first->tx_flags & IGB_TX_FLAGS_VLAN_MASK;
- 
--	igb_tx_ctxtdesc(tx_ring, vlan_macip_lens, type_tucmd, 0);
-+	igb_tx_ctxtdesc(tx_ring, first, vlan_macip_lens, type_tucmd, 0);
- }
- 
- #define IGB_SET_FLAG(_input, _flag, _result) \
+ 	default:
+ 		ret = -ENOPROTOOPT;
+ 		break;
+@@ -2115,6 +2122,11 @@ int __sock_cmsg_send(struct sock *sk, struct msghdr *msg, struct cmsghdr *cmsg,
+ 		sockc->tsflags &= ~SOF_TIMESTAMPING_TX_RECORD_MASK;
+ 		sockc->tsflags |= tsflags;
+ 		break;
++	case SO_TXTIME:
++		if (!sock_flag(sk, SOCK_TXTIME))
++			return -EINVAL;
++		sockc->transmit_time = *(u64 *)CMSG_DATA(cmsg);
++		break;
+ 	/* SCM_RIGHTS and SCM_CREDENTIALS are semantically in SOL_UNIX. */
+ 	case SCM_RIGHTS:
+ 	case SCM_CREDENTIALS:
 -- 
 2.11.0
