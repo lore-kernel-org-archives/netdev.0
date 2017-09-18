@@ -1,62 +1,41 @@
-From: gregkh <gregkh@linuxfoundation.org>
-Subject: Re: stable-rc build: 6 warnings 0 failures
- (stable-rc/v4.9.50-79-g8d96ea4)
-Date: Mon, 18 Sep 2017 16:23:08 +0200
-Message-ID: <20170918142308.GB12458@kroah.com>
-References: <59bfa6b6.4c4b650a.a3838.4576@mx.google.com>
- <CAK8P3a2xEraOhuD4mpwWsV5evij+vNiPZwO4Kr7koqzm5enztw@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] bnx2x: drop packets where gso_size is too big for
+ hardware
+Date: Mon, 18 Sep 2017 07:42:55 -0700
+Message-ID: <1505745775.29839.16.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20170831054642.13721-1-dja@axtens.net>
+         <1504159341.15310.6.camel@edumazet-glaptop3.roam.corp.google.com>
+         <87fubkehyo.fsf@linkitivity.dja.id.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Olof's autobuilder <build@lixom.net>,
-        Olof Johansson <olof@lixom.net>,
-        Kernel Build Reports Mailman List
-        <kernel-build-reports@lists.linaro.org>,
-        "Darrick J. Wong" <darrick.wong@oracle.com>,
-        Christoph Hellwig <hch@lst.de>,
-        Brian Foster <bfoster@redhat.com>,
-        stable <stable@vger.kernel.org>,
-        Steffen Klassert <steffen.klassert@secunet.com>,
-        Wei Wang <weiwan@google.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>,
-        linux-xfs <linux-xfs@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAK8P3a2xEraOhuD4mpwWsV5evij+vNiPZwO4Kr7koqzm5enztw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, tlfalcon@linux.vnet.ibm.com,
+        Yuval.Mintz@cavium.com, ariel.elior@cavium.com,
+        everest-linux-l2@cavium.com, jay.vosburgh@canonical.com
+To: Daniel Axtens <dja@axtens.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f170.google.com ([209.85.192.170]:46325 "EHLO
+        mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754600AbdIROnA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 10:43:00 -0400
+Received: by mail-pf0-f170.google.com with SMTP id e199so341787pfh.3
+        for <netdev@vger.kernel.org>; Mon, 18 Sep 2017 07:43:00 -0700 (PDT)
+In-Reply-To: <87fubkehyo.fsf@linkitivity.dja.id.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 18, 2017 at 04:12:35PM +0200, Arnd Bergmann wrote:
-> On Mon, Sep 18, 2017 at 12:57 PM, Olof's autobuilder <build@lixom.net> wrote:
-> > Here are the build results from automated periodic testing.
-> >
-> > Warnings:
-> >
-> >       2 fs/xfs/xfs_buf_item.c:573:7: warning: unused variable 'ordered' [-Wunused-variable]
-> 
-> This is evidently from the backport of
-> 
-> 351652421e41 ("xfs: remove unnecessary dirty bli format check for ordered bufs")
-> 
-> It was fixed upstream in
-> 
-> 7bf7a193a90c ("xfs: fix compiler warnings")
-> 
-> which contains a few other fixes as well. I have verified that all five
-> trivial changes in the fixup patch should be backported into v4.9-stable
-> as well.
-> 
-> >       4 net/ipv6/route.c:1270:6: warning: 'rt_cookie' may be used uninitialized in this function [-Wmaybe-uninitialized]
-> 
-> Introduced in the backport of
-> c5cff8561d2d ("ipv6: add rcu grace period before freeing fib6_node")
-> Fixed in
-> 3614364527da ("ipv6: Fix may be used uninitialized warning in rt6_check")
-> 
-> Please backport both fixups.
+On Mon, 2017-09-18 at 14:41 +1000, Daniel Axtens wrote:
+> Hi Eric,
+...
+> So I've been experimenting with this and reading through the core
+> networking code. If my understanding is correct, disabling GSO will
+> cause the packet to be segmented, but it will be segemented into
+> gso_size+header length packets. So in this case (~10kB gso_size) the
+> resultant packets will still be too big - although at least they don't
+> cause a crash in that case.
 
-Both now backported, thanks for letting me know.
+You describe a bug in core networking stack then.
 
-greg k-h
+When we perform software segmentation, we must do the check against
+route mtu, and drop the offending frame, and send an ICMP back
+eventually.
