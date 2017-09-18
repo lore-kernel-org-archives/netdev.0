@@ -1,37 +1,76 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: Re: [PATCH net-next 3/3] bpf: Test deletion in BPF_MAP_TYPE_LPM_TRIE
-Date: Mon, 18 Sep 2017 15:54:59 -0700
-Message-ID: <a3f50adb-381b-65ff-2c80-cf3dadbbe248@fb.com>
-References: <20170918193057.37644-1-kraigatgoog@gmail.com>
- <20170918193057.37644-4-kraigatgoog@gmail.com>
+From: Yonghong Song <yhs@fb.com>
+Subject: [PATCH net-next v3 0/4] bpf: add two helpers to read perf event enabled/running time
+Date: Mon, 18 Sep 2017 16:05:49 -0700
+Message-ID: <20170918230553.1624357-1-yhs@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Craig Gallek <kraigatgoog@gmail.com>,
-        Daniel Mack <daniel@zonque.org>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        "David S . Miller" <davem@davemloft.net>
+Content-Type: text/plain
+Cc: <kernel-team@fb.com>
+To: <peterz@infradead.org>, <rostedt@goodmis.org>, <ast@fb.com>,
+        <daniel@iogearbox.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:55502 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750747AbdIRWzs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 18:55:48 -0400
-In-Reply-To: <20170918193057.37644-4-kraigatgoog@gmail.com>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:37428 "EHLO
+        mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1750781AbdIRXFz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 19:05:55 -0400
+Received: from pps.filterd (m0109332.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v8IN3fXZ031772
+        for <netdev@vger.kernel.org>; Mon, 18 Sep 2017 16:05:54 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+        by mx0a-00082601.pphosted.com with ESMTP id 2d2jfw1m8g-1
+        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Mon, 18 Sep 2017 16:05:54 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 9/18/17 12:30 PM, Craig Gallek wrote:
-> From: Craig Gallek <kraig@google.com>
->
-> Extend the 'random' operation tests to include a delete operation
-> (delete half of the nodes from both lpm implementions and ensure
-> that lookups are still equivalent).
->
-> Also, add a simple IPv4 test which verifies lookup behavior as nodes
-> are deleted from the tree.
->
-> Signed-off-by: Craig Gallek <kraig@google.com>
+Hardware pmu counters are limited resources. When there are more
+pmu based perf events opened than available counters, kernel will
+multiplex these events so each event gets certain percentage
+(but not 100%) of the pmu time. In case that multiplexing happens,
+the number of samples or counter value will not reflect the
+case compared to no multiplexing. This makes comparison between
+different runs difficult.
 
-Thanks for the tests!
-Acked-by: Alexei Starovoitov <ast@kernel.org>
+Typically, the number of samples or counter value should be
+normalized before comparing to other experiments. The typical
+normalization is done like:
+  normalized_num_samples = num_samples * time_enabled / time_running
+  normalized_counter_value = counter_value * time_enabled / time_running
+where time_enabled is the time enabled for event and time_running is
+the time running for event since last normalization.
+
+This patch set implements two helper functions.
+The helper bpf_perf_event_read_value reads counter/time_enabled/time_running
+for perf event array map. The helper bpf_perf_prog_read_value read
+counter/time_enabled/time_running for bpf prog with type BPF_PROG_TYPE_PERF_EVENT.
+
+Changelogs:
+v2->v3:
+  . counters should be read in order to read enabled/running time. This is to
+    prevent that counters and enabled/running time may be read separately.
+v1->v2:
+  . reading enabled/running time should be together with reading counters
+    which contains the logic to ensure the result is valid.
+
+
+Yonghong Song (4):
+  bpf: add helper bpf_perf_event_read_value for perf event array map
+  bpf: add a test case for helper bpf_perf_event_read_value
+  bpf: add helper bpf_perf_prog_read_value
+  bpf: add a test case for helper bpf_perf_prog_read_value
+
+ include/linux/perf_event.h                |  4 +-
+ include/uapi/linux/bpf.h                  | 26 +++++++++++-
+ kernel/bpf/arraymap.c                     |  2 +-
+ kernel/bpf/verifier.c                     |  4 +-
+ kernel/events/core.c                      | 16 ++++++--
+ kernel/trace/bpf_trace.c                  | 67 +++++++++++++++++++++++++++++--
+ samples/bpf/trace_event_kern.c            | 10 +++++
+ samples/bpf/trace_event_user.c            | 13 +++---
+ samples/bpf/tracex6_kern.c                | 26 ++++++++++++
+ samples/bpf/tracex6_user.c                | 13 +++++-
+ tools/include/uapi/linux/bpf.h            |  4 +-
+ tools/testing/selftests/bpf/bpf_helpers.h |  6 +++
+ 12 files changed, 173 insertions(+), 18 deletions(-)
+
+-- 
+2.9.5
