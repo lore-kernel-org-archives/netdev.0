@@ -1,13 +1,14 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net_sched: use explicit size of struct tcmsg, remove
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] net_sched: use explicit size of struct tcmsg, remove
  need to declare tcm
-Date: Mon, 18 Sep 2017 08:00:34 -0700
-Message-ID: <1505746834.29839.17.camel@edumazet-glaptop3.roam.corp.google.com>
+Date: Mon, 18 Sep 2017 15:10:34 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD0078B30@AcuExch.aculab.com>
 References: <20170918114038.29741-1-colin.king@canonical.com>
          <063D6719AE5E284EB5DD2968C1650D6DD007891E@AcuExch.aculab.com>
+ <1505746834.29839.17.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: 'Colin King' <colin.king@canonical.com>,
         Jamal Hadi Salim <jhs@mojatatu.com>,
         Cong Wang <xiyou.wangcong@gmail.com>,
@@ -16,55 +17,22 @@ Cc: 'Colin King' <colin.king@canonical.com>,
         "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
         "kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>,
         "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>
+To: 'Eric Dumazet' <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:37845 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755028AbdIRPAi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 11:00:38 -0400
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DD007891E@AcuExch.aculab.com>
+Received: from smtp-out4.electric.net ([192.162.216.181]:65521 "EHLO
+        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932478AbdIRPKn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 11:10:43 -0400
+In-Reply-To: <1505746834.29839.17.camel@edumazet-glaptop3.roam.corp.google.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2017-09-18 at 12:18 +0000, David Laight wrote:
-> From: Colin King
-> > Sent: 18 September 2017 12:41
-> > Pointer tcm is being initialized and is never read, it is only being used
-> > to determine the size of struct tcmsg.  Clean this up by removing
-> > variable tcm and explicitly using the sizeof struct tcmsg rather than *tcm.
-> > Cleans up clang warning:
-> > 
-> > warning: Value stored to 'tcm' during its initialization is never read
-> > 
-> > Signed-off-by: Colin Ian King <colin.king@canonical.com>
-> > ---
-> >  net/sched/sch_api.c | 3 +--
-> >  1 file changed, 1 insertion(+), 2 deletions(-)
-> > 
-> > diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-> > index c6deb74e3d2f..aa82116ed10c 100644
-> > --- a/net/sched/sch_api.c
-> > +++ b/net/sched/sch_api.c
-> > @@ -1500,7 +1500,6 @@ static int tc_dump_qdisc(struct sk_buff *skb, struct netlink_callback *cb)
-> >  	int s_idx, s_q_idx;
-> >  	struct net_device *dev;
-> >  	const struct nlmsghdr *nlh = cb->nlh;
-> > -	struct tcmsg *tcm = nlmsg_data(nlh);
-> >  	struct nlattr *tca[TCA_MAX + 1];
-> >  	int err;
-> > 
-> > @@ -1510,7 +1509,7 @@ static int tc_dump_qdisc(struct sk_buff *skb, struct netlink_callback *cb)
-> >  	idx = 0;
-> >  	ASSERT_RTNL();
-> > 
-> > -	err = nlmsg_parse(nlh, sizeof(*tcm), tca, TCA_MAX, NULL, NULL);
-> > +	err = nlmsg_parse(nlh, sizeof(struct tcmsg), tca, TCA_MAX, NULL, NULL);
-> 
-> Would sizeof(*nlmsg_data(nlh)) be cleaner??
-
-Not really, since 
-
-static inline void *nlmsg_data(const struct nlmsghdr *nlh)
-{
-...
-}
+RnJvbTogRXJpYyBEdW1hemV0DQo+IFNlbnQ6IDE4IFNlcHRlbWJlciAyMDE3IDE2OjAxDQouLi4N
+Cj4gPiA+IC0JZXJyID0gbmxtc2dfcGFyc2UobmxoLCBzaXplb2YoKnRjbSksIHRjYSwgVENBX01B
+WCwgTlVMTCwgTlVMTCk7DQo+ID4gPiArCWVyciA9IG5sbXNnX3BhcnNlKG5saCwgc2l6ZW9mKHN0
+cnVjdCB0Y21zZyksIHRjYSwgVENBX01BWCwgTlVMTCwgTlVMTCk7DQo+ID4NCj4gPiBXb3VsZCBz
+aXplb2YoKm5sbXNnX2RhdGEobmxoKSkgYmUgY2xlYW5lcj8/DQo+IA0KPiBOb3QgcmVhbGx5LCBz
+aW5jZQ0KPiANCj4gc3RhdGljIGlubGluZSB2b2lkICpubG1zZ19kYXRhKGNvbnN0IHN0cnVjdCBu
+bG1zZ2hkciAqbmxoKQ0KDQpJIHRob3VnaHQgYWJvdXQgdGhhdCBhZnRlciBwb3N0aW5nIDotKA0K
+DQoJRGF2aWQNCg0K
