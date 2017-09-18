@@ -1,155 +1,41 @@
-From: Mika Westerberg <mika.westerberg@linux.intel.com>
-Subject: [PATCH 11/16] thunderbolt: Use spinlock in ring serialization
-Date: Mon, 18 Sep 2017 18:30:44 +0300
-Message-ID: <20170918153049.44185-12-mika.westerberg@linux.intel.com>
-References: <20170918153049.44185-1-mika.westerberg@linux.intel.com>
-Cc: Andreas Noever <andreas.noever@gmail.com>,
-        Michael Jamet <michael.jamet@intel.com>,
-        Yehezkel Bernat <yehezkel.bernat@intel.com>,
-        Amir Levy <amir.jer.levy@intel.com>,
-        Mario.Limonciello@dell.com, Lukas Wunner <lukas@wunner.de>,
-        Andy Shevchenko <andriy.shevchenko@linux.intel.com>,
-        Mika Westerberg <mika.westerberg@linux.intel.com>,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        "David S . Miller" <davem@davemloft.net>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH] netfilter: nat: Do not use ARRAY_SIZE() on spinlocks to
+ fix zero div
+Date: Mon, 18 Sep 2017 17:33:47 +0200
+Message-ID: <20170918153347.GA28198@salvia>
+References: <1505043701-13255-1-git-send-email-geert@linux-m68k.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        Florian Westphal <fw@strlen.de>,
+        "David S . Miller" <davem@davemloft.net>,
+        Arnd Bergmann <arnd@arndb.de>, netfilter-devel@vger.kernel.org,
+        coreteam@netfilter.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Geert Uytterhoeven <geert@linux-m68k.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170918153049.44185-1-mika.westerberg@linux.intel.com>
+Content-Disposition: inline
+In-Reply-To: <1505043701-13255-1-git-send-email-geert@linux-m68k.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This makes it possible to enqueue frames also from atomic context which
-is needed for example, when networking packets are sent over a
-Thunderbolt cable.
+On Sun, Sep 10, 2017 at 01:41:41PM +0200, Geert Uytterhoeven wrote:
+> If no spinlock debugging options (CONFIG_GENERIC_LOCKBREAK,
+> CONFIG_DEBUG_SPINLOCK, CONFIG_DEBUG_LOCK_ALLOC) are enabled on a UP
+> platform (e.g. m68k defconfig), arch_spinlock_t is an empty struct,
+> hence using ARRAY_SIZE(nf_nat_locks) causes a division by zero:
+> 
+>     net/netfilter/nf_nat_core.c: In function ‘nf_nat_setup_info’:
+>     net/netfilter/nf_nat_core.c:432: warning: division by zero
+>     net/netfilter/nf_nat_core.c: In function ‘__nf_nat_cleanup_conntrack’:
+>     net/netfilter/nf_nat_core.c:535: warning: division by zero
+>     net/netfilter/nf_nat_core.c:537: warning: division by zero
+>     net/netfilter/nf_nat_core.c: In function ‘nf_nat_init’:
+>     net/netfilter/nf_nat_core.c:810: warning: division by zero
+>     net/netfilter/nf_nat_core.c:811: warning: division by zero
+>     net/netfilter/nf_nat_core.c:824: warning: division by zero
+> 
+> Fix this by using the CONNTRACK_LOCKS definition instead.
 
-Signed-off-by: Mika Westerberg <mika.westerberg@linux.intel.com>
-Reviewed-by: Michael Jamet <michael.jamet@intel.com>
-Reviewed-by: Yehezkel Bernat <yehezkel.bernat@intel.com>
----
- drivers/thunderbolt/nhi.c   | 26 ++++++++++++++------------
- include/linux/thunderbolt.h |  2 +-
- 2 files changed, 15 insertions(+), 13 deletions(-)
-
-diff --git a/drivers/thunderbolt/nhi.c b/drivers/thunderbolt/nhi.c
-index 4704ccd20c84..d1ad37c6eccf 100644
---- a/drivers/thunderbolt/nhi.c
-+++ b/drivers/thunderbolt/nhi.c
-@@ -212,8 +212,10 @@ static void ring_work(struct work_struct *work)
- 	struct tb_ring *ring = container_of(work, typeof(*ring), work);
- 	struct ring_frame *frame;
- 	bool canceled = false;
-+	unsigned long flags;
- 	LIST_HEAD(done);
--	mutex_lock(&ring->lock);
-+
-+	spin_lock_irqsave(&ring->lock, flags);
- 
- 	if (!ring->running) {
- 		/*  Move all frames to done and mark them as canceled. */
-@@ -241,7 +243,8 @@ static void ring_work(struct work_struct *work)
- 	ring_write_descriptors(ring);
- 
- invoke_callback:
--	mutex_unlock(&ring->lock); /* allow callbacks to schedule new work */
-+	/* allow callbacks to schedule new work */
-+	spin_unlock_irqrestore(&ring->lock, flags);
- 	while (!list_empty(&done)) {
- 		frame = list_first_entry(&done, typeof(*frame), list);
- 		/*
-@@ -255,15 +258,17 @@ static void ring_work(struct work_struct *work)
- 
- int __tb_ring_enqueue(struct tb_ring *ring, struct ring_frame *frame)
- {
-+	unsigned long flags;
- 	int ret = 0;
--	mutex_lock(&ring->lock);
-+
-+	spin_lock_irqsave(&ring->lock, flags);
- 	if (ring->running) {
- 		list_add_tail(&frame->list, &ring->queue);
- 		ring_write_descriptors(ring);
- 	} else {
- 		ret = -ESHUTDOWN;
- 	}
--	mutex_unlock(&ring->lock);
-+	spin_unlock_irqrestore(&ring->lock, flags);
- 	return ret;
- }
- EXPORT_SYMBOL_GPL(__tb_ring_enqueue);
-@@ -338,7 +343,7 @@ static struct tb_ring *tb_ring_alloc(struct tb_nhi *nhi, u32 hop, int size,
- 	if (!ring)
- 		goto err;
- 
--	mutex_init(&ring->lock);
-+	spin_lock_init(&ring->lock);
- 	INIT_LIST_HEAD(&ring->queue);
- 	INIT_LIST_HEAD(&ring->in_flight);
- 	INIT_WORK(&ring->work, ring_work);
-@@ -371,8 +376,6 @@ static struct tb_ring *tb_ring_alloc(struct tb_nhi *nhi, u32 hop, int size,
- 	return ring;
- 
- err:
--	if (ring)
--		mutex_destroy(&ring->lock);
- 	kfree(ring);
- 	mutex_unlock(&nhi->lock);
- 	return NULL;
-@@ -419,7 +422,7 @@ void tb_ring_start(struct tb_ring *ring)
- 	u32 flags;
- 
- 	mutex_lock(&ring->nhi->lock);
--	mutex_lock(&ring->lock);
-+	spin_lock_irq(&ring->lock);
- 	if (ring->nhi->going_away)
- 		goto err;
- 	if (ring->running) {
-@@ -466,7 +469,7 @@ void tb_ring_start(struct tb_ring *ring)
- 	ring_interrupt_active(ring, true);
- 	ring->running = true;
- err:
--	mutex_unlock(&ring->lock);
-+	spin_unlock_irq(&ring->lock);
- 	mutex_unlock(&ring->nhi->lock);
- }
- EXPORT_SYMBOL_GPL(tb_ring_start);
-@@ -487,7 +490,7 @@ EXPORT_SYMBOL_GPL(tb_ring_start);
- void tb_ring_stop(struct tb_ring *ring)
- {
- 	mutex_lock(&ring->nhi->lock);
--	mutex_lock(&ring->lock);
-+	spin_lock_irq(&ring->lock);
- 	dev_info(&ring->nhi->pdev->dev, "stopping %s %d\n",
- 		 RING_TYPE(ring), ring->hop);
- 	if (ring->nhi->going_away)
-@@ -508,7 +511,7 @@ void tb_ring_stop(struct tb_ring *ring)
- 	ring->running = false;
- 
- err:
--	mutex_unlock(&ring->lock);
-+	spin_unlock_irq(&ring->lock);
- 	mutex_unlock(&ring->nhi->lock);
- 
- 	/*
-@@ -568,7 +571,6 @@ void tb_ring_free(struct tb_ring *ring)
- 	 * to finish before freeing the ring.
- 	 */
- 	flush_work(&ring->work);
--	mutex_destroy(&ring->lock);
- 	kfree(ring);
- }
- EXPORT_SYMBOL_GPL(tb_ring_free);
-diff --git a/include/linux/thunderbolt.h b/include/linux/thunderbolt.h
-index fac4ff62c0de..51af0a5fa52f 100644
---- a/include/linux/thunderbolt.h
-+++ b/include/linux/thunderbolt.h
-@@ -448,7 +448,7 @@ struct tb_nhi {
-  * @eof_mask: Bit mask used to detect end of frame PDF
-  */
- struct tb_ring {
--	struct mutex lock;
-+	spinlock_t lock;
- 	struct tb_nhi *nhi;
- 	int size;
- 	int hop;
--- 
-2.13.5
+Applied.
