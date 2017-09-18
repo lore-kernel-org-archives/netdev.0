@@ -1,93 +1,36 @@
-From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: [PATCH net 2/3] net: mvpp2: fix parsing fragmentation detection
-Date: Mon, 18 Sep 2017 15:04:07 +0200
-Message-ID: <20170918130408.23114-3-antoine.tenart@free-electrons.com>
-References: <20170918130408.23114-1-antoine.tenart@free-electrons.com>
-Cc: Stefan Chulski <stefanc@marvell.com>, andrew@lunn.ch,
-        gregory.clement@free-electrons.com,
-        thomas.petazzoni@free-electrons.com,
-        miquel.raynal@free-electrons.com, nadavh@marvell.com,
-        linux@armlinux.org.uk, linux-kernel@vger.kernel.org,
-        mw@semihalf.com, netdev@vger.kernel.org,
-        Antoine Tenart <antoine.tenart@free-electrons.com>
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170918130408.23114-1-antoine.tenart@free-electrons.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH] bpf: devmap: pass on return value of bpf_map_precharge_memlock
+Date: Mon, 18 Sep 2017 15:14:01 +0200
+Message-ID: <59BFC699.1060009@iogearbox.net>
+References: <20170918130346.10833-1-tklauser@distanz.ch>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: John Fastabend <john.fastabend@gmail.com>, netdev@vger.kernel.org
+To: Tobias Klauser <tklauser@distanz.ch>,
+        Alexei Starovoitov <ast@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:39151 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751609AbdIRNOF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 09:14:05 -0400
+In-Reply-To: <20170918130346.10833-1-tklauser@distanz.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stefan Chulski <stefanc@marvell.com>
+On 09/18/2017 03:03 PM, Tobias Klauser wrote:
+> If bpf_map_precharge_memlock in dev_map_alloc, -ENOMEM is returned
+> regardless of the actual error produced by bpf_map_precharge_memlock.
+> Fix it by passing on the error returned by bpf_map_precharge_memlock.
+>
+> Also return -EINVAL instead of -ENOMEM if the page count overflow check
+> fails.
+>
+> This makes dev_map_alloc match the behavior of other bpf maps' alloc
+> functions wrt. return values.
+>
+> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
 
-Parsing fragmentation detection failed due to wrong configured
-parser TCAM entry's. Some traffic was marked as fragmented in RX
-descriptor, even it wasn't IP fragmented. The hardware also failed to
-calculate checksums which lead to use software checksum and caused
-performance degradation.
+(This would then need to go via net tree.)
 
-Fixes: 3f518509dedc ("ethernet: Add new driver for Marvell Armada 375 network unit")
-Signed-off-by: Antoine Tenart <antoine.tenart@free-electrons.com>
----
- drivers/net/ethernet/marvell/mvpp2.c | 20 ++++++++++++++------
- 1 file changed, 14 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 7024d4dbb461..56d474414cfa 100644
---- a/drivers/net/ethernet/marvell/mvpp2.c
-+++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -676,6 +676,7 @@ enum mvpp2_tag_type {
- #define MVPP2_PRS_RI_L3_MCAST			BIT(15)
- #define MVPP2_PRS_RI_L3_BCAST			(BIT(15) | BIT(16))
- #define MVPP2_PRS_RI_IP_FRAG_MASK		0x20000
-+#define MVPP2_PRS_RI_IP_FRAG_TRUE		BIT(17)
- #define MVPP2_PRS_RI_UDF3_MASK			0x300000
- #define MVPP2_PRS_RI_UDF3_RX_SPECIAL		BIT(21)
- #define MVPP2_PRS_RI_L4_PROTO_MASK		0x1c00000
-@@ -2315,7 +2316,7 @@ static int mvpp2_prs_ip4_proto(struct mvpp2 *priv, unsigned short proto,
- 	    (proto != IPPROTO_IGMP))
- 		return -EINVAL;
- 
--	/* Fragmented packet */
-+	/* Not fragmented packet */
- 	tid = mvpp2_prs_tcam_first_free(priv, MVPP2_PE_FIRST_FREE_TID,
- 					MVPP2_PE_LAST_FREE_TID);
- 	if (tid < 0)
-@@ -2334,8 +2335,12 @@ static int mvpp2_prs_ip4_proto(struct mvpp2 *priv, unsigned short proto,
- 				  MVPP2_PRS_SRAM_OP_SEL_UDF_ADD);
- 	mvpp2_prs_sram_ai_update(&pe, MVPP2_PRS_IPV4_DIP_AI_BIT,
- 				 MVPP2_PRS_IPV4_DIP_AI_BIT);
--	mvpp2_prs_sram_ri_update(&pe, ri | MVPP2_PRS_RI_IP_FRAG_MASK,
--				 ri_mask | MVPP2_PRS_RI_IP_FRAG_MASK);
-+	mvpp2_prs_sram_ri_update(&pe, ri, ri_mask | MVPP2_PRS_RI_IP_FRAG_MASK);
-+
-+	mvpp2_prs_tcam_data_byte_set(&pe, 2, 0x00,
-+				     MVPP2_PRS_TCAM_PROTO_MASK_L);
-+	mvpp2_prs_tcam_data_byte_set(&pe, 3, 0x00,
-+				     MVPP2_PRS_TCAM_PROTO_MASK);
- 
- 	mvpp2_prs_tcam_data_byte_set(&pe, 5, proto, MVPP2_PRS_TCAM_PROTO_MASK);
- 	mvpp2_prs_tcam_ai_update(&pe, 0, MVPP2_PRS_IPV4_DIP_AI_BIT);
-@@ -2346,7 +2351,7 @@ static int mvpp2_prs_ip4_proto(struct mvpp2 *priv, unsigned short proto,
- 	mvpp2_prs_shadow_set(priv, pe.index, MVPP2_PRS_LU_IP4);
- 	mvpp2_prs_hw_write(priv, &pe);
- 
--	/* Not fragmented packet */
-+	/* Fragmented packet */
- 	tid = mvpp2_prs_tcam_first_free(priv, MVPP2_PE_FIRST_FREE_TID,
- 					MVPP2_PE_LAST_FREE_TID);
- 	if (tid < 0)
-@@ -2358,8 +2363,11 @@ static int mvpp2_prs_ip4_proto(struct mvpp2 *priv, unsigned short proto,
- 	pe.sram.word[MVPP2_PRS_SRAM_RI_CTRL_WORD] = 0x0;
- 	mvpp2_prs_sram_ri_update(&pe, ri, ri_mask);
- 
--	mvpp2_prs_tcam_data_byte_set(&pe, 2, 0x00, MVPP2_PRS_TCAM_PROTO_MASK_L);
--	mvpp2_prs_tcam_data_byte_set(&pe, 3, 0x00, MVPP2_PRS_TCAM_PROTO_MASK);
-+	mvpp2_prs_sram_ri_update(&pe, ri | MVPP2_PRS_RI_IP_FRAG_TRUE,
-+				 ri_mask | MVPP2_PRS_RI_IP_FRAG_MASK);
-+
-+	mvpp2_prs_tcam_data_byte_set(&pe, 2, 0x00, 0x0);
-+	mvpp2_prs_tcam_data_byte_set(&pe, 3, 0x00, 0x0);
- 
- 	/* Update shadow table and hw entry */
- 	mvpp2_prs_shadow_set(priv, pe.index, MVPP2_PRS_LU_IP4);
--- 
-2.13.5
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
