@@ -1,7 +1,7 @@
 From: Mika Westerberg <mika.westerberg@linux.intel.com>
-Subject: [PATCH 03/16] thunderbolt: Move enum tb_cfg_pkg_type to thunderbolt.h
-Date: Mon, 18 Sep 2017 18:30:36 +0300
-Message-ID: <20170918153049.44185-4-mika.westerberg@linux.intel.com>
+Subject: [PATCH 07/16] thunderbolt: Configure interrupt throttling for all interrupts
+Date: Mon, 18 Sep 2017 18:30:40 +0300
+Message-ID: <20170918153049.44185-8-mika.westerberg@linux.intel.com>
 References: <20170918153049.44185-1-mika.westerberg@linux.intel.com>
 Cc: Andreas Noever <andreas.noever@gmail.com>,
         Michael Jamet <michael.jamet@intel.com>,
@@ -18,92 +18,85 @@ In-Reply-To: <20170918153049.44185-1-mika.westerberg@linux.intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-These will be needed by Thunderbolt services when sending and receiving
-XDomain control messages.
+This will keep the interrupt delivery rate reasonable. The value used
+here (128 us) is a recommendation from the hardware people.
 
+This code is based on the work done by Amir Levy and Michael Jamet.
+
+Signed-off-by: Michael Jamet <michael.jamet@intel.com>
 Signed-off-by: Mika Westerberg <mika.westerberg@linux.intel.com>
-Reviewed-by: Michael Jamet <michael.jamet@intel.com>
 Reviewed-by: Yehezkel Bernat <yehezkel.bernat@intel.com>
 ---
- drivers/thunderbolt/ctl.h     |  1 +
- drivers/thunderbolt/tb_msgs.h | 17 -----------------
- include/linux/thunderbolt.h   | 17 +++++++++++++++++
- 3 files changed, 18 insertions(+), 17 deletions(-)
+ drivers/thunderbolt/nhi.c      | 22 +++++++++++++++++++---
+ drivers/thunderbolt/nhi_regs.h |  2 ++
+ 2 files changed, 21 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/thunderbolt/ctl.h b/drivers/thunderbolt/ctl.h
-index 36fd28b1c1c5..d0f21e1e0b8b 100644
---- a/drivers/thunderbolt/ctl.h
-+++ b/drivers/thunderbolt/ctl.h
-@@ -8,6 +8,7 @@
- #define _TB_CFG
+diff --git a/drivers/thunderbolt/nhi.c b/drivers/thunderbolt/nhi.c
+index 05af126a2435..bc44cbaaf05a 100644
+--- a/drivers/thunderbolt/nhi.c
++++ b/drivers/thunderbolt/nhi.c
+@@ -651,6 +651,21 @@ static int nhi_suspend_noirq(struct device *dev)
+ 	return tb_domain_suspend_noirq(tb);
+ }
  
- #include <linux/kref.h>
-+#include <linux/thunderbolt.h>
- 
- #include "nhi.h"
- #include "tb_msgs.h"
-diff --git a/drivers/thunderbolt/tb_msgs.h b/drivers/thunderbolt/tb_msgs.h
-index de6441e4a060..fe3039b05da6 100644
---- a/drivers/thunderbolt/tb_msgs.h
-+++ b/drivers/thunderbolt/tb_msgs.h
-@@ -15,23 +15,6 @@
- #include <linux/types.h>
- #include <linux/uuid.h>
- 
--enum tb_cfg_pkg_type {
--	TB_CFG_PKG_READ = 1,
--	TB_CFG_PKG_WRITE = 2,
--	TB_CFG_PKG_ERROR = 3,
--	TB_CFG_PKG_NOTIFY_ACK = 4,
--	TB_CFG_PKG_EVENT = 5,
--	TB_CFG_PKG_XDOMAIN_REQ = 6,
--	TB_CFG_PKG_XDOMAIN_RESP = 7,
--	TB_CFG_PKG_OVERRIDE = 8,
--	TB_CFG_PKG_RESET = 9,
--	TB_CFG_PKG_ICM_EVENT = 10,
--	TB_CFG_PKG_ICM_CMD = 11,
--	TB_CFG_PKG_ICM_RESP = 12,
--	TB_CFG_PKG_PREPARE_TO_SLEEP = 0xd,
--
--};
--
- enum tb_cfg_space {
- 	TB_CFG_HOPS = 0,
- 	TB_CFG_PORT = 1,
-diff --git a/include/linux/thunderbolt.h b/include/linux/thunderbolt.h
-index 5673a4b4becb..0b22b64dacba 100644
---- a/include/linux/thunderbolt.h
-+++ b/include/linux/thunderbolt.h
-@@ -1,6 +1,7 @@
- /*
-  * Thunderbolt service API
-  *
-+ * Copyright (C) 2014 Andreas Noever <andreas.noever@gmail.com>
-  * Copyright (C) 2017, Intel Corporation
-  * Authors: Michael Jamet <michael.jamet@intel.com>
-  *          Mika Westerberg <mika.westerberg@linux.intel.com>
-@@ -16,6 +17,22 @@
- #include <linux/list.h>
- #include <linux/uuid.h>
- 
-+enum tb_cfg_pkg_type {
-+	TB_CFG_PKG_READ = 1,
-+	TB_CFG_PKG_WRITE = 2,
-+	TB_CFG_PKG_ERROR = 3,
-+	TB_CFG_PKG_NOTIFY_ACK = 4,
-+	TB_CFG_PKG_EVENT = 5,
-+	TB_CFG_PKG_XDOMAIN_REQ = 6,
-+	TB_CFG_PKG_XDOMAIN_RESP = 7,
-+	TB_CFG_PKG_OVERRIDE = 8,
-+	TB_CFG_PKG_RESET = 9,
-+	TB_CFG_PKG_ICM_EVENT = 10,
-+	TB_CFG_PKG_ICM_CMD = 11,
-+	TB_CFG_PKG_ICM_RESP = 12,
-+	TB_CFG_PKG_PREPARE_TO_SLEEP = 0xd,
-+};
++static void nhi_enable_int_throttling(struct tb_nhi *nhi)
++{
++	u32 throttle = DIV_ROUND_UP(128 * NSEC_PER_USEC, 256);
++	unsigned int i;
 +
- /**
-  * struct tb_property_dir - XDomain property directory
-  * @uuid: Directory UUID or %NULL if root directory
++	/*
++	 * Configure interrupt throttling for all vectors even if we
++	 * only use few.
++	 */
++	for (i = 0; i < MSIX_MAX_VECS; i++) {
++		u32 reg = REG_INT_THROTTLING_RATE + i * 4;
++		iowrite32(throttle, nhi->iobase + reg);
++	}
++}
++
+ static int nhi_resume_noirq(struct device *dev)
+ {
+ 	struct pci_dev *pdev = to_pci_dev(dev);
+@@ -663,6 +678,8 @@ static int nhi_resume_noirq(struct device *dev)
+ 	 */
+ 	if (!pci_device_is_present(pdev))
+ 		tb->nhi->going_away = true;
++	else
++		nhi_enable_int_throttling(tb->nhi);
+ 
+ 	return tb_domain_resume_noirq(tb);
+ }
+@@ -717,6 +734,8 @@ static int nhi_init_msi(struct tb_nhi *nhi)
+ 	/* In case someone left them on. */
+ 	nhi_disable_interrupts(nhi);
+ 
++	nhi_enable_int_throttling(nhi);
++
+ 	ida_init(&nhi->msix_ida);
+ 
+ 	/*
+@@ -796,9 +815,6 @@ static int nhi_probe(struct pci_dev *pdev, const struct pci_device_id *id)
+ 
+ 	pci_set_master(pdev);
+ 
+-	/* magic value - clock related? */
+-	iowrite32(3906250 / 10000, nhi->iobase + 0x38c00);
+-
+ 	tb = icm_probe(nhi);
+ 	if (!tb)
+ 		tb = tb_probe(nhi);
+diff --git a/drivers/thunderbolt/nhi_regs.h b/drivers/thunderbolt/nhi_regs.h
+index 09ed574e92ff..46eff69b19ad 100644
+--- a/drivers/thunderbolt/nhi_regs.h
++++ b/drivers/thunderbolt/nhi_regs.h
+@@ -95,6 +95,8 @@ struct ring_desc {
+ #define REG_RING_INTERRUPT_BASE	0x38200
+ #define RING_INTERRUPT_REG_COUNT(nhi) ((31 + 2 * nhi->hop_count) / 32)
+ 
++#define REG_INT_THROTTLING_RATE	0x38c00
++
+ /* Interrupt Vector Allocation */
+ #define REG_INT_VEC_ALLOC_BASE	0x38c40
+ #define REG_INT_VEC_ALLOC_BITS	4
 -- 
 2.13.5
