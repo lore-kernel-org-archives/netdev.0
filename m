@@ -1,145 +1,128 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: Regression in throughput between kvm guests over virtual bridge
-Date: Mon, 18 Sep 2017 11:13:58 +0800
-Message-ID: <55f9173b-a419-98f0-2516-cbd57299ba5d@redhat.com>
-References: <4c7e2924-b10f-0e97-c388-c8809ecfdeeb@linux.vnet.ibm.com>
- <bdd417dc-9e2f-4a2e-534b-c6aa38f002f2@redhat.com>
- <e022cfa7-ef65-550f-06e8-f6e29f1d68a0@redhat.com>
- <627d0c7a-dce5-3094-d5d4-c1507fcb8080@linux.vnet.ibm.com>
- <50891c14-3fc6-f519-8c03-07bdef3090f4@redhat.com>
- <e42083d9-ae7b-7207-e5e6-06483bf6293e@linux.vnet.ibm.com>
- <15abafa1-6d58-cd85-668a-bf361a296f52@redhat.com>
- <7345a69d-5e47-7058-c72b-bdd0f3c69210@linux.vnet.ibm.com>
+From: "Yang, Wenyou" <Wenyou.Yang@Microchip.com>
+Subject: Re: [RFC PATCH] can: m_can: Support higher speed CAN-FD bitrates
+Date: Mon, 18 Sep 2017 11:47:22 +0800
+Message-ID: <532e09ae-775d-e8aa-e468-78e148c650da@Microchip.com>
+References: <20170818193947.27862-1-fcooper@ti.com>
+ <4f8f6b64-b2a2-b9dc-665c-f1c155daf994@ti.com>
+ <a7e301a7-bc54-c348-bdb1-b6a0af41665f@ti.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------BCA78166EE4B83ADE93C3E99"
-Cc: davem@davemloft.net, mst@redhat.com
-To: Matthew Rosato <mjrosato@linux.vnet.ibm.com>,
-        netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56268 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751271AbdIRDOE (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 17 Sep 2017 23:14:04 -0400
-In-Reply-To: <7345a69d-5e47-7058-c72b-bdd0f3c69210@linux.vnet.ibm.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-This is a multi-part message in MIME format.
---------------BCA78166EE4B83ADE93C3E99
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="utf-8"; format=flowed
 Content-Transfer-Encoding: 8bit
+Cc: Wenyou Yang <wenyou.yang@atmel.com>,
+        Dong Aisheng <b29396@freescale.com>
+To: Sekhar Nori <nsekhar@ti.com>,
+        Franklin S Cooper Jr <fcooper@ti.com>, <wg@grandegger.com>,
+        <mkl@pengutronix.de>, <mario.huettel@gmx.net>,
+        <socketcan@hartkopp.net>, <quentin.schulz@free-electrons.com>,
+        <edumazet@google.com>, <linux-can@vger.kernel.org>,
+        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <a7e301a7-bc54-c348-bdb1-b6a0af41665f@ti.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
 
-On 2017年09月16日 03:19, Matthew Rosato wrote:
->> It looks like vhost is slowed down for some reason which leads to more
->> idle time on 4.13+VHOST_RX_BATCH=1. Appreciated if you can collect the
->> perf.diff on host, one for rx and one for tx.
+On 2017/9/14 13:06, Sekhar Nori wrote:
+> On Thursday 14 September 2017 03:28 AM, Franklin S Cooper Jr wrote:
 >>
-> perf data below for the associated vhost threads, baseline=4.12,
-> delta1=4.13, delta2=4.13+VHOST_RX_BATCH=1
+>> On 08/18/2017 02:39 PM, Franklin S Cooper Jr wrote:
+>>> During test transmitting using CAN-FD at high bitrates (4 Mbps) only
+>>> resulted in errors. Scoping the signals I noticed that only a single bit
+>>> was being transmitted and with a bit more investigation realized the actual
+>>> MCAN IP would go back to initialization mode automatically.
+>>>
+>>> It appears this issue is due to the MCAN needing to use the Transmitter
+>>> Delay Compensation Mode as defined in the MCAN User's Guide. When this
+>>> mode is used the User's Guide indicates that the Transmitter Delay
+>>> Compensation Offset register should be set. The document mentions that this
+>>> register should be set to (1/dbitrate)/2*(Func Clk Freq).
+>>>
+>>> Additional CAN-CIA's "Bit Time Requirements for CAN FD" document indicates
+>>> that this TDC mode is only needed for data bit rates above 2.5 Mbps.
+>>> Therefore, only enable this mode and only set TDCO when the data bit rate
+>>> is above 2.5 Mbps.
+>>>
+>>> Signed-off-by: Franklin S Cooper Jr <fcooper@ti.com>
+>>> ---
+>>> I'm pretty surprised that this hasn't been implemented already since
+>>> the primary purpose of CAN-FD is to go beyond 1 Mbps and the MCAN IP
+>>> supports up to 10 Mbps.
+>>>
+>>> So it will be nice to get comments from users of this driver to understand
+>>> if they have been able to use CAN-FD beyond 2.5 Mbps without this patch.
+>>> If they haven't what did they do to get around it if they needed higher
+>>> speeds.
+>>>
+>>> Meanwhile I plan on testing this using a more "realistic" CAN bus to insure
+>>> everything still works at 5 Mbps which is the max speed of my CAN
+>>> transceiver.
+>> ping. Anyone has any thoughts on this?
+> I added Dong who authored the m_can driver and Wenyou who added the only
+> in-kernel user of the driver for any help.
+I tested it on SAMA5D2 Xplained board both with and without this patch,  
+both work with the 4M bps data bit rate.
+
 >
-> Client vhost:
+> Thanks,
+> Sekhar
 >
-> 60.12%  -11.11%  -12.34%  [kernel.vmlinux]   [k] raw_copy_from_user
-> 13.76%   -1.28%   -0.74%  [kernel.vmlinux]   [k] get_page_from_freelist
->   2.00%   +3.69%   +3.54%  [kernel.vmlinux]   [k] __wake_up_sync_key
->   1.19%   +0.60%   +0.66%  [kernel.vmlinux]   [k] __alloc_pages_nodemask
->   1.12%   +0.76%   +0.86%  [kernel.vmlinux]   [k] copy_page_from_iter
->   1.09%   +0.28%   +0.35%  [vhost]            [k] vhost_get_vq_desc
->   1.07%   +0.31%   +0.26%  [kernel.vmlinux]   [k] alloc_skb_with_frags
->   0.94%   +0.42%   +0.65%  [kernel.vmlinux]   [k] alloc_pages_current
->   0.91%   -0.19%   -0.18%  [kernel.vmlinux]   [k] memcpy
->   0.88%   +0.26%   +0.30%  [kernel.vmlinux]   [k] __next_zones_zonelist
->   0.85%   +0.05%   +0.12%  [kernel.vmlinux]   [k] iov_iter_advance
->   0.79%   +0.09%   +0.19%  [vhost]            [k] __vhost_add_used_n
->   0.74%                    [kernel.vmlinux]   [k] get_task_policy.part.7
->   0.74%   -0.01%   -0.05%  [kernel.vmlinux]   [k] tun_net_xmit
->   0.60%   +0.17%   +0.33%  [kernel.vmlinux]   [k] policy_nodemask
->   0.58%   -0.15%   -0.12%  [ebtables]         [k] ebt_do_table
->   0.52%   -0.25%   -0.22%  [kernel.vmlinux]   [k] __alloc_skb
->     ...
->   0.42%   +0.58%   +0.59%  [kernel.vmlinux]   [k] eventfd_signal
->     ...
->   0.32%   +0.96%   +0.93%  [kernel.vmlinux]   [k] finish_task_switch
->     ...
->           +1.50%   +1.16%  [kernel.vmlinux]   [k] get_task_policy.part.9
->           +0.40%   +0.42%  [kernel.vmlinux]   [k] __skb_get_hash_symmetr
->           +0.39%   +0.40%  [kernel.vmlinux]   [k] _copy_from_iter_full
->           +0.24%   +0.23%  [vhost_net]        [k] vhost_net_buf_peek
->
-> Server vhost:
->
-> 61.93%  -10.72%  -10.91%  [kernel.vmlinux]   [k] raw_copy_to_user
->   9.25%   +0.47%   +0.86%  [kernel.vmlinux]   [k] free_hot_cold_page
->   5.16%   +1.41%   +1.57%  [vhost]            [k] vhost_get_vq_desc
->   5.12%   -3.81%   -3.78%  [kernel.vmlinux]   [k] skb_release_data
->   3.30%   +0.42%   +0.55%  [kernel.vmlinux]   [k] raw_copy_from_user
->   1.29%   +2.20%   +2.28%  [kernel.vmlinux]   [k] copy_page_to_iter
->   1.24%   +1.65%   +0.45%  [vhost_net]        [k] handle_rx
->   1.08%   +3.03%   +2.85%  [kernel.vmlinux]   [k] __wake_up_sync_key
->   0.96%   +0.70%   +1.10%  [vhost]            [k] translate_desc
->   0.69%   -0.20%   -0.22%  [kernel.vmlinux]   [k] tun_do_read.part.10
->   0.69%                    [kernel.vmlinux]   [k] tun_peek_len
->   0.67%   +0.75%   +0.78%  [kernel.vmlinux]   [k] eventfd_signal
->   0.52%   +0.96%   +0.98%  [kernel.vmlinux]   [k] finish_task_switch
->   0.50%   +0.05%   +0.09%  [vhost]            [k] vhost_add_used_n
->     ...
->           +0.63%   +0.58%  [vhost_net]        [k] vhost_net_buf_peek
->           +0.32%   +0.32%  [kernel.vmlinux]   [k] _copy_to_iter
->           +0.19%   +0.19%  [kernel.vmlinux]   [k] __skb_get_hash_symmetr
->           +0.11%   +0.21%  [vhost]            [k] vhost_umem_interval_tr
->
+>>>   drivers/net/can/m_can/m_can.c | 24 +++++++++++++++++++++++-
+>>>   1 file changed, 23 insertions(+), 1 deletion(-)
+>>>
+>>> diff --git a/drivers/net/can/m_can/m_can.c b/drivers/net/can/m_can/m_can.c
+>>> index f4947a7..720e073 100644
+>>> --- a/drivers/net/can/m_can/m_can.c
+>>> +++ b/drivers/net/can/m_can/m_can.c
+>>> @@ -126,6 +126,12 @@ enum m_can_mram_cfg {
+>>>   #define DBTP_DSJW_SHIFT		0
+>>>   #define DBTP_DSJW_MASK		(0xf << DBTP_DSJW_SHIFT)
+>>>   
+>>> +/* Transmitter Delay Compensation Register (TDCR) */
+>>> +#define TDCR_TDCO_SHIFT		8
+>>> +#define TDCR_TDCO_MASK		(0x7F << TDCR_TDCO_SHIFT)
+>>> +#define TDCR_TDCF_SHIFT		0
+>>> +#define TDCR_TDCF_MASK		(0x7F << TDCR_TDCO_SHIFT)
+>>> +
+>>>   /* Test Register (TEST) */
+>>>   #define TEST_LBCK		BIT(4)
+>>>   
+>>> @@ -977,6 +983,8 @@ static int m_can_set_bittiming(struct net_device *dev)
+>>>   	const struct can_bittiming *dbt = &priv->can.data_bittiming;
+>>>   	u16 brp, sjw, tseg1, tseg2;
+>>>   	u32 reg_btp;
+>>> +	u32 enable_tdc = 0;
+>>> +	u32 tdco;
+>>>   
+>>>   	brp = bt->brp - 1;
+>>>   	sjw = bt->sjw - 1;
+>>> @@ -991,9 +999,23 @@ static int m_can_set_bittiming(struct net_device *dev)
+>>>   		sjw = dbt->sjw - 1;
+>>>   		tseg1 = dbt->prop_seg + dbt->phase_seg1 - 1;
+>>>   		tseg2 = dbt->phase_seg2 - 1;
+>>> +
+>>> +		/* TDC is only needed for bitrates beyond 2.5 MBit/s
+>>> +		 * Specified in the "Bit Time Requirements for CAN FD" document
+>>> +		 */
+>>> +		if (dbt->bitrate > 2500000) {
+>>> +			enable_tdc = DBTP_TDC;
+>>> +			/* Equation based on Bosch's M_CAN User Manual's
+>>> +			 * Transmitter Delay Compensation Section
+>>> +			 */
+>>> +			tdco = priv->can.clock.freq / (dbt->bitrate * 2);
+>>> +			m_can_write(priv, M_CAN_TDCR, tdco << TDCR_TDCO_SHIFT);
+>>> +		}
+>>> +
+>>>   		reg_btp = (brp << DBTP_DBRP_SHIFT) | (sjw << DBTP_DSJW_SHIFT) |
+>>>   			(tseg1 << DBTP_DTSEG1_SHIFT) |
+>>> -			(tseg2 << DBTP_DTSEG2_SHIFT);
+>>> +			(tseg2 << DBTP_DTSEG2_SHIFT) | enable_tdc;
+>>> +
+>>>   		m_can_write(priv, M_CAN_DBTP, reg_btp);
+>>>   	}
+>>>   
+>>>
 
-Looks like for some unknown reason which leads more wakeups.
-
-Could you please try to attached patch to see if it solves or mitigate 
-the issue?
-
-Thanks
-
---------------BCA78166EE4B83ADE93C3E99
-Content-Type: text/x-patch;
- name="0001-vhost_net-conditionally-enable-tx-polling.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
- filename="0001-vhost_net-conditionally-enable-tx-polling.patch"
-
->From 63b276ed881c1e2a89b7ea35b6f328f70ddd6185 Mon Sep 17 00:00:00 2001
-From: Jason Wang <jasowang@redhat.com>
-Date: Mon, 18 Sep 2017 10:56:30 +0800
-Subject: [PATCH] vhost_net: conditionally enable tx polling
-
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
- drivers/vhost/net.c | 3 +++
- 1 file changed, 3 insertions(+)
-
-diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-index 58585ec..397d86a 100644
---- a/drivers/vhost/net.c
-+++ b/drivers/vhost/net.c
-@@ -471,6 +471,7 @@ static void handle_tx(struct vhost_net *net)
- 		goto out;
- 
- 	vhost_disable_notify(&net->dev, vq);
-+	vhost_net_disable_vq(net, vq);
- 
- 	hdr_size = nvq->vhost_hlen;
- 	zcopy = nvq->ubufs;
-@@ -562,6 +563,8 @@ static void handle_tx(struct vhost_net *net)
- 					% UIO_MAXIOV;
- 			}
- 			vhost_discard_vq_desc(vq, 1);
-+			if (err = -EAGAIN)
-+				vhost_net_enable_vq(net, vq);
- 			break;
- 		}
- 		if (err != len)
--- 
-1.8.3.1
-
-
---------------BCA78166EE4B83ADE93C3E99--
+Regards,
+Wenyou Yang
