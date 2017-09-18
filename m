@@ -1,7 +1,7 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH net-next 6/7] ipv6: speedup ipv6 tunnels dismantle
-Date: Mon, 18 Sep 2017 12:07:32 -0700
-Message-ID: <20170918190733.26272-7-edumazet@google.com>
+Subject: [PATCH net-next 7/7] ipv4: speedup ipv6 tunnels dismantle
+Date: Mon, 18 Sep 2017 12:07:33 -0700
+Message-ID: <20170918190733.26272-8-edumazet@google.com>
 References: <20170918190733.26272-1-edumazet@google.com>
 Cc: netdev <netdev@vger.kernel.org>,
         "Eric W . Biederman" <ebiederm@xmission.com>,
@@ -9,12 +9,12 @@ Cc: netdev <netdev@vger.kernel.org>,
         Eric Dumazet <eric.dumazet@gmail.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f176.google.com ([209.85.192.176]:46090 "EHLO
-        mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751302AbdIRTHu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 15:07:50 -0400
-Received: by mail-pf0-f176.google.com with SMTP id e199so713192pfh.3
-        for <netdev@vger.kernel.org>; Mon, 18 Sep 2017 12:07:50 -0700 (PDT)
+Received: from mail-pf0-f175.google.com ([209.85.192.175]:44850 "EHLO
+        mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751372AbdIRTHz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 15:07:55 -0400
+Received: by mail-pf0-f175.google.com with SMTP id e1so716125pfk.1
+        for <netdev@vger.kernel.org>; Mon, 18 Sep 2017 12:07:54 -0700 (PDT)
 In-Reply-To: <20170918190733.26272-1-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -36,211 +36,186 @@ wait ; grep net_namespace /proc/slabinfo
 
 Before patch :
 $ time ./add_del_unshare.sh
-net_namespace        110    267   5504    1    2 : tunables    8    4    0 : slabdata    110    267      0
-
-real    3m25.292s
-user    0m0.644s
-sys     0m40.153s
-
-After patch:
-
-$ time ./add_del_unshare.sh
 net_namespace        126    282   5504    1    2 : tunables    8    4    0 : slabdata    126    282      0
 
-real	1m38.965s
-user	0m0.688s
-sys	0m37.017s
+real    1m38.965s
+user    0m0.688s
+sys     0m37.017s
+
+After patch:
+$ time ./add_del_unshare.sh
+net_namespace        135    291   5504    1    2 : tunables    8    4    0 : slabdata    135    291      0
+
+real	0m22.117s
+user	0m0.728s
+sys	0m35.328s
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- net/ipv6/ip6_gre.c    |  8 +++++---
- net/ipv6/ip6_tunnel.c | 20 +++++++++++---------
- net/ipv6/ip6_vti.c    | 23 ++++++++++++++---------
- net/ipv6/sit.c        |  9 ++++++---
- 4 files changed, 36 insertions(+), 24 deletions(-)
+ include/net/ip_tunnels.h |  3 ++-
+ net/ipv4/ip_gre.c        | 22 +++++++++-------------
+ net/ipv4/ip_tunnel.c     | 13 ++++++++++---
+ net/ipv4/ip_vti.c        |  7 +++----
+ net/ipv4/ipip.c          |  7 +++----
+ 5 files changed, 27 insertions(+), 25 deletions(-)
 
-diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
-index b7a72d40933441f835708f55e2d8af371661a5fb..c82d41ef25e283ff92b1eed1f8b927c9d7b8f333 100644
---- a/net/ipv6/ip6_gre.c
-+++ b/net/ipv6/ip6_gre.c
-@@ -1155,19 +1155,21 @@ static int __net_init ip6gre_init_net(struct net *net)
- 	return err;
+diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
+index 992652856fe8c7c1032e0f5f92ce7ee5aa0119da..b41a1e057fcec9d6e4c5a0c1cafd1f1d537ccd53 100644
+--- a/include/net/ip_tunnels.h
++++ b/include/net/ip_tunnels.h
+@@ -258,7 +258,8 @@ int ip_tunnel_get_iflink(const struct net_device *dev);
+ int ip_tunnel_init_net(struct net *net, unsigned int ip_tnl_net_id,
+ 		       struct rtnl_link_ops *ops, char *devname);
+ 
+-void ip_tunnel_delete_net(struct ip_tunnel_net *itn, struct rtnl_link_ops *ops);
++void ip_tunnel_delete_nets(struct list_head *list_net, unsigned int id,
++			   struct rtnl_link_ops *ops);
+ 
+ void ip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev,
+ 		    const struct iphdr *tnl_params, const u8 protocol);
+diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+index 0162fb955b33abf18514cbfd482e72a0ebce6e48..9cee986ac6b8ed04ff95e193fe1e8e60e74d84a9 100644
+--- a/net/ipv4/ip_gre.c
++++ b/net/ipv4/ip_gre.c
+@@ -1013,15 +1013,14 @@ static int __net_init ipgre_init_net(struct net *net)
+ 	return ip_tunnel_init_net(net, ipgre_net_id, &ipgre_link_ops, NULL);
  }
  
--static void __net_exit ip6gre_exit_net(struct net *net)
-+static void __net_exit ip6gre_exit_batch_net(struct list_head *net_list)
+-static void __net_exit ipgre_exit_net(struct net *net)
++static void __net_exit ipgre_exit_batch_net(struct list_head *list_net)
  {
-+	struct net *net;
- 	LIST_HEAD(list);
- 
- 	rtnl_lock();
--	ip6gre_destroy_tunnels(net, &list);
-+	list_for_each_entry(net, net_list, exit_list)
-+		ip6gre_destroy_tunnels(net, &list);
- 	unregister_netdevice_many(&list);
- 	rtnl_unlock();
+-	struct ip_tunnel_net *itn = net_generic(net, ipgre_net_id);
+-	ip_tunnel_delete_net(itn, &ipgre_link_ops);
++	ip_tunnel_delete_nets(list_net, ipgre_net_id, &ipgre_link_ops);
  }
  
- static struct pernet_operations ip6gre_net_ops = {
- 	.init = ip6gre_init_net,
--	.exit = ip6gre_exit_net,
-+	.exit_batch = ip6gre_exit_batch_net,
- 	.id   = &ip6gre_net_id,
- 	.size = sizeof(struct ip6gre_net),
+ static struct pernet_operations ipgre_net_ops = {
+ 	.init = ipgre_init_net,
+-	.exit = ipgre_exit_net,
++	.exit_batch = ipgre_exit_batch_net,
+ 	.id   = &ipgre_net_id,
+ 	.size = sizeof(struct ip_tunnel_net),
  };
-diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
-index ae73164559d5c4d7f2650ae63c56d76dc93b165c..3d6df489b39f00014f330340927c4d11a64911c2 100644
---- a/net/ipv6/ip6_tunnel.c
-+++ b/net/ipv6/ip6_tunnel.c
-@@ -2167,17 +2167,16 @@ static struct xfrm6_tunnel ip6ip6_handler __read_mostly = {
- 	.priority	=	1,
- };
+@@ -1540,15 +1539,14 @@ static int __net_init ipgre_tap_init_net(struct net *net)
+ 	return ip_tunnel_init_net(net, gre_tap_net_id, &ipgre_tap_ops, "gretap0");
+ }
  
--static void __net_exit ip6_tnl_destroy_tunnels(struct net *net)
-+static void __net_exit ip6_tnl_destroy_tunnels(struct net *net, struct list_head *list)
+-static void __net_exit ipgre_tap_exit_net(struct net *net)
++static void __net_exit ipgre_tap_exit_batch_net(struct list_head *list_net)
  {
- 	struct ip6_tnl_net *ip6n = net_generic(net, ip6_tnl_net_id);
- 	struct net_device *dev, *aux;
- 	int h;
- 	struct ip6_tnl *t;
--	LIST_HEAD(list);
+-	struct ip_tunnel_net *itn = net_generic(net, gre_tap_net_id);
+-	ip_tunnel_delete_net(itn, &ipgre_tap_ops);
++	ip_tunnel_delete_nets(list_net, gre_tap_net_id, &ipgre_tap_ops);
+ }
  
- 	for_each_netdev_safe(net, dev, aux)
- 		if (dev->rtnl_link_ops == &ip6_link_ops)
--			unregister_netdevice_queue(dev, &list);
-+			unregister_netdevice_queue(dev, list);
+ static struct pernet_operations ipgre_tap_net_ops = {
+ 	.init = ipgre_tap_init_net,
+-	.exit = ipgre_tap_exit_net,
++	.exit_batch = ipgre_tap_exit_batch_net,
+ 	.id   = &gre_tap_net_id,
+ 	.size = sizeof(struct ip_tunnel_net),
+ };
+@@ -1559,16 +1557,14 @@ static int __net_init erspan_init_net(struct net *net)
+ 				  &erspan_link_ops, "erspan0");
+ }
  
- 	for (h = 0; h < IP6_TUNNEL_HASH_SIZE; h++) {
- 		t = rtnl_dereference(ip6n->tnls_r_l[h]);
-@@ -2186,12 +2185,10 @@ static void __net_exit ip6_tnl_destroy_tunnels(struct net *net)
+-static void __net_exit erspan_exit_net(struct net *net)
++static void __net_exit erspan_exit_batch_net(struct list_head *net_list)
+ {
+-	struct ip_tunnel_net *itn = net_generic(net, erspan_net_id);
+-
+-	ip_tunnel_delete_net(itn, &erspan_link_ops);
++	ip_tunnel_delete_nets(net_list, erspan_net_id, &erspan_link_ops);
+ }
+ 
+ static struct pernet_operations erspan_net_ops = {
+ 	.init = erspan_init_net,
+-	.exit = erspan_exit_net,
++	.exit_batch = erspan_exit_batch_net,
+ 	.id   = &erspan_net_id,
+ 	.size = sizeof(struct ip_tunnel_net),
+ };
+diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
+index e9805ad664ac24c3405ad015cfaab89dc1c95279..a85a798b521093b38ff2d73b23eba9f26a6bbf0d 100644
+--- a/net/ipv4/ip_tunnel.c
++++ b/net/ipv4/ip_tunnel.c
+@@ -1056,21 +1056,28 @@ static void ip_tunnel_destroy(struct ip_tunnel_net *itn, struct list_head *head,
+ 			/* If dev is in the same netns, it has already
  			 * been added to the list by the previous loop.
  			 */
++// TODO use list_empty(&t->dev->unreg_list) in unregister_netdevice_queue ?
  			if (!net_eq(dev_net(t->dev), net))
--				unregister_netdevice_queue(t->dev, &list);
-+				unregister_netdevice_queue(t->dev, list);
- 			t = rtnl_dereference(t->next);
- 		}
+ 				unregister_netdevice_queue(t->dev, head);
  	}
--
--	unregister_netdevice_many(&list);
  }
  
- static int __net_init ip6_tnl_init_net(struct net *net)
-@@ -2235,16 +2232,21 @@ static int __net_init ip6_tnl_init_net(struct net *net)
- 	return err;
- }
- 
--static void __net_exit ip6_tnl_exit_net(struct net *net)
-+static void __net_exit ip6_tnl_exit_batch_net(struct list_head *net_list)
+-void ip_tunnel_delete_net(struct ip_tunnel_net *itn, struct rtnl_link_ops *ops)
++void ip_tunnel_delete_nets(struct list_head *net_list, unsigned int id,
++			   struct rtnl_link_ops *ops)
  {
++	struct ip_tunnel_net *itn;
 +	struct net *net;
-+	LIST_HEAD(list);
-+
- 	rtnl_lock();
--	ip6_tnl_destroy_tunnels(net);
-+	list_for_each_entry(net, net_list, exit_list)
-+		ip6_tnl_destroy_tunnels(net, &list);
-+	unregister_netdevice_many(&list);
- 	rtnl_unlock();
- }
- 
- static struct pernet_operations ip6_tnl_net_ops = {
- 	.init = ip6_tnl_init_net,
--	.exit = ip6_tnl_exit_net,
-+	.exit_batch = ip6_tnl_exit_batch_net,
- 	.id   = &ip6_tnl_net_id,
- 	.size = sizeof(struct ip6_tnl_net),
- };
-diff --git a/net/ipv6/ip6_vti.c b/net/ipv6/ip6_vti.c
-index 79444a4bfd6d245b66a7edcefe2b5b32801bf2c0..714914d1bb987c46cc98817903ec7bcc367a1b2d 100644
---- a/net/ipv6/ip6_vti.c
-+++ b/net/ipv6/ip6_vti.c
-@@ -1052,23 +1052,22 @@ static struct rtnl_link_ops vti6_link_ops __read_mostly = {
- 	.get_link_net	= ip6_tnl_get_link_net,
- };
- 
--static void __net_exit vti6_destroy_tunnels(struct vti6_net *ip6n)
-+static void __net_exit vti6_destroy_tunnels(struct vti6_net *ip6n,
-+					    struct list_head *list)
- {
- 	int h;
- 	struct ip6_tnl *t;
--	LIST_HEAD(list);
- 
- 	for (h = 0; h < IP6_VTI_HASH_SIZE; h++) {
- 		t = rtnl_dereference(ip6n->tnls_r_l[h]);
- 		while (t) {
--			unregister_netdevice_queue(t->dev, &list);
-+			unregister_netdevice_queue(t->dev, list);
- 			t = rtnl_dereference(t->next);
- 		}
- 	}
- 
- 	t = rtnl_dereference(ip6n->tnls_wc[0]);
--	unregister_netdevice_queue(t->dev, &list);
--	unregister_netdevice_many(&list);
-+	unregister_netdevice_queue(t->dev, list);
- }
- 
- static int __net_init vti6_init_net(struct net *net)
-@@ -1108,18 +1107,24 @@ static int __net_init vti6_init_net(struct net *net)
- 	return err;
- }
- 
--static void __net_exit vti6_exit_net(struct net *net)
-+static void __net_exit vti6_exit_batch_net(struct list_head *net_list)
- {
--	struct vti6_net *ip6n = net_generic(net, vti6_net_id);
-+	struct vti6_net *ip6n;
-+	struct net *net;
-+	LIST_HEAD(list);
- 
- 	rtnl_lock();
--	vti6_destroy_tunnels(ip6n);
-+	list_for_each_entry(net, net_list, exit_list) {
-+		ip6n = net_generic(net, vti6_net_id);
-+		vti6_destroy_tunnels(ip6n, &list);
-+	}
-+	unregister_netdevice_many(&list);
- 	rtnl_unlock();
- }
- 
- static struct pernet_operations vti6_net_ops = {
- 	.init = vti6_init_net,
--	.exit = vti6_exit_net,
-+	.exit_batch = vti6_exit_batch_net,
- 	.id   = &vti6_net_id,
- 	.size = sizeof(struct vti6_net),
- };
-diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
-index ac912bb217471c048df3b76aa3d7b82886221dc1..a799f525861487ad5b822ab62cdc90f6ca06762f 100644
---- a/net/ipv6/sit.c
-+++ b/net/ipv6/sit.c
-@@ -1848,19 +1848,22 @@ static int __net_init sit_init_net(struct net *net)
- 	return err;
- }
- 
--static void __net_exit sit_exit_net(struct net *net)
-+static void __net_exit sit_exit_batch_net(struct list_head *net_list)
- {
  	LIST_HEAD(list);
-+	struct net *net;
  
  	rtnl_lock();
--	sit_destroy_tunnels(net, &list);
-+	list_for_each_entry(net, net_list, exit_list)
-+		sit_destroy_tunnels(net, &list);
-+
+-	ip_tunnel_destroy(itn, &list, ops);
++	list_for_each_entry(net, net_list, exit_list) {
++		itn = net_generic(net, id);
++		ip_tunnel_destroy(itn, &list, ops);
++	}
  	unregister_netdevice_many(&list);
  	rtnl_unlock();
  }
+-EXPORT_SYMBOL_GPL(ip_tunnel_delete_net);
++EXPORT_SYMBOL_GPL(ip_tunnel_delete_nets);
  
- static struct pernet_operations sit_net_ops = {
- 	.init = sit_init_net,
--	.exit = sit_exit_net,
-+	.exit_batch = sit_exit_batch_net,
- 	.id   = &sit_net_id,
- 	.size = sizeof(struct sit_net),
+ int ip_tunnel_newlink(struct net_device *dev, struct nlattr *tb[],
+ 		      struct ip_tunnel_parm *p, __u32 fwmark)
+diff --git a/net/ipv4/ip_vti.c b/net/ipv4/ip_vti.c
+index 5ed63d25095062d44dacfd291e227290d24ea0ed..02d70ca99db16f2a50e3e179a05e74b535865f46 100644
+--- a/net/ipv4/ip_vti.c
++++ b/net/ipv4/ip_vti.c
+@@ -452,15 +452,14 @@ static int __net_init vti_init_net(struct net *net)
+ 	return 0;
+ }
+ 
+-static void __net_exit vti_exit_net(struct net *net)
++static void __net_exit vti_exit_batch_net(struct list_head *list_net)
+ {
+-	struct ip_tunnel_net *itn = net_generic(net, vti_net_id);
+-	ip_tunnel_delete_net(itn, &vti_link_ops);
++	ip_tunnel_delete_nets(list_net, vti_net_id, &vti_link_ops);
+ }
+ 
+ static struct pernet_operations vti_net_ops = {
+ 	.init = vti_init_net,
+-	.exit = vti_exit_net,
++	.exit_batch = vti_exit_batch_net,
+ 	.id   = &vti_net_id,
+ 	.size = sizeof(struct ip_tunnel_net),
+ };
+diff --git a/net/ipv4/ipip.c b/net/ipv4/ipip.c
+index fb1ad22b5e292d5669c70b5640ad3207c353c6bb..1e47818e38c766a3dab63dfa6bfa9610fa9550ac 100644
+--- a/net/ipv4/ipip.c
++++ b/net/ipv4/ipip.c
+@@ -634,15 +634,14 @@ static int __net_init ipip_init_net(struct net *net)
+ 	return ip_tunnel_init_net(net, ipip_net_id, &ipip_link_ops, "tunl0");
+ }
+ 
+-static void __net_exit ipip_exit_net(struct net *net)
++static void __net_exit ipip_exit_batch_net(struct list_head *list_net)
+ {
+-	struct ip_tunnel_net *itn = net_generic(net, ipip_net_id);
+-	ip_tunnel_delete_net(itn, &ipip_link_ops);
++	ip_tunnel_delete_nets(list_net, ipip_net_id, &ipip_link_ops);
+ }
+ 
+ static struct pernet_operations ipip_net_ops = {
+ 	.init = ipip_init_net,
+-	.exit = ipip_exit_net,
++	.exit_batch = ipip_exit_batch_net,
+ 	.id   = &ipip_net_id,
+ 	.size = sizeof(struct ip_tunnel_net),
  };
 -- 
 2.14.1.690.gbb1197296e-goog
