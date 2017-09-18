@@ -1,53 +1,31 @@
-From: Shuah Khan <shuah@kernel.org>
-Subject: Re: [PATCH 2/3] selftests: actually run the various net selftests
-Date: Mon, 18 Sep 2017 16:14:41 -0600
-Message-ID: <09f17145-5f0a-ec61-3dfb-69216eac7133@kernel.org>
-References: <1505755982-7855-1-git-send-email-jbacik@fb.com>
- <1505755982-7855-2-git-send-email-jbacik@fb.com>
-Reply-To: shuah@kernel.org
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next 05/12] net: dsa: b53: Use a macro to define I/O operations
+Date: Mon, 18 Sep 2017 18:12:51 -0400
+Message-ID: <87wp4v1wrg.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+References: <20170918214128.27896-1-f.fainelli@gmail.com> <20170918214128.27896-6-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Josef Bacik <jbacik@fb.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        linux-kernel@vger.kernel.org, linux-kselftest@vger.kernel.org,
-        netdev@vger.kernel.org, Shuah Khan <shuahkh@osg.samsung.com>,
-        Shuah Khan <shuah@kernel.org>
-To: josef@toxicpanda.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1505755982-7855-2-git-send-email-jbacik@fb.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: davem@davemloft.net, andrew@lunn.ch,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:35428 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750783AbdIRWQd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 18:16:33 -0400
+In-Reply-To: <20170918214128.27896-6-f.fainelli@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/18/2017 11:32 AM, josef@toxicpanda.com wrote:
-> From: Josef Bacik <jbacik@fb.com>
-> 
-> These self tests are just self contained binaries, they are not run by
-> any of the scripts in the directory.  This means they need to be marked
-> with TEST_GEN_PROGS to actually be run, not TEST_GEN_FILES.
-> 
-> Signed-off-by: Josef Bacik <jbacik@fb.com>
-> ---
->  tools/testing/selftests/net/Makefile | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/tools/testing/selftests/net/Makefile b/tools/testing/selftests/net/Makefile
-> index 3df542c84610..45a4e77a47c4 100644
-> --- a/tools/testing/selftests/net/Makefile
-> +++ b/tools/testing/selftests/net/Makefile
-> @@ -6,8 +6,8 @@ CFLAGS += -I../../../../usr/include/
->  TEST_PROGS := run_netsocktests run_afpackettests test_bpf.sh netdevice.sh rtnetlink.sh
->  TEST_GEN_FILES =  socket
->  TEST_GEN_FILES += psock_fanout psock_tpacket
-> -TEST_GEN_FILES += reuseport_bpf reuseport_bpf_cpu reuseport_bpf_numa
-> -TEST_GEN_FILES += reuseport_dualstack msg_zerocopy reuseaddr_conflict
-> +TEST_GEN_PROGS += reuseport_bpf reuseport_bpf_cpu reuseport_bpf_numa
-> +TEST_GEN_PROGS += reuseport_dualstack msg_zerocopy reuseaddr_conflict
+Hi Florian,
 
-Hmm. I see msg_zerocopy.sh for running msg_zerocopy. msg_zerocopy should
-still stay in TEST_GEN_FILES and msg_zerocopy.sh needs to be added to
-TEST_PROGS so it runs.
+Florian Fainelli <f.fainelli@gmail.com> writes:
 
-thanks,
--- Shuah
+> Instead of repeating the same pattern: acquire mutex, read/write, release
+> mutex, define a macro: b53_build_op() which takes the type (read|write), I/O
+> size, and value (scalar or pointer). This helps with fixing bugs that could
+> exit (e.g: missing barrier, lock etc.).
+>
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+
+Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
