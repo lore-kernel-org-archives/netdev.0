@@ -1,29 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next] dummy: declare dummy devices as enumerated devices
-Date: Mon, 18 Sep 2017 11:29:42 -0700 (PDT)
-Message-ID: <20170918.112942.292129633205088909.davem@davemloft.net>
-References: <1505179965-12117-1-git-send-email-zhangshengju@cmss.chinamobile.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ezegomez@amazon.com
-To: zhangshengju@cmss.chinamobile.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:47952 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753819AbdIRS3n (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 14:29:43 -0400
-In-Reply-To: <1505179965-12117-1-git-send-email-zhangshengju@cmss.chinamobile.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Corentin Labbe <clabbe.montjoie@gmail.com>
+Subject: [PATCH v2] net: stmmac: dwmac-sun8i: Use reset exclusive
+Date: Mon, 18 Sep 2017 20:30:43 +0200
+Message-ID: <20170918183043.8028-1-clabbe.montjoie@gmail.com>
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+        linux-kernel@vger.kernel.org,
+        Corentin Labbe <clabbe.montjoie@gmail.com>
+To: peppe.cavallaro@st.com, alexandre.torgue@st.com,
+        maxime.ripard@free-electrons.com, wens@csie.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
-Date: Tue, 12 Sep 2017 09:32:45 +0800
+The current dwmac_sun8i module cannot be rmmod/modprobe due to that
+the reset controller was not released when removed.
 
-> Dummy device name is enumerated by the kernel, let user space be aware
-> of the naming scheme used by dummy devices:
-> (visible in /sys/class/net/<iface>/name_assign_type).
-> 
-> Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+This patch remove ambiguity, by using of_reset_control_get_exclusive and
+add the missing reset_control_put().
 
-Applied.
+Note that we cannot use devm_reset_control_get, since the reset is not
+in the device node.
+
+Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
+---
+Changes since v1:
+- added a note about devm_reset_control_get in commit message
+
+ drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
+index 57bb6dd7b401..1736d7cb0d96 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
+@@ -854,6 +854,7 @@ static int sun8i_dwmac_unpower_internal_phy(struct sunxi_priv_data *gmac)
+ 
+ 	clk_disable_unprepare(gmac->ephy_clk);
+ 	reset_control_assert(gmac->rst_ephy);
++	reset_control_put(gmac->rst_ephy);
+ 	return 0;
+ }
+ 
+@@ -1010,7 +1011,7 @@ static int sun8i_dwmac_probe(struct platform_device *pdev)
+ 			return -EINVAL;
+ 		}
+ 
+-		gmac->rst_ephy = of_reset_control_get(plat_dat->phy_node, NULL);
++		gmac->rst_ephy = of_reset_control_get_exclusive(plat_dat->phy_node, NULL);
+ 		if (IS_ERR(gmac->rst_ephy)) {
+ 			ret = PTR_ERR(gmac->rst_ephy);
+ 			if (ret == -EPROBE_DEFER)
+-- 
+2.13.5
