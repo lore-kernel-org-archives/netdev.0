@@ -1,7 +1,7 @@
 From: Mika Westerberg <mika.westerberg@linux.intel.com>
-Subject: [PATCH 05/16] thunderbolt: Move tb_switch_phy_port_from_link() to thunderbolt.h
-Date: Mon, 18 Sep 2017 18:30:38 +0300
-Message-ID: <20170918153049.44185-6-mika.westerberg@linux.intel.com>
+Subject: [PATCH 11/16] thunderbolt: Use spinlock in ring serialization
+Date: Mon, 18 Sep 2017 18:30:44 +0300
+Message-ID: <20170918153049.44185-12-mika.westerberg@linux.intel.com>
 References: <20170918153049.44185-1-mika.westerberg@linux.intel.com>
 Cc: Andreas Noever <andreas.noever@gmail.com>,
         Michael Jamet <michael.jamet@intel.com>,
@@ -18,79 +18,138 @@ In-Reply-To: <20170918153049.44185-1-mika.westerberg@linux.intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-A Thunderbolt service might need to find the physical port from a link
-the cable is connected to. For instance networking driver uses this
-information to generate MAC address according the Apple ThunderboltIP
-protocol.
-
-Move this function to thunderbolt.h and rename it to
-tb_phy_port_from_link() to reflect the fact that it does not take switch
-as parameter.
+This makes it possible to enqueue frames also from atomic context which
+is needed for example, when networking packets are sent over a
+Thunderbolt cable.
 
 Signed-off-by: Mika Westerberg <mika.westerberg@linux.intel.com>
 Reviewed-by: Michael Jamet <michael.jamet@intel.com>
 Reviewed-by: Yehezkel Bernat <yehezkel.bernat@intel.com>
 ---
- drivers/thunderbolt/icm.c   | 2 +-
- drivers/thunderbolt/tb.h    | 7 -------
- include/linux/thunderbolt.h | 7 +++++++
- 3 files changed, 8 insertions(+), 8 deletions(-)
+ drivers/thunderbolt/nhi.c   | 26 ++++++++++++++------------
+ include/linux/thunderbolt.h |  2 +-
+ 2 files changed, 15 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/thunderbolt/icm.c b/drivers/thunderbolt/icm.c
-index 53250fc057e1..8c22b91ed040 100644
---- a/drivers/thunderbolt/icm.c
-+++ b/drivers/thunderbolt/icm.c
-@@ -89,7 +89,7 @@ static inline struct tb *icm_to_tb(struct icm *icm)
+diff --git a/drivers/thunderbolt/nhi.c b/drivers/thunderbolt/nhi.c
+index 4704ccd20c84..d1ad37c6eccf 100644
+--- a/drivers/thunderbolt/nhi.c
++++ b/drivers/thunderbolt/nhi.c
+@@ -212,8 +212,10 @@ static void ring_work(struct work_struct *work)
+ 	struct tb_ring *ring = container_of(work, typeof(*ring), work);
+ 	struct ring_frame *frame;
+ 	bool canceled = false;
++	unsigned long flags;
+ 	LIST_HEAD(done);
+-	mutex_lock(&ring->lock);
++
++	spin_lock_irqsave(&ring->lock, flags);
  
- static inline u8 phy_port_from_route(u64 route, u8 depth)
+ 	if (!ring->running) {
+ 		/*  Move all frames to done and mark them as canceled. */
+@@ -241,7 +243,8 @@ static void ring_work(struct work_struct *work)
+ 	ring_write_descriptors(ring);
+ 
+ invoke_callback:
+-	mutex_unlock(&ring->lock); /* allow callbacks to schedule new work */
++	/* allow callbacks to schedule new work */
++	spin_unlock_irqrestore(&ring->lock, flags);
+ 	while (!list_empty(&done)) {
+ 		frame = list_first_entry(&done, typeof(*frame), list);
+ 		/*
+@@ -255,15 +258,17 @@ static void ring_work(struct work_struct *work)
+ 
+ int __tb_ring_enqueue(struct tb_ring *ring, struct ring_frame *frame)
  {
--	return tb_switch_phy_port_from_link(route >> ((depth - 1) * 8));
-+	return tb_phy_port_from_link(route >> ((depth - 1) * 8));
++	unsigned long flags;
+ 	int ret = 0;
+-	mutex_lock(&ring->lock);
++
++	spin_lock_irqsave(&ring->lock, flags);
+ 	if (ring->running) {
+ 		list_add_tail(&frame->list, &ring->queue);
+ 		ring_write_descriptors(ring);
+ 	} else {
+ 		ret = -ESHUTDOWN;
+ 	}
+-	mutex_unlock(&ring->lock);
++	spin_unlock_irqrestore(&ring->lock, flags);
+ 	return ret;
  }
+ EXPORT_SYMBOL_GPL(__tb_ring_enqueue);
+@@ -338,7 +343,7 @@ static struct tb_ring *tb_ring_alloc(struct tb_nhi *nhi, u32 hop, int size,
+ 	if (!ring)
+ 		goto err;
  
- static inline u8 dual_link_from_link(u8 link)
-diff --git a/drivers/thunderbolt/tb.h b/drivers/thunderbolt/tb.h
-index 2fefe76621ca..ea21d927bd09 100644
---- a/drivers/thunderbolt/tb.h
-+++ b/drivers/thunderbolt/tb.h
-@@ -40,8 +40,6 @@ struct tb_switch_nvm {
- };
+-	mutex_init(&ring->lock);
++	spin_lock_init(&ring->lock);
+ 	INIT_LIST_HEAD(&ring->queue);
+ 	INIT_LIST_HEAD(&ring->in_flight);
+ 	INIT_WORK(&ring->work, ring_work);
+@@ -371,8 +376,6 @@ static struct tb_ring *tb_ring_alloc(struct tb_nhi *nhi, u32 hop, int size,
+ 	return ring;
  
- #define TB_SWITCH_KEY_SIZE		32
--/* Each physical port contains 2 links on modern controllers */
--#define TB_SWITCH_LINKS_PER_PHY_PORT	2
+ err:
+-	if (ring)
+-		mutex_destroy(&ring->lock);
+ 	kfree(ring);
+ 	mutex_unlock(&nhi->lock);
+ 	return NULL;
+@@ -419,7 +422,7 @@ void tb_ring_start(struct tb_ring *ring)
+ 	u32 flags;
  
- /**
-  * struct tb_switch - a thunderbolt switch
-@@ -367,11 +365,6 @@ struct tb_switch *tb_switch_find_by_link_depth(struct tb *tb, u8 link,
- 					       u8 depth);
- struct tb_switch *tb_switch_find_by_uuid(struct tb *tb, const uuid_t *uuid);
- 
--static inline unsigned int tb_switch_phy_port_from_link(unsigned int link)
--{
--	return (link - 1) / TB_SWITCH_LINKS_PER_PHY_PORT;
--}
--
- static inline void tb_switch_put(struct tb_switch *sw)
+ 	mutex_lock(&ring->nhi->lock);
+-	mutex_lock(&ring->lock);
++	spin_lock_irq(&ring->lock);
+ 	if (ring->nhi->going_away)
+ 		goto err;
+ 	if (ring->running) {
+@@ -466,7 +469,7 @@ void tb_ring_start(struct tb_ring *ring)
+ 	ring_interrupt_active(ring, true);
+ 	ring->running = true;
+ err:
+-	mutex_unlock(&ring->lock);
++	spin_unlock_irq(&ring->lock);
+ 	mutex_unlock(&ring->nhi->lock);
+ }
+ EXPORT_SYMBOL_GPL(tb_ring_start);
+@@ -487,7 +490,7 @@ EXPORT_SYMBOL_GPL(tb_ring_start);
+ void tb_ring_stop(struct tb_ring *ring)
  {
- 	put_device(&sw->dev);
+ 	mutex_lock(&ring->nhi->lock);
+-	mutex_lock(&ring->lock);
++	spin_lock_irq(&ring->lock);
+ 	dev_info(&ring->nhi->pdev->dev, "stopping %s %d\n",
+ 		 RING_TYPE(ring), ring->hop);
+ 	if (ring->nhi->going_away)
+@@ -508,7 +511,7 @@ void tb_ring_stop(struct tb_ring *ring)
+ 	ring->running = false;
+ 
+ err:
+-	mutex_unlock(&ring->lock);
++	spin_unlock_irq(&ring->lock);
+ 	mutex_unlock(&ring->nhi->lock);
+ 
+ 	/*
+@@ -568,7 +571,6 @@ void tb_ring_free(struct tb_ring *ring)
+ 	 * to finish before freeing the ring.
+ 	 */
+ 	flush_work(&ring->work);
+-	mutex_destroy(&ring->lock);
+ 	kfree(ring);
+ }
+ EXPORT_SYMBOL_GPL(tb_ring_free);
 diff --git a/include/linux/thunderbolt.h b/include/linux/thunderbolt.h
-index 89dbb0c20f07..4011d6537a8c 100644
+index fac4ff62c0de..51af0a5fa52f 100644
 --- a/include/linux/thunderbolt.h
 +++ b/include/linux/thunderbolt.h
-@@ -78,6 +78,13 @@ struct tb {
- 
- extern struct bus_type tb_bus_type;
- 
-+#define TB_LINKS_PER_PHY_PORT	2
-+
-+static inline unsigned int tb_phy_port_from_link(unsigned int link)
-+{
-+	return (link - 1) / TB_LINKS_PER_PHY_PORT;
-+}
-+
- /**
-  * struct tb_property_dir - XDomain property directory
-  * @uuid: Directory UUID or %NULL if root directory
+@@ -448,7 +448,7 @@ struct tb_nhi {
+  * @eof_mask: Bit mask used to detect end of frame PDF
+  */
+ struct tb_ring {
+-	struct mutex lock;
++	spinlock_t lock;
+ 	struct tb_nhi *nhi;
+ 	int size;
+ 	int hop;
 -- 
 2.13.5
