@@ -1,109 +1,51 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] tcp: fastopen: fix on syn-data transmit failure
-Date: Tue, 19 Sep 2017 10:05:57 -0700
-Message-ID: <1505840757.29839.77.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Michal Kalderon <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH net-next 0/4] qed: iWARP fixes and enhancements
+Date: Tue, 19 Sep 2017 20:26:15 +0300
+Message-ID: <1505841979-26365-1-git-send-email-Michal.Kalderon@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Yuchung Cheng <ycheng@google.com>,
-        Neal Cardwell <ncardwell@google.com>,
-        netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:33087 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751283AbdISRF7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 13:05:59 -0400
-Received: by mail-pg0-f66.google.com with SMTP id i130so136216pgc.0
-        for <netdev@vger.kernel.org>; Tue, 19 Sep 2017 10:05:59 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        Michal Kalderon <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
+        Ariel Elior <Ariel.Elior-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+To: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+This patch series includes several fixes and enhancements
+related to iWARP.
 
-Our recent change exposed a bug in TCP Fastopen Client that syzkaller
-found right away [1]
+Patch #1 is actually the last of the initial iWARP submission.
+It has been delayed until now as I wanted to make sure that qedr
+supports iWARP prior to enabling iWARP device detection.
 
-When we prepare skb with SYN+DATA, we attempt to transmit it,
-and we update socket state as if the transmit was a success.
+iWARP changes in RDMA tree have been accepted and targeted at
+kernel 4.15, therefore, all iWARP fixes for this cycle are
+submitted to net-next.
 
-In socket RTX queue we have two skbs, one with the SYN alone,
-and a second one containing the DATA.
+Signed-off by: Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org
+Signed-off-by: Ariel Elior <Ariel.Elior-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
 
-When (malicious) ACK comes in, we now complain that second one had no
-skb_mstamp.
+Michal Kalderon (4):
+  qed: Add iWARP enablement support
+  qed: Add iWARP out of order support
+  qed: Fix maximum number of CQs for iWARP
+  qed: iWARP - Add check for errors on a SYN packet
 
-The proper fix is to make sure that if the transmit failed, we do not
-pretend we sent the DATA skb, and make it our send_head.
+ drivers/net/ethernet/qlogic/qed/qed_cxt.c         |  6 +++
+ drivers/net/ethernet/qlogic/qed/qed_iwarp.c       | 52 +++++++++++++++++++++++
+ drivers/net/ethernet/qlogic/qed/qed_iwarp.h       | 11 ++++-
+ drivers/net/ethernet/qlogic/qed/qed_ll2.c         |  1 +
+ drivers/net/ethernet/qlogic/qed/qed_mcp.c         | 10 ++---
+ drivers/net/ethernet/qlogic/qed/qed_rdma.c        | 24 +++++++----
+ drivers/net/ethernet/qlogic/qed/qed_sp_commands.c |  1 +
+ include/linux/qed/qed_ll2_if.h                    |  1 +
+ 8 files changed, 91 insertions(+), 15 deletions(-)
 
-When 3WHS completes, we can now send the DATA right away, without having
-to wait for a timeout.
+-- 
+1.8.3.1
 
-[1]
-WARNING: CPU: 0 PID: 100189 at net/ipv4/tcp_input.c:3117 tcp_clean_rtx_queue+0x2057/0x2ab0 net/ipv4/tcp_input.c:3117()
-
- WARN_ON_ONCE(last_ackt == 0);
-
-Modules linked in:
-CPU: 0 PID: 100189 Comm: syz-executor1 Not tainted 
-Hardware name: Google Google Compute Engine/Google Compute Engine, BIOS Google 01/01/2011
- 0000000000000000 ffff8800b35cb1d8 ffffffff81cad00d 0000000000000000
- ffffffff828a4347 ffff88009f86c080 ffffffff8316eb20 0000000000000d7f
- ffff8800b35cb220 ffffffff812c33c2 ffff8800baad2440 00000009d46575c0
-Call Trace:
- [<ffffffff81cad00d>] __dump_stack 
- [<ffffffff81cad00d>] dump_stack+0xc1/0x124 
- [<ffffffff812c33c2>] warn_slowpath_common+0xe2/0x150 
- [<ffffffff812c361e>] warn_slowpath_null+0x2e/0x40 
- [<ffffffff828a4347>] tcp_clean_rtx_queue+0x2057/0x2ab0 n
- [<ffffffff828ae6fd>] tcp_ack+0x151d/0x3930 
- [<ffffffff828baa09>] tcp_rcv_state_process+0x1c69/0x4fd0 
- [<ffffffff828efb7f>] tcp_v4_do_rcv+0x54f/0x7c0 
- [<ffffffff8258aacb>] sk_backlog_rcv 
- [<ffffffff8258aacb>] __release_sock+0x12b/0x3a0 
- [<ffffffff8258ad9e>] release_sock+0x5e/0x1c0 
- [<ffffffff8294a785>] inet_wait_for_connect 
- [<ffffffff8294a785>] __inet_stream_connect+0x545/0xc50 
- [<ffffffff82886f08>] tcp_sendmsg_fastopen 
- [<ffffffff82886f08>] tcp_sendmsg+0x2298/0x35a0 
- [<ffffffff82952515>] inet_sendmsg+0xe5/0x520 
- [<ffffffff8257152f>] sock_sendmsg_nosec 
- [<ffffffff8257152f>] sock_sendmsg+0xcf/0x110 
-
-Fixes: 8c72c65b426b ("tcp: update skb->skb_mstamp more carefully")
-Fixes: 783237e8daf1 ("net-tcp: Fast Open client - sending SYN-data")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Reported-by: Dmitry Vyukov <dvyukov@google.com>
-Cc: Neal Cardwell <ncardwell@google.com>
-Cc: Yuchung Cheng <ycheng@google.com>
----
- net/ipv4/tcp_output.c |    9 +++++++++
- 1 file changed, 9 insertions(+)
-
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 517d737059d18d8821b65dcdf54d9bb3448784c2..0bc9e46a53696578eb6e911f2f75e6b34c80894f 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -3389,6 +3389,10 @@ static int tcp_send_syn_data(struct sock *sk, struct sk_buff *syn)
- 		goto done;
- 	}
- 
-+	/* data was not sent, this is our new send_head */
-+	sk->sk_send_head = syn_data;
-+	tp->packets_out -= tcp_skb_pcount(syn_data);
-+
- fallback:
- 	/* Send a regular SYN with Fast Open cookie request option */
- 	if (fo->cookie.len > 0)
-@@ -3441,6 +3445,11 @@ int tcp_connect(struct sock *sk)
- 	 */
- 	tp->snd_nxt = tp->write_seq;
- 	tp->pushed_seq = tp->write_seq;
-+	buff = tcp_send_head(sk);
-+	if (unlikely(buff)) {
-+		tp->snd_nxt	= TCP_SKB_CB(buff)->seq;
-+		tp->pushed_seq	= TCP_SKB_CB(buff)->seq;
-+	}
- 	TCP_INC_STATS(sock_net(sk), TCP_MIB_ACTIVEOPENS);
- 
- 	/* Timer for repeating the SYN until an answer. */
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
