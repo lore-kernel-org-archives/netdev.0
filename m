@@ -1,51 +1,70 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: pull-request: mac80211 2017-11-19
-Date: Tue, 19 Sep 2017 09:20:47 +0200
-Message-ID: <20170919072048.8484-1-johannes@sipsolutions.net>
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net] bpf: fix ri->map prog pointer on bpf_prog_realloc
+Date: Tue, 19 Sep 2017 09:23:45 +0200
+Message-ID: <59C0C601.3060406@iogearbox.net>
+References: <b797841607c3327007a787af3418cb0a60b868c0.1505783562.git.daniel@iogearbox.net> <20170919014326.r4x5ymz33zecayas@ast-mbp>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, john.fastabend@gmail.com, ast@kernel.org,
+        netdev@vger.kernel.org
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:51274 "EHLO sipsolutions.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750747AbdISHUx (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 19 Sep 2017 03:20:53 -0400
+Received: from www62.your-server.de ([213.133.104.62]:56197 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750822AbdISHXy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 03:23:54 -0400
+In-Reply-To: <20170919014326.r4x5ymz33zecayas@ast-mbp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+On 09/19/2017 03:43 AM, Alexei Starovoitov wrote:
+> On Tue, Sep 19, 2017 at 03:16:44AM +0200, Daniel Borkmann wrote:
+>> Commit 109980b894e9 ("bpf: don't select potentially stale
+>> ri->map from buggy xdp progs") passed the pointer to the prog
+>> itself to be loaded into r4 prior on bpf_redirect_map() helper
+>> call, so that we can store the owner into ri->map_owner out of
+>> the helper.
+>>
+>> Issue with that is that the actual address of the prog is still
+>> subject to change when subsequent rewrites occur, e.g. through
+>> patching other helper functions or constant blinding. Thus, we
+>> really need to take prog->aux as the address we're holding, and
+>> then during runtime fetch the actual pointer via aux->prog. This
+>> also works with prog clones as they share the same aux and fixup
+>> pointer to self after blinding finished.
+>>
+>> Fixes: 109980b894e9 ("bpf: don't select potentially stale ri->map from buggy xdp progs")
+>> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+>> ---
+>>   kernel/bpf/verifier.c | 12 ++++++++++--
+>>   1 file changed, 10 insertions(+), 2 deletions(-)
+>>
+>> diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+>> index 799b245..243c09f 100644
+>> --- a/kernel/bpf/verifier.c
+>> +++ b/kernel/bpf/verifier.c
+>> @@ -4205,9 +4205,17 @@ static int fixup_bpf_calls(struct bpf_verifier_env *env)
+>>   		}
+>>
+>>   		if (insn->imm == BPF_FUNC_redirect_map) {
+>> -			u64 addr = (unsigned long)prog;
+>> +			/* Note, we cannot use prog directly as imm as subsequent
+>> +			 * rewrites would still change the prog pointer. The only
+>> +			 * stable address we can use is aux, which also works with
+>> +			 * prog clones during blinding.
+>> +			 */
+>
+> good catch. extra load at runtime sucks, but I don't see better solution.
+>
+>> +			u64 addr = (unsigned long)prog->aux;
+>> +			const int r4 = BPF_REG_4;
+>>   			struct bpf_insn r4_ld[] = {
+>> -				BPF_LD_IMM64(BPF_REG_4, addr),
+>> +				BPF_LD_IMM64(r4, addr),
+>> +				BPF_LDX_MEM(BPF_DW, r4, r4,
+>> +					    offsetof(struct bpf_prog_aux, prog)),
+>
+> needs to be BPF_FIELD_SIZEOF(struct bpf_prog_aux, prog) to work on 32-bit
 
-Here's a new set of two small changes to prevent null pointer
-dereferences on malformed netlink messages.
-
-Please pull and let me know if there's any problem.
-
-Thanks,
-johannes
-
-
-
-The following changes since commit 126f760ca94dae77425695f9f9238b731de86e32:
-
-  rds: Fix incorrect statistics counting (2017-09-07 20:07:13 -0700)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211.git tags/mac80211-for-davem-2017-11-19
-
-for you to fetch changes up to 265698d7e6132a2d41471135534f4f36ad15b09c:
-
-  nl80211: fix null-ptr dereference on invalid mesh configuration (2017-09-18 22:51:07 +0200)
-
-----------------------------------------------------------------
-Just two netlink fixes, both allowing privileged users
-to crash the kernel with malformed netlink messages.
-
-----------------------------------------------------------------
-Johannes Berg (1):
-      nl80211: fix null-ptr dereference on invalid mesh configuration
-
-Vladis Dronov (1):
-      nl80211: check for the required netlink attributes presence
-
- net/wireless/nl80211.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+Good point, will spin a v2. Thanks!
