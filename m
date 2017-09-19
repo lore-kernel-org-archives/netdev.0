@@ -1,66 +1,74 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 0/4] net: dsa: move master ethtool code
-Date: Tue, 19 Sep 2017 13:04:56 -0700
-Message-ID: <80b8afa0-e269-c0b7-da4a-dcb604a239ca@gmail.com>
-References: <20170919155700.14474-1-vivien.didelot@savoirfairelinux.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Andrew Lunn <andrew@lunn.ch>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170919155700.14474-1-vivien.didelot@savoirfairelinux.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [PATCH net-next] net_sched: no need to free qdisc in RCU callback
+Date: Tue, 19 Sep 2017 13:15:42 -0700
+Message-ID: <20170919201542.14890-1-xiyou.wangcong@gmail.com>
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Eric Dumazet <edumazet@google.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:38277 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751309AbdISUPu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 16:15:50 -0400
+Received: by mail-pf0-f196.google.com with SMTP id a7so269685pfj.5
+        for <netdev@vger.kernel.org>; Tue, 19 Sep 2017 13:15:50 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/19/2017 08:56 AM, Vivien Didelot wrote:
-> The DSA core overrides the master device's ethtool_ops structure so that
-> it can inject statistics and such of its dedicated switch CPU port.
-> 
-> This ethtool code is currently called on unnecessary conditions or
-> before the master interface and its switch CPU port get wired up.
-> This patchset fixes this.
-> 
-> Similarly to slave.c where the DSA slave net_device is the entry point
-> of the dsa_slave_* functions, this patchset also isolates the master's
-> ethtool code in a new master.c file, where the DSA master net_device is
-> the entry point of the dsa_master_* functions.
-> 
-> This is a first step towards better control of the master device and
-> support for multiple CPU ports.
+gen estimator has been rewritten in commit 1c0d32fde5bd
+("net_sched: gen_estimator: complete rewrite of rate estimators"),
+the caller no longer needs to wait for a grace period. So this
+patch gets rid of it.
 
-Tested-by: Florian Fainelli <f.fainelli@gmail.com>
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+Cc: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+---
+ include/net/sch_generic.h |  1 -
+ net/sched/sch_generic.c   | 10 ++--------
+ 2 files changed, 2 insertions(+), 9 deletions(-)
 
-* ethtool -S eth0 -> switch port CPU stats are still correctly overlayed
-* ethtool -s gphy wol g -> both switch port and CPU port correctly
-enable WoL
-* ethtool -i eth0 -> driver still reports correct information
-
-Thanks!
-
-> 
-> Vivien Didelot (4):
->   net: dsa: remove copy of master ethtool_ops
->   net: dsa: setup master ethtool unconditionally
->   net: dsa: setup master ethtool after dsa_ptr
->   net: dsa: move master ethtool code
-> 
->  include/net/dsa.h  |   1 -
->  net/dsa/Makefile   |   2 +-
->  net/dsa/dsa.c      |  28 -------------
->  net/dsa/dsa2.c     |  18 ++++----
->  net/dsa/dsa_priv.h |   7 ++--
->  net/dsa/legacy.c   |  10 ++---
->  net/dsa/master.c   | 120 +++++++++++++++++++++++++++++++++++++++++++++++++++++
->  net/dsa/slave.c    |  80 -----------------------------------
->  8 files changed, 136 insertions(+), 130 deletions(-)
->  create mode 100644 net/dsa/master.c
-> 
-
-
+diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+index 135f5a2dd931..684d8ed27eaa 100644
+--- a/include/net/sch_generic.h
++++ b/include/net/sch_generic.h
+@@ -93,7 +93,6 @@ struct Qdisc {
+ 	unsigned long		state;
+ 	struct Qdisc            *next_sched;
+ 	struct sk_buff		*skb_bad_txq;
+-	struct rcu_head		rcu_head;
+ 	int			padded;
+ 	refcount_t		refcnt;
+ 
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index 92237e75dbbc..1fb0c754b7fd 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -688,10 +688,8 @@ void qdisc_reset(struct Qdisc *qdisc)
+ }
+ EXPORT_SYMBOL(qdisc_reset);
+ 
+-static void qdisc_rcu_free(struct rcu_head *head)
++static void qdisc_free(struct Qdisc *qdisc)
+ {
+-	struct Qdisc *qdisc = container_of(head, struct Qdisc, rcu_head);
+-
+ 	if (qdisc_is_percpu_stats(qdisc)) {
+ 		free_percpu(qdisc->cpu_bstats);
+ 		free_percpu(qdisc->cpu_qstats);
+@@ -724,11 +722,7 @@ void qdisc_destroy(struct Qdisc *qdisc)
+ 
+ 	kfree_skb_list(qdisc->gso_skb);
+ 	kfree_skb(qdisc->skb_bad_txq);
+-	/*
+-	 * gen_estimator est_timer() might access qdisc->q.lock,
+-	 * wait a RCU grace period before freeing qdisc.
+-	 */
+-	call_rcu(&qdisc->rcu_head, qdisc_rcu_free);
++	qdisc_free(qdisc);
+ }
+ EXPORT_SYMBOL(qdisc_destroy);
+ 
 -- 
-Florian
+2.13.0
