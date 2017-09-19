@@ -1,260 +1,320 @@
 From: Tom Herbert <tom@quantonium.net>
-Subject: [PATCH net-next 13/14] gtp: Support for GRO
-Date: Mon, 18 Sep 2017 17:39:03 -0700
-Message-ID: <20170919003904.5124-14-tom@quantonium.net>
+Subject: [PATCH net-next 14/14] gtp: GSO support
+Date: Mon, 18 Sep 2017 17:39:04 -0700
+Message-ID: <20170919003904.5124-15-tom@quantonium.net>
 References: <20170919003904.5124-1-tom@quantonium.net>
 Cc: netdev@vger.kernel.org, pablo@netfilter.org, laforge@gnumonks.org,
         rohit@quantonium.net, Tom Herbert <tom@quantonium.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f173.google.com ([209.85.192.173]:45201 "EHLO
-        mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751541AbdISAkD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 20:40:03 -0400
-Received: by mail-pf0-f173.google.com with SMTP id q76so1109936pfq.2
-        for <netdev@vger.kernel.org>; Mon, 18 Sep 2017 17:40:03 -0700 (PDT)
+Received: from mail-pg0-f44.google.com ([74.125.83.44]:46875 "EHLO
+        mail-pg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750925AbdISAkF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 20:40:05 -0400
+Received: by mail-pg0-f44.google.com with SMTP id i130so1093747pgc.3
+        for <netdev@vger.kernel.org>; Mon, 18 Sep 2017 17:40:05 -0700 (PDT)
 In-Reply-To: <20170919003904.5124-1-tom@quantonium.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Populate GRO receive and GRO complete functions for GTP-Uv0 and v1.
+Need to define a gtp_gso_segment since the GTP header includes a length
+field that must be set per packet. Also, GPv0 header includes a sequence
+number that is incremented per packet.
 
 Signed-off-by: Tom Herbert <tom@quantonium.net>
 ---
- drivers/net/gtp.c | 204 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 204 insertions(+)
+ drivers/net/gtp.c            | 176 +++++++++++++++++++++++++++++++++++++++----
+ include/uapi/linux/if_link.h |   1 -
+ 2 files changed, 163 insertions(+), 14 deletions(-)
 
 diff --git a/drivers/net/gtp.c b/drivers/net/gtp.c
-index b53946f8b10b..2f9d810cf19f 100644
+index 2f9d810cf19f..a2c4d9804a8f 100644
 --- a/drivers/net/gtp.c
 +++ b/drivers/net/gtp.c
-@@ -22,6 +22,7 @@
- #include <linux/jhash.h>
- #include <linux/if_tunnel.h>
- #include <linux/net.h>
-+#include <linux/netdevice.h>
- #include <linux/file.h>
- #include <linux/gtp.h>
+@@ -120,6 +120,8 @@ static u32 gtp_h_initval;
  
-@@ -429,6 +430,205 @@ static int gtp1u_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
+ static void pdp_context_delete(struct pdp_ctx *pctx);
+ 
++static int gtp_gso_type;
++
+ static inline u32 gtp0_hashfn(u64 tid)
+ {
+ 	u32 *tid32 = (u32 *) &tid;
+@@ -430,6 +432,69 @@ static int gtp1u_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
  	return 1;
  }
  
-+static struct sk_buff **gtp_gro_receive_finish(struct sock *sk,
-+					       struct sk_buff **head,
-+					       struct sk_buff *skb,
-+					       void *hdr, size_t hdrlen)
++static struct sk_buff *gtp_gso_segment(struct sk_buff *skb,
++				       netdev_features_t features)
 +{
-+	const struct packet_offload *ptype;
-+	struct sk_buff **pp;
-+	__be16 type;
-+
-+	type = ipver_to_eth((struct iphdr *)((void *)hdr + hdrlen));
-+	if (!type)
-+		goto out_err;
-+
-+	rcu_read_lock();
-+
-+	ptype = gro_find_receive_by_type(type);
-+	if (!ptype)
-+		goto out_unlock_err;
-+
-+	skb_gro_pull(skb, hdrlen);
-+	skb_gro_postpull_rcsum(skb, hdr, hdrlen);
-+	pp = call_gro_receive(ptype->callbacks.gro_receive, head, skb);
-+
-+	rcu_read_unlock();
-+
-+	return pp;
-+
-+out_unlock_err:
-+	rcu_read_unlock();
-+out_err:
-+	NAPI_GRO_CB(skb)->flush |= 1;
-+	return NULL;
-+}
-+
-+static struct sk_buff **gtp0_gro_receive(struct sock *sk,
-+					 struct sk_buff **head,
-+					 struct sk_buff *skb)
-+{
++	struct sk_buff *segs = ERR_PTR(-EINVAL);
++	int tnl_hlen = skb->mac_len;
 +	struct gtp0_header *gtp0;
-+	size_t len, hdrlen, off;
-+	struct sk_buff *p;
 +
-+	off = skb_gro_offset(skb);
-+	len = off + sizeof(*gtp0);
-+	hdrlen = sizeof(*gtp0);
++	if (unlikely(!pskb_may_pull(skb, tnl_hlen)))
++		return ERR_PTR(-EINVAL);
 +
-+	gtp0 = skb_gro_header_fast(skb, off);
-+	if (skb_gro_header_hard(skb, len)) {
-+		gtp0 = skb_gro_header_slow(skb, len, off);
-+		if (unlikely(!gtp0))
-+			goto out;
-+	}
++	/* Make sure we have a mininal GTP header */
++	if (unlikely(tnl_hlen < min_t(size_t, sizeof(struct gtp0_header),
++				      sizeof(struct gtp1_header))))
++		return ERR_PTR(-EINVAL);
 +
-+	if ((gtp0->flags >> 5) != GTP_V0 || gtp0->type != GTP_TPDU)
-+		goto out;
++	/* Determine version */
++	gtp0 = (struct gtp0_header *)skb->data;
++	switch (gtp0->flags >> 5) {
++	case GTP_V0: {
++		u16 tx_seq;
 +
-+	hdrlen += sizeof(*gtp0);
++		if (unlikely(tnl_hlen != sizeof(struct gtp0_header)))
++			return ERR_PTR(-EINVAL);
 +
-+	/* To get IP version */
-+	len += sizeof(struct iphdr);
++		tx_seq = ntohs(gtp0->seq);
 +
-+	/* Now get header with GTP header an IPv4 header (for version) */
-+	if (skb_gro_header_hard(skb, len)) {
-+		gtp0 = skb_gro_header_slow(skb, len, off);
-+		if (unlikely(!gtp0))
-+			goto out;
-+	}
-+
-+	for (p = *head; p; p = p->next) {
-+		const struct gtp0_header *gtp0_t;
-+
-+		if (!NAPI_GRO_CB(p)->same_flow)
-+			continue;
-+
-+		gtp0_t = (struct gtp0_header *)(p->data + off);
-+
-+		if (gtp0->flags != gtp0_t->flags ||
-+		    gtp0->type != gtp0_t->type ||
-+		    gtp0->flow != gtp0_t->flow ||
-+		    gtp0->tid != gtp0_t->tid) {
-+			NAPI_GRO_CB(p)->same_flow = 0;
-+			continue;
++		/* segment inner packet. */
++		segs = skb_mac_gso_segment(skb, features);
++		if (!IS_ERR_OR_NULL(segs)) {
++			skb = segs;
++			do {
++				gtp0 = (struct gtp0_header *)
++						skb_mac_header(skb);
++				gtp0->length = ntohs(skb->len - tnl_hlen);
++				gtp0->seq = htons(tx_seq);
++				tx_seq++;
++			} while ((skb = skb->next));
 +		}
++		break;
++	}
++	case GTP_V1: {
++		struct gtp1_header *gtp1;
++
++		if (unlikely(tnl_hlen != sizeof(struct gtp1_header)))
++			return ERR_PTR(-EINVAL);
++
++		/* segment inner packet. */
++		segs = skb_mac_gso_segment(skb, features);
++		if (!IS_ERR_OR_NULL(segs)) {
++			skb = segs;
++			do {
++				gtp1 = (struct gtp1_header *)
++						skb_mac_header(skb);
++				gtp1->length = ntohs(skb->len - tnl_hlen);
++			} while ((skb = skb->next));
++		}
++		break;
++	}
 +	}
 +
-+	return gtp_gro_receive_finish(sk, head, skb, gtp0, hdrlen);
-+
-+out:
-+	NAPI_GRO_CB(skb)->flush |= 1;
-+
-+	return NULL;
++	return segs;
 +}
 +
-+static struct sk_buff **gtp1u_gro_receive(struct sock *sk,
-+					  struct sk_buff **head,
-+					  struct sk_buff *skb)
+ static struct sk_buff **gtp_gro_receive_finish(struct sock *sk,
+ 					       struct sk_buff **head,
+ 					       struct sk_buff *skb,
+@@ -688,18 +753,25 @@ static inline void gtp0_push_header(struct sk_buff *skb, struct pdp_ctx *pctx)
+ {
+ 	int payload_len = skb->len;
+ 	struct gtp0_header *gtp0;
++	u32 tx_seq;
+ 
+ 	gtp0 = skb_push(skb, sizeof(*gtp0));
+ 
+ 	gtp0->flags	= 0x1e; /* v0, GTP-non-prime. */
+ 	gtp0->type	= GTP_TPDU;
+ 	gtp0->length	= htons(payload_len);
+-	gtp0->seq	= htons((atomic_inc_return(&pctx->tx_seq) - 1) %
+-				0xffff);
+ 	gtp0->flow	= htons(pctx->u.v0.flow);
+ 	gtp0->number	= 0xff;
+ 	gtp0->spare[0]	= gtp0->spare[1] = gtp0->spare[2] = 0xff;
+ 	gtp0->tid	= cpu_to_be64(pctx->u.v0.tid);
++
++	/* If skb is GSO allocate sequence numbers for all the segments */
++	tx_seq = skb_shinfo(skb)->gso_segs ?
++			atomic_add_return(skb_shinfo(skb)->gso_segs,
++					  &pctx->tx_seq) :
++			atomic_inc_return(&pctx->tx_seq);
++
++	gtp0->seq	= (htons((u16)tx_seq) - 1) & 0xffff;
+ }
+ 
+ static inline void gtp1_push_header(struct sk_buff *skb, struct pdp_ctx *pctx)
+@@ -737,6 +809,59 @@ static void gtp_push_header(struct sk_buff *skb, struct pdp_ctx *pctx)
+ 	}
+ }
+ 
++static size_t gtp_max_header_len(int version)
++
 +{
-+	struct gtp1_header *gtp1;
-+	size_t len, hdrlen, off;
-+	struct sk_buff *p;
-+
-+	off = skb_gro_offset(skb);
-+	len = off + sizeof(*gtp1);
-+	hdrlen = sizeof(*gtp1);
-+
-+	gtp1 = skb_gro_header_fast(skb, off);
-+	if (skb_gro_header_hard(skb, len)) {
-+		gtp1 = skb_gro_header_slow(skb, len, off);
-+		if (unlikely(!gtp1))
-+			goto out;
++	switch (version) {
++	case GTP_V0:
++		return sizeof(struct gtp0_header);
++	case GTP_V1:
++		return sizeof(struct gtp1_header) + 4;
 +	}
 +
-+	if ((gtp1->flags >> 5) != GTP_V1 || gtp1->type != GTP_TPDU)
-+		goto out;
-+
-+	if (gtp1->flags & GTP1_F_MASK) {
-+		hdrlen += 4;
-+		len += 4;
-+	}
-+
-+	len += sizeof(struct iphdr);
-+
-+	/* Now get header with GTP header an IPv4 header (for version) */
-+	if (skb_gro_header_hard(skb, len)) {
-+		gtp1 = skb_gro_header_slow(skb, len, off);
-+		if (unlikely(!gtp1))
-+			goto out;
-+	}
-+
-+	for (p = *head; p; p = p->next) {
-+		const struct gtp1_header *gtp1_t;
-+
-+		if (!NAPI_GRO_CB(p)->same_flow)
-+			continue;
-+
-+		gtp1_t = (struct gtp1_header *)(p->data + off);
-+
-+		if (gtp1->flags != gtp1_t->flags ||
-+		    gtp1->type != gtp1_t->type ||
-+		    gtp1->tid != gtp1_t->tid) {
-+			NAPI_GRO_CB(p)->same_flow = 0;
-+			continue;
-+		}
-+	}
-+
-+	return gtp_gro_receive_finish(sk, head, skb, gtp1, hdrlen);
-+
-+out:
-+	NAPI_GRO_CB(skb)->flush = 1;
-+
-+	return NULL;
++	/* Should not happen */
++	return 0;
 +}
 +
-+static int gtp_gro_complete_finish(struct sock *sk, struct sk_buff *skb,
-+				   int nhoff, size_t hdrlen)
++static int gtp_build_skb(struct sk_buff *skb, struct dst_entry *dst,
++			 struct pdp_ctx *pctx, bool xnet, int ip_hdr_len,
++			 bool udp_sum)
 +{
-+	struct packet_offload *ptype;
-+	int err = -EINVAL;
-+	__be16 type;
++	int type = (udp_sum ? SKB_GSO_UDP_TUNNEL_CSUM : SKB_GSO_UDP_TUNNEL) |
++		   gtp_gso_type;
++	int min_headroom;
++	u16 protocol;
++	int err;
 +
-+	type = ipver_to_eth((struct iphdr *)(skb->data + nhoff + hdrlen));
-+	if (!type)
-+		return err;
++	skb_scrub_packet(skb, xnet);
 +
-+	rcu_read_lock();
-+	ptype = gro_find_complete_by_type(type);
-+	if (ptype)
-+		err = ptype->callbacks.gro_complete(skb, nhoff + hdrlen);
++	min_headroom = LL_RESERVED_SPACE(dst->dev) + dst->header_len +
++		       gtp_max_header_len(pctx->gtp_version) + ip_hdr_len;
 +
-+	rcu_read_unlock();
++	err = skb_cow_head(skb, min_headroom);
++	if (unlikely(err))
++		goto free_dst;
 +
-+	skb_set_inner_mac_header(skb, nhoff + hdrlen);
++	err = iptunnel_handle_offloads(skb, type);
++	if (err)
++		goto free_dst;
 +
++	protocol = ipver_to_eth(ip_hdr(skb));
++
++	gtp_push_header(skb, pctx);
++
++	/* GTP header is treated as inner MAC header */
++	skb_reset_inner_mac_header(skb);
++
++	skb_set_inner_protocol(skb, protocol);
++
++	return 0;
++
++free_dst:
++	dst_release(dst);
 +	return err;
 +}
 +
-+static int gtp0_gro_complete(struct sock *sk, struct sk_buff *skb, int nhoff)
-+{
-+	struct gtp0_header *gtp0 = (struct gtp0_header *)(skb->data + nhoff);
-+	size_t hdrlen = sizeof(struct gtp0_header);
-+
-+	gtp0->length = htons(skb->len - nhoff - hdrlen);
-+
-+	return gtp_gro_complete_finish(sk, skb, nhoff, hdrlen);
-+}
-+
-+static int gtp1u_gro_complete(struct sock *sk, struct sk_buff *skb, int nhoff)
-+{
-+	struct gtp1_header *gtp1 = (struct gtp1_header *)(skb->data + nhoff);
-+	size_t hdrlen = sizeof(struct gtp1_header);
-+
-+	if (gtp1->flags & GTP1_F_MASK)
-+		hdrlen += 4;
-+
-+	gtp1->length = htons(skb->len - nhoff - hdrlen);
-+
-+	return gtp_gro_complete_finish(sk, skb, nhoff, hdrlen);
-+}
-+
- static void gtp_encap_destroy(struct sock *sk)
+ static int gtp_xmit(struct sk_buff *skb, struct net_device *dev,
+ 		    struct pdp_ctx *pctx)
  {
- 	struct gtp_dev *gtp;
-@@ -946,9 +1146,13 @@ static int gtp_encap_enable_sock(struct socket *sock, int type,
- 	switch (type) {
- 	case UDP_ENCAP_GTP0:
- 		tuncfg.encap_rcv = gtp0_udp_encap_recv;
-+		tuncfg.gro_receive = gtp0_gro_receive;
-+		tuncfg.gro_complete = gtp0_gro_complete;
- 		break;
- 	case UDP_ENCAP_GTP1U:
- 		tuncfg.encap_rcv = gtp1u_udp_encap_recv;
-+		tuncfg.gro_receive = gtp1u_gro_receive;
-+		tuncfg.gro_complete = gtp1u_gro_complete;
- 		break;
- 	default:
- 		pr_debug("Unknown encap type %u\n", type);
+@@ -746,13 +871,6 @@ static int gtp_xmit(struct sk_buff *skb, struct net_device *dev,
+ 	bool udp_csum;
+ 	int err = 0;
+ 
+-	/* Ensure there is sufficient headroom. */
+-	err = skb_cow_head(skb, dev->needed_headroom);
+-	if (unlikely(err))
+-		goto out_err;
+-
+-	skb_reset_inner_headers(skb);
+-
+ 	if (pctx->peer_af == AF_INET) {
+ 		__be32 saddr = inet_sk(sk)->inet_saddr;
+ 		struct rtable *rt;
+@@ -768,9 +886,13 @@ static int gtp_xmit(struct sk_buff *skb, struct net_device *dev,
+ 			goto out_err;
+ 		}
+ 
+-		skb_dst_drop(skb);
++		err = gtp_build_skb(skb, &rt->dst, pctx, xnet,
++				    sizeof(struct iphdr),
++				    !(pctx->cfg_flags &
++				      GTP_F_UDP_ZERO_CSUM_TX));
++		if (err)
++			goto out_err;
+ 
+-		gtp_push_header(skb, pctx);
+ 		udp_csum = !(pctx->cfg_flags & GTP_F_UDP_ZERO_CSUM_TX);
+ 		udp_tunnel_xmit_skb(rt, sk, skb, saddr,
+ 				    pctx->peer_addr_ip4.s_addr,
+@@ -797,9 +919,13 @@ static int gtp_xmit(struct sk_buff *skb, struct net_device *dev,
+ 			goto out_err;
+ 		}
+ 
+-		skb_dst_drop(skb);
++		err = gtp_build_skb(skb, dst, pctx, xnet,
++				    sizeof(struct ipv6hdr),
++				    !(pctx->cfg_flags &
++				      GTP_F_UDP_ZERO_CSUM6_TX));
++		if (err)
++			goto out_err;
+ 
+-		gtp_push_header(skb, pctx);
+ 		udp_csum = !(pctx->cfg_flags & GTP_F_UDP_ZERO_CSUM6_TX);
+ 		udp_tunnel6_xmit_skb(dst, sk, skb, dev,
+ 				     &saddr, &pctx->peer_addr_ip6,
+@@ -898,6 +1024,12 @@ static const struct net_device_ops gtp_netdev_ops = {
+ 	.ndo_get_stats64	= ip_tunnel_get_stats64,
+ };
+ 
++#define GTP_FEATURES (NETIF_F_SG |		\
++		      NETIF_F_FRAGLIST |	\
++		      NETIF_F_HIGHDMA |		\
++		      NETIF_F_GSO_SOFTWARE |	\
++		      NETIF_F_HW_CSUM)
++
+ static void gtp_link_setup(struct net_device *dev)
+ {
+ 	struct gtp_dev *gtp = netdev_priv(dev);
+@@ -912,7 +1044,13 @@ static void gtp_link_setup(struct net_device *dev)
+ 	dev->flags = IFF_POINTOPOINT | IFF_NOARP | IFF_MULTICAST;
+ 
+ 	dev->priv_flags	|= IFF_NO_QUEUE;
++
+ 	dev->features	|= NETIF_F_LLTX;
++	dev->features	|= GTP_FEATURES;
++
++	dev->hw_features |= GTP_FEATURES;
++	dev->hw_features |= NETIF_F_GSO_SOFTWARE;
++
+ 	netif_keep_dst(dev);
+ 
+ 	/* Assume largest header, ie. GTPv0. */
+@@ -1903,6 +2041,11 @@ static struct pernet_operations gtp_net_ops = {
+ 	.size	= sizeof(struct gtp_net),
+ };
+ 
++static const struct skb_gso_app gtp_gso_app = {
++	.check_flags = SKB_GSO_UDP_TUNNEL | SKB_GSO_UDP_TUNNEL_CSUM,
++	.gso_segment = gtp_gso_segment,
++};
++
+ static int __init gtp_init(void)
+ {
+ 	int err;
+@@ -1921,6 +2064,10 @@ static int __init gtp_init(void)
+ 	if (err < 0)
+ 		goto unreg_genl_family;
+ 
++	gtp_gso_type = skb_gso_app_register(&gtp_gso_app);
++	if (!gtp_gso_type)
++		pr_warn("GTP unable to create UDP app gso type");
++
+ 	pr_info("GTP module loaded (pdp ctx size %zd bytes)\n",
+ 		sizeof(struct pdp_ctx));
+ 	return 0;
+@@ -1937,6 +2084,9 @@ late_initcall(gtp_init);
+ 
+ static void __exit gtp_fini(void)
+ {
++	if (gtp_gso_type)
++		skb_gso_app_unregister(gtp_gso_type, &gtp_gso_app);
++
+ 	unregister_pernet_subsys(&gtp_net_ops);
+ 	genl_unregister_family(&gtp_genl_family);
+ 	rtnl_link_unregister(&gtp_link_ops);
+diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+index 14a32d745e24..7c15db44eab3 100644
+--- a/include/uapi/linux/if_link.h
++++ b/include/uapi/linux/if_link.h
+@@ -558,7 +558,6 @@ enum {
+ 	IFLA_GTP_UDP_CSUM,
+ 	IFLA_GTP_UDP_ZERO_CSUM6_TX,
+ 	IFLA_GTP_UDP_ZERO_CSUM6_RX,
+-
+ 	__IFLA_GTP_MAX,
+ };
+ #define IFLA_GTP_MAX (__IFLA_GTP_MAX - 1)
 -- 
 2.11.0
