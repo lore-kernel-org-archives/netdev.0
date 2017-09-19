@@ -1,54 +1,36 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v2 03/12] net: dsa: b53: Defer port enabling to calling port_enable
-Date: Mon, 18 Sep 2017 19:19:38 -0700
-Message-ID: <20170919021947.8971-4-f.fainelli@gmail.com>
-References: <20170919021947.8971-1-f.fainelli@gmail.com>
-Cc: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
-        davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net_sched: sch_htb: add per class overlimits
+ counter
+Date: Mon, 18 Sep 2017 19:23:01 -0700 (PDT)
+Message-ID: <20170918.192301.482791955113156206.davem@davemloft.net>
+References: <1505763382.29839.27.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, nuclearcat@nuclearcat.com,
+        jhs@mojatatu.com, xiyou.wangcong@gmail.com, jiri@resnulli.us
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f195.google.com ([209.85.128.195]:35584 "EHLO
-        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750974AbdISCUE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 22:20:04 -0400
-Received: by mail-wr0-f195.google.com with SMTP id n64so1367963wrb.2
-        for <netdev@vger.kernel.org>; Mon, 18 Sep 2017 19:20:03 -0700 (PDT)
-In-Reply-To: <20170919021947.8971-1-f.fainelli@gmail.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:35414 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751340AbdISCXE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 22:23:04 -0400
+In-Reply-To: <1505763382.29839.27.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There is no need to configure the enabled ports once in b53_setup() and then a
-second time around when dsa_switch_ops::port_enable is called, just do it when
-port_enable is called which is better in terms of power consumption and
-correctness.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 18 Sep 2017 12:36:22 -0700
 
-Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/dsa/b53/b53_common.c | 9 +++++----
- 1 file changed, 5 insertions(+), 4 deletions(-)
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> HTB qdisc overlimits counter is properly increased, but we have no per
+> class counter, meaning it is difficult to diagnose HTB problems.
+> 
+> This patch adds this counter, visible in "tc -s class show dev eth0",
+> with current iproute2.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
 
-diff --git a/drivers/net/dsa/b53/b53_common.c b/drivers/net/dsa/b53/b53_common.c
-index d8bc54cfcfbe..3297af6aab8a 100644
---- a/drivers/net/dsa/b53/b53_common.c
-+++ b/drivers/net/dsa/b53/b53_common.c
-@@ -815,12 +815,13 @@ static int b53_setup(struct dsa_switch *ds)
- 	if (ret)
- 		dev_err(ds->dev, "failed to apply configuration\n");
- 
-+	/* Configure IMP/CPU port, disable unused ports. Enabled
-+	 * ports will be configured with .port_enable
-+	 */
- 	for (port = 0; port < dev->num_ports; port++) {
--		if (BIT(port) & ds->enabled_port_mask)
--			b53_enable_port(ds, port, NULL);
--		else if (dsa_is_cpu_port(ds, port))
-+		if (dsa_is_cpu_port(ds, port))
- 			b53_enable_cpu_port(dev, port);
--		else
-+		else if (!(BIT(port) & ds->enabled_port_mask))
- 			b53_disable_port(ds, port, NULL);
- 	}
- 
--- 
-2.9.3
+Applied, thanks Eric.
