@@ -1,51 +1,49 @@
-From: <aelior@cavium.com>
-Subject: [PATCH net] MAINTAINERS: Remove Yuval Mintz from maintainers list
-Date: Tue, 19 Sep 2017 12:54:34 +0300
-Message-ID: <20170919095434.1386-1-aelior@cavium.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <everest-linux-l2@cavium.com>
-To: <davem@davemloft.net>, <aelior@cavium.com>
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: [PATCH net-next] udp: do rmem bulk free even if the rx sk queue is empty
+Date: Tue, 19 Sep 2017 12:11:43 +0200
+Message-ID: <f82856528a033394c407539d1ff4b92e243bad36.1505815819.git.pabeni@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2nam02on0062.outbound.protection.outlook.com ([104.47.38.62]:19424
-        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750952AbdISJyn (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 19 Sep 2017 05:54:43 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:35560 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750747AbdISKL6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 19 Sep 2017 06:11:58 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ariel Elior <aelior@cavium.com>
+The commit 6b229cf77d68 ("udp: add batching to udp_rmem_release()")
+reduced greatly the cacheline contention between the BH and the US
+reader batching the rmem updates in most scenarios.
 
-Remove Yuval from maintaining the bnx2x & qed* modules as he is no longer
-working for the company. Thanks Yuval for your huge contributions and
-tireless efforts over the many years and various companies.
+Such optimization is explicitly avoided if the US reader is faster
+then BH processing.
 
-Ariel
-Signed-off-by: Ariel Elior <aelior@cavium.com>
+My fault, I initially suggested this kind of behavior due to concerns
+of possible regressions with small sk_rcvbuf values. Tests showed
+such concerns are misplaced, so this commit relaxes the condition
+for rmem bulk updates, obtaining small but measurable performance
+gain in the scenario described above.
+
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
 ---
- MAINTAINERS | 2 --
- 1 file changed, 2 deletions(-)
+ net/ipv4/udp.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 567343b..5d24dbf 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -2801,7 +2801,6 @@ S:	Supported
- F:	drivers/scsi/bnx2i/
- 
- BROADCOM BNX2X 10 GIGABIT ETHERNET DRIVER
--M:	Yuval Mintz <Yuval.Mintz@cavium.com>
- M:	Ariel Elior <ariel.elior@cavium.com>
- M:	everest-linux-l2@cavium.com
- L:	netdev@vger.kernel.org
-@@ -10827,7 +10826,6 @@ S:	Supported
- F:	drivers/scsi/qedi/
- 
- QLOGIC QL4xxx ETHERNET DRIVER
--M:	Yuval Mintz <Yuval.Mintz@cavium.com>
- M:	Ariel Elior <Ariel.Elior@cavium.com>
- M:	everest-linux-l2@cavium.com
- L:	netdev@vger.kernel.org
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index ef29df8648e4..784ced0b9150 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1212,8 +1212,7 @@ static void udp_rmem_release(struct sock *sk, int size, int partial,
+ 	if (likely(partial)) {
+ 		up->forward_deficit += size;
+ 		size = up->forward_deficit;
+-		if (size < (sk->sk_rcvbuf >> 2) &&
+-		    !skb_queue_empty(&up->reader_queue))
++		if (size < (sk->sk_rcvbuf >> 2))
+ 			return;
+ 	} else {
+ 		size += up->forward_deficit;
 -- 
-2.9.4
+2.13.5
