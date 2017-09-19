@@ -1,111 +1,227 @@
 From: Tom Herbert <tom@quantonium.net>
-Subject: [PATCH net-next 00/14] gtp: Additional feature support
-Date: Mon, 18 Sep 2017 17:38:50 -0700
-Message-ID: <20170919003904.5124-1-tom@quantonium.net>
+Subject: [PATCH net-next 01/14] iptunnel: Add common functions to get a tunnel route
+Date: Mon, 18 Sep 2017 17:38:51 -0700
+Message-ID: <20170919003904.5124-2-tom@quantonium.net>
+References: <20170919003904.5124-1-tom@quantonium.net>
 Cc: netdev@vger.kernel.org, pablo@netfilter.org, laforge@gnumonks.org,
         rohit@quantonium.net, Tom Herbert <tom@quantonium.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f177.google.com ([209.85.192.177]:50442 "EHLO
-        mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750822AbdISAjX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 20:39:23 -0400
-Received: by mail-pf0-f177.google.com with SMTP id m63so1102589pfk.7
-        for <netdev@vger.kernel.org>; Mon, 18 Sep 2017 17:39:23 -0700 (PDT)
+Received: from mail-pf0-f169.google.com ([209.85.192.169]:54195 "EHLO
+        mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751016AbdISAjc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 20:39:32 -0400
+Received: by mail-pf0-f169.google.com with SMTP id x78so1102618pff.10
+        for <netdev@vger.kernel.org>; Mon, 18 Sep 2017 17:39:32 -0700 (PDT)
+In-Reply-To: <20170919003904.5124-1-tom@quantonium.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch set builds upon the initial GTP implementation to make
-support closer to that enjoyed by other encapsulation protocols.
+ip_tunnel_get_route and ip6_tnl_get_route are create to return
+routes for a tunnel. These functions are derived from the VXLAN
+functions.
 
-The major items are:
+Signed-off-by: Tom Herbert <tom@quantonium.net>
+---
+ include/net/ip6_tunnel.h | 33 +++++++++++++++++++++++++++++++++
+ include/net/ip_tunnels.h | 33 +++++++++++++++++++++++++++++++++
+ net/ipv4/ip_tunnel.c     | 41 +++++++++++++++++++++++++++++++++++++++++
+ net/ipv6/ip6_tunnel.c    | 43 +++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 150 insertions(+)
 
-  - IPv6 support
-  - Configurable networking interfaces so that GTP kernel can be
-    used and tested without needing GSN network emulation (i.e. no user
-    space daemon needed).
-  - GSO,GRO
-  - Control of zero UDP checksums
-  - Port numbers are configurable
-  - Addition of a dst_cache in the GTP structure and other cleanup
-
-Additionally, this patch set also includes a couple of general support
-capabilities:
-
-  - A facility that allows application specific GSO callbacks
-  - Common functions to get a route fo for an IP tunnel
-
-For IPv6 support, the mobile subscriber needs to allow IPv6 addresses,
-and the remote enpoint can be IPv6.
-
-For configurable interfaces, configuration is added to allow an
-alterate means to configure a GTP and device. This follows the
-typical UDP encapsulation model of specifying a listener port for
-receive, and a remote address and port for transmit. 
-
-GRO was straightfoward to implement following the model of other
-UDP encapsulations.
-
-Providing GSO support had one wrinkle-- the GTP header includes a
-payload length field that needs to be set per GSO segment. In order
-to address that in a general way, I create the concept of
-application specific GSO.
-
-To implement application layer GSO I reserved the top four bits of
-shinfo(skb)->gso_type. The idea is that an application or encapsulation
-protocol (like GTP in this case) can register a GSO segment callback.
-The facility returns a gso_type with upper four bits set to a value
-(index into a table). When the application sets up a packet it includes
-the code in the gso_type for the skb. At some point (e.g. from UDP
-segment) the gso_type is checked in the skb and if the application
-specific GSO is indicated then the callback is called. The
-registered callbacks include a set of other gso_types so that
-an application callback can be matched to an appropriate instance.
-FOr instance, the GTP callback checks for the UDP GSO flags.
-
-Zero UDP checksum, port number configuration, and dst_cache are
-straightforwad.
-
-Configuration is performed by iproute2/ip. I will post that
-in a subsequent patch set.
-
-Tested:
-
-Configured the matrix of IPv4/IPv6 mobile subscriber, IPv4/IPv6 remote
-peer, and GTP version 0 and 1 (eight combinations). Observed
-connectivity and proper GSO/GRO. Also, tested VXLAN for
-regression.
-
-Tom Herbert (14):
-  iptunnel: Add common functions to get a tunnel route
-  vxlan: Call common functions to get tunnel routes
-  gtp: Call common functions to get tunnel routes and add dst_cache
-  gtp: udp recv clean up
-  gtp: Remove special mtu handling
-  gtp: Eliminate pktinfo and add port configuration
-  gtp: Support encapsulation of IPv6 packets
-  gtp: Support encpasulating over IPv6
-  gtp: Allow configuring GTP interface as standalone
-  gtp: Add support for devnet
-  net: Add a facility to support application defined GSO
-  gtp: Configuration for zero UDP checksum
-  gtp: Support for GRO
-  gtp: GSO support
-
- drivers/net/gtp.c            | 1300 ++++++++++++++++++++++++++++++++----------
- drivers/net/vxlan.c          |   84 +--
- include/linux/netdevice.h    |   31 +
- include/linux/skbuff.h       |   25 +
- include/net/ip6_tunnel.h     |   33 ++
- include/net/ip_tunnels.h     |   33 ++
- include/uapi/linux/gtp.h     |    8 +
- include/uapi/linux/if_link.h |    6 +
- net/core/dev.c               |   47 ++
- net/ipv4/ip_tunnel.c         |   41 ++
- net/ipv4/ip_tunnel_core.c    |    6 +
- net/ipv4/udp_offload.c       |   20 +-
- net/ipv6/ip6_tunnel.c        |   43 ++
- 13 files changed, 1306 insertions(+), 371 deletions(-)
-
+diff --git a/include/net/ip6_tunnel.h b/include/net/ip6_tunnel.h
+index 08fbc7f7d8d7..233097bf07a2 100644
+--- a/include/net/ip6_tunnel.h
++++ b/include/net/ip6_tunnel.h
+@@ -142,6 +142,39 @@ __u32 ip6_tnl_get_cap(struct ip6_tnl *t, const struct in6_addr *laddr,
+ struct net *ip6_tnl_get_link_net(const struct net_device *dev);
+ int ip6_tnl_get_iflink(const struct net_device *dev);
+ int ip6_tnl_change_mtu(struct net_device *dev, int new_mtu);
++struct dst_entry *__ip6_tnl_get_route(struct net_device *dev,
++				      struct sk_buff *skb, struct sock *sk,
++				      u8 proto, int oif, u8 tos, __be32 label,
++				      const struct in6_addr *daddr,
++				      struct in6_addr *saddr,
++				      __be16 dport, __be16 sport,
++				      struct dst_cache *dst_cache,
++				      const struct ip_tunnel_info *info,
++				      bool use_cache);
++
++static inline struct dst_entry *ip6_tnl_get_route(struct net_device *dev,
++			struct sk_buff *skb, struct sock *sk, u8 proto,
++			int oif, u8 tos, __be32 label,
++			const struct in6_addr *daddr,
++			struct in6_addr *saddr,
++			__be16 dport, __be16 sport,
++			struct dst_cache *dst_cache,
++			const struct ip_tunnel_info *info)
++{
++	 bool use_cache = (ip_tunnel_dst_cache_usable(skb, info) &&
++		(!tos || info));
++
++	if (use_cache) {
++		struct dst_entry *ndst = dst_cache_get_ip6(dst_cache, saddr);
++
++		if (ndst)
++			return ndst;
++	}
++
++	return __ip6_tnl_get_route(dev, skb, sk, proto, oif, tos, label,
++				   daddr, saddr, dport, sport, dst_cache,
++				   info, use_cache);
++}
+ 
+ static inline void ip6tunnel_xmit(struct sock *sk, struct sk_buff *skb,
+ 				  struct net_device *dev)
+diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
+index 992652856fe8..91d5150a1044 100644
+--- a/include/net/ip_tunnels.h
++++ b/include/net/ip_tunnels.h
+@@ -284,6 +284,39 @@ int ip_tunnel_newlink(struct net_device *dev, struct nlattr *tb[],
+ 		      struct ip_tunnel_parm *p, __u32 fwmark);
+ void ip_tunnel_setup(struct net_device *dev, unsigned int net_id);
+ 
++struct rtable *__ip_tunnel_get_route(struct net_device *dev,
++				     struct sk_buff *skb, u8 proto,
++				     int oif, u8 tos,
++				     __be32 daddr, __be32 *saddr,
++				     __be16 dport, __be16 sport,
++				     struct dst_cache *dst_cache,
++				     const struct ip_tunnel_info *info,
++				     bool use_cache);
++
++static inline struct rtable *ip_tunnel_get_route(struct net_device *dev,
++				     struct sk_buff *skb, u8 proto,
++				     int oif, u8 tos,
++				     __be32 daddr, __be32 *saddr,
++				     __be16 dport, __be16 sport,
++				     struct dst_cache *dst_cache,
++				     const struct ip_tunnel_info *info)
++{
++	bool use_cache = (ip_tunnel_dst_cache_usable(skb, info) &&
++		(!tos || info));
++
++	if (use_cache) {
++		struct rtable *rt;
++
++		rt = dst_cache_get_ip4(dst_cache, saddr);
++		if (rt)
++			return rt;
++	}
++
++	return __ip_tunnel_get_route(dev, skb, proto, oif, tos,
++				     daddr, saddr, dport, sport,
++				     dst_cache, info, use_cache);
++}
++
+ struct ip_tunnel_encap_ops {
+ 	size_t (*encap_hlen)(struct ip_tunnel_encap *e);
+ 	int (*build_header)(struct sk_buff *skb, struct ip_tunnel_encap *e,
+diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
+index e9805ad664ac..f0f35333febd 100644
+--- a/net/ipv4/ip_tunnel.c
++++ b/net/ipv4/ip_tunnel.c
+@@ -935,6 +935,47 @@ int ip_tunnel_ioctl(struct net_device *dev, struct ip_tunnel_parm *p, int cmd)
+ }
+ EXPORT_SYMBOL_GPL(ip_tunnel_ioctl);
+ 
++struct rtable *__ip_tunnel_get_route(struct net_device *dev,
++				     struct sk_buff *skb, u8 proto,
++				    int oif, u8 tos,
++				     __be32 daddr, __be32 *saddr,
++				     __be16 dport, __be16 sport,
++				     struct dst_cache *dst_cache,
++				     const struct ip_tunnel_info *info,
++				     bool use_cache)
++{
++	struct rtable *rt = NULL;
++	struct flowi4 fl4;
++
++	memset(&fl4, 0, sizeof(fl4));
++	fl4.flowi4_oif = oif;
++	fl4.flowi4_tos = RT_TOS(tos);
++	fl4.flowi4_mark = skb->mark;
++	fl4.flowi4_proto = proto;
++	fl4.daddr = daddr;
++	fl4.saddr = *saddr;
++	fl4.fl4_dport = dport;
++	fl4.fl4_sport = sport;
++
++	rt = ip_route_output_key(dev_net(dev), &fl4);
++	if (likely(!IS_ERR(rt))) {
++		if (rt->dst.dev == dev) {
++			netdev_dbg(dev, "circular route to %pI4\n", &daddr);
++			ip_rt_put(rt);
++			return ERR_PTR(-ELOOP);
++		}
++
++		*saddr = fl4.saddr;
++		if (use_cache)
++			dst_cache_set_ip4(dst_cache, &rt->dst, fl4.saddr);
++	} else {
++		netdev_dbg(dev, "no route to %pI4\n", &daddr);
++		return ERR_PTR(-ENETUNREACH);
++	}
++	return rt;
++}
++EXPORT_SYMBOL_GPL(__ip_tunnel_get_route);
++
+ int __ip_tunnel_change_mtu(struct net_device *dev, int new_mtu, bool strict)
+ {
+ 	struct ip_tunnel *tunnel = netdev_priv(dev);
+diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+index ae73164559d5..9a02b62c808b 100644
+--- a/net/ipv6/ip6_tunnel.c
++++ b/net/ipv6/ip6_tunnel.c
+@@ -1663,6 +1663,49 @@ ip6_tnl_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+ 	return err;
+ }
+ 
++struct dst_entry *__ip6_tnl_get_route(struct net_device *dev,
++				      struct sk_buff *skb, struct sock *sk,
++				      u8 proto, int oif, u8 tos, __be32 label,
++				      const struct in6_addr *daddr,
++				      struct in6_addr *saddr,
++				      __be16 dport, __be16 sport,
++				      struct dst_cache *dst_cache,
++				      const struct ip_tunnel_info *info,
++				      bool use_cache)
++{
++	struct dst_entry *ndst;
++	struct flowi6 fl6;
++	int err;
++
++	memset(&fl6, 0, sizeof(fl6));
++	fl6.flowi6_oif = oif;
++	fl6.daddr = *daddr;
++	fl6.saddr = *saddr;
++	fl6.flowlabel = ip6_make_flowinfo(RT_TOS(tos), label);
++	fl6.flowi6_mark = skb->mark;
++	fl6.flowi6_proto = proto;
++	fl6.fl6_dport = dport;
++	fl6.fl6_sport = sport;
++
++	err = ipv6_stub->ipv6_dst_lookup(dev_net(dev), sk, &ndst, &fl6);
++	if (unlikely(err < 0)) {
++		netdev_dbg(dev, "no route to %pI6\n", daddr);
++		return ERR_PTR(-ENETUNREACH);
++	}
++
++	if (unlikely(ndst->dev == dev)) {
++		netdev_dbg(dev, "circular route to %pI6\n", daddr);
++		dst_release(ndst);
++		return ERR_PTR(-ELOOP);
++	}
++
++	*saddr = fl6.saddr;
++	if (use_cache)
++		dst_cache_set_ip6(dst_cache, ndst, saddr);
++	return ndst;
++}
++EXPORT_SYMBOL_GPL(__ip6_tnl_get_route);
++
+ /**
+  * ip6_tnl_change_mtu - change mtu manually for tunnel device
+  *   @dev: virtual device associated with tunnel
 -- 
 2.11.0
