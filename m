@@ -1,106 +1,63 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v3 10/12] net: dsa: b53: Export b53_imp_vlan_setup()
-Date: Tue, 19 Sep 2017 10:46:52 -0700
-Message-ID: <20170919174654.2122-11-f.fainelli@gmail.com>
+Subject: [PATCH net-next v3 11/12] net: dsa: bcm_sf2: Use SF2_NUM_EGRESS_QUEUES for CFP
+Date: Tue, 19 Sep 2017 10:46:53 -0700
+Message-ID: <20170919174654.2122-12-f.fainelli@gmail.com>
 References: <20170919174654.2122-1-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, andrew@lunn.ch,
         vivien.didelot@savoirfairelinux.com,
         Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f194.google.com ([209.85.128.194]:38254 "EHLO
-        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751488AbdISRr3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 13:47:29 -0400
-Received: by mail-wr0-f194.google.com with SMTP id p37so178003wrb.5
-        for <netdev@vger.kernel.org>; Tue, 19 Sep 2017 10:47:28 -0700 (PDT)
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:33549 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751549AbdISRrb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 13:47:31 -0400
+Received: by mail-wm0-f67.google.com with SMTP id m127so325989wmm.0
+        for <netdev@vger.kernel.org>; Tue, 19 Sep 2017 10:47:30 -0700 (PDT)
 In-Reply-To: <20170919174654.2122-1-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-bcm_sf2 and b53 do exactly the same thing, so share that piece.
+The magic number 8 in 3 locations in bcm_sf2_cfp.c actually designates
+the number of switch port egress queues, so use that define instead of
+open-coding it.
 
 Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/dsa/b53/b53_common.c |  3 ++-
- drivers/net/dsa/b53/b53_priv.h   |  1 +
- drivers/net/dsa/bcm_sf2.c        | 23 +----------------------
- 3 files changed, 4 insertions(+), 23 deletions(-)
+ drivers/net/dsa/bcm_sf2_cfp.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/dsa/b53/b53_common.c b/drivers/net/dsa/b53/b53_common.c
-index 4e37ec27e496..c3f1cd2c33ea 100644
---- a/drivers/net/dsa/b53/b53_common.c
-+++ b/drivers/net/dsa/b53/b53_common.c
-@@ -484,7 +484,7 @@ static int b53_fast_age_vlan(struct b53_device *dev, u16 vid)
- 	return b53_flush_arl(dev, FAST_AGE_VLAN);
- }
+diff --git a/drivers/net/dsa/bcm_sf2_cfp.c b/drivers/net/dsa/bcm_sf2_cfp.c
+index 8a1da7e67707..94649e1481ec 100644
+--- a/drivers/net/dsa/bcm_sf2_cfp.c
++++ b/drivers/net/dsa/bcm_sf2_cfp.c
+@@ -144,7 +144,7 @@ static int bcm_sf2_cfp_rule_set(struct dsa_switch *ds, int port,
+ 	 * destination port is enabled and that we are within the
+ 	 * number of ports supported by the switch
+ 	 */
+-	port_num = fs->ring_cookie / 8;
++	port_num = fs->ring_cookie / SF2_NUM_EGRESS_QUEUES;
  
--static void b53_imp_vlan_setup(struct dsa_switch *ds, int cpu_port)
-+void b53_imp_vlan_setup(struct dsa_switch *ds, int cpu_port)
- {
- 	struct b53_device *dev = ds->priv;
- 	unsigned int i;
-@@ -500,6 +500,7 @@ static void b53_imp_vlan_setup(struct dsa_switch *ds, int cpu_port)
- 		b53_write16(dev, B53_PVLAN_PAGE, B53_PVLAN_PORT_MASK(i), pvlan);
- 	}
- }
-+EXPORT_SYMBOL(b53_imp_vlan_setup);
+ 	if (fs->ring_cookie == RX_CLS_FLOW_DISC ||
+ 	    !(BIT(port_num) & ds->enabled_port_mask) ||
+@@ -280,7 +280,7 @@ static int bcm_sf2_cfp_rule_set(struct dsa_switch *ds, int port,
+ 	 * We have a small oddity where Port 6 just does not have a
+ 	 * valid bit here (so we subtract by one).
+ 	 */
+-	queue_num = fs->ring_cookie % 8;
++	queue_num = fs->ring_cookie % SF2_NUM_EGRESS_QUEUES;
+ 	if (port_num >= 7)
+ 		port_num -= 1;
  
- static int b53_enable_port(struct dsa_switch *ds, int port,
- 			   struct phy_device *phy)
-diff --git a/drivers/net/dsa/b53/b53_priv.h b/drivers/net/dsa/b53/b53_priv.h
-index aabe80eab25d..8f4f83e2e4bd 100644
---- a/drivers/net/dsa/b53/b53_priv.h
-+++ b/drivers/net/dsa/b53/b53_priv.h
-@@ -284,6 +284,7 @@ static inline int b53_switch_get_reset_gpio(struct b53_device *dev)
- #endif
+@@ -401,7 +401,7 @@ static int bcm_sf2_cfp_rule_get(struct bcm_sf2_priv *priv, int port,
+ 	/* There is no Port 6, so we compensate for that here */
+ 	if (nfc->fs.ring_cookie >= 6)
+ 		nfc->fs.ring_cookie++;
+-	nfc->fs.ring_cookie *= 8;
++	nfc->fs.ring_cookie *= SF2_NUM_EGRESS_QUEUES;
  
- /* Exported functions towards other drivers */
-+void b53_imp_vlan_setup(struct dsa_switch *ds, int cpu_port);
- void b53_get_strings(struct dsa_switch *ds, int port, uint8_t *data);
- void b53_get_ethtool_stats(struct dsa_switch *ds, int port, uint64_t *data);
- int b53_get_sset_count(struct dsa_switch *ds);
-diff --git a/drivers/net/dsa/bcm_sf2.c b/drivers/net/dsa/bcm_sf2.c
-index 4e8ef4c07eab..08639674947a 100644
---- a/drivers/net/dsa/bcm_sf2.c
-+++ b/drivers/net/dsa/bcm_sf2.c
-@@ -40,27 +40,6 @@ static enum dsa_tag_protocol bcm_sf2_sw_get_tag_protocol(struct dsa_switch *ds)
- 	return DSA_TAG_PROTO_BRCM;
- }
- 
--static void bcm_sf2_imp_vlan_setup(struct dsa_switch *ds, int cpu_port)
--{
--	struct bcm_sf2_priv *priv = bcm_sf2_to_priv(ds);
--	unsigned int i;
--	u32 reg;
--
--	/* Enable the IMP Port to be in the same VLAN as the other ports
--	 * on a per-port basis such that we only have Port i and IMP in
--	 * the same VLAN.
--	 */
--	for (i = 0; i < priv->hw_params.num_ports; i++) {
--		if (!((1 << i) & ds->enabled_port_mask))
--			continue;
--
--		reg = core_readl(priv, CORE_PORT_VLAN_CTL_PORT(i));
--		reg |= (1 << cpu_port);
--		core_writel(priv, reg, CORE_PORT_VLAN_CTL_PORT(i));
--	}
--}
--
--
- static void bcm_sf2_imp_setup(struct dsa_switch *ds, int port)
- {
- 	struct bcm_sf2_priv *priv = bcm_sf2_to_priv(ds);
-@@ -240,7 +219,7 @@ static int bcm_sf2_port_setup(struct dsa_switch *ds, int port,
- 	reg |= priv->dev->ports[port].vlan_ctl_mask;
- 	core_writel(priv, reg, CORE_PORT_VLAN_CTL_PORT(port));
- 
--	bcm_sf2_imp_vlan_setup(ds, cpu_port);
-+	b53_imp_vlan_setup(ds, cpu_port);
- 
- 	/* If EEE was enabled, restore it */
- 	if (priv->dev->ports[port].eee.eee_enabled)
+ 	/* Extract the destination queue */
+ 	queue_num = (reg >> NEW_TC_SHIFT) & NEW_TC_MASK;
 -- 
 2.9.3
