@@ -1,65 +1,97 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 05/13] mlxsw: reg: Rename the flexible action set length field
-Date: Tue, 19 Sep 2017 10:00:12 +0200
-Message-ID: <20170919080020.5870-6-jiri@resnulli.us>
-References: <20170919080020.5870-1-jiri@resnulli.us>
-Cc: davem@davemloft.net, yotamg@mellanox.com, idosch@mellanox.com,
-        mlxsw@mellanox.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f195.google.com ([209.85.128.195]:37473 "EHLO
-        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751589AbdISIA1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 04:00:27 -0400
-Received: by mail-wr0-f195.google.com with SMTP id u48so1708369wrf.4
-        for <netdev@vger.kernel.org>; Tue, 19 Sep 2017 01:00:27 -0700 (PDT)
-In-Reply-To: <20170919080020.5870-1-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Egil Hjelmeland <privat@egil-hjelmeland.no>
+Subject: [PATCH net-next] net: dsa: lan9303: Add adjust_link() method
+Date: Tue, 19 Sep 2017 10:09:24 +0200
+Message-ID: <20170919080924.11144-1-privat@egil-hjelmeland.no>
+Cc: Egil Hjelmeland <privat@egil-hjelmeland.no>
+To: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
+        f.fainelli@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Yotam Gigi <yotamg@mellanox.com>
+Make the driver react to device tree "fixed-link" declaration on CPU port.
 
-The MLXSW_REG_PXXX_FLEX_ACTION_SET_LEN is relevant for the multicast router
-registers too, so rename it to have a general name which is not bound to a
-specific register.
+- turn off autonegotiation
+- force speed 10 or 100 mb/s
+- force duplex mode
 
-Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
-Reviewed-by: Ido Schimmel <idosch@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Signed-off-by: Egil Hjelmeland <privat@egil-hjelmeland.no>
 ---
- drivers/net/ethernet/mellanox/mlxsw/reg.h | 7 +++----
- 1 file changed, 3 insertions(+), 4 deletions(-)
+ drivers/net/dsa/lan9303-core.c | 40 ++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 40 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-index cc27c5d..fb8ab44 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-@@ -2142,15 +2142,14 @@ MLXSW_REG_DEFINE(pefa, MLXSW_REG_PEFA_ID, MLXSW_REG_PEFA_LEN);
-  */
- MLXSW_ITEM32(reg, pefa, index, 0x00, 0, 24);
+diff --git a/drivers/net/dsa/lan9303-core.c b/drivers/net/dsa/lan9303-core.c
+index b471413d3df9..07355db2ad81 100644
+--- a/drivers/net/dsa/lan9303-core.c
++++ b/drivers/net/dsa/lan9303-core.c
+@@ -17,6 +17,7 @@
+ #include <linux/regmap.h>
+ #include <linux/mutex.h>
+ #include <linux/mii.h>
++#include <linux/phy.h>
  
--#define MLXSW_REG_PXXX_FLEX_ACTION_SET_LEN 0xA8
-+#define MLXSW_REG_FLEX_ACTION_SET_LEN 0xA8
+ #include "lan9303.h"
  
- /* reg_pefa_flex_action_set
-  * Action-set to perform when rule is matched.
-  * Must be zero padded if action set is shorter.
-  * Access: RW
-  */
--MLXSW_ITEM_BUF(reg, pefa, flex_action_set, 0x08,
--	       MLXSW_REG_PXXX_FLEX_ACTION_SET_LEN);
-+MLXSW_ITEM_BUF(reg, pefa, flex_action_set, 0x08, MLXSW_REG_FLEX_ACTION_SET_LEN);
+@@ -57,6 +58,7 @@
+ #define LAN9303_SWITCH_CSR_CMD_LANES (BIT(19) | BIT(18) | BIT(17) | BIT(16))
+ #define LAN9303_VIRT_PHY_BASE 0x70
+ #define LAN9303_VIRT_SPECIAL_CTRL 0x77
++#define  LAN9303_VIRT_SPECIAL_TURBO BIT(10) /*Turbo MII Enable*/
  
- static inline void mlxsw_reg_pefa_pack(char *payload, u32 index,
- 				       const char *flex_action_set)
-@@ -2243,7 +2242,7 @@ MLXSW_ITEM_BUF(reg, ptce2, mask, 0x80,
-  * Access: RW
-  */
- MLXSW_ITEM_BUF(reg, ptce2, flex_action_set, 0xE0,
--	       MLXSW_REG_PXXX_FLEX_ACTION_SET_LEN);
-+	       MLXSW_REG_FLEX_ACTION_SET_LEN);
+ /*13.4 Switch Fabric Control and Status Registers
+  * Accessed indirectly via SWITCH_CSR_CMD, SWITCH_CSR_DATA.
+@@ -760,6 +762,43 @@ static int lan9303_phy_write(struct dsa_switch *ds, int phy, int regnum,
+ 	return chip->ops->phy_write(chip, phy, regnum, val);
+ }
  
- static inline void mlxsw_reg_ptce2_pack(char *payload, bool valid,
- 					enum mlxsw_reg_ptce2_op op,
++static void lan9303_adjust_link(struct dsa_switch *ds, int port,
++				struct phy_device *phydev)
++{
++	struct lan9303 *chip = ds->priv;
++	int ctl, res;
++
++	if (!phy_is_pseudo_fixed_link(phydev))
++		return;
++
++	ctl = lan9303_phy_read(ds, port, MII_BMCR);
++
++	ctl &= ~BMCR_ANENABLE;
++
++	if (phydev->speed == SPEED_100)
++		ctl |= BMCR_SPEED100;
++	else if (phydev->speed == SPEED_10)
++		ctl &= ~BMCR_SPEED100;
++	else
++		dev_err(ds->dev, "unsupported speed: %d\n", phydev->speed);
++
++	if (phydev->duplex == DUPLEX_FULL)
++		ctl |= BMCR_FULLDPLX;
++	else
++		ctl &= ~BMCR_FULLDPLX;
++
++	res =  lan9303_phy_write(ds, port, MII_BMCR, ctl);
++
++	if (port == chip->phy_addr_sel_strap) {
++		/* Virtual Phy: Remove Turbo 200Mbit mode */
++		lan9303_read(chip->regmap, LAN9303_VIRT_SPECIAL_CTRL, &ctl);
++
++		ctl &= ~LAN9303_VIRT_SPECIAL_TURBO;
++		res =  regmap_write(chip->regmap,
++				    LAN9303_VIRT_SPECIAL_CTRL, ctl);
++	}
++}
++
+ static int lan9303_port_enable(struct dsa_switch *ds, int port,
+ 			       struct phy_device *phy)
+ {
+@@ -803,6 +842,7 @@ static const struct dsa_switch_ops lan9303_switch_ops = {
+ 	.get_strings = lan9303_get_strings,
+ 	.phy_read = lan9303_phy_read,
+ 	.phy_write = lan9303_phy_write,
++	.adjust_link = lan9303_adjust_link,
+ 	.get_ethtool_stats = lan9303_get_ethtool_stats,
+ 	.get_sset_count = lan9303_get_sset_count,
+ 	.port_enable = lan9303_port_enable,
 -- 
-2.9.5
+2.11.0
