@@ -1,35 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net_sched: no need to free qdisc in RCU
- callback
-Date: Tue, 19 Sep 2017 16:30:18 -0700 (PDT)
-Message-ID: <20170919.163018.687882531516614878.davem@davemloft.net>
-References: <20170919201542.14890-1-xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH v2 net-next 0/7] net: speedup netns create/delete time
+Date: Tue, 19 Sep 2017 16:32:53 -0700 (PDT)
+Message-ID: <20170919.163253.740450667943070639.davem@davemloft.net>
+References: <20170919232709.14690-1-edumazet@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com, edumazet@google.com
-To: xiyou.wangcong@gmail.com
+Cc: netdev@vger.kernel.org, ebiederm@xmission.com,
+        eric.dumazet@gmail.com
+To: edumazet@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:50960 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:51110 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751074AbdISXaT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 19:30:19 -0400
-In-Reply-To: <20170919201542.14890-1-xiyou.wangcong@gmail.com>
+        with ESMTP id S1751309AbdISXcy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 19:32:54 -0400
+In-Reply-To: <20170919232709.14690-1-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Tue, 19 Sep 2017 13:15:42 -0700
+From: Eric Dumazet <edumazet@google.com>
+Date: Tue, 19 Sep 2017 16:27:02 -0700
 
-> gen estimator has been rewritten in commit 1c0d32fde5bd
-> ("net_sched: gen_estimator: complete rewrite of rate estimators"),
-> the caller no longer needs to wait for a grace period. So this
-> patch gets rid of it.
+> When rate of netns creation/deletion is high enough,
+> we observe softlockups in cleanup_net() caused by huge list
+> of netns and way too many rcu_barrier() calls.
 > 
-> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-> Cc: Eric Dumazet <edumazet@google.com>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> This patch series does some optimizations in kobject,
+> and add batching to tunnels so that netns dismantles are
+> less costly.
+ ...
 
-Nice.
-
-Applied, thanks.
+Series applied, thanks Eric.
