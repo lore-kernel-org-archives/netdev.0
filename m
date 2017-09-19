@@ -1,53 +1,75 @@
-From: josef@toxicpanda.com
-Subject: [PATCH 2/3][v2] selftests: actually run the various net selftests
-Date: Tue, 19 Sep 2017 09:51:27 -0400
-Message-ID: <1505829088-1823-2-git-send-email-jbacik@fb.com>
-References: <1505829088-1823-1-git-send-email-jbacik@fb.com>
-Cc: Josef Bacik <jbacik@fb.com>
-To: shuah@kernel.org, davem@davemloft.net, netdev@vger.kernel.org,
-        linux-kselftest@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: software interrupts close to 100 with 9000 tc filter entries
+Date: Tue, 19 Sep 2017 07:01:53 -0700
+Message-ID: <1505829713.29839.57.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1627070802.486441.1505827738125@mail.libero.it>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Marco Berizzi <pupilla@libero.it>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f195.google.com ([209.85.220.195]:37837 "EHLO
-        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751341AbdISNvc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 09:51:32 -0400
-Received: by mail-qk0-f195.google.com with SMTP id r66so2269125qke.4
-        for <netdev@vger.kernel.org>; Tue, 19 Sep 2017 06:51:31 -0700 (PDT)
-In-Reply-To: <1505829088-1823-1-git-send-email-jbacik@fb.com>
+Received: from mail-pg0-f47.google.com ([74.125.83.47]:53240 "EHLO
+        mail-pg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751263AbdISOBz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 10:01:55 -0400
+Received: by mail-pg0-f47.google.com with SMTP id i195so2043724pgd.9
+        for <netdev@vger.kernel.org>; Tue, 19 Sep 2017 07:01:54 -0700 (PDT)
+In-Reply-To: <1627070802.486441.1505827738125@mail.libero.it>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Josef Bacik <jbacik@fb.com>
+On Tue, 2017-09-19 at 15:28 +0200, Marco Berizzi wrote:
+> Hi Folks,
+> 
+> I'm running linux 4.12.10 x86_64 on a Slackware 14.2 64bit
+> as a simple 4 NIC router. Network throughput processed by
+> this machine is less than 200Mbit/s
+> The cpu model is Intel(R) Xeon(R) CPU 5160  @ 3.00GHz with
+> 2GB ram.
+> 
+> I need to blacklist about 9000 single ip addresses.
+> This is the relevant script to blacklist these ip addresses:
+> 
+> tc qdisc add dev eth0 ingress
+> tc qdisc add dev eth1 ingress
+> 
+> while read -r line
+> do
+>     tc filter add dev eth0 parent ffff: protocol ip prio 50 u32 match ip src $line action drop
+>     tc filter add dev eth1 parent ffff: protocol ip prio 50 u32 match ip src $line action drop
+> done < blacklisted_ip_addresses
+> 
+> After loading these ip addresses, the si (software interrupts)
+> number shown by top is always close to 100
+> If I delete the ingress qdisc on both the device, the si
+> fall down to less than 5
+> 
+> Running the same script with 'only' 700 ip addresses is
+> flawless.
+> 
+> Kindly I would like to ask if am I doing anything in
+> a wrong way or if the hardware is too old for this kind
+> of setup.
+> 
+> I have selected the tc filter setup instead of netfilter
+> one, because I was reading this from iproute2/doc/actions:
+> 
+> A side effect is that we can now get stateless firewalling to work with tc..
+> Essentially this is now an alternative to iptables.
+> I wont go into details of my dislike for iptables at times, but.
+> scalability is one of the main issues; however, if you need stateful
+> classification - use netfilter (for now).
+> 
+> Any response are welcome
+> TIA
 
-These self tests are just self contained binaries, they are not run by
-any of the scripts in the directory.  This means they need to be marked
-with TEST_GEN_PROGS to actually be run, not TEST_GEN_FILES.
 
-Signed-off-by: Josef Bacik <jbacik@fb.com>
----
-v1->v2:
-- Moved msg_zerocopy to TEST_GEN_FILES since it's not runnable in it's current
-  state
+Processing a list of 700 rules per incoming packet is not wise.
 
- tools/testing/selftests/net/Makefile | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+Alternatives :
 
-diff --git a/tools/testing/selftests/net/Makefile b/tools/testing/selftests/net/Makefile
-index 3df542c84610..d86bca991f45 100644
---- a/tools/testing/selftests/net/Makefile
-+++ b/tools/testing/selftests/net/Makefile
-@@ -5,9 +5,9 @@ CFLAGS += -I../../../../usr/include/
- 
- TEST_PROGS := run_netsocktests run_afpackettests test_bpf.sh netdevice.sh rtnetlink.sh
- TEST_GEN_FILES =  socket
--TEST_GEN_FILES += psock_fanout psock_tpacket
--TEST_GEN_FILES += reuseport_bpf reuseport_bpf_cpu reuseport_bpf_numa
--TEST_GEN_FILES += reuseport_dualstack msg_zerocopy reuseaddr_conflict
-+TEST_GEN_FILES += psock_fanout psock_tpacket msg_zerocopy
-+TEST_GEN_PROGS = reuseport_bpf reuseport_bpf_cpu reuseport_bpf_numa
-+TEST_GEN_PROGS += reuseport_dualstack reuseaddr_conflict
- 
- include ../lib.mk
- 
--- 
-2.7.4
+- netfilter with IPSET : This probably can be done with one lookup in a
+table. Probably easiest way to setup.
+
+- BPF filter  (XDP or TC )
