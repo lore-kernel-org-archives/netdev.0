@@ -1,53 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3] Implement delete for BPF LPM trie
-Date: Tue, 19 Sep 2017 14:29:35 -0700 (PDT)
-Message-ID: <20170919.142935.72220924483937276.davem@davemloft.net>
-References: <20170919.135530.717500199880384307.davem@davemloft.net>
-        <94373907-6cf5-22af-54e6-7625f31447e0@zonque.org>
-        <CAEfhGiybHecYsJ+3eXMFfohh_Jp_yyDfr8ZkydGaQyZJbVQXwA@mail.gmail.com>
+From: Shuah Khan <shuah@kernel.org>
+Subject: Re: [PATCH 1/3][v2] selftest: add a reuseaddr test
+Date: Tue, 19 Sep 2017 15:30:41 -0600
+Message-ID: <9e65d527-a826-815a-d0d8-9ce27cc7c66a@kernel.org>
+References: <1505829088-1823-1-git-send-email-jbacik@fb.com>
+Reply-To: shuah@kernel.org
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: daniel@zonque.org, ast@fb.com, daniel@iogearbox.net,
-        netdev@vger.kernel.org
-To: kraigatgoog@gmail.com
+Cc: Josef Bacik <jbacik@fb.com>, Shuah Khan <shuahkh@osg.samsung.com>,
+        Shuah Khan <shuah@kernel.org>
+To: josef@toxicpanda.com, davem@davemloft.net, netdev@vger.kernel.org,
+        linux-kselftest@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:46112 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751309AbdISV3h (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 17:29:37 -0400
-In-Reply-To: <CAEfhGiybHecYsJ+3eXMFfohh_Jp_yyDfr8ZkydGaQyZJbVQXwA@mail.gmail.com>
+Received: from mailout.easymail.ca ([64.68.200.34]:46631 "EHLO
+        mailout.easymail.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751309AbdISVax (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 17:30:53 -0400
+In-Reply-To: <1505829088-1823-1-git-send-email-jbacik@fb.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Craig Gallek <kraigatgoog@gmail.com>
-Date: Tue, 19 Sep 2017 17:16:13 -0400
-
-> On Tue, Sep 19, 2017 at 5:13 PM, Daniel Mack <daniel@zonque.org> wrote:
->> On 09/19/2017 10:55 PM, David Miller wrote:
->>> From: Craig Gallek <kraigatgoog@gmail.com>
->>> Date: Mon, 18 Sep 2017 15:30:54 -0400
->>>
->>>> This was previously left as a TODO.  Add the implementation and
->>>> extend the test to cover it.
->>>
->>> Series applied, thanks.
->>>
->>
->> Hmm, I think these patches need some more discussion regarding the IM
->> nodes handling, see the reply I sent an hour ago. Could you wait for
->> that before pushing your tree?
+On 09/19/2017 07:51 AM, josef@toxicpanda.com wrote:
+> From: Josef Bacik <jbacik@fb.com>
 > 
-> I can follow up with a patch to implement your suggestion.  It's
-> really just an efficiency improvement, though, so I think it's ok to
-> handle independently. (Sorry, I haven't had a chance to play with the
-> implementation details yet).
+> This is to test for a regression introduced by
+> 
+> b9470c27607b ("inet: kill smallest_size and smallest_port")
+> 
+> which introduced a problem with reuseaddr and bind conflicts.
+> 
+> Signed-off-by: Josef Bacik <jbacik@fb.com>
 
-Sorry, I thought the core implementation had been agreed upon and the
-series was OK.  All that was asked for were simplifications and/or
-optimization which could be done via follow-up patches.
+I usually don't sent new tests however, since it is a test for a
+regression, applied to linux-kselftest fixes for 4.14-rc2
 
-It's already pushed out to my tree, so I would need to do a real
-revert.
-
-I hope that won't be necessary.
+thanks,
+-- Shuah
