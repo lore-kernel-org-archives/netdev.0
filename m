@@ -1,46 +1,98 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next 05/12] net: dsa: b53: Use a macro to define I/O
- operations
-Date: Tue, 19 Sep 2017 16:14:23 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD007A2E6@AcuExch.aculab.com>
-References: <20170918214128.27896-1-f.fainelli@gmail.com>
- <20170918214128.27896-6-f.fainelli@gmail.com>
- <063D6719AE5E284EB5DD2968C1650D6DD007A003@AcuExch.aculab.com>
- <87tvzy93ew.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
- <12153E6A-CB96-4EED-91CE-05604B640927@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-        "andrew@lunn.ch" <andrew@lunn.ch>
-To: 'Florian Fainelli' <f.fainelli@gmail.com>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.194]:56029 "EHLO
-        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750972AbdISQOd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 12:14:33 -0400
-In-Reply-To: <12153E6A-CB96-4EED-91CE-05604B640927@gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Douglas Anderson <dianders@chromium.org>
+Subject: [RFC PATCH 1/3] usbnet: Get rid of spammy usbnet "kevent X may have been dropped"
+Date: Tue, 19 Sep 2017 09:15:20 -0700
+Message-ID: <20170919161522.995-1-dianders@chromium.org>
+Cc: groeck@chromium.org, grundler@chromium.org,
+        Douglas Anderson <dianders@chromium.org>,
+        netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Oliver Neukum <oneukum@suse.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-PiA+Pj4gKyNkZWZpbmUgYjUzX2J1aWxkX29wKHR5cGUsIG9wX3NpemUsIHZhbF90eXBlKQlcDQo+
-ID4+PiArc3RhdGljIGlubGluZSBpbnQgYjUzXyMjdHlwZSMjb3Bfc2l6ZShzdHJ1Y3QgYjUzX2Rl
-dmljZSAqZGV2LCB1OA0KPiA+cGFnZSwJCVwNCj4gPj4+ICsJCQkJICAgICAgdTggcmVnLCB2YWxf
-dHlwZSB2YWwpCQkJXA0KPiA+Pj4gK3sJCQkJCQkJCQkJXA0KPiA+Pj4gKwlpbnQgcmV0OwkJCQkJ
-CQkJXA0KPiA+Pj4gKwkJCQkJCQkJCQlcDQo+ID4+PiArCW11dGV4X2xvY2soJmRldi0+cmVnX211
-dGV4KTsJCQkJCQlcDQo+ID4+PiArCXJldCA9IGRldi0+b3BzLT50eXBlIyNvcF9zaXplKGRldiwg
-cGFnZSwgcmVnLCB2YWwpOwkJCVwNCj4gPj4+ICsJbXV0ZXhfdW5sb2NrKCZkZXYtPnJlZ19tdXRl
-eCk7CQkJCQkJXA0KPiA+Pj4gKwkJCQkJCQkJCQlcDQo+ID4+PiArCXJldHVybiByZXQ7CQkJCQkJ
-CQlcDQo+ID4+PiAgfQ0KPiA+Pg0KPiA+PiBXaHkgc2VwYXJhdGUgdGhlICd0eXBlJyBhbmQgJ29w
-X3NpemUnIGFyZ3VtZW50cyBzaW5jZSB0aGV5DQo+ID4+IGFyZSBhbHdheXMgcGFzdGVkIHRvZ2V0
-aGVyPw0KPiA+DQo+ID5Gb3IgcmVhZC93cml0ZTQ4LCB0aGUgdmFsdWUgdHlwZSBpcyB1NjQuDQo+
-IA0KPiBUaGUgd2F5IEkgcmVhZCBEYXZpZCdzIGNvbW1lbnQgaXMgdGhhdCBpbnN0ZWFkIG9mIGNh
-bGxpbmcgdGhlIG1hY3JvIHdpdGggcmVhZCwgNDgsIGp1c3QgY29tYmluZSB0aGF0DQo+IGluIGEg
-c2luZ2xlIGFyZ3VtZW50OiByZWFkNDguIEkgZG9uJ3QgaGF2ZSBhIHByZWZlcmVuY2UgYWJvdXQg
-dGhhdCBhbmQgY2FuIHJlc3BpbiBldmVudHVhbGx5Lg0KDQpJbmRlZWQsIGZhY3RvcmluZyBpbiB0
-aGUgdHlwZSBpcyBoYXJkZXIgYmVjYXVzZSByZWFkcyB3YW50ICd1NjQgKicgbm90ICd1NjQnLg0K
-V2hpbGUgdGhhdCBjb3VsZCBiZSBmYWN0b3JlZCwgaXQgd291bGQgdGFrZSBtb3JlIHNvdXJjZSBs
-aW5lcyBhbmQgbWFrZQ0KdGhpbmdzIHZlcnkgb2JmdXNjYXRlZC4NCg0KCURhdmlkDQoNCg==
+Every once in a while when my system is under a bit of stress I see
+some spammy messages show up in my logs that say:
+
+  kevent X may have been dropped
+
+As far as I can tell these messages aren't terribly useful.  The
+comments around the messages make me think that either workqueues used
+to work differently or that the original author of the code missed a
+sublety related to them.  The error message appears to predate the git
+conversion of the kernel so it's somewhat hard to tell.
+
+Specifically, workqueues should work like this:
+
+A) If a workqueue hasn't been scheduled then schedule_work() schedules
+   it and returns true.
+
+B) If a workqueue has been scheduled (but hasn't started) then
+   schedule_work() will do nothing and return false.
+
+C) If a workqueue has been scheduled (and has started) then
+   schedule_work() will put it on the queue to run again and return
+   true.
+
+Said another way: if you call schedule_work() you can guarantee that
+at least one full runthrough of the work will happen again.  That
+should mean that the work will get processed and I don't see any
+reason to think something should be dropped.
+
+Reading the comments in in usbnet_defer_kevent() made me think that B)
+and C) would be treated the same.  That is: even if we've started the
+work and are 99% of the way through then schedule_work() would return
+false and the work wouldn't be queued again.  If schedule_work()
+really did behave that way then, truly, some amount of work would be
+lost.  ...but it doesn't.
+
+NOTE: if somehow these warnings are useful to mean something then
+perhaps we should change them to make it more obvious.  If it's
+interesting to know when the work is backlogged then we should change
+the spam to say "warning: usbnet is backlogged".
+
+ALSO NOTE: If somehow some of the types of work need to be repeated if
+usbnet_defer_kevent() is called multiple times then that should be
+quite easy to accomplish without dropping any work on the floor.  We
+can just keep an atomic count for that type of work and add a loop
+into usbnet_deferred_kevent().
+
+Signed-off-by: Douglas Anderson <dianders@chromium.org>
+---
+
+ drivers/net/usb/usbnet.c | 16 +++++++---------
+ 1 file changed, 7 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+index 6510e5cc1817..a3e8dbaadcf9 100644
+--- a/drivers/net/usb/usbnet.c
++++ b/drivers/net/usb/usbnet.c
+@@ -450,19 +450,17 @@ static enum skb_state defer_bh(struct usbnet *dev, struct sk_buff *skb,
+ }
+ 
+ /* some work can't be done in tasklets, so we use keventd
+- *
+- * NOTE:  annoying asymmetry:  if it's active, schedule_work() fails,
+- * but tasklet_schedule() doesn't.  hope the failure is rare.
+  */
+ void usbnet_defer_kevent (struct usbnet *dev, int work)
+ {
+ 	set_bit (work, &dev->flags);
+-	if (!schedule_work (&dev->kevent)) {
+-		if (net_ratelimit())
+-			netdev_err(dev->net, "kevent %d may have been dropped\n", work);
+-	} else {
+-		netdev_dbg(dev->net, "kevent %d scheduled\n", work);
+-	}
++
++	/* If work is already started this will mark it to run again when it
++	 * finishes; if we already had work pending and it hadn't started
++	 * yet then that's fine too.
++	 */
++	schedule_work (&dev->kevent);
++	netdev_dbg(dev->net, "kevent %d scheduled\n", work);
+ }
+ EXPORT_SYMBOL_GPL(usbnet_defer_kevent);
+ 
+-- 
+2.14.1.690.gbb1197296e-goog
