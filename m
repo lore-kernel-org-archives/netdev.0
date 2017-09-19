@@ -1,98 +1,173 @@
 From: Douglas Anderson <dianders@chromium.org>
-Subject: [RFC PATCH 1/3] usbnet: Get rid of spammy usbnet "kevent X may have been dropped"
-Date: Tue, 19 Sep 2017 09:15:20 -0700
-Message-ID: <20170919161522.995-1-dianders@chromium.org>
+Subject: [RFC PATCH 2/3] usbnet: Avoid potential races in usbnet_deferred_kevent()
+Date: Tue, 19 Sep 2017 09:15:21 -0700
+Message-ID: <20170919161522.995-2-dianders@chromium.org>
+References: <20170919161522.995-1-dianders@chromium.org>
 Cc: groeck@chromium.org, grundler@chromium.org,
         Douglas Anderson <dianders@chromium.org>,
         netdev@vger.kernel.org, linux-usb@vger.kernel.org,
         linux-kernel@vger.kernel.org
 To: Oliver Neukum <oneukum@suse.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170919161522.995-1-dianders@chromium.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Every once in a while when my system is under a bit of stress I see
-some spammy messages show up in my logs that say:
+In general when you've got a flag communicating that "something needs
+to be done" you want to clear that flag _before_ doing the task.  If
+you clear the flag _after_ doing the task you end up with the risk
+that this will happen:
 
-  kevent X may have been dropped
+1. Requester sets flag saying task A needs to be done.
+2. Worker comes and stars doing task A.
+3. Worker finishes task A but hasn't yet cleared the flag.
+4. Requester wants to set flag saying task A needs to be done again.
+5. Worker clears the flag without doing anything.
 
-As far as I can tell these messages aren't terribly useful.  The
-comments around the messages make me think that either workqueues used
-to work differently or that the original author of the code missed a
-sublety related to them.  The error message appears to predate the git
-conversion of the kernel so it's somewhat hard to tell.
+Let's make the usbnet codebase consistently clear the flag _before_ it
+does the requested work.  That way if there's another request to do
+the work while the work is already in progress it won't be lost.
 
-Specifically, workqueues should work like this:
-
-A) If a workqueue hasn't been scheduled then schedule_work() schedules
-   it and returns true.
-
-B) If a workqueue has been scheduled (but hasn't started) then
-   schedule_work() will do nothing and return false.
-
-C) If a workqueue has been scheduled (and has started) then
-   schedule_work() will put it on the queue to run again and return
-   true.
-
-Said another way: if you call schedule_work() you can guarantee that
-at least one full runthrough of the work will happen again.  That
-should mean that the work will get processed and I don't see any
-reason to think something should be dropped.
-
-Reading the comments in in usbnet_defer_kevent() made me think that B)
-and C) would be treated the same.  That is: even if we've started the
-work and are 99% of the way through then schedule_work() would return
-false and the work wouldn't be queued again.  If schedule_work()
-really did behave that way then, truly, some amount of work would be
-lost.  ...but it doesn't.
-
-NOTE: if somehow these warnings are useful to mean something then
-perhaps we should change them to make it more obvious.  If it's
-interesting to know when the work is backlogged then we should change
-the spam to say "warning: usbnet is backlogged".
-
-ALSO NOTE: If somehow some of the types of work need to be repeated if
-usbnet_defer_kevent() is called multiple times then that should be
-quite easy to accomplish without dropping any work on the floor.  We
-can just keep an atomic count for that type of work and add a loop
-into usbnet_deferred_kevent().
+NOTES:
+- No known bugs are fixed by this; it's just found by code inspection.
+- This changes the semantics in some of the error conditions.
+  -> If we fail to clear the "tx halt" or "rx halt" we still clear the
+     flag and thus won't retry the clear next time we happen to be in
+     the work function.  Had the old code really wanted to retry these
+     events it should have re-scheduled the worker anyway.
+  -> If we fail to allocate memory in usb_alloc_urb() we will still
+     clear the EVENT_RX_MEMORY flag.  This makes it consistent with
+     how we would deal with other failures, including failure to
+     allocate a memory chunk in rx_submit().  It can also be noted
+     that usb_alloc_urb() in this case is allocating much less than 4K
+     worth of data and probably never fails.
 
 Signed-off-by: Douglas Anderson <dianders@chromium.org>
 ---
 
- drivers/net/usb/usbnet.c | 16 +++++++---------
- 1 file changed, 7 insertions(+), 9 deletions(-)
+ drivers/net/usb/usbnet.c | 50 +++++++++++++++++++++---------------------------
+ 1 file changed, 22 insertions(+), 28 deletions(-)
 
 diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-index 6510e5cc1817..a3e8dbaadcf9 100644
+index a3e8dbaadcf9..e72547d8d0e6 100644
 --- a/drivers/net/usb/usbnet.c
 +++ b/drivers/net/usb/usbnet.c
-@@ -450,19 +450,17 @@ static enum skb_state defer_bh(struct usbnet *dev, struct sk_buff *skb,
+@@ -1103,8 +1103,6 @@ static void __handle_link_change(struct usbnet *dev)
+ 
+ 	/* hard_mtu or rx_urb_size may change during link change */
+ 	usbnet_update_max_qlen(dev);
+-
+-	clear_bit(EVENT_LINK_CHANGE, &dev->flags);
  }
  
- /* some work can't be done in tasklets, so we use keventd
-- *
-- * NOTE:  annoying asymmetry:  if it's active, schedule_work() fails,
-- * but tasklet_schedule() doesn't.  hope the failure is rare.
-  */
- void usbnet_defer_kevent (struct usbnet *dev, int work)
+ static void usbnet_set_rx_mode(struct net_device *net)
+@@ -1118,8 +1116,6 @@ static void __handle_set_rx_mode(struct usbnet *dev)
  {
- 	set_bit (work, &dev->flags);
--	if (!schedule_work (&dev->kevent)) {
--		if (net_ratelimit())
--			netdev_err(dev->net, "kevent %d may have been dropped\n", work);
--	} else {
--		netdev_dbg(dev->net, "kevent %d scheduled\n", work);
--	}
-+
-+	/* If work is already started this will mark it to run again when it
-+	 * finishes; if we already had work pending and it hadn't started
-+	 * yet then that's fine too.
-+	 */
-+	schedule_work (&dev->kevent);
-+	netdev_dbg(dev->net, "kevent %d scheduled\n", work);
+ 	if (dev->driver_info->set_rx_mode)
+ 		(dev->driver_info->set_rx_mode)(dev);
+-
+-	clear_bit(EVENT_SET_RX_MODE, &dev->flags);
  }
- EXPORT_SYMBOL_GPL(usbnet_defer_kevent);
+ 
+ /* work that cannot be done in interrupt context uses keventd.
+@@ -1135,7 +1131,7 @@ usbnet_deferred_kevent (struct work_struct *work)
+ 	int			status;
+ 
+ 	/* usb_clear_halt() needs a thread context */
+-	if (test_bit (EVENT_TX_HALT, &dev->flags)) {
++	if (test_and_clear_bit (EVENT_TX_HALT, &dev->flags)) {
+ 		unlink_urbs (dev, &dev->txq);
+ 		status = usb_autopm_get_interface(dev->intf);
+ 		if (status < 0)
+@@ -1150,12 +1146,11 @@ usbnet_deferred_kevent (struct work_struct *work)
+ 				netdev_err(dev->net, "can't clear tx halt, status %d\n",
+ 					   status);
+ 		} else {
+-			clear_bit (EVENT_TX_HALT, &dev->flags);
+ 			if (status != -ESHUTDOWN)
+ 				netif_wake_queue (dev->net);
+ 		}
+ 	}
+-	if (test_bit (EVENT_RX_HALT, &dev->flags)) {
++	if (test_and_clear_bit (EVENT_RX_HALT, &dev->flags)) {
+ 		unlink_urbs (dev, &dev->rxq);
+ 		status = usb_autopm_get_interface(dev->intf);
+ 		if (status < 0)
+@@ -1170,41 +1165,39 @@ usbnet_deferred_kevent (struct work_struct *work)
+ 				netdev_err(dev->net, "can't clear rx halt, status %d\n",
+ 					   status);
+ 		} else {
+-			clear_bit (EVENT_RX_HALT, &dev->flags);
+ 			tasklet_schedule (&dev->bh);
+ 		}
+ 	}
+ 
+ 	/* tasklet could resubmit itself forever if memory is tight */
+-	if (test_bit (EVENT_RX_MEMORY, &dev->flags)) {
++	if (test_and_clear_bit (EVENT_RX_MEMORY, &dev->flags)) {
+ 		struct urb	*urb = NULL;
+ 		int resched = 1;
+ 
+-		if (netif_running (dev->net))
++		if (netif_running (dev->net)) {
+ 			urb = usb_alloc_urb (0, GFP_KERNEL);
+-		else
+-			clear_bit (EVENT_RX_MEMORY, &dev->flags);
+-		if (urb != NULL) {
+-			clear_bit (EVENT_RX_MEMORY, &dev->flags);
+-			status = usb_autopm_get_interface(dev->intf);
+-			if (status < 0) {
+-				usb_free_urb(urb);
+-				goto fail_lowmem;
+-			}
+-			if (rx_submit (dev, urb, GFP_KERNEL) == -ENOLINK)
+-				resched = 0;
+-			usb_autopm_put_interface(dev->intf);
++			if (urb != NULL) {
++				status = usb_autopm_get_interface(dev->intf);
++				if (status < 0) {
++					usb_free_urb(urb);
++					goto fail_lowmem;
++				}
++				if (rx_submit (dev, urb, GFP_KERNEL) ==
++				    -ENOLINK)
++					resched = 0;
++				usb_autopm_put_interface(dev->intf);
+ fail_lowmem:
+-			if (resched)
+-				tasklet_schedule (&dev->bh);
++				if (resched)
++					tasklet_schedule (&dev->bh);
++			}
+ 		}
++
+ 	}
+ 
+-	if (test_bit (EVENT_LINK_RESET, &dev->flags)) {
++	if (test_and_clear_bit (EVENT_LINK_RESET, &dev->flags)) {
+ 		struct driver_info	*info = dev->driver_info;
+ 		int			retval = 0;
+ 
+-		clear_bit (EVENT_LINK_RESET, &dev->flags);
+ 		status = usb_autopm_get_interface(dev->intf);
+ 		if (status < 0)
+ 			goto skip_reset;
+@@ -1221,13 +1214,14 @@ usbnet_deferred_kevent (struct work_struct *work)
+ 		}
+ 
+ 		/* handle link change from link resetting */
++		clear_bit(EVENT_LINK_CHANGE, &dev->flags);
+ 		__handle_link_change(dev);
+ 	}
+ 
+-	if (test_bit (EVENT_LINK_CHANGE, &dev->flags))
++	if (test_and_clear_bit (EVENT_LINK_CHANGE, &dev->flags))
+ 		__handle_link_change(dev);
+ 
+-	if (test_bit (EVENT_SET_RX_MODE, &dev->flags))
++	if (test_and_clear_bit (EVENT_SET_RX_MODE, &dev->flags))
+ 		__handle_set_rx_mode(dev);
+ 
  
 -- 
 2.14.1.690.gbb1197296e-goog
