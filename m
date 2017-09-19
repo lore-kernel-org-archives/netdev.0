@@ -1,46 +1,45 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [RFC PATCH 3/3] usbnet: Fix memory leak when rx_submit() fails
-Date: Tue, 19 Sep 2017 19:41:09 +0200
-Message-ID: <877ewuoabu.fsf@miraculix.mork.no>
-References: <20170919161522.995-1-dianders@chromium.org>
-        <20170919161522.995-3-dianders@chromium.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 07/14] gtp: Support encapsulation of IPv6
+ packets
+Date: Tue, 19 Sep 2017 10:42:48 -0700 (PDT)
+Message-ID: <20170919.104248.1540128186724107742.davem@davemloft.net>
+References: <20170919003904.5124-8-tom@quantonium.net>
+        <20170918.211908.2152170523885516973.davem@davemloft.net>
+        <20170919121245.t555dqwndhewmdyw@nataraja>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Oliver Neukum <oneukum@suse.com>, groeck@chromium.org,
-        grundler@chromium.org, netdev@vger.kernel.org,
-        linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Douglas Anderson <dianders@chromium.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170919161522.995-3-dianders@chromium.org> (Douglas Anderson's
-        message of "Tue, 19 Sep 2017 09:15:22 -0700")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: tom@quantonium.net, netdev@vger.kernel.org, pablo@netfilter.org,
+        rohit@quantonium.net
+To: laforge@gnumonks.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:37316 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751480AbdISRmt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 13:42:49 -0400
+In-Reply-To: <20170919121245.t555dqwndhewmdyw@nataraja>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Douglas Anderson <dianders@chromium.org> writes:
+From: Harald Welte <laforge@gnumonks.org>
+Date: Tue, 19 Sep 2017 20:12:45 +0800
 
-> If rx_submit() returns an error code then nobody calls usb_free_urb().
-> That means it's leaked.
+> Hi Dave,
+> 
+> On Mon, Sep 18, 2017 at 09:19:08PM -0700, David Miller wrote:
+> 
+>> > +static inline u32 ipv6_hashfn(const struct in6_addr *a)
+>> > +{
+>> > +	return __ipv6_addr_jhash(a, gtp_h_initval);
+>> > +}
+>> 
+>> I know you are just following the pattern of the existing "ipv4_hashfn()" here
+>> but this kind of stuff is not very global namespace friendly.  Even simply
+>> adding a "gtp_" prefix to these hash functions would be a lot better.
+> 
+> I would agree if this was an inline function defined in a header file or
+> a non-static function.  But where is the global namespace concern in
+> case of static inline functions defined and used in the same .c file?
 
-Nope.  rx_submit() will call usb_free_urb() before returning an error:
-
-
-static int rx_submit (struct usbnet *dev, struct urb *urb, gfp_t flags)
-..
-	if (!skb) {
-		netif_dbg(dev, rx_err, dev->net, "no rx skb\n");
-		usbnet_defer_kevent (dev, EVENT_RX_MEMORY);
-		usb_free_urb (urb);
-		return -ENOMEM;
-	}
-..
-	if (retval) {
-		dev_kfree_skb_any (skb);
-		usb_free_urb (urb);
-	}
-
-
-
-
-
-Bj=C3=B8rn
+The problem is if we create a generic ipv6_hashfn() in linux/ipv6.h or
+something like that, then this driver stops building.
