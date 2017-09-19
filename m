@@ -1,52 +1,48 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] net: avoid a full fib lookup when rp_filter is
- disabled.
-Date: Tue, 19 Sep 2017 05:00:33 -0700
-Message-ID: <1505822433.29839.44.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1967ebaa528c626ebd9682e927fd33770a396a0a.1505817863.git.pabeni@redhat.com>
+Subject: Re: [PATCH net-next] net: sk_buff rbnode reorg
+Date: Tue, 19 Sep 2017 05:04:55 -0700
+Message-ID: <1505822695.29839.48.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1505797616.29839.40.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: Paolo Abeni <pabeni@redhat.com>
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f66.google.com ([209.85.214.66]:34065 "EHLO
-        mail-it0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751660AbdISMAj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 08:00:39 -0400
-Received: by mail-it0-f66.google.com with SMTP id o200so2262913itg.1
-        for <netdev@vger.kernel.org>; Tue, 19 Sep 2017 05:00:39 -0700 (PDT)
-In-Reply-To: <1967ebaa528c626ebd9682e927fd33770a396a0a.1505817863.git.pabeni@redhat.com>
+Received: from mail-io0-f193.google.com ([209.85.223.193]:36192 "EHLO
+        mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751408AbdISME6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 08:04:58 -0400
+Received: by mail-io0-f193.google.com with SMTP id n69so2823523ioi.3
+        for <netdev@vger.kernel.org>; Tue, 19 Sep 2017 05:04:57 -0700 (PDT)
+In-Reply-To: <1505797616.29839.40.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2017-09-19 at 12:46 +0200, Paolo Abeni wrote:
-..
+On Mon, 2017-09-18 at 22:06 -0700, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
 
-> Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
-> ---
+...
 
-> +/* called under RCU lock */
-> +struct in_ifaddr *inet_lookup_ifaddr_rcu(struct net *net, __be32 addr)
-> +{
-> +	u32 hash = inet_addr_hash(net, addr);
-> +	struct in_ifaddr *ifa;
-> +
-> +	hlist_for_each_entry_rcu(ifa, &inet_addr_lst[hash], hash)
-> +		if (ifa->ifa_local == addr &&
-> +		    net_eq(dev_net(ifa->ifa_dev->dev), net))
-> +			return ifa;
-> +
-> +	return NULL;
-> +}
-> +
+> --- a/include/net/tcp.h
+> +++ b/include/net/tcp.h
+> @@ -797,11 +797,6 @@ struct tcp_skb_cb {
+>  			u16	tcp_gso_segs;
+>  			u16	tcp_gso_size;
+>  		};
+> -
+> -		/* Used to stash the receive timestamp while this skb is in the
+> -		 * out of order queue, as skb->tstamp is overwritten by the
+> -		 * rbnode.
+> -		 */
+>  		ktime_t		swtstamp;
+>  	};
 
-Any particular reason you do not use this helper to replace the lookup
-in __ip_dev_find() ?
 
-In this case, copy paste can be avoided, please avoid a future patch
-consolidating the things...
+I forgot that in upstream kernels, swtstamp can also be removed.
 
-Thanks.
+It is used in our kernels to store the time at which the skb was moved
+into socket receive queue (after a possible stay in out of order queue)
+
+Will send a V2, removing this field from net-next, before we add it
+again later if we upstream our instrumentation code.
