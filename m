@@ -1,146 +1,100 @@
-From: Daniel Mack <daniel@zonque.org>
-Subject: Re: [PATCH net-next 1/3] bpf: Implement map_delete_elem for
- BPF_MAP_TYPE_LPM_TRIE
-Date: Tue, 19 Sep 2017 21:48:16 +0200
-Message-ID: <910eaafa-57a1-2a22-709e-a9107b108d9d@zonque.org>
-References: <20170918193057.37644-1-kraigatgoog@gmail.com>
- <20170918193057.37644-2-kraigatgoog@gmail.com>
- <3e537b56-d0f2-de9a-5bb1-f60fbfc11ca5@fb.com>
- <CAEfhGixLCqEmR=bwBqC6bT=-j22X5+rSScPb=1qWX3F-mi6H3g@mail.gmail.com>
- <59C141DC.9060200@iogearbox.net>
+From: Shuah Khan <shuahkh@osg.samsung.com>
+Subject: Re: [PATCH 2/3] selftests: actually run the various net selftests
+Date: Tue, 19 Sep 2017 14:00:57 -0600
+Message-ID: <ab0e57c1-3e3d-edaa-de8f-f24b601f405f@osg.samsung.com>
+References: <1505755982-7855-1-git-send-email-jbacik@fb.com>
+ <1505755982-7855-2-git-send-email-jbacik@fb.com>
+ <09f17145-5f0a-ec61-3dfb-69216eac7133@kernel.org>
+ <20170919133424.mzshgf67al7mv3fg@destiny>
+ <CAF=yD-JewUiQso6XbDEAjC+gP=yK=czsdujYmcu5=jjXTsweDA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 8bit
-Cc: "David S . Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>
-To: Daniel Borkmann <daniel@iogearbox.net>,
-        Craig Gallek <kraigatgoog@gmail.com>,
-        Alexei Starovoitov <ast@fb.com>
+Cc: Willem de Bruijn <willemb@google.com>, Josef Bacik <jbacik@fb.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        LKML <linux-kernel@vger.kernel.org>,
+        linux-kselftest@vger.kernel.org,
+        Network Development <netdev@vger.kernel.org>,
+        Shuah Khan <shuah@kernel.org>,
+        Shuah Khan <shuahkh@osg.samsung.com>
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>,
+        Josef Bacik <josef@toxicpanda.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.bugwerft.de ([46.23.86.59]:50854 "EHLO mail.bugwerft.de"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751556AbdIST5K (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 19 Sep 2017 15:57:10 -0400
-In-Reply-To: <59C141DC.9060200@iogearbox.net>
+Received: from ec2-52-27-115-49.us-west-2.compute.amazonaws.com ([52.27.115.49]:38691
+        "EHLO osg.samsung.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1751097AbdISUBC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 16:01:02 -0400
+In-Reply-To: <CAF=yD-JewUiQso6XbDEAjC+gP=yK=czsdujYmcu5=jjXTsweDA@mail.gmail.com>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-
-Thanks for working on this, Craig!
-
-On 09/19/2017 06:12 PM, Daniel Borkmann wrote:
-> On 09/19/2017 05:08 PM, Craig Gallek wrote:
->> On Mon, Sep 18, 2017 at 6:53 PM, Alexei Starovoitov <ast@fb.com> wrote:
->>> On 9/18/17 12:30 PM, Craig Gallek wrote:
-> [...]
->>>> +
->>>> +               next_bit = extract_bit(key->data, node->prefixlen);
->>>> +               /* If we hit a node that has more than one child or is a
->>>> valid
->>>> +                * prefix itself, do not remove it. Reset the root of the
->>>> trim
->>>> +                * path to its descendant on our path.
->>>> +                */
->>>> +               if (!(node->flags & LPM_TREE_NODE_FLAG_IM) ||
->>>> +                   (node->child[0] && node->child[1]))
->>>> +                       trim = &node->child[next_bit];
->>>> +               node = rcu_dereference_protected(
->>>> +                       node->child[next_bit],
->>>> lockdep_is_held(&trie->lock));
->>>> +       }
->>>> +
->>>> +       if (!node || node->prefixlen != key->prefixlen ||
->>>> +           (node->flags & LPM_TREE_NODE_FLAG_IM)) {
->>>> +               ret = -ENOENT;
->>>> +               goto out;
->>>> +       }
->>>> +
->>>> +       trie->n_entries--;
->>>> +
->>>> +       /* If the node we are removing is not a leaf node, simply mark it
->>>> +        * as intermediate and we are done.
->>>> +        */
->>>> +       if (rcu_access_pointer(node->child[0]) ||
->>>> +           rcu_access_pointer(node->child[1])) {
->>>> +               node->flags |= LPM_TREE_NODE_FLAG_IM;
->>>> +               goto out;
->>>> +       }
->>>> +
->>>> +       /* trim should now point to the slot holding the start of a path
->>>> from
->>>> +        * zero or more intermediate nodes to our leaf node for deletion.
->>>> +        */
->>>> +       while ((node = rcu_dereference_protected(
->>>> +                       *trim, lockdep_is_held(&trie->lock)))) {
->>>> +               RCU_INIT_POINTER(*trim, NULL);
->>>> +               trim = rcu_access_pointer(node->child[0]) ?
->>>> +                       &node->child[0] :
->>>> +                       &node->child[1];
->>>> +               kfree_rcu(node, rcu);
+On 09/19/2017 12:14 PM, Willem de Bruijn wrote:
+> On Tue, Sep 19, 2017 at 9:34 AM, Josef Bacik <josef@toxicpanda.com> wrote:
+>> On Mon, Sep 18, 2017 at 04:14:41PM -0600, Shuah Khan wrote:
+>>> On 09/18/2017 11:32 AM, josef@toxicpanda.com wrote:
+>>>> From: Josef Bacik <jbacik@fb.com>
+>>>>
+>>>> These self tests are just self contained binaries, they are not run by
+>>>> any of the scripts in the directory.  This means they need to be marked
+>>>> with TEST_GEN_PROGS to actually be run, not TEST_GEN_FILES.
+>>>>
+>>>> Signed-off-by: Josef Bacik <jbacik@fb.com>
+>>>> ---
+>>>>  tools/testing/selftests/net/Makefile | 4 ++--
+>>>>  1 file changed, 2 insertions(+), 2 deletions(-)
+>>>>
+>>>> diff --git a/tools/testing/selftests/net/Makefile b/tools/testing/selftests/net/Makefile
+>>>> index 3df542c84610..45a4e77a47c4 100644
+>>>> --- a/tools/testing/selftests/net/Makefile
+>>>> +++ b/tools/testing/selftests/net/Makefile
+>>>> @@ -6,8 +6,8 @@ CFLAGS += -I../../../../usr/include/
+>>>>  TEST_PROGS := run_netsocktests run_afpackettests test_bpf.sh netdevice.sh rtnetlink.sh
+>>>>  TEST_GEN_FILES =  socket
+>>>>  TEST_GEN_FILES += psock_fanout psock_tpacket
+>>>> -TEST_GEN_FILES += reuseport_bpf reuseport_bpf_cpu reuseport_bpf_numa
+>>>> -TEST_GEN_FILES += reuseport_dualstack msg_zerocopy reuseaddr_conflict
+>>>> +TEST_GEN_PROGS += reuseport_bpf reuseport_bpf_cpu reuseport_bpf_numa
+>>>> +TEST_GEN_PROGS += reuseport_dualstack msg_zerocopy reuseaddr_conflict
 >>>
->>> can it be that some of the nodes this loop walks have
->>> both child[0] and [1] ?
->> No, the loop above will push trim down the walk every time it
->> encounters a node with two children.  The only other trim assignment
->> is the initial trim = &trie->root.  But the only time we would skip
->> the assignment in the loop is if the node being removed is the root.
->> If the root had multiple children and is being removed, it would be
->> handled by the case that turns the node into an intermediate node
->> rather than walking the trim path freeing things.
+>>> Hmm. I see msg_zerocopy.sh for running msg_zerocopy. msg_zerocopy should
+>>> still stay in TEST_GEN_FILES and msg_zerocopy.sh needs to be added to
+>>> TEST_PROGS so it runs.
+>>>
+>>
+>> Actually the shell script requires arguments, it doesn't just run the test.
+>> I'll fix this to just omit the test for now as it's not setup to run properly.
+>>
+>> Willem, could you follow up with a patch so that the zero copy test is run
+>> properly the way you envision it running?  You need to make sure that
+>>
+>> make -C tools/testing/selftests TARGETS=net run_tests
+>>
+>> actually runs your zero copy test the way you expect it to, otherwise it's just
+>> sitting there collecting dust.  Thanks,
 > 
-> Looks good to me. We should probably still merge nodes once we turn
-> a real node into an im which just has a single child attached to it;
-> parent can be im or real node. Thus, we don't need to traverse this
-> extra one on lookup.
+> Will do.
+> 
+> In its current state, this test is really only meant to be run manually.
+> It demonstrates the API and outputs some information on stderr.
+> 
+> Zerocopy itself requires a two-host test. The feature is expressly
+> disabled over loopback.
 
-Right, but only if the the parent of the node allows us to do that,
-because the 'next bit' in the lookup key has to match the slot index.
+Running this manually is [perfectly fine. TEST_GEN_FILES is the right
+place for it as TEST_GEN_FILES will get built and installed, but won't
+be run bt lib.mk. No changes needed.
 
-To illustrate, consider the following trie with no IM nodes:
+> 
+> But I can make this a pass/fail tests that exercises the interface
+> and notification channel and verifies that data was copied. It will
+> be a bit more work than just changing the default invocation of
+> msg_zerocopy.sh
+> 
 
-                      +----------------+
-                      |       (1)  (R) |
-                      | 192.168.0.0/16 |
-                      |    value: 1    |
-                      |   [0]    [1]   |
-                      +----------------+
-                           |      |
-            +----------------+  +------------------+
-            |       (2)      |  |        (3)       |
-            | 192.168.0.0/23 |  | 192.168.128.0/24 |
-            |    value: 2    |  |     value: 3     |
-            |   [0]    [1]   |  |    [0]    [1]    |
-            +----------------+  +------------------+
-                        |
-                      +----------------+
-                      |       (4)      |
-                      | 192.168.1.0/24 |
-                      |     value: 4   |
-                      |   [0]    [1]   |
-                      +----------------+
+No need to make changes as this test is intended to be run manually.
+Josef's v2 doesn't change the location of msg_zerocopy. We are all set.
 
-If you now try to delete (2), the node has to stay around because (3)
-and (4) share the same value in bit 17 (1). If, however, (4) had a
-prefix of 192.168.0.0/24, then (2) should be removed completely, and (4)
-should be directly attached to (1) as child[0].
+Thanks for clearing this up.
 
-With this implementation, a situation in which multiple IM nodes appear
-in a chain cannot emerge. And that again should make your trimming
-algorithm simpler, because you only need to find an exact match, and
-then handle three distinct cases:
-
-a) the node as 0 children: simply remove it and nullify the pointer in
-the parent
-
-b) the node has 1 child: apply logic I described above
-
-c) the node has 2 children: turn the node into an IM
-
-
-Makes sense?
-
-
-Thanks,
-Daniel
+-- Shuah
