@@ -1,34 +1,30 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH V2 net 0/7] Bug fixes for the HNS3 Ethernet Driver for
- Hip08 SoC
-Date: Tue, 19 Sep 2017 16:07:03 -0700 (PDT)
-Message-ID: <20170919.160703.135206059584454435.davem@davemloft.net>
-References: <20170919161716.92680-1-salil.mehta@huawei.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v3 00/12] net: dsa: b53/bcm_sf2 cleanups
+Date: Tue, 19 Sep 2017 16:09:12 -0700 (PDT)
+Message-ID: <20170919.160912.2130560245632666972.davem@davemloft.net>
+References: <20170919174654.2122-1-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, lipeng321-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
-        mehta.salil.lnk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org
-To: salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170919161716.92680-1-salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, andrew@lunn.ch,
+        vivien.didelot@savoirfairelinux.com
+To: f.fainelli@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:50140 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751615AbdISXJN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 19:09:13 -0400
+In-Reply-To: <20170919174654.2122-1-f.fainelli@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Salil Mehta <salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Date: Tue, 19 Sep 2017 17:17:09 +0100
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Tue, 19 Sep 2017 10:46:42 -0700
 
-> This patch set presents some bug fixes for the HNS3 Ethernet driver identified
-> during internal testing & stabilization efforts.
+> This patch series is a first pass set of clean-ups to reduce the number of LOCs
+> between b53 and bcm_sf2 and sharing as many functions as possible.
 > 
-> Change Log:
-> Patch V2: Resolved comments from Leon Romanovsky
-> Patch V1: Initial Submit
+> There is a number of additional cleanups queued up locally that require more
+> thorough testing.
 
-Series applied, thank you.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Series applied, thanks.
