@@ -1,320 +1,388 @@
 From: Tom Herbert <tom@quantonium.net>
-Subject: [PATCH net-next 14/14] gtp: GSO support
-Date: Mon, 18 Sep 2017 17:39:04 -0700
-Message-ID: <20170919003904.5124-15-tom@quantonium.net>
+Subject: [PATCH net-next 09/14] gtp: Allow configuring GTP interface as standalone
+Date: Mon, 18 Sep 2017 17:38:59 -0700
+Message-ID: <20170919003904.5124-10-tom@quantonium.net>
 References: <20170919003904.5124-1-tom@quantonium.net>
 Cc: netdev@vger.kernel.org, pablo@netfilter.org, laforge@gnumonks.org,
         rohit@quantonium.net, Tom Herbert <tom@quantonium.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f44.google.com ([74.125.83.44]:46875 "EHLO
-        mail-pg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750925AbdISAkF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 20:40:05 -0400
-Received: by mail-pg0-f44.google.com with SMTP id i130so1093747pgc.3
-        for <netdev@vger.kernel.org>; Mon, 18 Sep 2017 17:40:05 -0700 (PDT)
+Received: from mail-pf0-f180.google.com ([209.85.192.180]:43267 "EHLO
+        mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751451AbdISAjy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 20:39:54 -0400
+Received: by mail-pf0-f180.google.com with SMTP id y29so1113090pff.0
+        for <netdev@vger.kernel.org>; Mon, 18 Sep 2017 17:39:54 -0700 (PDT)
 In-Reply-To: <20170919003904.5124-1-tom@quantonium.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Need to define a gtp_gso_segment since the GTP header includes a length
-field that must be set per packet. Also, GPv0 header includes a sequence
-number that is incremented per packet.
+Add new configuration of GTP interfaces that allow specifying a port to
+listen on (as opposed to having to get sockets from a userspace control
+plane). This allows GTP interfaces to be configured and the data path
+tested without requiring a GTP-C daemon.
 
 Signed-off-by: Tom Herbert <tom@quantonium.net>
 ---
- drivers/net/gtp.c            | 176 +++++++++++++++++++++++++++++++++++++++----
- include/uapi/linux/if_link.h |   1 -
- 2 files changed, 163 insertions(+), 14 deletions(-)
+ drivers/net/gtp.c        | 212 +++++++++++++++++++++++++++++++++++------------
+ include/uapi/linux/gtp.h |   5 ++
+ 2 files changed, 166 insertions(+), 51 deletions(-)
 
 diff --git a/drivers/net/gtp.c b/drivers/net/gtp.c
-index 2f9d810cf19f..a2c4d9804a8f 100644
+index 121b41e7a901..1870469a4982 100644
 --- a/drivers/net/gtp.c
 +++ b/drivers/net/gtp.c
-@@ -120,6 +120,8 @@ static u32 gtp_h_initval;
+@@ -86,6 +86,9 @@ struct gtp_dev {
+ 	struct sock		*sk0;
+ 	struct sock		*sk1u;
  
- static void pdp_context_delete(struct pdp_ctx *pctx);
++	struct socket		*sock0;
++	struct socket		*sock1u;
++
+ 	struct net_device	*dev;
  
-+static int gtp_gso_type;
-+
- static inline u32 gtp0_hashfn(u64 tid)
- {
- 	u32 *tid32 = (u32 *) &tid;
-@@ -430,6 +432,69 @@ static int gtp1u_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
- 	return 1;
- }
- 
-+static struct sk_buff *gtp_gso_segment(struct sk_buff *skb,
-+				       netdev_features_t features)
-+{
-+	struct sk_buff *segs = ERR_PTR(-EINVAL);
-+	int tnl_hlen = skb->mac_len;
-+	struct gtp0_header *gtp0;
-+
-+	if (unlikely(!pskb_may_pull(skb, tnl_hlen)))
-+		return ERR_PTR(-EINVAL);
-+
-+	/* Make sure we have a mininal GTP header */
-+	if (unlikely(tnl_hlen < min_t(size_t, sizeof(struct gtp0_header),
-+				      sizeof(struct gtp1_header))))
-+		return ERR_PTR(-EINVAL);
-+
-+	/* Determine version */
-+	gtp0 = (struct gtp0_header *)skb->data;
-+	switch (gtp0->flags >> 5) {
-+	case GTP_V0: {
-+		u16 tx_seq;
-+
-+		if (unlikely(tnl_hlen != sizeof(struct gtp0_header)))
-+			return ERR_PTR(-EINVAL);
-+
-+		tx_seq = ntohs(gtp0->seq);
-+
-+		/* segment inner packet. */
-+		segs = skb_mac_gso_segment(skb, features);
-+		if (!IS_ERR_OR_NULL(segs)) {
-+			skb = segs;
-+			do {
-+				gtp0 = (struct gtp0_header *)
-+						skb_mac_header(skb);
-+				gtp0->length = ntohs(skb->len - tnl_hlen);
-+				gtp0->seq = htons(tx_seq);
-+				tx_seq++;
-+			} while ((skb = skb->next));
-+		}
-+		break;
-+	}
-+	case GTP_V1: {
-+		struct gtp1_header *gtp1;
-+
-+		if (unlikely(tnl_hlen != sizeof(struct gtp1_header)))
-+			return ERR_PTR(-EINVAL);
-+
-+		/* segment inner packet. */
-+		segs = skb_mac_gso_segment(skb, features);
-+		if (!IS_ERR_OR_NULL(segs)) {
-+			skb = segs;
-+			do {
-+				gtp1 = (struct gtp1_header *)
-+						skb_mac_header(skb);
-+				gtp1->length = ntohs(skb->len - tnl_hlen);
-+			} while ((skb = skb->next));
-+		}
-+		break;
-+	}
-+	}
-+
-+	return segs;
-+}
-+
- static struct sk_buff **gtp_gro_receive_finish(struct sock *sk,
- 					       struct sk_buff **head,
- 					       struct sk_buff *skb,
-@@ -688,18 +753,25 @@ static inline void gtp0_push_header(struct sk_buff *skb, struct pdp_ctx *pctx)
- {
- 	int payload_len = skb->len;
- 	struct gtp0_header *gtp0;
-+	u32 tx_seq;
- 
- 	gtp0 = skb_push(skb, sizeof(*gtp0));
- 
- 	gtp0->flags	= 0x1e; /* v0, GTP-non-prime. */
- 	gtp0->type	= GTP_TPDU;
- 	gtp0->length	= htons(payload_len);
--	gtp0->seq	= htons((atomic_inc_return(&pctx->tx_seq) - 1) %
--				0xffff);
- 	gtp0->flow	= htons(pctx->u.v0.flow);
- 	gtp0->number	= 0xff;
- 	gtp0->spare[0]	= gtp0->spare[1] = gtp0->spare[2] = 0xff;
- 	gtp0->tid	= cpu_to_be64(pctx->u.v0.tid);
-+
-+	/* If skb is GSO allocate sequence numbers for all the segments */
-+	tx_seq = skb_shinfo(skb)->gso_segs ?
-+			atomic_add_return(skb_shinfo(skb)->gso_segs,
-+					  &pctx->tx_seq) :
-+			atomic_inc_return(&pctx->tx_seq);
-+
-+	gtp0->seq	= (htons((u16)tx_seq) - 1) & 0xffff;
- }
- 
- static inline void gtp1_push_header(struct sk_buff *skb, struct pdp_ctx *pctx)
-@@ -737,6 +809,59 @@ static void gtp_push_header(struct sk_buff *skb, struct pdp_ctx *pctx)
+ 	unsigned int		role;
+@@ -430,26 +433,33 @@ static void gtp_encap_destroy(struct sock *sk)
  	}
  }
  
-+static size_t gtp_max_header_len(int version)
-+
-+{
-+	switch (version) {
-+	case GTP_V0:
-+		return sizeof(struct gtp0_header);
-+	case GTP_V1:
-+		return sizeof(struct gtp1_header) + 4;
-+	}
-+
-+	/* Should not happen */
-+	return 0;
-+}
-+
-+static int gtp_build_skb(struct sk_buff *skb, struct dst_entry *dst,
-+			 struct pdp_ctx *pctx, bool xnet, int ip_hdr_len,
-+			 bool udp_sum)
-+{
-+	int type = (udp_sum ? SKB_GSO_UDP_TUNNEL_CSUM : SKB_GSO_UDP_TUNNEL) |
-+		   gtp_gso_type;
-+	int min_headroom;
-+	u16 protocol;
-+	int err;
-+
-+	skb_scrub_packet(skb, xnet);
-+
-+	min_headroom = LL_RESERVED_SPACE(dst->dev) + dst->header_len +
-+		       gtp_max_header_len(pctx->gtp_version) + ip_hdr_len;
-+
-+	err = skb_cow_head(skb, min_headroom);
-+	if (unlikely(err))
-+		goto free_dst;
-+
-+	err = iptunnel_handle_offloads(skb, type);
-+	if (err)
-+		goto free_dst;
-+
-+	protocol = ipver_to_eth(ip_hdr(skb));
-+
-+	gtp_push_header(skb, pctx);
-+
-+	/* GTP header is treated as inner MAC header */
-+	skb_reset_inner_mac_header(skb);
-+
-+	skb_set_inner_protocol(skb, protocol);
-+
-+	return 0;
-+
-+free_dst:
-+	dst_release(dst);
-+	return err;
-+}
-+
- static int gtp_xmit(struct sk_buff *skb, struct net_device *dev,
- 		    struct pdp_ctx *pctx)
+-static void gtp_encap_disable_sock(struct sock *sk)
++static void gtp_encap_release(struct gtp_dev *gtp)
  {
-@@ -746,13 +871,6 @@ static int gtp_xmit(struct sk_buff *skb, struct net_device *dev,
- 	bool udp_csum;
- 	int err = 0;
+-	if (!sk)
+-		return;
++	if (gtp->sk0) {
++		if (gtp->sock0) {
++			udp_tunnel_sock_release(gtp->sock0);
++			gtp->sock0 = NULL;
++		} else {
++			gtp_encap_destroy(gtp->sk0);
++		}
  
--	/* Ensure there is sufficient headroom. */
--	err = skb_cow_head(skb, dev->needed_headroom);
--	if (unlikely(err))
--		goto out_err;
--
--	skb_reset_inner_headers(skb);
--
- 	if (pctx->peer_af == AF_INET) {
- 		__be32 saddr = inet_sk(sk)->inet_saddr;
- 		struct rtable *rt;
-@@ -768,9 +886,13 @@ static int gtp_xmit(struct sk_buff *skb, struct net_device *dev,
- 			goto out_err;
- 		}
+-	gtp_encap_destroy(sk);
+-}
++		gtp->sk0 = NULL;
++	}
  
--		skb_dst_drop(skb);
-+		err = gtp_build_skb(skb, &rt->dst, pctx, xnet,
-+				    sizeof(struct iphdr),
-+				    !(pctx->cfg_flags &
-+				      GTP_F_UDP_ZERO_CSUM_TX));
-+		if (err)
-+			goto out_err;
- 
--		gtp_push_header(skb, pctx);
- 		udp_csum = !(pctx->cfg_flags & GTP_F_UDP_ZERO_CSUM_TX);
- 		udp_tunnel_xmit_skb(rt, sk, skb, saddr,
- 				    pctx->peer_addr_ip4.s_addr,
-@@ -797,9 +919,13 @@ static int gtp_xmit(struct sk_buff *skb, struct net_device *dev,
- 			goto out_err;
- 		}
- 
--		skb_dst_drop(skb);
-+		err = gtp_build_skb(skb, dst, pctx, xnet,
-+				    sizeof(struct ipv6hdr),
-+				    !(pctx->cfg_flags &
-+				      GTP_F_UDP_ZERO_CSUM6_TX));
-+		if (err)
-+			goto out_err;
- 
--		gtp_push_header(skb, pctx);
- 		udp_csum = !(pctx->cfg_flags & GTP_F_UDP_ZERO_CSUM6_TX);
- 		udp_tunnel6_xmit_skb(dst, sk, skb, dev,
- 				     &saddr, &pctx->peer_addr_ip6,
-@@ -898,6 +1024,12 @@ static const struct net_device_ops gtp_netdev_ops = {
- 	.ndo_get_stats64	= ip_tunnel_get_stats64,
- };
- 
-+#define GTP_FEATURES (NETIF_F_SG |		\
-+		      NETIF_F_FRAGLIST |	\
-+		      NETIF_F_HIGHDMA |		\
-+		      NETIF_F_GSO_SOFTWARE |	\
-+		      NETIF_F_HW_CSUM)
+-static void gtp_encap_disable(struct gtp_dev *gtp)
+-{
+-	gtp_encap_disable_sock(gtp->sk0);
+-	gtp_encap_disable_sock(gtp->sk1u);
++	if (gtp->sk1u) {
++		if (gtp->sock1u) {
++			udp_tunnel_sock_release(gtp->sock1u);
++			gtp->sock1u = NULL;
++		} else {
++			gtp_encap_destroy(gtp->sk1u);
++		}
 +
- static void gtp_link_setup(struct net_device *dev)
++		gtp->sk1u = NULL;
++	}
+ }
+ 
+ static int gtp_dev_init(struct net_device *dev)
+ {
+-	struct gtp_dev *gtp = netdev_priv(dev);
+-
+-	gtp->dev = dev;
+-
+ 	dev->tstats = netdev_alloc_pcpu_stats(struct pcpu_sw_netstats);
+ 	if (!dev->tstats)
+ 		return -ENOMEM;
+@@ -461,7 +471,8 @@ static void gtp_dev_uninit(struct net_device *dev)
  {
  	struct gtp_dev *gtp = netdev_priv(dev);
-@@ -912,7 +1044,13 @@ static void gtp_link_setup(struct net_device *dev)
- 	dev->flags = IFF_POINTOPOINT | IFF_NOARP | IFF_MULTICAST;
  
- 	dev->priv_flags	|= IFF_NO_QUEUE;
+-	gtp_encap_disable(gtp);
++	gtp_encap_release(gtp);
 +
- 	dev->features	|= NETIF_F_LLTX;
-+	dev->features	|= GTP_FEATURES;
-+
-+	dev->hw_features |= GTP_FEATURES;
-+	dev->hw_features |= NETIF_F_GSO_SOFTWARE;
-+
- 	netif_keep_dst(dev);
+ 	free_percpu(dev->tstats);
+ }
  
- 	/* Assume largest header, ie. GTPv0. */
-@@ -1903,6 +2041,11 @@ static struct pernet_operations gtp_net_ops = {
- 	.size	= sizeof(struct gtp_net),
+@@ -676,6 +687,7 @@ static const struct net_device_ops gtp_netdev_ops = {
+ 
+ static void gtp_link_setup(struct net_device *dev)
+ {
++	struct gtp_dev *gtp = netdev_priv(dev);
+ 	dev->netdev_ops		= &gtp_netdev_ops;
+ 	dev->needs_free_netdev	= true;
+ 
+@@ -697,6 +709,8 @@ static void gtp_link_setup(struct net_device *dev)
+ 				  sizeof(struct udphdr) +
+ 				  sizeof(struct gtp0_header);
+ 
++	gtp->dev = dev;
++
+ 	gro_cells_init(&gtp->gro_cells, dev);
+ }
+ 
+@@ -710,13 +724,19 @@ static int gtp_newlink(struct net *src_net, struct net_device *dev,
+ 		       struct netlink_ext_ack *extack)
+ {
+ 	unsigned int role = GTP_ROLE_GGSN;
++	bool have_fd, have_ports;
+ 	bool is_ipv6 = false;
+ 	struct gtp_dev *gtp;
+ 	struct gtp_net *gn;
+ 	int hashsize, err;
+ 
+-	if (!data[IFLA_GTP_FD0] && !data[IFLA_GTP_FD1])
++	have_fd = !!data[IFLA_GTP_FD0] || !!data[IFLA_GTP_FD1];
++	have_ports = !!data[IFLA_GTP_PORT0] || !!data[IFLA_GTP_PORT1];
++
++	if (!(have_fd ^ have_ports)) {
++		/* Either got fd(s) or port(s) */
+ 		return -EINVAL;
++	}
+ 
+ 	if (data[IFLA_GTP_ROLE]) {
+ 		role = nla_get_u32(data[IFLA_GTP_ROLE]);
+@@ -773,7 +793,7 @@ static int gtp_newlink(struct net *src_net, struct net_device *dev,
+ out_hashtable:
+ 	gtp_hashtable_free(gtp);
+ out_encap:
+-	gtp_encap_disable(gtp);
++	gtp_encap_release(gtp);
+ 	return err;
+ }
+ 
+@@ -782,7 +802,7 @@ static void gtp_dellink(struct net_device *dev, struct list_head *head)
+ 	struct gtp_dev *gtp = netdev_priv(dev);
+ 
+ 	gro_cells_destroy(&gtp->gro_cells);
+-	gtp_encap_disable(gtp);
++	gtp_encap_release(gtp);
+ 	gtp_hashtable_free(gtp);
+ 	list_del_rcu(&gtp->list);
+ 	unregister_netdevice_queue(dev, head);
+@@ -793,6 +813,8 @@ static const struct nla_policy gtp_policy[IFLA_GTP_MAX + 1] = {
+ 	[IFLA_GTP_FD1]			= { .type = NLA_U32 },
+ 	[IFLA_GTP_PDP_HASHSIZE]		= { .type = NLA_U32 },
+ 	[IFLA_GTP_ROLE]			= { .type = NLA_U32 },
++	[IFLA_GTP_PORT0]		= { .type = NLA_U16 },
++	[IFLA_GTP_PORT1]		= { .type = NLA_U16 },
  };
  
-+static const struct skb_gso_app gtp_gso_app = {
-+	.check_flags = SKB_GSO_UDP_TUNNEL | SKB_GSO_UDP_TUNNEL_CSUM,
-+	.gso_segment = gtp_gso_segment,
-+};
-+
- static int __init gtp_init(void)
+ static int gtp_validate(struct nlattr *tb[], struct nlattr *data[],
+@@ -883,11 +905,35 @@ static void gtp_hashtable_free(struct gtp_dev *gtp)
+ 	kfree(gtp->tid_hash);
+ }
+ 
+-static struct sock *gtp_encap_enable_socket(int fd, int type,
+-					    struct gtp_dev *gtp,
+-					    bool is_ipv6)
++static int gtp_encap_enable_sock(struct socket *sock, int type,
++				 struct gtp_dev *gtp)
  {
+ 	struct udp_tunnel_sock_cfg tuncfg = {NULL};
++
++	switch (type) {
++	case UDP_ENCAP_GTP0:
++		tuncfg.encap_rcv = gtp0_udp_encap_recv;
++		break;
++	case UDP_ENCAP_GTP1U:
++		tuncfg.encap_rcv = gtp1u_udp_encap_recv;
++		break;
++	default:
++		pr_debug("Unknown encap type %u\n", type);
++		return -EINVAL;
++	}
++
++	tuncfg.sk_user_data = gtp;
++	tuncfg.encap_type = type;
++	tuncfg.encap_destroy = gtp_encap_destroy;
++
++	setup_udp_tunnel_sock(sock_net(sock->sk), sock, &tuncfg);
++
++	return 0;
++}
++
++static struct sock *gtp_encap_enable_fd(int fd, int type, struct gtp_dev *gtp,
++					bool is_ipv6)
++{
+ 	struct socket *sock;
+ 	struct sock *sk;
  	int err;
-@@ -1921,6 +2064,10 @@ static int __init gtp_init(void)
- 	if (err < 0)
- 		goto unreg_genl_family;
+@@ -920,60 +966,124 @@ static struct sock *gtp_encap_enable_socket(int fd, int type,
+ 	sk = sock->sk;
+ 	sock_hold(sk);
  
-+	gtp_gso_type = skb_gso_app_register(&gtp_gso_app);
-+	if (!gtp_gso_type)
-+		pr_warn("GTP unable to create UDP app gso type");
-+
- 	pr_info("GTP module loaded (pdp ctx size %zd bytes)\n",
- 		sizeof(struct pdp_ctx));
- 	return 0;
-@@ -1937,6 +2084,9 @@ late_initcall(gtp_init);
- 
- static void __exit gtp_fini(void)
- {
-+	if (gtp_gso_type)
-+		skb_gso_app_unregister(gtp_gso_type, &gtp_gso_app);
-+
- 	unregister_pernet_subsys(&gtp_net_ops);
- 	genl_unregister_family(&gtp_genl_family);
- 	rtnl_link_unregister(&gtp_link_ops);
-diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-index 14a32d745e24..7c15db44eab3 100644
---- a/include/uapi/linux/if_link.h
-+++ b/include/uapi/linux/if_link.h
-@@ -558,7 +558,6 @@ enum {
- 	IFLA_GTP_UDP_CSUM,
- 	IFLA_GTP_UDP_ZERO_CSUM6_TX,
- 	IFLA_GTP_UDP_ZERO_CSUM6_RX,
+-	switch (type) {
+-	case UDP_ENCAP_GTP0:
+-		tuncfg.encap_rcv = gtp0_udp_encap_recv;
+-		break;
+-	case UDP_ENCAP_GTP1U:
+-		tuncfg.encap_rcv = gtp1u_udp_encap_recv;
+-		break;
+-	default:
+-		pr_debug("Unknown encap type %u\n", type);
+-		sk = ERR_PTR(-EINVAL);
+-		goto out_sock;
+-	}
 -
- 	__IFLA_GTP_MAX,
+-	tuncfg.sk_user_data = gtp;
+-	tuncfg.encap_type = type;
+-	tuncfg.encap_destroy = gtp_encap_destroy;
+-
+-	setup_udp_tunnel_sock(sock_net(sock->sk), sock, &tuncfg);
++	err = gtp_encap_enable_sock(sock, type, gtp);
++	if (err < 0)
++		sk = ERR_PTR(err);
+ 
+ out_sock:
+ 	sockfd_put(sock);
+ 	return sk;
+ }
+ 
++static struct socket *gtp_create_sock(struct net *net, bool ipv6,
++				      __be16 port, u32 flags)
++{
++	struct socket *sock;
++	struct udp_port_cfg udp_conf;
++	int err;
++
++	memset(&udp_conf, 0, sizeof(udp_conf));
++
++	if (ipv6) {
++		udp_conf.family = AF_INET6;
++		udp_conf.ipv6_v6only = 1;
++	} else {
++		udp_conf.family = AF_INET;
++	}
++
++	udp_conf.local_udp_port = port;
++
++	/* Open UDP socket */
++	err = udp_sock_create(net, &udp_conf, &sock);
++	if (err)
++		return ERR_PTR(err);
++
++	return sock;
++}
++
+ static int gtp_encap_enable(struct gtp_dev *gtp, struct nlattr *data[],
+ 			    bool is_ipv6)
+ {
++	int err;
++
++	struct socket *sock0 = NULL, *sock1u = NULL;
+ 	struct sock *sk0 = NULL, *sk1u = NULL;
+ 
+ 	if (data[IFLA_GTP_FD0]) {
+ 		u32 fd0 = nla_get_u32(data[IFLA_GTP_FD0]);
+ 
+-		sk0 = gtp_encap_enable_socket(fd0, UDP_ENCAP_GTP0, gtp,
+-					      is_ipv6);
+-		if (IS_ERR(sk0))
+-			return PTR_ERR(sk0);
++		sk0 = gtp_encap_enable_fd(fd0, UDP_ENCAP_GTP0, gtp, is_ipv6);
++		if (IS_ERR(sk0)) {
++			err = PTR_ERR(sk0);
++			sk0 = NULL;
++			goto out_err;
++		}
++	} else if (data[IFLA_GTP_PORT0]) {
++		__be16 port = nla_get_u16(data[IFLA_GTP_PORT0]);
++
++		sock0 = gtp_create_sock(dev_net(gtp->dev), is_ipv6, port, 0);
++		if (IS_ERR(sock0)) {
++			err = PTR_ERR(sock0);
++			sock0 = NULL;
++			goto out_err;
++		}
++
++		err = gtp_encap_enable_sock(sock0, UDP_ENCAP_GTP0, gtp);
++		if (err)
++			goto out_err;
+ 	}
+ 
+ 	if (data[IFLA_GTP_FD1]) {
+ 		u32 fd1 = nla_get_u32(data[IFLA_GTP_FD1]);
+ 
+-		sk1u = gtp_encap_enable_socket(fd1, UDP_ENCAP_GTP1U, gtp,
+-					       is_ipv6);
++		sk1u = gtp_encap_enable_fd(fd1, UDP_ENCAP_GTP1U, gtp, is_ipv6);
+ 		if (IS_ERR(sk1u)) {
+-			if (sk0)
+-				gtp_encap_disable_sock(sk0);
+-			return PTR_ERR(sk1u);
++			err = PTR_ERR(sk1u);
++			sk1u = NULL;
++			goto out_err;
++		}
++	} else if (data[IFLA_GTP_PORT1]) {
++		__be16 port = nla_get_u16(data[IFLA_GTP_PORT1]);
++
++		sock1u = gtp_create_sock(dev_net(gtp->dev), is_ipv6, port, 0);
++		if (IS_ERR(sock1u)) {
++			err = PTR_ERR(sock1u);
++			sock1u = NULL;
++			goto out_err;
+ 		}
++
++		err = gtp_encap_enable_sock(sock1u, UDP_ENCAP_GTP1U, gtp);
++		if (err)
++			goto out_err;
++	}
++
++	if (sock0) {
++		gtp->sock0 = sock0;
++		gtp->sk0 = sock0->sk;
++	} else {
++		gtp->sk0 = sk0;
+ 	}
+ 
+-	gtp->sk0 = sk0;
+-	gtp->sk1u = sk1u;
++	if (sock1u) {
++		gtp->sock1u = sock1u;
++		gtp->sk1u = sock1u->sk;
++	} else {
++		gtp->sk1u = sk1u;
++	}
+ 
+ 	return 0;
++
++out_err:
++	if (sk0)
++		gtp_encap_destroy(sk0);
++	if (sk1u)
++		gtp_encap_destroy(sk1u);
++	if (sock0)
++		udp_tunnel_sock_release(sock0);
++	if (sock1u)
++		udp_tunnel_sock_release(sock1u);
++
++	return err;
+ }
+ 
+ static struct gtp_dev *gtp_find_dev(struct net *src_net, struct nlattr *nla[])
+@@ -1515,8 +1625,8 @@ static const struct genl_ops gtp_genl_ops[] = {
  };
- #define IFLA_GTP_MAX (__IFLA_GTP_MAX - 1)
+ 
+ static struct genl_family gtp_genl_family __ro_after_init = {
+-	.name		= "gtp",
+-	.version	= 0,
++	.name		= GTP_GENL_NAME,
++	.version	= GTP_GENL_VERSION,
+ 	.hdrsize	= 0,
+ 	.maxattr	= GTPA_MAX,
+ 	.netnsok	= true,
+diff --git a/include/uapi/linux/gtp.h b/include/uapi/linux/gtp.h
+index 8eec519fa754..0da18aa88be8 100644
+--- a/include/uapi/linux/gtp.h
++++ b/include/uapi/linux/gtp.h
+@@ -9,6 +9,11 @@ enum gtp_genl_cmds {
+ 	GTP_CMD_MAX,
+ };
+ 
++/* NETLINK_GENERIC related info
++ */
++#define GTP_GENL_NAME		"gtp"
++#define GTP_GENL_VERSION	0
++
+ enum gtp_version {
+ 	GTP_V0 = 0,
+ 	GTP_V1,
 -- 
 2.11.0
