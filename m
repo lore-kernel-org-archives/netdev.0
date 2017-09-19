@@ -1,28 +1,61 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net-next 2/7] kobject: copy env blob in one go
-Date: Tue, 19 Sep 2017 13:52:21 -0700
-Message-ID: <CAM_iQpXsSYGwbsV-a5XQvcfFGtdn+SrMEGvR=rS53Qe-XY9L3g@mail.gmail.com>
-References: <20170918190733.26272-1-edumazet@google.com> <20170918190733.26272-3-edumazet@google.com>
+From: Doug Anderson <dianders@chromium.org>
+Subject: Re: [RFC PATCH 2/3] usbnet: Avoid potential races in usbnet_deferred_kevent()
+Date: Tue, 19 Sep 2017 13:53:39 -0700
+Message-ID: <CAD=FV=WJOrpEqpUGA3EL5BMQTMN9NVgekd7qBX+u=gX90eRGyA@mail.gmail.com>
+References: <20170919161522.995-1-dianders@chromium.org> <20170919161522.995-2-dianders@chromium.org>
+ <1505853476.15836.9.camel@suse.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: "David S . Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        "Eric W . Biederman" <ebiederm@xmission.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>
-To: Eric Dumazet <edumazet@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f178.google.com ([209.85.192.178]:54618 "EHLO
-        mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751457AbdISUwm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 16:52:42 -0400
-Received: by mail-pf0-f178.google.com with SMTP id d187so414966pfg.11
-        for <netdev@vger.kernel.org>; Tue, 19 Sep 2017 13:52:42 -0700 (PDT)
-In-Reply-To: <20170918190733.26272-3-edumazet@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Guenter Roeck <groeck@chromium.org>,
+        Grant Grundler <grundler@chromium.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+        netdev@vger.kernel.org
+To: Oliver Neukum <oneukum@suse.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1505853476.15836.9.camel@suse.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 18, 2017 at 12:07 PM, Eric Dumazet <edumazet@google.com> wrote:
-> +                       scratch = skb_put(skb, env->buflen);
-> +                       memcpy(scratch, env->buf, env->buflen);
+Hi,
 
-skb_put_data()
+On Tue, Sep 19, 2017 at 1:37 PM, Oliver Neukum <oneukum@suse.com> wrote:
+> Am Dienstag, den 19.09.2017, 09:15 -0700 schrieb Douglas Anderson:
+>> In general when you've got a flag communicating that "something needs
+>> to be done" you want to clear that flag _before_ doing the task.  If
+>> you clear the flag _after_ doing the task you end up with the risk
+>> that this will happen:
+>>
+>> 1. Requester sets flag saying task A needs to be done.
+>> 2. Worker comes and stars doing task A.
+>> 3. Worker finishes task A but hasn't yet cleared the flag.
+>> 4. Requester wants to set flag saying task A needs to be done again.
+>> 5. Worker clears the flag without doing anything.
+>>
+>> Let's make the usbnet codebase consistently clear the flag _before_ it
+>> does the requested work.  That way if there's another request to do
+>> the work while the work is already in progress it won't be lost.
+>>
+>> NOTES:
+>> - No known bugs are fixed by this; it's just found by code inspection.
+>
+> Hi,
+>
+> unfortunately the patch is wrong. The flags must be cleared only
+> in case the handler is successful. That is not guaranteed.
+>
+>         Regards
+>                 Oliver
+>
+> NACK
+
+OK, thanks for reviewing!  I definitely wasn't super confident about
+the patch (hence the RFC).
+
+Do you think that the races I identified are possible to hit?  In
+other words: should I try to rework the patch somehow or just drop it?
+ Originally I had the patch setting the flags back to true in the
+failure cases, but then I convinced myself that wasn't needed.  I can
+certainly go back and try it that way...
+
+-Doug
