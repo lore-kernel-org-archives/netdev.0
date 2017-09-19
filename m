@@ -1,436 +1,141 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 02/13] mlxsw: spectrum: Move ACL flexible actions instance to spectrum
-Date: Tue, 19 Sep 2017 10:00:09 +0200
-Message-ID: <20170919080020.5870-3-jiri@resnulli.us>
+Subject: [patch net-next 13/13] mlxsw: spectrum: Add multicast router traps and trap groups
+Date: Tue, 19 Sep 2017 10:00:20 +0200
+Message-ID: <20170919080020.5870-14-jiri@resnulli.us>
 References: <20170919080020.5870-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, yotamg@mellanox.com, idosch@mellanox.com,
         mlxsw@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f196.google.com ([209.85.128.196]:38205 "EHLO
-        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751227AbdISIAZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 04:00:25 -0400
-Received: by mail-wr0-f196.google.com with SMTP id p37so1700887wrb.5
-        for <netdev@vger.kernel.org>; Tue, 19 Sep 2017 01:00:24 -0700 (PDT)
+Received: from mail-wr0-f195.google.com ([209.85.128.195]:36617 "EHLO
+        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751628AbdISIAf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 04:00:35 -0400
+Received: by mail-wr0-f195.google.com with SMTP id g50so1706232wra.3
+        for <netdev@vger.kernel.org>; Tue, 19 Sep 2017 01:00:34 -0700 (PDT)
 In-Reply-To: <20170919080020.5870-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Yotam Gigi <yotamg@mellanox.com>
 
-A flexible action instance allows, given a set of ops, creating, committing
-and sharing a set of ACL action blocks. The flexible action instance in
-question is using the spectrum KVD linear space to store the flexible
-action sets.
+Add three new traps needed for multicast routing:
+ - PIM: Trap for PIM protocol control packets.
+ - RPF: Trap for packets that fail the RPF check on a specific hardware
+   route entry.
+ - MULTICAST: Generic trap for multicast. It is used for routes that trap
+   the packets to the CPU.
 
-Move this flexible action instance to the common spectrum struct to allow
-other users (such as multicast router) to get that functionality.
+The RPF and MULTICAST traps have rate limiters as these traps may have
+line-rate of packets trapped. The PIM trap has a rate limiter similarly to
+other L3 control protocols. The rate limiters are implemented by adding
+three new trap groups for the newly introduced traps.
 
 Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
 Reviewed-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/Makefile       |   2 +-
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c     |  10 ++
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |   1 +
- drivers/net/ethernet/mellanox/mlxsw/spectrum_acl.c |  93 +--------------
- .../mellanox/mlxsw/spectrum_acl_flex_actions.c     | 129 +++++++++++++++++++++
- .../mellanox/mlxsw/spectrum_acl_flex_actions.h     |  44 +++++++
- 6 files changed, 186 insertions(+), 93 deletions(-)
- create mode 100644 drivers/net/ethernet/mellanox/mlxsw/spectrum_acl_flex_actions.c
- create mode 100644 drivers/net/ethernet/mellanox/mlxsw/spectrum_acl_flex_actions.h
+ drivers/net/ethernet/mellanox/mlxsw/reg.h      |  3 +++
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 10 ++++++++++
+ drivers/net/ethernet/mellanox/mlxsw/trap.h     |  4 ++++
+ 3 files changed, 17 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/Makefile b/drivers/net/ethernet/mellanox/mlxsw/Makefile
-index 891ff41..4b88158 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/Makefile
-+++ b/drivers/net/ethernet/mellanox/mlxsw/Makefile
-@@ -17,7 +17,7 @@ mlxsw_spectrum-objs		:= spectrum.o spectrum_buffers.o \
- 				   spectrum_kvdl.o spectrum_acl_tcam.o \
- 				   spectrum_acl.o spectrum_flower.o \
- 				   spectrum_cnt.o spectrum_fid.o \
--				   spectrum_ipip.o
-+				   spectrum_ipip.o spectrum_acl_flex_actions.o
- mlxsw_spectrum-$(CONFIG_MLXSW_SPECTRUM_DCB)	+= spectrum_dcb.o
- mlxsw_spectrum-$(CONFIG_NET_DEVLINK) += spectrum_dpipe.o
- obj-$(CONFIG_MLXSW_MINIMAL)	+= mlxsw_minimal.o
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+index c203e0d..17eba19 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+@@ -3681,12 +3681,15 @@ enum mlxsw_reg_htgt_trap_group {
+ 	MLXSW_REG_HTGT_TRAP_GROUP_SP_IGMP,
+ 	MLXSW_REG_HTGT_TRAP_GROUP_SP_BGP,
+ 	MLXSW_REG_HTGT_TRAP_GROUP_SP_OSPF,
++	MLXSW_REG_HTGT_TRAP_GROUP_SP_PIM,
++	MLXSW_REG_HTGT_TRAP_GROUP_SP_MULTICAST,
+ 	MLXSW_REG_HTGT_TRAP_GROUP_SP_ARP,
+ 	MLXSW_REG_HTGT_TRAP_GROUP_SP_HOST_MISS,
+ 	MLXSW_REG_HTGT_TRAP_GROUP_SP_ROUTER_EXP,
+ 	MLXSW_REG_HTGT_TRAP_GROUP_SP_REMOTE_ROUTE,
+ 	MLXSW_REG_HTGT_TRAP_GROUP_SP_IP2ME,
+ 	MLXSW_REG_HTGT_TRAP_GROUP_SP_DHCP,
++	MLXSW_REG_HTGT_TRAP_GROUP_SP_RPF,
+ 	MLXSW_REG_HTGT_TRAP_GROUP_SP_EVENT,
+ 	MLXSW_REG_HTGT_TRAP_GROUP_SP_IPV6_MLD,
+ 	MLXSW_REG_HTGT_TRAP_GROUP_SP_IPV6_ND,
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index 9728416..6ba6ff2 100644
+index 6ba6ff2..e9b9443 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
 +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -69,6 +69,7 @@
- #include "txheader.h"
- #include "spectrum_cnt.h"
- #include "spectrum_dpipe.h"
-+#include "spectrum_acl_flex_actions.h"
- #include "../mlxfw/mlxfw.h"
+@@ -3421,6 +3421,10 @@ static const struct mlxsw_listener mlxsw_sp_listener[] = {
+ 		  false, SP_IP2ME, DISCARD),
+ 	/* ACL trap */
+ 	MLXSW_SP_RXL_NO_MARK(ACL0, TRAP_TO_CPU, IP2ME, false),
++	/* Multicast Router Traps */
++	MLXSW_SP_RXL_MARK(IPV4_PIM, TRAP_TO_CPU, PIM, false),
++	MLXSW_SP_RXL_MARK(RPF, TRAP_TO_CPU, RPF, false),
++	MLXSW_SP_RXL_MARK(ACL1, TRAP_TO_CPU, MULTICAST, false),
+ };
  
- #define MLXSW_FWREV_MAJOR 13
-@@ -3699,6 +3700,12 @@ static int mlxsw_sp_init(struct mlxsw_core *mlxsw_core,
- 		goto err_counter_pool_init;
- 	}
+ static int mlxsw_sp_cpu_policers_set(struct mlxsw_core *mlxsw_core)
+@@ -3446,6 +3450,8 @@ static int mlxsw_sp_cpu_policers_set(struct mlxsw_core *mlxsw_core)
+ 		case MLXSW_REG_HTGT_TRAP_GROUP_SP_LACP:
+ 		case MLXSW_REG_HTGT_TRAP_GROUP_SP_LLDP:
+ 		case MLXSW_REG_HTGT_TRAP_GROUP_SP_OSPF:
++		case MLXSW_REG_HTGT_TRAP_GROUP_SP_PIM:
++		case MLXSW_REG_HTGT_TRAP_GROUP_SP_RPF:
+ 			rate = 128;
+ 			burst_size = 7;
+ 			break;
+@@ -3461,6 +3467,7 @@ static int mlxsw_sp_cpu_policers_set(struct mlxsw_core *mlxsw_core)
+ 		case MLXSW_REG_HTGT_TRAP_GROUP_SP_ROUTER_EXP:
+ 		case MLXSW_REG_HTGT_TRAP_GROUP_SP_REMOTE_ROUTE:
+ 		case MLXSW_REG_HTGT_TRAP_GROUP_SP_IPV6_ND:
++		case MLXSW_REG_HTGT_TRAP_GROUP_SP_MULTICAST:
+ 			rate = 1024;
+ 			burst_size = 7;
+ 			break;
+@@ -3506,6 +3513,7 @@ static int mlxsw_sp_trap_groups_set(struct mlxsw_core *mlxsw_core)
+ 		case MLXSW_REG_HTGT_TRAP_GROUP_SP_LACP:
+ 		case MLXSW_REG_HTGT_TRAP_GROUP_SP_LLDP:
+ 		case MLXSW_REG_HTGT_TRAP_GROUP_SP_OSPF:
++		case MLXSW_REG_HTGT_TRAP_GROUP_SP_PIM:
+ 			priority = 5;
+ 			tc = 5;
+ 			break;
+@@ -3522,12 +3530,14 @@ static int mlxsw_sp_trap_groups_set(struct mlxsw_core *mlxsw_core)
+ 			break;
+ 		case MLXSW_REG_HTGT_TRAP_GROUP_SP_ARP:
+ 		case MLXSW_REG_HTGT_TRAP_GROUP_SP_IPV6_ND:
++		case MLXSW_REG_HTGT_TRAP_GROUP_SP_RPF:
+ 			priority = 2;
+ 			tc = 2;
+ 			break;
+ 		case MLXSW_REG_HTGT_TRAP_GROUP_SP_HOST_MISS:
+ 		case MLXSW_REG_HTGT_TRAP_GROUP_SP_ROUTER_EXP:
+ 		case MLXSW_REG_HTGT_TRAP_GROUP_SP_REMOTE_ROUTE:
++		case MLXSW_REG_HTGT_TRAP_GROUP_SP_MULTICAST:
+ 			priority = 1;
+ 			tc = 1;
+ 			break;
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/trap.h b/drivers/net/ethernet/mellanox/mlxsw/trap.h
+index f396a1f..a981035 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/trap.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/trap.h
+@@ -62,6 +62,8 @@ enum {
+ 	MLXSW_TRAP_ID_TTLERROR = 0x53,
+ 	MLXSW_TRAP_ID_LBERROR = 0x54,
+ 	MLXSW_TRAP_ID_IPV4_OSPF = 0x55,
++	MLXSW_TRAP_ID_IPV4_PIM = 0x58,
++	MLXSW_TRAP_ID_RPF = 0x5C,
+ 	MLXSW_TRAP_ID_IP2ME = 0x5F,
+ 	MLXSW_TRAP_ID_IPV6_UNSPECIFIED_ADDRESS = 0x60,
+ 	MLXSW_TRAP_ID_IPV6_LINK_LOCAL_DEST = 0x61,
+@@ -89,6 +91,8 @@ enum {
+ 	MLXSW_TRAP_ID_ROUTER_ALERT_IPV4 = 0xD6,
+ 	MLXSW_TRAP_ID_ROUTER_ALERT_IPV6 = 0xD7,
+ 	MLXSW_TRAP_ID_ACL0 = 0x1C0,
++	/* Multicast trap used for routes with trap action */
++	MLXSW_TRAP_ID_ACL1 = 0x1C1,
  
-+	err = mlxsw_sp_afa_init(mlxsw_sp);
-+	if (err) {
-+		dev_err(mlxsw_sp->bus_info->dev, "Failed to initialize ACL actions\n");
-+		goto err_afa_init;
-+	}
-+
- 	err = mlxsw_sp_router_init(mlxsw_sp);
- 	if (err) {
- 		dev_err(mlxsw_sp->bus_info->dev, "Failed to initialize router\n");
-@@ -3740,6 +3747,8 @@ static int mlxsw_sp_init(struct mlxsw_core *mlxsw_core,
- err_span_init:
- 	mlxsw_sp_router_fini(mlxsw_sp);
- err_router_init:
-+	mlxsw_sp_afa_fini(mlxsw_sp);
-+err_afa_init:
- 	mlxsw_sp_counter_pool_fini(mlxsw_sp);
- err_counter_pool_init:
- 	mlxsw_sp_switchdev_fini(mlxsw_sp);
-@@ -3763,6 +3772,7 @@ static void mlxsw_sp_fini(struct mlxsw_core *mlxsw_core)
- 	mlxsw_sp_acl_fini(mlxsw_sp);
- 	mlxsw_sp_span_fini(mlxsw_sp);
- 	mlxsw_sp_router_fini(mlxsw_sp);
-+	mlxsw_sp_afa_fini(mlxsw_sp);
- 	mlxsw_sp_counter_pool_fini(mlxsw_sp);
- 	mlxsw_sp_switchdev_fini(mlxsw_sp);
- 	mlxsw_sp_lag_fini(mlxsw_sp);
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-index 84ce83a..7180d8f 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-@@ -152,6 +152,7 @@ struct mlxsw_sp {
- 	struct mlxsw_sp_sb *sb;
- 	struct mlxsw_sp_bridge *bridge;
- 	struct mlxsw_sp_router *router;
-+	struct mlxsw_afa *afa;
- 	struct mlxsw_sp_acl *acl;
- 	struct mlxsw_sp_fid_core *fid_core;
- 	struct {
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_acl.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_acl.c
-index 4b2455e..2523785 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_acl.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_acl.c
-@@ -52,7 +52,6 @@
- struct mlxsw_sp_acl {
- 	struct mlxsw_sp *mlxsw_sp;
- 	struct mlxsw_afk *afk;
--	struct mlxsw_afa *afa;
- 	struct mlxsw_sp_fid *dummy_fid;
- 	const struct mlxsw_sp_acl_ops *ops;
- 	struct rhashtable ruleset_ht;
-@@ -333,7 +332,7 @@ mlxsw_sp_acl_rulei_create(struct mlxsw_sp_acl *acl)
- 	rulei = kzalloc(sizeof(*rulei), GFP_KERNEL);
- 	if (!rulei)
- 		return NULL;
--	rulei->act_block = mlxsw_afa_block_create(acl->afa);
-+	rulei->act_block = mlxsw_afa_block_create(acl->mlxsw_sp->afa);
- 	if (IS_ERR(rulei->act_block)) {
- 		err = PTR_ERR(rulei->act_block);
- 		goto err_afa_block_create;
-@@ -653,85 +652,6 @@ int mlxsw_sp_acl_rule_get_stats(struct mlxsw_sp *mlxsw_sp,
- 	return 0;
- }
- 
--#define MLXSW_SP_KDVL_ACT_EXT_SIZE 1
--
--static int mlxsw_sp_act_kvdl_set_add(void *priv, u32 *p_kvdl_index,
--				     char *enc_actions, bool is_first)
--{
--	struct mlxsw_sp *mlxsw_sp = priv;
--	char pefa_pl[MLXSW_REG_PEFA_LEN];
--	u32 kvdl_index;
--	int err;
--
--	/* The first action set of a TCAM entry is stored directly in TCAM,
--	 * not KVD linear area.
--	 */
--	if (is_first)
--		return 0;
--
--	err = mlxsw_sp_kvdl_alloc(mlxsw_sp, MLXSW_SP_KDVL_ACT_EXT_SIZE,
--				  &kvdl_index);
--	if (err)
--		return err;
--	mlxsw_reg_pefa_pack(pefa_pl, kvdl_index, enc_actions);
--	err = mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(pefa), pefa_pl);
--	if (err)
--		goto err_pefa_write;
--	*p_kvdl_index = kvdl_index;
--	return 0;
--
--err_pefa_write:
--	mlxsw_sp_kvdl_free(mlxsw_sp, kvdl_index);
--	return err;
--}
--
--static void mlxsw_sp_act_kvdl_set_del(void *priv, u32 kvdl_index,
--				      bool is_first)
--{
--	struct mlxsw_sp *mlxsw_sp = priv;
--
--	if (is_first)
--		return;
--	mlxsw_sp_kvdl_free(mlxsw_sp, kvdl_index);
--}
--
--static int mlxsw_sp_act_kvdl_fwd_entry_add(void *priv, u32 *p_kvdl_index,
--					   u8 local_port)
--{
--	struct mlxsw_sp *mlxsw_sp = priv;
--	char ppbs_pl[MLXSW_REG_PPBS_LEN];
--	u32 kvdl_index;
--	int err;
--
--	err = mlxsw_sp_kvdl_alloc(mlxsw_sp, 1, &kvdl_index);
--	if (err)
--		return err;
--	mlxsw_reg_ppbs_pack(ppbs_pl, kvdl_index, local_port);
--	err = mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(ppbs), ppbs_pl);
--	if (err)
--		goto err_ppbs_write;
--	*p_kvdl_index = kvdl_index;
--	return 0;
--
--err_ppbs_write:
--	mlxsw_sp_kvdl_free(mlxsw_sp, kvdl_index);
--	return err;
--}
--
--static void mlxsw_sp_act_kvdl_fwd_entry_del(void *priv, u32 kvdl_index)
--{
--	struct mlxsw_sp *mlxsw_sp = priv;
--
--	mlxsw_sp_kvdl_free(mlxsw_sp, kvdl_index);
--}
--
--static const struct mlxsw_afa_ops mlxsw_sp_act_afa_ops = {
--	.kvdl_set_add		= mlxsw_sp_act_kvdl_set_add,
--	.kvdl_set_del		= mlxsw_sp_act_kvdl_set_del,
--	.kvdl_fwd_entry_add	= mlxsw_sp_act_kvdl_fwd_entry_add,
--	.kvdl_fwd_entry_del	= mlxsw_sp_act_kvdl_fwd_entry_del,
--};
--
- int mlxsw_sp_acl_init(struct mlxsw_sp *mlxsw_sp)
- {
- 	const struct mlxsw_sp_acl_ops *acl_ops = &mlxsw_sp_acl_tcam_ops;
-@@ -753,14 +673,6 @@ int mlxsw_sp_acl_init(struct mlxsw_sp *mlxsw_sp)
- 		goto err_afk_create;
- 	}
- 
--	acl->afa = mlxsw_afa_create(MLXSW_CORE_RES_GET(mlxsw_sp->core,
--						       ACL_ACTIONS_PER_SET),
--				    &mlxsw_sp_act_afa_ops, mlxsw_sp);
--	if (IS_ERR(acl->afa)) {
--		err = PTR_ERR(acl->afa);
--		goto err_afa_create;
--	}
--
- 	err = rhashtable_init(&acl->ruleset_ht,
- 			      &mlxsw_sp_acl_ruleset_ht_params);
- 	if (err)
-@@ -792,8 +704,6 @@ int mlxsw_sp_acl_init(struct mlxsw_sp *mlxsw_sp)
- err_fid_get:
- 	rhashtable_destroy(&acl->ruleset_ht);
- err_rhashtable_init:
--	mlxsw_afa_destroy(acl->afa);
--err_afa_create:
- 	mlxsw_afk_destroy(acl->afk);
- err_afk_create:
- 	kfree(acl);
-@@ -810,7 +720,6 @@ void mlxsw_sp_acl_fini(struct mlxsw_sp *mlxsw_sp)
- 	WARN_ON(!list_empty(&acl->rules));
- 	mlxsw_sp_fid_put(acl->dummy_fid);
- 	rhashtable_destroy(&acl->ruleset_ht);
--	mlxsw_afa_destroy(acl->afa);
- 	mlxsw_afk_destroy(acl->afk);
- 	kfree(acl);
- }
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_acl_flex_actions.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_acl_flex_actions.c
-new file mode 100644
-index 0000000..4d3340e
---- /dev/null
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_acl_flex_actions.c
-@@ -0,0 +1,129 @@
-+/*
-+ * drivers/net/ethernet/mellanox/mlxsw/spectrum_acl_flex_actions.c
-+ * Copyright (c) 2017 Mellanox Technologies. All rights reserved.
-+ * Copyright (c) 2017 Jiri Pirko <jiri@mellanox.com>
-+ * Copyright (c) 2017 Yotam Gigi <yotamg@mellanox.com>
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions are met:
-+ *
-+ * 1. Redistributions of source code must retain the above copyright
-+ *    notice, this list of conditions and the following disclaimer.
-+ * 2. Redistributions in binary form must reproduce the above copyright
-+ *    notice, this list of conditions and the following disclaimer in the
-+ *    documentation and/or other materials provided with the distribution.
-+ * 3. Neither the names of the copyright holders nor the names of its
-+ *    contributors may be used to endorse or promote products derived from
-+ *    this software without specific prior written permission.
-+ *
-+ * Alternatively, this software may be distributed under the terms of the
-+ * GNU General Public License ("GPL") version 2 as published by the Free
-+ * Software Foundation.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
-+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-+ * POSSIBILITY OF SUCH DAMAGE.
-+ */
-+
-+#include "spectrum_acl_flex_actions.h"
-+#include "core_acl_flex_actions.h"
-+
-+#define MLXSW_SP_KVDL_ACT_EXT_SIZE 1
-+
-+static int mlxsw_sp_act_kvdl_set_add(void *priv, u32 *p_kvdl_index,
-+				     char *enc_actions, bool is_first)
-+{
-+	struct mlxsw_sp *mlxsw_sp = priv;
-+	char pefa_pl[MLXSW_REG_PEFA_LEN];
-+	u32 kvdl_index;
-+	int err;
-+
-+	/* The first action set of a TCAM entry is stored directly in TCAM,
-+	 * not KVD linear area.
-+	 */
-+	if (is_first)
-+		return 0;
-+
-+	err = mlxsw_sp_kvdl_alloc(mlxsw_sp, MLXSW_SP_KVDL_ACT_EXT_SIZE,
-+				  &kvdl_index);
-+	if (err)
-+		return err;
-+	mlxsw_reg_pefa_pack(pefa_pl, kvdl_index, enc_actions);
-+	err = mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(pefa), pefa_pl);
-+	if (err)
-+		goto err_pefa_write;
-+	*p_kvdl_index = kvdl_index;
-+	return 0;
-+
-+err_pefa_write:
-+	mlxsw_sp_kvdl_free(mlxsw_sp, kvdl_index);
-+	return err;
-+}
-+
-+static void mlxsw_sp_act_kvdl_set_del(void *priv, u32 kvdl_index,
-+				      bool is_first)
-+{
-+	struct mlxsw_sp *mlxsw_sp = priv;
-+
-+	if (is_first)
-+		return;
-+	mlxsw_sp_kvdl_free(mlxsw_sp, kvdl_index);
-+}
-+
-+static int mlxsw_sp_act_kvdl_fwd_entry_add(void *priv, u32 *p_kvdl_index,
-+					   u8 local_port)
-+{
-+	struct mlxsw_sp *mlxsw_sp = priv;
-+	char ppbs_pl[MLXSW_REG_PPBS_LEN];
-+	u32 kvdl_index;
-+	int err;
-+
-+	err = mlxsw_sp_kvdl_alloc(mlxsw_sp, 1, &kvdl_index);
-+	if (err)
-+		return err;
-+	mlxsw_reg_ppbs_pack(ppbs_pl, kvdl_index, local_port);
-+	err = mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(ppbs), ppbs_pl);
-+	if (err)
-+		goto err_ppbs_write;
-+	*p_kvdl_index = kvdl_index;
-+	return 0;
-+
-+err_ppbs_write:
-+	mlxsw_sp_kvdl_free(mlxsw_sp, kvdl_index);
-+	return err;
-+}
-+
-+static void mlxsw_sp_act_kvdl_fwd_entry_del(void *priv, u32 kvdl_index)
-+{
-+	struct mlxsw_sp *mlxsw_sp = priv;
-+
-+	mlxsw_sp_kvdl_free(mlxsw_sp, kvdl_index);
-+}
-+
-+static const struct mlxsw_afa_ops mlxsw_sp_act_afa_ops = {
-+	.kvdl_set_add		= mlxsw_sp_act_kvdl_set_add,
-+	.kvdl_set_del		= mlxsw_sp_act_kvdl_set_del,
-+	.kvdl_fwd_entry_add	= mlxsw_sp_act_kvdl_fwd_entry_add,
-+	.kvdl_fwd_entry_del	= mlxsw_sp_act_kvdl_fwd_entry_del,
-+};
-+
-+int mlxsw_sp_afa_init(struct mlxsw_sp *mlxsw_sp)
-+{
-+	mlxsw_sp->afa = mlxsw_afa_create(MLXSW_CORE_RES_GET(mlxsw_sp->core,
-+							    ACL_ACTIONS_PER_SET),
-+					 &mlxsw_sp_act_afa_ops, mlxsw_sp);
-+	return PTR_ERR_OR_ZERO(mlxsw_sp->afa);
-+}
-+
-+void mlxsw_sp_afa_fini(struct mlxsw_sp *mlxsw_sp)
-+{
-+	mlxsw_afa_destroy(mlxsw_sp->afa);
-+}
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_acl_flex_actions.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum_acl_flex_actions.h
-new file mode 100644
-index 0000000..2726192
---- /dev/null
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_acl_flex_actions.h
-@@ -0,0 +1,44 @@
-+/*
-+ * drivers/net/ethernet/mellanox/mlxsw/spectrum_acl_flex_actions.h
-+ * Copyright (c) 2017 Mellanox Technologies. All rights reserved.
-+ * Copyright (c) 2017 Jiri Pirko <jiri@mellanox.com>
-+ * Copyright (c) 2017 Yotam Gigi <yotamg@mellanox.com>
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions are met:
-+ *
-+ * 1. Redistributions of source code must retain the above copyright
-+ *    notice, this list of conditions and the following disclaimer.
-+ * 2. Redistributions in binary form must reproduce the above copyright
-+ *    notice, this list of conditions and the following disclaimer in the
-+ *    documentation and/or other materials provided with the distribution.
-+ * 3. Neither the names of the copyright holders nor the names of its
-+ *    contributors may be used to endorse or promote products derived from
-+ *    this software without specific prior written permission.
-+ *
-+ * Alternatively, this software may be distributed under the terms of the
-+ * GNU General Public License ("GPL") version 2 as published by the Free
-+ * Software Foundation.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
-+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-+ * POSSIBILITY OF SUCH DAMAGE.
-+ */
-+
-+#ifndef _MLXSW_SPECTRUM_ACL_FLEX_KEYS_H
-+#define _MLXSW_SPECTRUM_ACL_FLEX_KEYS_H
-+
-+#include "spectrum.h"
-+
-+int mlxsw_sp_afa_init(struct mlxsw_sp *mlxsw_sp);
-+void mlxsw_sp_afa_fini(struct mlxsw_sp *mlxsw_sp);
-+
-+#endif
+ 	MLXSW_TRAP_ID_MAX = 0x1FF
+ };
 -- 
 2.9.5
