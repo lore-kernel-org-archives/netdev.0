@@ -1,49 +1,42 @@
-From: Soheil Hassas Yeganeh <soheil.kdev@gmail.com>
-Subject: Re: [PATCH v2 net-next] net: sk_buff rbnode reorg
-Date: Tue, 19 Sep 2017 14:33:13 -0400
-Message-ID: <CADAM+B2hA8+UC0198k-cPJt6RCsX5hoSc+fB64Ypbv9cqyAKrg@mail.gmail.com>
-References: <1505797616.29839.40.camel@edumazet-glaptop3.roam.corp.google.com> <1505823264.29839.54.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Soheil Hassas Yeganeh <soheil@google.com>,
-        Wei Wang <weiwan@google.com>,
-        Willem de Bruijn <willemb@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f194.google.com ([209.85.217.194]:35279 "EHLO
-        mail-ua0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750919AbdISSdy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 14:33:54 -0400
-Received: by mail-ua0-f194.google.com with SMTP id g47so148840uad.2
-        for <netdev@vger.kernel.org>; Tue, 19 Sep 2017 11:33:54 -0700 (PDT)
-In-Reply-To: <1505823264.29839.54.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jim Hanko <hanko@drivescale.com>
+Subject: [patch net-next] team: fall back to hash if table entry is empty
+Date: Tue, 19 Sep 2017 11:33:39 -0700
+Message-ID: <1505846019-6785-1-git-send-email-hanko@drivescale.com>
+Cc: Jim Hanko <hanko@drivescale.com>
+To: jiri@resnulli.us, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 19, 2017 at 8:14 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> From: Eric Dumazet <edumazet@google.com>
->
-> skb->rbnode shares space with skb->next, skb->prev and skb->tstamp
->
-> Current uses (TCP receive ofo queue and netem) need to save/restore
-> tstamp, while skb->dev is either NULL (TCP) or a constant for a given
-> queue (netem).
->
-> Since we plan using an RB tree for TCP retransmit queue to speedup SACK
-> processing with large BDP, this patch exchanges skb->dev and
-> skb->tstamp.
->
-> This saves some overhead in both TCP and netem.
->
-> v2: removes the swtstamp field from struct tcp_skb_cb
->
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Soheil Hassas Yeganeh <soheil@google.com>
-> Cc: Wei Wang <weiwan@google.com>
-> Cc: Willem de Bruijn <willemb@google.com>
+If the hash to port mapping table does not have a valid port (i.e. when
+a port goes down), fall back to the simple hashing mechanism to avoid
+dropping packets.
 
-Acked-by: Soheil Hassas Yeganeh <soheil@google.com>
+Signed-off-by: Jim Hanko <hanko@drivescale.com>
+Acked-by: Jiri Pirko <jiri@mellanox.com>
+---
+ drivers/net/team/team_mode_loadbalance.c | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
 
-Very nice!
+diff --git a/drivers/net/team/team_mode_loadbalance.c b/drivers/net/team/team_mode_loadbalance.c
+index 1468ddf..a5ef970 100644
+--- a/drivers/net/team/team_mode_loadbalance.c
++++ b/drivers/net/team/team_mode_loadbalance.c
+@@ -137,7 +137,13 @@ static struct team_port *lb_htpm_select_tx_port(struct team *team,
+ 						struct sk_buff *skb,
+ 						unsigned char hash)
+ {
+-	return rcu_dereference_bh(LB_HTPM_PORT_BY_HASH(lb_priv, hash));
++	struct team_port *port;
++
++	port = rcu_dereference_bh(LB_HTPM_PORT_BY_HASH(lb_priv, hash));
++	if (likely(port))
++		return port;
++	/* If no valid port in the table, fall back to simple hash */
++	return lb_hash_select_tx_port(team, lb_priv, skb, hash);
+ }
+ 
+ struct lb_select_tx_port {
+-- 
+2.7.4
