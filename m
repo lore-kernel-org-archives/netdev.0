@@ -1,97 +1,91 @@
-From: Egil Hjelmeland <privat@egil-hjelmeland.no>
-Subject: [PATCH net-next] net: dsa: lan9303: Add adjust_link() method
-Date: Tue, 19 Sep 2017 10:09:24 +0200
-Message-ID: <20170919080924.11144-1-privat@egil-hjelmeland.no>
-Cc: Egil Hjelmeland <privat@egil-hjelmeland.no>
-To: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
-        f.fainelli@gmail.com, netdev@vger.kernel.org,
+From: Maxime Ripard <maxime.ripard@free-electrons.com>
+Subject: Re: [PATCH v2] net: stmmac: dwmac-sun8i: Use reset exclusive
+Date: Tue, 19 Sep 2017 10:45:25 +0200
+Message-ID: <20170919084525.vdbjrqx5qvhhxmor@flea.lan>
+References: <20170918183043.8028-1-clabbe.montjoie@gmail.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="7mqomjgivpyllpcv"
+Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com, wens@csie.org,
+        netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
         linux-kernel@vger.kernel.org
+To: Corentin Labbe <clabbe.montjoie@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170918183043.8028-1-clabbe.montjoie@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Make the driver react to device tree "fixed-link" declaration on CPU port.
 
-- turn off autonegotiation
-- force speed 10 or 100 mb/s
-- force duplex mode
+--7mqomjgivpyllpcv
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Egil Hjelmeland <privat@egil-hjelmeland.no>
----
- drivers/net/dsa/lan9303-core.c | 40 ++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 40 insertions(+)
+On Mon, Sep 18, 2017 at 08:30:43PM +0200, Corentin Labbe wrote:
+> The current dwmac_sun8i module cannot be rmmod/modprobe due to that
+> the reset controller was not released when removed.
+>=20
+> This patch remove ambiguity, by using of_reset_control_get_exclusive and
+> add the missing reset_control_put().
+>=20
+> Note that we cannot use devm_reset_control_get, since the reset is not
+> in the device node.
+>=20
+> Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
+> ---
+> Changes since v1:
+> - added a note about devm_reset_control_get in commit message
 
-diff --git a/drivers/net/dsa/lan9303-core.c b/drivers/net/dsa/lan9303-core.c
-index b471413d3df9..07355db2ad81 100644
---- a/drivers/net/dsa/lan9303-core.c
-+++ b/drivers/net/dsa/lan9303-core.c
-@@ -17,6 +17,7 @@
- #include <linux/regmap.h>
- #include <linux/mutex.h>
- #include <linux/mii.h>
-+#include <linux/phy.h>
- 
- #include "lan9303.h"
- 
-@@ -57,6 +58,7 @@
- #define LAN9303_SWITCH_CSR_CMD_LANES (BIT(19) | BIT(18) | BIT(17) | BIT(16))
- #define LAN9303_VIRT_PHY_BASE 0x70
- #define LAN9303_VIRT_SPECIAL_CTRL 0x77
-+#define  LAN9303_VIRT_SPECIAL_TURBO BIT(10) /*Turbo MII Enable*/
- 
- /*13.4 Switch Fabric Control and Status Registers
-  * Accessed indirectly via SWITCH_CSR_CMD, SWITCH_CSR_DATA.
-@@ -760,6 +762,43 @@ static int lan9303_phy_write(struct dsa_switch *ds, int phy, int regnum,
- 	return chip->ops->phy_write(chip, phy, regnum, val);
- }
- 
-+static void lan9303_adjust_link(struct dsa_switch *ds, int port,
-+				struct phy_device *phydev)
-+{
-+	struct lan9303 *chip = ds->priv;
-+	int ctl, res;
-+
-+	if (!phy_is_pseudo_fixed_link(phydev))
-+		return;
-+
-+	ctl = lan9303_phy_read(ds, port, MII_BMCR);
-+
-+	ctl &= ~BMCR_ANENABLE;
-+
-+	if (phydev->speed == SPEED_100)
-+		ctl |= BMCR_SPEED100;
-+	else if (phydev->speed == SPEED_10)
-+		ctl &= ~BMCR_SPEED100;
-+	else
-+		dev_err(ds->dev, "unsupported speed: %d\n", phydev->speed);
-+
-+	if (phydev->duplex == DUPLEX_FULL)
-+		ctl |= BMCR_FULLDPLX;
-+	else
-+		ctl &= ~BMCR_FULLDPLX;
-+
-+	res =  lan9303_phy_write(ds, port, MII_BMCR, ctl);
-+
-+	if (port == chip->phy_addr_sel_strap) {
-+		/* Virtual Phy: Remove Turbo 200Mbit mode */
-+		lan9303_read(chip->regmap, LAN9303_VIRT_SPECIAL_CTRL, &ctl);
-+
-+		ctl &= ~LAN9303_VIRT_SPECIAL_TURBO;
-+		res =  regmap_write(chip->regmap,
-+				    LAN9303_VIRT_SPECIAL_CTRL, ctl);
-+	}
-+}
-+
- static int lan9303_port_enable(struct dsa_switch *ds, int port,
- 			       struct phy_device *phy)
- {
-@@ -803,6 +842,7 @@ static const struct dsa_switch_ops lan9303_switch_ops = {
- 	.get_strings = lan9303_get_strings,
- 	.phy_read = lan9303_phy_read,
- 	.phy_write = lan9303_phy_write,
-+	.adjust_link = lan9303_adjust_link,
- 	.get_ethtool_stats = lan9303_get_ethtool_stats,
- 	.get_sset_count = lan9303_get_sset_count,
- 	.port_enable = lan9303_port_enable,
--- 
-2.11.0
+That comment would be better if it was in the code.
+
+>=20
+>  drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c | 3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
+>=20
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c b/drivers/=
+net/ethernet/stmicro/stmmac/dwmac-sun8i.c
+> index 57bb6dd7b401..1736d7cb0d96 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
+> @@ -854,6 +854,7 @@ static int sun8i_dwmac_unpower_internal_phy(struct su=
+nxi_priv_data *gmac)
+> =20
+>  	clk_disable_unprepare(gmac->ephy_clk);
+>  	reset_control_assert(gmac->rst_ephy);
+> +	reset_control_put(gmac->rst_ephy);
+
+Putting it here is weird.
+
+What would happen if power_phy / unpower_phy is called several times?
+
+Can't we just make it symetric and undo in remove what we do in probe?
+
+Maxime
+
+--=20
+Maxime Ripard, Free Electrons
+Embedded Linux and Kernel engineering
+http://free-electrons.com
+
+--7mqomjgivpyllpcv
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIcBAEBAgAGBQJZwNklAAoJEBx+YmzsjxAgc1sQALqO1I3/P84NAW9+qGwxSTxI
+ba/GiF/zhUPXY7yHr525XqpS0Jw4W7UeUdFeUvLIO2egKbsWF1gkDw6s1+vr2Mmz
+5Ontv4Dcsl3gtGufu02QGmLfscfdwsru7xAC6zZaKi95pNxnrtlxFxcBRkibgRYa
+qqquX92ejLAwuhnm7W2YdP/GafdoDVvbXlEQ3e3wmNEXJ+6u/a6KkEwUmrzlWf8N
+SF7SpXXcORLK8MFwAoqnQeI+HASyEQMWk8kxwM73YKiRl9eHx8Xa8dVSJ70G3tK4
+FZN/Cm191I1WH+E9tJlvE4lrfoJBdWYIQBWPnNcmq5WrsLBmexn30NVp/72Jlibf
+9G+6rY0vbvI4SQKjxWrEKtb2XU577vfg2tC9OFhGULA6hHp2qshw2G2eHDIklVra
+b8919uhgLLtHUC5HRh23x1XsKBtuQ972RyAEiz1lfSiThPawbwYbRf9JrDeV9l02
+SnuAmEGNvK72NHET+JRmmb4TqhGhMISasTF7XLUcrCYqfGjel54LApvSXirDeQ1H
+BnLyyC+IZ5iCtSI9RFbAdbw6eEnzWW1SLcHK+yIc4+U2Bw+GxYvICmFMg7ad85Fz
+NAZxSmRgrd9m5GZltoZZH9H1pGv/qhIdQ3X5kW6LeScmvdz5crjy1STQCXAlY1St
+U9Cavy0g78jKumyev0PA
+=Xp24
+-----END PGP SIGNATURE-----
+
+--7mqomjgivpyllpcv--
