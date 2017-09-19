@@ -1,43 +1,47 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: [PATCH net] net: change skb->mac_header when Generic XDP calls
- adjust_head
-Date: Tue, 19 Sep 2017 18:45:56 +0100
-Message-ID: <394385d4-796a-9ada-8f01-53a52d73a418@solarflare.com>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [RFC PATCH 1/3] usbnet: Get rid of spammy usbnet "kevent X may have been dropped"
+Date: Tue, 19 Sep 2017 19:45:58 +0200
+Message-ID: <87377ioa3t.fsf@miraculix.mork.no>
+References: <20170919161522.995-1-dianders@chromium.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dispatch1-us1.ppe-hosted.com ([67.231.154.164]:38706 "EHLO
-        dispatch1-us1.ppe-hosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751378AbdISRqD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 13:46:03 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Oliver Neukum <oneukum@suse.com>, groeck@chromium.org,
+        grundler@chromium.org, netdev@vger.kernel.org,
+        linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Douglas Anderson <dianders@chromium.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170919161522.995-1-dianders@chromium.org> (Douglas Anderson's
+        message of "Tue, 19 Sep 2017 09:15:20 -0700")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Since XDP's view of the packet includes the MAC header, moving the start-
- of-packet with bpf_xdp_adjust_head needs to also update the offset of the
- MAC header (which is relative to skb->head, not to the skb->data that was
- changed).
-Without this, tcpdump sees packets starting from the old MAC header rather
- than the new one, at least in my tests on the loopback device.
+Douglas Anderson <dianders@chromium.org> writes:
 
-Fixes: b5cdae3291f7 ("net: Generic XDP")
-Signed-off-by: Edward Cree <ecree@solarflare.com>
----
- net/core/dev.c | 1 +
- 1 file changed, 1 insertion(+)
+> Every once in a while when my system is under a bit of stress I see
+> some spammy messages show up in my logs that say:
+>
+>   kevent X may have been dropped
+>
+> As far as I can tell these messages aren't terribly useful.
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index fb766d9..9a2254f 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3892,6 +3892,7 @@ static u32 netif_receive_generic_xdp(struct sk_buff *skb,
- 		__skb_pull(skb, off);
- 	else if (off < 0)
- 		__skb_push(skb, -off);
-+	skb->mac_header += off;
- 
- 	switch (act) {
- 	case XDP_REDIRECT:
+I agree, FWIW. These messages just confuse users for no purpose at all.
+
+
+> +	/* If work is already started this will mark it to run again when it
+> +	 * finishes; if we already had work pending and it hadn't started
+> +	 * yet then that's fine too.
+> +	 */
+> +	schedule_work (&dev->kevent);
+> +	netdev_dbg(dev->net, "kevent %d scheduled\n", work);
+
+Or maybe
+
+        if (schedule_work (&dev->kevent))
+        	netdev_dbg(dev->net, "kevent %d scheduled\n", work);
+
+
+?  Not that I think it matters much.
+
+
+Bj=C3=B8rn
