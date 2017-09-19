@@ -1,7 +1,7 @@
 From: Salil Mehta <salil.mehta@huawei.com>
-Subject: [PATCH V2 net 5/7] net: hns3: Fixes the ether address copy with appropriate API
-Date: Tue, 19 Sep 2017 17:17:14 +0100
-Message-ID: <20170919161716.92680-6-salil.mehta@huawei.com>
+Subject: [PATCH V2 net 2/7] net: hns3: Fixes the command used to unmap ring from vector
+Date: Tue, 19 Sep 2017 17:17:11 +0100
+Message-ID: <20170919161716.92680-3-salil.mehta@huawei.com>
 References: <20170919161716.92680-1-salil.mehta@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -15,29 +15,31 @@ In-Reply-To: <20170919161716.92680-1-salil.mehta@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch replaces the ethernet address copy instance with more
-appropriate ether_addr_copy() function.
+From: Lipeng <lipeng321@huawei.com>
+
+This patch fixes the IMP command being used to unmap the vector
+from the corresponding ring.
 
 Fixes: 6427264ef330 ("net: hns3: Add HNS3 Acceleration Engine &
 Compatibility Layer Support")
+Signed-off-by: Lipeng <lipeng321@huawei.com>
 Signed-off-by: Salil Mehta <salil.mehta@huawei.com>
 ---
- drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
-index eafd9c6..8e172af 100644
+index db4e07d..e324bc6 100644
 --- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
 +++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
-@@ -1063,8 +1063,7 @@ static int hclge_configure(struct hclge_dev *hdev)
- 	hdev->base_tqp_pid = 0;
- 	hdev->rss_size_max = 1;
- 	hdev->rx_buf_len = cfg.rx_buf_len;
--	for (i = 0; i < ETH_ALEN; i++)
--		hdev->hw.mac.mac_addr[i] = cfg.mac_addr[i];
-+	ether_addr_copy(hdev->hw.mac.mac_addr, cfg.mac_addr);
- 	hdev->hw.mac.media_type = cfg.media_type;
- 	hdev->hw.mac.phy_addr = cfg.phy_addr;
- 	hdev->num_desc = cfg.tqp_desc_num;
+@@ -2779,7 +2779,7 @@ static int hclge_unmap_ring_from_vector(
+ 			}
+ 			i = 0;
+ 			hclge_cmd_setup_basic_desc(&desc,
+-						   HCLGE_OPC_ADD_RING_TO_VECTOR,
++						   HCLGE_OPC_DEL_RING_TO_VECTOR,
+ 						   false);
+ 			req->int_vector_id = vector_id;
+ 		}
 -- 
 2.7.4
