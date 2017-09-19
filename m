@@ -1,41 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: avoid bogus warning in tcp_clean_rtx_queue
-Date: Tue, 19 Sep 2017 14:02:50 -0700 (PDT)
-Message-ID: <20170919.140250.1393293793761020505.davem@davemloft.net>
-References: <20170918204855.170920-1-arnd@arndb.de>
+Subject: Re: [PATCH net-next 0/4] test_rhashtable: add test case for rhl
+ table
+Date: Tue, 19 Sep 2017 14:03:27 -0700 (PDT)
+Message-ID: <20170919.140327.234018891173976958.davem@davemloft.net>
+References: <20170918210711.10202-1-fw@strlen.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, yoshfuji@linux-ipv6.org, edumazet@google.com,
-        ncardwell@google.com, ycheng@google.com, soheil@google.com,
-        fw@strlen.de, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: arnd@arndb.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170918204855.170920-1-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: fw@strlen.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:45058 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751431AbdISVD2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 17:03:28 -0400
+In-Reply-To: <20170918210711.10202-1-fw@strlen.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Mon, 18 Sep 2017 22:48:47 +0200
+From: Florian Westphal <fw@strlen.de>
+Date: Mon, 18 Sep 2017 23:07:07 +0200
 
-> gcc-4.9 warns that it cannot trace the state of the 'last_ackt'
-> variable since the change to the TCP timestamping code, when
-> CONFIG_PROFILE_ANNOTATED_BRANCHES is set:
+> Add a test case for the rhlist interface.
 > 
-> net/ipv4/tcp_input.c: In function 'tcp_clean_rtx_queue':
-> include/net/tcp.h:757:23: error: 'last_ackt' may be used uninitialized in this function [-Werror=maybe-uninitialized]
-> 
-> Other gcc versions, both older and newer do now show this
-> warning. Removing the 'likely' annotation makes it go away,
-> and has no effect on the object code without
-> CONFIG_PROFILE_ANNOTATED_BRANCHES, as tested with gcc-4.9
-> and gcc-7.1.1, so this seems to be a safe workaround.
-> 
-> Fixes: 9a568de4818d ("tcp: switch TCP TS option (RFC 7323) to 1ms clock")
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> While at it, cleanup current rhashtable test a bit and add a check
+> for max_size support.
 
-This reaches the limits at which I am willing to work around compiler
-stuff.
+The kbuild test robot complained about a very large on-stack allocation
+added by these changes, please address that.
 
-What cpu did you test the object code generation upon and does that
-cpu have branch prediction hints in the target you are building for?
+Thanks.
