@@ -1,7 +1,7 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH v2 net-next 4/7] ipv6: addrlabel: per netns list
-Date: Tue, 19 Sep 2017 16:27:06 -0700
-Message-ID: <20170919232709.14690-5-edumazet@google.com>
+Subject: [PATCH v2 net-next 7/7] ipv4: speedup ipv6 tunnels dismantle
+Date: Tue, 19 Sep 2017 16:27:09 -0700
+Message-ID: <20170919232709.14690-8-edumazet@google.com>
 References: <20170919232709.14690-1-edumazet@google.com>
 Cc: netdev <netdev@vger.kernel.org>,
         "Eric W . Biederman" <ebiederm@xmission.com>,
@@ -9,288 +9,207 @@ Cc: netdev <netdev@vger.kernel.org>,
         Eric Dumazet <eric.dumazet@gmail.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f181.google.com ([209.85.192.181]:45076 "EHLO
-        mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751700AbdISX1V (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 19:27:21 -0400
-Received: by mail-pf0-f181.google.com with SMTP id z84so607240pfi.2
-        for <netdev@vger.kernel.org>; Tue, 19 Sep 2017 16:27:21 -0700 (PDT)
+Received: from mail-pf0-f179.google.com ([209.85.192.179]:54609 "EHLO
+        mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751700AbdISX11 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 19:27:27 -0400
+Received: by mail-pf0-f179.google.com with SMTP id d187so594156pfg.11
+        for <netdev@vger.kernel.org>; Tue, 19 Sep 2017 16:27:27 -0700 (PDT)
 In-Reply-To: <20170919232709.14690-1-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Having a global list of labels do not scale to thousands of
-netns in the cloud era. This causes quadratic behavior on
-netns creation and deletion.
+Implement exit_batch() method to dismantle more devices
+per round.
 
-This is time having a per netns list of ~10 labels.
+(rtnl_lock() ...
+ unregister_netdevice_many() ...
+ rtnl_unlock())
 
 Tested:
+$ cat add_del_unshare.sh
+for i in `seq 1 40`
+do
+ (for j in `seq 1 100` ; do unshare -n /bin/true >/dev/null ; done) &
+done
+wait ; grep net_namespace /proc/slabinfo
 
-$ time perf record (for f in `seq 1 3000` ; do ip netns add tast$f; done)
-[ perf record: Woken up 1 times to write data ]
-[ perf record: Captured and wrote 3.637 MB perf.data (~158898 samples) ]
+Before patch :
+$ time ./add_del_unshare.sh
+net_namespace        126    282   5504    1    2 : tunables    8    4    0 : slabdata    126    282      0
 
-real    0m20.837s # instead of 0m24.227s
-user    0m0.328s
-sys     0m20.338s # instead of 0m23.753s
+real    1m38.965s
+user    0m0.688s
+sys     0m37.017s
 
-    16.17%       ip  [kernel.kallsyms]  [k] netlink_broadcast_filtered
-    12.30%       ip  [kernel.kallsyms]  [k] netlink_has_listeners
-     6.76%       ip  [kernel.kallsyms]  [k] _raw_spin_lock_irqsave
-     5.78%       ip  [kernel.kallsyms]  [k] memset_erms
-     5.77%       ip  [kernel.kallsyms]  [k] kobject_uevent_env
-     5.18%       ip  [kernel.kallsyms]  [k] refcount_sub_and_test
-     4.96%       ip  [kernel.kallsyms]  [k] _raw_read_lock
-     3.82%       ip  [kernel.kallsyms]  [k] refcount_inc_not_zero
-     3.33%       ip  [kernel.kallsyms]  [k] _raw_spin_unlock_irqrestore
-     2.11%       ip  [kernel.kallsyms]  [k] unmap_page_range
-     1.77%       ip  [kernel.kallsyms]  [k] __wake_up
-     1.69%       ip  [kernel.kallsyms]  [k] strlen
-     1.17%       ip  [kernel.kallsyms]  [k] __wake_up_common
-     1.09%       ip  [kernel.kallsyms]  [k] insert_header
-     1.04%       ip  [kernel.kallsyms]  [k] page_remove_rmap
-     1.01%       ip  [kernel.kallsyms]  [k] consume_skb
-     0.98%       ip  [kernel.kallsyms]  [k] netlink_trim
-     0.51%       ip  [kernel.kallsyms]  [k] kernfs_link_sibling
-     0.51%       ip  [kernel.kallsyms]  [k] filemap_map_pages
-     0.46%       ip  [kernel.kallsyms]  [k] memcpy_erms
+After patch:
+$ time ./add_del_unshare.sh
+net_namespace        135    291   5504    1    2 : tunables    8    4    0 : slabdata    135    291      0
+
+real	0m22.117s
+user	0m0.728s
+sys	0m35.328s
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- include/net/netns/ipv6.h |  5 +++
- net/ipv6/addrlabel.c     | 81 ++++++++++++++++++------------------------------
- 2 files changed, 35 insertions(+), 51 deletions(-)
+ include/net/ip_tunnels.h |  3 ++-
+ net/ipv4/ip_gre.c        | 22 +++++++++-------------
+ net/ipv4/ip_tunnel.c     | 12 +++++++++---
+ net/ipv4/ip_vti.c        |  7 +++----
+ net/ipv4/ipip.c          |  7 +++----
+ 5 files changed, 26 insertions(+), 25 deletions(-)
 
-diff --git a/include/net/netns/ipv6.h b/include/net/netns/ipv6.h
-index 2544f9760a4263b7f1b8d622331ca63038586137..2ea1ed341ef81901b4fa271b0f7f4592e17c4f8a 100644
---- a/include/net/netns/ipv6.h
-+++ b/include/net/netns/ipv6.h
-@@ -89,6 +89,11 @@ struct netns_ipv6 {
- 	atomic_t		fib6_sernum;
- 	struct seg6_pernet_data *seg6_data;
- 	struct fib_notifier_ops	*notifier_ops;
-+	struct {
-+		struct hlist_head head;
-+		spinlock_t	lock;
-+		u32		seq;
-+	} ip6addrlbl_table;
+diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
+index 992652856fe8c7c1032e0f5f92ce7ee5aa0119da..b41a1e057fcec9d6e4c5a0c1cafd1f1d537ccd53 100644
+--- a/include/net/ip_tunnels.h
++++ b/include/net/ip_tunnels.h
+@@ -258,7 +258,8 @@ int ip_tunnel_get_iflink(const struct net_device *dev);
+ int ip_tunnel_init_net(struct net *net, unsigned int ip_tnl_net_id,
+ 		       struct rtnl_link_ops *ops, char *devname);
+ 
+-void ip_tunnel_delete_net(struct ip_tunnel_net *itn, struct rtnl_link_ops *ops);
++void ip_tunnel_delete_nets(struct list_head *list_net, unsigned int id,
++			   struct rtnl_link_ops *ops);
+ 
+ void ip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev,
+ 		    const struct iphdr *tnl_params, const u8 protocol);
+diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+index 0162fb955b33abf18514cbfd482e72a0ebce6e48..9cee986ac6b8ed04ff95e193fe1e8e60e74d84a9 100644
+--- a/net/ipv4/ip_gre.c
++++ b/net/ipv4/ip_gre.c
+@@ -1013,15 +1013,14 @@ static int __net_init ipgre_init_net(struct net *net)
+ 	return ip_tunnel_init_net(net, ipgre_net_id, &ipgre_link_ops, NULL);
+ }
+ 
+-static void __net_exit ipgre_exit_net(struct net *net)
++static void __net_exit ipgre_exit_batch_net(struct list_head *list_net)
+ {
+-	struct ip_tunnel_net *itn = net_generic(net, ipgre_net_id);
+-	ip_tunnel_delete_net(itn, &ipgre_link_ops);
++	ip_tunnel_delete_nets(list_net, ipgre_net_id, &ipgre_link_ops);
+ }
+ 
+ static struct pernet_operations ipgre_net_ops = {
+ 	.init = ipgre_init_net,
+-	.exit = ipgre_exit_net,
++	.exit_batch = ipgre_exit_batch_net,
+ 	.id   = &ipgre_net_id,
+ 	.size = sizeof(struct ip_tunnel_net),
  };
+@@ -1540,15 +1539,14 @@ static int __net_init ipgre_tap_init_net(struct net *net)
+ 	return ip_tunnel_init_net(net, gre_tap_net_id, &ipgre_tap_ops, "gretap0");
+ }
  
- #if IS_ENABLED(CONFIG_NF_DEFRAG_IPV6)
-diff --git a/net/ipv6/addrlabel.c b/net/ipv6/addrlabel.c
-index b055bc79f56d555c89684116c1580984950f77a8..c6311d7108f651c7385cd6316752ba4a86667dcc 100644
---- a/net/ipv6/addrlabel.c
-+++ b/net/ipv6/addrlabel.c
-@@ -30,7 +30,6 @@
-  * Policy Table
-  */
- struct ip6addrlbl_entry {
--	possible_net_t lbl_net;
- 	struct in6_addr prefix;
- 	int prefixlen;
- 	int ifindex;
-@@ -41,19 +40,6 @@ struct ip6addrlbl_entry {
- 	struct rcu_head rcu;
+-static void __net_exit ipgre_tap_exit_net(struct net *net)
++static void __net_exit ipgre_tap_exit_batch_net(struct list_head *list_net)
+ {
+-	struct ip_tunnel_net *itn = net_generic(net, gre_tap_net_id);
+-	ip_tunnel_delete_net(itn, &ipgre_tap_ops);
++	ip_tunnel_delete_nets(list_net, gre_tap_net_id, &ipgre_tap_ops);
+ }
+ 
+ static struct pernet_operations ipgre_tap_net_ops = {
+ 	.init = ipgre_tap_init_net,
+-	.exit = ipgre_tap_exit_net,
++	.exit_batch = ipgre_tap_exit_batch_net,
+ 	.id   = &gre_tap_net_id,
+ 	.size = sizeof(struct ip_tunnel_net),
  };
- 
--static struct ip6addrlbl_table
--{
--	struct hlist_head head;
--	spinlock_t lock;
--	u32 seq;
--} ip6addrlbl_table;
--
--static inline
--struct net *ip6addrlbl_net(const struct ip6addrlbl_entry *lbl)
--{
--	return read_pnet(&lbl->lbl_net);
--}
--
- /*
-  * Default policy table (RFC6724 + extensions)
-  *
-@@ -148,13 +134,10 @@ static inline void ip6addrlbl_put(struct ip6addrlbl_entry *p)
+@@ -1559,16 +1557,14 @@ static int __net_init erspan_init_net(struct net *net)
+ 				  &erspan_link_ops, "erspan0");
  }
  
- /* Find label */
--static bool __ip6addrlbl_match(struct net *net,
--			       const struct ip6addrlbl_entry *p,
-+static bool __ip6addrlbl_match(const struct ip6addrlbl_entry *p,
- 			       const struct in6_addr *addr,
- 			       int addrtype, int ifindex)
+-static void __net_exit erspan_exit_net(struct net *net)
++static void __net_exit erspan_exit_batch_net(struct list_head *net_list)
  {
--	if (!net_eq(ip6addrlbl_net(p), net))
--		return false;
- 	if (p->ifindex && p->ifindex != ifindex)
- 		return false;
- 	if (p->addrtype && p->addrtype != addrtype)
-@@ -169,8 +152,9 @@ static struct ip6addrlbl_entry *__ipv6_addr_label(struct net *net,
- 						  int type, int ifindex)
- {
- 	struct ip6addrlbl_entry *p;
--	hlist_for_each_entry_rcu(p, &ip6addrlbl_table.head, list) {
--		if (__ip6addrlbl_match(net, p, addr, type, ifindex))
-+
-+	hlist_for_each_entry_rcu(p, &net->ipv6.ip6addrlbl_table.head, list) {
-+		if (__ip6addrlbl_match(p, addr, type, ifindex))
- 			return p;
+-	struct ip_tunnel_net *itn = net_generic(net, erspan_net_id);
+-
+-	ip_tunnel_delete_net(itn, &erspan_link_ops);
++	ip_tunnel_delete_nets(net_list, erspan_net_id, &erspan_link_ops);
+ }
+ 
+ static struct pernet_operations erspan_net_ops = {
+ 	.init = erspan_init_net,
+-	.exit = erspan_exit_net,
++	.exit_batch = erspan_exit_batch_net,
+ 	.id   = &erspan_net_id,
+ 	.size = sizeof(struct ip_tunnel_net),
+ };
+diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
+index e9805ad664ac24c3405ad015cfaab89dc1c95279..fe6fee728ce49d01b55aa478698e1a3bcf9a3bdb 100644
+--- a/net/ipv4/ip_tunnel.c
++++ b/net/ipv4/ip_tunnel.c
+@@ -1061,16 +1061,22 @@ static void ip_tunnel_destroy(struct ip_tunnel_net *itn, struct list_head *head,
  	}
- 	return NULL;
-@@ -196,8 +180,7 @@ u32 ipv6_addr_label(struct net *net,
  }
  
- /* allocate one entry */
--static struct ip6addrlbl_entry *ip6addrlbl_alloc(struct net *net,
--						 const struct in6_addr *prefix,
-+static struct ip6addrlbl_entry *ip6addrlbl_alloc(const struct in6_addr *prefix,
- 						 int prefixlen, int ifindex,
- 						 u32 label)
+-void ip_tunnel_delete_net(struct ip_tunnel_net *itn, struct rtnl_link_ops *ops)
++void ip_tunnel_delete_nets(struct list_head *net_list, unsigned int id,
++			   struct rtnl_link_ops *ops)
  {
-@@ -236,24 +219,23 @@ static struct ip6addrlbl_entry *ip6addrlbl_alloc(struct net *net,
- 	newp->addrtype = addrtype;
- 	newp->label = label;
- 	INIT_HLIST_NODE(&newp->list);
--	write_pnet(&newp->lbl_net, net);
- 	refcount_set(&newp->refcnt, 1);
- 	return newp;
++	struct ip_tunnel_net *itn;
++	struct net *net;
+ 	LIST_HEAD(list);
+ 
+ 	rtnl_lock();
+-	ip_tunnel_destroy(itn, &list, ops);
++	list_for_each_entry(net, net_list, exit_list) {
++		itn = net_generic(net, id);
++		ip_tunnel_destroy(itn, &list, ops);
++	}
+ 	unregister_netdevice_many(&list);
+ 	rtnl_unlock();
+ }
+-EXPORT_SYMBOL_GPL(ip_tunnel_delete_net);
++EXPORT_SYMBOL_GPL(ip_tunnel_delete_nets);
+ 
+ int ip_tunnel_newlink(struct net_device *dev, struct nlattr *tb[],
+ 		      struct ip_tunnel_parm *p, __u32 fwmark)
+diff --git a/net/ipv4/ip_vti.c b/net/ipv4/ip_vti.c
+index 5ed63d25095062d44dacfd291e227290d24ea0ed..02d70ca99db16f2a50e3e179a05e74b535865f46 100644
+--- a/net/ipv4/ip_vti.c
++++ b/net/ipv4/ip_vti.c
+@@ -452,15 +452,14 @@ static int __net_init vti_init_net(struct net *net)
+ 	return 0;
  }
  
- /* add a label */
--static int __ip6addrlbl_add(struct ip6addrlbl_entry *newp, int replace)
-+static int __ip6addrlbl_add(struct net *net, struct ip6addrlbl_entry *newp,
-+			    int replace)
+-static void __net_exit vti_exit_net(struct net *net)
++static void __net_exit vti_exit_batch_net(struct list_head *list_net)
  {
--	struct hlist_node *n;
- 	struct ip6addrlbl_entry *last = NULL, *p = NULL;
-+	struct hlist_node *n;
- 	int ret = 0;
- 
- 	ADDRLABEL(KERN_DEBUG "%s(newp=%p, replace=%d)\n", __func__, newp,
- 		  replace);
- 
--	hlist_for_each_entry_safe(p, n,	&ip6addrlbl_table.head, list) {
-+	hlist_for_each_entry_safe(p, n,	&net->ipv6.ip6addrlbl_table.head, list) {
- 		if (p->prefixlen == newp->prefixlen &&
--		    net_eq(ip6addrlbl_net(p), ip6addrlbl_net(newp)) &&
- 		    p->ifindex == newp->ifindex &&
- 		    ipv6_addr_equal(&p->prefix, &newp->prefix)) {
- 			if (!replace) {
-@@ -273,10 +255,10 @@ static int __ip6addrlbl_add(struct ip6addrlbl_entry *newp, int replace)
- 	if (last)
- 		hlist_add_behind_rcu(&newp->list, &last->list);
- 	else
--		hlist_add_head_rcu(&newp->list, &ip6addrlbl_table.head);
-+		hlist_add_head_rcu(&newp->list, &net->ipv6.ip6addrlbl_table.head);
- out:
- 	if (!ret)
--		ip6addrlbl_table.seq++;
-+		net->ipv6.ip6addrlbl_table.seq++;
- 	return ret;
+-	struct ip_tunnel_net *itn = net_generic(net, vti_net_id);
+-	ip_tunnel_delete_net(itn, &vti_link_ops);
++	ip_tunnel_delete_nets(list_net, vti_net_id, &vti_link_ops);
  }
  
-@@ -292,12 +274,12 @@ static int ip6addrlbl_add(struct net *net,
- 		  __func__, prefix, prefixlen, ifindex, (unsigned int)label,
- 		  replace);
- 
--	newp = ip6addrlbl_alloc(net, prefix, prefixlen, ifindex, label);
-+	newp = ip6addrlbl_alloc(prefix, prefixlen, ifindex, label);
- 	if (IS_ERR(newp))
- 		return PTR_ERR(newp);
--	spin_lock(&ip6addrlbl_table.lock);
--	ret = __ip6addrlbl_add(newp, replace);
--	spin_unlock(&ip6addrlbl_table.lock);
-+	spin_lock(&net->ipv6.ip6addrlbl_table.lock);
-+	ret = __ip6addrlbl_add(net, newp, replace);
-+	spin_unlock(&net->ipv6.ip6addrlbl_table.lock);
- 	if (ret)
- 		ip6addrlbl_free(newp);
- 	return ret;
-@@ -315,9 +297,8 @@ static int __ip6addrlbl_del(struct net *net,
- 	ADDRLABEL(KERN_DEBUG "%s(prefix=%pI6, prefixlen=%d, ifindex=%d)\n",
- 		  __func__, prefix, prefixlen, ifindex);
- 
--	hlist_for_each_entry_safe(p, n, &ip6addrlbl_table.head, list) {
-+	hlist_for_each_entry_safe(p, n, &net->ipv6.ip6addrlbl_table.head, list) {
- 		if (p->prefixlen == prefixlen &&
--		    net_eq(ip6addrlbl_net(p), net) &&
- 		    p->ifindex == ifindex &&
- 		    ipv6_addr_equal(&p->prefix, prefix)) {
- 			hlist_del_rcu(&p->list);
-@@ -340,9 +321,9 @@ static int ip6addrlbl_del(struct net *net,
- 		  __func__, prefix, prefixlen, ifindex);
- 
- 	ipv6_addr_prefix(&prefix_buf, prefix, prefixlen);
--	spin_lock(&ip6addrlbl_table.lock);
-+	spin_lock(&net->ipv6.ip6addrlbl_table.lock);
- 	ret = __ip6addrlbl_del(net, &prefix_buf, prefixlen, ifindex);
--	spin_unlock(&ip6addrlbl_table.lock);
-+	spin_unlock(&net->ipv6.ip6addrlbl_table.lock);
- 	return ret;
+ static struct pernet_operations vti_net_ops = {
+ 	.init = vti_init_net,
+-	.exit = vti_exit_net,
++	.exit_batch = vti_exit_batch_net,
+ 	.id   = &vti_net_id,
+ 	.size = sizeof(struct ip_tunnel_net),
+ };
+diff --git a/net/ipv4/ipip.c b/net/ipv4/ipip.c
+index fb1ad22b5e292d5669c70b5640ad3207c353c6bb..1e47818e38c766a3dab63dfa6bfa9610fa9550ac 100644
+--- a/net/ipv4/ipip.c
++++ b/net/ipv4/ipip.c
+@@ -634,15 +634,14 @@ static int __net_init ipip_init_net(struct net *net)
+ 	return ip_tunnel_init_net(net, ipip_net_id, &ipip_link_ops, "tunl0");
  }
  
-@@ -354,6 +335,9 @@ static int __net_init ip6addrlbl_net_init(struct net *net)
- 
- 	ADDRLABEL(KERN_DEBUG "%s\n", __func__);
- 
-+	spin_lock_init(&net->ipv6.ip6addrlbl_table.lock);
-+	INIT_HLIST_HEAD(&net->ipv6.ip6addrlbl_table.head);
-+
- 	for (i = 0; i < ARRAY_SIZE(ip6addrlbl_init_table); i++) {
- 		int ret = ip6addrlbl_add(net,
- 					 ip6addrlbl_init_table[i].prefix,
-@@ -373,14 +357,12 @@ static void __net_exit ip6addrlbl_net_exit(struct net *net)
- 	struct hlist_node *n;
- 
- 	/* Remove all labels belonging to the exiting net */
--	spin_lock(&ip6addrlbl_table.lock);
--	hlist_for_each_entry_safe(p, n, &ip6addrlbl_table.head, list) {
--		if (net_eq(ip6addrlbl_net(p), net)) {
--			hlist_del_rcu(&p->list);
--			ip6addrlbl_put(p);
--		}
-+	spin_lock(&net->ipv6.ip6addrlbl_table.lock);
-+	hlist_for_each_entry_safe(p, n, &net->ipv6.ip6addrlbl_table.head, list) {
-+		hlist_del_rcu(&p->list);
-+		ip6addrlbl_put(p);
- 	}
--	spin_unlock(&ip6addrlbl_table.lock);
-+	spin_unlock(&net->ipv6.ip6addrlbl_table.lock);
- }
- 
- static struct pernet_operations ipv6_addr_label_ops = {
-@@ -390,8 +372,6 @@ static struct pernet_operations ipv6_addr_label_ops = {
- 
- int __init ipv6_addr_label_init(void)
+-static void __net_exit ipip_exit_net(struct net *net)
++static void __net_exit ipip_exit_batch_net(struct list_head *list_net)
  {
--	spin_lock_init(&ip6addrlbl_table.lock);
--
- 	return register_pernet_subsys(&ipv6_addr_label_ops);
+-	struct ip_tunnel_net *itn = net_generic(net, ipip_net_id);
+-	ip_tunnel_delete_net(itn, &ipip_link_ops);
++	ip_tunnel_delete_nets(list_net, ipip_net_id, &ipip_link_ops);
  }
  
-@@ -510,11 +490,10 @@ static int ip6addrlbl_dump(struct sk_buff *skb, struct netlink_callback *cb)
- 	int err;
- 
- 	rcu_read_lock();
--	hlist_for_each_entry_rcu(p, &ip6addrlbl_table.head, list) {
--		if (idx >= s_idx &&
--		    net_eq(ip6addrlbl_net(p), net)) {
-+	hlist_for_each_entry_rcu(p, &net->ipv6.ip6addrlbl_table.head, list) {
-+		if (idx >= s_idx) {
- 			err = ip6addrlbl_fill(skb, p,
--					      ip6addrlbl_table.seq,
-+					      net->ipv6.ip6addrlbl_table.seq,
- 					      NETLINK_CB(cb->skb).portid,
- 					      cb->nlh->nlmsg_seq,
- 					      RTM_NEWADDRLABEL,
-@@ -571,7 +550,7 @@ static int ip6addrlbl_get(struct sk_buff *in_skb, struct nlmsghdr *nlh,
- 	p = __ipv6_addr_label(net, addr, ipv6_addr_type(addr), ifal->ifal_index);
- 	if (p && !ip6addrlbl_hold(p))
- 		p = NULL;
--	lseq = ip6addrlbl_table.seq;
-+	lseq = net->ipv6.ip6addrlbl_table.seq;
- 	rcu_read_unlock();
- 
- 	if (!p) {
+ static struct pernet_operations ipip_net_ops = {
+ 	.init = ipip_init_net,
+-	.exit = ipip_exit_net,
++	.exit_batch = ipip_exit_batch_net,
+ 	.id   = &ipip_net_id,
+ 	.size = sizeof(struct ip_tunnel_net),
+ };
 -- 
 2.14.1.690.gbb1197296e-goog
