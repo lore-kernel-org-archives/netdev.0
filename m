@@ -1,109 +1,97 @@
-From: Guenter Roeck <groeck@google.com>
-Subject: Re: [RFC PATCH 1/3] usbnet: Get rid of spammy usbnet "kevent X may
- have been dropped"
-Date: Tue, 19 Sep 2017 09:43:37 -0700
-Message-ID: <CABXOdTc+SY=2Ev4o5GjRFrkq_nmhY1yYQiv-XRH157VRND=bYg@mail.gmail.com>
-References: <20170919161522.995-1-dianders@chromium.org>
+From: Guillaume Nault <g.nault@alphalink.fr>
+Subject: Re: [PATCH net v2] l2tp: fix race condition in l2tp_tunnel_delete
+Date: Tue, 19 Sep 2017 18:43:37 +0200
+Message-ID: <20170919164337.zn3p6ikwsgnw7ba6@alphalink.fr>
+References: <6bfc5aceda47773af4c75fe7e0e3c0d255a2342d.1505828155.git.sd@queasysnail.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Oliver Neukum <oneukum@suse.com>,
-        Guenter Roeck <groeck@chromium.org>,
-        Grant Grundler <grundler@chromium.org>, netdev@vger.kernel.org,
-        linux-usb@vger.kernel.org,
-        linux-kernel <linux-kernel@vger.kernel.org>
-To: Douglas Anderson <dianders@chromium.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170919161522.995-1-dianders@chromium.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Xin Long <lucien.xin@gmail.com>,
+        Tom Parkin <tparkin@katalix.com>
+To: Sabrina Dubroca <sd@queasysnail.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zimbra.alphalink.fr ([217.15.80.77]:37692 "EHLO
+        zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751575AbdISQnn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 12:43:43 -0400
+Content-Disposition: inline
+In-Reply-To: <6bfc5aceda47773af4c75fe7e0e3c0d255a2342d.1505828155.git.sd@queasysnail.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 19, 2017 at 9:15 AM, Douglas Anderson <dianders@chromium.org> wrote:
-> Every once in a while when my system is under a bit of stress I see
-> some spammy messages show up in my logs that say:
->
->   kevent X may have been dropped
->
-> As far as I can tell these messages aren't terribly useful.  The
-> comments around the messages make me think that either workqueues used
-> to work differently or that the original author of the code missed a
-> sublety related to them.  The error message appears to predate the git
-> conversion of the kernel so it's somewhat hard to tell.
->
-> Specifically, workqueues should work like this:
->
-> A) If a workqueue hasn't been scheduled then schedule_work() schedules
->    it and returns true.
->
-> B) If a workqueue has been scheduled (but hasn't started) then
->    schedule_work() will do nothing and return false.
->
-> C) If a workqueue has been scheduled (and has started) then
->    schedule_work() will put it on the queue to run again and return
->    true.
->
-> Said another way: if you call schedule_work() you can guarantee that
-> at least one full runthrough of the work will happen again.  That
-> should mean that the work will get processed and I don't see any
-> reason to think something should be dropped.
->
-> Reading the comments in in usbnet_defer_kevent() made me think that B)
-> and C) would be treated the same.  That is: even if we've started the
-> work and are 99% of the way through then schedule_work() would return
-> false and the work wouldn't be queued again.  If schedule_work()
-> really did behave that way then, truly, some amount of work would be
-> lost.  ...but it doesn't.
->
-> NOTE: if somehow these warnings are useful to mean something then
-> perhaps we should change them to make it more obvious.  If it's
-> interesting to know when the work is backlogged then we should change
-> the spam to say "warning: usbnet is backlogged".
->
-> ALSO NOTE: If somehow some of the types of work need to be repeated if
-> usbnet_defer_kevent() is called multiple times then that should be
-> quite easy to accomplish without dropping any work on the floor.  We
-> can just keep an atomic count for that type of work and add a loop
-> into usbnet_deferred_kevent().
->
-> Signed-off-by: Douglas Anderson <dianders@chromium.org>
-
-Reviewed-by: Guenter Roeck <groeck@chromium.org>
-
+On Tue, Sep 19, 2017 at 03:40:40PM +0200, Sabrina Dubroca wrote:
+> If we try to delete the same tunnel twice, the first delete operation
+> does a lookup (l2tp_tunnel_get), finds the tunnel, calls
+> l2tp_tunnel_delete, which queues it for deletion by
+> l2tp_tunnel_del_work.
+> 
+> The second delete operation also finds the tunnel and calls
+> l2tp_tunnel_delete. If the workqueue has already fired and started
+> running l2tp_tunnel_del_work, then l2tp_tunnel_delete will queue the
+> same tunnel a second time, and try to free the socket again.
+> 
+> Add a dead flag to prevent firing the workqueue twice. Then we can
+> remove the check of queue_work's result that was meant to prevent that
+> race but doesn't.
+> 
+> Also check the flag in the tunnel lookup functions, to avoid returning a
+> tunnel that is already scheduled for destruction.
+> 
+> Reproducer:
+> 
+>     ip l2tp add tunnel tunnel_id 3000 peer_tunnel_id 4000 local 192.168.0.2 remote 192.168.0.1 encap udp udp_sport 5000 udp_dport 6000
+>     ip l2tp add session name l2tp1 tunnel_id 3000 session_id 1000 peer_session_id 2000
+>     ip link set l2tp1 up
+>     ip l2tp del tunnel tunnel_id 3000
+>     ip l2tp del tunnel tunnel_id 3000
+> 
+> Fixes: f8ccac0e4493 ("l2tp: put tunnel socket release on a workqueue")
+> Reported-by: Jianlin Shi <jishi@redhat.com>
+> Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
 > ---
->
->  drivers/net/usb/usbnet.c | 16 +++++++---------
->  1 file changed, 7 insertions(+), 9 deletions(-)
->
-> diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-> index 6510e5cc1817..a3e8dbaadcf9 100644
-> --- a/drivers/net/usb/usbnet.c
-> +++ b/drivers/net/usb/usbnet.c
-> @@ -450,19 +450,17 @@ static enum skb_state defer_bh(struct usbnet *dev, struct sk_buff *skb,
->  }
->
->  /* some work can't be done in tasklets, so we use keventd
-> - *
-> - * NOTE:  annoying asymmetry:  if it's active, schedule_work() fails,
-> - * but tasklet_schedule() doesn't.  hope the failure is rare.
->   */
->  void usbnet_defer_kevent (struct usbnet *dev, int work)
->  {
->         set_bit (work, &dev->flags);
-> -       if (!schedule_work (&dev->kevent)) {
-> -               if (net_ratelimit())
-> -                       netdev_err(dev->net, "kevent %d may have been dropped\n", work);
-> -       } else {
-> -               netdev_dbg(dev->net, "kevent %d scheduled\n", work);
-> -       }
-> +
-> +       /* If work is already started this will mark it to run again when it
-> +        * finishes; if we already had work pending and it hadn't started
-> +        * yet then that's fine too.
-> +        */
-> +       schedule_work (&dev->kevent);
-> +       netdev_dbg(dev->net, "kevent %d scheduled\n", work);
->  }
->  EXPORT_SYMBOL_GPL(usbnet_defer_kevent);
->
-> --
-> 2.14.1.690.gbb1197296e-goog
->
+> v2: as Tom Parkin explained, we can't remove the tunnel from the
+>     per-net list from netlink. v2 uses only a dead flag, and adds
+>     corresponding checks during lookups
+> 
+>  net/l2tp/l2tp_core.c | 18 +++++++++---------
+>  net/l2tp/l2tp_core.h |  5 ++++-
+>  2 files changed, 13 insertions(+), 10 deletions(-)
+> 
+> diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
+> index ee485df73ccd..3891f0260f2b 100644
+> --- a/net/l2tp/l2tp_core.c
+> +++ b/net/l2tp/l2tp_core.c
+> @@ -203,7 +203,8 @@ struct l2tp_tunnel *l2tp_tunnel_get(const struct net *net, u32 tunnel_id)
+>  
+>  	rcu_read_lock_bh();
+>  	list_for_each_entry_rcu(tunnel, &pn->l2tp_tunnel_list, list) {
+> -		if (tunnel->tunnel_id == tunnel_id) {
+> +		if (tunnel->tunnel_id == tunnel_id &&
+> +		    !test_bit(0, &tunnel->dead)) {
+>  			l2tp_tunnel_inc_refcount(tunnel);
+>  			rcu_read_unlock_bh();
+>  
+> @@ -390,7 +391,8 @@ struct l2tp_tunnel *l2tp_tunnel_find(const struct net *net, u32 tunnel_id)
+>  
+>  	rcu_read_lock_bh();
+>  	list_for_each_entry_rcu(tunnel, &pn->l2tp_tunnel_list, list) {
+> -		if (tunnel->tunnel_id == tunnel_id) {
+> +		if (tunnel->tunnel_id == tunnel_id &&
+> +		    !test_bit(0, &tunnel->dead)) {
+>  			rcu_read_unlock_bh();
+>  			return tunnel;
+>  		}
+> @@ -409,7 +411,7 @@ struct l2tp_tunnel *l2tp_tunnel_find_nth(const struct net *net, int nth)
+>  
+>  	rcu_read_lock_bh();
+>  	list_for_each_entry_rcu(tunnel, &pn->l2tp_tunnel_list, list) {
+> -		if (++count > nth) {
+> +		if (++count > nth && !test_bit(0, &tunnel->dead)) {
+>  			rcu_read_unlock_bh();
+>  			return tunnel;
+>  		}
+> 
+I don't get why you're checking the dead flag in l2tp_tunnel_{get,find}*().
+Since it can be set concurrently right after test_bit(), it doesn't
+protect the caller from getting a tunnel that is being removed by
+l2tp_tunnel_delete().
+Or have I missed something?
