@@ -1,83 +1,54 @@
-From: Salil Mehta <salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Subject: RE: [PATCH net 0/7] Bug fixes for the HNS3 Ethernet Driver for
- Hip08 SoC
-Date: Tue, 19 Sep 2017 14:12:49 +0000
-Message-ID: <F4CC6FACFEB3C54C9141D49AD221F7F93B8C89E9@FRAEML521-MBX.china.huawei.com>
-References: <20170919010628.175732-1-salil.mehta@huawei.com>
- <20170919035900.GI5788@mtr-leonro.local>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: RE: [PATCH net-next 05/12] net: dsa: b53: Use a macro to define I/O operations
+Date: Tue, 19 Sep 2017 10:19:35 -0400
+Message-ID: <87tvzy93ew.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+References: <20170918214128.27896-1-f.fainelli@gmail.com> <20170918214128.27896-6-f.fainelli@gmail.com> <063D6719AE5E284EB5DD2968C1650D6DD007A003@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        "Zhuangyuzeng (Yisen)" <yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-        "lipeng (Y)" <lipeng321-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-        "mehta.salil.lnk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org" <mehta.salil.lnk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Linuxarm <linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-To: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170919035900.GI5788-U/DQcQFIOTAAJjI8aNfphQ@public.gmane.org>
-Content-Language: en-US
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: "davem\@davemloft.net" <davem@davemloft.net>,
+        "andrew\@lunn.ch" <andrew@lunn.ch>
+To: David Laight <David.Laight@ACULAB.COM>,
+        'Florian Fainelli' <f.fainelli@gmail.com>,
+        "netdev\@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:38894 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750974AbdISOXK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 10:23:10 -0400
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DD007A003@AcuExch.aculab.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Leon,
+Hi David,
 
-> -----Original Message-----
-> From: Leon Romanovsky [mailto:leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org]
-> Sent: Tuesday, September 19, 2017 4:59 AM
-> To: Salil Mehta
-> Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org; Zhuangyuzeng (Yisen); lipeng (Y);
-> mehta.salil.lnk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org; netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-
-> kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; Linuxarm
-> Subject: Re: [PATCH net 0/7] Bug fixes for the HNS3 Ethernet Driver for
-> Hip08 SoC
-> 
-> On Tue, Sep 19, 2017 at 02:06:21AM +0100, Salil Mehta wrote:
-> > This patch set presents some bug fixes for the HNS3 Ethernet driver,
-> identified
-> > during internal testing & stabilization efforts.
-> >
-> > This patch series is meant for Linux 4.14 kernel.
-> >
-> > Lipeng (6):
-> >   net: hns3: get phy addr from NCL_config
-> >   net: hns3: fix the command used to unmap ring from vector
-> >   net: hns3: Fix ring and vector map command
-> >   net: hns3: fix a bug of set mac address
-> >   net: hns3: set default vlan id to PF
-> >   net: hns3: Fixes the premature exit of loop when matching clients
-> >
-> > Salil Mehta (1):
-> >   net: hns3: fixes the ether address copy with more appropriate API
-> 
-> 1. The fixes patches should have Fixes line and not all of them have
-> (I didn't look all patches).
-> 2. Please decide on one style: fixes vs. Fixes, fix vs. Fix in the
-> titles
-> 3. Subject should be descriptive and usable, I don't know if it applies
-> to the "fix a bug of set mac address" patch.
-Yes, missed these. Will fix them. Thanks!
+David Laight <David.Laight@ACULAB.COM> writes:
 
-Salil
-> 
-> Thanks
-> 
-> >
-> >  drivers/net/ethernet/hisilicon/hns3/hnae3.c        | 43 +++++-------
-> ----------
-> >  .../net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.h |  8 +++-
-> >  .../ethernet/hisilicon/hns3/hns3pf/hclge_main.c    | 20 ++++++++--
-> >  .../net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c |  7 ++--
-> >  4 files changed, 35 insertions(+), 43 deletions(-)
-> >
-> > --
-> > 2.11.0
-> >
-> >
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> From: Florian Fainelli
+>> Sent: 18 September 2017 22:41
+>> Instead of repeating the same pattern: acquire mutex, read/write, release
+>> mutex, define a macro: b53_build_op() which takes the type (read|write), I/O
+>> size, and value (scalar or pointer). This helps with fixing bugs that could
+>> exit (e.g: missing barrier, lock etc.).
+> ....
+>> +#define b53_build_op(type, op_size, val_type)	\
+>> +static inline int b53_##type##op_size(struct b53_device *dev, u8 page,		\
+>> +				      u8 reg, val_type val)			\
+>> +{										\
+>> +	int ret;								\
+>> +										\
+>> +	mutex_lock(&dev->reg_mutex);						\
+>> +	ret = dev->ops->type##op_size(dev, page, reg, val);			\
+>> +	mutex_unlock(&dev->reg_mutex);						\
+>> +										\
+>> +	return ret;								\
+>>  }
+>
+> Why separate the 'type' and 'op_size' arguments since they
+> are always pasted together?
+
+For read/write48, the value type is u64.
+
+
+Thanks,
+
+        Vivien
