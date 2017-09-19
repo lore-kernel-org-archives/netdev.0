@@ -1,37 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bpf: devmap: pass on return value of
- bpf_map_precharge_memlock
-Date: Mon, 18 Sep 2017 16:53:57 -0700 (PDT)
-Message-ID: <20170918.165357.480851390980422798.davem@davemloft.net>
-References: <20170918130346.10833-1-tklauser@distanz.ch>
+From: "Brown, Aaron F" <aaron.f.brown@intel.com>
+Subject: RE: [Intel-wired-lan] [PATCH 2/5] e1000e: Fix wrong comment related
+ to     link detection
+Date: Tue, 19 Sep 2017 00:13:41 +0000
+Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B8C6A191C@ORSMSX101.amr.corp.intel.com>
+References: <20170721160937.GA22632@csclub.uwaterloo.ca>
+ <20170721183627.13373-1-bpoirier@suse.com>
+ <20170721183627.13373-2-bpoirier@suse.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ast@kernel.org, daniel@iogearbox.net, john.fastabend@gmail.com,
-        netdev@vger.kernel.org
-To: tklauser@distanz.ch
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:59128 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750828AbdIRXyA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 19:54:00 -0400
-In-Reply-To: <20170918130346.10833-1-tklauser@distanz.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "Lennart Sorensen" <lsorense@csclub.uwaterloo.ca>
+To: Benjamin Poirier <bpoirier@suse.com>,
+        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170721183627.13373-2-bpoirier@suse.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Tobias Klauser <tklauser@distanz.ch>
-Date: Mon, 18 Sep 2017 15:03:46 +0200
+> From: Intel-wired-lan [mailto:intel-wired-lan-bounces@osuosl.org] On Behalf
+> Of Benjamin Poirier
+> Sent: Friday, July 21, 2017 11:36 AM
+> To: Kirsher, Jeffrey T <jeffrey.t.kirsher@intel.com>
+> Cc: netdev@vger.kernel.org; intel-wired-lan@lists.osuosl.org; linux-
+> kernel@vger.kernel.org; Lennart Sorensen <lsorense@csclub.uwaterloo.ca>
+> Subject: [Intel-wired-lan] [PATCH 2/5] e1000e: Fix wrong comment related to
+> link detection
+> 
+> Reading e1000e_check_for_copper_link() shows that get_link_status is set to
+> false after link has been detected. Therefore, it stays TRUE until then.
+> 
+> Signed-off-by: Benjamin Poirier <bpoirier@suse.com>
+> ---
+>  drivers/net/ethernet/intel/e1000e/netdev.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+> 
 
-> If bpf_map_precharge_memlock in dev_map_alloc, -ENOMEM is returned
-> regardless of the actual error produced by bpf_map_precharge_memlock.
-> Fix it by passing on the error returned by bpf_map_precharge_memlock.
-> 
-> Also return -EINVAL instead of -ENOMEM if the page count overflow check
-> fails.
-> 
-> This makes dev_map_alloc match the behavior of other bpf maps' alloc
-> functions wrt. return values.
-> 
-> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
-
-Applied, thank you.
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
