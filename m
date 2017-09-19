@@ -1,68 +1,62 @@
-From: Michal Kalderon <Michal.Kalderon@cavium.com>
-Subject: [PATCH net-next 3/4] qed: Fix maximum number of CQs for iWARP
-Date: Tue, 19 Sep 2017 20:26:18 +0300
-Message-ID: <1505841979-26365-4-git-send-email-Michal.Kalderon@cavium.com>
-References: <1505841979-26365-1-git-send-email-Michal.Kalderon@cavium.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-rdma@vger.kernel.org>, <dledford@redhat.com>,
-        Michal Kalderon <Michal.Kalderon@cavium.com>,
-        Ariel Elior <Ariel.Elior@cavium.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+From: Christian Lamparter <chunkeey@googlemail.com>
+Subject: [PATCH] net: emac: Fix napi poll list corruption
+Date: Tue, 19 Sep 2017 19:35:18 +0200
+Message-ID: <20170919173518.3694-1-chunkeey@googlemail.com>
+Cc: "David S . Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sn1nam01on0062.outbound.protection.outlook.com ([104.47.32.62]:63168
-        "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751471AbdISR1e (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 19 Sep 2017 13:27:34 -0400
-In-Reply-To: <1505841979-26365-1-git-send-email-Michal.Kalderon@cavium.com>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:37252 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750919AbdISRfV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 13:35:21 -0400
+Received: by mail-wm0-f65.google.com with SMTP id f4so278635wmh.4
+        for <netdev@vger.kernel.org>; Tue, 19 Sep 2017 10:35:21 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The maximum number of CQs supported is bound to the number
-of connections supported, which differs between RoCE and iWARP.
+This patch is pretty much a carbon copy of
+commit 3079c652141f ("caif: Fix napi poll list corruption")
+with "caif" replaced by "emac".
 
-This fixes a crash that occurred in iWARP when running 1000 sessions
-using perftest.
+The commit d75b1ade567f ("net: less interrupt masking in NAPI")
+breaks emac.
 
-Signed-off-by: Michal Kalderon <Michal.Kalderon@cavium.com>
-Signed-off-by: Ariel Elior <Ariel.Elior@cavium.com>
+It is now required that if the entire budget is consumed when poll
+returns, the napi poll_list must remain empty.  However, like some
+other drivers emac tries to do a last-ditch check and if there is
+more work it will call napi_reschedule and then immediately process
+some of this new work.  Should the entire budget be consumed while
+processing such new work then we will violate the new caller
+contract.
+
+This patch fixes this by not touching any work when we reschedule
+in emac.
+
+Signed-off-by: Christian Lamparter <chunkeey@googlemail.com>
 ---
- drivers/net/ethernet/qlogic/qed/qed_rdma.c | 12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/ibm/emac/mal.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_rdma.c b/drivers/net/ethernet/qlogic/qed/qed_rdma.c
-index 4f46f28..c8c4b39 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_rdma.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_rdma.c
-@@ -209,11 +209,11 @@ static int qed_rdma_alloc(struct qed_hwfn *p_hwfn,
- 		goto free_pd_map;
+diff --git a/drivers/net/ethernet/ibm/emac/mal.c b/drivers/net/ethernet/ibm/emac/mal.c
+index 2c74baa2398a..fff09dcf9e34 100644
+--- a/drivers/net/ethernet/ibm/emac/mal.c
++++ b/drivers/net/ethernet/ibm/emac/mal.c
+@@ -402,7 +402,7 @@ static int mal_poll(struct napi_struct *napi, int budget)
+ 	unsigned long flags;
+ 
+ 	MAL_DBG2(mal, "poll(%d)" NL, budget);
+- again:
++
+ 	/* Process TX skbs */
+ 	list_for_each(l, &mal->poll_list) {
+ 		struct mal_commac *mc =
+@@ -451,7 +451,6 @@ static int mal_poll(struct napi_struct *napi, int budget)
+ 			spin_lock_irqsave(&mal->lock, flags);
+ 			mal_disable_eob_irq(mal);
+ 			spin_unlock_irqrestore(&mal->lock, flags);
+-			goto again;
+ 		}
+ 		mc->ops->poll_tx(mc->dev);
  	}
- 
--	/* Allocate bitmap for cq's. The maximum number of CQs is bounded to
--	 * twice the number of QPs.
-+	/* Allocate bitmap for cq's. The maximum number of CQs is bound to
-+	 * the number of connections we support. (num_qps in iWARP or
-+	 * num_qps/2 in RoCE).
- 	 */
--	rc = qed_rdma_bmap_alloc(p_hwfn, &p_rdma_info->cq_map,
--				 p_rdma_info->num_qps * 2, "CQ");
-+	rc = qed_rdma_bmap_alloc(p_hwfn, &p_rdma_info->cq_map, num_cons, "CQ");
- 	if (rc) {
- 		DP_VERBOSE(p_hwfn, QED_MSG_RDMA,
- 			   "Failed to allocate cq bitmap, rc = %d\n", rc);
-@@ -222,10 +222,10 @@ static int qed_rdma_alloc(struct qed_hwfn *p_hwfn,
- 
- 	/* Allocate bitmap for toggle bit for cq icids
- 	 * We toggle the bit every time we create or resize cq for a given icid.
--	 * The maximum number of CQs is bounded to  twice the number of QPs.
-+	 * Size needs to equal the size of the cq bmap.
- 	 */
- 	rc = qed_rdma_bmap_alloc(p_hwfn, &p_rdma_info->toggle_bits,
--				 p_rdma_info->num_qps * 2, "Toggle");
-+				 num_cons, "Toggle");
- 	if (rc) {
- 		DP_VERBOSE(p_hwfn, QED_MSG_RDMA,
- 			   "Failed to allocate toogle bits, rc = %d\n", rc);
 -- 
-1.8.3.1
+2.14.1
