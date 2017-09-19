@@ -1,69 +1,45 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net] bpf: fix ri->map prog pointer on bpf_prog_realloc
-Date: Mon, 18 Sep 2017 18:43:28 -0700
-Message-ID: <20170919014326.r4x5ymz33zecayas@ast-mbp>
-References: <b797841607c3327007a787af3418cb0a60b868c0.1505783562.git.daniel@iogearbox.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, john.fastabend@gmail.com, ast@kernel.org,
-        netdev@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next v2 01/12] net: dsa: b53: Remove is_cpu_port()
+Date: Mon, 18 Sep 2017 19:19:36 -0700
+Message-ID: <20170919021947.8971-2-f.fainelli@gmail.com>
+References: <20170919021947.8971-1-f.fainelli@gmail.com>
+Cc: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
+        davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:37342 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750781AbdISBnm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 21:43:42 -0400
-Received: by mail-pg0-f67.google.com with SMTP id v5so1173926pgn.4
-        for <netdev@vger.kernel.org>; Mon, 18 Sep 2017 18:43:41 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <b797841607c3327007a787af3418cb0a60b868c0.1505783562.git.daniel@iogearbox.net>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:37434 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750714AbdISCT7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 22:19:59 -0400
+Received: by mail-wm0-f65.google.com with SMTP id f4so2484281wmh.4
+        for <netdev@vger.kernel.org>; Mon, 18 Sep 2017 19:19:58 -0700 (PDT)
+In-Reply-To: <20170919021947.8971-1-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 19, 2017 at 03:16:44AM +0200, Daniel Borkmann wrote:
-> Commit 109980b894e9 ("bpf: don't select potentially stale
-> ri->map from buggy xdp progs") passed the pointer to the prog
-> itself to be loaded into r4 prior on bpf_redirect_map() helper
-> call, so that we can store the owner into ri->map_owner out of
-> the helper.
-> 
-> Issue with that is that the actual address of the prog is still
-> subject to change when subsequent rewrites occur, e.g. through
-> patching other helper functions or constant blinding. Thus, we
-> really need to take prog->aux as the address we're holding, and
-> then during runtime fetch the actual pointer via aux->prog. This
-> also works with prog clones as they share the same aux and fixup
-> pointer to self after blinding finished.
-> 
-> Fixes: 109980b894e9 ("bpf: don't select potentially stale ri->map from buggy xdp progs")
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-> ---
->  kernel/bpf/verifier.c | 12 ++++++++++--
->  1 file changed, 10 insertions(+), 2 deletions(-)
-> 
-> diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-> index 799b245..243c09f 100644
-> --- a/kernel/bpf/verifier.c
-> +++ b/kernel/bpf/verifier.c
-> @@ -4205,9 +4205,17 @@ static int fixup_bpf_calls(struct bpf_verifier_env *env)
->  		}
->  
->  		if (insn->imm == BPF_FUNC_redirect_map) {
-> -			u64 addr = (unsigned long)prog;
-> +			/* Note, we cannot use prog directly as imm as subsequent
-> +			 * rewrites would still change the prog pointer. The only
-> +			 * stable address we can use is aux, which also works with
-> +			 * prog clones during blinding.
-> +			 */
+This is not used anywhere, so remove it.
 
-good catch. extra load at runtime sucks, but I don't see better solution.
+Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/dsa/b53/b53_priv.h | 5 -----
+ 1 file changed, 5 deletions(-)
 
-> +			u64 addr = (unsigned long)prog->aux;
-> +			const int r4 = BPF_REG_4;
->  			struct bpf_insn r4_ld[] = {
-> -				BPF_LD_IMM64(BPF_REG_4, addr),
-> +				BPF_LD_IMM64(r4, addr),
-> +				BPF_LDX_MEM(BPF_DW, r4, r4,
-> +					    offsetof(struct bpf_prog_aux, prog)),
-
-needs to be BPF_FIELD_SIZEOF(struct bpf_prog_aux, prog) to work on 32-bit
+diff --git a/drivers/net/dsa/b53/b53_priv.h b/drivers/net/dsa/b53/b53_priv.h
+index 01bd8cbe9a3f..7528b22aeb03 100644
+--- a/drivers/net/dsa/b53/b53_priv.h
++++ b/drivers/net/dsa/b53/b53_priv.h
+@@ -186,11 +186,6 @@ static inline int is58xx(struct b53_device *dev)
+ #define B53_CPU_PORT_25	5
+ #define B53_CPU_PORT	8
+ 
+-static inline int is_cpu_port(struct b53_device *dev, int port)
+-{
+-	return dev->cpu_port;
+-}
+-
+ struct b53_device *b53_switch_alloc(struct device *base,
+ 				    const struct b53_io_ops *ops,
+ 				    void *priv);
+-- 
+2.9.3
