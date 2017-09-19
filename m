@@ -1,77 +1,51 @@
-From: Mika Westerberg <mika.westerberg@linux.intel.com>
-Subject: Re: [PATCH 16/16] thunderbolt: Add support for networking over
- Thunderbolt cable
-Date: Tue, 19 Sep 2017 10:12:39 +0300
-Message-ID: <20170919071239.GB4630@lahna.fi.intel.com>
-References: <20170918153049.44185-1-mika.westerberg@linux.intel.com>
- <20170918153049.44185-17-mika.westerberg@linux.intel.com>
- <20170918232144.GD29615@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        "David S . Miller" <davem@davemloft.net>,
-        Andreas Noever <andreas.noever@gmail.com>,
-        Michael Jamet <michael.jamet@intel.com>,
-        Yehezkel Bernat <yehezkel.bernat@intel.com>,
-        Amir Levy <amir.jer.levy@intel.com>,
-        Mario.Limonciello@dell.com, Lukas Wunner <lukas@wunner.de>,
-        Andy Shevchenko <andriy.shevchenko@linux.intel.com>,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170918232144.GD29615@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: pull-request: mac80211 2017-11-19
+Date: Tue, 19 Sep 2017 09:20:47 +0200
+Message-ID: <20170919072048.8484-1-johannes@sipsolutions.net>
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s3.sipsolutions.net ([5.9.151.49]:51274 "EHLO sipsolutions.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750747AbdISHUx (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 19 Sep 2017 03:20:53 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 19, 2017 at 01:21:44AM +0200, Andrew Lunn wrote:
-> On Mon, Sep 18, 2017 at 06:30:49PM +0300, Mika Westerberg wrote:
-> > From: Amir Levy <amir.jer.levy@intel.com>
-> > 
-> > ThunderboltIP is a protocol created by Apple to tunnel IP/ethernet
-> > traffic over a Thunderbolt cable. The protocol consists of configuration
-> > phase where each side sends ThunderboltIP login packets (the protocol is
-> > determined by UUID in the XDomain packet header) over the configuration
-> > channel. Once both sides get positive acknowledgment to their login
-> > packet, they configure high-speed DMA path accordingly. This DMA path is
-> > then used to transmit and receive networking traffic.
-> > 
-> > This patch creates a virtual ethernet interface the host software can
-> > use in the same way as any other networking interface. Once the
-> > interface is brought up successfully network packets get tunneled over
-> > the Thunderbolt cable to the remote host and back.
-> > 
-> > The connection is terminated by sending a ThunderboltIP logout packet
-> > over the configuration channel. We do this when the network interface is
-> > brought down by user or the driver is unloaded.
-> > 
-> > Signed-off-by: Amir Levy <amir.jer.levy@intel.com>
-> > Signed-off-by: Michael Jamet <michael.jamet@intel.com>
-> > Signed-off-by: Mika Westerberg <mika.westerberg@linux.intel.com>
-> > Reviewed-by: Yehezkel Bernat <yehezkel.bernat@intel.com>
-> > ---
-> >  Documentation/admin-guide/thunderbolt.rst |   24 +
-> >  drivers/thunderbolt/Kconfig               |   12 +
-> >  drivers/thunderbolt/Makefile              |    3 +
-> >  drivers/thunderbolt/net.c                 | 1392 +++++++++++++++++++++++++++++
-> >  4 files changed, 1431 insertions(+)
-> >  create mode 100644 drivers/thunderbolt/net.c
-> 
-> Hi Mika
-> 
-> Could this be renamed to driver/net/thunderbolt.c?
+Hi Dave,
 
-I pondered between drivers/thunderbolt/net.c and
-drivers/net/thunderbolt.c and then decided to go with the former because
-it follows drivers/firewire/net.c and kind of makes it easier for user
-to enabled.
+Here's a new set of two small changes to prevent null pointer
+dereferences on malformed netlink messages.
 
-But no problem moving it into drivers/net if that's what networking
-people prefer.
+Please pull and let me know if there's any problem.
 
-> At minimum, it needs a MAINTAINER entry pointing to netdev, so patches
-> get reviewed by netdev people. However, since the driver seems to be a
-> lot more netdev than thunderbolt, placing it in driver/net could be
-> better.
+Thanks,
+johannes
 
-OK.
+
+
+The following changes since commit 126f760ca94dae77425695f9f9238b731de86e32:
+
+  rds: Fix incorrect statistics counting (2017-09-07 20:07:13 -0700)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211.git tags/mac80211-for-davem-2017-11-19
+
+for you to fetch changes up to 265698d7e6132a2d41471135534f4f36ad15b09c:
+
+  nl80211: fix null-ptr dereference on invalid mesh configuration (2017-09-18 22:51:07 +0200)
+
+----------------------------------------------------------------
+Just two netlink fixes, both allowing privileged users
+to crash the kernel with malformed netlink messages.
+
+----------------------------------------------------------------
+Johannes Berg (1):
+      nl80211: fix null-ptr dereference on invalid mesh configuration
+
+Vladis Dronov (1):
+      nl80211: check for the required netlink attributes presence
+
+ net/wireless/nl80211.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
