@@ -1,61 +1,64 @@
-From: Marco Berizzi <pupilla@libero.it>
-Subject: software interrupts close to 100 with 9000 tc filter entries
-Date: Tue, 19 Sep 2017 15:28:58 +0200 (CEST)
-Message-ID: <1627070802.486441.1505827738125@mail.libero.it>
+From: Josef Bacik <josef@toxicpanda.com>
+Subject: Re: [PATCH 2/3] selftests: actually run the various net selftests
+Date: Tue, 19 Sep 2017 09:34:25 -0400
+Message-ID: <20170919133424.mzshgf67al7mv3fg@destiny>
+References: <1505755982-7855-1-git-send-email-jbacik@fb.com>
+ <1505755982-7855-2-git-send-email-jbacik@fb.com>
+ <09f17145-5f0a-ec61-3dfb-69216eac7133@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-33-i5.italiaonline.it ([212.48.25.234]:55520 "EHLO
-        libero.it" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750822AbdISN3A (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 19 Sep 2017 09:29:00 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: josef@toxicpanda.com, Josef Bacik <jbacik@fb.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        linux-kernel@vger.kernel.org, linux-kselftest@vger.kernel.org,
+        netdev@vger.kernel.org, Shuah Khan <shuahkh@osg.samsung.com>,
+        Shuah Khan <shuah@kernel.org>
+To: Willem de Bruijn <willemb@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <09f17145-5f0a-ec61-3dfb-69216eac7133@kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Folks,
+On Mon, Sep 18, 2017 at 04:14:41PM -0600, Shuah Khan wrote:
+> On 09/18/2017 11:32 AM, josef@toxicpanda.com wrote:
+> > From: Josef Bacik <jbacik@fb.com>
+> > 
+> > These self tests are just self contained binaries, they are not run by
+> > any of the scripts in the directory.  This means they need to be marked
+> > with TEST_GEN_PROGS to actually be run, not TEST_GEN_FILES.
+> > 
+> > Signed-off-by: Josef Bacik <jbacik@fb.com>
+> > ---
+> >  tools/testing/selftests/net/Makefile | 4 ++--
+> >  1 file changed, 2 insertions(+), 2 deletions(-)
+> > 
+> > diff --git a/tools/testing/selftests/net/Makefile b/tools/testing/selftests/net/Makefile
+> > index 3df542c84610..45a4e77a47c4 100644
+> > --- a/tools/testing/selftests/net/Makefile
+> > +++ b/tools/testing/selftests/net/Makefile
+> > @@ -6,8 +6,8 @@ CFLAGS += -I../../../../usr/include/
+> >  TEST_PROGS := run_netsocktests run_afpackettests test_bpf.sh netdevice.sh rtnetlink.sh
+> >  TEST_GEN_FILES =  socket
+> >  TEST_GEN_FILES += psock_fanout psock_tpacket
+> > -TEST_GEN_FILES += reuseport_bpf reuseport_bpf_cpu reuseport_bpf_numa
+> > -TEST_GEN_FILES += reuseport_dualstack msg_zerocopy reuseaddr_conflict
+> > +TEST_GEN_PROGS += reuseport_bpf reuseport_bpf_cpu reuseport_bpf_numa
+> > +TEST_GEN_PROGS += reuseport_dualstack msg_zerocopy reuseaddr_conflict
+> 
+> Hmm. I see msg_zerocopy.sh for running msg_zerocopy. msg_zerocopy should
+> still stay in TEST_GEN_FILES and msg_zerocopy.sh needs to be added to
+> TEST_PROGS so it runs.
+> 
 
-I'm running linux 4.12.10 x86_64 on a Slackware 14.2 64bit
-as a simple 4 NIC router. Network throughput processed by
-this machine is less than 200Mbit/s
-The cpu model is Intel(R) Xeon(R) CPU 5160  @ 3.00GHz with
-2GB ram.
+Actually the shell script requires arguments, it doesn't just run the test.
+I'll fix this to just omit the test for now as it's not setup to run properly.
 
-I need to blacklist about 9000 single ip addresses.
-This is the relevant script to blacklist these ip addresses:
+Willem, could you follow up with a patch so that the zero copy test is run
+properly the way you envision it running?  You need to make sure that
 
-tc qdisc add dev eth0 ingress
-tc qdisc add dev eth1 ingress
+make -C tools/testing/selftests TARGETS=net run_tests
 
-while read -r line
-do
-    tc filter add dev eth0 parent ffff: protocol ip prio 50 u32 match ip src $line action drop
-    tc filter add dev eth1 parent ffff: protocol ip prio 50 u32 match ip src $line action drop
-done < blacklisted_ip_addresses
+actually runs your zero copy test the way you expect it to, otherwise it's just
+sitting there collecting dust.  Thanks,
 
-After loading these ip addresses, the si (software interrupts)
-number shown by top is always close to 100
-If I delete the ingress qdisc on both the device, the si
-fall down to less than 5
-
-Running the same script with 'only' 700 ip addresses is
-flawless.
-
-Kindly I would like to ask if am I doing anything in
-a wrong way or if the hardware is too old for this kind
-of setup.
-
-I have selected the tc filter setup instead of netfilter
-one, because I was reading this from iproute2/doc/actions:
-
-A side effect is that we can now get stateless firewalling to work with tc..
-Essentially this is now an alternative to iptables.
-I wont go into details of my dislike for iptables at times, but.
-scalability is one of the main issues; however, if you need stateful
-classification - use netfilter (for now).
-
-Any response are welcome
-TIA
-
-Marco
+Josef
