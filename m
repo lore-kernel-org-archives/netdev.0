@@ -1,15 +1,14 @@
 From: Salil Mehta <salil.mehta@huawei.com>
-Subject: [PATCH V2 net 3/7] net: hns3: Fixes ring-to-vector map-and-unmap command
-Date: Tue, 19 Sep 2017 17:17:12 +0100
-Message-ID: <20170919161716.92680-4-salil.mehta@huawei.com>
+Subject: [PATCH V2 net 4/7] net: hns3: Fixes the initialization of MAC address in hardware
+Date: Tue, 19 Sep 2017 17:17:13 +0100
+Message-ID: <20170919161716.92680-5-salil.mehta@huawei.com>
 References: <20170919161716.92680-1-salil.mehta@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <salil.mehta@huawei.com>, <yisen.zhuang@huawei.com>,
         <lipeng321@huawei.com>, <mehta.salil.lnk@gmail.com>,
         <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-        <linux-rdma@vger.kernel.org>, <linuxarm@huawei.com>,
-        Mingguang Qu <qumingguang@huawei.com>
+        <linux-rdma@vger.kernel.org>, <linuxarm@huawei.com>
 To: <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20170919161716.92680-1-salil.mehta@huawei.com>
@@ -18,75 +17,35 @@ List-Id: netdev.vger.kernel.org
 
 From: Lipeng <lipeng321@huawei.com>
 
-This patch fixes the vector-to-ring map and unmap command and adds
-INT_GL(for, Gap Limiting Interrupts) and VF id to it as required
-by the hardware interface.
+This patch fixes the initialization of MAC address, fetched from HNS3
+firmware i.e. when it is not randomly generated, to the HNS3 hardware.
 
-Fixes: 6427264ef330 ("net: hns3: Add HNS3 Acceleration Engine &
-Compatibility Layer Support")
+Fixes: ca60906d2795 ("net: hns3: Add support of HNS3 Ethernet Driver for
+hip08 SoC")
 Signed-off-by: Lipeng <lipeng321@huawei.com>
-Signed-off-by: Mingguang Qu <qumingguang@huawei.com>
 Signed-off-by: Salil Mehta <salil.mehta@huawei.com>
 ---
- drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.h  | 8 ++++++--
- drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c | 8 ++++++++
- 2 files changed, 14 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.h b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.h
-index 91ae013..c2b613b 100644
---- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.h
-+++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.h
-@@ -238,7 +238,7 @@ struct hclge_tqp_map {
- 	u8 rsv[18];
- };
+diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c
+index 1c3e294..4d68d6e 100644
+--- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c
++++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c
+@@ -2705,10 +2705,11 @@ static void hns3_init_mac_addr(struct net_device *netdev)
+ 		eth_hw_addr_random(netdev);
+ 		dev_warn(priv->dev, "using random MAC address %pM\n",
+ 			 netdev->dev_addr);
+-		/* Also copy this new MAC address into hdev */
+-		if (h->ae_algo->ops->set_mac_addr)
+-			h->ae_algo->ops->set_mac_addr(h, netdev->dev_addr);
+ 	}
++
++	if (h->ae_algo->ops->set_mac_addr)
++		h->ae_algo->ops->set_mac_addr(h, netdev->dev_addr);
++
+ }
  
--#define HCLGE_VECTOR_ELEMENTS_PER_CMD	11
-+#define HCLGE_VECTOR_ELEMENTS_PER_CMD	10
- 
- enum hclge_int_type {
- 	HCLGE_INT_TX,
-@@ -252,8 +252,12 @@ struct hclge_ctrl_vector_chain {
- #define HCLGE_INT_TYPE_S	0
- #define HCLGE_INT_TYPE_M	0x3
- #define HCLGE_TQP_ID_S		2
--#define HCLGE_TQP_ID_M		(0x3fff << HCLGE_TQP_ID_S)
-+#define HCLGE_TQP_ID_M		(0x7ff << HCLGE_TQP_ID_S)
-+#define HCLGE_INT_GL_IDX_S	13
-+#define HCLGE_INT_GL_IDX_M	(0x3 << HCLGE_INT_GL_IDX_S)
- 	__le16 tqp_type_and_id[HCLGE_VECTOR_ELEMENTS_PER_CMD];
-+	u8 vfid;
-+	u8 rsv;
- };
- 
- #define HCLGE_TC_NUM		8
-diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
-index e324bc6..eafd9c6 100644
---- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
-+++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
-@@ -2680,7 +2680,11 @@ int hclge_map_vport_ring_to_vector(struct hclge_vport *vport, int vector_id,
- 			       hnae_get_bit(node->flag, HNAE3_RING_TYPE_B));
- 		hnae_set_field(req->tqp_type_and_id[i], HCLGE_TQP_ID_M,
- 			       HCLGE_TQP_ID_S,	node->tqp_index);
-+		hnae_set_field(req->tqp_type_and_id[i], HCLGE_INT_GL_IDX_M,
-+			       HCLGE_INT_GL_IDX_S,
-+			       hnae_get_bit(node->flag, HNAE3_RING_TYPE_B));
- 		req->tqp_type_and_id[i] = cpu_to_le16(req->tqp_type_and_id[i]);
-+		req->vfid = vport->vport_id;
- 
- 		if (++i >= HCLGE_VECTOR_ELEMENTS_PER_CMD) {
- 			req->int_cause_num = HCLGE_VECTOR_ELEMENTS_PER_CMD;
-@@ -2764,8 +2768,12 @@ static int hclge_unmap_ring_from_vector(
- 			       hnae_get_bit(node->flag, HNAE3_RING_TYPE_B));
- 		hnae_set_field(req->tqp_type_and_id[i], HCLGE_TQP_ID_M,
- 			       HCLGE_TQP_ID_S,	node->tqp_index);
-+		hnae_set_field(req->tqp_type_and_id[i], HCLGE_INT_GL_IDX_M,
-+			       HCLGE_INT_GL_IDX_S,
-+			       hnae_get_bit(node->flag, HNAE3_RING_TYPE_B));
- 
- 		req->tqp_type_and_id[i] = cpu_to_le16(req->tqp_type_and_id[i]);
-+		req->vfid = vport->vport_id;
- 
- 		if (++i >= HCLGE_VECTOR_ELEMENTS_PER_CMD) {
- 			req->int_cause_num = HCLGE_VECTOR_ELEMENTS_PER_CMD;
+ static void hns3_nic_set_priv_ops(struct net_device *netdev)
 -- 
 2.7.4
