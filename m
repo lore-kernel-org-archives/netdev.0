@@ -1,14 +1,15 @@
 From: Salil Mehta <salil.mehta@huawei.com>
-Subject: [PATCH V2 net 7/7] net: hns3: Fixes the premature exit of loop when matching clients
-Date: Tue, 19 Sep 2017 17:17:16 +0100
-Message-ID: <20170919161716.92680-8-salil.mehta@huawei.com>
+Subject: [PATCH V2 net 3/7] net: hns3: Fixes ring-to-vector map-and-unmap command
+Date: Tue, 19 Sep 2017 17:17:12 +0100
+Message-ID: <20170919161716.92680-4-salil.mehta@huawei.com>
 References: <20170919161716.92680-1-salil.mehta@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <salil.mehta@huawei.com>, <yisen.zhuang@huawei.com>,
         <lipeng321@huawei.com>, <mehta.salil.lnk@gmail.com>,
         <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-        <linux-rdma@vger.kernel.org>, <linuxarm@huawei.com>
+        <linux-rdma@vger.kernel.org>, <linuxarm@huawei.com>,
+        Mingguang Qu <qumingguang@huawei.com>
 To: <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20170919161716.92680-1-salil.mehta@huawei.com>
@@ -17,168 +18,75 @@ List-Id: netdev.vger.kernel.org
 
 From: Lipeng <lipeng321@huawei.com>
 
-When register/unregister ae_dev, ae_dev should match all client
-in the client_list. Enet and roce can co-exists together so we
-should continue checking for enet and roce presence together.
-So break should not be there.
+This patch fixes the vector-to-ring map and unmap command and adds
+INT_GL(for, Gap Limiting Interrupts) and VF id to it as required
+by the hardware interface.
 
-Above caused problems in loading and unloading of modules.
-
-Fixes: 38eddd126772 ("net: hns3: Add support of the HNAE3 framework")
+Fixes: 6427264ef330 ("net: hns3: Add HNS3 Acceleration Engine &
+Compatibility Layer Support")
 Signed-off-by: Lipeng <lipeng321@huawei.com>
+Signed-off-by: Mingguang Qu <qumingguang@huawei.com>
 Signed-off-by: Salil Mehta <salil.mehta@huawei.com>
 ---
- drivers/net/ethernet/hisilicon/hns3/hnae3.c | 43 ++++++-----------------------
- 1 file changed, 9 insertions(+), 34 deletions(-)
+ drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.h  | 8 ++++++--
+ drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c | 8 ++++++++
+ 2 files changed, 14 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/hisilicon/hns3/hnae3.c b/drivers/net/ethernet/hisilicon/hns3/hnae3.c
-index 59efbd6..5bcb223 100644
---- a/drivers/net/ethernet/hisilicon/hns3/hnae3.c
-+++ b/drivers/net/ethernet/hisilicon/hns3/hnae3.c
-@@ -37,20 +37,15 @@ static bool hnae3_client_match(enum hnae3_client_type client_type,
- }
+diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.h b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.h
+index 91ae013..c2b613b 100644
+--- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.h
++++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.h
+@@ -238,7 +238,7 @@ struct hclge_tqp_map {
+ 	u8 rsv[18];
+ };
  
- static int hnae3_match_n_instantiate(struct hnae3_client *client,
--				     struct hnae3_ae_dev *ae_dev,
--				     bool is_reg, bool *matched)
-+				     struct hnae3_ae_dev *ae_dev, bool is_reg)
- {
- 	int ret;
+-#define HCLGE_VECTOR_ELEMENTS_PER_CMD	11
++#define HCLGE_VECTOR_ELEMENTS_PER_CMD	10
  
--	*matched = false;
--
- 	/* check if this client matches the type of ae_dev */
- 	if (!(hnae3_client_match(client->type, ae_dev->dev_type) &&
- 	      hnae_get_bit(ae_dev->flag, HNAE3_DEV_INITED_B))) {
- 		return 0;
- 	}
--	/* there is a match of client and dev */
--	*matched = true;
+ enum hclge_int_type {
+ 	HCLGE_INT_TX,
+@@ -252,8 +252,12 @@ struct hclge_ctrl_vector_chain {
+ #define HCLGE_INT_TYPE_S	0
+ #define HCLGE_INT_TYPE_M	0x3
+ #define HCLGE_TQP_ID_S		2
+-#define HCLGE_TQP_ID_M		(0x3fff << HCLGE_TQP_ID_S)
++#define HCLGE_TQP_ID_M		(0x7ff << HCLGE_TQP_ID_S)
++#define HCLGE_INT_GL_IDX_S	13
++#define HCLGE_INT_GL_IDX_M	(0x3 << HCLGE_INT_GL_IDX_S)
+ 	__le16 tqp_type_and_id[HCLGE_VECTOR_ELEMENTS_PER_CMD];
++	u8 vfid;
++	u8 rsv;
+ };
  
- 	/* now, (un-)instantiate client by calling lower layer */
- 	if (is_reg) {
-@@ -69,7 +64,6 @@ int hnae3_register_client(struct hnae3_client *client)
- {
- 	struct hnae3_client *client_tmp;
- 	struct hnae3_ae_dev *ae_dev;
--	bool matched;
- 	int ret = 0;
+ #define HCLGE_TC_NUM		8
+diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
+index e324bc6..eafd9c6 100644
+--- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
++++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
+@@ -2680,7 +2680,11 @@ int hclge_map_vport_ring_to_vector(struct hclge_vport *vport, int vector_id,
+ 			       hnae_get_bit(node->flag, HNAE3_RING_TYPE_B));
+ 		hnae_set_field(req->tqp_type_and_id[i], HCLGE_TQP_ID_M,
+ 			       HCLGE_TQP_ID_S,	node->tqp_index);
++		hnae_set_field(req->tqp_type_and_id[i], HCLGE_INT_GL_IDX_M,
++			       HCLGE_INT_GL_IDX_S,
++			       hnae_get_bit(node->flag, HNAE3_RING_TYPE_B));
+ 		req->tqp_type_and_id[i] = cpu_to_le16(req->tqp_type_and_id[i]);
++		req->vfid = vport->vport_id;
  
- 	mutex_lock(&hnae3_common_lock);
-@@ -86,7 +80,7 @@ int hnae3_register_client(struct hnae3_client *client)
- 		/* if the client could not be initialized on current port, for
- 		 * any error reasons, move on to next available port
- 		 */
--		ret = hnae3_match_n_instantiate(client, ae_dev, true, &matched);
-+		ret = hnae3_match_n_instantiate(client, ae_dev, true);
- 		if (ret)
- 			dev_err(&ae_dev->pdev->dev,
- 				"match and instantiation failed for port\n");
-@@ -102,12 +96,11 @@ EXPORT_SYMBOL(hnae3_register_client);
- void hnae3_unregister_client(struct hnae3_client *client)
- {
- 	struct hnae3_ae_dev *ae_dev;
--	bool matched;
+ 		if (++i >= HCLGE_VECTOR_ELEMENTS_PER_CMD) {
+ 			req->int_cause_num = HCLGE_VECTOR_ELEMENTS_PER_CMD;
+@@ -2764,8 +2768,12 @@ static int hclge_unmap_ring_from_vector(
+ 			       hnae_get_bit(node->flag, HNAE3_RING_TYPE_B));
+ 		hnae_set_field(req->tqp_type_and_id[i], HCLGE_TQP_ID_M,
+ 			       HCLGE_TQP_ID_S,	node->tqp_index);
++		hnae_set_field(req->tqp_type_and_id[i], HCLGE_INT_GL_IDX_M,
++			       HCLGE_INT_GL_IDX_S,
++			       hnae_get_bit(node->flag, HNAE3_RING_TYPE_B));
  
- 	mutex_lock(&hnae3_common_lock);
- 	/* un-initialize the client on every matched port */
- 	list_for_each_entry(ae_dev, &hnae3_ae_dev_list, node) {
--		hnae3_match_n_instantiate(client, ae_dev, false, &matched);
-+		hnae3_match_n_instantiate(client, ae_dev, false);
- 	}
+ 		req->tqp_type_and_id[i] = cpu_to_le16(req->tqp_type_and_id[i]);
++		req->vfid = vport->vport_id;
  
- 	list_del(&client->node);
-@@ -124,7 +117,6 @@ int hnae3_register_ae_algo(struct hnae3_ae_algo *ae_algo)
- 	const struct pci_device_id *id;
- 	struct hnae3_ae_dev *ae_dev;
- 	struct hnae3_client *client;
--	bool matched;
- 	int ret = 0;
- 
- 	mutex_lock(&hnae3_common_lock);
-@@ -151,13 +143,10 @@ int hnae3_register_ae_algo(struct hnae3_ae_algo *ae_algo)
- 		 * initialize the figure out client instance
- 		 */
- 		list_for_each_entry(client, &hnae3_client_list, node) {
--			ret = hnae3_match_n_instantiate(client, ae_dev, true,
--							&matched);
-+			ret = hnae3_match_n_instantiate(client, ae_dev, true);
- 			if (ret)
- 				dev_err(&ae_dev->pdev->dev,
- 					"match and instantiation failed\n");
--			if (matched)
--				break;
- 		}
- 	}
- 
-@@ -175,7 +164,6 @@ void hnae3_unregister_ae_algo(struct hnae3_ae_algo *ae_algo)
- 	const struct pci_device_id *id;
- 	struct hnae3_ae_dev *ae_dev;
- 	struct hnae3_client *client;
--	bool matched;
- 
- 	mutex_lock(&hnae3_common_lock);
- 	/* Check if there are matched ae_dev */
-@@ -187,12 +175,8 @@ void hnae3_unregister_ae_algo(struct hnae3_ae_algo *ae_algo)
- 		/* check the client list for the match with this ae_dev type and
- 		 * un-initialize the figure out client instance
- 		 */
--		list_for_each_entry(client, &hnae3_client_list, node) {
--			hnae3_match_n_instantiate(client, ae_dev, false,
--						  &matched);
--			if (matched)
--				break;
--		}
-+		list_for_each_entry(client, &hnae3_client_list, node)
-+			hnae3_match_n_instantiate(client, ae_dev, false);
- 
- 		ae_algo->ops->uninit_ae_dev(ae_dev);
- 		hnae_set_bit(ae_dev->flag, HNAE3_DEV_INITED_B, 0);
-@@ -212,7 +196,6 @@ int hnae3_register_ae_dev(struct hnae3_ae_dev *ae_dev)
- 	const struct pci_device_id *id;
- 	struct hnae3_ae_algo *ae_algo;
- 	struct hnae3_client *client;
--	bool matched;
- 	int ret = 0;
- 
- 	mutex_lock(&hnae3_common_lock);
-@@ -246,13 +229,10 @@ int hnae3_register_ae_dev(struct hnae3_ae_dev *ae_dev)
- 	 * initialize the figure out client instance
- 	 */
- 	list_for_each_entry(client, &hnae3_client_list, node) {
--		ret = hnae3_match_n_instantiate(client, ae_dev, true,
--						&matched);
-+		ret = hnae3_match_n_instantiate(client, ae_dev, true);
- 		if (ret)
- 			dev_err(&ae_dev->pdev->dev,
- 				"match and instantiation failed\n");
--		if (matched)
--			break;
- 	}
- 
- out_err:
-@@ -270,7 +250,6 @@ void hnae3_unregister_ae_dev(struct hnae3_ae_dev *ae_dev)
- 	const struct pci_device_id *id;
- 	struct hnae3_ae_algo *ae_algo;
- 	struct hnae3_client *client;
--	bool matched;
- 
- 	mutex_lock(&hnae3_common_lock);
- 	/* Check if there are matched ae_algo */
-@@ -279,12 +258,8 @@ void hnae3_unregister_ae_dev(struct hnae3_ae_dev *ae_dev)
- 		if (!id)
- 			continue;
- 
--		list_for_each_entry(client, &hnae3_client_list, node) {
--			hnae3_match_n_instantiate(client, ae_dev, false,
--						  &matched);
--			if (matched)
--				break;
--		}
-+		list_for_each_entry(client, &hnae3_client_list, node)
-+			hnae3_match_n_instantiate(client, ae_dev, false);
- 
- 		ae_algo->ops->uninit_ae_dev(ae_dev);
- 		hnae_set_bit(ae_dev->flag, HNAE3_DEV_INITED_B, 0);
+ 		if (++i >= HCLGE_VECTOR_ELEMENTS_PER_CMD) {
+ 			req->int_cause_num = HCLGE_VECTOR_ELEMENTS_PER_CMD;
 -- 
 2.7.4
