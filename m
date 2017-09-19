@@ -1,70 +1,243 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net] bpf: fix ri->map prog pointer on bpf_prog_realloc
-Date: Tue, 19 Sep 2017 09:23:45 +0200
-Message-ID: <59C0C601.3060406@iogearbox.net>
-References: <b797841607c3327007a787af3418cb0a60b868c0.1505783562.git.daniel@iogearbox.net> <20170919014326.r4x5ymz33zecayas@ast-mbp>
+From: Aaron Lu <aaron.lu@intel.com>
+Subject: Re: Page allocator bottleneck
+Date: Tue, 19 Sep 2017 15:23:43 +0800
+Message-ID: <20170919072342.GB7263@intel.com>
+References: <cef85936-10b2-5d76-9f97-cb03b418fd94@mellanox.com>
+ <20170915092839.690ea9e9@redhat.com>
+ <6069fd36-ed0e-145c-3134-35232bf951a7@mellanox.com>
+ <20170918073447.GB4107@intel.com>
+ <20170918074404.GD4107@intel.com>
+ <082e7901-7842-e9d9-221d-45322da0fcff@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, john.fastabend@gmail.com, ast@kernel.org,
-        netdev@vger.kernel.org
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:56197 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750822AbdISHXy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 03:23:54 -0400
-In-Reply-To: <20170919014326.r4x5ymz33zecayas@ast-mbp>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed; boundary="ew6BAiZeqk4r7MaW"
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+	David Miller <davem@davemloft.net>,
+	Mel Gorman <mgorman@techsingularity.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Alexei Starovoitov <ast@fb.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Eran Ben Elisha <eranbe@mellanox.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Michal Hocko <mhocko@suse.com>, linux-mm <linux-mm@kvack.org>,
+	Dave Hansen <dave.hansen@intel.com>
+To: Tariq Toukan <tariqt@mellanox.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <082e7901-7842-e9d9-221d-45322da0fcff@mellanox.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On 09/19/2017 03:43 AM, Alexei Starovoitov wrote:
-> On Tue, Sep 19, 2017 at 03:16:44AM +0200, Daniel Borkmann wrote:
->> Commit 109980b894e9 ("bpf: don't select potentially stale
->> ri->map from buggy xdp progs") passed the pointer to the prog
->> itself to be loaded into r4 prior on bpf_redirect_map() helper
->> call, so that we can store the owner into ri->map_owner out of
->> the helper.
->>
->> Issue with that is that the actual address of the prog is still
->> subject to change when subsequent rewrites occur, e.g. through
->> patching other helper functions or constant blinding. Thus, we
->> really need to take prog->aux as the address we're holding, and
->> then during runtime fetch the actual pointer via aux->prog. This
->> also works with prog clones as they share the same aux and fixup
->> pointer to self after blinding finished.
->>
->> Fixes: 109980b894e9 ("bpf: don't select potentially stale ri->map from buggy xdp progs")
->> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
->> ---
->>   kernel/bpf/verifier.c | 12 ++++++++++--
->>   1 file changed, 10 insertions(+), 2 deletions(-)
->>
->> diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
->> index 799b245..243c09f 100644
->> --- a/kernel/bpf/verifier.c
->> +++ b/kernel/bpf/verifier.c
->> @@ -4205,9 +4205,17 @@ static int fixup_bpf_calls(struct bpf_verifier_env *env)
->>   		}
->>
->>   		if (insn->imm == BPF_FUNC_redirect_map) {
->> -			u64 addr = (unsigned long)prog;
->> +			/* Note, we cannot use prog directly as imm as subsequent
->> +			 * rewrites would still change the prog pointer. The only
->> +			 * stable address we can use is aux, which also works with
->> +			 * prog clones during blinding.
->> +			 */
->
-> good catch. extra load at runtime sucks, but I don't see better solution.
->
->> +			u64 addr = (unsigned long)prog->aux;
->> +			const int r4 = BPF_REG_4;
->>   			struct bpf_insn r4_ld[] = {
->> -				BPF_LD_IMM64(BPF_REG_4, addr),
->> +				BPF_LD_IMM64(r4, addr),
->> +				BPF_LDX_MEM(BPF_DW, r4, r4,
->> +					    offsetof(struct bpf_prog_aux, prog)),
->
-> needs to be BPF_FIELD_SIZEOF(struct bpf_prog_aux, prog) to work on 32-bit
 
-Good point, will spin a v2. Thanks!
+--ew6BAiZeqk4r7MaW
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+
+On Mon, Sep 18, 2017 at 06:33:20PM +0300, Tariq Toukan wrote:
+> 
+> 
+> On 18/09/2017 10:44 AM, Aaron Lu wrote:
+> > On Mon, Sep 18, 2017 at 03:34:47PM +0800, Aaron Lu wrote:
+> > > On Sun, Sep 17, 2017 at 07:16:15PM +0300, Tariq Toukan wrote:
+> > > > 
+> > > > It's nice to have the option to dynamically play with the parameter.
+> > > > But maybe we should also think of changing the default fraction guaranteed
+> > > > to the PCP, so that unaware admins of networking servers would also benefit.
+> > > 
+> > > I collected some performance data with will-it-scale/page_fault1 process
+> > > mode on different machines with different pcp->batch sizes, starting
+> > > from the default 31(calculated by zone_batchsize(), 31 is the standard
+> > > value for any zone that has more than 1/2MiB memory), then incremented
+> > > by 31 upwards till 527. PCP's upper limit is 6*batch.
+> > > 
+> > > An image is plotted and attached: batch_full.png(full here means the
+> > > number of process started equals to CPU number).
+> > 
+> > To be clear: X-axis is the value of batch size(31, 62, 93, ..., 527),
+> > Y-axis is the value of per_process_ops, generated by will-it-scale,
+
+One correction here, Y-axis isn't per_process_ops but per_process_ops *
+nr_processes. Still, higher is better.
+
+> > higher is better.
+> > 
+> > > 
+> > >  From the image:
+> > > - For EX machines, they all see throughput increase with increased batch
+> > >    size and peaked at around batch_size=310, then fall;
+> > > - For EP machines, Haswell-EP and Broadwell-EP also see throughput
+> > >    increase with increased batch size and peaked at batch_size=279, then
+> > >    fall, batch_size=310 also delivers pretty good result. Skylake-EP is
+> > >    quite different in that it doesn't see any obvious throughput increase
+> > >    after batch_size=93, though the trend is still increasing, but in a very
+> > >    small way and finally peaked at batch_size=403, then fall.
+> > >    Ivybridge EP behaves much like desktop ones.
+> > > - For Desktop machines, they do not see any obvious changes with
+> > >    increased batch_size.
+> > > 
+> > > So the default batch size(31) doesn't deliver good enough result, we
+> > > probbaly should change the default value.
+> 
+> Thanks Aaron for sharing your experiment results.
+> That's a good analysis of the effect of the batch value.
+> I agree with your conclusion.
+> 
+> From networking perspective, we should reconsider the defaults to be able to
+> reach the increasing NICs linerates.
+> Not only for pcp->batch, but also for pcp->high.
+
+I guess I didn't make it clear in my last email: when pcp->batch is
+changed, pcp->high is also changed. Their relationship is:
+pcp->high = pcp->batch * 6.
+
+Manipulating percpu_pagelist_fraction could increase pcp->high, but not
+pcp->batch(it has an upper limit as 96 currently).
+
+My test shows even when pcp->high being the same, changing pcp->batch
+could further improve will-it-scale's performance. e.g. in the below two
+cases, pcp->high are both set to 1860 but with different pcp->batch:
+
+                 will-it-scale    native_queued_spin_lock_slowpath(perf)
+pcp->batch=96    15762348         79.95%
+pcp->batch=310   19291492 +22.3%  74.87% -5.1%
+
+Granted, this is the case for will-it-scale and may not apply to your
+case. I have a small patch that adds a batch interface for debug
+purpose, echo a value could set batch and high will be batch * 6. You
+are welcome to give it a try if you think it's worth(attached).
+
+Regards,
+Aaron
+
+--ew6BAiZeqk4r7MaW
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="0001-percpu_pagelist_batch-add-a-batch-interface.patch"
+
+>From e3c9516beb8302cb8fb2f5ab866bbe2686fda5fb Mon Sep 17 00:00:00 2001
+From: Aaron Lu <aaron.lu@intel.com>
+Date: Thu, 6 Jul 2017 15:00:07 +0800
+Subject: [PATCH] percpu_pagelist_batch: add a batch interface
+
+Signed-off-by: Aaron Lu <aaron.lu@intel.com>
+---
+ include/linux/mmzone.h |  2 ++
+ kernel/sysctl.c        |  9 +++++++++
+ mm/page_alloc.c        | 40 +++++++++++++++++++++++++++++++++++++++-
+ 3 files changed, 50 insertions(+), 1 deletion(-)
+
+diff --git a/include/linux/mmzone.h b/include/linux/mmzone.h
+index ef6a13b7bd3e..0548d038b7cd 100644
+--- a/include/linux/mmzone.h
++++ b/include/linux/mmzone.h
+@@ -875,6 +875,8 @@ int lowmem_reserve_ratio_sysctl_handler(struct ctl_table *, int,
+ 					void __user *, size_t *, loff_t *);
+ int percpu_pagelist_fraction_sysctl_handler(struct ctl_table *, int,
+ 					void __user *, size_t *, loff_t *);
++int percpu_pagelist_batch_sysctl_handler(struct ctl_table *, int,
++					void __user *, size_t *, loff_t *);
+ int sysctl_min_unmapped_ratio_sysctl_handler(struct ctl_table *, int,
+ 			void __user *, size_t *, loff_t *);
+ int sysctl_min_slab_ratio_sysctl_handler(struct ctl_table *, int,
+diff --git a/kernel/sysctl.c b/kernel/sysctl.c
+index 4dfba1a76cc3..85cc4544db1b 100644
+--- a/kernel/sysctl.c
++++ b/kernel/sysctl.c
+@@ -108,6 +108,7 @@ extern unsigned int core_pipe_limit;
+ extern int pid_max;
+ extern int pid_max_min, pid_max_max;
+ extern int percpu_pagelist_fraction;
++extern int percpu_pagelist_batch;
+ extern int latencytop_enabled;
+ extern unsigned int sysctl_nr_open_min, sysctl_nr_open_max;
+ #ifndef CONFIG_MMU
+@@ -1440,6 +1441,14 @@ static struct ctl_table vm_table[] = {
+ 		.proc_handler	= percpu_pagelist_fraction_sysctl_handler,
+ 		.extra1		= &zero,
+ 	},
++	{
++		.procname	= "percpu_pagelist_batch",
++		.data		= &percpu_pagelist_batch,
++		.maxlen		= sizeof(percpu_pagelist_batch),
++		.mode		= 0644,
++		.proc_handler	= percpu_pagelist_batch_sysctl_handler,
++		.extra1		= &zero,
++	},
+ #ifdef CONFIG_MMU
+ 	{
+ 		.procname	= "max_map_count",
+diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+index 2302f250d6b1..aa96a4bd6467 100644
+--- a/mm/page_alloc.c
++++ b/mm/page_alloc.c
+@@ -129,6 +129,7 @@ unsigned long totalreserve_pages __read_mostly;
+ unsigned long totalcma_pages __read_mostly;
+ 
+ int percpu_pagelist_fraction;
++int percpu_pagelist_batch;
+ gfp_t gfp_allowed_mask __read_mostly = GFP_BOOT_MASK;
+ 
+ /*
+@@ -5477,7 +5478,8 @@ static void pageset_set_high_and_batch(struct zone *zone,
+ 			(zone->managed_pages /
+ 				percpu_pagelist_fraction));
+ 	else
+-		pageset_set_batch(pcp, zone_batchsize(zone));
++		pageset_set_batch(pcp, percpu_pagelist_batch ?
++				percpu_pagelist_batch : zone_batchsize(zone));
+ }
+ 
+ static void __meminit zone_pageset_init(struct zone *zone, int cpu)
+@@ -7157,6 +7159,42 @@ int percpu_pagelist_fraction_sysctl_handler(struct ctl_table *table, int write,
+ 	return ret;
+ }
+ 
++int percpu_pagelist_batch_sysctl_handler(struct ctl_table *table, int write,
++	void __user *buffer, size_t *length, loff_t *ppos)
++{
++	struct zone *zone;
++	int old_percpu_pagelist_batch;
++	int ret;
++
++	mutex_lock(&pcp_batch_high_lock);
++	old_percpu_pagelist_batch = percpu_pagelist_batch;
++
++	ret = proc_dointvec_minmax(table, write, buffer, length, ppos);
++	if (!write || ret < 0)
++		goto out;
++
++	/* Sanity checking to avoid pcp imbalance */
++	if (percpu_pagelist_batch <= 0) {
++		ret = -EINVAL;
++		goto out;
++	}
++
++	/* No change? */
++	if (percpu_pagelist_batch == old_percpu_pagelist_batch)
++		goto out;
++
++	for_each_populated_zone(zone) {
++		unsigned int cpu;
++
++		for_each_possible_cpu(cpu)
++			pageset_set_high_and_batch(zone,
++					per_cpu_ptr(zone->pageset, cpu));
++	}
++out:
++	mutex_unlock(&pcp_batch_high_lock);
++	return ret;
++}
++
+ #ifdef CONFIG_NUMA
+ int hashdist = HASHDIST_DEFAULT;
+ 
+-- 
+2.9.5
+
+
+--ew6BAiZeqk4r7MaW--
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
