@@ -1,106 +1,55 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] bpf: do not disable/enable BH in bpf_map_free_id()
-Date: Tue, 19 Sep 2017 09:15:59 -0700
-Message-ID: <1505837759.29839.64.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Martin KaFai Lau <kafai@fb.com>,
-        Alexei Starovoitov <ast@kernel.org>,
-        netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+From: Douglas Anderson <dianders@chromium.org>
+Subject: [RFC PATCH 3/3] usbnet: Fix memory leak when rx_submit() fails
+Date: Tue, 19 Sep 2017 09:15:22 -0700
+Message-ID: <20170919161522.995-3-dianders@chromium.org>
+References: <20170919161522.995-1-dianders@chromium.org>
+Cc: groeck@chromium.org, grundler@chromium.org,
+        Douglas Anderson <dianders@chromium.org>,
+        netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Oliver Neukum <oneukum@suse.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:33757 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751098AbdISQQB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 12:16:01 -0400
-Received: by mail-pg0-f67.google.com with SMTP id i130so67452pgc.0
-        for <netdev@vger.kernel.org>; Tue, 19 Sep 2017 09:16:01 -0700 (PDT)
+Received: from mail-pf0-f169.google.com ([209.85.192.169]:54379 "EHLO
+        mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751283AbdISQPy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 12:15:54 -0400
+Received: by mail-pf0-f169.google.com with SMTP id d187so51052pfg.11
+        for <netdev@vger.kernel.org>; Tue, 19 Sep 2017 09:15:54 -0700 (PDT)
+In-Reply-To: <20170919161522.995-1-dianders@chromium.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+If rx_submit() returns an error code then nobody calls usb_free_urb().
+That means it's leaked.
 
-syzkaller reported following splat [1]
+NOTE: This problem was found solely by code inspection and not due to
+any failing test cases.
 
-Since hard irq are disabled by the caller, bpf_map_free_id()
-should not try to enable/disable BH.
-
-Another solution would be to change htab_map_delete_elem() to
-defer the free_htab_elem() call after
-raw_spin_unlock_irqrestore(&b->lock, flags), but this might be not
-enough to cover other code paths.
-
-[1]
-WARNING: CPU: 1 PID: 8052 at kernel/softirq.c:161 __local_bh_enable_ip
-+0x1e/0x160 kernel/softirq.c:161
-Kernel panic - not syncing: panic_on_warn set ...
-
-CPU: 1 PID: 8052 Comm: syz-executor1 Not tainted 4.13.0-next-20170915+
-#23
-Hardware name: Google Google Compute Engine/Google Compute Engine, BIOS
-Google 01/01/2011
-Call Trace:
- __dump_stack lib/dump_stack.c:16 [inline]
- dump_stack+0x194/0x257 lib/dump_stack.c:52
- panic+0x1e4/0x417 kernel/panic.c:181
- __warn+0x1c4/0x1d9 kernel/panic.c:542
- report_bug+0x211/0x2d0 lib/bug.c:183
- fixup_bug+0x40/0x90 arch/x86/kernel/traps.c:178
- do_trap_no_signal arch/x86/kernel/traps.c:212 [inline]
- do_trap+0x260/0x390 arch/x86/kernel/traps.c:261
- do_error_trap+0x120/0x390 arch/x86/kernel/traps.c:298
- do_invalid_op+0x1b/0x20 arch/x86/kernel/traps.c:311
- invalid_op+0x18/0x20 arch/x86/entry/entry_64.S:905
-RIP: 0010:__local_bh_enable_ip+0x1e/0x160 kernel/softirq.c:161
-RSP: 0018:ffff8801cdcd7748 EFLAGS: 00010046
-RAX: 0000000000000082 RBX: 0000000000000201 RCX: 0000000000000000
-RDX: 1ffffffff0b5933c RSI: 0000000000000201 RDI: ffffffff85ac99e0
-RBP: ffff8801cdcd7758 R08: ffffffff85b87158 R09: 1ffff10039b9aec6
-R10: ffff8801c99f24c0 R11: 0000000000000002 R12: ffffffff817b0b47
-R13: dffffc0000000000 R14: ffff8801cdcd77e8 R15: 0000000000000001
- __raw_spin_unlock_bh include/linux/spinlock_api_smp.h:176 [inline]
- _raw_spin_unlock_bh+0x30/0x40 kernel/locking/spinlock.c:207
- spin_unlock_bh include/linux/spinlock.h:361 [inline]
- bpf_map_free_id kernel/bpf/syscall.c:197 [inline]
- __bpf_map_put+0x267/0x320 kernel/bpf/syscall.c:227
- bpf_map_put+0x1a/0x20 kernel/bpf/syscall.c:235
- bpf_map_fd_put_ptr+0x15/0x20 kernel/bpf/map_in_map.c:96
- free_htab_elem+0xc3/0x1b0 kernel/bpf/hashtab.c:658
- htab_map_delete_elem+0x74d/0x970 kernel/bpf/hashtab.c:1063
- map_delete_elem kernel/bpf/syscall.c:633 [inline]
- SYSC_bpf kernel/bpf/syscall.c:1479 [inline]
- SyS_bpf+0x2188/0x46a0 kernel/bpf/syscall.c:1451
- entry_SYSCALL_64_fastpath+0x1f/0xbe
-
-Fixes: f3f1c054c288 ("bpf: Introduce bpf_map ID")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Martin KaFai Lau <kafai@fb.com>
+Signed-off-by: Douglas Anderson <dianders@chromium.org>
 ---
- kernel/bpf/syscall.c |    6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-index cb17e1cd1d434dc2e052a2a9fb0aea967fcf4417..25d074920a009ff682d97bf88e68f466c79bd564 100644
---- a/kernel/bpf/syscall.c
-+++ b/kernel/bpf/syscall.c
-@@ -186,15 +186,17 @@ static int bpf_map_alloc_id(struct bpf_map *map)
- 
- static void bpf_map_free_id(struct bpf_map *map, bool do_idr_lock)
- {
-+	unsigned long flags;
-+
- 	if (do_idr_lock)
--		spin_lock_bh(&map_idr_lock);
-+		spin_lock_irqsave(&map_idr_lock, flags);
- 	else
- 		__acquire(&map_idr_lock);
- 
- 	idr_remove(&map_idr, map->id);
- 
- 	if (do_idr_lock)
--		spin_unlock_bh(&map_idr_lock);
-+		spin_unlock_irqrestore(&map_idr_lock, flags);
- 	else
- 		__release(&map_idr_lock);
- }
+ drivers/net/usb/usbnet.c | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+index e72547d8d0e6..4c067aaeea5a 100644
+--- a/drivers/net/usb/usbnet.c
++++ b/drivers/net/usb/usbnet.c
+@@ -1182,9 +1182,12 @@ usbnet_deferred_kevent (struct work_struct *work)
+ 					usb_free_urb(urb);
+ 					goto fail_lowmem;
+ 				}
+-				if (rx_submit (dev, urb, GFP_KERNEL) ==
+-				    -ENOLINK)
+-					resched = 0;
++				status = rx_submit (dev, urb, GFP_KERNEL);
++				if (status) {
++					usb_free_urb(urb);
++					if (status == -ENOLINK)
++						resched = 0;
++				}
+ 				usb_autopm_put_interface(dev->intf);
+ fail_lowmem:
+ 				if (resched)
+-- 
+2.14.1.690.gbb1197296e-goog
