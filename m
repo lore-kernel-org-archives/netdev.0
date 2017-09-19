@@ -1,141 +1,103 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 13/13] mlxsw: spectrum: Add multicast router traps and trap groups
-Date: Tue, 19 Sep 2017 10:00:20 +0200
-Message-ID: <20170919080020.5870-14-jiri@resnulli.us>
+Subject: [patch net-next 06/13] mlxsw: reg: Add The Router TCAM Allocation register
+Date: Tue, 19 Sep 2017 10:00:13 +0200
+Message-ID: <20170919080020.5870-7-jiri@resnulli.us>
 References: <20170919080020.5870-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, yotamg@mellanox.com, idosch@mellanox.com,
         mlxsw@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f195.google.com ([209.85.128.195]:36617 "EHLO
-        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751628AbdISIAf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 04:00:35 -0400
-Received: by mail-wr0-f195.google.com with SMTP id g50so1706232wra.3
-        for <netdev@vger.kernel.org>; Tue, 19 Sep 2017 01:00:34 -0700 (PDT)
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:35384 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751227AbdISIA3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 04:00:29 -0400
+Received: by mail-wm0-f66.google.com with SMTP id e64so3064007wmi.2
+        for <netdev@vger.kernel.org>; Tue, 19 Sep 2017 01:00:28 -0700 (PDT)
 In-Reply-To: <20170919080020.5870-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Yotam Gigi <yotamg@mellanox.com>
 
-Add three new traps needed for multicast routing:
- - PIM: Trap for PIM protocol control packets.
- - RPF: Trap for packets that fail the RPF check on a specific hardware
-   route entry.
- - MULTICAST: Generic trap for multicast. It is used for routes that trap
-   the packets to the CPU.
-
-The RPF and MULTICAST traps have rate limiters as these traps may have
-line-rate of packets trapped. The PIM trap has a rate limiter similarly to
-other L3 control protocols. The rate limiters are implemented by adding
-three new trap groups for the newly introduced traps.
+This register is used for allocation of regions in the TCAM table and it
+will be used by the multicast router offloading logic.
 
 Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
 Reviewed-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/reg.h      |  3 +++
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 10 ++++++++++
- drivers/net/ethernet/mellanox/mlxsw/trap.h     |  4 ++++
- 3 files changed, 17 insertions(+)
+ drivers/net/ethernet/mellanox/mlxsw/reg.h | 52 +++++++++++++++++++++++++++++++
+ 1 file changed, 52 insertions(+)
 
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-index c203e0d..17eba19 100644
+index fb8ab44..e9f37ea 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
 +++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-@@ -3681,12 +3681,15 @@ enum mlxsw_reg_htgt_trap_group {
- 	MLXSW_REG_HTGT_TRAP_GROUP_SP_IGMP,
- 	MLXSW_REG_HTGT_TRAP_GROUP_SP_BGP,
- 	MLXSW_REG_HTGT_TRAP_GROUP_SP_OSPF,
-+	MLXSW_REG_HTGT_TRAP_GROUP_SP_PIM,
-+	MLXSW_REG_HTGT_TRAP_GROUP_SP_MULTICAST,
- 	MLXSW_REG_HTGT_TRAP_GROUP_SP_ARP,
- 	MLXSW_REG_HTGT_TRAP_GROUP_SP_HOST_MISS,
- 	MLXSW_REG_HTGT_TRAP_GROUP_SP_ROUTER_EXP,
- 	MLXSW_REG_HTGT_TRAP_GROUP_SP_REMOTE_ROUTE,
- 	MLXSW_REG_HTGT_TRAP_GROUP_SP_IP2ME,
- 	MLXSW_REG_HTGT_TRAP_GROUP_SP_DHCP,
-+	MLXSW_REG_HTGT_TRAP_GROUP_SP_RPF,
- 	MLXSW_REG_HTGT_TRAP_GROUP_SP_EVENT,
- 	MLXSW_REG_HTGT_TRAP_GROUP_SP_IPV6_MLD,
- 	MLXSW_REG_HTGT_TRAP_GROUP_SP_IPV6_ND,
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index 6ba6ff2..e9b9443 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -3421,6 +3421,10 @@ static const struct mlxsw_listener mlxsw_sp_listener[] = {
- 		  false, SP_IP2ME, DISCARD),
- 	/* ACL trap */
- 	MLXSW_SP_RXL_NO_MARK(ACL0, TRAP_TO_CPU, IP2ME, false),
-+	/* Multicast Router Traps */
-+	MLXSW_SP_RXL_MARK(IPV4_PIM, TRAP_TO_CPU, PIM, false),
-+	MLXSW_SP_RXL_MARK(RPF, TRAP_TO_CPU, RPF, false),
-+	MLXSW_SP_RXL_MARK(ACL1, TRAP_TO_CPU, MULTICAST, false),
- };
+@@ -4310,6 +4310,57 @@ mlxsw_reg_ritr_loopback_ipip4_pack(char *payload,
+ 	mlxsw_reg_ritr_loopback_ipip_usip4_set(payload, usip);
+ }
  
- static int mlxsw_sp_cpu_policers_set(struct mlxsw_core *mlxsw_core)
-@@ -3446,6 +3450,8 @@ static int mlxsw_sp_cpu_policers_set(struct mlxsw_core *mlxsw_core)
- 		case MLXSW_REG_HTGT_TRAP_GROUP_SP_LACP:
- 		case MLXSW_REG_HTGT_TRAP_GROUP_SP_LLDP:
- 		case MLXSW_REG_HTGT_TRAP_GROUP_SP_OSPF:
-+		case MLXSW_REG_HTGT_TRAP_GROUP_SP_PIM:
-+		case MLXSW_REG_HTGT_TRAP_GROUP_SP_RPF:
- 			rate = 128;
- 			burst_size = 7;
- 			break;
-@@ -3461,6 +3467,7 @@ static int mlxsw_sp_cpu_policers_set(struct mlxsw_core *mlxsw_core)
- 		case MLXSW_REG_HTGT_TRAP_GROUP_SP_ROUTER_EXP:
- 		case MLXSW_REG_HTGT_TRAP_GROUP_SP_REMOTE_ROUTE:
- 		case MLXSW_REG_HTGT_TRAP_GROUP_SP_IPV6_ND:
-+		case MLXSW_REG_HTGT_TRAP_GROUP_SP_MULTICAST:
- 			rate = 1024;
- 			burst_size = 7;
- 			break;
-@@ -3506,6 +3513,7 @@ static int mlxsw_sp_trap_groups_set(struct mlxsw_core *mlxsw_core)
- 		case MLXSW_REG_HTGT_TRAP_GROUP_SP_LACP:
- 		case MLXSW_REG_HTGT_TRAP_GROUP_SP_LLDP:
- 		case MLXSW_REG_HTGT_TRAP_GROUP_SP_OSPF:
-+		case MLXSW_REG_HTGT_TRAP_GROUP_SP_PIM:
- 			priority = 5;
- 			tc = 5;
- 			break;
-@@ -3522,12 +3530,14 @@ static int mlxsw_sp_trap_groups_set(struct mlxsw_core *mlxsw_core)
- 			break;
- 		case MLXSW_REG_HTGT_TRAP_GROUP_SP_ARP:
- 		case MLXSW_REG_HTGT_TRAP_GROUP_SP_IPV6_ND:
-+		case MLXSW_REG_HTGT_TRAP_GROUP_SP_RPF:
- 			priority = 2;
- 			tc = 2;
- 			break;
- 		case MLXSW_REG_HTGT_TRAP_GROUP_SP_HOST_MISS:
- 		case MLXSW_REG_HTGT_TRAP_GROUP_SP_ROUTER_EXP:
- 		case MLXSW_REG_HTGT_TRAP_GROUP_SP_REMOTE_ROUTE:
-+		case MLXSW_REG_HTGT_TRAP_GROUP_SP_MULTICAST:
- 			priority = 1;
- 			tc = 1;
- 			break;
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/trap.h b/drivers/net/ethernet/mellanox/mlxsw/trap.h
-index f396a1f..a981035 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/trap.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/trap.h
-@@ -62,6 +62,8 @@ enum {
- 	MLXSW_TRAP_ID_TTLERROR = 0x53,
- 	MLXSW_TRAP_ID_LBERROR = 0x54,
- 	MLXSW_TRAP_ID_IPV4_OSPF = 0x55,
-+	MLXSW_TRAP_ID_IPV4_PIM = 0x58,
-+	MLXSW_TRAP_ID_RPF = 0x5C,
- 	MLXSW_TRAP_ID_IP2ME = 0x5F,
- 	MLXSW_TRAP_ID_IPV6_UNSPECIFIED_ADDRESS = 0x60,
- 	MLXSW_TRAP_ID_IPV6_LINK_LOCAL_DEST = 0x61,
-@@ -89,6 +91,8 @@ enum {
- 	MLXSW_TRAP_ID_ROUTER_ALERT_IPV4 = 0xD6,
- 	MLXSW_TRAP_ID_ROUTER_ALERT_IPV6 = 0xD7,
- 	MLXSW_TRAP_ID_ACL0 = 0x1C0,
-+	/* Multicast trap used for routes with trap action */
-+	MLXSW_TRAP_ID_ACL1 = 0x1C1,
- 
- 	MLXSW_TRAP_ID_MAX = 0x1FF
- };
++/* RTAR - Router TCAM Allocation Register
++ * --------------------------------------
++ * This register is used for allocation of regions in the TCAM table.
++ */
++#define MLXSW_REG_RTAR_ID 0x8004
++#define MLXSW_REG_RTAR_LEN 0x20
++
++MLXSW_REG_DEFINE(rtar, MLXSW_REG_RTAR_ID, MLXSW_REG_RTAR_LEN);
++
++enum mlxsw_reg_rtar_op {
++	MLXSW_REG_RTAR_OP_ALLOCATE,
++	MLXSW_REG_RTAR_OP_RESIZE,
++	MLXSW_REG_RTAR_OP_DEALLOCATE,
++};
++
++/* reg_rtar_op
++ * Access: WO
++ */
++MLXSW_ITEM32(reg, rtar, op, 0x00, 28, 4);
++
++enum mlxsw_reg_rtar_key_type {
++	MLXSW_REG_RTAR_KEY_TYPE_IPV4_MULTICAST = 1,
++	MLXSW_REG_RTAR_KEY_TYPE_IPV6_MULTICAST = 3
++};
++
++/* reg_rtar_key_type
++ * TCAM key type for the region.
++ * Access: WO
++ */
++MLXSW_ITEM32(reg, rtar, key_type, 0x00, 0, 8);
++
++/* reg_rtar_region_size
++ * TCAM region size. When allocating/resizing this is the requested
++ * size, the response is the actual size.
++ * Note: Actual size may be larger than requested.
++ * Reserved for op = Deallocate
++ * Access: WO
++ */
++MLXSW_ITEM32(reg, rtar, region_size, 0x04, 0, 16);
++
++static inline void mlxsw_reg_rtar_pack(char *payload,
++				       enum mlxsw_reg_rtar_op op,
++				       enum mlxsw_reg_rtar_key_type key_type,
++				       u16 region_size)
++{
++	MLXSW_REG_ZERO(rtar, payload);
++	mlxsw_reg_rtar_op_set(payload, op);
++	mlxsw_reg_rtar_key_type_set(payload, key_type);
++	mlxsw_reg_rtar_region_size_set(payload, region_size);
++}
++
+ /* RATR - Router Adjacency Table Register
+  * --------------------------------------
+  * The RATR register is used to configure the Router Adjacency (next-hop)
+@@ -6855,6 +6906,7 @@ static const struct mlxsw_reg_info *mlxsw_reg_infos[] = {
+ 	MLXSW_REG(hpkt),
+ 	MLXSW_REG(rgcr),
+ 	MLXSW_REG(ritr),
++	MLXSW_REG(rtar),
+ 	MLXSW_REG(ratr),
+ 	MLXSW_REG(rtdp),
+ 	MLXSW_REG(ricnt),
 -- 
 2.9.5
