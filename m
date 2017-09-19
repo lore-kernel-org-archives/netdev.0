@@ -1,228 +1,75 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH v2 net-next] net: sk_buff rbnode reorg
-Date: Tue, 19 Sep 2017 05:14:24 -0700
-Message-ID: <1505823264.29839.54.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1505797616.29839.40.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Ville =?iso-8859-1?Q?Syrj=E4l=E4?= <ville.syrjala@linux.intel.com>
+Subject: Re: [PATCH 1/2] mac80211: Add rcu read side critical sections
+Date: Tue, 19 Sep 2017 15:35:45 +0300
+Message-ID: <20170919123545.GM4914@intel.com>
+References: <20170918195919.15860-1-ville.syrjala@linux.intel.com>
+ <1505765477.13691.20.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-        Soheil Hassas Yeganeh <soheil@google.com>,
-        Wei Wang <weiwan@google.com>,
-        Willem de Bruijn <willemb@google.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: linux-wireless@vger.kernel.org,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f67.google.com ([209.85.214.67]:36514 "EHLO
-        mail-it0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751747AbdISMO1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 08:14:27 -0400
-Received: by mail-it0-f67.google.com with SMTP id e134so2276374ite.3
-        for <netdev@vger.kernel.org>; Tue, 19 Sep 2017 05:14:27 -0700 (PDT)
-In-Reply-To: <1505797616.29839.40.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mga02.intel.com ([134.134.136.20]:56423 "EHLO mga02.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750972AbdISMfu (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 19 Sep 2017 08:35:50 -0400
+Content-Disposition: inline
+In-Reply-To: <1505765477.13691.20.camel@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Mon, Sep 18, 2017 at 10:11:17PM +0200, Johannes Berg wrote:
+> > I got the following lockdep warning about the rcu_dereference()s in
+> > ieee80211_tx_h_select_key(). After tracing all callers of
+> > ieee80211_tx_h_select_key() I discovered that
+> > ieee80211_get_buffered_bc()
+> > and ieee80211_build_data_template() had the rcu_read_lock/unlock()
+> > but
+> > three other places did not. So I just blindly added them and made the
+> > read side critical section extend as far as the lifetime of 'tx'
+> > which
+> > is where we seem to be stuffing the rcu protected pointers. No real
+> > clue whether this is correct or not.
+> 
+> Heh.
+> 
+> I think we should do it in ieee80211_tx_dequeue(),
 
-skb->rbnode shares space with skb->next, skb->prev and skb->tstamp
+Oh, I guess I didn't trace the call chains far enough. ieee80211_tx()
+does indeed look OK. But unless I made another mistake in my analysis
+ieee80211_tx_prepare_skb() is still busted.
 
-Current uses (TCP receive ofo queue and netem) need to save/restore
-tstamp, while skb->dev is either NULL (TCP) or a constant for a given
-queue (netem).
-    
-Since we plan using an RB tree for TCP retransmit queue to speedup SACK
-processing with large BDP, this patch exchanges skb->dev and
-skb->tstamp.
-    
-This saves some overhead in both TCP and netem.
+> if not even in the
+> driver (and document that it's required)
+> 
+> johannes
+> 
+> > @@ -3411,6 +3430,8 @@ struct sk_buff *ieee80211_tx_dequeue(struct
+> > ieee80211_hw *hw,
+> >  	ieee80211_tx_result r;
+> >  	struct ieee80211_vif *vif;
+> >  
+> > +	rcu_read_lock();
+> > +
+> >  	spin_lock_bh(&fq->lock);
+> >  
+> >  	if (test_bit(IEEE80211_TXQ_STOP, &txqi->flags))
+> > @@ -3513,6 +3534,8 @@ struct sk_buff *ieee80211_tx_dequeue(struct
+> > ieee80211_hw *hw,
+> >  out:
+> >  	spin_unlock_bh(&fq->lock);
+> >  
+> > +	rcu_read_unlock();
+> > 
+> 
+> i.e. this in itself should be sufficient, though you should probably
+> reorder and acquire the spinlock first since that might spin, and you
+> want to keep the RCU section minimal (it's trivial here, after all)
 
-v2: removes the swtstamp field from struct tcp_skb_cb
-    
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Soheil Hassas Yeganeh <soheil@google.com>
-Cc: Wei Wang <weiwan@google.com>
-Cc: Willem de Bruijn <willemb@google.com>
----
- include/linux/skbuff.h |   16 ++++++++--------
- include/net/tcp.h      |    6 ------
- net/ipv4/tcp_input.c   |   27 +++++----------------------
- net/sched/sch_netem.c  |    7 ++++---
- 4 files changed, 17 insertions(+), 39 deletions(-)
+Good point. I'll respin with that change.
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 72299ef00061db1ce70d34b96ae1639ecde08837..492828801acba42ac6bccb287d3cc5080039135c 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -661,8 +661,12 @@ struct sk_buff {
- 			struct sk_buff		*prev;
- 
- 			union {
--				ktime_t		tstamp;
--				u64		skb_mstamp;
-+				struct net_device	*dev;
-+				/* Some protocols might use this space to store information,
-+				 * while device pointer would be NULL.
-+				 * UDP receive path is one user.
-+				 */
-+				unsigned long		dev_scratch;
- 			};
- 		};
- 		struct rb_node	rbnode; /* used in netem & tcp stack */
-@@ -670,12 +674,8 @@ struct sk_buff {
- 	struct sock		*sk;
- 
- 	union {
--		struct net_device	*dev;
--		/* Some protocols might use this space to store information,
--		 * while device pointer would be NULL.
--		 * UDP receive path is one user.
--		 */
--		unsigned long		dev_scratch;
-+		ktime_t		tstamp;
-+		u64		skb_mstamp;
- 	};
- 	/*
- 	 * This is the control buffer. It is free to use for every
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index b510f284427aabc1f508d24d29d0f812e5e0aa61..49a8a46466f32bd98b0c38a776fddc40bc621337 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -797,12 +797,6 @@ struct tcp_skb_cb {
- 			u16	tcp_gso_segs;
- 			u16	tcp_gso_size;
- 		};
--
--		/* Used to stash the receive timestamp while this skb is in the
--		 * out of order queue, as skb->tstamp is overwritten by the
--		 * rbnode.
--		 */
--		ktime_t		swtstamp;
- 	};
- 	__u8		tcp_flags;	/* TCP header flags. (tcp[13])	*/
- 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index bddf724f5c02abe1d11110cffe2517f6376e440d..db9bb46b5776f9ee332298c0e95afb0a5966b938 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -4266,11 +4266,6 @@ static void tcp_sack_remove(struct tcp_sock *tp)
- 	tp->rx_opt.num_sacks = num_sacks;
- }
- 
--enum tcp_queue {
--	OOO_QUEUE,
--	RCV_QUEUE,
--};
--
- /**
-  * tcp_try_coalesce - try to merge skb to prior one
-  * @sk: socket
-@@ -4286,7 +4281,6 @@ enum tcp_queue {
-  * Returns true if caller should free @from instead of queueing it
-  */
- static bool tcp_try_coalesce(struct sock *sk,
--			     enum tcp_queue dest,
- 			     struct sk_buff *to,
- 			     struct sk_buff *from,
- 			     bool *fragstolen)
-@@ -4311,10 +4305,7 @@ static bool tcp_try_coalesce(struct sock *sk,
- 
- 	if (TCP_SKB_CB(from)->has_rxtstamp) {
- 		TCP_SKB_CB(to)->has_rxtstamp = true;
--		if (dest == OOO_QUEUE)
--			TCP_SKB_CB(to)->swtstamp = TCP_SKB_CB(from)->swtstamp;
--		else
--			to->tstamp = from->tstamp;
-+		to->tstamp = from->tstamp;
- 	}
- 
- 	return true;
-@@ -4351,9 +4342,6 @@ static void tcp_ofo_queue(struct sock *sk)
- 		}
- 		p = rb_next(p);
- 		rb_erase(&skb->rbnode, &tp->out_of_order_queue);
--		/* Replace tstamp which was stomped by rbnode */
--		if (TCP_SKB_CB(skb)->has_rxtstamp)
--			skb->tstamp = TCP_SKB_CB(skb)->swtstamp;
- 
- 		if (unlikely(!after(TCP_SKB_CB(skb)->end_seq, tp->rcv_nxt))) {
- 			SOCK_DEBUG(sk, "ofo packet was already received\n");
-@@ -4365,8 +4353,7 @@ static void tcp_ofo_queue(struct sock *sk)
- 			   TCP_SKB_CB(skb)->end_seq);
- 
- 		tail = skb_peek_tail(&sk->sk_receive_queue);
--		eaten = tail && tcp_try_coalesce(sk, RCV_QUEUE,
--						 tail, skb, &fragstolen);
-+		eaten = tail && tcp_try_coalesce(sk, tail, skb, &fragstolen);
- 		tcp_rcv_nxt_update(tp, TCP_SKB_CB(skb)->end_seq);
- 		fin = TCP_SKB_CB(skb)->tcp_flags & TCPHDR_FIN;
- 		if (!eaten)
-@@ -4420,10 +4407,6 @@ static void tcp_data_queue_ofo(struct sock *sk, struct sk_buff *skb)
- 		return;
- 	}
- 
--	/* Stash tstamp to avoid being stomped on by rbnode */
--	if (TCP_SKB_CB(skb)->has_rxtstamp)
--		TCP_SKB_CB(skb)->swtstamp = skb->tstamp;
--
- 	/* Disable header prediction. */
- 	tp->pred_flags = 0;
- 	inet_csk_schedule_ack(sk);
-@@ -4451,7 +4434,7 @@ static void tcp_data_queue_ofo(struct sock *sk, struct sk_buff *skb)
- 	/* In the typical case, we are adding an skb to the end of the list.
- 	 * Use of ooo_last_skb avoids the O(Log(N)) rbtree lookup.
- 	 */
--	if (tcp_try_coalesce(sk, OOO_QUEUE, tp->ooo_last_skb,
-+	if (tcp_try_coalesce(sk, tp->ooo_last_skb,
- 			     skb, &fragstolen)) {
- coalesce_done:
- 		tcp_grow_window(sk, skb);
-@@ -4502,7 +4485,7 @@ static void tcp_data_queue_ofo(struct sock *sk, struct sk_buff *skb)
- 				__kfree_skb(skb1);
- 				goto merge_right;
- 			}
--		} else if (tcp_try_coalesce(sk, OOO_QUEUE, skb1,
-+		} else if (tcp_try_coalesce(sk, skb1,
- 					    skb, &fragstolen)) {
- 			goto coalesce_done;
- 		}
-@@ -4554,7 +4537,7 @@ static int __must_check tcp_queue_rcv(struct sock *sk, struct sk_buff *skb, int
- 
- 	__skb_pull(skb, hdrlen);
- 	eaten = (tail &&
--		 tcp_try_coalesce(sk, RCV_QUEUE, tail,
-+		 tcp_try_coalesce(sk, tail,
- 				  skb, fragstolen)) ? 1 : 0;
- 	tcp_rcv_nxt_update(tcp_sk(sk), TCP_SKB_CB(skb)->end_seq);
- 	if (!eaten) {
-diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
-index b1266e75ca43cf5a66b951ecabccfc5b24069444..063a4bdb9ee6f26b01387959e8f6ccd15ec16191 100644
---- a/net/sched/sch_netem.c
-+++ b/net/sched/sch_netem.c
-@@ -146,7 +146,6 @@ struct netem_sched_data {
-  */
- struct netem_skb_cb {
- 	psched_time_t	time_to_send;
--	ktime_t		tstamp_save;
- };
- 
- 
-@@ -561,7 +560,6 @@ static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch,
- 		}
- 
- 		cb->time_to_send = now + delay;
--		cb->tstamp_save = skb->tstamp;
- 		++q->counter;
- 		tfifo_enqueue(skb, sch);
- 	} else {
-@@ -629,7 +627,10 @@ static struct sk_buff *netem_dequeue(struct Qdisc *sch)
- 			qdisc_qstats_backlog_dec(sch, skb);
- 			skb->next = NULL;
- 			skb->prev = NULL;
--			skb->tstamp = netem_skb_cb(skb)->tstamp_save;
-+			/* skb->dev shares skb->rbnode area,
-+			 * we need to restore its value.
-+			 */
-+			skb->dev = qdisc_dev(sch);
- 
- #ifdef CONFIG_NET_CLS_ACT
- 			/*
+-- 
+Ville Syrjälä
+Intel OTC
