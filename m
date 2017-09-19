@@ -1,44 +1,45 @@
-From: Harsha Chenji <cjkernel@gmail.com>
-Subject: ipv4 ID calculation
-Date: Mon, 18 Sep 2017 20:43:05 -0400
-Message-ID: <CAMB9WxJpwdZ2gFygTdWZmpLoCG0A79ReCbts-phpT76JfTPHsQ@mail.gmail.com>
+From: <Tristram.Ha@microchip.com>
+Subject: RE: [PATCH RFC 6/6] Modify tag_ksz.c to support other KSZ switch
+ drivers
+Date: Tue, 19 Sep 2017 00:45:41 +0000
+Message-ID: <93AF473E2DA327428DE3D46B72B1E9FD41124E47@CHN-SV-EXMX02.mchp-main.com>
+References: <93AF473E2DA327428DE3D46B72B1E9FD41121901@CHN-SV-EXMX02.mchp-main.com>
+ <93AF473E2DA327428DE3D46B72B1E9FD41121A22@CHN-SV-EXMX02.mchp-main.com>
+ <20170907214834.GT11248@lunn.ch>
+ <93AF473E2DA327428DE3D46B72B1E9FD41124D2E@CHN-SV-EXMX02.mchp-main.com>
+ <20170918195708.GE15606@lunn.ch>
+ <93AF473E2DA327428DE3D46B72B1E9FD41124D7C@CHN-SV-EXMX02.mchp-main.com>
+ <20170918225142.GC29615@lunn.ch>
+ <93AF473E2DA327428DE3D46B72B1E9FD41124E0C@CHN-SV-EXMX02.mchp-main.com>
+ <c812edb6-9a8d-e8de-a288-3c2030b72bbd@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f46.google.com ([209.85.214.46]:56407 "EHLO
-        mail-it0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750733AbdISAnI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 20:43:08 -0400
-Received: by mail-it0-f46.google.com with SMTP id g18so469621itg.5
-        for <netdev@vger.kernel.org>; Mon, 18 Sep 2017 17:43:08 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: <muvarov@gmail.com>, <pavel@ucw.cz>,
+        <nathan.leigh.conrad@gmail.com>,
+        <vivien.didelot@savoirfairelinux.com>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>, <Woojung.Huh@microchip.com>,
+        <andrew@lunn.ch>
+To: <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <c812edb6-9a8d-e8de-a288-3c2030b72bbd@gmail.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi all,
-
-Where is the ID field of the IPv4 header created when the DF flag is
-set? I am looking at ip_build_and_send_pkt. The code seems to have
-changed in 4.4-rc1:
-
-if (ip_dont_fragment(sk, &rt->dst)) {
-    iph->frag_off = htons(IP_DF);
-    iph->id = 0;
-} else {
-    iph->frag_off = 0;
-    __ip_select_ident(net, iph, 1);
-}
-
-old code (executed irrespective of DF or not):
-
-    ip_select_ident(sock_net(sk), skb, sk);
-
-The code in Stevens is basically iph->id = htons(ip_ident++) and now
-it seems to be calculated based on a hash + lookup table.
-
-So where is the id of 0 overwritten when DF is set? Didn't find any
-info in the docs.
-
-P.S. - is this the right mailing list for these kind of questions?
-
-Thanks!
+PiBJIGFtIG5vdCByZWFsbHkgc3VyZSB3aHkgdGhpcyBpcyBzdWNoIGEgY29uY2VybiBmb3IgeW91
+IHNvIHNvb24gd2hlbg0KPiB5b3VyIGRyaXZlciBpcyBub3QgZXZlbiBpbmNsdWRlZCB5ZXQuIFlv
+dSBzaG91bGQgcmVhbGx5IGFpbSBmb3IgYmFieQ0KPiBzdGVwcyBoZXJlOiBnZXQgdGhlIGJhc2lj
+IGRyaXZlcihzKSBpbmNsdWRlZCwgd2l0aCBhIGxpbWl0ZWQgc2V0IG9mDQo+IGZlYXR1cmVzLCBh
+bmQgZ3JhZHVhbGx5IGFkZCBtb3JlIGZlYXR1cmVzIHRvIHRoZSBkcml2ZXIuIFdoZW4NCj4gZndk
+X29mZmxvYWRfbWFyayBhbmQgUlNUUCBiZWNvbWUgYSByZWFsIHByb2JsZW0sIHdlIGNhbiBtb3N0
+DQo+IGRlZmluaXRpdmVseSBmaW5kIGEgd2F5IHRvIGZpeCB0aG9zZSBpbiBEU0EgYW5kIGRlcGVu
+ZGluZyBkcml2ZXJzLg0KDQpJIHdhcyB1bmRlciB0aGUgaW1wcmVzc2lvbiB0aGF0IHRoZXJlIGlz
+IGEgbmV3IHB1c2ggb2YgdGhpcyBuZXcgc3dpdGNoZGV2DQptb2RlbCBhbmQgc28gdGhlIERTQSBt
+b2RlbCB3YXMgb3ZlcmhhdWxlZCB0byBzdXBwb3J0IHRoYXQuDQoNClRoZSBLU1o5NDc3IGRyaXZl
+ciBpcyBhbHJlYWR5IGluIHRoZSBrZXJuZWwsIGFuZCBpdHMgcmVnaXN0ZXIgYWNjZXNzIGlzIGFj
+dHVhbGx5DQptdWNoIGRpZmZlcmVudCBmcm9tIHRoZSBvdGhlciBvbGRlciBzd2l0Y2hlcy4gIFRo
+ZXJlIGFyZSBub3QgbXVjaCBjb21tb24NCmNvZGUgdG8gYmUgcmV1c2VkLiAgSSBhbHdheXMga25v
+dyB0aGlzIHRhaWwgdGFnIGhhbmRsaW5nIGlzIHRoZSBzdGlja2luZyBwb2ludC4NCkkgd2lsbCBz
+dWJtaXQgYSBtdWNoIHNpbXBsaWZpZWQgZHJpdmVyIGFuZCB3YWl0IGZvciBzd2l0Y2ggYWNjZXNz
+IGluIHRoZSBmdXR1cmUuDQo=
