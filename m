@@ -1,45 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/4] net: dsa: move master ethtool code
-Date: Tue, 19 Sep 2017 16:04:38 -0700 (PDT)
-Message-ID: <20170919.160438.114096071481057977.davem@davemloft.net>
-References: <20170919155700.14474-1-vivien.didelot@savoirfairelinux.com>
-        <80b8afa0-e269-c0b7-da4a-dcb604a239ca@gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH V2 net 0/7] Bug fixes for the HNS3 Ethernet Driver for
+ Hip08 SoC
+Date: Tue, 19 Sep 2017 16:07:03 -0700 (PDT)
+Message-ID: <20170919.160703.135206059584454435.davem@davemloft.net>
+References: <20170919161716.92680-1-salil.mehta@huawei.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: vivien.didelot@savoirfairelinux.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-        andrew@lunn.ch
-To: f.fainelli@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <80b8afa0-e269-c0b7-da4a-dcb604a239ca@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, lipeng321-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
+        mehta.salil.lnk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org
+To: salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170919161716.92680-1-salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Tue, 19 Sep 2017 13:04:56 -0700
+From: Salil Mehta <salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Date: Tue, 19 Sep 2017 17:17:09 +0100
 
-> On 09/19/2017 08:56 AM, Vivien Didelot wrote:
->> The DSA core overrides the master device's ethtool_ops structure so that
->> it can inject statistics and such of its dedicated switch CPU port.
->> 
->> This ethtool code is currently called on unnecessary conditions or
->> before the master interface and its switch CPU port get wired up.
->> This patchset fixes this.
->> 
->> Similarly to slave.c where the DSA slave net_device is the entry point
->> of the dsa_slave_* functions, this patchset also isolates the master's
->> ethtool code in a new master.c file, where the DSA master net_device is
->> the entry point of the dsa_master_* functions.
->> 
->> This is a first step towards better control of the master device and
->> support for multiple CPU ports.
+> This patch set presents some bug fixes for the HNS3 Ethernet driver identified
+> during internal testing & stabilization efforts.
 > 
-> Tested-by: Florian Fainelli <f.fainelli@gmail.com>
-> 
-> * ethtool -S eth0 -> switch port CPU stats are still correctly overlayed
-> * ethtool -s gphy wol g -> both switch port and CPU port correctly
-> enable WoL
-> * ethtool -i eth0 -> driver still reports correct information
+> Change Log:
+> Patch V2: Resolved comments from Leon Romanovsky
+> Patch V1: Initial Submit
 
-Series applied, thanks everyone.
+Series applied, thank you.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
