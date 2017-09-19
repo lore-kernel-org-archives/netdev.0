@@ -1,48 +1,47 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] net: sk_buff rbnode reorg
-Date: Tue, 19 Sep 2017 05:04:55 -0700
-Message-ID: <1505822695.29839.48.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1505797616.29839.40.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Harald Welte <laforge@gnumonks.org>
+Subject: Re: [PATCH net-next 03/14] gtp: Call common functions to get tunnel
+ routes and add dst_cache
+Date: Tue, 19 Sep 2017 20:09:42 +0800
+Message-ID: <20170919120942.dpy5kmkhzws7pqd5@nataraja>
+References: <20170919003904.5124-1-tom@quantonium.net>
+ <20170919003904.5124-4-tom@quantonium.net>
+ <20170918.211751.1871429944584121281.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: tom@quantonium.net, netdev@vger.kernel.org, pablo@netfilter.org,
+        rohit@quantonium.net
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f193.google.com ([209.85.223.193]:36192 "EHLO
-        mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751408AbdISME6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 08:04:58 -0400
-Received: by mail-io0-f193.google.com with SMTP id n69so2823523ioi.3
-        for <netdev@vger.kernel.org>; Tue, 19 Sep 2017 05:04:57 -0700 (PDT)
-In-Reply-To: <1505797616.29839.40.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from ganesha.gnumonks.org ([213.95.27.120]:45320 "EHLO
+        ganesha.gnumonks.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751578AbdISMNN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 08:13:13 -0400
+Content-Disposition: inline
+In-Reply-To: <20170918.211751.1871429944584121281.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2017-09-18 at 22:06 -0700, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
+Hi Dave,
 
-...
+On Mon, Sep 18, 2017 at 09:17:51PM -0700, David Miller wrote:
+> This and the new dst caching code ignores any source address selection
+> done by ip_route_output_key() or the new tunnel route lookup helpers.
+> 
+> Either source address selection should be respected, or if saddr will
+> never be modified by a route lookup for some specific reason here,
+> that should be documented.
 
-> --- a/include/net/tcp.h
-> +++ b/include/net/tcp.h
-> @@ -797,11 +797,6 @@ struct tcp_skb_cb {
->  			u16	tcp_gso_segs;
->  			u16	tcp_gso_size;
->  		};
-> -
-> -		/* Used to stash the receive timestamp while this skb is in the
-> -		 * out of order queue, as skb->tstamp is overwritten by the
-> -		 * rbnode.
-> -		 */
->  		ktime_t		swtstamp;
->  	};
+The IP source address is fixed by signaling on the GTP-C control plane
+and nothing that the kernel can unilaterally decide to change.  Such a
+change of address would have to be decided by and first be signaled on
+GTP-C to the peer by the userspace daemon, which would then update the
+PDP context in the kernel.
 
+So I guess you're asking us to document that rationale as form of a
+source code comment ?
 
-I forgot that in upstream kernels, swtstamp can also be removed.
-
-It is used in our kernels to store the time at which the skb was moved
-into socket receive queue (after a possible stay in out of order queue)
-
-Will send a V2, removing this field from net-next, before we add it
-again later if we upstream our instrumentation code.
+-- 
+- Harald Welte <laforge@gnumonks.org>           http://laforge.gnumonks.org/
+============================================================================
+"Privacy in residential applications is a desirable marketing option."
+                                                  (ETSI EN 300 175-7 Ch. A6)
