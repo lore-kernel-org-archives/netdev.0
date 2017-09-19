@@ -1,72 +1,77 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH net-next 05/14] gtp: Remove special mtu handling
-Date: Tue, 19 Sep 2017 11:12:44 -0700
-Message-ID: <CALx6S34eUG1pb=oeJEr1_Gosb638NGyJZ9zPDLkM6wu+h9uVkQ@mail.gmail.com>
-References: <20170919003904.5124-1-tom@quantonium.net> <20170919003904.5124-6-tom@quantonium.net>
- <20170919114205.z2txj6rwo2row7u4@nataraja>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: [PATCH 2/3] selftests: actually run the various net selftests
+Date: Tue, 19 Sep 2017 14:14:22 -0400
+Message-ID: <CAF=yD-JewUiQso6XbDEAjC+gP=yK=czsdujYmcu5=jjXTsweDA@mail.gmail.com>
+References: <1505755982-7855-1-git-send-email-jbacik@fb.com>
+ <1505755982-7855-2-git-send-email-jbacik@fb.com> <09f17145-5f0a-ec61-3dfb-69216eac7133@kernel.org>
+ <20170919133424.mzshgf67al7mv3fg@destiny>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Tom Herbert <tom@quantonium.net>,
+Cc: Willem de Bruijn <willemb@google.com>, Josef Bacik <jbacik@fb.com>,
         "David S. Miller" <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Pablo Neira Ayuso <pablo@netfilter.org>,
-        Rohit Seth <rohit@quantonium.net>
-To: Harald Welte <laforge@gnumonks.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f169.google.com ([209.85.216.169]:46568 "EHLO
-        mail-qt0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751040AbdISSMq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 14:12:46 -0400
-Received: by mail-qt0-f169.google.com with SMTP id s18so499037qta.3
-        for <netdev@vger.kernel.org>; Tue, 19 Sep 2017 11:12:45 -0700 (PDT)
-In-Reply-To: <20170919114205.z2txj6rwo2row7u4@nataraja>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+        LKML <linux-kernel@vger.kernel.org>,
+        linux-kselftest@vger.kernel.org,
+        Network Development <netdev@vger.kernel.org>,
+        Shuah Khan <shuahkh@osg.samsung.com>,
+        Shuah Khan <shuah@kernel.org>
+To: Josef Bacik <josef@toxicpanda.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170919133424.mzshgf67al7mv3fg@destiny>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 19, 2017 at 4:42 AM, Harald Welte <laforge@gnumonks.org> wrote:
-> Hi Tom,
+On Tue, Sep 19, 2017 at 9:34 AM, Josef Bacik <josef@toxicpanda.com> wrote:
+> On Mon, Sep 18, 2017 at 04:14:41PM -0600, Shuah Khan wrote:
+>> On 09/18/2017 11:32 AM, josef@toxicpanda.com wrote:
+>> > From: Josef Bacik <jbacik@fb.com>
+>> >
+>> > These self tests are just self contained binaries, they are not run by
+>> > any of the scripts in the directory.  This means they need to be marked
+>> > with TEST_GEN_PROGS to actually be run, not TEST_GEN_FILES.
+>> >
+>> > Signed-off-by: Josef Bacik <jbacik@fb.com>
+>> > ---
+>> >  tools/testing/selftests/net/Makefile | 4 ++--
+>> >  1 file changed, 2 insertions(+), 2 deletions(-)
+>> >
+>> > diff --git a/tools/testing/selftests/net/Makefile b/tools/testing/selftests/net/Makefile
+>> > index 3df542c84610..45a4e77a47c4 100644
+>> > --- a/tools/testing/selftests/net/Makefile
+>> > +++ b/tools/testing/selftests/net/Makefile
+>> > @@ -6,8 +6,8 @@ CFLAGS += -I../../../../usr/include/
+>> >  TEST_PROGS := run_netsocktests run_afpackettests test_bpf.sh netdevice.sh rtnetlink.sh
+>> >  TEST_GEN_FILES =  socket
+>> >  TEST_GEN_FILES += psock_fanout psock_tpacket
+>> > -TEST_GEN_FILES += reuseport_bpf reuseport_bpf_cpu reuseport_bpf_numa
+>> > -TEST_GEN_FILES += reuseport_dualstack msg_zerocopy reuseaddr_conflict
+>> > +TEST_GEN_PROGS += reuseport_bpf reuseport_bpf_cpu reuseport_bpf_numa
+>> > +TEST_GEN_PROGS += reuseport_dualstack msg_zerocopy reuseaddr_conflict
+>>
+>> Hmm. I see msg_zerocopy.sh for running msg_zerocopy. msg_zerocopy should
+>> still stay in TEST_GEN_FILES and msg_zerocopy.sh needs to be added to
+>> TEST_PROGS so it runs.
+>>
 >
-> On Mon, Sep 18, 2017 at 05:38:55PM -0700, Tom Herbert wrote:
->> Removes MTU handling in gtp_build_skb_ip4. This is non standard relative
->> to how other tunneling protocols handle MTU. The model espoused is that
->> the inner interface should set it's MTU to be less than the expected
->> path MTU on the overlay network. Path MTU discovery is not typically
->> used for modifying tunnel MTUs.
+> Actually the shell script requires arguments, it doesn't just run the test.
+> I'll fix this to just omit the test for now as it's not setup to run properly.
 >
-> The point of the kernel GTP module is to interoperate with existing
-> other GTP implementations and the practises established by cellular
-> operators when operating GTP in their networks.
+> Willem, could you follow up with a patch so that the zero copy test is run
+> properly the way you envision it running?  You need to make sure that
 >
-> While what you describe (chose interface MTU to be less than the
-> expected path MTU) is generally best practise in the Linux IP/networking
-> world, this is not generally reflected in the cellular
-> universe. You see quite a bit of GTP fragmentation due to the fact
-> that the transport network simply has to deal with the MTU that has
-> been established via the control plane between SGSN and MS/UE, without
-> the GGSN even being part of that negotiation.
+> make -C tools/testing/selftests TARGETS=net run_tests
 >
-> Also, you may very well have one "gtp0" tunnel device at the GGSN,
-> but you are establishing individual GTP tunnels to dozesn to hundreds of
-> different SGSNs at operators all over the world.  You cannot reliably
-> set the "gtp0" interface MTU to "the path MTU of the overlay network",
-> as the overlay network is in fact different for each of the SGSNs you're
-> talking to - and each may have a different path MTU.
->
-> So unless I'm missing something, I would currently vote for staying with
-> the current code, which uses the path MTU to the specific destination IP
-> address (the SGSN).
->
-Okay, I'll modify tnl_update_pmtu so we can call it from GTP and not
-have to replicate that function. I suspect VXLAN might also what this
-at some point.
+> actually runs your zero copy test the way you expect it to, otherwise it's just
+> sitting there collecting dust.  Thanks,
 
-Tom
+Will do.
 
-> Regards,
->         Harald
->
-> --
-> - Harald Welte <laforge@gnumonks.org>           http://laforge.gnumonks.org/
-> ============================================================================
-> "Privacy in residential applications is a desirable marketing option."
->                                                   (ETSI EN 300 175-7 Ch. A6)
+In its current state, this test is really only meant to be run manually.
+It demonstrates the API and outputs some information on stderr.
+
+Zerocopy itself requires a two-host test. The feature is expressly
+disabled over loopback.
+
+But I can make this a pass/fail tests that exercises the interface
+and notification channel and verifies that data was copied. It will
+be a bit more work than just changing the default invocation of
+msg_zerocopy.sh
