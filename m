@@ -1,68 +1,61 @@
-From: Oleksandr Natalenko <oleksandr@natalenko.name>
-Subject: Re: [REGRESSION] Warning in tcp_fastretrans_alert() of
- net/ipv4/tcp_input.c
-Date: Tue, 19 Sep 2017 13:04:10 +0200
-Message-ID: <13e86265b8db3a5b1f1eaf8135ff4510@natalenko.name>
-References: <10035198.1vE6NFrMDO@natalenko.name>
- <40697505.YK5nrFG7Le@natalenko.name>
- <CAK6E8=djbT-35JuHq+hhOKOG+BEO3RCwgsVPoKcDhNBph5OezA@mail.gmail.com>
- <2149381.XGPd7soC9e@natalenko.name>
- <CAK6E8=e7SE-M4r2nJ8K_FoDMVcN2xYdtw=MetvD5MvXMm9iA1Q@mail.gmail.com>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: Re: [PATCHv2 iproute2 1/2] lib/libnetlink: re malloc buff if size is
+ not enough
+Date: Tue, 19 Sep 2017 13:48:08 +0200
+Message-ID: <20170919114808.pisr2lqenhtyisyj@unicorn.suse.cz>
+References: <1505296780-8444-1-git-send-email-liuhangbin@gmail.com>
+ <1505296780-8444-2-git-send-email-liuhangbin@gmail.com>
+ <20170918075504.gdx4q7je5uneefgg@unicorn.suse.cz>
+ <20170919030520.GL5465@leo.usersys.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
- format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: Neal Cardwell <ncardwell@google.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Netdev <netdev@vger.kernel.org>
-To: Yuchung Cheng <ycheng@google.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        Phil Sutter <phil@nwl.cc>
+To: Hangbin Liu <liuhangbin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vulcan.natalenko.name ([104.207.131.136]:42926 "EHLO
-        vulcan.natalenko.name" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751394AbdISLEM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 07:04:12 -0400
-In-Reply-To: <CAK6E8=e7SE-M4r2nJ8K_FoDMVcN2xYdtw=MetvD5MvXMm9iA1Q@mail.gmail.com>
+Received: from mx2.suse.de ([195.135.220.15]:32854 "EHLO mx1.suse.de"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751753AbdISLsO (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 19 Sep 2017 07:48:14 -0400
+Content-Disposition: inline
+In-Reply-To: <20170919030520.GL5465@leo.usersys.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi.
+On Tue, Sep 19, 2017 at 11:05:20AM +0800, Hangbin Liu wrote:
+> On Mon, Sep 18, 2017 at 09:55:05AM +0200, Michal Kubecek wrote:
+> > > @@ -471,19 +516,23 @@ int rtnl_dump_filter_l(struct rtnl_handle *rth,
+> > >  
+> > >  				if (h->nlmsg_type == NLMSG_ERROR) {
+> > >  					rtnl_dump_error(rth, h);
+> > > +					free(buf);
+> > >  					return -1;
+> > >  				}
+> > >  
+> > >  				if (!rth->dump_fp) {
+> > >  					err = a->filter(&nladdr, h, a->arg1);
+> > > -					if (err < 0)
+> > > +					if (err < 0) {
+> > > +						free(buf);
+> > >  						return err;
+> > > +					}
+> > >  				}
+> > >  
+> > >  skip_it:
+> > >  				h = NLMSG_NEXT(h, msglen);
+> > >  			}
+> > >  		}
+> > > +		free(buf);
+> > 
+> > We only free the last buffer returned by rtnl_recvmsg() this way.
+> > IMHO this free(buf) should be moved inside the loop.
+> 
+> Do you mean the outside while loop or the for loop? I think we could
+> not put it inside the for loop, because we may need the buf multi
+> times based on arg.
 
-18.09.2017 23:40, Yuchung Cheng wrote:
-> I assume this kernel does not have the patch that Neal proposed in his
-> first reply?
+Sorry for the confusion, you are right, this part is correct. I misread
+the indentation.
 
-Correct.
-
-> The main warning needs to be triggered by another peculiar SACK that
-> kicks the sender into recovery again (after undo). Please let it run
-> longer if possible to see if we can get both. But the new data does
-> indicate the we can (validly) be in CA_Open with retrans_out > 0.
-
-OK, here it is:
-
-===
-» LC_TIME=C jctl -kb | grep RIP
-…
-Sep 19 12:54:03 defiant kernel: RIP: 
-0010:tcp_undo_cwnd_reduction+0xbd/0xd0
-Sep 19 12:54:22 defiant kernel: RIP: 
-0010:tcp_undo_cwnd_reduction+0xbd/0xd0
-Sep 19 12:54:25 defiant kernel: RIP: 
-0010:tcp_undo_cwnd_reduction+0xbd/0xd0
-Sep 19 12:56:00 defiant kernel: RIP: 
-0010:tcp_fastretrans_alert+0x7c8/0x990
-Sep 19 12:57:07 defiant kernel: RIP: 
-0010:tcp_undo_cwnd_reduction+0xbd/0xd0
-Sep 19 12:57:14 defiant kernel: RIP: 
-0010:tcp_undo_cwnd_reduction+0xbd/0xd0
-Sep 19 12:58:04 defiant kernel: RIP: 
-0010:tcp_undo_cwnd_reduction+0xbd/0xd0
-…
-===
-
-Note timestamps — two types of warning are distant in time, so didn't 
-happen at once.
-
-While still running this kernel, anything else I can check for you?
+Michal Kubecek
