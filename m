@@ -1,38 +1,36 @@
-From: sdnlabs Janakaraj <wsuprabhu-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Development Setup
-Date: Tue, 19 Sep 2017 12:35:23 -0500
-Message-ID: <CAPWex-ANUd9ndhTFFYXQjtFS5Y62YJqmetHPn2MK2MJ=E7_v7w@mail.gmail.com>
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: Re: [PATCH net] bpf: do not disable/enable BH in bpf_map_free_id()
+Date: Tue, 19 Sep 2017 10:36:18 -0700
+Message-ID: <20170919173618.atfumkgstgwr4tgx@kafai-mbp>
+References: <1505837759.29839.64.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
-List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+        Alexei Starovoitov <ast@kernel.org>,
+        netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:36278 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1750919AbdISRg1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 13:36:27 -0400
+Content-Disposition: inline
+In-Reply-To: <1505837759.29839.64.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Dear all,
-I am new a newbie, I am curious to know what development tools with Ubuntu
-as Host OS, will best fit for people entering into linux kernel development
-focusing on Netlink, Netdev and Wireless MAC.
+On Tue, Sep 19, 2017 at 04:15:59PM +0000, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> syzkaller reported following splat [1]
+> 
+> Since hard irq are disabled by the caller, bpf_map_free_id()
+> should not try to enable/disable BH.
+> 
+> Another solution would be to change htab_map_delete_elem() to
+> defer the free_htab_elem() call after
+> raw_spin_unlock_irqrestore(&b->lock, flags), but this might be not
+> enough to cover other code paths.
+Thanks for fixing it.
 
-
-I have read many blogs describing the basic setup and things like that. But
-I felt input from the current developers in the same field will be more
-useful.
-
-
-
-
-
-
-
-Thanks,
-Prabhu
+Acked-by: Martin KaFai Lau <kafai@fb.com>
