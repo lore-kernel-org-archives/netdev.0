@@ -1,8 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 2/4] net: dsa: setup master ethtool unconditionally
-Date: Tue, 19 Sep 2017 11:56:58 -0400
-Message-ID: <20170919155700.14474-3-vivien.didelot@savoirfairelinux.com>
-References: <20170919155700.14474-1-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 0/4] net: dsa: move master ethtool code
+Date: Tue, 19 Sep 2017 11:56:56 -0400
+Message-ID: <20170919155700.14474-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
         Florian Fainelli <f.fainelli@gmail.com>,
@@ -10,51 +9,40 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170919155700.14474-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When a DSA switch tree is meant to be applied, it already has a CPU
-port. Thus remove the condition of dst->cpu_dp.
+The DSA core overrides the master device's ethtool_ops structure so that
+it can inject statistics and such of its dedicated switch CPU port.
 
-Moreover, the next lines access dst->cpu_dp unconditionally.
+This ethtool code is currently called on unnecessary conditions or
+before the master interface and its switch CPU port get wired up.
+This patchset fixes this.
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- net/dsa/dsa2.c | 14 +++++---------
- 1 file changed, 5 insertions(+), 9 deletions(-)
+Similarly to slave.c where the DSA slave net_device is the entry point
+of the dsa_slave_* functions, this patchset also isolates the master's
+ethtool code in a new master.c file, where the DSA master net_device is
+the entry point of the dsa_master_* functions.
 
-diff --git a/net/dsa/dsa2.c b/net/dsa/dsa2.c
-index 873af0108e24..bd19304f862f 100644
---- a/net/dsa/dsa2.c
-+++ b/net/dsa/dsa2.c
-@@ -433,11 +433,9 @@ static int dsa_dst_apply(struct dsa_switch_tree *dst)
- 			return err;
- 	}
- 
--	if (dst->cpu_dp) {
--		err = dsa_cpu_port_ethtool_setup(dst->cpu_dp);
--		if (err)
--			return err;
--	}
-+	err = dsa_cpu_port_ethtool_setup(dst->cpu_dp);
-+	if (err)
-+		return err;
- 
- 	/* If we use a tagging format that doesn't have an ethertype
- 	 * field, make sure that all packets from this point on get
-@@ -474,10 +472,8 @@ static void dsa_dst_unapply(struct dsa_switch_tree *dst)
- 		dsa_ds_unapply(dst, ds);
- 	}
- 
--	if (dst->cpu_dp) {
--		dsa_cpu_port_ethtool_restore(dst->cpu_dp);
--		dst->cpu_dp = NULL;
--	}
-+	dsa_cpu_port_ethtool_restore(dst->cpu_dp);
-+	dst->cpu_dp = NULL;
- 
- 	pr_info("DSA: tree %d unapplied\n", dst->tree);
- 	dst->applied = false;
+This is a first step towards better control of the master device and
+support for multiple CPU ports.
+
+Vivien Didelot (4):
+  net: dsa: remove copy of master ethtool_ops
+  net: dsa: setup master ethtool unconditionally
+  net: dsa: setup master ethtool after dsa_ptr
+  net: dsa: move master ethtool code
+
+ include/net/dsa.h  |   1 -
+ net/dsa/Makefile   |   2 +-
+ net/dsa/dsa.c      |  28 -------------
+ net/dsa/dsa2.c     |  18 ++++----
+ net/dsa/dsa_priv.h |   7 ++--
+ net/dsa/legacy.c   |  10 ++---
+ net/dsa/master.c   | 120 +++++++++++++++++++++++++++++++++++++++++++++++++++++
+ net/dsa/slave.c    |  80 -----------------------------------
+ 8 files changed, 136 insertions(+), 130 deletions(-)
+ create mode 100644 net/dsa/master.c
+
 -- 
 2.14.1
