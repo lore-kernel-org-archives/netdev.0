@@ -1,52 +1,41 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: Re: cross namespace interface notification for tun devices
-Date: Tue, 19 Sep 2017 23:02:14 +0200
-Message-ID: <CAHmME9oSZeAoDtSLxoGiEcTcCbmPLf-nj3OJcJ1ma8fs4BWQAw@mail.gmail.com>
-References: <CAHmME9pD_kees+xrjTeWXgi26UdhbMVgvoddbCyueTZkbguvAg@mail.gmail.com>
- <CAM_iQpVvDNRbtj_47_3XXa_ezyrT=a_VzDtK5SCR9a4_2Gqw9w@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] tcp: avoid bogus warning in tcp_clean_rtx_queue
+Date: Tue, 19 Sep 2017 14:02:50 -0700 (PDT)
+Message-ID: <20170919.140250.1393293793761020505.davem@davemloft.net>
+References: <20170918204855.170920-1-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Netdev <netdev@vger.kernel.org>, Mathias <mathias@hall-andersen.dk>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from frisell.zx2c4.com ([192.95.5.64]:54135 "EHLO frisell.zx2c4.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751074AbdISVCR (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 19 Sep 2017 17:02:17 -0400
-Received: by frisell.zx2c4.com (ZX2C4 Mail Server) with ESMTP id e4220e8f
-        for <netdev@vger.kernel.org>;
-        Tue, 19 Sep 2017 20:54:09 +0000 (UTC)
-Received: by frisell.zx2c4.com (ZX2C4 Mail Server) with ESMTPSA id 91339655 (TLSv1.2:ECDHE-RSA-AES128-GCM-SHA256:128:NO)
-        for <netdev@vger.kernel.org>;
-        Tue, 19 Sep 2017 20:54:09 +0000 (UTC)
-Received: by mail-io0-f170.google.com with SMTP id e189so2193109ioa.4
-        for <netdev@vger.kernel.org>; Tue, 19 Sep 2017 14:02:16 -0700 (PDT)
-In-Reply-To: <CAM_iQpVvDNRbtj_47_3XXa_ezyrT=a_VzDtK5SCR9a4_2Gqw9w@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kuznet@ms2.inr.ac.ru, yoshfuji@linux-ipv6.org, edumazet@google.com,
+        ncardwell@google.com, ycheng@google.com, soheil@google.com,
+        fw@strlen.de, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: arnd@arndb.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170918204855.170920-1-arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Sep 19, 2017 at 10:40 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> By "notification" I assume you mean netlink notification.
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Mon, 18 Sep 2017 22:48:47 +0200
 
-Yes, netlink notification.
+> gcc-4.9 warns that it cannot trace the state of the 'last_ackt'
+> variable since the change to the TCP timestamping code, when
+> CONFIG_PROFILE_ANNOTATED_BRANCHES is set:
+> 
+> net/ipv4/tcp_input.c: In function 'tcp_clean_rtx_queue':
+> include/net/tcp.h:757:23: error: 'last_ackt' may be used uninitialized in this function [-Werror=maybe-uninitialized]
+> 
+> Other gcc versions, both older and newer do now show this
+> warning. Removing the 'likely' annotation makes it go away,
+> and has no effect on the object code without
+> CONFIG_PROFILE_ANNOTATED_BRANCHES, as tested with gcc-4.9
+> and gcc-7.1.1, so this seems to be a safe workaround.
+> 
+> Fixes: 9a568de4818d ("tcp: switch TCP TS option (RFC 7323) to 1ms clock")
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-> The question is why does the process in A still care about
-> the device sitting in B?
->
-> Also, the process should be able to receive a last notification
-> on IFF_UP|IFF_RUNNING before device is finally moved to B.
-> After this point, it should not have any relation to netns A
-> any more, like the device were completely gone.
+This reaches the limits at which I am willing to work around compiler
+stuff.
 
-That's very clearly not the case with a tun device. Tun devices work
-by letting a userspace process control the inputs (ndo_start_xmit) and
-outputs (netif_rx) of the actual network device. This controlling
-userspace process needs to know when its own interface that it
-controls goes up and down. In the kernel, we can do this by just
-checking dev->flags&IFF_UP, and receive notifications on ndo_open and
-ndo_stop. In userspace, the controlling process looses the ability to
-receive notifications like ndo_open/ndo_stop when the interface is
-moved to a new namespace. After the interface is moved to a namespace,
-the process will still control inputs and ouputs (ndo_start_xmit and
-netif_rx), but it will no longer receive netlink notifications for the
-equivalent of ndo_open and ndo_stop. This is problematic.
+What cpu did you test the object code generation upon and does that
+cpu have branch prediction hints in the target you are building for?
