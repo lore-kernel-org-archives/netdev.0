@@ -1,104 +1,178 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v2 10/12] net: dsa: b53: Export b53_imp_vlan_setup()
-Date: Mon, 18 Sep 2017 19:19:45 -0700
-Message-ID: <20170919021947.8971-11-f.fainelli@gmail.com>
+Subject: [PATCH net-next v2 05/12] net: dsa: b53: Use a macro to define I/O operations
+Date: Mon, 18 Sep 2017 19:19:40 -0700
+Message-ID: <20170919021947.8971-6-f.fainelli@gmail.com>
 References: <20170919021947.8971-1-f.fainelli@gmail.com>
 Cc: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
         davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:35469 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751100AbdISC0H (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 22:26:07 -0400
-Received: by mail-wm0-f67.google.com with SMTP id e64so2515374wmi.2
-        for <netdev@vger.kernel.org>; Mon, 18 Sep 2017 19:26:06 -0700 (PDT)
+Received: from mail-wr0-f194.google.com ([209.85.128.194]:38008 "EHLO
+        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751100AbdISC0J (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 22:26:09 -0400
+Received: by mail-wr0-f194.google.com with SMTP id p37so1359911wrb.5
+        for <netdev@vger.kernel.org>; Mon, 18 Sep 2017 19:26:09 -0700 (PDT)
 In-Reply-To: <20170919021947.8971-1-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-bcm_sf2 and b53 do exactly the same thing, so share that piece.
+Instead of repeating the same pattern: acquire mutex, read/write,
+release mutex, define a macro: b53_build_op() which takes the type
+(read|write), I/O size, and value (scalar or pointer). This helps with
+fixing bugs that could exist (e.g: missing barrier, lock etc.).
 
+Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/dsa/b53/b53_common.c |  3 ++-
- drivers/net/dsa/b53/b53_priv.h   |  1 +
- drivers/net/dsa/bcm_sf2.c        | 23 +----------------------
- 3 files changed, 4 insertions(+), 23 deletions(-)
+ drivers/net/dsa/b53/b53_priv.h | 133 +++++++----------------------------------
+ 1 file changed, 22 insertions(+), 111 deletions(-)
 
-diff --git a/drivers/net/dsa/b53/b53_common.c b/drivers/net/dsa/b53/b53_common.c
-index 4e37ec27e496..c3f1cd2c33ea 100644
---- a/drivers/net/dsa/b53/b53_common.c
-+++ b/drivers/net/dsa/b53/b53_common.c
-@@ -484,7 +484,7 @@ static int b53_fast_age_vlan(struct b53_device *dev, u16 vid)
- 	return b53_flush_arl(dev, FAST_AGE_VLAN);
- }
- 
--static void b53_imp_vlan_setup(struct dsa_switch *ds, int cpu_port)
-+void b53_imp_vlan_setup(struct dsa_switch *ds, int cpu_port)
- {
- 	struct b53_device *dev = ds->priv;
- 	unsigned int i;
-@@ -500,6 +500,7 @@ static void b53_imp_vlan_setup(struct dsa_switch *ds, int cpu_port)
- 		b53_write16(dev, B53_PVLAN_PAGE, B53_PVLAN_PORT_MASK(i), pvlan);
- 	}
- }
-+EXPORT_SYMBOL(b53_imp_vlan_setup);
- 
- static int b53_enable_port(struct dsa_switch *ds, int port,
- 			   struct phy_device *phy)
 diff --git a/drivers/net/dsa/b53/b53_priv.h b/drivers/net/dsa/b53/b53_priv.h
-index 0ed59672ef07..df8bea4105e4 100644
+index 7528b22aeb03..f1136619e0e4 100644
 --- a/drivers/net/dsa/b53/b53_priv.h
 +++ b/drivers/net/dsa/b53/b53_priv.h
-@@ -284,6 +284,7 @@ static inline int b53_switch_get_reset_gpio(struct b53_device *dev)
- #endif
- 
- /* Exported functions towards other drivers */
-+void b53_imp_vlan_setup(struct dsa_switch *ds, int cpu_port);
- void b53_get_strings(struct dsa_switch *ds, int port, uint8_t *data);
- void b53_get_ethtool_stats(struct dsa_switch *ds, int port, uint64_t *data);
- int b53_get_sset_count(struct dsa_switch *ds);
-diff --git a/drivers/net/dsa/bcm_sf2.c b/drivers/net/dsa/bcm_sf2.c
-index 4e8ef4c07eab..08639674947a 100644
---- a/drivers/net/dsa/bcm_sf2.c
-+++ b/drivers/net/dsa/bcm_sf2.c
-@@ -40,27 +40,6 @@ static enum dsa_tag_protocol bcm_sf2_sw_get_tag_protocol(struct dsa_switch *ds)
- 	return DSA_TAG_PROTO_BRCM;
+@@ -199,119 +199,30 @@ static inline void b53_switch_remove(struct b53_device *dev)
+ 	dsa_unregister_switch(dev->ds);
  }
  
--static void bcm_sf2_imp_vlan_setup(struct dsa_switch *ds, int cpu_port)
+-static inline int b53_read8(struct b53_device *dev, u8 page, u8 reg, u8 *val)
 -{
--	struct bcm_sf2_priv *priv = bcm_sf2_to_priv(ds);
--	unsigned int i;
--	u32 reg;
+-	int ret;
 -
--	/* Enable the IMP Port to be in the same VLAN as the other ports
--	 * on a per-port basis such that we only have Port i and IMP in
--	 * the same VLAN.
--	 */
--	for (i = 0; i < priv->hw_params.num_ports; i++) {
--		if (!((1 << i) & ds->enabled_port_mask))
--			continue;
+-	mutex_lock(&dev->reg_mutex);
+-	ret = dev->ops->read8(dev, page, reg, val);
+-	mutex_unlock(&dev->reg_mutex);
 -
--		reg = core_readl(priv, CORE_PORT_VLAN_CTL_PORT(i));
--		reg |= (1 << cpu_port);
--		core_writel(priv, reg, CORE_PORT_VLAN_CTL_PORT(i));
--	}
+-	return ret;
 -}
 -
+-static inline int b53_read16(struct b53_device *dev, u8 page, u8 reg, u16 *val)
+-{
+-	int ret;
 -
- static void bcm_sf2_imp_setup(struct dsa_switch *ds, int port)
- {
- 	struct bcm_sf2_priv *priv = bcm_sf2_to_priv(ds);
-@@ -240,7 +219,7 @@ static int bcm_sf2_port_setup(struct dsa_switch *ds, int port,
- 	reg |= priv->dev->ports[port].vlan_ctl_mask;
- 	core_writel(priv, reg, CORE_PORT_VLAN_CTL_PORT(port));
+-	mutex_lock(&dev->reg_mutex);
+-	ret = dev->ops->read16(dev, page, reg, val);
+-	mutex_unlock(&dev->reg_mutex);
+-
+-	return ret;
+-}
+-
+-static inline int b53_read32(struct b53_device *dev, u8 page, u8 reg, u32 *val)
+-{
+-	int ret;
+-
+-	mutex_lock(&dev->reg_mutex);
+-	ret = dev->ops->read32(dev, page, reg, val);
+-	mutex_unlock(&dev->reg_mutex);
+-
+-	return ret;
+-}
+-
+-static inline int b53_read48(struct b53_device *dev, u8 page, u8 reg, u64 *val)
+-{
+-	int ret;
+-
+-	mutex_lock(&dev->reg_mutex);
+-	ret = dev->ops->read48(dev, page, reg, val);
+-	mutex_unlock(&dev->reg_mutex);
+-
+-	return ret;
++#define b53_build_op(type, op_size, val_type)	\
++static inline int b53_##type##op_size(struct b53_device *dev, u8 page,		\
++				      u8 reg, val_type val)			\
++{										\
++	int ret;								\
++										\
++	mutex_lock(&dev->reg_mutex);						\
++	ret = dev->ops->type##op_size(dev, page, reg, val);			\
++	mutex_unlock(&dev->reg_mutex);						\
++										\
++	return ret;								\
+ }
  
--	bcm_sf2_imp_vlan_setup(ds, cpu_port);
-+	b53_imp_vlan_setup(ds, cpu_port);
+-static inline int b53_read64(struct b53_device *dev, u8 page, u8 reg, u64 *val)
+-{
+-	int ret;
+-
+-	mutex_lock(&dev->reg_mutex);
+-	ret = dev->ops->read64(dev, page, reg, val);
+-	mutex_unlock(&dev->reg_mutex);
+-
+-	return ret;
+-}
+-
+-static inline int b53_write8(struct b53_device *dev, u8 page, u8 reg, u8 value)
+-{
+-	int ret;
+-
+-	mutex_lock(&dev->reg_mutex);
+-	ret = dev->ops->write8(dev, page, reg, value);
+-	mutex_unlock(&dev->reg_mutex);
+-
+-	return ret;
+-}
+-
+-static inline int b53_write16(struct b53_device *dev, u8 page, u8 reg,
+-			      u16 value)
+-{
+-	int ret;
+-
+-	mutex_lock(&dev->reg_mutex);
+-	ret = dev->ops->write16(dev, page, reg, value);
+-	mutex_unlock(&dev->reg_mutex);
+-
+-	return ret;
+-}
+-
+-static inline int b53_write32(struct b53_device *dev, u8 page, u8 reg,
+-			      u32 value)
+-{
+-	int ret;
+-
+-	mutex_lock(&dev->reg_mutex);
+-	ret = dev->ops->write32(dev, page, reg, value);
+-	mutex_unlock(&dev->reg_mutex);
+-
+-	return ret;
+-}
+-
+-static inline int b53_write48(struct b53_device *dev, u8 page, u8 reg,
+-			      u64 value)
+-{
+-	int ret;
+-
+-	mutex_lock(&dev->reg_mutex);
+-	ret = dev->ops->write48(dev, page, reg, value);
+-	mutex_unlock(&dev->reg_mutex);
+-
+-	return ret;
+-}
+-
+-static inline int b53_write64(struct b53_device *dev, u8 page, u8 reg,
+-			       u64 value)
+-{
+-	int ret;
+-
+-	mutex_lock(&dev->reg_mutex);
+-	ret = dev->ops->write64(dev, page, reg, value);
+-	mutex_unlock(&dev->reg_mutex);
+-
+-	return ret;
+-}
++b53_build_op(read, 8, u8 *);
++b53_build_op(read, 16, u16 *);
++b53_build_op(read, 32, u32 *);
++b53_build_op(read, 48, u64 *);
++b53_build_op(read, 64, u64 *);
++
++b53_build_op(write, 8, u8);
++b53_build_op(write, 16, u16);
++b53_build_op(write, 32, u32);
++b53_build_op(write, 48, u64);
++b53_build_op(write, 64, u64);
  
- 	/* If EEE was enabled, restore it */
- 	if (priv->dev->ports[port].eee.eee_enabled)
+ struct b53_arl_entry {
+ 	u8 port;
 -- 
 2.9.3
