@@ -1,32 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/4] test_rhashtable: add test case for rhl
- table
-Date: Tue, 19 Sep 2017 14:03:27 -0700 (PDT)
-Message-ID: <20170919.140327.234018891173976958.davem@davemloft.net>
-References: <20170918210711.10202-1-fw@strlen.de>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH] mwifiex: make const array tos_to_ac static, reduces object code size
+Date: Tue, 19 Sep 2017 22:05:00 +0100
+Message-ID: <20170919210500.31330-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: fw@strlen.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:45058 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751431AbdISVD2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 17:03:28 -0400
-In-Reply-To: <20170918210711.10202-1-fw@strlen.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Amitkumar Karwar <amitkarwar@gmail.com>,
+        Nishant Sarmukadam <nishants@marvell.com>,
+        Ganapathi Bhat <gbhat@marvell.com>,
+        Xinming Hu <huxm@marvell.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Florian Westphal <fw@strlen.de>
-Date: Mon, 18 Sep 2017 23:07:07 +0200
+From: Colin Ian King <colin.king@canonical.com>
 
-> Add a test case for the rhlist interface.
-> 
-> While at it, cleanup current rhashtable test a bit and add a check
-> for max_size support.
+Don't populate the read-only const array tos_to_ac on the stack,
+instead make it static. Makes the object code smaller by 250 bytes:
 
-The kbuild test robot complained about a very large on-stack allocation
-added by these changes, please address that.
+Before:
+   text	   data	    bss	    dec	    hex	filename
+  26104	   2720	    128	  28952	   7118	wmm.o
 
-Thanks.
+After:
+   text	   data	    bss	    dec	    hex	filename
+  25758	   2816	    128	  28702	   701e	wmm.o
+
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ drivers/net/wireless/marvell/mwifiex/wmm.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/wireless/marvell/mwifiex/wmm.c b/drivers/net/wireless/marvell/mwifiex/wmm.c
+index 0edd26881321..936a0a841af8 100644
+--- a/drivers/net/wireless/marvell/mwifiex/wmm.c
++++ b/drivers/net/wireless/marvell/mwifiex/wmm.c
+@@ -359,7 +359,8 @@ static enum mwifiex_wmm_ac_e
+ mwifiex_wmm_convert_tos_to_ac(struct mwifiex_adapter *adapter, u32 tos)
+ {
+ 	/* Map of TOS UP values to WMM AC */
+-	const enum mwifiex_wmm_ac_e tos_to_ac[] = { WMM_AC_BE,
++	static const enum mwifiex_wmm_ac_e tos_to_ac[] = {
++		WMM_AC_BE,
+ 		WMM_AC_BK,
+ 		WMM_AC_BK,
+ 		WMM_AC_BE,
+-- 
+2.14.1
