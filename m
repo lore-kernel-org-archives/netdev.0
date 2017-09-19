@@ -1,27 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3] Implement delete for BPF LPM trie
-Date: Tue, 19 Sep 2017 13:55:30 -0700 (PDT)
-Message-ID: <20170919.135530.717500199880384307.davem@davemloft.net>
-References: <20170918193057.37644-1-kraigatgoog@gmail.com>
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: Re: cross namespace interface notification for tun devices
+Date: Tue, 19 Sep 2017 23:02:14 +0200
+Message-ID: <CAHmME9oSZeAoDtSLxoGiEcTcCbmPLf-nj3OJcJ1ma8fs4BWQAw@mail.gmail.com>
+References: <CAHmME9pD_kees+xrjTeWXgi26UdhbMVgvoddbCyueTZkbguvAg@mail.gmail.com>
+ <CAM_iQpVvDNRbtj_47_3XXa_ezyrT=a_VzDtK5SCR9a4_2Gqw9w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: daniel@zonque.org, ast@fb.com, daniel@iogearbox.net,
-        netdev@vger.kernel.org
-To: kraigatgoog@gmail.com
+Content-Type: text/plain; charset="UTF-8"
+Cc: Netdev <netdev@vger.kernel.org>, Mathias <mathias@hall-andersen.dk>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44788 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751544AbdISUzb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 16:55:31 -0400
-In-Reply-To: <20170918193057.37644-1-kraigatgoog@gmail.com>
+Received: from frisell.zx2c4.com ([192.95.5.64]:54135 "EHLO frisell.zx2c4.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751074AbdISVCR (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 19 Sep 2017 17:02:17 -0400
+Received: by frisell.zx2c4.com (ZX2C4 Mail Server) with ESMTP id e4220e8f
+        for <netdev@vger.kernel.org>;
+        Tue, 19 Sep 2017 20:54:09 +0000 (UTC)
+Received: by frisell.zx2c4.com (ZX2C4 Mail Server) with ESMTPSA id 91339655 (TLSv1.2:ECDHE-RSA-AES128-GCM-SHA256:128:NO)
+        for <netdev@vger.kernel.org>;
+        Tue, 19 Sep 2017 20:54:09 +0000 (UTC)
+Received: by mail-io0-f170.google.com with SMTP id e189so2193109ioa.4
+        for <netdev@vger.kernel.org>; Tue, 19 Sep 2017 14:02:16 -0700 (PDT)
+In-Reply-To: <CAM_iQpVvDNRbtj_47_3XXa_ezyrT=a_VzDtK5SCR9a4_2Gqw9w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Craig Gallek <kraigatgoog@gmail.com>
-Date: Mon, 18 Sep 2017 15:30:54 -0400
+On Tue, Sep 19, 2017 at 10:40 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+> By "notification" I assume you mean netlink notification.
 
-> This was previously left as a TODO.  Add the implementation and
-> extend the test to cover it.
+Yes, netlink notification.
 
-Series applied, thanks.
+> The question is why does the process in A still care about
+> the device sitting in B?
+>
+> Also, the process should be able to receive a last notification
+> on IFF_UP|IFF_RUNNING before device is finally moved to B.
+> After this point, it should not have any relation to netns A
+> any more, like the device were completely gone.
+
+That's very clearly not the case with a tun device. Tun devices work
+by letting a userspace process control the inputs (ndo_start_xmit) and
+outputs (netif_rx) of the actual network device. This controlling
+userspace process needs to know when its own interface that it
+controls goes up and down. In the kernel, we can do this by just
+checking dev->flags&IFF_UP, and receive notifications on ndo_open and
+ndo_stop. In userspace, the controlling process looses the ability to
+receive notifications like ndo_open/ndo_stop when the interface is
+moved to a new namespace. After the interface is moved to a namespace,
+the process will still control inputs and ouputs (ndo_start_xmit and
+netif_rx), but it will no longer receive netlink notifications for the
+equivalent of ndo_open and ndo_stop. This is problematic.
