@@ -1,46 +1,29 @@
-From: Amine Kherbouche <amine.kherbouche@6wind.com>
-Subject: Re: [RFC net-next v2] bridge lwtunnel, VPLS & NVGRE
-Date: Tue, 19 Sep 2017 16:46:38 +0200
-Message-ID: <6b7cdb61-9c24-3fcb-d23c-f08ca2144ec9@6wind.com>
-References: <20170821171523.951260-1-equinox@diac24.net>
- <6a538120-1941-7e81-c942-e97adeff2e3d@6wind.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next v2 12/12] net: dsa: bcm_sf2: Utilize b53_{enable,disable}_port
+Date: Tue, 19 Sep 2017 10:45:50 -0400
+Message-ID: <87a81qsq5d.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+References: <20170919021947.8971-1-f.fainelli@gmail.com> <20170919021947.8971-13-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: roopa@cumulusnetworks.com, stephen@networkplumber.org
-To: David Lamparter <equinox@diac24.net>, netdev@vger.kernel.org,
-        bridge@lists.linux-foundation.org
+Content-Type: text/plain
+Cc: andrew@lunn.ch, davem@davemloft.net,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f181.google.com ([209.85.128.181]:52638 "EHLO
-        mail-wr0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751307AbdISOqv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 10:46:51 -0400
-Received: by mail-wr0-f181.google.com with SMTP id c23so200946wrg.9
-        for <netdev@vger.kernel.org>; Tue, 19 Sep 2017 07:46:50 -0700 (PDT)
-In-Reply-To: <6a538120-1941-7e81-c942-e97adeff2e3d@6wind.com>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:40682 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750862AbdISOtW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 10:49:22 -0400
+In-Reply-To: <20170919021947.8971-13-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+Florian Fainelli <f.fainelli@gmail.com> writes:
 
-What's next ? do you plan to send a v3 or should I do it ?
+> Export b53_{enable,disable}_port and use these two functions in
+> bcm_sf2_port_setup and bcm_sf2_port_disable. The generic functions
+> cannot be used without wrapping because we need to manage additional
+> switch integration details (PHY, Broadcom tag etc.).
+>
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 
-On 09/11/2017 10:02 AM, Amine Kherbouche wrote:
-> Hi David,
->
-> Do you plan to send a v3?
->
-> On 21/08/2017 18:15, David Lamparter wrote:
->> Hi all,
->>
->>
->> this is an update on the earlier "[RFC net-next] VPLS support".  Note
->> I've changed the subject lines on some of the patches to better reflect
->> what they really do (tbh the earlier subject lines were crap.)
->>
->> As previously, iproute2 / FRR patches are at:
->> - https://github.com/eqvinox/vpls-iproute2
->> - https://github.com/opensourcerouting/frr/commits/vpls
->> while this patchset is also available at:
->> - https://github.com/eqvinox/vpls-linux-kernel
->> (but please be aware that I'm amending and rebasing commits)
+Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
