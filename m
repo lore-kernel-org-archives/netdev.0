@@ -1,38 +1,28 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 3/4] net: dsa: setup master ethtool after dsa_ptr
-Date: Tue, 19 Sep 2017 10:49:52 -0700
-Message-ID: <85ebc3f7-b8b1-a2e4-f0e4-32c309857730@gmail.com>
-References: <20170919155700.14474-1-vivien.didelot@savoirfairelinux.com>
- <20170919155700.14474-4-vivien.didelot@savoirfairelinux.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull-request: mac80211 2017-11-19
+Date: Tue, 19 Sep 2017 10:51:52 -0700 (PDT)
+Message-ID: <20170919.105152.177811123366621975.davem@davemloft.net>
+References: <20170919072048.8484-1-johannes@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Andrew Lunn <andrew@lunn.ch>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170919155700.14474-4-vivien.didelot@savoirfairelinux.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
+To: johannes@sipsolutions.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:37744 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751016AbdISRvx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 13:51:53 -0400
+In-Reply-To: <20170919072048.8484-1-johannes@sipsolutions.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 09/19/2017 08:56 AM, Vivien Didelot wrote:
-> DSA overrides the master's ethtool ops so that we can inject its CPU
-> port's statistics. Because of that, we need to setup the ethtool ops
-> after the master's dsa_ptr pointer has been assigned, not before.
+From: Johannes Berg <johannes@sipsolutions.net>
+Date: Tue, 19 Sep 2017 09:20:47 +0200
 
-Yes, good point, technically this is a bugfix, but since we have changed
-this quite often and the race is tiny, I am not positive we could a)
-trigger this in real life, and b) provide a proper Fixes tag.
-
+> Here's a new set of two small changes to prevent null pointer
+> dereferences on malformed netlink messages.
 > 
-> This patch setups the ethtool ops after dsa_ptr is assigned, and
-> restores them before it gets cleared.
-> 
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> Please pull and let me know if there's any problem.
 
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
--- 
-Florian
+Pulled, thank you.
