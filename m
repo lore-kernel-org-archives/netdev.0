@@ -1,87 +1,65 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [RFC net-next 0/5] TSN: Add qdisc-based config interfaces for
- traffic shapers
-Date: Tue, 19 Sep 2017 07:22:44 +0200
-Message-ID: <20170919052244.77umdxuze53t6j22@localhost>
-References: <20170901012625.14838-1-vinicius.gomes@intel.com>
- <20170918080214.yrejz67wwnp2pjzf@localhost>
- <87k20vip3f.fsf@intel.com>
+From: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v5 05/10] dt-bindings: net: dwmac-sun8i: update
+ documentation about integrated PHY
+Date: Tue, 19 Sep 2017 07:31:12 +0200
+Message-ID: <20170919053112.GA15105@Red>
+References: <20170908071156.5115-1-clabbe.montjoie@gmail.com>
+ <20170908071156.5115-6-clabbe.montjoie@gmail.com>
+ <20170908072538.rqsp6dobwsqmzrsr@flea.lan>
+ <20170908074325.GB29999@Red>
+ <20170913182004.uniyo5opeilcfk7r@rob-hp-laptop>
+ <20170914185301.GB4021@Red>
+ <20170914191949.GA3796@lunn.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
-        jiri@resnulli.us, intel-wired-lan@lists.osuosl.org,
-        andre.guedes@intel.com, ivan.briano@intel.com,
-        jesus.sanchez-palencia@intel.com, boon.leong.ong@intel.com
-To: Vinicius Costa Gomes <vinicius.gomes@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f171.google.com ([209.85.128.171]:48719 "EHLO
-        mail-wr0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750713AbdISFWu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 01:22:50 -0400
-Received: by mail-wr0-f171.google.com with SMTP id 108so2048455wra.5
-        for <netdev@vger.kernel.org>; Mon, 18 Sep 2017 22:22:49 -0700 (PDT)
+Cc: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+        mark.rutland-5wv7dgnIgG8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org, linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org,
+        catalin.marinas-5wv7dgnIgG8@public.gmane.org, will.deacon-5wv7dgnIgG8@public.gmane.org,
+        peppe.cavallaro-qxv4g6HH51o@public.gmane.org, alexandre.torgue-qxv4g6HH51o@public.gmane.org,
+        f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org
+To: robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <87k20vip3f.fsf@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20170914191949.GA3796-g2DYL2Zd6BY@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 18, 2017 at 04:06:28PM -0700, Vinicius Costa Gomes wrote:
-> That's the point, the application does not need to know that, and asking
-> that would be stupid.
+On Thu, Sep 14, 2017 at 09:19:49PM +0200, Andrew Lunn wrote:
+> > > Is the MDIO controller "allwinner,sun8i-h3-emac" or "snps,dwmac-mdio"? 
+> > > If the latter, then I think the node is fine, but then the mux should be 
+> > > a child node of it. IOW, the child of an MDIO controller should either 
+> > > be a mux node or slave devices.
+> 
+> Hi Rob
+> 
+> Up until now, children of an MDIO bus have been MDIO devices. Those
+> MDIO devices are either Ethernet PHYs, Ethernet Switches, or the
+> oddball devices that Broadcom iProc has, like generic PHYs.
+> 
+> We have never had MDIO-muxes as MDIO children. A Mux is not an MDIO
+> device, and does not have the properties of an MDIO device. It is not
+> addressable on the MDIO bus. The current MUXes are addressed via GPIOs
+> or MMIO.
+> 
+> There other similar cases. i2c-mux-gpio is not a child of an i2c bus,
+> nor i2c-mux-reg or gpio-mux. nxp,pca9548 is however a child of the i2c
+> bus, because it is an i2c device itself...
+> 
+> If the MDIO mux was an MDIO device, i would agree with you. Bit it is
+> not, so lets not make it a child.
+> 
+> 	    Andrew
 
-On the contrary, this information is essential to the application.
-Probably you have never seen an actual Ethernet field bus in
-operation?  In any case, you are missing the point.
+Hello Rob, could you anwser/confirm please.
+I wait on this for sending the next version.
 
-> (And that's another nice point of how 802.1Qbv works, applications do
-> not need to be changed to use it, and I think we should work to achieve
-> this on the Linux side)
-
-Once you start to care about real time performance, then you need to
-consider the applications.  This is industrial control, not streaming
-your tunes from your ipod.
- 
-> That being said, that only works for kinds of traffic that maps well to
-> this configuration in advance model, which is the model that the IEEE
-> (see 802.1Qcc) and the AVNU Alliance[1] are pushing for.
-
-Again, you are missing the point of what they aiming for.  I have
-looked at a number of production systems, and in each case the
-developers want total control over the transmission, in order to
-reduce latency to an absolute minimum.  Typically the data to be sent
-are available only microseconds before the transmission deadline.
-
-Consider OpenAVB on github that people are already using.  Take a look
-at simple_talker.c and explain how "applications do not need to be
-changed to use it."
-
-> [1]
-> http://avnu.org/theory-of-operation-for-tsn-enabled-industrial-systems/
-
-Did you even read this?
-
-    [page 24]
-
-    As described in section 2, some industrial control systems require
-    predictable, very low latency and cycle-to-cycle variation to meet
-    hard real-time application requirements. In these systems,
-    multiple distributed controllers commonly synchronize their
-    sensor/actuator operations with other controllers by scheduling
-    these operations in time, typically using a repeating control
-    cycle.
-    ...
-    The gate control mechanism is itself a time-aware PTP application
-    operating within a bridge or end station port.
-
-It is an application, not a "god box."
-
-> In short, I see a per-packet transmission time and a per-queue schedule
-> as solutions to different problems.
-
-Well, I can agree with that.  For some non real-time applications,
-bandwidth shaping is enough, and your Qdisc idea is sufficient.  For
-the really challenging TSN targets (industrial control, automotive),
-your idea of an opaque schedule file won't fly.
-
-Thanks,
-Richard
+Thanks
+Regards
+Corentin Labbe
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
