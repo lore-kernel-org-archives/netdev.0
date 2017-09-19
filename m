@@ -1,54 +1,67 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v2 04/12] net: dsa: bcm_sf2: Defer port enabling to calling port_enable
-Date: Mon, 18 Sep 2017 19:19:39 -0700
-Message-ID: <20170919021947.8971-5-f.fainelli@gmail.com>
+Subject: [PATCH net-next v2 02/12] net: dsa: b53: Make b53_enable_cpu_port() take a port argument
+Date: Mon, 18 Sep 2017 19:19:37 -0700
+Message-ID: <20170919021947.8971-3-f.fainelli@gmail.com>
 References: <20170919021947.8971-1-f.fainelli@gmail.com>
 Cc: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
         davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f194.google.com ([209.85.128.194]:37300 "EHLO
-        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750982AbdISCUG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 22:20:06 -0400
-Received: by mail-wr0-f194.google.com with SMTP id u48so1363245wrf.4
-        for <netdev@vger.kernel.org>; Mon, 18 Sep 2017 19:20:05 -0700 (PDT)
+Received: from mail-wr0-f193.google.com ([209.85.128.193]:38226 "EHLO
+        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750918AbdISCUB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 22:20:01 -0400
+Received: by mail-wr0-f193.google.com with SMTP id p37so1356000wrb.5
+        for <netdev@vger.kernel.org>; Mon, 18 Sep 2017 19:20:01 -0700 (PDT)
 In-Reply-To: <20170919021947.8971-1-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There is no need to configure the enabled ports once in bcm_sf2_sw_setup() and
-then a second time around when dsa_switch_ops::port_enable is called, just do
-it when port_enable is called which is better in terms of power consumption and
-correctness.
+In preparation for future changes allowing the configuring of multiple
+CPU ports, make b53_enable_cpu_port() take a port argument.
 
 Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/dsa/bcm_sf2.c | 9 +++------
- 1 file changed, 3 insertions(+), 6 deletions(-)
+ drivers/net/dsa/b53/b53_common.c | 11 +++++------
+ 1 file changed, 5 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/dsa/bcm_sf2.c b/drivers/net/dsa/bcm_sf2.c
-index d7b53d53c116..8acbd17bc1fd 100644
---- a/drivers/net/dsa/bcm_sf2.c
-+++ b/drivers/net/dsa/bcm_sf2.c
-@@ -890,14 +890,11 @@ static int bcm_sf2_sw_setup(struct dsa_switch *ds)
- 	struct bcm_sf2_priv *priv = bcm_sf2_to_priv(ds);
- 	unsigned int port;
+diff --git a/drivers/net/dsa/b53/b53_common.c b/drivers/net/dsa/b53/b53_common.c
+index 274f3679f33d..d8bc54cfcfbe 100644
+--- a/drivers/net/dsa/b53/b53_common.c
++++ b/drivers/net/dsa/b53/b53_common.c
+@@ -538,19 +538,18 @@ static void b53_disable_port(struct dsa_switch *ds, int port,
+ 	b53_write8(dev, B53_CTRL_PAGE, B53_PORT_CTRL(port), reg);
+ }
  
--	/* Enable all valid ports and disable those unused */
-+	/* Disable unused ports and configure IMP port */
- 	for (port = 0; port < priv->hw_params.num_ports; port++) {
--		/* IMP port receives special treatment */
--		if ((1 << port) & ds->enabled_port_mask)
--			bcm_sf2_port_setup(ds, port, NULL);
--		else if (dsa_is_cpu_port(ds, port))
-+		if (dsa_is_cpu_port(ds, port))
- 			bcm_sf2_imp_setup(ds, port);
--		else
-+		else if (!((1 << port) & ds->enabled_port_mask))
- 			bcm_sf2_port_disable(ds, port, NULL);
+-static void b53_enable_cpu_port(struct b53_device *dev)
++static void b53_enable_cpu_port(struct b53_device *dev, int port)
+ {
+-	unsigned int cpu_port = dev->cpu_port;
+ 	u8 port_ctrl;
+ 
+ 	/* BCM5325 CPU port is at 8 */
+-	if ((is5325(dev) || is5365(dev)) && cpu_port == B53_CPU_PORT_25)
+-		cpu_port = B53_CPU_PORT;
++	if ((is5325(dev) || is5365(dev)) && port == B53_CPU_PORT_25)
++		port = B53_CPU_PORT;
+ 
+ 	port_ctrl = PORT_CTRL_RX_BCST_EN |
+ 		    PORT_CTRL_RX_MCST_EN |
+ 		    PORT_CTRL_RX_UCST_EN;
+-	b53_write8(dev, B53_CTRL_PAGE, B53_PORT_CTRL(cpu_port), port_ctrl);
++	b53_write8(dev, B53_CTRL_PAGE, B53_PORT_CTRL(port), port_ctrl);
+ }
+ 
+ static void b53_enable_mib(struct b53_device *dev)
+@@ -820,7 +819,7 @@ static int b53_setup(struct dsa_switch *ds)
+ 		if (BIT(port) & ds->enabled_port_mask)
+ 			b53_enable_port(ds, port, NULL);
+ 		else if (dsa_is_cpu_port(ds, port))
+-			b53_enable_cpu_port(dev);
++			b53_enable_cpu_port(dev, port);
+ 		else
+ 			b53_disable_port(ds, port, NULL);
  	}
- 
 -- 
 2.9.3
