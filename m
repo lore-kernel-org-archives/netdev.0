@@ -1,84 +1,87 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: Re: [PATCH] net/packet: fix race condition between fanout_add and __unregister_prot_hook
-Date: Tue, 19 Sep 2017 12:09:55 -0400
-Message-ID: <CAF=yD-+kG8HHwtL55dRh+mayA+1W0iy7WRRK0uyHfkiX=woH_A@mail.gmail.com>
-References: <E490CD805F7529488761C40FD9D26EF1299D0CAD@DGGEMA505-MBX.china.huawei.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next 1/3] bpf: Implement map_delete_elem for BPF_MAP_TYPE_LPM_TRIE
+Date: Tue, 19 Sep 2017 18:12:12 +0200
+Message-ID: <59C141DC.9060200@iogearbox.net>
+References: <20170918193057.37644-1-kraigatgoog@gmail.com> <20170918193057.37644-2-kraigatgoog@gmail.com> <3e537b56-d0f2-de9a-5bb1-f60fbfc11ca5@fb.com> <CAEfhGixLCqEmR=bwBqC6bT=-j22X5+rSScPb=1qWX3F-mi6H3g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: "xiyou.wangcong@gmail.com" <xiyou.wangcong@gmail.com>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "edumazet@google.com" <edumazet@google.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Nixiaoming <nixiaoming@huawei.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <E490CD805F7529488761C40FD9D26EF1299D0CAD@DGGEMA505-MBX.china.huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Daniel Mack <daniel@zonque.org>,
+        "David S . Miller" <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>
+To: Craig Gallek <kraigatgoog@gmail.com>,
+        Alexei Starovoitov <ast@fb.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:47095 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751283AbdISQMX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 12:12:23 -0400
+In-Reply-To: <CAEfhGixLCqEmR=bwBqC6bT=-j22X5+rSScPb=1qWX3F-mi6H3g@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 19, 2017 at 3:21 AM, Nixiaoming <nixiaoming@huawei.com> wrote:
-> On Fri, Sep 15, 2017 at 10:46 AM, Willem de Bruijn
->
-> <willemdebruijn.kernel@gmail.com> wrote:
->
+On 09/19/2017 05:08 PM, Craig Gallek wrote:
+> On Mon, Sep 18, 2017 at 6:53 PM, Alexei Starovoitov <ast@fb.com> wrote:
+>> On 9/18/17 12:30 PM, Craig Gallek wrote:
+[...]
+>>> +
+>>> +               next_bit = extract_bit(key->data, node->prefixlen);
+>>> +               /* If we hit a node that has more than one child or is a
+>>> valid
+>>> +                * prefix itself, do not remove it. Reset the root of the
+>>> trim
+>>> +                * path to its descendant on our path.
+>>> +                */
+>>> +               if (!(node->flags & LPM_TREE_NODE_FLAG_IM) ||
+>>> +                   (node->child[0] && node->child[1]))
+>>> +                       trim = &node->child[next_bit];
+>>> +               node = rcu_dereference_protected(
+>>> +                       node->child[next_bit],
+>>> lockdep_is_held(&trie->lock));
+>>> +       }
+>>> +
+>>> +       if (!node || node->prefixlen != key->prefixlen ||
+>>> +           (node->flags & LPM_TREE_NODE_FLAG_IM)) {
+>>> +               ret = -ENOENT;
+>>> +               goto out;
+>>> +       }
+>>> +
+>>> +       trie->n_entries--;
+>>> +
+>>> +       /* If the node we are removing is not a leaf node, simply mark it
+>>> +        * as intermediate and we are done.
+>>> +        */
+>>> +       if (rcu_access_pointer(node->child[0]) ||
+>>> +           rcu_access_pointer(node->child[1])) {
+>>> +               node->flags |= LPM_TREE_NODE_FLAG_IM;
+>>> +               goto out;
+>>> +       }
+>>> +
+>>> +       /* trim should now point to the slot holding the start of a path
+>>> from
+>>> +        * zero or more intermediate nodes to our leaf node for deletion.
+>>> +        */
+>>> +       while ((node = rcu_dereference_protected(
+>>> +                       *trim, lockdep_is_held(&trie->lock)))) {
+>>> +               RCU_INIT_POINTER(*trim, NULL);
+>>> +               trim = rcu_access_pointer(node->child[0]) ?
+>>> +                       &node->child[0] :
+>>> +                       &node->child[1];
+>>> +               kfree_rcu(node, rcu);
 >>
->
->> In case of failure we also need to unlink and free match. I
->
->> sent the following:
->
->>
->
->> http://patchwork.ozlabs.org/patch/813945/
->
->
->
-> +       spin_lock(&po->bind_lock);
->
-> +       if (po->running &&
->
-> +           match->type == type &&
->
->            match->prot_hook.type == po->prot_hook.type &&
->
->            match->prot_hook.dev == po->prot_hook.dev) {
->
->                 err = -ENOSPC;
->
-> @@ -1761,6 +1760,13 @@  static int fanout_add(struct sock *sk, u16 id, u16
-> type_flags)
->
->                           err = 0;
->
->                 }
->
->        }
->
-> +       spin_unlock(&po->bind_lock);
->
-> +
->
-> +       if (err && !refcount_read(&match->sk_ref)) {
->
-> +                list_del(&match->list);
->
-> +                kfree(match);
->
-> +       }
->
->
->
->
->
-> In the function fanout_add add spin_lock to protect po-> running and po->
-> fanout,
->
-> then whether it should be in the function fanout_release also add spin_lock
-> protection ?
+>> can it be that some of the nodes this loop walks have
+>> both child[0] and [1] ?
+> No, the loop above will push trim down the walk every time it
+> encounters a node with two children.  The only other trim assignment
+> is the initial trim = &trie->root.  But the only time we would skip
+> the assignment in the loop is if the node being removed is the root.
+> If the root had multiple children and is being removed, it would be
+> handled by the case that turns the node into an intermediate node
+> rather than walking the trim path freeing things.
 
-po->bind_lock is held when registering and unregistering the
-protocol hook. fanout_release does access po->running or
-prot_hook.
+Looks good to me. We should probably still merge nodes once we turn
+a real node into an im which just has a single child attached to it;
+parent can be im or real node. Thus, we don't need to traverse this
+extra one on lookup.
 
-It is called from packet_release, which does hold the bind_lock
-when unregistering the protocol hook.
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
