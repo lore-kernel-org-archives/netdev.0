@@ -1,54 +1,50 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: Re: [PATCH net-next] net: avoid a full fib lookup when rp_filter is
- disabled.
-Date: Tue, 19 Sep 2017 14:46:41 +0200
-Message-ID: <1505825201.2646.39.camel@redhat.com>
-References: <1967ebaa528c626ebd9682e927fd33770a396a0a.1505817863.git.pabeni@redhat.com>
-         <1505822433.29839.44.camel@edumazet-glaptop3.roam.corp.google.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next 05/12] net: dsa: b53: Use a macro to define I/O
+ operations
+Date: Tue, 19 Sep 2017 12:53:51 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD007A003@AcuExch.aculab.com>
+References: <20170918214128.27896-1-f.fainelli@gmail.com>
+ <20170918214128.27896-6-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+        "andrew@lunn.ch" <andrew@lunn.ch>,
+        "vivien.didelot@savoirfairelinux.com"
+        <vivien.didelot@savoirfairelinux.com>
+To: 'Florian Fainelli' <f.fainelli@gmail.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:12895 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751411AbdISMqn (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 19 Sep 2017 08:46:43 -0400
-In-Reply-To: <1505822433.29839.44.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from smtp-out6.electric.net ([192.162.217.185]:60845 "EHLO
+        smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750823AbdISMx6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 08:53:58 -0400
+In-Reply-To: <20170918214128.27896-6-f.fainelli@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Florian Fainelli
+> Sent: 18 September 2017 22:41
+> Instead of repeating the same pattern: acquire mutex, read/write, release
+> mutex, define a macro: b53_build_op() which takes the type (read|write), I/O
+> size, and value (scalar or pointer). This helps with fixing bugs that could
+> exit (e.g: missing barrier, lock etc.).
+....
+> +#define b53_build_op(type, op_size, val_type)	\
+> +static inline int b53_##type##op_size(struct b53_device *dev, u8 page,		\
+> +				      u8 reg, val_type val)			\
+> +{										\
+> +	int ret;								\
+> +										\
+> +	mutex_lock(&dev->reg_mutex);						\
+> +	ret = dev->ops->type##op_size(dev, page, reg, val);			\
+> +	mutex_unlock(&dev->reg_mutex);						\
+> +										\
+> +	return ret;								\
+>  }
 
-On Tue, 2017-09-19 at 05:00 -0700, Eric Dumazet wrote:
-> On Tue, 2017-09-19 at 12:46 +0200, Paolo Abeni wrote:
-> ..
-> 
-> > Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> > Signed-off-by: Paolo Abeni <pabeni@redhat.com>
-> > ---
-> > +/* called under RCU lock */
-> > +struct in_ifaddr *inet_lookup_ifaddr_rcu(struct net *net, __be32 addr)
-> > +{
-> > +	u32 hash = inet_addr_hash(net, addr);
-> > +	struct in_ifaddr *ifa;
-> > +
-> > +	hlist_for_each_entry_rcu(ifa, &inet_addr_lst[hash], hash)
-> > +		if (ifa->ifa_local == addr &&
-> > +		    net_eq(dev_net(ifa->ifa_dev->dev), net))
-> > +			return ifa;
-> > +
-> > +	return NULL;
-> > +}
-> > +
+Why separate the 'type' and 'op_size' arguments since they
+are always pasted together?
 
-Thank you for reviewing this!
-
-> Any particular reason you do not use this helper to replace the lookup
-> in __ip_dev_find() ?
-
-uh, I just missed that opportunity. I'll send a v2, thanks!
-
-Paolo
+	David
