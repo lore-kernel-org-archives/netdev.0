@@ -1,295 +1,44 @@
-From: Tom Herbert <tom@quantonium.net>
-Subject: [PATCH net-next 06/14] gtp: Eliminate pktinfo and add port configuration
-Date: Mon, 18 Sep 2017 17:38:56 -0700
-Message-ID: <20170919003904.5124-7-tom@quantonium.net>
-References: <20170919003904.5124-1-tom@quantonium.net>
-Cc: netdev@vger.kernel.org, pablo@netfilter.org, laforge@gnumonks.org,
-        rohit@quantonium.net, Tom Herbert <tom@quantonium.net>
-To: davem@davemloft.net
+From: Harsha Chenji <cjkernel@gmail.com>
+Subject: ipv4 ID calculation
+Date: Mon, 18 Sep 2017 20:43:05 -0400
+Message-ID: <CAMB9WxJpwdZ2gFygTdWZmpLoCG0A79ReCbts-phpT76JfTPHsQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f182.google.com ([209.85.192.182]:54209 "EHLO
-        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751227AbdISAjr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 20:39:47 -0400
-Received: by mail-pf0-f182.google.com with SMTP id x78so1102918pff.10
-        for <netdev@vger.kernel.org>; Mon, 18 Sep 2017 17:39:47 -0700 (PDT)
-In-Reply-To: <20170919003904.5124-1-tom@quantonium.net>
+Received: from mail-it0-f46.google.com ([209.85.214.46]:56407 "EHLO
+        mail-it0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750733AbdISAnI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 20:43:08 -0400
+Received: by mail-it0-f46.google.com with SMTP id g18so469621itg.5
+        for <netdev@vger.kernel.org>; Mon, 18 Sep 2017 17:43:08 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The gtp pktinfo structure is unnecessary and needs a lot of code to
-manage it. Remove it. Also, add per pdp port configuration for transmit.
+Hi all,
 
-Signed-off-by: Tom Herbert <tom@quantonium.net>
----
- drivers/net/gtp.c        | 167 ++++++++++++++++++++---------------------------
- include/uapi/linux/gtp.h |   1 +
- 2 files changed, 71 insertions(+), 97 deletions(-)
+Where is the ID field of the IPv4 header created when the DF flag is
+set? I am looking at ip_build_and_send_pkt. The code seems to have
+changed in 4.4-rc1:
 
-diff --git a/drivers/net/gtp.c b/drivers/net/gtp.c
-index f2089fa4f004..a928279c382c 100644
---- a/drivers/net/gtp.c
-+++ b/drivers/net/gtp.c
-@@ -53,6 +53,7 @@ struct pdp_ctx {
- 		} v1;
- 	} u;
- 	u8			gtp_version;
-+	__be16			gtp_port;
- 	u16			af;
- 
- 	struct in_addr		ms_addr_ip4;
-@@ -418,149 +419,112 @@ static inline void gtp1_push_header(struct sk_buff *skb, struct pdp_ctx *pctx)
- 	 */
- }
- 
--struct gtp_pktinfo {
--	struct sock		*sk;
--	struct iphdr		*iph;
--	struct flowi4		fl4;
--	struct rtable		*rt;
--	struct pdp_ctx		*pctx;
--	struct net_device	*dev;
--	__be16			gtph_port;
--};
--
--static void gtp_push_header(struct sk_buff *skb, struct gtp_pktinfo *pktinfo)
-+static void gtp_push_header(struct sk_buff *skb, struct pdp_ctx *pctx)
- {
--	switch (pktinfo->pctx->gtp_version) {
-+	switch (pctx->gtp_version) {
- 	case GTP_V0:
--		pktinfo->gtph_port = htons(GTP0_PORT);
--		gtp0_push_header(skb, pktinfo->pctx);
-+		gtp0_push_header(skb, pctx);
- 		break;
- 	case GTP_V1:
--		pktinfo->gtph_port = htons(GTP1U_PORT);
--		gtp1_push_header(skb, pktinfo->pctx);
-+		gtp1_push_header(skb, pctx);
- 		break;
- 	}
- }
- 
--static inline void gtp_set_pktinfo_ipv4(struct gtp_pktinfo *pktinfo,
--					struct sock *sk, struct iphdr *iph,
--					struct pdp_ctx *pctx, struct rtable *rt,
--					struct flowi4 *fl4,
--					struct net_device *dev)
--{
--	pktinfo->sk	= sk;
--	pktinfo->iph	= iph;
--	pktinfo->pctx	= pctx;
--	pktinfo->rt	= rt;
--	pktinfo->fl4	= *fl4;
--	pktinfo->dev	= dev;
--}
--
--static int gtp_build_skb_ip4(struct sk_buff *skb, struct net_device *dev,
--			     struct gtp_pktinfo *pktinfo)
-+static int gtp_xmit(struct sk_buff *skb, struct net_device *dev,
-+		    struct pdp_ctx *pctx)
- {
--	struct gtp_dev *gtp = netdev_priv(dev);
--	struct pdp_ctx *pctx;
-+	struct sock *sk = pctx->sk;
-+	__be32 saddr = inet_sk(sk)->inet_saddr;
- 	struct rtable *rt;
--	struct flowi4 fl4;
--	struct iphdr *iph;
--	struct sock *sk;
--	__be32 saddr;
--
--	/* Read the IP destination address and resolve the PDP context.
--	 * Prepend PDP header with TEI/TID from PDP ctx.
--	 */
--	iph = ip_hdr(skb);
--	if (gtp->role == GTP_ROLE_SGSN)
--		pctx = ipv4_pdp_find(gtp, iph->saddr);
--	else
--		pctx = ipv4_pdp_find(gtp, iph->daddr);
-+	int err = 0;
- 
--	if (!pctx) {
--		netdev_dbg(dev, "no PDP ctx found for %pI4, skip\n",
--			   &iph->daddr);
--		return -ENOENT;
--	}
--	netdev_dbg(dev, "found PDP context %p\n", pctx);
-+	/* Ensure there is sufficient headroom. */
-+	err = skb_cow_head(skb, dev->needed_headroom);
-+	if (unlikely(err))
-+		goto out_err;
- 
--	sk = pctx->sk;
--	saddr = inet_sk(sk)->inet_saddr;
-+	skb_reset_inner_headers(skb);
- 
- 	rt = ip_tunnel_get_route(dev, skb, sk->sk_protocol,
- 				 sk->sk_bound_dev_if, RT_CONN_FLAGS(sk),
- 				 pctx->peer_addr_ip4.s_addr, &saddr,
--				 pktinfo->gtph_port, pktinfo->gtph_port,
-+				 pctx->gtp_port, pctx->gtp_port,
- 				 &pctx->dst_cache, NULL);
- 
- 	if (IS_ERR(rt)) {
--		if (rt == ERR_PTR(-ELOOP)) {
--			netdev_dbg(dev, "circular route to SSGN %pI4\n",
--				   &pctx->peer_addr_ip4.s_addr);
--			dev->stats.collisions++;
--			goto err_rt;
--		} else {
--			netdev_dbg(dev, "no route to SSGN %pI4\n",
--				   &pctx->peer_addr_ip4.s_addr);
--			dev->stats.tx_carrier_errors++;
--			goto err;
--		}
-+		err = PTR_ERR(rt);
-+		goto out_err;
- 	}
- 
- 	skb_dst_drop(skb);
- 
--	gtp_set_pktinfo_ipv4(pktinfo, sk, iph, pctx, rt, &fl4, dev);
--	gtp_push_header(skb, pktinfo);
-+	gtp_push_header(skb, pctx);
-+	udp_tunnel_xmit_skb(rt, sk, skb, saddr,
-+			    pctx->peer_addr_ip4.s_addr,
-+			    0, ip4_dst_hoplimit(&rt->dst), 0,
-+			    pctx->gtp_port, pctx->gtp_port,
-+			    false, false);
-+
-+	netdev_dbg(dev, "gtp -> IP src: %pI4 dst: %pI4\n",
-+		   &saddr, &pctx->peer_addr_ip4.s_addr);
- 
- 	return 0;
--err_rt:
--	ip_rt_put(rt);
--err:
--	return -EBADMSG;
-+
-+out_err:
-+	if (err == -ELOOP)
-+		dev->stats.collisions++;
-+	else
-+		dev->stats.tx_carrier_errors++;
-+
-+	return err;
- }
- 
- static netdev_tx_t gtp_dev_xmit(struct sk_buff *skb, struct net_device *dev)
- {
- 	unsigned int proto = ntohs(skb->protocol);
--	struct gtp_pktinfo pktinfo;
-+	struct gtp_dev *gtp = netdev_priv(dev);
-+	struct pdp_ctx *pctx;
- 	int err;
- 
--	/* Ensure there is sufficient headroom. */
--	if (skb_cow_head(skb, dev->needed_headroom))
--		goto tx_err;
--
--	skb_reset_inner_headers(skb);
--
- 	/* PDP context lookups in gtp_build_skb_*() need rcu read-side lock. */
- 	rcu_read_lock();
- 	switch (proto) {
--	case ETH_P_IP:
--		err = gtp_build_skb_ip4(skb, dev, &pktinfo);
-+	case ETH_P_IP: {
-+		struct iphdr *iph = ip_hdr(skb);
-+
-+		if (gtp->role == GTP_ROLE_SGSN)
-+			pctx = ipv4_pdp_find(gtp, iph->saddr);
-+		else
-+			pctx = ipv4_pdp_find(gtp, iph->daddr);
-+
-+		if (!pctx) {
-+			netdev_dbg(dev, "no PDP ctx found for %pI4, skip\n",
-+				   &iph->daddr);
-+			err = -ENOENT;
-+			goto tx_err;
-+		}
-+
- 		break;
-+	}
- 	default:
- 		err = -EOPNOTSUPP;
--		break;
-+		goto tx_err;
- 	}
--	rcu_read_unlock();
-+
-+	netdev_dbg(dev, "found PDP context %p\n", pctx);
-+
-+	err = gtp_xmit(skb, dev, pctx);
- 
- 	if (err < 0)
- 		goto tx_err;
- 
--	switch (proto) {
--	case ETH_P_IP:
--		netdev_dbg(pktinfo.dev, "gtp -> IP src: %pI4 dst: %pI4\n",
--			   &pktinfo.iph->saddr, &pktinfo.iph->daddr);
--		udp_tunnel_xmit_skb(pktinfo.rt, pktinfo.sk, skb,
--				    pktinfo.fl4.saddr, pktinfo.fl4.daddr,
--				    pktinfo.iph->tos,
--				    ip4_dst_hoplimit(&pktinfo.rt->dst),
--				    0,
--				    pktinfo.gtph_port, pktinfo.gtph_port,
--				    true, false);
--		break;
--	}
-+	rcu_read_unlock();
- 
- 	return NETDEV_TX_OK;
-+
- tx_err:
-+	rcu_read_unlock();
- 	dev->stats.tx_errors++;
- 	dev_kfree_skb(skb);
- 	return NETDEV_TX_OK;
-@@ -864,6 +828,8 @@ static struct gtp_dev *gtp_find_dev(struct net *src_net, struct nlattr *nla[])
- 
- static void ipv4_pdp_fill(struct pdp_ctx *pctx, struct genl_info *info)
- {
-+	__be16 default_port = 0;
-+
- 	pctx->gtp_version = nla_get_u32(info->attrs[GTPA_VERSION]);
- 	pctx->af = AF_INET;
- 	pctx->peer_addr_ip4.s_addr =
-@@ -879,14 +845,21 @@ static void ipv4_pdp_fill(struct pdp_ctx *pctx, struct genl_info *info)
- 		 */
- 		pctx->u.v0.tid = nla_get_u64(info->attrs[GTPA_TID]);
- 		pctx->u.v0.flow = nla_get_u16(info->attrs[GTPA_FLOW]);
-+		default_port = htons(GTP0_PORT);
- 		break;
- 	case GTP_V1:
- 		pctx->u.v1.i_tei = nla_get_u32(info->attrs[GTPA_I_TEI]);
- 		pctx->u.v1.o_tei = nla_get_u32(info->attrs[GTPA_O_TEI]);
-+		default_port = htons(GTP1U_PORT);
- 		break;
- 	default:
- 		break;
- 	}
-+
-+	if (info->attrs[GTPA_PORT])
-+		pctx->gtp_port = nla_get_u16(info->attrs[GTPA_PORT]);
-+	else
-+		pctx->gtp_port = default_port;
- }
- 
- static int ipv4_pdp_add(struct gtp_dev *gtp, struct sock *sk,
-diff --git a/include/uapi/linux/gtp.h b/include/uapi/linux/gtp.h
-index 57d1edb8efd9..b2283a5c6d7f 100644
---- a/include/uapi/linux/gtp.h
-+++ b/include/uapi/linux/gtp.h
-@@ -27,6 +27,7 @@ enum gtp_attrs {
- 	GTPA_I_TEI,	/* for GTPv1 only */
- 	GTPA_O_TEI,	/* for GTPv1 only */
- 	GTPA_PAD,
-+	GTPA_PORT,
- 	__GTPA_MAX,
- };
- #define GTPA_MAX (__GTPA_MAX + 1)
--- 
-2.11.0
+if (ip_dont_fragment(sk, &rt->dst)) {
+    iph->frag_off = htons(IP_DF);
+    iph->id = 0;
+} else {
+    iph->frag_off = 0;
+    __ip_select_ident(net, iph, 1);
+}
+
+old code (executed irrespective of DF or not):
+
+    ip_select_ident(sock_net(sk), skb, sk);
+
+The code in Stevens is basically iph->id = htons(ip_ident++) and now
+it seems to be calculated based on a hash + lookup table.
+
+So where is the id of 0 overwritten when DF is set? Didn't find any
+info in the docs.
+
+P.S. - is this the right mailing list for these kind of questions?
+
+Thanks!
