@@ -1,56 +1,54 @@
-From: Razvan Stefanescu <razvan.stefanescu@nxp.com>
-Subject: [RESEND PATCH 6/6] staging: fsl-dpaa2/ethsw: Add TODO
-Date: Tue, 19 Sep 2017 15:45:58 +0300
-Message-ID: <1505825158-8192-7-git-send-email-razvan.stefanescu@nxp.com>
-References: <1505825158-8192-1-git-send-email-razvan.stefanescu@nxp.com>
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: Re: [PATCH net-next] net: avoid a full fib lookup when rp_filter is
+ disabled.
+Date: Tue, 19 Sep 2017 14:46:41 +0200
+Message-ID: <1505825201.2646.39.camel@redhat.com>
+References: <1967ebaa528c626ebd9682e927fd33770a396a0a.1505817863.git.pabeni@redhat.com>
+         <1505822433.29839.44.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, arnd@arndb.de, netdev@vger.kernel.org,
- alexandru.marginean@nxp.com, linux-kernel@vger.kernel.org, agraf@suse.de,
- stuyoder@gmail.com, bogdan.purcareata@nxp.com, laurentiu.tudor@nxp.com
-To: <gregkh@linuxfoundation.org>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1505825158-8192-1-git-send-email-razvan.stefanescu@nxp.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:12895 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751411AbdISMqn (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 19 Sep 2017 08:46:43 -0400
+In-Reply-To: <1505822433.29839.44.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add a TODO file describing what needs to be added/changed before the driver
-can be moved out of staging.
+Hi,
 
-Signed-off-by: Razvan Stefanescu <razvan.stefanescu@nxp.com>
----
- drivers/staging/fsl-dpaa2/ethsw/TODO | 14 ++++++++++++++
- 1 file changed, 14 insertions(+)
- create mode 100644 drivers/staging/fsl-dpaa2/ethsw/TODO
+On Tue, 2017-09-19 at 05:00 -0700, Eric Dumazet wrote:
+> On Tue, 2017-09-19 at 12:46 +0200, Paolo Abeni wrote:
+> ..
+> 
+> > Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> > Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+> > ---
+> > +/* called under RCU lock */
+> > +struct in_ifaddr *inet_lookup_ifaddr_rcu(struct net *net, __be32 addr)
+> > +{
+> > +	u32 hash = inet_addr_hash(net, addr);
+> > +	struct in_ifaddr *ifa;
+> > +
+> > +	hlist_for_each_entry_rcu(ifa, &inet_addr_lst[hash], hash)
+> > +		if (ifa->ifa_local == addr &&
+> > +		    net_eq(dev_net(ifa->ifa_dev->dev), net))
+> > +			return ifa;
+> > +
+> > +	return NULL;
+> > +}
+> > +
 
-diff --git a/drivers/staging/fsl-dpaa2/ethsw/TODO b/drivers/staging/fsl-dpaa2/ethsw/TODO
-new file mode 100644
-index 0000000..d3f12c3
---- /dev/null
-+++ b/drivers/staging/fsl-dpaa2/ethsw/TODO
-@@ -0,0 +1,14 @@
-+* Add I/O capabilities on switch port netdevices. This will allow control
-+traffic to reach the CPU.
-+* Add ACL to redirect control traffic to CPU.
-+* Add support for displaying learned FDB entries
-+* MC firmware uprev; the DPAA2 objects used by the Ethernet Switch driver
-+need to   be kept in sync with binary interface changes in MC
-+* refine README file
-+* cleanup
-+
-+NOTE: At least first three of the above are required before getting the
-+DPAA2 Ethernet Switch driver out of staging. Another requirement is that
-+the fsl-mc bus driver is moved to drivers/bus and dpio driver is moved to
-+drivers/soc (this is required for I/O).
-+
--- 
-1.9.1
+Thank you for reviewing this!
+
+> Any particular reason you do not use this helper to replace the lookup
+> in __ip_dev_find() ?
+
+uh, I just missed that opportunity. I'll send a v2, thanks!
+
+Paolo
