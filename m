@@ -1,168 +1,204 @@
-From: Craig Gallek <kraigatgoog@gmail.com>
-Subject: Re: [PATCH net-next 1/3] bpf: Implement map_delete_elem for BPF_MAP_TYPE_LPM_TRIE
-Date: Tue, 19 Sep 2017 11:08:03 -0400
-Message-ID: <CAEfhGixLCqEmR=bwBqC6bT=-j22X5+rSScPb=1qWX3F-mi6H3g@mail.gmail.com>
-References: <20170918193057.37644-1-kraigatgoog@gmail.com> <20170918193057.37644-2-kraigatgoog@gmail.com>
- <3e537b56-d0f2-de9a-5bb1-f60fbfc11ca5@fb.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH net-next 00/14] gtp: Additional feature support
+Date: Tue, 19 Sep 2017 08:59:28 -0700
+Message-ID: <CALx6S35n-V3d00SyV=Lz97KPq=CSCmOaerXpFBYSknKtdiwYug@mail.gmail.com>
+References: <20170919003904.5124-1-tom@quantonium.net> <20170919124352.l4k67ygb6xt4eloq@nataraja>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Daniel Mack <daniel@zonque.org>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        "David S . Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>
-To: Alexei Starovoitov <ast@fb.com>
+Cc: Tom Herbert <tom@quantonium.net>,
+        "David S. Miller" <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
+        Rohit Seth <rohit@quantonium.net>
+To: Harald Welte <laforge@gnumonks.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f193.google.com ([209.85.220.193]:34407 "EHLO
-        mail-qk0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751097AbdISPIH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 11:08:07 -0400
-Received: by mail-qk0-f193.google.com with SMTP id d70so2420586qkc.1
-        for <netdev@vger.kernel.org>; Tue, 19 Sep 2017 08:08:07 -0700 (PDT)
-Received: from mail-qt0-f176.google.com (mail-qt0-f176.google.com. [209.85.216.176])
-        by smtp.gmail.com with ESMTPSA id t90sm7005522qkl.77.2017.09.19.08.08.05
-        for <netdev@vger.kernel.org>
-        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Tue, 19 Sep 2017 08:08:05 -0700 (PDT)
-Received: by mail-qt0-f176.google.com with SMTP id t46so358376qtj.2
-        for <netdev@vger.kernel.org>; Tue, 19 Sep 2017 08:08:05 -0700 (PDT)
-In-Reply-To: <3e537b56-d0f2-de9a-5bb1-f60fbfc11ca5@fb.com>
+Received: from mail-qk0-f175.google.com ([209.85.220.175]:45323 "EHLO
+        mail-qk0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751726AbdISP73 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 11:59:29 -0400
+Received: by mail-qk0-f175.google.com with SMTP id r141so81225qke.2
+        for <netdev@vger.kernel.org>; Tue, 19 Sep 2017 08:59:29 -0700 (PDT)
+In-Reply-To: <20170919124352.l4k67ygb6xt4eloq@nataraja>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 18, 2017 at 6:53 PM, Alexei Starovoitov <ast@fb.com> wrote:
-Thanks for the review!  Please correct me if I'm wrong...
+On Tue, Sep 19, 2017 at 5:43 AM, Harald Welte <laforge@gnumonks.org> wrote:
+> Hi Tom,
+>
+> first of all, thanks a lot for your patch series.  It makes me happy to
+> see contributions on the GTP code :)
+>
+> On Mon, Sep 18, 2017 at 05:38:50PM -0700, Tom Herbert wrote:
+>>   - IPv6 support
+>
+> see my detailed comments in other mails.  It's unfortunately only
+> support for the already "deprecated" IPv6-only PDP contexts, not the
+> more modern v4v6 type.  In order to interoperate with old and new
+> approach, all three cases (v4, v6 and v4v6) should be supported from one
+> code base.
+>
+It sounds like something that can be subsequently added. Do you have a
+reference to the spec?
 
-> On 9/18/17 12:30 PM, Craig Gallek wrote:
->>
->> From: Craig Gallek <kraig@google.com>
->>
->> This is a simple non-recursive delete operation.  It prunes paths
->> of empty nodes in the tree, but it does not try to further compress
->> the tree as nodes are removed.
->>
->> Signed-off-by: Craig Gallek <kraig@google.com>
->> ---
->>  kernel/bpf/lpm_trie.c | 80
->> +++++++++++++++++++++++++++++++++++++++++++++++++--
->>  1 file changed, 77 insertions(+), 3 deletions(-)
->>
->> diff --git a/kernel/bpf/lpm_trie.c b/kernel/bpf/lpm_trie.c
->> index 1b767844a76f..9d58a576b2ae 100644
->> --- a/kernel/bpf/lpm_trie.c
->> +++ b/kernel/bpf/lpm_trie.c
->> @@ -389,10 +389,84 @@ static int trie_update_elem(struct bpf_map *map,
->>         return ret;
->>  }
->>
->> -static int trie_delete_elem(struct bpf_map *map, void *key)
->> +/* Called from syscall or from eBPF program */
->> +static int trie_delete_elem(struct bpf_map *map, void *_key)
->>  {
->> -       /* TODO */
->> -       return -ENOSYS;
->> +       struct lpm_trie *trie = container_of(map, struct lpm_trie, map);
->> +       struct bpf_lpm_trie_key *key = _key;
->> +       struct lpm_trie_node __rcu **trim;
->> +       struct lpm_trie_node *node;
->> +       unsigned long irq_flags;
->> +       unsigned int next_bit;
->> +       size_t matchlen = 0;
->> +       int ret = 0;
->> +
->> +       if (key->prefixlen > trie->max_prefixlen)
->> +               return -EINVAL;
->> +
->> +       raw_spin_lock_irqsave(&trie->lock, irq_flags);
->> +
->> +       /* Walk the tree looking for an exact key/length match and keeping
->> +        * track of where we could begin trimming the tree.  The
->> trim-point
->> +        * is the sub-tree along the walk consisting of only single-child
->> +        * intermediate nodes and ending at a leaf node that we want to
->> +        * remove.
->> +        */
->> +       trim = &trie->root;
->> +       node = rcu_dereference_protected(
->> +               trie->root, lockdep_is_held(&trie->lock));
->> +       while (node) {
->> +               matchlen = longest_prefix_match(trie, node, key);
->> +
->> +               if (node->prefixlen != matchlen ||
->> +                   node->prefixlen == key->prefixlen)
->> +                       break;
+>>   - Configurable networking interfaces so that GTP kernel can be used
+>>   and tested without needing GSN network emulation (i.e. no user space
+>>   daemon needed).
 >
+> We have some pretty decent userspace utilities for configuring the GTP
+> interfaces and tunnels in the libgtpnl repository, but if it helps
+> people to have another way of configuration, I won't be against it.
 >
-> curious why there is no need to do
-> 'node->prefixlen == trie->max_prefixlen' in the above
-> like update/lookup do?
-I don't believe the node->prefixlen == trie->max_prefixlen check in
-trie_update_elem is necessary. In order to get to this third clause,
-it implies that the first two clauses evaluated false.  Which happens
-when we find an exact prefix match for the current node, but the
-to-be-inserted key prefix is different.  If the node we are comparing
-against had a prefix of max_prefixlen, it would not be possible to
-have both a full prefix match but different prefix lengths.  This
-assumes that there are no nodes in the tree with > max_prefixlen
-prefixes, but that is handled earlier in the update function.
+AFAIK those userspace utilities don't support IPv6. Being able to
+configure GTP like any other encapsulation will facilitate development
+of IPv6 and other features.
 
-There's a similar (I believe) unnecessary max_prefixlen check in
-trie_lookup_elem.  The function should behave the same way without
-that check, but at least in this case it's used as an early-out and
-saves a few lines of execution.
+> What we have to keep in mind is that the current model of 1:1 mapping of
+> a "UDP socket' to a GTP netdevice is conceptually broken and needs to be
+> refactored soon (without breaking backwards compatibility).  See related
+> earlier discussions with patches submitted by Andreas Schultz.
+>
+I don't think I changed the model, so this can evolve.
 
+> Summary:
 >
->> +
->> +               next_bit = extract_bit(key->data, node->prefixlen);
->> +               /* If we hit a node that has more than one child or is a
->> valid
->> +                * prefix itself, do not remove it. Reset the root of the
->> trim
->> +                * path to its descendant on our path.
->> +                */
->> +               if (!(node->flags & LPM_TREE_NODE_FLAG_IM) ||
->> +                   (node->child[0] && node->child[1]))
->> +                       trim = &node->child[next_bit];
->> +               node = rcu_dereference_protected(
->> +                       node->child[next_bit],
->> lockdep_is_held(&trie->lock));
->> +       }
->> +
->> +       if (!node || node->prefixlen != key->prefixlen ||
->> +           (node->flags & LPM_TREE_NODE_FLAG_IM)) {
->> +               ret = -ENOENT;
->> +               goto out;
->> +       }
->> +
->> +       trie->n_entries--;
->> +
->> +       /* If the node we are removing is not a leaf node, simply mark it
->> +        * as intermediate and we are done.
->> +        */
->> +       if (rcu_access_pointer(node->child[0]) ||
->> +           rcu_access_pointer(node->child[1])) {
->> +               node->flags |= LPM_TREE_NODE_FLAG_IM;
->> +               goto out;
->> +       }
->> +
->> +       /* trim should now point to the slot holding the start of a path
->> from
->> +        * zero or more intermediate nodes to our leaf node for deletion.
->> +        */
->> +       while ((node = rcu_dereference_protected(
->> +                       *trim, lockdep_is_held(&trie->lock)))) {
->> +               RCU_INIT_POINTER(*trim, NULL);
->> +               trim = rcu_access_pointer(node->child[0]) ?
->> +                       &node->child[0] :
->> +                       &node->child[1];
->> +               kfree_rcu(node, rcu);
+> In real-world GGSNs you often want to host multiple virtual GGSNs on a
+> single GGSN (= UDP socket).  Each virtual GGSN terminates into one
+> external PDN (packet data network), which can be a private corporate vpn
+> or any other IP network, with no routing between those networks.
 >
+Sounds like network virtualization and VNIs.
+
+> Naively one would assume you "simply" run another virtual GGSN
+> instance on another IP address, and then differentiate like that.
 >
-> can it be that some of the nodes this loop walks have
-> both child[0] and [1] ?
-No, the loop above will push trim down the walk every time it
-encounters a node with two children.  The only other trim assignment
-is the initial trim = &trie->root.  But the only time we would skip
-the assignment in the loop is if the node being removed is the root.
-If the root had multiple children and is being removed, it would be
-handled by the case that turns the node into an intermediate node
-rather than walking the trim path freeing things.
+> However, the problem is that adding a new GGSN IP address will require
+> manual configuration changes at each of your roaming partners (easily
+> hundreds of operators!) and hence it is avoided at all cost due to the
+> related long schedule, requirement for interop testing with each of them,
+> etc.
+>
+> So what you do in reality at operators is that you operate many of those
+> virtual GGSNs on the same IP:Port combination (and hence UDP socket),
+> which means you have PDP contexts for vGGSN A which terminate on e.g.
+> gtp0 and PDP contexts for vGGSN B on gtp1, and so on.  The decision
+> which gtp-device a given PDP context is a member is made by the GTP-C
+> instance.  In the kenel we'll have to decouple net-devices from sockets.
+>
+> So whatever new configuration mechanism or architectural changes we
+> introduce, we need to make sure that those will accomodate the "new
+> model" rather than introducing further dependencies for which we will
+> have to maintain backwards compatibility workaronds later on.
+>
+>>   - Port numbers are configurable
+>
+> I'm not sure if this is a useful feature.  GTP is used only in
+> operator-controlled networks and only on standard ports.  It's not
+> possible to negotiate any non-standard ports on the signaling plane
+> either.
+>
+Bear in mind that we're not required to do everything the GTP spec
+says. Adding port configuration is another one of those things that
+gives us flexibility and and better capability to test without needing
+a full blown GSN network. One feature I didn't implement was UDP
+source for flow entropy-- as we've seen with other encapsulation
+protocols this helps significantly to get good ECMP in the network. My
+impression is GTP designers probably didn't think in terms of getting
+best performance. But we can ;-)
+
+>>   - Addition of a dst_cache in the GTP structure and other cleanup
+>
+> looks fine to me.
+>
+>>   - GSO,GRO
+>>   - Control of zero UDP checksums
+>
+> [...]
+>
+>> Additionally, this patch set also includes a couple of general support
+>> capabilities:
+>>
+>>   - A facility that allows application specific GSO callbacks
+>>   - Common functions to get a route fo for an IP tunnel
+>
+> This is where the "core netdev" folks will have to comment.  I'm too
+> remote from mainline kernel development these days and will focus on
+> reviewing the GTP specific bits of your patch series.
+>
+Thanks. Obviously, I and many on this list have more expertise on the
+core networking side than GTP, so your review is quite welcome.
+
+>> For IPv6 support, the mobile subscriber needs to allow IPv6 addresses,
+>> and the remote enpoint can be IPv6.
+>
+> Minor correction: The mobile subscriber specifically requests a PDP Type
+> when establishing the PDP context via Session Management related
+> signaling from MS/UE to SGSN.  The SGSN simply translates this to GTP
+> and then forwards it to the GGSN.  So it's acutally not "allow" but
+> "specifically request".
+>
+Okay.
+
+>> Configured the matrix of IPv4/IPv6 mobile subscriber, IPv4/IPv6 remote
+>> peer, and GTP version 0 and 1 (eight combinations). Observed
+>> connectivity and proper GSO/GRO. Also, tested VXLAN for
+>> regression.
+>
+> I presume those tests were done with manually configured GTP-devices and
+> PDP contexts to the (patched) kernel GTP module?  If so, I would like to
+> strongly suggest interop testing with a different implementation, such
+> as real phones on the MS/UE side and e.g. OsmoSGSN.  That would,
+> however, of course mean that the netlink related bits would have to be
+> added to libgtpnl and OsmoGGSN (or ergw) so that you have a daemon for
+> the control plane.
+>
+I also brought up open_ggsn. ggsn to sgsn.
+
+> For IPv6 (and v4v6) PDP contexts there is quite a bit of extra headache
+> related to the way how router solicitation/advertisements are modified
+> in the 3GPP world.
+>
+> The address allocation in v4 is simple:
+> * MS/UE requests dynamic or fixed IPv4 address via EUA IE of PDP context
+>   activation
+> * GGSN responds with IPv4 address in EUA of Activate PDP context
+>   response (and then uses netlink to tell the kernel about that
+>   IPv4 address)
+>
+> In v6 or the v6 portion of v4v6 it works differently:
+> * MS/UE requests dynamic or fixed IPv4 address in EUA IE of PDP context
+>   activation
+> * GGSN responds with an IPv6 address, but that address is *not* used
+>   for communication, but simply used as an "interface identifier" to
+>   build a link-local address.
+> * MS then uses router solicitation using that link-local address
+> * GGSN responds with router advertisement, allocating a single /64
+>   prefix, from which the MS then generates a fully-qualified IPv6
+>   source address for communication.
+>
+> How did you envision this to be done with the v6 support you just added?
+> At the very least, the /64 prefix matching would have to be implemented
+> so that in fact all addresses within that /64 prefix are matched +
+> encapsulated for a given PDP context in the downlink (to phone)
+> direction.
+>
+> Also, I think the responsibility for the router advertisements would be
+> in the kernel, too.  Otherwise, a GTP-C userspace implementation would
+> have to inject packets into the user plane (which is otherwise handled
+> completely inside the kernel).  Injecting packets would mean that in caes
+> GTP sequence numbers are used, that userspace implementation would have
+> to alter the sequence numbers of the kernel gtp.ko code using netlink,
+> but therre would  be race conditions, ...
+>
+> The router advertisements and neighbor advertisements basically have the
+> semantics of one link per PDP context.  Each of them is a point-to-point
+> link, and it's not one router advertisement that's sent to all of the
+> PDP contexts on that gtp-device.
+>
+> I know it all sucks.  I'm still happy to see somebody tackling v6
+> support in gtp.c :)
+>
+I would hope all the above you're describing is mostly control plane
+matters. At least a good design decouples data palne and control
+plane. I know that GTP is a bit convoluted in this regard.
+
+Tom
