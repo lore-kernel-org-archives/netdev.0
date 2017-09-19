@@ -1,41 +1,61 @@
-From: Salil Mehta <salil.mehta@huawei.com>
-Subject: [PATCH net 5/7] net: hns3: fixes the ether address copy with more appropriate API
-Date: Tue, 19 Sep 2017 02:06:26 +0100
-Message-ID: <20170919010628.175732-6-salil.mehta@huawei.com>
-References: <20170919010628.175732-1-salil.mehta@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <salil.mehta@huawei.com>, <yisen.zhuang@huawei.com>,
-        <lipeng321@huawei.com>, <mehta.salil.lnk@gmail.com>,
-        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-        <linux-rdma@vger.kernel.org>, <linuxarm@huawei.com>
-To: <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170919010628.175732-1-salil.mehta@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net] bpf: fix ri->map prog pointer on bpf_prog_realloc
+Date: Tue, 19 Sep 2017 03:16:44 +0200
+Message-ID: <b797841607c3327007a787af3418cb0a60b868c0.1505783562.git.daniel@iogearbox.net>
+Cc: john.fastabend@gmail.com, ast@kernel.org, netdev@vger.kernel.org,
+        Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:46125 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750893AbdISBQs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 21:16:48 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch replaces the ethernet address copy instance with more
-appropriate ether_addr_copy() function.
+Commit 109980b894e9 ("bpf: don't select potentially stale
+ri->map from buggy xdp progs") passed the pointer to the prog
+itself to be loaded into r4 prior on bpf_redirect_map() helper
+call, so that we can store the owner into ri->map_owner out of
+the helper.
 
-Signed-off-by: Salil Mehta <salil.mehta@huawei.com>
+Issue with that is that the actual address of the prog is still
+subject to change when subsequent rewrites occur, e.g. through
+patching other helper functions or constant blinding. Thus, we
+really need to take prog->aux as the address we're holding, and
+then during runtime fetch the actual pointer via aux->prog. This
+also works with prog clones as they share the same aux and fixup
+pointer to self after blinding finished.
+
+Fixes: 109980b894e9 ("bpf: don't select potentially stale ri->map from buggy xdp progs")
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 ---
- drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ kernel/bpf/verifier.c | 12 ++++++++++--
+ 1 file changed, 10 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
-index eafd9c678162..8e172afd4876 100644
---- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
-+++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
-@@ -1063,8 +1063,7 @@ static int hclge_configure(struct hclge_dev *hdev)
- 	hdev->base_tqp_pid = 0;
- 	hdev->rss_size_max = 1;
- 	hdev->rx_buf_len = cfg.rx_buf_len;
--	for (i = 0; i < ETH_ALEN; i++)
--		hdev->hw.mac.mac_addr[i] = cfg.mac_addr[i];
-+	ether_addr_copy(hdev->hw.mac.mac_addr, cfg.mac_addr);
- 	hdev->hw.mac.media_type = cfg.media_type;
- 	hdev->hw.mac.phy_addr = cfg.phy_addr;
- 	hdev->num_desc = cfg.tqp_desc_num;
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index 799b245..243c09f 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -4205,9 +4205,17 @@ static int fixup_bpf_calls(struct bpf_verifier_env *env)
+ 		}
+ 
+ 		if (insn->imm == BPF_FUNC_redirect_map) {
+-			u64 addr = (unsigned long)prog;
++			/* Note, we cannot use prog directly as imm as subsequent
++			 * rewrites would still change the prog pointer. The only
++			 * stable address we can use is aux, which also works with
++			 * prog clones during blinding.
++			 */
++			u64 addr = (unsigned long)prog->aux;
++			const int r4 = BPF_REG_4;
+ 			struct bpf_insn r4_ld[] = {
+-				BPF_LD_IMM64(BPF_REG_4, addr),
++				BPF_LD_IMM64(r4, addr),
++				BPF_LDX_MEM(BPF_DW, r4, r4,
++					    offsetof(struct bpf_prog_aux, prog)),
+ 				*insn,
+ 			};
+ 			cnt = ARRAY_SIZE(r4_ld);
 -- 
-2.11.0
+1.9.3
