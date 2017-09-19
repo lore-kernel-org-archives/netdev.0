@@ -1,7 +1,7 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH v2 net-next 5/7] tcp: batch tcp_net_metrics_exit
-Date: Tue, 19 Sep 2017 16:27:07 -0700
-Message-ID: <20170919232709.14690-6-edumazet@google.com>
+Subject: [PATCH v2 net-next 3/7] kobject: factorize skb setup in kobject_uevent_net_broadcast()
+Date: Tue, 19 Sep 2017 16:27:05 -0700
+Message-ID: <20170919232709.14690-4-edumazet@google.com>
 References: <20170919232709.14690-1-edumazet@google.com>
 Cc: netdev <netdev@vger.kernel.org>,
         "Eric W . Biederman" <ebiederm@xmission.com>,
@@ -9,62 +9,117 @@ Cc: netdev <netdev@vger.kernel.org>,
         Eric Dumazet <eric.dumazet@gmail.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f177.google.com ([209.85.192.177]:57339 "EHLO
-        mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751728AbdISX1X (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 19:27:23 -0400
-Received: by mail-pf0-f177.google.com with SMTP id g65so591007pfe.13
-        for <netdev@vger.kernel.org>; Tue, 19 Sep 2017 16:27:23 -0700 (PDT)
+Received: from mail-pg0-f51.google.com ([74.125.83.51]:56699 "EHLO
+        mail-pg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751578AbdISX1T (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 19:27:19 -0400
+Received: by mail-pg0-f51.google.com with SMTP id 7so660218pgd.13
+        for <netdev@vger.kernel.org>; Tue, 19 Sep 2017 16:27:19 -0700 (PDT)
 In-Reply-To: <20170919232709.14690-1-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When dealing with a list of dismantling netns, we can scan
-tcp_metrics once, saving cpu cycles.
+We can build one skb and let it be cloned in netlink.
+
+This is much faster, and use less memory (all clones will
+share the same skb->head)
+
+Tested:
+
+time perf record (for f in `seq 1 3000` ; do ip netns add tast$f; done)
+[ perf record: Woken up 1 times to write data ]
+[ perf record: Captured and wrote 4.110 MB perf.data (~179584 samples) ]
+
+real    0m24.227s # instead of 0m52.554s
+user    0m0.329s
+sys 0m23.753s # instead of 0m51.375s
+
+    14.77%       ip  [kernel.kallsyms]  [k] __ip6addrlbl_add
+    14.56%       ip  [kernel.kallsyms]  [k] netlink_broadcast_filtered
+    11.65%       ip  [kernel.kallsyms]  [k] netlink_has_listeners
+     6.19%       ip  [kernel.kallsyms]  [k] _raw_spin_lock_irqsave
+     5.66%       ip  [kernel.kallsyms]  [k] kobject_uevent_env
+     4.97%       ip  [kernel.kallsyms]  [k] memset_erms
+     4.67%       ip  [kernel.kallsyms]  [k] refcount_sub_and_test
+     4.41%       ip  [kernel.kallsyms]  [k] _raw_read_lock
+     3.59%       ip  [kernel.kallsyms]  [k] refcount_inc_not_zero
+     3.13%       ip  [kernel.kallsyms]  [k] _raw_spin_unlock_irqrestore
+     1.55%       ip  [kernel.kallsyms]  [k] __wake_up
+     1.20%       ip  [kernel.kallsyms]  [k] strlen
+     1.03%       ip  [kernel.kallsyms]  [k] __wake_up_common
+     0.93%       ip  [kernel.kallsyms]  [k] consume_skb
+     0.92%       ip  [kernel.kallsyms]  [k] netlink_trim
+     0.87%       ip  [kernel.kallsyms]  [k] insert_header
+     0.63%       ip  [kernel.kallsyms]  [k] unmap_page_range
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- net/ipv4/tcp_metrics.c | 14 +++++++++-----
- 1 file changed, 9 insertions(+), 5 deletions(-)
+ lib/kobject_uevent.c | 34 +++++++++++++++++++---------------
+ 1 file changed, 19 insertions(+), 15 deletions(-)
 
-diff --git a/net/ipv4/tcp_metrics.c b/net/ipv4/tcp_metrics.c
-index 102b2c90bb807d3a88d31b59324baf72cf901cdf..0ab78abc811bef0388089befed672e3d4ee9d881 100644
---- a/net/ipv4/tcp_metrics.c
-+++ b/net/ipv4/tcp_metrics.c
-@@ -892,10 +892,14 @@ static void tcp_metrics_flush_all(struct net *net)
- 
- 	for (row = 0; row < max_rows; row++, hb++) {
- 		struct tcp_metrics_block __rcu **pp;
-+		bool match;
-+
- 		spin_lock_bh(&tcp_metrics_lock);
- 		pp = &hb->chain;
- 		for (tm = deref_locked(*pp); tm; tm = deref_locked(*pp)) {
--			if (net_eq(tm_net(tm), net)) {
-+			match = net ? net_eq(tm_net(tm), net) :
-+				!atomic_read(&tm_net(tm)->count);
-+			if (match) {
- 				*pp = tm->tcpm_next;
- 				kfree_rcu(tm, rcu_head);
- 			} else {
-@@ -1018,14 +1022,14 @@ static int __net_init tcp_net_metrics_init(struct net *net)
- 	return 0;
- }
- 
--static void __net_exit tcp_net_metrics_exit(struct net *net)
-+static void __net_exit tcp_net_metrics_exit_batch(struct list_head *net_exit_list)
+diff --git a/lib/kobject_uevent.c b/lib/kobject_uevent.c
+index 78b2a7e378c0deda3b32b1178d7f44203702c3f2..147db91c10d06485868ff56626a5a9b073a8a846 100644
+--- a/lib/kobject_uevent.c
++++ b/lib/kobject_uevent.c
+@@ -301,23 +301,26 @@ static int kobject_uevent_net_broadcast(struct kobject *kobj,
  {
--	tcp_metrics_flush_all(net);
-+	tcp_metrics_flush_all(NULL);
+ 	int retval = 0;
+ #if defined(CONFIG_NET)
++	struct sk_buff *skb = NULL;
+ 	struct uevent_sock *ue_sk;
+ 
+ 	/* send netlink message */
+ 	list_for_each_entry(ue_sk, &uevent_sock_list, list) {
+ 		struct sock *uevent_sock = ue_sk->sk;
+-		struct sk_buff *skb;
+-		size_t len;
+ 
+ 		if (!netlink_has_listeners(uevent_sock, 1))
+ 			continue;
+ 
+-		/* allocate message with the maximum possible size */
+-		len = strlen(action_string) + strlen(devpath) + 2;
+-		skb = alloc_skb(len + env->buflen, GFP_KERNEL);
+-		if (skb) {
++		if (!skb) {
++			/* allocate message with the maximum possible size */
++			size_t len = strlen(action_string) + strlen(devpath) + 2;
+ 			char *scratch;
+ 
++			retval = -ENOMEM;
++			skb = alloc_skb(len + env->buflen, GFP_KERNEL);
++			if (!skb)
++				continue;
++
+ 			/* add header */
+ 			scratch = skb_put(skb, len);
+ 			sprintf(scratch, "%s@%s", action_string, devpath);
+@@ -325,16 +328,17 @@ static int kobject_uevent_net_broadcast(struct kobject *kobj,
+ 			skb_put_data(skb, env->buf, env->buflen);
+ 
+ 			NETLINK_CB(skb).dst_group = 1;
+-			retval = netlink_broadcast_filtered(uevent_sock, skb,
+-							    0, 1, GFP_KERNEL,
+-							    kobj_bcast_filter,
+-							    kobj);
+-			/* ENOBUFS should be handled in userspace */
+-			if (retval == -ENOBUFS || retval == -ESRCH)
+-				retval = 0;
+-		} else
+-			retval = -ENOMEM;
++		}
++
++		retval = netlink_broadcast_filtered(uevent_sock, skb_get(skb),
++						    0, 1, GFP_KERNEL,
++						    kobj_bcast_filter,
++						    kobj);
++		/* ENOBUFS should be handled in userspace */
++		if (retval == -ENOBUFS || retval == -ESRCH)
++			retval = 0;
+ 	}
++	consume_skb(skb);
+ #endif
+ 	return retval;
  }
- 
- static __net_initdata struct pernet_operations tcp_net_metrics_ops = {
--	.init	=	tcp_net_metrics_init,
--	.exit	=	tcp_net_metrics_exit,
-+	.init		=	tcp_net_metrics_init,
-+	.exit_batch	=	tcp_net_metrics_exit_batch,
- };
- 
- void __init tcp_metrics_init(void)
 -- 
 2.14.1.690.gbb1197296e-goog
