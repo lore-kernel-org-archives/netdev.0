@@ -1,43 +1,120 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] net: sk_buff rbnode reorg
-Date: Tue, 19 Sep 2017 15:20:37 -0700 (PDT)
-Message-ID: <20170919.152037.1699896657960145386.davem@davemloft.net>
-References: <1505797616.29839.40.camel@edumazet-glaptop3.roam.corp.google.com>
-        <1505823264.29839.54.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: [PATCH net] tcp: fastopen: fix on syn-data transmit failure
+Date: Tue, 19 Sep 2017 15:26:09 -0700
+Message-ID: <CAK6E8=dyqx=rs1jqN_7c3iwQcQTyCM8bcG_evkxXKvvsrCyb9A@mail.gmail.com>
+References: <1505840757.29839.77.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, soheil@google.com, weiwan@google.com,
-        willemb@google.com
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset="UTF-8"
+Cc: David Miller <davem@davemloft.net>,
+        Neal Cardwell <ncardwell@google.com>,
+        netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:48338 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751479AbdISWUi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 18:20:38 -0400
-In-Reply-To: <1505823264.29839.54.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-ua0-f180.google.com ([209.85.217.180]:50624 "EHLO
+        mail-ua0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751693AbdISW0v (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 18:26:51 -0400
+Received: by mail-ua0-f180.google.com with SMTP id g34so647492uah.7
+        for <netdev@vger.kernel.org>; Tue, 19 Sep 2017 15:26:51 -0700 (PDT)
+In-Reply-To: <1505840757.29839.77.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 19 Sep 2017 05:14:24 -0700
-
+On Tue, Sep 19, 2017 at 10:05 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
 > From: Eric Dumazet <edumazet@google.com>
-> 
-> skb->rbnode shares space with skb->next, skb->prev and skb->tstamp
-> 
-> Current uses (TCP receive ofo queue and netem) need to save/restore
-> tstamp, while skb->dev is either NULL (TCP) or a constant for a given
-> queue (netem).
->     
-> Since we plan using an RB tree for TCP retransmit queue to speedup SACK
-> processing with large BDP, this patch exchanges skb->dev and
-> skb->tstamp.
->     
-> This saves some overhead in both TCP and netem.
-> 
-> v2: removes the swtstamp field from struct tcp_skb_cb
->     
+>
+> Our recent change exposed a bug in TCP Fastopen Client that syzkaller
+> found right away [1]
+>
+> When we prepare skb with SYN+DATA, we attempt to transmit it,
+> and we update socket state as if the transmit was a success.
+>
+> In socket RTX queue we have two skbs, one with the SYN alone,
+> and a second one containing the DATA.
+>
+> When (malicious) ACK comes in, we now complain that second one had no
+> skb_mstamp.
+>
+> The proper fix is to make sure that if the transmit failed, we do not
+> pretend we sent the DATA skb, and make it our send_head.
+>
+> When 3WHS completes, we can now send the DATA right away, without having
+> to wait for a timeout.
+>
+> [1]
+> WARNING: CPU: 0 PID: 100189 at net/ipv4/tcp_input.c:3117 tcp_clean_rtx_queue+0x2057/0x2ab0 net/ipv4/tcp_input.c:3117()
+>
+>  WARN_ON_ONCE(last_ackt == 0);
+>
+> Modules linked in:
+> CPU: 0 PID: 100189 Comm: syz-executor1 Not tainted
+> Hardware name: Google Google Compute Engine/Google Compute Engine, BIOS Google 01/01/2011
+>  0000000000000000 ffff8800b35cb1d8 ffffffff81cad00d 0000000000000000
+>  ffffffff828a4347 ffff88009f86c080 ffffffff8316eb20 0000000000000d7f
+>  ffff8800b35cb220 ffffffff812c33c2 ffff8800baad2440 00000009d46575c0
+> Call Trace:
+>  [<ffffffff81cad00d>] __dump_stack
+>  [<ffffffff81cad00d>] dump_stack+0xc1/0x124
+>  [<ffffffff812c33c2>] warn_slowpath_common+0xe2/0x150
+>  [<ffffffff812c361e>] warn_slowpath_null+0x2e/0x40
+>  [<ffffffff828a4347>] tcp_clean_rtx_queue+0x2057/0x2ab0 n
+>  [<ffffffff828ae6fd>] tcp_ack+0x151d/0x3930
+>  [<ffffffff828baa09>] tcp_rcv_state_process+0x1c69/0x4fd0
+>  [<ffffffff828efb7f>] tcp_v4_do_rcv+0x54f/0x7c0
+>  [<ffffffff8258aacb>] sk_backlog_rcv
+>  [<ffffffff8258aacb>] __release_sock+0x12b/0x3a0
+>  [<ffffffff8258ad9e>] release_sock+0x5e/0x1c0
+>  [<ffffffff8294a785>] inet_wait_for_connect
+>  [<ffffffff8294a785>] __inet_stream_connect+0x545/0xc50
+>  [<ffffffff82886f08>] tcp_sendmsg_fastopen
+>  [<ffffffff82886f08>] tcp_sendmsg+0x2298/0x35a0
+>  [<ffffffff82952515>] inet_sendmsg+0xe5/0x520
+>  [<ffffffff8257152f>] sock_sendmsg_nosec
+>  [<ffffffff8257152f>] sock_sendmsg+0xcf/0x110
+>
+> Fixes: 8c72c65b426b ("tcp: update skb->skb_mstamp more carefully")
+> Fixes: 783237e8daf1 ("net-tcp: Fast Open client - sending SYN-data")
 > Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: Dmitry Vyukov <dvyukov@google.com>
+> Cc: Neal Cardwell <ncardwell@google.com>
+> Cc: Yuchung Cheng <ycheng@google.com>
+Acked-by: Yuchung Cheng <ycheng@google.com>
 
-Looks great, applied, thanks Eric.
+Thanks Eric for fixing this. The current arrangement of SYN plus data
+packet seems to cause more code for error cases. I am wondering a
+(subsequent) refactoring patch can make it simpler by updating the
+states after a successful transmission (instead of update and revert).
+
+> ---
+>  net/ipv4/tcp_output.c |    9 +++++++++
+>  1 file changed, 9 insertions(+)
+>
+> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+> index 517d737059d18d8821b65dcdf54d9bb3448784c2..0bc9e46a53696578eb6e911f2f75e6b34c80894f 100644
+> --- a/net/ipv4/tcp_output.c
+> +++ b/net/ipv4/tcp_output.c
+> @@ -3389,6 +3389,10 @@ static int tcp_send_syn_data(struct sock *sk, struct sk_buff *syn)
+>                 goto done;
+>         }
+>
+> +       /* data was not sent, this is our new send_head */
+> +       sk->sk_send_head = syn_data;
+> +       tp->packets_out -= tcp_skb_pcount(syn_data);
+> +
+>  fallback:
+>         /* Send a regular SYN with Fast Open cookie request option */
+>         if (fo->cookie.len > 0)
+> @@ -3441,6 +3445,11 @@ int tcp_connect(struct sock *sk)
+>          */
+>         tp->snd_nxt = tp->write_seq;
+>         tp->pushed_seq = tp->write_seq;
+> +       buff = tcp_send_head(sk);
+> +       if (unlikely(buff)) {
+> +               tp->snd_nxt     = TCP_SKB_CB(buff)->seq;
+> +               tp->pushed_seq  = TCP_SKB_CB(buff)->seq;
+> +       }
+>         TCP_INC_STATS(sock_net(sk), TCP_MIB_ACTIVEOPENS);
+>
+>         /* Timer for repeating the SYN until an answer. */
+>
+>
