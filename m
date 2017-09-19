@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 3/4] net: dsa: setup master ethtool after dsa_ptr
-Date: Tue, 19 Sep 2017 11:56:59 -0400
-Message-ID: <20170919155700.14474-4-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 1/4] net: dsa: remove copy of master ethtool_ops
+Date: Tue, 19 Sep 2017 11:56:57 -0400
+Message-ID: <20170919155700.14474-2-vivien.didelot@savoirfairelinux.com>
 References: <20170919155700.14474-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
@@ -9,112 +9,120 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         Andrew Lunn <andrew@lunn.ch>,
         Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:46196 "EHLO
-        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751343AbdISQAq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 12:00:46 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20170919155700.14474-1-vivien.didelot@savoirfairelinux.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-DSA overrides the master's ethtool ops so that we can inject its CPU
-port's statistics. Because of that, we need to setup the ethtool ops
-after the master's dsa_ptr pointer has been assigned, not before.
+There is no need to store a copy of the master ethtool ops, storing the
+original pointer in DSA and the new one in the master netdev itself is
+enough.
 
-This patch setups the ethtool ops after dsa_ptr is assigned, and
-restores them before it gets cleared.
+In the meantime, set orig_ethtool_ops to NULL when restoring the master
+ethtool ops and check the presence of the master original ethtool ops as
+well as its needed functions before calling them.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- net/dsa/dsa2.c   | 12 +++++++-----
- net/dsa/legacy.c | 10 +++-------
- 2 files changed, 10 insertions(+), 12 deletions(-)
+ include/net/dsa.h |  1 -
+ net/dsa/dsa.c     |  8 ++++----
+ net/dsa/slave.c   | 19 +++++++++++--------
+ 3 files changed, 15 insertions(+), 13 deletions(-)
 
-diff --git a/net/dsa/dsa2.c b/net/dsa/dsa2.c
-index bd19304f862f..032f8bc3e788 100644
---- a/net/dsa/dsa2.c
-+++ b/net/dsa/dsa2.c
-@@ -433,16 +433,17 @@ static int dsa_dst_apply(struct dsa_switch_tree *dst)
- 			return err;
- 	}
- 
--	err = dsa_cpu_port_ethtool_setup(dst->cpu_dp);
--	if (err)
--		return err;
--
- 	/* If we use a tagging format that doesn't have an ethertype
- 	 * field, make sure that all packets from this point on get
- 	 * sent to the tag format's receive function.
+diff --git a/include/net/dsa.h b/include/net/dsa.h
+index dd44d6ce1097..8dee216a5a9b 100644
+--- a/include/net/dsa.h
++++ b/include/net/dsa.h
+@@ -188,7 +188,6 @@ struct dsa_port {
+ 	/*
+ 	 * Original copy of the master netdev ethtool_ops
  	 */
- 	wmb();
- 	dst->cpu_dp->netdev->dsa_ptr = dst;
+-	struct ethtool_ops	ethtool_ops;
+ 	const struct ethtool_ops *orig_ethtool_ops;
+ };
+ 
+diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+index 03c58b0eb082..abadf7b49236 100644
+--- a/net/dsa/dsa.c
++++ b/net/dsa/dsa.c
+@@ -124,11 +124,10 @@ int dsa_cpu_port_ethtool_setup(struct dsa_port *cpu_dp)
+ 	if (!cpu_ops)
+ 		return -ENOMEM;
+ 
+-	memcpy(&cpu_dp->ethtool_ops, master->ethtool_ops,
+-	       sizeof(struct ethtool_ops));
+ 	cpu_dp->orig_ethtool_ops = master->ethtool_ops;
+-	memcpy(cpu_ops, &cpu_dp->ethtool_ops,
+-	       sizeof(struct ethtool_ops));
++	if (cpu_dp->orig_ethtool_ops)
++		memcpy(cpu_ops, cpu_dp->orig_ethtool_ops, sizeof(*cpu_ops));
 +
-+	err = dsa_cpu_port_ethtool_setup(dst->cpu_dp);
-+	if (err)
-+		return err;
-+
- 	dst->applied = true;
+ 	dsa_cpu_port_ethtool_init(cpu_ops);
+ 	master->ethtool_ops = cpu_ops;
  
- 	return 0;
-@@ -456,6 +457,8 @@ static void dsa_dst_unapply(struct dsa_switch_tree *dst)
- 	if (!dst->applied)
- 		return;
- 
-+	dsa_cpu_port_ethtool_restore(dst->cpu_dp);
-+
- 	dst->cpu_dp->netdev->dsa_ptr = NULL;
- 
- 	/* If we used a tagging format that doesn't have an ethertype
-@@ -472,7 +475,6 @@ static void dsa_dst_unapply(struct dsa_switch_tree *dst)
- 		dsa_ds_unapply(dst, ds);
- 	}
- 
--	dsa_cpu_port_ethtool_restore(dst->cpu_dp);
- 	dst->cpu_dp = NULL;
- 
- 	pr_info("DSA: tree %d unapplied\n", dst->tree);
-diff --git a/net/dsa/legacy.c b/net/dsa/legacy.c
-index 91e6f7981d39..163910699db7 100644
---- a/net/dsa/legacy.c
-+++ b/net/dsa/legacy.c
-@@ -206,10 +206,6 @@ static int dsa_switch_setup_one(struct dsa_switch *ds,
- 		netdev_err(master, "[%d] : can't configure CPU and DSA ports\n",
- 			   index);
- 
--	ret = dsa_cpu_port_ethtool_setup(ds->dst->cpu_dp);
--	if (ret)
--		return ret;
--
- 	return 0;
- }
- 
-@@ -606,7 +602,7 @@ static int dsa_setup_dst(struct dsa_switch_tree *dst, struct net_device *dev,
- 	wmb();
- 	dev->dsa_ptr = dst;
- 
--	return 0;
-+	return dsa_cpu_port_ethtool_setup(dst->cpu_dp);
- }
- 
- static int dsa_probe(struct platform_device *pdev)
-@@ -671,6 +667,8 @@ static void dsa_remove_dst(struct dsa_switch_tree *dst)
+@@ -138,6 +137,7 @@ int dsa_cpu_port_ethtool_setup(struct dsa_port *cpu_dp)
+ void dsa_cpu_port_ethtool_restore(struct dsa_port *cpu_dp)
  {
- 	int i;
- 
-+	dsa_cpu_port_ethtool_restore(dst->cpu_dp);
-+
- 	dst->cpu_dp->netdev->dsa_ptr = NULL;
- 
- 	/* If we used a tagging format that doesn't have an ethertype
-@@ -686,8 +684,6 @@ static void dsa_remove_dst(struct dsa_switch_tree *dst)
- 			dsa_switch_destroy(ds);
- 	}
- 
--	dsa_cpu_port_ethtool_restore(dst->cpu_dp);
--
- 	dev_put(dst->cpu_dp->netdev);
+ 	cpu_dp->netdev->ethtool_ops = cpu_dp->orig_ethtool_ops;
++	cpu_dp->orig_ethtool_ops = NULL;
  }
  
+ void dsa_cpu_dsa_destroy(struct dsa_port *port)
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index 2afa99506f8b..2ff4f907d137 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -574,12 +574,13 @@ static void dsa_cpu_port_get_ethtool_stats(struct net_device *dev,
+ 	struct dsa_switch_tree *dst = dev->dsa_ptr;
+ 	struct dsa_port *cpu_dp = dsa_get_cpu_port(dst);
+ 	struct dsa_switch *ds = cpu_dp->ds;
++	const struct ethtool_ops *ops = cpu_dp->orig_ethtool_ops;
+ 	s8 cpu_port = cpu_dp->index;
+ 	int count = 0;
+ 
+-	if (cpu_dp->ethtool_ops.get_sset_count) {
+-		count = cpu_dp->ethtool_ops.get_sset_count(dev, ETH_SS_STATS);
+-		cpu_dp->ethtool_ops.get_ethtool_stats(dev, stats, data);
++	if (ops && ops->get_sset_count && ops->get_ethtool_stats) {
++		count = ops->get_sset_count(dev, ETH_SS_STATS);
++		ops->get_ethtool_stats(dev, stats, data);
+ 	}
+ 
+ 	if (ds->ops->get_ethtool_stats)
+@@ -591,10 +592,11 @@ static int dsa_cpu_port_get_sset_count(struct net_device *dev, int sset)
+ 	struct dsa_switch_tree *dst = dev->dsa_ptr;
+ 	struct dsa_port *cpu_dp = dsa_get_cpu_port(dst);
+ 	struct dsa_switch *ds = cpu_dp->ds;
++	const struct ethtool_ops *ops = cpu_dp->orig_ethtool_ops;
+ 	int count = 0;
+ 
+-	if (cpu_dp->ethtool_ops.get_sset_count)
+-		count += cpu_dp->ethtool_ops.get_sset_count(dev, sset);
++	if (ops && ops->get_sset_count)
++		count += ops->get_sset_count(dev, sset);
+ 
+ 	if (sset == ETH_SS_STATS && ds->ops->get_sset_count)
+ 		count += ds->ops->get_sset_count(ds);
+@@ -608,6 +610,7 @@ static void dsa_cpu_port_get_strings(struct net_device *dev,
+ 	struct dsa_switch_tree *dst = dev->dsa_ptr;
+ 	struct dsa_port *cpu_dp = dsa_get_cpu_port(dst);
+ 	struct dsa_switch *ds = cpu_dp->ds;
++	const struct ethtool_ops *ops = cpu_dp->orig_ethtool_ops;
+ 	s8 cpu_port = cpu_dp->index;
+ 	int len = ETH_GSTRING_LEN;
+ 	int mcount = 0, count;
+@@ -619,9 +622,9 @@ static void dsa_cpu_port_get_strings(struct net_device *dev,
+ 	/* We do not want to be NULL-terminated, since this is a prefix */
+ 	pfx[sizeof(pfx) - 1] = '_';
+ 
+-	if (cpu_dp->ethtool_ops.get_sset_count) {
+-		mcount = cpu_dp->ethtool_ops.get_sset_count(dev, ETH_SS_STATS);
+-		cpu_dp->ethtool_ops.get_strings(dev, stringset, data);
++	if (ops && ops->get_sset_count && ops->get_strings) {
++		mcount = ops->get_sset_count(dev, ETH_SS_STATS);
++		ops->get_strings(dev, stringset, data);
+ 	}
+ 
+ 	if (stringset == ETH_SS_STATS && ds->ops->get_strings) {
 -- 
 2.14.1
