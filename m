@@ -1,227 +1,143 @@
 From: Tom Herbert <tom@quantonium.net>
-Subject: [PATCH net-next 01/14] iptunnel: Add common functions to get a tunnel route
-Date: Mon, 18 Sep 2017 17:38:51 -0700
-Message-ID: <20170919003904.5124-2-tom@quantonium.net>
+Subject: [PATCH net-next 03/14] gtp: Call common functions to get tunnel routes and add dst_cache
+Date: Mon, 18 Sep 2017 17:38:53 -0700
+Message-ID: <20170919003904.5124-4-tom@quantonium.net>
 References: <20170919003904.5124-1-tom@quantonium.net>
 Cc: netdev@vger.kernel.org, pablo@netfilter.org, laforge@gnumonks.org,
         rohit@quantonium.net, Tom Herbert <tom@quantonium.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f169.google.com ([209.85.192.169]:54195 "EHLO
+Received: from mail-pf0-f169.google.com ([209.85.192.169]:48467 "EHLO
         mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751016AbdISAjc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 20:39:32 -0400
-Received: by mail-pf0-f169.google.com with SMTP id x78so1102618pff.10
-        for <netdev@vger.kernel.org>; Mon, 18 Sep 2017 17:39:32 -0700 (PDT)
+        with ESMTP id S1751227AbdISAjj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 20:39:39 -0400
+Received: by mail-pf0-f169.google.com with SMTP id n24so1107405pfk.5
+        for <netdev@vger.kernel.org>; Mon, 18 Sep 2017 17:39:39 -0700 (PDT)
 In-Reply-To: <20170919003904.5124-1-tom@quantonium.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ip_tunnel_get_route and ip6_tnl_get_route are create to return
-routes for a tunnel. These functions are derived from the VXLAN
-functions.
+Call ip_tunnel_get_route and dst_cache to pdp context which should
+improve performance by obviating the need to perform a route lookup
+on every packet.
 
 Signed-off-by: Tom Herbert <tom@quantonium.net>
 ---
- include/net/ip6_tunnel.h | 33 +++++++++++++++++++++++++++++++++
- include/net/ip_tunnels.h | 33 +++++++++++++++++++++++++++++++++
- net/ipv4/ip_tunnel.c     | 41 +++++++++++++++++++++++++++++++++++++++++
- net/ipv6/ip6_tunnel.c    | 43 +++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 150 insertions(+)
+ drivers/net/gtp.c | 59 ++++++++++++++++++++++++++++++-------------------------
+ 1 file changed, 32 insertions(+), 27 deletions(-)
 
-diff --git a/include/net/ip6_tunnel.h b/include/net/ip6_tunnel.h
-index 08fbc7f7d8d7..233097bf07a2 100644
---- a/include/net/ip6_tunnel.h
-+++ b/include/net/ip6_tunnel.h
-@@ -142,6 +142,39 @@ __u32 ip6_tnl_get_cap(struct ip6_tnl *t, const struct in6_addr *laddr,
- struct net *ip6_tnl_get_link_net(const struct net_device *dev);
- int ip6_tnl_get_iflink(const struct net_device *dev);
- int ip6_tnl_change_mtu(struct net_device *dev, int new_mtu);
-+struct dst_entry *__ip6_tnl_get_route(struct net_device *dev,
-+				      struct sk_buff *skb, struct sock *sk,
-+				      u8 proto, int oif, u8 tos, __be32 label,
-+				      const struct in6_addr *daddr,
-+				      struct in6_addr *saddr,
-+				      __be16 dport, __be16 sport,
-+				      struct dst_cache *dst_cache,
-+				      const struct ip_tunnel_info *info,
-+				      bool use_cache);
-+
-+static inline struct dst_entry *ip6_tnl_get_route(struct net_device *dev,
-+			struct sk_buff *skb, struct sock *sk, u8 proto,
-+			int oif, u8 tos, __be32 label,
-+			const struct in6_addr *daddr,
-+			struct in6_addr *saddr,
-+			__be16 dport, __be16 sport,
-+			struct dst_cache *dst_cache,
-+			const struct ip_tunnel_info *info)
-+{
-+	 bool use_cache = (ip_tunnel_dst_cache_usable(skb, info) &&
-+		(!tos || info));
-+
-+	if (use_cache) {
-+		struct dst_entry *ndst = dst_cache_get_ip6(dst_cache, saddr);
-+
-+		if (ndst)
-+			return ndst;
-+	}
-+
-+	return __ip6_tnl_get_route(dev, skb, sk, proto, oif, tos, label,
-+				   daddr, saddr, dport, sport, dst_cache,
-+				   info, use_cache);
-+}
+diff --git a/drivers/net/gtp.c b/drivers/net/gtp.c
+index f38e32a7ec9c..95df3bcebbb2 100644
+--- a/drivers/net/gtp.c
++++ b/drivers/net/gtp.c
+@@ -63,6 +63,8 @@ struct pdp_ctx {
  
- static inline void ip6tunnel_xmit(struct sock *sk, struct sk_buff *skb,
- 				  struct net_device *dev)
-diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
-index 992652856fe8..91d5150a1044 100644
---- a/include/net/ip_tunnels.h
-+++ b/include/net/ip_tunnels.h
-@@ -284,6 +284,39 @@ int ip_tunnel_newlink(struct net_device *dev, struct nlattr *tb[],
- 		      struct ip_tunnel_parm *p, __u32 fwmark);
- void ip_tunnel_setup(struct net_device *dev, unsigned int net_id);
+ 	atomic_t		tx_seq;
+ 	struct rcu_head		rcu_head;
++
++	struct dst_cache	dst_cache;
+ };
  
-+struct rtable *__ip_tunnel_get_route(struct net_device *dev,
-+				     struct sk_buff *skb, u8 proto,
-+				     int oif, u8 tos,
-+				     __be32 daddr, __be32 *saddr,
-+				     __be16 dport, __be16 sport,
-+				     struct dst_cache *dst_cache,
-+				     const struct ip_tunnel_info *info,
-+				     bool use_cache);
-+
-+static inline struct rtable *ip_tunnel_get_route(struct net_device *dev,
-+				     struct sk_buff *skb, u8 proto,
-+				     int oif, u8 tos,
-+				     __be32 daddr, __be32 *saddr,
-+				     __be16 dport, __be16 sport,
-+				     struct dst_cache *dst_cache,
-+				     const struct ip_tunnel_info *info)
-+{
-+	bool use_cache = (ip_tunnel_dst_cache_usable(skb, info) &&
-+		(!tos || info));
-+
-+	if (use_cache) {
-+		struct rtable *rt;
-+
-+		rt = dst_cache_get_ip4(dst_cache, saddr);
-+		if (rt)
-+			return rt;
-+	}
-+
-+	return __ip_tunnel_get_route(dev, skb, proto, oif, tos,
-+				     daddr, saddr, dport, sport,
-+				     dst_cache, info, use_cache);
-+}
-+
- struct ip_tunnel_encap_ops {
- 	size_t (*encap_hlen)(struct ip_tunnel_encap *e);
- 	int (*build_header)(struct sk_buff *skb, struct ip_tunnel_encap *e,
-diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
-index e9805ad664ac..f0f35333febd 100644
---- a/net/ipv4/ip_tunnel.c
-+++ b/net/ipv4/ip_tunnel.c
-@@ -935,6 +935,47 @@ int ip_tunnel_ioctl(struct net_device *dev, struct ip_tunnel_parm *p, int cmd)
+ /* One instance of the GTP device. */
+@@ -379,20 +381,6 @@ static void gtp_dev_uninit(struct net_device *dev)
+ 	free_percpu(dev->tstats);
  }
- EXPORT_SYMBOL_GPL(ip_tunnel_ioctl);
  
-+struct rtable *__ip_tunnel_get_route(struct net_device *dev,
-+				     struct sk_buff *skb, u8 proto,
-+				    int oif, u8 tos,
-+				     __be32 daddr, __be32 *saddr,
-+				     __be16 dport, __be16 sport,
-+				     struct dst_cache *dst_cache,
-+				     const struct ip_tunnel_info *info,
-+				     bool use_cache)
-+{
-+	struct rtable *rt = NULL;
-+	struct flowi4 fl4;
-+
-+	memset(&fl4, 0, sizeof(fl4));
-+	fl4.flowi4_oif = oif;
-+	fl4.flowi4_tos = RT_TOS(tos);
-+	fl4.flowi4_mark = skb->mark;
-+	fl4.flowi4_proto = proto;
-+	fl4.daddr = daddr;
-+	fl4.saddr = *saddr;
-+	fl4.fl4_dport = dport;
-+	fl4.fl4_sport = sport;
-+
-+	rt = ip_route_output_key(dev_net(dev), &fl4);
-+	if (likely(!IS_ERR(rt))) {
-+		if (rt->dst.dev == dev) {
-+			netdev_dbg(dev, "circular route to %pI4\n", &daddr);
-+			ip_rt_put(rt);
-+			return ERR_PTR(-ELOOP);
-+		}
-+
-+		*saddr = fl4.saddr;
-+		if (use_cache)
-+			dst_cache_set_ip4(dst_cache, &rt->dst, fl4.saddr);
-+	} else {
-+		netdev_dbg(dev, "no route to %pI4\n", &daddr);
-+		return ERR_PTR(-ENETUNREACH);
-+	}
-+	return rt;
-+}
-+EXPORT_SYMBOL_GPL(__ip_tunnel_get_route);
-+
- int __ip_tunnel_change_mtu(struct net_device *dev, int new_mtu, bool strict)
+-static struct rtable *ip4_route_output_gtp(struct flowi4 *fl4,
+-					   const struct sock *sk,
+-					   __be32 daddr)
+-{
+-	memset(fl4, 0, sizeof(*fl4));
+-	fl4->flowi4_oif		= sk->sk_bound_dev_if;
+-	fl4->daddr		= daddr;
+-	fl4->saddr		= inet_sk(sk)->inet_saddr;
+-	fl4->flowi4_tos		= RT_CONN_FLAGS(sk);
+-	fl4->flowi4_proto	= sk->sk_protocol;
+-
+-	return ip_route_output_key(sock_net(sk), fl4);
+-}
+-
+ static inline void gtp0_push_header(struct sk_buff *skb, struct pdp_ctx *pctx)
  {
- 	struct ip_tunnel *tunnel = netdev_priv(dev);
-diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
-index ae73164559d5..9a02b62c808b 100644
---- a/net/ipv6/ip6_tunnel.c
-+++ b/net/ipv6/ip6_tunnel.c
-@@ -1663,6 +1663,49 @@ ip6_tnl_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- 	return err;
- }
+ 	int payload_len = skb->len;
+@@ -479,6 +467,8 @@ static int gtp_build_skb_ip4(struct sk_buff *skb, struct net_device *dev,
+ 	struct rtable *rt;
+ 	struct flowi4 fl4;
+ 	struct iphdr *iph;
++	struct sock *sk;
++	__be32 saddr;
+ 	__be16 df;
+ 	int mtu;
  
-+struct dst_entry *__ip6_tnl_get_route(struct net_device *dev,
-+				      struct sk_buff *skb, struct sock *sk,
-+				      u8 proto, int oif, u8 tos, __be32 label,
-+				      const struct in6_addr *daddr,
-+				      struct in6_addr *saddr,
-+				      __be16 dport, __be16 sport,
-+				      struct dst_cache *dst_cache,
-+				      const struct ip_tunnel_info *info,
-+				      bool use_cache)
-+{
-+	struct dst_entry *ndst;
-+	struct flowi6 fl6;
+@@ -498,19 +488,27 @@ static int gtp_build_skb_ip4(struct sk_buff *skb, struct net_device *dev,
+ 	}
+ 	netdev_dbg(dev, "found PDP context %p\n", pctx);
+ 
+-	rt = ip4_route_output_gtp(&fl4, pctx->sk, pctx->peer_addr_ip4.s_addr);
+-	if (IS_ERR(rt)) {
+-		netdev_dbg(dev, "no route to SSGN %pI4\n",
+-			   &pctx->peer_addr_ip4.s_addr);
+-		dev->stats.tx_carrier_errors++;
+-		goto err;
+-	}
++	sk = pctx->sk;
++	saddr = inet_sk(sk)->inet_saddr;
+ 
+-	if (rt->dst.dev == dev) {
+-		netdev_dbg(dev, "circular route to SSGN %pI4\n",
+-			   &pctx->peer_addr_ip4.s_addr);
+-		dev->stats.collisions++;
+-		goto err_rt;
++	rt = ip_tunnel_get_route(dev, skb, sk->sk_protocol,
++				 sk->sk_bound_dev_if, RT_CONN_FLAGS(sk),
++				 pctx->peer_addr_ip4.s_addr, &saddr,
++				 pktinfo->gtph_port, pktinfo->gtph_port,
++				 &pctx->dst_cache, NULL);
++
++	if (IS_ERR(rt)) {
++		if (rt == ERR_PTR(-ELOOP)) {
++			netdev_dbg(dev, "circular route to SSGN %pI4\n",
++				   &pctx->peer_addr_ip4.s_addr);
++			dev->stats.collisions++;
++			goto err_rt;
++		} else {
++			netdev_dbg(dev, "no route to SSGN %pI4\n",
++				   &pctx->peer_addr_ip4.s_addr);
++			dev->stats.tx_carrier_errors++;
++			goto err;
++		}
+ 	}
+ 
+ 	skb_dst_drop(skb);
+@@ -543,7 +541,7 @@ static int gtp_build_skb_ip4(struct sk_buff *skb, struct net_device *dev,
+ 		goto err_rt;
+ 	}
+ 
+-	gtp_set_pktinfo_ipv4(pktinfo, pctx->sk, iph, pctx, rt, &fl4, dev);
++	gtp_set_pktinfo_ipv4(pktinfo, sk, iph, pctx, rt, &fl4, dev);
+ 	gtp_push_header(skb, pktinfo);
+ 
+ 	return 0;
+@@ -917,6 +915,7 @@ static int ipv4_pdp_add(struct gtp_dev *gtp, struct sock *sk,
+ 	struct pdp_ctx *pctx;
+ 	bool found = false;
+ 	__be32 ms_addr;
 +	int err;
-+
-+	memset(&fl6, 0, sizeof(fl6));
-+	fl6.flowi6_oif = oif;
-+	fl6.daddr = *daddr;
-+	fl6.saddr = *saddr;
-+	fl6.flowlabel = ip6_make_flowinfo(RT_TOS(tos), label);
-+	fl6.flowi6_mark = skb->mark;
-+	fl6.flowi6_proto = proto;
-+	fl6.fl6_dport = dport;
-+	fl6.fl6_sport = sport;
-+
-+	err = ipv6_stub->ipv6_dst_lookup(dev_net(dev), sk, &ndst, &fl6);
-+	if (unlikely(err < 0)) {
-+		netdev_dbg(dev, "no route to %pI6\n", daddr);
-+		return ERR_PTR(-ENETUNREACH);
+ 
+ 	ms_addr = nla_get_be32(info->attrs[GTPA_MS_ADDRESS]);
+ 	hash_ms = ipv4_hashfn(ms_addr) % gtp->hash_size;
+@@ -951,6 +950,12 @@ static int ipv4_pdp_add(struct gtp_dev *gtp, struct sock *sk,
+ 	if (pctx == NULL)
+ 		return -ENOMEM;
+ 
++	err = dst_cache_init(&pctx->dst_cache, GFP_KERNEL);
++	if (err) {
++		kfree(pctx);
++		return err;
 +	}
 +
-+	if (unlikely(ndst->dev == dev)) {
-+		netdev_dbg(dev, "circular route to %pI6\n", daddr);
-+		dst_release(ndst);
-+		return ERR_PTR(-ELOOP);
-+	}
-+
-+	*saddr = fl6.saddr;
-+	if (use_cache)
-+		dst_cache_set_ip6(dst_cache, ndst, saddr);
-+	return ndst;
-+}
-+EXPORT_SYMBOL_GPL(__ip6_tnl_get_route);
-+
- /**
-  * ip6_tnl_change_mtu - change mtu manually for tunnel device
-  *   @dev: virtual device associated with tunnel
+ 	sock_hold(sk);
+ 	pctx->sk = sk;
+ 	pctx->dev = gtp->dev;
 -- 
 2.11.0
