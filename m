@@ -1,108 +1,121 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: RFC: Audit Kernel Container IDs
-Date: Mon, 18 Sep 2017 21:45:19 -0500
-Message-ID: <87wp4v76f4.fsf@xmission.com>
-References: <20170913171328.GP3405@madcap2.tricolour.ca>
-        <87d16tb2y5.fsf@xmission.com>
-        <20170914180704.GU3405@madcap2.tricolour.ca>
+From: Hangbin Liu <liuhangbin@gmail.com>
+Subject: Re: [PATCHv2 iproute2 1/2] lib/libnetlink: re malloc buff if size is
+ not enough
+Date: Tue, 19 Sep 2017 11:05:20 +0800
+Message-ID: <20170919030520.GL5465@leo.usersys.redhat.com>
+References: <1505296780-8444-1-git-send-email-liuhangbin@gmail.com>
+ <1505296780-8444-2-git-send-email-liuhangbin@gmail.com>
+ <20170918075504.gdx4q7je5uneefgg@unicorn.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: cgroups@vger.kernel.org,
-        Linux Containers <containers@lists.linux-foundation.org>,
-        Linux API <linux-api@vger.kernel.org>,
-        Linux Audit <linux-audit@redhat.com>,
-        Linux FS Devel <linux-fsdevel@vger.kernel.org>,
-        Linux Kernel <linux-kernel@vger.kernel.org>,
-        Linux Network Development <netdev@vger.kernel.org>,
-        Aristeu Rozanski <arozansk@redhat.com>,
-        David Howells <dhowells@redhat.com>,
-        Eric Paris <eparis@parisplace.org>, jlayton@redhat.com,
-        Andy Lutomirski <luto@kernel.org>, mszeredi@redhat.com,
-        Paul Moore <pmoore@redhat.com>,
-        "Serge E. Hallyn" <serge@hallyn.com>,
-        Steve Grubb <sgrubb@redhat.com>, trondmy@primarydata.com,
-        Al Viro <viro@zeniv.linux.org.uk>
-To: Richard Guy Briggs <rgb@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170914180704.GU3405@madcap2.tricolour.ca> (Richard Guy
-        Briggs's message of "Thu, 14 Sep 2017 14:07:04 -0400")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        Phil Sutter <phil@nwl.cc>
+To: Michal Kubecek <mkubecek@suse.cz>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:37134 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750921AbdISDFb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 23:05:31 -0400
+Received: by mail-pg0-f66.google.com with SMTP id v5so1276840pgn.4
+        for <netdev@vger.kernel.org>; Mon, 18 Sep 2017 20:05:31 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20170918075504.gdx4q7je5uneefgg@unicorn.suse.cz>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Richard Guy Briggs <rgb@redhat.com> writes:
+Hi Michal,
 
-> On 2017-09-14 12:33, Eric W. Biederman wrote:
->> Richard Guy Briggs <rgb@redhat.com> writes:
->> 
->> > The trigger is a pseudo filesystem (proc, since PID tree already exists)
->> > write of a u64 representing the container ID to a file representing a
->> > process that will become the first process in a new container.
->> > This might place restrictions on mount namespaces required to define a
->> > container, or at least careful checking of namespaces in the kernel to
->> > verify permissions of the orchestrator so it can't change its own
->> > container ID.
->> 
->> Why a u64?
->
-> u32 will roll too quickly.  UUID is large enough that it adds
-> significantly to audit record bandwidth.  I'd prefer u64, but can look
-> at the difference of accommodating a UUID...
+On Mon, Sep 18, 2017 at 09:55:05AM +0200, Michal Kubecek wrote:
+> > +static int rtnl_recvmsg(int fd, struct msghdr *msg, char **answer)
+> > +{
+> > +	struct iovec *iov;
+> > +	int len = -1, buf_len = 32768;
+> > +	char *bufp, *buf = NULL;
+> > +
+> > +	int flag = MSG_PEEK | MSG_TRUNC;
+> > +
+> > +realloc:
+> > +	bufp = realloc(buf, buf_len);
+> > +
+> > +	if (bufp == NULL) {
+> > +		fprintf(stderr, "malloc error: not enough buffer\n");
+> > +		free(buf);
+> > +		return -ENOMEM;
+> > +	}
+> > +	buf = bufp;
+> > +	iov = msg->msg_iov;
+> > +	iov->iov_base = buf;
+> > +	iov->iov_len = buf_len;
+> > +
+> > +recv:
+> > +	len = recvmsg(fd, msg, flag);
+> > +
+> > +	if (len < 0) {
+> > +		if (errno == EINTR || errno == EAGAIN)
+> > +			goto recv;
+> > +		fprintf(stderr, "netlink receive error %s (%d)\n",
+> > +			strerror(errno), errno);
+> 
+> free(buf);
+> 
+> > +		return len;
+> 
+> Maybe we should return -errno (saved before calling fprintf()) to be
+> consistent.
+> 
+> > +	}
+> > +
+> > +	if (len == 0) {
+> > +		fprintf(stderr, "EOF on netlink\n");
+> 
+> free(buf);
 
-I was imagining a string might be better.  As for the purposes of audit
-it is just a byte string you regurgitate.
+Will fix these three issues.
 
->> Why a proc filesystem write and not a magic audit message?
->
-> A magic audit message requires CAP_AUDIT_WRITE, which we'd like to use
-> sparingly.  Given that orchestrators will already require it to send
-> the mandatory AUDIT_VIRT_*, this doesn't seem like an unreasonable burden.
->
-> I was originally leaning towards an audit message trigger or a syscall.
->
->> I don't like the fact that the proc filesystem entry is likely going to
->> be readable and abusable by non-audit contexts?
->
-> This proposal wasn't going to start with that link being readable, but
-> its filesystem structure and link names would be, perhaps giving away
-> too much already.
->
-> I think we will need to find a way for the orchestrator or one of its
-> authorized agents to read this information while blocking reads from
-> unauthorized agents, otherwise this would be of very limited use.
+> > @@ -471,19 +516,23 @@ int rtnl_dump_filter_l(struct rtnl_handle *rth,
+> >  
+> >  				if (h->nlmsg_type == NLMSG_ERROR) {
+> >  					rtnl_dump_error(rth, h);
+> > +					free(buf);
+> >  					return -1;
+> >  				}
+> >  
+> >  				if (!rth->dump_fp) {
+> >  					err = a->filter(&nladdr, h, a->arg1);
+> > -					if (err < 0)
+> > +					if (err < 0) {
+> > +						free(buf);
+> >  						return err;
+> > +					}
+> >  				}
+> >  
+> >  skip_it:
+> >  				h = NLMSG_NEXT(h, msglen);
+> >  			}
+> >  		}
+> > +		free(buf);
+> 
+> We only free the last buffer returned by rtnl_recvmsg() this way. IMHO
+> this free(buf) should be moved inside the loop.
 
-Something that is set only for future audit messages seems reasonable.
-Once you start reading this from something other than audit messages I
-get neverous, that people will use this beyond audit for things it is
-not intended for.
+Do you mean the outside while loop or the for loop? I think we could not put
+it inside the for loop, because we may need the buf multi times based on arg.
 
->> Why the ability to change the containerid?  What is the use case you are
->> thinking of there?
->
-> This was covered in the end of the conversation with Paul Moore (that
-> maybe you got tired reading?)
+	while (1) {
+		status = rtnl_recvmsg(rth->fd, &msg, &buf);
 
-I have not had time to review everything.  As I was busy preparing for my
-wedding and am now in the middle of my honeymoon.
+		for (a = arg; a->filter; a++) {
+			struct nlmsghdr *h = (struct nlmsghdr *)buf;
+			while (NLMSG_OK(h, msglen)) {
+				[...]
+skip_it:
+				h = NLMSG_NEXT(h, msglen);
+			}
+		}
+		free(buf);
+		[...]
+	}
 
-> I'd originally proposed having it write
-> once, but Paul figured there was no good reason to restrict it and leave
-> that decision up to the orchestrator.  The use case would be adding
-> other processes to a container, but it could be argued all additional
-> processes should be spawned by the first process in a container.
-
-I see two cases here:
-a) Nested containers
-b) Inject processes via something like nsenter into a container.
-
-In case a) you have to figure out what to do with nested containers
-and that does seem to be a legitimate case for a double write.  Arguably
-with the restriction that you must specify a more nested label.
-
-In case b) which you seem to be referring to it would be a process
-created by the container manager outside the container that has no
-container label.  At which point there is not a need for a double write.
-
-So my recommendation is to not support double writes until you support
-nested containers.
-
-Eric
+Thanks
+Hangbin
