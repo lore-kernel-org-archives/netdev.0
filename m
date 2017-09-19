@@ -1,7 +1,7 @@
 From: Petar Penkov <peterpenkov96@gmail.com>
-Subject: [PATCH,net-next,1/2] tun: enable NAPI for TUN/TAP driver
-Date: Tue, 19 Sep 2017 00:34:01 -0700
-Message-ID: <20170919073402.2292-2-peterpenkov96@gmail.com>
+Subject: [PATCH,net-next,2/2] tun: enable napi_gro_frags() for TUN/TAP driver
+Date: Tue, 19 Sep 2017 00:34:02 -0700
+Message-ID: <20170919073402.2292-3-peterpenkov96@gmail.com>
 References: <20170919073402.2292-1-peterpenkov96@gmail.com>
 Cc: Petar Penkov <peterpenkov96@gmail.com>,
         Eric Dumazet <edumazet@google.com>,
@@ -10,30 +10,30 @@ Cc: Petar Penkov <peterpenkov96@gmail.com>,
         ppenkov@stanford.edu
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:34899 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751009AbdISHeJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 03:34:09 -0400
-Received: by mail-pf0-f194.google.com with SMTP id i23so1182489pfi.2
-        for <netdev@vger.kernel.org>; Tue, 19 Sep 2017 00:34:09 -0700 (PDT)
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:37322 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750747AbdISHeL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 03:34:11 -0400
+Received: by mail-pf0-f193.google.com with SMTP id e69so1178657pfg.4
+        for <netdev@vger.kernel.org>; Tue, 19 Sep 2017 00:34:10 -0700 (PDT)
 In-Reply-To: <20170919073402.2292-1-peterpenkov96@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Changes TUN driver to use napi_gro_receive() upon receiving packets
-rather than netif_rx_ni(). Adds flag CONFIG_TUN_NAPI that enables
-these changes and operation is not affected if the flag is disabled.
-SKBs are constructed upon packet arrival and are queued to be
-processed later.
+Add a TUN/TAP receive mode that exercises the napi_gro_frags()
+interface. This mode is available only in TAP mode, as the interface
+expects packets with Ethernet headers.
 
-The new path was evaluated with a benchmark with the following setup:
-Open two tap devices and a receiver thread that reads in a loop for
-each device. Start one sender thread and pin all threads to different
-CPUs. Send 1M minimum UDP packets to each device and measure sending
-time for each of the sending methods:
-	napi_gro_receive():	4.90s
-	netif_rx_ni():		4.90s
-	netif_receive_skb():	7.20s
+Furthermore, packets follow the layout of the iovec_iter that was
+received. The first iovec is the linear data, and every one after the
+first is a fragment. If there are more fragments than the max number,
+drop the packet. Additionally, invoke eth_get_headlen() to exercise flow
+dissector code and to verify that the header resides in the linear data.
+
+The napi_gro_frags() mode requires setting the IFF_NAPI_FRAGS option.
+This is imposed because this mode is intended for testing via tools like
+syzkaller and packetdrill, and the increased flexibility it provides can
+introduce security vulnerabilities.
 
 Signed-off-by: Petar Penkov <peterpenkov96@gmail.com>
 Cc: Eric Dumazet <edumazet@google.com>
@@ -42,214 +42,276 @@ Cc: Willem de Bruijn <willemb@google.com>
 Cc: davem@davemloft.net
 Cc: ppenkov@stanford.edu
 ---
- drivers/net/Kconfig |   8 ++++
- drivers/net/tun.c   | 120 +++++++++++++++++++++++++++++++++++++++++++++++-----
- 2 files changed, 118 insertions(+), 10 deletions(-)
+ drivers/net/tun.c           | 135 ++++++++++++++++++++++++++++++++++++++++++--
+ include/uapi/linux/if_tun.h |   1 +
+ 2 files changed, 130 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index aba0d652095b..0176264b1e70 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -307,6 +307,14 @@ config TAP
- 	  This option is selected by any driver implementing tap user space
- 	  interface for a virtual interface to re-use core tap functionality.
- 
-+config TUN_NAPI
-+	bool "NAPI support on tx path for TUN/TAP driver"
-+	default n
-+	depends on TUN
-+	---help---
-+	  This option allows the TUN/TAP driver to use NAPI to pass packets to
-+	  the kernel when receiving packets from user space via write()/send().
-+
- config TUN_VNET_CROSS_LE
- 	bool "Support for cross-endian vnet headers on little-endian kernels"
- 	default n
 diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 3c9985f29950..46cca1094c91 100644
+index 46cca1094c91..ebe0d7dc7de6 100644
 --- a/drivers/net/tun.c
 +++ b/drivers/net/tun.c
-@@ -172,6 +172,7 @@ struct tun_file {
- 		u16 queue_index;
+@@ -75,6 +75,7 @@
+ #include <linux/skb_array.h>
+ #include <linux/bpf.h>
+ #include <linux/bpf_trace.h>
++#include <linux/mutex.h>
+ 
+ #include <linux/uaccess.h>
+ 
+@@ -120,8 +121,15 @@ do {								\
+ #define TUN_VNET_LE     0x80000000
+ #define TUN_VNET_BE     0x40000000
+ 
++#if IS_ENABLED(CONFIG_TUN_NAPI)
++#define TUN_FEATURES_EXTRA IFF_NAPI_FRAGS
++#else
++#define TUN_FEATURES_EXTRA 0
++#endif
++
+ #define TUN_FEATURES (IFF_NO_PI | IFF_ONE_QUEUE | IFF_VNET_HDR | \
+-		      IFF_MULTI_QUEUE)
++		      IFF_MULTI_QUEUE | TUN_FEATURES_EXTRA)
++
+ #define GOODCOPY_LEN 128
+ 
+ #define FLT_EXACT_COUNT 8
+@@ -173,6 +181,7 @@ struct tun_file {
  		unsigned int ifindex;
  	};
-+	struct napi_struct napi;
+ 	struct napi_struct napi;
++	struct mutex napi_mutex;	/* Protects access to the above napi */
  	struct list_head next;
  	struct tun_struct *detached;
  	struct skb_array tx_array;
-@@ -229,6 +230,67 @@ struct tun_struct {
- 	struct bpf_prog __rcu *xdp_prog;
- };
+@@ -276,6 +285,7 @@ static void tun_napi_init(struct tun_struct *tun, struct tun_file *tfile)
+ 		netif_napi_add(tun->dev, &tfile->napi, tun_napi_poll,
+ 			       NAPI_POLL_WEIGHT);
+ 		napi_enable(&tfile->napi);
++		mutex_init(&tfile->napi_mutex);
+ 	}
+ }
  
-+static int tun_napi_receive(struct napi_struct *napi, int budget)
+@@ -291,6 +301,11 @@ static void tun_napi_del(struct tun_file *tfile)
+ 		netif_napi_del(&tfile->napi);
+ }
+ 
++static bool tun_napi_frags_enabled(const struct tun_struct *tun)
 +{
-+	struct tun_file *tfile = container_of(napi, struct tun_file, napi);
-+	struct sk_buff_head *queue = &tfile->sk.sk_write_queue;
-+	struct sk_buff_head process_queue;
-+	struct sk_buff *skb;
-+	int received = 0;
-+
-+	__skb_queue_head_init(&process_queue);
-+
-+	spin_lock(&queue->lock);
-+	skb_queue_splice_tail_init(queue, &process_queue);
-+	spin_unlock(&queue->lock);
-+
-+	while (received < budget && (skb = __skb_dequeue(&process_queue))) {
-+		napi_gro_receive(napi, skb);
-+		++received;
-+	}
-+
-+	if (!skb_queue_empty(&process_queue)) {
-+		spin_lock(&queue->lock);
-+		skb_queue_splice(&process_queue, queue);
-+		spin_unlock(&queue->lock);
-+	}
-+
-+	return received;
-+}
-+
-+static int tun_napi_poll(struct napi_struct *napi, int budget)
-+{
-+	unsigned int received;
-+
-+	received = tun_napi_receive(napi, budget);
-+
-+	if (received < budget)
-+		napi_complete_done(napi, received);
-+
-+	return received;
-+}
-+
-+static void tun_napi_init(struct tun_struct *tun, struct tun_file *tfile)
-+{
-+	if (IS_ENABLED(CONFIG_TUN_NAPI)) {
-+		netif_napi_add(tun->dev, &tfile->napi, tun_napi_poll,
-+			       NAPI_POLL_WEIGHT);
-+		napi_enable(&tfile->napi);
-+	}
-+}
-+
-+static void tun_napi_disable(struct tun_file *tfile)
-+{
-+	if (IS_ENABLED(CONFIG_TUN_NAPI))
-+		napi_disable(&tfile->napi);
-+}
-+
-+static void tun_napi_del(struct tun_file *tfile)
-+{
-+	if (IS_ENABLED(CONFIG_TUN_NAPI))
-+		netif_napi_del(&tfile->napi);
++	return READ_ONCE(tun->flags) & IFF_NAPI_FRAGS;
 +}
 +
  #ifdef CONFIG_TUN_VNET_CROSS_LE
  static inline bool tun_legacy_is_little_endian(struct tun_struct *tun)
  {
-@@ -541,6 +603,11 @@ static void __tun_detach(struct tun_file *tfile, bool clean)
- 
- 	tun = rtnl_dereference(tfile->tun);
- 
-+	if (tun && clean) {
-+		tun_napi_disable(tfile);
-+		tun_napi_del(tfile);
-+	}
-+
- 	if (tun && !tfile->detached) {
- 		u16 index = tfile->queue_index;
- 		BUG_ON(index >= tun->numqueues);
-@@ -598,6 +665,7 @@ static void tun_detach_all(struct net_device *dev)
- 	for (i = 0; i < n; i++) {
- 		tfile = rtnl_dereference(tun->tfiles[i]);
- 		BUG_ON(!tfile);
-+		tun_napi_disable(tfile);
- 		tfile->socket.sk->sk_shutdown = RCV_SHUTDOWN;
- 		tfile->socket.sk->sk_data_ready(tfile->socket.sk);
- 		RCU_INIT_POINTER(tfile->tun, NULL);
-@@ -613,6 +681,7 @@ static void tun_detach_all(struct net_device *dev)
- 	synchronize_net();
- 	for (i = 0; i < n; i++) {
- 		tfile = rtnl_dereference(tun->tfiles[i]);
-+		tun_napi_del(tfile);
- 		/* Drop read queue */
- 		tun_queue_purge(tfile);
- 		sock_put(&tfile->sk);
-@@ -677,10 +746,12 @@ static int tun_attach(struct tun_struct *tun, struct file *file, bool skip_filte
- 	rcu_assign_pointer(tun->tfiles[tun->numqueues], tfile);
- 	tun->numqueues++;
- 
--	if (tfile->detached)
-+	if (tfile->detached) {
- 		tun_enable_queue(tfile);
--	else
-+	} else {
- 		sock_hold(&tfile->sk);
-+		tun_napi_init(tun, tfile);
-+	}
- 
- 	tun_set_real_num_queues(tun);
- 
-@@ -956,13 +1027,28 @@ static void tun_poll_controller(struct net_device *dev)
- 	 * Tun only receives frames when:
- 	 * 1) the char device endpoint gets data from user space
- 	 * 2) the tun socket gets a sendmsg call from user space
--	 * Since both of those are synchronous operations, we are guaranteed
--	 * never to have pending data when we poll for it
--	 * so there is nothing to do here but return.
-+	 * If NAPI is not enabled, since both of those are synchronous
-+	 * operations, we are guaranteed never to have pending data when we poll
-+	 * for it so there is nothing to do here but return.
- 	 * We need this though so netpoll recognizes us as an interface that
+@@ -1034,7 +1049,8 @@ static void tun_poll_controller(struct net_device *dev)
  	 * supports polling, which enables bridge devices in virt setups to
  	 * still use netconsole
-+	 * If NAPI is enabled, however, we need to schedule polling for all
-+	 * queues.
+ 	 * If NAPI is enabled, however, we need to schedule polling for all
+-	 * queues.
++	 * queues unless we are using napi_gro_frags(), which we call in
++	 * process context and not in NAPI context.
  	 */
+ 
+ 	if (IS_ENABLED(CONFIG_TUN_NAPI)) {
+@@ -1042,6 +1058,9 @@ static void tun_poll_controller(struct net_device *dev)
+ 		struct tun_file *tfile;
+ 		int i;
+ 
++		if (tun_napi_frags_enabled(tun))
++			return;
 +
-+	if (IS_ENABLED(CONFIG_TUN_NAPI)) {
-+		struct tun_struct *tun = netdev_priv(dev);
-+		struct tun_file *tfile;
-+		int i;
-+
-+		rcu_read_lock();
-+		for (i = 0; i < tun->numqueues; i++) {
-+			tfile = rcu_dereference(tun->tfiles[i]);
-+			napi_schedule(&tfile->napi);
-+		}
-+		rcu_read_unlock();
-+	}
- 	return;
+ 		rcu_read_lock();
+ 		for (i = 0; i < tun->numqueues; i++) {
+ 			tfile = rcu_dereference(tun->tfiles[i]);
+@@ -1264,6 +1283,64 @@ static unsigned int tun_chr_poll(struct file *file, poll_table *wait)
+ 	return mask;
  }
- #endif
-@@ -1549,11 +1635,25 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 
++static struct sk_buff *tun_napi_alloc_frags(struct tun_file *tfile,
++					    size_t len,
++					    const struct iov_iter *it)
++{
++	struct sk_buff *skb;
++	size_t linear;
++	int err;
++	int i;
++
++	if (it->nr_segs > MAX_SKB_FRAGS + 1)
++		return ERR_PTR(-ENOMEM);
++
++	local_bh_disable();
++	skb = napi_get_frags(&tfile->napi);
++	local_bh_enable();
++	if (!skb)
++		return ERR_PTR(-ENOMEM);
++
++	linear = iov_iter_single_seg_count(it);
++	err = __skb_grow(skb, linear);
++	if (err)
++		goto free;
++
++	skb->len = len;
++	skb->data_len = len - linear;
++	skb->truesize += skb->data_len;
++
++	for (i = 1; i < it->nr_segs; i++) {
++		size_t fragsz = it->iov[i].iov_len;
++		unsigned long offset;
++		struct page *page;
++		void *data;
++
++		if (fragsz == 0 || fragsz > PAGE_SIZE) {
++			err = -EINVAL;
++			goto free;
++		}
++
++		local_bh_disable();
++		data = napi_alloc_frag(fragsz);
++		local_bh_enable();
++		if (!data) {
++			err = -ENOMEM;
++			goto free;
++		}
++
++		page = virt_to_head_page(data);
++		offset = data - page_address(page);
++		skb_fill_page_desc(skb, i - 1, page, offset, fragsz);
++	}
++
++	return skb;
++free:
++	/* frees skb and all frags allocated with napi_alloc_frag() */
++	napi_free_frags(&tfile->napi);
++	return ERR_PTR(err);
++}
++
+ /* prepad is the amount to reserve at front.  len is length after that.
+  * linear is a hint as to how much to copy (usually headers). */
+ static struct sk_buff *tun_alloc_skb(struct tun_file *tfile,
+@@ -1476,6 +1553,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 	int err;
+ 	u32 rxhash;
+ 	int skb_xdp = 1;
++	bool frags = tun_napi_frags_enabled(tun);
+ 
+ 	if (!(tun->dev->flags & IFF_UP))
+ 		return -EIO;
+@@ -1533,7 +1611,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 			zerocopy = true;
  	}
  
- 	rxhash = __skb_get_hash_symmetric(skb);
--#ifndef CONFIG_4KSTACKS
--	tun_rx_batched(tun, tfile, skb, more);
--#else
--	netif_rx_ni(skb);
--#endif
-+
-+	if (IS_ENABLED(CONFIG_TUN_NAPI)) {
-+		struct sk_buff_head *queue = &tfile->sk.sk_write_queue;
-+		int queue_len;
-+
-+		spin_lock_bh(&queue->lock);
-+		__skb_queue_tail(queue, skb);
-+		queue_len = skb_queue_len(queue);
-+		spin_unlock(&queue->lock);
-+
-+		if (!more || queue_len > NAPI_POLL_WEIGHT)
-+			napi_schedule(&tfile->napi);
-+
-+		local_bh_enable();
-+	} else if (!IS_ENABLED(CONFIG_4KSTACKS)) {
-+		tun_rx_batched(tun, tfile, skb, more);
-+	} else {
-+		netif_rx_ni(skb);
-+	}
+-	if (tun_can_build_skb(tun, tfile, len, noblock, zerocopy)) {
++	if (!frags && tun_can_build_skb(tun, tfile, len, noblock, zerocopy)) {
+ 		/* For the packet that is not easy to be processed
+ 		 * (e.g gso or jumbo packet), we will do it at after
+ 		 * skb was created with generic XDP routine.
+@@ -1554,10 +1632,24 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 				linear = tun16_to_cpu(tun, gso.hdr_len);
+ 		}
  
- 	stats = get_cpu_ptr(tun->pcpu_stats);
- 	u64_stats_update_begin(&stats->syncp);
+-		skb = tun_alloc_skb(tfile, align, copylen, linear, noblock);
++		if (frags) {
++			mutex_lock(&tfile->napi_mutex);
++			skb = tun_napi_alloc_frags(tfile, copylen, from);
++			/* tun_napi_alloc_frags() enforces a layout for the skb.
++			 * If zerocopy is enabled, then this layout will be
++			 * overwritten by zerocopy_sg_from_iter().
++			 */
++			zerocopy = false;
++		} else {
++			skb = tun_alloc_skb(tfile, align, copylen, linear,
++					    noblock);
++		}
++
+ 		if (IS_ERR(skb)) {
+ 			if (PTR_ERR(skb) != -EAGAIN)
+ 				this_cpu_inc(tun->pcpu_stats->rx_dropped);
++			if (frags)
++				mutex_unlock(&tfile->napi_mutex);
+ 			return PTR_ERR(skb);
+ 		}
+ 
+@@ -1569,6 +1661,11 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 		if (err) {
+ 			this_cpu_inc(tun->pcpu_stats->rx_dropped);
+ 			kfree_skb(skb);
++			if (frags) {
++				tfile->napi.skb = NULL;
++				mutex_unlock(&tfile->napi_mutex);
++			}
++
+ 			return -EFAULT;
+ 		}
+ 	}
+@@ -1576,6 +1673,11 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 	if (virtio_net_hdr_to_skb(skb, &gso, tun_is_little_endian(tun))) {
+ 		this_cpu_inc(tun->pcpu_stats->rx_frame_errors);
+ 		kfree_skb(skb);
++		if (frags) {
++			tfile->napi.skb = NULL;
++			mutex_unlock(&tfile->napi_mutex);
++		}
++
+ 		return -EINVAL;
+ 	}
+ 
+@@ -1601,7 +1703,8 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 		skb->dev = tun->dev;
+ 		break;
+ 	case IFF_TAP:
+-		skb->protocol = eth_type_trans(skb, tun->dev);
++		if (!frags)
++			skb->protocol = eth_type_trans(skb, tun->dev);
+ 		break;
+ 	}
+ 
+@@ -1636,7 +1739,23 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 
+ 	rxhash = __skb_get_hash_symmetric(skb);
+ 
+-	if (IS_ENABLED(CONFIG_TUN_NAPI)) {
++	if (frags) {
++		/* Exercise flow dissector code path. */
++		u32 headlen = eth_get_headlen(skb->data, skb_headlen(skb));
++
++		if (headlen > skb_headlen(skb) || headlen < ETH_HLEN) {
++			this_cpu_inc(tun->pcpu_stats->rx_dropped);
++			napi_free_frags(&tfile->napi);
++			mutex_unlock(&tfile->napi_mutex);
++			WARN_ON(1);
++			return -ENOMEM;
++		}
++
++		local_bh_disable();
++		napi_gro_frags(&tfile->napi);
++		local_bh_enable();
++		mutex_unlock(&tfile->napi_mutex);
++	} else if (IS_ENABLED(CONFIG_TUN_NAPI)) {
+ 		struct sk_buff_head *queue = &tfile->sk.sk_write_queue;
+ 		int queue_len;
+ 
+@@ -2182,6 +2301,10 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+ 	tun->flags = (tun->flags & ~TUN_FEATURES) |
+ 		(ifr->ifr_flags & TUN_FEATURES);
+ 
++	if (!IS_ENABLED(CONFIG_TUN_NAPI) ||
++	    (tun->flags & TUN_TYPE_MASK) != IFF_TAP)
++		tun->flags = tun->flags & ~IFF_NAPI_FRAGS;
++
+ 	/* Make sure persistent devices do not get stuck in
+ 	 * xoff state.
+ 	 */
+diff --git a/include/uapi/linux/if_tun.h b/include/uapi/linux/if_tun.h
+index 3cb5e1d85ddd..1eb1eb42f151 100644
+--- a/include/uapi/linux/if_tun.h
++++ b/include/uapi/linux/if_tun.h
+@@ -60,6 +60,7 @@
+ /* TUNSETIFF ifr flags */
+ #define IFF_TUN		0x0001
+ #define IFF_TAP		0x0002
++#define IFF_NAPI_FRAGS	0x0010
+ #define IFF_NO_PI	0x1000
+ /* This flag has no real effect */
+ #define IFF_ONE_QUEUE	0x2000
 -- 
 2.11.0
