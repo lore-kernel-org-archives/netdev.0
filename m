@@ -1,191 +1,93 @@
-From: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
-Subject: [Patch v3 3/3] ipv4: Namespaceify tcp_fastopen_blackhole_timeout knob
-Date: Tue, 19 Sep 2017 17:38:16 +0800
-Message-ID: <1505813896-12121-3-git-send-email-yanhaishuang@cmss.chinamobile.com>
-References: <1505813896-12121-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
-To: "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        Eric Dumazet <edumazet@google.com>,
-        Wei Wang <weiwan@google.com>, Luca BRUNO <lucab@debian.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1505813896-12121-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next 5/5] tls: Add generic NIC offload infrastructure.
+Date: Tue, 19 Sep 2017 11:40:29 +0200
+Message-ID: <87wp4vt4aa.fsf@stressinduktion.org>
+References: <1505385988-94522-1-git-send-email-ilyal@mellanox.com>
+        <1505385988-94522-6-git-send-email-ilyal@mellanox.com>
+        <87poaocb4q.fsf@stressinduktion.org>
+        <AM4PR0501MB2723F6F5A22955102CDC2886D4600@AM4PR0501MB2723.eurprd05.prod.outlook.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: "netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
+        "davem\@davemloft.net" <davem@davemloft.net>,
+        "davejwatson\@fb.com" <davejwatson@fb.com>,
+        "tom\@herbertland.com" <tom@herbertland.com>,
+        Boris Pismenny <borisp@mellanox.com>,
+        Aviad Yehezkel <aviadye@mellanox.com>,
+        Liran Liss <liranl@mellanox.com>
+To: Ilya Lesokhin <ilyal@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:60069 "EHLO
+        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751024AbdISJkd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 05:40:33 -0400
+In-Reply-To: <AM4PR0501MB2723F6F5A22955102CDC2886D4600@AM4PR0501MB2723.eurprd05.prod.outlook.com>
+        (Ilya Lesokhin's message of "Tue, 19 Sep 2017 07:36:28 +0000")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Different namespace application might require different time period in
-second to disable Fastopen on active TCP sockets.
+Hello,
 
-Tested:
-Simulate following similar situation that the server's data gets dropped
-after 3WHS.
-C ---- syn-data ---> S
-C <--- syn/ack ----- S
-C ---- ack --------> S
-S (accept & write)
-C?  X <- data ------ S
-	[retry and timeout]
+Ilya Lesokhin <ilyal@mellanox.com> writes:
 
-And then print netstat of TCPFastOpenBlackhole, the counter increased as
-expected when the firewall blackhole issue is detected and active TFO is
-disabled.
-# cat /proc/net/netstat | awk '{print $91}'
-TCPFastOpenBlackhole
-1
+> Hannes Frederic Sowa <hannes@stressinduktion.org> writes:
+>
+>> The user should be aware of that they can't migrate the socket to another
+>> interface if they got hw offloaded. This is not the case for software offload.
+>> Thus I think the user has to opt in and it shouldn't be a heuristic until we can
+>> switch back to sw offload path.
+>> 
+>> Maybe change flowi_oif to sk_bound_dev_if and somwhow lock it against
+>> further changes if hw tls is in use?
+>> 
+>
+> I'm not sure I follow.
+> We do set sk->sk_bound_dev_if to prevent further changes.
+>
+> Do you recommend we enable TLS offload only if SO_BINDTODEVICE	
+> was previously used on that socket?
+> and prevent even users with CAP_NET_RAW from unbinding it?
+>
+> I would rather avoid requiring CAP_NET_RAW to use TLS offload. 
+> But admittedly I'm not sure setting sk->sk_bound_dev_if 
+> without CAP_NET_RAW like we do is legit either.
+>
+> Finally, the reason we made HW offload the default is that the user
+> can use sudo ethtool -K enp0s4 tls-hw-tx-offload off to opt out of HW offload
+> and we currently don't have anything equivalent for opting out of SW KTLS.
 
-Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
----
- include/net/netns/ipv4.h   |  3 +++
- net/ipv4/sysctl_net_ipv4.c | 20 +++++++++++---------
- net/ipv4/tcp_fastopen.c    | 28 ++++++++++------------------
- net/ipv4/tcp_ipv4.c        |  2 ++
- 4 files changed, 26 insertions(+), 27 deletions(-)
+IMHO the decision if a TCP flow should be bounded to hw and thus never
+push traffic to another interface should a decision the administrator
+and the application should opt in. You might have your management
+application which is accessible over multiple interfaces and your
+production application which might want to use hw offloaded tls. Thus I
+don't think only a single ethtool knob will do it.
 
-diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
-index 66b8335..d76edde 100644
---- a/include/net/netns/ipv4.h
-+++ b/include/net/netns/ipv4.h
-@@ -132,6 +132,9 @@ struct netns_ipv4 {
- 	int sysctl_tcp_fastopen;
- 	struct tcp_fastopen_context __rcu *tcp_fastopen_ctx;
- 	spinlock_t tcp_fastopen_ctx_lock;
-+	unsigned int sysctl_tcp_fastopen_blackhole_timeout;
-+	atomic_t tfo_active_disable_times;
-+	unsigned long tfo_active_disable_stamp;
- 
- #ifdef CONFIG_NET_L3_MASTER_DEV
- 	int sysctl_udp_l3mdev_accept;
-diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index 20e19fe..cac8dd3 100644
---- a/net/ipv4/sysctl_net_ipv4.c
-+++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -355,11 +355,13 @@ static int proc_tfo_blackhole_detect_timeout(struct ctl_table *table,
- 					     void __user *buffer,
- 					     size_t *lenp, loff_t *ppos)
- {
-+	struct net *net = container_of(table->data, struct net,
-+	    ipv4.sysctl_tcp_fastopen_blackhole_timeout);
- 	int ret;
- 
- 	ret = proc_dointvec_minmax(table, write, buffer, lenp, ppos);
- 	if (write && ret == 0)
--		tcp_fastopen_active_timeout_reset();
-+		atomic_set(&net->ipv4.tfo_active_disable_times, 0);
- 
- 	return ret;
- }
-@@ -398,14 +400,6 @@ static int proc_tcp_available_ulp(struct ctl_table *ctl,
- 		.proc_handler	= proc_dointvec
- 	},
- 	{
--		.procname	= "tcp_fastopen_blackhole_timeout_sec",
--		.data		= &sysctl_tcp_fastopen_blackhole_timeout,
--		.maxlen		= sizeof(int),
--		.mode		= 0644,
--		.proc_handler	= proc_tfo_blackhole_detect_timeout,
--		.extra1		= &zero,
--	},
--	{
- 		.procname	= "tcp_abort_on_overflow",
- 		.data		= &sysctl_tcp_abort_on_overflow,
- 		.maxlen		= sizeof(int),
-@@ -1083,6 +1077,14 @@ static int proc_tcp_available_ulp(struct ctl_table *ctl,
- 		.maxlen		= ((TCP_FASTOPEN_KEY_LENGTH * 2) + 10),
- 		.proc_handler	= proc_tcp_fastopen_key,
- 	},
-+	{
-+		.procname	= "tcp_fastopen_blackhole_timeout_sec",
-+		.data		= &init_net.ipv4.sysctl_tcp_fastopen_blackhole_timeout,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= proc_tfo_blackhole_detect_timeout,
-+		.extra1		= &zero,
-+	},
- #ifdef CONFIG_IP_ROUTE_MULTIPATH
- 	{
- 		.procname	= "fib_multipath_use_neigh",
-diff --git a/net/ipv4/tcp_fastopen.c b/net/ipv4/tcp_fastopen.c
-index 21783c7..f3b00a9 100644
---- a/net/ipv4/tcp_fastopen.c
-+++ b/net/ipv4/tcp_fastopen.c
-@@ -407,25 +407,16 @@ bool tcp_fastopen_defer_connect(struct sock *sk, int *err)
-  * TFO connection with data exchanges.
-  */
- 
--/* Default to 1hr */
--unsigned int sysctl_tcp_fastopen_blackhole_timeout __read_mostly = 60 * 60;
--static atomic_t tfo_active_disable_times __read_mostly = ATOMIC_INIT(0);
--static unsigned long tfo_active_disable_stamp __read_mostly;
--
- /* Disable active TFO and record current jiffies and
-  * tfo_active_disable_times
-  */
- void tcp_fastopen_active_disable(struct sock *sk)
- {
--	atomic_inc(&tfo_active_disable_times);
--	tfo_active_disable_stamp = jiffies;
--	NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPFASTOPENBLACKHOLE);
--}
-+	struct net *net = sock_net(sk);
- 
--/* Reset tfo_active_disable_times to 0 */
--void tcp_fastopen_active_timeout_reset(void)
--{
--	atomic_set(&tfo_active_disable_times, 0);
-+	atomic_inc(&net->ipv4.tfo_active_disable_times);
-+	net->ipv4.tfo_active_disable_stamp = jiffies;
-+	NET_INC_STATS(net, LINUX_MIB_TCPFASTOPENBLACKHOLE);
- }
- 
- /* Calculate timeout for tfo active disable
-@@ -434,17 +425,18 @@ void tcp_fastopen_active_timeout_reset(void)
-  */
- bool tcp_fastopen_active_should_disable(struct sock *sk)
- {
--	int tfo_da_times = atomic_read(&tfo_active_disable_times);
-+	int tfo_da_times = atomic_read(&sock_net(sk)->ipv4.tfo_active_disable_times);
- 	int multiplier;
- 	unsigned long timeout;
-+	unsigned int tfo_bh_timeout = sock_net(sk)->ipv4.sysctl_tcp_fastopen_blackhole_timeout;
- 
- 	if (!tfo_da_times)
- 		return false;
- 
- 	/* Limit timout to max: 2^6 * initial timeout */
- 	multiplier = 1 << min(tfo_da_times - 1, 6);
--	timeout = multiplier * sysctl_tcp_fastopen_blackhole_timeout * HZ;
--	if (time_before(jiffies, tfo_active_disable_stamp + timeout))
-+	timeout = multiplier * tfo_bh_timeout * HZ;
-+	if (time_before(jiffies, sock_net(sk)->ipv4.tfo_active_disable_stamp + timeout))
- 		return true;
- 
- 	/* Mark check bit so we can check for successful active TFO
-@@ -480,10 +472,10 @@ void tcp_fastopen_active_disable_ofo_check(struct sock *sk)
- 			}
- 		}
- 	} else if (tp->syn_fastopen_ch &&
--		   atomic_read(&tfo_active_disable_times)) {
-+		   atomic_read(&sock_net(sk)->ipv4.tfo_active_disable_times)) {
- 		dst = sk_dst_get(sk);
- 		if (!(dst && dst->dev && (dst->dev->flags & IFF_LOOPBACK)))
--			tcp_fastopen_active_timeout_reset();
-+			atomic_set(&sock_net(sk)->ipv4.tfo_active_disable_times, 0);
- 		dst_release(dst);
- 	}
- }
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 29e042c..4b7aedb 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -2474,6 +2474,8 @@ static int __net_init tcp_sk_init(struct net *net)
- 
- 	net->ipv4.sysctl_tcp_fastopen = TFO_CLIENT_ENABLE;
- 	spin_lock_init(&net->ipv4.tcp_fastopen_ctx_lock);
-+	net->ipv4.sysctl_tcp_fastopen_blackhole_timeout = 60 * 60;
-+	atomic_set(&net->ipv4.tfo_active_disable_times, 0);
- 
- 	return 0;
- fail:
--- 
-1.8.3.1
+I agree that SO_BINDTODEVICE is bad for this use case. First, the
+CAP_NET_RAW limitation seems annoying and we don't want to enforce TLS
+apps to have this capability. Second, the user space application doesn't
+care which interface it should talk to (maybe?) but leave the routing
+decision to the kernel and just opt in to TLS. SO_BINDTODEVICE doesn't
+allow this.
+
+sk_bound_dev_if can be rebound later with CAP_NET_RAW privileges, will
+this be a problem?
+
+Have you thought how the user space will configure the various
+offloading features (sw, hw, none)? Will it in e.g. OpenSSL be part of
+the Cipher Spec or will there be new functions around SSL_CTX to do so?
+
+Maybe an enhancement of the TLS_TX setsockopt with a boolean for hw
+offload is a solution?
+
+Another question:
+
+How is the dependency management done between socket layer and driver
+layer? It seems a bit cyclic but judging from this code you don't hold
+references to the device (dev_hold) (which is good, you don't want to
+have users creating refs to devices). OTOH you somehow need to match
+sockets from the device layer up to the socket. Will those be reference
+counted or does that work without?
+
+Thanks,
+Hannes
