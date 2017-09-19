@@ -1,35 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: ipv6: fix regression of no RTM_DELADDR sent after
- DAD failure
-Date: Tue, 19 Sep 2017 16:43:28 -0700 (PDT)
-Message-ID: <20170919.164328.373486119289403420.davem@davemloft.net>
-References: <1504536775-23533-1-git-send-email-mmanning@brocade.com>
-        <20170907.191843.836588795188250550.davem@davemloft.net>
-        <ce045f3d-c99a-e9a2-a0e7-c4d0410f0665@brocade.com>
+Subject: Re: [PATCH net] ipv6: fix net.ipv6.conf.all interface DAD handlers
+Date: Tue, 19 Sep 2017 16:44:30 -0700 (PDT)
+Message-ID: <20170919.164430.792527300100046065.davem@davemloft.net>
+References: <20170912154637.12996-1-mcroce@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, maheshb@google.com
-To: mmanning@brocade.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:51494 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751309AbdISXn3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 19:43:29 -0400
-In-Reply-To: <ce045f3d-c99a-e9a2-a0e7-c4d0410f0665@brocade.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-doc@vger.kernel.org, ek@google.com
+To: mcroce@redhat.com
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <20170912154637.12996-1-mcroce@redhat.com>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Mike Manning <mmanning@brocade.com>
-Date: Mon, 18 Sep 2017 14:06:40 +0100
+From: Matteo Croce <mcroce@redhat.com>
+Date: Tue, 12 Sep 2017 17:46:37 +0200
 
-> In the absence of a reply from Mahesh, I would be most grateful for
-> anyone familiar with the IPv6 code to review this 1-line fix.
+> Currently, writing into
+> net.ipv6.conf.all.{accept_dad,use_optimistic,optimistic_dad} has no effect.
+> Fix handling of these flags by:
 > 
-> Or if not, then I request that the commit f784ad3d79e5 is backed out,
-> as its intention is to remove the redundant but harmless RTM_DELADDR
-> for addresses in tentative state, but is also incorrectly removing the
-> very necessary RTM_DELADDR when an address is deleted that was previously
-> notified with an RTM_NEWADDR as being in tentative dadfailed state.
+> - using the maximum of global and per-interface values for the
+>   accept_dad flag. That is, if at least one of the two values is
+>   non-zero, enable DAD on the interface. If at least one value is
+>   set to 2, enable DAD and disable IPv6 operation on the interface if
+>   MAC-based link-local address was found
+> 
+> - using the logical OR of global and per-interface values for the
+>   optimistic_dad flag. If at least one of them is set to one, optimistic
+>   duplicate address detection (RFC 4429) is enabled on the interface
+> 
+> - using the logical OR of global and per-interface values for the
+>   use_optimistic flag. If at least one of them is set to one,
+>   optimistic addresses won't be marked as deprecated during source address
+>   selection on the interface.
+> 
+> While at it, as we're modifying the prototype for ipv6_use_optimistic_addr(),
+> drop inline, and let the compiler decide.
+> 
+> Fixes: 7fd2561e4ebd ("net: ipv6: Add a sysctl to make optimistic addresses useful candidates")
+> Signed-off-by: Matteo Croce <mcroce@redhat.com>
 
-I've applied your patch, and queued it up for -stable, thanks.
+Applied, thank you.
