@@ -1,112 +1,84 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 10/13] mlxsw: reg: Add Router Rules Copy Register
-Date: Tue, 19 Sep 2017 10:00:17 +0200
-Message-ID: <20170919080020.5870-11-jiri@resnulli.us>
+Subject: [patch net-next 11/13] mlxsw: reg: Configure RIF to forward IPv4 multicast packets by default
+Date: Tue, 19 Sep 2017 10:00:18 +0200
+Message-ID: <20170919080020.5870-12-jiri@resnulli.us>
 References: <20170919080020.5870-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, yotamg@mellanox.com, idosch@mellanox.com,
         mlxsw@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f194.google.com ([209.85.128.194]:35693 "EHLO
-        mail-wr0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751622AbdISIAc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 04:00:32 -0400
-Received: by mail-wr0-f194.google.com with SMTP id n64so1712901wrb.2
-        for <netdev@vger.kernel.org>; Tue, 19 Sep 2017 01:00:31 -0700 (PDT)
+Received: from mail-wr0-f193.google.com ([209.85.128.193]:38242 "EHLO
+        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751623AbdISIAd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 04:00:33 -0400
+Received: by mail-wr0-f193.google.com with SMTP id p37so1701071wrb.5
+        for <netdev@vger.kernel.org>; Tue, 19 Sep 2017 01:00:32 -0700 (PDT)
 In-Reply-To: <20170919080020.5870-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Yotam Gigi <yotamg@mellanox.com>
 
-The RRCR register is used for copying and moving TCAM multicast routes
-from different offsets. It will be used to allow routes relocation for
-parman ops as part of the multicast router offloading logic.
+Turn on two bits on the Spectrum RIF configuration:
+ - IPv4 multicast: when a multicast packet arrives on a RIF, send it to go
+   through multicast routes lookup.
+ - IPv4 multicast forwarding enable: when multicast packet arrives on a
+   RIF, allow it to be forwarded by multicast routes. If this bit is not
+   set, multicast packets will go through multicast routing lookup but will
+   be dropped at the egress of the ports.
 
 Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
 Reviewed-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/reg.h | 60 +++++++++++++++++++++++++++++++
- 1 file changed, 60 insertions(+)
+ drivers/net/ethernet/mellanox/mlxsw/reg.h | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
 
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-index 046525e..31d120a 100644
+index 31d120a..c203e0d 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
 +++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-@@ -4680,6 +4680,65 @@ static inline void mlxsw_reg_ricnt_pack(char *payload, u32 index,
- 					     MLXSW_REG_RICNT_COUNTER_SET_TYPE_BASIC);
- }
+@@ -3991,6 +3991,12 @@ MLXSW_ITEM32(reg, ritr, ipv4, 0x00, 29, 1);
+  */
+ MLXSW_ITEM32(reg, ritr, ipv6, 0x00, 28, 1);
  
-+/* RRCR - Router Rules Copy Register Layout
-+ * ----------------------------------------
-+ * This register is used for moving and copying route entry rules.
++/* reg_ritr_ipv4_mc
++ * IPv4 multicast routing enable.
++ * Access: RW
 + */
-+#define MLXSW_REG_RRCR_ID 0x800F
-+#define MLXSW_REG_RRCR_LEN 0x24
++MLXSW_ITEM32(reg, ritr, ipv4_mc, 0x00, 27, 1);
 +
-+MLXSW_REG_DEFINE(rrcr, MLXSW_REG_RRCR_ID, MLXSW_REG_RRCR_LEN);
-+
-+enum mlxsw_reg_rrcr_op {
-+	/* Move rules */
-+	MLXSW_REG_RRCR_OP_MOVE,
-+	/* Copy rules */
-+	MLXSW_REG_RRCR_OP_COPY,
-+};
-+
-+/* reg_rrcr_op
-+ * Access: WO
+ enum mlxsw_reg_ritr_if_type {
+ 	/* VLAN interface. */
+ 	MLXSW_REG_RITR_VLAN_IF,
+@@ -4048,6 +4054,14 @@ MLXSW_ITEM32(reg, ritr, ipv4_fe, 0x04, 29, 1);
+  */
+ MLXSW_ITEM32(reg, ritr, ipv6_fe, 0x04, 28, 1);
+ 
++/* reg_ritr_ipv4_mc_fe
++ * IPv4 Multicast Forwarding Enable.
++ * When disabled, forwarding is blocked but local traffic (traps and IP to me)
++ * will be enabled.
++ * Access: RW
 + */
-+MLXSW_ITEM32(reg, rrcr, op, 0x00, 28, 4);
++MLXSW_ITEM32(reg, ritr, ipv4_mc_fe, 0x04, 27, 1);
 +
-+/* reg_rrcr_offset
-+ * Offset within the region from which to copy/move.
-+ * Access: Index
-+ */
-+MLXSW_ITEM32(reg, rrcr, offset, 0x00, 0, 16);
-+
-+/* reg_rrcr_size
-+ * The number of rules to copy/move.
-+ * Access: WO
-+ */
-+MLXSW_ITEM32(reg, rrcr, size, 0x04, 0, 16);
-+
-+/* reg_rrcr_table_id
-+ * Identifier of the table on which to perform the operation. Encoding is the
-+ * same as in RTAR.key_type
-+ * Access: Index
-+ */
-+MLXSW_ITEM32(reg, rrcr, table_id, 0x10, 0, 4);
-+
-+/* reg_rrcr_dest_offset
-+ * Offset within the region to which to copy/move
-+ * Access: Index
-+ */
-+MLXSW_ITEM32(reg, rrcr, dest_offset, 0x20, 0, 16);
-+
-+static inline void mlxsw_reg_rrcr_pack(char *payload, enum mlxsw_reg_rrcr_op op,
-+				       u16 offset, u16 size,
-+				       enum mlxsw_reg_rtar_key_type table_id,
-+				       u16 dest_offset)
-+{
-+	MLXSW_REG_ZERO(rrcr, payload);
-+	mlxsw_reg_rrcr_op_set(payload, op);
-+	mlxsw_reg_rrcr_offset_set(payload, offset);
-+	mlxsw_reg_rrcr_size_set(payload, size);
-+	mlxsw_reg_rrcr_table_id_set(payload, table_id);
-+	mlxsw_reg_rrcr_dest_offset_set(payload, dest_offset);
-+}
-+
- /* RALTA - Router Algorithmic LPM Tree Allocation Register
-  * -------------------------------------------------------
-  * RALTA is used to allocate the LPM trees of the SHSPM method.
-@@ -7133,6 +7192,7 @@ static const struct mlxsw_reg_info *mlxsw_reg_infos[] = {
- 	MLXSW_REG(ratr),
- 	MLXSW_REG(rtdp),
- 	MLXSW_REG(ricnt),
-+	MLXSW_REG(rrcr),
- 	MLXSW_REG(ralta),
- 	MLXSW_REG(ralst),
- 	MLXSW_REG(raltb),
+ /* reg_ritr_lb_en
+  * Loop-back filter enable for unicast packets.
+  * If the flag is set then loop-back filter for unicast packets is
+@@ -4270,11 +4284,13 @@ static inline void mlxsw_reg_ritr_pack(char *payload, bool enable,
+ 	mlxsw_reg_ritr_enable_set(payload, enable);
+ 	mlxsw_reg_ritr_ipv4_set(payload, 1);
+ 	mlxsw_reg_ritr_ipv6_set(payload, 1);
++	mlxsw_reg_ritr_ipv4_mc_set(payload, 1);
+ 	mlxsw_reg_ritr_type_set(payload, type);
+ 	mlxsw_reg_ritr_op_set(payload, op);
+ 	mlxsw_reg_ritr_rif_set(payload, rif);
+ 	mlxsw_reg_ritr_ipv4_fe_set(payload, 1);
+ 	mlxsw_reg_ritr_ipv6_fe_set(payload, 1);
++	mlxsw_reg_ritr_ipv4_mc_fe_set(payload, 1);
+ 	mlxsw_reg_ritr_lb_en_set(payload, 1);
+ 	mlxsw_reg_ritr_virtual_router_set(payload, vr_id);
+ 	mlxsw_reg_ritr_mtu_set(payload, mtu);
 -- 
 2.9.5
