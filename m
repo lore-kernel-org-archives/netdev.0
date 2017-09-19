@@ -1,144 +1,77 @@
-From: Yonghong Song <yhs@fb.com>
-Subject: [PATCH net-next v4 3/4] bpf: add helper bpf_perf_prog_read_value
-Date: Tue, 19 Sep 2017 00:04:12 -0700
-Message-ID: <20170919070413.3838201-4-yhs@fb.com>
-References: <20170919070413.3838201-1-yhs@fb.com>
+From: Mika Westerberg <mika.westerberg@linux.intel.com>
+Subject: Re: [PATCH 16/16] thunderbolt: Add support for networking over
+ Thunderbolt cable
+Date: Tue, 19 Sep 2017 10:12:39 +0300
+Message-ID: <20170919071239.GB4630@lahna.fi.intel.com>
+References: <20170918153049.44185-1-mika.westerberg@linux.intel.com>
+ <20170918153049.44185-17-mika.westerberg@linux.intel.com>
+ <20170918232144.GD29615@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <kernel-team@fb.com>
-To: <peterz@infradead.org>, <rostedt@goodmis.org>, <ast@fb.com>,
-        <daniel@iogearbox.net>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:43886 "EHLO
-        mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751053AbdISHEQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 03:04:16 -0400
-Received: from pps.filterd (m0109332.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v8J73lDd023951
-        for <netdev@vger.kernel.org>; Tue, 19 Sep 2017 00:04:15 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 2d2wjs06ke-3
-        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Tue, 19 Sep 2017 00:04:15 -0700
-In-Reply-To: <20170919070413.3838201-1-yhs@fb.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        "David S . Miller" <davem@davemloft.net>,
+        Andreas Noever <andreas.noever@gmail.com>,
+        Michael Jamet <michael.jamet@intel.com>,
+        Yehezkel Bernat <yehezkel.bernat@intel.com>,
+        Amir Levy <amir.jer.levy@intel.com>,
+        Mario.Limonciello@dell.com, Lukas Wunner <lukas@wunner.de>,
+        Andy Shevchenko <andriy.shevchenko@linux.intel.com>,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170918232144.GD29615@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch adds helper bpf_perf_prog_read_cvalue for perf event based bpf
-programs, to read event counter and enabled/running time.
-The enabled/running time is accumulated since the perf event open.
+On Tue, Sep 19, 2017 at 01:21:44AM +0200, Andrew Lunn wrote:
+> On Mon, Sep 18, 2017 at 06:30:49PM +0300, Mika Westerberg wrote:
+> > From: Amir Levy <amir.jer.levy@intel.com>
+> > 
+> > ThunderboltIP is a protocol created by Apple to tunnel IP/ethernet
+> > traffic over a Thunderbolt cable. The protocol consists of configuration
+> > phase where each side sends ThunderboltIP login packets (the protocol is
+> > determined by UUID in the XDomain packet header) over the configuration
+> > channel. Once both sides get positive acknowledgment to their login
+> > packet, they configure high-speed DMA path accordingly. This DMA path is
+> > then used to transmit and receive networking traffic.
+> > 
+> > This patch creates a virtual ethernet interface the host software can
+> > use in the same way as any other networking interface. Once the
+> > interface is brought up successfully network packets get tunneled over
+> > the Thunderbolt cable to the remote host and back.
+> > 
+> > The connection is terminated by sending a ThunderboltIP logout packet
+> > over the configuration channel. We do this when the network interface is
+> > brought down by user or the driver is unloaded.
+> > 
+> > Signed-off-by: Amir Levy <amir.jer.levy@intel.com>
+> > Signed-off-by: Michael Jamet <michael.jamet@intel.com>
+> > Signed-off-by: Mika Westerberg <mika.westerberg@linux.intel.com>
+> > Reviewed-by: Yehezkel Bernat <yehezkel.bernat@intel.com>
+> > ---
+> >  Documentation/admin-guide/thunderbolt.rst |   24 +
+> >  drivers/thunderbolt/Kconfig               |   12 +
+> >  drivers/thunderbolt/Makefile              |    3 +
+> >  drivers/thunderbolt/net.c                 | 1392 +++++++++++++++++++++++++++++
+> >  4 files changed, 1431 insertions(+)
+> >  create mode 100644 drivers/thunderbolt/net.c
+> 
+> Hi Mika
+> 
+> Could this be renamed to driver/net/thunderbolt.c?
 
-The typical use case for perf event based bpf program is to attach itself
-to a single event. In such cases, if it is desirable to get scaling factor
-between two bpf invocations, users can can save the time values in a map,
-and use the value from the map and the current value to calculate
-the scaling factor.
+I pondered between drivers/thunderbolt/net.c and
+drivers/net/thunderbolt.c and then decided to go with the former because
+it follows drivers/firewire/net.c and kind of makes it easier for user
+to enabled.
 
-Signed-off-by: Yonghong Song <yhs@fb.com>
----
- include/linux/perf_event.h |  1 +
- include/uapi/linux/bpf.h   |  8 ++++++++
- kernel/events/core.c       |  1 +
- kernel/trace/bpf_trace.c   | 23 +++++++++++++++++++++++
- 4 files changed, 33 insertions(+)
+But no problem moving it into drivers/net if that's what networking
+people prefer.
 
-diff --git a/include/linux/perf_event.h b/include/linux/perf_event.h
-index 21d8c12..79b18a2 100644
---- a/include/linux/perf_event.h
-+++ b/include/linux/perf_event.h
-@@ -806,6 +806,7 @@ struct perf_output_handle {
- struct bpf_perf_event_data_kern {
- 	struct pt_regs *regs;
- 	struct perf_sample_data *data;
-+	struct perf_event *event;
- };
- 
- #ifdef CONFIG_CGROUP_PERF
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index 2c68b9e..ba77022 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -590,6 +590,13 @@ union bpf_attr {
-  *     @buf: buf to fill
-  *     @buf_size: size of the buf
-  *     Return: 0 on success or negative error code
-+ *
-+ * int bpf_perf_prog_read_value(ctx, buf, buf_size)
-+ *     read perf prog attached perf event counter and enabled/running time
-+ *     @ctx: pointer to ctx
-+ *     @buf: buf to fill
-+ *     @buf_size: size of the buf
-+ *     Return : 0 on success or negative error code
-  */
- #define __BPF_FUNC_MAPPER(FN)		\
- 	FN(unspec),			\
-@@ -647,6 +654,7 @@ union bpf_attr {
- 	FN(sk_redirect_map),		\
- 	FN(sock_map_update),		\
- 	FN(perf_event_read_value),		\
-+	FN(perf_prog_read_value),		\
- 
- /* integer value in 'imm' field of BPF_CALL instruction selects which helper
-  * function eBPF program intends to call
-diff --git a/kernel/events/core.c b/kernel/events/core.c
-index 2d5bbe5..d039086 100644
---- a/kernel/events/core.c
-+++ b/kernel/events/core.c
-@@ -8081,6 +8081,7 @@ static void bpf_overflow_handler(struct perf_event *event,
- 	struct bpf_perf_event_data_kern ctx = {
- 		.data = data,
- 		.regs = regs,
-+		.event = event,
- 	};
- 	int ret = 0;
- 
-diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
-index 39ce5d9..596b5c9 100644
---- a/kernel/trace/bpf_trace.c
-+++ b/kernel/trace/bpf_trace.c
-@@ -603,6 +603,18 @@ BPF_CALL_3(bpf_get_stackid_tp, void *, tp_buff, struct bpf_map *, map,
- 			       flags, 0, 0);
- }
- 
-+BPF_CALL_3(bpf_perf_prog_read_value_tp, void *, ctx, struct bpf_perf_event_value *,
-+	buf, u32, size)
-+{
-+	struct bpf_perf_event_data_kern *kctx = (struct bpf_perf_event_data_kern *)ctx;
-+
-+	if (size != sizeof(struct bpf_perf_event_value))
-+		return -EINVAL;
-+
-+	return perf_event_read_local(kctx->event, &buf->counter, &buf->enabled,
-+				     &buf->running);
-+}
-+
- static const struct bpf_func_proto bpf_get_stackid_proto_tp = {
- 	.func		= bpf_get_stackid_tp,
- 	.gpl_only	= true,
-@@ -612,6 +624,15 @@ static const struct bpf_func_proto bpf_get_stackid_proto_tp = {
- 	.arg3_type	= ARG_ANYTHING,
- };
- 
-+static const struct bpf_func_proto bpf_perf_prog_read_value_proto_tp = {
-+         .func           = bpf_perf_prog_read_value_tp,
-+         .gpl_only       = true,
-+         .ret_type       = RET_INTEGER,
-+         .arg1_type      = ARG_PTR_TO_CTX,
-+         .arg2_type      = ARG_PTR_TO_UNINIT_MEM,
-+         .arg3_type      = ARG_CONST_SIZE,
-+};
-+
- static const struct bpf_func_proto *tp_prog_func_proto(enum bpf_func_id func_id)
- {
- 	switch (func_id) {
-@@ -619,6 +640,8 @@ static const struct bpf_func_proto *tp_prog_func_proto(enum bpf_func_id func_id)
- 		return &bpf_perf_event_output_proto_tp;
- 	case BPF_FUNC_get_stackid:
- 		return &bpf_get_stackid_proto_tp;
-+	case BPF_FUNC_perf_prog_read_value:
-+		return &bpf_perf_prog_read_value_proto_tp;
- 	default:
- 		return tracing_func_proto(func_id);
- 	}
--- 
-2.9.5
+> At minimum, it needs a MAINTAINER entry pointing to netdev, so patches
+> get reviewed by netdev people. However, since the driver seems to be a
+> lot more netdev than thunderbolt, placing it in driver/net could be
+> better.
+
+OK.
