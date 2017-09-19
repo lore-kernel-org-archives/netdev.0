@@ -1,33 +1,48 @@
-From: Oliver Neukum <oneukum@suse.com>
-Subject: Re: [RFC PATCH 1/3] usbnet: Get rid of spammy usbnet "kevent X may
- have been dropped"
-Date: Tue, 19 Sep 2017 22:36:02 +0200
-Message-ID: <1505853362.15836.7.camel@suse.com>
-References: <20170919161522.995-1-dianders@chromium.org>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH] ath9k: make const array reg_hole_list static, reduces object code size
+Date: Tue, 19 Sep 2017 21:40:19 +0100
+Message-ID: <20170919204019.30804-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 8bit
-Cc: groeck@chromium.org, grundler@chromium.org,
-        linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org,
-        netdev@vger.kernel.org
-To: Douglas Anderson <dianders@chromium.org>
+Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: QCA ath9k Development <ath9k-devel@qca.qualcomm.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170919161522.995-1-dianders@chromium.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Am Dienstag, den 19.09.2017, 09:15 -0700 schrieb Douglas Anderson:
-> 
-> ALSO NOTE: If somehow some of the types of work need to be repeated if
-> usbnet_defer_kevent() is called multiple times then that should be
-> quite easy to accomplish without dropping any work on the floor.  We
-> can just keep an atomic count for that type of work and add a loop
-> into usbnet_deferred_kevent().
+From: Colin Ian King <colin.king@canonical.com>
 
-Thanks for doing this, it is overdue.
+Don't populate the read-only array reg_hole_list on the stack, instead make
+it static.  Makes the object code smaller by over 200 bytes:
 
-	Regards
-		Oliver
+Before:
+   text	   data	    bss	    dec	    hex	filename
+  57518	  15248	      0	  72766	  11c3e	debug.o
 
-> Signed-off-by: Douglas Anderson <dianders@chromium.org>
-Acked-by: Oliver Neukum <oneukum@suse.com>
+After:
+   text	   data	    bss	    dec	    hex	filename
+  57218	  15344	      0	  72562	  11b72	debug.o
+
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ drivers/net/wireless/ath/ath9k/debug.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/wireless/ath/ath9k/debug.c b/drivers/net/wireless/ath/ath9k/debug.c
+index 01fa30117288..5a0a05abd51a 100644
+--- a/drivers/net/wireless/ath/ath9k/debug.c
++++ b/drivers/net/wireless/ath/ath9k/debug.c
+@@ -916,7 +916,7 @@ static int open_file_regdump(struct inode *inode, struct file *file)
+ 	u8 *buf;
+ 	int i, j = 0;
+ 	unsigned long num_regs, regdump_len, max_reg_offset;
+-	const struct reg_hole {
++	static const struct reg_hole {
+ 		u32 start;
+ 		u32 end;
+ 	} reg_hole_list[] = {
+-- 
+2.14.1
