@@ -1,55 +1,41 @@
-From: Douglas Anderson <dianders@chromium.org>
-Subject: [RFC PATCH 3/3] usbnet: Fix memory leak when rx_submit() fails
-Date: Tue, 19 Sep 2017 09:15:22 -0700
-Message-ID: <20170919161522.995-3-dianders@chromium.org>
-References: <20170919161522.995-1-dianders@chromium.org>
-Cc: groeck@chromium.org, grundler@chromium.org,
-        Douglas Anderson <dianders@chromium.org>,
-        netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Oliver Neukum <oneukum@suse.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f169.google.com ([209.85.192.169]:54379 "EHLO
-        mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751283AbdISQPy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 12:15:54 -0400
-Received: by mail-pf0-f169.google.com with SMTP id d187so51052pfg.11
-        for <netdev@vger.kernel.org>; Tue, 19 Sep 2017 09:15:54 -0700 (PDT)
-In-Reply-To: <20170919161522.995-1-dianders@chromium.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Salil Mehta <salil.mehta@huawei.com>
+Subject: [PATCH V2 net 0/7] Bug fixes for the HNS3 Ethernet Driver for Hip08 SoC
+Date: Tue, 19 Sep 2017 17:17:09 +0100
+Message-ID: <20170919161716.92680-1-salil.mehta@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <salil.mehta@huawei.com>, <yisen.zhuang@huawei.com>,
+        <lipeng321@huawei.com>, <mehta.salil.lnk@gmail.com>,
+        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        <linux-rdma@vger.kernel.org>, <linuxarm@huawei.com>
+To: <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-If rx_submit() returns an error code then nobody calls usb_free_urb().
-That means it's leaked.
+This patch set presents some bug fixes for the HNS3 Ethernet driver identified
+during internal testing & stabilization efforts.
 
-NOTE: This problem was found solely by code inspection and not due to
-any failing test cases.
+Change Log:
+Patch V2: Resolved comments from Leon Romanovsky
+Patch V1: Initial Submit
 
-Signed-off-by: Douglas Anderson <dianders@chromium.org>
----
+Lipeng (6):
+  net: hns3: Fixes initialization of phy address from firmware
+  net: hns3: Fixes the command used to unmap ring from vector
+  net: hns3: Fixes ring-to-vector map-and-unmap command
+  net: hns3: Fixes the initialization of MAC address in hardware
+  net: hns3: Fixes the default VLAN-id of PF
+  net: hns3: Fixes the premature exit of loop when matching clients
 
- drivers/net/usb/usbnet.c | 9 ++++++---
- 1 file changed, 6 insertions(+), 3 deletions(-)
+Salil Mehta (1):
+  net: hns3: Fixes the ether address copy with appropriate API
 
-diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-index e72547d8d0e6..4c067aaeea5a 100644
---- a/drivers/net/usb/usbnet.c
-+++ b/drivers/net/usb/usbnet.c
-@@ -1182,9 +1182,12 @@ usbnet_deferred_kevent (struct work_struct *work)
- 					usb_free_urb(urb);
- 					goto fail_lowmem;
- 				}
--				if (rx_submit (dev, urb, GFP_KERNEL) ==
--				    -ENOLINK)
--					resched = 0;
-+				status = rx_submit (dev, urb, GFP_KERNEL);
-+				if (status) {
-+					usb_free_urb(urb);
-+					if (status == -ENOLINK)
-+						resched = 0;
-+				}
- 				usb_autopm_put_interface(dev->intf);
- fail_lowmem:
- 				if (resched)
+ drivers/net/ethernet/hisilicon/hns3/hnae3.c        | 43 +++++-----------------
+ .../net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.h |  8 +++-
+ .../ethernet/hisilicon/hns3/hns3pf/hclge_main.c    | 20 ++++++++--
+ .../net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c |  7 ++--
+ 4 files changed, 35 insertions(+), 43 deletions(-)
+
 -- 
-2.14.1.690.gbb1197296e-goog
+2.7.4
