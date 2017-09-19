@@ -1,24 +1,28 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] vsock: vmci: Remove unneeded linux/miscdevice.h include
-Date: Tue, 19 Sep 2017 13:52:24 -0700 (PDT)
-Message-ID: <20170919.135224.1429860329333142738.davem@davemloft.net>
-References: <20170918181855.32211-1-clabbe.montjoie@gmail.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net-next 2/7] kobject: copy env blob in one go
+Date: Tue, 19 Sep 2017 13:52:21 -0700
+Message-ID: <CAM_iQpXsSYGwbsV-a5XQvcfFGtdn+SrMEGvR=rS53Qe-XY9L3g@mail.gmail.com>
+References: <20170918190733.26272-1-edumazet@google.com> <20170918190733.26272-3-edumazet@google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: clabbe.montjoie@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170918181855.32211-1-clabbe.montjoie@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: "David S . Miller" <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        "Eric W . Biederman" <ebiederm@xmission.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>
+To: Eric Dumazet <edumazet@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f178.google.com ([209.85.192.178]:54618 "EHLO
+        mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751457AbdISUwm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 16:52:42 -0400
+Received: by mail-pf0-f178.google.com with SMTP id d187so414966pfg.11
+        for <netdev@vger.kernel.org>; Tue, 19 Sep 2017 13:52:42 -0700 (PDT)
+In-Reply-To: <20170918190733.26272-3-edumazet@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Corentin Labbe <clabbe.montjoie@gmail.com>
-Date: Mon, 18 Sep 2017 20:18:55 +0200
+On Mon, Sep 18, 2017 at 12:07 PM, Eric Dumazet <edumazet@google.com> wrote:
+> +                       scratch = skb_put(skb, env->buflen);
+> +                       memcpy(scratch, env->buf, env->buflen);
 
-> net/vmw_vsock/vmci_transport.c does not use any miscdevice so this patch
-> remove this unnecessary inclusion.
-> 
-> Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
-
-Applied, thank you.
+skb_put_data()
