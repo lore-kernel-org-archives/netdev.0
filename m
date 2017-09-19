@@ -1,77 +1,144 @@
 From: Yonghong Song <yhs@fb.com>
-Subject: [PATCH net-next v4 0/4] bpf: add two helpers to read perf event enabled/running time
-Date: Tue, 19 Sep 2017 00:04:09 -0700
-Message-ID: <20170919070413.3838201-1-yhs@fb.com>
+Subject: [PATCH net-next v4 3/4] bpf: add helper bpf_perf_prog_read_value
+Date: Tue, 19 Sep 2017 00:04:12 -0700
+Message-ID: <20170919070413.3838201-4-yhs@fb.com>
+References: <20170919070413.3838201-1-yhs@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <kernel-team@fb.com>
 To: <peterz@infradead.org>, <rostedt@goodmis.org>, <ast@fb.com>,
         <daniel@iogearbox.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:50288 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750925AbdISHER (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 03:04:17 -0400
-Received: from pps.filterd (m0044010.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v8J6tOfH020146
-        for <netdev@vger.kernel.org>; Tue, 19 Sep 2017 00:04:17 -0700
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:43886 "EHLO
+        mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751053AbdISHEQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 03:04:16 -0400
+Received: from pps.filterd (m0109332.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v8J73lDd023951
+        for <netdev@vger.kernel.org>; Tue, 19 Sep 2017 00:04:15 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 2d2ud20u4q-1
+        by mx0a-00082601.pphosted.com with ESMTP id 2d2wjs06ke-3
         (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Tue, 19 Sep 2017 00:04:17 -0700
+        for <netdev@vger.kernel.org>; Tue, 19 Sep 2017 00:04:15 -0700
+In-Reply-To: <20170919070413.3838201-1-yhs@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hardware pmu counters are limited resources. When there are more
-pmu based perf events opened than available counters, kernel will
-multiplex these events so each event gets certain percentage
-(but not 100%) of the pmu time. In case that multiplexing happens,
-the number of samples or counter value will not reflect the
-case compared to no multiplexing. This makes comparison between
-different runs difficult.
+This patch adds helper bpf_perf_prog_read_cvalue for perf event based bpf
+programs, to read event counter and enabled/running time.
+The enabled/running time is accumulated since the perf event open.
 
-Typically, the number of samples or counter value should be
-normalized before comparing to other experiments. The typical
-normalization is done like:
-  normalized_num_samples = num_samples * time_enabled / time_running
-  normalized_counter_value = counter_value * time_enabled / time_running
-where time_enabled is the time enabled for event and time_running is
-the time running for event since last normalization.
+The typical use case for perf event based bpf program is to attach itself
+to a single event. In such cases, if it is desirable to get scaling factor
+between two bpf invocations, users can can save the time values in a map,
+and use the value from the map and the current value to calculate
+the scaling factor.
 
-This patch set implements two helper functions.
-The helper bpf_perf_event_read_value reads counter/time_enabled/time_running
-for perf event array map. The helper bpf_perf_prog_read_value read
-counter/time_enabled/time_running for bpf prog with type BPF_PROG_TYPE_PERF_EVENT.
+Signed-off-by: Yonghong Song <yhs@fb.com>
+---
+ include/linux/perf_event.h |  1 +
+ include/uapi/linux/bpf.h   |  8 ++++++++
+ kernel/events/core.c       |  1 +
+ kernel/trace/bpf_trace.c   | 23 +++++++++++++++++++++++
+ 4 files changed, 33 insertions(+)
 
-Changelogs:
-v3->v4:
-  . fix a build failure
-v2->v3:
-  . counters should be read in order to read enabled/running time. This is to
-    prevent that counters and enabled/running time may be read separately.
-v1->v2:
-  . reading enabled/running time should be together with reading counters
-    which contains the logic to ensure the result is valid.
-
-Yonghong Song (4):
-  bpf: add helper bpf_perf_event_read_value for perf event array map
-  bpf: add a test case for helper bpf_perf_event_read_value
-  bpf: add helper bpf_perf_prog_read_value
-  bpf: add a test case for helper bpf_perf_prog_read_value
-
- include/linux/perf_event.h                |  7 +++-
- include/uapi/linux/bpf.h                  | 26 +++++++++++-
- kernel/bpf/arraymap.c                     |  2 +-
- kernel/bpf/verifier.c                     |  4 +-
- kernel/events/core.c                      | 16 ++++++--
- kernel/trace/bpf_trace.c                  | 67 +++++++++++++++++++++++++++++--
- samples/bpf/trace_event_kern.c            | 10 +++++
- samples/bpf/trace_event_user.c            | 13 +++---
- samples/bpf/tracex6_kern.c                | 26 ++++++++++++
- samples/bpf/tracex6_user.c                | 13 +++++-
- tools/include/uapi/linux/bpf.h            |  4 +-
- tools/testing/selftests/bpf/bpf_helpers.h |  6 +++
- 12 files changed, 175 insertions(+), 19 deletions(-)
-
+diff --git a/include/linux/perf_event.h b/include/linux/perf_event.h
+index 21d8c12..79b18a2 100644
+--- a/include/linux/perf_event.h
++++ b/include/linux/perf_event.h
+@@ -806,6 +806,7 @@ struct perf_output_handle {
+ struct bpf_perf_event_data_kern {
+ 	struct pt_regs *regs;
+ 	struct perf_sample_data *data;
++	struct perf_event *event;
+ };
+ 
+ #ifdef CONFIG_CGROUP_PERF
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index 2c68b9e..ba77022 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -590,6 +590,13 @@ union bpf_attr {
+  *     @buf: buf to fill
+  *     @buf_size: size of the buf
+  *     Return: 0 on success or negative error code
++ *
++ * int bpf_perf_prog_read_value(ctx, buf, buf_size)
++ *     read perf prog attached perf event counter and enabled/running time
++ *     @ctx: pointer to ctx
++ *     @buf: buf to fill
++ *     @buf_size: size of the buf
++ *     Return : 0 on success or negative error code
+  */
+ #define __BPF_FUNC_MAPPER(FN)		\
+ 	FN(unspec),			\
+@@ -647,6 +654,7 @@ union bpf_attr {
+ 	FN(sk_redirect_map),		\
+ 	FN(sock_map_update),		\
+ 	FN(perf_event_read_value),		\
++	FN(perf_prog_read_value),		\
+ 
+ /* integer value in 'imm' field of BPF_CALL instruction selects which helper
+  * function eBPF program intends to call
+diff --git a/kernel/events/core.c b/kernel/events/core.c
+index 2d5bbe5..d039086 100644
+--- a/kernel/events/core.c
++++ b/kernel/events/core.c
+@@ -8081,6 +8081,7 @@ static void bpf_overflow_handler(struct perf_event *event,
+ 	struct bpf_perf_event_data_kern ctx = {
+ 		.data = data,
+ 		.regs = regs,
++		.event = event,
+ 	};
+ 	int ret = 0;
+ 
+diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
+index 39ce5d9..596b5c9 100644
+--- a/kernel/trace/bpf_trace.c
++++ b/kernel/trace/bpf_trace.c
+@@ -603,6 +603,18 @@ BPF_CALL_3(bpf_get_stackid_tp, void *, tp_buff, struct bpf_map *, map,
+ 			       flags, 0, 0);
+ }
+ 
++BPF_CALL_3(bpf_perf_prog_read_value_tp, void *, ctx, struct bpf_perf_event_value *,
++	buf, u32, size)
++{
++	struct bpf_perf_event_data_kern *kctx = (struct bpf_perf_event_data_kern *)ctx;
++
++	if (size != sizeof(struct bpf_perf_event_value))
++		return -EINVAL;
++
++	return perf_event_read_local(kctx->event, &buf->counter, &buf->enabled,
++				     &buf->running);
++}
++
+ static const struct bpf_func_proto bpf_get_stackid_proto_tp = {
+ 	.func		= bpf_get_stackid_tp,
+ 	.gpl_only	= true,
+@@ -612,6 +624,15 @@ static const struct bpf_func_proto bpf_get_stackid_proto_tp = {
+ 	.arg3_type	= ARG_ANYTHING,
+ };
+ 
++static const struct bpf_func_proto bpf_perf_prog_read_value_proto_tp = {
++         .func           = bpf_perf_prog_read_value_tp,
++         .gpl_only       = true,
++         .ret_type       = RET_INTEGER,
++         .arg1_type      = ARG_PTR_TO_CTX,
++         .arg2_type      = ARG_PTR_TO_UNINIT_MEM,
++         .arg3_type      = ARG_CONST_SIZE,
++};
++
+ static const struct bpf_func_proto *tp_prog_func_proto(enum bpf_func_id func_id)
+ {
+ 	switch (func_id) {
+@@ -619,6 +640,8 @@ static const struct bpf_func_proto *tp_prog_func_proto(enum bpf_func_id func_id)
+ 		return &bpf_perf_event_output_proto_tp;
+ 	case BPF_FUNC_get_stackid:
+ 		return &bpf_get_stackid_proto_tp;
++	case BPF_FUNC_perf_prog_read_value:
++		return &bpf_perf_prog_read_value_proto_tp;
+ 	default:
+ 		return tracing_func_proto(func_id);
+ 	}
 -- 
 2.9.5
