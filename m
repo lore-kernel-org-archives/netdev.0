@@ -1,87 +1,41 @@
-From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH net 0/7] Bug fixes for the HNS3 Ethernet Driver for Hip08
- SoC
-Date: Tue, 19 Sep 2017 06:59:00 +0300
-Message-ID: <20170919035900.GI5788@mtr-leonro.local>
-References: <20170919010628.175732-1-salil.mehta@huawei.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] net: systemport: Fix 64-bit statistics dependency
+Date: Mon, 18 Sep 2017 20:59:09 -0700 (PDT)
+Message-ID: <20170918.205909.830536173892414747.davem@davemloft.net>
+References: <20170918233130.5740-1-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="7SAgGoIHugoKhRwh"
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, lipeng321-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
-        mehta.salil.lnk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org
-To: Salil Mehta <salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20170919010628.175732-1-salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, edumazet@google.com, jqiaoulk@gmail.com,
+        kiki-good@hotmail.com
+To: f.fainelli@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:38092 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751210AbdISD7J (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 18 Sep 2017 23:59:09 -0400
+In-Reply-To: <20170918233130.5740-1-f.fainelli@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Mon, 18 Sep 2017 16:31:30 -0700
 
---7SAgGoIHugoKhRwh
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+> There are several problems with commit 10377ba7673d ("net: systemport:
+> Support 64bit statistics", first one got fixed in 7095c973453e ("net:
+> systemport: Fix 64-bit stats deadlock").
+> 
+> The second problem is that this specific code updates the
+> stats64.tx_{packets,bytes} from ndo_get_stats64() and that is what we
+> are returning to ethtool -S. If we are not running a tool that involves
+> calling ndo_get_stats64(), then we won't get updated ethtool stats.
+> 
+> The solution to this is to update the stats from both call sites,
+> factoring that into a specific function, While at it, don't just check
+> the sizeof() but also the type of the statistics in order to use the
+> 64-bit stats seqlock.
+> 
+> Fixes: 10377ba7673d ("net: systemport: Support 64bit statistics"
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 
-On Tue, Sep 19, 2017 at 02:06:21AM +0100, Salil Mehta wrote:
-> This patch set presents some bug fixes for the HNS3 Ethernet driver, identified
-> during internal testing & stabilization efforts.
->
-> This patch series is meant for Linux 4.14 kernel.
->
-> Lipeng (6):
->   net: hns3: get phy addr from NCL_config
->   net: hns3: fix the command used to unmap ring from vector
->   net: hns3: Fix ring and vector map command
->   net: hns3: fix a bug of set mac address
->   net: hns3: set default vlan id to PF
->   net: hns3: Fixes the premature exit of loop when matching clients
->
-> Salil Mehta (1):
->   net: hns3: fixes the ether address copy with more appropriate API
-
-1. The fixes patches should have Fixes line and not all of them have
-(I didn't look all patches).
-2. Please decide on one style: fixes vs. Fixes, fix vs. Fix in the titles
-3. Subject should be descriptive and usable, I don't know if it applies
-to the "fix a bug of set mac address" patch.
-
-Thanks
-
->
->  drivers/net/ethernet/hisilicon/hns3/hnae3.c        | 43 +++++-----------------
->  .../net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.h |  8 +++-
->  .../ethernet/hisilicon/hns3/hns3pf/hclge_main.c    | 20 ++++++++--
->  .../net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c |  7 ++--
->  4 files changed, 35 insertions(+), 43 deletions(-)
->
-> --
-> 2.11.0
->
->
-
---7SAgGoIHugoKhRwh
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAlnAlgQACgkQ5GN7iDZy
-WKeIyA/9ESkbcwj0SNqY874YioMFgm7CpXddZfQawm5rv8PHAk1eiIuG80XXQZfd
-uerudhuw5bHeXnhYrQ64bB8CwHNAXb4sD8CUkXXAO5Nc3QcxL5KCfKhFO4YynsCA
-40LqXqqkNNTvDBRt89YAfdvdLonPo+WL0sB4rVCmv/LpvVIgFDWqN2vDldL4EUKi
-27WurhHoeyFTLc9YeNddfk5kLXlO4526BLEMb485q3eZC6HDaq26kaMJwxhCYgq/
-4t+T2JPLvDE/tmrqFcTHJ9ciMovLrzbEilRGIQNPZ2nFHYDhh7JmKC48b207C4vr
-4569NRdTrfzRdiNvqHLUE7cPKPFv611+a4lik9zcBerr1583wmuFhvnyzn4HY00i
-ykSF4iCO+mNuQ5OpPTYsfeatrJlBlAnwBAMWN8QyCOFXM3qiZacxalnxxV94mXft
-dVF5pc80+U4Oeqo0b3/8ZLIglQb5JdF3ptAvYNYo7Xh4Mrv6UOoKLUYl59/DyDKv
-lvBvk2i+acDej/4R7E+BwDIM72AbM0HGRyUaxZpMOvNsmC1kHaYHPD457N30hHzc
-0vDnnEcX06rABD1eWgK+9E9DYo1zMh0Ll0nrB+mQYkE6nuQ/7dU/PS85UFksgDik
-Wsg1N2xPm30GABXKLjdZSb8XOyQmydyYnBUxPS3niR/E3Zeq/Vc=
-=+9ih
------END PGP SIGNATURE-----
-
---7SAgGoIHugoKhRwh--
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied, thanks Florian.
