@@ -1,173 +1,106 @@
-From: Douglas Anderson <dianders@chromium.org>
-Subject: [RFC PATCH 2/3] usbnet: Avoid potential races in usbnet_deferred_kevent()
-Date: Tue, 19 Sep 2017 09:15:21 -0700
-Message-ID: <20170919161522.995-2-dianders@chromium.org>
-References: <20170919161522.995-1-dianders@chromium.org>
-Cc: groeck@chromium.org, grundler@chromium.org,
-        Douglas Anderson <dianders@chromium.org>,
-        netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Oliver Neukum <oneukum@suse.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170919161522.995-1-dianders@chromium.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] bpf: do not disable/enable BH in bpf_map_free_id()
+Date: Tue, 19 Sep 2017 09:15:59 -0700
+Message-ID: <1505837759.29839.64.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Martin KaFai Lau <kafai@fb.com>,
+        Alexei Starovoitov <ast@kernel.org>,
+        netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:33757 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751098AbdISQQB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 12:16:01 -0400
+Received: by mail-pg0-f67.google.com with SMTP id i130so67452pgc.0
+        for <netdev@vger.kernel.org>; Tue, 19 Sep 2017 09:16:01 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In general when you've got a flag communicating that "something needs
-to be done" you want to clear that flag _before_ doing the task.  If
-you clear the flag _after_ doing the task you end up with the risk
-that this will happen:
+From: Eric Dumazet <edumazet@google.com>
 
-1. Requester sets flag saying task A needs to be done.
-2. Worker comes and stars doing task A.
-3. Worker finishes task A but hasn't yet cleared the flag.
-4. Requester wants to set flag saying task A needs to be done again.
-5. Worker clears the flag without doing anything.
+syzkaller reported following splat [1]
 
-Let's make the usbnet codebase consistently clear the flag _before_ it
-does the requested work.  That way if there's another request to do
-the work while the work is already in progress it won't be lost.
+Since hard irq are disabled by the caller, bpf_map_free_id()
+should not try to enable/disable BH.
 
-NOTES:
-- No known bugs are fixed by this; it's just found by code inspection.
-- This changes the semantics in some of the error conditions.
-  -> If we fail to clear the "tx halt" or "rx halt" we still clear the
-     flag and thus won't retry the clear next time we happen to be in
-     the work function.  Had the old code really wanted to retry these
-     events it should have re-scheduled the worker anyway.
-  -> If we fail to allocate memory in usb_alloc_urb() we will still
-     clear the EVENT_RX_MEMORY flag.  This makes it consistent with
-     how we would deal with other failures, including failure to
-     allocate a memory chunk in rx_submit().  It can also be noted
-     that usb_alloc_urb() in this case is allocating much less than 4K
-     worth of data and probably never fails.
+Another solution would be to change htab_map_delete_elem() to
+defer the free_htab_elem() call after
+raw_spin_unlock_irqrestore(&b->lock, flags), but this might be not
+enough to cover other code paths.
 
-Signed-off-by: Douglas Anderson <dianders@chromium.org>
+[1]
+WARNING: CPU: 1 PID: 8052 at kernel/softirq.c:161 __local_bh_enable_ip
++0x1e/0x160 kernel/softirq.c:161
+Kernel panic - not syncing: panic_on_warn set ...
+
+CPU: 1 PID: 8052 Comm: syz-executor1 Not tainted 4.13.0-next-20170915+
+#23
+Hardware name: Google Google Compute Engine/Google Compute Engine, BIOS
+Google 01/01/2011
+Call Trace:
+ __dump_stack lib/dump_stack.c:16 [inline]
+ dump_stack+0x194/0x257 lib/dump_stack.c:52
+ panic+0x1e4/0x417 kernel/panic.c:181
+ __warn+0x1c4/0x1d9 kernel/panic.c:542
+ report_bug+0x211/0x2d0 lib/bug.c:183
+ fixup_bug+0x40/0x90 arch/x86/kernel/traps.c:178
+ do_trap_no_signal arch/x86/kernel/traps.c:212 [inline]
+ do_trap+0x260/0x390 arch/x86/kernel/traps.c:261
+ do_error_trap+0x120/0x390 arch/x86/kernel/traps.c:298
+ do_invalid_op+0x1b/0x20 arch/x86/kernel/traps.c:311
+ invalid_op+0x18/0x20 arch/x86/entry/entry_64.S:905
+RIP: 0010:__local_bh_enable_ip+0x1e/0x160 kernel/softirq.c:161
+RSP: 0018:ffff8801cdcd7748 EFLAGS: 00010046
+RAX: 0000000000000082 RBX: 0000000000000201 RCX: 0000000000000000
+RDX: 1ffffffff0b5933c RSI: 0000000000000201 RDI: ffffffff85ac99e0
+RBP: ffff8801cdcd7758 R08: ffffffff85b87158 R09: 1ffff10039b9aec6
+R10: ffff8801c99f24c0 R11: 0000000000000002 R12: ffffffff817b0b47
+R13: dffffc0000000000 R14: ffff8801cdcd77e8 R15: 0000000000000001
+ __raw_spin_unlock_bh include/linux/spinlock_api_smp.h:176 [inline]
+ _raw_spin_unlock_bh+0x30/0x40 kernel/locking/spinlock.c:207
+ spin_unlock_bh include/linux/spinlock.h:361 [inline]
+ bpf_map_free_id kernel/bpf/syscall.c:197 [inline]
+ __bpf_map_put+0x267/0x320 kernel/bpf/syscall.c:227
+ bpf_map_put+0x1a/0x20 kernel/bpf/syscall.c:235
+ bpf_map_fd_put_ptr+0x15/0x20 kernel/bpf/map_in_map.c:96
+ free_htab_elem+0xc3/0x1b0 kernel/bpf/hashtab.c:658
+ htab_map_delete_elem+0x74d/0x970 kernel/bpf/hashtab.c:1063
+ map_delete_elem kernel/bpf/syscall.c:633 [inline]
+ SYSC_bpf kernel/bpf/syscall.c:1479 [inline]
+ SyS_bpf+0x2188/0x46a0 kernel/bpf/syscall.c:1451
+ entry_SYSCALL_64_fastpath+0x1f/0xbe
+
+Fixes: f3f1c054c288 ("bpf: Introduce bpf_map ID")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Martin KaFai Lau <kafai@fb.com>
 ---
+ kernel/bpf/syscall.c |    6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
- drivers/net/usb/usbnet.c | 50 +++++++++++++++++++++---------------------------
- 1 file changed, 22 insertions(+), 28 deletions(-)
-
-diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-index a3e8dbaadcf9..e72547d8d0e6 100644
---- a/drivers/net/usb/usbnet.c
-+++ b/drivers/net/usb/usbnet.c
-@@ -1103,8 +1103,6 @@ static void __handle_link_change(struct usbnet *dev)
+diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
+index cb17e1cd1d434dc2e052a2a9fb0aea967fcf4417..25d074920a009ff682d97bf88e68f466c79bd564 100644
+--- a/kernel/bpf/syscall.c
++++ b/kernel/bpf/syscall.c
+@@ -186,15 +186,17 @@ static int bpf_map_alloc_id(struct bpf_map *map)
  
- 	/* hard_mtu or rx_urb_size may change during link change */
- 	usbnet_update_max_qlen(dev);
--
--	clear_bit(EVENT_LINK_CHANGE, &dev->flags);
- }
- 
- static void usbnet_set_rx_mode(struct net_device *net)
-@@ -1118,8 +1116,6 @@ static void __handle_set_rx_mode(struct usbnet *dev)
+ static void bpf_map_free_id(struct bpf_map *map, bool do_idr_lock)
  {
- 	if (dev->driver_info->set_rx_mode)
- 		(dev->driver_info->set_rx_mode)(dev);
--
--	clear_bit(EVENT_SET_RX_MODE, &dev->flags);
- }
- 
- /* work that cannot be done in interrupt context uses keventd.
-@@ -1135,7 +1131,7 @@ usbnet_deferred_kevent (struct work_struct *work)
- 	int			status;
- 
- 	/* usb_clear_halt() needs a thread context */
--	if (test_bit (EVENT_TX_HALT, &dev->flags)) {
-+	if (test_and_clear_bit (EVENT_TX_HALT, &dev->flags)) {
- 		unlink_urbs (dev, &dev->txq);
- 		status = usb_autopm_get_interface(dev->intf);
- 		if (status < 0)
-@@ -1150,12 +1146,11 @@ usbnet_deferred_kevent (struct work_struct *work)
- 				netdev_err(dev->net, "can't clear tx halt, status %d\n",
- 					   status);
- 		} else {
--			clear_bit (EVENT_TX_HALT, &dev->flags);
- 			if (status != -ESHUTDOWN)
- 				netif_wake_queue (dev->net);
- 		}
- 	}
--	if (test_bit (EVENT_RX_HALT, &dev->flags)) {
-+	if (test_and_clear_bit (EVENT_RX_HALT, &dev->flags)) {
- 		unlink_urbs (dev, &dev->rxq);
- 		status = usb_autopm_get_interface(dev->intf);
- 		if (status < 0)
-@@ -1170,41 +1165,39 @@ usbnet_deferred_kevent (struct work_struct *work)
- 				netdev_err(dev->net, "can't clear rx halt, status %d\n",
- 					   status);
- 		} else {
--			clear_bit (EVENT_RX_HALT, &dev->flags);
- 			tasklet_schedule (&dev->bh);
- 		}
- 	}
- 
- 	/* tasklet could resubmit itself forever if memory is tight */
--	if (test_bit (EVENT_RX_MEMORY, &dev->flags)) {
-+	if (test_and_clear_bit (EVENT_RX_MEMORY, &dev->flags)) {
- 		struct urb	*urb = NULL;
- 		int resched = 1;
- 
--		if (netif_running (dev->net))
-+		if (netif_running (dev->net)) {
- 			urb = usb_alloc_urb (0, GFP_KERNEL);
--		else
--			clear_bit (EVENT_RX_MEMORY, &dev->flags);
--		if (urb != NULL) {
--			clear_bit (EVENT_RX_MEMORY, &dev->flags);
--			status = usb_autopm_get_interface(dev->intf);
--			if (status < 0) {
--				usb_free_urb(urb);
--				goto fail_lowmem;
--			}
--			if (rx_submit (dev, urb, GFP_KERNEL) == -ENOLINK)
--				resched = 0;
--			usb_autopm_put_interface(dev->intf);
-+			if (urb != NULL) {
-+				status = usb_autopm_get_interface(dev->intf);
-+				if (status < 0) {
-+					usb_free_urb(urb);
-+					goto fail_lowmem;
-+				}
-+				if (rx_submit (dev, urb, GFP_KERNEL) ==
-+				    -ENOLINK)
-+					resched = 0;
-+				usb_autopm_put_interface(dev->intf);
- fail_lowmem:
--			if (resched)
--				tasklet_schedule (&dev->bh);
-+				if (resched)
-+					tasklet_schedule (&dev->bh);
-+			}
- 		}
++	unsigned long flags;
 +
- 	}
+ 	if (do_idr_lock)
+-		spin_lock_bh(&map_idr_lock);
++		spin_lock_irqsave(&map_idr_lock, flags);
+ 	else
+ 		__acquire(&map_idr_lock);
  
--	if (test_bit (EVENT_LINK_RESET, &dev->flags)) {
-+	if (test_and_clear_bit (EVENT_LINK_RESET, &dev->flags)) {
- 		struct driver_info	*info = dev->driver_info;
- 		int			retval = 0;
+ 	idr_remove(&map_idr, map->id);
  
--		clear_bit (EVENT_LINK_RESET, &dev->flags);
- 		status = usb_autopm_get_interface(dev->intf);
- 		if (status < 0)
- 			goto skip_reset;
-@@ -1221,13 +1214,14 @@ usbnet_deferred_kevent (struct work_struct *work)
- 		}
- 
- 		/* handle link change from link resetting */
-+		clear_bit(EVENT_LINK_CHANGE, &dev->flags);
- 		__handle_link_change(dev);
- 	}
- 
--	if (test_bit (EVENT_LINK_CHANGE, &dev->flags))
-+	if (test_and_clear_bit (EVENT_LINK_CHANGE, &dev->flags))
- 		__handle_link_change(dev);
- 
--	if (test_bit (EVENT_SET_RX_MODE, &dev->flags))
-+	if (test_and_clear_bit (EVENT_SET_RX_MODE, &dev->flags))
- 		__handle_set_rx_mode(dev);
- 
- 
--- 
-2.14.1.690.gbb1197296e-goog
+ 	if (do_idr_lock)
+-		spin_unlock_bh(&map_idr_lock);
++		spin_unlock_irqrestore(&map_idr_lock, flags);
+ 	else
+ 		__release(&map_idr_lock);
+ }
