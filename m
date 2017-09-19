@@ -1,36 +1,51 @@
-From: Martin KaFai Lau <kafai@fb.com>
-Subject: Re: [PATCH net] bpf: do not disable/enable BH in bpf_map_free_id()
-Date: Tue, 19 Sep 2017 10:36:18 -0700
-Message-ID: <20170919173618.atfumkgstgwr4tgx@kafai-mbp>
-References: <1505837759.29839.64.camel@edumazet-glaptop3.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] VSOCK: fix uapi/linux/vm_sockets.h incomplete types
+Date: Tue, 19 Sep 2017 10:38:40 -0700 (PDT)
+Message-ID: <20170919.103840.379059301652331060.davem@davemloft.net>
+References: <20170912163435.4049-1-stefanha@redhat.com>
+        <20170915.141432.1514866054657107786.davem@davemloft.net>
+        <20170918152100.GF4141@stefanha-x1.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: David Miller <davem@davemloft.net>,
-        Alexei Starovoitov <ast@kernel.org>,
-        netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jhansen@vmware.com
+To: stefanha@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:36278 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750919AbdISRg1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 13:36:27 -0400
-Content-Disposition: inline
-In-Reply-To: <1505837759.29839.64.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:37148 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750973AbdISRil (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 13:38:41 -0400
+In-Reply-To: <20170918152100.GF4141@stefanha-x1.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 19, 2017 at 04:15:59PM +0000, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> syzkaller reported following splat [1]
-> 
-> Since hard irq are disabled by the caller, bpf_map_free_id()
-> should not try to enable/disable BH.
-> 
-> Another solution would be to change htab_map_delete_elem() to
-> defer the free_htab_elem() call after
-> raw_spin_unlock_irqrestore(&b->lock, flags), but this might be not
-> enough to cover other code paths.
-Thanks for fixing it.
+From: Stefan Hajnoczi <stefanha@redhat.com>
+Date: Mon, 18 Sep 2017 16:21:00 +0100
 
-Acked-by: Martin KaFai Lau <kafai@fb.com>
+> On Fri, Sep 15, 2017 at 02:14:32PM -0700, David Miller wrote:
+>> > diff --git a/include/uapi/linux/vm_sockets.h b/include/uapi/linux/vm_sockets.h
+>> > index b4ed5d895699..4ae5c625ac56 100644
+>> > --- a/include/uapi/linux/vm_sockets.h
+>> > +++ b/include/uapi/linux/vm_sockets.h
+>> > @@ -18,6 +18,10 @@
+>> >  
+>> >  #include <linux/socket.h>
+>> >  
+>> > +#ifndef __KERNEL__
+>> > +#include <sys/socket.h> /* struct sockaddr */
+>> > +#endif
+>> > +
+>> 
+>> There is no precedence whatsoever to include sys/socket.h in _any_ UAPI
+>> header file provided by the kernel.
+> 
+> <linux/if.h> does it for the same reason:
+> 
+> include/uapi/linux/if.h:#include <sys/socket.h>                 /* for struct sockaddr.         */
+
+You don't need it for struct sockaddr, you need it for sa_family_t,
+the comment is very misleading.
+
+Please do as I have instructed and it will fix this problem.
+
+Thank you.
