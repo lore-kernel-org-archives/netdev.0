@@ -1,41 +1,47 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: cross namespace interface notification for tun devices
-Date: Tue, 19 Sep 2017 13:40:49 -0700
-Message-ID: <CAM_iQpVvDNRbtj_47_3XXa_ezyrT=a_VzDtK5SCR9a4_2Gqw9w@mail.gmail.com>
-References: <CAHmME9pD_kees+xrjTeWXgi26UdhbMVgvoddbCyueTZkbguvAg@mail.gmail.com>
+From: Oliver Neukum <oneukum@suse.com>
+Subject: Re: [RFC PATCH 2/3] usbnet: Avoid potential races in
+ usbnet_deferred_kevent()
+Date: Tue, 19 Sep 2017 22:37:56 +0200
+Message-ID: <1505853476.15836.9.camel@suse.com>
+References: <20170919161522.995-1-dianders@chromium.org>
+         <20170919161522.995-2-dianders@chromium.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Netdev <netdev@vger.kernel.org>, Mathias <mathias@hall-andersen.dk>
-To: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f54.google.com ([74.125.83.54]:43719 "EHLO
-        mail-pg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751488AbdISUlK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 16:41:10 -0400
-Received: by mail-pg0-f54.google.com with SMTP id u18so473589pgo.0
-        for <netdev@vger.kernel.org>; Tue, 19 Sep 2017 13:41:09 -0700 (PDT)
-In-Reply-To: <CAHmME9pD_kees+xrjTeWXgi26UdhbMVgvoddbCyueTZkbguvAg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: groeck@chromium.org, grundler@chromium.org,
+        linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org,
+        netdev@vger.kernel.org
+To: Douglas Anderson <dianders@chromium.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170919161522.995-2-dianders@chromium.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 18, 2017 at 11:47 AM, Jason A. Donenfeld <Jason@zx2c4.com> wrote:
-> Hey guys,
->
-> It's possible to create a tun device in a process in namespace A and
-> then move that interface to namespace B. The controlling process in A
-> needs to receive notifications on when the interface is brought up or
-> down. It can receive these notifications via netlink while the
-> interface lives in A but not when it moves to B.
+Am Dienstag, den 19.09.2017, 09:15 -0700 schrieb Douglas Anderson:
+> In general when you've got a flag communicating that "something needs
+> to be done" you want to clear that flag _before_ doing the task.  If
+> you clear the flag _after_ doing the task you end up with the risk
+> that this will happen:
+> 
+> 1. Requester sets flag saying task A needs to be done.
+> 2. Worker comes and stars doing task A.
+> 3. Worker finishes task A but hasn't yet cleared the flag.
+> 4. Requester wants to set flag saying task A needs to be done again.
+> 5. Worker clears the flag without doing anything.
+> 
+> Let's make the usbnet codebase consistently clear the flag _before_ it
+> does the requested work.  That way if there's another request to do
+> the work while the work is already in progress it won't be lost.
+> 
+> NOTES:
+> - No known bugs are fixed by this; it's just found by code inspection.
 
-By "notification" I assume you mean netlink notification.
+Hi,
 
->
-> Any tricks or APIs to get around this?
+unfortunately the patch is wrong. The flags must be cleared only
+in case the handler is successful. That is not guaranteed.
 
-The question is why does the process in A still care about
-the device sitting in B?
+	Regards
+		Oliver
 
-Also, the process should be able to receive a last notification
-on IFF_UP|IFF_RUNNING before device is finally moved to B.
-After this point, it should not have any relation to netns A
-any more, like the device were completely gone.
+NACK
