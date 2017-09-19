@@ -1,77 +1,83 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [PATCH 2/3] selftests: actually run the various net selftests
-Date: Tue, 19 Sep 2017 14:14:22 -0400
-Message-ID: <CAF=yD-JewUiQso6XbDEAjC+gP=yK=czsdujYmcu5=jjXTsweDA@mail.gmail.com>
-References: <1505755982-7855-1-git-send-email-jbacik@fb.com>
- <1505755982-7855-2-git-send-email-jbacik@fb.com> <09f17145-5f0a-ec61-3dfb-69216eac7133@kernel.org>
- <20170919133424.mzshgf67al7mv3fg@destiny>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: [REGRESSION] Warning in tcp_fastretrans_alert() of net/ipv4/tcp_input.c
+Date: Tue, 19 Sep 2017 11:16:03 -0700
+Message-ID: <CAK6E8=d599j+PU7FKEA4Ww5Lj28M6UwZs+Xqg-iDPwhNwkmhZw@mail.gmail.com>
+References: <10035198.1vE6NFrMDO@natalenko.name> <40697505.YK5nrFG7Le@natalenko.name>
+ <CAK6E8=djbT-35JuHq+hhOKOG+BEO3RCwgsVPoKcDhNBph5OezA@mail.gmail.com>
+ <2149381.XGPd7soC9e@natalenko.name> <CAK6E8=e7SE-M4r2nJ8K_FoDMVcN2xYdtw=MetvD5MvXMm9iA1Q@mail.gmail.com>
+ <13e86265b8db3a5b1f1eaf8135ff4510@natalenko.name>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Willem de Bruijn <willemb@google.com>, Josef Bacik <jbacik@fb.com>,
+Content-Transfer-Encoding: quoted-printable
+Cc: Neal Cardwell <ncardwell@google.com>,
         "David S. Miller" <davem@davemloft.net>,
-        LKML <linux-kernel@vger.kernel.org>,
-        linux-kselftest@vger.kernel.org,
-        Network Development <netdev@vger.kernel.org>,
-        Shuah Khan <shuahkh@osg.samsung.com>,
-        Shuah Khan <shuah@kernel.org>
-To: Josef Bacik <josef@toxicpanda.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170919133424.mzshgf67al7mv3fg@destiny>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Netdev <netdev@vger.kernel.org>
+To: Oleksandr Natalenko <oleksandr@natalenko.name>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ua0-f170.google.com ([209.85.217.170]:50135 "EHLO
+        mail-ua0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751370AbdISSQp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 14:16:45 -0400
+Received: by mail-ua0-f170.google.com with SMTP id 97so283207uai.6
+        for <netdev@vger.kernel.org>; Tue, 19 Sep 2017 11:16:45 -0700 (PDT)
+In-Reply-To: <13e86265b8db3a5b1f1eaf8135ff4510@natalenko.name>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 19, 2017 at 9:34 AM, Josef Bacik <josef@toxicpanda.com> wrote:
-> On Mon, Sep 18, 2017 at 04:14:41PM -0600, Shuah Khan wrote:
->> On 09/18/2017 11:32 AM, josef@toxicpanda.com wrote:
->> > From: Josef Bacik <jbacik@fb.com>
->> >
->> > These self tests are just self contained binaries, they are not run by
->> > any of the scripts in the directory.  This means they need to be marked
->> > with TEST_GEN_PROGS to actually be run, not TEST_GEN_FILES.
->> >
->> > Signed-off-by: Josef Bacik <jbacik@fb.com>
->> > ---
->> >  tools/testing/selftests/net/Makefile | 4 ++--
->> >  1 file changed, 2 insertions(+), 2 deletions(-)
->> >
->> > diff --git a/tools/testing/selftests/net/Makefile b/tools/testing/selftests/net/Makefile
->> > index 3df542c84610..45a4e77a47c4 100644
->> > --- a/tools/testing/selftests/net/Makefile
->> > +++ b/tools/testing/selftests/net/Makefile
->> > @@ -6,8 +6,8 @@ CFLAGS += -I../../../../usr/include/
->> >  TEST_PROGS := run_netsocktests run_afpackettests test_bpf.sh netdevice.sh rtnetlink.sh
->> >  TEST_GEN_FILES =  socket
->> >  TEST_GEN_FILES += psock_fanout psock_tpacket
->> > -TEST_GEN_FILES += reuseport_bpf reuseport_bpf_cpu reuseport_bpf_numa
->> > -TEST_GEN_FILES += reuseport_dualstack msg_zerocopy reuseaddr_conflict
->> > +TEST_GEN_PROGS += reuseport_bpf reuseport_bpf_cpu reuseport_bpf_numa
->> > +TEST_GEN_PROGS += reuseport_dualstack msg_zerocopy reuseaddr_conflict
+On Tue, Sep 19, 2017 at 4:04 AM, Oleksandr Natalenko
+<oleksandr@natalenko.name> wrote:
+> Hi.
+>
+> 18.09.2017 23:40, Yuchung Cheng wrote:
 >>
->> Hmm. I see msg_zerocopy.sh for running msg_zerocopy. msg_zerocopy should
->> still stay in TEST_GEN_FILES and msg_zerocopy.sh needs to be added to
->> TEST_PROGS so it runs.
->>
+>> I assume this kernel does not have the patch that Neal proposed in his
+>> first reply?
 >
-> Actually the shell script requires arguments, it doesn't just run the test.
-> I'll fix this to just omit the test for now as it's not setup to run properly.
 >
-> Willem, could you follow up with a patch so that the zero copy test is run
-> properly the way you envision it running?  You need to make sure that
+> Correct.
 >
-> make -C tools/testing/selftests TARGETS=net run_tests
+>> The main warning needs to be triggered by another peculiar SACK that
+>> kicks the sender into recovery again (after undo). Please let it run
+>> longer if possible to see if we can get both. But the new data does
+>> indicate the we can (validly) be in CA_Open with retrans_out > 0.
 >
-> actually runs your zero copy test the way you expect it to, otherwise it's just
-> sitting there collecting dust.  Thanks,
+>
+> OK, here it is:
+>
+> =3D=3D=3D
+> =C2=BB LC_TIME=3DC jctl -kb | grep RIP
+> =E2=80=A6
+> Sep 19 12:54:03 defiant kernel: RIP: 0010:tcp_undo_cwnd_reduction+0xbd/0x=
+d0
+> Sep 19 12:54:22 defiant kernel: RIP: 0010:tcp_undo_cwnd_reduction+0xbd/0x=
+d0
+> Sep 19 12:54:25 defiant kernel: RIP: 0010:tcp_undo_cwnd_reduction+0xbd/0x=
+d0
+> Sep 19 12:56:00 defiant kernel: RIP: 0010:tcp_fastretrans_alert+0x7c8/0x9=
+90
+> Sep 19 12:57:07 defiant kernel: RIP: 0010:tcp_undo_cwnd_reduction+0xbd/0x=
+d0
+> Sep 19 12:57:14 defiant kernel: RIP: 0010:tcp_undo_cwnd_reduction+0xbd/0x=
+d0
+> Sep 19 12:58:04 defiant kernel: RIP: 0010:tcp_undo_cwnd_reduction+0xbd/0x=
+d0
+> =E2=80=A6
+> =3D=3D=3D
+>
+> Note timestamps =E2=80=94 two types of warning are distant in time, so di=
+dn't happen
+> at once.
+>
+> While still running this kernel, anything else I can check for you?
+Thanks. Based on all the experiments you did I believe there's other
+code path than my hypothesis that'd cause the warning:
+1) Neal's proposed F-RTO fix didn't work
+2) the main warning is not being triggered together with the newly-instrume=
+nted
+warning in undo
+3) Disabling RACK stopped the warning
 
-Will do.
-
-In its current state, this test is really only meant to be run manually.
-It demonstrates the API and outputs some information on stderr.
-
-Zerocopy itself requires a two-host test. The feature is expressly
-disabled over loopback.
-
-But I can make this a pass/fail tests that exercises the interface
-and notification channel and verifies that data was copied. It will
-be a bit more work than just changing the default invocation of
-msg_zerocopy.sh
+We couldn't figure out exactly what. So we'll do a bit code auditing
+first to find more suspects
