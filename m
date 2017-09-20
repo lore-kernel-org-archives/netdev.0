@@ -1,56 +1,42 @@
-From: Andreas Schultz <aschultz@tpip.net>
-Subject: Re: [PATCH net-next 03/14] gtp: Call common functions to get tunnel
- routes and add dst_cache
-Date: Wed, 20 Sep 2017 17:37:52 +0200
-Message-ID: <01c68c74-455c-9bff-e5bb-b1708d8f92f4@tpip.net>
-References: <20170919003904.5124-1-tom@quantonium.net>
- <20170919003904.5124-4-tom@quantonium.net>
- <20170918.211751.1871429944584121281.davem@davemloft.net>
- <20170919120942.dpy5kmkhzws7pqd5@nataraja>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: [PATCH,net-next,0/2] Improve code coverage of syzkaller
+Date: Wed, 20 Sep 2017 11:38:45 -0400
+Message-ID: <CAF=yD-J_qL=hkgnbgPmHW3o_iC6WKmqFUZmmzQKs-+AUhEWY-Q@mail.gmail.com>
+References: <20170919073402.2292-1-peterpenkov96@gmail.com>
+ <20170919.160134.534837308168786965.davem@davemloft.net> <CA+DcSEjDe=h5Kk2Bg0vCOatQj2Zs8wTAyVH+z5curg4O4c3=Hw@mail.gmail.com>
+ <20170919.230853.540610280718334640.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: tom@quantonium.net, netdev@vger.kernel.org, pablo@netfilter.org,
-        rohit@quantonium.net
-To: Harald Welte <laforge@gnumonks.org>,
-        David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Cc: peterpenkov96@gmail.com,
+        Network Development <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.tpip.net ([92.43.49.48]:38721 "EHLO mail.tpip.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751507AbdITPhz (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 20 Sep 2017 11:37:55 -0400
-In-Reply-To: <20170919120942.dpy5kmkhzws7pqd5@nataraja>
-Content-Language: en-US
+Received: from mail-oi0-f66.google.com ([209.85.218.66]:36341 "EHLO
+        mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751408AbdITPj0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2017 11:39:26 -0400
+Received: by mail-oi0-f66.google.com with SMTP id a74so1544436oib.3
+        for <netdev@vger.kernel.org>; Wed, 20 Sep 2017 08:39:26 -0700 (PDT)
+In-Reply-To: <20170919.230853.540610280718334640.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, Sep 20, 2017 at 2:08 AM, David Miller <davem@davemloft.net> wrote:
+> From: Petar Penkov <peterpenkov96@gmail.com>
+> Date: Tue, 19 Sep 2017 21:26:14 -0700
+>
+>> Furthermore, in a way testing already requires specific kernel
+>> configuration.  In this particular example, syzkaller prefers
+>> synchronous operation and therefore needs 4KSTACKS disabled. Other
+>> features that require rebuilding are KASAN and dbx. From this point
+>> of view, I still think that having the TUN_NAPI flag has value.
+>
+> Then I think this path could be enabled/disabled with a runtime flag
+> just as easily, no?
 
+I think that the compile time option was chosen because of the ns_capable
+check, so that with user namespaces unprivileged processes can control this
+path. Perhaps we can require capable() only to set IFF_NAPI_FRAGS.
 
-On 19/09/17 14:09, Harald Welte wrote:
-> Hi Dave,
-> 
-> On Mon, Sep 18, 2017 at 09:17:51PM -0700, David Miller wrote:
->> This and the new dst caching code ignores any source address selection
->> done by ip_route_output_key() or the new tunnel route lookup helpers.
->>
->> Either source address selection should be respected, or if saddr will
->> never be modified by a route lookup for some specific reason here,
->> that should be documented.
-> 
-> The IP source address is fixed by signaling on the GTP-C control plane
-> and nothing that the kernel can unilaterally decide to change.  Such a
-> change of address would have to be decided by and first be signaled on
-> GTP-C to the peer by the userspace daemon, which would then update the
-> PDP context in the kernel.
-
-I think we had this discussion before. The sending IP and port are not 
-part of the identity of the PDP context. So IMHO the sender is permitted
-to change the source IP at random.
-
-Regards
-Andreas
-
-> 
-> So I guess you're asking us to document that rationale as form of a
-> source code comment ?
-> 
+Then we can convert the napi_gro_receive path to be conditional on a new
+IFF_NAPI flag instead of this compile time option.
