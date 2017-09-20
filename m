@@ -1,70 +1,101 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH v2 25/31] net/atm/mpc: Use separate static data field with with static timer
-Date: Wed, 20 Sep 2017 16:27:49 -0700
-Message-ID: <1505950075-50223-26-git-send-email-keescook@chromium.org>
-References: <1505950075-50223-1-git-send-email-keescook@chromium.org>
-Cc: Kees Cook <keescook@chromium.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Andrew Morton <akpm@linux-foundation.org>,
-        Alexey Dobriyan <adobriyan@gmail.com>,
-        "Reshetova, Elena" <elena.reshetova@intel.com>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Thomas Gleixner <tglx@linutronix.de>
+From: Franklin S Cooper Jr <fcooper@ti.com>
+Subject: Re: [PATCH v2 1/3] can: m_can: Make hclk optional
+Date: Wed, 20 Sep 2017 18:29:43 -0500
+Message-ID: <f6011853-9056-c454-6c98-c455310fa7b5@ti.com>
+References: <20170724225142.19975-1-fcooper@ti.com>
+ <20170724225142.19975-2-fcooper@ti.com>
+ <096c73b1-eaa5-8c40-4486-e08a784c0897@gmx.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+To: =?UTF-8?Q?Mario_H=c3=bcttel?= <mario.huettel@gmx.net>,
+        <linux-kernel@vger.kernel.org>, <devicetree@vger.kernel.org>,
+        <netdev@vger.kernel.org>, <linux-can@vger.kernel.org>,
+        <wg@grandegger.com>, <mkl@pengutronix.de>, <robh+dt@kernel.org>,
+        <quentin.schulz@free-electrons.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1505950075-50223-1-git-send-email-keescook@chromium.org>
+In-Reply-To: <096c73b1-eaa5-8c40-4486-e08a784c0897@gmx.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In preparation for changing the timer callback argument to the timer
-pointer, move to a separate static data variable.
 
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Andrew Morton <akpm@linux-foundation.org>
-Cc: Alexey Dobriyan <adobriyan@gmail.com>
-Cc: "Reshetova, Elena" <elena.reshetova@intel.com>
-Cc: netdev@vger.kernel.org
-Signed-off-by: Kees Cook <keescook@chromium.org>
----
- net/atm/mpc.c | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/net/atm/mpc.c b/net/atm/mpc.c
-index 63138c8c2269..3b59a053b7cb 100644
---- a/net/atm/mpc.c
-+++ b/net/atm/mpc.c
-@@ -95,7 +95,7 @@ static netdev_tx_t mpc_send_packet(struct sk_buff *skb,
- static int mpoa_event_listener(struct notifier_block *mpoa_notifier,
- 			       unsigned long event, void *dev);
- static void mpc_timer_refresh(void);
--static void mpc_cache_check(unsigned long checking_time);
-+static void mpc_cache_check(unsigned long unused);
- 
- static struct llc_snap_hdr llc_snap_mpoa_ctrl = {
- 	0xaa, 0xaa, 0x03,
-@@ -121,7 +121,8 @@ static struct notifier_block mpoa_notifier = {
- 
- struct mpoa_client *mpcs = NULL; /* FIXME */
- static struct atm_mpoa_qos *qos_head = NULL;
--static DEFINE_TIMER(mpc_timer, NULL);
-+static DEFINE_TIMER(mpc_timer, mpc_cache_check);
-+static unsigned long checking_time;
- 
- 
- static struct mpoa_client *find_mpc_by_itfnum(int itf)
-@@ -1411,12 +1412,11 @@ static void clean_up(struct k_message *msg, struct mpoa_client *mpc, int action)
- static void mpc_timer_refresh(void)
- {
- 	mpc_timer.expires = jiffies + (MPC_P2 * HZ);
--	mpc_timer.data = mpc_timer.expires;
--	mpc_timer.function = mpc_cache_check;
-+	checking_time = mpc_timer.expires;
- 	add_timer(&mpc_timer);
- }
- 
--static void mpc_cache_check(unsigned long checking_time)
-+static void mpc_cache_check(unsigned long unused)
- {
- 	struct mpoa_client *mpc = mpcs;
- 	static unsigned long previous_resolving_check_time;
--- 
-2.7.4
+On 09/20/2017 05:00 PM, Mario Hüttel wrote:
+>> Hclk is the MCAN's interface clock. However, for OMAP based devices such as
+>> DRA7 SoC family the interface clock is handled by hwmod. Therefore, this
+>> interface clock is managed by hwmod driver via pm_runtime_get and
+>> pm_runtime_put calls. Therefore, this interface clock isn't defined in DT
+>> and thus the driver shouldn't fail if this clock isn't found.
+> I also agree in this point.
+> However, there's a problem I want to point out:
+> 
+> The M_CAN can only function correctly, if the condition
+> 'hclk >= cclk' holds true.
+> 
+> The internal clock domain crossing can fail if this condition
+> is violated.
+> 
+> I thought about adding the condition to the driver to ensure
+> correct operation. But I had some problems:
+> 
+> 1. Determine the clock rates:
+>     The devices you've mentioned above don't have an assigned
+>     hclk. Is there still a possibility to get the clock frequency?
+
+I believe interface clocks via hwmod aren't exposed to drivers. So the
+only way to get access to the clock frequency is to add this interface
+clock to dt.
+
+> 
+> 2. What to do if 'hclk < cclk'?
+>     Is there a general way to process such an error? - I think not.
+>     Is a simple warning in case of an error enough?
+> 
+> Is there a way of ensuring that the condition is always met at all?
+> 
+> I think it is quite unlikely that the condition is violated, because
+> devices that actually run Linux usually have (bus) clock rates that
+> are high enough to ensure the correct operation.
+> 
+> Would it be safe to just ignore this possible fault?
+
+I think alot of peripherals have similar constraints when there is an
+interface and functional clock. However, I haven't seen drivers verify
+that this kind of constraint is properly met. Personally I think its a
+valid fault but one that can be ignored from the driver perspective.
+> 
+> Regards
+> 
+> Mario
+>    
+>>
+>> Signed-off-by: Franklin S Cooper Jr <fcooper@ti.com>
+>> ---
+>> Version 2 changes:
+>> Used NULL instead of 0 for unused hclk handle
+>>
+>>  drivers/net/can/m_can/m_can.c | 9 +++++++--
+>>  1 file changed, 7 insertions(+), 2 deletions(-)
+>>
+>> diff --git a/drivers/net/can/m_can/m_can.c b/drivers/net/can/m_can/m_can.c
+>> index f4947a7..ea48e59 100644
+>> --- a/drivers/net/can/m_can/m_can.c
+>> +++ b/drivers/net/can/m_can/m_can.c
+>> @@ -1568,8 +1568,13 @@ static int m_can_plat_probe(struct platform_device *pdev)
+>>  	hclk = devm_clk_get(&pdev->dev, "hclk");
+>>  	cclk = devm_clk_get(&pdev->dev, "cclk");
+>>  
+>> -	if (IS_ERR(hclk) || IS_ERR(cclk)) {
+>> -		dev_err(&pdev->dev, "no clock found\n");
+>> +	if (IS_ERR(hclk)) {
+>> +		dev_warn(&pdev->dev, "hclk could not be found\n");
+>> +		hclk = NULL;
+>> +	}
+>> +
+>> +	if (IS_ERR(cclk)) {
+>> +		dev_err(&pdev->dev, "cclk could not be found\n");
+>>  		ret = -ENODEV;
+>>  		goto failed_ret;
+>>  	}
+> 
+> 
