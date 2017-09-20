@@ -1,91 +1,103 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: Latest net-next from GIT panic
-Date: Wed, 20 Sep 2017 11:22:51 -0700
-Message-ID: <CAM_iQpUOOCcES4d_ueK2wizn2oyDZPEzLfWQFu3oOq=BuRzdiw@mail.gmail.com>
-References: <4745525f-18e4-7f69-fe21-8e507e407b33@itcare.pl>
- <d8bbf6c1-20a3-195c-6980-45f29e9f9278@itcare.pl> <2aeb7871-fe89-c714-3355-c5f48651e70c@itcare.pl>
- <15d293fa-0f53-bdca-6358-6a58d1da77af@itcare.pl> <65e2195b-3bd1-c0b4-b474-e07dd08f71b9@itcare.pl>
- <1505877870.29839.82.camel@edumazet-glaptop3.roam.corp.google.com>
- <07bde5d4-fab6-3ef9-f586-403dadbb0a2a@itcare.pl> <8f0b0143-657e-d574-c442-24d3d017bc87@itcare.pl>
- <54d058d4-b9d1-54cb-f064-45cec430fe5d@itcare.pl> <6c073f86-ab71-0a8f-7b9a-91d5ae5da214@itcare.pl>
- <7fee43ee-75b5-c2f5-cf8d-684ceefcd2d1@itcare.pl> <c278dec6-e018-62e0-a613-1fa79741aaab@itcare.pl>
- <cfc04422-51bd-0a28-6a8c-6b57179e8af2@itcare.pl> <3324f95f-7686-81e0-a973-1a9220c918fe@itcare.pl>
- <1505913075.29839.90.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAM_iQpV8qV8a_yFT0--4Z==FuWda=4EQzKJzHTL+op4S5b9E0A@mail.gmail.com> <3c227be7-a954-a406-1987-24e908cf214c@itcare.pl>
+From: Corentin Labbe <clabbe.montjoie@gmail.com>
+Subject: Re: [PATCH v5 05/10] dt-bindings: net: dwmac-sun8i: update
+ documentation about integrated PHY
+Date: Wed, 20 Sep 2017 20:23:50 +0200
+Message-ID: <20170920182350.GA21482@Red>
+References: <20170908071156.5115-1-clabbe.montjoie@gmail.com>
+ <20170908071156.5115-6-clabbe.montjoie@gmail.com>
+ <20170908072538.rqsp6dobwsqmzrsr@flea.lan>
+ <20170908074325.GB29999@Red>
+ <20170913182004.uniyo5opeilcfk7r@rob-hp-laptop>
+ <20170914185301.GB4021@Red>
+ <20170914191949.GA3796@lunn.ch>
+ <CAL_JsqJ2eVA9Zg60Hagqm732ZoOzHWTwVBqOabOhjE5aQ26L+g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        Wei Wang <weiwan@google.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>
-To: =?UTF-8?Q?Pawe=C5=82_Staszewski?= <pstaszewski@itcare.pl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f51.google.com ([74.125.83.51]:44005 "EHLO
-        mail-pg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751605AbdITSXM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2017 14:23:12 -0400
-Received: by mail-pg0-f51.google.com with SMTP id u18so2146472pgo.0
-        for <netdev@vger.kernel.org>; Wed, 20 Sep 2017 11:23:12 -0700 (PDT)
-In-Reply-To: <3c227be7-a954-a406-1987-24e908cf214c@itcare.pl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Lunn <andrew@lunn.ch>, Mark Rutland <mark.rutland@arm.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Alexandre Torgue <alexandre.torgue@st.com>,
+        "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+        Catalin Marinas <catalin.marinas@arm.com>,
+        Will Deacon <will.deacon@arm.com>,
+        Russell King <linux@armlinux.org.uk>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        Chen-Yu Tsai <wens@csie.org>, netdev <netdev@vger.kernel.org>,
+        Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
+        Maxime Ripard <maxime.ripard@free-electrons.com>,
+        "linux-arm-kernel@lists.infradead.org"
+        <linux-arm-kernel@lists.infradead.org>
+To: Rob Herring <robh@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAL_JsqJ2eVA9Zg60Hagqm732ZoOzHWTwVBqOabOhjE5aQ26L+g@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 20, 2017 at 10:55 AM, Pawe=C5=82 Staszewski
-<pstaszewski@itcare.pl> wrote:
->
->
-> W dniu 2017-09-20 o 19:50, Cong Wang pisze:
->
-> On Wed, Sep 20, 2017 at 6:11 AM, Eric Dumazet <eric.dumazet@gmail.com>
-> wrote:
->
-> Sorry for top-posting, but this is to give context to Wei, since Pawel
-> used a top posting way to report his bisection.
->
-> Wei, can you take a look at Pawel report ?
->
-> Crash happens in dst_destroy() at following :
->
-> if (dst->dev)
->      dev_put(dst->dev); <<CRASH>>
->
->
-> dst->dev is not NULL, but netdev->pcpu_refcnt is NULL
->
-> 65 ff 08                decl   %gs:(%rax)   // CRASH since rax =3D NULL
->
->
->
-> Pawel, please share your netdevices and routing setup  ?
->
-> Looks like a double dev_put() on some dev...
->
-> Pawel, do you have any idea how this is triggered? Does your
-> test try to remove some network device? If so which one?
-> I noticed you have at least multiple vlan, bond and ixgbe
-> devices.
->
-> Just after i start bgp sessions
-> So when host is starting i have all bgp sessions to upstreams shutdown
->
-> To trigger panic i just enable all 6x bgp sessions at once to upstreams -
-> and zebra is start to pull prefixes and push them to the kernel
->
-> Then some traffic is generated from test hosts thru this backup router an=
-d
-> panic is generated - every time after 10 to 15 seconds after bgp sessions
-> are connected.
->
-> I'm not removing any interface at this time or do anything with interface=
-s -
-> just wait.
->
-> And yes there are vlans attached to the bond devices
-> but dmesg at this time shows nothing about interfaces or flaps.
+On Tue, Sep 19, 2017 at 09:49:52PM -0500, Rob Herring wrote:
+> On Thu, Sep 14, 2017 at 2:19 PM, Andrew Lunn <andrew@lunn.ch> wrote:
+> >> > Is the MDIO controller "allwinner,sun8i-h3-emac" or "snps,dwmac-mdio"?
+> >> > If the latter, then I think the node is fine, but then the mux should be
+> >> > a child node of it. IOW, the child of an MDIO controller should either
+> >> > be a mux node or slave devices.
+> >
+> > Hi Rob
+> >
+> > Up until now, children of an MDIO bus have been MDIO devices. Those
+> > MDIO devices are either Ethernet PHYs, Ethernet Switches, or the
+> > oddball devices that Broadcom iProc has, like generic PHYs.
+> >
+> > We have never had MDIO-muxes as MDIO children. A Mux is not an MDIO
+> > device, and does not have the properties of an MDIO device. It is not
+> > addressable on the MDIO bus. The current MUXes are addressed via GPIOs
+> > or MMIO.
+> 
+> The DT parent/child relationship defines the bus topology. We describe
+> MDIO buses in that way and if a mux is sitting between the controller
+> and the devices, then the DT hierarchy should reflect that. Now
+> sometimes we have 2 options for what interface has the parent/child
+> relationship (e.g. an I2C controlled USB hub chip), but in this case
+> we don't.
+> 
 
-This is very odd.
+Putting mdio-mux as a child of it (the mdio node) give me:
+[   18.175338] libphy: stmmac: probed
+[   18.175379] mdio_bus stmmac-0: /soc/ethernet@1c30000/mdio/mdio-mux has invalid PHY address
+[   18.175408] mdio_bus stmmac-0: scan phy mdio-mux at address 0
+[   18.175450] mdio_bus stmmac-0: scan phy mdio-mux at address 1
+[   18.175482] mdio_bus stmmac-0: scan phy mdio-mux at address 2
+[   18.175513] mdio_bus stmmac-0: scan phy mdio-mux at address 3
+[   18.175544] mdio_bus stmmac-0: scan phy mdio-mux at address 4
+[   18.175575] mdio_bus stmmac-0: scan phy mdio-mux at address 5
+[   18.175607] mdio_bus stmmac-0: scan phy mdio-mux at address 6
+[   18.175638] mdio_bus stmmac-0: scan phy mdio-mux at address 7
+[   18.175669] mdio_bus stmmac-0: scan phy mdio-mux at address 8
+[   18.175700] mdio_bus stmmac-0: scan phy mdio-mux at address 9
+[   18.175731] mdio_bus stmmac-0: scan phy mdio-mux at address 10
+[   18.175762] mdio_bus stmmac-0: scan phy mdio-mux at address 11
+[   18.175795] mdio_bus stmmac-0: scan phy mdio-mux at address 12
+[   18.175827] mdio_bus stmmac-0: scan phy mdio-mux at address 13
+[   18.175858] mdio_bus stmmac-0: scan phy mdio-mux at address 14
+[   18.175889] mdio_bus stmmac-0: scan phy mdio-mux at address 15
+[   18.175919] mdio_bus stmmac-0: scan phy mdio-mux at address 16
+[   18.175951] mdio_bus stmmac-0: scan phy mdio-mux at address 17
+[   18.175982] mdio_bus stmmac-0: scan phy mdio-mux at address 18
+[   18.176014] mdio_bus stmmac-0: scan phy mdio-mux at address 19
+[   18.176045] mdio_bus stmmac-0: scan phy mdio-mux at address 20
+[   18.176076] mdio_bus stmmac-0: scan phy mdio-mux at address 21
+[   18.176107] mdio_bus stmmac-0: scan phy mdio-mux at address 22
+[   18.176139] mdio_bus stmmac-0: scan phy mdio-mux at address 23
+[   18.176170] mdio_bus stmmac-0: scan phy mdio-mux at address 24
+[   18.176202] mdio_bus stmmac-0: scan phy mdio-mux at address 25
+[   18.176233] mdio_bus stmmac-0: scan phy mdio-mux at address 26
+[   18.176271] mdio_bus stmmac-0: scan phy mdio-mux at address 27
+[   18.176320] mdio_bus stmmac-0: scan phy mdio-mux at address 28
+[   18.176371] mdio_bus stmmac-0: scan phy mdio-mux at address 29
+[   18.176420] mdio_bus stmmac-0: scan phy mdio-mux at address 30
+[   18.176452] mdio_bus stmmac-0: scan phy mdio-mux at address 31
 
-We only free netdevice in free_netdev() and it is only called when
-we unregister a netdevice. Otherwise pcpu_refcnt is impossible
-to be NULL.
+Adding a fake <reg> to mdio-mux remove it, but I found that a bit ugly.
+Or perhaps patching of_mdiobus_register() to not scan node with compatible "mdio-mux".
+
+What do you think ?
+
+Regards
