@@ -1,49 +1,110 @@
-From: Troy Kisky <troy.kisky@boundarydevices.com>
-Subject: [PATCH v4 3/3] net: fec: return IRQ_HANDLED if fec_ptp_check_pps_event handled it
-Date: Tue, 19 Sep 2017 17:33:09 -0700
-Message-ID: <1505867589-11784-3-git-send-email-troy.kisky@boundarydevices.com>
-References: <1505867589-11784-1-git-send-email-troy.kisky@boundarydevices.com>
-Cc: fabio.estevam@nxp.com, lznuaa@gmail.com,
-        Troy Kisky <troy.kisky@boundarydevices.com>
-To: fugang.duan@nxp.com, netdev@vger.kernel.org, davem@davemloft.net
+From: Hangbin Liu <liuhangbin@gmail.com>
+Subject: [PATCHv3 iproute2 0/2] libnetlink: malloc correct buff at run time
+Date: Wed, 20 Sep 2017 09:43:38 +0800
+Message-ID: <1505871820-31580-1-git-send-email-liuhangbin@gmail.com>
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+        Michal Kubecek <mkubecek@suse.cz>, Phil Sutter <phil@nwl.cc>,
+        Hangbin Liu <liuhangbin@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wsip-98-189-142-135.oc.oc.cox.net ([98.189.142.135]:19541 "EHLO
-        office-server2" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751284AbdITBRA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 21:17:00 -0400
-In-Reply-To: <1505867589-11784-1-git-send-email-troy.kisky@boundarydevices.com>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:34966 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751000AbdITBoG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 21:44:06 -0400
+Received: by mail-pg0-f65.google.com with SMTP id j16so789613pga.2
+        for <netdev@vger.kernel.org>; Tue, 19 Sep 2017 18:44:05 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-fec_ptp_check_pps_event will return 1 if FEC_T_TF_MASK caused
-an interrupt. Don't return IRQ_NONE in this case.
+With commit 72b365e8e0fd ("libnetlink: Double the dump buffer size") and
+460c03f3f3cc ("iplink: double the buffer size also in iplink_get()"), we
+extend the buffer size to avoid truncated message with large numbers of
+VFs. But just as Michal said, this is not future-proof since the NIC
+number is increasing. We have customer even has 220+ VFs now.
 
-Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
-Acked-by: Fugang Duan <fugang.duan@nxp.com>
+This is not make sense to hard code the buffer and increase it all the time.
+So let's just malloc the correct buff size at run time.
+
+Tested with most ip cmds and all look good.
 
 ---
-v3: New patch, came from feedback from another patch.
-v4: Added Acked-by
+v2 -> v3:
+* rtnl_recvmsg():
+  * free buf before each return.
+  * return errno when recvmsg failed.
+v1 -> v2 by Phil:
+* rtnl_recvmsg():
+  * Rename output buffer pointer arg to 'answer'.
+  * Use realloc() and make sure old buffer is freed on error.
+  * Always return a newly allocated buffer for caller to free.
+  * Retry on EINTR or EAGAIN so caller doesn't have to.
+  * Return well-known negative error codes instead of just -1 on error.
+  * Simplify goto label names.
+  * If no answer pointer was passed, just free the buffer.
+* rtnl_dump_filter_l():
+  * Don't retry if rtnl_recvmsg() returns 0 as this can't happen
+    anymore.
+  * Free buffer returned by rtnl_recvmsg().
+* __rtnl_talk():
+  * Don't retry if rtnl_recvmsg() returns 0 as this can't happen
+    anymore.
+  * Free buffer returned by rtnl_recvmsg().
+  * Return a newly allocated buffer for callers to free.
+* genl_ctrl_resolve_family()
+  * Replace 'ghdr + GENL_HDRLEN' to 'answer + NLMSG_LENGTH(GENL_HDRLEN)'
+* tc_action_gd()
+  * Call print_action() only if cmd == RTM_GETACTION
+* Change callers of rtnl_talk*() to always free the answer buffer if
+  they passed one.
+* Drop extra request buffer space in callers if only used for holding
+  output data.
+* Drop initialization of answer pointer if not necessary.
+* Change callers to pass NULL instead of answer pointer if they don't
+  use it afterwards.
 
-Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
----
- drivers/net/ethernet/freescale/fec_main.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 464055f..3dc2d77 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -1604,8 +1604,8 @@ fec_enet_interrupt(int irq, void *dev_id)
- 	}
- 
- 	if (fep->ptp_clock)
--		fec_ptp_check_pps_event(fep);
--
-+		if (fec_ptp_check_pps_event(fep))
-+			ret = IRQ_HANDLED;
- 	return ret;
- }
- 
+Hangbin Liu (2):
+  lib/libnetlink: re malloc buff if size is not enough
+  lib/libnetlink: update rtnl_talk to support malloc buff at run time
+
+ bridge/fdb.c         |   2 +-
+ bridge/link.c        |   2 +-
+ bridge/mdb.c         |   2 +-
+ bridge/vlan.c        |   2 +-
+ genl/ctrl.c          |  19 +++++---
+ include/libnetlink.h |   6 +--
+ ip/ipaddress.c       |   4 +-
+ ip/ipaddrlabel.c     |   4 +-
+ ip/ipfou.c           |   4 +-
+ ip/ipila.c           |   4 +-
+ ip/ipl2tp.c          |   8 +--
+ ip/iplink.c          |  38 +++++++--------
+ ip/iplink_vrf.c      |  44 ++++++++---------
+ ip/ipmacsec.c        |   2 +-
+ ip/ipneigh.c         |   2 +-
+ ip/ipnetns.c         |  23 +++++----
+ ip/ipntable.c        |   2 +-
+ ip/iproute.c         |  26 ++++++----
+ ip/iprule.c          |   6 +--
+ ip/ipseg6.c          |   8 +--
+ ip/iptoken.c         |   2 +-
+ ip/link_gre.c        |  11 +++--
+ ip/link_gre6.c       |  11 +++--
+ ip/link_ip6tnl.c     |  11 +++--
+ ip/link_iptnl.c      |  10 ++--
+ ip/link_vti.c        |  11 +++--
+ ip/link_vti6.c       |  11 +++--
+ ip/tcp_metrics.c     |   8 +--
+ ip/xfrm_policy.c     |  25 +++++-----
+ ip/xfrm_state.c      |  30 ++++++------
+ lib/libgenl.c        |   9 +++-
+ lib/libnetlink.c     | 134 ++++++++++++++++++++++++++++++++++-----------------
+ misc/ss.c            |   2 +-
+ tc/m_action.c        |  12 ++---
+ tc/tc_class.c        |   2 +-
+ tc/tc_filter.c       |   8 +--
+ tc/tc_qdisc.c        |   2 +-
+ 37 files changed, 298 insertions(+), 209 deletions(-)
+
 -- 
-2.7.4
+2.5.5
