@@ -1,72 +1,86 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 00/16] mlxsw: Multicast flood update
-Date: Wed, 20 Sep 2017 16:15:00 +0200
-Message-ID: <20170920141516.1402-1-jiri@resnulli.us>
+Subject: [patch net-next 11/16] mlxsw: spectrum_switchdev: Flood mc when mc is disabled by user flag
+Date: Wed, 20 Sep 2017 16:15:11 +0200
+Message-ID: <20170920141516.1402-12-jiri@resnulli.us>
+References: <20170920141516.1402-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, nogahf@mellanox.com, idosch@mellanox.com,
         mlxsw@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:36017 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751378AbdITOPS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2017 10:15:18 -0400
-Received: by mail-wm0-f66.google.com with SMTP id r136so2577218wmf.3
-        for <netdev@vger.kernel.org>; Wed, 20 Sep 2017 07:15:18 -0700 (PDT)
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:36114 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751752AbdITOP2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2017 10:15:28 -0400
+Received: by mail-wm0-f68.google.com with SMTP id r136so2577740wmf.3
+        for <netdev@vger.kernel.org>; Wed, 20 Sep 2017 07:15:28 -0700 (PDT)
+In-Reply-To: <20170920141516.1402-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@mellanox.com>
+From: Nogah Frankel <nogahf@mellanox.com>
 
-Nogah says:
+When multicast is disabled, flood mc packets only to port that are marked
+BR_MCAST_FLOOD (instead to all).
 
-Currently, there are four erroneous flows in MC flood:
-1. When MC is disabled it affects only the flood table for unregistered
-   MC packets, but packets that match an entry in the MDB are unaffected.
-2. When MC is disabled, MC packets are being sent to all the ports in the
-   bridge (like BC and link-local MC packets) regardless of the designated
-   flag (BR_MCAST_FLAG).
-3. When a port is being deleted from a bridge it might remain in the MDB.
-4. When MC is enabled packets are flooded to the mrouter ports only if
-   they don't match any entry in the MDB, when they should always be
-   flooded to them.
+Signed-off-by: Nogah Frankel <nogahf@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ .../ethernet/mellanox/mlxsw/spectrum_switchdev.c    | 21 +++++++++++++++++----
+ 1 file changed, 17 insertions(+), 4 deletions(-)
 
-What these problems have in common is the discrepancy between how the
-hardware handles MDB and mcast flood, and how the driver does it. Each
-of these problems needs fixing either in the MDB code, or in mcast flood
-code, and some in both.
-
-Patches 1-6 change the way the MDB is handled in the driver to make the
-following changes easier.
-Patches 7-8 fix problem number 1 by removing the MDB from the HW when MC
-is being disabled and restoring it when it is being enabled.
-Patches 9-10 fix problem number 2 by offloading the flood table by the
-appropriate flag.
-Patch 11 fixes problem number 3 by adding MDB flush to the port removal.
-Patches 12-14 fix problem number 4 by adding the mrouter ports to every
-MDB entry in the HW to mimic the wanted behaviour.
-
-Nogah Frankel (16):
-  mlxsw: spectrum_switchdev: Change mc_router to mrouter
-  mlxsw: spectrum_switchdev: Add a ports bitmap to the mid db
-  mlxsw: spectrum_switchdev: Remove reference count from mid
-  mlxsw: spectrum_switchdev: Save mids list per bridge device
-  mlxsw: spectrum_switchdev: Break smid write function
-  mlxsw: spectrum_switchdev: Attach mid id allocation to HW write
-  mlxsw: spectrum_switchdev: Break mid deletion into two function
-  mlxsw: spectrum_switchdev: Don't write mids to the HW when mc is
-    disabled
-  mlxsw: spectrum_switchdev: Disable mdb when mc is disabled
-  mlxsw: spectrum_switchdev: Use generic mc flood function
-  mlxsw: spectrum_switchdev: Flood mc when mc is disabled by user flag
-  mlxsw: spectrum_switchdev: Flush the mdb when a port is being removed
-  mlxsw: spectrum_switchdev: Flood all mc packets to mrouter ports
-  mlxsw: spectrum_switchdev: Update the mdb of mrouter port change
-  mlxsw: spectrum_switchdev: Remove mrouter flood in mdb flush
-  mlxsw: spectrum_switchdev: Consider mrouter status for mdb changes
-
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |   3 +-
- .../ethernet/mellanox/mlxsw/spectrum_switchdev.c   | 417 ++++++++++++++++-----
- 2 files changed, 323 insertions(+), 97 deletions(-)
-
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+index 19ac206..50c4d7c 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+@@ -262,7 +262,8 @@ mlxsw_sp_bridge_port_create(struct mlxsw_sp_bridge_device *bridge_device,
+ 	bridge_port->dev = brport_dev;
+ 	bridge_port->bridge_device = bridge_device;
+ 	bridge_port->stp_state = BR_STATE_DISABLED;
+-	bridge_port->flags = BR_LEARNING | BR_FLOOD | BR_LEARNING_SYNC;
++	bridge_port->flags = BR_LEARNING | BR_FLOOD | BR_LEARNING_SYNC |
++			     BR_MCAST_FLOOD;
+ 	INIT_LIST_HEAD(&bridge_port->vlans_list);
+ 	list_add(&bridge_port->list, &bridge_device->ports_list);
+ 	bridge_port->ref_count = 1;
+@@ -468,7 +469,8 @@ static int mlxsw_sp_port_attr_get(struct net_device *dev,
+ 					       &attr->u.brport_flags);
+ 		break;
+ 	case SWITCHDEV_ATTR_ID_PORT_BRIDGE_FLAGS_SUPPORT:
+-		attr->u.brport_flags_support = BR_LEARNING | BR_FLOOD;
++		attr->u.brport_flags_support = BR_LEARNING | BR_FLOOD |
++					       BR_MCAST_FLOOD;
+ 		break;
+ 	default:
+ 		return -EOPNOTSUPP;
+@@ -653,8 +655,18 @@ static int mlxsw_sp_port_attr_br_flags_set(struct mlxsw_sp_port *mlxsw_sp_port,
+ 	if (err)
+ 		return err;
+ 
+-	memcpy(&bridge_port->flags, &brport_flags, sizeof(brport_flags));
++	if (bridge_port->bridge_device->multicast_enabled)
++		goto out;
+ 
++	err = mlxsw_sp_bridge_port_flood_table_set(mlxsw_sp_port, bridge_port,
++						   MLXSW_SP_FLOOD_TYPE_MC,
++						   brport_flags &
++						   BR_MCAST_FLOOD);
++	if (err)
++		return err;
++
++out:
++	memcpy(&bridge_port->flags, &brport_flags, sizeof(brport_flags));
+ 	return 0;
+ }
+ 
+@@ -747,7 +759,8 @@ static bool mlxsw_sp_mc_flood(const struct mlxsw_sp_bridge_port *bridge_port)
+ 	const struct mlxsw_sp_bridge_device *bridge_device;
+ 
+ 	bridge_device = bridge_port->bridge_device;
+-	return !bridge_device->multicast_enabled ? true : bridge_port->mrouter;
++	return bridge_device->multicast_enabled ? bridge_port->mrouter :
++					bridge_port->flags & BR_MCAST_FLOOD;
+ }
+ 
+ static int mlxsw_sp_port_mc_disabled_set(struct mlxsw_sp_port *mlxsw_sp_port,
 -- 
 2.9.5
