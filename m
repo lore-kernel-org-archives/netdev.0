@@ -1,41 +1,47 @@
-From: Joel Fernandes <joelaf@google.com>
-Subject: [PATCH v4 4/4] samples/bpf: Add documentation on cross compilation
-Date: Wed, 20 Sep 2017 09:11:59 -0700
-Message-ID: <20170920161159.25747-4-joelaf@google.com>
-References: <20170920161159.25747-1-joelaf@google.com>
-Cc: netdev@vger.kernel.org, alison@she-devel.com, juri.lelli@arm.com,
-        fengc@google.com, daniel@iogearbox.net, davem@davemloft.net,
-        ast@kernel.org, kernel-team@android.com,
-        Joel Fernandes <joelaf@google.com>
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170920161159.25747-1-joelaf@google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Xiang Gao <qasdfgtyuiop@gmail.com>
+Subject: Re: [PATCH] ipv6_skip_exthdr: use ipv6_authlen for AH hdrlen
+Date: Wed, 20 Sep 2017 12:17:31 -0400
+Message-ID: <CAMtaSwQ4Czd6_Hwx3urTvYrY5=J1Z3czEzvZocw2YauoHd2sdw@mail.gmail.com>
+References: <20170919125950.11537-1-qasdfgtyuiop@gmail.com> <20170919.153208.1575676406897804623.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: trivial@kernel.org, netdev@vger.kernel.org,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-it0-f52.google.com ([209.85.214.52]:52559 "EHLO
+        mail-it0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751499AbdITQRw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2017 12:17:52 -0400
+Received: by mail-it0-f52.google.com with SMTP id c195so3603002itb.1
+        for <netdev@vger.kernel.org>; Wed, 20 Sep 2017 09:17:52 -0700 (PDT)
+In-Reply-To: <20170919.153208.1575676406897804623.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Acked-by: Alexei Starovoitov <ast@kernel.org>
-Signed-off-by: Joel Fernandes <joelaf@google.com>
----
- samples/bpf/README.rst | 10 ++++++++++
- 1 file changed, 10 insertions(+)
+Hi David,
 
-diff --git a/samples/bpf/README.rst b/samples/bpf/README.rst
-index 79f9a58f1872..2b906127ef54 100644
---- a/samples/bpf/README.rst
-+++ b/samples/bpf/README.rst
-@@ -64,3 +64,13 @@ It is also possible to point make to the newly compiled 'llc' or
- 'clang' command via redefining LLC or CLANG on the make command line::
- 
-  make samples/bpf/ LLC=~/git/llvm/build/bin/llc CLANG=~/git/llvm/build/bin/clang
-+
-+Cross compiling samples
-+-----------------------
-+Inorder to cross-compile, say for arm64 targets, export CROSS_COMPILE and ARCH
-+environment variables before calling make. This will direct make to build
-+samples for the cross target.
-+
-+export ARCH=arm64
-+export CROSS_COMPILE="aarch64-linux-gnu-"
-+make samples/bpf/ LLC=~/git/llvm/build/bin/llc CLANG=~/git/llvm/build/bin/clang
--- 
-2.14.1.821.g8fa685d3b7-goog
+Thanks for your time and all your suggestions. I will resend a new patch soon.
+
+Xiang Gao
+Xiang Gao
+
+
+2017-09-19 18:32 GMT-04:00 David Miller <davem@davemloft.net>:
+> From: Xiang Gao <qasdfgtyuiop@gmail.com>
+> Date: Tue, 19 Sep 2017 08:59:50 -0400
+>
+>> In ipv6_skip_exthdr, the lengh of AH header is computed manually
+>> as (hp->hdrlen+2)<<2. However, in include/linux/ipv6.h, a macro
+>> named ipv6_authlen is already defined for exactly the same job. This
+>> commit replaces the manual computation code with the macro.
+>
+> All patch submissions must have a proper signoff.
+>
+> Also, please use a proper subsystem prefix in your Subject
+> line "[PATCH] ipv6: Use ipv6_authlen for AH hdrlen in ipv6_skip_exthdr()"
+> would have been much better as "ipv6: " is the appropriate
+> subsystem prefix to use here.
+>
+> Thanks.
