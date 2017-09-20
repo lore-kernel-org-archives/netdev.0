@@ -1,43 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net/ncsi: Don't assume last available channel
- exists
-Date: Wed, 20 Sep 2017 16:05:19 -0700 (PDT)
-Message-ID: <20170920.160519.764603868579556859.davem@davemloft.net>
-References: <20170920041251.14635-1-sam@mendozajonas.com>
+Subject: Re: [PATCH net-next] cxgb4: add new T5 pci device id's
+Date: Wed, 20 Sep 2017 16:06:12 -0700 (PDT)
+Message-ID: <20170920.160612.297153056107161056.davem@davemloft.net>
+References: <1505887327-8687-1-git-send-email-ganeshgr@chelsio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: sam@mendozajonas.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170920041251.14635-1-sam@mendozajonas.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, nirranjan@chelsio.com,
+        indranil@chelsio.com, venkatesh@chelsio.com
+To: ganeshgr@chelsio.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:41808 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751866AbdITXGM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2017 19:06:12 -0400
+In-Reply-To: <1505887327-8687-1-git-send-email-ganeshgr@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Samuel Mendoza-Jonas <sam@mendozajonas.com>
-Date: Wed, 20 Sep 2017 14:12:51 +1000
+From: Ganesh Goudar <ganeshgr@chelsio.com>
+Date: Wed, 20 Sep 2017 11:32:07 +0530
 
-> When handling new VLAN tags in NCSI we check the maximum allowed number
-> of filters on the last active ("hot") channel. However if the 'add'
-> callback is called before NCSI has configured a channel, this causes a
-> NULL dereference.
+> Add 0x50a5, 0x50a6, 0x50a7, 0x50a8 and 0x50a9 T5 device
+> id's.
 > 
-> Check that we actually have a hot channel, and warn if it is missing.
-> 
-> Signed-off-by: Samuel Mendoza-Jonas <sam@mendozajonas.com>
+> Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
 
-Well, a few things.
-
-We should not allow this driver method to be invoked in the first
-place if the device is not in a state where the operation is legal
-yet.
-
-Second of all, if !ndp is true, you should not return 0 to indicate
-success.
-
-But more fundamentally, we should block this method from being
-callable unless the device is in the proper state and can complete the
-operation.
-
-Seriously, these checks should be completely unnecessary if those
-issues are handled properly.
+Applied, thank you.
