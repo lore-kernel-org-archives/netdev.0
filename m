@@ -1,31 +1,92 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4 1/3] net: fec: only check queue 0 if RXF_0/TXF_0
- interrupt is set
-Date: Wed, 20 Sep 2017 15:47:41 -0700 (PDT)
-Message-ID: <20170920.154741.1211259333792686419.davem@davemloft.net>
-References: <1505867589-11784-1-git-send-email-troy.kisky@boundarydevices.com>
+From: Vallish Vaidyeshwara <vallish@amazon.com>
+Subject: Re: [PATCH v2 0/2] enable hires timer to timeout datagram socket
+Date: Wed, 20 Sep 2017 22:48:16 +0000
+Message-ID: <20170920224816.GA73561@amazon.com>
+References: <20170908170409.GA10020@u40b0340c692b58f6553c.ant.amazon.com>
+ <20170908.101657.2131282706895004921.davem@davemloft.net>
+ <1504891402.32080.5.camel@infradead.org>
+ <20170908.102645.1086537961399780085.davem@davemloft.net>
+ <20170908185521.GA12340@u40b0340c692b58f6553c.ant.amazon.com>
+ <1504897909.15310.89.camel@edumazet-glaptop3.roam.corp.google.com>
+ <alpine.DEB.2.20.1709161131200.2105@nanos>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: fugang.duan@nxp.com, netdev@vger.kernel.org, fabio.estevam@nxp.com,
-        lznuaa@gmail.com
-To: troy.kisky@boundarydevices.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:41084 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751973AbdITWrm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2017 18:47:42 -0400
-In-Reply-To: <1505867589-11784-1-git-send-email-troy.kisky@boundarydevices.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+        Eduardo Valentin <eduval@amazon.com>,
+        David Miller <davem@davemloft.net>, <dwmw2@infradead.org>,
+        <shuah@kernel.org>, <richardcochran@gmail.com>,
+        <xiyou.wangcong@gmail.com>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>, <anchalag@amazon.com>,
+        <dwmw@amazon.com>
+To: Thomas Gleixner <tglx@linutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.DEB.2.20.1709161131200.2105@nanos>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Troy Kisky <troy.kisky@boundarydevices.com>
-Date: Tue, 19 Sep 2017 17:33:07 -0700
-
-> Before queue 0 was always checked if any queue caused an interrupt.
-> It is better to just mark queue 0 if queue 0 has caused an interrupt.
+On Sat, Sep 16, 2017 at 11:47:56AM +0200, Thomas Gleixner wrote:
+> On Fri, 8 Sep 2017, Eric Dumazet wrote:
+> > On Fri, 2017-09-08 at 11:55 -0700, Eduardo Valentin wrote:
+> > > Hello,
+> > > 
+> > > On Fri, Sep 08, 2017 at 10:26:45AM -0700, David Miller wrote:
+> > > > From: David Woodhouse <dwmw2@infradead.org>
+> > > > Date: Fri, 08 Sep 2017 18:23:22 +0100
+> > > > 
+> > > > > I don't know that anyone's ever tried saying "show me the chapter
+> > > and
+> > > > > verse of the documentation"
+> > > > 
+> > > > Do you know why I brought this up?  Because the person I am replying
+> > > > to told me that the syscall documentation should have suggested this
+> > > > or that.
+> > > > 
+> > > > That's why.
+> > > 
+> > > :-) My intention was for sure not to upset anybody.
+> > > 
+> > > Just to reiterate, the point of patch is simple, there was a change in
+> > > behavior in the system call from one kernel version to the other. As I
+> > > mentioned, I agree that the userspace could use other means to achieve
+> > > the same, but still the system call behavior has changed.
+> > > 
+> > > > 
+> > > > So let's concentrate on the other aspects of my reply, ok?
+> > > 
+> > > I agree. I would prefer to understand here what is the technical
+> > > reason not to accept these patches other than "use other system
+> > > calls".
+> > 
+> > So if we need to replace all 'legacy' timers to high resolution timer,
+> > because some application was _relying_ on jiffies being kind of precise,
+> > maybe it is better to revert the change done on legacy timers.
 > 
-> Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
-> Acked-by: Fugang Duan <Fugang.duan@nxp.com>
+> Which would be a major step back in terms of timer performance and system
+> disturbance caused by massive recascading operations.
+> 
+> > Or continue the migration and make them use high res internally.
+> > 
+> > select() and poll() are the standard way to have precise timeouts,
+> > it is silly we have to maintain a timeout handling in the datagram fast
+> > path.
+> 
+> A few years ago we switched select/poll over to use hrtimers because the
+> wheel timers were too inaccurate for some operations, so it feels
+> consequent to switch the timeout in the datagram rcv path over as well. I
+> agree that the whole timeout magic there feels silly, but unfortunately
+> it's a documented property of sockets.
+> 
+> Thanks,
+> 
+> 	tglx
+> 
 
-Applied.
+Hello Thomas,
+
+Thanks for your comments. This patch has been NACK'ed by David Miller. Is
+there any other approach to solve this problem with out application code
+being recompiled?
+
+Thanks.
+-Vallish
