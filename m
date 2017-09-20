@@ -1,61 +1,80 @@
-From: Leon Romanovsky <leon@kernel.org>
-Subject: Re: [PATCH net-next 08/10] net/smc: introduce a delay
-Date: Wed, 20 Sep 2017 17:03:15 +0300
-Message-ID: <20170920140315.GR5788@mtr-leonro.local>
-References: <20170920115813.63745-1-ubraun@linux.vnet.ibm.com>
- <20170920115813.63745-9-ubraun@linux.vnet.ibm.com>
+From: =?UTF-8?Q?Pawe=c5=82_Staszewski?= <pstaszewski@itcare.pl>
+Subject: Re: Latest net-next from GIT panic
+Date: Wed, 20 Sep 2017 16:03:39 +0200
+Message-ID: <cf94cafb-07b0-f04d-016d-cbdb46b557c1@itcare.pl>
+References: <4745525f-18e4-7f69-fe21-8e507e407b33@itcare.pl>
+ <2aeb7871-fe89-c714-3355-c5f48651e70c@itcare.pl>
+ <15d293fa-0f53-bdca-6358-6a58d1da77af@itcare.pl>
+ <65e2195b-3bd1-c0b4-b474-e07dd08f71b9@itcare.pl>
+ <1505877870.29839.82.camel@edumazet-glaptop3.roam.corp.google.com>
+ <07bde5d4-fab6-3ef9-f586-403dadbb0a2a@itcare.pl>
+ <8f0b0143-657e-d574-c442-24d3d017bc87@itcare.pl>
+ <54d058d4-b9d1-54cb-f064-45cec430fe5d@itcare.pl>
+ <6c073f86-ab71-0a8f-7b9a-91d5ae5da214@itcare.pl>
+ <7fee43ee-75b5-c2f5-cf8d-684ceefcd2d1@itcare.pl>
+ <c278dec6-e018-62e0-a613-1fa79741aaab@itcare.pl>
+ <cfc04422-51bd-0a28-6a8c-6b57179e8af2@itcare.pl>
+ <3324f95f-7686-81e0-a973-1a9220c918fe@itcare.pl>
+ <1505913075.29839.90.camel@edumazet-glaptop3.roam.corp.google.com>
+ <07c29702-cd0b-32af-df0a-83ad24b8c785@itcare.pl>
+ <1505914479.29839.92.camel@edumazet-glaptop3.roam.corp.google.com>
+ <686ea8f0-d9f8-82bc-ca68-f1d97614aa6b@itcare.pl>
+ <1505915099.29839.95.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="pleSNuEbvnUYtMxG"
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-        linux-rdma@vger.kernel.org, linux-s390@vger.kernel.org,
-        jwi@linux.vnet.ibm.com, schwidefsky@de.ibm.com,
-        heiko.carstens@de.ibm.com, raspl@linux.vnet.ibm.com
-To: Ursula Braun <ubraun@linux.vnet.ibm.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: Wei Wang <weiwan@google.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        edumazet@google.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.99]:38366 "EHLO mail.kernel.org"
+Received: from smtp16.iq.pl ([86.111.242.222]:49445 "EHLO smtp16.iq.pl"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751391AbdITODT (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 20 Sep 2017 10:03:19 -0400
-Content-Disposition: inline
-In-Reply-To: <20170920115813.63745-9-ubraun@linux.vnet.ibm.com>
+        id S1750892AbdITOFt (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 20 Sep 2017 10:05:49 -0400
+In-Reply-To: <1505915099.29839.95.camel@edumazet-glaptop3.roam.corp.google.com>
+Content-Language: pl
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Nit much more after adding this patch
 
---pleSNuEbvnUYtMxG
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+https://bugzilla.kernel.org/attachment.cgi?id=258529
 
-On Wed, Sep 20, 2017 at 01:58:11PM +0200, Ursula Braun wrote:
-> The number of outstanding work requests is limited. If all work
-> requests are in use, tx processing is postponed to another scheduling
-> of the tx worker. Switch to a delayed worker to have a gap for tx
-> completion queue events before the next retry.
+
+
+W dniu 2017-09-20 o 15:44, Eric Dumazet pisze:
+> On Wed, 2017-09-20 at 15:39 +0200, Paweł Staszewski wrote:
+>> W dniu 2017-09-20 o 15:34, Eric Dumazet pisze:
+>>> Could you try this debug patch ?
+>>>
+>>> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+>>> index f535779d9dc1dfe36934c2abba4e43d053ac5d6f..1eaa3553a724dc8c048f67b556337072d5addc82 100644
+>>> --- a/include/linux/netdevice.h
+>>> +++ b/include/linux/netdevice.h
+>>> @@ -3331,7 +3331,14 @@ void netdev_run_todo(void);
+>>>     */
+>>>    static inline void dev_put(struct net_device *dev)
+>>>    {
+>>> -	this_cpu_dec(*dev->pcpu_refcnt);
+>>> +	int __percpu *pref = READ_ONCE(dev->pcpu_refcnt);
+>>> +
+>>> +	if (!pref) {
+>>> +		pr_err("no pcpu_refcnt on dev %p(%s) state %d dismantle %d\n",
+>>> +		       dev, dev->name, dev->reg_state, dev->dismantle);
+>>> +		BUG();
+>>> +	}
+>>> +	this_cpu_dec(*pref);
+>>>    }
+>>>    
+>>>    /**
+>>>
+>>>
+>>>
+>> You want me to add this patch to what kernel version ?
+>> currently im after git bisect reset - so mainline stable
+>>
+> Simply us the latest net-next as mentioned in the thread title, thanks.
 >
-
-How will delay prevent and protect the resource exhausting?
-
-Thanks
-
---pleSNuEbvnUYtMxG
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAlnCdSMACgkQ5GN7iDZy
-WKfCzw//SxhOvcLWVCJe3prP1yEVXO/bM4rUg/z0PscHUJC3y78FhWp7QUNTGQob
-anKzUHXQVFaHD+LxtfNw78iLhQS37hzT2ZBOYmzj+iPuT/7Xlr7nJhqJll+YNwCF
-k9HvIN1a/cEhjHMFQ+mTI7OUZDw0I7znqjlp+S4hh43OqPTt2KCXvWQP8XXCn5qU
-2TbKJJK1hH7JKlM+wx0qr/vGnyV+/1SDEk4Onp+SXnLH7BrSl80nFEocKLLMMDz2
-dbNE/rcjZD7Gv7zI5GLDiS4/FaX6ZzJAhaJHr4JgBTDZYxkt+mRi6jpiqQDGSrD+
-z+b17gg3ehLvZKi7ZCLILGGoL7tfcRcQS9UUrHyMuBQmZQkrg1WsmeleptrKs1KS
-ClNdIX3/QYBDBQamyFVaxGQG91t11+0YmwPTHoi88HbG1Ru+Ck9K1NKgr0WP0EPY
-PmTXQ35j5bad9k9YqEjVhHd3nOwBc7Lvm6Pn55RzW/l5zS9ydeAousqCvkdDzVg6
-QB9hcRTWT4Mr2YQTi7JJKEWxdCjolSXxLltwrK1GZrAVU2iTzD8IY3cgCrUyTWnH
-iUXMRYgA1gBzu19i7oz97JhCx6HVcwLLgUWoMP4hnnghdNlCvJKyAQDzYIcfJtOm
-IGHYgtLcb4aSYxPbgoR4WSQGFTdR2vg4DKNtyi1o68Fh6Kj5Gxg=
-=jyO4
------END PGP SIGNATURE-----
-
---pleSNuEbvnUYtMxG--
+>
+>
