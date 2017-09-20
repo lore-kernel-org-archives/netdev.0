@@ -1,152 +1,138 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC PATCH] net: Introduce a socket option to enable picking tx
- queue based on rx queue.
-Date: Tue, 19 Sep 2017 22:13:47 -0700
-Message-ID: <1505884427.29839.84.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1504222032-6337-1-git-send-email-sridhar.samudrala@intel.com>
-         <CALx6S35sM1CDrFuNE+L59Op_wKTRpATLAdRJafihr0mB9+vQ8g@mail.gmail.com>
-         <1505188437.15310.137.camel@edumazet-glaptop3.roam.corp.google.com>
-         <b2ea01b3-b984-d59f-cbaf-b2fe6b5d9eea@intel.com>
-         <1505231262.15310.149.camel@edumazet-glaptop3.roam.corp.google.com>
-         <ef594f90-0f76-bdf5-63ce-e8750ee0d60f@intel.com>
-         <CALx6S372oQ4OsyMd66zwQ08pMvPvLj7Ejf=Cv24xDkdtVXaYjA@mail.gmail.com>
-         <9b247caf-fde0-1e39-aa94-f7b3bc4fc88a@intel.com>
-         <CALx6S35wbwhz7COqGuUgJZcd8TwYcaVOHpxZxTOd4TuQX76Crg@mail.gmail.com>
-         <fe565f14-156e-d703-c91d-d67136a0a0c0@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <tom@herbertland.com>,
-        Alexander Duyck <alexander.h.duyck@intel.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: "Samudrala, Sridhar" <sridhar.samudrala@intel.com>
+From: levipearson@gmail.com
+Subject: TSN Scorecard, was Re: [RFC net-next 0/5] TSN: Add qdisc-based config interfaces for traffic shapers
+Date: Tue, 19 Sep 2017 23:17:54 -0600
+Message-ID: <20170920051754.21745-1-levipearson@gmail.com>
+References: <20170918081248.txhars53icbqsvld@localhost>
+Cc: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
+        vinicius.gomes@intel.com, andre.guedes@intel.com,
+        ivan.briano@intel.com, jesus.sanchez-palencia@intel.com,
+        boon.leong.ong@intel.com, jhs@mojatatu.com,
+        xiyou.wangcong@gmail.com, jiri@resnulli.us, henrik@austad.us
+To: richardcochran@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f193.google.com ([209.85.223.193]:38577 "EHLO
-        mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751011AbdITFNu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2017 01:13:50 -0400
-Received: by mail-io0-f193.google.com with SMTP id e9so1408887iod.5
-        for <netdev@vger.kernel.org>; Tue, 19 Sep 2017 22:13:50 -0700 (PDT)
-In-Reply-To: <fe565f14-156e-d703-c91d-d67136a0a0c0@intel.com>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:37107 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751011AbdITFSF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2017 01:18:05 -0400
+Received: by mail-pg0-f68.google.com with SMTP id v5so1056068pgn.4
+        for <netdev@vger.kernel.org>; Tue, 19 Sep 2017 22:18:05 -0700 (PDT)
+In-Reply-To: <20170918081248.txhars53icbqsvld@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2017-09-19 at 21:59 -0700, Samudrala, Sridhar wrote:
-> On 9/19/2017 5:48 PM, Tom Herbert wrote:
-> > On Tue, Sep 19, 2017 at 5:34 PM, Samudrala, Sridhar
-> > <sridhar.samudrala@intel.com> wrote:
-> > > On 9/12/2017 3:53 PM, Tom Herbert wrote:
-> > > > On Tue, Sep 12, 2017 at 3:31 PM, Samudrala, Sridhar
-> > > > <sridhar.samudrala@intel.com> wrote:
-> > > > > 
-> > > > > On 9/12/2017 8:47 AM, Eric Dumazet wrote:
-> > > > > > On Mon, 2017-09-11 at 23:27 -0700, Samudrala, Sridhar wrote:
-> > > > > > > On 9/11/2017 8:53 PM, Eric Dumazet wrote:
-> > > > > > > > On Mon, 2017-09-11 at 20:12 -0700, Tom Herbert wrote:
-> > > > > > > > 
-> > > > > > > > > Two ints in sock_common for this purpose is quite expensive and the
-> > > > > > > > > use case for this is limited-- even if a RX->TX queue mapping were
-> > > > > > > > > introduced to eliminate the queue pair assumption this still won't
-> > > > > > > > > help if the receive and transmit interfaces are different for the
-> > > > > > > > > connection. I think we really need to see some very compelling
-> > > > > > > > > results
-> > > > > > > > > to be able to justify this.
-> > > > > > > Will try to collect and post some perf data with symmetric queue
-> > > > > > > configuration.
-> > > 
-> > > Here is some performance data i collected with memcached workload over
-> > > ixgbe 10Gb NIC with mcblaster benchmark.
-> > > ixgbe is configured with 16 queues and rx-usecs is set to 1000 for a very
-> > > low
-> > > interrupt rate.
-> > >       ethtool -L p1p1 combined 16
-> > >       ethtool -C p1p1 rx-usecs 1000
-> > > and busy poll is set to 1000usecs
-> > >       sysctl net.core.busy_poll = 1000
-> > > 
-> > > 16 threads  800K requests/sec
-> > > =============================
-> > >                   rtt(min/avg/max)usecs     intr/sec contextswitch/sec
-> > > -----------------------------------------------------------------------
-> > > Default                2/182/10641            23391 61163
-> > > Symmetric Queues       2/50/6311              20457 32843
-> > > 
-> > > 32 threads  800K requests/sec
-> > > =============================
-> > >                  rtt(min/avg/max)usecs     intr/sec contextswitch/sec
-> > > ------------------------------------------------------------------------
-> > > Default                2/162/6390            32168 69450
-> > > Symmetric Queues        2/50/3853            35044 35847
-> > > 
-> > No idea what "Default" configuration is. Please report how xps_cpus is
-> > being set, how many RSS queues there are, and what the mapping is
-> > between RSS queues and CPUs and shared caches. Also, whether and
-> > threads are pinned.
-> Default is linux 4.13 with the settings i listed above.    
->         ethtool -L p1p1 combined 16
->         ethtool -C p1p1 rx-usecs 1000
->         sysctl net.core.busy_poll = 1000
+On Mon, Sep 18, 2017, Richard Cochran wrote:
+> Just for the record, here is my score card showing the current status
+> of TSN support in Linux.  Comments and corrections are more welcome.
 > 
-> # ethtool -x p1p1
-> RX flow hash indirection table for p1p1 with 16 RX ring(s):
->     0:      0     1     2     3     4     5     6     7
->     8:      8     9    10    11    12    13    14    15
->    16:      0     1     2     3     4     5     6     7
->    24:      8     9    10    11    12    13    14    15
->    32:      0     1     2     3     4     5     6     7
->    40:      8     9    10    11    12    13    14    15
->    48:      0     1     2     3     4     5     6     7
->    56:      8     9    10    11    12    13    14    15
->    64:      0     1     2     3     4     5     6     7
->    72:      8     9    10    11    12    13    14    15
->    80:      0     1     2     3     4     5     6     7
->    88:      8     9    10    11    12    13    14    15
->    96:      0     1     2     3     4     5     6     7
->   104:      8     9    10    11    12    13    14    15
->   112:      0     1     2     3     4     5     6     7
->   120:      8     9    10    11    12    13    14    15
+> Thanks,
+> Richard
 > 
-> smp_affinity for the 16 queuepairs
->         141 p1p1-TxRx-0 0000,00000001
->         142 p1p1-TxRx-1 0000,00000002
->         143 p1p1-TxRx-2 0000,00000004
->         144 p1p1-TxRx-3 0000,00000008
->         145 p1p1-TxRx-4 0000,00000010
->         146 p1p1-TxRx-5 0000,00000020
->         147 p1p1-TxRx-6 0000,00000040
->         148 p1p1-TxRx-7 0000,00000080
->         149 p1p1-TxRx-8 0000,00000100
->         150 p1p1-TxRx-9 0000,00000200
->         151 p1p1-TxRx-10 0000,00000400
->         152 p1p1-TxRx-11 0000,00000800
->         153 p1p1-TxRx-12 0000,00001000
->         154 p1p1-TxRx-13 0000,00002000
->         155 p1p1-TxRx-14 0000,00004000
->         156 p1p1-TxRx-15 0000,00008000
-> xps_cpus for the 16 Tx queues
->         0000,00000001
->         0000,00000002
->         0000,00000004
->         0000,00000008
->         0000,00000010
->         0000,00000020
->         0000,00000040
->         0000,00000080
->         0000,00000100
->         0000,00000200
->         0000,00000400
->         0000,00000800
->         0000,00001000
->         0000,00002000
->         0000,00004000
->         0000,00008000
-> memcached threads are not pinned.
 > 
+>  | FEATURE                                        | STANDARD            | STATUS                       |
+>  |------------------------------------------------+---------------------+------------------------------|
+>  | Synchronization                                | 802.1AS-2011        | Implemented in               |
+>  |                                                |                     | - Linux kernel PHC subsystem |
+>  |                                                |                     | - linuxptp (userspace)       |
+>  |------------------------------------------------+---------------------+------------------------------|
 
-...
+An alternate implementation of the userspace portion of gPTP is also available at [1]
 
-I urge you to take the time to properly tune this host.
+>  | Forwarding and Queuing Enhancements            | 802.1Q-2014 sec. 34 | RFC posted (this thread)     |
+>  | for Time-Sensitive Streams (FQTSS)             |                     |                              |
+>  |------------------------------------------------+---------------------+------------------------------|
+>  | Stream Reservation Protocol (SRP)              | 802.1Q-2014 sec. 35 | in Open-AVB [1]              |
+>  |------------------------------------------------+---------------------+------------------------------|
+>  | Audio Video Transport Protocol (AVTP)          | IEEE 1722-2011      | DNE                          |
+>  |------------------------------------------------+---------------------+------------------------------|
+>  | Audio/Video Device Discovery, Enumeration,     | IEEE 1722.1-2013    | jdksavdecc-c [2]             |
+>  | Connection Management and Control (AVDECC)     |                     |                              |
+>  | AVDECC Connection Management Protocol (ACMP)   |                     |                              |
+>  | AVDECC Enumeration and Control Protocol (AECP) |                     |                              |
+>  | MAC Address Acquisition Protocol (MAAP)        |                     | in Open-AVB                  |
+>  |------------------------------------------------+---------------------+------------------------------|
 
-linux kernel does not do automagic configuration. This is user policy.
+All of the above are available to some degree in the AVTP Pipeline part of [1], specifically at this
+location: https://github.com/AVnu/OpenAvnu/tree/master/lib/avtp_pipeline
 
-Documentation/networking/scaling.txt has everything you need.
+The code is very modular and configurable, although some parts are in better shape than others. The AVTP
+portion can use the custom userspace driver for the i210, which can be configured to use launch scheduling,
+or it can use standard kernel interfaces via sendmsg or PACKET_MMAP. It runs as-is when configured for
+standard interfaces with any network hardware that supports gPTP. I previously implemented a CMSG-based
+launch time scheduling mechanism like the one you have proposed, and I have a socket backend for it that
+could easily be ported to your proposal. It is not part of the repository yet since there's no kernel
+support for it outside of my prototype and your RFC.
+
+It is currently tied to the OpenAvnu gPTP daemon rather than linuxptp, as it uses a shared memory interface
+to get the current rate-ratio and offset information between the various clocks. There may be better ways
+to do this, but that's how the initial port of the codebase was done. It would be nice to get it working
+with linuxptp's userspace tools at some point as well, though.
+
+The libraries under avtp_pipeline are designed to be used separately, but a simple integrated application
+is provided and is built by the CI system.
+
+In addition to OpenAvnu, Renesas has a number of github repositories with what looks like a fairly
+complete media streaming system:
+
+https://github.com/renesas-rcar/avb-mse
+https://github.com/renesas-rcar/avb-streaming
+https://github.com/renesas-rcar/avb-applications
+
+I haven't examined them in great detail yet, though.
+
+
+>  | Frame Preemption                               | P802.1Qbu           | DNE                          |
+>  | Scheduled Traffic                              | P802.1Qbv           | RFC posted (SO_TXTIME)       |
+>  | SRP Enhancements and Performance Improvements  | P802.1Qcc           | DNE                          |
+> 
+>  DNE = Does Not Exist (to my knowledge)
+
+Although your SO_TXTIME proposal could certainly form the basis of an endpoint's implementation of Qbv, I
+think it is a stretch to consider it a Qbv implementation in itself, if that's what you mean by this.
+
+I have been working with colleagues on some experiments relating to a Linux-controlled DSN switch
+(a Marvell Topaz) that are a part of this effort in TSN: 
+
+http://ieee802.org/1/files/public/docs2017/tsn-cgunther-802-3cg-multidrop-0917-v01.pdf
+
+The proper interfaces for the Qbv configuration and managing of switch-level PTP timestamps are not yet
+in place, so there's nothing even at RFC stage to present yet, but Qbv-capable Linux-managed switch
+hardware is available and we hope to get some reusable code published even if it's not yet ready to be
+integrated in the kernel.
+
+> 
+> 1. https://github.com/Avnu/OpenAvnu
+> 
+>    (DISCLAIMER from the website:)
+> 
+>    It is planned to eventually include the various packet encapsulation types,
+>    protocol discovery daemons, libraries to convert media clocks to AVB clocks
+>    and vice versa, and drivers.
+> 
+>    This repository does not include all components required to build a full
+>    production AVB/TSN system (e.g. a turnkey solution to stream stored or live audio
+>    or video content). Some simple example applications are provided which
+>    illustrate the flow - but a professional Audio/Video system requires a full media stack
+>    - including audio and video inputs and outputs, media processing elements, and
+>    various graphical user interfaces. Various companies provide such integrated
+>    solutions.
+
+A bit of progress has been made since that was written, although it is true that it's still not
+quite complete and certainly not turnkey. The most glaring absence at the moment is the media
+clock recovery portion of AVTP, but I am actively working on this.
+
+> 
+> 2. https://github.com/jdkoftinoff/jdksavdecc-c
+
+This is pulled in as a dependency of the AVDECC code in OpenAvnu; it's used in the command line driven
+controller, but not in the avtp_pipeline code that implements the endpoint AVDECC behavior. I don't think
+either are complete by any means, but they are complete enough to be mostly compliant and usable in the
+subset of behavior they support.
+
+The bulk of the command line controller is a clone of: https://github.com/audioscience/avdecc-lib 
+
+Things are maybe a bit farther along than they seemed, but there is still important kernel work to be
+done to reduce the need for out-of-tree drivers and to get everyone on the same interfaces. I plan
+to be an active participant going forward.
+
+
+Levi
