@@ -1,71 +1,52 @@
-From: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
-Subject: [net-next] macvlan: code refine to check data before using
-Date: Wed, 20 Sep 2017 08:12:23 +0800
-Message-ID: <1505866343-14135-1-git-send-email-zhangshengju@cmss.chinamobile.com>
-To: davem@davemloft.net, fgao@ikuai8.com, vyasevic@redhat.com,
-        netdev@vger.kernel.org
+From: =?UTF-8?Q?Pawe=c5=82_Staszewski?= <pstaszewski@itcare.pl>
+Subject: Re: Latest net-next from GIT panic
+Date: Wed, 20 Sep 2017 09:58:52 +0200
+Message-ID: <07bde5d4-fab6-3ef9-f586-403dadbb0a2a@itcare.pl>
+References: <4745525f-18e4-7f69-fe21-8e507e407b33@itcare.pl>
+ <d8bbf6c1-20a3-195c-6980-45f29e9f9278@itcare.pl>
+ <2aeb7871-fe89-c714-3355-c5f48651e70c@itcare.pl>
+ <15d293fa-0f53-bdca-6358-6a58d1da77af@itcare.pl>
+ <65e2195b-3bd1-c0b4-b474-e07dd08f71b9@itcare.pl>
+ <1505877870.29839.82.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmccmta3.chinamobile.com ([221.176.66.81]:25813 "EHLO
-        cmccmta3.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751811AbdITHpZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2017 03:45:25 -0400
+Received: from smtp16.iq.pl ([86.111.242.222]:33831 "EHLO smtp16.iq.pl"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751510AbdITIBD (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 20 Sep 2017 04:01:03 -0400
+In-Reply-To: <1505877870.29839.82.camel@edumazet-glaptop3.roam.corp.google.com>
+Content-Language: pl
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch checks data first at one place, return if it's null.
+Hi
 
-Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
----
- drivers/net/macvlan.c | 13 ++++++++-----
- 1 file changed, 8 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index d2aea96..1ffe77e 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -1231,11 +1231,14 @@ static int macvlan_validate(struct nlattr *tb[], struct nlattr *data[],
- 			return -EADDRNOTAVAIL;
- 	}
- 
--	if (data && data[IFLA_MACVLAN_FLAGS] &&
-+	if (!data)
-+		return 0;
-+
-+	if (data[IFLA_MACVLAN_FLAGS] &&
- 	    nla_get_u16(data[IFLA_MACVLAN_FLAGS]) & ~MACVLAN_FLAG_NOPROMISC)
- 		return -EINVAL;
- 
--	if (data && data[IFLA_MACVLAN_MODE]) {
-+	if (data[IFLA_MACVLAN_MODE]) {
- 		switch (nla_get_u32(data[IFLA_MACVLAN_MODE])) {
- 		case MACVLAN_MODE_PRIVATE:
- 		case MACVLAN_MODE_VEPA:
-@@ -1248,7 +1251,7 @@ static int macvlan_validate(struct nlattr *tb[], struct nlattr *data[],
- 		}
- 	}
- 
--	if (data && data[IFLA_MACVLAN_MACADDR_MODE]) {
-+	if (data[IFLA_MACVLAN_MACADDR_MODE]) {
- 		switch (nla_get_u32(data[IFLA_MACVLAN_MACADDR_MODE])) {
- 		case MACVLAN_MACADDR_ADD:
- 		case MACVLAN_MACADDR_DEL:
-@@ -1260,7 +1263,7 @@ static int macvlan_validate(struct nlattr *tb[], struct nlattr *data[],
- 		}
- 	}
- 
--	if (data && data[IFLA_MACVLAN_MACADDR]) {
-+	if (data[IFLA_MACVLAN_MACADDR]) {
- 		if (nla_len(data[IFLA_MACVLAN_MACADDR]) != ETH_ALEN)
- 			return -EINVAL;
- 
-@@ -1268,7 +1271,7 @@ static int macvlan_validate(struct nlattr *tb[], struct nlattr *data[],
- 			return -EADDRNOTAVAIL;
- 	}
- 
--	if (data && data[IFLA_MACVLAN_MACADDR_COUNT])
-+	if (data[IFLA_MACVLAN_MACADDR_COUNT])
- 		return -EINVAL;
- 
- 	return 0;
--- 
-1.8.3.1
+Will try bisecting tonight
+
+
+
+W dniu 2017-09-20 o 05:24, Eric Dumazet pisze:
+> On Wed, 2017-09-20 at 02:06 +0200, Paweł Staszewski wrote:
+>> Just checked kernel 4.13.2 and same problem
+>>
+>> Just after start all 6 bgp sessions - and kernel starts to learn routes
+>> it panic.
+>>
+>> https://bugzilla.kernel.org/attachment.cgi?id=258509
+>>
+>
+> Unfortunately we have not enough information from these traces.
+>
+> Can you get a full stack trace ?
+>
+> Alternatively, can you bisect ?
+>
+> Thanks.
+>
+>
+>
