@@ -1,40 +1,53 @@
-From: Colin Ian King <colin.king@canonical.com>
-Subject: re: mac80211: avoid allocating TXQs that won't be used
-Date: Wed, 20 Sep 2017 17:08:03 +0100
-Message-ID: <3592b0b1-0455-ca9a-9ca7-702d7cf421ff@canonical.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:35438 "EHLO
-        youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751581AbdITQIG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2017 12:08:06 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joel Fernandes <joelaf@google.com>
+Subject: [PATCH v4 1/4] samples/bpf: Use getppid instead of getpgrp for array map stress
+Date: Wed, 20 Sep 2017 09:11:56 -0700
+Message-ID: <20170920161159.25747-1-joelaf@google.com>
+Cc: netdev@vger.kernel.org, alison@she-devel.com, juri.lelli@arm.com,
+        fengc@google.com, daniel@iogearbox.net, davem@davemloft.net,
+        ast@kernel.org, kernel-team@android.com,
+        Joel Fernandes <joelaf@google.com>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Johannes,
+When cross-compiling the bpf sample map_perf_test for aarch64, I find that
+__NR_getpgrp is undefined. This causes build errors. This syscall is deprecated
+and requires defining __ARCH_WANT_SYSCALL_DEPRECATED. To avoid having to define
+that, just use a different syscall (getppid) for the array map stress test.
 
-Static analysis with CoverityScan on linux-next today detected a null
-pointer dereference issue on commit:
+Acked-by: Alexei Starovoitov <ast@kernel.org>
+Signed-off-by: Joel Fernandes <joelaf@google.com>
+---
+ samples/bpf/map_perf_test_kern.c | 2 +-
+ samples/bpf/map_perf_test_user.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
->From 0fc4b3403d215ecd3c05505ec1f0028a227ed319 Mon Sep 17 00:00:00 2001
-From: Johannes Berg <johannes.berg@intel.com>
-Date: Thu, 22 Jun 2017 12:20:29 +0200
-Subject: [PATCH] mac80211: avoid allocating TXQs that won't be used
-
-Issue: sdata is null when the sdata is dereferenced by:
-
-                   sdata->vif.type != NL80211_IFTYPE_AP_VLAN &&
-                   sdata->vif.type != NL80211_IFTYPE_MONITOR)
-
-note that sdata is assigned a non-null much later with the statement
-sdata = netdev_priv(ndev).
-
-Detected by CoverityScan CID#1456974 ("Explicit null dereferenced")
-
-Colin
+diff --git a/samples/bpf/map_perf_test_kern.c b/samples/bpf/map_perf_test_kern.c
+index 098c857f1eda..2b2ffb97018b 100644
+--- a/samples/bpf/map_perf_test_kern.c
++++ b/samples/bpf/map_perf_test_kern.c
+@@ -266,7 +266,7 @@ int stress_hash_map_lookup(struct pt_regs *ctx)
+ 	return 0;
+ }
+ 
+-SEC("kprobe/sys_getpgrp")
++SEC("kprobe/sys_getppid")
+ int stress_array_map_lookup(struct pt_regs *ctx)
+ {
+ 	u32 key = 1, i;
+diff --git a/samples/bpf/map_perf_test_user.c b/samples/bpf/map_perf_test_user.c
+index f388254896f6..a0310fc70057 100644
+--- a/samples/bpf/map_perf_test_user.c
++++ b/samples/bpf/map_perf_test_user.c
+@@ -282,7 +282,7 @@ static void test_array_lookup(int cpu)
+ 
+ 	start_time = time_get_ns();
+ 	for (i = 0; i < max_cnt; i++)
+-		syscall(__NR_getpgrp, 0);
++		syscall(__NR_getppid, 0);
+ 	printf("%d:array_lookup %lld lookups per sec\n",
+ 	       cpu, max_cnt * 1000000000ll * 64 / (time_get_ns() - start_time));
+ }
+-- 
+2.14.1.821.g8fa685d3b7-goog
