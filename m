@@ -1,77 +1,50 @@
-From: =?UTF-8?Q?Pawe=c5=82_Staszewski?= <pstaszewski@itcare.pl>
-Subject: Re: Latest net-next from GIT panic
-Date: Wed, 20 Sep 2017 02:06:30 +0200
-Message-ID: <65e2195b-3bd1-c0b4-b474-e07dd08f71b9@itcare.pl>
-References: <4745525f-18e4-7f69-fe21-8e507e407b33@itcare.pl>
- <d8bbf6c1-20a3-195c-6980-45f29e9f9278@itcare.pl>
- <2aeb7871-fe89-c714-3355-c5f48651e70c@itcare.pl>
- <15d293fa-0f53-bdca-6358-6a58d1da77af@itcare.pl>
+From: Tom Herbert <tom@quantonium.net>
+Subject: Re: [PATCH net-next 07/14] gtp: Support encapsulation of IPv6 packets
+Date: Tue, 19 Sep 2017 17:11:54 -0700
+Message-ID: <CAPDqMeq6b+e7H1aSquR77bKm8EXu59AzU9OPw=8aHNf1e5-MFA@mail.gmail.com>
+References: <20170919003904.5124-8-tom@quantonium.net> <20170918.211908.2152170523885516973.davem@davemloft.net>
+ <20170919121245.t555dqwndhewmdyw@nataraja> <20170919.104248.1540128186724107742.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-To: Linux Kernel Network Developers <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Harald Welte <laforge@gnumonks.org>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
+        Rohit LastName <rohit@quantonium.net>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp16.iq.pl ([86.111.242.222]:49006 "EHLO smtp16.iq.pl"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751074AbdITAIn (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 19 Sep 2017 20:08:43 -0400
-Received: from [192.168.2.200] (unknown [185.78.72.19])
-        (Authenticated sender: pstaszewski@itcare.pl)
-        by smtp.iq.pl (Postfix) with ESMTPSA id 3xxg7t39rDz3xXY
-        for <netdev@vger.kernel.org>; Wed, 20 Sep 2017 02:08:42 +0200 (CEST)
-In-Reply-To: <15d293fa-0f53-bdca-6358-6a58d1da77af@itcare.pl>
-Content-Language: pl
+Received: from mail-wm0-f43.google.com ([74.125.82.43]:43571 "EHLO
+        mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751074AbdITALz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 20:11:55 -0400
+Received: by mail-wm0-f43.google.com with SMTP id a137so2205153wma.0
+        for <netdev@vger.kernel.org>; Tue, 19 Sep 2017 17:11:55 -0700 (PDT)
+In-Reply-To: <20170919.104248.1540128186724107742.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Just checked kernel 4.13.2 and same problem
-
-Just after start all 6 bgp sessions - and kernel starts to learn routes 
-it panic.
-
-https://bugzilla.kernel.org/attachment.cgi?id=258509
-
-
-
-W dniu 2017-09-20 o 02:01, Paweł Staszewski pisze:
-> Some information about enviroment:
-> Server is acting as a ip router with bgp
-> There are 6x bgp sessions - each with full bgp table ~600k prefixes
+On Tue, Sep 19, 2017 at 10:42 AM, David Miller <davem@davemloft.net> wrote:
+> From: Harald Welte <laforge@gnumonks.org>
+> Date: Tue, 19 Sep 2017 20:12:45 +0800
 >
-> And it looks like panic is appearing after bgp sessions are connected 
-> - not by traffic - cause at time when panic occured there is almost no 
-> traffic.
->
-> Also when I run tris server without turning on BGP and push thru this 
-> server traffic by pktgen there is no panic.
->
-> just after it learn routes it panick
->
->
->
->
->
->
->
-> W dniu 2017-09-20 o 01:45, Paweł Staszewski pisze:
->> Added few more screenshoots from kernels 4.14-rc1(net-next) and 
->> 4.14-rc1(linux-next)
+>> Hi Dave,
 >>
->> https://bugzilla.kernel.org/show_bug.cgi?id=197005
+>> On Mon, Sep 18, 2017 at 09:19:08PM -0700, David Miller wrote:
 >>
+>>> > +static inline u32 ipv6_hashfn(const struct in6_addr *a)
+>>> > +{
+>>> > +  return __ipv6_addr_jhash(a, gtp_h_initval);
+>>> > +}
+>>>
+>>> I know you are just following the pattern of the existing "ipv4_hashfn()" here
+>>> but this kind of stuff is not very global namespace friendly.  Even simply
+>>> adding a "gtp_" prefix to these hash functions would be a lot better.
 >>
->> W dniu 2017-09-20 o 00:35, Paweł Staszewski pisze:
->>> Just tried latest net-next git and found kernel panic.
->>>
->>> Below link to bugzilla.
->>>
->>> https://bugzilla.kernel.org/attachment.cgi?id=258499
->>>
->>>
->>>
->>>
->>>
->>
->>
+>> I would agree if this was an inline function defined in a header file or
+>> a non-static function.  But where is the global namespace concern in
+>> case of static inline functions defined and used in the same .c file?
 >
->
+> The problem is if we create a generic ipv6_hashfn() in linux/ipv6.h or
+> something like that, then this driver stops building.
+
+It was a carry over since ipv4_hashfn was already defined in the file.
+I will prefix both functions.
