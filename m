@@ -1,7 +1,7 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: Latest net-next from GIT panic
-Date: Wed, 20 Sep 2017 06:34:39 -0700
-Message-ID: <1505914479.29839.92.camel@edumazet-glaptop3.roam.corp.google.com>
+Date: Wed, 20 Sep 2017 06:37:38 -0700
+Message-ID: <1505914658.29839.94.camel@edumazet-glaptop3.roam.corp.google.com>
 References: <4745525f-18e4-7f69-fe21-8e507e407b33@itcare.pl>
          <d8bbf6c1-20a3-195c-6980-45f29e9f9278@itcare.pl>
          <2aeb7871-fe89-c714-3355-c5f48651e70c@itcare.pl>
@@ -18,6 +18,7 @@ References: <4745525f-18e4-7f69-fe21-8e507e407b33@itcare.pl>
          <3324f95f-7686-81e0-a973-1a9220c918fe@itcare.pl>
          <1505913075.29839.90.camel@edumazet-glaptop3.roam.corp.google.com>
          <07c29702-cd0b-32af-df0a-83ad24b8c785@itcare.pl>
+         <1505914479.29839.92.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -26,35 +27,43 @@ Cc: Wei Wang <weiwan@google.com>,
         edumazet@google.com
 To: =?UTF-8?Q?Pawe=C5=82?= Staszewski <pstaszewski@itcare.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:35846 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750892AbdITNel (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2017 09:34:41 -0400
-Received: by mail-pg0-f68.google.com with SMTP id d8so1657709pgt.3
-        for <netdev@vger.kernel.org>; Wed, 20 Sep 2017 06:34:41 -0700 (PDT)
-In-Reply-To: <07c29702-cd0b-32af-df0a-83ad24b8c785@itcare.pl>
+Received: from mail-pf0-f182.google.com ([209.85.192.182]:54481 "EHLO
+        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751618AbdITNhk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2017 09:37:40 -0400
+Received: by mail-pf0-f182.google.com with SMTP id d187so1532294pfg.11
+        for <netdev@vger.kernel.org>; Wed, 20 Sep 2017 06:37:40 -0700 (PDT)
+In-Reply-To: <1505914479.29839.92.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Could you try this debug patch ?
+On Wed, 2017-09-20 at 06:34 -0700, Eric Dumazet wrote:
+> Could you try this debug patch ?
+> 
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index f535779d9dc1dfe36934c2abba4e43d053ac5d6f..1eaa3553a724dc8c048f67b556337072d5addc82 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -3331,7 +3331,14 @@ void netdev_run_todo(void);
+>   */
+>  static inline void dev_put(struct net_device *dev)
+>  {
+> -	this_cpu_dec(*dev->pcpu_refcnt);
+> +	int __percpu *pref = READ_ONCE(dev->pcpu_refcnt);
+> +
+> +	if (!pref) {
+> +		pr_err("no pcpu_refcnt on dev %p(%s) state %d dismantle %d\n",
+> +		       dev, dev->name, dev->reg_state, dev->dismantle);
+> +		BUG();
+> +	}
+> +	this_cpu_dec(*pref);
+>  }
+>  
+>  /**
+> 
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index f535779d9dc1dfe36934c2abba4e43d053ac5d6f..1eaa3553a724dc8c048f67b556337072d5addc82 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -3331,7 +3331,14 @@ void netdev_run_todo(void);
-  */
- static inline void dev_put(struct net_device *dev)
- {
--	this_cpu_dec(*dev->pcpu_refcnt);
-+	int __percpu *pref = READ_ONCE(dev->pcpu_refcnt);
-+
-+	if (!pref) {
-+		pr_err("no pcpu_refcnt on dev %p(%s) state %d dismantle %d\n",
-+		       dev, dev->name, dev->reg_state, dev->dismantle);
-+		BUG();
-+	}
-+	this_cpu_dec(*pref);
- }
- 
- /**
+And since the console will be filled by stack trace, maybe instead of
+BUG() use some infinite loop ?
+
+for (;;)
+	cpu_relax();
