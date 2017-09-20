@@ -1,123 +1,213 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 03/16] mlxsw: spectrum_switchdev: Remove reference count from mid
-Date: Wed, 20 Sep 2017 16:15:03 +0200
-Message-ID: <20170920141516.1402-4-jiri@resnulli.us>
+Subject: [patch net-next 06/16] mlxsw: spectrum_switchdev: Attach mid id allocation to HW write
+Date: Wed, 20 Sep 2017 16:15:06 +0200
+Message-ID: <20170920141516.1402-7-jiri@resnulli.us>
 References: <20170920141516.1402-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, nogahf@mellanox.com, idosch@mellanox.com,
         mlxsw@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:33574 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751678AbdITOPV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2017 10:15:21 -0400
-Received: by mail-wm0-f66.google.com with SMTP id m127so2592491wmm.0
-        for <netdev@vger.kernel.org>; Wed, 20 Sep 2017 07:15:20 -0700 (PDT)
+Received: from mail-wr0-f193.google.com ([209.85.128.193]:38286 "EHLO
+        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751707AbdITOPY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2017 10:15:24 -0400
+Received: by mail-wr0-f193.google.com with SMTP id p37so1582796wrb.5
+        for <netdev@vger.kernel.org>; Wed, 20 Sep 2017 07:15:23 -0700 (PDT)
 In-Reply-To: <20170920141516.1402-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Nogah Frankel <nogahf@mellanox.com>
 
-Since there is a bitmap for the ports registered to each mid, there is no
-need for a ref count, since it will always be the number of set bits in
-this bitmap. Any check of the ref count was replaced with checking if the
-bitmap is empty.
+Attach mid getting and releasing mid id to the HW write / remove, and add
+a flag to indicate whether the mid is in the HW. It is done because mid id
+is also HW index to this mid.
+This change allows adding in the following patches the ability to have a
+mid in the mdb cache but not in the HW. It will be useful for being able
+to disable the multicast.
+It means that the mdb is being written / delete to the HW in the mid
+allocation / removing function, not after them.
 
 Signed-off-by: Nogah Frankel <nogahf@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h       |  1 -
- .../net/ethernet/mellanox/mlxsw/spectrum_switchdev.c | 20 ++++++++++----------
- 2 files changed, 10 insertions(+), 11 deletions(-)
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |  1 +
+ .../ethernet/mellanox/mlxsw/spectrum_switchdev.c   | 88 ++++++++++++++--------
+ 2 files changed, 56 insertions(+), 33 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-index 0424bee..6fd0afe 100644
+index 6fd0afe..e907ec4 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
 +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-@@ -94,7 +94,6 @@ struct mlxsw_sp_mid {
+@@ -94,6 +94,7 @@ struct mlxsw_sp_mid {
  	unsigned char addr[ETH_ALEN];
  	u16 fid;
  	u16 mid;
--	unsigned int ref_count;
++	bool in_hw;
  	unsigned long *ports_in_mid; /* bits array */
  };
  
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-index 0fde16a..cb2275ed 100644
+index 09ead97..9dd05d8 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
 +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-@@ -1263,19 +1263,19 @@ static struct mlxsw_sp_mid *__mlxsw_sp_mc_alloc(struct mlxsw_sp *mlxsw_sp,
- 	ether_addr_copy(mid->addr, addr);
- 	mid->fid = fid;
- 	mid->mid = mid_idx;
--	mid->ref_count = 0;
- 	list_add_tail(&mid->list, &mlxsw_sp->bridge->mids_list);
- 
- 	return mid;
+@@ -1260,6 +1260,42 @@ mlxsw_sp_mid *__mlxsw_sp_mc_get(struct mlxsw_sp_bridge_device *bridge_device,
+ 	return NULL;
  }
  
--static int __mlxsw_sp_mc_dec_ref(struct mlxsw_sp_port *mlxsw_sp_port,
--				 struct mlxsw_sp_mid *mid)
-+static int mlxsw_sp_port_remove_from_mid(struct mlxsw_sp_port *mlxsw_sp_port,
-+					 struct mlxsw_sp_mid *mid)
++static bool
++mlxsw_sp_mc_write_mdb_entry(struct mlxsw_sp *mlxsw_sp,
++			    struct mlxsw_sp_mid *mid)
++{
++	u16 mid_idx;
++	int err;
++
++	mid_idx = find_first_zero_bit(mlxsw_sp->bridge->mids_bitmap,
++				      MLXSW_SP_MID_MAX);
++	if (mid_idx == MLXSW_SP_MID_MAX)
++		return false;
++
++	mid->mid = mid_idx;
++	err = mlxsw_sp_port_smid_full_entry(mlxsw_sp, mid_idx);
++	if (err)
++		return false;
++
++	err = mlxsw_sp_port_mdb_op(mlxsw_sp, mid->addr, mid->fid, mid_idx,
++				   true);
++	if (err)
++		return false;
++
++	set_bit(mid_idx, mlxsw_sp->bridge->mids_bitmap);
++	mid->in_hw = true;
++	return true;
++}
++
++static int mlxsw_sp_mc_remove_mdb_entry(struct mlxsw_sp *mlxsw_sp,
++					struct mlxsw_sp_mid *mid)
++{
++	clear_bit(mid->mid, mlxsw_sp->bridge->mids_bitmap);
++	mid->in_hw = false;
++	return mlxsw_sp_port_mdb_op(mlxsw_sp, mid->addr, mid->fid, mid->mid,
++				    false);
++}
++
+ static struct
+ mlxsw_sp_mid *__mlxsw_sp_mc_alloc(struct mlxsw_sp *mlxsw_sp,
+ 				  struct mlxsw_sp_bridge_device *bridge_device,
+@@ -1268,12 +1304,6 @@ mlxsw_sp_mid *__mlxsw_sp_mc_alloc(struct mlxsw_sp *mlxsw_sp,
+ {
+ 	struct mlxsw_sp_mid *mid;
+ 	size_t alloc_size;
+-	u16 mid_idx;
+-
+-	mid_idx = find_first_zero_bit(mlxsw_sp->bridge->mids_bitmap,
+-				      MLXSW_SP_MID_MAX);
+-	if (mid_idx == MLXSW_SP_MID_MAX)
+-		return NULL;
+ 
+ 	mid = kzalloc(sizeof(*mid), GFP_KERNEL);
+ 	if (!mid)
+@@ -1281,36 +1311,43 @@ mlxsw_sp_mid *__mlxsw_sp_mc_alloc(struct mlxsw_sp *mlxsw_sp,
+ 
+ 	alloc_size = sizeof(unsigned long) *
+ 		     BITS_TO_LONGS(mlxsw_core_max_ports(mlxsw_sp->core));
++
+ 	mid->ports_in_mid = kzalloc(alloc_size, GFP_KERNEL);
+-	if (!mid->ports_in_mid) {
+-		kfree(mid);
+-		return NULL;
+-	}
++	if (!mid->ports_in_mid)
++		goto err_ports_in_mid_alloc;
+ 
+-	set_bit(mid_idx, mlxsw_sp->bridge->mids_bitmap);
+ 	ether_addr_copy(mid->addr, addr);
+ 	mid->fid = fid;
+-	mid->mid = mid_idx;
++	mid->in_hw = false;
++	if (!mlxsw_sp_mc_write_mdb_entry(mlxsw_sp, mid))
++		goto err_write_mdb_entry;
++
+ 	list_add_tail(&mid->list, &bridge_device->mids_list);
+ 
+ 	return mid;
++
++err_write_mdb_entry:
++	kfree(mid->ports_in_mid);
++err_ports_in_mid_alloc:
++	kfree(mid);
++	return NULL;
+ }
+ 
+ static int mlxsw_sp_port_remove_from_mid(struct mlxsw_sp_port *mlxsw_sp_port,
+ 					 struct mlxsw_sp_mid *mid)
  {
  	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
++	int err = 0;
  
  	clear_bit(mlxsw_sp_port->local_port, mid->ports_in_mid);
--	if (--mid->ref_count == 0) {
-+	if (bitmap_empty(mid->ports_in_mid,
-+			 mlxsw_core_max_ports(mlxsw_sp->core))) {
+ 	if (bitmap_empty(mid->ports_in_mid,
+ 			 mlxsw_core_max_ports(mlxsw_sp->core))) {
++		err = mlxsw_sp_mc_remove_mdb_entry(mlxsw_sp, mid);
  		list_del(&mid->list);
- 		clear_bit(mid->mid, mlxsw_sp->bridge->mids_bitmap);
+-		clear_bit(mid->mid, mlxsw_sp->bridge->mids_bitmap);
  		kfree(mid->ports_in_mid);
-@@ -1296,6 +1296,7 @@ static int mlxsw_sp_port_mdb_add(struct mlxsw_sp_port *mlxsw_sp_port,
+ 		kfree(mid);
+-		return 1;
+ 	}
+-	return 0;
++	return err;
+ }
+ 
+ static int mlxsw_sp_port_mdb_add(struct mlxsw_sp_port *mlxsw_sp_port,
+@@ -1324,7 +1361,6 @@ static int mlxsw_sp_port_mdb_add(struct mlxsw_sp_port *mlxsw_sp_port,
  	struct mlxsw_sp_bridge_device *bridge_device;
  	struct mlxsw_sp_bridge_port *bridge_port;
  	struct mlxsw_sp_mid *mid;
-+	bool is_new_mid = false;
+-	bool is_new_mid = false;
  	u16 fid_index;
  	int err = 0;
  
-@@ -1322,18 +1323,17 @@ static int mlxsw_sp_port_mdb_add(struct mlxsw_sp_port *mlxsw_sp_port,
+@@ -1352,8 +1388,6 @@ static int mlxsw_sp_port_mdb_add(struct mlxsw_sp_port *mlxsw_sp_port,
  			netdev_err(dev, "Unable to allocate MC group\n");
  			return -ENOMEM;
  		}
-+		is_new_mid = true;
+-		is_new_mid = true;
+-		mlxsw_sp_port_smid_full_entry(mlxsw_sp, mid->mid);
  	}
--	mid->ref_count++;
  	set_bit(mlxsw_sp_port->local_port, mid->ports_in_mid);
  
--	err = mlxsw_sp_port_smid_set(mlxsw_sp_port, mid->mid, true,
--				     mid->ref_count == 1);
-+	err = mlxsw_sp_port_smid_set(mlxsw_sp_port, mid->mid, true, is_new_mid);
- 	if (err) {
- 		netdev_err(dev, "Unable to set SMID\n");
+@@ -1363,15 +1397,6 @@ static int mlxsw_sp_port_mdb_add(struct mlxsw_sp_port *mlxsw_sp_port,
  		goto err_out;
  	}
  
--	if (mid->ref_count == 1) {
-+	if (is_new_mid) {
- 		err = mlxsw_sp_port_mdb_op(mlxsw_sp, mdb->addr, fid_index,
- 					   mid->mid, true);
- 		if (err) {
-@@ -1345,7 +1345,7 @@ static int mlxsw_sp_port_mdb_add(struct mlxsw_sp_port *mlxsw_sp_port,
+-	if (is_new_mid) {
+-		err = mlxsw_sp_port_mdb_op(mlxsw_sp, mdb->addr, fid_index,
+-					   mid->mid, true);
+-		if (err) {
+-			netdev_err(dev, "Unable to set MC SFD\n");
+-			goto err_out;
+-		}
+-	}
+-
  	return 0;
  
  err_out:
--	__mlxsw_sp_mc_dec_ref(mlxsw_sp_port, mid);
-+	mlxsw_sp_port_remove_from_mid(mlxsw_sp_port, mid);
- 	return err;
- }
- 
-@@ -1451,7 +1451,7 @@ static int mlxsw_sp_port_mdb_del(struct mlxsw_sp_port *mlxsw_sp_port,
+@@ -1481,12 +1506,9 @@ static int mlxsw_sp_port_mdb_del(struct mlxsw_sp_port *mlxsw_sp_port,
  		netdev_err(dev, "Unable to remove port from SMID\n");
  
  	mid_idx = mid->mid;
--	if (__mlxsw_sp_mc_dec_ref(mlxsw_sp_port, mid)) {
-+	if (mlxsw_sp_port_remove_from_mid(mlxsw_sp_port, mid)) {
- 		err = mlxsw_sp_port_mdb_op(mlxsw_sp, mdb->addr, fid_index,
- 					   mid_idx, false);
- 		if (err)
+-	if (mlxsw_sp_port_remove_from_mid(mlxsw_sp_port, mid)) {
+-		err = mlxsw_sp_port_mdb_op(mlxsw_sp, mdb->addr, fid_index,
+-					   mid_idx, false);
+-		if (err)
+-			netdev_err(dev, "Unable to remove MC SFD\n");
+-	}
++	err = mlxsw_sp_port_remove_from_mid(mlxsw_sp_port, mid);
++	if (err)
++		netdev_err(dev, "Unable to remove MC SFD\n");
+ 
+ 	return err;
+ }
 -- 
 2.9.5
