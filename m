@@ -1,75 +1,45 @@
-From: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH v5 05/10] dt-bindings: net: dwmac-sun8i: update
- documentation about integrated PHY
-Date: Tue, 19 Sep 2017 21:49:52 -0500
-Message-ID: <CAL_JsqJ2eVA9Zg60Hagqm732ZoOzHWTwVBqOabOhjE5aQ26L+g@mail.gmail.com>
-References: <20170908071156.5115-1-clabbe.montjoie@gmail.com>
- <20170908071156.5115-6-clabbe.montjoie@gmail.com> <20170908072538.rqsp6dobwsqmzrsr@flea.lan>
- <20170908074325.GB29999@Red> <20170913182004.uniyo5opeilcfk7r@rob-hp-laptop>
- <20170914185301.GB4021@Red> <20170914191949.GA3796@lunn.ch>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH,net-next,1/2] tun: enable NAPI for TUN/TAP driver
+Date: Tue, 19 Sep 2017 19:51:28 -0700
+Message-ID: <1505875888.29839.80.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20170919073402.2292-1-peterpenkov96@gmail.com>
+         <20170919073402.2292-2-peterpenkov96@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Corentin Labbe <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Alexandre Torgue <alexandre.torgue-qxv4g6HH51o@public.gmane.org>,
-        "devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Catalin Marinas <catalin.marinas-5wv7dgnIgG8@public.gmane.org>,
-        Will Deacon <will.deacon-5wv7dgnIgG8@public.gmane.org>,
-        Russell King <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>,
-        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Chen-Yu Tsai <wens-jdAy2FN1RRM@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Giuseppe CAVALLARO <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
-        Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-        "linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
-        <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-To: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170914191949.GA3796-g2DYL2Zd6BY@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
+        Mahesh Bandewar <maheshb@google.com>,
+        Willem de Bruijn <willemb@google.com>, davem@davemloft.net,
+        ppenkov@stanford.edu
+To: Petar Penkov <peterpenkov96@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f177.google.com ([209.85.192.177]:53082 "EHLO
+        mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751016AbdITCvb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 22:51:31 -0400
+Received: by mail-pf0-f177.google.com with SMTP id p87so830331pfj.9
+        for <netdev@vger.kernel.org>; Tue, 19 Sep 2017 19:51:31 -0700 (PDT)
+In-Reply-To: <20170919073402.2292-2-peterpenkov96@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 14, 2017 at 2:19 PM, Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org> wrote:
->> > Is the MDIO controller "allwinner,sun8i-h3-emac" or "snps,dwmac-mdio"?
->> > If the latter, then I think the node is fine, but then the mux should be
->> > a child node of it. IOW, the child of an MDIO controller should either
->> > be a mux node or slave devices.
->
-> Hi Rob
->
-> Up until now, children of an MDIO bus have been MDIO devices. Those
-> MDIO devices are either Ethernet PHYs, Ethernet Switches, or the
-> oddball devices that Broadcom iProc has, like generic PHYs.
->
-> We have never had MDIO-muxes as MDIO children. A Mux is not an MDIO
-> device, and does not have the properties of an MDIO device. It is not
-> addressable on the MDIO bus. The current MUXes are addressed via GPIOs
-> or MMIO.
+On Tue, 2017-09-19 at 00:34 -0700, Petar Penkov wrote:
+> Changes TUN driver to use napi_gro_receive() upon receiving packets
+> rather than netif_rx_ni(). Adds flag CONFIG_TUN_NAPI that enables
+> these changes and operation is not affected if the flag is disabled.
+> SKBs are constructed upon packet arrival and are queued to be
+> processed later.
+> 
 
-The DT parent/child relationship defines the bus topology. We describe
-MDIO buses in that way and if a mux is sitting between the controller
-and the devices, then the DT hierarchy should reflect that. Now
-sometimes we have 2 options for what interface has the parent/child
-relationship (e.g. an I2C controlled USB hub chip), but in this case
-we don't.
+> 
+> Signed-off-by: Petar Penkov <peterpenkov96@gmail.com>
+> Cc: Eric Dumazet <edumazet@google.com>
+> Cc: Mahesh Bandewar <maheshb@google.com>
+> Cc: Willem de Bruijn <willemb@google.com>
+> Cc: davem@davemloft.net
+> Cc: ppenkov@stanford.edu
+> ---
 
-> There other similar cases. i2c-mux-gpio is not a child of an i2c bus,
-> nor i2c-mux-reg or gpio-mux. nxp,pca9548 is however a child of the i2c
-> bus, because it is an i2c device itself...
+Very nice, thanks a lot Petar.
 
-Some are i2c controlled mux devices, but some can be GPIO controlled.
-
->
-> If the MDIO mux was an MDIO device, i would agree with you. Bit it is
-> not, so lets not make it a child.
->
->             Andrew
->
-> _______________________________________________
-> linux-arm-kernel mailing list
-> linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Acked-by: Eric Dumazet <edumazet@google.com>
