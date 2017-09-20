@@ -1,44 +1,45 @@
-From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Subject: Re: mwifiex: remove unnecessary call to memset
-Date: Wed, 20 Sep 2017 12:47:13 +0000 (UTC)
-Message-ID: <20170920124713.5A68B60725@smtp.codeaurora.org>
-References: <1505133964-376-1-git-send-email-himanshujha199640@gmail.com>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: mwifiex: make const arrays static to shink object code size
+Date: Wed, 20 Sep 2017 12:47:40 +0000 (UTC)
+Message-ID: <20170920124740.CCDD160912@smtp.codeaurora.org>
+References: <20170916153424.28285-1-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: amitkarwar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, nishants-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org, gbhat-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org,
-        huxm-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Himanshu Jha <himanshujha199640-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: Himanshu Jha <himanshujha199640-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1505133964-376-1-git-send-email-himanshujha199640-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Amitkumar Karwar <amitkarwar@gmail.com>,
+        Nishant Sarmukadam <nishants@marvell.com>,
+        Ganapathi Bhat <gbhat@marvell.com>,
+        Xinming Hu <huxm@marvell.com>, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Colin Ian King <colin.king@canonical.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170916153424.28285-1-colin.king@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Himanshu Jha <himanshujha199640-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+Colin Ian King <colin.king@canonical.com> wrote:
 
-> call to memset to assign 0 value immediately after allocating
-> memory with kzalloc is unnecesaary as kzalloc allocates the memory
-> filled with 0 value.
+> From: Colin Ian King <colin.king@canonical.com>
 > 
-> Semantic patch used to resolve this issue:
+> Don't populate const arrays on the stack, instead make them static
+> Makes the object code smaller by nearly 300 bytes:
 > 
-> @@
-> expression e,e2; constant c;
-> statement S;
-> @@
+> Before:
+>    text	   data	    bss	    dec	    hex	filename
+>   69260	  16149	    576	  85985	  14fe1	cfg80211.o
 > 
->   e = kzalloc(e2, c);
->   if(e == NULL) S
-> - memset(e, 0, e2);
+> After:
+>    text	   data	    bss	    dec	    hex	filename
+>   68385	  16725	    576	  85686	  14eb6	cfg80211.o
 > 
-> Signed-off-by: Himanshu Jha <himanshujha199640-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
 Patch applied to wireless-drivers-next.git, thanks.
 
-85dafc129196 mwifiex: remove unnecessary call to memset
+d157bcfaf854 mwifiex: make const arrays static to shink object code size
 
 -- 
-https://patchwork.kernel.org/patch/9947331/
+https://patchwork.kernel.org/patch/9954375/
 
 https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
