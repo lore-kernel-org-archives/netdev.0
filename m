@@ -1,78 +1,44 @@
-From: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
-Subject: [PATCH] net_sched/hfsc: fix curve activation in hfsc_change_class()
-Date: Wed, 20 Sep 2017 15:46:11 +0300
-Message-ID: <150591157194.113686.4485981339195559372.stgit@buzz>
+From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Subject: Re: mwifiex: remove unnecessary call to memset
+Date: Wed, 20 Sep 2017 12:47:13 +0000 (UTC)
+Message-ID: <20170920124713.5A68B60725@smtp.codeaurora.org>
+References: <1505133964-376-1-git-send-email-himanshujha199640@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-        Jiri Pirko <jiri@resnulli.us>,
-        Jamal Hadi Salim <jhs@mojatatu.com>
-To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from forwardcorp1o.cmail.yandex.net ([37.9.109.47]:33172 "EHLO
-        forwardcorp1o.cmail.yandex.net" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751680AbdITMqQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2017 08:46:16 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: amitkarwar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, nishants-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org, gbhat-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org,
+        huxm-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Himanshu Jha <himanshujha199640-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: Himanshu Jha <himanshujha199640-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1505133964-376-1-git-send-email-himanshujha199640-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-If real-time or fair-share curves are enabled in hfsc_change_class()
-class isn't inserted into rb-trees yet. Thus init_ed() and init_vf()
-must be called in place of update_ed() and update_vf().
+Himanshu Jha <himanshujha199640-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
 
-Remove isn't required because for now curves cannot be disabled.
+> call to memset to assign 0 value immediately after allocating
+> memory with kzalloc is unnecesaary as kzalloc allocates the memory
+> filled with 0 value.
+> 
+> Semantic patch used to resolve this issue:
+> 
+> @@
+> expression e,e2; constant c;
+> statement S;
+> @@
+> 
+>   e = kzalloc(e2, c);
+>   if(e == NULL) S
+> - memset(e, 0, e2);
+> 
+> Signed-off-by: Himanshu Jha <himanshujha199640-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 
-Signed-off-by: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
----
- net/sched/sch_hfsc.c |   23 +++++++++++++++++++----
- 1 file changed, 19 insertions(+), 4 deletions(-)
+Patch applied to wireless-drivers-next.git, thanks.
 
-diff --git a/net/sched/sch_hfsc.c b/net/sched/sch_hfsc.c
-index daaf214e5201..3f88b75488b0 100644
---- a/net/sched/sch_hfsc.c
-+++ b/net/sched/sch_hfsc.c
-@@ -958,6 +958,8 @@ hfsc_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
- 	}
- 
- 	if (cl != NULL) {
-+		int old_flags;
-+
- 		if (parentid) {
- 			if (cl->cl_parent &&
- 			    cl->cl_parent->cl_common.classid != parentid)
-@@ -978,6 +980,8 @@ hfsc_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
- 		}
- 
- 		sch_tree_lock(sch);
-+		old_flags = cl->cl_flags;
-+
- 		if (rsc != NULL)
- 			hfsc_change_rsc(cl, rsc, cur_time);
- 		if (fsc != NULL)
-@@ -986,10 +990,21 @@ hfsc_change_class(struct Qdisc *sch, u32 classid, u32 parentid,
- 			hfsc_change_usc(cl, usc, cur_time);
- 
- 		if (cl->qdisc->q.qlen != 0) {
--			if (cl->cl_flags & HFSC_RSC)
--				update_ed(cl, qdisc_peek_len(cl->qdisc));
--			if (cl->cl_flags & HFSC_FSC)
--				update_vf(cl, 0, cur_time);
-+			int len = qdisc_peek_len(cl->qdisc);
-+
-+			if (cl->cl_flags & HFSC_RSC) {
-+				if (old_flags & HFSC_RSC)
-+					update_ed(cl, len);
-+				else
-+					init_ed(cl, len);
-+			}
-+
-+			if (cl->cl_flags & HFSC_FSC) {
-+				if (old_flags & HFSC_FSC)
-+					update_vf(cl, 0, cur_time);
-+				else
-+					init_vf(cl, len);
-+			}
- 		}
- 		sch_tree_unlock(sch);
- 
+85dafc129196 mwifiex: remove unnecessary call to memset
+
+-- 
+https://patchwork.kernel.org/patch/9947331/
+
+https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
