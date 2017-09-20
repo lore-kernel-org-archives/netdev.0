@@ -1,62 +1,63 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: [PATCH v2 1/2] mac80211: Add rcu read side critical sections
-Date: Wed, 20 Sep 2017 12:39:24 +0200
-Message-ID: <1505903964.3026.14.camel@sipsolutions.net>
-References: <20170918195919.15860-1-ville.syrjala@linux.intel.com>
-         <20170920101123.23312-1-ville.syrjala@linux.intel.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH 0/2] Netfilter fixes for net
+Date: Wed, 20 Sep 2017 12:49:01 +0200
+Message-ID: <1505904543-10004-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Ville Syrjala <ville.syrjala-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170920101123.23312-1-ville.syrjala-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:56968 "EHLO mail.us.es"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751497AbdITKtL (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 20 Sep 2017 06:49:11 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id EBD0B20A531
+        for <netdev@vger.kernel.org>; Wed, 20 Sep 2017 12:49:09 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id DBA79B503F
+        for <netdev@vger.kernel.org>; Wed, 20 Sep 2017 12:49:09 +0200 (CEST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2017-09-20 at 13:11 +0300, Ville Syrjala wrote:
+Hi David,
 
-> --- a/net/mac80211/tx.c
-> +++ b/net/mac80211/tx.c
-> @@ -1770,15 +1770,21 @@ bool ieee80211_tx_prepare_skb(struct ieee80211_hw *hw,
->  	struct ieee80211_tx_data tx;
->  	struct sk_buff *skb2;
->  
-> -	if (ieee80211_tx_prepare(sdata, &tx, NULL, skb) == TX_DROP)
-> +	rcu_read_lock();
+The following patchset contains two Netfilter fixes for your net tree,
+they are:
 
-The documentation says:
+1) Fix NAt compilation with UP, from Geert Uytterhoeven.
 
-/**
- * ieee80211_tx_prepare_skb - prepare an 802.11 skb for transmission
- * @hw: pointer as obtained from ieee80211_alloc_hw()
- * @vif: virtual interface
- * @skb: frame to be sent from within the driver
- * @band: the band to transmit on
- * @sta: optional pointer to get the station to send the frame to
- *
- * Note: must be called under RCU lock
- */
+2) Fix incorrect number of entries when dumping a set, from
+   Vishwanath Pai.
 
-You can't even argue that it should be the function itself doing it,
-because the (admittedly optional) sta pointer would otherwise not have
-proper protection after you leave the function ... You can't pass out a
-sta pointer that's RCU protected.
+You can pull these changes from:
 
-Side note: Perhaps some annotation should be there? not sure it's
-possible - would have to be something like
-	struct ieee80211_sta * __rcu *sta;
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
 
-I guess since the outer pointer isn't protected, only the inner ...
+Thanks!
 
+----------------------------------------------------------------
 
-Therefore, this patch is wrong.
+The following changes since commit 2bd6bf03f4c1c59381d62c61d03f6cc3fe71f66e:
 
-I actually think the same is true for ieee80211_tx_dequeue(), but I'm
-less sure about it - the sta pointer there clearly is somehow safely
-passed in (even if it's w/o RCU, the driver can potentially make that
-safe), but the key pointer seems unsafe in this case (as well) if
-there's no outer RCU protection.
+  Linux 4.14-rc1 (2017-09-16 15:47:51 -0700)
 
-johannes
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git HEAD
+
+for you to fetch changes up to 7f4f7dd4417d9efd038b14d39c70170db2e0baa0:
+
+  netfilter: ipset: ipset list may return wrong member count for set with timeout (2017-09-18 17:35:32 +0200)
+
+----------------------------------------------------------------
+Geert Uytterhoeven (1):
+      netfilter: nat: Do not use ARRAY_SIZE() on spinlocks to fix zero div
+
+Vishwanath Pai (1):
+      netfilter: ipset: ipset list may return wrong member count for set with timeout
+
+ net/netfilter/ipset/ip_set_hash_gen.h | 14 +++++++++++++-
+ net/netfilter/nf_nat_core.c           | 12 ++++++------
+ 2 files changed, 19 insertions(+), 7 deletions(-)
