@@ -1,45 +1,50 @@
-From: Nisar Sayed <Nisar.Sayed@microchip.com>
-Subject: [PATCH v5 net 3/3] lan78xx: Use default values loaded from EEPROM/OTP after reset
-Date: Thu, 21 Sep 2017 02:36:38 +0530
-Message-ID: <20170920210638.11150-4-Nisar.Sayed@microchip.com>
-References: <20170920210638.11150-1-Nisar.Sayed@microchip.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH net-next 09/14] gtp: Allow configuring GTP interface as standalone
+Date: Wed, 20 Sep 2017 08:57:26 -0700
+Message-ID: <CALx6S3771X4QUm2mJG=aJJ0f4Tm98NpGA7060vF1P8iuCPgicQ@mail.gmail.com>
+References: <20170919003904.5124-1-tom@quantonium.net> <20170919003904.5124-10-tom@quantonium.net>
+ <a6d1dad0-e922-2913-d4c8-592d403ee1cb@tpip.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <UNGLinuxDriver@microchip.com>, <netdev@vger.kernel.org>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Tom Herbert <tom@quantonium.net>,
+        "David S. Miller" <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
+        Harald Welte <laforge@gnumonks.org>,
+        Rohit Seth <rohit@quantonium.net>
+To: Andreas Schultz <aschultz@tpip.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from esa2.microchip.iphmx.com ([68.232.149.84]:10955 "EHLO
-        esa2.microchip.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751773AbdITPoN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2017 11:44:13 -0400
-In-Reply-To: <20170920210638.11150-1-Nisar.Sayed@microchip.com>
+Received: from mail-qk0-f179.google.com ([209.85.220.179]:55752 "EHLO
+        mail-qk0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751581AbdITP51 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2017 11:57:27 -0400
+Received: by mail-qk0-f179.google.com with SMTP id q8so1295985qkl.12
+        for <netdev@vger.kernel.org>; Wed, 20 Sep 2017 08:57:27 -0700 (PDT)
+In-Reply-To: <a6d1dad0-e922-2913-d4c8-592d403ee1cb@tpip.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use default value of auto duplex and auto speed values loaded
-from EEPROM/OTP after reset. The LAN78xx allows platform
-configurations to be loaded from EEPROM/OTP.
-Ex: When external phy is connected, the MAC can be configured to
-have correct auto speed, auto duplex, auto polarity configured
-from the EEPROM/OTP.
+On Wed, Sep 20, 2017 at 8:27 AM, Andreas Schultz <aschultz@tpip.net> wrote:
+> On 19/09/17 02:38, Tom Herbert wrote:
+>>
+>> Add new configuration of GTP interfaces that allow specifying a port to
+>> listen on (as opposed to having to get sockets from a userspace control
+>> plane). This allows GTP interfaces to be configured and the data path
+>> tested without requiring a GTP-C daemon.
+>
+>
+> This would imply that you can have multiple independent GTP sockets on the
+> same IP address.That is not permitted by the GTP specifications. 3GPP TS
+> 29.281, section 4.3 states clearly that there is "only" one GTP entity per
+> IP address.A PDP context is defined by the destination IP and the TEID. The
+> destination port is not part of the identity of a PDP context.
+>
+We are in no way trying change GTP, if someone runs this in a real GTP
+network then they need to abide by the specification. However, there
+is nothing inconsistent and it breaks nothing if someone wishes to use
+different port numbers in their own private network for testing or
+development purposes. Every other UDP application that has assigned
+port number allows configurable ports, I don't see that GTP is so
+special that it should be an exception.
 
-Fixes: 55d7de9de6c3 ("Microchip's LAN7800 family USB 2/3 to 10/100/1000 Ethernet device driver")
-Signed-off-by: Nisar Sayed <Nisar.Sayed@microchip.com>
----
- drivers/net/usb/lan78xx.c | 1 -
- 1 file changed, 1 deletion(-)
-
-diff --git a/drivers/net/usb/lan78xx.c b/drivers/net/usb/lan78xx.c
-index f8c63eec8353..0161f77641fa 100644
---- a/drivers/net/usb/lan78xx.c
-+++ b/drivers/net/usb/lan78xx.c
-@@ -2449,7 +2449,6 @@ static int lan78xx_reset(struct lan78xx_net *dev)
- 	/* LAN7801 only has RGMII mode */
- 	if (dev->chipid == ID_REV_CHIP_ID_7801_)
- 		buf &= ~MAC_CR_GMII_EN_;
--	buf |= MAC_CR_AUTO_DUPLEX_ | MAC_CR_AUTO_SPEED_;
- 	ret = lan78xx_write_reg(dev, MAC_CR, buf);
- 
- 	ret = lan78xx_read_reg(dev, MAC_TX, &buf);
--- 
-2.14.1
+Tom
