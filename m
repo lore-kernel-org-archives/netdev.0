@@ -1,53 +1,186 @@
-From: Randy Dunlap <rdunlap@infradead.org>
-Subject: Re: [PATCH v4 4/4] samples/bpf: Add documentation on cross
- compilation
-Date: Wed, 20 Sep 2017 09:50:07 -0700
-Message-ID: <ae375e99-d9ea-8176-2c73-dfcd19413a7e@infradead.org>
-References: <20170920161159.25747-1-joelaf@google.com>
- <20170920161159.25747-4-joelaf@google.com>
+From: "Samudrala, Sridhar" <sridhar.samudrala@intel.com>
+Subject: Re: [RFC PATCH] net: Introduce a socket option to enable picking tx
+ queue based on rx queue.
+Date: Wed, 20 Sep 2017 09:51:12 -0700
+Message-ID: <4d1cf2be-23b6-ed43-972e-bdb9f13c772b@intel.com>
+References: <1504222032-6337-1-git-send-email-sridhar.samudrala@intel.com>
+ <CALx6S35sM1CDrFuNE+L59Op_wKTRpATLAdRJafihr0mB9+vQ8g@mail.gmail.com>
+ <1505188437.15310.137.camel@edumazet-glaptop3.roam.corp.google.com>
+ <b2ea01b3-b984-d59f-cbaf-b2fe6b5d9eea@intel.com>
+ <1505231262.15310.149.camel@edumazet-glaptop3.roam.corp.google.com>
+ <ef594f90-0f76-bdf5-63ce-e8750ee0d60f@intel.com>
+ <CALx6S372oQ4OsyMd66zwQ08pMvPvLj7Ejf=Cv24xDkdtVXaYjA@mail.gmail.com>
+ <9b247caf-fde0-1e39-aa94-f7b3bc4fc88a@intel.com>
+ <CALx6S35wbwhz7COqGuUgJZcd8TwYcaVOHpxZxTOd4TuQX76Crg@mail.gmail.com>
+ <fe565f14-156e-d703-c91d-d67136a0a0c0@intel.com>
+ <1505884427.29839.84.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CALx6S374dN944bdJ87Za+MzFH3YV_6S5L3ZVGKD9503fp=-6Bg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, alison@she-devel.com, juri.lelli@arm.com,
-        fengc@google.com, daniel@iogearbox.net, davem@davemloft.net,
-        ast@kernel.org, kernel-team@android.com
-To: Joel Fernandes <joelaf@google.com>, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170920161159.25747-4-joelaf@google.com>
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Tom Herbert <tom@herbertland.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga07.intel.com ([134.134.136.100]:60980 "EHLO mga07.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751024AbdITQvN (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 20 Sep 2017 12:51:13 -0400
+In-Reply-To: <CALx6S374dN944bdJ87Za+MzFH3YV_6S5L3ZVGKD9503fp=-6Bg@mail.gmail.com>
 Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-On 09/20/17 09:11, Joel Fernandes wrote:
-> Acked-by: Alexei Starovoitov <ast@kernel.org>
-> Signed-off-by: Joel Fernandes <joelaf@google.com>
-> ---
->  samples/bpf/README.rst | 10 ++++++++++
->  1 file changed, 10 insertions(+)
-> 
-> diff --git a/samples/bpf/README.rst b/samples/bpf/README.rst
-> index 79f9a58f1872..2b906127ef54 100644
-> --- a/samples/bpf/README.rst
-> +++ b/samples/bpf/README.rst
-> @@ -64,3 +64,13 @@ It is also possible to point make to the newly compiled 'llc' or
->  'clang' command via redefining LLC or CLANG on the make command line::
->  
->   make samples/bpf/ LLC=~/git/llvm/build/bin/llc CLANG=~/git/llvm/build/bin/clang
-> +
-> +Cross compiling samples
-> +-----------------------
-> +Inorder to cross-compile, say for arm64 targets, export CROSS_COMPILE and ARCH
-
-   In order to
-
-> +environment variables before calling make. This will direct make to build
-> +samples for the cross target.
-> +
-> +export ARCH=arm64
-> +export CROSS_COMPILE="aarch64-linux-gnu-"
-> +make samples/bpf/ LLC=~/git/llvm/build/bin/llc CLANG=~/git/llvm/build/bin/clang
-> 
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
--- 
-~Randy
+
+On 9/20/2017 7:18 AM, Tom Herbert wrote:
+> On Tue, Sep 19, 2017 at 10:13 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>> On Tue, 2017-09-19 at 21:59 -0700, Samudrala, Sridhar wrote:
+>>> On 9/19/2017 5:48 PM, Tom Herbert wrote:
+>>>> On Tue, Sep 19, 2017 at 5:34 PM, Samudrala, Sridhar
+>>>> <sridhar.samudrala@intel.com> wrote:
+>>>>> On 9/12/2017 3:53 PM, Tom Herbert wrote:
+>>>>>> On Tue, Sep 12, 2017 at 3:31 PM, Samudrala, Sridhar
+>>>>>> <sridhar.samudrala@intel.com> wrote:
+>>>>>>> On 9/12/2017 8:47 AM, Eric Dumazet wrote:
+>>>>>>>> On Mon, 2017-09-11 at 23:27 -0700, Samudrala, Sridhar wrote:
+>>>>>>>>> On 9/11/2017 8:53 PM, Eric Dumazet wrote:
+>>>>>>>>>> On Mon, 2017-09-11 at 20:12 -0700, Tom Herbert wrote:
+>>>>>>>>>>
+>>>>>>>>>>> Two ints in sock_common for this purpose is quite expensive and the
+>>>>>>>>>>> use case for this is limited-- even if a RX->TX queue mapping were
+>>>>>>>>>>> introduced to eliminate the queue pair assumption this still won't
+>>>>>>>>>>> help if the receive and transmit interfaces are different for the
+>>>>>>>>>>> connection. I think we really need to see some very compelling
+>>>>>>>>>>> results
+>>>>>>>>>>> to be able to justify this.
+>>>>>>>>> Will try to collect and post some perf data with symmetric queue
+>>>>>>>>> configuration.
+>>>>> Here is some performance data i collected with memcached workload over
+>>>>> ixgbe 10Gb NIC with mcblaster benchmark.
+>>>>> ixgbe is configured with 16 queues and rx-usecs is set to 1000 for a very
+>>>>> low
+>>>>> interrupt rate.
+>>>>>        ethtool -L p1p1 combined 16
+>>>>>        ethtool -C p1p1 rx-usecs 1000
+>>>>> and busy poll is set to 1000usecs
+>>>>>        sysctl net.core.busy_poll = 1000
+>>>>>
+>>>>> 16 threads  800K requests/sec
+>>>>> =============================
+>>>>>                    rtt(min/avg/max)usecs     intr/sec contextswitch/sec
+>>>>> -----------------------------------------------------------------------
+>>>>> Default                2/182/10641            23391 61163
+>>>>> Symmetric Queues       2/50/6311              20457 32843
+>>>>>
+>>>>> 32 threads  800K requests/sec
+>>>>> =============================
+>>>>>                   rtt(min/avg/max)usecs     intr/sec contextswitch/sec
+>>>>> ------------------------------------------------------------------------
+>>>>> Default                2/162/6390            32168 69450
+>>>>> Symmetric Queues        2/50/3853            35044 35847
+>>>>>
+>>>> No idea what "Default" configuration is. Please report how xps_cpus is
+>>>> being set, how many RSS queues there are, and what the mapping is
+>>>> between RSS queues and CPUs and shared caches. Also, whether and
+>>>> threads are pinned.
+>>> Default is linux 4.13 with the settings i listed above.
+>>>          ethtool -L p1p1 combined 16
+>>>          ethtool -C p1p1 rx-usecs 1000
+>>>          sysctl net.core.busy_poll = 1000
+>>>
+>>> # ethtool -x p1p1
+>>> RX flow hash indirection table for p1p1 with 16 RX ring(s):
+>>>      0:      0     1     2     3     4     5     6     7
+>>>      8:      8     9    10    11    12    13    14    15
+>>>     16:      0     1     2     3     4     5     6     7
+>>>     24:      8     9    10    11    12    13    14    15
+>>>     32:      0     1     2     3     4     5     6     7
+>>>     40:      8     9    10    11    12    13    14    15
+>>>     48:      0     1     2     3     4     5     6     7
+>>>     56:      8     9    10    11    12    13    14    15
+>>>     64:      0     1     2     3     4     5     6     7
+>>>     72:      8     9    10    11    12    13    14    15
+>>>     80:      0     1     2     3     4     5     6     7
+>>>     88:      8     9    10    11    12    13    14    15
+>>>     96:      0     1     2     3     4     5     6     7
+>>>    104:      8     9    10    11    12    13    14    15
+>>>    112:      0     1     2     3     4     5     6     7
+>>>    120:      8     9    10    11    12    13    14    15
+>>>
+>>> smp_affinity for the 16 queuepairs
+>>>          141 p1p1-TxRx-0 0000,00000001
+>>>          142 p1p1-TxRx-1 0000,00000002
+>>>          143 p1p1-TxRx-2 0000,00000004
+>>>          144 p1p1-TxRx-3 0000,00000008
+>>>          145 p1p1-TxRx-4 0000,00000010
+>>>          146 p1p1-TxRx-5 0000,00000020
+>>>          147 p1p1-TxRx-6 0000,00000040
+>>>          148 p1p1-TxRx-7 0000,00000080
+>>>          149 p1p1-TxRx-8 0000,00000100
+>>>          150 p1p1-TxRx-9 0000,00000200
+>>>          151 p1p1-TxRx-10 0000,00000400
+>>>          152 p1p1-TxRx-11 0000,00000800
+>>>          153 p1p1-TxRx-12 0000,00001000
+>>>          154 p1p1-TxRx-13 0000,00002000
+>>>          155 p1p1-TxRx-14 0000,00004000
+>>>          156 p1p1-TxRx-15 0000,00008000
+>>> xps_cpus for the 16 Tx queues
+>>>          0000,00000001
+>>>          0000,00000002
+>>>          0000,00000004
+>>>          0000,00000008
+>>>          0000,00000010
+>>>          0000,00000020
+>>>          0000,00000040
+>>>          0000,00000080
+>>>          0000,00000100
+>>>          0000,00000200
+>>>          0000,00000400
+>>>          0000,00000800
+>>>          0000,00001000
+>>>          0000,00002000
+>>>          0000,00004000
+>>>          0000,00008000
+>>> memcached threads are not pinned.
+>>>
+>> ...
+>>
+>> I urge you to take the time to properly tune this host.
+>>
+>> linux kernel does not do automagic configuration. This is user policy.
+>>
+>> Documentation/networking/scaling.txt has everything you need.
+>>
+> Yes, tuning a system for optimal performance is difficult. Even if you
+> find a performance benefit for a configuration on one system, that
+> might not translate to another. In other words, if you've produced
+> some code that seems to perform better than previous implementation on
+> a test machine it's not enough to be satisfied with that. We want
+> understand _why_ there is a difference. If you can show there is
+> intrinsic benefits to the queue-pair model that we can't achieve with
+> existing implementation _and_ can show there are ill effects in other
+> circumstances, then you should have a good case to make changes.
+>
+> In the case of memcached, threads inevitably migrate off the CPU they
+> were created on, the data follows the thread but the RX-queue does not
+> change which means that the receive path is crosses CPUs or caches.
+> But, then in the queuepair case that also means transmit completions
+> are crossing CPUs. We don't normally expect that to be a good thing.
+> However, transmit completion processing does not happen in the
+> critical path, so if that work is being deferred to a less busy CPU
+> there may benefits. That's only a theory, analysis and experimentation
+> should be able to get to the root cause.
+>
+With regards to tuning, forgot to mention that memcached is updated to
+select thethread based on incoming queue via SO_INCOMING_NAPI_ID and
+is started with16 threads to match the number of RX queues.
+If i do pinning of memcached threads to each of the 16 cores, i do get
+similar performance as symmetric queues. But this symmetric queues 
+configuration
+is to support scenarios where it is not possible to pin the threads of the
+application.
+
+Thanks
+Sridhar
