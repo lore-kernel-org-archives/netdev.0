@@ -1,194 +1,120 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: [PATCH net-next] net: avoid a full fib lookup when rp_filter is disabled.
-Date: Wed, 20 Sep 2017 18:26:53 +0200
-Message-ID: <597db26b5e57eb89d2ff27454cce997fa6c0f5aa.1505924560.git.pabeni@redhat.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Eric Dumazet <edumazet@google.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next] net: dsa: use dedicated CPU port
+Date: Wed, 20 Sep 2017 12:28:05 -0400
+Message-ID: <20170920162805.29503-1-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53446 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751845AbdITQ2H (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 20 Sep 2017 12:28:07 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Since commit 1dced6a85482 ("ipv4: Restore accept_local behaviour
-in fib_validate_source()") a full fib lookup is needed even if
-the rp_filter is disabled, if accept_local is false - which is
-the default.
+Each port in DSA has its own dedicated CPU port currently available in
+its parent switch's ds->ports[port].cpu_dp. Use it instead of getting
+the unique tree CPU port, which will be deprecated soon.
 
-What we really need in the above scenario is just checking
-that the source IP address is not local, and in most case we
-can do that is a cheaper way looking up the ifaddr hash table.
-
-This commit adds a helper for such lookup, and uses it to
-validate the src address when rp_filter is disabled and no
-'local' routes are created by the user space in the relevant
-namespace.
-
-A new ipv4 netns flag is added to account for such routes.
-We need that to preserve the same behavior we had before this
-patch.
-
-It also drops the checks to bail early from __fib_validate_source,
-added by the commit 1dced6a85482 ("ipv4: Restore accept_local
-behaviour in fib_validate_source()") they do not give any
-measurable performance improvement: if we do the lookup with are
-on a slower path.
-
-This improves UDP performances for unconnected sockets
-when rp_filter is disabled by 5% and also gives small but
-measurable performance improvement for TCP flood scenarios.
-
-v1 -> v2:
- - use the ifaddr lookup helper in __ip_dev_find(), as suggested
-   by Eric
- - fall-back to full lookup if custom local routes are present
-
-Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- include/linux/inetdevice.h |  1 +
- include/net/netns/ipv4.h   |  1 +
- net/ipv4/devinet.c         | 30 ++++++++++++++++++------------
- net/ipv4/fib_frontend.c    | 22 +++++++++++++++++-----
- 4 files changed, 37 insertions(+), 17 deletions(-)
+ drivers/net/dsa/b53/b53_common.c | 4 ++--
+ drivers/net/dsa/bcm_sf2.c        | 6 +++---
+ drivers/net/dsa/mt7530.c         | 4 ++--
+ drivers/net/dsa/mv88e6060.c      | 2 +-
+ drivers/net/dsa/qca8k.c          | 2 +-
+ 5 files changed, 9 insertions(+), 9 deletions(-)
 
-diff --git a/include/linux/inetdevice.h b/include/linux/inetdevice.h
-index fb3f809e34e4..751d051f0bc7 100644
---- a/include/linux/inetdevice.h
-+++ b/include/linux/inetdevice.h
-@@ -179,6 +179,7 @@ __be32 inet_confirm_addr(struct net *net, struct in_device *in_dev, __be32 dst,
- 			 __be32 local, int scope);
- struct in_ifaddr *inet_ifa_byprefix(struct in_device *in_dev, __be32 prefix,
- 				    __be32 mask);
-+struct in_ifaddr *inet_lookup_ifaddr_rcu(struct net *net, __be32 addr);
- static __inline__ bool inet_ifa_match(__be32 addr, struct in_ifaddr *ifa)
+diff --git a/drivers/net/dsa/b53/b53_common.c b/drivers/net/dsa/b53/b53_common.c
+index a9f2a5b55a5e..d4ce092def83 100644
+--- a/drivers/net/dsa/b53/b53_common.c
++++ b/drivers/net/dsa/b53/b53_common.c
+@@ -1336,7 +1336,7 @@ EXPORT_SYMBOL(b53_fdb_dump);
+ int b53_br_join(struct dsa_switch *ds, int port, struct net_device *br)
  {
- 	return !((addr^ifa->ifa_address)&ifa->ifa_mask);
-diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
-index 20d061c805e3..20720721da4b 100644
---- a/include/net/netns/ipv4.h
-+++ b/include/net/netns/ipv4.h
-@@ -49,6 +49,7 @@ struct netns_ipv4 {
- #ifdef CONFIG_IP_MULTIPLE_TABLES
- 	struct fib_rules_ops	*rules_ops;
- 	bool			fib_has_custom_rules;
-+	bool			fib_has_custom_local_routes;
- 	struct fib_table __rcu	*fib_main;
- 	struct fib_table __rcu	*fib_default;
- #endif
-diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index d7adc0616599..7ce22a2c07ce 100644
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -137,22 +137,12 @@ static void inet_hash_remove(struct in_ifaddr *ifa)
-  */
- struct net_device *__ip_dev_find(struct net *net, __be32 addr, bool devref)
+ 	struct b53_device *dev = ds->priv;
+-	s8 cpu_port = ds->dst->cpu_dp->index;
++	s8 cpu_port = ds->ports[port].cpu_dp->index;
+ 	u16 pvlan, reg;
+ 	unsigned int i;
+ 
+@@ -1382,7 +1382,7 @@ void b53_br_leave(struct dsa_switch *ds, int port, struct net_device *br)
  {
--	u32 hash = inet_addr_hash(net, addr);
- 	struct net_device *result = NULL;
- 	struct in_ifaddr *ifa;
+ 	struct b53_device *dev = ds->priv;
+ 	struct b53_vlan *vl = &dev->vlans[0];
+-	s8 cpu_port = ds->dst->cpu_dp->index;
++	s8 cpu_port = ds->ports[port].cpu_dp->index;
+ 	unsigned int i;
+ 	u16 pvlan, reg, pvid;
  
- 	rcu_read_lock();
--	hlist_for_each_entry_rcu(ifa, &inet_addr_lst[hash], hash) {
--		if (ifa->ifa_local == addr) {
--			struct net_device *dev = ifa->ifa_dev->dev;
--
--			if (!net_eq(dev_net(dev), net))
--				continue;
--			result = dev;
--			break;
--		}
--	}
--	if (!result) {
-+	ifa = inet_lookup_ifaddr_rcu(net, addr);
-+	if (!ifa) {
- 		struct flowi4 fl4 = { .daddr = addr };
- 		struct fib_result res = { 0 };
- 		struct fib_table *local;
-@@ -165,6 +155,8 @@ struct net_device *__ip_dev_find(struct net *net, __be32 addr, bool devref)
- 		    !fib_table_lookup(local, &fl4, &res, FIB_LOOKUP_NOREF) &&
- 		    res.type == RTN_LOCAL)
- 			result = FIB_RES_DEV(res);
-+	} else {
-+		result = ifa->ifa_dev->dev;
- 	}
- 	if (result && devref)
- 		dev_hold(result);
-@@ -173,6 +165,20 @@ struct net_device *__ip_dev_find(struct net *net, __be32 addr, bool devref)
- }
- EXPORT_SYMBOL(__ip_dev_find);
- 
-+/* called under RCU lock */
-+struct in_ifaddr *inet_lookup_ifaddr_rcu(struct net *net, __be32 addr)
-+{
-+	u32 hash = inet_addr_hash(net, addr);
-+	struct in_ifaddr *ifa;
-+
-+	hlist_for_each_entry_rcu(ifa, &inet_addr_lst[hash], hash)
-+		if (ifa->ifa_local == addr &&
-+		    net_eq(dev_net(ifa->ifa_dev->dev), net))
-+			return ifa;
-+
-+	return NULL;
-+}
-+
- static void rtmsg_ifa(int event, struct in_ifaddr *, struct nlmsghdr *, u32);
- 
- static BLOCKING_NOTIFIER_HEAD(inetaddr_chain);
-diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
-index 37819ab4cc74..f02819134ba2 100644
---- a/net/ipv4/fib_frontend.c
-+++ b/net/ipv4/fib_frontend.c
-@@ -345,9 +345,6 @@ static int __fib_validate_source(struct sk_buff *skb, __be32 src, __be32 dst,
- 	if (res.type != RTN_UNICAST &&
- 	    (res.type != RTN_LOCAL || !IN_DEV_ACCEPT_LOCAL(idev)))
- 		goto e_inval;
--	if (!rpf && !fib_num_tclassid_users(net) &&
--	    (dev->ifindex != oif || !IN_DEV_TX_REDIRECTS(idev)))
--		goto last_resort;
- 	fib_combine_itag(itag, &res);
- 	dev_match = false;
- 
-@@ -402,13 +399,26 @@ int fib_validate_source(struct sk_buff *skb, __be32 src, __be32 dst,
- 			struct in_device *idev, u32 *itag)
+diff --git a/drivers/net/dsa/bcm_sf2.c b/drivers/net/dsa/bcm_sf2.c
+index 0072a959db5b..898d5642b516 100644
+--- a/drivers/net/dsa/bcm_sf2.c
++++ b/drivers/net/dsa/bcm_sf2.c
+@@ -661,7 +661,7 @@ static int bcm_sf2_sw_resume(struct dsa_switch *ds)
+ static void bcm_sf2_sw_get_wol(struct dsa_switch *ds, int port,
+ 			       struct ethtool_wolinfo *wol)
  {
- 	int r = secpath_exists(skb) ? 0 : IN_DEV_RPFILTER(idev);
-+	struct net *net = dev_net(dev);
+-	struct net_device *p = ds->dst->cpu_dp->netdev;
++	struct net_device *p = ds->ports[port].cpu_dp->netdev;
+ 	struct bcm_sf2_priv *priv = bcm_sf2_to_priv(ds);
+ 	struct ethtool_wolinfo pwol;
  
--	if (!r && !fib_num_tclassid_users(dev_net(dev)) &&
--	    IN_DEV_ACCEPT_LOCAL(idev) &&
-+	if (!r && !fib_num_tclassid_users(net) &&
- 	    (dev->ifindex != oif || !IN_DEV_TX_REDIRECTS(idev))) {
-+		if (IN_DEV_ACCEPT_LOCAL(idev))
-+			goto ok;
-+		/* if no local routes are added from user space we can check
-+		 * for local addresses looking-up the ifaddr table
-+		 */
-+		if (net->ipv4.fib_has_custom_local_routes)
-+			goto full_check;
-+		if (inet_lookup_ifaddr_rcu(net, src))
-+			return -EINVAL;
-+
-+ok:
- 		*itag = 0;
- 		return 0;
- 	}
-+
-+full_check:
- 	return __fib_validate_source(skb, src, dst, tos, oif, dev, r, idev, itag);
- }
+@@ -684,9 +684,9 @@ static void bcm_sf2_sw_get_wol(struct dsa_switch *ds, int port,
+ static int bcm_sf2_sw_set_wol(struct dsa_switch *ds, int port,
+ 			      struct ethtool_wolinfo *wol)
+ {
+-	struct net_device *p = ds->dst->cpu_dp->netdev;
++	struct net_device *p = ds->ports[port].cpu_dp->netdev;
+ 	struct bcm_sf2_priv *priv = bcm_sf2_to_priv(ds);
+-	s8 cpu_port = ds->dst->cpu_dp->index;
++	s8 cpu_port = ds->ports[port].cpu_dp->index;
+ 	struct ethtool_wolinfo pwol;
  
-@@ -759,6 +769,8 @@ static int inet_rtm_newroute(struct sk_buff *skb, struct nlmsghdr *nlh,
- 	}
+ 	p->ethtool_ops->get_wol(p, &pwol);
+diff --git a/drivers/net/dsa/mt7530.c b/drivers/net/dsa/mt7530.c
+index c142b97add2c..faa3b88d2206 100644
+--- a/drivers/net/dsa/mt7530.c
++++ b/drivers/net/dsa/mt7530.c
+@@ -928,11 +928,11 @@ mt7530_setup(struct dsa_switch *ds)
+ 	struct device_node *dn;
+ 	struct mt7530_dummy_poll p;
  
- 	err = fib_table_insert(net, tb, &cfg, extack);
-+	if (!err && cfg.fc_type == RTN_LOCAL)
-+		net->ipv4.fib_has_custom_local_routes = true;
- errout:
- 	return err;
- }
+-	/* The parent node of cpu_dp->netdev which holds the common system
++	/* The parent node of master netdev which holds the common system
+ 	 * controller also is the container for two GMACs nodes representing
+ 	 * as two netdev instances.
+ 	 */
+-	dn = ds->dst->cpu_dp->netdev->dev.of_node->parent;
++	dn = ds->ports[MT7530_CPU_PORT].netdev->dev.of_node->parent;
+ 	priv->ethernet = syscon_node_to_regmap(dn);
+ 	if (IS_ERR(priv->ethernet))
+ 		return PTR_ERR(priv->ethernet);
+diff --git a/drivers/net/dsa/mv88e6060.c b/drivers/net/dsa/mv88e6060.c
+index dce7fa57eb55..621cdc46ad81 100644
+--- a/drivers/net/dsa/mv88e6060.c
++++ b/drivers/net/dsa/mv88e6060.c
+@@ -176,7 +176,7 @@ static int mv88e6060_setup_port(struct dsa_switch *ds, int p)
+ 		  ((p & 0xf) << PORT_VLAN_MAP_DBNUM_SHIFT) |
+ 		   (dsa_is_cpu_port(ds, p) ?
+ 			ds->enabled_port_mask :
+-			BIT(ds->dst->cpu_dp->index)));
++			BIT(ds->ports[p].cpu_dp->index)));
+ 
+ 	/* Port Association Vector: when learning source addresses
+ 	 * of packets, add the address to the address database using
+diff --git a/drivers/net/dsa/qca8k.c b/drivers/net/dsa/qca8k.c
+index 5ada7a41449c..82f09711ac1a 100644
+--- a/drivers/net/dsa/qca8k.c
++++ b/drivers/net/dsa/qca8k.c
+@@ -506,7 +506,7 @@ qca8k_setup(struct dsa_switch *ds)
+ 		pr_warn("regmap initialization failed");
+ 
+ 	/* Initialize CPU port pad mode (xMII type, delays...) */
+-	phy_mode = of_get_phy_mode(ds->dst->cpu_dp->dn);
++	phy_mode = of_get_phy_mode(ds->ports[QCA8K_CPU_PORT].dn);
+ 	if (phy_mode < 0) {
+ 		pr_err("Can't find phy-mode for master device\n");
+ 		return phy_mode;
 -- 
-2.13.5
+2.14.1
