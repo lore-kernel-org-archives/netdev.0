@@ -1,207 +1,352 @@
-From: Ville Syrjala <ville.syrjala@linux.intel.com>
-Subject: [PATCH v2 1/2] mac80211: Add rcu read side critical sections
-Date: Wed, 20 Sep 2017 13:11:23 +0300
-Message-ID: <20170920101123.23312-1-ville.syrjala@linux.intel.com>
-References: <20170918195919.15860-1-ville.syrjala@linux.intel.com>
+From: =?UTF-8?Q?Pawe=c5=82_Staszewski?= <pstaszewski@itcare.pl>
+Subject: Re: Latest net-next from GIT panic
+Date: Wed, 20 Sep 2017 12:21:30 +0200
+Message-ID: <6c073f86-ab71-0a8f-7b9a-91d5ae5da214@itcare.pl>
+References: <4745525f-18e4-7f69-fe21-8e507e407b33@itcare.pl>
+ <d8bbf6c1-20a3-195c-6980-45f29e9f9278@itcare.pl>
+ <2aeb7871-fe89-c714-3355-c5f48651e70c@itcare.pl>
+ <15d293fa-0f53-bdca-6358-6a58d1da77af@itcare.pl>
+ <65e2195b-3bd1-c0b4-b474-e07dd08f71b9@itcare.pl>
+ <1505877870.29839.82.camel@edumazet-glaptop3.roam.corp.google.com>
+ <07bde5d4-fab6-3ef9-f586-403dadbb0a2a@itcare.pl>
+ <8f0b0143-657e-d574-c442-24d3d017bc87@itcare.pl>
+ <54d058d4-b9d1-54cb-f064-45cec430fe5d@itcare.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 8bit
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        =?UTF-8?q?Ville=20Syrj=C3=A4l=C3=A4?=
-        <ville.syrjala@linux.intel.com>
-To: linux-wireless@vger.kernel.org
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:58398 "EHLO mga14.intel.com"
+Received: from smtp16.iq.pl ([86.111.242.222]:59939 "EHLO smtp16.iq.pl"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751468AbdITKL1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 20 Sep 2017 06:11:27 -0400
-In-Reply-To: <20170918195919.15860-1-ville.syrjala@linux.intel.com>
+        id S1751468AbdITKXl (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 20 Sep 2017 06:23:41 -0400
+In-Reply-To: <54d058d4-b9d1-54cb-f064-45cec430fe5d@itcare.pl>
+Content-Language: pl
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ville Syrjälä <ville.syrjala@linux.intel.com>
+Ok kernel crashed with different panic that i didnt catch when i was 
+doing bisect and now my bisection is broken :)
 
-I got the following lockdep warning about the rcu_dereference()s in
-ieee80211_tx_h_select_key(). After tracing all callers of
-ieee80211_tx_h_select_key() I discovered that ieee80211_get_buffered_bc()
-and ieee80211_build_data_template() had the rcu_read_lock/unlock() but
-three other places did not. So I just blindly added them and made the
-read side critical section extend as far as the lifetime of 'tx' which
-is where we seem to be stuffing the rcu protected pointers. No real clue
-whether this is correct or not.
+git bisect good
+Bisecting: 1787 revisions left to test after this (roughly 11 steps)
+error: Your local changes to the following files would be overwritten by 
+checkout:
+         Documentation/00-INDEX
+         Documentation/ABI/stable/sysfs-class-udc
+         Documentation/ABI/testing/configfs-usb-gadget-uac1
+         Documentation/ABI/testing/ima_policy
+         Documentation/ABI/testing/sysfs-bus-iio
+         Documentation/ABI/testing/sysfs-bus-iio-meas-spec
+         Documentation/ABI/testing/sysfs-bus-iio-timer-stm32
+         Documentation/ABI/testing/sysfs-class-net
+         Documentation/ABI/testing/sysfs-class-power-twl4030
+         Documentation/ABI/testing/sysfs-class-typec
+         Documentation/DMA-API.txt
+         Documentation/IRQ-domain.txt
+         Documentation/Makefile
+         Documentation/PCI/MSI-HOWTO.txt
+         Documentation/RCU/00-INDEX
+         Documentation/RCU/Design/Requirements/Requirements.html
+         Documentation/RCU/checklist.txt
+         Documentation/admin-guide/README.rst
+         Documentation/admin-guide/devices.txt
+         Documentation/admin-guide/index.rst
+         Documentation/admin-guide/kernel-parameters.txt
+         Documentation/admin-guide/pm/cpufreq.rst
+         Documentation/admin-guide/pm/intel_pstate.rst
+         Documentation/admin-guide/ras.rst
+         Documentation/arm/Atmel/README
+         Documentation/block/biodoc.txt
+         Documentation/conf.py
+         Documentation/core-api/assoc_array.rst
+         Documentation/core-api/atomic_ops.rst
+         Documentation/core-api/index.rst
+         Documentation/crypto/asymmetric-keys.txt
+         Documentation/dev-tools/index.rst
+         Documentation/dev-tools/sparse.rst
+         Documentation/devicetree/bindings/arm/amlogic.txt
+         Documentation/devicetree/bindings/arm/atmel-at91.txt
+         Documentation/devicetree/bindings/arm/ccn.txt
+         Documentation/devicetree/bindings/arm/cpus.txt
+         Documentation/devicetree/bindings/arm/gemini.txt
+Documentation/devicetree/bindings/arm/hisilicon/hisilicon.txt
+Documentation/devicetree/bindings/arm/keystone/keystone.txt
+         Documentation/devicetree/bindings/arm/mediatek.txt
+         Documentation/devicetree/bindings/arm/rockchip.txt
+         Documentation/devicetree/bindings/arm/shmobile.txt
+         Documentation/devicetree/bindings/arm/tegra.txt
+         Documentation/devicetree/bindings/ata/ahci-fsl-qoriq.txt
+         Documentation/devicetree/bindings/bus/brcm,gisb-arb.txt
+Documentation/devicetree/bindings/clock/brcm,iproc-clocks.txt
+         Documentation/devicetree/bindings/cpufreq/ti-cpufreq.txt
+         Documentation/devicetree/bindings/gpio/gpio_atmel.txt
+Documentation/devicetree/bindings/iio/adc/amlogic,meson-saradc.txt
+Documentation/devicetree/bindings/iio/adc/renesas,gyroadc.txt
+         Documentation/devicetree/bindings/iio/adc/st,stm32-adc.txt
+         Documentation/devicetree/bindings/iio/imu/st_lsm6dsx.txt
+Documentation/devicetree/bindings/interrupt-controller/allwinner,sunxi-nmi.txt
+Documentation/devicetree/bindings/interrupt-controller/aspeed,ast2400-vic.txt
+Documentation/devicetree/bindings/interrupt-controller/mediatek,sysirq.txt
+         Documentation/devicetree/bindings/leds/common.txt
+         Documentation/devicetree/bindings/mfd/hi6421.txt
+         Documentation/devicetree/bindings/mfd/tps65910.txt
+         Documentation/devicetree/bindings/mmc/fsl-esdhc.txt
+         Documentation/devicetree/bindings/mmc/k3-dw-mshc.txt
+         Documentation/devicetree/bindings/mmc/rockchip-dw-mshc.txt
+         Documentation/devicetree/bindings/mmc/ti-omap-hsmmc.txt
+         Documentation/devicetree/bindings/mtd/atmel-nand.txt
+         Documentation/devicetree/bindings/net/dsa/b53.txt
+         Documentation/devicetree/bindings/net/ethernet.txt
+         Documentation/devicetree/bindings/net/macb.txt
+Documentation/devicetree/bindings/net/marvell-orion-mdio.txt
+         Documentation/devicetree/bindings/net/ti,wilink-st.txt
+Documentation/devicetree/bindings/net/wireless/ti,wlcore.txt
+         Documentation/devicetree/bindings/nvmem/rockchip-efuse.txt
+         Documentation/devicetree/bindings/opp/opp.txt
+         Documentation/devicetree/bindings/phy/bcm-ns-usb3-phy.txt
+         Documentation/devicetree/bindings/phy/brcm-sata-phy.txt
+         Documentation/devicetree/bindings/phy/meson8b-usb2-phy.txt
+Documentation/devicetree/bindings/phy/phy-rockchip-inno-usb2.txt
+Documentation/devicetree/bindings/power/rockchip-io-domain.txt
+         Documentation/devicetree/bindings/power/supply/bq27xxx.txt
+         Documentation/devicetree/bindings/property-units.txt
+         Documentation/devicetree/bindings/regulator/regulator.txt
+         Documentation/devicetree/bindings/serial/8
+error: The following untracked working tree files would be overwritten 
+by checkout:
+         Documentation/ABI/testing/sysfs-class-net-phydev
+         Documentation/DocBook/.gitignore
+         Documentation/DocBook/Makefile
+         Documentation/DocBook/filesystems.tmpl
+         Documentation/DocBook/kernel-hacking.tmpl
+         Documentation/DocBook/kernel-locking.tmpl
+         Documentation/DocBook/kgdb.tmpl
+         Documentation/DocBook/libata.tmpl
+         Documentation/DocBook/librs.tmpl
+         Documentation/DocBook/lsm.tmpl
+         Documentation/DocBook/mtdnand.tmpl
+         Documentation/DocBook/networking.tmpl
+         Documentation/DocBook/rapidio.tmpl
+         Documentation/DocBook/s390-drivers.tmpl
+         Documentation/DocBook/scsi.tmpl
+         Documentation/DocBook/sh.tmpl
+         Documentation/DocBook/stylesheet.xsl
+         Documentation/DocBook/w1.tmpl
+         Documentation/DocBook/z8530book.tmpl
+         Documentation/Makefile.sphinx
+         Documentation/RCU/trace.txt
+         Documentation/devicetree/bindings/i2c/i2c-mt6577.txt
+Documentation/devicetree/bindings/misc/allwinner,syscon.txt
+         Documentation/devicetree/bindings/net/cortina.txt
+         Documentation/devicetree/bindings/net/dsa/ksz.txt
+         Documentation/devicetree/bindings/net/dwmac-sun8i.txt
+         Documentation/devicetree/bindings/net/qca,qca7000.txt
+Documentation/devicetree/bindings/power/max8903-charger.txt
+Documentation/devicetree/bindings/power_supply/maxim,max14656.txt
+         Documentation/devicetree/bindings/ptp/brcm,ptp-dte.txt
+Documentation/devicetree/bindings/timer/moxa,moxart-timer.txt
+         Documentation/doc-guide/docbook.rst
+         Documentation/networking/tls.txt
+         Documentation/prctl/no_new_privs.txt
+         Documentation/prctl/seccomp_filter.txt
+         Documentation/security/00-INDEX
+         Documentation/security/IMA-templates.txt
+         Documentation/security/LSM.txt
+         Documentation/security/LoadPin.txt
+         Documentation/security/SELinux.txt
+         Documentation/security/Smack.txt
+         Documentation/security/Yama.txt
+         Documentation/security/apparmor.txt
+         Documentation/security/conf.py
+         Documentation/security/credentials.txt
+         Documentation/security/keys-ecryptfs.txt
+         Documentation/security/keys-request-key.txt
+         Documentation/security/keys-trusted-encrypted.txt
+         Documentation/security/keys.txt
+         Documentation/security/self-protection.txt
+         Documentation/security/tomoyo.txt
+         Documentation/sphinx/convert_template.sed
+         Documentation/sphinx/post_convert.sed
+         Documentation/sphinx/tmplcvt
+         Documentation/usb/typec.rst
+         Documentation/usb/usb3-debug-port.rst
+         arch/arm/boot/dts/rk1108-evb.dts
+         arch/arm/boot/dts/rk1108.dtsi
+         arch/arm/boot/dts/tegra20-whistler.dts
+         arch/arm/mach-omap2/opp.c
+         arch/arm/mach-omap2/pmu.c
+         arch/ia64/include/asm/siginfo.h
+         arch/m32r/include/uapi/asm/siginfo.h
+         arch/microblaze/include/asm/bitops.h
+         arch/microblaze/include/asm/bug.h
+         arch/microblaze/include/asm/bugs.h
+         arch/microblaze/include/asm/div64.h
+         arch/microblaze/include/asm/emergency-restart.h
+         arch/microblaze/include/asm/fb.h
+         arch/microblaze/include/asm/hardirq.h
+         arch/microblaze/include/asm/irq_regs.h
+         arch/microblaze/include/asm/kdebug.h
+         arch/microblaze/include/asm/kmap_types.h
+         arch/microblaze/include/asm/linkage.h
+         arch/microblaze/include/asm/local.h
+         arch/microblaze/include/asm/local64.h
+         arch/microblaze/include/asm/parport.h
+         arch/microblaze/include/asm/percpu.h
+         arch/microblaze/include/asm/serial.h
+         arch/microblaze/include/asm/shmparam.h
+         arch/microblaze/include/asm/topology.h
+         arch/microblaze/include/asm/ucontext.h
+         arch/microblaze/include/asm/vga.h
+         arch/microblaze/include/asm/xor.h
+         arch/microblaze/include/uapi/asm/bitsperlong.h
+         arch/microblaze/include/uapi/asm/errno.h
+         arch/microblaze/include/uapi/asm/fcntl.h
+         arch/microblaze/include/uapi/asm/ioctl.h
+         arch/microblaze/include/uapi/asm/ioctls.h
+         arch/microblaze/include/uapi/asm/ipcbuf.h
+         arch/microblaze/include/uapi/asm/kvm_para.h
+         arch/microblaze/include/uapi/asm/mman.h
+         arch/microblaze/include/uapi/asm/msgbuf.h
+         arch/microblaze/include/uapi/asm/param.h
+         arch/microblaze/include/uapi/asm/poll.h
+         arch/microblaze/include/uapi/asm/resource.h
+         arch/microblaze/include/uapi/asm/sembuf.h
+         arch/microblaze/include/uapi/asm/shmbuf.h
+         arch/microblaze/include/uapi/asm/siginfo.h
+         arch/microblaze/include/uapi/asm/signal.h
+         arch/microblaze/includ
+Aborting
 
-[  854.573700] ../net/mac80211/tx.c:594 suspicious rcu_dereference_check() usage!
-[  854.573704]
-               other info that might help us debug this:
 
-[  854.573707]
-               rcu_scheduler_active = 2, debug_locks = 1
-[  854.573712] 6 locks held by kworker/u2:0/2877:
-[  854.573715]  #0:  ("%s"wiphy_name(local->hw.wiphy)){++++.+}, at: [<c1067f37>] process_one_work+0x127/0x580
-[  854.573742]  #1:  ((&sdata->work)){+.+.+.}, at: [<c1067f37>] process_one_work+0x127/0x580
-[  854.573758]  #2:  (&wdev->mtx){+.+.+.}, at: [<f83271c3>] ieee80211_sta_work+0x23/0x1c70 [mac80211]
-[  854.573902]  #3:  (&local->sta_mtx){+.+.+.}, at: [<f82c9b10>] __sta_info_flush+0x60/0x160 [mac80211]
-[  854.573947]  #4:  (&(&txq->axq_lock)->rlock){+.-...}, at: [<f825729c>] ath_tx_node_cleanup+0x5c/0x180 [ath9k]
-[  854.573973]  #5:  (&(&fq->lock)->rlock){+.-...}, at: [<f82fb064>] ieee80211_tx_dequeue+0x24/0xa80 [mac80211]
-[  854.574023]
-               stack backtrace:
-[  854.574028] CPU: 0 PID: 2877 Comm: kworker/u2:0 Not tainted 4.13.0-mgm-ovl+ #52
-[  854.574032] Hardware name: FUJITSU SIEMENS LIFEBOOK S6120/FJNB16C, BIOS Version 1.26  05/10/2004
-[  854.574070] Workqueue: phy0 ieee80211_iface_work [mac80211]
-[  854.574076] Call Trace:
-[  854.574086]  dump_stack+0x16/0x19
-[  854.574092]  lockdep_rcu_suspicious+0xcb/0xf0
-[  854.574131]  ieee80211_tx_h_select_key+0x1b5/0x500 [mac80211]
-[  854.574171]  ieee80211_tx_dequeue+0x283/0xa80 [mac80211]
-[  854.574181]  ath_tid_dequeue+0x84/0xf0 [ath9k]
-[  854.574189]  ath_tx_node_cleanup+0xb8/0x180 [ath9k]
-[  854.574199]  ath9k_sta_state+0x48/0xf0 [ath9k]
-[  854.574207]  ? ath9k_del_ps_key.isra.19+0x60/0x60 [ath9k]
-[  854.574240]  drv_sta_state+0xaf/0x8c0 [mac80211]
-[  854.574275]  __sta_info_destroy_part2+0x10b/0x140 [mac80211]
-[  854.574309]  __sta_info_flush+0xd5/0x160 [mac80211]
-[  854.574349]  ieee80211_set_disassoc+0xd3/0x570 [mac80211]
-[  854.574390]  ieee80211_sta_connection_lost+0x30/0x60 [mac80211]
-[  854.574431]  ieee80211_sta_work+0x1ff/0x1c70 [mac80211]
-[  854.574436]  ? mark_held_locks+0x62/0x90
-[  854.574443]  ? _raw_spin_unlock_irqrestore+0x55/0x70
-[  854.574447]  ? trace_hardirqs_on_caller+0x11c/0x1a0
-[  854.574452]  ? trace_hardirqs_on+0xb/0x10
-[  854.574459]  ? dev_mc_net_exit+0xe/0x20
-[  854.574467]  ? skb_dequeue+0x48/0x70
-[  854.574504]  ieee80211_iface_work+0x2d8/0x320 [mac80211]
-[  854.574509]  process_one_work+0x1d1/0x580
-[  854.574513]  ? process_one_work+0x127/0x580
-[  854.574519]  worker_thread+0x31/0x380
-[  854.574525]  kthread+0xd9/0x110
-[  854.574529]  ? process_one_work+0x580/0x580
-[  854.574534]  ? kthread_create_on_node+0x30/0x30
-[  854.574540]  ret_from_fork+0x19/0x24
 
-[  854.574548] =============================
-[  854.574551] WARNING: suspicious RCU usage
-[  854.574555] 4.13.0-mgm-ovl+ #52 Not tainted
-[  854.574558] -----------------------------
-[  854.574561] ../net/mac80211/tx.c:608 suspicious rcu_dereference_check() usage!
-[  854.574564]
-               other info that might help us debug this:
-
-[  854.574568]
-               rcu_scheduler_active = 2, debug_locks = 1
-[  854.574572] 6 locks held by kworker/u2:0/2877:
-[  854.574574]  #0:  ("%s"wiphy_name(local->hw.wiphy)){++++.+}, at: [<c1067f37>] process_one_work+0x127/0x580
-[  854.574590]  #1:  ((&sdata->work)){+.+.+.}, at: [<c1067f37>] process_one_work+0x127/0x580
-[  854.574606]  #2:  (&wdev->mtx){+.+.+.}, at: [<f83271c3>] ieee80211_sta_work+0x23/0x1c70 [mac80211]
-[  854.574657]  #3:  (&local->sta_mtx){+.+.+.}, at: [<f82c9b10>] __sta_info_flush+0x60/0x160 [mac80211]
-[  854.574702]  #4:  (&(&txq->axq_lock)->rlock){+.-...}, at: [<f825729c>] ath_tx_node_cleanup+0x5c/0x180 [ath9k]
-[  854.574721]  #5:  (&(&fq->lock)->rlock){+.-...}, at: [<f82fb064>] ieee80211_tx_dequeue+0x24/0xa80 [mac80211]
-[  854.574771]
-               stack backtrace:
-[  854.574775] CPU: 0 PID: 2877 Comm: kworker/u2:0 Not tainted 4.13.0-mgm-ovl+ #52
-[  854.574779] Hardware name: FUJITSU SIEMENS LIFEBOOK S6120/FJNB16C, BIOS Version 1.26  05/10/2004
-[  854.574814] Workqueue: phy0 ieee80211_iface_work [mac80211]
-[  854.574821] Call Trace:
-[  854.574825]  dump_stack+0x16/0x19
-[  854.574830]  lockdep_rcu_suspicious+0xcb/0xf0
-[  854.574869]  ieee80211_tx_h_select_key+0x44e/0x500 [mac80211]
-[  854.574908]  ieee80211_tx_dequeue+0x283/0xa80 [mac80211]
-[  854.574919]  ath_tid_dequeue+0x84/0xf0 [ath9k]
-[  854.574927]  ath_tx_node_cleanup+0xb8/0x180 [ath9k]
-[  854.574936]  ath9k_sta_state+0x48/0xf0 [ath9k]
-[  854.574945]  ? ath9k_del_ps_key.isra.19+0x60/0x60 [ath9k]
-[  854.574978]  drv_sta_state+0xaf/0x8c0 [mac80211]
-[  854.575012]  __sta_info_destroy_part2+0x10b/0x140 [mac80211]
-[  854.575046]  __sta_info_flush+0xd5/0x160 [mac80211]
-[  854.575087]  ieee80211_set_disassoc+0xd3/0x570 [mac80211]
-[  854.575127]  ieee80211_sta_connection_lost+0x30/0x60 [mac80211]
-[  854.575168]  ieee80211_sta_work+0x1ff/0x1c70 [mac80211]
-[  854.575173]  ? mark_held_locks+0x62/0x90
-[  854.575178]  ? _raw_spin_unlock_irqrestore+0x55/0x70
-[  854.575182]  ? trace_hardirqs_on_caller+0x11c/0x1a0
-[  854.575187]  ? trace_hardirqs_on+0xb/0x10
-[  854.575192]  ? dev_mc_net_exit+0xe/0x20
-[  854.575197]  ? skb_dequeue+0x48/0x70
-[  854.575233]  ieee80211_iface_work+0x2d8/0x320 [mac80211]
-[  854.575238]  process_one_work+0x1d1/0x580
-[  854.575243]  ? process_one_work+0x127/0x580
-[  854.575248]  worker_thread+0x31/0x380
-[  854.575253]  kthread+0xd9/0x110
-[  854.575257]  ? process_one_work+0x580/0x580
-[  854.575262]  ? kthread_create_on_node+0x30/0x30
-[  854.575267]  ret_from_fork+0x19/0x24
-
-v2: Callers of ieee80211_tx() already have the
-    rcu_read_lock/unlock()
-    Move the rcu critical section inside the spinlock in
-    ieee80211_tx_dequeue() (Johannes Berg)
-
-Cc: Johannes Berg <johannes@sipsolutions.net>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: netdev@vger.kernel.org
-Signed-off-by: Ville Syrjälä <ville.syrjala@linux.intel.com>
----
- net/mac80211/tx.c | 17 +++++++++++++++--
- 1 file changed, 15 insertions(+), 2 deletions(-)
-
-diff --git a/net/mac80211/tx.c b/net/mac80211/tx.c
-index 94826680cf2b..fc4d8294d664 100644
---- a/net/mac80211/tx.c
-+++ b/net/mac80211/tx.c
-@@ -1770,15 +1770,21 @@ bool ieee80211_tx_prepare_skb(struct ieee80211_hw *hw,
- 	struct ieee80211_tx_data tx;
- 	struct sk_buff *skb2;
- 
--	if (ieee80211_tx_prepare(sdata, &tx, NULL, skb) == TX_DROP)
-+	rcu_read_lock();
-+
-+	if (ieee80211_tx_prepare(sdata, &tx, NULL, skb) == TX_DROP) {
-+		rcu_read_unlock();
- 		return false;
-+	}
- 
- 	info->band = band;
- 	info->control.vif = vif;
- 	info->hw_queue = vif->hw_queue[skb_get_queue_mapping(skb)];
- 
--	if (invoke_tx_handlers(&tx))
-+	if (invoke_tx_handlers(&tx)) {
-+		rcu_read_unlock();
- 		return false;
-+	}
- 
- 	if (sta) {
- 		if (tx.sta)
-@@ -1792,9 +1798,12 @@ bool ieee80211_tx_prepare_skb(struct ieee80211_hw *hw,
- 	if (WARN_ON(skb2 != skb || !skb_queue_empty(&tx.skbs))) {
- 		ieee80211_free_txskb(hw, skb2);
- 		ieee80211_purge_tx_queue(hw, &tx.skbs);
-+		rcu_read_unlock();
- 		return false;
- 	}
- 
-+	rcu_read_unlock();
-+
- 	return true;
- }
- EXPORT_SYMBOL(ieee80211_tx_prepare_skb);
-@@ -3413,6 +3422,8 @@ struct sk_buff *ieee80211_tx_dequeue(struct ieee80211_hw *hw,
- 
- 	spin_lock_bh(&fq->lock);
- 
-+	rcu_read_lock();
-+
- 	if (test_bit(IEEE80211_TXQ_STOP, &txqi->flags))
- 		goto out;
- 
-@@ -3511,6 +3522,8 @@ struct sk_buff *ieee80211_tx_dequeue(struct ieee80211_hw *hw,
- 
- 	IEEE80211_SKB_CB(skb)->control.vif = vif;
- out:
-+	rcu_read_unlock();
-+
- 	spin_unlock_bh(&fq->lock);
- 
- 	return skb;
--- 
-2.13.5
+W dniu 2017-09-20 o 11:45, Paweł Staszewski pisze:
+> Ok looks like ending bisection
+>
+>
+> Latest bisected kernel when there is no kernel panic 4.12.0+ (from 
+> next)  - but only this warning:
+>
+> [  309.030019] NETDEV WATCHDOG: enp4s0f0 (ixgbe): transmit queue 0 
+> timed out
+> [  309.030034] ------------[ cut here ]------------
+> [  309.030040] WARNING: CPU: 35 PID: 0 at dev_watchdog+0xcf/0x139
+> [  309.030041] Modules linked in: bonding ipmi_si x86_pkg_temp_thermal
+> [  309.030045] CPU: 35 PID: 0 Comm: swapper/35 Not tainted 4.12.0+ #5
+> [  309.030046] task: ffff88086d98a000 task.stack: ffffc90003378000
+> [  309.030048] RIP: 0010:dev_watchdog+0xcf/0x139
+> [  309.030049] RSP: 0018:ffff88087fbc3ea8 EFLAGS: 00010246
+> [  309.030050] RAX: 000000000000003d RBX: ffff88046b680000 RCX: 
+> 0000000000000000
+> [  309.030050] RDX: ffff88087fbd2f01 RSI: 0000000000000000 RDI: 
+> ffff88087fbcda08
+> [  309.030051] RBP: ffff88087fbc3eb8 R08: 0000000000000000 R09: 
+> ffff88087ff80a04
+> [  309.030051] R10: 0000000000000000 R11: ffff88086d98a001 R12: 
+> 0000000000000000
+> [  309.030052] R13: ffff88087fbc3ef8 R14: ffff88086d98a000 R15: 
+> ffffffff81c06008
+> [  309.030053] FS:  0000000000000000(0000) GS:ffff88087fbc0000(0000) 
+> knlGS:0000000000000000
+> [  309.030054] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+> [  309.030054] CR2: 00007fba600f6098 CR3: 000000086b955000 CR4: 
+> 00000000001406e0
+> [  309.030055] Call Trace:
+> [  309.030057]  <IRQ>
+> [  309.030059]  ? netif_tx_lock+0x79/0x79
+> [  309.030062]  call_timer_fn.isra.24+0x17/0x77
+> [  309.030063]  run_timer_softirq+0x118/0x161
+> [  309.030065]  ? netif_tx_lock+0x79/0x79
+> [  309.030066]  ? ktime_get+0x2b/0x42
+> [  309.030070]  ? lapic_next_deadline+0x21/0x27
+> [  309.030073]  ? clockevents_program_event+0xa8/0xc5
+> [  309.030076]  __do_softirq+0xa8/0x19d
+> [  309.030078]  irq_exit+0x5d/0x6b
+> [  309.030079]  smp_apic_timer_interrupt+0x2a/0x36
+> [  309.030082]  apic_timer_interrupt+0x89/0x90
+> [  309.030085] RIP: 0010:mwait_idle+0x4e/0x6a
+> [  309.030086] RSP: 0018:ffffc9000337be98 EFLAGS: 00000246 ORIG_RAX: 
+> ffffffffffffff10
+> [  309.030087] RAX: 0000000000000000 RBX: 0000000000000000 RCX: 
+> 0000000000000000
+> [  309.030087] RDX: 0000000000000000 RSI: 0000000000000000 RDI: 
+> ffff88086d98a000
+> [  309.030088] RBP: ffffc9000337be98 R08: ffff88046f8279a0 R09: 
+> ffff88046f827040
+> [  309.030089] R10: ffff88086d98a000 R11: ffff88086d98a000 R12: 
+> 0000000000000000
+> [  309.030089] R13: ffff88086d98a000 R14: ffff88086d98a000 R15: 
+> ffff88086d98a000
+> [  309.030090]  </IRQ>
+> [  309.030094]  arch_cpu_idle+0xa/0xc
+> [  309.030095]  default_idle_call+0x19/0x1b
+> [  309.030102]  do_idle+0xbc/0x196
+> [  309.030104]  cpu_startup_entry+0x1d/0x20
+> [  309.030105]  start_secondary+0xd8/0xdc
+> [  309.030108]  secondary_startup_64+0x9f/0x9f
+> [  309.030109] Code: cc 75 bd eb 35 48 89 df c6 05 c3 dc 74 00 01 e8 
+> 3a 62 fe ff 44 89 e1 48 89 de 48 89 c2 48 c7 c7 0f 65 a4 81 31 c0 e8 
+> 3d 4c b5 ff <0f> ff 48 8b 83 e0 01 00 00 48 89 df ff 50 78 48 8b 05 a0 
+> bc 6a
+> [  309.030128] ---[ end trace 9102cb25703ae2d9 ]---
+>
+>
+> I just marked it as good - cause this problem above is differend - and 
+> im going to:
+>
+> git bisect good
+> Bisecting: 1787 revisions left to test after this (roughly 11 steps)
+>
+>
+>
+>
+> W dniu 2017-09-20 o 10:44, Paweł Staszewski pisze:
+>> Trying to make video from ipmi :)
+>>
+>> with that results:
+>>
+>> https://bugzilla.kernel.org/attachment.cgi?id=258521
+>>
+>> catched two more lines where it starts - panic from 4.13.2.
+>>
+>>
+>> Now will try tro do some bisection
+>>
+>>
+>>
+>> W dniu 2017-09-20 o 09:58, Paweł Staszewski pisze:
+>>> Hi
+>>>
+>>>
+>>> Will try bisecting tonight
+>>>
+>>>
+>>>
+>>> W dniu 2017-09-20 o 05:24, Eric Dumazet pisze:
+>>>> On Wed, 2017-09-20 at 02:06 +0200, Paweł Staszewski wrote:
+>>>>> Just checked kernel 4.13.2 and same problem
+>>>>>
+>>>>> Just after start all 6 bgp sessions - and kernel starts to learn 
+>>>>> routes
+>>>>> it panic.
+>>>>>
+>>>>> https://bugzilla.kernel.org/attachment.cgi?id=258509
+>>>>>
+>>>>
+>>>> Unfortunately we have not enough information from these traces.
+>>>>
+>>>> Can you get a full stack trace ?
+>>>>
+>>>> Alternatively, can you bisect ?
+>>>>
+>>>> Thanks.
+>>>>
+>>>>
+>>>>
+>>>
+>>>
+>>
+>>
+>
+>
