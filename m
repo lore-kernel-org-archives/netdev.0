@@ -1,74 +1,83 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Latest net-next from GIT panic
-Date: Wed, 20 Sep 2017 06:44:59 -0700
-Message-ID: <1505915099.29839.95.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <4745525f-18e4-7f69-fe21-8e507e407b33@itcare.pl>
-         <d8bbf6c1-20a3-195c-6980-45f29e9f9278@itcare.pl>
-         <2aeb7871-fe89-c714-3355-c5f48651e70c@itcare.pl>
-         <15d293fa-0f53-bdca-6358-6a58d1da77af@itcare.pl>
-         <65e2195b-3bd1-c0b4-b474-e07dd08f71b9@itcare.pl>
-         <1505877870.29839.82.camel@edumazet-glaptop3.roam.corp.google.com>
-         <07bde5d4-fab6-3ef9-f586-403dadbb0a2a@itcare.pl>
-         <8f0b0143-657e-d574-c442-24d3d017bc87@itcare.pl>
-         <54d058d4-b9d1-54cb-f064-45cec430fe5d@itcare.pl>
-         <6c073f86-ab71-0a8f-7b9a-91d5ae5da214@itcare.pl>
-         <7fee43ee-75b5-c2f5-cf8d-684ceefcd2d1@itcare.pl>
-         <c278dec6-e018-62e0-a613-1fa79741aaab@itcare.pl>
-         <cfc04422-51bd-0a28-6a8c-6b57179e8af2@itcare.pl>
-         <3324f95f-7686-81e0-a973-1a9220c918fe@itcare.pl>
-         <1505913075.29839.90.camel@edumazet-glaptop3.roam.corp.google.com>
-         <07c29702-cd0b-32af-df0a-83ad24b8c785@itcare.pl>
-         <1505914479.29839.92.camel@edumazet-glaptop3.roam.corp.google.com>
-         <686ea8f0-d9f8-82bc-ca68-f1d97614aa6b@itcare.pl>
+From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH net-next 3/4] qed: Fix maximum number of CQs for iWARP
+Date: Wed, 20 Sep 2017 16:50:32 +0300
+Message-ID: <20170920135032.GP5788@mtr-leonro.local>
+References: <1505841979-26365-1-git-send-email-Michal.Kalderon@cavium.com>
+ <1505841979-26365-4-git-send-email-Michal.Kalderon@cavium.com>
+ <20170919174610.GK5788@mtr-leonro.local>
+ <CY1PR0701MB2012B07A2FCD08D598CCFEDB88610@CY1PR0701MB2012.namprd07.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: Wei Wang <weiwan@google.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        edumazet@google.com
-To: =?UTF-8?Q?Pawe=C5=82?= Staszewski <pstaszewski@itcare.pl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:37004 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751192AbdITNpB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2017 09:45:01 -0400
-Received: by mail-pf0-f194.google.com with SMTP id e69so1209657pfg.4
-        for <netdev@vger.kernel.org>; Wed, 20 Sep 2017 06:45:01 -0700 (PDT)
-In-Reply-To: <686ea8f0-d9f8-82bc-ca68-f1d97614aa6b@itcare.pl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+        protocol="application/pgp-signature"; boundary="jnYfR+Q8IWTs8BNa"
+Cc: "davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        "Elior, Ariel" <Ariel.Elior-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+To: "Kalderon, Michal" <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <CY1PR0701MB2012B07A2FCD08D598CCFEDB88610-UpKza+2NMNLHMJvQ0dyT705OhdzP3rhOnBOFsp37pqbUKgpGm//BTAC/G2K4zDHf@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2017-09-20 at 15:39 +0200, Paweł Staszewski wrote:
-> 
-> W dniu 2017-09-20 o 15:34, Eric Dumazet pisze:
-> > Could you try this debug patch ?
-> >
-> > diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> > index f535779d9dc1dfe36934c2abba4e43d053ac5d6f..1eaa3553a724dc8c048f67b556337072d5addc82 100644
-> > --- a/include/linux/netdevice.h
-> > +++ b/include/linux/netdevice.h
-> > @@ -3331,7 +3331,14 @@ void netdev_run_todo(void);
-> >    */
-> >   static inline void dev_put(struct net_device *dev)
-> >   {
-> > -	this_cpu_dec(*dev->pcpu_refcnt);
-> > +	int __percpu *pref = READ_ONCE(dev->pcpu_refcnt);
-> > +
-> > +	if (!pref) {
-> > +		pr_err("no pcpu_refcnt on dev %p(%s) state %d dismantle %d\n",
-> > +		       dev, dev->name, dev->reg_state, dev->dismantle);
-> > +		BUG();
-> > +	}
-> > +	this_cpu_dec(*pref);
-> >   }
-> >   
-> >   /**
-> >
-> >
-> >
-> 
-> You want me to add this patch to what kernel version ?
-> currently im after git bisect reset - so mainline stable
-> 
 
-Simply us the latest net-next as mentioned in the thread title, thanks.
+--jnYfR+Q8IWTs8BNa
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+
+On Wed, Sep 20, 2017 at 05:46:35AM +0000, Kalderon, Michal wrote:
+> From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+> Sent: Tuesday, September 19, 2017 8:46 PM
+> On Tue, Sep 19, 2017 at 08:26:18PM +0300, Michal Kalderon wrote:
+> >> The maximum number of CQs supported is bound to the number
+> >> of connections supported, which differs between RoCE and iWARP.
+> >>
+> >> This fixes a crash that occurred in iWARP when running 1000 sessions
+> >> using perftest.
+> >>
+> >> Signed-off-by: Michal Kalderon <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+> >> Signed-off-by: Ariel Elior <Ariel.Elior-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+> >> ---
+> >
+> >It is worth to add Fixes line.
+> >
+> >Thanks
+> The original code was there before we had iWARP support, so this doesn't
+> exactly fix an older commit, but fixes iWARP code in general.
+
+So add Fixes which points to iWARP ennoblement patch.
+
+Thanks
+
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+--jnYfR+Q8IWTs8BNa
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAlnCcigACgkQ5GN7iDZy
+WKcfKg/9EOrgokvt0HYDcdSSMfqcbwbVhZ9QbcxnE9QD9/lhQGwEicuA8hHhOi65
+aEpzS6rvDykt6cuViQfgu3ZkuaC7bWRBS7nZ5cndN/bcumkLLc3ZHt6PsCak724U
+huGXE3ci/ykHAptPDnnU/iFtOZAus10CJAhF2ydigfYPupbKpNEBbN3rxTo/aRRb
+nyS+UUplJgRUfoqDL6SkFDc6rMqVGLOV5bYSDnal7kiDv5QJ94pmCLl1M1Q/i+Nf
+jtT4hi75zCe91FGw5UCbm/5oOqeBahOvlneOLcEhukNRRB8hUz6E8c8bzgfLXJrr
+jh0PvBfiFsVkPKZ+HFypEp/cMmtdVScEZU3yG/tBGheid2mm8QseSp1ZuCP5NV1+
+BEt1VoNRhXHZ+uDYj9BIsr8Bm/bjnz7B1uThr/kg1VuXegCQe/EygGULqRDxEGuo
+TfBzSbfhccpFSyA+nTy1g1Iq8Sn4NBFG2QwyWy79PhWYp36CnU3ToO68uenFvyvU
+9wTZWsKYU01luSfdZe2vHRosEqc7TG5Ws9WL9x3GcCkqN2yUNIXAllfkfmeWt9+n
+AXb1rHIH421qP2VwKvG2TR3m7mXeiwDRAVatj+28f2sOCiTRgw4UjK0zedKFX1Ao
+YZbj548cm7DaocSAHni2aIKnRo1ERR90SmTIDHGgVYttDchLdH4=
+=/F4x
+-----END PGP SIGNATURE-----
+
+--jnYfR+Q8IWTs8BNa--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
