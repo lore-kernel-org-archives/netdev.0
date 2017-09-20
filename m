@@ -1,39 +1,66 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH RFC V1 net-next 0/6] Time based packet transmission
-Date: Wed, 20 Sep 2017 22:11:53 +0200
-Message-ID: <20170920201153.d3o3h62y2snuacef@localhost>
-References: <cover.1505719061.git.rcochran@linutronix.de>
- <20170920173533.32537-1-levipearson@gmail.com>
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: Re: cross namespace interface notification for tun devices
+Date: Wed, 20 Sep 2017 22:13:27 +0200
+Message-ID: <CAHmME9rLB2uQJUrPVvxiGzvTxUBJOOPoBWLU5ycjgx8VYZG5_Q@mail.gmail.com>
+References: <CAHmME9pD_kees+xrjTeWXgi26UdhbMVgvoddbCyueTZkbguvAg@mail.gmail.com>
+ <CAM_iQpVvDNRbtj_47_3XXa_ezyrT=a_VzDtK5SCR9a4_2Gqw9w@mail.gmail.com>
+ <CAHmME9oSZeAoDtSLxoGiEcTcCbmPLf-nj3OJcJ1ma8fs4BWQAw@mail.gmail.com> <CAM_iQpXhjuh5NJJiAwBJG4EpkWXWz74WS7RFjt5L1mDV9nKTVw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: rcochran@linutronix.de, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
-        vinicius.gomes@intel.com, andre.guedes@intel.com,
-        john.stultz@linaro.org, jesus.sanchez-palencia@intel.com,
-        henrik@austad.us, tglx@linutronix.de, anna-maria@linutronix.de,
-        davem@davemloft.net
-To: levipearson@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170920173533.32537-1-levipearson@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Netdev <netdev@vger.kernel.org>, Mathias <mathias@hall-andersen.dk>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from frisell.zx2c4.com ([192.95.5.64]:35395 "EHLO frisell.zx2c4.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750919AbdITUNb (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 20 Sep 2017 16:13:31 -0400
+Received: by frisell.zx2c4.com (ZX2C4 Mail Server) with ESMTP id e2cb3fd9
+        for <netdev@vger.kernel.org>;
+        Wed, 20 Sep 2017 20:05:16 +0000 (UTC)
+Received: by frisell.zx2c4.com (ZX2C4 Mail Server) with ESMTPSA id e28a11c9 (TLSv1.2:ECDHE-RSA-AES128-GCM-SHA256:128:NO)
+        for <netdev@vger.kernel.org>;
+        Wed, 20 Sep 2017 20:05:14 +0000 (UTC)
+Received: by mail-io0-f176.google.com with SMTP id l15so6261873iol.8
+        for <netdev@vger.kernel.org>; Wed, 20 Sep 2017 13:13:29 -0700 (PDT)
+In-Reply-To: <CAM_iQpXhjuh5NJJiAwBJG4EpkWXWz74WS7RFjt5L1mDV9nKTVw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 20, 2017 at 11:35:33AM -0600, levipearson@gmail.com wrote:
-> Anyway, I am wholly in favor of this proposal--in fact, it is very similar to
-> a patch set I shared with Eric Mann and others at Intel in early Dec 2016 with
-> the intention to get some early feedback before submitting here. I never heard
-> back and got busy with other things. I only mention this since you said
-> elsewhere that you got this idea from Eric Mann yourself, and I am curious
-> whether Eric and I came up with it independently (which I would not be
-> surprised at).
+On Wed, Sep 20, 2017 at 8:29 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+> Sounds like we should set NETIF_F_NETNS_LOCAL for tun
+> device.
 
-Well, I actually thought of placing the Tx time in a CMSG all by
-myself, but later I found Eric's talk from 2012,
+Absolutely do not do this under any circumstances. This would be a
+regression and would break API compatibility. As I wrote in my first
+email, it's already possible to sleep-loop for that information using
+the tun device's fd; I'm just looking for a better event-based
+approach.
 
-  https://linuxplumbers.ubicast.tv/videos/linux-network-enabling-requirements-for-audiovideo-bridging-avb/
+> What is your legitimate use case of send/receive packet to/from
+> a tun device in a different netns?
 
-and so I wanted to give him credit.
+Because sometimes it's very nice to be able to move network interfaces
+that use tun devices into different namespaces, for some xnamespace
+proxying.
 
-Thanks,
-Richard
+What Dan described in the email he just sent is exactly this use case.
+
+In WireGuard (a kernel thing), I have facilities for this --
+https://www.wireguard.com/netns/ . Now I'm working on the userspace
+version and would like to expose the same utility.
+
+Anyway, the purpose of me sending this message to the list was not to
+question the "legitimacy" of my application usage, but rather to
+elicit feedback on two specific things:
+
+1. to determine if there's already a mechanism in place for this that
+I've overlooked; and
+2. to determine particularities of me implementing a mechanism, if
+it's not already there.
+
+I'm slightly more convinced that there isn't currently a mechanism for
+this. It seems like the easiest way, therefore, would be some kind of
+control message that could be poll'd for, using the existing
+per-process fd. That way there wouldn't be any violations of the
+current namespace situation, yet processes could still get event
+notifications as needed.
