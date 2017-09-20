@@ -1,62 +1,122 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 16/16] mlxsw: spectrum_switchdev: Consider mrouter status for mdb changes
-Date: Wed, 20 Sep 2017 16:15:16 +0200
-Message-ID: <20170920141516.1402-17-jiri@resnulli.us>
+Subject: [patch net-next 12/16] mlxsw: spectrum_switchdev: Flush the mdb when a port is being removed
+Date: Wed, 20 Sep 2017 16:15:12 +0200
+Message-ID: <20170920141516.1402-13-jiri@resnulli.us>
 References: <20170920141516.1402-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, nogahf@mellanox.com, idosch@mellanox.com,
         mlxsw@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:37645 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751768AbdITOPd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2017 10:15:33 -0400
-Received: by mail-wm0-f67.google.com with SMTP id f4so2564311wmh.4
-        for <netdev@vger.kernel.org>; Wed, 20 Sep 2017 07:15:32 -0700 (PDT)
+Received: from mail-wr0-f193.google.com ([209.85.128.193]:34415 "EHLO
+        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751750AbdITOP3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2017 10:15:29 -0400
+Received: by mail-wr0-f193.google.com with SMTP id k20so1585432wre.1
+        for <netdev@vger.kernel.org>; Wed, 20 Sep 2017 07:15:29 -0700 (PDT)
 In-Reply-To: <20170920141516.1402-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Nogah Frankel <nogahf@mellanox.com>
 
-When a mrouter is registered or leaves a mid, don't update the HW.
+When a port is being removed from a bridge, flush the bridge mdb to remove
+the mids of that port.
 
 Signed-off-by: Nogah Frankel <nogahf@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c | 13 +++++++++----
- 1 file changed, 9 insertions(+), 4 deletions(-)
+ .../ethernet/mellanox/mlxsw/spectrum_switchdev.c   | 39 ++++++++++++++++------
+ 1 file changed, 29 insertions(+), 10 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-index 459cedc..0f9eac5 100644
+index 50c4d7c..bc07873 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
 +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-@@ -1491,6 +1491,9 @@ static int mlxsw_sp_port_mdb_add(struct mlxsw_sp_port *mlxsw_sp_port,
- 	if (!bridge_device->multicast_enabled)
- 		return 0;
+@@ -122,6 +122,10 @@ mlxsw_sp_bridge_port_fdb_flush(struct mlxsw_sp *mlxsw_sp,
+ 			       u16 fid_index);
  
-+	if (bridge_port->mrouter)
-+		return 0;
+ static void
++mlxsw_sp_bridge_port_mdb_flush(struct mlxsw_sp_port *mlxsw_sp_port,
++			       struct mlxsw_sp_bridge_port *bridge_port);
 +
- 	err = mlxsw_sp_port_smid_set(mlxsw_sp_port, mid->mid, true);
- 	if (err) {
- 		netdev_err(dev, "Unable to set SMID\n");
-@@ -1613,10 +1616,12 @@ __mlxsw_sp_port_mdb_del(struct mlxsw_sp_port *mlxsw_sp_port,
- 	int err;
- 
- 	if (bridge_port->bridge_device->multicast_enabled) {
--		err = mlxsw_sp_port_smid_set(mlxsw_sp_port, mid->mid, false);
++static void
+ mlxsw_sp_bridge_mdb_mc_enable_sync(struct mlxsw_sp_port *mlxsw_sp_port,
+ 				   struct mlxsw_sp_bridge_device
+ 				   *bridge_device);
+@@ -176,17 +180,11 @@ static void
+ mlxsw_sp_bridge_device_destroy(struct mlxsw_sp_bridge *bridge,
+ 			       struct mlxsw_sp_bridge_device *bridge_device)
+ {
+-	struct mlxsw_sp_mid *mid, *tmp;
 -
--		if (err)
--			netdev_err(dev, "Unable to remove port from SMID\n");
-+		if (bridge_port->bridge_device->multicast_enabled) {
-+			err = mlxsw_sp_port_smid_set(mlxsw_sp_port, mid->mid,
-+						     false);
-+			if (err)
-+				netdev_err(dev, "Unable to remove port from SMID\n");
-+		}
- 	}
+ 	list_del(&bridge_device->list);
+ 	if (bridge_device->vlan_enabled)
+ 		bridge->vlan_enabled_exists = false;
+ 	WARN_ON(!list_empty(&bridge_device->ports_list));
+-	list_for_each_entry_safe(mid, tmp, &bridge_device->mids_list, list) {
+-		list_del(&mid->list);
+-		clear_bit(mid->mid, bridge->mids_bitmap);
+-		kfree(mid);
+-	}
++	WARN_ON(!list_empty(&bridge_device->mids_list));
+ 	kfree(bridge_device);
+ }
  
- 	err = mlxsw_sp_port_remove_from_mid(mlxsw_sp_port, mid);
+@@ -987,24 +985,28 @@ mlxsw_sp_port_vlan_bridge_leave(struct mlxsw_sp_port_vlan *mlxsw_sp_port_vlan)
+ 	struct mlxsw_sp_bridge_vlan *bridge_vlan;
+ 	struct mlxsw_sp_bridge_port *bridge_port;
+ 	u16 vid = mlxsw_sp_port_vlan->vid;
+-	bool last;
++	bool last_port, last_vlan;
+ 
+ 	if (WARN_ON(mlxsw_sp_fid_type(fid) != MLXSW_SP_FID_TYPE_8021Q &&
+ 		    mlxsw_sp_fid_type(fid) != MLXSW_SP_FID_TYPE_8021D))
+ 		return;
+ 
+ 	bridge_port = mlxsw_sp_port_vlan->bridge_port;
++	last_vlan = list_is_singular(&bridge_port->vlans_list);
+ 	bridge_vlan = mlxsw_sp_bridge_vlan_find(bridge_port, vid);
+-	last = list_is_singular(&bridge_vlan->port_vlan_list);
++	last_port = list_is_singular(&bridge_vlan->port_vlan_list);
+ 
+ 	list_del(&mlxsw_sp_port_vlan->bridge_vlan_node);
+ 	mlxsw_sp_bridge_vlan_put(bridge_vlan);
+ 	mlxsw_sp_port_vid_stp_set(mlxsw_sp_port, vid, BR_STATE_DISABLED);
+ 	mlxsw_sp_port_vid_learning_set(mlxsw_sp_port, vid, false);
+-	if (last)
++	if (last_port)
+ 		mlxsw_sp_bridge_port_fdb_flush(mlxsw_sp_port->mlxsw_sp,
+ 					       bridge_port,
+ 					       mlxsw_sp_fid_index(fid));
++	if (last_vlan)
++		mlxsw_sp_bridge_port_mdb_flush(mlxsw_sp_port, bridge_port);
++
+ 	mlxsw_sp_port_vlan_fid_leave(mlxsw_sp_port_vlan);
+ 
+ 	mlxsw_sp_bridge_port_put(mlxsw_sp_port->mlxsw_sp->bridge, bridge_port);
+@@ -1580,6 +1582,23 @@ static int mlxsw_sp_port_mdb_del(struct mlxsw_sp_port *mlxsw_sp_port,
+ 	return __mlxsw_sp_port_mdb_del(mlxsw_sp_port, bridge_port, mid);
+ }
+ 
++static void
++mlxsw_sp_bridge_port_mdb_flush(struct mlxsw_sp_port *mlxsw_sp_port,
++			       struct mlxsw_sp_bridge_port *bridge_port)
++{
++	struct mlxsw_sp_bridge_device *bridge_device;
++	struct mlxsw_sp_mid *mid, *tmp;
++
++	bridge_device = bridge_port->bridge_device;
++
++	list_for_each_entry_safe(mid, tmp, &bridge_device->mids_list, list) {
++		if (test_bit(mlxsw_sp_port->local_port, mid->ports_in_mid)) {
++			__mlxsw_sp_port_mdb_del(mlxsw_sp_port, bridge_port,
++						mid);
++		}
++	}
++}
++
+ static int mlxsw_sp_port_obj_del(struct net_device *dev,
+ 				 const struct switchdev_obj *obj)
+ {
 -- 
 2.9.5
