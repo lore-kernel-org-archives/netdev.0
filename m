@@ -1,57 +1,82 @@
-From: Ursula Braun <ubraun@linux.vnet.ibm.com>
-Subject: [PATCH net-next 02/10] net/smc: add receive timeout check
-Date: Wed, 20 Sep 2017 13:58:05 +0200
-Message-ID: <20170920115813.63745-3-ubraun@linux.vnet.ibm.com>
-References: <20170920115813.63745-1-ubraun@linux.vnet.ibm.com>
-Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
-        linux-s390@vger.kernel.org, jwi@linux.vnet.ibm.com,
-        schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
-        raspl@linux.vnet.ibm.com, ubraun@linux.vnet.ibm.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:57784 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751838AbdITL61 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2017 07:58:27 -0400
-Received: from pps.filterd (m0098394.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v8KBw890092504
-        for <netdev@vger.kernel.org>; Wed, 20 Sep 2017 07:58:26 -0400
-Received: from e06smtp12.uk.ibm.com (e06smtp12.uk.ibm.com [195.75.94.108])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 2d3p3gyh0q-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Wed, 20 Sep 2017 07:58:26 -0400
-Received: from localhost
-        by e06smtp12.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <ubraun@linux.vnet.ibm.com>;
-        Wed, 20 Sep 2017 12:58:24 +0100
-In-Reply-To: <20170920115813.63745-1-ubraun@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ville =?iso-8859-1?Q?Syrj=E4l=E4?= <ville.syrjala-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+Subject: Re: [PATCH v2 1/2] mac80211: Add rcu read side critical sections
+Date: Wed, 20 Sep 2017 15:11:37 +0300
+Message-ID: <20170920121137.GZ4914@intel.com>
+References: <20170918195919.15860-1-ville.syrjala@linux.intel.com>
+ <20170920101123.23312-1-ville.syrjala@linux.intel.com>
+ <1505903964.3026.14.camel@sipsolutions.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1505903964.3026.14.camel-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Hans Wippel <hwippel@linux.vnet.ibm.com>
+On Wed, Sep 20, 2017 at 12:39:24PM +0200, Johannes Berg wrote:
+> On Wed, 2017-09-20 at 13:11 +0300, Ville Syrjala wrote:
+> 
+> > --- a/net/mac80211/tx.c
+> > +++ b/net/mac80211/tx.c
+> > @@ -1770,15 +1770,21 @@ bool ieee80211_tx_prepare_skb(struct ieee80211_hw *hw,
+> >  	struct ieee80211_tx_data tx;
+> >  	struct sk_buff *skb2;
+> >  
+> > -	if (ieee80211_tx_prepare(sdata, &tx, NULL, skb) == TX_DROP)
+> > +	rcu_read_lock();
+> 
+> The documentation says:
+> 
+> /**
+>  * ieee80211_tx_prepare_skb - prepare an 802.11 skb for transmission
+>  * @hw: pointer as obtained from ieee80211_alloc_hw()
+>  * @vif: virtual interface
+>  * @skb: frame to be sent from within the driver
+>  * @band: the band to transmit on
+>  * @sta: optional pointer to get the station to send the frame to
+>  *
+>  * Note: must be called under RCU lock
+>  */
+> 
+> You can't even argue that it should be the function itself doing it,
+> because the (admittedly optional) sta pointer would otherwise not have
+> proper protection after you leave the function ... You can't pass out a
+> sta pointer that's RCU protected.
 
-The SMC receive function currently lacks a timeout check under the
-condition that no data were received and no data are available. This
-patch adds such a check.
+Yeah, I suppose that would need rcu_handoff+some other mechanism to
+make sure it stays around after that.
 
-Signed-off-by: Hans Wippel <hwippel@linux.vnet.ibm.com>
-Signed-off-by: Ursula Braun <ubraun@linux.vnet.ibm.com>
----
- net/smc/smc_rx.c | 2 ++
- 1 file changed, 2 insertions(+)
+> 
+> Side note: Perhaps some annotation should be there? not sure it's
+> possible - would have to be something like
+> 	struct ieee80211_sta * __rcu *sta;
+> 
+> I guess since the outer pointer isn't protected, only the inner ...
 
-diff --git a/net/smc/smc_rx.c b/net/smc/smc_rx.c
-index b17a333e9bb0..3e631ae4b6b6 100644
---- a/net/smc/smc_rx.c
-+++ b/net/smc/smc_rx.c
-@@ -148,6 +148,8 @@ int smc_rx_recvmsg(struct smc_sock *smc, struct msghdr *msg, size_t len,
- 				read_done = sock_intr_errno(timeo);
- 				break;
- 			}
-+			if (!timeo)
-+				return -EAGAIN;
- 		}
- 
- 		if (!atomic_read(&conn->bytes_to_rcv)) {
+I think just the fact that even the pointers in ieee80211_tx_data don't
+have the __rcu annotation makes it rather hard to see what is really rcu
+protected and what isn't. If every user of those pointers would have to
+do the rcu_dereference() things would be rather more explicit.
+
+> Therefore, this patch is wrong.
+
+OK, so the problem is in ath9k then.
+
+> I actually think the same is true for ieee80211_tx_dequeue(), but I'm
+> less sure about it - the sta pointer there clearly is somehow safely
+> passed in (even if it's w/o RCU, the driver can potentially make that
+> safe), but the key pointer seems unsafe in this case (as well) if
+> there's no outer RCU protection.
+
+Well, I think this is as far as I want to dig into the matter. I can
+respin the patch once more with just tx_dequeue() fix in there, if you
+want (not sure you do if you think it's wrong as well). After that I'll
+leave it to someone who actually knows what they're doing with mac80211 ;)
+
 -- 
-2.13.5
+Ville Syrjälä
+Intel OTC
