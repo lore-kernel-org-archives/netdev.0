@@ -1,50 +1,42 @@
-From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Subject: Re: [1/2] b43: fix unitialized reads of ret by initializing the array
- to zero
-Date: Wed, 20 Sep 2017 12:41:24 +0000 (UTC)
-Message-ID: <20170920124124.5440D60724@smtp.codeaurora.org>
-References: <20170905181550.23839-1-colin.king@canonical.com>
+From: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
+Subject: [PATCH] net_sched: always reset qdisc backlog in qdisc_reset()
+Date: Wed, 20 Sep 2017 15:45:36 +0300
+Message-ID: <150591153693.113604.8604505743746410801.stgit@buzz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b43-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
- linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Return-path: <b43-dev-bounces+gldbd-bcm43xx-dev=gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <20170905181550.23839-1-colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/b43-dev>,
- <mailto:b43-dev-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/b43-dev/>
-List-Post: <mailto:b43-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b43-dev-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/b43-dev>,
- <mailto:b43-dev-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "b43-dev" <b43-dev-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: b43-dev-bounces+gldbd-bcm43xx-dev=gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+        Jiri Pirko <jiri@resnulli.us>,
+        Jamal Hadi Salim <jhs@mojatatu.com>
+To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from forwardcorp1j.cmail.yandex.net ([5.255.227.106]:60649 "EHLO
+        forwardcorp1j.cmail.yandex.net" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751554AbdITMpo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2017 08:45:44 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org> wrote:
+SKB stored in qdisc->gso_skb also counted into backlog.
 
-> From: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-> 
-> The u8 char array ret is not being initialized and elements outside
-> the range start to end contain just garbage values from the stack.
-> This results in a later scan of the array to read potentially
-> uninitialized values.  Fix this by initializing the array to zero.
-> This seems to have been an issue since the very first commit.
-> 
-> Detected by CoverityScan CID#139652 ("Uninitialized scalar variable")
-> 
-> Signed-off-by: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-> Reviewed-by: Michael Buesch <m@bues.ch>
+Some qdiscs don't reset backlog to zero in ->reset(),
+for example sfq just dequeue and free all queued skb.
 
-2 patches applied to wireless-drivers-next.git, thanks.
+Signed-off-by: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
+Fixes: 2ccccf5fb43f ("net_sched: update hierarchical backlog too")
+---
+ net/sched/sch_generic.c |    1 +
+ 1 file changed, 1 insertion(+)
 
-e31fbe1034d9 b43: fix unitialized reads of ret by initializing the array to zero
-e3ae1c772046 b43legacy: fix unitialized reads of ret by initializing the array to zero
-
--- 
-https://patchwork.kernel.org/patch/9939435/
-
-https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index 92237e75dbbc..bf8c81e07c70 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -685,6 +685,7 @@ void qdisc_reset(struct Qdisc *qdisc)
+ 		qdisc->gso_skb = NULL;
+ 	}
+ 	qdisc->q.qlen = 0;
++	qdisc->qstats.backlog = 0;
+ }
+ EXPORT_SYMBOL(qdisc_reset);
+ 
