@@ -1,70 +1,75 @@
-From: Daniel Mack <daniel@zonque.org>
-Subject: Re: [PATCH net-next] bpf: Optimize lpm trie delete
-Date: Wed, 20 Sep 2017 18:51:53 +0200
-Message-ID: <47e47f0d-d04d-b52b-647a-7883aa5f3268@zonque.org>
-References: <20170920162247.63787-1-kraigatgoog@gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCHv3 iproute2 1/2] lib/libnetlink: re malloc buff if size
+ is not enough
+Date: Wed, 20 Sep 2017 09:56:05 -0700
+Message-ID: <20170920095605.1ea527fc@xeon-e3>
+References: <1505871820-31580-1-git-send-email-liuhangbin@gmail.com>
+        <1505871820-31580-2-git-send-email-liuhangbin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org
-To: Craig Gallek <kraigatgoog@gmail.com>,
-        Alexei Starovoitov <ast@fb.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        "David S . Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Michal Kubecek <mkubecek@suse.cz>,
+        Phil Sutter <phil@nwl.cc>
+To: Hangbin Liu <liuhangbin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.bugwerft.de ([46.23.86.59]:56758 "EHLO mail.bugwerft.de"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751548AbdITQvz (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 20 Sep 2017 12:51:55 -0400
-In-Reply-To: <20170920162247.63787-1-kraigatgoog@gmail.com>
-Content-Language: en-US
+Received: from mail-pg0-f48.google.com ([74.125.83.48]:48510 "EHLO
+        mail-pg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751693AbdITQ4J (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2017 12:56:09 -0400
+Received: by mail-pg0-f48.google.com with SMTP id v23so2004003pgc.5
+        for <netdev@vger.kernel.org>; Wed, 20 Sep 2017 09:56:09 -0700 (PDT)
+In-Reply-To: <1505871820-31580-2-git-send-email-liuhangbin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Craig,
+On Wed, 20 Sep 2017 09:43:39 +0800
+Hangbin Liu <liuhangbin@gmail.com> wrote:
 
-Thanks, this looks much cleaner already :)
-
-On 09/20/2017 06:22 PM, Craig Gallek wrote:
-> diff --git a/kernel/bpf/lpm_trie.c b/kernel/bpf/lpm_trie.c
-> index 9d58a576b2ae..b5a7d70ec8b5 100644
-> --- a/kernel/bpf/lpm_trie.c
-> +++ b/kernel/bpf/lpm_trie.c
-> @@ -397,7 +397,7 @@ static int trie_delete_elem(struct bpf_map *map, void *_key)
->  	struct lpm_trie_node __rcu **trim;
->  	struct lpm_trie_node *node;
->  	unsigned long irq_flags;
-> -	unsigned int next_bit;
-> +	unsigned int next_bit = 0;
-
-This default assignment seems wrong, and I guess you only added it to
-squelch a compiler warning?
-
-[...]
-
-> +	/* If the node has one child, we may be able to collapse the tree
-> +	 * while removing this node if the node's child is in the same
-> +	 * 'next bit' slot as this node was in its parent or if the node
-> +	 * itself is the root.
-> +	 */
-> +	if (trim == &trie->root) {
-> +		next_bit = node->child[0] ? 0 : 1;
-> +		rcu_assign_pointer(trie->root, node->child[next_bit]);
-> +		kfree_rcu(node, rcu);
-
-I don't think you should treat this 'root' case special.
-
-Instead, move the 'next_bit' assignment outside of the condition ...
-
-> +	} else if (rcu_access_pointer(node->child[next_bit])) {
-> +		rcu_assign_pointer(*trim, node->child[next_bit]);
-> +		kfree_rcu(node, rcu);
-
-... and then this branch would handle the case just fine. Correct?
-
-Otherwise, looks good to me!
+Thanks for keeping up on this.
 
 
+> +realloc:
+> +	bufp = realloc(buf, buf_len);
+> +
+> +	if (bufp == NULL) {
 
-Thanks,
-Daniel
+Minor personal style issue:
+To me, blank lines are like paragraphs in writing.
+Code reads better assignment and condition check are next to
+each other.
+
+> +recv:
+> +	len = recvmsg(fd, msg, flag);
+> +
+> +	if (len < 0) {
+> +		if (errno == EINTR || errno == EAGAIN)
+> +			goto recv;
+> +		fprintf(stderr, "netlink receive error %s (%d)\n",
+> +			strerror(errno), errno);
+> +		free(buf);
+> +		return -errno;
+> +	}
+> +
+> +	if (len == 0) {
+> +		fprintf(stderr, "EOF on netlink\n");
+> +		free(buf);
+> +		return -ENODATA;
+> +	}
+> +
+> +	if (len > buf_len) {
+> +		buf_len = len;
+> +		flag = 0;
+> +		goto realloc;
+> +	}
+> +
+> +	if (flag != 0) {
+> +		flag = 0;
+> +		goto recv;
+
+Although I programmed in BASIC years ago. I never liked code
+with loops via goto. To me it indicates the logic is not well thought
+through.  Not sure exactly how to rearrange the control flow, but it
+should be possible to rewrite this so that it reads cleaner.
+
+Still think this needs to go through a few more review cycles
+before applying.
