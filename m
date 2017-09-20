@@ -1,27 +1,65 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next] macvlan: code refine to check data before using
-Date: Wed, 20 Sep 2017 13:47:06 -0700 (PDT)
-Message-ID: <20170920.134706.1045593398254054043.davem@davemloft.net>
-References: <1505866343-14135-1-git-send-email-zhangshengju@cmss.chinamobile.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: fgao@ikuai8.com, vyasevic@redhat.com, netdev@vger.kernel.org
-To: zhangshengju@cmss.chinamobile.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:37032 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751408AbdITUrH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2017 16:47:07 -0400
-In-Reply-To: <1505866343-14135-1-git-send-email-zhangshengju@cmss.chinamobile.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Kees Cook <keescook@chromium.org>
+Subject: [PATCH v3 30/31] usercopy: Restrict non-usercopy caches to size 0
+Date: Wed, 20 Sep 2017 13:45:36 -0700
+Message-ID: <1505940337-79069-31-git-send-email-keescook@chromium.org>
+References: <1505940337-79069-1-git-send-email-keescook@chromium.org>
+Cc: Kees Cook <keescook@chromium.org>,
+	David Windsor <dave@nullcore.net>,
+	Christoph Lameter <cl@linux.com>,
+	Pekka Enberg <penberg@kernel.org>,
+	David Rientjes <rientjes@google.com>,
+	Joonsoo Kim <iamjoonsoo.kim@lge.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-mm@kvack.org,
+	linux-fsdevel@vger.kernel.org,
+	netdev@vger.kernel.org,
+	kernel-hardening@lists.openwall.com
+To: linux-kernel@vger.kernel.org
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1505940337-79069-1-git-send-email-keescook@chromium.org>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-From: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
-Date: Wed, 20 Sep 2017 08:12:23 +0800
+With all known usercopied cache whitelists now defined in the
+kernel, switch the default usercopy region of kmem_cache_create()
+to size 0. Any new caches with usercopy regions will now need to use
+kmem_cache_create_usercopy() instead of kmem_cache_create().
 
-> This patch checks data first at one place, return if it's null.
-> 
-> Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+This patch is modified from Brad Spengler/PaX Team's PAX_USERCOPY
+whitelisting code in the last public patch of grsecurity/PaX based on my
+understanding of the code. Changes or omissions from the original code are
+mine and don't reflect the original grsecurity/PaX code.
 
-Looks good, applied, thanks.
+Cc: David Windsor <dave@nullcore.net>
+Cc: Christoph Lameter <cl@linux.com>
+Cc: Pekka Enberg <penberg@kernel.org>
+Cc: David Rientjes <rientjes@google.com>
+Cc: Joonsoo Kim <iamjoonsoo.kim@lge.com>
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: linux-mm@kvack.org
+Signed-off-by: Kees Cook <keescook@chromium.org>
+---
+ mm/slab_common.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/mm/slab_common.c b/mm/slab_common.c
+index d4e6442f9bbc..0ac45ba6685e 100644
+--- a/mm/slab_common.c
++++ b/mm/slab_common.c
+@@ -515,7 +515,7 @@ struct kmem_cache *
+ kmem_cache_create(const char *name, size_t size, size_t align,
+ 		unsigned long flags, void (*ctor)(void *))
+ {
+-	return kmem_cache_create_usercopy(name, size, align, flags, 0, size,
++	return kmem_cache_create_usercopy(name, size, align, flags, 0, 0,
+ 					  ctor);
+ }
+ EXPORT_SYMBOL(kmem_cache_create);
+-- 
+2.7.4
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
