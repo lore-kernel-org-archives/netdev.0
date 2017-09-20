@@ -1,43 +1,62 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] net: ethernet: aquantia: default to no in config
-Date: Wed, 20 Sep 2017 13:28:25 +0300
-Message-ID: <aee8c2bd-5a2a-cb51-adb5-9106b2b7a787@cogentembedded.com>
-References: <20170919224315.GA17797@shells.gnugeneration.com>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: [PATCH v2 1/2] mac80211: Add rcu read side critical sections
+Date: Wed, 20 Sep 2017 12:39:24 +0200
+Message-ID: <1505903964.3026.14.camel@sipsolutions.net>
+References: <20170918195919.15860-1-ville.syrjala@linux.intel.com>
+         <20170920101123.23312-1-ville.syrjala@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Vito Caputo <vcaputo@pengaru.com>,
-        linux-kernel <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170919224315.GA17797@shells.gnugeneration.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Ville Syrjala <ville.syrjala-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170920101123.23312-1-ville.syrjala-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hello!
+On Wed, 2017-09-20 at 13:11 +0300, Ville Syrjala wrote:
 
-On 9/20/2017 1:43 AM, Vito Caputo wrote:
+> --- a/net/mac80211/tx.c
+> +++ b/net/mac80211/tx.c
+> @@ -1770,15 +1770,21 @@ bool ieee80211_tx_prepare_skb(struct ieee80211_hw *hw,
+>  	struct ieee80211_tx_data tx;
+>  	struct sk_buff *skb2;
+>  
+> -	if (ieee80211_tx_prepare(sdata, &tx, NULL, skb) == TX_DROP)
+> +	rcu_read_lock();
 
-> NET_VENDOR_AQUANTIA was "default y" for some reason, which seems
-> obviously inappropriate.
-> ---
->   drivers/net/ethernet/aquantia/Kconfig | 2 +-
->   1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/aquantia/Kconfig b/drivers/net/ethernet/aquantia/Kconfig
-> index cdf78e069a39..6167b13cf349 100644
-> --- a/drivers/net/ethernet/aquantia/Kconfig
-> +++ b/drivers/net/ethernet/aquantia/Kconfig
-> @@ -4,7 +4,7 @@
->   
->   config NET_VENDOR_AQUANTIA
->   	bool "aQuantia devices"
-> -	default y
-> +	default n
+The documentation says:
 
-    Just remove it -- 'n' is the default default. :-)
+/**
+ * ieee80211_tx_prepare_skb - prepare an 802.11 skb for transmission
+ * @hw: pointer as obtained from ieee80211_alloc_hw()
+ * @vif: virtual interface
+ * @skb: frame to be sent from within the driver
+ * @band: the band to transmit on
+ * @sta: optional pointer to get the station to send the frame to
+ *
+ * Note: must be called under RCU lock
+ */
 
-[...]
+You can't even argue that it should be the function itself doing it,
+because the (admittedly optional) sta pointer would otherwise not have
+proper protection after you leave the function ... You can't pass out a
+sta pointer that's RCU protected.
 
-MBR, Sergei
+Side note: Perhaps some annotation should be there? not sure it's
+possible - would have to be something like
+	struct ieee80211_sta * __rcu *sta;
+
+I guess since the outer pointer isn't protected, only the inner ...
+
+
+Therefore, this patch is wrong.
+
+I actually think the same is true for ieee80211_tx_dequeue(), but I'm
+less sure about it - the sta pointer there clearly is somehow safely
+passed in (even if it's w/o RCU, the driver can potentially make that
+safe), but the key pointer seems unsafe in this case (as well) if
+there's no outer RCU protection.
+
+johannes
