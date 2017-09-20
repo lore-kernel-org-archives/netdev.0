@@ -1,115 +1,91 @@
-From: Vinicius Costa Gomes <vinicius.gomes@intel.com>
-Subject: Re: [RFC net-next 0/5] TSN: Add qdisc-based config interfaces for traffic shapers
-Date: Tue, 19 Sep 2017 17:19:18 -0700
-Message-ID: <87wp4ufchl.fsf@intel.com>
-References: <20170901012625.14838-1-vinicius.gomes@intel.com> <20170918080214.yrejz67wwnp2pjzf@localhost> <87k20vip3f.fsf@intel.com> <20170919052244.77umdxuze53t6j22@localhost>
+From: =?UTF-8?Q?Pawe=c5=82_Staszewski?= <pstaszewski@itcare.pl>
+Subject: Re: Latest net-next from GIT panic
+Date: Wed, 20 Sep 2017 02:26:47 +0200
+Message-ID: <fdaf967f-748f-cb56-3762-b347cd53028f@itcare.pl>
+References: <4745525f-18e4-7f69-fe21-8e507e407b33@itcare.pl>
+ <d8bbf6c1-20a3-195c-6980-45f29e9f9278@itcare.pl>
+ <2aeb7871-fe89-c714-3355-c5f48651e70c@itcare.pl>
+ <15d293fa-0f53-bdca-6358-6a58d1da77af@itcare.pl>
+ <65e2195b-3bd1-c0b4-b474-e07dd08f71b9@itcare.pl>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
-        jiri@resnulli.us, intel-wired-lan@lists.osuosl.org,
-        andre.guedes@intel.com, ivan.briano@intel.com,
-        jesus.sanchez-palencia@intel.com, boon.leong.ong@intel.com
-To: Richard Cochran <richardcochran@gmail.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+To: Linux Kernel Network Developers <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga05.intel.com ([192.55.52.43]:41821 "EHLO mga05.intel.com"
+Received: from smtp16.iq.pl ([86.111.242.222]:41595 "EHLO smtp16.iq.pl"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751074AbdITATU (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 19 Sep 2017 20:19:20 -0400
-In-Reply-To: <20170919052244.77umdxuze53t6j22@localhost>
+        id S1751561AbdITA3A (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 19 Sep 2017 20:29:00 -0400
+Received: from [192.168.2.200] (unknown [185.78.72.19])
+        (Authenticated sender: pstaszewski@itcare.pl)
+        by smtp.iq.pl (Postfix) with ESMTPSA id 3xxgbG5rkMz3xJD
+        for <netdev@vger.kernel.org>; Wed, 20 Sep 2017 02:28:58 +0200 (CEST)
+In-Reply-To: <65e2195b-3bd1-c0b4-b474-e07dd08f71b9@itcare.pl>
+Content-Language: pl
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Richard,
+Latest working kernel with same configuration and kernel config 4.12.13
 
-Richard Cochran <richardcochran@gmail.com> writes:
+There is no panic after routes from all 6x bgp sessions are learned.
 
-> On Mon, Sep 18, 2017 at 04:06:28PM -0700, Vinicius Costa Gomes wrote:
->> That's the point, the application does not need to know that, and asking
->> that would be stupid.
->
-> On the contrary, this information is essential to the application.
-> Probably you have never seen an actual Ethernet field bus in
-> operation?  In any case, you are missing the point.
->
->> (And that's another nice point of how 802.1Qbv works, applications do
->> not need to be changed to use it, and I think we should work to achieve
->> this on the Linux side)
->
-> Once you start to care about real time performance, then you need to
-> consider the applications.  This is industrial control, not streaming
-> your tunes from your ipod.
->
->> That being said, that only works for kinds of traffic that maps well to
->> this configuration in advance model, which is the model that the IEEE
->> (see 802.1Qcc) and the AVNU Alliance[1] are pushing for.
->
-> Again, you are missing the point of what they aiming for.  I have
-> looked at a number of production systems, and in each case the
-> developers want total control over the transmission, in order to
-> reduce latency to an absolute minimum.  Typically the data to be sent
-> are available only microseconds before the transmission deadline.
->
-> Consider OpenAVB on github that people are already using.  Take a look
-> at simple_talker.c and explain how "applications do not need to be
-> changed to use it."
-
-Just let me use the mention of OpenAVNU as a hook to explain what we
-(the team I am part of) are working to do, perhaps it will make our
-choices and designs clearer.
-
-One of the problems with OpenAVNU is that it's too coupled with the i210
-NIC. One of the things we want is to decouple OpenAVNU from the
-controller. The way we thought best was to propose interfaces (that
-would work along side to the Linux networking stack) as close as
-possible to what the current standards define, that means the IEEE
-802.1Q family of specifications, in the hope that network controller
-vendors would also look at the specifications when designing their
-controllers.
-
-Our objective with the Qdiscs we are proposing (both cbs and taprio) is
-to provide a sane way to configure controllers that support TSN features
-(we were looking specifically at the IEEE specs).
-
-After we have some rough consensus on the interfaces to use, then we can
-start working on OpenAVNU.
-
->
->> [1]
->> http://avnu.org/theory-of-operation-for-tsn-enabled-industrial-systems/
->
-> Did you even read this?
->
->     [page 24]
->
->     As described in section 2, some industrial control systems require
->     predictable, very low latency and cycle-to-cycle variation to meet
->     hard real-time application requirements. In these systems,
->     multiple distributed controllers commonly synchronize their
->     sensor/actuator operations with other controllers by scheduling
->     these operations in time, typically using a repeating control
->     cycle.
->     ...
->     The gate control mechanism is itself a time-aware PTP application
->     operating within a bridge or end station port.
->
-> It is an application, not a "god box."
->
->> In short, I see a per-packet transmission time and a per-queue schedule
->> as solutions to different problems.
->
-> Well, I can agree with that.  For some non real-time applications,
-> bandwidth shaping is enough, and your Qdisc idea is sufficient.  For
-> the really challenging TSN targets (industrial control, automotive),
-> your idea of an opaque schedule file won't fly.
-
-(Sorry if I am being annoying here, but the idea of an opaque schedule
-is not ours, that comes from the people who wrote the Qbv specification)
-
-I have a question, what about a controller that doesn't provide a way to
-set a per-packet transmission time, but it supports Qbv/Qbu. What would
-be your proposal to configure it?
-
-(I think LaunchTime is something specific to the i210, right?)
+ip r | wc -l
+653112
 
 
-Cheers,
+
+
+W dniu 2017-09-20 o 02:06, Paweł Staszewski pisze:
+> Just checked kernel 4.13.2 and same problem
+>
+> Just after start all 6 bgp sessions - and kernel starts to learn 
+> routes it panic.
+>
+> https://bugzilla.kernel.org/attachment.cgi?id=258509
+>
+>
+>
+> W dniu 2017-09-20 o 02:01, Paweł Staszewski pisze:
+>> Some information about enviroment:
+>> Server is acting as a ip router with bgp
+>> There are 6x bgp sessions - each with full bgp table ~600k prefixes
+>>
+>> And it looks like panic is appearing after bgp sessions are connected 
+>> - not by traffic - cause at time when panic occured there is almost 
+>> no traffic.
+>>
+>> Also when I run tris server without turning on BGP and push thru this 
+>> server traffic by pktgen there is no panic.
+>>
+>> just after it learn routes it panick
+>>
+>>
+>>
+>>
+>>
+>>
+>>
+>> W dniu 2017-09-20 o 01:45, Paweł Staszewski pisze:
+>>> Added few more screenshoots from kernels 4.14-rc1(net-next) and 
+>>> 4.14-rc1(linux-next)
+>>>
+>>> https://bugzilla.kernel.org/show_bug.cgi?id=197005
+>>>
+>>>
+>>> W dniu 2017-09-20 o 00:35, Paweł Staszewski pisze:
+>>>> Just tried latest net-next git and found kernel panic.
+>>>>
+>>>> Below link to bugzilla.
+>>>>
+>>>> https://bugzilla.kernel.org/attachment.cgi?id=258499
+>>>>
+>>>>
+>>>>
+>>>>
+>>>>
+>>>
+>>>
+>>
+>>
+>
+>
