@@ -1,122 +1,76 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 12/16] mlxsw: spectrum_switchdev: Flush the mdb when a port is being removed
-Date: Wed, 20 Sep 2017 16:15:12 +0200
-Message-ID: <20170920141516.1402-13-jiri@resnulli.us>
+Subject: [patch net-next 10/16] mlxsw: spectrum_switchdev: Use generic mc flood function
+Date: Wed, 20 Sep 2017 16:15:10 +0200
+Message-ID: <20170920141516.1402-11-jiri@resnulli.us>
 References: <20170920141516.1402-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, nogahf@mellanox.com, idosch@mellanox.com,
         mlxsw@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f193.google.com ([209.85.128.193]:34415 "EHLO
-        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751750AbdITOP3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2017 10:15:29 -0400
-Received: by mail-wr0-f193.google.com with SMTP id k20so1585432wre.1
-        for <netdev@vger.kernel.org>; Wed, 20 Sep 2017 07:15:29 -0700 (PDT)
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:38369 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751463AbdITOP1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2017 10:15:27 -0400
+Received: by mail-wm0-f66.google.com with SMTP id x17so2560679wmd.5
+        for <netdev@vger.kernel.org>; Wed, 20 Sep 2017 07:15:27 -0700 (PDT)
 In-Reply-To: <20170920141516.1402-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Nogah Frankel <nogahf@mellanox.com>
 
-When a port is being removed from a bridge, flush the bridge mdb to remove
-the mids of that port.
+Use the generic mc flood function to decide whether to flood mc to a port
+when mc is being enabled / disabled.
+Move this function in the file to avoid forward declaration.
 
 Signed-off-by: Nogah Frankel <nogahf@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- .../ethernet/mellanox/mlxsw/spectrum_switchdev.c   | 39 ++++++++++++++++------
- 1 file changed, 29 insertions(+), 10 deletions(-)
+ .../net/ethernet/mellanox/mlxsw/spectrum_switchdev.c   | 18 +++++++++---------
+ 1 file changed, 9 insertions(+), 9 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-index 50c4d7c..bc07873 100644
+index 79806af..19ac206 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
 +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-@@ -122,6 +122,10 @@ mlxsw_sp_bridge_port_fdb_flush(struct mlxsw_sp *mlxsw_sp,
- 			       u16 fid_index);
- 
- static void
-+mlxsw_sp_bridge_port_mdb_flush(struct mlxsw_sp_port *mlxsw_sp_port,
-+			       struct mlxsw_sp_bridge_port *bridge_port);
-+
-+static void
- mlxsw_sp_bridge_mdb_mc_enable_sync(struct mlxsw_sp_port *mlxsw_sp_port,
- 				   struct mlxsw_sp_bridge_device
- 				   *bridge_device);
-@@ -176,17 +180,11 @@ static void
- mlxsw_sp_bridge_device_destroy(struct mlxsw_sp_bridge *bridge,
- 			       struct mlxsw_sp_bridge_device *bridge_device)
- {
--	struct mlxsw_sp_mid *mid, *tmp;
--
- 	list_del(&bridge_device->list);
- 	if (bridge_device->vlan_enabled)
- 		bridge->vlan_enabled_exists = false;
- 	WARN_ON(!list_empty(&bridge_device->ports_list));
--	list_for_each_entry_safe(mid, tmp, &bridge_device->mids_list, list) {
--		list_del(&mid->list);
--		clear_bit(mid->mid, bridge->mids_bitmap);
--		kfree(mid);
--	}
-+	WARN_ON(!list_empty(&bridge_device->mids_list));
- 	kfree(bridge_device);
+@@ -742,6 +742,14 @@ static int mlxsw_sp_port_attr_mrouter_set(struct mlxsw_sp_port *mlxsw_sp_port,
+ 	return 0;
  }
  
-@@ -987,24 +985,28 @@ mlxsw_sp_port_vlan_bridge_leave(struct mlxsw_sp_port_vlan *mlxsw_sp_port_vlan)
- 	struct mlxsw_sp_bridge_vlan *bridge_vlan;
- 	struct mlxsw_sp_bridge_port *bridge_port;
- 	u16 vid = mlxsw_sp_port_vlan->vid;
--	bool last;
-+	bool last_port, last_vlan;
- 
- 	if (WARN_ON(mlxsw_sp_fid_type(fid) != MLXSW_SP_FID_TYPE_8021Q &&
- 		    mlxsw_sp_fid_type(fid) != MLXSW_SP_FID_TYPE_8021D))
- 		return;
- 
- 	bridge_port = mlxsw_sp_port_vlan->bridge_port;
-+	last_vlan = list_is_singular(&bridge_port->vlans_list);
- 	bridge_vlan = mlxsw_sp_bridge_vlan_find(bridge_port, vid);
--	last = list_is_singular(&bridge_vlan->port_vlan_list);
-+	last_port = list_is_singular(&bridge_vlan->port_vlan_list);
- 
- 	list_del(&mlxsw_sp_port_vlan->bridge_vlan_node);
- 	mlxsw_sp_bridge_vlan_put(bridge_vlan);
- 	mlxsw_sp_port_vid_stp_set(mlxsw_sp_port, vid, BR_STATE_DISABLED);
- 	mlxsw_sp_port_vid_learning_set(mlxsw_sp_port, vid, false);
--	if (last)
-+	if (last_port)
- 		mlxsw_sp_bridge_port_fdb_flush(mlxsw_sp_port->mlxsw_sp,
- 					       bridge_port,
- 					       mlxsw_sp_fid_index(fid));
-+	if (last_vlan)
-+		mlxsw_sp_bridge_port_mdb_flush(mlxsw_sp_port, bridge_port);
-+
- 	mlxsw_sp_port_vlan_fid_leave(mlxsw_sp_port_vlan);
- 
- 	mlxsw_sp_bridge_port_put(mlxsw_sp_port->mlxsw_sp->bridge, bridge_port);
-@@ -1580,6 +1582,23 @@ static int mlxsw_sp_port_mdb_del(struct mlxsw_sp_port *mlxsw_sp_port,
- 	return __mlxsw_sp_port_mdb_del(mlxsw_sp_port, bridge_port, mid);
- }
- 
-+static void
-+mlxsw_sp_bridge_port_mdb_flush(struct mlxsw_sp_port *mlxsw_sp_port,
-+			       struct mlxsw_sp_bridge_port *bridge_port)
++static bool mlxsw_sp_mc_flood(const struct mlxsw_sp_bridge_port *bridge_port)
 +{
-+	struct mlxsw_sp_bridge_device *bridge_device;
-+	struct mlxsw_sp_mid *mid, *tmp;
++	const struct mlxsw_sp_bridge_device *bridge_device;
 +
 +	bridge_device = bridge_port->bridge_device;
-+
-+	list_for_each_entry_safe(mid, tmp, &bridge_device->mids_list, list) {
-+		if (test_bit(mlxsw_sp_port->local_port, mid->ports_in_mid)) {
-+			__mlxsw_sp_port_mdb_del(mlxsw_sp_port, bridge_port,
-+						mid);
-+		}
-+	}
++	return !bridge_device->multicast_enabled ? true : bridge_port->mrouter;
 +}
 +
- static int mlxsw_sp_port_obj_del(struct net_device *dev,
- 				 const struct switchdev_obj *obj)
- {
+ static int mlxsw_sp_port_mc_disabled_set(struct mlxsw_sp_port *mlxsw_sp_port,
+ 					 struct switchdev_trans *trans,
+ 					 struct net_device *orig_dev,
+@@ -770,7 +778,7 @@ static int mlxsw_sp_port_mc_disabled_set(struct mlxsw_sp_port *mlxsw_sp_port,
+ 
+ 	list_for_each_entry(bridge_port, &bridge_device->ports_list, list) {
+ 		enum mlxsw_sp_flood_type packet_type = MLXSW_SP_FLOOD_TYPE_MC;
+-		bool member = mc_disabled ? true : bridge_port->mrouter;
++		bool member = mlxsw_sp_mc_flood(bridge_port);
+ 
+ 		err = mlxsw_sp_bridge_port_flood_table_set(mlxsw_sp_port,
+ 							   bridge_port,
+@@ -829,14 +837,6 @@ static int mlxsw_sp_port_attr_set(struct net_device *dev,
+ 	return err;
+ }
+ 
+-static bool mlxsw_sp_mc_flood(const struct mlxsw_sp_bridge_port *bridge_port)
+-{
+-	const struct mlxsw_sp_bridge_device *bridge_device;
+-
+-	bridge_device = bridge_port->bridge_device;
+-	return !bridge_device->multicast_enabled ? true : bridge_port->mrouter;
+-}
+-
+ static int
+ mlxsw_sp_port_vlan_fid_join(struct mlxsw_sp_port_vlan *mlxsw_sp_port_vlan,
+ 			    struct mlxsw_sp_bridge_port *bridge_port)
 -- 
 2.9.5
