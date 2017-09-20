@@ -1,36 +1,37 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next] net: dsa: Utilize dsa_slave_dev_check()
-Date: Tue, 19 Sep 2017 18:00:37 -0700
-Message-ID: <20170920010038.12393-1-f.fainelli@gmail.com>
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        linux-kernel@vger.kernel.org (open list)
+Subject: [PATCH 0/2] blackfin: Drop non-functional DSA code
+Date: Tue, 19 Sep 2017 18:03:44 -0700
+Message-ID: <20170920010346.16871-1-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, andrew@lunn.ch,
+        vivien.didelot@savoirfairelinux.com, realmz6@gmail.com,
+        adi-buildroot-devel@lists.sourceforge.net,
+        Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f196.google.com ([209.85.220.196]:37356 "EHLO
+        mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751533AbdITBDw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 21:03:52 -0400
+Received: by mail-qk0-f196.google.com with SMTP id r66so813826qke.4
+        for <netdev@vger.kernel.org>; Tue, 19 Sep 2017 18:03:52 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Instead of open coding the check.
+Hi David,
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- net/dsa/slave.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+I sent those many months ago in the hope that the bfin-linux people
+would pick those patches but nobody seems to be responding, can you
+queue those via net-next since this affects DSA?
 
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index d51b10450e1b..6fc9eb094267 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -1294,7 +1294,7 @@ static int dsa_slave_netdevice_event(struct notifier_block *nb,
- {
- 	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
- 
--	if (dev->netdev_ops != &dsa_slave_netdev_ops)
-+	if (!dsa_slave_dev_check(dev))
- 		return NOTIFY_DONE;
- 
- 	if (event == NETDEV_CHANGEUPPER)
+Thanks!
+
+Florian Fainelli (2):
+  blackfin: tcm-bf518: Remove dsa.h inclusion
+  blackfin: ezbrd: Remove non-functional DSA/KSZ8893M code
+
+ arch/blackfin/mach-bf518/boards/ezbrd.c     | 47 -----------------------------
+ arch/blackfin/mach-bf518/boards/tcm-bf518.c |  1 -
+ 2 files changed, 48 deletions(-)
+
 -- 
-2.9.3
+2.11.0
