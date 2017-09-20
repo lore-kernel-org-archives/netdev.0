@@ -1,51 +1,46 @@
 From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH v3 09/31] jfs: Define usercopy region in
- jfs_ip slab cache
-Date: Wed, 20 Sep 2017 13:45:15 -0700
-Message-ID: <1505940337-79069-10-git-send-email-keescook@chromium.org>
+Subject: [PATCH v3 07/31] ext4: Define usercopy region in ext4_inode_cache slab cache
+Date: Wed, 20 Sep 2017 13:45:13 -0700
+Message-ID: <1505940337-79069-8-git-send-email-keescook@chromium.org>
 References: <1505940337-79069-1-git-send-email-keescook@chromium.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Dave Kleikamp <shaggy@kernel.org>, David Windsor <dave@nullcore.net>,
- Kees Cook <keescook@chromium.org>, kernel-hardening@lists.openwall.com,
- netdev@vger.kernel.org, jfs-discussion@lists.sourceforge.net,
- linux-mm@kvack.org, linux-fsdevel@vger.kernel.org
+Cc: Kees Cook <keescook@chromium.org>,
+	David Windsor <dave@nullcore.net>,
+	"Theodore Ts'o" <tytso@mit.edu>,
+	Andreas Dilger <adilger.kernel@dilger.ca>,
+	linux-ext4@vger.kernel.org,
+	linux-fsdevel@vger.kernel.org,
+	netdev@vger.kernel.org,
+	linux-mm@kvack.org,
+	kernel-hardening@lists.openwall.com
 To: linux-kernel@vger.kernel.org
-Return-path: <jfs-discussion-bounces@lists.sourceforge.net>
+Return-path: <owner-linux-mm@kvack.org>
 In-Reply-To: <1505940337-79069-1-git-send-email-keescook@chromium.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/options/jfs-discussion>,
- <mailto:jfs-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=jfs-discussion>
-List-Post: <mailto:jfs-discussion@lists.sourceforge.net>
-List-Help: <mailto:jfs-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/jfs-discussion>,
- <mailto:jfs-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: jfs-discussion-bounces@lists.sourceforge.net
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
 From: David Windsor <dave@nullcore.net>
 
-The jfs symlink pathnames, stored in struct jfs_inode_info.i_inline and
-therefore contained in the jfs_ip slab cache, need to be copied to/from
-userspace.
+The ext4 symlink pathnames, stored in struct ext4_inode_info.i_data
+and therefore contained in the ext4_inode_cache slab cache, need
+to be copied to/from userspace.
 
 cache object allocation:
-    fs/jfs/super.c:
-        jfs_alloc_inode(...):
+    fs/ext4/super.c:
+        ext4_alloc_inode(...):
+            struct ext4_inode_info *ei;
             ...
-            jfs_inode = kmem_cache_alloc(jfs_inode_cachep, GFP_NOFS);
+            ei = kmem_cache_alloc(ext4_inode_cachep, GFP_NOFS);
             ...
-            return &jfs_inode->vfs_inode;
+            return &ei->vfs_inode;
 
-    fs/jfs/jfs_incore.h:
-        JFS_IP(struct inode *inode):
-            return container_of(inode, struct jfs_inode_info, vfs_inode);
+    include/trace/events/ext4.h:
+            #define EXT4_I(inode) \
+                (container_of(inode, struct ext4_inode_info, vfs_inode))
 
-    fs/jfs/inode.c:
-        jfs_iget(...):
+    fs/ext4/namei.c:
+        ext4_symlink(...):
             ...
-            inode->i_link = JFS_IP(inode)->i_inline;
+            inode->i_link = (char *)&EXT4_I(inode)->i_data;
 
 example usage trace:
     readlink_copy+0x43/0x70
@@ -55,9 +50,9 @@ example usage trace:
     fs/namei.c:
         readlink_copy(..., link):
             ...
-            copy_to_user(..., link, len);
+            copy_to_user(..., link, len)
 
-        (inlined in vfs_readlink)
+        (inlined into vfs_readlink)
         generic_readlink(dentry, ...):
             struct inode *inode = d_inode(dentry);
             const char *link = inode->i_link;
@@ -65,7 +60,8 @@ example usage trace:
             readlink_copy(..., link);
 
 In support of usercopy hardening, this patch defines a region in the
-jfs_ip slab cache in which userspace copy operations are allowed.
+ext4_inode_cache slab cache in which userspace copy operations are
+allowed.
 
 This region is known as the slab cache's usercopy region. Slab caches can
 now check that each copy operation involving cache-managed memory falls
@@ -78,36 +74,42 @@ mine and don't reflect the original grsecurity/PaX code.
 
 Signed-off-by: David Windsor <dave@nullcore.net>
 [kees: adjust commit log, provide usage trace]
-Cc: Dave Kleikamp <shaggy@kernel.org>
-Cc: jfs-discussion@lists.sourceforge.net
+Cc: "Theodore Ts'o" <tytso@mit.edu>
+Cc: Andreas Dilger <adilger.kernel@dilger.ca>
+Cc: linux-ext4@vger.kernel.org
 Signed-off-by: Kees Cook <keescook@chromium.org>
 ---
- fs/jfs/super.c | 8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
+ fs/ext4/super.c | 12 +++++++-----
+ 1 file changed, 7 insertions(+), 5 deletions(-)
 
-diff --git a/fs/jfs/super.c b/fs/jfs/super.c
-index 2f14677169c3..e018412608d4 100644
---- a/fs/jfs/super.c
-+++ b/fs/jfs/super.c
-@@ -966,9 +966,11 @@ static int __init init_jfs_fs(void)
- 	int rc;
+diff --git a/fs/ext4/super.c b/fs/ext4/super.c
+index b104096fce9e..b5d393321b7b 100644
+--- a/fs/ext4/super.c
++++ b/fs/ext4/super.c
+@@ -1036,11 +1036,13 @@ static void init_once(void *foo)
  
- 	jfs_inode_cachep =
--	    kmem_cache_create("jfs_ip", sizeof(struct jfs_inode_info), 0,
--			    SLAB_RECLAIM_ACCOUNT|SLAB_MEM_SPREAD|SLAB_ACCOUNT,
--			    init_once);
-+	    kmem_cache_create_usercopy("jfs_ip", sizeof(struct jfs_inode_info),
-+			0, SLAB_RECLAIM_ACCOUNT|SLAB_MEM_SPREAD|SLAB_ACCOUNT,
-+			offsetof(struct jfs_inode_info, i_inline),
-+			sizeof_field(struct jfs_inode_info, i_inline),
-+			init_once);
- 	if (jfs_inode_cachep == NULL)
+ static int __init init_inodecache(void)
+ {
+-	ext4_inode_cachep = kmem_cache_create("ext4_inode_cache",
+-					     sizeof(struct ext4_inode_info),
+-					     0, (SLAB_RECLAIM_ACCOUNT|
+-						SLAB_MEM_SPREAD|SLAB_ACCOUNT),
+-					     init_once);
++	ext4_inode_cachep = kmem_cache_create_usercopy("ext4_inode_cache",
++				sizeof(struct ext4_inode_info), 0,
++				(SLAB_RECLAIM_ACCOUNT|SLAB_MEM_SPREAD|
++					SLAB_ACCOUNT),
++				offsetof(struct ext4_inode_info, i_data),
++				sizeof_field(struct ext4_inode_info, i_data),
++				init_once);
+ 	if (ext4_inode_cachep == NULL)
  		return -ENOMEM;
- 
+ 	return 0;
 -- 
 2.7.4
 
-
-------------------------------------------------------------------------------
-Check out the vibrant tech community on one of the world's most
-engaging tech sites, Slashdot.org! http://sdm.link/slashdot
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
