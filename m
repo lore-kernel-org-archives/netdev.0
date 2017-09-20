@@ -1,42 +1,65 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Latest net-next from GIT panic
-Date: Tue, 19 Sep 2017 20:24:30 -0700
-Message-ID: <1505877870.29839.82.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <4745525f-18e4-7f69-fe21-8e507e407b33@itcare.pl>
-         <d8bbf6c1-20a3-195c-6980-45f29e9f9278@itcare.pl>
-         <2aeb7871-fe89-c714-3355-c5f48651e70c@itcare.pl>
-         <15d293fa-0f53-bdca-6358-6a58d1da77af@itcare.pl>
-         <65e2195b-3bd1-c0b4-b474-e07dd08f71b9@itcare.pl>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: =?UTF-8?Q?Pawe=C5=82?= Staszewski <pstaszewski@itcare.pl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f180.google.com ([209.85.192.180]:49702 "EHLO
-        mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751000AbdITDYc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 23:24:32 -0400
-Received: by mail-pf0-f180.google.com with SMTP id l188so872747pfc.6
-        for <netdev@vger.kernel.org>; Tue, 19 Sep 2017 20:24:32 -0700 (PDT)
-In-Reply-To: <65e2195b-3bd1-c0b4-b474-e07dd08f71b9@itcare.pl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Samuel Mendoza-Jonas <sam@mendozajonas.com>
+Subject: [PATCH net] net/ncsi: Don't assume last available channel exists
+Date: Wed, 20 Sep 2017 14:12:51 +1000
+Message-ID: <20170920041251.14635-1-sam@mendozajonas.com>
+Cc: Samuel Mendoza-Jonas <sam@mendozajonas.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2017-09-20 at 02:06 +0200, Paweł Staszewski wrote:
-> Just checked kernel 4.13.2 and same problem
-> 
-> Just after start all 6 bgp sessions - and kernel starts to learn routes 
-> it panic.
-> 
-> https://bugzilla.kernel.org/attachment.cgi?id=258509
-> 
+When handling new VLAN tags in NCSI we check the maximum allowed number
+of filters on the last active ("hot") channel. However if the 'add'
+callback is called before NCSI has configured a channel, this causes a
+NULL dereference.
 
+Check that we actually have a hot channel, and warn if it is missing.
 
-Unfortunately we have not enough information from these traces.
+Signed-off-by: Samuel Mendoza-Jonas <sam@mendozajonas.com>
+---
+ net/ncsi/ncsi-manage.c | 21 +++++++++++++++------
+ 1 file changed, 15 insertions(+), 6 deletions(-)
 
-Can you get a full stack trace ?
-
-Alternatively, can you bisect ?
-
-Thanks.
+diff --git a/net/ncsi/ncsi-manage.c b/net/ncsi/ncsi-manage.c
+index 3fd3c39e6278..fc800f934beb 100644
+--- a/net/ncsi/ncsi-manage.c
++++ b/net/ncsi/ncsi-manage.c
+@@ -1420,7 +1420,10 @@ int ncsi_vlan_rx_add_vid(struct net_device *dev, __be16 proto, u16 vid)
+ 	}
+ 
+ 	ndp = TO_NCSI_DEV_PRIV(nd);
+-	ncf = ndp->hot_channel->filters[NCSI_FILTER_VLAN];
++	if (!ndp) {
++		netdev_warn(dev, "ncsi: No ncsi_dev_priv?\n");
++		return 0;
++	}
+ 
+ 	/* Add the VLAN id to our internal list */
+ 	list_for_each_entry_rcu(vlan, &ndp->vlan_vids, list) {
+@@ -1432,11 +1435,17 @@ int ncsi_vlan_rx_add_vid(struct net_device *dev, __be16 proto, u16 vid)
+ 		}
+ 	}
+ 
+-	if (n_vids >= ncf->total) {
+-		netdev_info(dev,
+-			    "NCSI Channel supports up to %u VLAN tags but %u are already set\n",
+-			    ncf->total, n_vids);
+-		return -EINVAL;
++	if (!ndp->hot_channel) {
++		netdev_warn(dev,
++			    "ncsi: no available filter to check maximum\n");
++	} else {
++		ncf = ndp->hot_channel->filters[NCSI_FILTER_VLAN];
++		if (n_vids >= ncf->total) {
++			netdev_info(dev,
++				    "NCSI Channel supports up to %u VLAN tags but %u are already set\n",
++				    ncf->total, n_vids);
++			return -EINVAL;
++		}
+ 	}
+ 
+ 	vlan = kzalloc(sizeof(*vlan), GFP_KERNEL);
+-- 
+2.14.1
