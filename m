@@ -1,75 +1,61 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCHv3 iproute2 1/2] lib/libnetlink: re malloc buff if size
- is not enough
-Date: Wed, 20 Sep 2017 09:56:05 -0700
-Message-ID: <20170920095605.1ea527fc@xeon-e3>
-References: <1505871820-31580-1-git-send-email-liuhangbin@gmail.com>
-        <1505871820-31580-2-git-send-email-liuhangbin@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Michal Kubecek <mkubecek@suse.cz>,
-        Phil Sutter <phil@nwl.cc>
-To: Hangbin Liu <liuhangbin@gmail.com>
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: [PATCH net-next 0/5] net: introduce noref sk
+Date: Wed, 20 Sep 2017 18:54:00 +0200
+Message-ID: <cover.1505926196.git.pabeni@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
+        Florian Westphal <fw@strlen.de>,
+        Eric Dumazet <edumazet@google.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f48.google.com ([74.125.83.48]:48510 "EHLO
-        mail-pg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751693AbdITQ4J (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2017 12:56:09 -0400
-Received: by mail-pg0-f48.google.com with SMTP id v23so2004003pgc.5
-        for <netdev@vger.kernel.org>; Wed, 20 Sep 2017 09:56:09 -0700 (PDT)
-In-Reply-To: <1505871820-31580-2-git-send-email-liuhangbin@gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:52526 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750938AbdITQ6J (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 20 Sep 2017 12:58:09 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 20 Sep 2017 09:43:39 +0800
-Hangbin Liu <liuhangbin@gmail.com> wrote:
+This series introduce the infrastructure to store inside the skb a socket
+pointer without carrying a refcount to the socket.
 
-Thanks for keeping up on this.
+Such infrastructure is then used in the network receive path - and
+specifically the early demux operation.
 
+This allows the UDP early demux to perform a full lookup for UDP sockets,
+with many benefits:
 
-> +realloc:
-> +	bufp = realloc(buf, buf_len);
-> +
-> +	if (bufp == NULL) {
+- the UDP early demux code is now much simpler
+- the early demux does not hit any performance penalties in case of UDP hash
+  table collision - previously the early demux performed a partial, unsuccesful,
+  lookup
+- early demux is now operational also for unconnected sockets.
 
-Minor personal style issue:
-To me, blank lines are like paragraphs in writing.
-Code reads better assignment and condition check are next to
-each other.
+This infrastrcture will be used in follow-up series to allow dst caching for
+unconnected UDP sockets, and than to extend the same features to TCP listening
+sockets.
 
-> +recv:
-> +	len = recvmsg(fd, msg, flag);
-> +
-> +	if (len < 0) {
-> +		if (errno == EINTR || errno == EAGAIN)
-> +			goto recv;
-> +		fprintf(stderr, "netlink receive error %s (%d)\n",
-> +			strerror(errno), errno);
-> +		free(buf);
-> +		return -errno;
-> +	}
-> +
-> +	if (len == 0) {
-> +		fprintf(stderr, "EOF on netlink\n");
-> +		free(buf);
-> +		return -ENODATA;
-> +	}
-> +
-> +	if (len > buf_len) {
-> +		buf_len = len;
-> +		flag = 0;
-> +		goto realloc;
-> +	}
-> +
-> +	if (flag != 0) {
-> +		flag = 0;
-> +		goto recv;
+Paolo Abeni (5):
+  net: add support for noref skb->sk
+  net: allow early demux to fetch noref socket
+  udp: do not touch socket refcount in early demux
+  net: add simple socket-like dst cache helpers
+  udp: perform full socket lookup in early demux
 
-Although I programmed in BASIC years ago. I never liked code
-with loops via goto. To me it indicates the logic is not well thought
-through.  Not sure exactly how to rearrange the control flow, but it
-should be possible to rewrite this so that it reads cleaner.
+ include/linux/skbuff.h           | 30 +++++++++++++++
+ include/linux/udp.h              |  2 +
+ include/net/dst.h                | 12 ++++++
+ net/core/dst.c                   | 16 ++++++++
+ net/core/sock.c                  |  6 +++
+ net/ipv4/ip_input.c              | 12 ++++++
+ net/ipv4/ipmr.c                  | 18 +++++++--
+ net/ipv4/netfilter/nf_dup_ipv4.c |  3 ++
+ net/ipv4/udp.c                   | 80 ++++++++++++++++------------------------
+ net/ipv6/ip6_input.c             |  7 +++-
+ net/ipv6/netfilter/nf_dup_ipv6.c |  3 ++
+ net/ipv6/udp.c                   | 67 ++++++++++-----------------------
+ net/netfilter/nf_queue.c         |  3 ++
+ 13 files changed, 159 insertions(+), 100 deletions(-)
 
-Still think this needs to go through a few more review cycles
-before applying.
+-- 
+2.13.5
