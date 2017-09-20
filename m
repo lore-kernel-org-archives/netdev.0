@@ -1,163 +1,110 @@
 From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH v2 19/31] timer: Remove open-coded casts for .data and .function
-Date: Wed, 20 Sep 2017 16:27:43 -0700
-Message-ID: <1505950075-50223-20-git-send-email-keescook@chromium.org>
+Subject: [PATCH v2 20/31] net/core: Collapse redundant sk_timer callback data assignments
+Date: Wed, 20 Sep 2017 16:27:44 -0700
+Message-ID: <1505950075-50223-21-git-send-email-keescook@chromium.org>
 References: <1505950075-50223-1-git-send-email-keescook@chromium.org>
 Cc: Kees Cook <keescook@chromium.org>,
-        Samuel Ortiz <samuel@sortiz.org>,
-        Tyrel Datwyler <tyreld@linux.vnet.ibm.com>,
-        Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-        Paul Mackerras <paulus@samba.org>,
-        Michael Ellerman <mpe@ellerman.id.au>,
-        "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
-        "Martin K. Petersen" <martin.petersen@oracle.com>,
-        netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
-        linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org
+        "David S. Miller" <davem@davemloft.net>,
+        Ralf Baechle <ralf@linux-mips.org>,
+        Andrew Hendry <andrew.hendry@gmail.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Paolo Abeni <pabeni@redhat.com>,
+        David Howells <dhowells@redhat.com>,
+        Colin Ian King <colin.king@canonical.com>,
+        Ingo Molnar <mingo@kernel.org>,
+        linzhang <xiaolou4617@gmail.com>, netdev@vger.kernel.org,
+        linux-hams@vger.kernel.org, linux-x25@vger.kernel.org,
+        linux-kernel@vger.kernel.org
 To: Thomas Gleixner <tglx@linutronix.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f170.google.com ([209.85.192.170]:51119 "EHLO
-        mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752173AbdITXiF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2017 19:38:05 -0400
-Received: by mail-pf0-f170.google.com with SMTP id m63so2305360pfk.7
-        for <netdev@vger.kernel.org>; Wed, 20 Sep 2017 16:38:05 -0700 (PDT)
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1505950075-50223-1-git-send-email-keescook@chromium.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This standardizes the callback and data prototypes in several places that
-perform casting, in an effort to remove more open-coded .data and
-.function uses in favor of setup_timer().
+The core sk_timer initializer can provide the common .data assignment
+instead of it being set separately in users.
 
-Cc: Samuel Ortiz <samuel@sortiz.org>
-Cc: Tyrel Datwyler <tyreld@linux.vnet.ibm.com>
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Cc: Paul Mackerras <paulus@samba.org>
-Cc: Michael Ellerman <mpe@ellerman.id.au>
-Cc: "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>
-Cc: "Martin K. Petersen" <martin.petersen@oracle.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Ralf Baechle <ralf@linux-mips.org>
+Cc: Andrew Hendry <andrew.hendry@gmail.com>
+Cc: Eric Dumazet <edumazet@google.com>
+Cc: Paolo Abeni <pabeni@redhat.com>
+Cc: David Howells <dhowells@redhat.com>
+Cc: Colin Ian King <colin.king@canonical.com>
+Cc: Ingo Molnar <mingo@kernel.org>
+Cc: linzhang <xiaolou4617@gmail.com>
 Cc: netdev@vger.kernel.org
-Cc: linux-scsi@vger.kernel.org
-Cc: linuxppc-dev@lists.ozlabs.org
+Cc: linux-hams@vger.kernel.org
+Cc: linux-x25@vger.kernel.org
 Signed-off-by: Kees Cook <keescook@chromium.org>
-Acked-by: Tyrel Datwyler <tyreld@linux.vnet.ibm.com> # for ibmvscsi
 ---
- drivers/scsi/ibmvscsi/ibmvfc.c          | 14 ++++++--------
- drivers/scsi/ibmvscsi/ibmvscsi.c        |  8 ++++----
- drivers/staging/irda/drivers/bfin_sir.c |  5 +++--
- 3 files changed, 13 insertions(+), 14 deletions(-)
+ net/core/sock.c       | 2 +-
+ net/netrom/nr_timer.c | 1 -
+ net/rose/rose_timer.c | 1 -
+ net/x25/af_x25.c      | 1 -
+ net/x25/x25_timer.c   | 1 -
+ 5 files changed, 1 insertion(+), 5 deletions(-)
 
-diff --git a/drivers/scsi/ibmvscsi/ibmvfc.c b/drivers/scsi/ibmvscsi/ibmvfc.c
-index b491af31a5f8..66d51052caa1 100644
---- a/drivers/scsi/ibmvscsi/ibmvfc.c
-+++ b/drivers/scsi/ibmvscsi/ibmvfc.c
-@@ -1393,8 +1393,9 @@ static int ibmvfc_map_sg_data(struct scsi_cmnd *scmd,
-  *
-  * Called when an internally generated command times out
-  **/
--static void ibmvfc_timeout(struct ibmvfc_event *evt)
-+static void ibmvfc_timeout(unsigned long data)
- {
-+	struct ibmvfc_event *evt = (struct ibmvfc_event *)data;
- 	struct ibmvfc_host *vhost = evt->vhost;
- 	dev_err(vhost->dev, "Command timed out (%p). Resetting connection\n", evt);
- 	ibmvfc_reset_host(vhost);
-@@ -1424,12 +1425,10 @@ static int ibmvfc_send_event(struct ibmvfc_event *evt,
- 		BUG();
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 9b7b6bbb2a23..3a0233106f62 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -2678,7 +2678,7 @@ void sock_init_data(struct socket *sock, struct sock *sk)
+ 	sk_init_common(sk);
+ 	sk->sk_send_head	=	NULL;
  
- 	list_add_tail(&evt->queue, &vhost->sent);
--	init_timer(&evt->timer);
-+	setup_timer(&evt->timer, ibmvfc_timeout, (unsigned long)evt);
+-	init_timer(&sk->sk_timer);
++	setup_timer(&sk->sk_timer, NULL, (unsigned long)sk);
  
- 	if (timeout) {
--		evt->timer.data = (unsigned long) evt;
- 		evt->timer.expires = jiffies + (timeout * HZ);
--		evt->timer.function = (void (*)(unsigned long))ibmvfc_timeout;
- 		add_timer(&evt->timer);
- 	}
+ 	sk->sk_allocation	=	GFP_KERNEL;
+ 	sk->sk_rcvbuf		=	sysctl_rmem_default;
+diff --git a/net/netrom/nr_timer.c b/net/netrom/nr_timer.c
+index 94d05806a9a2..f84ce71f1f5f 100644
+--- a/net/netrom/nr_timer.c
++++ b/net/netrom/nr_timer.c
+@@ -45,7 +45,6 @@ void nr_init_timers(struct sock *sk)
+ 	setup_timer(&nr->idletimer, nr_idletimer_expiry, (unsigned long)sk);
  
-@@ -3692,8 +3691,9 @@ static void ibmvfc_tgt_adisc_cancel_done(struct ibmvfc_event *evt)
-  * out, reset the CRQ. When the ADISC comes back as cancelled,
-  * log back into the target.
-  **/
--static void ibmvfc_adisc_timeout(struct ibmvfc_target *tgt)
-+static void ibmvfc_adisc_timeout(unsigned long data)
- {
-+	struct ibmvfc_target *tgt = (struct ibmvfc_target *)data;
- 	struct ibmvfc_host *vhost = tgt->vhost;
- 	struct ibmvfc_event *evt;
- 	struct ibmvfc_tmf *tmf;
-@@ -3778,9 +3778,7 @@ static void ibmvfc_tgt_adisc(struct ibmvfc_target *tgt)
- 	if (timer_pending(&tgt->timer))
- 		mod_timer(&tgt->timer, jiffies + (IBMVFC_ADISC_TIMEOUT * HZ));
- 	else {
--		tgt->timer.data = (unsigned long) tgt;
- 		tgt->timer.expires = jiffies + (IBMVFC_ADISC_TIMEOUT * HZ);
--		tgt->timer.function = (void (*)(unsigned long))ibmvfc_adisc_timeout;
- 		add_timer(&tgt->timer);
- 	}
- 
-@@ -3912,7 +3910,7 @@ static int ibmvfc_alloc_target(struct ibmvfc_host *vhost, u64 scsi_id)
- 	tgt->vhost = vhost;
- 	tgt->need_login = 1;
- 	tgt->cancel_key = vhost->task_set++;
--	init_timer(&tgt->timer);
-+	setup_timer(&tgt->timer, ibmvfc_adisc_timeout, (unsigned long)tgt);
- 	kref_init(&tgt->kref);
- 	ibmvfc_init_tgt(tgt, ibmvfc_tgt_implicit_logout);
- 	spin_lock_irqsave(vhost->host->host_lock, flags);
-diff --git a/drivers/scsi/ibmvscsi/ibmvscsi.c b/drivers/scsi/ibmvscsi/ibmvscsi.c
-index 7d156b161482..ffe917f02695 100644
---- a/drivers/scsi/ibmvscsi/ibmvscsi.c
-+++ b/drivers/scsi/ibmvscsi/ibmvscsi.c
-@@ -837,8 +837,9 @@ static void ibmvscsi_reset_host(struct ibmvscsi_host_data *hostdata)
-  *
-  * Called when an internally generated command times out
- */
--static void ibmvscsi_timeout(struct srp_event_struct *evt_struct)
-+static void ibmvscsi_timeout(unsigned long data)
- {
-+	struct srp_event_struct *evt_struct = (struct srp_event_struct *)data;
- 	struct ibmvscsi_host_data *hostdata = evt_struct->hostdata;
- 
- 	dev_err(hostdata->dev, "Command timed out (%x). Resetting connection\n",
-@@ -927,11 +928,10 @@ static int ibmvscsi_send_srp_event(struct srp_event_struct *evt_struct,
- 	 */
- 	list_add_tail(&evt_struct->list, &hostdata->sent);
- 
--	init_timer(&evt_struct->timer);
-+	setup_timer(&evt_struct->timer, ibmvscsi_timeout,
-+		    (unsigned long)evt_struct);
- 	if (timeout) {
--		evt_struct->timer.data = (unsigned long) evt_struct;
- 		evt_struct->timer.expires = jiffies + (timeout * HZ);
--		evt_struct->timer.function = (void (*)(unsigned long))ibmvscsi_timeout;
- 		add_timer(&evt_struct->timer);
- 	}
- 
-diff --git a/drivers/staging/irda/drivers/bfin_sir.c b/drivers/staging/irda/drivers/bfin_sir.c
-index 3151b580dbd6..c9413bd580a7 100644
---- a/drivers/staging/irda/drivers/bfin_sir.c
-+++ b/drivers/staging/irda/drivers/bfin_sir.c
-@@ -317,8 +317,9 @@ static void bfin_sir_dma_rx_chars(struct net_device *dev)
- 		async_unwrap_char(dev, &self->stats, &self->rx_buff, port->rx_dma_buf.buf[i]);
+ 	/* initialized by sock_init_data */
+-	sk->sk_timer.data     = (unsigned long)sk;
+ 	sk->sk_timer.function = &nr_heartbeat_expiry;
  }
  
--void bfin_sir_rx_dma_timeout(struct net_device *dev)
-+void bfin_sir_rx_dma_timeout(unsigned long data)
+diff --git a/net/rose/rose_timer.c b/net/rose/rose_timer.c
+index bc5469d6d9cb..6baa415b199a 100644
+--- a/net/rose/rose_timer.c
++++ b/net/rose/rose_timer.c
+@@ -36,7 +36,6 @@ void rose_start_heartbeat(struct sock *sk)
  {
-+	struct net_device *dev = (struct net_device *)data;
- 	struct bfin_sir_self *self = netdev_priv(dev);
- 	struct bfin_sir_port *port = self->sir_port;
- 	int x_pos, pos;
-@@ -406,7 +407,7 @@ static int bfin_sir_startup(struct bfin_sir_port *port, struct net_device *dev)
- 	enable_dma(port->rx_dma_channel);
+ 	del_timer(&sk->sk_timer);
  
- 	port->rx_dma_timer.data = (unsigned long)(dev);
--	port->rx_dma_timer.function = (void *)bfin_sir_rx_dma_timeout;
-+	port->rx_dma_timer.function = bfin_sir_rx_dma_timeout;
+-	sk->sk_timer.data     = (unsigned long)sk;
+ 	sk->sk_timer.function = &rose_heartbeat_expiry;
+ 	sk->sk_timer.expires  = jiffies + 5 * HZ;
  
- #else
+diff --git a/net/x25/af_x25.c b/net/x25/af_x25.c
+index ac095936552d..c590c0bd1393 100644
+--- a/net/x25/af_x25.c
++++ b/net/x25/af_x25.c
+@@ -414,7 +414,6 @@ static void __x25_destroy_socket(struct sock *sk)
+ 		/* Defer: outstanding buffers */
+ 		sk->sk_timer.expires  = jiffies + 10 * HZ;
+ 		sk->sk_timer.function = x25_destroy_timer;
+-		sk->sk_timer.data = (unsigned long)sk;
+ 		add_timer(&sk->sk_timer);
+ 	} else {
+ 		/* drop last reference so sock_put will free */
+diff --git a/net/x25/x25_timer.c b/net/x25/x25_timer.c
+index 5c5db1a36399..de5cec41d100 100644
+--- a/net/x25/x25_timer.c
++++ b/net/x25/x25_timer.c
+@@ -36,7 +36,6 @@ void x25_init_timers(struct sock *sk)
+ 	setup_timer(&x25->timer, x25_timer_expiry, (unsigned long)sk);
+ 
+ 	/* initialized by sock_init_data */
+-	sk->sk_timer.data     = (unsigned long)sk;
+ 	sk->sk_timer.function = &x25_heartbeat_expiry;
+ }
  
 -- 
 2.7.4
