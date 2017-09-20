@@ -1,138 +1,91 @@
-From: levipearson@gmail.com
-Subject: TSN Scorecard, was Re: [RFC net-next 0/5] TSN: Add qdisc-based config interfaces for traffic shapers
-Date: Tue, 19 Sep 2017 23:17:54 -0600
-Message-ID: <20170920051754.21745-1-levipearson@gmail.com>
-References: <20170918081248.txhars53icbqsvld@localhost>
-Cc: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
-        vinicius.gomes@intel.com, andre.guedes@intel.com,
-        ivan.briano@intel.com, jesus.sanchez-palencia@intel.com,
-        boon.leong.ong@intel.com, jhs@mojatatu.com,
-        xiyou.wangcong@gmail.com, jiri@resnulli.us, henrik@austad.us
-To: richardcochran@gmail.com
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [RFC net-next 0/5] TSN: Add qdisc-based config interfaces for
+ traffic shapers
+Date: Wed, 20 Sep 2017 07:25:58 +0200
+Message-ID: <20170920052558.h6c4lkqmzk2h2pdq@localhost>
+References: <20170901012625.14838-1-vinicius.gomes@intel.com>
+ <20170918080214.yrejz67wwnp2pjzf@localhost>
+ <87k20vip3f.fsf@intel.com>
+ <20170919052244.77umdxuze53t6j22@localhost>
+ <87wp4ufchl.fsf@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
+        jiri@resnulli.us, intel-wired-lan@lists.osuosl.org,
+        andre.guedes@intel.com, ivan.briano@intel.com,
+        jesus.sanchez-palencia@intel.com, boon.leong.ong@intel.com
+To: Vinicius Costa Gomes <vinicius.gomes@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:37107 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751011AbdITFSF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2017 01:18:05 -0400
-Received: by mail-pg0-f68.google.com with SMTP id v5so1056068pgn.4
-        for <netdev@vger.kernel.org>; Tue, 19 Sep 2017 22:18:05 -0700 (PDT)
-In-Reply-To: <20170918081248.txhars53icbqsvld@localhost>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:33294 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751704AbdITF0F (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2017 01:26:05 -0400
+Received: by mail-wm0-f65.google.com with SMTP id m127so1375339wmm.0
+        for <netdev@vger.kernel.org>; Tue, 19 Sep 2017 22:26:04 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <87wp4ufchl.fsf@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 18, 2017, Richard Cochran wrote:
-> Just for the record, here is my score card showing the current status
-> of TSN support in Linux.  Comments and corrections are more welcome.
-> 
-> Thanks,
-> Richard
-> 
-> 
->  | FEATURE                                        | STANDARD            | STATUS                       |
->  |------------------------------------------------+---------------------+------------------------------|
->  | Synchronization                                | 802.1AS-2011        | Implemented in               |
->  |                                                |                     | - Linux kernel PHC subsystem |
->  |                                                |                     | - linuxptp (userspace)       |
->  |------------------------------------------------+---------------------+------------------------------|
+On Tue, Sep 19, 2017 at 05:19:18PM -0700, Vinicius Costa Gomes wrote:
+> One of the problems with OpenAVNU is that it's too coupled with the i210
+> NIC. One of the things we want is to decouple OpenAVNU from the
+> controller.
 
-An alternate implementation of the userspace portion of gPTP is also available at [1]
+Yes, I want that, too.
 
->  | Forwarding and Queuing Enhancements            | 802.1Q-2014 sec. 34 | RFC posted (this thread)     |
->  | for Time-Sensitive Streams (FQTSS)             |                     |                              |
->  |------------------------------------------------+---------------------+------------------------------|
->  | Stream Reservation Protocol (SRP)              | 802.1Q-2014 sec. 35 | in Open-AVB [1]              |
->  |------------------------------------------------+---------------------+------------------------------|
->  | Audio Video Transport Protocol (AVTP)          | IEEE 1722-2011      | DNE                          |
->  |------------------------------------------------+---------------------+------------------------------|
->  | Audio/Video Device Discovery, Enumeration,     | IEEE 1722.1-2013    | jdksavdecc-c [2]             |
->  | Connection Management and Control (AVDECC)     |                     |                              |
->  | AVDECC Connection Management Protocol (ACMP)   |                     |                              |
->  | AVDECC Enumeration and Control Protocol (AECP) |                     |                              |
->  | MAC Address Acquisition Protocol (MAAP)        |                     | in Open-AVB                  |
->  |------------------------------------------------+---------------------+------------------------------|
+> The way we thought best was to propose interfaces (that
+> would work along side to the Linux networking stack) as close as
+> possible to what the current standards define, that means the IEEE
+> 802.1Q family of specifications, in the hope that network controller
+> vendors would also look at the specifications when designing their
+> controllers.
 
-All of the above are available to some degree in the AVTP Pipeline part of [1], specifically at this
-location: https://github.com/AVnu/OpenAvnu/tree/master/lib/avtp_pipeline
+These standard define the *behavior*, not the programming APIs.  Our
+task as kernel developers is to invent the best interfaces for
+supporting 802.1Q and other standards, the hardware capabilities, and
+the widest range of applications (not jut AVB).
 
-The code is very modular and configurable, although some parts are in better shape than others. The AVTP
-portion can use the custom userspace driver for the i210, which can be configured to use launch scheduling,
-or it can use standard kernel interfaces via sendmsg or PACKET_MMAP. It runs as-is when configured for
-standard interfaces with any network hardware that supports gPTP. I previously implemented a CMSG-based
-launch time scheduling mechanism like the one you have proposed, and I have a socket backend for it that
-could easily be ported to your proposal. It is not part of the repository yet since there's no kernel
-support for it outside of my prototype and your RFC.
+> Our objective with the Qdiscs we are proposing (both cbs and taprio) is
+> to provide a sane way to configure controllers that support TSN features
+> (we were looking specifically at the IEEE specs).
 
-It is currently tied to the OpenAvnu gPTP daemon rather than linuxptp, as it uses a shared memory interface
-to get the current rate-ratio and offset information between the various clocks. There may be better ways
-to do this, but that's how the initial port of the codebase was done. It would be nice to get it working
-with linuxptp's userspace tools at some point as well, though.
+I can see how your proposed Qdiscs are inspired by the IEEE standards.
+However, in the case of time based transmission, I think there is a
+better way to do it, namely with SO_TXTIME (which BTW was originally
+proposed by Eric Mann).
+ 
+> After we have some rough consensus on the interfaces to use, then we can
+> start working on OpenAVNU.
 
-The libraries under avtp_pipeline are designed to be used separately, but a simple integrated application
-is provided and is built by the CI system.
+Did you see my table in the other mail?  Any comments?
 
-In addition to OpenAvnu, Renesas has a number of github repositories with what looks like a fairly
-complete media streaming system:
+> (Sorry if I am being annoying here, but the idea of an opaque schedule
+> is not ours, that comes from the people who wrote the Qbv specification)
 
-https://github.com/renesas-rcar/avb-mse
-https://github.com/renesas-rcar/avb-streaming
-https://github.com/renesas-rcar/avb-applications
+The schedule is easy to implement using SO_TXTIME.
+ 
+> I have a question, what about a controller that doesn't provide a way to
+> set a per-packet transmission time, but it supports Qbv/Qbu. What would
+> be your proposal to configure it?
 
-I haven't examined them in great detail yet, though.
+SO_TXTIME will have a generic SW fallback.
 
+BTW, regarding the i210, there is no sensible way to configure both
+CBS and time based transmission at the same time.  The card performs a
+logical AND to make the launch decision.  The effect of this is that
+each and every packet needs a LaunchTime, and the driver would be
+forced to guess the time for a packet before entering it into its
+queue.
 
->  | Frame Preemption                               | P802.1Qbu           | DNE                          |
->  | Scheduled Traffic                              | P802.1Qbv           | RFC posted (SO_TXTIME)       |
->  | SRP Enhancements and Performance Improvements  | P802.1Qcc           | DNE                          |
-> 
->  DNE = Does Not Exist (to my knowledge)
+So if we end up merging CBS and SO_TXTIME, then we'll have to make
+them exclusive of each other (in the case of the i210) and manage the
+i210 queue configurations correctly.
 
-Although your SO_TXTIME proposal could certainly form the basis of an endpoint's implementation of Qbv, I
-think it is a stretch to consider it a Qbv implementation in itself, if that's what you mean by this.
+> (I think LaunchTime is something specific to the i210, right?)
 
-I have been working with colleagues on some experiments relating to a Linux-controlled DSN switch
-(a Marvell Topaz) that are a part of this effort in TSN: 
+To my knowledge yes.  However, if TSN does take hold, then other MAC
+vendors will copy it.
 
-http://ieee802.org/1/files/public/docs2017/tsn-cgunther-802-3cg-multidrop-0917-v01.pdf
-
-The proper interfaces for the Qbv configuration and managing of switch-level PTP timestamps are not yet
-in place, so there's nothing even at RFC stage to present yet, but Qbv-capable Linux-managed switch
-hardware is available and we hope to get some reusable code published even if it's not yet ready to be
-integrated in the kernel.
-
-> 
-> 1. https://github.com/Avnu/OpenAvnu
-> 
->    (DISCLAIMER from the website:)
-> 
->    It is planned to eventually include the various packet encapsulation types,
->    protocol discovery daemons, libraries to convert media clocks to AVB clocks
->    and vice versa, and drivers.
-> 
->    This repository does not include all components required to build a full
->    production AVB/TSN system (e.g. a turnkey solution to stream stored or live audio
->    or video content). Some simple example applications are provided which
->    illustrate the flow - but a professional Audio/Video system requires a full media stack
->    - including audio and video inputs and outputs, media processing elements, and
->    various graphical user interfaces. Various companies provide such integrated
->    solutions.
-
-A bit of progress has been made since that was written, although it is true that it's still not
-quite complete and certainly not turnkey. The most glaring absence at the moment is the media
-clock recovery portion of AVTP, but I am actively working on this.
-
-> 
-> 2. https://github.com/jdkoftinoff/jdksavdecc-c
-
-This is pulled in as a dependency of the AVDECC code in OpenAvnu; it's used in the command line driven
-controller, but not in the avtp_pipeline code that implements the endpoint AVDECC behavior. I don't think
-either are complete by any means, but they are complete enough to be mostly compliant and usable in the
-subset of behavior they support.
-
-The bulk of the command line controller is a clone of: https://github.com/audioscience/avdecc-lib 
-
-Things are maybe a bit farther along than they seemed, but there is still important kernel work to be
-done to reduce the need for out-of-tree drivers and to get everyone on the same interfaces. I plan
-to be an active participant going forward.
-
-
-Levi
+Thanks,
+Richard
