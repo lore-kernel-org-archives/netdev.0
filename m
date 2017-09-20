@@ -1,42 +1,83 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [PATCH,net-next,0/2] Improve code coverage of syzkaller
-Date: Wed, 20 Sep 2017 11:38:45 -0400
-Message-ID: <CAF=yD-J_qL=hkgnbgPmHW3o_iC6WKmqFUZmmzQKs-+AUhEWY-Q@mail.gmail.com>
-References: <20170919073402.2292-1-peterpenkov96@gmail.com>
- <20170919.160134.534837308168786965.davem@davemloft.net> <CA+DcSEjDe=h5Kk2Bg0vCOatQj2Zs8wTAyVH+z5curg4O4c3=Hw@mail.gmail.com>
- <20170919.230853.540610280718334640.davem@davemloft.net>
+From: Nisar Sayed <Nisar.Sayed@microchip.com>
+Subject: [PATCH v5 net 1/3] lan78xx: Fix for eeprom read/write when device auto suspend
+Date: Thu, 21 Sep 2017 02:36:36 +0530
+Message-ID: <20170920210638.11150-2-Nisar.Sayed@microchip.com>
+References: <20170920210638.11150-1-Nisar.Sayed@microchip.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: peterpenkov96@gmail.com,
-        Network Development <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Cc: <UNGLinuxDriver@microchip.com>, <netdev@vger.kernel.org>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f66.google.com ([209.85.218.66]:36341 "EHLO
-        mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751408AbdITPj0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2017 11:39:26 -0400
-Received: by mail-oi0-f66.google.com with SMTP id a74so1544436oib.3
-        for <netdev@vger.kernel.org>; Wed, 20 Sep 2017 08:39:26 -0700 (PDT)
-In-Reply-To: <20170919.230853.540610280718334640.davem@davemloft.net>
+Received: from esa2.microchip.iphmx.com ([68.232.149.84]:30425 "EHLO
+        esa2.microchip.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751551AbdITPoH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2017 11:44:07 -0400
+In-Reply-To: <20170920210638.11150-1-Nisar.Sayed@microchip.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 20, 2017 at 2:08 AM, David Miller <davem@davemloft.net> wrote:
-> From: Petar Penkov <peterpenkov96@gmail.com>
-> Date: Tue, 19 Sep 2017 21:26:14 -0700
->
->> Furthermore, in a way testing already requires specific kernel
->> configuration.  In this particular example, syzkaller prefers
->> synchronous operation and therefore needs 4KSTACKS disabled. Other
->> features that require rebuilding are KASAN and dbx. From this point
->> of view, I still think that having the TUN_NAPI flag has value.
->
-> Then I think this path could be enabled/disabled with a runtime flag
-> just as easily, no?
+Fix for eeprom read/write when device auto suspend
 
-I think that the compile time option was chosen because of the ns_capable
-check, so that with user namespaces unprivileged processes can control this
-path. Perhaps we can require capable() only to set IFF_NAPI_FRAGS.
+Fixes: 55d7de9de6c3 ("Microchip's LAN7800 family USB 2/3 to 10/100/1000 Ethernet device driver")
+Signed-off-by: Nisar Sayed <Nisar.Sayed@microchip.com>
+---
+ drivers/net/usb/lan78xx.c | 24 ++++++++++++++++++++----
+ 1 file changed, 20 insertions(+), 4 deletions(-)
 
-Then we can convert the napi_gro_receive path to be conditional on a new
-IFF_NAPI flag instead of this compile time option.
+diff --git a/drivers/net/usb/lan78xx.c b/drivers/net/usb/lan78xx.c
+index b99a7fb09f8e..fcf85ae37435 100644
+--- a/drivers/net/usb/lan78xx.c
++++ b/drivers/net/usb/lan78xx.c
+@@ -1265,30 +1265,46 @@ static int lan78xx_ethtool_get_eeprom(struct net_device *netdev,
+ 				      struct ethtool_eeprom *ee, u8 *data)
+ {
+ 	struct lan78xx_net *dev = netdev_priv(netdev);
++	int ret;
++
++	ret = usb_autopm_get_interface(dev->intf);
++	if (ret)
++		return ret;
+ 
+ 	ee->magic = LAN78XX_EEPROM_MAGIC;
+ 
+-	return lan78xx_read_raw_eeprom(dev, ee->offset, ee->len, data);
++	ret = lan78xx_read_raw_eeprom(dev, ee->offset, ee->len, data);
++
++	usb_autopm_put_interface(dev->intf);
++
++	return ret;
+ }
+ 
+ static int lan78xx_ethtool_set_eeprom(struct net_device *netdev,
+ 				      struct ethtool_eeprom *ee, u8 *data)
+ {
+ 	struct lan78xx_net *dev = netdev_priv(netdev);
++	int ret;
++
++	ret = usb_autopm_get_interface(dev->intf);
++	if (ret)
++		return ret;
+ 
+ 	/* Allow entire eeprom update only */
+ 	if ((ee->magic == LAN78XX_EEPROM_MAGIC) &&
+ 	    (ee->offset == 0) &&
+ 	    (ee->len == 512) &&
+ 	    (data[0] == EEPROM_INDICATOR))
+-		return lan78xx_write_raw_eeprom(dev, ee->offset, ee->len, data);
++		ret = lan78xx_write_raw_eeprom(dev, ee->offset, ee->len, data);
+ 	else if ((ee->magic == LAN78XX_OTP_MAGIC) &&
+ 		 (ee->offset == 0) &&
+ 		 (ee->len == 512) &&
+ 		 (data[0] == OTP_INDICATOR_1))
+-		return lan78xx_write_raw_otp(dev, ee->offset, ee->len, data);
++		ret = lan78xx_write_raw_otp(dev, ee->offset, ee->len, data);
+ 
+-	return -EINVAL;
++	usb_autopm_put_interface(dev->intf);
++
++	return ret;
+ }
+ 
+ static void lan78xx_get_strings(struct net_device *netdev, u32 stringset,
+-- 
+2.14.1
