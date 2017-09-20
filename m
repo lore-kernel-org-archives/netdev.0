@@ -1,48 +1,37 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [PATCH v3 14/31] vxfs: Define usercopy region in vxfs_inode slab
- cache
-Date: Wed, 20 Sep 2017 16:22:21 -0700
-Message-ID: <20170920232221.GA18311@infradead.org>
-References: <1505940337-79069-1-git-send-email-keescook@chromium.org>
- <1505940337-79069-15-git-send-email-keescook@chromium.org>
- <20170920205642.GA20023@infradead.org>
- <CAGXu5j+hr0UwB5NsvPSKVVfM6NFHHhnNeUZbuwyTRppSOx9Ucw@mail.gmail.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH] net_sched: always reset qdisc backlog in qdisc_reset()
+Date: Wed, 20 Sep 2017 16:26:21 -0700
+Message-ID: <CAM_iQpUQMtjnPpcACgFk0XOdMTeaOQFY4NcbW7Owd4rM1EMmNA@mail.gmail.com>
+References: <150591153693.113604.8604505743746410801.stgit@buzz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Christoph Hellwig <hch@infradead.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        David Windsor <dave@nullcore.net>,
-        "linux-fsdevel@vger.kernel.org" <linux-fsdevel@vger.kernel.org>,
-        Network Development <netdev@vger.kernel.org>,
-        Linux-MM <linux-mm@kvack.org>,
-        "kernel-hardening@lists.openwall.com"
-        <kernel-hardening@lists.openwall.com>
-To: Kees Cook <keescook@chromium.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAGXu5j+hr0UwB5NsvPSKVVfM6NFHHhnNeUZbuwyTRppSOx9Ucw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Jiri Pirko <jiri@resnulli.us>,
+        Jamal Hadi Salim <jhs@mojatatu.com>
+To: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f180.google.com ([209.85.192.180]:49683 "EHLO
+        mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751813AbdITX0m (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2017 19:26:42 -0400
+Received: by mail-pf0-f180.google.com with SMTP id l188so2291496pfc.6
+        for <netdev@vger.kernel.org>; Wed, 20 Sep 2017 16:26:42 -0700 (PDT)
+In-Reply-To: <150591153693.113604.8604505743746410801.stgit@buzz>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 20, 2017 at 02:21:45PM -0700, Kees Cook wrote:
-> This is why I included several other lists on the full CC (am I
-> unlucky enough to have you not subscribed to any of them?). Adding a
-> CC for everyone can result in a huge CC list, especially for the
-> forth-coming 300-patch timer_list series. ;)
+On Wed, Sep 20, 2017 at 5:45 AM, Konstantin Khlebnikov
+<khlebnikov@yandex-team.ru> wrote:
+> SKB stored in qdisc->gso_skb also counted into backlog.
+>
+> Some qdiscs don't reset backlog to zero in ->reset(),
+> for example sfq just dequeue and free all queued skb.
+>
+> Signed-off-by: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
+> Fixes: 2ccccf5fb43f ("net_sched: update hierarchical backlog too")
 
-If you think the lists are enough to review changes include only
-the lists, but don't add CCs for individual patches, that's what
-I usually do for cleanups that touch a lot of drivers, but don't
-really change actual logic in ever little driver touched.
+Looks good.
 
-> Do you want me to resend the full series to you, or would you prefer
-> something else like a patchwork bundle? (I'll explicitly add you to CC
-> for any future versions, though.)
-
-I'm fine with not being Cced at all if there isn't anything requiring
-my urgent personal attention.  It's up to you whom you want to Cc,
-but my preference is generally for rather less than more people, and
-rather more than less mailing lists.
-
-But the important bit is to Cc a person or mailinglist either on
-all patches or on none, otherwise a good review isn't possible.
+sch->qstats.backlog = 0 can be removed from each ->reset()
+after this patch.
