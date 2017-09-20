@@ -1,30 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 3/3] virtio-net: support XDP_REDIRECT
-Date: Wed, 20 Sep 2017 14:28:21 -0700 (PDT)
-Message-ID: <20170920.142821.2032300208230027682.davem@davemloft.net>
-References: <1505814163-7315-1-git-send-email-jasowang@redhat.com>
-        <1505814163-7315-3-git-send-email-jasowang@redhat.com>
+Subject: Re: [PATCH net-next] udp: do rmem bulk free even if the rx sk
+ queue is empty
+Date: Wed, 20 Sep 2017 14:29:14 -0700 (PDT)
+Message-ID: <20170920.142914.865968677643614093.davem@davemloft.net>
+References: <f82856528a033394c407539d1ff4b92e243bad36.1505815819.git.pabeni@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mst@redhat.com, virtualization@lists.linux-foundation.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        john.fastabend@gmail.com
-To: jasowang@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1505814163-7315-3-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, edumazet@google.com
+To: pabeni@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:38548 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751586AbdITV3P (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2017 17:29:15 -0400
+In-Reply-To: <f82856528a033394c407539d1ff4b92e243bad36.1505815819.git.pabeni@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jason Wang <jasowang@redhat.com>
-Date: Tue, 19 Sep 2017 17:42:43 +0800
+From: Paolo Abeni <pabeni@redhat.com>
+Date: Tue, 19 Sep 2017 12:11:43 +0200
 
-> This patch tries to add XDP_REDIRECT for virtio-net. The changes are
-> not complex as we could use exist XDP_TX helpers for most of the
-> work. The rest is passing the XDP_TX to NAPI handler for implementing
-> batching.
+> The commit 6b229cf77d68 ("udp: add batching to udp_rmem_release()")
+> reduced greatly the cacheline contention between the BH and the US
+> reader batching the rmem updates in most scenarios.
 > 
-> Cc: John Fastabend <john.fastabend@gmail.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> Such optimization is explicitly avoided if the US reader is faster
+> then BH processing.
+> 
+> My fault, I initially suggested this kind of behavior due to concerns
+> of possible regressions with small sk_rcvbuf values. Tests showed
+> such concerns are misplaced, so this commit relaxes the condition
+> for rmem bulk updates, obtaining small but measurable performance
+> gain in the scenario described above.
+> 
+> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
 
-Applied.
+Applied, thanks Paolo.
