@@ -1,88 +1,69 @@
-From: Christian Lamparter <chunkeey@googlemail.com>
-Subject: Re: usb/net/p54: trying to register non-static key in p54_unregister_leds
-Date: Wed, 20 Sep 2017 21:27:42 +0200
-Message-ID: <2277141.bYDD1vAb9W@debian64>
-References: <CAAeHK+xPoNn7i5xOzEqHX6tfDpmpb1rd0hcAxZpTHKi6B8xzsw@mail.gmail.com>
+From: Matthew Rosato <mjrosato@linux.vnet.ibm.com>
+Subject: Re: Regression in throughput between kvm guests over virtual bridge
+Date: Wed, 20 Sep 2017 15:38:25 -0400
+Message-ID: <129a01d9-de9b-f3f1-935c-128e73153df6@linux.vnet.ibm.com>
+References: <4c7e2924-b10f-0e97-c388-c8809ecfdeeb@linux.vnet.ibm.com>
+ <bdd417dc-9e2f-4a2e-534b-c6aa38f002f2@redhat.com>
+ <e022cfa7-ef65-550f-06e8-f6e29f1d68a0@redhat.com>
+ <627d0c7a-dce5-3094-d5d4-c1507fcb8080@linux.vnet.ibm.com>
+ <50891c14-3fc6-f519-8c03-07bdef3090f4@redhat.com>
+ <e42083d9-ae7b-7207-e5e6-06483bf6293e@linux.vnet.ibm.com>
+ <15abafa1-6d58-cd85-668a-bf361a296f52@redhat.com>
+ <7345a69d-5e47-7058-c72b-bdd0f3c69210@linux.vnet.ibm.com>
+ <55f9173b-a419-98f0-2516-cbd57299ba5d@redhat.com>
+ <c9d43af9-f095-043a-7d46-acd84a18f75a@redhat.com>
+ <7d444584-3854-ace2-008d-0fdef1c9cef4@linux.vnet.ibm.com>
+ <1173ab1f-e2b6-26b3-8c3c-bd5ceaa1bd8e@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Kalle Valo <kvalo@codeaurora.org>, linux-wireless@vger.kernel.org,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        syzkaller <syzkaller@googlegroups.com>,
-        Stephen Boyd <sboyd@codeaurora.org>, Tejun Heo <tj@kernel.org>,
-        Yong Zhang <yong.zhang0@gmail.com>
-To: Andrey Konovalov <andreyknvl@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAAeHK+xPoNn7i5xOzEqHX6tfDpmpb1rd0hcAxZpTHKi6B8xzsw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: davem@davemloft.net, mst@redhat.com
+To: Jason Wang <jasowang@redhat.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:57656 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751001AbdITTi3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2017 15:38:29 -0400
+Received: from pps.filterd (m0098410.ppops.net [127.0.0.1])
+        by mx0a-001b2d01.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v8KJYpFC078454
+        for <netdev@vger.kernel.org>; Wed, 20 Sep 2017 15:38:29 -0400
+Received: from e12.ny.us.ibm.com (e12.ny.us.ibm.com [129.33.205.202])
+        by mx0a-001b2d01.pphosted.com with ESMTP id 2d3wmr3k3x-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Wed, 20 Sep 2017 15:38:29 -0400
+Received: from localhost
+        by e12.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <mjrosato@linux.vnet.ibm.com>;
+        Wed, 20 Sep 2017 15:38:28 -0400
+In-Reply-To: <1173ab1f-e2b6-26b3-8c3c-bd5ceaa1bd8e@redhat.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wednesday, September 20, 2017 8:37:08 PM CEST Andrey Konovalov wrote:
-> Hi!
-> 
-> I've got the following report while fuzzing the kernel with syzkaller.
-> 
-> On commit ebb2c2437d8008d46796902ff390653822af6cc4 (Sep 18).
-> 
-> INFO: trying to register non-static key.
-> the code is fine but needs lockdep annotation.
-> turning off the locking correctness validator.
-> CPU: 1 PID: 1404 Comm: kworker/1:1 Not tainted
-> 4.14.0-rc1-42251-gebb2c2437d80-dirty #205
-> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
-> Workqueue: usb_hub_wq hub_event
-> Call Trace:
->  __dump_stack lib/dump_stack.c:16
->  dump_stack+0x292/0x395 lib/dump_stack.c:52
->  register_lock_class+0x6c4/0x1a00 kernel/locking/lockdep.c:769
->  __lock_acquire+0x27e/0x4550 kernel/locking/lockdep.c:3385
->  lock_acquire+0x259/0x620 kernel/locking/lockdep.c:4002
->  flush_work+0xf0/0x8c0 kernel/workqueue.c:2886
->  __cancel_work_timer+0x51d/0x870 kernel/workqueue.c:2961
->  cancel_delayed_work_sync+0x1f/0x30 kernel/workqueue.c:3081
->  p54_unregister_leds+0x6c/0xc0 drivers/net/wireless/intersil/p54/led.c:160
->  p54_unregister_common+0x3d/0xb0 drivers/net/wireless/intersil/p54/main.c:856
->  p54u_disconnect+0x86/0x120 drivers/net/wireless/intersil/p54/p54usb.c:1073
->  usb_unbind_interface+0x21c/0xa90 drivers/usb/core/driver.c:423
->  __device_release_driver drivers/base/dd.c:861
->  device_release_driver_internal+0x4f4/0x5c0 drivers/base/dd.c:893
->  device_release_driver+0x1e/0x30 drivers/base/dd.c:918
->  bus_remove_device+0x2f4/0x4b0 drivers/base/bus.c:565
->  device_del+0x5c4/0xab0 drivers/base/core.c:1985
->  usb_disable_device+0x1e9/0x680 drivers/usb/core/message.c:1170
->  usb_disconnect+0x260/0x7a0 drivers/usb/core/hub.c:2124
->  hub_port_connect drivers/usb/core/hub.c:4754
->  hub_port_connect_change drivers/usb/core/hub.c:5009
->  port_event drivers/usb/core/hub.c:5115
->  hub_event+0x1318/0x3740 drivers/usb/core/hub.c:5195
->  process_one_work+0xc7f/0x1db0 kernel/workqueue.c:2119
->  process_scheduled_works kernel/workqueue.c:2179
->  worker_thread+0xb2b/0x1850 kernel/workqueue.c:2255
->  kthread+0x3a1/0x470 kernel/kthread.c:231
->  ret_from_fork+0x2a/0x40 arch/x86/entry/entry_64.S:431
-> 
 
-It seems this is caused as a result of:
-    -> lock_map_acquire(&work->lockdep_map);
-	    lock_map_release(&work->lockdep_map);
+> Seems to make some progress on wakeup mitigation. Previous patch tries
+> to reduce the unnecessary traversal of waitqueue during rx. Attached
+> patch goes even further which disables rx polling during processing tx.
+> Please try it to see if it has any difference.
 
-    in flush_work() [0]
+Unfortunately, this patch doesn't seem to have made a difference.  I
+tried runs with both this patch and the previous patch applied, as well
+as only this patch applied for comparison (numbers from vhost thread of
+sending VM):
 
-This was added by:
+4.12    4.13     patch1   patch2   patch1+2
+2.00%   +3.69%   +2.55%   +2.81%   +2.69%   [...] __wake_up_sync_key
 
-	commit 0976dfc1d0cd80a4e9dfaf87bd8744612bde475a
-	Author: Stephen Boyd <sboyd@codeaurora.org>
-	Date:   Fri Apr 20 17:28:50 2012 -0700
+In each case, the regression in throughput was still present.
 
-	workqueue: Catch more locking problems with flush_work()
-    
-Looking at the Stephen's patch, it's clear that it was made
-with "static DECLARE_WORK(work, my_work)" in mind. However
-p54's led_work is "per-device", hence it is stored in the
-devices context p54_common, which is dynamically allocated.
-So, maybe revert Stephen's patch?
+> And two questions:
+> - Is the issue existed if you do uperf between 2VMs (instead of 4VMs)
 
-[0] <http://elixir.free-electrons.com/linux/latest/source/kernel/workqueue.c#L2853>
+Verified that the second set of guests are not actually required, I can
+see the regression with only 2 VMs.
+
+> - Can enable batching in the tap of sending VM improve the performance
+> (ethtool -C $tap rx-frames 64)
+
+I tried this, but it did not help (actually seemed to make things a
+little worse)
