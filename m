@@ -1,38 +1,28 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch v3 1/3] ipv4: Namespaceify tcp_fastopen knob
-Date: Wed, 20 Sep 2017 14:22:27 -0700 (PDT)
-Message-ID: <20170920.142227.65942571438912956.davem@davemloft.net>
-References: <1505813896-12121-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH v4 1/4] samples/bpf: Use getppid instead of getpgrp for
+ array map stress
+Date: Wed, 20 Sep 2017 23:24:28 +0200
+Message-ID: <59C2DC8C.1080504@iogearbox.net>
+References: <20170920161159.25747-1-joelaf@google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, edumazet@google.com, weiwan@google.com,
-        lucab@debian.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: yanhaishuang@cmss.chinamobile.com
+Cc: netdev@vger.kernel.org, alison@she-devel.com, juri.lelli@arm.com,
+        fengc@google.com, davem@davemloft.net, ast@kernel.org,
+        kernel-team@android.com
+To: Joel Fernandes <joelaf@google.com>, linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1505813896-12121-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
+In-Reply-To: <20170920161159.25747-1-joelaf@google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
-Date: Tue, 19 Sep 2017 17:38:14 +0800
+On 09/20/2017 06:11 PM, Joel Fernandes wrote:
+> When cross-compiling the bpf sample map_perf_test for aarch64, I find that
+> __NR_getpgrp is undefined. This causes build errors. This syscall is deprecated
+> and requires defining __ARCH_WANT_SYSCALL_DEPRECATED. To avoid having to define
+> that, just use a different syscall (getppid) for the array map stress test.
+>
+> Acked-by: Alexei Starovoitov <ast@kernel.org>
+> Signed-off-by: Joel Fernandes <joelaf@google.com>
 
-> -		if ((sysctl_tcp_fastopen & TFO_SERVER_WO_SOCKOPT1) &&
-> -		    (sysctl_tcp_fastopen & TFO_SERVER_ENABLE) &&
-> +		tcp_fastopen =  sock_net(sk)->ipv4.sysctl_tcp_fastopen;
-                              ^^
-
-Please change that to one space.
-
-And also please provide an appropriate "[PATCH vX 0/3] " header
-posting when you respin this series.
-
-> @@ -282,18 +280,19 @@ struct sock *tcp_try_fastopen(struct sock *sk, struct sk_buff *skb,
->  	struct tcp_fastopen_cookie valid_foc = { .len = -1 };
->  	bool syn_data = TCP_SKB_CB(skb)->end_seq != TCP_SKB_CB(skb)->seq + 1;
->  	struct sock *child;
-> +	int tcp_fastopen = sock_net(sk)->ipv4.sysctl_tcp_fastopen;
-
-Please order local variables from longest to shortest line (aka. reverse
-christmas tree format).
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
