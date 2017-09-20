@@ -1,130 +1,72 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: [PATCH net-next 3/5] udp: do not touch socket refcount in early demux
-Date: Wed, 20 Sep 2017 18:54:03 +0200
-Message-ID: <7ea71bca0be872959e0a585e2589c2a14715394b.1505926196.git.pabeni@redhat.com>
-References: <cover.1505926196.git.pabeni@redhat.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Pablo Neira Ayuso <pablo@netfilter.org>,
-        Florian Westphal <fw@strlen.de>,
-        Eric Dumazet <edumazet@google.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: netdev@vger.kernel.org
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [PATCH net-next v5 1/4] bpf: add helper
+ bpf_perf_event_read_value for perf event array map
+Date: Wed, 20 Sep 2017 19:26:51 +0200
+Message-ID: <20170920172651.zx4nfmj2lpgxzubq@hirez.programming.kicks-ass.net>
+References: <20170920060935.1102268-1-yhs@fb.com>
+ <20170920060935.1102268-2-yhs@fb.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: rostedt@goodmis.org, ast@fb.com, daniel@iogearbox.net,
+        netdev@vger.kernel.org, kernel-team@fb.com,
+        David Miller <davem@davemloft.net>
+To: Yonghong Song <yhs@fb.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37132 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750825AbdITQ6O (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 20 Sep 2017 12:58:14 -0400
-In-Reply-To: <cover.1505926196.git.pabeni@redhat.com>
+Received: from merlin.infradead.org ([205.233.59.134]:49120 "EHLO
+        merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750825AbdITR1H (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2017 13:27:07 -0400
+Content-Disposition: inline
+In-Reply-To: <20170920060935.1102268-2-yhs@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-use noref sockets instead. This gives some small performance
-improvements and will allow efficient early demux for unconnected
-sockets in a later patch.
+On Tue, Sep 19, 2017 at 11:09:32PM -0700, Yonghong Song wrote:
+> diff --git a/kernel/events/core.c b/kernel/events/core.c
+> index 3e691b7..2d5bbe5 100644
+> --- a/kernel/events/core.c
+> +++ b/kernel/events/core.c
+> @@ -3684,10 +3684,12 @@ static inline u64 perf_event_count(struct perf_event *event)
+>   *     will not be local and we cannot read them atomically
+>   *   - must not have a pmu::count method
+>   */
+> -int perf_event_read_local(struct perf_event *event, u64 *value)
+> +int perf_event_read_local(struct perf_event *event, u64 *value,
+> +			  u64 *enabled, u64 *running)
+>  {
+>  	unsigned long flags;
+>  	int ret = 0;
+> +	u64 now;
+>  
+>  	/*
+>  	 * Disabling interrupts avoids all counter scheduling (context
+> @@ -3718,14 +3720,21 @@ int perf_event_read_local(struct perf_event *event, u64 *value)
+>  		goto out;
+>  	}
+>  
+> +	now = event->shadow_ctx_time + perf_clock();
+> +	if (enabled)
+> +		*enabled = now - event->tstamp_enabled;
+>  	/*
+>  	 * If the event is currently on this CPU, its either a per-task event,
+>  	 * or local to this CPU. Furthermore it means its ACTIVE (otherwise
+>  	 * oncpu == -1).
+>  	 */
+> -	if (event->oncpu == smp_processor_id())
+> +	if (event->oncpu == smp_processor_id()) {
+>  		event->pmu->read(event);
+> -
+> +		if (running)
+> +			*running = now - event->tstamp_running;
+> +	} else if (running) {
+> +		*running = event->total_time_running;
+> +	}
+>  	*value = local64_read(&event->count);
+>  out:
+>  	local_irq_restore(flags);
 
-Signed-off-by: Paolo Abeni <pabeni@redhat.com>
----
- net/ipv4/udp.c | 18 ++++++++++--------
- net/ipv6/udp.c | 10 ++++++----
- 2 files changed, 16 insertions(+), 12 deletions(-)
+Yeah, this looks about right.
 
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 784ced0b9150..ba49d5aa9f09 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -2050,12 +2050,13 @@ static inline int udp4_csum_init(struct sk_buff *skb, struct udphdr *uh,
- int __udp4_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
- 		   int proto)
- {
--	struct sock *sk;
--	struct udphdr *uh;
--	unsigned short ulen;
-+	struct net *net = dev_net(skb->dev);
- 	struct rtable *rt = skb_rtable(skb);
-+	unsigned short ulen;
- 	__be32 saddr, daddr;
--	struct net *net = dev_net(skb->dev);
-+	struct udphdr *uh;
-+	struct sock *sk;
-+	bool noref_sk;
- 
- 	/*
- 	 *  Validate the packet.
-@@ -2081,6 +2082,7 @@ int __udp4_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
- 	if (udp4_csum_init(skb, uh, proto))
- 		goto csum_error;
- 
-+	noref_sk = skb_has_noref_sk(skb);
- 	sk = skb_steal_sock(skb);
- 	if (sk) {
- 		struct dst_entry *dst = skb_dst(skb);
-@@ -2090,7 +2092,8 @@ int __udp4_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
- 			udp_sk_rx_dst_set(sk, dst);
- 
- 		ret = udp_queue_rcv_skb(sk, skb);
--		sock_put(sk);
-+		if (!noref_sk)
-+			sock_put(sk);
- 		/* a return value > 0 means to resubmit the input, but
- 		 * it wants the return to be -protocol, or 0
- 		 */
-@@ -2261,11 +2264,10 @@ void udp_v4_early_demux(struct sk_buff *skb)
- 					     uh->source, iph->saddr, dif, sdif);
- 	}
- 
--	if (!sk || !refcount_inc_not_zero(&sk->sk_refcnt))
-+	if (!sk)
- 		return;
- 
--	skb->sk = sk;
--	skb->destructor = sock_efree;
-+	skb_set_noref_sk(skb, sk);
- 	dst = READ_ONCE(sk->sk_rx_dst);
- 
- 	if (dst)
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index e2ecfb137297..8f62392c4c35 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -787,6 +787,7 @@ int __udp6_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
- 	struct net *net = dev_net(skb->dev);
- 	struct udphdr *uh;
- 	struct sock *sk;
-+	bool noref_sk;
- 	u32 ulen = 0;
- 
- 	if (!pskb_may_pull(skb, sizeof(struct udphdr)))
-@@ -823,6 +824,7 @@ int __udp6_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
- 		goto csum_error;
- 
- 	/* Check if the socket is already available, e.g. due to early demux */
-+	noref_sk = skb_has_noref_sk(skb);
- 	sk = skb_steal_sock(skb);
- 	if (sk) {
- 		struct dst_entry *dst = skb_dst(skb);
-@@ -832,7 +834,8 @@ int __udp6_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
- 			udp6_sk_rx_dst_set(sk, dst);
- 
- 		ret = udpv6_queue_rcv_skb(sk, skb);
--		sock_put(sk);
-+		if (!noref_sk)
-+			sock_put(sk);
- 
- 		/* a return value > 0 means to resubmit the input */
- 		if (ret > 0)
-@@ -948,11 +951,10 @@ static void udp_v6_early_demux(struct sk_buff *skb)
- 	else
- 		return;
- 
--	if (!sk || !refcount_inc_not_zero(&sk->sk_refcnt))
-+	if (!sk)
- 		return;
- 
--	skb->sk = sk;
--	skb->destructor = sock_efree;
-+	skb_set_noref_sk(skb, sk);
- 	dst = READ_ONCE(sk->sk_rx_dst);
- 
- 	if (dst)
--- 
-2.13.5
+Dave, could we have this in a topic tree of sorts, because I have a
+pending series to rework all the timekeeping and it might be nice to not
+have sfr run into all sorts of conflicts.
