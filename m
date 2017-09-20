@@ -1,27 +1,29 @@
 From: Troy Kisky <troy.kisky@boundarydevices.com>
-Subject: [PATCH v4 1/3] net: fec: only check queue 0 if RXF_0/TXF_0 interrupt is set
-Date: Tue, 19 Sep 2017 17:33:07 -0700
-Message-ID: <1505867589-11784-1-git-send-email-troy.kisky@boundarydevices.com>
+Subject: [PATCH v4 3/3] net: fec: return IRQ_HANDLED if fec_ptp_check_pps_event handled it
+Date: Tue, 19 Sep 2017 17:33:09 -0700
+Message-ID: <1505867589-11784-3-git-send-email-troy.kisky@boundarydevices.com>
+References: <1505867589-11784-1-git-send-email-troy.kisky@boundarydevices.com>
 Cc: fabio.estevam@nxp.com, lznuaa@gmail.com,
         Troy Kisky <troy.kisky@boundarydevices.com>
 To: fugang.duan@nxp.com, netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wsip-98-189-142-135.oc.oc.cox.net ([98.189.142.135]:51062 "EHLO
+Received: from wsip-98-189-142-135.oc.oc.cox.net ([98.189.142.135]:19541 "EHLO
         office-server2" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1750872AbdITBQ7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 21:16:59 -0400
+        with ESMTP id S1751284AbdITBRA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 21:17:00 -0400
+In-Reply-To: <1505867589-11784-1-git-send-email-troy.kisky@boundarydevices.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Before queue 0 was always checked if any queue caused an interrupt.
-It is better to just mark queue 0 if queue 0 has caused an interrupt.
+fec_ptp_check_pps_event will return 1 if FEC_T_TF_MASK caused
+an interrupt. Don't return IRQ_NONE in this case.
 
 Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
-Acked-by: Fugang Duan <Fugang.duan@nxp.com>
+Acked-by: Fugang Duan <fugang.duan@nxp.com>
 
 ---
-v3: add Acked-by
-v4: no change
+v3: New patch, came from feedback from another patch.
+v4: Added Acked-by
 
 Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
 ---
@@ -29,25 +31,19 @@ Signed-off-by: Troy Kisky <troy.kisky@boundarydevices.com>
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 56f56d6..464055f 100644
+index 464055f..3dc2d77 100644
 --- a/drivers/net/ethernet/freescale/fec_main.c
 +++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -1559,14 +1559,14 @@ fec_enet_collect_events(struct fec_enet_private *fep, uint int_events)
- 	if (int_events == 0)
- 		return false;
+@@ -1604,8 +1604,8 @@ fec_enet_interrupt(int irq, void *dev_id)
+ 	}
  
--	if (int_events & FEC_ENET_RXF)
-+	if (int_events & FEC_ENET_RXF_0)
- 		fep->work_rx |= (1 << 2);
- 	if (int_events & FEC_ENET_RXF_1)
- 		fep->work_rx |= (1 << 0);
- 	if (int_events & FEC_ENET_RXF_2)
- 		fep->work_rx |= (1 << 1);
+ 	if (fep->ptp_clock)
+-		fec_ptp_check_pps_event(fep);
+-
++		if (fec_ptp_check_pps_event(fep))
++			ret = IRQ_HANDLED;
+ 	return ret;
+ }
  
--	if (int_events & FEC_ENET_TXF)
-+	if (int_events & FEC_ENET_TXF_0)
- 		fep->work_tx |= (1 << 2);
- 	if (int_events & FEC_ENET_TXF_1)
- 		fep->work_tx |= (1 << 0);
 -- 
 2.7.4
