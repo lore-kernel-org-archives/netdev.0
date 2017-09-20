@@ -1,75 +1,53 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: TSN Scorecard, was Re: [RFC net-next 0/5] TSN: Add qdisc-based
- config interfaces for traffic shapers
-Date: Wed, 20 Sep 2017 07:49:19 +0200
-Message-ID: <20170920054919.jtqckuybsu42tvpk@localhost>
-References: <20170918081248.txhars53icbqsvld@localhost>
- <20170920051754.21745-1-levipearson@gmail.com>
+Subject: Re: [RFC net-next 0/5] TSN: Add qdisc-based config interfaces for
+ traffic shapers
+Date: Wed, 20 Sep 2017 07:56:16 +0200
+Message-ID: <20170920055616.snd6tndvbdnesnck@localhost>
+References: <20170901012625.14838-1-vinicius.gomes@intel.com>
+ <20170920015911.18999-1-levipearson@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
-        vinicius.gomes@intel.com, andre.guedes@intel.com,
+Cc: vinicius.gomes@intel.com, netdev@vger.kernel.org,
+        intel-wired-lan@lists.osuosl.org, andre.guedes@intel.com,
         ivan.briano@intel.com, jesus.sanchez-palencia@intel.com,
         boon.leong.ong@intel.com, jhs@mojatatu.com,
         xiyou.wangcong@gmail.com, jiri@resnulli.us, henrik@austad.us
 To: levipearson@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f48.google.com ([74.125.82.48]:44033 "EHLO
-        mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751175AbdITFtZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2017 01:49:25 -0400
-Received: by mail-wm0-f48.google.com with SMTP id 189so3004096wmh.1
-        for <netdev@vger.kernel.org>; Tue, 19 Sep 2017 22:49:25 -0700 (PDT)
+Received: from mail-wr0-f176.google.com ([209.85.128.176]:57059 "EHLO
+        mail-wr0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751428AbdITF4W (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2017 01:56:22 -0400
+Received: by mail-wr0-f176.google.com with SMTP id r74so1172174wrb.13
+        for <netdev@vger.kernel.org>; Tue, 19 Sep 2017 22:56:21 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20170920051754.21745-1-levipearson@gmail.com>
+In-Reply-To: <20170920015911.18999-1-levipearson@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 19, 2017 at 11:17:54PM -0600, levipearson@gmail.com wrote:
-> In addition to OpenAvnu, Renesas has a number of github repositories with what looks like a fairly
-> complete media streaming system:
+On Tue, Sep 19, 2017 at 07:59:11PM -0600, levipearson@gmail.com wrote:
+> If some endpoint device shows up with direct Qbv support, this interface would
+> probably work well there too, although a talker would need to be able to
+> schedule its transmits pretty precisely to achieve the lowest possible latency.
 
-Is it a generic stack or a set of hacks for their HW?
+This is an argument for SO_TXTIME.
 
-> Although your SO_TXTIME proposal could certainly form the basis of an endpoint's implementation of Qbv, I
-> think it is a stretch to consider it a Qbv implementation in itself, if that's what you mean by this.
+> One concern here is calling the base-time parameter an interval; it's really
+> an absolute time with respect to the PTP timescale. Good documentation will
+> be important to this one, since the specification discusses some subtleties
+> regarding the impact of different time values chosen here.
+> 
+> The format for specifying the actual intervals such as cycle-time could prove
+> to be an important detail as well; Qbv specifies cycle-time as a ratio of two
+> integers expressed in seconds, while extension-time is specified as an integer
+> number of nanoseconds.
+> 
+> Precision with the cycle-time is especially important, since base-time can be
+> almost arbitrarily far in the past or future, and any given cycle start should
+> be calculable from the base-time plus/minus some integer multiple of cycle-
+> time.
 
-No, that is not what I meant.  We need some minimal additional kernel
-support in order to fully implement the TSN family of standards.  Of
-course, the bulk will have to be done in user space.  It would be a
-mistake to cram the stuff that belongs in userland into the kernel.
-
-Looking at the table, and reading your descriptions of the state of
-OpenAVB, I remained convinced that the kernel needs only three
-additions:
-
-1. SO_TXTIME
-2. CBS Qdisc
-3. ALSA support for DAC clock control (but that is another story)
-
-> The proper interfaces for the Qbv configuration and managing of switch-level PTP timestamps are not yet
-> in place, so there's nothing even at RFC stage to present yet, but Qbv-capable Linux-managed switch
-> hardware is available and we hope to get some reusable code published even if it's not yet ready to be
-> integrated in the kernel.
-
-Right, configuring Qbv in an attached DSA switch needs its own
-interface.
-
-Regarding PHC support for DSA switches, I have something in the works
-to be published soon.
-
-> A bit of progress has been made since that was written, although it is true that it's still not
-> quite complete and certainly not turnkey.
-
-So OpenAVB is neither complete nor turnkey.  That was my impression,
-too.
-
-> Things are maybe a bit farther along than they seemed, but there is still important kernel work to be
-> done to reduce the need for out-of-tree drivers and to get everyone on the same interfaces. I plan
-> to be an active participant going forward.
-
-You mentioned a couple of different kernel things you implemented.
-I would encourage you to post the work already done.
+The above three points also.
 
 Thanks,
 Richard
