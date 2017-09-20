@@ -1,137 +1,128 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH] hv_netvsc: fix send buffer failure on MTU change
-Date: Wed, 20 Sep 2017 11:17:35 -0700
-Message-ID: <20170920181735.31316-1-sthemmin@microsoft.com>
+From: =?UTF-8?Q?Pawe=c5=82_Staszewski?= <pstaszewski@itcare.pl>
+Subject: Re: Latest net-next from GIT panic
+Date: Wed, 20 Sep 2017 21:13:04 +0200
+Message-ID: <07f0c800-7ee7-1ebe-9f5f-eaad52a7b42d@itcare.pl>
+References: <4745525f-18e4-7f69-fe21-8e507e407b33@itcare.pl>
+ <65e2195b-3bd1-c0b4-b474-e07dd08f71b9@itcare.pl>
+ <1505877870.29839.82.camel@edumazet-glaptop3.roam.corp.google.com>
+ <07bde5d4-fab6-3ef9-f586-403dadbb0a2a@itcare.pl>
+ <8f0b0143-657e-d574-c442-24d3d017bc87@itcare.pl>
+ <54d058d4-b9d1-54cb-f064-45cec430fe5d@itcare.pl>
+ <6c073f86-ab71-0a8f-7b9a-91d5ae5da214@itcare.pl>
+ <7fee43ee-75b5-c2f5-cf8d-684ceefcd2d1@itcare.pl>
+ <c278dec6-e018-62e0-a613-1fa79741aaab@itcare.pl>
+ <cfc04422-51bd-0a28-6a8c-6b57179e8af2@itcare.pl>
+ <3324f95f-7686-81e0-a973-1a9220c918fe@itcare.pl>
+ <1505913075.29839.90.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAM_iQpV8qV8a_yFT0--4Z==FuWda=4EQzKJzHTL+op4S5b9E0A@mail.gmail.com>
+ <3c227be7-a954-a406-1987-24e908cf214c@itcare.pl>
+ <CAM_iQpUOOCcES4d_ueK2wizn2oyDZPEzLfWQFu3oOq=BuRzdiw@mail.gmail.com>
+ <1505932231.29839.106.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAM_iQpVF3Gf3G=543o8g+5N2dtEL4DcUPN3a6=L8V_G0CXZ65w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, Alex Ng <alexng@microsoft.com>,
-        Stephen Hemminger <sthemmin@microsoft.com>
-To: davem@davemloft.net, kys@microsoft.com
+Cc: Wei Wang <weiwan@google.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f43.google.com ([74.125.83.43]:45658 "EHLO
-        mail-pg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751387AbdITSwe (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2017 14:52:34 -0400
-Received: by mail-pg0-f43.google.com with SMTP id 188so2179137pgb.2
-        for <netdev@vger.kernel.org>; Wed, 20 Sep 2017 11:52:34 -0700 (PDT)
+Received: from smtp16.iq.pl ([86.111.242.222]:49390 "EHLO smtp16.iq.pl"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751476AbdITTPN (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 20 Sep 2017 15:15:13 -0400
+In-Reply-To: <CAM_iQpVF3Gf3G=543o8g+5N2dtEL4DcUPN3a6=L8V_G0CXZ65w@mail.gmail.com>
+Content-Language: pl
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alex Ng <alexng@microsoft.com>
 
-If MTU is changed the host would reject the send buffer change.
-This problem is result of recent change to allow changing send
-buffer size.
 
-Every time we change the MTU, we store the previous net_device section
-count before destroying the buffer, but we don’t store the previous
-section size. When we reinitialize the buffer, its size is calculated
-by multiplying the previous count and previous size. Since we
-continuously increase the MTU, the host returns us a decreasing count
-value while the section size is reinitialized to 1728 bytes every
-time.
+W dniu 2017-09-20 o 20:36, Cong Wang pisze:
+> On Wed, Sep 20, 2017 at 11:30 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>> On Wed, 2017-09-20 at 11:22 -0700, Cong Wang wrote:
+>>> but dmesg at this time shows nothing about interfaces or flaps.
+>>>
+>>> This is very odd.
+>>>
+>>> We only free netdevice in free_netdev() and it is only called when
+>>> we unregister a netdevice. Otherwise pcpu_refcnt is impossible
+>>> to be NULL.
+>> If there is a missing dev_hold() or one dev_put() in excess,
+>> this would allow the netdev to be freed too soon.
+>>
+>> -> Use after free.
+>> memory holding netdev could be reallocated-cleared by some other kernel
+>> user.
+>>
+> Sure, but only unregister could trigger a free. If there is no unregister,
+> like what Pawel claims, then there is no free, the refcnt just goes to
+> 0 but the memory is still there.
+>
+About possible mistake from my side with bisect - i can judge too early 
+that some bisect was good
+the road was:
+git bisect start
+# bad: [ac7b75966c9c86426b55fe1c50ae148aa4571075] Merge tag 
+'pinctrl-v4.13-1' of 
+git://git.kernel.org/pub/scm/linux/kernel/git/linusw/linux-pinctrl
+git bisect bad ac7b75966c9c86426b55fe1c50ae148aa4571075
+# good: [e24dd9ee5399747b71c1d982a484fc7601795f31] Merge branch 'next' 
+of git://git.kernel.org/pub/scm/linux/kernel/git/jmorris/linux-security
+git bisect good e24dd9ee5399747b71c1d982a484fc7601795f31
+# bad: [9cc9a5cb176ccb4f2cda5ac34da5a659926f125f] datapath: Avoid using 
+stack larger than 1024.
+git bisect bad 9cc9a5cb176ccb4f2cda5ac34da5a659926f125f
+# good: [073cf9e20c333ab29744717a23f9e43ec7512a20] Merge branch 
+'udp-reduce-cache-pressure'
+git bisect good 073cf9e20c333ab29744717a23f9e43ec7512a20
+# bad: [8abd5599a520e9f188a750f1bde9dde5fb856230] Merge branch 
+'s390-net-updates-part-2'
+git bisect bad 8abd5599a520e9f188a750f1bde9dde5fb856230
+# good: [2fae5d0e647c6470d206e72b5fc24972bb900f70] Merge branch 
+'bpf-ctx-narrow'
+git bisect good 2fae5d0e647c6470d206e72b5fc24972bb900f70
+# good: [41500c3e2a19ffcf40a7158fce1774de08e26ba2] rds: tcp: remove 
+cp_outgoing
+git bisect good 41500c3e2a19ffcf40a7158fce1774de08e26ba2
+# bad: [8917a777be3ba566377be05117f71b93a5fd909d] tcp: md5: add 
+TCP_MD5SIG_EXT socket option to set a key address prefix
+git bisect bad 8917a777be3ba566377be05117f71b93a5fd909d
+# good: [4a6ce2b6f2ecabbddcfe47e7cf61dd0f00b10e36] net: introduce a new 
+function dst_dev_put()
 
-This eventually leads to a condition where the calculated buf_size is
-so small that the host rejects it.
+And currently have this running for about 4 hours without problems.
 
-Fixes: 8b5327975ae1 ("netvsc: allow controlling send/recv buffer size")
-Signed-off-by: Alex Ng <alexng@microsoft.com>
-Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
----
- drivers/net/hyperv/hyperv_net.h | 2 ++
- drivers/net/hyperv/netvsc.c     | 7 ++-----
- drivers/net/hyperv/netvsc_drv.c | 8 ++++++++
- 3 files changed, 12 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index d98cdfb1536b..5176be76ca7d 100644
---- a/drivers/net/hyperv/hyperv_net.h
-+++ b/drivers/net/hyperv/hyperv_net.h
-@@ -150,6 +150,8 @@ struct netvsc_device_info {
- 	u32  num_chn;
- 	u32  send_sections;
- 	u32  recv_sections;
-+	u32  send_section_size;
-+	u32  recv_section_size;
- };
- 
- enum rndis_device_state {
-diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index a5511b7326af..8d5077fb0492 100644
---- a/drivers/net/hyperv/netvsc.c
-+++ b/drivers/net/hyperv/netvsc.c
-@@ -76,9 +76,6 @@ static struct netvsc_device *alloc_net_device(void)
- 	net_device->max_pkt = RNDIS_MAX_PKT_DEFAULT;
- 	net_device->pkt_align = RNDIS_PKT_ALIGN_DEFAULT;
- 
--	net_device->recv_section_size = NETVSC_RECV_SECTION_SIZE;
--	net_device->send_section_size = NETVSC_SEND_SECTION_SIZE;
--
- 	init_completion(&net_device->channel_init_wait);
- 	init_waitqueue_head(&net_device->subchan_open);
- 	INIT_WORK(&net_device->subchan_work, rndis_set_subchannel);
-@@ -262,7 +259,7 @@ static int netvsc_init_buf(struct hv_device *device,
- 	int ret = 0;
- 
- 	/* Get receive buffer area. */
--	buf_size = device_info->recv_sections * net_device->recv_section_size;
-+	buf_size = device_info->recv_sections * device_info->recv_section_size;
- 	buf_size = roundup(buf_size, PAGE_SIZE);
- 
- 	net_device->recv_buf = vzalloc(buf_size);
-@@ -344,7 +341,7 @@ static int netvsc_init_buf(struct hv_device *device,
- 		goto cleanup;
- 
- 	/* Now setup the send buffer. */
--	buf_size = device_info->send_sections * net_device->send_section_size;
-+	buf_size = device_info->send_sections * device_info->send_section_size;
- 	buf_size = round_up(buf_size, PAGE_SIZE);
- 
- 	net_device->send_buf = vzalloc(buf_size);
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index d4902ee5f260..a32ae02e1b6c 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -848,7 +848,9 @@ static int netvsc_set_channels(struct net_device *net,
- 	device_info.num_chn = count;
- 	device_info.ring_size = ring_size;
- 	device_info.send_sections = nvdev->send_section_cnt;
-+	device_info.send_section_size = nvdev->send_section_size;
- 	device_info.recv_sections = nvdev->recv_section_cnt;
-+	device_info.recv_section_size = nvdev->recv_section_size;
- 
- 	rndis_filter_device_remove(dev, nvdev);
- 
-@@ -963,7 +965,9 @@ static int netvsc_change_mtu(struct net_device *ndev, int mtu)
- 	device_info.ring_size = ring_size;
- 	device_info.num_chn = nvdev->num_chn;
- 	device_info.send_sections = nvdev->send_section_cnt;
-+	device_info.send_section_size = nvdev->send_section_size;
- 	device_info.recv_sections = nvdev->recv_section_cnt;
-+	device_info.recv_section_size = nvdev->recv_section_size;
- 
- 	rndis_filter_device_remove(hdev, nvdev);
- 
-@@ -1485,7 +1489,9 @@ static int netvsc_set_ringparam(struct net_device *ndev,
- 	device_info.num_chn = nvdev->num_chn;
- 	device_info.ring_size = ring_size;
- 	device_info.send_sections = new_tx;
-+	device_info.send_section_size = nvdev->send_section_size;
- 	device_info.recv_sections = new_rx;
-+	device_info.recv_section_size = nvdev->recv_section_size;
- 
- 	netif_device_detach(ndev);
- 	was_opened = rndis_filter_opened(nvdev);
-@@ -1934,7 +1940,9 @@ static int netvsc_probe(struct hv_device *dev,
- 	device_info.ring_size = ring_size;
- 	device_info.num_chn = VRSS_CHANNEL_DEFAULT;
- 	device_info.send_sections = NETVSC_DEFAULT_TX;
-+	device_info.send_section_size = NETVSC_SEND_SECTION_SIZE;
- 	device_info.recv_sections = NETVSC_DEFAULT_RX;
-+	device_info.recv_section_size = NETVSC_RECV_SECTION_SIZE;
- 
- 	nvdev = rndis_filter_device_add(dev, &device_info);
- 	if (IS_ERR(nvdev)) {
--- 
-2.11.0
+
+git bisect good 4a6ce2b6f2ecabbddcfe47e7cf61dd0f00b10e36
+# bad: [a4c2fd7f78915a0d7c5275e7612e7793157a01f2] net: remove 
+DST_NOCACHE flag
+
+Here for sure - panic
+
+git bisect bad a4c2fd7f78915a0d7c5275e7612e7793157a01f2
+# bad: [ad65a2f05695aced349e308193c6e2a6b1d87112] ipv6: call 
+dst_hold_safe() properly
+git bisect bad ad65a2f05695aced349e308193c6e2a6b1d87112
+# good: [9df16efadd2a8a82731dc76ff656c771e261827f] ipv4: call 
+dst_hold_safe() properly
+git bisect good 9df16efadd2a8a82731dc76ff656c771e261827f
+# bad: [1cfb71eeb12047bcdbd3e6730ffed66e810a0855] ipv6: take 
+dst->__refcnt for insertion into fib6 tree
+
+im not 100% sure tor last two
+Will test them again starting from
+[95c47f9cf5e028d1ae77dc6c767c1edc8a18025b] ipv4: call dst_dev_put() properly
+
+
+git bisect bad 1cfb71eeb12047bcdbd3e6730ffed66e810a0855
+# bad: [b838d5e1c5b6e57b10ec8af2268824041e3ea911] ipv4: mark DST_NOGC 
+and remove the operation of dst_free()
+
+
+
+git bisect bad b838d5e1c5b6e57b10ec8af2268824041e3ea911
+# first bad commit: [b838d5e1c5b6e57b10ec8af2268824041e3ea911] ipv4: 
+mark DST_NOGC and remove the operation of dst_free()
