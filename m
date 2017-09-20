@@ -1,7 +1,7 @@
 From: Yunsheng Lin <linyunsheng@huawei.com>
-Subject: [PATCH net 9/9] net: hns3: Fix for pri to tc mapping in TM
-Date: Wed, 20 Sep 2017 18:52:58 +0800
-Message-ID: <1505904778-53217-10-git-send-email-linyunsheng@huawei.com>
+Subject: [PATCH net 6/9] net: hns3: Fix for rx priv buf allocation when DCB is not supported
+Date: Wed, 20 Sep 2017 18:52:55 +0800
+Message-ID: <1505904778-53217-7-git-send-email-linyunsheng@huawei.com>
 References: <1505904778-53217-1-git-send-email-linyunsheng@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -17,124 +17,38 @@ In-Reply-To: <1505904778-53217-1-git-send-email-linyunsheng@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Current mapping between pri and tc is one to one,
-so user can't map multi priorities to the same tc.
-This patch changes the mapping to many to one.
+When hdev doesn't support DCB, rx private buffer is not allocated,
+otherwise there is not enough buffer for rx shared buffer, causing
+buffer allocation process to fail.
+This patch fixes by checking the dcb capability in
+hclge_rx_buffer_calc.
 
-Fixes: 848440544b41f ("net: hns3: Add support of TX Scheduler & Shaper to HNS3 driver")
+Fixes: 46a3df9f9718 ("net: hns3: Add HNS3 Acceleration Engine & Compatibility Layer Support")
 Signed-off-by: Yunsheng Lin <linyunsheng@huawei.com>
 ---
- drivers/net/ethernet/hisilicon/hns3/hnae3.h             |  3 ++-
- drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.h |  2 +-
- drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c   | 16 +++++++++-------
- 3 files changed, 12 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
 
-diff --git a/drivers/net/ethernet/hisilicon/hns3/hnae3.h b/drivers/net/ethernet/hisilicon/hns3/hnae3.h
-index ad685f5..1a01cad 100644
---- a/drivers/net/ethernet/hisilicon/hns3/hnae3.h
-+++ b/drivers/net/ethernet/hisilicon/hns3/hnae3.h
-@@ -376,12 +376,12 @@ struct hnae3_ae_algo {
- struct hnae3_tc_info {
- 	u16	tqp_offset;	/* TQP offset from base TQP */
- 	u16	tqp_count;	/* Total TQPs */
--	u8	up;		/* user priority */
- 	u8	tc;		/* TC index */
- 	bool	enable;		/* If this TC is enable or not */
- };
+diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
+index c08c41f..1e15ce1 100644
+--- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
++++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
+@@ -1489,6 +1489,16 @@ int hclge_rx_buffer_calc(struct hclge_dev *hdev, u32 tx_size)
+ 	struct hclge_priv_buf *priv;
+ 	int i;
  
- #define HNAE3_MAX_TC		8
-+#define HNAE3_MAX_USER_PRIO	8
- struct hnae3_knic_private_info {
- 	struct net_device *netdev; /* Set by KNIC client when init instance */
- 	u16 rss_size;		   /* Allocated RSS queues */
-@@ -389,6 +389,7 @@ struct hnae3_knic_private_info {
- 	u16 num_desc;
- 
- 	u8 num_tc;		   /* Total number of enabled TCs */
-+	u8 prio_tc[HNAE3_MAX_USER_PRIO];  /* TC indexed by prio */
- 	struct hnae3_tc_info tc_info[HNAE3_MAX_TC]; /* Idx of array is HW TC */
- 
- 	u16 num_tqps;		  /* total number of TQPs in this handle */
-diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.h b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.h
-index 7f8dd12..9fcfd93 100644
---- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.h
-+++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.h
-@@ -176,7 +176,6 @@ struct hclge_pg_info {
- struct hclge_tc_info {
- 	u8 tc_id;
- 	u8 tc_sch_mode;		/* 0: sp; 1: dwrr */
--	u8 up;
- 	u8 pgid;
- 	u32 bw_limit;
- };
-@@ -197,6 +196,7 @@ struct hclge_tm_info {
- 	u8 num_tc;
- 	u8 num_pg;      /* It must be 1 if vNET-Base schd */
- 	u8 pg_dwrr[HCLGE_PG_NUM];
-+	u8 prio_tc[HNAE3_MAX_USER_PRIO];
- 	struct hclge_pg_info pg_info[HCLGE_PG_NUM];
- 	struct hclge_tc_info tc_info[HNAE3_MAX_TC];
- 	enum hclge_fc_mode fc_mode;
-diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c
-index b7ba7aa..73a75d7 100644
---- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c
-+++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c
-@@ -128,9 +128,7 @@ static int hclge_fill_pri_array(struct hclge_dev *hdev, u8 *pri, u8 pri_id)
- {
- 	u8 tc;
- 
--	for (tc = 0; tc < hdev->tm_info.num_tc; tc++)
--		if (hdev->tm_info.tc_info[tc].up == pri_id)
--			break;
-+	tc = hdev->tm_info.prio_tc[pri_id];
- 
- 	if (tc >= hdev->tm_info.num_tc)
- 		return -EINVAL;
-@@ -158,7 +156,7 @@ static int hclge_up_to_tc_map(struct hclge_dev *hdev)
- 
- 	hclge_cmd_setup_basic_desc(&desc, HCLGE_OPC_PRI_TO_TC_MAPPING, false);
- 
--	for (pri_id = 0; pri_id < hdev->tm_info.num_tc; pri_id++) {
-+	for (pri_id = 0; pri_id < HNAE3_MAX_USER_PRIO; pri_id++) {
- 		ret = hclge_fill_pri_array(hdev, pri, pri_id);
- 		if (ret)
- 			return ret;
-@@ -405,16 +403,17 @@ static void hclge_tm_vport_tc_info_update(struct hclge_vport *vport)
- 			kinfo->tc_info[i].tqp_offset = i * kinfo->rss_size;
- 			kinfo->tc_info[i].tqp_count = kinfo->rss_size;
- 			kinfo->tc_info[i].tc = i;
--			kinfo->tc_info[i].up = hdev->tm_info.tc_info[i].up;
- 		} else {
- 			/* Set to default queue if TC is disable */
- 			kinfo->tc_info[i].enable = false;
- 			kinfo->tc_info[i].tqp_offset = 0;
- 			kinfo->tc_info[i].tqp_count = 1;
- 			kinfo->tc_info[i].tc = 0;
--			kinfo->tc_info[i].up = 0;
- 		}
- 	}
++	/* When DCB is not supported, rx private
++	 * buffer is not allocated.
++	 */
++	if (!hnae3_dev_dcb_supported(hdev)) {
++		if (!hclge_is_rx_buf_ok(hdev, rx_all))
++			return -ENOMEM;
 +
-+	memcpy(kinfo->prio_tc, hdev->tm_info.prio_tc,
-+	       FIELD_SIZEOF(struct hnae3_knic_private_info, prio_tc));
- }
- 
- static void hclge_tm_vport_info_update(struct hclge_dev *hdev)
-@@ -436,12 +435,15 @@ static void hclge_tm_tc_info_init(struct hclge_dev *hdev)
- 	for (i = 0; i < hdev->tm_info.num_tc; i++) {
- 		hdev->tm_info.tc_info[i].tc_id = i;
- 		hdev->tm_info.tc_info[i].tc_sch_mode = HCLGE_SCH_MODE_DWRR;
--		hdev->tm_info.tc_info[i].up = i;
- 		hdev->tm_info.tc_info[i].pgid = 0;
- 		hdev->tm_info.tc_info[i].bw_limit =
- 			hdev->tm_info.pg_info[0].bw_limit;
- 	}
- 
-+	for (i = 0; i < HNAE3_MAX_USER_PRIO; i++)
-+		hdev->tm_info.prio_tc[i] =
-+			(i >= hdev->tm_info.num_tc) ? 0 : i;
++		return 0;
++	}
 +
- 	hdev->flag &= ~HCLGE_FLAG_DCB_ENABLE;
- }
- 
+ 	/* step 1, try to alloc private buffer for all enabled tc */
+ 	for (i = 0; i < HCLGE_MAX_TC_NUM; i++) {
+ 		priv = &hdev->priv_buf[i];
 -- 
 1.9.1
