@@ -1,83 +1,61 @@
-From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH net-next 3/4] qed: Fix maximum number of CQs for iWARP
-Date: Wed, 20 Sep 2017 16:50:32 +0300
-Message-ID: <20170920135032.GP5788@mtr-leonro.local>
-References: <1505841979-26365-1-git-send-email-Michal.Kalderon@cavium.com>
- <1505841979-26365-4-git-send-email-Michal.Kalderon@cavium.com>
- <20170919174610.GK5788@mtr-leonro.local>
- <CY1PR0701MB2012B07A2FCD08D598CCFEDB88610@CY1PR0701MB2012.namprd07.prod.outlook.com>
+From: Leon Romanovsky <leon@kernel.org>
+Subject: Re: [PATCH net-next 08/10] net/smc: introduce a delay
+Date: Wed, 20 Sep 2017 17:03:15 +0300
+Message-ID: <20170920140315.GR5788@mtr-leonro.local>
+References: <20170920115813.63745-1-ubraun@linux.vnet.ibm.com>
+ <20170920115813.63745-9-ubraun@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="jnYfR+Q8IWTs8BNa"
-Cc: "davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        "Elior, Ariel" <Ariel.Elior-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-To: "Kalderon, Michal" <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+        protocol="application/pgp-signature"; boundary="pleSNuEbvnUYtMxG"
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+        linux-rdma@vger.kernel.org, linux-s390@vger.kernel.org,
+        jwi@linux.vnet.ibm.com, schwidefsky@de.ibm.com,
+        heiko.carstens@de.ibm.com, raspl@linux.vnet.ibm.com
+To: Ursula Braun <ubraun@linux.vnet.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.kernel.org ([198.145.29.99]:38366 "EHLO mail.kernel.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751391AbdITODT (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 20 Sep 2017 10:03:19 -0400
 Content-Disposition: inline
-In-Reply-To: <CY1PR0701MB2012B07A2FCD08D598CCFEDB88610-UpKza+2NMNLHMJvQ0dyT705OhdzP3rhOnBOFsp37pqbUKgpGm//BTAC/G2K4zDHf@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20170920115813.63745-9-ubraun@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
---jnYfR+Q8IWTs8BNa
+--pleSNuEbvnUYtMxG
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 
-On Wed, Sep 20, 2017 at 05:46:35AM +0000, Kalderon, Michal wrote:
-> From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-> Sent: Tuesday, September 19, 2017 8:46 PM
-> On Tue, Sep 19, 2017 at 08:26:18PM +0300, Michal Kalderon wrote:
-> >> The maximum number of CQs supported is bound to the number
-> >> of connections supported, which differs between RoCE and iWARP.
-> >>
-> >> This fixes a crash that occurred in iWARP when running 1000 sessions
-> >> using perftest.
-> >>
-> >> Signed-off-by: Michal Kalderon <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-> >> Signed-off-by: Ariel Elior <Ariel.Elior-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-> >> ---
-> >
-> >It is worth to add Fixes line.
-> >
-> >Thanks
-> The original code was there before we had iWARP support, so this doesn't
-> exactly fix an older commit, but fixes iWARP code in general.
+On Wed, Sep 20, 2017 at 01:58:11PM +0200, Ursula Braun wrote:
+> The number of outstanding work requests is limited. If all work
+> requests are in use, tx processing is postponed to another scheduling
+> of the tx worker. Switch to a delayed worker to have a gap for tx
+> completion queue events before the next retry.
+>
 
-So add Fixes which points to iWARP ennoblement patch.
+How will delay prevent and protect the resource exhausting?
 
 Thanks
 
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
---jnYfR+Q8IWTs8BNa
+--pleSNuEbvnUYtMxG
 Content-Type: application/pgp-signature; name="signature.asc"
 
 -----BEGIN PGP SIGNATURE-----
 
-iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAlnCcigACgkQ5GN7iDZy
-WKcfKg/9EOrgokvt0HYDcdSSMfqcbwbVhZ9QbcxnE9QD9/lhQGwEicuA8hHhOi65
-aEpzS6rvDykt6cuViQfgu3ZkuaC7bWRBS7nZ5cndN/bcumkLLc3ZHt6PsCak724U
-huGXE3ci/ykHAptPDnnU/iFtOZAus10CJAhF2ydigfYPupbKpNEBbN3rxTo/aRRb
-nyS+UUplJgRUfoqDL6SkFDc6rMqVGLOV5bYSDnal7kiDv5QJ94pmCLl1M1Q/i+Nf
-jtT4hi75zCe91FGw5UCbm/5oOqeBahOvlneOLcEhukNRRB8hUz6E8c8bzgfLXJrr
-jh0PvBfiFsVkPKZ+HFypEp/cMmtdVScEZU3yG/tBGheid2mm8QseSp1ZuCP5NV1+
-BEt1VoNRhXHZ+uDYj9BIsr8Bm/bjnz7B1uThr/kg1VuXegCQe/EygGULqRDxEGuo
-TfBzSbfhccpFSyA+nTy1g1Iq8Sn4NBFG2QwyWy79PhWYp36CnU3ToO68uenFvyvU
-9wTZWsKYU01luSfdZe2vHRosEqc7TG5Ws9WL9x3GcCkqN2yUNIXAllfkfmeWt9+n
-AXb1rHIH421qP2VwKvG2TR3m7mXeiwDRAVatj+28f2sOCiTRgw4UjK0zedKFX1Ao
-YZbj548cm7DaocSAHni2aIKnRo1ERR90SmTIDHGgVYttDchLdH4=
-=/F4x
+iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAlnCdSMACgkQ5GN7iDZy
+WKfCzw//SxhOvcLWVCJe3prP1yEVXO/bM4rUg/z0PscHUJC3y78FhWp7QUNTGQob
+anKzUHXQVFaHD+LxtfNw78iLhQS37hzT2ZBOYmzj+iPuT/7Xlr7nJhqJll+YNwCF
+k9HvIN1a/cEhjHMFQ+mTI7OUZDw0I7znqjlp+S4hh43OqPTt2KCXvWQP8XXCn5qU
+2TbKJJK1hH7JKlM+wx0qr/vGnyV+/1SDEk4Onp+SXnLH7BrSl80nFEocKLLMMDz2
+dbNE/rcjZD7Gv7zI5GLDiS4/FaX6ZzJAhaJHr4JgBTDZYxkt+mRi6jpiqQDGSrD+
+z+b17gg3ehLvZKi7ZCLILGGoL7tfcRcQS9UUrHyMuBQmZQkrg1WsmeleptrKs1KS
+ClNdIX3/QYBDBQamyFVaxGQG91t11+0YmwPTHoi88HbG1Ru+Ck9K1NKgr0WP0EPY
+PmTXQ35j5bad9k9YqEjVhHd3nOwBc7Lvm6Pn55RzW/l5zS9ydeAousqCvkdDzVg6
+QB9hcRTWT4Mr2YQTi7JJKEWxdCjolSXxLltwrK1GZrAVU2iTzD8IY3cgCrUyTWnH
+iUXMRYgA1gBzu19i7oz97JhCx6HVcwLLgUWoMP4hnnghdNlCvJKyAQDzYIcfJtOm
+IGHYgtLcb4aSYxPbgoR4WSQGFTdR2vg4DKNtyi1o68Fh6Kj5Gxg=
+=jyO4
 -----END PGP SIGNATURE-----
 
---jnYfR+Q8IWTs8BNa--
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--pleSNuEbvnUYtMxG--
