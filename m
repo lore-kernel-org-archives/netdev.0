@@ -1,101 +1,127 @@
-From: Franklin S Cooper Jr <fcooper@ti.com>
-Subject: Re: [PATCH v2 1/3] can: m_can: Make hclk optional
-Date: Wed, 20 Sep 2017 18:29:43 -0500
-Message-ID: <f6011853-9056-c454-6c98-c455310fa7b5@ti.com>
-References: <20170724225142.19975-1-fcooper@ti.com>
- <20170724225142.19975-2-fcooper@ti.com>
- <096c73b1-eaa5-8c40-4486-e08a784c0897@gmx.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-To: =?UTF-8?Q?Mario_H=c3=bcttel?= <mario.huettel@gmx.net>,
-        <linux-kernel@vger.kernel.org>, <devicetree@vger.kernel.org>,
-        <netdev@vger.kernel.org>, <linux-can@vger.kernel.org>,
-        <wg@grandegger.com>, <mkl@pengutronix.de>, <robh+dt@kernel.org>,
-        <quentin.schulz@free-electrons.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next] net: dsa: better scoping of slave functions
+Date: Wed, 20 Sep 2017 19:31:57 -0400
+Message-ID: <20170920233157.6832-1-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <096c73b1-eaa5-8c40-4486-e08a784c0897@gmx.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+A few DSA slave functions take a dsa_slave_priv pointer as first
+argument, whereas the scope of the slave.c functions is the slave
+net_device structure. Fix this and rename dsa_netpoll_send_skb to
+dsa_slave_netpoll_send_skb.
 
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
+ net/dsa/slave.c | 29 +++++++++++++++--------------
+ 1 file changed, 15 insertions(+), 14 deletions(-)
 
-On 09/20/2017 05:00 PM, Mario Hüttel wrote:
->> Hclk is the MCAN's interface clock. However, for OMAP based devices such as
->> DRA7 SoC family the interface clock is handled by hwmod. Therefore, this
->> interface clock is managed by hwmod driver via pm_runtime_get and
->> pm_runtime_put calls. Therefore, this interface clock isn't defined in DT
->> and thus the driver shouldn't fail if this clock isn't found.
-> I also agree in this point.
-> However, there's a problem I want to point out:
-> 
-> The M_CAN can only function correctly, if the condition
-> 'hclk >= cclk' holds true.
-> 
-> The internal clock domain crossing can fail if this condition
-> is violated.
-> 
-> I thought about adding the condition to the driver to ensure
-> correct operation. But I had some problems:
-> 
-> 1. Determine the clock rates:
->     The devices you've mentioned above don't have an assigned
->     hclk. Is there still a possibility to get the clock frequency?
-
-I believe interface clocks via hwmod aren't exposed to drivers. So the
-only way to get access to the clock frequency is to add this interface
-clock to dt.
-
-> 
-> 2. What to do if 'hclk < cclk'?
->     Is there a general way to process such an error? - I think not.
->     Is a simple warning in case of an error enough?
-> 
-> Is there a way of ensuring that the condition is always met at all?
-> 
-> I think it is quite unlikely that the condition is violated, because
-> devices that actually run Linux usually have (bus) clock rates that
-> are high enough to ensure the correct operation.
-> 
-> Would it be safe to just ignore this possible fault?
-
-I think alot of peripherals have similar constraints when there is an
-interface and functional clock. However, I haven't seen drivers verify
-that this kind of constraint is properly met. Personally I think its a
-valid fault but one that can be ignored from the driver perspective.
-> 
-> Regards
-> 
-> Mario
->    
->>
->> Signed-off-by: Franklin S Cooper Jr <fcooper@ti.com>
->> ---
->> Version 2 changes:
->> Used NULL instead of 0 for unused hclk handle
->>
->>  drivers/net/can/m_can/m_can.c | 9 +++++++--
->>  1 file changed, 7 insertions(+), 2 deletions(-)
->>
->> diff --git a/drivers/net/can/m_can/m_can.c b/drivers/net/can/m_can/m_can.c
->> index f4947a7..ea48e59 100644
->> --- a/drivers/net/can/m_can/m_can.c
->> +++ b/drivers/net/can/m_can/m_can.c
->> @@ -1568,8 +1568,13 @@ static int m_can_plat_probe(struct platform_device *pdev)
->>  	hclk = devm_clk_get(&pdev->dev, "hclk");
->>  	cclk = devm_clk_get(&pdev->dev, "cclk");
->>  
->> -	if (IS_ERR(hclk) || IS_ERR(cclk)) {
->> -		dev_err(&pdev->dev, "no clock found\n");
->> +	if (IS_ERR(hclk)) {
->> +		dev_warn(&pdev->dev, "hclk could not be found\n");
->> +		hclk = NULL;
->> +	}
->> +
->> +	if (IS_ERR(cclk)) {
->> +		dev_err(&pdev->dev, "cclk could not be found\n");
->>  		ret = -ENODEV;
->>  		goto failed_ret;
->>  	}
-> 
-> 
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index d51b10450e1b..bc376fc1bbe7 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -385,10 +385,12 @@ static int dsa_slave_port_attr_get(struct net_device *dev,
+ 	return 0;
+ }
+ 
+-static inline netdev_tx_t dsa_netpoll_send_skb(struct dsa_slave_priv *p,
+-					       struct sk_buff *skb)
++static inline netdev_tx_t dsa_slave_netpoll_send_skb(struct net_device *dev,
++						     struct sk_buff *skb)
+ {
+ #ifdef CONFIG_NET_POLL_CONTROLLER
++	struct dsa_slave_priv *p = netdev_priv(dev);
++
+ 	if (p->netpoll)
+ 		netpoll_send_skb(p->netpoll, skb);
+ #else
+@@ -422,7 +424,7 @@ static netdev_tx_t dsa_slave_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	 * tag to be successfully transmitted
+ 	 */
+ 	if (unlikely(netpoll_tx_running(dev)))
+-		return dsa_netpoll_send_skb(p, nskb);
++		return dsa_slave_netpoll_send_skb(dev, nskb);
+ 
+ 	/* Queue the SKB for transmission on the parent interface, but
+ 	 * do not modify its EtherType
+@@ -736,9 +738,9 @@ static int dsa_slave_get_phys_port_name(struct net_device *dev,
+ }
+ 
+ static struct dsa_mall_tc_entry *
+-dsa_slave_mall_tc_entry_find(struct dsa_slave_priv *p,
+-			     unsigned long cookie)
++dsa_slave_mall_tc_entry_find(struct net_device *dev, unsigned long cookie)
+ {
++	struct dsa_slave_priv *p = netdev_priv(dev);
+ 	struct dsa_mall_tc_entry *mall_tc_entry;
+ 
+ 	list_for_each_entry(mall_tc_entry, &p->mall_tc_list, list)
+@@ -820,7 +822,7 @@ static void dsa_slave_del_cls_matchall(struct net_device *dev,
+ 	if (!ds->ops->port_mirror_del)
+ 		return;
+ 
+-	mall_tc_entry = dsa_slave_mall_tc_entry_find(p, cls->cookie);
++	mall_tc_entry = dsa_slave_mall_tc_entry_find(dev, cls->cookie);
+ 	if (!mall_tc_entry)
+ 		return;
+ 
+@@ -1027,10 +1029,9 @@ static int dsa_slave_fixed_link_update(struct net_device *dev,
+ }
+ 
+ /* slave device setup *******************************************************/
+-static int dsa_slave_phy_connect(struct dsa_slave_priv *p,
+-				 struct net_device *slave_dev,
+-				 int addr)
++static int dsa_slave_phy_connect(struct net_device *slave_dev, int addr)
+ {
++	struct dsa_slave_priv *p = netdev_priv(slave_dev);
+ 	struct dsa_switch *ds = p->dp->ds;
+ 
+ 	p->phy = mdiobus_get_phy(ds->slave_mii_bus, addr);
+@@ -1046,9 +1047,9 @@ static int dsa_slave_phy_connect(struct dsa_slave_priv *p,
+ 				  p->phy_interface);
+ }
+ 
+-static int dsa_slave_phy_setup(struct dsa_slave_priv *p,
+-				struct net_device *slave_dev)
++static int dsa_slave_phy_setup(struct net_device *slave_dev)
+ {
++	struct dsa_slave_priv *p = netdev_priv(slave_dev);
+ 	struct dsa_switch *ds = p->dp->ds;
+ 	struct device_node *phy_dn, *port_dn;
+ 	bool phy_is_fixed = false;
+@@ -1088,7 +1089,7 @@ static int dsa_slave_phy_setup(struct dsa_slave_priv *p,
+ 		 */
+ 		if (!phy_is_fixed && phy_id >= 0 &&
+ 		    (ds->phys_mii_mask & (1 << phy_id))) {
+-			ret = dsa_slave_phy_connect(p, slave_dev, phy_id);
++			ret = dsa_slave_phy_connect(slave_dev, phy_id);
+ 			if (ret) {
+ 				netdev_err(slave_dev, "failed to connect to phy%d: %d\n", phy_id, ret);
+ 				of_node_put(phy_dn);
+@@ -1111,7 +1112,7 @@ static int dsa_slave_phy_setup(struct dsa_slave_priv *p,
+ 	 * MDIO bus instead
+ 	 */
+ 	if (!p->phy) {
+-		ret = dsa_slave_phy_connect(p, slave_dev, p->dp->index);
++		ret = dsa_slave_phy_connect(slave_dev, p->dp->index);
+ 		if (ret) {
+ 			netdev_err(slave_dev, "failed to connect to port %d: %d\n",
+ 				   p->dp->index, ret);
+@@ -1233,7 +1234,7 @@ int dsa_slave_create(struct dsa_port *port, const char *name)
+ 
+ 	netif_carrier_off(slave_dev);
+ 
+-	ret = dsa_slave_phy_setup(p, slave_dev);
++	ret = dsa_slave_phy_setup(slave_dev);
+ 	if (ret) {
+ 		netdev_err(master, "error %d setting up slave phy\n", ret);
+ 		unregister_netdev(slave_dev);
+-- 
+2.14.1
