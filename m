@@ -1,125 +1,125 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH 2/2] blackfin: ezbrd: Remove non-functional DSA/KSZ8893M code
-Date: Tue, 19 Sep 2017 18:03:46 -0700
-Message-ID: <20170920010346.16871-3-f.fainelli@gmail.com>
-References: <20170920010346.16871-1-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com, realmz6@gmail.com,
-        adi-buildroot-devel@lists.sourceforge.net,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f194.google.com ([209.85.216.194]:36724 "EHLO
-        mail-qt0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751655AbdITBD4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 19 Sep 2017 21:03:56 -0400
-Received: by mail-qt0-f194.google.com with SMTP id t46so843709qtj.3
-        for <netdev@vger.kernel.org>; Tue, 19 Sep 2017 18:03:56 -0700 (PDT)
-In-Reply-To: <20170920010346.16871-1-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the
+ driver-core.current tree
+Date: Wed, 20 Sep 2017 11:15:56 +1000
+Message-ID: <20170920111556.3c739e52@canb.auug.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Linux-Next Mailing List <linux-next@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        Dmitry Torokhov <dmitry.torokhov@gmail.com>,
+        Eric Dumazet <edumazet@google.com>
+To: David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>, Greg KH <greg@kroah.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-There is no in tree driver for the KSZ8893M switch driver, so just get rid of
-the code in that board file.
+Hi all,
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- arch/blackfin/mach-bf518/boards/ezbrd.c | 47 ---------------------------------
- 1 file changed, 47 deletions(-)
+Today's linux-next merge of the net-next tree got a conflict in:
 
-diff --git a/arch/blackfin/mach-bf518/boards/ezbrd.c b/arch/blackfin/mach-bf518/boards/ezbrd.c
-index d022112927c2..c51d1b810ac3 100644
---- a/arch/blackfin/mach-bf518/boards/ezbrd.c
-+++ b/arch/blackfin/mach-bf518/boards/ezbrd.c
-@@ -25,7 +25,6 @@
- #include <asm/dpmc.h>
- #include <asm/bfin_sdh.h>
- #include <linux/spi/ad7877.h>
--#include <net/dsa.h>
- 
- /*
-  * Name the Board for the /proc/cpuinfo
-@@ -105,11 +104,7 @@ static const unsigned short bfin_mac_peripherals[] = {
- 
- static struct bfin_phydev_platform_data bfin_phydev_data[] = {
- 	{
--#if IS_ENABLED(CONFIG_NET_DSA_KSZ8893M)
--		.addr = 3,
--#else
- 		.addr = 1,
--#endif
- 		.irq = IRQ_MAC_PHYINT,
- 	},
- };
-@@ -119,9 +114,6 @@ static struct bfin_mii_bus_platform_data bfin_mii_bus_data = {
- 	.phydev_data = bfin_phydev_data,
- 	.phy_mode = PHY_INTERFACE_MODE_MII,
- 	.mac_peripherals = bfin_mac_peripherals,
--#if IS_ENABLED(CONFIG_NET_DSA_KSZ8893M)
--	.phy_mask = 0xfff7, /* Only probe the port phy connect to the on chip MAC */
--#endif
- 	.vlan1_mask = 1,
- 	.vlan2_mask = 2,
- };
-@@ -140,29 +132,6 @@ static struct platform_device bfin_mac_device = {
- 	}
- };
- 
--#if IS_ENABLED(CONFIG_NET_DSA_KSZ8893M)
--static struct dsa_chip_data ksz8893m_switch_chip_data = {
--	.mii_bus = &bfin_mii_bus.dev,
--	.port_names = {
--		NULL,
--		"eth%d",
--		"eth%d",
--		"cpu",
--	},
--};
--static struct dsa_platform_data ksz8893m_switch_data = {
--	.nr_chips = 1,
--	.netdev = &bfin_mac_device.dev,
--	.chip = &ksz8893m_switch_chip_data,
--};
--
--static struct platform_device ksz8893m_switch_device = {
--	.name		= "dsa",
--	.id		= 0,
--	.num_resources	= 0,
--	.dev.platform_data = &ksz8893m_switch_data,
--};
--#endif
- #endif
- 
- #if IS_ENABLED(CONFIG_MTD_M25P80)
-@@ -228,19 +197,6 @@ static struct spi_board_info bfin_spi_board_info[] __initdata = {
- 	},
- #endif
- 
--#if IS_ENABLED(CONFIG_BFIN_MAC)
--#if IS_ENABLED(CONFIG_NET_DSA_KSZ8893M)
--	{
--		.modalias = "ksz8893m",
--		.max_speed_hz = 5000000,
--		.bus_num = 0,
--		.chip_select = 1,
--		.platform_data = NULL,
--		.mode = SPI_MODE_3,
--	},
--#endif
--#endif
--
- #if IS_ENABLED(CONFIG_MMC_SPI)
- 	{
- 		.modalias = "mmc_spi",
-@@ -714,9 +670,6 @@ static struct platform_device *stamp_devices[] __initdata = {
- #if IS_ENABLED(CONFIG_BFIN_MAC)
- 	&bfin_mii_bus,
- 	&bfin_mac_device,
--#if IS_ENABLED(CONFIG_NET_DSA_KSZ8893M)
--	&ksz8893m_switch_device,
--#endif
- #endif
- 
- #if IS_ENABLED(CONFIG_SPI_BFIN5XX)
+  lib/kobject_uevent.c
+
+between commit:
+
+  6878e7de6af7 ("driver core: suppress sending MODALIAS in UNBIND uevents")
+
+from the driver-core.current tree and commit:
+
+  16dff336b33d ("kobject: add kobject_uevent_net_broadcast()")
+
+from the net-next tree.
+
+I fixed it up (see below) and can carry the fix as necessary. This
+is now fixed as far as linux-next is concerned, but any non trivial
+conflicts should be mentioned to your upstream maintainer when your tree
+is submitted for merging.  You may also want to consider cooperating
+with the maintainer of the conflicting tree to minimise any particularly
+complex conflicts.
+
 -- 
-2.11.0
+Cheers,
+Stephen Rothwell
+
+diff --cc lib/kobject_uevent.c
+index f237a09a5862,147db91c10d0..000000000000
+--- a/lib/kobject_uevent.c
++++ b/lib/kobject_uevent.c
+@@@ -294,26 -294,55 +294,75 @@@ static void cleanup_uevent_env(struct s
+  }
+  #endif
+  
+ +static void zap_modalias_env(struct kobj_uevent_env *env)
+ +{
+ +	static const char modalias_prefix[] = "MODALIAS=";
+ +	int i;
+ +
+ +	for (i = 0; i < env->envp_idx;) {
+ +		if (strncmp(env->envp[i], modalias_prefix,
+ +			    sizeof(modalias_prefix) - 1)) {
+ +			i++;
+ +			continue;
+ +		}
+ +
+ +		if (i != env->envp_idx - 1)
+ +			memmove(&env->envp[i], &env->envp[i + 1],
+ +				sizeof(env->envp[i]) * env->envp_idx - 1);
+ +
+ +		env->envp_idx--;
+ +	}
+ +}
+ +
++ static int kobject_uevent_net_broadcast(struct kobject *kobj,
++ 					struct kobj_uevent_env *env,
++ 					const char *action_string,
++ 					const char *devpath)
++ {
++ 	int retval = 0;
++ #if defined(CONFIG_NET)
++ 	struct sk_buff *skb = NULL;
++ 	struct uevent_sock *ue_sk;
++ 
++ 	/* send netlink message */
++ 	list_for_each_entry(ue_sk, &uevent_sock_list, list) {
++ 		struct sock *uevent_sock = ue_sk->sk;
++ 
++ 		if (!netlink_has_listeners(uevent_sock, 1))
++ 			continue;
++ 
++ 		if (!skb) {
++ 			/* allocate message with the maximum possible size */
++ 			size_t len = strlen(action_string) + strlen(devpath) + 2;
++ 			char *scratch;
++ 
++ 			retval = -ENOMEM;
++ 			skb = alloc_skb(len + env->buflen, GFP_KERNEL);
++ 			if (!skb)
++ 				continue;
++ 
++ 			/* add header */
++ 			scratch = skb_put(skb, len);
++ 			sprintf(scratch, "%s@%s", action_string, devpath);
++ 
++ 			skb_put_data(skb, env->buf, env->buflen);
++ 
++ 			NETLINK_CB(skb).dst_group = 1;
++ 		}
++ 
++ 		retval = netlink_broadcast_filtered(uevent_sock, skb_get(skb),
++ 						    0, 1, GFP_KERNEL,
++ 						    kobj_bcast_filter,
++ 						    kobj);
++ 		/* ENOBUFS should be handled in userspace */
++ 		if (retval == -ENOBUFS || retval == -ESRCH)
++ 			retval = 0;
++ 	}
++ 	consume_skb(skb);
++ #endif
++ 	return retval;
++ }
++ 
+  /**
+   * kobject_uevent_env - send an uevent with environmental data
+   *
