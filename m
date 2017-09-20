@@ -1,29 +1,70 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 00/10] net/smc: updates 2017-09-20
-Date: Wed, 20 Sep 2017 16:29:21 -0700 (PDT)
-Message-ID: <20170920.162921.1558401661394222401.davem@davemloft.net>
-References: <20170920115813.63745-1-ubraun@linux.vnet.ibm.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
-        linux-s390@vger.kernel.org, jwi@linux.vnet.ibm.com,
-        schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
-        raspl@linux.vnet.ibm.com
-To: ubraun@linux.vnet.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:42494 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752333AbdITX3W (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2017 19:29:22 -0400
-In-Reply-To: <20170920115813.63745-1-ubraun@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Kees Cook <keescook@chromium.org>
+Subject: [PATCH v2 25/31] net/atm/mpc: Use separate static data field with with static timer
+Date: Wed, 20 Sep 2017 16:27:49 -0700
+Message-ID: <1505950075-50223-26-git-send-email-keescook@chromium.org>
+References: <1505950075-50223-1-git-send-email-keescook@chromium.org>
+Cc: Kees Cook <keescook@chromium.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Andrew Morton <akpm@linux-foundation.org>,
+        Alexey Dobriyan <adobriyan@gmail.com>,
+        "Reshetova, Elena" <elena.reshetova@intel.com>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Thomas Gleixner <tglx@linutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1505950075-50223-1-git-send-email-keescook@chromium.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ursula Braun <ubraun@linux.vnet.ibm.com>
-Date: Wed, 20 Sep 2017 13:58:03 +0200
+In preparation for changing the timer callback argument to the timer
+pointer, move to a separate static data variable.
 
-> here is a collection of small smc-patches built for net-next
-> improving the smc code in different areas.
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: Alexey Dobriyan <adobriyan@gmail.com>
+Cc: "Reshetova, Elena" <elena.reshetova@intel.com>
+Cc: netdev@vger.kernel.org
+Signed-off-by: Kees Cook <keescook@chromium.org>
+---
+ net/atm/mpc.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-There are bug fixes in here, which should be targetted at 'net'.
+diff --git a/net/atm/mpc.c b/net/atm/mpc.c
+index 63138c8c2269..3b59a053b7cb 100644
+--- a/net/atm/mpc.c
++++ b/net/atm/mpc.c
+@@ -95,7 +95,7 @@ static netdev_tx_t mpc_send_packet(struct sk_buff *skb,
+ static int mpoa_event_listener(struct notifier_block *mpoa_notifier,
+ 			       unsigned long event, void *dev);
+ static void mpc_timer_refresh(void);
+-static void mpc_cache_check(unsigned long checking_time);
++static void mpc_cache_check(unsigned long unused);
+ 
+ static struct llc_snap_hdr llc_snap_mpoa_ctrl = {
+ 	0xaa, 0xaa, 0x03,
+@@ -121,7 +121,8 @@ static struct notifier_block mpoa_notifier = {
+ 
+ struct mpoa_client *mpcs = NULL; /* FIXME */
+ static struct atm_mpoa_qos *qos_head = NULL;
+-static DEFINE_TIMER(mpc_timer, NULL);
++static DEFINE_TIMER(mpc_timer, mpc_cache_check);
++static unsigned long checking_time;
+ 
+ 
+ static struct mpoa_client *find_mpc_by_itfnum(int itf)
+@@ -1411,12 +1412,11 @@ static void clean_up(struct k_message *msg, struct mpoa_client *mpc, int action)
+ static void mpc_timer_refresh(void)
+ {
+ 	mpc_timer.expires = jiffies + (MPC_P2 * HZ);
+-	mpc_timer.data = mpc_timer.expires;
+-	mpc_timer.function = mpc_cache_check;
++	checking_time = mpc_timer.expires;
+ 	add_timer(&mpc_timer);
+ }
+ 
+-static void mpc_cache_check(unsigned long checking_time)
++static void mpc_cache_check(unsigned long unused)
+ {
+ 	struct mpoa_client *mpc = mpcs;
+ 	static unsigned long previous_resolving_check_time;
+-- 
+2.7.4
