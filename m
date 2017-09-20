@@ -1,50 +1,48 @@
 From: Nisar Sayed <Nisar.Sayed@microchip.com>
-Subject: [PATCH v5 net 0/3] lan78xx: This series of patches are for lan78xx driver.
-Date: Thu, 21 Sep 2017 02:36:35 +0530
-Message-ID: <20170920210638.11150-1-Nisar.Sayed@microchip.com>
+Subject: [PATCH v5 net 2/3] lan78xx: Allow EEPROM write for less than MAX_EEPROM_SIZE
+Date: Thu, 21 Sep 2017 02:36:37 +0530
+Message-ID: <20170920210638.11150-3-Nisar.Sayed@microchip.com>
+References: <20170920210638.11150-1-Nisar.Sayed@microchip.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <UNGLinuxDriver@microchip.com>, <netdev@vger.kernel.org>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from esa2.microchip.iphmx.com ([68.232.149.84]:30425 "EHLO
-        esa2.microchip.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751551AbdITPoF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2017 11:44:05 -0400
+Received: from esa6.microchip.iphmx.com ([216.71.154.253]:39646 "EHLO
+        esa6.microchip.iphmx.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751551AbdITPoJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2017 11:44:09 -0400
+In-Reply-To: <20170920210638.11150-1-Nisar.Sayed@microchip.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series of patches are for lan78xx driver.
+Allow EEPROM write for less than MAX_EEPROM_SIZE
 
-These patches fixes potential issues associated with lan78xx driver.
+Fixes: 55d7de9de6c3 ("Microchip's LAN7800 family USB 2/3 to 10/100/1000 Ethernet device driver")
+Signed-off-by: Nisar Sayed <Nisar.Sayed@microchip.com>
+---
+ drivers/net/usb/lan78xx.c | 9 ++++-----
+ 1 file changed, 4 insertions(+), 5 deletions(-)
 
-v5
-- Updated changes as per comments
-
-v4
-- Updated changes to handle return values as per comments
-- Updated EEPROM write handling as per comments
-
-v3
-- Updated chagnes as per comments
-
-v2
-- Added patch version information
-- Added fixes tag
-- Updated patch description
-- Updated chagnes as per comments
-
-v1
-- Splitted patches as per comments
-- Dropped "fixed_phy device support" and "Fix for system suspend" changes
-
-Nisar Sayed (3):
-  lan78xx: Fix for eeprom read/write when device auto suspend
-  lan78xx: Allow EEPROM write for less than MAX_EEPROM_SIZE
-  lan78xx: Use default values loaded from EEPROM/OTP after reset
-
- drivers/net/usb/lan78xx.c | 34 ++++++++++++++++++++++++----------
- 1 file changed, 24 insertions(+), 10 deletions(-)
-
+diff --git a/drivers/net/usb/lan78xx.c b/drivers/net/usb/lan78xx.c
+index fcf85ae37435..f8c63eec8353 100644
+--- a/drivers/net/usb/lan78xx.c
++++ b/drivers/net/usb/lan78xx.c
+@@ -1290,11 +1290,10 @@ static int lan78xx_ethtool_set_eeprom(struct net_device *netdev,
+ 	if (ret)
+ 		return ret;
+ 
+-	/* Allow entire eeprom update only */
+-	if ((ee->magic == LAN78XX_EEPROM_MAGIC) &&
+-	    (ee->offset == 0) &&
+-	    (ee->len == 512) &&
+-	    (data[0] == EEPROM_INDICATOR))
++	/* Invalid EEPROM_INDICATOR at offset zero will result in a failure
++	 * to load data from EEPROM
++	 */
++	if (ee->magic == LAN78XX_EEPROM_MAGIC)
+ 		ret = lan78xx_write_raw_eeprom(dev, ee->offset, ee->len, data);
+ 	else if ((ee->magic == LAN78XX_OTP_MAGIC) &&
+ 		 (ee->offset == 0) &&
 -- 
 2.14.1
