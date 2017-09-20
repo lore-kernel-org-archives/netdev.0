@@ -1,7 +1,7 @@
 From: Yunsheng Lin <linyunsheng@huawei.com>
-Subject: [PATCH net 8/9] net: hns3: Fix for setting rss_size incorrectly
-Date: Wed, 20 Sep 2017 18:52:57 +0800
-Message-ID: <1505904778-53217-9-git-send-email-linyunsheng@huawei.com>
+Subject: [PATCH net 2/9] net: hns3: Fix initialization when cmd is not supported
+Date: Wed, 20 Sep 2017 18:52:51 +0800
+Message-ID: <1505904778-53217-3-git-send-email-linyunsheng@huawei.com>
 References: <1505904778-53217-1-git-send-email-linyunsheng@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -17,163 +17,121 @@ In-Reply-To: <1505904778-53217-1-git-send-email-linyunsheng@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-rss_size is 1, 2, 4, 8, 16, 32, 64, 128, but acutal tc queue
-size can be any u16 less than 128. If tc queue size is 5, we
-set the rss_size to 8, indirection table will be used to limit
-the size of actual queue size.
-It may cause dropping of receiving packet in hardware if
-rss_size is not set correctly.
-For now, each TC has the same rss size.
+When ae_dev doesn't support DCB, rx_priv_wl_config,
+common_thrd_config and tm_qs_bp_cfg can't be called, otherwise
+cmd return fail, which causes the hclge module initialization
+process to fail.
+This patch fix it by adding a DCB capability flag to check if
+the ae_dev support DCB.
 
 Fixes: 46a3df9f9718 ("net: hns3: Add HNS3 Acceleration Engine & Compatibility Layer Support")
 Signed-off-by: Yunsheng Lin <linyunsheng@huawei.com>
 ---
- .../ethernet/hisilicon/hns3/hns3pf/hclge_main.c    | 76 ++++++++++------------
- .../ethernet/hisilicon/hns3/hns3pf/hclge_main.h    |  1 +
- .../net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c  |  1 +
- 3 files changed, 38 insertions(+), 40 deletions(-)
+ drivers/net/ethernet/hisilicon/hns3/hnae3.h        |  7 ++++++
+ .../ethernet/hisilicon/hns3/hns3pf/hclge_main.c    | 26 +++++++++++++---------
+ .../net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c  |  4 ++++
+ .../net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c | 10 ++++-----
+ 4 files changed, 31 insertions(+), 16 deletions(-)
 
+diff --git a/drivers/net/ethernet/hisilicon/hns3/hnae3.h b/drivers/net/ethernet/hisilicon/hns3/hnae3.h
+index 0f7b61a..ad685f5 100644
+--- a/drivers/net/ethernet/hisilicon/hns3/hnae3.h
++++ b/drivers/net/ethernet/hisilicon/hns3/hnae3.h
+@@ -50,10 +50,17 @@
+ 
+ #define HNAE3_DEV_INITED_B			0x0
+ #define HNAE3_DEV_SUPPORT_ROCE_B		0x1
++#define HNAE3_DEV_SUPPORT_DCB_B			0x2
++
++#define HNAE3_DEV_SUPPORT_ROCE_DCB_BITS (BIT(HNAE3_DEV_SUPPORT_DCB_B) |\
++		BIT(HNAE3_DEV_SUPPORT_ROCE_B))
+ 
+ #define hnae3_dev_roce_supported(hdev) \
+ 	hnae_get_bit(hdev->ae_dev->flag, HNAE3_DEV_SUPPORT_ROCE_B)
+ 
++#define hnae3_dev_dcb_supported(hdev) \
++	hnae_get_bit(hdev->ae_dev->flag, HNAE3_DEV_SUPPORT_DCB_B)
++
+ #define ring_ptr_move_fw(ring, p) \
+ 	((ring)->p = ((ring)->p + 1) % (ring)->desc_num)
+ #define ring_ptr_move_bw(ring, p) \
 diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
-index 1e15ce1..d27618b 100644
+index eb78c23..c515b84 100644
 --- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
 +++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c
-@@ -2606,6 +2606,7 @@ static int hclge_rss_init_hw(struct hclge_dev *hdev)
- 	u16 tc_valid[HCLGE_MAX_TC_NUM];
- 	u16 tc_size[HCLGE_MAX_TC_NUM];
- 	u32 *rss_indir = NULL;
-+	u16 rss_size = 0, roundup_size;
- 	const u8 *key;
- 	int i, ret, j;
- 
-@@ -2620,7 +2621,13 @@ static int hclge_rss_init_hw(struct hclge_dev *hdev)
- 	for (j = 0; j < hdev->num_vmdq_vport + 1; j++) {
- 		for (i = 0; i < HCLGE_RSS_IND_TBL_SIZE; i++) {
- 			vport[j].rss_indirection_tbl[i] =
--				i % hdev->rss_size_max;
-+				i % vport[j].alloc_rss_size;
-+
-+			/* vport 0 is for PF */
-+			if (j != 0)
-+				continue;
-+
-+			rss_size = vport[j].alloc_rss_size;
- 			rss_indir[i] = vport[j].rss_indirection_tbl[i];
- 		}
- 	}
-@@ -2637,42 +2644,31 @@ static int hclge_rss_init_hw(struct hclge_dev *hdev)
- 	if (ret)
- 		goto err;
- 
-+	/* Each TC have the same queue size, and tc_size set to hardware is
-+	 * the log2 of roundup power of two of rss_size, the acutal queue
-+	 * size is limited by indirection table.
-+	 */
-+	if (rss_size > HCLGE_RSS_TC_SIZE_7 || rss_size == 0) {
-+		dev_err(&hdev->pdev->dev,
-+			"Configure rss tc size failed, invalid TC_SIZE = %d\n",
-+			rss_size);
-+		return -EINVAL;
-+	}
-+
-+	roundup_size = roundup_pow_of_two(rss_size);
-+	roundup_size = ilog2(roundup_size);
-+
- 	for (i = 0; i < HCLGE_MAX_TC_NUM; i++) {
--		if (hdev->hw_tc_map & BIT(i))
--			tc_valid[i] = 1;
--		else
--			tc_valid[i] = 0;
-+		tc_valid[i] = 0;
- 
--		switch (hdev->rss_size_max) {
--		case HCLGE_RSS_TC_SIZE_0:
--			tc_size[i] = 0;
--			break;
--		case HCLGE_RSS_TC_SIZE_1:
--			tc_size[i] = 1;
--			break;
--		case HCLGE_RSS_TC_SIZE_2:
--			tc_size[i] = 2;
--			break;
--		case HCLGE_RSS_TC_SIZE_3:
--			tc_size[i] = 3;
--			break;
--		case HCLGE_RSS_TC_SIZE_4:
--			tc_size[i] = 4;
--			break;
--		case HCLGE_RSS_TC_SIZE_5:
--			tc_size[i] = 5;
--			break;
--		case HCLGE_RSS_TC_SIZE_6:
--			tc_size[i] = 6;
--			break;
--		case HCLGE_RSS_TC_SIZE_7:
--			tc_size[i] = 7;
--			break;
--		default:
--			break;
--		}
--		tc_offset[i] = hdev->rss_size_max * i;
-+		if (!(hdev->hw_tc_map & BIT(i)))
-+			continue;
-+
-+		tc_valid[i] = 1;
-+		tc_size[i] = roundup_size;
-+		tc_offset[i] = rss_size * i;
- 	}
-+
- 	ret = hclge_set_rss_tc_mode(hdev, tc_valid, tc_size, tc_offset);
- 
- err:
-@@ -4166,12 +4162,6 @@ static int hclge_init_ae_dev(struct hnae3_ae_dev *ae_dev)
+@@ -1772,18 +1772,22 @@ int hclge_buffer_alloc(struct hclge_dev *hdev)
  		return ret;
  	}
  
--	ret = hclge_rss_init_hw(hdev);
+-	ret = hclge_rx_priv_wl_config(hdev);
 -	if (ret) {
--		dev_err(&pdev->dev, "Rss init fail, ret =%d\n", ret);
--		return  ret;
+-		dev_err(&hdev->pdev->dev,
+-			"could not configure rx private waterline %d\n", ret);
+-		return ret;
 -	}
--
- 	ret = hclge_init_vlan_config(hdev);
- 	if (ret) {
- 		dev_err(&pdev->dev, "VLAN init fail, ret =%d\n", ret);
-@@ -4184,6 +4174,12 @@ static int hclge_init_ae_dev(struct hnae3_ae_dev *ae_dev)
- 		return ret;
++	if (hnae3_dev_dcb_supported(hdev)) {
++		ret = hclge_rx_priv_wl_config(hdev);
++		if (ret) {
++			dev_err(&hdev->pdev->dev,
++				"could not configure rx private waterline %d\n",
++				ret);
++			return ret;
++		}
+ 
+-	ret = hclge_common_thrd_config(hdev);
+-	if (ret) {
+-		dev_err(&hdev->pdev->dev,
+-			"could not configure common threshold %d\n", ret);
+-		return ret;
++		ret = hclge_common_thrd_config(hdev);
++		if (ret) {
++			dev_err(&hdev->pdev->dev,
++				"could not configure common threshold %d\n",
++				ret);
++			return ret;
++		}
  	}
  
-+	ret = hclge_rss_init_hw(hdev);
-+	if (ret) {
-+		dev_err(&pdev->dev, "Rss init fail, ret =%d\n", ret);
-+		return ret;
-+	}
-+
- 	setup_timer(&hdev->service_timer, hclge_service_timer,
- 		    (unsigned long)hdev);
- 	INIT_WORK(&hdev->service_task, hclge_service_task);
-diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.h b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.h
-index edb10ad..7f8dd12 100644
---- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.h
-+++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.h
-@@ -477,6 +477,7 @@ struct hclge_vport {
- 	u8  rss_hash_key[HCLGE_RSS_KEY_SIZE]; /* User configured hash keys */
- 	/* User configured lookup table entries */
- 	u8  rss_indirection_tbl[HCLGE_RSS_IND_TBL_SIZE];
-+	u16 alloc_rss_size;
- 
- 	u16 qs_offset;
- 	u16 bw_limit;		/* VSI BW Limit (0 = disabled) */
+ 	ret = hclge_common_wl_config(hdev);
 diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c
-index fe659f7..b7ba7aa 100644
+index 1c577d2..c91dbf1 100644
 --- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c
 +++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c
-@@ -397,6 +397,7 @@ static void hclge_tm_vport_tc_info_update(struct hclge_vport *vport)
- 			kinfo->num_tqps / kinfo->num_tc);
- 	vport->qs_offset = hdev->tm_info.num_tc * vport->vport_id;
- 	vport->dwrr = 100;  /* 100 percent as init */
-+	vport->alloc_rss_size = kinfo->rss_size;
+@@ -976,6 +976,10 @@ int hclge_pause_setup_hw(struct hclge_dev *hdev)
+ 	if (ret)
+ 		return ret;
  
- 	for (i = 0; i < kinfo->num_tc; i++) {
- 		if (hdev->hw_tc_map & BIT(i)) {
++	/* Only DCB-supported dev supports qset back pressure setting */
++	if (!hnae3_dev_dcb_supported(hdev))
++		return 0;
++
+ 	for (i = 0; i < hdev->tm_info.num_tc; i++) {
+ 		ret = hclge_tm_qs_bp_cfg(hdev, i);
+ 		if (ret)
+diff --git a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c
+index 94d8bb5..35369e1 100644
+--- a/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c
++++ b/drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c
+@@ -42,15 +42,15 @@
+ 	{PCI_VDEVICE(HUAWEI, HNAE3_DEV_ID_GE), 0},
+ 	{PCI_VDEVICE(HUAWEI, HNAE3_DEV_ID_25GE), 0},
+ 	{PCI_VDEVICE(HUAWEI, HNAE3_DEV_ID_25GE_RDMA),
+-	 BIT(HNAE3_DEV_SUPPORT_ROCE_B)},
++	 HNAE3_DEV_SUPPORT_ROCE_DCB_BITS},
+ 	{PCI_VDEVICE(HUAWEI, HNAE3_DEV_ID_25GE_RDMA_MACSEC),
+-	 BIT(HNAE3_DEV_SUPPORT_ROCE_B)},
++	 HNAE3_DEV_SUPPORT_ROCE_DCB_BITS},
+ 	{PCI_VDEVICE(HUAWEI, HNAE3_DEV_ID_50GE_RDMA),
+-	 BIT(HNAE3_DEV_SUPPORT_ROCE_B)},
++	 HNAE3_DEV_SUPPORT_ROCE_DCB_BITS},
+ 	{PCI_VDEVICE(HUAWEI, HNAE3_DEV_ID_50GE_RDMA_MACSEC),
+-	 BIT(HNAE3_DEV_SUPPORT_ROCE_B)},
++	 HNAE3_DEV_SUPPORT_ROCE_DCB_BITS},
+ 	{PCI_VDEVICE(HUAWEI, HNAE3_DEV_ID_100G_RDMA_MACSEC),
+-	 BIT(HNAE3_DEV_SUPPORT_ROCE_B)},
++	 HNAE3_DEV_SUPPORT_ROCE_DCB_BITS},
+ 	/* required last entry */
+ 	{0, }
+ };
 -- 
 1.9.1
