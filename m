@@ -1,34 +1,30 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: Re: [PATCH net-next] net: avoid a full fib lookup when rp_filter is
- disabled.
-Date: Wed, 20 Sep 2017 18:37:10 +0200
-Message-ID: <1505925430.28140.11.camel@redhat.com>
-References: <597db26b5e57eb89d2ff27454cce997fa6c0f5aa.1505924560.git.pabeni@redhat.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [Patch net] net_sched: remove cls_flower idr on failure
+Date: Wed, 20 Sep 2017 18:40:54 +0200
+Message-ID: <20170920164054.GC2281@nanopsycho>
+References: <20170920161845.28753-1-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Chris Mi <chrism@mellanox.com>,
+        Jiri Pirko <jiri@mellanox.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37058 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751024AbdITQhN (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 20 Sep 2017 12:37:13 -0400
-In-Reply-To: <597db26b5e57eb89d2ff27454cce997fa6c0f5aa.1505924560.git.pabeni@redhat.com>
+Received: from mail-wr0-f169.google.com ([209.85.128.169]:54053 "EHLO
+        mail-wr0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751572AbdITQk4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2017 12:40:56 -0400
+Received: by mail-wr0-f169.google.com with SMTP id l22so2668352wrc.10
+        for <netdev@vger.kernel.org>; Wed, 20 Sep 2017 09:40:56 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20170920161845.28753-1-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dumb me and dumb my scripts. 
+Wed, Sep 20, 2017 at 06:18:45PM CEST, xiyou.wangcong@gmail.com wrote:
+>Fixes: c15ab236d69d ("net/sched: Change cls_flower to use IDR")
+>Cc: Chris Mi <chrism@mellanox.com>
+>Cc: Jiri Pirko <jiri@mellanox.com>
+>Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-This is actually a v2, v1 was at:
-
-https://patchwork.ozlabs.org/project/netdev/list/?series=3835
-
-David, please let me know if you prefer I'll repost with a more
-appropriate subject line.
-
-Sorry for the noise,
-
-Paolo
+Looks fine.
+Acked-by: Jiri Pirko <jiri@mellanox.com>
