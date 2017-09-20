@@ -1,151 +1,207 @@
-From: =?UTF-8?Q?Pawe=c5=82_Staszewski?= <pstaszewski@itcare.pl>
-Subject: Re: Latest net-next from GIT panic
-Date: Wed, 20 Sep 2017 11:45:43 +0200
-Message-ID: <54d058d4-b9d1-54cb-f064-45cec430fe5d@itcare.pl>
-References: <4745525f-18e4-7f69-fe21-8e507e407b33@itcare.pl>
- <d8bbf6c1-20a3-195c-6980-45f29e9f9278@itcare.pl>
- <2aeb7871-fe89-c714-3355-c5f48651e70c@itcare.pl>
- <15d293fa-0f53-bdca-6358-6a58d1da77af@itcare.pl>
- <65e2195b-3bd1-c0b4-b474-e07dd08f71b9@itcare.pl>
- <1505877870.29839.82.camel@edumazet-glaptop3.roam.corp.google.com>
- <07bde5d4-fab6-3ef9-f586-403dadbb0a2a@itcare.pl>
- <8f0b0143-657e-d574-c442-24d3d017bc87@itcare.pl>
+From: Ville Syrjala <ville.syrjala@linux.intel.com>
+Subject: [PATCH v2 1/2] mac80211: Add rcu read side critical sections
+Date: Wed, 20 Sep 2017 13:11:23 +0300
+Message-ID: <20170920101123.23312-1-ville.syrjala@linux.intel.com>
+References: <20170918195919.15860-1-ville.syrjala@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        =?UTF-8?q?Ville=20Syrj=C3=A4l=C3=A4?=
+        <ville.syrjala@linux.intel.com>
+To: linux-wireless@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp16.iq.pl ([86.111.242.222]:35503 "EHLO smtp16.iq.pl"
+Received: from mga14.intel.com ([192.55.52.115]:58398 "EHLO mga14.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751549AbdITJrx (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 20 Sep 2017 05:47:53 -0400
-In-Reply-To: <8f0b0143-657e-d574-c442-24d3d017bc87@itcare.pl>
-Content-Language: pl
+        id S1751468AbdITKL1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 20 Sep 2017 06:11:27 -0400
+In-Reply-To: <20170918195919.15860-1-ville.syrjala@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ok looks like ending bisection
+From: Ville Syrjälä <ville.syrjala@linux.intel.com>
 
+I got the following lockdep warning about the rcu_dereference()s in
+ieee80211_tx_h_select_key(). After tracing all callers of
+ieee80211_tx_h_select_key() I discovered that ieee80211_get_buffered_bc()
+and ieee80211_build_data_template() had the rcu_read_lock/unlock() but
+three other places did not. So I just blindly added them and made the
+read side critical section extend as far as the lifetime of 'tx' which
+is where we seem to be stuffing the rcu protected pointers. No real clue
+whether this is correct or not.
 
-Latest bisected kernel when there is no kernel panic 4.12.0+ (from 
-next)  - but only this warning:
+[  854.573700] ../net/mac80211/tx.c:594 suspicious rcu_dereference_check() usage!
+[  854.573704]
+               other info that might help us debug this:
 
-[  309.030019] NETDEV WATCHDOG: enp4s0f0 (ixgbe): transmit queue 0 timed out
-[  309.030034] ------------[ cut here ]------------
-[  309.030040] WARNING: CPU: 35 PID: 0 at dev_watchdog+0xcf/0x139
-[  309.030041] Modules linked in: bonding ipmi_si x86_pkg_temp_thermal
-[  309.030045] CPU: 35 PID: 0 Comm: swapper/35 Not tainted 4.12.0+ #5
-[  309.030046] task: ffff88086d98a000 task.stack: ffffc90003378000
-[  309.030048] RIP: 0010:dev_watchdog+0xcf/0x139
-[  309.030049] RSP: 0018:ffff88087fbc3ea8 EFLAGS: 00010246
-[  309.030050] RAX: 000000000000003d RBX: ffff88046b680000 RCX: 
-0000000000000000
-[  309.030050] RDX: ffff88087fbd2f01 RSI: 0000000000000000 RDI: 
-ffff88087fbcda08
-[  309.030051] RBP: ffff88087fbc3eb8 R08: 0000000000000000 R09: 
-ffff88087ff80a04
-[  309.030051] R10: 0000000000000000 R11: ffff88086d98a001 R12: 
-0000000000000000
-[  309.030052] R13: ffff88087fbc3ef8 R14: ffff88086d98a000 R15: 
-ffffffff81c06008
-[  309.030053] FS:  0000000000000000(0000) GS:ffff88087fbc0000(0000) 
-knlGS:0000000000000000
-[  309.030054] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-[  309.030054] CR2: 00007fba600f6098 CR3: 000000086b955000 CR4: 
-00000000001406e0
-[  309.030055] Call Trace:
-[  309.030057]  <IRQ>
-[  309.030059]  ? netif_tx_lock+0x79/0x79
-[  309.030062]  call_timer_fn.isra.24+0x17/0x77
-[  309.030063]  run_timer_softirq+0x118/0x161
-[  309.030065]  ? netif_tx_lock+0x79/0x79
-[  309.030066]  ? ktime_get+0x2b/0x42
-[  309.030070]  ? lapic_next_deadline+0x21/0x27
-[  309.030073]  ? clockevents_program_event+0xa8/0xc5
-[  309.030076]  __do_softirq+0xa8/0x19d
-[  309.030078]  irq_exit+0x5d/0x6b
-[  309.030079]  smp_apic_timer_interrupt+0x2a/0x36
-[  309.030082]  apic_timer_interrupt+0x89/0x90
-[  309.030085] RIP: 0010:mwait_idle+0x4e/0x6a
-[  309.030086] RSP: 0018:ffffc9000337be98 EFLAGS: 00000246 ORIG_RAX: 
-ffffffffffffff10
-[  309.030087] RAX: 0000000000000000 RBX: 0000000000000000 RCX: 
-0000000000000000
-[  309.030087] RDX: 0000000000000000 RSI: 0000000000000000 RDI: 
-ffff88086d98a000
-[  309.030088] RBP: ffffc9000337be98 R08: ffff88046f8279a0 R09: 
-ffff88046f827040
-[  309.030089] R10: ffff88086d98a000 R11: ffff88086d98a000 R12: 
-0000000000000000
-[  309.030089] R13: ffff88086d98a000 R14: ffff88086d98a000 R15: 
-ffff88086d98a000
-[  309.030090]  </IRQ>
-[  309.030094]  arch_cpu_idle+0xa/0xc
-[  309.030095]  default_idle_call+0x19/0x1b
-[  309.030102]  do_idle+0xbc/0x196
-[  309.030104]  cpu_startup_entry+0x1d/0x20
-[  309.030105]  start_secondary+0xd8/0xdc
-[  309.030108]  secondary_startup_64+0x9f/0x9f
-[  309.030109] Code: cc 75 bd eb 35 48 89 df c6 05 c3 dc 74 00 01 e8 3a 
-62 fe ff 44 89 e1 48 89 de 48 89 c2 48 c7 c7 0f 65 a4 81 31 c0 e8 3d 4c 
-b5 ff <0f> ff 48 8b 83 e0 01 00 00 48 89 df ff 50 78 48 8b 05 a0 bc 6a
-[  309.030128] ---[ end trace 9102cb25703ae2d9 ]---
+[  854.573707]
+               rcu_scheduler_active = 2, debug_locks = 1
+[  854.573712] 6 locks held by kworker/u2:0/2877:
+[  854.573715]  #0:  ("%s"wiphy_name(local->hw.wiphy)){++++.+}, at: [<c1067f37>] process_one_work+0x127/0x580
+[  854.573742]  #1:  ((&sdata->work)){+.+.+.}, at: [<c1067f37>] process_one_work+0x127/0x580
+[  854.573758]  #2:  (&wdev->mtx){+.+.+.}, at: [<f83271c3>] ieee80211_sta_work+0x23/0x1c70 [mac80211]
+[  854.573902]  #3:  (&local->sta_mtx){+.+.+.}, at: [<f82c9b10>] __sta_info_flush+0x60/0x160 [mac80211]
+[  854.573947]  #4:  (&(&txq->axq_lock)->rlock){+.-...}, at: [<f825729c>] ath_tx_node_cleanup+0x5c/0x180 [ath9k]
+[  854.573973]  #5:  (&(&fq->lock)->rlock){+.-...}, at: [<f82fb064>] ieee80211_tx_dequeue+0x24/0xa80 [mac80211]
+[  854.574023]
+               stack backtrace:
+[  854.574028] CPU: 0 PID: 2877 Comm: kworker/u2:0 Not tainted 4.13.0-mgm-ovl+ #52
+[  854.574032] Hardware name: FUJITSU SIEMENS LIFEBOOK S6120/FJNB16C, BIOS Version 1.26  05/10/2004
+[  854.574070] Workqueue: phy0 ieee80211_iface_work [mac80211]
+[  854.574076] Call Trace:
+[  854.574086]  dump_stack+0x16/0x19
+[  854.574092]  lockdep_rcu_suspicious+0xcb/0xf0
+[  854.574131]  ieee80211_tx_h_select_key+0x1b5/0x500 [mac80211]
+[  854.574171]  ieee80211_tx_dequeue+0x283/0xa80 [mac80211]
+[  854.574181]  ath_tid_dequeue+0x84/0xf0 [ath9k]
+[  854.574189]  ath_tx_node_cleanup+0xb8/0x180 [ath9k]
+[  854.574199]  ath9k_sta_state+0x48/0xf0 [ath9k]
+[  854.574207]  ? ath9k_del_ps_key.isra.19+0x60/0x60 [ath9k]
+[  854.574240]  drv_sta_state+0xaf/0x8c0 [mac80211]
+[  854.574275]  __sta_info_destroy_part2+0x10b/0x140 [mac80211]
+[  854.574309]  __sta_info_flush+0xd5/0x160 [mac80211]
+[  854.574349]  ieee80211_set_disassoc+0xd3/0x570 [mac80211]
+[  854.574390]  ieee80211_sta_connection_lost+0x30/0x60 [mac80211]
+[  854.574431]  ieee80211_sta_work+0x1ff/0x1c70 [mac80211]
+[  854.574436]  ? mark_held_locks+0x62/0x90
+[  854.574443]  ? _raw_spin_unlock_irqrestore+0x55/0x70
+[  854.574447]  ? trace_hardirqs_on_caller+0x11c/0x1a0
+[  854.574452]  ? trace_hardirqs_on+0xb/0x10
+[  854.574459]  ? dev_mc_net_exit+0xe/0x20
+[  854.574467]  ? skb_dequeue+0x48/0x70
+[  854.574504]  ieee80211_iface_work+0x2d8/0x320 [mac80211]
+[  854.574509]  process_one_work+0x1d1/0x580
+[  854.574513]  ? process_one_work+0x127/0x580
+[  854.574519]  worker_thread+0x31/0x380
+[  854.574525]  kthread+0xd9/0x110
+[  854.574529]  ? process_one_work+0x580/0x580
+[  854.574534]  ? kthread_create_on_node+0x30/0x30
+[  854.574540]  ret_from_fork+0x19/0x24
 
+[  854.574548] =============================
+[  854.574551] WARNING: suspicious RCU usage
+[  854.574555] 4.13.0-mgm-ovl+ #52 Not tainted
+[  854.574558] -----------------------------
+[  854.574561] ../net/mac80211/tx.c:608 suspicious rcu_dereference_check() usage!
+[  854.574564]
+               other info that might help us debug this:
 
-I just marked it as good - cause this problem above is differend - and 
-im going to:
+[  854.574568]
+               rcu_scheduler_active = 2, debug_locks = 1
+[  854.574572] 6 locks held by kworker/u2:0/2877:
+[  854.574574]  #0:  ("%s"wiphy_name(local->hw.wiphy)){++++.+}, at: [<c1067f37>] process_one_work+0x127/0x580
+[  854.574590]  #1:  ((&sdata->work)){+.+.+.}, at: [<c1067f37>] process_one_work+0x127/0x580
+[  854.574606]  #2:  (&wdev->mtx){+.+.+.}, at: [<f83271c3>] ieee80211_sta_work+0x23/0x1c70 [mac80211]
+[  854.574657]  #3:  (&local->sta_mtx){+.+.+.}, at: [<f82c9b10>] __sta_info_flush+0x60/0x160 [mac80211]
+[  854.574702]  #4:  (&(&txq->axq_lock)->rlock){+.-...}, at: [<f825729c>] ath_tx_node_cleanup+0x5c/0x180 [ath9k]
+[  854.574721]  #5:  (&(&fq->lock)->rlock){+.-...}, at: [<f82fb064>] ieee80211_tx_dequeue+0x24/0xa80 [mac80211]
+[  854.574771]
+               stack backtrace:
+[  854.574775] CPU: 0 PID: 2877 Comm: kworker/u2:0 Not tainted 4.13.0-mgm-ovl+ #52
+[  854.574779] Hardware name: FUJITSU SIEMENS LIFEBOOK S6120/FJNB16C, BIOS Version 1.26  05/10/2004
+[  854.574814] Workqueue: phy0 ieee80211_iface_work [mac80211]
+[  854.574821] Call Trace:
+[  854.574825]  dump_stack+0x16/0x19
+[  854.574830]  lockdep_rcu_suspicious+0xcb/0xf0
+[  854.574869]  ieee80211_tx_h_select_key+0x44e/0x500 [mac80211]
+[  854.574908]  ieee80211_tx_dequeue+0x283/0xa80 [mac80211]
+[  854.574919]  ath_tid_dequeue+0x84/0xf0 [ath9k]
+[  854.574927]  ath_tx_node_cleanup+0xb8/0x180 [ath9k]
+[  854.574936]  ath9k_sta_state+0x48/0xf0 [ath9k]
+[  854.574945]  ? ath9k_del_ps_key.isra.19+0x60/0x60 [ath9k]
+[  854.574978]  drv_sta_state+0xaf/0x8c0 [mac80211]
+[  854.575012]  __sta_info_destroy_part2+0x10b/0x140 [mac80211]
+[  854.575046]  __sta_info_flush+0xd5/0x160 [mac80211]
+[  854.575087]  ieee80211_set_disassoc+0xd3/0x570 [mac80211]
+[  854.575127]  ieee80211_sta_connection_lost+0x30/0x60 [mac80211]
+[  854.575168]  ieee80211_sta_work+0x1ff/0x1c70 [mac80211]
+[  854.575173]  ? mark_held_locks+0x62/0x90
+[  854.575178]  ? _raw_spin_unlock_irqrestore+0x55/0x70
+[  854.575182]  ? trace_hardirqs_on_caller+0x11c/0x1a0
+[  854.575187]  ? trace_hardirqs_on+0xb/0x10
+[  854.575192]  ? dev_mc_net_exit+0xe/0x20
+[  854.575197]  ? skb_dequeue+0x48/0x70
+[  854.575233]  ieee80211_iface_work+0x2d8/0x320 [mac80211]
+[  854.575238]  process_one_work+0x1d1/0x580
+[  854.575243]  ? process_one_work+0x127/0x580
+[  854.575248]  worker_thread+0x31/0x380
+[  854.575253]  kthread+0xd9/0x110
+[  854.575257]  ? process_one_work+0x580/0x580
+[  854.575262]  ? kthread_create_on_node+0x30/0x30
+[  854.575267]  ret_from_fork+0x19/0x24
 
-git bisect good
-Bisecting: 1787 revisions left to test after this (roughly 11 steps)
+v2: Callers of ieee80211_tx() already have the
+    rcu_read_lock/unlock()
+    Move the rcu critical section inside the spinlock in
+    ieee80211_tx_dequeue() (Johannes Berg)
 
+Cc: Johannes Berg <johannes@sipsolutions.net>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+Signed-off-by: Ville Syrjälä <ville.syrjala@linux.intel.com>
+---
+ net/mac80211/tx.c | 17 +++++++++++++++--
+ 1 file changed, 15 insertions(+), 2 deletions(-)
 
-
-
-W dniu 2017-09-20 o 10:44, Paweł Staszewski pisze:
-> Trying to make video from ipmi :)
->
-> with that results:
->
-> https://bugzilla.kernel.org/attachment.cgi?id=258521
->
-> catched two more lines where it starts - panic from 4.13.2.
->
->
-> Now will try tro do some bisection
->
->
->
-> W dniu 2017-09-20 o 09:58, Paweł Staszewski pisze:
->> Hi
->>
->>
->> Will try bisecting tonight
->>
->>
->>
->> W dniu 2017-09-20 o 05:24, Eric Dumazet pisze:
->>> On Wed, 2017-09-20 at 02:06 +0200, Paweł Staszewski wrote:
->>>> Just checked kernel 4.13.2 and same problem
->>>>
->>>> Just after start all 6 bgp sessions - and kernel starts to learn 
->>>> routes
->>>> it panic.
->>>>
->>>> https://bugzilla.kernel.org/attachment.cgi?id=258509
->>>>
->>>
->>> Unfortunately we have not enough information from these traces.
->>>
->>> Can you get a full stack trace ?
->>>
->>> Alternatively, can you bisect ?
->>>
->>> Thanks.
->>>
->>>
->>>
->>
->>
->
->
+diff --git a/net/mac80211/tx.c b/net/mac80211/tx.c
+index 94826680cf2b..fc4d8294d664 100644
+--- a/net/mac80211/tx.c
++++ b/net/mac80211/tx.c
+@@ -1770,15 +1770,21 @@ bool ieee80211_tx_prepare_skb(struct ieee80211_hw *hw,
+ 	struct ieee80211_tx_data tx;
+ 	struct sk_buff *skb2;
+ 
+-	if (ieee80211_tx_prepare(sdata, &tx, NULL, skb) == TX_DROP)
++	rcu_read_lock();
++
++	if (ieee80211_tx_prepare(sdata, &tx, NULL, skb) == TX_DROP) {
++		rcu_read_unlock();
+ 		return false;
++	}
+ 
+ 	info->band = band;
+ 	info->control.vif = vif;
+ 	info->hw_queue = vif->hw_queue[skb_get_queue_mapping(skb)];
+ 
+-	if (invoke_tx_handlers(&tx))
++	if (invoke_tx_handlers(&tx)) {
++		rcu_read_unlock();
+ 		return false;
++	}
+ 
+ 	if (sta) {
+ 		if (tx.sta)
+@@ -1792,9 +1798,12 @@ bool ieee80211_tx_prepare_skb(struct ieee80211_hw *hw,
+ 	if (WARN_ON(skb2 != skb || !skb_queue_empty(&tx.skbs))) {
+ 		ieee80211_free_txskb(hw, skb2);
+ 		ieee80211_purge_tx_queue(hw, &tx.skbs);
++		rcu_read_unlock();
+ 		return false;
+ 	}
+ 
++	rcu_read_unlock();
++
+ 	return true;
+ }
+ EXPORT_SYMBOL(ieee80211_tx_prepare_skb);
+@@ -3413,6 +3422,8 @@ struct sk_buff *ieee80211_tx_dequeue(struct ieee80211_hw *hw,
+ 
+ 	spin_lock_bh(&fq->lock);
+ 
++	rcu_read_lock();
++
+ 	if (test_bit(IEEE80211_TXQ_STOP, &txqi->flags))
+ 		goto out;
+ 
+@@ -3511,6 +3522,8 @@ struct sk_buff *ieee80211_tx_dequeue(struct ieee80211_hw *hw,
+ 
+ 	IEEE80211_SKB_CB(skb)->control.vif = vif;
+ out:
++	rcu_read_unlock();
++
+ 	spin_unlock_bh(&fq->lock);
+ 
+ 	return skb;
+-- 
+2.13.5
