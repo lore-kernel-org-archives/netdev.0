@@ -1,52 +1,48 @@
-From: =?UTF-8?Q?Pawe=c5=82_Staszewski?= <pstaszewski@itcare.pl>
-Subject: Re: Latest net-next from GIT panic
-Date: Wed, 20 Sep 2017 09:58:52 +0200
-Message-ID: <07bde5d4-fab6-3ef9-f586-403dadbb0a2a@itcare.pl>
-References: <4745525f-18e4-7f69-fe21-8e507e407b33@itcare.pl>
- <d8bbf6c1-20a3-195c-6980-45f29e9f9278@itcare.pl>
- <2aeb7871-fe89-c714-3355-c5f48651e70c@itcare.pl>
- <15d293fa-0f53-bdca-6358-6a58d1da77af@itcare.pl>
- <65e2195b-3bd1-c0b4-b474-e07dd08f71b9@itcare.pl>
- <1505877870.29839.82.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Oliver Neukum <oneukum@suse.com>
+Subject: Re: [RFC PATCH 2/3] usbnet: Avoid potential races in
+ usbnet_deferred_kevent()
+Date: Wed, 20 Sep 2017 10:23:30 +0200
+Message-ID: <1505895810.27967.1.camel@suse.com>
+References: <20170919161522.995-1-dianders@chromium.org>
+         <20170919161522.995-2-dianders@chromium.org>
+         <1505853476.15836.9.camel@suse.com>
+         <CABXOdTdnaf5REYjgtR6+hoRhiB2c=xb+1CxMmv7XsukYDFDitA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp16.iq.pl ([86.111.242.222]:33831 "EHLO smtp16.iq.pl"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751510AbdITIBD (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 20 Sep 2017 04:01:03 -0400
-In-Reply-To: <1505877870.29839.82.camel@edumazet-glaptop3.roam.corp.google.com>
-Content-Language: pl
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Douglas Anderson <dianders@chromium.org>,
+        Guenter Roeck <groeck@chromium.org>,
+        Grant Grundler <grundler@chromium.org>,
+        linux-kernel <linux-kernel@vger.kernel.org>,
+        linux-usb@vger.kernel.org, netdev@vger.kernel.org
+To: Guenter Roeck <groeck@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CABXOdTdnaf5REYjgtR6+hoRhiB2c=xb+1CxMmv7XsukYDFDitA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi
+Am Dienstag, den 19.09.2017, 13:51 -0700 schrieb Guenter Roeck:
+> On Tue, Sep 19, 2017 at 1:37 PM, Oliver Neukum <oneukum@suse.com> wrote:
+> > 
+> > Am Dienstag, den 19.09.2017, 09:15 -0700 schrieb Douglas Anderson:
+> > > 
+[..]
+> > > NOTES:
+> > > - No known bugs are fixed by this; it's just found by code inspection.
+> > 
+> > Hi,
+> > 
+> > unfortunately the patch is wrong. The flags must be cleared only
+> > in case the handler is successful. That is not guaranteed.
+> > 
+> 
+> Just out of curiosity, what is the retry mechanism ? Whenever a new,
+> possibly unrelated, event is scheduled ?
 
+Hi,
 
-Will try bisecting tonight
+that actually depends on the flag.
+Look at the case of fail_lowmem. There we reschedule.
 
-
-
-W dniu 2017-09-20 o 05:24, Eric Dumazet pisze:
-> On Wed, 2017-09-20 at 02:06 +0200, Paweł Staszewski wrote:
->> Just checked kernel 4.13.2 and same problem
->>
->> Just after start all 6 bgp sessions - and kernel starts to learn routes
->> it panic.
->>
->> https://bugzilla.kernel.org/attachment.cgi?id=258509
->>
->
-> Unfortunately we have not enough information from these traces.
->
-> Can you get a full stack trace ?
->
-> Alternatively, can you bisect ?
->
-> Thanks.
->
->
->
+	HTH
+		Oliver
