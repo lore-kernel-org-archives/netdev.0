@@ -1,38 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] isdn/i4l: fetch the ppp_write buffer in one shot
-Date: Wed, 20 Sep 2017 16:01:55 -0700 (PDT)
-Message-ID: <20170920.160155.1154864064570909831.davem@davemloft.net>
-References: <1505872195-46627-1-git-send-email-mengxu.gatech@gmail.com>
+Subject: Re: [PATCH net] net/ncsi: Don't assume last available channel
+ exists
+Date: Wed, 20 Sep 2017 16:05:19 -0700 (PDT)
+Message-ID: <20170920.160519.764603868579556859.davem@davemloft.net>
+References: <20170920041251.14635-1-sam@mendozajonas.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: isdn@linux-pingi.de, johannes.berg@intel.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        meng.xu@gatech.edu, sanidhya@gatech.edu, taesoo@gatech.edu
-To: mengxu.gatech@gmail.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: sam@mendozajonas.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1505872195-46627-1-git-send-email-mengxu.gatech@gmail.com>
+In-Reply-To: <20170920041251.14635-1-sam@mendozajonas.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Meng Xu <mengxu.gatech@gmail.com>
-Date: Tue, 19 Sep 2017 21:49:55 -0400
+From: Samuel Mendoza-Jonas <sam@mendozajonas.com>
+Date: Wed, 20 Sep 2017 14:12:51 +1000
 
-> In isdn_ppp_write(), the header (i.e., protobuf) of the buffer is
-> fetched twice from userspace. The first fetch is used to peek at the
-> protocol of the message and reset the huptimer if necessary; while the
-> second fetch copies in the whole buffer. However, given that buf resides
-> in userspace memory, a user process can race to change its memory content
-> across fetches. By doing so, we can either avoid resetting the huptimer
-> for any type of packets (by first setting proto to PPP_LCP and later
-> change to the actual type) or force resetting the huptimer for LCP
-> packets.
+> When handling new VLAN tags in NCSI we check the maximum allowed number
+> of filters on the last active ("hot") channel. However if the 'add'
+> callback is called before NCSI has configured a channel, this causes a
+> NULL dereference.
 > 
-> This patch changes this double-fetch behavior into two single fetches
-> decided by condition (lp->isdn_device < 0 || lp->isdn_channel <0).
-> A more detailed discussion can be found at
-> https://marc.info/?l=linux-kernel&m=150586376926123&w=2
+> Check that we actually have a hot channel, and warn if it is missing.
 > 
-> Signed-off-by: Meng Xu <mengxu.gatech@gmail.com>
+> Signed-off-by: Samuel Mendoza-Jonas <sam@mendozajonas.com>
 
-Applied, thank you.
+Well, a few things.
+
+We should not allow this driver method to be invoked in the first
+place if the device is not in a state where the operation is legal
+yet.
+
+Second of all, if !ndp is true, you should not return 0 to indicate
+success.
+
+But more fundamentally, we should block this method from being
+callable unless the device is in the proper state and can complete the
+operation.
+
+Seriously, these checks should be completely unnecessary if those
+issues are handled properly.
