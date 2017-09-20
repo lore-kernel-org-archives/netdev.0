@@ -1,62 +1,32 @@
 From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH v3 24/31] fork: Define usercopy region in mm_struct slab caches
-Date: Wed, 20 Sep 2017 13:45:30 -0700
-Message-ID: <1505940337-79069-25-git-send-email-keescook@chromium.org>
+Subject: [PATCH v3 18/31] net: Define usercopy region in struct proto slab cache
+Date: Wed, 20 Sep 2017 13:45:24 -0700
+Message-ID: <1505940337-79069-19-git-send-email-keescook@chromium.org>
 References: <1505940337-79069-1-git-send-email-keescook@chromium.org>
 Cc: Kees Cook <keescook@chromium.org>,
-	David Windsor <dave@nullcore.net>,
-	Ingo Molnar <mingo@kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Andy Lutomirski <luto@kernel.org>,
-	linux-fsdevel@vger.kernel.org,
-	netdev@vger.kernel.org,
-	linux-mm@kvack.org,
-	kernel-hardening@lists.openwall.com
+        David Windsor <dave@nullcore.net>,
+        "David S. Miller" <davem@davemloft.net>,
+        Eric Dumazet <edumazet@google.com>,
+        Paolo Abeni <pabeni@redhat.com>,
+        David Howells <dhowells@redhat.com>, netdev@vger.kernel.org,
+        linux-fsdevel@vger.kernel.org, linux-mm@kvack.org,
+        kernel-hardening@lists.openwall.com
 To: linux-kernel@vger.kernel.org
-Return-path: <owner-linux-mm@kvack.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1505940337-79069-1-git-send-email-keescook@chromium.org>
-Sender: owner-linux-mm@kvack.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: David Windsor <dave@nullcore.net>
 
 In support of usercopy hardening, this patch defines a region in the
-mm_struct slab caches in which userspace copy operations are allowed.
-Only the auxv field is copied to userspace.
-
-cache object allocation:
-    kernel/fork.c:
-        #define allocate_mm()     (kmem_cache_alloc(mm_cachep, GFP_KERNEL))
-
-        dup_mm():
-            ...
-            mm = allocate_mm();
-
-        copy_mm(...):
-            ...
-            dup_mm();
-
-        copy_process(...):
-            ...
-            copy_mm(...)
-
-        _do_fork(...):
-            ...
-            copy_process(...)
-
-example usage trace:
-
-    fs/binfmt_elf.c:
-        create_elf_tables(...):
-            ...
-            elf_info = (elf_addr_t *)current->mm->saved_auxv;
-            ...
-            copy_to_user(..., elf_info, ei_index * sizeof(elf_addr_t))
-
-        load_elf_binary(...):
-            ...
-            create_elf_tables(...);
+struct proto slab cache in which userspace copy operations are allowed.
+Some protocols need to copy objects to/from userspace, and they can
+declare the region via their proto structure with the new usersize and
+useroffset fields. Initially, if no region is specified (usersize ==
+0), the entire field is marked as whitelisted. This allows protocols
+to be whitelisted in subsequent patches. Once all protocols have been
+annotated, the full-whitelist default can be removed.
 
 This region is known as the slab cache's usercopy region. Slab caches can
 now check that each copy operation involving cache-managed memory falls
@@ -68,39 +38,49 @@ understanding of the code. Changes or omissions from the original code are
 mine and don't reflect the original grsecurity/PaX code.
 
 Signed-off-by: David Windsor <dave@nullcore.net>
-[kees: adjust commit log, split patch, provide usage trace]
-Cc: Ingo Molnar <mingo@kernel.org>
-Cc: Andrew Morton <akpm@linux-foundation.org>
-Cc: Thomas Gleixner <tglx@linutronix.de>
-Cc: Andy Lutomirski <luto@kernel.org>
+[kees: adjust commit log, split off per-proto patches]
+[kees: add logic for by-default full-whitelist]
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Eric Dumazet <edumazet@google.com>
+Cc: Paolo Abeni <pabeni@redhat.com>
+Cc: David Howells <dhowells@redhat.com>
+Cc: netdev@vger.kernel.org
 Signed-off-by: Kees Cook <keescook@chromium.org>
-Acked-by: Rik van Riel <riel@redhat.com>
 ---
- kernel/fork.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ include/net/sock.h | 2 ++
+ net/core/sock.c    | 6 +++++-
+ 2 files changed, 7 insertions(+), 1 deletion(-)
 
-diff --git a/kernel/fork.c b/kernel/fork.c
-index 10646182440f..dc1437f8b702 100644
---- a/kernel/fork.c
-+++ b/kernel/fork.c
-@@ -2207,9 +2207,11 @@ void __init proc_caches_init(void)
- 	 * maximum number of CPU's we can ever have.  The cpumask_allocation
- 	 * is at the end of the structure, exactly for that reason.
- 	 */
--	mm_cachep = kmem_cache_create("mm_struct",
-+	mm_cachep = kmem_cache_create_usercopy("mm_struct",
- 			sizeof(struct mm_struct), ARCH_MIN_MMSTRUCT_ALIGN,
- 			SLAB_HWCACHE_ALIGN|SLAB_PANIC|SLAB_NOTRACK|SLAB_ACCOUNT,
-+			offsetof(struct mm_struct, saved_auxv),
-+			sizeof_field(struct mm_struct, saved_auxv),
- 			NULL);
- 	vm_area_cachep = KMEM_CACHE(vm_area_struct, SLAB_PANIC|SLAB_ACCOUNT);
- 	mmap_init();
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 03a362568357..13c2d1b48c86 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -1106,6 +1106,8 @@ struct proto {
+ 	struct kmem_cache	*slab;
+ 	unsigned int		obj_size;
+ 	int			slab_flags;
++	size_t			useroffset;	/* Usercopy region offset */
++	size_t			usersize;	/* Usercopy region size */
+ 
+ 	struct percpu_counter	*orphan_count;
+ 
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 9b7b6bbb2a23..832dfb03102e 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -3165,8 +3165,12 @@ static int req_prot_init(const struct proto *prot)
+ int proto_register(struct proto *prot, int alloc_slab)
+ {
+ 	if (alloc_slab) {
+-		prot->slab = kmem_cache_create(prot->name, prot->obj_size, 0,
++		prot->slab = kmem_cache_create_usercopy(prot->name,
++					prot->obj_size, 0,
+ 					SLAB_HWCACHE_ALIGN | prot->slab_flags,
++					prot->usersize ? prot->useroffset : 0,
++					prot->usersize ? prot->usersize
++						       : prot->obj_size,
+ 					NULL);
+ 
+ 		if (prot->slab == NULL) {
 -- 
 2.7.4
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
