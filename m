@@ -1,42 +1,39 @@
-From: Julien Fortin <julien@cumulusnetworks.com>
-Subject: [iproute2 json PATCH] ip: ipaddress: fix missing space after prefixlen
-Date: Wed, 20 Sep 2017 13:04:21 -0700
-Message-ID: <20170920200421.94514-1-julien@cumulusnetworks.com>
-Cc: roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
-        dsa@cumulusnetworks.com, sd@queasysnail.net,
-        Julien Fortin <julien@cumulusnetworks.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f52.google.com ([74.125.83.52]:46090 "EHLO
-        mail-pg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751016AbdITUEY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2017 16:04:24 -0400
-Received: by mail-pg0-f52.google.com with SMTP id i130so2280205pgc.3
-        for <netdev@vger.kernel.org>; Wed, 20 Sep 2017 13:04:24 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH RFC V1 net-next 0/6] Time based packet transmission
+Date: Wed, 20 Sep 2017 22:11:53 +0200
+Message-ID: <20170920201153.d3o3h62y2snuacef@localhost>
+References: <cover.1505719061.git.rcochran@linutronix.de>
+ <20170920173533.32537-1-levipearson@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: rcochran@linutronix.de, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
+        vinicius.gomes@intel.com, andre.guedes@intel.com,
+        john.stultz@linaro.org, jesus.sanchez-palencia@intel.com,
+        henrik@austad.us, tglx@linutronix.de, anna-maria@linutronix.de,
+        davem@davemloft.net
+To: levipearson@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170920173533.32537-1-levipearson@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Julien Fortin <julien@cumulusnetworks.com>
+On Wed, Sep 20, 2017 at 11:35:33AM -0600, levipearson@gmail.com wrote:
+> Anyway, I am wholly in favor of this proposal--in fact, it is very similar to
+> a patch set I shared with Eric Mann and others at Intel in early Dec 2016 with
+> the intention to get some early feedback before submitting here. I never heard
+> back and got busy with other things. I only mention this since you said
+> elsewhere that you got this idea from Eric Mann yourself, and I am curious
+> whether Eric and I came up with it independently (which I would not be
+> surprised at).
 
-Fixes: d0e720111aad2 ("ip: ipaddress.c: add support for json output")
+Well, I actually thought of placing the Tx time in a CMSG all by
+myself, but later I found Eric's talk from 2012,
 
-Signed-off-by: Julien Fortin <julien@cumulusnetworks.com>
----
- ip/ipaddress.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+  https://linuxplumbers.ubicast.tv/videos/linux-network-enabling-requirements-for-audiovideo-bridging-avb/
 
-diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-index 97971450..fb496bbb 100644
---- a/ip/ipaddress.c
-+++ b/ip/ipaddress.c
-@@ -1604,7 +1604,7 @@ int print_addrinfo(const struct sockaddr_nl *who, struct nlmsghdr *n,
- 					   format_host_rta(ifa->ifa_family,
- 							   rta_tb[IFA_ADDRESS]));
- 		}
--		print_int(PRINT_ANY, "prefixlen", "/%d", ifa->ifa_prefixlen);
-+		print_int(PRINT_ANY, "prefixlen", "/%d ", ifa->ifa_prefixlen);
- 	}
- 
- 	if (brief)
--- 
-2.14.1
+and so I wanted to give him credit.
+
+Thanks,
+Richard
