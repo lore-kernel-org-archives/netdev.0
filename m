@@ -1,32 +1,81 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH,net-next,0/2] Improve code coverage of syzkaller
-Date: Tue, 19 Sep 2017 23:08:53 -0700 (PDT)
-Message-ID: <20170919.230853.540610280718334640.davem@davemloft.net>
-References: <20170919073402.2292-1-peterpenkov96@gmail.com>
-        <20170919.160134.534837308168786965.davem@davemloft.net>
-        <CA+DcSEjDe=h5Kk2Bg0vCOatQj2Zs8wTAyVH+z5curg4O4c3=Hw@mail.gmail.com>
+From: Yonghong Song <yhs@fb.com>
+Subject: [PATCH net-next v5 0/4] bpf: add two helpers to read perf event enabled/running time
+Date: Tue, 19 Sep 2017 23:09:31 -0700
+Message-ID: <20170920060935.1102268-1-yhs@fb.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: peterpenkov96@gmail.com
+Content-Type: text/plain
+Cc: <kernel-team@fb.com>
+To: <peterz@infradead.org>, <rostedt@goodmis.org>, <ast@fb.com>,
+        <daniel@iogearbox.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:35442 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751549AbdITGIz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2017 02:08:55 -0400
-In-Reply-To: <CA+DcSEjDe=h5Kk2Bg0vCOatQj2Zs8wTAyVH+z5curg4O4c3=Hw@mail.gmail.com>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:54092 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751503AbdITGJh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2017 02:09:37 -0400
+Received: from pps.filterd (m0109333.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v8K64PdK003053
+        for <netdev@vger.kernel.org>; Tue, 19 Sep 2017 23:09:37 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+        by mx0a-00082601.pphosted.com with ESMTP id 2d39seam4h-1
+        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Tue, 19 Sep 2017 23:09:37 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Petar Penkov <peterpenkov96@gmail.com>
-Date: Tue, 19 Sep 2017 21:26:14 -0700
+Hardware pmu counters are limited resources. When there are more
+pmu based perf events opened than available counters, kernel will
+multiplex these events so each event gets certain percentage
+(but not 100%) of the pmu time. In case that multiplexing happens,
+the number of samples or counter value will not reflect the
+case compared to no multiplexing. This makes comparison between
+different runs difficult.
 
-> Furthermore, in a way testing already requires specific kernel
-> configuration.  In this particular example, syzkaller prefers
-> synchronous operation and therefore needs 4KSTACKS disabled. Other
-> features that require rebuilding are KASAN and dbx. From this point
-> of view, I still think that having the TUN_NAPI flag has value.
+Typically, the number of samples or counter value should be
+normalized before comparing to other experiments. The typical
+normalization is done like:
+  normalized_num_samples = num_samples * time_enabled / time_running
+  normalized_counter_value = counter_value * time_enabled / time_running
+where time_enabled is the time enabled for event and time_running is
+the time running for event since last normalization.
+ 
+This patch set implements two helper functions.
+The helper bpf_perf_event_read_value reads counter/time_enabled/time_running
+for perf event array map. The helper bpf_perf_prog_read_value read
+counter/time_enabled/time_running for bpf prog with type BPF_PROG_TYPE_PERF_EVENT.
+ 
+Changelogs:
+v4->v5:
+  . fix some coding style issues
+  . memset the input buffer in case of error for ARG_PTR_TO_UNINIT_MEM
+    type of argument.
+v3->v4:
+  . fix a build failure
+v2->v3:
+  . counters should be read in order to read enabled/running time. This is to
+    prevent that counters and enabled/running time may be read separately.
+v1->v2:
+  . reading enabled/running time should be together with reading counters
+    which contains the logic to ensure the result is valid.
 
-Then I think this path could be enabled/disabled with a runtime flag
-just as easily, no?
+Yonghong Song (4):
+  bpf: add helper bpf_perf_event_read_value for perf event array map
+  bpf: add a test case for helper bpf_perf_event_read_value
+  bpf: add helper bpf_perf_prog_read_value
+  bpf: add a test case for helper bpf_perf_prog_read_value
+
+ include/linux/perf_event.h                |  7 ++-
+ include/uapi/linux/bpf.h                  | 27 ++++++++++-
+ kernel/bpf/arraymap.c                     |  2 +-
+ kernel/bpf/verifier.c                     |  4 +-
+ kernel/events/core.c                      | 16 +++++--
+ kernel/trace/bpf_trace.c                  | 74 ++++++++++++++++++++++++++++---
+ samples/bpf/trace_event_kern.c            | 10 +++++
+ samples/bpf/trace_event_user.c            | 13 +++---
+ samples/bpf/tracex6_kern.c                | 26 +++++++++++
+ samples/bpf/tracex6_user.c                | 13 +++++-
+ tools/include/uapi/linux/bpf.h            |  4 +-
+ tools/testing/selftests/bpf/bpf_helpers.h |  6 +++
+ 12 files changed, 182 insertions(+), 20 deletions(-)
+
+-- 
+2.9.5
