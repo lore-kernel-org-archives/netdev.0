@@ -1,53 +1,53 @@
 From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH v3 25/31] fork: Define usercopy region in thread_stack slab caches
-Date: Wed, 20 Sep 2017 13:45:31 -0700
-Message-ID: <1505940337-79069-26-git-send-email-keescook@chromium.org>
+Subject: [PATCH v3 19/31] ip: Define usercopy region in IP proto slab cache
+Date: Wed, 20 Sep 2017 13:45:25 -0700
+Message-ID: <1505940337-79069-20-git-send-email-keescook@chromium.org>
 References: <1505940337-79069-1-git-send-email-keescook@chromium.org>
 Cc: Kees Cook <keescook@chromium.org>,
-        David Windsor <dave@nullcore.net>,
-        Ingo Molnar <mingo@kernel.org>,
-        Andrew Morton <akpm@linux-foundation.org>,
-        Thomas Gleixner <tglx@linutronix.de>,
-        Andy Lutomirski <luto@kernel.org>,
-        linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org,
-        linux-mm@kvack.org, kernel-hardening@lists.openwall.com
+	David Windsor <dave@nullcore.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	netdev@vger.kernel.org,
+	linux-fsdevel@vger.kernel.org,
+	linux-mm@kvack.org,
+	kernel-hardening@lists.openwall.com
 To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <owner-linux-mm@kvack.org>
 In-Reply-To: <1505940337-79069-1-git-send-email-keescook@chromium.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
 From: David Windsor <dave@nullcore.net>
 
-In support of usercopy hardening, this patch defines a region in the
-thread_stack slab caches in which userspace copy operations are allowed.
-Since the entire thread_stack needs to be available to userspace, the
-entire slab contents are whitelisted. Note that the slab-based thread
-stack is only present on systems with THREAD_SIZE < PAGE_SIZE and
-!CONFIG_VMAP_STACK.
+The ICMP filters for IPv4 and IPv6 raw sockets need to be copied to/from
+userspace. In support of usercopy hardening, this patch defines a region
+in the struct proto slab cache in which userspace copy operations are
+allowed.
 
-cache object allocation:
-    kernel/fork.c:
-        alloc_thread_stack_node(...):
-            return kmem_cache_alloc_node(thread_stack_cache, ...)
+example usage trace:
 
-        dup_task_struct(...):
+    net/ipv4/raw.c:
+        raw_seticmpfilter(...):
             ...
-            stack = alloc_thread_stack_node(...)
-            ...
-            tsk->stack = stack;
+            copy_from_user(&raw_sk(sk)->filter, ..., optlen)
 
-        copy_process(...):
+        raw_geticmpfilter(...):
             ...
-            dup_task_struct(...)
+            copy_to_user(..., &raw_sk(sk)->filter, len)
 
-        _do_fork(...):
+    net/ipv6/raw.c:
+        rawv6_seticmpfilter(...):
             ...
-            copy_process(...)
+            copy_from_user(&raw6_sk(sk)->filter, ..., optlen)
 
-This region is known as the slab cache's usercopy region. Slab caches
-can now check that each copy operation involving cache-managed memory
-falls entirely within the slab's usercopy region.
+        rawv6_geticmpfilter(...):
+            ...
+            copy_to_user(..., &raw6_sk(sk)->filter, len)
+
+This region is known as the slab cache's usercopy region. Slab caches can
+now check that each copy operation involving cache-managed memory falls
+entirely within the slab's usercopy region.
 
 This patch is modified from Brad Spengler/PaX Team's PAX_USERCOPY
 whitelisting code in the last public patch of grsecurity/PaX based on my
@@ -55,35 +55,48 @@ understanding of the code. Changes or omissions from the original code are
 mine and don't reflect the original grsecurity/PaX code.
 
 Signed-off-by: David Windsor <dave@nullcore.net>
-[kees: adjust commit log, split patch, provide usage trace]
-Cc: Ingo Molnar <mingo@kernel.org>
-Cc: Andrew Morton <akpm@linux-foundation.org>
-Cc: Thomas Gleixner <tglx@linutronix.de>
-Cc: Andy Lutomirski <luto@kernel.org>
+[kees: split from network patch, provide usage trace]
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+Cc: netdev@vger.kernel.org
 Signed-off-by: Kees Cook <keescook@chromium.org>
-Acked-by: Rik van Riel <riel@redhat.com>
 ---
-I wasn't able to test this, so anyone with a system that can try running
-with a large PAGE_SIZE and without VMAP_STACK would be appreciated.
----
- kernel/fork.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+ net/ipv4/raw.c | 2 ++
+ net/ipv6/raw.c | 2 ++
+ 2 files changed, 4 insertions(+)
 
-diff --git a/kernel/fork.c b/kernel/fork.c
-index dc1437f8b702..720109dc723a 100644
---- a/kernel/fork.c
-+++ b/kernel/fork.c
-@@ -278,8 +278,9 @@ static void free_thread_stack(struct task_struct *tsk)
- 
- void thread_stack_cache_init(void)
- {
--	thread_stack_cache = kmem_cache_create("thread_stack", THREAD_SIZE,
--					      THREAD_SIZE, 0, NULL);
-+	thread_stack_cache = kmem_cache_create_usercopy("thread_stack",
-+					THREAD_SIZE, THREAD_SIZE, 0, 0,
-+					THREAD_SIZE, NULL);
- 	BUG_ON(thread_stack_cache == NULL);
- }
- # endif
+diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
+index 33b70bfd1122..1b6fa4195ac9 100644
+--- a/net/ipv4/raw.c
++++ b/net/ipv4/raw.c
+@@ -970,6 +970,8 @@ struct proto raw_prot = {
+ 	.hash		   = raw_hash_sk,
+ 	.unhash		   = raw_unhash_sk,
+ 	.obj_size	   = sizeof(struct raw_sock),
++	.useroffset	   = offsetof(struct raw_sock, filter),
++	.usersize	   = sizeof_field(struct raw_sock, filter),
+ 	.h.raw_hash	   = &raw_v4_hashinfo,
+ #ifdef CONFIG_COMPAT
+ 	.compat_setsockopt = compat_raw_setsockopt,
+diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
+index e4462b0ff801..041d1cd5e774 100644
+--- a/net/ipv6/raw.c
++++ b/net/ipv6/raw.c
+@@ -1268,6 +1268,8 @@ struct proto rawv6_prot = {
+ 	.hash		   = raw_hash_sk,
+ 	.unhash		   = raw_unhash_sk,
+ 	.obj_size	   = sizeof(struct raw6_sock),
++	.useroffset	   = offsetof(struct raw6_sock, filter),
++	.usersize	   = sizeof_field(struct raw6_sock, filter),
+ 	.h.raw_hash	   = &raw_v6_hashinfo,
+ #ifdef CONFIG_COMPAT
+ 	.compat_setsockopt = compat_rawv6_setsockopt,
 -- 
 2.7.4
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
