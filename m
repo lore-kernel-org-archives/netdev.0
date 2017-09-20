@@ -1,39 +1,73 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 08/14] gtp: Support encpasulating over IPv6
-Date: Wed, 20 Sep 2017 12:45:11 -0700 (PDT)
-Message-ID: <20170920.124511.922311380432026759.davem@davemloft.net>
-References: <20170919003904.5124-9-tom@quantonium.net>
-        <20170918.211952.1397675528248642600.davem@davemloft.net>
-        <CALx6S36cJEU2LkbNf-d8kUHCPj78bt5Y2Bd_rdvjxJ9epOEqAQ@mail.gmail.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: usb/net/p54: trying to register non-static key in
+ p54_unregister_leds
+Date: Wed, 20 Sep 2017 21:55:07 +0200
+Message-ID: <1505937307.3026.20.camel@sipsolutions.net>
+References: <CAAeHK+xPoNn7i5xOzEqHX6tfDpmpb1rd0hcAxZpTHKi6B8xzsw@mail.gmail.com>
+         <2277141.bYDD1vAb9W@debian64> (sfid-20170920_212816_631524_D372B13F)
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: tom@quantonium.net, netdev@vger.kernel.org, pablo@netfilter.org,
-        laforge@gnumonks.org, rohit@quantonium.net
-To: tom@herbertland.com
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: Kalle Valo <kvalo@codeaurora.org>, linux-wireless@vger.kernel.org,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        syzkaller <syzkaller@googlegroups.com>,
+        Stephen Boyd <sboyd@codeaurora.org>, Tejun Heo <tj@kernel.org>,
+        Yong Zhang <yong.zhang0@gmail.com>
+To: Christian Lamparter <chunkeey@googlemail.com>,
+        Andrey Konovalov <andreyknvl@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:34656 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751000AbdITTpO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2017 15:45:14 -0400
-In-Reply-To: <CALx6S36cJEU2LkbNf-d8kUHCPj78bt5Y2Bd_rdvjxJ9epOEqAQ@mail.gmail.com>
+Received: from s3.sipsolutions.net ([5.9.151.49]:57202 "EHLO sipsolutions.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751000AbdITTzK (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 20 Sep 2017 15:55:10 -0400
+In-Reply-To: <2277141.bYDD1vAb9W@debian64> (sfid-20170920_212816_631524_D372B13F)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Herbert <tom@herbertland.com>
-Date: Wed, 20 Sep 2017 11:03:52 -0700
+On Wed, 2017-09-20 at 21:27 +0200, Christian Lamparter wrote:
 
-> On Mon, Sep 18, 2017 at 9:19 PM, David Miller <davem@davemloft.net> wrote:
->> From: Tom Herbert <tom@quantonium.net>
->> Date: Mon, 18 Sep 2017 17:38:58 -0700
->>
->>> Allow peers to be specified by IPv6 addresses.
->>>
->>> Signed-off-by: Tom Herbert <tom@quantonium.net>
->>
->> Hmmm, can you just check the socket family or something like that?
+> It seems this is caused as a result of:
+>     -> lock_map_acquire(&work->lockdep_map);
+> 	    lock_map_release(&work->lockdep_map);
 > 
-> I'm not sure what code you're referring to.
+>     in flush_work() [0]
 
-There is a socket associated with the tunnel to do the encapsulation
-and it has an address family, right?
+Agree.
+
+> This was added by:
+> 
+> 	commit 0976dfc1d0cd80a4e9dfaf87bd8744612bde475a
+> 	Author: Stephen Boyd <sboyd@codeaurora.org>
+> 	Date:   Fri Apr 20 17:28:50 2012 -0700
+> 
+> 	workqueue: Catch more locking problems with flush_work()
+
+Yes, but that doesn't matter.
+    
+> Looking at the Stephen's patch, it's clear that it was made
+> with "static DECLARE_WORK(work, my_work)" in mind. However
+> p54's led_work is "per-device", hence it is stored in the
+> devices context p54_common, which is dynamically allocated.
+> So, maybe revert Stephen's patch?
+
+I disagree - as the lockdep warning says:
+
+> > INFO: trying to register non-static key.
+> > the code is fine but needs lockdep annotation.
+> > turning off the locking correctness validator.
+
+What it needs is to actually correctly go through initializing the work
+at least once.
+
+Without more information, I can't really say what's going on, but I
+assume that something is failing and p54_unregister_leds() is getting
+invoked without p54_init_leds() having been invoked, so essentially
+it's trying to flush a work that was never initialized?
+
+INIT_DELAYED_WORK() does, after all, initialize the lockdep map
+properly via __INIT_WORK().
+
+johannes
