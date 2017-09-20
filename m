@@ -1,40 +1,41 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [RFC net-next 0/5] TSN: Add qdisc-based config interfaces for
- traffic shapers
-Date: Wed, 20 Sep 2017 07:58:29 +0200
-Message-ID: <20170920055829.bhwn6pd332ldjkeg@localhost>
-References: <20170901012625.14838-1-vinicius.gomes@intel.com>
- <20170918080214.yrejz67wwnp2pjzf@localhost>
- <87k20vip3f.fsf@intel.com>
- <20170919052244.77umdxuze53t6j22@localhost>
- <87wp4ufchl.fsf@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com, xiyou.wangcong@gmail.com,
-        jiri@resnulli.us, intel-wired-lan@lists.osuosl.org,
-        andre.guedes@intel.com, ivan.briano@intel.com,
-        jesus.sanchez-palencia@intel.com, boon.leong.ong@intel.com
-To: Vinicius Costa Gomes <vinicius.gomes@intel.com>
+From: Ganesh Goudar <ganeshgr@chelsio.com>
+Subject: [PATCH net-next] cxgb4: add new T5 pci device id's
+Date: Wed, 20 Sep 2017 11:32:07 +0530
+Message-ID: <1505887327-8687-1-git-send-email-ganeshgr@chelsio.com>
+Cc: nirranjan@chelsio.com, indranil@chelsio.com, venkatesh@chelsio.com,
+        Ganesh Goudar <ganeshgr@chelsio.com>
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f45.google.com ([74.125.82.45]:46792 "EHLO
-        mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751468AbdITF6d (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2017 01:58:33 -0400
-Received: by mail-wm0-f45.google.com with SMTP id i189so3998210wmf.1
-        for <netdev@vger.kernel.org>; Tue, 19 Sep 2017 22:58:33 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <87wp4ufchl.fsf@intel.com>
+Received: from stargate.chelsio.com ([12.32.117.8]:58574 "EHLO
+        stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751463AbdITGC3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2017 02:02:29 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 19, 2017 at 05:19:18PM -0700, Vinicius Costa Gomes wrote:
-> (I think LaunchTime is something specific to the i210, right?)
+Add 0x50a5, 0x50a6, 0x50a7, 0x50a8 and 0x50a9 T5 device
+id's.
 
-Levi just told us:
+Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/t4_pci_id_tbl.h | 5 +++++
+ 1 file changed, 5 insertions(+)
 
-   Recent SoCs from NXP (the i.MX 6 SoloX, and all the i.MX 7 and 8
-   parts) support Qav shaping as well as scheduled launch
-   functionality;
-
-Thanks,
-Richard
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_pci_id_tbl.h b/drivers/net/ethernet/chelsio/cxgb4/t4_pci_id_tbl.h
+index aa28299..37d90d6 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_pci_id_tbl.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_pci_id_tbl.h
+@@ -176,6 +176,11 @@ CH_PCI_DEVICE_ID_TABLE_DEFINE_BEGIN
+ 	CH_PCI_ID_TABLE_FENTRY(0x50a2), /* Custom T540-KR4 */
+ 	CH_PCI_ID_TABLE_FENTRY(0x50a3), /* Custom T580-KR4 */
+ 	CH_PCI_ID_TABLE_FENTRY(0x50a4), /* Custom 2x T540-CR */
++	CH_PCI_ID_TABLE_FENTRY(0x50a5), /* Custom T522-BT */
++	CH_PCI_ID_TABLE_FENTRY(0x50a6), /* Custom T522-BT-SO */
++	CH_PCI_ID_TABLE_FENTRY(0x50a7), /* Custom T580-CR */
++	CH_PCI_ID_TABLE_FENTRY(0x50a8), /* Custom T580-KR */
++	CH_PCI_ID_TABLE_FENTRY(0x50a9), /* Custom T580-KR */
+ 
+ 	/* T6 adapters:
+ 	 */
+-- 
+2.1.0
