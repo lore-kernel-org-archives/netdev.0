@@ -1,58 +1,60 @@
-From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: Re: [PATCH iproute2 json v2 05/27] ip: ipaddress.c: add support for
- json output
-Date: Wed, 20 Sep 2017 15:33:58 +0200
-Message-ID: <20170920133358.GA1073@bistromath.localdomain>
-References: <20170817173614.54987-1-julien@cumulusnetworks.com>
- <20170817173614.54987-6-julien@cumulusnetworks.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Latest net-next from GIT panic
+Date: Wed, 20 Sep 2017 06:34:39 -0700
+Message-ID: <1505914479.29839.92.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <4745525f-18e4-7f69-fe21-8e507e407b33@itcare.pl>
+         <d8bbf6c1-20a3-195c-6980-45f29e9f9278@itcare.pl>
+         <2aeb7871-fe89-c714-3355-c5f48651e70c@itcare.pl>
+         <15d293fa-0f53-bdca-6358-6a58d1da77af@itcare.pl>
+         <65e2195b-3bd1-c0b4-b474-e07dd08f71b9@itcare.pl>
+         <1505877870.29839.82.camel@edumazet-glaptop3.roam.corp.google.com>
+         <07bde5d4-fab6-3ef9-f586-403dadbb0a2a@itcare.pl>
+         <8f0b0143-657e-d574-c442-24d3d017bc87@itcare.pl>
+         <54d058d4-b9d1-54cb-f064-45cec430fe5d@itcare.pl>
+         <6c073f86-ab71-0a8f-7b9a-91d5ae5da214@itcare.pl>
+         <7fee43ee-75b5-c2f5-cf8d-684ceefcd2d1@itcare.pl>
+         <c278dec6-e018-62e0-a613-1fa79741aaab@itcare.pl>
+         <cfc04422-51bd-0a28-6a8c-6b57179e8af2@itcare.pl>
+         <3324f95f-7686-81e0-a973-1a9220c918fe@itcare.pl>
+         <1505913075.29839.90.camel@edumazet-glaptop3.roam.corp.google.com>
+         <07c29702-cd0b-32af-df0a-83ad24b8c785@itcare.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
-        nikolay@cumulusnetworks.com, dsa@cumulusnetworks.com
-To: Julien Fortin <julien@cumulusnetworks.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Wei Wang <weiwan@google.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        edumazet@google.com
+To: =?UTF-8?Q?Pawe=C5=82?= Staszewski <pstaszewski@itcare.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60435 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750892AbdITNeD (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 20 Sep 2017 09:34:03 -0400
-Content-Disposition: inline
-In-Reply-To: <20170817173614.54987-6-julien@cumulusnetworks.com>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:35846 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750892AbdITNel (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2017 09:34:41 -0400
+Received: by mail-pg0-f68.google.com with SMTP id d8so1657709pgt.3
+        for <netdev@vger.kernel.org>; Wed, 20 Sep 2017 06:34:41 -0700 (PDT)
+In-Reply-To: <07c29702-cd0b-32af-df0a-83ad24b8c785@itcare.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Julien,
+Could you try this debug patch ?
 
-2017-08-17, 10:35:52 -0700, Julien Fortin wrote:
-> From: Julien Fortin <julien@cumulusnetworks.com>
-> 
-> This patch converts all output (mostly fprintfs) to the new ip_print api
-> which handle both regular and json output.
-> Initialize a json_writer and open an array object if -json was specified.
-> Note that the JSON attribute naming follows the NETLINK_ATTRIBUTE naming.
-[snip]
-
-This patch (commit d0e720111aad) changed the output of "ip addr":
-
-Before:
-1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
-    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
-    inet 127.0.0.1/8 scope host lo
-       valid_lft forever preferred_lft forever
-    inet6 ::1/128 scope host 
-       valid_lft forever preferred_lft forever
-
-After:
-1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
-    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
-    inet 127.0.0.1/8scope host lo
-       valid_lft forever preferred_lft forever
-    inet6 ::1/128scope host 
-       valid_lft forever preferred_lft forever
-
-The space following the mask is missing.
-
-Could you have a look?
-Thanks.
-
--- 
-Sabrina
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index f535779d9dc1dfe36934c2abba4e43d053ac5d6f..1eaa3553a724dc8c048f67b556337072d5addc82 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -3331,7 +3331,14 @@ void netdev_run_todo(void);
+  */
+ static inline void dev_put(struct net_device *dev)
+ {
+-	this_cpu_dec(*dev->pcpu_refcnt);
++	int __percpu *pref = READ_ONCE(dev->pcpu_refcnt);
++
++	if (!pref) {
++		pr_err("no pcpu_refcnt on dev %p(%s) state %d dismantle %d\n",
++		       dev, dev->name, dev->reg_state, dev->dismantle);
++		BUG();
++	}
++	this_cpu_dec(*pref);
+ }
+ 
+ /**
