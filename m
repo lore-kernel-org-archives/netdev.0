@@ -1,33 +1,29 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch v3 2/3] ipv4: Namespaceify tcp_fastopen_key knob
-Date: Wed, 20 Sep 2017 14:25:08 -0700 (PDT)
-Message-ID: <20170920.142508.2226871042948634454.davem@davemloft.net>
-References: <1505813896-12121-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
-        <1505813896-12121-2-git-send-email-yanhaishuang@cmss.chinamobile.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH v4 3/4] samples/bpf: Fix pt_regs issues when cross-compiling
+Date: Wed, 20 Sep 2017 23:25:01 +0200
+Message-ID: <59C2DCAD.3090309@iogearbox.net>
+References: <20170920161159.25747-1-joelaf@google.com> <20170920161159.25747-3-joelaf@google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, edumazet@google.com, weiwan@google.com,
-        lucab@debian.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: yanhaishuang@cmss.chinamobile.com
+Cc: netdev@vger.kernel.org, alison@she-devel.com, juri.lelli@arm.com,
+        fengc@google.com, davem@davemloft.net, ast@kernel.org,
+        kernel-team@android.com
+To: Joel Fernandes <joelaf@google.com>, linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1505813896-12121-2-git-send-email-yanhaishuang@cmss.chinamobile.com>
+In-Reply-To: <20170920161159.25747-3-joelaf@google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
-Date: Tue, 19 Sep 2017 17:38:15 +0800
+On 09/20/2017 06:11 PM, Joel Fernandes wrote:
+> BPF samples fail to build when cross-compiling for ARM64 because of incorrect
+> pt_regs param selection. This is because clang defines __x86_64__ and
+> bpf_headers thinks we're building for x86. Since clang is building for the BPF
+> target, it shouldn't make assumptions about what target the BPF program is
+> going to run on. To fix this, lets pass ARCH so the header knows which target
+> the BPF program is being compiled for and can use the correct pt_regs code.
+>
+> Acked-by: Alexei Starovoitov <ast@kernel.org>
+> Signed-off-by: Joel Fernandes <joelaf@google.com>
 
-> @@ -128,6 +130,8 @@ struct netns_ipv4 {
->  	struct inet_timewait_death_row tcp_death_row;
->  	int sysctl_max_syn_backlog;
->  	int sysctl_tcp_fastopen;
-> +	struct tcp_fastopen_context __rcu *tcp_fastopen_ctx;
-> +	spinlock_t tcp_fastopen_ctx_lock;
->  
->  #ifdef CONFIG_NET_L3_MASTER_DEV
->  	int sysctl_udp_l3mdev_accept;
-
-Where are you releasing this context during netns teardown?
-I think this is a leak.
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
