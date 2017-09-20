@@ -1,49 +1,56 @@
 From: Andreas Schultz <aschultz@tpip.net>
-Subject: Re: [PATCH net-next 09/14] gtp: Allow configuring GTP interface as
- standalone
-Date: Wed, 20 Sep 2017 17:27:52 +0200
-Message-ID: <a6d1dad0-e922-2913-d4c8-592d403ee1cb@tpip.net>
+Subject: Re: [PATCH net-next 03/14] gtp: Call common functions to get tunnel
+ routes and add dst_cache
+Date: Wed, 20 Sep 2017 17:37:52 +0200
+Message-ID: <01c68c74-455c-9bff-e5bb-b1708d8f92f4@tpip.net>
 References: <20170919003904.5124-1-tom@quantonium.net>
- <20170919003904.5124-10-tom@quantonium.net>
+ <20170919003904.5124-4-tom@quantonium.net>
+ <20170918.211751.1871429944584121281.davem@davemloft.net>
+ <20170919120942.dpy5kmkhzws7pqd5@nataraja>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, pablo@netfilter.org, laforge@gnumonks.org,
+Cc: tom@quantonium.net, netdev@vger.kernel.org, pablo@netfilter.org,
         rohit@quantonium.net
-To: Tom Herbert <tom@quantonium.net>, davem@davemloft.net
+To: Harald Welte <laforge@gnumonks.org>,
+        David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.tpip.net ([92.43.49.48]:59151 "EHLO mail.tpip.net"
+Received: from mail.tpip.net ([92.43.49.48]:38721 "EHLO mail.tpip.net"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751697AbdITPhK (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 20 Sep 2017 11:37:10 -0400
-In-Reply-To: <20170919003904.5124-10-tom@quantonium.net>
+        id S1751507AbdITPhz (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 20 Sep 2017 11:37:55 -0400
+In-Reply-To: <20170919120942.dpy5kmkhzws7pqd5@nataraja>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 19/09/17 02:38, Tom Herbert wrote:
-> Add new configuration of GTP interfaces that allow specifying a port to
-> listen on (as opposed to having to get sockets from a userspace control
-> plane). This allows GTP interfaces to be configured and the data path
-> tested without requiring a GTP-C daemon.
 
-This would imply that you can have multiple independent GTP sockets on 
-the same IP address.That is not permitted by the GTP specifications. 
-3GPP TS 29.281, section 4.3 states clearly that there is "only" one GTP 
-entity per IP address.A PDP context is defined by the destination IP and 
-the TEID. The destination port is not part of the identity of a PDP context.
 
-Even the source IP and source port are not part of the tunnel identity. 
-This makes is possible to send traffic from a new SGSN/SGW during 
-handover before the control protocol has announced the handover.
+On 19/09/17 14:09, Harald Welte wrote:
+> Hi Dave,
+> 
+> On Mon, Sep 18, 2017 at 09:17:51PM -0700, David Miller wrote:
+>> This and the new dst caching code ignores any source address selection
+>> done by ip_route_output_key() or the new tunnel route lookup helpers.
+>>
+>> Either source address selection should be respected, or if saddr will
+>> never be modified by a route lookup for some specific reason here,
+>> that should be documented.
+> 
+> The IP source address is fixed by signaling on the GTP-C control plane
+> and nothing that the kernel can unilaterally decide to change.  Such a
+> change of address would have to be decided by and first be signaled on
+> GTP-C to the peer by the userspace daemon, which would then update the
+> PDP context in the kernel.
 
-At this point the usual response is: THAT IS NOT SAFE. Yes, GTP has been 
-designed for cooperative networks only and should not be used on 
-hostile/unsecured networks.
+I think we had this discussion before. The sending IP and port are not 
+part of the identity of the PDP context. So IMHO the sender is permitted
+to change the source IP at random.
 
-On the sending side, using multiple ports is permitted as long as the 
-default GTP port is always able to receive incoming messages.
-
+Regards
 Andreas
 
-[...]
+> 
+> So I guess you're asking us to document that rationale as form of a
+> source code comment ?
+> 
