@@ -1,41 +1,102 @@
-From: Ganesh Goudar <ganeshgr@chelsio.com>
-Subject: [PATCH net-next] cxgb4: add new T5 pci device id's
-Date: Wed, 20 Sep 2017 11:32:07 +0530
-Message-ID: <1505887327-8687-1-git-send-email-ganeshgr@chelsio.com>
-Cc: nirranjan@chelsio.com, indranil@chelsio.com, venkatesh@chelsio.com,
-        Ganesh Goudar <ganeshgr@chelsio.com>
-To: netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:58574 "EHLO
-        stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751463AbdITGC3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2017 02:02:29 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Kalderon, Michal" <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH net-next 2/4] qed: Add iWARP out of order support
+Date: Wed, 20 Sep 2017 06:03:32 +0000
+Message-ID: <CY1PR0701MB2012F515805B94D83D4CB2A788610@CY1PR0701MB2012.namprd07.prod.outlook.com>
+References: <1505841979-26365-1-git-send-email-Michal.Kalderon@cavium.com>
+ <1505841979-26365-3-git-send-email-Michal.Kalderon@cavium.com>,<20170919174511.GJ5788@mtr-leonro.local>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: "davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        "Elior, Ariel" <Ariel.Elior-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+To: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170919174511.GJ5788-U/DQcQFIOTAAJjI8aNfphQ@public.gmane.org>
+Content-Language: en-US
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Add 0x50a5, 0x50a6, 0x50a7, 0x50a8 and 0x50a9 T5 device
-id's.
-
-Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
----
- drivers/net/ethernet/chelsio/cxgb4/t4_pci_id_tbl.h | 5 +++++
- 1 file changed, 5 insertions(+)
-
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_pci_id_tbl.h b/drivers/net/ethernet/chelsio/cxgb4/t4_pci_id_tbl.h
-index aa28299..37d90d6 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_pci_id_tbl.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_pci_id_tbl.h
-@@ -176,6 +176,11 @@ CH_PCI_DEVICE_ID_TABLE_DEFINE_BEGIN
- 	CH_PCI_ID_TABLE_FENTRY(0x50a2), /* Custom T540-KR4 */
- 	CH_PCI_ID_TABLE_FENTRY(0x50a3), /* Custom T580-KR4 */
- 	CH_PCI_ID_TABLE_FENTRY(0x50a4), /* Custom 2x T540-CR */
-+	CH_PCI_ID_TABLE_FENTRY(0x50a5), /* Custom T522-BT */
-+	CH_PCI_ID_TABLE_FENTRY(0x50a6), /* Custom T522-BT-SO */
-+	CH_PCI_ID_TABLE_FENTRY(0x50a7), /* Custom T580-CR */
-+	CH_PCI_ID_TABLE_FENTRY(0x50a8), /* Custom T580-KR */
-+	CH_PCI_ID_TABLE_FENTRY(0x50a9), /* Custom T580-KR */
- 
- 	/* T6 adapters:
- 	 */
--- 
-2.1.0
+From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Sent: Tuesday, September 19, 2017 8:45 PM
+On Tue, Sep 19, 2017 at 08:26:17PM +0300, Michal Kalderon wrote:
+>> iWARP requires OOO support which is already provided by the ll2
+>> interface (until now was used only for iSCSI offload).
+>> The changes mostly include opening a ll2 dedicated connection for
+>> OOO and notifiying the FW about the handle id.
+>>
+>> Signed-off-by: Michal Kalderon <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+>> Signed-off-by: Ariel Elior <Ariel.Elior-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+>> ---
+>>  drivers/net/ethernet/qlogic/qed/qed_iwarp.c | 44 ++++++++++++++++++++++=
++++++++
+>>  drivers/net/ethernet/qlogic/qed/qed_iwarp.h | 11 +++++++-
+>>  drivers/net/ethernet/qlogic/qed/qed_rdma.c  |  7 +++--
+>>  3 files changed, 59 insertions(+), 3 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/qlogic/qed/qed_iwarp.c b/drivers/net/e=
+thernet/qlogic/qed/qed_iwarp.c
+>> index 9d989c9..568e985 100644
+>> --- a/drivers/net/ethernet/qlogic/qed/qed_iwarp.c
+>> +++ b/drivers/net/ethernet/qlogic/qed/qed_iwarp.c
+>> @@ -41,6 +41,7 @@
+>>  #include "qed_rdma.h"
+>>  #include "qed_reg_addr.h"
+>>  #include "qed_sp.h"
+>> +#include "qed_ooo.h"
+>>
+>>  #define QED_IWARP_ORD_DEFAULT                32
+>>  #define QED_IWARP_IRD_DEFAULT                32
+>> @@ -119,6 +120,13 @@ static void qed_iwarp_cid_cleaned(struct qed_hwfn *=
+p_hwfn, u32 cid)
+>>       spin_unlock_bh(&p_hwfn->p_rdma_info->lock);
+>>  }
+>>
+>> +void qed_iwarp_init_fw_ramrod(struct qed_hwfn *p_hwfn,
+>> +                           struct iwarp_init_func_params *p_ramrod)
+>> +{
+>> +     p_ramrod->ll2_ooo_q_index =3D RESC_START(p_hwfn, QED_LL2_QUEUE) +
+>> +                                 p_hwfn->p_rdma_info->iwarp.ll2_ooo_han=
+dle;
+>> +}
+>> +
+>>  static int qed_iwarp_alloc_cid(struct qed_hwfn *p_hwfn, u32 *cid)
+>>  {
+>>       int rc;
+>> @@ -1876,6 +1884,16 @@ static int qed_iwarp_ll2_stop(struct qed_hwfn *p_=
+hwfn, struct qed_ptt *p_ptt)
+>>               iwarp_info->ll2_syn_handle =3D QED_IWARP_HANDLE_INVAL;
+>>       }
+>>
+>> +     if (iwarp_info->ll2_ooo_handle !=3D QED_IWARP_HANDLE_INVAL) {
+>> +             rc =3D qed_ll2_terminate_connection(p_hwfn,
+>> +                                               iwarp_info->ll2_ooo_hand=
+le);
+>> +             if (rc)
+>> +                     DP_INFO(p_hwfn, "Failed to terminate ooo connectio=
+n\n");
+>
+>What exactly will you do with this knowledge? Anyway you are not
+>interested in return values of qed_ll2_terminate_connection function in
+>this place and other places too.
+>
+>Why don't you handle EAGAIN returned from the qed_ll2_terminate_connection=
+()?
+>
+>Thanks
+Thanks for pointing this out, you're right we could have ignored the return=
+ code, as there's
+not much we can do at this point if it failed. But I still feel failures ar=
+e worth knowing about,
+and could help in analysis if they unexpectedly lead to another issue.
+As for EAGAIN, it is very unlikely that we'll get this return code. Will co=
+nsider adding generic
+handling for this as a separate patch, as this currently isn't handled in a=
+ny of the ll2 flows.
+thanks,=
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
