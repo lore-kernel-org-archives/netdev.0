@@ -1,113 +1,48 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net-next v2] bridge: also trigger RTM_NEWLINK when
- interface is released from bridge
-Date: Wed, 20 Sep 2017 16:21:40 -0700
-Message-ID: <20170920162140.369bb198@xeon-e3>
-References: <m3zi9vbrfp.fsf@luffy.cx>
-        <20170916141833.28344-1-vincent@bernat.im>
-        <20170920.140956.781667692297467325.davem@davemloft.net>
-        <16e5566a-909d-ba83-7637-1fb6c93126bc@gmail.com>
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: [PATCH v3 14/31] vxfs: Define usercopy region in vxfs_inode slab
+ cache
+Date: Wed, 20 Sep 2017 16:22:21 -0700
+Message-ID: <20170920232221.GA18311@infradead.org>
+References: <1505940337-79069-1-git-send-email-keescook@chromium.org>
+ <1505940337-79069-15-git-send-email-keescook@chromium.org>
+ <20170920205642.GA20023@infradead.org>
+ <CAGXu5j+hr0UwB5NsvPSKVVfM6NFHHhnNeUZbuwyTRppSOx9Ucw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, vincent@bernat.im,
-        bridge@lists.linux-foundation.org, netdev@vger.kernel.org
-To: David Ahern <dsahern@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f45.google.com ([74.125.83.45]:56926 "EHLO
-        mail-pg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751853AbdITXVp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2017 19:21:45 -0400
-Received: by mail-pg0-f45.google.com with SMTP id 7so2515326pgd.13
-        for <netdev@vger.kernel.org>; Wed, 20 Sep 2017 16:21:45 -0700 (PDT)
-In-Reply-To: <16e5566a-909d-ba83-7637-1fb6c93126bc@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Christoph Hellwig <hch@infradead.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        David Windsor <dave@nullcore.net>,
+        "linux-fsdevel@vger.kernel.org" <linux-fsdevel@vger.kernel.org>,
+        Network Development <netdev@vger.kernel.org>,
+        Linux-MM <linux-mm@kvack.org>,
+        "kernel-hardening@lists.openwall.com"
+        <kernel-hardening@lists.openwall.com>
+To: Kees Cook <keescook@chromium.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAGXu5j+hr0UwB5NsvPSKVVfM6NFHHhnNeUZbuwyTRppSOx9Ucw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 20 Sep 2017 15:57:16 -0600
-David Ahern <dsahern@gmail.com> wrote:
+On Wed, Sep 20, 2017 at 02:21:45PM -0700, Kees Cook wrote:
+> This is why I included several other lists on the full CC (am I
+> unlucky enough to have you not subscribed to any of them?). Adding a
+> CC for everyone can result in a huge CC list, especially for the
+> forth-coming 300-patch timer_list series. ;)
 
-> On 9/20/17 3:09 PM, David Miller wrote:
-> > From: Vincent Bernat <vincent@bernat.im>
-> > Date: Sat, 16 Sep 2017 16:18:33 +0200
-> > 
-> > David, I am CC:'ing you because you've done work in this area over the
-> > past year.  I'm applying this patch, it's been sitting since the 16th
-> > and likes entirely correct to me.  But if you have objections just let
-> > me know.
-> >   
-> >> Currently, when an interface is released from a bridge via
-> >> ioctl(), we get a RTM_DELLINK event through netlink:
-> >>
-> >> Deleted 2: dummy0: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state UNKNOWN
-> >>     link/ether 6e:23:c2:54:3a:b3
-> >>
-> >> Userspace has to interpret that as a removal from the bridge, not as a
-> >> complete removal of the interface. When an bridged interface is
-> >> completely removed, we get two events:
-> >>
-> >> Deleted 2: dummy0: <BROADCAST,NOARP> mtu 1500 master bridge0 state DOWN
-> >>     link/ether 6e:23:c2:54:3a:b3
-> >> Deleted 2: dummy0: <BROADCAST,NOARP> mtu 1500 qdisc noop state DOWN group default
-> >>     link/ether 6e:23:c2:54:3a:b3 brd ff:ff:ff:ff:ff:ff
-> >>
-> >> In constrast, when an interface is released from a bond, we get a
-> >> RTM_NEWLINK with only the new characteristics (no master):
-> >>
-> >> 3: dummy1: <BROADCAST,NOARP,SLAVE,UP,LOWER_UP> mtu 1500 qdisc noqueue master bond0 state UNKNOWN group default
-> >>     link/ether ae:dc:7a:8c:9a:3c brd ff:ff:ff:ff:ff:ff
-> >> 3: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue state UNKNOWN group default
-> >>     link/ether ae:dc:7a:8c:9a:3c brd ff:ff:ff:ff:ff:ff
-> >> 4: bond0: <BROADCAST,MULTICAST,MASTER,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default
-> >>     link/ether ae:dc:7a:8c:9a:3c brd ff:ff:ff:ff:ff:ff
-> >> 3: dummy1: <BROADCAST,NOARP> mtu 1500 qdisc noqueue state DOWN group default
-> >>     link/ether ae:dc:7a:8c:9a:3c brd ff:ff:ff:ff:ff:ff
-> >> 3: dummy1: <BROADCAST,NOARP> mtu 1500 qdisc noqueue state DOWN group default
-> >>     link/ether ca:c8:7b:66:f8:25 brd ff:ff:ff:ff:ff:ff
-> >> 4: bond0: <BROADCAST,MULTICAST,MASTER,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default
-> >>     link/ether ae:dc:7a:8c:9a:3c brd ff:ff:ff:ff:ff:ff
-> >>
-> >> Userland may be confused by the fact we say a link is deleted while
-> >> its characteristics are only modified. A first solution would have
-> >> been to turn the RTM_DELLINK event in del_nbp() into a RTM_NEWLINK
-> >> event. However, maybe some piece of userland is relying on this
-> >> RTM_DELLINK to detect when a bridged interface is released. Instead,
-> >> we also emit a RTM_NEWLINK event once the interface is
-> >> released (without master info).
-> >>
-> >> Deleted 2: dummy0: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state UNKNOWN
-> >>     link/ether 8a:bb:e7:94:b1:f8
-> >> 2: dummy0: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue state UNKNOWN group default
-> >>     link/ether 8a:bb:e7:94:b1:f8 brd ff:ff:ff:ff:ff:ff
-> >>
-> >> This is done only when using ioctl(). When using Netlink, such an
-> >> event is already automatically emitted in do_setlink().  
-> 
-> The DELLINK is for AF_BRIDGE family (ifi_family). Adding family to
-> print_linkinfo and running the monitor I get:
-> 
-> 
-> [LINK]family 0: 35: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc
-> noqueue master br0 state UNKNOWN group default
->     link/ether d6:c3:73:86:3c:73 brd ff:ff:ff:ff:ff:ff
-> 
-> [LINK]family 7: 35: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500
-> master br0 state UNKNOWN
->     link/ether d6:c3:73:86:3c:73
-> 
-> [LINK]Deleted family 7: 35: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu
-> 1500 master br0 state UNKNOWN
->     link/ether d6:c3:73:86:3c:73
-> 
-> [LINK]family 0: 35: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc
-> noqueue state UNKNOWN group default
->     link/ether d6:c3:73:86:3c:73 brd ff:ff:ff:ff:ff:ff
-> 
-> And that seems correct. So I think the RTM_NEWLINK added by this patch
-> should not be needed.
+If you think the lists are enough to review changes include only
+the lists, but don't add CCs for individual patches, that's what
+I usually do for cleanups that touch a lot of drivers, but don't
+really change actual logic in ever little driver touched.
 
-Agreed, thanks for tracing this.
+> Do you want me to resend the full series to you, or would you prefer
+> something else like a patchwork bundle? (I'll explicitly add you to CC
+> for any future versions, though.)
 
-The one concern is that ports added or removed through ioctl should
-cause same events as doing the same thing via netlink. Some users use
-brctl (ioctl) and others use newer bridge (netlink) API.
+I'm fine with not being Cced at all if there isn't anything requiring
+my urgent personal attention.  It's up to you whom you want to Cc,
+but my preference is generally for rather less than more people, and
+rather more than less mailing lists.
+
+But the important bit is to Cc a person or mailinglist either on
+all patches or on none, otherwise a good review isn't possible.
