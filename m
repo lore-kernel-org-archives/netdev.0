@@ -1,69 +1,41 @@
-From: =?UTF-8?Q?Pawe=c5=82_Staszewski?= <pstaszewski@itcare.pl>
-Subject: Re: Latest net-next from GIT panic
-Date: Wed, 20 Sep 2017 10:44:50 +0200
-Message-ID: <8f0b0143-657e-d574-c442-24d3d017bc87@itcare.pl>
-References: <4745525f-18e4-7f69-fe21-8e507e407b33@itcare.pl>
- <d8bbf6c1-20a3-195c-6980-45f29e9f9278@itcare.pl>
- <2aeb7871-fe89-c714-3355-c5f48651e70c@itcare.pl>
- <15d293fa-0f53-bdca-6358-6a58d1da77af@itcare.pl>
- <65e2195b-3bd1-c0b4-b474-e07dd08f71b9@itcare.pl>
- <1505877870.29839.82.camel@edumazet-glaptop3.roam.corp.google.com>
- <07bde5d4-fab6-3ef9-f586-403dadbb0a2a@itcare.pl>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [lkp-robot] [test_rhashtable]  c1bd3689a7:
+ WARNING:at_lib/debugobjects.c:#__debug_object_init
+Date: Wed, 20 Sep 2017 10:44:28 +0200
+Message-ID: <20170920084428.GA15946@breakpoint.cc>
+References: <20170918210711.10202-5-fw@strlen.de>
+ <20170920015457.GA30213@yexl-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org, lkp@01.org
+To: kernel test robot <xiaolong.ye@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp16.iq.pl ([86.111.242.222]:49550 "EHLO smtp16.iq.pl"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751457AbdITIrB (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 20 Sep 2017 04:47:01 -0400
-In-Reply-To: <07bde5d4-fab6-3ef9-f586-403dadbb0a2a@itcare.pl>
-Content-Language: pl
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:59358 "EHLO
+        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751095AbdITIru (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2017 04:47:50 -0400
+Content-Disposition: inline
+In-Reply-To: <20170920015457.GA30213@yexl-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Trying to make video from ipmi :)
+kernel test robot <xiaolong.ye@intel.com> wrote:
+> FYI, we noticed the following commit:
+> 
+> commit: c1bd3689a70d1ba1a2f7c6781770920087166018 ("test_rhashtable: add test case for rhl_table interface")
+> url: https://github.com/0day-ci/linux/commits/Florian-Westphal/test_rhashtable-add-test-case-for-rhl-table/20170919-135550
+> 
+> 
+> in testcase: boot
+> 
+> on test machine: qemu-system-x86_64 -enable-kvm -smp 2 -m 512M
+> 
+> caused below changes (please refer to attached dmesg/kmsg for entire log/backtrace):
+> 
+> 
+> +---------------------------------------------------------+------------+------------+
+> [   15.235031] WARNING: CPU: 0 PID: 1 at lib/debugobjects.c:328 __debug_object_init+0x794/0x930
+[..]
 
-with that results:
-
-https://bugzilla.kernel.org/attachment.cgi?id=258521
-
-catched two more lines where it starts - panic from 4.13.2.
-
-
-Now will try tro do some bisection
-
-
-
-W dniu 2017-09-20 o 09:58, Paweł Staszewski pisze:
-> Hi
->
->
-> Will try bisecting tonight
->
->
->
-> W dniu 2017-09-20 o 05:24, Eric Dumazet pisze:
->> On Wed, 2017-09-20 at 02:06 +0200, Paweł Staszewski wrote:
->>> Just checked kernel 4.13.2 and same problem
->>>
->>> Just after start all 6 bgp sessions - and kernel starts to learn routes
->>> it panic.
->>>
->>> https://bugzilla.kernel.org/attachment.cgi?id=258509
->>>
->>
->> Unfortunately we have not enough information from these traces.
->>
->> Can you get a full stack trace ?
->>
->> Alternatively, can you bisect ?
->>
->> Thanks.
->>
->>
->>
->
->
+This is with v1 of the patch where the rhltable struct was allocated on
+stack, v2 is fine.
