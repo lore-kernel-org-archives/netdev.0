@@ -1,37 +1,71 @@
-From: Arvind Yadav <arvind.yadav.cs@gmail.com>
-Subject: [PATCH] netfilter: nf_tables: Release memory obtained by kasprintf
-Date: Wed, 20 Sep 2017 12:31:28 +0530
-Message-ID: <385554261c080cd3fc4adc093e68366a6d3dff77.1505889128.git.arvind.yadav.cs@gmail.com>
-Cc: netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: pablo@netfilter.org, kadlec@blackhole.kfki.hu, fw@strlen.de,
-        davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+Subject: [net-next] macvlan: code refine to check data before using
+Date: Wed, 20 Sep 2017 08:12:23 +0800
+Message-ID: <1505866343-14135-1-git-send-email-zhangshengju@cmss.chinamobile.com>
+To: davem@davemloft.net, fgao@ikuai8.com, vyasevic@redhat.com,
+        netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cmccmta3.chinamobile.com ([221.176.66.81]:25813 "EHLO
+        cmccmta3.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751811AbdITHpZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2017 03:45:25 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Free memory region, if nf_tables_set_alloc_name is not successful.
+This patch checks data first at one place, return if it's null.
 
-Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
+Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
 ---
- net/netfilter/nf_tables_api.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ drivers/net/macvlan.c | 13 ++++++++-----
+ 1 file changed, 8 insertions(+), 5 deletions(-)
 
-diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
-index 9299271..393e37e 100644
---- a/net/netfilter/nf_tables_api.c
-+++ b/net/netfilter/nf_tables_api.c
-@@ -2741,8 +2741,10 @@ static int nf_tables_set_alloc_name(struct nft_ctx *ctx, struct nft_set *set,
- 	list_for_each_entry(i, &ctx->table->sets, list) {
- 		if (!nft_is_active_next(ctx->net, i))
- 			continue;
--		if (!strcmp(set->name, i->name))
-+		if (!strcmp(set->name, i->name)) {
-+			kfree(set->name);
- 			return -ENFILE;
-+		}
+diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+index d2aea96..1ffe77e 100644
+--- a/drivers/net/macvlan.c
++++ b/drivers/net/macvlan.c
+@@ -1231,11 +1231,14 @@ static int macvlan_validate(struct nlattr *tb[], struct nlattr *data[],
+ 			return -EADDRNOTAVAIL;
  	}
+ 
+-	if (data && data[IFLA_MACVLAN_FLAGS] &&
++	if (!data)
++		return 0;
++
++	if (data[IFLA_MACVLAN_FLAGS] &&
+ 	    nla_get_u16(data[IFLA_MACVLAN_FLAGS]) & ~MACVLAN_FLAG_NOPROMISC)
+ 		return -EINVAL;
+ 
+-	if (data && data[IFLA_MACVLAN_MODE]) {
++	if (data[IFLA_MACVLAN_MODE]) {
+ 		switch (nla_get_u32(data[IFLA_MACVLAN_MODE])) {
+ 		case MACVLAN_MODE_PRIVATE:
+ 		case MACVLAN_MODE_VEPA:
+@@ -1248,7 +1251,7 @@ static int macvlan_validate(struct nlattr *tb[], struct nlattr *data[],
+ 		}
+ 	}
+ 
+-	if (data && data[IFLA_MACVLAN_MACADDR_MODE]) {
++	if (data[IFLA_MACVLAN_MACADDR_MODE]) {
+ 		switch (nla_get_u32(data[IFLA_MACVLAN_MACADDR_MODE])) {
+ 		case MACVLAN_MACADDR_ADD:
+ 		case MACVLAN_MACADDR_DEL:
+@@ -1260,7 +1263,7 @@ static int macvlan_validate(struct nlattr *tb[], struct nlattr *data[],
+ 		}
+ 	}
+ 
+-	if (data && data[IFLA_MACVLAN_MACADDR]) {
++	if (data[IFLA_MACVLAN_MACADDR]) {
+ 		if (nla_len(data[IFLA_MACVLAN_MACADDR]) != ETH_ALEN)
+ 			return -EINVAL;
+ 
+@@ -1268,7 +1271,7 @@ static int macvlan_validate(struct nlattr *tb[], struct nlattr *data[],
+ 			return -EADDRNOTAVAIL;
+ 	}
+ 
+-	if (data && data[IFLA_MACVLAN_MACADDR_COUNT])
++	if (data[IFLA_MACVLAN_MACADDR_COUNT])
+ 		return -EINVAL;
+ 
  	return 0;
- }
 -- 
-1.9.1
+1.8.3.1
