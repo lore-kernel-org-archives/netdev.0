@@ -1,24 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: dsa: Utilize dsa_slave_dev_check()
-Date: Wed, 20 Sep 2017 15:49:38 -0700 (PDT)
-Message-ID: <20170920.154938.1010655820768948761.davem@davemloft.net>
-References: <20170920010038.12393-1-f.fainelli@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com, linux-kernel@vger.kernel.org
-To: f.fainelli@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170920010038.12393-1-f.fainelli@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
 From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Tue, 19 Sep 2017 18:00:37 -0700
+Subject: [PATCH net 0/2] Bring back transceiver type for PHYLIB
+Date: Wed, 20 Sep 2017 15:52:12 -0700
+Message-ID: <20170920225214.21974-1-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, linville@tuxdriver.com, decot@googlers.com,
+        tremyfr@gmail.com, andrew@lunn.ch,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f194.google.com ([209.85.220.194]:36042 "EHLO
+        mail-qk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751641AbdITWwU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2017 18:52:20 -0400
+Received: by mail-qk0-f194.google.com with SMTP id i14so2596698qke.3
+        for <netdev@vger.kernel.org>; Wed, 20 Sep 2017 15:52:19 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> Instead of open coding the check.
-> 
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+Hi
 
-Applied, thanks.
+With the introduction of the xLINKSETTINGS ethtool APIs, the transceiver type
+was deprecated, but in that process we lost some useful information that PHYLIB
+was consistently reporting about internal vs. external PHYs.
+
+This brings back transceiver as a read-only field that is only consumed in the
+legacy path where ETHTOOL_GET is called but the underlying drivers implement the
+new style klink_settings API.
+
+Florian Fainelli (2):
+  net: ethtool: Add back transceiver type
+  net: phy: Keep reporting transceiver type
+
+ drivers/net/phy/phy.c        | 3 ++-
+ include/uapi/linux/ethtool.h | 6 +++++-
+ net/core/ethtool.c           | 2 ++
+ 3 files changed, 9 insertions(+), 2 deletions(-)
+
+-- 
+2.9.3
