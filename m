@@ -1,7 +1,7 @@
 From: Ursula Braun <ubraun@linux.vnet.ibm.com>
-Subject: [PATCH net-next 07/10] net/smc: terminate link group if out-of-sync is received
-Date: Wed, 20 Sep 2017 13:58:10 +0200
-Message-ID: <20170920115813.63745-8-ubraun@linux.vnet.ibm.com>
+Subject: [PATCH net-next 08/10] net/smc: introduce a delay
+Date: Wed, 20 Sep 2017 13:58:11 +0200
+Message-ID: <20170920115813.63745-9-ubraun@linux.vnet.ibm.com>
 References: <20170920115813.63745-1-ubraun@linux.vnet.ibm.com>
 Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
         linux-s390@vger.kernel.org, jwi@linux.vnet.ibm.com,
@@ -9,118 +9,150 @@ Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
         raspl@linux.vnet.ibm.com, ubraun@linux.vnet.ibm.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:40974 "EHLO
+Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:34876 "EHLO
         mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751933AbdITL6d (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2017 07:58:33 -0400
-Received: from pps.filterd (m0098417.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v8KBsaOg143252
-        for <netdev@vger.kernel.org>; Wed, 20 Sep 2017 07:58:33 -0400
-Received: from e06smtp13.uk.ibm.com (e06smtp13.uk.ibm.com [195.75.94.109])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 2d3pkrvxcv-1
+        by vger.kernel.org with ESMTP id S1751952AbdITL6g (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2017 07:58:36 -0400
+Received: from pps.filterd (m0098414.ppops.net [127.0.0.1])
+        by mx0b-001b2d01.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v8KBsYG8028357
+        for <netdev@vger.kernel.org>; Wed, 20 Sep 2017 07:58:36 -0400
+Received: from e06smtp11.uk.ibm.com (e06smtp11.uk.ibm.com [195.75.94.107])
+        by mx0b-001b2d01.pphosted.com with ESMTP id 2d3q46b42e-1
         (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Wed, 20 Sep 2017 07:58:33 -0400
+        for <netdev@vger.kernel.org>; Wed, 20 Sep 2017 07:58:35 -0400
 Received: from localhost
-        by e06smtp13.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        by e06smtp11.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
         for <netdev@vger.kernel.org> from <ubraun@linux.vnet.ibm.com>;
-        Wed, 20 Sep 2017 12:58:31 +0100
+        Wed, 20 Sep 2017 12:58:34 +0100
 In-Reply-To: <20170920115813.63745-1-ubraun@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-An out-of-sync condition can just be detected by the client.
-If the server receives a CLC DECLINE message indicating an out-of-sync
-condition for the link groups, the server must clean up the out-of-sync
-link group.
-There is no need for an extra third parameter in smc_clc_send_decline().
+The number of outstanding work requests is limited. If all work
+requests are in use, tx processing is postponed to another scheduling
+of the tx worker. Switch to a delayed worker to have a gap for tx
+completion queue events before the next retry.
 
 Signed-off-by: Ursula Braun <ubraun@linux.vnet.ibm.com>
 ---
- net/smc/af_smc.c  |  6 ++----
- net/smc/smc_clc.c | 10 +++++-----
- net/smc/smc_clc.h |  3 +--
- 3 files changed, 8 insertions(+), 11 deletions(-)
+ net/smc/smc.h       |  2 +-
+ net/smc/smc_close.c | 12 +++++++-----
+ net/smc/smc_tx.c    | 12 ++++++++----
+ 3 files changed, 16 insertions(+), 10 deletions(-)
 
-diff --git a/net/smc/af_smc.c b/net/smc/af_smc.c
-index 2e8d2dabac0c..745f145d4c4d 100644
---- a/net/smc/af_smc.c
-+++ b/net/smc/af_smc.c
-@@ -513,7 +513,7 @@ static int smc_connect_rdma(struct smc_sock *smc)
- 	/* RDMA setup failed, switch back to TCP */
- 	smc->use_fallback = true;
- 	if (reason_code && (reason_code != SMC_CLC_DECL_REPLY)) {
--		rc = smc_clc_send_decline(smc, reason_code, 0);
-+		rc = smc_clc_send_decline(smc, reason_code);
- 		if (rc < sizeof(struct smc_clc_msg_decline))
- 			goto out_err;
- 	}
-@@ -808,8 +808,6 @@ static void smc_listen_work(struct work_struct *work)
- 		rc = local_contact;
- 		if (rc == -ENOMEM)
- 			reason_code = SMC_CLC_DECL_MEM;/* insufficient memory*/
--		else if (rc == -ENOLINK)
--			reason_code = SMC_CLC_DECL_SYNCERR; /* synchr. error */
- 		goto decline_rdma;
- 	}
- 	link = &new_smc->conn.lgr->lnk[SMC_SINGLE_LINK];
-@@ -903,7 +901,7 @@ static void smc_listen_work(struct work_struct *work)
- 	smc_conn_free(&new_smc->conn);
- 	new_smc->use_fallback = true;
- 	if (reason_code && (reason_code != SMC_CLC_DECL_REPLY)) {
--		rc = smc_clc_send_decline(new_smc, reason_code, 0);
-+		rc = smc_clc_send_decline(new_smc, reason_code);
- 		if (rc < sizeof(struct smc_clc_msg_decline))
- 			goto out_err;
- 	}
-diff --git a/net/smc/smc_clc.c b/net/smc/smc_clc.c
-index 3934913ab835..b7dd2743fb5c 100644
---- a/net/smc/smc_clc.c
-+++ b/net/smc/smc_clc.c
-@@ -95,9 +95,10 @@ int smc_clc_wait_msg(struct smc_sock *smc, void *buf, int buflen,
- 	}
- 	if (clcm->type == SMC_CLC_DECLINE) {
- 		reason_code = SMC_CLC_DECL_REPLY;
--		if (ntohl(((struct smc_clc_msg_decline *)buf)->peer_diagnosis)
--			== SMC_CLC_DECL_SYNCERR)
-+		if (((struct smc_clc_msg_decline *)buf)->hdr.flag) {
- 			smc->conn.lgr->sync_err = true;
-+			smc_lgr_terminate(smc->conn.lgr);
-+		}
- 	}
+diff --git a/net/smc/smc.h b/net/smc/smc.h
+index 6e44313e4467..0ccd6fa387ad 100644
+--- a/net/smc/smc.h
++++ b/net/smc/smc.h
+@@ -149,7 +149,7 @@ struct smc_connection {
+ 	atomic_t		sndbuf_space;	/* remaining space in sndbuf */
+ 	u16			tx_cdc_seq;	/* sequence # for CDC send */
+ 	spinlock_t		send_lock;	/* protect wr_sends */
+-	struct work_struct	tx_work;	/* retry of smc_cdc_msg_send */
++	struct delayed_work	tx_work;	/* retry of smc_cdc_msg_send */
  
- out:
-@@ -105,8 +106,7 @@ int smc_clc_wait_msg(struct smc_sock *smc, void *buf, int buflen,
- }
+ 	struct smc_host_cdc_msg	local_rx_ctrl;	/* filled during event_handl.
+ 						 * .prod cf. TCP rcv_nxt
+diff --git a/net/smc/smc_close.c b/net/smc/smc_close.c
+index 3c2e166b5d22..5201bc103bd8 100644
+--- a/net/smc/smc_close.c
++++ b/net/smc/smc_close.c
+@@ -208,7 +208,7 @@ int smc_close_active(struct smc_sock *smc)
+ 	case SMC_ACTIVE:
+ 		smc_close_stream_wait(smc, timeout);
+ 		release_sock(sk);
+-		cancel_work_sync(&conn->tx_work);
++		cancel_delayed_work_sync(&conn->tx_work);
+ 		lock_sock(sk);
+ 		if (sk->sk_state == SMC_ACTIVE) {
+ 			/* send close request */
+@@ -234,7 +234,7 @@ int smc_close_active(struct smc_sock *smc)
+ 		if (!smc_cdc_rxed_any_close(conn))
+ 			smc_close_stream_wait(smc, timeout);
+ 		release_sock(sk);
+-		cancel_work_sync(&conn->tx_work);
++		cancel_delayed_work_sync(&conn->tx_work);
+ 		lock_sock(sk);
+ 		if (sk->sk_err != ECONNABORTED) {
+ 			/* confirm close from peer */
+@@ -263,7 +263,9 @@ int smc_close_active(struct smc_sock *smc)
+ 		/* peer sending PeerConnectionClosed will cause transition */
+ 		break;
+ 	case SMC_PROCESSABORT:
+-		cancel_work_sync(&conn->tx_work);
++		release_sock(sk);
++		cancel_delayed_work_sync(&conn->tx_work);
++		lock_sock(sk);
+ 		smc_close_abort(conn);
+ 		sk->sk_state = SMC_CLOSED;
+ 		smc_close_wait_tx_pends(smc);
+@@ -425,7 +427,7 @@ int smc_close_shutdown_write(struct smc_sock *smc)
+ 	case SMC_ACTIVE:
+ 		smc_close_stream_wait(smc, timeout);
+ 		release_sock(sk);
+-		cancel_work_sync(&conn->tx_work);
++		cancel_delayed_work_sync(&conn->tx_work);
+ 		lock_sock(sk);
+ 		/* send close wr request */
+ 		rc = smc_close_wr(conn);
+@@ -439,7 +441,7 @@ int smc_close_shutdown_write(struct smc_sock *smc)
+ 		if (!smc_cdc_rxed_any_close(conn))
+ 			smc_close_stream_wait(smc, timeout);
+ 		release_sock(sk);
+-		cancel_work_sync(&conn->tx_work);
++		cancel_delayed_work_sync(&conn->tx_work);
+ 		lock_sock(sk);
+ 		/* confirm close from peer */
+ 		rc = smc_close_wr(conn);
+diff --git a/net/smc/smc_tx.c b/net/smc/smc_tx.c
+index 3c656beb8820..3866573288dd 100644
+--- a/net/smc/smc_tx.c
++++ b/net/smc/smc_tx.c
+@@ -24,6 +24,8 @@
+ #include "smc_cdc.h"
+ #include "smc_tx.h"
  
- /* send CLC DECLINE message across internal TCP socket */
--int smc_clc_send_decline(struct smc_sock *smc, u32 peer_diag_info,
--			 u8 out_of_sync)
-+int smc_clc_send_decline(struct smc_sock *smc, u32 peer_diag_info)
++#define SMC_TX_WORK_DELAY	HZ
++
+ /***************************** sndbuf producer *******************************/
+ 
+ /* callback implementation for sk.sk_write_space()
+@@ -406,7 +408,8 @@ int smc_tx_sndbuf_nonempty(struct smc_connection *conn)
+ 				goto out_unlock;
+ 			}
+ 			rc = 0;
+-			schedule_work(&conn->tx_work);
++			schedule_delayed_work(&conn->tx_work,
++					      SMC_TX_WORK_DELAY);
+ 		}
+ 		goto out_unlock;
+ 	}
+@@ -430,7 +433,7 @@ int smc_tx_sndbuf_nonempty(struct smc_connection *conn)
+  */
+ static void smc_tx_work(struct work_struct *work)
  {
- 	struct smc_clc_msg_decline dclc;
- 	struct msghdr msg;
-@@ -118,7 +118,7 @@ int smc_clc_send_decline(struct smc_sock *smc, u32 peer_diag_info,
- 	dclc.hdr.type = SMC_CLC_DECLINE;
- 	dclc.hdr.length = htons(sizeof(struct smc_clc_msg_decline));
- 	dclc.hdr.version = SMC_CLC_V1;
--	dclc.hdr.flag = out_of_sync ? 1 : 0;
-+	dclc.hdr.flag = (peer_diag_info == SMC_CLC_DECL_SYNCERR) ? 1 : 0;
- 	memcpy(dclc.id_for_peer, local_systemid, sizeof(local_systemid));
- 	dclc.peer_diagnosis = htonl(peer_diag_info);
- 	memcpy(dclc.trl.eyecatcher, SMC_EYECATCHER, sizeof(SMC_EYECATCHER));
-diff --git a/net/smc/smc_clc.h b/net/smc/smc_clc.h
-index 13db8ce177c9..1c55414041d4 100644
---- a/net/smc/smc_clc.h
-+++ b/net/smc/smc_clc.h
-@@ -106,8 +106,7 @@ struct smc_ib_device;
- 
- int smc_clc_wait_msg(struct smc_sock *smc, void *buf, int buflen,
- 		     u8 expected_type);
--int smc_clc_send_decline(struct smc_sock *smc, u32 peer_diag_info,
--			 u8 out_of_sync);
-+int smc_clc_send_decline(struct smc_sock *smc, u32 peer_diag_info);
- int smc_clc_send_proposal(struct smc_sock *smc, struct smc_ib_device *smcibdev,
- 			  u8 ibport);
- int smc_clc_send_confirm(struct smc_sock *smc);
+-	struct smc_connection *conn = container_of(work,
++	struct smc_connection *conn = container_of(to_delayed_work(work),
+ 						   struct smc_connection,
+ 						   tx_work);
+ 	struct smc_sock *smc = container_of(conn, struct smc_sock, conn);
+@@ -468,7 +471,8 @@ void smc_tx_consumer_update(struct smc_connection *conn)
+ 		if (!rc)
+ 			rc = smc_cdc_msg_send(conn, wr_buf, pend);
+ 		if (rc < 0) {
+-			schedule_work(&conn->tx_work);
++			schedule_delayed_work(&conn->tx_work,
++					      SMC_TX_WORK_DELAY);
+ 			return;
+ 		}
+ 		smc_curs_write(&conn->rx_curs_confirmed,
+@@ -487,6 +491,6 @@ void smc_tx_consumer_update(struct smc_connection *conn)
+ void smc_tx_init(struct smc_sock *smc)
+ {
+ 	smc->sk.sk_write_space = smc_tx_write_space;
+-	INIT_WORK(&smc->conn.tx_work, smc_tx_work);
++	INIT_DELAYED_WORK(&smc->conn.tx_work, smc_tx_work);
+ 	spin_lock_init(&smc->conn.send_lock);
+ }
 -- 
 2.13.5
