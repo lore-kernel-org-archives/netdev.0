@@ -1,71 +1,29 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: Re: [kernel-hardening] Re: [PATCH v3 03/31] usercopy: Mark kmalloc
- caches as usercopy caches
-Date: Thu, 21 Sep 2017 11:26:43 -0700
-Message-ID: <CAGXu5jKqWShVMqm6-moqgO7JUaJuFxw-9mMKak+WG1HgNJqc1Q@mail.gmail.com>
-References: <1505940337-79069-1-git-send-email-keescook@chromium.org>
- <1505940337-79069-4-git-send-email-keescook@chromium.org> <alpine.DEB.2.20.1709211024120.14427@nuc-kabylake>
- <CAGXu5j+X6dWCGocG=P7pszTY-5OZ6Jmp-RsnDKox75M5rmVe4g@mail.gmail.com> <alpine.DEB.2.20.1709211102320.14742@nuc-kabylake>
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: [PATCH iproute2] man: fix documentation for range of route table
+ ID
+Date: Thu, 21 Sep 2017 20:26:47 +0200
+Message-ID: <20170921182647.GB30364@orbyte.nwl.cc>
+References: <20170921181411.17720-1-thaller@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: LKML <linux-kernel@vger.kernel.org>, David Windsor <dave@nullcore.net>,
-	Pekka Enberg <penberg@kernel.org>, David Rientjes <rientjes@google.com>,
-	Joonsoo Kim <iamjoonsoo.kim@lge.com>, Andrew Morton <akpm@linux-foundation.org>,
-	Linux-MM <linux-mm@kvack.org>, linux-xfs@vger.kernel.org,
-	"linux-fsdevel@vger.kernel.org" <linux-fsdevel@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	"kernel-hardening@lists.openwall.com" <kernel-hardening@lists.openwall.com>
-To: Christopher Lameter <cl@linux.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <alpine.DEB.2.20.1709211102320.14742@nuc-kabylake>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+        netdev@vger.kernel.org
+To: Thomas Haller <thaller@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from orbyte.nwl.cc ([151.80.46.58]:44742 "EHLO orbyte.nwl.cc"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751629AbdIUS0t (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 21 Sep 2017 14:26:49 -0400
+Content-Disposition: inline
+In-Reply-To: <20170921181411.17720-1-thaller@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 21, 2017 at 9:04 AM, Christopher Lameter <cl@linux.com> wrote:
-> On Thu, 21 Sep 2017, Kees Cook wrote:
->
->> > So what is the point of this patch?
->>
->> The DMA kmalloc caches are not whitelisted:
->
-> The DMA kmalloc caches are pretty obsolete and mostly there for obscure
-> drivers.
->
-> ??
+On Thu, Sep 21, 2017 at 08:14:11PM +0200, Thomas Haller wrote:
+> Signed-off-by: Thomas Haller <thaller@redhat.com>
 
-They may be obsolete, but they're still in the kernel, and they aren't
-copied to userspace, so we can mark them.
+Fixes: 4ec1933dfddfc ("Update ip.8 man page to describe route table id values")
 
->> >>                         kmalloc_dma_caches[i] = create_kmalloc_cache(n,
->> >> -                               size, SLAB_CACHE_DMA | flags);
->> >> +                               size, SLAB_CACHE_DMA | flags, 0, 0);
->>
->> So this is creating the distinction between the kmallocs that go to
->> userspace and those that don't. The expectation is that future work
->> can start to distinguish between "for userspace" and "only kernel"
->> kmalloc allocations, as is already done here for DMA.
->
-> The creation of the kmalloc caches in earlier patches already setup the
-> "whitelisting". Why do it twice?
+(So that bug is over 7 years old. :)
 
-Patch 1 is to allow for things to mark their whitelists. Patch 30
-disables the full whitelisting, since then we've defined them all, so
-the kmalloc caches need to mark themselves as whitelisted.
-
-Patch 1 leaves unmarked things whitelisted so we can progressively
-tighten the restriction and have a bisectable series. (i.e. if there
-is something wrong with one of the whitelists in the series, it will
-bisect to that one, not the one that removes the global whitelist from
-patch 1.)
-
--Kees
-
--- 
-Kees Cook
-Pixel Security
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Cheers, Phil
