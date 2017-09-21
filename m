@@ -1,7 +1,7 @@
 From: Allen Pais <allen.lkml@gmail.com>
-Subject: [PATCH 35/64] drivers: net: can: usb: use setup_timer() helper.
-Date: Thu, 21 Sep 2017 22:34:56 +0530
-Message-ID: <1506013525-29291-36-git-send-email-allen.lkml@gmail.com>
+Subject: [PATCH 36/64] drivers: net: can: use setup_timer() helper.
+Date: Thu, 21 Sep 2017 22:34:57 +0530
+Message-ID: <1506013525-29291-37-git-send-email-allen.lkml@gmail.com>
 References: <1506013525-29291-1-git-send-email-allen.lkml@gmail.com>
 Cc: linux-kernel@vger.kernel.org, m.grzeschik@pengutronix.de,
         dmitry.tarnyagin@lockless.no, wg@grandegger.com,
@@ -24,24 +24,30 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Allen Pais <allen.lkml@gmail.com>
 ---
- drivers/net/can/usb/peak_usb/pcan_usb.c | 5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
+ drivers/net/can/grcan.c | 10 ++++------
+ 1 file changed, 4 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/can/usb/peak_usb/pcan_usb.c b/drivers/net/can/usb/peak_usb/pcan_usb.c
-index 838545c..7e10dbd 100644
---- a/drivers/net/can/usb/peak_usb/pcan_usb.c
-+++ b/drivers/net/can/usb/peak_usb/pcan_usb.c
-@@ -798,9 +798,8 @@ static int pcan_usb_init(struct peak_usb_device *dev)
- 	int err;
+diff --git a/drivers/net/can/grcan.c b/drivers/net/can/grcan.c
+index a7be12d..8570cfd 100644
+--- a/drivers/net/can/grcan.c
++++ b/drivers/net/can/grcan.c
+@@ -1626,13 +1626,11 @@ static int grcan_setup_netdev(struct platform_device *ofdev,
+ 	spin_lock_init(&priv->lock);
  
- 	/* initialize a timer needed to wait for hardware restart */
--	init_timer(&pdev->restart_timer);
--	pdev->restart_timer.function = pcan_usb_restart;
--	pdev->restart_timer.data = (unsigned long)dev;
-+	setup_timer(&pdev->restart_timer, pcan_usb_restart,
-+		    (unsigned long)dev);
+ 	if (priv->need_txbug_workaround) {
+-		init_timer(&priv->rr_timer);
+-		priv->rr_timer.function = grcan_running_reset;
+-		priv->rr_timer.data = (unsigned long)dev;
++		setup_timer(&priv->rr_timer, grcan_running_reset,
++			    (unsigned long)dev);
  
- 	/*
- 	 * explicit use of dev_xxx() instead of netdev_xxx() here:
+-		init_timer(&priv->hang_timer);
+-		priv->hang_timer.function = grcan_initiate_running_reset;
+-		priv->hang_timer.data = (unsigned long)dev;
++		setup_timer(&priv->hang_timer, grcan_initiate_running_reset,
++			    (unsigned long)dev);
+ 	}
+ 
+ 	netif_napi_add(dev, &priv->napi, grcan_poll, GRCAN_NAPI_WEIGHT);
 -- 
 2.7.4
