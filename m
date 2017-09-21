@@ -1,43 +1,57 @@
-From: Ursula Braun <ubraun-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
-Subject: [PATCH net 5/9] net/smc: adapt send request completion notification
-Date: Thu, 21 Sep 2017 09:16:30 +0200
-Message-ID: <20170921071634.16883-6-ubraun@linux.vnet.ibm.com>
+From: Ursula Braun <ubraun@linux.vnet.ibm.com>
+Subject: [PATCH net 4/9] net/smc: adjust net_device refcount
+Date: Thu, 21 Sep 2017 09:16:29 +0200
+Message-ID: <20170921071634.16883-5-ubraun@linux.vnet.ibm.com>
 References: <20170921071634.16883-1-ubraun@linux.vnet.ibm.com>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jwi-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org,
-        schwidefsky-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org, heiko.carstens-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org,
-        raspl-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org, ubraun-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170921071634.16883-1-ubraun-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
+        linux-s390@vger.kernel.org, jwi@linux.vnet.ibm.com,
+        schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
+        raspl@linux.vnet.ibm.com, ubraun@linux.vnet.ibm.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:39332 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751840AbdIUHQs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 03:16:48 -0400
+Received: from pps.filterd (m0098393.ppops.net [127.0.0.1])
+        by mx0a-001b2d01.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v8L7EC6P146140
+        for <netdev@vger.kernel.org>; Thu, 21 Sep 2017 03:16:47 -0400
+Received: from e06smtp12.uk.ibm.com (e06smtp12.uk.ibm.com [195.75.94.108])
+        by mx0a-001b2d01.pphosted.com with ESMTP id 2d4624q3xn-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Thu, 21 Sep 2017 03:16:47 -0400
+Received: from localhost
+        by e06smtp12.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <ubraun@linux.vnet.ibm.com>;
+        Thu, 21 Sep 2017 08:16:45 +0100
+In-Reply-To: <20170921071634.16883-1-ubraun@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The solicited flag is meaningful for the receive completion queue.
-Ask for next work completion of any type on the send queue.
+smc_pnet_fill_entry() uses dev_get_by_name() adding a refcount to ndev.
+The following smc_pnet_enter() has to reduce the refcount if the entry
+to be added exists already in the pnet table.
 
-Signed-off-by: Ursula Braun <ubraun-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
+Signed-off-by: Ursula Braun <ubraun@linux.vnet.ibm.com>
 ---
- net/smc/smc_wr.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/smc/smc_pnet.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/net/smc/smc_wr.c b/net/smc/smc_wr.c
-index ab56bda66783..525d91e0d57e 100644
---- a/net/smc/smc_wr.c
-+++ b/net/smc/smc_wr.c
-@@ -244,7 +244,7 @@ int smc_wr_tx_send(struct smc_link *link, struct smc_wr_tx_pend_priv *priv)
- 	int rc;
- 
- 	ib_req_notify_cq(link->smcibdev->roce_cq_send,
--			 IB_CQ_SOLICITED_MASK | IB_CQ_REPORT_MISSED_EVENTS);
-+			 IB_CQ_NEXT_COMP | IB_CQ_REPORT_MISSED_EVENTS);
- 	pend = container_of(priv, struct smc_wr_tx_pend, priv);
- 	rc = ib_post_send(link->roce_qp, &link->wr_tx_ibs[pend->idx],
- 			  &failed_wr);
+diff --git a/net/smc/smc_pnet.c b/net/smc/smc_pnet.c
+index 78f7af28ae4f..31f8453c25c5 100644
+--- a/net/smc/smc_pnet.c
++++ b/net/smc/smc_pnet.c
+@@ -181,8 +181,10 @@ static int smc_pnet_enter(struct smc_pnetentry *new_pnetelem)
+ 			     sizeof(new_pnetelem->ndev->name)) ||
+ 		    smc_pnet_same_ibname(pnetelem,
+ 					 new_pnetelem->smcibdev->ibdev->name,
+-					 new_pnetelem->ib_port))
++					 new_pnetelem->ib_port)) {
++			dev_put(pnetelem->ndev);
+ 			goto found;
++		}
+ 	}
+ 	list_add_tail(&new_pnetelem->list, &smc_pnettable.pnetlist);
+ 	rc = 0;
 -- 
 2.13.5
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
