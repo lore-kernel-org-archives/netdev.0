@@ -1,7 +1,7 @@
 From: Allen Pais <allen.lkml@gmail.com>
-Subject: [PATCH 61/64] drivers: net: enic: use setup_timer() helper.
-Date: Thu, 21 Sep 2017 22:35:22 +0530
-Message-ID: <1506013525-29291-62-git-send-email-allen.lkml@gmail.com>
+Subject: [PATCH 62/64] drivers: net: cxgb: use setup_timer() helper.
+Date: Thu, 21 Sep 2017 22:35:23 +0530
+Message-ID: <1506013525-29291-63-git-send-email-allen.lkml@gmail.com>
 References: <1506013525-29291-1-git-send-email-allen.lkml@gmail.com>
 Cc: linux-kernel@vger.kernel.org, m.grzeschik@pengutronix.de,
         dmitry.tarnyagin@lockless.no, wg@grandegger.com,
@@ -24,24 +24,24 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Allen Pais <allen.lkml@gmail.com>
 ---
- drivers/net/ethernet/cisco/enic/enic_clsf.h | 5 ++---
+ drivers/net/ethernet/chelsio/cxgb/sge.c | 5 ++---
  1 file changed, 2 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/cisco/enic/enic_clsf.h b/drivers/net/ethernet/cisco/enic/enic_clsf.h
-index 6aa9f89..4bfbf25 100644
---- a/drivers/net/ethernet/cisco/enic/enic_clsf.h
-+++ b/drivers/net/ethernet/cisco/enic/enic_clsf.h
-@@ -19,9 +19,8 @@ void enic_flow_may_expire(unsigned long data);
+diff --git a/drivers/net/ethernet/chelsio/cxgb/sge.c b/drivers/net/ethernet/chelsio/cxgb/sge.c
+index 0f13a7f..75e4399 100644
+--- a/drivers/net/ethernet/chelsio/cxgb/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb/sge.c
+@@ -2075,9 +2075,8 @@ struct sge *t1_sge_create(struct adapter *adapter, struct sge_params *p)
+ 			goto nomem_port;
+ 	}
  
- static inline void enic_rfs_timer_start(struct enic *enic)
- {
--	init_timer(&enic->rfs_h.rfs_may_expire);
--	enic->rfs_h.rfs_may_expire.function = enic_flow_may_expire;
--	enic->rfs_h.rfs_may_expire.data = (unsigned long)enic;
-+	setup_timer(&enic->rfs_h.rfs_may_expire, enic_flow_may_expire,
-+		    (unsigned long)enic);
- 	mod_timer(&enic->rfs_h.rfs_may_expire, jiffies + HZ/4);
- }
+-	init_timer(&sge->tx_reclaim_timer);
+-	sge->tx_reclaim_timer.data = (unsigned long)sge;
+-	sge->tx_reclaim_timer.function = sge_tx_reclaim_cb;
++	setup_timer(&sge->tx_reclaim_timer, sge_tx_reclaim_cb,
++		    (unsigned long)sge);
  
+ 	if (is_T2(sge->adapter)) {
+ 		init_timer(&sge->espibug_timer);
 -- 
 2.7.4
