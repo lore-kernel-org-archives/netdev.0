@@ -1,7 +1,7 @@
 From: Allen Pais <allen.lkml@gmail.com>
-Subject: [PATCH 57/64] drivers: net: stmmac: use setup_timer() helper.
-Date: Thu, 21 Sep 2017 22:35:18 +0530
-Message-ID: <1506013525-29291-58-git-send-email-allen.lkml@gmail.com>
+Subject: [PATCH 58/64] drivers: net: packetengines: use setup_timer() helper.
+Date: Thu, 21 Sep 2017 22:35:19 +0530
+Message-ID: <1506013525-29291-59-git-send-email-allen.lkml@gmail.com>
 References: <1506013525-29291-1-git-send-email-allen.lkml@gmail.com>
 Cc: linux-kernel@vger.kernel.org, m.grzeschik@pengutronix.de,
         dmitry.tarnyagin@lockless.no, wg@grandegger.com,
@@ -24,24 +24,24 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Allen Pais <allen.lkml@gmail.com>
 ---
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 4 +---
+ drivers/net/ethernet/packetengines/hamachi.c | 4 +---
  1 file changed, 1 insertion(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 1763e48..f41661a 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -2217,10 +2217,8 @@ static void stmmac_init_tx_coalesce(struct stmmac_priv *priv)
- {
- 	priv->tx_coal_frames = STMMAC_TX_FRAMES;
- 	priv->tx_coal_timer = STMMAC_COAL_TX_TIMER;
--	init_timer(&priv->txtimer);
-+	setup_timer(&priv->txtimer, stmmac_tx_timer, (unsigned long)priv);
- 	priv->txtimer.expires = STMMAC_COAL_TIMER(priv->tx_coal_timer);
--	priv->txtimer.data = (unsigned long)priv;
--	priv->txtimer.function = stmmac_tx_timer;
- 	add_timer(&priv->txtimer);
- }
+diff --git a/drivers/net/ethernet/packetengines/hamachi.c b/drivers/net/ethernet/packetengines/hamachi.c
+index 482b85e..77bc7cc 100644
+--- a/drivers/net/ethernet/packetengines/hamachi.c
++++ b/drivers/net/ethernet/packetengines/hamachi.c
+@@ -979,10 +979,8 @@ static int hamachi_open(struct net_device *dev)
+ 			   dev->name, readw(ioaddr + RxStatus), readw(ioaddr + TxStatus));
+ 	}
+ 	/* Set the timer to check for link beat. */
+-	init_timer(&hmp->timer);
++	setup_timer(&hmp->timer, hamachi_timer, (unsigned long)dev);
+ 	hmp->timer.expires = RUN_AT((24*HZ)/10);			/* 2.4 sec. */
+-	hmp->timer.data = (unsigned long)dev;
+-	hmp->timer.function = hamachi_timer;				/* timer handler */
+ 	add_timer(&hmp->timer);
  
+ 	return 0;
 -- 
 2.7.4
