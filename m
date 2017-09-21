@@ -1,103 +1,123 @@
-From: Craig Gallek <kraigatgoog@gmail.com>
-Subject: Re: [PATCH net-next] bpf: Optimize lpm trie delete
-Date: Thu, 21 Sep 2017 09:13:21 -0400
-Message-ID: <CAEfhGiwLd0rj47HiecMSf3SKGVAS3Xyjvytjoh5K5+zviN8dxw@mail.gmail.com>
-References: <20170920162247.63787-1-kraigatgoog@gmail.com> <47e47f0d-d04d-b52b-647a-7883aa5f3268@zonque.org>
- <CAEfhGiy_hC0tCd=5qoPZ1okyMCYsgMQbKAa0ms1Tb9cnYDaLBg@mail.gmail.com> <dc09f044-be69-a2a9-bf77-331ce558eee9@zonque.org>
+From: =?UTF-8?Q?Pawe=c5=82_Staszewski?= <pstaszewski@itcare.pl>
+Subject: Re: Latest net-next from GIT panic
+Date: Thu, 21 Sep 2017 15:18:53 +0200
+Message-ID: <80e8948e-669b-4139-add6-637c6dd3405f@itcare.pl>
+References: <4745525f-18e4-7f69-fe21-8e507e407b33@itcare.pl>
+ <3c227be7-a954-a406-1987-24e908cf214c@itcare.pl>
+ <CAM_iQpUOOCcES4d_ueK2wizn2oyDZPEzLfWQFu3oOq=BuRzdiw@mail.gmail.com>
+ <1505932231.29839.106.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAM_iQpVF3Gf3G=543o8g+5N2dtEL4DcUPN3a6=L8V_G0CXZ65w@mail.gmail.com>
+ <07f0c800-7ee7-1ebe-9f5f-eaad52a7b42d@itcare.pl>
+ <548a893c-8a8f-3b07-00f7-d75de1d777ad@itcare.pl>
+ <7d8731ee-6c91-bbfd-6313-c95f52d7b49a@itcare.pl>
+ <26e8b899-d8b1-caa4-436b-e23ffe384b0f@itcare.pl>
+ <6c36fa00-13e6-8cd7-ff5c-df7739220736@itcare.pl>
+ <CAEA6p_DpSr84cYu3pXqoHV=V=daSsbiOcnzsF+Kt0r4Wv_jmdg@mail.gmail.com>
+ <CAEA6p_AiLvZxsyu+iOCrPzW-H28N=HBnWycy8w6gdZHFk2Q1dQ@mail.gmail.com>
+ <1505956639.29839.108.camel@edumazet-glaptop3.roam.corp.google.com>
+ <a016d5bc-1cbb-44d7-9ebf-e7e5428e6f98@itcare.pl>
+ <1505991826.29839.124.camel@edumazet-glaptop3.roam.corp.google.com>
+ <8d2b4263-bd81-9cff-81ac-2df686cf29aa@itcare.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Alexei Starovoitov <ast@fb.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        "David S . Miller" <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>
-To: Daniel Mack <daniel@zonque.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: Wei Wang <weiwan@google.com>, Cong Wang <xiyou.wangcong@gmail.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f175.google.com ([209.85.216.175]:54730 "EHLO
-        mail-qt0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751581AbdIUNNY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 09:13:24 -0400
-Received: by mail-qt0-f175.google.com with SMTP id i13so5822118qtc.11
-        for <netdev@vger.kernel.org>; Thu, 21 Sep 2017 06:13:24 -0700 (PDT)
-Received: from mail-qt0-f171.google.com (mail-qt0-f171.google.com. [209.85.216.171])
-        by smtp.gmail.com with ESMTPSA id q51sm975718qtk.18.2017.09.21.06.13.22
-        for <netdev@vger.kernel.org>
-        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Thu, 21 Sep 2017 06:13:22 -0700 (PDT)
-Received: by mail-qt0-f171.google.com with SMTP id l25so5807491qtf.13
-        for <netdev@vger.kernel.org>; Thu, 21 Sep 2017 06:13:22 -0700 (PDT)
-In-Reply-To: <dc09f044-be69-a2a9-bf77-331ce558eee9@zonque.org>
+Received: from smtp11.iq.pl ([86.111.242.220]:54615 "EHLO smtp11.iq.pl"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751606AbdIUNU7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 21 Sep 2017 09:20:59 -0400
+In-Reply-To: <8d2b4263-bd81-9cff-81ac-2df686cf29aa@itcare.pl>
+Content-Language: pl
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 20, 2017 at 6:56 PM, Daniel Mack <daniel@zonque.org> wrote:
-> On 09/20/2017 08:51 PM, Craig Gallek wrote:
->> On Wed, Sep 20, 2017 at 12:51 PM, Daniel Mack <daniel@zonque.org> wrote:
->>> Hi Craig,
->>>
->>> Thanks, this looks much cleaner already :)
->>>
->>> On 09/20/2017 06:22 PM, Craig Gallek wrote:
->>>> diff --git a/kernel/bpf/lpm_trie.c b/kernel/bpf/lpm_trie.c
->>>> index 9d58a576b2ae..b5a7d70ec8b5 100644
->>>> --- a/kernel/bpf/lpm_trie.c
->>>> +++ b/kernel/bpf/lpm_trie.c
->>>> @@ -397,7 +397,7 @@ static int trie_delete_elem(struct bpf_map *map, void *_key)
->>>>       struct lpm_trie_node __rcu **trim;
->>>>       struct lpm_trie_node *node;
->>>>       unsigned long irq_flags;
->>>> -     unsigned int next_bit;
->>>> +     unsigned int next_bit = 0;
->>>
->>> This default assignment seems wrong, and I guess you only added it to
->>> squelch a compiler warning?
->> Yes, this variable is only initialized after the lookup iterations
->> below (meaning it will never be initialized the the root-removal
->> case).
->
-> Right, and once set, it's only updated in case we don't have an exact
-> match and try to drill down further.
->
->>> [...]
->>>
->>>> +     /* If the node has one child, we may be able to collapse the tree
->>>> +      * while removing this node if the node's child is in the same
->>>> +      * 'next bit' slot as this node was in its parent or if the node
->>>> +      * itself is the root.
->>>> +      */
->>>> +     if (trim == &trie->root) {
->>>> +             next_bit = node->child[0] ? 0 : 1;
->>>> +             rcu_assign_pointer(trie->root, node->child[next_bit]);
->>>> +             kfree_rcu(node, rcu);
->>>
->>> I don't think you should treat this 'root' case special.
->>>
->>> Instead, move the 'next_bit' assignment outside of the condition ...
->> I'm not quite sure I follow.  Are you saying do something like this:
->>
->> if (trim == &trie->root) {
->>   next_bit = node->child[0] ? 0 : 1;
->> }
->> if (rcu_access_pointer(node->child[next_bit])) {
->> ...
->>
->> This would save a couple lines of code, but I think the as-is
->> implementation is slightly easier to understand.  I don't have a
->> strong opinion either way, though.
->
-> Me neither :)
->
-> My idea was to set
->
->   next_bit = node->child[0] ? 0 : 1;
->
-> unconditionally, because it should result in the same in both cases.
->
-> It might be a bit of bike shedding, but I dislike this default
-> assignment, and I believe that not relying on next_bit to be set as a
-> side effect of the lookup loop makes the code a bit more readable.
->
-> WDYT?
-That sounds reasonable.  I'll spin a v2 today if no one else has any comments.
 
-Thanks again,
-Craig
+
+W dniu 2017-09-21 o 13:31, Paweł Staszewski pisze:
+>
+>
+> W dniu 2017-09-21 o 13:03, Eric Dumazet pisze:
+>> OK we have two problems here
+>>
+>> 1) We need to unify skb_dst_force()  ( for net tree )
+>>
+>> 2) Vlan devices should try to correctly handle IFF_XMIT_DST_RELEASE from
+>> lower device. This will considerably help your performance.
+>>
+>>
+>> For 1), this is what I had in mind, can you try it ?
+>>
+>> Thanks a lot !
+>>
+>> diff --git a/include/net/dst.h b/include/net/dst.h
+>> index 
+>> 93568bd0a3520bb7402f04d90cf04ac99c81cfbe..f23851eeaad917e8dafc06b58d23a2575405c894 
+>> 100644
+>> --- a/include/net/dst.h
+>> +++ b/include/net/dst.h
+>> @@ -271,7 +271,7 @@ static inline void dst_use_noref(struct dst_entry 
+>> *dst, unsigned long time)
+>>   static inline struct dst_entry *dst_clone(struct dst_entry *dst)
+>>   {
+>>       if (dst)
+>> -        atomic_inc(&dst->__refcnt);
+>> +        dst_hold(dst);
+>>       return dst;
+>>   }
+>>   @@ -311,21 +311,6 @@ static inline void skb_dst_copy(struct sk_buff 
+>> *nskb, const struct sk_buff *oskb
+>>       __skb_dst_copy(nskb, oskb->_skb_refdst);
+>>   }
+>>   -/**
+>> - * skb_dst_force - makes sure skb dst is refcounted
+>> - * @skb: buffer
+>> - *
+>> - * If dst is not yet refcounted, let's do it
+>> - */
+>> -static inline void skb_dst_force(struct sk_buff *skb)
+>> -{
+>> -    if (skb_dst_is_noref(skb)) {
+>> -        WARN_ON(!rcu_read_lock_held());
+>> -        skb->_skb_refdst &= ~SKB_DST_NOREF;
+>> -        dst_clone(skb_dst(skb));
+>> -    }
+>> -}
+>> -
+>>   /**
+>>    * dst_hold_safe - Take a reference on a dst if possible
+>>    * @dst: pointer to dst entry
+>> @@ -356,6 +341,23 @@ static inline void skb_dst_force_safe(struct 
+>> sk_buff *skb)
+>>       }
+>>   }
+>>   +/**
+>> + * skb_dst_force - makes sure skb dst is refcounted
+>> + * @skb: buffer
+>> + *
+>> + * If dst is not yet refcounted, let's do it
+>> + */
+>> +static inline void skb_dst_force(struct sk_buff *skb)
+>> +{
+>> +    if (skb_dst_is_noref(skb)) {
+>> +        struct dst_entry *dst = skb_dst(skb);
+>> +
+>> +        WARN_ON(!rcu_read_lock_held());
+>> +        if (!dst_hold_safe(dst))
+>> +            dst = NULL;
+>> +        skb->_skb_refdst = (unsigned long)dst;
+>> +    }
+>> +}
+>>     /**
+>>    *    __skb_tunnel_rx - prepare skb for rx reinsert
+>>
+>>
+>
+> Patch applied - soo far no problems - and no warnings in dmesg
+>
+>
+ok after adding patch all is working from now for about 1 hour of normal 
+traffic witc all bgp sessions connected and about 600k prefixes in kernel.
