@@ -1,84 +1,102 @@
-From: Y Song <ys114321@gmail.com>
-Subject: Re: [PATCH net-next] bpf/verifier: improve disassembly of BPF_END instructions
-Date: Thu, 21 Sep 2017 09:40:31 -0700
-Message-ID: <CAH3MdRWAHJS8Y8ketOAghYyorVUp6JijjZcSVY7gOiGAr7e_pw@mail.gmail.com>
-References: <7013ee9d-a8e6-13fd-cc5f-86cf3d8bf4e0@solarflare.com>
- <20170921155215.jta52sesbiq54vri@ast-mbp> <4cfac985-4f99-cf85-fc15-c3ad1f8ff123@solarflare.com>
+From: Tom Herbert <tom@quantonium.net>
+Subject: Re: [PATCH net-next 09/14] gtp: Allow configuring GTP interface as standalone
+Date: Thu, 21 Sep 2017 09:43:02 -0700
+Message-ID: <CAPDqMeq69rjzPh8jo-G9gKT26h-br4OrE0yxTJGk97qRgX0K2A@mail.gmail.com>
+References: <20170919003904.5124-1-tom@quantonium.net> <20170919003904.5124-10-tom@quantonium.net>
+ <a6d1dad0-e922-2913-d4c8-592d403ee1cb@tpip.net> <CALx6S3771X4QUm2mJG=aJJ0f4Tm98NpGA7060vF1P8iuCPgicQ@mail.gmail.com>
+ <56e339a8-fa2d-6f8d-a89c-c0f3f242763a@tpip.net> <CAPDqMeq1tLi=NkLyqma2OEHQi-fYEYeTU-8th9WKoZaeWiM0Rw@mail.gmail.com>
+ <20170921001313.n2uo56oxmphcvd5g@nataraja> <CAPDqMeox74aEdV5_cr7HJ=kh0-etLdFE-u5=g8OqRzmS8OjOuQ@mail.gmail.com>
+ <20170921151253.4udm54dcq7x3ed4q@nataraja>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Daniel Borkmann <daniel@iogearbox.net>
-To: Edward Cree <ecree@solarflare.com>
+Cc: Andreas Schultz <aschultz@tpip.net>,
+        Tom Herbert <tom@herbertland.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
+        Rohit Seth <rohit@quantonium.net>
+To: Harald Welte <laforge@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f65.google.com ([209.85.213.65]:32810 "EHLO
-        mail-vk0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751780AbdIUQlM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 12:41:12 -0400
-Received: by mail-vk0-f65.google.com with SMTP id j189so1619945vka.0
-        for <netdev@vger.kernel.org>; Thu, 21 Sep 2017 09:41:12 -0700 (PDT)
-In-Reply-To: <4cfac985-4f99-cf85-fc15-c3ad1f8ff123@solarflare.com>
+Received: from mail-wm0-f41.google.com ([74.125.82.41]:44531 "EHLO
+        mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751602AbdIUQnF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 12:43:05 -0400
+Received: by mail-wm0-f41.google.com with SMTP id m127so1632395wmm.1
+        for <netdev@vger.kernel.org>; Thu, 21 Sep 2017 09:43:04 -0700 (PDT)
+In-Reply-To: <20170921151253.4udm54dcq7x3ed4q@nataraja>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 21, 2017 at 9:24 AM, Edward Cree <ecree@solarflare.com> wrote:
-> On 21/09/17 16:52, Alexei Starovoitov wrote:
->> On Thu, Sep 21, 2017 at 04:09:34PM +0100, Edward Cree wrote:
->>> print_bpf_insn() was treating all BPF_ALU[64] the same, but BPF_END has a
->>>  different structure: it has a size in insn->imm (even if it's BPF_X) and
->>>  uses the BPF_SRC (X or K) to indicate which endianness to use.  So it
->>>  needs different code to print it.
->>>
->>> Signed-off-by: Edward Cree <ecree@solarflare.com>
->>> ---
->>> It's not the same format as the new LLVM asm uses, does that matter?
->>> AFAIK the LLVM format doesn't comprehend BPF_TO_LE, just assumes that all
->>>  endian ops are necessarily swaps (rather than sometimes nops).
->> that is being fixed and we will fix asm format too.
->> Let's pick good format first.
-> Agreed.
->>>  kernel/bpf/verifier.c | 13 +++++++++++--
->>>  1 file changed, 11 insertions(+), 2 deletions(-)
->>>
->>> diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
->>> index 799b245..e7657a4 100644
->>> --- a/kernel/bpf/verifier.c
->>> +++ b/kernel/bpf/verifier.c
->>> @@ -331,20 +331,29 @@ static void print_bpf_insn(const struct bpf_verifier_env *env,
->>>      u8 class = BPF_CLASS(insn->code);
->>>
->>>      if (class == BPF_ALU || class == BPF_ALU64) {
->>> -            if (BPF_SRC(insn->code) == BPF_X)
->>> +            if (BPF_OP(insn->code) == BPF_END) {
->>> +                    if (class == BPF_ALU64)
->>> +                            verbose("BUG_alu64_%02x\n", insn->code);
->>> +                    else
->>> +                            verbose("(%02x) (u%d) r%d %s %s\n",
->>> +                                    insn->code, insn->imm, insn->dst_reg,
->>> +                                    bpf_alu_string[BPF_END >> 4],
->>> +                                    BPF_SRC(insn->code) == BPF_X ? "be" : "le");
->> yes the bit the same, but please use BPF_SRC(insn->code) == BPF_TO_BE.
-> Good point.
->> imo
->> (u16) r4 endian be
->> isn't intuitive.
->> Can we come up with some better syntax?
->> Like
->> bswap16be r4
->> bswap32le r4
-> Hmm, I don't like these, since bswapbe is a swap on *le* and a nop on be.
->> or
->>
->> to_be16 r4
->> to_le32 r4
-> And the problem here is that it's not just to_be, it's also from_be.
+On Thu, Sep 21, 2017 at 8:12 AM, Harald Welte <laforge@netfilter.org> wrote:
+> Hi Tom,
+>
+> On Wed, Sep 20, 2017 at 05:55:01PM -0700, Tom Herbert wrote:
+>> You have the point of view of someone who has a lot of experience
+>> dealing with this protocol. Try to imagine if you were some random
+>> kernel network programmer with no experience in the area. If they
+>> happen to find a one-off bug and want to do the right thing by running
+>> a test, you want to make that as easy as possible.
+>
+> Agreed.  But we're not talking abut fixing a random bug in your patch
+> series, but we're talking about adding significant new features - and
+> those features need to be tested in real use caes, not just in an
+> artificial test setup that holds assumptions that are not true.
+>
+> To improve performance, or to fix simple bugs that only affect the
+> processing of the GTP-U G-PDU, a much more limited and hence
+> "unrealistic" test scenario is probably sufficient/acceptable.
+>
+>> From that perspective, building protocol specific libraries and
+>> finding the right cmd line to run is significant hoops (I can attest
+>> to this).
+>
+> I understand your argument.  But then, there is actually quite some
+> tools to help you (see further below), as well as the wiki page at
+> http://osmocom.org/projects/linux-kernel-gtp-u/wiki/Basic_Testing
+>
+> Of course, existing tools and existing wiki pages also only document
+> existing features of the kernel code :)
+>
+> Yes, the documentation could be better.  But then, how much more can you
+> expect from somebody who's doing this mostly for fun and who - despite
+> working in his dayjob on FOSS cellular projects - has no single
+> commercial project/context that uses the kernel GTP code.
+>
+> In any case, working on a specific protocol or technology will require
+> that you understand that technology to some extent, including the
+> available tools.  There's always a learning curve involved.
+>
+>> There are other examples in the kernel of systems bigger than GTP that
+>> require a whole lot of effort just to run a simple test; you'll notice
+>> for those it's rare that best developers ever bother to look at them
+>> unless they're making a global change that affects the code. We don't
+>> want GTP to take be like that!
+>
+> I'm all for following your argument.  My point is simply: You cannot
+> develop code solely based on mock-ups without any 'realistic' test
+> scenarios.  Otherwise you will end up with something that works only in
+> your artificial lab setup, and follows all the best practises of the way
+> how the Linux kernel traditionally approaches tunneling implementations,
+> but it will never work/interop in the real world.
+>
 
-Could you explain what is "from_be" here? Do not quite understand.
+> And I'm very strongly opposed to merging code where we have not been
+> able to show that it will inter-operate in at least one realistic
+> scenario.  This would raise wrong expectations with users and all sorts
+> of downstream problems.
+>
+Harald,
 
->  Otherwise we could write `(be16) r4 = endian (u16) r4` and be much more
->  explicit about what's happening.
-> Really the operation is something like `cpu_tofrom_be16 r4`, but that also
->  seems a bit clumsy and longwinded.  Also it's inconsistent with the other
->  ops that all indicate sizes with these (u16) etc casts.
-> `endian (be16) r4`, perhaps?
+Please see the cover letter for the original GTP kernel patches dated
+May 10, 2016. My first question on those was "Is there a timeline for
+adding IPv6 support?". To which Pablo replied that there was a
+preliminary patch for it that has not been released. That was almost a
+year and half ago and we have not heard anything since. If you don't
+like my patches or don't think that can be adapted to fully support
+the GTP specification, that's fine. But then you need to provide a
+viable alternative. We are at the point where a kernel networking
+feature that only supports IPv4 when it could support IPv6 must be
+considered incomplete.
+
+Thanks,
+Tom
