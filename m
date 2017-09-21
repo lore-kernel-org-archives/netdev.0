@@ -1,93 +1,99 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 00/12] mlxsw: Add support for offloading IPv4 multicast routes
-Date: Thu, 21 Sep 2017 08:43:26 +0200
-Message-ID: <20170921064338.1282-1-jiri@resnulli.us>
+Subject: [patch net-next 06/12] net: mroute: Check if rule is a default rule
+Date: Thu, 21 Sep 2017 08:43:32 +0200
+Message-ID: <20170921064338.1282-7-jiri@resnulli.us>
+References: <20170921064338.1282-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, yotamg@mellanox.com, idosch@mellanox.com,
         mlxsw@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f46.google.com ([74.125.82.46]:48517 "EHLO
-        mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751732AbdIUGnk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 02:43:40 -0400
-Received: by mail-wm0-f46.google.com with SMTP id r68so12570810wmg.3
-        for <netdev@vger.kernel.org>; Wed, 20 Sep 2017 23:43:39 -0700 (PDT)
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:35179 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751896AbdIUGnp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 02:43:45 -0400
+Received: by mail-wm0-f68.google.com with SMTP id e64so4294925wmi.2
+        for <netdev@vger.kernel.org>; Wed, 20 Sep 2017 23:43:44 -0700 (PDT)
+In-Reply-To: <20170921064338.1282-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@mellanox.com>
+From: Yotam Gigi <yotamg@mellanox.com>
 
-Yotam says:
+When the ipmr starts, it adds one default FIB rule that matches all packets
+and sends them to the DEFAULT (multicast) FIB table. A more complex rule
+can be added by user to specify that for a specific interface, a packet
+should be look up at either an arbitrary table or according to the l3mdev
+of the interface.
 
-This patchset introduces offloading of the kernel IPv4 multicast router
-logic in the Spectrum driver.
+For drivers willing to offload the ipmr logic into a hardware but don't
+want to offload all the FIB rules functionality, provide a function that
+can indicate whether the FIB rule is the default multicast rule, thus only
+one routing table is needed.
 
-Patches 1-4 update ipmr to use the FIB notification chain for both MFC and
-VIF notifications, and patches 7-11 update the Spectrum driver to register
-to these notifications and offload the routes.
+This way, a driver can register to the FIB notification chain, get
+notifications about FIB rules added and trigger some kind of an internal
+abort mechanism when a non default rule is added by the user.
 
-Similarly to IPv4 and IPv6, any failure will trigger the abort mechanism
-which is updated in this patch-set to eject multicast route tables too.
+Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
+Reviewed-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ include/linux/mroute.h |  7 +++++++
+ net/ipv4/ipmr.c        | 10 ++++++++++
+ 2 files changed, 17 insertions(+)
 
-At this stage, the following limitations apply:
- - A multicast MFC route will be offloaded by the driver if all the output
-   interfaces are Spectrum router interfaces (RIFs). In any other case
-   (which includes pimreg device, tunnel devices and management ports) the
-   route will be trapped to the CPU and the packets will be forwarded by
-   software.
- - ipmr proxy routes are not supported and will trigger the abort
-   mechanism.
- - The MFC TTL values are currently treated as boolean: if the value is
-   different than 255, the traffic is forwarded to the interface and if the
-   value is 255 it is not forwarded. Dropping packets based on their TTL isn't
-   currently supported.
-
-To allow users to have visibility on which of the routes are offloaded and
-which are not, patch 5 introduces a per-route offload indication similar to
-IPv4 and IPv6 routes which is sent to the user via the RTNetlink interface.
-
-The Spectrum driver multicast router offloading support, which is
-introduced in patches 7 and 8, is divided into two parts:
- - The hardware logic which abstracts the Spectrum hardware and provides a
-   simple API for the upper levels.
- - The offloading logic which gets the MFC and VIF notifications from the
-   kernel and updates the hardware using the hardware logic part.
-
-Finally, the last patch makes the Spectrum router logic not ignore the
-multicast FIB notifications and call the corresponding functions in the
-multicast router offloading logic.
-
-Yotam Gigi (12):
-  fib: notifier: Add VIF add and delete event types
-  ipmr: Add reference count to MFC entries
-  ipmr: Add FIB notification access functions
-  ipmr: Send FIB notifications on MFC and VIF entries
-  net: ipmr: Add MFC offload indication
-  net: mroute: Check if rule is a default rule
-  mlxsw: spectrum: Add the multicast routing offloading logic
-  mlxsw: spectrum: Add the multicast routing hardware logic
-  mlxsw: spectrum: router: Squash the default route table to main
-  mlxsw: spectrum_router: Add multicast routes notification handling
-    functionality
-  mlxsw: spectrum: Notify multicast router on RIF MTU changes
-  mlxsw: spectrum: router: Don't ignore IPMR notifications
-
- drivers/net/ethernet/mellanox/mlxsw/Makefile       |    3 +-
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |    2 +
- drivers/net/ethernet/mellanox/mlxsw/spectrum_mr.c  | 1012 ++++++++++++++++++++
- drivers/net/ethernet/mellanox/mlxsw/spectrum_mr.h  |  133 +++
- .../net/ethernet/mellanox/mlxsw/spectrum_mr_tcam.c |  828 ++++++++++++++++
- .../net/ethernet/mellanox/mlxsw/spectrum_mr_tcam.h |   43 +
- .../net/ethernet/mellanox/mlxsw/spectrum_router.c  |  205 +++-
- include/linux/mroute.h                             |   43 +
- include/net/fib_notifier.h                         |    2 +
- include/net/netns/ipv4.h                           |    3 +
- net/ipv4/ipmr.c                                    |  209 +++-
- 11 files changed, 2472 insertions(+), 11 deletions(-)
- create mode 100644 drivers/net/ethernet/mellanox/mlxsw/spectrum_mr.c
- create mode 100644 drivers/net/ethernet/mellanox/mlxsw/spectrum_mr.h
- create mode 100644 drivers/net/ethernet/mellanox/mlxsw/spectrum_mr_tcam.c
- create mode 100644 drivers/net/ethernet/mellanox/mlxsw/spectrum_mr_tcam.h
-
+diff --git a/include/linux/mroute.h b/include/linux/mroute.h
+index 9b64587..585369d 100644
+--- a/include/linux/mroute.h
++++ b/include/linux/mroute.h
+@@ -5,6 +5,7 @@
+ #include <linux/pim.h>
+ #include <linux/rhashtable.h>
+ #include <net/sock.h>
++#include <net/fib_rules.h>
+ #include <net/fib_notifier.h>
+ #include <uapi/linux/mroute.h>
+ 
+@@ -19,6 +20,7 @@ int ip_mroute_getsockopt(struct sock *, int, char __user *, int __user *);
+ int ipmr_ioctl(struct sock *sk, int cmd, void __user *arg);
+ int ipmr_compat_ioctl(struct sock *sk, unsigned int cmd, void __user *arg);
+ int ip_mr_init(void);
++bool ipmr_rule_default(const struct fib_rule *rule);
+ #else
+ static inline int ip_mroute_setsockopt(struct sock *sock, int optname,
+ 				       char __user *optval, unsigned int optlen)
+@@ -46,6 +48,11 @@ static inline int ip_mroute_opt(int opt)
+ {
+ 	return 0;
+ }
++
++static inline bool ipmr_rule_default(const struct fib_rule *rule)
++{
++	return true;
++}
+ #endif
+ 
+ struct vif_device {
+diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+index 6804885..6e1de35 100644
+--- a/net/ipv4/ipmr.c
++++ b/net/ipv4/ipmr.c
+@@ -320,6 +320,16 @@ static unsigned int ipmr_rules_seq_read(struct net *net)
+ }
+ #endif
+ 
++bool ipmr_rule_default(const struct fib_rule *rule)
++{
++#if IS_ENABLED(CONFIG_FIB_RULES)
++	return fib_rule_matchall(rule) && rule->table == RT_TABLE_DEFAULT;
++#else
++	return true;
++#endif
++}
++EXPORT_SYMBOL(ipmr_rule_default);
++
+ static inline int ipmr_hash_cmp(struct rhashtable_compare_arg *arg,
+ 				const void *ptr)
+ {
 -- 
 2.9.5
