@@ -1,45 +1,152 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: [PATCH net] bpf: one perf event close won't free bpf program
- attached by another perf event
-Date: Thu, 21 Sep 2017 13:17:06 +0200
-Message-ID: <20170921111706.343om7252gcagco6@hirez.programming.kicks-ass.net>
-References: <20170918233836.1817062-1-yhs@fb.com>
- <20170920214109.11002b7c@vmware.local.home>
- <94f5a61e-1a88-f285-224b-66c92dc3da7b@fb.com>
- <9e968490-87ae-7a79-9e59-0dcc840a93f5@fb.com>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [patch net-next 03/12] ipmr: Add FIB notification access
+ functions
+Date: Thu, 21 Sep 2017 14:19:10 +0300
+Message-ID: <24470459-704b-89a2-648a-bbd4d3a1aebb@cumulusnetworks.com>
+References: <20170921064338.1282-1-jiri@resnulli.us>
+ <20170921064338.1282-4-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Steven Rostedt <rostedt@goodmis.org>, ast@fb.com,
-        daniel@iogearbox.net, netdev@vger.kernel.org, kernel-team@fb.com
-To: Yonghong Song <yhs@fb.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, yotamg@mellanox.com, idosch@mellanox.com,
+        mlxsw@mellanox.com
+To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([65.50.211.133]:44332 "EHLO
-        bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751387AbdIULRN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 07:17:13 -0400
-Content-Disposition: inline
-In-Reply-To: <9e968490-87ae-7a79-9e59-0dcc840a93f5@fb.com>
+Received: from mail-wr0-f182.google.com ([209.85.128.182]:51289 "EHLO
+        mail-wr0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751652AbdIULTO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 07:19:14 -0400
+Received: by mail-wr0-f182.google.com with SMTP id z39so4286412wrb.8
+        for <netdev@vger.kernel.org>; Thu, 21 Sep 2017 04:19:13 -0700 (PDT)
+In-Reply-To: <20170921064338.1282-4-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 20, 2017 at 10:20:13PM -0700, Yonghong Song wrote:
-> > (2). trace_event_call->perf_events are per cpu data structure, that
-> > means, some filtering logic is needed to avoid the same perf_event prog
-> > is executing twice.
+On 21/09/17 09:43, Jiri Pirko wrote:
+> From: Yotam Gigi <yotamg@mellanox.com>
 > 
-> What I mean here is that the trace_event_call->perf_events need to be
-> checked on ALL cpus since bpf prog should be executed regardless of
-> cpu affiliation. It is possible that the same perf_event in different
-> per_cpu bucket and hence filtering is needed to avoid the same
-> perf_event bpf_prog is executed twice.
+> Make the ipmr module register as a FIB notifier. To do that, implement both
+> the ipmr_seq_read and ipmr_dump ops.
+> 
+> The ipmr_seq_read op returns a sequence counter that is incremented on
+> every notification related operation done by the ipmr. To implement that,
+> add a sequence counter in the netns_ipv4 struct and increment it whenever a
+> new MFC route or VIF are added or deleted. The sequence operations are
+> protected by the RTNL lock.
+> 
+> The ipmr_dump iterates the list of MFC routes and the list of VIF entries
+> and sends notifications about them. The entries dump is done under RCU.
+> 
+> Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
+> Reviewed-by: Ido Schimmel <idosch@mellanox.com>
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+> ---
+>  include/linux/mroute.h   |  15 ++++++
+>  include/net/netns/ipv4.h |   3 ++
+>  net/ipv4/ipmr.c          | 135 ++++++++++++++++++++++++++++++++++++++++++++++-
+>  3 files changed, 151 insertions(+), 2 deletions(-)
+> 
+[snip]
+> +
+> +static int ipmr_dump(struct net *net, struct notifier_block *nb)
+> +{
+> +	struct mr_table *mrt;
+> +	int err;
+> +
+> +	err = ipmr_rules_dump(net, nb);
+> +	if (err)
+> +		return err;
+> +
+> +	ipmr_for_each_table(mrt, net) {
+> +		struct vif_device *v = &mrt->vif_table[0];
+> +		struct mfc_cache *mfc;
+> +		int vifi;
+> +
+> +		/* Notifiy on table VIF entries */
+> +		for (vifi = 0; vifi < mrt->maxvif; vifi++, v++) {
+> +			if (!v->dev)
+> +				continue;
+> +
+> +			call_ipmr_vif_entry_notifier(nb, net, FIB_EVENT_VIF_ADD,
+> +						     v, vifi, mrt->id);
+> +		}
 
-An event will only ever be on a single CPU's list at any one time IIRC.
+The VIF table is protected by mrt_lock (rwlock), here with RCU only
+you're not guaranteed to keep v->dev. It can become NULL after the check above.
+For details you can see vif_delete() in net/ipv4/ipmr.c. You need at least
+mrt_lock for reading.
 
-Now, hysterically perf_event_set_bpf_prog used the tracepoint crud
-because that already had bpf bits in. But it might make sense to look at
-unifying the bpf stuff across all the different event types. Have them
-all use event->prog.
-
-I suspect that would break a fair bunch of bpf proglets, since the data
-access to the trace data would be completely different, but it would be
-much nicer to not have this distinction based on event type.
+> +
+> +		/* Notify on table MFC entries */
+> +		list_for_each_entry_rcu(mfc, &mrt->mfc_cache_list, list)
+> +			call_ipmr_mfc_entry_notifier(nb, net,
+> +						     FIB_EVENT_ENTRY_ADD, mfc,
+> +						     mrt->id);
+> +	}
+> +
+> +	return 0;
+> +}
+> +
+> +static const struct fib_notifier_ops ipmr_notifier_ops_template = {
+> +	.family		= RTNL_FAMILY_IPMR,
+> +	.fib_seq_read	= ipmr_seq_read,
+> +	.fib_dump	= ipmr_dump,
+> +	.owner		= THIS_MODULE,
+> +};
+> +
+> +int __net_init ipmr_notifier_init(struct net *net)
+> +{
+> +	struct fib_notifier_ops *ops;
+> +
+> +	net->ipv4.ipmr_seq = 0;
+> +
+> +	ops = fib_notifier_ops_register(&ipmr_notifier_ops_template, net);
+> +	if (IS_ERR(ops))
+> +		return PTR_ERR(ops);
+> +	net->ipv4.ipmr_notifier_ops = ops;
+> +
+> +	return 0;
+> +}
+> +
+> +static void __net_exit ipmr_notifier_exit(struct net *net)
+> +{
+> +	fib_notifier_ops_unregister(net->ipv4.ipmr_notifier_ops);
+> +	net->ipv4.ipmr_notifier_ops = NULL;
+> +}
+> +
+>  /* Setup for IP multicast routing */
+>  static int __net_init ipmr_net_init(struct net *net)
+>  {
+>  	int err;
+>  
+> +	err = ipmr_notifier_init(net);
+> +	if (err)
+> +		goto ipmr_notifier_fail;
+> +
+>  	err = ipmr_rules_init(net);
+>  	if (err < 0)
+> -		goto fail;
+> +		goto ipmr_rules_fail;
+>  
+>  #ifdef CONFIG_PROC_FS
+>  	err = -ENOMEM;
+> @@ -3074,7 +3202,9 @@ static int __net_init ipmr_net_init(struct net *net)
+>  proc_vif_fail:
+>  	ipmr_rules_exit(net);
+>  #endif
+> -fail:
+> +ipmr_rules_fail:
+> +	ipmr_notifier_exit(net);
+> +ipmr_notifier_fail:
+>  	return err;
+>  }
+>  
+> @@ -3084,6 +3214,7 @@ static void __net_exit ipmr_net_exit(struct net *net)
+>  	remove_proc_entry("ip_mr_cache", net->proc_net);
+>  	remove_proc_entry("ip_mr_vif", net->proc_net);
+>  #endif
+> +	ipmr_notifier_exit(net);
+>  	ipmr_rules_exit(net);
+>  }
+>  
+> 
