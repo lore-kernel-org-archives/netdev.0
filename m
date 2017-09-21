@@ -1,7 +1,7 @@
 From: Allen Pais <allen.lkml@gmail.com>
-Subject: [PATCH 27/64] drivers: net: atmel: use setup_timer() helper.
-Date: Thu, 21 Sep 2017 22:34:48 +0530
-Message-ID: <1506013525-29291-28-git-send-email-allen.lkml@gmail.com>
+Subject: [PATCH 28/64] drivers: net: hippi: use setup_timer() helper.
+Date: Thu, 21 Sep 2017 22:34:49 +0530
+Message-ID: <1506013525-29291-29-git-send-email-allen.lkml@gmail.com>
 References: <1506013525-29291-1-git-send-email-allen.lkml@gmail.com>
 Cc: linux-kernel@vger.kernel.org, m.grzeschik@pengutronix.de,
         dmitry.tarnyagin@lockless.no, wg@grandegger.com,
@@ -24,26 +24,24 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Allen Pais <allen.lkml@gmail.com>
 ---
- drivers/net/wireless/atmel/atmel.c | 5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
+ drivers/net/hippi/rrunner.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
-diff --git a/drivers/net/wireless/atmel/atmel.c b/drivers/net/wireless/atmel/atmel.c
-index b68436b..e816d53 100644
---- a/drivers/net/wireless/atmel/atmel.c
-+++ b/drivers/net/wireless/atmel/atmel.c
-@@ -1579,11 +1579,10 @@ struct net_device *init_atmel_card(unsigned short irq, unsigned long port,
- 	priv->default_beacon_period = priv->beacon_period = 100;
- 	priv->listen_interval = 1;
+diff --git a/drivers/net/hippi/rrunner.c b/drivers/net/hippi/rrunner.c
+index 71ddadb..76cc140 100644
+--- a/drivers/net/hippi/rrunner.c
++++ b/drivers/net/hippi/rrunner.c
+@@ -1229,10 +1229,8 @@ static int rr_open(struct net_device *dev)
  
--	init_timer(&priv->management_timer);
-+	setup_timer(&priv->management_timer, atmel_management_timer,
-+		    (unsigned long)dev);
- 	spin_lock_init(&priv->irqlock);
- 	spin_lock_init(&priv->timerlock);
--	priv->management_timer.function = atmel_management_timer;
--	priv->management_timer.data = (unsigned long) dev;
+ 	/* Set the timer to switch to check for link beat and perhaps switch
+ 	   to an alternate media type. */
+-	init_timer(&rrpriv->timer);
++	setup_timer(&rrpriv->timer, rr_timer, (unsigned long)dev);
+ 	rrpriv->timer.expires = RUN_AT(5*HZ);           /* 5 sec. watchdog */
+-	rrpriv->timer.data = (unsigned long)dev;
+-	rrpriv->timer.function = rr_timer;               /* timer handler */
+ 	add_timer(&rrpriv->timer);
  
- 	dev->netdev_ops = &atmel_netdev_ops;
- 	dev->wireless_handlers = &atmel_handler_def;
+ 	netif_start_queue(dev);
 -- 
 2.7.4
