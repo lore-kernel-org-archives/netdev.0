@@ -1,7 +1,7 @@
 From: Allen Pais <allen.lkml@gmail.com>
-Subject: [PATCH 37/64] drivers: net: arcnet: use setup_timer() helper.
-Date: Thu, 21 Sep 2017 22:34:58 +0530
-Message-ID: <1506013525-29291-38-git-send-email-allen.lkml@gmail.com>
+Subject: [PATCH 38/64] drivers: net: ath6kl: use setup_timer() helper.
+Date: Thu, 21 Sep 2017 22:34:59 +0530
+Message-ID: <1506013525-29291-39-git-send-email-allen.lkml@gmail.com>
 References: <1506013525-29291-1-git-send-email-allen.lkml@gmail.com>
 Cc: linux-kernel@vger.kernel.org, m.grzeschik@pengutronix.de,
         dmitry.tarnyagin@lockless.no, wg@grandegger.com,
@@ -24,23 +24,23 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Allen Pais <allen.lkml@gmail.com>
 ---
- drivers/net/arcnet/arcnet.c | 4 +---
+ drivers/net/wireless/ath/ath6kl/txrx.c | 4 +---
  1 file changed, 1 insertion(+), 3 deletions(-)
 
-diff --git a/drivers/net/arcnet/arcnet.c b/drivers/net/arcnet/arcnet.c
-index fcfccbb..13236b2 100644
---- a/drivers/net/arcnet/arcnet.c
-+++ b/drivers/net/arcnet/arcnet.c
-@@ -450,9 +450,7 @@ struct net_device *alloc_arcdev(const char *name)
+diff --git a/drivers/net/wireless/ath/ath6kl/txrx.c b/drivers/net/wireless/ath/ath6kl/txrx.c
+index e6b2517..4e5cc2b 100644
+--- a/drivers/net/wireless/ath/ath6kl/txrx.c
++++ b/drivers/net/wireless/ath/ath6kl/txrx.c
+@@ -1753,9 +1753,7 @@ void aggr_conn_init(struct ath6kl_vif *vif, struct aggr_info *aggr_info,
  
- 		lp->dev = dev;
- 		spin_lock_init(&lp->lock);
--		init_timer(&lp->timer);
--		lp->timer.data = (unsigned long) dev;
--		lp->timer.function = arcnet_timer;
-+		setup_timer(&lp->timer, arcnet_timer, (unsigned long)dev);
- 	}
+ 	aggr_conn->aggr_sz = AGGR_SZ_DEFAULT;
+ 	aggr_conn->dev = vif->ndev;
+-	init_timer(&aggr_conn->timer);
+-	aggr_conn->timer.function = aggr_timeout;
+-	aggr_conn->timer.data = (unsigned long) aggr_conn;
++	setup_timer(&aggr_conn->timer, aggr_timeout, (unsigned long)aggr_conn);
+ 	aggr_conn->aggr_info = aggr_info;
  
- 	return dev;
+ 	aggr_conn->timer_scheduled = false;
 -- 
 2.7.4
