@@ -1,44 +1,64 @@
-From: Christopher Lameter <cl@linux.com>
-Subject: Re: [PATCH v3 03/31] usercopy: Mark kmalloc caches as usercopy
- caches
-Date: Thu, 21 Sep 2017 10:27:13 -0500 (CDT)
-Message-ID: <alpine.DEB.2.20.1709211024120.14427@nuc-kabylake>
-References: <1505940337-79069-1-git-send-email-keescook@chromium.org> <1505940337-79069-4-git-send-email-keescook@chromium.org>
+From: Vincent Bernat <vincent@bernat.im>
+Subject: Re: [PATCH net-next v2] bridge: also trigger RTM_NEWLINK when interface is released from bridge
+Date: Thu, 21 Sep 2017 17:31:32 +0200
+Message-ID: <87vakc3w6j.fsf@luffy.cx>
+References: <m3zi9vbrfp.fsf@luffy.cx>
+        <20170916141833.28344-1-vincent@bernat.im>
+        <20170920.140956.781667692297467325.davem@davemloft.net>
+        <16e5566a-909d-ba83-7637-1fb6c93126bc@gmail.com>
+        <20170920162140.369bb198@xeon-e3> <87h8vw5pwg.fsf@luffy.cx>
+        <CAJieiUgKO-O3YFc3iTQXMmXc287RGgw4FjYhaLn-7+pmA_Fh+g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: linux-kernel@vger.kernel.org, David Windsor <dave@nullcore.net>,
-    Pekka Enberg <penberg@kernel.org>, David Rientjes <rientjes@google.com>,
-    Joonsoo Kim <iamjoonsoo.kim@lge.com>,
-    Andrew Morton <akpm@linux-foundation.org>, linux-mm@kvack.org,
-    linux-xfs@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-    netdev@vger.kernel.org, kernel-hardening@lists.openwall.com
-To: Kees Cook <keescook@chromium.org>
-Return-path: <kernel-hardening-return-9904-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-In-Reply-To: <1505940337-79069-4-git-send-email-keescook@chromium.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+        David Ahern <dsahern@gmail.com>,
+        David Miller <davem@davemloft.net>,
+        bridge@lists.linux-foundation.org,
+        "netdev\@vger.kernel.org" <netdev@vger.kernel.org>
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bart.luffy.cx ([78.47.78.131]:60935 "EHLO bart.luffy.cx"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751811AbdIUPbe (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 21 Sep 2017 11:31:34 -0400
+In-Reply-To: <CAJieiUgKO-O3YFc3iTQXMmXc287RGgw4FjYhaLn-7+pmA_Fh+g@mail.gmail.com>
+        (Roopa Prabhu's message of "Thu, 21 Sep 2017 08:09:28 -0700")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 20 Sep 2017, Kees Cook wrote:
+ =E2=9D=A6 21 septembre 2017 08:09 -0700, Roopa Prabhu <roopa@cumulusnetwor=
+ks.com>=C2=A0:
 
-> --- a/mm/slab.c
-> +++ b/mm/slab.c
-> @@ -1291,7 +1291,8 @@ void __init kmem_cache_init(void)
->  	 */
->  	kmalloc_caches[INDEX_NODE] = create_kmalloc_cache(
->  				kmalloc_info[INDEX_NODE].name,
-> -				kmalloc_size(INDEX_NODE), ARCH_KMALLOC_FLAGS);
-> +				kmalloc_size(INDEX_NODE), ARCH_KMALLOC_FLAGS,
-> +				0, kmalloc_size(INDEX_NODE));
->  	slab_state = PARTIAL_NODE;
->  	setup_kmalloc_cache_index_table();
+>>> The one concern is that ports added or removed through ioctl should
+>>> cause same events as doing the same thing via netlink. Some users use
+>>> brctl (ioctl) and others use newer bridge (netlink) API.
+>>
+>> I'll make a third iteration to have the same notifications when using
+>> ioctl() with details in the commit message.
+>> --
+>
+> as long as the ioctl path for bridge port removal is generating a:
+> RTM_DELLINK with AF_BRIDGE and
+> RTM_NEWLINK with AF_UNSPEC with 'master' removed
+>
+> we should be good. These are the most important ones.
+>
+> are there other specific bridge-events missing ?. you might want to
+> run `bridge monitor link` also. and un-slaving of a port also triggers
+> fdb events which are visible under `bridge monitor fdb`
 
-Ok this presumes that at some point we will be able to restrict the number
-of bytes writeable and thus set the offset and size field to different
-values. Is that realistic?
+With the patch, bridge monitor link generates the same event with
+ioctl() than with netlink (like for ip monitor link, netlink generates
+one extra duplicate event when enslaving).
 
-We already whitelist all kmalloc caches (see first patch).
+For bridge monitor fdb, there is a difference. With ioctl(), I don't get
+the event for VLAN1:
 
-So what is the point of this patch?
+Deleted ca:18:06:bc:f6:11 dev dummy1 vlan 1 master bridge0 permanent
+
+I suppose this is an expected difference due to the inability to manage
+VLAN-aware bridges with ioctl().
+--=20
+Use the fundamental control flow constructs.
+            - The Elements of Programming Style (Kernighan & Plauger)
