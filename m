@@ -1,69 +1,103 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: Re: [PATCH net-next 0/5] net: introduce noref sk
-Date: Thu, 21 Sep 2017 11:42:11 +0200
-Message-ID: <1505986931.2560.51.camel@redhat.com>
-References: <cover.1505926196.git.pabeni@redhat.com>
-         <20170920.202022.2073272587145961156.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, pablo@netfilter.org, fw@strlen.de,
-        edumazet@google.com, hannes@stressinduktion.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43778 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751882AbdIUJmN (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 21 Sep 2017 05:42:13 -0400
-In-Reply-To: <20170920.202022.2073272587145961156.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Egil Hjelmeland <privat@egil-hjelmeland.no>
+Subject: [PATCH net-next 1/2] net: dsa: lan9303: Move tag setup to new lan9303_setup_tagging
+Date: Thu, 21 Sep 2017 11:41:38 +0200
+Message-ID: <20170921094139.4250-2-privat@egil-hjelmeland.no>
+References: <20170921094139.4250-1-privat@egil-hjelmeland.no>
+Cc: Egil Hjelmeland <privat@egil-hjelmeland.no>
+To: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
+        f.fainelli@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170921094139.4250-1-privat@egil-hjelmeland.no>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+Prepare for next patch:
+Move tag setup from lan9303_separate_ports() to new function
+lan9303_setup_tagging()
 
-Thanks for the feedback!
+Signed-off-by: Egil Hjelmeland <privat@egil-hjelmeland.no>
+---
+ drivers/net/dsa/lan9303-core.c | 42 +++++++++++++++++++++++++-----------------
+ 1 file changed, 25 insertions(+), 17 deletions(-)
 
-On Wed, 2017-09-20 at 20:20 -0700, David Miller wrote:
-> From: Paolo Abeni <pabeni@redhat.com>
-> Date: Wed, 20 Sep 2017 18:54:00 +0200
-> 
-> > This series introduce the infrastructure to store inside the skb a socket
-> > pointer without carrying a refcount to the socket.
-> > 
-> > Such infrastructure is then used in the network receive path - and
-> > specifically the early demux operation.
-> > 
-> > This allows the UDP early demux to perform a full lookup for UDP sockets,
-> > with many benefits:
-> > 
-> > - the UDP early demux code is now much simpler
-> > - the early demux does not hit any performance penalties in case of UDP hash
-> >   table collision - previously the early demux performed a partial, unsuccesful,
-> >   lookup
-> > - early demux is now operational also for unconnected sockets.
-> > 
-> > This infrastrcture will be used in follow-up series to allow dst caching for
-> > unconnected UDP sockets, and than to extend the same features to TCP listening
-> > sockets.
-> 
-> Like Eric, I find this series (while exciting) quite scary :-)
-> 
-> You really have to post some kind of performance numbers in your
-> header posting in order to justify something with these ramifications
-> and scale.
-
-This is actually a preparatory work for the next series which will
-bring in the real gain. The next patches are still to be polished so we
- posted this separately to get some early feedback. 
-
-If that would help, I can post the follow-up soon as RFC. Overall -
-with the follow-up appplied, too - when using a single rx ingress
-queue, I measured ~20% tput gain for unconnected ipv4 sockets - with
-rp_filter disabled - and ~30% for ipv6 sockets. In case of multiple
-ingress queues, the gain is smaller but still measurable (roughly 5%). 
-
-Please let me know if you prefer the see the full work early. 
-
-Thanks,
-
-Paolo
+diff --git a/drivers/net/dsa/lan9303-core.c b/drivers/net/dsa/lan9303-core.c
+index 07355db2ad81..bba875e114e7 100644
+--- a/drivers/net/dsa/lan9303-core.c
++++ b/drivers/net/dsa/lan9303-core.c
+@@ -157,6 +157,7 @@
+ # define LAN9303_SWE_PORT_MIRROR_ENABLE_RX_MIRRORING BIT(1)
+ # define LAN9303_SWE_PORT_MIRROR_ENABLE_TX_MIRRORING BIT(0)
+ #define LAN9303_SWE_INGRESS_PORT_TYPE 0x1847
++#define  LAN9303_SWE_INGRESS_PORT_TYPE_VLAN 3
+ #define LAN9303_BM_CFG 0x1c00
+ #define LAN9303_BM_EGRSS_PORT_TYPE 0x1c0c
+ # define LAN9303_BM_EGRSS_PORT_TYPE_SPECIAL_TAG_PORT2 (BIT(17) | BIT(16))
+@@ -510,11 +511,30 @@ static int lan9303_enable_processing_port(struct lan9303 *chip,
+ 				LAN9303_MAC_TX_CFG_X_TX_ENABLE);
+ }
+ 
++/* forward special tagged packets from port 0 to port 1 *or* port 2 */
++static int lan9303_setup_tagging(struct lan9303 *chip)
++{
++	int ret;
++	/* enable defining the destination port via special VLAN tagging
++	 * for port 0
++	 */
++	ret = lan9303_write_switch_reg(chip, LAN9303_SWE_INGRESS_PORT_TYPE,
++				       LAN9303_SWE_INGRESS_PORT_TYPE_VLAN);
++	if (ret)
++		return ret;
++
++	/* tag incoming packets at port 1 and 2 on their way to port 0 to be
++	 * able to discover their source port
++	 */
++	return lan9303_write_switch_reg(
++		chip, LAN9303_BM_EGRSS_PORT_TYPE,
++		LAN9303_BM_EGRSS_PORT_TYPE_SPECIAL_TAG_PORT0);
++}
++
+ /* We want a special working switch:
+  * - do not forward packets between port 1 and 2
+  * - forward everything from port 1 to port 0
+  * - forward everything from port 2 to port 0
+- * - forward special tagged packets from port 0 to port 1 *or* port 2
+  */
+ static int lan9303_separate_ports(struct lan9303 *chip)
+ {
+@@ -529,22 +549,6 @@ static int lan9303_separate_ports(struct lan9303 *chip)
+ 	if (ret)
+ 		return ret;
+ 
+-	/* enable defining the destination port via special VLAN tagging
+-	 * for port 0
+-	 */
+-	ret = lan9303_write_switch_reg(chip, LAN9303_SWE_INGRESS_PORT_TYPE,
+-				       0x03);
+-	if (ret)
+-		return ret;
+-
+-	/* tag incoming packets at port 1 and 2 on their way to port 0 to be
+-	 * able to discover their source port
+-	 */
+-	ret = lan9303_write_switch_reg(chip, LAN9303_BM_EGRSS_PORT_TYPE,
+-			LAN9303_BM_EGRSS_PORT_TYPE_SPECIAL_TAG_PORT0);
+-	if (ret)
+-		return ret;
+-
+ 	/* prevent port 1 and 2 from forwarding packets by their own */
+ 	return lan9303_write_switch_reg(chip, LAN9303_SWE_PORT_STATE,
+ 				LAN9303_SWE_PORT_STATE_FORWARDING_PORT0 |
+@@ -644,6 +648,10 @@ static int lan9303_setup(struct dsa_switch *ds)
+ 		return -EINVAL;
+ 	}
+ 
++	ret = lan9303_setup_tagging(chip);
++	if (ret)
++		dev_err(chip->dev, "failed to setup port tagging %d\n", ret);
++
+ 	ret = lan9303_separate_ports(chip);
+ 	if (ret)
+ 		dev_err(chip->dev, "failed to separate ports %d\n", ret);
+-- 
+2.11.0
