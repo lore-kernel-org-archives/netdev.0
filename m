@@ -1,65 +1,49 @@
-From: Harald Welte <laforge@gnumonks.org>
-Subject: Re: [PATCH net-next 09/14] gtp: Allow configuring GTP interface as
- standalone
-Date: Thu, 21 Sep 2017 08:13:13 +0800
-Message-ID: <20170921001313.n2uo56oxmphcvd5g@nataraja>
-References: <20170919003904.5124-1-tom@quantonium.net>
- <20170919003904.5124-10-tom@quantonium.net>
- <a6d1dad0-e922-2913-d4c8-592d403ee1cb@tpip.net>
- <CALx6S3771X4QUm2mJG=aJJ0f4Tm98NpGA7060vF1P8iuCPgicQ@mail.gmail.com>
- <56e339a8-fa2d-6f8d-a89c-c0f3f242763a@tpip.net>
- <CAPDqMeq1tLi=NkLyqma2OEHQi-fYEYeTU-8th9WKoZaeWiM0Rw@mail.gmail.com>
+From: Tom Herbert <tom@quantonium.net>
+Subject: Re: [PATCH net-next 08/14] gtp: Support encpasulating over IPv6
+Date: Wed, 20 Sep 2017 17:16:52 -0700
+Message-ID: <CAPDqMeoKgd8x+KbQG03RHsBPQVDN6Stn6JkAJgf4u=zxeGGaEw@mail.gmail.com>
+References: <20170919003904.5124-9-tom@quantonium.net> <20170918.211952.1397675528248642600.davem@davemloft.net>
+ <CALx6S36cJEU2LkbNf-d8kUHCPj78bt5Y2Bd_rdvjxJ9epOEqAQ@mail.gmail.com>
+ <20170920.124511.922311380432026759.davem@davemloft.net> <CALx6S36zz1CFq75S5-=UK8wtuK-pxaQdWU7tVuRGhtb_Y9QkDg@mail.gmail.com>
+ <20170921000437.rg2h6vyxsrbc3bel@nataraja>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andreas Schultz <aschultz@tpip.net>,
-        Tom Herbert <tom@herbertland.com>,
-        "David S. Miller" <davem@davemloft.net>,
+Content-Type: text/plain; charset="UTF-8"
+Cc: Tom Herbert <tom@herbertland.com>,
+        David Miller <davem@davemloft.net>,
         Linux Kernel Network Developers <netdev@vger.kernel.org>,
         Pablo Neira Ayuso <pablo@netfilter.org>,
         Rohit Seth <rohit@quantonium.net>
-To: Tom Herbert <tom@quantonium.net>
+To: Harald Welte <laforge@gnumonks.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ganesha.gnumonks.org ([213.95.27.120]:32772 "EHLO
-        ganesha.gnumonks.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751663AbdIUANa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2017 20:13:30 -0400
-Content-Disposition: inline
-In-Reply-To: <CAPDqMeq1tLi=NkLyqma2OEHQi-fYEYeTU-8th9WKoZaeWiM0Rw@mail.gmail.com>
+Received: from mail-wm0-f48.google.com ([74.125.82.48]:49277 "EHLO
+        mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751640AbdIUAQy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2017 20:16:54 -0400
+Received: by mail-wm0-f48.google.com with SMTP id e71so11287182wmg.4
+        for <netdev@vger.kernel.org>; Wed, 20 Sep 2017 17:16:53 -0700 (PDT)
+In-Reply-To: <20170921000437.rg2h6vyxsrbc3bel@nataraja>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Tom,
+On Wed, Sep 20, 2017 at 5:04 PM, Harald Welte <laforge@gnumonks.org> wrote:
+> Hi Tom,
+>
+> On Wed, Sep 20, 2017 at 01:40:54PM -0700, Tom Herbert wrote:
+>> On Wed, Sep 20, 2017 at 12:45 PM, David Miller <davem@davemloft.net> wrote:
+>> > There is a socket associated with the tunnel to do the encapsulation
+>> > and it has an address family, right?
+>>
+>> If fd's are set from userspace for the sockets then we could derive
+>> the address family from them. I'll change that. Although, looking at
+>> now I am wondering why were passing fds into GTP instead of just
+>> having the kernel create the UDP port like is done for other encaps.
+>
+> because the userspace process has to take care of those bits of GTP-U
+> that the kernel doesn't, such as responding to GTP ECHO requests with
+> GTP echo responses.  Only the "GTP Message type G-PDU" is handled in the
+> kernel, as only those frames contain user plane.  See table 1 of Section
+> 7.1 of 3GPP TS 29.060.
+>
+Okay, thanks for the explanation.
 
-On Wed, Sep 20, 2017 at 09:24:07AM -0700, Tom Herbert wrote:
-> On Wed, Sep 20, 2017 at 9:07 AM, Andreas Schultz <aschultz@tpip.net> wrote:
-> > GTP isn't special, I just don't like to have testing only features in there
-> > when the same goal can be reached without having to add extra stuff. Adding
-> > code that is not going to be useful in real production setups (or in this
-> > case would even break production setups when enabled accidentally) makes the
-> > implementation more complex than it needs to be.
-> 
-> Well, you could make the same argument that allowing GTP to configured
-> as standalone interface is a problem since GTP is only allowed to be
-> with used with GTP-C. But, then we have something in the kernel that
-> the community is expected to support, but requires jumping through a
-> whole bunch of hoops just to run a simple netperf. 
-
-"A whole bunch of hoops" without your new interface would consist of
-running a single command-line program that is supplied with libgtpnl.
-This is not a complete 3GPP network, but a simple libmnl-based helper
-library with no other depenencies.
-
-I'm not neccessarily against introducing features like the 'standalone
-interface configuration'.  However, we must make sure that any
-significant new feature contributions like IPv6 are tested in a
-"realistic setup" and not just using those 'interfaces added for easy
-development'.  Also, I would argue those 'interfaces added for easy
-deveopment/benchmarking' should probably be clearly marked as such to
-avoid raising the impression that this is what leads to a
-standard-conforming / production-type setup.
-
--- 
-- Harald Welte <laforge@gnumonks.org>           http://laforge.gnumonks.org/
-============================================================================
-"Privacy in residential applications is a desirable marketing option."
-                                                  (ETSI EN 300 175-7 Ch. A6)
+Tom
