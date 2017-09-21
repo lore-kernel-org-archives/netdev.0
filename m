@@ -1,51 +1,58 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: Re: [PATCHv3 iproute2 1/2] lib/libnetlink: re malloc buff if size is
- not enough
-Date: Thu, 21 Sep 2017 09:34:20 +0200
-Message-ID: <20170921073420.dcoipli2sxy3bmnx@unicorn.suse.cz>
-References: <1505871820-31580-1-git-send-email-liuhangbin@gmail.com>
- <1505871820-31580-2-git-send-email-liuhangbin@gmail.com>
- <20170920095605.1ea527fc@xeon-e3>
- <20170921072002.GM5465@leo.usersys.redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-        netdev@vger.kernel.org, Phil Sutter <phil@nwl.cc>
-To: Hangbin Liu <liuhangbin@gmail.com>
+From: Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
+Subject: [PATCH net-next 0/4] cxgb4: add support to offload tc flower
+Date: Thu, 21 Sep 2017 13:03:33 +0530
+Message-ID: <cover.1505977744.git.rahul.lakkireddy@chelsio.com>
+Cc: davem@davemloft.net, kumaras@chelsio.com, ganeshgr@chelsio.com,
+        nirranjan@chelsio.com, indranil@chelsio.com,
+        Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:44236 "EHLO mx1.suse.de"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751588AbdIUHeY (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 21 Sep 2017 03:34:24 -0400
-Content-Disposition: inline
-In-Reply-To: <20170921072002.GM5465@leo.usersys.redhat.com>
+Received: from stargate.chelsio.com ([12.32.117.8]:47028 "EHLO
+        stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751588AbdIUHeb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 03:34:31 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 21, 2017 at 03:20:02PM +0800, Hangbin Liu wrote:
-> 
-> Or maybe we can set buf_len very small first. Then it will force to realloc at
-> the second time. And the code would like
-> 
-> 	int buf_len = 16;
-> 	bufp = realloc(buf, buf_len);
-> 	/* check bufp and set msg */
-> 
-> 	len = recvmsg(fd, msg, flag);
-> 	/* check len */
-> 
-> 	buf_len = len;
-> 	bufp = realloc(buf, buf_len);
-> 	/* check bufp and set msg */
-> 
-> 	len = recvmsg(fd, msg, flag);
-> 	/* check len */
-> 
-> What do you think?
+This series of patches add support to offload tc flower onto Chelsio
+NICs.
 
-I will have to check but IIRC it might be possible to use zero length
-for the peek to only check the length which could help you to avoid both
-the reallocation and copying the same data from kernel to userspace
-twice.
+Patch 1 adds basic skeleton to prepare for offloading tc flower flows.
 
-Michal Kubecek
+Patch 2 adds support to add/remove flows for offload.  Flows can have
+accompanying masks.  Following match and action are currently supported
+for offload:
+Match:  ether-protocol, IPv4/IPv6 addresses, L4 ports (TCP/UDP)
+Action: drop, redirect to another port on the device.
+
+Patch 3 adds support to offload tc-flower flows having
+vlan actions: pop, push, and modify.
+
+Patch 4 adds support to fetch stats for the offloaded tc flower flows
+from hardware.
+
+Support for offloading more match and action types are to be followed
+in subsequent series.
+
+Thanks,
+Rahul
+
+Kumar Sanghvi (4):
+  cxgb4: add tc flower offload skeleton
+  cxgb4: add basic tc flower offload support
+  cxgb4: add support to offload action vlan
+  cxgb4: fetch stats for offloaded tc flower flows
+
+ drivers/net/ethernet/chelsio/cxgb4/Makefile        |   4 +-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h         |   4 +
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.c  | 102 +++++
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c    |  25 ++
+ .../net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c   | 458 +++++++++++++++++++++
+ .../net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.h   |  66 +++
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h     |   3 +
+ 7 files changed, 661 insertions(+), 1 deletion(-)
+ create mode 100644 drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c
+ create mode 100644 drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.h
+
+-- 
+2.14.1
