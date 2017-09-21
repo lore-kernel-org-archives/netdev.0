@@ -1,7 +1,7 @@
 From: Allen Pais <allen.lkml@gmail.com>
-Subject: [PATCH 60/64] drivers: net: uli526x: use setup_timer() helper.
-Date: Thu, 21 Sep 2017 22:35:21 +0530
-Message-ID: <1506013525-29291-61-git-send-email-allen.lkml@gmail.com>
+Subject: [PATCH 61/64] drivers: net: enic: use setup_timer() helper.
+Date: Thu, 21 Sep 2017 22:35:22 +0530
+Message-ID: <1506013525-29291-62-git-send-email-allen.lkml@gmail.com>
 References: <1506013525-29291-1-git-send-email-allen.lkml@gmail.com>
 Cc: linux-kernel@vger.kernel.org, m.grzeschik@pengutronix.de,
         dmitry.tarnyagin@lockless.no, wg@grandegger.com,
@@ -24,24 +24,24 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Allen Pais <allen.lkml@gmail.com>
 ---
- drivers/net/ethernet/dec/tulip/uli526x.c | 4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
+ drivers/net/ethernet/cisco/enic/enic_clsf.h | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/dec/tulip/uli526x.c b/drivers/net/ethernet/dec/tulip/uli526x.c
-index 7fc248e..5fbbc0c 100644
---- a/drivers/net/ethernet/dec/tulip/uli526x.c
-+++ b/drivers/net/ethernet/dec/tulip/uli526x.c
-@@ -491,10 +491,8 @@ static int uli526x_open(struct net_device *dev)
- 	netif_wake_queue(dev);
+diff --git a/drivers/net/ethernet/cisco/enic/enic_clsf.h b/drivers/net/ethernet/cisco/enic/enic_clsf.h
+index 6aa9f89..4bfbf25 100644
+--- a/drivers/net/ethernet/cisco/enic/enic_clsf.h
++++ b/drivers/net/ethernet/cisco/enic/enic_clsf.h
+@@ -19,9 +19,8 @@ void enic_flow_may_expire(unsigned long data);
  
- 	/* set and active a timer process */
--	init_timer(&db->timer);
-+	setup_timer(&db->timer, uli526x_timer, (unsigned long)dev);
- 	db->timer.expires = ULI526X_TIMER_WUT + HZ * 2;
--	db->timer.data = (unsigned long)dev;
--	db->timer.function = uli526x_timer;
- 	add_timer(&db->timer);
+ static inline void enic_rfs_timer_start(struct enic *enic)
+ {
+-	init_timer(&enic->rfs_h.rfs_may_expire);
+-	enic->rfs_h.rfs_may_expire.function = enic_flow_may_expire;
+-	enic->rfs_h.rfs_may_expire.data = (unsigned long)enic;
++	setup_timer(&enic->rfs_h.rfs_may_expire, enic_flow_may_expire,
++		    (unsigned long)enic);
+ 	mod_timer(&enic->rfs_h.rfs_may_expire, jiffies + HZ/4);
+ }
  
- 	return 0;
 -- 
 2.7.4
