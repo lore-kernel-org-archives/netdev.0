@@ -1,47 +1,63 @@
-From: Allen Pais <allen.lkml@gmail.com>
-Subject: [PATCH 59/64] drivers: net: i40evf: use setup_timer() helper.
-Date: Thu, 21 Sep 2017 22:35:20 +0530
-Message-ID: <1506013525-29291-60-git-send-email-allen.lkml@gmail.com>
-References: <1506013525-29291-1-git-send-email-allen.lkml@gmail.com>
-Cc: linux-kernel@vger.kernel.org, m.grzeschik@pengutronix.de,
-        dmitry.tarnyagin@lockless.no, wg@grandegger.com,
-        mkl@pengutronix.de, mark.einon@gmail.com, linux@armlinux.org.uk,
-        pcnet32@frontier.com, f.fainelli@gmail.com,
-        bcm-kernel-feedback-list@broadcom.com, venza@brownhat.org,
-        ajk@comnets.uni-bremen.de, jes@trained-monkey.org,
-        romieu@fr.zoreil.com, khc@pm.waw.pl, simon@thekelleys.org.uk,
-        davem@davemloft.net, linux-can@vger.kernel.org,
-        adi-buildroot-devel@lists.sourceforge.net,
-        Allen Pais <allen.lkml@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1506013525-29291-1-git-send-email-allen.lkml@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [PATCH net-next 2/7] rtnetlink: add helper to put master ifindex
+Date: Thu, 21 Sep 2017 11:16:59 -0600
+Message-ID: <286fbbfa-d387-debe-bd9d-185376a2c9a5@gmail.com>
+References: <20170921165902.10746-1-fw@strlen.de>
+ <20170921165902.10746-3-fw@strlen.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:33755 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752420AbdIURQ6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 13:16:58 -0400
+Received: by mail-pf0-f195.google.com with SMTP id h4so2733590pfk.0
+        for <netdev@vger.kernel.org>; Thu, 21 Sep 2017 10:16:58 -0700 (PDT)
+In-Reply-To: <20170921165902.10746-3-fw@strlen.de>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-    Use setup_timer function instead of initializing timer with the
-    function and data fields.
+On 9/21/17 10:58 AM, Florian Westphal wrote:
 
-Signed-off-by: Allen Pais <allen.lkml@gmail.com>
----
- drivers/net/ethernet/intel/i40evf/i40evf_main.c | 5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
+> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+> index a78fd61da0ec..c801212ee40e 100644
+> --- a/net/core/rtnetlink.c
+> +++ b/net/core/rtnetlink.c
+> @@ -1307,6 +1307,31 @@ static u32 rtnl_get_event(unsigned long event)
+>  	return rtnl_event_type;
+>  }
+>  
+> +static int put_master_ifindex(struct sk_buff *skb, struct net_device *dev)
+> +{
+> +	const struct net_device *upper_dev;
+> +	int ret = 0;
+> +
+> +	rcu_read_lock();
+> +
+> +	upper_dev = netdev_master_upper_dev_get_rcu(dev);
+> +	if (upper_dev)
+> +		ret = nla_put_u32(skb, IFLA_MASTER, upper_dev->ifindex);
+> +
+> +	rcu_read_unlock();
+> +	return ret;
+> +}
+> +
+> +static int nla_put_iflink(struct sk_buff *skb, const struct net_device *dev)
+> +{
+> +	int ifindex = dev_get_iflink(dev);
+> +
+> +	if (dev->ifindex == ifindex)
+> +		return 0;
+> +
+> +	return nla_put_u32(skb, IFLA_LINK, ifindex);
+> +}
+> +
+>  static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+>  			    int type, u32 pid, u32 seq, u32 change,
+>  			    unsigned int flags, u32 ext_filter_mask,
 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index 1825d95..c243f9d 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -2686,9 +2686,8 @@ static void i40evf_init_task(struct work_struct *work)
- 		ether_addr_copy(netdev->perm_addr, adapter->hw.mac.addr);
- 	}
- 
--	init_timer(&adapter->watchdog_timer);
--	adapter->watchdog_timer.function = &i40evf_watchdog_timer;
--	adapter->watchdog_timer.data = (unsigned long)adapter;
-+	setup_timer(&adapter->watchdog_timer, &i40evf_watchdog_timer,
-+		    (unsigned long)adapter);
- 	mod_timer(&adapter->watchdog_timer, jiffies + 1);
- 
- 	adapter->tx_desc_count = I40EVF_DEFAULT_TXD;
--- 
-2.7.4
+Subject references only change for master index, put the patch is
+converting 2 things to helpers.
