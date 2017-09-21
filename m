@@ -1,7 +1,7 @@
 From: Allen Pais <allen.lkml@gmail.com>
-Subject: [PATCH 25/64] drivers: net: bnx2: use setup_timer() helper.
-Date: Thu, 21 Sep 2017 22:34:46 +0530
-Message-ID: <1506013525-29291-26-git-send-email-allen.lkml@gmail.com>
+Subject: [PATCH 26/64] drivers: net: xen-netback: use setup_timer() helper.
+Date: Thu, 21 Sep 2017 22:34:47 +0530
+Message-ID: <1506013525-29291-27-git-send-email-allen.lkml@gmail.com>
 References: <1506013525-29291-1-git-send-email-allen.lkml@gmail.com>
 Cc: linux-kernel@vger.kernel.org, m.grzeschik@pengutronix.de,
         dmitry.tarnyagin@lockless.no, wg@grandegger.com,
@@ -24,24 +24,22 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Allen Pais <allen.lkml@gmail.com>
 ---
- drivers/net/ethernet/broadcom/bnx2.c | 4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
+ drivers/net/xen-netback/interface.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2.c b/drivers/net/ethernet/broadcom/bnx2.c
-index e3af1f3..b3055a7 100644
---- a/drivers/net/ethernet/broadcom/bnx2.c
-+++ b/drivers/net/ethernet/broadcom/bnx2.c
-@@ -8462,10 +8462,8 @@ bnx2_init_board(struct pci_dev *pdev, struct net_device *dev)
- 	bnx2_set_default_link(bp);
- 	bp->req_flow_ctrl = FLOW_CTRL_RX | FLOW_CTRL_TX;
+diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
+index ee8ed9da..dcfcb15 100644
+--- a/drivers/net/xen-netback/interface.c
++++ b/drivers/net/xen-netback/interface.c
+@@ -520,8 +520,7 @@ int xenvif_init_queue(struct xenvif_queue *queue)
  
--	init_timer(&bp->timer);
-+	setup_timer(&bp->timer, bnx2_timer, (unsigned long)bp);
- 	bp->timer.expires = RUN_AT(BNX2_TIMER_INTERVAL);
--	bp->timer.data = (unsigned long) bp;
--	bp->timer.function = bnx2_timer;
+ 	queue->credit_bytes = queue->remaining_credit = ~0UL;
+ 	queue->credit_usec  = 0UL;
+-	init_timer(&queue->credit_timeout);
+-	queue->credit_timeout.function = xenvif_tx_credit_callback;
++	setup_timer(&queue->credit_timeout, xenvif_tx_credit_callback, 0UL);
+ 	queue->credit_window_start = get_jiffies_64();
  
- #ifdef BCM_CNIC
- 	if (bnx2_shmem_rd(bp, BNX2_ISCSI_INITIATOR) & BNX2_ISCSI_INITIATOR_EN)
+ 	queue->rx_queue_max = XENVIF_RX_QUEUE_BYTES;
 -- 
 2.7.4
