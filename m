@@ -1,7 +1,7 @@
 From: Allen Pais <allen.lkml@gmail.com>
-Subject: [PATCH 12/64] drivers: net: atp: use setup_timer() helper.
-Date: Thu, 21 Sep 2017 22:34:33 +0530
-Message-ID: <1506013525-29291-13-git-send-email-allen.lkml@gmail.com>
+Subject: [PATCH 13/64] drivers: net: ns83820: use setup_timer() helper.
+Date: Thu, 21 Sep 2017 22:34:34 +0530
+Message-ID: <1506013525-29291-14-git-send-email-allen.lkml@gmail.com>
 References: <1506013525-29291-1-git-send-email-allen.lkml@gmail.com>
 Cc: linux-kernel@vger.kernel.org, m.grzeschik@pengutronix.de,
         dmitry.tarnyagin@lockless.no, wg@grandegger.com,
@@ -24,24 +24,23 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Allen Pais <allen.lkml@gmail.com>
 ---
- drivers/net/ethernet/realtek/atp.c | 4 +---
+ drivers/net/ethernet/natsemi/ns83820.c | 4 +---
  1 file changed, 1 insertion(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/realtek/atp.c b/drivers/net/ethernet/realtek/atp.c
-index bed3468..bdc3833 100644
---- a/drivers/net/ethernet/realtek/atp.c
-+++ b/drivers/net/ethernet/realtek/atp.c
-@@ -438,10 +438,8 @@ static int net_open(struct net_device *dev)
+diff --git a/drivers/net/ethernet/natsemi/ns83820.c b/drivers/net/ethernet/natsemi/ns83820.c
+index 729095d..99d3c78 100644
+--- a/drivers/net/ethernet/natsemi/ns83820.c
++++ b/drivers/net/ethernet/natsemi/ns83820.c
+@@ -1652,9 +1652,7 @@ static int ns83820_open(struct net_device *ndev)
+ 	writel(0, dev->base + TXDP_HI);
+ 	writel(desc, dev->base + TXDP);
  
- 	hardware_init(dev);
+-	init_timer(&dev->tx_watchdog);
+-	dev->tx_watchdog.data = (unsigned long)ndev;
+-	dev->tx_watchdog.function = ns83820_tx_watch;
++	setup_timer(&dev->tx_watchdog, ns83820_tx_watch, (unsigned long)ndev);
+ 	mod_timer(&dev->tx_watchdog, jiffies + 2*HZ);
  
--	init_timer(&lp->timer);
-+	setup_timer(&lp->timer, atp_timed_checker, (unsigned long)dev);
- 	lp->timer.expires = jiffies + TIMED_CHECKER;
--	lp->timer.data = (unsigned long)dev;
--	lp->timer.function = atp_timed_checker;    /* timer handler */
- 	add_timer(&lp->timer);
- 
- 	netif_start_queue(dev);
+ 	netif_start_queue(ndev);	/* FIXME: wait for phy to come up */
 -- 
 2.7.4
