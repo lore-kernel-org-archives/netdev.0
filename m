@@ -1,8 +1,8 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
+From: =?UTF-8?Q?Pawe=c5=82_Staszewski?= <pstaszewski@itcare.pl>
 Subject: Re: Kernel 4.13.0-rc4-next-20170811 - IP Routing / Forwarding
  performance vs Core/RSS number / HT on
-Date: Thu, 21 Sep 2017 14:41:47 -0700
-Message-ID: <6607c631-580d-825b-6205-6f6ee688ce32@gmail.com>
+Date: Thu, 21 Sep 2017 23:43:01 +0200
+Message-ID: <a43e3615-e5d8-1cd3-e38c-8db41dcb76c6@itcare.pl>
 References: <3ac1a817-5c62-2490-64e7-2512f0ee3b3e@itcare.pl>
  <20170812142358.08291888@redhat.com>
  <af5b3482-8f26-52b5-4a00-3a5a42b7449f@itcare.pl>
@@ -13,52 +13,55 @@ References: <3ac1a817-5c62-2490-64e7-2512f0ee3b3e@itcare.pl>
  <1502759849.4936.46.camel@edumazet-glaptop3.roam.corp.google.com>
  <4b1efff7-4f91-fd78-beb8-2c7ebcf18895@itcare.pl>
  <5d32f5cf-ca69-1f6b-5bca-cdcd4dc414e2@itcare.pl>
+ <6607c631-580d-825b-6205-6f6ee688ce32@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 8bit
 Cc: Paolo Abeni <pabeni@redhat.com>,
         Jesper Dangaard Brouer <brouer@redhat.com>,
         Linux Kernel Network Developers <netdev@vger.kernel.org>,
         Alexander Duyck <alexander.duyck@gmail.com>
-To: =?UTF-8?Q?Pawe=c5=82_Staszewski?= <pstaszewski@itcare.pl>,
+To: Florian Fainelli <f.fainelli@gmail.com>,
         Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f176.google.com ([209.85.216.176]:50271 "EHLO
-        mail-qt0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751707AbdIUVlv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 17:41:51 -0400
-Received: by mail-qt0-f176.google.com with SMTP id f15so7331299qtf.7
-        for <netdev@vger.kernel.org>; Thu, 21 Sep 2017 14:41:51 -0700 (PDT)
-In-Reply-To: <5d32f5cf-ca69-1f6b-5bca-cdcd4dc414e2@itcare.pl>
-Content-Language: en-US
+Received: from smtp11.iq.pl ([86.111.242.220]:36478 "EHLO smtp11.iq.pl"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751728AbdIUVpE (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 21 Sep 2017 17:45:04 -0400
+In-Reply-To: <6607c631-580d-825b-6205-6f6ee688ce32@gmail.com>
+Content-Language: pl
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/21/2017 02:26 PM, Paweł Staszewski wrote:
-> 
-> 
-> W dniu 2017-08-15 o 11:11, Paweł Staszewski pisze:
->> diff --git a/net/8021q/vlan_netlink.c b/net/8021q/vlan_netlink.c
->> index
->> 5e831de3103e2f7092c7fa15534def403bc62fb4..9472de846d5c0960996261cb2843032847fa4bf7
->> 100644
->> --- a/net/8021q/vlan_netlink.c
->> +++ b/net/8021q/vlan_netlink.c
->> @@ -143,6 +143,7 @@ static int vlan_newlink(struct net *src_net,
->> struct net_device *dev,
->>       vlan->vlan_proto = proto;
->>       vlan->vlan_id     = nla_get_u16(data[IFLA_VLAN_ID]);
->>       vlan->real_dev     = real_dev;
->> +    dev->priv_flags |= (real_dev->priv_flags & IFF_XMIT_DST_RELEASE);
->>       vlan->flags     = VLAN_FLAG_REORDER_HDR;
->>         err = vlan_check_real_dev(real_dev, vlan->vlan_proto,
->> vlan->vlan_id); 
-> 
-> Any plans for this patch to go normal into the kernel ?
 
-Would not this apply to pretty much any stacked device setup though? It
-seems like any network device that just queues up its packet on another
-physical device for actual transmission may need that (e.g: DSA, bond,
-team, more.?)
--- 
-Florian
+
+W dniu 2017-09-21 o 23:41, Florian Fainelli pisze:
+> On 09/21/2017 02:26 PM, Paweł Staszewski wrote:
+>>
+>> W dniu 2017-08-15 o 11:11, Paweł Staszewski pisze:
+>>> diff --git a/net/8021q/vlan_netlink.c b/net/8021q/vlan_netlink.c
+>>> index
+>>> 5e831de3103e2f7092c7fa15534def403bc62fb4..9472de846d5c0960996261cb2843032847fa4bf7
+>>> 100644
+>>> --- a/net/8021q/vlan_netlink.c
+>>> +++ b/net/8021q/vlan_netlink.c
+>>> @@ -143,6 +143,7 @@ static int vlan_newlink(struct net *src_net,
+>>> struct net_device *dev,
+>>>        vlan->vlan_proto = proto;
+>>>        vlan->vlan_id     = nla_get_u16(data[IFLA_VLAN_ID]);
+>>>        vlan->real_dev     = real_dev;
+>>> +    dev->priv_flags |= (real_dev->priv_flags & IFF_XMIT_DST_RELEASE);
+>>>        vlan->flags     = VLAN_FLAG_REORDER_HDR;
+>>>          err = vlan_check_real_dev(real_dev, vlan->vlan_proto,
+>>> vlan->vlan_id);
+>> Any plans for this patch to go normal into the kernel ?
+> Would not this apply to pretty much any stacked device setup though? It
+> seems like any network device that just queues up its packet on another
+> physical device for actual transmission may need that (e.g: DSA, bond,
+> team, more.?)
+Some devices libe bond have it.
+
+Just maybee when there was first patch vlans were not taken into account.
+Did not checked all :)
+
+But I know Eric will do :)
