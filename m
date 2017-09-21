@@ -1,26 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: dsa: add port fdb dump
-Date: Thu, 21 Sep 2017 15:24:22 -0700 (PDT)
-Message-ID: <20170921.152422.861638020110977067.davem@davemloft.net>
-References: <20170920233214.6936-1-vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next ] net: Remove useless function
+ skb_header_release
+Date: Thu, 21 Sep 2017 15:25:45 -0700 (PDT)
+Message-ID: <20170921.152545.51158481085588550.davem@davemloft.net>
+References: <1505968771-92232-1-git-send-email-gfree.wind@vip.163.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com, f.fainelli@gmail.com, andrew@lunn.ch
-To: vivien.didelot@savoirfairelinux.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170920233214.6936-1-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: gfree.wind@vip.163.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:60246 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751728AbdIUWZq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 18:25:46 -0400
+In-Reply-To: <1505968771-92232-1-git-send-email-gfree.wind@vip.163.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Date: Wed, 20 Sep 2017 19:32:14 -0400
+From: gfree.wind@vip.163.com
+Date: Thu, 21 Sep 2017 12:39:31 +0800
 
-> Dumping a DSA port's FDB entries is not specific to a DSA slave, so add
-> a dsa_port_fdb_dump function, similarly to dsa_port_fdb_add and
-> dsa_port_fdb_del.
+> From: Gao Feng <gfree.wind@vip.163.com>
 > 
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> There is no one which would invokes the function skb_header_release.
+> So just remove it now.
+> 
+> Signed-off-by: Gao Feng <gfree.wind@vip.163.com>
 
-Applied.
+As Joe Perches mentioned, there are comment references remaining.
+
+This should be removed too because they can be confusing for people.
+
+Thanks.
