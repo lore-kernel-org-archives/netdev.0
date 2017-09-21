@@ -1,64 +1,156 @@
-From: Vincent Bernat <vincent@bernat.im>
-Subject: Re: [PATCH net-next v2] bridge: also trigger RTM_NEWLINK when interface is released from bridge
-Date: Thu, 21 Sep 2017 17:31:32 +0200
-Message-ID: <87vakc3w6j.fsf@luffy.cx>
-References: <m3zi9vbrfp.fsf@luffy.cx>
-        <20170916141833.28344-1-vincent@bernat.im>
-        <20170920.140956.781667692297467325.davem@davemloft.net>
-        <16e5566a-909d-ba83-7637-1fb6c93126bc@gmail.com>
-        <20170920162140.369bb198@xeon-e3> <87h8vw5pwg.fsf@luffy.cx>
-        <CAJieiUgKO-O3YFc3iTQXMmXc287RGgw4FjYhaLn-7+pmA_Fh+g@mail.gmail.com>
+From: Kumar Sanghvi <kumaras@chelsio.com>
+Subject: Re: [PATCH net-next 2/4] cxgb4: add basic tc flower offload support
+Date: Thu, 21 Sep 2017 08:31:54 -0700
+Message-ID: <20170921153153.GB14071@banjo.asicdesigners.com>
+References: <cover.1505977744.git.rahul.lakkireddy@chelsio.com>
+ <dc5f8e6419ad3439b14f39306245d98537be3306.1505977744.git.rahul.lakkireddy@chelsio.com>
+ <cf99ae13-6ae1-2a1f-80cb-9390ab9e3af0@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-        David Ahern <dsahern@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        bridge@lists.linux-foundation.org,
-        "netdev\@vger.kernel.org" <netdev@vger.kernel.org>
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>,
+        netdev@vger.kernel.org, davem@davemloft.net, ganeshgr@chelsio.com,
+        nirranjan@chelsio.com, indranil@chelsio.com
+To: Yunsheng Lin <linyunsheng@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bart.luffy.cx ([78.47.78.131]:60935 "EHLO bart.luffy.cx"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751811AbdIUPbe (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 21 Sep 2017 11:31:34 -0400
-In-Reply-To: <CAJieiUgKO-O3YFc3iTQXMmXc287RGgw4FjYhaLn-7+pmA_Fh+g@mail.gmail.com>
-        (Roopa Prabhu's message of "Thu, 21 Sep 2017 08:09:28 -0700")
+Received: from stargate.chelsio.com ([12.32.117.8]:50532 "EHLO
+        stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751808AbdIUPcI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 11:32:08 -0400
+Content-Disposition: inline
+In-Reply-To: <cf99ae13-6ae1-2a1f-80cb-9390ab9e3af0@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- =E2=9D=A6 21 septembre 2017 08:09 -0700, Roopa Prabhu <roopa@cumulusnetwor=
-ks.com>=C2=A0:
+Hi Yunsheng,
 
->>> The one concern is that ports added or removed through ioctl should
->>> cause same events as doing the same thing via netlink. Some users use
->>> brctl (ioctl) and others use newer bridge (netlink) API.
->>
->> I'll make a third iteration to have the same notifications when using
->> ioctl() with details in the commit message.
->> --
->
-> as long as the ioctl path for bridge port removal is generating a:
-> RTM_DELLINK with AF_BRIDGE and
-> RTM_NEWLINK with AF_UNSPEC with 'master' removed
->
-> we should be good. These are the most important ones.
->
-> are there other specific bridge-events missing ?. you might want to
-> run `bridge monitor link` also. and un-slaving of a port also triggers
-> fdb events which are visible under `bridge monitor fdb`
+On Thursday, September 09/21/17, 2017 at 18:55:26 +0800, Yunsheng Lin wrote:
+> Hi, Kumar
+> 
+> On 2017/9/21 15:33, Rahul Lakkireddy wrote:
+> > From: Kumar Sanghvi <kumaras@chelsio.com>
+> > 
+> > Add support to add/remove flows for offload.  Following match
+> > and action are supported for offloading a flow:
+> > 
+> > Match: ether-protocol, IPv4/IPv6 addresses, L4 ports (TCP/UDP)
+> > Action: drop, redirect to another port on the device.
+> > 
+> > The qualifying flows can have accompanying mask information.
+> > 
+> > Signed-off-by: Kumar Sanghvi <kumaras@chelsio.com>
+> > Signed-off-by: Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
+> > Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
+> > ---
 
-With the patch, bridge monitor link generates the same event with
-ioctl() than with netlink (like for ip monitor link, netlink generates
-one extra duplicate event when enslaving).
+[...]
 
-For bridge monitor fdb, there is a difference. With ioctl(), I don't get
-the event for VLAN1:
+> > diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.c
+> > index 45b5853ca2f1..07a4619e2164 100644
+> > --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.c
+> > +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.c
+> > @@ -148,6 +148,32 @@ static int get_filter_steerq(struct net_device *dev,
+> >  	return iq;
+> >  }
+> >  
+> > +int cxgb4_get_free_ftid(struct net_device *dev, int family)
+> > +{
+> > +	struct adapter *adap = netdev2adap(dev);
+> > +	struct tid_info *t = &adap->tids;
+> > +	int ftid;
+> > +
+> > +	spin_lock_bh(&t->ftid_lock);
+> > +	if (family == PF_INET) {
+> > +		ftid = find_first_zero_bit(t->ftid_bmap, t->nftids);
+> > +		if (ftid >= t->nftids)
+> > +			ftid = -1;
+> > +	} else {
+> > +		ftid = bitmap_find_free_region(t->ftid_bmap, t->nftids, 2);
+> > +		if (ftid < 0) {
+> > +			ftid = -1;
+> 
+> ftid = -1 is not needed?
 
-Deleted ca:18:06:bc:f6:11 dev dummy1 vlan 1 master bridge0 permanent
+You are right, its not needed. Thank you for pointing this.
+I will take care of this in V2.
 
-I suppose this is an expected difference due to the inability to manage
-VLAN-aware bridges with ioctl().
---=20
-Use the fundamental control flow constructs.
-            - The Elements of Programming Style (Kernighan & Plauger)
+
+> 
+> > +			goto out_unlock;
+> > +		}
+> > +
+> > +		/* this is only a lookup, keep the found region unallocated */
+> > +		bitmap_release_region(t->ftid_bmap, ftid, 2);
+> > +	}
+> > +out_unlock:
+> > +	spin_unlock_bh(&t->ftid_lock);
+> > +	return ftid;
+> > +}
+
+[...]
+
+> > diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c
+> > index 16dff71e4d02..1af01101faaf 100644
+> > --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c
+> > +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c
+> > @@ -38,16 +38,292 @@
+> >  #include "cxgb4.h"
+> >  #include "cxgb4_tc_flower.h"
+> > 
+
+[...]
+
+> >  int cxgb4_tc_flower_replace(struct net_device *dev,
+> >  			    struct tc_cls_flower_offload *cls)
+> >  {
+> > -	return -EOPNOTSUPP;
+> > +	struct adapter *adap = netdev2adap(dev);
+> > +	struct ch_tc_flower_entry *ch_flower;
+> > +	struct ch_filter_specification *fs;
+> > +	struct filter_ctx ctx;
+> > +	int fidx;
+> > +	int ret;
+> > +
+> > +	if (cxgb4_validate_flow_actions(dev, cls))
+> > +		return -EOPNOTSUPP;
+> > +
+> > +	if (cxgb4_validate_flow_match(dev, cls))
+> > +		return -EOPNOTSUPP;
+> > +
+> > +	ch_flower = allocate_flower_entry();
+> > +	if (!ch_flower) {
+> > +		netdev_err(dev, "%s: ch_flower alloc failed.\n", __func__);
+> > +		ret = -ENOMEM;
+> > +		goto err;
+> 
+> Just return, err label is needed?
+
+Yes, err label is not needed. I will take care of this in V2.
+
+> 
+> > +	}
+> > +
+> > +	fs = &ch_flower->fs;
+> > +	fs->hitcnts = 1;
+> > +	cxgb4_process_flow_actions(dev, cls, fs);
+> > +	cxgb4_process_flow_match(dev, cls, fs);
+
+[...]
+
+
+> >  int cxgb4_tc_flower_destroy(struct net_device *dev,
+> >  			    struct tc_cls_flower_offload *cls)
+> >  {
+> > -	return -EOPNOTSUPP;
+> > +	struct adapter *adap = netdev2adap(dev);
+> > +	struct ch_tc_flower_entry *ch_flower;
+> > +	int ret;
+> > +
+> > +	ch_flower = ch_flower_lookup(adap, cls->cookie);
+> > +	if (!ch_flower) {
+> > +		ret = -ENOENT;
+> > +		goto err;
+> 
+> Same as above
+
+I will take care of this in V2.
+Thank you.
