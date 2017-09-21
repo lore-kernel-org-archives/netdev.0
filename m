@@ -1,7 +1,7 @@
 From: Allen Pais <allen.lkml@gmail.com>
-Subject: [PATCH 31/64] drivers: net: e1000e: use setup_timer() helper.
-Date: Thu, 21 Sep 2017 22:34:52 +0530
-Message-ID: <1506013525-29291-32-git-send-email-allen.lkml@gmail.com>
+Subject: [PATCH 32/64] drivers: net: amd: use setup_timer() helper.
+Date: Thu, 21 Sep 2017 22:34:53 +0530
+Message-ID: <1506013525-29291-33-git-send-email-allen.lkml@gmail.com>
 References: <1506013525-29291-1-git-send-email-allen.lkml@gmail.com>
 Cc: linux-kernel@vger.kernel.org, m.grzeschik@pengutronix.de,
         dmitry.tarnyagin@lockless.no, wg@grandegger.com,
@@ -24,30 +24,24 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Allen Pais <allen.lkml@gmail.com>
 ---
- drivers/net/ethernet/intel/e1000e/netdev.c | 11 ++++-------
- 1 file changed, 4 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/amd/sunlance.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 327dfe5..8436c5f 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -7252,13 +7252,10 @@ static int e1000_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		goto err_eeprom;
- 	}
+diff --git a/drivers/net/ethernet/amd/sunlance.c b/drivers/net/ethernet/amd/sunlance.c
+index 291ca51..0183ffb 100644
+--- a/drivers/net/ethernet/amd/sunlance.c
++++ b/drivers/net/ethernet/amd/sunlance.c
+@@ -1459,9 +1459,8 @@ static int sparc_lance_probe_one(struct platform_device *op,
+ 	 * can occur from interrupts (ex. IPv6).  So we
+ 	 * use a timer to try again later when necessary. -DaveM
+ 	 */
+-	init_timer(&lp->multicast_timer);
+-	lp->multicast_timer.data = (unsigned long) dev;
+-	lp->multicast_timer.function = lance_set_multicast_retry;
++	setup_timer(&lp->multicast_timer, lance_set_multicast_retry,
++		    (unsigned long)dev);
  
--	init_timer(&adapter->watchdog_timer);
--	adapter->watchdog_timer.function = e1000_watchdog;
--	adapter->watchdog_timer.data = (unsigned long)adapter;
--
--	init_timer(&adapter->phy_info_timer);
--	adapter->phy_info_timer.function = e1000_update_phy_info;
--	adapter->phy_info_timer.data = (unsigned long)adapter;
-+	setup_timer(&adapter->watchdog_timer, e1000_watchdog,
-+		    (unsigned long)adapter);
-+	setup_timer(&adapter->phy_info_timer, e1000_update_phy_info,
-+		    (unsigned long)adapter);
- 
- 	INIT_WORK(&adapter->reset_task, e1000_reset_task);
- 	INIT_WORK(&adapter->watchdog_task, e1000_watchdog_task);
+ 	if (register_netdev(dev)) {
+ 		printk(KERN_ERR "SunLance: Cannot register device.\n");
 -- 
 2.7.4
