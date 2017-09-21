@@ -1,97 +1,118 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [PATCH net-next 5/7] rtnetlink: add helper to dump vf information
-Date: Thu, 21 Sep 2017 11:17:47 -0600
-Message-ID: <bdc39ebf-e934-16ce-0834-e0795774a656@gmail.com>
-References: <20170921165902.10746-1-fw@strlen.de>
- <20170921165902.10746-6-fw@strlen.de>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [net-next v3] bridge: trigger RTM_NEWLINK when interface is
+ modified by bridge ioctl
+Date: Thu, 21 Sep 2017 10:20:12 -0700
+Message-ID: <CAJieiUjqttMeC24CzDa8Y8g=opRKoa2hbG2Cb+78u632vA3uqw@mail.gmail.com>
+References: <20170920162140.369bb198@xeon-e3> <20170921100525.20395-1-vincent@bernat.im>
+ <0cdf06b9-e67d-c035-e0f1-c4eb143bf631@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Vincent Bernat <vincent@bernat.im>,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        David Miller <davem@davemloft.net>,
+        bridge@lists.linux-foundation.org,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Ahern <dsahern@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:35458 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751782AbdIURRq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 13:17:46 -0400
-Received: by mail-pg0-f67.google.com with SMTP id j16so3758281pga.2
-        for <netdev@vger.kernel.org>; Thu, 21 Sep 2017 10:17:46 -0700 (PDT)
-In-Reply-To: <20170921165902.10746-6-fw@strlen.de>
-Content-Language: en-US
+Received: from mail-ua0-f177.google.com ([209.85.217.177]:54419 "EHLO
+        mail-ua0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752450AbdIURUO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 13:20:14 -0400
+Received: by mail-ua0-f177.google.com with SMTP id l94so4056333ual.11
+        for <netdev@vger.kernel.org>; Thu, 21 Sep 2017 10:20:13 -0700 (PDT)
+In-Reply-To: <0cdf06b9-e67d-c035-e0f1-c4eb143bf631@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 9/21/17 10:59 AM, Florian Westphal wrote:
-> similar to earlier patches, split out more parts of this function to
-> better see what is happening and where we assume rtnl is locked.
-> 
-> Signed-off-by: Florian Westphal <fw@strlen.de>
-> ---
->  net/core/rtnetlink.c | 80 ++++++++++++++++++++++++++++++++--------------------
->  1 file changed, 50 insertions(+), 30 deletions(-)
-> 
-> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-> index 1af3ef7f329d..7503021fe308 100644
-> --- a/net/core/rtnetlink.c
-> +++ b/net/core/rtnetlink.c
-> @@ -1211,6 +1211,36 @@ static noinline_for_stack int rtnl_fill_vfinfo(struct sk_buff *skb,
->  	return -EMSGSIZE;
->  }
->  
-> +static noinline_for_stack int rtnl_fill_vf(struct sk_buff *skb,
-> +					   struct net_device *dev,
-> +					   u32 ext_filter_mask)
-> +{
-> +	struct nlattr *vfinfo;
-> +	int i, num_vfs;
-> +
-> +	if (!dev->dev.parent || ((ext_filter_mask & RTEXT_FILTER_VF) == 0))
-> +		return 0;
-> +
-> +	num_vfs = dev_num_vf(dev->dev.parent);
-> +	if (nla_put_u32(skb, IFLA_NUM_VF, num_vfs))
-> +		return -EMSGSIZE;
-> +
-> +	if (!dev->netdev_ops->ndo_get_vf_config)
-> +		return 0;
-> +
-> +	vfinfo = nla_nest_start(skb, IFLA_VFINFO_LIST);
-> +	if (!vfinfo)
-> +		return -EMSGSIZE;
-> +
-> +	for (i = 0; i < num_vfs; i++) {
-> +		if (rtnl_fill_vfinfo(skb, dev, i, vfinfo))
-> +			return -EMSGSIZE;
-> +	}
-> +
-> +	nla_nest_end(skb, vfinfo);
-> +	return 0;
-> +}
-> +
->  static int rtnl_fill_link_ifmap(struct sk_buff *skb, struct net_device *dev)
->  {
->  	struct rtnl_link_ifmap map;
-> @@ -1355,6 +1385,23 @@ static int noinline nla_put_ifalias(struct sk_buff *skb, struct net_device *dev)
->  	return 0;
->  }
->  
-> +static int noinline rtnl_fill_link_netnsid(struct sk_buff *skb,
-> +				  const struct net_device *dev)
-> +{
-> +	if (dev->rtnl_link_ops && dev->rtnl_link_ops->get_link_net) {
-> +		struct net *link_net = dev->rtnl_link_ops->get_link_net(dev);
-> +
-> +		if (!net_eq(dev_net(dev), link_net)) {
-> +			int id = peernet2id_alloc(dev_net(dev), link_net);
-> +
-> +			if (nla_put_s32(skb, IFLA_LINK_NETNSID, id))
-> +				return -EMSGSIZE;
-> +		}
-> +	}
-> +
-> +	return 0;
-> +}
-> +
->  static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+On Thu, Sep 21, 2017 at 9:43 AM, David Ahern <dsahern@gmail.com> wrote:
+> On 9/21/17 4:05 AM, Vincent Bernat wrote:
+>> Currently, there is a difference in netlink events received when an
+>> interface is modified through bridge ioctl() or through netlink. This
+>> patch generates additional events when an interface is added to or
+>> removed from a bridge via ioctl().
+>>
+>> When adding then removing an interface from a bridge with netlink, we
+>> get:
+>>
+>> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue master bridge0 state UNKNOWN group default
+>>     link/ether 9e:da:60:ee:cf:c8 brd ff:ff:ff:ff:ff:ff
+>> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state UNKNOWN
+>>     link/ether 9e:da:60:ee:cf:c8
+>> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state UNKNOWN
+>>     link/ether 9e:da:60:ee:cf:c8
+>> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state UNKNOWN
+>>     link/ether 9e:da:60:ee:cf:c8
+>> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state UNKNOWN
+>>     link/ether 9e:da:60:ee:cf:c8
+>> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue master bridge0 state UNKNOWN group default
+>>     link/ether 9e:da:60:ee:cf:c8 brd ff:ff:ff:ff:ff:ff
+>>
+>> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue master bridge0 state UNKNOWN group default
+>>     link/ether 9e:da:60:ee:cf:c8 brd ff:ff:ff:ff:ff:ff
+>> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state UNKNOWN
+>>     link/ether 9e:da:60:ee:cf:c8
+>> Deleted 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state UNKNOWN
+>>     link/ether 9e:da:60:ee:cf:c8
+>> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue state UNKNOWN group default
+>>     link/ether 9e:da:60:ee:cf:c8 brd ff:ff:ff:ff:ff:ff
+>>
+>> When using ioctl():
+>>
+>> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue master bridge0 state UNKNOWN group default
+>>     link/ether 9e:da:60:ee:cf:c8 brd ff:ff:ff:ff:ff:ff
+>> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state UNKNOWN
+>>     link/ether 9e:da:60:ee:cf:c8
+>> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state UNKNOWN
+>>     link/ether 9e:da:60:ee:cf:c8
+>> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state UNKNOWN
+>>     link/ether 9e:da:60:ee:cf:c8
+>> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue master bridge0 state UNKNOWN group default
+>>     link/ether 9e:da:60:ee:cf:c8 brd ff:ff:ff:ff:ff:ff
+>>
+>> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue master bridge0 state UNKNOWN group default
+>>     link/ether 9e:da:60:ee:cf:c8 brd ff:ff:ff:ff:ff:ff
+>> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state UNKNOWN
+>>     link/ether 9e:da:60:ee:cf:c8
+>> Deleted 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state UNKNOWN
+>>     link/ether 9e:da:60:ee:cf:c8
+>> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue state UNKNOWN group default
+>>     link/ether 9e:da:60:ee:cf:c8 brd ff:ff:ff:ff:ff:ff
+>>
+>> Without this patch, the last netlink notification is not sent.
+>>
+>> Signed-off-by: Vincent Bernat <vincent@bernat.im>
+>> ---
+>>  net/bridge/br_ioctl.c | 3 +++
+>>  1 file changed, 3 insertions(+)
+>>
+>> diff --git a/net/bridge/br_ioctl.c b/net/bridge/br_ioctl.c
+>> index 7970f8540cbb..66cd98772051 100644
+>> --- a/net/bridge/br_ioctl.c
+>> +++ b/net/bridge/br_ioctl.c
+>> @@ -102,6 +102,9 @@ static int add_del_if(struct net_bridge *br, int ifindex, int isadd)
+>>       else
+>>               ret = br_del_if(br, dev);
+>>
+>> +     if (!ret)
+>> +             rtmsg_ifinfo(RTM_NEWLINK, dev, IFF_MASTER, GFP_KERNEL);
+>> +
+>>       return ret;
+>>  }
+>>
+>>
+>
+> Agreed that this is needed for userspace to know about the master change
+> when done through ioctl. The bridge code is emitting a lot of what
+> appears to be redundant messages for both paths (netlink and ioctl).
+>
+> Reviewed-by: David Ahern <dsahern@gmail.com>
+>
 
-Similarly for this patch -- subject references vf helper yet the code
-changes flips netnsid as well.
+
+this patch seems fine...but ideally I would have assumed
+netdev_upper_dev_unlink which
+is eventually called in both paths would generate the RTN_NEWLINK
+IFF_MASTER in response
+to the NETDEV_CHANGEUPPER notifier. If we add it there now, it might
+need some more fixes
+to not generate redundant notifications for the netlink case.
