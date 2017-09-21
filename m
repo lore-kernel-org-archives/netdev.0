@@ -1,49 +1,38 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] wireless: iwlegacy:  make const array static to shink object code size Content-Type: text/plain; charset="utf-8" Content-Transfer-Encoding: 8bit
-Date: Thu, 21 Sep 2017 23:56:30 +0100
-Message-ID: <20170921225630.21916-1-colin.king@canonical.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Stanislaw Gruszka <sgruszka@redhat.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+From: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+Subject: [PATCH] cnic: Fix an error handling path in 'cnic_alloc_bnx2x_resc()'
+Date: Fri, 22 Sep 2017 01:01:11 +0200
+Message-ID: <20170921230111.10135-1-christophe.jaillet@wanadoo.fr>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel-janitors@vger.kernel.org,
+        Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+To: jmaxwell37@gmail.com, davem@davemloft.net,
+        stephen@networkplumber.org, danielj@mellanox.com,
+        parav@mellanox.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Colin Ian King <colin.king@canonical.com>
+All the error handling paths 'goto error', except this one.
+We should also go to error in this case, or some resources will be
+leaking.
 
-Don't populate const array ac_to_fifo on the stack in an inlined
-function, instead make it static.  Makes the object code smaller
-by over 800 bytes:
-
-   text	   data	    bss	    dec	    hex	filename
- 159029	  33154	   1216	 193399	  2f377	4965-mac.o
-
-   text	   data	    bss	    dec	    hex	filename
- 158122	  33250	   1216	 192588	  2f04c	4965-mac.o
-
-(gcc version 7.2.0 x86_64)
-
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
+Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
 ---
- drivers/net/wireless/intel/iwlegacy/4965-mac.c | 2 +-
+ drivers/net/ethernet/broadcom/cnic.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/wireless/intel/iwlegacy/4965-mac.c b/drivers/net/wireless/intel/iwlegacy/4965-mac.c
-index de9b6522c43f..65eba2c24292 100644
---- a/drivers/net/wireless/intel/iwlegacy/4965-mac.c
-+++ b/drivers/net/wireless/intel/iwlegacy/4965-mac.c
-@@ -1480,7 +1480,7 @@ il4965_get_ac_from_tid(u16 tid)
- static inline int
- il4965_get_fifo_from_tid(u16 tid)
- {
--	const u8 ac_to_fifo[] = {
-+	static const u8 ac_to_fifo[] = {
- 		IL_TX_FIFO_VO,
- 		IL_TX_FIFO_VI,
- 		IL_TX_FIFO_BE,
+diff --git a/drivers/net/ethernet/broadcom/cnic.c b/drivers/net/ethernet/broadcom/cnic.c
+index cec94bbb2ea5..8bc126a156e8 100644
+--- a/drivers/net/ethernet/broadcom/cnic.c
++++ b/drivers/net/ethernet/broadcom/cnic.c
+@@ -1278,7 +1278,7 @@ static int cnic_alloc_bnx2x_resc(struct cnic_dev *dev)
+ 
+ 	ret = cnic_alloc_dma(dev, kwq_16_dma, pages, 0);
+ 	if (ret)
+-		return -ENOMEM;
++		goto error;
+ 
+ 	n = CNIC_PAGE_SIZE / CNIC_KWQ16_DATA_SIZE;
+ 	for (i = 0, j = 0; i < cp->max_cid_space; i++) {
 -- 
-2.14.1
+2.11.0
