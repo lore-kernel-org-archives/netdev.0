@@ -1,52 +1,49 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next] net: vrf: remove skb_dst_force() after
- skb_dst_set()
-Date: Thu, 21 Sep 2017 08:52:10 -0600
-Message-ID: <5e8b791a-af86-e1c5-1c56-62700c7b0f84@cumulusnetworks.com>
-References: <1506005428.29839.129.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Latest net-next from GIT panic
+Date: Thu, 21 Sep 2017 07:56:39 -0700
+Message-ID: <1506005799.29839.130.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <4745525f-18e4-7f69-fe21-8e507e407b33@itcare.pl>
+         <3c227be7-a954-a406-1987-24e908cf214c@itcare.pl>
+         <CAM_iQpUOOCcES4d_ueK2wizn2oyDZPEzLfWQFu3oOq=BuRzdiw@mail.gmail.com>
+         <1505932231.29839.106.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CAM_iQpVF3Gf3G=543o8g+5N2dtEL4DcUPN3a6=L8V_G0CXZ65w@mail.gmail.com>
+         <07f0c800-7ee7-1ebe-9f5f-eaad52a7b42d@itcare.pl>
+         <548a893c-8a8f-3b07-00f7-d75de1d777ad@itcare.pl>
+         <7d8731ee-6c91-bbfd-6313-c95f52d7b49a@itcare.pl>
+         <26e8b899-d8b1-caa4-436b-e23ffe384b0f@itcare.pl>
+         <6c36fa00-13e6-8cd7-ff5c-df7739220736@itcare.pl>
+         <CAEA6p_DpSr84cYu3pXqoHV=V=daSsbiOcnzsF+Kt0r4Wv_jmdg@mail.gmail.com>
+         <CAEA6p_AiLvZxsyu+iOCrPzW-H28N=HBnWycy8w6gdZHFk2Q1dQ@mail.gmail.com>
+         <1505956639.29839.108.camel@edumazet-glaptop3.roam.corp.google.com>
+         <a016d5bc-1cbb-44d7-9ebf-e7e5428e6f98@itcare.pl>
+         <1505991826.29839.124.camel@edumazet-glaptop3.roam.corp.google.com>
+         <8d2b4263-bd81-9cff-81ac-2df686cf29aa@itcare.pl>
+         <80e8948e-669b-4139-add6-637c6dd3405f@itcare.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-        Shrijeet Mukherjee <shm@cumulusnetworks.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-        David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: Wei Wang <weiwan@google.com>, Cong Wang <xiyou.wangcong@gmail.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>
+To: =?UTF-8?Q?Pawe=C5=82?= Staszewski <pstaszewski@itcare.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f46.google.com ([74.125.83.46]:52667 "EHLO
-        mail-pg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751387AbdIUOwJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 10:52:09 -0400
-Received: by mail-pg0-f46.google.com with SMTP id i195so3629100pgd.9
-        for <netdev@vger.kernel.org>; Thu, 21 Sep 2017 07:52:09 -0700 (PDT)
-In-Reply-To: <1506005428.29839.129.camel@edumazet-glaptop3.roam.corp.google.com>
-Content-Language: en-US
+Received: from mail-pf0-f176.google.com ([209.85.192.176]:47056 "EHLO
+        mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751598AbdIUO4o (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 10:56:44 -0400
+Received: by mail-pf0-f176.google.com with SMTP id r68so3336291pfj.3
+        for <netdev@vger.kernel.org>; Thu, 21 Sep 2017 07:56:43 -0700 (PDT)
+In-Reply-To: <80e8948e-669b-4139-add6-637c6dd3405f@itcare.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 9/21/17 8:50 AM, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> skb_dst_set(skb, dst) installs a normal (refcounted) dst, there is no
-> point using skb_dst_force(skb)
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> ---
->  drivers/net/vrf.c |    1 -
->  1 file changed, 1 deletion(-)
-> 
-> diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
-> index 9b243e6f3008bb5319844412cd49db1cd7bce594..cc18b7b11612d16271a1dbbb2d55c8f61781b9be 100644
-> --- a/drivers/net/vrf.c
-> +++ b/drivers/net/vrf.c
-> @@ -132,7 +132,6 @@ static int vrf_local_xmit(struct sk_buff *skb, struct net_device *dev,
->  	skb_orphan(skb);
->  
->  	skb_dst_set(skb, dst);
-> -	skb_dst_force(skb);
->  
->  	/* set pkt_type to avoid skb hitting packet taps twice -
->  	 * once on Tx and again in Rx processing
-> 
-> 
+On Thu, 2017-09-21 at 15:18 +0200, Paweł Staszewski wrote:
 
-Acked-by: David Ahern <dsa@cumulusnetworks.com>
+> ok after adding patch all is working from now for about 1 hour of normal 
+> traffic witc all bgp sessions connected and about 600k prefixes in kernel.
+
+
+Great, I am doing to submit an official patch, uniting skb_dst_force()
+and skb_dst_force_safe() into a single helper.
+
+Thanks.
