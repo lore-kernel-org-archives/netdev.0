@@ -1,7 +1,7 @@
 From: Allen Pais <allen.lkml@gmail.com>
-Subject: [PATCH 06/64] drivers: net: bcm63xx: use setup_timer() helper.
-Date: Thu, 21 Sep 2017 22:34:27 +0530
-Message-ID: <1506013525-29291-7-git-send-email-allen.lkml@gmail.com>
+Subject: [PATCH 08/64] drivers: net: am79c961: use setup_timer() helper.
+Date: Thu, 21 Sep 2017 22:34:29 +0530
+Message-ID: <1506013525-29291-9-git-send-email-allen.lkml@gmail.com>
 References: <1506013525-29291-1-git-send-email-allen.lkml@gmail.com>
 Cc: linux-kernel@vger.kernel.org, m.grzeschik@pengutronix.de,
         dmitry.tarnyagin@lockless.no, wg@grandegger.com,
@@ -15,10 +15,10 @@ Cc: linux-kernel@vger.kernel.org, m.grzeschik@pengutronix.de,
         Allen Pais <allen.lkml@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:36819 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751787AbdIURGU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 13:06:20 -0400
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:38181 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751787AbdIURGd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 13:06:33 -0400
 In-Reply-To: <1506013525-29291-1-git-send-email-allen.lkml@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -28,24 +28,23 @@ List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Allen Pais <allen.lkml@gmail.com>
 ---
- drivers/net/ethernet/broadcom/bcm63xx_enet.c | 5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/amd/am79c961a.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bcm63xx_enet.c b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
-index 4f3845a..f8bbbbf 100644
---- a/drivers/net/ethernet/broadcom/bcm63xx_enet.c
-+++ b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
-@@ -1857,9 +1857,8 @@ static int bcm_enet_probe(struct platform_device *pdev)
- 	spin_lock_init(&priv->rx_lock);
+diff --git a/drivers/net/ethernet/amd/am79c961a.c b/drivers/net/ethernet/amd/am79c961a.c
+index b11e910..0612dbe 100644
+--- a/drivers/net/ethernet/amd/am79c961a.c
++++ b/drivers/net/ethernet/amd/am79c961a.c
+@@ -728,9 +728,7 @@ static int am79c961_probe(struct platform_device *pdev)
+ 	am79c961_banner();
  
- 	/* init rx timeout (used for oom) */
--	init_timer(&priv->rx_timeout);
--	priv->rx_timeout.function = bcm_enet_refill_rx_timer;
--	priv->rx_timeout.data = (unsigned long)dev;
-+	setup_timer(&priv->rx_timeout, bcm_enet_refill_rx_timer,
-+		    (unsigned long)dev);
+ 	spin_lock_init(&priv->chip_lock);
+-	init_timer(&priv->timer);
+-	priv->timer.data = (unsigned long)dev;
+-	priv->timer.function = am79c961_timer;
++	setup_timer(&priv->timer, am79c961_timer, (unsigned long)dev);
  
- 	/* init the mib update lock&work */
- 	mutex_init(&priv->mib_update_lock);
+ 	if (am79c961_hw_init(dev))
+ 		goto release;
 -- 
 2.7.4
