@@ -1,7 +1,7 @@
 From: Allen Pais <allen.lkml@gmail.com>
-Subject: [PATCH 40/64] drivers: net: sis900: use setup_timer() helper.
-Date: Thu, 21 Sep 2017 22:35:01 +0530
-Message-ID: <1506013525-29291-41-git-send-email-allen.lkml@gmail.com>
+Subject: [PATCH 41/64] drivers: net: packetengines: use setup_timer() helper.
+Date: Thu, 21 Sep 2017 22:35:02 +0530
+Message-ID: <1506013525-29291-42-git-send-email-allen.lkml@gmail.com>
 References: <1506013525-29291-1-git-send-email-allen.lkml@gmail.com>
 Cc: linux-kernel@vger.kernel.org, m.grzeschik@pengutronix.de,
         dmitry.tarnyagin@lockless.no, wg@grandegger.com,
@@ -24,24 +24,24 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Allen Pais <allen.lkml@gmail.com>
 ---
- drivers/net/ethernet/sis/sis900.c | 4 +---
+ drivers/net/ethernet/packetengines/yellowfin.c | 4 +---
  1 file changed, 1 insertion(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/sis/sis900.c b/drivers/net/ethernet/sis/sis900.c
-index 40bd883..cb61247 100644
---- a/drivers/net/ethernet/sis/sis900.c
-+++ b/drivers/net/ethernet/sis/sis900.c
-@@ -1065,10 +1065,8 @@ sis900_open(struct net_device *net_dev)
+diff --git a/drivers/net/ethernet/packetengines/yellowfin.c b/drivers/net/ethernet/packetengines/yellowfin.c
+index fa7770d..33c241f 100644
+--- a/drivers/net/ethernet/packetengines/yellowfin.c
++++ b/drivers/net/ethernet/packetengines/yellowfin.c
+@@ -632,10 +632,8 @@ static int yellowfin_open(struct net_device *dev)
+ 	}
  
- 	/* Set the timer to switch to check for link beat and perhaps switch
- 	   to an alternate media type. */
--	init_timer(&sis_priv->timer);
-+	setup_timer(&sis_priv->timer, sis900_timer, (unsigned long)net_dev);
- 	sis_priv->timer.expires = jiffies + HZ;
--	sis_priv->timer.data = (unsigned long)net_dev;
--	sis_priv->timer.function = sis900_timer;
- 	add_timer(&sis_priv->timer);
- 
- 	return 0;
+ 	/* Set the timer to check for link beat. */
+-	init_timer(&yp->timer);
++	setup_timer(&yp->timer, yellowfin_timer, (unsigned long)dev);
+ 	yp->timer.expires = jiffies + 3*HZ;
+-	yp->timer.data = (unsigned long)dev;
+-	yp->timer.function = yellowfin_timer;				/* timer handler */
+ 	add_timer(&yp->timer);
+ out:
+ 	return rc;
 -- 
 2.7.4
