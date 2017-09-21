@@ -1,40 +1,109 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: Re: [PATCH net-next v5 1/4] bpf: add helper bpf_perf_event_read_value
- for perf event array map
-Date: Thu, 21 Sep 2017 08:15:39 -0700
-Message-ID: <b9753171-8e70-92f2-9852-8d3a33f2c07c@fb.com>
-References: <20170920060935.1102268-1-yhs@fb.com>
- <20170920060935.1102268-2-yhs@fb.com>
- <20170920172651.zx4nfmj2lpgxzubq@hirez.programming.kicks-ass.net>
- <20170920.160707.932591498085219317.davem@davemloft.net>
+From: Christopher Lameter <cl@linux.com>
+Subject: Re: [PATCH v3 01/31] usercopy: Prepare for usercopy whitelisting
+Date: Thu, 21 Sep 2017 10:21:16 -0500 (CDT)
+Message-ID: <alpine.DEB.2.20.1709211009400.14427@nuc-kabylake>
+References: <1505940337-79069-1-git-send-email-keescook@chromium.org> <1505940337-79069-2-git-send-email-keescook@chromium.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <yhs@fb.com>, <rostedt@goodmis.org>, <daniel@iogearbox.net>,
-        <netdev@vger.kernel.org>, <kernel-team@fb.com>
-To: David Miller <davem@davemloft.net>, <peterz@infradead.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:35120 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751726AbdIUPQb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 11:16:31 -0400
-In-Reply-To: <20170920.160707.932591498085219317.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Cc: linux-kernel@vger.kernel.org, David Windsor <dave@nullcore.net>,
+        Pekka Enberg <penberg@kernel.org>,
+        David Rientjes <rientjes@google.com>,
+        Joonsoo Kim <iamjoonsoo.kim@lge.com>,
+        Andrew Morton <akpm@linux-foundation.org>, linux-mm@kvack.org,
+        linux-xfs@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+        netdev@vger.kernel.org, kernel-hardening@lists.openwall.com
+To: Kees Cook <keescook@chromium.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1505940337-79069-2-git-send-email-keescook@chromium.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 9/20/17 4:07 PM, David Miller wrote:
-> From: Peter Zijlstra <peterz@infradead.org>
-> Date: Wed, 20 Sep 2017 19:26:51 +0200
->
->> Dave, could we have this in a topic tree of sorts, because I have a
->> pending series to rework all the timekeeping and it might be nice to not
->> have sfr run into all sorts of conflicts.
->
-> If you want to merge it into your tree that's fine.
->
-> But it means that any further development done on top of this
-> work will need to go via you as well.
+On Wed, 20 Sep 2017, Kees Cook wrote:
 
-can we merge this set of patches into both net-next and tip ?
-We did such tricks in the past to avoid merge conflicts and
-everything went fine during merge window.
+> diff --git a/include/linux/stddef.h b/include/linux/stddef.h
+> index 9c61c7cda936..f00355086fb2 100644
+> --- a/include/linux/stddef.h
+> +++ b/include/linux/stddef.h
+> @@ -18,6 +18,8 @@ enum {
+>  #define offsetof(TYPE, MEMBER)	((size_t)&((TYPE *)0)->MEMBER)
+>  #endif
+>
+> +#define sizeof_field(structure, field) sizeof((((structure *)0)->field))
+> +
+>  /**
+>   * offsetofend(TYPE, MEMBER)
+>   *
+
+Hmmm.. Is that really necessary? Code knows the type of field and can
+use sizeof type.
+
+Also this is a non slab change hidden in the patchset.
+
+> diff --git a/mm/slab_common.c b/mm/slab_common.c
+> index 904a83be82de..36408f5f2a34 100644
+> --- a/mm/slab_common.c
+> +++ b/mm/slab_common.c
+> @@ -272,6 +272,9 @@ int slab_unmergeable(struct kmem_cache *s)
+>  	if (s->ctor)
+>  		return 1;
+>
+> +	if (s->usersize)
+> +		return 1;
+> +
+>  	/*
+>  	 * We may have set a slab to be unmergeable during bootstrap.
+>  	 */
+
+This will ultimately make all slabs unmergeable at the end of your
+patchset? Lots of space will be wasted. Is there any way to make this
+feature optional?
+
+#ifdef CONFIG_HARDENED around this?
+
+
+> @@ -491,6 +509,15 @@ kmem_cache_create(const char *name, size_t size, size_t align,
+>  	}
+>  	return s;
+>  }
+> +EXPORT_SYMBOL(kmem_cache_create_usercopy);
+> +
+> +struct kmem_cache *
+> +kmem_cache_create(const char *name, size_t size, size_t align,
+> +		unsigned long flags, void (*ctor)(void *))
+> +{
+> +	return kmem_cache_create_usercopy(name, size, align, flags, 0, size,
+> +					  ctor);
+> +}
+>  EXPORT_SYMBOL(kmem_cache_create);
+
+Well this makes the slab created unmergeable.
+
+> @@ -897,7 +927,7 @@ struct kmem_cache *__init create_kmalloc_cache(const char *name, size_t size,
+>  	if (!s)
+>  		panic("Out of memory when creating slab %s\n", name);
+>
+> -	create_boot_cache(s, name, size, flags);
+> +	create_boot_cache(s, name, size, flags, 0, size);
+
+Ok this makes the kmalloc array unmergeable.
+
+> @@ -5081,6 +5081,12 @@ static ssize_t cache_dma_show(struct kmem_cache *s, char *buf)
+>  SLAB_ATTR_RO(cache_dma);
+>  #endif
+>
+> +static ssize_t usersize_show(struct kmem_cache *s, char *buf)
+> +{
+> +	return sprintf(buf, "%zu\n", s->usersize);
+> +}
+> +SLAB_ATTR_RO(usersize);
+> +
+>  static ssize_t destroy_by_rcu_show(struct kmem_cache *s, char *buf)
+>  {
+>  	return sprintf(buf, "%d\n", !!(s->flags & SLAB_TYPESAFE_BY_RCU));
+> @@ -5455,6 +5461,7 @@ static struct attribute *slab_attrs[] = {
+>  #ifdef CONFIG_FAILSLAB
+>  	&failslab_attr.attr,
+>  #endif
+> +	&usersize_attr.attr,
+
+So useroffset is not exposed?
