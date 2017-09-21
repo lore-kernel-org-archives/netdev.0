@@ -1,44 +1,44 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [patch net-next 07/12] mlxsw: spectrum: Add the multicast
- routing offloading logic
-Date: Thu, 21 Sep 2017 17:26:54 +0200
-Message-ID: <20170921152654.GF27589@lunn.ch>
-References: <20170921064338.1282-1-jiri@resnulli.us>
- <20170921064338.1282-8-jiri@resnulli.us>
+From: Christopher Lameter <cl@linux.com>
+Subject: Re: [PATCH v3 03/31] usercopy: Mark kmalloc caches as usercopy
+ caches
+Date: Thu, 21 Sep 2017 10:27:13 -0500 (CDT)
+Message-ID: <alpine.DEB.2.20.1709211024120.14427@nuc-kabylake>
+References: <1505940337-79069-1-git-send-email-keescook@chromium.org> <1505940337-79069-4-git-send-email-keescook@chromium.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, yotamg@mellanox.com,
-        idosch@mellanox.com, mlxsw@mellanox.com
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([185.16.172.187]:51405 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751799AbdIUP07 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 21 Sep 2017 11:26:59 -0400
-Content-Disposition: inline
-In-Reply-To: <20170921064338.1282-8-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Cc: linux-kernel@vger.kernel.org, David Windsor <dave@nullcore.net>,
+    Pekka Enberg <penberg@kernel.org>, David Rientjes <rientjes@google.com>,
+    Joonsoo Kim <iamjoonsoo.kim@lge.com>,
+    Andrew Morton <akpm@linux-foundation.org>, linux-mm@kvack.org,
+    linux-xfs@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+    netdev@vger.kernel.org, kernel-hardening@lists.openwall.com
+To: Kees Cook <keescook@chromium.org>
+Return-path: <kernel-hardening-return-9904-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+List-Post: <mailto:kernel-hardening@lists.openwall.com>
+List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
+List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
+List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+In-Reply-To: <1505940337-79069-4-git-send-email-keescook@chromium.org>
+List-Id: netdev.vger.kernel.org
 
-> +static void mlxsw_sp_mr_route_stats_update(struct mlxsw_sp *mlxsw_sp,
-> +					   struct mlxsw_sp_mr_route *mr_route)
-> +{
-> +	struct mlxsw_sp_mr *mr = mlxsw_sp->mr;
-> +	u64 packets, bytes;
-> +
-> +	if (mr_route->route_action == MLXSW_SP_MR_ROUTE_ACTION_TRAP)
-> +		return;
-> +
-> +	mr->mr_ops->route_stats(mlxsw_sp, mr_route->route_priv, &packets,
-> +				&bytes);
-> +
-> +	switch (mr_route->mr_table->proto) {
-> +	case MLXSW_SP_L3_PROTO_IPV4:
-> +		mr_route->mfc4->mfc_un.res.pkt = packets;
-> +		mr_route->mfc4->mfc_un.res.bytes = bytes;
+On Wed, 20 Sep 2017, Kees Cook wrote:
 
-What about wrong_if and lastuse? 
+> --- a/mm/slab.c
+> +++ b/mm/slab.c
+> @@ -1291,7 +1291,8 @@ void __init kmem_cache_init(void)
+>  	 */
+>  	kmalloc_caches[INDEX_NODE] = create_kmalloc_cache(
+>  				kmalloc_info[INDEX_NODE].name,
+> -				kmalloc_size(INDEX_NODE), ARCH_KMALLOC_FLAGS);
+> +				kmalloc_size(INDEX_NODE), ARCH_KMALLOC_FLAGS,
+> +				0, kmalloc_size(INDEX_NODE));
+>  	slab_state = PARTIAL_NODE;
+>  	setup_kmalloc_cache_index_table();
 
-Is an mfc with iif on the host, not the switch, not offloaded?
+Ok this presumes that at some point we will be able to restrict the number
+of bytes writeable and thus set the offset and size field to different
+values. Is that realistic?
 
-   Andrew
+We already whitelist all kmalloc caches (see first patch).
+
+So what is the point of this patch?
