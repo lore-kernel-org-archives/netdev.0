@@ -1,17 +1,17 @@
 From: Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
-Subject: [PATCH net-next v2 1/4] cxgb4: add tc flower offload skeleton
-Date: Thu, 21 Sep 2017 23:41:13 +0530
-Message-ID: <0d3a619769caa7e9775179daee529c74f4b77b5e.1506015856.git.rahul.lakkireddy@chelsio.com>
+Subject: [PATCH net-next v2 2/4] cxgb4: add basic tc flower offload support
+Date: Thu, 21 Sep 2017 23:41:14 +0530
+Message-ID: <3c6e880c1bc8f02624ca1012a5025d50426a56d8.1506015856.git.rahul.lakkireddy@chelsio.com>
 References: <cover.1506015856.git.rahul.lakkireddy@chelsio.com>
 Cc: davem@davemloft.net, kumaras@chelsio.com, ganeshgr@chelsio.com,
         nirranjan@chelsio.com, indranil@chelsio.com,
         Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:5781 "EHLO
+Received: from stargate.chelsio.com ([12.32.117.8]:5052 "EHLO
         stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751605AbdIUSMG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 14:12:06 -0400
+        with ESMTP id S1751679AbdIUSMJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 14:12:09 -0400
 In-Reply-To: <cover.1506015856.git.rahul.lakkireddy@chelsio.com>
 In-Reply-To: <cover.1506015856.git.rahul.lakkireddy@chelsio.com>
 References: <cover.1506015856.git.rahul.lakkireddy@chelsio.com>
@@ -20,199 +20,442 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Kumar Sanghvi <kumaras@chelsio.com>
 
-Add basic skeleton to prepare for offloading tc-flower flows.
+Add support to add/remove flows for offload.  Following match
+and action are supported for offloading a flow:
+
+Match: ether-protocol, IPv4/IPv6 addresses, L4 ports (TCP/UDP)
+Action: drop, redirect to another port on the device.
+
+The qualifying flows can have accompanying mask information.
 
 Signed-off-by: Kumar Sanghvi <kumaras@chelsio.com>
 Signed-off-by: Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
 Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
 ---
 v2:
-- No changes.
+- Setting ftid to -1 not required after bitmap_find_free_region
+  in cxgb4_get_free_ftid.
+- Direct return can be used as jumping to error path is not needed
+  if flower entry allocation failed in cxgb4_tc_flower_replace.
+  Same applies if flower entry not found in cxgb4_tc_flower_destroy.
+- Also, removed an extra return from cxgb4_tc_flower_destroy.
 
- drivers/net/ethernet/chelsio/cxgb4/Makefile        |  4 +-
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c    | 22 +++++++++
- .../net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c   | 57 ++++++++++++++++++++++
- .../net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.h   | 46 +++++++++++++++++
- 4 files changed, 128 insertions(+), 1 deletion(-)
- create mode 100644 drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c
- create mode 100644 drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.h
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h         |   3 +
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.c  |  24 ++
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c    |   2 +
+ .../net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c   | 280 ++++++++++++++++++++-
+ .../net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.h   |  17 ++
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h     |   1 +
+ 6 files changed, 325 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/Makefile b/drivers/net/ethernet/chelsio/cxgb4/Makefile
-index 817212702f0a..fecd7aab673b 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/Makefile
-+++ b/drivers/net/ethernet/chelsio/cxgb4/Makefile
-@@ -4,7 +4,9 @@
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+index ea72d2d2e1b4..26eac599ab2c 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+@@ -904,6 +904,9 @@ struct adapter {
+ 	/* TC u32 offload */
+ 	struct cxgb4_tc_u32_table *tc_u32;
+ 	struct chcr_stats_debug chcr_stats;
++
++	/* TC flower offload */
++	DECLARE_HASHTABLE(flower_anymatch_tbl, 9);
+ };
  
- obj-$(CONFIG_CHELSIO_T4) += cxgb4.o
- 
--cxgb4-objs := cxgb4_main.o l2t.o t4_hw.o sge.o clip_tbl.o cxgb4_ethtool.o cxgb4_uld.o sched.o cxgb4_filter.o cxgb4_tc_u32.o cxgb4_ptp.o
-+cxgb4-objs := cxgb4_main.o l2t.o t4_hw.o sge.o clip_tbl.o cxgb4_ethtool.o \
-+	      cxgb4_uld.o sched.o cxgb4_filter.o cxgb4_tc_u32.o \
-+	      cxgb4_ptp.o cxgb4_tc_flower.o
- cxgb4-$(CONFIG_CHELSIO_T4_DCB) +=  cxgb4_dcb.o
- cxgb4-$(CONFIG_CHELSIO_T4_FCOE) +=  cxgb4_fcoe.o
- cxgb4-$(CONFIG_DEBUG_FS) += cxgb4_debugfs.o
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index 92d9d795d874..8923affbdaf8 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -79,6 +79,7 @@
- #include "l2t.h"
- #include "sched.h"
- #include "cxgb4_tc_u32.h"
-+#include "cxgb4_tc_flower.h"
- #include "cxgb4_ptp.h"
- 
- char cxgb4_driver_name[] = KBUILD_MODNAME;
-@@ -2873,6 +2874,25 @@ static int cxgb_set_tx_maxrate(struct net_device *dev, int index, u32 rate)
- 	return err;
+ /* Support for "sched-class" command to allow a TX Scheduling Class to be
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.c
+index 45b5853ca2f1..a1f644eb0cec 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_filter.c
+@@ -148,6 +148,30 @@ static int get_filter_steerq(struct net_device *dev,
+ 	return iq;
  }
  
-+static int cxgb_setup_tc_flower(struct net_device *dev,
-+				struct tc_cls_flower_offload *cls_flower)
++int cxgb4_get_free_ftid(struct net_device *dev, int family)
 +{
-+	if (!is_classid_clsact_ingress(cls_flower->common.classid) ||
-+	    cls_flower->common.chain_index)
-+		return -EOPNOTSUPP;
++	struct adapter *adap = netdev2adap(dev);
++	struct tid_info *t = &adap->tids;
++	int ftid;
 +
-+	switch (cls_flower->command) {
-+	case TC_CLSFLOWER_REPLACE:
-+		return cxgb4_tc_flower_replace(dev, cls_flower);
-+	case TC_CLSFLOWER_DESTROY:
-+		return cxgb4_tc_flower_destroy(dev, cls_flower);
-+	case TC_CLSFLOWER_STATS:
-+		return cxgb4_tc_flower_stats(dev, cls_flower);
-+	default:
++	spin_lock_bh(&t->ftid_lock);
++	if (family == PF_INET) {
++		ftid = find_first_zero_bit(t->ftid_bmap, t->nftids);
++		if (ftid >= t->nftids)
++			ftid = -1;
++	} else {
++		ftid = bitmap_find_free_region(t->ftid_bmap, t->nftids, 2);
++		if (ftid < 0)
++			goto out_unlock;
++
++		/* this is only a lookup, keep the found region unallocated */
++		bitmap_release_region(t->ftid_bmap, ftid, 2);
++	}
++out_unlock:
++	spin_unlock_bh(&t->ftid_lock);
++	return ftid;
++}
++
+ static int cxgb4_set_ftid(struct tid_info *t, int fidx, int family)
+ {
+ 	spin_lock_bh(&t->ftid_lock);
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index 8923affbdaf8..3ba4e1ff8486 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -5105,6 +5105,8 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		if (!adapter->tc_u32)
+ 			dev_warn(&pdev->dev,
+ 				 "could not offload tc u32, continuing\n");
++
++		cxgb4_init_tc_flower(adapter);
+ 	}
+ 
+ 	if (is_offload(adapter)) {
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c
+index 16dff71e4d02..dda34d5a52fb 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c
+@@ -38,16 +38,287 @@
+ #include "cxgb4.h"
+ #include "cxgb4_tc_flower.h"
+ 
++static struct ch_tc_flower_entry *allocate_flower_entry(void)
++{
++	struct ch_tc_flower_entry *new = kzalloc(sizeof(*new), GFP_KERNEL);
++	return new;
++}
++
++/* Must be called with either RTNL or rcu_read_lock */
++static struct ch_tc_flower_entry *ch_flower_lookup(struct adapter *adap,
++						   unsigned long flower_cookie)
++{
++	struct ch_tc_flower_entry *flower_entry;
++
++	hash_for_each_possible_rcu(adap->flower_anymatch_tbl, flower_entry,
++				   link, flower_cookie)
++		if (flower_entry->tc_flower_cookie == flower_cookie)
++			return flower_entry;
++	return NULL;
++}
++
++static void cxgb4_process_flow_match(struct net_device *dev,
++				     struct tc_cls_flower_offload *cls,
++				     struct ch_filter_specification *fs)
++{
++	u16 addr_type = 0;
++
++	if (dissector_uses_key(cls->dissector, FLOW_DISSECTOR_KEY_CONTROL)) {
++		struct flow_dissector_key_control *key =
++			skb_flow_dissector_target(cls->dissector,
++						  FLOW_DISSECTOR_KEY_CONTROL,
++						  cls->key);
++
++		addr_type = key->addr_type;
++	}
++
++	if (dissector_uses_key(cls->dissector, FLOW_DISSECTOR_KEY_BASIC)) {
++		struct flow_dissector_key_basic *key =
++			skb_flow_dissector_target(cls->dissector,
++						  FLOW_DISSECTOR_KEY_BASIC,
++						  cls->key);
++		struct flow_dissector_key_basic *mask =
++			skb_flow_dissector_target(cls->dissector,
++						  FLOW_DISSECTOR_KEY_BASIC,
++						  cls->mask);
++		u16 ethtype_key = ntohs(key->n_proto);
++		u16 ethtype_mask = ntohs(mask->n_proto);
++
++		if (ethtype_key == ETH_P_ALL) {
++			ethtype_key = 0;
++			ethtype_mask = 0;
++		}
++
++		fs->val.ethtype = ethtype_key;
++		fs->mask.ethtype = ethtype_mask;
++		fs->val.proto = key->ip_proto;
++		fs->mask.proto = mask->ip_proto;
++	}
++
++	if (addr_type == FLOW_DISSECTOR_KEY_IPV4_ADDRS) {
++		struct flow_dissector_key_ipv4_addrs *key =
++			skb_flow_dissector_target(cls->dissector,
++						  FLOW_DISSECTOR_KEY_IPV4_ADDRS,
++						  cls->key);
++		struct flow_dissector_key_ipv4_addrs *mask =
++			skb_flow_dissector_target(cls->dissector,
++						  FLOW_DISSECTOR_KEY_IPV4_ADDRS,
++						  cls->mask);
++		fs->type = 0;
++		memcpy(&fs->val.lip[0], &key->dst, sizeof(key->dst));
++		memcpy(&fs->val.fip[0], &key->src, sizeof(key->src));
++		memcpy(&fs->mask.lip[0], &mask->dst, sizeof(mask->dst));
++		memcpy(&fs->mask.fip[0], &mask->src, sizeof(mask->src));
++	}
++
++	if (addr_type == FLOW_DISSECTOR_KEY_IPV6_ADDRS) {
++		struct flow_dissector_key_ipv6_addrs *key =
++			skb_flow_dissector_target(cls->dissector,
++						  FLOW_DISSECTOR_KEY_IPV6_ADDRS,
++						  cls->key);
++		struct flow_dissector_key_ipv6_addrs *mask =
++			skb_flow_dissector_target(cls->dissector,
++						  FLOW_DISSECTOR_KEY_IPV6_ADDRS,
++						  cls->mask);
++
++		fs->type = 1;
++		memcpy(&fs->val.lip[0], key->dst.s6_addr, sizeof(key->dst));
++		memcpy(&fs->val.fip[0], key->src.s6_addr, sizeof(key->src));
++		memcpy(&fs->mask.lip[0], mask->dst.s6_addr, sizeof(mask->dst));
++		memcpy(&fs->mask.fip[0], mask->src.s6_addr, sizeof(mask->src));
++	}
++
++	if (dissector_uses_key(cls->dissector, FLOW_DISSECTOR_KEY_PORTS)) {
++		struct flow_dissector_key_ports *key, *mask;
++
++		key = skb_flow_dissector_target(cls->dissector,
++						FLOW_DISSECTOR_KEY_PORTS,
++						cls->key);
++		mask = skb_flow_dissector_target(cls->dissector,
++						 FLOW_DISSECTOR_KEY_PORTS,
++						 cls->mask);
++		fs->val.lport = cpu_to_be16(key->dst);
++		fs->mask.lport = cpu_to_be16(mask->dst);
++		fs->val.fport = cpu_to_be16(key->src);
++		fs->mask.fport = cpu_to_be16(mask->src);
++	}
++
++	/* Match only packets coming from the ingress port where this
++	 * filter will be created.
++	 */
++	fs->val.iport = netdev2pinfo(dev)->port_id;
++	fs->mask.iport = ~0;
++}
++
++static int cxgb4_validate_flow_match(struct net_device *dev,
++				     struct tc_cls_flower_offload *cls)
++{
++	if (cls->dissector->used_keys &
++	    ~(BIT(FLOW_DISSECTOR_KEY_CONTROL) |
++	      BIT(FLOW_DISSECTOR_KEY_BASIC) |
++	      BIT(FLOW_DISSECTOR_KEY_IPV4_ADDRS) |
++	      BIT(FLOW_DISSECTOR_KEY_IPV6_ADDRS) |
++	      BIT(FLOW_DISSECTOR_KEY_PORTS))) {
++		netdev_warn(dev, "Unsupported key used: 0x%x\n",
++			    cls->dissector->used_keys);
 +		return -EOPNOTSUPP;
++	}
++	return 0;
++}
++
++static void cxgb4_process_flow_actions(struct net_device *in,
++				       struct tc_cls_flower_offload *cls,
++				       struct ch_filter_specification *fs)
++{
++	const struct tc_action *a;
++	LIST_HEAD(actions);
++
++	tcf_exts_to_list(cls->exts, &actions);
++	list_for_each_entry(a, &actions, list) {
++		if (is_tcf_gact_shot(a)) {
++			fs->action = FILTER_DROP;
++		} else if (is_tcf_mirred_egress_redirect(a)) {
++			int ifindex = tcf_mirred_ifindex(a);
++			struct net_device *out = __dev_get_by_index(dev_net(in),
++								    ifindex);
++			struct port_info *pi = netdev_priv(out);
++
++			fs->action = FILTER_SWITCH;
++			fs->eport = pi->port_id;
++		}
 +	}
 +}
 +
- static int cxgb_setup_tc_cls_u32(struct net_device *dev,
- 				 struct tc_cls_u32_offload *cls_u32)
++static int cxgb4_validate_flow_actions(struct net_device *dev,
++				       struct tc_cls_flower_offload *cls)
++{
++	const struct tc_action *a;
++	LIST_HEAD(actions);
++
++	tcf_exts_to_list(cls->exts, &actions);
++	list_for_each_entry(a, &actions, list) {
++		if (is_tcf_gact_shot(a)) {
++			/* Do nothing */
++		} else if (is_tcf_mirred_egress_redirect(a)) {
++			struct adapter *adap = netdev2adap(dev);
++			struct net_device *n_dev;
++			unsigned int i, ifindex;
++			bool found = false;
++
++			ifindex = tcf_mirred_ifindex(a);
++			for_each_port(adap, i) {
++				n_dev = adap->port[i];
++				if (ifindex == n_dev->ifindex) {
++					found = true;
++					break;
++				}
++			}
++
++			/* If interface doesn't belong to our hw, then
++			 * the provided output port is not valid
++			 */
++			if (!found) {
++				netdev_err(dev, "%s: Out port invalid\n",
++					   __func__);
++				return -EINVAL;
++			}
++		} else {
++			netdev_err(dev, "%s: Unsupported action\n", __func__);
++			return -EOPNOTSUPP;
++		}
++	}
++	return 0;
++}
++
+ int cxgb4_tc_flower_replace(struct net_device *dev,
+ 			    struct tc_cls_flower_offload *cls)
  {
-@@ -2907,6 +2927,8 @@ static int cxgb_setup_tc(struct net_device *dev, enum tc_setup_type type,
- 	switch (type) {
- 	case TC_SETUP_CLSU32:
- 		return cxgb_setup_tc_cls_u32(dev, type_data);
-+	case TC_SETUP_CLSFLOWER:
-+		return cxgb_setup_tc_flower(dev, type_data);
- 	default:
- 		return -EOPNOTSUPP;
- 	}
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c
-new file mode 100644
-index 000000000000..16dff71e4d02
---- /dev/null
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c
-@@ -0,0 +1,57 @@
-+/*
-+ * This file is part of the Chelsio T4/T5/T6 Ethernet driver for Linux.
-+ *
-+ * Copyright (c) 2017 Chelsio Communications, Inc. All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
+-	return -EOPNOTSUPP;
++	struct adapter *adap = netdev2adap(dev);
++	struct ch_tc_flower_entry *ch_flower;
++	struct ch_filter_specification *fs;
++	struct filter_ctx ctx;
++	int fidx;
++	int ret;
 +
-+#include <net/tc_act/tc_gact.h>
-+#include <net/tc_act/tc_mirred.h>
++	if (cxgb4_validate_flow_actions(dev, cls))
++		return -EOPNOTSUPP;
 +
-+#include "cxgb4.h"
-+#include "cxgb4_tc_flower.h"
++	if (cxgb4_validate_flow_match(dev, cls))
++		return -EOPNOTSUPP;
 +
-+int cxgb4_tc_flower_replace(struct net_device *dev,
-+			    struct tc_cls_flower_offload *cls)
++	ch_flower = allocate_flower_entry();
++	if (!ch_flower) {
++		netdev_err(dev, "%s: ch_flower alloc failed.\n", __func__);
++		return -ENOMEM;
++	}
++
++	fs = &ch_flower->fs;
++	fs->hitcnts = 1;
++	cxgb4_process_flow_actions(dev, cls, fs);
++	cxgb4_process_flow_match(dev, cls, fs);
++
++	fidx = cxgb4_get_free_ftid(dev, fs->type ? PF_INET6 : PF_INET);
++	if (fidx < 0) {
++		netdev_err(dev, "%s: No fidx for offload.\n", __func__);
++		ret = -ENOMEM;
++		goto free_entry;
++	}
++
++	init_completion(&ctx.completion);
++	ret = __cxgb4_set_filter(dev, fidx, fs, &ctx);
++	if (ret) {
++		netdev_err(dev, "%s: filter creation err %d\n",
++			   __func__, ret);
++		goto free_entry;
++	}
++
++	/* Wait for reply */
++	ret = wait_for_completion_timeout(&ctx.completion, 10 * HZ);
++	if (!ret) {
++		ret = -ETIMEDOUT;
++		goto free_entry;
++	}
++
++	ret = ctx.result;
++	/* Check if hw returned error for filter creation */
++	if (ret) {
++		netdev_err(dev, "%s: filter creation err %d\n",
++			   __func__, ret);
++		goto free_entry;
++	}
++
++	INIT_HLIST_NODE(&ch_flower->link);
++	ch_flower->tc_flower_cookie = cls->cookie;
++	ch_flower->filter_id = ctx.tid;
++	hash_add_rcu(adap->flower_anymatch_tbl, &ch_flower->link, cls->cookie);
++
++	return ret;
++
++free_entry:
++	kfree(ch_flower);
++	return ret;
+ }
+ 
+ int cxgb4_tc_flower_destroy(struct net_device *dev,
+ 			    struct tc_cls_flower_offload *cls)
+ {
+-	return -EOPNOTSUPP;
++	struct adapter *adap = netdev2adap(dev);
++	struct ch_tc_flower_entry *ch_flower;
++	int ret;
++
++	ch_flower = ch_flower_lookup(adap, cls->cookie);
++	if (!ch_flower)
++		return -ENOENT;
++
++	ret = cxgb4_del_filter(dev, ch_flower->filter_id);
++	if (ret)
++		goto err;
++
++	hash_del_rcu(&ch_flower->link);
++	kfree_rcu(ch_flower, rcu);
++
++err:
++	return ret;
+ }
+ 
+ int cxgb4_tc_flower_stats(struct net_device *dev,
+@@ -55,3 +326,8 @@ int cxgb4_tc_flower_stats(struct net_device *dev,
+ {
+ 	return -EOPNOTSUPP;
+ }
++
++void cxgb4_init_tc_flower(struct adapter *adap)
 +{
-+	return -EOPNOTSUPP;
-+}
-+
-+int cxgb4_tc_flower_destroy(struct net_device *dev,
-+			    struct tc_cls_flower_offload *cls)
-+{
-+	return -EOPNOTSUPP;
-+}
-+
-+int cxgb4_tc_flower_stats(struct net_device *dev,
-+			  struct tc_cls_flower_offload *cls)
-+{
-+	return -EOPNOTSUPP;
++	hash_init(adap->flower_anymatch_tbl);
 +}
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.h
-new file mode 100644
-index 000000000000..b321fc205b5a
---- /dev/null
+index b321fc205b5a..6145a9e056eb 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.h
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.h
-@@ -0,0 +1,46 @@
-+/*
-+ * This file is part of the Chelsio T4/T5/T6 Ethernet driver for Linux.
-+ *
-+ * Copyright (c) 2017 Chelsio Communications, Inc. All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
+@@ -37,10 +37,27 @@
+ 
+ #include <net/pkt_cls.h>
+ 
++struct ch_tc_flower_stats {
++	u64 packet_count;
++	u64 byte_count;
++	u64 last_used;
++};
 +
-+#ifndef __CXGB4_TC_FLOWER_H
-+#define __CXGB4_TC_FLOWER_H
++struct ch_tc_flower_entry {
++	struct ch_filter_specification fs;
++	struct ch_tc_flower_stats stats;
++	unsigned long tc_flower_cookie;
++	struct hlist_node link;
++	struct rcu_head rcu;
++	u32 filter_id;
++};
 +
-+#include <net/pkt_cls.h>
+ int cxgb4_tc_flower_replace(struct net_device *dev,
+ 			    struct tc_cls_flower_offload *cls);
+ int cxgb4_tc_flower_destroy(struct net_device *dev,
+ 			    struct tc_cls_flower_offload *cls);
+ int cxgb4_tc_flower_stats(struct net_device *dev,
+ 			  struct tc_cls_flower_offload *cls);
 +
-+int cxgb4_tc_flower_replace(struct net_device *dev,
-+			    struct tc_cls_flower_offload *cls);
-+int cxgb4_tc_flower_destroy(struct net_device *dev,
-+			    struct tc_cls_flower_offload *cls);
-+int cxgb4_tc_flower_stats(struct net_device *dev,
-+			  struct tc_cls_flower_offload *cls);
-+#endif /* __CXGB4_TC_FLOWER_H */
++void cxgb4_init_tc_flower(struct adapter *adap);
+ #endif /* __CXGB4_TC_FLOWER_H */
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
+index 84541fce94c5..88487095d14f 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
+@@ -212,6 +212,7 @@ struct filter_ctx {
+ 
+ struct ch_filter_specification;
+ 
++int cxgb4_get_free_ftid(struct net_device *dev, int family);
+ int __cxgb4_set_filter(struct net_device *dev, int filter_id,
+ 		       struct ch_filter_specification *fs,
+ 		       struct filter_ctx *ctx);
 -- 
 2.14.1
