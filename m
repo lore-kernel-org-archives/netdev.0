@@ -1,70 +1,158 @@
-From: Ursula Braun <ubraun-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
-Subject: [PATCH net 6/9] net/smc: longer delay for client link group removal
-Date: Thu, 21 Sep 2017 09:16:31 +0200
-Message-ID: <20170921071634.16883-7-ubraun@linux.vnet.ibm.com>
+From: Ursula Braun <ubraun@linux.vnet.ibm.com>
+Subject: [PATCH net 8/9] net/smc: introduce a delay
+Date: Thu, 21 Sep 2017 09:16:33 +0200
+Message-ID: <20170921071634.16883-9-ubraun@linux.vnet.ibm.com>
 References: <20170921071634.16883-1-ubraun@linux.vnet.ibm.com>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jwi-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org,
-        schwidefsky-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org, heiko.carstens-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org,
-        raspl-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org, ubraun-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170921071634.16883-1-ubraun-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
+        linux-s390@vger.kernel.org, jwi@linux.vnet.ibm.com,
+        schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
+        raspl@linux.vnet.ibm.com, ubraun@linux.vnet.ibm.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:59388 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751797AbdIUHQw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 03:16:52 -0400
+Received: from pps.filterd (m0098410.ppops.net [127.0.0.1])
+        by mx0a-001b2d01.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v8L7FiUa032028
+        for <netdev@vger.kernel.org>; Thu, 21 Sep 2017 03:16:52 -0400
+Received: from e06smtp12.uk.ibm.com (e06smtp12.uk.ibm.com [195.75.94.108])
+        by mx0a-001b2d01.pphosted.com with ESMTP id 2d473evax0-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Thu, 21 Sep 2017 03:16:52 -0400
+Received: from localhost
+        by e06smtp12.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <ubraun@linux.vnet.ibm.com>;
+        Thu, 21 Sep 2017 08:16:49 +0100
+In-Reply-To: <20170921071634.16883-1-ubraun@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Client link group creation always follows the server linkgroup creation.
-If peer creates a new server link group, client has to create a new
-client link group. If peer reuses a server link group for a new
-connection, client has to reuse its client link group as well. This
-patch introduces a longer delay for client link group removal to make
-sure this link group still exists, once the peer decides to reuse a
-server link group. This avoids out-of-sync conditions for link groups.
-If already scheduled, modify the delay.
+The number of outstanding work requests is limited. If all work
+requests are in use, tx processing is postponed to another scheduling
+of the tx worker. Switch to a delayed worker to have a gap for tx
+completion queue events before the next retry.
 
-Signed-off-by: Ursula Braun <ubraun-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
+Signed-off-by: Ursula Braun <ubraun@linux.vnet.ibm.com>
 ---
- net/smc/smc_core.c | 16 ++++++++++++----
- 1 file changed, 12 insertions(+), 4 deletions(-)
+ net/smc/smc.h       |  2 +-
+ net/smc/smc_close.c | 12 +++++++-----
+ net/smc/smc_tx.c    | 12 ++++++++----
+ 3 files changed, 16 insertions(+), 10 deletions(-)
 
-diff --git a/net/smc/smc_core.c b/net/smc/smc_core.c
-index 1a16d51e2330..20b66e79c5d6 100644
---- a/net/smc/smc_core.c
-+++ b/net/smc/smc_core.c
-@@ -25,8 +25,9 @@
+diff --git a/net/smc/smc.h b/net/smc/smc.h
+index 6e44313e4467..0ccd6fa387ad 100644
+--- a/net/smc/smc.h
++++ b/net/smc/smc.h
+@@ -149,7 +149,7 @@ struct smc_connection {
+ 	atomic_t		sndbuf_space;	/* remaining space in sndbuf */
+ 	u16			tx_cdc_seq;	/* sequence # for CDC send */
+ 	spinlock_t		send_lock;	/* protect wr_sends */
+-	struct work_struct	tx_work;	/* retry of smc_cdc_msg_send */
++	struct delayed_work	tx_work;	/* retry of smc_cdc_msg_send */
+ 
+ 	struct smc_host_cdc_msg	local_rx_ctrl;	/* filled during event_handl.
+ 						 * .prod cf. TCP rcv_nxt
+diff --git a/net/smc/smc_close.c b/net/smc/smc_close.c
+index 3c2e166b5d22..5201bc103bd8 100644
+--- a/net/smc/smc_close.c
++++ b/net/smc/smc_close.c
+@@ -208,7 +208,7 @@ int smc_close_active(struct smc_sock *smc)
+ 	case SMC_ACTIVE:
+ 		smc_close_stream_wait(smc, timeout);
+ 		release_sock(sk);
+-		cancel_work_sync(&conn->tx_work);
++		cancel_delayed_work_sync(&conn->tx_work);
+ 		lock_sock(sk);
+ 		if (sk->sk_state == SMC_ACTIVE) {
+ 			/* send close request */
+@@ -234,7 +234,7 @@ int smc_close_active(struct smc_sock *smc)
+ 		if (!smc_cdc_rxed_any_close(conn))
+ 			smc_close_stream_wait(smc, timeout);
+ 		release_sock(sk);
+-		cancel_work_sync(&conn->tx_work);
++		cancel_delayed_work_sync(&conn->tx_work);
+ 		lock_sock(sk);
+ 		if (sk->sk_err != ECONNABORTED) {
+ 			/* confirm close from peer */
+@@ -263,7 +263,9 @@ int smc_close_active(struct smc_sock *smc)
+ 		/* peer sending PeerConnectionClosed will cause transition */
+ 		break;
+ 	case SMC_PROCESSABORT:
+-		cancel_work_sync(&conn->tx_work);
++		release_sock(sk);
++		cancel_delayed_work_sync(&conn->tx_work);
++		lock_sock(sk);
+ 		smc_close_abort(conn);
+ 		sk->sk_state = SMC_CLOSED;
+ 		smc_close_wait_tx_pends(smc);
+@@ -425,7 +427,7 @@ int smc_close_shutdown_write(struct smc_sock *smc)
+ 	case SMC_ACTIVE:
+ 		smc_close_stream_wait(smc, timeout);
+ 		release_sock(sk);
+-		cancel_work_sync(&conn->tx_work);
++		cancel_delayed_work_sync(&conn->tx_work);
+ 		lock_sock(sk);
+ 		/* send close wr request */
+ 		rc = smc_close_wr(conn);
+@@ -439,7 +441,7 @@ int smc_close_shutdown_write(struct smc_sock *smc)
+ 		if (!smc_cdc_rxed_any_close(conn))
+ 			smc_close_stream_wait(smc, timeout);
+ 		release_sock(sk);
+-		cancel_work_sync(&conn->tx_work);
++		cancel_delayed_work_sync(&conn->tx_work);
+ 		lock_sock(sk);
+ 		/* confirm close from peer */
+ 		rc = smc_close_wr(conn);
+diff --git a/net/smc/smc_tx.c b/net/smc/smc_tx.c
+index 3c656beb8820..3866573288dd 100644
+--- a/net/smc/smc_tx.c
++++ b/net/smc/smc_tx.c
+@@ -24,6 +24,8 @@
  #include "smc_cdc.h"
- #include "smc_close.h"
+ #include "smc_tx.h"
  
--#define SMC_LGR_NUM_INCR	256
--#define SMC_LGR_FREE_DELAY	(600 * HZ)
-+#define SMC_LGR_NUM_INCR		256
-+#define SMC_LGR_FREE_DELAY_SERV		(600 * HZ)
-+#define SMC_LGR_FREE_DELAY_CLNT		(SMC_LGR_FREE_DELAY_SERV + 10)
++#define SMC_TX_WORK_DELAY	HZ
++
+ /***************************** sndbuf producer *******************************/
  
- static u32 smc_lgr_num;			/* unique link group number */
- 
-@@ -107,8 +108,15 @@ static void smc_lgr_unregister_conn(struct smc_connection *conn)
- 		__smc_lgr_unregister_conn(conn);
+ /* callback implementation for sk.sk_write_space()
+@@ -406,7 +408,8 @@ int smc_tx_sndbuf_nonempty(struct smc_connection *conn)
+ 				goto out_unlock;
+ 			}
+ 			rc = 0;
+-			schedule_work(&conn->tx_work);
++			schedule_delayed_work(&conn->tx_work,
++					      SMC_TX_WORK_DELAY);
+ 		}
+ 		goto out_unlock;
  	}
- 	write_unlock_bh(&lgr->conns_lock);
--	if (reduced && !lgr->conns_num)
--		schedule_delayed_work(&lgr->free_work, SMC_LGR_FREE_DELAY);
-+	if (!reduced || lgr->conns_num)
-+		return;
-+	/* client link group creation always follows the server link group
-+	 * creation. For client use a somewhat higher removal delay time,
-+	 * otherwise there is a risk of out-of-sync link groups.
-+	 */
-+	mod_delayed_work(system_wq, &lgr->free_work,
-+			 lgr->role == SMC_CLNT ? SMC_LGR_FREE_DELAY_CLNT :
-+						 SMC_LGR_FREE_DELAY_SERV);
+@@ -430,7 +433,7 @@ int smc_tx_sndbuf_nonempty(struct smc_connection *conn)
+  */
+ static void smc_tx_work(struct work_struct *work)
+ {
+-	struct smc_connection *conn = container_of(work,
++	struct smc_connection *conn = container_of(to_delayed_work(work),
+ 						   struct smc_connection,
+ 						   tx_work);
+ 	struct smc_sock *smc = container_of(conn, struct smc_sock, conn);
+@@ -468,7 +471,8 @@ void smc_tx_consumer_update(struct smc_connection *conn)
+ 		if (!rc)
+ 			rc = smc_cdc_msg_send(conn, wr_buf, pend);
+ 		if (rc < 0) {
+-			schedule_work(&conn->tx_work);
++			schedule_delayed_work(&conn->tx_work,
++					      SMC_TX_WORK_DELAY);
+ 			return;
+ 		}
+ 		smc_curs_write(&conn->rx_curs_confirmed,
+@@ -487,6 +491,6 @@ void smc_tx_consumer_update(struct smc_connection *conn)
+ void smc_tx_init(struct smc_sock *smc)
+ {
+ 	smc->sk.sk_write_space = smc_tx_write_space;
+-	INIT_WORK(&smc->conn.tx_work, smc_tx_work);
++	INIT_DELAYED_WORK(&smc->conn.tx_work, smc_tx_work);
+ 	spin_lock_init(&smc->conn.send_lock);
  }
- 
- static void smc_lgr_free_work(struct work_struct *work)
 -- 
 2.13.5
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
