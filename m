@@ -1,7 +1,7 @@
 From: Allen Pais <allen.lkml@gmail.com>
-Subject: [PATCH 14/64] drivers: net: ixgb: use setup_timer() helper.
-Date: Thu, 21 Sep 2017 22:34:35 +0530
-Message-ID: <1506013525-29291-15-git-send-email-allen.lkml@gmail.com>
+Subject: [PATCH 15/64] drivers: net: sundance: use setup_timer() helper.
+Date: Thu, 21 Sep 2017 22:34:36 +0530
+Message-ID: <1506013525-29291-16-git-send-email-allen.lkml@gmail.com>
 References: <1506013525-29291-1-git-send-email-allen.lkml@gmail.com>
 Cc: linux-kernel@vger.kernel.org, m.grzeschik@pengutronix.de,
         dmitry.tarnyagin@lockless.no, wg@grandegger.com,
@@ -24,24 +24,24 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Allen Pais <allen.lkml@gmail.com>
 ---
- drivers/net/ethernet/intel/ixgb/ixgb_main.c | 5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/dlink/sundance.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgb/ixgb_main.c b/drivers/net/ethernet/intel/ixgb/ixgb_main.c
-index 5a71319..1e6ec22 100644
---- a/drivers/net/ethernet/intel/ixgb/ixgb_main.c
-+++ b/drivers/net/ethernet/intel/ixgb/ixgb_main.c
-@@ -508,9 +508,8 @@ ixgb_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+diff --git a/drivers/net/ethernet/dlink/sundance.c b/drivers/net/ethernet/dlink/sundance.c
+index 2704bcf..6ca9e98 100644
+--- a/drivers/net/ethernet/dlink/sundance.c
++++ b/drivers/net/ethernet/dlink/sundance.c
+@@ -913,10 +913,8 @@ static int netdev_open(struct net_device *dev)
+ 			   ioread16(ioaddr + MACCtrl1), ioread16(ioaddr + MACCtrl0));
  
- 	adapter->part_num = ixgb_get_ee_pba_number(&adapter->hw);
+ 	/* Set the timer to check for link beat. */
+-	init_timer(&np->timer);
++	setup_timer(&np->timer, netdev_timer, (unsigned long)dev);
+ 	np->timer.expires = jiffies + 3*HZ;
+-	np->timer.data = (unsigned long)dev;
+-	np->timer.function = netdev_timer;				/* timer handler */
+ 	add_timer(&np->timer);
  
--	init_timer(&adapter->watchdog_timer);
--	adapter->watchdog_timer.function = ixgb_watchdog;
--	adapter->watchdog_timer.data = (unsigned long)adapter;
-+	setup_timer(&adapter->watchdog_timer, ixgb_watchdog,
-+		    (unsigned long)adapter);
- 
- 	INIT_WORK(&adapter->tx_timeout_task, ixgb_tx_timeout_task);
- 
+ 	/* Enable interrupts by setting the interrupt mask. */
 -- 
 2.7.4
