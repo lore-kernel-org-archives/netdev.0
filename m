@@ -1,7 +1,7 @@
 From: Allen Pais <allen.lkml@gmail.com>
-Subject: [PATCH 58/64] drivers: net: packetengines: use setup_timer() helper.
-Date: Thu, 21 Sep 2017 22:35:19 +0530
-Message-ID: <1506013525-29291-59-git-send-email-allen.lkml@gmail.com>
+Subject: [PATCH 60/64] drivers: net: uli526x: use setup_timer() helper.
+Date: Thu, 21 Sep 2017 22:35:21 +0530
+Message-ID: <1506013525-29291-61-git-send-email-allen.lkml@gmail.com>
 References: <1506013525-29291-1-git-send-email-allen.lkml@gmail.com>
 Cc: linux-kernel@vger.kernel.org, m.grzeschik@pengutronix.de,
         dmitry.tarnyagin@lockless.no, wg@grandegger.com,
@@ -24,23 +24,23 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Allen Pais <allen.lkml@gmail.com>
 ---
- drivers/net/ethernet/packetengines/hamachi.c | 4 +---
+ drivers/net/ethernet/dec/tulip/uli526x.c | 4 +---
  1 file changed, 1 insertion(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/packetengines/hamachi.c b/drivers/net/ethernet/packetengines/hamachi.c
-index 482b85e..77bc7cc 100644
---- a/drivers/net/ethernet/packetengines/hamachi.c
-+++ b/drivers/net/ethernet/packetengines/hamachi.c
-@@ -979,10 +979,8 @@ static int hamachi_open(struct net_device *dev)
- 			   dev->name, readw(ioaddr + RxStatus), readw(ioaddr + TxStatus));
- 	}
- 	/* Set the timer to check for link beat. */
--	init_timer(&hmp->timer);
-+	setup_timer(&hmp->timer, hamachi_timer, (unsigned long)dev);
- 	hmp->timer.expires = RUN_AT((24*HZ)/10);			/* 2.4 sec. */
--	hmp->timer.data = (unsigned long)dev;
--	hmp->timer.function = hamachi_timer;				/* timer handler */
- 	add_timer(&hmp->timer);
+diff --git a/drivers/net/ethernet/dec/tulip/uli526x.c b/drivers/net/ethernet/dec/tulip/uli526x.c
+index 7fc248e..5fbbc0c 100644
+--- a/drivers/net/ethernet/dec/tulip/uli526x.c
++++ b/drivers/net/ethernet/dec/tulip/uli526x.c
+@@ -491,10 +491,8 @@ static int uli526x_open(struct net_device *dev)
+ 	netif_wake_queue(dev);
+ 
+ 	/* set and active a timer process */
+-	init_timer(&db->timer);
++	setup_timer(&db->timer, uli526x_timer, (unsigned long)dev);
+ 	db->timer.expires = ULI526X_TIMER_WUT + HZ * 2;
+-	db->timer.data = (unsigned long)dev;
+-	db->timer.function = uli526x_timer;
+ 	add_timer(&db->timer);
  
  	return 0;
 -- 
