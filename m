@@ -1,7 +1,7 @@
 From: Allen Pais <allen.lkml@gmail.com>
-Subject: [PATCH 34/64] drivers: net: eql: use setup_timer() helper.
-Date: Thu, 21 Sep 2017 22:34:55 +0530
-Message-ID: <1506013525-29291-35-git-send-email-allen.lkml@gmail.com>
+Subject: [PATCH 35/64] drivers: net: can: usb: use setup_timer() helper.
+Date: Thu, 21 Sep 2017 22:34:56 +0530
+Message-ID: <1506013525-29291-36-git-send-email-allen.lkml@gmail.com>
 References: <1506013525-29291-1-git-send-email-allen.lkml@gmail.com>
 Cc: linux-kernel@vger.kernel.org, m.grzeschik@pengutronix.de,
         dmitry.tarnyagin@lockless.no, wg@grandegger.com,
@@ -24,24 +24,24 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Allen Pais <allen.lkml@gmail.com>
 ---
- drivers/net/eql.c | 4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
+ drivers/net/can/usb/peak_usb/pcan_usb.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/eql.c b/drivers/net/eql.c
-index fe13bfe..fccce4b 100644
---- a/drivers/net/eql.c
-+++ b/drivers/net/eql.c
-@@ -178,10 +178,8 @@ static void __init eql_setup(struct net_device *dev)
- {
- 	equalizer_t *eql = netdev_priv(dev);
+diff --git a/drivers/net/can/usb/peak_usb/pcan_usb.c b/drivers/net/can/usb/peak_usb/pcan_usb.c
+index 838545c..7e10dbd 100644
+--- a/drivers/net/can/usb/peak_usb/pcan_usb.c
++++ b/drivers/net/can/usb/peak_usb/pcan_usb.c
+@@ -798,9 +798,8 @@ static int pcan_usb_init(struct peak_usb_device *dev)
+ 	int err;
  
--	init_timer(&eql->timer);
--	eql->timer.data     	= (unsigned long) eql;
-+	setup_timer(&eql->timer, eql_timer, (unsigned long)eql);
- 	eql->timer.expires  	= jiffies + EQL_DEFAULT_RESCHED_IVAL;
--	eql->timer.function 	= eql_timer;
+ 	/* initialize a timer needed to wait for hardware restart */
+-	init_timer(&pdev->restart_timer);
+-	pdev->restart_timer.function = pcan_usb_restart;
+-	pdev->restart_timer.data = (unsigned long)dev;
++	setup_timer(&pdev->restart_timer, pcan_usb_restart,
++		    (unsigned long)dev);
  
- 	spin_lock_init(&eql->queue.lock);
- 	INIT_LIST_HEAD(&eql->queue.all_slaves);
+ 	/*
+ 	 * explicit use of dev_xxx() instead of netdev_xxx() here:
 -- 
 2.7.4
