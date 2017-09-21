@@ -1,32 +1,112 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] net: phy: Fix truncation of large IRQ numbers in
- phy_attached_print()
-Date: Thu, 21 Sep 2017 17:40:14 +0200
-Message-ID: <20170921154014.GI27589@lunn.ch>
-References: <1505993222-16721-1-git-send-email-geert+renesas@glider.be>
+From: Vincent Bernat <vincent@bernat.im>
+Subject: Re: [net-next v3] bridge: trigger RTM_NEWLINK when interface is modified by bridge ioctl
+Date: Thu, 21 Sep 2017 17:45:17 +0200
+Message-ID: <87ingc3vjm.fsf@luffy.cx>
+References: <20170920162140.369bb198@xeon-e3>
+        <20170921100525.20395-1-vincent@bernat.im>
+        <20170921081542.4c266c83@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        Romain Perier <romain.perier@collabora.com>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Geert Uytterhoeven <geert+renesas@glider.be>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1505993222-16721-1-git-send-email-geert+renesas@glider.be>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Cc: David Ahern <dsahern@gmail.com>,
+        David Miller <davem@davemloft.net>,
+        bridge@lists.linux-foundation.org, netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bart.luffy.cx ([78.47.78.131]:32771 "EHLO bart.luffy.cx"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751436AbdIUPpT (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 21 Sep 2017 11:45:19 -0400
+In-Reply-To: <20170921081542.4c266c83@xeon-e3> (Stephen Hemminger's message of
+        "Thu, 21 Sep 2017 08:15:42 -0700")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 21, 2017 at 01:27:02PM +0200, Geert Uytterhoeven wrote:
-> Given NR_IRQS is 2048 on sparc64, and even 32784 on alpha, 3 digits is
-> not enough to represent interrupt numbers on all architectures.  Hence
-> PHY interrupt numbers may be truncated during printing.
-> 
-> Increase the buffer size from 4 to 8 bytes to fix this.
-> 
-> Fixes: 5e369aefdce4818c ("net: stmmac: Delete dead code for MDIO registration")
-> Signed-off-by: Geert Uytterhoeven <geert+renesas@glider.be>
+ =E2=9D=A6 21 septembre 2017 08:15 -0700, Stephen Hemminger <stephen@networ=
+kplumber.org>=C2=A0:
 
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+>> Currently, there is a difference in netlink events received when an
+>> interface is modified through bridge ioctl() or through netlink. This
+>> patch generates additional events when an interface is added to or
+>> removed from a bridge via ioctl().
+>>=20
+>> When adding then removing an interface from a bridge with netlink, we
+>> get:
+>>=20
+>> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue master b=
+ridge0 state UNKNOWN group default
+>>     link/ether 9e:da:60:ee:cf:c8 brd ff:ff:ff:ff:ff:ff
+>> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state U=
+NKNOWN
+>>     link/ether 9e:da:60:ee:cf:c8
+>> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state U=
+NKNOWN
+>>     link/ether 9e:da:60:ee:cf:c8
+>> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state U=
+NKNOWN
+>>     link/ether 9e:da:60:ee:cf:c8
+>> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state U=
+NKNOWN
+>>     link/ether 9e:da:60:ee:cf:c8
+>> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue master b=
+ridge0 state UNKNOWN group default
+>>     link/ether 9e:da:60:ee:cf:c8 brd ff:ff:ff:ff:ff:ff
+>>=20
+>> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue master b=
+ridge0 state UNKNOWN group default
+>>     link/ether 9e:da:60:ee:cf:c8 brd ff:ff:ff:ff:ff:ff
+>> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state U=
+NKNOWN
+>>     link/ether 9e:da:60:ee:cf:c8
+>> Deleted 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0=
+ state UNKNOWN
+>>     link/ether 9e:da:60:ee:cf:c8
+>> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue state UN=
+KNOWN group default
+>>     link/ether 9e:da:60:ee:cf:c8 brd ff:ff:ff:ff:ff:ff
+>>=20
+>> When using ioctl():
+>>=20
+>> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue master b=
+ridge0 state UNKNOWN group default
+>>     link/ether 9e:da:60:ee:cf:c8 brd ff:ff:ff:ff:ff:ff
+>> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state U=
+NKNOWN
+>>     link/ether 9e:da:60:ee:cf:c8
+>> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state U=
+NKNOWN
+>>     link/ether 9e:da:60:ee:cf:c8
+>> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state U=
+NKNOWN
+>>     link/ether 9e:da:60:ee:cf:c8
+>> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue master b=
+ridge0 state UNKNOWN group default
+>>     link/ether 9e:da:60:ee:cf:c8 brd ff:ff:ff:ff:ff:ff
+>>=20
+>> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue master b=
+ridge0 state UNKNOWN group default
+>>     link/ether 9e:da:60:ee:cf:c8 brd ff:ff:ff:ff:ff:ff
+>> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state U=
+NKNOWN
+>>     link/ether 9e:da:60:ee:cf:c8
+>> Deleted 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0=
+ state UNKNOWN
+>>     link/ether 9e:da:60:ee:cf:c8
+>> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue state UN=
+KNOWN group default
+>>     link/ether 9e:da:60:ee:cf:c8 brd ff:ff:ff:ff:ff:ff
+>>=20
+>> Without this patch, the last netlink notification is not sent.
+>>=20
+>> Signed-off-by: Vincent Bernat <vincent@bernat.im>
+>
+> This makes sense, you should probably add a Fixes: tag to help maintainers
+> of long term stable kernels.
+>
+> Reviewed-by: Stephen Hemminger <stephen@networkplumber.org>
 
-    Andrew
+I wouldn't know which commit would be fixed since this is not a
+regression, just a behavior difference.
+--=20
+Make sure special cases are truly special.
+            - The Elements of Programming Style (Kernighan & Plauger)
