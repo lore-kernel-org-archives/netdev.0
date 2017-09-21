@@ -1,7 +1,7 @@
 From: Allen Pais <allen.lkml@gmail.com>
-Subject: [PATCH 39/64] drivers: net: sun: use setup_timer() helper.
-Date: Thu, 21 Sep 2017 22:35:00 +0530
-Message-ID: <1506013525-29291-40-git-send-email-allen.lkml@gmail.com>
+Subject: [PATCH 40/64] drivers: net: sis900: use setup_timer() helper.
+Date: Thu, 21 Sep 2017 22:35:01 +0530
+Message-ID: <1506013525-29291-41-git-send-email-allen.lkml@gmail.com>
 References: <1506013525-29291-1-git-send-email-allen.lkml@gmail.com>
 Cc: linux-kernel@vger.kernel.org, m.grzeschik@pengutronix.de,
         dmitry.tarnyagin@lockless.no, wg@grandegger.com,
@@ -24,23 +24,24 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Allen Pais <allen.lkml@gmail.com>
 ---
- drivers/net/ethernet/sun/sungem.c | 4 +---
+ drivers/net/ethernet/sis/sis900.c | 4 +---
  1 file changed, 1 insertion(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/sun/sungem.c b/drivers/net/ethernet/sun/sungem.c
-index fa607d0..b75ab8f 100644
---- a/drivers/net/ethernet/sun/sungem.c
-+++ b/drivers/net/ethernet/sun/sungem.c
-@@ -2910,9 +2910,7 @@ static int gem_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+diff --git a/drivers/net/ethernet/sis/sis900.c b/drivers/net/ethernet/sis/sis900.c
+index 40bd883..cb61247 100644
+--- a/drivers/net/ethernet/sis/sis900.c
++++ b/drivers/net/ethernet/sis/sis900.c
+@@ -1065,10 +1065,8 @@ sis900_open(struct net_device *net_dev)
  
- 	gp->msg_enable = DEFAULT_MSG;
+ 	/* Set the timer to switch to check for link beat and perhaps switch
+ 	   to an alternate media type. */
+-	init_timer(&sis_priv->timer);
++	setup_timer(&sis_priv->timer, sis900_timer, (unsigned long)net_dev);
+ 	sis_priv->timer.expires = jiffies + HZ;
+-	sis_priv->timer.data = (unsigned long)net_dev;
+-	sis_priv->timer.function = sis900_timer;
+ 	add_timer(&sis_priv->timer);
  
--	init_timer(&gp->link_timer);
--	gp->link_timer.function = gem_link_timer;
--	gp->link_timer.data = (unsigned long) gp;
-+	setup_timer(&gp->link_timer, gem_link_timer, (unsigned long)gp);
- 
- 	INIT_WORK(&gp->reset_task, gem_reset_task);
- 
+ 	return 0;
 -- 
 2.7.4
