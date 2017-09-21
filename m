@@ -1,70 +1,110 @@
-From: =?UTF-8?Q?Pawe=c5=82_Staszewski?= <pstaszewski@itcare.pl>
-Subject: Re: Kernel 4.13.0-rc4-next-20170811 - IP Routing / Forwarding
- performance vs Core/RSS number / HT on
-Date: Thu, 21 Sep 2017 23:34:01 +0200
-Message-ID: <ccf5b2b9-4211-f218-1ccf-63e24a45cb62@itcare.pl>
-References: <3ac1a817-5c62-2490-64e7-2512f0ee3b3e@itcare.pl>
- <20170812142358.08291888@redhat.com>
- <af5b3482-8f26-52b5-4a00-3a5a42b7449f@itcare.pl>
- <ce33b7b3-ae00-b6f0-e82a-6df3d5a5e995@itcare.pl>
- <20170814181957.5be27906@redhat.com> <1502729870.8411.63.camel@redhat.com>
- <80b3bf71-dc6b-7b96-43d6-dbb3c53c5a8b@itcare.pl>
- <1502759225.4936.44.camel@edumazet-glaptop3.roam.corp.google.com>
- <1502759849.4936.46.camel@edumazet-glaptop3.roam.corp.google.com>
- <4b1efff7-4f91-fd78-beb8-2c7ebcf18895@itcare.pl>
- <5d32f5cf-ca69-1f6b-5bca-cdcd4dc414e2@itcare.pl>
- <1506029642.29839.151.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Brandon Streiff <brandon.streiff@ni.com>
+Subject: Re: net: macb: fail when there's no PHY
+Date: Thu, 21 Sep 2017 16:35:51 -0500
+Message-ID: <1506029751-25249-1-git-send-email-brandon.streiff@ni.com>
+References: <20170921203608.GB30148@grante>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: Paolo Abeni <pabeni@redhat.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Alexander Duyck <alexander.duyck@gmail.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, Brandon Streiff <brandon.streiff@ni.com>
+To: Grant Edwards <grant.b.edwards@gmail.com>,
+        Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp11.iq.pl ([86.111.242.220]:45728 "EHLO smtp11.iq.pl"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751697AbdIUVgE (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 21 Sep 2017 17:36:04 -0400
-In-Reply-To: <1506029642.29839.151.camel@edumazet-glaptop3.roam.corp.google.com>
-Content-Language: pl
+Received: from mx0a-00010702.pphosted.com ([148.163.156.75]:42132 "EHLO
+        mx0b-00010702.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751697AbdIUVgq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 17:36:46 -0400
+In-Reply-To: <20170921203608.GB30148@grante>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-W dniu 2017-09-21 o 23:34, Eric Dumazet pisze:
-> On Thu, 2017-09-21 at 23:26 +0200, Paweł Staszewski wrote:
->> W dniu 2017-08-15 o 11:11, Paweł Staszewski pisze:
->>> diff --git a/net/8021q/vlan_netlink.c b/net/8021q/vlan_netlink.c
->>> index
->>> 5e831de3103e2f7092c7fa15534def403bc62fb4..9472de846d5c0960996261cb2843032847fa4bf7
->>> 100644
->>> --- a/net/8021q/vlan_netlink.c
->>> +++ b/net/8021q/vlan_netlink.c
->>> @@ -143,6 +143,7 @@ static int vlan_newlink(struct net *src_net,
->>> struct net_device *dev,
->>>        vlan->vlan_proto = proto;
->>>        vlan->vlan_id     = nla_get_u16(data[IFLA_VLAN_ID]);
->>>        vlan->real_dev     = real_dev;
->>> +    dev->priv_flags |= (real_dev->priv_flags & IFF_XMIT_DST_RELEASE);
->>>        vlan->flags     = VLAN_FLAG_REORDER_HDR;
->>>          err = vlan_check_real_dev(real_dev, vlan->vlan_proto,
->>> vlan->vlan_id);
->> Any plans for this patch to go normal into the kernel ?
->>
->> So far im using it for about 3 weeks on all my linux based routers - and
->> no problems.
-> Yes, I was about to submit it, as I mentioned it few hours ago to you ;)
+> On Thu, Sep 21, 2017 at 01:05:57PM -0700, Florian Fainelli wrote:
 >
+>>> It looks like the macb driver still can't handle boards that don't
+>>> have a PHY.  Is that correct?
+>> 
+>> Not since:
+>> 
+>> dacdbb4dfc1a1a1378df8ebc914d4fe82259ed46 ("net: macb: add fixed-link
+>> node support")
 >
+> Yep, it's obvious now that I've got the diff in front of me.
 >
+> Thanks!
 >
+> [I just started working with device tree for the first time yesterday,
+> and I must say it's way better than the "old days" which required all
+> sorts of ugly to produce a kernel that could work on two slightly
+> different boards.]
+>
+> -- 
+> Grant
 
-Yes i saw Your point 2)  in previous emails :)
-But there was no patch in previous reply for this so was thinking that 
-maybee too many things to do and You forgot about it :)
+I have a board that's in a similar boat. My workaround was to undo
+portions of dacdbb4dfc1a with the following patch; this lets me still
+use fixed-link and have MDIO (to configure a switch), but not require
+a PHY.
 
-Thanks
-Paweł
+There was a patch set last year by Harini Katakam ("net: macb: Add MDIO
+driver for accessing multiple PHY devices") that might ultimately be a
+better approach to tackling this problem, although I haven't seen any
+further chatter on it.
+
+---
+ drivers/net/ethernet/cadence/macb_main.c | 38 +++++++++++++++-----------------
+ 1 file changed, 18 insertions(+), 20 deletions(-)
+
+diff --git a/drivers/net/ethernet/cadence/macb_main.c b/drivers/net/ethernet/cadence/macb_main.c
+index 1741cda..a45848e 100644
+--- a/drivers/net/ethernet/cadence/macb_main.c
++++ b/drivers/net/ethernet/cadence/macb_main.c
+@@ -564,30 +564,28 @@ static int macb_mii_init(struct macb *bp)
+ 				goto err_out_unregister_bus;
+ 			}
+ 			bp->phy_node = of_node_get(np);
++		}
+ 
+-			err = mdiobus_register(bp->mii_bus);
+-		} else {
+-			/* try dt phy registration */
+-			err = of_mdiobus_register(bp->mii_bus, np);
++		/* try dt phy registration */
++		err = of_mdiobus_register(bp->mii_bus, np);
+ 
+-			/* fallback to standard phy registration if no phy were
+-			 * found during dt phy registration
+-			 */
+-			if (!err && !phy_find_first(bp->mii_bus)) {
+-				for (i = 0; i < PHY_MAX_ADDR; i++) {
+-					struct phy_device *phydev;
+-
+-					phydev = mdiobus_scan(bp->mii_bus, i);
+-					if (IS_ERR(phydev) &&
+-					    PTR_ERR(phydev) != -ENODEV) {
+-						err = PTR_ERR(phydev);
+-						break;
+-					}
++		/* fallback to standard phy registration if no phy were
++		 * found during dt phy registration
++		 */
++		if (!err && !phy_find_first(bp->mii_bus)) {
++			for (i = 0; i < PHY_MAX_ADDR; i++) {
++				struct phy_device *phydev;
++
++				phydev = mdiobus_scan(bp->mii_bus, i);
++				if (IS_ERR(phydev) &&
++				    PTR_ERR(phydev) != -ENODEV) {
++					err = PTR_ERR(phydev);
++					break;
+ 				}
+-
+-				if (err)
+-					goto err_out_unregister_bus;
+ 			}
++
++			if (err)
++				goto err_out_unregister_bus;
+ 		}
+ 	} else {
+ 		for (i = 0; i < PHY_MAX_ADDR; i++)
+-- 
+2.1.4
