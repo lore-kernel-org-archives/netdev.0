@@ -1,7 +1,7 @@
 From: Allen Pais <allen.lkml@gmail.com>
-Subject: [PATCH 21/64] drivers: net: sun: cassini: use setup_timer() helper.
-Date: Thu, 21 Sep 2017 22:34:42 +0530
-Message-ID: <1506013525-29291-22-git-send-email-allen.lkml@gmail.com>
+Subject: [PATCH 22/64] drivers: net: natsemi: use setup_timer() helper.
+Date: Thu, 21 Sep 2017 22:34:43 +0530
+Message-ID: <1506013525-29291-23-git-send-email-allen.lkml@gmail.com>
 References: <1506013525-29291-1-git-send-email-allen.lkml@gmail.com>
 Cc: linux-kernel@vger.kernel.org, m.grzeschik@pengutronix.de,
         dmitry.tarnyagin@lockless.no, wg@grandegger.com,
@@ -24,24 +24,24 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Allen Pais <allen.lkml@gmail.com>
 ---
- drivers/net/ethernet/sun/cassini.c | 5 +----
- 1 file changed, 1 insertion(+), 4 deletions(-)
+ drivers/net/ethernet/natsemi/natsemi.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/sun/cassini.c b/drivers/net/ethernet/sun/cassini.c
-index 382993c..a74d78f 100644
---- a/drivers/net/ethernet/sun/cassini.c
-+++ b/drivers/net/ethernet/sun/cassini.c
-@@ -5039,10 +5039,7 @@ static int cas_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	spin_lock_init(&cp->stat_lock[N_TX_RINGS]);
- 	mutex_init(&cp->pm_mutex);
+diff --git a/drivers/net/ethernet/natsemi/natsemi.c b/drivers/net/ethernet/natsemi/natsemi.c
+index 18af2a2..dedeacd 100644
+--- a/drivers/net/ethernet/natsemi/natsemi.c
++++ b/drivers/net/ethernet/natsemi/natsemi.c
+@@ -1571,10 +1571,8 @@ static int netdev_open(struct net_device *dev)
+ 			dev->name, (int)readl(ioaddr + ChipCmd));
  
--	init_timer(&cp->link_timer);
--	cp->link_timer.function = cas_link_timer;
--	cp->link_timer.data = (unsigned long) cp;
--
-+	setup_timer(&cp->link_timer, cas_link_timer, (unsigned long)cp);
- #if 1
- 	/* Just in case the implementation of atomic operations
- 	 * change so that an explicit initialization is necessary.
+ 	/* Set the timer to check for link beat. */
+-	init_timer(&np->timer);
++	setup_timer(&np->timer, netdev_timer, (unsigned long)dev);
+ 	np->timer.expires = round_jiffies(jiffies + NATSEMI_TIMER_FREQ);
+-	np->timer.data = (unsigned long)dev;
+-	np->timer.function = netdev_timer; /* timer handler */
+ 	add_timer(&np->timer);
+ 
+ 	return 0;
 -- 
 2.7.4
