@@ -1,7 +1,7 @@
 From: Allen Pais <allen.lkml@gmail.com>
-Subject: [PATCH 24/64] drivers: net: enic: use setup_timer() helper.
-Date: Thu, 21 Sep 2017 22:34:45 +0530
-Message-ID: <1506013525-29291-25-git-send-email-allen.lkml@gmail.com>
+Subject: [PATCH 25/64] drivers: net: bnx2: use setup_timer() helper.
+Date: Thu, 21 Sep 2017 22:34:46 +0530
+Message-ID: <1506013525-29291-26-git-send-email-allen.lkml@gmail.com>
 References: <1506013525-29291-1-git-send-email-allen.lkml@gmail.com>
 Cc: linux-kernel@vger.kernel.org, m.grzeschik@pengutronix.de,
         dmitry.tarnyagin@lockless.no, wg@grandegger.com,
@@ -24,24 +24,24 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Allen Pais <allen.lkml@gmail.com>
 ---
- drivers/net/ethernet/cisco/enic/enic_main.c | 5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
-index d24ee1a..4a11baf 100644
---- a/drivers/net/ethernet/cisco/enic/enic_main.c
-+++ b/drivers/net/ethernet/cisco/enic/enic_main.c
-@@ -2846,9 +2846,8 @@ static int enic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	/* Setup notification timer, HW reset task, and wq locks
- 	 */
+diff --git a/drivers/net/ethernet/broadcom/bnx2.c b/drivers/net/ethernet/broadcom/bnx2.c
+index e3af1f3..b3055a7 100644
+--- a/drivers/net/ethernet/broadcom/bnx2.c
++++ b/drivers/net/ethernet/broadcom/bnx2.c
+@@ -8462,10 +8462,8 @@ bnx2_init_board(struct pci_dev *pdev, struct net_device *dev)
+ 	bnx2_set_default_link(bp);
+ 	bp->req_flow_ctrl = FLOW_CTRL_RX | FLOW_CTRL_TX;
  
--	init_timer(&enic->notify_timer);
--	enic->notify_timer.function = enic_notify_timer;
--	enic->notify_timer.data = (unsigned long)enic;
-+	setup_timer(&enic->notify_timer, enic_notify_timer,
-+		    (unsigned long)enic);
+-	init_timer(&bp->timer);
++	setup_timer(&bp->timer, bnx2_timer, (unsigned long)bp);
+ 	bp->timer.expires = RUN_AT(BNX2_TIMER_INTERVAL);
+-	bp->timer.data = (unsigned long) bp;
+-	bp->timer.function = bnx2_timer;
  
- 	enic_set_rx_coal_setting(enic);
- 	INIT_WORK(&enic->reset, enic_reset);
+ #ifdef BCM_CNIC
+ 	if (bnx2_shmem_rd(bp, BNX2_ISCSI_INITIATOR) & BNX2_ISCSI_INITIATOR_EN)
 -- 
 2.7.4
