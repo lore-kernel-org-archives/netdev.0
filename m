@@ -1,37 +1,36 @@
-From: Chris Lew <clew@codeaurora.org>
-Subject: Re: [PATCH 1/7] net: qrtr: Invoke sk_error_report() after setting
- sk_err
-Date: Thu, 21 Sep 2017 11:27:26 -0700
-Message-ID: <c7b2cee7-06d2-b3db-07dc-cdf6c850c12b@codeaurora.org>
-References: <20170907060329.32402-1-bjorn.andersson@linaro.org>
- <20170907060329.32402-2-bjorn.andersson@linaro.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 00/64] use setup_timer() helper function.
+Date: Thu, 21 Sep 2017 11:39:27 -0700 (PDT)
+Message-ID: <20170921.113927.1684139706973891956.davem@davemloft.net>
+References: <1506013525-29291-1-git-send-email-allen.lkml@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-arm-msm@vger.kernel.org
-To: Bjorn Andersson <bjorn.andersson@linaro.org>,
-        "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-arm-msm-owner@vger.kernel.org>
-In-Reply-To: <20170907060329.32402-2-bjorn.andersson@linaro.org>
-Content-Language: en-US
-Sender: linux-arm-msm-owner@vger.kernel.org
+        m.grzeschik@pengutronix.de, dmitry.tarnyagin@lockless.no,
+        wg@grandegger.com, mkl@pengutronix.de, mark.einon@gmail.com,
+        linux@armlinux.org.uk, pcnet32@frontier.com, f.fainelli@gmail.com,
+        bcm-kernel-feedback-list@broadcom.com, venza@brownhat.org,
+        ajk@comnets.uni-bremen.de, jes@trained-monkey.org,
+        romieu@fr.zoreil.com, khc@pm.waw.pl, simon@thekelleys.org.uk,
+        linux-can@vger.kernel.org,
+        adi-buildroot-devel@lists.sourceforge.net
+To: allen.lkml@gmail.com
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1506013525-29291-1-git-send-email-allen.lkml@gmail.com>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Allen Pais <allen.lkml@gmail.com>
+Date: Thu, 21 Sep 2017 22:34:21 +0530
 
+>  This series uses setup_timer() helper function. The series
+> addresses the files under drivers/net/*.
 
-On 9/6/2017 11:03 PM, Bjorn Andersson wrote:
-> Rather than manually waking up any context sleeping on the sock to
-> signal an error we should call sk_error_report(). This has the added
-> benefit that in-kernel consumers can override this notificatino with
-> its own callback.
-> 
+I've reviewed this series and will apply it to net-next.
 
-Typo with notification.
+But please send out smaller chunks next time, maybe 10-15
+in a bunch?  64 patches at once makes it really hard for
+reviewiers.
 
-Thanks,
-Chris
-
--- 
-Qualcomm Innovation Center, Inc. is a member of Code Aurora Forum,
-a Linux Foundation Collaborative Project
+Thanks.
