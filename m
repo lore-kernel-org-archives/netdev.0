@@ -1,7 +1,7 @@
 From: Allen Pais <allen.lkml@gmail.com>
-Subject: [PATCH 16/64] drivers: net: tg3: use setup_timer() helper.
-Date: Thu, 21 Sep 2017 22:34:37 +0530
-Message-ID: <1506013525-29291-17-git-send-email-allen.lkml@gmail.com>
+Subject: [PATCH 17/64] drivers: net: sdla: use setup_timer() helper.
+Date: Thu, 21 Sep 2017 22:34:38 +0530
+Message-ID: <1506013525-29291-18-git-send-email-allen.lkml@gmail.com>
 References: <1506013525-29291-1-git-send-email-allen.lkml@gmail.com>
 Cc: linux-kernel@vger.kernel.org, m.grzeschik@pengutronix.de,
         dmitry.tarnyagin@lockless.no, wg@grandegger.com,
@@ -24,23 +24,24 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Allen Pais <allen.lkml@gmail.com>
 ---
- drivers/net/ethernet/broadcom/tg3.c | 4 +---
+ drivers/net/wan/sdla.c | 4 +---
  1 file changed, 1 insertion(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index 656e6af..d8d5f20 100644
---- a/drivers/net/ethernet/broadcom/tg3.c
-+++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -11087,9 +11087,7 @@ static void tg3_timer_init(struct tg3 *tp)
- 	tp->asf_multiplier = (HZ / tp->timer_offset) *
- 			     TG3_FW_UPDATE_FREQ_SEC;
+diff --git a/drivers/net/wan/sdla.c b/drivers/net/wan/sdla.c
+index 236c625..0cc4890 100644
+--- a/drivers/net/wan/sdla.c
++++ b/drivers/net/wan/sdla.c
+@@ -1617,10 +1617,8 @@ static void setup_sdla(struct net_device *dev)
+ 	flp->deassoc		= sdla_deassoc;
+ 	flp->dlci_conf		= sdla_dlci_conf;
  
--	init_timer(&tp->timer);
--	tp->timer.data = (unsigned long) tp;
--	tp->timer.function = tg3_timer;
-+	setup_timer(&tp->timer, tg3_timer, (unsigned long)tp);
+-	init_timer(&flp->timer);
++	setup_timer(&flp->timer, sdla_poll, (unsigned long)dev);
+ 	flp->timer.expires	= 1;
+-	flp->timer.data		= (unsigned long) dev;
+-	flp->timer.function	= sdla_poll;
  }
  
- static void tg3_timer_start(struct tg3 *tp)
+ static struct net_device *sdla;
 -- 
 2.7.4
