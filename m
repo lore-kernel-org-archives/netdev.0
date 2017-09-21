@@ -1,7 +1,7 @@
 From: Allen Pais <allen.lkml@gmail.com>
-Subject: [PATCH 36/64] drivers: net: can: use setup_timer() helper.
-Date: Thu, 21 Sep 2017 22:34:57 +0530
-Message-ID: <1506013525-29291-37-git-send-email-allen.lkml@gmail.com>
+Subject: [PATCH 37/64] drivers: net: arcnet: use setup_timer() helper.
+Date: Thu, 21 Sep 2017 22:34:58 +0530
+Message-ID: <1506013525-29291-38-git-send-email-allen.lkml@gmail.com>
 References: <1506013525-29291-1-git-send-email-allen.lkml@gmail.com>
 Cc: linux-kernel@vger.kernel.org, m.grzeschik@pengutronix.de,
         dmitry.tarnyagin@lockless.no, wg@grandegger.com,
@@ -24,30 +24,23 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Allen Pais <allen.lkml@gmail.com>
 ---
- drivers/net/can/grcan.c | 10 ++++------
- 1 file changed, 4 insertions(+), 6 deletions(-)
+ drivers/net/arcnet/arcnet.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
-diff --git a/drivers/net/can/grcan.c b/drivers/net/can/grcan.c
-index a7be12d..8570cfd 100644
---- a/drivers/net/can/grcan.c
-+++ b/drivers/net/can/grcan.c
-@@ -1626,13 +1626,11 @@ static int grcan_setup_netdev(struct platform_device *ofdev,
- 	spin_lock_init(&priv->lock);
+diff --git a/drivers/net/arcnet/arcnet.c b/drivers/net/arcnet/arcnet.c
+index fcfccbb..13236b2 100644
+--- a/drivers/net/arcnet/arcnet.c
++++ b/drivers/net/arcnet/arcnet.c
+@@ -450,9 +450,7 @@ struct net_device *alloc_arcdev(const char *name)
  
- 	if (priv->need_txbug_workaround) {
--		init_timer(&priv->rr_timer);
--		priv->rr_timer.function = grcan_running_reset;
--		priv->rr_timer.data = (unsigned long)dev;
-+		setup_timer(&priv->rr_timer, grcan_running_reset,
-+			    (unsigned long)dev);
- 
--		init_timer(&priv->hang_timer);
--		priv->hang_timer.function = grcan_initiate_running_reset;
--		priv->hang_timer.data = (unsigned long)dev;
-+		setup_timer(&priv->hang_timer, grcan_initiate_running_reset,
-+			    (unsigned long)dev);
+ 		lp->dev = dev;
+ 		spin_lock_init(&lp->lock);
+-		init_timer(&lp->timer);
+-		lp->timer.data = (unsigned long) dev;
+-		lp->timer.function = arcnet_timer;
++		setup_timer(&lp->timer, arcnet_timer, (unsigned long)dev);
  	}
  
- 	netif_napi_add(dev, &priv->napi, grcan_poll, GRCAN_NAPI_WEIGHT);
+ 	return dev;
 -- 
 2.7.4
