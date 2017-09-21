@@ -1,72 +1,46 @@
-From: Sekhar Nori <nsekhar@ti.com>
-Subject: Re: [v2,1/3] can: m_can: Make hclk optional
-Date: Thu, 21 Sep 2017 19:38:22 +0530
-Message-ID: <895ab55a-fede-3a67-27aa-1ac1af9843d7@ti.com>
-References: <20170724225142.19975-2-fcooper@ti.com>
- <6f574628-51cd-0db8-e5aa-e7ae4a9cf79a@ti.com>
- <eb45fe94-c476-3919-603d-ff2a6b13487c@ti.com>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: RTL8192EE PCIe Wireless Network Adapter crashed with linux-4.13
+Date: Thu, 21 Sep 2017 09:21:25 -0500
+Message-ID: <5a6aa431-fdde-a329-4168-44490c37f197@lwfinger.net>
+References: <2WhCEttl4IJtrTB2AkJYmhbsu-kiR_5fU0A_Z7eWW05rbVE5tB86A_ZS8ek_FQFdgaZw1bfx0wFbxOa0Ydjv1T6BzBkIHtaWTbSptcpB_kg=@protonmail.com>
+ <e8e75755-f8b4-e122-ea4a-99a691405d38@lwfinger.net>
+ <jB0WJNG17mSfKo9m7T26r-b2Gr7mDL4lJ-1cWxeCJ6UCsA4TsxXz4znCLhYY5EASPQciwp1rf_xtwvDR-xzwD-OTApTUFoaVmIvahleDcJk=@protonmail.com>
+ <1eb67d2e-dfbc-a2d0-8949-d4336191c07b@lwfinger.net>
+ <x1duse6v9TTP8Ta7rsTLlZ8DK0Ej7qq9iapef18K0eYSodmCBmfI_mX3c-3ocbPiGzEgV9weOh25dKWSbU5nIetYkfmmUxaxRpUdYFffRZA=@protonmail.com>
+ <35856452-c05c-d116-f91b-0964947ec8ae@lwfinger.net>
+ <2_UKRQjXR9_CXy_99R7fqRbs4VDG0hfFCMvvf4ll2BQV5C_zNiPTnHHNtoYstAGy_UF9X85pl4siU7fnXefmqbhlErxR6FqZQfIf0tADKNg=@protonmail.com>
+ <5e2a695a-ea26-e0a3-d5eb-cf8135c1349e@lwfinger.net>
+ <ZeTD57H3euqWFB5wrD_vYAkdu91l_6Yalbz_mRWtrrb2t17d0cdWOpCaXw33jcPYNKhgqnHbuqHTI9xkVnrkliRTGxraEqWnk5GZ63xKifI=@protonmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Kristo, Tero" <t-kristo@ti.com>, Tony Lindgren <tony@atomide.com>,
-        Linux OMAP List <linux-omap@vger.kernel.org>
-To: Franklin S Cooper Jr <fcooper@ti.com>,
-        <linux-kernel@vger.kernel.org>, <devicetree@vger.kernel.org>,
-        <netdev@vger.kernel.org>, <linux-can@vger.kernel.org>,
-        <wg@grandegger.com>, <mkl@pengutronix.de>, <robh+dt@kernel.org>,
-        <quentin.schulz@free-electrons.com>
+Cc: "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+        "chaoming_li@realsil.com.cn" <chaoming_li@realsil.com.cn>,
+        "kvalo@codeaurora.org" <kvalo@codeaurora.org>,
+        "pkshih@realtek.com" <pkshih@realtek.com>,
+        "johannes.berg@intel.com" <johannes.berg@intel.com>,
+        "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Zwindl <zwindl@protonmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <eb45fe94-c476-3919-603d-ff2a6b13487c@ti.com>
+In-Reply-To: <ZeTD57H3euqWFB5wrD_vYAkdu91l_6Yalbz_mRWtrrb2t17d0cdWOpCaXw33jcPYNKhgqnHbuqHTI9xkVnrkliRTGxraEqWnk5GZ63xKifI=@protonmail.com>
 Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday 21 September 2017 06:01 AM, Franklin S Cooper Jr wrote:
-> 
-> 
-> On 08/24/2017 03:00 AM, Sekhar Nori wrote:
->> + some OMAP folks and Linux OMAP list
->>
->> On Tuesday 25 July 2017 04:21 AM, Franklin Cooper wrote:
->>> Hclk is the MCAN's interface clock. However, for OMAP based devices such as
->>> DRA7 SoC family the interface clock is handled by hwmod. Therefore, this
->>> interface clock is managed by hwmod driver via pm_runtime_get and
->>> pm_runtime_put calls. Therefore, this interface clock isn't defined in DT
->>> and thus the driver shouldn't fail if this clock isn't found.
->>
->> I agree that hclk is defined as interface clock for M_CAN IP on DRA76x.
->>
->> However, there may be a need for the driver to know the value of hclk to
->> properly configure the RAM watchdog register which has a counter
->> counting down using hclk. Looks like the driver does not use the RAM
->> watchdog today. But if there is a need to configure it in future, it
->> might be a problem.
-> 
-> Honestly the RAM watchdog seems like a fundamental design problem.
-> This RAM watchdog seems to be used in case a request to access the
-> message ram is made but it hangs for what ever reason. Its even more
-> complicated since the Message RAM is external to the MCAN IP so its
-> implementation or how its handled probably differs from device to
-> device. From example say you do have this error it isn't clear how you
-> would recover from it. A logically answer would be to reset the entire
-> IP but that also assumes that Message RAM will be reset along with the
-> ip which likely depends on each SoC.
-> 
-> But if a readl/writel command hangs will the kernel eventually throw an
-> error on its on or will the driver just hang? If it does hang can a
-> driver in the ISR do something to properly terminate the driver or even
-> recover from it?
->>
->> Is there a restriction in OMAP architecture against passing the
->> interface clock also in the 'clocks' property in DT. I have not tried it
->> myself, but wonder if you hit an issue that led to this patch.
-> 
-> No but not passing the interface clock is typical.
+On 09/21/2017 06:37 AM, Zwindl wrote:
+> Hi, I've reported to archlinux's bugzilla, and finally found out the flag which 
+> caused that issue, it's the `CONFIG_INTEL_IOMMU_DEFAULT_ON=y` flag, I think may 
+> this is a kernel bug, more details at https://bugs.archlinux.org/task/55665
 
-Okay, then it sounds like it will just be easier to pass the hclk too?
+My standard kernel has the following:
 
-So it can be used if needed in future and also so that the driver can
-stay the same as today.
+CONFIG_INTEL_IOMMU=y
+# CONFIG_INTEL_IOMMU_SVM is not set
+# CONFIG_INTEL_IOMMU_DEFAULT_ON is not set
 
-Thanks,
-Sekhar
+I will do some further testing to see if turning CONFIG_INTEL_IOMMU_DEFAULT_ON 
+also breaks my system.
+
+Larry
