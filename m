@@ -1,120 +1,181 @@
-From: Luis de Bethencourt <luisbg@kernel.org>
-Subject: Re: [PATCH v3 10/31] befs: Define usercopy region in befs_inode_cache
- slab cache
-Date: Thu, 21 Sep 2017 10:34:55 +0100
-Message-ID: <89dd1d4e-9486-51a2-3500-ac85f947b145@kernel.org>
-References: <1505940337-79069-1-git-send-email-keescook@chromium.org>
- <1505940337-79069-11-git-send-email-keescook@chromium.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Windsor <dave@nullcore.net>, Salah Triki <salah.triki@gmail.com>,
- linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org, linux-mm@kvack.org,
- kernel-hardening@lists.openwall.com
-To: Kees Cook <keescook@chromium.org>, linux-kernel@vger.kernel.org
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1505940337-79069-11-git-send-email-keescook@chromium.org>
-Content-Language: en-US
-Sender: owner-linux-mm@kvack.org
+From: Egil Hjelmeland <privat@egil-hjelmeland.no>
+Subject: [PATCH net-next 2/2] net: dsa: lan9303: Add basic offloading of unicast traffic
+Date: Thu, 21 Sep 2017 11:41:39 +0200
+Message-ID: <20170921094139.4250-3-privat@egil-hjelmeland.no>
+References: <20170921094139.4250-1-privat@egil-hjelmeland.no>
+Cc: Egil Hjelmeland <privat@egil-hjelmeland.no>
+To: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
+        f.fainelli@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170921094139.4250-1-privat@egil-hjelmeland.no>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 09/20/2017 09:45 PM, Kees Cook wrote:
-> From: David Windsor <dave@nullcore.net>
-> 
-> befs symlink pathnames, stored in struct befs_inode_info.i_data.symlink
-> and therefore contained in the befs_inode_cache slab cache, need to be
-> copied to/from userspace.
-> 
-> cache object allocation:
->      fs/befs/linuxvfs.c:
->          befs_alloc_inode(...):
->              ...
->              bi = kmem_cache_alloc(befs_inode_cachep, GFP_KERNEL);
->              ...
->              return &bi->vfs_inode;
-> 
->          befs_iget(...):
->              ...
->              strlcpy(befs_ino->i_data.symlink, raw_inode->data.symlink,
->                      BEFS_SYMLINK_LEN);
->              ...
->              inode->i_link = befs_ino->i_data.symlink;
-> 
-> example usage trace:
->      readlink_copy+0x43/0x70
->      vfs_readlink+0x62/0x110
->      SyS_readlinkat+0x100/0x130
-> 
->      fs/namei.c:
->          readlink_copy(..., link):
->              ...
->              copy_to_user(..., link, len);
-> 
->          (inlined in vfs_readlink)
->          generic_readlink(dentry, ...):
->              struct inode *inode = d_inode(dentry);
->              const char *link = inode->i_link;
->              ...
->              readlink_copy(..., link);
-> 
-> In support of usercopy hardening, this patch defines a region in the
-> befs_inode_cache slab cache in which userspace copy operations are
-> allowed.
-> 
-> This region is known as the slab cache's usercopy region. Slab caches can
-> now check that each copy operation involving cache-managed memory falls
-> entirely within the slab's usercopy region.
-> 
-> This patch is modified from Brad Spengler/PaX Team's PAX_USERCOPY
-> whitelisting code in the last public patch of grsecurity/PaX based on my
-> understanding of the code. Changes or omissions from the original code are
-> mine and don't reflect the original grsecurity/PaX code.
-> 
-> Signed-off-by: David Windsor <dave@nullcore.net>
-> [kees: adjust commit log, provide usage trace]
-> Cc: Luis de Bethencourt <luisbg@kernel.org>
-> Cc: Salah Triki <salah.triki@gmail.com>
-> Signed-off-by: Kees Cook <keescook@chromium.org>
-> Acked-by: Luis de Bethencourt <luisbg@kernel.org>
-> ---
->   fs/befs/linuxvfs.c | 14 +++++++++-----
->   1 file changed, 9 insertions(+), 5 deletions(-)
-> 
-> diff --git a/fs/befs/linuxvfs.c b/fs/befs/linuxvfs.c
-> index a92355cc453b..e5dcd26003dc 100644
-> --- a/fs/befs/linuxvfs.c
-> +++ b/fs/befs/linuxvfs.c
-> @@ -444,11 +444,15 @@ static struct inode *befs_iget(struct super_block *sb, unsigned long ino)
->   static int __init
->   befs_init_inodecache(void)
->   {
-> -	befs_inode_cachep = kmem_cache_create("befs_inode_cache",
-> -					      sizeof (struct befs_inode_info),
-> -					      0, (SLAB_RECLAIM_ACCOUNT|
-> -						SLAB_MEM_SPREAD|SLAB_ACCOUNT),
-> -					      init_once);
-> +	befs_inode_cachep = kmem_cache_create_usercopy("befs_inode_cache",
-> +				sizeof(struct befs_inode_info), 0,
-> +				(SLAB_RECLAIM_ACCOUNT|SLAB_MEM_SPREAD|
-> +					SLAB_ACCOUNT),
-> +				offsetof(struct befs_inode_info,
-> +					i_data.symlink),
-> +				sizeof_field(struct befs_inode_info,
-> +					i_data.symlink),
-> +				init_once);
->   	if (befs_inode_cachep == NULL)
->   		return -ENOMEM;
->   
-> 
+When both user ports are joined to the same bridge, the normal
+HW MAC learning is enabled. This means that unicast traffic is forwarded
+in HW.
 
-No changes in the befs patch in v3. It goes without saying I continue to 
-Ack this.
+If one of the user ports leave the bridge,
+the ports goes back to the initial separated operation.
 
-Thanks Kees and David,
-Luis
+Port separation relies on disabled HW MAC learning. Hence the condition
+that both ports must join same bridge.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Add brigde methods port_bridge_join, port_bridge_leave and
+port_stp_state_set.
+
+Signed-off-by: Egil Hjelmeland <privat@egil-hjelmeland.no>
+---
+ drivers/net/dsa/lan9303-core.c | 88 ++++++++++++++++++++++++++++++++++++++++++
+ drivers/net/dsa/lan9303.h      |  1 +
+ 2 files changed, 89 insertions(+)
+
+diff --git a/drivers/net/dsa/lan9303-core.c b/drivers/net/dsa/lan9303-core.c
+index bba875e114e7..76112674fe6a 100644
+--- a/drivers/net/dsa/lan9303-core.c
++++ b/drivers/net/dsa/lan9303-core.c
+@@ -18,6 +18,7 @@
+ #include <linux/mutex.h>
+ #include <linux/mii.h>
+ #include <linux/phy.h>
++#include <linux/if_bridge.h>
+ 
+ #include "lan9303.h"
+ 
+@@ -146,6 +147,7 @@
+ # define LAN9303_SWE_PORT_STATE_FORWARDING_PORT0 (0)
+ # define LAN9303_SWE_PORT_STATE_LEARNING_PORT0 BIT(1)
+ # define LAN9303_SWE_PORT_STATE_BLOCKING_PORT0 BIT(0)
++# define LAN9303_SWE_PORT_STATE_DISABLED_PORT0 (3)
+ #define LAN9303_SWE_PORT_MIRROR 0x1846
+ # define LAN9303_SWE_PORT_MIRROR_SNIFF_ALL BIT(8)
+ # define LAN9303_SWE_PORT_MIRROR_SNIFFER_PORT2 BIT(7)
+@@ -431,6 +433,20 @@ static int lan9303_read_switch_reg(struct lan9303 *chip, u16 regnum, u32 *val)
+ 	return ret;
+ }
+ 
++static int lan9303_write_switch_reg_mask(
++	struct lan9303 *chip, u16 regnum, u32 val, u32 mask)
++{
++	int ret;
++	u32 reg;
++
++	ret = lan9303_read_switch_reg(chip, regnum, &reg);
++	if (ret)
++		return ret;
++	reg = (reg & ~mask) | val;
++
++	return lan9303_write_switch_reg(chip, regnum, reg);
++}
++
+ static int lan9303_write_switch_port(struct lan9303 *chip, int port,
+ 				     u16 regnum, u32 val)
+ {
+@@ -556,6 +572,12 @@ static int lan9303_separate_ports(struct lan9303 *chip)
+ 				LAN9303_SWE_PORT_STATE_BLOCKING_PORT2);
+ }
+ 
++static void lan9303_bridge_ports(struct lan9303 *chip)
++{
++	/* ports bridged: remove mirroring */
++	lan9303_write_switch_reg(chip, LAN9303_SWE_PORT_MIRROR, 0);
++}
++
+ static int lan9303_handle_reset(struct lan9303 *chip)
+ {
+ 	if (!chip->reset_gpio)
+@@ -844,6 +866,69 @@ static void lan9303_port_disable(struct dsa_switch *ds, int port,
+ 	}
+ }
+ 
++static int lan9303_port_bridge_join(struct dsa_switch *ds, int port,
++				    struct net_device *br)
++{
++	struct lan9303 *chip = ds->priv;
++
++	dev_dbg(chip->dev, "%s(port %d)\n", __func__, port);
++	if (ds->ports[1].bridge_dev ==  ds->ports[2].bridge_dev) {
++		lan9303_bridge_ports(chip);
++		chip->is_bridged = true;  /* unleash stp_state_set() */
++	}
++
++	return 0;
++}
++
++static void lan9303_port_bridge_leave(struct dsa_switch *ds, int port,
++				      struct net_device *br)
++{
++	struct lan9303 *chip = ds->priv;
++
++	dev_dbg(chip->dev, "%s(port %d)\n", __func__, port);
++	if (chip->is_bridged) {
++		lan9303_separate_ports(chip);
++		chip->is_bridged = false;
++	}
++}
++
++static void lan9303_port_stp_state_set(struct dsa_switch *ds, int port,
++				       u8 state)
++{
++	int portmask, portstate;
++	struct lan9303 *chip = ds->priv;
++
++	dev_dbg(chip->dev, "%s(port %d, state %d)\n",
++		__func__, port, state);
++	if (!chip->is_bridged)
++		return; /* touching SWE_PORT_STATE will break port separation */
++
++	switch (state) {
++	case BR_STATE_DISABLED:
++		portstate = LAN9303_SWE_PORT_STATE_DISABLED_PORT0;
++		break;
++	case BR_STATE_BLOCKING:
++	case BR_STATE_LISTENING:
++		portstate = LAN9303_SWE_PORT_STATE_BLOCKING_PORT0;
++		break;
++	case BR_STATE_LEARNING:
++		portstate = LAN9303_SWE_PORT_STATE_LEARNING_PORT0;
++		break;
++	case BR_STATE_FORWARDING:
++		portstate = LAN9303_SWE_PORT_STATE_FORWARDING_PORT0;
++		break;
++	default:
++		portstate = LAN9303_SWE_PORT_STATE_DISABLED_PORT0;
++		dev_err(chip->dev, "unknown stp state: port %d, state %d\n",
++			port, state);
++	}
++
++	portmask = 0x3 << (port * 2);
++	portstate     <<= (port * 2);
++	lan9303_write_switch_reg_mask(chip, LAN9303_SWE_PORT_STATE,
++				      portstate, portmask);
++}
++
+ static const struct dsa_switch_ops lan9303_switch_ops = {
+ 	.get_tag_protocol = lan9303_get_tag_protocol,
+ 	.setup = lan9303_setup,
+@@ -855,6 +940,9 @@ static const struct dsa_switch_ops lan9303_switch_ops = {
+ 	.get_sset_count = lan9303_get_sset_count,
+ 	.port_enable = lan9303_port_enable,
+ 	.port_disable = lan9303_port_disable,
++	.port_bridge_join       = lan9303_port_bridge_join,
++	.port_bridge_leave      = lan9303_port_bridge_leave,
++	.port_stp_state_set     = lan9303_port_stp_state_set,
+ };
+ 
+ static int lan9303_register_switch(struct lan9303 *chip)
+diff --git a/drivers/net/dsa/lan9303.h b/drivers/net/dsa/lan9303.h
+index 4d8be555ff4d..5be246f05965 100644
+--- a/drivers/net/dsa/lan9303.h
++++ b/drivers/net/dsa/lan9303.h
+@@ -21,6 +21,7 @@ struct lan9303 {
+ 	struct dsa_switch *ds;
+ 	struct mutex indirect_mutex; /* protect indexed register access */
+ 	const struct lan9303_phy_ops *ops;
++	bool is_bridged; /* true if port 1 and 2 is bridged */
+ };
+ 
+ extern const struct regmap_access_table lan9303_register_set;
+-- 
+2.11.0
