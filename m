@@ -1,7 +1,7 @@
 From: Allen Pais <allen.lkml@gmail.com>
-Subject: [PATCH 62/64] drivers: net: cxgb: use setup_timer() helper.
-Date: Thu, 21 Sep 2017 22:35:23 +0530
-Message-ID: <1506013525-29291-63-git-send-email-allen.lkml@gmail.com>
+Subject: [PATCH 63/64] drivers: net: bnx2x: use setup_timer() helper.
+Date: Thu, 21 Sep 2017 22:35:24 +0530
+Message-ID: <1506013525-29291-64-git-send-email-allen.lkml@gmail.com>
 References: <1506013525-29291-1-git-send-email-allen.lkml@gmail.com>
 Cc: linux-kernel@vger.kernel.org, m.grzeschik@pengutronix.de,
         dmitry.tarnyagin@lockless.no, wg@grandegger.com,
@@ -24,24 +24,24 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Allen Pais <allen.lkml@gmail.com>
 ---
- drivers/net/ethernet/chelsio/cxgb/sge.c | 5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb/sge.c b/drivers/net/ethernet/chelsio/cxgb/sge.c
-index 0f13a7f..75e4399 100644
---- a/drivers/net/ethernet/chelsio/cxgb/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb/sge.c
-@@ -2075,9 +2075,8 @@ struct sge *t1_sge_create(struct adapter *adapter, struct sge_params *p)
- 			goto nomem_port;
- 	}
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index c12b4d3..54d15713 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -12414,10 +12414,8 @@ static int bnx2x_init_bp(struct bnx2x *bp)
  
--	init_timer(&sge->tx_reclaim_timer);
--	sge->tx_reclaim_timer.data = (unsigned long)sge;
--	sge->tx_reclaim_timer.function = sge_tx_reclaim_cb;
-+	setup_timer(&sge->tx_reclaim_timer, sge_tx_reclaim_cb,
-+		    (unsigned long)sge);
+ 	bp->current_interval = CHIP_REV_IS_SLOW(bp) ? 5*HZ : HZ;
  
- 	if (is_T2(sge->adapter)) {
- 		init_timer(&sge->espibug_timer);
+-	init_timer(&bp->timer);
++	setup_timer(&bp->timer, bnx2x_timer, (unsigned long)bp);
+ 	bp->timer.expires = jiffies + bp->current_interval;
+-	bp->timer.data = (unsigned long) bp;
+-	bp->timer.function = bnx2x_timer;
+ 
+ 	if (SHMEM2_HAS(bp, dcbx_lldp_params_offset) &&
+ 	    SHMEM2_HAS(bp, dcbx_lldp_dcbx_stat_offset) &&
 -- 
 2.7.4
