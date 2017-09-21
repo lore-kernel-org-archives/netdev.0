@@ -1,65 +1,80 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next] bpf/verifier: improve disassembly of BPF_END
- instructions
-Date: Thu, 21 Sep 2017 21:29:33 +0200
-Message-ID: <59C4131D.8050003@iogearbox.net>
-References: <7013ee9d-a8e6-13fd-cc5f-86cf3d8bf4e0@solarflare.com> <20170921155215.jta52sesbiq54vri@ast-mbp> <4cfac985-4f99-cf85-fc15-c3ad1f8ff123@solarflare.com> <CAH3MdRWAHJS8Y8ketOAghYyorVUp6JijjZcSVY7gOiGAr7e_pw@mail.gmail.com> <207ecd4c-b1b4-3dcd-62a6-30824c19dbf7@solarflare.com>
+From: Franklin S Cooper Jr <fcooper@ti.com>
+Subject: Re: [v2,1/3] can: m_can: Make hclk optional
+Date: Thu, 21 Sep 2017 14:35:54 -0500
+Message-ID: <022598ec-8de7-5f3f-2bb4-f6320658725d@ti.com>
+References: <20170724225142.19975-2-fcooper@ti.com>
+ <6f574628-51cd-0db8-e5aa-e7ae4a9cf79a@ti.com>
+ <eb45fe94-c476-3919-603d-ff2a6b13487c@ti.com>
+ <895ab55a-fede-3a67-27aa-1ac1af9843d7@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>
-To: Edward Cree <ecree@solarflare.com>, Y Song <ys114321@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:40473 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751636AbdIUT3i (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 15:29:38 -0400
-In-Reply-To: <207ecd4c-b1b4-3dcd-62a6-30824c19dbf7@solarflare.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Kristo, Tero" <t-kristo@ti.com>, Tony Lindgren <tony@atomide.com>,
+        Linux OMAP List <linux-omap@vger.kernel.org>
+To: Sekhar Nori <nsekhar@ti.com>, <linux-kernel@vger.kernel.org>,
+        <devicetree@vger.kernel.org>, <netdev@vger.kernel.org>,
+        <linux-can@vger.kernel.org>, <wg@grandegger.com>,
+        <mkl@pengutronix.de>, <robh+dt@kernel.org>,
+        <quentin.schulz@free-electrons.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <895ab55a-fede-3a67-27aa-1ac1af9843d7@ti.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 09/21/2017 06:58 PM, Edward Cree wrote:
-> On 21/09/17 17:40, Y Song wrote:
->> On Thu, Sep 21, 2017 at 9:24 AM, Edward Cree <ecree@solarflare.com> wrote:
->>> On 21/09/17 16:52, Alexei Starovoitov wrote:
->>>> imo
->>>> (u16) r4 endian be
->>>> isn't intuitive.
->>>> Can we come up with some better syntax?
->>>> Like
->>>> bswap16be r4
->>>> bswap32le r4
->>> Hmm, I don't like these, since bswapbe is a swap on *le* and a nop on be.
 
-Agree, a bit too much 'swap' semantics in the name that could be
-confusing perhaps, at least the be/le could be missed easily.
 
->>>> or
->>>>
->>>> to_be16 r4
->>>> to_le32 r4
->>> And the problem here is that it's not just to_be, it's also from_be.
+On 09/21/2017 09:08 AM, Sekhar Nori wrote:
+> On Thursday 21 September 2017 06:01 AM, Franklin S Cooper Jr wrote:
+>>
+>>
+>> On 08/24/2017 03:00 AM, Sekhar Nori wrote:
+>>> + some OMAP folks and Linux OMAP list
+>>>
+>>> On Tuesday 25 July 2017 04:21 AM, Franklin Cooper wrote:
+>>>> Hclk is the MCAN's interface clock. However, for OMAP based devices such as
+>>>> DRA7 SoC family the interface clock is handled by hwmod. Therefore, this
+>>>> interface clock is managed by hwmod driver via pm_runtime_get and
+>>>> pm_runtime_put calls. Therefore, this interface clock isn't defined in DT
+>>>> and thus the driver shouldn't fail if this clock isn't found.
+>>>
+>>> I agree that hclk is defined as interface clock for M_CAN IP on DRA76x.
+>>>
+>>> However, there may be a need for the driver to know the value of hclk to
+>>> properly configure the RAM watchdog register which has a counter
+>>> counting down using hclk. Looks like the driver does not use the RAM
+>>> watchdog today. But if there is a need to configure it in future, it
+>>> might be a problem.
+>>
+>> Honestly the RAM watchdog seems like a fundamental design problem.
+>> This RAM watchdog seems to be used in case a request to access the
+>> message ram is made but it hangs for what ever reason. Its even more
+>> complicated since the Message RAM is external to the MCAN IP so its
+>> implementation or how its handled probably differs from device to
+>> device. From example say you do have this error it isn't clear how you
+>> would recover from it. A logically answer would be to reset the entire
+>> IP but that also assumes that Message RAM will be reset along with the
+>> ip which likely depends on each SoC.
+>>
+>> But if a readl/writel command hangs will the kernel eventually throw an
+>> error on its on or will the driver just hang? If it does hang can a
+>> driver in the ISR do something to properly terminate the driver or even
+>> recover from it?
+>>>
+>>> Is there a restriction in OMAP architecture against passing the
+>>> interface clock also in the 'clocks' property in DT. I have not tried it
+>>> myself, but wonder if you hit an issue that led to this patch.
+>>
+>> No but not passing the interface clock is typical.
+> 
+> Okay, then it sounds like it will just be easier to pass the hclk too?
+> 
+> So it can be used if needed in future and also so that the driver can
+> stay the same as today.
 
-More intuitive, but agree on the from_be/le. Maybe we should
-just drop the "to_" prefix altogether, and leave the rest as is since
-it's not surrounded by braces, it's also not a cast but rather an op.
-
->> Could you explain what is "from_be" here? Do not quite understand.
-> Taking the example of a little-endian processor:
-> cpu_to_be16() is a byte-swap, converting a u16 (cpu-endian) to a __be16.
-> be16_to_cpu(), to convert a __be16 to a u16, is *also* a byte-swap.
-> Meanwhile, cpu_to_le16() and le16_to_cpu() are both no-ops.
->
-> More generally, the conversions between cpu-endian and fixed-endian for
->   any given size are self-inverses.  eBPF takes advantage of this by only
->   having a single opcode for both the "to" and "from" direction.  So to
->   specify an endianness conversion, you need only the size and the fixed
->   endianness (le or be), not the to/from direction.  Conversely, when
->   disassembling one of these instructions, you don't know whether it's a
->   cpu_to_be16() or a be16_to_cpu(), because they both look the same at an
->   instruction level (they only differ in what types the programmer thought
->   of the register as holding before and after).
-
-Yeah, exactly to the point. :)
+That is fine. For now I can just drop this patch unless I discover when
+enabling it on DRA76x I am unable to add the interface clock to dt.
+> 
+> Thanks,
+> Sekhar
+> 
