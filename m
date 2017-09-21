@@ -1,95 +1,97 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: Re: [PATCH net-next 1/5] net: add support for noref skb->sk
-Date: Thu, 21 Sep 2017 11:14:57 +0200
-Message-ID: <1505985297.2560.39.camel@redhat.com>
-References: <cover.1505926196.git.pabeni@redhat.com>
-         <39b55ec9584df7dfd6eb498a3d354cd2e08e3eaa.1505926196.git.pabeni@redhat.com>
-         <1505929295.29839.103.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-        Pablo Neira Ayuso <pablo@netfilter.org>,
-        Florian Westphal <fw@strlen.de>,
-        Eric Dumazet <edumazet@google.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Amine Kherbouche <amine.kherbouche@6wind.com>
+Subject: [RFC PATCH 0/0] Introduce MPLS over GRE
+Date: Thu, 21 Sep 2017 11:25:22 +0200
+Message-ID: <1505985924-12479-1-git-send-email-amine.kherbouche@6wind.com>
+Cc: amine.kherbouche@6wind.com, equinox@diac24.net
+To: netdev@vger.kernel.org, xeb@mail.ru, roopa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37376 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751548AbdIUJO7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 21 Sep 2017 05:14:59 -0400
-In-Reply-To: <1505929295.29839.103.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-wm0-f46.google.com ([74.125.82.46]:49903 "EHLO
+        mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751528AbdIUJZ7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 05:25:59 -0400
+Received: by mail-wm0-f46.google.com with SMTP id e71so13714181wmg.4
+        for <netdev@vger.kernel.org>; Thu, 21 Sep 2017 02:25:58 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+This series introduces the MPLS over GRE encapsulation (RFC 4023).
 
-Thank you for looking at it!
+Various applications of MPLS make use of label stacks with multiple
+entries.  In some cases, it is possible to replace the top label of
+the stack with an IP-based encapsulation, thereby, it is possible for
+two LSRs that are adjacent on an LSP to be separated by an IP network,
+even if that IP network does not provide MPLS.
 
-On Wed, 2017-09-20 at 10:41 -0700, Eric Dumazet wrote:
-> On Wed, 2017-09-20 at 18:54 +0200, Paolo Abeni wrote:
-> > Noref sk do not carry a socket refcount, are valid
-> > only inside the current RCU section and must be
-> > explicitly cleared before exiting such section.
-> > 
-> > They will be used in a later patch to allow early demux
-> > without sock refcounting.
-> 
-> 
-> 
-> 
-> > +/* dummy destructor used by noref sockets */
-> > +void sock_dummyfree(struct sk_buff *skb)
-> > +{
-> 
-> BUG();
-> 
-> > +}
-> > +EXPORT_SYMBOL(sock_dummyfree);
-> > +
+An example of configuration:
 
-We can call sock_dummyfree() in legitimate paths, see below, but we can
-add a:
 
-WARN_ON_ONCE(!rcu_read_lock_held());
+         node1                LER1                       LER2                node2
+        +-----+             +------+                   +------+             +-----+
+        |     |             |      |                   |      |             |     |
+        |     |             |      |p3  GRE tunnel   p4|      |             |     |
+        |     |p1         p2|      +-------------------+      |p5         p6|     |
+        |     +-------------+      +-------------------+      +------------+|     |
+        |     |10.100.0.0/24|      |                   |      |10.200.0.0/24|     |
+        |     |fd00:100::/64|      |  10.125.0.0/24    |      |fd00:200::/64|     |
+        |     |             |      |  fd00:125::/64    |      |             |     |
+        |     |             |      |                   |      |             |     |
+        |     |             |      |                   |      |             |     |
+        |     |             |      |                   |      |             |     |
+        |     |             |      |                   |      |             |     |
+        +-----+             +------+                   +------+             +-----+
 
-here and in  skb_clear_noref_sk(). That should help much to catch
-possible bugs.
 
-> I do not see how you ensure we do not leave RCU section with an skb
-> destructor pointing to this sock_dummyfree()
-> 
-> This patch series looks quite dangerous to me.
+		###	node1	###
 
-The idea is to explicitly clear the sknoref references before leaving
-the RCU section. Quite alike what we currently do for dst noref, but
-here the only place where we get a noref socket is the socket early
-demux, thus the scope of this change is more limited to what we have
-with noref dst_entries.
+ip link set p1 up
+ip addr add 10.100.0.1/24 dev p1
 
-The relevant code is in the next 2 patches; after the demux we preserve
-the sknoref only if the skb has a local destination. The UDP socket
-will then set the noref on early demux lookup, and the skb will either:
+		###	LER1	###
 
-* land on the corresponding UDP socket, the receive function will steal
-the sknoref
-* be dropped by some nft/iptables target - the dummy destructor is
-called
-* forwarded by some nft/iptables target outside the input path; we
-clear the skref explicitly in such targets. 
+ip link set p2 up
+ip addr add 10.100.0.2/24 dev p2
 
-Currently there are an handful of places affected, and we can simplify
-the code dropping the early demux result for locally terminated
-multicast sockets on a host acting as a multicast router, please see
-the comment on the next patch.
+ip link set p3 up
+ip addr add 10.125.0.1/24 dev p3
 
-> Do we really have real applications using connected UDP sockets and
-> wanting very high pps throughput ?
+modprobe mpls_router
+sysctl -w net.mpls.conf.p2.input=1
+sysctl -w net.mpls.conf.p3.input=1
+sysctl -w net.mpls.platform_labels=1000
 
-The ultimate goal is to improve the unconnected UDP sockets scenario,
-we do actually have use cases for that - DNS servers and VoIP SBCs.
+ip link add gre1 type gre ttl 64 local 10.125.0.1 remote 10.125.0.2 dev p3
+ip link set dev gre1 up
 
-Thanks,
+ip -M route add 111 as 222 dev gre1
+ip -M route add 555 as 666 via inet 10.100.0.1 dev p2
 
-Paolo
+		###	LER2	###
+
+ip link set p5 up
+ip addr add 10.200.0.2/24 dev p5
+
+ip link set p4 up
+ip addr add 10.125.0.2/24 dev p4
+
+modprobe mpls_router
+sysctl -w net.mpls.conf.p4.input=1
+sysctl -w net.mpls.conf.p5.input=1
+sysctl -w net.mpls.platform_labels=1000
+
+ip link add gre1 type gre ttl 64 local 10.125.0.2 remote 10.125.0.1 dev p4
+ip link set dev gre1 up
+
+ip -M route add 444 as 555 dev gre1
+ip -M route add 222 as 333 via inet 10.200.0.1 dev p5
+
+		###	node2	###
+
+ip link set p6 up
+ip addr add 10.200.0.1/24 dev p6
+
+
+Now using this scapy to forge and send packets from the port p1 of node1:
+
+p = Ether(src='de:ed:01:0c:41:09', dst='de:ed:01:2f:3b:ba')
+p /= MPLS(s=1, ttl=64, label=111)/Raw(load='\xde')
+sendp(p, iface="p1", count=20, inter=0.1)
