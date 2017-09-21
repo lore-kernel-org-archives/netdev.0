@@ -1,89 +1,40 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [net-next v3] bridge: trigger RTM_NEWLINK when
- interface is modified by bridge ioctl
-Date: Thu, 21 Sep 2017 08:15:42 -0700
-Message-ID: <20170921081542.4c266c83@xeon-e3>
-References: <20170920162140.369bb198@xeon-e3>
-	<20170921100525.20395-1-vincent@bernat.im>
+From: Alexei Starovoitov <ast@fb.com>
+Subject: Re: [PATCH net-next v5 1/4] bpf: add helper bpf_perf_event_read_value
+ for perf event array map
+Date: Thu, 21 Sep 2017 08:15:39 -0700
+Message-ID: <b9753171-8e70-92f2-9852-8d3a33f2c07c@fb.com>
+References: <20170920060935.1102268-1-yhs@fb.com>
+ <20170920060935.1102268-2-yhs@fb.com>
+ <20170920172651.zx4nfmj2lpgxzubq@hirez.programming.kicks-ass.net>
+ <20170920.160707.932591498085219317.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	David Miller <davem@davemloft.net>, David Ahern <dsahern@gmail.com>
-To: Vincent Bernat <vincent@bernat.im>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20170921100525.20395-1-vincent@bernat.im>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: <yhs@fb.com>, <rostedt@goodmis.org>, <daniel@iogearbox.net>,
+        <netdev@vger.kernel.org>, <kernel-team@fb.com>
+To: David Miller <davem@davemloft.net>, <peterz@infradead.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:35120 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751726AbdIUPQb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 11:16:31 -0400
+In-Reply-To: <20170920.160707.932591498085219317.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 21 Sep 2017 12:05:25 +0200
-Vincent Bernat <vincent@bernat.im> wrote:
+On 9/20/17 4:07 PM, David Miller wrote:
+> From: Peter Zijlstra <peterz@infradead.org>
+> Date: Wed, 20 Sep 2017 19:26:51 +0200
+>
+>> Dave, could we have this in a topic tree of sorts, because I have a
+>> pending series to rework all the timekeeping and it might be nice to not
+>> have sfr run into all sorts of conflicts.
+>
+> If you want to merge it into your tree that's fine.
+>
+> But it means that any further development done on top of this
+> work will need to go via you as well.
 
-> Currently, there is a difference in netlink events received when an
-> interface is modified through bridge ioctl() or through netlink. This
-> patch generates additional events when an interface is added to or
-> removed from a bridge via ioctl().
-> 
-> When adding then removing an interface from a bridge with netlink, we
-> get:
-> 
-> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue master bridge0 state UNKNOWN group default
->     link/ether 9e:da:60:ee:cf:c8 brd ff:ff:ff:ff:ff:ff
-> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state UNKNOWN
->     link/ether 9e:da:60:ee:cf:c8
-> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state UNKNOWN
->     link/ether 9e:da:60:ee:cf:c8
-> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state UNKNOWN
->     link/ether 9e:da:60:ee:cf:c8
-> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state UNKNOWN
->     link/ether 9e:da:60:ee:cf:c8
-> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue master bridge0 state UNKNOWN group default
->     link/ether 9e:da:60:ee:cf:c8 brd ff:ff:ff:ff:ff:ff
-> 
-> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue master bridge0 state UNKNOWN group default
->     link/ether 9e:da:60:ee:cf:c8 brd ff:ff:ff:ff:ff:ff
-> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state UNKNOWN
->     link/ether 9e:da:60:ee:cf:c8
-> Deleted 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state UNKNOWN
->     link/ether 9e:da:60:ee:cf:c8
-> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue state UNKNOWN group default
->     link/ether 9e:da:60:ee:cf:c8 brd ff:ff:ff:ff:ff:ff
-> 
-> When using ioctl():
-> 
-> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue master bridge0 state UNKNOWN group default
->     link/ether 9e:da:60:ee:cf:c8 brd ff:ff:ff:ff:ff:ff
-> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state UNKNOWN
->     link/ether 9e:da:60:ee:cf:c8
-> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state UNKNOWN
->     link/ether 9e:da:60:ee:cf:c8
-> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state UNKNOWN
->     link/ether 9e:da:60:ee:cf:c8
-> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue master bridge0 state UNKNOWN group default
->     link/ether 9e:da:60:ee:cf:c8 brd ff:ff:ff:ff:ff:ff
-> 
-> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue master bridge0 state UNKNOWN group default
->     link/ether 9e:da:60:ee:cf:c8 brd ff:ff:ff:ff:ff:ff
-> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state UNKNOWN
->     link/ether 9e:da:60:ee:cf:c8
-> Deleted 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state UNKNOWN
->     link/ether 9e:da:60:ee:cf:c8
-> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue state UNKNOWN group default
->     link/ether 9e:da:60:ee:cf:c8 brd ff:ff:ff:ff:ff:ff
-> 
-> Without this patch, the last netlink notification is not sent.
-> 
-> Signed-off-by: Vincent Bernat <vincent@bernat.im>
-
-This makes sense, you should probably add a Fixes: tag to help maintainers
-of long term stable kernels.
-
-Reviewed-by: Stephen Hemminger <stephen@networkplumber.org>
+can we merge this set of patches into both net-next and tip ?
+We did such tricks in the past to avoid merge conflicts and
+everything went fine during merge window.
