@@ -1,39 +1,28 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH net-next 7/7] rtnetlink: rtnl_have_link_slave_info
- doesn't need rtnl
-Date: Thu, 21 Sep 2017 19:31:05 +0200
-Message-ID: <20170921173105.GG15946@breakpoint.cc>
-References: <20170921165902.10746-1-fw@strlen.de>
- <20170921165902.10746-8-fw@strlen.de>
- <b645a22f-9153-b327-8995-2b140cff59a0@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 1/3] net: mvpp2: fix the dma_mask and
+ coherent_dma_mask settings for PPv2.2
+Date: Thu, 21 Sep 2017 10:07:18 -0700 (PDT)
+Message-ID: <20170921.100718.386894052177530033.davem@davemloft.net>
+References: <20170918130408.23114-2-antoine.tenart@free-electrons.com>
+        <20170918.171858.667084185425779267.davem@davemloft.net>
+        <20170921142413.GH3568@kwain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org
-To: David Ahern <dsahern@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:39706 "EHLO
-        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752254AbdIURe0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 13:34:26 -0400
-Content-Disposition: inline
-In-Reply-To: <b645a22f-9153-b327-8995-2b140cff59a0@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: andrew@lunn.ch, gregory.clement@free-electrons.com,
+        thomas.petazzoni@free-electrons.com,
+        miquel.raynal@free-electrons.com, nadavh@marvell.com,
+        linux@armlinux.org.uk, linux-kernel@vger.kernel.org,
+        mw@semihalf.com, stefanc@marvell.com, netdev@vger.kernel.org
+To: antoine.tenart@free-electrons.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170921142413.GH3568@kwain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-David Ahern <dsahern@gmail.com> wrote:
-> On 9/21/17 10:59 AM, Florian Westphal wrote:
-> > @@ -539,6 +543,8 @@ static int rtnl_link_slave_info_fill(struct sk_buff *skb,
-> >  	struct nlattr *slave_data;
-> >  	int err;
-> >  
-> > +	ASSERT_RTNL();
-> > +
-[..]
-master_dev = netdev_master_upper_dev_get((struct net_device *) dev);
+From: Antoine Tenart <antoine.tenart@free-electrons.com>
+Date: Thu, 21 Sep 2017 16:24:13 +0200
 
-> Since rtnl_link_slave_info_fill and rtnl_link_info_fill are only called
-> by rtnl_link_fill and rtnl_link_fill is only called rtnl_fill_ifinfo
-> which as the ASSERT_RTNL why add to these lower functions as well?
+> That's also the default when the platform does not allocate dma_mask.
 
-I'll remove this patch in v2 and will hold it back in my private queue;
-these serve more as a reminder/TODO for myself rather than anything else.
+That's the problem that needs to be fixed then.
