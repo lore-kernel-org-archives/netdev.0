@@ -1,7 +1,7 @@
 From: Allen Pais <allen.lkml@gmail.com>
-Subject: [PATCH 29/64] drivers: net: smsc: use setup_timer() helper.
-Date: Thu, 21 Sep 2017 22:34:50 +0530
-Message-ID: <1506013525-29291-30-git-send-email-allen.lkml@gmail.com>
+Subject: [PATCH 30/64] drivers: net: qlogic: use setup_timer() helper.
+Date: Thu, 21 Sep 2017 22:34:51 +0530
+Message-ID: <1506013525-29291-31-git-send-email-allen.lkml@gmail.com>
 References: <1506013525-29291-1-git-send-email-allen.lkml@gmail.com>
 Cc: linux-kernel@vger.kernel.org, m.grzeschik@pengutronix.de,
         dmitry.tarnyagin@lockless.no, wg@grandegger.com,
@@ -24,24 +24,24 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Allen Pais <allen.lkml@gmail.com>
 ---
- drivers/net/ethernet/smsc/epic100.c | 4 +---
+ drivers/net/ethernet/qlogic/qla3xxx.c | 4 +---
  1 file changed, 1 insertion(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/smsc/epic100.c b/drivers/net/ethernet/smsc/epic100.c
-index 6a0e1d4..2a97248 100644
---- a/drivers/net/ethernet/smsc/epic100.c
-+++ b/drivers/net/ethernet/smsc/epic100.c
-@@ -739,10 +739,8 @@ static int epic_open(struct net_device *dev)
+diff --git a/drivers/net/ethernet/qlogic/qla3xxx.c b/drivers/net/ethernet/qlogic/qla3xxx.c
+index 2991179..05479d4 100644
+--- a/drivers/net/ethernet/qlogic/qla3xxx.c
++++ b/drivers/net/ethernet/qlogic/qla3xxx.c
+@@ -3891,10 +3891,8 @@ static int ql3xxx_probe(struct pci_dev *pdev,
+ 	INIT_DELAYED_WORK(&qdev->tx_timeout_work, ql_tx_timeout_work);
+ 	INIT_DELAYED_WORK(&qdev->link_state_work, ql_link_state_machine_work);
  
- 	/* Set the timer to switch to check for link beat and perhaps switch
- 	   to an alternate media type. */
--	init_timer(&ep->timer);
-+	setup_timer(&ep->timer, epic_timer, (unsigned long)dev);
- 	ep->timer.expires = jiffies + 3*HZ;
--	ep->timer.data = (unsigned long)dev;
--	ep->timer.function = epic_timer;				/* timer handler */
- 	add_timer(&ep->timer);
+-	init_timer(&qdev->adapter_timer);
+-	qdev->adapter_timer.function = ql3xxx_timer;
++	setup_timer(&qdev->adapter_timer, ql3xxx_timer, (unsigned long)qdev);
+ 	qdev->adapter_timer.expires = jiffies + HZ * 2;	/* two second delay */
+-	qdev->adapter_timer.data = (unsigned long)qdev;
  
- 	return rc;
+ 	if (!cards_found) {
+ 		pr_alert("%s\n", DRV_STRING);
 -- 
 2.7.4
