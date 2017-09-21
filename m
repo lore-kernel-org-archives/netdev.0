@@ -1,34 +1,43 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net] net_sched: remove cls_flower idr on failure
-Date: Thu, 21 Sep 2017 11:50:32 -0700
-Message-ID: <CAM_iQpWAWLZ-wg3HBAxp35hZC=ysO65=2qPMCq-sw7PAdSkR3Q@mail.gmail.com>
-References: <20170920161845.28753-1-xiyou.wangcong@gmail.com> <CAM_iQpX2QHqPFJ-vZz+6M4oDW2UgTbYdRuCxtNLm14S4sRVONg@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net v2] l2tp: fix race condition in l2tp_tunnel_delete
+Date: Thu, 21 Sep 2017 11:53:02 -0700 (PDT)
+Message-ID: <20170921.115302.675934534188865164.davem@davemloft.net>
+References: <6bfc5aceda47773af4c75fe7e0e3c0d255a2342d.1505828155.git.sd@queasysnail.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-        Chris Mi <chrism@mellanox.com>, Jiri Pirko <jiri@mellanox.com>
-To: Linux Kernel Network Developers <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, g.nault@alphalink.fr, lucien.xin@gmail.com,
+        tparkin@katalix.com
+To: sd@queasysnail.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f172.google.com ([209.85.192.172]:54085 "EHLO
-        mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751732AbdIUSux (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 14:50:53 -0400
-Received: by mail-pf0-f172.google.com with SMTP id x78so3631595pff.10
-        for <netdev@vger.kernel.org>; Thu, 21 Sep 2017 11:50:53 -0700 (PDT)
-In-Reply-To: <CAM_iQpX2QHqPFJ-vZz+6M4oDW2UgTbYdRuCxtNLm14S4sRVONg@mail.gmail.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:52624 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750790AbdIUSxD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 14:53:03 -0400
+In-Reply-To: <6bfc5aceda47773af4c75fe7e0e3c0d255a2342d.1505828155.git.sd@queasysnail.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Sep 21, 2017 at 11:47 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> On Wed, Sep 20, 2017 at 9:18 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
->> +errout_idr:
->> +       if (fnew->handle)
->> +               idr_remove_ext(&head->handle_idr, fnew->handle);
->
-> Hmm, I should check fold instead of fnew->handle here.
-> I will update this patch.
+From: Sabrina Dubroca <sd@queasysnail.net>
+Date: Tue, 19 Sep 2017 15:40:40 +0200
 
-Never mind, it should be the same logic. If fold is non-NULL,
-then fnew->handle == 0.
+> If we try to delete the same tunnel twice, the first delete operation
+> does a lookup (l2tp_tunnel_get), finds the tunnel, calls
+> l2tp_tunnel_delete, which queues it for deletion by
+> l2tp_tunnel_del_work.
+> 
+> The second delete operation also finds the tunnel and calls
+> l2tp_tunnel_delete. If the workqueue has already fired and started
+> running l2tp_tunnel_del_work, then l2tp_tunnel_delete will queue the
+> same tunnel a second time, and try to free the socket again.
+> 
+> Add a dead flag to prevent firing the workqueue twice. Then we can
+> remove the check of queue_work's result that was meant to prevent that
+> race but doesn't.
+> 
+> Also check the flag in the tunnel lookup functions, to avoid returning a
+> tunnel that is already scheduled for destruction.
 
-It can be applied as it is.
+Sabrina, please respond to Guillaume's feedback.
+
+Thank you.
