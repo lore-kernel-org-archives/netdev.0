@@ -1,144 +1,50 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next 2/2] net: dsa: lan9303: Add basic offloading of unicast traffic
-Date: Thu, 21 Sep 2017 10:26:54 -0400
-Message-ID: <87k20sqg9d.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-References: <20170921094139.4250-1-privat@egil-hjelmeland.no> <20170921094139.4250-3-privat@egil-hjelmeland.no>
+From: Igor Russkikh <igor.russkikh@aquantia.com>
+Subject: Re: [PATCH net 2/4] net:ethernet:aquantia: Fix Tx queue hangups
+Date: Thu, 21 Sep 2017 17:31:47 +0300
+Message-ID: <74f2e3bc-e1ef-92cf-d665-5e7abb68ae94@aquantia.com>
+References: <cover.1505915085.git.igor.russkikh@aquantia.com>
+ <cef3863edd8d504d7406f781c97260c52f21e156.1505915085.git.igor.russkikh@aquantia.com>
+ <024e7fb3-9b53-f4f2-3901-38a63c47d76c@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Egil Hjelmeland <privat@egil-hjelmeland.no>
-To: Egil Hjelmeland <privat@egil-hjelmeland.no>, andrew@lunn.ch,
-        f.fainelli@gmail.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170921094139.4250-3-privat@egil-hjelmeland.no>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, David Arcari <darcari@redhat.com>,
+        Pavel Belous <Pavel.Belous@aquantia.com>,
+        Nadezhda Krupnina <Nadezhda.Krupnina@aquantia.com>,
+        Simon Edelhaus <simon.edelhaus@aquantia.com>
+To: Yunsheng Lin <linyunsheng@huawei.com>,
+        "David S . Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-by2nam01on0050.outbound.protection.outlook.com ([104.47.34.50]:30590
+        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751726AbdIUOcE (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 21 Sep 2017 10:32:04 -0400
+In-Reply-To: <024e7fb3-9b53-f4f2-3901-38a63c47d76c@huawei.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Egil,
+Thanks for the comments, Yunsheng,
 
-Egil Hjelmeland <privat@egil-hjelmeland.no> writes:
+>>  
+>> +static int aq_nic_update_link_status(struct aq_nic_s *self)
+>> +{
+>> +	int err = self->aq_hw_ops.hw_get_link_status(self->aq_hw);
+>> +
+>> +	if (err < 0)
+>> +		return -1;
+> why not just return err?
 
-> When both user ports are joined to the same bridge, the normal
-> HW MAC learning is enabled. This means that unicast traffic is forwarded
-> in HW.
->
-> If one of the user ports leave the bridge,
-> the ports goes back to the initial separated operation.
->
-> Port separation relies on disabled HW MAC learning. Hence the condition
-> that both ports must join same bridge.
->
-> Add brigde methods port_bridge_join, port_bridge_leave and
-> port_stp_state_set.
->
-> Signed-off-by: Egil Hjelmeland <privat@egil-hjelmeland.no>
+Agreed, that could be improved.
 
-Styling nitpicks below, other than that, the patch LGTM:
+>> +	if (self->link_status.mbps != self->aq_hw->aq_link_status.mbps)
+>> +		pr_info("%s: link change old %d new %d\n",
+>> +			AQ_CFG_DRV_NAME, self->link_status.mbps,
+>> +			self->aq_hw->aq_link_status.mbps);
+> You has ndev in struct aq_nic_s *self, why not use netdev_*?
 
-Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+We are planning to introduce a generic rework commit separately and use netif_* set of macro's through all the driver's code.
 
->  #include <linux/mutex.h>
->  #include <linux/mii.h>
->  #include <linux/phy.h>
-> +#include <linux/if_bridge.h>
-
-It's nice to order header inclusions alphabetically.
-
->  
->  #include "lan9303.h"
->  
-> @@ -146,6 +147,7 @@
->  # define LAN9303_SWE_PORT_STATE_FORWARDING_PORT0 (0)
->  # define LAN9303_SWE_PORT_STATE_LEARNING_PORT0 BIT(1)
->  # define LAN9303_SWE_PORT_STATE_BLOCKING_PORT0 BIT(0)
-> +# define LAN9303_SWE_PORT_STATE_DISABLED_PORT0 (3)
->  #define LAN9303_SWE_PORT_MIRROR 0x1846
->  # define LAN9303_SWE_PORT_MIRROR_SNIFF_ALL BIT(8)
->  # define LAN9303_SWE_PORT_MIRROR_SNIFFER_PORT2 BIT(7)
-> @@ -431,6 +433,20 @@ static int lan9303_read_switch_reg(struct lan9303 *chip, u16 regnum, u32 *val)
->  	return ret;
->  }
->  
-> +static int lan9303_write_switch_reg_mask(
-> +	struct lan9303 *chip, u16 regnum, u32 val, u32 mask)
-
-That is unlikely to respect the Kernel Coding Style. Please fill the
-line as much as possible and align with the opening parenthesis:
-
-    static int lan9303_write_switch_reg_mask(struct lan9303 *chip, u16 regnum,
-                                             u32 val, u32 mask)
-
-> +{
-> +	int ret;
-> +	u32 reg;
-> +
-> +	ret = lan9303_read_switch_reg(chip, regnum, &reg);
-> +	if (ret)
-> +		return ret;
-> +	reg = (reg & ~mask) | val;
-> +
-> +	return lan9303_write_switch_reg(chip, regnum, reg);
-> +}
-
-...
-
-> +
-> +	portmask = 0x3 << (port * 2);
-> +	portstate     <<= (port * 2);
-
-Unnecessary alignment, please remove the extra space characters.
-
-> +	lan9303_write_switch_reg_mask(chip, LAN9303_SWE_PORT_STATE,
-> +				      portstate, portmask);
-> +}
-> +
->  static const struct dsa_switch_ops lan9303_switch_ops = {
->  	.get_tag_protocol = lan9303_get_tag_protocol,
->  	.setup = lan9303_setup,
-> @@ -855,6 +940,9 @@ static const struct dsa_switch_ops lan9303_switch_ops = {
->  	.get_sset_count = lan9303_get_sset_count,
->  	.port_enable = lan9303_port_enable,
->  	.port_disable = lan9303_port_disable,
-> +	.port_bridge_join       = lan9303_port_bridge_join,
-> +	.port_bridge_leave      = lan9303_port_bridge_leave,
-> +	.port_stp_state_set     = lan9303_port_stp_state_set,
-
-Same here, alignment unnecessary, especially since the rest of the
-structure does not do that.
-
->  };
->  
->  static int lan9303_register_switch(struct lan9303 *chip)
-> diff --git a/drivers/net/dsa/lan9303.h b/drivers/net/dsa/lan9303.h
-> index 4d8be555ff4d..5be246f05965 100644
-> --- a/drivers/net/dsa/lan9303.h
-> +++ b/drivers/net/dsa/lan9303.h
-> @@ -21,6 +21,7 @@ struct lan9303 {
->  	struct dsa_switch *ds;
->  	struct mutex indirect_mutex; /* protect indexed register access */
->  	const struct lan9303_phy_ops *ops;
-> +	bool is_bridged; /* true if port 1 and 2 is bridged */
->  };
->  
->  extern const struct regmap_access_table lan9303_register_set;
-
-Please use the checkpatch.pl script to ensure your patch respects the
-kernel conventions before submitting, it can spot nice stuffs!
-
-I use a Git alias(*) to check a commit which does basically this:
-
-    git format-patch --stdout -1 | ./scripts/checkpatch.pl -
-
-
-(*) in details, especially convenient during interactive rebases:
-
-    $ git config alias.checkcommit '!f () { git format-patch --stdout -1 ${1:-HEAD} | ./scripts/checkpatch.pl - ; }; f'
-    $ git checkcommit # i.e. current one
-    $ git checkcommit HEAD^^
-    $ git checkcommit d329ac88eb21
-    ...
-
-
-Thanks,
-
-        Vivien
+-- 
+BR, Igor
