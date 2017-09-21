@@ -1,37 +1,163 @@
-From: Allen Pais <allen.lkml@gmail.com>
-Subject: [PATCH 1/1] net:nfc: use setup_timer
-Date: Thu, 21 Sep 2017 16:29:33 +0530
-Message-ID: <1505991573-30298-1-git-send-email-allen.lkml@gmail.com>
-Cc: sameo@linux.intel.com, netdev@vger.kernel.org,
-        Allen Pais <allen.lkml@gmail.com>
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Latest net-next from GIT panic
+Date: Thu, 21 Sep 2017 04:03:46 -0700
+Message-ID: <1505991826.29839.124.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <4745525f-18e4-7f69-fe21-8e507e407b33@itcare.pl>
+         <3324f95f-7686-81e0-a973-1a9220c918fe@itcare.pl>
+         <1505913075.29839.90.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CAM_iQpV8qV8a_yFT0--4Z==FuWda=4EQzKJzHTL+op4S5b9E0A@mail.gmail.com>
+         <3c227be7-a954-a406-1987-24e908cf214c@itcare.pl>
+         <CAM_iQpUOOCcES4d_ueK2wizn2oyDZPEzLfWQFu3oOq=BuRzdiw@mail.gmail.com>
+         <1505932231.29839.106.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CAM_iQpVF3Gf3G=543o8g+5N2dtEL4DcUPN3a6=L8V_G0CXZ65w@mail.gmail.com>
+         <07f0c800-7ee7-1ebe-9f5f-eaad52a7b42d@itcare.pl>
+         <548a893c-8a8f-3b07-00f7-d75de1d777ad@itcare.pl>
+         <7d8731ee-6c91-bbfd-6313-c95f52d7b49a@itcare.pl>
+         <26e8b899-d8b1-caa4-436b-e23ffe384b0f@itcare.pl>
+         <6c36fa00-13e6-8cd7-ff5c-df7739220736@itcare.pl>
+         <CAEA6p_DpSr84cYu3pXqoHV=V=daSsbiOcnzsF+Kt0r4Wv_jmdg@mail.gmail.com>
+         <CAEA6p_AiLvZxsyu+iOCrPzW-H28N=HBnWycy8w6gdZHFk2Q1dQ@mail.gmail.com>
+         <1505956639.29839.108.camel@edumazet-glaptop3.roam.corp.google.com>
+         <a016d5bc-1cbb-44d7-9ebf-e7e5428e6f98@itcare.pl>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: Wei Wang <weiwan@google.com>, Cong Wang <xiyou.wangcong@gmail.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>
+To: =?UTF-8?Q?Pawe=C5=82?= Staszewski <pstaszewski@itcare.pl>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-it0-f45.google.com ([209.85.214.45]:49029 "EHLO
+        mail-it0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751596AbdIULDu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 07:03:50 -0400
+Received: by mail-it0-f45.google.com with SMTP id m123so201075ita.3
+        for <netdev@vger.kernel.org>; Thu, 21 Sep 2017 04:03:50 -0700 (PDT)
+In-Reply-To: <a016d5bc-1cbb-44d7-9ebf-e7e5428e6f98@itcare.pl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-    Use setup_timer function instead of initializing timer with the
-    function and data fields.
+On Thu, 2017-09-21 at 11:06 +0200, Paweł Staszewski wrote:
+> 
+> W dniu 2017-09-21 o 03:17, Eric Dumazet pisze:
+> > On Wed, 2017-09-20 at 18:09 -0700, Wei Wang wrote:
+> >>> Thanks very much Pawel for the feedback.
+> >>>
+> >>> I was looking into the code (specifically IPv4 part) and found that in
+> >>> free_fib_info_rcu(), we call free_nh_exceptions() without holding the
+> >>> fnhe_lock. I am wondering if that could cause some race condition on
+> >>> fnhe->fnhe_rth_input/output so a double call on dst_dev_put() on the
+> >>> same dst could be happening.
+> >>>
+> >>> But as we call free_fib_info_rcu() only after the grace period, and
+> >>> the lookup code which could potentially modify
+> >>> fnhe->fnhe_rth_input/output all holds rcu_read_lock(), it seems
+> >>> fine...
+> >>>
+> >> Hi Pawel,
+> >>
+> >> Could you try the following debug patch on top of net-next branch and
+> >> reproduce the issue check if there are warning msg showing?
+> >>
+> >> diff --git a/include/net/dst.h b/include/net/dst.h
+> >> index 93568bd0a352..82aff41c6f63 100644
+> >> --- a/include/net/dst.h
+> >> +++ b/include/net/dst.h
+> >> @@ -271,7 +271,7 @@ static inline void dst_use_noref(struct dst_entry
+> >> *dst, unsigned long time)
+> >>   static inline struct dst_entry *dst_clone(struct dst_entry *dst)
+> >>   {
+> >>          if (dst)
+> >> -               atomic_inc(&dst->__refcnt);
+> >> +               dst_hold(dst);
+> >>          return dst;
+> >>   }
+> >>
+> >> Thanks.
+> >> Wei
+> >>
+> >
+> > Yes, we believe skb_dst_force() and skb_dst_force_safe() should be
+> > unified  (to the 'safe' version)
+> >
+> > We no longer have gc to protect from 0 -> 1 transition of dst refcount.
+> >
+> >
+> >
+> >
+> 
+> After adding patch from Wei
+> https://bugzilla.kernel.org/show_bug.cgi?id=197005#c14
+> 
 
-Signed-off-by: Allen Pais <allen.lkml@gmail.com>
----
- net/nfc/core.c | 5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
+OK we have two problems here 
 
-diff --git a/net/nfc/core.c b/net/nfc/core.c
-index 5cf33df..e5e23c2 100644
---- a/net/nfc/core.c
-+++ b/net/nfc/core.c
-@@ -1094,9 +1094,8 @@ struct nfc_dev *nfc_allocate_device(struct nfc_ops *ops,
- 	dev->targets_generation = 1;
+1) We need to unify skb_dst_force()  ( for net tree )
+
+2) Vlan devices should try to correctly handle IFF_XMIT_DST_RELEASE from
+lower device. This will considerably help your performance.
+
+
+For 1), this is what I had in mind, can you try it ?
+
+Thanks a lot !
+
+diff --git a/include/net/dst.h b/include/net/dst.h
+index 93568bd0a3520bb7402f04d90cf04ac99c81cfbe..f23851eeaad917e8dafc06b58d23a2575405c894 100644
+--- a/include/net/dst.h
++++ b/include/net/dst.h
+@@ -271,7 +271,7 @@ static inline void dst_use_noref(struct dst_entry *dst, unsigned long time)
+ static inline struct dst_entry *dst_clone(struct dst_entry *dst)
+ {
+ 	if (dst)
+-		atomic_inc(&dst->__refcnt);
++		dst_hold(dst);
+ 	return dst;
+ }
  
- 	if (ops->check_presence) {
--		init_timer(&dev->check_pres_timer);
--		dev->check_pres_timer.data = (unsigned long)dev;
--		dev->check_pres_timer.function = nfc_check_pres_timeout;
-+		setup_timer(&dev->check_pres_timer, nfc_check_pres_timeout,
-+			    (unsigned long)dev);
+@@ -311,21 +311,6 @@ static inline void skb_dst_copy(struct sk_buff *nskb, const struct sk_buff *oskb
+ 	__skb_dst_copy(nskb, oskb->_skb_refdst);
+ }
  
- 		INIT_WORK(&dev->check_pres_work, nfc_check_pres_work);
+-/**
+- * skb_dst_force - makes sure skb dst is refcounted
+- * @skb: buffer
+- *
+- * If dst is not yet refcounted, let's do it
+- */
+-static inline void skb_dst_force(struct sk_buff *skb)
+-{
+-	if (skb_dst_is_noref(skb)) {
+-		WARN_ON(!rcu_read_lock_held());
+-		skb->_skb_refdst &= ~SKB_DST_NOREF;
+-		dst_clone(skb_dst(skb));
+-	}
+-}
+-
+ /**
+  * dst_hold_safe - Take a reference on a dst if possible
+  * @dst: pointer to dst entry
+@@ -356,6 +341,23 @@ static inline void skb_dst_force_safe(struct sk_buff *skb)
  	}
--- 
-2.7.4
+ }
+ 
++/**
++ * skb_dst_force - makes sure skb dst is refcounted
++ * @skb: buffer
++ *
++ * If dst is not yet refcounted, let's do it
++ */
++static inline void skb_dst_force(struct sk_buff *skb)
++{
++	if (skb_dst_is_noref(skb)) {
++		struct dst_entry *dst = skb_dst(skb);
++
++		WARN_ON(!rcu_read_lock_held());
++		if (!dst_hold_safe(dst))
++			dst = NULL;
++		skb->_skb_refdst = (unsigned long)dst;
++	}
++}
+ 
+ /**
+  *	__skb_tunnel_rx - prepare skb for rx reinsert
