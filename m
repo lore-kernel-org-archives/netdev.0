@@ -1,7 +1,7 @@
 From: Allen Pais <allen.lkml@gmail.com>
-Subject: [PATCH 15/64] drivers: net: sundance: use setup_timer() helper.
-Date: Thu, 21 Sep 2017 22:34:36 +0530
-Message-ID: <1506013525-29291-16-git-send-email-allen.lkml@gmail.com>
+Subject: [PATCH 16/64] drivers: net: tg3: use setup_timer() helper.
+Date: Thu, 21 Sep 2017 22:34:37 +0530
+Message-ID: <1506013525-29291-17-git-send-email-allen.lkml@gmail.com>
 References: <1506013525-29291-1-git-send-email-allen.lkml@gmail.com>
 Cc: linux-kernel@vger.kernel.org, m.grzeschik@pengutronix.de,
         dmitry.tarnyagin@lockless.no, wg@grandegger.com,
@@ -24,24 +24,23 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Allen Pais <allen.lkml@gmail.com>
 ---
- drivers/net/ethernet/dlink/sundance.c | 4 +---
+ drivers/net/ethernet/broadcom/tg3.c | 4 +---
  1 file changed, 1 insertion(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/dlink/sundance.c b/drivers/net/ethernet/dlink/sundance.c
-index 2704bcf..6ca9e98 100644
---- a/drivers/net/ethernet/dlink/sundance.c
-+++ b/drivers/net/ethernet/dlink/sundance.c
-@@ -913,10 +913,8 @@ static int netdev_open(struct net_device *dev)
- 			   ioread16(ioaddr + MACCtrl1), ioread16(ioaddr + MACCtrl0));
+diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+index 656e6af..d8d5f20 100644
+--- a/drivers/net/ethernet/broadcom/tg3.c
++++ b/drivers/net/ethernet/broadcom/tg3.c
+@@ -11087,9 +11087,7 @@ static void tg3_timer_init(struct tg3 *tp)
+ 	tp->asf_multiplier = (HZ / tp->timer_offset) *
+ 			     TG3_FW_UPDATE_FREQ_SEC;
  
- 	/* Set the timer to check for link beat. */
--	init_timer(&np->timer);
-+	setup_timer(&np->timer, netdev_timer, (unsigned long)dev);
- 	np->timer.expires = jiffies + 3*HZ;
--	np->timer.data = (unsigned long)dev;
--	np->timer.function = netdev_timer;				/* timer handler */
- 	add_timer(&np->timer);
+-	init_timer(&tp->timer);
+-	tp->timer.data = (unsigned long) tp;
+-	tp->timer.function = tg3_timer;
++	setup_timer(&tp->timer, tg3_timer, (unsigned long)tp);
+ }
  
- 	/* Enable interrupts by setting the interrupt mask. */
+ static void tg3_timer_start(struct tg3 *tp)
 -- 
 2.7.4
