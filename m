@@ -1,7 +1,7 @@
 From: Allen Pais <allen.lkml@gmail.com>
-Subject: [PATCH 51/64] drivers: net: caif: use setup_timer() helper.
-Date: Thu, 21 Sep 2017 22:35:12 +0530
-Message-ID: <1506013525-29291-52-git-send-email-allen.lkml@gmail.com>
+Subject: [PATCH 52/64] drivers: net: appletalk: use setup_timer() helper.
+Date: Thu, 21 Sep 2017 22:35:13 +0530
+Message-ID: <1506013525-29291-53-git-send-email-allen.lkml@gmail.com>
 References: <1506013525-29291-1-git-send-email-allen.lkml@gmail.com>
 Cc: linux-kernel@vger.kernel.org, m.grzeschik@pengutronix.de,
         dmitry.tarnyagin@lockless.no, wg@grandegger.com,
@@ -24,36 +24,23 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Allen Pais <allen.lkml@gmail.com>
 ---
- drivers/net/caif/caif_hsi.c | 15 ++++++---------
- 1 file changed, 6 insertions(+), 9 deletions(-)
+ drivers/net/appletalk/ltpc.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
-diff --git a/drivers/net/caif/caif_hsi.c b/drivers/net/caif/caif_hsi.c
-index 438966b..fed75e7 100644
---- a/drivers/net/caif/caif_hsi.c
-+++ b/drivers/net/caif/caif_hsi.c
-@@ -1211,17 +1211,14 @@ static int cfhsi_open(struct net_device *ndev)
- 	init_waitqueue_head(&cfhsi->flush_fifo_wait);
+diff --git a/drivers/net/appletalk/ltpc.c b/drivers/net/appletalk/ltpc.c
+index ac755d2..e4aa374 100644
+--- a/drivers/net/appletalk/ltpc.c
++++ b/drivers/net/appletalk/ltpc.c
+@@ -1165,9 +1165,7 @@ struct net_device * __init ltpc_probe(void)
+ 		dev->irq = 0;
+ 		/* polled mode -- 20 times per second */
+ 		/* this is really, really slow... should it poll more often? */
+-		init_timer(&ltpc_timer);
+-		ltpc_timer.function=ltpc_poll;
+-		ltpc_timer.data = (unsigned long) dev;
++		setup_timer(&ltpc_timer, ltpc_poll, (unsigned long)dev);
  
- 	/* Setup the inactivity timer. */
--	init_timer(&cfhsi->inactivity_timer);
--	cfhsi->inactivity_timer.data = (unsigned long)cfhsi;
--	cfhsi->inactivity_timer.function = cfhsi_inactivity_tout;
-+	setup_timer(&cfhsi->inactivity_timer, cfhsi_inactivity_tout,
-+		    (unsigned long)cfhsi);
- 	/* Setup the slowpath RX timer. */
--	init_timer(&cfhsi->rx_slowpath_timer);
--	cfhsi->rx_slowpath_timer.data = (unsigned long)cfhsi;
--	cfhsi->rx_slowpath_timer.function = cfhsi_rx_slowpath;
-+	setup_timer(&cfhsi->rx_slowpath_timer, cfhsi_rx_slowpath,
-+		    (unsigned long)cfhsi);
- 	/* Setup the aggregation timer. */
--	init_timer(&cfhsi->aggregation_timer);
--	cfhsi->aggregation_timer.data = (unsigned long)cfhsi;
--	cfhsi->aggregation_timer.function = cfhsi_aggregation_tout;
-+	setup_timer(&cfhsi->aggregation_timer, cfhsi_aggregation_tout,
-+		    (unsigned long)cfhsi);
- 
- 	/* Activate HSI interface. */
- 	res = cfhsi->ops->cfhsi_up(cfhsi->ops);
+ 		ltpc_timer.expires = jiffies + HZ/20;
+ 		add_timer(&ltpc_timer);
 -- 
 2.7.4
