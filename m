@@ -1,7 +1,7 @@
 From: Ursula Braun <ubraun-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
-Subject: [PATCH net 7/9] net/smc: terminate link group if out-of-sync is received
-Date: Thu, 21 Sep 2017 09:16:32 +0200
-Message-ID: <20170921071634.16883-8-ubraun@linux.vnet.ibm.com>
+Subject: [PATCH net 9/9] net/smc: no close wait in case of process shut down
+Date: Thu, 21 Sep 2017 09:16:34 +0200
+Message-ID: <20170921071634.16883-10-ubraun@linux.vnet.ibm.com>
 References: <20170921071634.16883-1-ubraun@linux.vnet.ibm.com>
 Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
         linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jwi-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org,
@@ -13,100 +13,57 @@ In-Reply-To: <20170921071634.16883-1-ubraun-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@pub
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-An out-of-sync condition can just be detected by the client.
-If the server receives a CLC DECLINE message indicating an out-of-sync
-condition for the link groups, the server must clean up the out-of-sync
-link group.
-There is no need for an extra third parameter in smc_clc_send_decline().
+Usually socket closing is delayed if there is still data available in
+the send buffer to be transmitted. If a process is killed, the delay
+should be avoided.
 
 Signed-off-by: Ursula Braun <ubraun-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
 ---
- net/smc/af_smc.c  |  6 ++----
- net/smc/smc_clc.c | 10 +++++-----
- net/smc/smc_clc.h |  3 +--
- 3 files changed, 8 insertions(+), 11 deletions(-)
+ net/smc/smc_close.c | 15 ++++++++-------
+ 1 file changed, 8 insertions(+), 7 deletions(-)
 
-diff --git a/net/smc/af_smc.c b/net/smc/af_smc.c
-index 2e8d2dabac0c..745f145d4c4d 100644
---- a/net/smc/af_smc.c
-+++ b/net/smc/af_smc.c
-@@ -513,7 +513,7 @@ static int smc_connect_rdma(struct smc_sock *smc)
- 	/* RDMA setup failed, switch back to TCP */
- 	smc->use_fallback = true;
- 	if (reason_code && (reason_code != SMC_CLC_DECL_REPLY)) {
--		rc = smc_clc_send_decline(smc, reason_code, 0);
-+		rc = smc_clc_send_decline(smc, reason_code);
- 		if (rc < sizeof(struct smc_clc_msg_decline))
- 			goto out_err;
- 	}
-@@ -808,8 +808,6 @@ static void smc_listen_work(struct work_struct *work)
- 		rc = local_contact;
- 		if (rc == -ENOMEM)
- 			reason_code = SMC_CLC_DECL_MEM;/* insufficient memory*/
--		else if (rc == -ENOLINK)
--			reason_code = SMC_CLC_DECL_SYNCERR; /* synchr. error */
- 		goto decline_rdma;
- 	}
- 	link = &new_smc->conn.lgr->lnk[SMC_SINGLE_LINK];
-@@ -903,7 +901,7 @@ static void smc_listen_work(struct work_struct *work)
- 	smc_conn_free(&new_smc->conn);
- 	new_smc->use_fallback = true;
- 	if (reason_code && (reason_code != SMC_CLC_DECL_REPLY)) {
--		rc = smc_clc_send_decline(new_smc, reason_code, 0);
-+		rc = smc_clc_send_decline(new_smc, reason_code);
- 		if (rc < sizeof(struct smc_clc_msg_decline))
- 			goto out_err;
- 	}
-diff --git a/net/smc/smc_clc.c b/net/smc/smc_clc.c
-index 3934913ab835..b7dd2743fb5c 100644
---- a/net/smc/smc_clc.c
-+++ b/net/smc/smc_clc.c
-@@ -95,9 +95,10 @@ int smc_clc_wait_msg(struct smc_sock *smc, void *buf, int buflen,
- 	}
- 	if (clcm->type == SMC_CLC_DECLINE) {
- 		reason_code = SMC_CLC_DECL_REPLY;
--		if (ntohl(((struct smc_clc_msg_decline *)buf)->peer_diagnosis)
--			== SMC_CLC_DECL_SYNCERR)
-+		if (((struct smc_clc_msg_decline *)buf)->hdr.flag) {
- 			smc->conn.lgr->sync_err = true;
-+			smc_lgr_terminate(smc->conn.lgr);
-+		}
- 	}
- 
- out:
-@@ -105,8 +106,7 @@ int smc_clc_wait_msg(struct smc_sock *smc, void *buf, int buflen,
- }
- 
- /* send CLC DECLINE message across internal TCP socket */
--int smc_clc_send_decline(struct smc_sock *smc, u32 peer_diag_info,
--			 u8 out_of_sync)
-+int smc_clc_send_decline(struct smc_sock *smc, u32 peer_diag_info)
+diff --git a/net/smc/smc_close.c b/net/smc/smc_close.c
+index 5201bc103bd8..f0d16fb825f7 100644
+--- a/net/smc/smc_close.c
++++ b/net/smc/smc_close.c
+@@ -174,15 +174,15 @@ int smc_close_active(struct smc_sock *smc)
  {
- 	struct smc_clc_msg_decline dclc;
- 	struct msghdr msg;
-@@ -118,7 +118,7 @@ int smc_clc_send_decline(struct smc_sock *smc, u32 peer_diag_info,
- 	dclc.hdr.type = SMC_CLC_DECLINE;
- 	dclc.hdr.length = htons(sizeof(struct smc_clc_msg_decline));
- 	dclc.hdr.version = SMC_CLC_V1;
--	dclc.hdr.flag = out_of_sync ? 1 : 0;
-+	dclc.hdr.flag = (peer_diag_info == SMC_CLC_DECL_SYNCERR) ? 1 : 0;
- 	memcpy(dclc.id_for_peer, local_systemid, sizeof(local_systemid));
- 	dclc.peer_diagnosis = htonl(peer_diag_info);
- 	memcpy(dclc.trl.eyecatcher, SMC_EYECATCHER, sizeof(SMC_EYECATCHER));
-diff --git a/net/smc/smc_clc.h b/net/smc/smc_clc.h
-index 13db8ce177c9..1c55414041d4 100644
---- a/net/smc/smc_clc.h
-+++ b/net/smc/smc_clc.h
-@@ -106,8 +106,7 @@ struct smc_ib_device;
+ 	struct smc_cdc_conn_state_flags *txflags =
+ 		&smc->conn.local_tx_ctrl.conn_state_flags;
+-	long timeout = SMC_MAX_STREAM_WAIT_TIMEOUT;
+ 	struct smc_connection *conn = &smc->conn;
+ 	struct sock *sk = &smc->sk;
+ 	int old_state;
++	long timeout;
+ 	int rc = 0;
  
- int smc_clc_wait_msg(struct smc_sock *smc, void *buf, int buflen,
- 		     u8 expected_type);
--int smc_clc_send_decline(struct smc_sock *smc, u32 peer_diag_info,
--			 u8 out_of_sync);
-+int smc_clc_send_decline(struct smc_sock *smc, u32 peer_diag_info);
- int smc_clc_send_proposal(struct smc_sock *smc, struct smc_ib_device *smcibdev,
- 			  u8 ibport);
- int smc_clc_send_confirm(struct smc_sock *smc);
+-	if (sock_flag(sk, SOCK_LINGER) &&
+-	    !(current->flags & PF_EXITING))
+-		timeout = sk->sk_lingertime;
++	timeout = current->flags & PF_EXITING ?
++		  0 : sock_flag(sk, SOCK_LINGER) ?
++		      sk->sk_lingertime : SMC_MAX_STREAM_WAIT_TIMEOUT;
+ 
+ again:
+ 	old_state = sk->sk_state;
+@@ -413,13 +413,14 @@ void smc_close_sock_put_work(struct work_struct *work)
+ int smc_close_shutdown_write(struct smc_sock *smc)
+ {
+ 	struct smc_connection *conn = &smc->conn;
+-	long timeout = SMC_MAX_STREAM_WAIT_TIMEOUT;
+ 	struct sock *sk = &smc->sk;
+ 	int old_state;
++	long timeout;
+ 	int rc = 0;
+ 
+-	if (sock_flag(sk, SOCK_LINGER))
+-		timeout = sk->sk_lingertime;
++	timeout = current->flags & PF_EXITING ?
++		  0 : sock_flag(sk, SOCK_LINGER) ?
++		      sk->sk_lingertime : SMC_MAX_STREAM_WAIT_TIMEOUT;
+ 
+ again:
+ 	old_state = sk->sk_state;
 -- 
 2.13.5
 
