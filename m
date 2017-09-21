@@ -1,110 +1,78 @@
-From: Brandon Streiff <brandon.streiff@ni.com>
-Subject: Re: net: macb: fail when there's no PHY
-Date: Thu, 21 Sep 2017 16:35:51 -0500
-Message-ID: <1506029751-25249-1-git-send-email-brandon.streiff@ni.com>
-References: <20170921203608.GB30148@grante>
+From: Amine Kherbouche <amine.kherbouche@6wind.com>
+Subject: Re: [PATCH 2/2] ip_tunnel: add mpls over gre encapsulation
+Date: Thu, 21 Sep 2017 23:39:13 +0200
+Message-ID: <dd6e449c-af1b-47ad-5bfb-1406a711b609@6wind.com>
+References: <1505985924-12479-1-git-send-email-amine.kherbouche@6wind.com>
+ <1505985924-12479-3-git-send-email-amine.kherbouche@6wind.com>
+ <20170921212536.GA814@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, Brandon Streiff <brandon.streiff@ni.com>
-To: Grant Edwards <grant.b.edwards@gmail.com>,
-        Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, xeb@mail.ru, roopa@cumulusnetworks.com,
+        equinox@diac24.net
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00010702.pphosted.com ([148.163.156.75]:42132 "EHLO
-        mx0b-00010702.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751697AbdIUVgq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 17:36:46 -0400
-In-Reply-To: <20170921203608.GB30148@grante>
+Received: from mail-wr0-f180.google.com ([209.85.128.180]:43052 "EHLO
+        mail-wr0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751728AbdIUVjJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 17:39:09 -0400
+Received: by mail-wr0-f180.google.com with SMTP id a43so5546724wrc.0
+        for <netdev@vger.kernel.org>; Thu, 21 Sep 2017 14:39:09 -0700 (PDT)
+In-Reply-To: <20170921212536.GA814@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> On Thu, Sep 21, 2017 at 01:05:57PM -0700, Florian Fainelli wrote:
->
->>> It looks like the macb driver still can't handle boards that don't
->>> have a PHY.  Is that correct?
->> 
->> Not since:
->> 
->> dacdbb4dfc1a1a1378df8ebc914d4fe82259ed46 ("net: macb: add fixed-link
->> node support")
->
-> Yep, it's obvious now that I've got the diff in front of me.
->
-> Thanks!
->
-> [I just started working with device tree for the first time yesterday,
-> and I must say it's way better than the "old days" which required all
-> sorts of ugly to produce a kernel that could work on two slightly
-> different boards.]
->
-> -- 
-> Grant
+Hi Francois,
 
-I have a board that's in a similar boat. My workaround was to undo
-portions of dacdbb4dfc1a with the following patch; this lets me still
-use fixed-link and have MDIO (to configure a switch), but not require
-a PHY.
+Thanks for the feedback, I'll make it for the next version.
 
-There was a patch set last year by Harini Katakam ("net: macb: Add MDIO
-driver for accessing multiple PHY devices") that might ultimately be a
-better approach to tackling this problem, although I haven't seen any
-further chatter on it.
-
----
- drivers/net/ethernet/cadence/macb_main.c | 38 +++++++++++++++-----------------
- 1 file changed, 18 insertions(+), 20 deletions(-)
-
-diff --git a/drivers/net/ethernet/cadence/macb_main.c b/drivers/net/ethernet/cadence/macb_main.c
-index 1741cda..a45848e 100644
---- a/drivers/net/ethernet/cadence/macb_main.c
-+++ b/drivers/net/ethernet/cadence/macb_main.c
-@@ -564,30 +564,28 @@ static int macb_mii_init(struct macb *bp)
- 				goto err_out_unregister_bus;
- 			}
- 			bp->phy_node = of_node_get(np);
-+		}
- 
--			err = mdiobus_register(bp->mii_bus);
--		} else {
--			/* try dt phy registration */
--			err = of_mdiobus_register(bp->mii_bus, np);
-+		/* try dt phy registration */
-+		err = of_mdiobus_register(bp->mii_bus, np);
- 
--			/* fallback to standard phy registration if no phy were
--			 * found during dt phy registration
--			 */
--			if (!err && !phy_find_first(bp->mii_bus)) {
--				for (i = 0; i < PHY_MAX_ADDR; i++) {
--					struct phy_device *phydev;
--
--					phydev = mdiobus_scan(bp->mii_bus, i);
--					if (IS_ERR(phydev) &&
--					    PTR_ERR(phydev) != -ENODEV) {
--						err = PTR_ERR(phydev);
--						break;
--					}
-+		/* fallback to standard phy registration if no phy were
-+		 * found during dt phy registration
-+		 */
-+		if (!err && !phy_find_first(bp->mii_bus)) {
-+			for (i = 0; i < PHY_MAX_ADDR; i++) {
-+				struct phy_device *phydev;
-+
-+				phydev = mdiobus_scan(bp->mii_bus, i);
-+				if (IS_ERR(phydev) &&
-+				    PTR_ERR(phydev) != -ENODEV) {
-+					err = PTR_ERR(phydev);
-+					break;
- 				}
--
--				if (err)
--					goto err_out_unregister_bus;
- 			}
-+
-+			if (err)
-+				goto err_out_unregister_bus;
- 		}
- 	} else {
- 		for (i = 0; i < PHY_MAX_ADDR; i++)
--- 
-2.1.4
+On 21/09/2017 23:25, Francois Romieu wrote:
+> Amine Kherbouche <amine.kherbouche@6wind.com> :
+> [...]
+>> diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
+>> index 36ea2ad..060ed07 100644
+>> --- a/net/mpls/af_mpls.c
+>> +++ b/net/mpls/af_mpls.c
+> [...]
+>> @@ -39,6 +40,40 @@ static int one = 1;
+>>   static int label_limit = (1 << 20) - 1;
+>>   static int ttl_max = 255;
+>>   
+>> +size_t ipgre_mpls_encap_hlen(struct ip_tunnel_encap *e)
+>> +{
+>> +	return sizeof(struct mpls_shim_hdr);
+>> +}
+>> +
+>> +int ipgre_mpls_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
+>> +			    u8 *protocol, struct flowi4 *fl4)
+>> +{
+>> +	return 0;
+>> +}
+>> +
+>> +static const struct ip_tunnel_encap_ops mpls_iptun_ops = {
+>> +	.encap_hlen = ipgre_mpls_encap_hlen,
+>> +	.build_header = ipgre_mpls_build_header,
+>> +};
+> Nit: af_mpls.c uses tab before '=' in such places.
+>
+>> +
+>> +int ipgre_tunnel_encap_add_mpls_ops(void)
+>> +{
+>> +	int ret;
+>> +
+>> +	ret = ip_tunnel_encap_add_ops(&mpls_iptun_ops, TUNNEL_ENCAP_MPLS);
+> ip_tunnel_encap_add_ops is CONFIG_NET_IP_TUNNEL dependant.
+>
+> Afaics CONFIG_MPLS does not enforce it.
+>
+> [...]
+>> @@ -2486,6 +2521,7 @@ static int __init mpls_init(void)
+>>   		      0);
+>>   	rtnl_register(PF_MPLS, RTM_GETNETCONF, mpls_netconf_get_devconf,
+>>   		      mpls_netconf_dump_devconf, 0);
+>> +	ipgre_tunnel_encap_add_mpls_ops();
+>>   	err = 0;
+>>   out:
+>>   	return err;
+> ipgre_tunnel_encap_add_mpls_ops status return code is not checked.
+>
