@@ -1,50 +1,43 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
+From: Grant Edwards <grant.b.edwards@gmail.com>
 Subject: Re: net: macb: fail when there's no PHY
-Date: Thu, 21 Sep 2017 13:05:57 -0700
-Message-ID: <66c0a032-4d20-69f1-deb4-6c65af6ec740@gmail.com>
+Date: Thu, 21 Sep 2017 15:36:08 -0500
+Message-ID: <20170921203608.GB30148@grante>
 References: <20170921195905.GA29873@grante>
+ <66c0a032-4d20-69f1-deb4-6c65af6ec740@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: Grant Edwards <grant.b.edwards@gmail.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f194.google.com ([209.85.220.194]:38775 "EHLO
-        mail-qk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751636AbdIUUGB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 16:06:01 -0400
-Received: by mail-qk0-f194.google.com with SMTP id c69so4303170qke.5
-        for <netdev@vger.kernel.org>; Thu, 21 Sep 2017 13:06:01 -0700 (PDT)
-In-Reply-To: <20170921195905.GA29873@grante>
-Content-Language: en-US
+Received: from mail-io0-f180.google.com ([209.85.223.180]:57228 "EHLO
+        mail-io0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751707AbdIUUgL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 16:36:11 -0400
+Received: by mail-io0-f180.google.com with SMTP id m103so13594144iod.13
+        for <netdev@vger.kernel.org>; Thu, 21 Sep 2017 13:36:11 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <66c0a032-4d20-69f1-deb4-6c65af6ec740@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/21/2017 12:59 PM, Grant Edwards wrote:
-> Several years back (circa 2.6.33) I had to hack up macb.c to work on
-> an at91 board that didn't have a PHY connected to the macb controller.
-> Now I might need to get a recent kernel version running on that board.
+On Thu, Sep 21, 2017 at 01:05:57PM -0700, Florian Fainelli wrote:
+
+>> It looks like the macb driver still can't handle boards that don't
+>> have a PHY.  Is that correct?
 > 
-> It looks like the macb driver still can't handle boards that don't
-> have a PHY.  Is that correct?
-
-Not since:
-
-dacdbb4dfc1a1a1378df8ebc914d4fe82259ed46 ("net: macb: add fixed-link
-node support")
-
+> Not since:
 > 
-> What's the right way to deal with this?
+> dacdbb4dfc1a1a1378df8ebc914d4fe82259ed46 ("net: macb: add fixed-link
+> node support")
 
-Declaring a fixed PHY that will present an emulated link UP, with a
-fixed speed/duplex etc. is the way to go.
+Yep, it's obvious now that I've got the diff in front of me.
 
-> 
-> With the older macb driver, I ended up adding code to macb.c that
-> presented a "fake" PHY that discarded MDIO writes and returned some
-> hard-wired values for MDIO reads.  That seemed like a pretty ugly way
-> to deal with the situation, so I never bothered to submit a patch.
-> 
+Thanks!
 
-Yeah, no :)
+[I just started working with device tree for the first time yesterday,
+and I must say it's way better than the "old days" which required all
+sorts of ugly to produce a kernel that could work on two slightly
+different boards.]
+
 -- 
-Florian
+Grant
