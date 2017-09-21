@@ -1,7 +1,7 @@
 From: Allen Pais <allen.lkml@gmail.com>
-Subject: [PATCH 10/64] drivers: net: appletalk: cops: use setup_timer() helper.
-Date: Thu, 21 Sep 2017 22:34:31 +0530
-Message-ID: <1506013525-29291-11-git-send-email-allen.lkml@gmail.com>
+Subject: [PATCH 11/64] drivers: net: rsi_91x: use setup_timer() helper.
+Date: Thu, 21 Sep 2017 22:34:32 +0530
+Message-ID: <1506013525-29291-12-git-send-email-allen.lkml@gmail.com>
 References: <1506013525-29291-1-git-send-email-allen.lkml@gmail.com>
 Cc: linux-kernel@vger.kernel.org, m.grzeschik@pengutronix.de,
         dmitry.tarnyagin@lockless.no, wg@grandegger.com,
@@ -24,23 +24,24 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Allen Pais <allen.lkml@gmail.com>
 ---
- drivers/net/appletalk/cops.c | 4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
+ drivers/net/wireless/rsi/rsi_91x_hal.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/appletalk/cops.c b/drivers/net/appletalk/cops.c
-index 486e1e6..caf0428 100644
---- a/drivers/net/appletalk/cops.c
-+++ b/drivers/net/appletalk/cops.c
-@@ -424,9 +424,7 @@ static int cops_open(struct net_device *dev)
- 		 */
- 		if(lp->board==TANGENT)	/* Poll 20 times per second */
- 		{
--		    init_timer(&cops_timer);
--		    cops_timer.function = cops_poll;
--		    cops_timer.data 	= (unsigned long)dev;
-+		    setup_timer(&cops_timer, cops_poll, (unsigned long)dev);
- 		    cops_timer.expires 	= jiffies + HZ/20;
- 		    add_timer(&cops_timer);
- 		} 
+diff --git a/drivers/net/wireless/rsi/rsi_91x_hal.c b/drivers/net/wireless/rsi/rsi_91x_hal.c
+index 070dfd6..7ad286d 100644
+--- a/drivers/net/wireless/rsi/rsi_91x_hal.c
++++ b/drivers/net/wireless/rsi/rsi_91x_hal.c
+@@ -411,9 +411,8 @@ static void bl_cmd_timeout(unsigned long priv)
+ 
+ static int bl_start_cmd_timer(struct rsi_hw *adapter, u32 timeout)
+ {
+-	init_timer(&adapter->bl_cmd_timer);
+-	adapter->bl_cmd_timer.data = (unsigned long)adapter;
+-	adapter->bl_cmd_timer.function = (void *)&bl_cmd_timeout;
++	setup_timer(&adapter->bl_cmd_timer, (void *)&bl_cmd_timeout,
++		    (unsigned long)adapter);
+ 	adapter->bl_cmd_timer.expires = (msecs_to_jiffies(timeout) + jiffies);
+ 
+ 	adapter->blcmd_timer_expired = false;
 -- 
 2.7.4
