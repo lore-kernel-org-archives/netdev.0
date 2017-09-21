@@ -1,7 +1,7 @@
 From: Allen Pais <allen.lkml@gmail.com>
-Subject: [PATCH 47/64] drivers: net: bnxt: use setup_timer() helper.
-Date: Thu, 21 Sep 2017 22:35:08 +0530
-Message-ID: <1506013525-29291-48-git-send-email-allen.lkml@gmail.com>
+Subject: [PATCH 48/64] drivers: net: amd: use setup_timer() helper.
+Date: Thu, 21 Sep 2017 22:35:09 +0530
+Message-ID: <1506013525-29291-49-git-send-email-allen.lkml@gmail.com>
 References: <1506013525-29291-1-git-send-email-allen.lkml@gmail.com>
 Cc: linux-kernel@vger.kernel.org, m.grzeschik@pengutronix.de,
         dmitry.tarnyagin@lockless.no, wg@grandegger.com,
@@ -14,33 +14,40 @@ Cc: linux-kernel@vger.kernel.org, m.grzeschik@pengutronix.de,
         adi-buildroot-devel@lists.sourceforge.net,
         Allen Pais <allen.lkml@gmail.com>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:36832 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752938AbdIURKr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 13:10:47 -0400
 In-Reply-To: <1506013525-29291-1-git-send-email-allen.lkml@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
     Use setup_timer function instead of initializing timer with the
     function and data fields.
 
 Signed-off-by: Allen Pais <allen.lkml@gmail.com>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt.c | 4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
+ drivers/net/ethernet/amd/a2065.c | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index aacec8b..c25f5b5 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -7190,9 +7190,7 @@ static int bnxt_init_board(struct pci_dev *pdev, struct net_device *dev)
+diff --git a/drivers/net/ethernet/amd/a2065.c b/drivers/net/ethernet/amd/a2065.c
+index e22f976..998d30e 100644
+--- a/drivers/net/ethernet/amd/a2065.c
++++ b/drivers/net/ethernet/amd/a2065.c
+@@ -733,10 +733,9 @@ static int a2065_init_one(struct zorro_dev *z,
+ 	dev->watchdog_timeo = 5*HZ;
+ 	dev->dma = 0;
  
- 	bp->stats_coal_ticks = BNXT_DEF_STATS_COAL_TICKS;
+-	init_timer(&priv->multicast_timer);
+-	priv->multicast_timer.data = (unsigned long) dev;
+-	priv->multicast_timer.function =
+-		(void (*)(unsigned long))lance_set_multicast;
++	setup_timer(&priv->multicast_timer,
++		    (void(*)(unsigned long))lance_set_multicast,
++		    (unsigned long)dev);
  
--	init_timer(&bp->timer);
--	bp->timer.data = (unsigned long)bp;
--	bp->timer.function = bnxt_timer;
-+	setup_timer(&bp->timer, bnxt_timer, (unsigned long)bp);
- 	bp->current_interval = BNXT_TIMER_INTERVAL;
- 
- 	clear_bit(BNXT_STATE_OPEN, &bp->state);
+ 	err = register_netdev(dev);
+ 	if (err) {
 -- 
 2.7.4
