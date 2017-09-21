@@ -1,112 +1,75 @@
-From: Vincent Bernat <vincent@bernat.im>
-Subject: Re: [net-next v3] bridge: trigger RTM_NEWLINK when interface is modified by bridge ioctl
-Date: Thu, 21 Sep 2017 17:45:17 +0200
-Message-ID: <87ingc3vjm.fsf@luffy.cx>
-References: <20170920162140.369bb198@xeon-e3>
-        <20170921100525.20395-1-vincent@bernat.im>
-        <20170921081542.4c266c83@xeon-e3>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH net-next] bpf/verifier: improve disassembly of BPF_END
+ instructions
+Date: Thu, 21 Sep 2017 08:52:17 -0700
+Message-ID: <20170921155215.jta52sesbiq54vri@ast-mbp>
+References: <7013ee9d-a8e6-13fd-cc5f-86cf3d8bf4e0@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Cc: David Ahern <dsahern@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        bridge@lists.linux-foundation.org, netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Daniel Borkmann <daniel@iogearbox.net>
+To: Edward Cree <ecree@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bart.luffy.cx ([78.47.78.131]:32771 "EHLO bart.luffy.cx"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751436AbdIUPpT (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 21 Sep 2017 11:45:19 -0400
-In-Reply-To: <20170921081542.4c266c83@xeon-e3> (Stephen Hemminger's message of
-        "Thu, 21 Sep 2017 08:15:42 -0700")
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:36804 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751436AbdIUPwU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 11:52:20 -0400
+Received: by mail-pg0-f67.google.com with SMTP id d8so3641514pgt.3
+        for <netdev@vger.kernel.org>; Thu, 21 Sep 2017 08:52:20 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <7013ee9d-a8e6-13fd-cc5f-86cf3d8bf4e0@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- =E2=9D=A6 21 septembre 2017 08:15 -0700, Stephen Hemminger <stephen@networ=
-kplumber.org>=C2=A0:
+On Thu, Sep 21, 2017 at 04:09:34PM +0100, Edward Cree wrote:
+> print_bpf_insn() was treating all BPF_ALU[64] the same, but BPF_END has a
+>  different structure: it has a size in insn->imm (even if it's BPF_X) and
+>  uses the BPF_SRC (X or K) to indicate which endianness to use.  So it
+>  needs different code to print it.
+> 
+> Signed-off-by: Edward Cree <ecree@solarflare.com>
+> ---
+> It's not the same format as the new LLVM asm uses, does that matter?
+> AFAIK the LLVM format doesn't comprehend BPF_TO_LE, just assumes that all
+>  endian ops are necessarily swaps (rather than sometimes nops).
 
->> Currently, there is a difference in netlink events received when an
->> interface is modified through bridge ioctl() or through netlink. This
->> patch generates additional events when an interface is added to or
->> removed from a bridge via ioctl().
->>=20
->> When adding then removing an interface from a bridge with netlink, we
->> get:
->>=20
->> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue master b=
-ridge0 state UNKNOWN group default
->>     link/ether 9e:da:60:ee:cf:c8 brd ff:ff:ff:ff:ff:ff
->> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state U=
-NKNOWN
->>     link/ether 9e:da:60:ee:cf:c8
->> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state U=
-NKNOWN
->>     link/ether 9e:da:60:ee:cf:c8
->> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state U=
-NKNOWN
->>     link/ether 9e:da:60:ee:cf:c8
->> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state U=
-NKNOWN
->>     link/ether 9e:da:60:ee:cf:c8
->> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue master b=
-ridge0 state UNKNOWN group default
->>     link/ether 9e:da:60:ee:cf:c8 brd ff:ff:ff:ff:ff:ff
->>=20
->> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue master b=
-ridge0 state UNKNOWN group default
->>     link/ether 9e:da:60:ee:cf:c8 brd ff:ff:ff:ff:ff:ff
->> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state U=
-NKNOWN
->>     link/ether 9e:da:60:ee:cf:c8
->> Deleted 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0=
- state UNKNOWN
->>     link/ether 9e:da:60:ee:cf:c8
->> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue state UN=
-KNOWN group default
->>     link/ether 9e:da:60:ee:cf:c8 brd ff:ff:ff:ff:ff:ff
->>=20
->> When using ioctl():
->>=20
->> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue master b=
-ridge0 state UNKNOWN group default
->>     link/ether 9e:da:60:ee:cf:c8 brd ff:ff:ff:ff:ff:ff
->> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state U=
-NKNOWN
->>     link/ether 9e:da:60:ee:cf:c8
->> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state U=
-NKNOWN
->>     link/ether 9e:da:60:ee:cf:c8
->> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state U=
-NKNOWN
->>     link/ether 9e:da:60:ee:cf:c8
->> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue master b=
-ridge0 state UNKNOWN group default
->>     link/ether 9e:da:60:ee:cf:c8 brd ff:ff:ff:ff:ff:ff
->>=20
->> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue master b=
-ridge0 state UNKNOWN group default
->>     link/ether 9e:da:60:ee:cf:c8 brd ff:ff:ff:ff:ff:ff
->> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state U=
-NKNOWN
->>     link/ether 9e:da:60:ee:cf:c8
->> Deleted 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0=
- state UNKNOWN
->>     link/ether 9e:da:60:ee:cf:c8
->> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue state UN=
-KNOWN group default
->>     link/ether 9e:da:60:ee:cf:c8 brd ff:ff:ff:ff:ff:ff
->>=20
->> Without this patch, the last netlink notification is not sent.
->>=20
->> Signed-off-by: Vincent Bernat <vincent@bernat.im>
->
-> This makes sense, you should probably add a Fixes: tag to help maintainers
-> of long term stable kernels.
->
-> Reviewed-by: Stephen Hemminger <stephen@networkplumber.org>
+that is being fixed and we will fix asm format too.
+Let's pick good format first.
 
-I wouldn't know which commit would be fixed since this is not a
-regression, just a behavior difference.
---=20
-Make sure special cases are truly special.
-            - The Elements of Programming Style (Kernighan & Plauger)
+>  kernel/bpf/verifier.c | 13 +++++++++++--
+>  1 file changed, 11 insertions(+), 2 deletions(-)
+> 
+> diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+> index 799b245..e7657a4 100644
+> --- a/kernel/bpf/verifier.c
+> +++ b/kernel/bpf/verifier.c
+> @@ -331,20 +331,29 @@ static void print_bpf_insn(const struct bpf_verifier_env *env,
+>  	u8 class = BPF_CLASS(insn->code);
+>  
+>  	if (class == BPF_ALU || class == BPF_ALU64) {
+> -		if (BPF_SRC(insn->code) == BPF_X)
+> +		if (BPF_OP(insn->code) == BPF_END) {
+> +			if (class == BPF_ALU64)
+> +				verbose("BUG_alu64_%02x\n", insn->code);
+> +			else
+> +				verbose("(%02x) (u%d) r%d %s %s\n",
+> +					insn->code, insn->imm, insn->dst_reg,
+> +					bpf_alu_string[BPF_END >> 4],
+> +					BPF_SRC(insn->code) == BPF_X ? "be" : "le");
+
+yes the bit the same, but please use BPF_SRC(insn->code) == BPF_TO_BE.
+imo
+(u16) r4 endian be
+isn't intuitive.
+Can we come up with some better syntax?
+Like
+bswap16be r4
+bswap32le r4
+
+or
+
+to_be16 r4
+to_le32 r4
+
+It will be more obvious what's happening.
