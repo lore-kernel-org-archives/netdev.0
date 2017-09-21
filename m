@@ -1,7 +1,7 @@
 From: Allen Pais <allen.lkml@gmail.com>
-Subject: [PATCH 53/64] drivers: net: dscc: use setup_timer() helper.
-Date: Thu, 21 Sep 2017 22:35:14 +0530
-Message-ID: <1506013525-29291-54-git-send-email-allen.lkml@gmail.com>
+Subject: [PATCH 54/64] drivers: net: hdlc_ppp: use setup_timer() helper.
+Date: Thu, 21 Sep 2017 22:35:15 +0530
+Message-ID: <1506013525-29291-55-git-send-email-allen.lkml@gmail.com>
 References: <1506013525-29291-1-git-send-email-allen.lkml@gmail.com>
 Cc: linux-kernel@vger.kernel.org, m.grzeschik@pengutronix.de,
         dmitry.tarnyagin@lockless.no, wg@grandegger.com,
@@ -24,24 +24,23 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Allen Pais <allen.lkml@gmail.com>
 ---
- drivers/net/wan/dscc4.c | 4 +---
+ drivers/net/wan/hdlc_ppp.c | 4 +---
  1 file changed, 1 insertion(+), 3 deletions(-)
 
-diff --git a/drivers/net/wan/dscc4.c b/drivers/net/wan/dscc4.c
-index a043fb1..64f1764 100644
---- a/drivers/net/wan/dscc4.c
-+++ b/drivers/net/wan/dscc4.c
-@@ -1127,10 +1127,8 @@ static int dscc4_open(struct net_device *dev)
- done:
- 	netif_start_queue(dev);
- 
--        init_timer(&dpriv->timer);
-+	setup_timer(&dpriv->timer, dscc4_timer, (unsigned long)dev);
-         dpriv->timer.expires = jiffies + 10*HZ;
--        dpriv->timer.data = (unsigned long)dev;
--	dpriv->timer.function = dscc4_timer;
-         add_timer(&dpriv->timer);
- 	netif_carrier_on(dev);
- 
+diff --git a/drivers/net/wan/hdlc_ppp.c b/drivers/net/wan/hdlc_ppp.c
+index 0d2e00e..c7721c7 100644
+--- a/drivers/net/wan/hdlc_ppp.c
++++ b/drivers/net/wan/hdlc_ppp.c
+@@ -610,9 +610,7 @@ static void ppp_start(struct net_device *dev)
+ 	for (i = 0; i < IDX_COUNT; i++) {
+ 		struct proto *proto = &ppp->protos[i];
+ 		proto->dev = dev;
+-		init_timer(&proto->timer);
+-		proto->timer.function = ppp_timer;
+-		proto->timer.data = (unsigned long)proto;
++		setup_timer(&proto->timer, ppp_timer, (unsigned long)proto);
+ 		proto->state = CLOSED;
+ 	}
+ 	ppp->protos[IDX_LCP].pid = PID_LCP;
 -- 
 2.7.4
