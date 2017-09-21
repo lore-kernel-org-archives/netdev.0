@@ -1,94 +1,126 @@
-From: Vincent Bernat <vincent@bernat.im>
-Subject: [net-next v3] bridge: trigger RTM_NEWLINK when interface is modified by bridge ioctl
-Date: Thu, 21 Sep 2017 12:05:25 +0200
-Message-ID: <20170921100525.20395-1-vincent@bernat.im>
-References: <20170920162140.369bb198@xeon-e3>
-Cc: Vincent Bernat <vincent@bernat.im>
-To: Stephen Hemminger <stephen@networkplumber.org>,
-        David Ahern <dsahern@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        bridge@lists.linux-foundation.org, netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 1/5] net: add support for noref skb->sk
+Date: Thu, 21 Sep 2017 03:35:08 -0700
+Message-ID: <1505990108.29839.117.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <cover.1505926196.git.pabeni@redhat.com>
+         <39b55ec9584df7dfd6eb498a3d354cd2e08e3eaa.1505926196.git.pabeni@redhat.com>
+         <1505929295.29839.103.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1505985297.2560.39.camel@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
+        Florian Westphal <fw@strlen.de>,
+        Eric Dumazet <edumazet@google.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: Paolo Abeni <pabeni@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bart.luffy.cx ([78.47.78.131]:59387 "EHLO bart.luffy.cx"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751709AbdIUKFs (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 21 Sep 2017 06:05:48 -0400
-In-Reply-To: <20170920162140.369bb198@xeon-e3>
+Received: from mail-io0-f196.google.com ([209.85.223.196]:34724 "EHLO
+        mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751605AbdIUKfM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 06:35:12 -0400
+Received: by mail-io0-f196.google.com with SMTP id g32so4852403ioj.1
+        for <netdev@vger.kernel.org>; Thu, 21 Sep 2017 03:35:11 -0700 (PDT)
+In-Reply-To: <1505985297.2560.39.camel@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, there is a difference in netlink events received when an
-interface is modified through bridge ioctl() or through netlink. This
-patch generates additional events when an interface is added to or
-removed from a bridge via ioctl().
+On Thu, 2017-09-21 at 11:14 +0200, Paolo Abeni wrote:
+> Hi,
+> 
+> Thank you for looking at it!
+> 
+> On Wed, 2017-09-20 at 10:41 -0700, Eric Dumazet wrote:
+> > On Wed, 2017-09-20 at 18:54 +0200, Paolo Abeni wrote:
+> > > Noref sk do not carry a socket refcount, are valid
+> > > only inside the current RCU section and must be
+> > > explicitly cleared before exiting such section.
+> > > 
+> > > They will be used in a later patch to allow early demux
+> > > without sock refcounting.
+> > 
+> > 
+> > 
+> > 
+> > > +/* dummy destructor used by noref sockets */
+> > > +void sock_dummyfree(struct sk_buff *skb)
+> > > +{
+> > 
+> > BUG();
+> > 
+> > > +}
+> > > +EXPORT_SYMBOL(sock_dummyfree);
+> > > +
+> 
+> We can call sock_dummyfree() in legitimate paths, see below, but we can
+> add a:
+> 
+> WARN_ON_ONCE(!rcu_read_lock_held());
 
-When adding then removing an interface from a bridge with netlink, we
-get:
+This wont be enough see below.
 
-5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue master bridge0 state UNKNOWN group default
-    link/ether 9e:da:60:ee:cf:c8 brd ff:ff:ff:ff:ff:ff
-5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state UNKNOWN
-    link/ether 9e:da:60:ee:cf:c8
-5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state UNKNOWN
-    link/ether 9e:da:60:ee:cf:c8
-5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state UNKNOWN
-    link/ether 9e:da:60:ee:cf:c8
-5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state UNKNOWN
-    link/ether 9e:da:60:ee:cf:c8
-5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue master bridge0 state UNKNOWN group default
-    link/ether 9e:da:60:ee:cf:c8 brd ff:ff:ff:ff:ff:ff
+> 
+> here and in  skb_clear_noref_sk(). That should help much to catch
+> possible bugs.
+> 
+> > I do not see how you ensure we do not leave RCU section with an skb
+> > destructor pointing to this sock_dummyfree()
+> > 
+> > This patch series looks quite dangerous to me.
+> 
+> The idea is to explicitly clear the sknoref references before leaving
+> the RCU section. Quite alike what we currently do for dst noref, but
+> here the only place where we get a noref socket is the socket early
+> demux, thus the scope of this change is more limited to what we have
+> with noref dst_entries.
+> 
+> The relevant code is in the next 2 patches; after the demux we preserve
+> the sknoref only if the skb has a local destination. The UDP socket
+> will then set the noref on early demux lookup, and the skb will either:
+> 
+> * land on the corresponding UDP socket, the receive function will steal
+> the sknoref
+> * be dropped by some nft/iptables target - the dummy destructor is
+> called
+> * forwarded by some nft/iptables target outside the input path; we
+> clear the skref explicitly in such targets. 
+> 
+> Currently there are an handful of places affected, and we can simplify
+> the code dropping the early demux result for locally terminated
+> multicast sockets on a host acting as a multicast router, please see
+> the comment on the next patch.
+> 
+> > Do we really have real applications using connected UDP sockets and
+> > wanting very high pps throughput ?
+> 
+> The ultimate goal is to improve the unconnected UDP sockets scenario,
+> we do actually have use cases for that - DNS servers and VoIP SBCs.
 
-5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue master bridge0 state UNKNOWN group default
-    link/ether 9e:da:60:ee:cf:c8 brd ff:ff:ff:ff:ff:ff
-5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state UNKNOWN
-    link/ether 9e:da:60:ee:cf:c8
-Deleted 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state UNKNOWN
-    link/ether 9e:da:60:ee:cf:c8
-5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue state UNKNOWN group default
-    link/ether 9e:da:60:ee:cf:c8 brd ff:ff:ff:ff:ff:ff
+Unconnected UDP traffic does not use refcounting on sk _already_.
 
-When using ioctl():
+And SO_REUSEPORT already allows us to handle all the traffic we want
+_already_.
 
-5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue master bridge0 state UNKNOWN group default
-    link/ether 9e:da:60:ee:cf:c8 brd ff:ff:ff:ff:ff:ff
-5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state UNKNOWN
-    link/ether 9e:da:60:ee:cf:c8
-5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state UNKNOWN
-    link/ether 9e:da:60:ee:cf:c8
-5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state UNKNOWN
-    link/ether 9e:da:60:ee:cf:c8
-5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue master bridge0 state UNKNOWN group default
-    link/ether 9e:da:60:ee:cf:c8 brd ff:ff:ff:ff:ff:ff
 
-5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue master bridge0 state UNKNOWN group default
-    link/ether 9e:da:60:ee:cf:c8 brd ff:ff:ff:ff:ff:ff
-5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state UNKNOWN
-    link/ether 9e:da:60:ee:cf:c8
-Deleted 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state UNKNOWN
-    link/ether 9e:da:60:ee:cf:c8
-5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue state UNKNOWN group default
-    link/ether 9e:da:60:ee:cf:c8 brd ff:ff:ff:ff:ff:ff
+Please take a look at 71563f3414e917c62acd8e0fb0edf8ed6af63e4b
 
-Without this patch, the last netlink notification is not sent.
+This might tell you why I am so nervous about your changes.
 
-Signed-off-by: Vincent Bernat <vincent@bernat.im>
----
- net/bridge/br_ioctl.c | 3 +++
- 1 file changed, 3 insertions(+)
+Checking WARN_ON_ONCE(!rcu_read_lock_held());
+is not enough.
 
-diff --git a/net/bridge/br_ioctl.c b/net/bridge/br_ioctl.c
-index 7970f8540cbb..66cd98772051 100644
---- a/net/bridge/br_ioctl.c
-+++ b/net/bridge/br_ioctl.c
-@@ -102,6 +102,9 @@ static int add_del_if(struct net_bridge *br, int ifindex, int isadd)
- 	else
- 		ret = br_del_if(br, dev);
- 
-+	if (!ret)
-+		rtmsg_ifinfo(RTM_NEWLINK, dev, IFF_MASTER, GFP_KERNEL);
-+
- 	return ret;
- }
- 
--- 
-2.14.1
+rcu_read_lock()
+skb->destructor = sock_dummyfree;
+
+queue the packet into an intermediate queue.
+rcu_read_unlock();
+
+....
+
+rcu_read_lock()
+...
+if (skb->sk && skb->sk->state == ...) // crash
+
+Also you covered IPv4, but really we need to forget about IPv4 and focus
+on IPv6 only. And _then_ take care of IPv4 compat.
