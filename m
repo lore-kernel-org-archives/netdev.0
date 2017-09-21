@@ -1,7 +1,7 @@
 From: Allen Pais <allen.lkml@gmail.com>
-Subject: [PATCH 33/64] drivers: net: amd8111e: use setup_timer() helper.
-Date: Thu, 21 Sep 2017 22:34:54 +0530
-Message-ID: <1506013525-29291-34-git-send-email-allen.lkml@gmail.com>
+Subject: [PATCH 34/64] drivers: net: eql: use setup_timer() helper.
+Date: Thu, 21 Sep 2017 22:34:55 +0530
+Message-ID: <1506013525-29291-35-git-send-email-allen.lkml@gmail.com>
 References: <1506013525-29291-1-git-send-email-allen.lkml@gmail.com>
 Cc: linux-kernel@vger.kernel.org, m.grzeschik@pengutronix.de,
         dmitry.tarnyagin@lockless.no, wg@grandegger.com,
@@ -24,24 +24,24 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Allen Pais <allen.lkml@gmail.com>
 ---
- drivers/net/ethernet/amd/amd8111e.c | 5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
+ drivers/net/eql.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/amd/amd8111e.c b/drivers/net/ethernet/amd/amd8111e.c
-index 7b5df56..7f22af6 100644
---- a/drivers/net/ethernet/amd/amd8111e.c
-+++ b/drivers/net/ethernet/amd/amd8111e.c
-@@ -1883,9 +1883,8 @@ static int amd8111e_probe_one(struct pci_dev *pdev,
+diff --git a/drivers/net/eql.c b/drivers/net/eql.c
+index fe13bfe..fccce4b 100644
+--- a/drivers/net/eql.c
++++ b/drivers/net/eql.c
+@@ -178,10 +178,8 @@ static void __init eql_setup(struct net_device *dev)
+ {
+ 	equalizer_t *eql = netdev_priv(dev);
  
- 	/* Initialize software ipg timer */
- 	if(lp->options & OPTION_DYN_IPG_ENABLE){
--		init_timer(&lp->ipg_data.ipg_timer);
--		lp->ipg_data.ipg_timer.data = (unsigned long) dev;
--		lp->ipg_data.ipg_timer.function = (void *)&amd8111e_config_ipg;
-+		setup_timer(&lp->ipg_data.ipg_timer,
-+			    (void *)&amd8111e_config_ipg, (unsigned long)dev);
- 		lp->ipg_data.ipg_timer.expires = jiffies +
- 						 IPG_CONVERGE_JIFFIES;
- 		lp->ipg_data.ipg = DEFAULT_IPG;
+-	init_timer(&eql->timer);
+-	eql->timer.data     	= (unsigned long) eql;
++	setup_timer(&eql->timer, eql_timer, (unsigned long)eql);
+ 	eql->timer.expires  	= jiffies + EQL_DEFAULT_RESCHED_IVAL;
+-	eql->timer.function 	= eql_timer;
+ 
+ 	spin_lock_init(&eql->queue.lock);
+ 	INIT_LIST_HEAD(&eql->queue.all_slaves);
 -- 
 2.7.4
