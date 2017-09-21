@@ -1,60 +1,89 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [net-next 2/2] ifb: add device MTU validation check
-Date: Thu, 21 Sep 2017 08:10:10 -0700
-Message-ID: <20170921081010.4d6f5731@xeon-e3>
-References: <1506000722-40095-1-git-send-email-zhangshengju@cmss.chinamobile.com>
-        <1506000722-40095-3-git-send-email-zhangshengju@cmss.chinamobile.com>
+Subject: Re: [net-next v3] bridge: trigger RTM_NEWLINK when
+ interface is modified by bridge ioctl
+Date: Thu, 21 Sep 2017 08:15:42 -0700
+Message-ID: <20170921081542.4c266c83@xeon-e3>
+References: <20170920162140.369bb198@xeon-e3>
+	<20170921100525.20395-1-vincent@bernat.im>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, willemb@google.com, netdev@vger.kernel.org
-To: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f41.google.com ([74.125.83.41]:55915 "EHLO
-        mail-pg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751652AbdIUPKN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 11:10:13 -0400
-Received: by mail-pg0-f41.google.com with SMTP id b11so3652268pgn.12
-        for <netdev@vger.kernel.org>; Thu, 21 Sep 2017 08:10:12 -0700 (PDT)
-In-Reply-To: <1506000722-40095-3-git-send-email-zhangshengju@cmss.chinamobile.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	David Miller <davem@davemloft.net>, David Ahern <dsahern@gmail.com>
+To: Vincent Bernat <vincent@bernat.im>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20170921100525.20395-1-vincent@bernat.im>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 21 Sep 2017 21:32:02 +0800
-Zhang Shengju <zhangshengju@cmss.chinamobile.com> wrote:
+On Thu, 21 Sep 2017 12:05:25 +0200
+Vincent Bernat <vincent@bernat.im> wrote:
 
-> Currently, any mtu value can be assigned when adding a new ifb device:
-> [~]# ip link add name ifb2 mtu 100000 type ifb
-> [~]# ip link show ifb2
-> 18: ifb2: <BROADCAST,NOARP> mtu 100000 qdisc noop state DOWN mode DEFAULT group default qlen 32
->     link/ether 7a:bf:f4:63:da:d1 brd ff:ff:ff:ff:ff:ff
+> Currently, there is a difference in netlink events received when an
+> interface is modified through bridge ioctl() or through netlink. This
+> patch generates additional events when an interface is added to or
+> removed from a bridge via ioctl().
 > 
-> This patch adds device MTU validation check.
+> When adding then removing an interface from a bridge with netlink, we
+> get:
 > 
-> Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
-> ---
->  drivers/net/ifb.c | 8 ++++++++
->  1 file changed, 8 insertions(+)
+> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue master bridge0 state UNKNOWN group default
+>     link/ether 9e:da:60:ee:cf:c8 brd ff:ff:ff:ff:ff:ff
+> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state UNKNOWN
+>     link/ether 9e:da:60:ee:cf:c8
+> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state UNKNOWN
+>     link/ether 9e:da:60:ee:cf:c8
+> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state UNKNOWN
+>     link/ether 9e:da:60:ee:cf:c8
+> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state UNKNOWN
+>     link/ether 9e:da:60:ee:cf:c8
+> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue master bridge0 state UNKNOWN group default
+>     link/ether 9e:da:60:ee:cf:c8 brd ff:ff:ff:ff:ff:ff
 > 
-> diff --git a/drivers/net/ifb.c b/drivers/net/ifb.c
-> index 8870bd2..ce84ad2 100644
-> --- a/drivers/net/ifb.c
-> +++ b/drivers/net/ifb.c
-> @@ -282,6 +282,14 @@ static int ifb_validate(struct nlattr *tb[], struct nlattr *data[],
->  		if (!is_valid_ether_addr(nla_data(tb[IFLA_ADDRESS])))
->  			return -EADDRNOTAVAIL;
->  	}
-> +
-> +	if (tb[IFLA_MTU]) {
-> +		u32 mtu = nla_get_u32(tb[IFLA_MTU]);
-> +
-> +		if (mtu < ETH_MIN_MTU || mtu > ETH_DATA_LEN)
-> +			return -EINVAL;
-> +	}
-> +
->  	return 0;
->  }
->  
+> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue master bridge0 state UNKNOWN group default
+>     link/ether 9e:da:60:ee:cf:c8 brd ff:ff:ff:ff:ff:ff
+> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state UNKNOWN
+>     link/ether 9e:da:60:ee:cf:c8
+> Deleted 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state UNKNOWN
+>     link/ether 9e:da:60:ee:cf:c8
+> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue state UNKNOWN group default
+>     link/ether 9e:da:60:ee:cf:c8 brd ff:ff:ff:ff:ff:ff
+> 
+> When using ioctl():
+> 
+> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue master bridge0 state UNKNOWN group default
+>     link/ether 9e:da:60:ee:cf:c8 brd ff:ff:ff:ff:ff:ff
+> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state UNKNOWN
+>     link/ether 9e:da:60:ee:cf:c8
+> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state UNKNOWN
+>     link/ether 9e:da:60:ee:cf:c8
+> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state UNKNOWN
+>     link/ether 9e:da:60:ee:cf:c8
+> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue master bridge0 state UNKNOWN group default
+>     link/ether 9e:da:60:ee:cf:c8 brd ff:ff:ff:ff:ff:ff
+> 
+> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue master bridge0 state UNKNOWN group default
+>     link/ether 9e:da:60:ee:cf:c8 brd ff:ff:ff:ff:ff:ff
+> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state UNKNOWN
+>     link/ether 9e:da:60:ee:cf:c8
+> Deleted 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state UNKNOWN
+>     link/ether 9e:da:60:ee:cf:c8
+> 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue state UNKNOWN group default
+>     link/ether 9e:da:60:ee:cf:c8 brd ff:ff:ff:ff:ff:ff
+> 
+> Without this patch, the last netlink notification is not sent.
+> 
+> Signed-off-by: Vincent Bernat <vincent@bernat.im>
 
-What about running ifb with packets coming from devices with jumbo frames?
-Also since ifb is an input only device, MTU doesn't matter.
+This makes sense, you should probably add a Fixes: tag to help maintainers
+of long term stable kernels.
+
+Reviewed-by: Stephen Hemminger <stephen@networkplumber.org>
