@@ -1,7 +1,7 @@
 From: Allen Pais <allen.lkml@gmail.com>
-Subject: [PATCH 55/64] drivers: net: hamradio: use setup_timer() helper.
-Date: Thu, 21 Sep 2017 22:35:16 +0530
-Message-ID: <1506013525-29291-56-git-send-email-allen.lkml@gmail.com>
+Subject: [PATCH 56/64] drivers: net: cpsw_ale: use setup_timer() helper.
+Date: Thu, 21 Sep 2017 22:35:17 +0530
+Message-ID: <1506013525-29291-57-git-send-email-allen.lkml@gmail.com>
 References: <1506013525-29291-1-git-send-email-allen.lkml@gmail.com>
 Cc: linux-kernel@vger.kernel.org, m.grzeschik@pengutronix.de,
         dmitry.tarnyagin@lockless.no, wg@grandegger.com,
@@ -24,23 +24,23 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Allen Pais <allen.lkml@gmail.com>
 ---
- drivers/net/hamradio/6pack.c | 4 +---
+ drivers/net/ethernet/ti/cpsw_ale.c | 4 +---
  1 file changed, 1 insertion(+), 3 deletions(-)
 
-diff --git a/drivers/net/hamradio/6pack.c b/drivers/net/hamradio/6pack.c
-index 021a8ec..97fe8df 100644
---- a/drivers/net/hamradio/6pack.c
-+++ b/drivers/net/hamradio/6pack.c
-@@ -623,9 +623,7 @@ static int sixpack_open(struct tty_struct *tty)
+diff --git a/drivers/net/ethernet/ti/cpsw_ale.c b/drivers/net/ethernet/ti/cpsw_ale.c
+index ddd43e0..cd1185e 100644
+--- a/drivers/net/ethernet/ti/cpsw_ale.c
++++ b/drivers/net/ethernet/ti/cpsw_ale.c
+@@ -859,9 +859,7 @@ void cpsw_ale_start(struct cpsw_ale *ale)
+ 	cpsw_ale_control_set(ale, 0, ALE_ENABLE, 1);
+ 	cpsw_ale_control_set(ale, 0, ALE_CLEAR, 1);
  
- 	netif_start_queue(dev);
- 
--	init_timer(&sp->tx_t);
--	sp->tx_t.function = sp_xmit_on_air;
--	sp->tx_t.data = (unsigned long) sp;
-+	setup_timer(&sp->tx_t, sp_xmit_on_air, (unsigned long)sp);
- 
- 	init_timer(&sp->resync_t);
- 
+-	init_timer(&ale->timer);
+-	ale->timer.data	    = (unsigned long)ale;
+-	ale->timer.function = cpsw_ale_timer;
++	setup_timer(&ale->timer, cpsw_ale_timer, (unsigned long)ale);
+ 	if (ale->ageout) {
+ 		ale->timer.expires = jiffies + ale->ageout;
+ 		add_timer(&ale->timer);
 -- 
 2.7.4
