@@ -1,7 +1,7 @@
 From: Allen Pais <allen.lkml@gmail.com>
-Subject: [PATCH 38/64] drivers: net: ath6kl: use setup_timer() helper.
-Date: Thu, 21 Sep 2017 22:34:59 +0530
-Message-ID: <1506013525-29291-39-git-send-email-allen.lkml@gmail.com>
+Subject: [PATCH 39/64] drivers: net: sun: use setup_timer() helper.
+Date: Thu, 21 Sep 2017 22:35:00 +0530
+Message-ID: <1506013525-29291-40-git-send-email-allen.lkml@gmail.com>
 References: <1506013525-29291-1-git-send-email-allen.lkml@gmail.com>
 Cc: linux-kernel@vger.kernel.org, m.grzeschik@pengutronix.de,
         dmitry.tarnyagin@lockless.no, wg@grandegger.com,
@@ -24,23 +24,23 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Allen Pais <allen.lkml@gmail.com>
 ---
- drivers/net/wireless/ath/ath6kl/txrx.c | 4 +---
+ drivers/net/ethernet/sun/sungem.c | 4 +---
  1 file changed, 1 insertion(+), 3 deletions(-)
 
-diff --git a/drivers/net/wireless/ath/ath6kl/txrx.c b/drivers/net/wireless/ath/ath6kl/txrx.c
-index e6b2517..4e5cc2b 100644
---- a/drivers/net/wireless/ath/ath6kl/txrx.c
-+++ b/drivers/net/wireless/ath/ath6kl/txrx.c
-@@ -1753,9 +1753,7 @@ void aggr_conn_init(struct ath6kl_vif *vif, struct aggr_info *aggr_info,
+diff --git a/drivers/net/ethernet/sun/sungem.c b/drivers/net/ethernet/sun/sungem.c
+index fa607d0..b75ab8f 100644
+--- a/drivers/net/ethernet/sun/sungem.c
++++ b/drivers/net/ethernet/sun/sungem.c
+@@ -2910,9 +2910,7 @@ static int gem_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
  
- 	aggr_conn->aggr_sz = AGGR_SZ_DEFAULT;
- 	aggr_conn->dev = vif->ndev;
--	init_timer(&aggr_conn->timer);
--	aggr_conn->timer.function = aggr_timeout;
--	aggr_conn->timer.data = (unsigned long) aggr_conn;
-+	setup_timer(&aggr_conn->timer, aggr_timeout, (unsigned long)aggr_conn);
- 	aggr_conn->aggr_info = aggr_info;
+ 	gp->msg_enable = DEFAULT_MSG;
  
- 	aggr_conn->timer_scheduled = false;
+-	init_timer(&gp->link_timer);
+-	gp->link_timer.function = gem_link_timer;
+-	gp->link_timer.data = (unsigned long) gp;
++	setup_timer(&gp->link_timer, gem_link_timer, (unsigned long)gp);
+ 
+ 	INIT_WORK(&gp->reset_task, gem_reset_task);
+ 
 -- 
 2.7.4
