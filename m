@@ -1,7 +1,7 @@
 From: Allen Pais <allen.lkml@gmail.com>
-Subject: [PATCH 18/64] drivers: net: cisco_hdlc: use setup_timer() helper.
-Date: Thu, 21 Sep 2017 22:34:39 +0530
-Message-ID: <1506013525-29291-19-git-send-email-allen.lkml@gmail.com>
+Subject: [PATCH 19/64] drivers: net: slip: use setup_timer() helper.
+Date: Thu, 21 Sep 2017 22:34:40 +0530
+Message-ID: <1506013525-29291-20-git-send-email-allen.lkml@gmail.com>
 References: <1506013525-29291-1-git-send-email-allen.lkml@gmail.com>
 Cc: linux-kernel@vger.kernel.org, m.grzeschik@pengutronix.de,
         dmitry.tarnyagin@lockless.no, wg@grandegger.com,
@@ -24,24 +24,27 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Allen Pais <allen.lkml@gmail.com>
 ---
- drivers/net/wan/hdlc_cisco.c | 4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
+ drivers/net/slip/slip.c | 8 ++------
+ 1 file changed, 2 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/wan/hdlc_cisco.c b/drivers/net/wan/hdlc_cisco.c
-index a408abc..c696d42 100644
---- a/drivers/net/wan/hdlc_cisco.c
-+++ b/drivers/net/wan/hdlc_cisco.c
-@@ -293,10 +293,8 @@ static void cisco_start(struct net_device *dev)
- 	st->up = st->txseq = st->rxseq = 0;
- 	spin_unlock_irqrestore(&st->lock, flags);
- 
--	init_timer(&st->timer);
-+	setup_timer(&st->timer, cisco_timer, (unsigned long)dev);
- 	st->timer.expires = jiffies + HZ; /* First poll after 1 s */
--	st->timer.function = cisco_timer;
--	st->timer.data = (unsigned long)dev;
- 	add_timer(&st->timer);
- }
- 
+diff --git a/drivers/net/slip/slip.c b/drivers/net/slip/slip.c
+index 436dd78..eb8a189 100644
+--- a/drivers/net/slip/slip.c
++++ b/drivers/net/slip/slip.c
+@@ -763,12 +763,8 @@ static struct slip *sl_alloc(dev_t line)
+ 	sl->mode        = SL_MODE_DEFAULT;
+ #ifdef CONFIG_SLIP_SMART
+ 	/* initialize timer_list struct */
+-	init_timer(&sl->keepalive_timer);
+-	sl->keepalive_timer.data = (unsigned long)sl;
+-	sl->keepalive_timer.function = sl_keepalive;
+-	init_timer(&sl->outfill_timer);
+-	sl->outfill_timer.data = (unsigned long)sl;
+-	sl->outfill_timer.function = sl_outfill;
++	setup_timer(&sl->keepalive_timer, sl_keepalive, (unsigned long)sl);
++	setup_timer(&sl->outfill_timer, sl_outfill, (unsigned long)sl);
+ #endif
+ 	slip_devs[i] = dev;
+ 	return sl;
 -- 
 2.7.4
