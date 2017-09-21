@@ -1,7 +1,7 @@
 From: Allen Pais <allen.lkml@gmail.com>
-Subject: [PATCH 54/64] drivers: net: hdlc_ppp: use setup_timer() helper.
-Date: Thu, 21 Sep 2017 22:35:15 +0530
-Message-ID: <1506013525-29291-55-git-send-email-allen.lkml@gmail.com>
+Subject: [PATCH 55/64] drivers: net: hamradio: use setup_timer() helper.
+Date: Thu, 21 Sep 2017 22:35:16 +0530
+Message-ID: <1506013525-29291-56-git-send-email-allen.lkml@gmail.com>
 References: <1506013525-29291-1-git-send-email-allen.lkml@gmail.com>
 Cc: linux-kernel@vger.kernel.org, m.grzeschik@pengutronix.de,
         dmitry.tarnyagin@lockless.no, wg@grandegger.com,
@@ -24,23 +24,23 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Allen Pais <allen.lkml@gmail.com>
 ---
- drivers/net/wan/hdlc_ppp.c | 4 +---
+ drivers/net/hamradio/6pack.c | 4 +---
  1 file changed, 1 insertion(+), 3 deletions(-)
 
-diff --git a/drivers/net/wan/hdlc_ppp.c b/drivers/net/wan/hdlc_ppp.c
-index 0d2e00e..c7721c7 100644
---- a/drivers/net/wan/hdlc_ppp.c
-+++ b/drivers/net/wan/hdlc_ppp.c
-@@ -610,9 +610,7 @@ static void ppp_start(struct net_device *dev)
- 	for (i = 0; i < IDX_COUNT; i++) {
- 		struct proto *proto = &ppp->protos[i];
- 		proto->dev = dev;
--		init_timer(&proto->timer);
--		proto->timer.function = ppp_timer;
--		proto->timer.data = (unsigned long)proto;
-+		setup_timer(&proto->timer, ppp_timer, (unsigned long)proto);
- 		proto->state = CLOSED;
- 	}
- 	ppp->protos[IDX_LCP].pid = PID_LCP;
+diff --git a/drivers/net/hamradio/6pack.c b/drivers/net/hamradio/6pack.c
+index 021a8ec..97fe8df 100644
+--- a/drivers/net/hamradio/6pack.c
++++ b/drivers/net/hamradio/6pack.c
+@@ -623,9 +623,7 @@ static int sixpack_open(struct tty_struct *tty)
+ 
+ 	netif_start_queue(dev);
+ 
+-	init_timer(&sp->tx_t);
+-	sp->tx_t.function = sp_xmit_on_air;
+-	sp->tx_t.data = (unsigned long) sp;
++	setup_timer(&sp->tx_t, sp_xmit_on_air, (unsigned long)sp);
+ 
+ 	init_timer(&sp->resync_t);
+ 
 -- 
 2.7.4
