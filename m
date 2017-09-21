@@ -1,38 +1,94 @@
 From: Vincent Bernat <vincent@bernat.im>
-Subject: Re: [PATCH net-next v2] bridge: also trigger RTM_NEWLINK when interface is released from bridge
-Date: Thu, 21 Sep 2017 12:04:15 +0200
-Message-ID: <87h8vw5pwg.fsf@luffy.cx>
-References: <m3zi9vbrfp.fsf@luffy.cx>
-        <20170916141833.28344-1-vincent@bernat.im>
-        <20170920.140956.781667692297467325.davem@davemloft.net>
-        <16e5566a-909d-ba83-7637-1fb6c93126bc@gmail.com>
-        <20170920162140.369bb198@xeon-e3>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Cc: David Ahern <dsahern@gmail.com>,
+Subject: [net-next v3] bridge: trigger RTM_NEWLINK when interface is modified by bridge ioctl
+Date: Thu, 21 Sep 2017 12:05:25 +0200
+Message-ID: <20170921100525.20395-1-vincent@bernat.im>
+References: <20170920162140.369bb198@xeon-e3>
+Cc: Vincent Bernat <vincent@bernat.im>
+To: Stephen Hemminger <stephen@networkplumber.org>,
+        David Ahern <dsahern@gmail.com>,
         David Miller <davem@davemloft.net>,
         bridge@lists.linux-foundation.org, netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bart.luffy.cx ([78.47.78.131]:59367 "EHLO bart.luffy.cx"
+Received: from bart.luffy.cx ([78.47.78.131]:59387 "EHLO bart.luffy.cx"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751387AbdIUKEV (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 21 Sep 2017 06:04:21 -0400
-In-Reply-To: <20170920162140.369bb198@xeon-e3> (Stephen Hemminger's message of
-        "Wed, 20 Sep 2017 16:21:40 -0700")
+        id S1751709AbdIUKFs (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 21 Sep 2017 06:05:48 -0400
+In-Reply-To: <20170920162140.369bb198@xeon-e3>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- =E2=9D=A6 20 septembre 2017 16:21 -0700, Stephen Hemminger <stephen@networ=
-kplumber.org>=C2=A0:
+Currently, there is a difference in netlink events received when an
+interface is modified through bridge ioctl() or through netlink. This
+patch generates additional events when an interface is added to or
+removed from a bridge via ioctl().
 
-> The one concern is that ports added or removed through ioctl should
-> cause same events as doing the same thing via netlink. Some users use
-> brctl (ioctl) and others use newer bridge (netlink) API.
+When adding then removing an interface from a bridge with netlink, we
+get:
 
-I'll make a third iteration to have the same notifications when using
-ioctl() with details in the commit message.
---=20
-When in doubt, tell the truth.
-		-- Mark Twain
+5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue master bridge0 state UNKNOWN group default
+    link/ether 9e:da:60:ee:cf:c8 brd ff:ff:ff:ff:ff:ff
+5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state UNKNOWN
+    link/ether 9e:da:60:ee:cf:c8
+5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state UNKNOWN
+    link/ether 9e:da:60:ee:cf:c8
+5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state UNKNOWN
+    link/ether 9e:da:60:ee:cf:c8
+5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state UNKNOWN
+    link/ether 9e:da:60:ee:cf:c8
+5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue master bridge0 state UNKNOWN group default
+    link/ether 9e:da:60:ee:cf:c8 brd ff:ff:ff:ff:ff:ff
+
+5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue master bridge0 state UNKNOWN group default
+    link/ether 9e:da:60:ee:cf:c8 brd ff:ff:ff:ff:ff:ff
+5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state UNKNOWN
+    link/ether 9e:da:60:ee:cf:c8
+Deleted 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state UNKNOWN
+    link/ether 9e:da:60:ee:cf:c8
+5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue state UNKNOWN group default
+    link/ether 9e:da:60:ee:cf:c8 brd ff:ff:ff:ff:ff:ff
+
+When using ioctl():
+
+5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue master bridge0 state UNKNOWN group default
+    link/ether 9e:da:60:ee:cf:c8 brd ff:ff:ff:ff:ff:ff
+5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state UNKNOWN
+    link/ether 9e:da:60:ee:cf:c8
+5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state UNKNOWN
+    link/ether 9e:da:60:ee:cf:c8
+5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state UNKNOWN
+    link/ether 9e:da:60:ee:cf:c8
+5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue master bridge0 state UNKNOWN group default
+    link/ether 9e:da:60:ee:cf:c8 brd ff:ff:ff:ff:ff:ff
+
+5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue master bridge0 state UNKNOWN group default
+    link/ether 9e:da:60:ee:cf:c8 brd ff:ff:ff:ff:ff:ff
+5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state UNKNOWN
+    link/ether 9e:da:60:ee:cf:c8
+Deleted 5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 master bridge0 state UNKNOWN
+    link/ether 9e:da:60:ee:cf:c8
+5: dummy1: <BROADCAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc noqueue state UNKNOWN group default
+    link/ether 9e:da:60:ee:cf:c8 brd ff:ff:ff:ff:ff:ff
+
+Without this patch, the last netlink notification is not sent.
+
+Signed-off-by: Vincent Bernat <vincent@bernat.im>
+---
+ net/bridge/br_ioctl.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/net/bridge/br_ioctl.c b/net/bridge/br_ioctl.c
+index 7970f8540cbb..66cd98772051 100644
+--- a/net/bridge/br_ioctl.c
++++ b/net/bridge/br_ioctl.c
+@@ -102,6 +102,9 @@ static int add_del_if(struct net_bridge *br, int ifindex, int isadd)
+ 	else
+ 		ret = br_del_if(br, dev);
+ 
++	if (!ret)
++		rtmsg_ifinfo(RTM_NEWLINK, dev, IFF_MASTER, GFP_KERNEL);
++
+ 	return ret;
+ }
+ 
+-- 
+2.14.1
