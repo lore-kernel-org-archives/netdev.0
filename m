@@ -1,144 +1,55 @@
-From: Franklin S Cooper Jr <fcooper@ti.com>
-Subject: Re: [RFC PATCH] can: m_can: Support higher speed CAN-FD bitrates
-Date: Wed, 20 Sep 2017 19:48:50 -0500
-Message-ID: <ed19ead3-d8f6-c027-74cf-8aee131c8a59@ti.com>
-References: <20170818193947.27862-1-fcooper@ti.com>
- <4f8f6b64-b2a2-b9dc-665c-f1c155daf994@ti.com>
- <a7e301a7-bc54-c348-bdb1-b6a0af41665f@ti.com>
- <532e09ae-775d-e8aa-e468-78e148c650da@Microchip.com>
- <88d4ddc4-b786-0205-6852-56e93182a1c9@ti.com>
- <e3a7d9a1-d75c-a39e-f122-73fced02a1dc@gmx.net>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2] tc: fq: support low_rate_threshold attribute
+Date: Wed, 20 Sep 2017 17:53:05 -0700
+Message-ID: <20170920175305.105544f7@xeon-e3>
+References: <1504905179.15310.101.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: Wenyou Yang <wenyou.yang@atmel.com>,
-        Dong Aisheng <b29396@freescale.com>
-To: =?UTF-8?Q?Mario_H=c3=bcttel?= <mario.huettel@gmx.net>,
-        "Yang, Wenyou" <Wenyou.Yang@Microchip.com>,
-        Sekhar Nori <nsekhar@ti.com>, <wg@grandegger.com>,
-        <mkl@pengutronix.de>, <socketcan@hartkopp.net>,
-        <quentin.schulz@free-electrons.com>, <edumazet@google.com>,
-        <linux-can@vger.kernel.org>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <e3a7d9a1-d75c-a39e-f122-73fced02a1dc@gmx.net>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+        Neal Cardwell <ncardwell@google.com>,
+        Soheil Hassas Yeganeh <soheil@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f171.google.com ([209.85.192.171]:54617 "EHLO
+        mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751795AbdIUAxI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2017 20:53:08 -0400
+Received: by mail-pf0-f171.google.com with SMTP id d187so2379017pfg.11
+        for <netdev@vger.kernel.org>; Wed, 20 Sep 2017 17:53:08 -0700 (PDT)
+In-Reply-To: <1504905179.15310.101.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Fri, 08 Sep 2017 14:12:59 -0700
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> TCA_FQ_LOW_RATE_THRESHOLD sch_fq attribute was added in linux-4.9
+> 
+> Tested:
+> 
+> lpaa5:/tmp# tc -qd add dev eth1 root fq
+> lpaa5:/tmp# tc -s qd sh dev eth1
+> qdisc fq 8003: root refcnt 5 limit 10000p flow_limit 1000p buckets 4096 \
+>  orphan_mask 4095 bands 3 priomap 1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1 quantum 3648 \
+>  initial_quantum 18240 low_rate_threshold 550Kbit refill_delay 40.0ms
+>  Sent 62139 bytes 395 pkt (dropped 0, overlimits 0 requeues 0)
+>  backlog 0b 0p requeues 0
+>   116 flows (114 inactive, 0 throttled)
+>   1 gc, 0 highprio, 0 throttled
+>     
+> lpaa5:/tmp# ./netperf -H lpaa6 -t TCP_RR -l10 -- -q 500000 -r 300,300 -o P99_LATENCY
+> 99th Percentile Latency Microseconds
+> 7081
+>     
+> lpaa5:/tmp# tc qd replace dev eth1 root fq low_rate_threshold 10Mbit
+> lpaa5:/tmp# ./netperf -H lpaa6 -t TCP_RR -l10 -- -q 500000 -r 300,300 -o P99_LATENCY
+> 99th Percentile Latency Microseconds
+> 858
+> 
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-On 09/20/2017 04:37 PM, Mario Hüttel wrote:
-> 
-> 
-> On 09/20/2017 10:19 PM, Franklin S Cooper Jr wrote:
->> Hi Wenyou,
->>
->> On 09/17/2017 10:47 PM, Yang, Wenyou wrote:
->>>
->>> On 2017/9/14 13:06, Sekhar Nori wrote:
->>>> On Thursday 14 September 2017 03:28 AM, Franklin S Cooper Jr wrote:
->>>>> On 08/18/2017 02:39 PM, Franklin S Cooper Jr wrote:
->>>>>> During test transmitting using CAN-FD at high bitrates (4 Mbps) only
->>>>>> resulted in errors. Scoping the signals I noticed that only a single
->>>>>> bit
->>>>>> was being transmitted and with a bit more investigation realized the
->>>>>> actual
->>>>>> MCAN IP would go back to initialization mode automatically.
->>>>>>
->>>>>> It appears this issue is due to the MCAN needing to use the Transmitter
->>>>>> Delay Compensation Mode as defined in the MCAN User's Guide. When this
->>>>>> mode is used the User's Guide indicates that the Transmitter Delay
->>>>>> Compensation Offset register should be set. The document mentions
->>>>>> that this
->>>>>> register should be set to (1/dbitrate)/2*(Func Clk Freq).
->>>>>>
->>>>>> Additional CAN-CIA's "Bit Time Requirements for CAN FD" document
->>>>>> indicates
->>>>>> that this TDC mode is only needed for data bit rates above 2.5 Mbps.
->>>>>> Therefore, only enable this mode and only set TDCO when the data bit
->>>>>> rate
->>>>>> is above 2.5 Mbps.
->>>>>>
->>>>>> Signed-off-by: Franklin S Cooper Jr <fcooper@ti.com>
->>>>>> ---
->>>>>> I'm pretty surprised that this hasn't been implemented already since
->>>>>> the primary purpose of CAN-FD is to go beyond 1 Mbps and the MCAN IP
->>>>>> supports up to 10 Mbps.
->>>>>>
->>>>>> So it will be nice to get comments from users of this driver to
->>>>>> understand
->>>>>> if they have been able to use CAN-FD beyond 2.5 Mbps without this
->>>>>> patch.
->>>>>> If they haven't what did they do to get around it if they needed higher
->>>>>> speeds.
->>>>>>
->>>>>> Meanwhile I plan on testing this using a more "realistic" CAN bus to
->>>>>> insure
->>>>>> everything still works at 5 Mbps which is the max speed of my CAN
->>>>>> transceiver.
->>>>> ping. Anyone has any thoughts on this?
->>>> I added Dong who authored the m_can driver and Wenyou who added the only
->>>> in-kernel user of the driver for any help.
->>> I tested it on SAMA5D2 Xplained board both with and without this patch, 
->>> both work with the 4M bps data bit rate.
->> Thank you for testing this out. Its interesting that you have been able
->> to use higher speeds without this patch. What is the CAN transceiver
->> being used on the SAMA5D2 Xplained board? I tried looking at the
->> schematic but it seems the CAN signals are used on an extension board
->> which I can't find the schematic for. Also do you mind sharing your test
->> setup? Were you doing a short point to point test?
->>
->> Thank You,
->> Franklin
-> Hello Franklin,
-> 
-> your patch definitely makes sense.
-> 
-> I forgot the TDC in my patches because it was not present in the
-> previous driver versions and because I didn't encounter any
-> problems when testing it myself.
-> 
-> The error is highly dependent on the hardware (transceiver) setup.
-> So it is definitely possible that some people don't encounter errors
-> without your patch.
-
-So the Transmission Delay Compensation feature Value register is suppose
-to take into consideration the transceiver delay automatically and add
-the value of TDCO on top of that. So why would TDCO be dependent on the
-transceiver? I've heard conflicting things regarding TDC so any
-clarification on what actually impacts it would be appreciated.
-
-Also part of the issue I'm having is how can we properly configure TDCO?
-Configuring TDCO is essentially figuring out what Secondary Sample Point
-to use. However, it is unclear what value to set SSP to and which use
-cases a given SSP will work or doesn't work. I've seen various
-recommendations from Bosch on choosing SSP but ultimately it seems they
-suggestion "real world testing" to come up with a proper value. Not
-setting TDCO causes problems for my device and improperly setting TDCO
-causes problems for my device. So its likely any value I use could end
-up breaking something for someone else.
-
-Currently I leaning to a DT property that can be used for setting SSP.
-Perhaps use a generic default value and allow individuals to override it
-via DT?
-> 
-> Could you clarify what you meant with
->> Scoping the signals I noticed that only a single bit was being transmitted 
-> 
-> Do you mean one data bit (high bit rate)  or did the core already fail
-> in the arbitration phase?
-
-A single bit during the arbitration phase. Essentially the Start of
-Frame bit is sent and then nothing else and the IP resets.
-> 
-> There is also another aspect that can lead to errors:
-> 
-> If the CAN clock 'cclk' is above the frequency of the interface/logic
-> clock 'hclk', the clock domain crossing of the CAN messages can't
-> work properly. However, I will throw this topic as an extra e-mail into
-> the round.
-> 
-> Mario
-> 
->  
-> 
+Applied
