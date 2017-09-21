@@ -1,152 +1,357 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [patch net-next 03/12] ipmr: Add FIB notification access
- functions
-Date: Thu, 21 Sep 2017 14:19:10 +0300
-Message-ID: <24470459-704b-89a2-648a-bbd4d3a1aebb@cumulusnetworks.com>
-References: <20170921064338.1282-1-jiri@resnulli.us>
- <20170921064338.1282-4-jiri@resnulli.us>
+From: Yunsheng Lin <linyunsheng@huawei.com>
+Subject: Re: [PATCH net 2/4] net:ethernet:aquantia: Fix Tx queue hangups
+Date: Thu, 21 Sep 2017 19:19:06 +0800
+Message-ID: <024e7fb3-9b53-f4f2-3901-38a63c47d76c@huawei.com>
+References: <cover.1505915085.git.igor.russkikh@aquantia.com>
+ <cef3863edd8d504d7406f781c97260c52f21e156.1505915085.git.igor.russkikh@aquantia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, yotamg@mellanox.com, idosch@mellanox.com,
-        mlxsw@mellanox.com
-To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
+Cc: <netdev@vger.kernel.org>, David Arcari <darcari@redhat.com>,
+        Pavel Belous <Pavel.Belous@aquantia.com>,
+        Nadezhda Krupnina <Nadezhda.Krupnina@aquantia.com>,
+        Simon Edelhaus <simon.edelhaus@aquantia.com>
+To: Igor Russkikh <igor.russkikh@aquantia.com>,
+        "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f182.google.com ([209.85.128.182]:51289 "EHLO
-        mail-wr0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751652AbdIULTO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 07:19:14 -0400
-Received: by mail-wr0-f182.google.com with SMTP id z39so4286412wrb.8
-        for <netdev@vger.kernel.org>; Thu, 21 Sep 2017 04:19:13 -0700 (PDT)
-In-Reply-To: <20170921064338.1282-4-jiri@resnulli.us>
+Received: from szxga04-in.huawei.com ([45.249.212.190]:6949 "EHLO
+        szxga04-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751450AbdIULTk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 07:19:40 -0400
+In-Reply-To: <cef3863edd8d504d7406f781c97260c52f21e156.1505915085.git.igor.russkikh@aquantia.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 21/09/17 09:43, Jiri Pirko wrote:
-> From: Yotam Gigi <yotamg@mellanox.com>
+Hi, Igor
+
+On 2017/9/21 18:53, Igor Russkikh wrote:
+> Driver did a poor job in managing its Tx queues: Sometimes it could stop
+> tx queues due to link down condition in aq_nic_xmit - but never waked up
+> them. That led to Tx path total suspend.
+> This patch fixes this and improves generic queue management:
+> - introduces queue restart counter
+> - uses generic netif_ interface to disable and enable tx path
+> - refactors link up/down condition and introduces dmesg log event when
+>   link changes.
+> - introduces new constant for minimum descriptors count required for queue
+>   wakeup
 > 
-> Make the ipmr module register as a FIB notifier. To do that, implement both
-> the ipmr_seq_read and ipmr_dump ops.
-> 
-> The ipmr_seq_read op returns a sequence counter that is incremented on
-> every notification related operation done by the ipmr. To implement that,
-> add a sequence counter in the netns_ipv4 struct and increment it whenever a
-> new MFC route or VIF are added or deleted. The sequence operations are
-> protected by the RTNL lock.
-> 
-> The ipmr_dump iterates the list of MFC routes and the list of VIF entries
-> and sends notifications about them. The entries dump is done under RCU.
-> 
-> Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
-> Reviewed-by: Ido Schimmel <idosch@mellanox.com>
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+> Signed-off-by: Pavel Belous <Pavel.Belous@aquantia.com>
+> Signed-off-by: Igor Russkikh <igor.russkikh@aquantia.com>
 > ---
->  include/linux/mroute.h   |  15 ++++++
->  include/net/netns/ipv4.h |   3 ++
->  net/ipv4/ipmr.c          | 135 ++++++++++++++++++++++++++++++++++++++++++++++-
->  3 files changed, 151 insertions(+), 2 deletions(-)
+>  drivers/net/ethernet/aquantia/atlantic/aq_cfg.h  |  4 ++
+>  drivers/net/ethernet/aquantia/atlantic/aq_nic.c  | 91 +++++++++++-------------
+>  drivers/net/ethernet/aquantia/atlantic/aq_nic.h  |  2 -
+>  drivers/net/ethernet/aquantia/atlantic/aq_ring.c | 26 +++++++
+>  drivers/net/ethernet/aquantia/atlantic/aq_ring.h |  4 ++
+>  drivers/net/ethernet/aquantia/atlantic/aq_vec.c  |  8 +--
+>  6 files changed, 76 insertions(+), 59 deletions(-)
 > 
-[snip]
+> diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_cfg.h b/drivers/net/ethernet/aquantia/atlantic/aq_cfg.h
+> index 2149864..0fdaaa6 100644
+> --- a/drivers/net/ethernet/aquantia/atlantic/aq_cfg.h
+> +++ b/drivers/net/ethernet/aquantia/atlantic/aq_cfg.h
+> @@ -51,6 +51,10 @@
+>  
+>  #define AQ_CFG_SKB_FRAGS_MAX   32U
+>  
+> +/* Number of descriptors available in one ring to resume this ring queue
+> + */
+> +#define AQ_CFG_RESTART_DESC_THRES   (AQ_CFG_SKB_FRAGS_MAX * 2)
 > +
-> +static int ipmr_dump(struct net *net, struct notifier_block *nb)
+>  #define AQ_CFG_NAPI_WEIGHT     64U
+>  
+>  #define AQ_CFG_MULTICAST_ADDRESS_MAX     32U
+> diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_nic.c b/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
+> index f281392..24f573c 100644
+> --- a/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
+> +++ b/drivers/net/ethernet/aquantia/atlantic/aq_nic.c
+> @@ -119,6 +119,35 @@ int aq_nic_cfg_start(struct aq_nic_s *self)
+>  	return 0;
+>  }
+>  
+> +static int aq_nic_update_link_status(struct aq_nic_s *self)
 > +{
-> +	struct mr_table *mrt;
-> +	int err;
+> +	int err = self->aq_hw_ops.hw_get_link_status(self->aq_hw);
 > +
-> +	err = ipmr_rules_dump(net, nb);
-> +	if (err)
-> +		return err;
-> +
-> +	ipmr_for_each_table(mrt, net) {
-> +		struct vif_device *v = &mrt->vif_table[0];
-> +		struct mfc_cache *mfc;
-> +		int vifi;
-> +
-> +		/* Notifiy on table VIF entries */
-> +		for (vifi = 0; vifi < mrt->maxvif; vifi++, v++) {
-> +			if (!v->dev)
-> +				continue;
-> +
-> +			call_ipmr_vif_entry_notifier(nb, net, FIB_EVENT_VIF_ADD,
-> +						     v, vifi, mrt->id);
-> +		}
+> +	if (err < 0)
+> +		return -1;
 
-The VIF table is protected by mrt_lock (rwlock), here with RCU only
-you're not guaranteed to keep v->dev. It can become NULL after the check above.
-For details you can see vif_delete() in net/ipv4/ipmr.c. You need at least
-mrt_lock for reading.
+
+why not just return err?
 
 > +
-> +		/* Notify on table MFC entries */
-> +		list_for_each_entry_rcu(mfc, &mrt->mfc_cache_list, list)
-> +			call_ipmr_mfc_entry_notifier(nb, net,
-> +						     FIB_EVENT_ENTRY_ADD, mfc,
-> +						     mrt->id);
+> +	if (self->link_status.mbps != self->aq_hw->aq_link_status.mbps)
+> +		pr_info("%s: link change old %d new %d\n",
+> +			AQ_CFG_DRV_NAME, self->link_status.mbps,
+> +			self->aq_hw->aq_link_status.mbps);
+
+You has ndev in struct aq_nic_s *self, why not use netdev_*?
+
+
+> +
+> +	self->link_status = self->aq_hw->aq_link_status;
+> +	if (!netif_carrier_ok(self->ndev) && self->link_status.mbps) {
+> +		aq_utils_obj_set(&self->header.flags,
+> +				 AQ_NIC_FLAG_STARTED);
+> +		aq_utils_obj_clear(&self->header.flags,
+> +				   AQ_NIC_LINK_DOWN);
+> +		netif_carrier_on(self->ndev);
+> +		netif_tx_wake_all_queues(self->ndev);
 > +	}
-> +
+> +	if (netif_carrier_ok(self->ndev) && !self->link_status.mbps) {
+> +		netif_carrier_off(self->ndev);
+> +		netif_tx_disable(self->ndev);
+> +		aq_utils_obj_set(&self->header.flags, AQ_NIC_LINK_DOWN);
+> +	}
 > +	return 0;
 > +}
 > +
-> +static const struct fib_notifier_ops ipmr_notifier_ops_template = {
-> +	.family		= RTNL_FAMILY_IPMR,
-> +	.fib_seq_read	= ipmr_seq_read,
-> +	.fib_dump	= ipmr_dump,
-> +	.owner		= THIS_MODULE,
-> +};
-> +
-> +int __net_init ipmr_notifier_init(struct net *net)
-> +{
-> +	struct fib_notifier_ops *ops;
-> +
-> +	net->ipv4.ipmr_seq = 0;
-> +
-> +	ops = fib_notifier_ops_register(&ipmr_notifier_ops_template, net);
-> +	if (IS_ERR(ops))
-> +		return PTR_ERR(ops);
-> +	net->ipv4.ipmr_notifier_ops = ops;
-> +
-> +	return 0;
-> +}
-> +
-> +static void __net_exit ipmr_notifier_exit(struct net *net)
-> +{
-> +	fib_notifier_ops_unregister(net->ipv4.ipmr_notifier_ops);
-> +	net->ipv4.ipmr_notifier_ops = NULL;
-> +}
-> +
->  /* Setup for IP multicast routing */
->  static int __net_init ipmr_net_init(struct net *net)
+>  static void aq_nic_service_timer_cb(unsigned long param)
 >  {
->  	int err;
+>  	struct aq_nic_s *self = (struct aq_nic_s *)param;
+> @@ -131,26 +160,13 @@ static void aq_nic_service_timer_cb(unsigned long param)
+>  	if (aq_utils_obj_test(&self->header.flags, AQ_NIC_FLAGS_IS_NOT_READY))
+>  		goto err_exit;
 >  
-> +	err = ipmr_notifier_init(net);
+> -	err = self->aq_hw_ops.hw_get_link_status(self->aq_hw);
+> -	if (err < 0)
+> +	err = aq_nic_update_link_status(self);
 > +	if (err)
-> +		goto ipmr_notifier_fail;
-> +
->  	err = ipmr_rules_init(net);
->  	if (err < 0)
-> -		goto fail;
-> +		goto ipmr_rules_fail;
+>  		goto err_exit;
 >  
->  #ifdef CONFIG_PROC_FS
->  	err = -ENOMEM;
-> @@ -3074,7 +3202,9 @@ static int __net_init ipmr_net_init(struct net *net)
->  proc_vif_fail:
->  	ipmr_rules_exit(net);
->  #endif
-> -fail:
-> +ipmr_rules_fail:
-> +	ipmr_notifier_exit(net);
-> +ipmr_notifier_fail:
+> -	self->link_status = self->aq_hw->aq_link_status;
+> -
+>  	self->aq_hw_ops.hw_interrupt_moderation_set(self->aq_hw,
+>  		    self->aq_nic_cfg.is_interrupt_moderation);
+>  
+> -	if (self->link_status.mbps) {
+> -		aq_utils_obj_set(&self->header.flags,
+> -				 AQ_NIC_FLAG_STARTED);
+> -		aq_utils_obj_clear(&self->header.flags,
+> -				   AQ_NIC_LINK_DOWN);
+> -		netif_carrier_on(self->ndev);
+> -	} else {
+> -		netif_carrier_off(self->ndev);
+> -		aq_utils_obj_set(&self->header.flags, AQ_NIC_LINK_DOWN);
+> -	}
+> -
+>  	memset(&stats_rx, 0U, sizeof(struct aq_ring_stats_rx_s));
+>  	memset(&stats_tx, 0U, sizeof(struct aq_ring_stats_tx_s));
+>  	for (i = AQ_DIMOF(self->aq_vec); i--;) {
+> @@ -240,7 +256,6 @@ struct aq_nic_s *aq_nic_alloc_cold(const struct net_device_ops *ndev_ops,
+>  int aq_nic_ndev_register(struct aq_nic_s *self)
+>  {
+>  	int err = 0;
+> -	unsigned int i = 0U;
+>  
+>  	if (!self->ndev) {
+>  		err = -EINVAL;
+> @@ -262,8 +277,7 @@ int aq_nic_ndev_register(struct aq_nic_s *self)
+>  
+>  	netif_carrier_off(self->ndev);
+>  
+> -	for (i = AQ_CFG_VECS_MAX; i--;)
+> -		aq_nic_ndev_queue_stop(self, i);
+> +	netif_tx_disable(self->ndev);
+>  
+>  	err = register_netdev(self->ndev);
+>  	if (err < 0)
+> @@ -319,12 +333,8 @@ struct aq_nic_s *aq_nic_alloc_hot(struct net_device *ndev)
+>  		err = -EINVAL;
+>  		goto err_exit;
+>  	}
+> -	if (netif_running(ndev)) {
+> -		unsigned int i;
+> -
+> -		for (i = AQ_CFG_VECS_MAX; i--;)
+> -			netif_stop_subqueue(ndev, i);
+> -	}
+> +	if (netif_running(ndev))
+> +		netif_tx_disable(ndev);
+>  
+>  	for (self->aq_vecs = 0; self->aq_vecs < self->aq_nic_cfg.vecs;
+>  		self->aq_vecs++) {
+> @@ -384,16 +394,6 @@ int aq_nic_init(struct aq_nic_s *self)
 >  	return err;
 >  }
 >  
-> @@ -3084,6 +3214,7 @@ static void __net_exit ipmr_net_exit(struct net *net)
->  	remove_proc_entry("ip_mr_cache", net->proc_net);
->  	remove_proc_entry("ip_mr_vif", net->proc_net);
->  #endif
-> +	ipmr_notifier_exit(net);
->  	ipmr_rules_exit(net);
+> -void aq_nic_ndev_queue_start(struct aq_nic_s *self, unsigned int idx)
+> -{
+> -	netif_start_subqueue(self->ndev, idx);
+> -}
+> -
+> -void aq_nic_ndev_queue_stop(struct aq_nic_s *self, unsigned int idx)
+> -{
+> -	netif_stop_subqueue(self->ndev, idx);
+> -}
+> -
+>  int aq_nic_start(struct aq_nic_s *self)
+>  {
+>  	struct aq_vec_s *aq_vec = NULL;
+> @@ -452,10 +452,6 @@ int aq_nic_start(struct aq_nic_s *self)
+>  			goto err_exit;
+>  	}
+>  
+> -	for (i = 0U, aq_vec = self->aq_vec[0];
+> -		self->aq_vecs > i; ++i, aq_vec = self->aq_vec[i])
+> -		aq_nic_ndev_queue_start(self, i);
+> -
+>  	err = netif_set_real_num_tx_queues(self->ndev, self->aq_vecs);
+>  	if (err < 0)
+>  		goto err_exit;
+> @@ -464,6 +460,8 @@ int aq_nic_start(struct aq_nic_s *self)
+>  	if (err < 0)
+>  		goto err_exit;
+>  
+> +	netif_tx_start_all_queues(self->ndev);
+> +
+>  err_exit:
+>  	return err;
+>  }
+> @@ -603,7 +601,6 @@ int aq_nic_xmit(struct aq_nic_s *self, struct sk_buff *skb)
+>  	unsigned int vec = skb->queue_mapping % self->aq_nic_cfg.vecs;
+>  	unsigned int tc = 0U;
+>  	int err = NETDEV_TX_OK;
+> -	bool is_nic_in_bad_state;
+>  
+>  	frags = skb_shinfo(skb)->nr_frags + 1;
+>  
+> @@ -614,13 +611,10 @@ int aq_nic_xmit(struct aq_nic_s *self, struct sk_buff *skb)
+>  		goto err_exit;
+>  	}
+>  
+> -	is_nic_in_bad_state = aq_utils_obj_test(&self->header.flags,
+> -						AQ_NIC_FLAGS_IS_NOT_TX_READY) ||
+> -						(aq_ring_avail_dx(ring) <
+> -						AQ_CFG_SKB_FRAGS_MAX);
+> +	aq_ring_update_queue_state(ring);
+>  
+> -	if (is_nic_in_bad_state) {
+> -		aq_nic_ndev_queue_stop(self, ring->idx);
+> +	/* Above status update may stop the queue. Check this. */
+> +	if (__netif_subqueue_stopped(self->ndev, ring->idx)) {
+>  		err = NETDEV_TX_BUSY;
+>  		goto err_exit;
+>  	}
+> @@ -632,9 +626,6 @@ int aq_nic_xmit(struct aq_nic_s *self, struct sk_buff *skb)
+>  						      ring,
+>  						      frags);
+>  		if (err >= 0) {
+> -			if (aq_ring_avail_dx(ring) < AQ_CFG_SKB_FRAGS_MAX + 1)
+> -				aq_nic_ndev_queue_stop(self, ring->idx);
+> -
+>  			++ring->stats.tx.packets;
+>  			ring->stats.tx.bytes += skb->len;
+>  		}
+> @@ -906,9 +897,7 @@ int aq_nic_stop(struct aq_nic_s *self)
+>  	struct aq_vec_s *aq_vec = NULL;
+>  	unsigned int i = 0U;
+>  
+> -	for (i = 0U, aq_vec = self->aq_vec[0];
+> -		self->aq_vecs > i; ++i, aq_vec = self->aq_vec[i])
+> -		aq_nic_ndev_queue_stop(self, i);
+> +	netif_tx_disable(self->ndev);
+>  
+>  	del_timer_sync(&self->service_timer);
+>  
+> diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_nic.h b/drivers/net/ethernet/aquantia/atlantic/aq_nic.h
+> index 7fc2a5e..0ddd556 100644
+> --- a/drivers/net/ethernet/aquantia/atlantic/aq_nic.h
+> +++ b/drivers/net/ethernet/aquantia/atlantic/aq_nic.h
+> @@ -83,8 +83,6 @@ struct net_device *aq_nic_get_ndev(struct aq_nic_s *self);
+>  int aq_nic_init(struct aq_nic_s *self);
+>  int aq_nic_cfg_start(struct aq_nic_s *self);
+>  int aq_nic_ndev_register(struct aq_nic_s *self);
+> -void aq_nic_ndev_queue_start(struct aq_nic_s *self, unsigned int idx);
+> -void aq_nic_ndev_queue_stop(struct aq_nic_s *self, unsigned int idx);
+>  void aq_nic_ndev_free(struct aq_nic_s *self);
+>  int aq_nic_start(struct aq_nic_s *self);
+>  int aq_nic_xmit(struct aq_nic_s *self, struct sk_buff *skb);
+> diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_ring.c b/drivers/net/ethernet/aquantia/atlantic/aq_ring.c
+> index 4eee199..02f79b0 100644
+> --- a/drivers/net/ethernet/aquantia/atlantic/aq_ring.c
+> +++ b/drivers/net/ethernet/aquantia/atlantic/aq_ring.c
+> @@ -104,6 +104,32 @@ int aq_ring_init(struct aq_ring_s *self)
+>  	return 0;
+>  }
+>  
+> +void aq_ring_update_queue_state(struct aq_ring_s *ring)
+> +{
+> +	if (aq_ring_avail_dx(ring) <= AQ_CFG_SKB_FRAGS_MAX)
+> +		aq_ring_queue_stop(ring);
+> +	else if (aq_ring_avail_dx(ring) > AQ_CFG_RESTART_DESC_THRES)
+> +		aq_ring_queue_wake(ring);
+> +}
+> +
+> +void aq_ring_queue_wake(struct aq_ring_s *ring)
+> +{
+> +	struct net_device *ndev = aq_nic_get_ndev(ring->aq_nic);
+> +
+> +	if (__netif_subqueue_stopped(ndev, ring->idx)) {
+> +		netif_wake_subqueue(ndev, ring->idx);
+> +		ring->stats.tx.queue_restarts++;
+> +	}
+> +}
+> +
+> +void aq_ring_queue_stop(struct aq_ring_s *ring)
+> +{
+> +	struct net_device *ndev = aq_nic_get_ndev(ring->aq_nic);
+> +
+> +	if (!__netif_subqueue_stopped(ndev, ring->idx))
+> +		netif_stop_subqueue(ndev, ring->idx);
+> +}
+> +
+>  void aq_ring_tx_clean(struct aq_ring_s *self)
+>  {
+>  	struct device *dev = aq_nic_get_dev(self->aq_nic);
+> diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_ring.h b/drivers/net/ethernet/aquantia/atlantic/aq_ring.h
+> index 782176c..24523b5 100644
+> --- a/drivers/net/ethernet/aquantia/atlantic/aq_ring.h
+> +++ b/drivers/net/ethernet/aquantia/atlantic/aq_ring.h
+> @@ -94,6 +94,7 @@ struct aq_ring_stats_tx_s {
+>  	u64 errors;
+>  	u64 packets;
+>  	u64 bytes;
+> +	u64 queue_restarts;
+>  };
+>  
+>  union aq_ring_stats_s {
+> @@ -147,6 +148,9 @@ struct aq_ring_s *aq_ring_rx_alloc(struct aq_ring_s *self,
+>  int aq_ring_init(struct aq_ring_s *self);
+>  void aq_ring_rx_deinit(struct aq_ring_s *self);
+>  void aq_ring_free(struct aq_ring_s *self);
+> +void aq_ring_update_queue_state(struct aq_ring_s *ring);
+> +void aq_ring_queue_wake(struct aq_ring_s *ring);
+> +void aq_ring_queue_stop(struct aq_ring_s *ring);
+>  void aq_ring_tx_clean(struct aq_ring_s *self);
+>  int aq_ring_rx_clean(struct aq_ring_s *self,
+>  		     struct napi_struct *napi,
+> diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_vec.c b/drivers/net/ethernet/aquantia/atlantic/aq_vec.c
+> index ebf5880..305ff8f 100644
+> --- a/drivers/net/ethernet/aquantia/atlantic/aq_vec.c
+> +++ b/drivers/net/ethernet/aquantia/atlantic/aq_vec.c
+> @@ -59,12 +59,7 @@ static int aq_vec_poll(struct napi_struct *napi, int budget)
+>  			if (ring[AQ_VEC_TX_ID].sw_head !=
+>  			    ring[AQ_VEC_TX_ID].hw_head) {
+>  				aq_ring_tx_clean(&ring[AQ_VEC_TX_ID]);
+> -
+> -				if (aq_ring_avail_dx(&ring[AQ_VEC_TX_ID]) >
+> -				    AQ_CFG_SKB_FRAGS_MAX) {
+> -					aq_nic_ndev_queue_start(self->aq_nic,
+> -						ring[AQ_VEC_TX_ID].idx);
+> -				}
+> +				aq_ring_update_queue_state(&ring[AQ_VEC_TX_ID]);
+>  				was_tx_cleaned = true;
+>  			}
+>  
+> @@ -364,6 +359,7 @@ void aq_vec_add_stats(struct aq_vec_s *self,
+>  		stats_tx->packets += tx->packets;
+>  		stats_tx->bytes += tx->bytes;
+>  		stats_tx->errors += tx->errors;
+> +		stats_tx->queue_restarts += tx->queue_restarts;
+>  	}
 >  }
 >  
 > 
