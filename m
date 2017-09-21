@@ -1,7 +1,7 @@
 From: Allen Pais <allen.lkml@gmail.com>
-Subject: [PATCH 11/64] drivers: net: rsi_91x: use setup_timer() helper.
-Date: Thu, 21 Sep 2017 22:34:32 +0530
-Message-ID: <1506013525-29291-12-git-send-email-allen.lkml@gmail.com>
+Subject: [PATCH 12/64] drivers: net: atp: use setup_timer() helper.
+Date: Thu, 21 Sep 2017 22:34:33 +0530
+Message-ID: <1506013525-29291-13-git-send-email-allen.lkml@gmail.com>
 References: <1506013525-29291-1-git-send-email-allen.lkml@gmail.com>
 Cc: linux-kernel@vger.kernel.org, m.grzeschik@pengutronix.de,
         dmitry.tarnyagin@lockless.no, wg@grandegger.com,
@@ -24,24 +24,24 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Allen Pais <allen.lkml@gmail.com>
 ---
- drivers/net/wireless/rsi/rsi_91x_hal.c | 5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/realtek/atp.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
-diff --git a/drivers/net/wireless/rsi/rsi_91x_hal.c b/drivers/net/wireless/rsi/rsi_91x_hal.c
-index 070dfd6..7ad286d 100644
---- a/drivers/net/wireless/rsi/rsi_91x_hal.c
-+++ b/drivers/net/wireless/rsi/rsi_91x_hal.c
-@@ -411,9 +411,8 @@ static void bl_cmd_timeout(unsigned long priv)
+diff --git a/drivers/net/ethernet/realtek/atp.c b/drivers/net/ethernet/realtek/atp.c
+index bed3468..bdc3833 100644
+--- a/drivers/net/ethernet/realtek/atp.c
++++ b/drivers/net/ethernet/realtek/atp.c
+@@ -438,10 +438,8 @@ static int net_open(struct net_device *dev)
  
- static int bl_start_cmd_timer(struct rsi_hw *adapter, u32 timeout)
- {
--	init_timer(&adapter->bl_cmd_timer);
--	adapter->bl_cmd_timer.data = (unsigned long)adapter;
--	adapter->bl_cmd_timer.function = (void *)&bl_cmd_timeout;
-+	setup_timer(&adapter->bl_cmd_timer, (void *)&bl_cmd_timeout,
-+		    (unsigned long)adapter);
- 	adapter->bl_cmd_timer.expires = (msecs_to_jiffies(timeout) + jiffies);
+ 	hardware_init(dev);
  
- 	adapter->blcmd_timer_expired = false;
+-	init_timer(&lp->timer);
++	setup_timer(&lp->timer, atp_timed_checker, (unsigned long)dev);
+ 	lp->timer.expires = jiffies + TIMED_CHECKER;
+-	lp->timer.data = (unsigned long)dev;
+-	lp->timer.function = atp_timed_checker;    /* timer handler */
+ 	add_timer(&lp->timer);
+ 
+ 	netif_start_queue(dev);
 -- 
 2.7.4
