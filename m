@@ -1,59 +1,40 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: Re: [PATCH net-next] bpf/verifier: improve disassembly of BPF_END
- instructions
-Date: Thu, 21 Sep 2017 20:58:12 +0100
-Message-ID: <46aa4442-b8ed-e4c1-4897-8f650e23d448@solarflare.com>
-References: <7013ee9d-a8e6-13fd-cc5f-86cf3d8bf4e0@solarflare.com>
- <20170921155215.jta52sesbiq54vri@ast-mbp>
- <4cfac985-4f99-cf85-fc15-c3ad1f8ff123@solarflare.com>
- <CAH3MdRWAHJS8Y8ketOAghYyorVUp6JijjZcSVY7gOiGAr7e_pw@mail.gmail.com>
- <207ecd4c-b1b4-3dcd-62a6-30824c19dbf7@solarflare.com>
- <59C4131D.8050003@iogearbox.net> <20170921194426.tnd5xos5irm3gred@ast-mbp>
+From: Grant Edwards <grant.b.edwards@gmail.com>
+Subject: net: macb: fail when there's no PHY
+Date: Thu, 21 Sep 2017 14:59:05 -0500
+Message-ID: <20170921195905.GA29873@grante>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Y Song <ys114321@gmail.com>, David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Daniel Borkmann <daniel@iogearbox.net>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dispatch1-us1.ppe-hosted.com ([148.163.129.52]:54854 "EHLO
-        dispatch1-us1.ppe-hosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751793AbdIUT6S (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 15:58:18 -0400
-In-Reply-To: <20170921194426.tnd5xos5irm3gred@ast-mbp>
+Received: from mail-io0-f172.google.com ([209.85.223.172]:48824 "EHLO
+        mail-io0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751810AbdIUT7K (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 15:59:10 -0400
+Received: by mail-io0-f172.google.com with SMTP id n69so13467461ioi.5
+        for <netdev@vger.kernel.org>; Thu, 21 Sep 2017 12:59:10 -0700 (PDT)
+Received: from grante (67-130-15-94.dia.static.qwest.net. [67.130.15.94])
+        by smtp.gmail.com with ESMTPSA id 78sm1378230itz.12.2017.09.21.12.59.07
+        for <netdev@vger.kernel.org>
+        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Thu, 21 Sep 2017 12:59:07 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 21/09/17 20:44, Alexei Starovoitov wrote:
-> On Thu, Sep 21, 2017 at 09:29:33PM +0200, Daniel Borkmann wrote:
->> More intuitive, but agree on the from_be/le. Maybe we should
->> just drop the "to_" prefix altogether, and leave the rest as is since
->> it's not surrounded by braces, it's also not a cast but rather an op.
-That works for me.
-> 'be16 r4' is ambiguous regarding upper bits.
->
-> what about my earlier suggestion:
-> r4 = (be16) (u16) r4
-> r4 = (le64) (u64) r4
->
-> It will be pretty clear what instruction is doing (that upper bits become zero).
-Trouble with that is that's very *not* what C will do with those casts
- and it doesn't really capture the bidirectional/symmetry thing.  The
- closest I could see with that is something like `r4 = (be16/u16) r4`,
- but that's quite an ugly mongrel.
-I think Daniel's idea of `be16`, `le32` etc one-arg opcodes is the
- cleanest and clearest.  Should it be
-    r4 = be16 r4
- or just
-    be16 r4
-?  Personally I incline towards the latter, but admit it doesn't really
- match the syntax of other opcodes.
+Several years back (circa 2.6.33) I had to hack up macb.c to work on
+an at91 board that didn't have a PHY connected to the macb controller.
+Now I might need to get a recent kernel version running on that board.
 
+It looks like the macb driver still can't handle boards that don't
+have a PHY.  Is that correct?
 
-To shed a few more bikes, I did also wonder about the BPF_NEG opcode,
- which (if I'm reading the code correctly) currently renders as
-    r4 = neg r4 0
-    (u32) r4 = neg (u32) r4 0
-That printing of the insn->imm, while harmless, is needless and
- potentially confusing.  Should we get rid of it?
+What's the right way to deal with this?
+
+With the older macb driver, I ended up adding code to macb.c that
+presented a "fake" PHY that discarded MDIO writes and returned some
+hard-wired values for MDIO reads.  That seemed like a pretty ugly way
+to deal with the situation, so I never bothered to submit a patch.
+
+-- 
+Grant Edwards
+grant.b.edwards@gmail.com
