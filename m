@@ -1,44 +1,124 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Kernel 4.13.0-rc4-next-20170811 - IP Routing / Forwarding
- performance vs Core/RSS number / HT on
-Date: Thu, 21 Sep 2017 14:54:55 -0700
-Message-ID: <1506030895.29839.153.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <3ac1a817-5c62-2490-64e7-2512f0ee3b3e@itcare.pl>
-         <20170812142358.08291888@redhat.com>
-         <af5b3482-8f26-52b5-4a00-3a5a42b7449f@itcare.pl>
-         <ce33b7b3-ae00-b6f0-e82a-6df3d5a5e995@itcare.pl>
-         <20170814181957.5be27906@redhat.com> <1502729870.8411.63.camel@redhat.com>
-         <80b3bf71-dc6b-7b96-43d6-dbb3c53c5a8b@itcare.pl>
-         <1502759225.4936.44.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1502759849.4936.46.camel@edumazet-glaptop3.roam.corp.google.com>
-         <4b1efff7-4f91-fd78-beb8-2c7ebcf18895@itcare.pl>
-         <5d32f5cf-ca69-1f6b-5bca-cdcd4dc414e2@itcare.pl>
-         <6607c631-580d-825b-6205-6f6ee688ce32@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: =?UTF-8?Q?Pawe=C5=82?= Staszewski <pstaszewski@itcare.pl>,
-        Paolo Abeni <pabeni@redhat.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Alexander Duyck <alexander.duyck@gmail.com>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f178.google.com ([209.85.192.178]:56980 "EHLO
-        mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751763AbdIUVy5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 17:54:57 -0400
-Received: by mail-pf0-f178.google.com with SMTP id g65so3848612pfe.13
-        for <netdev@vger.kernel.org>; Thu, 21 Sep 2017 14:54:57 -0700 (PDT)
-In-Reply-To: <6607c631-580d-825b-6205-6f6ee688ce32@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Mahesh Bandewar <mahesh@bandewar.net>
+Subject: [RFC PATCH 0/2] capability controlled user-namespaces
+Date: Thu, 21 Sep 2017 14:56:36 -0700
+Message-ID: <20170921215636.11097-1-mahesh@bandewar.net>
+Cc: Kees Cook <keescook@chromium.org>, Serge Hallyn <serge@hallyn.com>,
+        "Eric W . Biederman" <ebiederm@xmission.com>,
+        Eric Dumazet <edumazet@google.com>,
+        David Miller <davem@davemloft.net>,
+        Mahesh Bandewar <mahesh@bandewar.net>,
+        Mahesh Bandewar <maheshb@google.com>
+To: LKML <linux-kernel@vger.kernel.org>,
+        Netdev <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2017-09-21 at 14:41 -0700, Florian Fainelli wrote:
+From: Mahesh Bandewar <maheshb@google.com>
 
-> Would not this apply to pretty much any stacked device setup though? It
-> seems like any network device that just queues up its packet on another
-> physical device for actual transmission may need that (e.g: DSA, bond,
-> team, more.?)
+TL;DR version
+-------------
+Creating a sandbox environment with namespaces is challenging
+considering what these sandboxed processes can engage into. e.g.
+CVE-2017-6074, CVE-2017-7184, CVE-2017-7308 etc. just to name few.
+Current form of user-namespaces, however, if changed a bit can allow
+us to create a sandbox environment without locking down user-
+namespaces.
 
-We support bonding and team already.
+Detailed version
+----------------
+
+Problem
+-------
+User-namespaces in the current form have increased the attack surface as
+any process can acquire capabilities which are not available to them (by
+default) by performing combination of clone()/unshare()/setns() syscalls.
+
+    #define _GNU_SOURCE
+    #include <stdio.h>
+    #include <sched.h>
+    #include <netinet/in.h>
+
+    int main(int ac, char **av)
+    {
+        int sock = -1;
+
+        printf("Attempting to open RAW socket before unshare()...\n");
+        sock = socket(AF_INET6, SOCK_RAW, IPPROTO_RAW);
+        if (sock < 0) {
+            perror("socket() SOCK_RAW failed: ");
+        } else {
+            printf("Successfully opened RAW-Sock before unshare().\n");
+            close(sock);
+            sock = -1;
+        }
+
+        if (unshare(CLONE_NEWUSER | CLONE_NEWNET) < 0) {
+            perror("unshare() failed: ");
+            return 1;
+        }
+
+        printf("Attempting to open RAW socket after unshare()...\n");
+        sock = socket(AF_INET6, SOCK_RAW, IPPROTO_RAW);
+        if (sock < 0) {
+            perror("socket() SOCK_RAW failed: ");
+        } else {
+            printf("Successfully opened RAW-Sock after unshare().\n");
+            close(sock);
+            sock = -1;
+        }
+
+        return 0;
+    }
+
+The above example shows how easy it is to acquire NET_RAW capabilities
+and once acquired, these processes could take benefit of above mentioned
+or similar issues discovered/undiscovered with malicious intent. Note
+that this is just an example and the problem/solution is not limited
+to NET_RAW capability *only*. 
+
+The easiest fix one can apply here is to lock-down user-namespaces which
+many of the distros do (i.e. don't allow users to create user namespaces),
+but unfortunately that prevents everyone from using them.
+
+Approach
+--------
+Introduce a notion of 'controlled' user-namespaces. Every process on
+the host is allowed to create user-namespaces (governed by the limit
+imposed by per-ns sysctl) however, mark user-namespaces created by
+sandboxed processes as 'controlled'. Use this 'mark' at the time of
+capability check in conjunction with a global capability whitelist.
+If the capability is not whitelisted, processes that belong to 
+controlled user-namespaces will not be allowed.
+
+Once a user-ns is marked as 'controlled'; all its child user-
+namespaces are marked as 'controlled' too.
+
+A global whitelist is list of capabilities governed by the
+sysctl which is available to (privileged) user in init-ns to modify
+while it's applicable to all controlled user-namespaces on the host.
+
+Marking user-namespaces controlled without modifying the whitelist is
+equivalent of the current behavior. The default value of whitelist includes
+all capabilities so that the compatibility is maintained. However it gives
+admins fine-grained ability to control various capabilities system wide
+without locking down user-namespaces.
+
+Please see individual patches in this series.
+
+Mahesh Bandewar (2):
+  capability: introduce sysctl for controlled user-ns capability
+    whitelist
+  userns: control capabilities of some user namespaces
+
+ Documentation/sysctl/kernel.txt | 21 +++++++++++++++++
+ include/linux/capability.h      |  4 ++++
+ include/linux/user_namespace.h  | 20 ++++++++++++++++
+ kernel/capability.c             | 52 +++++++++++++++++++++++++++++++++++++++++
+ kernel/sysctl.c                 |  5 ++++
+ kernel/user_namespace.c         |  3 +++
+ security/commoncap.c            |  8 +++++++
+ 7 files changed, 113 insertions(+)
+
+-- 
+2.14.1.821.g8fa685d3b7-goog
