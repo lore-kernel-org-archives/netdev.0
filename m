@@ -1,71 +1,155 @@
-From: Tom Herbert <tom@quantonium.net>
-Subject: Re: [PATCH net-next 12/14] gtp: Configuration for zero UDP checksum
-Date: Thu, 21 Sep 2017 15:41:03 -0700
-Message-ID: <CAPDqMepsh9eD9eBVr0rp5h1WTdpVwncc7D3_SXDjQBcqm_pqcg@mail.gmail.com>
-References: <20170919003904.5124-1-tom@quantonium.net> <20170919003904.5124-13-tom@quantonium.net>
- <20170918.212445.1680068602644706922.davem@davemloft.net> <CALx6S35NP_BJ8oHwjkOZkNYJa=g7hWeUiNMZ5WNj-2FQaksCeQ@mail.gmail.com>
- <20170921015522.sv5netrlcj5vebys@nataraja>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Tom Herbert <tom@herbertland.com>,
-        David Miller <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Pablo Neira Ayuso <pablo@netfilter.org>,
-        Rohit Seth <rohit@quantonium.net>
-To: Harald Welte <laforge@gnumonks.org>
+From: Craig Gallek <kraigatgoog@gmail.com>
+Subject: [PATCH net-next v2] bpf: Optimize lpm trie delete
+Date: Thu, 21 Sep 2017 18:43:29 -0400
+Message-ID: <20170921224329.101928-1-kraigatgoog@gmail.com>
+Cc: netdev@vger.kernel.org
+To: Daniel Mack <daniel@zonque.org>, Alexei Starovoitov <ast@fb.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f170.google.com ([209.85.128.170]:57211 "EHLO
-        mail-wr0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751738AbdIUWlE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 18:41:04 -0400
-Received: by mail-wr0-f170.google.com with SMTP id r74so5601236wrb.13
-        for <netdev@vger.kernel.org>; Thu, 21 Sep 2017 15:41:04 -0700 (PDT)
-In-Reply-To: <20170921015522.sv5netrlcj5vebys@nataraja>
+Received: from mail-qk0-f173.google.com ([209.85.220.173]:53280 "EHLO
+        mail-qk0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751728AbdIUWnc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 18:43:32 -0400
+Received: by mail-qk0-f173.google.com with SMTP id t184so7225598qke.10
+        for <netdev@vger.kernel.org>; Thu, 21 Sep 2017 15:43:32 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Sep 20, 2017 at 6:55 PM, Harald Welte <laforge@gnumonks.org> wrote:
-> Hi Tom,
->
-> On Wed, Sep 20, 2017 at 11:09:29AM -0700, Tom Herbert wrote:
->> On Mon, Sep 18, 2017 at 9:24 PM, David Miller <davem@davemloft.net> wrote:
->> > From: Tom Herbert <tom@quantonium.net>
->> >> Add configuration to control use of zero checksums on transmit for both
->> >> IPv4 and IPv6, and control over accepting zero IPv6 checksums on
->> >> receive.
->> >
->> > I thought we were trying to move away from this special case of allowing
->> > zero UDP checksums with tunnels, especially for ipv6.
->>
->> I don't have a strong preference either way. I like consistency with
->> VXLAN and foo/UDP, but I guess it's not required. Interestingly, since
->> GTP only carries IP, IPv6 zero checksums are actually safer here than
->> VXLAN or GRE/UDP.
->
-> Just for the record: I don't care either way and I defer to the kernel
-> networking developers to decide if they want to have zero UDP checksum
-> in GTP or not.
->
-> The 3GPP specs don't say anything about UDP checksums.  So there's no
-> requirement to use them, and hence operation without UDP checksums
-> should be compliant.  Cisco GTP implementation has udp checksumming
-> configurable, so other implementations also seem to provide both ways.
->
-> In general, I would argue one wants UDP checksumming of GTP in all
-> setups, as while the inner IP packet might be protected, the GTP header
-> itself is not, and that's what contains important data suhc as the TEID
-> (Tunnel Endpoint ID).  But that's of course just my personal opinion,
-> and I'm not saying we should prevent people from using lower protection
-> if that's what they want.
->
-The tradeoffs and requirements of zero UDP6 checksums are discussed at
-length in RFC6935 and RFC6936. Given other implementations make it
-configurable it should also be here.
+From: Craig Gallek <kraig@google.com>
 
-Tom
+Before the delete operator was added, this datastructure maintained
+an invariant that intermediate nodes were only present when necessary
+to build the tree.  This patch updates the delete operation to reinstate
+that invariant by removing unnecessary intermediate nodes after a node is
+removed and thus keeping the tree structure at a minimal size.
 
-> --
-> - Harald Welte <laforge@gnumonks.org>           http://laforge.gnumonks.org/
-> ============================================================================
-> "Privacy in residential applications is a desirable marketing option."
->                                                   (ETSI EN 300 175-7 Ch. A6)
+Suggested-by: Daniel Mack <daniel@zonque.org>
+Signed-off-by: Craig Gallek <kraig@google.com>
+---
+v2:
+  I really failed the interview on this one.  v1 did not collapse all
+  extra intermediate node possibilities.  I believe this one does by
+	additionally tracking node parent information.  See comments.
+
+ kernel/bpf/lpm_trie.c | 71 +++++++++++++++++++++++++++++++--------------------
+ 1 file changed, 43 insertions(+), 28 deletions(-)
+
+diff --git a/kernel/bpf/lpm_trie.c b/kernel/bpf/lpm_trie.c
+index 9d58a576b2ae..34d8a690ea05 100644
+--- a/kernel/bpf/lpm_trie.c
++++ b/kernel/bpf/lpm_trie.c
+@@ -394,8 +394,8 @@ static int trie_delete_elem(struct bpf_map *map, void *_key)
+ {
+ 	struct lpm_trie *trie = container_of(map, struct lpm_trie, map);
+ 	struct bpf_lpm_trie_key *key = _key;
+-	struct lpm_trie_node __rcu **trim;
+-	struct lpm_trie_node *node;
++	struct lpm_trie_node __rcu **trim, **trim2;
++	struct lpm_trie_node *node, *parent;
+ 	unsigned long irq_flags;
+ 	unsigned int next_bit;
+ 	size_t matchlen = 0;
+@@ -407,31 +407,26 @@ static int trie_delete_elem(struct bpf_map *map, void *_key)
+ 	raw_spin_lock_irqsave(&trie->lock, irq_flags);
+ 
+ 	/* Walk the tree looking for an exact key/length match and keeping
+-	 * track of where we could begin trimming the tree.  The trim-point
+-	 * is the sub-tree along the walk consisting of only single-child
+-	 * intermediate nodes and ending at a leaf node that we want to
+-	 * remove.
++	 * track of the path we traverse.  We will need to know the node
++	 * we wish to delete, and the slot that points to the node we want
++	 * to delete.  We may also need to know the nodes parent and the
++	 * slot that contains it.
+ 	 */
+ 	trim = &trie->root;
+-	node = rcu_dereference_protected(
+-		trie->root, lockdep_is_held(&trie->lock));
+-	while (node) {
++	trim2 = trim;
++	parent = NULL;
++	while ((node = rcu_dereference_protected(
++		       *trim, lockdep_is_held(&trie->lock)))) {
+ 		matchlen = longest_prefix_match(trie, node, key);
+ 
+ 		if (node->prefixlen != matchlen ||
+ 		    node->prefixlen == key->prefixlen)
+ 			break;
+ 
++		parent = node;
++		trim2 = trim;
+ 		next_bit = extract_bit(key->data, node->prefixlen);
+-		/* If we hit a node that has more than one child or is a valid
+-		 * prefix itself, do not remove it. Reset the root of the trim
+-		 * path to its descendant on our path.
+-		 */
+-		if (!(node->flags & LPM_TREE_NODE_FLAG_IM) ||
+-		    (node->child[0] && node->child[1]))
+-			trim = &node->child[next_bit];
+-		node = rcu_dereference_protected(
+-			node->child[next_bit], lockdep_is_held(&trie->lock));
++		trim = &node->child[next_bit];
+ 	}
+ 
+ 	if (!node || node->prefixlen != key->prefixlen ||
+@@ -442,27 +437,47 @@ static int trie_delete_elem(struct bpf_map *map, void *_key)
+ 
+ 	trie->n_entries--;
+ 
+-	/* If the node we are removing is not a leaf node, simply mark it
++	/* If the node we are removing has two children, simply mark it
+ 	 * as intermediate and we are done.
+ 	 */
+-	if (rcu_access_pointer(node->child[0]) ||
++	if (rcu_access_pointer(node->child[0]) &&
+ 	    rcu_access_pointer(node->child[1])) {
+ 		node->flags |= LPM_TREE_NODE_FLAG_IM;
+ 		goto out;
+ 	}
+ 
+-	/* trim should now point to the slot holding the start of a path from
+-	 * zero or more intermediate nodes to our leaf node for deletion.
++	/* If the parent of the node we are about to delete is an intermediate
++	 * node, and the deleted node doesn't have any children, we can delete
++	 * the intermediate parent as well and promote its other child
++	 * up the tree.  Doing this maintains the invariant that all
++	 * intermediate nodes have exactly 2 children and that there are no
++	 * unnecessary intermediate nodes in the tree.
+ 	 */
+-	while ((node = rcu_dereference_protected(
+-			*trim, lockdep_is_held(&trie->lock)))) {
+-		RCU_INIT_POINTER(*trim, NULL);
+-		trim = rcu_access_pointer(node->child[0]) ?
+-			&node->child[0] :
+-			&node->child[1];
++	if (parent && (parent->flags & LPM_TREE_NODE_FLAG_IM) &&
++	    !node->child[0] && !node->child[1]) {
++		if (node == rcu_access_pointer(parent->child[0]))
++			rcu_assign_pointer(
++				*trim2, rcu_access_pointer(parent->child[1]));
++		else
++			rcu_assign_pointer(
++				*trim2, rcu_access_pointer(parent->child[0]));
++		kfree_rcu(parent, rcu);
+ 		kfree_rcu(node, rcu);
++		goto out;
+ 	}
+ 
++	/* The node we are removing has either zero or one child. If there
++	 * is a child, move it into the removed node's slot then delete
++	 * the node.  Otherwise just clear the slot and delete the node.
++	 */
++	if (node->child[0])
++		rcu_assign_pointer(*trim, rcu_access_pointer(node->child[0]));
++	else if (node->child[1])
++		rcu_assign_pointer(*trim, rcu_access_pointer(node->child[1]));
++	else
++		RCU_INIT_POINTER(*trim, NULL);
++	kfree_rcu(node, rcu);
++
+ out:
+ 	raw_spin_unlock_irqrestore(&trie->lock, irq_flags);
+ 
+-- 
+2.14.1.821.g8fa685d3b7-goog
