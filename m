@@ -1,35 +1,44 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 v2] ip: ipaddress: fix missing space after
- prefixlen
-Date: Wed, 20 Sep 2017 18:06:02 -0700
-Message-ID: <20170920180602.5ffa162d@xeon-e3>
-References: <20170920202651.95860-1-julien@cumulusnetworks.com>
+Subject: Re: [PATCH iproute2/net-next] tc: flower: support for matching MPLS
+ labels
+Date: Wed, 20 Sep 2017 18:09:17 -0700
+Message-ID: <20170920180917.17022585@xeon-e3>
+References: <1505225175-13830-1-git-send-email-simon.horman@netronome.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
-        nikolay@cumulusnetworks.com, dsa@cumulusnetworks.com,
-        sd@queasysnail.net
-To: Julien Fortin <julien@cumulusnetworks.com>
+Cc: Jiri Pirko <jiri@resnulli.us>, Jamal Hadi Salim <jhs@mojatatu.com>,
+        Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org,
+        oss-drivers@netronome.com
+To: Simon Horman <simon.horman@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f53.google.com ([74.125.83.53]:56767 "EHLO
-        mail-pg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751640AbdIUBGF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2017 21:06:05 -0400
-Received: by mail-pg0-f53.google.com with SMTP id 7so2633511pgd.13
-        for <netdev@vger.kernel.org>; Wed, 20 Sep 2017 18:06:05 -0700 (PDT)
-In-Reply-To: <20170920202651.95860-1-julien@cumulusnetworks.com>
+Received: from mail-pf0-f169.google.com ([209.85.192.169]:55517 "EHLO
+        mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751681AbdIUBJV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 20 Sep 2017 21:09:21 -0400
+Received: by mail-pf0-f169.google.com with SMTP id r71so2394331pfe.12
+        for <netdev@vger.kernel.org>; Wed, 20 Sep 2017 18:09:21 -0700 (PDT)
+In-Reply-To: <1505225175-13830-1-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 20 Sep 2017 13:26:51 -0700
-Julien Fortin <julien@cumulusnetworks.com> wrote:
+On Tue, 12 Sep 2017 16:06:15 +0200
+Simon Horman <simon.horman@netronome.com> wrote:
 
-> From: Julien Fortin <julien@cumulusnetworks.com>
+> From: Benjamin LaHaise <benjamin.lahaise@netronome.com>
 > 
-> Fixes: d0e720111aad2 ("ip: ipaddress.c: add support for json output")
-> Reported-by: Sabrina Dubroca <sd@queasysnail.net>
-> Reviewed-by: Roopa Prabhu <roopa@cumulusnetworks.com>
-> Signed-off-by: Julien Fortin <julien@cumulusnetworks.com>
+> This patch adds support to the iproute2 tc filter command for matching MPLS
+> labels in the flower classifier.  The ability to match the Time To Live,
+> Bottom Of Stack, Traffic Control and Label fields are added as options to
+> the flower filter.
+> 
+> e.g.:
+>   tc filter add dev eth0 protocol 0x8847 parent ffff: \
+>     flower mpls_label 1 mpls_tc 2 mpls_ttl 3 mpls_bos 0 \
+>     action drop
+> 
+> Signed-off-by: Benjamin LaHaise <benjamin.lahaise@netronome.com>
+> Signed-off-by: Simon Horman <simon.horman@netronome.com>
+> Reviewed-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 
-Applied, thanks for spotting this.
+Looks good, applied
