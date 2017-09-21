@@ -1,80 +1,71 @@
-From: Andrey Konovalov <andreyknvl@google.com>
-Subject: Re: usb/net/p54: trying to register non-static key in p54_unregister_leds
-Date: Thu, 21 Sep 2017 20:22:45 +0200
-Message-ID: <CAAeHK+wWRZuCDNhoZJ0ACDhiNQw8tVRp2HW0j1EDH0HOe523xA@mail.gmail.com>
-References: <CAAeHK+xPoNn7i5xOzEqHX6tfDpmpb1rd0hcAxZpTHKi6B8xzsw@mail.gmail.com>
- <2277141.bYDD1vAb9W@debian64> <1505937307.3026.20.camel@sipsolutions.net>
+From: Kees Cook <keescook@chromium.org>
+Subject: Re: [kernel-hardening] Re: [PATCH v3 03/31] usercopy: Mark kmalloc
+ caches as usercopy caches
+Date: Thu, 21 Sep 2017 11:26:43 -0700
+Message-ID: <CAGXu5jKqWShVMqm6-moqgO7JUaJuFxw-9mMKak+WG1HgNJqc1Q@mail.gmail.com>
+References: <1505940337-79069-1-git-send-email-keescook@chromium.org>
+ <1505940337-79069-4-git-send-email-keescook@chromium.org> <alpine.DEB.2.20.1709211024120.14427@nuc-kabylake>
+ <CAGXu5j+X6dWCGocG=P7pszTY-5OZ6Jmp-RsnDKox75M5rmVe4g@mail.gmail.com> <alpine.DEB.2.20.1709211102320.14742@nuc-kabylake>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Christian Lamparter <chunkeey@googlemail.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        linux-wireless@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        syzkaller <syzkaller@googlegroups.com>,
-        Stephen Boyd <sboyd@codeaurora.org>, Tejun Heo <tj@kernel.org>,
-        Yong Zhang <yong.zhang0@gmail.com>
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1505937307.3026.20.camel@sipsolutions.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: LKML <linux-kernel@vger.kernel.org>, David Windsor <dave@nullcore.net>,
+	Pekka Enberg <penberg@kernel.org>, David Rientjes <rientjes@google.com>,
+	Joonsoo Kim <iamjoonsoo.kim@lge.com>, Andrew Morton <akpm@linux-foundation.org>,
+	Linux-MM <linux-mm@kvack.org>, linux-xfs@vger.kernel.org,
+	"linux-fsdevel@vger.kernel.org" <linux-fsdevel@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	"kernel-hardening@lists.openwall.com" <kernel-hardening@lists.openwall.com>
+To: Christopher Lameter <cl@linux.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <alpine.DEB.2.20.1709211102320.14742@nuc-kabylake>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 20, 2017 at 9:55 PM, Johannes Berg
-<johannes@sipsolutions.net> wrote:
-> On Wed, 2017-09-20 at 21:27 +0200, Christian Lamparter wrote:
+On Thu, Sep 21, 2017 at 9:04 AM, Christopher Lameter <cl@linux.com> wrote:
+> On Thu, 21 Sep 2017, Kees Cook wrote:
 >
->> It seems this is caused as a result of:
->>     -> lock_map_acquire(&work->lockdep_map);
->>           lock_map_release(&work->lockdep_map);
+>> > So what is the point of this patch?
 >>
->>     in flush_work() [0]
+>> The DMA kmalloc caches are not whitelisted:
 >
-> Agree.
+> The DMA kmalloc caches are pretty obsolete and mostly there for obscure
+> drivers.
 >
->> This was added by:
+> ??
+
+They may be obsolete, but they're still in the kernel, and they aren't
+copied to userspace, so we can mark them.
+
+>> >>                         kmalloc_dma_caches[i] = create_kmalloc_cache(n,
+>> >> -                               size, SLAB_CACHE_DMA | flags);
+>> >> +                               size, SLAB_CACHE_DMA | flags, 0, 0);
 >>
->>       commit 0976dfc1d0cd80a4e9dfaf87bd8744612bde475a
->>       Author: Stephen Boyd <sboyd@codeaurora.org>
->>       Date:   Fri Apr 20 17:28:50 2012 -0700
->>
->>       workqueue: Catch more locking problems with flush_work()
+>> So this is creating the distinction between the kmallocs that go to
+>> userspace and those that don't. The expectation is that future work
+>> can start to distinguish between "for userspace" and "only kernel"
+>> kmalloc allocations, as is already done here for DMA.
 >
-> Yes, but that doesn't matter.
->
->> Looking at the Stephen's patch, it's clear that it was made
->> with "static DECLARE_WORK(work, my_work)" in mind. However
->> p54's led_work is "per-device", hence it is stored in the
->> devices context p54_common, which is dynamically allocated.
->> So, maybe revert Stephen's patch?
->
-> I disagree - as the lockdep warning says:
->
->> > INFO: trying to register non-static key.
->> > the code is fine but needs lockdep annotation.
->> > turning off the locking correctness validator.
->
-> What it needs is to actually correctly go through initializing the work
-> at least once.
->
-> Without more information, I can't really say what's going on, but I
-> assume that something is failing and p54_unregister_leds() is getting
-> invoked without p54_init_leds() having been invoked, so essentially
-> it's trying to flush a work that was never initialized?
->
-> INIT_DELAYED_WORK() does, after all, initialize the lockdep map
-> properly via __INIT_WORK().
+> The creation of the kmalloc caches in earlier patches already setup the
+> "whitelisting". Why do it twice?
 
-Since I'm able to reproduce this, please let me know if you need me to
-collect some debug traces to help with the triage.
+Patch 1 is to allow for things to mark their whitelists. Patch 30
+disables the full whitelisting, since then we've defined them all, so
+the kmalloc caches need to mark themselves as whitelisted.
 
-Thanks!
+Patch 1 leaves unmarked things whitelisted so we can progressively
+tighten the restriction and have a bisectable series. (i.e. if there
+is something wrong with one of the whitelists in the series, it will
+bisect to that one, not the one that removes the global whitelist from
+patch 1.)
 
->
-> johannes
->
-> --
-> You received this message because you are subscribed to the Google Groups "syzkaller" group.
-> To unsubscribe from this group and stop receiving emails from it, send an email to syzkaller+unsubscribe@googlegroups.com.
-> For more options, visit https://groups.google.com/d/optout.
+-Kees
+
+-- 
+Kees Cook
+Pixel Security
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
