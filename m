@@ -1,67 +1,77 @@
-From: =?UTF-8?Q?Pawe=c5=82_Staszewski?= <pstaszewski@itcare.pl>
-Subject: Re: Kernel 4.13.0-rc4-next-20170811 - IP Routing / Forwarding
- performance vs Core/RSS number / HT on
-Date: Thu, 21 Sep 2017 23:43:01 +0200
-Message-ID: <a43e3615-e5d8-1cd3-e38c-8db41dcb76c6@itcare.pl>
-References: <3ac1a817-5c62-2490-64e7-2512f0ee3b3e@itcare.pl>
- <20170812142358.08291888@redhat.com>
- <af5b3482-8f26-52b5-4a00-3a5a42b7449f@itcare.pl>
- <ce33b7b3-ae00-b6f0-e82a-6df3d5a5e995@itcare.pl>
- <20170814181957.5be27906@redhat.com> <1502729870.8411.63.camel@redhat.com>
- <80b3bf71-dc6b-7b96-43d6-dbb3c53c5a8b@itcare.pl>
- <1502759225.4936.44.camel@edumazet-glaptop3.roam.corp.google.com>
- <1502759849.4936.46.camel@edumazet-glaptop3.roam.corp.google.com>
- <4b1efff7-4f91-fd78-beb8-2c7ebcf18895@itcare.pl>
- <5d32f5cf-ca69-1f6b-5bca-cdcd4dc414e2@itcare.pl>
- <6607c631-580d-825b-6205-6f6ee688ce32@gmail.com>
+From: Alexei Starovoitov <ast@fb.com>
+Subject: Re: [PATCH net] bpf: one perf event close won't free bpf program
+ attached by another perf event
+Date: Thu, 21 Sep 2017 14:53:48 -0700
+Message-ID: <222d5d19-a843-348f-8cf4-bf0669ae6c91@fb.com>
+References: <20170918233836.1817062-1-yhs@fb.com>
+ <20170920214109.11002b7c@vmware.local.home>
+ <94f5a61e-1a88-f285-224b-66c92dc3da7b@fb.com>
+ <9e968490-87ae-7a79-9e59-0dcc840a93f5@fb.com>
+ <20170921111706.343om7252gcagco6@hirez.programming.kicks-ass.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: Paolo Abeni <pabeni@redhat.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Alexander Duyck <alexander.duyck@gmail.com>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Steven Rostedt <rostedt@goodmis.org>, <daniel@iogearbox.net>,
+        <netdev@vger.kernel.org>, <kernel-team@fb.com>
+To: Peter Zijlstra <peterz@infradead.org>, Yonghong Song <yhs@fb.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp11.iq.pl ([86.111.242.220]:36478 "EHLO smtp11.iq.pl"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751728AbdIUVpE (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 21 Sep 2017 17:45:04 -0400
-In-Reply-To: <6607c631-580d-825b-6205-6f6ee688ce32@gmail.com>
-Content-Language: pl
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:43640 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751763AbdIUVyh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 17:54:37 -0400
+In-Reply-To: <20170921111706.343om7252gcagco6@hirez.programming.kicks-ass.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-W dniu 2017-09-21 o 23:41, Florian Fainelli pisze:
-> On 09/21/2017 02:26 PM, Paweł Staszewski wrote:
+On 9/21/17 4:17 AM, Peter Zijlstra wrote:
+> On Wed, Sep 20, 2017 at 10:20:13PM -0700, Yonghong Song wrote:
+>>> (2). trace_event_call->perf_events are per cpu data structure, that
+>>> means, some filtering logic is needed to avoid the same perf_event prog
+>>> is executing twice.
 >>
->> W dniu 2017-08-15 o 11:11, Paweł Staszewski pisze:
->>> diff --git a/net/8021q/vlan_netlink.c b/net/8021q/vlan_netlink.c
->>> index
->>> 5e831de3103e2f7092c7fa15534def403bc62fb4..9472de846d5c0960996261cb2843032847fa4bf7
->>> 100644
->>> --- a/net/8021q/vlan_netlink.c
->>> +++ b/net/8021q/vlan_netlink.c
->>> @@ -143,6 +143,7 @@ static int vlan_newlink(struct net *src_net,
->>> struct net_device *dev,
->>>        vlan->vlan_proto = proto;
->>>        vlan->vlan_id     = nla_get_u16(data[IFLA_VLAN_ID]);
->>>        vlan->real_dev     = real_dev;
->>> +    dev->priv_flags |= (real_dev->priv_flags & IFF_XMIT_DST_RELEASE);
->>>        vlan->flags     = VLAN_FLAG_REORDER_HDR;
->>>          err = vlan_check_real_dev(real_dev, vlan->vlan_proto,
->>> vlan->vlan_id);
->> Any plans for this patch to go normal into the kernel ?
-> Would not this apply to pretty much any stacked device setup though? It
-> seems like any network device that just queues up its packet on another
-> physical device for actual transmission may need that (e.g: DSA, bond,
-> team, more.?)
-Some devices libe bond have it.
+>> What I mean here is that the trace_event_call->perf_events need to be
+>> checked on ALL cpus since bpf prog should be executed regardless of
+>> cpu affiliation. It is possible that the same perf_event in different
+>> per_cpu bucket and hence filtering is needed to avoid the same
+>> perf_event bpf_prog is executed twice.
+>
+> An event will only ever be on a single CPU's list at any one time IIRC.
 
-Just maybee when there was first patch vlans were not taken into account.
-Did not checked all :)
+yes, but doing for_each_cpu there is not an option. too slow.
+struct trace_event_call is the only stable argument in
+perf_trace_##call(), so we gotta have a pointer there for stuff
+we need to run.
+This patch added another annoying pointer, since it's the simplest
+bugfix for stable. For net-next we're going to remove it, since
+we're working on multi-prog support for kprobes/tracepoints.
+(right now there is only one prog allowed and that's very limiting)
+With multi-prog that bpf_prog_owner pointer will be removed and
+existing 'struct bpf_prog *prog' pointer will be replaced with
+something else.
 
-But I know Eric will do :)
+> Now, hysterically perf_event_set_bpf_prog used the tracepoint crud
+> because that already had bpf bits in. But it might make sense to look at
+> unifying the bpf stuff across all the different event types. Have them
+> all use event->prog.
+
+it sounds good in theory, but in practice we need a separate
+'stuff to run' pointer in both perf_event and trace_even_call,
+since that's what being passed to overflow_handle and perf_trace_##call.
+
+> I suspect that would break a fair bunch of bpf proglets, since the data
+> access to the trace data would be completely different, but it would be
+> much nicer to not have this distinction based on event type.
+
+such things are certainly an abi.
+kprobe+bpf has to see struct pt_regs
+perf_event+bpf has to see struct bpf_perf_event_data and
+tracepoint+bpf has to see struct foo { fields }
+The fields will change every time tracepoint is changed.
+That's fine.
+But we cannot unify kprobe with tracepoints with perf_event prog types.
+And frankly I don't see the need.
+Note that in pt_regs we don't need to populate everything.
+The 'optimized fprobe' we were talking about at plumbers we
+would populate di,si,dx,cx,sp since most of the kprobe+bpf progs
+don't care about the other regs and especially cpu flags.
+So plenty of room for tweaks and optimizations.
