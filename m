@@ -1,7 +1,7 @@
 From: Allen Pais <allen.lkml@gmail.com>
-Subject: [PATCH 45/64] drivers: net: fealnx: use setup_timer() helper.
-Date: Thu, 21 Sep 2017 22:35:06 +0530
-Message-ID: <1506013525-29291-46-git-send-email-allen.lkml@gmail.com>
+Subject: [PATCH 47/64] drivers: net: bnxt: use setup_timer() helper.
+Date: Thu, 21 Sep 2017 22:35:08 +0530
+Message-ID: <1506013525-29291-48-git-send-email-allen.lkml@gmail.com>
 References: <1506013525-29291-1-git-send-email-allen.lkml@gmail.com>
 Cc: linux-kernel@vger.kernel.org, m.grzeschik@pengutronix.de,
         dmitry.tarnyagin@lockless.no, wg@grandegger.com,
@@ -24,32 +24,23 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Allen Pais <allen.lkml@gmail.com>
 ---
- drivers/net/ethernet/fealnx.c | 8 ++------
- 1 file changed, 2 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/fealnx.c b/drivers/net/ethernet/fealnx.c
-index e92859d..c898231 100644
---- a/drivers/net/ethernet/fealnx.c
-+++ b/drivers/net/ethernet/fealnx.c
-@@ -909,17 +909,13 @@ static int netdev_open(struct net_device *dev)
- 		printk(KERN_DEBUG "%s: Done netdev_open().\n", dev->name);
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+index aacec8b..c25f5b5 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+@@ -7190,9 +7190,7 @@ static int bnxt_init_board(struct pci_dev *pdev, struct net_device *dev)
  
- 	/* Set the timer to check for link beat. */
--	init_timer(&np->timer);
-+	setup_timer(&np->timer, netdev_timer, (unsigned long)dev);
- 	np->timer.expires = RUN_AT(3 * HZ);
--	np->timer.data = (unsigned long) dev;
--	np->timer.function = netdev_timer;
+ 	bp->stats_coal_ticks = BNXT_DEF_STATS_COAL_TICKS;
  
- 	/* timer handler */
- 	add_timer(&np->timer);
+-	init_timer(&bp->timer);
+-	bp->timer.data = (unsigned long)bp;
+-	bp->timer.function = bnxt_timer;
++	setup_timer(&bp->timer, bnxt_timer, (unsigned long)bp);
+ 	bp->current_interval = BNXT_TIMER_INTERVAL;
  
--	init_timer(&np->reset_timer);
--	np->reset_timer.data = (unsigned long) dev;
--	np->reset_timer.function = reset_timer;
-+	setup_timer(&np->reset_timer, reset_timer, (unsigned long)dev);
- 	np->reset_timer_armed = 0;
- 	return rc;
- }
+ 	clear_bit(BNXT_STATE_OPEN, &bp->state);
 -- 
 2.7.4
