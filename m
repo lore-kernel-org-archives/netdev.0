@@ -1,122 +1,54 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 2/2] net: dsa: lan9303: Add basic offloading of
- unicast traffic
-Date: Thu, 21 Sep 2017 16:21:27 +0200
-Message-ID: <20170921142127.GB27589@lunn.ch>
-References: <20170921094139.4250-1-privat@egil-hjelmeland.no>
- <20170921094139.4250-3-privat@egil-hjelmeland.no>
+From: Berend De Schouwer <berend.de.schouwer@gmail.com>
+Subject: tg3 pxe weirdness
+Date: Thu, 21 Sep 2017 16:23:22 +0200
+Message-ID: <1506003802.18177.62.camel@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Egil Hjelmeland <privat@egil-hjelmeland.no>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170921094139.4250-3-privat@egil-hjelmeland.no>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f45.google.com ([74.125.82.45]:48663 "EHLO
+        mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751886AbdIUOX2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 10:23:28 -0400
+Received: by mail-wm0-f45.google.com with SMTP id m127so2335370wmm.3
+        for <netdev@vger.kernel.org>; Thu, 21 Sep 2017 07:23:27 -0700 (PDT)
+Received: from sieve-deschouwer-co-za ([196.37.73.42])
+        by smtp.gmail.com with ESMTPSA id b80sm1158920wmb.41.2017.09.21.07.23.25
+        for <netdev@vger.kernel.org>
+        (version=TLS1_2 cipher=ECDHE-RSA-CHACHA20-POLY1305 bits=256/256);
+        Thu, 21 Sep 2017 07:23:26 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Egil
+Hi,
 
-> +static void lan9303_bridge_ports(struct lan9303 *chip)
-> +{
-> +	/* ports bridged: remove mirroring */
-> +	lan9303_write_switch_reg(chip, LAN9303_SWE_PORT_MIRROR, 0);
-> +}
+I've got a machine with a Broadcom bcm5762c, using the tg3 driver, that
+fails to receive network packets under some very specific conditions.
 
-Could you replace the 0 with something symbolic which makes this
-easier to understand.
+It works perfectly using a 1Gbps switch.  If, however, it first uses
+PXE and then loads the Linux tg3 driver, and the switch is 100Mbps, it
+no longer receives packets larger than ICMP.
 
-#define LAN9303_SWE_PORT_MIRROR_DISABLED 0
+It does do ARP and ping.
 
-> +
->  static int lan9303_handle_reset(struct lan9303 *chip)
->  {
->  	if (!chip->reset_gpio)
-> @@ -844,6 +866,69 @@ static void lan9303_port_disable(struct dsa_switch *ds, int port,
->  	}
->  }
->  
-> +static int lan9303_port_bridge_join(struct dsa_switch *ds, int port,
-> +				    struct net_device *br)
-> +{
-> +	struct lan9303 *chip = ds->priv;
-> +
-> +	dev_dbg(chip->dev, "%s(port %d)\n", __func__, port);
-> +	if (ds->ports[1].bridge_dev ==  ds->ports[2].bridge_dev) {
-> +		lan9303_bridge_ports(chip);
-> +		chip->is_bridged = true;  /* unleash stp_state_set() */
-> +	}
-> +
-> +	return 0;
-> +}
-> +
-> +static void lan9303_port_bridge_leave(struct dsa_switch *ds, int port,
-> +				      struct net_device *br)
-> +{
-> +	struct lan9303 *chip = ds->priv;
-> +
-> +	dev_dbg(chip->dev, "%s(port %d)\n", __func__, port);
-> +	if (chip->is_bridged) {
-> +		lan9303_separate_ports(chip);
-> +		chip->is_bridged = false;
-> +	}
-> +}
-> +
-> +static void lan9303_port_stp_state_set(struct dsa_switch *ds, int port,
-> +				       u8 state)
-> +{
-> +	int portmask, portstate;
-> +	struct lan9303 *chip = ds->priv;
-> +
-> +	dev_dbg(chip->dev, "%s(port %d, state %d)\n",
-> +		__func__, port, state);
-> +	if (!chip->is_bridged)
-> +		return; /* touching SWE_PORT_STATE will break port separation */
+If it boots using PXE on a 1Gbps switch, boots into Linux, and then
+it's plugged into 100 Mbps it also stops receiving packets.
 
-I'm wondering how this is supposed to work. Please add a good comment
-here, since the hardware is forcing you to do something odd.
+mii-diag and dmesg confirm auto-negotiated speed and flow control, and
+confirm temporary disconnect as the cables are moved.
 
-Maybe it would be a good idea to save the STP state in chip.  And then
-when chip->is_bridged is set true, change the state in the hardware to
-the saved value?
+PXE boots using UNDI, which then transfers a kernel using TFTP, which
+transfers correctly.  The kernel boots, loads the tg3 driver, connects
+the network.  Up to this point everything works.  Ping will work too. 
+Any other network traffic fails.
 
-What happens when port 0 is added to the bridge, there is then a
-minute pause and then port 1 is added? I would expect that as soon as
-port 0 is added, the STP state machine for port 0 will start and move
-into listening and then forwarding. Due to hardware limitations it
-looks like you cannot do this. So what state is the hardware
-effectively in? Blocking? Forwarding?
+Booting from a harddrive works fine.  I assume the UNDI driver
+somewhere breaks auto-negotiation.  I've tried using mii-tool and
+ethtool, but I haven't managed to make it work yet.
 
-Then port 1 is added. You can then can respect the states. port 1 will
-do blocking->listening->forwarding, but what about port 0? The calls
-won't get repeated? How does it transition to forwarding?
+Is it possible to get negotiation working after PXE boot?  Are there
+any tg3 driver flags that might make a difference?
 
-  Andrew
 
-> +
-> +	switch (state) {
-> +	case BR_STATE_DISABLED:
-> +		portstate = LAN9303_SWE_PORT_STATE_DISABLED_PORT0;
-> +		break;
-> +	case BR_STATE_BLOCKING:
-> +	case BR_STATE_LISTENING:
-> +		portstate = LAN9303_SWE_PORT_STATE_BLOCKING_PORT0;
-> +		break;
-> +	case BR_STATE_LEARNING:
-> +		portstate = LAN9303_SWE_PORT_STATE_LEARNING_PORT0;
-> +		break;
-> +	case BR_STATE_FORWARDING:
-> +		portstate = LAN9303_SWE_PORT_STATE_FORWARDING_PORT0;
-> +		break;
-> +	default:
-> +		portstate = LAN9303_SWE_PORT_STATE_DISABLED_PORT0;
-> +		dev_err(chip->dev, "unknown stp state: port %d, state %d\n",
-> +			port, state);
-> +	}
-> +
-> +	portmask = 0x3 << (port * 2);
-> +	portstate     <<= (port * 2);
-> +	lan9303_write_switch_reg_mask(chip, LAN9303_SWE_PORT_STATE,
-> +				      portstate, portmask);
-> +}
+Berend
