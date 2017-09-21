@@ -1,8 +1,8 @@
 From: Allen Pais <allen.lkml@gmail.com>
-Subject: [PATCH 1/1] net: usb: catc: use setup_timer() helper
-Date: Thu, 21 Sep 2017 18:24:15 +0530
-Message-ID: <1505998455-14776-1-git-send-email-allen.lkml@gmail.com>
-Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+Subject: [PATCH 1/1] net: ti: netcp: use setup_timer
+Date: Thu, 21 Sep 2017 18:32:58 +0530
+Message-ID: <1505998978-14898-1-git-send-email-allen.lkml@gmail.com>
+Cc: w-kwok2@ti.com, m-karicheri2@ti.com, netdev@vger.kernel.org,
         Allen Pais <allen.lkml@gmail.com>
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -14,23 +14,24 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Allen Pais <allen.lkml@gmail.com>
 ---
- drivers/net/usb/catc.c | 4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
+ drivers/net/ethernet/ti/netcp_ethss.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/usb/catc.c b/drivers/net/usb/catc.c
-index dbc9031..aeb62e1 100644
---- a/drivers/net/usb/catc.c
-+++ b/drivers/net/usb/catc.c
-@@ -805,9 +805,7 @@ static int catc_probe(struct usb_interface *intf, const struct usb_device_id *id
- 	spin_lock_init(&catc->tx_lock);
- 	spin_lock_init(&catc->ctrl_lock);
+diff --git a/drivers/net/ethernet/ti/netcp_ethss.c b/drivers/net/ethernet/ti/netcp_ethss.c
+index 28cb38a..4ad8216 100644
+--- a/drivers/net/ethernet/ti/netcp_ethss.c
++++ b/drivers/net/ethernet/ti/netcp_ethss.c
+@@ -3616,9 +3616,8 @@ static int gbe_probe(struct netcp_device *netcp_device, struct device *dev,
+ 	}
+ 	spin_unlock_bh(&gbe_dev->hw_stats_lock);
  
--	init_timer(&catc->timer);
--	catc->timer.data = (long) catc;
--	catc->timer.function = catc_stats_timer;
-+	setup_timer(&catc->timer, catc_stats_timer, (long)catc);
- 
- 	catc->ctrl_urb = usb_alloc_urb(0, GFP_KERNEL);
- 	catc->tx_urb = usb_alloc_urb(0, GFP_KERNEL);
+-	init_timer(&gbe_dev->timer);
+-	gbe_dev->timer.data	 = (unsigned long)gbe_dev;
+-	gbe_dev->timer.function = netcp_ethss_timer;
++	setup_timer(&gbe_dev->timer, netcp_ethss_timer,
++		    (unsigned long)gbe_dev);
+ 	gbe_dev->timer.expires	 = jiffies + GBE_TIMER_INTERVAL;
+ 	add_timer(&gbe_dev->timer);
+ 	*inst_priv = gbe_dev;
 -- 
 2.7.4
