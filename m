@@ -1,7 +1,7 @@
 From: Allen Pais <allen.lkml@gmail.com>
-Subject: [PATCH 26/64] drivers: net: xen-netback: use setup_timer() helper.
-Date: Thu, 21 Sep 2017 22:34:47 +0530
-Message-ID: <1506013525-29291-27-git-send-email-allen.lkml@gmail.com>
+Subject: [PATCH 27/64] drivers: net: atmel: use setup_timer() helper.
+Date: Thu, 21 Sep 2017 22:34:48 +0530
+Message-ID: <1506013525-29291-28-git-send-email-allen.lkml@gmail.com>
 References: <1506013525-29291-1-git-send-email-allen.lkml@gmail.com>
 Cc: linux-kernel@vger.kernel.org, m.grzeschik@pengutronix.de,
         dmitry.tarnyagin@lockless.no, wg@grandegger.com,
@@ -24,22 +24,26 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Allen Pais <allen.lkml@gmail.com>
 ---
- drivers/net/xen-netback/interface.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ drivers/net/wireless/atmel/atmel.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
-index ee8ed9da..dcfcb15 100644
---- a/drivers/net/xen-netback/interface.c
-+++ b/drivers/net/xen-netback/interface.c
-@@ -520,8 +520,7 @@ int xenvif_init_queue(struct xenvif_queue *queue)
+diff --git a/drivers/net/wireless/atmel/atmel.c b/drivers/net/wireless/atmel/atmel.c
+index b68436b..e816d53 100644
+--- a/drivers/net/wireless/atmel/atmel.c
++++ b/drivers/net/wireless/atmel/atmel.c
+@@ -1579,11 +1579,10 @@ struct net_device *init_atmel_card(unsigned short irq, unsigned long port,
+ 	priv->default_beacon_period = priv->beacon_period = 100;
+ 	priv->listen_interval = 1;
  
- 	queue->credit_bytes = queue->remaining_credit = ~0UL;
- 	queue->credit_usec  = 0UL;
--	init_timer(&queue->credit_timeout);
--	queue->credit_timeout.function = xenvif_tx_credit_callback;
-+	setup_timer(&queue->credit_timeout, xenvif_tx_credit_callback, 0UL);
- 	queue->credit_window_start = get_jiffies_64();
+-	init_timer(&priv->management_timer);
++	setup_timer(&priv->management_timer, atmel_management_timer,
++		    (unsigned long)dev);
+ 	spin_lock_init(&priv->irqlock);
+ 	spin_lock_init(&priv->timerlock);
+-	priv->management_timer.function = atmel_management_timer;
+-	priv->management_timer.data = (unsigned long) dev;
  
- 	queue->rx_queue_max = XENVIF_RX_QUEUE_BYTES;
+ 	dev->netdev_ops = &atmel_netdev_ops;
+ 	dev->wireless_handlers = &atmel_handler_def;
 -- 
 2.7.4
