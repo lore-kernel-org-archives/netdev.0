@@ -1,7 +1,7 @@
 From: Allen Pais <allen.lkml@gmail.com>
-Subject: [PATCH 52/64] drivers: net: appletalk: use setup_timer() helper.
-Date: Thu, 21 Sep 2017 22:35:13 +0530
-Message-ID: <1506013525-29291-53-git-send-email-allen.lkml@gmail.com>
+Subject: [PATCH 53/64] drivers: net: dscc: use setup_timer() helper.
+Date: Thu, 21 Sep 2017 22:35:14 +0530
+Message-ID: <1506013525-29291-54-git-send-email-allen.lkml@gmail.com>
 References: <1506013525-29291-1-git-send-email-allen.lkml@gmail.com>
 Cc: linux-kernel@vger.kernel.org, m.grzeschik@pengutronix.de,
         dmitry.tarnyagin@lockless.no, wg@grandegger.com,
@@ -24,23 +24,24 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Allen Pais <allen.lkml@gmail.com>
 ---
- drivers/net/appletalk/ltpc.c | 4 +---
+ drivers/net/wan/dscc4.c | 4 +---
  1 file changed, 1 insertion(+), 3 deletions(-)
 
-diff --git a/drivers/net/appletalk/ltpc.c b/drivers/net/appletalk/ltpc.c
-index ac755d2..e4aa374 100644
---- a/drivers/net/appletalk/ltpc.c
-+++ b/drivers/net/appletalk/ltpc.c
-@@ -1165,9 +1165,7 @@ struct net_device * __init ltpc_probe(void)
- 		dev->irq = 0;
- 		/* polled mode -- 20 times per second */
- 		/* this is really, really slow... should it poll more often? */
--		init_timer(&ltpc_timer);
--		ltpc_timer.function=ltpc_poll;
--		ltpc_timer.data = (unsigned long) dev;
-+		setup_timer(&ltpc_timer, ltpc_poll, (unsigned long)dev);
+diff --git a/drivers/net/wan/dscc4.c b/drivers/net/wan/dscc4.c
+index a043fb1..64f1764 100644
+--- a/drivers/net/wan/dscc4.c
++++ b/drivers/net/wan/dscc4.c
+@@ -1127,10 +1127,8 @@ static int dscc4_open(struct net_device *dev)
+ done:
+ 	netif_start_queue(dev);
  
- 		ltpc_timer.expires = jiffies + HZ/20;
- 		add_timer(&ltpc_timer);
+-        init_timer(&dpriv->timer);
++	setup_timer(&dpriv->timer, dscc4_timer, (unsigned long)dev);
+         dpriv->timer.expires = jiffies + 10*HZ;
+-        dpriv->timer.data = (unsigned long)dev;
+-	dpriv->timer.function = dscc4_timer;
+         add_timer(&dpriv->timer);
+ 	netif_carrier_on(dev);
+ 
 -- 
 2.7.4
