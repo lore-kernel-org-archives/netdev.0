@@ -1,7 +1,7 @@
 From: Allen Pais <allen.lkml@gmail.com>
-Subject: [PATCH 20/64] drivers: net: spider_net: use setup_timer() helper.
-Date: Thu, 21 Sep 2017 22:34:41 +0530
-Message-ID: <1506013525-29291-21-git-send-email-allen.lkml@gmail.com>
+Subject: [PATCH 21/64] drivers: net: sun: cassini: use setup_timer() helper.
+Date: Thu, 21 Sep 2017 22:34:42 +0530
+Message-ID: <1506013525-29291-22-git-send-email-allen.lkml@gmail.com>
 References: <1506013525-29291-1-git-send-email-allen.lkml@gmail.com>
 Cc: linux-kernel@vger.kernel.org, m.grzeschik@pengutronix.de,
         dmitry.tarnyagin@lockless.no, wg@grandegger.com,
@@ -24,34 +24,24 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Allen Pais <allen.lkml@gmail.com>
 ---
- drivers/net/ethernet/toshiba/spider_net.c | 12 +++++-------
- 1 file changed, 5 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/sun/cassini.c | 5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/toshiba/spider_net.c b/drivers/net/ethernet/toshiba/spider_net.c
-index cec9e70..a913538 100644
---- a/drivers/net/ethernet/toshiba/spider_net.c
-+++ b/drivers/net/ethernet/toshiba/spider_net.c
-@@ -2256,16 +2256,14 @@ spider_net_setup_netdev(struct spider_net_card *card)
+diff --git a/drivers/net/ethernet/sun/cassini.c b/drivers/net/ethernet/sun/cassini.c
+index 382993c..a74d78f 100644
+--- a/drivers/net/ethernet/sun/cassini.c
++++ b/drivers/net/ethernet/sun/cassini.c
+@@ -5039,10 +5039,7 @@ static int cas_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	spin_lock_init(&cp->stat_lock[N_TX_RINGS]);
+ 	mutex_init(&cp->pm_mutex);
  
- 	pci_set_drvdata(card->pdev, netdev);
- 
--	init_timer(&card->tx_timer);
--	card->tx_timer.function =
--		(void (*)(unsigned long)) spider_net_cleanup_tx_ring;
--	card->tx_timer.data = (unsigned long) card;
-+	setup_timer(&card->tx_timer,
-+		    (void(*)(unsigned long))spider_net_cleanup_tx_ring,
-+		    (unsigned long)card);
- 	netdev->irq = card->pdev->irq;
- 
- 	card->aneg_count = 0;
--	init_timer(&card->aneg_timer);
--	card->aneg_timer.function = spider_net_link_phy;
--	card->aneg_timer.data = (unsigned long) card;
-+	setup_timer(&card->aneg_timer, spider_net_link_phy,
-+		    (unsigned long)card);
- 
- 	netif_napi_add(netdev, &card->napi,
- 		       spider_net_poll, SPIDER_NET_NAPI_WEIGHT);
+-	init_timer(&cp->link_timer);
+-	cp->link_timer.function = cas_link_timer;
+-	cp->link_timer.data = (unsigned long) cp;
+-
++	setup_timer(&cp->link_timer, cas_link_timer, (unsigned long)cp);
+ #if 1
+ 	/* Just in case the implementation of atomic operations
+ 	 * change so that an explicit initialization is necessary.
 -- 
 2.7.4
