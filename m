@@ -1,37 +1,127 @@
-From: "Gao Feng" <gfree.wind@vip.163.com>
-Subject: Re:Re: [PATCH net-next ] net: Remove useless function
- skb_header_release
-Date: Thu, 21 Sep 2017 13:07:58 +0800 (CST)
-Message-ID: <759c980e.47d8.15ea2d5de95.Coremail.gfree.wind@vip.163.com>
-References: <1505968771-92232-1-git-send-email-gfree.wind@vip.163.com>
- <1505969350.12311.20.camel@perches.com>
+From: Yonghong Song <yhs@fb.com>
+Subject: Re: [PATCH net] bpf: one perf event close won't free bpf program
+ attached by another perf event
+Date: Wed, 20 Sep 2017 22:17:03 -0700
+Message-ID: <94f5a61e-1a88-f285-224b-66c92dc3da7b@fb.com>
+References: <20170918233836.1817062-1-yhs@fb.com>
+ <20170920214109.11002b7c@vmware.local.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: base64
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: "Joe Perches" <joe@perches.com>
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <peterz@infradead.org>, <ast@fb.com>, <daniel@iogearbox.net>,
+        <netdev@vger.kernel.org>, <kernel-team@fb.com>
+To: Steven Rostedt <rostedt@goodmis.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from m175-177.vip.163.com ([123.58.177.175]:29610 "EHLO
-        m175-177.vip.163.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750795AbdIUFN0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 01:13:26 -0400
-In-Reply-To: <1505969350.12311.20.camel@perches.com>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:54789 "EHLO
+        mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1750912AbdIUFRx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 01:17:53 -0400
+In-Reply-To: <20170920214109.11002b7c@vmware.local.home>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Pk9uIFRodSwgMjAxNy0wOS0yMSBhdCAxMjozOSArMDgwMCwgZ2ZyZWUud2luZEB2aXAuMTYzLmNv
-bSB3cm90ZToKPj4gRnJvbTogR2FvIEZlbmcgPGdmcmVlLndpbmRAdmlwLjE2My5jb20+Cj4+IAo+
-PiBUaGVyZSBpcyBubyBvbmUgd2hpY2ggd291bGQgaW52b2tlcyB0aGUgZnVuY3Rpb24gc2tiX2hl
-YWRlcl9yZWxlYXNlLgo+PiBTbyBqdXN0IHJlbW92ZSBpdCBub3cuCj4KPlRoaXMgaW4gaW5jb21w
-bGV0ZS4KPlRoZXJlIGFyZSBvdGhlciByZWZlcmVuY2VzIHRvIHRoaXMgZnVuY3Rpb24uCj4KPiQg
-Z2l0IGdyZXAgLXcgc2tiX2hlYWRlcl9yZWxlYXNlCj5kcml2ZXJzL25ldC91c2IvYXNpeF9jb21t
-b24uYzoJwqAqIFRDUCBwYWNrZXRzIGZvciBleGFtcGxlIGFyZSBjbG9uZWQsIGJ1dCBza2JfaGVh
-ZGVyX3JlbGVhc2UoKQo+aW5jbHVkZS9saW51eC9za2J1ZmYuaDogKglza2JfaGVhZGVyX3JlbGVh
-c2UgLSByZWxlYXNlIHJlZmVyZW5jZSB0byBoZWFkZXIKPmluY2x1ZGUvbGludXgvc2tidWZmLmg6
-c3RhdGljIGlubGluZSB2b2lkIHNrYl9oZWFkZXJfcmVsZWFzZShzdHJ1Y3Qgc2tfYnVmZiAqc2ti
-KQo+aW5jbHVkZS9saW51eC9za2J1ZmYuaDogKglWYXJpYW50IG9mIHNrYl9oZWFkZXJfcmVsZWFz
-ZSgpIGFzc3VtaW5nIHNrYiBpcyBwcml2YXRlIHRvIGNhbGxlci4KPm5ldC9iYXRtYW4tYWR2L3Nv
-ZnQtaW50ZXJmYWNlLmM6CcKgKiBkYXRhIHVzaW5nIHNrYl9oZWFkZXJfcmVsZWFzZSBpbiBvdXIg
-c2ticyB0byBhbGxvdyBza2JfY293X2hlYWRlciB0bwoKQnV0IHRoZXJlIGFyZSBjb21tZW50cywg
-bm90IHJlYWwgY29kZXMuCgpVbmxlc3MgdGhlIHNrYl9oZWFkZXJfcmVsZWFzZSBtYXkgYmUgdXNl
-ZCBpbiB0aGUgZXh0ZXJuYWwgbW9kdWxlcwoKQmVzdCBSZWdhcmRzCkZlbmcK
+
+
+On 9/20/17 6:41 PM, Steven Rostedt wrote:
+> On Mon, 18 Sep 2017 16:38:36 -0700
+> Yonghong Song <yhs@fb.com> wrote:
+> 
+>> This patch fixes a bug exhibited by the following scenario:
+>>    1. fd1 = perf_event_open with attr.config = ID1
+>>    2. attach bpf program prog1 to fd1
+>>    3. fd2 = perf_event_open with attr.config = ID1
+>>       <this will be successful>
+>>    4. user program closes fd2 and prog1 is detached from the tracepoint.
+>>    5. user program with fd1 does not work properly as tracepoint
+>>       no output any more.
+>>
+>> The issue happens at step 4. Multiple perf_event_open can be called
+>> successfully, but only one bpf prog pointer in the tp_event. In the
+>> current logic, any fd release for the same tp_event will free
+>> the tp_event->prog.
+>>
+>> The fix is to free tp_event->prog only when the closing fd
+>> corresponds to the one which registered the program.
+>>
+>> Signed-off-by: Yonghong Song <yhs@fb.com>
+>> ---
+>>   Additional context: discussed with Alexei internally but did not find
+>>   a solution which can avoid introducing the additional field in
+>>   trace_event_call structure.
+>>
+>>   Peter, could you take a look as well and maybe you could have better
+>>   alternative? Thanks!
+>>
+>>   include/linux/trace_events.h | 1 +
+>>   kernel/events/core.c         | 3 ++-
+>>   2 files changed, 3 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/include/linux/trace_events.h b/include/linux/trace_events.h
+>> index 7f11050..2e0f222 100644
+>> --- a/include/linux/trace_events.h
+>> +++ b/include/linux/trace_events.h
+>> @@ -272,6 +272,7 @@ struct trace_event_call {
+>>   	int				perf_refcount;
+>>   	struct hlist_head __percpu	*perf_events;
+>>   	struct bpf_prog			*prog;
+>> +	struct perf_event		*bpf_prog_owner;
+> 
+> Does this have to be in the trace_event_call structure? Hmm, I'm
+> wondering if the prog needs to be there (I should look to see if we can
+> move it from it). The trace_event_call is created for *every* event,
+> and there's thousands of them now. Every byte to this structure adds
+> 1000s of bytes to the kernel. Would it be possible to attach the prog
+> and the owner to the perf_event?
+
+Regarding whether we could move the prog and the owner to the 
+perf_event. It is possible. There is already a "prog" field in the
+perf_event structure for overflow handler. We could reuse the "prog"
+field and we do not need bpf_prog_owner any more. We can iterate
+through trace_event_call->perf_events to find the event which has the
+prog and executes it. This will support multiple prog's attaching to
+the same trace_event_call as well.
+
+This approach may need careful evaluation though.
+(1). It adds runtime overhead although the overhead should be small
+since perf_event attaching to the same trace_event_call should be small.
+(2). trace_event_call->perf_events are per cpu data structure, that 
+means, some filtering logic is needed to avoid the same perf_event prog 
+is executing twice.
+(3). since the list is traversed, the locking (rcu?) may be required to
+pretect the list. Not sure whether additional locking is needed or not.
+
+Alternative to using trace_event_call->perf_events, we may replace
+"struct bpf_prog *prog" to a list (or some other list like data 
+structure) to just record perf events which have bpf progs attached.
+But this will add memory overhead to trace_event_call data structure.
+
+> 
+> -- Steve
+> 
+> 
+>>   
+>>   	int	(*perf_perm)(struct trace_event_call *,
+>>   			     struct perf_event *);
+>> diff --git a/kernel/events/core.c b/kernel/events/core.c
+>> index 3e691b7..6bc21e2 100644
+>> --- a/kernel/events/core.c
+>> +++ b/kernel/events/core.c
+>> @@ -8171,6 +8171,7 @@ static int perf_event_set_bpf_prog(struct perf_event *event, u32 prog_fd)
+>>   		}
+>>   	}
+>>   	event->tp_event->prog = prog;
+>> +	event->tp_event->bpf_prog_owner = event;
+>>   
+>>   	return 0;
+>>   }
+>> @@ -8185,7 +8186,7 @@ static void perf_event_free_bpf_prog(struct perf_event *event)
+>>   		return;
+>>   
+>>   	prog = event->tp_event->prog;
+>> -	if (prog) {
+>> +	if (prog && event->tp_event->bpf_prog_owner == event) {
+>>   		event->tp_event->prog = NULL;
+>>   		bpf_prog_put(prog);
+>>   	}
+> 
