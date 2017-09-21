@@ -1,7 +1,7 @@
 From: Allen Pais <allen.lkml@gmail.com>
-Subject: [PATCH 08/64] drivers: net: am79c961: use setup_timer() helper.
-Date: Thu, 21 Sep 2017 22:34:29 +0530
-Message-ID: <1506013525-29291-9-git-send-email-allen.lkml@gmail.com>
+Subject: [PATCH 07/64] drivers: net: declance: use setup_timer() helper.
+Date: Thu, 21 Sep 2017 22:34:28 +0530
+Message-ID: <1506013525-29291-8-git-send-email-allen.lkml@gmail.com>
 References: <1506013525-29291-1-git-send-email-allen.lkml@gmail.com>
 Cc: linux-kernel@vger.kernel.org, m.grzeschik@pengutronix.de,
         dmitry.tarnyagin@lockless.no, wg@grandegger.com,
@@ -14,37 +14,35 @@ Cc: linux-kernel@vger.kernel.org, m.grzeschik@pengutronix.de,
         adi-buildroot-devel@lists.sourceforge.net,
         Allen Pais <allen.lkml@gmail.com>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:38181 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751787AbdIURGd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 13:06:33 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1506013525-29291-1-git-send-email-allen.lkml@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
     Use setup_timer function instead of initializing timer with the
     function and data fields.
 
 Signed-off-by: Allen Pais <allen.lkml@gmail.com>
 ---
- drivers/net/ethernet/amd/am79c961a.c | 4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
+ drivers/net/ethernet/amd/declance.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/amd/am79c961a.c b/drivers/net/ethernet/amd/am79c961a.c
-index b11e910..0612dbe 100644
---- a/drivers/net/ethernet/amd/am79c961a.c
-+++ b/drivers/net/ethernet/amd/am79c961a.c
-@@ -728,9 +728,7 @@ static int am79c961_probe(struct platform_device *pdev)
- 	am79c961_banner();
+diff --git a/drivers/net/ethernet/amd/declance.c b/drivers/net/ethernet/amd/declance.c
+index 82cc813..9bdf81c 100644
+--- a/drivers/net/ethernet/amd/declance.c
++++ b/drivers/net/ethernet/amd/declance.c
+@@ -1246,9 +1246,9 @@ static int dec_lance_probe(struct device *bdev, const int type)
+ 	 * can occur from interrupts (ex. IPv6).  So we
+ 	 * use a timer to try again later when necessary. -DaveM
+ 	 */
+-	init_timer(&lp->multicast_timer);
+-	lp->multicast_timer.data = (unsigned long) dev;
+-	lp->multicast_timer.function = lance_set_multicast_retry;
++	setup_timer(&lp->multicast_timer, lance_set_multicast_retry,
++		    (unsigned long)dev);
++
  
- 	spin_lock_init(&priv->chip_lock);
--	init_timer(&priv->timer);
--	priv->timer.data = (unsigned long)dev;
--	priv->timer.function = am79c961_timer;
-+	setup_timer(&priv->timer, am79c961_timer, (unsigned long)dev);
- 
- 	if (am79c961_hw_init(dev))
- 		goto release;
+ 	ret = register_netdev(dev);
+ 	if (ret) {
 -- 
 2.7.4
