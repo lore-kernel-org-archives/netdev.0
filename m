@@ -1,46 +1,122 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: RTL8192EE PCIe Wireless Network Adapter crashed with linux-4.13
-Date: Thu, 21 Sep 2017 09:21:25 -0500
-Message-ID: <5a6aa431-fdde-a329-4168-44490c37f197@lwfinger.net>
-References: <2WhCEttl4IJtrTB2AkJYmhbsu-kiR_5fU0A_Z7eWW05rbVE5tB86A_ZS8ek_FQFdgaZw1bfx0wFbxOa0Ydjv1T6BzBkIHtaWTbSptcpB_kg=@protonmail.com>
- <e8e75755-f8b4-e122-ea4a-99a691405d38@lwfinger.net>
- <jB0WJNG17mSfKo9m7T26r-b2Gr7mDL4lJ-1cWxeCJ6UCsA4TsxXz4znCLhYY5EASPQciwp1rf_xtwvDR-xzwD-OTApTUFoaVmIvahleDcJk=@protonmail.com>
- <1eb67d2e-dfbc-a2d0-8949-d4336191c07b@lwfinger.net>
- <x1duse6v9TTP8Ta7rsTLlZ8DK0Ej7qq9iapef18K0eYSodmCBmfI_mX3c-3ocbPiGzEgV9weOh25dKWSbU5nIetYkfmmUxaxRpUdYFffRZA=@protonmail.com>
- <35856452-c05c-d116-f91b-0964947ec8ae@lwfinger.net>
- <2_UKRQjXR9_CXy_99R7fqRbs4VDG0hfFCMvvf4ll2BQV5C_zNiPTnHHNtoYstAGy_UF9X85pl4siU7fnXefmqbhlErxR6FqZQfIf0tADKNg=@protonmail.com>
- <5e2a695a-ea26-e0a3-d5eb-cf8135c1349e@lwfinger.net>
- <ZeTD57H3euqWFB5wrD_vYAkdu91l_6Yalbz_mRWtrrb2t17d0cdWOpCaXw33jcPYNKhgqnHbuqHTI9xkVnrkliRTGxraEqWnk5GZ63xKifI=@protonmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 2/2] net: dsa: lan9303: Add basic offloading of
+ unicast traffic
+Date: Thu, 21 Sep 2017 16:21:27 +0200
+Message-ID: <20170921142127.GB27589@lunn.ch>
+References: <20170921094139.4250-1-privat@egil-hjelmeland.no>
+ <20170921094139.4250-3-privat@egil-hjelmeland.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-        "chaoming_li@realsil.com.cn" <chaoming_li@realsil.com.cn>,
-        "kvalo@codeaurora.org" <kvalo@codeaurora.org>,
-        "pkshih@realtek.com" <pkshih@realtek.com>,
-        "johannes.berg@intel.com" <johannes.berg@intel.com>,
-        "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Zwindl <zwindl@protonmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Egil Hjelmeland <privat@egil-hjelmeland.no>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <ZeTD57H3euqWFB5wrD_vYAkdu91l_6Yalbz_mRWtrrb2t17d0cdWOpCaXw33jcPYNKhgqnHbuqHTI9xkVnrkliRTGxraEqWnk5GZ63xKifI=@protonmail.com>
-Content-Language: en-US
+Content-Disposition: inline
+In-Reply-To: <20170921094139.4250-3-privat@egil-hjelmeland.no>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 09/21/2017 06:37 AM, Zwindl wrote:
-> Hi, I've reported to archlinux's bugzilla, and finally found out the flag which 
-> caused that issue, it's the `CONFIG_INTEL_IOMMU_DEFAULT_ON=y` flag, I think may 
-> this is a kernel bug, more details at https://bugs.archlinux.org/task/55665
+Hi Egil
 
-My standard kernel has the following:
+> +static void lan9303_bridge_ports(struct lan9303 *chip)
+> +{
+> +	/* ports bridged: remove mirroring */
+> +	lan9303_write_switch_reg(chip, LAN9303_SWE_PORT_MIRROR, 0);
+> +}
 
-CONFIG_INTEL_IOMMU=y
-# CONFIG_INTEL_IOMMU_SVM is not set
-# CONFIG_INTEL_IOMMU_DEFAULT_ON is not set
+Could you replace the 0 with something symbolic which makes this
+easier to understand.
 
-I will do some further testing to see if turning CONFIG_INTEL_IOMMU_DEFAULT_ON 
-also breaks my system.
+#define LAN9303_SWE_PORT_MIRROR_DISABLED 0
 
-Larry
+> +
+>  static int lan9303_handle_reset(struct lan9303 *chip)
+>  {
+>  	if (!chip->reset_gpio)
+> @@ -844,6 +866,69 @@ static void lan9303_port_disable(struct dsa_switch *ds, int port,
+>  	}
+>  }
+>  
+> +static int lan9303_port_bridge_join(struct dsa_switch *ds, int port,
+> +				    struct net_device *br)
+> +{
+> +	struct lan9303 *chip = ds->priv;
+> +
+> +	dev_dbg(chip->dev, "%s(port %d)\n", __func__, port);
+> +	if (ds->ports[1].bridge_dev ==  ds->ports[2].bridge_dev) {
+> +		lan9303_bridge_ports(chip);
+> +		chip->is_bridged = true;  /* unleash stp_state_set() */
+> +	}
+> +
+> +	return 0;
+> +}
+> +
+> +static void lan9303_port_bridge_leave(struct dsa_switch *ds, int port,
+> +				      struct net_device *br)
+> +{
+> +	struct lan9303 *chip = ds->priv;
+> +
+> +	dev_dbg(chip->dev, "%s(port %d)\n", __func__, port);
+> +	if (chip->is_bridged) {
+> +		lan9303_separate_ports(chip);
+> +		chip->is_bridged = false;
+> +	}
+> +}
+> +
+> +static void lan9303_port_stp_state_set(struct dsa_switch *ds, int port,
+> +				       u8 state)
+> +{
+> +	int portmask, portstate;
+> +	struct lan9303 *chip = ds->priv;
+> +
+> +	dev_dbg(chip->dev, "%s(port %d, state %d)\n",
+> +		__func__, port, state);
+> +	if (!chip->is_bridged)
+> +		return; /* touching SWE_PORT_STATE will break port separation */
+
+I'm wondering how this is supposed to work. Please add a good comment
+here, since the hardware is forcing you to do something odd.
+
+Maybe it would be a good idea to save the STP state in chip.  And then
+when chip->is_bridged is set true, change the state in the hardware to
+the saved value?
+
+What happens when port 0 is added to the bridge, there is then a
+minute pause and then port 1 is added? I would expect that as soon as
+port 0 is added, the STP state machine for port 0 will start and move
+into listening and then forwarding. Due to hardware limitations it
+looks like you cannot do this. So what state is the hardware
+effectively in? Blocking? Forwarding?
+
+Then port 1 is added. You can then can respect the states. port 1 will
+do blocking->listening->forwarding, but what about port 0? The calls
+won't get repeated? How does it transition to forwarding?
+
+  Andrew
+
+> +
+> +	switch (state) {
+> +	case BR_STATE_DISABLED:
+> +		portstate = LAN9303_SWE_PORT_STATE_DISABLED_PORT0;
+> +		break;
+> +	case BR_STATE_BLOCKING:
+> +	case BR_STATE_LISTENING:
+> +		portstate = LAN9303_SWE_PORT_STATE_BLOCKING_PORT0;
+> +		break;
+> +	case BR_STATE_LEARNING:
+> +		portstate = LAN9303_SWE_PORT_STATE_LEARNING_PORT0;
+> +		break;
+> +	case BR_STATE_FORWARDING:
+> +		portstate = LAN9303_SWE_PORT_STATE_FORWARDING_PORT0;
+> +		break;
+> +	default:
+> +		portstate = LAN9303_SWE_PORT_STATE_DISABLED_PORT0;
+> +		dev_err(chip->dev, "unknown stp state: port %d, state %d\n",
+> +			port, state);
+> +	}
+> +
+> +	portmask = 0x3 << (port * 2);
+> +	portstate     <<= (port * 2);
+> +	lan9303_write_switch_reg_mask(chip, LAN9303_SWE_PORT_STATE,
+> +				      portstate, portmask);
+> +}
