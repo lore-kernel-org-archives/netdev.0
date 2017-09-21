@@ -1,135 +1,144 @@
-From: Franklin S Cooper Jr <fcooper-l0cyMroinI0@public.gmane.org>
-Subject: Re: [v2,3/3] can: m_can: Add PM Runtime
-Date: Wed, 20 Sep 2017 19:36:15 -0500
-Message-ID: <bc29f9d2-db3a-1757-41d8-f19eda10a6f1@ti.com>
-References: <20170724225142.19975-4-fcooper@ti.com>
- <8037f5f9-d51f-99c3-f2e8-62c90e56a6fa@ti.com>
+From: Franklin S Cooper Jr <fcooper@ti.com>
+Subject: Re: [RFC PATCH] can: m_can: Support higher speed CAN-FD bitrates
+Date: Wed, 20 Sep 2017 19:48:50 -0500
+Message-ID: <ed19ead3-d8f6-c027-74cf-8aee131c8a59@ti.com>
+References: <20170818193947.27862-1-fcooper@ti.com>
+ <4f8f6b64-b2a2-b9dc-665c-f1c155daf994@ti.com>
+ <a7e301a7-bc54-c348-bdb1-b6a0af41665f@ti.com>
+ <532e09ae-775d-e8aa-e468-78e148c650da@Microchip.com>
+ <88d4ddc4-b786-0205-6852-56e93182a1c9@ti.com>
+ <e3a7d9a1-d75c-a39e-f122-73fced02a1dc@gmx.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Linux OMAP List <linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Alexandre Belloni <alexandre.belloni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-        Wenyou Yang <wenyou.yang-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org>,
-        =?UTF-8?Q?Mario_H=c3=bcttel?= <mario.huettel-hi6Y0CQ0nG0@public.gmane.org>
-To: Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>,
-        <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>, <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        <quentin.schulz-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <8037f5f9-d51f-99c3-f2e8-62c90e56a6fa-l0cyMroinI0@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Transfer-Encoding: 8bit
+Cc: Wenyou Yang <wenyou.yang@atmel.com>,
+        Dong Aisheng <b29396@freescale.com>
+To: =?UTF-8?Q?Mario_H=c3=bcttel?= <mario.huettel@gmx.net>,
+        "Yang, Wenyou" <Wenyou.Yang@Microchip.com>,
+        Sekhar Nori <nsekhar@ti.com>, <wg@grandegger.com>,
+        <mkl@pengutronix.de>, <socketcan@hartkopp.net>,
+        <quentin.schulz@free-electrons.com>, <edumazet@google.com>,
+        <linux-can@vger.kernel.org>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <e3a7d9a1-d75c-a39e-f122-73fced02a1dc@gmx.net>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-On 08/24/2017 03:30 AM, Sekhar Nori wrote:
-> + OMAP mailing list
-> 
-> On Tuesday 25 July 2017 04:21 AM, Franklin Cooper wrote:
->> Add support for PM Runtime which is the new way to handle managing clocks.
->> However, to avoid breaking SoCs not using PM_RUNTIME leave the old clk
->> management approach in place.
-> 
-> Since hclk is the interface clock, I think at a minimum there needs to
-> be an assumption that pm_runtime_get_sync() will enable that clock and
-> make the module ready for access.
-> 
-> The only in-kernel user of this driver seems to be an atmel SoC. I am
-> ccing folks who added support for M_CAN on that SoC to see if hclk
-> management can be left to pm_runtime*() on their SoC.
-> 
-> If they are okay, I think its a good to atleast drop explicit hclk
-> enable disable in the driver. That way, we avoid double enable/disable
-> of interface clock (hclk).
 
-Wenyou,
+On 09/20/2017 04:37 PM, Mario Hüttel wrote:
+> 
+> 
+> On 09/20/2017 10:19 PM, Franklin S Cooper Jr wrote:
+>> Hi Wenyou,
+>>
+>> On 09/17/2017 10:47 PM, Yang, Wenyou wrote:
+>>>
+>>> On 2017/9/14 13:06, Sekhar Nori wrote:
+>>>> On Thursday 14 September 2017 03:28 AM, Franklin S Cooper Jr wrote:
+>>>>> On 08/18/2017 02:39 PM, Franklin S Cooper Jr wrote:
+>>>>>> During test transmitting using CAN-FD at high bitrates (4 Mbps) only
+>>>>>> resulted in errors. Scoping the signals I noticed that only a single
+>>>>>> bit
+>>>>>> was being transmitted and with a bit more investigation realized the
+>>>>>> actual
+>>>>>> MCAN IP would go back to initialization mode automatically.
+>>>>>>
+>>>>>> It appears this issue is due to the MCAN needing to use the Transmitter
+>>>>>> Delay Compensation Mode as defined in the MCAN User's Guide. When this
+>>>>>> mode is used the User's Guide indicates that the Transmitter Delay
+>>>>>> Compensation Offset register should be set. The document mentions
+>>>>>> that this
+>>>>>> register should be set to (1/dbitrate)/2*(Func Clk Freq).
+>>>>>>
+>>>>>> Additional CAN-CIA's "Bit Time Requirements for CAN FD" document
+>>>>>> indicates
+>>>>>> that this TDC mode is only needed for data bit rates above 2.5 Mbps.
+>>>>>> Therefore, only enable this mode and only set TDCO when the data bit
+>>>>>> rate
+>>>>>> is above 2.5 Mbps.
+>>>>>>
+>>>>>> Signed-off-by: Franklin S Cooper Jr <fcooper@ti.com>
+>>>>>> ---
+>>>>>> I'm pretty surprised that this hasn't been implemented already since
+>>>>>> the primary purpose of CAN-FD is to go beyond 1 Mbps and the MCAN IP
+>>>>>> supports up to 10 Mbps.
+>>>>>>
+>>>>>> So it will be nice to get comments from users of this driver to
+>>>>>> understand
+>>>>>> if they have been able to use CAN-FD beyond 2.5 Mbps without this
+>>>>>> patch.
+>>>>>> If they haven't what did they do to get around it if they needed higher
+>>>>>> speeds.
+>>>>>>
+>>>>>> Meanwhile I plan on testing this using a more "realistic" CAN bus to
+>>>>>> insure
+>>>>>> everything still works at 5 Mbps which is the max speed of my CAN
+>>>>>> transceiver.
+>>>>> ping. Anyone has any thoughts on this?
+>>>> I added Dong who authored the m_can driver and Wenyou who added the only
+>>>> in-kernel user of the driver for any help.
+>>> I tested it on SAMA5D2 Xplained board both with and without this patch, 
+>>> both work with the 4M bps data bit rate.
+>> Thank you for testing this out. Its interesting that you have been able
+>> to use higher speeds without this patch. What is the CAN transceiver
+>> being used on the SAMA5D2 Xplained board? I tried looking at the
+>> schematic but it seems the CAN signals are used on an extension board
+>> which I can't find the schematic for. Also do you mind sharing your test
+>> setup? Were you doing a short point to point test?
+>>
+>> Thank You,
+>> Franklin
+> Hello Franklin,
+> 
+> your patch definitely makes sense.
+> 
+> I forgot the TDC in my patches because it was not present in the
+> previous driver versions and because I didn't encounter any
+> problems when testing it myself.
+> 
+> The error is highly dependent on the hardware (transceiver) setup.
+> So it is definitely possible that some people don't encounter errors
+> without your patch.
 
-Do you foresee this being a problem on your board? If not I can send a
-v3 removing these clk_enable and clk_disable calls and it would be great
-if you can test it out and provide your tested by.
+So the Transmission Delay Compensation feature Value register is suppose
+to take into consideration the transceiver delay automatically and add
+the value of TDCO on top of that. So why would TDCO be dependent on the
+transceiver? I've heard conflicting things regarding TDC so any
+clarification on what actually impacts it would be appreciated.
 
+Also part of the issue I'm having is how can we properly configure TDCO?
+Configuring TDCO is essentially figuring out what Secondary Sample Point
+to use. However, it is unclear what value to set SSP to and which use
+cases a given SSP will work or doesn't work. I've seen various
+recommendations from Bosch on choosing SSP but ultimately it seems they
+suggestion "real world testing" to come up with a proper value. Not
+setting TDCO causes problems for my device and improperly setting TDCO
+causes problems for my device. So its likely any value I use could end
+up breaking something for someone else.
+
+Currently I leaning to a DT property that can be used for setting SSP.
+Perhaps use a generic default value and allow individuals to override it
+via DT?
 > 
->>
->> PM_RUNTIME is required by OMAP based devices to handle clock management.
->> Therefore, this allows future Texas Instruments SoCs that have the MCAN IP
->> to work with this driver.
->>
->> Signed-off-by: Franklin S Cooper Jr <fcooper-l0cyMroinI0@public.gmane.org>
+> Could you clarify what you meant with
+>> Scoping the signals I noticed that only a single bit was being transmitted 
 > 
-> Thanks,
-> Sekhar
+> Do you mean one data bit (high bit rate)  or did the core already fail
+> in the arbitration phase?
+
+A single bit during the arbitration phase. Essentially the Start of
+Frame bit is sent and then nothing else and the IP resets.
 > 
->> ---
->>  drivers/net/can/m_can/m_can.c | 13 +++++++++++++
->>  1 file changed, 13 insertions(+)
->>
->> diff --git a/drivers/net/can/m_can/m_can.c b/drivers/net/can/m_can/m_can.c
->> index ea48e59..93e23f5 100644
->> --- a/drivers/net/can/m_can/m_can.c
->> +++ b/drivers/net/can/m_can/m_can.c
->> @@ -23,6 +23,7 @@
->>  #include <linux/of.h>
->>  #include <linux/of_device.h>
->>  #include <linux/platform_device.h>
->> +#include <linux/pm_runtime.h>
->>  #include <linux/iopoll.h>
->>  #include <linux/can/dev.h>
->>  
->> @@ -633,11 +634,15 @@ static int m_can_clk_start(struct m_can_priv *priv)
->>  	if (err)
->>  		clk_disable_unprepare(priv->hclk);
->>  
->> +	pm_runtime_get_sync(priv->device);
->> +
->>  	return err;
->>  }
->>  
->>  static void m_can_clk_stop(struct m_can_priv *priv)
->>  {
->> +	pm_runtime_put_sync(priv->device);
->> +
->>  	clk_disable_unprepare(priv->cclk);
->>  	clk_disable_unprepare(priv->hclk);
->>  }
->> @@ -1582,6 +1587,8 @@ static int m_can_plat_probe(struct platform_device *pdev)
->>  	/* Enable clocks. Necessary to read Core Release in order to determine
->>  	 * M_CAN version
->>  	 */
->> +	pm_runtime_enable(&pdev->dev);
->> +
->>  	ret = clk_prepare_enable(hclk);
->>  	if (ret)
->>  		goto disable_hclk_ret;
->> @@ -1626,6 +1633,8 @@ static int m_can_plat_probe(struct platform_device *pdev)
->>  	 */
->>  	tx_fifo_size = mram_config_vals[7];
->>  
->> +	pm_runtime_get_sync(&pdev->dev);
->> +
->>  	/* allocate the m_can device */
->>  	dev = alloc_m_can_dev(pdev, addr, tx_fifo_size);
->>  	if (!dev) {
->> @@ -1670,6 +1679,7 @@ static int m_can_plat_probe(struct platform_device *pdev)
->>  disable_hclk_ret:
->>  	clk_disable_unprepare(hclk);
->>  failed_ret:
->> +	pm_runtime_put_sync(&pdev->dev);
->>  	return ret;
->>  }
->>  
->> @@ -1726,6 +1736,9 @@ static int m_can_plat_remove(struct platform_device *pdev)
->>  	struct net_device *dev = platform_get_drvdata(pdev);
->>  
->>  	unregister_m_can_dev(dev);
->> +
->> +	pm_runtime_disable(&pdev->dev);
->> +
->>  	platform_set_drvdata(pdev, NULL);
->>  
->>  	free_m_can_dev(dev);
->>
+> There is also another aspect that can lead to errors:
 > 
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> If the CAN clock 'cclk' is above the frequency of the interface/logic
+> clock 'hclk', the clock domain crossing of the CAN messages can't
+> work properly. However, I will throw this topic as an extra e-mail into
+> the round.
+> 
+> Mario
+> 
+>  
+> 
