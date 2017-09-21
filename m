@@ -1,7 +1,7 @@
 From: Allen Pais <allen.lkml@gmail.com>
-Subject: [PATCH 09/64] drivers: net: et131x: use setup_timer() helper.
-Date: Thu, 21 Sep 2017 22:34:30 +0530
-Message-ID: <1506013525-29291-10-git-send-email-allen.lkml@gmail.com>
+Subject: [PATCH 10/64] drivers: net: appletalk: cops: use setup_timer() helper.
+Date: Thu, 21 Sep 2017 22:34:31 +0530
+Message-ID: <1506013525-29291-11-git-send-email-allen.lkml@gmail.com>
 References: <1506013525-29291-1-git-send-email-allen.lkml@gmail.com>
 Cc: linux-kernel@vger.kernel.org, m.grzeschik@pengutronix.de,
         dmitry.tarnyagin@lockless.no, wg@grandegger.com,
@@ -24,26 +24,23 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Allen Pais <allen.lkml@gmail.com>
 ---
- drivers/net/ethernet/agere/et131x.c | 5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
+ drivers/net/appletalk/cops.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/agere/et131x.c b/drivers/net/ethernet/agere/et131x.c
-index 54eff90..658e92f 100644
---- a/drivers/net/ethernet/agere/et131x.c
-+++ b/drivers/net/ethernet/agere/et131x.c
-@@ -3624,11 +3624,10 @@ static int et131x_open(struct net_device *netdev)
- 	int result;
- 
- 	/* Start the timer to track NIC errors */
--	init_timer(&adapter->error_timer);
-+	setup_timer(&adapter->error_timer, et131x_error_timer_handler,
-+		    (unsigned long)adapter);
- 	adapter->error_timer.expires = jiffies +
- 		msecs_to_jiffies(TX_ERROR_PERIOD);
--	adapter->error_timer.function = et131x_error_timer_handler;
--	adapter->error_timer.data = (unsigned long)adapter;
- 	add_timer(&adapter->error_timer);
- 
- 	result = request_irq(irq, et131x_isr,
+diff --git a/drivers/net/appletalk/cops.c b/drivers/net/appletalk/cops.c
+index 486e1e6..caf0428 100644
+--- a/drivers/net/appletalk/cops.c
++++ b/drivers/net/appletalk/cops.c
+@@ -424,9 +424,7 @@ static int cops_open(struct net_device *dev)
+ 		 */
+ 		if(lp->board==TANGENT)	/* Poll 20 times per second */
+ 		{
+-		    init_timer(&cops_timer);
+-		    cops_timer.function = cops_poll;
+-		    cops_timer.data 	= (unsigned long)dev;
++		    setup_timer(&cops_timer, cops_poll, (unsigned long)dev);
+ 		    cops_timer.expires 	= jiffies + HZ/20;
+ 		    add_timer(&cops_timer);
+ 		} 
 -- 
 2.7.4
