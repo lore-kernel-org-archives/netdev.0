@@ -1,73 +1,70 @@
-From: Ursula Braun <ubraun@linux.vnet.ibm.com>
-Subject: [PATCH net 3/9] net/smc: take RCU read lock for routing cache lookup
-Date: Thu, 21 Sep 2017 09:16:28 +0200
-Message-ID: <20170921071634.16883-4-ubraun@linux.vnet.ibm.com>
+From: Ursula Braun <ubraun-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
+Subject: [PATCH net 6/9] net/smc: longer delay for client link group removal
+Date: Thu, 21 Sep 2017 09:16:31 +0200
+Message-ID: <20170921071634.16883-7-ubraun@linux.vnet.ibm.com>
 References: <20170921071634.16883-1-ubraun@linux.vnet.ibm.com>
-Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
-        linux-s390@vger.kernel.org, jwi@linux.vnet.ibm.com,
-        schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
-        raspl@linux.vnet.ibm.com, ubraun@linux.vnet.ibm.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:41292 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751854AbdIUHQq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 03:16:46 -0400
-Received: from pps.filterd (m0098404.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.21/8.16.0.21) with SMTP id v8L7GeDd083925
-        for <netdev@vger.kernel.org>; Thu, 21 Sep 2017 03:16:45 -0400
-Received: from e06smtp12.uk.ibm.com (e06smtp12.uk.ibm.com [195.75.94.108])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 2d48cy1b7c-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Thu, 21 Sep 2017 03:16:45 -0400
-Received: from localhost
-        by e06smtp12.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <ubraun@linux.vnet.ibm.com>;
-        Thu, 21 Sep 2017 08:16:43 +0100
-In-Reply-To: <20170921071634.16883-1-ubraun@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jwi-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org,
+        schwidefsky-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org, heiko.carstens-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org,
+        raspl-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org, ubraun-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170921071634.16883-1-ubraun-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-smc_netinfo_by_tcpsk() looks up the routing cache. Such a lookup requires
-protection by an RCU read lock.
+Client link group creation always follows the server linkgroup creation.
+If peer creates a new server link group, client has to create a new
+client link group. If peer reuses a server link group for a new
+connection, client has to reuse its client link group as well. This
+patch introduces a longer delay for client link group removal to make
+sure this link group still exists, once the peer decides to reuse a
+server link group. This avoids out-of-sync conditions for link groups.
+If already scheduled, modify the delay.
 
-Signed-off-by: Ursula Braun <ubraun@linux.vnet.ibm.com>
+Signed-off-by: Ursula Braun <ubraun-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
 ---
- net/smc/af_smc.c | 10 +++++++---
- 1 file changed, 7 insertions(+), 3 deletions(-)
+ net/smc/smc_core.c | 16 ++++++++++++----
+ 1 file changed, 12 insertions(+), 4 deletions(-)
 
-diff --git a/net/smc/af_smc.c b/net/smc/af_smc.c
-index 8c6d24b2995d..2e8d2dabac0c 100644
---- a/net/smc/af_smc.c
-+++ b/net/smc/af_smc.c
-@@ -282,6 +282,7 @@ int smc_netinfo_by_tcpsk(struct socket *clcsock,
- 			 __be32 *subnet, u8 *prefix_len)
- {
- 	struct dst_entry *dst = sk_dst_get(clcsock->sk);
-+	struct in_device *in_dev;
- 	struct sockaddr_in addr;
- 	int rc = -ENOENT;
- 	int len;
-@@ -298,14 +299,17 @@ int smc_netinfo_by_tcpsk(struct socket *clcsock,
- 	/* get address to which the internal TCP socket is bound */
- 	kernel_getsockname(clcsock, (struct sockaddr *)&addr, &len);
- 	/* analyze IPv4 specific data of net_device belonging to TCP socket */
--	for_ifa(dst->dev->ip_ptr) {
--		if (ifa->ifa_address != addr.sin_addr.s_addr)
-+	rcu_read_lock();
-+	in_dev = __in_dev_get_rcu(dst->dev);
-+	for_ifa(in_dev) {
-+		if (!inet_ifa_match(addr.sin_addr.s_addr, ifa))
- 			continue;
- 		*prefix_len = inet_mask_len(ifa->ifa_mask);
- 		*subnet = ifa->ifa_address & ifa->ifa_mask;
- 		rc = 0;
- 		break;
--	} endfor_ifa(dst->dev->ip_ptr);
-+	} endfor_ifa(in_dev);
-+	rcu_read_unlock();
+diff --git a/net/smc/smc_core.c b/net/smc/smc_core.c
+index 1a16d51e2330..20b66e79c5d6 100644
+--- a/net/smc/smc_core.c
++++ b/net/smc/smc_core.c
+@@ -25,8 +25,9 @@
+ #include "smc_cdc.h"
+ #include "smc_close.h"
  
- out_rel:
- 	dst_release(dst);
+-#define SMC_LGR_NUM_INCR	256
+-#define SMC_LGR_FREE_DELAY	(600 * HZ)
++#define SMC_LGR_NUM_INCR		256
++#define SMC_LGR_FREE_DELAY_SERV		(600 * HZ)
++#define SMC_LGR_FREE_DELAY_CLNT		(SMC_LGR_FREE_DELAY_SERV + 10)
+ 
+ static u32 smc_lgr_num;			/* unique link group number */
+ 
+@@ -107,8 +108,15 @@ static void smc_lgr_unregister_conn(struct smc_connection *conn)
+ 		__smc_lgr_unregister_conn(conn);
+ 	}
+ 	write_unlock_bh(&lgr->conns_lock);
+-	if (reduced && !lgr->conns_num)
+-		schedule_delayed_work(&lgr->free_work, SMC_LGR_FREE_DELAY);
++	if (!reduced || lgr->conns_num)
++		return;
++	/* client link group creation always follows the server link group
++	 * creation. For client use a somewhat higher removal delay time,
++	 * otherwise there is a risk of out-of-sync link groups.
++	 */
++	mod_delayed_work(system_wq, &lgr->free_work,
++			 lgr->role == SMC_CLNT ? SMC_LGR_FREE_DELAY_CLNT :
++						 SMC_LGR_FREE_DELAY_SERV);
+ }
+ 
+ static void smc_lgr_free_work(struct work_struct *work)
 -- 
 2.13.5
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
