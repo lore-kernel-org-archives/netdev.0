@@ -1,42 +1,40 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH net-next 5/7] rtnetlink: add helper to dump vf information
-Date: Thu, 21 Sep 2017 19:25:51 +0200
-Message-ID: <20170921172551.GF15946@breakpoint.cc>
-References: <20170921165902.10746-1-fw@strlen.de>
- <20170921165902.10746-6-fw@strlen.de>
- <bdc39ebf-e934-16ce-0834-e0795774a656@gmail.com>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [net-next v3] bridge: trigger RTM_NEWLINK when
+ interface is modified by bridge ioctl
+Date: Thu, 21 Sep 2017 11:29:55 -0600
+Message-ID: <4bd6834a-899a-b136-9886-249dadd5a6a6@gmail.com>
+References: <20170920162140.369bb198@xeon-e3>
+	<20170921100525.20395-1-vincent@bernat.im>
+	<0cdf06b9-e67d-c035-e0f1-c4eb143bf631@gmail.com>
+	<CAJieiUjqttMeC24CzDa8Y8g=opRKoa2hbG2Cb+78u632vA3uqw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org
-To: David Ahern <dsahern@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:39550 "EHLO
-        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752281AbdIUR3M (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 13:29:12 -0400
-Content-Disposition: inline
-In-Reply-To: <bdc39ebf-e934-16ce-0834-e0795774a656@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	bridge@lists.linux-foundation.org, Vincent Bernat <vincent@bernat.im>,
+	David Miller <davem@davemloft.net>
+To: Roopa Prabhu <roopa@cumulusnetworks.com>, David Ahern <dsahern@gmail.com>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <CAJieiUjqttMeC24CzDa8Y8g=opRKoa2hbG2Cb+78u632vA3uqw@mail.gmail.com>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-David Ahern <dsahern@gmail.com> wrote:
-> On 9/21/17 10:59 AM, Florian Westphal wrote:
-> > similar to earlier patches, split out more parts of this function to
-> > better see what is happening and where we assume rtnl is locked.
+On 9/21/17 11:20 AM, Roopa Prabhu wrote:
+> this patch seems fine...but ideally I would have assumed
+> netdev_upper_dev_unlink which
+> is eventually called in both paths would generate the RTN_NEWLINK
+> IFF_MASTER in response
+> to the NETDEV_CHANGEUPPER notifier. If we add it there now, it might
+> need some more fixes
+> to not generate redundant notifications for the netlink case.
 
-[..]
-
-> > +static noinline_for_stack int rtnl_fill_vf(struct sk_buff *skb,
-> > +					   struct net_device *dev,
-> > +					   u32 ext_filter_mask)
-[..]
-> > +static int noinline rtnl_fill_link_netnsid(struct sk_buff *skb,
-> > +				  const struct net_device *dev)
-[..]
-> >  static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
-> 
-> Similarly for this patch -- subject references vf helper yet the code
-> changes flips netnsid as well.
-
-Right, anomly due to improper squash-merge.
-I'll send a v2 tomorrow (giving more time for others to comment).
+Agreed and it is another pandora's box
