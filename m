@@ -1,58 +1,286 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 01/12] fib: notifier: Add VIF add and delete event types
-Date: Thu, 21 Sep 2017 08:43:27 +0200
-Message-ID: <20170921064338.1282-2-jiri@resnulli.us>
+Subject: [patch net-next 03/12] ipmr: Add FIB notification access functions
+Date: Thu, 21 Sep 2017 08:43:29 +0200
+Message-ID: <20170921064338.1282-4-jiri@resnulli.us>
 References: <20170921064338.1282-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, yotamg@mellanox.com, idosch@mellanox.com,
         mlxsw@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f195.google.com ([209.85.128.195]:33108 "EHLO
-        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751892AbdIUGnl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 02:43:41 -0400
-Received: by mail-wr0-f195.google.com with SMTP id b9so2601134wra.0
-        for <netdev@vger.kernel.org>; Wed, 20 Sep 2017 23:43:40 -0700 (PDT)
+Received: from mail-wr0-f196.google.com ([209.85.128.196]:38537 "EHLO
+        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751897AbdIUGnm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 02:43:42 -0400
+Received: by mail-wr0-f196.google.com with SMTP id p37so2579987wrb.5
+        for <netdev@vger.kernel.org>; Wed, 20 Sep 2017 23:43:42 -0700 (PDT)
 In-Reply-To: <20170921064338.1282-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Yotam Gigi <yotamg@mellanox.com>
 
-In order for an interface to forward packets according to the kernel
-multicast routing table, it must be configured with a VIF index according
-to the mroute user API. The VIF index is then used to refer to that
-interface in the mroute user API, for example, to set the iif and oifs of
-an MFC entry.
+Make the ipmr module register as a FIB notifier. To do that, implement both
+the ipmr_seq_read and ipmr_dump ops.
 
-In order to allow drivers to be aware and offload multicast routes, they
-have to be aware of the VIF add and delete notifications.
+The ipmr_seq_read op returns a sequence counter that is incremented on
+every notification related operation done by the ipmr. To implement that,
+add a sequence counter in the netns_ipv4 struct and increment it whenever a
+new MFC route or VIF are added or deleted. The sequence operations are
+protected by the RTNL lock.
 
-Due to the fact that a specific VIF can be deleted and re-added pointing to
-another netdevice, and the MFC routes that point to it will forward the
-matching packets to the new netdevice, a driver willing to offload MFC
-cache entries must be aware of the VIF add and delete events in addition to
-MFC routes notifications.
+The ipmr_dump iterates the list of MFC routes and the list of VIF entries
+and sends notifications about them. The entries dump is done under RCU.
 
 Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
 Reviewed-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- include/net/fib_notifier.h | 2 ++
- 1 file changed, 2 insertions(+)
+ include/linux/mroute.h   |  15 ++++++
+ include/net/netns/ipv4.h |   3 ++
+ net/ipv4/ipmr.c          | 135 ++++++++++++++++++++++++++++++++++++++++++++++-
+ 3 files changed, 151 insertions(+), 2 deletions(-)
 
-diff --git a/include/net/fib_notifier.h b/include/net/fib_notifier.h
-index 669b971..54cd6b8 100644
---- a/include/net/fib_notifier.h
-+++ b/include/net/fib_notifier.h
-@@ -20,6 +20,8 @@ enum fib_event_type {
- 	FIB_EVENT_RULE_DEL,
- 	FIB_EVENT_NH_ADD,
- 	FIB_EVENT_NH_DEL,
-+	FIB_EVENT_VIF_ADD,
-+	FIB_EVENT_VIF_DEL,
+diff --git a/include/linux/mroute.h b/include/linux/mroute.h
+index 2f88e3d..ba5a976 100644
+--- a/include/linux/mroute.h
++++ b/include/linux/mroute.h
+@@ -5,6 +5,7 @@
+ #include <linux/pim.h>
+ #include <linux/rhashtable.h>
+ #include <net/sock.h>
++#include <net/fib_notifier.h>
+ #include <uapi/linux/mroute.h>
+ 
+ #ifdef CONFIG_IP_MROUTE
+@@ -58,6 +59,14 @@ struct vif_device {
+ 	int		link;			/* Physical interface index	*/
  };
  
- struct fib_notifier_ops {
++struct vif_entry_notifier_info {
++	struct fib_notifier_info info;
++	struct net_device *dev;
++	vifi_t vif_index;
++	unsigned short vif_flags;
++	u32 tb_id;
++};
++
+ #define VIFF_STATIC 0x8000
+ 
+ #define VIF_EXISTS(_mrt, _idx) ((_mrt)->vif_table[_idx].dev != NULL)
+@@ -145,6 +154,12 @@ struct mfc_cache {
+ 	struct rcu_head	rcu;
+ };
+ 
++struct mfc_entry_notifier_info {
++	struct fib_notifier_info info;
++	struct mfc_cache *mfc;
++	u32 tb_id;
++};
++
+ struct rtmsg;
+ int ipmr_get_route(struct net *net, struct sk_buff *skb,
+ 		   __be32 saddr, __be32 daddr,
+diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
+index 20d061c..5921496 100644
+--- a/include/net/netns/ipv4.h
++++ b/include/net/netns/ipv4.h
+@@ -162,6 +162,9 @@ struct netns_ipv4 {
+ 	struct fib_notifier_ops	*notifier_ops;
+ 	unsigned int	fib_seq;	/* protected by rtnl_mutex */
+ 
++	struct fib_notifier_ops	*ipmr_notifier_ops;
++	unsigned int	ipmr_seq;	/* protected by rtnl_mutex */
++
+ 	atomic_t	rt_genid;
+ };
+ #endif
+diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+index 86dc5f9..9d331a74 100644
+--- a/net/ipv4/ipmr.c
++++ b/net/ipv4/ipmr.c
+@@ -264,6 +264,16 @@ static void __net_exit ipmr_rules_exit(struct net *net)
+ 	fib_rules_unregister(net->ipv4.mr_rules_ops);
+ 	rtnl_unlock();
+ }
++
++static int ipmr_rules_dump(struct net *net, struct notifier_block *nb)
++{
++	return fib_rules_dump(net, nb, RTNL_FAMILY_IPMR);
++}
++
++static unsigned int ipmr_rules_seq_read(struct net *net)
++{
++	return fib_rules_seq_read(net, RTNL_FAMILY_IPMR);
++}
+ #else
+ #define ipmr_for_each_table(mrt, net) \
+ 	for (mrt = net->ipv4.mrt; mrt; mrt = NULL)
+@@ -298,6 +308,16 @@ static void __net_exit ipmr_rules_exit(struct net *net)
+ 	net->ipv4.mrt = NULL;
+ 	rtnl_unlock();
+ }
++
++static int ipmr_rules_dump(struct net *net, struct notifier_block *nb)
++{
++	return 0;
++}
++
++static unsigned int ipmr_rules_seq_read(struct net *net)
++{
++	return 0;
++}
+ #endif
+ 
+ static inline int ipmr_hash_cmp(struct rhashtable_compare_arg *arg,
+@@ -587,6 +607,43 @@ static struct net_device *ipmr_reg_vif(struct net *net, struct mr_table *mrt)
+ }
+ #endif
+ 
++static int call_ipmr_vif_entry_notifier(struct notifier_block *nb,
++					struct net *net,
++					enum fib_event_type event_type,
++					struct vif_device *vif,
++					vifi_t vif_index, u32 tb_id)
++{
++	struct vif_entry_notifier_info info = {
++		.info = {
++			.family = RTNL_FAMILY_IPMR,
++			.net = net,
++		},
++		.dev = vif->dev,
++		.vif_index = vif_index,
++		.vif_flags = vif->flags,
++		.tb_id = tb_id,
++	};
++
++	return call_fib_notifier(nb, net, event_type, &info.info);
++}
++
++static int call_ipmr_mfc_entry_notifier(struct notifier_block *nb,
++					struct net *net,
++					enum fib_event_type event_type,
++					struct mfc_cache *mfc, u32 tb_id)
++{
++	struct mfc_entry_notifier_info info = {
++		.info = {
++			.family = RTNL_FAMILY_IPMR,
++			.net = net,
++		},
++		.mfc = mfc,
++		.tb_id = tb_id
++	};
++
++	return call_fib_notifier(nb, net, event_type, &info.info);
++}
++
+ /**
+  *	vif_delete - Delete a VIF entry
+  *	@notify: Set to 1, if the caller is a notifier_call
+@@ -3050,14 +3107,85 @@ static const struct net_protocol pim_protocol = {
+ };
+ #endif
+ 
++static unsigned int ipmr_seq_read(struct net *net)
++{
++	ASSERT_RTNL();
++
++	return net->ipv4.ipmr_seq + ipmr_rules_seq_read(net);
++}
++
++static int ipmr_dump(struct net *net, struct notifier_block *nb)
++{
++	struct mr_table *mrt;
++	int err;
++
++	err = ipmr_rules_dump(net, nb);
++	if (err)
++		return err;
++
++	ipmr_for_each_table(mrt, net) {
++		struct vif_device *v = &mrt->vif_table[0];
++		struct mfc_cache *mfc;
++		int vifi;
++
++		/* Notifiy on table VIF entries */
++		for (vifi = 0; vifi < mrt->maxvif; vifi++, v++) {
++			if (!v->dev)
++				continue;
++
++			call_ipmr_vif_entry_notifier(nb, net, FIB_EVENT_VIF_ADD,
++						     v, vifi, mrt->id);
++		}
++
++		/* Notify on table MFC entries */
++		list_for_each_entry_rcu(mfc, &mrt->mfc_cache_list, list)
++			call_ipmr_mfc_entry_notifier(nb, net,
++						     FIB_EVENT_ENTRY_ADD, mfc,
++						     mrt->id);
++	}
++
++	return 0;
++}
++
++static const struct fib_notifier_ops ipmr_notifier_ops_template = {
++	.family		= RTNL_FAMILY_IPMR,
++	.fib_seq_read	= ipmr_seq_read,
++	.fib_dump	= ipmr_dump,
++	.owner		= THIS_MODULE,
++};
++
++int __net_init ipmr_notifier_init(struct net *net)
++{
++	struct fib_notifier_ops *ops;
++
++	net->ipv4.ipmr_seq = 0;
++
++	ops = fib_notifier_ops_register(&ipmr_notifier_ops_template, net);
++	if (IS_ERR(ops))
++		return PTR_ERR(ops);
++	net->ipv4.ipmr_notifier_ops = ops;
++
++	return 0;
++}
++
++static void __net_exit ipmr_notifier_exit(struct net *net)
++{
++	fib_notifier_ops_unregister(net->ipv4.ipmr_notifier_ops);
++	net->ipv4.ipmr_notifier_ops = NULL;
++}
++
+ /* Setup for IP multicast routing */
+ static int __net_init ipmr_net_init(struct net *net)
+ {
+ 	int err;
+ 
++	err = ipmr_notifier_init(net);
++	if (err)
++		goto ipmr_notifier_fail;
++
+ 	err = ipmr_rules_init(net);
+ 	if (err < 0)
+-		goto fail;
++		goto ipmr_rules_fail;
+ 
+ #ifdef CONFIG_PROC_FS
+ 	err = -ENOMEM;
+@@ -3074,7 +3202,9 @@ static int __net_init ipmr_net_init(struct net *net)
+ proc_vif_fail:
+ 	ipmr_rules_exit(net);
+ #endif
+-fail:
++ipmr_rules_fail:
++	ipmr_notifier_exit(net);
++ipmr_notifier_fail:
+ 	return err;
+ }
+ 
+@@ -3084,6 +3214,7 @@ static void __net_exit ipmr_net_exit(struct net *net)
+ 	remove_proc_entry("ip_mr_cache", net->proc_net);
+ 	remove_proc_entry("ip_mr_vif", net->proc_net);
+ #endif
++	ipmr_notifier_exit(net);
+ 	ipmr_rules_exit(net);
+ }
+ 
 -- 
 2.9.5
