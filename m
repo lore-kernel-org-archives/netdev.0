@@ -1,50 +1,63 @@
-From: Igor Russkikh <igor.russkikh@aquantia.com>
-Subject: Re: [PATCH net 2/4] net:ethernet:aquantia: Fix Tx queue hangups
-Date: Thu, 21 Sep 2017 17:31:47 +0300
-Message-ID: <74f2e3bc-e1ef-92cf-d665-5e7abb68ae94@aquantia.com>
-References: <cover.1505915085.git.igor.russkikh@aquantia.com>
- <cef3863edd8d504d7406f781c97260c52f21e156.1505915085.git.igor.russkikh@aquantia.com>
- <024e7fb3-9b53-f4f2-3901-38a63c47d76c@huawei.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next 1/2] net: dsa: lan9303: Move tag setup to new lan9303_setup_tagging
+Date: Thu, 21 Sep 2017 10:40:38 -0400
+Message-ID: <87h8vwqfmh.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+References: <20170921094139.4250-1-privat@egil-hjelmeland.no> <20170921094139.4250-2-privat@egil-hjelmeland.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Arcari <darcari@redhat.com>,
-        Pavel Belous <Pavel.Belous@aquantia.com>,
-        Nadezhda Krupnina <Nadezhda.Krupnina@aquantia.com>,
-        Simon Edelhaus <simon.edelhaus@aquantia.com>
-To: Yunsheng Lin <linyunsheng@huawei.com>,
-        "David S . Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam01on0050.outbound.protection.outlook.com ([104.47.34.50]:30590
-        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751726AbdIUOcE (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 21 Sep 2017 10:32:04 -0400
-In-Reply-To: <024e7fb3-9b53-f4f2-3901-38a63c47d76c@huawei.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Egil Hjelmeland <privat@egil-hjelmeland.no>
+To: Egil Hjelmeland <privat@egil-hjelmeland.no>, andrew@lunn.ch,
+        f.fainelli@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170921094139.4250-2-privat@egil-hjelmeland.no>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Thanks for the comments, Yunsheng,
+Hi Egil,
 
->>  
->> +static int aq_nic_update_link_status(struct aq_nic_s *self)
->> +{
->> +	int err = self->aq_hw_ops.hw_get_link_status(self->aq_hw);
->> +
->> +	if (err < 0)
->> +		return -1;
-> why not just return err?
+Egil Hjelmeland <privat@egil-hjelmeland.no> writes:
 
-Agreed, that could be improved.
+> Prepare for next patch:
+> Move tag setup from lan9303_separate_ports() to new function
+> lan9303_setup_tagging()
+>
+> Signed-off-by: Egil Hjelmeland <privat@egil-hjelmeland.no>
 
->> +	if (self->link_status.mbps != self->aq_hw->aq_link_status.mbps)
->> +		pr_info("%s: link change old %d new %d\n",
->> +			AQ_CFG_DRV_NAME, self->link_status.mbps,
->> +			self->aq_hw->aq_link_status.mbps);
-> You has ndev in struct aq_nic_s *self, why not use netdev_*?
+Minor styling issues, otherwise LGTM:
 
-We are planning to introduce a generic rework commit separately and use netif_* set of macro's through all the driver's code.
+Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 
--- 
-BR, Igor
+> +/* forward special tagged packets from port 0 to port 1 *or* port 2 */
+> +static int lan9303_setup_tagging(struct lan9303 *chip)
+> +{
+> +	int ret;
+> +	/* enable defining the destination port via special VLAN tagging
+> +	 * for port 0
+> +	 */
+> +	ret = lan9303_write_switch_reg(chip, LAN9303_SWE_INGRESS_PORT_TYPE,
+> +				       LAN9303_SWE_INGRESS_PORT_TYPE_VLAN);
+> +	if (ret)
+> +		return ret;
+> +
+> +	/* tag incoming packets at port 1 and 2 on their way to port 0 to be
+> +	 * able to discover their source port
+> +	 */
+> +	return lan9303_write_switch_reg(
+> +		chip, LAN9303_BM_EGRSS_PORT_TYPE,
+> +		LAN9303_BM_EGRSS_PORT_TYPE_SPECIAL_TAG_PORT0);
+
+Please avoid this kind of alignment as much as possible.
+
+    u32 val = LAN9303_BM_EGRSS_PORT_TYPE_SPECIAL_TAG_PORT0;
+
+would do the trick for the +80 chars issue.
+
+BTW, it'd be great to see sometime soon a cleanup patch which makes use
+of such temporary u32 val variable for most of the
+lan9303_write_switch_reg and lan9303_write_switch_port calls. ;-)
+
+
+Thanks,
+
+        Vivien
