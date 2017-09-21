@@ -1,7 +1,7 @@
 From: Allen Pais <allen.lkml@gmail.com>
-Subject: [PATCH 02/64] drivers: net: b44: use setup_timer() helper.
-Date: Thu, 21 Sep 2017 22:34:23 +0530
-Message-ID: <1506013525-29291-3-git-send-email-allen.lkml@gmail.com>
+Subject: [PATCH 03/64] drivers: net: pcnet32: use setup_timer() helper.
+Date: Thu, 21 Sep 2017 22:34:24 +0530
+Message-ID: <1506013525-29291-4-git-send-email-allen.lkml@gmail.com>
 References: <1506013525-29291-1-git-send-email-allen.lkml@gmail.com>
 Cc: linux-kernel@vger.kernel.org, m.grzeschik@pengutronix.de,
         dmitry.tarnyagin@lockless.no, wg@grandegger.com,
@@ -24,24 +24,24 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Allen Pais <allen.lkml@gmail.com>
 ---
- drivers/net/ethernet/broadcom/b44.c | 4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
+ drivers/net/ethernet/amd/pcnet32.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/b44.c b/drivers/net/ethernet/broadcom/b44.c
-index a1125d1..42e44fc 100644
---- a/drivers/net/ethernet/broadcom/b44.c
-+++ b/drivers/net/ethernet/broadcom/b44.c
-@@ -1474,10 +1474,8 @@ static int b44_open(struct net_device *dev)
- 		goto out;
+diff --git a/drivers/net/ethernet/amd/pcnet32.c b/drivers/net/ethernet/amd/pcnet32.c
+index 7f60d17..e461536 100644
+--- a/drivers/net/ethernet/amd/pcnet32.c
++++ b/drivers/net/ethernet/amd/pcnet32.c
+@@ -1970,9 +1970,8 @@ pcnet32_probe1(unsigned long ioaddr, int shared, struct pci_dev *pdev)
+ 			lp->options |= PCNET32_PORT_MII;
  	}
  
--	init_timer(&bp->timer);
-+	setup_timer(&bp->timer, b44_timer, (unsigned long)bp);
- 	bp->timer.expires = jiffies + HZ;
--	bp->timer.data = (unsigned long) bp;
--	bp->timer.function = b44_timer;
- 	add_timer(&bp->timer);
+-	init_timer(&lp->watchdog_timer);
+-	lp->watchdog_timer.data = (unsigned long)dev;
+-	lp->watchdog_timer.function = (void *)&pcnet32_watchdog;
++	setup_timer(&lp->watchdog_timer, (void *)&pcnet32_watchdog,
++		    (unsigned long)dev);
  
- 	b44_enable_ints(bp);
+ 	/* The PCNET32-specific entries in the device structure. */
+ 	dev->netdev_ops = &pcnet32_netdev_ops;
 -- 
 2.7.4
