@@ -1,7 +1,7 @@
 From: Allen Pais <allen.lkml@gmail.com>
-Subject: [PATCH 13/64] drivers: net: ns83820: use setup_timer() helper.
-Date: Thu, 21 Sep 2017 22:34:34 +0530
-Message-ID: <1506013525-29291-14-git-send-email-allen.lkml@gmail.com>
+Subject: [PATCH 14/64] drivers: net: ixgb: use setup_timer() helper.
+Date: Thu, 21 Sep 2017 22:34:35 +0530
+Message-ID: <1506013525-29291-15-git-send-email-allen.lkml@gmail.com>
 References: <1506013525-29291-1-git-send-email-allen.lkml@gmail.com>
 Cc: linux-kernel@vger.kernel.org, m.grzeschik@pengutronix.de,
         dmitry.tarnyagin@lockless.no, wg@grandegger.com,
@@ -24,23 +24,24 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Allen Pais <allen.lkml@gmail.com>
 ---
- drivers/net/ethernet/natsemi/ns83820.c | 4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
+ drivers/net/ethernet/intel/ixgb/ixgb_main.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/natsemi/ns83820.c b/drivers/net/ethernet/natsemi/ns83820.c
-index 729095d..99d3c78 100644
---- a/drivers/net/ethernet/natsemi/ns83820.c
-+++ b/drivers/net/ethernet/natsemi/ns83820.c
-@@ -1652,9 +1652,7 @@ static int ns83820_open(struct net_device *ndev)
- 	writel(0, dev->base + TXDP_HI);
- 	writel(desc, dev->base + TXDP);
+diff --git a/drivers/net/ethernet/intel/ixgb/ixgb_main.c b/drivers/net/ethernet/intel/ixgb/ixgb_main.c
+index 5a71319..1e6ec22 100644
+--- a/drivers/net/ethernet/intel/ixgb/ixgb_main.c
++++ b/drivers/net/ethernet/intel/ixgb/ixgb_main.c
+@@ -508,9 +508,8 @@ ixgb_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
  
--	init_timer(&dev->tx_watchdog);
--	dev->tx_watchdog.data = (unsigned long)ndev;
--	dev->tx_watchdog.function = ns83820_tx_watch;
-+	setup_timer(&dev->tx_watchdog, ns83820_tx_watch, (unsigned long)ndev);
- 	mod_timer(&dev->tx_watchdog, jiffies + 2*HZ);
+ 	adapter->part_num = ixgb_get_ee_pba_number(&adapter->hw);
  
- 	netif_start_queue(ndev);	/* FIXME: wait for phy to come up */
+-	init_timer(&adapter->watchdog_timer);
+-	adapter->watchdog_timer.function = ixgb_watchdog;
+-	adapter->watchdog_timer.data = (unsigned long)adapter;
++	setup_timer(&adapter->watchdog_timer, ixgb_watchdog,
++		    (unsigned long)adapter);
+ 
+ 	INIT_WORK(&adapter->tx_timeout_task, ixgb_tx_timeout_task);
+ 
 -- 
 2.7.4
