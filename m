@@ -1,7 +1,7 @@
 From: Allen Pais <allen.lkml@gmail.com>
-Subject: [PATCH 63/64] drivers: net: bnx2x: use setup_timer() helper.
-Date: Thu, 21 Sep 2017 22:35:24 +0530
-Message-ID: <1506013525-29291-64-git-send-email-allen.lkml@gmail.com>
+Subject: [PATCH 64/64] drivers: net: lmc: use setup_timer() helper.
+Date: Thu, 21 Sep 2017 22:35:25 +0530
+Message-ID: <1506013525-29291-65-git-send-email-allen.lkml@gmail.com>
 References: <1506013525-29291-1-git-send-email-allen.lkml@gmail.com>
 Cc: linux-kernel@vger.kernel.org, m.grzeschik@pengutronix.de,
         dmitry.tarnyagin@lockless.no, wg@grandegger.com,
@@ -24,24 +24,24 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Allen Pais <allen.lkml@gmail.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 4 +---
+ drivers/net/wan/lmc/lmc_main.c | 4 +---
  1 file changed, 1 insertion(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index c12b4d3..54d15713 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -12414,10 +12414,8 @@ static int bnx2x_init_bp(struct bnx2x *bp)
+diff --git a/drivers/net/wan/lmc/lmc_main.c b/drivers/net/wan/lmc/lmc_main.c
+index 4698450..ae69d65 100644
+--- a/drivers/net/wan/lmc/lmc_main.c
++++ b/drivers/net/wan/lmc/lmc_main.c
+@@ -1084,10 +1084,8 @@ static int lmc_open(struct net_device *dev)
+      * Setup a timer for the watchdog on probe, and start it running.
+      * Since lmc_ok == 0, it will be a NOP for now.
+      */
+-    init_timer (&sc->timer);
++    setup_timer(&sc->timer, lmc_watchdog, (unsigned long)dev);
+     sc->timer.expires = jiffies + HZ;
+-    sc->timer.data = (unsigned long) dev;
+-    sc->timer.function = lmc_watchdog;
+     add_timer (&sc->timer);
  
- 	bp->current_interval = CHIP_REV_IS_SLOW(bp) ? 5*HZ : HZ;
- 
--	init_timer(&bp->timer);
-+	setup_timer(&bp->timer, bnx2x_timer, (unsigned long)bp);
- 	bp->timer.expires = jiffies + bp->current_interval;
--	bp->timer.data = (unsigned long) bp;
--	bp->timer.function = bnx2x_timer;
- 
- 	if (SHMEM2_HAS(bp, dcbx_lldp_params_offset) &&
- 	    SHMEM2_HAS(bp, dcbx_lldp_dcbx_stat_offset) &&
+     lmc_trace(dev, "lmc_open out");
 -- 
 2.7.4
