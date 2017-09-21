@@ -1,115 +1,180 @@
-From: =?UTF-8?Q?Pawe=c5=82_Staszewski?= <pstaszewski@itcare.pl>
-Subject: Re: Latest net-next from GIT panic
-Date: Thu, 21 Sep 2017 13:31:42 +0200
-Message-ID: <8d2b4263-bd81-9cff-81ac-2df686cf29aa@itcare.pl>
-References: <4745525f-18e4-7f69-fe21-8e507e407b33@itcare.pl>
- <CAM_iQpV8qV8a_yFT0--4Z==FuWda=4EQzKJzHTL+op4S5b9E0A@mail.gmail.com>
- <3c227be7-a954-a406-1987-24e908cf214c@itcare.pl>
- <CAM_iQpUOOCcES4d_ueK2wizn2oyDZPEzLfWQFu3oOq=BuRzdiw@mail.gmail.com>
- <1505932231.29839.106.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAM_iQpVF3Gf3G=543o8g+5N2dtEL4DcUPN3a6=L8V_G0CXZ65w@mail.gmail.com>
- <07f0c800-7ee7-1ebe-9f5f-eaad52a7b42d@itcare.pl>
- <548a893c-8a8f-3b07-00f7-d75de1d777ad@itcare.pl>
- <7d8731ee-6c91-bbfd-6313-c95f52d7b49a@itcare.pl>
- <26e8b899-d8b1-caa4-436b-e23ffe384b0f@itcare.pl>
- <6c36fa00-13e6-8cd7-ff5c-df7739220736@itcare.pl>
- <CAEA6p_DpSr84cYu3pXqoHV=V=daSsbiOcnzsF+Kt0r4Wv_jmdg@mail.gmail.com>
- <CAEA6p_AiLvZxsyu+iOCrPzW-H28N=HBnWycy8w6gdZHFk2Q1dQ@mail.gmail.com>
- <1505956639.29839.108.camel@edumazet-glaptop3.roam.corp.google.com>
- <a016d5bc-1cbb-44d7-9ebf-e7e5428e6f98@itcare.pl>
- <1505991826.29839.124.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [patch net-next 04/12] ipmr: Send FIB notifications on MFC and
+ VIF entries
+Date: Thu, 21 Sep 2017 14:48:58 +0300
+Message-ID: <9886cf14-78e7-f23f-75ed-79fbcd2e3dcf@cumulusnetworks.com>
+References: <20170921064338.1282-1-jiri@resnulli.us>
+ <20170921064338.1282-5-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: Wei Wang <weiwan@google.com>, Cong Wang <xiyou.wangcong@gmail.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, yotamg@mellanox.com, idosch@mellanox.com,
+        mlxsw@mellanox.com
+To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp11.iq.pl ([86.111.242.220]:34180 "EHLO smtp11.iq.pl"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751387AbdIULdr (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 21 Sep 2017 07:33:47 -0400
-In-Reply-To: <1505991826.29839.124.camel@edumazet-glaptop3.roam.corp.google.com>
-Content-Language: pl
+Received: from mail-wm0-f48.google.com ([74.125.82.48]:45050 "EHLO
+        mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751387AbdIULtC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 07:49:02 -0400
+Received: by mail-wm0-f48.google.com with SMTP id m127so501352wmm.1
+        for <netdev@vger.kernel.org>; Thu, 21 Sep 2017 04:49:01 -0700 (PDT)
+In-Reply-To: <20170921064338.1282-5-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 21/09/17 09:43, Jiri Pirko wrote:
+> From: Yotam Gigi <yotamg@mellanox.com>
+> 
+> Use the newly introduced notification chain to send events upon VIF and MFC
+> addition and deletion. The MFC notifications are sent only on resolved MFC
+> entries, as unresolved cannot be offloaded.
+> 
+> Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
+> Reviewed-by: Ido Schimmel <idosch@mellanox.com>
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+> ---
+>  net/ipv4/ipmr.c | 53 +++++++++++++++++++++++++++++++++++++++++++++++++++++
+>  1 file changed, 53 insertions(+)
+> 
 
+LGTM, I only wish we could consolidate all of these call_ipmr_mfc_entry_notifiers()
+calls inside mroute_netlink_event() but it will need an additional argument for the
+ADD vs REPLACE cases. Anyway,
 
-W dniu 2017-09-21 o 13:03, Eric Dumazet pisze:
-> OK we have two problems here
->
-> 1) We need to unify skb_dst_force()  ( for net tree )
->
-> 2) Vlan devices should try to correctly handle IFF_XMIT_DST_RELEASE from
-> lower device. This will considerably help your performance.
->
->
-> For 1), this is what I had in mind, can you try it ?
->
-> Thanks a lot !
->
-> diff --git a/include/net/dst.h b/include/net/dst.h
-> index 93568bd0a3520bb7402f04d90cf04ac99c81cfbe..f23851eeaad917e8dafc06b58d23a2575405c894 100644
-> --- a/include/net/dst.h
-> +++ b/include/net/dst.h
-> @@ -271,7 +271,7 @@ static inline void dst_use_noref(struct dst_entry *dst, unsigned long time)
->   static inline struct dst_entry *dst_clone(struct dst_entry *dst)
->   {
->   	if (dst)
-> -		atomic_inc(&dst->__refcnt);
-> +		dst_hold(dst);
->   	return dst;
->   }
->   
-> @@ -311,21 +311,6 @@ static inline void skb_dst_copy(struct sk_buff *nskb, const struct sk_buff *oskb
->   	__skb_dst_copy(nskb, oskb->_skb_refdst);
->   }
->   
-> -/**
-> - * skb_dst_force - makes sure skb dst is refcounted
-> - * @skb: buffer
-> - *
-> - * If dst is not yet refcounted, let's do it
-> - */
-> -static inline void skb_dst_force(struct sk_buff *skb)
-> -{
-> -	if (skb_dst_is_noref(skb)) {
-> -		WARN_ON(!rcu_read_lock_held());
-> -		skb->_skb_refdst &= ~SKB_DST_NOREF;
-> -		dst_clone(skb_dst(skb));
-> -	}
-> -}
-> -
->   /**
->    * dst_hold_safe - Take a reference on a dst if possible
->    * @dst: pointer to dst entry
-> @@ -356,6 +341,23 @@ static inline void skb_dst_force_safe(struct sk_buff *skb)
->   	}
->   }
->   
-> +/**
-> + * skb_dst_force - makes sure skb dst is refcounted
-> + * @skb: buffer
-> + *
-> + * If dst is not yet refcounted, let's do it
-> + */
-> +static inline void skb_dst_force(struct sk_buff *skb)
+Reviewed-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+
+> diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+> index 9d331a74..7891d95 100644
+> --- a/net/ipv4/ipmr.c
+> +++ b/net/ipv4/ipmr.c
+> @@ -627,6 +627,27 @@ static int call_ipmr_vif_entry_notifier(struct notifier_block *nb,
+>  	return call_fib_notifier(nb, net, event_type, &info.info);
+>  }
+>  
+> +static int call_ipmr_vif_entry_notifiers(struct net *net,
+> +					 enum fib_event_type event_type,
+> +					 struct vif_device *vif,
+> +					 vifi_t vif_index, u32 tb_id)
 > +{
-> +	if (skb_dst_is_noref(skb)) {
-> +		struct dst_entry *dst = skb_dst(skb);
+> +	struct vif_entry_notifier_info info = {
+> +		.info = {
+> +			.family = RTNL_FAMILY_IPMR,
+> +			.net = net,
+> +		},
+> +		.dev = vif->dev,
+> +		.vif_index = vif_index,
+> +		.vif_flags = vif->flags,
+> +		.tb_id = tb_id,
+> +	};
 > +
-> +		WARN_ON(!rcu_read_lock_held());
-> +		if (!dst_hold_safe(dst))
-> +			dst = NULL;
-> +		skb->_skb_refdst = (unsigned long)dst;
-> +	}
+> +	ASSERT_RTNL();
+> +	net->ipv4.ipmr_seq++;
+> +	return call_fib_notifiers(net, event_type, &info.info);
 > +}
->   
->   /**
->    *	__skb_tunnel_rx - prepare skb for rx reinsert
->
->
-
-Patch applied - soo far no problems - and no warnings in dmesg
+> +
+>  static int call_ipmr_mfc_entry_notifier(struct notifier_block *nb,
+>  					struct net *net,
+>  					enum fib_event_type event_type,
+> @@ -644,6 +665,24 @@ static int call_ipmr_mfc_entry_notifier(struct notifier_block *nb,
+>  	return call_fib_notifier(nb, net, event_type, &info.info);
+>  }
+>  
+> +static int call_ipmr_mfc_entry_notifiers(struct net *net,
+> +					 enum fib_event_type event_type,
+> +					 struct mfc_cache *mfc, u32 tb_id)
+> +{
+> +	struct mfc_entry_notifier_info info = {
+> +		.info = {
+> +			.family = RTNL_FAMILY_IPMR,
+> +			.net = net,
+> +		},
+> +		.mfc = mfc,
+> +		.tb_id = tb_id
+> +	};
+> +
+> +	ASSERT_RTNL();
+> +	net->ipv4.ipmr_seq++;
+> +	return call_fib_notifiers(net, event_type, &info.info);
+> +}
+> +
+>  /**
+>   *	vif_delete - Delete a VIF entry
+>   *	@notify: Set to 1, if the caller is a notifier_call
+> @@ -651,6 +690,7 @@ static int call_ipmr_mfc_entry_notifier(struct notifier_block *nb,
+>  static int vif_delete(struct mr_table *mrt, int vifi, int notify,
+>  		      struct list_head *head)
+>  {
+> +	struct net *net = read_pnet(&mrt->net);
+>  	struct vif_device *v;
+>  	struct net_device *dev;
+>  	struct in_device *in_dev;
+> @@ -660,6 +700,10 @@ static int vif_delete(struct mr_table *mrt, int vifi, int notify,
+>  
+>  	v = &mrt->vif_table[vifi];
+>  
+> +	if (VIF_EXISTS(mrt, vifi))
+> +		call_ipmr_vif_entry_notifiers(net, FIB_EVENT_VIF_DEL, v, vifi,
+> +					      mrt->id);
+> +
+>  	write_lock_bh(&mrt_lock);
+>  	dev = v->dev;
+>  	v->dev = NULL;
+> @@ -909,6 +953,7 @@ static int vif_add(struct net *net, struct mr_table *mrt,
+>  	if (vifi+1 > mrt->maxvif)
+>  		mrt->maxvif = vifi+1;
+>  	write_unlock_bh(&mrt_lock);
+> +	call_ipmr_vif_entry_notifiers(net, FIB_EVENT_VIF_ADD, v, vifi, mrt->id);
+>  	return 0;
+>  }
+>  
+> @@ -1209,6 +1254,7 @@ static int ipmr_cache_unresolved(struct mr_table *mrt, vifi_t vifi,
+>  
+>  static int ipmr_mfc_delete(struct mr_table *mrt, struct mfcctl *mfc, int parent)
+>  {
+> +	struct net *net = read_pnet(&mrt->net);
+>  	struct mfc_cache *c;
+>  
+>  	/* The entries are added/deleted only under RTNL */
+> @@ -1220,6 +1266,7 @@ static int ipmr_mfc_delete(struct mr_table *mrt, struct mfcctl *mfc, int parent)
+>  		return -ENOENT;
+>  	rhltable_remove(&mrt->mfc_hash, &c->mnode, ipmr_rht_params);
+>  	list_del_rcu(&c->list);
+> +	call_ipmr_mfc_entry_notifiers(net, FIB_EVENT_ENTRY_DEL, c, mrt->id);
+>  	mroute_netlink_event(mrt, c, RTM_DELROUTE);
+>  	ipmr_cache_put(c);
+>  
+> @@ -1248,6 +1295,8 @@ static int ipmr_mfc_add(struct net *net, struct mr_table *mrt,
+>  		if (!mrtsock)
+>  			c->mfc_flags |= MFC_STATIC;
+>  		write_unlock_bh(&mrt_lock);
+> +		call_ipmr_mfc_entry_notifiers(net, FIB_EVENT_ENTRY_REPLACE, c,
+> +					      mrt->id);
+>  		mroute_netlink_event(mrt, c, RTM_NEWROUTE);
+>  		return 0;
+>  	}
+> @@ -1297,6 +1346,7 @@ static int ipmr_mfc_add(struct net *net, struct mr_table *mrt,
+>  		ipmr_cache_resolve(net, mrt, uc, c);
+>  		ipmr_cache_free(uc);
+>  	}
+> +	call_ipmr_mfc_entry_notifiers(net, FIB_EVENT_ENTRY_ADD, c, mrt->id);
+>  	mroute_netlink_event(mrt, c, RTM_NEWROUTE);
+>  	return 0;
+>  }
+> @@ -1304,6 +1354,7 @@ static int ipmr_mfc_add(struct net *net, struct mr_table *mrt,
+>  /* Close the multicast socket, and clear the vif tables etc */
+>  static void mroute_clean_tables(struct mr_table *mrt, bool all)
+>  {
+> +	struct net *net = read_pnet(&mrt->net);
+>  	struct mfc_cache *c, *tmp;
+>  	LIST_HEAD(list);
+>  	int i;
+> @@ -1322,6 +1373,8 @@ static void mroute_clean_tables(struct mr_table *mrt, bool all)
+>  			continue;
+>  		rhltable_remove(&mrt->mfc_hash, &c->mnode, ipmr_rht_params);
+>  		list_del_rcu(&c->list);
+> +		call_ipmr_mfc_entry_notifiers(net, FIB_EVENT_ENTRY_DEL, c,
+> +					      mrt->id);
+>  		mroute_netlink_event(mrt, c, RTM_DELROUTE);
+>  		ipmr_cache_put(c);
+>  	}
+> 
