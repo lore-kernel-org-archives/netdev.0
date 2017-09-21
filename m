@@ -1,7 +1,7 @@
 From: Allen Pais <allen.lkml@gmail.com>
-Subject: [PATCH 32/64] drivers: net: amd: use setup_timer() helper.
-Date: Thu, 21 Sep 2017 22:34:53 +0530
-Message-ID: <1506013525-29291-33-git-send-email-allen.lkml@gmail.com>
+Subject: [PATCH 33/64] drivers: net: amd8111e: use setup_timer() helper.
+Date: Thu, 21 Sep 2017 22:34:54 +0530
+Message-ID: <1506013525-29291-34-git-send-email-allen.lkml@gmail.com>
 References: <1506013525-29291-1-git-send-email-allen.lkml@gmail.com>
 Cc: linux-kernel@vger.kernel.org, m.grzeschik@pengutronix.de,
         dmitry.tarnyagin@lockless.no, wg@grandegger.com,
@@ -24,24 +24,24 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Allen Pais <allen.lkml@gmail.com>
 ---
- drivers/net/ethernet/amd/sunlance.c | 5 ++---
+ drivers/net/ethernet/amd/amd8111e.c | 5 ++---
  1 file changed, 2 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/amd/sunlance.c b/drivers/net/ethernet/amd/sunlance.c
-index 291ca51..0183ffb 100644
---- a/drivers/net/ethernet/amd/sunlance.c
-+++ b/drivers/net/ethernet/amd/sunlance.c
-@@ -1459,9 +1459,8 @@ static int sparc_lance_probe_one(struct platform_device *op,
- 	 * can occur from interrupts (ex. IPv6).  So we
- 	 * use a timer to try again later when necessary. -DaveM
- 	 */
--	init_timer(&lp->multicast_timer);
--	lp->multicast_timer.data = (unsigned long) dev;
--	lp->multicast_timer.function = lance_set_multicast_retry;
-+	setup_timer(&lp->multicast_timer, lance_set_multicast_retry,
-+		    (unsigned long)dev);
+diff --git a/drivers/net/ethernet/amd/amd8111e.c b/drivers/net/ethernet/amd/amd8111e.c
+index 7b5df56..7f22af6 100644
+--- a/drivers/net/ethernet/amd/amd8111e.c
++++ b/drivers/net/ethernet/amd/amd8111e.c
+@@ -1883,9 +1883,8 @@ static int amd8111e_probe_one(struct pci_dev *pdev,
  
- 	if (register_netdev(dev)) {
- 		printk(KERN_ERR "SunLance: Cannot register device.\n");
+ 	/* Initialize software ipg timer */
+ 	if(lp->options & OPTION_DYN_IPG_ENABLE){
+-		init_timer(&lp->ipg_data.ipg_timer);
+-		lp->ipg_data.ipg_timer.data = (unsigned long) dev;
+-		lp->ipg_data.ipg_timer.function = (void *)&amd8111e_config_ipg;
++		setup_timer(&lp->ipg_data.ipg_timer,
++			    (void *)&amd8111e_config_ipg, (unsigned long)dev);
+ 		lp->ipg_data.ipg_timer.expires = jiffies +
+ 						 IPG_CONVERGE_JIFFIES;
+ 		lp->ipg_data.ipg = DEFAULT_IPG;
 -- 
 2.7.4
