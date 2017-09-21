@@ -1,63 +1,75 @@
-From: Christopher Lameter <cl@linux.com>
-Subject: Re: [PATCH v3 02/31] usercopy: Enforce slab cache usercopy region
- boundaries
-Date: Thu, 21 Sep 2017 10:23:45 -0500 (CDT)
-Message-ID: <alpine.DEB.2.20.1709211022550.14427@nuc-kabylake>
-References: <1505940337-79069-1-git-send-email-keescook@chromium.org> <1505940337-79069-3-git-send-email-keescook@chromium.org>
+From: Kumar Sanghvi <kumaras@chelsio.com>
+Subject: Re: [PATCH net-next 3/4] cxgb4: add support to offload action vlan
+Date: Thu, 21 Sep 2017 08:23:45 -0700
+Message-ID: <20170921152342.GA14071@banjo.asicdesigners.com>
+References: <cover.1505977744.git.rahul.lakkireddy@chelsio.com>
+ <016c3bf21a7bfe45e73275d3191cf61cceffd362.1505977744.git.rahul.lakkireddy@chelsio.com>
+ <20170921085508.GA2028@nanopsycho>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: linux-kernel@vger.kernel.org, David Windsor <dave@nullcore.net>,
-        Pekka Enberg <penberg@kernel.org>,
-        David Rientjes <rientjes@google.com>,
-        Joonsoo Kim <iamjoonsoo.kim@lge.com>,
-        Andrew Morton <akpm@linux-foundation.org>,
-        Laura Abbott <labbott@redhat.com>,
-        Ingo Molnar <mingo@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>, linux-mm@kvack.org,
-        linux-xfs@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-        netdev@vger.kernel.org, kernel-hardening@lists.openwall.com
-To: Kees Cook <keescook@chromium.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1505940337-79069-3-git-send-email-keescook@chromium.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>,
+        netdev@vger.kernel.org, davem@davemloft.net, ganeshgr@chelsio.com,
+        nirranjan@chelsio.com, indranil@chelsio.com
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([12.32.117.8]:22025 "EHLO
+        stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751787AbdIUPXy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 11:23:54 -0400
+Content-Disposition: inline
+In-Reply-To: <20170921085508.GA2028@nanopsycho>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 20 Sep 2017, Kees Cook wrote:
+Hi Jiri,
 
-> diff --git a/mm/slab.c b/mm/slab.c
-> index 87b6e5e0cdaf..df268999cf02 100644
-> --- a/mm/slab.c
-> +++ b/mm/slab.c
-> @@ -4408,7 +4408,9 @@ module_init(slab_proc_init);
->
->  #ifdef CONFIG_HARDENED_USERCOPY
->  /*
-> - * Rejects objects that are incorrectly sized.
-> + * Rejects incorrectly sized objects and objects that are to be copied
-> + * to/from userspace but do not fall entirely within the containing slab
-> + * cache's usercopy region.
->   *
->   * Returns NULL if check passes, otherwise const char * to name of cache
->   * to indicate an error.
-> @@ -4428,11 +4430,15 @@ const char *__check_heap_object(const void *ptr, unsigned long n,
->  	/* Find offset within object. */
->  	offset = ptr - index_to_obj(cachep, page, objnr) - obj_offset(cachep);
->
-> -	/* Allow address range falling entirely within object size. */
-> -	if (offset <= cachep->object_size && n <= cachep->object_size - offset)
-> -		return NULL;
-> +	/* Make sure object falls entirely within cache's usercopy region. */
-> +	if (offset < cachep->useroffset)
-> +		return cachep->name;
-> +	if (offset - cachep->useroffset > cachep->usersize)
-> +		return cachep->name;
-> +	if (n > cachep->useroffset - offset + cachep->usersize)
-> +		return cachep->name;
->
-> -	return cachep->name;
-> +	return NULL;
->  }
->  #endif /* CONFIG_HARDENED_USERCOPY */
+On Thursday, September 09/21/17, 2017 at 10:55:08 +0200, Jiri Pirko wrote:
+> Thu, Sep 21, 2017 at 09:33:36AM CEST, rahul.lakkireddy@chelsio.com wrote:
+> >From: Kumar Sanghvi <kumaras@chelsio.com>
+> >
+> >Add support for offloading tc-flower flows having
+> >vlan actions: pop, push and modify.
+> >
+> >Signed-off-by: Kumar Sanghvi <kumaras@chelsio.com>
+> >Signed-off-by: Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>
+> >Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
+> >---
+> > .../net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c   | 43 ++++++++++++++++++++++
+> > 1 file changed, 43 insertions(+)
+> >
+> >diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_tc_flower.c
+> 
+> [...]
+> 
+> 
+> >+			switch (vlan_action) {
+> >+			case TCA_VLAN_ACT_POP:
+> >+				break;
+> >+			case TCA_VLAN_ACT_PUSH:
+> >+			case TCA_VLAN_ACT_MODIFY:
+> >+				if (proto != ETH_P_8021Q) {
+> >+					netdev_err(dev,
+> >+						   "%s: Unsupp. vlan proto\n",
+> 
+> Don't wrap this. Also "Unsupp."vs"Unsupported". Please be consistent.
 
-Looks like this is almost the same for all allocators. Can we put this
-into mm/slab_common.c?
+Thank you for pointing this.
+I will take care of this in V2.
+
+> 
+> 
+> >+						   __func__);
+> >+					return -EOPNOTSUPP;
+> >+				}
+> >+				break;
+> >+			default:
+> >+				netdev_err(dev, "%s: Unsupported vlan action\n",
+> >+					   __func__);
+> >+				return -EOPNOTSUPP;
+> >+			}
+> > 		} else {
+> > 			netdev_err(dev, "%s: Unsupported action\n", __func__);
+> > 			return -EOPNOTSUPP;
+> >-- 
+> >2.14.1
+> >
