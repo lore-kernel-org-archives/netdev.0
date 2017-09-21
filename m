@@ -1,44 +1,54 @@
 From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH] net: use 32-bit arithmetic while allocating net device
-Date: Thu, 21 Sep 2017 23:33:29 +0300
-Message-ID: <20170921203329.GA13550@avx2>
+Subject: [PATCH 1/5] xfrm: make aead_len() return unsigned int
+Date: Thu, 21 Sep 2017 23:45:43 +0300
+Message-ID: <20170921204543.GB13550@avx2>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+Cc: herbert@gondor.apana.org.au, davem@davemloft.net,
+        netdev@vger.kernel.org
+To: steffen.klassert@secunet.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f177.google.com ([209.85.128.177]:52817 "EHLO
-        mail-wr0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751697AbdIUUib (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 16:38:31 -0400
-Received: by mail-wr0-f177.google.com with SMTP id c23so5432663wrg.9
-        for <netdev@vger.kernel.org>; Thu, 21 Sep 2017 13:38:31 -0700 (PDT)
+Received: from mail-wr0-f195.google.com ([209.85.128.195]:36148 "EHLO
+        mail-wr0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751750AbdIUUpr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 16:45:47 -0400
+Received: by mail-wr0-f195.google.com with SMTP id g50so3711112wra.3
+        for <netdev@vger.kernel.org>; Thu, 21 Sep 2017 13:45:46 -0700 (PDT)
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Private part of allocation is never big enough to warrant size_t.
+Key lengths can't be negative.
 
-Space savings:
-
-	add/remove: 0/0 grow/shrink: 0/1 up/down: 0/-10 (-10)
-	function                                     old     new   delta
-	alloc_netdev_mqs                            1120    1110     -10
+Comparison with nla_len() is left signed just in case negative value
+can sneak in there.
 
 Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 ---
 
- net/core/dev.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ include/net/xfrm.h   |    2 +-
+ net/xfrm/xfrm_user.c |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -7989,7 +7989,7 @@ struct net_device *alloc_netdev_mqs(int sizeof_priv, const char *name,
- 		unsigned int txqs, unsigned int rxqs)
- {
- 	struct net_device *dev;
--	size_t alloc_size;
-+	unsigned int alloc_size;
- 	struct net_device *p;
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -1764,7 +1764,7 @@ static inline int xfrm_acquire_is_on(struct net *net)
+ }
+ #endif
  
- 	BUG_ON(strlen(name) >= sizeof(dev->name));
+-static inline int aead_len(struct xfrm_algo_aead *alg)
++static inline unsigned int aead_len(struct xfrm_algo_aead *alg)
+ {
+ 	return sizeof(*alg) + ((alg->alg_key_len + 7) / 8);
+ }
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -84,7 +84,7 @@ static int verify_aead(struct nlattr **attrs)
+ 		return 0;
+ 
+ 	algp = nla_data(rt);
+-	if (nla_len(rt) < aead_len(algp))
++	if (nla_len(rt) < (int)aead_len(algp))
+ 		return -EINVAL;
+ 
+ 	algp->alg_name[sizeof(algp->alg_name) - 1] = '\0';
