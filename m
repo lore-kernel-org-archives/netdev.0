@@ -1,41 +1,38 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: build failure after merge of the net-next tree
-Date: Fri, 22 Sep 2017 11:03:55 +1000
-Message-ID: <20170922110355.6a631fc5@canb.auug.org.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] net/ncsi: Don't assume last available channel
+ exists
+Date: Thu, 21 Sep 2017 18:11:11 -0700 (PDT)
+Message-ID: <20170921.181111.2086501653519863373.davem@davemloft.net>
+References: <20170920041251.14635-1-sam@mendozajonas.com>
+        <20170920.160519.764603868579556859.davem@davemloft.net>
+        <1506042000.1377.21.camel@mendozajonas.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Linux-Next Mailing List <linux-next@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        Paolo Abeni <pabeni@redhat.com>
-To: David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: sam@mendozajonas.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1506042000.1377.21.camel@mendozajonas.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+From: Samuel Mendoza-Jonas <sam@mendozajonas.com>
+Date: Fri, 22 Sep 2017 11:00:00 +1000
 
-After merging the net-next tree, today's linux-next build (arm
-multi_v7_defconfig) failed like this:
+> If we haven't configured a channel yet (or are in the process of doing
+> so) we won't have a hot_channel - does it make more sense to
+> - check against the hot_channel as currently done,
+> - only check the filter size at configure time for /each/ channel,
+> - only conditionally enable the .ndo_vlan_rx_add_vid net_device callback
+> once we've configured a channel (eg. for ftgmac100 in the
+> ftgmac100_ncsi_handler() callback?)
 
-net/ipv4/fib_frontend.c: In function 'fib_validate_source':
-net/ipv4/fib_frontend.c:411:16: error: 'struct netns_ipv4' has no member named 'fib_has_custom_local_routes'
-   if (net->ipv4.fib_has_custom_local_routes)
-                ^
-net/ipv4/fib_frontend.c: In function 'inet_rtm_newroute':
-net/ipv4/fib_frontend.c:773:12: error: 'struct netns_ipv4' has no member named 'fib_has_custom_local_routes'
-   net->ipv4.fib_has_custom_local_routes = true;
-            ^
+The last isn't so feasible.
 
-Caused by commit
+The device shouldn't be marked attached until a channel is available,
+because it seems like communication cannot occur until one is.  Right?
 
-  6e617de84e87 ("net: avoid a full fib lookup when rp_filter is disabled.")
+You could experiment with netif_device_detach()/netif_device_attach().
 
-This build has CONFIG_IP_MULTIPLE_TABLES unset.
-
-I have reverted that commit for today.
-
--- 
-Cheers,
-Stephen Rothwell
+When the device is in the detached state, callbacks such as
+->ndo_vlan_rx_add_vid() will not be invoked.
