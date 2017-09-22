@@ -1,55 +1,64 @@
-From: Igor Russkikh <igor.russkikh@aquantia.com>
-Subject: Re: [PATCH net 1/4] net:ethernet:aquantia: Setup max_mtu in ndev to
- enable jumbo frames
-Date: Fri, 22 Sep 2017 10:24:30 +0300
-Message-ID: <bff2d1ee-6bd6-1682-be49-f10ee3b20f9f@aquantia.com>
-References: <cover.1505915085.git.igor.russkikh@aquantia.com>
- <1b556b3a2fd12c566912541f3c969d4bdc5dde9c.1505915085.git.igor.russkikh@aquantia.com>
- <20170921153619.GG27589@lunn.ch>
+From: Berend De Schouwer <berend.de.schouwer@gmail.com>
+Subject: Re: tg3 pxe weirdness
+Date: Fri, 22 Sep 2017 09:28:23 +0200
+Message-ID: <1506065303.18177.78.camel@gmail.com>
+References: <CAMet4B4Jdgjs42KAWQ4HJr1t_Grn1_+Hv8sipeLb_tvZ_SFrMw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        David Arcari <darcari@redhat.com>,
-        Pavel Belous <Pavel.Belous@aquantia.com>,
-        Nadezhda Krupnina <Nadezhda.Krupnina@aquantia.com>,
-        Simon Edelhaus <simon.edelhaus@aquantia.com>
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: Siva Reddy Kallam <siva.kallam@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam01on0057.outbound.protection.outlook.com ([104.47.34.57]:40304
-        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751795AbdIVHYq (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 22 Sep 2017 03:24:46 -0400
-In-Reply-To: <20170921153619.GG27589@lunn.ch>
-Content-Language: en-US
+Received: from mail-wr0-f193.google.com ([209.85.128.193]:36167 "EHLO
+        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751795AbdIVH23 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 22 Sep 2017 03:28:29 -0400
+Received: by mail-wr0-f193.google.com with SMTP id g50so165658wra.3
+        for <netdev@vger.kernel.org>; Fri, 22 Sep 2017 00:28:29 -0700 (PDT)
+In-Reply-To: <CAMet4B4Jdgjs42KAWQ4HJr1t_Grn1_+Hv8sipeLb_tvZ_SFrMw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, 2017-09-22 at 11:51 +0530, Siva Reddy Kallam wrote:
+> On Thu, Sep 21, 2017 at 7:53 PM, Berend De Schouwer
+> <berend.de.schouwer@gmail.com> wrote:
+> > Hi,
+> > 
+> > I've got a machine with a Broadcom bcm5762c, using the tg3 driver,
+> > that
+> > fails to receive network packets under some very specific
+> > conditions.
+> > 
+> > 
+> > Berend
+> 
+> Can you please share below details?
+> 1) Model and Manufacturer of the system
 
->>  	self->ndev->mtu = aq_nic_cfg->mtu - ETH_HLEN;
->> +	self->ndev->min_mtu = ETH_MIN_MTU;
-> This is not required. It will default to ETH_MIN_MTU.
+HP EliteDesk 705 G3 SFF
+lspci -n on the network card: 01:00.0 0200: 14e4:1687 (rev 10)
 
-Thanks Andrew, true.
+dmesg from tg3: 
+tg3 0000:01:00.0: PCI INT A -> GSI 24 (level, low) -> IRQ 24
+tg3 0000:01:00.0: setting latency timer to 64
+tg3 0000:01:00.0: eth0: Tigon3 [partno(none) rev 5762100] (PCI Express)
+MAC address 70:5a:0f:3d:9f:4f
+tg3 0000:01:00.0: eth0: attached PHY is 5762C (10/100/1000Base-T
+Ethernet) (WireSpeed[1], EEE[1])
+tg3 0000:01:00.0: eth0: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0]
+TSOcap[1]
+tg3 0000:01:00.0: eth0: dma_rwctrl[00000001] dma_mask[64-bit]
 
->> +	self->ndev->max_mtu = self->aq_hw_caps.mtu - ETH_FCS_LEN - ETH_HLEN;
->>  
->>  	return 0;
->>  }
->> @@ -695,7 +696,7 @@ int aq_nic_set_mtu(struct aq_nic_s *self, int new_mtu)
->>  {
->>  	int err = 0;
->>  
->> -	if (new_mtu > self->aq_hw_caps.mtu) {
->> +	if (new_mtu + ETH_FCS_LEN > self->aq_hw_caps.mtu) {
-> If you have set max_mtu correctly, this cannot happen.  But it seems
-> odd you don't have ETH_HLEN here, where as when setting max_mtu you
-> do.
+The same motherboard with add-on network cards does boot using PXE. 
+It's an EFI board but Secureboot is currently disabled.
 
-I agree, thats an extra check. Will remove that.
-Regarding ETH_HLEN - the baseline code invokes this function with (new_mtu + ETH_HLEN)  - thats why this check does not add it. In general, that extra level of storage (aq_nic_cfg.mtu field) is almost useless, I'll cleanup this under a separate patchset.
 
--- 
-BR,
-  Igor
+> 2) Linux distro/kernel used?
+
+CentOS 6 + updates.  I've tried all the CentOS 6 kernels up to 2.6.32-
+696.10.2.el6.x86_64
+
+I've tried updating the tg3 driver from 3.137 to both 3.137h and
+3.137o, with the same result.
+
+I'm currently in the process of making 4.13.2 boot.
