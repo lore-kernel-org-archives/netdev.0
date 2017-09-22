@@ -1,8 +1,8 @@
 From: Guillaume Nault <g.nault@alphalink.fr>
-Subject: [PATCH net 1/2] l2tp: ensure sessions are freed after their PPPOL2TP
- socket
-Date: Fri, 22 Sep 2017 15:39:23 +0200
-Message-ID: <44b0d835c98aebc1896b4806bd9b74a9793856f2.1506086081.git.g.nault@alphalink.fr>
+Subject: [PATCH net 2/2] l2tp: fix race between l2tp_session_delete() and
+ l2tp_tunnel_closeall()
+Date: Fri, 22 Sep 2017 15:39:24 +0200
+Message-ID: <11b04a711e0c263d3d7626961cd211464360d314.1506086081.git.g.nault@alphalink.fr>
 References: <cover.1506086081.git.g.nault@alphalink.fr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -11,54 +11,84 @@ Cc: James Chapman <jchapman@katalix.com>,
         Sabrina Dubroca <sd@queasysnail.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbra.alphalink.fr ([217.15.80.77]:52467 "EHLO
+Received: from zimbra.alphalink.fr ([217.15.80.77]:52471 "EHLO
         zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752337AbdIVNjc (ORCPT
+        with ESMTP id S1752340AbdIVNjc (ORCPT
         <rfc822;netdev@vger.kernel.org>); Fri, 22 Sep 2017 09:39:32 -0400
 Content-Disposition: inline
 In-Reply-To: <cover.1506086081.git.g.nault@alphalink.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If l2tp_tunnel_delete() or l2tp_tunnel_closeall() deletes a session
-right after pppol2tp_release() orphaned its socket, then the 'sock'
-variable of the pppol2tp_session_close() callback is NULL. Yet the
-session is still used by pppol2tp_release().
+There are several ways to remove L2TP sessions:
 
-Therefore we need to take an extra reference in any case, to prevent
-l2tp_tunnel_delete() or l2tp_tunnel_closeall() from freeing the session.
+  * deleting a session explicitly using the netlink interface (with
+    L2TP_CMD_SESSION_DELETE),
+  * deleting the session's parent tunnel (either by closing the
+    tunnel's file descriptor or using the netlink interface),
+  * closing the PPPOL2TP file descriptor of a PPP pseudo-wire.
 
-Since the pppol2tp_session_close() callback is only set if the session
-is associated to a PPPOL2TP socket and that both l2tp_tunnel_delete()
-and l2tp_tunnel_closeall() hold the PPPOL2TP socket before calling
-pppol2tp_session_close(), we're sure that pppol2tp_session_close() and
-pppol2tp_session_destruct() are paired and called in the right order.
-So the reference taken by the former will be released by the later.
+In some cases, when these methods are used concurrently on the same
+session, the session can be removed twice, leading to use-after-free
+bugs.
+
+This patch adds a 'dead' flag, used by l2tp_session_delete() and
+l2tp_tunnel_closeall() to prevent them from stepping on each other's
+toes.
+
+The session deletion path used when closing a PPPOL2TP file descriptor
+doesn't need to be adapted. It already has to ensure that a session
+remains valid for the lifetime of its PPPOL2TP file descriptor.
+So it takes an extra reference on the session in the ->session_close()
+callback (pppol2tp_session_close()), which is eventually dropped
+in the ->sk_destruct() callback of the PPPOL2TP socket
+(pppol2tp_session_destruct()).
+Still, __l2tp_session_unhash() and l2tp_session_queue_purge() can be
+called twice and even concurrently for a given session, but thanks to
+proper locking and re-initialisation of list fields, this is not an
+issue.
 
 Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
 ---
- net/l2tp/l2tp_ppp.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ net/l2tp/l2tp_core.c | 6 ++++++
+ net/l2tp/l2tp_core.h | 1 +
+ 2 files changed, 7 insertions(+)
 
-diff --git a/net/l2tp/l2tp_ppp.c b/net/l2tp/l2tp_ppp.c
-index 50e3ee9a9d61..bc6e8bfc5be4 100644
---- a/net/l2tp/l2tp_ppp.c
-+++ b/net/l2tp/l2tp_ppp.c
-@@ -437,11 +437,11 @@ static void pppol2tp_session_close(struct l2tp_session *session)
+diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
+index ee485df73ccd..d8c2a89a76e1 100644
+--- a/net/l2tp/l2tp_core.c
++++ b/net/l2tp/l2tp_core.c
+@@ -1314,6 +1314,9 @@ void l2tp_tunnel_closeall(struct l2tp_tunnel *tunnel)
  
- 	BUG_ON(session->magic != L2TP_SESSION_MAGIC);
+ 			hlist_del_init(&session->hlist);
  
--	if (sock) {
-+	if (sock)
- 		inet_shutdown(sock, SEND_SHUTDOWN);
--		/* Don't let the session go away before our socket does */
--		l2tp_session_inc_refcount(session);
--	}
++			if (test_and_set_bit(0, &session->dead))
++				goto again;
 +
-+	/* Don't let the session go away before our socket does */
-+	l2tp_session_inc_refcount(session);
- }
+ 			if (session->ref != NULL)
+ 				(*session->ref)(session);
  
- /* Really kill the session socket. (Called from sock_put() if
+@@ -1750,6 +1753,9 @@ EXPORT_SYMBOL_GPL(__l2tp_session_unhash);
+  */
+ int l2tp_session_delete(struct l2tp_session *session)
+ {
++	if (test_and_set_bit(0, &session->dead))
++		return 0;
++
+ 	if (session->ref)
+ 		(*session->ref)(session);
+ 	__l2tp_session_unhash(session);
+diff --git a/net/l2tp/l2tp_core.h b/net/l2tp/l2tp_core.h
+index a305e0c5925a..70a12df40a5f 100644
+--- a/net/l2tp/l2tp_core.h
++++ b/net/l2tp/l2tp_core.h
+@@ -76,6 +76,7 @@ struct l2tp_session_cfg {
+ struct l2tp_session {
+ 	int			magic;		/* should be
+ 						 * L2TP_SESSION_MAGIC */
++	long			dead;
+ 
+ 	struct l2tp_tunnel	*tunnel;	/* back pointer to tunnel
+ 						 * context */
 -- 
 2.14.1
