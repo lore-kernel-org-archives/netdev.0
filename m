@@ -1,59 +1,42 @@
-From: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
-Subject: [net-next] net: remove MTU limits for dummy and ifb device
-Date: Fri, 22 Sep 2017 23:57:49 +0800
-Message-ID: <1506095869-5465-1-git-send-email-zhangshengju@cmss.chinamobile.com>
-To: davem@davemloft.net, sd@queasysnail.net, edumazet@google.com,
-        netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmccmta3.chinamobile.com ([221.176.66.81]:3007 "EHLO
-        cmccmta3.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752078AbdIVP6f (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 22 Sep 2017 11:58:35 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: RE: [PATCH] hv_netvsc:  make const array ver_list static, reduces
+ object code size
+Date: Fri, 22 Sep 2017 16:00:37 +0000
+Message-ID: <MWHPR21MB04795E0C01527E2D096E6B05CA670@MWHPR21MB0479.namprd21.prod.outlook.com>
+References: <20170922155023.15821-1-colin.king@canonical.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Colin King <colin.king@canonical.com>,
+        KY Srinivasan <kys@microsoft.com>,
+        Stephen Hemminger <sthemmin@microsoft.com>,
+        "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <20170922155023.15821-1-colin.king@canonical.com>
+Content-Language: en-US
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-These two drivers (dummy and ifb) call ether_setup(), after commit
-61e84623ace3 ("net: centralize net_device min/max MTU checking"), the
-range of mtu is [min_mtu, max_mtu], which is [68, 1500] by default.
-
-These two devices should not have limits on MTU. This patch set their
-min_mtu/max_mtu to 0. So that dev_set_mtu() will not check the mtu range,
-and can be set with any value.
-
-CC: Eric Dumazet <edumazet@google.com>
-CC: Sabrina Dubroca <sd@queasysnail.net>
-Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
----
- drivers/net/dummy.c | 2 +-
- drivers/net/ifb.c   | 3 +++
- 2 files changed, 4 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/dummy.c b/drivers/net/dummy.c
-index e31ab3b..58483af 100644
---- a/drivers/net/dummy.c
-+++ b/drivers/net/dummy.c
-@@ -353,7 +353,7 @@ static void dummy_setup(struct net_device *dev)
- 	eth_hw_addr_random(dev);
- 
- 	dev->min_mtu = 0;
--	dev->max_mtu = ETH_MAX_MTU;
-+	dev->max_mtu = 0;
- }
- 
- static int dummy_validate(struct nlattr *tb[], struct nlattr *data[],
-diff --git a/drivers/net/ifb.c b/drivers/net/ifb.c
-index 8870bd2..0008da7 100644
---- a/drivers/net/ifb.c
-+++ b/drivers/net/ifb.c
-@@ -231,6 +231,9 @@ static void ifb_setup(struct net_device *dev)
- 	eth_hw_addr_random(dev);
- 	dev->needs_free_netdev = true;
- 	dev->priv_destructor = ifb_dev_free;
-+
-+	dev->min_mtu = 0;
-+	dev->max_mtu = 0;
- }
- 
- static netdev_tx_t ifb_xmit(struct sk_buff *skb, struct net_device *dev)
--- 
-1.8.3.1
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogQ29saW4gS2luZyBbbWFp
+bHRvOmNvbGluLmtpbmdAY2Fub25pY2FsLmNvbV0NCj4gU2VudDogRnJpZGF5LCBTZXB0ZW1iZXIg
+MjIsIDIwMTcgODo1MCBBTQ0KPiBUbzogS1kgU3Jpbml2YXNhbiA8a3lzQG1pY3Jvc29mdC5jb20+
+OyBIYWl5YW5nIFpoYW5nDQo+IDxoYWl5YW5nekBtaWNyb3NvZnQuY29tPjsgU3RlcGhlbiBIZW1t
+aW5nZXIgPHN0aGVtbWluQG1pY3Jvc29mdC5jb20+Ow0KPiBkZXZlbEBsaW51eGRyaXZlcnByb2pl
+Y3Qub3JnOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnDQo+IENjOiBrZXJuZWwtamFuaXRvcnNAdmdl
+ci5rZXJuZWwub3JnOyBsaW51eC1rZXJuZWxAdmdlci5rZXJuZWwub3JnDQo+IFN1YmplY3Q6IFtQ
+QVRDSF0gaHZfbmV0dnNjOiBtYWtlIGNvbnN0IGFycmF5IHZlcl9saXN0IHN0YXRpYywgcmVkdWNl
+cw0KPiBvYmplY3QgY29kZSBzaXplDQo+IA0KPiBGcm9tOiBDb2xpbiBJYW4gS2luZyA8Y29saW4u
+a2luZ0BjYW5vbmljYWwuY29tPg0KPiANCj4gRG9uJ3QgcG9wdWxhdGUgY29uc3QgYXJyYXkgdmVy
+X2xpc3Qgb24gdGhlIHN0YWNrLCBpbnN0ZWFkIG1ha2UgaXQNCj4gc3RhdGljLiBNYWtlcyB0aGUg
+b2JqZWN0IGNvZGUgc21hbGxlciBieSBvdmVyIDQwMCBieXRlczoNCj4gDQo+IEJlZm9yZToNCj4g
+ICAgdGV4dAkgICBkYXRhCSAgICBic3MJICAgIGRlYwkgICAgaGV4CWZpbGVuYW1lDQo+ICAgMTg0
+NDQJICAgMzE2OAkgICAgMzIwCSAgMjE5MzIJICAgNTVhYw0KPiAJZHJpdmVycy9uZXQvaHlwZXJ2
+L25ldHZzYy5vDQo+IA0KPiBBZnRlcjoNCj4gICAgdGV4dAkgICBkYXRhCSAgICBic3MJICAgIGRl
+YwkgICAgaGV4CWZpbGVuYW1lDQo+ICAgMTc5NTAJICAgMzIyNAkgICAgMzIwCSAgMjE0OTQJICAg
+NTNmNg0KPiAJZHJpdmVycy9uZXQvaHlwZXJ2L25ldHZzYy5vDQo+IA0KPiAoZ2NjIDYuMy4wLCB4
+ODYtNjQpDQo+IA0KPiBTaWduZWQtb2ZmLWJ5OiBDb2xpbiBJYW4gS2luZyA8Y29saW4ua2luZ0Bj
+YW5vbmljYWwuY29tPg0KPiAtLS0NCg0KUmV2aWV3ZWQtYnk6IEhhaXlhbmcgWmhhbmcgPGhhaXlh
+bmd6QG1pY3Jvc29mdC5jb20+DQoNCg0K
