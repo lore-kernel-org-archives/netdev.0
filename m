@@ -1,143 +1,113 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v2 3/3] net: dsa: add port enable and disable helpers
-Date: Fri, 22 Sep 2017 15:40:45 -0400
-Message-ID: <20170922194045.18814-4-vivien.didelot@savoirfairelinux.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next v2 1/3] net: dsa: use slave device phydev
+Date: Fri, 22 Sep 2017 13:00:32 -0700
+Message-ID: <2262f266-6fb9-cce4-f83a-933dd41b9062@gmail.com>
 References: <20170922194045.18814-1-vivien.didelot@savoirfairelinux.com>
+ <20170922194045.18814-2-vivien.didelot@savoirfairelinux.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
+        Andrew Lunn <andrew@lunn.ch>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170922194045.18814-1-vivien.didelot@savoirfairelinux.com>
+In-Reply-To: <20170922194045.18814-2-vivien.didelot@savoirfairelinux.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Provide dsa_port_enable and dsa_port_disable helpers to respectively
-enable and disable a switch port. This makes the dsa_port_set_state_now
-helper static.
+On 09/22/2017 12:40 PM, Vivien Didelot wrote:
+> There is no need to store a phy_device in dsa_slave_priv since
+> net_device already provides one. Simply s/p->phy/dev->phydev/.
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
----
- net/dsa/dsa_priv.h |  3 ++-
- net/dsa/port.c     | 31 ++++++++++++++++++++++++++++++-
- net/dsa/slave.c    | 19 +++++--------------
- 3 files changed, 37 insertions(+), 16 deletions(-)
+You can therefore remove the phy_device from dsa_slave_priv, see below
+for more comments. I will have to regress test the heck out of this,
+this should take a few hours.
 
-diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
-index 9803952a5b40..0298a0f6a349 100644
---- a/net/dsa/dsa_priv.h
-+++ b/net/dsa/dsa_priv.h
-@@ -117,7 +117,8 @@ void dsa_master_ethtool_restore(struct net_device *dev);
- /* port.c */
- int dsa_port_set_state(struct dsa_port *dp, u8 state,
- 		       struct switchdev_trans *trans);
--void dsa_port_set_state_now(struct dsa_port *dp, u8 state);
-+int dsa_port_enable(struct dsa_port *dp, struct phy_device *phy);
-+void dsa_port_disable(struct dsa_port *dp, struct phy_device *phy);
- int dsa_port_bridge_join(struct dsa_port *dp, struct net_device *br);
- void dsa_port_bridge_leave(struct dsa_port *dp, struct net_device *br);
- int dsa_port_vlan_filtering(struct dsa_port *dp, bool vlan_filtering,
-diff --git a/net/dsa/port.c b/net/dsa/port.c
-index 76d43a82d397..72c8dbd3d3f2 100644
---- a/net/dsa/port.c
-+++ b/net/dsa/port.c
-@@ -56,7 +56,7 @@ int dsa_port_set_state(struct dsa_port *dp, u8 state,
- 	return 0;
- }
- 
--void dsa_port_set_state_now(struct dsa_port *dp, u8 state)
-+static void dsa_port_set_state_now(struct dsa_port *dp, u8 state)
- {
- 	int err;
- 
-@@ -65,6 +65,35 @@ void dsa_port_set_state_now(struct dsa_port *dp, u8 state)
- 		pr_err("DSA: failed to set STP state %u (%d)\n", state, err);
- }
- 
-+int dsa_port_enable(struct dsa_port *dp, struct phy_device *phy)
-+{
-+	u8 stp_state = dp->bridge_dev ? BR_STATE_BLOCKING : BR_STATE_FORWARDING;
-+	struct dsa_switch *ds = dp->ds;
-+	int port = dp->index;
-+	int err;
-+
-+	if (ds->ops->port_enable) {
-+		err = ds->ops->port_enable(ds, port, phy);
-+		if (err)
-+			return err;
-+	}
-+
-+	dsa_port_set_state_now(dp, stp_state);
-+
-+	return 0;
-+}
-+
-+void dsa_port_disable(struct dsa_port *dp, struct phy_device *phy)
-+{
-+	struct dsa_switch *ds = dp->ds;
-+	int port = dp->index;
-+
-+	dsa_port_set_state_now(dp, BR_STATE_DISABLED);
-+
-+	if (ds->ops->port_disable)
-+		ds->ops->port_disable(ds, port, phy);
-+}
-+
- int dsa_port_bridge_join(struct dsa_port *dp, struct net_device *br)
- {
- 	struct dsa_notifier_bridge_info info = {
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 0aab29928152..4ea1c6eb0da8 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -73,9 +73,7 @@ static int dsa_slave_open(struct net_device *dev)
- {
- 	struct dsa_slave_priv *p = netdev_priv(dev);
- 	struct dsa_port *dp = p->dp;
--	struct dsa_switch *ds = dp->ds;
- 	struct net_device *master = dsa_master_netdev(p);
--	u8 stp_state = dp->bridge_dev ? BR_STATE_BLOCKING : BR_STATE_FORWARDING;
- 	int err;
- 
- 	if (!(master->flags & IFF_UP))
-@@ -98,13 +96,9 @@ static int dsa_slave_open(struct net_device *dev)
- 			goto clear_allmulti;
- 	}
- 
--	if (ds->ops->port_enable) {
--		err = ds->ops->port_enable(ds, p->dp->index, dev->phydev);
--		if (err)
--			goto clear_promisc;
--	}
--
--	dsa_port_set_state_now(p->dp, stp_state);
-+	err = dsa_port_enable(dp, dev->phydev);
-+	if (err)
-+		goto clear_promisc;
- 
- 	if (dev->phydev)
- 		phy_start(dev->phydev);
-@@ -128,15 +122,12 @@ static int dsa_slave_close(struct net_device *dev)
- {
- 	struct dsa_slave_priv *p = netdev_priv(dev);
- 	struct net_device *master = dsa_master_netdev(p);
--	struct dsa_switch *ds = p->dp->ds;
-+	struct dsa_port *dp = p->dp;
- 
- 	if (dev->phydev)
- 		phy_stop(dev->phydev);
- 
--	dsa_port_set_state_now(p->dp, BR_STATE_DISABLED);
--
--	if (ds->ops->port_disable)
--		ds->ops->port_disable(ds, p->dp->index, dev->phydev);
-+	dsa_port_disable(dp, dev->phydev);
- 
- 	dev_mc_unsync(master, dev);
- 	dev_uc_unsync(master, dev);
+> 
+> While at it, return -ENODEV when it is NULL instead of -EOPNOTSUPP.
+> 
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> ---
+
+>  static int dsa_slave_port_attr_set(struct net_device *dev,
+> @@ -435,12 +433,10 @@ static int
+>  dsa_slave_get_link_ksettings(struct net_device *dev,
+>  			     struct ethtool_link_ksettings *cmd)
+>  {
+> -	struct dsa_slave_priv *p = netdev_priv(dev);
+> +	if (!dev->phydev)
+> +		return -ENODEV;
+>  
+> -	if (!p->phy)
+> -		return -EOPNOTSUPP;
+> -
+> -	phy_ethtool_ksettings_get(p->phy, cmd);
+> +	phy_ethtool_ksettings_get(dev->phydev, cmd);
+
+This can be replaced by phy_ethtool_get_link_ksettings()
+
+>  
+>  	return 0;
+>  }
+> @@ -449,12 +445,10 @@ static int
+>  dsa_slave_set_link_ksettings(struct net_device *dev,
+>  			     const struct ethtool_link_ksettings *cmd)
+>  {
+> -	struct dsa_slave_priv *p = netdev_priv(dev);
+> +	if (!dev->phydev)
+> +		return -ENODEV;
+>  
+> -	if (p->phy != NULL)
+> -		return phy_ethtool_ksettings_set(p->phy, cmd);
+> -
+> -	return -EOPNOTSUPP;
+> +	return phy_ethtool_ksettings_set(dev->phydev, cmd);
+>  }
+
+This can disappear and you can assign this ethtool operation to
+phy_ethtool_set_link_ksettings()
+
+>  
+>  static void dsa_slave_get_drvinfo(struct net_device *dev,
+> @@ -488,24 +482,20 @@ dsa_slave_get_regs(struct net_device *dev, struct ethtool_regs *regs, void *_p)
+>  
+>  static int dsa_slave_nway_reset(struct net_device *dev)
+>  {
+> -	struct dsa_slave_priv *p = netdev_priv(dev);
+> +	if (!dev->phydev)
+> +		return -ENODEV;
+>  
+> -	if (p->phy != NULL)
+> -		return genphy_restart_aneg(p->phy);
+> -
+> -	return -EOPNOTSUPP;
+> +	return genphy_restart_aneg(dev->phydev);
+>  }
+
+This can now disappear and you can use phy_ethtool_nway_reset() directly
+in ethtool_ops
+
+>  
+>  static u32 dsa_slave_get_link(struct net_device *dev)
+>  {
+> -	struct dsa_slave_priv *p = netdev_priv(dev);
+> +	if (!dev->phydev)
+> +		return -ENODEV;
+>  
+> -	if (p->phy != NULL) {
+> -		genphy_update_link(p->phy);
+> -		return p->phy->link;
+> -	}
+> +	genphy_update_link(dev->phydev);
+>  
+> -	return -EOPNOTSUPP;
+> +	return dev->phydev->link;
+>  }
+
+This should certainly be just ethtool_op_get_link(), not sure why we
+kept that around here...
 -- 
-2.14.1
+Florian
