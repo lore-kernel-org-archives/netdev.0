@@ -1,43 +1,47 @@
-From: Haiyang Zhang <haiyangz@exchange.microsoft.com>
-Subject: [PATCH net-next] hv_netvsc: Fix the real number of queues of non-vRSS cases
-Date: Fri, 22 Sep 2017 15:31:38 -0700
-Message-ID: <20170922223138.28348-1-haiyangz@exchange.microsoft.com>
-Reply-To: haiyangz@microsoft.com
-Cc: haiyangz@microsoft.com, kys@microsoft.com, olaf@aepfle.de,
-        vkuznets@redhat.com, linux-kernel@vger.kernel.org
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Willem de Bruijn <willemb@google.com>
+Subject: [PATCH net] net: orphan frags on stand-alone ptype in dev_queue_xmit_nit
+Date: Fri, 22 Sep 2017 18:51:41 -0400
+Message-ID: <20170922225141.126435-1-willemb@google.com>
+Cc: davem@davemloft.net, Willem de Bruijn <willemb@google.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f172.google.com ([209.85.220.172]:57295 "EHLO
+        mail-qk0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752158AbdIVWvp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 22 Sep 2017 18:51:45 -0400
+Received: by mail-qk0-f172.google.com with SMTP id g128so2392915qke.13
+        for <netdev@vger.kernel.org>; Fri, 22 Sep 2017 15:51:45 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Haiyang Zhang <haiyangz@microsoft.com>
+Zerocopy skbs frags are copied when the skb is looped to a local sock.
+Commit 1080e512d44d ("net: orphan frags on receive") introduced calls
+to skb_orphan_frags to deliver_skb and __netif_receive_skb.
 
-For older hosts without multi-channel (vRSS) support, and some error
-cases, we still need to set the real number of queues to one.
-This patch adds this missing setting.
+With msg_zerocopy, these skbs can also exist in the tx path and thus
+loop from dev_queue_xmit_nit. This already calls deliver_skb in its
+loop. But it does not orphan before a separate pt_prev->func().
 
-Fixes: 8195b1396ec8 ("hv_netvsc: fix deadlock on hotplug")
-Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+Add the missing skb_orphan_frags_rx.
+
+Fixes: 1f8b977ab32d ("sock: enable MSG_ZEROCOPY")
+Signed-off-by: Willem de Bruijn <willemb@google.com>
 ---
- drivers/net/hyperv/netvsc_drv.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+ net/core/dev.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index d4902ee5f260..68eac12fbf75 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -1929,6 +1929,12 @@ static int netvsc_probe(struct hv_device *dev,
- 	/* We always need headroom for rndis header */
- 	net->needed_headroom = RNDIS_AND_PPI_SIZE;
- 
-+	/* Initialize the number of queues to be 1, we may change it if more
-+	 * channels are offered later.
-+	 */
-+	netif_set_real_num_tx_queues(net, 1);
-+	netif_set_real_num_rx_queues(net, 1);
-+
- 	/* Notify the netvsc driver of the new device */
- 	memset(&device_info, 0, sizeof(device_info));
- 	device_info.ring_size = ring_size;
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 9a2254f9802f..3f5b26ff4f74 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1948,7 +1948,7 @@ void dev_queue_xmit_nit(struct sk_buff *skb, struct net_device *dev)
+ 		goto again;
+ 	}
+ out_unlock:
+-	if (pt_prev)
++	if (pt_prev && !skb_orphan_frags_rx(skb2, GFP_ATOMIC))
+ 		pt_prev->func(skb2, skb->dev, pt_prev, skb->dev);
+ 	rcu_read_unlock();
+ }
 -- 
-2.14.1
+2.14.1.821.g8fa685d3b7-goog
