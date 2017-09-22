@@ -1,33 +1,59 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] test_rhashtable: remove initdata annotation
-Date: Thu, 21 Sep 2017 20:42:32 -0700 (PDT)
-Message-ID: <20170921.204232.298006545281976204.davem@davemloft.net>
-References: <20170921153608.8789-1-fw@strlen.de>
+Subject: Re: [PATCH net] net: prevent dst uses after free
+Date: Thu, 21 Sep 2017 20:42:48 -0700 (PDT)
+Message-ID: <20170921.204248.634064806877379720.davem@davemloft.net>
+References: <80e8948e-669b-4139-add6-637c6dd3405f@itcare.pl>
+        <1506005799.29839.130.camel@edumazet-glaptop3.roam.corp.google.com>
+        <1506010546.29839.148.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: fw@strlen.de
+Content-Type: Text/Plain; charset=euc-kr
+Content-Transfer-Encoding: 8bit
+Cc: pstaszewski@itcare.pl, weiwan@google.com, xiyou.wangcong@gmail.com,
+        netdev@vger.kernel.org, edumazet@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:41618 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:41636 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751791AbdIVDmc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 23:42:32 -0400
-In-Reply-To: <20170921153608.8789-1-fw@strlen.de>
+        with ESMTP id S1751791AbdIVDmt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 23:42:49 -0400
+In-Reply-To: <1506010546.29839.148.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
-Date: Thu, 21 Sep 2017 17:36:08 +0200
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 21 Sep 2017 09:15:46 -0700
 
-> kbuild test robot reported a section mismatch warning w. gcc 4.x:
-> WARNING: lib/test_rhashtable.o(.text+0x139e):
-> Section mismatch in reference from the function rhltable_insert.clone.3() to the variable .init.data:rhlt
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> so remove this annotation.
+> In linux-4.13, Wei worked hard to convert dst to a traditional
+> refcounted model, removing GC.
 > 
-> Fixes: cdd4de372ea06 ("test_rhashtable: add test case for rhl_table interface")
-> Reported-by: kbuild test robot <lkp@intel.com>
-> Signed-off-by: Florian Westphal <fw@strlen.de>
+> We now want to make sure a dst refcount can not transition from 0 back
+> to 1.
+> 
+> The problem here is that input path attached a not refcounted dst to an
+> skb. Then later, because packet is forwarded and hits skb_dst_force()
+> before exiting RCU section, we might try to take a refcount on one dst
+> that is about to be freed, if another cpu saw 1 -> 0 transition in
+> dst_release() and queued the dst for freeing after one RCU grace period.
+> 
+> Lets unify skb_dst_force() and skb_dst_force_safe(), since we should
+> always perform the complete check against dst refcount, and not assume
+> it is not zero.
+> 
+> Bugzilla : https://bugzilla.kernel.org/show_bug.cgi?id=197005
+ ...
+> Similarly dst_clone() can use dst_hold() helper to have additional
+> debugging, as a follow up to commit 44ebe79149ff ("net: add debug
+> atomic_inc_not_zero() in dst_hold()")
+> 
+> In net-next we will convert dst atomic_t to refcount_t for peace of
+> mind.
+> 
+> Fixes: a4c2fd7f7891 ("net: remove DST_NOCACHE flag")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Wei Wang <weiwan@google.com>
+> Reported-by: Pawe©© Staszewski <pstaszewski@itcare.pl>
+> Bisected-by: Pawe©© Staszewski <pstaszewski@itcare.pl>
 
-Applied.
+Applied and queued up for -stable, thanks Eric.
