@@ -1,26 +1,84 @@
 From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH net-next v2 0/6] rtnetlink: preparation patches for further rtnl lock pushdown/removal
-Date: Fri, 22 Sep 2017 08:10:02 +0200
-Message-ID: <20170922061008.14723-1-fw@strlen.de>
+Subject: [PATCH net-next v2 1/6] selftests: rtnetlink.sh: add rudimentary vrf test
+Date: Fri, 22 Sep 2017 08:10:03 +0200
+Message-ID: <20170922061008.14723-2-fw@strlen.de>
+References: <20170922061008.14723-1-fw@strlen.de>
+Cc: Florian Westphal <fw@strlen.de>, David Ahern <dsahern@gmail.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:41574 "EHLO
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:41576 "EHLO
         Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751795AbdIVGJu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 22 Sep 2017 02:09:50 -0400
+        by vger.kernel.org with ESMTP id S1751795AbdIVGJy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 22 Sep 2017 02:09:54 -0400
+In-Reply-To: <20170922061008.14723-1-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-First patch adds a rudimentary vrf test case.
+Cc: David Ahern <dsahern@gmail.com>
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
+ tools/testing/selftests/net/rtnetlink.sh | 42 ++++++++++++++++++++++++++++++++
+ 1 file changed, 42 insertions(+)
 
-Remaining patches split large rtnl_fill_ifinfo into smaller chunks
-to better see which parts
-
-1. require rtnl
-2. do not require it at all
-3. rely on rtnl locking now but could be converted
-
-changes since v2:
-- fix subject lines of patches 2 and 5
-- drop pure ASSERT_RTNL annotation patch, its not all that useful
-- remove two extra ASSERT_RTNL in last patch
+diff --git a/tools/testing/selftests/net/rtnetlink.sh b/tools/testing/selftests/net/rtnetlink.sh
+index 4b48de565cae..6ee2bbaebcd4 100755
+--- a/tools/testing/selftests/net/rtnetlink.sh
++++ b/tools/testing/selftests/net/rtnetlink.sh
+@@ -291,6 +291,47 @@ kci_test_ifalias()
+ 	echo "PASS: set ifalias $namewant for $devdummy"
+ }
+ 
++kci_test_vrf()
++{
++	vrfname="test-vrf"
++	ret=0
++
++	ip link show type vrf 2>/dev/null
++	if [ $? -ne 0 ]; then
++		echo "SKIP: vrf: iproute2 too old"
++		return 0
++	fi
++
++	ip link add "$vrfname" type vrf table 10
++	check_err $?
++	if [ $ret -ne 0 ];then
++		echo "FAIL: can't add vrf interface, skipping test"
++		return 0
++	fi
++
++	ip -br link show type vrf | grep -q "$vrfname"
++	check_err $?
++	if [ $ret -ne 0 ];then
++		echo "FAIL: created vrf device not found"
++		return 1
++	fi
++
++        ip link set dev "$vrfname" up
++	check_err $?
++
++	ip link set dev "$devdummy" master "$vrfname"
++	check_err $?
++	ip link del dev "$vrfname"
++	check_err $?
++
++	if [ $ret -ne 0 ];then
++		echo "FAIL: vrf"
++		return 1
++	fi
++
++	echo "PASS: vrf"
++}
++
+ kci_test_rtnl()
+ {
+ 	kci_add_dummy
+@@ -306,6 +347,7 @@ kci_test_rtnl()
+ 	kci_test_bridge
+ 	kci_test_addrlabel
+ 	kci_test_ifalias
++	kci_test_vrf
+ 
+ 	kci_del_dummy
+ }
+-- 
+2.13.5
