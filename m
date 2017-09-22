@@ -1,59 +1,49 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [pktgen script v2 0/2] Add a pktgen sample script of NUMA
- awareness
-Date: Fri, 22 Sep 2017 16:06:54 +0200
-Message-ID: <20170922160654.08ae8961@redhat.com>
-References: <1505651798-106642-1-git-send-email-robert.hu@linux.intel.com>
-        <20170918110621.355dc215@redhat.com>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: [PATCH,v2,net-next 2/2] tun: enable napi_gro_frags() for TUN/TAP driver
+Date: Fri, 22 Sep 2017 10:06:28 -0400
+Message-ID: <CAF=yD-KSdujdkgOAvUnuj+xeok9KgT0mem0oQYHP4uq+U8uahA@mail.gmail.com>
+References: <20170922021715.2618-1-peterpenkov96@gmail.com> <20170922021715.2618-3-peterpenkov96@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, tariqt@mellanox.com, kyle.leet@gmail.com,
-        netdev@vger.kernel.org, robert.hu@intel.com, brouer@redhat.com
-To: Robert Hoo <robert.hu@linux.intel.com>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Network Development <netdev@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>,
+        Mahesh Bandewar <maheshb@google.com>,
+        Willem de Bruijn <willemb@google.com>,
+        David Miller <davem@davemloft.net>, ppenkov@stanford.edu
+To: Petar Penkov <peterpenkov96@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:59474 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752245AbdIVOHC (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 22 Sep 2017 10:07:02 -0400
-In-Reply-To: <20170918110621.355dc215@redhat.com>
+Received: from mail-io0-f169.google.com ([209.85.223.169]:44610 "EHLO
+        mail-io0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752368AbdIVOHJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 22 Sep 2017 10:07:09 -0400
+Received: by mail-io0-f169.google.com with SMTP id v36so3304931ioi.1
+        for <netdev@vger.kernel.org>; Fri, 22 Sep 2017 07:07:09 -0700 (PDT)
+In-Reply-To: <20170922021715.2618-3-peterpenkov96@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 18 Sep 2017 11:06:21 +0200
-Jesper Dangaard Brouer <brouer@redhat.com> wrote:
+> @@ -2061,6 +2174,9 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+>         if (tfile->detached)
+>                 return -EINVAL;
+>
+> +       if ((ifr->ifr_flags & IFF_NAPI_FRAGS) && !capable(CAP_NET_ADMIN))
+> +               return -EPERM;
+> +
 
-> On Sun, 17 Sep 2017 20:36:36 +0800 Robert Hoo <robert.hu@linux.intel.com> wrote:
-> 
-> > Change log
-> > v2:
-> >  Rebased to https://github.com/netoptimizer/network-testing/tree/master/pktgen  
-> 
-> Hi Robert,
-> 
-> Thank you for submitting this against my git tree[1]. I skimmed the
-> patches and they looked okay.  I'll give them a test run, before I
-> accept them into my tree.
-> 
-> Later I'll synchronize my pktgen scripts/git-tree with the kernel via
-> regular patches against DaveM's net-next tree[2] (and I'll try to
-> remember to give you author credit).
-> 
-> [1] https://github.com/netoptimizer/network-testing/tree/master/pktgen
-> [2] https://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git/tree/samples/pktgen
+This should perhaps be moved into the !dev branch, directly below the
+ns_capable check.
 
-FYI, I've applied and pushed these patches to my tree.
- https://github.com/netoptimizer/network-testing/commits?author=robert-hoo
- https://github.com/netoptimizer/network-testing/commit/1b9b4b797a4f112
- https://github.com/netoptimizer/network-testing/commit/65efc2352f63dde
- https://github.com/netoptimizer/network-testing/commit/54eb5178aaf4031
+>         dev = __dev_get_by_name(net, ifr->ifr_name);
+>         if (dev) {
+>                 if (ifr->ifr_flags & IFF_TUN_EXCL)
+> @@ -2185,6 +2301,9 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+>         tun->flags = (tun->flags & ~TUN_FEATURES) |
+>                 (ifr->ifr_flags & TUN_FEATURES);
+>
+> +       if (!(tun->flags & IFF_NAPI) || (tun->flags & TUN_TYPE_MASK) != IFF_TAP)
+> +               tun->flags = tun->flags & ~IFF_NAPI_FRAGS;
+> +
 
-I fixed the description a bit, and only made one simple change:
- https://github.com/netoptimizer/network-testing/commit/9ff58568b3f8c91
-
-Thanks for working on improving the pktgen scripts :-)
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
+Similarly, this check only need to be performed in that branch.
+Instead of reverting to non-frags mode, a tun_set_iff with the wrong
+set of flags should probably fail hard.
