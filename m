@@ -1,63 +1,61 @@
-From: Arend van Spriel <arend.vanspriel@broadcom.com>
-Subject: Re: [PATCH] brcm80211: make const array ucode_ofdm_rates static,
- reduces object code size
-Date: Fri, 22 Sep 2017 18:51:43 +0200
-Message-ID: <96caf646-a43c-9b78-a4a9-2becf7e74125@broadcom.com>
-References: <20170922140316.12768-1-colin.king@canonical.com>
+From: =?UTF-8?B?TWFoZXNoIEJhbmRld2FyICjgpK7gpLngpYfgpLYg4KSs4KSC4KSh4KWH4KS14KS+4KSwKQ==?=
+        <maheshb@google.com>
+Subject: Re: [PATCH,v2,net-next 2/2] tun: enable napi_gro_frags() for TUN/TAP driver
+Date: Fri, 22 Sep 2017 09:51:36 -0700
+Message-ID: <CAF2d9jhng1-jQypPqA1XdQtocBQ9ayJYfGa1UGGvBhGP=CXoaA@mail.gmail.com>
+References: <20170922021715.2618-1-peterpenkov96@gmail.com>
+ <20170922021715.2618-3-peterpenkov96@gmail.com> <CAF=yD-KSdujdkgOAvUnuj+xeok9KgT0mem0oQYHP4uq+U8uahA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Colin King <colin.king@canonical.com>,
-        Franky Lin <franky.lin@broadcom.com>,
-        Hante Meuleman <hante.meuleman@broadcom.com>,
-        Chi-Hsien Lin <chi-hsien.lin@cypress.com>,
-        Wright Feng <wright.feng@cypress.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        linux-wireless@vger.kernel.org,
-        brcm80211-dev-list.pdl@broadcom.com,
-        brcm80211-dev-list@cypress.com, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170922140316.12768-1-colin.king@canonical.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Cc: Petar Penkov <peterpenkov96@gmail.com>,
+        Network Development <netdev@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>,
+        Willem de Bruijn <willemb@google.com>,
+        David Miller <davem@davemloft.net>,
+        Petar Bozhidarov Penkov <ppenkov@stanford.edu>
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f182.google.com ([209.85.161.182]:50474 "EHLO
+        mail-yw0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752340AbdIVQv6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 22 Sep 2017 12:51:58 -0400
+Received: by mail-yw0-f182.google.com with SMTP id u11so1144590ywh.7
+        for <netdev@vger.kernel.org>; Fri, 22 Sep 2017 09:51:58 -0700 (PDT)
+In-Reply-To: <CAF=yD-KSdujdkgOAvUnuj+xeok9KgT0mem0oQYHP4uq+U8uahA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Please use 'brcmsmac:' as prefix instead of 'brcm80211:'.
+On Fri, Sep 22, 2017 at 7:06 AM, Willem de Bruijn
+<willemdebruijn.kernel@gmail.com> wrote:
+>> @@ -2061,6 +2174,9 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+>>         if (tfile->detached)
+>>                 return -EINVAL;
+>>
+>> +       if ((ifr->ifr_flags & IFF_NAPI_FRAGS) && !capable(CAP_NET_ADMIN))
+>> +               return -EPERM;
+>> +
+>
+> This should perhaps be moved into the !dev branch, directly below the
+> ns_capable check.
+>
+Hmm, does that mean fail only on creation but allow to attach if
+exists? That would be wrong, isn't it? Correct me if I'm wrong but we
+want to prevent both these scenarios if user does not have sufficient
+privileges (i.e. NET_ADMIN in init-ns).
 
-On 22-09-17 16:03, Colin King wrote:
-> From: Colin Ian King <colin.king@canonical.com>
-> 
-> Don't populate const array ucode_ofdm_rates on the stack, instead make it
-> static. Makes the object code smaller by 100 bytes:
-> 
-> Before:
->     text	   data	    bss	    dec	    hex	filename
->    39482	    564	      0	  40046	   9c6e	phy_cmn.o
-> 
-> After
->     text	   data	    bss	    dec	    hex	filename
->    39326	    620	      0	  39946	   9c0a	phy_cmn.o
-> 
-> (gcc 6.3.0, x86-64)
-
-Acked-by: Arend van Spriel <arend.vanspriel@broadcom.com>
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
-> ---
->   drivers/net/wireless/broadcom/brcm80211/brcmsmac/phy/phy_cmn.c | 2 +-
->   1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmsmac/phy/phy_cmn.c b/drivers/net/wireless/broadcom/brcm80211/brcmsmac/phy/phy_cmn.c
-> index 1c4e9dd57960..3a13d176b221 100644
-> --- a/drivers/net/wireless/broadcom/brcm80211/brcmsmac/phy/phy_cmn.c
-> +++ b/drivers/net/wireless/broadcom/brcm80211/brcmsmac/phy/phy_cmn.c
-> @@ -1916,7 +1916,7 @@ void wlc_phy_txpower_update_shm(struct brcms_phy *pi)
->   				     pi->hwpwr_txcur);
->   
->   		for (j = TXP_FIRST_OFDM; j <= TXP_LAST_OFDM; j++) {
-> -			const u8 ucode_ofdm_rates[] = {
-> +			static const u8 ucode_ofdm_rates[] = {
->   				0x0c, 0x12, 0x18, 0x24, 0x30, 0x48, 0x60, 0x6c
->   			};
->   			offset = wlapi_bmac_rate_shm_offset(
-> 
+>>         dev = __dev_get_by_name(net, ifr->ifr_name);
+>>         if (dev) {
+>>                 if (ifr->ifr_flags & IFF_TUN_EXCL)
+>> @@ -2185,6 +2301,9 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+>>         tun->flags = (tun->flags & ~TUN_FEATURES) |
+>>                 (ifr->ifr_flags & TUN_FEATURES);
+>>
+>> +       if (!(tun->flags & IFF_NAPI) || (tun->flags & TUN_TYPE_MASK) != IFF_TAP)
+>> +               tun->flags = tun->flags & ~IFF_NAPI_FRAGS;
+>> +
+>
+> Similarly, this check only need to be performed in that branch.
+> Instead of reverting to non-frags mode, a tun_set_iff with the wrong
+> set of flags should probably fail hard.
+Yes, agree, wrong set of flags should fail hard and probably be done
+before attach or open, no?
