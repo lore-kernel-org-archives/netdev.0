@@ -1,148 +1,86 @@
-From: Egil Hjelmeland <privat@egil-hjelmeland.no>
-Subject: Re: [PATCH net-next 2/2] net: dsa: lan9303: Add basic offloading of
- unicast traffic
-Date: Fri, 22 Sep 2017 09:06:04 +0200
-Message-ID: <b27d2dd4-84e3-b930-a6fe-1e5b36a7d213@egil-hjelmeland.no>
-References: <20170921094139.4250-1-privat@egil-hjelmeland.no>
- <20170921094139.4250-3-privat@egil-hjelmeland.no>
- <20170921142127.GB27589@lunn.ch>
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: Re: linux-next: build failure after merge of the net-next tree
+Date: Fri, 22 Sep 2017 09:10:22 +0200
+Message-ID: <1506064222.2574.1.camel@redhat.com>
+References: <20170922110355.6a631fc5@canb.auug.org.au>
+         <20170921.183759.289331373985144347.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>
+Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>, sfr@canb.auug.org.au
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170921142127.GB27589@lunn.ch>
-Content-Language: en-US
+In-Reply-To: <20170921.183759.289331373985144347.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Den 21. sep. 2017 16:21, skrev Andrew Lunn:
-> Hi Egil
+On Thu, 2017-09-21 at 18:37 -0700, David Miller wrote:
+> From: Stephen Rothwell <sfr@canb.auug.org.au>
+> Date: Fri, 22 Sep 2017 11:03:55 +1000
 > 
->> +static void lan9303_bridge_ports(struct lan9303 *chip)
->> +{
->> +	/* ports bridged: remove mirroring */
->> +	lan9303_write_switch_reg(chip, LAN9303_SWE_PORT_MIRROR, 0);
->> +}
+> > After merging the net-next tree, today's linux-next build (arm
+> > multi_v7_defconfig) failed like this:
+> > 
+> > net/ipv4/fib_frontend.c: In function 'fib_validate_source':
+> > net/ipv4/fib_frontend.c:411:16: error: 'struct netns_ipv4' has no member named 'fib_has_custom_local_routes'
+> >    if (net->ipv4.fib_has_custom_local_routes)
+> >                 ^
+> > net/ipv4/fib_frontend.c: In function 'inet_rtm_newroute':
+> > net/ipv4/fib_frontend.c:773:12: error: 'struct netns_ipv4' has no member named 'fib_has_custom_local_routes'
+> >    net->ipv4.fib_has_custom_local_routes = true;
+> >             ^
+> > 
+> > Caused by commit
+> > 
+> >   6e617de84e87 ("net: avoid a full fib lookup when rp_filter is disabled.")
 > 
-> Could you replace the 0 with something symbolic which makes this
-> easier to understand.
+> Paolo, it seems this struct member should be placed outside of
+> IP_MULTIPLE_TABLES protection, since users can insert custom
+> local routes even without that set.
 > 
-> #define LAN9303_SWE_PORT_MIRROR_DISABLED 0
+> So I'm installing the following fix for this:
 > 
+> ====================
+> [PATCH] ipv4: Move fib_has_custom_local_routes outside of IP_MULTIPLE_TABLES.
+> 
+> > net/ipv4/fib_frontend.c: In function 'fib_validate_source':
+> > net/ipv4/fib_frontend.c:411:16: error: 'struct netns_ipv4' has no member named 'fib_has_custom_local_routes'
+> >    if (net->ipv4.fib_has_custom_local_routes)
+> >                 ^
+> > net/ipv4/fib_frontend.c: In function 'inet_rtm_newroute':
+> > net/ipv4/fib_frontend.c:773:12: error: 'struct netns_ipv4' has no member named 'fib_has_custom_local_routes'
+> >    net->ipv4.fib_has_custom_local_routes = true;
+> >             ^
+> 
+> Fixes: 6e617de84e87 ("net: avoid a full fib lookup when rp_filter is disabled.")
+> Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+> ---
+>  include/net/netns/ipv4.h | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
+> index 20720721da4b..8387f099115e 100644
+> --- a/include/net/netns/ipv4.h
+> +++ b/include/net/netns/ipv4.h
+> @@ -49,10 +49,10 @@ struct netns_ipv4 {
+>  #ifdef CONFIG_IP_MULTIPLE_TABLES
+>         struct fib_rules_ops    *rules_ops;
+>         bool                    fib_has_custom_rules;
+> -       bool                    fib_has_custom_local_routes;
+>         struct fib_table __rcu  *fib_main;
+>         struct fib_table __rcu  *fib_default;
+>  #endif
+> +       bool                    fib_has_custom_local_routes;
+>  #ifdef CONFIG_IP_ROUTE_CLASSID
+>         int                     fib_num_tclassid_users;
+>  #endif
+> -- 
+> 2.13.5
 
-OK
+My fault, I should have fuzzed the configuration before posting.
 
->> +
->>   static int lan9303_handle_reset(struct lan9303 *chip)
->>   {
->>   	if (!chip->reset_gpio)
->> @@ -844,6 +866,69 @@ static void lan9303_port_disable(struct dsa_switch *ds, int port,
->>   	}
->>   }
->>   
->> +static int lan9303_port_bridge_join(struct dsa_switch *ds, int port,
->> +				    struct net_device *br)
->> +{
->> +	struct lan9303 *chip = ds->priv;
->> +
->> +	dev_dbg(chip->dev, "%s(port %d)\n", __func__, port);
->> +	if (ds->ports[1].bridge_dev ==  ds->ports[2].bridge_dev) {
->> +		lan9303_bridge_ports(chip);
->> +		chip->is_bridged = true;  /* unleash stp_state_set() */
->> +	}
->> +
->> +	return 0;
->> +}
->> +
->> +static void lan9303_port_bridge_leave(struct dsa_switch *ds, int port,
->> +				      struct net_device *br)
->> +{
->> +	struct lan9303 *chip = ds->priv;
->> +
->> +	dev_dbg(chip->dev, "%s(port %d)\n", __func__, port);
->> +	if (chip->is_bridged) {
->> +		lan9303_separate_ports(chip);
->> +		chip->is_bridged = false;
->> +	}
->> +}
->> +
->> +static void lan9303_port_stp_state_set(struct dsa_switch *ds, int port,
->> +				       u8 state)
->> +{
->> +	int portmask, portstate;
->> +	struct lan9303 *chip = ds->priv;
->> +
->> +	dev_dbg(chip->dev, "%s(port %d, state %d)\n",
->> +		__func__, port, state);
->> +	if (!chip->is_bridged)
->> +		return; /* touching SWE_PORT_STATE will break port separation */
-> 
-> I'm wondering how this is supposed to work. Please add a good comment
-> here, since the hardware is forcing you to do something odd.
-> 
-> Maybe it would be a good idea to save the STP state in chip.  And then
-> when chip->is_bridged is set true, change the state in the hardware to
-> the saved value?
-> 
-> What happens when port 0 is added to the bridge, there is then a
-> minute pause and then port 1 is added? I would expect that as soon as
-> port 0 is added, the STP state machine for port 0 will start and move
-> into listening and then forwarding. Due to hardware limitations it
-> looks like you cannot do this. So what state is the hardware
-> effectively in? Blocking? Forwarding?
-> 
-> Then port 1 is added. You can then can respect the states. port 1 will
-> do blocking->listening->forwarding, but what about port 0? The calls
-> won't get repeated? How does it transition to forwarding?
-> 
->    Andrew
-> 
+Fix looks good, thanks David!
 
-I see your point with the "minute pause" argument. Although a bit
-contrived use case, it is easy to fix by caching the STP state, as
-you suggest. So I can do that.
-
-The port separation method is from the original version of the driver,
-not by me.
-
-I have read through the datasheet to see if there are other ways
-to make port separation, but I could not find anything.
-If anybody care to read through the 300+ page lan9303.pdf and prove
-me wrong, I am happy to do it differently.
-
-How does other DSA HW chips handle port separation? Knowing that
-could perhaps help me know what to look for.
-
-Egil
-'
-
->> +
->> +	switch (state) {
->> +	case BR_STATE_DISABLED:
->> +		portstate = LAN9303_SWE_PORT_STATE_DISABLED_PORT0;
->> +		break;
->> +	case BR_STATE_BLOCKING:
->> +	case BR_STATE_LISTENING:
->> +		portstate = LAN9303_SWE_PORT_STATE_BLOCKING_PORT0;
->> +		break;
->> +	case BR_STATE_LEARNING:
->> +		portstate = LAN9303_SWE_PORT_STATE_LEARNING_PORT0;
->> +		break;
->> +	case BR_STATE_FORWARDING:
->> +		portstate = LAN9303_SWE_PORT_STATE_FORWARDING_PORT0;
->> +		break;
->> +	default:
->> +		portstate = LAN9303_SWE_PORT_STATE_DISABLED_PORT0;
->> +		dev_err(chip->dev, "unknown stp state: port %d, state %d\n",
->> +			port, state);
->> +	}
->> +
->> +	portmask = 0x3 << (port * 2);
->> +	portstate     <<= (port * 2);
->> +	lan9303_write_switch_reg_mask(chip, LAN9303_SWE_PORT_STATE,
->> +				      portstate, portmask);
->> +}
-> 
+Paolo
