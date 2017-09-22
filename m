@@ -1,49 +1,82 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [PATCH,v2,net-next 1/2] tun: enable NAPI for TUN/TAP driver
-Date: Fri, 22 Sep 2017 14:03:05 -0400
-Message-ID: <CAF=yD-Ldc_K+MTd_wXNjvvQ-+UsjZOs+13irmRoGJzJmq5yfVA@mail.gmail.com>
-References: <20170922021715.2618-1-peterpenkov96@gmail.com>
- <20170922021715.2618-2-peterpenkov96@gmail.com> <CAF2d9jh=H1O4JR3u=Rs3ODuQRF-Qp2wzzhAVf3PQ_f_Ox98eKQ@mail.gmail.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [Intel-wired-lan] [PATCH][V3] e1000: avoid null pointer
+ dereference on invalid stat type
+Date: Fri, 22 Sep 2017 11:09:16 -0700
+Message-ID: <CAKgT0Ucvfg_p=uMsDLe2DYA-KLcf+7WieOsOx4pP6R5pe8rm-Q@mail.gmail.com>
+References: <20170922171348.17630-1-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-Cc: Petar Penkov <peterpenkov96@gmail.com>,
-        linux-netdev <netdev@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        Willem de Bruijn <willemb@google.com>,
-        David Miller <davem@davemloft.net>,
-        Petar Bozhidarov Penkov <ppenkov@stanford.edu>
-To: =?UTF-8?B?TWFoZXNoIEJhbmRld2FyICjgpK7gpLngpYfgpLYg4KSs4KSC4KSh4KWH4KS14KS+4KSwKQ==?=
-        <maheshb@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f195.google.com ([209.85.223.195]:38519 "EHLO
-        mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752259AbdIVSDq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 22 Sep 2017 14:03:46 -0400
-Received: by mail-io0-f195.google.com with SMTP id e9so100026iod.5
-        for <netdev@vger.kernel.org>; Fri, 22 Sep 2017 11:03:46 -0700 (PDT)
-In-Reply-To: <CAF2d9jh=H1O4JR3u=Rs3ODuQRF-Qp2wzzhAVf3PQ_f_Ox98eKQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
+        Netdev <netdev@vger.kernel.org>, kernel-janitors@vger.kernel.org,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Colin King <colin.king@canonical.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170922171348.17630-1-colin.king@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 22, 2017 at 1:11 PM, Mahesh Bandewar (=E0=A4=AE=E0=A4=B9=E0=A5=
-=87=E0=A4=B6 =E0=A4=AC=E0=A4=82=E0=A4=A1=E0=A5=87=E0=A4=B5=E0=A4=BE=E0=A4=
-=B0)
-<maheshb@google.com> wrote:
->>  #ifdef CONFIG_TUN_VNET_CROSS_LE
->>  static inline bool tun_legacy_is_little_endian(struct tun_struct *tun)
->>  {
->> @@ -541,6 +604,11 @@ static void __tun_detach(struct tun_file *tfile, bo=
-ol clean)
->>
->>         tun =3D rtnl_dereference(tfile->tun);
->>
->> +       if (tun && clean) {
->> +               tun_napi_disable(tun, tfile);
-> are we missing synchronize_net() separating disable and del calls?
+On Fri, Sep 22, 2017 at 10:13 AM, Colin King <colin.king@canonical.com> wrote:
+> From: Colin Ian King <colin.king@canonical.com>
+>
+> Currently if the stat type is invalid then data[i] is being set
+> either by dereferencing a null pointer p, or it is reading from
+> an incorrect previous location if we had a valid stat type
+> previously.  Fix this by skipping over the read of p on an invalid
+> stat type.
+>
+> Detected by CoverityScan, CID#113385 ("Explicit null dereferenced")
+>
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
-That is not needed here. napi_disable has its own mechanism for waiting
-until a napi struct is no longer run. netif_napi_del will call synchronize_=
-net
-if needed. These two calls are made one after the other in quite a few driv=
-ers.
+Looks good to me.
+
+Reviewed-by: Alexander Duyck <alexander.h.duyck@intel.com>
+
+> ---
+>  drivers/net/ethernet/intel/e1000/e1000_ethtool.c | 9 ++++-----
+>  1 file changed, 4 insertions(+), 5 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/intel/e1000/e1000_ethtool.c b/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
+> index ec8aa4562cc9..3b3983a1ffbb 100644
+> --- a/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
+> +++ b/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
+> @@ -1824,11 +1824,12 @@ static void e1000_get_ethtool_stats(struct net_device *netdev,
+>  {
+>         struct e1000_adapter *adapter = netdev_priv(netdev);
+>         int i;
+> -       char *p = NULL;
+>         const struct e1000_stats *stat = e1000_gstrings_stats;
+>
+>         e1000_update_stats(adapter);
+> -       for (i = 0; i < E1000_GLOBAL_STATS_LEN; i++) {
+> +       for (i = 0; i < E1000_GLOBAL_STATS_LEN; i++, stat++) {
+> +               char *p;
+> +
+>                 switch (stat->type) {
+>                 case NETDEV_STATS:
+>                         p = (char *)netdev + stat->stat_offset;
+> @@ -1839,15 +1840,13 @@ static void e1000_get_ethtool_stats(struct net_device *netdev,
+>                 default:
+>                         WARN_ONCE(1, "Invalid E1000 stat type: %u index %d\n",
+>                                   stat->type, i);
+> -                       break;
+> +                       continue;
+>                 }
+>
+>                 if (stat->sizeof_stat == sizeof(u64))
+>                         data[i] = *(u64 *)p;
+>                 else
+>                         data[i] = *(u32 *)p;
+> -
+> -               stat++;
+>         }
+>  /* BUG_ON(i != E1000_STATS_LEN); */
+>  }
+> --
+> 2.14.1
+>
+> _______________________________________________
+> Intel-wired-lan mailing list
+> Intel-wired-lan@osuosl.org
+> https://lists.osuosl.org/mailman/listinfo/intel-wired-lan
