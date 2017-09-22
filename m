@@ -1,55 +1,34 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] net: orphan frags on stand-alone ptype in
- dev_queue_xmit_nit
-Date: Fri, 22 Sep 2017 16:04:06 -0700
-Message-ID: <1506121446.29839.177.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20170922225141.126435-1-willemb@google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Willem de Bruijn <willemb@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:36774 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751763AbdIVXEI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 22 Sep 2017 19:04:08 -0400
-Received: by mail-pg0-f68.google.com with SMTP id d8so1394234pgt.3
-        for <netdev@vger.kernel.org>; Fri, 22 Sep 2017 16:04:08 -0700 (PDT)
-In-Reply-To: <20170922225141.126435-1-willemb@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v3 0/2] net: dsa: port enabling
+Date: Fri, 22 Sep 2017 19:01:54 -0400
+Message-ID: <20170922230156.19521-1-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2017-09-22 at 18:51 -0400, Willem de Bruijn wrote:
-> Zerocopy skbs frags are copied when the skb is looped to a local sock.
-> Commit 1080e512d44d ("net: orphan frags on receive") introduced calls
-> to skb_orphan_frags to deliver_skb and __netif_receive_skb.
-> 
-> With msg_zerocopy, these skbs can also exist in the tx path and thus
-> loop from dev_queue_xmit_nit. This already calls deliver_skb in its
-> loop. But it does not orphan before a separate pt_prev->func().
-> 
-> Add the missing skb_orphan_frags_rx.
-> 
-> Fixes: 1f8b977ab32d ("sock: enable MSG_ZEROCOPY")
-> Signed-off-by: Willem de Bruijn <willemb@google.com>
-> ---
->  net/core/dev.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 9a2254f9802f..3f5b26ff4f74 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -1948,7 +1948,7 @@ void dev_queue_xmit_nit(struct sk_buff *skb, struct net_device *dev)
->  		goto again;
->  	}
->  out_unlock:
-> -	if (pt_prev)
-> +	if (pt_prev && !skb_orphan_frags_rx(skb2, GFP_ATOMIC))
->  		pt_prev->func(skb2, skb->dev, pt_prev, skb->dev);
+This patchset makes slave open and close symmetrical and provides
+helpers for enabling or disabling a given DSA port.
 
-Don't you need to kfree_skb(skb2) in case of failure ?
+Changes in v3:
+  - save the phy_device change for a future patchset
 
->  	rcu_read_unlock();
->  }
+Changes in v2:
+  - do not remove the phy argument from port enable/disable
+
+Vivien Didelot (2):
+  net: dsa: make slave close symmetrical to open
+  net: dsa: add port enable and disable helpers
+
+ net/dsa/dsa_priv.h |  3 ++-
+ net/dsa/port.c     | 31 ++++++++++++++++++++++++++++++-
+ net/dsa/slave.c    | 21 ++++++---------------
+ 3 files changed, 38 insertions(+), 17 deletions(-)
+
+-- 
+2.14.1
