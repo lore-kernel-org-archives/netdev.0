@@ -1,80 +1,141 @@
-From: Aaron Wood <aaronjwood@gmail.com>
-Subject: [PATCH] Switch to use the new hashtable implementation. This reduces the code and need for yet another hashtable implementation.
-Date: Fri, 22 Sep 2017 12:25:03 -0400
-Message-ID: <20170922162503.3744-1-aaronjwood@gmail.com>
-Cc: Aaron Wood <aaronjwood@gmail.com>
-To: ericvh@gmail.com, rminnich@sandia.gov, lucho@ionkov.net,
-        davem@davemloft.net, v9fs-developer@lists.sourceforge.net,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 4/4] net: dsa: add port enable and disable helpers
+Date: Fri, 22 Sep 2017 12:17:53 -0400
+Message-ID: <20170922161753.19563-5-vivien.didelot@savoirfairelinux.com>
+References: <20170922161753.19563-1-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170922161753.19563-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Aaron Wood <aaronjwood@gmail.com>
----
- net/9p/error.c | 21 +++++++++------------
- 1 file changed, 9 insertions(+), 12 deletions(-)
+Provide dsa_port_enable and dsa_port_disable helpers to respectively
+enable and disable a switch port. This makes the dsa_port_set_state_now
+helper static.
 
-diff --git a/net/9p/error.c b/net/9p/error.c
-index 126fd0dceea2..2e966fcc5cbb 100644
---- a/net/9p/error.c
-+++ b/net/9p/error.c
-@@ -32,6 +32,7 @@
- #include <linux/module.h>
- #include <linux/list.h>
- #include <linux/jhash.h>
-+#include <linux/hashtable.h>
- #include <linux/errno.h>
- #include <net/9p/9p.h>
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
+ net/dsa/dsa_priv.h |  3 ++-
+ net/dsa/port.c     | 31 ++++++++++++++++++++++++++++++-
+ net/dsa/slave.c    | 19 +++++--------------
+ 3 files changed, 37 insertions(+), 16 deletions(-)
+
+diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
+index 9803952a5b40..6bfff19d1615 100644
+--- a/net/dsa/dsa_priv.h
++++ b/net/dsa/dsa_priv.h
+@@ -117,7 +117,8 @@ void dsa_master_ethtool_restore(struct net_device *dev);
+ /* port.c */
+ int dsa_port_set_state(struct dsa_port *dp, u8 state,
+ 		       struct switchdev_trans *trans);
+-void dsa_port_set_state_now(struct dsa_port *dp, u8 state);
++int dsa_port_enable(struct dsa_port *dp);
++void dsa_port_disable(struct dsa_port *dp);
+ int dsa_port_bridge_join(struct dsa_port *dp, struct net_device *br);
+ void dsa_port_bridge_leave(struct dsa_port *dp, struct net_device *br);
+ int dsa_port_vlan_filtering(struct dsa_port *dp, bool vlan_filtering,
+diff --git a/net/dsa/port.c b/net/dsa/port.c
+index 76d43a82d397..50749339e252 100644
+--- a/net/dsa/port.c
++++ b/net/dsa/port.c
+@@ -56,7 +56,7 @@ int dsa_port_set_state(struct dsa_port *dp, u8 state,
+ 	return 0;
+ }
  
-@@ -50,8 +51,8 @@ struct errormap {
- 	struct hlist_node list;
- };
- 
--#define ERRHASHSZ		32
--static struct hlist_head hash_errmap[ERRHASHSZ];
-+#define ERR_HASH_BITS		5
-+static DEFINE_HASHTABLE(hash_errmap, ERR_HASH_BITS);
- 
- /* FixMe - reduce to a reasonable size */
- static struct errormap errmap[] = {
-@@ -193,18 +194,14 @@ static struct errormap errmap[] = {
- int p9_error_init(void)
+-void dsa_port_set_state_now(struct dsa_port *dp, u8 state)
++static void dsa_port_set_state_now(struct dsa_port *dp, u8 state)
  {
- 	struct errormap *c;
--	int bucket;
--
--	/* initialize hash table */
--	for (bucket = 0; bucket < ERRHASHSZ; bucket++)
--		INIT_HLIST_HEAD(&hash_errmap[bucket]);
-+	int key;
+ 	int err;
  
- 	/* load initial error map into hash table */
- 	for (c = errmap; c->name != NULL; c++) {
- 		c->namelen = strlen(c->name);
--		bucket = jhash(c->name, c->namelen, 0) % ERRHASHSZ;
-+		key = jhash(c->name, c->namelen, 0);
- 		INIT_HLIST_NODE(&c->list);
--		hlist_add_head(&c->list, &hash_errmap[bucket]);
-+		hash_add(hash_errmap, &c->list, key);
+@@ -65,6 +65,35 @@ void dsa_port_set_state_now(struct dsa_port *dp, u8 state)
+ 		pr_err("DSA: failed to set STP state %u (%d)\n", state, err);
+ }
+ 
++int dsa_port_enable(struct dsa_port *dp)
++{
++	u8 stp_state = dp->bridge_dev ? BR_STATE_BLOCKING : BR_STATE_FORWARDING;
++	struct dsa_switch *ds = dp->ds;
++	int port = dp->index;
++	int err;
++
++	if (ds->ops->port_enable) {
++		err = ds->ops->port_enable(ds, port);
++		if (err)
++			return err;
++	}
++
++	dsa_port_set_state_now(dp, stp_state);
++
++	return 0;
++}
++
++void dsa_port_disable(struct dsa_port *dp)
++{
++	struct dsa_switch *ds = dp->ds;
++	int port = dp->index;
++
++	dsa_port_set_state_now(dp, BR_STATE_DISABLED);
++
++	if (ds->ops->port_disable)
++		ds->ops->port_disable(ds, port);
++}
++
+ int dsa_port_bridge_join(struct dsa_port *dp, struct net_device *br)
+ {
+ 	struct dsa_notifier_bridge_info info = {
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index 235a5c95dfcc..e40623939323 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -74,9 +74,7 @@ static int dsa_slave_open(struct net_device *dev)
+ 	struct dsa_slave_priv *p = netdev_priv(dev);
+ 	struct phy_device *phy = p->phy;
+ 	struct dsa_port *dp = p->dp;
+-	struct dsa_switch *ds = dp->ds;
+ 	struct net_device *master = dsa_master_netdev(p);
+-	u8 stp_state = dp->bridge_dev ? BR_STATE_BLOCKING : BR_STATE_FORWARDING;
+ 	int err;
+ 
+ 	if (!(master->flags & IFF_UP))
+@@ -99,13 +97,9 @@ static int dsa_slave_open(struct net_device *dev)
+ 			goto clear_allmulti;
  	}
  
- 	return 1;
-@@ -222,12 +219,12 @@ int p9_errstr2errno(char *errstr, int len)
- {
- 	int errno;
- 	struct errormap *c;
--	int bucket;
-+	int key;
+-	if (ds->ops->port_enable) {
+-		err = ds->ops->port_enable(ds, p->dp->index);
+-		if (err)
+-			goto clear_promisc;
+-	}
+-
+-	dsa_port_set_state_now(p->dp, stp_state);
++	err = dsa_port_enable(dp);
++	if (err)
++		goto clear_promisc;
  
- 	errno = 0;
- 	c = NULL;
--	bucket = jhash(errstr, len, 0) % ERRHASHSZ;
--	hlist_for_each_entry(c, &hash_errmap[bucket], list) {
-+	key = jhash(errstr, len, 0);
-+	hash_for_each_possible(hash_errmap, c, list, key) {
- 		if (c->namelen == len && !memcmp(c->name, errstr, len)) {
- 			errno = c->val;
- 			break;
+ 	if (phy) {
+ 		/* If phy_stop() has been called before, phy will be in
+@@ -139,15 +133,12 @@ static int dsa_slave_close(struct net_device *dev)
+ {
+ 	struct dsa_slave_priv *p = netdev_priv(dev);
+ 	struct net_device *master = dsa_master_netdev(p);
+-	struct dsa_switch *ds = p->dp->ds;
++	struct dsa_port *dp = p->dp;
+ 
+ 	if (p->phy)
+ 		phy_stop(p->phy);
+ 
+-	dsa_port_set_state_now(p->dp, BR_STATE_DISABLED);
+-
+-	if (ds->ops->port_disable)
+-		ds->ops->port_disable(ds, p->dp->index);
++	dsa_port_disable(dp);
+ 
+ 	dev_mc_unsync(master, dev);
+ 	dev_uc_unsync(master, dev);
 -- 
-2.11.0
+2.14.1
