@@ -1,99 +1,39 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net-next] bpf/verifier: improve disassembly of BPF_END
- instructions
-Date: Fri, 22 Sep 2017 08:16:16 -0700
-Message-ID: <20170922151614.bg4ovrp6m27cppr7@ast-mbp>
-References: <4cfac985-4f99-cf85-fc15-c3ad1f8ff123@solarflare.com>
- <CAH3MdRWAHJS8Y8ketOAghYyorVUp6JijjZcSVY7gOiGAr7e_pw@mail.gmail.com>
- <207ecd4c-b1b4-3dcd-62a6-30824c19dbf7@solarflare.com>
- <59C4131D.8050003@iogearbox.net>
- <20170921194426.tnd5xos5irm3gred@ast-mbp>
- <46aa4442-b8ed-e4c1-4897-8f650e23d448@solarflare.com>
- <CAH3MdRVK-=pL8YCz44BPCmHhuZE_CRfih0QdZPLa=mpE_uoA_Q@mail.gmail.com>
- <ec7d0485-11f4-4fdb-0b87-1fb0afdb4f11@solarflare.com>
- <CAH3MdRVCf_wLoC7WOfaL2L2px3aYVWUhWxarMsyJdD7_E9fv_Q@mail.gmail.com>
- <CAH3MdRXgVtVjhYQkRopPKvL+4+NaTRRJoJq6XD_S-Dra69j0hA@mail.gmail.com>
+From: Berend De Schouwer <berend.de.schouwer@gmail.com>
+Subject: Re: tg3 pxe weirdness
+Date: Fri, 22 Sep 2017 17:34:05 +0200
+Message-ID: <1506094445.18177.117.camel@gmail.com>
+References: <CAMet4B4Jdgjs42KAWQ4HJr1t_Grn1_+Hv8sipeLb_tvZ_SFrMw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Edward Cree <ecree@solarflare.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>
-To: Y Song <ys114321@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: Siva Reddy Kallam <siva.kallam@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f169.google.com ([209.85.192.169]:52136 "EHLO
-        mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751876AbdIVPQU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 22 Sep 2017 11:16:20 -0400
-Received: by mail-pf0-f169.google.com with SMTP id b70so693951pfl.8
-        for <netdev@vger.kernel.org>; Fri, 22 Sep 2017 08:16:19 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAH3MdRXgVtVjhYQkRopPKvL+4+NaTRRJoJq6XD_S-Dra69j0hA@mail.gmail.com>
+Received: from mail-wm0-f51.google.com ([74.125.82.51]:45571 "EHLO
+        mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752020AbdIVPeL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 22 Sep 2017 11:34:11 -0400
+Received: by mail-wm0-f51.google.com with SMTP id q124so5008923wmb.0
+        for <netdev@vger.kernel.org>; Fri, 22 Sep 2017 08:34:11 -0700 (PDT)
+In-Reply-To: <CAMet4B4Jdgjs42KAWQ4HJr1t_Grn1_+Hv8sipeLb_tvZ_SFrMw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 22, 2017 at 07:27:29AM -0700, Y Song wrote:
-> On Fri, Sep 22, 2017 at 7:11 AM, Y Song <ys114321@gmail.com> wrote:
-> > On Fri, Sep 22, 2017 at 6:46 AM, Edward Cree <ecree@solarflare.com> wrote:
-> >> On 22/09/17 00:11, Y Song wrote:
-> >>> On Thu, Sep 21, 2017 at 12:58 PM, Edward Cree <ecree@solarflare.com> wrote:
-> >>>> On 21/09/17 20:44, Alexei Starovoitov wrote:
-> >>>>> On Thu, Sep 21, 2017 at 09:29:33PM +0200, Daniel Borkmann wrote:
-> >>>>>> More intuitive, but agree on the from_be/le. Maybe we should
-> >>>>>> just drop the "to_" prefix altogether, and leave the rest as is since
-> >>>>>> it's not surrounded by braces, it's also not a cast but rather an op.
-> >>>> That works for me.
-> >>>>> 'be16 r4' is ambiguous regarding upper bits.
-> >>>>>
-> >>>>> what about my earlier suggestion:
-> >>>>> r4 = (be16) (u16) r4
-> >>>>> r4 = (le64) (u64) r4
-> >>>>>
-> >>>>> It will be pretty clear what instruction is doing (that upper bits become zero).
-> >>>> Trouble with that is that's very *not* what C will do with those casts
-> >>>>  and it doesn't really capture the bidirectional/symmetry thing.  The
-> >>>>  closest I could see with that is something like `r4 = (be16/u16) r4`,
-> >>>>  but that's quite an ugly mongrel.
-> >>>> I think Daniel's idea of `be16`, `le32` etc one-arg opcodes is the
-> >>>>  cleanest and clearest.  Should it be
-> >>>>     r4 = be16 r4
-> >>>>  or just
-> >>>>     be16 r4
-> >>>> ?  Personally I incline towards the latter, but admit it doesn't really
-> >>>>  match the syntax of other opcodes.
-> >>> I did some quick prototyping in llvm to make sure we have a syntax
-> >>> llvm is happy. Apparently, llvm does not like the syntax
-> >>>    r4 = be16 r4    or    r4 = (be16) (u16) r4.
-> >>>
-> >>> In llvm:utils/TableGen/AsmMatcherEmitter.cpp:
-> >>>
-> >>>     // Verify that any operand is only mentioned once.
-> >> Wait, how do you deal with (totally legal) r4 += r4?
-> >> Or r4 = *(r4 +0)?
-> >> Even jumps can have src_reg == dst_reg, though it doesn't seem useful.
-> >
-> > We are talking about dag node here. The above "r4", although using the same
-> > register, will be different dag nodes. So it will be okay.
-> >
-> > The "r4 = be16 r4" tries to use the *same* dag node as both source and
-> > destination
-> > in the asm output which is prohibited.
+On Fri, 2017-09-22 at 11:51 +0530, Siva Reddy Kallam wrote:
 > 
-> With second thought, we may allow "r4 = be16 r4" by using different dag nodes.
-> (I need to do experiment for this.) But we do have constraints that
-> the two "r4" must
-> be the same register.  "r5 = be16 r4"  is not allowed. So from that
-> perspective, referencing
-> "r4" only once is a good idea and less confusing.
+> 
+> Can you please share below details?
+> 1) Model and Manufacturer of the system
+> 2) Linux distro/kernel used?
 
-looks like we're converging on
-"be16/be32/be64/le16/le32/le64 #register" for BPF_END.
-I guess it can live with that. I would prefer more C like syntax
-to match the rest, but llvm parsing point is a strong one.
+4.13.3 gets a little further, but after some more data is transferred
+the tg3 driver still crashes.  This is unfortunately before I've got a
+writeable filesystem.
 
-For BPG_NEG I prefer to do it in C syntax like interpreter does:
-        ALU_NEG:
-                DST = (u32) -DST;
-        ALU64_NEG:
-                DST = -DST;
-Yonghong, does it mean that asmparser will equally suffer?
+The last line is:
+tg3 0000:01:00.0: tg3_stop_block timed out, ofs=4c00 enable_bit=2
+
+I've got some ideas to get the full dmesg.
+
+As with the other kernels it works OK on 1Gbps, but not slower
+switches.
