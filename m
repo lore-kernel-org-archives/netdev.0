@@ -1,41 +1,67 @@
-From: =?UTF-8?B?TWFoZXNoIEJhbmRld2FyICjgpK7gpLngpYfgpLYg4KSs4KSC4KSh4KWH4KS14KS+4KSwKQ==?=
-        <maheshb@google.com>
-Subject: Re: [PATCH,v2,net-next 1/2] tun: enable NAPI for TUN/TAP driver
-Date: Fri, 22 Sep 2017 10:11:00 -0700
-Message-ID: <CAF2d9jh=H1O4JR3u=Rs3ODuQRF-Qp2wzzhAVf3PQ_f_Ox98eKQ@mail.gmail.com>
-References: <20170922021715.2618-1-peterpenkov96@gmail.com> <20170922021715.2618-2-peterpenkov96@gmail.com>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH][V3] e1000: avoid null pointer dereference on invalid stat type
+Date: Fri, 22 Sep 2017 18:13:48 +0100
+Message-ID: <20170922171348.17630-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: linux-netdev <netdev@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        Willem de Bruijn <willemb@google.com>,
-        David Miller <davem@davemloft.net>,
-        Petar Bozhidarov Penkov <ppenkov@stanford.edu>
-To: Petar Penkov <peterpenkov96@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f180.google.com ([209.85.161.180]:46315 "EHLO
-        mail-yw0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752020AbdIVRLV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 22 Sep 2017 13:11:21 -0400
-Received: by mail-yw0-f180.google.com with SMTP id v72so1182057ywa.3
-        for <netdev@vger.kernel.org>; Fri, 22 Sep 2017 10:11:21 -0700 (PDT)
-In-Reply-To: <20170922021715.2618-2-peterpenkov96@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->  #ifdef CONFIG_TUN_VNET_CROSS_LE
->  static inline bool tun_legacy_is_little_endian(struct tun_struct *tun)
->  {
-> @@ -541,6 +604,11 @@ static void __tun_detach(struct tun_file *tfile, bool clean)
->
->         tun = rtnl_dereference(tfile->tun);
->
-> +       if (tun && clean) {
-> +               tun_napi_disable(tun, tfile);
-are we missing synchronize_net() separating disable and del calls?
-> +               tun_napi_del(tun, tfile);
-> +       }
-> +
->         if (tun && !tfile->detached) {
->                 u16 index = tfile->queue_index;
->                 BUG_ON(index >= tun->numqueues);
+From: Colin Ian King <colin.king@canonical.com>
+
+Currently if the stat type is invalid then data[i] is being set
+either by dereferencing a null pointer p, or it is reading from
+an incorrect previous location if we had a valid stat type
+previously.  Fix this by skipping over the read of p on an invalid
+stat type.
+
+Detected by CoverityScan, CID#113385 ("Explicit null dereferenced")
+
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ drivers/net/ethernet/intel/e1000/e1000_ethtool.c | 9 ++++-----
+ 1 file changed, 4 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/e1000/e1000_ethtool.c b/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
+index ec8aa4562cc9..3b3983a1ffbb 100644
+--- a/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
++++ b/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
+@@ -1824,11 +1824,12 @@ static void e1000_get_ethtool_stats(struct net_device *netdev,
+ {
+ 	struct e1000_adapter *adapter = netdev_priv(netdev);
+ 	int i;
+-	char *p = NULL;
+ 	const struct e1000_stats *stat = e1000_gstrings_stats;
+ 
+ 	e1000_update_stats(adapter);
+-	for (i = 0; i < E1000_GLOBAL_STATS_LEN; i++) {
++	for (i = 0; i < E1000_GLOBAL_STATS_LEN; i++, stat++) {
++		char *p;
++
+ 		switch (stat->type) {
+ 		case NETDEV_STATS:
+ 			p = (char *)netdev + stat->stat_offset;
+@@ -1839,15 +1840,13 @@ static void e1000_get_ethtool_stats(struct net_device *netdev,
+ 		default:
+ 			WARN_ONCE(1, "Invalid E1000 stat type: %u index %d\n",
+ 				  stat->type, i);
+-			break;
++			continue;
+ 		}
+ 
+ 		if (stat->sizeof_stat == sizeof(u64))
+ 			data[i] = *(u64 *)p;
+ 		else
+ 			data[i] = *(u32 *)p;
+-
+-		stat++;
+ 	}
+ /* BUG_ON(i != E1000_STATS_LEN); */
+ }
+-- 
+2.14.1
