@@ -1,47 +1,58 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next v2 1/3] net: dsa: use slave device phydev
-Date: Fri, 22 Sep 2017 22:03:04 +0200
-Message-ID: <20170922200304.GI3470@lunn.ch>
-References: <20170922194045.18814-1-vivien.didelot@savoirfairelinux.com>
- <20170922194045.18814-2-vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next 2/2] net: dsa: lan9303: Add basic offloading of
+ unicast traffic
+Date: Fri, 22 Sep 2017 22:08:10 +0200
+Message-ID: <20170922200810.GJ3470@lunn.ch>
+References: <20170921094139.4250-1-privat@egil-hjelmeland.no>
+ <20170921094139.4250-3-privat@egil-hjelmeland.no>
+ <20170921142127.GB27589@lunn.ch>
+ <b27d2dd4-84e3-b930-a6fe-1e5b36a7d213@egil-hjelmeland.no>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Cc: vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Egil Hjelmeland <privat@egil-hjelmeland.no>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20170922194045.18814-2-vivien.didelot@savoirfairelinux.com>
+In-Reply-To: <b27d2dd4-84e3-b930-a6fe-1e5b36a7d213@egil-hjelmeland.no>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 22, 2017 at 03:40:43PM -0400, Vivien Didelot wrote:
-> There is no need to store a phy_device in dsa_slave_priv since
-> net_device already provides one. Simply s/p->phy/dev->phydev/.
+> >I'm wondering how this is supposed to work. Please add a good comment
+> >here, since the hardware is forcing you to do something odd.
+> >
+> >Maybe it would be a good idea to save the STP state in chip.  And then
+> >when chip->is_bridged is set true, change the state in the hardware to
+> >the saved value?
+> >
+> >What happens when port 0 is added to the bridge, there is then a
+> >minute pause and then port 1 is added? I would expect that as soon as
+> >port 0 is added, the STP state machine for port 0 will start and move
+> >into listening and then forwarding. Due to hardware limitations it
+> >looks like you cannot do this. So what state is the hardware
+> >effectively in? Blocking? Forwarding?
+> >
+> >Then port 1 is added. You can then can respect the states. port 1 will
+> >do blocking->listening->forwarding, but what about port 0? The calls
+> >won't get repeated? How does it transition to forwarding?
+> >
+> >   Andrew
+> >
 > 
-> While at it, return -ENODEV when it is NULL instead of -EOPNOTSUPP.
+> I see your point with the "minute pause" argument. Although a bit
+> contrived use case, it is easy to fix by caching the STP state, as
+> you suggest. So I can do that.
 
-I just did a quick poll for calling phy_mii_ioctl(). ENODEV seems the
-most popular, second to EINVAL. Marvell drivers all use EOPNOTSUPP.
+I don't think it is contrived. I've done bridge configuration by hand
+for testing purposes. I've also set the forwarding delay to very small
+values, so there is a clear race condition here.
 
->  static int dsa_slave_nway_reset(struct net_device *dev)
->  {
-> -	struct dsa_slave_priv *p = netdev_priv(dev);
-> +	if (!dev->phydev)
-> +		return -ENODEV;
->  
-> -	if (p->phy != NULL)
-> -		return genphy_restart_aneg(p->phy);
-> -
-> -	return -EOPNOTSUPP;
-> +	return genphy_restart_aneg(dev->phydev);
->  }
+> How does other DSA HW chips handle port separation? Knowing that
+> could perhaps help me know what to look for.
 
-It looks like this can now be replaced with phy_ethtool_nway_reset().
+They have better hardware :-)
 
-It could be there are other phy_ethtool_ helpers which can be used,
-now that we have phydev in ndev.
+Generally each port is totally independent. You can change the STP
+state per port without restrictions.
 
-    Andrew
+      Andrew
