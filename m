@@ -1,35 +1,158 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net-next RFC 0/5] batched tx processing in vhost_net
-Date: Fri, 22 Sep 2017 16:02:30 +0800
-Message-ID: <1506067355-5771-1-git-send-email-jasowang@redhat.com>
+Subject: [PATCH net-next RFC 1/5] vhost: split out ring head fetching logic
+Date: Fri, 22 Sep 2017 16:02:31 +0800
+Message-ID: <1506067355-5771-2-git-send-email-jasowang@redhat.com>
+References: <1506067355-5771-1-git-send-email-jasowang@redhat.com>
 Cc: kvm@vger.kernel.org
 To: mst@redhat.com, jasowang@redhat.com,
         virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1506067355-5771-1-git-send-email-jasowang@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi:
+This patch splits out ring head fetching logic and leave the
+descriptor fetching and translation logic. This makes it is possible
+to batch fetching the descriptor indices.
 
-This series tries to implement basic tx batched processing. This is
-done by prefetching descriptor indices and update used ring in a
-batch. This intends to speed up used ring updating and improve the
-cache utilization. Test shows about ~22% improvement in tx pss.
+Signed-off-by: Jason Wang <jasowang@redhat.com>
+---
+ drivers/vhost/vhost.c | 75 +++++++++++++++++++++++++++++++++------------------
+ drivers/vhost/vhost.h |  5 ++++
+ 2 files changed, 54 insertions(+), 26 deletions(-)
 
-Please review.
-
-Jason Wang (5):
-  vhost: split out ring head fetching logic
-  vhost: introduce helper to prefetch desc index
-  vhost: introduce vhost_add_used_idx()
-  vhost_net: rename VHOST_RX_BATCH to VHOST_NET_BATCH
-  vhost_net: basic tx virtqueue batched processing
-
- drivers/vhost/net.c   | 221 ++++++++++++++++++++++++++++----------------------
- drivers/vhost/vhost.c | 165 +++++++++++++++++++++++++++++++------
- drivers/vhost/vhost.h |   9 ++
- 3 files changed, 270 insertions(+), 125 deletions(-)
-
+diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+index d6dbb28..f87ec75 100644
+--- a/drivers/vhost/vhost.c
++++ b/drivers/vhost/vhost.c
+@@ -1984,41 +1984,23 @@ static int get_indirect(struct vhost_virtqueue *vq,
+ 	return 0;
+ }
+ 
+-/* This looks in the virtqueue and for the first available buffer, and converts
+- * it to an iovec for convenient access.  Since descriptors consist of some
+- * number of output then some number of input descriptors, it's actually two
+- * iovecs, but we pack them into one and note how many of each there were.
+- *
+- * This function returns the descriptor number found, or vq->num (which is
+- * never a valid descriptor number) if none was found.  A negative code is
+- * returned on error. */
+-int vhost_get_vq_desc(struct vhost_virtqueue *vq,
+-		      struct iovec iov[], unsigned int iov_size,
+-		      unsigned int *out_num, unsigned int *in_num,
+-		      struct vhost_log *log, unsigned int *log_num)
++static unsigned int vhost_get_vq_head(struct vhost_virtqueue *vq, int *err)
+ {
+-	struct vring_desc desc;
+-	unsigned int i, head, found = 0;
+-	u16 last_avail_idx;
+-	__virtio16 avail_idx;
+-	__virtio16 ring_head;
+-	int ret, access;
+-
+-	/* Check it isn't doing very strange things with descriptor numbers. */
+-	last_avail_idx = vq->last_avail_idx;
++	u16 last_avail_idx = vq->last_avail_idx;
++	__virtio16 avail_idx, ring_head;
+ 
+ 	if (vq->avail_idx == vq->last_avail_idx) {
+ 		if (unlikely(vhost_get_avail(vq, avail_idx, &vq->avail->idx))) {
+ 			vq_err(vq, "Failed to access avail idx at %p\n",
+ 				&vq->avail->idx);
+-			return -EFAULT;
++			goto err;
+ 		}
+ 		vq->avail_idx = vhost16_to_cpu(vq, avail_idx);
+ 
+ 		if (unlikely((u16)(vq->avail_idx - last_avail_idx) > vq->num)) {
+ 			vq_err(vq, "Guest moved used index from %u to %u",
+ 				last_avail_idx, vq->avail_idx);
+-			return -EFAULT;
++			goto err;
+ 		}
+ 
+ 		/* If there's nothing new since last we looked, return
+@@ -2040,13 +2022,35 @@ int vhost_get_vq_desc(struct vhost_virtqueue *vq,
+ 		vq_err(vq, "Failed to read head: idx %d address %p\n",
+ 		       last_avail_idx,
+ 		       &vq->avail->ring[last_avail_idx % vq->num]);
+-		return -EFAULT;
++		goto err;
+ 	}
+ 
+-	head = vhost16_to_cpu(vq, ring_head);
++	return vhost16_to_cpu(vq, ring_head);
++err:
++	*err = -EFAULT;
++	return 0;
++}
++
++/* This looks in the virtqueue and for the first available buffer, and converts
++ * it to an iovec for convenient access.  Since descriptors consist of some
++ * number of output then some number of input descriptors, it's actually two
++ * iovecs, but we pack them into one and note how many of each there were.
++ *
++ * This function returns the descriptor number found, or vq->num (which is
++ * never a valid descriptor number) if none was found.  A negative code is
++ * returned on error. */
++int __vhost_get_vq_desc(struct vhost_virtqueue *vq,
++			struct iovec iov[], unsigned int iov_size,
++			unsigned int *out_num, unsigned int *in_num,
++			struct vhost_log *log, unsigned int *log_num,
++			__virtio16 head)
++{
++	struct vring_desc desc;
++	unsigned int i, found = 0;
++	int ret = 0, access;
+ 
+ 	/* If their number is silly, that's an error. */
+-	if (unlikely(head >= vq->num)) {
++	if (unlikely(head > vq->num)) {
+ 		vq_err(vq, "Guest says index %u > %u is available",
+ 		       head, vq->num);
+ 		return -EINVAL;
+@@ -2133,6 +2137,25 @@ int vhost_get_vq_desc(struct vhost_virtqueue *vq,
+ 	BUG_ON(!(vq->used_flags & VRING_USED_F_NO_NOTIFY));
+ 	return head;
+ }
++EXPORT_SYMBOL_GPL(__vhost_get_vq_desc);
++
++int vhost_get_vq_desc(struct vhost_virtqueue *vq,
++		      struct iovec iov[], unsigned int iov_size,
++		      unsigned int *out_num, unsigned int *in_num,
++		      struct vhost_log *log, unsigned int *log_num)
++{
++	int ret = 0;
++	unsigned int head = vhost_get_vq_head(vq, &ret);
++
++	if (ret)
++		return ret;
++
++	if (head == vq->num)
++		return head;
++
++	return __vhost_get_vq_desc(vq, iov, iov_size, out_num, in_num,
++				   log, log_num, head);
++}
+ EXPORT_SYMBOL_GPL(vhost_get_vq_desc);
+ 
+ /* Reverse the effect of vhost_get_vq_desc. Useful for error handling. */
+diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
+index d59a9cc..39ff897 100644
+--- a/drivers/vhost/vhost.h
++++ b/drivers/vhost/vhost.h
+@@ -191,6 +191,11 @@ int vhost_get_vq_desc(struct vhost_virtqueue *,
+ 		      struct iovec iov[], unsigned int iov_count,
+ 		      unsigned int *out_num, unsigned int *in_num,
+ 		      struct vhost_log *log, unsigned int *log_num);
++int __vhost_get_vq_desc(struct vhost_virtqueue *vq,
++			struct iovec iov[], unsigned int iov_count,
++			unsigned int *out_num, unsigned int *in_num,
++			struct vhost_log *log, unsigned int *log_num,
++			__virtio16 ring_head);
+ void vhost_discard_vq_desc(struct vhost_virtqueue *, int n);
+ 
+ int vhost_vq_init_access(struct vhost_virtqueue *);
 -- 
 2.7.4
