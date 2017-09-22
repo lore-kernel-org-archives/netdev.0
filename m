@@ -1,31 +1,336 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 2/4] net: dsa: remove phy arg from port
- enable/disable
-Date: Fri, 22 Sep 2017 21:11:05 +0200
-Message-ID: <20170922191105.GF3470@lunn.ch>
-References: <20170922161753.19563-1-vivien.didelot@savoirfairelinux.com>
- <20170922161753.19563-3-vivien.didelot@savoirfairelinux.com>
- <f8d74c3c-bd7f-8a84-2d57-c37250ff25f8@gmail.com>
- <87377eob5t.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
- <6d7799bb-2b33-0696-1805-63cea5e52667@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>
-To: Florian Fainelli <f.fainelli@gmail.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next v2 1/3] net: dsa: use slave device phydev
+Date: Fri, 22 Sep 2017 15:40:43 -0400
+Message-ID: <20170922194045.18814-2-vivien.didelot@savoirfairelinux.com>
+References: <20170922194045.18814-1-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <6d7799bb-2b33-0696-1805-63cea5e52667@gmail.com>
+In-Reply-To: <20170922194045.18814-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> Historical reasons mostly. Considering the complexity of
-> dsa_slave_phy_setup(), I would certainly be extremely careful in
-> changing any of this, the potential for breakage is pretty big.
+There is no need to store a phy_device in dsa_slave_priv since
+net_device already provides one. Simply s/p->phy/dev->phydev/.
 
-Yes, i took a look at this, wondering how to convert to phylink. I
-went away and got a stiff drink :-)
+While at it, return -ENODEV when it is NULL instead of -EOPNOTSUPP.
 
-     Andrew
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
+ net/dsa/slave.c | 126 ++++++++++++++++++++++++++------------------------------
+ 1 file changed, 58 insertions(+), 68 deletions(-)
+
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index 02ace7d462c4..3760472bf41d 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -99,15 +99,15 @@ static int dsa_slave_open(struct net_device *dev)
+ 	}
+ 
+ 	if (ds->ops->port_enable) {
+-		err = ds->ops->port_enable(ds, p->dp->index, p->phy);
++		err = ds->ops->port_enable(ds, p->dp->index, dev->phydev);
+ 		if (err)
+ 			goto clear_promisc;
+ 	}
+ 
+ 	dsa_port_set_state_now(p->dp, stp_state);
+ 
+-	if (p->phy)
+-		phy_start(p->phy);
++	if (dev->phydev)
++		phy_start(dev->phydev);
+ 
+ 	return 0;
+ 
+@@ -130,8 +130,8 @@ static int dsa_slave_close(struct net_device *dev)
+ 	struct net_device *master = dsa_master_netdev(p);
+ 	struct dsa_switch *ds = p->dp->ds;
+ 
+-	if (p->phy)
+-		phy_stop(p->phy);
++	if (dev->phydev)
++		phy_stop(dev->phydev);
+ 
+ 	dev_mc_unsync(master, dev);
+ 	dev_uc_unsync(master, dev);
+@@ -144,7 +144,7 @@ static int dsa_slave_close(struct net_device *dev)
+ 		dev_uc_del(master, dev->dev_addr);
+ 
+ 	if (ds->ops->port_disable)
+-		ds->ops->port_disable(ds, p->dp->index, p->phy);
++		ds->ops->port_disable(ds, p->dp->index, dev->phydev);
+ 
+ 	dsa_port_set_state_now(p->dp, BR_STATE_DISABLED);
+ 
+@@ -273,12 +273,10 @@ dsa_slave_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb,
+ 
+ static int dsa_slave_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+ {
+-	struct dsa_slave_priv *p = netdev_priv(dev);
++	if (!dev->phydev)
++		return -ENODEV;
+ 
+-	if (p->phy != NULL)
+-		return phy_mii_ioctl(p->phy, ifr, cmd);
+-
+-	return -EOPNOTSUPP;
++	return phy_mii_ioctl(dev->phydev, ifr, cmd);
+ }
+ 
+ static int dsa_slave_port_attr_set(struct net_device *dev,
+@@ -435,12 +433,10 @@ static int
+ dsa_slave_get_link_ksettings(struct net_device *dev,
+ 			     struct ethtool_link_ksettings *cmd)
+ {
+-	struct dsa_slave_priv *p = netdev_priv(dev);
++	if (!dev->phydev)
++		return -ENODEV;
+ 
+-	if (!p->phy)
+-		return -EOPNOTSUPP;
+-
+-	phy_ethtool_ksettings_get(p->phy, cmd);
++	phy_ethtool_ksettings_get(dev->phydev, cmd);
+ 
+ 	return 0;
+ }
+@@ -449,12 +445,10 @@ static int
+ dsa_slave_set_link_ksettings(struct net_device *dev,
+ 			     const struct ethtool_link_ksettings *cmd)
+ {
+-	struct dsa_slave_priv *p = netdev_priv(dev);
++	if (!dev->phydev)
++		return -ENODEV;
+ 
+-	if (p->phy != NULL)
+-		return phy_ethtool_ksettings_set(p->phy, cmd);
+-
+-	return -EOPNOTSUPP;
++	return phy_ethtool_ksettings_set(dev->phydev, cmd);
+ }
+ 
+ static void dsa_slave_get_drvinfo(struct net_device *dev,
+@@ -488,24 +482,20 @@ dsa_slave_get_regs(struct net_device *dev, struct ethtool_regs *regs, void *_p)
+ 
+ static int dsa_slave_nway_reset(struct net_device *dev)
+ {
+-	struct dsa_slave_priv *p = netdev_priv(dev);
++	if (!dev->phydev)
++		return -ENODEV;
+ 
+-	if (p->phy != NULL)
+-		return genphy_restart_aneg(p->phy);
+-
+-	return -EOPNOTSUPP;
++	return genphy_restart_aneg(dev->phydev);
+ }
+ 
+ static u32 dsa_slave_get_link(struct net_device *dev)
+ {
+-	struct dsa_slave_priv *p = netdev_priv(dev);
++	if (!dev->phydev)
++		return -ENODEV;
+ 
+-	if (p->phy != NULL) {
+-		genphy_update_link(p->phy);
+-		return p->phy->link;
+-	}
++	genphy_update_link(dev->phydev);
+ 
+-	return -EOPNOTSUPP;
++	return dev->phydev->link;
+ }
+ 
+ static int dsa_slave_get_eeprom_len(struct net_device *dev)
+@@ -640,7 +630,7 @@ static int dsa_slave_set_eee(struct net_device *dev, struct ethtool_eee *e)
+ 	int ret;
+ 
+ 	/* Port's PHY and MAC both need to be EEE capable */
+-	if (!p->phy)
++	if (!dev->phydev)
+ 		return -ENODEV;
+ 
+ 	if (!ds->ops->set_mac_eee)
+@@ -651,12 +641,12 @@ static int dsa_slave_set_eee(struct net_device *dev, struct ethtool_eee *e)
+ 		return ret;
+ 
+ 	if (e->eee_enabled) {
+-		ret = phy_init_eee(p->phy, 0);
++		ret = phy_init_eee(dev->phydev, 0);
+ 		if (ret)
+ 			return ret;
+ 	}
+ 
+-	return phy_ethtool_set_eee(p->phy, e);
++	return phy_ethtool_set_eee(dev->phydev, e);
+ }
+ 
+ static int dsa_slave_get_eee(struct net_device *dev, struct ethtool_eee *e)
+@@ -666,7 +656,7 @@ static int dsa_slave_get_eee(struct net_device *dev, struct ethtool_eee *e)
+ 	int ret;
+ 
+ 	/* Port's PHY and MAC both need to be EEE capable */
+-	if (!p->phy)
++	if (!dev->phydev)
+ 		return -ENODEV;
+ 
+ 	if (!ds->ops->get_mac_eee)
+@@ -676,7 +666,7 @@ static int dsa_slave_get_eee(struct net_device *dev, struct ethtool_eee *e)
+ 	if (ret)
+ 		return ret;
+ 
+-	return phy_ethtool_get_eee(p->phy, e);
++	return phy_ethtool_get_eee(dev->phydev, e);
+ }
+ 
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+@@ -985,26 +975,26 @@ static void dsa_slave_adjust_link(struct net_device *dev)
+ 	struct dsa_switch *ds = p->dp->ds;
+ 	unsigned int status_changed = 0;
+ 
+-	if (p->old_link != p->phy->link) {
++	if (p->old_link != dev->phydev->link) {
+ 		status_changed = 1;
+-		p->old_link = p->phy->link;
++		p->old_link = dev->phydev->link;
+ 	}
+ 
+-	if (p->old_duplex != p->phy->duplex) {
++	if (p->old_duplex != dev->phydev->duplex) {
+ 		status_changed = 1;
+-		p->old_duplex = p->phy->duplex;
++		p->old_duplex = dev->phydev->duplex;
+ 	}
+ 
+-	if (p->old_pause != p->phy->pause) {
++	if (p->old_pause != dev->phydev->pause) {
+ 		status_changed = 1;
+-		p->old_pause = p->phy->pause;
++		p->old_pause = dev->phydev->pause;
+ 	}
+ 
+ 	if (ds->ops->adjust_link && status_changed)
+-		ds->ops->adjust_link(ds, p->dp->index, p->phy);
++		ds->ops->adjust_link(ds, p->dp->index, dev->phydev);
+ 
+ 	if (status_changed)
+-		phy_print_status(p->phy);
++		phy_print_status(dev->phydev);
+ }
+ 
+ static int dsa_slave_fixed_link_update(struct net_device *dev,
+@@ -1029,17 +1019,18 @@ static int dsa_slave_phy_connect(struct net_device *slave_dev, int addr)
+ 	struct dsa_slave_priv *p = netdev_priv(slave_dev);
+ 	struct dsa_switch *ds = p->dp->ds;
+ 
+-	p->phy = mdiobus_get_phy(ds->slave_mii_bus, addr);
+-	if (!p->phy) {
++	slave_dev->phydev = mdiobus_get_phy(ds->slave_mii_bus, addr);
++	if (!slave_dev->phydev) {
+ 		netdev_err(slave_dev, "no phy at %d\n", addr);
+ 		return -ENODEV;
+ 	}
+ 
+ 	/* Use already configured phy mode */
+ 	if (p->phy_interface == PHY_INTERFACE_MODE_NA)
+-		p->phy_interface = p->phy->interface;
+-	return phy_connect_direct(slave_dev, p->phy, dsa_slave_adjust_link,
+-				  p->phy_interface);
++		p->phy_interface = slave_dev->phydev->interface;
++
++	return phy_connect_direct(slave_dev, slave_dev->phydev,
++				  dsa_slave_adjust_link, p->phy_interface);
+ }
+ 
+ static int dsa_slave_phy_setup(struct net_device *slave_dev)
+@@ -1091,22 +1082,23 @@ static int dsa_slave_phy_setup(struct net_device *slave_dev)
+ 				return ret;
+ 			}
+ 		} else {
+-			p->phy = of_phy_connect(slave_dev, phy_dn,
+-						dsa_slave_adjust_link,
+-						phy_flags,
+-						p->phy_interface);
++			slave_dev->phydev = of_phy_connect(slave_dev, phy_dn,
++							   dsa_slave_adjust_link,
++							   phy_flags,
++							   p->phy_interface);
+ 		}
+ 
+ 		of_node_put(phy_dn);
+ 	}
+ 
+-	if (p->phy && phy_is_fixed)
+-		fixed_phy_set_link_update(p->phy, dsa_slave_fixed_link_update);
++	if (slave_dev->phydev && phy_is_fixed)
++		fixed_phy_set_link_update(slave_dev->phydev,
++					  dsa_slave_fixed_link_update);
+ 
+ 	/* We could not connect to a designated PHY, so use the switch internal
+ 	 * MDIO bus instead
+ 	 */
+-	if (!p->phy) {
++	if (!slave_dev->phydev) {
+ 		ret = dsa_slave_phy_connect(slave_dev, p->dp->index);
+ 		if (ret) {
+ 			netdev_err(slave_dev, "failed to connect to port %d: %d\n",
+@@ -1117,7 +1109,7 @@ static int dsa_slave_phy_setup(struct net_device *slave_dev)
+ 		}
+ 	}
+ 
+-	phy_attached_info(p->phy);
++	phy_attached_info(slave_dev->phydev);
+ 
+ 	return 0;
+ }
+@@ -1137,12 +1129,12 @@ int dsa_slave_suspend(struct net_device *slave_dev)
+ 
+ 	netif_device_detach(slave_dev);
+ 
+-	if (p->phy) {
+-		phy_stop(p->phy);
++	if (slave_dev->phydev) {
++		phy_stop(slave_dev->phydev);
+ 		p->old_pause = -1;
+ 		p->old_link = -1;
+ 		p->old_duplex = -1;
+-		phy_suspend(p->phy);
++		phy_suspend(slave_dev->phydev);
+ 	}
+ 
+ 	return 0;
+@@ -1150,13 +1142,11 @@ int dsa_slave_suspend(struct net_device *slave_dev)
+ 
+ int dsa_slave_resume(struct net_device *slave_dev)
+ {
+-	struct dsa_slave_priv *p = netdev_priv(slave_dev);
+-
+ 	netif_device_attach(slave_dev);
+ 
+-	if (p->phy) {
+-		phy_resume(p->phy);
+-		phy_start(p->phy);
++	if (slave_dev->phydev) {
++		phy_resume(slave_dev->phydev);
++		phy_start(slave_dev->phydev);
+ 	}
+ 
+ 	return 0;
+@@ -1249,8 +1239,8 @@ void dsa_slave_destroy(struct net_device *slave_dev)
+ 	port_dn = p->dp->dn;
+ 
+ 	netif_carrier_off(slave_dev);
+-	if (p->phy) {
+-		phy_disconnect(p->phy);
++	if (slave_dev->phydev) {
++		phy_disconnect(slave_dev->phydev);
+ 
+ 		if (of_phy_is_fixed_link(port_dn))
+ 			of_phy_deregister_fixed_link(port_dn);
+-- 
+2.14.1
