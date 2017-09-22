@@ -1,41 +1,60 @@
-From: Timur Tabi <timur@codeaurora.org>
-Subject: [PATCH] [for 4.14] net: qcom/emac: specify the correct size when mapping a DMA buffer
-Date: Fri, 22 Sep 2017 15:32:44 -0500
-Message-ID: <1506112364-26787-1-git-send-email-timur@codeaurora.org>
-Cc: timur@codeaurora.org
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        stable@vger.kernel.org
-Return-path: <stable-owner@vger.kernel.org>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Petar Penkov <peterpenkov96@gmail.com>
+Subject: [PATCH,v3,net-next 0/2] Improve code coverage of syzkaller
+Date: Fri, 22 Sep 2017 13:49:13 -0700
+Message-ID: <20170922204915.7889-1-peterpenkov96@gmail.com>
+Cc: edumazet@google.com, maheshb@google.com, willemb@google.com,
+        davem@davemloft.net, ppenkov@stanford.edu,
+        Petar Penkov <peterpenkov96@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:33447 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751974AbdIVUtb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 22 Sep 2017 16:49:31 -0400
+Received: by mail-pg0-f66.google.com with SMTP id i130so1244853pgc.0
+        for <netdev@vger.kernel.org>; Fri, 22 Sep 2017 13:49:31 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When mapping the RX DMA buffers, the driver was accidentally specifying
-zero for the buffer length.  Under normal circumstances, SWIOTLB does not
-need to allocate a bounce buffer, so the address is just mapped without
-checking the size field.  This is why the error was not detected earlier.
+This patch series is intended to improve code coverage of syzkaller on
+the early receive path, specifically including flow dissector, GRO,
+and GRO with frags parts of the networking stack. Syzkaller exercises
+the stack through the TUN driver and this is therefore where changes
+reside. Current coverage through netif_receive_skb() is limited as it
+does not touch on any of the aforementioned code paths. Furthermore,
+for full coverage, it is necessary to have more flexibility over the
+linear and non-linear data of the skbs.
 
-Fixes: b9b17debc69d ("net: emac: emac gigabit ethernet controller driver")
-Cc: stable@vger.kernel.org
-Signed-off-by: Timur Tabi <timur@codeaurora.org>
----
- drivers/net/ethernet/qualcomm/emac/emac-mac.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+The following patches address this by providing the user(syzkaller)
+with the ability to send via napi_gro_receive() and napi_gro_frags().
+Additionally, syzkaller can specify how many fragments there are and
+how much data per fragment there is. This is done by exploiting the
+convenient structure of iovecs. Finally, this patch series adds
+support for exercising the flow dissector during fuzzing.
 
-diff --git a/drivers/net/ethernet/qualcomm/emac/emac-mac.c b/drivers/net/ethernet/qualcomm/emac/emac-mac.c
-index 0ea3ca09c689..3ed9033e56db 100644
---- a/drivers/net/ethernet/qualcomm/emac/emac-mac.c
-+++ b/drivers/net/ethernet/qualcomm/emac/emac-mac.c
-@@ -898,7 +898,8 @@ static void emac_mac_rx_descs_refill(struct emac_adapter *adpt,
- 
- 		curr_rxbuf->dma_addr =
- 			dma_map_single(adpt->netdev->dev.parent, skb->data,
--				       curr_rxbuf->length, DMA_FROM_DEVICE);
-+				       adpt->rxbuf_size, DMA_FROM_DEVICE);
-+
- 		ret = dma_mapping_error(adpt->netdev->dev.parent,
- 					curr_rxbuf->dma_addr);
- 		if (ret) {
+The code path including napi_gro_receive() can be enabled via the
+IFF_NAPI flag.  The remainder of the changes in this patch series give
+the user significantly more control over packets entering the kernel.
+To avoid potential security vulnerabilities, hide the ability to send
+custom skbs and the flow dissector code paths behind a
+capable(CAP_NET_ADMIN) check to require special user privileges.
+
+Changes since v2 based on feedback from Willem de Bruijn and Mahesh
+Bandewar:
+
+Patch 1/ No changes.
+Patch 2/ Check if the preconditions for IFF_NAPI_FRAGS (IFF_NAPI and
+	 IFF_TAP) are met before opening/attaching rather than after.
+	 If they are not, change the behavior from discarding the
+	 flag to rejecting the command with EINVAL.
+
+Petar Penkov (2):
+  tun: enable NAPI for TUN/TAP driver
+  tun: enable napi_gro_frags() for TUN/TAP driver
+
+ drivers/net/tun.c           | 261 +++++++++++++++++++++++++++++++++++++++++---
+ include/uapi/linux/if_tun.h |   2 +
+ 2 files changed, 245 insertions(+), 18 deletions(-)
+
 -- 
-Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
-Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
-Code Aurora Forum, a Linux Foundation Collaborative Project.
+2.11.0
