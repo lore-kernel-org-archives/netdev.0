@@ -1,55 +1,71 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Kernel 4.13.0-rc4-next-20170811 - IP Routing / Forwarding
- performance vs Core/RSS number / HT on
-Date: Thu, 21 Sep 2017 17:37:15 -0700
-Message-ID: <1506040635.29839.158.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <3ac1a817-5c62-2490-64e7-2512f0ee3b3e@itcare.pl>
-         <20170812142358.08291888@redhat.com>
-         <af5b3482-8f26-52b5-4a00-3a5a42b7449f@itcare.pl>
-         <ce33b7b3-ae00-b6f0-e82a-6df3d5a5e995@itcare.pl>
-         <20170814181957.5be27906@redhat.com> <1502729870.8411.63.camel@redhat.com>
-         <80b3bf71-dc6b-7b96-43d6-dbb3c53c5a8b@itcare.pl>
-         <1502759225.4936.44.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1502759849.4936.46.camel@edumazet-glaptop3.roam.corp.google.com>
-         <4b1efff7-4f91-fd78-beb8-2c7ebcf18895@itcare.pl>
-         <5d32f5cf-ca69-1f6b-5bca-cdcd4dc414e2@itcare.pl>
-         <6607c631-580d-825b-6205-6f6ee688ce32@gmail.com>
-         <1506030895.29839.153.camel@edumazet-glaptop3.roam.corp.google.com>
-         <7dbc2dd1-eec9-0bd3-7255-4fe6026847aa@gmail.com>
+From: Samuel Mendoza-Jonas <sam@mendozajonas.com>
+Subject: Re: [PATCH net] net/ncsi: Don't assume last available channel exists
+Date: Fri, 22 Sep 2017 11:00:00 +1000
+Message-ID: <1506042000.1377.21.camel@mendozajonas.com>
+References: <20170920041251.14635-1-sam@mendozajonas.com>
+         <20170920.160519.764603868579556859.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: =?UTF-8?Q?Pawe=C5=82?= Staszewski <pstaszewski@itcare.pl>,
-        Paolo Abeni <pabeni@redhat.com>,
-        Jesper Dangaard Brouer <brouer@redhat.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Alexander Duyck <alexander.duyck@gmail.com>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f182.google.com ([209.85.192.182]:49014 "EHLO
-        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751750AbdIVAhR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 20:37:17 -0400
-Received: by mail-pf0-f182.google.com with SMTP id n24so4031760pfk.5
-        for <netdev@vger.kernel.org>; Thu, 21 Sep 2017 17:37:17 -0700 (PDT)
-In-Reply-To: <7dbc2dd1-eec9-0bd3-7255-4fe6026847aa@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170920.160519.764603868579556859.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2017-09-21 at 15:07 -0700, Florian Fainelli wrote:
-> On 09/21/2017 02:54 PM, Eric Dumazet wrote:
-> > On Thu, 2017-09-21 at 14:41 -0700, Florian Fainelli wrote:
-> > 
-> >> Would not this apply to pretty much any stacked device setup though? It
-> >> seems like any network device that just queues up its packet on another
-> >> physical device for actual transmission may need that (e.g: DSA, bond,
-> >> team, more.?)
-> > 
-> > We support bonding and team already.
+On Wed, 2017-09-20 at 16:05 -0700, David Miller wrote:
+> From: Samuel Mendoza-Jonas <sam@mendozajonas.com>
+> Date: Wed, 20 Sep 2017 14:12:51 +1000
 > 
-> Right, so that seems to mostly leave us with DSA at least. What about
-> other devices that also have IFF_NO_QUEUE set?
+> > When handling new VLAN tags in NCSI we check the maximum allowed number
+> > of filters on the last active ("hot") channel. However if the 'add'
+> > callback is called before NCSI has configured a channel, this causes a
+> > NULL dereference.
+> > 
+> > Check that we actually have a hot channel, and warn if it is missing.
+> > 
+> > Signed-off-by: Samuel Mendoza-Jonas <sam@mendozajonas.com>
+> 
+> Well, a few things.
+> 
+> We should not allow this driver method to be invoked in the first
+> place if the device is not in a state where the operation is legal
+> yet.
+> 
+> Second of all, if !ndp is true, you should not return 0 to indicate
+> success.
+> 
+> But more fundamentally, we should block this method from being
+> callable unless the device is in the proper state and can complete the
+> operation.
+> 
+> Seriously, these checks should be completely unnecessary if those
+> issues are handled properly.
 
-It wont work.
+Good point, this made me step back and reconsider the problem here.
 
-loopback has IFF_NO_QUEUE, but you need to keep dst on skbs...
+The ncsi_vlan_rx_add_vid() callback exists because the NCSI driver needs
+to know which VLAN IDs are set, but we don't have a straightforward way
+of accessing that information later in ncsi_configure_channel() - as
+opposed to the MAC address for example which is just accessed via
+dev->dev_addr. Instead they're kept track of in the ndp->vlan_vids list
+and the NCSI driver reconfigures any channels it knows about.
+
+So in that sense the NCSI device *is* ready to handle the operation. The
+hot_channel fix here was to check if we were exceeding the maximum number
+of VLAN filters supported by the remote channel. That itself is bit
+debatable since different channels could support different numbers of
+filters but right now the NCSI driver only supports one active channel at
+a time.
+
+If we haven't configured a channel yet (or are in the process of doing
+so) we won't have a hot_channel - does it make more sense to
+- check against the hot_channel as currently done,
+- only check the filter size at configure time for /each/ channel,
+- only conditionally enable the .ndo_vlan_rx_add_vid net_device callback
+once we've configured a channel (eg. for ftgmac100 in the
+ftgmac100_ncsi_handler() callback?)
+
+Thanks,
+Sam
