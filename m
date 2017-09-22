@@ -1,79 +1,31 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
 Subject: Re: [PATCH net-next v2 1/3] net: dsa: use slave device phydev
-Date: Fri, 22 Sep 2017 13:00:32 -0700
-Message-ID: <2262f266-6fb9-cce4-f83a-933dd41b9062@gmail.com>
+Date: Fri, 22 Sep 2017 22:03:04 +0200
+Message-ID: <20170922200304.GI3470@lunn.ch>
 References: <20170922194045.18814-1-vivien.didelot@savoirfairelinux.com>
  <20170922194045.18814-2-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
-        Andrew Lunn <andrew@lunn.ch>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        netdev@vger.kernel.org
+        Florian Fainelli <f.fainelli@gmail.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
 In-Reply-To: <20170922194045.18814-2-vivien.didelot@savoirfairelinux.com>
-Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 09/22/2017 12:40 PM, Vivien Didelot wrote:
+On Fri, Sep 22, 2017 at 03:40:43PM -0400, Vivien Didelot wrote:
 > There is no need to store a phy_device in dsa_slave_priv since
 > net_device already provides one. Simply s/p->phy/dev->phydev/.
-
-You can therefore remove the phy_device from dsa_slave_priv, see below
-for more comments. I will have to regress test the heck out of this,
-this should take a few hours.
-
 > 
 > While at it, return -ENODEV when it is NULL instead of -EOPNOTSUPP.
-> 
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-> ---
 
->  static int dsa_slave_port_attr_set(struct net_device *dev,
-> @@ -435,12 +433,10 @@ static int
->  dsa_slave_get_link_ksettings(struct net_device *dev,
->  			     struct ethtool_link_ksettings *cmd)
->  {
-> -	struct dsa_slave_priv *p = netdev_priv(dev);
-> +	if (!dev->phydev)
-> +		return -ENODEV;
->  
-> -	if (!p->phy)
-> -		return -EOPNOTSUPP;
-> -
-> -	phy_ethtool_ksettings_get(p->phy, cmd);
-> +	phy_ethtool_ksettings_get(dev->phydev, cmd);
+I just did a quick poll for calling phy_mii_ioctl(). ENODEV seems the
+most popular, second to EINVAL. Marvell drivers all use EOPNOTSUPP.
 
-This can be replaced by phy_ethtool_get_link_ksettings()
-
->  
->  	return 0;
->  }
-> @@ -449,12 +445,10 @@ static int
->  dsa_slave_set_link_ksettings(struct net_device *dev,
->  			     const struct ethtool_link_ksettings *cmd)
->  {
-> -	struct dsa_slave_priv *p = netdev_priv(dev);
-> +	if (!dev->phydev)
-> +		return -ENODEV;
->  
-> -	if (p->phy != NULL)
-> -		return phy_ethtool_ksettings_set(p->phy, cmd);
-> -
-> -	return -EOPNOTSUPP;
-> +	return phy_ethtool_ksettings_set(dev->phydev, cmd);
->  }
-
-This can disappear and you can assign this ethtool operation to
-phy_ethtool_set_link_ksettings()
-
->  
->  static void dsa_slave_get_drvinfo(struct net_device *dev,
-> @@ -488,24 +482,20 @@ dsa_slave_get_regs(struct net_device *dev, struct ethtool_regs *regs, void *_p)
->  
 >  static int dsa_slave_nway_reset(struct net_device *dev)
 >  {
 > -	struct dsa_slave_priv *p = netdev_priv(dev);
@@ -87,27 +39,9 @@ phy_ethtool_set_link_ksettings()
 > +	return genphy_restart_aneg(dev->phydev);
 >  }
 
-This can now disappear and you can use phy_ethtool_nway_reset() directly
-in ethtool_ops
+It looks like this can now be replaced with phy_ethtool_nway_reset().
 
->  
->  static u32 dsa_slave_get_link(struct net_device *dev)
->  {
-> -	struct dsa_slave_priv *p = netdev_priv(dev);
-> +	if (!dev->phydev)
-> +		return -ENODEV;
->  
-> -	if (p->phy != NULL) {
-> -		genphy_update_link(p->phy);
-> -		return p->phy->link;
-> -	}
-> +	genphy_update_link(dev->phydev);
->  
-> -	return -EOPNOTSUPP;
-> +	return dev->phydev->link;
->  }
+It could be there are other phy_ethtool_ helpers which can be used,
+now that we have phydev in ndev.
 
-This should certainly be just ethtool_op_get_link(), not sure why we
-kept that around here...
--- 
-Florian
+    Andrew
