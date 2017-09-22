@@ -1,205 +1,80 @@
-From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: Re: [PATCH net v2] l2tp: fix race condition in l2tp_tunnel_delete
-Date: Fri, 22 Sep 2017 18:16:24 +0200
-Message-ID: <20170922161624.GA31500@bistromath.localdomain>
-References: <6bfc5aceda47773af4c75fe7e0e3c0d255a2342d.1505828155.git.sd@queasysnail.net>
- <20170919164337.zn3p6ikwsgnw7ba6@alphalink.fr>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, Xin Long <lucien.xin@gmail.com>,
-        Tom Parkin <tparkin@katalix.com>
-To: Guillaume Nault <g.nault@alphalink.fr>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:36442 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751877AbdIVQQ2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 22 Sep 2017 12:16:28 -0400
-Content-Disposition: inline
-In-Reply-To: <20170919164337.zn3p6ikwsgnw7ba6@alphalink.fr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Aaron Wood <aaronjwood@gmail.com>
+Subject: [PATCH] Switch to use the new hashtable implementation. This reduces the code and need for yet another hashtable implementation.
+Date: Fri, 22 Sep 2017 12:25:03 -0400
+Message-ID: <20170922162503.3744-1-aaronjwood@gmail.com>
+Cc: Aaron Wood <aaronjwood@gmail.com>
+To: ericvh@gmail.com, rminnich@sandia.gov, lucho@ionkov.net,
+        davem@davemloft.net, v9fs-developer@lists.sourceforge.net,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-2017-09-19, 18:43:37 +0200, Guillaume Nault wrote:
-> On Tue, Sep 19, 2017 at 03:40:40PM +0200, Sabrina Dubroca wrote:
-> > If we try to delete the same tunnel twice, the first delete operation
-> > does a lookup (l2tp_tunnel_get), finds the tunnel, calls
-> > l2tp_tunnel_delete, which queues it for deletion by
-> > l2tp_tunnel_del_work.
-> > 
-> > The second delete operation also finds the tunnel and calls
-> > l2tp_tunnel_delete. If the workqueue has already fired and started
-> > running l2tp_tunnel_del_work, then l2tp_tunnel_delete will queue the
-> > same tunnel a second time, and try to free the socket again.
-> > 
-> > Add a dead flag to prevent firing the workqueue twice. Then we can
-> > remove the check of queue_work's result that was meant to prevent that
-> > race but doesn't.
-> > 
-> > Also check the flag in the tunnel lookup functions, to avoid returning a
-> > tunnel that is already scheduled for destruction.
-> > 
-> > Reproducer:
-> > 
-> >     ip l2tp add tunnel tunnel_id 3000 peer_tunnel_id 4000 local 192.168.0.2 remote 192.168.0.1 encap udp udp_sport 5000 udp_dport 6000
-> >     ip l2tp add session name l2tp1 tunnel_id 3000 session_id 1000 peer_session_id 2000
-> >     ip link set l2tp1 up
-> >     ip l2tp del tunnel tunnel_id 3000
-> >     ip l2tp del tunnel tunnel_id 3000
-> > 
-> > Fixes: f8ccac0e4493 ("l2tp: put tunnel socket release on a workqueue")
-> > Reported-by: Jianlin Shi <jishi@redhat.com>
-> > Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
-> > ---
-> > v2: as Tom Parkin explained, we can't remove the tunnel from the
-> >     per-net list from netlink. v2 uses only a dead flag, and adds
-> >     corresponding checks during lookups
-> > 
-> >  net/l2tp/l2tp_core.c | 18 +++++++++---------
-> >  net/l2tp/l2tp_core.h |  5 ++++-
-> >  2 files changed, 13 insertions(+), 10 deletions(-)
-> > 
-> > diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
-> > index ee485df73ccd..3891f0260f2b 100644
-> > --- a/net/l2tp/l2tp_core.c
-> > +++ b/net/l2tp/l2tp_core.c
-> > @@ -203,7 +203,8 @@ struct l2tp_tunnel *l2tp_tunnel_get(const struct net *net, u32 tunnel_id)
-> >  
-> >  	rcu_read_lock_bh();
-> >  	list_for_each_entry_rcu(tunnel, &pn->l2tp_tunnel_list, list) {
-> > -		if (tunnel->tunnel_id == tunnel_id) {
-> > +		if (tunnel->tunnel_id == tunnel_id &&
-> > +		    !test_bit(0, &tunnel->dead)) {
-> >  			l2tp_tunnel_inc_refcount(tunnel);
-> >  			rcu_read_unlock_bh();
-> >  
-> > @@ -390,7 +391,8 @@ struct l2tp_tunnel *l2tp_tunnel_find(const struct net *net, u32 tunnel_id)
-> >  
-> >  	rcu_read_lock_bh();
-> >  	list_for_each_entry_rcu(tunnel, &pn->l2tp_tunnel_list, list) {
-> > -		if (tunnel->tunnel_id == tunnel_id) {
-> > +		if (tunnel->tunnel_id == tunnel_id &&
-> > +		    !test_bit(0, &tunnel->dead)) {
-> >  			rcu_read_unlock_bh();
-> >  			return tunnel;
-> >  		}
-> > @@ -409,7 +411,7 @@ struct l2tp_tunnel *l2tp_tunnel_find_nth(const struct net *net, int nth)
-> >  
-> >  	rcu_read_lock_bh();
-> >  	list_for_each_entry_rcu(tunnel, &pn->l2tp_tunnel_list, list) {
-> > -		if (++count > nth) {
-> > +		if (++count > nth && !test_bit(0, &tunnel->dead)) {
-> >  			rcu_read_unlock_bh();
-> >  			return tunnel;
-> >  		}
-> > 
-> I don't get why you're checking the dead flag in l2tp_tunnel_{get,find}*().
-> Since it can be set concurrently right after test_bit(), it doesn't
-> protect the caller from getting a tunnel that is being removed by
-> l2tp_tunnel_delete().
-> Or have I missed something?
+Signed-off-by: Aaron Wood <aaronjwood@gmail.com>
+---
+ net/9p/error.c | 21 +++++++++------------
+ 1 file changed, 9 insertions(+), 12 deletions(-)
 
-You're right.
-
-Then I would try going back to essentially v1, but keeping code to
-remove the tunnel from the list in l2tp_tunnel_destruct if it's not
-dead yet.
-
-What do you think?
-
-
--------- 8< --------
-
-diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
-index ee485df73ccd..63cd1f30ac7d 100644
---- a/net/l2tp/l2tp_core.c
-+++ b/net/l2tp/l2tp_core.c
-@@ -1234,6 +1234,23 @@ int l2tp_xmit_skb(struct l2tp_session *session, struct sk_buff *skb, int hdr_len
- }
- EXPORT_SYMBOL_GPL(l2tp_xmit_skb);
+diff --git a/net/9p/error.c b/net/9p/error.c
+index 126fd0dceea2..2e966fcc5cbb 100644
+--- a/net/9p/error.c
++++ b/net/9p/error.c
+@@ -32,6 +32,7 @@
+ #include <linux/module.h>
+ #include <linux/list.h>
+ #include <linux/jhash.h>
++#include <linux/hashtable.h>
+ #include <linux/errno.h>
+ #include <net/9p/9p.h>
  
-+static bool __l2tp_tunnel_delete(struct l2tp_tunnel *tunnel)
-+{
-+	struct l2tp_net *pn = l2tp_pernet(tunnel->l2tp_net);
-+	bool ret = false;
-+
-+	spin_lock_bh(&pn->l2tp_tunnel_list_lock);
-+	if (!tunnel->dead) {
-+		tunnel->dead = 1;
-+		list_del_rcu(&tunnel->list);
-+		atomic_dec(&l2tp_tunnel_count);
-+		ret = true;
-+	}
-+	spin_unlock_bh(&pn->l2tp_tunnel_list_lock);
-+
-+	return ret;
-+}
-+
- /*****************************************************************************
-  * Tinnel and session create/destroy.
-  *****************************************************************************/
-@@ -1245,7 +1262,6 @@ EXPORT_SYMBOL_GPL(l2tp_xmit_skb);
- static void l2tp_tunnel_destruct(struct sock *sk)
+@@ -50,8 +51,8 @@ struct errormap {
+ 	struct hlist_node list;
+ };
+ 
+-#define ERRHASHSZ		32
+-static struct hlist_head hash_errmap[ERRHASHSZ];
++#define ERR_HASH_BITS		5
++static DEFINE_HASHTABLE(hash_errmap, ERR_HASH_BITS);
+ 
+ /* FixMe - reduce to a reasonable size */
+ static struct errormap errmap[] = {
+@@ -193,18 +194,14 @@ static struct errormap errmap[] = {
+ int p9_error_init(void)
  {
- 	struct l2tp_tunnel *tunnel = l2tp_tunnel(sk);
--	struct l2tp_net *pn;
+ 	struct errormap *c;
+-	int bucket;
+-
+-	/* initialize hash table */
+-	for (bucket = 0; bucket < ERRHASHSZ; bucket++)
+-		INIT_HLIST_HEAD(&hash_errmap[bucket]);
++	int key;
  
- 	if (tunnel == NULL)
- 		goto end;
-@@ -1270,11 +1286,7 @@ static void l2tp_tunnel_destruct(struct sock *sk)
- 	sk->sk_user_data = NULL;
- 
- 	/* Remove the tunnel struct from the tunnel list */
--	pn = l2tp_pernet(tunnel->l2tp_net);
--	spin_lock_bh(&pn->l2tp_tunnel_list_lock);
--	list_del_rcu(&tunnel->list);
--	spin_unlock_bh(&pn->l2tp_tunnel_list_lock);
--	atomic_dec(&l2tp_tunnel_count);
-+	__l2tp_tunnel_delete(tunnel);
- 
- 	l2tp_tunnel_closeall(tunnel);
- 
-@@ -1685,14 +1697,12 @@ EXPORT_SYMBOL_GPL(l2tp_tunnel_create);
- 
- /* This function is used by the netlink TUNNEL_DELETE command.
-  */
--int l2tp_tunnel_delete(struct l2tp_tunnel *tunnel)
-+void l2tp_tunnel_delete(struct l2tp_tunnel *tunnel)
- {
--	l2tp_tunnel_inc_refcount(tunnel);
--	if (false == queue_work(l2tp_wq, &tunnel->del_work)) {
--		l2tp_tunnel_dec_refcount(tunnel);
--		return 1;
-+	if (__l2tp_tunnel_delete(tunnel)) {
-+		l2tp_tunnel_inc_refcount(tunnel);
-+		queue_work(l2tp_wq, &tunnel->del_work);
+ 	/* load initial error map into hash table */
+ 	for (c = errmap; c->name != NULL; c++) {
+ 		c->namelen = strlen(c->name);
+-		bucket = jhash(c->name, c->namelen, 0) % ERRHASHSZ;
++		key = jhash(c->name, c->namelen, 0);
+ 		INIT_HLIST_NODE(&c->list);
+-		hlist_add_head(&c->list, &hash_errmap[bucket]);
++		hash_add(hash_errmap, &c->list, key);
  	}
--	return 0;
- }
- EXPORT_SYMBOL_GPL(l2tp_tunnel_delete);
  
-diff --git a/net/l2tp/l2tp_core.h b/net/l2tp/l2tp_core.h
-index a305e0c5925a..173e68bb8119 100644
---- a/net/l2tp/l2tp_core.h
-+++ b/net/l2tp/l2tp_core.h
-@@ -160,6 +160,8 @@ struct l2tp_tunnel_cfg {
+ 	return 1;
+@@ -222,12 +219,12 @@ int p9_errstr2errno(char *errstr, int len)
+ {
+ 	int errno;
+ 	struct errormap *c;
+-	int bucket;
++	int key;
  
- struct l2tp_tunnel {
- 	int			magic;		/* Should be L2TP_TUNNEL_MAGIC */
-+	int			dead;
-+
- 	struct rcu_head rcu;
- 	rwlock_t		hlist_lock;	/* protect session_hlist */
- 	bool			acpt_newsess;	/* Indicates whether this
-@@ -254,7 +256,7 @@ int l2tp_tunnel_create(struct net *net, int fd, int version, u32 tunnel_id,
- 		       u32 peer_tunnel_id, struct l2tp_tunnel_cfg *cfg,
- 		       struct l2tp_tunnel **tunnelp);
- void l2tp_tunnel_closeall(struct l2tp_tunnel *tunnel);
--int l2tp_tunnel_delete(struct l2tp_tunnel *tunnel);
-+void l2tp_tunnel_delete(struct l2tp_tunnel *tunnel);
- struct l2tp_session *l2tp_session_create(int priv_size,
- 					 struct l2tp_tunnel *tunnel,
- 					 u32 session_id, u32 peer_session_id,
-
-
+ 	errno = 0;
+ 	c = NULL;
+-	bucket = jhash(errstr, len, 0) % ERRHASHSZ;
+-	hlist_for_each_entry(c, &hash_errmap[bucket], list) {
++	key = jhash(errstr, len, 0);
++	hash_for_each_possible(hash_errmap, c, list, key) {
+ 		if (c->namelen == len && !memcmp(c->name, errstr, len)) {
+ 			errno = c->val;
+ 			break;
 -- 
-Sabrina
+2.11.0
