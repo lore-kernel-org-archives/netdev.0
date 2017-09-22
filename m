@@ -1,57 +1,59 @@
-From: Yotam Gigi <yotamg@mellanox.com>
-Subject: Re: [patch net-next 07/12] mlxsw: spectrum: Add the multicast routing
- offloading logic
-Date: Fri, 22 Sep 2017 11:36:59 +0300
-Message-ID: <a6852db1-76a2-b4f3-c558-cd4cc0a1309b@mellanox.com>
-References: <20170921064338.1282-1-jiri@resnulli.us>
- <20170921064338.1282-8-jiri@resnulli.us> <20170921152654.GF27589@lunn.ch>
+From: Amine Kherbouche <amine.kherbouche@6wind.com>
+Subject: Re: [PATCH 2/2] ip_tunnel: add mpls over gre encapsulation
+Date: Fri, 22 Sep 2017 10:39:31 +0200
+Message-ID: <30bfaab5-d4ba-e9bf-a4e4-f3058c71f517@6wind.com>
+References: <1505985924-12479-1-git-send-email-amine.kherbouche@6wind.com>
+ <1505985924-12479-3-git-send-email-amine.kherbouche@6wind.com>
+ <CAJieiUicOTaxeT4t-y6QzoPibi1i7WJ31X978OP6sqjMjVuVNw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, idosch@mellanox.com,
-        mlxsw@mellanox.com
-To: Andrew Lunn <andrew@lunn.ch>, Jiri Pirko <jiri@resnulli.us>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>, xeb@mail.ru,
+        David Lamparter <equinox@diac24.net>
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve1eur01on0085.outbound.protection.outlook.com ([104.47.1.85]:23720
-        "EHLO EUR01-VE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751792AbdIVIhH (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 22 Sep 2017 04:37:07 -0400
-In-Reply-To: <20170921152654.GF27589@lunn.ch>
-Content-Language: en-US
+Received: from mail-wm0-f45.google.com ([74.125.82.45]:50655 "EHLO
+        mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751792AbdIVIjm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 22 Sep 2017 04:39:42 -0400
+Received: by mail-wm0-f45.google.com with SMTP id b195so1758385wmb.5
+        for <netdev@vger.kernel.org>; Fri, 22 Sep 2017 01:39:42 -0700 (PDT)
+In-Reply-To: <CAJieiUicOTaxeT4t-y6QzoPibi1i7WJ31X978OP6sqjMjVuVNw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/21/2017 06:26 PM, Andrew Lunn wrote:
->> +static void mlxsw_sp_mr_route_stats_update(struct mlxsw_sp *mlxsw_sp,
->> +					   struct mlxsw_sp_mr_route *mr_route)
->> +{
->> +	struct mlxsw_sp_mr *mr = mlxsw_sp->mr;
->> +	u64 packets, bytes;
->> +
->> +	if (mr_route->route_action == MLXSW_SP_MR_ROUTE_ACTION_TRAP)
->> +		return;
->> +
->> +	mr->mr_ops->route_stats(mlxsw_sp, mr_route->route_priv, &packets,
->> +				&bytes);
->> +
->> +	switch (mr_route->mr_table->proto) {
->> +	case MLXSW_SP_L3_PROTO_IPV4:
->> +		mr_route->mfc4->mfc_un.res.pkt = packets;
->> +		mr_route->mfc4->mfc_un.res.bytes = bytes;
-> What about wrong_if and lastuse? 
 
-wronf_if is updated by ipmr as it is trapped to the CPU. We did not
-address lastuse currently, though it can be easily addressed here.
 
+On 09/22/2017 12:35 AM, Roopa Prabhu wrote:
+>> > diff --git a/net/mpls/af_mpls.c b/net/mpls/af_mpls.c
+>> > index 36ea2ad..060ed07 100644
+>> > --- a/net/mpls/af_mpls.c
+>> > +++ b/net/mpls/af_mpls.c
+>> > @@ -16,6 +16,7 @@
+>> >  #include <net/arp.h>
+>> >  #include <net/ip_fib.h>
+>> >  #include <net/netevent.h>
+>> > +#include <net/ip_tunnels.h>
+>> >  #include <net/netns/generic.h>
+>> >  #if IS_ENABLED(CONFIG_IPV6)
+>> >  #include <net/ipv6.h>
+>> > @@ -39,6 +40,40 @@ static int one = 1;
+>> >  static int label_limit = (1 << 20) - 1;
+>> >  static int ttl_max = 255;
+>> >
+>> > +size_t ipgre_mpls_encap_hlen(struct ip_tunnel_encap *e)
+>> > +{
+>> > +       return sizeof(struct mpls_shim_hdr);
+>> > +}
+>> > +
+>> > +int ipgre_mpls_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
+>> > +                           u8 *protocol, struct flowi4 *fl4)
+>> > +{
+>> > +       return 0;
+>> > +}
 >
-> Is an mfc with iif on the host, not the switch, not offloaded?
+> any reason you are supporting only rx ?
 
-
-I am not sure I followed. What do you mean MFC with iif on the host? you mean
-MFC with iif that is an external NIC which is not part of the spectrum ASIC? in
-this case, the route will not be offloaded and all traffic will pass in slowpath.
-
-
->
->    Andrew
+Tx path doesn't need changes, all gre hdr fields remain the same except 
+for the protocol type which is loaded from skb->protocol this last is 
+set by the mpls stack before entering gre device.
