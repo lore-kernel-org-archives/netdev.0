@@ -1,70 +1,73 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next 10/10] net: hns3: Add mqprio support when
- interacting with network stack
-Date: Fri, 22 Sep 2017 18:03:22 +0200
-Message-ID: <20170922160322.GB2005@nanopsycho.orion>
-References: <1505992913-107256-1-git-send-email-linyunsheng@huawei.com>
- <1505992913-107256-11-git-send-email-linyunsheng@huawei.com>
- <20170922125541.GA2005@nanopsycho.orion>
- <59c51a37.a1c4df0a.ac4e2.8df0SMTPIN_ADDED_BROKEN@mx.google.com>
+From: "Mrs, Suran Yoda" <suranyoda@gmail.com>
+Subject: URGENT RESPOND NEEDED FROM YOU BY DANIEL MMINELE THE DEPUTY GOVERNOR
+ OF SOUTH AFRICAN RESERVE BANK
+Date: Fri, 22 Sep 2017 18:06:34 +0200
+Message-ID: <CAEAp1dTdqqjN5aTYtU=7b3_3sP7Qdgpq2FgEhR1idT1w2thdog@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-        huangdaode <huangdaode@hisilicon.com>,
-        "xuwei (O)" <xuwei5@hisilicon.com>,
-        "Liguozhu (Kenneth)" <liguozhu@hisilicon.com>,
-        "Zhuangyuzeng (Yisen)" <yisen.zhuang@huawei.com>,
-        Gabriele Paoloni <gabriele.paoloni@huawei.com>,
-        John Garry <john.garry@huawei.com>,
-        Linuxarm <linuxarm@huawei.com>,
-        Salil Mehta <salil.mehta@huawei.com>,
-        "lipeng (Y)" <lipeng321@huawei.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: linyunsheng <linyunsheng@huawei.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <59c51a37.a1c4df0a.ac4e2.8df0SMTPIN_ADDED_BROKEN@mx.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f196.google.com ([209.85.223.196]:34633 "EHLO
+        mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752013AbdIVQGg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 22 Sep 2017 12:06:36 -0400
+Received: by mail-io0-f196.google.com with SMTP id g32so53878ioj.1
+        for <netdev@vger.kernel.org>; Fri, 22 Sep 2017 09:06:35 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Fri, Sep 22, 2017 at 04:11:51PM CEST, linyunsheng@huawei.com wrote:
->Hi, Jiri
->
->>>- if (!tc) {
->>>+ if (if_running) {
->>>+ (void)hns3_nic_net_stop(netdev);
->>>+ msleep(100);
->>>+ }
->>>+
->>>+ ret = (kinfo->dcb_ops && kinfo->dcb_ops->>setup_tc) ?
->>>+ kinfo->dcb_ops->setup_tc(h, tc, prio_tc) : ->EOPNOTSUPP;
->
->>This is most odd. Why do you call dcb_ops from >ndo_setup_tc callback?
->>Why are you mixing this together? prio->tc mapping >can be done
->>directly in dcbnl
->
->Here is what we do in dcb_ops->setup_tc:
->Firstly, if current tc num is different from the tc num
->that user provide, then we setup the queues for each
->tc.
->
->Secondly, we tell hardware the pri to tc mapping that
->the stack is using. In rx direction, our hardware need
->that mapping to put different packet into different tc'
->queues according to the priority of the packet, then
->rss decides which specific queue in the tc should the
->packet goto.
->
->By mixing, I suppose you meant why we need the
->pri to tc infomation?
+Hello Dear,
 
-by mixing, I mean what I wrote. You are calling dcb_ops callback from
-ndo_setup_tc callback. So you are mixing DCBNL subsystem and TC
-subsystem. Why? Why do you need sch_mqprio? Why DCBNL is not enough for
-all?
+My Name is Dr. Daniel Mminele the deputy governor of south African
+reserve bank, you can also check  on our Bank website here  for your
+assurance , http://www.whoswhosa.co.za/south-african-reserve-bank-20991
+
+I am a citizen of South African. I am a computer analyst long time
+working with reserve Bank of  South African. (R.B.) My Dear, I came
+across your payment file which was Marked X and your Fund Release Hard
+Disk Painted Red, I took my time to study your payment file and found
+out that you have really attempted to receive the funds without
+success till now. But I am using another person email address to send
+you this because I don=E2=80=99t want my bank to notify  me alright
+
+The most annoying thing is that the directors and top officials of
+this nation could not tell you the truth that on no account will they
+ever release the fund to you; instead they will let you spend money
+unnecessarily. I swear with my life, I can release this funds to you
+if you can certify me of my security and how I can run away from this
+country to meet with you. This is like a Mafia Setting here,  if I do
+this for you, I do not intend to work here all the days of my life and
+I cannot run back to my country  as this Bank has my home address ,
+and if I don't run away after I making the transfer to your bank
+account, I may be in trouble or my life will be in danger.
+
+The only thing I will need to release this fund is a Special Hard
+Disk, we call it HD120 GIG. I will buy two of it, recopy your
+information, destroy the previous one, and punch the computer to make
+the fund reflect in your bank account within 24 banking hours. I will
+clean up the tracer and destroy your file, after which I will run away
+from here to meet with you in your country if you are interested. But
+you must assure me the absolute confidentiality of this deal before I
+can do anything further. Do get in touch with me immediately, You
+should send to me your convenient
+Tell phone  number /fax numbers for easy communications and also re
+confirm your banking
+details, so that there won't be any mistake.
+For phone conversation, please call me on +27011745039 or
++27843464227, And you must contact me though  this my Email address
+which is, danielmminele1@yahoo.com
+
+SPECIAL INFORMATION:
 
 
+YOU WILL SEND THE FEE FOR THE HARD DISK FIRST BEFORE I MAKE YOUR
+TRANSFER OR YOU BUY
+THE HARD DISK IN YOUR COUNTRY AND SEND IT TO ME,DON'T CONTACT ME IF
+YOU CAN NOT SEND
+THE HARD DISK FEE FIRST OR THE HARD DISK. AS SOON AS I RECEIVED YOUR
+EMAIL I WILL LET
+YOU KNOW HOW MUCH THE DISK WILL COST YOU.
 
->I hope I did not misunderstand your question, thanks
->for your time reviewing.
+Regards, Dr. Daniel Mminele the deputy governor of south African reserve ba=
+nk
