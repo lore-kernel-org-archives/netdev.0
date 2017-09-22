@@ -1,42 +1,70 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: RE: [PATCH] hv_netvsc:  make const array ver_list static, reduces
- object code size
-Date: Fri, 22 Sep 2017 16:00:37 +0000
-Message-ID: <MWHPR21MB04795E0C01527E2D096E6B05CA670@MWHPR21MB0479.namprd21.prod.outlook.com>
-References: <20170922155023.15821-1-colin.king@canonical.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next 10/10] net: hns3: Add mqprio support when
+ interacting with network stack
+Date: Fri, 22 Sep 2017 18:03:22 +0200
+Message-ID: <20170922160322.GB2005@nanopsycho.orion>
+References: <1505992913-107256-1-git-send-email-linyunsheng@huawei.com>
+ <1505992913-107256-11-git-send-email-linyunsheng@huawei.com>
+ <20170922125541.GA2005@nanopsycho.orion>
+ <59c51a37.a1c4df0a.ac4e2.8df0SMTPIN_ADDED_BROKEN@mx.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>,
+Content-Type: text/plain; charset=us-ascii
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+        huangdaode <huangdaode@hisilicon.com>,
+        "xuwei (O)" <xuwei5@hisilicon.com>,
+        "Liguozhu (Kenneth)" <liguozhu@hisilicon.com>,
+        "Zhuangyuzeng (Yisen)" <yisen.zhuang@huawei.com>,
+        Gabriele Paoloni <gabriele.paoloni@huawei.com>,
+        John Garry <john.garry@huawei.com>,
+        Linuxarm <linuxarm@huawei.com>,
+        Salil Mehta <salil.mehta@huawei.com>,
+        "lipeng (Y)" <lipeng321@huawei.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
         "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Colin King <colin.king@canonical.com>,
-        KY Srinivasan <kys@microsoft.com>,
-        Stephen Hemminger <sthemmin@microsoft.com>,
-        "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <20170922155023.15821-1-colin.king@canonical.com>
-Content-Language: en-US
-Sender: kernel-janitors-owner@vger.kernel.org
+To: linyunsheng <linyunsheng@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <59c51a37.a1c4df0a.ac4e2.8df0SMTPIN_ADDED_BROKEN@mx.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogQ29saW4gS2luZyBbbWFp
-bHRvOmNvbGluLmtpbmdAY2Fub25pY2FsLmNvbV0NCj4gU2VudDogRnJpZGF5LCBTZXB0ZW1iZXIg
-MjIsIDIwMTcgODo1MCBBTQ0KPiBUbzogS1kgU3Jpbml2YXNhbiA8a3lzQG1pY3Jvc29mdC5jb20+
-OyBIYWl5YW5nIFpoYW5nDQo+IDxoYWl5YW5nekBtaWNyb3NvZnQuY29tPjsgU3RlcGhlbiBIZW1t
-aW5nZXIgPHN0aGVtbWluQG1pY3Jvc29mdC5jb20+Ow0KPiBkZXZlbEBsaW51eGRyaXZlcnByb2pl
-Y3Qub3JnOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnDQo+IENjOiBrZXJuZWwtamFuaXRvcnNAdmdl
-ci5rZXJuZWwub3JnOyBsaW51eC1rZXJuZWxAdmdlci5rZXJuZWwub3JnDQo+IFN1YmplY3Q6IFtQ
-QVRDSF0gaHZfbmV0dnNjOiBtYWtlIGNvbnN0IGFycmF5IHZlcl9saXN0IHN0YXRpYywgcmVkdWNl
-cw0KPiBvYmplY3QgY29kZSBzaXplDQo+IA0KPiBGcm9tOiBDb2xpbiBJYW4gS2luZyA8Y29saW4u
-a2luZ0BjYW5vbmljYWwuY29tPg0KPiANCj4gRG9uJ3QgcG9wdWxhdGUgY29uc3QgYXJyYXkgdmVy
-X2xpc3Qgb24gdGhlIHN0YWNrLCBpbnN0ZWFkIG1ha2UgaXQNCj4gc3RhdGljLiBNYWtlcyB0aGUg
-b2JqZWN0IGNvZGUgc21hbGxlciBieSBvdmVyIDQwMCBieXRlczoNCj4gDQo+IEJlZm9yZToNCj4g
-ICAgdGV4dAkgICBkYXRhCSAgICBic3MJICAgIGRlYwkgICAgaGV4CWZpbGVuYW1lDQo+ICAgMTg0
-NDQJICAgMzE2OAkgICAgMzIwCSAgMjE5MzIJICAgNTVhYw0KPiAJZHJpdmVycy9uZXQvaHlwZXJ2
-L25ldHZzYy5vDQo+IA0KPiBBZnRlcjoNCj4gICAgdGV4dAkgICBkYXRhCSAgICBic3MJICAgIGRl
-YwkgICAgaGV4CWZpbGVuYW1lDQo+ICAgMTc5NTAJICAgMzIyNAkgICAgMzIwCSAgMjE0OTQJICAg
-NTNmNg0KPiAJZHJpdmVycy9uZXQvaHlwZXJ2L25ldHZzYy5vDQo+IA0KPiAoZ2NjIDYuMy4wLCB4
-ODYtNjQpDQo+IA0KPiBTaWduZWQtb2ZmLWJ5OiBDb2xpbiBJYW4gS2luZyA8Y29saW4ua2luZ0Bj
-YW5vbmljYWwuY29tPg0KPiAtLS0NCg0KUmV2aWV3ZWQtYnk6IEhhaXlhbmcgWmhhbmcgPGhhaXlh
-bmd6QG1pY3Jvc29mdC5jb20+DQoNCg0K
+Fri, Sep 22, 2017 at 04:11:51PM CEST, linyunsheng@huawei.com wrote:
+>Hi, Jiri
+>
+>>>- if (!tc) {
+>>>+ if (if_running) {
+>>>+ (void)hns3_nic_net_stop(netdev);
+>>>+ msleep(100);
+>>>+ }
+>>>+
+>>>+ ret = (kinfo->dcb_ops && kinfo->dcb_ops->>setup_tc) ?
+>>>+ kinfo->dcb_ops->setup_tc(h, tc, prio_tc) : ->EOPNOTSUPP;
+>
+>>This is most odd. Why do you call dcb_ops from >ndo_setup_tc callback?
+>>Why are you mixing this together? prio->tc mapping >can be done
+>>directly in dcbnl
+>
+>Here is what we do in dcb_ops->setup_tc:
+>Firstly, if current tc num is different from the tc num
+>that user provide, then we setup the queues for each
+>tc.
+>
+>Secondly, we tell hardware the pri to tc mapping that
+>the stack is using. In rx direction, our hardware need
+>that mapping to put different packet into different tc'
+>queues according to the priority of the packet, then
+>rss decides which specific queue in the tc should the
+>packet goto.
+>
+>By mixing, I suppose you meant why we need the
+>pri to tc infomation?
+
+by mixing, I mean what I wrote. You are calling dcb_ops callback from
+ndo_setup_tc callback. So you are mixing DCBNL subsystem and TC
+subsystem. Why? Why do you need sch_mqprio? Why DCBNL is not enough for
+all?
+
+
+
+>I hope I did not misunderstand your question, thanks
+>for your time reviewing.
