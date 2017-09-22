@@ -1,66 +1,205 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: Re: [PATCH net-next] bpf/verifier: improve disassembly of BPF_END
- instructions
-Date: Fri, 22 Sep 2017 14:46:42 +0100
-Message-ID: <ec7d0485-11f4-4fdb-0b87-1fb0afdb4f11@solarflare.com>
-References: <7013ee9d-a8e6-13fd-cc5f-86cf3d8bf4e0@solarflare.com>
- <20170921155215.jta52sesbiq54vri@ast-mbp>
- <4cfac985-4f99-cf85-fc15-c3ad1f8ff123@solarflare.com>
- <CAH3MdRWAHJS8Y8ketOAghYyorVUp6JijjZcSVY7gOiGAr7e_pw@mail.gmail.com>
- <207ecd4c-b1b4-3dcd-62a6-30824c19dbf7@solarflare.com>
- <59C4131D.8050003@iogearbox.net> <20170921194426.tnd5xos5irm3gred@ast-mbp>
- <46aa4442-b8ed-e4c1-4897-8f650e23d448@solarflare.com>
- <CAH3MdRVK-=pL8YCz44BPCmHhuZE_CRfih0QdZPLa=mpE_uoA_Q@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>
-To: Y Song <ys114321@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dispatch1-us1.ppe-hosted.com ([67.231.154.164]:39684 "EHLO
-        dispatch1-us1.ppe-hosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752061AbdIVNqt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 22 Sep 2017 09:46:49 -0400
-In-Reply-To: <CAH3MdRVK-=pL8YCz44BPCmHhuZE_CRfih0QdZPLa=mpE_uoA_Q@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+Subject: [PATCH v4 1/3] ipv4: Namespaceify tcp_fastopen knob
+Date: Fri, 22 Sep 2017 21:48:42 +0800
+Message-ID: <1506088124-12650-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+To: "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        Eric Dumazet <edumazet@google.com>,
+        Wei Wang <weiwan@google.com>, Luca BRUNO <lucab@debian.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 22/09/17 00:11, Y Song wrote:
-> On Thu, Sep 21, 2017 at 12:58 PM, Edward Cree <ecree@solarflare.com> wrote:
->> On 21/09/17 20:44, Alexei Starovoitov wrote:
->>> On Thu, Sep 21, 2017 at 09:29:33PM +0200, Daniel Borkmann wrote:
->>>> More intuitive, but agree on the from_be/le. Maybe we should
->>>> just drop the "to_" prefix altogether, and leave the rest as is since
->>>> it's not surrounded by braces, it's also not a cast but rather an op.
->> That works for me.
->>> 'be16 r4' is ambiguous regarding upper bits.
->>>
->>> what about my earlier suggestion:
->>> r4 = (be16) (u16) r4
->>> r4 = (le64) (u64) r4
->>>
->>> It will be pretty clear what instruction is doing (that upper bits become zero).
->> Trouble with that is that's very *not* what C will do with those casts
->>  and it doesn't really capture the bidirectional/symmetry thing.  The
->>  closest I could see with that is something like `r4 = (be16/u16) r4`,
->>  but that's quite an ugly mongrel.
->> I think Daniel's idea of `be16`, `le32` etc one-arg opcodes is the
->>  cleanest and clearest.  Should it be
->>     r4 = be16 r4
->>  or just
->>     be16 r4
->> ?  Personally I incline towards the latter, but admit it doesn't really
->>  match the syntax of other opcodes.
-> I did some quick prototyping in llvm to make sure we have a syntax
-> llvm is happy. Apparently, llvm does not like the syntax
->    r4 = be16 r4    or    r4 = (be16) (u16) r4.
->
-> In llvm:utils/TableGen/AsmMatcherEmitter.cpp:
->
->     // Verify that any operand is only mentioned once.
-Wait, how do you deal with (totally legal) r4 += r4?
-Or r4 = *(r4 +0)?
-Even jumps can have src_reg == dst_reg, though it doesn't seem useful.
+Different namespace application might require enable TCP Fast Open
+feature independently of the host.
+
+This patch series continues making more of the TCP Fast Open related
+sysctl knobs be per net-namespace.
+
+Reported-by: Luca BRUNO <lucab@debian.org>
+Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+
+---
+Change since v4:
+  * Fix potential leak issue
+  * Fix typo error
+  * Split the patches to be per-sysctl
+  * Remove unrelated change by mistake
+---
+ include/net/netns/ipv4.h   |  1 +
+ include/net/tcp.h          |  1 -
+ net/ipv4/af_inet.c         |  7 ++++---
+ net/ipv4/sysctl_net_ipv4.c | 14 +++++++-------
+ net/ipv4/tcp.c             |  4 ++--
+ net/ipv4/tcp_fastopen.c    | 11 +++++------
+ net/ipv4/tcp_ipv4.c        |  2 ++
+ 7 files changed, 21 insertions(+), 19 deletions(-)
+
+diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
+index 20d061c..ce6dde0 100644
+--- a/include/net/netns/ipv4.h
++++ b/include/net/netns/ipv4.h
+@@ -127,6 +127,7 @@ struct netns_ipv4 {
+ 	int sysctl_tcp_timestamps;
+ 	struct inet_timewait_death_row tcp_death_row;
+ 	int sysctl_max_syn_backlog;
++	int sysctl_tcp_fastopen;
+ 
+ #ifdef CONFIG_NET_L3_MASTER_DEV
+ 	int sysctl_udp_l3mdev_accept;
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index b510f28..f628967 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -240,7 +240,6 @@
+ 
+ 
+ /* sysctl variables for tcp */
+-extern int sysctl_tcp_fastopen;
+ extern int sysctl_tcp_retrans_collapse;
+ extern int sysctl_tcp_stdurg;
+ extern int sysctl_tcp_rfc1337;
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index e31108e..ddd126d 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -195,7 +195,7 @@ int inet_listen(struct socket *sock, int backlog)
+ {
+ 	struct sock *sk = sock->sk;
+ 	unsigned char old_state;
+-	int err;
++	int err, tcp_fastopen;
+ 
+ 	lock_sock(sk);
+ 
+@@ -217,8 +217,9 @@ int inet_listen(struct socket *sock, int backlog)
+ 		 * because the socket was in TCP_LISTEN state previously but
+ 		 * was shutdown() rather than close().
+ 		 */
+-		if ((sysctl_tcp_fastopen & TFO_SERVER_WO_SOCKOPT1) &&
+-		    (sysctl_tcp_fastopen & TFO_SERVER_ENABLE) &&
++		tcp_fastopen = sock_net(sk)->ipv4.sysctl_tcp_fastopen;
++		if ((tcp_fastopen & TFO_SERVER_WO_SOCKOPT1) &&
++		    (tcp_fastopen & TFO_SERVER_ENABLE) &&
+ 		    !inet_csk(sk)->icsk_accept_queue.fastopenq.max_qlen) {
+ 			fastopen_queue_tune(sk, backlog);
+ 			tcp_fastopen_init_key_once(true);
+diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+index 0d3c038..e31e853c 100644
+--- a/net/ipv4/sysctl_net_ipv4.c
++++ b/net/ipv4/sysctl_net_ipv4.c
+@@ -401,13 +401,6 @@ static int proc_tcp_available_ulp(struct ctl_table *ctl,
+ 		.proc_handler	= proc_dointvec
+ 	},
+ 	{
+-		.procname	= "tcp_fastopen",
+-		.data		= &sysctl_tcp_fastopen,
+-		.maxlen		= sizeof(int),
+-		.mode		= 0644,
+-		.proc_handler	= proc_dointvec,
+-	},
+-	{
+ 		.procname	= "tcp_fastopen_key",
+ 		.mode		= 0600,
+ 		.maxlen		= ((TCP_FASTOPEN_KEY_LENGTH * 2) + 10),
+@@ -1085,6 +1078,13 @@ static int proc_tcp_available_ulp(struct ctl_table *ctl,
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec
+ 	},
++	{
++		.procname	= "tcp_fastopen",
++		.data		= &init_net.ipv4.sysctl_tcp_fastopen,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= proc_dointvec,
++	},
+ #ifdef CONFIG_IP_ROUTE_MULTIPATH
+ 	{
+ 		.procname	= "fib_multipath_use_neigh",
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 5091402..dac56c4 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -1126,7 +1126,7 @@ static int tcp_sendmsg_fastopen(struct sock *sk, struct msghdr *msg,
+ 	struct sockaddr *uaddr = msg->msg_name;
+ 	int err, flags;
+ 
+-	if (!(sysctl_tcp_fastopen & TFO_CLIENT_ENABLE) ||
++	if (!(sock_net(sk)->ipv4.sysctl_tcp_fastopen & TFO_CLIENT_ENABLE) ||
+ 	    (uaddr && msg->msg_namelen >= sizeof(uaddr->sa_family) &&
+ 	     uaddr->sa_family == AF_UNSPEC))
+ 		return -EOPNOTSUPP;
+@@ -2759,7 +2759,7 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
+ 	case TCP_FASTOPEN_CONNECT:
+ 		if (val > 1 || val < 0) {
+ 			err = -EINVAL;
+-		} else if (sysctl_tcp_fastopen & TFO_CLIENT_ENABLE) {
++		} else if (net->ipv4.sysctl_tcp_fastopen & TFO_CLIENT_ENABLE) {
+ 			if (sk->sk_state == TCP_CLOSE)
+ 				tp->fastopen_connect = val;
+ 			else
+diff --git a/net/ipv4/tcp_fastopen.c b/net/ipv4/tcp_fastopen.c
+index e3c3322..31b08ec 100644
+--- a/net/ipv4/tcp_fastopen.c
++++ b/net/ipv4/tcp_fastopen.c
+@@ -9,8 +9,6 @@
+ #include <net/inetpeer.h>
+ #include <net/tcp.h>
+ 
+-int sysctl_tcp_fastopen __read_mostly = TFO_CLIENT_ENABLE;
+-
+ struct tcp_fastopen_context __rcu *tcp_fastopen_ctx;
+ 
+ static DEFINE_SPINLOCK(tcp_fastopen_ctx_lock);
+@@ -279,21 +277,22 @@ struct sock *tcp_try_fastopen(struct sock *sk, struct sk_buff *skb,
+ 			      struct request_sock *req,
+ 			      struct tcp_fastopen_cookie *foc)
+ {
+-	struct tcp_fastopen_cookie valid_foc = { .len = -1 };
+ 	bool syn_data = TCP_SKB_CB(skb)->end_seq != TCP_SKB_CB(skb)->seq + 1;
++	int tcp_fastopen = sock_net(sk)->ipv4.sysctl_tcp_fastopen;
++	struct tcp_fastopen_cookie valid_foc = { .len = -1 };
+ 	struct sock *child;
+ 
+ 	if (foc->len == 0) /* Client requests a cookie */
+ 		NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPFASTOPENCOOKIEREQD);
+ 
+-	if (!((sysctl_tcp_fastopen & TFO_SERVER_ENABLE) &&
++	if (!((tcp_fastopen & TFO_SERVER_ENABLE) &&
+ 	      (syn_data || foc->len >= 0) &&
+ 	      tcp_fastopen_queue_check(sk))) {
+ 		foc->len = -1;
+ 		return NULL;
+ 	}
+ 
+-	if (syn_data && (sysctl_tcp_fastopen & TFO_SERVER_COOKIE_NOT_REQD))
++	if (syn_data && (tcp_fastopen & TFO_SERVER_COOKIE_NOT_REQD))
+ 		goto fastopen;
+ 
+ 	if (foc->len >= 0 &&  /* Client presents or requests a cookie */
+@@ -347,7 +346,7 @@ bool tcp_fastopen_cookie_check(struct sock *sk, u16 *mss,
+ 		return false;
+ 	}
+ 
+-	if (sysctl_tcp_fastopen & TFO_CLIENT_NO_COOKIE) {
++	if (sock_net(sk)->ipv4.sysctl_tcp_fastopen & TFO_CLIENT_NO_COOKIE) {
+ 		cookie->len = -1;
+ 		return true;
+ 	}
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index d9416b5..88409b1 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -2472,6 +2472,8 @@ static int __net_init tcp_sk_init(struct net *net)
+ 	net->ipv4.sysctl_tcp_window_scaling = 1;
+ 	net->ipv4.sysctl_tcp_timestamps = 1;
+ 
++	net->ipv4.sysctl_tcp_fastopen = TFO_CLIENT_ENABLE;
++
+ 	return 0;
+ fail:
+ 	tcp_sk_exit(net);
+-- 
+1.8.3.1
