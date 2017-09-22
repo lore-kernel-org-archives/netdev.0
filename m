@@ -1,60 +1,59 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] hv_netvsc:  make const array ver_list static,
- reduces object code size
-Date: Fri, 22 Sep 2017 16:50:23 +0100
-Message-ID: <20170922155023.15821-1-colin.king@canonical.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "K . Y . Srinivasan" <kys@microsoft.com>,
- Haiyang Zhang <haiyangz@microsoft.com>,
- Stephen Hemminger <sthemmin@microsoft.com>, devel@linuxdriverproject.org,
- netdev@vger.kernel.org
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+From: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+Subject: [net-next] net: remove MTU limits for dummy and ifb device
+Date: Fri, 22 Sep 2017 23:57:49 +0800
+Message-ID: <1506095869-5465-1-git-send-email-zhangshengju@cmss.chinamobile.com>
+To: davem@davemloft.net, sd@queasysnail.net, edumazet@google.com,
+        netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cmccmta3.chinamobile.com ([221.176.66.81]:3007 "EHLO
+        cmccmta3.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752078AbdIVP6f (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 22 Sep 2017 11:58:35 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin Ian King <colin.king@canonical.com>
+These two drivers (dummy and ifb) call ether_setup(), after commit
+61e84623ace3 ("net: centralize net_device min/max MTU checking"), the
+range of mtu is [min_mtu, max_mtu], which is [68, 1500] by default.
 
-Don't populate const array ver_list on the stack, instead make it
-static. Makes the object code smaller by over 400 bytes:
+These two devices should not have limits on MTU. This patch set their
+min_mtu/max_mtu to 0. So that dev_set_mtu() will not check the mtu range,
+and can be set with any value.
 
-Before:
-   text	   data	    bss	    dec	    hex	filename
-  18444	   3168	    320	  21932	   55ac	drivers/net/hyperv/netvsc.o
-
-After:
-   text	   data	    bss	    dec	    hex	filename
-  17950	   3224	    320	  21494	   53f6	drivers/net/hyperv/netvsc.o
-
-(gcc 6.3.0, x86-64)
-
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
+CC: Eric Dumazet <edumazet@google.com>
+CC: Sabrina Dubroca <sd@queasysnail.net>
+Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
 ---
- drivers/net/hyperv/netvsc.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/dummy.c | 2 +-
+ drivers/net/ifb.c   | 3 +++
+ 2 files changed, 4 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index 8d5077fb0492..b0d323e24978 100644
---- a/drivers/net/hyperv/netvsc.c
-+++ b/drivers/net/hyperv/netvsc.c
-@@ -484,7 +484,7 @@ static int netvsc_connect_vsp(struct hv_device *device,
- 			      struct netvsc_device *net_device,
- 			      const struct netvsc_device_info *device_info)
- {
--	const u32 ver_list[] = {
-+	static const u32 ver_list[] = {
- 		NVSP_PROTOCOL_VERSION_1, NVSP_PROTOCOL_VERSION_2,
- 		NVSP_PROTOCOL_VERSION_4, NVSP_PROTOCOL_VERSION_5
- 	};
+diff --git a/drivers/net/dummy.c b/drivers/net/dummy.c
+index e31ab3b..58483af 100644
+--- a/drivers/net/dummy.c
++++ b/drivers/net/dummy.c
+@@ -353,7 +353,7 @@ static void dummy_setup(struct net_device *dev)
+ 	eth_hw_addr_random(dev);
+ 
+ 	dev->min_mtu = 0;
+-	dev->max_mtu = ETH_MAX_MTU;
++	dev->max_mtu = 0;
+ }
+ 
+ static int dummy_validate(struct nlattr *tb[], struct nlattr *data[],
+diff --git a/drivers/net/ifb.c b/drivers/net/ifb.c
+index 8870bd2..0008da7 100644
+--- a/drivers/net/ifb.c
++++ b/drivers/net/ifb.c
+@@ -231,6 +231,9 @@ static void ifb_setup(struct net_device *dev)
+ 	eth_hw_addr_random(dev);
+ 	dev->needs_free_netdev = true;
+ 	dev->priv_destructor = ifb_dev_free;
++
++	dev->min_mtu = 0;
++	dev->max_mtu = 0;
+ }
+ 
+ static netdev_tx_t ifb_xmit(struct sk_buff *skb, struct net_device *dev)
 -- 
-2.14.1
+1.8.3.1
