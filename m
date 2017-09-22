@@ -1,49 +1,41 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 v2] man: fix documentation for range of route
- table ID
-Date: Fri, 22 Sep 2017 10:09:50 -0700
-Message-ID: <20170922100950.6c476012@xeon-e3>
-References: <20170921182647.GB30364@orbyte.nwl.cc>
-        <20170922112854.21289-1-thaller@redhat.com>
+From: =?UTF-8?B?TWFoZXNoIEJhbmRld2FyICjgpK7gpLngpYfgpLYg4KSs4KSC4KSh4KWH4KS14KS+4KSwKQ==?=
+        <maheshb@google.com>
+Subject: Re: [PATCH,v2,net-next 1/2] tun: enable NAPI for TUN/TAP driver
+Date: Fri, 22 Sep 2017 10:11:00 -0700
+Message-ID: <CAF2d9jh=H1O4JR3u=Rs3ODuQRF-Qp2wzzhAVf3PQ_f_Ox98eKQ@mail.gmail.com>
+References: <20170922021715.2618-1-peterpenkov96@gmail.com> <20170922021715.2618-2-peterpenkov96@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Phil Sutter <phil@nwl.cc>
-To: Thomas Haller <thaller@redhat.com>
+Content-Type: text/plain; charset="UTF-8"
+Cc: linux-netdev <netdev@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>,
+        Willem de Bruijn <willemb@google.com>,
+        David Miller <davem@davemloft.net>,
+        Petar Bozhidarov Penkov <ppenkov@stanford.edu>
+To: Petar Penkov <peterpenkov96@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f45.google.com ([74.125.83.45]:52303 "EHLO
-        mail-pg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752377AbdIVRJw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 22 Sep 2017 13:09:52 -0400
-Received: by mail-pg0-f45.google.com with SMTP id i195so902893pgd.9
-        for <netdev@vger.kernel.org>; Fri, 22 Sep 2017 10:09:52 -0700 (PDT)
-In-Reply-To: <20170922112854.21289-1-thaller@redhat.com>
+Received: from mail-yw0-f180.google.com ([209.85.161.180]:46315 "EHLO
+        mail-yw0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752020AbdIVRLV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 22 Sep 2017 13:11:21 -0400
+Received: by mail-yw0-f180.google.com with SMTP id v72so1182057ywa.3
+        for <netdev@vger.kernel.org>; Fri, 22 Sep 2017 10:11:21 -0700 (PDT)
+In-Reply-To: <20170922021715.2618-2-peterpenkov96@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 22 Sep 2017 13:28:54 +0200
-Thomas Haller <thaller@redhat.com> wrote:
-
-> Signed-off-by: Thomas Haller <thaller@redhat.com>
-> ---
-> Changes in v2:
->   - "0" is not a valid table ID.
-> 
->  man/man8/ip-route.8.in | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/man/man8/ip-route.8.in b/man/man8/ip-route.8.in
-> index 803de3b9..705ceb20 100644
-> --- a/man/man8/ip-route.8.in
-> +++ b/man/man8/ip-route.8.in
-> @@ -322,7 +322,7 @@ normal routing tables.
->  .P
->  .B Route tables:
->  Linux-2.x can pack routes into several routing tables identified
-> -by a number in the range from 1 to 2^31 or by name from the file
-> +by a number in the range from 1 to 2^32-1 or by name from the file
->  .B @SYSCONFDIR@/rt_tables
->  By default all normal routes are inserted into the
->  .B main
-
-Applied
+>  #ifdef CONFIG_TUN_VNET_CROSS_LE
+>  static inline bool tun_legacy_is_little_endian(struct tun_struct *tun)
+>  {
+> @@ -541,6 +604,11 @@ static void __tun_detach(struct tun_file *tfile, bool clean)
+>
+>         tun = rtnl_dereference(tfile->tun);
+>
+> +       if (tun && clean) {
+> +               tun_napi_disable(tun, tfile);
+are we missing synchronize_net() separating disable and del calls?
+> +               tun_napi_del(tun, tfile);
+> +       }
+> +
+>         if (tun && !tfile->detached) {
+>                 u16 index = tfile->queue_index;
+>                 BUG_ON(index >= tun->numqueues);
