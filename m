@@ -1,218 +1,198 @@
-From: Russell King - ARM Linux <linux@armlinux.org.uk>
-Subject: Re: [PATCH net-next] net: mvpp2: phylink support
-Date: Fri, 22 Sep 2017 12:07:31 +0100
-Message-ID: <20170922110731.GG20805@n2100.armlinux.org.uk>
-References: <20170921134522.10993-1-antoine.tenart@free-electrons.com>
+From: Matt Redfearn <matt.redfearn@imgtec.com>
+Subject: [PATCH] net: stmmac: Meet alignment requirements for DMA
+Date: Fri, 22 Sep 2017 12:13:53 +0100
+Message-ID: <1506078833-14002-1-git-send-email-matt.redfearn@imgtec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, andrew@lunn.ch,
-        gregory.clement@free-electrons.com,
-        thomas.petazzoni@free-electrons.com,
-        miquel.raynal@free-electrons.com, nadavh@marvell.com,
-        linux-kernel@vger.kernel.org, mw@semihalf.com, stefanc@marvell.com,
-        netdev@vger.kernel.org
-To: Antoine Tenart <antoine.tenart@free-electrons.com>
+Content-Type: text/plain
+Cc: Matt Redfearn <matt.redfearn@imgtec.com>, <netdev@vger.kernel.org>,
+        Alexandre Torgue <alexandre.torgue@st.com>,
+        Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+        <linux-kernel@vger.kernel.org>
+To: "David S . Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170921134522.10993-1-antoine.tenart@free-electrons.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 21, 2017 at 03:45:22PM +0200, Antoine Tenart wrote:
-> Convert the PPv2 driver to use phylink, which models the MAC to PHY
-> link. The phylink support is made such a way the GoP link IRQ can still
-> be used: the two modes are incompatible and the GoP link IRQ will be
-> used if no PHY is described in the device tree. This is the same
-> behaviour as before.
+According to Documentation/DMA-API.txt:
+ Warnings:  Memory coherency operates at a granularity called the cache
+ line width.  In order for memory mapped by this API to operate
+ correctly, the mapped region must begin exactly on a cache line
+ boundary and end exactly on one (to prevent two separately mapped
+ regions from sharing a single cache line).  Since the cache line size
+ may not be known at compile time, the API will not enforce this
+ requirement.  Therefore, it is recommended that driver writers who
+ don't take special care to determine the cache line size at run time
+ only map virtual regions that begin and end on page boundaries (which
+ are guaranteed also to be cache line boundaries).
 
-This makes no sense.  The point of phylink is to be able to support SFP
-cages, and SFP cages do not have a PHY described in DT.  So, when you
-want to use phylink because of SFP, you can't, because if you omit
-the PHY the driver avoids using phylink.
+On some systems where DMA is non-coherent and requires software
+writeback / invalidate of the caches, we must ensure that
+dma_(un)map_single is called with a cacheline aligned buffer and a
+length of a whole number of cachelines.
 
-> +static void mvpp2_phylink_validate(struct net_device *dev,
-> +				   unsigned long *supported,
-> +				   struct phylink_link_state *state)
-> +{
-> +	__ETHTOOL_DECLARE_LINK_MODE_MASK(mask) = { 0, };
-> +
-> +	phylink_set_port_modes(mask);
-> +
-> +	phylink_set(mask, Autoneg);
-> +	phylink_set(mask, Pause);
-> +	phylink_set(mask, Asym_Pause);
-> +
-> +	phylink_set(mask, 10baseT_Half);
-> +	phylink_set(mask, 10baseT_Full);
-> +	phylink_set(mask, 100baseT_Half);
-> +	phylink_set(mask, 100baseT_Full);
-> +	phylink_set(mask, 1000baseT_Half);
-> +	phylink_set(mask, 1000baseT_Full);
-> +	phylink_set(mask, 1000baseX_Full);
-> +	phylink_set(mask, 10000baseKR_Full);
-> +
-> +	bitmap_and(supported, supported, mask, __ETHTOOL_LINK_MODE_MASK_NBITS);
-> +	bitmap_and(state->advertising, state->advertising, mask,
-> +		   __ETHTOOL_LINK_MODE_MASK_NBITS);
-> +}
+To address the alignment requirements of DMA buffers, keep a separate
+entry in stmmac_rx_queue for the aligned skbuff head. Use this for
+dma_map_single, such that the address meets the cacheline alignment
+requirents. Use skb_headroom() to convert between rx_skbuff_head, the
+aligned head of the buffer, and the packet data, rx_skbuff_dma.
 
-I don't think you've understood this despite the comments in the header
-file.  What you describe above basically means you don't support any
-kind of copper connection at 10G speeds, or any fiber modes at 10G
-speeds either.
+Tested on a Creator Ci40 with Pistachio SoC.
 
-You need to set 10000baseT_Full for copper, 10000baseSR_Full,
-10000baseLR_Full, 10000baseLRM_Full etc for fiber.  Had you looked at
-my modifications for Marvell's mvpp2x driver you'd have spotted this...
+Signed-off-by: Matt Redfearn <matt.redfearn@imgtec.com>
+---
 
-> +
-> +static int mvpp2_phylink_mac_link_state(struct net_device *dev,
-> +					struct phylink_link_state *state)
-> +{
-> +	struct mvpp2_port *port = netdev_priv(dev);
-> +	u32 val;
-> +
-> +	if (!phy_interface_mode_is_rgmii(port->phy_interface) &&
-> +	    port->phy_interface != PHY_INTERFACE_MODE_SGMII)
-> +		return 0;
+ drivers/net/ethernet/stmicro/stmmac/stmmac.h      |  1 +
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 50 ++++++++++++++++-------
+ 2 files changed, 36 insertions(+), 15 deletions(-)
 
-You're blocking this for 1000base-X and 10G connections, which is not
-correct.  The expectation is that this function returns the current
-MAC state irrespective of the interface mode.
-
-> +
-> +	val = readl(port->base + MVPP2_GMAC_STATUS0);
-> +
-> +	state->an_complete = !!(val & MVPP2_GMAC_STATUS0_AN_COMPLETE);
-> +	state->link = !!(val & MVPP2_GMAC_STATUS0_LINK_UP);
-> +	state->duplex = !!(val & MVPP2_GMAC_STATUS0_FULL_DUPLEX);
-> +
-> +	if (val & MVPP2_GMAC_STATUS0_GMII_SPEED)
-> +		state->speed = SPEED_1000;
-> +	else
-> +		state->speed = (val & MVPP2_GMAC_STATUS0_MII_SPEED) ?
-> +			       SPEED_100 : SPEED_10;
-> +
-> +	state->pause = 0;
-> +	if (val & MVPP2_GMAC_STATUS0_RX_PAUSE)
-> +		state->pause |= MLO_PAUSE_RX;
-> +	if (val & MVPP2_GMAC_STATUS0_TX_PAUSE)
-> +		state->pause |= MLO_PAUSE_TX;
-> +
-> +	return 1;
-> +}
-> +
-> +static void mvpp2_mac_an_restart(struct net_device *dev)
-> +{
-> +	struct mvpp2_port *port = netdev_priv(dev);
-> +	u32 val;
-> +
-> +	if (!phy_interface_mode_is_rgmii(port->phy_interface) &&
-> +	    port->phy_interface != PHY_INTERFACE_MODE_SGMII)
-> +		return;
-
-This prevents AN restart in 1000base-X mode, which is exactly the
-mode that you need to do this.  SGMII doesn't care, and RGMII doesn't
-have inband AN.
-
-> +
-> +	val = readl(port->base + MVPP2_GMAC_AUTONEG_CONFIG);
-> +	val |= MVPP2_GMAC_IN_BAND_RESTART_AN;
-> +	writel(val, port->base + MVPP2_GMAC_AUTONEG_CONFIG);
-> +}
-> +
-> +static void mvpp2_mac_config(struct net_device *dev, unsigned int mode,
-> +			     const struct phylink_link_state *state)
-> +{
-> +	struct mvpp2_port *port = netdev_priv(dev);
-> +	u32 val;
-> +
-> +	/* disable current port for reconfiguration */
-> +	mvpp2_interrupts_disable(port);
-> +	netif_carrier_off(port->dev);
-> +	mvpp2_port_disable(port);
-> +	phy_power_off(port->comphy);
-> +
-> +	/* comphy reconfiguration */
-> +	port->phy_interface = state->interface;
-> +	mvpp22_comphy_init(port);
-> +
-> +	/* gop/mac reconfiguration */
-> +	mvpp22_gop_init(port);
-> +	mvpp2_port_mii_set(port);
-> +
-> +	if (!phy_interface_mode_is_rgmii(port->phy_interface) &&
-> +	    port->phy_interface != PHY_INTERFACE_MODE_SGMII)
-> +		return;
-
-Again, 1000base-X is excluded, which will break it.  You do need
-to avoid touching the GMAC for 10G connections however.
-
-> +
-> +	val = readl(port->base + MVPP2_GMAC_AUTONEG_CONFIG);
-> +	val &= ~(MVPP2_GMAC_CONFIG_MII_SPEED |
-> +		 MVPP2_GMAC_CONFIG_GMII_SPEED |
-> +		 MVPP2_GMAC_CONFIG_FULL_DUPLEX |
-> +		 MVPP2_GMAC_AN_SPEED_EN |
-> +		 MVPP2_GMAC_AN_DUPLEX_EN);
-> +
-> +	if (state->duplex)
-> +		val |= MVPP2_GMAC_CONFIG_FULL_DUPLEX;
-> +
-> +	if (state->speed == SPEED_1000)
-> +		val |= MVPP2_GMAC_CONFIG_GMII_SPEED;
-> +	else if (state->speed == SPEED_100)
-> +		val |= MVPP2_GMAC_CONFIG_MII_SPEED;
-> +
-> +	writel(val, port->base + MVPP2_GMAC_AUTONEG_CONFIG);
-
-You're assuming that this function only sets the current parameters for
-the MAC.  That's incorrect - it also needs to deal with autonegotiation
-for inband AN, such as SGMII and 1000base-X.
-
-> +
-> +	if (port->priv->hw_version == MVPP21 && port->flags & MVPP2_F_LOOPBACK)
-> +		mvpp2_port_loopback_set(port, state);
-> +}
-> +
-> +static void mvpp2_mac_link_down(struct net_device *dev, unsigned int mode)
-> +{
-> +	struct mvpp2_port *port = netdev_priv(dev);
-> +	u32 val;
-> +
-> +	netif_tx_stop_all_queues(dev);
-> +	netif_carrier_off(dev);
-> +	mvpp2_ingress_disable(port);
-> +	mvpp2_egress_disable(port);
-> +
-> +	mvpp2_port_disable(port);
-> +	mvpp2_interrupts_disable(port);
-> +
-> +	if (!phylink_autoneg_inband(mode)) {
-> +		val = readl(port->base + MVPP2_GMAC_AUTONEG_CONFIG);
-> +		val &= ~MVPP2_GMAC_FORCE_LINK_PASS;
-> +		val |= MVPP2_GMAC_FORCE_LINK_DOWN;
-> +		writel(val, port->base + MVPP2_GMAC_AUTONEG_CONFIG);
-> +	}
-
-Please explain why you think its necessary to force the link down when
-the link is already down - if there's no media connected, we only
-need to stop the ingress and egress.
-
-It's certainly wrong to disable interrupts - how do we end up with
-link status changes reported from the MAC to phylink if interrupts
-have been disabled?
-
-phylink in the presence of a PHY checks that both the PHY _and_ MAC
-are reporting link before it calls mac_link_up(), so if you've
-disabled interrupts...
-
-
-You guys know that I have working example code for both mvneta and the
-Marvell PP2x driver.  It probably would help if you looked at those
-examples.
-
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+index a916e13624eb..dd26a724dee7 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+@@ -67,6 +67,7 @@ struct stmmac_rx_queue {
+ 	struct dma_desc *dma_rx ____cacheline_aligned_in_smp;
+ 	struct sk_buff **rx_skbuff;
+ 	dma_addr_t *rx_skbuff_dma;
++	dma_addr_t *rx_skbuff_head;
+ 	unsigned int cur_rx;
+ 	unsigned int dirty_rx;
+ 	u32 rx_zeroc_thresh;
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 1763e48c84e2..da68eeff2a1c 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -1132,14 +1132,16 @@ static int stmmac_init_rx_buffers(struct stmmac_priv *priv, struct dma_desc *p,
+ 		return -ENOMEM;
+ 	}
+ 	rx_q->rx_skbuff[i] = skb;
+-	rx_q->rx_skbuff_dma[i] = dma_map_single(priv->device, skb->data,
+-						priv->dma_buf_sz,
+-						DMA_FROM_DEVICE);
+-	if (dma_mapping_error(priv->device, rx_q->rx_skbuff_dma[i])) {
++	rx_q->rx_skbuff_head[i] = dma_map_single(priv->device, skb->head,
++						 skb_headroom(skb) +
++						 priv->dma_buf_sz,
++						 DMA_FROM_DEVICE);
++	if (dma_mapping_error(priv->device, rx_q->rx_skbuff_head[i])) {
+ 		netdev_err(priv->dev, "%s: DMA mapping error\n", __func__);
+ 		dev_kfree_skb_any(skb);
+ 		return -EINVAL;
+ 	}
++	rx_q->rx_skbuff_dma[i] = rx_q->rx_skbuff_head[i] + skb_headroom(skb);
+ 
+ 	if (priv->synopsys_id >= DWMAC_CORE_4_00)
+ 		p->des0 = cpu_to_le32(rx_q->rx_skbuff_dma[i]);
+@@ -1164,7 +1166,8 @@ static void stmmac_free_rx_buffer(struct stmmac_priv *priv, u32 queue, int i)
+ 	struct stmmac_rx_queue *rx_q = &priv->rx_queue[queue];
+ 
+ 	if (rx_q->rx_skbuff[i]) {
+-		dma_unmap_single(priv->device, rx_q->rx_skbuff_dma[i],
++		dma_unmap_single(priv->device, rx_q->rx_skbuff_head[i],
++				 skb_headroom(rx_q->rx_skbuff[i]) +
+ 				 priv->dma_buf_sz, DMA_FROM_DEVICE);
+ 		dev_kfree_skb_any(rx_q->rx_skbuff[i]);
+ 	}
+@@ -1438,6 +1441,7 @@ static void free_dma_rx_desc_resources(struct stmmac_priv *priv)
+ 					  rx_q->dma_erx, rx_q->dma_rx_phy);
+ 
+ 		kfree(rx_q->rx_skbuff_dma);
++		kfree(rx_q->rx_skbuff_head);
+ 		kfree(rx_q->rx_skbuff);
+ 	}
+ }
+@@ -1500,6 +1504,12 @@ static int alloc_dma_rx_desc_resources(struct stmmac_priv *priv)
+ 		if (!rx_q->rx_skbuff_dma)
+ 			goto err_dma;
+ 
++		rx_q->rx_skbuff_head = kmalloc_array(DMA_RX_SIZE,
++						     sizeof(dma_addr_t),
++						     GFP_KERNEL);
++		if (!rx_q->rx_skbuff_head)
++			goto err_dma;
++
+ 		rx_q->rx_skbuff = kmalloc_array(DMA_RX_SIZE,
+ 						sizeof(struct sk_buff *),
+ 						GFP_KERNEL);
+@@ -3225,15 +3235,18 @@ static inline void stmmac_rx_refill(struct stmmac_priv *priv, u32 queue)
+ 			}
+ 
+ 			rx_q->rx_skbuff[entry] = skb;
+-			rx_q->rx_skbuff_dma[entry] =
+-			    dma_map_single(priv->device, skb->data, bfsize,
++			rx_q->rx_skbuff_head[entry] =
++			    dma_map_single(priv->device, skb->head,
++					   skb_headroom(skb) + bfsize,
+ 					   DMA_FROM_DEVICE);
+ 			if (dma_mapping_error(priv->device,
+-					      rx_q->rx_skbuff_dma[entry])) {
++					      rx_q->rx_skbuff_head[entry])) {
+ 				netdev_err(priv->dev, "Rx DMA map failed\n");
+ 				dev_kfree_skb(skb);
+ 				break;
+ 			}
++			rx_q->rx_skbuff_dma[entry] = rx_q->rx_skbuff_head[entry]
++						     + skb_headroom(skb);
+ 
+ 			if (unlikely(priv->synopsys_id >= DWMAC_CORE_4_00)) {
+ 				p->des0 = cpu_to_le32(rx_q->rx_skbuff_dma[entry]);
+@@ -3333,10 +3346,12 @@ static int stmmac_rx(struct stmmac_priv *priv, int limit, u32 queue)
+ 				 * them in stmmac_rx_refill() function so that
+ 				 * device can reuse it.
+ 				 */
++				int head = skb_headroom(rx_q->rx_skbuff[entry]);
++
+ 				rx_q->rx_skbuff[entry] = NULL;
+ 				dma_unmap_single(priv->device,
+-						 rx_q->rx_skbuff_dma[entry],
+-						 priv->dma_buf_sz,
++						 rx_q->rx_skbuff_head[entry],
++						 head + priv->dma_buf_sz,
+ 						 DMA_FROM_DEVICE);
+ 			}
+ 		} else {
+@@ -3384,6 +3399,8 @@ static int stmmac_rx(struct stmmac_priv *priv, int limit, u32 queue)
+ 			if (unlikely(!priv->plat->has_gmac4 &&
+ 				     ((frame_len < priv->rx_copybreak) ||
+ 				     stmmac_rx_threshold_count(rx_q)))) {
++				int total_len;
++
+ 				skb = netdev_alloc_skb_ip_align(priv->dev,
+ 								frame_len);
+ 				if (unlikely(!skb)) {
+@@ -3394,9 +3411,11 @@ static int stmmac_rx(struct stmmac_priv *priv, int limit, u32 queue)
+ 					break;
+ 				}
+ 
++				total_len = skb_headroom(skb) + frame_len;
++
+ 				dma_sync_single_for_cpu(priv->device,
+-							rx_q->rx_skbuff_dma
+-							[entry], frame_len,
++							rx_q->rx_skbuff_head
++							[entry], total_len,
+ 							DMA_FROM_DEVICE);
+ 				skb_copy_to_linear_data(skb,
+ 							rx_q->
+@@ -3405,8 +3424,8 @@ static int stmmac_rx(struct stmmac_priv *priv, int limit, u32 queue)
+ 
+ 				skb_put(skb, frame_len);
+ 				dma_sync_single_for_device(priv->device,
+-							   rx_q->rx_skbuff_dma
+-							   [entry], frame_len,
++							   rx_q->rx_skbuff_head
++							   [entry], total_len,
+ 							   DMA_FROM_DEVICE);
+ 			} else {
+ 				skb = rx_q->rx_skbuff[entry];
+@@ -3423,7 +3442,8 @@ static int stmmac_rx(struct stmmac_priv *priv, int limit, u32 queue)
+ 
+ 				skb_put(skb, frame_len);
+ 				dma_unmap_single(priv->device,
+-						 rx_q->rx_skbuff_dma[entry],
++						 rx_q->rx_skbuff_head[entry],
++						 skb_headroom(skb) +
+ 						 priv->dma_buf_sz,
+ 						 DMA_FROM_DEVICE);
+ 			}
 -- 
-RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
-FTTC broadband for 0.8mile line in suburbia: sync at 8.8Mbps down 630kbps up
-According to speedtest.net: 8.21Mbps down 510kbps up
+2.7.4
