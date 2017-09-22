@@ -1,59 +1,63 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: prevent dst uses after free
-Date: Thu, 21 Sep 2017 20:42:48 -0700 (PDT)
-Message-ID: <20170921.204248.634064806877379720.davem@davemloft.net>
-References: <80e8948e-669b-4139-add6-637c6dd3405f@itcare.pl>
-        <1506005799.29839.130.camel@edumazet-glaptop3.roam.corp.google.com>
-        <1506010546.29839.148.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [PATCH net-next 01/10] net: hns3: Support for dynamically
+ assigning tx buffer to TC
+Date: Thu, 21 Sep 2017 20:43:59 -0700 (PDT)
+Message-ID: <20170921.204359.2123810326286259256.davem@davemloft.net>
+References: <1505992913-107256-2-git-send-email-linyunsheng@huawei.com>
+        <20170921.184102.278153022575280817.davem@davemloft.net>
+        <8babe541-9409-7f66-e52b-922144c46fb0@huawei.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=euc-kr
-Content-Transfer-Encoding: 8bit
-Cc: pstaszewski@itcare.pl, weiwan@google.com, xiyou.wangcong@gmail.com,
-        netdev@vger.kernel.org, edumazet@google.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:41636 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751791AbdIVDmt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 23:42:49 -0400
-In-Reply-To: <1506010546.29839.148.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: huangdaode@hisilicon.com, xuwei5@hisilicon.com,
+        liguozhu@hisilicon.com, Yisen.Zhuang@huawei.com,
+        gabriele.paoloni@huawei.com, john.garry@huawei.com,
+        linuxarm@huawei.com, salil.mehta@huawei.com, lipeng321@huawei.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linyunsheng@huawei.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <8babe541-9409-7f66-e52b-922144c46fb0@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 21 Sep 2017 09:15:46 -0700
+From: Yunsheng Lin <linyunsheng@huawei.com>
+Date: Fri, 22 Sep 2017 09:57:31 +0800
 
-> From: Eric Dumazet <edumazet@google.com>
+> Hi, David
 > 
-> In linux-4.13, Wei worked hard to convert dst to a traditional
-> refcounted model, removing GC.
+> On 2017/9/22 9:41, David Miller wrote:
+>> From: Yunsheng Lin <linyunsheng@huawei.com>
+>> Date: Thu, 21 Sep 2017 19:21:44 +0800
+>> 
+>>> @@ -1324,23 +1324,28 @@ static int hclge_alloc_vport(struct hclge_dev *hdev)
+>>>  	return 0;
+>>>  }
+>>>  
+>>> -static int  hclge_cmd_alloc_tx_buff(struct hclge_dev *hdev, u16 buf_size)
+>>> +static int  hclge_cmd_alloc_tx_buff(struct hclge_dev *hdev)
+>>>  {
+>>>  /* TX buffer size is unit by 128 byte */
+>>>  #define HCLGE_BUF_SIZE_UNIT_SHIFT	7
+>>>  #define HCLGE_BUF_SIZE_UPDATE_EN_MSK	BIT(15)
+>>>  	struct hclge_tx_buff_alloc *req;
+>>> +	struct hclge_priv_buf *priv;
+>>>  	struct hclge_desc desc;
+>>> +	u32 buf_size;
+>>>  	int ret;
+>>>  	u8 i;
+>>>  
+>>>  	req = (struct hclge_tx_buff_alloc *)desc.data;
+>>>  
+>>>  	hclge_cmd_setup_basic_desc(&desc, HCLGE_OPC_TX_BUFF_ALLOC, 0);
+>>> -	for (i = 0; i < HCLGE_TC_NUM; i++)
+>>> +	for (i = 0; i < HCLGE_TC_NUM; i++) {
+>>> +		priv = &hdev->priv_buf[i];
+>>> +		buf_size = priv->tx_buf_size;
+>>>  		req->tx_pkt_buff[i] =
+>>>  			cpu_to_le16((buf_size >> HCLGE_BUF_SIZE_UNIT_SHIFT) |
 > 
-> We now want to make sure a dst refcount can not transition from 0 back
-> to 1.
-> 
-> The problem here is that input path attached a not refcounted dst to an
-> skb. Then later, because packet is forwarded and hits skb_dst_force()
-> before exiting RCU section, we might try to take a refcount on one dst
-> that is about to be freed, if another cpu saw 1 -> 0 transition in
-> dst_release() and queued the dst for freeing after one RCU grace period.
-> 
-> Lets unify skb_dst_force() and skb_dst_force_safe(), since we should
-> always perform the complete check against dst refcount, and not assume
-> it is not zero.
-> 
-> Bugzilla : https://bugzilla.kernel.org/show_bug.cgi?id=197005
- ...
-> Similarly dst_clone() can use dst_hold() helper to have additional
-> debugging, as a follow up to commit 44ebe79149ff ("net: add debug
-> atomic_inc_not_zero() in dst_hold()")
-> 
-> In net-next we will convert dst atomic_t to refcount_t for peace of
-> mind.
-> 
-> Fixes: a4c2fd7f7891 ("net: remove DST_NOCACHE flag")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Wei Wang <weiwan@google.com>
-> Reported-by: Pawe©© Staszewski <pstaszewski@itcare.pl>
-> Bisected-by: Pawe©© Staszewski <pstaszewski@itcare.pl>
+> buf_size is used here
 
-Applied and queued up for -stable, thanks Eric.
+My bad, I misread the code.
+
+Thanks.
