@@ -1,89 +1,99 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [Intel-wired-lan] [PATCH][V2] e1000: avoid null pointer
- dereference on invalid stat type
-Date: Fri, 22 Sep 2017 07:47:04 -0700
-Message-ID: <CAKgT0UdigPw=rpUoJSMDA98iLewQnn__P-wdn8A1Ltm0HU2jtA@mail.gmail.com>
-References: <20170922134131.12283-1-colin.king@canonical.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH net-next] bpf/verifier: improve disassembly of BPF_END
+ instructions
+Date: Fri, 22 Sep 2017 08:16:16 -0700
+Message-ID: <20170922151614.bg4ovrp6m27cppr7@ast-mbp>
+References: <4cfac985-4f99-cf85-fc15-c3ad1f8ff123@solarflare.com>
+ <CAH3MdRWAHJS8Y8ketOAghYyorVUp6JijjZcSVY7gOiGAr7e_pw@mail.gmail.com>
+ <207ecd4c-b1b4-3dcd-62a6-30824c19dbf7@solarflare.com>
+ <59C4131D.8050003@iogearbox.net>
+ <20170921194426.tnd5xos5irm3gred@ast-mbp>
+ <46aa4442-b8ed-e4c1-4897-8f650e23d448@solarflare.com>
+ <CAH3MdRVK-=pL8YCz44BPCmHhuZE_CRfih0QdZPLa=mpE_uoA_Q@mail.gmail.com>
+ <ec7d0485-11f4-4fdb-0b87-1fb0afdb4f11@solarflare.com>
+ <CAH3MdRVCf_wLoC7WOfaL2L2px3aYVWUhWxarMsyJdD7_E9fv_Q@mail.gmail.com>
+ <CAH3MdRXgVtVjhYQkRopPKvL+4+NaTRRJoJq6XD_S-Dra69j0hA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-        Netdev <netdev@vger.kernel.org>, kernel-janitors@vger.kernel.org,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Colin King <colin.king@canonical.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170922134131.12283-1-colin.king@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Edward Cree <ecree@solarflare.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>
+To: Y Song <ys114321@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f169.google.com ([209.85.192.169]:52136 "EHLO
+        mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751876AbdIVPQU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 22 Sep 2017 11:16:20 -0400
+Received: by mail-pf0-f169.google.com with SMTP id b70so693951pfl.8
+        for <netdev@vger.kernel.org>; Fri, 22 Sep 2017 08:16:19 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAH3MdRXgVtVjhYQkRopPKvL+4+NaTRRJoJq6XD_S-Dra69j0hA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 22, 2017 at 6:41 AM, Colin King <colin.king@canonical.com> wrote:
-> From: Colin Ian King <colin.king@canonical.com>
->
-> Currently if the stat type is invalid then data[i] is being set
-> either by dereferencing a null pointer p, or it is reading from
-> an incorrect previous location if we had a valid stat type
-> previously.  Fix this by nullify pointer p if a stat type is
-> invalid and only setting data if p is not null.
->
-> Detected by CoverityScan, CID#113385 ("Explicit null dereferenced")
->
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
-> ---
->  drivers/net/ethernet/intel/e1000/e1000_ethtool.c | 14 ++++++++------
->  1 file changed, 8 insertions(+), 6 deletions(-)
->
-> diff --git a/drivers/net/ethernet/intel/e1000/e1000_ethtool.c b/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
-> index ec8aa4562cc9..724c93a6ea92 100644
-> --- a/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
-> +++ b/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
-> @@ -1824,7 +1824,7 @@ static void e1000_get_ethtool_stats(struct net_device *netdev,
->  {
->         struct e1000_adapter *adapter = netdev_priv(netdev);
->         int i;
-> -       char *p = NULL;
-> +       char *p;
->         const struct e1000_stats *stat = e1000_gstrings_stats;
->
->         e1000_update_stats(adapter);
+On Fri, Sep 22, 2017 at 07:27:29AM -0700, Y Song wrote:
+> On Fri, Sep 22, 2017 at 7:11 AM, Y Song <ys114321@gmail.com> wrote:
+> > On Fri, Sep 22, 2017 at 6:46 AM, Edward Cree <ecree@solarflare.com> wrote:
+> >> On 22/09/17 00:11, Y Song wrote:
+> >>> On Thu, Sep 21, 2017 at 12:58 PM, Edward Cree <ecree@solarflare.com> wrote:
+> >>>> On 21/09/17 20:44, Alexei Starovoitov wrote:
+> >>>>> On Thu, Sep 21, 2017 at 09:29:33PM +0200, Daniel Borkmann wrote:
+> >>>>>> More intuitive, but agree on the from_be/le. Maybe we should
+> >>>>>> just drop the "to_" prefix altogether, and leave the rest as is since
+> >>>>>> it's not surrounded by braces, it's also not a cast but rather an op.
+> >>>> That works for me.
+> >>>>> 'be16 r4' is ambiguous regarding upper bits.
+> >>>>>
+> >>>>> what about my earlier suggestion:
+> >>>>> r4 = (be16) (u16) r4
+> >>>>> r4 = (le64) (u64) r4
+> >>>>>
+> >>>>> It will be pretty clear what instruction is doing (that upper bits become zero).
+> >>>> Trouble with that is that's very *not* what C will do with those casts
+> >>>>  and it doesn't really capture the bidirectional/symmetry thing.  The
+> >>>>  closest I could see with that is something like `r4 = (be16/u16) r4`,
+> >>>>  but that's quite an ugly mongrel.
+> >>>> I think Daniel's idea of `be16`, `le32` etc one-arg opcodes is the
+> >>>>  cleanest and clearest.  Should it be
+> >>>>     r4 = be16 r4
+> >>>>  or just
+> >>>>     be16 r4
+> >>>> ?  Personally I incline towards the latter, but admit it doesn't really
+> >>>>  match the syntax of other opcodes.
+> >>> I did some quick prototyping in llvm to make sure we have a syntax
+> >>> llvm is happy. Apparently, llvm does not like the syntax
+> >>>    r4 = be16 r4    or    r4 = (be16) (u16) r4.
+> >>>
+> >>> In llvm:utils/TableGen/AsmMatcherEmitter.cpp:
+> >>>
+> >>>     // Verify that any operand is only mentioned once.
+> >> Wait, how do you deal with (totally legal) r4 += r4?
+> >> Or r4 = *(r4 +0)?
+> >> Even jumps can have src_reg == dst_reg, though it doesn't seem useful.
+> >
+> > We are talking about dag node here. The above "r4", although using the same
+> > register, will be different dag nodes. So it will be okay.
+> >
+> > The "r4 = be16 r4" tries to use the *same* dag node as both source and
+> > destination
+> > in the asm output which is prohibited.
+> 
+> With second thought, we may allow "r4 = be16 r4" by using different dag nodes.
+> (I need to do experiment for this.) But we do have constraints that
+> the two "r4" must
+> be the same register.  "r5 = be16 r4"  is not allowed. So from that
+> perspective, referencing
+> "r4" only once is a good idea and less confusing.
 
-I was honestly happier with the portion of the first patch that moved
-this into the loop.
+looks like we're converging on
+"be16/be32/be64/le16/le32/le64 #register" for BPF_END.
+I guess it can live with that. I would prefer more C like syntax
+to match the rest, but llvm parsing point is a strong one.
 
-> @@ -1837,16 +1837,18 @@ static void e1000_get_ethtool_stats(struct net_device *netdev,
->                         p = (char *)adapter + stat->stat_offset;
->                         break;
->                 default:
-> +                       p = NULL;
->                         WARN_ONCE(1, "Invalid E1000 stat type: %u index %d\n",
->                                   stat->type, i);
->                         break;
->                 }
->
-> -               if (stat->sizeof_stat == sizeof(u64))
-> -                       data[i] = *(u64 *)p;
-> -               else
-> -                       data[i] = *(u32 *)p;
-> -
-> +               if (p) {
-> +                       if (stat->sizeof_stat == sizeof(u64))
-> +                               data[i] = *(u64 *)p;
-> +                       else
-> +                               data[i] = *(u32 *)p;
-> +               }
->                 stat++;
->         }
-
-Instead of doing all this why not just call out a "continue;" instead
-of a "break" if the type isn't recognized, and move the stat++ into
-the loop declaration and process it at the same time as i++? That
-would clean most of this up and we don't have to worry about any loop
-carried variables and the like.
-
->  /* BUG_ON(i != E1000_STATS_LEN); */
-> --
-> 2.14.1
->
-> _______________________________________________
-> Intel-wired-lan mailing list
-> Intel-wired-lan@osuosl.org
-> https://lists.osuosl.org/mailman/listinfo/intel-wired-lan
+For BPG_NEG I prefer to do it in C syntax like interpreter does:
+        ALU_NEG:
+                DST = (u32) -DST;
+        ALU64_NEG:
+                DST = -DST;
+Yonghong, does it mean that asmparser will equally suffer?
