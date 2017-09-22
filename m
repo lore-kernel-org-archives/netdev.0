@@ -1,58 +1,117 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 2/2] net: dsa: lan9303: Add basic offloading of
- unicast traffic
-Date: Fri, 22 Sep 2017 22:08:10 +0200
-Message-ID: <20170922200810.GJ3470@lunn.ch>
-References: <20170921094139.4250-1-privat@egil-hjelmeland.no>
- <20170921094139.4250-3-privat@egil-hjelmeland.no>
- <20170921142127.GB27589@lunn.ch>
- <b27d2dd4-84e3-b930-a6fe-1e5b36a7d213@egil-hjelmeland.no>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next v2 1/3] net: dsa: use slave device phydev
+Date: Fri, 22 Sep 2017 16:11:46 -0400
+Message-ID: <87r2uymr25.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+References: <20170922194045.18814-1-vivien.didelot@savoirfairelinux.com> <20170922194045.18814-2-vivien.didelot@savoirfairelinux.com> <2262f266-6fb9-cce4-f83a-933dd41b9062@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Egil Hjelmeland <privat@egil-hjelmeland.no>
+Content-Type: text/plain
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Andrew Lunn <andrew@lunn.ch>
+To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <b27d2dd4-84e3-b930-a6fe-1e5b36a7d213@egil-hjelmeland.no>
+In-Reply-To: <2262f266-6fb9-cce4-f83a-933dd41b9062@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> >I'm wondering how this is supposed to work. Please add a good comment
-> >here, since the hardware is forcing you to do something odd.
-> >
-> >Maybe it would be a good idea to save the STP state in chip.  And then
-> >when chip->is_bridged is set true, change the state in the hardware to
-> >the saved value?
-> >
-> >What happens when port 0 is added to the bridge, there is then a
-> >minute pause and then port 1 is added? I would expect that as soon as
-> >port 0 is added, the STP state machine for port 0 will start and move
-> >into listening and then forwarding. Due to hardware limitations it
-> >looks like you cannot do this. So what state is the hardware
-> >effectively in? Blocking? Forwarding?
-> >
-> >Then port 1 is added. You can then can respect the states. port 1 will
-> >do blocking->listening->forwarding, but what about port 0? The calls
-> >won't get repeated? How does it transition to forwarding?
-> >
-> >   Andrew
-> >
-> 
-> I see your point with the "minute pause" argument. Although a bit
-> contrived use case, it is easy to fix by caching the STP state, as
-> you suggest. So I can do that.
+Hi Florian,
 
-I don't think it is contrived. I've done bridge configuration by hand
-for testing purposes. I've also set the forwarding delay to very small
-values, so there is a clear race condition here.
+Florian Fainelli <f.fainelli@gmail.com> writes:
 
-> How does other DSA HW chips handle port separation? Knowing that
-> could perhaps help me know what to look for.
+> On 09/22/2017 12:40 PM, Vivien Didelot wrote:
+>> There is no need to store a phy_device in dsa_slave_priv since
+>> net_device already provides one. Simply s/p->phy/dev->phydev/.
+>
+> You can therefore remove the phy_device from dsa_slave_priv, see below
+> for more comments. I will have to regress test the heck out of this,
+> this should take a few hours.
 
-They have better hardware :-)
+OK, since this is a sensible topic, I will respin a v3 without this
+patch, so that a future patchset can address your comments below and
+also gives you time to test this one patch alone.
 
-Generally each port is totally independent. You can change the STP
-state per port without restrictions.
+>>  static int dsa_slave_port_attr_set(struct net_device *dev,
+>> @@ -435,12 +433,10 @@ static int
+>>  dsa_slave_get_link_ksettings(struct net_device *dev,
+>>  			     struct ethtool_link_ksettings *cmd)
+>>  {
+>> -	struct dsa_slave_priv *p = netdev_priv(dev);
+>> +	if (!dev->phydev)
+>> +		return -ENODEV;
+>>  
+>> -	if (!p->phy)
+>> -		return -EOPNOTSUPP;
+>> -
+>> -	phy_ethtool_ksettings_get(p->phy, cmd);
+>> +	phy_ethtool_ksettings_get(dev->phydev, cmd);
+>
+> This can be replaced by phy_ethtool_get_link_ksettings()
+>
+>>  
+>>  	return 0;
+>>  }
+>> @@ -449,12 +445,10 @@ static int
+>>  dsa_slave_set_link_ksettings(struct net_device *dev,
+>>  			     const struct ethtool_link_ksettings *cmd)
+>>  {
+>> -	struct dsa_slave_priv *p = netdev_priv(dev);
+>> +	if (!dev->phydev)
+>> +		return -ENODEV;
+>>  
+>> -	if (p->phy != NULL)
+>> -		return phy_ethtool_ksettings_set(p->phy, cmd);
+>> -
+>> -	return -EOPNOTSUPP;
+>> +	return phy_ethtool_ksettings_set(dev->phydev, cmd);
+>>  }
+>
+> This can disappear and you can assign this ethtool operation to
+> phy_ethtool_set_link_ksettings()
+>
+>>  
+>>  static void dsa_slave_get_drvinfo(struct net_device *dev,
+>> @@ -488,24 +482,20 @@ dsa_slave_get_regs(struct net_device *dev, struct ethtool_regs *regs, void *_p)
+>>  
+>>  static int dsa_slave_nway_reset(struct net_device *dev)
+>>  {
+>> -	struct dsa_slave_priv *p = netdev_priv(dev);
+>> +	if (!dev->phydev)
+>> +		return -ENODEV;
+>>  
+>> -	if (p->phy != NULL)
+>> -		return genphy_restart_aneg(p->phy);
+>> -
+>> -	return -EOPNOTSUPP;
+>> +	return genphy_restart_aneg(dev->phydev);
+>>  }
+>
+> This can now disappear and you can use phy_ethtool_nway_reset() directly
+> in ethtool_ops
+>
+>>  
+>>  static u32 dsa_slave_get_link(struct net_device *dev)
+>>  {
+>> -	struct dsa_slave_priv *p = netdev_priv(dev);
+>> +	if (!dev->phydev)
+>> +		return -ENODEV;
+>>  
+>> -	if (p->phy != NULL) {
+>> -		genphy_update_link(p->phy);
+>> -		return p->phy->link;
+>> -	}
+>> +	genphy_update_link(dev->phydev);
+>>  
+>> -	return -EOPNOTSUPP;
+>> +	return dev->phydev->link;
+>>  }
+>
+> This should certainly be just ethtool_op_get_link(), not sure why we
+> kept that around here...
 
-      Andrew
+Haaa, good to read that! I wasn't sure about this, but with this patch
+the slave phy ethtool functions seemed indeed quite generic...
+
+
+Thanks,
+
+        Vivien
