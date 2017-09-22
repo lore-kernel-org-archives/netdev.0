@@ -1,7 +1,8 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 0/4] net: dsa: simplify port enabling
-Date: Fri, 22 Sep 2017 12:17:49 -0400
-Message-ID: <20170922161753.19563-1-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 3/4] net: dsa: make slave close symmetrical to open
+Date: Fri, 22 Sep 2017 12:17:52 -0400
+Message-ID: <20170922161753.19563-4-vivien.didelot@savoirfairelinux.com>
+References: <20170922161753.19563-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
         Florian Fainelli <f.fainelli@gmail.com>,
@@ -9,32 +10,50 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170922161753.19563-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patchset removes the unnecessary PHY device argument in port
-enable/disable switch operations, makes slave open and close symmetrical
-and finally provides helpers for enabling or disabling a DSA port.
+The DSA slave open function configures the unicast MAC addresses on the
+master device, enable the switch port, change its STP state, then start
+the PHY device.
 
-Vivien Didelot (4):
-  net: dsa: move up phy enabling in core
-  net: dsa: remove phy arg from port enable/disable
-  net: dsa: make slave close symmetrical to open
-  net: dsa: add port enable and disable helpers
+Make the close function symmetric, by first stopping the PHY device,
+then changing the STP state, disabling the switch port and restore the
+master device.
 
- drivers/net/dsa/b53/b53_common.c       |  6 +++---
- drivers/net/dsa/b53/b53_priv.h         |  4 ++--
- drivers/net/dsa/bcm_sf2.c              | 32 ++++++++----------------------
- drivers/net/dsa/lan9303-core.c         |  6 ++----
- drivers/net/dsa/microchip/ksz_common.c |  6 ++----
- drivers/net/dsa/mt7530.c               |  8 +++-----
- drivers/net/dsa/mv88e6xxx/chip.c       |  6 ++----
- drivers/net/dsa/qca8k.c                |  6 ++----
- include/net/dsa.h                      |  6 ++----
- net/dsa/dsa_priv.h                     |  3 ++-
- net/dsa/port.c                         | 31 ++++++++++++++++++++++++++++-
- net/dsa/slave.c                        | 36 ++++++++++++++++++----------------
- 12 files changed, 77 insertions(+), 73 deletions(-)
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
+ net/dsa/slave.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index 6290741e496a..235a5c95dfcc 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -144,6 +144,11 @@ static int dsa_slave_close(struct net_device *dev)
+ 	if (p->phy)
+ 		phy_stop(p->phy);
+ 
++	dsa_port_set_state_now(p->dp, BR_STATE_DISABLED);
++
++	if (ds->ops->port_disable)
++		ds->ops->port_disable(ds, p->dp->index);
++
+ 	dev_mc_unsync(master, dev);
+ 	dev_uc_unsync(master, dev);
+ 	if (dev->flags & IFF_ALLMULTI)
+@@ -154,11 +159,6 @@ static int dsa_slave_close(struct net_device *dev)
+ 	if (!ether_addr_equal(dev->dev_addr, master->dev_addr))
+ 		dev_uc_del(master, dev->dev_addr);
+ 
+-	if (ds->ops->port_disable)
+-		ds->ops->port_disable(ds, p->dp->index);
+-
+-	dsa_port_set_state_now(p->dp, BR_STATE_DISABLED);
+-
+ 	return 0;
+ }
+ 
 -- 
 2.14.1
