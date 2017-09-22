@@ -1,30 +1,46 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 4/4] net: dsa: add port enable and disable
- helpers
-Date: Fri, 22 Sep 2017 18:35:54 +0200
-Message-ID: <20170922163554.GC3470@lunn.ch>
-References: <20170922161753.19563-1-vivien.didelot@savoirfairelinux.com>
- <20170922161753.19563-5-vivien.didelot@savoirfairelinux.com>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Subject: Re: [Intel-wired-lan] [PATCH] i40e: make const array patterns
+ static, reduces object code size
+Date: Fri, 22 Sep 2017 09:44:02 -0700
+Message-ID: <20170922094402.00001ad2@intel.com>
+References: <20170922141138.13038-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170922161753.19563-5-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        <intel-wired-lan@lists.osuosl.org>, <netdev@vger.kernel.org>,
+        <kernel-janitors@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        jesse.brandeburg@intel.com
+To: Colin King <colin.king@canonical.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga14.intel.com ([192.55.52.115]:9556 "EHLO mga14.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752298AbdIVQog (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 22 Sep 2017 12:44:36 -0400
+In-Reply-To: <20170922141138.13038-1-colin.king@canonical.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 22, 2017 at 12:17:53PM -0400, Vivien Didelot wrote:
-> Provide dsa_port_enable and dsa_port_disable helpers to respectively
-> enable and disable a switch port. This makes the dsa_port_set_state_now
-> helper static.
+On Fri, 22 Sep 2017 15:11:38 +0100
+Colin King <colin.king@canonical.com> wrote:
+
+> From: Colin Ian King <colin.king@canonical.com>
 > 
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> Don't populate const array patterns on the stack, instead make it
+> static. Makes the object code smaller by over 60 bytes:
+> 
+> Before:
+>    text	   data	    bss	    dec	    hex	filename
+>    1953	    496	      0	   2449	    991	i40e_diag.o
+> 
+> After:
+>    text	   data	    bss	    dec	    hex	filename
+>    1798	    584	      0	   2382	    94e	i40e_diag.o
+> 
+> (gcc 6.3.0, x86-64)
+> 
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+Looks good, thanks Colin!
 
-    Andrew
+Acked-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
