@@ -1,43 +1,57 @@
-From: Stefan Hajnoczi <stefanha@gmail.com>
-Subject: Re: [PATCH net-next RFC 1/5] vhost: split out ring head fetching
- logic
-Date: Fri, 22 Sep 2017 09:31:58 +0100
-Message-ID: <20170922083157.GA9243@stefanha-x1.localdomain>
-References: <1506067355-5771-1-git-send-email-jasowang@redhat.com>
- <1506067355-5771-2-git-send-email-jasowang@redhat.com>
+From: Yotam Gigi <yotamg@mellanox.com>
+Subject: Re: [patch net-next 07/12] mlxsw: spectrum: Add the multicast routing
+ offloading logic
+Date: Fri, 22 Sep 2017 11:36:59 +0300
+Message-ID: <a6852db1-76a2-b4f3-c558-cd4cc0a1309b@mellanox.com>
+References: <20170921064338.1282-1-jiri@resnulli.us>
+ <20170921064338.1282-8-jiri@resnulli.us> <20170921152654.GF27589@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: mst@redhat.com, virtualization@lists.linux-foundation.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kvm@vger.kernel.org
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1506067355-5771-2-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, idosch@mellanox.com,
+        mlxsw@mellanox.com
+To: Andrew Lunn <andrew@lunn.ch>, Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ve1eur01on0085.outbound.protection.outlook.com ([104.47.1.85]:23720
+        "EHLO EUR01-VE1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751792AbdIVIhH (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 22 Sep 2017 04:37:07 -0400
+In-Reply-To: <20170921152654.GF27589@lunn.ch>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 22, 2017 at 04:02:31PM +0800, Jason Wang wrote:
-> +/* This looks in the virtqueue and for the first available buffer, and converts
-> + * it to an iovec for convenient access.  Since descriptors consist of some
-> + * number of output then some number of input descriptors, it's actually two
-> + * iovecs, but we pack them into one and note how many of each there were.
-> + *
-> + * This function returns the descriptor number found, or vq->num (which is
-> + * never a valid descriptor number) if none was found.  A negative code is
-> + * returned on error. */
-> +int __vhost_get_vq_desc(struct vhost_virtqueue *vq,
-> +			struct iovec iov[], unsigned int iov_size,
-> +			unsigned int *out_num, unsigned int *in_num,
-> +			struct vhost_log *log, unsigned int *log_num,
-> +			__virtio16 head)
-[...]
-> +int vhost_get_vq_desc(struct vhost_virtqueue *vq,
-> +		      struct iovec iov[], unsigned int iov_size,
-> +		      unsigned int *out_num, unsigned int *in_num,
-> +		      struct vhost_log *log, unsigned int *log_num)
+On 09/21/2017 06:26 PM, Andrew Lunn wrote:
+>> +static void mlxsw_sp_mr_route_stats_update(struct mlxsw_sp *mlxsw_sp,
+>> +					   struct mlxsw_sp_mr_route *mr_route)
+>> +{
+>> +	struct mlxsw_sp_mr *mr = mlxsw_sp->mr;
+>> +	u64 packets, bytes;
+>> +
+>> +	if (mr_route->route_action == MLXSW_SP_MR_ROUTE_ACTION_TRAP)
+>> +		return;
+>> +
+>> +	mr->mr_ops->route_stats(mlxsw_sp, mr_route->route_priv, &packets,
+>> +				&bytes);
+>> +
+>> +	switch (mr_route->mr_table->proto) {
+>> +	case MLXSW_SP_L3_PROTO_IPV4:
+>> +		mr_route->mfc4->mfc_un.res.pkt = packets;
+>> +		mr_route->mfc4->mfc_un.res.bytes = bytes;
+> What about wrong_if and lastuse? 
 
-Please document vhost_get_vq_desc().
+wronf_if is updated by ipmr as it is trapped to the CPU. We did not
+address lastuse currently, though it can be easily addressed here.
 
-Please also explain the difference between __vhost_get_vq_desc() and
-vhost_get_vq_desc() in the documentation.
+>
+> Is an mfc with iif on the host, not the switch, not offloaded?
+
+
+I am not sure I followed. What do you mean MFC with iif on the host? you mean
+MFC with iif that is an external NIC which is not part of the spectrum ASIC? in
+this case, the route will not be offloaded and all traffic will pass in slowpath.
+
+
+>
+>    Andrew
