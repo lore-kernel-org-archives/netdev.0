@@ -1,109 +1,86 @@
-From: Dave Kleikamp <dave.kleikamp@oracle.com>
-Subject: Re: [PATCH v3 09/31] jfs: Define usercopy region in jfs_ip slab cache
-Date: Thu, 21 Sep 2017 21:54:55 -0500
-Message-ID: <0132ff58-f18b-6d67-8edd-fa6bd1f6927b@oracle.com>
-References: <1505940337-79069-1-git-send-email-keescook@chromium.org>
- <1505940337-79069-10-git-send-email-keescook@chromium.org>
+From: =?utf-8?B?5byg6IOc5Li+?= <zhangshengju@cmss.chinamobile.com>
+Subject: RE: [net-next 1/2] dummy: add device MTU validation check
+Date: Fri, 22 Sep 2017 11:28:01 +0800
+Message-ID: <00b401d33352$cb92d990$62b88cb0$@cmss.chinamobile.com>
+References: <1506000722-40095-1-git-send-email-zhangshengju@cmss.chinamobile.com>    <1506000722-40095-2-git-send-email-zhangshengju@cmss.chinamobile.com> <1506006138.29839.132.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: David Windsor <dave@nullcore.net>, jfs-discussion@lists.sourceforge.net,
-        linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org,
-        linux-mm@kvack.org, kernel-hardening@lists.openwall.com
-To: Kees Cook <keescook@chromium.org>, linux-kernel@vger.kernel.org
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1505940337-79069-10-git-send-email-keescook@chromium.org>
-Content-Language: en-US
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+        charset="utf-8"
+Content-Transfer-Encoding: 8BIT
+Cc: <davem@davemloft.net>, <willemb@google.com>,
+        <stephen@networkplumber.org>, <netdev@vger.kernel.org>
+To: "'Eric Dumazet'" <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cmccmta1.chinamobile.com ([221.176.66.79]:57439 "EHLO
+        cmccmta1.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751794AbdIVD2L (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 23:28:11 -0400
+In-Reply-To: <1506006138.29839.132.camel@edumazet-glaptop3.roam.corp.google.com>
+Content-Language: zh-cn
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Acked-by: Dave Kleikamp <dave.kleikamp@oracle.com>
-
-On 09/20/2017 03:45 PM, Kees Cook wrote:
-> From: David Windsor <dave@nullcore.net>
+> -----Original Message-----
+> From: Eric Dumazet [mailto:eric.dumazet@gmail.com]
+> Sent: 2017年9月21日 23:02
+> To: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+> Cc: davem@davemloft.net; willemb@google.com;
+> stephen@networkplumber.org; netdev@vger.kernel.org
+> Subject: Re: [net-next 1/2] dummy: add device MTU validation check
 > 
-> The jfs symlink pathnames, stored in struct jfs_inode_info.i_inline and
-> therefore contained in the jfs_ip slab cache, need to be copied to/from
-> userspace.
+> On Thu, 2017-09-21 at 21:32 +0800, Zhang Shengju wrote:
+> > Currently, any mtu value can be assigned when adding a new dummy device:
+> > [~]# ip link add name dummy1 mtu 100000 type dummy [~]# ip link show
+> > dummy1
+> > 15: dummy1: <BROADCAST,NOARP> mtu 100000 qdisc noop state DOWN
+> mode DEFAULT group default qlen 1000
+> >     link/ether 0a:61:6b:16:14:ce brd ff:ff:ff:ff:ff:ff
+> >
+> > This patch adds device MTU validation check.
 > 
-> cache object allocation:
->     fs/jfs/super.c:
->         jfs_alloc_inode(...):
->             ...
->             jfs_inode = kmem_cache_alloc(jfs_inode_cachep, GFP_NOFS);
->             ...
->             return &jfs_inode->vfs_inode;
+> What is wrong with big MTU on dummy ?
 > 
->     fs/jfs/jfs_incore.h:
->         JFS_IP(struct inode *inode):
->             return container_of(inode, struct jfs_inode_info, vfs_inode);
-> 
->     fs/jfs/inode.c:
->         jfs_iget(...):
->             ...
->             inode->i_link = JFS_IP(inode)->i_inline;
-> 
-> example usage trace:
->     readlink_copy+0x43/0x70
->     vfs_readlink+0x62/0x110
->     SyS_readlinkat+0x100/0x130
-> 
->     fs/namei.c:
->         readlink_copy(..., link):
->             ...
->             copy_to_user(..., link, len);
-> 
->         (inlined in vfs_readlink)
->         generic_readlink(dentry, ...):
->             struct inode *inode = d_inode(dentry);
->             const char *link = inode->i_link;
->             ...
->             readlink_copy(..., link);
-> 
-> In support of usercopy hardening, this patch defines a region in the
-> jfs_ip slab cache in which userspace copy operations are allowed.
-> 
-> This region is known as the slab cache's usercopy region. Slab caches can
-> now check that each copy operation involving cache-managed memory falls
-> entirely within the slab's usercopy region.
-> 
-> This patch is modified from Brad Spengler/PaX Team's PAX_USERCOPY
-> whitelisting code in the last public patch of grsecurity/PaX based on my
-> understanding of the code. Changes or omissions from the original code are
-> mine and don't reflect the original grsecurity/PaX code.
-> 
-> Signed-off-by: David Windsor <dave@nullcore.net>
-> [kees: adjust commit log, provide usage trace]
-> Cc: Dave Kleikamp <shaggy@kernel.org>
-> Cc: jfs-discussion@lists.sourceforge.net
-> Signed-off-by: Kees Cook <keescook@chromium.org>
-> ---
->  fs/jfs/super.c | 8 +++++---
->  1 file changed, 5 insertions(+), 3 deletions(-)
-> 
-> diff --git a/fs/jfs/super.c b/fs/jfs/super.c
-> index 2f14677169c3..e018412608d4 100644
-> --- a/fs/jfs/super.c
-> +++ b/fs/jfs/super.c
-> @@ -966,9 +966,11 @@ static int __init init_jfs_fs(void)
->  	int rc;
->  
->  	jfs_inode_cachep =
-> -	    kmem_cache_create("jfs_ip", sizeof(struct jfs_inode_info), 0,
-> -			    SLAB_RECLAIM_ACCOUNT|SLAB_MEM_SPREAD|SLAB_ACCOUNT,
-> -			    init_once);
-> +	    kmem_cache_create_usercopy("jfs_ip", sizeof(struct jfs_inode_info),
-> +			0, SLAB_RECLAIM_ACCOUNT|SLAB_MEM_SPREAD|SLAB_ACCOUNT,
-> +			offsetof(struct jfs_inode_info, i_inline),
-> +			sizeof_field(struct jfs_inode_info, i_inline),
-> +			init_once);
->  	if (jfs_inode_cachep == NULL)
->  		return -ENOMEM;
->  
+> If this is a generic rule, this check should belong in core network stack.
 > 
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+dummy_setup() function setup mtu range: [0, ETH_MAX_MTU]. 
+This will be checked at dev_set_mtu() function in core network stack.
+
+So if you add a new dummy device without specify mtu value, you can't set a value out of range [0, ETH_MAX_MTU] afterward.
+BUT you can set any mtu when adding new device. This cause an inconsistence.
+
+> >
+> > Signed-off-by: Zhang Shengju <zhangshengju@cmss.chinamobile.com>
+> > ---
+> >  drivers/net/dummy.c | 8 ++++++++
+> >  1 file changed, 8 insertions(+)
+> >
+> > diff --git a/drivers/net/dummy.c b/drivers/net/dummy.c index
+> > e31ab3b..0276b2b 100644
+> > --- a/drivers/net/dummy.c
+> > +++ b/drivers/net/dummy.c
+> > @@ -365,6 +365,14 @@ static int dummy_validate(struct nlattr *tb[], struct
+> nlattr *data[],
+> >  		if (!is_valid_ether_addr(nla_data(tb[IFLA_ADDRESS])))
+> >  			return -EADDRNOTAVAIL;
+> >  	}
+> > +
+> > +	if (tb[IFLA_MTU]) {
+> > +		u32 mtu = nla_get_u32(tb[IFLA_MTU]);
+> 
+> You do not verify/validate nla_len(tb[IFLA_MTU]).
+> 
+> Do not ever trust user space.
+MTU attribute is just u32, do you think it's necessary to check the length? 
+Actually I don't see any place to check the length of mtu attribute in network stack code. 
+
+> 
+> > +
+> > +		if (mtu > ETH_MAX_MTU)
+> > +			return -EINVAL;
+> > +	}
+> > +
+> >  	return 0;
+> >  }
+> >
+> 
