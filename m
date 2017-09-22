@@ -1,13 +1,13 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH v4 7/9] rocker: fix rocker_tlv_put_* functions for KASAN
-Date: Fri, 22 Sep 2017 23:29:18 +0200
-Message-ID: <20170922212930.620249-8-arnd@arndb.de>
+Subject: [PATCH v4 8/9] netlink: fix nla_put_{u8,u16,u32} for KASAN
+Date: Fri, 22 Sep 2017 23:29:19 +0200
+Message-ID: <20170922212930.620249-9-arnd@arndb.de>
 References: <20170922212930.620249-1-arnd@arndb.de>
 Cc: Arnd Bergmann <arnd@arndb.de>,
         Mauro Carvalho Chehab <mchehab@kernel.org>,
+        Jiri Pirko <jiri@resnulli.us>,
         Arend van Spriel <arend.vanspriel@broadcom.com>,
         Kalle Valo <kvalo@codeaurora.org>,
-        "David S. Miller" <davem@davemloft.net>,
         Andrey Ryabinin <aryabinin@virtuozzo.com>,
         Alexander Potapenko <glider@google.com>,
         Dmitry Vyukov <dvyukov@google.com>,
@@ -20,105 +20,241 @@ Cc: Arnd Bergmann <arnd@arndb.de>,
         linux-media@vger.kernel.org, linux-kernel@vger.kernel.org,
         netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
         brcm80211-dev-list.pdl@broadcom.com,
-        brcm80211-dev-list@cypress.com, kasan
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <stable-owner@vger.kernel.org>
+        brcm80211-dev-list@cypress.com, kasan-dev@googl
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20170922212930.620249-1-arnd@arndb.de>
-Sender: stable-owner@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Inlining these functions creates lots of stack variables that each take
-64 bytes when KASAN is enabled, leading to this warning about potential
-stack overflow:
+When CONFIG_KASAN is enabled, the "--param asan-stack=1" causes rather large
+stack frames in some functions. This goes unnoticed normally because
+CONFIG_FRAME_WARN is disabled with CONFIG_KASAN by default as of commit
+3f181b4d8652 ("lib/Kconfig.debug: disable -Wframe-larger-than warnings with
+KASAN=y").
 
-drivers/net/ethernet/rocker/rocker_ofdpa.c: In function 'ofdpa_cmd_flow_tbl_add':
-drivers/net/ethernet/rocker/rocker_ofdpa.c:621:1: error: the frame size of 2752 bytes is larger than 1536 bytes [-Werror=frame-larger-than=]
+The kernelci.org build bot however has the warning enabled and that led
+me to investigate it a little further, as every build produces these warnings:
 
-gcc-8 can now consolidate the stack slots itself, but on older versions
-we get the same behavior by using a temporary variable that holds a
-copy of the inline function argument.
+net/wireless/nl80211.c:4389:1: warning: the frame size of 2240 bytes is larger than 2048 bytes [-Wframe-larger-than=]
+net/wireless/nl80211.c:1895:1: warning: the frame size of 3776 bytes is larger than 2048 bytes [-Wframe-larger-than=]
+net/wireless/nl80211.c:1410:1: warning: the frame size of 2208 bytes is larger than 2048 bytes [-Wframe-larger-than=]
+net/bridge/br_netlink.c:1282:1: warning: the frame size of 2544 bytes is larger than 2048 bytes [-Wframe-larger-than=]
+
+Most of this problem is now solved in gcc-8, which can consolidate
+the stack slots for the inline function arguments. On older compilers
+we can add a workaround by declaring a local variable in each function
+to pass the inline function argument.
 
 Cc: stable@vger.kernel.org
 Link: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=81715
 Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 ---
- drivers/net/ethernet/rocker/rocker_tlv.h | 48 ++++++++++++++++++++------------
- 1 file changed, 30 insertions(+), 18 deletions(-)
+ include/net/netlink.h | 73 ++++++++++++++++++++++++++++++++++++++-------------
+ 1 file changed, 55 insertions(+), 18 deletions(-)
 
-diff --git a/drivers/net/ethernet/rocker/rocker_tlv.h b/drivers/net/ethernet/rocker/rocker_tlv.h
-index a63ef82e7c72..dfae3c9d57c6 100644
---- a/drivers/net/ethernet/rocker/rocker_tlv.h
-+++ b/drivers/net/ethernet/rocker/rocker_tlv.h
-@@ -139,40 +139,52 @@ rocker_tlv_start(struct rocker_desc_info *desc_info)
- int rocker_tlv_put(struct rocker_desc_info *desc_info,
- 		   int attrtype, int attrlen, const void *data);
- 
--static inline int rocker_tlv_put_u8(struct rocker_desc_info *desc_info,
--				    int attrtype, u8 value)
-+static inline int
-+rocker_tlv_put_u8(struct rocker_desc_info *desc_info, int attrtype, u8 value)
+diff --git a/include/net/netlink.h b/include/net/netlink.h
+index e51cf5f81597..14c289393071 100644
+--- a/include/net/netlink.h
++++ b/include/net/netlink.h
+@@ -773,7 +773,10 @@ static inline int nla_parse_nested(struct nlattr *tb[], int maxtype,
+  */
+ static inline int nla_put_u8(struct sk_buff *skb, int attrtype, u8 value)
  {
--	return rocker_tlv_put(desc_info, attrtype, sizeof(u8), &value);
-+	u8 tmp = value; /* work around GCC PR81715 */
+-	return nla_put(skb, attrtype, sizeof(u8), &value);
++	/* temporary variables to work around GCC PR81715 with asan-stack=1 */
++	u8 tmp = value;
 +
-+	return rocker_tlv_put(desc_info, attrtype, sizeof(u8), &tmp);
++	return nla_put(skb, attrtype, sizeof(u8), &tmp);
  }
  
--static inline int rocker_tlv_put_u16(struct rocker_desc_info *desc_info,
--				     int attrtype, u16 value)
-+static inline int
-+rocker_tlv_put_u16(struct rocker_desc_info *desc_info, int attrtype, u16 value)
+ /**
+@@ -784,7 +787,9 @@ static inline int nla_put_u8(struct sk_buff *skb, int attrtype, u8 value)
+  */
+ static inline int nla_put_u16(struct sk_buff *skb, int attrtype, u16 value)
  {
--	return rocker_tlv_put(desc_info, attrtype, sizeof(u16), &value);
+-	return nla_put(skb, attrtype, sizeof(u16), &value);
 +	u16 tmp = value;
 +
-+	return rocker_tlv_put(desc_info, attrtype, sizeof(u16), &tmp);
++	return nla_put(skb, attrtype, sizeof(u16), &tmp);
  }
  
--static inline int rocker_tlv_put_be16(struct rocker_desc_info *desc_info,
--				      int attrtype, __be16 value)
-+static inline int
-+rocker_tlv_put_be16(struct rocker_desc_info *desc_info, int attrtype, __be16 value)
+ /**
+@@ -795,7 +800,9 @@ static inline int nla_put_u16(struct sk_buff *skb, int attrtype, u16 value)
+  */
+ static inline int nla_put_be16(struct sk_buff *skb, int attrtype, __be16 value)
  {
--	return rocker_tlv_put(desc_info, attrtype, sizeof(__be16), &value);
+-	return nla_put(skb, attrtype, sizeof(__be16), &value);
 +	__be16 tmp = value;
 +
-+	return rocker_tlv_put(desc_info, attrtype, sizeof(__be16), &tmp);
++	return nla_put(skb, attrtype, sizeof(__be16), &tmp);
  }
  
--static inline int rocker_tlv_put_u32(struct rocker_desc_info *desc_info,
--				     int attrtype, u32 value)
-+static inline int
-+rocker_tlv_put_u32(struct rocker_desc_info *desc_info, int attrtype, u32 value)
+ /**
+@@ -806,7 +813,9 @@ static inline int nla_put_be16(struct sk_buff *skb, int attrtype, __be16 value)
+  */
+ static inline int nla_put_net16(struct sk_buff *skb, int attrtype, __be16 value)
  {
--	return rocker_tlv_put(desc_info, attrtype, sizeof(u32), &value);
+-	return nla_put_be16(skb, attrtype | NLA_F_NET_BYTEORDER, value);
++	__be16 tmp = value;
++
++	return nla_put_be16(skb, attrtype | NLA_F_NET_BYTEORDER, tmp);
+ }
+ 
+ /**
+@@ -817,7 +826,9 @@ static inline int nla_put_net16(struct sk_buff *skb, int attrtype, __be16 value)
+  */
+ static inline int nla_put_le16(struct sk_buff *skb, int attrtype, __le16 value)
+ {
+-	return nla_put(skb, attrtype, sizeof(__le16), &value);
++	__le16 tmp = value;
++
++	return nla_put(skb, attrtype, sizeof(__le16), &tmp);
+ }
+ 
+ /**
+@@ -828,7 +839,9 @@ static inline int nla_put_le16(struct sk_buff *skb, int attrtype, __le16 value)
+  */
+ static inline int nla_put_u32(struct sk_buff *skb, int attrtype, u32 value)
+ {
+-	return nla_put(skb, attrtype, sizeof(u32), &value);
 +	u32 tmp = value;
 +
-+	return rocker_tlv_put(desc_info, attrtype, sizeof(u32), &tmp);
++	return nla_put(skb, attrtype, sizeof(u32), &tmp);
  }
  
--static inline int rocker_tlv_put_be32(struct rocker_desc_info *desc_info,
--				      int attrtype, __be32 value)
-+static inline int
-+rocker_tlv_put_be32(struct rocker_desc_info *desc_info, int attrtype, __be32 value)
+ /**
+@@ -839,7 +852,9 @@ static inline int nla_put_u32(struct sk_buff *skb, int attrtype, u32 value)
+  */
+ static inline int nla_put_be32(struct sk_buff *skb, int attrtype, __be32 value)
  {
--	return rocker_tlv_put(desc_info, attrtype, sizeof(__be32), &value);
+-	return nla_put(skb, attrtype, sizeof(__be32), &value);
 +	__be32 tmp = value;
 +
-+	return rocker_tlv_put(desc_info, attrtype, sizeof(__be32), &tmp);
++	return nla_put(skb, attrtype, sizeof(__be32), &tmp);
  }
  
--static inline int rocker_tlv_put_u64(struct rocker_desc_info *desc_info,
--				     int attrtype, u64 value)
-+static inline int
-+rocker_tlv_put_u64(struct rocker_desc_info *desc_info, int attrtype, u64 value)
+ /**
+@@ -850,7 +865,9 @@ static inline int nla_put_be32(struct sk_buff *skb, int attrtype, __be32 value)
+  */
+ static inline int nla_put_net32(struct sk_buff *skb, int attrtype, __be32 value)
  {
--	return rocker_tlv_put(desc_info, attrtype, sizeof(u64), &value);
+-	return nla_put_be32(skb, attrtype | NLA_F_NET_BYTEORDER, value);
++	__be32 tmp = value;
++
++	return nla_put_be32(skb, attrtype | NLA_F_NET_BYTEORDER, tmp);
+ }
+ 
+ /**
+@@ -861,7 +878,9 @@ static inline int nla_put_net32(struct sk_buff *skb, int attrtype, __be32 value)
+  */
+ static inline int nla_put_le32(struct sk_buff *skb, int attrtype, __le32 value)
+ {
+-	return nla_put(skb, attrtype, sizeof(__le32), &value);
++	__le32 tmp = value;
++
++	return nla_put(skb, attrtype, sizeof(__le32), &tmp);
+ }
+ 
+ /**
+@@ -874,7 +893,9 @@ static inline int nla_put_le32(struct sk_buff *skb, int attrtype, __le32 value)
+ static inline int nla_put_u64_64bit(struct sk_buff *skb, int attrtype,
+ 				    u64 value, int padattr)
+ {
+-	return nla_put_64bit(skb, attrtype, sizeof(u64), &value, padattr);
 +	u64 tmp = value;
 +
-+	return rocker_tlv_put(desc_info, attrtype, sizeof(u64), &tmp);
++	return nla_put_64bit(skb, attrtype, sizeof(u64), &tmp, padattr);
  }
  
- static inline struct rocker_tlv *
+ /**
+@@ -887,7 +908,9 @@ static inline int nla_put_u64_64bit(struct sk_buff *skb, int attrtype,
+ static inline int nla_put_be64(struct sk_buff *skb, int attrtype, __be64 value,
+ 			       int padattr)
+ {
+-	return nla_put_64bit(skb, attrtype, sizeof(__be64), &value, padattr);
++	__be64 tmp = value;
++
++	return nla_put_64bit(skb, attrtype, sizeof(__be64), &tmp, padattr);
+ }
+ 
+ /**
+@@ -900,7 +923,9 @@ static inline int nla_put_be64(struct sk_buff *skb, int attrtype, __be64 value,
+ static inline int nla_put_net64(struct sk_buff *skb, int attrtype, __be64 value,
+ 				int padattr)
+ {
+-	return nla_put_be64(skb, attrtype | NLA_F_NET_BYTEORDER, value,
++	__be64 tmp = value;
++
++	return nla_put_be64(skb, attrtype | NLA_F_NET_BYTEORDER, tmp,
+ 			    padattr);
+ }
+ 
+@@ -914,7 +939,9 @@ static inline int nla_put_net64(struct sk_buff *skb, int attrtype, __be64 value,
+ static inline int nla_put_le64(struct sk_buff *skb, int attrtype, __le64 value,
+ 			       int padattr)
+ {
+-	return nla_put_64bit(skb, attrtype, sizeof(__le64), &value, padattr);
++	__le64 tmp = value;
++
++	return nla_put_64bit(skb, attrtype, sizeof(__le64), &tmp, padattr);
+ }
+ 
+ /**
+@@ -925,7 +952,9 @@ static inline int nla_put_le64(struct sk_buff *skb, int attrtype, __le64 value,
+  */
+ static inline int nla_put_s8(struct sk_buff *skb, int attrtype, s8 value)
+ {
+-	return nla_put(skb, attrtype, sizeof(s8), &value);
++	s8 tmp = value;
++
++	return nla_put(skb, attrtype, sizeof(s8), &tmp);
+ }
+ 
+ /**
+@@ -936,7 +965,9 @@ static inline int nla_put_s8(struct sk_buff *skb, int attrtype, s8 value)
+  */
+ static inline int nla_put_s16(struct sk_buff *skb, int attrtype, s16 value)
+ {
+-	return nla_put(skb, attrtype, sizeof(s16), &value);
++	s16 tmp = value;
++
++	return nla_put(skb, attrtype, sizeof(s16), &tmp);
+ }
+ 
+ /**
+@@ -947,7 +978,9 @@ static inline int nla_put_s16(struct sk_buff *skb, int attrtype, s16 value)
+  */
+ static inline int nla_put_s32(struct sk_buff *skb, int attrtype, s32 value)
+ {
+-	return nla_put(skb, attrtype, sizeof(s32), &value);
++	s32 tmp = value;
++
++	return nla_put(skb, attrtype, sizeof(s32), &tmp);
+ }
+ 
+ /**
+@@ -960,7 +993,9 @@ static inline int nla_put_s32(struct sk_buff *skb, int attrtype, s32 value)
+ static inline int nla_put_s64(struct sk_buff *skb, int attrtype, s64 value,
+ 			      int padattr)
+ {
+-	return nla_put_64bit(skb, attrtype, sizeof(s64), &value, padattr);
++	s64 tmp = value;
++
++	return nla_put_64bit(skb, attrtype, sizeof(s64), &tmp, padattr);
+ }
+ 
+ /**
+@@ -1010,7 +1045,9 @@ static inline int nla_put_msecs(struct sk_buff *skb, int attrtype,
+ static inline int nla_put_in_addr(struct sk_buff *skb, int attrtype,
+ 				  __be32 addr)
+ {
+-	return nla_put_be32(skb, attrtype, addr);
++	__be32 tmp = addr;
++
++	return nla_put_be32(skb, attrtype, tmp);
+ }
+ 
+ /**
 -- 
 2.9.0
