@@ -1,73 +1,205 @@
-From: "Mrs, Suran Yoda" <suranyoda@gmail.com>
-Subject: URGENT RESPOND NEEDED FROM YOU BY DANIEL MMINELE THE DEPUTY GOVERNOR
- OF SOUTH AFRICAN RESERVE BANK
-Date: Fri, 22 Sep 2017 18:06:34 +0200
-Message-ID: <CAEAp1dTdqqjN5aTYtU=7b3_3sP7Qdgpq2FgEhR1idT1w2thdog@mail.gmail.com>
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: Re: [PATCH net v2] l2tp: fix race condition in l2tp_tunnel_delete
+Date: Fri, 22 Sep 2017 18:16:24 +0200
+Message-ID: <20170922161624.GA31500@bistromath.localdomain>
+References: <6bfc5aceda47773af4c75fe7e0e3c0d255a2342d.1505828155.git.sd@queasysnail.net>
+ <20170919164337.zn3p6ikwsgnw7ba6@alphalink.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-To: undisclosed-recipients:;
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, Xin Long <lucien.xin@gmail.com>,
+        Tom Parkin <tparkin@katalix.com>
+To: Guillaume Nault <g.nault@alphalink.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f196.google.com ([209.85.223.196]:34633 "EHLO
-        mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752013AbdIVQGg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 22 Sep 2017 12:06:36 -0400
-Received: by mail-io0-f196.google.com with SMTP id g32so53878ioj.1
-        for <netdev@vger.kernel.org>; Fri, 22 Sep 2017 09:06:35 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:36442 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751877AbdIVQQ2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 22 Sep 2017 12:16:28 -0400
+Content-Disposition: inline
+In-Reply-To: <20170919164337.zn3p6ikwsgnw7ba6@alphalink.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Dear,
+2017-09-19, 18:43:37 +0200, Guillaume Nault wrote:
+> On Tue, Sep 19, 2017 at 03:40:40PM +0200, Sabrina Dubroca wrote:
+> > If we try to delete the same tunnel twice, the first delete operation
+> > does a lookup (l2tp_tunnel_get), finds the tunnel, calls
+> > l2tp_tunnel_delete, which queues it for deletion by
+> > l2tp_tunnel_del_work.
+> > 
+> > The second delete operation also finds the tunnel and calls
+> > l2tp_tunnel_delete. If the workqueue has already fired and started
+> > running l2tp_tunnel_del_work, then l2tp_tunnel_delete will queue the
+> > same tunnel a second time, and try to free the socket again.
+> > 
+> > Add a dead flag to prevent firing the workqueue twice. Then we can
+> > remove the check of queue_work's result that was meant to prevent that
+> > race but doesn't.
+> > 
+> > Also check the flag in the tunnel lookup functions, to avoid returning a
+> > tunnel that is already scheduled for destruction.
+> > 
+> > Reproducer:
+> > 
+> >     ip l2tp add tunnel tunnel_id 3000 peer_tunnel_id 4000 local 192.168.0.2 remote 192.168.0.1 encap udp udp_sport 5000 udp_dport 6000
+> >     ip l2tp add session name l2tp1 tunnel_id 3000 session_id 1000 peer_session_id 2000
+> >     ip link set l2tp1 up
+> >     ip l2tp del tunnel tunnel_id 3000
+> >     ip l2tp del tunnel tunnel_id 3000
+> > 
+> > Fixes: f8ccac0e4493 ("l2tp: put tunnel socket release on a workqueue")
+> > Reported-by: Jianlin Shi <jishi@redhat.com>
+> > Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+> > ---
+> > v2: as Tom Parkin explained, we can't remove the tunnel from the
+> >     per-net list from netlink. v2 uses only a dead flag, and adds
+> >     corresponding checks during lookups
+> > 
+> >  net/l2tp/l2tp_core.c | 18 +++++++++---------
+> >  net/l2tp/l2tp_core.h |  5 ++++-
+> >  2 files changed, 13 insertions(+), 10 deletions(-)
+> > 
+> > diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
+> > index ee485df73ccd..3891f0260f2b 100644
+> > --- a/net/l2tp/l2tp_core.c
+> > +++ b/net/l2tp/l2tp_core.c
+> > @@ -203,7 +203,8 @@ struct l2tp_tunnel *l2tp_tunnel_get(const struct net *net, u32 tunnel_id)
+> >  
+> >  	rcu_read_lock_bh();
+> >  	list_for_each_entry_rcu(tunnel, &pn->l2tp_tunnel_list, list) {
+> > -		if (tunnel->tunnel_id == tunnel_id) {
+> > +		if (tunnel->tunnel_id == tunnel_id &&
+> > +		    !test_bit(0, &tunnel->dead)) {
+> >  			l2tp_tunnel_inc_refcount(tunnel);
+> >  			rcu_read_unlock_bh();
+> >  
+> > @@ -390,7 +391,8 @@ struct l2tp_tunnel *l2tp_tunnel_find(const struct net *net, u32 tunnel_id)
+> >  
+> >  	rcu_read_lock_bh();
+> >  	list_for_each_entry_rcu(tunnel, &pn->l2tp_tunnel_list, list) {
+> > -		if (tunnel->tunnel_id == tunnel_id) {
+> > +		if (tunnel->tunnel_id == tunnel_id &&
+> > +		    !test_bit(0, &tunnel->dead)) {
+> >  			rcu_read_unlock_bh();
+> >  			return tunnel;
+> >  		}
+> > @@ -409,7 +411,7 @@ struct l2tp_tunnel *l2tp_tunnel_find_nth(const struct net *net, int nth)
+> >  
+> >  	rcu_read_lock_bh();
+> >  	list_for_each_entry_rcu(tunnel, &pn->l2tp_tunnel_list, list) {
+> > -		if (++count > nth) {
+> > +		if (++count > nth && !test_bit(0, &tunnel->dead)) {
+> >  			rcu_read_unlock_bh();
+> >  			return tunnel;
+> >  		}
+> > 
+> I don't get why you're checking the dead flag in l2tp_tunnel_{get,find}*().
+> Since it can be set concurrently right after test_bit(), it doesn't
+> protect the caller from getting a tunnel that is being removed by
+> l2tp_tunnel_delete().
+> Or have I missed something?
 
-My Name is Dr. Daniel Mminele the deputy governor of south African
-reserve bank, you can also check  on our Bank website here  for your
-assurance , http://www.whoswhosa.co.za/south-african-reserve-bank-20991
+You're right.
 
-I am a citizen of South African. I am a computer analyst long time
-working with reserve Bank of  South African. (R.B.) My Dear, I came
-across your payment file which was Marked X and your Fund Release Hard
-Disk Painted Red, I took my time to study your payment file and found
-out that you have really attempted to receive the funds without
-success till now. But I am using another person email address to send
-you this because I don=E2=80=99t want my bank to notify  me alright
+Then I would try going back to essentially v1, but keeping code to
+remove the tunnel from the list in l2tp_tunnel_destruct if it's not
+dead yet.
 
-The most annoying thing is that the directors and top officials of
-this nation could not tell you the truth that on no account will they
-ever release the fund to you; instead they will let you spend money
-unnecessarily. I swear with my life, I can release this funds to you
-if you can certify me of my security and how I can run away from this
-country to meet with you. This is like a Mafia Setting here,  if I do
-this for you, I do not intend to work here all the days of my life and
-I cannot run back to my country  as this Bank has my home address ,
-and if I don't run away after I making the transfer to your bank
-account, I may be in trouble or my life will be in danger.
-
-The only thing I will need to release this fund is a Special Hard
-Disk, we call it HD120 GIG. I will buy two of it, recopy your
-information, destroy the previous one, and punch the computer to make
-the fund reflect in your bank account within 24 banking hours. I will
-clean up the tracer and destroy your file, after which I will run away
-from here to meet with you in your country if you are interested. But
-you must assure me the absolute confidentiality of this deal before I
-can do anything further. Do get in touch with me immediately, You
-should send to me your convenient
-Tell phone  number /fax numbers for easy communications and also re
-confirm your banking
-details, so that there won't be any mistake.
-For phone conversation, please call me on +27011745039 or
-+27843464227, And you must contact me though  this my Email address
-which is, danielmminele1@yahoo.com
-
-SPECIAL INFORMATION:
+What do you think?
 
 
-YOU WILL SEND THE FEE FOR THE HARD DISK FIRST BEFORE I MAKE YOUR
-TRANSFER OR YOU BUY
-THE HARD DISK IN YOUR COUNTRY AND SEND IT TO ME,DON'T CONTACT ME IF
-YOU CAN NOT SEND
-THE HARD DISK FEE FIRST OR THE HARD DISK. AS SOON AS I RECEIVED YOUR
-EMAIL I WILL LET
-YOU KNOW HOW MUCH THE DISK WILL COST YOU.
+-------- 8< --------
 
-Regards, Dr. Daniel Mminele the deputy governor of south African reserve ba=
-nk
+diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
+index ee485df73ccd..63cd1f30ac7d 100644
+--- a/net/l2tp/l2tp_core.c
++++ b/net/l2tp/l2tp_core.c
+@@ -1234,6 +1234,23 @@ int l2tp_xmit_skb(struct l2tp_session *session, struct sk_buff *skb, int hdr_len
+ }
+ EXPORT_SYMBOL_GPL(l2tp_xmit_skb);
+ 
++static bool __l2tp_tunnel_delete(struct l2tp_tunnel *tunnel)
++{
++	struct l2tp_net *pn = l2tp_pernet(tunnel->l2tp_net);
++	bool ret = false;
++
++	spin_lock_bh(&pn->l2tp_tunnel_list_lock);
++	if (!tunnel->dead) {
++		tunnel->dead = 1;
++		list_del_rcu(&tunnel->list);
++		atomic_dec(&l2tp_tunnel_count);
++		ret = true;
++	}
++	spin_unlock_bh(&pn->l2tp_tunnel_list_lock);
++
++	return ret;
++}
++
+ /*****************************************************************************
+  * Tinnel and session create/destroy.
+  *****************************************************************************/
+@@ -1245,7 +1262,6 @@ EXPORT_SYMBOL_GPL(l2tp_xmit_skb);
+ static void l2tp_tunnel_destruct(struct sock *sk)
+ {
+ 	struct l2tp_tunnel *tunnel = l2tp_tunnel(sk);
+-	struct l2tp_net *pn;
+ 
+ 	if (tunnel == NULL)
+ 		goto end;
+@@ -1270,11 +1286,7 @@ static void l2tp_tunnel_destruct(struct sock *sk)
+ 	sk->sk_user_data = NULL;
+ 
+ 	/* Remove the tunnel struct from the tunnel list */
+-	pn = l2tp_pernet(tunnel->l2tp_net);
+-	spin_lock_bh(&pn->l2tp_tunnel_list_lock);
+-	list_del_rcu(&tunnel->list);
+-	spin_unlock_bh(&pn->l2tp_tunnel_list_lock);
+-	atomic_dec(&l2tp_tunnel_count);
++	__l2tp_tunnel_delete(tunnel);
+ 
+ 	l2tp_tunnel_closeall(tunnel);
+ 
+@@ -1685,14 +1697,12 @@ EXPORT_SYMBOL_GPL(l2tp_tunnel_create);
+ 
+ /* This function is used by the netlink TUNNEL_DELETE command.
+  */
+-int l2tp_tunnel_delete(struct l2tp_tunnel *tunnel)
++void l2tp_tunnel_delete(struct l2tp_tunnel *tunnel)
+ {
+-	l2tp_tunnel_inc_refcount(tunnel);
+-	if (false == queue_work(l2tp_wq, &tunnel->del_work)) {
+-		l2tp_tunnel_dec_refcount(tunnel);
+-		return 1;
++	if (__l2tp_tunnel_delete(tunnel)) {
++		l2tp_tunnel_inc_refcount(tunnel);
++		queue_work(l2tp_wq, &tunnel->del_work);
+ 	}
+-	return 0;
+ }
+ EXPORT_SYMBOL_GPL(l2tp_tunnel_delete);
+ 
+diff --git a/net/l2tp/l2tp_core.h b/net/l2tp/l2tp_core.h
+index a305e0c5925a..173e68bb8119 100644
+--- a/net/l2tp/l2tp_core.h
++++ b/net/l2tp/l2tp_core.h
+@@ -160,6 +160,8 @@ struct l2tp_tunnel_cfg {
+ 
+ struct l2tp_tunnel {
+ 	int			magic;		/* Should be L2TP_TUNNEL_MAGIC */
++	int			dead;
++
+ 	struct rcu_head rcu;
+ 	rwlock_t		hlist_lock;	/* protect session_hlist */
+ 	bool			acpt_newsess;	/* Indicates whether this
+@@ -254,7 +256,7 @@ int l2tp_tunnel_create(struct net *net, int fd, int version, u32 tunnel_id,
+ 		       u32 peer_tunnel_id, struct l2tp_tunnel_cfg *cfg,
+ 		       struct l2tp_tunnel **tunnelp);
+ void l2tp_tunnel_closeall(struct l2tp_tunnel *tunnel);
+-int l2tp_tunnel_delete(struct l2tp_tunnel *tunnel);
++void l2tp_tunnel_delete(struct l2tp_tunnel *tunnel);
+ struct l2tp_session *l2tp_session_create(int priv_size,
+ 					 struct l2tp_tunnel *tunnel,
+ 					 u32 session_id, u32 peer_session_id,
+
+
+-- 
+Sabrina
