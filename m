@@ -1,57 +1,41 @@
-From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: Re: [net-next 1/2] dummy: add device MTU validation check
-Date: Fri, 22 Sep 2017 14:23:15 +0200
-Message-ID: <20170922122315.GA3446@bistromath.localdomain>
-References: <1506000722-40095-1-git-send-email-zhangshengju@cmss.chinamobile.com>
- <1506000722-40095-2-git-send-email-zhangshengju@cmss.chinamobile.com>
- <1506006138.29839.132.camel@edumazet-glaptop3.roam.corp.google.com>
- <20170922085610.GA4544@bistromath.localdomain>
- <1506078309.29839.161.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Jarod Wilson <jarod@redhat.com>,
-        Zhang Shengju <zhangshengju@cmss.chinamobile.com>,
-        davem@davemloft.net, willemb@google.com,
-        stephen@networkplumber.org, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Stefan Schmidt <stefan@osg.samsung.com>
+Subject: [PATCH] MAINTAINERS: update git tree locations for ieee802154 subsystem
+Date: Fri, 22 Sep 2017 14:28:46 +0200
+Message-ID: <20170922122846.32377-1-stefan@osg.samsung.com>
+Cc: Alexander Aring <aring@mojatatu.com>, netdev@vger.kernel.org,
+        Stefan Schmidt <stefan@osg.samsung.com>
+To: davem@davemloft.net, linux-wpan@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:32640 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752039AbdIVMXW (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 22 Sep 2017 08:23:22 -0400
-Content-Disposition: inline
-In-Reply-To: <1506078309.29839.161.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from proxima.lasnet.de ([78.47.171.185]:54970 "EHLO
+        proxima.lasnet.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752086AbdIVMgN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 22 Sep 2017 08:36:13 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2017-09-22, 04:05:09 -0700, Eric Dumazet wrote:
-> On Fri, 2017-09-22 at 10:56 +0200, Sabrina Dubroca wrote:
-> > 2017-09-21, 08:02:18 -0700, Eric Dumazet wrote:
-> > > On Thu, 2017-09-21 at 21:32 +0800, Zhang Shengju wrote:
-> > > > Currently, any mtu value can be assigned when adding a new dummy device:
-> > > > [~]# ip link add name dummy1 mtu 100000 type dummy
-> > > > [~]# ip link show dummy1
-> > > > 15: dummy1: <BROADCAST,NOARP> mtu 100000 qdisc noop state DOWN mode DEFAULT group default qlen 1000
-> > > >     link/ether 0a:61:6b:16:14:ce brd ff:ff:ff:ff:ff:ff
-> > > > 
-> > > > This patch adds device MTU validation check.
-> > > 
-> > > What is wrong with big MTU on dummy ?
-> > 
-> > It looks like the "centralize MTU checking" series broke that, but
-> > only for changing the MTU on an existing dummy device. Commit
-> > a52ad514fdf3 defined min_mtu/max_mtu in ether_setup, which dummy uses,
-> > but there was no MTU check in dummy prior to that commit.
-> > 
-> 
-> It looks like we accept big mtu on loopback, right ?
+Patches for ieee802154 will go through my new trees towards netdev from
+now on. The 6LoWPAN subsystem will stay as is (shared between ieee802154
+and bluetooth) and go through the bluetooth tree as usual.
 
-Yes. I only meant that before commit a52ad514fdf3, there was no range
-check on dummy's MTU. Commit 25e3e84b183a ("dummy: expend mtu range
-for dummy device") and 8b1efc0f83f1 ("net: remove MTU limits on a few
-ether_setup callers") fixed that only partially. It's the same with
-ifb, btw, it didn't have any check before a52ad514fdf3, so we should
-set min_mtu = max_mtu = 0.
+Signed-off-by: Stefan Schmidt <stefan@osg.samsung.com>
+---
+ MAINTAINERS | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 2281af4b41b6..fc7313daf4b0 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -6643,8 +6643,8 @@ M:	Alexander Aring <alex.aring@gmail.com>
+ M:	Stefan Schmidt <stefan@osg.samsung.com>
+ L:	linux-wpan@vger.kernel.org
+ W:	http://wpan.cakelab.org/
+-T:	git git://git.kernel.org/pub/scm/linux/kernel/git/bluetooth/bluetooth.git
+-T:	git git://git.kernel.org/pub/scm/linux/kernel/git/bluetooth/bluetooth-next.git
++T:	git git://git.kernel.org/pub/scm/linux/kernel/git/sschmidt/wpan.git
++T:	git git://git.kernel.org/pub/scm/linux/kernel/git/sschmidt/wpan-next.git
+ S:	Maintained
+ F:	net/ieee802154/
+ F:	net/mac802154/
 -- 
-Sabrina
+2.13.5
