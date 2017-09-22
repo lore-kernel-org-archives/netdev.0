@@ -1,89 +1,109 @@
-From: gfree.wind@vip.163.com
-Subject: [PATCH net-next v2] net: Remove useless function skb_header_release
-Date: Fri, 22 Sep 2017 10:25:22 +0800
-Message-ID: <1506047122-71116-1-git-send-email-gfree.wind@vip.163.com>
-Cc: Gao Feng <gfree.wind@vip.163.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from m181-177.vip.163.com ([123.58.177.181]:56311 "EHLO
-        m181-177.vip.163.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751726AbdIVCZn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 21 Sep 2017 22:25:43 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Dave Kleikamp <dave.kleikamp@oracle.com>
+Subject: Re: [PATCH v3 09/31] jfs: Define usercopy region in jfs_ip slab cache
+Date: Thu, 21 Sep 2017 21:54:55 -0500
+Message-ID: <0132ff58-f18b-6d67-8edd-fa6bd1f6927b@oracle.com>
+References: <1505940337-79069-1-git-send-email-keescook@chromium.org>
+ <1505940337-79069-10-git-send-email-keescook@chromium.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: David Windsor <dave@nullcore.net>, jfs-discussion@lists.sourceforge.net,
+        linux-fsdevel@vger.kernel.org, netdev@vger.kernel.org,
+        linux-mm@kvack.org, kernel-hardening@lists.openwall.com
+To: Kees Cook <keescook@chromium.org>, linux-kernel@vger.kernel.org
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1505940337-79069-10-git-send-email-keescook@chromium.org>
+Content-Language: en-US
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-From: Gao Feng <gfree.wind@vip.163.com>
+Acked-by: Dave Kleikamp <dave.kleikamp@oracle.com>
 
-There is no one which would invokes the function skb_header_release.
-So just remove it now.
+On 09/20/2017 03:45 PM, Kees Cook wrote:
+> From: David Windsor <dave@nullcore.net>
+> 
+> The jfs symlink pathnames, stored in struct jfs_inode_info.i_inline and
+> therefore contained in the jfs_ip slab cache, need to be copied to/from
+> userspace.
+> 
+> cache object allocation:
+>     fs/jfs/super.c:
+>         jfs_alloc_inode(...):
+>             ...
+>             jfs_inode = kmem_cache_alloc(jfs_inode_cachep, GFP_NOFS);
+>             ...
+>             return &jfs_inode->vfs_inode;
+> 
+>     fs/jfs/jfs_incore.h:
+>         JFS_IP(struct inode *inode):
+>             return container_of(inode, struct jfs_inode_info, vfs_inode);
+> 
+>     fs/jfs/inode.c:
+>         jfs_iget(...):
+>             ...
+>             inode->i_link = JFS_IP(inode)->i_inline;
+> 
+> example usage trace:
+>     readlink_copy+0x43/0x70
+>     vfs_readlink+0x62/0x110
+>     SyS_readlinkat+0x100/0x130
+> 
+>     fs/namei.c:
+>         readlink_copy(..., link):
+>             ...
+>             copy_to_user(..., link, len);
+> 
+>         (inlined in vfs_readlink)
+>         generic_readlink(dentry, ...):
+>             struct inode *inode = d_inode(dentry);
+>             const char *link = inode->i_link;
+>             ...
+>             readlink_copy(..., link);
+> 
+> In support of usercopy hardening, this patch defines a region in the
+> jfs_ip slab cache in which userspace copy operations are allowed.
+> 
+> This region is known as the slab cache's usercopy region. Slab caches can
+> now check that each copy operation involving cache-managed memory falls
+> entirely within the slab's usercopy region.
+> 
+> This patch is modified from Brad Spengler/PaX Team's PAX_USERCOPY
+> whitelisting code in the last public patch of grsecurity/PaX based on my
+> understanding of the code. Changes or omissions from the original code are
+> mine and don't reflect the original grsecurity/PaX code.
+> 
+> Signed-off-by: David Windsor <dave@nullcore.net>
+> [kees: adjust commit log, provide usage trace]
+> Cc: Dave Kleikamp <shaggy@kernel.org>
+> Cc: jfs-discussion@lists.sourceforge.net
+> Signed-off-by: Kees Cook <keescook@chromium.org>
+> ---
+>  fs/jfs/super.c | 8 +++++---
+>  1 file changed, 5 insertions(+), 3 deletions(-)
+> 
+> diff --git a/fs/jfs/super.c b/fs/jfs/super.c
+> index 2f14677169c3..e018412608d4 100644
+> --- a/fs/jfs/super.c
+> +++ b/fs/jfs/super.c
+> @@ -966,9 +966,11 @@ static int __init init_jfs_fs(void)
+>  	int rc;
+>  
+>  	jfs_inode_cachep =
+> -	    kmem_cache_create("jfs_ip", sizeof(struct jfs_inode_info), 0,
+> -			    SLAB_RECLAIM_ACCOUNT|SLAB_MEM_SPREAD|SLAB_ACCOUNT,
+> -			    init_once);
+> +	    kmem_cache_create_usercopy("jfs_ip", sizeof(struct jfs_inode_info),
+> +			0, SLAB_RECLAIM_ACCOUNT|SLAB_MEM_SPREAD|SLAB_ACCOUNT,
+> +			offsetof(struct jfs_inode_info, i_inline),
+> +			sizeof_field(struct jfs_inode_info, i_inline),
+> +			init_once);
+>  	if (jfs_inode_cachep == NULL)
+>  		return -ENOMEM;
+>  
+> 
 
-Signed-off-by: Gao Feng <gfree.wind@vip.163.com>
----
- v2: Correct some comments, per Joe
- v1: initial version
-
- drivers/net/usb/asix_common.c   |  2 +-
- include/linux/skbuff.h          | 19 -------------------
- net/batman-adv/soft-interface.c |  2 +-
- 3 files changed, 2 insertions(+), 21 deletions(-)
-
-diff --git a/drivers/net/usb/asix_common.c b/drivers/net/usb/asix_common.c
-index 522d290..f4d7362 100644
---- a/drivers/net/usb/asix_common.c
-+++ b/drivers/net/usb/asix_common.c
-@@ -245,7 +245,7 @@ struct sk_buff *asix_tx_fixup(struct usbnet *dev, struct sk_buff *skb,
- 	 * - We are allowed to put 4 bytes at tail if skb_cloned()
- 	 *   is false (and if we have 4 bytes of tailroom)
- 	 *
--	 * TCP packets for example are cloned, but skb_header_release()
-+	 * TCP packets for example are cloned, but __skb_header_release()
- 	 * was called in tcp stack, allowing us to use headroom for our needs.
- 	 */
- 	if (!skb_header_cloned(skb) &&
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 4928288..f9db553 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -1457,27 +1457,8 @@ static inline int skb_header_unclone(struct sk_buff *skb, gfp_t pri)
- }
- 
- /**
-- *	skb_header_release - release reference to header
-- *	@skb: buffer to operate on
-- *
-- *	Drop a reference to the header part of the buffer.  This is done
-- *	by acquiring a payload reference.  You must not read from the header
-- *	part of skb->data after this.
-- *	Note : Check if you can use __skb_header_release() instead.
-- */
--static inline void skb_header_release(struct sk_buff *skb)
--{
--	BUG_ON(skb->nohdr);
--	skb->nohdr = 1;
--	atomic_add(1 << SKB_DATAREF_SHIFT, &skb_shinfo(skb)->dataref);
--}
--
--/**
-  *	__skb_header_release - release reference to header
-  *	@skb: buffer to operate on
-- *
-- *	Variant of skb_header_release() assuming skb is private to caller.
-- *	We can avoid one atomic operation.
-  */
- static inline void __skb_header_release(struct sk_buff *skb)
- {
-diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-interface.c
-index 10f7edf..c2c9867 100644
---- a/net/batman-adv/soft-interface.c
-+++ b/net/batman-adv/soft-interface.c
-@@ -69,7 +69,7 @@ int batadv_skb_head_push(struct sk_buff *skb, unsigned int len)
- 	int result;
- 
- 	/* TODO: We must check if we can release all references to non-payload
--	 * data using skb_header_release in our skbs to allow skb_cow_header to
-+	 * data using __skb_header_release in our skbs to allow skb_cow_header to
- 	 * work optimally. This means that those skbs are not allowed to read
- 	 * or write any data which is before the current position of skb->data
- 	 * after that call and thus allow other skbs with the same data buffer
--- 
-1.9.1
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
