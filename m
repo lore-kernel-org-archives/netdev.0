@@ -1,7 +1,7 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH v4 6/9] dvb-frontends: fix i2c access helpers for KASAN
-Date: Fri, 22 Sep 2017 23:29:17 +0200
-Message-ID: <20170922212930.620249-7-arnd@arndb.de>
+Subject: [PATCH v4 4/9] em28xx: fix em28xx_dvb_init for KASAN
+Date: Fri, 22 Sep 2017 23:29:15 +0200
+Message-ID: <20170922212930.620249-5-arnd@arndb.de>
 References: <20170922212930.620249-1-arnd@arndb.de>
 Cc: Arnd Bergmann <arnd@arndb.de>, Jiri Pirko <jiri@resnulli.us>,
         Arend van Spriel <arend.vanspriel@broadcom.com>,
@@ -21,233 +21,172 @@ Cc: Arnd Bergmann <arnd@arndb.de>, Jiri Pirko <jiri@resnulli.us>,
         brcm80211-dev-list.pdl@broadcom.com,
         brcm80211-dev-list@cypress.com, kasan-dev@googlegroups.com
 To: Mauro Carvalho Chehab <mchehab@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <linux-kbuild-owner@vger.kernel.org>
 In-Reply-To: <20170922212930.620249-1-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: linux-kbuild-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-A typical code fragment was copied across many dvb-frontend drivers and
-causes large stack frames when built with with CONFIG_KASAN on gcc-5/6/7:
+With CONFIG_KASAN, the init function uses a large amount of kernel stack:
 
-drivers/media/dvb-frontends/cxd2841er.c:3225:1: error: the frame size of 3992 bytes is larger than 3072 bytes [-Werror=frame-larger-than=]
-drivers/media/dvb-frontends/cxd2841er.c:3404:1: error: the frame size of 3136 bytes is larger than 3072 bytes [-Werror=frame-larger-than=]
-drivers/media/dvb-frontends/stv0367.c:3143:1: error: the frame size of 4016 bytes is larger than 3072 bytes [-Werror=frame-larger-than=]
-drivers/media/dvb-frontends/stv090x.c:3430:1: error: the frame size of 5312 bytes is larger than 3072 bytes [-Werror=frame-larger-than=]
-drivers/media/dvb-frontends/stv090x.c:4248:1: error: the frame size of 4872 bytes is larger than 3072 bytes [-Werror=frame-larger-than=]
+drivers/media/usb/em28xx/em28xx-dvb.c: In function 'em28xx_dvb_init.part.4':
+drivers/media/usb/em28xx/em28xx-dvb.c:2061:1: error: the frame size of 3232 bytes is larger than 2048 bytes [-Werror=frame-larger-than=]
 
-gcc-8 now solves this by consolidating the stack slots for the argument
-variables, but on older compilers we can get the same behavior by taking
-the pointer of a local variable rather than the inline function argument.
+It seems that this is triggered in part by using strlcpy(), which the
+compiler doesn't recognize as copying at most 'len' bytes, since strlcpy
+is not part of the C standard.
+
+It does however recognize the standard strncpy() and optimizes away
+the extra checks for that, using only 1688 bytes in the end.
+I have another larger patch that we could use in addition to this one,
+in order to shrink the stack for -fsanitize-address-use-after-scope
+(with gcc-7.1.1) as well, but that would not be appropriate for
+stable backports, so let's focus on this one first.
 
 Cc: stable@vger.kernel.org
-Link: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=81715
 Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 ---
-I'm undecided here whether there should be a comment pointing
-to PR81715 for each file that the bogus local variable workaround
-to prevent it from being cleaned up again. It's probably not
-necessary since anything that causes actual problems would also
-trigger a build warning.
----
- drivers/media/dvb-frontends/ascot2e.c     | 4 +++-
- drivers/media/dvb-frontends/cxd2841er.c   | 4 +++-
- drivers/media/dvb-frontends/helene.c      | 4 +++-
- drivers/media/dvb-frontends/horus3a.c     | 4 +++-
- drivers/media/dvb-frontends/itd1000.c     | 5 +++--
- drivers/media/dvb-frontends/mt312.c       | 4 +++-
- drivers/media/dvb-frontends/stb0899_drv.c | 3 ++-
- drivers/media/dvb-frontends/stb6100.c     | 6 ++++--
- drivers/media/dvb-frontends/stv0367.c     | 4 +++-
- drivers/media/dvb-frontends/stv090x.c     | 4 +++-
- drivers/media/dvb-frontends/stv6110x.c    | 4 +++-
- drivers/media/dvb-frontends/zl10039.c     | 4 +++-
- 12 files changed, 36 insertions(+), 14 deletions(-)
+ drivers/media/usb/em28xx/em28xx-dvb.c | 30 +++++++++++++++---------------
+ 1 file changed, 15 insertions(+), 15 deletions(-)
 
-diff --git a/drivers/media/dvb-frontends/ascot2e.c b/drivers/media/dvb-frontends/ascot2e.c
-index 0ee0df53b91b..1219272ca3f0 100644
---- a/drivers/media/dvb-frontends/ascot2e.c
-+++ b/drivers/media/dvb-frontends/ascot2e.c
-@@ -155,7 +155,9 @@ static int ascot2e_write_regs(struct ascot2e_priv *priv,
- 
- static int ascot2e_write_reg(struct ascot2e_priv *priv, u8 reg, u8 val)
- {
--	return ascot2e_write_regs(priv, reg, &val, 1);
-+	u8 tmp = val;
-+
-+	return ascot2e_write_regs(priv, reg, &tmp, 1);
- }
- 
- static int ascot2e_read_regs(struct ascot2e_priv *priv,
-diff --git a/drivers/media/dvb-frontends/cxd2841er.c b/drivers/media/dvb-frontends/cxd2841er.c
-index 48ee9bc00c06..b7574deff5c6 100644
---- a/drivers/media/dvb-frontends/cxd2841er.c
-+++ b/drivers/media/dvb-frontends/cxd2841er.c
-@@ -257,7 +257,9 @@ static int cxd2841er_write_regs(struct cxd2841er_priv *priv,
- static int cxd2841er_write_reg(struct cxd2841er_priv *priv,
- 			       u8 addr, u8 reg, u8 val)
- {
--	return cxd2841er_write_regs(priv, addr, reg, &val, 1);
-+	u8 tmp = val;
-+
-+	return cxd2841er_write_regs(priv, addr, reg, &tmp, 1);
- }
- 
- static int cxd2841er_read_regs(struct cxd2841er_priv *priv,
-diff --git a/drivers/media/dvb-frontends/helene.c b/drivers/media/dvb-frontends/helene.c
-index 4bf5a551ba40..6e93f2d1575b 100644
---- a/drivers/media/dvb-frontends/helene.c
-+++ b/drivers/media/dvb-frontends/helene.c
-@@ -331,7 +331,9 @@ static int helene_write_regs(struct helene_priv *priv,
- 
- static int helene_write_reg(struct helene_priv *priv, u8 reg, u8 val)
- {
--	return helene_write_regs(priv, reg, &val, 1);
-+	u8 tmp = val;
-+
-+	return helene_write_regs(priv, reg, &tmp, 1);
- }
- 
- static int helene_read_regs(struct helene_priv *priv,
-diff --git a/drivers/media/dvb-frontends/horus3a.c b/drivers/media/dvb-frontends/horus3a.c
-index 68d759c4c52e..fa9e2d373073 100644
---- a/drivers/media/dvb-frontends/horus3a.c
-+++ b/drivers/media/dvb-frontends/horus3a.c
-@@ -89,7 +89,9 @@ static int horus3a_write_regs(struct horus3a_priv *priv,
- 
- static int horus3a_write_reg(struct horus3a_priv *priv, u8 reg, u8 val)
- {
--	return horus3a_write_regs(priv, reg, &val, 1);
-+	u8 tmp = val;
-+
-+	return horus3a_write_regs(priv, reg, &tmp, 1);
- }
- 
- static int horus3a_enter_power_save(struct horus3a_priv *priv)
-diff --git a/drivers/media/dvb-frontends/itd1000.c b/drivers/media/dvb-frontends/itd1000.c
-index 5bb1e73a10b4..1ac5177162f6 100644
---- a/drivers/media/dvb-frontends/itd1000.c
-+++ b/drivers/media/dvb-frontends/itd1000.c
-@@ -95,8 +95,9 @@ static int itd1000_read_reg(struct itd1000_state *state, u8 reg)
- 
- static inline int itd1000_write_reg(struct itd1000_state *state, u8 r, u8 v)
- {
--	int ret = itd1000_write_regs(state, r, &v, 1);
--	state->shadow[r] = v;
-+	u8 tmp = v;
-+	int ret = itd1000_write_regs(state, r, &tmp, 1);
-+	state->shadow[r] = tmp;
- 	return ret;
- }
- 
-diff --git a/drivers/media/dvb-frontends/mt312.c b/drivers/media/dvb-frontends/mt312.c
-index 961b9a2508e0..12c32c024252 100644
---- a/drivers/media/dvb-frontends/mt312.c
-+++ b/drivers/media/dvb-frontends/mt312.c
-@@ -142,7 +142,9 @@ static inline int mt312_readreg(struct mt312_state *state,
- static inline int mt312_writereg(struct mt312_state *state,
- 				 const enum mt312_reg_addr reg, const u8 val)
- {
--	return mt312_write(state, reg, &val, 1);
-+	u8 tmp = val;
-+
-+	return mt312_write(state, reg, &tmp, 1);
- }
- 
- static inline u32 mt312_div(u32 a, u32 b)
-diff --git a/drivers/media/dvb-frontends/stb0899_drv.c b/drivers/media/dvb-frontends/stb0899_drv.c
-index 02347598277a..db5dde3215f0 100644
---- a/drivers/media/dvb-frontends/stb0899_drv.c
-+++ b/drivers/media/dvb-frontends/stb0899_drv.c
-@@ -539,7 +539,8 @@ int stb0899_write_regs(struct stb0899_state *state, unsigned int reg, u8 *data,
- 
- int stb0899_write_reg(struct stb0899_state *state, unsigned int reg, u8 data)
- {
--	return stb0899_write_regs(state, reg, &data, 1);
-+	u8 tmp = data;
-+	return stb0899_write_regs(state, reg, &tmp, 1);
- }
- 
- /*
-diff --git a/drivers/media/dvb-frontends/stb6100.c b/drivers/media/dvb-frontends/stb6100.c
-index 17a955d0031b..0167a3e1ecc5 100644
---- a/drivers/media/dvb-frontends/stb6100.c
-+++ b/drivers/media/dvb-frontends/stb6100.c
-@@ -226,12 +226,14 @@ static int stb6100_write_reg_range(struct stb6100_state *state, u8 buf[], int st
- 
- static int stb6100_write_reg(struct stb6100_state *state, u8 reg, u8 data)
- {
-+	u8 tmp = data;
-+
- 	if (unlikely(reg >= STB6100_NUMREGS)) {
- 		dprintk(verbose, FE_ERROR, 1, "Invalid register offset 0x%x", reg);
- 		return -EREMOTEIO;
- 	}
--	data = (data & stb6100_template[reg].mask) | stb6100_template[reg].set;
--	return stb6100_write_reg_range(state, &data, reg, 1);
-+	tmp = (tmp & stb6100_template[reg].mask) | stb6100_template[reg].set;
-+	return stb6100_write_reg_range(state, &tmp, reg, 1);
- }
- 
- 
-diff --git a/drivers/media/dvb-frontends/stv0367.c b/drivers/media/dvb-frontends/stv0367.c
-index f3529df8211d..1964cb7d58b7 100644
---- a/drivers/media/dvb-frontends/stv0367.c
-+++ b/drivers/media/dvb-frontends/stv0367.c
-@@ -166,7 +166,9 @@ int stv0367_writeregs(struct stv0367_state *state, u16 reg, u8 *data, int len)
- 
- static int stv0367_writereg(struct stv0367_state *state, u16 reg, u8 data)
- {
--	return stv0367_writeregs(state, reg, &data, 1);
-+	u8 tmp = data;
-+
-+	return stv0367_writeregs(state, reg, &tmp, 1);
- }
- 
- static u8 stv0367_readreg(struct stv0367_state *state, u16 reg)
-diff --git a/drivers/media/dvb-frontends/stv090x.c b/drivers/media/dvb-frontends/stv090x.c
-index 7ef469c0c866..85ec19305483 100644
---- a/drivers/media/dvb-frontends/stv090x.c
-+++ b/drivers/media/dvb-frontends/stv090x.c
-@@ -755,7 +755,9 @@ static int stv090x_write_regs(struct stv090x_state *state, unsigned int reg, u8
- 
- static int stv090x_write_reg(struct stv090x_state *state, unsigned int reg, u8 data)
- {
--	return stv090x_write_regs(state, reg, &data, 1);
-+	u8 tmp = data;
-+
-+	return stv090x_write_regs(state, reg, &tmp, 1);
- }
- 
- static int stv090x_i2c_gate_ctrl(struct stv090x_state *state, int enable)
-diff --git a/drivers/media/dvb-frontends/stv6110x.c b/drivers/media/dvb-frontends/stv6110x.c
-index 66eba38f1014..f0fd9605aa77 100644
---- a/drivers/media/dvb-frontends/stv6110x.c
-+++ b/drivers/media/dvb-frontends/stv6110x.c
-@@ -97,7 +97,9 @@ static int stv6110x_write_regs(struct stv6110x_state *stv6110x, int start, u8 da
- 
- static int stv6110x_write_reg(struct stv6110x_state *stv6110x, u8 reg, u8 data)
- {
--	return stv6110x_write_regs(stv6110x, reg, &data, 1);
-+	u8 tmp = data;
-+
-+	return stv6110x_write_regs(stv6110x, reg, &tmp, 1);
- }
- 
- static int stv6110x_init(struct dvb_frontend *fe)
-diff --git a/drivers/media/dvb-frontends/zl10039.c b/drivers/media/dvb-frontends/zl10039.c
-index 623355fc2666..4ec9a8fb8c12 100644
---- a/drivers/media/dvb-frontends/zl10039.c
-+++ b/drivers/media/dvb-frontends/zl10039.c
-@@ -134,7 +134,9 @@ static inline int zl10039_writereg(struct zl10039_state *state,
- 				const enum zl10039_reg_addr reg,
- 				const u8 val)
- {
--	return zl10039_write(state, reg, &val, 1);
-+	const u8 tmp = val;
-+
-+	return zl10039_write(state, reg, &tmp, 1);
- }
- 
- static int zl10039_init(struct dvb_frontend *fe)
+diff --git a/drivers/media/usb/em28xx/em28xx-dvb.c b/drivers/media/usb/em28xx/em28xx-dvb.c
+index 4a7db623fe29..06c363dc55ed 100644
+--- a/drivers/media/usb/em28xx/em28xx-dvb.c
++++ b/drivers/media/usb/em28xx/em28xx-dvb.c
+@@ -1440,7 +1440,7 @@ static int em28xx_dvb_init(struct em28xx *dev)
+ 		tda10071_pdata.pll_multiplier = 20,
+ 		tda10071_pdata.tuner_i2c_addr = 0x14,
+ 		memset(&board_info, 0, sizeof(board_info));
+-		strlcpy(board_info.type, "tda10071_cx24118", I2C_NAME_SIZE);
++		strncpy(board_info.type, "tda10071_cx24118", I2C_NAME_SIZE - 1);
+ 		board_info.addr = 0x55;
+ 		board_info.platform_data = &tda10071_pdata;
+ 		request_module("tda10071");
+@@ -1460,7 +1460,7 @@ static int em28xx_dvb_init(struct em28xx *dev)
+ 		/* attach SEC */
+ 		a8293_pdata.dvb_frontend = dvb->fe[0];
+ 		memset(&board_info, 0, sizeof(board_info));
+-		strlcpy(board_info.type, "a8293", I2C_NAME_SIZE);
++		strncpy(board_info.type, "a8293", I2C_NAME_SIZE - 1);
+ 		board_info.addr = 0x08;
+ 		board_info.platform_data = &a8293_pdata;
+ 		request_module("a8293");
+@@ -1643,7 +1643,7 @@ static int em28xx_dvb_init(struct em28xx *dev)
+ 		m88ds3103_pdata.ts_clk_pol = 1;
+ 		m88ds3103_pdata.agc = 0x99;
+ 		memset(&board_info, 0, sizeof(board_info));
+-		strlcpy(board_info.type, "m88ds3103", I2C_NAME_SIZE);
++		strncpy(board_info.type, "m88ds3103", I2C_NAME_SIZE - 1);
+ 		board_info.addr = 0x68;
+ 		board_info.platform_data = &m88ds3103_pdata;
+ 		request_module("m88ds3103");
+@@ -1664,7 +1664,7 @@ static int em28xx_dvb_init(struct em28xx *dev)
+ 		/* attach tuner */
+ 		ts2020_config.fe = dvb->fe[0];
+ 		memset(&board_info, 0, sizeof(board_info));
+-		strlcpy(board_info.type, "ts2022", I2C_NAME_SIZE);
++		strncpy(board_info.type, "ts2022", I2C_NAME_SIZE - 1);
+ 		board_info.addr = 0x60;
+ 		board_info.platform_data = &ts2020_config;
+ 		request_module("ts2020");
+@@ -1690,7 +1690,7 @@ static int em28xx_dvb_init(struct em28xx *dev)
+ 		/* attach SEC */
+ 		a8293_pdata.dvb_frontend = dvb->fe[0];
+ 		memset(&board_info, 0, sizeof(board_info));
+-		strlcpy(board_info.type, "a8293", I2C_NAME_SIZE);
++		strncpy(board_info.type, "a8293", I2C_NAME_SIZE - 1);
+ 		board_info.addr = 0x08;
+ 		board_info.platform_data = &a8293_pdata;
+ 		request_module("a8293");
+@@ -1729,7 +1729,7 @@ static int em28xx_dvb_init(struct em28xx *dev)
+ 			si2168_config.fe = &dvb->fe[0];
+ 			si2168_config.ts_mode = SI2168_TS_PARALLEL;
+ 			memset(&info, 0, sizeof(struct i2c_board_info));
+-			strlcpy(info.type, "si2168", I2C_NAME_SIZE);
++			strncpy(info.type, "si2168", I2C_NAME_SIZE - 1);
+ 			info.addr = 0x64;
+ 			info.platform_data = &si2168_config;
+ 			request_module(info.type);
+@@ -1755,7 +1755,7 @@ static int em28xx_dvb_init(struct em28xx *dev)
+ 			si2157_config.mdev = dev->media_dev;
+ #endif
+ 			memset(&info, 0, sizeof(struct i2c_board_info));
+-			strlcpy(info.type, "si2157", I2C_NAME_SIZE);
++			strncpy(info.type, "si2157", I2C_NAME_SIZE - 1);
+ 			info.addr = 0x60;
+ 			info.platform_data = &si2157_config;
+ 			request_module(info.type);
+@@ -1793,7 +1793,7 @@ static int em28xx_dvb_init(struct em28xx *dev)
+ 			si2168_config.fe = &dvb->fe[0];
+ 			si2168_config.ts_mode = SI2168_TS_PARALLEL;
+ 			memset(&info, 0, sizeof(struct i2c_board_info));
+-			strlcpy(info.type, "si2168", I2C_NAME_SIZE);
++			strncpy(info.type, "si2168", I2C_NAME_SIZE - 1);
+ 			info.addr = 0x64;
+ 			info.platform_data = &si2168_config;
+ 			request_module(info.type);
+@@ -1819,7 +1819,7 @@ static int em28xx_dvb_init(struct em28xx *dev)
+ 			si2157_config.mdev = dev->media_dev;
+ #endif
+ 			memset(&info, 0, sizeof(struct i2c_board_info));
+-			strlcpy(info.type, "si2146", I2C_NAME_SIZE);
++			strncpy(info.type, "si2146", I2C_NAME_SIZE - 1);
+ 			info.addr = 0x60;
+ 			info.platform_data = &si2157_config;
+ 			request_module("si2157");
+@@ -1853,7 +1853,7 @@ static int em28xx_dvb_init(struct em28xx *dev)
+ 			/* attach demod */
+ 			memset(&tc90522_config, 0, sizeof(tc90522_config));
+ 			memset(&info, 0, sizeof(struct i2c_board_info));
+-			strlcpy(info.type, "tc90522sat", I2C_NAME_SIZE);
++			strncpy(info.type, "tc90522sat", I2C_NAME_SIZE - 1);
+ 			info.addr = 0x15;
+ 			info.platform_data = &tc90522_config;
+ 			request_module("tc90522");
+@@ -1875,7 +1875,7 @@ static int em28xx_dvb_init(struct em28xx *dev)
+ 			qm1d1c0042_config.fe = tc90522_config.fe;
+ 			qm1d1c0042_config.lpf = 1;
+ 			memset(&info, 0, sizeof(struct i2c_board_info));
+-			strlcpy(info.type, "qm1d1c0042", I2C_NAME_SIZE);
++			strncpy(info.type, "qm1d1c0042", I2C_NAME_SIZE - 1);
+ 			info.addr = 0x61;
+ 			info.platform_data = &qm1d1c0042_config;
+ 			request_module(info.type);
+@@ -1913,7 +1913,7 @@ static int em28xx_dvb_init(struct em28xx *dev)
+ 			si2168_config.fe = &dvb->fe[0];
+ 			si2168_config.ts_mode = SI2168_TS_SERIAL;
+ 			memset(&info, 0, sizeof(struct i2c_board_info));
+-			strlcpy(info.type, "si2168", I2C_NAME_SIZE);
++			strncpy(info.type, "si2168", I2C_NAME_SIZE - 1);
+ 			info.addr = 0x64;
+ 			info.platform_data = &si2168_config;
+ 			request_module(info.type);
+@@ -1939,7 +1939,7 @@ static int em28xx_dvb_init(struct em28xx *dev)
+ 			si2157_config.mdev = dev->media_dev;
+ #endif
+ 			memset(&info, 0, sizeof(struct i2c_board_info));
+-			strlcpy(info.type, "si2157", I2C_NAME_SIZE);
++			strncpy(info.type, "si2157", I2C_NAME_SIZE - 1);
+ 			info.addr = 0x60;
+ 			info.platform_data = &si2157_config;
+ 			request_module(info.type);
+@@ -1975,7 +1975,7 @@ static int em28xx_dvb_init(struct em28xx *dev)
+ 			lgdt3306a_config = hauppauge_01595_lgdt3306a_config;
+ 			lgdt3306a_config.fe = &dvb->fe[0];
+ 			lgdt3306a_config.i2c_adapter = &adapter;
+-			strlcpy(info.type, "lgdt3306a", sizeof(info.type));
++			strncpy(info.type, "lgdt3306a", sizeof(info.type) - 1);
+ 			info.addr = 0x59;
+ 			info.platform_data = &lgdt3306a_config;
+ 			request_module(info.type);
+@@ -2002,7 +2002,7 @@ static int em28xx_dvb_init(struct em28xx *dev)
+ 			si2157_config.mdev = dev->media_dev;
+ #endif
+ 			memset(&info, 0, sizeof(struct i2c_board_info));
+-			strlcpy(info.type, "si2157", sizeof(info.type));
++			strncpy(info.type, "si2157", sizeof(info.type) - 1);
+ 			info.addr = 0x60;
+ 			info.platform_data = &si2157_config;
+ 			request_module(info.type);
 -- 
 2.9.0
+
