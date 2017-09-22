@@ -1,64 +1,55 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH net-next v2 6/6] rtnetlink: rtnl_have_link_slave_info doesn't need rtnl
-Date: Fri, 22 Sep 2017 08:10:08 +0200
-Message-ID: <20170922061008.14723-7-fw@strlen.de>
-References: <20170922061008.14723-1-fw@strlen.de>
-Cc: Florian Westphal <fw@strlen.de>
-To: <netdev@vger.kernel.org>
+From: Siva Reddy Kallam <siva.kallam@broadcom.com>
+Subject: Re: tg3 pxe weirdness
+Date: Fri, 22 Sep 2017 11:51:50 +0530
+Message-ID: <CAMet4B4Jdgjs42KAWQ4HJr1t_Grn1_+Hv8sipeLb_tvZ_SFrMw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: Berend De Schouwer <berend.de.schouwer@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:41606 "EHLO
-        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751795AbdIVGKM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 22 Sep 2017 02:10:12 -0400
-In-Reply-To: <20170922061008.14723-1-fw@strlen.de>
+Received: from mail-qt0-f175.google.com ([209.85.216.175]:43738 "EHLO
+        mail-qt0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751790AbdIVGVw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 22 Sep 2017 02:21:52 -0400
+Received: by mail-qt0-f175.google.com with SMTP id i50so147212qtf.0
+        for <netdev@vger.kernel.org>; Thu, 21 Sep 2017 23:21:51 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Switch it to rcu.
+On Thu, Sep 21, 2017 at 7:53 PM, Berend De Schouwer
+<berend.de.schouwer@gmail.com> wrote:
+> Hi,
+>
+> I've got a machine with a Broadcom bcm5762c, using the tg3 driver, that
+> fails to receive network packets under some very specific conditions.
+>
+> It works perfectly using a 1Gbps switch.  If, however, it first uses
+> PXE and then loads the Linux tg3 driver, and the switch is 100Mbps, it
+> no longer receives packets larger than ICMP.
+>
+> It does do ARP and ping.
+>
+> If it boots using PXE on a 1Gbps switch, boots into Linux, and then
+> it's plugged into 100 Mbps it also stops receiving packets.
+>
+> mii-diag and dmesg confirm auto-negotiated speed and flow control, and
+> confirm temporary disconnect as the cables are moved.
+>
+> PXE boots using UNDI, which then transfers a kernel using TFTP, which
+> transfers correctly.  The kernel boots, loads the tg3 driver, connects
+> the network.  Up to this point everything works.  Ping will work too.
+> Any other network traffic fails.
+>
+> Booting from a harddrive works fine.  I assume the UNDI driver
+> somewhere breaks auto-negotiation.  I've tried using mii-tool and
+> ethtool, but I haven't managed to make it work yet.
+>
+> Is it possible to get negotiation working after PXE boot?  Are there
+> any tg3 driver flags that might make a difference?
+>
+>
+> Berend
 
-rtnl_link_slave_info_fill on to other hand does need rtnl mutex for now so
-add an annotation to its caller as a reminder.
-
-Signed-off-by: Florian Westphal <fw@strlen.de>
----
- Change since v1:
-  - don't add ASSERT_RTNL to rtnl_link_slave_info_fill and
-  rtnl_link_info_fill they are only called via rtnl_link_fill.
-
- net/core/rtnetlink.c | 12 +++++++++---
- 1 file changed, 9 insertions(+), 3 deletions(-)
-
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 590823f70cc3..e6f9e36d9d5a 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -522,11 +522,15 @@ static size_t rtnl_link_get_af_size(const struct net_device *dev,
- static bool rtnl_have_link_slave_info(const struct net_device *dev)
- {
- 	struct net_device *master_dev;
-+	bool ret = false;
- 
--	master_dev = netdev_master_upper_dev_get((struct net_device *) dev);
-+	rcu_read_lock();
-+
-+	master_dev = netdev_master_upper_dev_get_rcu((struct net_device *)dev);
- 	if (master_dev && master_dev->rtnl_link_ops)
--		return true;
--	return false;
-+		ret = true;
-+	rcu_read_unlock();
-+	return ret;
- }
- 
- static int rtnl_link_slave_info_fill(struct sk_buff *skb,
-@@ -598,6 +602,8 @@ static int rtnl_link_fill(struct sk_buff *skb, const struct net_device *dev)
- 	struct nlattr *linkinfo;
- 	int err = -EMSGSIZE;
- 
-+	ASSERT_RTNL();
-+
- 	linkinfo = nla_nest_start(skb, IFLA_LINKINFO);
- 	if (linkinfo == NULL)
- 		goto out;
--- 
-2.13.5
+Can you please share below details?
+1) Model and Manufacturer of the system
+2) Linux distro/kernel used?
