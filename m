@@ -1,67 +1,89 @@
-From: Julia Lawall <julia.lawall@lip6.fr>
-Subject: Re: [PATCH] wireless: iwlegacy: make const array static to shink
- object code size Content-Type: text/plain; charset="utf-8" Content-Transfer-Encoding:
- 8bit
-Date: Fri, 22 Sep 2017 12:06:20 +0200 (CEST)
-Message-ID: <alpine.DEB.2.20.1709221206050.3170@hadrien>
-References: <20170921225630.21916-1-colin.king@canonical.com> <alpine.DEB.2.20.1709220921350.2024@hadrien> <1506074588.12311.37.camel@perches.com> <f6cb5b73-4ed5-92d9-3909-32b8e3aafc45@canonical.com>
+From: Orson Zhai <orson.zhai@linaro.org>
+Subject: tools: selftests: psock_tpacket: skip un-supported tpacket_v3 test
+Date: Fri, 22 Sep 2017 18:17:17 +0800
+Message-ID: <20170922101717.11933-1-orson.zhai@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: Joe Perches <joe@perches.com>,
-        Stanislaw Gruszka <sgruszka@redhat.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Colin Ian King <colin.king@canonical.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <f6cb5b73-4ed5-92d9-3909-32b8e3aafc45@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: "David S . Miller" <davem@davemloft.net>,
+        <milosz.wasilewski@linaro.org>, <sumit.semwal@linaro.org>,
+        <netdev@vger.kernel.org>, <linux-kselftest@vger.kernel.org>,
+        Orson Zhai <orson.zhai@linaro.org>
+To: Shuah Khan <shuah@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sci-ig2.spreadtrum.com ([222.66.158.135]:11848 "EHLO
+        SHSQR01.spreadtrum.com" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+        with ESMTP id S1751977AbdIVKS6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 22 Sep 2017 06:18:58 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+The TPACKET_V3 test of PACKET_TX_RING will fail with kernel version
+lower than v4.11. Supported code of tx ring was add with commit id
+<7f953ab2ba46: af_packet: TX_RING support for TPACKET_V3> at Jan. 3
+of 2017.
 
+So skip this item test instead of reporting failing for old kernels.
 
-On Fri, 22 Sep 2017, Colin Ian King wrote:
+Signed-off-by: Orson Zhai <orson.zhai@linaro.org>
+---
+ tools/testing/selftests/net/psock_tpacket.c | 17 ++++++++++++++---
+ 1 file changed, 14 insertions(+), 3 deletions(-)
 
-> On 22/09/17 11:03, Joe Perches wrote:
-> > On Fri, 2017-09-22 at 09:23 +0200, Julia Lawall wrote:
-> >>
-> >> On Thu, 21 Sep 2017, Colin King wrote:
-> >>
-> >>> From: Colin Ian King <colin.king@canonical.com>
-> >>>
-> >>> Don't populate const array ac_to_fifo on the stack in an inlined
-> >>> function, instead make it static.  Makes the object code smaller
-> >>> by over 800 bytes:
-> >>>
-> >>>    text	   data	    bss	    dec	    hex	filename
-> >>>  159029	  33154	   1216	 193399	  2f377	4965-mac.o
-> >>>
-> >>>    text	   data	    bss	    dec	    hex	filename
-> >>>  158122	  33250	   1216	 192588	  2f04c	4965-mac.o
-> >>>
-> >>> (gcc version 7.2.0 x86_64)
-> >>
-> >> Gcc 7 must be much more aggressive about inlining than gcc 4.  Here is the
-> >> change that I got on this file:
-> >>
-> >>      text          data     bss     dec     hex filename
-> >> -   76346          1494     152   77992   130a8 drivers/net/wireless/intel/iwlegacy/4965-mac.o
-> >> +   76298          1494     152   77944   13078 drivers/net/wireless/intel/iwlegacy/4965-mac.o
-> >> decrease of 48
-> >
-> > More likely different CONFIG options.
-> >
-> > e.g. allyesconfig vs defconfig with wireless
-> >
-> yup, I used allyesconfig
-
-Mine is also allyesconfig.
-
-julia
-
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe kernel-janitors" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+diff --git a/tools/testing/selftests/net/psock_tpacket.c b/tools/testing/selftests/net/psock_tpacket.c
+index 7f6cd9fdacf3..f0cfc18c3726 100644
+--- a/tools/testing/selftests/net/psock_tpacket.c
++++ b/tools/testing/selftests/net/psock_tpacket.c
+@@ -57,6 +57,7 @@
+ #include <net/if.h>
+ #include <inttypes.h>
+ #include <poll.h>
++#include <errno.h>
+ 
+ #include "psock_lib.h"
+ 
+@@ -676,7 +677,7 @@ static void __v3_fill(struct ring *ring, unsigned int blocks, int type)
+ 	ring->flen = ring->req3.tp_block_size;
+ }
+ 
+-static void setup_ring(int sock, struct ring *ring, int version, int type)
++static int setup_ring(int sock, struct ring *ring, int version, int type)
+ {
+ 	int ret = 0;
+ 	unsigned int blocks = 256;
+@@ -703,7 +704,11 @@ static void setup_ring(int sock, struct ring *ring, int version, int type)
+ 
+ 	if (ret == -1) {
+ 		perror("setsockopt");
+-		exit(1);
++		if (errno == EINVAL) {
++			printf("[SKIP] This type seems un-supported in current kernel, skipped.\n");
++			return -1;
++		} else
++			exit(1);
+ 	}
+ 
+ 	ring->rd_len = ring->rd_num * sizeof(*ring->rd);
+@@ -715,6 +720,7 @@ static void setup_ring(int sock, struct ring *ring, int version, int type)
+ 
+ 	total_packets = 0;
+ 	total_bytes = 0;
++	return 0;
+ }
+ 
+ static void mmap_ring(int sock, struct ring *ring)
+@@ -830,7 +836,12 @@ static int test_tpacket(int version, int type)
+ 
+ 	sock = pfsocket(version);
+ 	memset(&ring, 0, sizeof(ring));
+-	setup_ring(sock, &ring, version, type);
++	if(setup_ring(sock, &ring, version, type)) {
++		/* skip test when error of invalid argument */
++		close(sock);
++		return 0;
++	}
++
+ 	mmap_ring(sock, &ring);
+ 	bind_ring(sock, &ring);
+ 	walk_ring(sock, &ring);
+-- 
+2.12.2
