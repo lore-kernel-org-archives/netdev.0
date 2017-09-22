@@ -1,43 +1,26 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] wireless: iwlegacy:  make const array static to shink
- object code size Content-Type: text/plain; charset="utf-8"
- Content-Transfer-Encoding: 8bit
-Date: Fri, 22 Sep 2017 08:00:29 +0200
-Message-ID: <1506060029.2048.9.camel@sipsolutions.net>
-References: <20170921225630.21916-1-colin.king@canonical.com>
-         (sfid-20170922_005652_800251_1E085F58)
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Colin King <colin.king@canonical.com>,
-        Stanislaw Gruszka <sgruszka@redhat.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170921225630.21916-1-colin.king@canonical.com> (sfid-20170922_005652_800251_1E085F58)
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH net-next v2 0/6] rtnetlink: preparation patches for further rtnl lock pushdown/removal
+Date: Fri, 22 Sep 2017 08:10:02 +0200
+Message-ID: <20170922061008.14723-1-fw@strlen.de>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:41574 "EHLO
+        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751795AbdIVGJu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 22 Sep 2017 02:09:50 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2017-09-21 at 23:56 +0100, Colin King wrote:
-> From: Colin Ian King <colin.king@canonical.com>
-> 
-> Don't populate const array ac_to_fifo on the stack in an inlined
-> function, instead make it static.  Makes the object code smaller
-> by over 800 bytes:
-> 
->    text	   data	    bss	    dec	    hex	
-> filename
->  159029	  33154	   1216	 193399	  2f377	
-> 4965-mac.o
-> 
->    text	   data	    bss	    dec	    hex	
-> filename
->  158122	  33250	   1216	 192588	  2f04c	
-> 4965-mac.o
-> 
-> (gcc version 7.2.0 x86_64)
+First patch adds a rudimentary vrf test case.
 
-I'm curious - how did you find this?
+Remaining patches split large rtnl_fill_ifinfo into smaller chunks
+to better see which parts
 
-johannes
+1. require rtnl
+2. do not require it at all
+3. rely on rtnl locking now but could be converted
+
+changes since v2:
+- fix subject lines of patches 2 and 5
+- drop pure ASSERT_RTNL annotation patch, its not all that useful
+- remove two extra ASSERT_RTNL in last patch
