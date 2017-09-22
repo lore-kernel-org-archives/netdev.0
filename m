@@ -1,47 +1,87 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [PATCH] wireless: iwlegacy:  make const array static to shink object code size Content-Type: text/plain; charset="utf-8" Content-Transfer-Encoding: 8bit
-Date: Fri, 22 Sep 2017 13:32:35 +0300
-Message-ID: <87efqz81mk.fsf@kamboji.qca.qualcomm.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] wireless: iwlegacy: make const array static to shink
+ object code size Content-Type: text/plain; charset="utf-8"
+ Content-Transfer-Encoding: 8bit
+Date: Fri, 22 Sep 2017 03:46:21 -0700
+Message-ID: <1506077181.12311.39.camel@perches.com>
 References: <20170921225630.21916-1-colin.king@canonical.com>
-        <20170922095609.GA27551@redhat.com>
+         <alpine.DEB.2.20.1709220921350.2024@hadrien>
+         <1506074588.12311.37.camel@perches.com>
+         <f6cb5b73-4ed5-92d9-3909-32b8e3aafc45@canonical.com>
+         <alpine.DEB.2.20.1709221206050.3170@hadrien>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Colin King <colin.king@canonical.com>,
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 8bit
+Cc: Stanislaw Gruszka <sgruszka@redhat.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
         linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
         kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Stanislaw Gruszka <sgruszka@redhat.com>
+To: Julia Lawall <julia.lawall@lip6.fr>,
+        Colin Ian King <colin.king@canonical.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170922095609.GA27551@redhat.com> (Stanislaw Gruszka's message
-        of "Fri, 22 Sep 2017 11:56:10 +0200")
+In-Reply-To: <alpine.DEB.2.20.1709221206050.3170@hadrien>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stanislaw Gruszka <sgruszka@redhat.com> writes:
+On Fri, 2017-09-22 at 12:06 +0200, Julia Lawall wrote:
+> 
+> On Fri, 22 Sep 2017, Colin Ian King wrote:
+> 
+> > On 22/09/17 11:03, Joe Perches wrote:
+> > > On Fri, 2017-09-22 at 09:23 +0200, Julia Lawall wrote:
+> > > > 
+> > > > On Thu, 21 Sep 2017, Colin King wrote:
+> > > > 
+> > > > > From: Colin Ian King <colin.king@canonical.com>
+> > > > > 
+> > > > > Don't populate const array ac_to_fifo on the stack in an inlined
+> > > > > function, instead make it static.  Makes the object code smaller
+> > > > > by over 800 bytes:
+> > > > > 
+> > > > >    text	   data	    bss	    dec	    hex	filename
+> > > > >  159029	  33154	   1216	 193399	  2f377	4965-mac.o
+> > > > > 
+> > > > >    text	   data	    bss	    dec	    hex	filename
+> > > > >  158122	  33250	   1216	 192588	  2f04c	4965-mac.o
+> > > > > 
+> > > > > (gcc version 7.2.0 x86_64)
+> > > > 
+> > > > Gcc 7 must be much more aggressive about inlining than gcc 4.  Here is the
+> > > > change that I got on this file:
+> > > > 
+> > > >      text          data     bss     dec     hex filename
+> > > > -   76346          1494     152   77992   130a8 drivers/net/wireless/intel/iwlegacy/4965-mac.o
+> > > > +   76298          1494     152   77944   13078 drivers/net/wireless/intel/iwlegacy/4965-mac.o
+> > > > decrease of 48
+> > > 
+> > > More likely different CONFIG options.
+> > > 
+> > > e.g. allyesconfig vs defconfig with wireless
+> > > 
+> > 
+> > yup, I used allyesconfig
+> 
+> Mine is also allyesconfig.
 
-> On Thu, Sep 21, 2017 at 11:56:30PM +0100, Colin King wrote:
->> From: Colin Ian King <colin.king@canonical.com>
->> 
->> Don't populate const array ac_to_fifo on the stack in an inlined
->> function, instead make it static.  Makes the object code smaller
->> by over 800 bytes:
->> 
->>    text	   data	    bss	    dec	    hex	filename
->>  159029	  33154	   1216	 193399	  2f377	4965-mac.o
->> 
->>    text	   data	    bss	    dec	    hex	filename
->>  158122	  33250	   1216	 192588	  2f04c	4965-mac.o
->> 
->> (gcc version 7.2.0 x86_64)
->> 
->> Signed-off-by: Colin Ian King <colin.king@canonical.com>
->
-> Content type information was added at the end of the topic, but
-> I think Kalle can fix that when he will be committing the patch.
+Odd.
 
-Yeah, I'll fix that when I commit this. But very good that you pointed
-it out, I might miss stuff like this.
+Here is what I get: (Sorry, no gcc-7)
 
-I'll also remove the "wireless:" prefix from the title.
+gcc4: gcc-4.9 (Ubuntu 4.9.4-2ubuntu1) 4.9.4
+gcc5: gcc-5 (Ubuntu 5.4.1-8ubuntu1) 5.4.1 20170304
+gcc6: gcc-6 (Ubuntu 6.3.0-12ubuntu2) 6.3.0 20170406
 
--- 
-Kalle Valo
+$ size drivers/net/wireless/intel/iwlegacy/4965-mac.o*
+   text	   data	    bss	    dec	    hex	filename
+ 118559	   1766	    152	 120477	  1d69d	drivers/net/wireless/intel/iwlegacy/4965-mac.o.gcc4.allyesconfig.new
+ 118623	   1766	    152	 120541	  1d6dd	drivers/net/wireless/intel/iwlegacy/4965-mac.o.gcc4.allyesconfig.old
+  51595	   1156	      0	  52751	   ce0f	drivers/net/wireless/intel/iwlegacy/4965-mac.o.gcc4.defconfig.new
+  51659	   1156	      0	  52815	   ce4f	drivers/net/wireless/intel/iwlegacy/4965-mac.o.gcc4.defconfig.old
+ 141956	  29790	   1216	 172962	  2a3a2	drivers/net/wireless/intel/iwlegacy/4965-mac.o.gcc5.allyesconfig.new
+ 142671	  29702	   1216	 173589	  2a615	drivers/net/wireless/intel/iwlegacy/4965-mac.o.gcc5.allyesconfig.old
+  51733	   1156	      0	  52889	   ce99	drivers/net/wireless/intel/iwlegacy/4965-mac.o.gcc5.defconfig.new
+  51813	   1156	      0	  52969	   cee9	drivers/net/wireless/intel/iwlegacy/4965-mac.o.gcc5.defconfig.old
+ 152991	  29790	   1216	 183997	  2cebd	drivers/net/wireless/intel/iwlegacy/4965-mac.o.gcc6.allyesconfig.new
+ 153722	  29702	   1216	 184640	  2d140	drivers/net/wireless/intel/iwlegacy/4965-mac.o.gcc6.allyesconfig.old
+  51813	   1156	      0	  52969	   cee9	drivers/net/wireless/intel/iwlegacy/4965-mac.o.gcc6.defconfig.new
+  51893	   1156	      0	  53049	   cf39	drivers/net/wireless/intel/iwlegacy/4965-mac.o.gcc6.defconfig.old
