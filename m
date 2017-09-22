@@ -1,78 +1,63 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: build failure after merge of the net-next tree
-Date: Thu, 21 Sep 2017 18:37:59 -0700 (PDT)
-Message-ID: <20170921.183759.289331373985144347.davem@davemloft.net>
-References: <20170922110355.6a631fc5@canb.auug.org.au>
+Subject: Re: [PATCH net-next 01/10] net: hns3: Support for dynamically
+ assigning tx buffer to TC
+Date: Thu, 21 Sep 2017 18:41:02 -0700 (PDT)
+Message-ID: <20170921.184102.278153022575280817.davem@davemloft.net>
+References: <1505992913-107256-1-git-send-email-linyunsheng@huawei.com>
+        <1505992913-107256-2-git-send-email-linyunsheng@huawei.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-        linux-kernel@vger.kernel.org, pabeni@redhat.com
-To: sfr@canb.auug.org.au
+Cc: huangdaode@hisilicon.com, xuwei5@hisilicon.com,
+        liguozhu@hisilicon.com, Yisen.Zhuang@huawei.com,
+        gabriele.paoloni@huawei.com, john.garry@huawei.com,
+        linuxarm@huawei.com, salil.mehta@huawei.com, lipeng321@huawei.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linyunsheng@huawei.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170922110355.6a631fc5@canb.auug.org.au>
+In-Reply-To: <1505992913-107256-2-git-send-email-linyunsheng@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Fri, 22 Sep 2017 11:03:55 +1000
+From: Yunsheng Lin <linyunsheng@huawei.com>
+Date: Thu, 21 Sep 2017 19:21:44 +0800
 
-> After merging the net-next tree, today's linux-next build (arm
-> multi_v7_defconfig) failed like this:
-> 
-> net/ipv4/fib_frontend.c: In function 'fib_validate_source':
-> net/ipv4/fib_frontend.c:411:16: error: 'struct netns_ipv4' has no member named 'fib_has_custom_local_routes'
->    if (net->ipv4.fib_has_custom_local_routes)
->                 ^
-> net/ipv4/fib_frontend.c: In function 'inet_rtm_newroute':
-> net/ipv4/fib_frontend.c:773:12: error: 'struct netns_ipv4' has no member named 'fib_has_custom_local_routes'
->    net->ipv4.fib_has_custom_local_routes = true;
->             ^
-> 
-> Caused by commit
-> 
->   6e617de84e87 ("net: avoid a full fib lookup when rp_filter is disabled.")
+> @@ -1324,23 +1324,28 @@ static int hclge_alloc_vport(struct hclge_dev *hdev)
+>  	return 0;
+>  }
+>  
+> -static int  hclge_cmd_alloc_tx_buff(struct hclge_dev *hdev, u16 buf_size)
+> +static int  hclge_cmd_alloc_tx_buff(struct hclge_dev *hdev)
+>  {
+>  /* TX buffer size is unit by 128 byte */
+>  #define HCLGE_BUF_SIZE_UNIT_SHIFT	7
+>  #define HCLGE_BUF_SIZE_UPDATE_EN_MSK	BIT(15)
+>  	struct hclge_tx_buff_alloc *req;
+> +	struct hclge_priv_buf *priv;
+>  	struct hclge_desc desc;
+> +	u32 buf_size;
+>  	int ret;
+>  	u8 i;
+>  
+>  	req = (struct hclge_tx_buff_alloc *)desc.data;
+>  
+>  	hclge_cmd_setup_basic_desc(&desc, HCLGE_OPC_TX_BUFF_ALLOC, 0);
+> -	for (i = 0; i < HCLGE_TC_NUM; i++)
+> +	for (i = 0; i < HCLGE_TC_NUM; i++) {
+> +		priv = &hdev->priv_buf[i];
+> +		buf_size = priv->tx_buf_size;
+>  		req->tx_pkt_buff[i] =
+>  			cpu_to_le16((buf_size >> HCLGE_BUF_SIZE_UNIT_SHIFT) |
+>  				     HCLGE_BUF_SIZE_UPDATE_EN_MSK);
+> +	}
+>  
+>  	ret = hclge_cmd_send(&hdev->hw, &desc, 1);
+>  	if (ret) {
 
-Paolo, it seems this struct member should be placed outside of
-IP_MULTIPLE_TABLES protection, since users can insert custom
-local routes even without that set.
+Local variable 'buf_size' is assigned but never used in this function.
+And with 'buf_size' removed, 'priv' also becomes unused.
 
-So I'm installing the following fix for this:
+If it gets used in a later patch, add it in that later patch.
 
-====================
-[PATCH] ipv4: Move fib_has_custom_local_routes outside of IP_MULTIPLE_TABLES.
-
-> net/ipv4/fib_frontend.c: In function 'fib_validate_source':
-> net/ipv4/fib_frontend.c:411:16: error: 'struct netns_ipv4' has no member named 'fib_has_custom_local_routes'
->    if (net->ipv4.fib_has_custom_local_routes)
->                 ^
-> net/ipv4/fib_frontend.c: In function 'inet_rtm_newroute':
-> net/ipv4/fib_frontend.c:773:12: error: 'struct netns_ipv4' has no member named 'fib_has_custom_local_routes'
->    net->ipv4.fib_has_custom_local_routes = true;
->             ^
-
-Fixes: 6e617de84e87 ("net: avoid a full fib lookup when rp_filter is disabled.")
-Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- include/net/netns/ipv4.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
-index 20720721da4b..8387f099115e 100644
---- a/include/net/netns/ipv4.h
-+++ b/include/net/netns/ipv4.h
-@@ -49,10 +49,10 @@ struct netns_ipv4 {
- #ifdef CONFIG_IP_MULTIPLE_TABLES
- 	struct fib_rules_ops	*rules_ops;
- 	bool			fib_has_custom_rules;
--	bool			fib_has_custom_local_routes;
- 	struct fib_table __rcu	*fib_main;
- 	struct fib_table __rcu	*fib_default;
- #endif
-+	bool			fib_has_custom_local_routes;
- #ifdef CONFIG_IP_ROUTE_CLASSID
- 	int			fib_num_tclassid_users;
- #endif
--- 
-2.13.5
+You can also declare the variables locally in the basic block of
+the for() loop.
