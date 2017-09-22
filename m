@@ -1,18 +1,18 @@
 From: Allen Pais <allen.lkml@gmail.com>
-Subject: [PATCH 5/5] net: nfc: llcp_core: use setup_timer() helper.
-Date: Fri, 22 Sep 2017 16:28:22 +0530
-Message-ID: <1506077902-1796-6-git-send-email-allen.lkml@gmail.com>
+Subject: [PATCH 4/5] net: nfc: core: use setup_timer() helper.
+Date: Fri, 22 Sep 2017 16:28:21 +0530
+Message-ID: <1506077902-1796-5-git-send-email-allen.lkml@gmail.com>
 References: <1506077902-1796-1-git-send-email-allen.lkml@gmail.com>
 Cc: davem@davemloft.net, sameo@linux.intel.com,
         Allen Pais <allen.lkml@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:33724 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752072AbdIVK6o (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 22 Sep 2017 06:58:44 -0400
-Received: by mail-pg0-f65.google.com with SMTP id i130so447865pgc.0
-        for <netdev@vger.kernel.org>; Fri, 22 Sep 2017 03:58:44 -0700 (PDT)
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:38750 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752062AbdIVK6l (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 22 Sep 2017 06:58:41 -0400
+Received: by mail-pf0-f194.google.com with SMTP id a7so316294pfj.5
+        for <netdev@vger.kernel.org>; Fri, 22 Sep 2017 03:58:41 -0700 (PDT)
 In-Reply-To: <1506077902-1796-1-git-send-email-allen.lkml@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -22,36 +22,24 @@ List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Allen Pais <allen.lkml@gmail.com>
 ---
- net/nfc/llcp_core.c | 10 ++++------
- 1 file changed, 4 insertions(+), 6 deletions(-)
+ net/nfc/core.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
-diff --git a/net/nfc/llcp_core.c b/net/nfc/llcp_core.c
-index 02eef5c..7988185 100644
---- a/net/nfc/llcp_core.c
-+++ b/net/nfc/llcp_core.c
-@@ -1573,9 +1573,8 @@ int nfc_llcp_register_device(struct nfc_dev *ndev)
- 	INIT_LIST_HEAD(&local->list);
- 	kref_init(&local->ref);
- 	mutex_init(&local->sdp_lock);
--	init_timer(&local->link_timer);
--	local->link_timer.data = (unsigned long) local;
--	local->link_timer.function = nfc_llcp_symm_timer;
-+	setup_timer(&local->link_timer, nfc_llcp_symm_timer,
-+		    (unsigned long)local);
+diff --git a/net/nfc/core.c b/net/nfc/core.c
+index 5cf33df..e5e23c2 100644
+--- a/net/nfc/core.c
++++ b/net/nfc/core.c
+@@ -1094,9 +1094,8 @@ struct nfc_dev *nfc_allocate_device(struct nfc_ops *ops,
+ 	dev->targets_generation = 1;
  
- 	skb_queue_head_init(&local->tx_queue);
- 	INIT_WORK(&local->tx_work, nfc_llcp_tx_work);
-@@ -1601,9 +1600,8 @@ int nfc_llcp_register_device(struct nfc_dev *ndev)
+ 	if (ops->check_presence) {
+-		init_timer(&dev->check_pres_timer);
+-		dev->check_pres_timer.data = (unsigned long)dev;
+-		dev->check_pres_timer.function = nfc_check_pres_timeout;
++		setup_timer(&dev->check_pres_timer, nfc_check_pres_timeout,
++			    (unsigned long)dev);
  
- 	mutex_init(&local->sdreq_lock);
- 	INIT_HLIST_HEAD(&local->pending_sdreqs);
--	init_timer(&local->sdreq_timer);
--	local->sdreq_timer.data = (unsigned long) local;
--	local->sdreq_timer.function = nfc_llcp_sdreq_timer;
-+	setup_timer(&local->sdreq_timer, nfc_llcp_sdreq_timer,
-+		    (unsigned long)local);
- 	INIT_WORK(&local->sdreq_timeout_work, nfc_llcp_sdreq_timeout_work);
- 
- 	list_add(&local->list, &llcp_devices);
+ 		INIT_WORK(&dev->check_pres_work, nfc_check_pres_work);
+ 	}
 -- 
 2.7.4
