@@ -1,68 +1,66 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH][V2] e1000: avoid null pointer dereference on invalid stat type
-Date: Fri, 22 Sep 2017 14:41:31 +0100
-Message-ID: <20170922134131.12283-1-colin.king@canonical.com>
+From: Edward Cree <ecree@solarflare.com>
+Subject: Re: [PATCH net-next] bpf/verifier: improve disassembly of BPF_END
+ instructions
+Date: Fri, 22 Sep 2017 14:46:42 +0100
+Message-ID: <ec7d0485-11f4-4fdb-0b87-1fb0afdb4f11@solarflare.com>
+References: <7013ee9d-a8e6-13fd-cc5f-86cf3d8bf4e0@solarflare.com>
+ <20170921155215.jta52sesbiq54vri@ast-mbp>
+ <4cfac985-4f99-cf85-fc15-c3ad1f8ff123@solarflare.com>
+ <CAH3MdRWAHJS8Y8ketOAghYyorVUp6JijjZcSVY7gOiGAr7e_pw@mail.gmail.com>
+ <207ecd4c-b1b4-3dcd-62a6-30824c19dbf7@solarflare.com>
+ <59C4131D.8050003@iogearbox.net> <20170921194426.tnd5xos5irm3gred@ast-mbp>
+ <46aa4442-b8ed-e4c1-4897-8f650e23d448@solarflare.com>
+ <CAH3MdRVK-=pL8YCz44BPCmHhuZE_CRfih0QdZPLa=mpE_uoA_Q@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>
+To: Y Song <ys114321@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dispatch1-us1.ppe-hosted.com ([67.231.154.164]:39684 "EHLO
+        dispatch1-us1.ppe-hosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752061AbdIVNqt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 22 Sep 2017 09:46:49 -0400
+In-Reply-To: <CAH3MdRVK-=pL8YCz44BPCmHhuZE_CRfih0QdZPLa=mpE_uoA_Q@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin Ian King <colin.king@canonical.com>
-
-Currently if the stat type is invalid then data[i] is being set
-either by dereferencing a null pointer p, or it is reading from
-an incorrect previous location if we had a valid stat type
-previously.  Fix this by nullify pointer p if a stat type is
-invalid and only setting data if p is not null.
-
-Detected by CoverityScan, CID#113385 ("Explicit null dereferenced")
-
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- drivers/net/ethernet/intel/e1000/e1000_ethtool.c | 14 ++++++++------
- 1 file changed, 8 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/e1000/e1000_ethtool.c b/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
-index ec8aa4562cc9..724c93a6ea92 100644
---- a/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
-+++ b/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
-@@ -1824,7 +1824,7 @@ static void e1000_get_ethtool_stats(struct net_device *netdev,
- {
- 	struct e1000_adapter *adapter = netdev_priv(netdev);
- 	int i;
--	char *p = NULL;
-+	char *p;
- 	const struct e1000_stats *stat = e1000_gstrings_stats;
- 
- 	e1000_update_stats(adapter);
-@@ -1837,16 +1837,18 @@ static void e1000_get_ethtool_stats(struct net_device *netdev,
- 			p = (char *)adapter + stat->stat_offset;
- 			break;
- 		default:
-+			p = NULL;
- 			WARN_ONCE(1, "Invalid E1000 stat type: %u index %d\n",
- 				  stat->type, i);
- 			break;
- 		}
- 
--		if (stat->sizeof_stat == sizeof(u64))
--			data[i] = *(u64 *)p;
--		else
--			data[i] = *(u32 *)p;
--
-+		if (p) {
-+			if (stat->sizeof_stat == sizeof(u64))
-+				data[i] = *(u64 *)p;
-+			else
-+				data[i] = *(u32 *)p;
-+		}
- 		stat++;
- 	}
- /* BUG_ON(i != E1000_STATS_LEN); */
--- 
-2.14.1
+On 22/09/17 00:11, Y Song wrote:
+> On Thu, Sep 21, 2017 at 12:58 PM, Edward Cree <ecree@solarflare.com> wrote:
+>> On 21/09/17 20:44, Alexei Starovoitov wrote:
+>>> On Thu, Sep 21, 2017 at 09:29:33PM +0200, Daniel Borkmann wrote:
+>>>> More intuitive, but agree on the from_be/le. Maybe we should
+>>>> just drop the "to_" prefix altogether, and leave the rest as is since
+>>>> it's not surrounded by braces, it's also not a cast but rather an op.
+>> That works for me.
+>>> 'be16 r4' is ambiguous regarding upper bits.
+>>>
+>>> what about my earlier suggestion:
+>>> r4 = (be16) (u16) r4
+>>> r4 = (le64) (u64) r4
+>>>
+>>> It will be pretty clear what instruction is doing (that upper bits become zero).
+>> Trouble with that is that's very *not* what C will do with those casts
+>>  and it doesn't really capture the bidirectional/symmetry thing.  The
+>>  closest I could see with that is something like `r4 = (be16/u16) r4`,
+>>  but that's quite an ugly mongrel.
+>> I think Daniel's idea of `be16`, `le32` etc one-arg opcodes is the
+>>  cleanest and clearest.  Should it be
+>>     r4 = be16 r4
+>>  or just
+>>     be16 r4
+>> ?  Personally I incline towards the latter, but admit it doesn't really
+>>  match the syntax of other opcodes.
+> I did some quick prototyping in llvm to make sure we have a syntax
+> llvm is happy. Apparently, llvm does not like the syntax
+>    r4 = be16 r4    or    r4 = (be16) (u16) r4.
+>
+> In llvm:utils/TableGen/AsmMatcherEmitter.cpp:
+>
+>     // Verify that any operand is only mentioned once.
+Wait, how do you deal with (totally legal) r4 += r4?
+Or r4 = *(r4 +0)?
+Even jumps can have src_reg == dst_reg, though it doesn't seem useful.
