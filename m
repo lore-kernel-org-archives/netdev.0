@@ -1,44 +1,57 @@
-From: Colin Ian King <colin.king@canonical.com>
-Subject: Re: [PATCH] e1000: avoid null pointer dereference on invalid stat
- type
-Date: Fri, 22 Sep 2017 12:55:16 +0100
-Message-ID: <ea758981-9329-9594-5e25-f75376bc61a5@canonical.com>
-References: <20170921220158.19341-1-colin.king@canonical.com>
- <20170922115038.ckvl6zsmadrqiige@mwanda>
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: Re: [net-next 1/2] dummy: add device MTU validation check
+Date: Fri, 22 Sep 2017 14:23:15 +0200
+Message-ID: <20170922122315.GA3446@bistromath.localdomain>
+References: <1506000722-40095-1-git-send-email-zhangshengju@cmss.chinamobile.com>
+ <1506000722-40095-2-git-send-email-zhangshengju@cmss.chinamobile.com>
+ <1506006138.29839.132.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20170922085610.GA4544@bistromath.localdomain>
+ <1506078309.29839.161.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-        kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170922115038.ckvl6zsmadrqiige@mwanda>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: Jarod Wilson <jarod@redhat.com>,
+        Zhang Shengju <zhangshengju@cmss.chinamobile.com>,
+        davem@davemloft.net, willemb@google.com,
+        stephen@networkplumber.org, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:32640 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752039AbdIVMXW (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 22 Sep 2017 08:23:22 -0400
+Content-Disposition: inline
+In-Reply-To: <1506078309.29839.161.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 22/09/17 12:50, Dan Carpenter wrote:
-> On Thu, Sep 21, 2017 at 11:01:58PM +0100, Colin King wrote:
->> @@ -1837,12 +1838,13 @@ static void e1000_get_ethtool_stats(struct net_device *netdev,
->>  			p = (char *)adapter + stat->stat_offset;
->>  			break;
->>  		default:
->> +			p = NULL;
->>  			WARN_ONCE(1, "Invalid E1000 stat type: %u index %d\n",
->>  				  stat->type, i);
->>  			break;
->>  		}
->>  
->> -		if (stat->sizeof_stat == sizeof(u64))
->> +		if (p && stat->sizeof_stat == sizeof(u64))
->>  			data[i] = *(u64 *)p;
->>  		else
->>  			data[i] = *(u32 *)p;
->                                    ^^^^^^^^
+2017-09-22, 04:05:09 -0700, Eric Dumazet wrote:
+> On Fri, 2017-09-22 at 10:56 +0200, Sabrina Dubroca wrote:
+> > 2017-09-21, 08:02:18 -0700, Eric Dumazet wrote:
+> > > On Thu, 2017-09-21 at 21:32 +0800, Zhang Shengju wrote:
+> > > > Currently, any mtu value can be assigned when adding a new dummy device:
+> > > > [~]# ip link add name dummy1 mtu 100000 type dummy
+> > > > [~]# ip link show dummy1
+> > > > 15: dummy1: <BROADCAST,NOARP> mtu 100000 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+> > > >     link/ether 0a:61:6b:16:14:ce brd ff:ff:ff:ff:ff:ff
+> > > > 
+> > > > This patch adds device MTU validation check.
+> > > 
+> > > What is wrong with big MTU on dummy ?
+> > 
+> > It looks like the "centralize MTU checking" series broke that, but
+> > only for changing the MTU on an existing dummy device. Commit
+> > a52ad514fdf3 defined min_mtu/max_mtu in ether_setup, which dummy uses,
+> > but there was no MTU check in dummy prior to that commit.
+> > 
 > 
-> The else side will still crash.
-> 
-> regards,
-> dan carpenter
-> 
-Thanks, stupid me. I'll fix that up.
+> It looks like we accept big mtu on loopback, right ?
+
+Yes. I only meant that before commit a52ad514fdf3, there was no range
+check on dummy's MTU. Commit 25e3e84b183a ("dummy: expend mtu range
+for dummy device") and 8b1efc0f83f1 ("net: remove MTU limits on a few
+ether_setup callers") fixed that only partially. It's the same with
+ifb, btw, it didn't have any check before a52ad514fdf3, so we should
+set min_mtu = max_mtu = 0.
+
+-- 
+Sabrina
