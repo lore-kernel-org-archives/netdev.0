@@ -1,160 +1,58 @@
-From: Yurii Pavlenko <pyldev@gmail.com>
-Subject: [PATCH] au1k_ir.c fix warning: Prefer [subsystem eg: netdev]_info([subsystem]dev, ...
-Date: Sat, 23 Sep 2017 22:13:37 +0200
-Message-ID: <1506197617-28118-1-git-send-email-pyldev@gmail.com>
-Cc: gregkh@linuxfoundation.org, davem@davemloft.net,
-        manuel.lauss@gmail.com, netdev@vger.kernel.org,
-        devel@driverdev.osuosl.org, linux-kernel@vger.kernel.org,
-        Yurii Pavlenko <pyldev@gmail.com>
-To: samuel@sortiz.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next v3 3/6] rtnetlink: add helper to dump ifalias
+Date: Sat, 23 Sep 2017 14:04:50 -0700
+Message-ID: <1506200690.29839.217.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20170923192636.3932-1-fw@strlen.de>
+         <20170923192636.3932-4-fw@strlen.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:34173 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750839AbdIWVEx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 23 Sep 2017 17:04:53 -0400
+Received: by mail-pg0-f68.google.com with SMTP id u18so2658951pgo.1
+        for <netdev@vger.kernel.org>; Sat, 23 Sep 2017 14:04:52 -0700 (PDT)
+In-Reply-To: <20170923192636.3932-4-fw@strlen.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch fixes the following checkpatch.pl warning: fix
-Prefer [subsystem eg: netdev]_info([subsystem]dev, ... then dev_info(dev, ...
-then pr_info(...  to printk(KERN_INFO ...
+On Sat, 2017-09-23 at 21:26 +0200, Florian Westphal wrote:
+> Reviewed-by: David Ahern <dsahern@gmail.com>
+> Signed-off-by: Florian Westphal <fw@strlen.de>
+> ---
+>  Changes since v3: don't add rtnl assertion, I placed the assertion
+>  in my working tree instead as a reminder.
+> 
+>  net/core/rtnetlink.c | 11 +++++++++--
+>  1 file changed, 9 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+> index c801212ee40e..47c17c3de79a 100644
+> --- a/net/core/rtnetlink.c
+> +++ b/net/core/rtnetlink.c
+> @@ -1332,6 +1332,14 @@ static int nla_put_iflink(struct sk_buff *skb, const struct net_device *dev)
+>  	return nla_put_u32(skb, IFLA_LINK, ifindex);
+>  }
+>  
+> +static noinline int nla_put_ifalias(struct sk_buff *skb, struct net_device *dev)
 
-Signed-off-by: Yurii Pavlenko <pyldev@gmail.com>
----
- drivers/staging/irda/drivers/au1k_ir.c | 40 +++++++++++++++-------------------
- 1 file changed, 18 insertions(+), 22 deletions(-)
 
-diff --git a/drivers/staging/irda/drivers/au1k_ir.c b/drivers/staging/irda/drivers/au1k_ir.c
-index be4ea6a..73e3e4b 100644
---- a/drivers/staging/irda/drivers/au1k_ir.c
-+++ b/drivers/staging/irda/drivers/au1k_ir.c
-@@ -290,8 +290,7 @@ static int au1k_irda_set_speed(struct net_device *dev, int speed)
- 	while (irda_read(aup, IR_STATUS) & (IR_RX_STATUS | IR_TX_STATUS)) {
- 		msleep(20);
- 		if (!timeout--) {
--			printk(KERN_ERR "%s: rx/tx disable timeout\n",
--					dev->name);
-+			netdev_err(dev, "rx/tx disable timeout\n");
- 			break;
- 		}
- 	}
-@@ -349,7 +348,7 @@ static int au1k_irda_set_speed(struct net_device *dev, int speed)
- 				IR_RX_ENABLE);
- 		break;
- 	default:
--		printk(KERN_ERR "%s unsupported speed %x\n", dev->name, speed);
-+		netdev_err(dev, "unsupported speed %x\n", speed);
- 		ret = -EINVAL;
- 		break;
- 	}
-@@ -361,18 +360,18 @@ static int au1k_irda_set_speed(struct net_device *dev, int speed)
- 	irda_write(aup, IR_RING_PROMPT, 0);
- 
- 	if (control & (1 << 14)) {
--		printk(KERN_ERR "%s: configuration error\n", dev->name);
-+		netdev_err(dev, "configuration error\n");
- 	} else {
- 		if (control & (1 << 11))
--			printk(KERN_DEBUG "%s Valid SIR config\n", dev->name);
-+			netdev_debug(dev, "Valid SIR config\n");
- 		if (control & (1 << 12))
--			printk(KERN_DEBUG "%s Valid MIR config\n", dev->name);
-+			netdev_debug(dev, "Valid MIR config\n");
- 		if (control & (1 << 13))
--			printk(KERN_DEBUG "%s Valid FIR config\n", dev->name);
-+			netdev_debug(dev, "Valid FIR config\n");
- 		if (control & (1 << 10))
--			printk(KERN_DEBUG "%s TX enabled\n", dev->name);
-+			netdev_debug(dev, "TX enabled\n");
- 		if (control & (1 << 9))
--			printk(KERN_DEBUG "%s RX enabled\n", dev->name);
-+			netdev_debug(dev, "RX enabled\n");
- 	}
- 
- 	return ret;
-@@ -584,23 +583,21 @@ static int au1k_irda_start(struct net_device *dev)
- 
- 	retval = au1k_init(dev);
- 	if (retval) {
--		printk(KERN_ERR "%s: error in au1k_init\n", dev->name);
-+		netdev_err(dev, "error in au1k_init\n");
- 		return retval;
- 	}
- 
- 	retval = request_irq(aup->irq_tx, &au1k_irda_interrupt, 0,
- 			     dev->name, dev);
- 	if (retval) {
--		printk(KERN_ERR "%s: unable to get IRQ %d\n",
--				dev->name, dev->irq);
-+		netdev_err(dev, "unable to get IRQ %d\n", dev->irq);
- 		return retval;
- 	}
- 	retval = request_irq(aup->irq_rx, &au1k_irda_interrupt, 0,
- 			     dev->name, dev);
- 	if (retval) {
- 		free_irq(aup->irq_tx, dev);
--		printk(KERN_ERR "%s: unable to get IRQ %d\n",
--				dev->name, dev->irq);
-+		netdev_err(dev, "unable to get IRQ %d\n", dev->irq);
- 		return retval;
- 	}
- 
-@@ -673,12 +670,12 @@ static int au1k_irda_hard_xmit(struct sk_buff *skb, struct net_device *dev)
- 	flags = ptxd->flags;
- 
- 	if (flags & AU_OWN) {
--		printk(KERN_DEBUG "%s: tx_full\n", dev->name);
-+		netdev_debug(dev, "tx_full\n");
- 		netif_stop_queue(dev);
- 		aup->tx_full = 1;
- 		return 1;
- 	} else if (((aup->tx_head + 1) & (NUM_IR_DESC - 1)) == aup->tx_tail) {
--		printk(KERN_DEBUG "%s: tx_full\n", dev->name);
-+		netdev_debug(dev, "tx_full\n");
- 		netif_stop_queue(dev);
- 		aup->tx_full = 1;
- 		return 1;
-@@ -688,7 +685,7 @@ static int au1k_irda_hard_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- #if 0
- 	if (irda_read(aup, IR_RX_BYTE_CNT) != 0) {
--		printk(KERN_DEBUG "tx warning: rx byte cnt %x\n",
-+		netdev_debug(dev, "tx warning: rx byte cnt %x\n",
- 				irda_read(aup, IR_RX_BYTE_CNT));
- 	}
- #endif
-@@ -726,7 +723,7 @@ static void au1k_tx_timeout(struct net_device *dev)
- 	u32 speed;
- 	struct au1k_private *aup = netdev_priv(dev);
- 
--	printk(KERN_ERR "%s: tx timeout\n", dev->name);
-+	netdev_err(dev, "tx timeout\n");
- 	speed = aup->speed;
- 	aup->speed = 0;
- 	au1k_irda_set_speed(dev, speed);
-@@ -751,8 +748,7 @@ static int au1k_irda_ioctl(struct net_device *dev, struct ifreq *ifreq, int cmd)
- 				ret = au1k_irda_set_speed(dev,
- 						rq->ifr_baudrate);
- 			else {
--				printk(KERN_ERR "%s ioctl: !netif_running\n",
--						dev->name);
-+				netdev_err(dev, "ioctl: !netif_running\n");
- 				ret = 0;
- 			}
- 		}
-@@ -868,7 +864,7 @@ static int au1k_irda_net_init(struct net_device *dev)
- out2:
- 	kfree(aup->rx_buff.head);
- out1:
--	printk(KERN_ERR "au1k_irda_net_init() failed.  Returns %d\n", retval);
-+	netdev_err(dev, "au1k_irda_net_init() failed.  Returns %d\n");
- 	return retval;
- }
- 
-@@ -934,7 +930,7 @@ static int au1k_irda_probe(struct platform_device *pdev)
- 
- 	platform_set_drvdata(pdev, dev);
- 
--	printk(KERN_INFO "IrDA: Registered device %s\n", dev->name);
-+	netdev_info(dev, "IrDA: Registered device\n");
- 	return 0;
- 
- out4:
--- 
-2.7.4
+Why noinline here ?
+
+This function does not use stack at all (and that would call for
+noinline_for_stack )
+
+> +{
+> +	if (dev->ifalias)
+> +		return nla_put_string(skb, IFLA_IFALIAS, dev->ifalias);
+> +
+> +	return 0;
+> +}
+> +
+
+I really do not see the point of not making this RCU aware right away,
+or at least make it in the same patch series...
