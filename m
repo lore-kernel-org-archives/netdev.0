@@ -1,44 +1,86 @@
-From: Josef Bacik <josef@toxicpanda.com>
-Subject: Re: [PATCH 0/3] fix reuseaddr regression
-Date: Fri, 22 Sep 2017 20:28:45 -0400
-Message-ID: <20170923002844.slrxaq46zikl3zdn@destiny>
-References: <1505752137-15522-1-git-send-email-jbacik@fb.com>
- <20170919.135056.44228457394918392.davem@davemloft.net>
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Subject: [PATCH net-next] liquidio: pass date and time info to NIC firmware
+Date: Fri, 22 Sep 2017 17:35:18 -0700
+Message-ID: <20170923003518.GA1583@felix-thinkpad.cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: josef@toxicpanda.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, crobinso@redhat.com,
-        labbott@redhat.com, kernel-team@fb.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
+        derek.chickles@cavium.com, satananda.burla@cavium.com,
+        manish.awasthi@cavium.com, veerasenareddy.burru@cavium.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-cys01nam02on0067.outbound.protection.outlook.com ([104.47.37.67]:12638
+        "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751845AbdIWAfX (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 22 Sep 2017 20:35:23 -0400
 Content-Disposition: inline
-In-Reply-To: <20170919.135056.44228457394918392.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Sep 19, 2017 at 01:50:56PM -0700, David Miller wrote:
-> From: josef@toxicpanda.com
-> Date: Mon, 18 Sep 2017 12:28:54 -0400
-> 
-> > I introduced a regression when reworking the fastreuse port stuff that allows
-> > bind conflicts to occur once a reuseaddr socket successfully opens on an
-> > existing tb.  The root cause is I reversed an if statement which caused us to
-> > set the tb as if there were no owners on the socket if there were, which
-> > obviously is not correct.
-> > 
-> > Dave I have follow up patches that will add a selftest for this case and I ran
-> > the other reuseport related tests as well.  These need to go in pretty quickly
-> > as it breaks kvm, I've marked them for stable.  Sorry for the regression,
-> 
-> First, please fix your "From: " field so that it actually has your full
-> name rather than just your email address.  This matter when I apply
-> your patches.
-> 
-> Second, remove the stable CC:.  For networking changes, you simply ask
-> me to queue the changes up for -stable.
-> 
+From: Veerasenareddy Burru <veerasenareddy.burru@cavium.com>
 
-Sorry Dave, I've fixed my git email settings and I droped the stable cc and sent
-a new round.  Didn't see this until just now, my bad.
+Signed-off-by: Veerasenareddy Burru <veerasenareddy.burru@cavium.com>
+Signed-off-by: Manish Awasthi <manish.awasthi@cavium.com>
+Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
+---
+ .../net/ethernet/cavium/liquidio/octeon_console.c  | 28 +++++++++++++++++++---
+ 1 file changed, 25 insertions(+), 3 deletions(-)
 
-Josef
+diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_console.c b/drivers/net/ethernet/cavium/liquidio/octeon_console.c
+index ec3dd69..eda799b 100644
+--- a/drivers/net/ethernet/cavium/liquidio/octeon_console.c
++++ b/drivers/net/ethernet/cavium/liquidio/octeon_console.c
+@@ -803,15 +803,19 @@ static int octeon_console_read(struct octeon_device *oct, u32 console_num,
+ }
+ 
+ #define FBUF_SIZE	(4 * 1024 * 1024)
++#define MAX_DATE_SIZE    30
+ 
+ int octeon_download_firmware(struct octeon_device *oct, const u8 *data,
+ 			     size_t size)
+ {
+-	int ret = 0;
++	struct octeon_firmware_file_header *h;
++	char date[MAX_DATE_SIZE];
++	struct timeval time;
+ 	u32 crc32_result;
++	struct tm tm_val;
+ 	u64 load_addr;
+ 	u32 image_len;
+-	struct octeon_firmware_file_header *h;
++	int ret = 0;
+ 	u32 i, rem;
+ 
+ 	if (size < sizeof(struct octeon_firmware_file_header)) {
+@@ -890,11 +894,29 @@ int octeon_download_firmware(struct octeon_device *oct, const u8 *data,
+ 			load_addr += size;
+ 		}
+ 	}
++
++	/* Get time of the day */
++	do_gettimeofday(&time);
++	time_to_tm(time.tv_sec, (-sys_tz.tz_minuteswest) * 60,  &tm_val);
++	ret = snprintf(date, MAX_DATE_SIZE,
++		       " date=%04ld.%02d.%02d-%02d:%02d:%02d",
++		       tm_val.tm_year + 1900, tm_val.tm_mon + 1, tm_val.tm_mday,
++		       tm_val.tm_hour, tm_val.tm_min, tm_val.tm_sec);
++	if ((sizeof(h->bootcmd) - strnlen(h->bootcmd, sizeof(h->bootcmd))) <
++		ret) {
++		dev_err(&oct->pci_dev->dev, "Boot command buffer too small\n");
++		return -EINVAL;
++	}
++	strncat(h->bootcmd, date,
++		sizeof(h->bootcmd) - strnlen(h->bootcmd, sizeof(h->bootcmd)));
++
+ 	dev_info(&oct->pci_dev->dev, "Writing boot command: %s\n",
+ 		 h->bootcmd);
+ 
+ 	/* Invoke the bootcmd */
+ 	ret = octeon_console_send_cmd(oct, h->bootcmd, 50);
++	if (ret)
++		dev_info(&oct->pci_dev->dev, "Boot command send failed\n");
+ 
+-	return 0;
++	return ret;
+ }
