@@ -1,109 +1,35 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] sch_netem: faster rb tree removal
-Date: Sat, 23 Sep 2017 11:07:28 -0700
-Message-ID: <1506190048.29839.206.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH net-next v2 3/6] rtnetlink: add helper to dump qdisc name
+Date: Sat, 23 Sep 2017 20:38:47 +0200
+Message-ID: <20170923183847.GC4324@breakpoint.cc>
+References: <20170922061008.14723-1-fw@strlen.de>
+ <20170922061008.14723-4-fw@strlen.de>
+ <1506187888.29839.181.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-        Stephen Hemminger <stephen@networkplumber.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:34578 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750959AbdIWSHa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 23 Sep 2017 14:07:30 -0400
-Received: by mail-pf0-f196.google.com with SMTP id g65so1838599pfe.1
-        for <netdev@vger.kernel.org>; Sat, 23 Sep 2017 11:07:30 -0700 (PDT)
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:46770 "EHLO
+        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1750916AbdIWSmL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 23 Sep 2017 14:42:11 -0400
+Content-Disposition: inline
+In-Reply-To: <1506187888.29839.181.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Fri, 2017-09-22 at 08:10 +0200, Florian Westphal wrote:
+> > We can use rcu here to make this safe even if we would not hold rtnl:
+> > qdisc_destroy uses call_rcu to free the Qdisc struct.
+> 
+> 
+> Where do you see call_rcu() called from qdisc_destroy() ?
+> 
+> You missed this commit I guess
+> 
+> 752fbcc33405d6f8249465e4b2c4e420091bb825
+> ("net_sched: no need to free qdisc in RCU callback")
 
-While running TCP tests involving netem storing millions of packets,
-I had the idea to speed up tfifo_reset() and did experiments.
-
-I tried the rbtree_postorder_for_each_entry_safe() method that is
-used in skb_rbtree_purge() but discovered it was slower than the
-current tfifo_reset() method.
-
-I measured time taken to release skbs with three occupation levels :
-10^4, 10^5 and 10^6 skbs with three methods :
-
-1) (current 'naive' method)
-
-	while ((p = rb_first(&q->t_root))) {
-		struct sk_buff *skb = netem_rb_to_skb(p);
- 
-		rb_erase(p, &q->t_root);
-		rtnl_kfree_skbs(skb, skb);
-	}
-
-2) Use rb_next() instead of rb_first() in the loop :
-
-	p = rb_first(&q->t_root);
-	while (p) {
-		struct sk_buff *skb = netem_rb_to_skb(p);
-
-		p = rb_next(p);
-		rb_erase(&skb->rbnode, &q->t_root);
-		rtnl_kfree_skbs(skb, skb);
-	}
-
-3) "optimized" method using rbtree_postorder_for_each_entry_safe()
-
-	struct sk_buff *skb, *next;
-
-	rbtree_postorder_for_each_entry_safe(skb, next,
-					     &q->t_root, rbnode) {
-               rtnl_kfree_skbs(skb, skb);
-	}
-	q->t_root = RB_ROOT;
-
-Results :
-
-method_1:while (rb_first()) rb_erase() 10000 skbs in 690378 ns (69 ns per skb)
-method_2:rb_first; while (p) { p = rb_next(p); ...}  10000 skbs in 541846 ns (54 ns per skb)
-method_3:rbtree_postorder_for_each_entry_safe() 10000 skbs in 868307 ns (86 ns per skb)
-
-method_1:while (rb_first()) rb_erase() 99996 skbs in 7804021 ns (78 ns per skb)
-method_2:rb_first; while (p) { p = rb_next(p); ...}  100000 skbs in 5942456 ns (59 ns per skb)
-method_3:rbtree_postorder_for_each_entry_safe() 100000 skbs in 11584940 ns (115 ns per skb)
-
-method_1:while (rb_first()) rb_erase() 1000000 skbs in 108577838 ns (108 ns per skb)
-method_2:rb_first; while (p) { p = rb_next(p); ...}  1000000 skbs in 82619635 ns (82 ns per skb)
-method_3:rbtree_postorder_for_each_entry_safe() 1000000 skbs in 127328743 ns (127 ns per skb)
-
-Method 2) is simply faster, probably because it maintains a smaller
-working size set.
-
-Note that this is the method we use in tcp_ofo_queue() already.
-
-I will also change skb_rbtree_purge() in a second patch.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/sched/sch_netem.c |    7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
-
-diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
-index 063a4bdb9ee6f26b01387959e8f6ccd15ec16191..5a4f1008029068372019a965186e7a3c0a18aac3 100644
---- a/net/sched/sch_netem.c
-+++ b/net/sched/sch_netem.c
-@@ -361,12 +361,13 @@ static psched_time_t packet_len_2_sched_time(unsigned int len, struct netem_sche
- static void tfifo_reset(struct Qdisc *sch)
- {
- 	struct netem_sched_data *q = qdisc_priv(sch);
--	struct rb_node *p;
-+	struct rb_node *p = rb_first(&q->t_root);
- 
--	while ((p = rb_first(&q->t_root))) {
-+	while (p) {
- 		struct sk_buff *skb = netem_rb_to_skb(p);
- 
--		rb_erase(p, &q->t_root);
-+		p = rb_next(p);
-+		rb_erase(&skb->rbnode, &q->t_root);
- 		rtnl_kfree_skbs(skb, skb);
- 	}
- }
+Indeed, I did, patch dropped, thanks for the heads-up.
