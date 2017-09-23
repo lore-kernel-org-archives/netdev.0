@@ -1,43 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: stmmac: Meet alignment requirements for DMA
-Date: Fri, 22 Sep 2017 18:26:39 -0700 (PDT)
-Message-ID: <20170922.182639.272534775457081015.davem@davemloft.net>
-References: <1506078833-14002-1-git-send-email-matt.redfearn@imgtec.com>
+Subject: Re: [PATCH] MAINTAINERS: update git tree locations for ieee802154
+ subsystem
+Date: Fri, 22 Sep 2017 18:29:00 -0700 (PDT)
+Message-ID: <20170922.182900.690770266022989097.davem@davemloft.net>
+References: <20170922122846.32377-1-stefan@osg.samsung.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, alexandre.torgue@st.com,
-        peppe.cavallaro@st.com, linux-kernel@vger.kernel.org
-To: matt.redfearn@imgtec.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1506078833-14002-1-git-send-email-matt.redfearn@imgtec.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-wpan@vger.kernel.org, aring@mojatatu.com,
+        netdev@vger.kernel.org
+To: stefan@osg.samsung.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:55248 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752158AbdIWB3B (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 22 Sep 2017 21:29:01 -0400
+In-Reply-To: <20170922122846.32377-1-stefan@osg.samsung.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Matt Redfearn <matt.redfearn@imgtec.com>
-Date: Fri, 22 Sep 2017 12:13:53 +0100
+From: Stefan Schmidt <stefan@osg.samsung.com>
+Date: Fri, 22 Sep 2017 14:28:46 +0200
 
-> According to Documentation/DMA-API.txt:
->  Warnings:  Memory coherency operates at a granularity called the cache
->  line width.  In order for memory mapped by this API to operate
->  correctly, the mapped region must begin exactly on a cache line
->  boundary and end exactly on one (to prevent two separately mapped
->  regions from sharing a single cache line).  Since the cache line size
->  may not be known at compile time, the API will not enforce this
->  requirement.  Therefore, it is recommended that driver writers who
->  don't take special care to determine the cache line size at run time
->  only map virtual regions that begin and end on page boundaries (which
->  are guaranteed also to be cache line boundaries).
+> Patches for ieee802154 will go through my new trees towards netdev from
+> now on. The 6LoWPAN subsystem will stay as is (shared between ieee802154
+> and bluetooth) and go through the bluetooth tree as usual.
+> 
+> Signed-off-by: Stefan Schmidt <stefan@osg.samsung.com>
 
-This is rediculious.  You're misreading what this document is trying
-to explain.
-
-As long as you use the dma_{map,unamp}_single() and sync to/from
-deivce interfaces properly, the cacheline issues will be handled properly
-and the cpu and the device will see proper uptodate memory contents.
-
-It is completely rediculious to require every driver to stash away two
-sets of pointer for every packet, and to DMA map the headroom of the SKB
-which is wasteful.
-
-I'm not applying this, fix this problem properly, thanks.
+Applied.
