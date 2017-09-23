@@ -1,31 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] net: Remove useless function
- skb_header_release
-Date: Fri, 22 Sep 2017 20:41:21 -0700 (PDT)
-Message-ID: <20170922.204121.1024494445343708417.davem@davemloft.net>
-References: <1506047122-71116-1-git-send-email-gfree.wind@vip.163.com>
+Subject: Re: [PATCH] net: use 32-bit arithmetic while allocating net device
+Date: Fri, 22 Sep 2017 21:26:15 -0700 (PDT)
+Message-ID: <20170922.212615.331848619211614093.davem@davemloft.net>
+References: <20170921203329.GA13550@avx2>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: gfree.wind@vip.163.com
+To: adobriyan@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:59292 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:60596 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751832AbdIWDlV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 22 Sep 2017 23:41:21 -0400
-In-Reply-To: <1506047122-71116-1-git-send-email-gfree.wind@vip.163.com>
+        with ESMTP id S1750707AbdIWE0Z (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 23 Sep 2017 00:26:25 -0400
+In-Reply-To: <20170921203329.GA13550@avx2>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: gfree.wind@vip.163.com
-Date: Fri, 22 Sep 2017 10:25:22 +0800
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Date: Thu, 21 Sep 2017 23:33:29 +0300
 
-> From: Gao Feng <gfree.wind@vip.163.com>
+> Private part of allocation is never big enough to warrant size_t.
 > 
-> There is no one which would invokes the function skb_header_release.
-> So just remove it now.
+> Space savings:
 > 
-> Signed-off-by: Gao Feng <gfree.wind@vip.163.com>
+> 	add/remove: 0/0 grow/shrink: 0/1 up/down: 0/-10 (-10)
+> 	function                                     old     new   delta
+> 	alloc_netdev_mqs                            1120    1110     -10
+> 
+> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 
-Applied, thanks.
+Applied to net-next.
