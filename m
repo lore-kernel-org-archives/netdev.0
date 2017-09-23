@@ -1,35 +1,31 @@
 From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH net-next v2 3/6] rtnetlink: add helper to dump qdisc name
-Date: Sat, 23 Sep 2017 20:38:47 +0200
-Message-ID: <20170923183847.GC4324@breakpoint.cc>
-References: <20170922061008.14723-1-fw@strlen.de>
- <20170922061008.14723-4-fw@strlen.de>
- <1506187888.29839.181.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next v3 0/6] rtnetlink: preparation patches for further rtnl lock pushdown/removal
+Date: Sat, 23 Sep 2017 21:26:30 +0200
+Message-ID: <20170923192636.3932-1-fw@strlen.de>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:46770 "EHLO
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:46810 "EHLO
         Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750916AbdIWSmL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 23 Sep 2017 14:42:11 -0400
-Content-Disposition: inline
-In-Reply-To: <1506187888.29839.181.camel@edumazet-glaptop3.roam.corp.google.com>
+        by vger.kernel.org with ESMTP id S1751030AbdIWT0T (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 23 Sep 2017 15:26:19 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Fri, 2017-09-22 at 08:10 +0200, Florian Westphal wrote:
-> > We can use rcu here to make this safe even if we would not hold rtnl:
-> > qdisc_destroy uses call_rcu to free the Qdisc struct.
-> 
-> 
-> Where do you see call_rcu() called from qdisc_destroy() ?
-> 
-> You missed this commit I guess
-> 
-> 752fbcc33405d6f8249465e4b2c4e420091bb825
-> ("net_sched: no need to free qdisc in RCU callback")
+First patch adds a rudimentary vrf test case.
 
-Indeed, I did, patch dropped, thanks for the heads-up.
+Remaining patches split large rtnl_fill_ifinfo into smaller chunks
+to better see which parts
+
+1. require rtnl
+2. do not require it at all
+3. rely on rtnl locking now but could be converted
+
+I removed all the ASSERT_RTNL spots that v1 and v2 added,
+i will keep that back in my working branch since those
+are just 'todo' markers for myself.
+
+Eric Dumazet pointed out that qdiscs are now freed directly without
+call_rcu so I dropped the patch that made this assumption from the series.
+
+As the remaining patches did not see major changes vs. v2 I retained
+all reviewed/acked-by tags from David Ahern.
