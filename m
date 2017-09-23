@@ -1,55 +1,105 @@
-From: Fathi Boudra <fathi.boudra@linaro.org>
-Subject: Re: tools: selftests: psock_tpacket: skip un-supported tpacket_v3 test
-Date: Sat, 23 Sep 2017 14:27:15 +0300
-Message-ID: <CAGNsrLBe2uhX_EhUgK+nKrRYSF54tktDNg5+ejQc6ia0T7F=ew@mail.gmail.com>
-References: <20170922101717.11933-1-orson.zhai@linaro.org> <20170922.182017.17747017677768533.davem@davemloft.net>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: Re: [PATCH net] sctp: Fix a big endian bug in sctp_for_each_transport()
+Date: Sat, 23 Sep 2017 19:37:48 +0800
+Message-ID: <CADvbK_dCT6Z6JwD+VtjNg6UUkQneU2OLeme9JVqrXjnJJ63cGg@mail.gmail.com>
+References: <20170923102537.wra55nqyqsfoduxo@mwanda>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: orson.zhai@linaro.org, Shuah Khan <shuah@kernel.org>,
-        Milosz Wasilewski <milosz.wasilewski@linaro.org>,
-        "sumit.semwal@linaro.org" <sumit.semwal@linaro.org>,
-        netdev@vger.kernel.org, linux-kselftest@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f46.google.com ([74.125.82.46]:48932 "EHLO
-        mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750839AbdIWL1R (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 23 Sep 2017 07:27:17 -0400
-Received: by mail-wm0-f46.google.com with SMTP id m127so9320072wmm.3
-        for <netdev@vger.kernel.org>; Sat, 23 Sep 2017 04:27:17 -0700 (PDT)
-In-Reply-To: <20170922.182017.17747017677768533.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Vlad Yasevich <vyasevich@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        linux-sctp@vger.kernel.org, network dev <netdev@vger.kernel.org>,
+        kernel-janitors@vger.kernel.org,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+To: Dan Carpenter <dan.carpenter@oracle.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <20170923102537.wra55nqyqsfoduxo@mwanda>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 23 September 2017 at 04:20, David Miller <davem@davemloft.net> wrote:
-> From: Orson Zhai <orson.zhai@linaro.org>
-> Date: Fri, 22 Sep 2017 18:17:17 +0800
+On Sat, Sep 23, 2017 at 6:25 PM, Dan Carpenter <dan.carpenter@oracle.com> wrote:
+> Fundamentally, the "pos" pointer points to "cb->args[2]" which is a long.
+> In the current code, we only use the high 32 bits and cast it as an
+> int.  That works on little endian systems but will fail on big endian
+> systems.
 >
->> The TPACKET_V3 test of PACKET_TX_RING will fail with kernel version
->> lower than v4.11. Supported code of tx ring was add with commit id
->> <7f953ab2ba46: af_packet: TX_RING support for TPACKET_V3> at Jan. 3
->> of 2017.
->>
->> So skip this item test instead of reporting failing for old kernels.
->>
->> Signed-off-by: Orson Zhai <orson.zhai@linaro.org>
+> Fixes: d25adbeb0cdb ("sctp: fix an use-after-free issue in sctp_sock_dump")
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 >
-> The whole point is to make sure the kernel in which the selftest
-> code is present functions properly.
+> diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
+> index d7d8cba01469..7d87439f299a 100644
+> --- a/include/net/sctp/sctp.h
+> +++ b/include/net/sctp/sctp.h
+> @@ -121,14 +121,14 @@ void sctp_transport_walk_stop(struct rhashtable_iter *iter);
+>  struct sctp_transport *sctp_transport_get_next(struct net *net,
+>                         struct rhashtable_iter *iter);
+>  struct sctp_transport *sctp_transport_get_idx(struct net *net,
+> -                       struct rhashtable_iter *iter, int pos);
+> +                       struct rhashtable_iter *iter, long pos);
+>  int sctp_transport_lookup_process(int (*cb)(struct sctp_transport *, void *),
+>                                   struct net *net,
+>                                   const union sctp_addr *laddr,
+>                                   const union sctp_addr *paddr, void *p);
+>  int sctp_for_each_transport(int (*cb)(struct sctp_transport *, void *),
+>                             int (*cb_done)(struct sctp_transport *, void *),
+> -                           struct net *net, int *pos, void *p);
+> +                           struct net *net, long *pos, void *p);
+>  int sctp_for_each_endpoint(int (*cb)(struct sctp_endpoint *, void *), void *p);
+>  int sctp_get_sctp_info(struct sock *sk, struct sctp_association *asoc,
+>                        struct sctp_info *info);
+> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+> index d4730ada7f32..0222743b3aa8 100644
+> --- a/net/sctp/socket.c
+> +++ b/net/sctp/socket.c
+> @@ -4603,7 +4603,7 @@ struct sctp_transport *sctp_transport_get_next(struct net *net,
 >
-> There are many tests in selftests that only work on recent kernels.
+>  struct sctp_transport *sctp_transport_get_idx(struct net *net,
+>                                               struct rhashtable_iter *iter,
+> -                                             int pos)
+> +                                             long pos)
+>  {
+>         void *obj = SEQ_START_TOKEN;
+>
+> @@ -4659,7 +4659,7 @@ EXPORT_SYMBOL_GPL(sctp_transport_lookup_process);
+>
+>  int sctp_for_each_transport(int (*cb)(struct sctp_transport *, void *),
+>                             int (*cb_done)(struct sctp_transport *, void *),
+> -                           struct net *net, int *pos, void *p) {
+> +                           struct net *net, long *pos, void *p) {
+>         struct rhashtable_iter hti;
+>         struct sctp_transport *tsp;
+>         int ret;
+> diff --git a/net/sctp/sctp_diag.c b/net/sctp/sctp_diag.c
+> index 22ed01a76b19..e9d5405aa6ac 100644
+> --- a/net/sctp/sctp_diag.c
+> +++ b/net/sctp/sctp_diag.c
+> @@ -493,7 +493,7 @@ static void sctp_diag_dump(struct sk_buff *skb, struct netlink_callback *cb,
+>                 goto done;
+>
+>         sctp_for_each_transport(sctp_sock_filter, sctp_sock_dump,
+> -                               net, (int *)&cb->args[2], &commp);
+> +                               net, &cb->args[2], &commp);
+>
+>  done:
+>         cb->args[1] = cb->args[4];
+Better not to touch sctp_for_each_transport and sctp_transport_get_idx
+which are supposed to be also used elsewhere as common apis.
 
-For the background, a similar discussion happened on this thread:
-https://lkml.org/lkml/2017/6/22/802
+Can you pls try to fix this in sctp_diag_dump(), like:
+@@ -463,6 +463,7 @@ static void sctp_diag_dump(struct sk_buff *skb,
+struct netlink_callback *cb,
+                .r = r,
+                .net_admin = netlink_net_capable(cb->skb, CAP_NET_ADMIN),
+        };
++       int pos = cb->args[2];
 
-There's cases where we'd like to run latest selftests on stable kernels.
-You're right, there are many tests in selftests that only work on
-recent kernels and we intend to fix it.
-Skipping gracefully a test because the feature is missing on the
-kernel under test is preferred to fail.
+        /* eps hashtable dumps
+         * args:
+@@ -493,7 +494,8 @@ static void sctp_diag_dump(struct sk_buff *skb,
+struct netlink_callback *cb,
+                goto done;
 
-> I'm not applying this, sorry.
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kselftest" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+        sctp_for_each_transport(sctp_sock_filter, sctp_sock_dump,
+-                               net, (int *)&cb->args[2], &commp);
++                               net, &pos, &commp);
++       cb->args[2] = pos;
