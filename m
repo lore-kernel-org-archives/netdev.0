@@ -1,64 +1,33 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] net: dsa: avoid null pointer dereference on p->phy
-Date: Sat, 23 Sep 2017 10:21:24 -0700
-Message-ID: <4c92bb5f-ad5e-7f3e-cad8-b13bb69b79ff@gmail.com>
-References: <20170923165720.18560-1-colin.king@canonical.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next v2 3/6] rtnetlink: add helper to dump qdisc name
+Date: Sat, 23 Sep 2017 10:31:28 -0700
+Message-ID: <1506187888.29839.181.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20170922061008.14723-1-fw@strlen.de>
+         <20170922061008.14723-4-fw@strlen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Colin King <colin.king@canonical.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170923165720.18560-1-colin.king@canonical.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:34010 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750916AbdIWRba (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 23 Sep 2017 13:31:30 -0400
+Received: by mail-pf0-f195.google.com with SMTP id g65so1815436pfe.1
+        for <netdev@vger.kernel.org>; Sat, 23 Sep 2017 10:31:30 -0700 (PDT)
+In-Reply-To: <20170922061008.14723-4-fw@strlen.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+On Fri, 2017-09-22 at 08:10 +0200, Florian Westphal wrote:
+> We can use rcu here to make this safe even if we would not hold rtnl:
+> qdisc_destroy uses call_rcu to free the Qdisc struct.
 
 
+Where do you see call_rcu() called from qdisc_destroy() ?
 
-On 09/23/2017 09:57 AM, Colin King wrote:
-> From: Colin Ian King <colin.king@canonical.com>
-> 
-> Currently p->phy is being null checked in several places to avoid
-> null pointer dereferences on p->phy, however, the final call
-> to phy_attached_info on p->phy when p->phy will perform a null
-> pointer dereference. Fix this by simply moving the call into
-> the previous code block that is only executed if p->phy is
-> not null.
-> 
-> Detected by CoverityScan, CID#1457034 ("Dereference after null check")
+You missed this commit I guess
 
-The code flow is not exactly easy to read, but I don't see how we can
-actually wind up in that situation because we check the return values of
-of_phy_connect() and dsa_slave_phy_connect() earlier on.
-
-> 
-> Fixes: 2220943a21e2 ("phy: Centralise print about attached phy")
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
-> ---
->  net/dsa/slave.c | 3 +--
->  1 file changed, 1 insertion(+), 2 deletions(-)
-> 
-> diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-> index 02ace7d462c4..29ab4e98639b 100644
-> --- a/net/dsa/slave.c
-> +++ b/net/dsa/slave.c
-> @@ -1115,10 +1115,9 @@ static int dsa_slave_phy_setup(struct net_device *slave_dev)
->  				of_phy_deregister_fixed_link(port_dn);
->  			return ret;
->  		}
-> +		phy_attached_info(p->phy);
->  	}
->  
-> -	phy_attached_info(p->phy);
-> -
->  	return 0;
->  }
->  
-> 
-
--- 
-Florian
+752fbcc33405d6f8249465e4b2c4e420091bb825
+("net_sched: no need to free qdisc in RCU callback")
