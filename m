@@ -1,90 +1,71 @@
-From: Yotam Gigi <yotamg@mellanox.com>
-Subject: Re: [patch net-next 07/12] mlxsw: spectrum: Add the multicast routing
- offloading logic
-Date: Sat, 23 Sep 2017 12:32:11 +0300
-Message-ID: <a4193a32-7ba3-a13f-fa21-da247228be74@mellanox.com>
-References: <20170921064338.1282-1-jiri@resnulli.us>
- <20170921064338.1282-8-jiri@resnulli.us> <20170921152654.GF27589@lunn.ch>
- <a6852db1-76a2-b4f3-c558-cd4cc0a1309b@mellanox.com>
- <20170922132152.GB31634@lunn.ch>
+From: Egil Hjelmeland <privat@egil-hjelmeland.no>
+Subject: Re: [PATCH net-next 2/2] net: dsa: lan9303: Add basic offloading of
+ unicast traffic
+Date: Sat, 23 Sep 2017 11:58:01 +0200
+Message-ID: <2c5fec6d-18b3-97e9-dd64-85560382d2f7@egil-hjelmeland.no>
+References: <20170921094139.4250-1-privat@egil-hjelmeland.no>
+ <20170921094139.4250-3-privat@egil-hjelmeland.no>
+ <20170921142127.GB27589@lunn.ch>
+ <b27d2dd4-84e3-b930-a6fe-1e5b36a7d213@egil-hjelmeland.no>
+ <20170922200810.GJ3470@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
-        davem@davemloft.net, idosch@mellanox.com, mlxsw@mellanox.com
+Cc: vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0087.outbound.protection.outlook.com ([104.47.2.87]:36496
-        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750766AbdIWJcY (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 23 Sep 2017 05:32:24 -0400
-In-Reply-To: <20170922132152.GB31634@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170922200810.GJ3470@lunn.ch>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 09/22/2017 04:21 PM, Andrew Lunn wrote:
-> On Fri, Sep 22, 2017 at 11:36:59AM +0300, Yotam Gigi wrote:
->> On 09/21/2017 06:26 PM, Andrew Lunn wrote:
->>>> +static void mlxsw_sp_mr_route_stats_update(struct mlxsw_sp *mlxsw_sp,
->>>> +					   struct mlxsw_sp_mr_route *mr_route)
->>>> +{
->>>> +	struct mlxsw_sp_mr *mr = mlxsw_sp->mr;
->>>> +	u64 packets, bytes;
->>>> +
->>>> +	if (mr_route->route_action == MLXSW_SP_MR_ROUTE_ACTION_TRAP)
->>>> +		return;
->>>> +
->>>> +	mr->mr_ops->route_stats(mlxsw_sp, mr_route->route_priv, &packets,
->>>> +				&bytes);
->>>> +
->>>> +	switch (mr_route->mr_table->proto) {
->>>> +	case MLXSW_SP_L3_PROTO_IPV4:
->>>> +		mr_route->mfc4->mfc_un.res.pkt = packets;
->>>> +		mr_route->mfc4->mfc_un.res.bytes = bytes;
->>> What about wrong_if and lastuse? 
-> Hi Yotam
->
->> wronf_if is updated by ipmr as it is trapped to the CPU.
-> Great.
->
->> We did not address lastuse currently, though it can be easily
->> addressed here.
-> Please do. I've written multicast routing daemons, where i use it to
-> flush out MFCs which are no longer in use. Having it always 0 is going
-> to break daemons.
-
-I will. Thanks for the feedback!
-
->  
->>> Is an mfc with iif on the host, not the switch, not offloaded?
+Den 22. sep. 2017 22:08, skrev Andrew Lunn:
+>>> I'm wondering how this is supposed to work. Please add a good comment
+>>> here, since the hardware is forcing you to do something odd.
+>>>
+>>> Maybe it would be a good idea to save the STP state in chip.  And then
+>>> when chip->is_bridged is set true, change the state in the hardware to
+>>> the saved value?
+>>>
+>>> What happens when port 0 is added to the bridge, there is then a
+>>> minute pause and then port 1 is added? I would expect that as soon as
+>>> port 0 is added, the STP state machine for port 0 will start and move
+>>> into listening and then forwarding. Due to hardware limitations it
+>>> looks like you cannot do this. So what state is the hardware
+>>> effectively in? Blocking? Forwarding?
+>>>
+>>> Then port 1 is added. You can then can respect the states. port 1 will
+>>> do blocking->listening->forwarding, but what about port 0? The calls
+>>> won't get repeated? How does it transition to forwarding?
+>>>
+>>>    Andrew
+>>>
 >>
->> I am not sure I followed. What do you mean MFC with iif on the host? you mean
->> MFC with iif that is an external NIC which is not part of the spectrum ASIC?
-> Yes. We probably have different perspectives on the world. To
-> Mellanox, everything is a switch in a box. In the DSA world, we tend
-> to think of having a general purpose machine which also has a switch
-> connected. Think of a wireless access point, set top box, passenger
-> entertainment system. We have applications on the general purpose
-> computer, we have wifi interfaces, cable modems, etc. Think about all
-> the different packages in LEDE. We might have a multicast video
-> stream, coming from the cable modem being sent over ports of the
-> switch to clients.
->
-> So when i look at these patches, i try to make sure the general use
-> cases works, not just the plain boring Ethernet switch box use cases
-> :-)
+>> I see your point with the "minute pause" argument. Although a bit
+>> contrived use case, it is easy to fix by caching the STP state, as
+>> you suggest. So I can do that.
+> 
+> I don't think it is contrived. I've done bridge configuration by hand
+> for testing purposes. I've also set the forwarding delay to very small
+> values, so there is a clear race condition here.
+> 
+>> How does other DSA HW chips handle port separation? Knowing that
+>> could perhaps help me know what to look for.
+> 
+> They have better hardware :-)
+> 
+> Generally each port is totally independent. You can change the STP
+> state per port without restrictions.
+> 
+We can indeed change the STP state per lan9303 port "without
+restrictions".
 
-So when doing it, we did think about multi-ASIC situations, so I think it should
-fit :)
+The point is: Once both external ports are in "forwarding", I see no way
+to prevent traffic flowing directly between the external ports.
 
->
->> in this case, the route will not be offloaded and all traffic will
->> pass in slowpath.
-> O.K. I was just thinking if those counters need to be +=, not =.  But
-> either the iif is on the host, or it is in the switch. It cannot be
-> both. So = is O.K.
->
-> Thanks
-> 	Andrew
+
+>        Andrew
+> 
+
+Egil
