@@ -1,90 +1,75 @@
 From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH net-next v3 2/6] rtnetlink: add helper to put master and link ifindexes
-Date: Sat, 23 Sep 2017 21:26:32 +0200
-Message-ID: <20170923192636.3932-3-fw@strlen.de>
+Subject: [PATCH net-next v3 5/6] rtnetlink: add helpers to dump netnsid information
+Date: Sat, 23 Sep 2017 21:26:35 +0200
+Message-ID: <20170923192636.3932-6-fw@strlen.de>
 References: <20170923192636.3932-1-fw@strlen.de>
 Cc: Florian Westphal <fw@strlen.de>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:46814 "EHLO
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:46832 "EHLO
         Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751609AbdIWT0Z (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 23 Sep 2017 15:26:25 -0400
+        by vger.kernel.org with ESMTP id S1751726AbdIWT0h (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 23 Sep 2017 15:26:37 -0400
 In-Reply-To: <20170923192636.3932-1-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-rtnl_fill_ifinfo currently requires caller to hold the rtnl mutex.
-Unfortunately the function is quite large which makes it harder to see
-which spots require the lock, which spots assume it and which ones could
-do without.
-
-Add helpers to factor out the ifindex dumping, one can use rcu to avoid
-rtnl dependency.
-
 Reviewed-by: David Ahern <dsahern@gmail.com>
 Signed-off-by: Florian Westphal <fw@strlen.de>
 ---
- no changes since v2.
- net/core/rtnetlink.c | 32 +++++++++++++++++++++++++++-----
- 1 file changed, 27 insertions(+), 5 deletions(-)
+ Changes since v2:
+ this hunk was part of patch #4.
+
+ net/core/rtnetlink.c | 30 +++++++++++++++++++-----------
+ 1 file changed, 19 insertions(+), 11 deletions(-)
 
 diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index a78fd61da0ec..c801212ee40e 100644
+index 625342d27c44..e858a2b48d7e 100644
 --- a/net/core/rtnetlink.c
 +++ b/net/core/rtnetlink.c
-@@ -1307,6 +1307,31 @@ static u32 rtnl_get_event(unsigned long event)
- 	return rtnl_event_type;
+@@ -1370,6 +1370,23 @@ static noinline int nla_put_ifalias(struct sk_buff *skb, struct net_device *dev)
+ 	return 0;
  }
  
-+static int put_master_ifindex(struct sk_buff *skb, struct net_device *dev)
++static noinline int rtnl_fill_link_netnsid(struct sk_buff *skb,
++					   const struct net_device *dev)
 +{
-+	const struct net_device *upper_dev;
-+	int ret = 0;
++	if (dev->rtnl_link_ops && dev->rtnl_link_ops->get_link_net) {
++		struct net *link_net = dev->rtnl_link_ops->get_link_net(dev);
 +
-+	rcu_read_lock();
++		if (!net_eq(dev_net(dev), link_net)) {
++			int id = peernet2id_alloc(dev_net(dev), link_net);
 +
-+	upper_dev = netdev_master_upper_dev_get_rcu(dev);
-+	if (upper_dev)
-+		ret = nla_put_u32(skb, IFLA_MASTER, upper_dev->ifindex);
++			if (nla_put_s32(skb, IFLA_LINK_NETNSID, id))
++				return -EMSGSIZE;
++		}
++	}
 +
-+	rcu_read_unlock();
-+	return ret;
-+}
-+
-+static int nla_put_iflink(struct sk_buff *skb, const struct net_device *dev)
-+{
-+	int ifindex = dev_get_iflink(dev);
-+
-+	if (dev->ifindex == ifindex)
-+		return 0;
-+
-+	return nla_put_u32(skb, IFLA_LINK, ifindex);
++	return 0;
 +}
 +
  static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
  			    int type, u32 pid, u32 seq, u32 change,
  			    unsigned int flags, u32 ext_filter_mask,
-@@ -1316,7 +1341,6 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
- 	struct nlmsghdr *nlh;
- 	struct nlattr *af_spec;
- 	struct rtnl_af_ops *af_ops;
--	struct net_device *upper_dev = netdev_master_upper_dev_get(dev);
+@@ -1458,17 +1475,8 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+ 			goto nla_put_failure;
+ 	}
  
- 	ASSERT_RTNL();
- 	nlh = nlmsg_put(skb, pid, seq, type, sizeof(*ifm), flags);
-@@ -1345,10 +1369,8 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
- #ifdef CONFIG_RPS
- 	    nla_put_u32(skb, IFLA_NUM_RX_QUEUES, dev->num_rx_queues) ||
- #endif
--	    (dev->ifindex != dev_get_iflink(dev) &&
--	     nla_put_u32(skb, IFLA_LINK, dev_get_iflink(dev))) ||
--	    (upper_dev &&
--	     nla_put_u32(skb, IFLA_MASTER, upper_dev->ifindex)) ||
-+	    nla_put_iflink(skb, dev) ||
-+	    put_master_ifindex(skb, dev) ||
- 	    nla_put_u8(skb, IFLA_CARRIER, netif_carrier_ok(dev)) ||
- 	    (dev->qdisc &&
- 	     nla_put_string(skb, IFLA_QDISC, dev->qdisc->ops->id)) ||
+-	if (dev->rtnl_link_ops &&
+-	    dev->rtnl_link_ops->get_link_net) {
+-		struct net *link_net = dev->rtnl_link_ops->get_link_net(dev);
+-
+-		if (!net_eq(dev_net(dev), link_net)) {
+-			int id = peernet2id_alloc(dev_net(dev), link_net);
+-
+-			if (nla_put_s32(skb, IFLA_LINK_NETNSID, id))
+-				goto nla_put_failure;
+-		}
+-	}
++	if (rtnl_fill_link_netnsid(skb, dev))
++		goto nla_put_failure;
+ 
+ 	if (!(af_spec = nla_nest_start(skb, IFLA_AF_SPEC)))
+ 		goto nla_put_failure;
 -- 
 2.13.5
