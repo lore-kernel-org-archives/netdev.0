@@ -1,243 +1,289 @@
-From: Y Song <ys114321@gmail.com>
-Subject: Re: [PATCH net-next] bpf/verifier: improve disassembly of BPF_END instructions
-Date: Fri, 22 Sep 2017 21:49:10 -0700
-Message-ID: <CAH3MdRUCPNzXHQRQtVp7-p9XLDbJrkhxYEe=c0Fkt4+D9Tk9sw@mail.gmail.com>
-References: <4cfac985-4f99-cf85-fc15-c3ad1f8ff123@solarflare.com>
- <CAH3MdRWAHJS8Y8ketOAghYyorVUp6JijjZcSVY7gOiGAr7e_pw@mail.gmail.com>
- <207ecd4c-b1b4-3dcd-62a6-30824c19dbf7@solarflare.com> <59C4131D.8050003@iogearbox.net>
- <20170921194426.tnd5xos5irm3gred@ast-mbp> <46aa4442-b8ed-e4c1-4897-8f650e23d448@solarflare.com>
- <CAH3MdRVK-=pL8YCz44BPCmHhuZE_CRfih0QdZPLa=mpE_uoA_Q@mail.gmail.com>
- <ec7d0485-11f4-4fdb-0b87-1fb0afdb4f11@solarflare.com> <CAH3MdRVCf_wLoC7WOfaL2L2px3aYVWUhWxarMsyJdD7_E9fv_Q@mail.gmail.com>
- <CAH3MdRXgVtVjhYQkRopPKvL+4+NaTRRJoJq6XD_S-Dra69j0hA@mail.gmail.com>
- <20170922151614.bg4ovrp6m27cppr7@ast-mbp> <7c1ab2b8-e65d-3b09-f9f0-9fd13c1ceccf@solarflare.com>
+From: David Miller <davem@davemloft.net>
+Subject: [GIT] Networking
+Date: Fri, 22 Sep 2017 22:03:14 -0700 (PDT)
+Message-ID: <20170922.220314.863947456405461896.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="001a1149513049d79b0559d40e70"
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Jiong Wang <jiong.wang@netronome.com>,
-        Jakub Kicinski <jakub.kicinski@netronome.com>
-To: Edward Cree <ecree@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f175.google.com ([209.85.217.175]:49656 "EHLO
-        mail-ua0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750729AbdIWEtw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 23 Sep 2017 00:49:52 -0400
-Received: by mail-ua0-f175.google.com with SMTP id 97so1781273uai.6
-        for <netdev@vger.kernel.org>; Fri, 22 Sep 2017 21:49:51 -0700 (PDT)
-In-Reply-To: <7c1ab2b8-e65d-3b09-f9f0-9fd13c1ceccf@solarflare.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
---001a1149513049d79b0559d40e70
-Content-Type: text/plain; charset="UTF-8"
 
-On Fri, Sep 22, 2017 at 9:23 AM, Edward Cree <ecree@solarflare.com> wrote:
-> On 22/09/17 16:16, Alexei Starovoitov wrote:
->> looks like we're converging on
->> "be16/be32/be64/le16/le32/le64 #register" for BPF_END.
->> I guess it can live with that. I would prefer more C like syntax
->> to match the rest, but llvm parsing point is a strong one.
-> Yep, agreed.  I'll post a v2 once we've settled BPF_NEG.
->> For BPG_NEG I prefer to do it in C syntax like interpreter does:
->>         ALU_NEG:
->>                 DST = (u32) -DST;
->>         ALU64_NEG:
->>                 DST = -DST;
->> Yonghong, does it mean that asmparser will equally suffer?
-> Correction to my earlier statements: verifier will currently disassemble
->  neg as:
-> (87) r0 neg 0
-> (84) (u32) r0 neg (u32) 0
->  because it pretends 'neg' is a compound-assignment operator like +=.
-> The analogy with be16 and friends would be to use
->     neg64 r0
->     neg32 r0
->  whereas the analogy with everything else would be
->     r0 = -r0
->     r0 = (u32) -r0
->  as Alexei says.
-> I'm happy to go with Alexei's version if it doesn't cause problems for llvm.
+1) Fix NAPI poll list corruption in enic driver, from Christian
+   Lamparter.
 
-I got some time to do some prototyping in llvm and it looks like that
-I am able to
-resolve the issue and we are able to use more C-like syntax. That is:
-for bswap:
-     r1 = (be16) (u16) r1
-     or
-     r1 = (be16) r1
-     or
-     r1 = be16 r1
-for neg:
-     r0 = -r0
-     (for 32bit support, llvm may output "w0 = -w0" in the future. But
-since it is not
-      enabled yet, you can continue to output "r0 = (u32) -r0".)
+2) Fix route use after free, from Eric Dumazet.
 
-Not sure which syntax is best for bswap. The "r1 = (be16) (u16) r1" is most
-explicit in its intention.
+3) Fix regression in reuseaddr handling, from Josef Bacik.
 
-Attaching my llvm patch as well and cc'ing Jiong and Jakub so they can see my
-implementation and the relative discussion here. (In this patch, I did
-not implement
-bswap for little endian yet.) Maybe they can provide additional comments.
+4) Assert the size of control messages in compat handling since we
+   copy it in from userspace twice.  From Meng Xu.
 
---001a1149513049d79b0559d40e70
-Content-Type: application/octet-stream;
-	name="0001-bpf-add-support-for-neg-insn-and-change-format-of-bs.patch"
-Content-Disposition: attachment;
-	filename="0001-bpf-add-support-for-neg-insn-and-change-format-of-bs.patch"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_j7wu3fk80
+5) SMC layer bug fixes (missing RCU locking, bad refcounting, etc.)
+   from Ursula Braun.
 
-RnJvbSBhM2YxYTI4MmZmYjdlOWQ0NTliYTNkMTEzNTUzNjUwNGJkODlmNTk3IE1vbiBTZXAgMTcg
-MDA6MDA6MDAgMjAwMQpGcm9tOiBZb25naG9uZyBTb25nIDx5aHNAZmIuY29tPgpEYXRlOiBGcmks
-IDIyIFNlcCAyMDE3IDEzOjUyOjU1IC0wNzAwClN1YmplY3Q6IFtQQVRDSF0gYnBmOiBhZGQgc3Vw
-cG9ydCBmb3IgbmVnIGluc24gYW5kIGNoYW5nZSBmb3JtYXQgb2YgYnN3YXAgaW5zbgoKW0FsZXhl
-aSwKCiBUaGlzIHBhdGNoIGRlbW9uc3RyYXRlcyB0aGF0IHdlIGNhbiBzdXBwb3J0CiBic3dhcC9u
-ZWcgbGlrZToKICAgcmVnMSA9IChiZTE2KSAodTE2KSByZWcxCiAgIHJlZzEgPSAtcmVnMQogQXQg
-SVIgbGV2ZWwsIHdlIGFscmVhZHkgaGF2ZSBjb25zdHJhaW50cyB0byBlbnN1cmUKIHRoYXQgc3Jj
-IHJlZyB0aGUgc2FtZSBhcyBkc3QgcmVnLiBUaGUgb25seSBpc3N1ZQogaXMgdGhlIGFzc2VtYmxl
-ciAoZnJvbSAucyB0byAubykgd2hlcmUgdGhlIGNvbnN0cmFpbnQKIGNoZWNrIGluIEJQRkluc3Ry
-SW5mby50ZCBpcyBub3QgZWZmZWN0aXZlLgogSSBhZGRlZCBhZGRpdGlvbmFsIGNoZWNrIGluIEJQ
-RkFzbVBhcnNlci5jcHAgd2hpY2gKIGNhbiBoZWxwIHdhcm4gdXNlciBpZiB0aGUgc3JjL2RzdCBu
-b3QgdGhlIHNhbWUKIGZvciB0aGUgYWJvdmUgaW5zbnMuIFdpdGhvdXQgdGhpcyBjaGVjaywgd3Jv
-bmcgY29kZQogd2lsbCBiZSBnZW5lcmF0ZWQuCgogTXkgcHJldmlvdXMgZXhwZXJpbWVudCB0cmll
-cyB0byB1c2UgdGhlIHNhbWUgZHN0CiByZWdpc3RlciBpbiB0d28gZGlmZmVyZW50IHBsYWNlcyB0
-byBlbmZvcmNlIHRoZQogc2FtZSBzcmMvZHN0IHJlZ2lzdGVyLiBOb3cgd2l0aCBhZGRpdGlvbmFs
-IGNoZWNrCiBpbiBCUEZBc21QYXJzZXIsIHdlIGNhbiB1c2UgYm90aCBzcmMgYW5kIGRzdCByZWdp
-c3RlcnMKIGluIGFzbXN0cmluZyBhbmQgc3RpbGwgZ3VhcmFudGVlIHRoZXkgcG9pbnQgdG8gdGhl
-CiBzYW1lIHJlZ2lzdGVyLgoKIEZyb20gbGx2bSBwb2ludCBvZiB2aWV3LCB0aGUgZm9sbG93aW5n
-IGZvcm1hdCBpcyB0aGUKIHNpbXBsZXN0LCBhbmQgcmVxdWlyZXMgbm8gc3BlY2lhbCBwcmVjaGVj
-ayBpbnNuIG1hdGNoaW5nCiBmb3IgYXNzZW1ibGVyOgogICBiZTE2IDxyZWc+CiAgIG5lZyAgPHJl
-Zz4KIEJ1dCB0aGlzIHN5bnRheCBpcyBub3QgY29uc2lzdGVudCB3aXRoIGFsbCBvdGhlciBhcml0
-aAogc3ludGF4IHdlIGhhdmluZyBub3cuCgogVGhlcmVmb3JlLCBsZXQgdXMgZ28gYmFjayB0byB0
-aGUgQy1zdHlsZSBzeW50YXguCiBOb3Qgc3VyZSB3ZSB3YW50CiAgICJyZWcxID0gKGJlMTYpICh1
-MTYpIHJlZzEiIG9yCiAgICJyZWcxID0gKGJlMTYpIHJlZzEiLgogTWF5YmUgdGhlIHNlY29uZCBj
-aG9pY2UgaXMgZ29vZCBlbm91Z2g/CgogUmVnYXJkaW5nIGZvciAzMmJpdCBzeW50YXgsIHdpdGgg
-SmlvbmcncyBwYXRjaCwgMzJiaXQgQUxVCiBvcGVyYXRpb25zIHdpbGwgaGF2ZSBzeW50YXggd2l0
-aCByZWdpc3RlcnMgIncwLCB3MSwgLi4uLCB3MTAiCiBpbnN0ZWFkIG9mICIodTMyKXIwIi4gSSBn
-dWVzcyB3ZSBjYW4gZGVhbCB3aXRoIHRoaXMKIGluIHZlcmlmaWVyIGxhdGVyIHdoZW4gMzJiaXQg
-c3VwcG9ydCBtYXR1cmVzLgoKIE9uY2Ugd2UgaGF2ZSBjb25zZW5zdXMsIEkgY2FuIHNlbmQgZW1h
-aWwgb3V0IHRvIEVkd2FyZAogYWJvdXQgdGhlIHByb3Bvc2FsIGFuZCB0aGUgcmVhc29uLgoKXQoK
-U2lnbmVkLW9mZi1ieTogWW9uZ2hvbmcgU29uZyA8eWhzQGZiLmNvbT4KLS0tCiBsaWIvVGFyZ2V0
-L0JQRi9Bc21QYXJzZXIvQlBGQXNtUGFyc2VyLmNwcCB8IDUxICsrKysrKysrKysrKysrKysrKysr
-KysrKysrLS0tLS0KIGxpYi9UYXJnZXQvQlBGL0JQRkluc3RyRm9ybWF0cy50ZCAgICAgICAgIHwg
-IDEgKwogbGliL1RhcmdldC9CUEYvQlBGSW5zdHJJbmZvLnRkICAgICAgICAgICAgfCAyOCArKysr
-KysrKysrKysrKy0tLQogMyBmaWxlcyBjaGFuZ2VkLCA2OCBpbnNlcnRpb25zKCspLCAxMiBkZWxl
-dGlvbnMoLSkKCmRpZmYgLS1naXQgYS9saWIvVGFyZ2V0L0JQRi9Bc21QYXJzZXIvQlBGQXNtUGFy
-c2VyLmNwcCBiL2xpYi9UYXJnZXQvQlBGL0FzbVBhcnNlci9CUEZBc21QYXJzZXIuY3BwCmluZGV4
-IGQwMDIwMGMuLjY4M2Y3ZmQgMTAwNjQ0Ci0tLSBhL2xpYi9UYXJnZXQvQlBGL0FzbVBhcnNlci9C
-UEZBc21QYXJzZXIuY3BwCisrKyBiL2xpYi9UYXJnZXQvQlBGL0FzbVBhcnNlci9CUEZBc21QYXJz
-ZXIuY3BwCkBAIC0zMCw2ICszMCw4IEBAIHN0cnVjdCBCUEZPcGVyYW5kOwogY2xhc3MgQlBGQXNt
-UGFyc2VyIDogcHVibGljIE1DVGFyZ2V0QXNtUGFyc2VyIHsKICAgU01Mb2MgZ2V0TG9jKCkgY29u
-c3QgeyByZXR1cm4gZ2V0UGFyc2VyKCkuZ2V0VG9rKCkuZ2V0TG9jKCk7IH0KIAorICBib29sIFBy
-ZU1hdGNoQ2hlY2soT3BlcmFuZFZlY3RvciAmT3BlcmFuZHMpOworCiAgIGJvb2wgTWF0Y2hBbmRF
-bWl0SW5zdHJ1Y3Rpb24oU01Mb2MgSURMb2MsIHVuc2lnbmVkICZPcGNvZGUsCiAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgT3BlcmFuZFZlY3RvciAmT3BlcmFuZHMsIE1DU3RyZWFtZXIg
-Jk91dCwKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB1aW50NjRfdCAmRXJyb3JJbmZv
-LApAQCAtMjI1LDkgKzIyNyw2IEBAIHB1YmxpYzoKICAgICAgICAgLkNhc2UoIioiLCB0cnVlKQog
-ICAgICAgICAuQ2FzZSgiZXhpdCIsIHRydWUpCiAgICAgICAgIC5DYXNlKCJsb2NrIiwgdHJ1ZSkK
-LSAgICAgICAgLkNhc2UoImJzd2FwNjQiLCB0cnVlKQotICAgICAgICAuQ2FzZSgiYnN3YXAzMiIs
-IHRydWUpCi0gICAgICAgIC5DYXNlKCJic3dhcDE2IiwgdHJ1ZSkKICAgICAgICAgLkNhc2UoImxk
-X3BzZXVkbyIsIHRydWUpCiAgICAgICAgIC5EZWZhdWx0KGZhbHNlKTsKICAgfQpAQCAtMjM5LDYg
-KzIzOCw5IEBAIHB1YmxpYzoKICAgICAgICAgLkNhc2UoInUzMiIsIHRydWUpCiAgICAgICAgIC5D
-YXNlKCJ1MTYiLCB0cnVlKQogICAgICAgICAuQ2FzZSgidTgiLCB0cnVlKQorICAgICAgICAuQ2Fz
-ZSgiYmU2NCIsIHRydWUpCisgICAgICAgIC5DYXNlKCJiZTMyIiwgdHJ1ZSkKKyAgICAgICAgLkNh
-c2UoImJlMTYiLCB0cnVlKQogICAgICAgICAuQ2FzZSgiZ290byIsIHRydWUpCiAgICAgICAgIC5D
-YXNlKCJsbCIsIHRydWUpCiAgICAgICAgIC5DYXNlKCJza2IiLCB0cnVlKQpAQCAtMjUyLDYgKzI1
-NCw0MSBAQCBwdWJsaWM6CiAjZGVmaW5lIEdFVF9NQVRDSEVSX0lNUExFTUVOVEFUSU9OCiAjaW5j
-bHVkZSAiQlBGR2VuQXNtTWF0Y2hlci5pbmMiCiAKK2Jvb2wgQlBGQXNtUGFyc2VyOjpQcmVNYXRj
-aENoZWNrKE9wZXJhbmRWZWN0b3IgJk9wZXJhbmRzKSB7CisKKyAgaWYgKE9wZXJhbmRzLnNpemUo
-KSA9PSA0KSB7CisgICAgLy8gY2hlY2sgcmVnMSA9IC1yZWcyLCByZWcxIG11c3QgYmUgdGhlIHNh
-bWUgYXMgcmVnMgorICAgIEJQRk9wZXJhbmQgJk9wMCA9IChCUEZPcGVyYW5kICYpKk9wZXJhbmRz
-WzBdOworICAgIEJQRk9wZXJhbmQgJk9wMSA9IChCUEZPcGVyYW5kICYpKk9wZXJhbmRzWzFdOwor
-ICAgIEJQRk9wZXJhbmQgJk9wMiA9IChCUEZPcGVyYW5kICYpKk9wZXJhbmRzWzJdOworICAgIEJQ
-Rk9wZXJhbmQgJk9wMyA9IChCUEZPcGVyYW5kICYpKk9wZXJhbmRzWzNdOworICAgIGlmIChPcDAu
-aXNSZWcoKSAmJiBPcDEuaXNUb2tlbigpICYmIE9wMi5pc1Rva2VuKCkgJiYgT3AzLmlzUmVnKCkK
-KyAgICAgICAgJiYgT3AxLmdldFRva2VuKCkgPT0gIj0iICYmIE9wMi5nZXRUb2tlbigpID09ICIt
-IgorICAgICAgICAmJiBPcDAuZ2V0UmVnKCkgIT0gT3AzLmdldFJlZygpKQorICAgICAgcmV0dXJu
-IHRydWU7CisgIH0gZWxzZSBpZiAoT3BlcmFuZHMuc2l6ZSgpID09IDkpIHsKKyAgICAvLyBjaGVj
-ayByZWcxID0gKGJlMTYpICh1MTYpIHJlZzIsIHJlZzEgbXVzdCBiZSB0aGUgc2FtZSBhcyByZWcy
-CisgICAgQlBGT3BlcmFuZCAmT3AwID0gKEJQRk9wZXJhbmQgJikqT3BlcmFuZHNbMF07CisgICAg
-QlBGT3BlcmFuZCAmT3AxID0gKEJQRk9wZXJhbmQgJikqT3BlcmFuZHNbMV07CisgICAgQlBGT3Bl
-cmFuZCAmT3AyID0gKEJQRk9wZXJhbmQgJikqT3BlcmFuZHNbMl07CisgICAgQlBGT3BlcmFuZCAm
-T3AzID0gKEJQRk9wZXJhbmQgJikqT3BlcmFuZHNbM107CisgICAgQlBGT3BlcmFuZCAmT3A0ID0g
-KEJQRk9wZXJhbmQgJikqT3BlcmFuZHNbNF07CisgICAgQlBGT3BlcmFuZCAmT3A1ID0gKEJQRk9w
-ZXJhbmQgJikqT3BlcmFuZHNbNV07CisgICAgQlBGT3BlcmFuZCAmT3A2ID0gKEJQRk9wZXJhbmQg
-JikqT3BlcmFuZHNbNl07CisgICAgQlBGT3BlcmFuZCAmT3A3ID0gKEJQRk9wZXJhbmQgJikqT3Bl
-cmFuZHNbN107CisgICAgQlBGT3BlcmFuZCAmT3A4ID0gKEJQRk9wZXJhbmQgJikqT3BlcmFuZHNb
-OF07CisgICAgaWYgKE9wMC5pc1JlZygpICYmIE9wMS5pc1Rva2VuKCkgJiYgT3AyLmlzVG9rZW4o
-KSAmJiBPcDMuaXNUb2tlbigpCisgICAgICAgICYmIE9wNC5pc1Rva2VuKCkgJiYgIE9wNS5pc1Rv
-a2VuKCkgJiYgT3A2LmlzVG9rZW4oKQorICAgICAgICAmJiBPcDcuaXNUb2tlbigpICYmIE9wOC5p
-c1JlZygpCisgICAgICAgICYmIE9wMS5nZXRUb2tlbigpID09ICI9IiAmJiBPcDIuZ2V0VG9rZW4o
-KSA9PSAiKCIKKyAgICAgICAgJiYgT3A0LmdldFRva2VuKCkgPT0gIikiICYmIE9wNS5nZXRUb2tl
-bigpID09ICIoIgorICAgICAgICAmJiBPcDcuZ2V0VG9rZW4oKSA9PSAiKSIgJiYgT3AwLmdldFJl
-ZygpICE9IE9wOC5nZXRSZWcoKSkKKyAgICAgIHJldHVybiB0cnVlOworICB9CisKKyAgcmV0dXJu
-IGZhbHNlOworfQorCiBib29sIEJQRkFzbVBhcnNlcjo6TWF0Y2hBbmRFbWl0SW5zdHJ1Y3Rpb24o
-U01Mb2MgSURMb2MsIHVuc2lnbmVkICZPcGNvZGUsCiAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgT3BlcmFuZFZlY3RvciAmT3BlcmFuZHMsCiAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgTUNTdHJlYW1lciAmT3V0LCB1aW50NjRfdCAm
-RXJyb3JJbmZvLApAQCAtMjU5LDYgKzI5Niw5IEBAIGJvb2wgQlBGQXNtUGFyc2VyOjpNYXRjaEFu
-ZEVtaXRJbnN0cnVjdGlvbihTTUxvYyBJRExvYywgdW5zaWduZWQgJk9wY29kZSwKICAgTUNJbnN0
-IEluc3Q7CiAgIFNNTG9jIEVycm9yTG9jOwogCisgIGlmIChQcmVNYXRjaENoZWNrKE9wZXJhbmRz
-KSkKKyAgICByZXR1cm4gRXJyb3IoSURMb2MsICJhZGRpdGlvbmFsIGluc3QgY29uc3RyYWludCBu
-b3QgbWV0Iik7CisKICAgc3dpdGNoIChNYXRjaEluc3RydWN0aW9uSW1wbChPcGVyYW5kcywgSW5z
-dCwgRXJyb3JJbmZvLCBNYXRjaGluZ0lubGluZUFzbSkpIHsKICAgZGVmYXVsdDoKICAgICBicmVh
-azsKQEAgLTMyNCwxMyArMzY0LDggQEAgQlBGQXNtUGFyc2VyOjpwYXJzZU9wZXJhbmRBc09wZXJh
-dG9yKE9wZXJhbmRWZWN0b3IgJk9wZXJhbmRzKSB7CiAgIHN3aXRjaCAoZ2V0TGV4ZXIoKS5nZXRL
-aW5kKCkpIHsKICAgY2FzZSBBc21Ub2tlbjo6TWludXM6CiAgIGNhc2UgQXNtVG9rZW46OlBsdXM6
-IHsKLSAgICBTdHJpbmdSZWYgTmFtZSA9IGdldExleGVyKCkuZ2V0VG9rKCkuZ2V0U3RyaW5nKCk7
-Ci0KICAgICBpZiAoZ2V0TGV4ZXIoKS5wZWVrVG9rKCkuaXMoQXNtVG9rZW46OkludGVnZXIpKQog
-ICAgICAgcmV0dXJuIE1hdGNoT3BlcmFuZF9Ob01hdGNoOwotCi0gICAgZ2V0TGV4ZXIoKS5MZXgo
-KTsKLSAgICBPcGVyYW5kcy5wdXNoX2JhY2soQlBGT3BlcmFuZDo6Y3JlYXRlVG9rZW4oTmFtZSwg
-UykpOwogICB9CiAgIC8vIEZhbGwgdGhyb3VnaC4KIApkaWZmIC0tZ2l0IGEvbGliL1RhcmdldC9C
-UEYvQlBGSW5zdHJGb3JtYXRzLnRkIGIvbGliL1RhcmdldC9CUEYvQlBGSW5zdHJGb3JtYXRzLnRk
-CmluZGV4IDFlM2JjM2IuLjkyZDRhNjIgMTAwNjQ0Ci0tLSBhL2xpYi9UYXJnZXQvQlBGL0JQRklu
-c3RyRm9ybWF0cy50ZAorKysgYi9saWIvVGFyZ2V0L0JQRi9CUEZJbnN0ckZvcm1hdHMudGQKQEAg
-LTM4LDYgKzM4LDcgQEAgZGVmIEJQRl9PUiAgIDogQlBGQXJpdGhPcDwweDQ+OwogZGVmIEJQRl9B
-TkQgIDogQlBGQXJpdGhPcDwweDU+OwogZGVmIEJQRl9MU0ggIDogQlBGQXJpdGhPcDwweDY+Owog
-ZGVmIEJQRl9SU0ggIDogQlBGQXJpdGhPcDwweDc+OworZGVmIEJQRl9ORUcgIDogQlBGQXJpdGhP
-cDwweDg+OwogZGVmIEJQRl9YT1IgIDogQlBGQXJpdGhPcDwweGE+OwogZGVmIEJQRl9NT1YgIDog
-QlBGQXJpdGhPcDwweGI+OwogZGVmIEJQRl9BUlNIIDogQlBGQXJpdGhPcDwweGM+OwpkaWZmIC0t
-Z2l0IGEvbGliL1RhcmdldC9CUEYvQlBGSW5zdHJJbmZvLnRkIGIvbGliL1RhcmdldC9CUEYvQlBG
-SW5zdHJJbmZvLnRkCmluZGV4IGUxZjIzM2UuLmZjNzk3OWIgMTAwNjQ0Ci0tLSBhL2xpYi9UYXJn
-ZXQvQlBGL0JQRkluc3RySW5mby50ZAorKysgYi9saWIvVGFyZ2V0L0JQRi9CUEZJbnN0ckluZm8u
-dGQKQEAgLTIzMiw2ICsyMzIsMjYgQEAgbGV0IGlzQXNDaGVhcEFzQU1vdmUgPSAxIGluIHsKICAg
-ZGVmbSBESVYgOiBBTFU8QlBGX0RJViwgIi89IiwgdWRpdj47CiB9CiAKK2NsYXNzIE5FR19SUjxC
-UEZPcENsYXNzIENsYXNzLCBCUEZBcml0aE9wIE9wYywKKyAgICAgICAgICAgICBkYWcgb3V0cywg
-ZGFnIGlucywgc3RyaW5nIGFzbXN0ciwgbGlzdDxkYWc+IHBhdHRlcm4+CisgICAgOiBUWVBFX0FM
-VV9KTVA8T3BjLlZhbHVlLCAwLCBvdXRzLCBpbnMsIGFzbXN0ciwgcGF0dGVybj4geworICBiaXRz
-PDQ+IGRzdDsKKyAgYml0czw0PiBzcmM7CisKKyAgbGV0IEluc3R7NTUtNTJ9ID0gc3JjOworICBs
-ZXQgSW5zdHs1MS00OH0gPSBkc3Q7CisgIGxldCBCUEZDbGFzcyA9IENsYXNzOworfQorCitsZXQg
-Q29uc3RyYWludHMgPSAiJGRzdCA9ICRzcmMiLCBpc0FzQ2hlYXBBc0FNb3ZlID0gMSBpbiB7Cisg
-IGRlZiBORUdfNjQ6IE5FR19SUjxCUEZfQUxVNjQsIEJQRl9ORUcsIChvdXRzIEdQUjokZHN0KSwg
-KGlucyBHUFI6JHNyYyksCisgICAgICAgICAgICAgICAgICAgICAiJGRzdCA9IC0kc3JjIiwKKyAg
-ICAgICAgICAgICAgICAgICAgIFsoc2V0IEdQUjokZHN0LCAoaW5lZyBpNjQ6JHNyYykpXT47Cisg
-IGRlZiBORUdfMzI6IE5FR19SUjxCUEZfQUxVLCBCUEZfTkVHLCAob3V0cyBHUFIzMjokZHN0KSwg
-KGlucyBHUFIzMjokc3JjKSwKKyAgICAgICAgICAgICAgICAgICAgICIkZHN0ID0gLSRzcmMiLAor
-ICAgICAgICAgICAgICAgICAgICAgWyhzZXQgR1BSMzI6JGRzdCwgKGluZWcgaTMyOiRzcmMpKV0+
-OworfQorCiBjbGFzcyBMRF9JTU02NDxiaXRzPDQ+IFBzZXVkbywgc3RyaW5nIE9wY29kZVN0cj4K
-ICAgICA6IFRZUEVfTERfU1Q8QlBGX0lNTS5WYWx1ZSwgQlBGX0RXLlZhbHVlLAogICAgICAgICAg
-ICAgICAgICAob3V0cyBHUFI6JGRzdCksCkBAIC00ODgsNyArNTA4LDcgQEAgY2xhc3MgQlNXQVA8
-Yml0czwzMj4gU2l6ZU9wLCBzdHJpbmcgT3Bjb2RlU3RyLCBsaXN0PGRhZz4gUGF0dGVybj4KICAg
-ICA6IFRZUEVfQUxVX0pNUDxCUEZfRU5ELlZhbHVlLCBCUEZfVE9fQkUuVmFsdWUsCiAgICAgICAg
-ICAgICAgICAgICAgKG91dHMgR1BSOiRkc3QpLAogICAgICAgICAgICAgICAgICAgIChpbnMgR1BS
-OiRzcmMpLAotICAgICAgICAgICAgICAgICAgICFzdHJjb25jYXQoT3Bjb2RlU3RyLCAiXHQkZHN0
-IiksCisgICAgICAgICAgICAgICAgICAgIiRkc3QgPSAoYmUiI09wY29kZVN0ciMiKSAodSIjT3Bj
-b2RlU3RyIyIpICRzcmMiLAogICAgICAgICAgICAgICAgICAgIFBhdHRlcm4+IHsKICAgYml0czw0
-PiBkc3Q7CiAKQEAgLTQ5OCw5ICs1MTgsOSBAQCBjbGFzcyBCU1dBUDxiaXRzPDMyPiBTaXplT3As
-IHN0cmluZyBPcGNvZGVTdHIsIGxpc3Q8ZGFnPiBQYXR0ZXJuPgogfQogCiBsZXQgQ29uc3RyYWlu
-dHMgPSAiJGRzdCA9ICRzcmMiIGluIHsKLWRlZiBCU1dBUDE2IDogQlNXQVA8MTYsICJic3dhcDE2
-IiwgWyhzZXQgR1BSOiRkc3QsIChzcmwgKGJzd2FwIEdQUjokc3JjKSwgKGk2NCA0OCkpKV0+Owot
-ZGVmIEJTV0FQMzIgOiBCU1dBUDwzMiwgImJzd2FwMzIiLCBbKHNldCBHUFI6JGRzdCwgKHNybCAo
-YnN3YXAgR1BSOiRzcmMpLCAoaTY0IDMyKSkpXT47Ci1kZWYgQlNXQVA2NCA6IEJTV0FQPDY0LCAi
-YnN3YXA2NCIsIFsoc2V0IEdQUjokZHN0LCAoYnN3YXAgR1BSOiRzcmMpKV0+OworZGVmIEJTV0FQ
-MTYgOiBCU1dBUDwxNiwgIjE2IiwgWyhzZXQgR1BSOiRkc3QsIChzcmwgKGJzd2FwIEdQUjokc3Jj
-KSwgKGk2NCA0OCkpKV0+OworZGVmIEJTV0FQMzIgOiBCU1dBUDwzMiwgIjMyIiwgWyhzZXQgR1BS
-OiRkc3QsIChzcmwgKGJzd2FwIEdQUjokc3JjKSwgKGk2NCAzMikpKV0+OworZGVmIEJTV0FQNjQg
-OiBCU1dBUDw2NCwgIjY0IiwgWyhzZXQgR1BSOiRkc3QsIChic3dhcCBHUFI6JHNyYykpXT47CiB9
-CiAKIGxldCBEZWZzID0gW1IwLCBSMSwgUjIsIFIzLCBSNCwgUjVdLCBVc2VzID0gW1I2XSwgaGFz
-U2lkZUVmZmVjdHMgPSAxLAotLSAKMi45LjUKCg==
---001a1149513049d79b0559d40e70--
+6) Fix races in AF_PACKET fanout handling, from Willem de Bruijn.
+
+7) Don't use ARRAY_SIZE on spinlock array which might have zero
+   entries, from Geert Uytterhoeven.
+
+8) Fix miscomputation of checksum in ipv6 udp code, from Subash
+   Abhinov Kasiviswanathan.
+
+9) Push the ipv6 header properly in ipv6 GRE tunnel driver, from
+   Xin Long.
+
+Please pull, thanks a lot.
+
+The following changes since commit 2bd6bf03f4c1c59381d62c61d03f6cc3fe71f66e:
+
+  Linux 4.14-rc1 (2017-09-16 15:47:51 -0700)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net 
+
+for you to fetch changes up to 4e683f499a15cd777d3cb51aaebe48d72334c852:
+
+  Merge branch 'net-fix-reuseaddr-regression' (2017-09-22 20:33:18 -0700)
+
+----------------------------------------------------------------
+Alex Ng (1):
+      hv_netvsc: fix send buffer failure on MTU change
+
+Andreas Gruenbacher (1):
+      rhashtable: Documentation tweak
+
+Ariel Elior (1):
+      MAINTAINERS: Remove Yuval Mintz from maintainers list
+
+Christian Lamparter (1):
+      net: emac: Fix napi poll list corruption
+
+Cong Wang (1):
+      net_sched: remove cls_flower idr on failure
+
+Daniel Borkmann (1):
+      bpf: fix ri->map_owner pointer on bpf_prog_realloc
+
+David S. Miller (8):
+      Merge tag 'mac80211-for-davem-2017-11-19' of git://git.kernel.org/.../jberg/mac80211
+      Merge branch 'hns3-bug-fixes'
+      Merge git://git.kernel.org/.../pablo/nf
+      Merge branch 'hns3-tm-fixes'
+      Merge branch 'phylib-xcvr-type'
+      Merge branch 'lan78xx-fixes'
+      Merge branch 'smc-bug-fixes'
+      Merge branch 'net-fix-reuseaddr-regression'
+
+Davide Caratti (1):
+      net/sched: cls_matchall: fix crash when used with classful qdisc
+
+Edward Cree (1):
+      net: change skb->mac_header when Generic XDP calls adjust_head
+
+Eric Dumazet (4):
+      8139too: revisit napi_complete_done() usage
+      bpf: do not disable/enable BH in bpf_map_free_id()
+      tcp: fastopen: fix on syn-data transmit failure
+      net: prevent dst uses after free
+
+Fahad Kunnathadi (1):
+      net: phy: Fix mask value write on gmii2rgmii converter speed register
+
+Florian Fainelli (3):
+      net: systemport: Fix 64-bit statistics dependency
+      net: ethtool: Add back transceiver type
+      net: phy: Keep reporting transceiver type
+
+Geert Uytterhoeven (2):
+      netfilter: nat: Do not use ARRAY_SIZE() on spinlocks to fix zero div
+      net: phy: Fix truncation of large IRQ numbers in phy_attached_print()
+
+Hans Wippel (2):
+      net/smc: add missing dev_put
+      net/smc: add receive timeout check
+
+Jerome Brunet (1):
+      net: phy: Kconfig: Fix PHY infrastructure menu in menuconfig
+
+Johannes Berg (1):
+      nl80211: fix null-ptr dereference on invalid mesh configuration
+
+Josef Bacik (3):
+      net: set tb->fast_sk_family
+      net: use inet6_rcv_saddr to compare sockets
+      inet: fix improper empty comparison
+
+Konstantin Khlebnikov (2):
+      net_sched: always reset qdisc backlog in qdisc_reset()
+      net_sched/hfsc: fix curve activation in hfsc_change_class()
+
+Lipeng (6):
+      net: hns3: Fixes initialization of phy address from firmware
+      net: hns3: Fixes the command used to unmap ring from vector
+      net: hns3: Fixes ring-to-vector map-and-unmap command
+      net: hns3: Fixes the initialization of MAC address in hardware
+      net: hns3: Fixes the default VLAN-id of PF
+      net: hns3: Fixes the premature exit of loop when matching clients
+
+Matteo Croce (1):
+      ipv6: fix net.ipv6.conf.all interface DAD handlers
+
+Meng Xu (2):
+      net: compat: assert the size of cmsg copied in is as expected
+      isdn/i4l: fetch the ppp_write buffer in one shot
+
+Mike Manning (1):
+      net: ipv6: fix regression of no RTM_DELADDR sent after DAD failure
+
+Nisar Sayed (3):
+      lan78xx: Fix for eeprom read/write when device auto suspend
+      lan78xx: Allow EEPROM write for less than MAX_EEPROM_SIZE
+      lan78xx: Use default values loaded from EEPROM/OTP after reset
+
+Randy Dunlap (1):
+      Documentation: networking: fix ASCII art in switchdev.txt
+
+Salil Mehta (1):
+      net: hns3: Fixes the ether address copy with appropriate API
+
+Sathya Perla (1):
+      bnxt_en: check for ingress qdisc in flower offload
+
+Stefan Schmidt (1):
+      MAINTAINERS: update git tree locations for ieee802154 subsystem
+
+Subash Abhinov Kasiviswanathan (1):
+      udpv6: Fix the checksum computation when HW checksum does not apply
+
+Thomas Meyer (1):
+      net: stmmac: Cocci spatch "of_table"
+
+Timur Tabi (1):
+      net: qcom/emac: add software control for pause frame mode
+
+Tobias Klauser (1):
+      bpf: devmap: pass on return value of bpf_map_precharge_memlock
+
+Troy Kisky (3):
+      net: fec: only check queue 0 if RXF_0/TXF_0 interrupt is set
+      net: fec: remove unused interrupt FEC_ENET_TS_TIMER
+      net: fec: return IRQ_HANDLED if fec_ptp_check_pps_event handled it
+
+Ursula Braun (7):
+      net/smc: take RCU read lock for routing cache lookup
+      net/smc: adjust net_device refcount
+      net/smc: adapt send request completion notification
+      net/smc: longer delay for client link group removal
+      net/smc: terminate link group if out-of-sync is received
+      net/smc: introduce a delay
+      net/smc: no close wait in case of process shut down
+
+Vishwanath Pai (1):
+      netfilter: ipset: ipset list may return wrong member count for set with timeout
+
+Vladis Dronov (1):
+      nl80211: check for the required netlink attributes presence
+
+Willem de Bruijn (2):
+      packet: hold bind lock when rebinding to fanout hook
+      net: orphan frags on stand-alone ptype in dev_queue_xmit_nit
+
+Xin Long (2):
+      ip6_gre: skb_push ipv6hdr before packing the header in ip6gre_header
+      ip6_tunnel: do not allow loading ip6_tunnel if ipv6 is disabled in cmdline
+
+Yonghong Song (1):
+      bpf: one perf event close won't free bpf program attached by another perf event
+
+Yuchung Cheng (1):
+      tcp: remove two unused functions
+
+Yunsheng Lin (9):
+      net: hns3: Cleanup for ROCE capability flag in ae_dev
+      net: hns3: Fix initialization when cmd is not supported
+      net: hns3: Fix for DEFAULT_DV when dev doesn't support DCB
+      net: hns3: Fix for not setting rx private buffer size to zero
+      net: hns3: Fix for rx_priv_buf_alloc not setting rx shared buffer
+      net: hns3: Fix for rx priv buf allocation when DCB is not supported
+      net: hns3: Fix typo error for feild in hclge_tm
+      net: hns3: Fix for setting rss_size incorrectly
+      net: hns3: Fix for pri to tc mapping in TM
+
+ Documentation/networking/ip-sysctl.txt                  |  18 +++++++---
+ Documentation/networking/switchdev.txt                  |  68 ++++++++++++++++++-------------------
+ MAINTAINERS                                             |   6 ++--
+ drivers/isdn/i4l/isdn_ppp.c                             |  37 +++++++++++++-------
+ drivers/net/ethernet/broadcom/bcmsysport.c              |  52 +++++++++++++++++-----------
+ drivers/net/ethernet/broadcom/bnxt/bnxt_tc.c            |   4 +++
+ drivers/net/ethernet/freescale/fec.h                    |   4 +--
+ drivers/net/ethernet/freescale/fec_main.c               |   8 ++---
+ drivers/net/ethernet/hisilicon/hns3/hnae3.c             |  43 +++++------------------
+ drivers/net/ethernet/hisilicon/hns3/hnae3.h             |  15 ++++++--
+ drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_cmd.h  |  12 +++++--
+ drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c | 183 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++------------------------------------------
+ drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.h |   3 +-
+ drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.c   |  41 ++++++++++++----------
+ drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_tm.h   |   4 +--
+ drivers/net/ethernet/hisilicon/hns3/hns3pf/hns3_enet.c  |  23 ++++++++-----
+ drivers/net/ethernet/ibm/emac/mal.c                     |   3 +-
+ drivers/net/ethernet/qualcomm/emac/emac-ethtool.c       |  30 ++++++++++++++++
+ drivers/net/ethernet/qualcomm/emac/emac-mac.c           |  22 ++++++++++++
+ drivers/net/ethernet/qualcomm/emac/emac.c               |   3 ++
+ drivers/net/ethernet/qualcomm/emac/emac.h               |   3 ++
+ drivers/net/ethernet/realtek/8139too.c                  |   5 +--
+ drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c   |   1 +
+ drivers/net/hyperv/hyperv_net.h                         |   2 ++
+ drivers/net/hyperv/netvsc.c                             |   7 ++--
+ drivers/net/hyperv/netvsc_drv.c                         |   8 +++++
+ drivers/net/phy/Kconfig                                 |  18 +++++-----
+ drivers/net/phy/phy.c                                   |   3 +-
+ drivers/net/phy/phy_device.c                            |   2 +-
+ drivers/net/phy/xilinx_gmii2rgmii.c                     |   2 +-
+ drivers/net/usb/lan78xx.c                               |  34 +++++++++++++------
+ include/linux/trace_events.h                            |   1 +
+ include/net/dst.h                                       |  22 +++---------
+ include/net/route.h                                     |   2 +-
+ include/net/sock.h                                      |   2 +-
+ include/net/tcp.h                                       |   1 -
+ include/uapi/linux/ethtool.h                            |   6 +++-
+ kernel/bpf/devmap.c                                     |   6 ++--
+ kernel/bpf/syscall.c                                    |   6 ++--
+ kernel/bpf/verifier.c                                   |   7 +++-
+ kernel/events/core.c                                    |   3 +-
+ lib/rhashtable.c                                        |   9 ++---
+ net/compat.c                                            |   7 ++++
+ net/core/dev.c                                          |   9 +++--
+ net/core/ethtool.c                                      |   2 ++
+ net/core/filter.c                                       |  24 ++++++++-----
+ net/ipv4/inet_connection_sock.c                         |   6 ++--
+ net/ipv4/tcp_output.c                                   |  43 +++++------------------
+ net/ipv6/addrconf.c                                     |  32 ++++++++++++-----
+ net/ipv6/ip6_gre.c                                      |  21 ++++++------
+ net/ipv6/ip6_tunnel.c                                   |   3 ++
+ net/ipv6/udp.c                                          |   1 +
+ net/netfilter/ipset/ip_set_hash_gen.h                   |  14 +++++++-
+ net/netfilter/nf_nat_core.c                             |  12 +++----
+ net/packet/af_packet.c                                  |  16 ++++++---
+ net/sched/cls_flower.c                                  |  15 ++++----
+ net/sched/cls_matchall.c                                |   1 +
+ net/sched/sch_generic.c                                 |   1 +
+ net/sched/sch_hfsc.c                                    |  23 ++++++++++---
+ net/smc/af_smc.c                                        |  16 +++++----
+ net/smc/smc.h                                           |   2 +-
+ net/smc/smc_clc.c                                       |  10 +++---
+ net/smc/smc_clc.h                                       |   3 +-
+ net/smc/smc_close.c                                     |  27 ++++++++-------
+ net/smc/smc_core.c                                      |  16 ++++++---
+ net/smc/smc_ib.c                                        |   1 +
+ net/smc/smc_pnet.c                                      |   4 ++-
+ net/smc/smc_rx.c                                        |   2 ++
+ net/smc/smc_tx.c                                        |  12 ++++---
+ net/smc/smc_wr.c                                        |   2 +-
+ net/wireless/nl80211.c                                  |   6 ++++
+ 71 files changed, 646 insertions(+), 414 deletions(-)
