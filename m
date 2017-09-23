@@ -1,71 +1,81 @@
-From: Egil Hjelmeland <privat@egil-hjelmeland.no>
-Subject: Re: [PATCH net-next 2/2] net: dsa: lan9303: Add basic offloading of
- unicast traffic
-Date: Sat, 23 Sep 2017 11:58:01 +0200
-Message-ID: <2c5fec6d-18b3-97e9-dd64-85560382d2f7@egil-hjelmeland.no>
-References: <20170921094139.4250-1-privat@egil-hjelmeland.no>
- <20170921094139.4250-3-privat@egil-hjelmeland.no>
- <20170921142127.GB27589@lunn.ch>
- <b27d2dd4-84e3-b930-a6fe-1e5b36a7d213@egil-hjelmeland.no>
- <20170922200810.GJ3470@lunn.ch>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [PATCH net] sctp: Fix a big endian bug in sctp_for_each_transport()
+Date: Sat, 23 Sep 2017 13:25:37 +0300
+Message-ID: <20170923102537.wra55nqyqsfoduxo@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170922200810.GJ3470@lunn.ch>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+        kernel-janitors@vger.kernel.org
+To: Vlad Yasevich <vyasevich@gmail.com>,
+        Xin Long <lucien.xin@gmail.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Den 22. sep. 2017 22:08, skrev Andrew Lunn:
->>> I'm wondering how this is supposed to work. Please add a good comment
->>> here, since the hardware is forcing you to do something odd.
->>>
->>> Maybe it would be a good idea to save the STP state in chip.  And then
->>> when chip->is_bridged is set true, change the state in the hardware to
->>> the saved value?
->>>
->>> What happens when port 0 is added to the bridge, there is then a
->>> minute pause and then port 1 is added? I would expect that as soon as
->>> port 0 is added, the STP state machine for port 0 will start and move
->>> into listening and then forwarding. Due to hardware limitations it
->>> looks like you cannot do this. So what state is the hardware
->>> effectively in? Blocking? Forwarding?
->>>
->>> Then port 1 is added. You can then can respect the states. port 1 will
->>> do blocking->listening->forwarding, but what about port 0? The calls
->>> won't get repeated? How does it transition to forwarding?
->>>
->>>    Andrew
->>>
->>
->> I see your point with the "minute pause" argument. Although a bit
->> contrived use case, it is easy to fix by caching the STP state, as
->> you suggest. So I can do that.
-> 
-> I don't think it is contrived. I've done bridge configuration by hand
-> for testing purposes. I've also set the forwarding delay to very small
-> values, so there is a clear race condition here.
-> 
->> How does other DSA HW chips handle port separation? Knowing that
->> could perhaps help me know what to look for.
-> 
-> They have better hardware :-)
-> 
-> Generally each port is totally independent. You can change the STP
-> state per port without restrictions.
-> 
-We can indeed change the STP state per lan9303 port "without
-restrictions".
+Fundamentally, the "pos" pointer points to "cb->args[2]" which is a long.
+In the current code, we only use the high 32 bits and cast it as an
+int.  That works on little endian systems but will fail on big endian
+systems.
 
-The point is: Once both external ports are in "forwarding", I see no way
-to prevent traffic flowing directly between the external ports.
+Fixes: d25adbeb0cdb ("sctp: fix an use-after-free issue in sctp_sock_dump")
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-
->        Andrew
-> 
-
-Egil
+diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
+index d7d8cba01469..7d87439f299a 100644
+--- a/include/net/sctp/sctp.h
++++ b/include/net/sctp/sctp.h
+@@ -121,14 +121,14 @@ void sctp_transport_walk_stop(struct rhashtable_iter *iter);
+ struct sctp_transport *sctp_transport_get_next(struct net *net,
+ 			struct rhashtable_iter *iter);
+ struct sctp_transport *sctp_transport_get_idx(struct net *net,
+-			struct rhashtable_iter *iter, int pos);
++			struct rhashtable_iter *iter, long pos);
+ int sctp_transport_lookup_process(int (*cb)(struct sctp_transport *, void *),
+ 				  struct net *net,
+ 				  const union sctp_addr *laddr,
+ 				  const union sctp_addr *paddr, void *p);
+ int sctp_for_each_transport(int (*cb)(struct sctp_transport *, void *),
+ 			    int (*cb_done)(struct sctp_transport *, void *),
+-			    struct net *net, int *pos, void *p);
++			    struct net *net, long *pos, void *p);
+ int sctp_for_each_endpoint(int (*cb)(struct sctp_endpoint *, void *), void *p);
+ int sctp_get_sctp_info(struct sock *sk, struct sctp_association *asoc,
+ 		       struct sctp_info *info);
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index d4730ada7f32..0222743b3aa8 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -4603,7 +4603,7 @@ struct sctp_transport *sctp_transport_get_next(struct net *net,
+ 
+ struct sctp_transport *sctp_transport_get_idx(struct net *net,
+ 					      struct rhashtable_iter *iter,
+-					      int pos)
++					      long pos)
+ {
+ 	void *obj = SEQ_START_TOKEN;
+ 
+@@ -4659,7 +4659,7 @@ EXPORT_SYMBOL_GPL(sctp_transport_lookup_process);
+ 
+ int sctp_for_each_transport(int (*cb)(struct sctp_transport *, void *),
+ 			    int (*cb_done)(struct sctp_transport *, void *),
+-			    struct net *net, int *pos, void *p) {
++			    struct net *net, long *pos, void *p) {
+ 	struct rhashtable_iter hti;
+ 	struct sctp_transport *tsp;
+ 	int ret;
+diff --git a/net/sctp/sctp_diag.c b/net/sctp/sctp_diag.c
+index 22ed01a76b19..e9d5405aa6ac 100644
+--- a/net/sctp/sctp_diag.c
++++ b/net/sctp/sctp_diag.c
+@@ -493,7 +493,7 @@ static void sctp_diag_dump(struct sk_buff *skb, struct netlink_callback *cb,
+ 		goto done;
+ 
+ 	sctp_for_each_transport(sctp_sock_filter, sctp_sock_dump,
+-				net, (int *)&cb->args[2], &commp);
++				net, &cb->args[2], &commp);
+ 
+ done:
+ 	cb->args[1] = cb->args[4];
