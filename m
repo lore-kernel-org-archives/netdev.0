@@ -1,7 +1,7 @@
 From: Josef Bacik <josef@toxicpanda.com>
-Subject: [PATCH 3/3] inet: fix improper empty comparison
-Date: Fri, 22 Sep 2017 20:20:08 -0400
-Message-ID: <1506126008-9148-4-git-send-email-josef@toxicpanda.com>
+Subject: [PATCH 1/3] net: set tb->fast_sk_family
+Date: Fri, 22 Sep 2017 20:20:06 -0400
+Message-ID: <1506126008-9148-2-git-send-email-josef@toxicpanda.com>
 References: <1506126008-9148-1-git-send-email-josef@toxicpanda.com>
 Cc: Josef Bacik <jbacik@fb.com>
 To: davem@davemloft.net, netdev@vger.kernel.org, kernel-team@fb.com,
@@ -13,38 +13,35 @@ List-Id: netdev.vger.kernel.org
 
 From: Josef Bacik <jbacik@fb.com>
 
-When doing my reuseport rework I screwed up and changed a
+We need to set the tb->fast_sk_family properly so we can use the proper
+comparison function for all subsequent reuseport bind requests.
 
-if (hlist_empty(&tb->owners))
-
-to
-
-if (!hlist_empty(&tb->owners))
-
-This is obviously bad as all of the reuseport/reuse logic was reversed,
-which caused weird problems like allowing an ipv4 bind conflict if we
-opened an ipv4 only socket on a port followed by an ipv6 only socket on
-the same port.
-
-Fixes: b9470c27607b ("inet: kill smallest_size and smallest_port")
-Reported-by: Cole Robinson <crobinso@redhat.com>
+Fixes: 637bc8bbe6c0 ("inet: reset tb->fastreuseport when adding a reuseport sk")
+Reported-and-tested-by: Cole Robinson <crobinso@redhat.com>
 Signed-off-by: Josef Bacik <jbacik@fb.com>
 ---
- net/ipv4/inet_connection_sock.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/ipv4/inet_connection_sock.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
 diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
-index a1bf30438bc5..c039c937ba90 100644
+index b9c64b40a83a..f87f4805e244 100644
 --- a/net/ipv4/inet_connection_sock.c
 +++ b/net/ipv4/inet_connection_sock.c
-@@ -321,7 +321,7 @@ int inet_csk_get_port(struct sock *sk, unsigned short snum)
- 			goto fail_unlock;
- 	}
- success:
--	if (!hlist_empty(&tb->owners)) {
-+	if (hlist_empty(&tb->owners)) {
- 		tb->fastreuse = reuse;
- 		if (sk->sk_reuseport) {
- 			tb->fastreuseport = FASTREUSEPORT_ANY;
+@@ -328,6 +328,7 @@ int inet_csk_get_port(struct sock *sk, unsigned short snum)
+ 			tb->fastuid = uid;
+ 			tb->fast_rcv_saddr = sk->sk_rcv_saddr;
+ 			tb->fast_ipv6_only = ipv6_only_sock(sk);
++			tb->fast_sk_family = sk->sk_family;
+ #if IS_ENABLED(CONFIG_IPV6)
+ 			tb->fast_v6_rcv_saddr = sk->sk_v6_rcv_saddr;
+ #endif
+@@ -354,6 +355,7 @@ int inet_csk_get_port(struct sock *sk, unsigned short snum)
+ 				tb->fastuid = uid;
+ 				tb->fast_rcv_saddr = sk->sk_rcv_saddr;
+ 				tb->fast_ipv6_only = ipv6_only_sock(sk);
++				tb->fast_sk_family = sk->sk_family;
+ #if IS_ENABLED(CONFIG_IPV6)
+ 				tb->fast_v6_rcv_saddr = sk->sk_v6_rcv_saddr;
+ #endif
 -- 
 2.7.4
