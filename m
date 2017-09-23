@@ -1,86 +1,99 @@
-From: Felix Manlunas <felix.manlunas@cavium.com>
-Subject: [PATCH net-next] liquidio: pass date and time info to NIC firmware
-Date: Fri, 22 Sep 2017 17:35:18 -0700
-Message-ID: <20170923003518.GA1583@felix-thinkpad.cavium.com>
+From: Yunsheng Lin <linyunsheng@huawei.com>
+Subject: Re: [PATCH net-next 10/10] net: hns3: Add mqprio support when
+ interacting with network stack
+Date: Sat, 23 Sep 2017 08:47:20 +0800
+Message-ID: <fdd8d8af-6d74-143a-adfa-502bd94a90d9@huawei.com>
+References: <1505992913-107256-1-git-send-email-linyunsheng@huawei.com>
+ <1505992913-107256-11-git-send-email-linyunsheng@huawei.com>
+ <20170922125541.GA2005@nanopsycho.orion>
+ <59c51a37.a1c4df0a.ac4e2.8df0SMTPIN_ADDED_BROKEN@mx.google.com>
+ <20170922160322.GB2005@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
-        derek.chickles@cavium.com, satananda.burla@cavium.com,
-        manish.awasthi@cavium.com, veerasenareddy.burru@cavium.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-cys01nam02on0067.outbound.protection.outlook.com ([104.47.37.67]:12638
-        "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751845AbdIWAfX (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 22 Sep 2017 20:35:23 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+        huangdaode <huangdaode@hisilicon.com>,
+        "xuwei (O)" <xuwei5@hisilicon.com>,
+        "Liguozhu (Kenneth)" <liguozhu@hisilicon.com>,
+        "Zhuangyuzeng (Yisen)" <yisen.zhuang@huawei.com>,
+        Gabriele Paoloni <gabriele.paoloni@huawei.com>,
+        John Garry <john.garry@huawei.com>,
+        Linuxarm <linuxarm@huawei.com>,
+        "Salil Mehta" <salil.mehta@huawei.com>,
+        "lipeng (Y)" <lipeng321@huawei.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170922160322.GB2005@nanopsycho.orion>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Veerasenareddy Burru <veerasenareddy.burru@cavium.com>
+Hi, Jiri
 
-Signed-off-by: Veerasenareddy Burru <veerasenareddy.burru@cavium.com>
-Signed-off-by: Manish Awasthi <manish.awasthi@cavium.com>
-Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
----
- .../net/ethernet/cavium/liquidio/octeon_console.c  | 28 +++++++++++++++++++---
- 1 file changed, 25 insertions(+), 3 deletions(-)
+On 2017/9/23 0:03, Jiri Pirko wrote:
+> Fri, Sep 22, 2017 at 04:11:51PM CEST, linyunsheng@huawei.com wrote:
+>> Hi, Jiri
+>>
+>>>> - if (!tc) {
+>>>> + if (if_running) {
+>>>> + (void)hns3_nic_net_stop(netdev);
+>>>> + msleep(100);
+>>>> + }
+>>>> +
+>>>> + ret = (kinfo->dcb_ops && kinfo->dcb_ops->>setup_tc) ?
+>>>> + kinfo->dcb_ops->setup_tc(h, tc, prio_tc) : ->EOPNOTSUPP;
+>>
+>>> This is most odd. Why do you call dcb_ops from >ndo_setup_tc callback?
+>>> Why are you mixing this together? prio->tc mapping >can be done
+>>> directly in dcbnl
+>>
+>> Here is what we do in dcb_ops->setup_tc:
+>> Firstly, if current tc num is different from the tc num
+>> that user provide, then we setup the queues for each
+>> tc.
+>>
+>> Secondly, we tell hardware the pri to tc mapping that
+>> the stack is using. In rx direction, our hardware need
+>> that mapping to put different packet into different tc'
+>> queues according to the priority of the packet, then
+>> rss decides which specific queue in the tc should the
+>> packet goto.
+>>
+>> By mixing, I suppose you meant why we need the
+>> pri to tc infomation?
+> 
+> by mixing, I mean what I wrote. You are calling dcb_ops callback from
+> ndo_setup_tc callback. So you are mixing DCBNL subsystem and TC
+> subsystem. Why? Why do you need sch_mqprio? Why DCBNL is not enough for
+> all?
 
-diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_console.c b/drivers/net/ethernet/cavium/liquidio/octeon_console.c
-index ec3dd69..eda799b 100644
---- a/drivers/net/ethernet/cavium/liquidio/octeon_console.c
-+++ b/drivers/net/ethernet/cavium/liquidio/octeon_console.c
-@@ -803,15 +803,19 @@ static int octeon_console_read(struct octeon_device *oct, u32 console_num,
- }
- 
- #define FBUF_SIZE	(4 * 1024 * 1024)
-+#define MAX_DATE_SIZE    30
- 
- int octeon_download_firmware(struct octeon_device *oct, const u8 *data,
- 			     size_t size)
- {
--	int ret = 0;
-+	struct octeon_firmware_file_header *h;
-+	char date[MAX_DATE_SIZE];
-+	struct timeval time;
- 	u32 crc32_result;
-+	struct tm tm_val;
- 	u64 load_addr;
- 	u32 image_len;
--	struct octeon_firmware_file_header *h;
-+	int ret = 0;
- 	u32 i, rem;
- 
- 	if (size < sizeof(struct octeon_firmware_file_header)) {
-@@ -890,11 +894,29 @@ int octeon_download_firmware(struct octeon_device *oct, const u8 *data,
- 			load_addr += size;
- 		}
- 	}
-+
-+	/* Get time of the day */
-+	do_gettimeofday(&time);
-+	time_to_tm(time.tv_sec, (-sys_tz.tz_minuteswest) * 60,  &tm_val);
-+	ret = snprintf(date, MAX_DATE_SIZE,
-+		       " date=%04ld.%02d.%02d-%02d:%02d:%02d",
-+		       tm_val.tm_year + 1900, tm_val.tm_mon + 1, tm_val.tm_mday,
-+		       tm_val.tm_hour, tm_val.tm_min, tm_val.tm_sec);
-+	if ((sizeof(h->bootcmd) - strnlen(h->bootcmd, sizeof(h->bootcmd))) <
-+		ret) {
-+		dev_err(&oct->pci_dev->dev, "Boot command buffer too small\n");
-+		return -EINVAL;
-+	}
-+	strncat(h->bootcmd, date,
-+		sizeof(h->bootcmd) - strnlen(h->bootcmd, sizeof(h->bootcmd)));
-+
- 	dev_info(&oct->pci_dev->dev, "Writing boot command: %s\n",
- 		 h->bootcmd);
- 
- 	/* Invoke the bootcmd */
- 	ret = octeon_console_send_cmd(oct, h->bootcmd, 50);
-+	if (ret)
-+		dev_info(&oct->pci_dev->dev, "Boot command send failed\n");
- 
--	return 0;
-+	return ret;
- }
+When using lldptool, dcbnl is involved.
+
+But when using tc qdisc, dcbbl is not involved, below is the a few key
+call graph in the kernel when tc qdisc cmd is executed.
+
+cmd:
+tc qdisc add dev eth0 root handle 1:0 mqprio num_tc 4 map 1 2 3 3 1 3 1 1 hw 1
+
+call graph:
+rtnetlink_rcv_msg -> tc_modify_qdisc -> qdisc_create -> mqprio_init ->
+hns3_nic_setup_tc
+
+When hns3_nic_setup_tc is called, we need to know how many tc num and
+prio_tc mapping from the tc_mqprio_qopt which is provided in the paramter
+in the ndo_setup_tc function, and dcb_ops is the our hardware specific
+method to setup the tc related parameter to the hardware, so this is why
+we call dcb_ops callback in ndo_setup_tc callback.
+
+I hope this will answer your question, thanks for your time.
+
+> 
+> 
+> 
+>> I hope I did not misunderstand your question, thanks
+>> for your time reviewing.
+> 
+> .
+> 
