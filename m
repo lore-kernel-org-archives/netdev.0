@@ -1,79 +1,64 @@
-From: David Ahern <dsahern@gmail.com>
-Subject: Re: [PATCH net-next v2 6/6] rtnetlink: rtnl_have_link_slave_info
- doesn't need rtnl
-Date: Sat, 23 Sep 2017 11:17:37 -0600
-Message-ID: <80ca6187-4a08-d65d-fe16-27dcf7c55e4c@gmail.com>
-References: <20170922061008.14723-1-fw@strlen.de>
- <20170922061008.14723-7-fw@strlen.de>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] net: dsa: avoid null pointer dereference on p->phy
+Date: Sat, 23 Sep 2017 10:21:24 -0700
+Message-ID: <4c92bb5f-ad5e-7f3e-cad8-b13bb69b79ff@gmail.com>
+References: <20170923165720.18560-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-To: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:36671 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750916AbdIWRRj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 23 Sep 2017 13:17:39 -0400
-Received: by mail-pf0-f196.google.com with SMTP id f84so1798648pfj.3
-        for <netdev@vger.kernel.org>; Sat, 23 Sep 2017 10:17:38 -0700 (PDT)
-In-Reply-To: <20170922061008.14723-7-fw@strlen.de>
+Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Colin King <colin.king@canonical.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170923165720.18560-1-colin.king@canonical.com>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 9/22/17 12:10 AM, Florian Westphal wrote:
-> Switch it to rcu.
+
+
+On 09/23/2017 09:57 AM, Colin King wrote:
+> From: Colin Ian King <colin.king@canonical.com>
 > 
-> rtnl_link_slave_info_fill on to other hand does need rtnl mutex for now so
-> add an annotation to its caller as a reminder.
+> Currently p->phy is being null checked in several places to avoid
+> null pointer dereferences on p->phy, however, the final call
+> to phy_attached_info on p->phy when p->phy will perform a null
+> pointer dereference. Fix this by simply moving the call into
+> the previous code block that is only executed if p->phy is
+> not null.
 > 
-> Signed-off-by: Florian Westphal <fw@strlen.de>
+> Detected by CoverityScan, CID#1457034 ("Dereference after null check")
+
+The code flow is not exactly easy to read, but I don't see how we can
+actually wind up in that situation because we check the return values of
+of_phy_connect() and dsa_slave_phy_connect() earlier on.
+
+> 
+> Fixes: 2220943a21e2 ("phy: Centralise print about attached phy")
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 > ---
->  Change since v1:
->   - don't add ASSERT_RTNL to rtnl_link_slave_info_fill and
->   rtnl_link_info_fill they are only called via rtnl_link_fill.
+>  net/dsa/slave.c | 3 +--
+>  1 file changed, 1 insertion(+), 2 deletions(-)
 > 
->  net/core/rtnetlink.c | 12 +++++++++---
->  1 file changed, 9 insertions(+), 3 deletions(-)
-> 
-> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-> index 590823f70cc3..e6f9e36d9d5a 100644
-> --- a/net/core/rtnetlink.c
-> +++ b/net/core/rtnetlink.c
-> @@ -522,11 +522,15 @@ static size_t rtnl_link_get_af_size(const struct net_device *dev,
->  static bool rtnl_have_link_slave_info(const struct net_device *dev)
->  {
->  	struct net_device *master_dev;
-> +	bool ret = false;
+> diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+> index 02ace7d462c4..29ab4e98639b 100644
+> --- a/net/dsa/slave.c
+> +++ b/net/dsa/slave.c
+> @@ -1115,10 +1115,9 @@ static int dsa_slave_phy_setup(struct net_device *slave_dev)
+>  				of_phy_deregister_fixed_link(port_dn);
+>  			return ret;
+>  		}
+> +		phy_attached_info(p->phy);
+>  	}
 >  
-> -	master_dev = netdev_master_upper_dev_get((struct net_device *) dev);
-> +	rcu_read_lock();
-> +
-> +	master_dev = netdev_master_upper_dev_get_rcu((struct net_device *)dev);
->  	if (master_dev && master_dev->rtnl_link_ops)
-> -		return true;
-> -	return false;
-> +		ret = true;
-> +	rcu_read_unlock();
-> +	return ret;
+> -	phy_attached_info(p->phy);
+> -
+>  	return 0;
 >  }
 >  
->  static int rtnl_link_slave_info_fill(struct sk_buff *skb,
-> @@ -598,6 +602,8 @@ static int rtnl_link_fill(struct sk_buff *skb, const struct net_device *dev)
->  	struct nlattr *linkinfo;
->  	int err = -EMSGSIZE;
->  
-> +	ASSERT_RTNL();
-
-Rather than sprinkling the ASSERT_RTNL why not just add a comment above
-the function which is done in many places. Since this is really meant as
-your notes as you remove rtnl usage a comment serves the same purpose.
-
-> +
->  	linkinfo = nla_nest_start(skb, IFLA_LINKINFO);
->  	if (linkinfo == NULL)
->  		goto out;
 > 
 
-
-Reviewed-by: David Ahern <dsahern@gmail.com>
+-- 
+Florian
