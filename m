@@ -1,62 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] net: speed up skb_rbtree_purge()
-Date: Sat, 23 Sep 2017 12:39:12 -0700
-Message-ID: <1506195552.29839.214.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: [PATCH 1/2] neigh: make struct neigh_table::entry_size unsigned int
+Date: Sat, 23 Sep 2017 23:01:06 +0300
+Message-ID: <20170923200106.GA24928@avx2>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:34632 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751847AbdIWTjO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 23 Sep 2017 15:39:14 -0400
-Received: by mail-pf0-f193.google.com with SMTP id g65so1896460pfe.1
-        for <netdev@vger.kernel.org>; Sat, 23 Sep 2017 12:39:14 -0700 (PDT)
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:36990 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750839AbdIWUBL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 23 Sep 2017 16:01:11 -0400
+Received: by mail-wm0-f68.google.com with SMTP id f4so3962538wmh.4
+        for <netdev@vger.kernel.org>; Sat, 23 Sep 2017 13:01:10 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+Neigh entry size can't be negative.
 
-As measured in my prior patch ("sch_netem: faster rb tree removal"),
-rbtree_postorder_for_each_entry_safe() is nice looking but much slower
-than using rb_next() directly, except when tree is small enough
-to fit in CPU caches (then the cost is the same)
+Space savings:
 
-Also note that there is not even an increase of text size :
-$ size net/core/skbuff.o.before net/core/skbuff.o
-   text	   data	    bss	    dec	    hex	filename
-  40711	   1298	      0	  42009	   a419	net/core/skbuff.o.before
-  40711	   1298	      0	  42009	   a419	net/core/skbuff.o
+	add/remove: 0/0 grow/shrink: 0/5 up/down: 0/-7 (-7)
+	function                                     old     new   delta
+	lowpan_neigh_construct                        25      24      -1
+	clip_seq_sub_iter                            152     151      -1
+	clip_ioctl                                  1475    1474      -1
+	clip_constructor                              93      92      -1
+	__neigh_create                              2455    2452      -3
 
-
-From: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 ---
- net/core/skbuff.c |   11 +++++++----
- 1 file changed, 7 insertions(+), 4 deletions(-)
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 16982de649b97b92423a4f9f5eac1e98ca803370..000ce735fa8d649e7abeeef2ebab8501dea96efd 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -2848,12 +2848,15 @@ EXPORT_SYMBOL(skb_queue_purge);
-  */
- void skb_rbtree_purge(struct rb_root *root)
- {
--	struct sk_buff *skb, *next;
-+	struct rb_node *p = rb_first(root);
+ include/net/neighbour.h |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+--- a/include/net/neighbour.h
++++ b/include/net/neighbour.h
+@@ -190,7 +190,7 @@ struct neigh_hash_table {
  
--	rbtree_postorder_for_each_entry_safe(skb, next, root, rbnode)
--		kfree_skb(skb);
-+	while (p) {
-+		struct sk_buff *skb = rb_entry(p, struct sk_buff, rbnode);
- 
--	*root = RB_ROOT;
-+		p = rb_next(p);
-+		rb_erase(&skb->rbnode, root);
-+		kfree_skb(skb);
-+	}
- }
- 
- /**
+ struct neigh_table {
+ 	int			family;
+-	int			entry_size;
++	unsigned int		entry_size;
+ 	int			key_len;
+ 	__be16			protocol;
+ 	__u32			(*hash)(const void *pkey,
