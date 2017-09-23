@@ -1,35 +1,51 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next] liquidio: pass date and time info to NIC
- firmware
-Date: Sat, 23 Sep 2017 17:16:54 +0200
-Message-ID: <20170923151654.GC21228@lunn.ch>
-References: <20170923003518.GA1583@felix-thinkpad.cavium.com>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH] net: dsa: avoid null pointer dereference on p->phy
+Date: Sat, 23 Sep 2017 17:57:20 +0100
+Message-ID: <20170923165720.18560-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-        raghu.vatsavayi@cavium.com, derek.chickles@cavium.com,
-        satananda.burla@cavium.com, manish.awasthi@cavium.com,
-        veerasenareddy.burru@cavium.com
-To: Felix Manlunas <felix.manlunas@cavium.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([185.16.172.187]:53228 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750778AbdIWPQ7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 23 Sep 2017 11:16:59 -0400
-Content-Disposition: inline
-In-Reply-To: <20170923003518.GA1583@felix-thinkpad.cavium.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 22, 2017 at 05:35:18PM -0700, Felix Manlunas wrote:
-> From: Veerasenareddy Burru <veerasenareddy.burru@cavium.com>
+From: Colin Ian King <colin.king@canonical.com>
 
-This is kind of interesting. So you do this once. It could be before
-the RTC driver has probed, so it is 1970. It could be before the NTP
-daemon has started, and so the host clock will later jump, or stretch
-time to gain synchronisation.
+Currently p->phy is being null checked in several places to avoid
+null pointer dereferences on p->phy, however, the final call
+to phy_attached_info on p->phy when p->phy will perform a null
+pointer dereference. Fix this by simply moving the call into
+the previous code block that is only executed if p->phy is
+not null.
 
-It seems like you should be periodically giving the time to the
-firmware, not just once.
+Detected by CoverityScan, CID#1457034 ("Dereference after null check")
 
-   Andrew
+Fixes: 2220943a21e2 ("phy: Centralise print about attached phy")
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ net/dsa/slave.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index 02ace7d462c4..29ab4e98639b 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -1115,10 +1115,9 @@ static int dsa_slave_phy_setup(struct net_device *slave_dev)
+ 				of_phy_deregister_fixed_link(port_dn);
+ 			return ret;
+ 		}
++		phy_attached_info(p->phy);
+ 	}
+ 
+-	phy_attached_info(p->phy);
+-
+ 	return 0;
+ }
+ 
+-- 
+2.14.1
