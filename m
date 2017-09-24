@@ -1,41 +1,30 @@
-From: "Tayar, Tomer" <Tomer.Tayar@cavium.com>
-Subject: RE: [RFC] endianness issues in drivers/net/ethernet/qlogic/qed
-Date: Sun, 24 Sep 2017 14:34:19 +0000
-Message-ID: <BN3PR0701MB15918FECAEB8503920850A7580650@BN3PR0701MB1591.namprd07.prod.outlook.com>
-References: <20170918174940.GB32076@ZenIV.linux.org.uk>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH] mac80211: aead api to reduce redundancy
+Date: Sun, 24 Sep 2017 17:05:31 +0200
+Message-ID: <1506265531.2909.5.camel@sipsolutions.net>
+References: <20170924054015.8958-1-qasdfgtyuiop@gmail.com>
+         (sfid-20170924_074130_810821_889115CC)
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "Elior, Ariel" <Ariel.Elior@cavium.com>,
-        David Miller <davem@davemloft.net>
-To: Al Viro <viro@ZenIV.linux.org.uk>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-cys01nam02on0081.outbound.protection.outlook.com ([104.47.37.81]:57630
-        "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752244AbdIXOeW (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 24 Sep 2017 10:34:22 -0400
-In-Reply-To: <20170918174940.GB32076@ZenIV.linux.org.uk>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: Xiang Gao <qasdfgtyuiop@gmail.com>, herbert@gondor.apana.org.au,
+        davem@davemloft.net, linux-crypto@vger.kernel.org,
+        linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <20170924054015.8958-1-qasdfgtyuiop@gmail.com> (sfid-20170924_074130_810821_889115CC)
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Sun, 2017-09-24 at 01:40 -0400, Xiang Gao wrote:
+> Currently, the aes_ccm.c and aes_gcm.c are almost line by line
+> copy of each other. This patch reduce code redundancy by moving
+> the code in these two files to crypto/aead_api.c to make it a
+> higher level aead api. The aes_ccm.c and aes_gcm.c are removed
+> and all the functions are now implemented in their headers using
+> the newly added aead api.
+> 
+No objection from me, though I'd ask you to respin with the indentation
+fixed up a bit.
 
-> 	"qed: Utilize FW 8.10.3.0" has attempted some endianness annotations
-> in that driver; unfortunately, either annotations are BS or the driver is=
- genuinely
-> broken on big-endian hosts.
-[...]
-> Is that driver intended to be used on big-endian hosts at all?
-
-Thanks for taking the time to review our driver and pointing out these mist=
-akes.
-Support for BE machines is planned to be added but currently it is not avai=
-lable.
-However, the structures which are used to abstract the HW carry endianity a=
-nnotations.
-Obviously, there are some misses and some annotations were added when not r=
-equired.
-We will prepare a patch that fixes the issues you pointed out and similar o=
-nes.
+johannes
