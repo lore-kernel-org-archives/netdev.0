@@ -1,169 +1,369 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 04/12] ipmr: Send FIB notifications on MFC and VIF entries
-Date: Sun, 24 Sep 2017 19:22:04 +0200
-Message-ID: <20170924172212.10096-5-jiri@resnulli.us>
+Subject: [patch net-next v2 10/12] mlxsw: spectrum_router: Add multicast routes notification handling functionality
+Date: Sun, 24 Sep 2017 19:22:10 +0200
+Message-ID: <20170924172212.10096-11-jiri@resnulli.us>
 References: <20170924172212.10096-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, yotamg@mellanox.com, idosch@mellanox.com,
         mlxsw@mellanox.com, nikolay@cumulusnetworks.com, andrew@lunn.ch
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:35735 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752629AbdIXRWT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 24 Sep 2017 13:22:19 -0400
-Received: by mail-wm0-f68.google.com with SMTP id e64so5328715wmi.2
-        for <netdev@vger.kernel.org>; Sun, 24 Sep 2017 10:22:18 -0700 (PDT)
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:35761 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752629AbdIXRWZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 24 Sep 2017 13:22:25 -0400
+Received: by mail-wm0-f66.google.com with SMTP id e64so5328871wmi.2
+        for <netdev@vger.kernel.org>; Sun, 24 Sep 2017 10:22:24 -0700 (PDT)
 In-Reply-To: <20170924172212.10096-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Yotam Gigi <yotamg@mellanox.com>
 
-Use the newly introduced notification chain to send events upon VIF and MFC
-addition and deletion. The MFC notifications are sent only on resolved MFC
-entries, as unresolved cannot be offloaded.
+Add functionality for calling the multicast routing offloading logic upon
+MFC and VIF add and delete notifications. In addition, call the multicast
+routing upon RIF addition and deletion events.
+
+As the multicast routing offload logic may sleep, the actual calls are done
+in a deferred work. To ensure the MFC object is not freed in that interval,
+a reference is held to it. In case of a failure, the abort mechanism is
+used, which ejects all the routes from the hardware and triggers the
+traffic to flow through the kernel.
+
+Note: At that stage, the FIB notifications are still ignored, and will be
+enabled in a further patch.
 
 Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
 Reviewed-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-Reviewed-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 ---
- net/ipv4/ipmr.c | 53 +++++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 53 insertions(+)
+ .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 187 ++++++++++++++++++++-
+ 1 file changed, 185 insertions(+), 2 deletions(-)
 
-diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
-index 49879c3..ba71bc4 100644
---- a/net/ipv4/ipmr.c
-+++ b/net/ipv4/ipmr.c
-@@ -627,6 +627,27 @@ static int call_ipmr_vif_entry_notifier(struct notifier_block *nb,
- 	return call_fib_notifier(nb, net, event_type, &info.info);
- }
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+index 1e6122f..b36ec63 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+@@ -65,6 +65,8 @@
+ #include "spectrum_cnt.h"
+ #include "spectrum_dpipe.h"
+ #include "spectrum_ipip.h"
++#include "spectrum_mr.h"
++#include "spectrum_mr_tcam.h"
+ #include "spectrum_router.h"
  
-+static int call_ipmr_vif_entry_notifiers(struct net *net,
-+					 enum fib_event_type event_type,
-+					 struct vif_device *vif,
-+					 vifi_t vif_index, u32 tb_id)
-+{
-+	struct vif_entry_notifier_info info = {
-+		.info = {
-+			.family = RTNL_FAMILY_IPMR,
-+			.net = net,
-+		},
-+		.dev = vif->dev,
-+		.vif_index = vif_index,
-+		.vif_flags = vif->flags,
-+		.tb_id = tb_id,
-+	};
-+
-+	ASSERT_RTNL();
-+	net->ipv4.ipmr_seq++;
-+	return call_fib_notifiers(net, event_type, &info.info);
-+}
-+
- static int call_ipmr_mfc_entry_notifier(struct notifier_block *nb,
- 					struct net *net,
- 					enum fib_event_type event_type,
-@@ -644,6 +665,24 @@ static int call_ipmr_mfc_entry_notifier(struct notifier_block *nb,
- 	return call_fib_notifier(nb, net, event_type, &info.info);
- }
+ struct mlxsw_sp_vr;
+@@ -458,6 +460,7 @@ struct mlxsw_sp_vr {
+ 	unsigned int rif_count;
+ 	struct mlxsw_sp_fib *fib4;
+ 	struct mlxsw_sp_fib *fib6;
++	struct mlxsw_sp_mr_table *mr4_table;
+ };
  
-+static int call_ipmr_mfc_entry_notifiers(struct net *net,
-+					 enum fib_event_type event_type,
-+					 struct mfc_cache *mfc, u32 tb_id)
-+{
-+	struct mfc_entry_notifier_info info = {
-+		.info = {
-+			.family = RTNL_FAMILY_IPMR,
-+			.net = net,
-+		},
-+		.mfc = mfc,
-+		.tb_id = tb_id
-+	};
-+
-+	ASSERT_RTNL();
-+	net->ipv4.ipmr_seq++;
-+	return call_fib_notifiers(net, event_type, &info.info);
-+}
-+
- /**
-  *	vif_delete - Delete a VIF entry
-  *	@notify: Set to 1, if the caller is a notifier_call
-@@ -651,6 +690,7 @@ static int call_ipmr_mfc_entry_notifier(struct notifier_block *nb,
- static int vif_delete(struct mr_table *mrt, int vifi, int notify,
- 		      struct list_head *head)
+ static const struct rhashtable_params mlxsw_sp_fib_ht_params;
+@@ -652,7 +655,7 @@ static void mlxsw_sp_lpm_fini(struct mlxsw_sp *mlxsw_sp)
+ 
+ static bool mlxsw_sp_vr_is_used(const struct mlxsw_sp_vr *vr)
  {
-+	struct net *net = read_pnet(&mrt->net);
- 	struct vif_device *v;
- 	struct net_device *dev;
- 	struct in_device *in_dev;
-@@ -660,6 +700,10 @@ static int vif_delete(struct mr_table *mrt, int vifi, int notify,
+-	return !!vr->fib4 || !!vr->fib6;
++	return !!vr->fib4 || !!vr->fib6 || !!vr->mr4_table;
+ }
  
- 	v = &mrt->vif_table[vifi];
+ static struct mlxsw_sp_vr *mlxsw_sp_vr_find_unused(struct mlxsw_sp *mlxsw_sp)
+@@ -743,9 +746,18 @@ static struct mlxsw_sp_vr *mlxsw_sp_vr_create(struct mlxsw_sp *mlxsw_sp,
+ 		err = PTR_ERR(vr->fib6);
+ 		goto err_fib6_create;
+ 	}
++	vr->mr4_table = mlxsw_sp_mr_table_create(mlxsw_sp, vr->id,
++						 MLXSW_SP_L3_PROTO_IPV4);
++	if (IS_ERR(vr->mr4_table)) {
++		err = PTR_ERR(vr->mr4_table);
++		goto err_mr_table_create;
++	}
+ 	vr->tb_id = tb_id;
+ 	return vr;
  
-+	if (VIF_EXISTS(mrt, vifi))
-+		call_ipmr_vif_entry_notifiers(net, FIB_EVENT_VIF_DEL, v, vifi,
-+					      mrt->id);
-+
- 	write_lock_bh(&mrt_lock);
- 	dev = v->dev;
- 	v->dev = NULL;
-@@ -909,6 +953,7 @@ static int vif_add(struct net *net, struct mr_table *mrt,
- 	if (vifi+1 > mrt->maxvif)
- 		mrt->maxvif = vifi+1;
- 	write_unlock_bh(&mrt_lock);
-+	call_ipmr_vif_entry_notifiers(net, FIB_EVENT_VIF_ADD, v, vifi, mrt->id);
++err_mr_table_create:
++	mlxsw_sp_fib_destroy(vr->fib6);
++	vr->fib6 = NULL;
+ err_fib6_create:
+ 	mlxsw_sp_fib_destroy(vr->fib4);
+ 	vr->fib4 = NULL;
+@@ -754,6 +766,8 @@ static struct mlxsw_sp_vr *mlxsw_sp_vr_create(struct mlxsw_sp *mlxsw_sp,
+ 
+ static void mlxsw_sp_vr_destroy(struct mlxsw_sp_vr *vr)
+ {
++	mlxsw_sp_mr_table_destroy(vr->mr4_table);
++	vr->mr4_table = NULL;
+ 	mlxsw_sp_fib_destroy(vr->fib6);
+ 	vr->fib6 = NULL;
+ 	mlxsw_sp_fib_destroy(vr->fib4);
+@@ -774,7 +788,8 @@ static struct mlxsw_sp_vr *mlxsw_sp_vr_get(struct mlxsw_sp *mlxsw_sp, u32 tb_id)
+ static void mlxsw_sp_vr_put(struct mlxsw_sp_vr *vr)
+ {
+ 	if (!vr->rif_count && list_empty(&vr->fib4->node_list) &&
+-	    list_empty(&vr->fib6->node_list))
++	    list_empty(&vr->fib6->node_list) &&
++	    mlxsw_sp_mr_table_empty(vr->mr4_table))
+ 		mlxsw_sp_vr_destroy(vr);
+ }
+ 
+@@ -4606,6 +4621,75 @@ static int __mlxsw_sp_router_set_abort_trap(struct mlxsw_sp *mlxsw_sp,
  	return 0;
  }
  
-@@ -1209,6 +1254,7 @@ static int ipmr_cache_unresolved(struct mr_table *mrt, vifi_t vifi,
- 
- static int ipmr_mfc_delete(struct mr_table *mrt, struct mfcctl *mfc, int parent)
++static int mlxsw_sp_router_fibmr_add(struct mlxsw_sp *mlxsw_sp,
++				     struct mfc_entry_notifier_info *men_info,
++				     bool replace)
++{
++	struct mlxsw_sp_vr *vr;
++
++	if (mlxsw_sp->router->aborted)
++		return 0;
++
++	vr = mlxsw_sp_vr_get(mlxsw_sp, men_info->tb_id);
++	if (IS_ERR(vr))
++		return PTR_ERR(vr);
++
++	return mlxsw_sp_mr_route4_add(vr->mr4_table, men_info->mfc, replace);
++}
++
++static void mlxsw_sp_router_fibmr_del(struct mlxsw_sp *mlxsw_sp,
++				      struct mfc_entry_notifier_info *men_info)
++{
++	struct mlxsw_sp_vr *vr;
++
++	if (mlxsw_sp->router->aborted)
++		return;
++
++	vr = mlxsw_sp_vr_find(mlxsw_sp, men_info->tb_id);
++	if (WARN_ON(!vr))
++		return;
++
++	mlxsw_sp_mr_route4_del(vr->mr4_table, men_info->mfc);
++	mlxsw_sp_vr_put(vr);
++}
++
++static int
++mlxsw_sp_router_fibmr_vif_add(struct mlxsw_sp *mlxsw_sp,
++			      struct vif_entry_notifier_info *ven_info)
++{
++	struct mlxsw_sp_rif *rif;
++	struct mlxsw_sp_vr *vr;
++
++	if (mlxsw_sp->router->aborted)
++		return 0;
++
++	vr = mlxsw_sp_vr_get(mlxsw_sp, ven_info->tb_id);
++	if (IS_ERR(vr))
++		return PTR_ERR(vr);
++
++	rif = mlxsw_sp_rif_find_by_dev(mlxsw_sp, ven_info->dev);
++	return mlxsw_sp_mr_vif_add(vr->mr4_table, ven_info->dev,
++				   ven_info->vif_index,
++				   ven_info->vif_flags, rif);
++}
++
++static void
++mlxsw_sp_router_fibmr_vif_del(struct mlxsw_sp *mlxsw_sp,
++			      struct vif_entry_notifier_info *ven_info)
++{
++	struct mlxsw_sp_vr *vr;
++
++	if (mlxsw_sp->router->aborted)
++		return;
++
++	vr = mlxsw_sp_vr_find(mlxsw_sp, ven_info->tb_id);
++	if (WARN_ON(!vr))
++		return;
++
++	mlxsw_sp_mr_vif_del(vr->mr4_table, ven_info->vif_index);
++	mlxsw_sp_vr_put(vr);
++}
++
+ static int mlxsw_sp_router_set_abort_trap(struct mlxsw_sp *mlxsw_sp)
  {
-+	struct net *net = read_pnet(&mrt->net);
- 	struct mfc_cache *c;
+ 	enum mlxsw_reg_ralxx_protocol proto = MLXSW_REG_RALXX_PROTOCOL_IPV4;
+@@ -4616,6 +4700,10 @@ static int mlxsw_sp_router_set_abort_trap(struct mlxsw_sp *mlxsw_sp)
+ 	if (err)
+ 		return err;
  
- 	/* The entries are added/deleted only under RTNL */
-@@ -1220,6 +1266,7 @@ static int ipmr_mfc_delete(struct mr_table *mrt, struct mfcctl *mfc, int parent)
- 		return -ENOENT;
- 	rhltable_remove(&mrt->mfc_hash, &c->mnode, ipmr_rht_params);
- 	list_del_rcu(&c->list);
-+	call_ipmr_mfc_entry_notifiers(net, FIB_EVENT_ENTRY_DEL, c, mrt->id);
- 	mroute_netlink_event(mrt, c, RTM_DELROUTE);
- 	ipmr_cache_put(c);
++	/* The multicast router code does not need an abort trap as by default,
++	 * packets that don't match any routes are trapped to the CPU.
++	 */
++
+ 	proto = MLXSW_REG_RALXX_PROTOCOL_IPV6;
+ 	return __mlxsw_sp_router_set_abort_trap(mlxsw_sp, proto,
+ 						MLXSW_SP_LPM_TREE_MIN + 1);
+@@ -4697,6 +4785,8 @@ static void mlxsw_sp_router_fib_flush(struct mlxsw_sp *mlxsw_sp)
  
-@@ -1248,6 +1295,8 @@ static int ipmr_mfc_add(struct net *net, struct mr_table *mrt,
- 		if (!mrtsock)
- 			c->mfc_flags |= MFC_STATIC;
- 		write_unlock_bh(&mrt_lock);
-+		call_ipmr_mfc_entry_notifiers(net, FIB_EVENT_ENTRY_REPLACE, c,
-+					      mrt->id);
- 		mroute_netlink_event(mrt, c, RTM_NEWROUTE);
- 		return 0;
- 	}
-@@ -1297,6 +1346,7 @@ static int ipmr_mfc_add(struct net *net, struct mr_table *mrt,
- 		ipmr_cache_resolve(net, mrt, uc, c);
- 		ipmr_cache_free(uc);
- 	}
-+	call_ipmr_mfc_entry_notifiers(net, FIB_EVENT_ENTRY_ADD, c, mrt->id);
- 	mroute_netlink_event(mrt, c, RTM_NEWROUTE);
- 	return 0;
- }
-@@ -1304,6 +1354,7 @@ static int ipmr_mfc_add(struct net *net, struct mr_table *mrt,
- /* Close the multicast socket, and clear the vif tables etc */
- static void mroute_clean_tables(struct mr_table *mrt, bool all)
- {
-+	struct net *net = read_pnet(&mrt->net);
- 	struct mfc_cache *c, *tmp;
- 	LIST_HEAD(list);
- 	int i;
-@@ -1322,6 +1373,8 @@ static void mroute_clean_tables(struct mr_table *mrt, bool all)
+ 		if (!mlxsw_sp_vr_is_used(vr))
  			continue;
- 		rhltable_remove(&mrt->mfc_hash, &c->mnode, ipmr_rht_params);
- 		list_del_rcu(&c->list);
-+		call_ipmr_mfc_entry_notifiers(net, FIB_EVENT_ENTRY_DEL, c,
-+					      mrt->id);
- 		mroute_netlink_event(mrt, c, RTM_DELROUTE);
- 		ipmr_cache_put(c);
++
++		mlxsw_sp_mr_table_flush(vr->mr4_table);
+ 		mlxsw_sp_vr_fib_flush(mlxsw_sp, vr, MLXSW_SP_L3_PROTO_IPV4);
+ 
+ 		/* If virtual router was only used for IPv4, then it's no
+@@ -4729,6 +4819,8 @@ struct mlxsw_sp_fib_event_work {
+ 		struct fib_entry_notifier_info fen_info;
+ 		struct fib_rule_notifier_info fr_info;
+ 		struct fib_nh_notifier_info fnh_info;
++		struct mfc_entry_notifier_info men_info;
++		struct vif_entry_notifier_info ven_info;
+ 	};
+ 	struct mlxsw_sp *mlxsw_sp;
+ 	unsigned long event;
+@@ -4815,6 +4907,55 @@ static void mlxsw_sp_router_fib6_event_work(struct work_struct *work)
+ 	kfree(fib_work);
+ }
+ 
++static void mlxsw_sp_router_fibmr_event_work(struct work_struct *work)
++{
++	struct mlxsw_sp_fib_event_work *fib_work =
++		container_of(work, struct mlxsw_sp_fib_event_work, work);
++	struct mlxsw_sp *mlxsw_sp = fib_work->mlxsw_sp;
++	struct fib_rule *rule;
++	bool replace;
++	int err;
++
++	rtnl_lock();
++	switch (fib_work->event) {
++	case FIB_EVENT_ENTRY_REPLACE: /* fall through */
++	case FIB_EVENT_ENTRY_ADD:
++		replace = fib_work->event == FIB_EVENT_ENTRY_REPLACE;
++
++		err = mlxsw_sp_router_fibmr_add(mlxsw_sp, &fib_work->men_info,
++						replace);
++		if (err)
++			mlxsw_sp_router_fib_abort(mlxsw_sp);
++		ipmr_cache_put(fib_work->men_info.mfc);
++		break;
++	case FIB_EVENT_ENTRY_DEL:
++		mlxsw_sp_router_fibmr_del(mlxsw_sp, &fib_work->men_info);
++		ipmr_cache_put(fib_work->men_info.mfc);
++		break;
++	case FIB_EVENT_VIF_ADD:
++		err = mlxsw_sp_router_fibmr_vif_add(mlxsw_sp,
++						    &fib_work->ven_info);
++		if (err)
++			mlxsw_sp_router_fib_abort(mlxsw_sp);
++		dev_put(fib_work->ven_info.dev);
++		break;
++	case FIB_EVENT_VIF_DEL:
++		mlxsw_sp_router_fibmr_vif_del(mlxsw_sp,
++					      &fib_work->ven_info);
++		dev_put(fib_work->ven_info.dev);
++		break;
++	case FIB_EVENT_RULE_ADD: /* fall through */
++	case FIB_EVENT_RULE_DEL:
++		rule = fib_work->fr_info.rule;
++		if (!ipmr_rule_default(rule) && !rule->l3mdev)
++			mlxsw_sp_router_fib_abort(mlxsw_sp);
++		fib_rule_put(rule);
++		break;
++	}
++	rtnl_unlock();
++	kfree(fib_work);
++}
++
+ static void mlxsw_sp_router_fib4_event(struct mlxsw_sp_fib_event_work *fib_work,
+ 				       struct fib_notifier_info *info)
+ {
+@@ -4860,6 +5001,30 @@ static void mlxsw_sp_router_fib6_event(struct mlxsw_sp_fib_event_work *fib_work,
  	}
+ }
+ 
++static void
++mlxsw_sp_router_fibmr_event(struct mlxsw_sp_fib_event_work *fib_work,
++			    struct fib_notifier_info *info)
++{
++	switch (fib_work->event) {
++	case FIB_EVENT_ENTRY_REPLACE: /* fall through */
++	case FIB_EVENT_ENTRY_ADD: /* fall through */
++	case FIB_EVENT_ENTRY_DEL:
++		memcpy(&fib_work->men_info, info, sizeof(fib_work->men_info));
++		ipmr_cache_hold(fib_work->men_info.mfc);
++		break;
++	case FIB_EVENT_VIF_ADD: /* fall through */
++	case FIB_EVENT_VIF_DEL:
++		memcpy(&fib_work->ven_info, info, sizeof(fib_work->ven_info));
++		dev_hold(fib_work->ven_info.dev);
++		break;
++	case FIB_EVENT_RULE_ADD: /* fall through */
++	case FIB_EVENT_RULE_DEL:
++		memcpy(&fib_work->fr_info, info, sizeof(fib_work->fr_info));
++		fib_rule_get(fib_work->fr_info.rule);
++		break;
++	}
++}
++
+ /* Called with rcu_read_lock() */
+ static int mlxsw_sp_router_fib_event(struct notifier_block *nb,
+ 				     unsigned long event, void *ptr)
+@@ -4889,6 +5054,10 @@ static int mlxsw_sp_router_fib_event(struct notifier_block *nb,
+ 		INIT_WORK(&fib_work->work, mlxsw_sp_router_fib6_event_work);
+ 		mlxsw_sp_router_fib6_event(fib_work, info);
+ 		break;
++	case RTNL_FAMILY_IPMR:
++		INIT_WORK(&fib_work->work, mlxsw_sp_router_fibmr_event_work);
++		mlxsw_sp_router_fibmr_event(fib_work, info);
++		break;
+ 	}
+ 
+ 	mlxsw_core_schedule_work(&fib_work->work);
+@@ -5102,12 +5271,18 @@ mlxsw_sp_rif_create(struct mlxsw_sp *mlxsw_sp,
+ 	if (err)
+ 		goto err_configure;
+ 
++	err = mlxsw_sp_mr_rif_add(vr->mr4_table, rif);
++	if (err)
++		goto err_mr_rif_add;
++
+ 	mlxsw_sp_rif_counters_alloc(rif);
+ 	mlxsw_sp->router->rifs[rif_index] = rif;
+ 	vr->rif_count++;
+ 
+ 	return rif;
+ 
++err_mr_rif_add:
++	ops->deconfigure(rif);
+ err_configure:
+ 	if (fid)
+ 		mlxsw_sp_fid_put(fid);
+@@ -5132,6 +5307,7 @@ void mlxsw_sp_rif_destroy(struct mlxsw_sp_rif *rif)
+ 	vr->rif_count--;
+ 	mlxsw_sp->router->rifs[rif->rif_index] = NULL;
+ 	mlxsw_sp_rif_counters_free(rif);
++	mlxsw_sp_mr_rif_del(vr->mr4_table, rif);
+ 	ops->deconfigure(rif);
+ 	if (fid)
+ 		/* Loopback RIFs are not associated with a FID. */
+@@ -5994,6 +6170,10 @@ int mlxsw_sp_router_init(struct mlxsw_sp *mlxsw_sp)
+ 	if (err)
+ 		goto err_lpm_init;
+ 
++	err = mlxsw_sp_mr_init(mlxsw_sp, &mlxsw_sp_mr_tcam_ops);
++	if (err)
++		goto err_mr_init;
++
+ 	err = mlxsw_sp_vrs_init(mlxsw_sp);
+ 	if (err)
+ 		goto err_vrs_init;
+@@ -6015,6 +6195,8 @@ int mlxsw_sp_router_init(struct mlxsw_sp *mlxsw_sp)
+ err_neigh_init:
+ 	mlxsw_sp_vrs_fini(mlxsw_sp);
+ err_vrs_init:
++	mlxsw_sp_mr_fini(mlxsw_sp);
++err_mr_init:
+ 	mlxsw_sp_lpm_fini(mlxsw_sp);
+ err_lpm_init:
+ 	rhashtable_destroy(&mlxsw_sp->router->nexthop_group_ht);
+@@ -6036,6 +6218,7 @@ void mlxsw_sp_router_fini(struct mlxsw_sp *mlxsw_sp)
+ 	unregister_fib_notifier(&mlxsw_sp->router->fib_nb);
+ 	mlxsw_sp_neigh_fini(mlxsw_sp);
+ 	mlxsw_sp_vrs_fini(mlxsw_sp);
++	mlxsw_sp_mr_fini(mlxsw_sp);
+ 	mlxsw_sp_lpm_fini(mlxsw_sp);
+ 	rhashtable_destroy(&mlxsw_sp->router->nexthop_group_ht);
+ 	rhashtable_destroy(&mlxsw_sp->router->nexthop_ht);
 -- 
 2.9.5
