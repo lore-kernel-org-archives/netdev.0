@@ -1,61 +1,102 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH net-next 09/14] gtp: Allow configuring GTP interface as standalone
-Date: Sun, 24 Sep 2017 10:18:53 -0700
-Message-ID: <CALx6S344q97n7su_k_RmEWT6LytmEFdek9YMgU=8LdgO3kAPHw@mail.gmail.com>
-References: <a6d1dad0-e922-2913-d4c8-592d403ee1cb@tpip.net>
- <CALx6S3771X4QUm2mJG=aJJ0f4Tm98NpGA7060vF1P8iuCPgicQ@mail.gmail.com>
- <56e339a8-fa2d-6f8d-a89c-c0f3f242763a@tpip.net> <CAPDqMeq1tLi=NkLyqma2OEHQi-fYEYeTU-8th9WKoZaeWiM0Rw@mail.gmail.com>
- <20170921001313.n2uo56oxmphcvd5g@nataraja> <CAPDqMeox74aEdV5_cr7HJ=kh0-etLdFE-u5=g8OqRzmS8OjOuQ@mail.gmail.com>
- <20170921151253.4udm54dcq7x3ed4q@nataraja> <CAPDqMeq69rjzPh8jo-G9gKT26h-br4OrE0yxTJGk97qRgX0K2A@mail.gmail.com>
- <20170924021626.b37zlwsomlibtnfs@nataraja> <CAPDqMer0R+XoTzYpQoo7rUY3uVcsa6ffk1FHjkG=3xcuhnDgXg@mail.gmail.com>
- <20170924162543.d7syskutxzgvbw23@nataraja>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Tom Herbert <tom@quantonium.net>,
-        Andreas Schultz <aschultz@tpip.net>,
-        "David S. Miller" <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Pablo Neira Ayuso <pablo@netfilter.org>,
-        Rohit Seth <rohit@quantonium.net>
-To: Harald Welte <laforge@netfilter.org>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next v2 00/12] mlxsw: Add support for offloading IPv4 multicast routes
+Date: Sun, 24 Sep 2017 19:22:00 +0200
+Message-ID: <20170924172212.10096-1-jiri@resnulli.us>
+Cc: davem@davemloft.net, yotamg@mellanox.com, idosch@mellanox.com,
+        mlxsw@mellanox.com, nikolay@cumulusnetworks.com, andrew@lunn.ch
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f179.google.com ([209.85.216.179]:50743 "EHLO
-        mail-qt0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752550AbdIXRSz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 24 Sep 2017 13:18:55 -0400
-Received: by mail-qt0-f179.google.com with SMTP id f15so4960433qtf.7
-        for <netdev@vger.kernel.org>; Sun, 24 Sep 2017 10:18:54 -0700 (PDT)
-In-Reply-To: <20170924162543.d7syskutxzgvbw23@nataraja>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:36758 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752629AbdIXRWP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 24 Sep 2017 13:22:15 -0400
+Received: by mail-wm0-f66.google.com with SMTP id r136so5308073wmf.3
+        for <netdev@vger.kernel.org>; Sun, 24 Sep 2017 10:22:14 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> I'm not sure where a "vendor" is involved with the GTP patches so far.  I
-> think we have to draw a distinction between what you expect from
-> professional, corporate "vendors" with a commercial interest in mind
-> (such as supporting their hardware) and what you can expect from people
-> doing things in their spare time, out of enthusiasm to finally bring
-> some Free Software into the closed world of telecommunications.
->
-If it makes you feel any better I am not getting paid for this work either :-)
+From: Jiri Pirko <jiri@mellanox.com>
 
-> The Telecom world should have implemented something like a GTP kernel
-> module a decade to 15 years ago.  They could have saved significant
-> investments in proprietary hardware by running open source GGSNs with an
-> accelerated user plane in the kernel.  Nobody seemed to have an interest
-> in that, until today - as you can see from Pablo and me working on this
-> in our spare time, whenever we have a couple of spare cycles next to
-> many other projects.  You can see from the osmo-gtp-kernel commit log it
-> took years of being a ultra-low-priority on-and-off project  to ever get
-> to a point where we thought it was worth submitting it mainline.
-> Andreas deserves the praise for finally pushing it ahead.
->
-I completely agree, and your work is well appreciated! But I don't
-believe it is to late to steer the ship away from proprietary
-solutions. In fact, given the direction of the rest of the industry
-direction, now is our best opportunity to try. That is a major reason
-for these patches. We need to bring GTP into the limelight and get a
-lot more people thinking about. This might even be the world's most
-important tunneling protocol. If nothing else, a discussion like this
-is good if it inspires others in the community to start to look at it.
+This patch-set introduces offloading of the kernel IPv4 multicast router
+logic in the Spectrum driver.
 
-Tom
+The first patch makes the Spectrum driver ignore FIB notifications that are
+not of address family IPv4 or IPv6. This is needed in order to prevent
+crashes while the next patches introduce the RTNL_FAMILY_IPMR FIB
+notifications.
+
+Patches 2-5 update ipmr to use the FIB notification chain for both MFC and
+VIF notifications, and patches 8-12 update the Spectrum driver to register
+to these notifications and offload the routes.
+
+Similarly to IPv4 and IPv6, any failure will trigger the abort mechanism
+which is updated in this patch-set to eject multicast route tables too.
+
+At this stage, the following limitations apply:
+ - A multicast MFC route will be offloaded by the driver if all the output
+   interfaces are Spectrum router interfaces (RIFs). In any other case
+   (which includes pimreg device, tunnel devices and management ports) the
+   route will be trapped to the CPU and the packets will be forwarded by
+   software.
+ - ipmr proxy routes are not supported and will trigger the abort
+   mechanism.
+ - The MFC TTL values are currently treated as boolean: if the value is
+   different than 255, the traffic is forwarded to the interface and if the
+   value is 255 it is not forwarded. Dropping packets based on their TTL isn't
+   currently supported.
+
+To allow users to have visibility on which of the routes are offloaded and
+which are not, patch 6 introduces a per-route offload indication similar to
+IPv4 and IPv6 routes which is sent to the user via the RTNetlink interface.
+
+The Spectrum driver multicast router offloading support, which is
+introduced in patches 8 and 9, is divided into two parts:
+ - The hardware logic which abstracts the Spectrum hardware and provides a
+   simple API for the upper levels.
+ - The offloading logic which gets the MFC and VIF notifications from the
+   kernel and updates the hardware using the hardware logic part.
+
+Finally, the last patch makes the Spectrum router logic not ignore the
+multicast FIB notifications and call the corresponding functions in the
+multicast router offloading logic.
+
+---
+v1->v2:
+ - Add comments for struct fields in mroute.h
+ - Take the mrt_lock while dumping VIFs in the fib_notifier dump callback
+ - Update the MFC lastuse field too
+
+Yotam Gigi (12):
+  fib: notifier: Add VIF add and delete event types
+  ipmr: Add reference count to MFC entries
+  ipmr: Add FIB notification access functions
+  ipmr: Send FIB notifications on MFC and VIF entries
+  net: ipmr: Add MFC offload indication
+  net: mroute: Check if rule is a default rule
+  mlxsw: spectrum: Add the multicast routing offloading logic
+  mlxsw: spectrum: Add the multicast routing hardware logic
+  mlxsw: spectrum: router: Squash the default route table to main
+  mlxsw: spectrum_router: Add multicast routes notification handling
+    functionality
+  mlxsw: spectrum: Notify multicast router on RIF MTU changes
+  mlxsw: spectrum: router: Don't ignore IPMR notifications
+
+ drivers/net/ethernet/mellanox/mlxsw/Makefile       |    3 +-
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |    2 +
+ drivers/net/ethernet/mellanox/mlxsw/spectrum_mr.c  | 1014 ++++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlxsw/spectrum_mr.h  |  133 +++
+ .../net/ethernet/mellanox/mlxsw/spectrum_mr_tcam.c |  828 ++++++++++++++++
+ .../net/ethernet/mellanox/mlxsw/spectrum_mr_tcam.h |   43 +
+ .../net/ethernet/mellanox/mlxsw/spectrum_router.c  |  205 +++-
+ include/linux/mroute.h                             |   45 +
+ include/net/fib_notifier.h                         |    2 +
+ include/net/netns/ipv4.h                           |    3 +
+ net/ipv4/ipmr.c                                    |  211 +++-
+ 11 files changed, 2478 insertions(+), 11 deletions(-)
+ create mode 100644 drivers/net/ethernet/mellanox/mlxsw/spectrum_mr.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlxsw/spectrum_mr.h
+ create mode 100644 drivers/net/ethernet/mellanox/mlxsw/spectrum_mr_tcam.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlxsw/spectrum_mr_tcam.h
+
+-- 
+2.9.5
