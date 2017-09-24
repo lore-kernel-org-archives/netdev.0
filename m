@@ -1,499 +1,98 @@
-From: Xiang Gao <qasdfgtyuiop@gmail.com>
-Subject: [PATCH] mac80211: aead api to reduce redundancy
-Date: Sun, 24 Sep 2017 01:40:15 -0400
-Message-ID: <20170924054015.8958-1-qasdfgtyuiop@gmail.com>
-Cc: qasdfgtyuiop@gmail.com
-To: herbert@gondor.apana.org.au, davem@davemloft.net,
-        johannes@sipsolutions.net, linux-crypto@vger.kernel.org,
-        linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH net-next] bpf/verifier: improve disassembly of BPF_END
+ instructions
+Date: Sat, 23 Sep 2017 22:50:18 -0700
+Message-ID: <20170924055016.w6x5tj6kjxjbocpl@ast-mbp>
+References: <59C4131D.8050003@iogearbox.net>
+ <20170921194426.tnd5xos5irm3gred@ast-mbp>
+ <46aa4442-b8ed-e4c1-4897-8f650e23d448@solarflare.com>
+ <CAH3MdRVK-=pL8YCz44BPCmHhuZE_CRfih0QdZPLa=mpE_uoA_Q@mail.gmail.com>
+ <ec7d0485-11f4-4fdb-0b87-1fb0afdb4f11@solarflare.com>
+ <CAH3MdRVCf_wLoC7WOfaL2L2px3aYVWUhWxarMsyJdD7_E9fv_Q@mail.gmail.com>
+ <CAH3MdRXgVtVjhYQkRopPKvL+4+NaTRRJoJq6XD_S-Dra69j0hA@mail.gmail.com>
+ <20170922151614.bg4ovrp6m27cppr7@ast-mbp>
+ <7c1ab2b8-e65d-3b09-f9f0-9fd13c1ceccf@solarflare.com>
+ <CAH3MdRUCPNzXHQRQtVp7-p9XLDbJrkhxYEe=c0Fkt4+D9Tk9sw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Edward Cree <ecree@solarflare.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Jiong Wang <jiong.wang@netronome.com>,
+        Jakub Kicinski <jakub.kicinski@netronome.com>
+To: Y Song <ys114321@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f181.google.com ([209.85.192.181]:48114 "EHLO
+        mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750786AbdIXFuP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 24 Sep 2017 01:50:15 -0400
+Received: by mail-pf0-f181.google.com with SMTP id u12so2332842pfl.4
+        for <netdev@vger.kernel.org>; Sat, 23 Sep 2017 22:50:15 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAH3MdRUCPNzXHQRQtVp7-p9XLDbJrkhxYEe=c0Fkt4+D9Tk9sw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Currently, the aes_ccm.c and aes_gcm.c are almost line by line
-copy of each other. This patch reduce code redundancy by moving
-the code in these two files to crypto/aead_api.c to make it a
-higher level aead api. The aes_ccm.c and aes_gcm.c are removed
-and all the functions are now implemented in their headers using
-the newly added aead api.
+On Fri, Sep 22, 2017 at 09:49:10PM -0700, Y Song wrote:
+> On Fri, Sep 22, 2017 at 9:23 AM, Edward Cree <ecree@solarflare.com> wrote:
+> > On 22/09/17 16:16, Alexei Starovoitov wrote:
+> >> looks like we're converging on
+> >> "be16/be32/be64/le16/le32/le64 #register" for BPF_END.
+> >> I guess it can live with that. I would prefer more C like syntax
+> >> to match the rest, but llvm parsing point is a strong one.
+> > Yep, agreed.  I'll post a v2 once we've settled BPF_NEG.
+> >> For BPG_NEG I prefer to do it in C syntax like interpreter does:
+> >>         ALU_NEG:
+> >>                 DST = (u32) -DST;
+> >>         ALU64_NEG:
+> >>                 DST = -DST;
+> >> Yonghong, does it mean that asmparser will equally suffer?
+> > Correction to my earlier statements: verifier will currently disassemble
+> >  neg as:
+> > (87) r0 neg 0
+> > (84) (u32) r0 neg (u32) 0
+> >  because it pretends 'neg' is a compound-assignment operator like +=.
+> > The analogy with be16 and friends would be to use
+> >     neg64 r0
+> >     neg32 r0
+> >  whereas the analogy with everything else would be
+> >     r0 = -r0
+> >     r0 = (u32) -r0
+> >  as Alexei says.
+> > I'm happy to go with Alexei's version if it doesn't cause problems for llvm.
+> 
+> I got some time to do some prototyping in llvm and it looks like that
+> I am able to
+> resolve the issue and we are able to use more C-like syntax. That is:
+> for bswap:
+>      r1 = (be16) (u16) r1
+>      or
+>      r1 = (be16) r1
+>      or
+>      r1 = be16 r1
+> for neg:
+>      r0 = -r0
+>      (for 32bit support, llvm may output "w0 = -w0" in the future. But
+> since it is not
+>       enabled yet, you can continue to output "r0 = (u32) -r0".)
+> 
+> Not sure which syntax is best for bswap. The "r1 = (be16) (u16) r1" is most
+> explicit in its intention.
+> 
+> Attaching my llvm patch as well and cc'ing Jiong and Jakub so they can see my
+> implementation and the relative discussion here. (In this patch, I did
+> not implement
+> bswap for little endian yet.) Maybe they can provide additional comments.
 
-Signed-off-by: Xiang Gao <qasdfgtyuiop@gmail.com>
----
- crypto/Makefile                             |   2 +-
- net/mac80211/aes_gcm.c => crypto/aead_api.c |  53 +++++++------
- include/crypto/aead_api.h                   |  21 +++++
- net/mac80211/Makefile                       |   2 -
- net/mac80211/aes_ccm.c                      | 115 ----------------------------
- net/mac80211/aes_ccm.h                      |  42 +++++++---
- net/mac80211/aes_gcm.h                      |  40 ++++++++--
- net/mac80211/key.c                          |   1 +
- net/mac80211/wpa.c                          |  11 +--
- 9 files changed, 118 insertions(+), 169 deletions(-)
- rename net/mac80211/aes_gcm.c => crypto/aead_api.c (54%)
- create mode 100644 include/crypto/aead_api.h
- delete mode 100644 net/mac80211/aes_ccm.c
-
-diff --git a/crypto/Makefile b/crypto/Makefile
-index d41f0331b085..541316db5841 100644
---- a/crypto/Makefile
-+++ b/crypto/Makefile
-@@ -14,7 +14,7 @@ crypto_algapi-$(CONFIG_PROC_FS) += proc.o
- crypto_algapi-y := algapi.o scatterwalk.o $(crypto_algapi-y)
- obj-$(CONFIG_CRYPTO_ALGAPI2) += crypto_algapi.o
- 
--obj-$(CONFIG_CRYPTO_AEAD2) += aead.o
-+obj-$(CONFIG_CRYPTO_AEAD2) += aead.o aead_api.o
- 
- crypto_blkcipher-y := ablkcipher.o
- crypto_blkcipher-y += blkcipher.o
-diff --git a/net/mac80211/aes_gcm.c b/crypto/aead_api.c
-similarity index 54%
-rename from net/mac80211/aes_gcm.c
-rename to crypto/aead_api.c
-index 8a4397cc1b08..9585ee400b2e 100644
---- a/net/mac80211/aes_gcm.c
-+++ b/crypto/aead_api.c
-@@ -1,7 +1,4 @@
--/*
-- * Copyright 2014-2015, Qualcomm Atheros, Inc.
-- *
-- * This program is free software; you can redistribute it and/or modify
-+/* This program is free software; you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License version 2 as
-  * published by the Free Software Foundation.
-  */
-@@ -9,43 +6,43 @@
- #include <linux/kernel.h>
- #include <linux/types.h>
- #include <linux/err.h>
--#include <crypto/aead.h>
-+#include <linux/scatterlist.h>
- 
--#include <net/mac80211.h>
--#include "key.h"
--#include "aes_gcm.h"
-+#include <crypto/aead_api.h>
- 
--int ieee80211_aes_gcm_encrypt(struct crypto_aead *tfm, u8 *j_0, u8 *aad,
--			      u8 *data, size_t data_len, u8 *mic)
-+int aead_encrypt(struct crypto_aead *tfm, u8 *b_0, u8 *aad, size_t aad_len,
-+				 u8 *data, size_t data_len, u8 *auth)
- {
- 	struct scatterlist sg[3];
- 	struct aead_request *aead_req;
- 	int reqsize = sizeof(*aead_req) + crypto_aead_reqsize(tfm);
- 	u8 *__aad;
- 
--	aead_req = kzalloc(reqsize + GCM_AAD_LEN, GFP_ATOMIC);
-+	aead_req = kzalloc(reqsize + aad_len, GFP_ATOMIC);
- 	if (!aead_req)
- 		return -ENOMEM;
- 
- 	__aad = (u8 *)aead_req + reqsize;
--	memcpy(__aad, aad, GCM_AAD_LEN);
-+	memcpy(__aad, aad, aad_len);
- 
- 	sg_init_table(sg, 3);
--	sg_set_buf(&sg[0], &__aad[2], be16_to_cpup((__be16 *)__aad));
-+	sg_set_buf(&sg[0], __aad, aad_len);
- 	sg_set_buf(&sg[1], data, data_len);
--	sg_set_buf(&sg[2], mic, IEEE80211_GCMP_MIC_LEN);
-+	sg_set_buf(&sg[2], auth, tfm->authsize);
- 
- 	aead_request_set_tfm(aead_req, tfm);
--	aead_request_set_crypt(aead_req, sg, sg, data_len, j_0);
-+	aead_request_set_crypt(aead_req, sg, sg, data_len, b_0);
- 	aead_request_set_ad(aead_req, sg[0].length);
- 
- 	crypto_aead_encrypt(aead_req);
- 	kzfree(aead_req);
-+
- 	return 0;
- }
-+EXPORT_SYMBOL_GPL(aead_encrypt);
- 
--int ieee80211_aes_gcm_decrypt(struct crypto_aead *tfm, u8 *j_0, u8 *aad,
--			      u8 *data, size_t data_len, u8 *mic)
-+int aead_decrypt(struct crypto_aead *tfm, u8 *b_0, u8 *aad, size_t aad_len,
-+				 u8 *data, size_t data_len, u8 *auth)
- {
- 	struct scatterlist sg[3];
- 	struct aead_request *aead_req;
-@@ -56,21 +53,20 @@ int ieee80211_aes_gcm_decrypt(struct crypto_aead *tfm, u8 *j_0, u8 *aad,
- 	if (data_len == 0)
- 		return -EINVAL;
- 
--	aead_req = kzalloc(reqsize + GCM_AAD_LEN, GFP_ATOMIC);
-+	aead_req = kzalloc(reqsize + aad_len, GFP_ATOMIC);
- 	if (!aead_req)
- 		return -ENOMEM;
- 
- 	__aad = (u8 *)aead_req + reqsize;
--	memcpy(__aad, aad, GCM_AAD_LEN);
-+	memcpy(__aad, aad, aad_len);
- 
- 	sg_init_table(sg, 3);
- 	sg_set_buf(&sg[0], &__aad[2], be16_to_cpup((__be16 *)__aad));
- 	sg_set_buf(&sg[1], data, data_len);
--	sg_set_buf(&sg[2], mic, IEEE80211_GCMP_MIC_LEN);
-+	sg_set_buf(&sg[2], auth, tfm->authsize);
- 
- 	aead_request_set_tfm(aead_req, tfm);
--	aead_request_set_crypt(aead_req, sg, sg,
--			       data_len + IEEE80211_GCMP_MIC_LEN, j_0);
-+	aead_request_set_crypt(aead_req, sg, sg, data_len + tfm->authsize, b_0);
- 	aead_request_set_ad(aead_req, sg[0].length);
- 
- 	err = crypto_aead_decrypt(aead_req);
-@@ -78,21 +74,22 @@ int ieee80211_aes_gcm_decrypt(struct crypto_aead *tfm, u8 *j_0, u8 *aad,
- 
- 	return err;
- }
-+EXPORT_SYMBOL_GPL(aead_decrypt);
- 
--struct crypto_aead *ieee80211_aes_gcm_key_setup_encrypt(const u8 key[],
--							size_t key_len)
-+struct crypto_aead *aead_key_setup_encrypt(const char *alg,
-+				const u8 key[], size_t key_len, size_t authsize)
- {
- 	struct crypto_aead *tfm;
- 	int err;
- 
--	tfm = crypto_alloc_aead("gcm(aes)", 0, CRYPTO_ALG_ASYNC);
-+	tfm = crypto_alloc_aead(alg, 0, CRYPTO_ALG_ASYNC);
- 	if (IS_ERR(tfm))
- 		return tfm;
- 
- 	err = crypto_aead_setkey(tfm, key, key_len);
- 	if (err)
- 		goto free_aead;
--	err = crypto_aead_setauthsize(tfm, IEEE80211_GCMP_MIC_LEN);
-+	err = crypto_aead_setauthsize(tfm, authsize);
- 	if (err)
- 		goto free_aead;
- 
-@@ -102,8 +99,10 @@ struct crypto_aead *ieee80211_aes_gcm_key_setup_encrypt(const u8 key[],
- 	crypto_free_aead(tfm);
- 	return ERR_PTR(err);
- }
-+EXPORT_SYMBOL_GPL(aead_key_setup_encrypt);
- 
--void ieee80211_aes_gcm_key_free(struct crypto_aead *tfm)
-+void aead_key_free(struct crypto_aead *tfm)
- {
- 	crypto_free_aead(tfm);
- }
-+EXPORT_SYMBOL_GPL(aead_key_free);
-diff --git a/include/crypto/aead_api.h b/include/crypto/aead_api.h
-new file mode 100644
-index 000000000000..45deda0d538f
---- /dev/null
-+++ b/include/crypto/aead_api.h
-@@ -0,0 +1,21 @@
-+/* This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation.
-+ */
-+
-+#ifndef _AEAD_API_H
-+#define _AEAD_API_H
-+
-+#include <crypto/aead.h>
-+#include <linux/crypto.h>
-+
-+struct crypto_aead *aead_key_setup_encrypt(const char *alg,
-+			const u8 key[], size_t key_len, size_t authsize);
-+
-+int aead_encrypt(struct crypto_aead *tfm, u8 *b_0, u8 *aad,
-+			size_t aad_len, u8 *data, size_t data_len, u8 *auth);
-+int aead_decrypt(struct crypto_aead *tfm, u8 *b_0, u8 *aad,
-+			size_t aad_len, u8 *data, size_t data_len, u8 *auth);
-+void aead_key_free(struct crypto_aead *tfm);
-+
-+#endif /* _AEAD_API_H */
-diff --git a/net/mac80211/Makefile b/net/mac80211/Makefile
-index 282912245938..f1efc8c81ce6 100644
---- a/net/mac80211/Makefile
-+++ b/net/mac80211/Makefile
-@@ -15,8 +15,6 @@ mac80211-y := \
- 	rate.o \
- 	michael.o \
- 	tkip.o \
--	aes_ccm.o \
--	aes_gcm.o \
- 	aes_cmac.o \
- 	aes_gmac.o \
- 	fils_aead.o \
-diff --git a/net/mac80211/aes_ccm.c b/net/mac80211/aes_ccm.c
-deleted file mode 100644
-index a4e0d59a40dd..000000000000
---- a/net/mac80211/aes_ccm.c
-+++ /dev/null
-@@ -1,115 +0,0 @@
--/*
-- * Copyright 2003-2004, Instant802 Networks, Inc.
-- * Copyright 2005-2006, Devicescape Software, Inc.
-- *
-- * Rewrite: Copyright (C) 2013 Linaro Ltd <ard.biesheuvel@linaro.org>
-- *
-- * This program is free software; you can redistribute it and/or modify
-- * it under the terms of the GNU General Public License version 2 as
-- * published by the Free Software Foundation.
-- */
--
--#include <linux/kernel.h>
--#include <linux/types.h>
--#include <linux/err.h>
--#include <crypto/aead.h>
--
--#include <net/mac80211.h>
--#include "key.h"
--#include "aes_ccm.h"
--
--int ieee80211_aes_ccm_encrypt(struct crypto_aead *tfm, u8 *b_0, u8 *aad,
--			      u8 *data, size_t data_len, u8 *mic,
--			      size_t mic_len)
--{
--	struct scatterlist sg[3];
--	struct aead_request *aead_req;
--	int reqsize = sizeof(*aead_req) + crypto_aead_reqsize(tfm);
--	u8 *__aad;
--
--	aead_req = kzalloc(reqsize + CCM_AAD_LEN, GFP_ATOMIC);
--	if (!aead_req)
--		return -ENOMEM;
--
--	__aad = (u8 *)aead_req + reqsize;
--	memcpy(__aad, aad, CCM_AAD_LEN);
--
--	sg_init_table(sg, 3);
--	sg_set_buf(&sg[0], &__aad[2], be16_to_cpup((__be16 *)__aad));
--	sg_set_buf(&sg[1], data, data_len);
--	sg_set_buf(&sg[2], mic, mic_len);
--
--	aead_request_set_tfm(aead_req, tfm);
--	aead_request_set_crypt(aead_req, sg, sg, data_len, b_0);
--	aead_request_set_ad(aead_req, sg[0].length);
--
--	crypto_aead_encrypt(aead_req);
--	kzfree(aead_req);
--
--	return 0;
--}
--
--int ieee80211_aes_ccm_decrypt(struct crypto_aead *tfm, u8 *b_0, u8 *aad,
--			      u8 *data, size_t data_len, u8 *mic,
--			      size_t mic_len)
--{
--	struct scatterlist sg[3];
--	struct aead_request *aead_req;
--	int reqsize = sizeof(*aead_req) + crypto_aead_reqsize(tfm);
--	u8 *__aad;
--	int err;
--
--	if (data_len == 0)
--		return -EINVAL;
--
--	aead_req = kzalloc(reqsize + CCM_AAD_LEN, GFP_ATOMIC);
--	if (!aead_req)
--		return -ENOMEM;
--
--	__aad = (u8 *)aead_req + reqsize;
--	memcpy(__aad, aad, CCM_AAD_LEN);
--
--	sg_init_table(sg, 3);
--	sg_set_buf(&sg[0], &__aad[2], be16_to_cpup((__be16 *)__aad));
--	sg_set_buf(&sg[1], data, data_len);
--	sg_set_buf(&sg[2], mic, mic_len);
--
--	aead_request_set_tfm(aead_req, tfm);
--	aead_request_set_crypt(aead_req, sg, sg, data_len + mic_len, b_0);
--	aead_request_set_ad(aead_req, sg[0].length);
--
--	err = crypto_aead_decrypt(aead_req);
--	kzfree(aead_req);
--
--	return err;
--}
--
--struct crypto_aead *ieee80211_aes_key_setup_encrypt(const u8 key[],
--						    size_t key_len,
--						    size_t mic_len)
--{
--	struct crypto_aead *tfm;
--	int err;
--
--	tfm = crypto_alloc_aead("ccm(aes)", 0, CRYPTO_ALG_ASYNC);
--	if (IS_ERR(tfm))
--		return tfm;
--
--	err = crypto_aead_setkey(tfm, key, key_len);
--	if (err)
--		goto free_aead;
--	err = crypto_aead_setauthsize(tfm, mic_len);
--	if (err)
--		goto free_aead;
--
--	return tfm;
--
--free_aead:
--	crypto_free_aead(tfm);
--	return ERR_PTR(err);
--}
--
--void ieee80211_aes_key_free(struct crypto_aead *tfm)
--{
--	crypto_free_aead(tfm);
--}
-diff --git a/net/mac80211/aes_ccm.h b/net/mac80211/aes_ccm.h
-index fcd3254c5cf0..b51ef23201c1 100644
---- a/net/mac80211/aes_ccm.h
-+++ b/net/mac80211/aes_ccm.h
-@@ -10,19 +10,39 @@
- #ifndef AES_CCM_H
- #define AES_CCM_H
- 
--#include <linux/crypto.h>
-+#include <crypto/aead_api.h>
- 
- #define CCM_AAD_LEN	32
- 
--struct crypto_aead *ieee80211_aes_key_setup_encrypt(const u8 key[],
--						    size_t key_len,
--						    size_t mic_len);
--int ieee80211_aes_ccm_encrypt(struct crypto_aead *tfm, u8 *b_0, u8 *aad,
--			      u8 *data, size_t data_len, u8 *mic,
--			      size_t mic_len);
--int ieee80211_aes_ccm_decrypt(struct crypto_aead *tfm, u8 *b_0, u8 *aad,
--			      u8 *data, size_t data_len, u8 *mic,
--			      size_t mic_len);
--void ieee80211_aes_key_free(struct crypto_aead *tfm);
-+static inline struct crypto_aead *ieee80211_aes_key_setup_encrypt(
-+				const u8 key[], size_t key_len, size_t mic_len)
-+{
-+	return aead_key_setup_encrypt("ccm(aes)", key, key_len, mic_len);
-+}
-+
-+static inline int ieee80211_aes_ccm_encrypt(
-+		struct crypto_aead *tfm,
-+		u8 *b_0, u8 *aad, u8 *data,
-+		size_t data_len, u8 *mic)
-+{
-+	return aead_encrypt(tfm, b_0, aad + 2,
-+						be16_to_cpup((__be16 *)aad),
-+						data, data_len, mic);
-+}
-+
-+static inline int ieee80211_aes_ccm_decrypt(
-+		struct crypto_aead *tfm,
-+		u8 *b_0, u8 *aad, u8 *data,
-+		size_t data_len, u8 *mic)
-+{
-+	return aead_decrypt(tfm, b_0, aad + 2,
-+						be16_to_cpup((__be16 *)aad),
-+						data, data_len, mic);
-+}
-+
-+static inline void ieee80211_aes_key_free(struct crypto_aead *tfm)
-+{
-+	return aead_key_free(tfm);
-+}
- 
- #endif /* AES_CCM_H */
-diff --git a/net/mac80211/aes_gcm.h b/net/mac80211/aes_gcm.h
-index 55aed5352494..f07359d5ebbd 100644
---- a/net/mac80211/aes_gcm.h
-+++ b/net/mac80211/aes_gcm.h
-@@ -9,16 +9,40 @@
- #ifndef AES_GCM_H
- #define AES_GCM_H
- 
--#include <linux/crypto.h>
-+#include <crypto/aead_api.h>
- 
- #define GCM_AAD_LEN	32
- 
--int ieee80211_aes_gcm_encrypt(struct crypto_aead *tfm, u8 *j_0, u8 *aad,
--			      u8 *data, size_t data_len, u8 *mic);
--int ieee80211_aes_gcm_decrypt(struct crypto_aead *tfm, u8 *j_0, u8 *aad,
--			      u8 *data, size_t data_len, u8 *mic);
--struct crypto_aead *ieee80211_aes_gcm_key_setup_encrypt(const u8 key[],
--							size_t key_len);
--void ieee80211_aes_gcm_key_free(struct crypto_aead *tfm);
-+static inline int ieee80211_aes_gcm_encrypt(
-+		struct crypto_aead *tfm,
-+		u8 *j_0, u8 *aad,  u8 *data,
-+		size_t data_len, u8 *mic)
-+{
-+	return aead_encrypt(tfm, j_0, aad + 2,
-+						be16_to_cpup((__be16 *)aad),
-+						data, data_len, mic);
-+}
-+
-+static inline int ieee80211_aes_gcm_decrypt(
-+		struct crypto_aead *tfm,
-+		u8 *j_0, u8 *aad, u8 *data,
-+		size_t data_len, u8 *mic)
-+{
-+	return aead_decrypt(tfm, j_0, aad + 2,
-+						be16_to_cpup((__be16 *)aad),
-+						data, data_len, mic);
-+}
-+
-+static inline struct crypto_aead *ieee80211_aes_gcm_key_setup_encrypt(
-+		const u8 key[], size_t key_len)
-+{
-+	return aead_key_setup_encrypt("gcm(aes)", key,
-+				key_len, IEEE80211_GCMP_MIC_LEN);
-+}
-+
-+static inline void ieee80211_aes_gcm_key_free(struct crypto_aead *tfm)
-+{
-+	return aead_key_free(tfm);
-+}
- 
- #endif /* AES_GCM_H */
-diff --git a/net/mac80211/key.c b/net/mac80211/key.c
-index a98fc2b5e0dc..a61cecd078bb 100644
---- a/net/mac80211/key.c
-+++ b/net/mac80211/key.c
-@@ -18,6 +18,7 @@
- #include <linux/rtnetlink.h>
- #include <linux/slab.h>
- #include <linux/export.h>
-+#include <linux/crypto.h>
- #include <net/mac80211.h>
- #include <asm/unaligned.h>
- #include "ieee80211_i.h"
-diff --git a/net/mac80211/wpa.c b/net/mac80211/wpa.c
-index 0d722ea98a1b..e30e09c1e149 100644
---- a/net/mac80211/wpa.c
-+++ b/net/mac80211/wpa.c
-@@ -464,7 +464,7 @@ static int ccmp_encrypt_skb(struct ieee80211_tx_data *tx, struct sk_buff *skb,
- 	pos += IEEE80211_CCMP_HDR_LEN;
- 	ccmp_special_blocks(skb, pn, b_0, aad);
- 	return ieee80211_aes_ccm_encrypt(key->u.ccmp.tfm, b_0, aad, pos, len,
--					 skb_put(skb, mic_len), mic_len);
-+				skb_put(skb, key->u.ccmp.tfm->authsize));
- }
- 
- 
-@@ -540,10 +540,11 @@ ieee80211_crypto_ccmp_decrypt(struct ieee80211_rx_data *rx,
- 			ccmp_special_blocks(skb, pn, b_0, aad);
- 
- 			if (ieee80211_aes_ccm_decrypt(
--				    key->u.ccmp.tfm, b_0, aad,
--				    skb->data + hdrlen + IEEE80211_CCMP_HDR_LEN,
--				    data_len,
--				    skb->data + skb->len - mic_len, mic_len))
-+				key->u.ccmp.tfm, b_0, aad,
-+				skb->data + hdrlen + IEEE80211_CCMP_HDR_LEN,
-+				data_len,
-+				skb->data + skb->len - key->u.ccmp.tfm->authsize
-+			))
- 				return RX_DROP_UNUSABLE;
- 		}
- 
--- 
-2.14.1
+This is awesome. In such case I'd like to swing back to the C syntax for bpf_end :)
+Any of these
+  r1 = (be16) (u16) r1
+  or
+  r1 = (be16) r1
+  or
+  r1 = be16 r1
+are better than just
+  be16 r1
+I like 1st the most, since it's explicit in terms of what happens with upper bits,
+but 2nd is also ok. 3rd is not quite C-like.
