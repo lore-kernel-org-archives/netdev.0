@@ -1,47 +1,49 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH] staging: rtl8822be: Keep array subscript no lower than zero
-Date: Sat, 23 Sep 2017 19:36:04 -0500
-Message-ID: <20170924003604.21518-1-Larry.Finger@lwfinger.net>
-Cc: netdev@vger.kernel.org, devel@driverdev.osuosl.org,
-        Larry Finger <Larry.Finger@lwfinger.net>
-To: gregkh@linuxfoundation.org
+From: Harald Welte <laforge@gnumonks.org>
+Subject: Re: [PATCH net-next 03/14] gtp: Call common functions to get tunnel
+ routes and add dst_cache
+Date: Sun, 24 Sep 2017 09:33:25 +0800
+Message-ID: <20170924013325.7ywkdfdlzeflsbl2@nataraja>
+References: <20170919003904.5124-1-tom@quantonium.net>
+ <20170919003904.5124-4-tom@quantonium.net>
+ <20170918.211751.1871429944584121281.davem@davemloft.net>
+ <20170919120942.dpy5kmkhzws7pqd5@nataraja>
+ <01c68c74-455c-9bff-e5bb-b1708d8f92f4@tpip.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, tom@quantonium.net,
+        netdev@vger.kernel.org, pablo@netfilter.org, rohit@quantonium.net
+To: Andreas Schultz <aschultz@tpip.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f67.google.com ([209.85.218.67]:34996 "EHLO
-        mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751389AbdIXAgK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 23 Sep 2017 20:36:10 -0400
-Received: by mail-oi0-f67.google.com with SMTP id r20so1649542oie.2
-        for <netdev@vger.kernel.org>; Sat, 23 Sep 2017 17:36:10 -0700 (PDT)
+Received: from ganesha.gnumonks.org ([213.95.27.120]:60251 "EHLO
+        ganesha.gnumonks.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750839AbdIXBkO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 23 Sep 2017 21:40:14 -0400
+Content-Disposition: inline
+In-Reply-To: <01c68c74-455c-9bff-e5bb-b1708d8f92f4@tpip.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The kbuild test robot reports the following:
-   drivers/staging//rtlwifi/phydm/phydm_dig.c: In function 'odm_pause_dig':
-   drivers/staging//rtlwifi/phydm/phydm_dig.c:494:45: warning: array subscript is below array bounds [-Warray-bounds]
-      odm_write_dig(dm, dig_tab->pause_dig_value[max_level]);
+Hi Andreas,
 
-This condition is caused when a loop falls through. The fix is to pin
-max_level to be >= 0.
+On Wed, Sep 20, 2017 at 05:37:52PM +0200, Andreas Schultz wrote:
+> I think we had this discussion before. The sending IP and port are not part
+> of the identity of the PDP context. So IMHO the sender is permitted
+> to change the source IP at random.
 
-Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
-c: kbuild test robot <fengguang.wu@intel.com>
-Fixes: 9ce99b04b5b82fdf11e4c76b60a5f82c1e541297 staging: r8822be: Add phydm mini driver
----
- drivers/staging/rtlwifi/phydm/phydm_dig.c | 2 ++
- 1 file changed, 2 insertions(+)
+Thanks for the reminder: You are correct, at least in the uplink case
+(MS->GGSN) where there is mobility of the MS. In the downlink case
+(GGSN->MS), which is the "sending" part for the kernel GTP code used at
+a GGSN, I'm not sure if that theory holds true in reality.
 
-diff --git a/drivers/staging/rtlwifi/phydm/phydm_dig.c b/drivers/staging/rtlwifi/phydm/phydm_dig.c
-index 31a4f3fcad19..c88b9788363a 100644
---- a/drivers/staging/rtlwifi/phydm/phydm_dig.c
-+++ b/drivers/staging/rtlwifi/phydm/phydm_dig.c
-@@ -490,6 +490,8 @@ void odm_pause_dig(void *dm_void, enum phydm_pause_type pause_type,
- 				break;
- 		}
- 
-+		/* pin max_level to be >= 0 */
-+		max_level = max_t(s8, 0, max_level);
- 		/* write IGI of lower level */
- 		odm_write_dig(dm, dig_tab->pause_dig_value[max_level]);
- 		ODM_RT_TRACE(dm, ODM_COMP_DIG,
+Do you agree that the current behavior of not using automatic source
+address selection for encapsulated GTP packets but rather using the
+source address of the socket is intended?
+
+Do you further agree that the dst_cache support patch by Tom retains
+that intended behavior and it should be merged?
+
 -- 
-2.12.3
+- Harald Welte <laforge@gnumonks.org>           http://laforge.gnumonks.org/
+============================================================================
+"Privacy in residential applications is a desirable marketing option."
+                                                  (ETSI EN 300 175-7 Ch. A6)
