@@ -1,98 +1,54 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net-next] bpf/verifier: improve disassembly of BPF_END
- instructions
-Date: Sat, 23 Sep 2017 22:50:18 -0700
-Message-ID: <20170924055016.w6x5tj6kjxjbocpl@ast-mbp>
-References: <59C4131D.8050003@iogearbox.net>
- <20170921194426.tnd5xos5irm3gred@ast-mbp>
- <46aa4442-b8ed-e4c1-4897-8f650e23d448@solarflare.com>
- <CAH3MdRVK-=pL8YCz44BPCmHhuZE_CRfih0QdZPLa=mpE_uoA_Q@mail.gmail.com>
- <ec7d0485-11f4-4fdb-0b87-1fb0afdb4f11@solarflare.com>
- <CAH3MdRVCf_wLoC7WOfaL2L2px3aYVWUhWxarMsyJdD7_E9fv_Q@mail.gmail.com>
- <CAH3MdRXgVtVjhYQkRopPKvL+4+NaTRRJoJq6XD_S-Dra69j0hA@mail.gmail.com>
- <20170922151614.bg4ovrp6m27cppr7@ast-mbp>
- <7c1ab2b8-e65d-3b09-f9f0-9fd13c1ceccf@solarflare.com>
- <CAH3MdRUCPNzXHQRQtVp7-p9XLDbJrkhxYEe=c0Fkt4+D9Tk9sw@mail.gmail.com>
+From: Michal Kalderon <Michal.Kalderon@cavium.com>
+Subject: [PATCH v2 net-next 0/4] qed: iWARP fixes and enhancements
+Date: Sun, 24 Sep 2017 12:09:41 +0300
+Message-ID: <1506244185-2129-1-git-send-email-Michal.Kalderon@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Edward Cree <ecree@solarflare.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Jiong Wang <jiong.wang@netronome.com>,
-        Jakub Kicinski <jakub.kicinski@netronome.com>
-To: Y Song <ys114321@gmail.com>
+Content-Type: text/plain
+Cc: <linux-rdma@vger.kernel.org>, <dledford@redhat.com>,
+        Michal Kalderon <Michal.Kalderon@cavium.com>,
+        Ariel Elior <Ariel.Elior@cavium.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>, <leon@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f181.google.com ([209.85.192.181]:48114 "EHLO
-        mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750786AbdIXFuP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 24 Sep 2017 01:50:15 -0400
-Received: by mail-pf0-f181.google.com with SMTP id u12so2332842pfl.4
-        for <netdev@vger.kernel.org>; Sat, 23 Sep 2017 22:50:15 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAH3MdRUCPNzXHQRQtVp7-p9XLDbJrkhxYEe=c0Fkt4+D9Tk9sw@mail.gmail.com>
+Received: from mail-by2nam03on0050.outbound.protection.outlook.com ([104.47.42.50]:39232
+        "EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751630AbdIXJKJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 24 Sep 2017 05:10:09 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Sep 22, 2017 at 09:49:10PM -0700, Y Song wrote:
-> On Fri, Sep 22, 2017 at 9:23 AM, Edward Cree <ecree@solarflare.com> wrote:
-> > On 22/09/17 16:16, Alexei Starovoitov wrote:
-> >> looks like we're converging on
-> >> "be16/be32/be64/le16/le32/le64 #register" for BPF_END.
-> >> I guess it can live with that. I would prefer more C like syntax
-> >> to match the rest, but llvm parsing point is a strong one.
-> > Yep, agreed.  I'll post a v2 once we've settled BPF_NEG.
-> >> For BPG_NEG I prefer to do it in C syntax like interpreter does:
-> >>         ALU_NEG:
-> >>                 DST = (u32) -DST;
-> >>         ALU64_NEG:
-> >>                 DST = -DST;
-> >> Yonghong, does it mean that asmparser will equally suffer?
-> > Correction to my earlier statements: verifier will currently disassemble
-> >  neg as:
-> > (87) r0 neg 0
-> > (84) (u32) r0 neg (u32) 0
-> >  because it pretends 'neg' is a compound-assignment operator like +=.
-> > The analogy with be16 and friends would be to use
-> >     neg64 r0
-> >     neg32 r0
-> >  whereas the analogy with everything else would be
-> >     r0 = -r0
-> >     r0 = (u32) -r0
-> >  as Alexei says.
-> > I'm happy to go with Alexei's version if it doesn't cause problems for llvm.
-> 
-> I got some time to do some prototyping in llvm and it looks like that
-> I am able to
-> resolve the issue and we are able to use more C-like syntax. That is:
-> for bswap:
->      r1 = (be16) (u16) r1
->      or
->      r1 = (be16) r1
->      or
->      r1 = be16 r1
-> for neg:
->      r0 = -r0
->      (for 32bit support, llvm may output "w0 = -w0" in the future. But
-> since it is not
->       enabled yet, you can continue to output "r0 = (u32) -r0".)
-> 
-> Not sure which syntax is best for bswap. The "r1 = (be16) (u16) r1" is most
-> explicit in its intention.
-> 
-> Attaching my llvm patch as well and cc'ing Jiong and Jakub so they can see my
-> implementation and the relative discussion here. (In this patch, I did
-> not implement
-> bswap for little endian yet.) Maybe they can provide additional comments.
+This patch series includes several fixes and enhancements
+related to iWARP.
 
-This is awesome. In such case I'd like to swing back to the C syntax for bpf_end :)
-Any of these
-  r1 = (be16) (u16) r1
-  or
-  r1 = (be16) r1
-  or
-  r1 = be16 r1
-are better than just
-  be16 r1
-I like 1st the most, since it's explicit in terms of what happens with upper bits,
-but 2nd is also ok. 3rd is not quite C-like.
+Patch #1 is actually the last of the initial iWARP submission.
+It has been delayed until now as I wanted to make sure that qedr
+supports iWARP prior to enabling iWARP device detection.
+
+iWARP changes in RDMA tree have been accepted and targeted at
+kernel 4.15, therefore, all iWARP fixes for this cycle are
+submitted to net-next.
+
+Changes from v1->v2 
+  - Added "Fixes:" tag to commit message of patch #3
+
+Signed-off by: Michal.Kalderon@cavium.com
+Signed-off-by: Ariel Elior <Ariel.Elior@cavium.com>
+
+Michal Kalderon (4):
+  qed: Add iWARP enablement support
+  qed: Add iWARP out of order support
+  qed: Fix maximum number of CQs for iWARP
+  qed: iWARP - Add check for errors on a SYN packet
+
+ drivers/net/ethernet/qlogic/qed/qed_cxt.c         |  6 +++
+ drivers/net/ethernet/qlogic/qed/qed_iwarp.c       | 52 +++++++++++++++++++++++
+ drivers/net/ethernet/qlogic/qed/qed_iwarp.h       | 11 ++++-
+ drivers/net/ethernet/qlogic/qed/qed_ll2.c         |  1 +
+ drivers/net/ethernet/qlogic/qed/qed_mcp.c         | 10 ++---
+ drivers/net/ethernet/qlogic/qed/qed_rdma.c        | 24 +++++++----
+ drivers/net/ethernet/qlogic/qed/qed_sp_commands.c |  1 +
+ include/linux/qed/qed_ll2_if.h                    |  1 +
+ 8 files changed, 91 insertions(+), 15 deletions(-)
+
+-- 
+1.8.3.1
