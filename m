@@ -1,102 +1,55 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 00/12] mlxsw: Add support for offloading IPv4 multicast routes
-Date: Sun, 24 Sep 2017 19:22:00 +0200
-Message-ID: <20170924172212.10096-1-jiri@resnulli.us>
-Cc: davem@davemloft.net, yotamg@mellanox.com, idosch@mellanox.com,
-        mlxsw@mellanox.com, nikolay@cumulusnetworks.com, andrew@lunn.ch
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:36758 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752629AbdIXRWP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 24 Sep 2017 13:22:15 -0400
-Received: by mail-wm0-f66.google.com with SMTP id r136so5308073wmf.3
-        for <netdev@vger.kernel.org>; Sun, 24 Sep 2017 10:22:14 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Xiang Gao <qasdfgtyuiop@gmail.com>
+Subject: Re: [PATCH] mac80211: aead api to reduce redundancy
+Date: Sun, 24 Sep 2017 13:21:52 -0400
+Message-ID: <CAMtaSwR4YTgh9N9x8a12R4dEZNuarjwvfOmnO6vnaDffVV-j3w@mail.gmail.com>
+References: <20170924054015.8958-1-qasdfgtyuiop@gmail.com> <1506265531.2909.5.camel@sipsolutions.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+        "David S. Miller" <davem@davemloft.net>,
+        linux-crypto@vger.kernel.org,
+        linux-kernel <linux-kernel@vger.kernel.org>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1506265531.2909.5.camel@sipsolutions.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jiri@mellanox.com>
+2017-09-24 11:05 GMT-04:00 Johannes Berg <johannes@sipsolutions.net>:
+> On Sun, 2017-09-24 at 01:40 -0400, Xiang Gao wrote:
+>> Currently, the aes_ccm.c and aes_gcm.c are almost line by line
+>> copy of each other. This patch reduce code redundancy by moving
+>> the code in these two files to crypto/aead_api.c to make it a
+>> higher level aead api. The aes_ccm.c and aes_gcm.c are removed
+>> and all the functions are now implemented in their headers using
+>> the newly added aead api.
+>>
+> No objection from me, though I'd ask you to respin with the indentation
+> fixed up a bit.
 
-This patch-set introduces offloading of the kernel IPv4 multicast router
-logic in the Spectrum driver.
+Hi Johannes,
 
-The first patch makes the Spectrum driver ignore FIB notifications that are
-not of address family IPv4 or IPv6. This is needed in order to prevent
-crashes while the next patches introduce the RTNL_FAMILY_IPMR FIB
-notifications.
+Thank you for you time for the suggestion. I'm not sure if I correctly
+understand you point.
+Do you mean to put more characters each line in the description? Something like:
 
-Patches 2-5 update ipmr to use the FIB notification chain for both MFC and
-VIF notifications, and patches 8-12 update the Spectrum driver to register
-to these notifications and offload the routes.
+> Currently, the aes_ccm.c and aes_gcm.c are almost line by line copy of
+> each other. This patch reduce code redundancy by moving the code in these
+> two files to crypto/aead_api.c to make it a higher level aead api. The
+> file aes_ccm.c and aes_gcm.c are removed and all the functions there are
+> now implemented in their headers using the newly added aead api.
 
-Similarly to IPv4 and IPv6, any failure will trigger the abort mechanism
-which is updated in this patch-set to eject multicast route tables too.
+instead of
 
-At this stage, the following limitations apply:
- - A multicast MFC route will be offloaded by the driver if all the output
-   interfaces are Spectrum router interfaces (RIFs). In any other case
-   (which includes pimreg device, tunnel devices and management ports) the
-   route will be trapped to the CPU and the packets will be forwarded by
-   software.
- - ipmr proxy routes are not supported and will trigger the abort
-   mechanism.
- - The MFC TTL values are currently treated as boolean: if the value is
-   different than 255, the traffic is forwarded to the interface and if the
-   value is 255 it is not forwarded. Dropping packets based on their TTL isn't
-   currently supported.
+> Currently, the aes_ccm.c and aes_gcm.c are almost line by line
+> copy of each other. This patch reduce code redundancy by moving
+> the code in these two files to crypto/aead_api.c to make it a
+> higher level aead api. The aes_ccm.c and aes_gcm.c are removed
+> and all the functions are now implemented in their headers using
+> the newly added aead api.
 
-To allow users to have visibility on which of the routes are offloaded and
-which are not, patch 6 introduces a per-route offload indication similar to
-IPv4 and IPv6 routes which is sent to the user via the RTNetlink interface.
+Xiang Gao
 
-The Spectrum driver multicast router offloading support, which is
-introduced in patches 8 and 9, is divided into two parts:
- - The hardware logic which abstracts the Spectrum hardware and provides a
-   simple API for the upper levels.
- - The offloading logic which gets the MFC and VIF notifications from the
-   kernel and updates the hardware using the hardware logic part.
-
-Finally, the last patch makes the Spectrum router logic not ignore the
-multicast FIB notifications and call the corresponding functions in the
-multicast router offloading logic.
-
----
-v1->v2:
- - Add comments for struct fields in mroute.h
- - Take the mrt_lock while dumping VIFs in the fib_notifier dump callback
- - Update the MFC lastuse field too
-
-Yotam Gigi (12):
-  fib: notifier: Add VIF add and delete event types
-  ipmr: Add reference count to MFC entries
-  ipmr: Add FIB notification access functions
-  ipmr: Send FIB notifications on MFC and VIF entries
-  net: ipmr: Add MFC offload indication
-  net: mroute: Check if rule is a default rule
-  mlxsw: spectrum: Add the multicast routing offloading logic
-  mlxsw: spectrum: Add the multicast routing hardware logic
-  mlxsw: spectrum: router: Squash the default route table to main
-  mlxsw: spectrum_router: Add multicast routes notification handling
-    functionality
-  mlxsw: spectrum: Notify multicast router on RIF MTU changes
-  mlxsw: spectrum: router: Don't ignore IPMR notifications
-
- drivers/net/ethernet/mellanox/mlxsw/Makefile       |    3 +-
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |    2 +
- drivers/net/ethernet/mellanox/mlxsw/spectrum_mr.c  | 1014 ++++++++++++++++++++
- drivers/net/ethernet/mellanox/mlxsw/spectrum_mr.h  |  133 +++
- .../net/ethernet/mellanox/mlxsw/spectrum_mr_tcam.c |  828 ++++++++++++++++
- .../net/ethernet/mellanox/mlxsw/spectrum_mr_tcam.h |   43 +
- .../net/ethernet/mellanox/mlxsw/spectrum_router.c  |  205 +++-
- include/linux/mroute.h                             |   45 +
- include/net/fib_notifier.h                         |    2 +
- include/net/netns/ipv4.h                           |    3 +
- net/ipv4/ipmr.c                                    |  211 +++-
- 11 files changed, 2478 insertions(+), 11 deletions(-)
- create mode 100644 drivers/net/ethernet/mellanox/mlxsw/spectrum_mr.c
- create mode 100644 drivers/net/ethernet/mellanox/mlxsw/spectrum_mr.h
- create mode 100644 drivers/net/ethernet/mellanox/mlxsw/spectrum_mr_tcam.c
- create mode 100644 drivers/net/ethernet/mellanox/mlxsw/spectrum_mr_tcam.h
-
--- 
-2.9.5
+>
+> johannes
