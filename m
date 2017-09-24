@@ -1,82 +1,66 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: [RFC] endianness issues in drivers/net/ethernet/qlogic/qed
-Date: Sun, 24 Sep 2017 16:30:18 +0100
-Message-ID: <20170924153018.GT32076@ZenIV.linux.org.uk>
-References: <20170918174940.GB32076@ZenIV.linux.org.uk>
- <BN3PR0701MB15918FECAEB8503920850A7580650@BN3PR0701MB1591.namprd07.prod.outlook.com>
+From: Tom Herbert <tom@quantonium.net>
+Subject: Re: [PATCH net-next 09/14] gtp: Allow configuring GTP interface as standalone
+Date: Sun, 24 Sep 2017 08:55:49 -0700
+Message-ID: <CAPDqMer0R+XoTzYpQoo7rUY3uVcsa6ffk1FHjkG=3xcuhnDgXg@mail.gmail.com>
+References: <20170919003904.5124-1-tom@quantonium.net> <20170919003904.5124-10-tom@quantonium.net>
+ <a6d1dad0-e922-2913-d4c8-592d403ee1cb@tpip.net> <CALx6S3771X4QUm2mJG=aJJ0f4Tm98NpGA7060vF1P8iuCPgicQ@mail.gmail.com>
+ <56e339a8-fa2d-6f8d-a89c-c0f3f242763a@tpip.net> <CAPDqMeq1tLi=NkLyqma2OEHQi-fYEYeTU-8th9WKoZaeWiM0Rw@mail.gmail.com>
+ <20170921001313.n2uo56oxmphcvd5g@nataraja> <CAPDqMeox74aEdV5_cr7HJ=kh0-etLdFE-u5=g8OqRzmS8OjOuQ@mail.gmail.com>
+ <20170921151253.4udm54dcq7x3ed4q@nataraja> <CAPDqMeq69rjzPh8jo-G9gKT26h-br4OrE0yxTJGk97qRgX0K2A@mail.gmail.com>
+ <20170924021626.b37zlwsomlibtnfs@nataraja>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "Elior, Ariel" <Ariel.Elior@cavium.com>,
-        David Miller <davem@davemloft.net>
-To: "Tayar, Tomer" <Tomer.Tayar@cavium.com>
+Content-Type: text/plain; charset="UTF-8"
+Cc: Andreas Schultz <aschultz@tpip.net>,
+        Tom Herbert <tom@herbertland.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Pablo Neira Ayuso <pablo@netfilter.org>,
+        Rohit Seth <rohit@quantonium.net>
+To: Harald Welte <laforge@gnumonks.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:39224 "EHLO
-        ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752368AbdIXPaW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 24 Sep 2017 11:30:22 -0400
-Content-Disposition: inline
-In-Reply-To: <BN3PR0701MB15918FECAEB8503920850A7580650@BN3PR0701MB1591.namprd07.prod.outlook.com>
+Received: from mail-wm0-f53.google.com ([74.125.82.53]:43058 "EHLO
+        mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752590AbdIXPzw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 24 Sep 2017 11:55:52 -0400
+Received: by mail-wm0-f53.google.com with SMTP id m72so7647563wmc.0
+        for <netdev@vger.kernel.org>; Sun, 24 Sep 2017 08:55:51 -0700 (PDT)
+In-Reply-To: <20170924021626.b37zlwsomlibtnfs@nataraja>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Sep 24, 2017 at 02:34:19PM +0000, Tayar, Tomer wrote:
-> 
-> > 	"qed: Utilize FW 8.10.3.0" has attempted some endianness annotations
-> > in that driver; unfortunately, either annotations are BS or the driver is genuinely
-> > broken on big-endian hosts.
-> [...]
-> > Is that driver intended to be used on big-endian hosts at all?
-> 
-> Thanks for taking the time to review our driver and pointing out these mistakes.
-> Support for BE machines is planned to be added but currently it is not available.
-> However, the structures which are used to abstract the HW carry endianity annotations.
-> Obviously, there are some misses and some annotations were added when not required.
-> We will prepare a patch that fixes the issues you pointed out and similar ones.
+> It's not about "not liking".  I'm very happy about contributions,
+> including (of course) yours.  It's about making sure that code we merge
+> into the kernel GTP driver will actually be usable to create a
+> standards-compliant GTP application or not.
+>
+Harald,
 
-OK...  sparse is pretty good at spotting the problems; if you have any questions - just
-ask.  A bit of random braindump concerning that kind of work:
+Do you believe that these patches are not at all on the right track,
+that they can't be built upon to get to a standards-compliant
+implementation, and that we are going to have to throw all of this and
+start from scratch to provide IPv6 support?
 
-	* bitfields and fixed-endian data do not mix.  It's much better to have just
-__le32 (or __le64, etc.) in the structure and use GET_FIELD/SET_FIELD or similar for
-accesses.  Another safe technics is something like
-	if ((foo->bar & cpu_to_le32(BAR_MASK)) == cpu_to_le32(BAR_THIS << BAR_SHIFT))
-instead of
-	if (get_bar(foo) == BAR_THIS))
-since that keeps shift and endianness conversion on the constant size.  The same goes
-for
-	if ((foo->bar ^ baz->bar) & cpu_to_le32(BAR_MASK))
-instead of
-	if (get_bar(foo) != get_bar(baz))
-If would be nice if compiler had recognized that kind of stuff and transformed the
-latter into the former on its own, but...
+> There's no use in merging an IPv6 support patch if already by code
+> review it can be shown that it's impossible to create a spec-compliant
+> implementation using that patch.  To me, that would be "merging IPv6
+> support so we can check off a box on a management form or marketing
+> sheet", but not for any practical value.
+>
 
-	* swab... is a Bloody Bad Idea(tm) in almost all situations.  Keeping track of
-whether given data is little-endian or host-endian is much easier than keeping track of
-how many times have we flipped it.
+To be clear, these patches are not done because to be a bullet point
+on a marketing sheet. IPv6 is becoming _the_ Internet protocol. It
+continues to exhibit exponential growth (~20% of Internet, per Google
+stats), I believe least two of the largest datacenter operators are
+running everything over IPv6, and there are already proposals to start
+official deprecation of IPv4. In the mobile space IPv6 is going to be
+a critical enabler of IoT and security in technologies like 5G. If we
+want Linux to be at the forefront of the next technology wave then we
+need to focus on IPv6 now! We should be far past the days of vendors
+only providing IPv4 in the kernel support because "that's what our
+customers use" and they'll get to IPv6 support at their leisure. IMO,
+davem has every right to unilaterally NAK patches that only support
+IPv4 or only test IPv4 with not even a path or timeline for IPv6
+support.
 
-	* don't mix little-endian and host-endian in the same variable.  See the previous
-point for the reasons - static typing is much safer and easier to reason about.  Code
-doing
-	n = cpu_to_le32(n);
-is asking for trouble.  For local variables it's not even an optimization - compiler
-is generally pretty good at spotting two local variables that are never live at the
-same point and reusing memory.  And for anything non-local you are introducing a hidden
-piece of state - "is that field in this structure little-endian or host-endian at the
-moment?", making it very easy to screw up a few months down the road.  Brittle and
-hell to debug...
-
-	* one very common source of noise is cpu_to_le32() when le32_to_cpu() was
-intended.  Sure, they do the same transformation on anything even remotely plausible
-(something like V0 V2 V3 V1 is not a byte order likely to happen on any hardware),
-but the choice documents what kind of values do you have before and after the
-conversion.  Both the human readers and automated typechecking (sparse) have much
-easier life if those are accurate.  Again, see the point re keeping track of the
-number of flips vs. keeping track of what's host-endian and what's little-endian.
-The latter is local, the former takes reasoning about control flow.
-
-	* for situations like "use this le32 value as search key in binary tree",
-where you are really OK with having differently-shaped trees on l-e and b-e hosts,
-use something like
-	if ((__force __u32) key > node->key)
-preferably with a comment explaining why treating this value that way is OK.
+Thanks,
+Tom
