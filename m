@@ -1,106 +1,82 @@
-From: Meng Xu <mengxu.gatech@gmail.com>
-Subject: [PATCH] isdn/eicon: do integrity check on cmd->adapter == a->controller early
-Date: Sun, 24 Sep 2017 11:14:41 -0400
-Message-ID: <1506266081-22895-1-git-send-email-mengxu.gatech@gmail.com>
-Cc: meng.xu@gatech.edu, sanidhya@gatech.edu, taesoo@gatech.edu,
-        Meng Xu <mengxu.gatech@gmail.com>
-To: mac@melware.de, isdn@linux-pingi.de, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: Re: [RFC] endianness issues in drivers/net/ethernet/qlogic/qed
+Date: Sun, 24 Sep 2017 16:30:18 +0100
+Message-ID: <20170924153018.GT32076@ZenIV.linux.org.uk>
+References: <20170918174940.GB32076@ZenIV.linux.org.uk>
+ <BN3PR0701MB15918FECAEB8503920850A7580650@BN3PR0701MB1591.namprd07.prod.outlook.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "Elior, Ariel" <Ariel.Elior@cavium.com>,
+        David Miller <davem@davemloft.net>
+To: "Tayar, Tomer" <Tomer.Tayar@cavium.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zeniv.linux.org.uk ([195.92.253.2]:39224 "EHLO
+        ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752368AbdIXPaW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 24 Sep 2017 11:30:22 -0400
+Content-Disposition: inline
+In-Reply-To: <BN3PR0701MB15918FECAEB8503920850A7580650@BN3PR0701MB1591.namprd07.prod.outlook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In my understanding, the reason to have the check on
-if (cmd->adapter != a->controller) {report error} is to prevent the case
-where after xdi_copy_from_user() in diva_xdi_write(), data->adapter
-is changed from what is previously fetched in diva_xdi_open_adapter(),
-and hence, leading to using a wrong adapter to do interface.cmd_proc().
+On Sun, Sep 24, 2017 at 02:34:19PM +0000, Tayar, Tomer wrote:
+> 
+> > 	"qed: Utilize FW 8.10.3.0" has attempted some endianness annotations
+> > in that driver; unfortunately, either annotations are BS or the driver is genuinely
+> > broken on big-endian hosts.
+> [...]
+> > Is that driver intended to be used on big-endian hosts at all?
+> 
+> Thanks for taking the time to review our driver and pointing out these mistakes.
+> Support for BE machines is planned to be added but currently it is not available.
+> However, the structures which are used to abstract the HW carry endianity annotations.
+> Obviously, there are some misses and some annotations were added when not required.
+> We will prepare a patch that fixes the issues you pointed out and similar ones.
 
-Although respective checks are in place in the three implementations of
-cmd_proc(), i.e., diva_4bri_cmd_card_proc(), diva_bri_cmd_card_proc(),
-and diva_pri_cmd_card_proc(), in my opinion, a better way might be doing
-this integrity right after the xdi_copy_from_user() in diva_xdi_write(),
-which is what this patch is for.
+OK...  sparse is pretty good at spotting the problems; if you have any questions - just
+ask.  A bit of random braindump concerning that kind of work:
 
-Signed-off-by: Meng Xu <mengxu.gatech@gmail.com>
----
- drivers/isdn/hardware/eicon/diva.c    | 10 +++++++++-
- drivers/isdn/hardware/eicon/os_4bri.c |  6 ------
- drivers/isdn/hardware/eicon/os_bri.c  |  6 ------
- drivers/isdn/hardware/eicon/os_pri.c  |  6 ------
- 4 files changed, 9 insertions(+), 19 deletions(-)
+	* bitfields and fixed-endian data do not mix.  It's much better to have just
+__le32 (or __le64, etc.) in the structure and use GET_FIELD/SET_FIELD or similar for
+accesses.  Another safe technics is something like
+	if ((foo->bar & cpu_to_le32(BAR_MASK)) == cpu_to_le32(BAR_THIS << BAR_SHIFT))
+instead of
+	if (get_bar(foo) == BAR_THIS))
+since that keeps shift and endianness conversion on the constant size.  The same goes
+for
+	if ((foo->bar ^ baz->bar) & cpu_to_le32(BAR_MASK))
+instead of
+	if (get_bar(foo) != get_bar(baz))
+If would be nice if compiler had recognized that kind of stuff and transformed the
+latter into the former on its own, but...
 
-diff --git a/drivers/isdn/hardware/eicon/diva.c b/drivers/isdn/hardware/eicon/diva.c
-index d91dd58..8ebd3c7 100644
---- a/drivers/isdn/hardware/eicon/diva.c
-+++ b/drivers/isdn/hardware/eicon/diva.c
-@@ -460,7 +460,15 @@ diva_xdi_write(void *adapter, void *os_handle, const void __user *src,
- 
- 	length = (*cp_fn) (os_handle, data, src, length);
- 	if (length > 0) {
--		if ((*(a->interface.cmd_proc))
-+		/* do the integrity check early */
-+		if(((diva_xdi_um_cfg_cmd_t *)data)->adapter != a->controller){
-+			DBG_ERR(("A: A(%d) write, invalid controller=%d != %d",
-+						((diva_xdi_um_cfg_cmd_t *)data)->adapter, a->controller));
-+
-+			length = -1;
-+		}
-+
-+		else if ((*(a->interface.cmd_proc))
- 		    (a, (diva_xdi_um_cfg_cmd_t *) data, length)) {
- 			length = -3;
- 		}
-diff --git a/drivers/isdn/hardware/eicon/os_4bri.c b/drivers/isdn/hardware/eicon/os_4bri.c
-index 1891246..adbd852 100644
---- a/drivers/isdn/hardware/eicon/os_4bri.c
-+++ b/drivers/isdn/hardware/eicon/os_4bri.c
-@@ -629,12 +629,6 @@ diva_4bri_cmd_card_proc(struct _diva_os_xdi_adapter *a,
- {
- 	int ret = -1;
- 
--	if (cmd->adapter != a->controller) {
--		DBG_ERR(("A: 4bri_cmd, invalid controller=%d != %d",
--			 cmd->adapter, a->controller))
--			return (-1);
--	}
--
- 	switch (cmd->command) {
- 	case DIVA_XDI_UM_CMD_GET_CARD_ORDINAL:
- 		a->xdi_mbox.data_length = sizeof(dword);
-diff --git a/drivers/isdn/hardware/eicon/os_bri.c b/drivers/isdn/hardware/eicon/os_bri.c
-index 20f2653..e3d398f 100644
---- a/drivers/isdn/hardware/eicon/os_bri.c
-+++ b/drivers/isdn/hardware/eicon/os_bri.c
-@@ -398,12 +398,6 @@ diva_bri_cmd_card_proc(struct _diva_os_xdi_adapter *a,
- {
- 	int ret = -1;
- 
--	if (cmd->adapter != a->controller) {
--		DBG_ERR(("A: pri_cmd, invalid controller=%d != %d",
--			 cmd->adapter, a->controller))
--			return (-1);
--	}
--
- 	switch (cmd->command) {
- 	case DIVA_XDI_UM_CMD_GET_CARD_ORDINAL:
- 		a->xdi_mbox.data_length = sizeof(dword);
-diff --git a/drivers/isdn/hardware/eicon/os_pri.c b/drivers/isdn/hardware/eicon/os_pri.c
-index da4957a..93443aa 100644
---- a/drivers/isdn/hardware/eicon/os_pri.c
-+++ b/drivers/isdn/hardware/eicon/os_pri.c
-@@ -604,12 +604,6 @@ diva_pri_cmd_card_proc(struct _diva_os_xdi_adapter *a,
- {
- 	int ret = -1;
- 
--	if (cmd->adapter != a->controller) {
--		DBG_ERR(("A: pri_cmd, invalid controller=%d != %d",
--			 cmd->adapter, a->controller))
--			return (-1);
--	}
--
- 	switch (cmd->command) {
- 	case DIVA_XDI_UM_CMD_GET_CARD_ORDINAL:
- 		a->xdi_mbox.data_length = sizeof(dword);
--- 
-2.7.4
+	* swab... is a Bloody Bad Idea(tm) in almost all situations.  Keeping track of
+whether given data is little-endian or host-endian is much easier than keeping track of
+how many times have we flipped it.
+
+	* don't mix little-endian and host-endian in the same variable.  See the previous
+point for the reasons - static typing is much safer and easier to reason about.  Code
+doing
+	n = cpu_to_le32(n);
+is asking for trouble.  For local variables it's not even an optimization - compiler
+is generally pretty good at spotting two local variables that are never live at the
+same point and reusing memory.  And for anything non-local you are introducing a hidden
+piece of state - "is that field in this structure little-endian or host-endian at the
+moment?", making it very easy to screw up a few months down the road.  Brittle and
+hell to debug...
+
+	* one very common source of noise is cpu_to_le32() when le32_to_cpu() was
+intended.  Sure, they do the same transformation on anything even remotely plausible
+(something like V0 V2 V3 V1 is not a byte order likely to happen on any hardware),
+but the choice documents what kind of values do you have before and after the
+conversion.  Both the human readers and automated typechecking (sparse) have much
+easier life if those are accurate.  Again, see the point re keeping track of the
+number of flips vs. keeping track of what's host-endian and what's little-endian.
+The latter is local, the former takes reasoning about control flow.
+
+	* for situations like "use this le32 value as search key in binary tree",
+where you are really OK with having differently-shaped trees on l-e and b-e hosts,
+use something like
+	if ((__force __u32) key > node->key)
+preferably with a comment explaining why treating this value that way is OK.
