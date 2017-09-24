@@ -1,30 +1,56 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] mac80211: aead api to reduce redundancy
-Date: Sun, 24 Sep 2017 17:05:31 +0200
-Message-ID: <1506265531.2909.5.camel@sipsolutions.net>
-References: <20170924054015.8958-1-qasdfgtyuiop@gmail.com>
-         (sfid-20170924_074130_810821_889115CC)
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: Xiang Gao <qasdfgtyuiop@gmail.com>, herbert@gondor.apana.org.au,
-        davem@davemloft.net, linux-crypto@vger.kernel.org,
-        linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <20170924054015.8958-1-qasdfgtyuiop@gmail.com> (sfid-20170924_074130_810821_889115CC)
-Sender: linux-crypto-owner@vger.kernel.org
+From: Meng Xu <mengxu.gatech@gmail.com>
+Subject: [PATCH] net/tls: move version check after second userspace fetch
+Date: Sun, 24 Sep 2017 11:14:55 -0400
+Message-ID: <1506266095-23003-1-git-send-email-mengxu.gatech@gmail.com>
+Cc: meng.xu@gatech.edu, sanidhya@gatech.edu, taesoo@gatech.edu,
+        Meng Xu <mengxu.gatech@gmail.com>
+To: ilyal@mellanox.com, aviadye@mellanox.com, davejwatson@fb.com,
+        davem@davemloft.net, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 2017-09-24 at 01:40 -0400, Xiang Gao wrote:
-> Currently, the aes_ccm.c and aes_gcm.c are almost line by line
-> copy of each other. This patch reduce code redundancy by moving
-> the code in these two files to crypto/aead_api.c to make it a
-> higher level aead api. The aes_ccm.c and aes_gcm.c are removed
-> and all the functions are now implemented in their headers using
-> the newly added aead api.
-> 
-No objection from me, though I'd ask you to respin with the indentation
-fixed up a bit.
+Even the userspace buffer optval passed the version check
+(i.e., tmp_crypto_info.version == TLS_1_2_VERSION) after the first fetch,
+it can still be changed before the second copy_from_user() and hence,
+a version different than TLS_1_2_VERSION may be copied into crypto_info.
+This patch moves the version check after the second userspace fetch.
 
-johannes
+Signed-off-by: Meng Xu <mengxu.gatech@gmail.com>
+---
+ net/tls/tls_main.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/net/tls/tls_main.c b/net/tls/tls_main.c
+index 60aff60..d4a7bc6 100644
+--- a/net/tls/tls_main.c
++++ b/net/tls/tls_main.c
+@@ -354,12 +354,6 @@ static int do_tls_setsockopt_tx(struct sock *sk, char __user *optval,
+ 		goto out;
+ 	}
+ 
+-	/* check version */
+-	if (tmp_crypto_info.version != TLS_1_2_VERSION) {
+-		rc = -ENOTSUPP;
+-		goto out;
+-	}
+-
+ 	/* get user crypto info */
+ 	crypto_info = &ctx->crypto_send;
+ 
+@@ -382,6 +376,12 @@ static int do_tls_setsockopt_tx(struct sock *sk, char __user *optval,
+ 			rc = -EFAULT;
+ 			goto err_crypto_info;
+ 		}
++
++		/* check version */
++		if (crypto_info->version != TLS_1_2_VERSION) {
++			rc = -ENOTSUPP;
++			goto err_crypto_info;
++		}
+ 		break;
+ 	}
+ 	default:
+-- 
+2.7.4
