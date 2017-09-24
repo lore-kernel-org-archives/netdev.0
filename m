@@ -1,73 +1,58 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 05/12] net: ipmr: Add MFC offload indication
-Date: Sun, 24 Sep 2017 19:22:05 +0200
-Message-ID: <20170924172212.10096-6-jiri@resnulli.us>
+Subject: [patch net-next v2 01/12] fib: notifier: Add VIF add and delete event types
+Date: Sun, 24 Sep 2017 19:22:01 +0200
+Message-ID: <20170924172212.10096-2-jiri@resnulli.us>
 References: <20170924172212.10096-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, yotamg@mellanox.com, idosch@mellanox.com,
         mlxsw@mellanox.com, nikolay@cumulusnetworks.com, andrew@lunn.ch
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:37247 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752743AbdIXRWU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 24 Sep 2017 13:22:20 -0400
-Received: by mail-wm0-f67.google.com with SMTP id f4so5304239wmh.4
-        for <netdev@vger.kernel.org>; Sun, 24 Sep 2017 10:22:19 -0700 (PDT)
+Received: from mail-wr0-f193.google.com ([209.85.128.193]:37321 "EHLO
+        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752726AbdIXRWQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 24 Sep 2017 13:22:16 -0400
+Received: by mail-wr0-f193.google.com with SMTP id u48so63969wrf.4
+        for <netdev@vger.kernel.org>; Sun, 24 Sep 2017 10:22:15 -0700 (PDT)
 In-Reply-To: <20170924172212.10096-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Yotam Gigi <yotamg@mellanox.com>
 
-Allow drivers, registered to the fib notification chain indicate whether a
-multicast MFC route is offloaded or not, similarly to unicast routes. The
-indication of whether a route is offloaded is done using the mfc_flags
-field on an mfc_cache struct, and the information is sent to the userspace
-via the RTNetlink interface only.
+In order for an interface to forward packets according to the kernel
+multicast routing table, it must be configured with a VIF index according
+to the mroute user API. The VIF index is then used to refer to that
+interface in the mroute user API, for example, to set the iif and oifs of
+an MFC entry.
 
-Currently, MFC routes are either offloaded or not, thus there is no need to
-add per-VIF offload indication.
+In order to allow drivers to be aware and offload multicast routes, they
+have to be aware of the VIF add and delete notifications.
+
+Due to the fact that a specific VIF can be deleted and re-added pointing to
+another netdevice, and the MFC routes that point to it will forward the
+matching packets to the new netdevice, a driver willing to offload MFC
+cache entries must be aware of the VIF add and delete events in addition to
+MFC routes notifications.
 
 Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
 Reviewed-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
-v1->v2:
- - Add comment for the MFC_OFFLOAD flag
----
- include/linux/mroute.h | 2 ++
- net/ipv4/ipmr.c        | 3 +++
- 2 files changed, 5 insertions(+)
+ include/net/fib_notifier.h | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/include/linux/mroute.h b/include/linux/mroute.h
-index 54c5cb8..5566580 100644
---- a/include/linux/mroute.h
-+++ b/include/linux/mroute.h
-@@ -90,9 +90,11 @@ struct mr_table {
- 
- /* mfc_flags:
-  * MFC_STATIC - the entry was added statically (not by a routing daemon)
-+ * MFC_OFFLOAD - the entry was offloaded to the hardware
-  */
- enum {
- 	MFC_STATIC = BIT(0),
-+	MFC_OFFLOAD = BIT(1),
+diff --git a/include/net/fib_notifier.h b/include/net/fib_notifier.h
+index 669b971..54cd6b8 100644
+--- a/include/net/fib_notifier.h
++++ b/include/net/fib_notifier.h
+@@ -20,6 +20,8 @@ enum fib_event_type {
+ 	FIB_EVENT_RULE_DEL,
+ 	FIB_EVENT_NH_ADD,
+ 	FIB_EVENT_NH_DEL,
++	FIB_EVENT_VIF_ADD,
++	FIB_EVENT_VIF_DEL,
  };
  
- struct mfc_cache_cmp_arg {
-diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
-index ba71bc4..2a795d2 100644
---- a/net/ipv4/ipmr.c
-+++ b/net/ipv4/ipmr.c
-@@ -2268,6 +2268,9 @@ static int __ipmr_fill_mroute(struct mr_table *mrt, struct sk_buff *skb,
- 	    nla_put_u32(skb, RTA_IIF, mrt->vif_table[c->mfc_parent].dev->ifindex) < 0)
- 		return -EMSGSIZE;
- 
-+	if (c->mfc_flags & MFC_OFFLOAD)
-+		rtm->rtm_flags |= RTNH_F_OFFLOAD;
-+
- 	if (!(mp_attr = nla_nest_start(skb, RTA_MULTIPATH)))
- 		return -EMSGSIZE;
- 
+ struct fib_notifier_ops {
 -- 
 2.9.5
