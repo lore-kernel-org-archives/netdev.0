@@ -1,58 +1,72 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 01/12] fib: notifier: Add VIF add and delete event types
-Date: Sun, 24 Sep 2017 19:22:01 +0200
-Message-ID: <20170924172212.10096-2-jiri@resnulli.us>
-References: <20170924172212.10096-1-jiri@resnulli.us>
-Cc: davem@davemloft.net, yotamg@mellanox.com, idosch@mellanox.com,
-        mlxsw@mellanox.com, nikolay@cumulusnetworks.com, andrew@lunn.ch
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f193.google.com ([209.85.128.193]:37321 "EHLO
-        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752726AbdIXRWQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 24 Sep 2017 13:22:16 -0400
-Received: by mail-wr0-f193.google.com with SMTP id u48so63969wrf.4
-        for <netdev@vger.kernel.org>; Sun, 24 Sep 2017 10:22:15 -0700 (PDT)
-In-Reply-To: <20170924172212.10096-1-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH] mac80211: aead api to reduce redundancy
+Date: Sun, 24 Sep 2017 19:42:46 +0200
+Message-ID: <1506274966.2909.7.camel@sipsolutions.net>
+References: <20170924054015.8958-1-qasdfgtyuiop@gmail.com>
+         <1506265531.2909.5.camel@sipsolutions.net>
+         <CAMtaSwR4YTgh9N9x8a12R4dEZNuarjwvfOmnO6vnaDffVV-j3w@mail.gmail.com>
+         (sfid-20170924_192213_933382_C4E7F059)
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+        "David S. Miller" <davem@davemloft.net>,
+        linux-crypto@vger.kernel.org,
+        linux-kernel <linux-kernel@vger.kernel.org>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: Xiang Gao <qasdfgtyuiop@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAMtaSwR4YTgh9N9x8a12R4dEZNuarjwvfOmnO6vnaDffVV-j3w@mail.gmail.com> (sfid-20170924_192213_933382_C4E7F059)
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Yotam Gigi <yotamg@mellanox.com>
+On Sun, 2017-09-24 at 13:21 -0400, Xiang Gao wrote:
+> 
+> Do you mean to put more characters each line in the description
+> 
+Huh, sorry, no - my bad. I was thinking of the code, not the
+description at all.
 
-In order for an interface to forward packets according to the kernel
-multicast routing table, it must be configured with a VIF index according
-to the mroute user API. The VIF index is then used to refer to that
-interface in the mroute user API, for example, to set the iif and oifs of
-an MFC entry.
+For example here:
 
-In order to allow drivers to be aware and offload multicast routes, they
-have to be aware of the VIF add and delete notifications.
+> -int ieee80211_aes_gcm_encrypt(struct crypto_aead *tfm, u8 *j_0, u8 *aad,
+> -                             u8 *data, size_t data_len, u8 *mic)
+> +int aead_encrypt(struct crypto_aead *tfm, u8 *b_0, u8 *aad, size_t aad_len,
+> +                                u8 *data, size_t data_len, u8 *auth)
+> 
 
-Due to the fact that a specific VIF can be deleted and re-added pointing to
-another netdevice, and the MFC routes that point to it will forward the
-matching packets to the new netdevice, a driver willing to offload MFC
-cache entries must be aware of the VIF add and delete events in addition to
-MFC routes notifications.
+I think you should adjust the indentation to match - or did it just get
+mangled in my mail? It looks *further* indented now, when it should be
+less (to after the opening parenthesis). Similarly in various other
+places.
 
-Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
-Reviewed-by: Ido Schimmel <idosch@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- include/net/fib_notifier.h | 2 ++
- 1 file changed, 2 insertions(+)
+And perhaps for long things like
 
-diff --git a/include/net/fib_notifier.h b/include/net/fib_notifier.h
-index 669b971..54cd6b8 100644
---- a/include/net/fib_notifier.h
-+++ b/include/net/fib_notifier.h
-@@ -20,6 +20,8 @@ enum fib_event_type {
- 	FIB_EVENT_RULE_DEL,
- 	FIB_EVENT_NH_ADD,
- 	FIB_EVENT_NH_DEL,
-+	FIB_EVENT_VIF_ADD,
-+	FIB_EVENT_VIF_DEL,
- };
- 
- struct fib_notifier_ops {
--- 
-2.9.5
+> +static inline struct crypto_aead *ieee80211_aes_key_setup_encrypt(
+> +                               const u8 key[], size_t key_len,
+> size_t mic_len)
+
+> +struct crypto_aead *aead_key_setup_encrypt(const char *alg,
+> +                       const u8 key[], size_t key_len, size_t authsize);
+
+it might be better to write
+
+static inline struct crypto_aead *
+ieee80211_aes_key_setup_encrypt(const u8 key[], ...)
+
+and
+
+struct crypto_aead *
+aead_key_setup_encrypt(const char *alg, ...)
+
+
+respectively, depending on how far you have to indent to break lines
+etc.
+
+Anyway, I'm nitpicking.
+
+Unrelated to this, I'm not sure whose tree this should go through -
+probably Herbert's (or DaveM's with his ACK? not sure if there's a
+crypto tree?) or so?
+
+johannes
