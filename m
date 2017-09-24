@@ -1,68 +1,111 @@
-From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH v2 net-next 3/4] qed: Fix maximum number of CQs for iWARP
-Date: Sun, 24 Sep 2017 13:35:54 +0300
-Message-ID: <20170924103554.GC25094@mtr-leonro.local>
-References: <1506244185-2129-1-git-send-email-Michal.Kalderon@cavium.com>
- <1506244185-2129-4-git-send-email-Michal.Kalderon@cavium.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next 10/10] net: hns3: Add mqprio support when
+ interacting with network stack
+Date: Sun, 24 Sep 2017 13:37:24 +0200
+Message-ID: <20170924113724.GA2029@nanopsycho>
+References: <1505992913-107256-1-git-send-email-linyunsheng@huawei.com>
+ <1505992913-107256-11-git-send-email-linyunsheng@huawei.com>
+ <20170922125541.GA2005@nanopsycho.orion>
+ <59c51a37.a1c4df0a.ac4e2.8df0SMTPIN_ADDED_BROKEN@mx.google.com>
+ <20170922160322.GB2005@nanopsycho.orion>
+ <fdd8d8af-6d74-143a-adfa-502bd94a90d9@huawei.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="wxDdMuZNg1r63Hyj"
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-        Ariel Elior <Ariel.Elior-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-To: Michal Kalderon <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+        huangdaode <huangdaode@hisilicon.com>,
+        "xuwei (O)" <xuwei5@hisilicon.com>,
+        "Liguozhu (Kenneth)" <liguozhu@hisilicon.com>,
+        "Zhuangyuzeng (Yisen)" <yisen.zhuang@huawei.com>,
+        Gabriele Paoloni <gabriele.paoloni@huawei.com>,
+        John Garry <john.garry@huawei.com>,
+        Linuxarm <linuxarm@huawei.com>,
+        Salil Mehta <salil.mehta@huawei.com>,
+        "lipeng (Y)" <lipeng321@huawei.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Yunsheng Lin <linyunsheng@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1506244185-2129-4-git-send-email-Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <fdd8d8af-6d74-143a-adfa-502bd94a90d9@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
---wxDdMuZNg1r63Hyj
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-
-On Sun, Sep 24, 2017 at 12:09:44PM +0300, Michal Kalderon wrote:
-> The maximum number of CQs supported is bound to the number
-> of connections supported, which differs between RoCE and iWARP.
+Sat, Sep 23, 2017 at 02:47:20AM CEST, linyunsheng@huawei.com wrote:
+>Hi, Jiri
 >
-> This fixes a crash that occurred in iWARP when running 1000 sessions
-> using perftest.
+>On 2017/9/23 0:03, Jiri Pirko wrote:
+>> Fri, Sep 22, 2017 at 04:11:51PM CEST, linyunsheng@huawei.com wrote:
+>>> Hi, Jiri
+>>>
+>>>>> - if (!tc) {
+>>>>> + if (if_running) {
+>>>>> + (void)hns3_nic_net_stop(netdev);
+>>>>> + msleep(100);
+>>>>> + }
+>>>>> +
+>>>>> + ret = (kinfo->dcb_ops && kinfo->dcb_ops->>setup_tc) ?
+>>>>> + kinfo->dcb_ops->setup_tc(h, tc, prio_tc) : ->EOPNOTSUPP;
+>>>
+>>>> This is most odd. Why do you call dcb_ops from >ndo_setup_tc callback?
+>>>> Why are you mixing this together? prio->tc mapping >can be done
+>>>> directly in dcbnl
+>>>
+>>> Here is what we do in dcb_ops->setup_tc:
+>>> Firstly, if current tc num is different from the tc num
+>>> that user provide, then we setup the queues for each
+>>> tc.
+>>>
+>>> Secondly, we tell hardware the pri to tc mapping that
+>>> the stack is using. In rx direction, our hardware need
+>>> that mapping to put different packet into different tc'
+>>> queues according to the priority of the packet, then
+>>> rss decides which specific queue in the tc should the
+>>> packet goto.
+>>>
+>>> By mixing, I suppose you meant why we need the
+>>> pri to tc infomation?
+>> 
+>> by mixing, I mean what I wrote. You are calling dcb_ops callback from
+>> ndo_setup_tc callback. So you are mixing DCBNL subsystem and TC
+>> subsystem. Why? Why do you need sch_mqprio? Why DCBNL is not enough for
+>> all?
 >
-> Fixes: 67b40dccc45 ("qed: Implement iWARP initialization, teardown and qp operations")
+>When using lldptool, dcbnl is involved.
 >
-> Signed-off-by: Michal Kalderon <Michal.Kalderon-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-> Signed-off-by: Ariel Elior <Ariel.Elior-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-> ---
->  drivers/net/ethernet/qlogic/qed/qed_rdma.c | 12 ++++++------
->  1 file changed, 6 insertions(+), 6 deletions(-)
+>But when using tc qdisc, dcbbl is not involved, below is the a few key
+>call graph in the kernel when tc qdisc cmd is executed.
 >
+>cmd:
+>tc qdisc add dev eth0 root handle 1:0 mqprio num_tc 4 map 1 2 3 3 1 3 1 1 hw 1
+>
+>call graph:
+>rtnetlink_rcv_msg -> tc_modify_qdisc -> qdisc_create -> mqprio_init ->
+>hns3_nic_setup_tc
+>
+>When hns3_nic_setup_tc is called, we need to know how many tc num and
+>prio_tc mapping from the tc_mqprio_qopt which is provided in the paramter
+>in the ndo_setup_tc function, and dcb_ops is the our hardware specific
+>method to setup the tc related parameter to the hardware, so this is why
+>we call dcb_ops callback in ndo_setup_tc callback.
+>
+>I hope this will answer your question, thanks for your time.
 
-Thanks,
-Reviewed-by: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Okay. I understand that you have a usecase for mqprio mapping offload
+without lldptool being involved. Ok. I believe it is wrong to call dcb_ops
+from tc callback. You should have a generic layer inside the driver and
+call it from both dcb_ops and tc callbacks.
 
---wxDdMuZNg1r63Hyj
-Content-Type: application/pgp-signature; name="signature.asc"
+Also, what happens If I run lldptool concurrently with mqprio? Who wins
+and is going to configure the mapping?
 
------BEGIN PGP SIGNATURE-----
 
-iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAlnHiooACgkQ5GN7iDZy
-WKfJAw//dk9MdhtytGYdJdYcYb50N98UoOmsOjCNdphkLK9eHASx/P4Qrd6t9ar0
-77ZCcVF0w4R8/nEFKDcH1JQw0JfcIXf+UXRmnhs4DeiUpEItANMOx6uAfCau0tr9
-khWF0riw+Ra8XX2o0FO0BQ/areOS+qRFnqNIlTvWQewZnoeR7DmUi8OuCu0ScQ/k
-x1KTyZEOLyfKZm2FMcsLzaUU8D7POQ/ksjCMm6oxggP7YLB4yrKqptaLLplPlUHg
-UYDsb1mEhyxutOZ5AlIb+SCf2wQZ45Vnvi0i7zcvgSxGw1+4SPpsLA5RALp0aQwv
-jv13GLn3qO0xMOTRZHvkH9Ow/m/Szyh181PIjjGXnDWjXzTR3nkUyaksjxyn6btp
-y+ljuKTwGsJyT2eK4Sx6MWTqk7hkRXFsX+M3qHzE+tkyxRc6wyzPY8exr+W8Xb8p
-ISDZJLO9wWfgQRAabf4NwHg8JNfBa3HLUl9u6krjTZkyhM335u59So8D2PwQPf0X
-fCII6N9J7eNYQhJa+/Ki/yidzzIw3onc387k5QOuuQ/dkY/09ATXVI1yZ0zGNEeG
-99ctV1Jt29tc4Pj3q5u27lE0CoKAi+eUvUtnCN2fUjHm4Xm4V+i9n+VT/cjceQ12
-ipSo+J0t01kMENlEppOpWyf0Wz1b1gf/HcpbLSCNzy42I5HnYDg=
-=rs7P
------END PGP SIGNATURE-----
-
---wxDdMuZNg1r63Hyj--
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+>> 
+>> 
+>> 
+>>> I hope I did not misunderstand your question, thanks
+>>> for your time reviewing.
+>> 
+>> .
+>> 
+>
