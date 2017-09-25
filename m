@@ -1,299 +1,192 @@
-From: Kalle Valo <kvalo@qca.qualcomm.com>
-Subject: Re: [2/2] ath9k: Avoid a potential deadlock
-Date: Mon, 25 Sep 2017 09:18:00 +0200
-Message-ID: <237fcc94e65d4c48b7b5ff707a96ab68@euamsexm01a.eu.qualcomm.com>
-References: <20170918195919.15860-2-ville.syrjala@linux.intel.com>
+From: Yunsheng Lin <linyunsheng@huawei.com>
+Subject: Re: [PATCH net-next 10/10] net: hns3: Add mqprio support when
+ interacting with network stack
+Date: Mon, 25 Sep 2017 15:22:43 +0800
+Message-ID: <bf64c912-a8c3-bcaa-1b32-d6d284ab155c@huawei.com>
+References: <1505992913-107256-1-git-send-email-linyunsheng@huawei.com>
+ <1505992913-107256-11-git-send-email-linyunsheng@huawei.com>
+ <20170922125541.GA2005@nanopsycho.orion>
+ <59c51a37.a1c4df0a.ac4e2.8df0SMTPIN_ADDED_BROKEN@mx.google.com>
+ <20170922160322.GB2005@nanopsycho.orion>
+ <fdd8d8af-6d74-143a-adfa-502bd94a90d9@huawei.com>
+ <20170924113724.GA2029@nanopsycho>
+ <290b0679-bfc2-c23c-00ee-43768c1c2327@huawei.com>
+ <20170925065740.GB1899@nanopsycho>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: <linux-wireless@vger.kernel.org>,
-        QCA ath9k Development <ath9k-devel@qca.qualcomm.com>,
-        Kalle Valo <kvalo@codeaurora.org>, <netdev@vger.kernel.org>,
-        =?UTF-8?q?Ville=20Syrj=C3=A4l=C3=A4?=
-        <ville.syrjala@linux.intel.com>
-To: =?utf-8?b?VmlsbGUgU3lyasOkbMOk?= <ville.syrjala@linux.intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from alexa-out.qualcomm.com ([129.46.98.28]:43058 "EHLO
-        alexa-out-lv-02.qualcomm.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S932385AbdIYHSI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2017 03:18:08 -0400
-In-Reply-To: <20170918195919.15860-2-ville.syrjala@linux.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+        huangdaode <huangdaode@hisilicon.com>,
+        "xuwei (O)" <xuwei5@hisilicon.com>,
+        "Liguozhu (Kenneth)" <liguozhu@hisilicon.com>,
+        "Zhuangyuzeng (Yisen)" <yisen.zhuang@huawei.com>,
+        Gabriele Paoloni <gabriele.paoloni@huawei.com>,
+        John Garry <john.garry@huawei.com>,
+        Linuxarm <linuxarm@huawei.com>,
+        "Salil Mehta" <salil.mehta@huawei.com>,
+        "lipeng (Y)" <lipeng321@huawei.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170925065740.GB1899@nanopsycho>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Ville Syrjälä wrote:
+Hi, Jiri
 
-> Lockdep warns us that sc_pm_lock and cc_lock can cause a deadlock when
-> cc_lock is acquired by itself with interrupts enabled. Disable irqs
-> whenever taking cc_lock to avoid this.
+On 2017/9/25 14:57, Jiri Pirko wrote:
+> Mon, Sep 25, 2017 at 02:45:08AM CEST, linyunsheng@huawei.com wrote:
+>> Hi, Jiri
+>>
+>> On 2017/9/24 19:37, Jiri Pirko wrote:
+>>> Sat, Sep 23, 2017 at 02:47:20AM CEST, linyunsheng@huawei.com wrote:
+>>>> Hi, Jiri
+>>>>
+>>>> On 2017/9/23 0:03, Jiri Pirko wrote:
+>>>>> Fri, Sep 22, 2017 at 04:11:51PM CEST, linyunsheng@huawei.com wrote:
+>>>>>> Hi, Jiri
+>>>>>>
+>>>>>>>> - if (!tc) {
+>>>>>>>> + if (if_running) {
+>>>>>>>> + (void)hns3_nic_net_stop(netdev);
+>>>>>>>> + msleep(100);
+>>>>>>>> + }
+>>>>>>>> +
+>>>>>>>> + ret = (kinfo->dcb_ops && kinfo->dcb_ops->>setup_tc) ?
+>>>>>>>> + kinfo->dcb_ops->setup_tc(h, tc, prio_tc) : ->EOPNOTSUPP;
+>>>>>>
+>>>>>>> This is most odd. Why do you call dcb_ops from >ndo_setup_tc callback?
+>>>>>>> Why are you mixing this together? prio->tc mapping >can be done
+>>>>>>> directly in dcbnl
+>>>>>>
+>>>>>> Here is what we do in dcb_ops->setup_tc:
+>>>>>> Firstly, if current tc num is different from the tc num
+>>>>>> that user provide, then we setup the queues for each
+>>>>>> tc.
+>>>>>>
+>>>>>> Secondly, we tell hardware the pri to tc mapping that
+>>>>>> the stack is using. In rx direction, our hardware need
+>>>>>> that mapping to put different packet into different tc'
+>>>>>> queues according to the priority of the packet, then
+>>>>>> rss decides which specific queue in the tc should the
+>>>>>> packet goto.
+>>>>>>
+>>>>>> By mixing, I suppose you meant why we need the
+>>>>>> pri to tc infomation?
+>>>>>
+>>>>> by mixing, I mean what I wrote. You are calling dcb_ops callback from
+>>>>> ndo_setup_tc callback. So you are mixing DCBNL subsystem and TC
+>>>>> subsystem. Why? Why do you need sch_mqprio? Why DCBNL is not enough for
+>>>>> all?
+>>>>
+>>>> When using lldptool, dcbnl is involved.
+>>>>
+>>>> But when using tc qdisc, dcbbl is not involved, below is the a few key
+>>>> call graph in the kernel when tc qdisc cmd is executed.
+>>>>
+>>>> cmd:
+>>>> tc qdisc add dev eth0 root handle 1:0 mqprio num_tc 4 map 1 2 3 3 1 3 1 1 hw 1
+>>>>
+>>>> call graph:
+>>>> rtnetlink_rcv_msg -> tc_modify_qdisc -> qdisc_create -> mqprio_init ->
+>>>> hns3_nic_setup_tc
+>>>>
+>>>> When hns3_nic_setup_tc is called, we need to know how many tc num and
+>>>> prio_tc mapping from the tc_mqprio_qopt which is provided in the paramter
+>>>> in the ndo_setup_tc function, and dcb_ops is the our hardware specific
+>>>> method to setup the tc related parameter to the hardware, so this is why
+>>>> we call dcb_ops callback in ndo_setup_tc callback.
+>>>>
+>>>> I hope this will answer your question, thanks for your time.
+>>>
+>>> Okay. I understand that you have a usecase for mqprio mapping offload
+>>> without lldptool being involved. Ok. I believe it is wrong to call dcb_ops
+>>> from tc callback. You should have a generic layer inside the driver and
+>>> call it from both dcb_ops and tc callbacks.
+>>
+>> Actually, dcb_ops is our generic layer inside the driver.
+>> Below is high level architecture:
+>>
+>>       [ tc qdisc ]	       [ lldpad ]
+>>             |                     |
+>>             |                     |
+>>             |                     |
+>>       [ hns3_enet ]        [ hns3_dcbnl ]
+>>             \                    /
+>>                \              /
+>>                   \        /
+>>                 [ hclge_dcb ]
+>>                   /      \
+>>                /            \
+>>             /                  \
+>>     [ hclgc_main ]        [ hclge_tm ]
+>>
+>> hns3_enet.c implements the ndo_setup_tc callback.
+>> hns3_dcbnl.c implements the dcbnl_rtnl_ops for stack's DCBNL system.
+>> hclge_dcb implements the dcb_ops.
+>> So we already have a generic layer that tc and dcbnl all call from.
+>>
+>>>
+>>> Also, what happens If I run lldptool concurrently with mqprio? Who wins
+>>> and is going to configure the mapping?
+>>
+>> Both lldptool and tc qdisc cmd use rtnl interface provided by stack, so
+>> they are both protected by rtnl_lock, so we do not have to do the locking
+>> in the driver.
 > 
-> [   19.094524] kworker/u2:0/5 just changed the state of lock:
-> [   19.094578]  (&(&sc->sc_pm_lock)->rlock){-.-...}, at: [<f836c00e>] ath_isr+0x15e/0x200 [ath9k]
-> [   19.094674] but this lock took another, HARDIRQ-unsafe lock in the past:
-> [   19.094731]  (&(&common->cc_lock)->rlock){+.-...}
-> [   19.094741]
-> 
->                and interrupts could create inverse lock ordering between them.
-> 
-> [   19.094866]
->                other info that might help us debug this:
-> [   19.094926]  Possible interrupt unsafe locking scenario:
-> 
-> [   19.094985]        CPU0                    CPU1
-> [   19.095036]        ----                    ----
-> [   19.095086]   lock(&(&common->cc_lock)->rlock);
-> [   19.095197]                                local_irq_disable();
-> [   19.095305]                                lock(&(&sc->sc_pm_lock)->rlock);
-> [   19.095423]                                lock(&(&common->cc_lock)->rlock);
-> [   19.095539]   <Interrupt>
-> [   19.095636]     lock(&(&sc->sc_pm_lock)->rlock);
-> [   19.095745]
->                 *** DEADLOCK ***
-> 
-> [   19.095965] 3 locks held by kworker/u2:0/5:
-> [   19.096067]  #0:  ("%s"wiphy_name(local->hw.wiphy)){.+.+.+}, at: [<c1067f37>] process_one_work+0x127/0x580
-> [   19.096260]  #1:  ((&local->dynamic_ps_enable_work)){+.+...}, at: [<c1067f37>] process_one_work+0x127/0x580
-> [   19.096447]  #2:  (&sc->mutex){+.+...}, at: [<f836b8b0>] ath9k_config+0x30/0x1d0 [ath9k]
-> [   19.096639]
->                the shortest dependencies between 2nd lock and 1st lock:
-> [   19.096813]  -> (&(&common->cc_lock)->rlock){+.-...} ops: 38 {
-> [   19.096816]     HARDIRQ-ON-W at:
-> [   19.096816]                       __lock_acquire+0x57e/0x1260
-> [   19.096816]                       lock_acquire+0xb1/0x1c0
-> [   19.096816]                       _raw_spin_lock_bh+0x3f/0x50
-> [   19.096816]                       ath_chanctx_set_channel+0xb6/0x2c0 [ath9k]
-> [   19.096816]                       ath9k_config+0xa8/0x1d0 [ath9k]
-> [   19.096816]                       ieee80211_hw_config+0xa8/0x5f0 [mac80211]
-> [   19.096816]                       ieee80211_do_open+0x67a/0x920 [mac80211]
-> [   19.096816]                       ieee80211_open+0x41/0x50 [mac80211]
-> [   19.096816]                       __dev_open+0xab/0x140
-> [   19.096816]                       __dev_change_flags+0x89/0x150
-> [   19.096816]                       dev_change_flags+0x28/0x60
-> [   19.096816]                       do_setlink+0x290/0x890
-> [   19.096816]                       rtnl_newlink+0x7cf/0x8e0
-> [   19.096816]                       rtnetlink_rcv_msg+0xbf/0x1f0
-> [   19.096816]                       netlink_rcv_skb+0xb9/0xe0
-> [   19.096816]                       rtnetlink_rcv+0x1e/0x30
-> [   19.096816]                       netlink_unicast+0x13a/0x2c0
-> [   19.096816]                       netlink_sendmsg+0x290/0x380
-> [   19.096816]                       ___sys_sendmsg+0x1e2/0x280
-> [   19.096816]                       __sys_sendmsg+0x3f/0x80
-> [   19.096816]                       SyS_socketcall+0x58c/0x6b0
-> [   19.096816]                       do_fast_syscall_32+0x96/0x1d0
-> [   19.096816]                       entry_SYSENTER_32+0x4c/0x7b
-> [   19.096816]     IN-SOFTIRQ-W at:
-> [   19.096816]                       __lock_acquire+0x55a/0x1260
-> [   19.096816]                       lock_acquire+0xb1/0x1c0
-> [   19.096816]                       _raw_spin_lock+0x3c/0x50
-> [   19.096816]                       ath_ps_full_sleep+0x24/0x70 [ath9k]
-> [   19.096816]                       call_timer_fn+0xa4/0x300
-> [   19.096816]                       run_timer_softirq+0x1b1/0x560
-> [   19.096816]                       __do_softirq+0xb0/0x430
-> [   19.096816]                       do_softirq_own_stack+0x33/0x40
-> [   19.096816]                       irq_exit+0xad/0xc0
-> [   19.096816]                       smp_apic_timer_interrupt+0x31/0x40
-> [   19.096816]                       apic_timer_interrupt+0x37/0x3c
-> [   19.096816]                       wp_page_copy+0xb8/0x580
-> [   19.096816]                       do_wp_page+0x64/0x420
-> [   19.096816]                       handle_mm_fault+0x430/0x990
-> [   19.096816]                       __do_page_fault+0x18b/0x430
-> [   19.096816]                       do_page_fault+0xb/0x10
-> [   19.096816]                       common_exception+0x62/0x6a
-> [   19.096816]     INITIAL USE at:
-> [   19.096816]                      __lock_acquire+0x204/0x1260
-> [   19.096816]                      lock_acquire+0xb1/0x1c0
-> [   19.096816]                      _raw_spin_lock_bh+0x3f/0x50
-> [   19.096816]                      ath_chanctx_set_channel+0xb6/0x2c0 [ath9k]
-> [   19.096816]                      ath9k_config+0xa8/0x1d0 [ath9k]
-> [   19.096816]                      ieee80211_hw_config+0xa8/0x5f0 [mac80211]
-> [   19.096816]                      ieee80211_do_open+0x67a/0x920 [mac80211]
-> [   19.096816]                      ieee80211_open+0x41/0x50 [mac80211]
-> [   19.096816]                      __dev_open+0xab/0x140
-> [   19.096816]                      __dev_change_flags+0x89/0x150
-> [   19.096816]                      dev_change_flags+0x28/0x60
-> [   19.096816]                      do_setlink+0x290/0x890
-> [   19.096816]                      rtnl_newlink+0x7cf/0x8e0
-> [   19.096816]                      rtnetlink_rcv_msg+0xbf/0x1f0
-> [   19.096816]                      netlink_rcv_skb+0xb9/0xe0
-> [   19.096816]                      rtnetlink_rcv+0x1e/0x30
-> [   19.096816]                      netlink_unicast+0x13a/0x2c0
-> [   19.096816]                      netlink_sendmsg+0x290/0x380
-> [   19.096816]                      ___sys_sendmsg+0x1e2/0x280
-> [   19.096816]                      __sys_sendmsg+0x3f/0x80
-> [   19.096816]                      SyS_socketcall+0x58c/0x6b0
-> [   19.096816]                      do_fast_syscall_32+0x96/0x1d0
-> [   19.096816]                      entry_SYSENTER_32+0x4c/0x7b
-> [   19.096816]   }
-> [   19.096816]   ... key      at: [<f837b694>] __key.61991+0x0/0xffffc96c [ath9k]
-> [   19.096816]   ... acquired at:
-> [   19.096816]    lock_acquire+0xb1/0x1c0
-> [   19.096816]    _raw_spin_lock+0x3c/0x50
-> [   19.096816]    ath9k_ps_wakeup+0x85/0xe0 [ath9k]
-> [   19.096816]    ath9k_bss_info_changed+0x2a/0x1b0 [ath9k]
-> [   19.096816]    ieee80211_bss_info_change_notify+0xf3/0x360 [mac80211]
-> [   19.096816]    ieee80211_recalc_txpower+0x33/0x40 [mac80211]
-> [   19.096816]    ieee80211_set_tx_power+0x45/0x1d0 [mac80211]
-> [   19.096816]    cfg80211_wext_siwtxpower+0xd3/0x350 [cfg80211]
-> [   19.096816]    ioctl_standard_call+0x4e/0x400
-> [   19.096816]    wext_handle_ioctl+0xf4/0x190
-> [   19.096816]    dev_ioctl+0xb7/0x630
-> [   19.096816]    sock_ioctl+0x13e/0x2d0
-> [   19.096816]    do_vfs_ioctl+0x84/0x750
-> [   19.096816]    SyS_ioctl+0x34/0x60
-> [   19.096816]    do_fast_syscall_32+0x96/0x1d0
-> [   19.096816]    entry_SYSENTER_32+0x4c/0x7b
-> 
-> [   19.096816] -> (&(&sc->sc_pm_lock)->rlock){-.-...} ops: 597 {
-> [   19.096816]    IN-HARDIRQ-W at:
-> [   19.096816]                     __lock_acquire+0x6ae/0x1260
-> [   19.096816]                     lock_acquire+0xb1/0x1c0
-> [   19.096816]                     _raw_spin_lock_irqsave+0x45/0x60
-> [   19.096816]                     ath_isr+0x15e/0x200 [ath9k]
-> [   19.096816]                     __handle_irq_event_percpu+0x44/0x340
-> [   19.096816]                     handle_irq_event_percpu+0x1d/0x50
-> [   19.096816]                     handle_irq_event+0x32/0x60
-> [   19.096816]                     handle_level_irq+0x81/0x100
-> [   19.096816]                     handle_irq+0x9c/0xd0
-> [   19.096816]                     do_IRQ+0x5c/0x120
-> [   19.096816]                     common_interrupt+0x36/0x3c
-> [   19.096816]                     _raw_spin_unlock_irqrestore+0x57/0x70
-> [   19.096816]                     ath9k_config+0x16a/0x1d0 [ath9k]
-> [   19.096816]                     ieee80211_hw_config+0xa8/0x5f0 [mac80211]
-> [   19.096816]                     ieee80211_dynamic_ps_enable_work+0x1c3/0x680 [mac80211]
-> [   19.096816]                     process_one_work+0x1d1/0x580
-> [   19.096816]                     worker_thread+0x31/0x380
-> [   19.096816]                     kthread+0xd9/0x110
-> [   19.096816]                     ret_from_fork+0x19/0x24
-> [   19.096816]    IN-SOFTIRQ-W at:
-> [   19.096816]                     __lock_acquire+0x55a/0x1260
-> [   19.096816]                     lock_acquire+0xb1/0x1c0
-> [   19.096816]                     _raw_spin_lock_irqsave+0x45/0x60
-> [   19.096816]                     ath9k_ps_wakeup+0x24/0xe0 [ath9k]
-> [   19.096816]                     ath9k_tasklet+0x42/0x260 [ath9k]
-> [   19.096816]                     tasklet_action+0x196/0x1e0
-> [   19.096816]                     __do_softirq+0xb0/0x430
-> [   19.096816]                     do_softirq_own_stack+0x33/0x40
-> [   19.096816]                     irq_exit+0xad/0xc0
-> [   19.096816]                     do_IRQ+0x65/0x120
-> [   19.096816]                     common_interrupt+0x36/0x3c
-> [   19.096816]                     get_page_from_freelist+0x20a/0x970
-> [   19.096816]                     __alloc_pages_nodemask+0xca/0xed0
-> [   19.096816]                     __get_free_pages+0x14/0x30
-> [   19.096816]                     pgd_alloc+0x1d/0x160
-> [   19.096816]                     mm_init.isra.47+0x13a/0x1b0
-> [   19.096816]                     copy_process.part.54+0xb55/0x1700
-> [   19.096816]                     _do_fork+0xd4/0x6a0
-> [   19.096816]                     SyS_clone+0x27/0x30
-> [   19.096816]                     do_fast_syscall_32+0x96/0x1d0
-> [   19.096816]                     entry_SYSENTER_32+0x4c/0x7b
-> [   19.096816]    INITIAL USE at:
-> [   19.096816]                    __lock_acquire+0x204/0x1260
-> [   19.096816]                    lock_acquire+0xb1/0x1c0
-> [   19.096816]                    _raw_spin_lock_irqsave+0x45/0x60
-> [   19.096816]                    ath9k_ps_wakeup+0x24/0xe0 [ath9k]
-> [   19.096816]                    ath9k_start+0x29/0x1f0 [ath9k]
-> [   19.096816]                    drv_start+0x71/0x270 [mac80211]
-> [   19.096816]                    ieee80211_do_open+0x31f/0x920 [mac80211]
-> [   19.096816]                    ieee80211_open+0x41/0x50 [mac80211]
-> [   19.096816]                    __dev_open+0xab/0x140
-> [   19.096816]                    __dev_change_flags+0x89/0x150
-> [   19.096816]                    dev_change_flags+0x28/0x60
-> [   19.096816]                    do_setlink+0x290/0x890
-> [   19.096816]                    rtnl_newlink+0x7cf/0x8e0
-> [   19.096816]                    rtnetlink_rcv_msg+0xbf/0x1f0
-> [   19.096816]                    netlink_rcv_skb+0xb9/0xe0
-> [   19.096816]                    rtnetlink_rcv+0x1e/0x30
-> [   19.096816]                    netlink_unicast+0x13a/0x2c0
-> [   19.096816]                    netlink_sendmsg+0x290/0x380
-> [   19.096816]                    ___sys_sendmsg+0x1e2/0x280
-> [   19.096816]                    __sys_sendmsg+0x3f/0x80
-> [   19.096816]                    SyS_socketcall+0x58c/0x6b0
-> [   19.096816]                    do_fast_syscall_32+0x96/0x1d0
-> [   19.096816]                    entry_SYSENTER_32+0x4c/0x7b
-> [   19.096816]  }
-> [   19.096816]  ... key      at: [<f837b67c>] __key.61994+0x0/0xffffc984 [ath9k]
-> [   19.096816]  ... acquired at:
-> [   19.096816]    check_usage_forwards+0x118/0x120
-> [   19.096816]    mark_lock+0x2e4/0x590
-> [   19.096816]    __lock_acquire+0x6ae/0x1260
-> [   19.096816]    lock_acquire+0xb1/0x1c0
-> [   19.096816]    _raw_spin_lock_irqsave+0x45/0x60
-> [   19.096816]    ath_isr+0x15e/0x200 [ath9k]
-> [   19.096816]    __handle_irq_event_percpu+0x44/0x340
-> [   19.096816]    handle_irq_event_percpu+0x1d/0x50
-> [   19.096816]    handle_irq_event+0x32/0x60
-> [   19.096816]    handle_level_irq+0x81/0x100
-> [   19.096816]    handle_irq+0x9c/0xd0
-> [   19.096816]    do_IRQ+0x5c/0x120
-> [   19.096816]    common_interrupt+0x36/0x3c
-> [   19.096816]    _raw_spin_unlock_irqrestore+0x57/0x70
-> [   19.096816]    ath9k_config+0x16a/0x1d0 [ath9k]
-> [   19.096816]    ieee80211_hw_config+0xa8/0x5f0 [mac80211]
-> [   19.096816]    ieee80211_dynamic_ps_enable_work+0x1c3/0x680 [mac80211]
-> [   19.096816]    process_one_work+0x1d1/0x580
-> [   19.096816]    worker_thread+0x31/0x380
-> [   19.096816]    kthread+0xd9/0x110
-> [   19.096816]    ret_from_fork+0x19/0x24
-> 
-> [   19.096816]
->                stack backtrace:
-> [   19.096816] CPU: 0 PID: 5 Comm: kworker/u2:0 Not tainted 4.13.0-mgm-ovl+ #51
-> [   19.096816] Hardware name: FUJITSU SIEMENS LIFEBOOK S6120/FJNB16C, BIOS Version 1.26  05/10/2004
-> [   19.096816] Workqueue: phy0 ieee80211_dynamic_ps_enable_work [mac80211]
-> [   19.096816] Call Trace:
-> [   19.096816]  <IRQ>
-> [   19.096816]  dump_stack+0x16/0x19
-> [   19.096816]  print_irq_inversion_bug.part.37+0x16c/0x179
-> [   19.096816]  check_usage_forwards+0x118/0x120
-> [   19.096816]  ? ret_from_fork+0x19/0x24
-> [   19.096816]  ? print_shortest_lock_dependencies+0x1a0/0x1a0
-> [   19.096816]  mark_lock+0x2e4/0x590
-> [   19.096816]  ? print_shortest_lock_dependencies+0x1a0/0x1a0
-> [   19.096816]  __lock_acquire+0x6ae/0x1260
-> [   19.096816]  lock_acquire+0xb1/0x1c0
-> [   19.096816]  ? ath_isr+0x15e/0x200 [ath9k]
-> [   19.096816]  _raw_spin_lock_irqsave+0x45/0x60
-> [   19.096816]  ? ath_isr+0x15e/0x200 [ath9k]
-> [   19.096816]  ath_isr+0x15e/0x200 [ath9k]
-> [   19.096816]  __handle_irq_event_percpu+0x44/0x340
-> [   19.096816]  handle_irq_event_percpu+0x1d/0x50
-> [   19.096816]  handle_irq_event+0x32/0x60
-> [   19.096816]  ? handle_nested_irq+0x100/0x100
-> [   19.096816]  handle_level_irq+0x81/0x100
-> [   19.096816]  handle_irq+0x9c/0xd0
-> [   19.096816]  </IRQ>
-> [   19.096816]  do_IRQ+0x5c/0x120
-> [   19.096816]  common_interrupt+0x36/0x3c
-> [   19.096816] EIP: _raw_spin_unlock_irqrestore+0x57/0x70
-> [   19.096816] EFLAGS: 00000286 CPU: 0
-> [   19.096816] EAX: f60a3600 EBX: 00000286 ECX: 00000006 EDX: 00000001
-> [   19.096816] ESI: f46c9e68 EDI: f46c8620 EBP: f60b5e8c ESP: f60b5e84
-> [   19.096816]  DS: 007b ES: 007b FS: 0000 GS: 0000 SS: 0068
-> [   19.096816]  ath9k_config+0x16a/0x1d0 [ath9k]
-> [   19.096816]  ieee80211_hw_config+0xa8/0x5f0 [mac80211]
-> [   19.096816]  ? ieee80211_hw_config+0x1db/0x5f0 [mac80211]
-> [   19.096816]  ieee80211_dynamic_ps_enable_work+0x1c3/0x680 [mac80211]
-> [   19.096816]  ? process_one_work+0x127/0x580
-> [   19.096816]  ? process_one_work+0x127/0x580
-> [   19.096816]  process_one_work+0x1d1/0x580
-> [   19.096816]  ? process_one_work+0x127/0x580
-> [   19.096816]  worker_thread+0x31/0x380
-> [   19.096816]  kthread+0xd9/0x110
-> [   19.096816]  ? process_one_work+0x580/0x580
-> [   19.096816]  ? kthread_create_on_node+0x30/0x30
-> [   19.096816]  ret_from_fork+0x19/0x24
-> 
-> Cc: QCA ath9k Development <ath9k-devel@qca.qualcomm.com>
-> Cc: Kalle Valo <kvalo@codeaurora.org>
-> Cc: netdev@vger.kernel.org
-> Signed-off-by: Ville Syrjälä <ville.syrjala@linux.intel.com>
-> Signed-off-by: Kalle Valo <kvalo@qca.qualcomm.com>
+> I was not asking about locking, which is obvious, I was asking about the
+> behaviour. Like for example:
+> If I use tc to configure some mapping, later on I run lldptool and change
+> the mapping. Does the tc dump show the updated values or the original
+> ones?
 
-Patch applied to ath-next branch of ath.git, thanks.
+If it is that case, tc dump show the updated values.
+Normally, we use tc qdisc to configure the netdev to use mqprio, and
+then use the lldptool the tc_prio mapping, tc schedule mode, tc bandwidth
+and pfc option.
 
-ba24d63dd374 ath9k: Avoid a potential deadlock
+if lldptool change the tc num and tc_prio mapping, it will tell the tc
+system by the following function which is called in client_ops->setup_tc:
+netdev_set_tc_queue
+netdev_set_prio_tc_map
 
--- 
-https://patchwork.kernel.org/patch/9957575/
+So lldptool and tc qdisc can work together.
 
-https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
+
+
+> 
+>>
+>> The locking is in rtnetlink_rcv_msg:
+>>
+>> 	rtnl_lock();
+>> 	handlers = rtnl_dereference(rtnl_msg_handlers[family]);
+>> 	if (handlers) {
+>> 		doit = READ_ONCE(handlers[type].doit);
+>> 		if (doit)
+>> 			err = doit(skb, nlh, extack);
+>> 	}
+>> 	rtnl_unlock();
+>>
+>> Thanks.
+>>
+>>>
+>>>
+>>>>
+>>>>>
+>>>>>
+>>>>>
+>>>>>> I hope I did not misunderstand your question, thanks
+>>>>>> for your time reviewing.
+>>>>>
+>>>>> .
+>>>>>
+>>>>
+>>>
+>>> .
+>>>
+>>
+> 
+> .
+> 
