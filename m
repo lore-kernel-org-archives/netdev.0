@@ -1,95 +1,125 @@
-From: Siva Reddy Kallam <siva.kallam@broadcom.com>
-Subject: Re: tg3 pxe weirdness
-Date: Mon, 25 Sep 2017 15:11:04 +0530
-Message-ID: <CAMet4B6mZ8SyCT7W2j4OBEUDiy3ZupYKWXBFti0nXoxm51_6kg@mail.gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next v2 06/12] net: mroute: Check if rule is a
+ default rule
+Date: Mon, 25 Sep 2017 11:45:08 +0200
+Message-ID: <20170925094508.GC1899@nanopsycho>
+References: <20170924172212.10096-1-jiri@resnulli.us>
+ <20170924172212.10096-7-jiri@resnulli.us>
+ <93dcea9d-94eb-39cf-4102-e5c59fb2dfa5@huawei.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="001a114749a87e0e44055a005b0e"
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: Berend De Schouwer <berend.de.schouwer@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, yotamg@mellanox.com,
+        idosch@mellanox.com, mlxsw@mellanox.com,
+        nikolay@cumulusnetworks.com, andrew@lunn.ch
+To: Yunsheng Lin <linyunsheng@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f169.google.com ([209.85.220.169]:45471 "EHLO
-        mail-qk0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934236AbdIYJlF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2017 05:41:05 -0400
-Received: by mail-qk0-f169.google.com with SMTP id r141so6052964qke.2
-        for <netdev@vger.kernel.org>; Mon, 25 Sep 2017 02:41:05 -0700 (PDT)
+Received: from mail-wr0-f193.google.com ([209.85.128.193]:38578 "EHLO
+        mail-wr0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934239AbdIYJpK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2017 05:45:10 -0400
+Received: by mail-wr0-f193.google.com with SMTP id p37so1632869wrb.5
+        for <netdev@vger.kernel.org>; Mon, 25 Sep 2017 02:45:10 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <93dcea9d-94eb-39cf-4102-e5c59fb2dfa5@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---001a114749a87e0e44055a005b0e
-Content-Type: text/plain; charset="UTF-8"
+Mon, Sep 25, 2017 at 03:28:21AM CEST, linyunsheng@huawei.com wrote:
+>Hi, Jiri
+>
+>On 2017/9/25 1:22, Jiri Pirko wrote:
+>> From: Yotam Gigi <yotamg@mellanox.com>
+>> 
+>> When the ipmr starts, it adds one default FIB rule that matches all packets
+>> and sends them to the DEFAULT (multicast) FIB table. A more complex rule
+>> can be added by user to specify that for a specific interface, a packet
+>> should be look up at either an arbitrary table or according to the l3mdev
+>> of the interface.
+>> 
+>> For drivers willing to offload the ipmr logic into a hardware but don't
+>> want to offload all the FIB rules functionality, provide a function that
+>> can indicate whether the FIB rule is the default multicast rule, thus only
+>> one routing table is needed.
+>> 
+>> This way, a driver can register to the FIB notification chain, get
+>> notifications about FIB rules added and trigger some kind of an internal
+>> abort mechanism when a non default rule is added by the user.
+>> 
+>> Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
+>> Reviewed-by: Ido Schimmel <idosch@mellanox.com>
+>> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+>> ---
+>>  include/linux/mroute.h |  7 +++++++
+>>  net/ipv4/ipmr.c        | 10 ++++++++++
+>>  2 files changed, 17 insertions(+)
+>> 
+>> diff --git a/include/linux/mroute.h b/include/linux/mroute.h
+>> index 5566580..b072a84 100644
+>> --- a/include/linux/mroute.h
+>> +++ b/include/linux/mroute.h
+>> @@ -5,6 +5,7 @@
+>>  #include <linux/pim.h>
+>>  #include <linux/rhashtable.h>
+>>  #include <net/sock.h>
+>> +#include <net/fib_rules.h>
+>>  #include <net/fib_notifier.h>
+>>  #include <uapi/linux/mroute.h>
+>>  
+>> @@ -19,6 +20,7 @@ int ip_mroute_getsockopt(struct sock *, int, char __user *, int __user *);
+>>  int ipmr_ioctl(struct sock *sk, int cmd, void __user *arg);
+>>  int ipmr_compat_ioctl(struct sock *sk, unsigned int cmd, void __user *arg);
+>>  int ip_mr_init(void);
+>> +bool ipmr_rule_default(const struct fib_rule *rule);
+>>  #else
+>>  static inline int ip_mroute_setsockopt(struct sock *sock, int optname,
+>>  				       char __user *optval, unsigned int optlen)
+>> @@ -46,6 +48,11 @@ static inline int ip_mroute_opt(int opt)
+>>  {
+>>  	return 0;
+>>  }
+>> +
+>> +static inline bool ipmr_rule_default(const struct fib_rule *rule)
+>> +{
+>> +	return true;
+>> +}
+>>  #endif
+>>  
+>>  struct vif_device {
+>> diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+>> index 2a795d2..a714f55 100644
+>> --- a/net/ipv4/ipmr.c
+>> +++ b/net/ipv4/ipmr.c
+>> @@ -320,6 +320,16 @@ static unsigned int ipmr_rules_seq_read(struct net *net)
+>>  }
+>>  #endif
+>>  
+>> +bool ipmr_rule_default(const struct fib_rule *rule)
+>> +{
+>> +#if IS_ENABLED(CONFIG_FIB_RULES)
+>> +	return fib_rule_matchall(rule) && rule->table == RT_TABLE_DEFAULT;
+>> +#else
+>> +	return true;
+>> +#endif
+>
+>In patch 02, You have the following, can you do the same for the above?
+>+#ifdef CONFIG_IP_MROUTE
+>+void ipmr_cache_free(struct mfc_cache *mfc_cache);
+>+#else
+>+static inline void ipmr_cache_free(struct mfc_cache *mfc_cache)
+>+{
+>+}
+>+#endif
 
-On Fri, Sep 22, 2017 at 9:04 PM, Berend De Schouwer
-<berend.de.schouwer@gmail.com> wrote:
-> On Fri, 2017-09-22 at 11:51 +0530, Siva Reddy Kallam wrote:
->>
->>
->> Can you please share below details?
->> 1) Model and Manufacturer of the system
->> 2) Linux distro/kernel used?
->
-> 4.13.3 gets a little further, but after some more data is transferred
-> the tg3 driver still crashes.  This is unfortunately before I've got a
-> writeable filesystem.
->
-> The last line is:
-> tg3 0000:01:00.0: tg3_stop_block timed out, ofs=4c00 enable_bit=2
->
-> I've got some ideas to get the full dmesg.
->
-> As with the other kernels it works OK on 1Gbps, but not slower
-> switches.
-I am suspecting with link aware mode, the clock speed could be slow
-and boot code does not
-complete within the expected time with lower link speeds. So,
-Providing a patch to override clock.
-Can you please try with attached debug patch and provide us the
-feedback with 100M link?
-If it solves this issue, we will work on proper changes.
+I don't believe this is necessary. The solution you described is often
+used in headers. But here, I'm ok with the current code.
 
---001a114749a87e0e44055a005b0e
-Content-Type: application/octet-stream;
-	name="0001-tg3-Add-clock-override-support-for-5762.patch"
-Content-Disposition: attachment;
-	filename="0001-tg3-Add-clock-override-support-for-5762.patch"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_j7zzbidk0
 
-RnJvbSA3NzBiYzM0NmZkNWQ0MzgwYzM1NzJiOGUzMTNjM2QyNzE0MjI3MDY5IE1vbiBTZXAgMTcg
-MDA6MDA6MDAgMjAwMQpGcm9tOiBTaXZhIFJlZGR5IEthbGxhbSA8c2l2YS5rYWxsYW1AYnJvYWRj
-b20uY29tPgpEYXRlOiBNb24sIDI1IFNlcCAyMDE3IDEyOjM3OjA1ICswNTMwClN1YmplY3Q6IFtQ
-QVRDSF0gdGczOiBBZGQgY2xvY2sgb3ZlcnJpZGUgc3VwcG9ydCBmb3IgNTc2MgoKVGhpcyBwYXRj
-aCBhZGQgdGhlIG92ZXJyaWRlIHN1cHBvcnQgZm9yIDU3NjIKClNpZ25lZC1vZmYtYnk6IFNpdmEg
-UmVkZHkgS2FsbGFtIDxzaXZhLmthbGxhbUBicm9hZGNvbS5jb20+Ci0tLQogZHJpdmVycy9uZXQv
-ZXRoZXJuZXQvYnJvYWRjb20vdGczLmMgfCAxOSArKysrKysrKysrKystLS0tLS0tCiAxIGZpbGUg
-Y2hhbmdlZCwgMTIgaW5zZXJ0aW9ucygrKSwgNyBkZWxldGlvbnMoLSkKCmRpZmYgLS1naXQgYS9k
-cml2ZXJzL25ldC9ldGhlcm5ldC9icm9hZGNvbS90ZzMuYyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0
-L2Jyb2FkY29tL3RnMy5jCmluZGV4IGQ4ZDVmMjAuLmNkZTYyNDQgMTAwNjQ0Ci0tLSBhL2RyaXZl
-cnMvbmV0L2V0aGVybmV0L2Jyb2FkY29tL3RnMy5jCisrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0
-L2Jyb2FkY29tL3RnMy5jCkBAIC05MDA5LDYgKzkwMDksMTEgQEAgc3RhdGljIHZvaWQgdGczX292
-ZXJyaWRlX2NsayhzdHJ1Y3QgdGczICp0cCkKIAljYXNlIEFTSUNfUkVWXzU3MjA6CiAJCXR3MzIo
-VEczX0NQTVVfQ0xDS19PUklERSwgQ1BNVV9DTENLX09SSURFX01BQ19PUklERV9FTik7CiAJCWJy
-ZWFrOworCWNhc2UgQVNJQ19SRVZfNTc2MjoKKwkJdmFsID0gdHIzMihURzNfQ1BNVV9DTENLX09S
-SURFX0VOQUJMRSk7CisJCXR3MzIoVEczX0NQTVVfQ0xDS19PUklERV9FTkFCTEUsIHZhbCB8CisJ
-CSAgICAgVEczX0NQTVVfTUFDX09SSURFX0VOQUJMRSk7CisJCWJyZWFrOwogCiAJZGVmYXVsdDoK
-IAkJcmV0dXJuOwpAQCAtOTEzMSwxMyArOTEzNiw2IEBAIHN0YXRpYyBpbnQgdGczX2NoaXBfcmVz
-ZXQoc3RydWN0IHRnMyAqdHApCiAJCSAgICAgdHIzMihHUkNfVkNQVV9FWFRfQ1RSTCkgJiB+R1JD
-X1ZDUFVfRVhUX0NUUkxfSEFMVF9DUFUpOwogCX0KIAotCS8qIFNldCB0aGUgY2xvY2sgdG8gdGhl
-IGhpZ2hlc3QgZnJlcXVlbmN5IHRvIGF2b2lkIHRpbWVvdXRzLiBXaXRoIGxpbmsKLQkgKiBhd2Fy
-ZSBtb2RlLCB0aGUgY2xvY2sgc3BlZWQgY291bGQgYmUgc2xvdyBhbmQgYm9vdGNvZGUgZG9lcyBu
-b3QKLQkgKiBjb21wbGV0ZSB3aXRoaW4gdGhlIGV4cGVjdGVkIHRpbWUuIE92ZXJyaWRlIHRoZSBj
-bG9jayB0byBhbGxvdyB0aGUKLQkgKiBib290Y29kZSB0byBmaW5pc2ggc29vbmVyIGFuZCB0aGVu
-IHJlc3RvcmUgaXQuCi0JICovCi0JdGczX292ZXJyaWRlX2Nsayh0cCk7Ci0KIAkvKiBNYW5hZ2Ug
-Z3BoeSBwb3dlciBmb3IgYWxsIENQTVUgYWJzZW50IFBDSWUgZGV2aWNlcy4gKi8KIAlpZiAodGcz
-X2ZsYWcodHAsIDU3MDVfUExVUykgJiYgIXRnM19mbGFnKHRwLCBDUE1VX1BSRVNFTlQpKQogCQl2
-YWwgfD0gR1JDX01JU0NfQ0ZHX0tFRVBfR1BIWV9QT1dFUjsKQEAgLTkyMzUsNiArOTIzMywxMyBA
-QCBzdGF0aWMgaW50IHRnM19jaGlwX3Jlc2V0KHN0cnVjdCB0ZzMgKnRwKQogCWlmIChlcnIpCiAJ
-CXJldHVybiBlcnI7CiAKKwkvKiBTZXQgdGhlIGNsb2NrIHRvIHRoZSBoaWdoZXN0IGZyZXF1ZW5j
-eSB0byBhdm9pZCB0aW1lb3V0cy4gV2l0aCBsaW5rCisJICogYXdhcmUgbW9kZSwgdGhlIGNsb2Nr
-IHNwZWVkIGNvdWxkIGJlIHNsb3cgYW5kIGJvb3Rjb2RlIGRvZXMgbm90CisJICogY29tcGxldGUg
-d2l0aGluIHRoZSBleHBlY3RlZCB0aW1lLiBPdmVycmlkZSB0aGUgY2xvY2sgdG8gYWxsb3cgdGhl
-CisJICogYm9vdGNvZGUgdG8gZmluaXNoIHNvb25lciBhbmQgdGhlbiByZXN0b3JlIGl0LgorCSAq
-LworCXRnM19vdmVycmlkZV9jbGsodHApOworCiAJdHczMihHUkNfTU9ERSwgdHAtPmdyY19tb2Rl
-KTsKIAogCWlmICh0ZzNfY2hpcF9yZXZfaWQodHApID09IENISVBSRVZfSURfNTcwNV9BMCkgewot
-LSAKMS44LjMuMQoK
---001a114749a87e0e44055a005b0e--
+>
+>> +}
+>> +EXPORT_SYMBOL(ipmr_rule_default);
+>> +
+>>  static inline int ipmr_hash_cmp(struct rhashtable_compare_arg *arg,
+>>  				const void *ptr)
+>>  {
+>> 
+>
