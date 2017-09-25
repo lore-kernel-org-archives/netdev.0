@@ -1,147 +1,115 @@
 From: Tom Herbert <tom@quantonium.net>
-Subject: [PATCH v3 net-next 03/12] gtp: Call common functions to get tunnel routes and add dst_cache
-Date: Sun, 24 Sep 2017 20:29:32 -0700
-Message-ID: <20170925032941.14586-4-tom@quantonium.net>
+Subject: [PATCH v3 net-next 04/12] iptunnel: Generalize tunnel update pmtu
+Date: Sun, 24 Sep 2017 20:29:33 -0700
+Message-ID: <20170925032941.14586-5-tom@quantonium.net>
 References: <20170925032941.14586-1-tom@quantonium.net>
 Cc: pablo@netfilter.org, laforge@gnumonks.org, aschultz@tpip.net,
         netdev@vger.kernel.org, rohit@quantonium.net,
         Tom Herbert <tom@quantonium.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f44.google.com ([74.125.83.44]:44472 "EHLO
-        mail-pg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932893AbdIYDaH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 24 Sep 2017 23:30:07 -0400
-Received: by mail-pg0-f44.google.com with SMTP id j16so3280452pga.1
-        for <netdev@vger.kernel.org>; Sun, 24 Sep 2017 20:30:06 -0700 (PDT)
+Received: from mail-pf0-f180.google.com ([209.85.192.180]:53657 "EHLO
+        mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932893AbdIYDaK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 24 Sep 2017 23:30:10 -0400
+Received: by mail-pf0-f180.google.com with SMTP id x78so3134972pff.10
+        for <netdev@vger.kernel.org>; Sun, 24 Sep 2017 20:30:10 -0700 (PDT)
 In-Reply-To: <20170925032941.14586-1-tom@quantonium.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Call ip_tunnel_get_route and dst_cache to pdp context which should
-improve performance by obviating the need to perform a route lookup
-on every packet.
+Add __iptunnel_update_pmtu exported function which does not take
+an iptunnel argument but instead includes the fields from the
+iptunnel structure as arguments which are needed in the function.
+
+iptunnel_update_pmtu was modified to call __iptunnel_update_pmtu.
 
 Signed-off-by: Tom Herbert <tom@quantonium.net>
 ---
- drivers/net/gtp.c | 62 +++++++++++++++++++++++++++++++------------------------
- 1 file changed, 35 insertions(+), 27 deletions(-)
+ include/net/ip_tunnels.h |  4 ++++
+ net/ipv4/ip_tunnel.c     | 30 ++++++++++++++++++++----------
+ 2 files changed, 24 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/gtp.c b/drivers/net/gtp.c
-index f38e32a7ec9c..6dabd605607c 100644
---- a/drivers/net/gtp.c
-+++ b/drivers/net/gtp.c
-@@ -63,6 +63,8 @@ struct pdp_ctx {
- 
- 	atomic_t		tx_seq;
- 	struct rcu_head		rcu_head;
-+
-+	struct dst_cache	dst_cache;
- };
- 
- /* One instance of the GTP device. */
-@@ -379,20 +381,6 @@ static void gtp_dev_uninit(struct net_device *dev)
- 	free_percpu(dev->tstats);
+diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
+index 9650efff33d7..880c9ea5b08c 100644
+--- a/include/net/ip_tunnels.h
++++ b/include/net/ip_tunnels.h
+@@ -318,6 +318,10 @@ static inline struct rtable *ip_tunnel_get_route(struct net_device *dev,
+ 				     dst_cache, info, use_cache);
  }
  
--static struct rtable *ip4_route_output_gtp(struct flowi4 *fl4,
--					   const struct sock *sk,
--					   __be32 daddr)
--{
--	memset(fl4, 0, sizeof(*fl4));
--	fl4->flowi4_oif		= sk->sk_bound_dev_if;
--	fl4->daddr		= daddr;
--	fl4->saddr		= inet_sk(sk)->inet_saddr;
--	fl4->flowi4_tos		= RT_CONN_FLAGS(sk);
--	fl4->flowi4_proto	= sk->sk_protocol;
--
--	return ip_route_output_key(sock_net(sk), fl4);
--}
--
- static inline void gtp0_push_header(struct sk_buff *skb, struct pdp_ctx *pctx)
++int __iptunnel_update_pmtu(struct net_device *dev, struct sk_buff *skb,
++			   struct dst_entry *dst, __be16 df,
++			   const struct iphdr *inner_iph, int hlen, u32 daddr);
++
+ struct ip_tunnel_encap_ops {
+ 	size_t (*encap_hlen)(struct ip_tunnel_encap *e);
+ 	int (*build_header)(struct sk_buff *skb, struct ip_tunnel_encap *e,
+diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
+index ea8f8bc0aaf9..31d6dc9f6859 100644
+--- a/net/ipv4/ip_tunnel.c
++++ b/net/ipv4/ip_tunnel.c
+@@ -506,17 +506,16 @@ int ip_tunnel_encap_setup(struct ip_tunnel *t,
+ }
+ EXPORT_SYMBOL_GPL(ip_tunnel_encap_setup);
+ 
+-static int tnl_update_pmtu(struct net_device *dev, struct sk_buff *skb,
+-			    struct rtable *rt, __be16 df,
+-			    const struct iphdr *inner_iph)
++int __iptunnel_update_pmtu(struct net_device *dev, struct sk_buff *skb,
++			   struct dst_entry *dst, __be16 df,
++			   const struct iphdr *inner_iph, int hlen, u32 daddr)
  {
- 	int payload_len = skb->len;
-@@ -479,6 +467,8 @@ static int gtp_build_skb_ip4(struct sk_buff *skb, struct net_device *dev,
- 	struct rtable *rt;
- 	struct flowi4 fl4;
- 	struct iphdr *iph;
-+	struct sock *sk;
-+	__be32 saddr;
- 	__be16 df;
+-	struct ip_tunnel *tunnel = netdev_priv(dev);
+-	int pkt_size = skb->len - tunnel->hlen - dev->hard_header_len;
++	int pkt_size = skb->len - hlen - dev->hard_header_len;
  	int mtu;
  
-@@ -498,19 +488,30 @@ static int gtp_build_skb_ip4(struct sk_buff *skb, struct net_device *dev,
- 	}
- 	netdev_dbg(dev, "found PDP context %p\n", pctx);
+ 	if (df)
+-		mtu = dst_mtu(&rt->dst) - dev->hard_header_len
+-					- sizeof(struct iphdr) - tunnel->hlen;
++		mtu = dst_mtu(dst) - dev->hard_header_len
++				   - sizeof(struct iphdr) - hlen;
+ 	else
+ 		mtu = skb_dst(skb) ? dst_mtu(skb_dst(skb)) : dev->mtu;
  
--	rt = ip4_route_output_gtp(&fl4, pctx->sk, pctx->peer_addr_ip4.s_addr);
--	if (IS_ERR(rt)) {
--		netdev_dbg(dev, "no route to SSGN %pI4\n",
--			   &pctx->peer_addr_ip4.s_addr);
--		dev->stats.tx_carrier_errors++;
--		goto err;
--	}
-+	sk = pctx->sk;
-+	saddr = inet_sk(sk)->inet_saddr;
+@@ -538,8 +537,7 @@ static int tnl_update_pmtu(struct net_device *dev, struct sk_buff *skb,
  
--	if (rt->dst.dev == dev) {
--		netdev_dbg(dev, "circular route to SSGN %pI4\n",
--			   &pctx->peer_addr_ip4.s_addr);
--		dev->stats.collisions++;
--		goto err_rt;
-+	/* Source address returned by route lookup is ignored since
-+	 * we get the address from a socket.
-+	 */
-+	rt = ip_tunnel_get_route(dev, skb, sk->sk_protocol,
-+				 sk->sk_bound_dev_if, RT_CONN_FLAGS(sk),
-+				 pctx->peer_addr_ip4.s_addr, &saddr,
-+				 pktinfo->gtph_port, pktinfo->gtph_port,
-+				 &pctx->dst_cache, NULL);
-+
-+	if (IS_ERR(rt)) {
-+		if (rt == ERR_PTR(-ELOOP)) {
-+			netdev_dbg(dev, "circular route to SSGN %pI4\n",
-+				   &pctx->peer_addr_ip4.s_addr);
-+			dev->stats.collisions++;
-+			goto err_rt;
-+		} else {
-+			netdev_dbg(dev, "no route to SSGN %pI4\n",
-+				   &pctx->peer_addr_ip4.s_addr);
-+			dev->stats.tx_carrier_errors++;
-+			goto err;
-+		}
- 	}
- 
- 	skb_dst_drop(skb);
-@@ -543,7 +544,7 @@ static int gtp_build_skb_ip4(struct sk_buff *skb, struct net_device *dev,
- 		goto err_rt;
- 	}
- 
--	gtp_set_pktinfo_ipv4(pktinfo, pctx->sk, iph, pctx, rt, &fl4, dev);
-+	gtp_set_pktinfo_ipv4(pktinfo, sk, iph, pctx, rt, &fl4, dev);
- 	gtp_push_header(skb, pktinfo);
- 
+ 		if (rt6 && mtu < dst_mtu(skb_dst(skb)) &&
+ 			   mtu >= IPV6_MIN_MTU) {
+-			if ((tunnel->parms.iph.daddr &&
+-			    !ipv4_is_multicast(tunnel->parms.iph.daddr)) ||
++			if ((daddr && !ipv4_is_multicast(daddr)) ||
+ 			    rt6->rt6i_dst.plen == 128) {
+ 				rt6->rt6i_flags |= RTF_MODIFIED;
+ 				dst_metric_set(skb_dst(skb), RTAX_MTU, mtu);
+@@ -555,6 +553,17 @@ static int tnl_update_pmtu(struct net_device *dev, struct sk_buff *skb,
+ #endif
  	return 0;
-@@ -917,6 +918,7 @@ static int ipv4_pdp_add(struct gtp_dev *gtp, struct sock *sk,
- 	struct pdp_ctx *pctx;
- 	bool found = false;
- 	__be32 ms_addr;
-+	int err;
- 
- 	ms_addr = nla_get_be32(info->attrs[GTPA_MS_ADDRESS]);
- 	hash_ms = ipv4_hashfn(ms_addr) % gtp->hash_size;
-@@ -951,6 +953,12 @@ static int ipv4_pdp_add(struct gtp_dev *gtp, struct sock *sk,
- 	if (pctx == NULL)
- 		return -ENOMEM;
- 
-+	err = dst_cache_init(&pctx->dst_cache, GFP_KERNEL);
-+	if (err) {
-+		kfree(pctx);
-+		return err;
-+	}
+ }
++EXPORT_SYMBOL(__iptunnel_update_pmtu);
 +
- 	sock_hold(sk);
- 	pctx->sk = sk;
- 	pctx->dev = gtp->dev;
++static int iptunnel_update_pmtu(struct net_device *dev, struct sk_buff *skb,
++				struct rtable *rt, __be16 df,
++				const struct iphdr *inner_iph)
++{
++	struct ip_tunnel *tunnel = netdev_priv(dev);
++
++	return __iptunnel_update_pmtu(dev, skb, &rt->dst, df, inner_iph,
++				      tunnel->hlen, tunnel->parms.iph.daddr);
++}
+ 
+ void ip_md_tunnel_xmit(struct sk_buff *skb, struct net_device *dev, u8 proto)
+ {
+@@ -739,7 +748,8 @@ void ip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev,
+ 		goto tx_error;
+ 	}
+ 
+-	if (tnl_update_pmtu(dev, skb, rt, tnl_params->frag_off, inner_iph)) {
++	if (iptunnel_update_pmtu(dev, skb, rt, tnl_params->frag_off,
++				 inner_iph)) {
+ 		ip_rt_put(rt);
+ 		goto tx_error;
+ 	}
 -- 
 2.11.0
