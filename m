@@ -1,104 +1,108 @@
 From: Tom Herbert <tom@quantonium.net>
-Subject: [PATCH v3 net-next 08/12] gtp: Call function to update path mtu
-Date: Sun, 24 Sep 2017 20:29:37 -0700
-Message-ID: <20170925032941.14586-9-tom@quantonium.net>
+Subject: [PATCH v3 net-next 06/12] gtp: Use goto for exceptions in gtp_udp_encap_recv funcs
+Date: Sun, 24 Sep 2017 20:29:35 -0700
+Message-ID: <20170925032941.14586-7-tom@quantonium.net>
 References: <20170925032941.14586-1-tom@quantonium.net>
 Cc: pablo@netfilter.org, laforge@gnumonks.org, aschultz@tpip.net,
         netdev@vger.kernel.org, rohit@quantonium.net,
         Tom Herbert <tom@quantonium.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f173.google.com ([209.85.192.173]:56614 "EHLO
-        mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933022AbdIYDaS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 24 Sep 2017 23:30:18 -0400
-Received: by mail-pf0-f173.google.com with SMTP id g65so3132230pfe.13
-        for <netdev@vger.kernel.org>; Sun, 24 Sep 2017 20:30:18 -0700 (PDT)
+Received: from mail-pf0-f182.google.com ([209.85.192.182]:52100 "EHLO
+        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932986AbdIYDaO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 24 Sep 2017 23:30:14 -0400
+Received: by mail-pf0-f182.google.com with SMTP id b70so3138736pfl.8
+        for <netdev@vger.kernel.org>; Sun, 24 Sep 2017 20:30:14 -0700 (PDT)
 In-Reply-To: <20170925032941.14586-1-tom@quantonium.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Replace mtu handling with call to __iptunnel_update_pmtu.
+Consolidate return logic to make it easier to extend.
 
 Signed-off-by: Tom Herbert <tom@quantonium.net>
 ---
- drivers/net/gtp.c | 36 ++++++------------------------------
- 1 file changed, 6 insertions(+), 30 deletions(-)
+ drivers/net/gtp.c | 26 +++++++++++++++++---------
+ 1 file changed, 17 insertions(+), 9 deletions(-)
 
 diff --git a/drivers/net/gtp.c b/drivers/net/gtp.c
-index a6e2e0a1f424..bbb08f8849d3 100644
+index f2aac5d01143..00e5ea5cb935 100644
 --- a/drivers/net/gtp.c
 +++ b/drivers/net/gtp.c
-@@ -53,6 +53,7 @@ struct pdp_ctx {
- 		} v1;
- 	} u;
- 	u8			gtp_version;
-+	u8			hlen;
- 	u16			af;
+@@ -234,23 +234,27 @@ static int gtp0_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb)
+ 	struct pdp_ctx *pctx;
  
- 	struct in_addr		ms_addr_ip4;
-@@ -467,8 +468,6 @@ static int gtp_build_skb_ip4(struct sk_buff *skb, struct net_device *dev,
- 	struct iphdr *iph;
- 	struct sock *sk;
- 	__be32 saddr;
--	__be16 df;
--	int mtu;
+ 	if (!pskb_may_pull(skb, hdrlen))
+-		return -1;
++		goto drop;
  
- 	/* Read the IP destination address and resolve the PDP context.
- 	 * Prepend PDP header with TEI/TID from PDP ctx.
-@@ -514,37 +513,12 @@ static int gtp_build_skb_ip4(struct sk_buff *skb, struct net_device *dev,
+ 	gtp0 = (struct gtp0_header *)(skb->data + sizeof(struct udphdr));
  
- 	skb_dst_drop(skb);
+ 	if ((gtp0->flags >> 5) != GTP_V0)
+-		return 1;
++		goto pass;
  
--	/* This is similar to tnl_update_pmtu(). */
--	df = iph->frag_off;
--	if (df) {
--		mtu = dst_mtu(&rt->dst) - dev->hard_header_len -
--			sizeof(struct iphdr) - sizeof(struct udphdr);
--		switch (pctx->gtp_version) {
--		case GTP_V0:
--			mtu -= sizeof(struct gtp0_header);
--			break;
--		case GTP_V1:
--			mtu -= sizeof(struct gtp1_header);
--			break;
--		}
--	} else {
--		mtu = dst_mtu(&rt->dst);
--	}
--
--	rt->dst.ops->update_pmtu(&rt->dst, NULL, skb, mtu);
--
--	if (!skb_is_gso(skb) && (iph->frag_off & htons(IP_DF)) &&
--	    mtu < ntohs(iph->tot_len)) {
--		netdev_dbg(dev, "packet too big, fragmentation needed\n");
--		memset(IPCB(skb), 0, sizeof(*IPCB(skb)));
--		icmp_send(skb, ICMP_DEST_UNREACH, ICMP_FRAG_NEEDED,
--			  htonl(mtu));
--		goto err_rt;
--	}
--
- 	gtp_set_pktinfo_ipv4(pktinfo, sk, iph, pctx, rt, &fl4, dev);
- 	gtp_push_header(skb, pktinfo);
+ 	if (gtp0->type != GTP_TPDU)
+-		return 1;
++		goto pass;
  
-+	__iptunnel_update_pmtu(dev, skb, &rt->dst, !!iph->frag_off, iph,
-+			       pctx->hlen, pctx->peer_addr_ip4.s_addr);
-+
- 	return 0;
- err_rt:
- 	ip_rt_put(rt);
-@@ -915,10 +889,12 @@ static void ipv4_pdp_fill(struct pdp_ctx *pctx, struct genl_info *info)
- 		 */
- 		pctx->u.v0.tid = nla_get_u64(info->attrs[GTPA_TID]);
- 		pctx->u.v0.flow = nla_get_u16(info->attrs[GTPA_FLOW]);
-+		pctx->hlen = sizeof(struct udphdr) + sizeof(struct gtp0_header);
- 		break;
- 	case GTP_V1:
- 		pctx->u.v1.i_tei = nla_get_u32(info->attrs[GTPA_I_TEI]);
- 		pctx->u.v1.o_tei = nla_get_u32(info->attrs[GTPA_O_TEI]);
-+		pctx->hlen = sizeof(struct udphdr) + sizeof(struct gtp1_header);
- 		break;
- 	default:
- 		break;
+ 	pctx = gtp0_pdp_find(gtp, be64_to_cpu(gtp0->tid));
+ 	if (!pctx) {
+ 		netdev_dbg(gtp->dev, "No PDP ctx to decap skb=%p\n", skb);
+-		return 1;
++		goto pass;
+ 	}
+ 
+ 	return gtp_rx(pctx, skb, hdrlen, gtp->role);
++drop:
++	return -1;
++pass:
++	return 1;
+ }
+ 
+ static int gtp1u_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb)
+@@ -261,15 +265,15 @@ static int gtp1u_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb)
+ 	struct pdp_ctx *pctx;
+ 
+ 	if (!pskb_may_pull(skb, hdrlen))
+-		return -1;
++		goto drop;
+ 
+ 	gtp1 = (struct gtp1_header *)(skb->data + sizeof(struct udphdr));
+ 
+ 	if ((gtp1->flags >> 5) != GTP_V1)
+-		return 1;
++		goto pass;
+ 
+ 	if (gtp1->type != GTP_TPDU)
+-		return 1;
++		goto pass;
+ 
+ 	/* From 29.060: "This field shall be present if and only if any one or
+ 	 * more of the S, PN and E flags are set.".
+@@ -282,17 +286,21 @@ static int gtp1u_udp_encap_recv(struct gtp_dev *gtp, struct sk_buff *skb)
+ 
+ 	/* Make sure the header is larger enough, including extensions. */
+ 	if (!pskb_may_pull(skb, hdrlen))
+-		return -1;
++		goto drop;
+ 
+ 	gtp1 = (struct gtp1_header *)(skb->data + sizeof(struct udphdr));
+ 
+ 	pctx = gtp1_pdp_find(gtp, ntohl(gtp1->tid));
+ 	if (!pctx) {
+ 		netdev_dbg(gtp->dev, "No PDP ctx to decap skb=%p\n", skb);
+-		return 1;
++		goto drop;
+ 	}
+ 
+ 	return gtp_rx(pctx, skb, hdrlen, gtp->role);
++drop:
++	return -1;
++pass:
++	return 1;
+ }
+ 
+ static void gtp_encap_destroy(struct sock *sk)
 -- 
 2.11.0
