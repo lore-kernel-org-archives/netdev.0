@@ -1,7 +1,7 @@
 From: Simon Horman <simon.horman@netronome.com>
-Subject: [PATCH net-next 4/7] nfp: offload flower vxlan endpoint MAC addresses
-Date: Mon, 25 Sep 2017 12:23:38 +0200
-Message-ID: <1506335021-32024-5-git-send-email-simon.horman@netronome.com>
+Subject: [PATCH net-next 5/7] nfp: offload vxlan IPv4 endpoints of flower rules
+Date: Mon, 25 Sep 2017 12:23:39 +0200
+Message-ID: <1506335021-32024-6-git-send-email-simon.horman@netronome.com>
 References: <1506335021-32024-1-git-send-email-simon.horman@netronome.com>
 Cc: netdev@vger.kernel.org, oss-drivers@netronome.com,
         John Hurley <john.hurley@netronome.com>,
@@ -9,597 +9,329 @@ Cc: netdev@vger.kernel.org, oss-drivers@netronome.com,
 To: David Miller <davem@davemloft.net>,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f53.google.com ([74.125.82.53]:46497 "EHLO
-        mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933358AbdIYKYF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2017 06:24:05 -0400
-Received: by mail-wm0-f53.google.com with SMTP id m72so17916029wmc.1
-        for <netdev@vger.kernel.org>; Mon, 25 Sep 2017 03:24:05 -0700 (PDT)
+Received: from mail-wr0-f180.google.com ([209.85.128.180]:48399 "EHLO
+        mail-wr0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934318AbdIYKYH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2017 06:24:07 -0400
+Received: by mail-wr0-f180.google.com with SMTP id 108so6901733wra.5
+        for <netdev@vger.kernel.org>; Mon, 25 Sep 2017 03:24:06 -0700 (PDT)
 In-Reply-To: <1506335021-32024-1-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: John Hurley <john.hurley@netronome.com>
 
-Generate a list of MAC addresses of netdevs that could be used as VXLAN
-tunnel end points. Give offloaded MACs an index for storage on the NFP in
-the ranges:
-0x100-0x1ff physical port representors
-0x200-0x2ff VF port representors
-0x300-0x3ff other offloads (e.g. vxlan netdevs, ovs bridges)
-
-Assign phys and vf indexes based on unique 8 bit values in the port num.
-Maintain list of other netdevs to ensure same netdev is not offloaded
-twice and each gets a unique ID without exhausting the entries. Because
-the IDs are unique but constant for a netdev, any changes are implemented
-by overwriting the index on NFP.
+Maintain a list of IPv4 addresses used as the tunnel destination IP match
+fields in currently active flower rules. Offload the entire list of
+NFP_FL_IPV4_ADDRS_MAX (even if some are unused) when new IPs are added or
+removed. The NFP should only be aware of tunnel end points that are
+currently used by rules on the device
 
 Signed-off-by: John Hurley <john.hurley@netronome.com>
+Reviewed-by: Simon Horman <simon.horman@netronome.com>
 Signed-off-by: Simon Horman <simon.horman@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/Makefile        |   3 +-
- drivers/net/ethernet/netronome/nfp/flower/cmsg.c   |   7 -
- drivers/net/ethernet/netronome/nfp/flower/cmsg.h   |   9 +
- drivers/net/ethernet/netronome/nfp/flower/main.c   |  13 +
- drivers/net/ethernet/netronome/nfp/flower/main.h   |  18 +
- drivers/net/ethernet/netronome/nfp/flower/match.c  |   7 +
- .../ethernet/netronome/nfp/flower/tunnel_conf.c    | 374 +++++++++++++++++++++
- 7 files changed, 423 insertions(+), 8 deletions(-)
- create mode 100644 drivers/net/ethernet/netronome/nfp/flower/tunnel_conf.c
+ drivers/net/ethernet/netronome/nfp/flower/cmsg.h   |   1 +
+ drivers/net/ethernet/netronome/nfp/flower/main.h   |   7 ++
+ drivers/net/ethernet/netronome/nfp/flower/match.c  |  14 ++-
+ .../net/ethernet/netronome/nfp/flower/offload.c    |   4 +
+ .../ethernet/netronome/nfp/flower/tunnel_conf.c    | 120 +++++++++++++++++++++
+ 5 files changed, 143 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/netronome/nfp/Makefile b/drivers/net/ethernet/netronome/nfp/Makefile
-index 96e579a15cbe..becaacf1554d 100644
---- a/drivers/net/ethernet/netronome/nfp/Makefile
-+++ b/drivers/net/ethernet/netronome/nfp/Makefile
-@@ -37,7 +37,8 @@ nfp-objs += \
- 	    flower/main.o \
- 	    flower/match.o \
- 	    flower/metadata.o \
--	    flower/offload.o
-+	    flower/offload.o \
-+	    flower/tunnel_conf.o
- endif
- 
- ifeq ($(CONFIG_BPF_SYSCALL),y)
-diff --git a/drivers/net/ethernet/netronome/nfp/flower/cmsg.c b/drivers/net/ethernet/netronome/nfp/flower/cmsg.c
-index c3ca05d10fe1..b756006dba6f 100644
---- a/drivers/net/ethernet/netronome/nfp/flower/cmsg.c
-+++ b/drivers/net/ethernet/netronome/nfp/flower/cmsg.c
-@@ -38,17 +38,10 @@
- #include <net/dst_metadata.h>
- 
- #include "main.h"
--#include "../nfpcore/nfp_cpp.h"
- #include "../nfp_net.h"
- #include "../nfp_net_repr.h"
- #include "./cmsg.h"
- 
--#define nfp_flower_cmsg_warn(app, fmt, args...)				\
--	do {								\
--		if (net_ratelimit())					\
--			nfp_warn((app)->cpp, fmt, ## args);		\
--	} while (0)
--
- static struct nfp_flower_cmsg_hdr *
- nfp_flower_cmsg_get_hdr(struct sk_buff *skb)
- {
 diff --git a/drivers/net/ethernet/netronome/nfp/flower/cmsg.h b/drivers/net/ethernet/netronome/nfp/flower/cmsg.h
-index ff42ce8a1e9c..dc248193c996 100644
+index dc248193c996..6540bb1ceefb 100644
 --- a/drivers/net/ethernet/netronome/nfp/flower/cmsg.h
 +++ b/drivers/net/ethernet/netronome/nfp/flower/cmsg.h
-@@ -39,6 +39,7 @@
- #include <linux/types.h>
- 
- #include "../nfp_app.h"
-+#include "../nfpcore/nfp_cpp.h"
- 
- #define NFP_FLOWER_LAYER_META		BIT(0)
- #define NFP_FLOWER_LAYER_PORT		BIT(1)
-@@ -90,6 +91,12 @@
- #define NFP_FL_IPV4_TUNNEL_TYPE		GENMASK(7, 4)
- #define NFP_FL_IPV4_PRE_TUN_INDEX	GENMASK(2, 0)
- 
-+#define nfp_flower_cmsg_warn(app, fmt, args...)                         \
-+	do {                                                            \
-+		if (net_ratelimit())                                    \
-+			nfp_warn((app)->cpp, fmt, ## args);             \
-+	} while (0)
-+
- enum nfp_flower_tun_type {
- 	NFP_FL_TUNNEL_NONE =	0,
- 	NFP_FL_TUNNEL_VXLAN =	2,
-@@ -310,6 +317,7 @@ enum nfp_flower_cmsg_type_port {
- 	NFP_FLOWER_CMSG_TYPE_FLOW_DEL =		2,
+@@ -318,6 +318,7 @@ enum nfp_flower_cmsg_type_port {
  	NFP_FLOWER_CMSG_TYPE_MAC_REPR =		7,
  	NFP_FLOWER_CMSG_TYPE_PORT_MOD =		8,
-+	NFP_FLOWER_CMSG_TYPE_TUN_MAC =		11,
+ 	NFP_FLOWER_CMSG_TYPE_TUN_MAC =		11,
++	NFP_FLOWER_CMSG_TYPE_TUN_IPS =		14,
  	NFP_FLOWER_CMSG_TYPE_FLOW_STATS =	15,
  	NFP_FLOWER_CMSG_TYPE_PORT_ECHO =	16,
  	NFP_FLOWER_CMSG_TYPE_MAX =		32,
-@@ -343,6 +351,7 @@ enum nfp_flower_cmsg_port_type {
- 	NFP_FLOWER_CMSG_PORT_TYPE_UNSPEC =	0x0,
- 	NFP_FLOWER_CMSG_PORT_TYPE_PHYS_PORT =	0x1,
- 	NFP_FLOWER_CMSG_PORT_TYPE_PCIE_PORT =	0x2,
-+	NFP_FLOWER_CMSG_PORT_TYPE_OTHER_PORT =  0x3,
- };
- 
- enum nfp_flower_cmsg_port_vnic_type {
-diff --git a/drivers/net/ethernet/netronome/nfp/flower/main.c b/drivers/net/ethernet/netronome/nfp/flower/main.c
-index 91fe03617106..e46e7c60d491 100644
---- a/drivers/net/ethernet/netronome/nfp/flower/main.c
-+++ b/drivers/net/ethernet/netronome/nfp/flower/main.c
-@@ -436,6 +436,16 @@ static void nfp_flower_clean(struct nfp_app *app)
- 	app->priv = NULL;
- }
- 
-+static int nfp_flower_start(struct nfp_app *app)
-+{
-+	return nfp_tunnel_config_start(app);
-+}
-+
-+static void nfp_flower_stop(struct nfp_app *app)
-+{
-+	nfp_tunnel_config_stop(app);
-+}
-+
- const struct nfp_app_type app_flower = {
- 	.id		= NFP_APP_FLOWER_NIC,
- 	.name		= "flower",
-@@ -453,6 +463,9 @@ const struct nfp_app_type app_flower = {
- 	.repr_open	= nfp_flower_repr_netdev_open,
- 	.repr_stop	= nfp_flower_repr_netdev_stop,
- 
-+	.start		= nfp_flower_start,
-+	.stop		= nfp_flower_stop,
-+
- 	.ctrl_msg_rx	= nfp_flower_cmsg_rx,
- 
- 	.sriov_enable	= nfp_flower_sriov_enable,
 diff --git a/drivers/net/ethernet/netronome/nfp/flower/main.h b/drivers/net/ethernet/netronome/nfp/flower/main.h
-index cd695eabce02..9de375acc254 100644
+index 9de375acc254..53306af6cfe8 100644
 --- a/drivers/net/ethernet/netronome/nfp/flower/main.h
 +++ b/drivers/net/ethernet/netronome/nfp/flower/main.h
-@@ -84,6 +84,13 @@ struct nfp_fl_stats_id {
-  * @flow_table:		Hash table used to store flower rules
-  * @cmsg_work:		Workqueue for control messages processing
+@@ -86,8 +86,10 @@ struct nfp_fl_stats_id {
   * @cmsg_skbs:		List of skbs for control message processing
-+ * @nfp_mac_off_list:	List of MAC addresses to offload
-+ * @nfp_mac_index_list:	List of unique 8-bit indexes for non NFP netdevs
-+ * @nfp_mac_off_lock:	Lock for the MAC address list
-+ * @nfp_mac_index_lock:	Lock for the MAC index list
-+ * @nfp_mac_off_ids:	IDA to manage id assignment for offloaded macs
-+ * @nfp_mac_off_count:	Number of MACs in address list
-+ * @nfp_tun_mac_nb:	Notifier to monitor link state
-  */
- struct nfp_flower_priv {
- 	struct nfp_app *app;
-@@ -96,6 +103,13 @@ struct nfp_flower_priv {
- 	DECLARE_HASHTABLE(flow_table, NFP_FLOWER_HASH_BITS);
- 	struct work_struct cmsg_work;
+  * @nfp_mac_off_list:	List of MAC addresses to offload
+  * @nfp_mac_index_list:	List of unique 8-bit indexes for non NFP netdevs
++ * @nfp_ipv4_off_list:	List of IPv4 addresses to offload
+  * @nfp_mac_off_lock:	Lock for the MAC address list
+  * @nfp_mac_index_lock:	Lock for the MAC index list
++ * @nfp_ipv4_off_lock:	Lock for the IPv4 address list
+  * @nfp_mac_off_ids:	IDA to manage id assignment for offloaded macs
+  * @nfp_mac_off_count:	Number of MACs in address list
+  * @nfp_tun_mac_nb:	Notifier to monitor link state
+@@ -105,8 +107,10 @@ struct nfp_flower_priv {
  	struct sk_buff_head cmsg_skbs;
-+	struct list_head nfp_mac_off_list;
-+	struct list_head nfp_mac_index_list;
-+	struct mutex nfp_mac_off_lock;
-+	struct mutex nfp_mac_index_lock;
-+	struct ida nfp_mac_off_ids;
-+	int nfp_mac_off_count;
-+	struct notifier_block nfp_tun_mac_nb;
- };
+ 	struct list_head nfp_mac_off_list;
+ 	struct list_head nfp_mac_index_list;
++	struct list_head nfp_ipv4_off_list;
+ 	struct mutex nfp_mac_off_lock;
+ 	struct mutex nfp_mac_index_lock;
++	struct mutex nfp_ipv4_off_lock;
+ 	struct ida nfp_mac_off_ids;
+ 	int nfp_mac_off_count;
+ 	struct notifier_block nfp_tun_mac_nb;
+@@ -142,6 +146,7 @@ struct nfp_fl_payload {
+ 	struct rcu_head rcu;
+ 	spinlock_t lock; /* lock stats */
+ 	struct nfp_fl_stats stats;
++	__be32 nfp_tun_ipv4_addr;
+ 	char *unmasked_data;
+ 	char *mask_data;
+ 	char *action_data;
+@@ -182,5 +187,7 @@ void nfp_flower_rx_flow_stats(struct nfp_app *app, struct sk_buff *skb);
+ int nfp_tunnel_config_start(struct nfp_app *app);
+ void nfp_tunnel_config_stop(struct nfp_app *app);
+ void nfp_tunnel_write_macs(struct nfp_app *app);
++void nfp_tunnel_del_ipv4_off(struct nfp_app *app, __be32 ipv4);
++void nfp_tunnel_add_ipv4_off(struct nfp_app *app, __be32 ipv4);
  
- struct nfp_fl_key_ls {
-@@ -165,4 +179,8 @@ nfp_flower_remove_fl_table(struct nfp_app *app, unsigned long tc_flower_cookie);
- 
- void nfp_flower_rx_flow_stats(struct nfp_app *app, struct sk_buff *skb);
- 
-+int nfp_tunnel_config_start(struct nfp_app *app);
-+void nfp_tunnel_config_stop(struct nfp_app *app);
-+void nfp_tunnel_write_macs(struct nfp_app *app);
-+
  #endif
 diff --git a/drivers/net/ethernet/netronome/nfp/flower/match.c b/drivers/net/ethernet/netronome/nfp/flower/match.c
-index 1fd1bab0611f..cb3ff6c126e8 100644
+index cb3ff6c126e8..865a815ab92a 100644
 --- a/drivers/net/ethernet/netronome/nfp/flower/match.c
 +++ b/drivers/net/ethernet/netronome/nfp/flower/match.c
-@@ -232,6 +232,7 @@ int nfp_flower_compile_flow_match(struct tc_cls_flower_offload *flow,
+@@ -195,7 +195,7 @@ nfp_flower_compile_ipv6(struct nfp_flower_ipv6 *frame,
+ static void
+ nfp_flower_compile_vxlan(struct nfp_flower_vxlan *frame,
+ 			 struct tc_cls_flower_offload *flow,
+-			 bool mask_version)
++			 bool mask_version, __be32 *tun_dst)
+ {
+ 	struct fl_flow_key *target = mask_version ? flow->mask : flow->key;
+ 	struct flow_dissector_key_ipv4_addrs *vxlan_ips;
+@@ -223,6 +223,7 @@ nfp_flower_compile_vxlan(struct nfp_flower_vxlan *frame,
+ 					     target);
+ 		frame->ip_src = vxlan_ips->src;
+ 		frame->ip_dst = vxlan_ips->dst;
++		*tun_dst = vxlan_ips->dst;
+ 	}
+ }
+ 
+@@ -232,6 +233,7 @@ int nfp_flower_compile_flow_match(struct tc_cls_flower_offload *flow,
  				  struct nfp_fl_payload *nfp_flow)
  {
  	enum nfp_flower_tun_type tun_type = NFP_FL_TUNNEL_NONE;
-+	struct nfp_repr *netdev_repr;
++	__be32 tun_dst, tun_dst_mask = 0;
+ 	struct nfp_repr *netdev_repr;
  	int err;
  	u8 *ext;
- 	u8 *msk;
-@@ -341,6 +342,12 @@ int nfp_flower_compile_flow_match(struct tc_cls_flower_offload *flow,
- 					 flow, true);
+@@ -336,10 +338,10 @@ int nfp_flower_compile_flow_match(struct tc_cls_flower_offload *flow,
+ 	if (key_ls->key_layer & NFP_FLOWER_LAYER_VXLAN) {
+ 		/* Populate Exact VXLAN Data. */
+ 		nfp_flower_compile_vxlan((struct nfp_flower_vxlan *)ext,
+-					 flow, false);
++					 flow, false, &tun_dst);
+ 		/* Populate Mask VXLAN Data. */
+ 		nfp_flower_compile_vxlan((struct nfp_flower_vxlan *)msk,
+-					 flow, true);
++					 flow, true, &tun_dst_mask);
  		ext += sizeof(struct nfp_flower_vxlan);
  		msk += sizeof(struct nfp_flower_vxlan);
+ 
+@@ -347,6 +349,12 @@ int nfp_flower_compile_flow_match(struct tc_cls_flower_offload *flow,
+ 		if (nfp_netdev_is_nfp_repr(netdev)) {
+ 			netdev_repr = netdev_priv(netdev);
+ 			nfp_tunnel_write_macs(netdev_repr->app);
 +
-+		/* Configure tunnel end point MAC. */
-+		if (nfp_netdev_is_nfp_repr(netdev)) {
-+			netdev_repr = netdev_priv(netdev);
-+			nfp_tunnel_write_macs(netdev_repr->app);
-+		}
++			/* Store the tunnel destination in the rule data.
++			 * This must be present and be an exact match.
++			 */
++			nfp_flow->nfp_tun_ipv4_addr = tun_dst;
++			nfp_tunnel_add_ipv4_off(netdev_repr->app, tun_dst);
+ 		}
  	}
  
- 	return 0;
+diff --git a/drivers/net/ethernet/netronome/nfp/flower/offload.c b/drivers/net/ethernet/netronome/nfp/flower/offload.c
+index 637372ba8f55..3d9537ebdea4 100644
+--- a/drivers/net/ethernet/netronome/nfp/flower/offload.c
++++ b/drivers/net/ethernet/netronome/nfp/flower/offload.c
+@@ -306,6 +306,7 @@ nfp_flower_allocate_new(struct nfp_fl_key_ls *key_layer)
+ 	if (!flow_pay->action_data)
+ 		goto err_free_mask;
+ 
++	flow_pay->nfp_tun_ipv4_addr = 0;
+ 	flow_pay->meta.flags = 0;
+ 	spin_lock_init(&flow_pay->lock);
+ 
+@@ -415,6 +416,9 @@ nfp_flower_del_offload(struct nfp_app *app, struct net_device *netdev,
+ 	if (err)
+ 		goto err_free_flow;
+ 
++	if (nfp_flow->nfp_tun_ipv4_addr)
++		nfp_tunnel_del_ipv4_off(app, nfp_flow->nfp_tun_ipv4_addr);
++
+ 	err = nfp_flower_xmit_flow(netdev, nfp_flow,
+ 				   NFP_FLOWER_CMSG_TYPE_FLOW_DEL);
+ 	if (err)
 diff --git a/drivers/net/ethernet/netronome/nfp/flower/tunnel_conf.c b/drivers/net/ethernet/netronome/nfp/flower/tunnel_conf.c
-new file mode 100644
-index 000000000000..34be85803020
---- /dev/null
+index 34be85803020..185505140f5e 100644
+--- a/drivers/net/ethernet/netronome/nfp/flower/tunnel_conf.c
 +++ b/drivers/net/ethernet/netronome/nfp/flower/tunnel_conf.c
-@@ -0,0 +1,374 @@
-+/*
-+ * Copyright (C) 2017 Netronome Systems, Inc.
-+ *
-+ * This software is dual licensed under the GNU General License Version 2,
-+ * June 1991 as shown in the file COPYING in the top-level directory of this
-+ * source tree or the BSD 2-Clause License provided below.  You have the
-+ * option to license this software under the complete terms of either license.
-+ *
-+ * The BSD 2-Clause License:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      1. Redistributions of source code must retain the above
-+ *         copyright notice, this list of conditions and the following
-+ *         disclaimer.
-+ *
-+ *      2. Redistributions in binary form must reproduce the above
-+ *         copyright notice, this list of conditions and the following
-+ *         disclaimer in the documentation and/or other materials
-+ *         provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+
-+#include <linux/etherdevice.h>
-+#include <linux/idr.h>
-+#include <net/dst_metadata.h>
-+
-+#include "cmsg.h"
-+#include "main.h"
-+#include "../nfp_net_repr.h"
-+#include "../nfp_net.h"
+@@ -32,6 +32,7 @@
+  */
+ 
+ #include <linux/etherdevice.h>
++#include <linux/inetdevice.h>
+ #include <linux/idr.h>
+ #include <net/dst_metadata.h>
+ 
+@@ -40,6 +41,30 @@
+ #include "../nfp_net_repr.h"
+ #include "../nfp_net.h"
+ 
++#define NFP_FL_IPV4_ADDRS_MAX        32
 +
 +/**
-+ * struct nfp_tun_mac_addr - configure MAC address of tunnel EP on NFP
-+ * @reserved:	reserved for future use
-+ * @count:	number of MAC addresses in the message
-+ * @index:	index of MAC address in the lookup table
-+ * @addr:	interface MAC address
-+ * @addresses:	series of MACs to offload
++ * struct nfp_tun_ipv4_addr - set the IP address list on the NFP
++ * @count:	number of IPs populated in the array
++ * @ipv4_addr:	array of IPV4_ADDRS_MAX 32 bit IPv4 addresses
 + */
-+struct nfp_tun_mac_addr {
-+	__be16 reserved;
-+	__be16 count;
-+	struct index_mac_addr {
-+		__be16 index;
-+		u8 addr[ETH_ALEN];
-+	} addresses[];
++struct nfp_tun_ipv4_addr {
++	__be32 count;
++	__be32 ipv4_addr[NFP_FL_IPV4_ADDRS_MAX];
 +};
 +
 +/**
-+ * struct nfp_tun_mac_offload_entry - list of MACs to offload
-+ * @index:	index of MAC address for offloading
-+ * @addr:	interface MAC address
++ * struct nfp_ipv4_addr_entry - cached IPv4 addresses
++ * @ipv4_addr:	IP address
++ * @ref_count:	number of rules currently using this IP
 + * @list:	list pointer
 + */
-+struct nfp_tun_mac_offload_entry {
-+	__be16 index;
-+	u8 addr[ETH_ALEN];
++struct nfp_ipv4_addr_entry {
++	__be32 ipv4_addr;
++	int ref_count;
 +	struct list_head list;
 +};
 +
-+#define NFP_MAX_MAC_INDEX       0xff
-+
-+/**
-+ * struct nfp_tun_mac_non_nfp_idx - converts non NFP netdev ifindex to 8-bit id
-+ * @ifindex:	netdev ifindex of the device
-+ * @index:	index of netdevs mac on NFP
-+ * @list:	list pointer
-+ */
-+struct nfp_tun_mac_non_nfp_idx {
-+	int ifindex;
-+	u8 index;
-+	struct list_head list;
-+};
-+
-+static bool nfp_tun_is_netdev_to_offload(struct net_device *netdev)
-+{
-+	if (!netdev->rtnl_link_ops)
-+		return false;
-+	if (!strcmp(netdev->rtnl_link_ops->kind, "openvswitch"))
-+		return true;
-+	if (!strcmp(netdev->rtnl_link_ops->kind, "vxlan"))
-+		return true;
-+
-+	return false;
-+}
-+
-+static int
-+nfp_flower_xmit_tun_conf(struct nfp_app *app, u8 mtype, u16 plen, void *pdata)
-+{
-+	struct sk_buff *skb;
-+	unsigned char *msg;
-+
-+	skb = nfp_flower_cmsg_alloc(app, plen, mtype);
-+	if (!skb)
-+		return -ENOMEM;
-+
-+	msg = nfp_flower_cmsg_get_data(skb);
-+	memcpy(msg, pdata, nfp_flower_cmsg_get_data_len(skb));
-+
-+	nfp_ctrl_tx(app->ctrl, skb);
-+	return 0;
-+}
-+
-+void nfp_tunnel_write_macs(struct nfp_app *app)
+ /**
+  * struct nfp_tun_mac_addr - configure MAC address of tunnel EP on NFP
+  * @reserved:	reserved for future use
+@@ -112,6 +137,87 @@ nfp_flower_xmit_tun_conf(struct nfp_app *app, u8 mtype, u16 plen, void *pdata)
+ 	return 0;
+ }
+ 
++static void nfp_tun_write_ipv4_list(struct nfp_app *app)
 +{
 +	struct nfp_flower_priv *priv = app->priv;
-+	struct nfp_tun_mac_offload_entry *entry;
-+	struct nfp_tun_mac_addr *payload;
++	struct nfp_ipv4_addr_entry *entry;
++	struct nfp_tun_ipv4_addr payload;
 +	struct list_head *ptr, *storage;
-+	int mac_count, err, pay_size;
++	int count;
 +
-+	mutex_lock(&priv->nfp_mac_off_lock);
-+	if (!priv->nfp_mac_off_count) {
-+		mutex_unlock(&priv->nfp_mac_off_lock);
-+		return;
-+	}
-+
-+	pay_size = sizeof(struct nfp_tun_mac_addr) +
-+		   sizeof(struct index_mac_addr) * priv->nfp_mac_off_count;
-+
-+	payload = kzalloc(pay_size, GFP_KERNEL);
-+	if (!payload) {
-+		mutex_unlock(&priv->nfp_mac_off_lock);
-+		return;
-+	}
-+
-+	payload->count = cpu_to_be16(priv->nfp_mac_off_count);
-+
-+	mac_count = 0;
-+	list_for_each_safe(ptr, storage, &priv->nfp_mac_off_list) {
-+		entry = list_entry(ptr, struct nfp_tun_mac_offload_entry,
-+				   list);
-+		payload->addresses[mac_count].index = entry->index;
-+		ether_addr_copy(payload->addresses[mac_count].addr,
-+				entry->addr);
-+		mac_count++;
-+	}
-+
-+	err = nfp_flower_xmit_tun_conf(app, NFP_FLOWER_CMSG_TYPE_TUN_MAC,
-+				       pay_size, payload);
-+
-+	kfree(payload);
-+
-+	if (err) {
-+		mutex_unlock(&priv->nfp_mac_off_lock);
-+		/* Write failed so retain list for future retry. */
-+		return;
-+	}
-+
-+	/* If list was successfully offloaded, flush it. */
-+	list_for_each_safe(ptr, storage, &priv->nfp_mac_off_list) {
-+		entry = list_entry(ptr, struct nfp_tun_mac_offload_entry,
-+				   list);
-+		list_del(&entry->list);
-+		kfree(entry);
-+	}
-+
-+	priv->nfp_mac_off_count = 0;
-+	mutex_unlock(&priv->nfp_mac_off_lock);
-+}
-+
-+static int nfp_tun_get_mac_idx(struct nfp_app *app, int ifindex)
-+{
-+	struct nfp_flower_priv *priv = app->priv;
-+	struct nfp_tun_mac_non_nfp_idx *entry;
-+	struct list_head *ptr, *storage;
-+	int idx;
-+
-+	mutex_lock(&priv->nfp_mac_index_lock);
-+	list_for_each_safe(ptr, storage, &priv->nfp_mac_index_list) {
-+		entry = list_entry(ptr, struct nfp_tun_mac_non_nfp_idx, list);
-+		if (entry->ifindex == ifindex) {
-+			idx = entry->index;
-+			mutex_unlock(&priv->nfp_mac_index_lock);
-+			return idx;
++	memset(&payload, 0, sizeof(struct nfp_tun_ipv4_addr));
++	mutex_lock(&priv->nfp_ipv4_off_lock);
++	count = 0;
++	list_for_each_safe(ptr, storage, &priv->nfp_ipv4_off_list) {
++		if (count >= NFP_FL_IPV4_ADDRS_MAX) {
++			mutex_unlock(&priv->nfp_ipv4_off_lock);
++			nfp_flower_cmsg_warn(app, "IPv4 offload exceeds limit.\n");
++			return;
 +		}
++		entry = list_entry(ptr, struct nfp_ipv4_addr_entry, list);
++		payload.ipv4_addr[count++] = entry->ipv4_addr;
 +	}
++	payload.count = cpu_to_be32(count);
++	mutex_unlock(&priv->nfp_ipv4_off_lock);
 +
-+	idx = ida_simple_get(&priv->nfp_mac_off_ids, 0,
-+			     NFP_MAX_MAC_INDEX, GFP_KERNEL);
-+	if (idx < 0) {
-+		mutex_unlock(&priv->nfp_mac_index_lock);
-+		return idx;
++	nfp_flower_xmit_tun_conf(app, NFP_FLOWER_CMSG_TYPE_TUN_IPS,
++				 sizeof(struct nfp_tun_ipv4_addr),
++				 &payload);
++}
++
++void nfp_tunnel_add_ipv4_off(struct nfp_app *app, __be32 ipv4)
++{
++	struct nfp_flower_priv *priv = app->priv;
++	struct nfp_ipv4_addr_entry *entry;
++	struct list_head *ptr, *storage;
++
++	mutex_lock(&priv->nfp_ipv4_off_lock);
++	list_for_each_safe(ptr, storage, &priv->nfp_ipv4_off_list) {
++		entry = list_entry(ptr, struct nfp_ipv4_addr_entry, list);
++		if (entry->ipv4_addr == ipv4) {
++			entry->ref_count++;
++			mutex_unlock(&priv->nfp_ipv4_off_lock);
++			return;
++		}
 +	}
 +
 +	entry = kmalloc(sizeof(*entry), GFP_KERNEL);
 +	if (!entry) {
-+		mutex_unlock(&priv->nfp_mac_index_lock);
-+		return -ENOMEM;
++		mutex_unlock(&priv->nfp_ipv4_off_lock);
++		nfp_flower_cmsg_warn(app, "Mem error when offloading IP address.\n");
++		return;
 +	}
-+	entry->ifindex = ifindex;
-+	entry->index = idx;
-+	list_add_tail(&entry->list, &priv->nfp_mac_index_list);
-+	mutex_unlock(&priv->nfp_mac_index_lock);
++	entry->ipv4_addr = ipv4;
++	entry->ref_count = 1;
++	list_add_tail(&entry->list, &priv->nfp_ipv4_off_list);
++	mutex_unlock(&priv->nfp_ipv4_off_lock);
 +
-+	return idx;
++	nfp_tun_write_ipv4_list(app);
 +}
 +
-+static void nfp_tun_del_mac_idx(struct nfp_app *app, int ifindex)
++void nfp_tunnel_del_ipv4_off(struct nfp_app *app, __be32 ipv4)
 +{
 +	struct nfp_flower_priv *priv = app->priv;
-+	struct nfp_tun_mac_non_nfp_idx *entry;
++	struct nfp_ipv4_addr_entry *entry;
 +	struct list_head *ptr, *storage;
 +
-+	mutex_lock(&priv->nfp_mac_index_lock);
-+	list_for_each_safe(ptr, storage, &priv->nfp_mac_index_list) {
-+		entry = list_entry(ptr, struct nfp_tun_mac_non_nfp_idx, list);
-+		if (entry->ifindex == ifindex) {
-+			ida_simple_remove(&priv->nfp_mac_off_ids,
-+					  entry->index);
-+			list_del(&entry->list);
-+			kfree(entry);
++	mutex_lock(&priv->nfp_ipv4_off_lock);
++	list_for_each_safe(ptr, storage, &priv->nfp_ipv4_off_list) {
++		entry = list_entry(ptr, struct nfp_ipv4_addr_entry, list);
++		if (entry->ipv4_addr == ipv4) {
++			entry->ref_count--;
++			if (!entry->ref_count) {
++				list_del(&entry->list);
++				kfree(entry);
++			}
 +			break;
 +		}
 +	}
-+	mutex_unlock(&priv->nfp_mac_index_lock);
++	mutex_unlock(&priv->nfp_ipv4_off_lock);
++
++	nfp_tun_write_ipv4_list(app);
 +}
 +
-+static void nfp_tun_add_to_mac_offload_list(struct net_device *netdev,
-+					    struct nfp_app *app)
-+{
-+	struct nfp_flower_priv *priv = app->priv;
-+	struct nfp_tun_mac_offload_entry *entry;
-+	u16 nfp_mac_idx;
-+	int port = 0;
+ void nfp_tunnel_write_macs(struct nfp_app *app)
+ {
+ 	struct nfp_flower_priv *priv = app->priv;
+@@ -324,6 +430,10 @@ int nfp_tunnel_config_start(struct nfp_app *app)
+ 	INIT_LIST_HEAD(&priv->nfp_mac_index_list);
+ 	ida_init(&priv->nfp_mac_off_ids);
+ 
++	/* Initialise priv data for IPv4 offloading. */
++	mutex_init(&priv->nfp_ipv4_off_lock);
++	INIT_LIST_HEAD(&priv->nfp_ipv4_off_list);
 +
-+	/* Check if MAC should be offloaded. */
-+	if (!is_valid_ether_addr(netdev->dev_addr))
-+		return;
+ 	err = register_netdevice_notifier(&priv->nfp_tun_mac_nb);
+ 	if (err)
+ 		goto err_free_mac_ida;
+@@ -346,6 +456,7 @@ void nfp_tunnel_config_stop(struct nfp_app *app)
+ 	struct nfp_tun_mac_offload_entry *mac_entry;
+ 	struct nfp_flower_priv *priv = app->priv;
+ 	struct nfp_tun_mac_non_nfp_idx *mac_idx;
++	struct nfp_ipv4_addr_entry *ip_entry;
+ 	struct list_head *ptr, *storage;
+ 
+ 	unregister_netdevice_notifier(&priv->nfp_tun_mac_nb);
+@@ -371,4 +482,13 @@ void nfp_tunnel_config_stop(struct nfp_app *app)
+ 	mutex_unlock(&priv->nfp_mac_index_lock);
+ 
+ 	ida_destroy(&priv->nfp_mac_off_ids);
 +
-+	if (nfp_netdev_is_nfp_repr(netdev))
-+		port = nfp_repr_get_port_id(netdev);
-+	else if (!nfp_tun_is_netdev_to_offload(netdev))
-+		return;
-+
-+	entry = kmalloc(sizeof(*entry), GFP_KERNEL);
-+	if (!entry) {
-+		nfp_flower_cmsg_warn(app, "Mem fail when offloading MAC.\n");
-+		return;
++	/* Free any memory that may be occupied by ipv4 list. */
++	mutex_lock(&priv->nfp_ipv4_off_lock);
++	list_for_each_safe(ptr, storage, &priv->nfp_ipv4_off_list) {
++		ip_entry = list_entry(ptr, struct nfp_ipv4_addr_entry, list);
++		list_del(&ip_entry->list);
++		kfree(ip_entry);
 +	}
-+
-+	if (FIELD_GET(NFP_FLOWER_CMSG_PORT_TYPE, port) ==
-+	    NFP_FLOWER_CMSG_PORT_TYPE_PHYS_PORT) {
-+		nfp_mac_idx = port << 8 | NFP_FLOWER_CMSG_PORT_TYPE_PHYS_PORT;
-+	} else if (FIELD_GET(NFP_FLOWER_CMSG_PORT_TYPE, port) ==
-+		   NFP_FLOWER_CMSG_PORT_TYPE_PCIE_PORT) {
-+		port = FIELD_GET(NFP_FLOWER_CMSG_PORT_VNIC, port);
-+		nfp_mac_idx = port << 8 | NFP_FLOWER_CMSG_PORT_TYPE_PCIE_PORT;
-+	} else {
-+		/* Must assign our own unique 8-bit index. */
-+		int idx = nfp_tun_get_mac_idx(app, netdev->ifindex);
-+
-+		if (idx < 0) {
-+			nfp_flower_cmsg_warn(app, "Can't assign non-repr MAC index.\n");
-+			kfree(entry);
-+			return;
-+		}
-+		nfp_mac_idx = idx << 8 | NFP_FLOWER_CMSG_PORT_TYPE_OTHER_PORT;
-+	}
-+
-+	entry->index = cpu_to_be16(nfp_mac_idx);
-+	ether_addr_copy(entry->addr, netdev->dev_addr);
-+
-+	mutex_lock(&priv->nfp_mac_off_lock);
-+	priv->nfp_mac_off_count++;
-+	list_add_tail(&entry->list, &priv->nfp_mac_off_list);
-+	mutex_unlock(&priv->nfp_mac_off_lock);
-+}
-+
-+static int nfp_tun_mac_event_handler(struct notifier_block *nb,
-+				     unsigned long event, void *ptr)
-+{
-+	struct nfp_flower_priv *app_priv;
-+	struct net_device *netdev;
-+	struct nfp_app *app;
-+
-+	if (event == NETDEV_DOWN || event == NETDEV_UNREGISTER) {
-+		app_priv = container_of(nb, struct nfp_flower_priv,
-+					nfp_tun_mac_nb);
-+		app = app_priv->app;
-+		netdev = netdev_notifier_info_to_dev(ptr);
-+
-+		/* If non-nfp netdev then free its offload index. */
-+		if (nfp_tun_is_netdev_to_offload(netdev))
-+			nfp_tun_del_mac_idx(app, netdev->ifindex);
-+	} else if (event == NETDEV_UP || event == NETDEV_CHANGEADDR ||
-+		   event == NETDEV_REGISTER) {
-+		app_priv = container_of(nb, struct nfp_flower_priv,
-+					nfp_tun_mac_nb);
-+		app = app_priv->app;
-+		netdev = netdev_notifier_info_to_dev(ptr);
-+
-+		nfp_tun_add_to_mac_offload_list(netdev, app);
-+
-+		/* Force a list write to keep NFP up to date. */
-+		nfp_tunnel_write_macs(app);
-+	}
-+	return NOTIFY_OK;
-+}
-+
-+int nfp_tunnel_config_start(struct nfp_app *app)
-+{
-+	struct nfp_flower_priv *priv = app->priv;
-+	struct net_device *netdev;
-+	int err;
-+
-+	/* Initialise priv data for MAC offloading. */
-+	priv->nfp_mac_off_count = 0;
-+	mutex_init(&priv->nfp_mac_off_lock);
-+	INIT_LIST_HEAD(&priv->nfp_mac_off_list);
-+	priv->nfp_tun_mac_nb.notifier_call = nfp_tun_mac_event_handler;
-+	mutex_init(&priv->nfp_mac_index_lock);
-+	INIT_LIST_HEAD(&priv->nfp_mac_index_list);
-+	ida_init(&priv->nfp_mac_off_ids);
-+
-+	err = register_netdevice_notifier(&priv->nfp_tun_mac_nb);
-+	if (err)
-+		goto err_free_mac_ida;
-+
-+	/* Parse netdevs already registered for MACs that need offloaded. */
-+	rtnl_lock();
-+	for_each_netdev(&init_net, netdev)
-+		nfp_tun_add_to_mac_offload_list(netdev, app);
-+	rtnl_unlock();
-+
-+	return 0;
-+
-+err_free_mac_ida:
-+	ida_destroy(&priv->nfp_mac_off_ids);
-+	return err;
-+}
-+
-+void nfp_tunnel_config_stop(struct nfp_app *app)
-+{
-+	struct nfp_tun_mac_offload_entry *mac_entry;
-+	struct nfp_flower_priv *priv = app->priv;
-+	struct nfp_tun_mac_non_nfp_idx *mac_idx;
-+	struct list_head *ptr, *storage;
-+
-+	unregister_netdevice_notifier(&priv->nfp_tun_mac_nb);
-+
-+	/* Free any memory that may be occupied by MAC list. */
-+	mutex_lock(&priv->nfp_mac_off_lock);
-+	list_for_each_safe(ptr, storage, &priv->nfp_mac_off_list) {
-+		mac_entry = list_entry(ptr, struct nfp_tun_mac_offload_entry,
-+				       list);
-+		list_del(&mac_entry->list);
-+		kfree(mac_entry);
-+	}
-+	mutex_unlock(&priv->nfp_mac_off_lock);
-+
-+	/* Free any memory that may be occupied by MAC index list. */
-+	mutex_lock(&priv->nfp_mac_index_lock);
-+	list_for_each_safe(ptr, storage, &priv->nfp_mac_index_list) {
-+		mac_idx = list_entry(ptr, struct nfp_tun_mac_non_nfp_idx,
-+				     list);
-+		list_del(&mac_idx->list);
-+		kfree(mac_idx);
-+	}
-+	mutex_unlock(&priv->nfp_mac_index_lock);
-+
-+	ida_destroy(&priv->nfp_mac_off_ids);
-+}
++	mutex_unlock(&priv->nfp_ipv4_off_lock);
+ }
 -- 
 2.1.4
