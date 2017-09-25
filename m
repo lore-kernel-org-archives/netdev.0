@@ -1,7 +1,7 @@
 From: Mika Westerberg <mika.westerberg@linux.intel.com>
-Subject: [PATCH v2 01/16] byteorder: Move {cpu_to_be32,be32_to_cpu}_array() from Thunderbolt to core
-Date: Mon, 25 Sep 2017 14:07:23 +0300
-Message-ID: <20170925110738.68382-2-mika.westerberg@linux.intel.com>
+Subject: [PATCH v2 04/16] thunderbolt: Move thunderbolt domain structure to thunderbolt.h
+Date: Mon, 25 Sep 2017 14:07:26 +0300
+Message-ID: <20170925110738.68382-5-mika.westerberg@linux.intel.com>
 References: <20170925110738.68382-1-mika.westerberg@linux.intel.com>
 Cc: Andreas Noever <andreas.noever@gmail.com>,
         Michael Jamet <michael.jamet@intel.com>,
@@ -19,70 +19,147 @@ In-Reply-To: <20170925110738.68382-1-mika.westerberg@linux.intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We will be using these when communicating XDomain discovery protocol
-over Thunderbolt link but they might be useful for other drivers as
-well.
+These are needed by Thunderbolt services so move them to thunderbolt.h
+to make sure they are available outside of drivers/thunderbolt.
 
-Make them available through byteorder/generic.h.
-
-Suggested-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
 Signed-off-by: Mika Westerberg <mika.westerberg@linux.intel.com>
 Reviewed-by: Michael Jamet <michael.jamet@intel.com>
 Reviewed-by: Yehezkel Bernat <yehezkel.bernat@intel.com>
 ---
- drivers/thunderbolt/ctl.c         | 14 --------------
- include/linux/byteorder/generic.h | 16 ++++++++++++++++
- 2 files changed, 16 insertions(+), 14 deletions(-)
+ drivers/thunderbolt/tb.h    | 42 ------------------------------------------
+ include/linux/thunderbolt.h | 45 +++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 45 insertions(+), 42 deletions(-)
 
-diff --git a/drivers/thunderbolt/ctl.c b/drivers/thunderbolt/ctl.c
-index fb40dd0588b9..e6a4c9458c76 100644
---- a/drivers/thunderbolt/ctl.c
-+++ b/drivers/thunderbolt/ctl.c
-@@ -289,20 +289,6 @@ static void tb_cfg_print_error(struct tb_ctl *ctl,
- 	}
- }
+diff --git a/drivers/thunderbolt/tb.h b/drivers/thunderbolt/tb.h
+index e0deee4f1eb0..2fefe76621ca 100644
+--- a/drivers/thunderbolt/tb.h
++++ b/drivers/thunderbolt/tb.h
+@@ -39,20 +39,6 @@ struct tb_switch_nvm {
+ 	bool authenticating;
+ };
  
--static void cpu_to_be32_array(__be32 *dst, const u32 *src, size_t len)
--{
--	int i;
--	for (i = 0; i < len; i++)
--		dst[i] = cpu_to_be32(src[i]);
--}
+-/**
+- * enum tb_security_level - Thunderbolt security level
+- * @TB_SECURITY_NONE: No security, legacy mode
+- * @TB_SECURITY_USER: User approval required at minimum
+- * @TB_SECURITY_SECURE: One time saved key required at minimum
+- * @TB_SECURITY_DPONLY: Only tunnel Display port (and USB)
+- */
+-enum tb_security_level {
+-	TB_SECURITY_NONE,
+-	TB_SECURITY_USER,
+-	TB_SECURITY_SECURE,
+-	TB_SECURITY_DPONLY,
+-};
 -
--static void be32_to_cpu_array(u32 *dst, __be32 *src, size_t len)
--{
--	int i;
--	for (i = 0; i < len; i++)
--		dst[i] = be32_to_cpu(src[i]);
--}
+ #define TB_SWITCH_KEY_SIZE		32
+ /* Each physical port contains 2 links on modern controllers */
+ #define TB_SWITCH_LINKS_PER_PHY_PORT	2
+@@ -223,33 +209,6 @@ struct tb_cm_ops {
+ 	int (*disconnect_pcie_paths)(struct tb *tb);
+ };
+ 
+-/**
+- * struct tb - main thunderbolt bus structure
+- * @dev: Domain device
+- * @lock: Big lock. Must be held when accessing any struct
+- *	  tb_switch / struct tb_port.
+- * @nhi: Pointer to the NHI structure
+- * @ctl: Control channel for this domain
+- * @wq: Ordered workqueue for all domain specific work
+- * @root_switch: Root switch of this domain
+- * @cm_ops: Connection manager specific operations vector
+- * @index: Linux assigned domain number
+- * @security_level: Current security level
+- * @privdata: Private connection manager specific data
+- */
+-struct tb {
+-	struct device dev;
+-	struct mutex lock;
+-	struct tb_nhi *nhi;
+-	struct tb_ctl *ctl;
+-	struct workqueue_struct *wq;
+-	struct tb_switch *root_switch;
+-	const struct tb_cm_ops *cm_ops;
+-	int index;
+-	enum tb_security_level security_level;
+-	unsigned long privdata[0];
+-};
 -
- static __be32 tb_crc(const void *data, size_t len)
+ static inline void *tb_priv(struct tb *tb)
  {
- 	return cpu_to_be32(~__crc32c_le(~0, data, len));
-diff --git a/include/linux/byteorder/generic.h b/include/linux/byteorder/generic.h
-index 89f67c1c3160..805d16654459 100644
---- a/include/linux/byteorder/generic.h
-+++ b/include/linux/byteorder/generic.h
-@@ -170,4 +170,20 @@ static inline void be64_add_cpu(__be64 *var, u64 val)
- 	*var = cpu_to_be64(be64_to_cpu(*var) + val);
- }
+ 	return (void *)tb->privdata;
+@@ -368,7 +327,6 @@ static inline int tb_port_write(struct tb_port *port, const void *buffer,
+ struct tb *icm_probe(struct tb_nhi *nhi);
+ struct tb *tb_probe(struct tb_nhi *nhi);
  
-+static inline void cpu_to_be32_array(__be32 *dst, const u32 *src, size_t len)
-+{
-+	int i;
+-extern struct bus_type tb_bus_type;
+ extern struct device_type tb_domain_type;
+ extern struct device_type tb_switch_type;
+ 
+diff --git a/include/linux/thunderbolt.h b/include/linux/thunderbolt.h
+index b512b1e2b4f2..910b1bf92112 100644
+--- a/include/linux/thunderbolt.h
++++ b/include/linux/thunderbolt.h
+@@ -14,7 +14,9 @@
+ #ifndef THUNDERBOLT_H_
+ #define THUNDERBOLT_H_
+ 
++#include <linux/device.h>
+ #include <linux/list.h>
++#include <linux/mutex.h>
+ #include <linux/uuid.h>
+ 
+ enum tb_cfg_pkg_type {
+@@ -33,6 +35,49 @@ enum tb_cfg_pkg_type {
+ 	TB_CFG_PKG_PREPARE_TO_SLEEP = 13,
+ };
+ 
++/**
++ * enum tb_security_level - Thunderbolt security level
++ * @TB_SECURITY_NONE: No security, legacy mode
++ * @TB_SECURITY_USER: User approval required at minimum
++ * @TB_SECURITY_SECURE: One time saved key required at minimum
++ * @TB_SECURITY_DPONLY: Only tunnel Display port (and USB)
++ */
++enum tb_security_level {
++	TB_SECURITY_NONE,
++	TB_SECURITY_USER,
++	TB_SECURITY_SECURE,
++	TB_SECURITY_DPONLY,
++};
 +
-+	for (i = 0; i < len; i++)
-+		dst[i] = cpu_to_be32(src[i]);
-+}
++/**
++ * struct tb - main thunderbolt bus structure
++ * @dev: Domain device
++ * @lock: Big lock. Must be held when accessing any struct
++ *	  tb_switch / struct tb_port.
++ * @nhi: Pointer to the NHI structure
++ * @ctl: Control channel for this domain
++ * @wq: Ordered workqueue for all domain specific work
++ * @root_switch: Root switch of this domain
++ * @cm_ops: Connection manager specific operations vector
++ * @index: Linux assigned domain number
++ * @security_level: Current security level
++ * @privdata: Private connection manager specific data
++ */
++struct tb {
++	struct device dev;
++	struct mutex lock;
++	struct tb_nhi *nhi;
++	struct tb_ctl *ctl;
++	struct workqueue_struct *wq;
++	struct tb_switch *root_switch;
++	const struct tb_cm_ops *cm_ops;
++	int index;
++	enum tb_security_level security_level;
++	unsigned long privdata[0];
++};
 +
-+static inline void be32_to_cpu_array(u32 *dst, const __be32 *src, size_t len)
-+{
-+	int i;
++extern struct bus_type tb_bus_type;
 +
-+	for (i = 0; i < len; i++)
-+		dst[i] = be32_to_cpu(src[i]);
-+}
-+
- #endif /* _LINUX_BYTEORDER_GENERIC_H */
+ /**
+  * struct tb_property_dir - XDomain property directory
+  * @uuid: Directory UUID or %NULL if root directory
 -- 
 2.14.1
