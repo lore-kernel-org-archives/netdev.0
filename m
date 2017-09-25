@@ -1,59 +1,101 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: Re: [PATCH net v2] sctp: Fix a big endian bug in sctp_diag_dump()
-Date: Mon, 25 Sep 2017 23:00:23 +0800
-Message-ID: <CADvbK_eoAtqKKLD6khjwpM-SjoC1vnw3JqC6+bifb_0tBrG3VA@mail.gmail.com>
-References: <CADvbK_dCT6Z6JwD+VtjNg6UUkQneU2OLeme9JVqrXjnJJ63cGg@mail.gmail.com>
- <20170925101926.db4f6x4hblh7tcvo@mwanda>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [PATCH net-next 0/7] nfp: flower vxlan tunnel offload
+Date: Mon, 25 Sep 2017 18:25:03 +0300
+Message-ID: <CAJ3xEMgfRuD2Y-P2eTKmXpciiopA8js4zbO_nNOA6J62sn--mw@mail.gmail.com>
+References: <1506335021-32024-1-git-send-email-simon.horman@netronome.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Cc: Vlad Yasevich <vyasevich@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        linux-sctp@vger.kernel.org, network dev <netdev@vger.kernel.org>,
-        kernel-janitors@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>
+Cc: David Miller <davem@davemloft.net>,
+        Jakub Kicinski <jakub.kicinski@netronome.com>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        oss-drivers@netronome.com
+To: Simon Horman <simon.horman@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f196.google.com ([209.85.220.196]:37682 "EHLO
-        mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S964826AbdIYPA0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2017 11:00:26 -0400
-In-Reply-To: <20170925101926.db4f6x4hblh7tcvo@mwanda>
+Received: from mail-oi0-f67.google.com ([209.85.218.67]:38719 "EHLO
+        mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S964909AbdIYPZE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2017 11:25:04 -0400
+Received: by mail-oi0-f67.google.com with SMTP id s145so4067653oie.5
+        for <netdev@vger.kernel.org>; Mon, 25 Sep 2017 08:25:04 -0700 (PDT)
+In-Reply-To: <1506335021-32024-1-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Sep 25, 2017 at 6:19 PM, Dan Carpenter <dan.carpenter@oracle.com> wrote:
-> The sctp_for_each_transport() function takes an pointer to int.  The
-> cb->args[] array holds longs so it's only using the high 32 bits.  It
-> works on little endian system but will break on big endian 64 bit
-> machines.
+On Mon, Sep 25, 2017 at 1:23 PM, Simon Horman
+<simon.horman@netronome.com> wrote:
+> From: Simon Horman <simon.horman@netronome.com>
 >
-> Fixes: d25adbeb0cdb ("sctp: fix an use-after-free issue in sctp_sock_dump")
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-> ---
-> v2: The v1 patch changed the function to take a long pointer, but v2
->     just changes the caller.
+> John says:
 >
-> diff --git a/net/sctp/sctp_diag.c b/net/sctp/sctp_diag.c
-> index 22ed01a76b19..a72a7d925d46 100644
-> --- a/net/sctp/sctp_diag.c
-> +++ b/net/sctp/sctp_diag.c
-> @@ -463,6 +463,7 @@ static void sctp_diag_dump(struct sk_buff *skb, struct netlink_callback *cb,
->                 .r = r,
->                 .net_admin = netlink_net_capable(cb->skb, CAP_NET_ADMIN),
->         };
-> +       int pos = cb->args[2];
->
->         /* eps hashtable dumps
->          * args:
-> @@ -493,7 +494,8 @@ static void sctp_diag_dump(struct sk_buff *skb, struct netlink_callback *cb,
->                 goto done;
->
->         sctp_for_each_transport(sctp_sock_filter, sctp_sock_dump,
-> -                               net, (int *)&cb->args[2], &commp);
-> +                               net, &pos, &commp);
-> +       cb->args[2] = pos;
->
->  done:
->         cb->args[1] = cb->args[4];
+> This patch set allows offloading of TC flower match and set tunnel fields
+> to the NFP. The initial focus is on VXLAN traffic. Due to the current
+> state of the NFP firmware, only VXLAN traffic on well known port 4789 is
+> handled. The match and action fields must explicity set this value to be
+> supported. Tunnel end point information is also offloaded to the NFP for
+> both encapsulation and decapsulation. The NFP expects 3 separate data sets
+> to be supplied.
 
-Reviewed-by: Xin Long <lucien.xin@gmail.com>
+> For decapsulation, 2 separate lists exist; a list of MAC addresses
+> referenced by an index comprised of the port number, and a list of IP
+> addresses. These IP addresses are not connected to a MAC or port.
+
+Do these IP addresses exist on the host kernel SW stack? can the same
+set of TC rules be fully functional and generate the same traffic
+pattern when set to run in SW (skip_hw)?
+
+
+> The MAC
+> addresses can be written as a block or one at a time (because they have an
+> index, previous values can be overwritten) while the IP addresses are
+> always written as a list of all the available IPs. Because the MAC address
+> used as a tunnel end point may be associated with a physical port or may
+> be a virtual netdev like an OVS bridge, we do not know which addresses
+> should be offloaded. For this reason, all MAC addresses of active netdevs
+> are offloaded to the NFP. A notifier checks for changes to any currently
+> offloaded MACs or any new netdevs that may occur. For IP addresses, the
+> tunnel end point used in the rules is known as the destination IP address
+> must be specified in the flower classifier rule. When a new IP address
+> appears in a rule, the IP address is offloaded. The IP is removed from the
+> offloaded list when all rules matching on that IP are deleted.
+>
+> For encapsulation, a next hop table is updated on the NFP that contains
+> the source/dest IPs, MACs and egress port. These are written individually
+> when requested. If the NFP tries to encapsulate a packet but does not know
+> the next hop, then is sends a request to the host. The host carries out a
+> route lookup and populates the given entry on the NFP table. A notifier
+> also exists to check for any links changing or going down in the kernel
+> next hop table. If an offloaded next hop entry is removed from the kernel
+> then it is also removed on the NFP.
+>
+> The NFP periodically sends a message to the host telling it which tunnel
+> ports have packets egressing the system. The host uses this information to
+> update the used value in the neighbour entry. This means that, rather than
+> expire when it times out, the kernel will send an ARP to check if the link
+> is still live. From an NFP perspective, this means that valid entries will
+> not be removed from its next hop table.
+>
+> John Hurley (7):
+>   nfp: add helper to get flower cmsg length
+>   nfp: compile flower vxlan tunnel metadata match fields
+>   nfp: compile flower vxlan tunnel set actions
+>   nfp: offload flower vxlan endpoint MAC addresses
+>   nfp: offload vxlan IPv4 endpoints of flower rules
+>   nfp: flower vxlan neighbour offload
+>   nfp: flower vxlan neighbour keep-alive
+>
+>  drivers/net/ethernet/netronome/nfp/Makefile        |   3 +-
+>  drivers/net/ethernet/netronome/nfp/flower/action.c | 169 ++++-
+>  drivers/net/ethernet/netronome/nfp/flower/cmsg.c   |  16 +-
+>  drivers/net/ethernet/netronome/nfp/flower/cmsg.h   |  87 ++-
+>  drivers/net/ethernet/netronome/nfp/flower/main.c   |  13 +
+>  drivers/net/ethernet/netronome/nfp/flower/main.h   |  35 +
+>  drivers/net/ethernet/netronome/nfp/flower/match.c  |  75 +-
+>  .../net/ethernet/netronome/nfp/flower/metadata.c   |   2 +-
+>  .../net/ethernet/netronome/nfp/flower/offload.c    |  74 +-
+>  .../ethernet/netronome/nfp/flower/tunnel_conf.c    | 811 +++++++++++++++++++++
+>  10 files changed, 1243 insertions(+), 42 deletions(-)
+>  create mode 100644 drivers/net/ethernet/netronome/nfp/flower/tunnel_conf.c
+>
+> --
+> 2.1.4
+>
