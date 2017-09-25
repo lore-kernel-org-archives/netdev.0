@@ -1,169 +1,35 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next 10/10] net: hns3: Add mqprio support when
- interacting with network stack
-Date: Mon, 25 Sep 2017 08:57:40 +0200
-Message-ID: <20170925065740.GB1899@nanopsycho>
-References: <1505992913-107256-1-git-send-email-linyunsheng@huawei.com>
- <1505992913-107256-11-git-send-email-linyunsheng@huawei.com>
- <20170922125541.GA2005@nanopsycho.orion>
- <59c51a37.a1c4df0a.ac4e2.8df0SMTPIN_ADDED_BROKEN@mx.google.com>
- <20170922160322.GB2005@nanopsycho.orion>
- <fdd8d8af-6d74-143a-adfa-502bd94a90d9@huawei.com>
- <20170924113724.GA2029@nanopsycho>
- <290b0679-bfc2-c23c-00ee-43768c1c2327@huawei.com>
+From: Kalle Valo <kvalo@qca.qualcomm.com>
+Subject: Re: [8/10] ath9k: Use ARRAY_SIZE macro
+Date: Mon, 25 Sep 2017 09:15:21 +0200
+Message-ID: <27be6ac3227f4738abf6ebea6410c365@euamsexm01a.eu.qualcomm.com>
+References: <1504439110050-1887263060-8-diffsplit-thomas@m3y3r.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-        huangdaode <huangdaode@hisilicon.com>,
-        "xuwei (O)" <xuwei5@hisilicon.com>,
-        "Liguozhu (Kenneth)" <liguozhu@hisilicon.com>,
-        "Zhuangyuzeng (Yisen)" <yisen.zhuang@huawei.com>,
-        Gabriele Paoloni <gabriele.paoloni@huawei.com>,
-        John Garry <john.garry@huawei.com>,
-        Linuxarm <linuxarm@huawei.com>,
-        Salil Mehta <salil.mehta@huawei.com>,
-        "lipeng (Y)" <lipeng321@huawei.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Yunsheng Lin <linyunsheng@huawei.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: <kvalo@codeaurora.org>, <linux-wireless@vger.kernel.org>,
+        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: Thomas Meyer <thomas@m3y3r.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <290b0679-bfc2-c23c-00ee-43768c1c2327@huawei.com>
+In-Reply-To: <1504439110050-1887263060-8-diffsplit-thomas@m3y3r.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Mon, Sep 25, 2017 at 02:45:08AM CEST, linyunsheng@huawei.com wrote:
->Hi, Jiri
->
->On 2017/9/24 19:37, Jiri Pirko wrote:
->> Sat, Sep 23, 2017 at 02:47:20AM CEST, linyunsheng@huawei.com wrote:
->>> Hi, Jiri
->>>
->>> On 2017/9/23 0:03, Jiri Pirko wrote:
->>>> Fri, Sep 22, 2017 at 04:11:51PM CEST, linyunsheng@huawei.com wrote:
->>>>> Hi, Jiri
->>>>>
->>>>>>> - if (!tc) {
->>>>>>> + if (if_running) {
->>>>>>> + (void)hns3_nic_net_stop(netdev);
->>>>>>> + msleep(100);
->>>>>>> + }
->>>>>>> +
->>>>>>> + ret = (kinfo->dcb_ops && kinfo->dcb_ops->>setup_tc) ?
->>>>>>> + kinfo->dcb_ops->setup_tc(h, tc, prio_tc) : ->EOPNOTSUPP;
->>>>>
->>>>>> This is most odd. Why do you call dcb_ops from >ndo_setup_tc callback?
->>>>>> Why are you mixing this together? prio->tc mapping >can be done
->>>>>> directly in dcbnl
->>>>>
->>>>> Here is what we do in dcb_ops->setup_tc:
->>>>> Firstly, if current tc num is different from the tc num
->>>>> that user provide, then we setup the queues for each
->>>>> tc.
->>>>>
->>>>> Secondly, we tell hardware the pri to tc mapping that
->>>>> the stack is using. In rx direction, our hardware need
->>>>> that mapping to put different packet into different tc'
->>>>> queues according to the priority of the packet, then
->>>>> rss decides which specific queue in the tc should the
->>>>> packet goto.
->>>>>
->>>>> By mixing, I suppose you meant why we need the
->>>>> pri to tc infomation?
->>>>
->>>> by mixing, I mean what I wrote. You are calling dcb_ops callback from
->>>> ndo_setup_tc callback. So you are mixing DCBNL subsystem and TC
->>>> subsystem. Why? Why do you need sch_mqprio? Why DCBNL is not enough for
->>>> all?
->>>
->>> When using lldptool, dcbnl is involved.
->>>
->>> But when using tc qdisc, dcbbl is not involved, below is the a few key
->>> call graph in the kernel when tc qdisc cmd is executed.
->>>
->>> cmd:
->>> tc qdisc add dev eth0 root handle 1:0 mqprio num_tc 4 map 1 2 3 3 1 3 1 1 hw 1
->>>
->>> call graph:
->>> rtnetlink_rcv_msg -> tc_modify_qdisc -> qdisc_create -> mqprio_init ->
->>> hns3_nic_setup_tc
->>>
->>> When hns3_nic_setup_tc is called, we need to know how many tc num and
->>> prio_tc mapping from the tc_mqprio_qopt which is provided in the paramter
->>> in the ndo_setup_tc function, and dcb_ops is the our hardware specific
->>> method to setup the tc related parameter to the hardware, so this is why
->>> we call dcb_ops callback in ndo_setup_tc callback.
->>>
->>> I hope this will answer your question, thanks for your time.
->> 
->> Okay. I understand that you have a usecase for mqprio mapping offload
->> without lldptool being involved. Ok. I believe it is wrong to call dcb_ops
->> from tc callback. You should have a generic layer inside the driver and
->> call it from both dcb_ops and tc callbacks.
->
->Actually, dcb_ops is our generic layer inside the driver.
->Below is high level architecture:
->
->       [ tc qdisc ]	       [ lldpad ]
->             |                     |
->             |                     |
->             |                     |
->       [ hns3_enet ]        [ hns3_dcbnl ]
->             \                    /
->                \              /
->                   \        /
->                 [ hclge_dcb ]
->                   /      \
->                /            \
->             /                  \
->     [ hclgc_main ]        [ hclge_tm ]
->
->hns3_enet.c implements the ndo_setup_tc callback.
->hns3_dcbnl.c implements the dcbnl_rtnl_ops for stack's DCBNL system.
->hclge_dcb implements the dcb_ops.
->So we already have a generic layer that tc and dcbnl all call from.
->
->> 
->> Also, what happens If I run lldptool concurrently with mqprio? Who wins
->> and is going to configure the mapping?
->
->Both lldptool and tc qdisc cmd use rtnl interface provided by stack, so
->they are both protected by rtnl_lock, so we do not have to do the locking
->in the driver.
+Thomas Meyer <thomas@m3y3r.de> wrote:
 
-I was not asking about locking, which is obvious, I was asking about the
-behaviour. Like for example:
-If I use tc to configure some mapping, later on I run lldptool and change
-the mapping. Does the tc dump show the updated values or the original
-ones?
+> Use ARRAY_SIZE macro, rather than explicitly coding some variant of it
+> yourself.
+> Found with: find -type f -name "*.c" -o -name "*.h" | xargs perl -p -i -e
+> 's/\bsizeof\s*\(\s*(\w+)\s*\)\s*\ /\s*sizeof\s*\(\s*\1\s*\[\s*0\s*\]\s*\)
+> /ARRAY_SIZE(\1)/g' and manual check/verification.
+> 
+> Signed-off-by: Thomas Meyer <thomas@m3y3r.de>
+> Signed-off-by: Kalle Valo <kvalo@qca.qualcomm.com>
 
->
->The locking is in rtnetlink_rcv_msg:
->
->	rtnl_lock();
->	handlers = rtnl_dereference(rtnl_msg_handlers[family]);
->	if (handlers) {
->		doit = READ_ONCE(handlers[type].doit);
->		if (doit)
->			err = doit(skb, nlh, extack);
->	}
->	rtnl_unlock();
->
->Thanks.
->
->> 
->> 
->>>
->>>>
->>>>
->>>>
->>>>> I hope I did not misunderstand your question, thanks
->>>>> for your time reviewing.
->>>>
->>>> .
->>>>
->>>
->> 
->> .
->> 
->
+Patch applied to ath-next branch of ath.git, thanks.
+
+896cbefadf62 ath9k: Use ARRAY_SIZE macro
+
+-- 
+https://patchwork.kernel.org/patch/9936271/
+
+https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
