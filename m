@@ -1,7 +1,7 @@
 From: Mika Westerberg <mika.westerberg@linux.intel.com>
-Subject: [PATCH v2 05/16] thunderbolt: Move tb_switch_phy_port_from_link() to thunderbolt.h
-Date: Mon, 25 Sep 2017 14:07:27 +0300
-Message-ID: <20170925110738.68382-6-mika.westerberg@linux.intel.com>
+Subject: [PATCH v2 10/16] thunderbolt: Move ring descriptor flags to thunderbolt.h
+Date: Mon, 25 Sep 2017 14:07:32 +0300
+Message-ID: <20170925110738.68382-11-mika.westerberg@linux.intel.com>
 References: <20170925110738.68382-1-mika.westerberg@linux.intel.com>
 Cc: Andreas Noever <andreas.noever@gmail.com>,
         Michael Jamet <michael.jamet@intel.com>,
@@ -19,79 +19,64 @@ In-Reply-To: <20170925110738.68382-1-mika.westerberg@linux.intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-A Thunderbolt service might need to find the physical port from a link
-the cable is connected to. For instance networking driver uses this
-information to generate MAC address according the Apple ThunderboltIP
-protocol.
-
-Move this function to thunderbolt.h and rename it to
-tb_phy_port_from_link() to reflect the fact that it does not take switch
-as parameter.
+A Thunderbolt service driver might need to check if there was an error
+with the descriptor when in frame mode. We also add two Rx specific
+error flags RING_DESC_CRC_ERROR and RING_DESC_BUFFER_OVERRUN.
 
 Signed-off-by: Mika Westerberg <mika.westerberg@linux.intel.com>
 Reviewed-by: Michael Jamet <michael.jamet@intel.com>
 Reviewed-by: Yehezkel Bernat <yehezkel.bernat@intel.com>
 ---
- drivers/thunderbolt/icm.c   | 2 +-
- drivers/thunderbolt/tb.h    | 7 -------
- include/linux/thunderbolt.h | 7 +++++++
- 3 files changed, 8 insertions(+), 8 deletions(-)
+ drivers/thunderbolt/nhi_regs.h |  7 -------
+ include/linux/thunderbolt.h    | 18 ++++++++++++++++++
+ 2 files changed, 18 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/thunderbolt/icm.c b/drivers/thunderbolt/icm.c
-index 53250fc057e1..8c22b91ed040 100644
---- a/drivers/thunderbolt/icm.c
-+++ b/drivers/thunderbolt/icm.c
-@@ -89,7 +89,7 @@ static inline struct tb *icm_to_tb(struct icm *icm)
- 
- static inline u8 phy_port_from_route(u64 route, u8 depth)
- {
--	return tb_switch_phy_port_from_link(route >> ((depth - 1) * 8));
-+	return tb_phy_port_from_link(route >> ((depth - 1) * 8));
- }
- 
- static inline u8 dual_link_from_link(u8 link)
-diff --git a/drivers/thunderbolt/tb.h b/drivers/thunderbolt/tb.h
-index 2fefe76621ca..ea21d927bd09 100644
---- a/drivers/thunderbolt/tb.h
-+++ b/drivers/thunderbolt/tb.h
-@@ -40,8 +40,6 @@ struct tb_switch_nvm {
+diff --git a/drivers/thunderbolt/nhi_regs.h b/drivers/thunderbolt/nhi_regs.h
+index 491a4c0c18fc..5ed6934e31e7 100644
+--- a/drivers/thunderbolt/nhi_regs.h
++++ b/drivers/thunderbolt/nhi_regs.h
+@@ -17,13 +17,6 @@ enum ring_flags {
+ 	RING_FLAG_ENABLE = 1 << 31,
  };
  
- #define TB_SWITCH_KEY_SIZE		32
--/* Each physical port contains 2 links on modern controllers */
--#define TB_SWITCH_LINKS_PER_PHY_PORT	2
- 
- /**
-  * struct tb_switch - a thunderbolt switch
-@@ -367,11 +365,6 @@ struct tb_switch *tb_switch_find_by_link_depth(struct tb *tb, u8 link,
- 					       u8 depth);
- struct tb_switch *tb_switch_find_by_uuid(struct tb *tb, const uuid_t *uuid);
- 
--static inline unsigned int tb_switch_phy_port_from_link(unsigned int link)
--{
--	return (link - 1) / TB_SWITCH_LINKS_PER_PHY_PORT;
--}
+-enum ring_desc_flags {
+-	RING_DESC_ISOCH = 0x1, /* TX only? */
+-	RING_DESC_COMPLETED = 0x2, /* set by NHI */
+-	RING_DESC_POSTED = 0x4, /* always set this */
+-	RING_DESC_INTERRUPT = 0x8, /* request an interrupt on completion */
+-};
 -
- static inline void tb_switch_put(struct tb_switch *sw)
- {
- 	put_device(&sw->dev);
+ /**
+  * struct ring_desc - TX/RX ring entry
+  *
 diff --git a/include/linux/thunderbolt.h b/include/linux/thunderbolt.h
-index 910b1bf92112..43b8d1e09341 100644
+index 9ddb83ad890f..e3b9af7be0ad 100644
 --- a/include/linux/thunderbolt.h
 +++ b/include/linux/thunderbolt.h
-@@ -78,6 +78,13 @@ struct tb {
+@@ -478,6 +478,24 @@ struct tb_ring {
+ struct ring_frame;
+ typedef void (*ring_cb)(struct tb_ring *, struct ring_frame *, bool canceled);
  
- extern struct bus_type tb_bus_type;
- 
-+#define TB_LINKS_PER_PHY_PORT	2
-+
-+static inline unsigned int tb_phy_port_from_link(unsigned int link)
-+{
-+	return (link - 1) / TB_LINKS_PER_PHY_PORT;
-+}
++/**
++ * enum ring_desc_flags - Flags for DMA ring descriptor
++ * %RING_DESC_ISOCH: Enable isonchronous DMA (Tx only)
++ * %RING_DESC_CRC_ERROR: In frame mode CRC check failed for the frame (Rx only)
++ * %RING_DESC_COMPLETED: Descriptor completed (set by NHI)
++ * %RING_DESC_POSTED: Always set this
++ * %RING_DESC_BUFFER_OVERRUN: RX buffer overrun
++ * %RING_DESC_INTERRUPT: Request an interrupt on completion
++ */
++enum ring_desc_flags {
++	RING_DESC_ISOCH = 0x1,
++	RING_DESC_CRC_ERROR = 0x1,
++	RING_DESC_COMPLETED = 0x2,
++	RING_DESC_POSTED = 0x4,
++	RING_DESC_BUFFER_OVERRUN = 0x04,
++	RING_DESC_INTERRUPT = 0x8,
++};
 +
  /**
-  * struct tb_property_dir - XDomain property directory
-  * @uuid: Directory UUID or %NULL if root directory
+  * struct ring_frame - For use with ring_rx/ring_tx
+  * @buffer_phy: DMA mapped address of the frame
 -- 
 2.14.1
