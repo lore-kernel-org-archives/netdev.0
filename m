@@ -1,47 +1,69 @@
-From: Egil Hjelmeland <privat@egil-hjelmeland.no>
-Subject: Re: [PATCH net-next 2/2] net: dsa: lan9303: Add basic offloading of
- unicast traffic
-Date: Mon, 25 Sep 2017 00:02:06 +0200
-Message-ID: <1e8ac407-bf63-5ccc-fe23-4af0ea83923d@egil-hjelmeland.no>
-References: <20170921094139.4250-1-privat@egil-hjelmeland.no>
- <20170921094139.4250-3-privat@egil-hjelmeland.no>
- <20170921142127.GB27589@lunn.ch>
- <b27d2dd4-84e3-b930-a6fe-1e5b36a7d213@egil-hjelmeland.no>
- <20170922200810.GJ3470@lunn.ch>
- <2c5fec6d-18b3-97e9-dd64-85560382d2f7@egil-hjelmeland.no>
- <20170923143123.GA21228@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170923143123.GA21228@lunn.ch>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net-next 0/6] BPF metadata for direct access
+Date: Mon, 25 Sep 2017 02:25:49 +0200
+Message-ID: <cover.1506297988.git.daniel@iogearbox.net>
+Cc: alexei.starovoitov@gmail.com, john.fastabend@gmail.com,
+        peter.waskiewicz.jr@intel.com, jakub.kicinski@netronome.com,
+        netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:37211 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932966AbdIYA1G (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 24 Sep 2017 20:27:06 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Den 23. sep. 2017 16:31, skrev Andrew Lunn:
->> The point is: Once both external ports are in "forwarding", I see no way
->> to prevent traffic flowing directly between the external ports.
-> 
-> Generally, there are port vectors. Port X can send frames only to Port
-> Y.
-> 
-> If you don't have that, there are possibilities with VLANs. Each port
-> is given a unique VLAN. All incoming untagged traffic is tagged with
-> the VLAN. You just need to keep the VLAN separated and add/remove the
-> VLAN tag in the dsa tag driver.
-> 
->       Andrew
-> 
-Thanks. The lan9303 has nothing like "port vectors". The port tagging
-scheme is VLAN based, but is does not prevent direct forwarding between
-the external ports.
+This work enables generic transfer of metadata from XDP into skb,
+meaning the packet has a flexible and programmable room for meta
+data, which can later be used by BPF to set various skb members
+when passing up the stack. For details, please see second patch.
+Support has been implemented and tested with two drivers, and
+should be straight forward to add to other drivers as well which
+properly support head adjustment already.
 
-In order to not break the strong port separation in the current driver;
-I will stick to my solution, and only add caching of the STP state
-register.
+Thanks!
 
-Egil
+Daniel Borkmann (6):
+  bpf: rename bpf_compute_data_end into bpf_compute_data_pointers
+  bpf: add meta pointer for direct access
+  bpf: update bpf.h uapi header for tools
+  bpf: improve selftests and add tests for meta pointer
+  bpf, nfp: add meta data support
+  bpf, ixgbe: add meta data support
+
+ drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.c      |   1 +
+ drivers/net/ethernet/cavium/thunder/nicvf_main.c   |   1 +
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c        |   1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c      |  29 ++-
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c         |   1 +
+ drivers/net/ethernet/mellanox/mlx5/core/en_rx.c    |   1 +
+ .../net/ethernet/netronome/nfp/nfp_net_common.c    |  39 ++--
+ drivers/net/ethernet/qlogic/qede/qede_fp.c         |   1 +
+ drivers/net/tun.c                                  |   1 +
+ drivers/net/virtio_net.c                           |   2 +
+ include/linux/bpf.h                                |   1 +
+ include/linux/filter.h                             |  30 ++-
+ include/linux/skbuff.h                             |  68 +++++-
+ include/uapi/linux/bpf.h                           |  13 +-
+ kernel/bpf/sockmap.c                               |   4 +-
+ kernel/bpf/verifier.c                              | 114 +++++++---
+ net/bpf/test_run.c                                 |   3 +-
+ net/core/dev.c                                     |  31 ++-
+ net/core/filter.c                                  |  91 +++++++-
+ net/core/lwt_bpf.c                                 |   2 +-
+ net/core/skbuff.c                                  |   2 +
+ net/sched/act_bpf.c                                |   4 +-
+ net/sched/cls_bpf.c                                |   4 +-
+ tools/include/uapi/linux/bpf.h                     |  45 ++--
+ tools/testing/selftests/bpf/Makefile               |  21 +-
+ tools/testing/selftests/bpf/bpf_helpers.h          |   2 +
+ tools/testing/selftests/bpf/test_verifier.c        | 247 +++++++++++++++++++++
+ tools/testing/selftests/bpf/test_xdp_meta.c        |  53 +++++
+ tools/testing/selftests/bpf/test_xdp_meta.sh       |  51 +++++
+ 29 files changed, 759 insertions(+), 104 deletions(-)
+ create mode 100644 tools/testing/selftests/bpf/test_xdp_meta.c
+ create mode 100755 tools/testing/selftests/bpf/test_xdp_meta.sh
+
+-- 
+1.9.3
