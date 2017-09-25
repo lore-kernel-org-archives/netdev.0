@@ -1,55 +1,57 @@
-From: Yonghong Song <yhs@fb.com>
-Subject: Re: [PATCH net-next v5 1/4] bpf: add helper bpf_perf_event_read_value
- for perf event array map
-Date: Mon, 25 Sep 2017 08:41:04 -0700
-Message-ID: <56191a53-33cf-c1b3-e482-9d575bafb0ef@fb.com>
-References: <20170920060935.1102268-1-yhs@fb.com>
- <20170920060935.1102268-2-yhs@fb.com>
- <20170920172651.zx4nfmj2lpgxzubq@hirez.programming.kicks-ass.net>
- <20170920.160707.932591498085219317.davem@davemloft.net>
- <b9753171-8e70-92f2-9852-8d3a33f2c07c@fb.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] inetpeer: speed up inetpeer_invalidate_tree()
+Date: Mon, 25 Sep 2017 09:14:14 -0700
+Message-ID: <1506356054.6617.13.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <rostedt@goodmis.org>, <daniel@iogearbox.net>,
-        <netdev@vger.kernel.org>, <kernel-team@fb.com>
-To: Alexei Starovoitov <ast@fb.com>,
-        David Miller <davem@davemloft.net>, <peterz@infradead.org>
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:41884 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S933349AbdIYPmM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2017 11:42:12 -0400
-In-Reply-To: <b9753171-8e70-92f2-9852-8d3a33f2c07c@fb.com>
-Content-Language: en-US
+Received: from mail-pf0-f178.google.com ([209.85.192.178]:56867 "EHLO
+        mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934227AbdIYQOQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2017 12:14:16 -0400
+Received: by mail-pf0-f178.google.com with SMTP id g65so4015765pfe.13
+        for <netdev@vger.kernel.org>; Mon, 25 Sep 2017 09:14:16 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Eric Dumazet <edumazet@google.com>
 
+As measured in my prior patch ("sch_netem: faster rb tree removal"),
+rbtree_postorder_for_each_entry_safe() is nice looking but much slower
+than using rb_next() directly, except when tree is small enough
+to fit in CPU caches (then the cost is the same)
 
-On 9/21/17 8:15 AM, Alexei Starovoitov wrote:
-> On 9/20/17 4:07 PM, David Miller wrote:
->> From: Peter Zijlstra <peterz@infradead.org>
->> Date: Wed, 20 Sep 2017 19:26:51 +0200
->>
->>> Dave, could we have this in a topic tree of sorts, because I have a
->>> pending series to rework all the timekeeping and it might be nice to not
->>> have sfr run into all sorts of conflicts.
->>
->> If you want to merge it into your tree that's fine.
->>
->> But it means that any further development done on top of this
->> work will need to go via you as well.
-> 
-> can we merge this set of patches into both net-next and tip ?
-> We did such tricks in the past to avoid merge conflicts and
-> everything went fine during merge window.
+From: Eric Dumazet <edumazet@google.com>
+---
+ net/ipv4/inetpeer.c |   11 +++++++----
+ 1 file changed, 7 insertions(+), 4 deletions(-)
 
-Hi, Peter,
-
-Any suggestion for merging this patch? Alexei's idea sounds
-reasonable?
-
-Thanks,
-
-Yonghong
+diff --git a/net/ipv4/inetpeer.c b/net/ipv4/inetpeer.c
+index e7eb590c86ce2b33654c17c61619de74ff07bfd1..6e5626cc366c150b13fd44a8e36169c2fb54476d 100644
+--- a/net/ipv4/inetpeer.c
++++ b/net/ipv4/inetpeer.c
+@@ -284,14 +284,17 @@ EXPORT_SYMBOL(inet_peer_xrlim_allow);
+ 
+ void inetpeer_invalidate_tree(struct inet_peer_base *base)
+ {
+-	struct inet_peer *p, *n;
++	struct rb_node *p = rb_first(&base->rb_root);
+ 
+-	rbtree_postorder_for_each_entry_safe(p, n, &base->rb_root, rb_node) {
+-		inet_putpeer(p);
++	while (p) {
++		struct inet_peer *peer = rb_entry(p, struct inet_peer, rb_node);
++
++		p = rb_next(p);
++		rb_erase(&peer->rb_node, &base->rb_root);
++		inet_putpeer(peer);
+ 		cond_resched();
+ 	}
+ 
+-	base->rb_root = RB_ROOT;
+ 	base->total = 0;
+ }
+ EXPORT_SYMBOL(inetpeer_invalidate_tree);
