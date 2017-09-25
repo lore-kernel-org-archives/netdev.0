@@ -1,29 +1,33 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net-next v2] net_sched: use idr to allocate u32 filter handles
-Date: Mon, 25 Sep 2017 16:13:46 -0700
-Message-ID: <CAM_iQpVDhtznNc8ef1HArX-T0_EDiXyF2p6ze57zvv1AHcrK8w@mail.gmail.com>
-References: <20170925171351.4956-3-xiyou.wangcong@gmail.com> <20170925190031.GB1936@nanopsycho.orion>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v4 2/3] ipv4: Namespaceify tcp_fastopen_key knob
+Date: Mon, 25 Sep 2017 16:24:45 -0700 (PDT)
+Message-ID: <20170925.162445.234890912211240693.davem@davemloft.net>
+References: <1506088124-12650-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
+        <1506088124-12650-2-git-send-email-yanhaishuang@cmss.chinamobile.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Chris Mi <chrism@mellanox.com>,
-        Jamal Hadi Salim <jhs@mojatatu.com>
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f176.google.com ([209.85.192.176]:53965 "EHLO
-        mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S964968AbdIYXOH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2017 19:14:07 -0400
-Received: by mail-pf0-f176.google.com with SMTP id x78so4579836pff.10
-        for <netdev@vger.kernel.org>; Mon, 25 Sep 2017 16:14:07 -0700 (PDT)
-In-Reply-To: <20170925190031.GB1936@nanopsycho.orion>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kuznet@ms2.inr.ac.ru, edumazet@google.com, weiwan@google.com,
+        lucab@debian.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: yanhaishuang@cmss.chinamobile.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1506088124-12650-2-git-send-email-yanhaishuang@cmss.chinamobile.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 25, 2017 at 12:00 PM, Jiri Pirko <jiri@resnulli.us> wrote:
-> Interesting, any idea why this is not 0x7FFFFFFF as well?
->
-> I wonder if we could have 0x7FFFFFFF magic defined somewhere.
+From: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+Date: Fri, 22 Sep 2017 21:48:43 +0800
 
-I have no idea, it just exists for a rather long time. Probably too late
-to change, or at least requires a separate patch to change it.
+> @@ -9,13 +9,18 @@
+>  #include <net/inetpeer.h>
+>  #include <net/tcp.h>
+>  
+> -struct tcp_fastopen_context __rcu *tcp_fastopen_ctx;
+> -
+> -static DEFINE_SPINLOCK(tcp_fastopen_ctx_lock);
+> -
+> -void tcp_fastopen_init_key_once(bool publish)
+> +void tcp_fastopen_init_key_once(struct net *net)
+
+Why did you remove the 'publish' logic from this function?
