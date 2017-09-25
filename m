@@ -1,47 +1,35 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v4 4/9] em28xx: fix em28xx_dvb_init for KASAN
-Date: Mon, 25 Sep 2017 14:41:30 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DD007F521@AcuExch.aculab.com>
-References: <20170922212930.620249-1-arnd@arndb.de>
- <20170922212930.620249-5-arnd@arndb.de>
+From: Oliver Neukum <oneukum@suse.com>
+Subject: Re: [PATCH] r8152:  add Linksys USB3GIGV1 id
+Date: Mon, 25 Sep 2017 16:51:14 +0200
+Message-ID: <1506351074.7827.13.camel@suse.com>
+References: <20170922190604.108155-1-grundler@chromium.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: Jiri Pirko <jiri@resnulli.us>,
-        Arend van Spriel <arend.vanspriel@broadcom.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Andrey Ryabinin <aryabinin@virtuozzo.com>,
-        Alexander Potapenko <glider@google.com>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Masahiro Yamada <yamada.masahiro@socionext.com>,
-        Michal Marek <mmarek@suse.com>,
-        Andrew Morton <akpm@linux-foundation.org>,
-        Kees Cook <keescook@chromium.org>,
-        Geert Uytterhoeven <geert@linux-m68k.org>,
-        "Greg Kroah-Hartman" <gregkh@linuxfoundation.org>,
-        "linux-media@vger.kernel.org" <linux-media@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org
-To: 'Arnd Bergmann' <arnd@arndb.de>,
-        Mauro Carvalho Chehab <mchehab@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170922212930.620249-5-arnd@arndb.de>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: "David S . Miller" <davem@davemloft.net>,
+        LKML <linux-kernel@vger.kernel.org>,
+        linux-usb <linux-usb@vger.kernel.org>, netdev@vger.kernel.org
+To: Grant Grundler <grundler@chromium.org>,
+        Hayes Wang <hayeswang@realtek.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.suse.de ([195.135.220.15]:56528 "EHLO mx1.suse.de"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S936017AbdIYOvV (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 25 Sep 2017 10:51:21 -0400
+In-Reply-To: <20170922190604.108155-1-grundler@chromium.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Arnd Bergmann
-> Sent: 22 September 2017 22:29
-...
-> It seems that this is triggered in part by using strlcpy(), which the
-> compiler doesn't recognize as copying at most 'len' bytes, since strlcpy
-> is not part of the C standard.
+Am Freitag, den 22.09.2017, 12:06 -0700 schrieb Grant Grundler:
+> This Linksys dongle by default comes up in cdc_ether mode.
+> This patch allows r8152 to claim the device:
+>    Bus 002 Device 002: ID 13b1:0041 Linksys
 
-Neither is strncpy().
+Hi,
 
-It'll almost certainly be a marker in a header file somewhere,
-so it should be possibly to teach it about other functions.
+have you tested this in case cdc_ether is for some reason already
+loaded? The patch seems to enable r8152 but does not disable
+cdc_ether.
 
-	David
+	Regards
+		Oliver
