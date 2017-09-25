@@ -1,35 +1,28 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] bpf: Optimize lpm trie delete
-Date: Mon, 25 Sep 2017 14:38:20 -0700 (PDT)
-Message-ID: <20170925.143820.627390178911789605.davem@davemloft.net>
-References: <20170921224329.101928-1-kraigatgoog@gmail.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [patch net] net: dsa: mv88e6xxx: Allow dsa and cpu ports in multiple vlans
+Date: Mon, 25 Sep 2017 17:34:53 -0400
+Message-ID: <87mv5io41u.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+References: <1506375140-2853-1-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: daniel@zonque.org, ast@fb.com, daniel@iogearbox.net,
-        netdev@vger.kernel.org
-To: kraigatgoog@gmail.com
+Content-Type: text/plain
+Cc: netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
+To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:60726 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934892AbdIYViU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2017 17:38:20 -0400
-In-Reply-To: <20170921224329.101928-1-kraigatgoog@gmail.com>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:53806 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934892AbdIYVia (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2017 17:38:30 -0400
+In-Reply-To: <1506375140-2853-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Craig Gallek <kraigatgoog@gmail.com>
-Date: Thu, 21 Sep 2017 18:43:29 -0400
+Andrew Lunn <andrew@lunn.ch> writes:
 
-> From: Craig Gallek <kraig@google.com>
-> 
-> Before the delete operator was added, this datastructure maintained
-> an invariant that intermediate nodes were only present when necessary
-> to build the tree.  This patch updates the delete operation to reinstate
-> that invariant by removing unnecessary intermediate nodes after a node is
-> removed and thus keeping the tree structure at a minimal size.
-> 
-> Suggested-by: Daniel Mack <daniel@zonque.org>
-> Signed-off-by: Craig Gallek <kraig@google.com>
+> Ports with the same VLAN must all be in the same bridge. However the
+> CPU and DSA ports need to be in multiple VLANs spread over multiple
+> bridges. So exclude them when performing this test.
+>
+> Fixes: b2f81d304cee ("net: dsa: add CPU and DSA ports as VLAN members")
+> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 
-Applied, thank you.
+Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
