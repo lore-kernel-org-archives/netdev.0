@@ -1,7 +1,7 @@
 From: Mika Westerberg <mika.westerberg@linux.intel.com>
-Subject: [PATCH v2 07/16] thunderbolt: Configure interrupt throttling for all interrupts
-Date: Mon, 25 Sep 2017 14:07:29 +0300
-Message-ID: <20170925110738.68382-8-mika.westerberg@linux.intel.com>
+Subject: [PATCH v2 08/16] thunderbolt: Add support for frame mode
+Date: Mon, 25 Sep 2017 14:07:30 +0300
+Message-ID: <20170925110738.68382-9-mika.westerberg@linux.intel.com>
 References: <20170925110738.68382-1-mika.westerberg@linux.intel.com>
 Cc: Andreas Noever <andreas.noever@gmail.com>,
         Michael Jamet <michael.jamet@intel.com>,
@@ -19,8 +19,17 @@ In-Reply-To: <20170925110738.68382-1-mika.westerberg@linux.intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This will keep the interrupt delivery rate reasonable. The value used
-here (128 us) is a recommendation from the hardware people.
+When high-speed DMA paths are used to transfer arbitrary data over a
+Thunderbolt link, DMA rings should be in frame mode instead of raw mode.
+The latter is used by the control channel (ring 0). In frame mode each
+data frame can hold up to 4kB payload.
+
+This patch modifies the DMA ring code to allow configuring a ring to be
+in frame mode by passing a new flag (RING_FLAG_FRAME) to the ring when
+it is allocated. In addition there might be need to enable end-to-end
+(E2E) workaround for the ring to prevent losing Rx frames in certain
+situations. We add another flag (RING_FLAG_E2E) that can be used for
+this purpose.
 
 This code is based on the work done by Amir Levy and Michael Jamet.
 
@@ -28,76 +37,220 @@ Signed-off-by: Michael Jamet <michael.jamet@intel.com>
 Signed-off-by: Mika Westerberg <mika.westerberg@linux.intel.com>
 Reviewed-by: Yehezkel Bernat <yehezkel.bernat@intel.com>
 ---
- drivers/thunderbolt/nhi.c      | 22 +++++++++++++++++++---
+ drivers/thunderbolt/ctl.c      |  3 +-
+ drivers/thunderbolt/nhi.c      | 76 ++++++++++++++++++++++++++----------------
+ drivers/thunderbolt/nhi.h      | 10 +++++-
  drivers/thunderbolt/nhi_regs.h |  2 ++
- 2 files changed, 21 insertions(+), 3 deletions(-)
+ 4 files changed, 61 insertions(+), 30 deletions(-)
 
+diff --git a/drivers/thunderbolt/ctl.c b/drivers/thunderbolt/ctl.c
+index 46e393c5fd1d..05400b77dcd7 100644
+--- a/drivers/thunderbolt/ctl.c
++++ b/drivers/thunderbolt/ctl.c
+@@ -618,7 +618,8 @@ struct tb_ctl *tb_ctl_alloc(struct tb_nhi *nhi, event_cb cb, void *cb_data)
+ 	if (!ctl->tx)
+ 		goto err;
+ 
+-	ctl->rx = ring_alloc_rx(nhi, 0, 10, RING_FLAG_NO_SUSPEND);
++	ctl->rx = ring_alloc_rx(nhi, 0, 10, RING_FLAG_NO_SUSPEND, 0xffff,
++				0xffff);
+ 	if (!ctl->rx)
+ 		goto err;
+ 
 diff --git a/drivers/thunderbolt/nhi.c b/drivers/thunderbolt/nhi.c
-index 05af126a2435..bc44cbaaf05a 100644
+index bc44cbaaf05a..cde8b6d46147 100644
 --- a/drivers/thunderbolt/nhi.c
 +++ b/drivers/thunderbolt/nhi.c
-@@ -651,6 +651,21 @@ static int nhi_suspend_noirq(struct device *dev)
- 	return tb_domain_suspend_noirq(tb);
+@@ -21,6 +21,12 @@
+ 
+ #define RING_TYPE(ring) ((ring)->is_tx ? "TX ring" : "RX ring")
+ 
++/*
++ * Used to enable end-to-end workaround for missing RX packets. Do not
++ * use this ring for anything else.
++ */
++#define RING_E2E_UNUSED_HOPID	2
++
+ /*
+  * Minimal number of vectors when we use MSI-X. Two for control channel
+  * Rx/Tx and the rest four are for cross domain DMA paths.
+@@ -229,23 +235,6 @@ static void ring_work(struct work_struct *work)
+ 			frame->eof = ring->descriptors[ring->tail].eof;
+ 			frame->sof = ring->descriptors[ring->tail].sof;
+ 			frame->flags = ring->descriptors[ring->tail].flags;
+-			if (frame->sof != 0)
+-				dev_WARN(&ring->nhi->pdev->dev,
+-					 "%s %d got unexpected SOF: %#x\n",
+-					 RING_TYPE(ring), ring->hop,
+-					 frame->sof);
+-			/*
+-			 * known flags:
+-			 * raw not enabled, interupt not set: 0x2=0010
+-			 * raw enabled: 0xa=1010
+-			 * raw not enabled: 0xb=1011
+-			 * partial frame (>MAX_FRAME_SIZE): 0xe=1110
+-			 */
+-			if (frame->flags != 0xa)
+-				dev_WARN(&ring->nhi->pdev->dev,
+-					 "%s %d got unexpected flags: %#x\n",
+-					 RING_TYPE(ring), ring->hop,
+-					 frame->flags);
+ 		}
+ 		ring->tail = (ring->tail + 1) % ring->size;
+ 	}
+@@ -321,12 +310,17 @@ static void ring_release_msix(struct tb_ring *ring)
  }
  
-+static void nhi_enable_int_throttling(struct tb_nhi *nhi)
-+{
-+	u32 throttle = DIV_ROUND_UP(128 * NSEC_PER_USEC, 256);
-+	unsigned int i;
-+
-+	/*
-+	 * Configure interrupt throttling for all vectors even if we
-+	 * only use few.
-+	 */
-+	for (i = 0; i < MSIX_MAX_VECS; i++) {
-+		u32 reg = REG_INT_THROTTLING_RATE + i * 4;
-+		iowrite32(throttle, nhi->iobase + reg);
-+	}
-+}
-+
- static int nhi_resume_noirq(struct device *dev)
+ static struct tb_ring *ring_alloc(struct tb_nhi *nhi, u32 hop, int size,
+-				  bool transmit, unsigned int flags)
++				  bool transmit, unsigned int flags,
++				  u16 sof_mask, u16 eof_mask)
  {
- 	struct pci_dev *pdev = to_pci_dev(dev);
-@@ -663,6 +678,8 @@ static int nhi_resume_noirq(struct device *dev)
- 	 */
- 	if (!pci_device_is_present(pdev))
- 		tb->nhi->going_away = true;
-+	else
-+		nhi_enable_int_throttling(tb->nhi);
+ 	struct tb_ring *ring = NULL;
+ 	dev_info(&nhi->pdev->dev, "allocating %s ring %d of size %d\n",
+ 		 transmit ? "TX" : "RX", hop, size);
  
- 	return tb_domain_resume_noirq(tb);
- }
-@@ -717,6 +734,8 @@ static int nhi_init_msi(struct tb_nhi *nhi)
- 	/* In case someone left them on. */
- 	nhi_disable_interrupts(nhi);
- 
-+	nhi_enable_int_throttling(nhi);
++	/* Tx Ring 2 is reserved for E2E workaround */
++	if (transmit && hop == RING_E2E_UNUSED_HOPID)
++		return NULL;
 +
- 	ida_init(&nhi->msix_ida);
+ 	mutex_lock(&nhi->lock);
+ 	if (hop >= nhi->hop_count) {
+ 		dev_WARN(&nhi->pdev->dev, "invalid hop: %d\n", hop);
+@@ -353,6 +347,8 @@ static struct tb_ring *ring_alloc(struct tb_nhi *nhi, u32 hop, int size,
+ 	ring->is_tx = transmit;
+ 	ring->size = size;
+ 	ring->flags = flags;
++	ring->sof_mask = sof_mask;
++	ring->eof_mask = eof_mask;
+ 	ring->head = 0;
+ 	ring->tail = 0;
+ 	ring->running = false;
+@@ -384,13 +380,13 @@ static struct tb_ring *ring_alloc(struct tb_nhi *nhi, u32 hop, int size,
+ struct tb_ring *ring_alloc_tx(struct tb_nhi *nhi, int hop, int size,
+ 			      unsigned int flags)
+ {
+-	return ring_alloc(nhi, hop, size, true, flags);
++	return ring_alloc(nhi, hop, size, true, flags, 0, 0);
+ }
  
- 	/*
-@@ -796,9 +815,6 @@ static int nhi_probe(struct pci_dev *pdev, const struct pci_device_id *id)
+ struct tb_ring *ring_alloc_rx(struct tb_nhi *nhi, int hop, int size,
+-			      unsigned int flags)
++			      unsigned int flags, u16 sof_mask, u16 eof_mask)
+ {
+-	return ring_alloc(nhi, hop, size, false, flags);
++	return ring_alloc(nhi, hop, size, false, flags, sof_mask, eof_mask);
+ }
  
- 	pci_set_master(pdev);
+ /**
+@@ -400,6 +396,9 @@ struct tb_ring *ring_alloc_rx(struct tb_nhi *nhi, int hop, int size,
+  */
+ void ring_start(struct tb_ring *ring)
+ {
++	u16 frame_size;
++	u32 flags;
++
+ 	mutex_lock(&ring->nhi->lock);
+ 	mutex_lock(&ring->lock);
+ 	if (ring->nhi->going_away)
+@@ -411,18 +410,39 @@ void ring_start(struct tb_ring *ring)
+ 	dev_info(&ring->nhi->pdev->dev, "starting %s %d\n",
+ 		 RING_TYPE(ring), ring->hop);
  
--	/* magic value - clock related? */
--	iowrite32(3906250 / 10000, nhi->iobase + 0x38c00);
--
- 	tb = icm_probe(nhi);
- 	if (!tb)
- 		tb = tb_probe(nhi);
++	if (ring->flags & RING_FLAG_FRAME) {
++		/* Means 4096 */
++		frame_size = 0;
++		flags = RING_FLAG_ENABLE;
++	} else {
++		frame_size = TB_FRAME_SIZE;
++		flags = RING_FLAG_ENABLE | RING_FLAG_RAW;
++	}
++
++	if (ring->flags & RING_FLAG_E2E && !ring->is_tx) {
++		u32 hop;
++
++		/*
++		 * In order not to lose Rx packets we enable end-to-end
++		 * workaround which transfers Rx credits to an unused Tx
++		 * HopID.
++		 */
++		hop = RING_E2E_UNUSED_HOPID << REG_RX_OPTIONS_E2E_HOP_SHIFT;
++		hop &= REG_RX_OPTIONS_E2E_HOP_MASK;
++		flags |= hop | RING_FLAG_E2E_FLOW_CONTROL;
++	}
++
+ 	ring_iowrite64desc(ring, ring->descriptors_dma, 0);
+ 	if (ring->is_tx) {
+ 		ring_iowrite32desc(ring, ring->size, 12);
+ 		ring_iowrite32options(ring, 0, 4); /* time releated ? */
+-		ring_iowrite32options(ring,
+-				      RING_FLAG_ENABLE | RING_FLAG_RAW, 0);
++		ring_iowrite32options(ring, flags, 0);
+ 	} else {
+-		ring_iowrite32desc(ring,
+-				   (TB_FRAME_SIZE << 16) | ring->size, 12);
+-		ring_iowrite32options(ring, 0xffffffff, 4); /* SOF EOF mask */
+-		ring_iowrite32options(ring,
+-				      RING_FLAG_ENABLE | RING_FLAG_RAW, 0);
++		u32 sof_eof_mask = ring->sof_mask << 16 | ring->eof_mask;
++
++		ring_iowrite32desc(ring, (frame_size << 16) | ring->size, 12);
++		ring_iowrite32options(ring, sof_eof_mask, 4);
++		ring_iowrite32options(ring, flags, 0);
+ 	}
+ 	ring_interrupt_active(ring, true);
+ 	ring->running = true;
+diff --git a/drivers/thunderbolt/nhi.h b/drivers/thunderbolt/nhi.h
+index 0e05828983db..4503ddbeccb3 100644
+--- a/drivers/thunderbolt/nhi.h
++++ b/drivers/thunderbolt/nhi.h
+@@ -56,6 +56,8 @@ struct tb_nhi {
+  * @irq: MSI-X irq number if the ring uses MSI-X. %0 otherwise.
+  * @vector: MSI-X vector number the ring uses (only set if @irq is > 0)
+  * @flags: Ring specific flags
++ * @sof_mask: Bit mask used to detect start of frame PDF
++ * @eof_mask: Bit mask used to detect end of frame PDF
+  */
+ struct tb_ring {
+ 	struct mutex lock;
+@@ -74,10 +76,16 @@ struct tb_ring {
+ 	int irq;
+ 	u8 vector;
+ 	unsigned int flags;
++	u16 sof_mask;
++	u16 eof_mask;
+ };
+ 
+ /* Leave ring interrupt enabled on suspend */
+ #define RING_FLAG_NO_SUSPEND	BIT(0)
++/* Configure the ring to be in frame mode */
++#define RING_FLAG_FRAME		BIT(1)
++/* Enable end-to-end flow control */
++#define RING_FLAG_E2E		BIT(2)
+ 
+ struct ring_frame;
+ typedef void (*ring_cb)(struct tb_ring*, struct ring_frame*, bool canceled);
+@@ -100,7 +108,7 @@ struct ring_frame {
+ struct tb_ring *ring_alloc_tx(struct tb_nhi *nhi, int hop, int size,
+ 			      unsigned int flags);
+ struct tb_ring *ring_alloc_rx(struct tb_nhi *nhi, int hop, int size,
+-			      unsigned int flags);
++			      unsigned int flags, u16 sof_mask, u16 eof_mask);
+ void ring_start(struct tb_ring *ring);
+ void ring_stop(struct tb_ring *ring);
+ void ring_free(struct tb_ring *ring);
 diff --git a/drivers/thunderbolt/nhi_regs.h b/drivers/thunderbolt/nhi_regs.h
-index 09ed574e92ff..46eff69b19ad 100644
+index 46eff69b19ad..491a4c0c18fc 100644
 --- a/drivers/thunderbolt/nhi_regs.h
 +++ b/drivers/thunderbolt/nhi_regs.h
-@@ -95,6 +95,8 @@ struct ring_desc {
- #define REG_RING_INTERRUPT_BASE	0x38200
- #define RING_INTERRUPT_REG_COUNT(nhi) ((31 + 2 * nhi->hop_count) / 32)
+@@ -77,6 +77,8 @@ struct ring_desc {
+  * ..: unknown
+  */
+ #define REG_RX_OPTIONS_BASE	0x29800
++#define REG_RX_OPTIONS_E2E_HOP_MASK	GENMASK(22, 12)
++#define REG_RX_OPTIONS_E2E_HOP_SHIFT	12
  
-+#define REG_INT_THROTTLING_RATE	0x38c00
-+
- /* Interrupt Vector Allocation */
- #define REG_INT_VEC_ALLOC_BASE	0x38c40
- #define REG_INT_VEC_ALLOC_BITS	4
+ /*
+  * three bitfields: tx, rx, rx overflow
 -- 
 2.14.1
