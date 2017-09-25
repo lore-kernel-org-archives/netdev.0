@@ -1,57 +1,76 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] inetpeer: speed up inetpeer_invalidate_tree()
-Date: Mon, 25 Sep 2017 09:14:14 -0700
-Message-ID: <1506356054.6617.13.camel@edumazet-glaptop3.roam.corp.google.com>
+From: David Ahern <dsahern@gmail.com>
+Subject: Re: [PATCH net-next] sch_netem: faster rb tree removal
+Date: Mon, 25 Sep 2017 10:14:23 -0600
+Message-ID: <ce328dfd-0b54-883a-36a8-91ec344f86ad@gmail.com>
+References: <1506190048.29839.206.camel@edumazet-glaptop3.roam.corp.google.com>
+ <b175f7ab-12b6-061a-4233-ba53641ef99b@gmail.com>
+ <aa146e80-4cfd-888f-f6d2-bf4ec0eb7373@gmail.com>
+ <1506317240.6617.5.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Stephen Hemminger <stephen@networkplumber.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f178.google.com ([209.85.192.178]:56867 "EHLO
-        mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934227AbdIYQOQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2017 12:14:16 -0400
-Received: by mail-pf0-f178.google.com with SMTP id g65so4015765pfe.13
-        for <netdev@vger.kernel.org>; Mon, 25 Sep 2017 09:14:16 -0700 (PDT)
+Received: from mail-pg0-f44.google.com ([74.125.83.44]:49367 "EHLO
+        mail-pg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934227AbdIYQO0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2017 12:14:26 -0400
+Received: by mail-pg0-f44.google.com with SMTP id m30so4233011pgn.6
+        for <netdev@vger.kernel.org>; Mon, 25 Sep 2017 09:14:26 -0700 (PDT)
+In-Reply-To: <1506317240.6617.5.camel@edumazet-glaptop3.roam.corp.google.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On 9/24/17 11:27 PM, Eric Dumazet wrote:
+> On Sun, 2017-09-24 at 20:05 -0600, David Ahern wrote:
+>> On 9/24/17 7:57 PM, David Ahern wrote:
+> 
+>>> Hi Eric:
+>>>
+>>> I'm guessing the cost is in the rb_first and rb_next computations. Did
+>>> you consider something like this:
+>>>
+>>>         struct rb_root *root
+>>>         struct rb_node **p = &root->rb_node;
+>>>
+>>>         while (*p != NULL) {
+>>>                 struct foobar *fb;
+>>>
+>>>                 fb = container_of(*p, struct foobar, rb_node);
+>>>                 // fb processing
+>> 		  rb_erase(&nh->rb_node, root);
+>>
+>>>                 p = &root->rb_node;
+>>>         }
+>>>
+>>
+>> Oops, dropped the rb_erase in my consolidating the code to this snippet.
+> 
+> Hi David
+> 
+> This gives about same numbers than method_1
+> 
+> I tried with 10^7 skbs in the tree :
+> 
+> Your suggestion takes 66ns per skb, while the one I chose takes 37ns per
+> skb.
 
-As measured in my prior patch ("sch_netem: faster rb tree removal"),
-rbtree_postorder_for_each_entry_safe() is nice looking but much slower
-than using rb_next() directly, except when tree is small enough
-to fit in CPU caches (then the cost is the same)
+Thanks for the test.
 
-From: Eric Dumazet <edumazet@google.com>
----
- net/ipv4/inetpeer.c |   11 +++++++----
- 1 file changed, 7 insertions(+), 4 deletions(-)
+I made a simple program this morning and ran it under perf. With the
+above suggestion the rb_erase has a high cost because it always deletes
+the root node. Your method 1 has a high cost on rb_first which is
+expected given its definition and it is run on each removal. Both
+options increase in time with the number of entries in the tree.
 
-diff --git a/net/ipv4/inetpeer.c b/net/ipv4/inetpeer.c
-index e7eb590c86ce2b33654c17c61619de74ff07bfd1..6e5626cc366c150b13fd44a8e36169c2fb54476d 100644
---- a/net/ipv4/inetpeer.c
-+++ b/net/ipv4/inetpeer.c
-@@ -284,14 +284,17 @@ EXPORT_SYMBOL(inet_peer_xrlim_allow);
- 
- void inetpeer_invalidate_tree(struct inet_peer_base *base)
- {
--	struct inet_peer *p, *n;
-+	struct rb_node *p = rb_first(&base->rb_root);
- 
--	rbtree_postorder_for_each_entry_safe(p, n, &base->rb_root, rb_node) {
--		inet_putpeer(p);
-+	while (p) {
-+		struct inet_peer *peer = rb_entry(p, struct inet_peer, rb_node);
-+
-+		p = rb_next(p);
-+		rb_erase(&peer->rb_node, &base->rb_root);
-+		inet_putpeer(peer);
- 		cond_resched();
- 	}
- 
--	base->rb_root = RB_ROOT;
- 	base->total = 0;
- }
- EXPORT_SYMBOL(inetpeer_invalidate_tree);
+Your method 2 is fairly constant from 10,000 entries to 10M entries
+which makes sense: a one time cost at finding rb_first and then always
+removing a bottom node so rb_erase is light.
+
+As for the change:
+
+Acked-by: David Ahern <dsahern@gmail.com>
