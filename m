@@ -1,29 +1,47 @@
-From: Allen <allen.lkml@gmail.com>
-Subject: Re: [PATCH 0/5] use setup_timer() helper function.
-Date: Mon, 25 Sep 2017 13:00:38 +0530
-Message-ID: <CAOMdWSK_ZdpJP-aP6ELLtb0SgCvFfHzbaffsjFFooUaV+OE4TQ@mail.gmail.com>
-References: <1506077902-1796-1-git-send-email-allen.lkml@gmail.com> <20170922.182231.828352137786459100.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: netdev@vger.kernel.org, sameo@linux.intel.com
-To: David Miller <davem@davemloft.net>
+From: Allen Pais <allen.lkml@gmail.com>
+Subject: [PATCH v2 2/4] net: nfc: hci: use setup_timer() helper.
+Date: Mon, 25 Sep 2017 13:00:03 +0530
+Message-ID: <1506324605-10160-2-git-send-email-allen.lkml@gmail.com>
+References: <1506324605-10160-1-git-send-email-allen.lkml@gmail.com>
+Cc: davem@davemloft.net, sameo@linux.intel.com,
+        Allen Pais <allen.lkml@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f196.google.com ([209.85.128.196]:33569 "EHLO
-        mail-wr0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932135AbdIYHak (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2017 03:30:40 -0400
-Received: by mail-wr0-f196.google.com with SMTP id b9so1283066wra.0
-        for <netdev@vger.kernel.org>; Mon, 25 Sep 2017 00:30:39 -0700 (PDT)
-In-Reply-To: <20170922.182231.828352137786459100.davem@davemloft.net>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:33050 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932135AbdIYHb5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2017 03:31:57 -0400
+Received: by mail-pf0-f193.google.com with SMTP id h4so3290627pfk.0
+        for <netdev@vger.kernel.org>; Mon, 25 Sep 2017 00:31:57 -0700 (PDT)
+In-Reply-To: <1506324605-10160-1-git-send-email-allen.lkml@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->
-> There was a recent change to the nfc code in net-next which causes
-> your patches to not apply.
->
-> Please repsin against net-next, thanks.
+Use setup_timer function instead of initializing timer with the
+   function and data fields.
 
-Sent out V2.
+Signed-off-by: Allen Pais <allen.lkml@gmail.com>
+---
+v2: rebased to latest net-next.
 
-Thanks.
+ net/nfc/hci/core.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/net/nfc/hci/core.c b/net/nfc/hci/core.c
+index b740fef..a8a6e78 100644
+--- a/net/nfc/hci/core.c
++++ b/net/nfc/hci/core.c
+@@ -1004,9 +1004,8 @@ int nfc_hci_register_device(struct nfc_hci_dev *hdev)
+ 
+ 	INIT_WORK(&hdev->msg_tx_work, nfc_hci_msg_tx_work);
+ 
+-	init_timer(&hdev->cmd_timer);
+-	hdev->cmd_timer.data = (unsigned long)hdev;
+-	hdev->cmd_timer.function = nfc_hci_cmd_timeout;
++	setup_timer(&hdev->cmd_timer, nfc_hci_cmd_timeout,
++		    (unsigned long)hdev);
+ 
+ 	skb_queue_head_init(&hdev->rx_hcp_frags);
+ 
+-- 
+2.7.4
