@@ -1,124 +1,125 @@
-From: Wei Wang <weiwan@google.com>
-Subject: [PATCH net] ipv6: remove incorrect WARN_ON() in fib6_del()
-Date: Mon, 25 Sep 2017 10:35:22 -0700
-Message-ID: <20170925173522.99892-1-tracywwnj@gmail.com>
-Cc: Eric Dumazet <edumazet@google.com>,
-        Martin KaFai Lau <kafai@fb.com>, Wei Wang <weiwan@google.com>
-To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: [PATCH net-next 2/6] bpf: add meta pointer for direct access
+Date: Mon, 25 Sep 2017 14:10:00 -0400
+Message-ID: <20170925181000.GA60144@C02RW35GFVH8.dhcp.broadcom.net>
+References: <458f9c13ab58abb1a15627906d03c33c42b02a7c.1506297988.git.daniel@iogearbox.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, alexei.starovoitov@gmail.com,
+        john.fastabend@gmail.com, peter.waskiewicz.jr@intel.com,
+        jakub.kicinski@netronome.com, netdev@vger.kernel.org,
+        mchan@broadcom.com
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f51.google.com ([74.125.83.51]:45040 "EHLO
-        mail-pg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934132AbdIYRfr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2017 13:35:47 -0400
-Received: by mail-pg0-f51.google.com with SMTP id j16so4374198pga.1
-        for <netdev@vger.kernel.org>; Mon, 25 Sep 2017 10:35:47 -0700 (PDT)
+Received: from mail-qk0-f170.google.com ([209.85.220.170]:49506 "EHLO
+        mail-qk0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S935062AbdIYSKH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2017 14:10:07 -0400
+Received: by mail-qk0-f170.google.com with SMTP id u67so7555658qkg.6
+        for <netdev@vger.kernel.org>; Mon, 25 Sep 2017 11:10:06 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <458f9c13ab58abb1a15627906d03c33c42b02a7c.1506297988.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Wang <weiwan@google.com>
+On Mon, Sep 25, 2017 at 02:25:51AM +0200, Daniel Borkmann wrote:
+> This work enables generic transfer of metadata from XDP into skb. The
+> basic idea is that we can make use of the fact that the resulting skb
+> must be linear and already comes with a larger headroom for supporting
+> bpf_xdp_adjust_head(), which mangles xdp->data. Here, we base our work
+> on a similar principle and introduce a small helper bpf_xdp_adjust_meta()
+> for adjusting a new pointer called xdp->data_meta. Thus, the packet has
+> a flexible and programmable room for meta data, followed by the actual
+> packet data. struct xdp_buff is therefore laid out that we first point
+> to data_hard_start, then data_meta directly prepended to data followed
+> by data_end marking the end of packet. bpf_xdp_adjust_head() takes into
+> account whether we have meta data already prepended and if so, memmove()s
+> this along with the given offset provided there's enough room.
+> 
+> xdp->data_meta is optional and programs are not required to use it. The
+> rationale is that when we process the packet in XDP (e.g. as DoS filter),
+> we can push further meta data along with it for the XDP_PASS case, and
+> give the guarantee that a clsact ingress BPF program on the same device
+> can pick this up for further post-processing. Since we work with skb
+> there, we can also set skb->mark, skb->priority or other skb meta data
+> out of BPF, thus having this scratch space generic and programmable
+> allows for more flexibility than defining a direct 1:1 transfer of
+> potentially new XDP members into skb (it's also more efficient as we
+> don't need to initialize/handle each of such new members).  The facility
+> also works together with GRO aggregation. The scratch space at the head
+> of the packet can be multiple of 4 byte up to 32 byte large. Drivers not
+> yet supporting xdp->data_meta can simply be set up with xdp->data_meta
+> as xdp->data + 1 as bpf_xdp_adjust_meta() will detect this and bail out,
+> such that the subsequent match against xdp->data for later access is
+> guaranteed to fail.
+> 
+> The verifier treats xdp->data_meta/xdp->data the same way as we treat
+> xdp->data/xdp->data_end pointer comparisons. The requirement for doing
+> the compare against xdp->data is that it hasn't been modified from it's
+> original address we got from ctx access. It may have a range marking
+> already from prior successful xdp->data/xdp->data_end pointer comparisons
+> though.
 
-fib6_del() generates WARN_ON() when rt->dst.obsolete > 0. This does not
-make sense because it is possible that the route passed in is already
-deleted by some other thread and rt->dst.obsolete is set to
-DST_OBSOLETE_DEAD.
-So this commit deletes this WARN_ON() and also remove the
-"#ifdef RT6_DEBUG >= 2" condition so that if the route is already
-obsolete, we return right at the beginning of fib6_del().
+First, thanks for this detailed description.  It was helpful to read
+along with the patches.
 
-Syzkaller hit this WARN_ON() in the following call trace:
- __dump_stack lib/dump_stack.c:16 [inline]
- dump_stack+0x194/0x257 lib/dump_stack.c:52
- panic+0x1e4/0x417 kernel/panic.c:180
- __warn+0x1c4/0x1d9 kernel/panic.c:541
- report_bug+0x211/0x2d0 lib/bug.c:183
- fixup_bug+0x40/0x90 arch/x86/kernel/traps.c:190
- do_trap_no_signal arch/x86/kernel/traps.c:224 [inline]
- do_trap+0x260/0x390 arch/x86/kernel/traps.c:273
- do_error_trap+0x120/0x390 arch/x86/kernel/traps.c:310
- do_invalid_op+0x1b/0x20 arch/x86/kernel/traps.c:323
- invalid_op+0x1e/0x30 arch/x86/entry/entry_64.S:846
-RIP: 0010:fib6_del+0x947/0xca0 net/ipv6/ip6_fib.c:1477
-RSP: 0018:ffff8801db2074d8 EFLAGS: 00010206
-RAX: ffff8801d1500080 RBX: ffff8801d01638c0 RCX: 0000000000000000
-RDX: 0000000000000100 RSI: ffff8801db207650 RDI: ffff8801d0163924
-RBP: ffff8801db2075f0 R08: ffffffff86df5f98 R09: 0000000000000002
-R10: ffff8801db2074b8 R11: 1ffff1003a2a026b R12: dffffc0000000000
-R13: ffff8801db207650 R14: ffff8801a0748180 R15: 1ffff1003b640ea5
- __ip6_del_rt+0xc7/0x120 net/ipv6/route.c:2136
- ip6_del_rt+0x132/0x1a0 net/ipv6/route.c:2149
- ip6_link_failure+0x244/0x380 net/ipv6/route.c:1359
- dst_link_failure include/net/dst.h:454 [inline]
- ndisc_error_report+0xae/0x180 net/ipv6/ndisc.c:682
- neigh_invalidate+0x225/0x530 net/core/neighbour.c:883
- neigh_timer_handler+0x883/0xca0 net/core/neighbour.c:969
- call_timer_fn+0x233/0x830 kernel/time/timer.c:1268
- expire_timers kernel/time/timer.c:1307 [inline]
- __run_timers+0x7fd/0xb90 kernel/time/timer.c:1601
- run_timer_softirq+0x21/0x80 kernel/time/timer.c:1614
- __do_softirq+0x2f5/0xba3 kernel/softirq.c:284
- invoke_softirq kernel/softirq.c:364 [inline]
- irq_exit+0x1cc/0x200 kernel/softirq.c:405
- exiting_irq arch/x86/include/asm/apic.h:638 [inline]
- smp_apic_timer_interrupt+0x76/0xa0 arch/x86/kernel/apic/apic.c:1044
- apic_timer_interrupt+0x93/0xa0 arch/x86/entry/entry_64.S:702
-RIP: 0010:arch_local_irq_enable arch/x86/include/asm/paravirt.h:824 [inline]
-RIP: 0010:__raw_spin_unlock_irq include/linux/spinlock_api_smp.h:168 [inline]
-RIP: 0010:_raw_spin_unlock_irq+0x56/0x70 kernel/locking/spinlock.c:199
-RSP: 0018:ffff8801d0407040 EFLAGS: 00000286 ORIG_RAX: ffffffffffffff10
-RAX: dffffc0000000000 RBX: ffff8801db225780 RCX: 0000000000000000
-RDX: 1ffffffff0b59433 RSI: 0000000000000001 RDI: ffffffff85aca198
-RBP: ffff8801d0407048 R08: 0000000000000001 R09: 0000000000000000
-R10: 0000000000000000 R11: 0000000000000000 R12: ffff8801c6820400
-R13: 1ffff1003a080e11 R14: ffff8801d1500080 R15: ffff8801d1500080
- </IRQ>
- finish_lock_switch kernel/sched/sched.h:1334 [inline]
- finish_task_switch+0x1d3/0x740 kernel/sched/core.c:2638
- context_switch kernel/sched/core.c:2774 [inline]
- __schedule+0x8f0/0x2070 kernel/sched/core.c:3332
- schedule+0x108/0x440 kernel/sched/core.c:3391
- schedule_hrtimeout_range_clock+0x23e/0x810 kernel/time/hrtimer.c:1708
- schedule_hrtimeout_range+0x2a/0x40 kernel/time/hrtimer.c:1753
- poll_schedule_timeout+0x10f/0x1f0 fs/select.c:242
- do_select+0x11ea/0x1710 fs/select.c:581
- core_sys_select+0x480/0x960 fs/select.c:655
- do_pselect fs/select.c:732 [inline]
- SYSC_pselect6 fs/select.c:773 [inline]
- SyS_pselect6+0x54a/0x650 fs/select.c:758
- entry_SYSCALL_64_fastpath+0x1f/0xbe
-RIP: 0033:0x45f181
-RSP: 002b:00007f91306e1db0 EFLAGS: 00000246 ORIG_RAX: 000000000000010e
-RAX: ffffffffffffffda RBX: 0000000000000000 RCX: 000000000045f181
-RDX: 0000000000000000 RSI: 0000000000000000 RDI: 0000000000000000
-RBP: 0000000000000086 R08: 00007f91306e1db0 R09: 0000000000000000
-R10: 0000000000000000 R11: 0000000000000246 R12: 00007ffdd9621670
-R13: 00007f91306e29c0 R14: 00007f9130eac040 R15: 0000000000000003
+My only concern about this area being generic is that you are now in a
+state where any bpf program must know about all the bpf programs in the
+receive pipeline before it can properly parse what is stored in the
+meta-data and add it to an skb (or perform any other action).
+Especially if each program adds it's own meta-data along the way.
 
-Note: there is no Fixes tag because this bug was introduced long ago.
+Maybe this isn't a big concern based on the number of users of this
+today, but it just starts to seem like a concern as there are these
+hints being passed between layers that are challenging to track due to a
+lack of a standard format for passing data between.
 
-Signed-off-by: Wei Wang <weiwan@google.com>
-Acked-by: Eric Dumazet <edumazet@google.com>
----
- net/ipv6/ip6_fib.c | 8 +-------
- 1 file changed, 1 insertion(+), 7 deletions(-)
+The main reason I bring this up is that Michael and I had discussed and
+designed a way for drivers to communicate between each other that rx
+resources could be freed after a tx completion on an XDP_REDIRECT
+action.  Much like this code, it involved adding an new element to
+struct xdp_md that could point to the important information.  Now that
+there is a generic way to handle this, it would seem nice to be able to
+leverage it, but I'm not sure how reliable this meta-data area would be
+without the ability to mark it in some manner.
 
-diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
-index e5308d7cbd75..693bcd7ef6d2 100644
---- a/net/ipv6/ip6_fib.c
-+++ b/net/ipv6/ip6_fib.c
-@@ -1592,13 +1592,7 @@ int fib6_del(struct rt6_info *rt, struct nl_info *info)
- 	struct net *net = info->nl_net;
- 	struct rt6_info **rtp;
- 
--#if RT6_DEBUG >= 2
--	if (rt->dst.obsolete > 0) {
--		WARN_ON(fn);
--		return -ENOENT;
--	}
--#endif
--	if (!fn || rt == net->ipv6.ip6_null_entry)
-+	if (!fn || rt->dst.obsolete > 0 || rt == net->ipv6.ip6_null_entry)
- 		return -ENOENT;
- 
- 	WARN_ON(!(fn->fn_flags & RTN_RTINFO));
--- 
-2.14.1.821.g8fa685d3b7-goog
+For additional background, the minimum amount of data needed in the case
+Michael and I were discussing was really 2 words.  One to serve as a
+pointer to an rx_ring structure and one to have a counter to the rx
+producer entry.  This data could be acessed by the driver processing the
+tx completions and callback to the driver that received the frame off the wire
+to perform any needed processing.  (For those curious this would also require a
+new callback/netdev op to act on this data stored in the XDP buffer.)
+
+IIUC, I could use this meta_data area to store this information, but would it
+also be useful to create some type field/marker that could also be stored in
+the meta_data to indicate what type of information is there?  I hate to propose
+such a thing as it may add unneeded complexity, but I just wanted to make sure
+to say something before it was too late as there may be more users of this
+right away.  :-)
+
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> Acked-by: Alexei Starovoitov <ast@kernel.org>
+> Acked-by: John Fastabend <john.fastabend@gmail.com>
+> ---
+>  drivers/net/ethernet/broadcom/bnxt/bnxt_xdp.c      |   1 +
+>  drivers/net/ethernet/cavium/thunder/nicvf_main.c   |   1 +
+>  drivers/net/ethernet/intel/i40e/i40e_txrx.c        |   1 +
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c      |   1 +
+>  drivers/net/ethernet/mellanox/mlx4/en_rx.c         |   1 +
+>  drivers/net/ethernet/mellanox/mlx5/core/en_rx.c    |   1 +
+>  .../net/ethernet/netronome/nfp/nfp_net_common.c    |   1 +
+>  drivers/net/ethernet/qlogic/qede/qede_fp.c         |   1 +
+>  drivers/net/tun.c                                  |   1 +
+>  drivers/net/virtio_net.c                           |   2 +
+>  include/linux/bpf.h                                |   1 +
+>  include/linux/filter.h                             |  21 +++-
+>  include/linux/skbuff.h                             |  68 +++++++++++-
+>  include/uapi/linux/bpf.h                           |  13 ++-
+>  kernel/bpf/verifier.c                              | 114 ++++++++++++++++-----
+>  net/bpf/test_run.c                                 |   1 +
+>  net/core/dev.c                                     |  31 +++++-
+>  net/core/filter.c                                  |  77 +++++++++++++-
+>  net/core/skbuff.c                                  |   2 +
+>  19 files changed, 297 insertions(+), 42 deletions(-)
+[...]
