@@ -1,146 +1,165 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 05/10] mlxsw: spectrum_router: Add helpers for nexthop access
-Date: Mon, 25 Sep 2017 10:32:25 +0200
-Message-ID: <20170925083230.1193-6-jiri@resnulli.us>
+Subject: [patch net-next 08/10] mlxsw: spectrum: Add support for setting counters on nexthops
+Date: Mon, 25 Sep 2017 10:32:28 +0200
+Message-ID: <20170925083230.1193-9-jiri@resnulli.us>
 References: <20170925083230.1193-1-jiri@resnulli.us>
 Cc: davem@davemloft.net, arkadis@mellanox.com, idosch@mellanox.com,
         mlxsw@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:38604 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932368AbdIYIcg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2017 04:32:36 -0400
-Received: by mail-wm0-f66.google.com with SMTP id x17so6466854wmd.5
-        for <netdev@vger.kernel.org>; Mon, 25 Sep 2017 01:32:35 -0700 (PDT)
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:37721 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934140AbdIYIci (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2017 04:32:38 -0400
+Received: by mail-wm0-f65.google.com with SMTP id f4so6471609wmh.4
+        for <netdev@vger.kernel.org>; Mon, 25 Sep 2017 01:32:38 -0700 (PDT)
 In-Reply-To: <20170925083230.1193-1-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Arkadi Sharshevsky <arkadis@mellanox.com>
 
-This is done as a preparation before introducing the ability to dump the
-adjacency table via dpipe, and to count the table size. The current table
-implementation avoids tunnel entries, thus a helper for checking if
-the nexthop group contains tunnel entries is also provided. The mlxsw's
-nexthop representative struct stays private to the router module.
+Add support for setting counters on nexthops based on dpipe's adjacency
+table counter status. This patch also adds the ability for getting the
+counter value, which will be used by the dpipe adjacency table dump
+implementation in the next patches.
 
 Signed-off-by: Arkadi Sharshevsky <arkadis@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 71 ++++++++++++++++++++++
- .../net/ethernet/mellanox/mlxsw/spectrum_router.h  | 12 ++++
- 2 files changed, 83 insertions(+)
+ .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 52 ++++++++++++++++++++--
+ .../net/ethernet/mellanox/mlxsw/spectrum_router.h  |  2 +
+ 2 files changed, 51 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-index 8e78a95..78e0420 100644
+index 78e0420..2400fff 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
 +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-@@ -2083,6 +2083,77 @@ struct mlxsw_sp_nexthop_group {
+@@ -2067,6 +2067,8 @@ struct mlxsw_sp_nexthop {
+ 		struct mlxsw_sp_neigh_entry *neigh_entry;
+ 		struct mlxsw_sp_ipip_entry *ipip_entry;
+ 	};
++	unsigned int counter_index;
++	bool counter_valid;
+ };
+ 
+ struct mlxsw_sp_nexthop_group {
+@@ -2083,6 +2085,41 @@ struct mlxsw_sp_nexthop_group {
  #define nh_rif	nexthops[0].rif
  };
  
-+struct mlxsw_sp_nexthop *mlxsw_sp_nexthop_next(struct mlxsw_sp_router *router,
-+					       struct mlxsw_sp_nexthop *nh)
++static void mlxsw_sp_nexthop_counter_alloc(struct mlxsw_sp *mlxsw_sp,
++					   struct mlxsw_sp_nexthop *nh)
 +{
-+	if (!nh) {
-+		if (list_empty(&router->nexthop_list))
-+			return NULL;
-+		else
-+			return list_first_entry(&router->nexthop_list,
-+						typeof(*nh), router_list_node);
-+	}
-+	if (list_is_last(&nh->router_list_node, &router->nexthop_list))
-+		return NULL;
-+	return list_next_entry(nh, router_list_node);
++	struct devlink *devlink;
++
++	devlink = priv_to_devlink(mlxsw_sp->core);
++	if (!devlink_dpipe_table_counter_enabled(devlink,
++						 MLXSW_SP_DPIPE_TABLE_NAME_ADJ))
++		return;
++
++	if (mlxsw_sp_flow_counter_alloc(mlxsw_sp, &nh->counter_index))
++		return;
++
++	nh->counter_valid = true;
 +}
 +
-+bool mlxsw_sp_nexthop_offload(struct mlxsw_sp_nexthop *nh)
++static void mlxsw_sp_nexthop_counter_free(struct mlxsw_sp *mlxsw_sp,
++					  struct mlxsw_sp_nexthop *nh)
 +{
-+	return nh->offloaded;
++	if (!nh->counter_valid)
++		return;
++	mlxsw_sp_flow_counter_free(mlxsw_sp, nh->counter_index);
++	nh->counter_valid = false;
 +}
 +
-+unsigned char *mlxsw_sp_nexthop_ha(struct mlxsw_sp_nexthop *nh)
++int mlxsw_sp_nexthop_counter_get(struct mlxsw_sp *mlxsw_sp,
++				 struct mlxsw_sp_nexthop *nh, u64 *p_counter)
 +{
-+	if (!nh->offloaded)
-+		return NULL;
-+	return nh->neigh_entry->ha;
-+}
-+
-+int mlxsw_sp_nexthop_indexes(struct mlxsw_sp_nexthop *nh, u32 *p_adj_index,
-+			     u32 *p_adj_hash_index)
-+{
-+	struct mlxsw_sp_nexthop_group *nh_grp = nh->nh_grp;
-+	u32 adj_hash_index = 0;
-+	int i;
-+
-+	if (!nh->offloaded || !nh_grp->adj_index_valid)
++	if (!nh->counter_valid)
 +		return -EINVAL;
 +
-+	*p_adj_index = nh_grp->adj_index;
-+
-+	for (i = 0; i < nh_grp->count; i++) {
-+		struct mlxsw_sp_nexthop *nh_iter = &nh_grp->nexthops[i];
-+
-+		if (nh_iter == nh)
-+			break;
-+		if (nh_iter->offloaded)
-+			adj_hash_index++;
-+	}
-+
-+	*p_adj_hash_index = adj_hash_index;
-+	return 0;
++	return mlxsw_sp_flow_counter_get(mlxsw_sp, nh->counter_index,
++					 p_counter, NULL);
 +}
 +
-+struct mlxsw_sp_rif *mlxsw_sp_nexthop_rif(struct mlxsw_sp_nexthop *nh)
-+{
-+	return nh->rif;
-+}
-+
-+bool mlxsw_sp_nexthop_group_has_ipip(struct mlxsw_sp_nexthop *nh)
-+{
-+	struct mlxsw_sp_nexthop_group *nh_grp = nh->nh_grp;
-+	int i;
-+
-+	for (i = 0; i < nh_grp->count; i++) {
-+		struct mlxsw_sp_nexthop *nh_iter = &nh_grp->nexthops[i];
-+
-+		if (nh_iter->type == MLXSW_SP_NEXTHOP_TYPE_IPIP)
-+			return true;
-+	}
-+	return false;
-+}
-+
- static struct fib_info *
- mlxsw_sp_nexthop4_group_fi(const struct mlxsw_sp_nexthop_group *nh_grp)
+ struct mlxsw_sp_nexthop *mlxsw_sp_nexthop_next(struct mlxsw_sp_router *router,
+ 					       struct mlxsw_sp_nexthop *nh)
  {
+@@ -2411,8 +2448,8 @@ static int mlxsw_sp_adj_index_mass_update(struct mlxsw_sp *mlxsw_sp,
+ 	return 0;
+ }
+ 
+-static int mlxsw_sp_nexthop_mac_update(struct mlxsw_sp *mlxsw_sp, u32 adj_index,
+-				       struct mlxsw_sp_nexthop *nh)
++static int mlxsw_sp_nexthop_update(struct mlxsw_sp *mlxsw_sp, u32 adj_index,
++				   struct mlxsw_sp_nexthop *nh)
+ {
+ 	struct mlxsw_sp_neigh_entry *neigh_entry = nh->neigh_entry;
+ 	char ratr_pl[MLXSW_REG_RATR_LEN];
+@@ -2421,6 +2458,11 @@ static int mlxsw_sp_nexthop_mac_update(struct mlxsw_sp *mlxsw_sp, u32 adj_index,
+ 			    true, MLXSW_REG_RATR_TYPE_ETHERNET,
+ 			    adj_index, neigh_entry->rif);
+ 	mlxsw_reg_ratr_eth_entry_pack(ratr_pl, neigh_entry->ha);
++	if (nh->counter_valid)
++		mlxsw_reg_ratr_counter_pack(ratr_pl, nh->counter_index, true);
++	else
++		mlxsw_reg_ratr_counter_pack(ratr_pl, 0, false);
++
+ 	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(ratr), ratr_pl);
+ }
+ 
+@@ -2455,7 +2497,7 @@ mlxsw_sp_nexthop_group_update(struct mlxsw_sp *mlxsw_sp,
+ 		if (nh->update || reallocate) {
+ 			switch (nh->type) {
+ 			case MLXSW_SP_NEXTHOP_TYPE_ETH:
+-				err = mlxsw_sp_nexthop_mac_update
++				err = mlxsw_sp_nexthop_update
+ 					    (mlxsw_sp, adj_index, nh);
+ 				break;
+ 			case MLXSW_SP_NEXTHOP_TYPE_IPIP:
+@@ -2872,6 +2914,7 @@ static int mlxsw_sp_nexthop4_init(struct mlxsw_sp *mlxsw_sp,
+ 	if (err)
+ 		return err;
+ 
++	mlxsw_sp_nexthop_counter_alloc(mlxsw_sp, nh);
+ 	list_add_tail(&nh->router_list_node, &mlxsw_sp->router->nexthop_list);
+ 
+ 	if (!dev)
+@@ -2898,6 +2941,7 @@ static void mlxsw_sp_nexthop4_fini(struct mlxsw_sp *mlxsw_sp,
+ {
+ 	mlxsw_sp_nexthop4_type_fini(mlxsw_sp, nh);
+ 	list_del(&nh->router_list_node);
++	mlxsw_sp_nexthop_counter_free(mlxsw_sp, nh);
+ 	mlxsw_sp_nexthop_remove(mlxsw_sp, nh);
+ }
+ 
+@@ -4135,6 +4179,7 @@ static int mlxsw_sp_nexthop6_init(struct mlxsw_sp *mlxsw_sp,
+ 
+ 	nh->nh_grp = nh_grp;
+ 	memcpy(&nh->gw_addr, &rt->rt6i_gateway, sizeof(nh->gw_addr));
++	mlxsw_sp_nexthop_counter_alloc(mlxsw_sp, nh);
+ 
+ 	list_add_tail(&nh->router_list_node, &mlxsw_sp->router->nexthop_list);
+ 
+@@ -4150,6 +4195,7 @@ static void mlxsw_sp_nexthop6_fini(struct mlxsw_sp *mlxsw_sp,
+ {
+ 	mlxsw_sp_nexthop6_type_fini(mlxsw_sp, nh);
+ 	list_del(&nh->router_list_node);
++	mlxsw_sp_nexthop_counter_free(mlxsw_sp, nh);
+ }
+ 
+ static bool mlxsw_sp_rt6_is_gateway(const struct mlxsw_sp *mlxsw_sp,
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.h
-index ae4c99b..d6951d5 100644
+index d6951d5..a6e8659 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.h
 +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.h
-@@ -62,6 +62,7 @@ enum mlxsw_sp_rif_counter_dir {
- };
- 
- struct mlxsw_sp_neigh_entry;
-+struct mlxsw_sp_nexthop;
- 
- struct mlxsw_sp_rif *mlxsw_sp_rif_by_index(const struct mlxsw_sp *mlxsw_sp,
- 					   u16 rif_index);
-@@ -108,5 +109,16 @@ union mlxsw_sp_l3addr
- mlxsw_sp_ipip_netdev_daddr(enum mlxsw_sp_l3proto proto,
- 			   const struct net_device *ol_dev);
- __be32 mlxsw_sp_ipip_netdev_daddr4(const struct net_device *ol_dev);
-+struct mlxsw_sp_nexthop *mlxsw_sp_nexthop_next(struct mlxsw_sp_router *router,
-+					       struct mlxsw_sp_nexthop *nh);
-+bool mlxsw_sp_nexthop_offload(struct mlxsw_sp_nexthop *nh);
-+unsigned char *mlxsw_sp_nexthop_ha(struct mlxsw_sp_nexthop *nh);
-+int mlxsw_sp_nexthop_indexes(struct mlxsw_sp_nexthop *nh, u32 *p_adj_index,
-+			     u32 *p_adj_hash_index);
-+struct mlxsw_sp_rif *mlxsw_sp_nexthop_rif(struct mlxsw_sp_nexthop *nh);
-+bool mlxsw_sp_nexthop_group_has_ipip(struct mlxsw_sp_nexthop *nh);
-+#define mlxsw_sp_nexthop_for_each(nh, router)				\
-+	for (nh = mlxsw_sp_nexthop_next(router, NULL); nh;		\
-+	     nh = mlxsw_sp_nexthop_next(router, nh))
+@@ -120,5 +120,7 @@ bool mlxsw_sp_nexthop_group_has_ipip(struct mlxsw_sp_nexthop *nh);
+ #define mlxsw_sp_nexthop_for_each(nh, router)				\
+ 	for (nh = mlxsw_sp_nexthop_next(router, NULL); nh;		\
+ 	     nh = mlxsw_sp_nexthop_next(router, nh))
++int mlxsw_sp_nexthop_counter_get(struct mlxsw_sp *mlxsw_sp,
++				 struct mlxsw_sp_nexthop *nh, u64 *p_counter);
  
  #endif /* _MLXSW_ROUTER_H_*/
 -- 
