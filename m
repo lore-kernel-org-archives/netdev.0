@@ -1,29 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [for 4.14] net: qcom/emac: specify the correct size
- when mapping a DMA buffer
-Date: Mon, 25 Sep 2017 16:35:11 -0700 (PDT)
-Message-ID: <20170925.163511.25037798110859886.davem@davemloft.net>
-References: <1506112364-26787-1-git-send-email-timur@codeaurora.org>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [Patch net-next v2] net_sched: use idr to allocate bpf filter
+ handles
+Date: Tue, 26 Sep 2017 01:47:57 +0200
+Message-ID: <59C995AD.8090001@iogearbox.net>
+References: <20170925171351.4956-1-xiyou.wangcong@gmail.com> <59C97244.30301@iogearbox.net> <CAM_iQpUKURMfZOyTMbgVFG43rgUg8-3yAAVtEmPja5T6xkZpjA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stable@vger.kernel.org
-To: timur@codeaurora.org
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1506112364-26787-1-git-send-email-timur@codeaurora.org>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Chris Mi <chrism@mellanox.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:36802 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933685AbdIYXsA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2017 19:48:00 -0400
+In-Reply-To: <CAM_iQpUKURMfZOyTMbgVFG43rgUg8-3yAAVtEmPja5T6xkZpjA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Timur Tabi <timur@codeaurora.org>
-Date: Fri, 22 Sep 2017 15:32:44 -0500
+On 09/26/2017 01:11 AM, Cong Wang wrote:
+> On Mon, Sep 25, 2017 at 2:16 PM, Daniel Borkmann <daniel@iogearbox.net> wrote:
+>> On 09/25/2017 07:13 PM, Cong Wang wrote:
+[...]
+>> There's this condition in the code before above idr allocations,
+>> I think also in other classifiers:
+>>
+>>          if (oldprog) {
+>>                  if (handle && oldprog->handle != handle) {
+>>                          ret = -EINVAL;
+>>                          goto errout;
+>>                  }
+>>          }
+>
+> Sure. If we use handle to find oldprog, it should have the
+> same handle. cls_bpf_get() guarantees it. This check is
+> redundant.
 
-> When mapping the RX DMA buffers, the driver was accidentally specifying
-> zero for the buffer length.  Under normal circumstances, SWIOTLB does not
-> need to allocate a bounce buffer, so the address is just mapped without
-> checking the size field.  This is why the error was not detected earlier.
-> 
-> Fixes: b9b17debc69d ("net: emac: emac gigabit ethernet controller driver")
-> Cc: stable@vger.kernel.org
-> Signed-off-by: Timur Tabi <timur@codeaurora.org>
-
-Applied and queued up for -stable, thanks.
+Good point, we should just test for 'oldprog && oldprog->handle !=
+handle' and bail out then, otherwise it's just irritating. I can
+see to fix this up later. Seems fine to me then, thanks!
