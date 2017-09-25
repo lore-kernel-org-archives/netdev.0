@@ -1,7 +1,7 @@
 From: Simon Horman <simon.horman@netronome.com>
-Subject: [PATCH net-next 6/7] nfp: flower vxlan neighbour offload
-Date: Mon, 25 Sep 2017 12:23:40 +0200
-Message-ID: <1506335021-32024-7-git-send-email-simon.horman@netronome.com>
+Subject: [PATCH net-next 7/7] nfp: flower vxlan neighbour keep-alive
+Date: Mon, 25 Sep 2017 12:23:41 +0200
+Message-ID: <1506335021-32024-8-git-send-email-simon.horman@netronome.com>
 References: <1506335021-32024-1-git-send-email-simon.horman@netronome.com>
 Cc: netdev@vger.kernel.org, oss-drivers@netronome.com,
         John Hurley <john.hurley@netronome.com>,
@@ -9,420 +9,160 @@ Cc: netdev@vger.kernel.org, oss-drivers@netronome.com,
 To: David Miller <davem@davemloft.net>,
         Jakub Kicinski <jakub.kicinski@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wr0-f170.google.com ([209.85.128.170]:51341 "EHLO
-        mail-wr0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934332AbdIYKYI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2017 06:24:08 -0400
-Received: by mail-wr0-f170.google.com with SMTP id z39so6877921wrb.8
-        for <netdev@vger.kernel.org>; Mon, 25 Sep 2017 03:24:08 -0700 (PDT)
+Received: from mail-wm0-f50.google.com ([74.125.82.50]:46066 "EHLO
+        mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934439AbdIYKYJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2017 06:24:09 -0400
+Received: by mail-wm0-f50.google.com with SMTP id q124so17903644wmb.0
+        for <netdev@vger.kernel.org>; Mon, 25 Sep 2017 03:24:09 -0700 (PDT)
 In-Reply-To: <1506335021-32024-1-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: John Hurley <john.hurley@netronome.com>
 
-Receive a request when the NFP does not know the next hop for a packet
-that is to be encapsulated in a VXLAN tunnel. Do a route lookup, determine
-the next hop entry and update neighbour table on NFP. Monitor the kernel
-neighbour table for link changes and update NFP with relevant information.
-Overwrite routes with zero values on the NFP when they expire.
+Periodically receive messages containing the destination IPs of tunnels
+that have recently forwarded traffic. Update the neighbour entries 'used'
+value for these IPs next hop.
+
+This prevents the neighbour entry from expiring on timeout but rather
+signals an ARP to verify the connection. From an NFP perspective, packets
+will not fall back mid-flow unless the link is verified to be down.
 
 Signed-off-by: John Hurley <john.hurley@netronome.com>
 Reviewed-by: Simon Horman <simon.horman@netronome.com>
 Signed-off-by: Simon Horman <simon.horman@netronome.com>
 ---
- drivers/net/ethernet/netronome/nfp/flower/cmsg.c   |   6 +
- drivers/net/ethernet/netronome/nfp/flower/cmsg.h   |   2 +
- drivers/net/ethernet/netronome/nfp/flower/main.h   |   7 +
- .../ethernet/netronome/nfp/flower/tunnel_conf.c    | 253 +++++++++++++++++++++
- 4 files changed, 268 insertions(+)
+ drivers/net/ethernet/netronome/nfp/flower/cmsg.c   |  3 +
+ drivers/net/ethernet/netronome/nfp/flower/cmsg.h   |  1 +
+ drivers/net/ethernet/netronome/nfp/flower/main.h   |  1 +
+ .../ethernet/netronome/nfp/flower/tunnel_conf.c    | 64 ++++++++++++++++++++++
+ 4 files changed, 69 insertions(+)
 
 diff --git a/drivers/net/ethernet/netronome/nfp/flower/cmsg.c b/drivers/net/ethernet/netronome/nfp/flower/cmsg.c
-index b756006dba6f..862787daaa68 100644
+index 862787daaa68..6b71c719deba 100644
 --- a/drivers/net/ethernet/netronome/nfp/flower/cmsg.c
 +++ b/drivers/net/ethernet/netronome/nfp/flower/cmsg.c
-@@ -181,6 +181,12 @@ nfp_flower_cmsg_process_one_rx(struct nfp_app *app, struct sk_buff *skb)
- 	case NFP_FLOWER_CMSG_TYPE_FLOW_STATS:
- 		nfp_flower_rx_flow_stats(app, skb);
+@@ -184,6 +184,9 @@ nfp_flower_cmsg_process_one_rx(struct nfp_app *app, struct sk_buff *skb)
+ 	case NFP_FLOWER_CMSG_TYPE_NO_NEIGH:
+ 		nfp_tunnel_request_route(app, skb);
  		break;
-+	case NFP_FLOWER_CMSG_TYPE_NO_NEIGH:
-+		nfp_tunnel_request_route(app, skb);
++	case NFP_FLOWER_CMSG_TYPE_ACTIVE_TUNS:
++		nfp_tunnel_keep_alive(app, skb);
 +		break;
-+	case NFP_FLOWER_CMSG_TYPE_TUN_NEIGH:
-+		/* Acks from the NFP that the route is added - ignore. */
-+		break;
- 	default:
- 		nfp_flower_cmsg_warn(app, "Cannot handle invalid repr control type %u\n",
- 				     type);
+ 	case NFP_FLOWER_CMSG_TYPE_TUN_NEIGH:
+ 		/* Acks from the NFP that the route is added - ignore. */
+ 		break;
 diff --git a/drivers/net/ethernet/netronome/nfp/flower/cmsg.h b/drivers/net/ethernet/netronome/nfp/flower/cmsg.h
-index 6540bb1ceefb..1dc72a1ed577 100644
+index 1dc72a1ed577..504ddaa21701 100644
 --- a/drivers/net/ethernet/netronome/nfp/flower/cmsg.h
 +++ b/drivers/net/ethernet/netronome/nfp/flower/cmsg.h
-@@ -317,7 +317,9 @@ enum nfp_flower_cmsg_type_port {
- 	NFP_FLOWER_CMSG_TYPE_FLOW_DEL =		2,
- 	NFP_FLOWER_CMSG_TYPE_MAC_REPR =		7,
+@@ -319,6 +319,7 @@ enum nfp_flower_cmsg_type_port {
  	NFP_FLOWER_CMSG_TYPE_PORT_MOD =		8,
-+	NFP_FLOWER_CMSG_TYPE_NO_NEIGH =		10,
+ 	NFP_FLOWER_CMSG_TYPE_NO_NEIGH =		10,
  	NFP_FLOWER_CMSG_TYPE_TUN_MAC =		11,
-+	NFP_FLOWER_CMSG_TYPE_TUN_NEIGH =	13,
++	NFP_FLOWER_CMSG_TYPE_ACTIVE_TUNS =	12,
+ 	NFP_FLOWER_CMSG_TYPE_TUN_NEIGH =	13,
  	NFP_FLOWER_CMSG_TYPE_TUN_IPS =		14,
  	NFP_FLOWER_CMSG_TYPE_FLOW_STATS =	15,
- 	NFP_FLOWER_CMSG_TYPE_PORT_ECHO =	16,
 diff --git a/drivers/net/ethernet/netronome/nfp/flower/main.h b/drivers/net/ethernet/netronome/nfp/flower/main.h
-index 53306af6cfe8..93ad969c3653 100644
+index 93ad969c3653..12c319a219d8 100644
 --- a/drivers/net/ethernet/netronome/nfp/flower/main.h
 +++ b/drivers/net/ethernet/netronome/nfp/flower/main.h
-@@ -87,12 +87,15 @@ struct nfp_fl_stats_id {
-  * @nfp_mac_off_list:	List of MAC addresses to offload
-  * @nfp_mac_index_list:	List of unique 8-bit indexes for non NFP netdevs
-  * @nfp_ipv4_off_list:	List of IPv4 addresses to offload
-+ * @nfp_neigh_off_list:	List of neighbour offloads
-  * @nfp_mac_off_lock:	Lock for the MAC address list
-  * @nfp_mac_index_lock:	Lock for the MAC index list
-  * @nfp_ipv4_off_lock:	Lock for the IPv4 address list
-+ * @nfp_neigh_off_lock:	Lock for the neighbour address list
-  * @nfp_mac_off_ids:	IDA to manage id assignment for offloaded macs
-  * @nfp_mac_off_count:	Number of MACs in address list
-  * @nfp_tun_mac_nb:	Notifier to monitor link state
-+ * @nfp_tun_neigh_nb:	Notifier to monitor neighbour state
-  */
- struct nfp_flower_priv {
- 	struct nfp_app *app;
-@@ -108,12 +111,15 @@ struct nfp_flower_priv {
- 	struct list_head nfp_mac_off_list;
- 	struct list_head nfp_mac_index_list;
- 	struct list_head nfp_ipv4_off_list;
-+	struct list_head nfp_neigh_off_list;
- 	struct mutex nfp_mac_off_lock;
- 	struct mutex nfp_mac_index_lock;
- 	struct mutex nfp_ipv4_off_lock;
-+	struct mutex nfp_neigh_off_lock;
- 	struct ida nfp_mac_off_ids;
- 	int nfp_mac_off_count;
- 	struct notifier_block nfp_tun_mac_nb;
-+	struct notifier_block nfp_tun_neigh_nb;
- };
- 
- struct nfp_fl_key_ls {
-@@ -189,5 +195,6 @@ void nfp_tunnel_config_stop(struct nfp_app *app);
- void nfp_tunnel_write_macs(struct nfp_app *app);
+@@ -196,5 +196,6 @@ void nfp_tunnel_write_macs(struct nfp_app *app);
  void nfp_tunnel_del_ipv4_off(struct nfp_app *app, __be32 ipv4);
  void nfp_tunnel_add_ipv4_off(struct nfp_app *app, __be32 ipv4);
-+void nfp_tunnel_request_route(struct nfp_app *app, struct sk_buff *skb);
+ void nfp_tunnel_request_route(struct nfp_app *app, struct sk_buff *skb);
++void nfp_tunnel_keep_alive(struct nfp_app *app, struct sk_buff *skb);
  
  #endif
 diff --git a/drivers/net/ethernet/netronome/nfp/flower/tunnel_conf.c b/drivers/net/ethernet/netronome/nfp/flower/tunnel_conf.c
-index 185505140f5e..8c6b88a1306b 100644
+index 8c6b88a1306b..c495f8f38506 100644
 --- a/drivers/net/ethernet/netronome/nfp/flower/tunnel_conf.c
 +++ b/drivers/net/ethernet/netronome/nfp/flower/tunnel_conf.c
-@@ -33,6 +33,7 @@
- 
- #include <linux/etherdevice.h>
- #include <linux/inetdevice.h>
-+#include <net/netevent.h>
+@@ -36,12 +36,36 @@
+ #include <net/netevent.h>
  #include <linux/idr.h>
  #include <net/dst_metadata.h>
++#include <net/arp.h>
  
-@@ -41,6 +42,44 @@
+ #include "cmsg.h"
+ #include "main.h"
  #include "../nfp_net_repr.h"
  #include "../nfp_net.h"
  
-+/**
-+ * struct nfp_tun_neigh - neighbour/route entry on the NFP
-+ * @dst_ipv4:	destination IPv4 address
-+ * @src_ipv4:	source IPv4 address
-+ * @dst_addr:	destination MAC address
-+ * @src_addr:	source MAC address
-+ * @port_id:	NFP port to output packet on - associated with source IPv4
-+ */
-+struct nfp_tun_neigh {
-+	__be32 dst_ipv4;
-+	__be32 src_ipv4;
-+	u8 dst_addr[ETH_ALEN];
-+	u8 src_addr[ETH_ALEN];
-+	__be32 port_id;
-+};
++#define NFP_FL_MAX_ROUTES               32
 +
 +/**
-+ * struct nfp_tun_req_route_ipv4 - NFP requests a route/neighbour lookup
-+ * @ingress_port:	ingress port of packet that signalled request
-+ * @ipv4_addr:		destination ipv4 address for route
-+ * @reserved:		reserved for future use
++ * struct nfp_tun_active_tuns - periodic message of active tunnels
++ * @seq:		sequence number of the message
++ * @count:		number of tunnels report in message
++ * @flags:		options part of the request
++ * @ipv4:		dest IPv4 address of active route
++ * @egress_port:	port the encapsulated packet egressed
++ * @extra:		reserved for future use
++ * @tun_info:		tunnels that have sent traffic in reported period
 + */
-+struct nfp_tun_req_route_ipv4 {
-+	__be32 ingress_port;
-+	__be32 ipv4_addr;
-+	__be32 reserved[2];
++struct nfp_tun_active_tuns {
++	__be32 seq;
++	__be32 count;
++	__be32 flags;
++	struct route_ip_info {
++		__be32 ipv4;
++		__be32 egress_port;
++		__be32 extra[2];
++	} tun_info[];
 +};
 +
-+/**
-+ * struct nfp_ipv4_route_entry - routes that are offloaded to the NFP
-+ * @ipv4_addr:	destination of route
-+ * @list:	list pointer
-+ */
-+struct nfp_ipv4_route_entry {
-+	__be32 ipv4_addr;
-+	struct list_head list;
-+};
-+
- #define NFP_FL_IPV4_ADDRS_MAX        32
- 
  /**
-@@ -137,6 +176,197 @@ nfp_flower_xmit_tun_conf(struct nfp_app *app, u8 mtype, u16 plen, void *pdata)
- 	return 0;
- }
+  * struct nfp_tun_neigh - neighbour/route entry on the NFP
+  * @dst_ipv4:	destination IPv4 address
+@@ -147,6 +171,46 @@ struct nfp_tun_mac_non_nfp_idx {
+ 	struct list_head list;
+ };
  
-+static bool nfp_tun_has_route(struct nfp_app *app, __be32 ipv4_addr)
++void nfp_tunnel_keep_alive(struct nfp_app *app, struct sk_buff *skb)
 +{
-+	struct nfp_flower_priv *priv = app->priv;
-+	struct nfp_ipv4_route_entry *entry;
-+	struct list_head *ptr, *storage;
-+
-+	mutex_lock(&priv->nfp_neigh_off_lock);
-+	list_for_each_safe(ptr, storage, &priv->nfp_neigh_off_list) {
-+		entry = list_entry(ptr, struct nfp_ipv4_route_entry, list);
-+		if (entry->ipv4_addr == ipv4_addr) {
-+			mutex_unlock(&priv->nfp_neigh_off_lock);
-+			return true;
-+		}
-+	}
-+	mutex_unlock(&priv->nfp_neigh_off_lock);
-+	return false;
-+}
-+
-+static void nfp_tun_add_route_to_cache(struct nfp_app *app, __be32 ipv4_addr)
-+{
-+	struct nfp_flower_priv *priv = app->priv;
-+	struct nfp_ipv4_route_entry *entry;
-+	struct list_head *ptr, *storage;
-+
-+	mutex_lock(&priv->nfp_neigh_off_lock);
-+	list_for_each_safe(ptr, storage, &priv->nfp_neigh_off_list) {
-+		entry = list_entry(ptr, struct nfp_ipv4_route_entry, list);
-+		if (entry->ipv4_addr == ipv4_addr) {
-+			mutex_unlock(&priv->nfp_neigh_off_lock);
-+			return;
-+		}
-+	}
-+	entry = kmalloc(sizeof(*entry), GFP_KERNEL);
-+	if (!entry) {
-+		mutex_unlock(&priv->nfp_neigh_off_lock);
-+		nfp_flower_cmsg_warn(app, "Mem error when storing new route.\n");
-+		return;
-+	}
-+
-+	entry->ipv4_addr = ipv4_addr;
-+	list_add_tail(&entry->list, &priv->nfp_neigh_off_list);
-+	mutex_unlock(&priv->nfp_neigh_off_lock);
-+}
-+
-+static void nfp_tun_del_route_from_cache(struct nfp_app *app, __be32 ipv4_addr)
-+{
-+	struct nfp_flower_priv *priv = app->priv;
-+	struct nfp_ipv4_route_entry *entry;
-+	struct list_head *ptr, *storage;
-+
-+	mutex_lock(&priv->nfp_neigh_off_lock);
-+	list_for_each_safe(ptr, storage, &priv->nfp_neigh_off_list) {
-+		entry = list_entry(ptr, struct nfp_ipv4_route_entry, list);
-+		if (entry->ipv4_addr == ipv4_addr) {
-+			list_del(&entry->list);
-+			kfree(entry);
-+			break;
-+		}
-+	}
-+	mutex_unlock(&priv->nfp_neigh_off_lock);
-+}
-+
-+static void
-+nfp_tun_write_neigh(struct net_device *netdev, struct nfp_app *app,
-+		    struct flowi4 *flow, struct neighbour *neigh)
-+{
-+	struct nfp_tun_neigh payload;
-+
-+	/* Only offload representor IPv4s for now. */
-+	if (!nfp_netdev_is_nfp_repr(netdev))
-+		return;
-+
-+	memset(&payload, 0, sizeof(struct nfp_tun_neigh));
-+	payload.dst_ipv4 = flow->daddr;
-+
-+	/* If entry has expired send dst IP with all other fields 0. */
-+	if (!(neigh->nud_state & NUD_VALID)) {
-+		nfp_tun_del_route_from_cache(app, payload.dst_ipv4);
-+		/* Trigger ARP to verify invalid neighbour state. */
-+		neigh_event_send(neigh, NULL);
-+		goto send_msg;
-+	}
-+
-+	/* Have a valid neighbour so populate rest of entry. */
-+	payload.src_ipv4 = flow->saddr;
-+	ether_addr_copy(payload.src_addr, netdev->dev_addr);
-+	neigh_ha_snapshot(payload.dst_addr, neigh, netdev);
-+	payload.port_id = cpu_to_be32(nfp_repr_get_port_id(netdev));
-+	/* Add destination of new route to NFP cache. */
-+	nfp_tun_add_route_to_cache(app, payload.dst_ipv4);
-+
-+send_msg:
-+	nfp_flower_xmit_tun_conf(app, NFP_FLOWER_CMSG_TYPE_TUN_NEIGH,
-+				 sizeof(struct nfp_tun_neigh),
-+				 (unsigned char *)&payload);
-+}
-+
-+static int
-+nfp_tun_neigh_event_handler(struct notifier_block *nb, unsigned long event,
-+			    void *ptr)
-+{
-+	struct nfp_flower_priv *app_priv;
-+	struct netevent_redirect *redir;
-+	struct flowi4 flow = {};
-+	struct neighbour *n;
-+	struct nfp_app *app;
-+	struct rtable *rt;
-+	int err;
-+
-+	switch (event) {
-+	case NETEVENT_REDIRECT:
-+		redir = (struct netevent_redirect *)ptr;
-+		n = redir->neigh;
-+		break;
-+	case NETEVENT_NEIGH_UPDATE:
-+		n = (struct neighbour *)ptr;
-+		break;
-+	default:
-+		return NOTIFY_DONE;
-+	}
-+
-+	flow.daddr = *(__be32 *)n->primary_key;
-+
-+	/* Only concerned with route changes for representors. */
-+	if (!nfp_netdev_is_nfp_repr(n->dev))
-+		return NOTIFY_DONE;
-+
-+	app_priv = container_of(nb, struct nfp_flower_priv, nfp_tun_neigh_nb);
-+	app = app_priv->app;
-+
-+	/* Only concerned with changes to routes already added to NFP. */
-+	if (!nfp_tun_has_route(app, flow.daddr))
-+		return NOTIFY_DONE;
-+
-+#if IS_ENABLED(CONFIG_INET)
-+	/* Do a route lookup to populate flow data. */
-+	rt = ip_route_output_key(dev_net(n->dev), &flow);
-+	err = PTR_ERR_OR_ZERO(rt);
-+	if (err)
-+		return NOTIFY_DONE;
-+#else
-+	return NOTIFY_DONE;
-+#endif
-+
-+	flow.flowi4_proto = IPPROTO_UDP;
-+	nfp_tun_write_neigh(n->dev, app, &flow, n);
-+
-+	return NOTIFY_OK;
-+}
-+
-+void nfp_tunnel_request_route(struct nfp_app *app, struct sk_buff *skb)
-+{
-+	struct nfp_tun_req_route_ipv4 *payload;
++	struct nfp_tun_active_tuns *payload;
 +	struct net_device *netdev;
-+	struct flowi4 flow = {};
++	int count, i, pay_len;
 +	struct neighbour *n;
-+	struct rtable *rt;
-+	int err;
++	__be32 ipv4_addr;
++	u32 port;
 +
 +	payload = nfp_flower_cmsg_get_data(skb);
++	count = be32_to_cpu(payload->count);
++	if (count > NFP_FL_MAX_ROUTES) {
++		nfp_flower_cmsg_warn(app, "Tunnel keep-alive request exceeds max routes.\n");
++		return;
++	}
 +
-+	netdev = nfp_app_repr_get(app, be32_to_cpu(payload->ingress_port));
-+	if (!netdev)
-+		goto route_fail_warning;
++	pay_len = nfp_flower_cmsg_get_data_len(skb);
++	if (pay_len != sizeof(struct nfp_tun_active_tuns) +
++	    sizeof(struct route_ip_info) * count) {
++		nfp_flower_cmsg_warn(app, "Corruption in tunnel keep-alive message.\n");
++		return;
++	}
 +
-+	flow.daddr = payload->ipv4_addr;
-+	flow.flowi4_proto = IPPROTO_UDP;
++	for (i = 0; i < count; i++) {
++		ipv4_addr = payload->tun_info[i].ipv4;
++		port = be32_to_cpu(payload->tun_info[i].egress_port);
++		netdev = nfp_app_repr_get(app, port);
++		if (!netdev)
++			continue;
 +
-+#if IS_ENABLED(CONFIG_INET)
-+	/* Do a route lookup on same namespace as ingress port. */
-+	rt = ip_route_output_key(dev_net(netdev), &flow);
-+	err = PTR_ERR_OR_ZERO(rt);
-+	if (err)
-+		goto route_fail_warning;
-+#else
-+	goto route_fail_warning;
-+#endif
++		n = neigh_lookup(&arp_tbl, &ipv4_addr, netdev);
++		if (!n)
++			continue;
 +
-+	/* Get the neighbour entry for the lookup */
-+	n = dst_neigh_lookup(&rt->dst, &flow.daddr);
-+	ip_rt_put(rt);
-+	if (!n)
-+		goto route_fail_warning;
-+	nfp_tun_write_neigh(n->dev, app, &flow, n);
-+	neigh_release(n);
-+	return;
-+
-+route_fail_warning:
-+	nfp_flower_cmsg_warn(app, "Requested route not found.\n");
++		/* Update the used timestamp of neighbour */
++		neigh_event_send(n, NULL);
++		neigh_release(n);
++	}
 +}
 +
- static void nfp_tun_write_ipv4_list(struct nfp_app *app)
+ static bool nfp_tun_is_netdev_to_offload(struct net_device *netdev)
  {
- 	struct nfp_flower_priv *priv = app->priv;
-@@ -434,10 +664,19 @@ int nfp_tunnel_config_start(struct nfp_app *app)
- 	mutex_init(&priv->nfp_ipv4_off_lock);
- 	INIT_LIST_HEAD(&priv->nfp_ipv4_off_list);
- 
-+	/* Initialise priv data for neighbour offloading. */
-+	mutex_init(&priv->nfp_neigh_off_lock);
-+	INIT_LIST_HEAD(&priv->nfp_neigh_off_list);
-+	priv->nfp_tun_neigh_nb.notifier_call = nfp_tun_neigh_event_handler;
-+
- 	err = register_netdevice_notifier(&priv->nfp_tun_mac_nb);
- 	if (err)
- 		goto err_free_mac_ida;
- 
-+	err = register_netevent_notifier(&priv->nfp_tun_neigh_nb);
-+	if (err)
-+		goto err_unreg_mac_nb;
-+
- 	/* Parse netdevs already registered for MACs that need offloaded. */
- 	rtnl_lock();
- 	for_each_netdev(&init_net, netdev)
-@@ -446,6 +685,8 @@ int nfp_tunnel_config_start(struct nfp_app *app)
- 
- 	return 0;
- 
-+err_unreg_mac_nb:
-+	unregister_netdevice_notifier(&priv->nfp_tun_mac_nb);
- err_free_mac_ida:
- 	ida_destroy(&priv->nfp_mac_off_ids);
- 	return err;
-@@ -455,11 +696,13 @@ void nfp_tunnel_config_stop(struct nfp_app *app)
- {
- 	struct nfp_tun_mac_offload_entry *mac_entry;
- 	struct nfp_flower_priv *priv = app->priv;
-+	struct nfp_ipv4_route_entry *route_entry;
- 	struct nfp_tun_mac_non_nfp_idx *mac_idx;
- 	struct nfp_ipv4_addr_entry *ip_entry;
- 	struct list_head *ptr, *storage;
- 
- 	unregister_netdevice_notifier(&priv->nfp_tun_mac_nb);
-+	unregister_netevent_notifier(&priv->nfp_tun_neigh_nb);
- 
- 	/* Free any memory that may be occupied by MAC list. */
- 	mutex_lock(&priv->nfp_mac_off_lock);
-@@ -491,4 +734,14 @@ void nfp_tunnel_config_stop(struct nfp_app *app)
- 		kfree(ip_entry);
- 	}
- 	mutex_unlock(&priv->nfp_ipv4_off_lock);
-+
-+	/* Free any memory that may be occupied by the route list. */
-+	mutex_lock(&priv->nfp_neigh_off_lock);
-+	list_for_each_safe(ptr, storage, &priv->nfp_neigh_off_list) {
-+		route_entry = list_entry(ptr, struct nfp_ipv4_route_entry,
-+					 list);
-+		list_del(&route_entry->list);
-+		kfree(route_entry);
-+	}
-+	mutex_unlock(&priv->nfp_neigh_off_lock);
- }
+ 	if (!netdev->rtnl_link_ops)
 -- 
 2.1.4
