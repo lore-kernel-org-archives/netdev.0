@@ -1,61 +1,47 @@
-From: Antoine Tenart <antoine.tenart@free-electrons.com>
+From: Russell King - ARM Linux <linux@armlinux.org.uk>
 Subject: Re: [PATCH net-next] net: mvpp2: phylink support
-Date: Mon, 25 Sep 2017 13:53:03 +0200
-Message-ID: <20170925115303.GC19364@kwain>
+Date: Mon, 25 Sep 2017 13:13:43 +0100
+Message-ID: <20170925121343.GO20805@n2100.armlinux.org.uk>
 References: <20170921134522.10993-1-antoine.tenart@free-electrons.com>
  <20170922110731.GG20805@n2100.armlinux.org.uk>
  <20170925095514.GA19364@kwain>
  <20170925104532.GN20805@n2100.armlinux.org.uk>
+ <20170925115303.GC19364@kwain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
-        davem@davemloft.net, andrew@lunn.ch,
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, andrew@lunn.ch,
         gregory.clement@free-electrons.com,
         thomas.petazzoni@free-electrons.com,
         miquel.raynal@free-electrons.com, nadavh@marvell.com,
         linux-kernel@vger.kernel.org, mw@semihalf.com, stefanc@marvell.com,
         netdev@vger.kernel.org
-To: Russell King - ARM Linux <linux@armlinux.org.uk>
+To: Antoine Tenart <antoine.tenart@free-electrons.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20170925104532.GN20805@n2100.armlinux.org.uk>
+In-Reply-To: <20170925115303.GC19364@kwain>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 25, 2017 at 11:45:32AM +0100, Russell King - ARM Linux wrote:
-> On Mon, Sep 25, 2017 at 11:55:14AM +0200, Antoine Tenart wrote:
-> > On Fri, Sep 22, 2017 at 12:07:31PM +0100, Russell King - ARM Linux wrote:
-> > > On Thu, Sep 21, 2017 at 03:45:22PM +0200, Antoine Tenart wrote:
-> > > > Convert the PPv2 driver to use phylink, which models the MAC to PHY
-> > > > link. The phylink support is made such a way the GoP link IRQ can still
-> > > > be used: the two modes are incompatible and the GoP link IRQ will be
-> > > > used if no PHY is described in the device tree. This is the same
-> > > > behaviour as before.
-> > > 
-> > > This makes no sense.  The point of phylink is to be able to support SFP
-> > > cages, and SFP cages do not have a PHY described in DT.  So, when you
-> > > want to use phylink because of SFP, you can't, because if you omit
-> > > the PHY the driver avoids using phylink.
-> > 
-> > Yes that's an issue. However we do need to support the GoP link IRQ
-> > which is also needed in some cases where there is no PHY (and when
-> > phylink cannot be used). What would you propose to differentiate those
-> > two cases: no PHY using phylink, and no PHY using the GoP link IRQ?
+On Mon, Sep 25, 2017 at 01:53:03PM +0200, Antoine Tenart wrote:
+> On Mon, Sep 25, 2017 at 11:45:32AM +0100, Russell King - ARM Linux wrote:
+> > Can you describe what the GoP link IRQ is doing please?
 > 
-> Can you describe what the GoP link IRQ is doing please?
+> In cases where there is no PHY connected to the MAC and no SFP cage is
+> used. One example is when a SOHO switch is connected directly to a
+> serdes lane. In such cases we still need to have a minimal link
+> management. The GoP link interrupt helps doing so as it raises when the
+> serdes is in sync and AN succeeded.
 
-In cases where there is no PHY connected to the MAC and no SFP cage is
-used. One example is when a SOHO switch is connected directly to a
-serdes lane. In such cases we still need to have a minimal link
-management. The GoP link interrupt helps doing so as it raises when the
-serdes is in sync and AN succeeded.
+Isn't this just like a fixed link scenario, or an in-band
+autonegotiation scenario (both of which phylink supports natively)?
 
-I also wonder if this is needed when using passive cables?
-
-Antoine
+The situation on Clearfog with the 88E6176 switch is pretty similar -
+a switch connected directly via serdes to the MAC.  Currently, we
+configure stuff there as a fixed link, but in actual fact the 88E6176
+is configured to run the CPU facing port in 1000base-X mode, and with
+appropriate tweaks, switching phylink to 1000base-X mode also works.
 
 -- 
-Antoine Ténart, Free Electrons
-Embedded Linux and Kernel engineering
-http://free-electrons.com
+RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
+FTTC broadband for 0.8mile line in suburbia: sync at 8.8Mbps down 630kbps up
+According to speedtest.net: 8.21Mbps down 510kbps up
