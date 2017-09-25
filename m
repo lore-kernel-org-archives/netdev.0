@@ -1,172 +1,276 @@
 From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net-next v2] net_sched: use idr to allocate bpf filter handles
-Date: Mon, 25 Sep 2017 10:13:49 -0700
-Message-ID: <20170925171351.4956-1-xiyou.wangcong@gmail.com>
+Subject: [Patch net-next v2] net_sched: use idr to allocate u32 filter handles
+Date: Mon, 25 Sep 2017 10:13:51 -0700
+Message-ID: <20170925171351.4956-3-xiyou.wangcong@gmail.com>
 Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
         Chris Mi <chrism@mellanox.com>,
         Jamal Hadi Salim <jhs@mojatatu.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:33285 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934861AbdIYROB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2017 13:14:01 -0400
-Received: by mail-pg0-f67.google.com with SMTP id i130so5188638pgc.0
-        for <netdev@vger.kernel.org>; Mon, 25 Sep 2017 10:14:01 -0700 (PDT)
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:33175 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934861AbdIYROD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2017 13:14:03 -0400
+Received: by mail-pf0-f194.google.com with SMTP id h4so3854299pfk.0
+        for <netdev@vger.kernel.org>; Mon, 25 Sep 2017 10:14:03 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Instead of calling cls_bpf_get() in a loop to find
+Instead of calling u32_lookup_ht() in a loop to find
 a unused handle, just switch to idr API to allocate
-new handles.
+new handles. u32 filters are special as the handle
+could contain a hash table id and a key id, so we
+need two IDR to allocate each of them.
 
-Cc: Daniel Borkmann <daniel@iogearbox.net>
 Cc: Chris Mi <chrism@mellanox.com>
 Cc: Jamal Hadi Salim <jhs@mojatatu.com>
 Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 ---
- net/sched/cls_bpf.c | 57 ++++++++++++++++++++++++++---------------------------
- 1 file changed, 28 insertions(+), 29 deletions(-)
+ net/sched/cls_u32.c | 108 ++++++++++++++++++++++++++++++++--------------------
+ 1 file changed, 67 insertions(+), 41 deletions(-)
 
-diff --git a/net/sched/cls_bpf.c b/net/sched/cls_bpf.c
-index 520c5027646a..e19c3c3c27cc 100644
---- a/net/sched/cls_bpf.c
-+++ b/net/sched/cls_bpf.c
-@@ -17,6 +17,7 @@
- #include <linux/skbuff.h>
- #include <linux/filter.h>
- #include <linux/bpf.h>
+diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
+index 10b8d851fc6b..094d224411a9 100644
+--- a/net/sched/cls_u32.c
++++ b/net/sched/cls_u32.c
+@@ -46,6 +46,7 @@
+ #include <net/act_api.h>
+ #include <net/pkt_cls.h>
+ #include <linux/netdevice.h>
 +#include <linux/idr.h>
  
- #include <net/rtnetlink.h>
- #include <net/pkt_cls.h>
-@@ -32,7 +33,7 @@ MODULE_DESCRIPTION("TC BPF based classifier");
- 
- struct cls_bpf_head {
- 	struct list_head plist;
--	u32 hgen;
-+	struct idr handle_idr;
- 	struct rcu_head rcu;
+ struct tc_u_knode {
+ 	struct tc_u_knode __rcu	*next;
+@@ -82,6 +83,7 @@ struct tc_u_hnode {
+ 	struct tc_u_common	*tp_c;
+ 	int			refcnt;
+ 	unsigned int		divisor;
++	struct idr		handle_idr;
+ 	struct rcu_head		rcu;
+ 	/* The 'ht' field MUST be the last field in structure to allow for
+ 	 * more entries allocated at end of structure.
+@@ -93,7 +95,7 @@ struct tc_u_common {
+ 	struct tc_u_hnode __rcu	*hlist;
+ 	struct Qdisc		*q;
+ 	int			refcnt;
+-	u32			hgenerator;
++	struct idr		handle_idr;
+ 	struct hlist_node	hnode;
+ 	struct rcu_head		rcu;
  };
+@@ -311,19 +313,19 @@ static void *u32_get(struct tcf_proto *tp, u32 handle)
+ 	return u32_lookup_key(ht, handle);
+ }
  
-@@ -238,6 +239,7 @@ static int cls_bpf_init(struct tcf_proto *tp)
+-static u32 gen_new_htid(struct tc_u_common *tp_c)
++static u32 gen_new_htid(struct tc_u_common *tp_c, struct tc_u_hnode *ptr)
+ {
+-	int i = 0x800;
++	unsigned long idr_index;
++	int err;
+ 
+-	/* hgenerator only used inside rtnl lock it is safe to increment
++	/* This is only used inside rtnl lock it is safe to increment
+ 	 * without read _copy_ update semantics
+ 	 */
+-	do {
+-		if (++tp_c->hgenerator == 0x7FF)
+-			tp_c->hgenerator = 1;
+-	} while (--i > 0 && u32_lookup_ht(tp_c, (tp_c->hgenerator|0x800)<<20));
+-
+-	return i > 0 ? (tp_c->hgenerator|0x800)<<20 : 0;
++	err = idr_alloc_ext(&tp_c->handle_idr, ptr, &idr_index,
++			    1, 0x7FF, GFP_KERNEL);
++	if (err)
++		return 0;
++	return (u32)(idr_index | 0x800) << 20;
+ }
+ 
+ static struct hlist_head *tc_u_common_hash;
+@@ -366,8 +368,9 @@ static int u32_init(struct tcf_proto *tp)
  		return -ENOBUFS;
  
- 	INIT_LIST_HEAD_RCU(&head->plist);
-+	idr_init(&head->handle_idr);
- 	rcu_assign_pointer(tp->root, head);
+ 	root_ht->refcnt++;
+-	root_ht->handle = tp_c ? gen_new_htid(tp_c) : 0x80000000;
++	root_ht->handle = tp_c ? gen_new_htid(tp_c, root_ht) : 0x80000000;
+ 	root_ht->prio = tp->prio;
++	idr_init(&root_ht->handle_idr);
  
- 	return 0;
-@@ -264,6 +266,9 @@ static void cls_bpf_delete_prog_rcu(struct rcu_head *rcu)
+ 	if (tp_c == NULL) {
+ 		tp_c = kzalloc(sizeof(*tp_c), GFP_KERNEL);
+@@ -377,6 +380,7 @@ static int u32_init(struct tcf_proto *tp)
+ 		}
+ 		tp_c->q = tp->q;
+ 		INIT_HLIST_NODE(&tp_c->hnode);
++		idr_init(&tp_c->handle_idr);
  
- static void __cls_bpf_delete(struct tcf_proto *tp, struct cls_bpf_prog *prog)
- {
-+	struct cls_bpf_head *head = rtnl_dereference(tp->root);
-+
-+	idr_remove_ext(&head->handle_idr, prog->handle);
- 	cls_bpf_stop_offload(tp, prog);
- 	list_del_rcu(&prog->link);
- 	tcf_unbind_filter(tp, &prog->res);
-@@ -287,6 +292,7 @@ static void cls_bpf_destroy(struct tcf_proto *tp)
- 	list_for_each_entry_safe(prog, tmp, &head->plist, link)
- 		__cls_bpf_delete(tp, prog);
- 
-+	idr_destroy(&head->handle_idr);
- 	kfree_rcu(head, rcu);
- }
- 
-@@ -421,27 +427,6 @@ static int cls_bpf_set_parms(struct net *net, struct tcf_proto *tp,
- 	return 0;
- }
- 
--static u32 cls_bpf_grab_new_handle(struct tcf_proto *tp,
--				   struct cls_bpf_head *head)
--{
--	unsigned int i = 0x80000000;
--	u32 handle;
--
--	do {
--		if (++head->hgen == 0x7FFFFFFF)
--			head->hgen = 1;
--	} while (--i > 0 && cls_bpf_get(tp, head->hgen));
--
--	if (unlikely(i == 0)) {
--		pr_err("Insufficient number of handles\n");
--		handle = 0;
--	} else {
--		handle = head->hgen;
--	}
--
--	return handle;
--}
--
- static int cls_bpf_change(struct net *net, struct sk_buff *in_skb,
- 			  struct tcf_proto *tp, unsigned long base,
- 			  u32 handle, struct nlattr **tca,
-@@ -451,6 +436,7 @@ static int cls_bpf_change(struct net *net, struct sk_buff *in_skb,
- 	struct cls_bpf_prog *oldprog = *arg;
- 	struct nlattr *tb[TCA_BPF_MAX + 1];
- 	struct cls_bpf_prog *prog;
-+	unsigned long idr_index;
- 	int ret;
- 
- 	if (tca[TCA_OPTIONS] == NULL)
-@@ -476,21 +462,30 @@ static int cls_bpf_change(struct net *net, struct sk_buff *in_skb,
+ 		h = tc_u_hash(tp);
+ 		hlist_add_head(&tp_c->hnode, &tc_u_common_hash[h]);
+@@ -565,6 +569,7 @@ static void u32_clear_hnode(struct tcf_proto *tp, struct tc_u_hnode *ht)
+ 					 rtnl_dereference(n->next));
+ 			tcf_unbind_filter(tp, &n->res);
+ 			u32_remove_hw_knode(tp, n->handle);
++			idr_remove_ext(&ht->handle_idr, n->handle);
+ 			call_rcu(&n->rcu, u32_delete_key_freepf_rcu);
  		}
  	}
+@@ -586,6 +591,8 @@ static int u32_destroy_hnode(struct tcf_proto *tp, struct tc_u_hnode *ht)
+ 	     hn = &phn->next, phn = rtnl_dereference(*hn)) {
+ 		if (phn == ht) {
+ 			u32_clear_hw_hnode(tp, ht);
++			idr_destroy(&ht->handle_idr);
++			idr_remove_ext(&tp_c->handle_idr, ht->handle);
+ 			RCU_INIT_POINTER(*hn, ht->next);
+ 			kfree_rcu(ht, rcu);
+ 			return 0;
+@@ -633,6 +640,7 @@ static void u32_destroy(struct tcf_proto *tp)
+ 			kfree_rcu(ht, rcu);
+ 		}
  
--	if (handle == 0)
--		prog->handle = cls_bpf_grab_new_handle(tp, head);
--	else
-+	if (handle == 0) {
-+		ret = idr_alloc_ext(&head->handle_idr, prog, &idr_index,
-+				    1, 0x7FFFFFFF, GFP_KERNEL);
-+		if (ret)
-+			goto errout;
-+		prog->handle = idr_index;
-+	} else {
-+		if (!oldprog) {
-+			ret = idr_alloc_ext(&head->handle_idr, prog, &idr_index,
++		idr_destroy(&tp_c->handle_idr);
+ 		kfree(tp_c);
+ 	}
+ 
+@@ -701,27 +709,21 @@ static int u32_delete(struct tcf_proto *tp, void *arg, bool *last)
+ 	return ret;
+ }
+ 
+-#define NR_U32_NODE (1<<12)
+-static u32 gen_new_kid(struct tc_u_hnode *ht, u32 handle)
++static u32 gen_new_kid(struct tc_u_hnode *ht, u32 htid)
+ {
+-	struct tc_u_knode *n;
+-	unsigned long i;
+-	unsigned long *bitmap = kzalloc(BITS_TO_LONGS(NR_U32_NODE) * sizeof(unsigned long),
+-					GFP_KERNEL);
+-	if (!bitmap)
+-		return handle | 0xFFF;
+-
+-	for (n = rtnl_dereference(ht->ht[TC_U32_HASH(handle)]);
+-	     n;
+-	     n = rtnl_dereference(n->next))
+-		set_bit(TC_U32_NODE(n->handle), bitmap);
+-
+-	i = find_next_zero_bit(bitmap, NR_U32_NODE, 0x800);
+-	if (i >= NR_U32_NODE)
+-		i = find_next_zero_bit(bitmap, NR_U32_NODE, 1);
++	unsigned long idr_index;
++	u32 start = htid | 0x800;
++	u32 max = htid | 0xFFF;
++	u32 min = htid;
++
++	if (idr_alloc_ext(&ht->handle_idr, NULL, &idr_index,
++			  start, max + 1, GFP_KERNEL)) {
++		if (idr_alloc_ext(&ht->handle_idr, NULL, &idr_index,
++				  min + 1, max + 1, GFP_KERNEL))
++			return max;
++	}
+ 
+-	kfree(bitmap);
+-	return handle | (i >= NR_U32_NODE ? 0xFFF : i);
++	return (u32)idr_index;
+ }
+ 
+ static const struct nla_policy u32_policy[TCA_U32_MAX + 1] = {
+@@ -806,6 +808,7 @@ static void u32_replace_knode(struct tcf_proto *tp, struct tc_u_common *tp_c,
+ 		if (pins->handle == n->handle)
+ 			break;
+ 
++	idr_replace_ext(&ht->handle_idr, n, n->handle);
+ 	RCU_INIT_POINTER(n->next, pins->next);
+ 	rcu_assign_pointer(*ins, n);
+ }
+@@ -937,22 +940,33 @@ static int u32_change(struct net *net, struct sk_buff *in_skb,
+ 			return -EINVAL;
+ 		if (TC_U32_KEY(handle))
+ 			return -EINVAL;
+-		if (handle == 0) {
+-			handle = gen_new_htid(tp->data);
+-			if (handle == 0)
+-				return -ENOMEM;
+-		}
+ 		ht = kzalloc(sizeof(*ht) + divisor*sizeof(void *), GFP_KERNEL);
+ 		if (ht == NULL)
+ 			return -ENOBUFS;
++		if (handle == 0) {
++			handle = gen_new_htid(tp->data, ht);
++			if (handle == 0) {
++				kfree(ht);
++				return -ENOMEM;
++			}
++		} else {
++			err = idr_alloc_ext(&tp_c->handle_idr, ht, NULL,
 +					    handle, handle + 1, GFP_KERNEL);
-+			if (ret)
-+				goto errout;
++			if (err) {
++				kfree(ht);
++				return err;
++			}
 +		}
- 		prog->handle = handle;
--	if (prog->handle == 0) {
--		ret = -EINVAL;
--		goto errout;
+ 		ht->tp_c = tp_c;
+ 		ht->refcnt = 1;
+ 		ht->divisor = divisor;
+ 		ht->handle = handle;
+ 		ht->prio = tp->prio;
++		idr_init(&ht->handle_idr);
+ 
+ 		err = u32_replace_hw_hnode(tp, ht, flags);
+ 		if (err) {
++			idr_remove_ext(&tp_c->handle_idr, handle);
+ 			kfree(ht);
+ 			return err;
+ 		}
+@@ -986,24 +1000,33 @@ static int u32_change(struct net *net, struct sk_buff *in_skb,
+ 		if (TC_U32_HTID(handle) && TC_U32_HTID(handle^htid))
+ 			return -EINVAL;
+ 		handle = htid | TC_U32_NODE(handle);
++		err = idr_alloc_ext(&ht->handle_idr, NULL, NULL,
++				    handle, handle + 1,
++				    GFP_KERNEL);
++		if (err)
++			return err;
+ 	} else
+ 		handle = gen_new_kid(ht, htid);
+ 
+-	if (tb[TCA_U32_SEL] == NULL)
+-		return -EINVAL;
++	if (tb[TCA_U32_SEL] == NULL) {
++		err = -EINVAL;
++		goto erridr;
++	}
+ 
+ 	s = nla_data(tb[TCA_U32_SEL]);
+ 
+ 	n = kzalloc(sizeof(*n) + s->nkeys*sizeof(struct tc_u32_key), GFP_KERNEL);
+-	if (n == NULL)
+-		return -ENOBUFS;
++	if (n == NULL) {
++		err = -ENOBUFS;
++		goto erridr;
++	}
+ 
+ #ifdef CONFIG_CLS_U32_PERF
+ 	size = sizeof(struct tc_u32_pcnt) + s->nkeys * sizeof(u64);
+ 	n->pf = __alloc_percpu(size, __alignof__(struct tc_u32_pcnt));
+ 	if (!n->pf) {
+-		kfree(n);
+-		return -ENOBUFS;
++		err = -ENOBUFS;
++		goto errfree;
  	}
+ #endif
  
- 	ret = cls_bpf_set_parms(net, tp, prog, base, tb, tca[TCA_RATE], ovr);
- 	if (ret < 0)
--		goto errout;
-+		goto errout_idr;
- 
- 	ret = cls_bpf_offload(tp, prog, oldprog);
- 	if (ret) {
-+		if (!oldprog)
-+			idr_remove_ext(&head->handle_idr, prog->handle);
- 		__cls_bpf_delete_prog(prog);
- 		return ret;
- 	}
-@@ -499,6 +494,7 @@ static int cls_bpf_change(struct net *net, struct sk_buff *in_skb,
- 		prog->gen_flags |= TCA_CLS_FLAGS_NOT_IN_HW;
- 
- 	if (oldprog) {
-+		idr_replace_ext(&head->handle_idr, prog, handle);
- 		list_replace_rcu(&oldprog->link, &prog->link);
- 		tcf_unbind_filter(tp, &oldprog->res);
- 		call_rcu(&oldprog->rcu, cls_bpf_delete_prog_rcu);
-@@ -509,6 +505,9 @@ static int cls_bpf_change(struct net *net, struct sk_buff *in_skb,
- 	*arg = prog;
- 	return 0;
- 
-+errout_idr:
-+	if (!oldprog)
-+		idr_remove_ext(&head->handle_idr, prog->handle);
+@@ -1066,9 +1089,12 @@ static int u32_change(struct net *net, struct sk_buff *in_skb,
  errout:
- 	tcf_exts_destroy(&prog->exts);
- 	kfree(prog);
+ 	tcf_exts_destroy(&n->exts);
+ #ifdef CONFIG_CLS_U32_PERF
++errfree:
+ 	free_percpu(n->pf);
+ #endif
+ 	kfree(n);
++erridr:
++	idr_remove_ext(&ht->handle_idr, handle);
+ 	return err;
+ }
+ 
 -- 
 2.13.0
