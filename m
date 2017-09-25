@@ -1,224 +1,85 @@
-From: Antoine Tenart <antoine.tenart@free-electrons.com>
-Subject: Re: [PATCH net-next] net: mvpp2: phylink support
-Date: Mon, 25 Sep 2017 11:55:14 +0200
-Message-ID: <20170925095514.GA19364@kwain>
-References: <20170921134522.10993-1-antoine.tenart@free-electrons.com>
- <20170922110731.GG20805@n2100.armlinux.org.uk>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: Re: [patch net-next v2 03/12] ipmr: Add FIB notification access
+ functions
+Date: Mon, 25 Sep 2017 12:59:07 +0300
+Message-ID: <9360a6b5-c7e6-ec77-5efd-5dfc0a1a7848@cumulusnetworks.com>
+References: <20170924172212.10096-1-jiri@resnulli.us>
+ <20170924172212.10096-4-jiri@resnulli.us>
+ <4c09e09c-d184-0d69-110d-a3d5ba721564@cumulusnetworks.com>
+ <bcf097e3-9c6c-b4bd-ac1e-8675ae87510e@cumulusnetworks.com>
+ <20170925094713.GD1899@nanopsycho>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: Antoine Tenart <antoine.tenart@free-electrons.com>,
-        davem@davemloft.net, andrew@lunn.ch,
-        gregory.clement@free-electrons.com,
-        thomas.petazzoni@free-electrons.com,
-        miquel.raynal@free-electrons.com, nadavh@marvell.com,
-        linux-kernel@vger.kernel.org, mw@semihalf.com, stefanc@marvell.com,
-        netdev@vger.kernel.org
-To: Russell King - ARM Linux <linux@armlinux.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170922110731.GG20805@n2100.armlinux.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, yotamg@mellanox.com,
+        idosch@mellanox.com, mlxsw@mellanox.com, andrew@lunn.ch
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f48.google.com ([74.125.82.48]:45551 "EHLO
+        mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751408AbdIYJ7K (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 25 Sep 2017 05:59:10 -0400
+Received: by mail-wm0-f48.google.com with SMTP id q124so17692572wmb.0
+        for <netdev@vger.kernel.org>; Mon, 25 Sep 2017 02:59:10 -0700 (PDT)
+In-Reply-To: <20170925094713.GD1899@nanopsycho>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Russell,
-
-On Fri, Sep 22, 2017 at 12:07:31PM +0100, Russell King - ARM Linux wrote:
-> On Thu, Sep 21, 2017 at 03:45:22PM +0200, Antoine Tenart wrote:
-> > Convert the PPv2 driver to use phylink, which models the MAC to PHY
-> > link. The phylink support is made such a way the GoP link IRQ can still
-> > be used: the two modes are incompatible and the GoP link IRQ will be
-> > used if no PHY is described in the device tree. This is the same
-> > behaviour as before.
+On 25/09/17 12:47, Jiri Pirko wrote:
+> Mon, Sep 25, 2017 at 11:40:16AM CEST, nikolay@cumulusnetworks.com wrote:
+>> On 25/09/17 12:35, Nikolay Aleksandrov wrote:
+>>> On 24/09/17 20:22, Jiri Pirko wrote:
+>>>> From: Yotam Gigi <yotamg@mellanox.com>
+>>>>
+>>>> Make the ipmr module register as a FIB notifier. To do that, implement both
+>>>> the ipmr_seq_read and ipmr_dump ops.
+>>>>
+>>>> The ipmr_seq_read op returns a sequence counter that is incremented on
+>>>> every notification related operation done by the ipmr. To implement that,
+>>>> add a sequence counter in the netns_ipv4 struct and increment it whenever a
+>>>> new MFC route or VIF are added or deleted. The sequence operations are
+>>>> protected by the RTNL lock.
+>>>>
+>>>> The ipmr_dump iterates the list of MFC routes and the list of VIF entries
+>>>> and sends notifications about them. The entries dump is done under RCU
+>>>> where the VIF dump uses the mrt_lock too, as the vif->dev field can change
+>>>> under RCU.
+>>>>
+>>>> Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
+>>>> Reviewed-by: Ido Schimmel <idosch@mellanox.com>
+>>>> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+>>>> ---
+>>>> v1->v2:
+>>>>  - Take the mrt_lock when dumping VIF entries.
+>>>> ---
+>>>>  include/linux/mroute.h   |  15 ++++++
+>>>>  include/net/netns/ipv4.h |   3 ++
+>>>>  net/ipv4/ipmr.c          | 137 ++++++++++++++++++++++++++++++++++++++++++++++-
+>>>>  3 files changed, 153 insertions(+), 2 deletions(-)
+>>>>
+>>>
+>>> LGTM,
+>>>
+>>> Reviewed-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+>>>
+>>>
+>>
+>> One note here if you're going to spin another version of the set, you can
+>> consider renaming the call_* functions to either mroute_* or ipmr_* (e.g.
+>> ipmr_call_...). I personally prefer the ipmr prefix.
 > 
-> This makes no sense.  The point of phylink is to be able to support SFP
-> cages, and SFP cages do not have a PHY described in DT.  So, when you
-> want to use phylink because of SFP, you can't, because if you omit
-> the PHY the driver avoids using phylink.
+> The naming scheme in this patch is aligned with the rest of the code.
 
-Yes that's an issue. However we do need to support the GoP link IRQ
-which is also needed in some cases where there is no PHY (and when
-phylink cannot be used). What would you propose to differentiate those
-two cases: no PHY using phylink, and no PHY using the GoP link IRQ?
+Definitely not aligned with the rest of the ipmr code because it does not
+have such calls. Its notifications have a prefix which is not call_.
 
-> > +static void mvpp2_phylink_validate(struct net_device *dev,
-> > +				   unsigned long *supported,
-> > +				   struct phylink_link_state *state)
-> > +{
-> > +	__ETHTOOL_DECLARE_LINK_MODE_MASK(mask) = { 0, };
-> > +
-> > +	phylink_set_port_modes(mask);
-> > +
-> > +	phylink_set(mask, Autoneg);
-> > +	phylink_set(mask, Pause);
-> > +	phylink_set(mask, Asym_Pause);
-> > +
-> > +	phylink_set(mask, 10baseT_Half);
-> > +	phylink_set(mask, 10baseT_Full);
-> > +	phylink_set(mask, 100baseT_Half);
-> > +	phylink_set(mask, 100baseT_Full);
-> > +	phylink_set(mask, 1000baseT_Half);
-> > +	phylink_set(mask, 1000baseT_Full);
-> > +	phylink_set(mask, 1000baseX_Full);
-> > +	phylink_set(mask, 10000baseKR_Full);
-> > +
-> > +	bitmap_and(supported, supported, mask, __ETHTOOL_LINK_MODE_MASK_NBITS);
-> > +	bitmap_and(state->advertising, state->advertising, mask,
-> > +		   __ETHTOOL_LINK_MODE_MASK_NBITS);
-> > +}
+> Please see "call_netdevice_notifiers" for example.
+
+Sure, I don't care that much which style you choose, that's why I wrote
+_consider_, since this code is contained within ipmr and is not exported
+anywhere.
+
+> Please feel free to send a patch to chanche them all.
 > 
-> I don't think you've understood this despite the comments in the header
-> file.  What you describe above basically means you don't support any
-> kind of copper connection at 10G speeds, or any fiber modes at 10G
-> speeds either.
-> 
-> You need to set 10000baseT_Full for copper, 10000baseSR_Full,
-> 10000baseLR_Full, 10000baseLRM_Full etc for fiber.  Had you looked at
-> my modifications for Marvell's mvpp2x driver you'd have spotted this...
 
-Sure, I'll add these modes as they are supported as well.
-
-> > +static int mvpp2_phylink_mac_link_state(struct net_device *dev,
-> > +					struct phylink_link_state *state)
-> > +{
-> > +	struct mvpp2_port *port = netdev_priv(dev);
-> > +	u32 val;
-> > +
-> > +	if (!phy_interface_mode_is_rgmii(port->phy_interface) &&
-> > +	    port->phy_interface != PHY_INTERFACE_MODE_SGMII)
-> > +		return 0;
-> 
-> You're blocking this for 1000base-X and 10G connections, which is not
-> correct.  The expectation is that this function returns the current
-> MAC state irrespective of the interface mode.
-
-I moved what was already supported in the PPv2 driver and did not
-implemented the full set of what is supported. It's not perfect, but it
-does move what was already supported.
-
-Any reason not to first move what's already supported to phylink, and
-then add more supported modes in separate patches?
-
-> > +static void mvpp2_mac_an_restart(struct net_device *dev)
-> > +{
-> > +	struct mvpp2_port *port = netdev_priv(dev);
-> > +	u32 val;
-> > +
-> > +	if (!phy_interface_mode_is_rgmii(port->phy_interface) &&
-> > +	    port->phy_interface != PHY_INTERFACE_MODE_SGMII)
-> > +		return;
-> 
-> This prevents AN restart in 1000base-X mode, which is exactly the
-> mode that you need to do this.  SGMII doesn't care, and RGMII doesn't
-> have inband AN.
-
-I'll fix that.
-
-> > +	val = readl(port->base + MVPP2_GMAC_AUTONEG_CONFIG);
-> > +	val |= MVPP2_GMAC_IN_BAND_RESTART_AN;
-> > +	writel(val, port->base + MVPP2_GMAC_AUTONEG_CONFIG);
-> > +}
-> > +
-> > +static void mvpp2_mac_config(struct net_device *dev, unsigned int mode,
-> > +			     const struct phylink_link_state *state)
-> > +{
-> > +	struct mvpp2_port *port = netdev_priv(dev);
-> > +	u32 val;
-> > +
-> > +	/* disable current port for reconfiguration */
-> > +	mvpp2_interrupts_disable(port);
-> > +	netif_carrier_off(port->dev);
-> > +	mvpp2_port_disable(port);
-> > +	phy_power_off(port->comphy);
-> > +
-> > +	/* comphy reconfiguration */
-> > +	port->phy_interface = state->interface;
-> > +	mvpp22_comphy_init(port);
-> > +
-> > +	/* gop/mac reconfiguration */
-> > +	mvpp22_gop_init(port);
-> > +	mvpp2_port_mii_set(port);
-> > +
-> > +	if (!phy_interface_mode_is_rgmii(port->phy_interface) &&
-> > +	    port->phy_interface != PHY_INTERFACE_MODE_SGMII)
-> > +		return;
-> 
-> Again, 1000base-X is excluded, which will break it.  You do need
-> to avoid touching the GMAC for 10G connections however.
-
-Same comment as above.
-
-> > +	val = readl(port->base + MVPP2_GMAC_AUTONEG_CONFIG);
-> > +	val &= ~(MVPP2_GMAC_CONFIG_MII_SPEED |
-> > +		 MVPP2_GMAC_CONFIG_GMII_SPEED |
-> > +		 MVPP2_GMAC_CONFIG_FULL_DUPLEX |
-> > +		 MVPP2_GMAC_AN_SPEED_EN |
-> > +		 MVPP2_GMAC_AN_DUPLEX_EN);
-> > +
-> > +	if (state->duplex)
-> > +		val |= MVPP2_GMAC_CONFIG_FULL_DUPLEX;
-> > +
-> > +	if (state->speed == SPEED_1000)
-> > +		val |= MVPP2_GMAC_CONFIG_GMII_SPEED;
-> > +	else if (state->speed == SPEED_100)
-> > +		val |= MVPP2_GMAC_CONFIG_MII_SPEED;
-> > +
-> > +	writel(val, port->base + MVPP2_GMAC_AUTONEG_CONFIG);
-> 
-> You're assuming that this function only sets the current parameters for
-> the MAC.  That's incorrect - it also needs to deal with autonegotiation
-> for inband AN, such as SGMII and 1000base-X.
-
-OK.
-
-> > +	if (port->priv->hw_version == MVPP21 && port->flags & MVPP2_F_LOOPBACK)
-> > +		mvpp2_port_loopback_set(port, state);
-> > +}
-> > +
-> > +static void mvpp2_mac_link_down(struct net_device *dev, unsigned int mode)
-> > +{
-> > +	struct mvpp2_port *port = netdev_priv(dev);
-> > +	u32 val;
-> > +
-> > +	netif_tx_stop_all_queues(dev);
-> > +	netif_carrier_off(dev);
-> > +	mvpp2_ingress_disable(port);
-> > +	mvpp2_egress_disable(port);
-> > +
-> > +	mvpp2_port_disable(port);
-> > +	mvpp2_interrupts_disable(port);
-> > +
-> > +	if (!phylink_autoneg_inband(mode)) {
-> > +		val = readl(port->base + MVPP2_GMAC_AUTONEG_CONFIG);
-> > +		val &= ~MVPP2_GMAC_FORCE_LINK_PASS;
-> > +		val |= MVPP2_GMAC_FORCE_LINK_DOWN;
-> > +		writel(val, port->base + MVPP2_GMAC_AUTONEG_CONFIG);
-> > +	}
-> 
-> Please explain why you think its necessary to force the link down when
-> the link is already down - if there's no media connected, we only
-> need to stop the ingress and egress.
-
-Agreed, I'll remove this.
-
-> It's certainly wrong to disable interrupts - how do we end up with
-> link status changes reported from the MAC to phylink if interrupts
-> have been disabled?
-
-This only disables the vector IRQs used for tx/rx queues. That's already
-the default when not using a port.
-
-> You guys know that I have working example code for both mvneta and the
-> Marvell PP2x driver.  It probably would help if you looked at those
-> examples.
-
-I did used your mvneta phylink patch as an example. I'll have a look at
-the other one, it'll be helpful.
-
-Thank you for your thoughtful review.
-Antoine
-
--- 
-Antoine Ténart, Free Electrons
-Embedded Linux and Kernel engineering
-http://free-electrons.com
+Jumping the gun a little bit here. :-)
